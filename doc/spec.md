@@ -1,0 +1,237 @@
+# Janus × OmniForge — Project Specification
+
+版本：1.0  
+日期：2026-08-25  
+狀態：GCP-first 重構基線
+
+## 1. 產品目標
+
+建立以台股為主的湖倉型智慧投資研究平台：將官方與核准 fallback 資料寫入 GCS Stage，經 Trino 清理為 Iceberg Core，再由 ML、五角色 Agent 與 LLM 解釋層產製 Mart；公開 UI 與 Admin UI 只讀取已持久化、符合發布政策的成品。
+
+系統是研究與風險提示工具，不是自動下單、持倉管理、持牌投顧或保證獲利服務。
+
+## 2. 已確認的架構決策
+
+- 從第一天起在 GCP 開發、測試與部署，不以地端 runtime 為必要條件。
+- 一個 GitHub monorepo，三個業務領域、四個 GCP 部署單元。
+- GCS + Iceberg + Trino 是資料主架構。
+- PostgreSQL 只保存 Iceberg catalog、控制、治理、execution、publication、audit 與服務索引。
+- 開發／重構期最低有效完整度為 30%；正式發布門檻日後依 PIT 回測與人工治理調整。
+- LLM 做提取、摘要、解釋與白話轉譯，必要時也計算 deterministic 分數、不補值、不決定發布。
+- Cloud Run 全部 `min-instances=0`；Trino `max-instances=1`。
+- Artifact Registry 可由 source deploy／Cloud Build 自動管理，但底層仍需保存容器映像。
+
+## 3. Monorepo 結構
+
+```text
+janus-omniforge/
+├── apps/
+│   └── web/                         # Next.js public + admin + BFF
+├── jobs/
+│   ├── ingestion-core/              # Scrapers、Stage、DQ、Core
+│   └── intelligence-mart/           # Features、ML、Agents、LLM、Mart
+├── services/
+│   └── trino/                        # Trino image、catalog、resource limits
+├── packages/
+│   ├── contracts/                   # Schema、events、API types
+│   ├── governance/                  # Parameters、publication policy
+│   ├── provenance/                  # Provenance model／validation
+│   └── observability/               # Logging、metrics、errors
+├── infra/                            # Terraform／Cloud Build／IAM
+├── tests/
+│   ├── contract/
+│   └── e2e/
+└── docs/
+```
+
+部署單元：
+
+1. `ingestion-core`：Cloud Run Job。
+2. `intelligence-mart`：Cloud Run Job。
+3. `trino`：Cloud Run Service，單節點 coordinator + worker。
+4. `web`：Cloud Run Service，公開 UI、Admin UI 與短生命週期 API/BFF。
+
+## 4. GCP 拓撲
+
+```mermaid
+flowchart TD
+    A["Cloud Scheduler"] --> B["Pub/Sub ingestion command"]
+    B --> C["Ingestion + Core Job"]
+    C --> D["GCS Stage"]
+    C --> E["Trino Service"]
+    E --> F["GCS Core / Iceberg"]
+    F --> G["Core-ready event"]
+    G --> H["Mart + ML / AI / LLM Job"]
+    H --> I["GCS Mart / Iceberg"]
+    H --> J["PostgreSQL publication index"]
+    I --> K["Web + Admin Service"]
+    J --> K
+```
+
+建議區域：`us-central1`。開發初期可使用單一 `janus-dev` project，但 dev／staging／prod 至少要以 bucket、catalog/schema、service account、Cloud Run 名稱與 secret 完整隔離；正式上線前改成三個 project。
+
+## 5. 湖倉分層
+
+| 層 | 格式 | 責任 | 寫入者 | 讀取者 |
+|---|---|---|---|---|
+| Stage／Bronze | 原始 JSON、CSV、受控物件 | 保存來源原貌、request metadata、hash | ingestion-core | ingestion-core、治理稽核 |
+| Core／Silver | Iceberg／Parquet | 正規化、去重、單位、日期、null、PIT、provenance | ingestion-core／Trino | intelligence-mart |
+| Mart／Gold | Iceberg／Parquet、Markdown export | 特徵、角色輸出、聚合、研報、評估 | intelligence-mart | Web、Admin、OmniForge |
+
+規則：
+
+- 不可把所有 0 一律轉成 null；須依欄位語意處理。
+- 單日漲跌超過 11% 不可直接刪除；先檢查市場限制、除權息、公司行動與跨源差異。
+- Core／Mart 使用 immutable snapshot 或 versioned partition，支援重跑與 PIT。
+- UI 不得直接讀 Stage 或未發布 Core。
+
+## 6. 正式資料來源
+
+| 領域 | Primary | Fallback／限制 |
+|---|---|---|
+| OHLCV、PE/PB | TWSE／TPEx | FinMind；yfinance 低優先且必須標示 |
+| 月營收／季報 | MOPS | FinMind(MOPS fallback)，三類報表分別抓取與 provenance |
+| 公司事件 | TWSE／TPEx／MOPS | 更正公告保留新舊版本 |
+| 法人／信用／借券／當沖／警示 | TWSE／TPEx | 缺資料標 unavailable，不推算 |
+| 持股級距 | TDCC／政府開放資料 | 大戶 bucket 待人工核准 |
+| Benchmark | 官方 TAIEX／TPEx | 優先報酬指數，否則明示價格指數 |
+| Adjusted close | 官方公司行動重建（目標） | yfinance Adj Close 僅具名 enrichment |
+| 新聞 | 核准授權來源 | Tiingo 最多三則；只輔助解釋 |
+
+## 7. Provenance 與時間
+
+所有重要資料必須記錄：
+
+```yaml
+provenance_id: string
+source_name: string
+source_url: safe_url
+dataset: controlled_id
+observed_at: datetime
+published_at: datetime | null
+fetched_at: datetime
+content_hash: string
+is_fallback: boolean
+quality_flags: string[]
+quality_details: object
+```
+
+- `observed_at`、`published_at`、`fetched_at`、`effective_date` 不可互相替代。
+- 財報、事件、新聞遵守 `published_at <= analysis_as_of`。
+- 市場觀測以 observed_at 判斷時序；沒有獨立 published_at 不等同業務缺值。
+- raw payload、object URI、secret、完整 upstream error 不得出現在一般 API/UI。
+- 相同 source + dataset + observed time + hash 重用 provenance；內容或時間改變才新增版本。
+
+## 8. Ingestion + Core Job
+
+職責：
+
+- async HTTP、bounded timeout、retry、rate limit、schema drift 偵測。
+- 原始回應先寫 Stage，再正規化為 Core。
+- 增量抓取、交易日／休市校正、全市場回應批次快取。
+- 保存 empty、partial、fallback、stale、rate-limited、unavailable。
+- 不用新回應的 null 覆蓋既有有效值。
+- 通過 DQ 後發出 `core.dataset.ready.v1`；失敗寫 execution 與 quarantine。
+
+不得：執行 Agent、產生研報、呼叫 LLM 或更改 publication。
+
+## 9. Mart + ML／AI／LLM Job
+
+職責：
+
+- 只讀 versioned Core snapshot；禁止即時補抓。
+- 產製特徵、ML artifacts、五角色輸出、Evidence Validator、Aggregator。
+- 套用 governance snapshot 與 publication policy。
+- LLM 依合格 evidence 產生繁體中文結構化摘要。
+- 寫入 Mart、report metadata、publication index 與 `mart.report.ready.v1`。
+
+五角色：Fundamental、Valuation Risk、Positioning、Quant、Event Risk。
+
+主要規則：
+
+- Fundamental：12 月營收、12 季財報，一般／金融業分流。
+- Positioning：5／20／60 日正規化，單日買超不直接判多。
+- Quant：20／60／120 日相對強弱、量能、波動、回撤、Beta、ATR、turnover；少於 20 筆有效行情 score=null。
+- Event Risk：只納入 PIT 合格事件；可觸發 manual review。
+- 參考停損 `last_close - 2 × ATR(14)`，只作風險參考。
+
+## 10. Aggregator 與發布治理
+
+初始權重：Fundamental 25%、Valuation 20%、Positioning 20%、Quant 25%、Event Risk 10%。
+
+```text
+effective_weight = base_weight × completeness × confidence × data_quality / 100
+```
+
+- 開發期有效完整度 <30% 或沒有有效分數：`insufficient_data`。
+- aggregate ≥60：偏多；≤40：偏空；其餘中立。
+- 必須同時輸出 bull、bear、contradictions、contributions。
+- confidence 必須明示「資料／分析信心度，非獲利機率」。
+
+發布矩陣：
+
+| 條件 | publication status |
+|---|---|
+| FUTURE_DATA／INVALID_SOURCE_URL／MISSING_CRITICAL_SOURCE | blocked |
+| manual_review_required=true | blocked |
+| critical event | blocked |
+| high event 且 risk score ≥75 | blocked |
+| completeness <30% 或無有效分數 | insufficient_data |
+| 驗證及政策通過 | publishable |
+
+所有權重與門檻除已核准發布政策外，均視為開發期保守設定；正式值須 PIT 回測與人工 revision。
+
+## 11. Trino on Cloud Run
+
+- Cloud Run Service；單節點 coordinator + worker。
+- 建議 2 vCPU、4–8 GiB RAM，`min-instances=0`、`max-instances=1`。
+- 不公開；只允許指定 Job／Admin service account 透過 IAM 存取。
+- GCS 保存資料，PostgreSQL 保存 Iceberg catalog；本機磁碟只作暫存。
+- 呼叫 Job 必須等待／輪詢查詢完成；查詢不能在 scale-down 中存活。
+- 限制 query concurrency、scan bytes、memory、timeout；backfill 拆批。
+- 資料量或並發超過單節點能力時，再評估 GKE／Dataproc／常駐平台。
+
+## 12. Web 與 API
+
+- Next.js 公開 UI、Admin UI 與 BFF/API 共用一個 Cloud Run Service。
+- 公開端只讀 publishable Mart／service index。
+- 404 不觸發即時爬蟲、Agent 或 LLM。
+- Admin 只寫 control DB／queue，不在 request 中執行長任務。
+- blocked report、raw payload、secret、traceback、broker data 不得公開。
+- UI 詳細契約見 `ui.md`。
+
+## 13. GCP 開發與 CI/CD
+
+| 項目 | 選擇 |
+|---|---|
+| 開發環境 | Cloud Workstations；低頻可用 Cloud Shell Editor |
+| 原始碼 | GitHub monorepo、branch protection、PR review |
+| GCP 認證 | Workload Identity Federation，不使用長效 JSON key |
+| 建置 | Cloud Build path-based pipelines |
+| Image | Artifact Registry，由 source deploy／Cloud Build 管理 |
+| 部署 | 同一 immutable image digest 依序 promote dev → staging → prod |
+| Secret | Secret Manager，runtime identity 單項授權 |
+| IaC | Terraform；production apply 需人工批准 |
+
+Schema evolution、migration、backfill、production Job trigger 不得隨 Web deployment 自動執行。
+
+## 14. 非功能需求
+
+- 冪等、可重跑、可追溯、可安全失敗。
+- GCP services 同區以避免跨區成本。
+- 統一 execution／trace ID；log redaction。
+- 監控來源成功率、latency、freshness、schema drift、fallback、Job 狀態、publication 與 API error。
+- 設定 Cloud Billing US$1／US$5／US$10 告警、GCS lifecycle、Artifact Registry cleanup、Workstation 自動停止。
+- 不宣稱固定 $0；費用以當期定價與實際帳單為準。
+
+## 15. Release Gate
+
+- 2330 完成 Source → Stage → Core → Mart → API → UI 閉環。
+- PIT 無 future leakage；排除樣本有原因與 provenance ID。
+- blocked 不進公開 latest／history；查無資料不即時運算。
+- 兩個 Job、Trino、Web 各自 IAM、timeout、retry、監控與 rollback 通過。
+- pytest、Vitest、Playwright、TypeScript、production build、contract tests 通過。
+- iOS Safari、Android Chrome、iPad Safari、VoiceOver、TalkBack、WCAG AA 實機通過。
+- 無 secret、raw payload、敏感 URL、未授權來源外洩。
+- runbook、備份、還原與 rollback 演練完成。
+
