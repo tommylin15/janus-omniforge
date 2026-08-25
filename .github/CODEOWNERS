@@ -1,0 +1,3 @@
+# Default ownership. Confirm that @tommyGCP is the intended GitHub account
+# before enabling branch protection that requires code-owner review.
+* @tommyGCP
