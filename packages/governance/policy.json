@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0",
+  "developmentCompletenessGate": 0.30,
+  "blocking": {
+    "manualReviewRequired": true,
+    "criticalQualityFlag": true,
+    "highRiskScoreAtLeast": 75
+  },
+  "deterministicConstants": {
+    "status": "development-default",
+    "approved": false,
+    "values": {
+      "highRiskScoreThreshold": 75,
+      "largeMovePercent": 11,
+      "completenessGatePercent": 30
+    }
+  }
+}

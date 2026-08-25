@@ -1,0 +1,26 @@
+substitutions:
+  _DOCKERFILE: services/trino/Dockerfile
+  _IMAGE_NAME: trino
+  _IMAGE_REPOSITORY: us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc
+
+steps:
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file=${_DOCKERFILE}
+      - --tag=${_IMAGE_REPOSITORY}/${_IMAGE_NAME}:${SHORT_SHA}
+      - .
+
+  - id: push-commit
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_IMAGE_REPOSITORY}/${_IMAGE_NAME}:${SHORT_SHA}
+
+images:
+  - ${_IMAGE_REPOSITORY}/${_IMAGE_NAME}:${SHORT_SHA}
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  substitutionOption: ALLOW_LOOSE

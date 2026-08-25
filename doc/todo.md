@@ -5,50 +5,50 @@
 
 ## P0 — 開工前阻擋項目
 
-- [ ] 取得 GitHub repo 或建立 `janus-omniforge` monorepo。
-- [ ] 確認 GCP Project ID、Billing account、region=`us-central1`。
-- [ ] 確認 PostgreSQL：Cloud SQL、Supabase 或 GCE PostgreSQL。
-- [ ] 確認 AI 可建立 PR，但 production deploy 需人工批准。
-- [ ] 確認第一批股票：至少 `2330`。
-- [ ] 確認第一版 LLM：Vertex AI／Gemini。
-- [ ] 確認 dev bucket／resource 命名。
-- [ ] 建立 US$1／US$5／US$10 billing alerts。
+- [x] 取得 GitHub repo 或建立 `janus-omniforge` monorepo。
+- [x] 確認 GCP Project ID、Billing account、region=`us-central1`。
+- [x] 確認 PostgreSQL：Cloud SQL、Supabase 或 GCE PostgreSQL。
+- [x] 確認 AI 可建立 PR，但 production deploy 需人工批准。
+- [x] 確認第一批股票：至少 `2330`。（人工確認）
+- [x] 確認第一版 LLM：Vertex AI／Gemini。
+- [x] 確認 dev bucket／resource 命名。
+- [x] 建立 US$1／US$5／US$10 billing alerts。（人工處理）
 
 ## P0 — Repository 與雲端開發
 
-- [ ] 建立 `apps/web`。
-- [ ] 建立 `jobs/ingestion-core`。
-- [ ] 建立 `jobs/intelligence-mart`。
-- [ ] 建立 `services/trino`。
-- [ ] 建立 `packages/contracts`、`governance`、`provenance`、`observability`。
-- [ ] 建立 `infra`、`tests/contract`、`tests/e2e`。
-- [ ] 建立 Cloud Workstations／Cloud Shell Editor 開發設定。
-- [ ] 固定 Python、Node、Java／Trino 版本與 lockfiles。
-- [ ] 加入 branch protection、CODEOWNERS、PR template。
+- [x] 建立 `apps/web`。
+- [x] 建立 `jobs/ingestion-core`。
+- [x] 建立 `jobs/intelligence-mart`。
+- [x] 建立 `services/trino`。
+- [x] 建立 `packages/contracts`、`governance`、`provenance`、`observability`。
+- [x] 建立 `infra`、`tests/contract`、`tests/e2e`。
+- [x] 建立 Cloud Workstations／Cloud Shell Editor 開發設定。（`.devcontainer/devcontainer.json`）
+- [x] 固定 Python、Node、Java／Trino 版本與 lockfiles。（`.tool-versions`、版本檔與根目錄 lockfile 基線）
+- [x] 加入 CODEOWNERS、PR template；branch protection 由人工處理。（GitHub private repository plan 限制）
 
 ## P0 — IAM、CI/CD 與 Secret
 
-- [ ] 建立 GitHub → GCP Workload Identity Federation。
-- [ ] 建立 Cloud Build service account。
-- [ ] 建立四個 runtime service accounts。
-- [ ] 套用最小 IAM，不建立長效 JSON key。
-- [ ] 啟用必要 GCP APIs。
-- [ ] 建立 path-based Cloud Build triggers。
-- [ ] 建立 Artifact Registry cleanup policy。
-- [ ] 建立 Secret Manager secrets（只放名稱，不把值寫入 repo）。
-- [ ] 確認 build 產出 immutable digest 與 SBOM。
+- [x] 建立 GitHub → GCP Workload Identity Federation。（pool `github-actions`、provider `github`；限定 `tommylin15/janus-omniforge`）
+- [x] 建立 Cloud Build service account。（`janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com`）
+- [x] 建立四個 runtime service accounts。（`ingestion-core`、`intelligence-mart`、`trino-runtime`、`web-runtime`）
+- [x] 套用最小 IAM，不建立長效 JSON key。（四個 runtime SA 已授予 Log Writer／Metric Writer；資源級權限待 bucket／Pub/Sub／Secret 建立後補上）
+- [x] 啟用必要 GCP APIs。（已啟用於 `gen-lang-client-0593591102`）
+- [x] 建立 path-based Cloud Build triggers。（人工建立 `janus-ingestion-core` 與 `janus-intelligence-mart`，main 分支路徑篩選）
+- [x] 建立 Artifact Registry cleanup policy。（`janusai-poc`：未標籤超過 3 天刪除、保留最近 3 個 tagged versions）
+- [x] 建立 Secret Manager secrets（只放名稱，不把值寫入 repo）。（12 個名稱已建立或已存在；第 4 項前導 `.` 已正規化為 `janus-fugle-api-key`）
+- [x] 確認 build 產出 immutable digest 與 SBOM。（Build `dc17987c-dbb9-474c-ac3b-9791c6916ef7`；Trino digest `sha256:e6376bfd8b4315fe70ebdba0d2d683881ac80e112099cbc09528388c6af10a61`；SBOM occurrence `74ab98fa-5e52-4c62-a431-846620aea1ad`）
 
 ## P0 — Contracts 與治理
 
-- [ ] 定義 source IDs、dataset IDs。
-- [ ] 定義 `DataProvenanceV1`。
-- [ ] 定義 `ExecutionStatusV1`。
-- [ ] 定義 `QualityFlagV1`。
-- [ ] 定義 `PublicationStatusV1`。
-- [ ] 定義 `CoreDatasetReadyV1` 與 `MartReportReadyV1`。
-- [ ] 固定 development completeness gate=30%。
-- [ ] 將 manual review、critical、high≥75 blocking 寫入測試。
-- [ ] 盤點所有 deterministic constants 與核准狀態。
+- [x] 定義 source IDs、dataset IDs。（`packages/contracts/registry.json`）
+- [x] 定義 `DataProvenanceV1`。（`packages/contracts/registry.json`）
+- [x] 定義 `ExecutionStatusV1`。（`packages/contracts/registry.json`）
+- [x] 定義 `QualityFlagV1`。（`packages/contracts/registry.json`）
+- [x] 定義 `PublicationStatusV1`。（`packages/contracts/registry.json`）
+- [x] 定義 `CoreDatasetReadyV1` 與 `MartReportReadyV1`。（`packages/contracts/registry.json`）
+- [x] 固定 development completeness gate=30%。（`packages/governance/policy.json`）
+- [x] 將 manual review、critical、high≥75 blocking 寫入測試。（`tests/contract/test_contract_registry.py`）
+- [x] 盤點所有 deterministic constants 與核准狀態。（`packages/governance/policy.json`）
 
 ## P0 — Stage／Core
 
@@ -199,4 +199,3 @@
 ## 每張 TODO 的完成證據
 
 完成項目至少附一種：PR URL、commit SHA、Cloud Build ID、image digest、Cloud Run revision／execution ID、GCS snapshot ID、test report、實機錄影／截圖、治理 revision ID 或 runbook link。
-

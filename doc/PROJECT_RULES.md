@@ -8,7 +8,7 @@
 
 1. 使用者當次明確指令。
 2. 本文件。
-3. `doc/CURRENT.md` 中指定 WBS 的範圍與驗收條件。
+3. `doc/todo.md` 中指定 WBS 的範圍與驗收條件。
 4. `doc/SPEC.md`、`doc/UI.md` 指向的領域規格。
 5. 相關程式、測試與目錄內的 `AGENTS.md`。
 
@@ -21,21 +21,21 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
 
 ## 2. WBS 執行方式
 
-- 收到「執行 `WBS-ID`」時，自行從 CURRENT 取得必讀文件、目標與驗收條件。
+- 收到「執行 `WBS-ID`」時，自行從 todo 取得必讀文件、目標與驗收條件。
 - 每次只執行一個 WBS；完成後停止，不自動開始下一項。
 - `ready` 可執行；`blocked` 只做安全盤點，不假設已取得人工決策、正式環境或外部權限。
-- ID 不在 CURRENT 時不得自行從 backlog 開工。
+- ID 不在 todo 時不得自行從 backlog 開工。
 - 採最小合理變更，不以檔案數限制犧牲完整性。
 
 ## 3. 最小文件讀取
 
-只讀本文件、`doc/WBS.md`、CURRENT 的指定項目、其「必讀文件」，以及直接相關的程式與測試。前端工作另讀 `frontend/AGENTS.md`。
+只讀本文件、`doc/WBS.md` todo 的指定項目、其「必讀文件」，以及直接相關的程式與測試。前端工作另讀 `frontend/AGENTS.md`。
 
 禁止預設讀取整個 `doc`、backlog、archive 或所有規格。僅遇跨領域契約、引用缺失或安全問題時，才依索引增讀必要模組。
 
 ## 4. 文件回寫
 
-1. 更新 CURRENT 的狀態、驗收結果與剩餘條件。
+1. 更新 todo.md 的狀態、驗收結果與剩餘條件。
 2. 只有契約或現況改變時，才更新相關 `spec/*.md` 或 `ui/*.md`。
 3. SPEC、WBS、UI 是索引；除索引或全域規則改變外不得修改。
 4. 最新完整測試摘要只覆寫 `spec/operations-and-testing.md`，不累積流水帳。

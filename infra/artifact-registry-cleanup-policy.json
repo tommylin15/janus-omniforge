@@ -1,0 +1,18 @@
+[
+  {
+    "name": "delete-untagged-after-3-days",
+    "action": { "type": "Delete" },
+    "condition": {
+      "tagState": "UNTAGGED",
+      "olderThan": "3d"
+    }
+  },
+  {
+    "name": "keep-three-most-recent-tagged",
+    "action": { "type": "Keep" },
+    "mostRecentVersions": {
+      "packageNamePrefixes": [],
+      "keepCount": 3
+    }
+  }
+]

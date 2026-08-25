@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
+  "sourceIds": ["twse", "tpex", "mops", "finmind", "fugle", "shioaji", "taiex", "tpex-benchmark"],
+  "datasetIds": ["ohlcv", "valuation", "institutional", "financials", "events", "market-activity", "benchmark", "core", "mart-report"],
+  "enums": {
+    "executionStatus": ["queued", "running", "succeeded", "partial", "failed", "retrying", "blocked"],
+    "qualityFlag": ["good", "warning", "critical", "unknown"],
+    "publicationStatus": ["draft", "blocked", "publishable", "published", "superseded"]
+  },
+  "schemas": {
+    "DataProvenanceV1": {
+      "type": "object",
+      "required": ["sourceId", "datasetId", "observedAt", "fetchedAt", "contentHash", "qualityFlag"],
+      "properties": {
+        "sourceId": {"type": "string"},
+        "datasetId": {"type": "string"},
+        "observedAt": {"type": "string", "format": "date-time"},
+        "publishedAt": {"type": ["string", "null"], "format": "date-time"},
+        "fetchedAt": {"type": "string", "format": "date-time"},
+        "contentHash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "fallback": {"type": "boolean", "default": false},
+        "qualityFlag": {"enum": ["good", "warning", "critical", "unknown"]}
+      },
+      "additionalProperties": false
+    },
+    "CoreDatasetReadyV1": {
+      "type": "object",
+      "required": ["eventType", "executionId", "datasetId", "schemaVersion", "rowCount"],
+      "properties": {
+        "eventType": {"const": "core.dataset.ready.v1"},
+        "executionId": {"type": "string", "minLength": 1},
+        "datasetId": {"const": "core"},
+        "schemaVersion": {"const": "1.0.0"},
+        "rowCount": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "MartReportReadyV1": {
+      "type": "object",
+      "required": ["eventType", "executionId", "publicationStatus", "schemaVersion"],
+      "properties": {
+        "eventType": {"const": "mart.report.ready.v1"},
+        "executionId": {"type": "string", "minLength": 1},
+        "publicationStatus": {"enum": ["publishable", "published"]},
+        "schemaVersion": {"const": "1.0.0"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

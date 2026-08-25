@@ -22,4 +22,4 @@ GCP-first AI lakehouse investment research platform
 
 The directories are intentionally implementation-neutral until their owning WBS
 selects toolchains and pins versions. Current scope, gates, and remaining manual
-decisions are recorded in `doc/CURRENT.md`.
+decisions are recorded in `doc/todo.md`.

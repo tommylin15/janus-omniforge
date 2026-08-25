@@ -1,0 +1,9 @@
+.git
+.github
+.devcontainer
+.gemini
+doc
+tests
+**/__pycache__
+**/.pytest_cache
+**/node_modules
