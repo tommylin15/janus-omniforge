@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0.0",
+  "format_version": 2,
+  "tables": {
+    "valuation_v1": {
+      "identifier_fields": ["symbol", "market", "observed_date"],
+      "required_fields": ["symbol", "market", "observed_date", "source_id", "provenance_id", "execution_id"],
+      "nullable_metrics": ["pe_ratio", "pb_ratio", "dividend_yield_percent"],
+      "partitions": ["month(observed_date)", "bucket[32](symbol)"]
+    },
+    "institutional_v1": {
+      "identifier_fields": ["symbol", "market", "trade_date", "investor_type"],
+      "required_fields": ["symbol", "market", "trade_date", "investor_type", "source_id", "provenance_id", "execution_id"],
+      "nullable_metrics": ["buy_shares", "sell_shares", "net_shares"],
+      "partitions": ["month(trade_date)", "bucket[32](symbol)"]
+    },
+    "financials_v1": {
+      "identifier_fields": ["symbol", "fiscal_year", "fiscal_quarter", "statement_type", "published_at"],
+      "required_fields": ["symbol", "fiscal_year", "fiscal_quarter", "statement_type", "published_at", "source_id", "provenance_id", "execution_id"],
+      "nullable_metrics": ["value", "unit", "currency"],
+      "partitions": ["year(published_at)", "bucket[32](symbol)"]
+    },
+    "events_v1": {
+      "identifier_fields": ["event_id", "published_at"],
+      "required_fields": ["event_id", "symbol", "event_type", "published_at", "source_id", "provenance_id", "execution_id"],
+      "nullable_metrics": ["effective_date", "severity", "details"],
+      "partitions": ["month(published_at)", "bucket[32](symbol)"]
+    },
+    "market_activity_v1": {
+      "identifier_fields": ["symbol", "market", "trade_date", "metric"],
+      "required_fields": ["symbol", "market", "trade_date", "metric", "source_id", "provenance_id", "execution_id"],
+      "nullable_metrics": ["value", "unit"],
+      "partitions": ["month(trade_date)", "bucket[32](symbol)"]
+    },
+    "benchmark_v1": {
+      "identifier_fields": ["benchmark_id", "trade_date"],
+      "required_fields": ["benchmark_id", "trade_date", "close", "source_id", "provenance_id", "execution_id"],
+      "nullable_metrics": ["return_percent", "index_kind"],
+      "partitions": ["month(trade_date)", "bucket[16](benchmark_id)"]
+    }
+  },
+  "evolution": {
+    "mode": "additive",
+    "meaning_or_unit_change": "new_table_version",
+    "snapshots": "immutable"
+  }
+}

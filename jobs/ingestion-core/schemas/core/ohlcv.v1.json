@@ -1,0 +1,38 @@
+{
+  "$schema": "https://iceberg.apache.org/schemas/table",
+  "format-version": 2,
+  "table": "core.ohlcv_v1",
+  "identifier-field-ids": [1, 2, 3],
+  "schema": {
+    "type": "struct",
+    "schema-id": 1,
+    "fields": [
+      {"id": 1, "name": "symbol", "required": true, "type": "string"},
+      {"id": 2, "name": "market", "required": true, "type": "string"},
+      {"id": 3, "name": "trade_date", "required": true, "type": "date"},
+      {"id": 4, "name": "open", "required": false, "type": "decimal(18,4)"},
+      {"id": 5, "name": "high", "required": false, "type": "decimal(18,4)"},
+      {"id": 6, "name": "low", "required": false, "type": "decimal(18,4)"},
+      {"id": 7, "name": "close", "required": true, "type": "decimal(18,4)"},
+      {"id": 8, "name": "volume_shares", "required": false, "type": "long"},
+      {"id": 9, "name": "turnover_twd", "required": false, "type": "decimal(22,2)"},
+      {"id": 10, "name": "change_percent", "required": false, "type": "decimal(12,6)"},
+      {"id": 11, "name": "source_id", "required": true, "type": "string"},
+      {"id": 12, "name": "observed_at", "required": true, "type": "timestamptz"},
+      {"id": 13, "name": "provenance_id", "required": true, "type": "string"},
+      {"id": 14, "name": "execution_id", "required": true, "type": "string"}
+    ]
+  },
+  "partition-spec": [
+    {"source-id": 3, "field-id": 1000, "name": "trade_month", "transform": "month"},
+    {"source-id": 1, "field-id": 1001, "name": "symbol_bucket", "transform": "bucket[32]"}
+  ],
+  "sort-order": [
+    {"source-id": 1, "transform": "identity", "direction": "asc", "null-order": "nulls-last"},
+    {"source-id": 3, "transform": "identity", "direction": "asc", "null-order": "nulls-last"}
+  ],
+  "write-properties": {
+    "write.format.default": "parquet",
+    "write.parquet.compression-codec": "zstd"
+  }
+}

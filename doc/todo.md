@@ -52,15 +52,15 @@
 
 ## P0 — Stage／Core
 
-- [ ] 建立 dev Stage／Core／Mart buckets 或隔離 prefixes。
-- [ ] 設 uniform bucket-level access 與 lifecycle。
-- [ ] 實作原始物件 + sidecar metadata 寫入。
-- [ ] 實作 content hash 與 idempotency key。
-- [ ] 實作 quarantine 路徑。
-- [ ] 建立 Iceberg Core schemas 與 partition strategy。
-- [ ] 實作 null、duplicate、date、unit、schema drift DQ。
-- [ ] 禁止 0 一律轉 null。
-- [ ] 禁止 >11% 漲跌一律刪除。
+- [x] 建立 dev Stage／Core／Mart buckets 或隔離 prefixes。（`infra/terraform/storage.tf`；已 apply）
+- [x] 設 uniform bucket-level access 與 lifecycle。（`infra/terraform/storage.tf`；已 apply）
+- [x] 實作原始物件 + sidecar metadata 寫入。（`jobs/ingestion-core/ingestion_core/stage.py`）
+- [x] 實作 content hash 與 idempotency key。（`packages/provenance/model.py`）
+- [x] 實作 quarantine 路徑。（`jobs/ingestion-core/ingestion_core/stage.py`）
+- [x] 建立 Iceberg Core schemas 與 partition strategy。（`jobs/ingestion-core/schemas/core/`）
+- [x] 實作 null、duplicate、date、unit、schema drift DQ。（`jobs/ingestion-core/ingestion_core/dq.py`）
+- [x] 禁止 0 一律轉 null。（欄位語意規則與測試）
+- [x] 禁止 >11% 漲跌一律刪除。（保留資料並產生 `EXTREME_MOVE_REVIEW`）
 
 ## P0 — 第一批 Scrapers
 

@@ -6,9 +6,9 @@ resource "google_iam_workload_identity_pool" "github" {
 
 resource "google_iam_workload_identity_pool_provider" "github" {
   workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
-  workload_identity_pool_provider_id  = "github"
-  display_name                        = "GitHub Actions OIDC"
-  description                         = "Restricts federation to the Janus OmniForge repository."
+  workload_identity_pool_provider_id = "github"
+  display_name                       = "GitHub Actions OIDC"
+  description                        = "Restricts federation to the Janus OmniForge repository."
 
   attribute_mapping = {
     "google.subject"       = "assertion.sub"

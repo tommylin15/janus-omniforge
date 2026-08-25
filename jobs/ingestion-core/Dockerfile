@@ -3,6 +3,7 @@ FROM python:3.12.8-slim-bookworm
 WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app:/app/jobs/ingestion-core \
     PORT=8080
 
 COPY requirements.lock ./
@@ -12,5 +13,4 @@ RUN if [ -s requirements.lock ] && ! grep -q '^# No Python dependencies' require
 COPY . .
 
 EXPOSE 8080
-# The job HTTP entrypoint will be defined with the first implementation.
 CMD ["python", "-m", "ingestion_core"]

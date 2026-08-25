@@ -19,6 +19,7 @@ variable "cloud_build_github_connection" {
 resource "google_cloudbuild_trigger" "ingestion_core" {
   name            = "janus-ingestion-core"
   description     = "Build ingestion-core changes only."
+  location        = var.region
   filename        = "cloudbuild.yaml"
   included_files  = ["jobs/ingestion-core/**", "packages/contracts/**", "packages/observability/**", "cloudbuild.yaml"]
   service_account = "projects/${var.project_id}/serviceAccounts/janus-ci@${var.project_id}.iam.gserviceaccount.com"
@@ -28,8 +29,8 @@ resource "google_cloudbuild_trigger" "ingestion_core" {
     _IMAGE_NAME = "ingestion-core"
   }
 
-  repository_event_config {
-    repository = "projects/${var.project_id}/locations/${var.region}/connections/${var.cloud_build_github_connection}/repositories/${var.github_owner}-${var.github_repository_name}"
+  developer_connect_event_config {
+    git_repository_link = "projects/${var.project_id}/locations/${var.region}/connections/${var.cloud_build_github_connection}/gitRepositoryLinks/${var.github_owner}-${var.github_repository_name}"
     push {
       branch = "^main$"
     }
@@ -39,6 +40,7 @@ resource "google_cloudbuild_trigger" "ingestion_core" {
 resource "google_cloudbuild_trigger" "intelligence_mart" {
   name            = "janus-intelligence-mart"
   description     = "Build intelligence-mart changes only."
+  location        = var.region
   filename        = "cloudbuild.yaml"
   included_files  = ["jobs/intelligence-mart/**", "packages/contracts/**", "packages/observability/**", "cloudbuild.yaml"]
   service_account = "projects/${var.project_id}/serviceAccounts/janus-ci@${var.project_id}.iam.gserviceaccount.com"
@@ -48,8 +50,8 @@ resource "google_cloudbuild_trigger" "intelligence_mart" {
     _IMAGE_NAME = "intelligence-mart"
   }
 
-  repository_event_config {
-    repository = "projects/${var.project_id}/locations/${var.region}/connections/${var.cloud_build_github_connection}/repositories/${var.github_owner}-${var.github_repository_name}"
+  developer_connect_event_config {
+    git_repository_link = "projects/${var.project_id}/locations/${var.region}/connections/${var.cloud_build_github_connection}/gitRepositoryLinks/${var.github_owner}-${var.github_repository_name}"
     push {
       branch = "^main$"
     }

@@ -49,6 +49,12 @@ frontend/playwright-report/
 frontend/test-results/
 *.log
 
+# Terraform local state, plans, and downloaded providers.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+
 # OS-generated metadata.
 .DS_Store
 Thumbs.db
