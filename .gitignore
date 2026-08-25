@@ -26,7 +26,6 @@ htmlcov/
 # Local editor overrides may contain machine-specific paths or credentials.
 .amazonq/
 /.cline*
-/AGENTS.md
 .idea/
 .vscode/*
 !.vscode/extensions.json
