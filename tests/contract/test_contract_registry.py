@@ -24,6 +24,18 @@ class ContractRegistryTests(unittest.TestCase):
         self.assertTrue(self.policy["blocking"]["criticalQualityFlag"])
         self.assertEqual(self.policy["blocking"]["highRiskScoreAtLeast"], 75)
 
+    def test_control_plane_contracts_and_availability_states_exist(self):
+        self.assertEqual(
+            set(self.registry["enums"]["dataAvailabilityStatus"]),
+            {"success", "empty", "partial", "fallback", "stale", "unavailable", "schema_drift", "failed"},
+        )
+        for schema_name in ("StockMasterV1", "DatasetCollectionConfigV1", "ExecutionV1"):
+            self.assertIn(schema_name, self.registry["schemas"])
+        control_schema = json.loads((ROOT / "packages/contracts/control_plane.v1.json").read_text())
+        self.assertIn("StockMasterV1", control_schema["definitions"])
+        self.assertIn("DatasetCollectionConfigV1", control_schema["definitions"])
+        self.assertIn("ExecutionV1", control_schema["definitions"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -45,3 +45,24 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
 ## 5. 交付格式
 
 精簡回報 WBS ID、主要變更、實際驗證結果，以及未完成或需人工確認事項。不要貼出未被要求的完整檔案內容；交付後等待下一個 WBS。
+
+## 6. Artifact Registry 成本限制
+
+- 使用 Artifact Registry 時，只允許 image push、pull、digest 解析、cleanup
+  policy 與一般 artifact metadata 操作。
+- 禁止啟用、呼叫或依賴 Artifact Analysis API、Container Scanning API、
+  vulnerability scanning、occurrence API 或其自動掃描觸發器，以避免不可預期的高額費用。
+- immutable image digest 仍必須保存；SBOM 若需要，必須在 Cloud Build／本地以
+  不呼叫上述 API 的方式產生，並以一般 artifact 或 build output 保存。
+
+## 7. PostgreSQL Free Tier 限制
+
+- Dev／MVP PostgreSQL VM 固定使用 Compute Engine `e2-micro` 與
+  `us-central1`；不得升級 machine type 或跨區建立第二台 PostgreSQL VM，除非
+  使用者明確授權。
+- Standard Persistent Disk 總配置量上限為 30 GB，VM 不配置 external IP，並將
+  outbound data 控制在每月 1 GB Free Tier 額度內。
+- Free Tier 模式不自動建立 snapshot、backup、HA、replica 或其他會產生額外
+  儲存費用的 PostgreSQL 保護資源；任何例外必須先取得明確授權。
+- Free Tier 是 billing account／region 條件，Terraform 只能限制資源規格，不能
+  保證帳單為 US$0；部署前仍須檢查資格與 billing budget。

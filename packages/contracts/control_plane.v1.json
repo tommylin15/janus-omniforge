@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Janus data control plane",
+  "version": "1.0.0",
+  "definitions": {
+    "StockMasterV1": {
+      "type": "object",
+      "required": ["symbol", "name", "market", "enabled"],
+      "properties": {
+        "symbol": {"type": "string", "pattern": "^[A-Z0-9_-]{1,20}$"},
+        "name": {"type": "string", "minLength": 1},
+        "market": {"enum": ["TWSE", "TPEX"]},
+        "enabled": {"type": "boolean"},
+        "updatedAt": {"type": "string", "format": "date-time"}
+      },
+      "additionalProperties": false
+    },
+    "DatasetCollectionConfigV1": {
+      "type": "object",
+      "required": ["configId", "datasetId", "sourceIds", "expectedFields", "collectionEnabled", "analysisEnabled"],
+      "properties": {
+        "configId": {"type": "string", "minLength": 1},
+        "datasetId": {"type": "string", "minLength": 1},
+        "sourceIds": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+        "expectedFields": {"type": "array", "items": {"type": "string"}},
+        "market": {"enum": ["TWSE", "TPEX"]},
+        "enabled": {"type": "boolean"},
+        "collectionEnabled": {"type": "boolean"},
+        "analysisEnabled": {"type": "boolean"},
+        "lookbackDays": {"type": "integer", "minimum": 0},
+        "overlapDays": {"type": "integer", "minimum": 0},
+        "fullRefreshIntervalDays": {"type": "integer", "minimum": 0},
+        "batchScope": {"enum": ["market", "symbol"]}
+      },
+      "additionalProperties": false
+    },
+    "ExecutionV1": {
+      "type": "object",
+      "required": ["executionId", "traceId", "configId", "triggerType", "status", "requestedSymbols"],
+      "properties": {
+        "executionId": {"type": "string", "minLength": 1},
+        "traceId": {"type": "string", "minLength": 1},
+        "configId": {"type": "string", "minLength": 1},
+        "triggerType": {"enum": ["collection", "analysis"]},
+        "status": {"enum": ["queued", "running", "succeeded", "partial", "failed", "retrying"]},
+        "requestedSymbols": {"type": "array", "items": {"type": "string"}},
+        "retryCount": {"type": "integer", "minimum": 0},
+        "errorCode": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    }
+  }
+}

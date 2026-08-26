@@ -9,6 +9,7 @@
 
 - 建立 GitHub monorepo、branch protection、CODEOWNERS。
 - 建立 `janus-dev` GCP project、billing budget 與 `us-central1` 基準。
+- Dev／MVP PostgreSQL 採 `us-central1` Compute Engine `e2-micro` 單一 VM，自架 private PostgreSQL；Standard Persistent Disk 總量 ≤30 GB、無 external IP、outbound ≤1 GB/月；production HA 不在此決策內。
 - 建立 Workload Identity Federation 與 Cloud Build service account。
 - 啟用 Cloud Run、Cloud Build、Artifact Registry、GCS、Pub/Sub、Scheduler、Secret Manager、Logging／Monitoring。
 
@@ -39,7 +40,7 @@
 - `intelligence-mart` path-based build。
 - `trino` path-based build。
 - `web` path-based build。
-- 產生 immutable image digest、SBOM、vulnerability result。
+- 產生 immutable image digest；SBOM 可由 build-local tool 產生，但不執行 Artifact Analysis API、Container Scanning API 或 vulnerability scanning。
 
 ### 1.3 部署流水線
 
@@ -117,10 +118,29 @@
 - 新 null 不覆蓋有效值。
 - Job 與 API 資源隔離。
 
+### 3.6 PostgreSQL Free Tier VM 與 Control DB 基礎（WBS 4 前置）
+
+- Terraform 建立單一 Compute Engine `e2-micro`，固定於 `us-central1` eligible zone。
+- VM 不配置 external IP，只使用 private IP；IAP／OS Login 管理，firewall 不公開 `5432`。
+- 使用總量 ≤30 GB 的 Standard Persistent Disk；Free Tier 模式不建立 snapshot、backup、HA 或 replica。
+- 安裝固定 PostgreSQL 版本，建立 control、Iceberg catalog、publication、audit database/schema 與最小 database roles。
+- credential 由 Secret Manager 提供；Cloud Run、Cloud Run Jobs、Trino 透過 VPC private path 連線。
+- 驗證 VM health、PostgreSQL readiness、schema migration、JDBC catalog smoke query 與 Free Tier 資源邊界。
+
+### 3.7 PostgreSQL Control DB Integration（WBS 4 前置）
+
+- 將 control schema、FK、CHECK、index 與 execution transition migration 到 PostgreSQL。
+- 實作 PostgreSQL control repository；SQLite 只作 unit-test reference。
+- 以 transaction／row lock／安全 claim 讓 queued execution 可被 worker 恢復與冪等處理。
+- Response cache 的 payload／raw response 留在 GCS Stage；PostgreSQL 僅保存 key、URI、hash、TTL、observed time 與狀態 metadata。
+- 設定低連線數 pool、statement／idle timeout、migration lock 與 reconnect，避免壓垮 `e2-micro`。
+- 使用 Secret Manager credential 與 private IP，完成 ingestion、Trino、Cloud Run／Jobs control DB smoke tests。
+
 ## WBS 4 — Trino on Cloud Run
 
 ### 4.1 Image 與設定
 
+- 前置條件：WBS 3.6 PostgreSQL VM 與 WBS 3.7 control DB integration、control DB、catalog DB 已通過連線驗證。
 - 建置固定版 Trino image。
 - 設定 GCS Iceberg connector 與 JDBC catalog。
 - 設定 query memory、concurrency、timeout、spill／temp policy。
@@ -128,9 +148,10 @@
 ### 4.2 Cloud Run
 
 - 2 vCPU、4–8 GiB；min=0、max=1。
+- Trino 維持獨立 Cloud Run Service，不部署到 PostgreSQL `e2-micro` VM；VM 的 1 GiB RAM 不足以承載 Trino JVM。
 - IAM-only ingress；不公開。
 - health／readiness endpoint。
-- 同區 GCS、PostgreSQL、Jobs。
+- 同區 GCS、Compute Engine PostgreSQL VM、Jobs。
 
 ### 4.3 Query client
 
@@ -225,6 +246,7 @@
 - 四部署單元分離 service account。
 - Secret Manager 單項授權。
 - production 權限與 dev 分離。
+- PostgreSQL dev VM 使用 private IP、≤30 GB Standard Persistent Disk、IAP／OS Login；不得公開 `5432`，Free Tier 模式不自動建立 snapshot／backup／replica。
 
 ### 7.2 Observability
 
@@ -237,6 +259,8 @@
 
 - Cloud Run min=0、max limits。
 - GCS lifecycle、Artifact Registry cleanup。
+- Artifact Registry 僅允許 image／digest／metadata／cleanup；禁止 Artifact Analysis、Container Scanning、vulnerability scanning 與 occurrence API。
+- PostgreSQL VM persistent disk snapshot、restore drill 與 VM／disk／snapshot 成本檢查。
 - US$1／US$5／US$10 budget alert。
 - 每月成本報告與異常檢查。
 
@@ -282,8 +306,7 @@
 | 里程碑 | 範圍 | 完成定義 |
 |---|---|---|
 | M0 | WBS 0–1 | 雲端 workspace、monorepo、CI/CD、IaC 可運作 |
-| M1 | WBS 2–4 | 2330 Source → Stage → Core，Trino 可冷啟動查詢 |
+| M1 | WBS 2–4 | PostgreSQL Free Tier VM → 2330 Source → Stage → Core，Trino 可冷啟動查詢 |
 | M2 | WBS 5 | Core → 五角色 → Mart，30% gate 與 blocked 正確 |
 | M3 | WBS 6 | Public／Admin 完整讀取 persisted Mart |
 | M4 | WBS 7–8 | 監控、安全、PIT、實機 QA、canary／rollback 通過 |
-

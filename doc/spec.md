@@ -1,7 +1,7 @@
 # Janus × OmniForge — Project Specification
 
 版本：1.0  
-日期：2026-08-25  
+日期：2026-08-26
 狀態：GCP-first 重構基線
 
 ## 1. 產品目標
@@ -16,10 +16,13 @@
 - 一個 GitHub monorepo，三個業務領域、四個 GCP 部署單元。
 - GCS + Iceberg + Trino 是資料主架構。
 - PostgreSQL 只保存 Iceberg catalog、控制、治理、execution、publication、audit 與服務索引。
+- Dev／MVP PostgreSQL 採 Compute Engine `e2-micro` 單一 VM 自架，位於 `us-central1`；Free Tier 模式限制 Standard Persistent Disk 總量 ≤30 GB、不配置 external IP，並以 IAP／OS Login 管理。此配置不作為 production HA 架構。
+- `e2-micro` 僅承載 PostgreSQL，不與 Trino 共用；Trino 維持獨立 Cloud Run Service，避免 1 GiB VM 記憶體不足與資料庫／查詢引擎資源互相干擾。
 - 開發／重構期最低有效完整度為 30%；正式發布門檻日後依 PIT 回測與人工治理調整。
 - LLM 做提取、摘要、解釋與白話轉譯，必要時也計算 deterministic 分數、不補值、不決定發布。
 - Cloud Run 全部 `min-instances=0`；Trino `max-instances=1`。
 - Artifact Registry 可由 source deploy／Cloud Build 自動管理，但底層仍需保存容器映像。
+- Artifact Registry 僅使用 image、digest、metadata 與 cleanup；禁止 Artifact Analysis API、Container Scanning API、vulnerability scanning 與 occurrence API。SBOM 僅可離線產生，不以掃描結果作為 build gate。
 
 ## 3. Monorepo 結構
 
@@ -121,6 +124,7 @@ quality_details: object
 - 市場觀測以 observed_at 判斷時序；沒有獨立 published_at 不等同業務缺值。
 - raw payload、object URI、secret、完整 upstream error 不得出現在一般 API/UI。
 - 相同 source + dataset + observed time + hash 重用 provenance；內容或時間改變才新增版本。
+- PostgreSQL 只保存 control／catalog／execution／publication／audit metadata；raw payload 與 response cache payload 必須留在 GCS Stage，資料庫只保存 URI、hash、TTL 與狀態。
 
 ## 8. Ingestion + Core Job
 
@@ -186,10 +190,12 @@ effective_weight = base_weight × completeness × confidence × data_quality / 1
 - Cloud Run Service；單節點 coordinator + worker。
 - 建議 2 vCPU、4–8 GiB RAM，`min-instances=0`、`max-instances=1`。
 - 不公開；只允許指定 Job／Admin service account 透過 IAM 存取。
-- GCS 保存資料，PostgreSQL 保存 Iceberg catalog；本機磁碟只作暫存。
+- GCS 保存資料；Compute Engine PostgreSQL VM 保存 Iceberg catalog、control plane、publication、audit 與服務索引；Trino 本機磁碟只作暫存。
 - 呼叫 Job 必須等待／輪詢查詢完成；查詢不能在 scale-down 中存活。
 - 限制 query concurrency、scan bytes、memory、timeout；backfill 拆批。
 - 資料量或並發超過單節點能力時，再評估 GKE／Dataproc／常駐平台。
+
+Trino 與 PostgreSQL VM 是兩個獨立 runtime：Trino 使用 Cloud Run 的暫存磁碟作 spill／temp，持久資料放在 GCS／Iceberg，JDBC catalog 與控制資料放在 PostgreSQL VM。Trino 不得部署到 `e2-micro`。
 
 ## 12. Web 與 API
 
@@ -213,6 +219,22 @@ effective_weight = base_weight × completeness × confidence × data_quality / 1
 | Secret | Secret Manager，runtime identity 單項授權 |
 | IaC | Terraform；production apply 需人工批准 |
 
+### 13.1 Dev PostgreSQL VM
+
+- 使用 Compute Engine `e2-micro`，只承載 control plane、Iceberg catalog、publication index 與 audit metadata；GCS／Iceberg 不搬到 VM。
+- PostgreSQL 使用 private IP；Cloud Run、Cloud Run Jobs 與 Trino 僅透過 VPC 連線，禁止公開 `5432`。
+- VM 使用 Standard Persistent Disk，Free Tier 模式總配置量 ≤30 GB；不自動建立 snapshot／backup，資料庫 credential 存 Secret Manager。任何備份與 restore drill 必須另行評估費用。
+- `e2-micro` 只有 1 GiB RAM，僅限 dev／MVP 低併發；production 必須重新評估 dedicated VM、HA 或其他 managed PostgreSQL 方案。
+- Free Tier 目標另受 billing account 資格、每月 1 GB outbound 額度與其他 GCP 資源費用影響；Terraform 限制規格不等於保證帳單為 US$0。
+- Compute Engine 與 Standard Persistent Disk 依 instance 運轉時間、provisioned disk、snapshot 與網路流量計費；實際價格以 [Compute Engine pricing](https://cloud.google.com/products/compute/pricing) 為準。
+
+PostgreSQL VM 是 Trino JDBC catalog 與 control DB 的前置基礎；必須先完成 VM、private connectivity、schema／role bootstrap、PostgreSQL repository migration 與 smoke query，才可進入 Trino image、catalog、Cloud Run deployment 與 Core query client 工作。SQLite control repository 僅供 unit tests，不是 production backend。
+
+### 13.2 Artifact Registry cost guard
+
+- Cloud Build 可 build、push image、解析 immutable digest 與執行 cleanup；不得呼叫 Artifact Analysis API、Container Scanning API、vulnerability scanning 或 occurrence API。
+- SBOM 如有需要，使用本地工具產生 SPDX／CycloneDX，作為一般 build artifact 保存；不建立掃描 occurrence，也不等待 vulnerability result。
+
 Schema evolution、migration、backfill、production Job trigger 不得隨 Web deployment 自動執行。
 
 ## 14. 非功能需求
@@ -234,4 +256,3 @@ Schema evolution、migration、backfill、production Job trigger 不得隨 Web d
 - iOS Safari、Android Chrome、iPad Safari、VoiceOver、TalkBack、WCAG AA 實機通過。
 - 無 secret、raw payload、敏感 URL、未授權來源外洩。
 - runbook、備份、還原與 rollback 演練完成。
-

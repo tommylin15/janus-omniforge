@@ -12,3 +12,22 @@ Implemented foundations:
 The Stage writer accepts only controlled source/dataset identifiers and safe
 path segments. Extreme moves over 11% are retained with a review warning; they
 are not silently deleted. Zero handling is field-semantic rather than global.
+
+The ingestion control plane is implemented by `ingestion_core.control` and the
+runtime by `ingestion_core.framework`. `SQLiteControlPlane` is the reference
+repository for the PostgreSQL control schema: it persists stock master,
+collection config, queued executions, item-level availability states, response
+cache, incremental cursors, and source-health telemetry. Collection and
+analysis are separate queue commands. Adapters implement the common
+`SourceAdapter` contract and return `SourceResponse`; timeout, retry, rate
+limit, schema drift, fallback, and safe error classification are enforced by
+the framework.
+
+`PostgreSQLControlPlane` is the production repository. It uses transaction
+scopes, `FOR UPDATE SKIP LOCKED` leases for queue claims, server-side
+statement/idle timeouts, and the same transition invariants as the SQLite
+reference. `CacheMetadata` stores only a `gs://` payload URI, hash, TTL,
+observed time, and state; raw responses never enter PostgreSQL. Use a bounded
+connection factory (the VM baseline is 30 server connections); do not create a
+connection per request. The migration is an explicit operator action and is
+idempotent.

@@ -6,7 +6,8 @@
   "enums": {
     "executionStatus": ["queued", "running", "succeeded", "partial", "failed", "retrying", "blocked"],
     "qualityFlag": ["good", "warning", "critical", "unknown"],
-    "publicationStatus": ["draft", "blocked", "publishable", "published", "superseded"]
+    "publicationStatus": ["draft", "blocked", "publishable", "published", "superseded"],
+    "dataAvailabilityStatus": ["success", "empty", "partial", "fallback", "stale", "unavailable", "schema_drift", "failed"]
   },
   "schemas": {
     "DataProvenanceV1": {
@@ -46,6 +47,15 @@
         "schemaVersion": {"const": "1.0.0"}
       },
       "additionalProperties": false
+    },
+    "StockMasterV1": {
+      "$ref": "control_plane.v1.json#/definitions/StockMasterV1"
+    },
+    "DatasetCollectionConfigV1": {
+      "$ref": "control_plane.v1.json#/definitions/DatasetCollectionConfigV1"
+    },
+    "ExecutionV1": {
+      "$ref": "control_plane.v1.json#/definitions/ExecutionV1"
     }
   }
 }

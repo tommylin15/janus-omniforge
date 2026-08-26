@@ -1,0 +1,15 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --pull
+      - --tag
+      - us-central1-docker.pkg.dev/$PROJECT_ID/janus-postgres/postgres:16.15
+      - .
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - us-central1-docker.pkg.dev/$PROJECT_ID/janus-postgres/postgres:16.15
+images:
+  - us-central1-docker.pkg.dev/$PROJECT_ID/janus-postgres/postgres:16.15
+

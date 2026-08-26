@@ -1,0 +1,67 @@
+#!/bin/bash
+set -euo pipefail
+umask 077
+
+image="$1"
+data_dir=/mnt/stateful_partition/postgres
+env_file=/run/janus-postgres-bootstrap.env
+
+read -r bootstrap_password
+read -r control_password
+read -r catalog_password
+read -r publication_password
+read -r audit_password
+
+token="$(curl -fsS -H 'Metadata-Flavor: Google' \
+  'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token' \
+  | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')"
+sudo mkdir -p /run/janus-docker
+printf '%s' "$token" | sudo docker --config /run/janus-docker login -u oauth2accesstoken --password-stdin us-central1-docker.pkg.dev >/dev/null
+unset token
+sudo docker --config /run/janus-docker pull "$image" >/dev/null
+sudo rm -rf /run/janus-docker
+
+sudo mkdir -p "$data_dir"
+sudo chmod 700 "$data_dir"
+printf 'POSTGRES_PASSWORD=%s\nPOSTGRES_DB=postgres\nPGDATA=/var/lib/postgresql/data\n' "$bootstrap_password" | sudo tee "$env_file" >/dev/null
+
+sudo docker rm -f janus-postgres >/dev/null 2>&1 || true
+sudo docker run -d --name janus-postgres --restart=no \
+  --env-file "$env_file" -v "$data_dir:/var/lib/postgresql/data" "$image" >/dev/null
+
+for _ in $(seq 1 60); do
+  if sudo docker exec janus-postgres pg_isready -U postgres -d postgres >/dev/null 2>&1; then break; fi
+  sleep 1
+done
+sudo docker exec janus-postgres pg_isready -U postgres -d postgres >/dev/null
+
+sudo docker exec \
+  -e CONTROL_PASSWORD="$control_password" \
+  -e CATALOG_PASSWORD="$catalog_password" \
+  -e PUBLICATION_PASSWORD="$publication_password" \
+  -e AUDIT_PASSWORD="$audit_password" \
+  janus-postgres bash -ceu '
+    printf "\\getenv control_password CONTROL_PASSWORD\n\\getenv catalog_password CATALOG_PASSWORD\n\\getenv publication_password PUBLICATION_PASSWORD\n\\getenv audit_password AUDIT_PASSWORD\n" > /tmp/vars.sql
+    cat /tmp/vars.sql /opt/janus/migrations/001_roles_and_schemas.sql | psql -U postgres -d postgres
+    psql -U postgres -d janus_control -f /opt/janus/migrations/002_control_plane.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/003_iceberg_jdbc_catalog.sql
+    rm -f /tmp/vars.sql
+    openssl req -new -x509 -days 365 -nodes -text \
+      -subj "/CN=janus-postgres-dev" -keyout "$PGDATA/server.key" -out "$PGDATA/server.crt" >/dev/null 2>&1
+    chmod 600 "$PGDATA/server.key"
+  '
+
+sudo docker rm -f janus-postgres >/dev/null
+sudo rm -f "$env_file"
+unset bootstrap_password control_password catalog_password publication_password audit_password
+
+sudo docker run -d --name janus-postgres --restart=always \
+  -p 5432:5432 -v "$data_dir:/var/lib/postgresql/data" "$image" \
+  -c config_file=/opt/janus/postgresql.conf -c hba_file=/opt/janus/pg_hba.conf >/dev/null
+
+for _ in $(seq 1 60); do
+  if sudo docker exec --user postgres janus-postgres pg_isready -U postgres -d janus_control >/dev/null 2>&1; then break; fi
+  sleep 1
+done
+sudo docker exec --user postgres janus-postgres pg_isready -U postgres -d janus_control
+sudo docker exec --user postgres janus-postgres psql -U postgres -d janus_control -f /opt/janus/readiness.sql
