@@ -10,6 +10,17 @@ steps:
     args:
       - push
       - us-central1-docker.pkg.dev/$PROJECT_ID/janus-postgres/postgres:16.15
+  - name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        image="us-central1-docker.pkg.dev/${PROJECT_ID}/janus-postgres/postgres"
+        while IFS= read -r version; do
+          [[ -z "${version}" ]] && continue
+          gcloud artifacts docker images delete "${image}@${version}" --quiet
+        done < <(gcloud artifacts docker images list "${image}" \
+          --include-tags --filter='-tags:*' --format='value(version)')
+        echo "Removed untagged old PostgreSQL image versions."
 images:
   - us-central1-docker.pkg.dev/$PROJECT_ID/janus-postgres/postgres:16.15
-

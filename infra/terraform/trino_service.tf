@@ -1,7 +1,7 @@
 locals {
   trino_service_name = "janus-trino"
   trino_service_account = "trino-runtime@${var.project_id}.iam.gserviceaccount.com"
-  trino_image_digest = "us-central1-docker.pkg.dev/${var.project_id}/janusai-poc/trino@sha256:e6376bfd8b4315fe70ebdba0d2d683881ac80e112099cbc09528388c6af10a61"
+  trino_image_digest = "us-central1-docker.pkg.dev/${var.project_id}/janusai-poc/trino@sha256:80dbaaed491e54d19c9af20e28637137c6594a8934c6164b2055c999b234a93c"
 }
 
 resource "google_cloud_run_v2_service" "trino" {
@@ -22,7 +22,7 @@ resource "google_cloud_run_v2_service" "trino" {
     vpc_access {
       egress = "PRIVATE_RANGES_ONLY"
       network_interfaces {
-        network    = data.google_compute_subnetwork.direct_vpc.network
+        network    = "projects/${var.project_id}/global/networks/janusai-lake-poc"
         subnetwork = data.google_compute_subnetwork.direct_vpc.name
         tags       = [local.direct_vpc_workload_tags.trino]
       }

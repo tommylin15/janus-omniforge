@@ -57,3 +57,27 @@ resource "google_cloudbuild_trigger" "intelligence_mart" {
     }
   }
 }
+
+resource "google_cloudbuild_trigger" "trino" {
+  name            = "janus-trino"
+  description     = "Build and deploy the pinned Trino image to Cloud Run dev."
+  location        = var.region
+  filename        = "cloudbuild.yaml"
+  included_files  = ["services/trino/**", "cloudbuild.yaml"]
+  service_account = "projects/${var.project_id}/serviceAccounts/janus-ci@${var.project_id}.iam.gserviceaccount.com"
+
+  substitutions = {
+    _DOCKERFILE   = "services/trino/Dockerfile"
+    _IMAGE_NAME   = "trino"
+    _IMAGE_TAG    = "main"
+    _DEPLOY_TARGET = "service"
+    _RUNTIME_NAME = "janus-trino"
+  }
+
+  developer_connect_event_config {
+    git_repository_link = "projects/${var.project_id}/locations/${var.region}/connections/${var.cloud_build_github_connection}/gitRepositoryLinks/${var.github_owner}-${var.github_repository_name}"
+    push {
+      branch = "^main$"
+    }
+  }
+}

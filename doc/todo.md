@@ -137,15 +137,15 @@ Compute Engine PostgreSQL VM 後，仍需完成下列 production persistence int
 
 ## P0 — Core 第一批資料源擴充
 
-- [ ] TAIEX／TPEx benchmark。
-- [ ] PE／PB 與法人。
-- [ ] MOPS／FinMind 三類財報。
-- [ ] 公司事件。
-- [ ] 融資融券、借券、當沖、注意／處置。
-- [ ] issued shares 與 turnover ratio。
-- [ ] 休市／盤前最近有效交易日回看。
-- [ ] 驗證 benchmark 在個股行情存在時仍會更新。
-- [ ] 驗證新增資料源只把 raw/cache payload 寫 GCS，PostgreSQL metadata retention 與 disk usage 維持有界。
+- [x] TAIEX／TPEx benchmark。（`first_batch.py` benchmark normalizers）
+- [x] PE／PB 與法人。（valuation／institutional normalizers）
+- [x] MOPS／FinMind 三類財報。（financials normalizer 保留 statement type／metric／unit）
+- [x] 公司事件。（events normalizer，保留更正／effective／published 欄位）
+- [x] 融資融券、借券、當沖、注意／處置。（market-activity metric normalizer；不推算缺值）
+- [x] issued shares 與 turnover ratio。（market-activity metric／unit-preserving normalizer）
+- [x] 休市／盤前最近有效交易日回看。（`effective_trading_day`）
+- [x] 驗證 benchmark 在個股行情存在時仍會更新。（獨立 benchmark adapter／測試）
+- [x] 驗證新增資料源只把 raw/cache payload 寫 GCS，PostgreSQL metadata retention 與 disk usage 維持有界。（raw payload in `SourceResponse`、control `prune` bounded tests）
 
 ## P0 — Core 資料服務與可觀測性
 

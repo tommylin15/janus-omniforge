@@ -439,6 +439,22 @@ class SQLiteControlPlane:
         total = row["success_count"] + row["failure_count"]
         return {"source_id": source_id, "dataset_id": dataset_id, "success_rate": row["success_count"] / total if total else 0.0, "average_latency_ms": row["total_latency_ms"] / total if total else 0.0, "last_fetched_at": row["last_fetched_at"], "latest_observation_at": row["latest_observation_at"], "last_state": row["last_state"]}
 
+    def prune(self, *, before: datetime, batch_size: int = 500) -> dict[str, int]:
+        """Bounded retention for the SQLite reference, matching PostgreSQL."""
+        if batch_size < 1 or batch_size > 5000:
+            raise ValueError("batch_size must be 1..5000")
+        counts: dict[str, int] = {}
+        for table, column in (("response_cache", "expires_at"), ("executions", "requested_at"), ("source_health", "last_fetched_at")):
+            rows = self.connection.execute(f"SELECT rowid FROM {table} WHERE {column} < ? LIMIT ?", (_iso(before), batch_size)).fetchall()
+            if not rows:
+                counts[table] = 0
+                continue
+            placeholders = ",".join("?" for _ in rows)
+            cursor = self.connection.execute(f"DELETE FROM {table} WHERE rowid IN ({placeholders})", tuple(row[0] for row in rows))
+            counts[table] = cursor.rowcount
+        self.connection.commit()
+        return counts
+
     def __enter__(self) -> "SQLiteControlPlane":
         return self
 

@@ -79,3 +79,15 @@ row count、content hash、date coverage、null profile、warning/quarantine cou
 與 provenance ID。重跑使用 Stage create-if-absent 與 null-preserving merge；真實
 Cloud Run／VM restart smoke、GCS production object 與 PostgreSQL workload connectivity
 仍待 runtime deployment 後驗證，未在本次變更中宣稱完成。
+
+## P0 Core 第一批資料源
+
+`ingestion_core.first_batch` 提供可重播的 credential-free JSON adapter，涵蓋
+TAIEX／TPEx benchmark、PE／PB、法人、MOPS／FinMind financials、公司事件與
+market activity（融資融券、借券、當沖、注意／處置、issued shares、turnover
+等以 metric／unit 表示）。Normalizer 會保留 null 與原始單位，不對缺資料推算；
+benchmark collection 與個股行情 collection 分離。`effective_trading_day` 對週末、
+休市日與盤前執行回看最近有效交易日。所有 adapter transport 可注入 fixture，
+raw payload 仍由 Stage/GCS 層保存，control database 僅保存 cache metadata；SQLite
+reference 與 PostgreSQL adapter 均提供 bounded prune。第一批資料源的線上 upstream
+API smoke 與實機 workload connectivity 仍需部署後執行。

@@ -2,6 +2,9 @@ substitutions:
   _DOCKERFILE: services/trino/Dockerfile
   _IMAGE_NAME: trino
   _IMAGE_REPOSITORY: us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc
+  _IMAGE_TAG: bootstrap
+  _DEPLOY_TARGET: ""
+  _RUNTIME_NAME: ""
 
 steps:
   - id: build
@@ -9,17 +12,65 @@ steps:
     args:
       - build
       - --file=${_DOCKERFILE}
-      - --tag=${_IMAGE_REPOSITORY}/${_IMAGE_NAME}:${SHORT_SHA}
+      - --tag=${_IMAGE_REPOSITORY}/${_IMAGE_NAME}:${_IMAGE_TAG}
       - .
 
   - id: push-commit
     name: gcr.io/cloud-builders/docker
     args:
       - push
-      - ${_IMAGE_REPOSITORY}/${_IMAGE_NAME}:${SHORT_SHA}
+      - ${_IMAGE_REPOSITORY}/${_IMAGE_NAME}:${_IMAGE_TAG}
+
+  - id: deploy-runtime
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        if [[ -z "${_DEPLOY_TARGET}" || -z "${_RUNTIME_NAME}" ]]; then
+          echo "No runtime deployment requested for this trigger."
+          exit 0
+        fi
+        digest="$(gcloud artifacts docker images describe \
+          "${_IMAGE_REPOSITORY}/${_IMAGE_NAME}:${_IMAGE_TAG}" \
+          --format='value(image_summary.digest)')"
+        test -n "${digest}"
+        printf '%s' "${digest}" > /workspace/deployed-digest
+        image="${_IMAGE_REPOSITORY}/${_IMAGE_NAME}@${digest}"
+        if [[ "${_DEPLOY_TARGET}" == "service" ]]; then
+          gcloud run services update "${_RUNTIME_NAME}" \
+            --region="${LOCATION}" --image="${image}" --quiet
+        elif [[ "${_DEPLOY_TARGET}" == "job" ]]; then
+          gcloud run jobs update "${_RUNTIME_NAME}" \
+            --region="${LOCATION}" --image="${image}" --quiet
+        else
+          echo "Unsupported deploy target: ${_DEPLOY_TARGET}" >&2
+          exit 1
+        fi
+        echo "Deployed ${image} to ${_RUNTIME_NAME}"
+
+  - id: cleanup-untagged-images
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        if [[ ! -s /workspace/deployed-digest ]]; then
+          echo "No runtime deployment completed; skipping image cleanup."
+          exit 0
+        fi
+        current="$(cat /workspace/deployed-digest)"
+        while IFS= read -r version; do
+          [[ -z "${version}" || "${version}" == "${current}" ]] && continue
+          gcloud artifacts docker images delete \
+            "${_IMAGE_REPOSITORY}/${_IMAGE_NAME}@${version}" --quiet
+        done < <(gcloud artifacts docker images list \
+          "${_IMAGE_REPOSITORY}/${_IMAGE_NAME}" --include-tags \
+          --filter='-tags:*' --format='value(version)')
+        echo "Removed untagged old image versions; preserved ${current}."
 
 images:
-  - ${_IMAGE_REPOSITORY}/${_IMAGE_NAME}:${SHORT_SHA}
+  - ${_IMAGE_REPOSITORY}/${_IMAGE_NAME}:${_IMAGE_TAG}
 
 options:
   logging: CLOUD_LOGGING_ONLY
