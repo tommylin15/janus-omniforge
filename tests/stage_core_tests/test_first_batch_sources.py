@@ -57,7 +57,7 @@ class FirstBatchSourceTests(unittest.TestCase):
     def test_official_provider_shapes_are_parsed(self):
         payloads = {
             "tpex_index": [{"Date": "20260825", "Close": "362.89", "Change": "15.04"}],
-            "BWIBBU_ALL": [{"Date": "1150825", "Code": "2330", "PEratio": "20", "PBratio": "5", "DividendYield": "2"}],
+            "BWIBBU_d": [{"Date": "1150825", "Code": "2330", "PEratio": "20", "PBratio": "5", "DividendYield": "2"}],
             "T86": {"date": "20260825", "fields": ["證券代號", "外陸資買進股數(不含外資自營商)", "外陸資賣出股數(不含外資自營商)", "外陸資買賣超股數(不含外資自營商)", "投信買進股數", "投信賣出股數", "投信買賣超股數", "自營商買進股數(自行買賣)", "自營商賣出股數(自行買賣)", "自營商買賣超股數"], "data": [["2330", "10", "2", "8", "3", "1", "2", "4", "1", "3"]]},
             "t187ap06": [{"出表日期": "1150826", "年度": "115", "季別": "2", "公司代號": "2330", "營業收入": "100"}],
             "finmind": {"data": [{"date": "2026-03-31", "stock_id": "2330", "type": "EPS", "value": 22.08}]},

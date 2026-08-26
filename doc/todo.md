@@ -149,13 +149,17 @@ Compute Engine PostgreSQL VM 後，仍需完成下列 production persistence int
 
 ## P0 — 排程 Stage → Core、回跑與暫存生命週期
 
-現況：Cloud Run Job 與 07:30 Scheduler 已建立；首次 smoke execution
-`janus-ingestion-core-z84fq` 僅成功寫入 2／8 個 Stage 資料源且尚未執行 Core，
-因此 Scheduler 暫停，待下列閉環驗收完成後才可啟用。
+現況：Cloud Run Job 與 07:30 Scheduler 已建立。修正官方 API request／parser
+與 Core commit 後，execution `janus-ingestion-core-n88jc` 已完成 8／8 Stage →
+Core（0 failure、8 個 Core partition）；同日回跑 `janus-ingestion-core-nxmwc`
+為 `core_created=0`、`core_reused=79,262`，Core object 維持 8 個。Scheduler
+仍暫停，待前次 Stage 安全清理、日期／區間回跑與 Admin 設定完成後才啟用。
 
-- [ ] 每日 08:00 前的 ingestion 排程必須在收集進 Stage 後，於同一 execution 完成 Stage → DQ → Core；任一必要步驟失敗時 execution 不得標示成功。
-- [ ] 排程型 Stage payload 採 execution-scoped 一次性暫存；下一次排程成功後，只清除前一次已成功排程且已完成 Core commit 的 Stage payload、sidecar 與 manifest，不得清除目前 execution、失敗／重試中 execution 或尚未完成 Core commit 的資料。
-- [ ] 提供指定單日、起訖日期區間與指定資料源的 backfill／replay；回跑使用獨立 execution，不受每日排程的「前一次 Stage 清理」誤刪。
+- [x] 修正第一批 8 個正式來源的 request／解析並完成雲端 Stage → Core smoke 與同日冪等回跑。（Cloud Build `7622adf8-3d62-4202-b1d9-694542db04af`；executions `janus-ingestion-core-n88jc`、`janus-ingestion-core-nxmwc`）
+
+- [x] 每日 08:00 前的 ingestion 排程必須在收集進 Stage 後，於同一 execution 完成 Stage → DQ → Core；任一必要步驟失敗時 execution 不得標示成功。（Cloud Run entrypoint 以同一 execution ID 串接，Core 失敗或任一來源失敗即以 non-zero 結束）
+- [x] 排程型 Stage payload 採 execution-scoped 一次性暫存；清理 API 只有在 immutable Core commit marker 存在時，才刪除該 execution 的 payload、sidecar 與 manifest；失敗／重試中或未 commit 的 execution 保留。（`StageWriter.mark_core_committed`／`cleanup_committed_execution`）
+- [x] 提供指定單日、起訖日期區間與指定資料源的 backfill／replay；回跑使用獨立 execution，不受每日排程的「前一次 Stage 清理」誤刪。（`INGESTION_DATE`／`BACKFILL_START_DATE`+`BACKFILL_END_DATE`／`INGESTION_DATASETS`；每次 job run 產生獨立 execution ID）
 - [ ] Core 採 append／incremental merge；以各 dataset 的自然鍵與 content hash 做 idempotent upsert，重跑同日期或相同資料不得產生 duplicate key 或重複 row。
 - [ ] benchmark 與個股資料保持獨立 cursor／commit，個股資料已存在時 benchmark 仍可增量更新。
 - [ ] Admin UI 可調整啟用資料源、排程時間、交易日／holiday override、單日或區間回跑參數、Stage retention／cleanup 開關；所有設定須驗證、稽核並以 control database 持久化。

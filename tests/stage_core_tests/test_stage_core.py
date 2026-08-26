@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT / "jobs" / "ingestion-core"))
 from ingestion_core.dq import merge_without_null_overwrite, semantic_zero, validate_ohlcv
 from ingestion_core.stage import LocalObjectStore, StageWriter
 from packages.provenance import Provenance, content_hash
+from ingestion_core.__main__ import _requested_dates
 
 
 class StageWriterTests(unittest.TestCase):
@@ -82,6 +83,38 @@ class StageWriterTests(unittest.TestCase):
                     execution_id="exec-1",
                     provenance=self.provenance(b"original"),
                 )
+
+    def test_execution_scoped_stage_is_cleaned_only_after_core_commit(self):
+        payload = b'{"symbol":"2330"}'
+        with tempfile.TemporaryDirectory() as directory:
+            store = LocalObjectStore(Path(directory))
+            writer = StageWriter(store)
+            staged = writer.write_raw(payload=payload, media_type="application/json", extension="json",
+                                      execution_id="exec-1", provenance=self.provenance(payload), execution_scoped=True)
+            self.assertTrue(Path(directory, staged.object_name).exists())
+            self.assertEqual(writer.cleanup_committed_execution("exec-1"), {"committed": False, "deleted": 0})
+            self.assertTrue(Path(directory, staged.object_name).exists())
+            writer.mark_core_committed("exec-1", stage_results=(staged,))
+            result = writer.cleanup_committed_execution("exec-1")
+            self.assertEqual(result, {"committed": True, "deleted": 3})
+            self.assertFalse(Path(directory, staged.object_name).exists())
+
+    def test_failed_execution_without_commit_fence_is_preserved(self):
+        payload = b'{"symbol":"2330"}'
+        with tempfile.TemporaryDirectory() as directory:
+            store = LocalObjectStore(Path(directory))
+            writer = StageWriter(store)
+            staged = writer.write_raw(payload=payload, media_type="application/json", extension="json",
+                                      execution_id="exec-failed", provenance=self.provenance(payload), execution_scoped=True)
+            self.assertEqual(writer.cleanup_committed_execution("exec-failed"), {"committed": False, "deleted": 0})
+            self.assertTrue(Path(directory, staged.object_name).exists())
+
+    def test_replay_date_resolution_supports_single_day_and_bounded_range(self):
+        holidays = {date(2026, 8, 24)}
+        self.assertEqual(_requested_dates(today=date(2026, 8, 26), holidays=holidays, single="2026-08-24"), (date(2026, 8, 21),))
+        self.assertEqual(_requested_dates(today=date(2026, 8, 26), holidays=set(), start="2026-08-24", end="2026-08-25"), (date(2026, 8, 24), date(2026, 8, 25)))
+        with self.assertRaises(ValueError):
+            _requested_dates(today=date(2026, 8, 26), holidays=set(), start="2026-08-25")
 
 
 class CoreDqTests(unittest.TestCase):

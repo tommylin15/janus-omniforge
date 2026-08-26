@@ -59,7 +59,7 @@ this change.
 
 ## P0 Stage／Core
 
-- Python unit/contract tests：12 Stage/Core tests passed（含 2330 closed-loop integration）；framework/control/contract tests 12 passed。
+- Python unit/contract tests：34 passed（20 Stage/Core、11 framework/control、3 contract，含 2330 closed-loop integration）。
 - Python compileall：passed。
 - Terraform validate：passed（Google provider 7.45.0）。
 - Terraform apply：4 bucket IAM bindings added，0 changed，0 destroyed。
@@ -80,6 +80,18 @@ row count、content hash、date coverage、null profile、warning/quarantine cou
 Cloud Run／VM restart smoke、GCS production object 與 PostgreSQL workload connectivity
 仍待 runtime deployment 後驗證，未在本次變更中宣稱完成。
 
+排程 Stage lifecycle 已加入 execution-scoped 模式：payload、sidecar 與 manifest
+置於 `executions/{execution_id}/stage/`；Core 成功後以 immutable
+`executions/{execution_id}/core-commit.json` 作為清理 fence。清理只接受已有
+commit marker 的指定 execution，未 commit 的失敗／重試資料不會被刪除。Cloud
+entrypoint 預設啟用此模式，並可用 `PREVIOUS_STAGE_EXECUTION_ID` 指定要清理的前次
+成功 execution；尚未完成 Scheduler runtime 重新部署與雲端清理 smoke。
+
+Job 亦支援 `INGESTION_DATE` 單日 replay，或以
+`BACKFILL_START_DATE`／`BACKFILL_END_DATE` 執行最多 367 個日曆日的 bounded
+range replay；`INGESTION_DATASETS` 可限制資料源。每次 replay 都使用新的 execution
+ID，並沿用相同 Stage → Core commit fence。
+
 ## P0 Core 第一批資料源
 
 `ingestion_core.first_batch` 提供可重播的 credential-free JSON adapter，涵蓋
@@ -91,3 +103,12 @@ benchmark collection 與個股行情 collection 分離。`effective_trading_day`
 raw payload 仍由 Stage/GCS 層保存，control database 僅保存 cache metadata；SQLite
 reference 與 PostgreSQL adapter 均提供 bounded prune。第一批資料源的線上 upstream
 API smoke 與實機 workload connectivity 仍需部署後執行。
+
+Cloud Run ingestion Job 已以官方 TWSE／TPEx／MOPS OpenAPI 與 FinMind request
+完成第一批 8 個來源的 Stage → Core 雲端 smoke。Execution
+`janus-ingestion-core-n88jc` 為 8／8 Stage、0 failure，建立／重用合計 79,262
+個 natural-key rows，並以來源／觀測日聚合成 8 個 Core partition objects（27.38
+MiB）。同日 replay `janus-ingestion-core-nxmwc` 為 `core_created=0`、
+`core_reused=79,262`，object count 維持 8，證明 create-if-absent partition commit
+不產生重複資料。07:30 `Asia/Taipei` Scheduler 仍 paused，直到前次 Stage cleanup、
+日期區間 backfill 與 Admin control 完成。

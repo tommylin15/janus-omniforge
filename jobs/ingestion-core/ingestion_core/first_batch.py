@@ -49,18 +49,18 @@ def normalise_benchmark(rows: Iterable[Mapping[str, Any]], benchmark_id: str = "
     result = []
     for row in rows:
         result.append({"benchmark_id": str(_pick(row, "benchmark_id", "index", "name") or benchmark_id),
-                       "trade_date": _iso_date(_pick(row, "trade_date", "date", "Date")),
-                       "close": _text(_pick(row, "close", "value", "index_value", "Close", "ClosingIndex")),
+                       "trade_date": _iso_date(_pick(row, "trade_date", "date", "Date", "日期")),
+                       "close": _text(_pick(row, "close", "value", "index_value", "Close", "ClosingIndex", "收盤指數")),
                        "return_percent": _text(_pick(row, "return_percent", "change_percent", "change", "Change")),
                        "index_kind": str(_pick(row, "index_kind", "kind") or "price")})
     return tuple(result)
 
 
 def normalise_valuation(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, Any], ...]:
-    return tuple({"symbol": str(_pick(row, "symbol", "code", "Code")), "market": str(_pick(row, "market") or "TWSE"),
+    return tuple({"symbol": str(_pick(row, "symbol", "code", "Code", "證券代號")), "market": str(_pick(row, "market") or "TWSE"),
                   "observed_date": _iso_date(_pick(row, "observed_date", "date", "Date")),
-                  "pe_ratio": _text(_pick(row, "pe_ratio", "pe", "PEratio")), "pb_ratio": _text(_pick(row, "pb_ratio", "pb", "PBratio")),
-                  "dividend_yield_percent": _text(_pick(row, "dividend_yield_percent", "dividend_yield", "DividendYield"))}
+                  "pe_ratio": _text(_pick(row, "pe_ratio", "pe", "PEratio", "本益比")), "pb_ratio": _text(_pick(row, "pb_ratio", "pb", "PBratio", "股價淨值比")),
+                  "dividend_yield_percent": _text(_pick(row, "dividend_yield_percent", "dividend_yield", "DividendYield", "殖利率(%)"))}
                  for row in rows)
 
 
@@ -135,6 +135,15 @@ def normalise_events(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, Any],
 def normalise_market_activity(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, Any], ...]:
     result = []
     for row in rows:
+        if "證券代號" in row and "當日沖銷交易成交股數" in row:
+            for metric, field, unit in (
+                ("day_trade_shares", "當日沖銷交易成交股數", "shares"),
+                ("day_trade_buy_twd", "當日沖銷交易買進成交金額", "TWD"),
+                ("day_trade_sell_twd", "當日沖銷交易賣出成交金額", "TWD"),
+            ):
+                result.append({"symbol": str(row["證券代號"]), "market": "TWSE", "trade_date": _iso_date(row["Date"]),
+                               "metric": metric, "value": _text(row.get(field)), "unit": unit})
+            continue
         official_day_trade = "Code" in row and "Suspension" in row
         result.append({"symbol": str(_pick(row, "symbol", "code", "Code")), "market": str(_pick(row, "market") or "TWSE"),
                        "trade_date": _iso_date(_pick(row, "trade_date", "date", "Date")),
@@ -165,8 +174,15 @@ class JsonDatasetAdapter:
         if isinstance(document, list):
             upstream_rows = document
         else:
-            upstream_rows = document.get("data", document.get("rows", []))
-            fields = document.get("fields")
+            if document.get("tables"):
+                upstream_rows = []
+                for table in document["tables"]:
+                    fields = table.get("fields", [])
+                    upstream_rows.extend(dict(zip(fields, row, strict=False)) | {"Date": document.get("date")} for row in table.get("data", []))
+                fields = None
+            else:
+                upstream_rows = document.get("data", document.get("rows", []))
+                fields = document.get("fields")
             if fields and upstream_rows and isinstance(upstream_rows[0], list):
                 upstream_rows = [dict(zip(fields, row, strict=False)) | {"Date": document.get("date")} for row in upstream_rows]
         rows = tuple({**row, "source_id": self.source_id} for row in self.normalizer(upstream_rows))
@@ -177,8 +193,17 @@ class JsonDatasetAdapter:
 
     @staticmethod
     def _https(url: str) -> bytes:
-        with urlopen(Request(url, headers={"User-Agent": "JanusAI/1.0"}), timeout=30) as response:
-            return response.read()
+        request = Request(url, headers={
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
+            "User-Agent": "Mozilla/5.0 (compatible; JanusAI-Ingestion/1.0; +https://github.com/tommylin15/janus-omniforge)",
+        })
+        with urlopen(request, timeout=30) as response:
+            payload = response.read()
+            content_type = response.headers.get_content_type()
+        if payload.lstrip()[:1] not in {b"[", b"{"}:
+            raise ValueError(f"upstream returned non-JSON content ({content_type})")
+        return payload
 
 
 def stage_raw_response(
@@ -189,6 +214,7 @@ def stage_raw_response(
     store: object,
     cache_ttl: timedelta = timedelta(hours=24),
     fetched_at: datetime | None = None,
+    execution_scoped: bool = False,
 ) -> tuple[StageResult, CacheMetadata]:
     """Write upstream bytes to Stage and return metadata for the control plane.
 
@@ -222,6 +248,7 @@ def stage_raw_response(
         extension="json",
         execution_id=request.execution_id,
         provenance=provenance,
+        execution_scoped=execution_scoped,
     )
     metadata = CacheMetadata(
         cache_key=staged.idempotency_key,
@@ -263,12 +290,12 @@ def dataset_adapters(transport: Callable[[str], bytes] | None = None) -> dict[st
         return "https://api.finmindtrade.com/api/v4/data?" + urlencode(values)
 
     return {
-        "taiex": JsonDatasetAdapter("taiex", "benchmark", "https://openapi.twse.com.tw/v1/indicesReport/MI_5MINS_HIST", lambda rows: normalise_benchmark(rows, "TAIEX"), transport),
+        "taiex": JsonDatasetAdapter("taiex", "benchmark", "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST", lambda rows: normalise_benchmark(rows, "TAIEX"), transport, dated("https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST", response="json")),
         "tpex-benchmark": JsonDatasetAdapter("tpex-benchmark", "benchmark", "https://www.tpex.org.tw/openapi/v1/tpex_index", lambda rows: normalise_benchmark(rows, "TPEx"), transport),
-        "twse-valuation": JsonDatasetAdapter("twse", "valuation", "https://openapi.twse.com.tw/v1/exchangeReport/BWIBBU_ALL", normalise_valuation, transport),
+        "twse-valuation": JsonDatasetAdapter("twse", "valuation", "https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d", normalise_valuation, transport, dated("https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d", selectType="ALL", response="json")),
         "twse-institutional": JsonDatasetAdapter("twse", "institutional", "https://www.twse.com.tw/rwd/zh/fund/T86", normalise_institutional, transport, dated("https://www.twse.com.tw/rwd/zh/fund/T86", selectType="ALL", response="json")),
         "mops": JsonDatasetAdapter("mops", "financials", "https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci", normalise_financials, transport),
         "finmind": JsonDatasetAdapter("finmind", "financials", "https://api.finmindtrade.com/api/v4/data", normalise_financials, transport, finmind),
         "twse-events": JsonDatasetAdapter("twse", "events", "https://openapi.twse.com.tw/v1/opendata/t187ap04_L", normalise_events, transport),
-        "twse-market-activity": JsonDatasetAdapter("twse", "market-activity", "https://openapi.twse.com.tw/v1/exchangeReport/TWTB4U", normalise_market_activity, transport),
+        "twse-market-activity": JsonDatasetAdapter("twse", "market-activity", "https://www.twse.com.tw/exchangeReport/TWTB4U", normalise_market_activity, transport, dated("https://www.twse.com.tw/exchangeReport/TWTB4U", response="json")),
     }
