@@ -25,8 +25,11 @@ resource "google_cloudbuild_trigger" "ingestion_core" {
   service_account = "projects/${var.project_id}/serviceAccounts/janus-ci@${var.project_id}.iam.gserviceaccount.com"
 
   substitutions = {
-    _DOCKERFILE = "jobs/ingestion-core/Dockerfile"
-    _IMAGE_NAME = "ingestion-core"
+    _DOCKERFILE    = "jobs/ingestion-core/Dockerfile"
+    _IMAGE_NAME    = "ingestion-core"
+    _IMAGE_TAG     = "main"
+    _DEPLOY_TARGET = "job"
+    _RUNTIME_NAME  = "janus-ingestion-core"
   }
 
   developer_connect_event_config {
@@ -67,11 +70,11 @@ resource "google_cloudbuild_trigger" "trino" {
   service_account = "projects/${var.project_id}/serviceAccounts/janus-ci@${var.project_id}.iam.gserviceaccount.com"
 
   substitutions = {
-    _DOCKERFILE   = "services/trino/Dockerfile"
-    _IMAGE_NAME   = "trino"
-    _IMAGE_TAG    = "main"
+    _DOCKERFILE    = "services/trino/Dockerfile"
+    _IMAGE_NAME    = "trino"
+    _IMAGE_TAG     = "main"
     _DEPLOY_TARGET = "service"
-    _RUNTIME_NAME = "janus-trino"
+    _RUNTIME_NAME  = "janus-trino"
   }
 
   developer_connect_event_config {

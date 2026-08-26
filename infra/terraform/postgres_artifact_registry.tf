@@ -68,6 +68,14 @@ resource "google_artifact_registry_repository_iam_member" "runtime_trino_reader"
   member     = "serviceAccount:trino-runtime@${var.project_id}.iam.gserviceaccount.com"
 }
 
+resource "google_artifact_registry_repository_iam_member" "runtime_ingestion_reader" {
+  project    = var.project_id
+  location   = google_artifact_registry_repository.runtime.location
+  repository = google_artifact_registry_repository.runtime.name
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:ingestion-core@${var.project_id}.iam.gserviceaccount.com"
+}
+
 resource "google_artifact_registry_repository_iam_member" "postgres_vm_reader" {
   project    = var.project_id
   location   = google_artifact_registry_repository.postgres.location

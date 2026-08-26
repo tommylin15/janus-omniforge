@@ -7,6 +7,7 @@ locals {
     "iap.googleapis.com",
     "oslogin.googleapis.com",
     "run.googleapis.com",
+    "cloudscheduler.googleapis.com",
     "serviceusage.googleapis.com",
   ])
 }
@@ -18,4 +19,3 @@ resource "google_project_service" "compute_direct_vpc_required" {
   service            = each.value
   disable_on_destroy = false
 }
-

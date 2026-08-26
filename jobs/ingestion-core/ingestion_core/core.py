@@ -70,3 +70,48 @@ class CoreWriter:
         self.events.publish({"eventType": "core.dataset.ready.v1", "executionId": execution_id,
                              "datasetId": "core", "schemaVersion": "1.0.0", "rowCount": len(materialized)})
         return CoreResult(tuple(materialized), **{key: summary[key] for key in ("row_count", "content_hash", "date_from", "date_to", "null_profile", "warning_count", "quarantined_count", "provenance_id")})
+
+
+@dataclass(frozen=True)
+class IncrementalCoreResult:
+    dataset_id: str
+    created: int
+    reused: int
+    object_names: tuple[str, ...]
+
+
+class IncrementalCoreWriter:
+    """Append new natural keys while making replay of an existing key a no-op."""
+
+    IDENTIFIERS = {
+        "valuation": ("symbol", "market", "observed_date"),
+        "institutional": ("symbol", "market", "trade_date", "investor_type"),
+        "financials": ("symbol", "fiscal_year", "fiscal_quarter", "statement_type", "published_at", "metric"),
+        "events": ("event_id", "published_at"),
+        "market-activity": ("symbol", "market", "trade_date", "metric"),
+        "benchmark": ("benchmark_id", "trade_date"),
+    }
+
+    def __init__(self, store: ObjectStore) -> None:
+        self.store = store
+
+    def write(self, *, dataset_id: str, rows: list[dict[str, Any]], execution_id: str,
+              provenance_id: str, source_id: str, partition_date: date) -> IncrementalCoreResult:
+        identifiers = self.IDENTIFIERS.get(dataset_id)
+        if identifiers is None:
+            raise ValueError(f"unsupported incremental Core dataset: {dataset_id}")
+        unique: dict[tuple[str, ...], dict[str, Any]] = {}
+        for input_row in rows:
+            missing = [field for field in identifiers if input_row.get(field) in {None, ""}]
+            if missing:
+                raise ValueError(f"missing Core identifier fields: {','.join(missing)}")
+            row = dict(input_row)
+            row.update(execution_id=execution_id, provenance_id=provenance_id, source_id=source_id)
+            key = tuple(str(row[field]) for field in identifiers)
+            unique[key] = row
+        materialized = [unique[key] for key in sorted(unique)]
+        object_name = f"core/{dataset_id}/v1/source={source_id}/observed_date={partition_date.isoformat()}/data.json"
+        payload = json.dumps(materialized, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str).encode()
+        created = self.store.create(object_name, payload, "application/json")
+        return IncrementalCoreResult(dataset_id, len(materialized) if created else 0,
+                                     0 if created else len(materialized), (object_name,))

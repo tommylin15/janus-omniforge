@@ -147,6 +147,22 @@ Compute Engine PostgreSQL VM 後，仍需完成下列 production persistence int
 - [x] 驗證 benchmark 在個股行情存在時仍會更新。（獨立 benchmark adapter／測試）
 - [x] 驗證新增資料源只把 raw/cache payload 寫 GCS，PostgreSQL metadata retention 與 disk usage 維持有界。（raw payload in `SourceResponse`、control `prune` bounded tests）
 
+## P0 — 排程 Stage → Core、回跑與暫存生命週期
+
+現況：Cloud Run Job 與 07:30 Scheduler 已建立；首次 smoke execution
+`janus-ingestion-core-z84fq` 僅成功寫入 2／8 個 Stage 資料源且尚未執行 Core，
+因此 Scheduler 暫停，待下列閉環驗收完成後才可啟用。
+
+- [ ] 每日 08:00 前的 ingestion 排程必須在收集進 Stage 後，於同一 execution 完成 Stage → DQ → Core；任一必要步驟失敗時 execution 不得標示成功。
+- [ ] 排程型 Stage payload 採 execution-scoped 一次性暫存；下一次排程成功後，只清除前一次已成功排程且已完成 Core commit 的 Stage payload、sidecar 與 manifest，不得清除目前 execution、失敗／重試中 execution 或尚未完成 Core commit 的資料。
+- [ ] 提供指定單日、起訖日期區間與指定資料源的 backfill／replay；回跑使用獨立 execution，不受每日排程的「前一次 Stage 清理」誤刪。
+- [ ] Core 採 append／incremental merge；以各 dataset 的自然鍵與 content hash 做 idempotent upsert，重跑同日期或相同資料不得產生 duplicate key 或重複 row。
+- [ ] benchmark 與個股資料保持獨立 cursor／commit，個股資料已存在時 benchmark 仍可增量更新。
+- [ ] Admin UI 可調整啟用資料源、排程時間、交易日／holiday override、單日或區間回跑參數、Stage retention／cleanup 開關；所有設定須驗證、稽核並以 control database 持久化。
+- [ ] Admin UI 提供 execution 狀態、Stage／Core commit、清理結果、資料源失敗與 backfill 進度；敏感錯誤只顯示 safe message。
+- [ ] 增加整合測試：排程閉環、前次 Stage 安全清理、失敗保留、日期區間回跑、指定來源回跑、Core 重跑去重、benchmark 獨立更新與 Admin 設定驗證。
+- [ ] 雲端驗收：Cloud Scheduler 於 `Asia/Taipei` 每日 07:30 觸發；Cloud Run Job execution 成功、Core commit 完成、GCS 清理範圍正確，並保存 execution ID／manifest 作為證據。
+
 ## P0 — Core 資料服務與可觀測性
 
 - [ ] 建立 Core query API／BFF，禁止前端直接讀 Stage raw objects。

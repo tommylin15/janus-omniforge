@@ -1,7 +1,7 @@
 locals {
-  trino_service_name = "janus-trino"
+  trino_service_name    = "janus-trino"
   trino_service_account = "trino-runtime@${var.project_id}.iam.gserviceaccount.com"
-  trino_image_digest = "us-central1-docker.pkg.dev/${var.project_id}/janusai-poc/trino@sha256:80dbaaed491e54d19c9af20e28637137c6594a8934c6164b2055c999b234a93c"
+  trino_image_digest    = "us-central1-docker.pkg.dev/${var.project_id}/janusai-poc/trino@sha256:86d4ac6030e5f4064b46319ce51a036bad0999a95536f14b2ef6d2e601a64ca3"
 }
 
 resource "google_cloud_run_v2_service" "trino" {
@@ -9,6 +9,11 @@ resource "google_cloud_run_v2_service" "trino" {
   name     = local.trino_service_name
   location = var.region
   ingress  = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+
+  lifecycle {
+    # Cloud Build owns immutable image rollout metadata after bootstrap.
+    ignore_changes = [client, client_version, template[0].containers[0].image]
+  }
 
   template {
     service_account = local.trino_service_account

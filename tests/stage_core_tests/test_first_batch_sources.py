@@ -8,7 +8,9 @@ from pathlib import Path
 from ingestion_core.adapters import CollectionRequest
 from ingestion_core.control import CollectionConfig, SQLiteControlPlane, Stock
 from ingestion_core.stage import LocalObjectStore
+from ingestion_core.core import IncrementalCoreWriter
 from ingestion_core.first_batch import (JsonDatasetAdapter, effective_trading_day,
+    dataset_adapters,
     normalise_benchmark, normalise_events, normalise_financials,
     normalise_institutional, normalise_market_activity, normalise_valuation,
     stage_raw_response)
@@ -51,6 +53,35 @@ class FirstBatchSourceTests(unittest.TestCase):
             self.assertTrue((Path(directory) / staged.object_name).exists())
             self.assertEqual(metadata.payload_uri, f"gs://janus-stage/{staged.object_name}")
             self.assertTrue(metadata.content_hash.startswith("sha256:"))
+
+    def test_official_provider_shapes_are_parsed(self):
+        payloads = {
+            "tpex_index": [{"Date": "20260825", "Close": "362.89", "Change": "15.04"}],
+            "BWIBBU_ALL": [{"Date": "1150825", "Code": "2330", "PEratio": "20", "PBratio": "5", "DividendYield": "2"}],
+            "T86": {"date": "20260825", "fields": ["證券代號", "外陸資買進股數(不含外資自營商)", "外陸資賣出股數(不含外資自營商)", "外陸資買賣超股數(不含外資自營商)", "投信買進股數", "投信賣出股數", "投信買賣超股數", "自營商買進股數(自行買賣)", "自營商賣出股數(自行買賣)", "自營商買賣超股數"], "data": [["2330", "10", "2", "8", "3", "1", "2", "4", "1", "3"]]},
+            "t187ap06": [{"出表日期": "1150826", "年度": "115", "季別": "2", "公司代號": "2330", "營業收入": "100"}],
+            "finmind": {"data": [{"date": "2026-03-31", "stock_id": "2330", "type": "EPS", "value": 22.08}]},
+            "t187ap04": [{"出表日期": "1150826", "發言日期": "1150825", "發言時間": "070003", "公司代號": "2330", "符合條款": "第1款", "事實發生日": "1150825", "說明": "event"}],
+        }
+        def transport(url):
+            key = next(key for key in payloads if key in url)
+            return json.dumps(payloads[key], ensure_ascii=False).encode()
+        adapters = dataset_adapters(transport)
+        self.assertEqual(adapters["tpex-benchmark"].fetch(self.request()).rows[0]["trade_date"], "2026-08-25")
+        self.assertEqual(adapters["twse-valuation"].fetch(self.request("valuation")).rows[0]["symbol"], "2330")
+        self.assertEqual(len(adapters["twse-institutional"].fetch(self.request("institutional")).rows), 3)
+        self.assertEqual(adapters["mops"].fetch(self.request("financials")).rows[0]["metric"], "營業收入")
+        self.assertEqual(adapters["finmind"].fetch(self.request("financials")).rows[0]["metric"], "EPS")
+        self.assertEqual(adapters["twse-events"].fetch(self.request("events")).rows[0]["effective_date"], "2026-08-25")
+
+    def test_incremental_core_reuses_natural_key(self):
+        row = {"benchmark_id": "TAIEX", "trade_date": "2026-08-25", "close": "23000"}
+        with tempfile.TemporaryDirectory() as directory:
+            writer = IncrementalCoreWriter(LocalObjectStore(Path(directory)))
+            first = writer.write(dataset_id="benchmark", rows=[row], execution_id="e1", provenance_id="p1", source_id="taiex", partition_date=date(2026, 8, 25))
+            replay = writer.write(dataset_id="benchmark", rows=[row], execution_id="e2", provenance_id="p2", source_id="taiex", partition_date=date(2026, 8, 25))
+            self.assertEqual((first.created, first.reused), (1, 0))
+            self.assertEqual((replay.created, replay.reused), (0, 1))
 
     def test_cache_metadata_and_execution_retention_are_prunable(self):
         with tempfile.TemporaryDirectory() as directory:

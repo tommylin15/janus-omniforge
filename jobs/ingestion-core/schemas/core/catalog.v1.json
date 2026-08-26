@@ -15,8 +15,8 @@
       "partitions": ["month(trade_date)", "bucket[32](symbol)"]
     },
     "financials_v1": {
-      "identifier_fields": ["symbol", "fiscal_year", "fiscal_quarter", "statement_type", "published_at"],
-      "required_fields": ["symbol", "fiscal_year", "fiscal_quarter", "statement_type", "published_at", "source_id", "provenance_id", "execution_id"],
+      "identifier_fields": ["symbol", "fiscal_year", "fiscal_quarter", "statement_type", "published_at", "metric"],
+      "required_fields": ["symbol", "fiscal_year", "fiscal_quarter", "statement_type", "published_at", "metric", "source_id", "provenance_id", "execution_id"],
       "nullable_metrics": ["value", "unit", "currency"],
       "partitions": ["year(published_at)", "bucket[32](symbol)"]
     },
