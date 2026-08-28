@@ -38,7 +38,7 @@
 - [x] 盤點 Compute Engine、IAP、OS Login 與 Direct VPC egress 所需 API／IAM；只啟用 `compute`、`iam`、`iap`、`oslogin`、`run`、`serviceusage` 必要 API，禁止 Artifact Analysis／Container Scanning API。（`infra/terraform/required_apis.tf`；2026-08-26 實際盤點）
 - [x] 將 Direct VPC egress 所需 Cloud Run service agent／deployer `roles/compute.networkUser` 與 workload network tags 納入最小 IAM；不得建立有固定 VM 費的 Serverless VPC Access connector。（`infra/terraform/direct_vpc_iam.tf`；subnet-scoped IAM）
 - [x] 建立 path-based Cloud Build triggers。（人工建立 `janus-ingestion-core` 與 `janus-intelligence-mart`，main 分支路徑篩選）
-- [x] 建立 Artifact Registry cleanup policy。（`janusai-poc`：每個 image package 僅保留最新 tagged version，舊 tagged／untagged 版本約 1 秒後清理；Artifact scanning APIs 未啟用）
+- [x] 建立 Artifact Registry cleanup policy。（`janusai-poc`、`janus-postgres`：每個 image package 僅保留最新 tagged version，舊 tagged／untagged 版本約 1 秒後清理；Artifact scanning APIs 未啟用）
 - [x] 建立 Secret Manager secrets（只放名稱，不把值寫入 repo）。（12 個名稱已建立或已存在；第 4 項前導 `.` 已正規化為 `janus-fugle-api-key`）
 - [x] 建立 PostgreSQL bootstrap、control、catalog、publication、audit role 的 Secret 名稱與單項 IAM；不得共用 superuser credential 或寫入 Terraform state／startup script。（`infra/terraform/postgres_secrets.tf`；五個空 Secret container、五組單一 secret-level accessor、無 secret version）
 - [x] 確認 build 產出 immutable digest 與 SBOM。（歷史 Build `dc17987c-dbb9-474c-ac3b-9791c6916ef7`；Trino digest `sha256:e6376bfd8b4315fe70ebdba0d2d683881ac80e112099cbc09528388c6af10a61`；既有 SBOM occurrence `74ab98fa-5e52-4c62-a431-846620aea1ad`，不得重複執行 occurrence API）

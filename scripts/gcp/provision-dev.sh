@@ -12,6 +12,9 @@ repo="${GITHUB_REPOSITORY:-tommylin15/janus-omniforge}"
 ci_sa="${GCP_CI_SERVICE_ACCOUNT:-janus-ci@${project}.iam.gserviceaccount.com}"
 network="janusai-lake-poc"
 subnet="janusai-lake-poc-uscentral1"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "${script_dir}/../.." && pwd)"
+cleanup_policy="${repo_root}/infra/artifact-registry-cleanup-policy.json"
 
 if [[ "${ALLOW_DEV_PROVISION:-false}" != "true" ]]; then
   echo "Refusing provisioning: set ALLOW_DEV_PROVISION=true explicitly." >&2
@@ -55,6 +58,8 @@ for repository in janus-postgres janusai-poc; do
     gcloud artifacts repositories create "${repository}" --location="${region}" \
       --repository-format=docker --description="Janus dev images; scanning APIs are prohibited." --quiet
   fi
+  gcloud artifacts repositories set-cleanup-policies "${repository}" \
+    --location="${region}" --policy="${cleanup_policy}" --no-dry-run --quiet
 done
 
 pool="github-actions"
