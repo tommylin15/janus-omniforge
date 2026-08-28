@@ -1,18 +1,26 @@
 [
   {
-    "name": "delete-untagged-after-3-days",
+    "name": "delete-untagged-after-1-second",
     "action": { "type": "Delete" },
     "condition": {
       "tagState": "UNTAGGED",
-      "olderThan": "3d"
+      "olderThan": "1s"
     }
   },
   {
-    "name": "keep-three-most-recent-tagged",
+    "name": "delete-tagged-older-than-1-second",
+    "action": { "type": "Delete" },
+    "condition": {
+      "tagState": "TAGGED",
+      "olderThan": "1s"
+    }
+  },
+  {
+    "name": "keep-latest-tagged-version",
     "action": { "type": "Keep" },
     "mostRecentVersions": {
       "packageNamePrefixes": [],
-      "keepCount": 3
+      "keepCount": 1
     }
   }
 ]

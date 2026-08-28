@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app:/app/jobs/ingestion-core \
     PORT=8080
 
-COPY requirements.lock ./
+COPY jobs/ingestion-core/requirements.lock ./requirements.lock
 RUN if [ -s requirements.lock ] && ! grep -q '^# No Python dependencies' requirements.lock; then \
       pip install --no-cache-dir --require-hashes -r requirements.lock; \
     fi

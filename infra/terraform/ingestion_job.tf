@@ -43,7 +43,7 @@ resource "google_cloud_run_v2_job" "ingestion_core" {
         resources {
           limits = {
             cpu    = "1"
-            memory = "512Mi"
+            memory = "1Gi"
           }
         }
 
@@ -58,6 +58,68 @@ resource "google_cloud_run_v2_job" "ingestion_core" {
         env {
           name  = "CORE_BUCKET"
           value = google_storage_bucket.data["core"].name
+        }
+        env {
+          name  = "CONTROL_DB_HOST"
+          value = google_compute_instance.postgres.network_interface[0].network_ip
+        }
+        env {
+          name  = "CONTROL_DB_NAME"
+          value = "janus_control"
+        }
+        env {
+          name  = "CONTROL_DB_USER"
+          value = "janus_control"
+        }
+        env {
+          name = "CONTROL_DB_PASSWORD"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.postgres_role["control"].id
+              version = "latest"
+            }
+          }
+        }
+        env {
+          name  = "CONTROL_COLLECTION_CONFIG"
+          value = "first-batch"
+        }
+        env {
+          name  = "CATALOG_DB_HOST"
+          value = google_compute_instance.postgres.network_interface[0].network_ip
+        }
+        env {
+          name  = "CATALOG_DB_NAME"
+          value = "janus_control"
+        }
+        env {
+          name  = "CATALOG_DB_USER"
+          value = "janus_catalog"
+        }
+        env {
+          name = "CATALOG_DB_PASSWORD"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.postgres_role["catalog"].id
+              version = "latest"
+            }
+          }
+        }
+        env {
+          name  = "ICEBERG_WAREHOUSE"
+          value = "gs://${google_storage_bucket.data["core"].name}/warehouse"
+        }
+        env {
+          name  = "DUCKDB_MEMORY_LIMIT"
+          value = "384MB"
+        }
+        env {
+          name  = "DUCKDB_THREADS"
+          value = "1"
+        }
+        env {
+          name  = "DUCKDB_QUERY_TIMEOUT_SECONDS"
+          value = "60"
         }
       }
     }
@@ -84,7 +146,7 @@ resource "google_cloud_scheduler_job" "ingestion_daily" {
   description      = "Collect first-batch market sources into Stage before 08:00 Asia/Taipei."
   schedule         = "30 7 * * *"
   time_zone        = "Asia/Taipei"
-  paused           = true
+  paused           = false
   attempt_deadline = "320s"
 
   retry_config {

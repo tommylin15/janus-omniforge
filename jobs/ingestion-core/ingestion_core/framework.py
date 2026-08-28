@@ -156,6 +156,7 @@ class IngestionFramework:
             cached = self.control.get_cache(key)
             if cached is not None:
                 payload, _, observed = cached
+                self.control.record_health(source_id, config.dataset_id, state=DataState.SUCCESS, latency_ms=0, fetched_at=datetime.now(timezone.utc), latest_observation_at=observed, expected_symbols=len(symbols), received_symbols=len(payload), cache_hit=True, coverage_tier=config.coverage_tier, cache_age_seconds=max(0.0, (datetime.now(timezone.utc) - observed).total_seconds()) if observed else None)
                 return DataState.SUCCESS, source_id, self._select_rows(payload, symbols), total_attempts, True, source_position > 0, None, None, observed
             limiter = self.limiters.setdefault(source_id, RateLimiter(self.rate_limit_per_second))
             request = CollectionRequest(execution_id, trace_id, source_id, config.dataset_id, config.market, symbols, window.start, window.end, self.timeout_seconds)
@@ -167,12 +168,12 @@ class IngestionFramework:
                 if state == DataState.SCHEMA_DRIFT:
                     last_state = state
                     last_code, last_message = ErrorCode.SCHEMA_DRIFT.value, "source response schema changed"
-                    self.control.record_health(source_id, config.dataset_id, state=state, latency_ms=(time.monotonic() - started) * 1000, fetched_at=datetime.now(timezone.utc), latest_observation_at=response.observed_at)
+                    self.control.record_health(source_id, config.dataset_id, state=state, latency_ms=(time.monotonic() - started) * 1000, fetched_at=datetime.now(timezone.utc), latest_observation_at=response.observed_at, expected_symbols=len(symbols), received_symbols=len(response.rows), coverage_tier=config.coverage_tier)
                     continue
                 if not response.rows:
                     last_state = DataState.EMPTY
                     last_code, last_message = ErrorCode.EMPTY_RESPONSE.value, "source returned no rows"
-                    self.control.record_health(source_id, config.dataset_id, state=DataState.EMPTY, latency_ms=(time.monotonic() - started) * 1000, fetched_at=datetime.now(timezone.utc), latest_observation_at=response.observed_at)
+                    self.control.record_health(source_id, config.dataset_id, state=DataState.EMPTY, latency_ms=(time.monotonic() - started) * 1000, fetched_at=datetime.now(timezone.utc), latest_observation_at=response.observed_at, expected_symbols=len(symbols), coverage_tier=config.coverage_tier)
                     continue
                 state = DataState.STALE if response.stale_as_of else (DataState.PARTIAL if response.is_partial else (DataState.FALLBACK if response.is_fallback or source_position > 0 else DataState.SUCCESS))
                 if state == DataState.STALE and source_position + 1 < len(config.source_ids):
@@ -186,7 +187,7 @@ class IngestionFramework:
                 # the next execution and must not be promoted by the cache.
                 if state == DataState.SUCCESS:
                     self.control.put_cache(key, source_id, config.dataset_id, payload, digest, datetime.now(timezone.utc), self.cache_ttl, response.observed_at)
-                self.control.record_health(source_id, config.dataset_id, state=state, latency_ms=(time.monotonic() - started) * 1000, fetched_at=datetime.now(timezone.utc), latest_observation_at=response.observed_at)
+                self.control.record_health(source_id, config.dataset_id, state=state, latency_ms=(time.monotonic() - started) * 1000, fetched_at=datetime.now(timezone.utc), latest_observation_at=response.observed_at, expected_symbols=len(symbols), received_symbols=len(response.rows), coverage_tier=config.coverage_tier)
                 return state, source_id, self._select_rows(payload, symbols), total_attempts, False, source_position > 0 or response.is_fallback, None, None, response.observed_at
             except FetchFailure as error:
                 last_state = DataState.UNAVAILABLE

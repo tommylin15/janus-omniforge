@@ -26,9 +26,12 @@ resource "google_compute_firewall" "postgres_private_clients" {
   name    = "janus-postgres-private-clients"
   network = data.google_compute_subnetwork.direct_vpc.network
 
-  direction   = "INGRESS"
-  source_tags = values(local.direct_vpc_workload_tags)
-  target_tags = [local.postgres_network_tag]
+  # Cloud Run Direct VPC egress network tags can scope egress rules, but they
+  # are not supported as the source selector of an ingress firewall rule.
+  # Keep this aligned with the private subnet CIDR allowed by pg_hba.conf.
+  direction     = "INGRESS"
+  source_ranges = [data.google_compute_subnetwork.direct_vpc.ip_cidr_range]
+  target_tags   = [local.postgres_network_tag]
 
   allow {
     protocol = "tcp"
@@ -113,4 +116,3 @@ output "postgres_vm_private_ip" {
   description = "Private-only PostgreSQL endpoint; available after authorized apply."
   value       = google_compute_instance.postgres.network_interface[0].network_ip
 }
-

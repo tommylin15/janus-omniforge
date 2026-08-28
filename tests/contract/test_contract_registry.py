@@ -35,6 +35,9 @@ class ContractRegistryTests(unittest.TestCase):
         self.assertIn("StockMasterV1", control_schema["definitions"])
         self.assertIn("DatasetCollectionConfigV1", control_schema["definitions"])
         self.assertIn("ExecutionV1", control_schema["definitions"])
+        self.assertIn("CoverageMembershipV1", control_schema["definitions"])
+        self.assertEqual(set(self.registry["enums"]["coverageTier"]), {"market_wide", "core_focus", "market_macro"})
+        self.assertEqual(self.registry["sourceCatalog"]["fugle"]["authorizationStatus"], "candidate")
 
 
 if __name__ == "__main__":

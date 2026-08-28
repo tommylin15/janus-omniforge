@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>Janus Admin · Data Operations</title>
+  <link rel="stylesheet" href="/assets/admin.css">
+  <script src="/assets/admin.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳至主要內容</a>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">J</span><div><strong>JANUS</strong><small>DATA OPERATIONS</small></div></div>
+    <div class="runtime"><span class="pulse" aria-hidden="true"></span><span id="runtime-label">正在檢查服務</span></div>
+  </header>
+
+  <div class="shell">
+    <aside class="sidebar" aria-label="Admin 導覽">
+      <p class="eyebrow">Workspace</p>
+      <nav>
+        <a class="nav-link active" href="#stocks"><span aria-hidden="true">◫</span>股票管理</a>
+        <a class="nav-link" href="#executions"><span aria-hidden="true">↻</span>執行佇列</a>
+        <a class="nav-link" href="#sources"><span aria-hidden="true">⌁</span>資料源健康</a>
+        <a class="nav-link" href="#catalog"><span aria-hidden="true">▤</span>來源設定</a>
+        <a class="nav-link" href="#membership"><span aria-hidden="true">◎</span>核心名單</a>
+      </nav>
+      <div class="sidebar-note"><span class="tag">P0</span><p>所有操作只寫入控制面；長任務由 worker 非同步執行。</p></div>
+    </aside>
+
+    <main id="main">
+      <div class="page-heading">
+        <div><p class="eyebrow">CONTROL PLANE</p><h1>資料營運中心</h1><p class="lede">管理資料收集範圍、追蹤執行狀態，並查看已持久化的來源健康資訊。</p></div>
+        <button id="refresh-all" class="button secondary" type="button">重新整理</button>
+      </div>
+
+      <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+
+      <section class="metrics" aria-label="執行摘要">
+        <article><span>已選股票</span><strong id="selected-count">0</strong><small>跨頁保留</small></article>
+        <article><span>執行紀錄</span><strong id="execution-count">—</strong><small>最近 50 筆</small></article>
+        <article><span>進行中</span><strong id="active-count">—</strong><small>queued / running / retrying</small></article>
+        <article><span>來源狀態</span><strong id="source-summary">—</strong><small>persisted telemetry</small></article>
+      </section>
+
+      <section id="stocks" class="panel">
+        <div class="panel-heading"><div><p class="eyebrow">STOCK MASTER</p><h2>股票管理</h2></div><span class="tag neutral">每頁 10 筆</span></div>
+        <form id="stock-search" class="toolbar" role="search">
+          <label class="search-field"><span class="sr-only">搜尋股票代號或名稱</span><input id="stock-query" type="search" placeholder="搜尋代號或名稱，例如 2330" autocomplete="off"></label>
+          <label><span class="sr-only">啟用狀態</span><select id="enabled-filter"><option value="">全部狀態</option><option value="true">已啟用</option><option value="false">已停用</option></select></label>
+          <button class="button primary" type="submit">搜尋</button><button id="add-stock" class="button secondary" type="button">新增股票</button>
+        </form>
+
+        <div class="bulk-bar">
+          <span><strong id="bulk-count">0</strong> 檔已選</span>
+          <label>設定 ID <input id="config-id" value="ohlcv" aria-label="Collection config ID"></label>
+          <button id="queue-collection" class="button primary" type="button">加入 Collection</button>
+          <button id="queue-analysis" class="button secondary" type="button">加入 Analysis</button>
+          <button id="clear-selection" class="button quiet" type="button">清除選取</button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th><input id="select-page" type="checkbox" aria-label="選取本頁全部股票"></th><th>股票</th><th>市場</th><th>狀態</th><th>資料生效</th><th class="align-right">操作</th></tr></thead>
+            <tbody id="stock-rows"><tr><td colspan="6" class="empty">正在載入股票…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="pagination"><span id="page-label">第 1 頁</span><div><button id="prev-page" class="button quiet" type="button">上一頁</button><button id="next-page" class="button quiet" type="button">下一頁</button></div></div>
+      </section>
+
+      <section id="executions" class="panel">
+        <div class="panel-heading"><div><p class="eyebrow">PERSISTED QUEUE</p><h2>最近執行</h2></div><button id="refresh-executions" class="button quiet" type="button">重新整理</button></div>
+        <div class="table-wrap"><table><thead><tr><th>狀態</th><th>類型</th><th>設定</th><th>要求時間</th><th>重試</th><th class="align-right">明細</th></tr></thead><tbody id="execution-rows"><tr><td colspan="6" class="empty">正在載入執行紀錄…</td></tr></tbody></table></div>
+      </section>
+
+    <div class="two-column">
+        <section id="sources" class="panel">
+          <div class="panel-heading"><div><p class="eyebrow">OBSERVABILITY</p><h2>資料源健康</h2></div><span class="tag neutral">唯讀</span></div>
+          <div id="source-list" class="card-list"><p class="empty">正在載入 persisted telemetry…</p></div>
+        </section>
+
+        <section id="membership" class="panel">
+          <div class="panel-heading"><div><p class="eyebrow">COVERAGE</p><h2>核心 50 名單</h2></div><span id="membership-count" class="tag neutral">0 / 50</span></div>
+          <form id="membership-form" class="stack-form">
+            <label>股票代號（逗號或換行分隔）<textarea id="membership-symbols" rows="4" placeholder="2330, 2317"></textarea></label>
+            <div class="form-grid"><label>生效時間<input id="membership-effective" type="datetime-local" required></label><label>操作者<input id="membership-owner" required placeholder="operator@example.com"></label></div>
+            <label>變更理由<input id="membership-reason" required placeholder="例：季度核心名單調整"></label>
+            <button class="button primary" type="submit">儲存不可變更版本</button>
+          </form>
+        </section>
+      </div>
+      <section id="settings" class="panel">
+        <div class="panel-heading"><div><p class="eyebrow">OPERATIONS SETTINGS</p><h2>排程與保存設定</h2></div><span class="tag neutral">需填寫操作者與版本</span></div>
+        <form id="settings-form" class="form-grid">
+          <label>排程時間<input id="schedule-time" type="time" required></label><label>保留天數<input id="retention-days" type="number" min="1" max="3650" value="30" required></label>
+          <label class="check-label"><input id="schedule-enabled" type="checkbox" checked> 啟用排程</label><label class="check-label"><input id="cleanup-enabled" type="checkbox" checked> 啟用 Stage cleanup</label>
+          <label>操作者<input id="settings-actor" required placeholder="operator@example.com"></label><button class="button primary" type="submit">儲存設定</button>
+        </form>
+      </section>
+      <section id="catalog" class="panel">
+        <div class="panel-heading"><div><p class="eyebrow">SOURCE CATALOG</p><h2>資料源設定</h2></div><span class="tag neutral">blocked / candidate 不可啟用</span></div>
+        <div id="catalog-list" class="card-list"><p class="empty">正在載入資料源設定…</p></div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="execution-dialog" aria-labelledby="dialog-title">
+    <div class="dialog-heading"><div><p class="eyebrow">EXECUTION DETAILS</p><h2 id="dialog-title">執行明細</h2></div><button id="close-dialog" class="icon-button" aria-label="關閉明細" type="button">×</button></div>
+    <div id="dialog-content"></div>
+  </dialog>
+  <dialog id="stock-dialog" aria-labelledby="stock-dialog-title"><form method="dialog" id="stock-form" class="stack-form"><div class="dialog-heading"><h2 id="stock-dialog-title">新增股票</h2><button class="icon-button" value="cancel" aria-label="取消" type="submit">×</button></div><label>代號<input id="stock-symbol" required pattern="[A-Za-z0-9]+"></label><label>名稱<input id="stock-name" required></label><label>市場<select id="stock-market"><option>TWSE</option><option>TPEX</option></select></label><label>上市狀態<select id="stock-listing"><option>listed</option><option>suspended</option><option>delisted</option><option>unknown</option></select></label><label class="check-label"><input id="stock-enabled" type="checkbox" checked> 啟用</label><button class="button primary" value="default" type="submit">儲存</button></form></dialog>
+  <dialog id="status-dialog" aria-labelledby="status-dialog-title"><div class="dialog-heading"><h2 id="status-dialog-title">資料狀態</h2><button id="close-status" class="icon-button" aria-label="關閉" type="button">×</button></div><div id="status-content"></div></dialog>
+</body>
+</html>

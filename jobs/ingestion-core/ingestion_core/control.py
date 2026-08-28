@@ -41,6 +41,42 @@ class DataState(StrEnum):
     FAILED = "failed"
 
 
+class CoverageTier(StrEnum):
+    MARKET_WIDE = "market_wide"
+    CORE_FOCUS = "core_focus"
+    MARKET_MACRO = "market_macro"
+
+
+class AuthorizationStatus(StrEnum):
+    OFFICIAL = "official"
+    APPROVED_FALLBACK = "approved_fallback"
+    CANDIDATE = "candidate"
+    BLOCKED = "blocked"
+
+
+SOURCE_AUTHORIZATION: dict[str, AuthorizationStatus] = {
+    "twse": AuthorizationStatus.OFFICIAL,
+    "tpex": AuthorizationStatus.OFFICIAL,
+    "mops": AuthorizationStatus.OFFICIAL,
+    "taiex": AuthorizationStatus.OFFICIAL,
+    "tpex-benchmark": AuthorizationStatus.OFFICIAL,
+    "taifex": AuthorizationStatus.OFFICIAL,
+    "tdcc": AuthorizationStatus.APPROVED_FALLBACK,
+    "finmind": AuthorizationStatus.APPROVED_FALLBACK,
+    "fugle": AuthorizationStatus.CANDIDATE,
+    "shioaji": AuthorizationStatus.CANDIDATE,
+    "yahoo-finance": AuthorizationStatus.CANDIDATE,
+    "google-finance": AuthorizationStatus.CANDIDATE,
+    "tiingo": AuthorizationStatus.CANDIDATE,
+    "cmoney": AuthorizationStatus.CANDIDATE,
+    "factset": AuthorizationStatus.CANDIDATE,
+    "podcast": AuthorizationStatus.CANDIDATE,
+    "ptt": AuthorizationStatus.CANDIDATE,
+    "dcard": AuthorizationStatus.CANDIDATE,
+    "stock-buzz": AuthorizationStatus.CANDIDATE,
+}
+
+
 class ControlPlaneError(RuntimeError):
     """Base class for safe, user-facing control-plane errors."""
 
@@ -60,6 +96,8 @@ class Stock:
     market: str
     enabled: bool = True
     updated_at: datetime | None = None
+    listing_status: str = "unknown"
+    effective_from: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -76,6 +114,14 @@ class CollectionConfig:
     overlap_days: int = 2
     full_refresh_interval_days: int = 0
     batch_scope: str = "market"
+    coverage_tier: str = CoverageTier.MARKET_WIDE.value
+    cadence: str = "daily"
+    scope: str = "market"
+    authorization_status: str = AuthorizationStatus.OFFICIAL.value
+    retention_class: str = "core_standard"
+    contains_pii: bool = False
+    republish_allowed: bool = False
+    max_symbols: int = 50
 
     def __post_init__(self) -> None:
         if not self.config_id or not self.dataset_id or not self.source_ids:
@@ -84,6 +130,20 @@ class CollectionConfig:
             raise ValueError("source_ids cannot contain empty values")
         if self.batch_scope not in {"market", "symbol"}:
             raise ValueError("batch_scope must be market or symbol")
+        if self.coverage_tier not in {item.value for item in CoverageTier}:
+            raise ValueError("coverage_tier is invalid")
+        if self.cadence not in {"intraday", "daily", "公告頻率", "weekly", "quarterly", "on_demand"}:
+            raise ValueError("cadence is invalid")
+        if not self.scope.strip():
+            raise ValueError("scope is required")
+        if self.authorization_status not in {item.value for item in AuthorizationStatus}:
+            raise ValueError("authorization_status is invalid")
+        if self.retention_class not in {"raw_short", "core_standard", "deep_research", "audit"}:
+            raise ValueError("retention_class is invalid")
+        if not 1 <= self.max_symbols <= 50:
+            raise ValueError("max_symbols must be between 1 and 50")
+        if self.coverage_tier == CoverageTier.CORE_FOCUS.value and self.max_symbols > 50:
+            raise ValueError("core_focus cannot exceed 50 symbols")
         if self.lookback_days < 0 or self.overlap_days < 0 or self.full_refresh_interval_days < 0:
             raise ValueError("collection windows cannot be negative")
 
@@ -138,6 +198,16 @@ class CacheMetadata:
     state: DataState
 
 
+@dataclass(frozen=True)
+class CoverageMembership:
+    coverage_tier: CoverageTier
+    symbol: str
+    effective_from: datetime
+    effective_to: datetime | None
+    reason: str
+    owner: str
+
+
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -161,7 +231,9 @@ CREATE TABLE IF NOT EXISTS stock_master (
     name TEXT NOT NULL,
     market TEXT NOT NULL CHECK (market IN ('TWSE', 'TPEX')),
     enabled INTEGER NOT NULL CHECK (enabled IN (0, 1)),
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    listing_status TEXT NOT NULL DEFAULT 'unknown' CHECK (listing_status IN ('listed', 'suspended', 'delisted', 'unknown')),
+    effective_from TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS collection_configs (
     config_id TEXT PRIMARY KEY,
@@ -175,13 +247,33 @@ CREATE TABLE IF NOT EXISTS collection_configs (
     lookback_days INTEGER NOT NULL CHECK (lookback_days >= 0),
     overlap_days INTEGER NOT NULL CHECK (overlap_days >= 0),
     full_refresh_interval_days INTEGER NOT NULL CHECK (full_refresh_interval_days >= 0),
-    batch_scope TEXT NOT NULL CHECK (batch_scope IN ('market', 'symbol'))
+    batch_scope TEXT NOT NULL CHECK (batch_scope IN ('market', 'symbol')),
+    coverage_tier TEXT NOT NULL DEFAULT 'market_wide' CHECK (coverage_tier IN ('market_wide', 'core_focus', 'market_macro')),
+    cadence TEXT NOT NULL DEFAULT 'daily',
+    scope TEXT NOT NULL DEFAULT 'market',
+    authorization_status TEXT NOT NULL DEFAULT 'official' CHECK (authorization_status IN ('official', 'approved_fallback', 'candidate', 'blocked')),
+    retention_class TEXT NOT NULL DEFAULT 'core_standard',
+    contains_pii INTEGER NOT NULL DEFAULT 0 CHECK (contains_pii IN (0, 1)),
+    republish_allowed INTEGER NOT NULL DEFAULT 0 CHECK (republish_allowed IN (0, 1)),
+    max_symbols INTEGER NOT NULL DEFAULT 50 CHECK (max_symbols BETWEEN 1 AND 50)
 );
 CREATE TABLE IF NOT EXISTS collection_symbols (
     config_id TEXT NOT NULL REFERENCES collection_configs(config_id) ON DELETE RESTRICT,
     symbol TEXT NOT NULL REFERENCES stock_master(symbol) ON DELETE RESTRICT,
     PRIMARY KEY (config_id, symbol)
 );
+CREATE TABLE IF NOT EXISTS coverage_memberships (
+    membership_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    coverage_tier TEXT NOT NULL CHECK (coverage_tier IN ('market_wide', 'core_focus', 'market_macro')),
+    symbol TEXT NOT NULL REFERENCES stock_master(symbol) ON DELETE RESTRICT,
+    effective_from TEXT NOT NULL,
+    effective_to TEXT,
+    reason TEXT NOT NULL CHECK (length(trim(reason)) > 0),
+    owner TEXT NOT NULL CHECK (length(trim(owner)) > 0),
+    UNIQUE (coverage_tier, symbol, effective_from),
+    CHECK (effective_to IS NULL OR effective_to > effective_from)
+);
+CREATE INDEX IF NOT EXISTS coverage_memberships_lookup_idx ON coverage_memberships(coverage_tier, symbol, effective_from, effective_to);
 CREATE TABLE IF NOT EXISTS executions (
     execution_id TEXT PRIMARY KEY,
     trace_id TEXT NOT NULL,
@@ -239,8 +331,32 @@ CREATE TABLE IF NOT EXISTS source_health (
     last_fetched_at TEXT,
     latest_observation_at TEXT,
     last_state TEXT,
+    expected_symbols INTEGER NOT NULL DEFAULT 0,
+    received_symbols INTEGER NOT NULL DEFAULT 0,
+    cache_hits INTEGER NOT NULL DEFAULT 0,
+    fallback_count INTEGER NOT NULL DEFAULT 0,
+    schema_drift_count INTEGER NOT NULL DEFAULT 0,
+    coverage_tier TEXT NOT NULL DEFAULT 'market_wide',
+    last_cache_age_seconds REAL,
     PRIMARY KEY (source_id, dataset_id)
 );
+CREATE TABLE IF NOT EXISTS admin_settings (
+    setting_key TEXT PRIMARY KEY,
+    value_json TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    updated_at TEXT NOT NULL,
+    updated_by TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS admin_audit (
+    audit_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    action TEXT NOT NULL,
+    resource TEXT NOT NULL,
+    resource_key TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    detail_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS admin_audit_recent_idx ON admin_audit(created_at DESC);
 """
 
 
@@ -261,16 +377,20 @@ class SQLiteControlPlane:
             raise ValueError("stock name is required")
         if stock.market not in {"TWSE", "TPEX"}:
             raise ValueError("market must be TWSE or TPEX")
+        if stock.listing_status not in {"listed", "suspended", "delisted", "unknown"}:
+            raise ValueError("listing_status is invalid")
         timestamp = _iso(stock.updated_at or utc_now())
+        effective_from = _iso(stock.effective_from or stock.updated_at or utc_now())
         self.connection.execute(
-            """INSERT INTO stock_master(symbol, name, market, enabled, updated_at)
-               VALUES (?, ?, ?, ?, ?)
+            """INSERT INTO stock_master(symbol, name, market, enabled, updated_at, listing_status, effective_from)
+               VALUES (?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(symbol) DO UPDATE SET name=excluded.name, market=excluded.market,
-               enabled=excluded.enabled, updated_at=excluded.updated_at""",
-            (symbol, stock.name.strip(), stock.market, int(stock.enabled), timestamp),
+               enabled=excluded.enabled, updated_at=excluded.updated_at, listing_status=excluded.listing_status,
+               effective_from=excluded.effective_from""",
+            (symbol, stock.name.strip(), stock.market, int(stock.enabled), timestamp, stock.listing_status, effective_from),
         )
         self.connection.commit()
-        return Stock(symbol, stock.name.strip(), stock.market, stock.enabled, _parse_time(timestamp))
+        return Stock(symbol, stock.name.strip(), stock.market, stock.enabled, _parse_time(timestamp), stock.listing_status, _parse_time(effective_from))
 
     def set_stock_enabled(self, symbol: str, enabled: bool) -> None:
         cursor = self.connection.execute("UPDATE stock_master SET enabled=?, updated_at=? WHERE symbol=?", (int(enabled), _iso(utc_now()), _symbol(symbol)))
@@ -301,22 +421,32 @@ class SQLiteControlPlane:
         rows = self.connection.execute(
             f"SELECT * FROM stock_master WHERE {' AND '.join(clauses)} ORDER BY symbol LIMIT ? OFFSET ?", args
         ).fetchall()
-        return tuple(Stock(row["symbol"], row["name"], row["market"], bool(row["enabled"]), _parse_time(row["updated_at"])) for row in rows)
+        return tuple(Stock(row["symbol"], row["name"], row["market"], bool(row["enabled"]), _parse_time(row["updated_at"]), row["listing_status"], _parse_time(row["effective_from"])) for row in rows)
 
     def put_collection_config(self, config: CollectionConfig, symbols: Iterable[str] = ()) -> None:
+        symbols = tuple(sorted({_symbol(value) for value in symbols}))
+        if config.coverage_tier == CoverageTier.CORE_FOCUS.value and len(symbols) > config.max_symbols:
+            raise ControlPlaneError("core_focus collection exceeds max_symbols")
         self.connection.execute(
             """INSERT INTO collection_configs(config_id, dataset_id, source_ids, expected_fields, market,
                enabled, collection_enabled, analysis_enabled, lookback_days, overlap_days,
-               full_refresh_interval_days, batch_scope) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               full_refresh_interval_days, batch_scope, coverage_tier, cadence, scope,
+               authorization_status, retention_class, contains_pii, republish_allowed, max_symbols)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(config_id) DO UPDATE SET dataset_id=excluded.dataset_id,
                source_ids=excluded.source_ids, expected_fields=excluded.expected_fields,
                market=excluded.market, enabled=excluded.enabled, collection_enabled=excluded.collection_enabled,
                analysis_enabled=excluded.analysis_enabled, lookback_days=excluded.lookback_days,
                overlap_days=excluded.overlap_days, full_refresh_interval_days=excluded.full_refresh_interval_days,
-               batch_scope=excluded.batch_scope""",
+               batch_scope=excluded.batch_scope, coverage_tier=excluded.coverage_tier, cadence=excluded.cadence,
+               scope=excluded.scope, authorization_status=excluded.authorization_status,
+               retention_class=excluded.retention_class, contains_pii=excluded.contains_pii,
+               republish_allowed=excluded.republish_allowed, max_symbols=excluded.max_symbols""",
             (config.config_id, config.dataset_id, json.dumps(config.source_ids), json.dumps(sorted(config.expected_fields)), config.market,
              int(config.enabled), int(config.collection_enabled), int(config.analysis_enabled), config.lookback_days,
-             config.overlap_days, config.full_refresh_interval_days, config.batch_scope),
+             config.overlap_days, config.full_refresh_interval_days, config.batch_scope, config.coverage_tier,
+             config.cadence, config.scope, config.authorization_status, config.retention_class, int(config.contains_pii),
+             int(config.republish_allowed), config.max_symbols),
         )
         self.connection.execute("DELETE FROM collection_symbols WHERE config_id=?", (config.config_id,))
         for symbol in symbols:
@@ -331,12 +461,53 @@ class SQLiteControlPlane:
         row = self.connection.execute("SELECT * FROM collection_configs WHERE config_id=?", (config_id,)).fetchone()
         if row is None:
             raise KeyError("collection config not found")
-        return CollectionConfig(row["config_id"], row["dataset_id"], tuple(json.loads(row["source_ids"])), frozenset(json.loads(row["expected_fields"])), row["market"], bool(row["enabled"]), bool(row["collection_enabled"]), bool(row["analysis_enabled"]), row["lookback_days"], row["overlap_days"], row["full_refresh_interval_days"], row["batch_scope"])
+        return CollectionConfig(row["config_id"], row["dataset_id"], tuple(json.loads(row["source_ids"])), frozenset(json.loads(row["expected_fields"])), row["market"], bool(row["enabled"]), bool(row["collection_enabled"]), bool(row["analysis_enabled"]), row["lookback_days"], row["overlap_days"], row["full_refresh_interval_days"], row["batch_scope"], row["coverage_tier"], row["cadence"], row["scope"], row["authorization_status"], row["retention_class"], bool(row["contains_pii"]), bool(row["republish_allowed"]), row["max_symbols"])
+
+    def list_collection_configs(self) -> tuple[CollectionConfig, ...]:
+        rows = self.connection.execute("SELECT config_id FROM collection_configs ORDER BY config_id").fetchall()
+        return tuple(self.get_collection_config(row[0]) for row in rows)
 
     def config_symbols(self, config_id: str, *, only_enabled: bool = True) -> tuple[str, ...]:
+        config = self.get_collection_config(config_id)
         condition = " AND s.enabled=1" if only_enabled else ""
         rows = self.connection.execute(f"SELECT cs.symbol FROM collection_symbols cs JOIN stock_master s ON s.symbol=cs.symbol WHERE cs.config_id=?{condition} ORDER BY cs.symbol", (config_id,)).fetchall()
+        if not rows and config.coverage_tier == CoverageTier.CORE_FOCUS.value:
+            now = _iso(utc_now())
+            rows = self.connection.execute(f"SELECT cm.symbol FROM coverage_memberships cm JOIN stock_master s ON s.symbol=cm.symbol WHERE cm.coverage_tier=? AND cm.effective_from<=? AND (cm.effective_to IS NULL OR cm.effective_to>?)" + (" AND s.enabled=1" if only_enabled else "") + " ORDER BY cm.symbol", (config.coverage_tier, now, now)).fetchall()
+        elif not rows and config.coverage_tier == CoverageTier.MARKET_WIDE.value:
+            rows = self.connection.execute(f"SELECT s.symbol FROM stock_master s WHERE 1=1{condition} ORDER BY s.symbol").fetchall()
         return tuple(row["symbol"] for row in rows)
+
+    def set_coverage_membership(self, coverage_tier: str, symbols: Iterable[str], *, effective_from: datetime, reason: str, owner: str) -> tuple[CoverageMembership, ...]:
+        if coverage_tier not in {item.value for item in CoverageTier}:
+            raise ValueError("coverage_tier is invalid")
+        if effective_from.tzinfo is None or not reason.strip() or not owner.strip():
+            raise ValueError("effective_from, reason, and owner are required")
+        normalized = tuple(sorted({_symbol(value) for value in symbols}))
+        if coverage_tier == CoverageTier.CORE_FOCUS.value and len(normalized) > 50:
+            raise ControlPlaneError("core_focus membership cannot exceed 50 symbols")
+        timestamp = _iso(effective_from)
+        current = self.connection.execute("SELECT MAX(effective_from) FROM coverage_memberships WHERE coverage_tier=? AND effective_to IS NULL", (coverage_tier,)).fetchone()[0]
+        if current is not None and timestamp <= current:
+            raise ValueError("effective_from must be after the current membership")
+        missing = [symbol for symbol in normalized if self.connection.execute("SELECT 1 FROM stock_master WHERE symbol=?", (symbol,)).fetchone() is None]
+        if missing:
+            raise KeyError(f"stock not found: {missing[0]}")
+        self.connection.execute("UPDATE coverage_memberships SET effective_to=? WHERE coverage_tier=? AND effective_to IS NULL", (timestamp, coverage_tier))
+        for symbol in normalized:
+            self.connection.execute("INSERT INTO coverage_memberships(coverage_tier,symbol,effective_from,reason,owner) VALUES (?,?,?,?,?)", (coverage_tier, symbol, timestamp, reason.strip(), owner.strip()))
+        self.connection.commit()
+        return self.coverage_membership(coverage_tier, as_of=effective_from)
+
+    def coverage_membership(self, coverage_tier: str, *, as_of: datetime | None = None) -> tuple[CoverageMembership, ...]:
+        if coverage_tier not in {item.value for item in CoverageTier}:
+            raise ValueError("coverage_tier is invalid")
+        point = as_of or utc_now()
+        if point.tzinfo is None:
+            raise ValueError("as_of must be timezone-aware")
+        timestamp = _iso(point)
+        rows = self.connection.execute("SELECT coverage_tier,symbol,effective_from,effective_to,reason,owner FROM coverage_memberships WHERE coverage_tier=? AND effective_from<=? AND (effective_to IS NULL OR effective_to>?) ORDER BY symbol", (coverage_tier, timestamp, timestamp)).fetchall()
+        return tuple(CoverageMembership(CoverageTier(row["coverage_tier"]), row["symbol"], _parse_time(row["effective_from"]), _parse_time(row["effective_to"]), row["reason"], row["owner"]) for row in rows)
 
     def enqueue_collection(self, config_id: str, symbols: Iterable[str] | None = None, *, trace_id: str | None = None) -> Execution:
         return self._enqueue(config_id, TriggerType.COLLECTION, symbols, trace_id)
@@ -348,9 +519,16 @@ class SQLiteControlPlane:
         config = self.get_collection_config(config_id)
         if not config.enabled or not getattr(config, f"{trigger_type.value}_enabled"):
             raise ControlPlaneError(f"{trigger_type.value} trigger is disabled")
+        if config.authorization_status in {AuthorizationStatus.CANDIDATE.value, AuthorizationStatus.BLOCKED.value}:
+            raise ControlPlaneError("collection source authorization is not approved")
+        unapproved = [source_id for source_id in config.source_ids if SOURCE_AUTHORIZATION.get(source_id, AuthorizationStatus.BLOCKED) in {AuthorizationStatus.CANDIDATE, AuthorizationStatus.BLOCKED}]
+        if unapproved:
+            raise ControlPlaneError("collection includes a candidate or blocked source")
         requested = tuple(sorted({_symbol(value) for value in (symbols if symbols is not None else self.config_symbols(config_id))}))
         if not requested:
             raise ControlPlaneError("no enabled stocks are selected")
+        if config.coverage_tier == CoverageTier.CORE_FOCUS.value and len(requested) > config.max_symbols:
+            raise ControlPlaneError("core_focus execution exceeds max_symbols")
         unknown = [value for value in requested if self.connection.execute("SELECT 1 FROM stock_master WHERE symbol=?", (value,)).fetchone() is None]
         if unknown:
             raise KeyError(f"stock not found: {unknown[0]}")
@@ -427,17 +605,51 @@ class SQLiteControlPlane:
         self.connection.execute("INSERT OR REPLACE INTO collection_cursors(cursor_key, last_observed_at, last_success_at) VALUES (?, ?, ?)", (cursor_key, _iso(latest), _iso(success)))
         self.connection.commit()
 
-    def record_health(self, source_id: str, dataset_id: str, *, state: DataState, latency_ms: float, fetched_at: datetime, latest_observation_at: datetime | None = None) -> None:
+    def record_health(self, source_id: str, dataset_id: str, *, state: DataState, latency_ms: float, fetched_at: datetime, latest_observation_at: datetime | None = None, expected_symbols: int = 0, received_symbols: int = 0, cache_hit: bool = False, coverage_tier: str = CoverageTier.MARKET_WIDE.value, cache_age_seconds: float | None = None) -> None:
         success = int(state in {DataState.SUCCESS, DataState.FALLBACK, DataState.PARTIAL})
-        self.connection.execute("""INSERT INTO source_health(source_id, dataset_id, success_count, failure_count, total_latency_ms, last_fetched_at, latest_observation_at, last_state) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(source_id, dataset_id) DO UPDATE SET success_count=source_health.success_count+excluded.success_count, failure_count=source_health.failure_count+excluded.failure_count, total_latency_ms=source_health.total_latency_ms+excluded.total_latency_ms, last_fetched_at=excluded.last_fetched_at, latest_observation_at=COALESCE(excluded.latest_observation_at, source_health.latest_observation_at), last_state=excluded.last_state""", (source_id, dataset_id, success, int(not success), latency_ms, _iso(fetched_at), _iso(latest_observation_at), state.value))
+        self.connection.execute("""INSERT INTO source_health(source_id, dataset_id, success_count, failure_count, total_latency_ms, last_fetched_at, latest_observation_at, last_state, expected_symbols, received_symbols, cache_hits, fallback_count, schema_drift_count, coverage_tier, last_cache_age_seconds) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(source_id, dataset_id) DO UPDATE SET success_count=source_health.success_count+excluded.success_count, failure_count=source_health.failure_count+excluded.failure_count, total_latency_ms=source_health.total_latency_ms+excluded.total_latency_ms, last_fetched_at=excluded.last_fetched_at, latest_observation_at=COALESCE(excluded.latest_observation_at, source_health.latest_observation_at), last_state=excluded.last_state, expected_symbols=MAX(source_health.expected_symbols, excluded.expected_symbols), received_symbols=source_health.received_symbols+excluded.received_symbols, cache_hits=source_health.cache_hits+excluded.cache_hits, fallback_count=source_health.fallback_count+excluded.fallback_count, schema_drift_count=source_health.schema_drift_count+excluded.schema_drift_count, coverage_tier=excluded.coverage_tier, last_cache_age_seconds=excluded.last_cache_age_seconds""", (source_id, dataset_id, success, int(not success), latency_ms, _iso(fetched_at), _iso(latest_observation_at), state.value, expected_symbols, received_symbols, int(cache_hit), int(state == DataState.FALLBACK), int(state == DataState.SCHEMA_DRIFT), coverage_tier, cache_age_seconds))
         self.connection.commit()
+
+    def source_health_summary(self, *, source_id: str | None = None, dataset_id: str | None = None) -> tuple[dict[str, Any], ...]:
+        """Return persisted health aggregates without exposing raw responses."""
+        clauses, values = [], []
+        if source_id is not None:
+            clauses.append("source_id=?"); values.append(source_id)
+        if dataset_id is not None:
+            clauses.append("dataset_id=?"); values.append(dataset_id)
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        rows = self.connection.execute(f"SELECT source_id,dataset_id,success_count,failure_count,total_latency_ms,last_fetched_at,latest_observation_at,last_state,expected_symbols,received_symbols,cache_hits,fallback_count,schema_drift_count,coverage_tier,last_cache_age_seconds FROM source_health{where} ORDER BY source_id,dataset_id", values).fetchall()
+        result = []
+        for row in rows:
+            total = row[2] + row[3]
+            result.append({"source_id": row[0], "dataset_id": row[1], "success_rate": row[2] / total if total else 0.0, "average_latency_ms": row[4] / total if total else 0.0, "last_fetched_at": row[5], "latest_observation_at": row[6], "last_state": row[7], "expected_symbols": row[8], "received_symbols": row[9], "cache_hits": row[10], "fallback_count": row[11], "schema_drift_count": row[12], "coverage_tier": row[13], "cache_age_seconds": row[14]})
+        return tuple(result)
 
     def source_health(self, source_id: str, dataset_id: str) -> dict[str, Any] | None:
         row = self.connection.execute("SELECT * FROM source_health WHERE source_id=? AND dataset_id=?", (source_id, dataset_id)).fetchone()
         if row is None:
             return None
         total = row["success_count"] + row["failure_count"]
-        return {"source_id": source_id, "dataset_id": dataset_id, "success_rate": row["success_count"] / total if total else 0.0, "average_latency_ms": row["total_latency_ms"] / total if total else 0.0, "last_fetched_at": row["last_fetched_at"], "latest_observation_at": row["latest_observation_at"], "last_state": row["last_state"]}
+        return {"source_id": source_id, "dataset_id": dataset_id, "success_rate": row["success_count"] / total if total else 0.0, "average_latency_ms": row["total_latency_ms"] / total if total else 0.0, "last_fetched_at": row["last_fetched_at"], "latest_observation_at": row["latest_observation_at"], "last_state": row["last_state"], "expected_symbols": row["expected_symbols"], "received_symbols": row["received_symbols"], "cache_hits": row["cache_hits"], "fallback_count": row["fallback_count"], "schema_drift_count": row["schema_drift_count"], "coverage_tier": row["coverage_tier"], "cache_age_seconds": row["last_cache_age_seconds"]}
+
+    def get_admin_setting(self, key: str) -> tuple[Any, int] | None:
+        row = self.connection.execute("SELECT value_json,version FROM admin_settings WHERE setting_key=?", (key,)).fetchone()
+        return (json.loads(row[0]), row[1]) if row else None
+
+    def put_admin_setting(self, key: str, value: Any, *, actor: str, expected_version: int | None = None) -> int:
+        current = self.get_admin_setting(key)
+        if current and expected_version is not None and current[1] != expected_version:
+            raise ControlPlaneError("setting has changed; reload before saving")
+        version = current[1] + 1 if current else 1
+        now = _iso(utc_now())
+        self.connection.execute("INSERT INTO admin_settings(setting_key,value_json,version,updated_at,updated_by) VALUES (?,?,?,?,?) ON CONFLICT(setting_key) DO UPDATE SET value_json=excluded.value_json,version=excluded.version,updated_at=excluded.updated_at,updated_by=excluded.updated_by", (key, json.dumps(value, ensure_ascii=False), version, now, actor))
+        self.connection.execute("INSERT INTO admin_audit(action,resource,resource_key,actor,detail_json,created_at) VALUES (?,?,?,?,?,?)", ("update", "admin_setting", key, actor, json.dumps({"version": version}, ensure_ascii=False), now))
+        self.connection.commit()
+        return version
+
+    def admin_audit(self, *, limit: int = 50) -> tuple[dict[str, Any], ...]:
+        rows = self.connection.execute("SELECT action,resource,resource_key,actor,detail_json,created_at FROM admin_audit ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+        return tuple({"action": r[0], "resource": r[1], "resource_key": r[2], "actor": r[3], "detail": json.loads(r[4]), "created_at": r[5]} for r in rows)
 
     def prune(self, *, before: datetime, batch_size: int = 500) -> dict[str, int]:
         """Bounded retention for the SQLite reference, matching PostgreSQL."""

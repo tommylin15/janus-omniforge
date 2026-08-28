@@ -1,7 +1,7 @@
 # Janus × OmniForge — Work Breakdown Structure
 
-版本：1.0  
-基準：GCP-first monorepo、GCS／Iceberg／Trino、開發期 30% gate
+版本：1.1
+基準：GCP-first monorepo、GCS／Iceberg／DuckDB、雙軌資料供應、開發期 30% gate
 
 ## WBS 0 — 專案啟動與決策封版
 
@@ -19,6 +19,8 @@
 - 固定開發期 completeness gate=30%。
 - 建立 provenance、quality flags、publication status、execution status enum。
 - 盤點 deterministic constants，標示 approved／development-default／pending。
+- 建立 source registry 的 `official`／`approved_fallback`／`candidate`／`blocked` 狀態，以及 license、rate limit、retention、PII、引用與再發布審查欄位。
+- 固定全市場日頻與核心 50 深度資料的 coverage boundary；membership 具 effective time 且不可改寫歷史。
 
 ### 0.3 驗收條件
 
@@ -31,14 +33,13 @@
 ### 1.1 開發環境
 
 - 建立 Cloud Workstations configuration／devcontainer。
-- 固定 Python、Node、Java／Trino 與 CLI 版本。
+- 固定 Python、Node、DuckDB／PyIceberg 與 CLI 版本。
 - 加入 pre-commit、lint、type check、unit test。
 
 ### 1.2 建置流水線
 
 - `ingestion-core` path-based build。
 - `intelligence-mart` path-based build。
-- `trino` path-based build。
 - `web` path-based build。
 - 產生 immutable image digest；SBOM 可由 build-local tool 產生，但不執行 Artifact Analysis API、Container Scanning API 或 vulnerability scanning。
 
@@ -97,6 +98,22 @@
 - 官方 benchmark。
 - 公司事件。
 - 市場活動與 issued shares／turnover。
+- 來源契約加入 coverage tier、cadence、market、scope、authorization status、retention 與 safe provenance。
+- 股票 master 動態維護上市／上櫃狀態；不得以固定 1,700 或 2,000 檔作完整性判斷。
+
+### 3.2A 全市場量化網
+
+- 以當日 enabled 股票 master 收集日 OHLCV、PE/PB、法人、融資券／借券／當沖、基本面摘要與 benchmark。
+- 每日產製 market coverage、missing symbols、source health、freshness 與合法 empty／unavailable 摘要。
+- 全市場回應採一次抓取、批次快取與 symbol fan-out，禁止逐檔重複呼叫同一 market endpoint。
+- 產製 `mart_screening_signals` 所需 deterministic Core inputs；screening 不在 ingestion request 內執行。
+
+### 3.2B 核心 50 放大鏡
+
+- control DB 維護最多 50 檔核心 membership、effective time、理由、owner 與 collection cadence。
+- 深度財報、公司事件／重大訊息與公司行動優先；分 K／Tick、新聞、券商研究、Podcast、社群文本須在來源審查通過後個別啟用。
+- 高頻／文本／另類 collection 與全市場排程隔離，具獨立 quota、retention、成本與 failure policy。
+- 文本實體對應可進 Core，但情緒、聲量、AI 示警與投資判讀只能進 versioned Mart。
 
 ### 3.3 Core DQ
 
@@ -124,7 +141,7 @@
 - VM 不配置 external IP，只使用 private IP；IAP／OS Login 管理，firewall 不公開 `5432`。
 - 使用總量 ≤30 GB 的 Standard Persistent Disk；Free Tier 模式不建立 snapshot、backup、HA 或 replica。
 - 安裝固定 PostgreSQL 版本，建立 control、Iceberg catalog、publication、audit database/schema 與最小 database roles。
-- credential 由 Secret Manager 提供；Cloud Run、Cloud Run Jobs、Trino 透過 VPC private path 連線。
+- credential 由 Secret Manager 提供；Cloud Run、Cloud Run Jobs 與內嵌 DuckDB runtime 透過 VPC private path 連線。
 - 驗證 VM health、PostgreSQL readiness、schema migration、JDBC catalog smoke query 與 Free Tier 資源邊界。
 
 ### 3.7 PostgreSQL Control DB Integration（WBS 4 前置）
@@ -134,47 +151,49 @@
 - 以 transaction／row lock／安全 claim 讓 queued execution 可被 worker 恢復與冪等處理。
 - Response cache 的 payload／raw response 留在 GCS Stage；PostgreSQL 僅保存 key、URI、hash、TTL、observed time 與狀態 metadata。
 - 設定低連線數 pool、statement／idle timeout、migration lock 與 reconnect，避免壓垮 `e2-micro`。
-- 使用 Secret Manager credential 與 private IP，完成 ingestion、Trino、Cloud Run／Jobs control DB smoke tests。
+- 使用 Secret Manager credential 與 private IP，完成 ingestion、DuckDB query、Web 與 Mart Cloud Run／Jobs control DB smoke tests。
 
-## WBS 4 — Trino on Cloud Run
+## WBS 4 — DuckDB／Iceberg Core 與 Query Runtime
 
-### 4.1 Image 與設定
+### 4.1 Ingestion writer
 
 - 前置條件：WBS 3.6 PostgreSQL VM 與 WBS 3.7 control DB integration、control DB、catalog DB 已通過連線驗證。
-- 建置固定版 Trino image。
-- 設定 GCS Iceberg connector 與 JDBC catalog。
-- 設定 query memory、concurrency、timeout、spill／temp policy。
+- ingestion Cloud Run Job 內嵌固定版 DuckDB／PyIceberg。
+- 設定 GCS Iceberg warehouse 與 PostgreSQL SQL catalog。
+- 單 task／單 writer；設定 memory、threads、timeout、scan limit 與 temp policy。
+- natural key、content hash、null-preserving merge、Iceberg snapshot commit 與 failure-safe Stage cleanup。
 
-### 4.2 Cloud Run
+### 4.2 Read-only query runtime
 
-- 2 vCPU、4–8 GiB；min=0、max=1。
-- Trino 維持獨立 Cloud Run Service，不部署到 PostgreSQL `e2-micro` VM；VM 的 1 GiB RAM 不足以承載 Trino JVM。
-- IAM-only ingress；不公開。
-- health／readiness endpoint。
-- 同區 GCS、Compute Engine PostgreSQL VM、Jobs。
+- Core query API 可在 Web 或獨立 Cloud Run Service 內嵌另一個 DuckDB process。
+- query runtime 對 Iceberg read-only，不得寫 Core 或共用 ingestion 本機 DuckDB 檔案。
+- 設定 row／scan bytes、memory、concurrency、statement timeout、pagination 與 cold-start boundary。
+- 使用 workload-specific service account、GCS read 與 catalog read-only role；不得取得 catalog owner／Core writer 權限。
 
-### 4.3 Query client
+### 4.3 Runtime isolation
 
-- Job 提交 SQL、輪詢狀態、取得結果。
-- 處理冷啟動、取消、timeout、失敗分類。
-- backfill 拆分 partition batch。
+- DuckDB 不部署到 PostgreSQL `e2-micro` VM；本機 temp／spill 不作持久資料。
+- ingestion writer 與 query reader 使用獨立 process、memory budget、timeout、IAM 與 metrics。
+- backfill 拆分 date／dataset partition batch；超過單機限制才提出分散式引擎 ADR。
 
 ### 4.4 驗收條件
 
-- scale-to-zero 後可冷啟動並完成 smoke query。
-- 查詢期間呼叫端持續等待，不遺失 coordinator 狀態。
-- 非授權身分無法呼叫。
-- 產生 CPU／RAM／query duration 指標與預算告警。
+- ingestion clean canary、同日 replay、null-preserving merge 與 catalog reconnect 通過。
+- query runtime scale-to-zero 後可冷啟動並完成 bounded read-only smoke query。
+- query identity 無法 commit Core；非授權身分無法讀 catalog／warehouse。
+- 產生 CPU／RAM／temp usage／query duration 指標與預算告警。
 
 ## WBS 5 — Intelligence Mart
 
 ### 5.1 Feature pipeline
 
+- 全市場 `mart_screening_signals`：突破、量能、流動性與異動候選。
 - 12 月／12 季 Fundamental features。
 - PE／PB／ROE／D/E Valuation features。
 - 5／20／60 日 Positioning features。
 - 20／60／120 日 Quant、Beta、ATR、turnover。
 - PIT Event Risk features。
+- 核心 50 `mart_core_alpha`、`mart_risk_portfolio` 與經核准文本的 `mart_alternative_sentiment`。
 
 ### 5.2 五角色與 Validator
 
@@ -186,15 +205,16 @@
 
 - 初始權重與 effective weight。
 - bull／bear／contradictions／contributions。
+- Devil's Advocate 反證階段與 CIO `mart_master_investment_memo`；兩者只使用合格 evidence。
 - 30% development gate。
 - manual review、critical、high≥75 blocking。
 - immutable governance snapshot version。
 
 ### 5.4 LLM
 
-- Vertex AI／Gemini 第一版。
+- 第一版 LLM provider 使用順序：Gemini → OpenRouter → GroqCloud；取消 Vertex AI。
 - Structured output 與 evidence-only prompt。
-- 429／RESOURCE_EXHAUSTED provider fallback。
+- Gemini 發生 429／`RESOURCE_EXHAUSTED` 或 provider unavailable 時依序 fallback 至 OpenRouter，再至 GroqCloud。
 - 非 429 錯誤結構化失敗，不寫 placeholder。
 
 ### 5.5 Mart writer
@@ -209,6 +229,7 @@
 - LLM 關閉時 deterministic output 不改變。
 - blocked 不進 publishable view。
 - 同一 Core snapshot + governance version 可重現相同 deterministic 結果。
+- RAG 只能檢索 analysis-as-of 可見的 Core／Mart snapshot，未核准來源不得進 evidence。
 
 ## WBS 6 — Web、Public API 與 Admin
 
@@ -223,6 +244,8 @@
 - 首頁、搜尋、題材卡、個股頁。
 - K 線 D／W／M、MA、OHLCV 替代表格。
 - Metrics、Aggregation、Market Activity、五角色、Events、History、Sources、Disclaimer。
+- 全市場 screening 與核心標的視圖明確分流；顯示 coverage、freshness、來源健康與資料不足。
+- 情緒溫度、多空雷達與風險紅綠燈只呈現後端 versioned Mart，不由前端重算。
 
 ### 6.3 Admin UI
 
@@ -231,6 +254,7 @@
 - 最近 50 次 execution 與按需明細。
 - Governance typed edit、validation、diff、history、optimistic lock。
 - Data-source health persisted telemetry。
+- 全市場／核心 50 membership、effective date、cadence、來源授權狀態與 quota 管理；超過 50 檔必須拒絕。
 
 ### 6.4 驗收條件
 
@@ -254,6 +278,7 @@
 - source/dataset health、freshness、schema drift。
 - Job duration、retry、publication、API SLI。
 - log redaction 與安全錯誤 taxonomy。
+- 按 coverage tier 顯示 expected／received symbols、來源成功數、cache age 與核心 50 深度資料缺口。
 
 ### 7.3 FinOps
 
@@ -277,6 +302,7 @@
 - 5／20／60 交易日 outcome。
 - relative benchmark、MFE／MAE、coverage、calibration。
 - 不合格樣本排除原因與 provenance ID。
+- membership 與來源授權均以 effective time 納入 PIT；不得用今日核心名單回填歷史樣本。
 
 ### 8.2 自動化 QA
 
@@ -306,7 +332,8 @@
 | 里程碑 | 範圍 | 完成定義 |
 |---|---|---|
 | M0 | WBS 0–1 | 雲端 workspace、monorepo、CI/CD、IaC 可運作 |
-| M1 | WBS 2–4 | PostgreSQL Free Tier VM → 2330 Source → Stage → Core，Trino 可冷啟動查詢 |
-| M2 | WBS 5 | Core → 五角色 → Mart，30% gate 與 blocked 正確 |
+| M1 | WBS 2–4 | PostgreSQL Free Tier VM → 2330 Source → Stage → DuckDB／Iceberg Core，bounded query 可冷啟動 |
+| M1.5 | WBS 3–4 | 全市場日頻 baseline 與核心 50 membership／collection boundary 通過 |
+| M2 | WBS 5 | Screening／Core Alpha／五角色 → Mart，30% gate、Devil's Advocate 與 blocked 正確 |
 | M3 | WBS 6 | Public／Admin 完整讀取 persisted Mart |
 | M4 | WBS 7–8 | 監控、安全、PIT、實機 QA、canary／rollback 通過 |

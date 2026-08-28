@@ -1,5 +1,8 @@
 # Terraform development infrastructure
 
+實際 dev apply 與 Cloud Run deployment 操作順序請先參閱
+[`../../doc/runbook-dev-deploy.md`](../../doc/runbook-dev-deploy.md)。
+
 This directory declares the GitHub Actions → GCP Workload Identity Federation
 trust boundary. Review the plan before applying it. The referenced
 `janus-ci` service account must exist before this configuration can be applied.

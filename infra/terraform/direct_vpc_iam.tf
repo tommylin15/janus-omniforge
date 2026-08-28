@@ -14,7 +14,6 @@ locals {
   direct_vpc_workload_tags = {
     ingestion_core    = "janus-ingestion-core"
     intelligence_mart = "janus-intelligence-mart"
-    trino             = "janus-trino"
     web               = "janus-web"
   }
 
@@ -39,4 +38,3 @@ output "direct_vpc_workload_tags" {
   description = "Approved Cloud Run Direct VPC egress network tags."
   value       = local.direct_vpc_workload_tags
 }
-

@@ -14,7 +14,8 @@ sys.path.insert(0, str(ROOT / "jobs" / "ingestion-core"))
 from ingestion_core.dq import merge_without_null_overwrite, semantic_zero, validate_ohlcv
 from ingestion_core.stage import LocalObjectStore, StageWriter
 from packages.provenance import Provenance, content_hash
-from ingestion_core.__main__ import _requested_dates
+from ingestion_core.__main__ import _empty_is_nonfatal, _limit_response, _requested_dates
+from ingestion_core.adapters import SourceResponse
 
 
 class StageWriterTests(unittest.TestCase):
@@ -115,6 +116,24 @@ class StageWriterTests(unittest.TestCase):
         self.assertEqual(_requested_dates(today=date(2026, 8, 26), holidays=set(), start="2026-08-24", end="2026-08-25"), (date(2026, 8, 24), date(2026, 8, 25)))
         with self.assertRaises(ValueError):
             _requested_dates(today=date(2026, 8, 26), holidays=set(), start="2026-08-25")
+
+    def test_selected_symbol_filter_is_applied_before_stage(self):
+        response = SourceResponse(
+            rows=(
+                {"symbol": "2330", "close": "100"},
+                {"symbol": "1102", "close": "20"},
+                {"symbol": "9999", "close": "1"},
+            ),
+            raw_payload=b"full-market-payload",
+        )
+        limited = _limit_response(response, ("2330", "1102"))
+        self.assertEqual([row["symbol"] for row in limited.rows], ["2330", "1102"])
+        self.assertNotIn(b"full-market-payload", limited.raw_payload or b"")
+
+    def test_sparse_financial_and_event_sources_allow_empty_windows(self):
+        self.assertTrue(_empty_is_nonfatal("finmind"))
+        self.assertTrue(_empty_is_nonfatal("twse-events"))
+        self.assertFalse(_empty_is_nonfatal("twse-valuation"))
 
 
 class CoreDqTests(unittest.TestCase):

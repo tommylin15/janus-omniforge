@@ -45,6 +45,9 @@ sudo docker exec \
     cat /tmp/vars.sql /opt/janus/migrations/001_roles_and_schemas.sql | psql -U postgres -d postgres
     psql -U postgres -d janus_control -f /opt/janus/migrations/002_control_plane.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/003_iceberg_jdbc_catalog.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/004_source_coverage.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/005_source_health_telemetry.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/006_admin_settings_audit.sql
     rm -f /tmp/vars.sql
     openssl req -new -x509 -days 365 -nodes -text \
       -subj "/CN=janus-postgres-dev" -keyout "$PGDATA/server.key" -out "$PGDATA/server.crt" >/dev/null 2>&1

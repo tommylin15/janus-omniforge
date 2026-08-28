@@ -22,6 +22,7 @@ dist/
 .coverage.*
 coverage.xml
 htmlcov/
+.tmp/
 
 # Local editor overrides may contain machine-specific paths or credentials.
 .amazonq/

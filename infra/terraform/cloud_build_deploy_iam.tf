@@ -8,7 +8,6 @@ resource "google_service_account_iam_member" "cloud_build_runtime_act_as" {
   for_each = toset([
     "ingestion-core",
     "intelligence-mart",
-    "trino-runtime",
     "web-runtime",
   ])
 

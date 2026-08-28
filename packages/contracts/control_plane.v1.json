@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Janus data control plane",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "definitions": {
     "StockMasterV1": {
       "type": "object",
@@ -11,13 +11,15 @@
         "name": {"type": "string", "minLength": 1},
         "market": {"enum": ["TWSE", "TPEX"]},
         "enabled": {"type": "boolean"},
-        "updatedAt": {"type": "string", "format": "date-time"}
+        "updatedAt": {"type": "string", "format": "date-time"},
+        "listingStatus": {"enum": ["listed", "suspended", "delisted", "unknown"]},
+        "effectiveFrom": {"type": "string", "format": "date-time"}
       },
       "additionalProperties": false
     },
     "DatasetCollectionConfigV1": {
       "type": "object",
-      "required": ["configId", "datasetId", "sourceIds", "expectedFields", "collectionEnabled", "analysisEnabled"],
+      "required": ["configId", "datasetId", "sourceIds", "expectedFields", "collectionEnabled", "analysisEnabled", "coverageTier", "cadence", "authorizationStatus"],
       "properties": {
         "configId": {"type": "string", "minLength": 1},
         "datasetId": {"type": "string", "minLength": 1},
@@ -31,6 +33,27 @@
         "overlapDays": {"type": "integer", "minimum": 0},
         "fullRefreshIntervalDays": {"type": "integer", "minimum": 0},
         "batchScope": {"enum": ["market", "symbol"]}
+        ,"coverageTier": {"enum": ["market_wide", "core_focus", "market_macro"]},
+        "cadence": {"enum": ["intraday", "daily", "公告頻率", "weekly", "quarterly", "on_demand"]},
+        "scope": {"type": "string", "minLength": 1},
+        "authorizationStatus": {"enum": ["official", "approved_fallback", "candidate", "blocked"]},
+        "retentionClass": {"enum": ["raw_short", "core_standard", "deep_research", "audit"]},
+        "containsPii": {"type": "boolean"},
+        "republishAllowed": {"type": "boolean"},
+        "maxSymbols": {"type": "integer", "minimum": 1, "maximum": 50}
+      },
+      "additionalProperties": false
+    },
+    "CoverageMembershipV1": {
+      "type": "object",
+      "required": ["coverageTier", "symbol", "effectiveFrom", "reason", "owner"],
+      "properties": {
+        "coverageTier": {"enum": ["market_wide", "core_focus", "market_macro"]},
+        "symbol": {"type": "string", "pattern": "^[A-Z0-9_-]{1,20}$"},
+        "effectiveFrom": {"type": "string", "format": "date-time"},
+        "effectiveTo": {"type": ["string", "null"], "format": "date-time"},
+        "reason": {"type": "string", "minLength": 1},
+        "owner": {"type": "string", "minLength": 1}
       },
       "additionalProperties": false
     },

@@ -5,6 +5,7 @@ substitutions:
   _IMAGE_TAG: bootstrap
   _DEPLOY_TARGET: ""
   _RUNTIME_NAME: ""
+  _REGION: us-central1
 
 steps:
   - id: build
@@ -39,10 +40,10 @@ steps:
         image="${_IMAGE_REPOSITORY}/${_IMAGE_NAME}@${digest}"
         if [[ "${_DEPLOY_TARGET}" == "service" ]]; then
           gcloud run services update "${_RUNTIME_NAME}" \
-            --region="${LOCATION}" --image="${image}" --quiet
+            --region="${_REGION}" --image="${image}" --quiet
         elif [[ "${_DEPLOY_TARGET}" == "job" ]]; then
           gcloud run jobs update "${_RUNTIME_NAME}" \
-            --region="${LOCATION}" --image="${image}" --quiet
+            --region="${_REGION}" --image="${image}" --quiet
         else
           echo "Unsupported deploy target: ${_DEPLOY_TARGET}" >&2
           exit 1

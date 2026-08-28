@@ -3,6 +3,9 @@
 Declarative development infrastructure will live here. Do not run provisioning,
 deployment, or destructive commands without explicit user authorization.
 
+可重現的 dev Terraform、PostgreSQL migration 與 Cloud Run 部署流程請見
+[`doc/runbook-dev-deploy.md`](../doc/runbook-dev-deploy.md)。
+
 ## PostgreSQL dev/MVP decision
 
 The development control database is planned as a self-managed PostgreSQL on a

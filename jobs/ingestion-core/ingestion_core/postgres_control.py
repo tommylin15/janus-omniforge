@@ -14,8 +14,8 @@ from typing import Any, Callable, Iterator
 from uuid import uuid4
 
 from .control import (
-    CacheMetadata, CollectionConfig, ControlPlaneError, Cursor, DataState,
-    Execution, ExecutionItem, ExecutionStatus, InvalidTransitionError, Stock,
+    AuthorizationStatus, CacheMetadata, CollectionConfig, ControlPlaneError, CoverageMembership, CoverageTier, Cursor, DataState,
+    Execution, ExecutionItem, ExecutionStatus, InvalidTransitionError, SOURCE_AUTHORIZATION, Stock,
     StockInUseError, TriggerType, _iso, _parse_time, _symbol, utc_now,
 )
 
@@ -28,8 +28,10 @@ class PostgreSQLControlPlane:
         self.connection = connection_factory()
         self._closed = False
         with self.connection.cursor() as cur:
-            cur.execute("SET statement_timeout = %s", (statement_timeout_ms,))
-            cur.execute("SET idle_in_transaction_session_timeout = %s", (idle_in_transaction_timeout_ms,))
+            cur.execute("SELECT set_config('statement_timeout', %s, false)",
+                        (f"{statement_timeout_ms}ms",))
+            cur.execute("SELECT set_config('idle_in_transaction_session_timeout', %s, false)",
+                        (f"{idle_in_transaction_timeout_ms}ms",))
         self.connection.commit()
 
     def close(self) -> None:
@@ -51,13 +53,17 @@ class PostgreSQLControlPlane:
         symbol = _symbol(stock.symbol)
         if not stock.name.strip() or stock.market not in {"TWSE", "TPEX"}:
             raise ValueError("stock name and market are invalid")
+        if stock.listing_status not in {"listed", "suspended", "delisted", "unknown"}:
+            raise ValueError("listing_status is invalid")
         timestamp = stock.updated_at or utc_now()
+        effective_from = stock.effective_from or timestamp
         with self._tx() as cur:
-            cur.execute("""INSERT INTO control.stock_master(symbol,name,market,enabled,updated_at)
-                VALUES (%s,%s,%s,%s,%s) ON CONFLICT(symbol) DO UPDATE SET name=EXCLUDED.name,
-                market=EXCLUDED.market,enabled=EXCLUDED.enabled,updated_at=EXCLUDED.updated_at""",
-                (symbol, stock.name.strip(), stock.market, stock.enabled, timestamp))
-        return Stock(symbol, stock.name.strip(), stock.market, stock.enabled, timestamp)
+            cur.execute("""INSERT INTO control.stock_master(symbol,name,market,enabled,updated_at,listing_status,effective_from)
+                VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(symbol) DO UPDATE SET name=EXCLUDED.name,
+                market=EXCLUDED.market,enabled=EXCLUDED.enabled,updated_at=EXCLUDED.updated_at,
+                listing_status=EXCLUDED.listing_status,effective_from=EXCLUDED.effective_from""",
+                (symbol, stock.name.strip(), stock.market, stock.enabled, timestamp, stock.listing_status, effective_from))
+        return Stock(symbol, stock.name.strip(), stock.market, stock.enabled, timestamp, stock.listing_status, effective_from)
 
     def set_stock_enabled(self, symbol: str, enabled: bool) -> None:
         with self._tx() as cur:
@@ -84,38 +90,90 @@ class PostgreSQLControlPlane:
             clauses.append("enabled=%s"); args.append(enabled)
         args.extend([limit, offset])
         with self.connection.cursor() as cur:
-            cur.execute(f"SELECT symbol,name,market,enabled,updated_at FROM control.stock_master WHERE {' AND '.join(clauses)} ORDER BY symbol LIMIT %s OFFSET %s", args)
-            return tuple(Stock(r[0], r[1], r[2], r[3], r[4]) for r in cur.fetchall())
+            cur.execute(f"SELECT symbol,name,market,enabled,updated_at,listing_status,effective_from FROM control.stock_master WHERE {' AND '.join(clauses)} ORDER BY symbol LIMIT %s OFFSET %s", args)
+            return tuple(Stock(r[0], r[1], r[2], r[3], r[4], r[5], r[6]) for r in cur.fetchall())
 
     def put_collection_config(self, config: CollectionConfig, symbols: tuple[str, ...] | list[str] = ()) -> None:
+        symbols = tuple(sorted({_symbol(value) for value in symbols}))
+        if config.coverage_tier == CoverageTier.CORE_FOCUS.value and len(symbols) > config.max_symbols:
+            raise ControlPlaneError("core_focus collection exceeds max_symbols")
         with self._tx() as cur:
-            cur.execute("""INSERT INTO control.collection_configs(config_id,dataset_id,source_ids,expected_fields,market,enabled,collection_enabled,analysis_enabled,lookback_days,overlap_days,full_refresh_interval_days,batch_scope)
-                VALUES (%s,%s,%s::jsonb,%s::jsonb,%s,%s,%s,%s,%s,%s,%s,%s)
-                ON CONFLICT(config_id) DO UPDATE SET dataset_id=EXCLUDED.dataset_id,source_ids=EXCLUDED.source_ids,expected_fields=EXCLUDED.expected_fields,market=EXCLUDED.market,enabled=EXCLUDED.enabled,collection_enabled=EXCLUDED.collection_enabled,analysis_enabled=EXCLUDED.analysis_enabled,lookback_days=EXCLUDED.lookback_days,overlap_days=EXCLUDED.overlap_days,full_refresh_interval_days=EXCLUDED.full_refresh_interval_days,batch_scope=EXCLUDED.batch_scope""",
-                (config.config_id, config.dataset_id, json.dumps(config.source_ids), json.dumps(sorted(config.expected_fields)), config.market, config.enabled, config.collection_enabled, config.analysis_enabled, config.lookback_days, config.overlap_days, config.full_refresh_interval_days, config.batch_scope))
+            cur.execute("""INSERT INTO control.collection_configs(config_id,dataset_id,source_ids,expected_fields,market,enabled,collection_enabled,analysis_enabled,lookback_days,overlap_days,full_refresh_interval_days,batch_scope,coverage_tier,cadence,scope,authorization_status,retention_class,contains_pii,republish_allowed,max_symbols)
+                VALUES (%s,%s,%s::jsonb,%s::jsonb,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT(config_id) DO UPDATE SET dataset_id=EXCLUDED.dataset_id,source_ids=EXCLUDED.source_ids,expected_fields=EXCLUDED.expected_fields,market=EXCLUDED.market,enabled=EXCLUDED.enabled,collection_enabled=EXCLUDED.collection_enabled,analysis_enabled=EXCLUDED.analysis_enabled,lookback_days=EXCLUDED.lookback_days,overlap_days=EXCLUDED.overlap_days,full_refresh_interval_days=EXCLUDED.full_refresh_interval_days,batch_scope=EXCLUDED.batch_scope,coverage_tier=EXCLUDED.coverage_tier,cadence=EXCLUDED.cadence,scope=EXCLUDED.scope,authorization_status=EXCLUDED.authorization_status,retention_class=EXCLUDED.retention_class,contains_pii=EXCLUDED.contains_pii,republish_allowed=EXCLUDED.republish_allowed,max_symbols=EXCLUDED.max_symbols""",
+                (config.config_id, config.dataset_id, json.dumps(config.source_ids), json.dumps(sorted(config.expected_fields)), config.market, config.enabled, config.collection_enabled, config.analysis_enabled, config.lookback_days, config.overlap_days, config.full_refresh_interval_days, config.batch_scope, config.coverage_tier, config.cadence, config.scope, config.authorization_status, config.retention_class, config.contains_pii, config.republish_allowed, config.max_symbols))
             cur.execute("DELETE FROM control.collection_symbols WHERE config_id=%s", (config.config_id,))
             for symbol in symbols:
                 cur.execute("INSERT INTO control.collection_symbols(config_id,symbol) VALUES (%s,%s)", (config.config_id, _symbol(symbol)))
 
     def get_collection_config(self, config_id: str) -> CollectionConfig:
         with self.connection.cursor() as cur:
-            cur.execute("SELECT config_id,dataset_id,source_ids,expected_fields,market,enabled,collection_enabled,analysis_enabled,lookback_days,overlap_days,full_refresh_interval_days,batch_scope FROM control.collection_configs WHERE config_id=%s", (config_id,))
+            cur.execute("SELECT config_id,dataset_id,source_ids,expected_fields,market,enabled,collection_enabled,analysis_enabled,lookback_days,overlap_days,full_refresh_interval_days,batch_scope,coverage_tier,cadence,scope,authorization_status,retention_class,contains_pii,republish_allowed,max_symbols FROM control.collection_configs WHERE config_id=%s", (config_id,))
             r = cur.fetchone()
         if not r: raise KeyError("collection config not found")
-        return CollectionConfig(r[0], r[1], tuple(r[2]), frozenset(r[3]), r[4], r[5], r[6], r[7], r[8], r[9], r[10], r[11])
+        return CollectionConfig(r[0], r[1], tuple(r[2]), frozenset(r[3]), r[4], r[5], r[6], r[7], r[8], r[9], r[10], r[11], r[12], r[13], r[14], r[15], r[16], r[17], r[18], r[19])
+
+    def list_collection_configs(self) -> tuple[CollectionConfig, ...]:
+        with self.connection.cursor() as cur:
+            cur.execute("SELECT config_id FROM control.collection_configs ORDER BY config_id"); ids = [r[0] for r in cur.fetchall()]
+        return tuple(self.get_collection_config(item) for item in ids)
 
     def config_symbols(self, config_id: str, *, only_enabled: bool = True) -> tuple[str, ...]:
+        config = self.get_collection_config(config_id)
         condition = " AND s.enabled" if only_enabled else ""
         with self.connection.cursor() as cur:
             cur.execute(f"SELECT cs.symbol FROM control.collection_symbols cs JOIN control.stock_master s USING(symbol) WHERE cs.config_id=%s{condition} ORDER BY cs.symbol", (config_id,))
-            return tuple(r[0] for r in cur.fetchall())
+            rows = cur.fetchall()
+            if not rows and config.coverage_tier == CoverageTier.CORE_FOCUS.value:
+                cur.execute("SELECT cm.symbol FROM control.coverage_memberships cm JOIN control.stock_master s USING(symbol) WHERE cm.coverage_tier=%s AND cm.effective_from<=now() AND (cm.effective_to IS NULL OR cm.effective_to>now())" + (" AND s.enabled" if only_enabled else "") + " ORDER BY cm.symbol", (config.coverage_tier,))
+                rows = cur.fetchall()
+            elif not rows and config.coverage_tier == CoverageTier.MARKET_WIDE.value:
+                cur.execute(f"SELECT symbol FROM control.stock_master WHERE true{condition} ORDER BY symbol")
+                rows = cur.fetchall()
+            return tuple(r[0] for r in rows)
+
+    def set_coverage_membership(self, coverage_tier: str, symbols: tuple[str, ...] | list[str], *, effective_from: datetime, reason: str, owner: str) -> tuple[CoverageMembership, ...]:
+        if coverage_tier not in {item.value for item in CoverageTier}:
+            raise ValueError("coverage_tier is invalid")
+        if effective_from.tzinfo is None or not reason.strip() or not owner.strip():
+            raise ValueError("effective_from, reason, and owner are required")
+        normalized = tuple(sorted({_symbol(value) for value in symbols}))
+        if coverage_tier == CoverageTier.CORE_FOCUS.value and len(normalized) > 50:
+            raise ControlPlaneError("core_focus membership cannot exceed 50 symbols")
+        with self._tx() as cur:
+            cur.execute("SELECT symbol FROM control.stock_master WHERE symbol=ANY(%s)", (list(normalized),))
+            if {row[0] for row in cur.fetchall()} != set(normalized):
+                raise KeyError("stock not found")
+            cur.execute("SELECT MAX(effective_from) FROM control.coverage_memberships WHERE coverage_tier=%s AND effective_to IS NULL", (coverage_tier,))
+            current = cur.fetchone()[0]
+            if current is not None and effective_from <= current:
+                raise ValueError("effective_from must be after the current membership")
+            cur.execute("UPDATE control.coverage_memberships SET effective_to=%s WHERE coverage_tier=%s AND effective_to IS NULL", (effective_from, coverage_tier))
+            cur.executemany("INSERT INTO control.coverage_memberships(coverage_tier,symbol,effective_from,reason,owner) VALUES (%s,%s,%s,%s,%s)", [(coverage_tier, symbol, effective_from, reason.strip(), owner.strip()) for symbol in normalized])
+        return self.coverage_membership(coverage_tier, as_of=effective_from)
+
+    def coverage_membership(self, coverage_tier: str, *, as_of: datetime | None = None) -> tuple[CoverageMembership, ...]:
+        if coverage_tier not in {item.value for item in CoverageTier}:
+            raise ValueError("coverage_tier is invalid")
+        point = as_of or utc_now()
+        if point.tzinfo is None:
+            raise ValueError("as_of must be timezone-aware")
+        with self.connection.cursor() as cur:
+            cur.execute("SELECT coverage_tier,symbol,effective_from,effective_to,reason,owner FROM control.coverage_memberships WHERE coverage_tier=%s AND effective_from<=%s AND (effective_to IS NULL OR effective_to>%s) ORDER BY symbol", (coverage_tier, point, point))
+            return tuple(CoverageMembership(CoverageTier(r[0]), r[1], r[2], r[3], r[4], r[5]) for r in cur.fetchall())
 
     def _enqueue(self, config_id: str, trigger: TriggerType, symbols: tuple[str, ...] | None, trace_id: str | None) -> Execution:
         config = self.get_collection_config(config_id)
         if not config.enabled or not getattr(config, f"{trigger.value}_enabled"):
             raise ControlPlaneError(f"{trigger.value} trigger is disabled")
+        if config.authorization_status in {AuthorizationStatus.CANDIDATE.value, AuthorizationStatus.BLOCKED.value}:
+            raise ControlPlaneError("collection source authorization is not approved")
+        if any(SOURCE_AUTHORIZATION.get(source_id, AuthorizationStatus.BLOCKED) in {AuthorizationStatus.CANDIDATE, AuthorizationStatus.BLOCKED} for source_id in config.source_ids):
+            raise ControlPlaneError("collection includes a candidate or blocked source")
         requested = tuple(sorted({_symbol(s) for s in (symbols if symbols is not None else self.config_symbols(config_id))}))
         if not requested: raise ControlPlaneError("no enabled stocks are selected")
+        if config.coverage_tier == CoverageTier.CORE_FOCUS.value and len(requested) > config.max_symbols:
+            raise ControlPlaneError("core_focus execution exceeds max_symbols")
         execution_id, correlation = uuid4(), trace_id or str(uuid4())
         with self._tx() as cur:
             cur.execute("SELECT symbol FROM control.stock_master WHERE symbol=ANY(%s)", (list(requested),))
@@ -166,6 +224,18 @@ class PostgreSQLControlPlane:
             cur.execute("SELECT execution_id,item_key,source_id,dataset_id,state,rows_received,retry_count,cache_hit,is_fallback,error_code,safe_message FROM control.execution_items WHERE execution_id=%s ORDER BY item_key", (execution_id,))
             return tuple(ExecutionItem(str(r[0]),r[1],r[2],r[3],DataState(r[4]),r[5],r[6],r[7],r[8],r[9],r[10]) for r in cur.fetchall())
 
+    def source_health_summary(self, *, source_id: str | None = None, dataset_id: str | None = None) -> tuple[dict[str, Any], ...]:
+        clauses, values = [], []
+        if source_id is not None:
+            clauses.append("source_id=%s"); values.append(source_id)
+        if dataset_id is not None:
+            clauses.append("dataset_id=%s"); values.append(dataset_id)
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self.connection.cursor() as cur:
+            cur.execute(f"SELECT source_id,dataset_id,success_count,failure_count,total_latency_ms,last_fetched_at,latest_observation_at,last_state,expected_symbols,received_symbols,cache_hits,fallback_count,schema_drift_count,coverage_tier,last_cache_age_seconds FROM control.source_health{where} ORDER BY source_id,dataset_id", values)
+            rows = cur.fetchall()
+        return tuple({"source_id": r[0], "dataset_id": r[1], "success_rate": r[2] / (r[2] + r[3]) if r[2] + r[3] else 0.0, "average_latency_ms": r[4] / (r[2] + r[3]) if r[2] + r[3] else 0.0, "last_fetched_at": r[5], "latest_observation_at": r[6], "last_state": r[7], "expected_symbols": r[8], "received_symbols": r[9], "cache_hits": r[10], "fallback_count": r[11], "schema_drift_count": r[12], "coverage_tier": r[13], "cache_age_seconds": r[14]} for r in rows)
+
     def get_cursor(self, cursor_key: str) -> Cursor:
         with self.connection.cursor() as cur:
             cur.execute("SELECT last_observed_at,last_success_at FROM control.collection_cursors WHERE cursor_key=%s", (cursor_key,)); r = cur.fetchone()
@@ -176,18 +246,38 @@ class PostgreSQLControlPlane:
             cur.execute("""INSERT INTO control.collection_cursors(cursor_key,last_observed_at,last_success_at) VALUES (%s,%s,%s)
                 ON CONFLICT(cursor_key) DO UPDATE SET last_observed_at=GREATEST(control.collection_cursors.last_observed_at,EXCLUDED.last_observed_at),last_success_at=CASE WHEN EXCLUDED.last_success_at IS NOT NULL THEN EXCLUDED.last_success_at ELSE control.collection_cursors.last_success_at END""", (cursor_key, observed_at, observed_at if successful else None))
 
-    def record_health(self, source_id: str, dataset_id: str, *, state: DataState, latency_ms: float, fetched_at: datetime, latest_observation_at: datetime | None = None) -> None:
+    def record_health(self, source_id: str, dataset_id: str, *, state: DataState, latency_ms: float, fetched_at: datetime, latest_observation_at: datetime | None = None, expected_symbols: int = 0, received_symbols: int = 0, cache_hit: bool = False, coverage_tier: str = CoverageTier.MARKET_WIDE.value, cache_age_seconds: float | None = None) -> None:
         success = state in {DataState.SUCCESS, DataState.FALLBACK, DataState.PARTIAL}
         with self._tx() as cur:
-            cur.execute("""INSERT INTO control.source_health(source_id,dataset_id,success_count,failure_count,total_latency_ms,last_fetched_at,latest_observation_at,last_state) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-                ON CONFLICT(source_id,dataset_id) DO UPDATE SET success_count=control.source_health.success_count+EXCLUDED.success_count,failure_count=control.source_health.failure_count+EXCLUDED.failure_count,total_latency_ms=control.source_health.total_latency_ms+EXCLUDED.total_latency_ms,last_fetched_at=EXCLUDED.last_fetched_at,latest_observation_at=COALESCE(EXCLUDED.latest_observation_at,control.source_health.latest_observation_at),last_state=EXCLUDED.last_state""", (source_id,dataset_id,int(success),int(not success),latency_ms,fetched_at,latest_observation_at,state.value))
+            cur.execute("""INSERT INTO control.source_health(source_id,dataset_id,success_count,failure_count,total_latency_ms,last_fetched_at,latest_observation_at,last_state,expected_symbols,received_symbols,cache_hits,fallback_count,schema_drift_count,coverage_tier,last_cache_age_seconds) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT(source_id,dataset_id) DO UPDATE SET success_count=control.source_health.success_count+EXCLUDED.success_count,failure_count=control.source_health.failure_count+EXCLUDED.failure_count,total_latency_ms=control.source_health.total_latency_ms+EXCLUDED.total_latency_ms,last_fetched_at=EXCLUDED.last_fetched_at,latest_observation_at=COALESCE(EXCLUDED.latest_observation_at,control.source_health.latest_observation_at),last_state=EXCLUDED.last_state,expected_symbols=GREATEST(control.source_health.expected_symbols,EXCLUDED.expected_symbols),received_symbols=control.source_health.received_symbols+EXCLUDED.received_symbols,cache_hits=control.source_health.cache_hits+EXCLUDED.cache_hits,fallback_count=control.source_health.fallback_count+EXCLUDED.fallback_count,schema_drift_count=control.source_health.schema_drift_count+EXCLUDED.schema_drift_count,coverage_tier=EXCLUDED.coverage_tier,last_cache_age_seconds=EXCLUDED.last_cache_age_seconds""", (source_id,dataset_id,int(success),int(not success),latency_ms,fetched_at,latest_observation_at,state.value,expected_symbols,received_symbols,int(cache_hit),int(state == DataState.FALLBACK),int(state == DataState.SCHEMA_DRIFT),coverage_tier,cache_age_seconds))
 
     def source_health(self, source_id: str, dataset_id: str) -> dict[str, Any] | None:
         with self.connection.cursor() as cur:
-            cur.execute("SELECT success_count,failure_count,total_latency_ms,last_fetched_at,latest_observation_at,last_state FROM control.source_health WHERE source_id=%s AND dataset_id=%s", (source_id,dataset_id)); r = cur.fetchone()
+            cur.execute("SELECT success_count,failure_count,total_latency_ms,last_fetched_at,latest_observation_at,last_state,expected_symbols,received_symbols,cache_hits,fallback_count,schema_drift_count,coverage_tier,last_cache_age_seconds FROM control.source_health WHERE source_id=%s AND dataset_id=%s", (source_id,dataset_id)); r = cur.fetchone()
         if not r: return None
         total = r[0] + r[1]
-        return {"source_id":source_id,"dataset_id":dataset_id,"success_rate":r[0]/total if total else 0.0,"average_latency_ms":r[2]/total if total else 0.0,"last_fetched_at":r[3],"latest_observation_at":r[4],"last_state":r[5]}
+        return {"source_id":source_id,"dataset_id":dataset_id,"success_rate":r[0]/total if total else 0.0,"average_latency_ms":r[2]/total if total else 0.0,"last_fetched_at":r[3],"latest_observation_at":r[4],"last_state":r[5],"expected_symbols":r[6],"received_symbols":r[7],"cache_hits":r[8],"fallback_count":r[9],"schema_drift_count":r[10],"coverage_tier":r[11],"cache_age_seconds":r[12]}
+
+    def get_admin_setting(self, key: str) -> tuple[Any, int] | None:
+        with self.connection.cursor() as cur:
+            cur.execute("SELECT value_json,version FROM control.admin_settings WHERE setting_key=%s", (key,)); row = cur.fetchone()
+        return (row[0], row[1]) if row else None
+
+    def put_admin_setting(self, key: str, value: Any, *, actor: str, expected_version: int | None = None) -> int:
+        current = self.get_admin_setting(key)
+        if current and expected_version is not None and current[1] != expected_version:
+            raise ControlPlaneError("setting has changed; reload before saving")
+        version = current[1] + 1 if current else 1
+        with self._tx() as cur:
+            cur.execute("INSERT INTO control.admin_settings(setting_key,value_json,version,updated_at,updated_by) VALUES (%s,%s::jsonb,%s,now(),%s) ON CONFLICT(setting_key) DO UPDATE SET value_json=EXCLUDED.value_json,version=EXCLUDED.version,updated_at=now(),updated_by=EXCLUDED.updated_by", (key, json.dumps(value, ensure_ascii=False), version, actor.strip()))
+            cur.execute("INSERT INTO control.admin_audit(action,resource,resource_key,actor,detail_json,created_at) VALUES ('update','admin_setting',%s,%s,%s::jsonb,now())", (key, actor.strip(), json.dumps({"version": version})))
+        return version
+
+    def admin_audit(self, *, limit: int = 50) -> tuple[dict[str, Any], ...]:
+        with self.connection.cursor() as cur:
+            cur.execute("SELECT action,resource,resource_key,actor,detail_json,created_at FROM control.admin_audit ORDER BY created_at DESC LIMIT %s", (limit,)); rows = cur.fetchall()
+        return tuple({"action": r[0], "resource": r[1], "resource_key": r[2], "actor": r[3], "detail": r[4], "created_at": r[5]} for r in rows)
 
     def put_cache(self, *_: Any, **__: Any) -> None:
         raise ControlPlaneError("PostgreSQL stores cache metadata only; write the response to GCS and call put_cache_metadata")

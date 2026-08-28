@@ -1,13 +1,37 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "version": "1.0.0",
-  "sourceIds": ["twse", "tpex", "mops", "finmind", "fugle", "shioaji", "taiex", "tpex-benchmark"],
+  "version": "1.1.0",
+  "sourceIds": ["twse", "tpex", "mops", "finmind", "fugle", "shioaji", "taiex", "tpex-benchmark", "taifex", "tdcc", "yahoo-finance", "google-finance", "tiingo", "cmoney", "factset", "podcast", "ptt", "dcard", "stock-buzz"],
   "datasetIds": ["ohlcv", "valuation", "institutional", "financials", "events", "market-activity", "benchmark", "core", "mart-report"],
   "enums": {
     "executionStatus": ["queued", "running", "succeeded", "partial", "failed", "retrying", "blocked"],
     "qualityFlag": ["good", "warning", "critical", "unknown"],
     "publicationStatus": ["draft", "blocked", "publishable", "published", "superseded"],
-    "dataAvailabilityStatus": ["success", "empty", "partial", "fallback", "stale", "unavailable", "schema_drift", "failed"]
+    "dataAvailabilityStatus": ["success", "empty", "partial", "fallback", "stale", "unavailable", "schema_drift", "failed"],
+    "coverageTier": ["market_wide", "core_focus", "market_macro"],
+    "authorizationStatus": ["official", "approved_fallback", "candidate", "blocked"],
+    "collectionCadence": ["intraday", "daily", "公告頻率", "weekly", "quarterly", "on_demand"]
+  },
+  "sourceCatalog": {
+    "twse": {"authorizationStatus": "official", "defaultCoverageTier": "market_wide"},
+    "tpex": {"authorizationStatus": "official", "defaultCoverageTier": "market_wide"},
+    "mops": {"authorizationStatus": "official", "defaultCoverageTier": "market_wide"},
+    "taiex": {"authorizationStatus": "official", "defaultCoverageTier": "market_macro"},
+    "tpex-benchmark": {"authorizationStatus": "official", "defaultCoverageTier": "market_macro"},
+    "taifex": {"authorizationStatus": "official", "defaultCoverageTier": "market_macro"},
+    "tdcc": {"authorizationStatus": "approved_fallback", "defaultCoverageTier": "market_wide"},
+    "finmind": {"authorizationStatus": "approved_fallback", "defaultCoverageTier": "market_wide"},
+    "fugle": {"authorizationStatus": "candidate", "defaultCoverageTier": "core_focus"},
+    "shioaji": {"authorizationStatus": "candidate", "defaultCoverageTier": "core_focus"},
+    "yahoo-finance": {"authorizationStatus": "candidate", "defaultCoverageTier": "core_focus"},
+    "google-finance": {"authorizationStatus": "candidate", "defaultCoverageTier": "market_macro"},
+    "tiingo": {"authorizationStatus": "candidate", "defaultCoverageTier": "core_focus"},
+    "cmoney": {"authorizationStatus": "candidate", "defaultCoverageTier": "core_focus"},
+    "factset": {"authorizationStatus": "candidate", "defaultCoverageTier": "core_focus"},
+    "podcast": {"authorizationStatus": "candidate", "defaultCoverageTier": "core_focus"},
+    "ptt": {"authorizationStatus": "candidate", "defaultCoverageTier": "core_focus"},
+    "dcard": {"authorizationStatus": "candidate", "defaultCoverageTier": "core_focus"},
+    "stock-buzz": {"authorizationStatus": "candidate", "defaultCoverageTier": "core_focus"}
   },
   "schemas": {
     "DataProvenanceV1": {
@@ -53,6 +77,9 @@
     },
     "DatasetCollectionConfigV1": {
       "$ref": "control_plane.v1.json#/definitions/DatasetCollectionConfigV1"
+    },
+    "CoverageMembershipV1": {
+      "$ref": "control_plane.v1.json#/definitions/CoverageMembershipV1"
     },
     "ExecutionV1": {
       "$ref": "control_plane.v1.json#/definitions/ExecutionV1"

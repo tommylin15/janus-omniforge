@@ -9,7 +9,11 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 
-SOURCE_IDS = frozenset({"twse", "tpex", "mops", "finmind", "fugle", "shioaji", "taiex", "tpex-benchmark"})
+SOURCE_IDS = frozenset({
+    "twse", "tpex", "mops", "finmind", "fugle", "shioaji", "taiex", "tpex-benchmark",
+    "taifex", "tdcc", "yahoo-finance", "google-finance", "tiingo", "cmoney", "factset",
+    "podcast", "ptt", "dcard", "stock-buzz",
+})
 DATASET_IDS = frozenset({"ohlcv", "valuation", "institutional", "financials", "events", "market-activity", "benchmark"})
 QUALITY_FLAGS = frozenset({"good", "warning", "critical", "unknown"})
 

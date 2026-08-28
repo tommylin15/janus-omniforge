@@ -10,7 +10,7 @@ locals {
     }
     catalog = {
       secret_id = "janus-postgres-catalog-password"
-      accessor  = "serviceAccount:trino-runtime@${var.project_id}.iam.gserviceaccount.com"
+      accessor  = "serviceAccount:ingestion-core@${var.project_id}.iam.gserviceaccount.com"
     }
     publication = {
       secret_id = "janus-postgres-publication-password"
@@ -67,6 +67,20 @@ resource "google_secret_manager_secret_iam_member" "postgres_role_accessor" {
   secret_id = google_secret_manager_secret.postgres_role[each.key].secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = each.value.accessor
+}
+
+resource "google_secret_manager_secret_iam_member" "web_control_accessor" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.postgres_role["control"].secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:web-runtime@${var.project_id}.iam.gserviceaccount.com"
+}
+
+resource "google_secret_manager_secret_iam_member" "web_catalog_accessor" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.postgres_role["catalog"].secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:web-runtime@${var.project_id}.iam.gserviceaccount.com"
 }
 
 output "postgres_role_secret_names" {

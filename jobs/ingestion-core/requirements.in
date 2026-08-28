@@ -1,0 +1,4 @@
+duckdb==1.5.5
+psycopg[binary]==3.2.10
+pyiceberg[pyarrow,sql-postgres]==0.11.1
+pytz==2025.2
