@@ -1,10 +1,12 @@
 # Infrastructure
 
-Development infrastructure is managed by GitHub Actions and idempotent gcloud
-scripts. Do not run provisioning, deployment, or destructive commands without
-explicit user authorization.
+Development infrastructure is managed by idempotent gcloud scripts. Automatic
+dev runtime deployment is initiated by path-based GCP Cloud Build Developer
+Connect triggers; GitHub Actions is retained as a manual fallback only. Do not
+run provisioning, deployment, or destructive commands without explicit user
+authorization.
 
-可重現的 dev GitHub Actions、PostgreSQL migration 與 Cloud Run 部署流程請見
+可重現的 dev gcloud bootstrap、PostgreSQL migration 與 Cloud Run 部署流程請見
 [`doc/runbook-dev-deploy.md`](../doc/runbook-dev-deploy.md)。
 
 ## PostgreSQL dev/MVP decision
@@ -41,3 +43,8 @@ Artifact Registry usage is limited to image push/pull, immutable digest,
 metadata, and cleanup operations. Artifact Analysis API, Container Scanning
 API, vulnerability scanning, and occurrence APIs must not be enabled or called.
 Any SBOM must be generated locally without those APIs.
+
+Both `janusai-poc` and `janus-postgres` apply
+`infra/artifact-registry-cleanup-policy.json`: each image package keeps only its
+most recent version, while older tagged and untagged versions are eligible for
+deletion after one second. Cleanup dry-run is disabled.

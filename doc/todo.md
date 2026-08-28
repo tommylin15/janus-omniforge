@@ -29,18 +29,18 @@
 
 ## P0 — IAM、CI/CD 與 Secret
 
-- [x] 建立 GitHub → GCP Workload Identity Federation。（pool `github-actions`、provider `github`；限定 `tommylin15/janus-omniforge`）
+- [x] 建立 GitHub → GCP Workload Identity Federation。（pool `github-actions`、provider `github`；限定 `tommylin15/janus-omniforge` 的 `main`，只供手動 GitHub Actions fallback）
 - [x] 建立 Cloud Build service account。（`janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com`）
 - [x] 建立四個 runtime service accounts。（`ingestion-core`、`intelligence-mart`、`trino-runtime`、`web-runtime`；`trino-runtime` 已隨 cutover 退役，不再授予新 runtime 權限）
 - [x] 套用最小 IAM，不建立長效 JSON key。（四個 runtime SA 已授予 Log Writer／Metric Writer；資源級權限待 bucket／Pub/Sub／Secret 建立後補上）
 - [x] 啟用必要 GCP APIs。（已啟用於 `gen-lang-client-0593591102`）
-- [x] 新增第五個最小權限 VM identity：`postgres-vm`；不得使用 default Compute Engine service account 或 broad cloud-platform scope。（`infra/terraform/postgres_vm_identity.tf`；獨立 SA、零 project-level role、明確 logging／monitoring scope allowlist）
-- [x] 盤點 Compute Engine、IAP、OS Login 與 Direct VPC egress 所需 API／IAM；只啟用 `compute`、`iam`、`iap`、`oslogin`、`run`、`serviceusage` 必要 API，禁止 Artifact Analysis／Container Scanning API。（`infra/terraform/required_apis.tf`；2026-08-26 實際盤點）
-- [x] 將 Direct VPC egress 所需 Cloud Run service agent／deployer `roles/compute.networkUser` 與 workload network tags 納入最小 IAM；不得建立有固定 VM 費的 Serverless VPC Access connector。（`infra/terraform/direct_vpc_iam.tf`；subnet-scoped IAM）
-- [x] 建立 path-based Cloud Build triggers。（人工建立 `janus-ingestion-core` 與 `janus-intelligence-mart`，main 分支路徑篩選）
-- [x] 建立 Artifact Registry cleanup policy。（`janusai-poc`、`janus-postgres`：每個 image package 僅保留最新 tagged version，舊 tagged／untagged 版本約 1 秒後清理；Artifact scanning APIs 未啟用）
+- [x] 新增第五個最小權限 VM identity：`postgres-vm`；不得使用 default Compute Engine service account 或 broad cloud-platform scope。（GCP 實際 SA 與 `scripts/gcp/provision-dev.sh` guard；獨立 SA、零 project-level role、明確 logging／monitoring scope allowlist）
+- [x] 盤點 Compute Engine、IAP、OS Login 與 Direct VPC egress 所需 API／IAM；只啟用必要 API，禁止 Artifact Analysis／Container Scanning API。（GCP 實際狀態與 `scripts/gcp/provision-dev.sh` allowlist；2026-08-28 再驗證 scanning disabled）
+- [x] 將 Direct VPC egress 所需 Cloud Run service agent／deployer `roles/compute.networkUser` 與 workload network tags 納入最小 IAM；不得建立有固定 VM 費的 Serverless VPC Access connector。（GCP subnet-scoped IAM 實際設定）
+- [x] 建立 path-based GCP Cloud Build Developer Connect triggers。（`janus-ingestion-core`=`5e201f5a-c206-4006-92b9-40a53c4155ed`、`janus-intelligence-mart`=`b8215cb9-1823-401d-b293-65fbdf73ce30`、`janus-web`=`c08067dd-5c44-414f-9e8d-9d94e89b4089`；僅 `main` 且符合各自 included files 時觸發；GitHub Actions 為 manual-only fallback）
+- [x] 建立 Artifact Registry cleanup policy。（`janusai-poc`、`janus-postgres`：每個 image package 僅保留最新 version，舊 tagged／untagged 版本約 1 秒後清理，dry-run disabled；舊 PostgreSQL digest `sha256:8dfe6976...` 已刪除；Artifact scanning APIs 未啟用）
 - [x] 建立 Secret Manager secrets（只放名稱，不把值寫入 repo）。（12 個名稱已建立或已存在；第 4 項前導 `.` 已正規化為 `janus-fugle-api-key`）
-- [x] 建立 PostgreSQL bootstrap、control、catalog、publication、audit role 的 Secret 名稱與單項 IAM；不得共用 superuser credential 或寫入 Terraform state／startup script。（`infra/terraform/postgres_secrets.tf`；五個空 Secret container、五組單一 secret-level accessor、無 secret version）
+- [x] 建立 PostgreSQL bootstrap、control、catalog、publication、audit role 的 Secret 名稱與單項 IAM；不得共用 superuser credential 或寫入 deployment metadata／startup script。（GCP 五個 Secret containers、五組單一 secret-level accessor；值由 out-of-band version 管理）
 - [x] 確認 build 產出 immutable digest 與 SBOM。（歷史 Build `dc17987c-dbb9-474c-ac3b-9791c6916ef7`；Trino digest `sha256:e6376bfd8b4315fe70ebdba0d2d683881ac80e112099cbc09528388c6af10a61`；既有 SBOM occurrence `74ab98fa-5e52-4c62-a431-846620aea1ad`，不得重複執行 occurrence API）
 - [x] 設定 Artifact Registry 成本限制：禁止 Artifact Analysis API、Container Scanning API、vulnerability scanning 與 occurrence API；SBOM 不作掃描結果依賴。（repository policy；未執行雲端變更）
 
@@ -58,8 +58,8 @@
 
 ## P0 — Stage／Core
 
-- [x] 建立 dev Stage／Core／Mart buckets 或隔離 prefixes。（`infra/terraform/storage.tf`；已 apply）
-- [x] 設 uniform bucket-level access 與 lifecycle。（`infra/terraform/storage.tf`；已 apply）
+- [x] 建立 dev Stage／Core／Mart buckets 或隔離 prefixes。（GCP 實際 buckets；`scripts/gcp/provision-dev.sh` 可重複檢查／建立）
+- [x] 設 uniform bucket-level access、public access prevention、versioning 與 lifecycle。（GCP 實際設定；bootstrap 維持 access prevention 與 versioning）
 - [x] 實作原始物件 + sidecar metadata 寫入。（`jobs/ingestion-core/ingestion_core/stage.py`）
 - [x] 實作 content hash 與 idempotency key。（`packages/provenance/model.py`）
 - [x] 實作 quarantine 路徑。（`jobs/ingestion-core/ingestion_core/stage.py`）
@@ -84,7 +84,7 @@ Compute Engine PostgreSQL VM 後，仍需完成下列 production persistence int
 
 ## P0 — PostgreSQL Free Tier VM 與 Control DB 基礎
 
-- [x] 建立 Terraform Compute Engine `e2-micro` VM：固定 eligible `us-central1` zone、無 external IP、private IP；加入 validation／precondition 禁止覆寫 machine type／region。（`janus-postgres-dev`，`us-central1-a`，private `10.42.0.5`）
+- [x] 建立 Compute Engine `e2-micro` VM：固定 eligible `us-central1` zone、無 external IP、private IP；gcloud bootstrap guard 對 machine type／disk／zone fail closed。（`janus-postgres-dev`，`us-central1-a`，private `10.42.0.5`）
 - [x] VM 全部 boot／data Standard Persistent Disk 配置量合計 ≤30 GB；禁止 snapshot／backup／replica／HA 預設資源。（單一 30 GB `pd-standard` boot disk，無其他 disk／snapshot／backup／replica／HA）
 - [x] 設定專用 subnet、Private Google Access、IAP／OS Login、`postgres-vm` identity 與 network tags；IAP SSH 僅允許 `35.235.240.0/20`，不得公開 `22`／`5432`。（IAP/OS Login 實測成功；private 5432 僅允許四個 workload tags）
 - [x] 規劃無 Cloud NAT 的 PostgreSQL bootstrap／更新來源：使用預建 image 或可經 Private Google Access 取得的核准 Google-hosted artifact；不得假設 Private Google Access 可存取一般 apt internet repository，也不得為安裝套件新增固定費用 NAT。（固定 Google COS boot image；PostgreSQL image 必須先發佈到核准 Google-hosted registry）
@@ -252,7 +252,7 @@ credential、Mart Job runtime 與 authenticated HTTP／DB smoke 仍待完成。
 - [ ] Failure／retry／idempotency tests。
 - [ ] PostgreSQL migration、role isolation、queue claim、connection exhaustion、VM restart/reconnect、retention/pruning tests。
 - [ ] Direct VPC egress／firewall tests：指定 workload 可連 `5432`，public internet、未授權 identity 與其他 network tag 不可連線。
-- [ ] Free Tier IaC tests：只允許一台 `e2-micro`、eligible `us-central1` zone、全部 Standard Persistent Disk ≤30 GB、無 external IP／NAT／snapshot／replica／Serverless VPC connector。
+- [ ] Free Tier gcloud guard tests：只允許一台 `e2-micro`、eligible `us-central1` zone、全部 Standard Persistent Disk ≤30 GB、無 external IP／NAT／snapshot／replica／Serverless VPC connector。
 - [ ] 安全輸出與 log redaction tests。
 - [ ] TypeScript／ESLint／production build。
 - [ ] Admin UI Vitest 與 Playwright interaction tests。
@@ -265,7 +265,7 @@ credential、Mart Job runtime 與 authenticated HTTP／DB smoke 仍待完成。
 2026-08-28 本機驗證紀錄：Python unittest 全套 63/63 通過，涵蓋 contract、2330
 Stage → Core closed loop、DQ、Stage cleanup fence、retry／fallback／idempotency、
 DuckDB／Iceberg、Admin API、safe output 與 Web routes；compileall、git diff --check、
-Terraform validate／fmt、JSON（含 BOM）解析及 JavaScript syntax 亦通過。Vitest 2/2
+gcloud bootstrap guard、Bash syntax、JSON（含 BOM）解析及 JavaScript syntax 亦通過。Vitest 2/2
 與 Playwright 1/1 通過。pytest 未安裝；專案目前沒有 TypeScript／ESLint／production
 build script。PostgreSQL 真實連線／角色隔離／VM restart、Direct VPC firewall、
 Cloud Run DB-connected query、完整 2330 → Admin 整合及 scale-to-zero 仍未在本機或

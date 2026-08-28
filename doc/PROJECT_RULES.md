@@ -64,5 +64,5 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
   outbound data 控制在每月 1 GB Free Tier 額度內。
 - Free Tier 模式不自動建立 snapshot、backup、HA、replica 或其他會產生額外
   儲存費用的 PostgreSQL 保護資源；任何例外必須先取得明確授權。
-- Free Tier 是 billing account／region 條件，Terraform 只能限制資源規格，不能
-  保證帳單為 US$0；部署前仍須檢查資格與 billing budget。
+- Free Tier 是 billing account／region 條件，自動化 guard 只能檢查資源規格，
+  不能保證帳單為 US$0；部署前仍須檢查資格與 billing budget。

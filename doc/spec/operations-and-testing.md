@@ -2,6 +2,49 @@
 
 最新驗證日期：2026-08-28
 
+## Dev delivery automation and artifact retention (2026-08-28)
+
+Terraform is no longer a repository or deployment dependency. Dev bootstrap is
+performed by the explicitly authorized, idempotent
+`scripts/gcp/provision-dev.sh`; it verifies the fixed PostgreSQL Free Tier shape
+and does not create a missing PostgreSQL VM automatically.
+
+Automatic runtime deployment is owned by three regional GCP Cloud Build
+Developer Connect triggers, all restricted to branch `^main$` and component
+paths:
+
+- `janus-ingestion-core` (`5e201f5a-c206-4006-92b9-40a53c4155ed`):
+  `jobs/ingestion-core/**`, contracts, observability, and `cloudbuild.yaml`.
+- `janus-intelligence-mart` (`b8215cb9-1823-401d-b293-65fbdf73ce30`):
+  `jobs/intelligence-mart/**`, contracts, observability, and `cloudbuild.yaml`.
+- `janus-web` (`c08067dd-5c44-414f-9e8d-9d94e89b4089`): `apps/web/**` and
+  `cloudbuild.yaml`.
+
+Documentation-only and `scripts/gcp/**` changes do not trigger runtime builds.
+The former two triggers were deleted before these three current triggers were
+created. `.github/workflows/deploy-dev.yml` is manual-only (`workflow_dispatch`)
+and restricted to `main`; its repository variables are
+`GCP_WIF_PROVIDER` and `GCP_CI_SERVICE_ACCOUNT`. No long-lived service-account
+JSON key is used. A path-matching push has not yet been used as end-to-end
+evidence for the new trigger set; automatic trigger acceptance remains pending.
+
+The last directly verified runtime deployments remain Cloud Build
+`baf5b915-ee80-477b-8ec8-dc1e981fc23a` for ingestion-core at
+`sha256:16248df5e95afea4cc099016c4c6e1722eade307b53d2065514f7d517f596e8e`
+and `e021a691-2a0e-42eb-bffd-b25c2ee2ead2` for web at
+`sha256:6746d5985e60781bda04b1965d980e0651c82dd30e7026344e1b30908221cd74`.
+The `janus-intelligence-mart` trigger exists, but its Cloud Run Job deployment
+target has not yet been created and its deploy acceptance remains pending.
+
+Artifact Registry repositories `janusai-poc` and `janus-postgres` use the same
+active cleanup policy with dry-run disabled: each image package keeps only its
+most recent version, while older tagged and untagged versions are eligible for
+deletion after one second. The old untagged PostgreSQL digest
+`sha256:8dfe6976ca822f87a6ba42743bb0f841d4bee3352a66816d663f2bc0961f7c4e`
+was permanently deleted; `postgres:16.15` remains at
+`sha256:e81c2f294e85fbb0c1ff2d19263a169d987a881c54e21ca8339df4501a7fa636`.
+Artifact Analysis and Container Scanning remain disabled and were not called.
+
 ## P0 Admin follow-up (2026-08-28)
 
 Admin now has persisted settings and immutable audit metadata in SQLite and
@@ -10,17 +53,17 @@ checks. The source catalog API/UI exposes cadence, coverage tier, retention,
 authorization status, and max-symbol quota; candidate/blocked enabled configs
 are rejected. Stock status details expose the aggregate Core summary,
 including latest date, row count, DQ warnings, and quarantine count when the
-read-only Core runtime is connected. Terraform now includes a Direct VPC Web
-Cloud Run service definition and Web access to the existing control/catalog
-Secret Manager containers; no secret values are committed or invented.
+read-only Core runtime is connected. The existing Direct VPC Web Cloud Run
+service has access to the control/catalog Secret Manager containers; no secret
+values are committed or invented.
 
 Frontend Vitest and Playwright configurations/tests were added. Dependencies
 were not installed in this restricted environment because the npm registry
 request stalled; browser discovery returned no available in-app browser.
 Local HTTP smoke returned 200 for `/health`, `/admin/stocks`, and the Admin JS
 asset. Python discovery ran 63 tests successfully; Python compileall,
-JavaScript syntax, and git diff checks passed. Terraform CLI validation could
-not be rerun because the installed Windows launcher is not executable.
+JavaScript syntax, and git diff checks passed. Terraform is no longer part of
+the repository or validation path.
 
 ## P0 Query／Admin application layer (2026-08-28)
 
@@ -137,9 +180,9 @@ this change.
 
 - Python unit/contract tests：39 passed（含 Stage/Core、DuckDB/Iceberg、framework/control、contract、DB session timeout 與 sparse-empty semantics）。
 - Python compileall：passed。
-- Terraform validate：既有 baseline 曾通過；本次 Windows 環境 Terraform launcher 無法執行，未宣稱本次 IaC 變更已重新 validate。
-- Terraform apply：4 bucket IAM bindings added，0 changed，0 destroyed。
-- Post-apply Terraform plan：No changes。
+- gcloud bootstrap guard：PostgreSQL `e2-micro`、30 GB、固定 zone 驗證通過。
+- GCP Developer Connect triggers：三個 component trigger 已建立；新的 path-matching push acceptance 尚待驗證。
+- Artifact Registry：兩個 repositories 均啟用 keep-latest-1 cleanup policy，dry-run disabled。
 - Cloud Build images：`d6f62619-eba6-47b2-b238-c1057774a611` 與
   `fcbae728-f254-458e-8475-0c69b3e5a34f` 均成功。
 

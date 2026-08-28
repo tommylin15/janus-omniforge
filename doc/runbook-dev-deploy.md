@@ -18,12 +18,11 @@ $zone = "us-central1-a"
 
 不要使用 `gcloud.ps1`；在受限 PowerShell execution policy 下可能被阻擋。
 
-## 2. GitHub/gcloud dev bootstrap (current path)
+## 2. gcloud dev bootstrap (current path)
 
-Terraform is not required. GitHub Actions uses OIDC Workload Identity
-Federation and runs `scripts/gcp/provision-dev.sh`. The script is idempotent,
-does not delete resources, and fails closed if the fixed PostgreSQL Free Tier
-shape is missing or has drifted.
+Terraform is not required. `scripts/gcp/provision-dev.sh` is the explicitly
+authorized, idempotent bootstrap entrypoint. It does not delete resources and
+fails closed if the fixed PostgreSQL Free Tier shape is missing or has drifted.
 
 For a local, explicitly authorized bootstrap:
 
@@ -37,25 +36,31 @@ $env:ALLOW_DEV_PROVISION = "true"
 & "C:\Program Files\Git\bin\bash.exe" scripts/gcp/provision-dev.sh
 ```
 
-## 2A. GitHub dev deployment (current path)
+## 2A. Dev runtime deployment (current path)
 
-`.github/workflows/deploy-dev.yml` uses GitHub OIDC Workload Identity
-Federation; no service-account JSON key or Terraform is required. Configure the
-GitHub `dev` Environment and repository Variables first:
+Automatic deployment is initiated by three GCP Cloud Build Developer Connect
+triggers. They watch `main` and invoke `cloudbuild.yaml` only when their
+component paths match. No service-account JSON key or Terraform is required.
+
+`.github/workflows/deploy-dev.yml` is a manual-only fallback using GitHub OIDC.
+Configure these repository Variables before using that fallback:
 
 - `GCP_WIF_PROVIDER`: full GCP Workload Identity provider resource name
 - `GCP_CI_SERVICE_ACCOUNT`: the allowed CI service account email
 
-The GitHub workflow is retained as a manual fallback using
-`workflow_dispatch`; it refuses to run unless the selected ref is `main`. The
-automatic path-based deployment is handled by GCP Cloud Build Developer Connect
-triggers. A change under `apps/web/**` deploys `web`; changes under
-`jobs/ingestion-core/**` deploy `ingestion-core`; and changes under
-`jobs/intelligence-mart/**` deploy `intelligence-mart`. Shared package, Cloud
-Build, or deployment-script changes can deploy more than one component. It invokes
-`scripts/gcp/deploy-dev.sh`, which submits the existing `cloudbuild.yaml` and
-keeps the immutable image-digest deployment and cleanup behavior. It then runs
-`scripts/gcp/verify-dev.sh` for read-only checks.
+The fallback refuses to run unless the selected ref is `main`; it invokes
+`scripts/gcp/deploy-dev.sh` and then `scripts/gcp/verify-dev.sh`.
+
+Automatic trigger mapping:
+
+- `apps/web/**` or `cloudbuild.yaml` → `janus-web`
+- `jobs/ingestion-core/**`, `packages/contracts/**`,
+  `packages/observability/**`, or `cloudbuild.yaml` → `janus-ingestion-core`
+- `jobs/intelligence-mart/**`, `packages/contracts/**`,
+  `packages/observability/**`, or `cloudbuild.yaml` → `janus-intelligence-mart`
+
+Other paths, including documentation and `scripts/gcp/**`, do not trigger an
+automatic runtime deployment.
 
 The active automatic deployment source is now the three GCP Developer Connect
 triggers `janus-ingestion-core`, `janus-intelligence-mart`, and `janus-web`.
@@ -142,11 +147,19 @@ Artifact Analysis、Container Scanning 或 occurrence API。
 
 ## 6. 本次已驗證的 dev 證據
 
-- Terraform `init`、`validate` 通過；apply：`1 added, 2 changed, 1 destroyed`。
+- Terraform 已從 repository 與 dev deployment path 移除；bootstrap 由
+  `scripts/gcp/provision-dev.sh` 負責，PostgreSQL guard 驗證為 `e2-micro`、
+  30 GB、`us-central1-a`。
+- 三個 GCP Developer Connect triggers 已建立，僅 `main` 且符合 component
+  paths 時觸發；GitHub Actions 為 manual-only fallback。
 - PostgreSQL migration `004_source_coverage` 成功，並確認新欄位與
   `control.coverage_memberships` 存在。
-- Cloud Build：`daa3d930-75cf-43a8-b5a5-48e972bdd73d`，四個 step 成功。
-- Cloud Run Job image digest：
-  `sha256:e85017c3022da240f82cf7c557625a7b17e84249a2d42517d4eb4b6f52531131`。
-- 本次 smoke execution：`janus-ingestion-core-kkbkg`；容器已啟動，執行
-  完成狀態需由後續 `executions describe` 再確認。
+- 最近直接驗證的 ingestion build：
+  `baf5b915-ee80-477b-8ec8-dc1e981fc23a`，digest
+  `sha256:16248df5e95afea4cc099016c4c6e1722eade307b53d2065514f7d517f596e8e`。
+- 最近直接驗證的 web build：`e021a691-2a0e-42eb-bffd-b25c2ee2ead2`，
+  digest `sha256:6746d5985e60781bda04b1965d980e0651c82dd30e7026344e1b30908221cd74`。
+- `janusai-poc` 與 `janus-postgres` cleanup policy 均為每個 package 只保留
+  最新一版；dry-run disabled，Artifact／Container scanning disabled。
+- 新 trigger set 尚待一次符合 component path 的 `main` push 完成端到端驗收；
+  `janus-intelligence-mart` Cloud Run Job 尚未建立。
