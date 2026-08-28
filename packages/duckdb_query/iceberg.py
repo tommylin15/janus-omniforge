@@ -234,6 +234,11 @@ class IcebergQuery:
         self.engine = engine or DuckDBEngine()
 
     def query(self, identifier: str, sql: str, parameters: Sequence[Any] = ()) -> tuple[dict[str, Any], ...]:
+        # A dataset may have no committed partition yet. Treat that as a
+        # legitimate empty Core dataset; transport/catalog failures still
+        # propagate to the bounded API error boundary.
+        if hasattr(self.catalog, "table_exists") and not self.catalog.table_exists(identifier):
+            return ()
         table = self.catalog.load_table(identifier)
         table.scan().to_duckdb("core_table", connection=self.engine.connection)
         # CoreQueryService supplies an allow-listed logical identifier.  The

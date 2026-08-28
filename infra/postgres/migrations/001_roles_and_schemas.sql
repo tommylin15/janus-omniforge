@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP on
 
 -- Password variables are supplied by the out-of-band operator. Never commit
--- values or pass them through Terraform/startup metadata.
+-- values or pass them through deployment metadata.
 CREATE ROLE janus_control LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
 CREATE ROLE janus_catalog LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
 CREATE ROLE janus_publication LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;
@@ -25,4 +25,3 @@ CREATE SCHEMA audit AUTHORIZATION janus_audit;
 
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 REVOKE CREATE ON DATABASE janus_control FROM PUBLIC;
-

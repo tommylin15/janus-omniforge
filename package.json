@@ -3,13 +3,20 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "npm run typecheck && npm run lint && node scripts/build-web.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
     "test": "npm run test:unit && npm run test:e2e"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
+    "@eslint/js": "^9.22.0",
+    "@types/node": "^22.15.0",
+    "eslint": "^9.22.0",
     "jsdom": "^26.0.0",
+    "typescript": "^5.8.2",
     "vitest": "^3.2.4"
   }
 }

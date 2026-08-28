@@ -262,6 +262,15 @@ credential、Mart Job runtime 與 authenticated HTTP／DB smoke 仍待完成。
   另行授權。驗收證據須記錄 revision、immutable image digest、測試 URL／時間與
   scale-to-zero 狀態；不得部署 production、提高既有限額或建立新付費資源。
 
+2026-08-28 本機驗證紀錄：Python unittest 全套 63/63 通過，涵蓋 contract、2330
+Stage → Core closed loop、DQ、Stage cleanup fence、retry／fallback／idempotency、
+DuckDB／Iceberg、Admin API、safe output 與 Web routes；compileall、git diff --check、
+Terraform validate／fmt、JSON（含 BOM）解析及 JavaScript syntax 亦通過。Vitest 2/2
+與 Playwright 1/1 通過。pytest 未安裝；專案目前沒有 TypeScript／ESLint／production
+build script。PostgreSQL 真實連線／角色隔離／VM restart、Direct VPC firewall、
+Cloud Run DB-connected query、完整 2330 → Admin 整合及 scale-to-zero 仍未在本機或
+本次執行中驗證；未部署 production 或建立新付費 GCP 資源。
+
 ## P1 — 全市場量化網
 
 - [ ] 以當日 enabled 股票 master 收集全市場日 OHLCV、PE/PB、法人、融資券／借券／當沖、基本面摘要與官方 benchmark。

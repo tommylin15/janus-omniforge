@@ -1,16 +1,15 @@
 # Dev 部署與 PostgreSQL Migration Runbook
 
 本文件記錄已驗證的 dev 執行路徑。適用於本機 Windows PowerShell、GCP
-project `gen-lang-client-0593591102`、region `us-central1`。執行 Terraform
-apply、migration、Cloud Build 或 Cloud Run Job 前，仍須依
+project `gen-lang-client-0593591102`、region `us-central1`。執行 GCP
+bootstrap、migration、Cloud Build 或 Cloud Run Job 前，仍須依
 `doc/PROJECT_RULES.md` 取得當次明確授權。
 
 ## 1. 工具與固定變數
 
-本專案使用已驗證的 Terraform binary：
+本專案使用已驗證的 gcloud binary：
 
 ```powershell
-$tf = "D:\vibeCode\github\janus-omniforge\.tools\terraform\terraform.exe"
 $gcloud = "C:\Program Files (x86)\Google\Cloud SDK\google-cloud-sdk\bin\gcloud.cmd"
 $project = "gen-lang-client-0593591102"
 $region = "us-central1"
@@ -18,25 +17,49 @@ $zone = "us-central1-a"
 ```
 
 不要使用 `gcloud.ps1`；在受限 PowerShell execution policy 下可能被阻擋。
-不要使用可能是 0 bytes 的 WinGet `terraform.exe` launcher。
 
-## 2. Terraform dev apply
+## 2. GitHub/gcloud dev bootstrap (current path)
 
-先初始化與驗證，再產生保存的 plan；apply 必須使用同一份 plan：
+Terraform is not required. GitHub Actions uses OIDC Workload Identity
+Federation and runs `scripts/gcp/provision-dev.sh`. The script is idempotent,
+does not delete resources, and fails closed if the fixed PostgreSQL Free Tier
+shape is missing or has drifted.
+
+For a local, explicitly authorized bootstrap:
 
 ```powershell
-Set-Location D:\vibeCode\github\janus-omniforge\infra\terraform
-& $tf init
-& $tf validate
-& $tf plan -var="project_id=$project" -var="region=$region" -out=dev-current.tfplan
-& $tf show -no-color dev-current.tfplan
-& $tf apply dev-current.tfplan
+$env:GCP_PROJECT_ID = $project
+$env:GCP_REGION = $region
+$env:GCP_ZONE = $zone
+$env:GITHUB_REPOSITORY = "tommylin15/janus-omniforge"
+$env:GCP_CI_SERVICE_ACCOUNT = "janus-ci@${project}.iam.gserviceaccount.com"
+$env:ALLOW_DEV_PROVISION = "true"
+& "C:\Program Files\Git\bin\bash.exe" scripts/gcp/provision-dev.sh
 ```
 
-apply 前確認 plan 沒有建立 production、第二台 PostgreSQL VM、Cloud NAT、
-backup、HA、replica 或公開 PostgreSQL `5432`。另外確認
-`google_cloud_scheduler_job.ingestion_daily.paused` 為 `false`，避免把既有
-啟用中的每日排程意外停掉。
+## 2A. GitHub dev deployment (current path)
+
+`.github/workflows/deploy-dev.yml` uses GitHub OIDC Workload Identity
+Federation; no service-account JSON key or Terraform is required. Configure the
+GitHub `dev` Environment and repository Variables first:
+
+- `GCP_WIF_PROVIDER`: full GCP Workload Identity provider resource name
+- `GCP_CI_SERVICE_ACCOUNT`: the allowed CI service account email
+
+The workflow automatically detects changed paths on `main`. A change under
+`apps/web/**` deploys `web`; changes under `jobs/ingestion-core/**` deploy
+`ingestion-core`; and changes under `jobs/intelligence-mart/**` deploy
+`intelligence-mart`. Shared package, Cloud Build, or deployment-script changes
+can deploy more than one component. It can also be started manually with
+`workflow_dispatch`; the workflow refuses to run unless the selected ref is
+`main`. It invokes
+`scripts/gcp/deploy-dev.sh`, which submits the existing `cloudbuild.yaml` and
+keeps the immutable image-digest deployment and cleanup behavior. It then runs
+`scripts/gcp/verify-dev.sh` for read-only checks.
+
+The former Cloud Build GitHub triggers `janus-ingestion-core` and
+`janus-intelligence-mart` were removed after migration to GitHub Actions; do not
+recreate them, or the same push will be deployed twice.
 
 ## 3. 透過 PostgreSQL VM 執行 migration
 

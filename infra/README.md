@@ -1,9 +1,10 @@
 # Infrastructure
 
-Declarative development infrastructure will live here. Do not run provisioning,
-deployment, or destructive commands without explicit user authorization.
+Development infrastructure is managed by GitHub Actions and idempotent gcloud
+scripts. Do not run provisioning, deployment, or destructive commands without
+explicit user authorization.
 
-可重現的 dev Terraform、PostgreSQL migration 與 Cloud Run 部署流程請見
+可重現的 dev GitHub Actions、PostgreSQL migration 與 Cloud Run 部署流程請見
 [`doc/runbook-dev-deploy.md`](../doc/runbook-dev-deploy.md)。
 
 ## PostgreSQL dev/MVP decision
@@ -16,11 +17,11 @@ IAP/OS Login; port 5432 must not be public. Automatic snapshots, backups, HA,
 and replicas are disabled in this mode because they are not covered by the
 Free Tier target.
 
-The VM and database Terraform resources are not provisioned yet. Cloud SQL is
-not part of the selected dev topology.
+The PostgreSQL VM and database resources are managed by the gcloud bootstrap
+guard. Cloud SQL is not part of the selected dev topology.
 
-Free Tier eligibility is a billing-account and region condition. Terraform can
-enforce the resource shape but cannot guarantee a zero bill; deployment must
+Free Tier eligibility is a billing-account and region condition. The bootstrap
+guard checks the resource shape but cannot guarantee a zero bill; deployment must
 still check the account's Free Tier eligibility and billing budget.
 
 Provisioning order is: PostgreSQL VM, PostgreSQL repository/migration and

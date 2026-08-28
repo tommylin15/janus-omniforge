@@ -42,7 +42,7 @@ janus-omniforge/
 │   ├── provenance/                  # Provenance model／validation
 │   ├── observability/               # Logging、metrics、errors
 │   └── duckdb_query/                # bounded DuckDB／Iceberg read-write primitives
-├── infra/                            # Terraform／Cloud Build／IAM
+├── infra/                            # GitHub Actions／gcloud／Cloud Build／IAM
 ├── tests/
 │   ├── contract/
 │   └── e2e/
@@ -252,7 +252,7 @@ effective_weight = base_weight × completeness × confidence × data_quality / 1
 | Image | Artifact Registry，由 source deploy／Cloud Build 管理 |
 | 部署 | 同一 immutable image digest 依序 promote dev → staging → prod |
 | Secret | Secret Manager，runtime identity 單項授權 |
-| IaC | Terraform；production apply 需人工批准 |
+| IaC | GitHub Actions／gcloud idempotent scripts；production apply 需人工批准 |
 
 ### 13.1 Dev PostgreSQL VM
 
@@ -260,7 +260,7 @@ effective_weight = base_weight × completeness × confidence × data_quality / 1
 - PostgreSQL 使用 private IP；Cloud Run、Cloud Run Jobs 與 DuckDB 所在 runtime 僅透過 VPC 連線，禁止公開 `5432`。
 - VM 使用 Standard Persistent Disk，Free Tier 模式總配置量 ≤30 GB；不自動建立 snapshot／backup，資料庫 credential 存 Secret Manager。任何備份與 restore drill 必須另行評估費用。
 - `e2-micro` 只有 1 GiB RAM，僅限 dev／MVP 低併發；production 必須重新評估 dedicated VM、HA 或其他 managed PostgreSQL 方案。
-- Free Tier 目標另受 billing account 資格、每月 1 GB outbound 額度與其他 GCP 資源費用影響；Terraform 限制規格不等於保證帳單為 US$0。
+- Free Tier 目標另受 billing account 資格、每月 1 GB outbound 額度與其他 GCP 資源費用影響；gcloud bootstrap guard 不等於保證帳單為 US$0。
 - Compute Engine 與 Standard Persistent Disk 依 instance 運轉時間、provisioned disk、snapshot 與網路流量計費；實際價格以 [Compute Engine pricing](https://cloud.google.com/products/compute/pricing) 為準。
 
 PostgreSQL VM 是 Iceberg SQL catalog 與 control DB 的前置基礎；必須先完成 VM、private connectivity、schema／role bootstrap、PostgreSQL repository migration 與 smoke query，才可部署內嵌 DuckDB 的 Cloud Run runtime。SQLite control repository 僅供 unit tests，不是 production backend。
