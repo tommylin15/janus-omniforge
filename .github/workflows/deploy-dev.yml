@@ -1,16 +1,6 @@
 name: Deploy dev with GitHub
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'apps/web/**'
-      - 'jobs/ingestion-core/**'
-      - 'jobs/intelligence-mart/**'
-      - 'packages/contracts/**'
-      - 'packages/observability/**'
-      - 'cloudbuild.yaml'
-      - 'scripts/gcp/**'
   workflow_dispatch:
     inputs:
       component:

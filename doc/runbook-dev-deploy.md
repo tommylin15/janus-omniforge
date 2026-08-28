@@ -46,20 +46,21 @@ GitHub `dev` Environment and repository Variables first:
 - `GCP_WIF_PROVIDER`: full GCP Workload Identity provider resource name
 - `GCP_CI_SERVICE_ACCOUNT`: the allowed CI service account email
 
-The workflow automatically detects changed paths on `main`. A change under
-`apps/web/**` deploys `web`; changes under `jobs/ingestion-core/**` deploy
-`ingestion-core`; and changes under `jobs/intelligence-mart/**` deploy
-`intelligence-mart`. Shared package, Cloud Build, or deployment-script changes
-can deploy more than one component. It can also be started manually with
-`workflow_dispatch`; the workflow refuses to run unless the selected ref is
-`main`. It invokes
+The GitHub workflow is retained as a manual fallback using
+`workflow_dispatch`; it refuses to run unless the selected ref is `main`. The
+automatic path-based deployment is handled by GCP Cloud Build Developer Connect
+triggers. A change under `apps/web/**` deploys `web`; changes under
+`jobs/ingestion-core/**` deploy `ingestion-core`; and changes under
+`jobs/intelligence-mart/**` deploy `intelligence-mart`. Shared package, Cloud
+Build, or deployment-script changes can deploy more than one component. It invokes
 `scripts/gcp/deploy-dev.sh`, which submits the existing `cloudbuild.yaml` and
 keeps the immutable image-digest deployment and cleanup behavior. It then runs
 `scripts/gcp/verify-dev.sh` for read-only checks.
 
-The former Cloud Build GitHub triggers `janus-ingestion-core` and
-`janus-intelligence-mart` were removed after migration to GitHub Actions; do not
-recreate them, or the same push will be deployed twice.
+The active automatic deployment source is now the three GCP Developer Connect
+triggers `janus-ingestion-core`, `janus-intelligence-mart`, and `janus-web`.
+The GitHub Actions workflow is manual-only and must remain that way, or the same
+push will be deployed twice.
 
 ## 3. 透過 PostgreSQL VM 執行 migration
 
