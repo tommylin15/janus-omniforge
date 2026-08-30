@@ -1,7 +1,7 @@
 import shutil
 import sys
 import unittest
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -56,6 +56,37 @@ class DuckDBIcebergTests(unittest.TestCase):
         second = self.core.write(rows=[{"benchmark_id": "TAIEX", "trade_date": "2026-08-25", "close": "24001"}], **common)
         self.assertEqual(second.updated, 1)
         self.assertNotEqual(first.snapshot_id, second.snapshot_id)
+
+    def test_timestamp_offsets_are_normalised_to_utc_before_iceberg_write(self):
+        import pyarrow as pa
+
+        rows = [
+            self.core._normalise(
+                {"event_id": "event-1", "symbol": "2330", "event_type": "material_information",
+                 "published_at": "2026-08-28T12:34:56+08:00"},
+                "exec-1", "prov-1", "twse",
+            ),
+            self.core._normalise(
+                {"event_id": "event-2", "symbol": "2330", "event_type": "material_information",
+                 "published_at": datetime(2026, 8, 28, 13, 34, 56, tzinfo=timezone(timedelta(hours=8)))},
+                "exec-1", "prov-1", "twse",
+            ),
+        ]
+        arrow = self.core._arrow_table(rows)
+
+        self.assertEqual(arrow.schema.field("published_at").type, pa.timestamp("us", tz="UTC"))
+        self.catalog.create_table(
+            "core.events_v1",
+            arrow.schema,
+            location=(self.root / "warehouse" / "events_v1").as_posix(),
+        )
+        self.assertEqual(
+            [row["published_at"] for row in rows],
+            [
+                datetime(2026, 8, 28, 4, 34, 56, tzinfo=timezone.utc),
+                datetime(2026, 8, 28, 5, 34, 56, tzinfo=timezone.utc),
+            ],
+        )
 
 
 if __name__ == "__main__":

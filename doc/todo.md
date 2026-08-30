@@ -92,7 +92,7 @@ Compute Engine PostgreSQL VM 後，仍需完成下列 production persistence int
 - [x] 建立 control、catalog、publication、audit schema／role，credential 僅由 Secret Manager 提供。（五組獨立 version 2；role 均為 non-superuser／non-createdb／non-createrole／non-replication）
 - [x] 設定 schema migration runner 與 PostgreSQL readiness check；migration 不得隨 Web deployment 自動執行。（`infra/postgres/bootstrap-vm.sh` 與 migrations；五項 readiness passed）
 - [x] 為 Cloud Run／Jobs／DuckDB runtime 設 Direct VPC egress=`private-ranges-only` 與最小 firewall；PostgreSQL ingress 只允許 private subnet `10.42.0.0/24` 連 target tag `janus-postgres-db:5432`。（Cloud Run Direct VPC tag 不支援作為 ingress source selector；2026-08-26 ingestion smoke 驗證）
-- [ ] 從 ingestion、Web、Mart Job 與 read-only DuckDB query runtime 驗證 private PostgreSQL 連線與 catalog 基礎查詢；不得使用 Serverless VPC Access connector。（ingestion／DuckDB writer 已驗證；Web、Mart、read-only query runtime 待驗收）
+- [ ] 從 ingestion、Web、Mart Job 與 read-only DuckDB query runtime 驗證 private PostgreSQL 連線與 catalog 基礎查詢；不得使用 Serverless VPC Access connector。（ingestion／DuckDB writer、Web 與 read-only query runtime 已驗證；僅 Mart Job 待驗收）
 - [x] 驗證 Free Tier 邊界：單一 eligible `e2-micro` 時數、全部 Standard Persistent Disk ≤30 GB、outbound ≤1 GB/月、無 external IP／NAT／snapshot／replica；未取得 deployment 授權前不得 apply。（2026-08-26 人工確認 eligibility 並授權；實際資源為單一 `e2-micro`、30 GB `pd-standard`、無 external IP／NAT／snapshot／replica；outbound 需持續維持 ≤1 GB/月）
 - [x] 記錄 Free Tier dev 無自動備份／HA 的資料遺失風險；正式資料與 raw/cache payload 仍以 GCS 為持久層。（`infra/postgres/README.md`）
 
@@ -105,7 +105,7 @@ Compute Engine PostgreSQL VM 後，仍需完成下列 production persistence int
 - [x] 設定低連線數 pool、statement／idle timeout、retry-safe transaction 與 migration lock，適配 `e2-micro` 的 1 GiB RAM。（每 repository 一個注入 connection；pool budget 由 caller 限制）
 - [x] 定義 ingestion／DuckDB writer、read-only query、Web/Admin、Mart 與 migration 的 aggregate connection budget，總和不得超過 PostgreSQL `max_connections` 的安全餘額。（server baseline 30；各 workload 使用 bounded factory）
 - [x] 設定 execution、telemetry、audit、idempotency 與 cache metadata retention／pruning，避免 30 GB disk 無界成長。（`prune`、expiry indexes、FK cascade）
-- [ ] 由 Secret Manager 提供各 workload 獨立 credential，透過 Direct VPC egress/private IP 驗證 ingestion、DuckDB、Web、Mart Job 連線。（2026-08-28：catalog/control secret 僅授權 ingestion-core；Web revision 無 DB env／Secret；Mart Job 尚未建立；Web／Mart 待補設定與驗收）
+- [ ] 由 Secret Manager 提供各 workload 獨立 credential，透過 Direct VPC egress/private IP 驗證 ingestion、DuckDB、Web、Mart Job 連線。（2026-08-30：ingestion、DuckDB、Web 專用 credential 與 private path 已驗證；Mart Job 尚未建立）
 - [x] 完成 PostgreSQL migration、queue claim、reconnect、idempotency 與 control-plane smoke tests。（程式與 unit tests 完成；實機 workload smoke 待 runtime 部署）
 
 ## P0 — DuckDB／Iceberg Core 與查詢基礎
@@ -202,9 +202,9 @@ Core（0 failure、8 個 Core partition）；同日回跑 `janus-ingestion-core-
 - [x] Core query API／BFF 使用 bounded PostgreSQL pool、statement timeout 與 indexed pagination；不得每 request 建立新 DB connection。（單 repository connection、catalog pool size=1/max_overflow=0、DuckDB bounds）
 - [x] 建立 PostgreSQL VM health、connection count、disk usage、deadlock、slow query 與 retention telemetry；控制 log／metric volume 避免額外費用。（`PostgresHealthCollector` fixed aggregate queries）
 - [x] 安全輸出不得包含 raw payload、secret、敏感 URL、完整 upstream error 或 traceback。（redaction／safe boundary tests）
-- [ ] Query API 的 DuckDB instance 必須 read-only、使用獨立 memory／timeout／row limit 與 catalog reader role，不得取得 Core commit 權限或共用 ingestion 本機 DuckDB 檔案。（2026-08-30：程式限制、Web 專用 role migration 與本機測試完成；Cloud Run 專用 credential／實機唯讀驗證待部署）
+- [x] Query API 的 DuckDB instance 必須 read-only、使用獨立 memory／timeout／row limit 與 catalog reader role，不得取得 Core commit 權限或共用 ingestion 本機 DuckDB 檔案。（2026-08-30：Cloud Run 專用 credential、Core 200 smoke、catalog `default_transaction_read_only=on` 且 0 張 table 具寫入權限）
 
-2026-08-28 實機驗證證據：`janus-web-00002-472` 使用 Direct VPC `private-ranges-only`／`janus-web` tag，`/health` authenticated proxy 回 200；`/api/v1/core/2330/summary` 回 503 `core query unavailable`。Cloud Run Jobs 僅有 `janus-ingestion-core`，無 `janus-intelligence-mart`，故 Mart／read-only query private DB smoke 尚未執行。
+2026-08-30 實機驗證證據：`janus-web-00023-ccj` 使用 Direct VPC `private-ranges-only`／`janus-web` tag；公開 `/health`、`/login` 回 200，未登入 Admin／Core 分別回 303／401，短效簽章 session 下 Admin 與 Core 皆回 200。Cloud Run Jobs 仍無 `janus-intelligence-mart`，故 Mart private DB smoke 尚未執行。
 
 本機驗收證據（2026-08-30）：`python -m unittest discover -s tests -v`，77 tests passed；`python -m compileall -q apps packages jobs`、`node --check apps/web/static/admin.js`、`python -m pip check`、Git Bash `bash -n infra/postgres/bootstrap-vm.sh` 與 `git diff --check` 通過。
 
@@ -213,7 +213,7 @@ Core（0 failure、8 個 Core partition）；同日回跑 `janus-ingestion-core-
 - [x] 股票搜尋、分頁、enabled、關聯刪除保護。（`AdminService`、`/api/v1/admin/stocks`；63 tests passed）
 - [x] 跨頁選取與 collection／analysis 分開觸發。（`apps/web/static/admin.js`、queue routes）
 - [x] collection 只寫 control DB／queue，不在 request 中執行長任務。（control-plane enqueue contract）
-- [ ] Admin 寫入使用 transaction、optimistic concurrency 與 workload-specific PostgreSQL role；不得取得 bootstrap／catalog owner 權限。（2026-08-30：Web control role migration 與 authenticated audit actor 測試完成；實機 role isolation 待驗收）
+- [x] Admin 寫入使用 transaction、optimistic concurrency 與 workload-specific PostgreSQL role；不得取得 bootstrap／catalog owner 權限。（2026-08-30：Web control role 實機驗證指定 control tables 的 DML 權限完整，且不是 superuser／owner；authenticated audit actor 測試通過）
 - [x] 最近 50 次 persisted execution。（bounded API/UI）
 - [x] execution details 按需讀取。（row action only）
 - [ ] 股票資料狀態頁：Core 最新日期、資料集覆蓋、row count、DQ／quarantine 摘要。
@@ -243,6 +243,14 @@ credential、Mart Job runtime 與 authenticated HTTP／DB smoke 仍待完成。
 `/admin/stocks`、`/assets/admin.css` 均 HTTP 200；service 只授予
 `user:tommylin15@gmail.com` `roles/run.invoker`，未開放 `allUsers`。Token Creator
 未保留。DB-connected Web/Admin 與 Mart runtime 仍待專用 credential／Job。
+
+2026-08-30 Web runtime 驗收：公開入口改採 `allUsers` invoker，application layer
+只公開 `/health`、`/login`、`/auth/google`，其餘要求 Google allowlist session。
+revision `janus-web-00023-ccj` 的 Admin／Core 登入態 smoke 均回 200；catalog role
+為 transaction read-only 且無 table write privilege，control role 對指定 control
+tables 使用一致 DML 權限。Secret rotation 已依 raw-byte/BOM 與 runtime smoke
+驗證，舊版本 disabled。真人 Google 登入與 OAuth Console redirect URI 保留一次性
+人工驗收；下一個獨立 WBS 為 `janus-intelligence-mart` runtime。
 
 ## P0 — Stage／Core 與 Admin MVP 驗證
 

@@ -28,11 +28,12 @@ class GoogleAuthMiddlewareTests(unittest.TestCase):
             verifier=lambda token, audience: self.claims, clock=lambda: self.now,
         )
 
-    def request(self, path, *, method="GET", form=None, cookie=""):
+    def request(self, path, *, method="GET", form=None, cookie="", csrf_header=""):
         encoded = urlencode(form or {}).encode()
         environ = {
             "PATH_INFO": path, "REQUEST_METHOD": method, "CONTENT_LENGTH": str(len(encoded)),
             "CONTENT_TYPE": "application/x-www-form-urlencoded", "wsgi.input": BytesIO(encoded), "HTTP_COOKIE": cookie,
+            "HTTP_X_JANUS_CSRF": csrf_header,
         }
         response = {}
         body = b"".join(self.auth(environ, lambda status, headers, exc_info=None: response.update(status=status, headers=headers)))
@@ -42,6 +43,8 @@ class GoogleAuthMiddlewareTests(unittest.TestCase):
         status, headers, body = self.request("/login")
         self.assertEqual(status, "200 OK")
         self.assertIn(b"client.apps.googleusercontent.com", body)
+        self.assertIn(b"handleGoogleCredential", body)
+        self.assertIn(b"X-Janus-CSRF", body)
         self.assertIn("accounts.google.com", headers["Content-Security-Policy"])
         status, headers, _ = self.request("/admin/stocks")
         self.assertEqual(status, "303 See Other")
@@ -53,13 +56,20 @@ class GoogleAuthMiddlewareTests(unittest.TestCase):
         self.assertIn(b"authentication required", body)
 
     def test_allowed_google_account_gets_signed_session(self):
-        status, headers, _ = self.request(
-            "/auth/google", method="POST", cookie="g_csrf_token=csrf",
-            form={"g_csrf_token": "csrf", "credential": "valid-token"},
+        csrf = self.auth._encode_login_csrf()
+        status, _, body = self.request(
+            "/auth/google", method="POST", csrf_header=csrf,
+            form={"g_csrf_token": csrf, "credential": "valid-token"},
         )
-        self.assertEqual(status, "303 See Other")
+        self.assertEqual(status, "200 OK")
+        handoff = json.loads(body)["handoff"]
+        status, headers, _ = self.request(
+            "/auth/google", method="POST", form={"handoff": handoff},
+        )
+        self.assertEqual(status, "200 OK")
         self.assertTrue(headers["Set-Cookie"].startswith(f"{SESSION_COOKIE}="))
         self.assertIn("Strict-Transport-Security", headers)
+        self.assertIn(b"/admin/stocks", _)
         session_cookie = headers["Set-Cookie"].split(";", 1)[0]
         status, _, body = self.request("/admin/stocks", cookie=session_cookie)
         self.assertEqual(status, "200 OK")
@@ -67,23 +77,30 @@ class GoogleAuthMiddlewareTests(unittest.TestCase):
 
     def test_wrong_account_and_csrf_are_rejected(self):
         self.claims["email"] = "other@gmail.com"
+        csrf = self.auth._encode_login_csrf()
         status, _, _ = self.request(
-            "/auth/google", method="POST", cookie="g_csrf_token=csrf",
-            form={"g_csrf_token": "csrf", "credential": "valid-token"},
+            "/auth/google", method="POST", csrf_header=csrf,
+            form={"g_csrf_token": csrf, "credential": "valid-token"},
         )
         self.assertEqual(status, "403 Forbidden")
         status, _, _ = self.request(
-            "/auth/google", method="POST", cookie="g_csrf_token=one",
+            "/auth/google", method="POST", csrf_header="one",
             form={"g_csrf_token": "two", "credential": "valid-token"},
         )
         self.assertEqual(status, "400 Bad Request")
 
     def test_tampered_session_is_rejected(self):
-        status, headers, _ = self.request(
-            "/auth/google", method="POST", cookie="g_csrf_token=csrf",
-            form={"g_csrf_token": "csrf", "credential": "valid-token"},
+        csrf = self.auth._encode_login_csrf()
+        status, _, body = self.request(
+            "/auth/google", method="POST", csrf_header=csrf,
+            form={"g_csrf_token": csrf, "credential": "valid-token"},
         )
-        self.assertEqual(status, "303 See Other")
+        self.assertEqual(status, "200 OK")
+        handoff = json.loads(body)["handoff"]
+        status, headers, _ = self.request(
+            "/auth/google", method="POST", form={"handoff": handoff},
+        )
+        self.assertEqual(status, "200 OK")
         session_cookie = headers["Set-Cookie"].split(";", 1)[0] + "x"
         status, _, _ = self.request("/admin/stocks", cookie=session_cookie)
         self.assertEqual(status, "303 See Other")

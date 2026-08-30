@@ -3,12 +3,41 @@
 最新驗證日期：2026-08-30
 
 最新完整本機驗證：`python -m unittest discover -s tests -v` 77 tests
-passed；`python -m compileall -q apps packages jobs`、Admin JavaScript syntax、
-`python -m pip check`、PostgreSQL bootstrap shell syntax 與 `git diff --check`
-passed。Web runtime 已加入 Google allowlist session、不可由 request body 偽造的
+passed；Vitest 2 tests、TypeScript typecheck、ESLint、static Web build、
+`python -m compileall -q apps packages jobs`、Admin JavaScript syntax、
+`python -m pip check`、PostgreSQL shell syntax 與 `git diff --check` passed。
+Playwright 與真人 Google login 未執行。Web runtime 已加入 Google allowlist
+session、不可由 request body 偽造的
 authenticated audit actor、Web 專用 control/catalog role migration，以及不建立
 namespace 的 read-only catalog reader。Dev migration、credential 切換與 Cloud Run
-實機 role isolation 仍待本次部署驗收，未在此本機結果中宣稱完成。
+實機 role isolation 已完成；真人 Google 帳號登入及 OAuth Console redirect URI
+仍需一次人工確認，Mart runtime 不包含在本次驗收。
+
+## P0 Web runtime deployment (2026-08-30)
+
+PostgreSQL migration `007_web_runtime_roles.sql` 已套用至 dev，Web control role
+對明確列出的 control tables 使用一致的 SELECT／INSERT／UPDATE／DELETE 權限；
+catalog role 對 catalog metadata 為 SELECT-only，且
+`default_transaction_read_only=on`。實機權限查詢結果為
+`catalog_write_tables=0`、`control_dml_missing=0`。兩個 role 均不是 superuser、
+createdb、createrole 或 replication role。
+
+PostgreSQL build `da62fdb1-f3f5-4436-bc28-0a18edd4e9ac` 的 immutable image digest
+為 `sha256:f81ef216a81b003edd6b319cb2ab04f65b453c34c1fae09d8cf7f44e9de993b7`。
+Web build `5d919396-ad8a-490e-a07c-30c33c3060bb` 的 immutable image digest 為
+`sha256:1be0cb5e7cb5056fc2805de3eb9f44214cb969d13e991186872ad39cb32e8123`；
+Cloud Run revision `janus-web-00023-ccj` ready 且承接全部 dev traffic。
+
+Cloud Run 保持 `allUsers` invoker，由 application middleware 執行 allowlist session
+驗證。未登入 smoke：`/health` 與 `/login` 回 200、`/admin/stocks` 轉址至
+`/login`、Core API 回 401；短效合成簽章 session smoke 對 Admin 與
+`/api/v1/core/2330/summary` 均回 200。revision ERROR log 查詢無結果，證明 Web
+runtime 已透過 Direct VPC private path 使用專用 control/catalog credential。
+
+Web catalog Secret 目前只保留 version 3 enabled，先前版本已 disabled；Web session
+Secret 只保留 raw-byte 驗證為 48-byte ASCII、無 BOM 的 version 4 enabled，versions
+1–3 均 disabled。Secret 值沒有寫入 repository 或正式驗證輸出；後續輪替必須依
+`doc/runbook-dev-deploy.md` 的 raw-byte、runtime、disable-old-version 順序執行。
 
 ## Dev delivery automation and artifact retention (2026-08-28)
 

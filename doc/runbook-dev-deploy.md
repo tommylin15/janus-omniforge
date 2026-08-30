@@ -145,7 +145,61 @@ Artifact Analysis、Container Scanning 或 occurrence API。
 多個 execution；先以 `executions describe` 查詢既有 execution。完整 ingestion
 結束後才可判定 smoke 成功或失敗。
 
-## 6. 本次已驗證的 dev 證據
+## 6. Secret 建立、輪替與驗證
+
+Secret 值不得出現在 command argv、shell trace、process listing、Cloud Build
+substitution、deployment metadata 或 log。特別禁止使用
+`docker exec -e PGPASSWORD=<value>`；該值可能被 process listing 讀到。Windows
+PowerShell 的文字 pipeline 也可能加入 UTF-8 BOM 或 CRLF，不能只用「可以 access
+Secret」作為驗證成功的判準。
+
+### 6.1 建立無 BOM 的隨機 Secret version
+
+在 Git Bash 產生 ASCII CSPRNG bytes，直接以 stdin 交給 `gcloud.cmd`，不經
+PowerShell 字串轉碼、不落地、不輸出值：
+
+```bash
+openssl rand -base64 36 \
+  | tr -d '\r\n' \
+  | cmd.exe /d /s /c \
+      "gcloud.cmd secrets versions add SECRET_NAME --project=PROJECT_ID --data-file=-"
+```
+
+密碼若有格式規則，仍應以相同的 raw-byte stdin 路徑產生；不要把產生結果放進
+命令參數。
+
+### 6.2 Raw-byte 驗證
+
+先固定新 version 編號，不使用 `latest`。以 raw pipe 檢查 bytes，輸出只能包含
+長度、ASCII 判定與 BOM 判定，不得輸出 hash 或內容：
+
+```bash
+cmd.exe /d /s /c \
+  "gcloud.cmd secrets versions access VERSION --secret=SECRET_NAME --project=PROJECT_ID" \
+  | python.exe -c "import sys; b=sys.stdin.buffer.read(); print('bytes='+str(len(b))+' ascii='+str(b.isascii())+' bom='+str(b.startswith(bytes([239,187,191]))))"
+```
+
+ASCII credential/session material 的成功條件為：長度符合該 Secret 契約、
+`ascii=True`、`bom=False`。另確認 version state 是 `enabled`。若經 SSH stdin
+傳入密碼，接收端在 `read -r` 後仍須移除可能的尾端 `\r`。
+
+### 6.3 Runtime 功能驗證與切換順序
+
+1. 新增 version，但先保留上一個可用 version。
+2. Cloud Run/Job 建立新 revision，明確解析該 version；不要只更新既有 instance。
+3. 用服務本身驗證 Secret：health、需登入 route、資料庫基礎查詢與 ERROR log。
+   Session secret 需用同一個應用程式 encoder/decoder 做短效合成 session smoke；
+   PostgreSQL credential 以 runtime 成功連線及權限中繼資料驗證，不另把密碼放進
+   argv 做 login smoke。
+4. 確認新 revision ready、承接流量且無 runtime error 後，才停用舊 version。
+5. 再列出 versions，確認只有目前版本 enabled；失敗時回復舊 revision/version，
+   不建立第二套不同驗證路徑。
+
+Google OAuth 的自動測試使用注入 verifier 驗證 callback、CSRF、allowlist、session
+簽章與竄改拒絕。真正 Google 帳號登入及 OAuth Console redirect URI 是一次性人工
+驗收，不把 Google 帳密或 MFA 納入自動化。
+
+## 7. 本次已驗證的 dev 證據
 
 - Terraform 已從 repository 與 dev deployment path 移除；bootstrap 由
   `scripts/gcp/provision-dev.sh` 負責，PostgreSQL guard 驗證為 `e2-micro`、
@@ -157,8 +211,9 @@ Artifact Analysis、Container Scanning 或 occurrence API。
 - 最近直接驗證的 ingestion build：
   `baf5b915-ee80-477b-8ec8-dc1e981fc23a`，digest
   `sha256:16248df5e95afea4cc099016c4c6e1722eade307b53d2065514f7d517f596e8e`。
-- 最近直接驗證的 web build：`e021a691-2a0e-42eb-bffd-b25c2ee2ead2`，
-  digest `sha256:6746d5985e60781bda04b1965d980e0651c82dd30e7026344e1b30908221cd74`。
+- 最近直接驗證的 web build：`5d919396-ad8a-490e-a07c-30c33c3060bb`，
+  digest `sha256:1be0cb5e7cb5056fc2805de3eb9f44214cb969d13e991186872ad39cb32e8123`；
+  revision `janus-web-00023-ccj` 已完成公開／受保護路由與 DB-connected smoke。
 - `janusai-poc` 與 `janus-postgres` cleanup policy 均為每個 package 只保留
   最新一版；dry-run disabled，Artifact／Container scanning disabled。
 - 新 trigger set 尚待一次符合 component path 的 `main` push 完成端到端驗收；

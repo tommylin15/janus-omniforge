@@ -211,9 +211,9 @@ class DuckDBIcebergCore:
                 row[field] = None
             elif field in cls.DATE_FIELDS and not isinstance(value, date):
                 row[field] = date.fromisoformat(str(value)[:10])
-            elif field in cls.TIMESTAMP_FIELDS and not isinstance(value, datetime):
-                parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-                row[field] = parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+            elif field in cls.TIMESTAMP_FIELDS:
+                parsed = value if isinstance(value, datetime) else datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+                row[field] = parsed.astimezone(timezone.utc) if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
             elif isinstance(value, Decimal):
                 row[field] = str(value)
             elif isinstance(value, (dict, list, tuple)):

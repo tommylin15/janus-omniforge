@@ -19,6 +19,9 @@ fi
 
 read -r web_control_password
 read -r web_catalog_password
+# PowerShell/OpenSSH may deliver CRLF even though the remote shell splits on LF.
+web_control_password="${web_control_password%$'\r'}"
+web_catalog_password="${web_catalog_password%$'\r'}"
 if [[ -z "${web_control_password}" || -z "${web_catalog_password}" ]]; then
   echo "Both Web PostgreSQL passwords are required." >&2
   exit 1
