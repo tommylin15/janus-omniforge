@@ -92,8 +92,8 @@ class GoogleAuthMiddleware:
                 session = self._encode_session({
                     "email": claims["email"], "sub": claims["sub"], "exp": session_expiry,
                 })
-                return self._session_landing(
-                    start_response, session=session,
+                return self._redirect(
+                    start_response, "/admin/stocks", session=session,
                     max_age=session_expiry - int(self.clock()),
                 )
             csrf_body = form.get("g_csrf_token", [""])[0]
@@ -293,22 +293,6 @@ class GoogleAuthMiddleware:
             ("Content-Type", "application/json; charset=utf-8"),
             ("Content-Length", str(len(payload))),
             ("Cache-Control", "no-store"),
-        ]
-        headers.extend(self._security_headers())
-        start_response("200 OK", headers)
-        return [payload]
-
-    def _session_landing(self, start_response: Callable[..., Any], *, session: str, max_age: int):
-        payload = (
-            b'<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8">'
-            b'<meta http-equiv="refresh" content="0;url=/admin/stocks"><title>Login complete</title>'
-            b'</head><body><a href="/admin/stocks">Continue</a></body></html>'
-        )
-        headers = [
-            ("Content-Type", "text/html; charset=utf-8"),
-            ("Content-Length", str(len(payload))),
-            ("Cache-Control", "no-store"),
-            ("Set-Cookie", f"{SESSION_COOKIE}={session}; Path=/; Max-Age={max(1, max_age)}; HttpOnly; Secure; SameSite=Lax"),
         ]
         headers.extend(self._security_headers())
         start_response("200 OK", headers)

@@ -2,16 +2,23 @@
 
 最新驗證日期：2026-08-30
 
-最新完整本機驗證：`python -m unittest discover -s tests -v` 77 tests
-passed；Vitest 2 tests、TypeScript typecheck、ESLint、static Web build、
-`python -m compileall -q apps packages jobs`、Admin JavaScript syntax、
-`python -m pip check`、PostgreSQL shell syntax 與 `git diff --check` passed。
-Playwright 與真人 Google login 未執行。Web runtime 已加入 Google allowlist
+最新完整本機驗證：`python -m pytest -q` 與
+`python -m unittest discover -s tests -v` 均為 78 tests passed；Vitest 2/2、
+TypeScript typecheck、ESLint 與 static Web production build passed。Playwright
+現有 responsive Admin shell 1/1 assertion passed，但 runner 在輸出報告後未自行
+結束，且尚未涵蓋完整 Admin interaction；真人 Google login 未執行。Windows
+PowerShell 執行 Node.js 指令須使用 `npm.cmd`／`npx.cmd`，不得為避免 `.ps1`
+ExecutionPolicy 阻擋而放寬系統政策。Web runtime 已加入 Google allowlist
 session、不可由 request body 偽造的
 authenticated audit actor、Web 專用 control/catalog role migration，以及不建立
 namespace 的 read-only catalog reader。Dev migration、credential 切換與 Cloud Run
 實機 role isolation 已完成；真人 Google 帳號登入及 OAuth Console redirect URI
 仍需一次人工確認，Mart runtime 不包含在本次驗收。
+
+Google login handoff 在驗證 ID token 後，以短效簽章 handoff 完成同源 POST；第二段
+回應使用 `303 See Other`，在同一 response 設定 HttpOnly session cookie 並導向
+`/admin/stocks`。不得使用零秒 meta refresh，以免瀏覽器在 cookie 提交前先載入
+Admin、被誤判未登入而退回 `/login`。Auth 專項 7/7 與全套 78/78 tests passed。
 
 ## P0 Web runtime deployment (2026-08-30)
 

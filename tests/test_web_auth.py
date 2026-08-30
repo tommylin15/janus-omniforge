@@ -66,10 +66,11 @@ class GoogleAuthMiddlewareTests(unittest.TestCase):
         status, headers, _ = self.request(
             "/auth/google", method="POST", form={"handoff": handoff},
         )
-        self.assertEqual(status, "200 OK")
+        self.assertEqual(status, "303 See Other")
+        self.assertEqual(headers["Location"], "/admin/stocks")
         self.assertTrue(headers["Set-Cookie"].startswith(f"{SESSION_COOKIE}="))
         self.assertIn("Strict-Transport-Security", headers)
-        self.assertIn(b"/admin/stocks", _)
+        self.assertEqual(_, b"")
         session_cookie = headers["Set-Cookie"].split(";", 1)[0]
         status, _, body = self.request("/admin/stocks", cookie=session_cookie)
         self.assertEqual(status, "200 OK")
@@ -100,7 +101,8 @@ class GoogleAuthMiddlewareTests(unittest.TestCase):
         status, headers, _ = self.request(
             "/auth/google", method="POST", form={"handoff": handoff},
         )
-        self.assertEqual(status, "200 OK")
+        self.assertEqual(status, "303 See Other")
+        self.assertEqual(headers["Location"], "/admin/stocks")
         session_cookie = headers["Set-Cookie"].split(";", 1)[0] + "x"
         status, _, _ = self.request("/admin/stocks", cookie=session_cookie)
         self.assertEqual(status, "303 See Other")

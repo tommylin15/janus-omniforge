@@ -66,3 +66,13 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
   儲存費用的 PostgreSQL 保護資源；任何例外必須先取得明確授權。
 - Free Tier 是 billing account／region 條件，自動化 guard 只能檢查資源規格，
   不能保證帳單為 US$0；部署前仍須檢查資格與 billing budget。
+
+## 8. Windows PowerShell 的 Node.js 指令
+
+- 在 Windows PowerShell 執行 Node.js 專案指令時，一律優先使用
+  `npm.cmd`／`npx.cmd`，例如 `npm.cmd test`、`npm.cmd run build`、
+  `npx.cmd playwright test`。
+- 不直接呼叫 `npm`／`npx`，避免 PowerShell 優先解析 `npm.ps1`／`npx.ps1`
+  而被系統 ExecutionPolicy 阻擋。
+- 不得為解決此問題而放寬或繞過系統 ExecutionPolicy；若 `.cmd` 不存在，先以
+  `Get-Command npm.cmd`／`Get-Command npx.cmd` 檢查 Node.js 安裝，再回報環境問題。

@@ -8,7 +8,7 @@
 - [x] 取得 GitHub repo 或建立 `janus-omniforge` monorepo。
 - [x] 確認 GCP Project ID、Billing account、region=`us-central1`。
 - [x] 確認 PostgreSQL：GCE Compute Engine `e2-micro` Free Tier 模式（dev／MVP，`us-central1`、≤30 GB Standard Persistent Disk、無 external IP、outbound ≤1 GB/月；production HA 另行評估）。
-- [ ] 部署前人工確認 billing account 尚有 eligible `e2-micro` 時數、30 GB-month Standard Persistent Disk 與 1 GB outbound Free Tier 額度；未確認前只允許 plan，不得 apply。
+- [x] 部署前人工確認 billing account 尚有 eligible `e2-micro` 時數、30 GB-month Standard Persistent Disk 與 1 GB outbound Free Tier 額度。（2026-08-30 使用者人工確認；後續部署仍須維持既定資源與成本限制）
 - [x] 確認 AI 可建立 PR，但 production deploy 需人工批准。
 - [x] 確認第一批股票：至少 `2330`。（人工確認）
 - [x] 確認第一版 LLM provider 順序：Gemini → OpenRouter → GroqCloud；取消 Vertex AI。
@@ -220,7 +220,14 @@ Core（0 failure、8 個 Core partition）；同日回跑 `janus-ingestion-core-
 - [x] Data-source health 只讀 persisted telemetry。
 - [ ] Admin 查詢使用 bounded pool、statement timeout、indexed cursor pagination 與按需 details，避免耗盡 `e2-micro` connections／RAM。
 - [x] Admin UI 正確呈現 queued／running／partial／failed／retrying／unavailable。（state badges／safe fallback）
-- [ ] Admin UI 管理全市場／核心 50 membership、effective date、cadence 與來源 authorization status；超過 50 檔或啟用 blocked source 時必須拒絕並留下 audit。
+- [ ] Admin UI 管理全市場／核心 50 membership 與 effective date；超過 50 檔時必須拒絕，所有異動須留下 audit。
+- [ ] 將目前唯讀的資料源設定實體化為管理介面，支援 cadence、coverage tier 與 authorization status；`candidate`／`blocked` 來源不得啟用，異動須驗證並留下 audit。
+- [ ] 提供可見且可驗證的登出操作，清除 Admin session 並回到登入流程。
+- [ ] 修正股票 dialog 的「×」取消行為，不得觸發 submit／寫入；所有 dialog 關閉後須把鍵盤焦點恢復到原 opener。
+- [ ] execution 明細支援整列 click 與鍵盤操作，保留「查看」按鈕並符合可及性語意。
+- [ ] 完整實作股票刪除 guard，涵蓋 collection config、execution、market、report、fundamental 等跨資料域引用，並在 UI 顯示各類引用數量與不可刪除原因。
+- [ ] 將 Admin 建立的 Collection／Analysis queued execution 接上可運作的 queue consumer、Ingestion／Mart Job，並以 persisted 狀態與 safe message 呈現端到端結果；排隊成功不得視為工作完成。
+- [ ] 將 Admin 排程與 Stage retention／cleanup 設定接上實際 Cloud Scheduler 與 cleanup runtime；保留 optimistic version、audit 與 Core commit cleanup fence，設定寫入成功不得誤報 runtime 已套用。
 
 2026-08-28 WBS 6 Admin UI 切片：已建立 `/admin/stocks` responsive 操作介面與
 同源 API，涵蓋每頁 10 筆搜尋、enabled toggle、跨頁選取、collection／analysis
@@ -255,27 +262,29 @@ tables 使用一致 DML 權限。Secret rotation 已依 raw-byte/BOM 與 runtime
 ## P0 — Stage／Core 與 Admin MVP 驗證
 
 - [ ] 2330 Source → Stage → Core → Admin 查詢整合測試。
-- [ ] Backend pytest 與 contract tests。
+- [x] Backend pytest 與 contract tests。（2026-08-30：`python -m pytest -q`，78 passed）
 - [ ] Iceberg schema evolution tests。
-- [ ] Failure／retry／idempotency tests。
-- [ ] PostgreSQL migration、role isolation、queue claim、connection exhaustion、VM restart/reconnect、retention/pruning tests。
+- [x] Failure／retry／idempotency tests。（2026-08-30：納入 Backend 78 tests）
+- [ ] PostgreSQL migration、role isolation、queue claim、connection exhaustion、VM restart/reconnect、retention/pruning tests。（migration／Web role contract／retention-pruning 自動測試已通過；queue claim、connection exhaustion、VM restart/reconnect 實機驗證仍待完成）
 - [ ] Direct VPC egress／firewall tests：指定 workload 可連 `5432`，public internet、未授權 identity 與其他 network tag 不可連線。
 - [ ] Free Tier gcloud guard tests：只允許一台 `e2-micro`、eligible `us-central1` zone、全部 Standard Persistent Disk ≤30 GB、無 external IP／NAT／snapshot／replica／Serverless VPC connector。
-- [ ] 安全輸出與 log redaction tests。
-- [ ] TypeScript／ESLint／production build。
-- [ ] Admin UI Vitest 與 Playwright interaction tests。
+- [x] 安全輸出與 log redaction tests。（2026-08-30：納入 Backend 78 tests）
+- [x] TypeScript／ESLint／production build。（2026-08-30：`npm.cmd run build` passed）
+- [x] Admin UI Vitest。（2026-08-30：2/2 passed）
+- [ ] Admin UI Playwright interaction tests 與 runner clean teardown。（現有 responsive shell 1/1 assertion passed，但尚未涵蓋完整互動，且 runner 在報告後未自行結束）
 - [ ] UI 驗收可使用本地瀏覽器／Playwright，或按需啟動既有 GCP dev Cloud Run
   service，以實際 dev URL 驗證 responsive、interaction、API/runtime connectivity
   與安全輸出；既有 dev service 通過人工 billing gate 後可直接啟動，不需逐次
   另行授權。驗收證據須記錄 revision、immutable image digest、測試 URL／時間與
   scale-to-zero 狀態；不得部署 production、提高既有限額或建立新付費資源。
 
-2026-08-28 本機驗證紀錄：Python unittest 全套 63/63 通過，涵蓋 contract、2330
+2026-08-30 本機驗證紀錄：`python -m pytest -q` 與
+`python -m unittest discover -s tests -v` 均為 78/78 通過，涵蓋 contract、2330
 Stage → Core closed loop、DQ、Stage cleanup fence、retry／fallback／idempotency、
-DuckDB／Iceberg、Admin API、safe output 與 Web routes；compileall、git diff --check、
-gcloud bootstrap guard、Bash syntax、JSON（含 BOM）解析及 JavaScript syntax 亦通過。Vitest 2/2
-與 Playwright 1/1 通過。pytest 未安裝；專案目前沒有 TypeScript／ESLint／production
-build script。PostgreSQL 真實連線／角色隔離／VM restart、Direct VPC firewall、
+DuckDB／Iceberg、Admin API、safe output 與 Web routes；Vitest 2/2、TypeScript
+typecheck、ESLint 與 production build 通過。Playwright 現有 responsive shell 1/1
+assertion 通過，但 runner 在輸出報告後未自行結束，且尚未涵蓋完整 Admin interaction。
+PostgreSQL 真實 connection exhaustion／VM restart、Direct VPC firewall、
 Cloud Run DB-connected query、完整 2330 → Admin 整合及 scale-to-zero 仍未在本機或
 本次執行中驗證；未部署 production 或建立新付費 GCP 資源。
 
