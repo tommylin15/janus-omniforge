@@ -47,7 +47,7 @@ class DuckDBIcebergCore:
     TIMESTAMP_FIELDS = frozenset({"published_at", "observed_at"})
 
     def __init__(self, catalog: Any, warehouse: str, *, namespace: str = "core",
-                 engine: DuckDBEngine | None = None) -> None:
+                 engine: DuckDBEngine | None = None, create_namespace: bool = True) -> None:
         self.catalog = catalog
         self.warehouse = warehouse.rstrip("/")
         self.namespace = namespace
@@ -56,11 +56,13 @@ class DuckDBIcebergCore:
             threads=int(os.environ.get("DUCKDB_THREADS", "1")),
             query_timeout_seconds=int(os.environ.get("DUCKDB_QUERY_TIMEOUT_SECONDS", "60")),
         )
-        self.catalog.create_namespace_if_not_exists(namespace)
+        if create_namespace:
+            self.catalog.create_namespace_if_not_exists(namespace)
 
     @classmethod
     def from_postgres(cls, *, host: str, dbname: str, user: str, password: str,
-                      warehouse: str, project_id: str, sslmode: str = "require") -> "DuckDBIcebergCore":
+                      warehouse: str, project_id: str, sslmode: str = "require",
+                      read_only: bool = False) -> "DuckDBIcebergCore":
         import psycopg
         from pyiceberg.catalog.sql import SqlCatalog
         from sqlalchemy import URL
@@ -98,7 +100,7 @@ class DuckDBIcebergCore:
                 "pool_timeout": 5,
             },
         )
-        return cls(catalog, warehouse)
+        return cls(catalog, warehouse, create_namespace=not read_only)
 
     def close(self) -> None:
         self.engine.close()

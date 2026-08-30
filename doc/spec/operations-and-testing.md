@@ -1,6 +1,14 @@
 # Operations and testing
 
-最新驗證日期：2026-08-28
+最新驗證日期：2026-08-30
+
+最新完整本機驗證：`python -m unittest discover -s tests -v` 77 tests
+passed；`python -m compileall -q apps packages jobs`、Admin JavaScript syntax、
+`python -m pip check`、PostgreSQL bootstrap shell syntax 與 `git diff --check`
+passed。Web runtime 已加入 Google allowlist session、不可由 request body 偽造的
+authenticated audit actor、Web 專用 control/catalog role migration，以及不建立
+namespace 的 read-only catalog reader。Dev migration、credential 切換與 Cloud Run
+實機 role isolation 仍待本次部署驗收，未在此本機結果中宣稱完成。
 
 ## Dev delivery automation and artifact retention (2026-08-28)
 

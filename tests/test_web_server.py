@@ -20,6 +20,7 @@ class _Core:
 class _Admin:
     def __init__(self):
         self.enabled = None
+        self.actor = None
 
     def stocks(self, query="", *, enabled=None, limit=50, offset=0):
         return tuple({"symbol": str(index), "name": "Stock", "market": "TWSE", "enabled": True} for index in range(limit))
@@ -58,12 +59,18 @@ class _Admin:
     def set_membership(self, tier, symbols, *, effective_from, reason, owner):
         return tuple({"coverage_tier": tier, "symbol": symbol} for symbol in symbols)
 
+    def save_setting(self, key, value, *, actor, expected_version=None):
+        self.actor = actor
+        return {"key": key, "value": value, "version": 1}
+
 
 class WebServerTests(unittest.TestCase):
-    def request(self, path, *, method="GET", body=None, admin=None):
+    def request(self, path, *, method="GET", body=None, admin=None, authenticated_actor=None):
         app = WebApplication(core=_Core(), admin=admin)
         encoded = json.dumps(body).encode() if body is not None else b""
         environ = {"PATH_INFO": path, "QUERY_STRING": "", "REQUEST_METHOD": method, "CONTENT_LENGTH": str(len(encoded)), "wsgi.input": BytesIO(encoded)}
+        if authenticated_actor:
+            environ["JANUS_AUTH_EMAIL"] = authenticated_actor
         response = {}
         result = app(environ, lambda status, headers: response.update(status=status, headers=headers))
         content_type = dict(response["headers"])["Content-Type"]
@@ -74,6 +81,12 @@ class WebServerTests(unittest.TestCase):
         self.assertEqual(self.request("/health")[0], "200 OK")
         status, body = self.request("/api/v1/core/2330/summary")
         self.assertEqual(status, "200 OK")
+        self.assertEqual(body["symbol"], "2330")
+
+    def test_core_dataset_route_passes_dataset_before_symbol(self):
+        status, body = self.request("/api/v1/core/2330/datasets/ohlcv")
+        self.assertEqual(status, "200 OK")
+        self.assertEqual(body["dataset_id"], "ohlcv")
         self.assertEqual(body["symbol"], "2330")
 
     def test_missing_runtime_dependency_is_safe(self):
@@ -122,6 +135,16 @@ class WebServerTests(unittest.TestCase):
         status, body = self.request("/api/v1/admin/stocks/2330/enabled", method="PATCH", body={"enabled": "false"}, admin=_Admin())
         self.assertEqual(status, "400 Bad Request")
         self.assertEqual(body["error"], "enabled must be a boolean")
+
+    def test_authenticated_email_cannot_be_spoofed_as_audit_actor(self):
+        admin = _Admin()
+        status, _ = self.request(
+            "/api/v1/admin/settings/schedule", method="PUT",
+            body={"value": {"time": "08:00"}, "actor": "spoofed@example.com"},
+            admin=admin, authenticated_actor="owner@example.com",
+        )
+        self.assertEqual(status, "200 OK")
+        self.assertEqual(admin.actor, "owner@example.com")
 
 
 if __name__ == "__main__":

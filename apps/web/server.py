@@ -35,14 +35,18 @@ class WebApplication:
         try:
             method = environ.get("REQUEST_METHOD", "GET").upper()
             request_body = self._request_body(environ)
-            body, status, content_type = self._dispatch(path, query, method, request_body)
+            authenticated_actor = str(environ.get("JANUS_AUTH_EMAIL", "")).strip().lower() or None
+            body, status, content_type = self._dispatch(
+                path, query, method, request_body, authenticated_actor=authenticated_actor,
+            )
         except (ValueError, KeyError) as error:
             body, status, content_type = {"error": redact(error)}, "400 Bad Request", "application/json; charset=utf-8"
         except StockInUseError as error:
             body, status, content_type = {"error": redact(error)}, "409 Conflict", "application/json; charset=utf-8"
         except ControlPlaneError as error:
             body, status, content_type = {"error": redact(error)}, "409 Conflict", "application/json; charset=utf-8"
-        except Exception:
+        except Exception as error:
+            LOGGER.warning("web request failed: %s", type(error).__name__)
             body, status, content_type = {"error": "service unavailable"}, "503 Service Unavailable", "application/json; charset=utf-8"
         payload = body.encode("utf-8") if isinstance(body, str) else json.dumps(body, ensure_ascii=False, default=str).encode("utf-8")
         start_response(status, [("Content-Type", content_type), ("Content-Length", str(len(payload))), ("X-Content-Type-Options", "nosniff"), ("X-Trace-ID", trace_id)])
@@ -69,6 +73,8 @@ class WebApplication:
         query: dict[str, list[str]],
         method: str = "GET",
         request_body: dict[str, Any] | None = None,
+        *,
+        authenticated_actor: str | None = None,
     ) -> tuple[Any, str, str]:
         request_body = request_body or {}
         json_type = "application/json; charset=utf-8"
@@ -88,7 +94,7 @@ class WebApplication:
                 return self.core.summary(unquote(parts[4])), "200 OK", json_type
             if len(parts) == 7 and parts[5] == "datasets":
                 limit = int(query.get("limit", ["50"])[0]); offset = int(query.get("offset", ["0"])[0])
-                page = self.core.page(unquote(parts[4]), unquote(parts[6]), limit=limit, offset=offset)
+                page = self.core.page(unquote(parts[6]), unquote(parts[4]), limit=limit, offset=offset)
                 return {"dataset_id": page.dataset_id, "symbol": page.symbol, "rows": page.rows, "limit": page.limit, "offset": page.offset}, "200 OK", json_type
         if path.startswith("/api/v1/admin/") and self.admin is None:
             return {"error": "admin unavailable"}, "503 Service Unavailable", json_type
@@ -138,7 +144,7 @@ class WebApplication:
             if method == "GET":
                 return self.admin.setting(key), "200 OK", json_type
             if method in {"POST", "PUT"}:
-                actor = self._required_text(request_body, "actor")
+                actor = authenticated_actor or self._required_text(request_body, "actor")
                 expected = request_body.get("expected_version")
                 if expected is not None and (not isinstance(expected, int) or expected < 0):
                     raise ValueError("expected_version must be a non-negative integer")
@@ -177,7 +183,7 @@ class WebApplication:
         return tuple(dict.fromkeys(item.strip().upper() for item in value if item.strip()))
 
 
-def application() -> WebApplication:
+def application() -> Callable[..., Any]:
     """Build the dev/prod runtime when its Secret Manager settings exist."""
     try:
         from .runtime import build_runtime
@@ -186,8 +192,11 @@ def application() -> WebApplication:
         # Keep /health and static diagnostics available without exposing
         # credentials, SQL, upstream errors, or tracebacks.
         LOGGER.warning("web runtime unavailable: %s", redact(error))
-        return WebApplication()
-    return WebApplication(core=runtime.core, admin=runtime.admin)
+        app = WebApplication()
+    else:
+        app = WebApplication(core=runtime.core, admin=runtime.admin)
+    from .auth import protect_with_google
+    return protect_with_google(app)
 
 
 if __name__ == "__main__":

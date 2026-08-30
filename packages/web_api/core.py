@@ -33,7 +33,18 @@ class CoreQueryService:
         "ohlcv", "valuation", "institutional", "financials", "events",
         "market-activity", "benchmark",
     })
+    DEFAULT_SUMMARY_DATASETS = tuple(sorted(DATASETS - {"benchmark"}))
     TABLE_NAMES = {dataset: f"core.{dataset.replace('-', '_')}_v1" for dataset in DATASETS}
+    FILTER_FIELDS = {dataset: ("benchmark_id" if dataset == "benchmark" else "symbol") for dataset in DATASETS}
+    ORDER_FIELDS = {
+        "ohlcv": "trade_date",
+        "valuation": "observed_date",
+        "institutional": "trade_date",
+        "financials": "published_at",
+        "events": "published_at",
+        "market-activity": "trade_date",
+        "benchmark": "trade_date",
+    }
     DATE_FIELDS = ("trade_date", "observed_date", "published_at", "effective_date", "date")
 
     def __init__(self, query: Callable[[str, str, Sequence[Any]], Sequence[Mapping[str, Any]]],
@@ -52,7 +63,7 @@ class CoreQueryService:
         # parameters, so callers cannot inject SQL through symbols.
         sql = (
             f"SELECT * FROM {self.TABLE_NAMES[dataset]} "
-            "WHERE symbol = ? ORDER BY COALESCE(trade_date, observed_date, published_at) DESC "
+            f"WHERE {self.FILTER_FIELDS[dataset]} = ? ORDER BY {self.ORDER_FIELDS[dataset]} DESC "
             "LIMIT ? OFFSET ?"
         )
         try:
@@ -63,7 +74,10 @@ class CoreQueryService:
 
     def summary(self, symbol: str, *, datasets: Sequence[str] | None = None) -> dict[str, Any]:
         normalized_symbol = self._symbol(symbol)
-        selected = tuple(datasets or sorted(self.DATASETS))
+        # A stock symbol cannot be used as a benchmark_id. Benchmark remains
+        # queryable explicitly (for example TAIEX), but is not mixed into a
+        # stock summary without an explicit market-to-benchmark mapping.
+        selected = tuple(datasets or self.DEFAULT_SUMMARY_DATASETS)
         result: dict[str, Any] = {"symbol": normalized_symbol, "datasets": {}}
         for dataset in selected:
             page = self.page(dataset, normalized_symbol, limit=self.max_limit)

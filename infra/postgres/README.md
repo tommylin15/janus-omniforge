@@ -3,7 +3,8 @@
 The VM uses a pinned Google COS image, private IP only, and no Cloud NAT. A
 pinned PostgreSQL 16 image must first be published to an approved Google-hosted
 registry without Artifact Analysis or Container Scanning. The bootstrap
-operator then connects through IAP/OS Login, supplies Secret Manager values to
+operator then connects through IAP/OS Login, supplies the bootstrap, control,
+catalog, publication, audit, Web control, and Web catalog Secret Manager values to
 `psql` variables, and applies migrations in numeric order. Values must never be
 written to this repository, Terraform, VM metadata, startup scripts, shell
 history, or logs.

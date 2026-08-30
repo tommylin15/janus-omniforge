@@ -202,18 +202,18 @@ Core（0 failure、8 個 Core partition）；同日回跑 `janus-ingestion-core-
 - [x] Core query API／BFF 使用 bounded PostgreSQL pool、statement timeout 與 indexed pagination；不得每 request 建立新 DB connection。（單 repository connection、catalog pool size=1/max_overflow=0、DuckDB bounds）
 - [x] 建立 PostgreSQL VM health、connection count、disk usage、deadlock、slow query 與 retention telemetry；控制 log／metric volume 避免額外費用。（`PostgresHealthCollector` fixed aggregate queries）
 - [x] 安全輸出不得包含 raw payload、secret、敏感 URL、完整 upstream error 或 traceback。（redaction／safe boundary tests）
-- [ ] Query API 的 DuckDB instance 必須 read-only、使用獨立 memory／timeout／row limit 與 catalog reader role，不得取得 Core commit 權限或共用 ingestion 本機 DuckDB 檔案。（程式限制已完成；2026-08-28 Cloud Run 實機驗證未通過：Web revision 未配置 reader credential，Core endpoint 回 503）
+- [ ] Query API 的 DuckDB instance 必須 read-only、使用獨立 memory／timeout／row limit 與 catalog reader role，不得取得 Core commit 權限或共用 ingestion 本機 DuckDB 檔案。（2026-08-30：程式限制、Web 專用 role migration 與本機測試完成；Cloud Run 專用 credential／實機唯讀驗證待部署）
 
 2026-08-28 實機驗證證據：`janus-web-00002-472` 使用 Direct VPC `private-ranges-only`／`janus-web` tag，`/health` authenticated proxy 回 200；`/api/v1/core/2330/summary` 回 503 `core query unavailable`。Cloud Run Jobs 僅有 `janus-ingestion-core`，無 `janus-intelligence-mart`，故 Mart／read-only query private DB smoke 尚未執行。
 
-驗收證據：`python -m unittest discover -s tests -v`，61 tests passed；`python -m compileall -q apps packages jobs` 通過。pytest 未安裝，未執行 pytest。
+本機驗收證據（2026-08-30）：`python -m unittest discover -s tests -v`，77 tests passed；`python -m compileall -q apps packages jobs`、`node --check apps/web/static/admin.js`、`python -m pip check`、Git Bash `bash -n infra/postgres/bootstrap-vm.sh` 與 `git diff --check` 通過。
 
 ## P0 — Admin Data Operations MVP
 
 - [x] 股票搜尋、分頁、enabled、關聯刪除保護。（`AdminService`、`/api/v1/admin/stocks`；63 tests passed）
 - [x] 跨頁選取與 collection／analysis 分開觸發。（`apps/web/static/admin.js`、queue routes）
 - [x] collection 只寫 control DB／queue，不在 request 中執行長任務。（control-plane enqueue contract）
-- [ ] Admin 寫入使用 transaction、optimistic concurrency 與 workload-specific PostgreSQL role；不得取得 bootstrap／catalog owner 權限。
+- [ ] Admin 寫入使用 transaction、optimistic concurrency 與 workload-specific PostgreSQL role；不得取得 bootstrap／catalog owner 權限。（2026-08-30：Web control role migration 與 authenticated audit actor 測試完成；實機 role isolation 待驗收）
 - [x] 最近 50 次 persisted execution。（bounded API/UI）
 - [x] execution details 按需讀取。（row action only）
 - [ ] 股票資料狀態頁：Core 最新日期、資料集覆蓋、row count、DQ／quarantine 摘要。

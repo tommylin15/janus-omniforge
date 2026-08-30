@@ -27,9 +27,19 @@ class CoreQueryServiceTests(unittest.TestCase):
         self.assertNotIn("2330", self.calls[0][1])
         self.assertEqual(self.calls[0][2], ("2330", 10, 0))
 
+    def test_dataset_specific_filter_and_order_fields_are_allowlisted(self):
+        self.service.page("valuation", "2330")
+        self.assertIn("WHERE symbol = ? ORDER BY observed_date DESC", self.calls[-1][1])
+        self.service.page("benchmark", "TAIEX")
+        self.assertIn("WHERE benchmark_id = ? ORDER BY trade_date DESC", self.calls[-1][1])
+
     def test_summary_has_bounded_data_quality_metadata(self):
         summary = self.service.summary("2330", datasets=("ohlcv",))
         self.assertEqual(summary["datasets"]["ohlcv"]["row_count"], 2)
+
+    def test_stock_summary_does_not_treat_symbol_as_benchmark_id(self):
+        summary = self.service.summary("2330")
+        self.assertNotIn("benchmark", summary["datasets"])
         self.assertEqual(summary["datasets"]["ohlcv"]["latest_date"], "2026-08-27")
         self.assertEqual(summary["datasets"]["ohlcv"]["null_profile"], {"close": 1})
 

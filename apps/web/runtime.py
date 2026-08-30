@@ -49,13 +49,6 @@ def build_runtime() -> WebRuntime:
     import psycopg
     from ingestion_core.postgres_control import PostgreSQLControlPlane
 
-    def catalog_connect():
-        return psycopg.connect(
-            host=settings["CATALOG_DB_HOST"], dbname=settings["CATALOG_DB_NAME"],
-            user=settings["CATALOG_DB_USER"], password=settings["CATALOG_DB_PASSWORD"],
-            sslmode=os.environ.get("CATALOG_DB_SSLMODE", "require"), connect_timeout=5,
-        )
-
     def control_connect():
         return psycopg.connect(
             host=settings["CONTROL_DB_HOST"], dbname=settings["CONTROL_DB_NAME"],
@@ -69,6 +62,7 @@ def build_runtime() -> WebRuntime:
         warehouse=os.environ.get("ICEBERG_WAREHOUSE", f"gs://{settings['CORE_BUCKET']}/warehouse"),
         project_id=settings["GCP_PROJECT_ID"],
         sslmode=os.environ.get("CATALOG_DB_SSLMODE", "require"),
+        read_only=True,
     )
     reader = IcebergQuery(iceberg.catalog, engine=iceberg.engine)
     core_service = CoreQueryService(reader.query, max_limit=int(os.environ.get("WEB_QUERY_MAX_ROWS", "200")))
