@@ -8,6 +8,7 @@ umask 077
 #   janus-postgres-web-catalog-password
 
 image="${1:?immutable PostgreSQL image is required}"
+mode="${2:-apply}"
 data_dir=/mnt/stateful_partition/postgres
 docker_config=/run/janus-web-migration-docker
 
@@ -22,6 +23,10 @@ if [[ -z "${web_control_password}" || -z "${web_catalog_password}" ]]; then
   echo "Both Web PostgreSQL passwords are required." >&2
   exit 1
 fi
+echo "Validated Web migration inputs."
+if [[ "${mode}" == "check" ]]; then
+  exit 0
+fi
 
 old_image="$(sudo docker inspect --format '{{.Config.Image}}' janus-postgres)"
 switched=false
@@ -29,6 +34,7 @@ switched=false
 rollback() {
   local status=$?
   trap - ERR
+  echo "Migration command failed near line ${BASH_LINENO[0]} (status ${status})." >&2
   if [[ "${switched}" == true ]]; then
     echo "Migration failed; restoring the previous PostgreSQL image." >&2
     sudo docker rm -f janus-postgres >/dev/null 2>&1 || true
@@ -51,12 +57,14 @@ printf '%s' "${token}" | sudo docker --config "${docker_config}" login \
 unset token
 sudo docker --config "${docker_config}" pull "${image}" >/dev/null
 sudo rm -rf "${docker_config}"
+echo "Pulled immutable PostgreSQL image."
 
 sudo docker rm -f janus-postgres >/dev/null
 sudo docker run -d --name janus-postgres --restart=always \
   -p 5432:5432 -v "${data_dir}:/var/lib/postgresql/data" "${image}" \
   -c config_file=/opt/janus/postgresql.conf -c hba_file=/opt/janus/pg_hba.conf >/dev/null
 switched=true
+echo "Started PostgreSQL with the updated configuration."
 
 for _ in $(seq 1 60); do
   if sudo docker exec --user postgres janus-postgres \
@@ -67,7 +75,7 @@ for _ in $(seq 1 60); do
 done
 sudo docker exec --user postgres janus-postgres pg_isready -U postgres -d janus_control >/dev/null
 
-sudo docker exec \
+sudo docker exec --user postgres \
   -e WEB_CONTROL_PASSWORD="${web_control_password}" \
   -e WEB_CATALOG_PASSWORD="${web_catalog_password}" \
   janus-postgres bash -ceu '
@@ -77,11 +85,11 @@ sudo docker exec \
     psql -U postgres -d janus_control -v ON_ERROR_STOP=1 <<"SQL"
 SELECT rolname, rolsuper, rolcreatedb, rolcreaterole, rolreplication
 FROM pg_roles
-WHERE rolname IN ('janus_web_control', 'janus_web_catalog')
+WHERE rolname IN ($$janus_web_control$$, $$janus_web_catalog$$)
 ORDER BY rolname;
-SELECT current_setting('default_transaction_read_only') = 'off' AS server_default_writable;
+SELECT current_setting($$default_transaction_read_only$$) = $$off$$ AS server_default_writable;
 SELECT EXISTS (
-  SELECT 1 FROM control.schema_migrations WHERE version = '007_web_runtime_roles'
+  SELECT 1 FROM control.schema_migrations WHERE version = $$007_web_runtime_roles$$
 ) AS migration_recorded;
 SQL
   '
