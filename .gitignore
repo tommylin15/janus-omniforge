@@ -36,6 +36,7 @@ htmlcov/
 
 # Node dependencies and generated frontend output.
 node_modules/
+.token-savior-cache.json
 frontend/node_modules/
 frontend/.next/
 frontend/out/

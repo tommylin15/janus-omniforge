@@ -8,6 +8,8 @@ node_modules/
 frontend/node_modules/
 frontend/.next/
 tests/output/
+.token-savior-cache.json
+token-savior/
 **/.terraform/
 **/*.tfstate
 **/*.tfstate.*

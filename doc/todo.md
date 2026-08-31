@@ -1,6 +1,6 @@
 # Janus × OmniForge — TODO
 
-版本：1.1
+版本：1.2
 用途：由 AI／開發者依順序執行；完成時勾選並附 PR、Cloud Build、execution 或測試證據。
 
 ## P0 — 開工前阻擋項目
@@ -88,11 +88,11 @@ Compute Engine PostgreSQL VM 後，仍需完成下列 production persistence int
 - [x] VM 全部 boot／data Standard Persistent Disk 配置量合計 ≤30 GB；禁止 snapshot／backup／replica／HA 預設資源。（單一 30 GB `pd-standard` boot disk，無其他 disk／snapshot／backup／replica／HA）
 - [x] 設定專用 subnet、Private Google Access、IAP／OS Login、`postgres-vm` identity 與 network tags；IAP SSH 僅允許 `35.235.240.0/20`，不得公開 `22`／`5432`。（IAP/OS Login 實測成功；private 5432 僅允許四個 workload tags）
 - [x] 規劃無 Cloud NAT 的 PostgreSQL bootstrap／更新來源：使用預建 image 或可經 Private Google Access 取得的核准 Google-hosted artifact；不得假設 Private Google Access 可存取一般 apt internet repository，也不得為安裝套件新增固定費用 NAT。（固定 Google COS boot image；PostgreSQL image 必須先發佈到核准 Google-hosted registry）
-- [x] 安裝並固定 PostgreSQL 版本，設定 1 GiB RAM 適用的 shared buffers、work memory、max connections、WAL、statement／idle timeout 與自動啟動。（PostgreSQL 16.15；image digest `sha256:e81c2f294e85fbb0c1ff2d19263a169d987a881c54e21ca8339df4501a7fa636`；restart smoke passed）
+- [x] 安裝並固定 PostgreSQL 版本，設定 1 GiB RAM 適用的 shared buffers、work memory、max connections、WAL、statement／idle timeout 與自動啟動。（PostgreSQL 16.15；2026-08-31 image digest `sha256:6fe7049c87c07429ab4eb8563a704ff9d54951dbe28338e1ac657b2ae50ebd51`；restart smoke passed）
 - [x] 建立 control、catalog、publication、audit schema／role，credential 僅由 Secret Manager 提供。（五組獨立 version 2；role 均為 non-superuser／non-createdb／non-createrole／non-replication）
 - [x] 設定 schema migration runner 與 PostgreSQL readiness check；migration 不得隨 Web deployment 自動執行。（`infra/postgres/bootstrap-vm.sh` 與 migrations；五項 readiness passed）
 - [x] 為 Cloud Run／Jobs／DuckDB runtime 設 Direct VPC egress=`private-ranges-only` 與最小 firewall；PostgreSQL ingress 只允許 private subnet `10.42.0.0/24` 連 target tag `janus-postgres-db:5432`。（Cloud Run Direct VPC tag 不支援作為 ingress source selector；2026-08-26 ingestion smoke 驗證）
-- [ ] 從 ingestion、Web、Mart Job 與 read-only DuckDB query runtime 驗證 private PostgreSQL 連線與 catalog 基礎查詢；不得使用 Serverless VPC Access connector。（ingestion／DuckDB writer、Web 與 read-only query runtime 已驗證；僅 Mart Job 待驗收）
+- [x] 從 ingestion、Web、Mart Job 與 read-only DuckDB query runtime 驗證 private PostgreSQL 連線與 catalog 基礎查詢；不得使用 Serverless VPC Access connector。（2026-08-31：Mart execution `janus-intelligence-mart-hd86r` 透過 Direct VPC `private-ranges-only` 驗證完成）
 - [x] 驗證 Free Tier 邊界：單一 eligible `e2-micro` 時數、全部 Standard Persistent Disk ≤30 GB、outbound ≤1 GB/月、無 external IP／NAT／snapshot／replica；未取得 deployment 授權前不得 apply。（2026-08-26 人工確認 eligibility 並授權；實際資源為單一 `e2-micro`、30 GB `pd-standard`、無 external IP／NAT／snapshot／replica；outbound 需持續維持 ≤1 GB/月）
 - [x] 記錄 Free Tier dev 無自動備份／HA 的資料遺失風險；正式資料與 raw/cache payload 仍以 GCS 為持久層。（`infra/postgres/README.md`）
 
@@ -105,7 +105,7 @@ Compute Engine PostgreSQL VM 後，仍需完成下列 production persistence int
 - [x] 設定低連線數 pool、statement／idle timeout、retry-safe transaction 與 migration lock，適配 `e2-micro` 的 1 GiB RAM。（每 repository 一個注入 connection；pool budget 由 caller 限制）
 - [x] 定義 ingestion／DuckDB writer、read-only query、Web/Admin、Mart 與 migration 的 aggregate connection budget，總和不得超過 PostgreSQL `max_connections` 的安全餘額。（server baseline 30；各 workload 使用 bounded factory）
 - [x] 設定 execution、telemetry、audit、idempotency 與 cache metadata retention／pruning，避免 30 GB disk 無界成長。（`prune`、expiry indexes、FK cascade）
-- [ ] 由 Secret Manager 提供各 workload 獨立 credential，透過 Direct VPC egress/private IP 驗證 ingestion、DuckDB、Web、Mart Job 連線。（2026-08-30：ingestion、DuckDB、Web 專用 credential 與 private path 已驗證；Mart Job 尚未建立）
+- [x] 由 Secret Manager 提供各 workload 獨立 credential，透過 Direct VPC egress/private IP 驗證 ingestion、DuckDB、Web、Mart Job 連線。（2026-08-31：Mart 使用固定 version 1 的專用 catalog／publication Secret 與角色，private path smoke 通過）
 - [x] 完成 PostgreSQL migration、queue claim、reconnect、idempotency 與 control-plane smoke tests。（程式與 unit tests 完成；實機 workload smoke 待 runtime 部署）
 
 ## P0 — DuckDB／Iceberg Core 與查詢基礎
@@ -307,18 +307,21 @@ Cloud Run DB-connected query、完整 2330 → Admin 整合及 scale-to-zero 仍
 
 ## P1 — Mart／Agents
 
-- [ ] Mart Job 只透過 Direct VPC egress 與專用 read/write role 存取 PostgreSQL metadata；feature／evidence payload 留在 GCS／Iceberg。
-- [ ] `mart_screening_signals`、`mart_core_alpha`、`mart_risk_portfolio`、`mart_alternative_sentiment` 與 `mart_master_investment_memo` versioned schemas。
+- [ ] 建立可執行的 `intelligence_mart` package／Cloud Run Job entrypoint、bounded runtime 設定與 persisted queue claim；2026-08-31 已完成 connectivity entrypoint、1 CPU／1 GiB／300s／1 retry Job 與實機 smoke，persisted queue claim 仍待完成，Analysis 排隊成功不得視為完成。
+- [ ] 建立 `core.dataset.ready.v1` → Mart 的 workflow／event trigger；只接受 ingestion DQ／Core commit 成功且帶有 execution ID、immutable Core snapshot ID 的事件，並驗證 ingestion failed／partial 不觸發、重送保持冪等。不得以同時各自排程 ingestion 與 Mart 取代依賴串接。
+- [ ] Mart Job 只透過 Direct VPC egress 與專用 read/write role 存取 PostgreSQL metadata；2026-08-31 已驗證 catalog／publication role 與 private path，feature／evidence payload 的 GCS／Iceberg 寫入邊界仍待實作與驗收。
+- [ ] 固定 Mart execution input contract：`execution_id`、`analysis_as_of`、Core snapshot ID、schema／feature／model version 與 immutable governance snapshot version；禁止 Analysis 即時補抓或改寫 Core。
+- [ ] 建立 `mart_screening_signals`、`mart_core_alpha`、`mart_risk_portfolio`、`mart_alternative_sentiment` 與 `mart_master_investment_memo` versioned Iceberg schemas；共用欄位須涵蓋 symbol／coverage、analysis date、lineage、completeness、confidence、data quality、analysis outcome、publication status 與 evidence／artifact reference。
 - [ ] Fundamental features／Agent。
 - [ ] Valuation features／Agent。
 - [ ] Positioning features／Agent。
 - [ ] Quant features／Agent。
 - [ ] Event Risk features／Agent。
-- [ ] Evidence Validator。
+- [ ] Evidence Validator：驗證 URL、時間、單位、duplicate、stale、conflict、source authorization 與 future leakage；evidence 必須可追至 provenance／Core snapshot。
 - [ ] Devil's Advocate 反證階段只引用合格 evidence，不得自行補資料或產生無來源數字。
 - [ ] Aggregator bull／bear／contradictions／contributions。
-- [ ] 30% insufficient-data gate。
-- [ ] blocked／publishable view。
+- [ ] 統一 `insufficient_data` 契約語意：作為 completeness gate 的 analysis outcome／reason，與 `PublicationStatusV1` 分欄；同步修正 `spec.md`、contracts、API／UI mapping 與 contract tests，低於 30% 或無有效分數不得進公開 index。
+- [ ] blocked／publishable view；只有 `publishable`／`published` 可進公開 service index。
 - [ ] immutable governance snapshot version。
 - [ ] deterministic rerun tests。
 - [ ] RAG 只檢索 analysis-as-of 可見的 Core／Mart snapshot，並以測試阻擋 future leakage。
@@ -336,13 +339,14 @@ Cloud Run DB-connected query、完整 2330 → Admin 整合及 scale-to-zero 仍
 
 ## P1 — Mart 閉環
 
-- [ ] 產製 versioned Mart tables。
-- [ ] 寫 report／model／governance metadata。
-- [ ] 寫 PostgreSQL publication service index。
-- [ ] publication index 使用 migration、唯一鍵、bounded pool、retention 與 workload-specific role；不得把完整 report payload 寫入 PostgreSQL。
+- [ ] 建立 GCS Mart warehouse／Iceberg namespace 與 versioned partition strategy，產製五張 versioned Mart tables。
+- [ ] 將 feature／role／evidence／aggregation payload、model／evaluation artifact、完整結構化 report、Markdown export 與大型 governance diff 寫入 GCS；保存 object URI、snapshot ID、hash 與版本。
+- [ ] 以 migration 建立 PostgreSQL report metadata 與 publication service index；使用唯一鍵、bounded pool、statement timeout、retention 與 workload-specific role。
+- [ ] PostgreSQL 只保存 catalog／control／publication／audit／service-index metadata 與 artifact reference；以 schema／integration test 阻擋完整 report、feature 或 evidence payload 寫入 Free Tier VM。
 - [ ] 發出 `mart.report.ready.v1`。
 - [ ] 驗證 blocked 不進 publishable view。
-- [ ] 驗證 2330 Core → Mart 可重現。
+- [ ] 驗證 publication index 可解析至正確 immutable GCS／Iceberg artifact，且 blocked／insufficient-data 成品不會被 Web／OmniForge 匯出。
+- [ ] 驗證 2330 在相同 Core snapshot、governance、schema／feature／model version 下可重現 deterministic Mart；LLM 關閉時 deterministic output 不變。
 
 ## P1 — Admin Governance／Reports
 

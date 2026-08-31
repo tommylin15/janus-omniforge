@@ -13,6 +13,8 @@ read -r publication_password
 read -r audit_password
 read -r web_control_password
 read -r web_catalog_password
+read -r mart_catalog_password
+read -r mart_publication_password
 
 token="$(curl -fsS -H 'Metadata-Flavor: Google' \
   'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token' \
@@ -44,6 +46,8 @@ sudo docker exec \
   -e AUDIT_PASSWORD="$audit_password" \
   -e WEB_CONTROL_PASSWORD="$web_control_password" \
   -e WEB_CATALOG_PASSWORD="$web_catalog_password" \
+  -e MART_CATALOG_PASSWORD="$mart_catalog_password" \
+  -e MART_PUBLICATION_PASSWORD="$mart_publication_password" \
   janus-postgres bash -ceu '
     printf "\\getenv control_password CONTROL_PASSWORD\n\\getenv catalog_password CATALOG_PASSWORD\n\\getenv publication_password PUBLICATION_PASSWORD\n\\getenv audit_password AUDIT_PASSWORD\n" > /tmp/vars.sql
     cat /tmp/vars.sql /opt/janus/migrations/001_roles_and_schemas.sql | psql -U postgres -d postgres
@@ -54,7 +58,9 @@ sudo docker exec \
     psql -U postgres -d janus_control -f /opt/janus/migrations/006_admin_settings_audit.sql
     printf "\\getenv web_control_password WEB_CONTROL_PASSWORD\n\\getenv web_catalog_password WEB_CATALOG_PASSWORD\n" > /tmp/web-vars.sql
     cat /tmp/web-vars.sql /opt/janus/migrations/007_web_runtime_roles.sql | psql -U postgres -d janus_control
-    rm -f /tmp/vars.sql /tmp/web-vars.sql
+    printf "\\getenv mart_catalog_password MART_CATALOG_PASSWORD\n\\getenv mart_publication_password MART_PUBLICATION_PASSWORD\n" > /tmp/mart-vars.sql
+    cat /tmp/mart-vars.sql /opt/janus/migrations/008_mart_runtime_roles.sql | psql -U postgres -d janus_control
+    rm -f /tmp/vars.sql /tmp/web-vars.sql /tmp/mart-vars.sql
     openssl req -new -x509 -days 365 -nodes -text \
       -subj "/CN=janus-postgres-dev" -keyout "$PGDATA/server.key" -out "$PGDATA/server.crt" >/dev/null 2>&1
     chmod 600 "$PGDATA/server.key"
@@ -62,7 +68,7 @@ sudo docker exec \
 
 sudo docker rm -f janus-postgres >/dev/null
 sudo rm -f "$env_file"
-unset bootstrap_password control_password catalog_password publication_password audit_password web_control_password web_catalog_password
+unset bootstrap_password control_password catalog_password publication_password audit_password web_control_password web_catalog_password mart_catalog_password mart_publication_password
 
 sudo docker run -d --name janus-postgres --restart=always \
   -p 5432:5432 -v "$data_dir:/var/lib/postgresql/data" "$image" \

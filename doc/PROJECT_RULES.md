@@ -76,3 +76,17 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
   而被系統 ExecutionPolicy 阻擋。
 - 不得為解決此問題而放寬或繞過系統 ExecutionPolicy；若 `.cmd` 不存在，先以
   `Get-Command npm.cmd`／`Get-Command npx.cmd` 檢查 Node.js 安裝，再回報環境問題。
+
+## 9. Token 與 context 節省
+
+- 查詢 API、GCP 狀態或 logs 時，只取回答或驗收所需欄位，必須使用可用的
+  filter、field projection、time range 與 limit；除非窄查詢不足以定位 root cause，
+  不得輸出完整 JSON、整段 log stream 或無關 stdout。
+- 程式碼定位、symbol、caller、dependency 與 impact analysis 優先使用已啟用的
+  Token Savior；單一已知字串或檔名的精確查找可使用更短的 `rg`。
+- 工具輸出設定合理的 token 上限；先摘要結果，再按缺口擴大查詢，不預先讀取
+  整份檔案或整個目錄。
+- 中途回報與最終交付保持精簡，只保留決策、實際證據、失敗原因與下一步。
+- 長任務在 Codex／API 支援時使用 context compaction，或在清楚保存目前狀態、
+  安全決策、resource ID 與未完成步驟後切換到聚焦的新 session；不得為省 token
+  遺失驗收證據或重複執行外部寫入。

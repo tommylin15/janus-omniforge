@@ -1,9 +1,9 @@
 # Operations and testing
 
-最新驗證日期：2026-08-30
+最新驗證日期：2026-08-31
 
-最新完整本機驗證：`python -m pytest -q` 與
-`python -m unittest discover -s tests -v` 均為 78 tests passed；Vitest 2/2、
+最新完整本機驗證：`python -m pytest -q tests` 為 83 tests passed，Mart runtime／
+PostgreSQL role focused tests 5/5 passed；Vitest 2/2、
 TypeScript typecheck、ESLint 與 static Web production build passed。Playwright
 現有 responsive Admin shell 1/1 assertion passed，但 runner 在輸出報告後未自行
 結束，且尚未涵蓋完整 Admin interaction；真人 Google login 未執行。Windows
@@ -13,7 +13,30 @@ session、不可由 request body 偽造的
 authenticated audit actor、Web 專用 control/catalog role migration，以及不建立
 namespace 的 read-only catalog reader。Dev migration、credential 切換與 Cloud Run
 實機 role isolation 已完成；真人 Google 帳號登入及 OAuth Console redirect URI
-仍需一次人工確認，Mart runtime 不包含在本次驗收。
+仍需一次人工確認。
+
+## P0 Mart runtime connectivity (2026-08-31)
+
+PostgreSQL build `36823a97-1ef1-4046-9700-37223be1bdf0` 產生 immutable digest
+`sha256:6fe7049c87c07429ab4eb8563a704ff9d54951dbe28338e1ac657b2ae50ebd51`；
+migration `008_mart_runtime_roles.sql` 已建立 non-superuser／non-createdb／
+non-createrole／non-replication 的 `janus_mart_catalog` 與
+`janus_mart_publication`，HBA 僅允許 `10.42.0.0/24` TLS 連線。
+
+Mart 修正版 build `9a94e089-a89b-4e44-9351-3c9fb166b569` 產生 digest
+`sha256:cbd336ace6629c1a78769673ad5415f0d6475a42766510f9b9ef2ea7d24fd007`。
+Cloud Run Job `janus-intelligence-mart` 使用專用 service account、Direct VPC
+`private-ranges-only`、`janus-intelligence-mart` network tag、固定 Secret version 1、
+1 CPU／1 GiB／300 秒 timeout／1 retry。Execution
+`janus-intelligence-mart-hd86r` 成功；catalog／publication 皆回報 private address、
+bounded privileges `ok`。第一次 execution `janus-intelligence-mart-rpwjj` 只因
+PostgreSQL 回傳 CIDR 形式 `172.17.0.2/32` 被驗證器誤判，已以 `ip_interface` 修正並
+留下 regression test。臨時 VM Secret IAM 已撤銷，local／VM credential temp files
+均已清除。
+
+Cloud Scheduler `janus-ingestion-daily` 目前只呼叫 `janus-ingestion-core:run`；Mart
+尚未排程。WBS／todo 已要求 ingestion DQ／Core commit 成功後由
+`core.dataset.ready.v1` workflow／event 觸發 Mart，不得以同時獨立排程取代依賴。
 
 Google login handoff 在驗證 ID token 後，以短效簽章 handoff 完成同源 POST；第二段
 回應使用 `303 See Other`，在同一 response 設定 HttpOnly session cookie 並導向
@@ -77,8 +100,9 @@ The last directly verified runtime deployments remain Cloud Build
 `sha256:16248df5e95afea4cc099016c4c6e1722eade307b53d2065514f7d517f596e8e`
 and `e021a691-2a0e-42eb-bffd-b25c2ee2ead2` for web at
 `sha256:6746d5985e60781bda04b1965d980e0651c82dd30e7026344e1b30908221cd74`.
-The `janus-intelligence-mart` trigger exists, but its Cloud Run Job deployment
-target has not yet been created and its deploy acceptance remains pending.
+The `janus-intelligence-mart` trigger and Cloud Run Job now exist. Manual build,
+immutable deployment, Direct VPC, Secret Manager, and database smoke acceptance
+passed; a path-matching automatic trigger run remains pending.
 
 Artifact Registry repositories `janusai-poc` and `janus-postgres` use the same
 active cleanup policy with dry-run disabled: each image package keeps only its
@@ -86,7 +110,7 @@ most recent version, while older tagged and untagged versions are eligible for
 deletion after one second. The old untagged PostgreSQL digest
 `sha256:8dfe6976ca822f87a6ba42743bb0f841d4bee3352a66816d663f2bc0961f7c4e`
 was permanently deleted; `postgres:16.15` remains at
-`sha256:e81c2f294e85fbb0c1ff2d19263a169d987a881c54e21ca8339df4501a7fa636`.
+`sha256:6fe7049c87c07429ab4eb8563a704ff9d54951dbe28338e1ac657b2ae50ebd51`.
 Artifact Analysis and Container Scanning remain disabled and were not called.
 
 ## P0 Admin follow-up (2026-08-28)
