@@ -387,4 +387,29 @@ Cloud Run ingestion Job 已以官方 TWSE／TPEx／MOPS OpenAPI 與 FinMind requ
 MiB）。同日 replay `janus-ingestion-core-nxmwc` 為 `core_created=0`、
 `core_reused=79,262`，object count 維持 8，證明 create-if-absent partition commit
 不產生重複資料。07:30 `Asia/Taipei` Scheduler 已 ENABLED；前次 Stage cleanup smoke
-已完成，日期區間 backfill 與 Admin control 仍待後續驗收。
+已完成。
+
+## 2026-08-31 — P0 schedule／backfill／retention dev 驗收
+
+GCP Cloud Build 驗證通過：Python 101 tests；Web Vitest 2、Playwright 5、typecheck、
+ESLint 與 production build；PostgreSQL transaction／migration targeted build
+`af628b6f-354d-4d68-93df-8c616976f11a`。全程未啟動 WSL。
+
+dev migration `010_execution_runtime_options`、`011_control_settings_ownership` 與
+`012_first_batch_source_ids` 已套用。`janus_control` 擁有 `admin_settings`、
+`admin_audit` 與其 identity sequence，仍為 bounded non-superuser role；
+`first-batch.source_ids` 使用 canonical provenance IDs。
+
+scheduled execution `janus-ingestion-core-jmh8d` 成功，control execution
+`dd8ad090-1daf-4522-94a9-6fc5bb8c9862` 為 `succeeded`，正式來源 items 保存
+`Core committed`。指定 `2026-08-28`、`2330`、`twse` 的 queue backfill execution
+`7362712f-5acf-4c5e-afd8-45fa33268c9e` 經 `janus-ingestion-core-kt9mq` 完成；
+valuation 1 row、institutional 3 rows、market-activity 3 rows 已 commit，events 為
+合法 empty。ingestion image digest 為
+`sha256:ad00a77389beb4a636088e0b6ec9e0ba4fc2b371216d547865b97a599fd9342a`。
+
+實機 smoke 同時發現並修正 PostgreSQL read transaction 在 upstream I/O 期間觸發
+10 秒 idle-in-transaction timeout 的問題；repository 現以 autocommit 處理 reads，
+write paths 仍使用 explicit transaction。Web dev `/admin/stocks` 未登入回 303 並導向
+`/login`。Cloud Scheduler 維持 `30 7 * * *`、`Asia/Taipei`、enabled；Admin 變更
+排程時間的自動 Scheduler reconciliation 仍列為後續工作。

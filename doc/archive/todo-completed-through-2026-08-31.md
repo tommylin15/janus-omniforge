@@ -442,3 +442,12 @@ PostgreSQL container、未部署 production，也未建立額外雲端資源或�
   單位變更仍須建立新 table version。
 - [x] 驗證：Iceberg targeted pytest 5/5、完整 pytest 98/98、Python compileall
   與 `git diff --check` passed；未操作 GCP 或建立雲端資源。
+
+## 2026-08-31 — P0 排程、回跑與 Stage retention runtime 閉環
+
+- [x] Admin schedule、holiday override、日期區間、指定來源與 retention 設定完成驗證、optimistic version、audit 與 PostgreSQL 持久化；scheduled worker 直接讀取 control DB。
+- [x] Collection queue consumer 實際處理單日、單股票、指定 `twse` backfill；execution `7362712f-5acf-4c5e-afd8-45fa33268c9e` 為 `succeeded`，三個正式資料集均保存 `Core committed`，events 合法保存為 `empty` safe message。
+- [x] Stage cleanup 只選取已成功且超過 retention 的 execution，刪除前再檢查 immutable Core commit marker；失敗、重試或 fence 不存在的 Stage 保留。
+- [x] dev migration `010_execution_runtime_options`、`011_control_settings_ownership`、`012_first_batch_source_ids` 已套用；`janus_control` 擁有 control 設定／稽核 tables 與 identity sequence，但維持非 superuser、無跨 schema 擴權。
+- [x] Cloud Scheduler `janus-ingestion-daily` 為 `30 7 * * *`、`Asia/Taipei`、enabled；scheduled smoke `janus-ingestion-core-jmh8d` 與修正後 queue smoke `janus-ingestion-core-kt9mq` 成功。
+- [x] GCP 驗證：Python 101 tests、Web Vitest 2／Playwright 5／typecheck／ESLint／build，以及 transaction targeted build `af628b6f-354d-4d68-93df-8c616976f11a` 均成功；未啟動 WSL。

@@ -27,6 +27,8 @@ class PostgreSQLControlPlane:
                  idle_in_transaction_timeout_ms: int = 10000) -> None:
         self.connection = connection_factory()
         self._closed = False
+        if hasattr(self.connection, "autocommit"):
+            self.connection.autocommit = True
         with self.connection.cursor() as cur:
             cur.execute("SELECT set_config('statement_timeout', %s, false)",
                         (f"{statement_timeout_ms}ms",))
@@ -41,6 +43,11 @@ class PostgreSQLControlPlane:
 
     @contextmanager
     def _tx(self) -> Iterator[Any]:
+        transaction = getattr(self.connection, "transaction", None)
+        if getattr(self.connection, "autocommit", False) and transaction is not None:
+            with transaction(), self.connection.cursor() as cur:
+                yield cur
+            return
         try:
             with self.connection.cursor() as cur:
                 yield cur

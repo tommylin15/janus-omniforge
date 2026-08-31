@@ -14,14 +14,6 @@
 
 - [ ] source health telemetry 按 coverage tier 保存 expected／received symbols、success count、latency、freshness、cache age、fallback、schema drift 與合法 empty／unavailable。（契約欄位與 P1 telemetry work item 已建立；runtime 聚合待實作）
 
-## P0 — 排程 Stage → Core、回跑與暫存生命週期
-
-- [ ] Admin UI 可調整啟用資料源、排程時間、交易日／holiday override、單日或區間回跑參數、Stage retention／cleanup 開關；所有設定須驗證、稽核並以 control database 持久化。
-
-- [ ] Admin UI 提供 execution 狀態、Stage／Core commit、清理結果、資料源失敗與 backfill 進度；敏感錯誤只顯示 safe message。
-
-- [ ] 增加整合測試：排程閉環、前次 Stage 安全清理、失敗保留、日期區間回跑、指定來源回跑、Core 重跑去重、benchmark 獨立更新與 Admin 設定驗證。
-
 ## P0 — Admin Data Operations MVP
 
 - [ ] 股票資料狀態頁：Core 最新日期、資料集覆蓋、row count、DQ／quarantine 摘要。
@@ -36,9 +28,9 @@
 
 - [ ] 完整實作股票刪除 guard，涵蓋 collection config、execution、market、report、fundamental 等跨資料域引用，並在 UI 顯示各類引用數量與不可刪除原因。
 
-- [ ] 將 Admin 建立的 Collection／Analysis queued execution 接上可運作的 queue consumer、Ingestion／Mart Job，並以 persisted 狀態與 safe message 呈現端到端結果；排隊成功不得視為工作完成。（2026-08-31：Collection trigger-filtered claim、lease recovery、retry／terminal state 與 item persistence 已完成；Analysis consumer 依賴 P1 Mart pipeline）
+- [ ] 將 Admin 建立的 Analysis queued execution 接上 Mart Job；Collection queue consumer、lease recovery、terminal state、item persistence 與指定來源／日期 backfill runtime 已完成。
 
-- [ ] 將 Admin 排程與 Stage retention／cleanup 設定接上實際 Cloud Scheduler 與 cleanup runtime；保留 optimistic version、audit 與 Core commit cleanup fence，設定寫入成功不得誤報 runtime 已套用。
+- [ ] 將 Admin 排程時間異動自動同步至 Cloud Scheduler；目前 ingestion worker、holiday override 與 Stage retention／cleanup 已讀取 control DB，cleanup 具 Core commit fence，UI 會明示排程時間仍須同步。
 
 ## P0 — Stage／Core 與 Admin MVP 驗證
 

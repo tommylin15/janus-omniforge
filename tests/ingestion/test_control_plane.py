@@ -44,6 +44,27 @@ class _RecordingConnection:
         self.closed = True
 
 
+class _RecordingTransaction:
+    def __init__(self, connection):
+        self.connection = connection
+
+    def __enter__(self):
+        self.connection.transactions += 1
+
+    def __exit__(self, *_):
+        return None
+
+
+class _AutocommitRecordingConnection(_RecordingConnection):
+    def __init__(self):
+        super().__init__()
+        self.autocommit = False
+        self.transactions = 0
+
+    def transaction(self):
+        return _RecordingTransaction(self)
+
+
 class ControlPlaneTests(unittest.TestCase):
     def setUp(self):
         self.control = SQLiteControlPlane()
@@ -160,6 +181,17 @@ class ControlPlaneTests(unittest.TestCase):
 
 
 class PostgreSQLControlPlaneTests(unittest.TestCase):
+    def test_autocommit_reads_keep_explicit_write_transactions(self):
+        connection = _AutocommitRecordingConnection()
+        control = PostgreSQLControlPlane(lambda: connection)
+
+        with control._tx() as cursor:
+            cursor.execute("UPDATE control.test SET value=1")
+
+        self.assertTrue(connection.autocommit)
+        self.assertEqual(connection.transactions, 1)
+        control.close()
+
     def test_session_timeouts_use_parameterizable_set_config(self):
         connection = _RecordingConnection()
 
