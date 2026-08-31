@@ -2,9 +2,9 @@
 
 最新驗證日期：2026-08-31
 
-最新完整本機驗證：`python -m pytest -q tests` 為 95 tests passed；Vitest 2/2、
-Playwright Admin interaction 5/5、Python compileall、TypeScript typecheck、ESLint 與
-static Web production build passed。Playwright 測試 worker 會自行啟停本地 HTTP
+最新完整本機驗證：`python -m pytest -q tests` 為 98 tests passed，Python compileall
+passed；同日既有 Vitest 2/2、Playwright Admin interaction 5/5、TypeScript typecheck、
+ESLint 與 static Web production build 驗證仍為 passed。Playwright 測試 worker 會自行啟停本地 HTTP
 server，5 項測試完成後 clean exit 0。Repository root 的未追蹤 `token-savior/` 是
 獨立工具，已排除於本專案 ESLint；pytest 固定以正式 `tests/` 為界。真人 Google
 login 未執行。Windows
@@ -15,6 +15,29 @@ authenticated audit actor、Web 專用 control/catalog role migration，以及�
 namespace 的 read-only catalog reader。Dev migration、credential 切換與 Cloud Run
 實機 role isolation 已完成；真人 Google 帳號登入及 OAuth Console redirect URI
 仍需一次人工確認。
+
+## P0 Iceberg schema evolution tests (2026-08-31)
+
+Core Iceberg regression 驗證 additive nullable 欄位會取得新 field ID，既有 field
+IDs 保持穩定；舊 rows 對新增欄位回傳 null，既有 snapshot 保留且仍可讀。
+不相容型別變更會在 commit 前被拒絕，不產生新 snapshot 或改寫既有資料；欄位語意
+或單位改變仍依契約建立新 table version。Iceberg targeted pytest 5/5、完整
+`python -m pytest -q tests` 98/98、適用的 Python compileall 與
+`git diff --check` passed；本切片未操作 GCP。
+
+## P0 2330 Source → Stage → Core → Admin integration (2026-08-31)
+
+本機 integration regression 以 injected 2330 TWSE source fixture 建立 persisted
+collection execution，驗證 raw／quarantine Stage objects、Core materialization 與
+Admin HTTP status query。Admin 結果涵蓋 latest Core date、dataset coverage、row
+count、DQ warning count、quarantine count，以及 persisted execution／provenance
+關聯；response 不含 raw payload、object URI、secret、完整 upstream error 或
+traceback，Admin query 期間 source adapter 呼叫數不增加。
+
+同日 replay 維持單一 Core natural-key row 與相同 content hash，且 incoming null
+close 未覆蓋既有有效值。Targeted pytest 11/11、完整 `python -m pytest -q tests`
+96/96 與適用的 Python compileall passed；未操作 GCP，既有 dev migration
+`009_admin_cursor_indexes` 未重複套用。
 
 ## P0 Admin cursor dev migration (2026-08-31)
 

@@ -210,6 +210,8 @@ class AdminService:
             null_profile = dataset.get("null_profile", {})
             associations = dataset.get("associations", {})
             quality_flags = dataset.get("quality_flags", ())
+            warning_count = dataset.get("warning_count", dataset.get("dq_warning_count", len(quality_flags)))
+            quarantine_count = dataset.get("quarantined_count", dataset.get("quarantine_count"))
             items.append({
                 "dataset_id": dataset_id,
                 "latest_date": dataset.get("latest_date"),
@@ -219,10 +221,13 @@ class AdminService:
                 "null_count": sum(int(value) for value in null_profile.values()),
                 "null_fields": tuple(null_profile),
                 "quality_flags": tuple(quality_flags),
+                "dq_warning_count": warning_count,
                 "source_ids": tuple(associations.get("source_id", ())),
+                "execution_ids": tuple(associations.get("execution_id", ())),
+                "provenance_ids": tuple(associations.get("provenance_id", ())),
                 "snapshot_ids": tuple(associations.get("snapshot_id", ())),
-                "quarantine_count": None,
-                "quarantine_state": "unavailable",
+                "quarantine_count": quarantine_count,
+                "quarantine_state": "available" if quarantine_count is not None else "unavailable",
             })
         return {"symbol": summary.get("symbol", symbol), "items": tuple(items)}
 

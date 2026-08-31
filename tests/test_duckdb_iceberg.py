@@ -57,6 +57,62 @@ class DuckDBIcebergTests(unittest.TestCase):
         self.assertEqual(second.updated, 1)
         self.assertNotEqual(first.snapshot_id, second.snapshot_id)
 
+    def test_additive_schema_evolution_preserves_field_ids_and_old_snapshot(self):
+        common = dict(dataset_id="valuation", execution_id="exec-1", provenance_id="prov", source_id="twse",
+                      partition_date=date(2026, 8, 25))
+        first = self.core.write(
+            rows=[{"symbol": "2330", "market": "TWSE", "observed_date": "2026-08-25", "pe_ratio": "20"}],
+            **common,
+        )
+        table = self.catalog.load_table(first.table_identifier)
+        original_ids = {field.name: field.field_id for field in table.schema().fields}
+
+        second = self.core.write(
+            rows=[{"symbol": "2317", "market": "TWSE", "observed_date": "2026-08-25",
+                   "pe_ratio": "15", "earnings_yield_percent": "6.67"}],
+            **common,
+        )
+        table = self.catalog.load_table(second.table_identifier)
+        evolved_ids = {field.name: field.field_id for field in table.schema().fields}
+
+        self.assertEqual({name: evolved_ids[name] for name in original_ids}, original_ids)
+        self.assertGreater(evolved_ids["earnings_yield_percent"], max(original_ids.values()))
+        self.assertIn(first.snapshot_id, {snapshot.snapshot_id for snapshot in table.snapshots()})
+        self.assertEqual(table.scan(snapshot_id=first.snapshot_id).to_arrow().num_rows, 1)
+        self.assertEqual(
+            IcebergQuery(self.catalog, self.engine).query(
+                "core.valuation_v1",
+                "SELECT symbol, earnings_yield_percent FROM core_table ORDER BY symbol",
+            ),
+            (
+                {"symbol": "2317", "earnings_yield_percent": "6.67"},
+                {"symbol": "2330", "earnings_yield_percent": None},
+            ),
+        )
+
+    def test_incompatible_type_change_is_rejected_without_new_snapshot(self):
+        common = dict(dataset_id="benchmark", execution_id="exec-1", provenance_id="prov", source_id="taiex",
+                      partition_date=date(2026, 8, 25))
+        first = self.core.write(
+            rows=[{"benchmark_id": "TAIEX", "trade_date": "2026-08-25", "close": 24000}],
+            **common,
+        )
+
+        with self.assertRaises((TypeError, ValueError)):
+            self.core.write(
+                rows=[{"benchmark_id": "TAIEX", "trade_date": "2026-08-25", "close": "not-a-number"}],
+                **common,
+            )
+
+        table = self.catalog.load_table(first.table_identifier)
+        self.assertEqual(table.current_snapshot().snapshot_id, first.snapshot_id)
+        self.assertEqual(
+            IcebergQuery(self.catalog, self.engine).query(
+                "core.benchmark_v1", "SELECT close FROM core_table"
+            ),
+            ({"close": 24000},),
+        )
+
     def test_timestamp_offsets_are_normalised_to_utc_before_iceberg_write(self):
         import pyarrow as pa
 

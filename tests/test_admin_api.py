@@ -77,11 +77,15 @@ class AdminServiceTests(unittest.TestCase):
         class Core:
             @staticmethod
             def summary(symbol):
-                return {"symbol": symbol, "datasets": {"ohlcv": {"row_count": 2, "latest_date": "2026-08-28", "coverage": {"received_symbols": 1, "requested_symbols": 1}, "null_profile": {"close": 1}, "quality_flags": ["warning"], "associations": {"source_id": ["twse"], "snapshot_id": ["snap-1"]}}}}
+                return {"symbol": symbol, "datasets": {"ohlcv": {"row_count": 2, "latest_date": "2026-08-28", "coverage": {"received_symbols": 1, "requested_symbols": 1}, "null_profile": {"close": 1}, "quality_flags": ["warning"], "warning_count": 2, "quarantined_count": 1, "associations": {"source_id": ["twse"], "execution_id": ["exec-1"], "provenance_id": ["prov-1"], "snapshot_id": ["snap-1"]}}}}
 
         status = AdminService(self.control, core=Core()).stock_status("2330")
         self.assertEqual(status["items"][0]["dataset_id"], "ohlcv")
         self.assertEqual(status["items"][0]["null_count"], 1)
+        self.assertEqual(status["items"][0]["dq_warning_count"], 2)
+        self.assertEqual(status["items"][0]["quarantine_count"], 1)
+        self.assertEqual(status["items"][0]["execution_ids"], ("exec-1",))
+        self.assertEqual(status["items"][0]["provenance_ids"], ("prov-1",))
         self.assertNotIn("summary", status)
 
     def test_source_review_requires_all_checks_before_approval(self):

@@ -42,10 +42,6 @@
 
 ## P0 — Stage／Core 與 Admin MVP 驗證
 
-- [ ] 2330 Source → Stage → Core → Admin 查詢整合測試。
-
-- [ ] Iceberg schema evolution tests。
-
 - [ ] PostgreSQL migration、role isolation、queue claim、connection exhaustion、VM restart/reconnect、retention/pruning tests。（migration／Web role contract／retention-pruning 自動測試已通過；queue claim、connection exhaustion、VM restart/reconnect 實機驗證仍待完成）
 
 - [ ] Direct VPC egress／firewall tests：指定 workload 可連 `5432`，public internet、未授權 identity 與其他 network tag 不可連線。

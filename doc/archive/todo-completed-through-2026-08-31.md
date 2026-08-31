@@ -421,3 +421,24 @@ Cloud Run DB-connected query、完整 2330 → Admin 整合及 scale-to-zero 仍
 暫存檔已清除。套用前後均為單一 `us-central1-a` `e2-micro`、單一 30 GB
 `pd-standard`、無 external IP／snapshot／Cloud Router 或 NAT。未重建 image、未重啟
 PostgreSQL container、未部署 production，也未建立額外雲端資源或呼叫禁止的掃描 API。
+
+## 2026-08-31 — P0 2330 Source → Stage → Core → Admin integration
+
+- [x] 2330 fixture 經 persisted collection execution 寫入 raw／quarantine Stage、
+  materialize Core，並由 Admin HTTP status route 只讀 persisted Core summary；結果
+  包含 latest date、coverage、row count、DQ warning、quarantine 與 execution／
+  provenance 關聯，且未觸發 source adapter。
+- [x] Safe response regression 阻擋 raw payload、object URI、secret、完整 upstream
+  error 與 traceback；同日 replay 保持單一 Core row／相同 content hash，incoming
+  null 不覆蓋有效 close。
+- [x] 驗證：targeted pytest 11/11、完整 pytest 96/96、Python compileall passed。
+  本切片未操作 GCP，且未重複套用已具文件證據的 `009_admin_cursor_indexes` migration。
+
+## 2026-08-31 — P0 Iceberg schema evolution tests
+
+- [x] 驗證 Core Iceberg additive evolution：新 nullable 欄位取得新 field ID，既有
+  field IDs 保持穩定，舊資料以 null 讀取新欄位，舊 snapshot 仍可讀且 immutable。
+- [x] 驗證不相容型別變更被拒絕，不建立新 snapshot，既有資料維持不變；欄位語意或
+  單位變更仍須建立新 table version。
+- [x] 驗證：Iceberg targeted pytest 5/5、完整 pytest 98/98、Python compileall
+  與 `git diff --check` passed；未操作 GCP 或建立雲端資源。
