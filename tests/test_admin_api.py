@@ -60,12 +60,18 @@ class AdminServiceTests(unittest.TestCase):
             self.admin.parse_datetime("not-a-date")
 
     def test_settings_are_validated_versioned_and_audited(self):
-        saved = self.admin.save_setting("schedule", {"time": "08:00", "enabled": True}, actor="operator")
+        saved = self.admin.save_setting("schedule", {"time": "08:00", "enabled": True, "holiday_overrides": ["2026-09-28"]}, actor="operator")
         self.assertEqual(saved["version"], 1)
         self.assertEqual(self.admin.setting("schedule")["value"]["time"], "08:00")
         with self.assertRaises(Exception):
             self.admin.save_setting("schedule", {"time": "09:00", "enabled": True}, actor="operator", expected_version=0)
         self.assertEqual(self.admin.audit()[0]["resource_key"], "schedule")
+
+    def test_collection_backfill_options_are_validated_and_persisted(self):
+        execution = self.admin.enqueue_collection("ohlcv", ("2330",), request_options={"start_date": "2026-08-24", "end_date": "2026-08-28", "source_ids": ["twse"]})
+        self.assertEqual(execution["request_options"]["start_date"], "2026-08-24")
+        with self.assertRaises(AdminValidationError):
+            self.admin.enqueue_collection("ohlcv", ("2330",), request_options={"start_date": "2026-08-24"})
 
     def test_retention_bounds(self):
         with self.assertRaises(AdminValidationError):

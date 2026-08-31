@@ -58,6 +58,9 @@
         <div class="bulk-bar">
           <span><strong id="bulk-count">0</strong> 檔已選</span>
           <label>設定 ID <input id="config-id" value="ohlcv" aria-label="Collection config ID"></label>
+          <label>回跑起日 <input id="backfill-start" type="date"></label>
+          <label>回跑迄日 <input id="backfill-end" type="date"></label>
+          <label>指定來源 <input id="backfill-sources" placeholder="twse,tpex" aria-label="Backfill source IDs"></label>
           <button id="queue-collection" class="button primary" type="button">加入 Collection</button>
           <button id="queue-analysis" class="button secondary" type="button">加入 Analysis</button>
           <button id="clear-selection" class="button quiet" type="button">清除選取</button>
@@ -102,6 +105,7 @@
         <div class="panel-heading"><div><p class="eyebrow">OPERATIONS SETTINGS</p><h2>排程與保存設定</h2></div><span class="tag neutral">需填寫操作者與版本</span></div>
         <form id="settings-form" class="form-grid">
           <label>排程時間<input id="schedule-time" type="time" required></label><label>保留天數<input id="retention-days" type="number" min="1" max="3650" value="30" required></label>
+          <label>休市 override（逗號分隔）<input id="holiday-overrides" placeholder="2026-09-28, 2026-10-09"></label>
           <label class="check-label"><input id="schedule-enabled" type="checkbox" checked> 啟用排程</label><label class="check-label"><input id="cleanup-enabled" type="checkbox" checked> 啟用 Stage cleanup</label>
           <label>操作者<input id="settings-actor" required placeholder="operator@example.com"></label><button class="button primary" type="submit">儲存設定</button>
         </form>

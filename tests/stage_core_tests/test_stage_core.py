@@ -5,6 +5,7 @@ import unittest
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).parents[2]
@@ -14,8 +15,8 @@ sys.path.insert(0, str(ROOT / "jobs" / "ingestion-core"))
 from ingestion_core.dq import merge_without_null_overwrite, semantic_zero, validate_ohlcv
 from ingestion_core.stage import LocalObjectStore, StageWriter
 from packages.provenance import Provenance, content_hash
-from ingestion_core.__main__ import _empty_is_nonfatal, _limit_response, _requested_dates, _should_collect
-from ingestion_core import SQLiteControlPlane
+from ingestion_core.__main__ import _empty_is_nonfatal, _limit_response, _requested_dates, _should_collect, run_scheduled_collection
+from ingestion_core import CollectionConfig, ExecutionStatus, SQLiteControlPlane, Stock
 from ingestion_core.adapters import SourceResponse
 
 
@@ -110,6 +111,45 @@ class StageWriterTests(unittest.TestCase):
                                       execution_id="exec-failed", provenance=self.provenance(payload), execution_scoped=True)
             self.assertEqual(writer.cleanup_committed_execution("exec-failed"), {"committed": False, "deleted": 0})
             self.assertTrue(Path(directory, staged.object_name).exists())
+
+    def test_retention_candidates_require_success_and_core_commit_fence(self):
+        payload = b'{"symbol":"2330"}'
+        with tempfile.TemporaryDirectory() as directory:
+            control = SQLiteControlPlane(Path(directory) / "control.db")
+            control.upsert_stock(Stock("2330", "TSMC", "TWSE"))
+            control.put_collection_config(CollectionConfig("ohlcv", "ohlcv", ("twse",), frozenset({"symbol"})), ("2330",))
+            execution = control.enqueue_collection("ohlcv", ("2330",))
+            control.transition_execution(execution.execution_id, ExecutionStatus.RUNNING)
+            control.transition_execution(execution.execution_id, ExecutionStatus.SUCCEEDED)
+            control.connection.execute("UPDATE executions SET finished_at='2026-01-01T00:00:00+00:00' WHERE execution_id=?", (execution.execution_id,))
+            control.connection.commit()
+            store = LocalObjectStore(Path(directory) / "stage")
+            writer = StageWriter(store)
+            staged = writer.write_raw(payload=payload, media_type="application/json", extension="json", execution_id=execution.execution_id, provenance=self.provenance(payload), execution_scoped=True)
+            writer.mark_core_committed(execution.execution_id, stage_results=(staged,))
+            candidate = control.cleanup_candidates(before=datetime(2026, 2, 1, tzinfo=timezone.utc))[0]
+            self.assertEqual(writer.cleanup_committed_execution(candidate), {"committed": True, "deleted": 3})
+            control.close()
+
+    def test_scheduled_runtime_persists_execution_and_honors_disable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "control.db"
+            control = SQLiteControlPlane(database)
+            control.upsert_stock(Stock("2330", "TSMC", "TWSE"))
+            control.put_collection_config(CollectionConfig("first-batch", "ohlcv", ("twse",), frozenset({"symbol"})), ("2330",))
+            control.close()
+
+            def repository():
+                return SQLiteControlPlane(database)
+
+            with patch("ingestion_core.__main__._control_plane", repository), patch("ingestion_core.__main__.collect_stage", return_value={"component": "ingestion-core"}):
+                self.assertEqual(run_scheduled_collection()["status"], "succeeded")
+            control = SQLiteControlPlane(database)
+            self.assertEqual(control.list_executions()[0].status, ExecutionStatus.SUCCEEDED)
+            control.put_admin_setting("schedule", {"time": "08:00", "enabled": False}, actor="operator")
+            control.close()
+            with patch("ingestion_core.__main__._control_plane", repository):
+                self.assertEqual(run_scheduled_collection()["status"], "disabled")
 
     def test_replay_date_resolution_supports_single_day_and_bounded_range(self):
         holidays = {date(2026, 8, 24)}

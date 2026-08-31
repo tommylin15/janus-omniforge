@@ -43,8 +43,8 @@ class _Admin:
     def execution_details(self, execution_id):
         return {"execution_id": execution_id, "status": "queued", "items": ()}
 
-    def enqueue_collection(self, config_id, symbols=None, *, trace_id=None):
-        return {"execution_id": "collection-1", "config_id": config_id, "requested_symbols": symbols, "status": "queued"}
+    def enqueue_collection(self, config_id, symbols=None, *, trace_id=None, request_options=None):
+        return {"execution_id": "collection-1", "config_id": config_id, "requested_symbols": symbols, "request_options": request_options or {}, "status": "queued"}
 
     def enqueue_analysis(self, config_id, symbols=None, *, trace_id=None):
         return {"execution_id": "analysis-1", "config_id": config_id, "requested_symbols": symbols, "status": "queued"}
@@ -141,6 +141,10 @@ class WebServerTests(unittest.TestCase):
             self.assertEqual(status, "202 Accepted")
             self.assertEqual(body["status"], "queued")
             self.assertTrue(body["execution_id"].startswith(kind))
+
+        status, body = self.request("/api/v1/admin/executions/collection", method="POST", body={"config_id": "ohlcv", "symbols": ["2330"], "options": {"start_date": "2026-08-24", "end_date": "2026-08-28", "source_ids": ["twse"]}}, admin=admin)
+        self.assertEqual(status, "202 Accepted")
+        self.assertEqual(body["request_options"]["source_ids"], ["twse"])
 
     def test_execution_health_and_membership_reads_are_bounded_surfaces(self):
         admin = _Admin()

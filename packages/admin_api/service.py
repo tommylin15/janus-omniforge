@@ -7,7 +7,7 @@ execution for a worker to claim later.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import re
 from typing import Any
 from urllib.parse import urlsplit
@@ -81,8 +81,12 @@ class AdminService:
         execution = self.control.get_execution(execution_id)
         return {**self._execution(execution), "items": tuple(self._item(item) for item in self.control.list_items(execution_id))}
 
-    def enqueue_collection(self, config_id: str, symbols: tuple[str, ...] | None = None, *, trace_id: str | None = None) -> dict[str, Any]:
-        return self._execution(self.control.enqueue_collection(config_id, symbols, trace_id=trace_id))
+    def enqueue_collection(self, config_id: str, symbols: tuple[str, ...] | None = None, *, trace_id: str | None = None,
+                           request_options: dict[str, Any] | None = None) -> dict[str, Any]:
+        options = self._collection_options(request_options or {})
+        return self._execution(self.control.enqueue_collection(
+            config_id, symbols, trace_id=trace_id, request_options=options,
+        ))
 
     def enqueue_analysis(self, config_id: str, symbols: tuple[str, ...] | None = None, *, trace_id: str | None = None) -> dict[str, Any]:
         return self._execution(self.control.enqueue_analysis(config_id, symbols, trace_id=trace_id))
@@ -142,8 +146,12 @@ class AdminService:
             raise AdminValidationError("actor is required")
         if key.startswith("source_review:"):
             raise AdminValidationError("source reviews must use the review API")
-        if key == "schedule" and (not isinstance(value, dict) or not isinstance(value.get("time"), str) or not isinstance(value.get("enabled", True), bool)):
+        if key == "schedule" and (not isinstance(value, dict) or not re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", value.get("time", "")) or not isinstance(value.get("enabled", True), bool)):
             raise AdminValidationError("schedule requires time and enabled")
+        if key == "schedule":
+            holidays = value.get("holiday_overrides", [])
+            if not isinstance(holidays, list) or len(holidays) > 100 or any(not self._iso_date(item) for item in holidays):
+                raise AdminValidationError("holiday_overrides must contain at most 100 ISO dates")
         if key == "retention" and (not isinstance(value, dict) or not isinstance(value.get("cleanup_enabled"), bool) or not isinstance(value.get("days"), int) or not 1 <= value["days"] <= 3650):
             raise AdminValidationError("retention requires cleanup_enabled and days between 1 and 3650")
         if key == "source_config" and not isinstance(value, dict):
@@ -201,6 +209,31 @@ class AdminService:
             raise AdminValidationError("adapter_id is invalid")
         return adapter
 
+    @classmethod
+    def _collection_options(cls, value: dict[str, Any]) -> dict[str, Any]:
+        allowed = {"date", "start_date", "end_date", "source_ids"}
+        if not isinstance(value, dict) or set(value) - allowed:
+            raise AdminValidationError("collection options are invalid")
+        single, start, end = (value.get(key, "") for key in ("date", "start_date", "end_date"))
+        if single and (start or end) or bool(start) != bool(end):
+            raise AdminValidationError("use either date or a complete date range")
+        if any(item and not cls._iso_date(item) for item in (single, start, end)):
+            raise AdminValidationError("collection dates must be ISO dates")
+        if start and (date.fromisoformat(end) - date.fromisoformat(start)).days not in range(367):
+            raise AdminValidationError("backfill range must be ordered and at most 367 days")
+        sources = value.get("source_ids", [])
+        if not isinstance(sources, list) or len(sources) > 20 or any(not isinstance(item, str) or not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", item) for item in sources):
+            raise AdminValidationError("source_ids are invalid")
+        return {key: item for key, item in (("date", single), ("start_date", start), ("end_date", end), ("source_ids", sources)) if item}
+
+    @staticmethod
+    def _iso_date(value: Any) -> bool:
+        try:
+            date.fromisoformat(value)
+            return isinstance(value, str)
+        except (TypeError, ValueError):
+            return False
+
     def stock_status(self, symbol: str) -> dict[str, Any]:
         if self.core is None:
             raise AdminValidationError("core status unavailable")
@@ -251,7 +284,7 @@ class AdminService:
 
     @staticmethod
     def _execution(execution: Any) -> dict[str, Any]:
-        return {"execution_id": execution.execution_id, "trace_id": execution.trace_id, "config_id": execution.config_id, "trigger_type": execution.trigger_type.value, "status": execution.status.value, "requested_symbols": execution.requested_symbols, "requested_at": execution.requested_at.isoformat() if execution.requested_at else None, "started_at": execution.started_at.isoformat() if execution.started_at else None, "finished_at": execution.finished_at.isoformat() if execution.finished_at else None, "retry_count": execution.retry_count, "error_code": execution.error_code}
+        return {"execution_id": execution.execution_id, "trace_id": execution.trace_id, "config_id": execution.config_id, "trigger_type": execution.trigger_type.value, "status": execution.status.value, "requested_symbols": execution.requested_symbols, "request_options": execution.request_options, "requested_at": execution.requested_at.isoformat() if execution.requested_at else None, "started_at": execution.started_at.isoformat() if execution.started_at else None, "finished_at": execution.finished_at.isoformat() if execution.finished_at else None, "retry_count": execution.retry_count, "error_code": execution.error_code}
 
     @staticmethod
     def _item(item: Any) -> dict[str, Any]:

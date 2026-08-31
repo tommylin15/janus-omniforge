@@ -165,7 +165,8 @@ class PostgreSQLControlPlane:
             cur.execute("SELECT coverage_tier,symbol,effective_from,effective_to,reason,owner FROM control.coverage_memberships WHERE coverage_tier=%s AND effective_from<=%s AND (effective_to IS NULL OR effective_to>%s) ORDER BY symbol", (coverage_tier, point, point))
             return tuple(CoverageMembership(CoverageTier(r[0]), r[1], r[2], r[3], r[4], r[5]) for r in cur.fetchall())
 
-    def _enqueue(self, config_id: str, trigger: TriggerType, symbols: tuple[str, ...] | None, trace_id: str | None) -> Execution:
+    def _enqueue(self, config_id: str, trigger: TriggerType, symbols: tuple[str, ...] | None,
+                 trace_id: str | None, request_options: dict[str, Any] | None = None) -> Execution:
         config = self.get_collection_config(config_id)
         if not config.enabled or not getattr(config, f"{trigger.value}_enabled"):
             raise ControlPlaneError(f"{trigger.value} trigger is disabled")
@@ -181,11 +182,11 @@ class PostgreSQLControlPlane:
         with self._tx() as cur:
             cur.execute("SELECT symbol FROM control.stock_master WHERE symbol=ANY(%s)", (list(requested),))
             if {r[0] for r in cur.fetchall()} != set(requested): raise KeyError("stock not found")
-            cur.execute("INSERT INTO control.executions(execution_id,trace_id,config_id,trigger_type,status,requested_symbols) VALUES (%s,%s,%s,%s,'queued',%s::jsonb)", (execution_id, correlation, config_id, trigger.value, json.dumps(requested)))
+            cur.execute("INSERT INTO control.executions(execution_id,trace_id,config_id,trigger_type,status,requested_symbols,request_options) VALUES (%s,%s,%s,%s,'queued',%s::jsonb,%s::jsonb)", (execution_id, correlation, config_id, trigger.value, json.dumps(requested), json.dumps(request_options or {})))
             cur.executemany("INSERT INTO control.execution_symbols(execution_id,symbol) VALUES (%s,%s)", [(execution_id, s) for s in requested])
         return self.get_execution(str(execution_id))
 
-    def enqueue_collection(self, config_id: str, symbols: tuple[str, ...] | None = None, *, trace_id: str | None = None) -> Execution: return self._enqueue(config_id, TriggerType.COLLECTION, symbols, trace_id)
+    def enqueue_collection(self, config_id: str, symbols: tuple[str, ...] | None = None, *, trace_id: str | None = None, request_options: dict[str, Any] | None = None) -> Execution: return self._enqueue(config_id, TriggerType.COLLECTION, symbols, trace_id, request_options)
     def enqueue_analysis(self, config_id: str, symbols: tuple[str, ...] | None = None, *, trace_id: str | None = None) -> Execution: return self._enqueue(config_id, TriggerType.ANALYSIS, symbols, trace_id)
 
     def source_is_approved(self, source_id: str) -> bool:
@@ -208,7 +209,7 @@ class PostgreSQLControlPlane:
 
     def get_execution(self, execution_id: str) -> Execution:
         with self.connection.cursor() as cur:
-            cur.execute("SELECT execution_id,trace_id,config_id,trigger_type,status,requested_symbols,requested_at,started_at,finished_at,retry_count,error_code FROM control.executions WHERE execution_id=%s", (execution_id,)); r = cur.fetchone()
+            cur.execute("SELECT execution_id,trace_id,config_id,trigger_type,status,requested_symbols,requested_at,started_at,finished_at,retry_count,error_code,request_options FROM control.executions WHERE execution_id=%s", (execution_id,)); r = cur.fetchone()
         if not r: raise KeyError("execution not found")
         return self._execution(r)
 
@@ -221,12 +222,19 @@ class PostgreSQLControlPlane:
             clause = "WHERE (requested_at, execution_id) < (%s, %s::uuid)"
             parameters = (before[0], before[1], limit)
         with self.connection.cursor() as cur:
-            cur.execute(f"SELECT execution_id,trace_id,config_id,trigger_type,status,requested_symbols,requested_at,started_at,finished_at,retry_count,error_code FROM control.executions {clause} ORDER BY requested_at DESC, execution_id DESC LIMIT %s", parameters)
+            cur.execute(f"SELECT execution_id,trace_id,config_id,trigger_type,status,requested_symbols,requested_at,started_at,finished_at,retry_count,error_code,request_options FROM control.executions {clause} ORDER BY requested_at DESC, execution_id DESC LIMIT %s", parameters)
             return tuple(self._execution(row) for row in cur.fetchall())
 
     @staticmethod
     def _execution(row: Any) -> Execution:
-        return Execution(str(row[0]), str(row[1]), row[2], TriggerType(row[3]), ExecutionStatus(row[4]), tuple(row[5]), row[6], row[7], row[8], row[9], row[10])
+        return Execution(str(row[0]), str(row[1]), row[2], TriggerType(row[3]), ExecutionStatus(row[4]), tuple(row[5]), row[6], row[7], row[8], row[9], row[10], row[11])
+
+    def cleanup_candidates(self, *, before: datetime, limit: int = 20) -> tuple[str, ...]:
+        if not 1 <= limit <= 100:
+            raise ValueError("limit must be 1..100")
+        with self.connection.cursor() as cur:
+            cur.execute("SELECT execution_id FROM control.executions WHERE status='succeeded' AND finished_at < %s ORDER BY finished_at LIMIT %s", (before, limit))
+            return tuple(str(row[0]) for row in cur.fetchall())
 
     def claim_execution(self, worker_id: str, *, trigger_type: TriggerType | None = None,
                         lease: timedelta = timedelta(minutes=5)) -> Execution | None:

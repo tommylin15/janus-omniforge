@@ -71,6 +71,9 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
 
 ## 8. Windows PowerShell 的 Node.js 指令
 
+- 不得為本專案的任何驗證啟動 WSL。需要 Linux 或 shell 環境的驗證（包含
+  `bash -n`）一律改在 GCP Cloud Build、Cloud Shell 或既有 GCP dev runtime
+  執行；不得以本機 WSL 作為驗證 fallback。
 - 在 Windows PowerShell 執行 Node.js 專案指令時，一律優先使用
   `npm.cmd`／`npx.cmd`，例如 `npm.cmd test`、`npm.cmd run build`、
   `npx.cmd playwright test`。

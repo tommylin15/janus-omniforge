@@ -137,7 +137,10 @@ class WebApplication:
             config_id = self._required_text(request_body, "config_id")
             symbols = self._symbols(request_body.get("symbols"))
             enqueue = self.admin.enqueue_collection if path.endswith("/collection") else self.admin.enqueue_analysis
-            return enqueue(config_id, symbols), "202 Accepted", json_type
+            options = request_body.get("options") if path.endswith("/collection") else None
+            if options is None:
+                return enqueue(config_id, symbols), "202 Accepted", json_type
+            return enqueue(config_id, symbols, request_options=options), "202 Accepted", json_type
         if method == "GET" and path == "/api/v1/admin/source-health":
             return {"items": self.admin.source_health(limit=int(query.get("limit", ["200"])[0]))}, "200 OK", json_type
         if method == "GET" and path == "/api/v1/admin/source-catalog":

@@ -137,6 +137,7 @@ def _requested_dates(*, today: date, holidays: set[date], single: str = "", star
 
 
 def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] | None = None,
+                  config_id: str | None = None, request_options: dict[str, object] | None = None,
                   control: object | None = None) -> dict[str, object]:
     bucket = os.environ.get("STAGE_BUCKET", "").strip()
     core_bucket = os.environ.get("CORE_BUCKET", "").strip()
@@ -145,7 +146,11 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
     if not core_bucket:
         raise ValueError("CORE_BUCKET is required")
     configured = dataset_adapters()
+    options = request_options or {}
+    selected_sources = set(options.get("source_ids", ()))
     selected = tuple(item.strip() for item in os.environ.get("INGESTION_DATASETS", ",".join(configured)).split(",") if item.strip())
+    if selected_sources:
+        selected = tuple(key for key in selected if key in selected_sources or configured[key].source_id in selected_sources)
     unknown = sorted(set(selected) - set(configured))
     if unknown:
         raise ValueError(f"unsupported INGESTION_DATASETS: {','.join(unknown)}")
@@ -155,17 +160,30 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
     # rebuilding the image.
     owned_control = control is None
     control = control or _control_plane()
-    symbols = symbols or control.config_symbols(os.environ.get("CONTROL_COLLECTION_CONFIG", "first-batch"))
+    config_id = config_id or os.environ.get("CONTROL_COLLECTION_CONFIG", "first-batch")
+    config = control.get_collection_config(config_id)
+    allowed_sources = set(config.source_ids)
+    selected = tuple(key for key in selected if configured[key].source_id in allowed_sources)
+    if not selected:
+        if owned_control:
+            control.close()
+        raise ValueError("no enabled sources selected")
+    symbols = symbols or control.config_symbols(config_id)
     if not symbols:
         if owned_control:
             control.close()
         raise ValueError("control database returned no enabled ingestion symbols")
     local_now = datetime.now(TAIPEI)
-    holidays = _holidays(os.environ.get("MARKET_HOLIDAYS", ""))
+    schedule_setting = control.get_admin_setting("schedule")
+    schedule = schedule_setting[0] if schedule_setting and isinstance(schedule_setting[0], dict) else {}
+    holidays = _holidays(os.environ.get("MARKET_HOLIDAYS", "")) | {
+        date.fromisoformat(item) for item in schedule.get("holiday_overrides", ())
+    }
     dates = tuple(dict.fromkeys(_requested_dates(
         today=local_now.date(), holidays=holidays,
-        single=os.environ.get("INGESTION_DATE", ""),
-        start=os.environ.get("BACKFILL_START_DATE", ""), end=os.environ.get("BACKFILL_END_DATE", ""))))
+        single=str(options.get("date", os.environ.get("INGESTION_DATE", ""))),
+        start=str(options.get("start_date", os.environ.get("BACKFILL_START_DATE", ""))),
+        end=str(options.get("end_date", os.environ.get("BACKFILL_END_DATE", ""))))))
     persisted_execution = execution_id is not None
     execution_id = execution_id or str(uuid4())
     store = GcsObjectStore(bucket)
@@ -255,7 +273,7 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                     )
                     if persisted_execution:
                         control.save_item(ExecutionItem(execution_id, item_key, adapter.source_id, adapter.dataset_id,
-                                                       state, len(response.rows), 0, False, key == "finmind", None, None))
+                                                       state, len(response.rows), 0, False, key == "finmind", None, "Core committed"))
                 except Exception as error:
                     failures.append({"dataset": key, "date": as_of.isoformat(), "error": type(error).__name__, "message": str(error)[:120]})
                     control.record_health(
@@ -292,9 +310,22 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
             raise RuntimeError(json.dumps(summary, ensure_ascii=False, sort_keys=True))
         if execution_scoped:
             stage_writer.mark_core_committed(execution_id, stage_results=stage_results)
-            previous = os.environ.get("PREVIOUS_STAGE_EXECUTION_ID", "").strip()
-            if previous:
-                summary["cleanup"] = stage_writer.cleanup_committed_execution(previous)
+            retention_setting = control.get_admin_setting("retention")
+            retention = retention_setting[0] if retention_setting and isinstance(retention_setting[0], dict) else {}
+            cleanup_results = []
+            if retention.get("cleanup_enabled", False):
+                cutoff = datetime.now(timezone.utc) - timedelta(days=int(retention.get("days", 30)))
+                for previous in control.cleanup_candidates(before=cutoff):
+                    result = stage_writer.cleanup_committed_execution(previous)
+                    cleanup_results.append({"execution_id": previous, **result})
+                    if persisted_execution:
+                        control.save_item(ExecutionItem(
+                            execution_id, f"cleanup:{previous}", "stage", "cleanup",
+                            DataState.SUCCESS if result["committed"] else DataState.UNAVAILABLE,
+                            int(result["deleted"]), 0, False, False, None,
+                            "committed Stage cleaned" if result["committed"] else "cleanup fence unavailable",
+                        ))
+            summary["cleanup"] = cleanup_results
         return summary
     finally:
         core.close()
@@ -310,7 +341,8 @@ def consume_queued_collection() -> dict[str, object]:
         if execution is None:
             return {"component": "ingestion-core", "status": "idle", "claimed": False}
         try:
-            summary = collect_stage(execution_id=execution.execution_id, symbols=execution.requested_symbols, control=control)
+            summary = collect_stage(execution_id=execution.execution_id, symbols=execution.requested_symbols,
+                                    config_id=execution.config_id, request_options=execution.request_options, control=control)
             control.transition_execution(execution.execution_id, ExecutionStatus.SUCCEEDED)
             return {**summary, "status": "succeeded", "claimed": True}
         except Exception:
@@ -320,9 +352,28 @@ def consume_queued_collection() -> dict[str, object]:
             raise
 
 
+def run_scheduled_collection() -> dict[str, object]:
+    with _control_plane() as control:
+        current = control.get_admin_setting("schedule")
+        schedule = current[0] if current and isinstance(current[0], dict) else {"enabled": True}
+        if schedule.get("enabled", True) is False:
+            return {"component": "ingestion-core", "status": "disabled", "scheduled": False}
+        config_id = os.environ.get("CONTROL_COLLECTION_CONFIG", "first-batch")
+        execution = control.enqueue_collection(config_id)
+        control.transition_execution(execution.execution_id, ExecutionStatus.RUNNING)
+        try:
+            summary = collect_stage(execution_id=execution.execution_id, symbols=execution.requested_symbols,
+                                    config_id=config_id, request_options=execution.request_options, control=control)
+            control.transition_execution(execution.execution_id, ExecutionStatus.SUCCEEDED)
+            return {**summary, "status": "succeeded", "scheduled": True}
+        except Exception:
+            control.transition_execution(execution.execution_id, ExecutionStatus.FAILED, error_code="COLLECTION_FAILED")
+            raise
+
+
 def main() -> None:
     try:
-        operation = consume_queued_collection if os.environ.get("QUEUE_CONSUMER", "false").lower() in {"1", "true", "yes"} else collect_stage
+        operation = consume_queued_collection if os.environ.get("QUEUE_CONSUMER", "false").lower() in {"1", "true", "yes"} else run_scheduled_collection
         print(json.dumps(operation(), ensure_ascii=False, sort_keys=True))
     except Exception as error:
         print(json.dumps({"component": "ingestion-core", "status": "failed", "error": str(error)}, ensure_ascii=False, sort_keys=True), file=sys.stderr)

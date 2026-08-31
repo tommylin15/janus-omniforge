@@ -18,9 +18,8 @@
 3. 說明修改內容、驗證結果與尚待決定事項
 4. 未經明確授權，不得部署 production 或建立付費 GCP 資源
 
-Windows PowerShell 環境執行 `bash -n` 時，`bash.exe` 會透過 WSL 啟動，
-workspace sandbox 內固定因 `Bash/Service/CreateInstance/E_ACCESSDENIED` 失敗。
-Shell 語法檢查應直接使用已核准的 sandbox 外 `bash -n` 執行路徑，不要先重試
-已知會失敗的 sandbox 內呼叫。
+不得為本專案的任何驗證啟動 WSL。需要 Linux 或 shell 環境的驗證（包含
+`bash -n`）一律改在 GCP Cloud Build、Cloud Shell 或既有 GCP dev runtime 執行。
+不得以本機 WSL 作為驗證 fallback。
 
 在執行任何 commit 或 push 前，必須先執行 `/ponytail-review`。

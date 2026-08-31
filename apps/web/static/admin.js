@@ -184,7 +184,12 @@ async function enqueue(kind) {
   if (!configId) return showNotice("請輸入設定 ID", true);
   if (!state.selected.size) return showNotice("請先選取至少一檔股票", true);
   try {
-    const execution = await request(`/api/v1/admin/executions/${kind}`, { method: "POST", body: JSON.stringify({ config_id: configId, symbols: [...state.selected] }) });
+    const payload = { config_id: configId, symbols: [...state.selected] };
+    if (kind === "collection") payload.options = {
+      start_date: byId("backfill-start").value, end_date: byId("backfill-end").value,
+      source_ids: byId("backfill-sources").value.split(/[\s,]+/).filter(Boolean),
+    };
+    const execution = await request(`/api/v1/admin/executions/${kind}`, { method: "POST", body: JSON.stringify(payload) });
     showNotice(`${kind === "collection" ? "Collection" : "Analysis"} 已加入佇列：${execution.execution_id}`);
     await loadExecutions();
   } catch (error) { showNotice(error.message, true); }
@@ -325,7 +330,7 @@ async function loadMembership() {
 async function loadSettings() {
   try {
     const schedule = await request("/api/v1/admin/settings/schedule"); const retention = await request("/api/v1/admin/settings/retention");
-    if (schedule.value) { byId("schedule-time").value = schedule.value.time || "08:00"; byId("schedule-enabled").checked = schedule.value.enabled !== false; byId("settings-form").dataset.scheduleVersion = schedule.version; }
+    if (schedule.value) { byId("schedule-time").value = schedule.value.time || "08:00"; byId("schedule-enabled").checked = schedule.value.enabled !== false; byId("holiday-overrides").value = (schedule.value.holiday_overrides || []).join(", "); byId("settings-form").dataset.scheduleVersion = schedule.version; }
     if (retention.value) { byId("retention-days").value = retention.value.days || 30; byId("cleanup-enabled").checked = retention.value.cleanup_enabled !== false; byId("settings-form").dataset.retentionVersion = retention.version; }
   } catch (error) { showNotice(error.message, true); }
 }
@@ -334,9 +339,10 @@ async function saveSettings(event) {
   event.preventDefault(); const actor = byId("settings-actor").value.trim(); if (!actor) return showNotice("請填寫操作者", true);
   const form = byId("settings-form");
   try {
-    const schedule = await request("/api/v1/admin/settings/schedule", { method: "PUT", body: JSON.stringify({ actor, expected_version: Number(form.dataset.scheduleVersion || 0), value: { time: byId("schedule-time").value, enabled: byId("schedule-enabled").checked } }) });
+    const holidays = byId("holiday-overrides").value.split(/[\s,]+/).filter(Boolean);
+    const schedule = await request("/api/v1/admin/settings/schedule", { method: "PUT", body: JSON.stringify({ actor, expected_version: Number(form.dataset.scheduleVersion || 0), value: { time: byId("schedule-time").value, enabled: byId("schedule-enabled").checked, holiday_overrides: holidays } }) });
     const retention = await request("/api/v1/admin/settings/retention", { method: "PUT", body: JSON.stringify({ actor, expected_version: Number(form.dataset.retentionVersion || 0), value: { days: Number(byId("retention-days").value), cleanup_enabled: byId("cleanup-enabled").checked } }) });
-    form.dataset.scheduleVersion = schedule.version; form.dataset.retentionVersion = retention.version; showNotice("排程與保存設定已儲存");
+    form.dataset.scheduleVersion = schedule.version; form.dataset.retentionVersion = retention.version; showNotice("設定已儲存；排程時間需同步後才套用 runtime");
   } catch (error) { showNotice(error.message, true); }
 }
 

@@ -6,7 +6,7 @@ uses the same domain objects and transition rules for production persistence.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from enum import StrEnum
 import json
@@ -166,6 +166,7 @@ class Execution:
     finished_at: datetime | None
     retry_count: int
     error_code: str | None
+    request_options: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -292,7 +293,8 @@ CREATE TABLE IF NOT EXISTS executions (
     retry_count INTEGER NOT NULL DEFAULT 0,
     error_code TEXT,
     claimed_by TEXT,
-    claimed_until TEXT
+    claimed_until TEXT,
+    request_options TEXT NOT NULL DEFAULT '{}'
 );
 CREATE INDEX IF NOT EXISTS executions_recent_idx ON executions(requested_at DESC, execution_id DESC);
 CREATE INDEX IF NOT EXISTS executions_admin_page_idx ON executions(requested_at DESC, execution_id DESC);
@@ -522,13 +524,15 @@ class SQLiteControlPlane:
         rows = self.connection.execute("SELECT coverage_tier,symbol,effective_from,effective_to,reason,owner FROM coverage_memberships WHERE coverage_tier=? AND effective_from<=? AND (effective_to IS NULL OR effective_to>?) ORDER BY symbol", (coverage_tier, timestamp, timestamp)).fetchall()
         return tuple(CoverageMembership(CoverageTier(row["coverage_tier"]), row["symbol"], _parse_time(row["effective_from"]), _parse_time(row["effective_to"]), row["reason"], row["owner"]) for row in rows)
 
-    def enqueue_collection(self, config_id: str, symbols: Iterable[str] | None = None, *, trace_id: str | None = None) -> Execution:
-        return self._enqueue(config_id, TriggerType.COLLECTION, symbols, trace_id)
+    def enqueue_collection(self, config_id: str, symbols: Iterable[str] | None = None, *, trace_id: str | None = None,
+                           request_options: dict[str, Any] | None = None) -> Execution:
+        return self._enqueue(config_id, TriggerType.COLLECTION, symbols, trace_id, request_options)
 
     def enqueue_analysis(self, config_id: str, symbols: Iterable[str] | None = None, *, trace_id: str | None = None) -> Execution:
-        return self._enqueue(config_id, TriggerType.ANALYSIS, symbols, trace_id)
+        return self._enqueue(config_id, TriggerType.ANALYSIS, symbols, trace_id, None)
 
-    def _enqueue(self, config_id: str, trigger_type: TriggerType, symbols: Iterable[str] | None, trace_id: str | None) -> Execution:
+    def _enqueue(self, config_id: str, trigger_type: TriggerType, symbols: Iterable[str] | None,
+                 trace_id: str | None, request_options: dict[str, Any] | None) -> Execution:
         config = self.get_collection_config(config_id)
         if not config.enabled or not getattr(config, f"{trigger_type.value}_enabled"):
             raise ControlPlaneError(f"{trigger_type.value} trigger is disabled")
@@ -547,7 +551,7 @@ class SQLiteControlPlane:
             raise KeyError(f"stock not found: {unknown[0]}")
         execution_id = str(uuid4())
         timestamp = _iso(utc_now())
-        self.connection.execute("INSERT INTO executions(execution_id, trace_id, config_id, trigger_type, status, requested_symbols, requested_at) VALUES (?, ?, ?, ?, ?, ?, ?)", (execution_id, trace_id or str(uuid4()), config_id, trigger_type.value, ExecutionStatus.QUEUED.value, json.dumps(requested), timestamp))
+        self.connection.execute("INSERT INTO executions(execution_id, trace_id, config_id, trigger_type, status, requested_symbols, requested_at, request_options) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (execution_id, trace_id or str(uuid4()), config_id, trigger_type.value, ExecutionStatus.QUEUED.value, json.dumps(requested), timestamp, json.dumps(request_options or {})))
         self.connection.executemany("INSERT INTO execution_symbols(execution_id, symbol) VALUES (?, ?)", ((execution_id, symbol) for symbol in requested))
         self.connection.commit()
         return self.get_execution(execution_id)
@@ -591,7 +595,16 @@ class SQLiteControlPlane:
 
     @staticmethod
     def _execution(row: sqlite3.Row) -> Execution:
-        return Execution(row["execution_id"], row["trace_id"], row["config_id"], TriggerType(row["trigger_type"]), ExecutionStatus(row["status"]), tuple(json.loads(row["requested_symbols"])), _parse_time(row["requested_at"]), _parse_time(row["started_at"]), _parse_time(row["finished_at"]), row["retry_count"], row["error_code"])
+        return Execution(row["execution_id"], row["trace_id"], row["config_id"], TriggerType(row["trigger_type"]), ExecutionStatus(row["status"]), tuple(json.loads(row["requested_symbols"])), _parse_time(row["requested_at"]), _parse_time(row["started_at"]), _parse_time(row["finished_at"]), row["retry_count"], row["error_code"], json.loads(row["request_options"]))
+
+    def cleanup_candidates(self, *, before: datetime, limit: int = 20) -> tuple[str, ...]:
+        if not 1 <= limit <= 100:
+            raise ValueError("limit must be 1..100")
+        rows = self.connection.execute(
+            "SELECT execution_id FROM executions WHERE status='succeeded' AND finished_at < ? ORDER BY finished_at LIMIT ?",
+            (_iso(before), limit),
+        ).fetchall()
+        return tuple(row[0] for row in rows)
 
     def claim_execution(self, worker_id: str, *, trigger_type: TriggerType | None = None,
                         lease: timedelta = timedelta(minutes=5), now: datetime | None = None) -> Execution | None:
