@@ -76,6 +76,11 @@ SOURCE_AUTHORIZATION: dict[str, AuthorizationStatus] = {
     "stock-buzz": AuthorizationStatus.CANDIDATE,
 }
 
+SOURCE_REVIEW_CHECKS = (
+    "license", "terms", "robots", "rate_limit", "stability", "duplication",
+    "retention", "deletion", "republishing", "cost", "security",
+)
+
 
 class ControlPlaneError(RuntimeError):
     """Base class for safe, user-facing control-plane errors."""
@@ -285,9 +290,13 @@ CREATE TABLE IF NOT EXISTS executions (
     started_at TEXT,
     finished_at TEXT,
     retry_count INTEGER NOT NULL DEFAULT 0,
-    error_code TEXT
+    error_code TEXT,
+    claimed_by TEXT,
+    claimed_until TEXT
 );
-CREATE INDEX IF NOT EXISTS executions_recent_idx ON executions(requested_at DESC);
+CREATE INDEX IF NOT EXISTS executions_recent_idx ON executions(requested_at DESC, execution_id DESC);
+CREATE INDEX IF NOT EXISTS executions_admin_page_idx ON executions(requested_at DESC, execution_id DESC);
+CREATE INDEX IF NOT EXISTS executions_claim_idx ON executions(status, trigger_type, claimed_until, requested_at);
 CREATE TABLE IF NOT EXISTS execution_symbols (
     execution_id TEXT NOT NULL REFERENCES executions(execution_id) ON DELETE CASCADE,
     symbol TEXT NOT NULL REFERENCES stock_master(symbol) ON DELETE RESTRICT,
@@ -409,17 +418,21 @@ class SQLiteControlPlane:
             raise KeyError("stock not found")
         self.connection.commit()
 
-    def search_stocks(self, query: str = "", *, enabled: bool | None = None, limit: int = 50, offset: int = 0) -> tuple[Stock, ...]:
-        if limit < 1 or limit > 500 or offset < 0:
-            raise ValueError("limit must be 1..500 and offset cannot be negative")
+    def search_stocks(self, query: str = "", *, enabled: bool | None = None, limit: int = 50,
+                      after: str | None = None) -> tuple[Stock, ...]:
+        if limit < 1 or limit > 500:
+            raise ValueError("limit must be 1..500")
         clauses = ["(symbol LIKE ? OR name LIKE ?)"]
         args: list[Any] = [f"%{query}%", f"%{query}%"]
         if enabled is not None:
             clauses.append("enabled=?")
             args.append(int(enabled))
-        args.extend([limit, offset])
+        if after is not None:
+            clauses.append("symbol>?")
+            args.append(_symbol(after))
+        args.append(limit)
         rows = self.connection.execute(
-            f"SELECT * FROM stock_master WHERE {' AND '.join(clauses)} ORDER BY symbol LIMIT ? OFFSET ?", args
+            f"SELECT * FROM stock_master WHERE {' AND '.join(clauses)} ORDER BY symbol LIMIT ?", args
         ).fetchall()
         return tuple(Stock(row["symbol"], row["name"], row["market"], bool(row["enabled"]), _parse_time(row["updated_at"]), row["listing_status"], _parse_time(row["effective_from"])) for row in rows)
 
@@ -521,7 +534,7 @@ class SQLiteControlPlane:
             raise ControlPlaneError(f"{trigger_type.value} trigger is disabled")
         if config.authorization_status in {AuthorizationStatus.CANDIDATE.value, AuthorizationStatus.BLOCKED.value}:
             raise ControlPlaneError("collection source authorization is not approved")
-        unapproved = [source_id for source_id in config.source_ids if SOURCE_AUTHORIZATION.get(source_id, AuthorizationStatus.BLOCKED) in {AuthorizationStatus.CANDIDATE, AuthorizationStatus.BLOCKED}]
+        unapproved = [source_id for source_id in config.source_ids if not self.source_is_approved(source_id)]
         if unapproved:
             raise ControlPlaneError("collection includes a candidate or blocked source")
         requested = tuple(sorted({_symbol(value) for value in (symbols if symbols is not None else self.config_symbols(config_id))}))
@@ -539,17 +552,71 @@ class SQLiteControlPlane:
         self.connection.commit()
         return self.get_execution(execution_id)
 
+    def source_is_approved(self, source_id: str) -> bool:
+        baseline = SOURCE_AUTHORIZATION.get(source_id, AuthorizationStatus.BLOCKED)
+        if baseline in {AuthorizationStatus.OFFICIAL, AuthorizationStatus.APPROVED_FALLBACK}:
+            return True
+        setting = self.get_admin_setting(f"source_review:{source_id}")
+        if not setting or not isinstance(setting[0], dict):
+            return False
+        review = setting[0]
+        checks = review.get("checks")
+        return bool(
+            review.get("status") == AuthorizationStatus.APPROVED_FALLBACK.value
+            and isinstance(checks, dict) and all(checks.get(key) is True for key in SOURCE_REVIEW_CHECKS)
+            and isinstance(review.get("evidence_url"), str) and review["evidence_url"].startswith("https://")
+            and isinstance(review.get("reviewer"), str) and review["reviewer"].strip()
+            and isinstance(review.get("reason"), str) and review["reason"].strip()
+            and isinstance(review.get("decided_at"), str) and review["decided_at"]
+        )
+
     def get_execution(self, execution_id: str) -> Execution:
         row = self.connection.execute("SELECT * FROM executions WHERE execution_id=?", (execution_id,)).fetchone()
         if row is None:
             raise KeyError("execution not found")
+        return self._execution(row)
+
+    def list_executions(self, *, limit: int = 50,
+                        before: tuple[datetime, str] | None = None) -> tuple[Execution, ...]:
+        if limit < 1 or limit > 51:
+            raise ValueError("limit must be 1..51")
+        clause = ""
+        values: list[Any] = []
+        if before is not None:
+            clause = "WHERE (requested_at < ? OR (requested_at = ? AND execution_id < ?))"
+            values.extend((_iso(before[0]), _iso(before[0]), before[1]))
+        values.append(limit)
+        rows = self.connection.execute(f"SELECT * FROM executions {clause} ORDER BY requested_at DESC, execution_id DESC LIMIT ?", values).fetchall()
+        return tuple(self._execution(row) for row in rows)
+
+    @staticmethod
+    def _execution(row: sqlite3.Row) -> Execution:
         return Execution(row["execution_id"], row["trace_id"], row["config_id"], TriggerType(row["trigger_type"]), ExecutionStatus(row["status"]), tuple(json.loads(row["requested_symbols"])), _parse_time(row["requested_at"]), _parse_time(row["started_at"]), _parse_time(row["finished_at"]), row["retry_count"], row["error_code"])
 
-    def list_executions(self, *, limit: int = 50) -> tuple[Execution, ...]:
-        if limit < 1 or limit > 50:
-            raise ValueError("limit must be 1..50")
-        rows = self.connection.execute("SELECT execution_id FROM executions ORDER BY requested_at DESC LIMIT ?", (limit,)).fetchall()
-        return tuple(self.get_execution(row["execution_id"]) for row in rows)
+    def claim_execution(self, worker_id: str, *, trigger_type: TriggerType | None = None,
+                        lease: timedelta = timedelta(minutes=5), now: datetime | None = None) -> Execution | None:
+        if not worker_id.strip() or lease <= timedelta(0):
+            raise ValueError("worker_id and a positive lease are required")
+        point = now or utc_now()
+        if point.tzinfo is None:
+            raise ValueError("now must be timezone-aware")
+        clauses = ["status IN ('queued','retrying','running')", "(claimed_until IS NULL OR claimed_until < ?)"]
+        values: list[Any] = [_iso(point)]
+        if trigger_type is not None:
+            clauses.append("trigger_type=?")
+            values.append(trigger_type.value)
+        row = self.connection.execute(
+            f"SELECT execution_id FROM executions WHERE {' AND '.join(clauses)} ORDER BY requested_at LIMIT 1",
+            values,
+        ).fetchone()
+        if row is None:
+            return None
+        self.connection.execute(
+            "UPDATE executions SET status='running',claimed_by=?,claimed_until=?,started_at=COALESCE(started_at,?) WHERE execution_id=?",
+            (worker_id.strip(), _iso(point + lease), _iso(point), row["execution_id"]),
+        )
+        self.connection.commit()
+        return self.get_execution(row["execution_id"])
 
     def transition_execution(self, execution_id: str, status: ExecutionStatus, *, error_code: str | None = None, retry_count: int | None = None) -> Execution:
         current = self.get_execution(execution_id)
@@ -563,7 +630,7 @@ class SQLiteControlPlane:
             raise InvalidTransitionError(f"cannot transition execution from {current.status} to {status}")
         started = current.started_at or (utc_now() if status in {ExecutionStatus.RUNNING, ExecutionStatus.RETRYING} else None)
         finished = utc_now() if status in {ExecutionStatus.SUCCEEDED, ExecutionStatus.PARTIAL, ExecutionStatus.FAILED} else None
-        self.connection.execute("UPDATE executions SET status=?, started_at=?, finished_at=?, retry_count=?, error_code=? WHERE execution_id=?", (status.value, _iso(started), _iso(finished), current.retry_count if retry_count is None else retry_count, error_code, execution_id))
+        self.connection.execute("UPDATE executions SET status=?, started_at=?, finished_at=?, retry_count=?, error_code=?, claimed_by=NULL, claimed_until=NULL WHERE execution_id=?", (status.value, _iso(started), _iso(finished), current.retry_count if retry_count is None else retry_count, error_code, execution_id))
         self.connection.commit()
         return self.get_execution(execution_id)
 

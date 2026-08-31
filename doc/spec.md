@@ -1,7 +1,7 @@
 # Janus × OmniForge — Project Specification
 
-版本：1.1
-日期：2026-08-28
+版本：1.2
+日期：2026-08-31
 狀態：GCP-first、DuckDB／Iceberg 與資料源雙軌基線
 
 ## 1. 產品目標
@@ -130,6 +130,14 @@ flowchart TD
 
 任何候選來源在完成 legal／license、robots／API terms、rate limit、retention、PII、可引用範圍與成本核准前，狀態必須是 `candidate`／`blocked`，不得進 production collection 或公開 UI。
 
+候選 adapter 的審查入口固定為 Admin「資料營運中心 → 資料源設定」。審查紀錄必須持久化於 control／audit metadata，至少保存 adapter 與 upstream 版本、授權／條款證據、robots／API policy、rate limit、穩定性量測、與既有來源的欄位及內容重複度、retention／刪除／再發布範圍、成本、安全風險、reviewer、決策時間、理由與 optimistic version。只有 `official`／`approved_fallback` 可被啟用或排程；`candidate`／`blocked` 即使已填入 cadence 亦不得執行。
+
+首批待審查候選：
+
+- Anue／鉅亨新聞 adapter：目標為台股與國際總經新聞增量收集；10 分鐘僅為候選 cadence，須在授權、robots／API terms、rate limit、保存與引用範圍核准後才可啟用。採 overlap window、URL／content hash 去重，保留 `published_at` 與 entity-to-symbol evidence。
+- FinData-compatible adapter：指定 repository／變體尚未封版；先比較其 TWSE／TPEx 法人、融資融券及持股資料與既有官方 adapter 的覆蓋、正確性及重複度。能由既有官方 adapter 補齊時不新增依賴。
+- `mlouielu/twstock` adapter：只作 TWSE／TPEx 行情 fallback／解析參考候選，須遵守 upstream request limit；其 MA／買賣點不得直接當成 Core 來源事實，若採用須在 Mart 以有版本的 deterministic feature 重新計算。
+
 ## 7. Provenance 與時間
 
 所有重要資料必須記錄：
@@ -165,6 +173,8 @@ quality_details: object
 - 保存 empty、partial、fallback、stale、rate-limited、unavailable。
 - 不用新回應的 null 覆蓋既有有效值。
 - 通過 DQ 後發出 `core.dataset.ready.v1`；失敗寫 execution 與 quarantine。
+- 每次日頻執行先依交易日曆決定 target trading date，查詢 persisted cache／Core freshness；資料已完整則冪等略過，缺少時才依核准的來源優先序收集。FinMind 只在其 dataset 已核准為 fallback 且官方資料缺漏／不可用時呼叫，不由 Admin page load 或 Mart／Agent 直接呼叫。
+- 核准的新聞排程使用獨立 execution、bounded overlap window、dedup、quota 與 retention；新聞先寫 Stage／Core 並完成 PIT／provenance／entity-to-symbol，之後才可供 Mart sentiment 與事件分析。
 
 不得：執行 Agent、產生研報、呼叫 LLM 或更改 publication。
 
@@ -185,8 +195,12 @@ quality_details: object
 - `mart_risk_portfolio`：波動、回撤、流動性、滑價與信用風險；不直接執行交易。
 - `mart_alternative_sentiment`：核准文本的聲量、情緒、來源分布與不確定性；不得把無來源模型判讀當作事實。
 - `mart_master_investment_memo`：彙整五角色、screening、risk 與 sentiment evidence 的 CIO 觀點。
+- `mart_industry_analysis`：按產業與 analysis-as-of 保存產業範圍、成分股 membership snapshot、五角色產業結論、共通／分歧 evidence、風險與產業摘要。
+- `mart_symbol_analysis`：按指定個股與 analysis-as-of 獨立保存五角色輸出、使用的 prompt revision、evidence、缺失資料及分析結果，供 Admin 檢視與後續調整；CIO 聚合成品仍由 `mart_master_investment_memo` 保存。
 
 五角色：Fundamental、Valuation Risk、Positioning、Quant、Event Risk。
+
+每個角色的 system／task prompt 由 Admin 管理 versioned template；支援全域角色預設及選用的產業／個股 override，解析優先序為個股 → 產業 → 全域。revision 具 `draft`／`active`／`retired` 狀態、effective time、變更理由、reviewer、optimistic version 與 audit。Mart execution 啟動時把實際 prompt revision ID 固定進 immutable governance snapshot；修改 prompt 不得改寫歷史結果。prompt 只能要求 evidence-grounded structured output，不得注入 secret、未核准來源或解除 Validator／publication policy。
 
 主要規則：
 
@@ -238,6 +252,9 @@ effective_weight = base_weight × completeness × confidence × data_quality / 1
 - 公開端只讀 publishable Mart／service index。
 - 404 不觸發即時爬蟲、Agent 或 LLM。
 - Admin 只寫 control DB／queue，不在 request 中執行長任務。
+- Admin「資料營運中心」保留為資料操作入口；`/admin/stocks` 右側一次只呈現一個分頁面板，不把所有管理功能同時展開。
+- 股票資料狀態以可排序、篩選、分頁的欄列表格呈現，不以原始 JSON 作主要 UI；巢狀 DQ／quarantine／execution 明細亦轉為子表或定義清單。
+- Admin 可版本化管理五角色 prompt，並按產業／個股檢視已持久化的 `mart_industry_analysis`／`mart_symbol_analysis`；預覽或讀取不得觸發即時 Agent。
 - blocked report、raw payload、secret、traceback、broker data 不得公開。
 - UI 詳細契約見 `ui.md`。
 

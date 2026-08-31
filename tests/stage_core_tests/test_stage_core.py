@@ -14,7 +14,8 @@ sys.path.insert(0, str(ROOT / "jobs" / "ingestion-core"))
 from ingestion_core.dq import merge_without_null_overwrite, semantic_zero, validate_ohlcv
 from ingestion_core.stage import LocalObjectStore, StageWriter
 from packages.provenance import Provenance, content_hash
-from ingestion_core.__main__ import _empty_is_nonfatal, _limit_response, _requested_dates
+from ingestion_core.__main__ import _empty_is_nonfatal, _limit_response, _requested_dates, _should_collect
+from ingestion_core import SQLiteControlPlane
 from ingestion_core.adapters import SourceResponse
 
 
@@ -133,6 +134,19 @@ class StageWriterTests(unittest.TestCase):
     def test_sparse_financial_and_event_sources_allow_empty_windows(self):
         self.assertTrue(_empty_is_nonfatal("finmind"))
         self.assertTrue(_empty_is_nonfatal("twse-events"))
+
+    def test_freshness_guard_skips_committed_targets_and_uses_finmind_only_as_fallback(self):
+        control = SQLiteControlPlane()
+        try:
+            target = date(2026, 8, 28)
+            observed = datetime(2026, 8, 28, tzinfo=timezone.utc)
+            self.assertEqual(_should_collect("mops", "mops", "financials", ("2330",), target, control), (True, "missing_target"))
+            control.advance_cursor("mops:financials:market", observed, successful=True)
+            self.assertEqual(_should_collect("finmind", "finmind", "financials", ("2330",), target, control), (False, "official_source_fresh"))
+            self.assertEqual(_should_collect("mops", "mops", "financials", (), target, control), (False, "already_fresh"))
+            self.assertEqual(_should_collect("finmind", "finmind", "financials", ("2330",), target, control, force=True), (True, "forced"))
+        finally:
+            control.close()
         self.assertFalse(_empty_is_nonfatal("twse-valuation"))
 
 

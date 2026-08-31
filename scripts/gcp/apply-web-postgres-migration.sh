@@ -84,6 +84,7 @@ sudo docker exec --user postgres \
   janus-postgres bash -ceu '
     printf "\\getenv web_control_password WEB_CONTROL_PASSWORD\n\\getenv web_catalog_password WEB_CATALOG_PASSWORD\n" > /tmp/web-vars.sql
     cat /tmp/web-vars.sql /opt/janus/migrations/007_web_runtime_roles.sql | psql -U postgres -d janus_control
+    psql -U postgres -d janus_control -f /opt/janus/migrations/009_admin_cursor_indexes.sql
     rm -f /tmp/web-vars.sql
     psql -U postgres -d janus_control -v ON_ERROR_STOP=1 <<"SQL"
 SELECT rolname, rolsuper, rolcreatedb, rolcreaterole, rolreplication
@@ -92,7 +93,7 @@ WHERE rolname IN ($$janus_web_control$$, $$janus_web_catalog$$)
 ORDER BY rolname;
 SELECT current_setting($$default_transaction_read_only$$) = $$off$$ AS server_default_writable;
 SELECT EXISTS (
-  SELECT 1 FROM control.schema_migrations WHERE version = $$007_web_runtime_roles$$
+  SELECT 1 FROM control.schema_migrations WHERE version = $$009_admin_cursor_indexes$$
 ) AS migration_recorded;
 SQL
   '

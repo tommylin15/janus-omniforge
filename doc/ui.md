@@ -1,6 +1,6 @@
 # Janus × OmniForge — UI Specification
 
-版本：1.0  
+版本：1.1
 範圍：Next.js 公開網站、Admin UI、responsive、a11y 與 API/UI data contract
 
 ## 1. UI 原則
@@ -212,14 +212,41 @@ Evidence 欄位：metric、value、unit、source、provenance ID、observed／pu
 
 ### 9.1 `/admin/stocks`
 
-- 全部股票，不套 public enabled filter。
-- 代號／名稱搜尋、每頁 10 筆。
-- 新增、編輯、enabled toggle。
-- 本頁全選與跨頁保留。
+- 頁面品牌／標題保留「資料營運中心」；若沿用左側 Admin 導覽，右側仍一次只顯示一個功能面板。
+- 使用 `tablist` 分隔「股票管理」、「股票資料狀態」、「最近執行」、「資料源健康」、「核心 50 名單」、「排程與保存設定」、「資料源設定」、「AI Prompt」、「Mart 分析」。選取狀態寫入 `?tab=`，重載與分享 URL 後可還原；未選分頁不預抓大型 details。
+- Desktop 顯示水平或側邊 tabs；窄螢幕可用可捲動 tablist 或等價單選導覽，但頁面標題與目前分頁名稱必須可見。tab 支援方向鍵、Home／End、Enter／Space，並正確連結 `aria-controls`／`aria-labelledby`。
+
+「股票管理」：
+
+- 全部股票，不套 public enabled filter；代號／名稱搜尋、每頁 10 筆。
+- 新增、編輯、enabled toggle、本頁全選與跨頁保留。
 - Collection 與 Analysis 分開觸發；queued 不顯示為完成。
-- 最近 50 次 persisted execution。
-- row click 才讀結構化 details。
 - 有 market／report／fundamental 關聯時禁止刪除並顯示數量。
+
+「股票資料狀態」：
+
+- Core 最新交易日、dataset、coverage、row count、null count／ratio、DQ、quarantine、freshness、source、snapshot ID 與 updated time 使用欄列表格，不直接輸出 JSON blob。
+- 表格採類 Excel 閱讀方式：sticky header、欄位對齊、排序、篩選、分頁、欄位顯示／隱藏、橫向捲動及空值 `—`；不要求 spreadsheet 公式或任意 inline edit。
+- row expand／「查看」才載入明細；巢狀 quality flags、association、quarantine reason 轉成子表或 key/value definition list。raw payload、object URI、敏感 URL 與完整 upstream error 不得提供「查看 JSON」旁路。
+
+「最近執行」：
+
+- 最近 50 次 persisted execution；row click／「查看」才讀結構化 details。
+- execution item 以 source、dataset、target date、processed／success／failure／retry、Stage／Core commit、safe message 欄位顯示，不以 JSON 作主要內容。
+
+「資料源健康」、「核心 50 名單」、「排程與保存設定」、「資料源設定」各自只呈現對應資料與控制，按鈕不得跨面板造成用途不明。
+
+「AI Prompt」：
+
+- 以角色、scope（全域／產業／個股）、scope key、revision、狀態、effective time、updated by 篩選。
+- 編輯五角色的 versioned prompt template；支援 draft、diff、validation、preview resolved template、activate、retire、optimistic lock 與 audit。個股 override 優先於產業，產業優先於全域。
+- 顯示本次 execution 將使用的 resolved revision ID；prompt 不得包含 secret、未核准 evidence、解除 Validator／publication policy 的指令。保存或預覽不直接啟動分析。
+
+「Mart 分析」：
+
+- 分成「產業分析」與「個股分析」資料表，讀取已持久化的 `mart_industry_analysis`／`mart_symbol_analysis`。
+- 可依 analysis date、industry、symbol、角色、prompt revision、analysis outcome 與 publication status 篩選；明細顯示 summary、score、confidence、missing data、evidence reference、Core／Mart snapshot 與版本。
+- 歷史 prompt revision 與分析 artifact 只能檢視，不可原地改寫；重新分析必須建立新的 queued execution。
 
 ### 9.2 `/admin/governance`
 
@@ -237,6 +264,9 @@ Evidence 欄位：metric、value、unit、source、provenance ID、observed／pu
 - source + dataset 卡片：status、sample count、success rate、latency、last fetched、latest observation。
 - 顯示 empty、schema drift、fallback、rate limit。
 - 顯示安全 batch 摘要，不顯示 query、raw payload、URI、完整 error、帳號或 secret。
+- 同一能力亦可嵌入「資料營運中心 → 資料源健康／資料源設定」分頁；不得因此移除資料營運中心入口。
+- 候選 adapter 審查表顯示 license／terms 證據、robots／API policy、rate limit、retention／刪除／再發布、穩定性量測、欄位與內容重複度、成本、安全、reviewer、decision time、reason 與 version。
+- 只有 `official`／`approved_fallback` 可啟用；`candidate`／`blocked` 的 cadence 控制 disabled 並說明缺少的審查項目。Anue 10 分鐘排程在核准前不得執行；FinData-compatible／twstock 同樣遵守此 gate。
 
 ### 9.4 `/admin/reports`
 
@@ -279,4 +309,6 @@ Evidence 欄位：metric、value、unit、source、provenance ID、observed／pu
 - [ ] iOS Safari、Android Chrome、iPad Safari 實機通過。
 - [ ] VoiceOver、TalkBack 完整路徑通過。
 - [ ] raw payload、secret、敏感 URL、traceback 不出現在 DOM／network response。
-
+- [ ] 資料營運中心九個分頁一次只顯示一個 panel，query-string deep link、鍵盤 tabs 與 responsive 導覽通過。
+- [ ] 股票狀態、execution、DQ／quarantine 與 Mart 分析均以結構化表格呈現，沒有 raw JSON 主視圖。
+- [ ] Prompt revision 的 draft／diff／activate／retire 與來源候選審查 gate 有 audit，保存不觸發 Job。

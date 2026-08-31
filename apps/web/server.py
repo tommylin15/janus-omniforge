@@ -99,16 +99,18 @@ class WebApplication:
         if path.startswith("/api/v1/admin/") and self.admin is None:
             return {"error": "admin unavailable"}, "503 Service Unavailable", json_type
         if method == "GET" and path == "/api/v1/admin/stocks":
+            if "offset" in query:
+                raise ValueError("offset is not supported; use cursor")
             enabled = query.get("enabled", [None])[0]
             if enabled is not None and enabled.lower() not in {"true", "false"}:
                 raise ValueError("enabled must be true or false")
             enabled_value = None if enabled is None else enabled.lower() == "true"
             limit = int(query.get("limit", ["10"])[0])
-            offset = int(query.get("offset", ["0"])[0])
-            if not 1 <= limit <= 100 or offset < 0:
-                raise ValueError("limit or offset is invalid")
-            items = self.admin.stocks(query.get("q", [""])[0], enabled=enabled_value, limit=limit + 1, offset=offset)
-            return {"items": items[:limit], "limit": limit, "offset": offset, "has_next": len(items) > limit}, "200 OK", json_type
+            if not 1 <= limit <= 100:
+                raise ValueError("limit is invalid")
+            items = self.admin.stocks(query.get("q", [""])[0], enabled=enabled_value, limit=limit + 1, cursor=query.get("cursor", [None])[0])
+            page = items[:limit]
+            return {"items": page, "limit": limit, "next_cursor": page[-1]["symbol"] if len(items) > limit else None}, "200 OK", json_type
         if method in {"POST", "PUT"} and path in {"/api/v1/admin/stocks", "/api/v1/admin/stocks/"}:
             return self.admin.upsert_stock(request_body), "200 OK", json_type
         if method == "PATCH" and path.startswith("/api/v1/admin/stocks/") and path.endswith("/enabled"):
@@ -122,7 +124,13 @@ class WebApplication:
             self.admin.delete_stock(symbol)
             return {"symbol": symbol, "deleted": True}, "200 OK", json_type
         if method == "GET" and path == "/api/v1/admin/executions":
-            return {"items": self.admin.executions(limit=int(query.get("limit", ["50"])[0]))}, "200 OK", json_type
+            limit = int(query.get("limit", ["10"])[0])
+            if not 1 <= limit <= 50:
+                raise ValueError("limit is invalid")
+            items = self.admin.executions(limit=limit + 1, cursor=query.get("cursor", [None])[0])
+            page = items[:limit]
+            next_cursor = f'{page[-1]["requested_at"]},{page[-1]["execution_id"]}' if len(items) > limit else None
+            return {"items": page, "limit": limit, "next_cursor": next_cursor}, "200 OK", json_type
         if method == "GET" and path.startswith("/api/v1/admin/executions/"):
             return self.admin.execution_details(unquote(path.split("/")[5])), "200 OK", json_type
         if method == "POST" and path in {"/api/v1/admin/executions/collection", "/api/v1/admin/executions/analysis"}:
@@ -131,11 +139,21 @@ class WebApplication:
             enqueue = self.admin.enqueue_collection if path.endswith("/collection") else self.admin.enqueue_analysis
             return enqueue(config_id, symbols), "202 Accepted", json_type
         if method == "GET" and path == "/api/v1/admin/source-health":
-            return {"items": self.admin.source_health()}, "200 OK", json_type
+            return {"items": self.admin.source_health(limit=int(query.get("limit", ["200"])[0]))}, "200 OK", json_type
         if method == "GET" and path == "/api/v1/admin/source-catalog":
-            return {"items": self.admin.collection_configs()}, "200 OK", json_type
+            return {"items": self.admin.collection_configs(limit=int(query.get("limit", ["200"])[0]))}, "200 OK", json_type
         if method in {"POST", "PUT"} and path == "/api/v1/admin/source-catalog":
             return self.admin.save_collection_config(request_body), "200 OK", json_type
+        if path.startswith("/api/v1/admin/source-reviews/"):
+            adapter_id = unquote(path.split("/")[5])
+            if method == "GET":
+                return self.admin.source_review(adapter_id), "200 OK", json_type
+            if method in {"POST", "PUT"}:
+                actor = authenticated_actor or self._required_text(request_body, "actor")
+                expected = request_body.get("expected_version")
+                if isinstance(expected, bool) or not isinstance(expected, int) or expected < 0:
+                    raise ValueError("expected_version is required")
+                return self.admin.save_source_review(adapter_id, request_body.get("value"), actor=actor, expected_version=expected), "200 OK", json_type
         if method == "GET" and path.startswith("/api/v1/admin/stocks/") and path.endswith("/status"):
             symbol = unquote(path.split("/")[5])
             return self.admin.stock_status(symbol), "200 OK", json_type

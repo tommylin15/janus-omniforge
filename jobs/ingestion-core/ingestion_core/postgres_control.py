@@ -15,7 +15,7 @@ from uuid import uuid4
 
 from .control import (
     AuthorizationStatus, CacheMetadata, CollectionConfig, ControlPlaneError, CoverageMembership, CoverageTier, Cursor, DataState,
-    Execution, ExecutionItem, ExecutionStatus, InvalidTransitionError, SOURCE_AUTHORIZATION, Stock,
+    Execution, ExecutionItem, ExecutionStatus, InvalidTransitionError, SOURCE_AUTHORIZATION, SOURCE_REVIEW_CHECKS, Stock,
     StockInUseError, TriggerType, _iso, _parse_time, _symbol, utc_now,
 )
 
@@ -81,16 +81,19 @@ class PostgreSQLControlPlane:
             if cur.rowcount != 1:
                 raise KeyError("stock not found")
 
-    def search_stocks(self, query: str = "", *, enabled: bool | None = None, limit: int = 50, offset: int = 0) -> tuple[Stock, ...]:
-        if not 1 <= limit <= 500 or offset < 0:
-            raise ValueError("limit must be 1..500 and offset cannot be negative")
+    def search_stocks(self, query: str = "", *, enabled: bool | None = None, limit: int = 50,
+                      after: str | None = None) -> tuple[Stock, ...]:
+        if not 1 <= limit <= 500:
+            raise ValueError("limit must be 1..500")
         clauses = ["(symbol ILIKE %s OR name ILIKE %s)"]
         args: list[Any] = [f"%{query}%", f"%{query}%"]
         if enabled is not None:
             clauses.append("enabled=%s"); args.append(enabled)
-        args.extend([limit, offset])
+        if after is not None:
+            clauses.append("symbol>%s"); args.append(_symbol(after))
+        args.append(limit)
         with self.connection.cursor() as cur:
-            cur.execute(f"SELECT symbol,name,market,enabled,updated_at,listing_status,effective_from FROM control.stock_master WHERE {' AND '.join(clauses)} ORDER BY symbol LIMIT %s OFFSET %s", args)
+            cur.execute(f"SELECT symbol,name,market,enabled,updated_at,listing_status,effective_from FROM control.stock_master WHERE {' AND '.join(clauses)} ORDER BY symbol LIMIT %s", args)
             return tuple(Stock(r[0], r[1], r[2], r[3], r[4], r[5], r[6]) for r in cur.fetchall())
 
     def put_collection_config(self, config: CollectionConfig, symbols: tuple[str, ...] | list[str] = ()) -> None:
@@ -168,7 +171,7 @@ class PostgreSQLControlPlane:
             raise ControlPlaneError(f"{trigger.value} trigger is disabled")
         if config.authorization_status in {AuthorizationStatus.CANDIDATE.value, AuthorizationStatus.BLOCKED.value}:
             raise ControlPlaneError("collection source authorization is not approved")
-        if any(SOURCE_AUTHORIZATION.get(source_id, AuthorizationStatus.BLOCKED) in {AuthorizationStatus.CANDIDATE, AuthorizationStatus.BLOCKED} for source_id in config.source_ids):
+        if any(not self.source_is_approved(source_id) for source_id in config.source_ids):
             raise ControlPlaneError("collection includes a candidate or blocked source")
         requested = tuple(sorted({_symbol(s) for s in (symbols if symbols is not None else self.config_symbols(config_id))}))
         if not requested: raise ControlPlaneError("no enabled stocks are selected")
@@ -185,22 +188,55 @@ class PostgreSQLControlPlane:
     def enqueue_collection(self, config_id: str, symbols: tuple[str, ...] | None = None, *, trace_id: str | None = None) -> Execution: return self._enqueue(config_id, TriggerType.COLLECTION, symbols, trace_id)
     def enqueue_analysis(self, config_id: str, symbols: tuple[str, ...] | None = None, *, trace_id: str | None = None) -> Execution: return self._enqueue(config_id, TriggerType.ANALYSIS, symbols, trace_id)
 
+    def source_is_approved(self, source_id: str) -> bool:
+        baseline = SOURCE_AUTHORIZATION.get(source_id, AuthorizationStatus.BLOCKED)
+        if baseline in {AuthorizationStatus.OFFICIAL, AuthorizationStatus.APPROVED_FALLBACK}:
+            return True
+        setting = self.get_admin_setting(f"source_review:{source_id}")
+        if not setting or not isinstance(setting[0], dict):
+            return False
+        review = setting[0]
+        checks = review.get("checks")
+        return bool(
+            review.get("status") == AuthorizationStatus.APPROVED_FALLBACK.value
+            and isinstance(checks, dict) and all(checks.get(key) is True for key in SOURCE_REVIEW_CHECKS)
+            and isinstance(review.get("evidence_url"), str) and review["evidence_url"].startswith("https://")
+            and isinstance(review.get("reviewer"), str) and review["reviewer"].strip()
+            and isinstance(review.get("reason"), str) and review["reason"].strip()
+            and isinstance(review.get("decided_at"), str) and review["decided_at"]
+        )
+
     def get_execution(self, execution_id: str) -> Execution:
         with self.connection.cursor() as cur:
             cur.execute("SELECT execution_id,trace_id,config_id,trigger_type,status,requested_symbols,requested_at,started_at,finished_at,retry_count,error_code FROM control.executions WHERE execution_id=%s", (execution_id,)); r = cur.fetchone()
         if not r: raise KeyError("execution not found")
-        return Execution(str(r[0]), str(r[1]), r[2], TriggerType(r[3]), ExecutionStatus(r[4]), tuple(r[5]), r[6], r[7], r[8], r[9], r[10])
+        return self._execution(r)
 
-    def list_executions(self, *, limit: int = 50) -> tuple[Execution, ...]:
-        if not 1 <= limit <= 50: raise ValueError("limit must be 1..50")
+    def list_executions(self, *, limit: int = 50,
+                        before: tuple[datetime, str] | None = None) -> tuple[Execution, ...]:
+        if not 1 <= limit <= 51: raise ValueError("limit must be 1..51")
+        clause = ""
+        parameters: tuple[Any, ...] = (limit,)
+        if before is not None:
+            clause = "WHERE (requested_at, execution_id) < (%s, %s::uuid)"
+            parameters = (before[0], before[1], limit)
         with self.connection.cursor() as cur:
-            cur.execute("SELECT execution_id FROM control.executions ORDER BY requested_at DESC LIMIT %s", (limit,)); ids = [str(r[0]) for r in cur.fetchall()]
-        return tuple(self.get_execution(i) for i in ids)
+            cur.execute(f"SELECT execution_id,trace_id,config_id,trigger_type,status,requested_symbols,requested_at,started_at,finished_at,retry_count,error_code FROM control.executions {clause} ORDER BY requested_at DESC, execution_id DESC LIMIT %s", parameters)
+            return tuple(self._execution(row) for row in cur.fetchall())
 
-    def claim_execution(self, worker_id: str, *, lease: timedelta = timedelta(minutes=5)) -> Execution | None:
+    @staticmethod
+    def _execution(row: Any) -> Execution:
+        return Execution(str(row[0]), str(row[1]), row[2], TriggerType(row[3]), ExecutionStatus(row[4]), tuple(row[5]), row[6], row[7], row[8], row[9], row[10])
+
+    def claim_execution(self, worker_id: str, *, trigger_type: TriggerType | None = None,
+                        lease: timedelta = timedelta(minutes=5)) -> Execution | None:
+        if not worker_id.strip() or lease <= timedelta(0):
+            raise ValueError("worker_id and a positive lease are required")
+        trigger_clause = " AND trigger_type=%s" if trigger_type is not None else ""
+        parameters: tuple[Any, ...] = ((trigger_type.value,) if trigger_type is not None else ()) + (worker_id.strip(), f"{int(lease.total_seconds())} seconds")
         with self._tx() as cur:
-            cur.execute("""WITH candidate AS (SELECT execution_id FROM control.executions WHERE status IN ('queued','retrying') AND (claimed_until IS NULL OR claimed_until < now()) ORDER BY requested_at FOR UPDATE SKIP LOCKED LIMIT 1)
-                UPDATE control.executions e SET status='running',claimed_by=%s,claimed_until=now()+%s::interval,started_at=COALESCE(started_at,now()) FROM candidate WHERE e.execution_id=candidate.execution_id RETURNING e.execution_id""", (worker_id, f"{int(lease.total_seconds())} seconds"))
+            cur.execute(f"""WITH candidate AS (SELECT execution_id FROM control.executions WHERE status IN ('queued','retrying','running') AND (claimed_until IS NULL OR claimed_until < now()){trigger_clause} ORDER BY requested_at FOR UPDATE SKIP LOCKED LIMIT 1)
+                UPDATE control.executions e SET status='running',claimed_by=%s,claimed_until=now()+%s::interval,started_at=COALESCE(started_at,now()) FROM candidate WHERE e.execution_id=candidate.execution_id RETURNING e.execution_id""", parameters)
             row = cur.fetchone()
         return self.get_execution(str(row[0])) if row else None
 

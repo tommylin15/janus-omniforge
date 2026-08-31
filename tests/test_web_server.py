@@ -3,6 +3,7 @@ import sys
 import unittest
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT))
@@ -21,8 +22,10 @@ class _Admin:
     def __init__(self):
         self.enabled = None
         self.actor = None
+        self.cursor = None
 
-    def stocks(self, query="", *, enabled=None, limit=50, offset=0):
+    def stocks(self, query="", *, enabled=None, limit=50, cursor=None):
+        self.cursor = cursor
         return tuple({"symbol": str(index), "name": "Stock", "market": "TWSE", "enabled": True} for index in range(limit))
 
     def set_stock_enabled(self, symbol, enabled):
@@ -34,8 +37,8 @@ class _Admin:
     def delete_stock(self, symbol):
         return None
 
-    def executions(self, *, limit=50):
-        return ({"execution_id": "exec-1", "status": "queued"},)
+    def executions(self, *, limit=50, cursor=None):
+        return ({"execution_id": "00000000-0000-0000-0000-000000000001", "status": "queued", "requested_at": "2026-08-31T00:00:00+00:00"},)
 
     def execution_details(self, execution_id):
         return {"execution_id": execution_id, "status": "queued", "items": ()}
@@ -46,8 +49,18 @@ class _Admin:
     def enqueue_analysis(self, config_id, symbols=None, *, trace_id=None):
         return {"execution_id": "analysis-1", "config_id": config_id, "requested_symbols": symbols, "status": "queued"}
 
-    def source_health(self):
+    def source_health(self, *, limit=200):
         return ({"source_id": "twse", "dataset_id": "ohlcv", "success_rate": 1.0, "last_state": "success"},)
+
+    def collection_configs(self, *, limit=200):
+        return ({"config_id": "ohlcv", "dataset_id": "ohlcv", "source_ids": ("twse",)},)
+
+    def source_review(self, adapter_id):
+        return {"adapter_id": adapter_id, "value": None, "version": 0}
+
+    def save_source_review(self, adapter_id, value, *, actor, expected_version=None):
+        self.actor = actor
+        return {"adapter_id": adapter_id, "value": value, "version": 1}
 
     def membership(self, tier):
         return ({"coverage_tier": tier, "symbol": "2330"},)
@@ -67,8 +80,9 @@ class _Admin:
 class WebServerTests(unittest.TestCase):
     def request(self, path, *, method="GET", body=None, admin=None, authenticated_actor=None):
         app = WebApplication(core=_Core(), admin=admin)
+        target = urlsplit(path)
         encoded = json.dumps(body).encode() if body is not None else b""
-        environ = {"PATH_INFO": path, "QUERY_STRING": "", "REQUEST_METHOD": method, "CONTENT_LENGTH": str(len(encoded)), "wsgi.input": BytesIO(encoded)}
+        environ = {"PATH_INFO": target.path, "QUERY_STRING": target.query, "REQUEST_METHOD": method, "CONTENT_LENGTH": str(len(encoded)), "wsgi.input": BytesIO(encoded)}
         if authenticated_actor:
             environ["JANUS_AUTH_EMAIL"] = authenticated_actor
         response = {}
@@ -107,7 +121,10 @@ class WebServerTests(unittest.TestCase):
         status, body = self.request("/api/v1/admin/stocks", admin=admin)
         self.assertEqual(status, "200 OK")
         self.assertEqual(len(body["items"]), 10)
-        self.assertTrue(body["has_next"])
+        self.assertEqual(body["next_cursor"], "9")
+        self.request("/api/v1/admin/stocks?cursor=2330", admin=admin)
+        self.assertEqual(admin.cursor, "2330")
+        self.assertEqual(self.request("/api/v1/admin/stocks?offset=10", admin=admin)[0], "400 Bad Request")
         status, body = self.request("/api/v1/admin/stocks/2330/enabled", method="PATCH", body={"enabled": False}, admin=admin)
         self.assertEqual(status, "200 OK")
         self.assertEqual(admin.enabled, ("2330", False))
@@ -130,6 +147,7 @@ class WebServerTests(unittest.TestCase):
         self.assertEqual(self.request("/api/v1/admin/executions/exec-1", admin=admin)[1]["execution_id"], "exec-1")
         self.assertEqual(self.request("/api/v1/admin/source-health", admin=admin)[1]["items"][0]["source_id"], "twse")
         self.assertEqual(self.request("/api/v1/admin/memberships/core_focus", admin=admin)[1]["items"][0]["symbol"], "2330")
+        self.assertEqual(self.request("/api/v1/admin/source-catalog", admin=admin)[1]["items"][0]["config_id"], "ohlcv")
 
     def test_invalid_json_shape_is_a_safe_client_error(self):
         status, body = self.request("/api/v1/admin/stocks/2330/enabled", method="PATCH", body={"enabled": "false"}, admin=_Admin())
@@ -145,6 +163,13 @@ class WebServerTests(unittest.TestCase):
         )
         self.assertEqual(status, "200 OK")
         self.assertEqual(admin.actor, "owner@example.com")
+
+    def test_source_review_uses_authenticated_actor(self):
+        admin = _Admin()
+        status, body = self.request("/api/v1/admin/source-reviews/anue", method="PUT", body={"value": {"status": "candidate"}, "expected_version": 0, "actor": "spoofed@example.com"}, admin=admin, authenticated_actor="reviewer@example.com")
+        self.assertEqual(status, "200 OK")
+        self.assertEqual(body["adapter_id"], "anue")
+        self.assertEqual(admin.actor, "reviewer@example.com")
 
 
 if __name__ == "__main__":

@@ -2,11 +2,12 @@
 
 最新驗證日期：2026-08-31
 
-最新完整本機驗證：`python -m pytest -q tests` 為 83 tests passed，Mart runtime／
-PostgreSQL role focused tests 5/5 passed；Vitest 2/2、
-TypeScript typecheck、ESLint 與 static Web production build passed。Playwright
-現有 responsive Admin shell 1/1 assertion passed，但 runner 在輸出報告後未自行
-結束，且尚未涵蓋完整 Admin interaction；真人 Google login 未執行。Windows
+最新完整本機驗證：`python -m pytest -q tests` 為 95 tests passed；Vitest 2/2、
+Playwright Admin interaction 5/5、Python compileall、TypeScript typecheck、ESLint 與
+static Web production build passed。Playwright 測試 worker 會自行啟停本地 HTTP
+server，5 項測試完成後 clean exit 0。Repository root 的未追蹤 `token-savior/` 是
+獨立工具，已排除於本專案 ESLint；pytest 固定以正式 `tests/` 為界。真人 Google
+login 未執行。Windows
 PowerShell 執行 Node.js 指令須使用 `npm.cmd`／`npx.cmd`，不得為避免 `.ps1`
 ExecutionPolicy 阻擋而放寬系統政策。Web runtime 已加入 Google allowlist
 session、不可由 request body 偽造的
@@ -14,6 +15,20 @@ authenticated audit actor、Web 專用 control/catalog role migration，以及�
 namespace 的 read-only catalog reader。Dev migration、credential 切換與 Cloud Run
 實機 role isolation 已完成；真人 Google 帳號登入及 OAuth Console redirect URI
 仍需一次人工確認。
+
+## P0 Admin cursor dev migration (2026-08-31)
+
+PostgreSQL migration `009_admin_cursor_indexes` 已套用至既有 dev VM
+`janus-postgres-dev`。`control.schema_migrations` 已記錄該 version；
+`control.executions_admin_page_idx` 的實際定義為
+`CREATE INDEX executions_admin_page_idx ON control.executions USING btree (requested_at DESC, execution_id DESC)`。
+PostgreSQL readiness 回報 accepting connections，VM／container 暫存 migration 檔案均已清除。
+
+套用前後的唯讀資源盤點一致：project `gen-lang-client-0593591102` 只有既有
+`us-central1-a` `e2-micro` VM 與單一 30 GB `pd-standard` boot disk，VM 只有
+private IP `10.42.0.5`、無 external IP；snapshot 與 Cloud Router／NAT 清單為空。
+未重建 image、未重啟 PostgreSQL container、未建立額外雲端資源，且未部署
+production 或呼叫 Artifact Analysis／Container Scanning／occurrence API。
 
 ## P0 Mart runtime connectivity (2026-08-31)
 

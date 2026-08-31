@@ -1,87 +1,13 @@
 # Janus × OmniForge — Work Breakdown Structure
 
-版本：1.2
+版本：1.3
 基準：GCP-first monorepo、GCS／Iceberg／DuckDB、雙軌資料供應、開發期 30% gate
 
-## WBS 0 — 專案啟動與決策封版
+## 已完成 WBS 索引
 
-### 0.1 GCP 與 GitHub
-
-- 建立 GitHub monorepo、branch protection、CODEOWNERS。
-- 建立 `janus-dev` GCP project、billing budget 與 `us-central1` 基準。
-- Dev／MVP PostgreSQL 採 `us-central1` Compute Engine `e2-micro` 單一 VM，自架 private PostgreSQL；Standard Persistent Disk 總量 ≤30 GB、無 external IP、outbound ≤1 GB/月；production HA 不在此決策內。
-- 建立 Workload Identity Federation 與 Cloud Build service account。
-- 啟用 Cloud Run、Cloud Build、Artifact Registry、GCS、Pub/Sub、Scheduler、Secret Manager、Logging／Monitoring。
-
-### 0.2 契約與治理
-
-- 建立共用 contracts package、schema version 與 compatibility policy。
-- 固定開發期 completeness gate=30%。
-- 建立 provenance、quality flags、publication status、execution status enum。
-- 盤點 deterministic constants，標示 approved／development-default／pending。
-- 建立 source registry 的 `official`／`approved_fallback`／`candidate`／`blocked` 狀態，以及 license、rate limit、retention、PII、引用與再發布審查欄位。
-- 固定全市場日頻與核心 50 深度資料的 coverage boundary；membership 具 effective time 且不可改寫歷史。
-
-### 0.3 驗收條件
-
-- PR 可觸發 Cloud Build。
-- GitHub 不保存 service-account JSON key。
-- Terraform plan 可重現 dev 基礎資源。
-
-## WBS 1 — 雲端開發與 CI/CD 基礎
-
-### 1.1 開發環境
-
-- 建立 Cloud Workstations configuration／devcontainer。
-- 固定 Python、Node、DuckDB／PyIceberg 與 CLI 版本。
-- 加入 pre-commit、lint、type check、unit test。
-
-### 1.2 建置流水線
-
-- `ingestion-core` path-based build。
-- `intelligence-mart` path-based build。
-- `web` path-based build。
-- 產生 immutable image digest；SBOM 可由 build-local tool 產生，但不執行 Artifact Analysis API、Container Scanning API 或 vulnerability scanning。
-
-### 1.3 部署流水線
-
-- 自動部署 dev。
-- staging／production 使用同一 image digest promote。
-- migration、backfill、production Job trigger 設人工 approval。
-- 設 Artifact Registry cleanup policy。
-
-### 1.4 驗收條件
-
-- 任一目錄變更只建置受影響單元與共用依賴者。
-- 失敗 build 不部署。
-- 可回退前一 image digest。
-
-## WBS 2 — GCS Stage 與 Provenance
-
-### 2.1 Bucket 與目錄
-
-- 建立 dev Stage／Core／Mart bucket 或隔離 prefix。
-- 設定 CMEK（如需要）、uniform access、retention、lifecycle。
-- 禁止公開 bucket。
-
-### 2.2 Provenance
-
-- 定義 provenance schema、controlled source/dataset ID。
-- 保存 observed／published／fetched、hash、fallback、quality。
-- 建立 immutable reuse／new-version 規則。
-- 建立 raw payload／object URI 受限存取。
-
-### 2.3 Stage writer
-
-- 寫入原始 JSON／CSV 與 sidecar metadata。
-- 使用 idempotency key 防止重複。
-- 建立 quarantine 路徑。
-
-### 2.4 驗收條件
-
-- 同一內容重跑不重複建立版本。
-- secret／query string 不進 object name、metadata 或 log。
-- Stage 可由 execution ID 完整重現。
+WBS 0、1、2、4 已完成並移至
+[archive/wbs-completed-through-2026-08-31.md](archive/wbs-completed-through-2026-08-31.md)。
+本檔只保留仍含未完成範圍的 WBS。
 
 ## WBS 3 — Ingestion + Core Job
 
@@ -90,6 +16,8 @@
 - async HTTP、bounded timeout、retry、rate limit。
 - schema drift、empty、partial、fallback、unavailable 狀態。
 - 日期、時區、股／張、比例與市場別正規化。
+- 日頻執行依交易日曆決定 target trading date，先查 persisted cache／Core freshness；完整則冪等略過，缺漏才依核准來源優先序抓取。FinMind 僅在已核准 dataset 的官方來源缺漏／不可用時作 fallback，禁止由 Admin page load 或 Mart／Agent 呼叫。
+- 新聞等高頻來源使用獨立 execution、bounded overlap window、content hash／URL dedup、quota、retention 與 safe failure，不與日頻全市場工作綁成單一長任務。
 
 ### 3.2 第一階段資料源
 
@@ -100,6 +28,8 @@
 - 市場活動與 issued shares／turnover。
 - 來源契約加入 coverage tier、cadence、market、scope、authorization status、retention 與 safe provenance。
 - 股票 master 動態維護上市／上櫃狀態；不得以固定 1,700 或 2,000 檔作完整性判斷。
+- Anue／鉅亨新聞、FinData-compatible、`mlouielu/twstock` 先建立候選 adapter 評估卡，不直接納入 runtime dependency。審查在 Admin「資料營運中心 → 資料源設定」完成，涵蓋 license／terms／robots、rate limit、retention／再發布、穩定性、欄位與內容重複度、成本及安全；只有 `official`／`approved_fallback` 可啟用。
+- Anue 的 10 分鐘 cadence 在審查通過前保持 disabled；FinData 優先與既有 TWSE／TPEx adapter 比較並避免重複；twstock 只作行情 fallback／解析參考，其技術指標若採用須由 Mart 以版本化 deterministic feature 重算。
 
 ### 3.2A 全市場量化網
 
@@ -153,36 +83,6 @@
 - 設定低連線數 pool、statement／idle timeout、migration lock 與 reconnect，避免壓垮 `e2-micro`。
 - 使用 Secret Manager credential 與 private IP，完成 ingestion、DuckDB query、Web 與 Mart Cloud Run／Jobs control DB smoke tests。
 
-## WBS 4 — DuckDB／Iceberg Core 與 Query Runtime
-
-### 4.1 Ingestion writer
-
-- 前置條件：WBS 3.6 PostgreSQL VM 與 WBS 3.7 control DB integration、control DB、catalog DB 已通過連線驗證。
-- ingestion Cloud Run Job 內嵌固定版 DuckDB／PyIceberg。
-- 設定 GCS Iceberg warehouse 與 PostgreSQL SQL catalog。
-- 單 task／單 writer；設定 memory、threads、timeout、scan limit 與 temp policy。
-- natural key、content hash、null-preserving merge、Iceberg snapshot commit 與 failure-safe Stage cleanup。
-
-### 4.2 Read-only query runtime
-
-- Core query API 可在 Web 或獨立 Cloud Run Service 內嵌另一個 DuckDB process。
-- query runtime 對 Iceberg read-only，不得寫 Core 或共用 ingestion 本機 DuckDB 檔案。
-- 設定 row／scan bytes、memory、concurrency、statement timeout、pagination 與 cold-start boundary。
-- 使用 workload-specific service account、GCS read 與 catalog read-only role；不得取得 catalog owner／Core writer 權限。
-
-### 4.3 Runtime isolation
-
-- DuckDB 不部署到 PostgreSQL `e2-micro` VM；本機 temp／spill 不作持久資料。
-- ingestion writer 與 query reader 使用獨立 process、memory budget、timeout、IAM 與 metrics。
-- backfill 拆分 date／dataset partition batch；超過單機限制才提出分散式引擎 ADR。
-
-### 4.4 驗收條件
-
-- ingestion clean canary、同日 replay、null-preserving merge 與 catalog reconnect 通過。
-- query runtime scale-to-zero 後可冷啟動並完成 bounded read-only smoke query。
-- query identity 無法 commit Core；非授權身分無法讀 catalog／warehouse。
-- 產生 CPU／RAM／temp usage／query duration 指標與預算告警。
-
 ## WBS 5 — Intelligence Mart
 
 ### 5.0 Runtime 與輸入邊界
@@ -208,7 +108,9 @@
 - 20／60／120 日 Quant、Beta、ATR、turnover。
 - PIT Event Risk features。
 - 核心 50 `mart_core_alpha`、`mart_risk_portfolio` 與經核准文本的 `mart_alternative_sentiment`。
-- 五個 Mart schema 均使用 versioned Iceberg table／partition；至少保存 symbol／coverage、
+- 新增 `mart_industry_analysis`，以產業 membership snapshot 為範圍保存五角色產業結論、共通／分歧 evidence、風險、完整度與 prompt revision。
+- 新增 `mart_symbol_analysis`，為指定個股獨立保存五角色輸出、evidence、missing data、analysis outcome 與實際 prompt revision；CIO 聚合仍寫入 `mart_master_investment_memo`。
+- 七個 Mart schema 均使用 versioned Iceberg table／partition；至少保存 symbol／industry／coverage、
   analysis date、上述 lineage、completeness、confidence、data quality、publication／
   analysis outcome，以及 evidence／artifact reference。不得只保存無法追溯來源的最終分數。
 - `mart_master_investment_memo` 保存五角色結論、screening／risk／sentiment 摘要、
@@ -222,6 +124,8 @@
 - URL、時間、單位、duplicate、stale、conflict、future validation。
 - Evidence 必須引用可定位的 provenance／Core snapshot；未核准來源、缺 publication
   time 或超過 `analysis_as_of` 的資料不得成為角色或 LLM 輸入。
+- 五角色 prompt 使用有 schema 的 versioned template，支援全域角色預設及產業／個股 override；解析優先序為個股 → 產業 → 全域。每次 execution 固定實際 prompt revision ID 至 immutable governance snapshot，修改不得回寫歷史分析。
+- prompt revision 具 draft／active／retired、effective time、變更理由、reviewer、optimistic lock 與 audit；啟用前須通過 structured-output、evidence-only、prompt-injection 與 forbidden-field 驗證。
 
 ### 5.3 Aggregator／Publication
 
@@ -263,6 +167,7 @@
 - RAG 只能檢索 analysis-as-of 可見的 Core／Mart snapshot，未核准來源不得進 evidence。
 - Contract、Iceberg schema evolution 與儲存邊界測試證明 PostgreSQL 沒有完整 Mart
   payload，且 publication index 可解析至正確 immutable GCS／Iceberg artifact。
+- 產業與個股分析可由 Admin 解析至正確 immutable Mart artifact；切換 prompt revision 後只影響新 execution，舊結果仍可依 revision 重現。
 
 ## WBS 6 — Web、Public API 與 Admin
 
@@ -282,12 +187,17 @@
 
 ### 6.3 Admin UI
 
-- 股票管理、跨頁批次選取。
+- 保留「資料營運中心」名稱與入口；`/admin/stocks` 使用 tablist／單面板模式，右側一次只顯示目前功能，不同功能不得整頁同時堆疊。
+- 分頁至少包含：股票管理、股票資料狀態、最近執行、資料源健康、核心 50 名單、排程與保存設定、資料源設定、AI Prompt、Mart 分析。
+- 股票管理支援跨頁批次選取；股票資料狀態與 execution／DQ／quarantine 明細以類 Excel 的欄列表格呈現，支援 sticky header、排序、篩選、分頁與欄位顯示，不以 raw JSON 作主要介面。
 - Collection／Analysis 分開觸發。
 - 最近 50 次 execution 與按需明細。
 - Governance typed edit、validation、diff、history、optimistic lock。
 - Data-source health persisted telemetry。
 - 全市場／核心 50 membership、effective date、cadence、來源授權狀態與 quota 管理；超過 50 檔必須拒絕。
+- 「資料源設定」提供候選 adapter review checklist 與狀態轉換，保存證據、reviewer、理由與 audit；`candidate`／`blocked` 不得出現可成功啟用的控制。
+- 「AI Prompt」按五角色管理全域／產業／個股 prompt revision、預覽 resolved template 與歷史 diff；保存不直接啟動 Mart Job。
+- 「Mart 分析」按 analysis date、產業、symbol、角色、prompt revision、analysis outcome 與 publication status 篩選 `mart_industry_analysis`／`mart_symbol_analysis`，只讀已持久化 artifact。
 
 ### 6.4 驗收條件
 
@@ -295,6 +205,7 @@
 - empty／unavailable／partial／fallback／blocked 語意正確。
 - 未啟用股票 404；已啟用無資料顯示等待批次。
 - 詳細驗收依 `ui.md`。
+- tab 具鍵盤操作、ARIA 與可分享 query-string deep link；重載後保留所選分頁，未選面板不重複抓取大型 details。
 
 ## WBS 7 — 安全、監控與 FinOps
 

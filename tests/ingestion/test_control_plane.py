@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT / "jobs" / "ingestion-core"))
 
 from ingestion_core import (
     AuthorizationStatus, CollectionConfig, ControlPlaneError, CoverageTier, ExecutionStatus, PostgreSQLControlPlane,
-    SQLiteControlPlane, Stock, StockInUseError,
+    SQLiteControlPlane, Stock, StockInUseError, TriggerType,
 )
 
 
@@ -67,6 +67,24 @@ class ControlPlaneTests(unittest.TestCase):
         self.assertNotEqual(collection.execution_id, analysis.execution_id)
         self.assertEqual({item.trace_id for item in self.control.list_executions(limit=2)}, {"trace-collection", "trace-analysis"})
 
+    def test_queue_claim_filters_worker_type_and_releases_lease_on_completion(self):
+        collection = self.control.enqueue_collection("twse-ohlcv", ("2330",))
+        analysis = self.control.enqueue_analysis("twse-ohlcv", ("2330",))
+        claimed = self.control.claim_execution("ingestion-1", trigger_type=TriggerType.COLLECTION)
+        self.assertEqual(claimed.execution_id, collection.execution_id)
+        self.assertEqual(claimed.status, ExecutionStatus.RUNNING)
+        self.assertIsNone(self.control.claim_execution("ingestion-2", trigger_type=TriggerType.COLLECTION))
+        self.control.transition_execution(claimed.execution_id, ExecutionStatus.SUCCEEDED)
+        claimed_analysis = self.control.claim_execution("mart-1", trigger_type=TriggerType.ANALYSIS)
+        self.assertEqual(claimed_analysis.execution_id, analysis.execution_id)
+
+    def test_expired_queue_lease_can_be_reclaimed(self):
+        execution = self.control.enqueue_collection("twse-ohlcv", ("2330",))
+        first = datetime(2026, 8, 1, tzinfo=timezone.utc)
+        self.control.claim_execution("worker-1", trigger_type=TriggerType.COLLECTION, lease=timedelta(seconds=1), now=first)
+        reclaimed = self.control.claim_execution("worker-2", trigger_type=TriggerType.COLLECTION, now=first + timedelta(seconds=2))
+        self.assertEqual(reclaimed.execution_id, execution.execution_id)
+
     def test_stock_delete_is_protected_by_collection_reference(self):
         with self.assertRaises(StockInUseError):
             self.control.delete_stock("2330")
@@ -116,6 +134,13 @@ class ControlPlaneTests(unittest.TestCase):
         self.control.put_collection_config(config, ("2330",))
         with self.assertRaises(ControlPlaneError):
             self.control.enqueue_collection("candidate-feed", ("2330",))
+
+    def test_audited_source_review_can_approve_a_candidate_adapter(self):
+        config = CollectionConfig("candidate-feed", "ohlcv", ("fugle",), frozenset({"symbol"}), authorization_status=AuthorizationStatus.APPROVED_FALLBACK.value)
+        self.control.put_collection_config(config, ("2330",))
+        checks = {key: True for key in ("license", "terms", "robots", "rate_limit", "stability", "duplication", "retention", "deletion", "republishing", "cost", "security")}
+        self.control.put_admin_setting("source_review:fugle", {"status": "approved_fallback", "checks": checks, "evidence_url": "https://example.com/review", "reviewer": "reviewer", "reason": "reviewed", "decided_at": "2026-08-31T00:00:00+00:00"}, actor="reviewer")
+        self.assertEqual(self.control.enqueue_collection("candidate-feed", ("2330",)).status, ExecutionStatus.QUEUED)
 
     def test_config_persists_coverage_metadata(self):
         config = CollectionConfig("core-feed", "events", ("mops",), frozenset({"symbol"}), coverage_tier=CoverageTier.CORE_FOCUS.value, cadence="公告頻率", scope="core_focus", retention_class="deep_research", republish_allowed=True)

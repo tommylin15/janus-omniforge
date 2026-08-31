@@ -31,7 +31,26 @@ class AdminServiceTests(unittest.TestCase):
 
     def test_invalid_page_is_rejected(self):
         with self.assertRaises(AdminValidationError):
-            self.admin.stocks(limit=501)
+            self.admin.stocks(limit=102)
+        with self.assertRaises(AdminValidationError):
+            self.admin.stocks(cursor="invalid cursor")
+
+    def test_stock_cursor_uses_unique_symbol_key(self):
+        self.control.upsert_stock(Stock("2454", "聯發科", "TWSE"))
+        first = self.admin.stocks(limit=1)
+        second = self.admin.stocks(limit=1, cursor=first[-1]["symbol"])
+        self.assertEqual(first[0]["symbol"], "2330")
+        self.assertEqual(second[0]["symbol"], "2454")
+
+    def test_execution_cursor_has_stable_id_tiebreaker(self):
+        first = self.admin.enqueue_collection("ohlcv", ("2330",))
+        second = self.admin.enqueue_collection("ohlcv", ("2330",))
+        page = self.admin.executions(limit=1)
+        cursor = f'{page[0]["requested_at"]},{page[0]["execution_id"]}'
+        following = self.admin.executions(limit=1, cursor=cursor)
+        self.assertEqual({page[0]["execution_id"], following[0]["execution_id"]}, {first["execution_id"], second["execution_id"]})
+        with self.assertRaises(AdminValidationError):
+            self.admin.executions(cursor="bad")
 
     def test_source_health_is_persisted_and_datetime_is_normalized(self):
         self.assertEqual(self.admin.source_health(), ())
@@ -51,6 +70,30 @@ class AdminServiceTests(unittest.TestCase):
     def test_retention_bounds(self):
         with self.assertRaises(AdminValidationError):
             self.admin.save_setting("retention", {"days": 0, "cleanup_enabled": True}, actor="operator")
+        with self.assertRaises(AdminValidationError):
+            self.admin.save_setting("source_review:anue", {"status": "approved_fallback"}, actor="operator")
+
+    def test_stock_status_is_flattened_for_table_rendering(self):
+        class Core:
+            @staticmethod
+            def summary(symbol):
+                return {"symbol": symbol, "datasets": {"ohlcv": {"row_count": 2, "latest_date": "2026-08-28", "coverage": {"received_symbols": 1, "requested_symbols": 1}, "null_profile": {"close": 1}, "quality_flags": ["warning"], "associations": {"source_id": ["twse"], "snapshot_id": ["snap-1"]}}}}
+
+        status = AdminService(self.control, core=Core()).stock_status("2330")
+        self.assertEqual(status["items"][0]["dataset_id"], "ohlcv")
+        self.assertEqual(status["items"][0]["null_count"], 1)
+        self.assertNotIn("summary", status)
+
+    def test_source_review_requires_all_checks_before_approval(self):
+        checks = {key: True for key in ("license", "terms", "robots", "rate_limit", "stability", "duplication", "retention", "deletion", "republishing", "cost", "security")}
+        with self.assertRaises(AdminValidationError):
+            self.admin.save_source_review("anue", {"status": "approved_fallback", "checks": {**checks, "license": False}, "evidence_url": "https://example.com/review", "reason": "review"}, actor="reviewer", expected_version=0)
+        saved = self.admin.save_source_review("anue", {"status": "approved_fallback", "checks": checks, "evidence_url": "https://example.com/review", "reason": "reviewed"}, actor="reviewer", expected_version=0)
+        self.assertEqual(saved["value"]["status"], "approved_fallback")
+        self.assertEqual(saved["value"]["reviewer"], "reviewer")
+        self.assertEqual(self.admin.source_review("anue")["version"], 1)
+        with self.assertRaises(AdminValidationError):
+            self.admin.save_source_review("anue", {"status": "blocked", "checks": checks, "evidence_url": "", "reason": "blocked"}, actor="reviewer")
 
 
 if __name__ == "__main__":

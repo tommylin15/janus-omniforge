@@ -113,6 +113,14 @@ class GoogleAuthMiddlewareTests(unittest.TestCase):
         self.assertEqual(headers["Location"], "/login")
         self.assertNotIn("Set-Cookie", headers)
 
+    def test_logout_clears_a_valid_session(self):
+        session = self.auth._encode_session({"email": self.claims["email"], "sub": self.claims["sub"], "exp": self.now + 3600})
+        status, headers, _ = self.request("/logout", method="POST", cookie=f"{SESSION_COOKIE}={session}")
+        self.assertEqual(status, "303 See Other")
+        self.assertEqual(headers["Location"], "/login")
+        self.assertIn(f"{SESSION_COOKIE}=", headers["Set-Cookie"])
+        self.assertIn("Max-Age=0", headers["Set-Cookie"])
+
     def test_configuration_fails_closed(self):
         with self.assertRaises(AuthConfigurationError):
             GoogleAuthMiddleware(
