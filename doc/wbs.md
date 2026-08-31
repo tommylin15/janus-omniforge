@@ -1,7 +1,7 @@
 # Janus × OmniForge — Work Breakdown Structure
 
-版本：1.3
-基準：GCP-first monorepo、GCS／Iceberg／DuckDB、雙軌資料供應、開發期 30% gate
+版本：1.4
+基準：資料產品優先、GCP-first monorepo、GCS／Iceberg／DuckDB、Flutter／FastAPI 雙入口、開發期 30% gate
 
 ## 已完成 WBS 索引
 
@@ -45,12 +45,13 @@ WBS 0、1、2、4 已完成並移至
 - 高頻／文本／另類 collection 與全市場排程隔離，具獨立 quota、retention、成本與 failure policy。
 - 文本實體對應可進 Core，但情緒、聲量、AI 示警與投資判讀只能進 versioned Mart。
 
-### 3.3 Core DQ
+### 3.3 Core 寫入安全檢查
 
 - required key、type、date、duplicate、range、cross-source check。
 - null 保留；0 依欄位語意處理。
 - corporate action／極端漲跌不直接刪除。
 - 失敗資料進 quarantine，合格資料寫 Iceberg Core。
+- 本節只保留避免錯寫、資料毀損與 future leakage 的最小 trust-boundary 檢查；跨源校準、品質評分、完整 DQ dashboard 與門檻調優排到 WBS 8.4，且必須在 Admin／User UI 驗收後執行。
 
 ### 3.4 Execution 與事件
 
@@ -81,7 +82,7 @@ WBS 0、1、2、4 已完成並移至
 - 以 transaction／row lock／安全 claim 讓 queued execution 可被 worker 恢復與冪等處理。
 - Response cache 的 payload／raw response 留在 GCS Stage；PostgreSQL 僅保存 key、URI、hash、TTL、observed time 與狀態 metadata。
 - 設定低連線數 pool、statement／idle timeout、migration lock 與 reconnect，避免壓垮 `e2-micro`。
-- 使用 Secret Manager credential 與 private IP，完成 ingestion、DuckDB query、Web 與 Mart Cloud Run／Jobs control DB smoke tests。
+- 使用 Secret Manager credential 與 private IP，完成 ingestion、DuckDB query、FastAPI、Admin Web 與 Mart Cloud Run／Jobs control DB smoke tests。
 
 ## WBS 5 — Intelligence Mart
 
@@ -110,7 +111,8 @@ WBS 0、1、2、4 已完成並移至
 - 核心 50 `mart_core_alpha`、`mart_risk_portfolio` 與經核准文本的 `mart_alternative_sentiment`。
 - 新增 `mart_industry_analysis`，以產業 membership snapshot 為範圍保存五角色產業結論、共通／分歧 evidence、風險、完整度與 prompt revision。
 - 新增 `mart_symbol_analysis`，為指定個股獨立保存五角色輸出、evidence、missing data、analysis outcome 與實際 prompt revision；CIO 聚合仍寫入 `mart_master_investment_memo`。
-- 七個 Mart schema 均使用 versioned Iceberg table／partition；至少保存 symbol／industry／coverage、
+- 新增 `mart_market_regime_daily`、`mart_sector_rotation_daily`、`mart_topic_trends_daily`、`mart_candidate_health` 與 `mart_daily_brief`；每日摘要只組合同一 analysis-as-of 的已發布成品，不重算上游分數。
+- 公開 Mart schema 均使用 versioned Iceberg table／partition；至少保存 symbol／industry／coverage、
   analysis date、上述 lineage、completeness、confidence、data quality、publication／
   analysis outcome，以及 evidence／artifact reference。不得只保存無法追溯來源的最終分數。
 - `mart_master_investment_memo` 保存五角色結論、screening／risk／sentiment 摘要、
@@ -151,14 +153,22 @@ WBS 0、1、2、4 已完成並移至
 - GCS Mart bucket 保存 Iceberg／Parquet data 與 metadata、versioned feature／role／
   evidence／aggregation payload、model／evaluation artifact、完整結構化 report 與
   Markdown export；大型 governance diff 亦留在 GCS。
-- PostgreSQL 只保存 catalog、control、publication、audit、report metadata 與 bounded
-  service index，包括 object URI、snapshot ID、hash、version 與狀態；不得保存完整
-  report、feature 或 evidence payload。
+- PostgreSQL 的市場分析邊界只保存 catalog、control、publication、audit、report metadata
+  與 bounded service index，包括 object URI、snapshot ID、hash、version 與狀態；私人
+  ledger 使用獨立 schema／role。不得保存完整 report、feature 或 evidence payload。
 - publication schema 使用 migration、唯一鍵、retention、bounded pool 與
   workload-specific role；blocked／insufficient-data 成品不得進 publishable view。
 - 發出 `mart.report.ready.v1`。
 
-### 5.6 驗收條件
+### 5.6 私人交易 ledger／Mart
+
+- PostgreSQL 以獨立 schema／role 保存 append-only 使用者交易 event、reversal／replacement、optimistic version 與 outbox；金額使用固定精度 decimal。
+- outbox 冪等寫入受限 Private Stage，再正規化至 Private Iceberg Core；public pipeline、Admin 一般資料角色與其他使用者均不可讀取。
+- 產製 `mart_user_positions`、`mart_user_realized_pnl`、`mart_user_unrealized_pnl` 與 `mart_user_annual_pnl`；MVP 成本法固定移動平均，估值缺價不得當成 0。
+- Private Mart 只由 `/api/v1/me/*` 依 authenticated user 讀取，不進 public publication index、OmniForge export、話題或排行榜。
+- 不串券商、不自動匯入、不自動下單；FIFO 等第二成本法等會計／稅務語意與回歸測試完成後再評估。
+
+### 5.7 驗收條件
 
 - Analysis 不呼叫 scraper。
 - LLM 關閉時 deterministic output 不改變。
@@ -166,24 +176,31 @@ WBS 0、1、2、4 已完成並移至
 - 同一 Core snapshot + governance version 可重現相同 deterministic 結果。
 - RAG 只能檢索 analysis-as-of 可見的 Core／Mart snapshot，未核准來源不得進 evidence。
 - Contract、Iceberg schema evolution 與儲存邊界測試證明 PostgreSQL 沒有完整 Mart
-  payload，且 publication index 可解析至正確 immutable GCS／Iceberg artifact。
+  payload，且 publication index 可解析至正確 immutable GCS／Iceberg artifact；私人
+  ledger 只保存交易事實與 outbox，不保存 Mart payload。
 - 產業與個股分析可由 Admin 解析至正確 immutable Mart artifact；切換 prompt revision 後只影響新 execution，舊結果仍可依 revision 重現。
+- 市場狀態、每日摘要、板塊輪動、熱門話題與候選健康度可由相同 analysis-as-of 重建，且 Flutter 不參與分數計算。
+- 使用者 A 無法讀寫或推測使用者 B 的 ledger／Private Mart；交易更正、跨年損益、超賣拒絕與缺價路徑可重現。
 
-## WBS 6 — Web、Public API 與 Admin
+## WBS 6 — FastAPI、Flutter User 與 Admin
 
-### 6.1 Public API
+### 6.1 FastAPI
 
-- health、topics、summary、latest report、history、Kline、events。
-- cursor／pagination、safe error、404 waiting state。
-- 不公開 raw payload、blocked、secret、traceback。
+- 建立 `services/api` FastAPI app；將現有 WSGI handler 逐路由遷移並以 contract tests 保持既有 Admin 行為，完成後才移除 WSGI boundary。
+- `/api/v1/public/*` 提供 health、daily brief、sector rotation、topics、candidates、stock health、history、Kline、events。
+- `/api/v1/me/*` 提供交易新增／更正、positions 與年度 PnL；身分只取自驗證內容，不接受 client 指定 `user_id`。
+- `/api/v1/admin/*` 保留控制面能力；public、private 與 admin router 分離 response model、auth、CORS、rate limit、IAM 與 audit。
+- cursor／pagination、safe error、404 waiting state；不公開 raw payload、blocked、secret、traceback 或 private artifact reference。
 
-### 6.2 Public UI
+### 6.2 Flutter User App
 
-- 首頁、搜尋、題材卡、個股頁。
-- K 線 D／W／M、MA、OHLCV 替代表格。
-- Metrics、Aggregation、Market Activity、五角色、Events、History、Sources、Disclaimer。
-- 全市場 screening 與核心標的視圖明確分流；顯示 coverage、freshness、來源健康與資料不足。
-- 情緒溫度、多空雷達與風險紅綠燈只呈現後端 versioned Mart，不由前端重算。
+- 建立 `apps/user_app`，使用 Flutter Material 3 與平台原生元件；不先引入第三方 state／UI 套件。
+- 兩層主動線：今日顯示市場狀態、每日摘要、板塊輪動、熱門話題與候選股；探索提供搜尋與完整列表。
+- 個股首屏依序顯示健康度圓環、籌碼狀態與 `Icons.psychology` 白話 AI Card；K 線、Metrics、五角色與 provenance 預設收在進階資料。
+- 個人交易筆記提供手動交易表單、歷史明細、持股、已實現／未實現與年度損益；正式結果只讀 Private Mart，不在 Flutter 重算。
+- 「我的」提供私人 ledger 匯出與可稽核刪除流程；刪除涵蓋 PostgreSQL、Private Stage／Core／Mart 與 cache。
+- 支援 light／dark／system theme、phone／iPad／web responsive、VoiceOver／TalkBack 與至少 44×44 target。
+- User App 不顯示 Admin 導覽、公開績效排行榜、下單或券商同步控制。
 
 ### 6.3 Admin UI
 
@@ -198,20 +215,23 @@ WBS 0、1、2、4 已完成並移至
 - 「資料源設定」提供候選 adapter review checklist 與狀態轉換，保存證據、reviewer、理由與 audit；`candidate`／`blocked` 不得出現可成功啟用的控制。
 - 「AI Prompt」按五角色管理全域／產業／個股 prompt revision、預覽 resolved template 與歷史 diff；保存不直接啟動 Mart Job。
 - 「Mart 分析」按 analysis date、產業、symbol、角色、prompt revision、analysis outcome 與 publication status 篩選 `mart_industry_analysis`／`mart_symbol_analysis`，只讀已持久化 artifact。
+- Admin 使用獨立入口與認證；一般 Admin 營運頁不得瀏覽使用者交易內容。只有另行核准的隱私事件處理流程可接觸必要最小 metadata，且必須 audit。
 
 ### 6.4 驗收條件
 
 - UI 不自行計算後端分數。
+- Flutter 不自行計算正式損益；User 與 Admin 入口、token audience、CORS 與導覽分離。
 - empty／unavailable／partial／fallback／blocked 語意正確。
 - 未啟用股票 404；已啟用無資料顯示等待批次。
 - 詳細驗收依 `ui.md`。
 - tab 具鍵盤操作、ARIA 與可分享 query-string deep link；重載後保留所選分頁，未選面板不重複抓取大型 details。
+- 詳細 User／Admin 驗收依 `ui.md`；今日頁所有卡片必須使用同一 analysis-as-of，交易筆記通過跨使用者隔離與更正事件測試。
 
 ## WBS 7 — 安全、監控與 FinOps
 
 ### 7.1 IAM／Secret
 
-- 四部署單元分離 service account。
+- ingestion、Mart、FastAPI 與 Admin Web 分離 service account；Flutter client 不持有 GCP service-account credential。
 - Secret Manager 單項授權。
 - production 權限與 dev 分離。
 - PostgreSQL dev VM 使用 private IP、≤30 GB Standard Persistent Disk、IAP／OS Login；不得公開 `5432`，Free Tier 模式不自動建立 snapshot／backup／replica。
@@ -250,23 +270,31 @@ WBS 0、1、2、4 已完成並移至
 
 ### 8.2 自動化 QA
 
-- pytest、contract tests、Vitest、Playwright、TypeScript、build。
+- pytest、FastAPI contract tests、Flutter analyze／widget tests、Vitest、Playwright、TypeScript、build。
 - schema／migration／Iceberg evolution 測試。
 - failure、retry、idempotency、rollback 測試。
 
 ### 8.3 實機與 A11y
 
-- iOS Safari、Android Chrome、iPad Safari。
+- Flutter Android／iOS／Web、iOS Safari、Android Chrome、iPad Safari。
 - VoiceOver、TalkBack、keyboard、touch、safe area。
 - WCAG AA 實際對比。
 
-### 8.4 Release
+### 8.4 UI 驗收後的資料品質強化
+
+- 本節有順序 gate：Admin 資料營運流程、Flutter 今日／探索／健康檢查／交易筆記與實機 A11y 尚未通過前不得開工。
+- 完成跨源一致性、null profile、freshness、coverage、schema drift、outlier／corporate-action 校準與 quality-score 版本化。
+- 校準 market regime、sector rotation、topic uncertainty、candidate health 與 private PnL 的品質折減，不得改寫歷史 Mart。
+- Admin DQ dashboard 顯示結構化摘要、quarantine drill-down、門檻 revision 與 evidence；不提供 raw payload 旁路。
+- 以已驗收 UI 的真實閱讀問題調整 DQ 門檻；完成前保留 30% development gate，不宣稱 production-grade 品質。
+
+### 8.5 Release
 
 - dev → staging → production 同一 digest。
 - canary、rollback、backup／restore、runbook。
 - 人工 production approval。
 
-### 8.5 驗收條件
+### 8.6 驗收條件
 
 - 所有 release gate 通過才可宣稱正式上線。
 - 任何 blocked item 都有 owner、deadline、evidence link。
@@ -278,6 +306,6 @@ WBS 0、1、2、4 已完成並移至
 | M0 | WBS 0–1 | 雲端 workspace、monorepo、CI/CD、IaC 可運作 |
 | M1 | WBS 2–4 | PostgreSQL Free Tier VM → 2330 Source → Stage → DuckDB／Iceberg Core，bounded query 可冷啟動 |
 | M1.5 | WBS 3–4 | 全市場日頻 baseline 與核心 50 membership／collection boundary 通過 |
-| M2 | WBS 5 | Screening／Core Alpha／五角色 → Mart，30% gate、Devil's Advocate 與 blocked 正確 |
-| M3 | WBS 6 | Public／Admin 完整讀取 persisted Mart |
-| M4 | WBS 7–8 | 監控、安全、PIT、實機 QA、canary／rollback 通過 |
+| M2 | WBS 5 | 市場／板塊／話題／候選健康度與私人交易 Mart，30% gate、隔離與 blocked 正確 |
+| M3 | WBS 6 | FastAPI、Flutter User 與獨立 Admin 完整讀取 persisted Mart |
+| M4 | WBS 7–8 | UI 實機驗收後完成 DQ 強化、監控、安全、PIT、canary／rollback |

@@ -1,7 +1,7 @@
 # Janus × OmniForge — UI Specification
 
-版本：1.1
-範圍：Next.js 公開網站、Admin UI、responsive、a11y 與 API/UI data contract
+版本：1.2
+範圍：Flutter + Material 3 User App、獨立 Admin Web、responsive、a11y 與 FastAPI/UI data contract
 
 ## 1. UI 原則
 
@@ -11,84 +11,209 @@
 - confidence 固定標示為「資料／分析信心度，非獲利機率」。
 - 不輸出保證獲利、確定買賣指示或無依據目標價。
 - 所有來源只取當前資源／當前日期自己的 provenance。
+- User 與 Admin 是兩個獨立入口；User App 不出現 Admin 導覽，Admin Web 不混入小白的市場閱讀動線。
+- User App 使用「結論 → 原因 → 風險 → 來源」的減法層次；首屏不顯示 K 線、密集數字表格或內部 Agent 術語。
+- 個人交易筆記與公開市場分析的導覽及資料狀態分離；不顯示他人持倉、公開績效排名或下單按鈕。
 
 ## 2. 視覺系統
 
-- 深色主題，zinc 作背景、邊框、中立與資料不足。
-- 台股慣例：上漲 emerald、下跌 red。
+- User App 使用 Flutter Material 3、`ColorScheme.fromSeed`、圓角 Card、清楚字階與充足留白；不引入第三方 UI kit。
+- 預設支援 light、dark 與 system theme。Admin 可繼續使用現有深色 zinc 系統，不為了視覺一致破壞密集營運表格的可讀性。
+- 價格漲跌依台股慣例：上漲 red、下跌 green；健康／風險語意固定為高健康 green、警戒 amber、低健康／blocking red。顏色旁必須有文字或 icon，不只靠紅綠。
 - amber：warning、partial、fallback、attention；不得表示安全。
 - red：blocking、critical/high、disposition、停資停券。
 - 系統字型優先，不依賴 Google Fonts。
 - 一般文字 WCAG AA 4.5:1；大字 3:1；focus indicator 3:1。
 
+設計參考只吸收可驗證的版面語彙，不複製其資料模型或功能：
+
+- [Trace](https://github.com/trentpiercy/trace)：輕量市場探索、清楚的總覽 → 詳情層級與 theme 選擇。
+- [artha](https://github.com/wahyuatmaja3/artha)：以新復古／Neo-Brutalism 的粗體重點與直接文案作少量品牌點綴；Janus 保留圓角、低噪訊與金融產品所需的可信感，不採整頁高飽和粗框。
+- [Financial-Management-Dashboard-UI](https://github.com/Redvey/Financial-Management-Dashboard-UI) 與 [finance-web](https://github.com/feMoraes0/finance-web)：Flutter dashboard 的 card／grid 佈局參考；User App 只保留一個主指標與漸進揭露，不照搬桌面密集圖表。
+
 ## 3. Responsive Layout
 
 | 裝置 | Layout | Navigation | History |
 |---|---|---|---|
-| Mobile | 單欄 | StickyHeader + BottomNav | Bottom sheet |
-| iPad | 兩欄可用 | StickyHeader；必要時 BottomNav | Centered modal |
-| Desktop | 多欄 grid，無水平 overflow | Header navigation | Centered modal |
+| Mobile | 單欄，User App 優先 | Material 3 AppBar + NavigationBar | Bottom sheet |
+| iPad | 兩欄可用 | NavigationRail 或 NavigationBar | Centered dialog |
+| Desktop／Web | 最寬 1200px 的有界 grid，無水平 overflow | NavigationRail／Header | Centered dialog |
 
 - 支援 safe area、`viewport-fit=cover`、`100dvh`。
 - 所有主要控制、日期、圖表 toggle、展開按鈕至少 44×44 CSS px。
-- BottomNav 主要項目高度至少 56px。
+- Material 3 NavigationBar 主要項目高度至少 56px。
 
 ## 4. 全域殼層
 
-### StickyHeader
+### User App shell
 
-- 品牌、首頁、個股、話題、收藏、登入／Admin 入口。
-- safe-area top；鍵盤 focus 可見。
-- Admin 與 public 使用一致品牌但權限／導覽分離。
+- Material 3 `AppBar` 只放當前頁標題、資料日期與必要操作；不放 Admin 入口。
+- `NavigationBar`：今日、探索、筆記、我的。熱門話題與板塊輪動屬於「今日／探索」，不再增加一排主導覽。
+- 未完成項目顯示 coming soon／disabled，不可只 `debugPrint`。safe-area bottom 不遮擋內容。
 
-### BottomNav
+### Admin shell
 
-- 首頁、個股、話題、收藏。
-- 未完成項目顯示 coming soon／disabled，不可只 `console.log`。
-- safe-area bottom，不遮擋頁面內容。
+- 獨立 Admin URL／host 與認證邊界，保留「資料營運中心」品牌。
+- 不使用 User App 的底部導覽；依桌面營運工作流提供 tabs／tables。
 
 ### Global status
 
 - API unavailable 顯示可理解訊息，不呈現 upstream traceback。
 - 可選擇顯示最新資料日、更新時間與來源健康摘要。
 
-## 5. 公開頁面
+## 5. User App 頁面
 
-### 5.1 首頁 `/`
+### 5.1 今日
 
-元件：
+首屏固定順序：
 
-1. Market status／資料日期。
-2. `SearchFilter`：代號、名稱、題材。
-3. `TopicCard`：真實摘要與 `/stocks/{symbol}` 連結。
-4. Market／source health 精簡狀態。
-5. `EmptyState`。
+1. `MarketRegimeCard`：一句話市場狀態、資料日期與信心度。
+2. `DailyBriefCard`：最多三則今日重點，並列支持因素與風險因素。
+3. `SectorRotationList`：前三個升溫／降溫板塊；先用可讀排名，泡泡圖放在「看完整輪動」次頁。
+4. `HotTopicList`：最多五個熱門話題，顯示來源數與不確定性，不用聲量假裝正確性。
+5. `CandidateHealthList`：最多五張候選股健康卡。
+6. 資料日期、partial／stale／fallback 與標準免責聲明。
 
-規則：
+首頁只讀同一 `analysis_as_of` 的 `mart_daily_brief`；任一子產品日期不同時顯示 partial，不得把不同日期的最新版拼成「今日」。
 
-- 停用股票不出現在搜尋與題材。
-- 不生成示例股票冒充正式資料。
-- 搜尋條件可寫入 query string。
+### 5.2 探索
 
-### 5.2 個股頁 `/stocks/[symbol]`
+- 搜尋股票代號、名稱、產業與題材；停用股票不出現。
+- 預設顯示板塊輪動排行與候選股，不先顯示 K 線。
+- 進階泡泡圖可使用 X 軸「近 5 日法人買超力道」、Y 軸「力道變化」、泡泡大小「近 20 日成交金額」，並提供文字排行／表格替代內容。
+- 歷史回放最多 20 個交易日，只有在 `mart_sector_rotation_daily` 已保存各日 snapshot 後才啟用。
+
+### 5.3 個股健康檢查
 
 固定順序：
 
 1. `StockHeader`
-2. `KLineChart`
-3. `MetricsGrid`
-4. `SentimentBar`
-5. `AggregationEvidence`
-6. `MarketActivityPanel`
-7. 五張 `AnalystCard`
-8. `CompanyEventTimeline`
-9. `ReportHistoryModal`
-10. `ReportSources`
-11. `ComplianceDisclaimer`
+2. `StockHealthCard`
+3. `AiPlainLanguageCard`
+4. 三項「為什麼」與三項「要注意什麼」
+5. `ChipsStatusCard`
+6. `CompanyEventTimeline`
+7. 可收合的 `EvidenceAndSources`
+8. `ComplianceDisclaimer`
 
-未知／停用股票：404。已啟用但沒有 report：顯示「等待下一次批次」，不得啟動即時分析。
+K 線、五角色明細、估值指標與完整 provenance 屬「進階資料」，預設收合且不得先於健康度與白話摘要。未知／停用股票顯示 404；已啟用但沒有 report 顯示「等待下一次批次」，不得啟動即時分析。
+
+### 5.4 個人交易筆記
+
+- 與市場探索分頁，進入後先顯示「目前持股」、「本年已實現損益」與「待完成筆記」三張摘要卡。
+- 新增交易欄位：買進／賣出、日期、股票代號／名稱、成交股數、成交單價、手續費、證券交易稅與備註。
+- 使用十進位輸入、明確單位與即時格式驗證；不得用浮點數造成金額誤差，也不得預填虛構價格。
+- 歷史明細支援股票與年份篩選；修正既有交易時呈現「建立更正」而非無痕覆寫。
+- 年度報表顯示已實現損益、費用、交易次數與年度比較。未實現損益必須標示估值日期與缺價狀態。
+- 預設成本法為移動平均法並顯示在報表；尚未核准 FIFO 前不提供切換。
+- 所有 empty／loading／error 狀態不得洩漏其他使用者是否存在資料。
+
+### 5.5 我的
+
+- theme 使用 light／dark／system；字體縮放跟隨系統，不自建第二套縮放引擎。
+- 提供「匯出我的交易資料」與「永久刪除私人資料」。刪除使用 danger zone、再次驗證與明確影響範圍，不以單次誤觸直接執行。
+- 不放方案定價、預測戰績或公開排行榜；待產品與法遵另案確認後再新增。
 
 ## 6. 元件契約
+
+### StockHealthCard（Flutter reference）
+
+輸入欄位固定使用 `stock_id`、`stock_name`、`mart_health_score`、`chips_status`、`ai_whitepaper_analysis` 與 `analysis_as_of`。`mart_health_score` 必須是已發布 Mart 的 1–100 整數；Widget 只映射顏色與版面，不計算分數。
+
+```dart
+import 'package:flutter/material.dart';
+
+class StockHealthCard extends StatelessWidget {
+  const StockHealthCard({
+    super.key,
+    required this.stockId,
+    required this.stockName,
+    required this.martHealthScore,
+    required this.chipsStatus,
+    required this.aiWhitepaperAnalysis,
+    required this.analysisAsOf,
+  }) : assert(martHealthScore >= 1 && martHealthScore <= 100);
+
+  final String stockId;
+  final String stockName;
+  final int martHealthScore;
+  final String chipsStatus;
+  final String aiWhitepaperAnalysis;
+  final DateTime analysisAsOf;
+
+  Color get scoreColor => martHealthScore >= 70
+      ? Colors.green
+      : martHealthScore >= 40
+          ? Colors.amber
+          : Colors.red;
+
+  @override
+  Widget build(BuildContext context) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('$stockName $stockId',
+                  style: Theme.of(context).textTheme.titleLarge),
+              Text('資料日期 ${analysisAsOf.toLocal().toString().split(' ').first}'),
+              const SizedBox(height: 20),
+              Semantics(
+                label: '股票健康度 $martHealthScore 分，滿分 100 分',
+                excludeSemantics: true,
+                child: SizedBox.square(
+                  dimension: 120,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        value: martHealthScore / 100,
+                        strokeWidth: 12,
+                        strokeCap: StrokeCap.round,
+                        color: scoreColor,
+                        backgroundColor: scoreColor.withAlpha(38),
+                      ),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('$martHealthScore',
+                              style: Theme.of(context).textTheme.displaySmall),
+                          const Text('健康度'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Chip(label: Text(chipsStatus)),
+              ),
+              const SizedBox(height: 12),
+              Card.filled(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.psychology),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text(aiWhitepaperAnalysis)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+}
+```
+
+- 健康度不是獲利機率；卡片下方必須同時提供風險與資料日期。
+- `ai_whitepaper_analysis` 是 Gemini 對合格 evidence 的白話轉譯，不得在 Widget 中補字、截斷成不同結論或注入示例內容。
+- partial／stale 時保留卡片但顯示狀態 banner；blocked／insufficient_data 不顯示分數圓環。
 
 ### StockHeader
 
@@ -99,6 +224,7 @@
 
 ### KLineChart
 
+- 僅放在個股「進階資料」，預設收合；不是 User App 首屏或健康判斷的主要視覺。
 - D／W／M period。
 - MA 5／10／20／60／120／240（依資料可用性）。
 - OHLCV、必要技術指標 tooltip。
@@ -173,6 +299,13 @@ Evidence 欄位：metric、value、unit、source、provenance ID、observed／pu
 - governance version。
 - risk disclosure、來源採用範圍、標準免責聲明。
 
+### TradingJournalForm／PnLSummary
+
+- `TradingJournalForm` 使用 Material 3 segmented button 選擇買進／賣出，日期選擇器、股票 autocomplete 與十進位數字欄位；送出前顯示交易摘要，成功後顯示 ledger event ID。
+- 賣出股數大於可用持股時由 API 拒絕，UI 保留輸入並顯示欄位級錯誤；前端預檢不能取代後端約束。
+- `PnLSummary` 分開顯示已實現與未實現損益，並標示估值日期、成本法與缺價筆數；null 不顯示為 0。
+- 刪除／修正需二次確認並說明會建立 reversal／replacement；成功後重新讀取已持久化 ledger／Mart，不在 Flutter 本地重算正式損益。
+
 ## 7. UI 狀態語意
 
 | 狀態 | 使用者文案 | 視覺 |
@@ -187,26 +320,34 @@ Evidence 欄位：metric、value、unit、source、provenance ID、observed／pu
 | blocked | 報告未通過發布審查 | 公開端不回傳；Admin red |
 | error | 服務暫時發生問題 | 安全文案，不顯示 traceback |
 
-## 8. Hook／API 契約
+## 8. Flutter／FastAPI 契約
 
-`useStockAgent` 讀取 `/api/v1/stocks/{symbol}/report`：
-
-- 200：保存 report。
-- 404：顯示等待下一次批次或不存在，依 error code 區分。
-- network／5xx：服務錯誤。
-- 不使用 SSE，不啟動即時推論。
-
-其他 hooks 只負責 API 讀取、取消競態與狀態呈現。
+- Flutter repository 只負責 HTTP、取消過期 request、typed decoding 與 UI 狀態；不得計算正式分數、損益或 fallback 內容。
+- 200 保存 response；404 依 error code 顯示不存在或等待批次；401／403 導向登入或安全拒絕；network／5xx 顯示服務錯誤。
+- 不使用 SSE，不在開啟頁面時啟動 scraper、Agent、LLM 或 Private Mart 重算。
 
 主要 public endpoints：
 
-- `/api/v1/health`
-- `/api/v1/topics`
-- `/api/v1/stocks/{symbol}/summary`
-- `/api/v1/stocks/{symbol}/report`
-- `/api/v1/stocks/{symbol}/reports`
-- `/api/v1/stocks/{symbol}/kline?period=D|W|M`
-- `/api/v1/stocks/{symbol}/events?cursor=...`
+- `/api/v1/public/health`
+- `/api/v1/public/daily-brief?date=YYYY-MM-DD`
+- `/api/v1/public/sectors/rotation?date=YYYY-MM-DD`
+- `/api/v1/public/topics?date=YYYY-MM-DD`
+- `/api/v1/public/candidates?date=YYYY-MM-DD`
+- `/api/v1/public/stocks/{symbol}/health`
+- `/api/v1/public/stocks/{symbol}/reports`
+- `/api/v1/public/stocks/{symbol}/kline?period=D|W|M`
+- `/api/v1/public/stocks/{symbol}/events?cursor=...`
+
+主要 private journal endpoints：
+
+- `GET／POST /api/v1/me/journal/trades`
+- `POST /api/v1/me/journal/trades/{event_id}/corrections`
+- `GET /api/v1/me/journal/positions`
+- `GET /api/v1/me/journal/pnl?year=YYYY`
+- `POST /api/v1/me/journal/export`
+- `DELETE /api/v1/me/private-data`
+
+Private endpoint 的使用者身分只取自驗證 token／session，不接受 request body 或 query string 指定 `user_id`。所有 mutation 具 idempotency key、optimistic version 與 audit event。
 
 ## 9. Admin UI
 
@@ -298,6 +439,12 @@ Evidence 欄位：metric、value、unit、source、provenance ID、observed／pu
 
 ## 12. UI Release Checklist
 
+- [ ] Flutter `analyze`／widget tests 通過；User App 與 Admin Web 使用不同入口、認證與導覽。
+- [ ] 今日頁只組合同一 `analysis_as_of` 的 market／sector／topic／candidate Mart，日期不一致顯示 partial。
+- [ ] 個股首屏只顯示健康度、白話摘要、籌碼狀態與風險；K 線及五角色明細預設收合。
+- [ ] 健康度高／中／低具文字與 semantics，不只依賴顏色；分數明示不是獲利機率。
+- [ ] 交易新增、更正、跨年年度損益、缺價與超賣錯誤路徑通過；Flutter 不重算正式損益。
+- [ ] 使用者 A 無法讀寫使用者 B 的 trade、position、PnL 或 private artifact reference。
 - [ ] Mobile／iPad／desktop 無水平 overflow。
 - [ ] 所有主要控制 ≥44×44。
 - [ ] K 線替代表格、keyboard、touch、Escape 通過。
