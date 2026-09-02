@@ -39,11 +39,11 @@ success／fallback／合法 empty items，安全訊息只包含 `Core committed`
 `retry_count=2`、`error_code=COLLECTION_FAILED`，Admin response 無 traceback 或完整
 error，未誤標成功；partial item 狀態由 framework regression 驗證。
 
-Web 設定維持 `minScale=0`；Cloud Monitoring 03:27Z 顯示 active instance 0、idle
-instance 1，尚待 idle instance 歸零後補齊實際 scale-to-zero 證據。本切片其餘條件
-只剩 Stage cleanup 實機驗收；連續 3 個交易日 Scheduler、完整 DQ 校準與其他 WBS
-仍未宣稱完成。未部署 production、未建立新資源或提高限額，且未呼叫 Artifact
-Analysis／Container Scanning／occurrence API。
+Web 設定維持 `minScale=0`；Cloud Monitoring 04:02Z 顯示最終 revision 的 active／
+idle instance 均為 0，實際 scale-to-zero 通過。本切片其餘條件只剩 Stage cleanup
+實機驗收；連續 3 個交易日 Scheduler、完整 DQ 校準與其他 WBS 仍未宣稱完成。
+未部署 production、未建立新資源或提高限額，且未呼叫 Artifact Analysis／
+Container Scanning／occurrence API。
 
 ## P0 Iceberg schema evolution tests (2026-08-31)
 
