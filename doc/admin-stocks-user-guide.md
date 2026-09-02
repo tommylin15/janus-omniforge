@@ -16,7 +16,7 @@
 | 區域 | 用途 |
 |---|---|
 | 股票管理 | 搜尋、新增、編輯、啟停、查看 Core 資料狀態及刪除股票 |
-| 批次操作 | 對已選股票建立 Collection 或 Analysis execution |
+| 批次操作 | 對已選股票建立 Collection execution；第一階段不使用 Analysis |
 | 最近執行 | 顯示最近 50 筆 persisted execution 與工作明細 |
 | 資料源健康 | 顯示已持久化的 telemetry，不會在開頁時呼叫上游來源 |
 | 核心 50 名單 | 建立有生效時間、操作者及理由的名單版本 |
@@ -80,17 +80,15 @@
 
 刪除前必須確認股票不再被 collection config 或 execution 引用；有引用時 API 會拒絕刪除。現行版本尚未完整檢查 market／report／fundamental 關聯，也不會顯示各類引用數量，因此不要把「刪除成功」當成完整的跨資料域清除流程。
 
-## 6. 建立 Collection 或 Analysis execution
+## 6. 建立 Collection execution
 
 1. 選取一檔以上股票。
 2. 在「設定 ID」輸入已存在且允許相應 trigger 的 collection config ID，例如 `ohlcv`。
-3. 按下其中一個按鈕：
-   - 「加入 Collection」：建立資料收集 execution。
-   - 「加入 Analysis」：建立分析 execution。
+3. 按「加入 Collection」建立資料收集 execution。
 4. 記下提示中的 execution ID。
 5. 到「最近執行」確認新項目狀態。
 
-兩個按鈕只把命令寫入 persisted queue。現行 dev 尚未有完整的 queue consumer／Mart Job end-to-end 路徑，因此成功取得 execution ID 只代表成功排隊，不代表工作會自動完成。
+Collection 命令寫入 persisted queue 後由既有 consumer 處理；成功取得 execution ID 仍只代表成功排隊，必須在「最近執行」確認 terminal status。第一階段正式介面會將 Analysis hidden／disabled；若舊 revision 仍顯示「加入 Analysis」，不得使用，因 Mart persisted consumer 尚未完成。
 
 ## 7. 查看最近執行
 
@@ -136,8 +134,8 @@
 
 - 頁首「重新整理」會重新載入股票、execution、資料源健康、來源設定、核心名單及排程／保存設定。
 - 「資料源健康」只讀 persisted telemetry；它不會立即測試 TWSE、TPEx、MOPS 或 FinMind。
-- 「資料源設定」目前只讀，顯示 config、來源、cadence、coverage tier 與 authorization status。
-- `candidate` 或 `blocked` 資料源不可啟用。
+- 「資料源設定」目前實作仍為唯讀；正式規格只規劃管理已核准來源的 cadence、coverage tier 與 authorization status。
+- `candidate` 或 `blocked` 資料源只保留設定狀態，不提供審查或啟用控制。
 
 ## 11. 已知限制
 
@@ -146,6 +144,5 @@
 - execution 明細只能按「查看」開啟，尚未支援規格要求的整列 click。
 - dialog 關閉後不保證恢復到原本 opener 的鍵盤焦點。
 - 刪除 guard 尚未涵蓋並列出 market／report／fundamental 引用數量。
-- Collection／Analysis 會成功建立 queued record，但 dev queue consumer／Mart Job 尚未完成端到端接線。
+- Collection consumer 已存在；Analysis／Mart persisted consumer 尚未完成，舊 revision 的 Analysis 按鈕不得使用。
 - 排程與 retention 設定目前只持久化，尚未驅動 Cloud Scheduler／cleanup runtime。
-

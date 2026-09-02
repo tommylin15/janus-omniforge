@@ -1,6 +1,6 @@
-# Janus × OmniForge — UI Specification
+# Janus — UI Specification
 
-版本：1.2
+版本：1.5
 範圍：Flutter + Material 3 User App、獨立 Admin Web、responsive、a11y 與 FastAPI/UI data contract
 
 ## 1. UI 原則
@@ -50,6 +50,7 @@
 - Material 3 `AppBar` 只放當前頁標題、資料日期與必要操作；不放 Admin 入口。
 - `NavigationBar`：今日、探索、筆記、我的。熱門話題與板塊輪動屬於「今日／探索」，不再增加一排主導覽。
 - 未完成項目顯示 coming soon／disabled，不可只 `debugPrint`。safe-area bottom 不遮擋內容。
+- 第二階段個人交易筆記 MVP 只啟用「筆記／我的」；「今日／探索／個股分析」保持 coming soon／disabled，直到公開 Mart API 完成。
 
 ### Admin shell
 
@@ -65,6 +66,8 @@
 
 ### 5.1 今日
 
+第二階段個人交易筆記 MVP 尚未啟用本頁；以下契約留待公開 Mart 階段。
+
 首屏固定順序：
 
 1. `MarketRegimeCard`：一句話市場狀態、資料日期與信心度。
@@ -77,6 +80,8 @@
 首頁只讀同一 `analysis_as_of` 的 `mart_daily_brief`；任一子產品日期不同時顯示 partial，不得把不同日期的最新版拼成「今日」。
 
 ### 5.2 探索
+
+第二階段個人交易筆記 MVP 尚未啟用本頁；不得因搜尋或 page load 觸發 scraper、Agent 或 LLM。
 
 - 搜尋股票代號、名稱、產業與題材；停用股票不出現。
 - 預設顯示板塊輪動排行與候選股，不先顯示 K 線。
@@ -100,6 +105,7 @@ K 線、五角色明細、估值指標與完整 provenance 屬「進階資料」
 
 ### 5.4 個人交易筆記
 
+- 本頁是第二階段最先啟用的 User App 主功能，不依賴公開 Mart／LLM。
 - 與市場探索分頁，進入後先顯示「目前持股」、「本年已實現損益」與「待完成筆記」三張摘要卡。
 - 新增交易欄位：買進／賣出、日期、股票代號／名稱、成交股數、成交單價、手續費、證券交易稅與備註。
 - 使用十進位輸入、明確單位與即時格式驗證；不得用浮點數造成金額誤差，也不得預填虛構價格。
@@ -233,7 +239,7 @@ class StockHealthCard extends StatelessWidget {
 - tooltip 支援 hover、focus、Enter、touch、Escape，不使用 title-only。
 - 手勢不得造成錯誤頁面捲動。
 
-### MetricsGrid／SentimentBar
+### MetricsGrid
 
 - 偏多、偏空、中立、資料不足四態。
 - aggregate score=null 時不顯示 0、勝率或方向暗示。
@@ -347,21 +353,21 @@ Evidence 欄位：metric、value、unit、source、provenance ID、observed／pu
 - `POST /api/v1/me/journal/export`
 - `DELETE /api/v1/me/private-data`
 
-Private endpoint 的使用者身分只取自驗證 token／session，不接受 request body 或 query string 指定 `user_id`。所有 mutation 具 idempotency key、optimistic version 與 audit event。
+Private endpoint 只接受獨立 User OAuth audience 的 Google OIDC token；API 驗證 issuer、audience、expiry，以 Google `sub` 對應內部 UUID `user_id`，email 只供顯示。使用者身分不接受 request body 或 query string 指定 `user_id`，User token 不得存取 Admin endpoint。所有 mutation 具 idempotency key、optimistic version 與 audit event。
 
 ## 9. Admin UI
 
 ### 9.1 `/admin/stocks`
 
 - 頁面品牌／標題保留「資料營運中心」；若沿用左側 Admin 導覽，右側仍一次只顯示一個功能面板。
-- 使用 `tablist` 分隔「股票管理」、「股票資料狀態」、「最近執行」、「資料源健康」、「核心 50 名單」、「排程與保存設定」、「資料源設定」、「AI Prompt」、「Mart 分析」。選取狀態寫入 `?tab=`，重載與分享 URL 後可還原；未選分頁不預抓大型 details。
+- 第一階段使用 `tablist` 開放「股票管理」、「股票資料狀態」、「最近執行」、「資料源健康」、「核心 50 名單」、「排程與保存設定」、「資料源設定」七個資料營運分頁。「Mart 分析」hidden／disabled，直到 WBS 5 persisted consumer 完成。選取狀態寫入 `?tab=`，重載與分享 URL 後可還原；未選分頁不預抓大型 details。
 - Desktop 顯示水平或側邊 tabs；窄螢幕可用可捲動 tablist 或等價單選導覽，但頁面標題與目前分頁名稱必須可見。tab 支援方向鍵、Home／End、Enter／Space，並正確連結 `aria-controls`／`aria-labelledby`。
 
 「股票管理」：
 
 - 全部股票，不套 public enabled filter；代號／名稱搜尋、每頁 10 筆。
 - 新增、編輯、enabled toggle、本頁全選與跨頁保留。
-- Collection 與 Analysis 分開觸發；queued 不顯示為完成。
+- 第一階段只啟用 Collection／backfill；Analysis 顯示尚未開放且不得建立 queued execution。WBS 5 persisted consumer 完成後才分開啟用 Analysis；queued 不顯示為完成。
 - 有 market／report／fundamental 關聯時禁止刪除並顯示數量。
 
 「股票資料狀態」：
@@ -377,17 +383,12 @@ Private endpoint 的使用者身分只取自驗證 token／session，不接受 r
 
 「資料源健康」、「核心 50 名單」、「排程與保存設定」、「資料源設定」各自只呈現對應資料與控制，按鈕不得跨面板造成用途不明。
 
-「AI Prompt」：
-
-- 以角色、scope（全域／產業／個股）、scope key、revision、狀態、effective time、updated by 篩選。
-- 編輯五角色的 versioned prompt template；支援 draft、diff、validation、preview resolved template、activate、retire、optimistic lock 與 audit。個股 override 優先於產業，產業優先於全域。
-- 顯示本次 execution 將使用的 resolved revision ID；prompt 不得包含 secret、未核准 evidence、解除 Validator／publication policy 的指令。保存或預覽不直接啟動分析。
-
 「Mart 分析」：
 
-- 分成「產業分析」與「個股分析」資料表，讀取已持久化的 `mart_industry_analysis`／`mart_symbol_analysis`。
-- 可依 analysis date、industry、symbol、角色、prompt revision、analysis outcome 與 publication status 篩選；明細顯示 summary、score、confidence、missing data、evidence reference、Core／Mart snapshot 與版本。
-- 歷史 prompt revision 與分析 artifact 只能檢視，不可原地改寫；重新分析必須建立新的 queued execution。
+- 第一階段 hidden／disabled；不得以空表或無 consumer 的 queued execution 假裝可用。
+- 以單一資料表讀取已持久化的 `mart_scoped_analysis`。
+- 可依 analysis date、scope（market／industry／symbol）、industry、symbol、角色、prompt version、analysis outcome 與 publication status 篩選；明細顯示 summary、score、confidence、missing data、evidence reference、Core／Mart snapshot 與版本。
+- 歷史 prompt version 與分析 artifact 只能檢視，不可原地改寫；重新分析必須建立新的 queued execution。Prompt 由 repository 版控，不在 Admin 編輯。
 
 ### 9.2 `/admin/governance`
 
@@ -399,17 +400,7 @@ Private endpoint 的使用者身分只取自驗證 token／session，不接受 r
 - 顯示 approved／development-default／pending。
 - Workflow 使用 immutable snapshot，不讀取未提交表單。
 
-### 9.3 `/admin/data-sources`
-
-- 只讀 persisted telemetry，不在 page load 呼叫上游。
-- source + dataset 卡片：status、sample count、success rate、latency、last fetched、latest observation。
-- 顯示 empty、schema drift、fallback、rate limit。
-- 顯示安全 batch 摘要，不顯示 query、raw payload、URI、完整 error、帳號或 secret。
-- 同一能力亦可嵌入「資料營運中心 → 資料源健康／資料源設定」分頁；不得因此移除資料營運中心入口。
-- 候選 adapter 審查表顯示 license／terms 證據、robots／API policy、rate limit、retention／刪除／再發布、穩定性量測、欄位與內容重複度、成本、安全、reviewer、decision time、reason 與 version。
-- 只有 `official`／`approved_fallback` 可啟用；`candidate`／`blocked` 的 cadence 控制 disabled 並說明缺少的審查項目。Anue 10 分鐘排程在核准前不得執行；FinData-compatible／twstock 同樣遵守此 gate。
-
-### 9.4 `/admin/reports`
+### 9.3 `/admin/reports`
 
 - 篩選 blocked／manual review／insufficient／publishable。
 - 顯示 evidence、blocking reason、governance version。
@@ -426,36 +417,30 @@ Private endpoint 的使用者身分只取自驗證 token／session，不接受 r
 - iOS rubber-band 不穿透背景。
 - 事件長文保留換行，展開控制有 `aria-expanded`。
 
-## 11. 四階閱讀模式（後續）
+## 11. UI Release Checklist
 
-| 模式 | 內容 |
-|---|---|
-| 小白 | 白話健康度、名詞 tooltip、強化風險警語 |
-| 一般 | 個股、Podcast、雙鏈與標籤 |
-| 分析師 | source conflict、雙向證據、PIT 5／20／60 |
-| Auditor | 三種時間、hash、品質折減、治理版本、audit |
+### 11.1 第一階段：Stage／Core／Admin
 
-所有模式讀取同一份 report，不得在前端重算或產生不同分數。
+- [ ] 七個資料營運分頁一次只顯示一個 panel；query-string deep link、鍵盤 tabs 與 responsive 導覽通過。
+- [ ] Collection／backfill 可完成並顯示 execution item、Stage／Core commit 與安全失敗資訊；Analysis／Mart 分析 hidden／disabled 且不建立 queued execution。
+- [ ] 股票狀態、execution、DQ／quarantine 均以 bounded 結構化表格呈現，沒有 raw JSON 主視圖。
+- [ ] 核心 50、已核准來源、排程與 retention 異動可驗證並留下 audit；候選來源沒有審查或啟用控制。
+- [ ] raw payload、secret、敏感 URL、object URI 與 traceback 不出現在 DOM／network response。
+- [ ] Modal focus trap、restore、scroll lock、主要控制 ≥44×44 與 WCAG AA 通過。
 
-## 12. UI Release Checklist
+### 11.2 第二階段：個人交易筆記
 
 - [ ] Flutter `analyze`／widget tests 通過；User App 與 Admin Web 使用不同入口、認證與導覽。
+- [ ] 只啟用「筆記／我的」；「今日／探索／個股分析」顯示 coming soon／disabled，且不觸發即時分析。
+- [ ] 交易新增、更正、跨年年度損益、缺價、超賣、匯出與刪除路徑通過；Flutter 不重算正式損益。
+- [ ] 使用者 A 無法讀寫或推測使用者 B 的 trade、position、PnL 或 private artifact reference。
+- [ ] User／Admin audience 混用與 client 指定 `user_id` 均被拒絕；email 變更不改變既有 ledger 所有權。
+- [ ] Mobile／iPad／desktop 無水平 overflow；主要路徑通過 VoiceOver／TalkBack。
+
+### 11.3 後續公開研究 UI
+
 - [ ] 今日頁只組合同一 `analysis_as_of` 的 market／sector／topic／candidate Mart，日期不一致顯示 partial。
 - [ ] 個股首屏只顯示健康度、白話摘要、籌碼狀態與風險；K 線及五角色明細預設收合。
-- [ ] 健康度高／中／低具文字與 semantics，不只依賴顏色；分數明示不是獲利機率。
-- [ ] 交易新增、更正、跨年年度損益、缺價與超賣錯誤路徑通過；Flutter 不重算正式損益。
-- [ ] 使用者 A 無法讀寫使用者 B 的 trade、position、PnL 或 private artifact reference。
-- [ ] Mobile／iPad／desktop 無水平 overflow。
-- [ ] 所有主要控制 ≥44×44。
-- [ ] K 線替代表格、keyboard、touch、Escape 通過。
-- [ ] Modal focus trap、restore、scroll lock 通過。
-- [ ] empty／unavailable／partial／stale／fallback 文案正確。
-- [ ] blocked 不公開；null 不顯示 0。
-- [ ] report history 日期與 provenance 同步。
-- [ ] 實際色彩通過 WCAG AA。
-- [ ] iOS Safari、Android Chrome、iPad Safari 實機通過。
-- [ ] VoiceOver、TalkBack 完整路徑通過。
-- [ ] raw payload、secret、敏感 URL、traceback 不出現在 DOM／network response。
-- [ ] 資料營運中心九個分頁一次只顯示一個 panel，query-string deep link、鍵盤 tabs 與 responsive 導覽通過。
-- [ ] 股票狀態、execution、DQ／quarantine 與 Mart 分析均以結構化表格呈現，沒有 raw JSON 主視圖。
-- [ ] Prompt revision 的 draft／diff／activate／retire 與來源候選審查 gate 有 audit，保存不觸發 Job。
+- [ ] 健康度具文字與 semantics，不只依賴顏色；分數明示不是獲利機率。
+- [ ] K 線替代表格、keyboard、touch、Escape，report history、blocked／null 與 partial／stale／fallback 語意通過。
+- [ ] Mart 分析顯示正確 prompt version／content hash；iOS Safari、Android Chrome、iPad Safari 實機通過。

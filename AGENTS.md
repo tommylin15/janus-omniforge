@@ -22,4 +22,8 @@
 `bash -n`）一律改在 GCP Cloud Build、Cloud Shell 或既有 GCP dev runtime 執行。
 不得以本機 WSL 作為驗證 fallback。
 
+需要存取既有 GCP／gcloud credentials 或執行 GCP dev 驗收的指令，使用
+Codex 升級權限執行（`sandbox_permissions=require_escalated`）；僅限既有
+dev 資源，不得因此擴大 production 或付費資源範圍。
+
 在執行任何 commit 或 push 前，必須先執行 `/ponytail-review`。

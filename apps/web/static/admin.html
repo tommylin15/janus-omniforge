@@ -26,8 +26,6 @@
         <button class="nav-link" id="tab-membership" role="tab" aria-selected="false" aria-controls="membership" data-tab="membership" type="button"><span aria-hidden="true">◎</span>核心 50 名單</button>
         <button class="nav-link" id="tab-settings" role="tab" aria-selected="false" aria-controls="settings" data-tab="settings" type="button"><span aria-hidden="true">◷</span>排程與保存設定</button>
         <button class="nav-link" id="tab-catalog" role="tab" aria-selected="false" aria-controls="catalog" data-tab="catalog" type="button"><span aria-hidden="true">▤</span>資料源設定</button>
-        <button class="nav-link" id="tab-prompts" role="tab" aria-selected="false" aria-controls="prompts" data-tab="prompts" type="button"><span aria-hidden="true">✎</span>AI Prompt</button>
-        <button class="nav-link" id="tab-mart" role="tab" aria-selected="false" aria-controls="mart" data-tab="mart" type="button"><span aria-hidden="true">◇</span>Mart 分析</button>
       </nav>
       <div class="sidebar-note"><span class="tag">P0</span><p>所有操作只寫入控制面；長任務由 worker 非同步執行。</p></div>
     </aside>
@@ -62,7 +60,6 @@
           <label>回跑迄日 <input id="backfill-end" type="date"></label>
           <label>指定來源 <input id="backfill-sources" placeholder="twse,tpex" aria-label="Backfill source IDs"></label>
           <button id="queue-collection" class="button primary" type="button">加入 Collection</button>
-          <button id="queue-analysis" class="button secondary" type="button">加入 Analysis</button>
           <button id="clear-selection" class="button quiet" type="button">清除選取</button>
         </div>
 
@@ -124,14 +121,6 @@
           <p id="review-decision-time" class="form-note">尚未審查</p>
           <button class="button primary" type="submit">儲存審查</button>
         </form>
-      </section>
-      <section id="prompts" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-prompts" hidden>
-        <div class="panel-heading"><div><p class="eyebrow">PROMPT GOVERNANCE</p><h2>AI Prompt</h2></div><span class="tag neutral">P1 待接線</span></div>
-        <p class="empty">Prompt revision API 與 Mart pipeline 完成後，將在此管理全域、產業與個股角色 Prompt。此頁不會即時啟動 Agent。</p>
-      </section>
-      <section id="mart" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-mart" hidden>
-        <div class="panel-heading"><div><p class="eyebrow">PERSISTED MART</p><h2>Mart 分析</h2></div><span class="tag neutral">P1 待接線</span></div>
-        <p class="empty">只會顯示已持久化的產業與個股分析；目前 Mart schema 與 writer 尚未完成。</p>
       </section>
     </main>
   </div>

@@ -55,8 +55,10 @@ test("tab deep link, keyboard, ARIA and responsive shell", async ({ page }) => {
   await page.keyboard.press("ArrowRight");
   await expect(page.getByRole("tab", { name: /資料源健康/ })).toHaveAttribute("aria-selected", "true");
   await expect(page).toHaveURL(/tab=sources/);
+  await expect(page.getByRole("button", { name: /加入 Analysis/ })).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: /Mart 分析/ })).toHaveCount(0);
   await page.keyboard.press("End");
-  await expect(page.getByRole("tab", { name: /Mart 分析/ })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: /資料源設定/ })).toHaveAttribute("aria-selected", "true");
   await page.keyboard.press("Home");
   await expect(page.getByRole("tab", { name: /股票管理/ })).toHaveAttribute("aria-selected", "true");
   for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 1280, height: 800 }]) {

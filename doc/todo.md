@@ -1,6 +1,6 @@
-# Janus × OmniForge — TODO
+# Janus — TODO
 
-版本：1.4
+版本：1.8
 用途：只保留未完成工作與目前驗收條件；完成證據移至 archive。
 
 已完成項目與歷史 checkpoint：
@@ -8,9 +8,11 @@
 - [TODO 完成紀錄（截至 2026-08-31）](archive/todo-completed-through-2026-08-31.md)
 - [已完成 WBS 0／1／2／4](archive/wbs-completed-through-2026-08-31.md)
 
-## P0 — 資料源雙軌契約與控制面重整
+目前執行順序：
 
-- [ ] 定義文本 entity-to-symbol Core schema；保留規則／模型版本、confidence、evidence 與人工覆核狀態，但 sentiment、buzz、AI alert 與投資判讀只寫 versioned Mart。（契約／WBS／todo 邊界已固定；schema 實作待 P1）
+1. 完成 WBS 3 的 Dev Stage → Core → Admin Data Operations MVP。
+2. 完成 WBS 4J 個人交易筆記 MVP；可先於公開 Mart／Agents／LLM。
+3. 再執行全市場深化、WBS 5 Intelligence Mart、公開 FastAPI／Flutter 與後續 PIT／發布。
 
 ## P0 — Admin Data Operations MVP
 
@@ -26,7 +28,7 @@
 
 - [ ] 完整實作股票刪除 guard，涵蓋 collection config、execution、market、report、fundamental 等跨資料域引用，並在 UI 顯示各類引用數量與不可刪除原因。
 
-- [ ] 將 Admin 建立的 Analysis queued execution 接上 Mart Job；Collection queue consumer、lease recovery、terminal state、item persistence 與指定來源／日期 backfill runtime 已完成。
+- [x] 在 WBS 5 persisted Mart consumer 完成前，將 Admin Analysis action 與「Mart 分析」hidden／disabled，且不得建立無 consumer 的 queued execution；Collection queue consumer、lease recovery、terminal state、item persistence 與指定來源／日期 backfill runtime 維持可用。（2026-09-02：dev revision `janus-web-00037-g25` 的 live Playwright 與 API smoke 通過；第一階段只顯示七個資料營運分頁，Analysis POST 回 400 且 execution IDs 不變，五檔 backfill／replay／failure execution 均由 persisted worker claim 至 terminal state。）
 
 - [ ] 將 Admin 排程時間異動自動同步至 Cloud Scheduler；目前 ingestion worker、holiday override 與 Stage retention／cleanup 已讀取 control DB，cleanup 具 Core commit fence，UI 會明示排程時間仍須同步。
 
@@ -43,6 +45,40 @@
   與安全輸出；既有 dev service 通過人工 billing gate 後可直接啟動，不需逐次
   另行授權。驗收證據須記錄 revision、immutable image digest、測試 URL／時間與
   scale-to-zero 狀態；不得部署 production、提高既有限額或建立新付費資源。
+  （2026-09-02：實際 dev URL 的 live Playwright、API/runtime 與安全輸出已通過；
+  revision／digest 詳見 operations-and-testing。真人 Google login 仍未執行。）
+
+- [ ] 以既有 5 檔 canary 從 Admin 完成手動 Collection、指定日期 backfill、同日 replay、failure／retry 與 Stage cleanup；每次均可追至 execution item、Stage manifest／quarantine、Core commit fence 與 terminal status。（2026-09-02：Collection／單日 backfill、同日 replay、failure／retry 已實機通過；兩次成功 execution 各有 11 組 Stage payload／metadata／manifest、0 quarantine、1 Core commit fence，replay 為 `created=0／updated=0／reused=403`。僅剩 Stage cleanup 實機驗收。）
+
+- [ ] 5 檔 canary 由既有 Scheduler 連續 3 個交易日正常完成；expected／received／missing、8 個核准來源狀態、Core row/hash/date/null profile 與成本摘要均留下證據。
+
+- [ ] canary 通過後才擴至當日 enabled 全市場；market-scope endpoint 單次抓取並 symbol fan-out，不逐檔重複請求。
+
+- [ ] 第一階段完成定義：營運者只透過 Admin 即可設定已核准來源與核心名單、觸發／排程 Collection、查看 Stage／Core／quarantine、定位失敗並安全重跑，不需登入 GCP 或直接查資料庫。
+
+## P1（第二階段／WBS 4J）— 個人交易筆記 MVP
+
+- [ ] 建立最小 `services/api` FastAPI app，只包含 health、Google OIDC User auth boundary 與 `/api/v1/me/journal/*`；使用獨立 User OAuth client／audience，驗證 issuer／audience／expiry，以 Google `sub` 對應內部 UUID `user_id`，email 只供顯示。既有 WSGI Admin 保留至後續回歸完成。
+
+- [ ] PostgreSQL 建立隔離的 append-only trade ledger、reversal／replacement、optimistic version、idempotency key、單調遞增 `ledger_version`、user-leading indexes 與 RLS／等價 ownership guard；金額一律固定精度 decimal，不建立 outbox。
+
+- [ ] 建立 PostgreSQL ledger → Private Iceberg Core batch pipeline：依 persisted checkpoint 讀取新 `ledger_version`，冪等寫入後才推進 checkpoint，失敗可重跑；不建立 Private Stage／DataSrc。使用獨立 bucket prefix／namespace／role／retention，public、一般 Admin 與其他使用者不可讀取。
+
+- [ ] 建立 `mart_user_positions`、`mart_user_realized_pnl`、`mart_user_unrealized_pnl`、`mart_user_annual_pnl`；使用第一階段股票 master／行情 Core，MVP 成本法固定移動平均，缺價不顯示 0。
+
+- [ ] 建立 `/api/v1/me/journal/*` typed contract：新增交易、更正、歷史、持股、年度損益、匯出與刪除；身分只取自驗證內容，不接受 client 指定 `user_id`。
+
+- [ ] 實作本人 ledger 匯出與可稽核、可重試的私人資料刪除工作流；涵蓋 PostgreSQL、Private Core／Mart、cache、完成證據與依法或安全要求保留的最小 audit metadata。
+
+- [ ] 建立最小 Flutter「筆記／我的」流程；「今日／探索／個股分析」保持 coming soon／disabled，不得觸發 scraper、Agent 或 LLM。
+
+- [ ] 驗證超賣拒絕、更正事件、費稅、跨年、估值日期、重跑冪等、刪除與使用者 A／B 隔離；Private artifact 不得進 public service index。
+
+- [ ] 驗證 User／Admin audience 混用、偽造或 client 指定 `user_id` 均被拒絕，email 變更不改變資料所有權；Dev User allowlist 不得授予 Admin 權限。
+
+- [ ] 未來個人化分析只在 authenticated-user 邊界內引用公開 `mart_scoped_analysis` 的 symbol scope；不阻擋交易筆記 MVP，也不把私人交易資料寫回公開 Mart。
+
+- [ ] 不實作券商同步、自動下單、公開績效排行榜或 FIFO 切換；這些需另行法遵／會計／安全決策。
 
 ## P1 — 全市場量化網
 
@@ -64,15 +100,9 @@
 
 - [ ] 新聞／券商研究／目標價逐一完成來源授權與 provenance 審查後，才可建立 adapter 與 retention policy。
 
-- [ ] 建立 Anue／鉅亨新聞候選評估卡；10 分鐘 cadence 在授權、robots／API terms、rate limit、保存／引用／再發布及成本核准前保持 disabled。核准後使用獨立 execution、bounded overlap window、URL／content hash dedup、PIT publication time 與 entity-to-symbol evidence。
+- [ ] 未核准候選來源只保留 disabled／blocked 設定，不建立 adapter、排程或 Admin 審查 UI；取得外部授權與成本核准後另開 WBS。
 
-- [ ] 盤點 FinData-compatible 候選 repository／變體，與現有 TWSE／TPEx 法人、融資融券、持股 adapter 比對 license、維護狀態、欄位正確性與重複度；既有官方 adapter 可涵蓋時不新增依賴。
-
-- [ ] 評估 `mlouielu/twstock` 作行情 fallback／解析參考；驗證 request limit、即時資料條款、schema 與穩定性。不得直接採用其買賣點作 Core 事實，所需 MA／訊號須在 Mart 以版本化 deterministic feature 重算。
-
-- [ ] Podcast／PTT／Dcard／股市爆料同學會等另類文本先完成平台條款、PII、刪除、引用與再發布政策；未核准不得收集。
-
-- [ ] 建立文本正規化、dedup、language、published time、entity-to-symbol 與 source authority Core tables。
+- [ ] 建立文本正規化、dedup、language、published time、entity-to-symbol 與 source authority Core tables；entity-to-symbol 保留規則／模型版本、confidence、evidence 與人工覆核狀態，sentiment、buzz、AI alert 與投資判讀只寫 versioned Mart。
 
 - [ ] 驗證核心名單變更不改寫歷史 membership，移出名單後停止深度收集但保留依法可保存的歷史 provenance。
 
@@ -80,13 +110,15 @@
 
 - [ ] 建立可執行的 `intelligence_mart` package／Cloud Run Job entrypoint、bounded runtime 設定與 persisted queue claim；2026-08-31 已完成 connectivity entrypoint、1 CPU／1 GiB／300s／1 retry Job 與實機 smoke，persisted queue claim 仍待完成，Analysis 排隊成功不得視為完成。
 
+- [ ] persisted Mart consumer 完成並通過 terminal-state／retry 驗收後，才重新啟用 Admin Analysis action 與「Mart 分析」。
+
 - [ ] 建立 `core.dataset.ready.v1` → Mart 的 workflow／event trigger；只接受 ingestion 最小寫入安全檢查／Core commit 成功且帶有 execution ID、immutable Core snapshot ID 的事件，並驗證 ingestion failed／partial 不觸發、重送保持冪等。不得以同時各自排程 ingestion 與 Mart 取代依賴串接。
 
 - [ ] Mart Job 只透過 Direct VPC egress 與專用 read/write role 存取 PostgreSQL metadata；2026-08-31 已驗證 catalog／publication role 與 private path，feature／evidence payload 的 GCS／Iceberg 寫入邊界仍待實作與驗收。
 
 - [ ] 固定 Mart execution input contract：`execution_id`、`analysis_as_of`、Core snapshot ID、schema／feature／model version 與 immutable governance snapshot version；禁止 Analysis 即時補抓或改寫 Core。
 
-- [ ] 建立公開 versioned Iceberg Mart schemas：既有 screening／core alpha／risk／sentiment／memo／industry／symbol，加上 `mart_market_regime_daily`、`mart_sector_rotation_daily`、`mart_topic_trends_daily`、`mart_candidate_health` 與 `mart_daily_brief`；共用欄位涵蓋 analysis date、lineage、completeness、confidence、data quality、analysis outcome、publication status 與 evidence／artifact reference。
+- [ ] 建立公開 versioned Iceberg Mart schemas：screening／core alpha／risk／sentiment、單一 `mart_scoped_analysis`，以及 `mart_market_regime_daily`、`mart_sector_rotation_daily`、`mart_topic_trends_daily`、`mart_candidate_health` 與 `mart_daily_brief`；共用欄位涵蓋 analysis date、lineage、completeness、confidence、data quality、analysis outcome、publication status 與 evidence／artifact reference。
 
 - [ ] 建立市場狀態與每日摘要 pipeline；`mart_daily_brief` 只能組合同一 analysis-as-of 的已發布 market／sector／topic／candidate artifact，不重算上游分數。
 
@@ -94,7 +126,7 @@
 
 - [ ] 建立候選股健康度 contract：`stock_id`、`stock_name`、1–100 `mart_health_score`、受控 `chips_status`、evidence-only `ai_whitepaper_analysis`、analysis-as-of、資料狀態與 evidence references；LLM 不得計算分數。
 
-- [ ] 定義五角色 versioned prompt template contract：全域／產業／個股 scope、個股 → 產業 → 全域解析順序、draft／active／retired、effective time、reviewer、reason、optimistic version 與 audit；Mart execution 固定 resolved prompt revision IDs 至 immutable governance snapshot。
+- [ ] 定義 repository 版控的五角色固定 structured prompt contract；不提供 Admin 編輯或 scope override，Mart execution 固定 prompt version／content hash 至 immutable governance snapshot。
 
 - [ ] Fundamental features／Agent。
 
@@ -112,7 +144,7 @@
 
 - [ ] Aggregator bull／bear／contradictions／contributions。
 
-- [ ] 統一 `insufficient_data` 契約語意：作為 completeness gate 的 analysis outcome／reason，與 `PublicationStatusV1` 分欄；同步修正 `spec.md`、contracts、API／UI mapping 與 contract tests，低於 30% 或無有效分數不得進公開 index。
+- [ ] 將 contracts、API／UI mapping 與 contract tests 同步為正式文件已固定的 `insufficient_data` 語意：它是 completeness gate 的 analysis outcome／reason，與 `PublicationStatusV1` 分欄；低於 30% 或無有效分數不得進公開 index。
 
 - [ ] blocked／publishable view；只有 `publishable`／`published` 可進公開 service index。
 
@@ -120,9 +152,7 @@
 
 - [ ] deterministic rerun tests。
 
-- [ ] RAG 只檢索 analysis-as-of 可見的 Core／Mart snapshot，並以測試阻擋 future leakage。
-
-- [ ] 產業 Agent 只分析該次 immutable industry membership snapshot；指定個股 Agent 產出獨立 role payload。兩者只用 PIT 合格 evidence，並驗證 prompt revision 變更不覆寫歷史 Mart。
+- [ ] `mart_scoped_analysis` 的 industry scope 只分析該次 immutable membership snapshot；symbol scope 產出獨立 role payload。兩者只用 PIT 合格 evidence，並驗證 prompt version 變更不覆寫歷史 Mart。
 
 ## P1 — LLM
 
@@ -132,9 +162,7 @@
 
 - [ ] 禁止模型修改 score、confidence、quality、publication。
 
-- [ ] 接 Gemini，並固定 provider 優先順序為 Gemini → OpenRouter → GroqCloud。
-
-- [ ] 實作 Gemini → OpenRouter → GroqCloud 的 429／`RESOURCE_EXHAUSTED`／provider unavailable fallback。
+- [ ] 接 Gemini；429／`RESOURCE_EXHAUSTED`／provider unavailable 採 bounded retry，不接第二套 provider。
 
 - [ ] 非 429 結構化失敗。
 
@@ -146,7 +174,7 @@
 
 - [ ] 建立 GCS Mart warehouse／Iceberg namespace 與 versioned partition strategy，產製 `spec.md` 定義的公開 Mart tables；不得以固定表數掩蓋市場／板塊／話題／候選／每日摘要資料產品。
 
-- [ ] 將 feature／role／evidence／aggregation payload、model／evaluation artifact、完整結構化 report、Markdown export 與大型 governance diff 寫入 GCS；保存 object URI、snapshot ID、hash 與版本。
+- [ ] 將 feature／role／evidence／aggregation payload、model／evaluation artifact、完整結構化 report 與大型 governance diff 寫入 GCS；保存 object URI、snapshot ID、hash 與版本。
 
 - [ ] 以 migration 建立 PostgreSQL report metadata 與 publication service index；使用唯一鍵、bounded pool、statement timeout、retention 與 workload-specific role。
 
@@ -156,25 +184,9 @@
 
 - [ ] 驗證 blocked 不進 publishable view。
 
-- [ ] 驗證 publication index 可解析至正確 immutable GCS／Iceberg artifact，且 blocked／insufficient-data 成品不會被 Web／OmniForge 匯出。
+- [ ] 驗證 publication index 可解析至正確 immutable GCS／Iceberg artifact，且 blocked／insufficient-data 成品不會被公開 API／Web 讀取。
 
 - [ ] 驗證 2330 在相同 Core snapshot、governance、schema／feature／model version 下可重現 deterministic Mart；LLM 關閉時 deterministic output 不變。
-
-## P1 — 個人交易筆記與 Private Mart
-
-- [ ] PostgreSQL 建立隔離的 append-only trade ledger、reversal／replacement、optimistic version、idempotency key、user-leading indexes、RLS／等價 ownership guard 與 outbox；金額一律固定精度 decimal。
-
-- [ ] 建立 Private Stage → Private Iceberg Core pipeline，使用獨立 bucket prefix／namespace／role／retention；public、一般 Admin 與其他使用者不可讀取。
-
-- [ ] 建立 `mart_user_positions`、`mart_user_realized_pnl`、`mart_user_unrealized_pnl`、`mart_user_annual_pnl`；MVP 成本法固定移動平均，缺價不顯示 0。
-
-- [ ] 建立 `/api/v1/me/journal/*` typed contract：新增交易、更正、持股與年度損益；身分只取自驗證內容，不接受 client 指定 `user_id`。
-
-- [ ] 驗證超賣拒絕、更正事件、費稅、跨年、估值日期、重跑冪等與使用者 A／B 隔離；Private artifact 不得進 public service index 或 OmniForge export。
-
-- [ ] 實作本人 ledger 匯出與私人資料刪除工作流；涵蓋 PostgreSQL、Private Stage／Core／Mart、cache、重試、完成證據與最小 audit retention。
-
-- [ ] 不實作券商同步、自動下單、公開績效排行榜或 FIFO 切換；這些需另行法遵／會計／安全決策。
 
 ## P1 — Admin Governance／Reports
 
@@ -184,13 +196,11 @@
 
 - [ ] Report block／unblock 保存理由與 audit。
 
-- [ ] 「AI Prompt」管理五角色全域／產業／個股 revisions，提供 typed validation、resolved preview、diff、activate／retire 與歷史；保存／預覽不得直接觸發 Mart Job。
-
-- [ ] 「Mart 分析」以表格檢視產業／個股已持久化分析，支援 analysis date、industry、symbol、角色、prompt revision、analysis outcome、publication status 篩選，並可解析至 immutable Core／Mart artifact。
+- [ ] 「Mart 分析」以表格檢視 market／industry／symbol scope 的 `mart_scoped_analysis`，支援 analysis date、scope、industry、symbol、角色、prompt version、analysis outcome、publication status 篩選，並可解析至 immutable Core／Mart artifact。
 
 ## P1 — FastAPI／Flutter User
 
-- [ ] 建立 `services/api` FastAPI app，將現有 WSGI routes 逐一以 contract tests 遷移；完成 Admin／Core query 回歸後才移除 WSGI boundary。
+- [ ] 擴充 WBS 4J 的最小 `services/api` FastAPI app，將現有 WSGI routes 逐一以 contract tests 遷移；完成 Admin／Core query 回歸後才移除 WSGI boundary。
 
 - [ ] 分離 `/api/v1/public/*`、`/api/v1/me/*`、`/api/v1/admin/*` 的 router、response model、auth、CORS、rate limit、IAM 與 audit。
 
@@ -217,8 +227,6 @@
 - [ ] 交易筆記 UI 支援新增、更正、歷史篩選、持股與年度損益；正式成本／損益只讀 Private Mart，不在 Flutter 重算。
 
 - [ ] 全市場 screening 與核心標的深度頁分流；顯示 coverage、freshness、來源健康與資料不足。
-
-- [ ] 情緒溫度計、多空雷達圖與風險紅綠燈只顯示後端 versioned Mart，前端不得自行計分。
 
 ## P1 — 全系統自動化測試
 
@@ -281,20 +289,6 @@
 - [ ] incident runbook。
 
 - [ ] production 人工批准。
-
-## P3 — OmniForge／PodBrief
-
-- [ ] 只從 publishable Mart／service index 匯出 report 的 Markdown exporter；不得掃描 PostgreSQL control/catalog 或將大 payload 複製回 Free Tier VM。
-
-- [ ] YAML schema validator。
-
-- [ ] 小白／一般／分析師／Auditor 四階視圖。
-
-- [ ] 雙鏈與標籤。
-
-- [ ] Podcast 授權與保存政策。
-
-- [ ] 逐字稿、時間碼與摘要 provenance。
 
 ## P4 — UI 驗收後的資料品質強化（最後執行）
 

@@ -47,7 +47,8 @@ class _Admin:
         return {"execution_id": "collection-1", "config_id": config_id, "requested_symbols": symbols, "request_options": request_options or {}, "status": "queued"}
 
     def enqueue_analysis(self, config_id, symbols=None, *, trace_id=None):
-        return {"execution_id": "analysis-1", "config_id": config_id, "requested_symbols": symbols, "status": "queued"}
+        from packages.admin_api import AdminValidationError
+        raise AdminValidationError("analysis is unavailable until its persisted consumer is enabled")
 
     def source_health(self, *, limit=200):
         return ({"source_id": "twse", "dataset_id": "ohlcv", "success_rate": 1.0, "last_state": "success"},)
@@ -134,13 +135,15 @@ class WebServerTests(unittest.TestCase):
         self.assertEqual(status, "200 OK")
         self.assertEqual(body["symbol"], "2330")
 
-    def test_collection_and_analysis_are_separate_queue_routes(self):
+    def test_collection_queues_and_analysis_is_rejected(self):
         admin = _Admin()
-        for kind in ("collection", "analysis"):
-            status, body = self.request(f"/api/v1/admin/executions/{kind}", method="POST", body={"config_id": "ohlcv", "symbols": ["2330"]}, admin=admin)
-            self.assertEqual(status, "202 Accepted")
-            self.assertEqual(body["status"], "queued")
-            self.assertTrue(body["execution_id"].startswith(kind))
+        status, body = self.request("/api/v1/admin/executions/collection", method="POST", body={"config_id": "ohlcv", "symbols": ["2330"]}, admin=admin)
+        self.assertEqual(status, "202 Accepted")
+        self.assertEqual(body["status"], "queued")
+
+        status, body = self.request("/api/v1/admin/executions/analysis", method="POST", body={"config_id": "ohlcv", "symbols": ["2330"]}, admin=admin)
+        self.assertEqual(status, "400 Bad Request")
+        self.assertIn("persisted consumer", body["error"])
 
         status, body = self.request("/api/v1/admin/executions/collection", method="POST", body={"config_id": "ohlcv", "symbols": ["2330"], "options": {"start_date": "2026-08-24", "end_date": "2026-08-28", "source_ids": ["twse"]}}, admin=admin)
         self.assertEqual(status, "202 Accepted")

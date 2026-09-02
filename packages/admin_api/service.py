@@ -89,7 +89,7 @@ class AdminService:
         ))
 
     def enqueue_analysis(self, config_id: str, symbols: tuple[str, ...] | None = None, *, trace_id: str | None = None) -> dict[str, Any]:
-        return self._execution(self.control.enqueue_analysis(config_id, symbols, trace_id=trace_id))
+        raise AdminValidationError("analysis is unavailable until its persisted consumer is enabled")
 
     def membership(self, coverage_tier: str, *, as_of: datetime | None = None) -> tuple[dict[str, Any], ...]:
         return tuple({"coverage_tier": item.coverage_tier.value, "symbol": item.symbol, "effective_from": item.effective_from.isoformat(), "effective_to": item.effective_to.isoformat() if item.effective_to else None, "reason": item.reason, "owner": item.owner} for item in self.control.coverage_membership(coverage_tier, as_of=as_of))

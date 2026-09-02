@@ -179,18 +179,18 @@ async function openStatus(stock) {
   catch (error) { showNotice(error.message, true); }
 }
 
-async function enqueue(kind) {
+async function enqueueCollection() {
   const configId = byId("config-id").value.trim();
   if (!configId) return showNotice("請輸入設定 ID", true);
   if (!state.selected.size) return showNotice("請先選取至少一檔股票", true);
   try {
     const payload = { config_id: configId, symbols: [...state.selected] };
-    if (kind === "collection") payload.options = {
+    payload.options = {
       start_date: byId("backfill-start").value, end_date: byId("backfill-end").value,
       source_ids: byId("backfill-sources").value.split(/[\s,]+/).filter(Boolean),
     };
-    const execution = await request(`/api/v1/admin/executions/${kind}`, { method: "POST", body: JSON.stringify(payload) });
-    showNotice(`${kind === "collection" ? "Collection" : "Analysis"} 已加入佇列：${execution.execution_id}`);
+    const execution = await request("/api/v1/admin/executions/collection", { method: "POST", body: JSON.stringify(payload) });
+    showNotice(`Collection 已加入佇列：${execution.execution_id}`);
     await loadExecutions();
   } catch (error) { showNotice(error.message, true); }
 }
@@ -404,8 +404,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   byId("next-page").addEventListener("click", () => { if (state.stockNext) { state.stockPage += 1; state.stockCursors[state.stockPage] = state.stockNext; loadStocks(); } });
   byId("select-page").addEventListener("change", (event) => { state.stocks.forEach((stock) => event.target.checked ? state.selected.add(stock.symbol) : state.selected.delete(stock.symbol)); selectionChanged(); renderStocks(); });
   byId("clear-selection").addEventListener("click", () => { state.selected.clear(); renderStocks(); });
-  byId("queue-collection").addEventListener("click", () => enqueue("collection"));
-  byId("queue-analysis").addEventListener("click", () => enqueue("analysis"));
+  byId("queue-collection").addEventListener("click", enqueueCollection);
   byId("refresh-executions").addEventListener("click", loadExecutions);
   byId("prev-execution-page").addEventListener("click", () => { if (state.executionPage > 0) { state.executionPage -= 1; loadExecutions(); } });
   byId("next-execution-page").addEventListener("click", () => { if (state.executionNext) { state.executionPage += 1; state.executionCursors[state.executionPage] = state.executionNext; loadExecutions(); } });

@@ -1,6 +1,6 @@
-# Janus × OmniForge — Project Specification
+# Janus — Project Specification
 
-版本：1.3
+版本：1.7
 日期：2026-08-31
 狀態：資料產品優先、GCP-first、DuckDB／Iceberg 與資料源雙軌基線
 
@@ -8,19 +8,26 @@
 
 建立以台股為主的湖倉型智慧投資研究平台：將官方與核准 fallback 資料寫入 GCS Stage，經內嵌 DuckDB／PyIceberg 清理為 Iceberg Core，再由 deterministic features、ML、五角色 Agent 與 LLM 解釋層產製 Mart。產品先回答六個問題：現在市場是什麼狀態、今日重點是什麼、哪些板塊在變化、資金往哪裡輪動、哪些話題升溫，以及候選股為什麼值得進一步研究。
 
-User App 與 Admin UI 是兩個獨立入口。Flutter User App 只讀取符合發布政策的公開 Mart 成品，並以「股市小白」能理解的白話文呈現；Admin Web 用於資料營運、治理、執行與發布審查。兩者均經 FastAPI 契約取用已持久化資料，不直讀 Stage，也不在 request 內觸發即時爬取、Agent 或 LLM。
+User App 與 Admin UI 是兩個獨立入口。Flutter 的公開研究頁只讀取符合發布政策的公開 Mart 成品，私人交易筆記只讀取 authenticated user 的 ledger／Private Mart；Admin Web 用於資料營運、治理、執行與發布審查。兩者均經 FastAPI 契約取用已持久化資料，不直讀 Stage，也不在 request 內觸發即時爬取、Agent 或 LLM。
 
-個人交易筆記是 User App 的私人功能：PostgreSQL 事件帳本保存使用者手動輸入的交易事實，再以受限制的 Private Stage → Private Iceberg Core → Private Mart 計算庫存、成本與損益。私人資料不得進公開 Mart／service index、話題、排行榜或他人的分析。
+個人交易筆記是 User App 的私人功能：PostgreSQL append-only ledger 保存使用者手動輸入的交易事實、冪等鍵與單調遞增 `ledger_version`。受限制的 private pipeline 依 persisted checkpoint 批次讀取新版本，直接正規化至 Private Iceberg Core，再由 Private Mart 計算庫存、成本與損益；同步失敗可從最後成功 checkpoint 重跑，不另建 outbox。保留 Private Iceberg Core 是為了可重算的交易歷史，以及未來在 authenticated-user 邊界內整合個股分析；不建立 Private Stage／DataSrc。私人資料不得進公開 Mart／service index、話題、排行榜或他人的分析。
 
 資料供應採雙軌策略：以全市場約 1,700–2,000 檔的低成本日頻資料作為篩選大網，再對最多 50 檔由 control DB 明確啟用的核心標的收集較高頻、文本與另類資料。實際檔數以當日股票 master 與市場狀態為準，不以固定常數代表完整市場。
 
 系統是研究、風險提示與手動交易筆記工具，不是自動下單、券商帳戶同步、持牌投顧或保證獲利服務。
+
+### 1.1 交付順序
+
+1. 第一階段只完成 Dev Stage → Core → Admin Data Operations MVP。Admin 必須能管理已核准來源與核心名單、觸發 Collection／backfill、同步排程、查看 execution／Stage／Core／quarantine 結果並安全重跑；Mart、LLM、Flutter 公開研究頁與 Analysis queue 不在此階段。
+2. 第一階段先以 5 檔 canary 驗證，連續 3 個交易日正常完成後才擴至全市場。完成條件是營運者不登入 GCP 或直接查資料庫，也能只透過 Admin 完成日常資料營運與失敗定位。
+3. 第二階段可獨立交付個人交易筆記 MVP：使用第一階段的股票 master 與行情 Core，先完成 authenticated ledger、Private Iceberg Core、持股／損益、匯出／刪除及最小 Flutter「筆記／我的」流程；「今日／探索」保持 coming soon。個人化個股分析等公開 `mart_scoped_analysis` 完成後再串接，不阻擋交易筆記先成形。
 
 ## 2. 已確認的架構決策
 
 - 從第一天起在 GCP 開發、測試與部署，不以地端 runtime 為必要條件。
 - 一個 GitHub monorepo，市場資料、智慧 Mart、私人帳本、API、User 與 Admin 保持清楚邊界；Core query 能力由 Job／API 各自內嵌的 DuckDB runtime 提供。
 - User 與 Admin 前端分離：`apps/user_app` 為 Flutter + Material 3；現有 `apps/web` 專注 Admin Web，不在 User App 暴露 Admin 導覽或管理功能。
+- Dev User authentication 固定使用 Google OIDC／Google Sign-In，使用獨立於 Admin 的 OAuth client／audience。API 驗證 issuer、audience、expiry，並以 `(provider="google", subject=sub)` 對應內部 UUID `user_id`；email 只供顯示，不作所有權鍵。Dev 可另加 User allowlist，不建立自有密碼系統。
 - `services/api` 以 FastAPI 提供 public、private-journal 與 Admin API router；共用 service／repository 時仍使用不同路由、response model、認證、CORS、IAM 與 audit 邊界。現有 WSGI boundary 保留至 FastAPI 回歸測試完成後移除。
 - GCS + Iceberg + DuckDB／PyIceberg 是資料主架構；DuckDB 不作為獨立持久資料庫。
 - PostgreSQL 保存 Iceberg catalog、控制、治理、execution、publication、audit、服務索引與私人交易事件帳本；市場 raw payload 與完整 Mart payload 仍不進 PostgreSQL。
@@ -28,7 +35,7 @@ User App 與 Admin UI 是兩個獨立入口。Flutter User App 只讀取符合�
 - `e2-micro` 僅承載 PostgreSQL，不承載 DuckDB 分析工作；DuckDB 內嵌於 Cloud Run Job／Service process，暫存與記憶體限制由各 runtime 獨立管理。
 - 開發／重構期最低有效完整度為 30%；正式發布門檻日後依 PIT 回測與人工治理調整。
 - LLM 只做提取、摘要、解釋與白話轉譯；不計算或修改 deterministic 分數、不補值、不決定發布。
-- 第一版 LLM provider 使用順序固定為：Gemini → OpenRouter → GroqCloud；取消 Vertex AI。僅在可重試的 rate limit、quota exhaustion 或 provider unavailable 情況切換下一個 provider；非 429／`RESOURCE_EXHAUSTED` 的結構化錯誤不得以其他 provider 靜默改寫結果。
+- 第一版 LLM provider 只使用 Gemini。429／`RESOURCE_EXHAUSTED`／provider unavailable 採 bounded retry，仍失敗則本次 LLM 結構化失敗，不引入第二套 provider 契約。
 - Cloud Run Service 全部 `min-instances=0`；寫入 Core 的 ingestion Job 單 task 執行，API／query runtime 對 Core 採 read-only。
 - Artifact Registry 可由 source deploy／Cloud Build 自動管理，但底層仍需保存容器映像。
 - Artifact Registry 僅使用 image、digest、metadata 與 cleanup；禁止 Artifact Analysis API、Container Scanning API、vulnerability scanning 與 occurrence API。SBOM 僅可離線產生，不以掃描結果作為 build gate。
@@ -84,8 +91,8 @@ flowchart TD
     K --> M["Flutter User App"]
     K --> N["Admin Web"]
     M -->|"manual journal"| K
-    K --> O["PostgreSQL private ledger / outbox"]
-    O --> P["Private Stage / Iceberg Core / Mart"]
+    K --> O["PostgreSQL private ledger"]
+    O --> P["Private Iceberg Core / Mart"]
     P --> K
     F --> L["Read-only DuckDB query instance"]
     L --> K
@@ -99,9 +106,9 @@ flowchart TD
 |---|---|---|---|---|
 | Stage／Bronze | 原始 JSON、CSV、受控物件 | 保存來源原貌、request metadata、hash | ingestion-core | ingestion-core、治理稽核 |
 | Core／Silver | Iceberg／Parquet | 正規化、去重、單位、日期、null、PIT、provenance、文本與股票代號關聯 | ingestion-core／DuckDB／PyIceberg | intelligence-mart、read-only query runtime |
-| Mart／Gold | Iceberg／Parquet、Markdown export | 特徵、角色輸出、聚合、研報、評估 | intelligence-mart | FastAPI、User、Admin、OmniForge |
-| Private ledger | PostgreSQL append-only events | 使用者手動交易、修正、所有權與 outbox | private-journal API | 該使用者、private pipeline |
-| Private Stage／Core／Mart | 加密受限物件、Iceberg／Parquet | 可重算的交易正規化、庫存、已實現／未實現與年度損益 | private pipeline | 該使用者的 API，不得公開 |
+| Mart／Gold | Iceberg／Parquet | 特徵、角色輸出、聚合、研報、評估 | intelligence-mart | FastAPI、User、Admin |
+| Private ledger | PostgreSQL append-only events | 使用者手動交易、修正、冪等、所有權與 `ledger_version` | private-journal API | 該使用者、private pipeline |
+| Private Core／Mart | 加密受限 Iceberg／Parquet | 可重算的交易正規化、庫存、已實現／未實現、年度損益與未來個股分析整合 | private pipeline | 該使用者的 API，不得公開 |
 
 規則：
 
@@ -151,13 +158,7 @@ flowchart TD
 
 任何候選來源在完成 legal／license、robots／API terms、rate limit、retention、PII、可引用範圍與成本核准前，狀態必須是 `candidate`／`blocked`，不得進 production collection 或公開 UI。
 
-候選 adapter 的審查入口固定為 Admin「資料營運中心 → 資料源設定」。審查紀錄必須持久化於 control／audit metadata，至少保存 adapter 與 upstream 版本、授權／條款證據、robots／API policy、rate limit、穩定性量測、與既有來源的欄位及內容重複度、retention／刪除／再發布範圍、成本、安全風險、reviewer、決策時間、理由與 optimistic version。只有 `official`／`approved_fallback` 可被啟用或排程；`candidate`／`blocked` 即使已填入 cadence 亦不得執行。
-
-首批待審查候選：
-
-- Anue／鉅亨新聞 adapter：目標為台股與國際總經新聞增量收集；10 分鐘僅為候選 cadence，須在授權、robots／API terms、rate limit、保存與引用範圍核准後才可啟用。採 overlap window、URL／content hash 去重，保留 `published_at` 與 entity-to-symbol evidence。
-- FinData-compatible adapter：指定 repository／變體尚未封版；先比較其 TWSE／TPEx 法人、融資融券及持股資料與既有官方 adapter 的覆蓋、正確性及重複度。能由既有官方 adapter 補齊時不新增依賴。
-- `mlouielu/twstock` adapter：只作 TWSE／TPEx 行情 fallback／解析參考候選，須遵守 upstream request limit；其 MA／買賣點不得直接當成 Core 來源事實，若採用須在 Mart 以有版本的 deterministic feature 重新計算。
+未核准的候選來源只保留為 disabled／blocked 設定，不建立 adapter、排程或 Admin 審查 UI。取得外部授權與成本核准後，另開 WBS 定義最小審查證據與實作範圍；只有 `official`／`approved_fallback` 可被啟用。
 
 ## 7. Provenance 與時間
 
@@ -215,9 +216,7 @@ quality_details: object
 - `mart_core_alpha`：核心 50 的基本面、事件、核准新聞與另類資料綜合特徵。
 - `mart_risk_portfolio`：波動、回撤、流動性、滑價與信用風險；不直接執行交易。
 - `mart_alternative_sentiment`：核准文本的聲量、情緒、來源分布與不確定性；不得把無來源模型判讀當作事實。
-- `mart_master_investment_memo`：彙整五角色、screening、risk 與 sentiment evidence 的 CIO 觀點。
-- `mart_industry_analysis`：按產業與 analysis-as-of 保存產業範圍、成分股 membership snapshot、五角色產業結論、共通／分歧 evidence、風險與產業摘要。
-- `mart_symbol_analysis`：按指定個股與 analysis-as-of 獨立保存五角色輸出、使用的 prompt revision、evidence、缺失資料及分析結果，供 Admin 檢視與後續調整；CIO 聚合成品仍由 `mart_master_investment_memo` 保存。
+- `mart_scoped_analysis`：以 `scope_type`（market／industry／symbol）與 `scope_id` 保存五角色輸出、screening／risk／sentiment 摘要、aggregate score、bull／bear、contradictions、contributions、Devil's Advocate 反證、evidence、缺失資料、prompt version 與 CIO 結構化摘要；產業 scope 另保存 membership snapshot。未來私人個股整合由 Private Mart 保存對公開 symbol-scope artifact 的 reference／overlay，不把私人交易資料寫入公開 Mart。
 - `mart_market_regime_daily`：每日市場狀態、資料日期、多空依據、總經／流動性風險與 confidence；狀態字彙固定且可版本化。
 - `mart_sector_rotation_daily`：產業 membership snapshot、5 日法人買超力道、力道變化、20 日成交金額與「漲潮／輪動／觀望／退潮」等 deterministic 狀態；供排行與選用泡泡圖讀取。
 - `mart_topic_trends_daily`：核准文本來源的熱門話題、相關產業／股票、聲量變化、來源分布、不確定性與 evidence。
@@ -246,7 +245,7 @@ evidence_refs: string[]
 
 五角色：Fundamental、Valuation Risk、Positioning、Quant、Event Risk。
 
-每個角色的 system／task prompt 由 Admin 管理 versioned template；支援全域角色預設及選用的產業／個股 override，解析優先序為個股 → 產業 → 全域。revision 具 `draft`／`active`／`retired` 狀態、effective time、變更理由、reviewer、optimistic version 與 audit。Mart execution 啟動時把實際 prompt revision ID 固定進 immutable governance snapshot；修改 prompt 不得改寫歷史結果。prompt 只能要求 evidence-grounded structured output，不得注入 secret、未核准來源或解除 Validator／publication policy。
+每個角色使用 repository 版控的固定 structured prompt；不提供 Admin 編輯、產業或個股 override。Mart execution 把 prompt version／content hash 固定進 immutable governance snapshot，修改只影響新 execution。prompt 只能要求 evidence-grounded structured output，不得注入 secret、未核准來源或解除 Validator／publication policy。
 
 主要規則：
 
@@ -256,7 +255,6 @@ evidence_refs: string[]
 - Event Risk：只納入 PIT 合格事件；可觸發 manual review。
 - 參考停損 `last_close - 2 × ATR(14)`，只作風險參考。
 - Devil's Advocate 是 Aggregator 的強制反證階段，不是第六個可自行補資料的角色；必須引用既有 evidence。
-- 歷史記憶／RAG 只可檢索 analysis-as-of 當時可見的 versioned Core／Mart snapshot，禁止 future leakage。
 
 ## 10. Aggregator 與發布治理
 
@@ -273,14 +271,16 @@ effective_weight = base_weight × completeness × confidence × data_quality / 1
 
 發布矩陣：
 
-| 條件 | publication status |
-|---|---|
-| FUTURE_DATA／INVALID_SOURCE_URL／MISSING_CRITICAL_SOURCE | blocked |
-| manual_review_required=true | blocked |
-| critical event | blocked |
-| high event 且 risk score ≥75 | blocked |
-| completeness <30% 或無有效分數 | insufficient_data |
-| 驗證及政策通過 | publishable |
+| 條件 | analysis outcome | `PublicationStatusV1` |
+|---|---|---|
+| FUTURE_DATA／INVALID_SOURCE_URL／MISSING_CRITICAL_SOURCE | invalid | blocked |
+| manual_review_required=true | review_required | blocked |
+| critical event | risk_blocked | blocked |
+| high event 且 risk score ≥75 | risk_blocked | blocked |
+| completeness <30% 或無有效分數 | insufficient_data | blocked |
+| 驗證及政策通過 | complete | publishable |
+
+`insufficient_data` 只屬 analysis outcome／reason，不是 publication lifecycle 狀態；只有 `publishable`／`published` 可進公開 service index。
 
 所有權重與門檻除已核准發布政策外，均視為開發期保守設定；正式值須 PIT 回測與人工 revision。
 
@@ -301,12 +301,15 @@ effective_weight = base_weight × completeness × confidence × data_quality / 1
 - Admin 只寫 control DB／queue，不在 request 中執行長任務。
 - Admin「資料營運中心」保留為資料操作入口；`/admin/stocks` 右側一次只呈現一個分頁面板，不把所有管理功能同時展開。
 - 股票資料狀態以可排序、篩選、分頁的欄列表格呈現，不以原始 JSON 作主要 UI；巢狀 DQ／quarantine／execution 明細亦轉為子表或定義清單。
-- Admin 可版本化管理五角色 prompt，並按產業／個股檢視已持久化的 `mart_industry_analysis`／`mart_symbol_analysis`；預覽或讀取不得觸發即時 Agent。
+- 第一階段只開放 Collection／backfill；Analysis action 與「Mart 分析」必須 hidden／disabled，且不得建立無 consumer 的 queued execution。完成 Mart persisted queue consumer 後才啟用。
+- Admin 可按 market／industry／symbol scope 檢視已持久化的 `mart_scoped_analysis`；讀取不得觸發即時 Agent。Prompt 由 repository 版控，不提供 Admin 編輯。
 - blocked report、raw payload、secret、traceback、broker data 不得公開。
 - User App 主頁以 `mart_daily_brief` 為唯一首屏資料入口；個股健檢讀取 `mart_candidate_health` 與可定位 evidence，前端不重算健康度。
 - `/api/v1/me/journal/*` 只允許讀寫 authenticated user 自己的 ledger。所有 query 與 index 以 `user_id` 作為所有權邊界；不接受 client 指定他人 `user_id`。
-- User 可匯出自己的交易 ledger 與要求刪除私人資料；刪除採可稽核、可重試的非同步流程，涵蓋 PostgreSQL ledger、Private Stage／Core／Mart 與 service cache，且不影響依法或安全要求保留的最小 audit metadata。
+- User token 只接受 User OAuth audience 並只授權 `/api/v1/me/*`；不得用於 `/api/v1/admin/*`。Admin token／session 亦不因具管理權限而取得一般交易內容讀取能力。
+- User 可匯出自己的交易 ledger 與要求刪除私人資料；刪除採可稽核、可重試的非同步流程，涵蓋 PostgreSQL ledger、Private Core／Mart 與 service cache，且不影響依法或安全要求保留的最小 audit metadata。
 - 交易日誌／PnL 納入私人 MVP；市場投票排行榜、遊戲化、付費、公開績效排名與券商同步不在當前範圍。
+- 個人交易筆記可在公開 Mart／LLM 前獨立上線至 dev；未完成的「今日／探索／個股分析」只顯示 coming soon，不得因此觸發即時分析或阻擋筆記功能。
 - UI 詳細契約見 `ui.md`。
 
 ## 13. GCP 開發與 CI/CD
@@ -358,7 +361,7 @@ Schema evolution、migration、backfill、production Job trigger 不得隨 API�
 - PIT 無 future leakage；排除樣本有原因與 provenance ID。
 - blocked 不進公開 latest／history；查無資料不即時運算。
 - 兩個 Job、FastAPI、Admin Web、User App 與各內嵌 DuckDB runtime 的 IAM、timeout、retry、監控與 rollback 通過。
-- 全市場日頻與核心 50 membership／cadence 邊界通過驗證；未核准的高頻、新聞、Podcast 或社群來源保持 disabled／blocked。
+- 全市場日頻與核心 50 membership／cadence 邊界通過驗證；未核准的高頻、新聞或社群來源保持 disabled／blocked。
 - pytest、FastAPI contract tests、Flutter analyze／test、Vitest、Playwright、TypeScript、production build 通過。
 - iOS Safari、Android Chrome、iPad Safari、VoiceOver、TalkBack、WCAG AA 實機通過。
 - 無 secret、raw payload、敏感 URL、未授權來源外洩。

@@ -73,6 +73,12 @@ class AdminServiceTests(unittest.TestCase):
         with self.assertRaises(AdminValidationError):
             self.admin.enqueue_collection("ohlcv", ("2330",), request_options={"start_date": "2026-08-24"})
 
+    def test_analysis_is_rejected_without_creating_an_execution(self):
+        before = self.admin.executions()
+        with self.assertRaisesRegex(AdminValidationError, "persisted consumer"):
+            self.admin.enqueue_analysis("ohlcv", ("2330",))
+        self.assertEqual(self.admin.executions(), before)
+
     def test_retention_bounds(self):
         with self.assertRaises(AdminValidationError):
             self.admin.save_setting("retention", {"days": 0, "cleanup_enabled": True}, actor="operator")

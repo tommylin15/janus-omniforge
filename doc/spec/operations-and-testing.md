@@ -1,20 +1,49 @@
 # Operations and testing
 
-最新驗證日期：2026-08-31
+最新驗證日期：2026-09-02
 
-最新完整本機驗證：`python -m pytest -q tests` 為 98 tests passed，Python compileall
-passed；同日既有 Vitest 2/2、Playwright Admin interaction 5/5、TypeScript typecheck、
-ESLint 與 static Web production build 驗證仍為 passed。Playwright 測試 worker 會自行啟停本地 HTTP
-server，5 項測試完成後 clean exit 0。Repository root 的未追蹤 `token-savior/` 是
-獨立工具，已排除於本專案 ESLint；pytest 固定以正式 `tests/` 為界。真人 Google
-login 未執行。Windows
-PowerShell 執行 Node.js 指令須使用 `npm.cmd`／`npx.cmd`，不得為避免 `.ps1`
-ExecutionPolicy 阻擋而放寬系統政策。Web runtime 已加入 Google allowlist
-session、不可由 request body 偽造的
-authenticated audit actor、Web 專用 control/catalog role migration，以及不建立
-namespace 的 read-only catalog reader。Dev migration、credential 切換與 Cloud Run
-實機 role isolation 已完成；真人 Google 帳號登入及 OAuth Console redirect URI
-仍需一次人工確認。
+最新完整本機驗證：targeted Python 22/22、Vitest 2/2、Playwright 5/5；完整
+`python -m pytest -q tests` 105/105、Python compileall、完整 Vitest 2/2、Playwright
+5/5、TypeScript typecheck、ESLint、Web production build 與 `git diff --check`
+passed。Windows Node 指令均使用 `npm.cmd`／`npx.cmd`，未啟動 WSL。真人 Google
+login 仍未執行。
+
+## P0 WBS 3 第一個可獨立驗收切片（2026-09-02）
+
+Web build `311b584b-82f7-4b4b-9277-1737d9f159f9` 成功；dev revision
+`janus-web-00037-g25` 使用 immutable image
+`sha256:90dd2684a4b23c7d14c91b9113b9bd9c57c0550b07bbcc9e3405aa56555b5d44`，
+實際 URL `https://janus-web-2oo7qbkd5q-uc.a.run.app`。2026-09-02
+10:47–11:40（Asia/Taipei）以短效合成 session 完成 live Playwright：390px
+responsive、恰有七個資料營運 tabs、Collection 可見，Analysis action／Mart／AI
+Prompt 不存在；Analysis API 回 400 且 execution IDs 前後不變。HTML／Admin API responses 未出現 raw payload、object
+URI、secret、完整 upstream error 或 traceback。Admin status／execution／source
+health 查詢前後 persisted source health 完全相同，證明查詢未呼叫上游。
+
+ingestion dev image 為
+`sha256:673d74bd2da1798f7d581e45e1142deb986ed284950a4ea7f8ffe63642aa1186`。
+五檔 `1102／2327／2330／2381／4958` 的 2026-08-28 單日 backfill execution
+`312bcec0-453f-46eb-9caf-2bd633d23edb` 由 Cloud Run execution
+`janus-ingestion-core-g26kr` claim，4m32.71s 後 succeeded：8 個來源、11 個 Stage
+payload、11 metadata、11 manifest、0 quarantine、1 Core commit fence，
+`failed=0／empty=1／created=0／updated=114／reused=289`。Admin detail 為 12 個
+success／fallback／合法 empty items，安全訊息只包含 `Core committed` 或
+`source returned no rows`；五檔股票 status 均可查，2381 當次 persisted row count
+為 0，未在 UI 補值或誤報成功。
+
+同日 replay execution `ac61b175-01cf-456b-982a-6c5e33fa9b53` 由
+`janus-ingestion-core-8cvrh` claim，4m58.22s 後 succeeded；Stage／fence 數量相同，
+`created=0／updated=0／reused=403`，證明 replay 未增加 natural-key rows。null 不覆蓋
+有效值由完整 pytest 的 null-preserving merge regression 通過。受控 failure execution
+`cfd83043-c8aa-4ce8-bff9-8cc3ab34b881` 經既有一次 retry 後為 `failed`、
+`retry_count=2`、`error_code=COLLECTION_FAILED`，Admin response 無 traceback 或完整
+error，未誤標成功；partial item 狀態由 framework regression 驗證。
+
+Web 設定維持 `minScale=0`；Cloud Monitoring 03:27Z 顯示 active instance 0、idle
+instance 1，尚待 idle instance 歸零後補齊實際 scale-to-zero 證據。本切片其餘條件
+只剩 Stage cleanup 實機驗收；連續 3 個交易日 Scheduler、完整 DQ 校準與其他 WBS
+仍未宣稱完成。未部署 production、未建立新資源或提高限額，且未呼叫 Artifact
+Analysis／Container Scanning／occurrence API。
 
 ## P0 Iceberg schema evolution tests (2026-08-31)
 
