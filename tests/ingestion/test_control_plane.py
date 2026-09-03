@@ -143,6 +143,22 @@ class ControlPlaneTests(unittest.TestCase):
         self.control.set_coverage_membership("core_focus", ("2330",), effective_from=second, reason="narrowed research set", owner="research")
         self.assertEqual(tuple(item.symbol for item in self.control.coverage_membership("core_focus", as_of=first)), ("2317", "2330"))
         self.assertEqual(tuple(item.symbol for item in self.control.coverage_membership("core_focus", as_of=second)), ("2330",))
+        self.assertEqual(self.control.coverage_membership_revision("core_focus"), (2, second))
+        audit = self.control.admin_audit()[0]
+        self.assertEqual((audit["resource"], audit["actor"], audit["detail"]["version"]), ("coverage_membership", "research", 2))
+        self.assertEqual(audit["detail"]["removed"], ["2317"])
+        with self.assertRaisesRegex(ControlPlaneError, "version conflict"):
+            self.control.set_coverage_membership("core_focus", ("2330",), effective_from=second + timedelta(days=1), reason="stale edit", owner="research", expected_version=1)
+
+    def test_core_worker_uses_only_latest_effective_membership(self):
+        now = datetime.now(timezone.utc)
+        config = CollectionConfig("core-deep", "financials", ("mops",), frozenset({"symbol"}), coverage_tier="core_focus")
+        self.control.put_collection_config(config, ())
+        self.control.set_coverage_membership("core_focus", ("2317", "2330"), effective_from=now - timedelta(hours=2), reason="initial", owner="operator", expected_version=0)
+        self.control.set_coverage_membership("core_focus", ("2330",), effective_from=now - timedelta(hours=1), reason="remove 2317", owner="operator", expected_version=1)
+        self.control.set_coverage_membership("core_focus", ("2317",), effective_from=now + timedelta(hours=1), reason="future rotation", owner="operator", expected_version=2)
+        self.assertEqual(self.control.config_symbols("core-deep"), ("2330",))
+        self.assertEqual(self.control.enqueue_collection("core-deep").requested_symbols, ("2330",))
 
     def test_core_focus_rejects_more_than_fifty_symbols(self):
         for index in range(51):

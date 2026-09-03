@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-from http.cookies import SimpleCookie
 import hashlib
 import hmac
 import html
@@ -188,13 +187,11 @@ class GoogleAuthMiddleware:
 
     @staticmethod
     def _cookie(environ: dict[str, Any], name: str) -> str | None:
-        cookie = SimpleCookie()
-        try:
-            cookie.load(environ.get("HTTP_COOKIE", ""))
-        except Exception:
-            return None
-        morsel = cookie.get(name)
-        return morsel.value if morsel else None
+        for part in str(environ.get("HTTP_COOKIE", "")).split(";"):
+            key, separator, value = part.strip().partition("=")
+            if separator and key == name:
+                return value
+        return None
 
     @staticmethod
     def _b64(value: bytes) -> str:
@@ -210,11 +207,12 @@ class GoogleAuthMiddleware:
         script_nonce = html.escape(nonce, quote=True)
         return f"""<!doctype html>
 <html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Janus Admin 登入</title><script nonce="{script_nonce}">async function handleGoogleCredential(response){{const csrf="{csrf}";const body=new URLSearchParams({{credential:response.credential,g_csrf_token:csrf}});try{{const result=await fetch("/auth/google",{{method:"POST",headers:{{"Content-Type":"application/x-www-form-urlencoded","X-Janus-CSRF":csrf}},credentials:"same-origin",body}});const value=await result.json();if(result.ok&&value.redirect){{window.location.assign(value.redirect);return;}}document.getElementById("login-error").textContent=value.error||"登入失敗";}}catch(error){{document.getElementById("login-error").textContent="登入服務暫時無法使用";}}}}</script><script src="https://accounts.google.com/gsi/client" async defer></script>
-<style>html{{color-scheme:dark}}body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#07101d;color:#edf5ff;font-family:system-ui,sans-serif}}main{{width:min(28rem,calc(100% - 2rem));padding:2rem;border:1px solid #263950;border-radius:18px;background:#0d1929;box-shadow:0 24px 70px #0008}}.brand{{letter-spacing:.18em;color:#63d3ff;font-weight:700}}h1{{margin:.8rem 0}}p{{color:#a9b9ca;line-height:1.6}}.signin{{margin-top:1.5rem;min-height:44px}}</style></head>
+<title>Janus Admin 登入</title><script nonce="{script_nonce}">function setLoginPending(pending){{document.querySelector(".signin").hidden=pending;document.getElementById("login-status").hidden=!pending;}}async function handleGoogleCredential(response){{setLoginPending(true);document.getElementById("login-error").textContent="";const csrf="{csrf}";const body=new URLSearchParams({{credential:response.credential,g_csrf_token:csrf}});try{{const result=await fetch("/auth/google",{{method:"POST",headers:{{"Content-Type":"application/x-www-form-urlencoded","X-Janus-CSRF":csrf}},credentials:"same-origin",body}});const value=await result.json();if(result.ok&&value.redirect){{window.location.replace(value.redirect);return;}}document.getElementById("login-error").textContent=value.error||"登入失敗，請再試一次";}}catch(error){{document.getElementById("login-error").textContent="登入服務暫時無法使用";}}setLoginPending(false);}}</script><script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>html{{color-scheme:dark}}body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#07101d;color:#edf5ff;font-family:system-ui,sans-serif}}main{{width:min(28rem,calc(100% - 2rem));padding:2rem;border:1px solid #263950;border-radius:18px;background:#0d1929;box-shadow:0 24px 70px #0008}}.brand{{letter-spacing:.18em;color:#63d3ff;font-weight:700}}h1{{margin:.8rem 0}}p{{color:#a9b9ca;line-height:1.6}}.signin{{margin-top:1.5rem;min-height:44px}}.login-status{{display:flex;align-items:center;gap:.8rem;margin-top:1.5rem;color:#c9d9e8}}.login-status[hidden]{{display:none}}.spinner{{width:1.15rem;height:1.15rem;border:2px solid #31506a;border-top-color:#63d3ff;border-radius:50%;animation:spin .8s linear infinite}}@keyframes spin{{to{{transform:rotate(360deg)}}}}@media(prefers-reduced-motion:reduce){{.spinner{{animation:none}}}}</style></head>
 <body><main><div class="brand">JANUS</div><h1>Data Operations</h1><p>請使用已授權的 Google 帳號登入。</p>
 <div id="g_id_onload" data-client_id="{client_id}" data-callback="handleGoogleCredential" data-ux_mode="popup" data-auto_prompt="false"></div>
 <div class="g_id_signin signin" data-type="standard" data-shape="rectangular" data-theme="filled_blue" data-text="signin_with" data-size="large"></div>
+<div id="login-status" class="login-status" role="status" aria-live="polite" hidden><span class="spinner" aria-hidden="true"></span><span>登入中，正在建立安全連線…</span></div>
 <p id="login-error" role="alert"></p>
 </main></body></html>"""
 

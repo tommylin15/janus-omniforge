@@ -42,6 +42,16 @@ class PostgreSQLAdminCursorTests(unittest.TestCase):
         ):
             self.assertIn("012_first_batch_source_ids.sql", path)
 
+    def test_membership_version_migration_is_in_runtime_paths(self):
+        migration = (ROOT / "infra" / "postgres" / "migrations" / "013_membership_versions.sql").read_text(encoding="utf-8")
+        self.assertIn("coverage_membership_versions", migration)
+        self.assertIn("GRANT SELECT, INSERT", migration)
+        for path in (
+            (ROOT / "infra" / "postgres" / "bootstrap-vm.sh").read_text(encoding="utf-8"),
+            (ROOT / "scripts" / "gcp" / "apply-web-postgres-migration.sh").read_text(encoding="utf-8"),
+        ):
+            self.assertIn("013_membership_versions.sql", path)
+
 
 if __name__ == "__main__":
     unittest.main()

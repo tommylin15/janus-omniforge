@@ -95,8 +95,14 @@ class AdminService:
     def membership(self, coverage_tier: str, *, as_of: datetime | None = None) -> tuple[dict[str, Any], ...]:
         return tuple({"coverage_tier": item.coverage_tier.value, "symbol": item.symbol, "effective_from": item.effective_from.isoformat(), "effective_to": item.effective_to.isoformat() if item.effective_to else None, "reason": item.reason, "owner": item.owner} for item in self.control.coverage_membership(coverage_tier, as_of=as_of))
 
-    def set_membership(self, coverage_tier: str, symbols: tuple[str, ...], *, effective_from: datetime, reason: str, owner: str) -> tuple[dict[str, Any], ...]:
-        return tuple({"coverage_tier": item.coverage_tier.value, "symbol": item.symbol, "effective_from": item.effective_from.isoformat(), "effective_to": item.effective_to.isoformat() if item.effective_to else None, "reason": item.reason, "owner": item.owner} for item in self.control.set_coverage_membership(coverage_tier, symbols, effective_from=effective_from, reason=reason, owner=owner))
+    def membership_snapshot(self, coverage_tier: str) -> dict[str, Any]:
+        version, effective_from = self.control.coverage_membership_revision(coverage_tier)
+        return {"items": self.membership(coverage_tier), "version": version, "effective_from": effective_from.isoformat() if effective_from else None}
+
+    def set_membership(self, coverage_tier: str, symbols: tuple[str, ...], *, effective_from: datetime, reason: str, owner: str,
+                       expected_version: int | None = None) -> dict[str, Any]:
+        self.control.set_coverage_membership(coverage_tier, symbols, effective_from=effective_from, reason=reason, owner=owner, expected_version=expected_version)
+        return self.membership_snapshot(coverage_tier)
 
     def source_health(self, *, limit: int = 200) -> tuple[dict[str, Any], ...]:
         """Return persisted telemetry only; this method never calls an upstream source."""

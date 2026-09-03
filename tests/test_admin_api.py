@@ -75,6 +75,12 @@ class AdminServiceTests(unittest.TestCase):
         with self.assertRaises(AdminValidationError):
             self.admin.enqueue_collection("ohlcv", ("2330",), request_options={"start_date": "2026-08-24"})
 
+    def test_membership_snapshot_is_versioned_and_audited(self):
+        saved = self.admin.set_membership("core_focus", ("2330",), effective_from=self.admin.parse_datetime("2026-09-03T00:00:00Z"), reason="initial", owner="operator@example.com", expected_version=0)
+        self.assertEqual((saved["version"], saved["items"][0]["symbol"]), (1, "2330"))
+        self.assertEqual(saved["effective_from"], "2026-09-03T00:00:00+00:00")
+        self.assertEqual(self.admin.audit()[0]["resource"], "coverage_membership")
+
     def test_collection_config_edit_preserves_symbols_and_writes_audit(self):
         payload = {**self.admin.collection_configs()[0], "source_ids": ["twse"], "cadence": "weekly"}
         saved = self.admin.save_collection_config(payload, actor="operator@example.com")

@@ -67,15 +67,16 @@ class _Admin:
         self.actor = actor
         return {"adapter_id": adapter_id, "value": value, "version": 1}
 
-    def membership(self, tier):
-        return ({"coverage_tier": tier, "symbol": "2330"},)
+    def membership_snapshot(self, tier):
+        return {"items": ({"coverage_tier": tier, "symbol": "2330"},), "version": 2, "effective_from": "2026-09-03T08:40:00+00:00"}
 
     @staticmethod
     def parse_datetime(value):
         return value
 
-    def set_membership(self, tier, symbols, *, effective_from, reason, owner):
-        return tuple({"coverage_tier": tier, "symbol": symbol} for symbol in symbols)
+    def set_membership(self, tier, symbols, *, effective_from, reason, owner, expected_version=None):
+        self.actor = owner
+        return {"items": tuple({"coverage_tier": tier, "symbol": symbol} for symbol in symbols), "version": expected_version + 1, "effective_from": effective_from}
 
     def save_setting(self, key, value, *, actor, expected_version=None):
         self.actor = actor
@@ -97,7 +98,9 @@ class WebServerTests(unittest.TestCase):
         return response["status"], json.loads(payload) if content_type.startswith("application/json") else payload
 
     def test_health_and_core_route(self):
-        self.assertEqual(self.request("/health")[0], "200 OK")
+        status, health = self.request("/health")
+        self.assertEqual(status, "200 OK")
+        self.assertEqual(health["revision"], "local")
         status, body = self.request("/api/v1/core/2330/summary")
         self.assertEqual(status, "200 OK")
         self.assertEqual(body["symbol"], "2330")
@@ -173,6 +176,15 @@ class WebServerTests(unittest.TestCase):
             admin=admin, authenticated_actor="owner@example.com",
         )
         self.assertEqual(status, "200 OK")
+        self.assertEqual(admin.actor, "owner@example.com")
+
+        status, body = self.request(
+            "/api/v1/admin/memberships/core_focus", method="PUT",
+            body={"symbols": ["2330"], "effective_from": "2026-09-04T00:00:00Z", "reason": "rebalance", "owner": "spoofed@example.com", "expected_version": 2},
+            admin=admin, authenticated_actor="owner@example.com",
+        )
+        self.assertEqual(status, "200 OK")
+        self.assertEqual(body["version"], 3)
         self.assertEqual(admin.actor, "owner@example.com")
 
     def test_source_review_uses_authenticated_actor(self):

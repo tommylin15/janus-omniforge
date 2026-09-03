@@ -31,7 +31,7 @@ const execution = {
 };
 
 async function mockAdmin(page, { candidate = false } = {}) {
-  await page.route("**/health", (route) => route.fulfill({ json: { status: "ok" } }));
+  await page.route("**/health", (route) => route.fulfill({ json: { status: "ok", revision: "janus-web-test" } }));
   await page.route("**/api/v1/admin/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
@@ -40,6 +40,7 @@ async function mockAdmin(page, { candidate = false } = {}) {
     if (path === "/api/v1/admin/executions") return route.fulfill({ json: { items: [execution], limit: 10, next_cursor: null } });
     if (path === `/api/v1/admin/executions/${execution.execution_id}`) return route.fulfill({ json: execution });
     if (path === "/api/v1/admin/source-catalog") return route.fulfill({ json: { items: candidate ? [{ config_id: "anue-news", dataset_id: "news", source_ids: ["anue"], cadence: "intraday", coverage_tier: "core_focus", authorization_status: "candidate" }] : [] } });
+    if (path === "/api/v1/admin/memberships/core_focus") return route.fulfill({ json: { items: [{ symbol: "2330" }], version: 2, effective_from: "2026-09-03T08:40:00Z" } });
     if (path === "/api/v1/admin/source-reviews/anue" && route.request().method() === "GET") return route.fulfill({ json: { adapter_id: "anue", value: null, version: 2 } });
     return route.fulfill({ status: 404, json: { error: "not found" } });
   });
@@ -48,6 +49,7 @@ async function mockAdmin(page, { candidate = false } = {}) {
 test("tab deep link, keyboard, ARIA and responsive shell", async ({ page }) => {
   await mockAdmin(page);
   await page.goto("/admin/stocks?tab=executions");
+  await expect(page.locator("#build-version")).toHaveText("janus-web-test");
   const executionsTab = page.getByRole("tab", { name: /最近執行/ });
   await expect(executionsTab).toHaveAttribute("aria-selected", "true");
   await expect(executionsTab).toHaveAttribute("aria-controls", "executions");
@@ -84,6 +86,23 @@ test("stock dialog cancellation does not write and restores focus", async ({ pag
   await expect(page.getByRole("dialog", { name: /編輯 2330/ })).not.toBeVisible();
   await expect(edit).toBeFocused();
   expect(writes).toBe(0);
+});
+
+test("core membership saves effective version without spoofable actor", async ({ page }) => {
+  let saved;
+  await mockAdmin(page);
+  await page.route("**/api/v1/admin/memberships/core_focus", async (route) => {
+    if (route.request().method() === "GET") return route.fulfill({ json: { items: [{ symbol: "2330" }], version: 2, effective_from: "2026-09-03T08:40:00Z" } });
+    saved = route.request().postDataJSON(); return route.fulfill({ json: { items: saved.symbols.map((symbol) => ({ symbol })), version: 3 } });
+  });
+  await page.goto("/admin/stocks?tab=membership");
+  await expect(page.locator("#membership-count")).toHaveText("1 / 50 · v2");
+  await expect(page.locator("#membership-effective")).toHaveAttribute("min", "2026-09-03T16:41");
+  await page.locator("#membership-symbols").fill("2330, 2317");
+  await page.locator("#membership-reason").fill("季度調整");
+  await page.getByRole("button", { name: "儲存不可變更版本" }).click();
+  expect(saved.expected_version).toBe(2);
+  expect(saved.owner).toBeUndefined();
 });
 
 test("stock status renders Core coverage, null profile and quarantine", async ({ page }) => {

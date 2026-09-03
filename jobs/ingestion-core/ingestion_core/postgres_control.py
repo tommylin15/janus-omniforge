@@ -145,7 +145,8 @@ class PostgreSQLControlPlane:
                 rows = cur.fetchall()
             return tuple(r[0] for r in rows)
 
-    def set_coverage_membership(self, coverage_tier: str, symbols: tuple[str, ...] | list[str], *, effective_from: datetime, reason: str, owner: str) -> tuple[CoverageMembership, ...]:
+    def set_coverage_membership(self, coverage_tier: str, symbols: tuple[str, ...] | list[str], *, effective_from: datetime, reason: str, owner: str,
+                                expected_version: int | None = None) -> tuple[CoverageMembership, ...]:
         if coverage_tier not in {item.value for item in CoverageTier}:
             raise ValueError("coverage_tier is invalid")
         if effective_from.tzinfo is None or not reason.strip() or not owner.strip():
@@ -154,16 +155,31 @@ class PostgreSQLControlPlane:
         if coverage_tier == CoverageTier.CORE_FOCUS.value and len(normalized) > 50:
             raise ControlPlaneError("core_focus membership cannot exceed 50 symbols")
         with self._tx() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"coverage_membership:{coverage_tier}",))
             cur.execute("SELECT symbol FROM control.stock_master WHERE symbol=ANY(%s)", (list(normalized),))
             if {row[0] for row in cur.fetchall()} != set(normalized):
                 raise KeyError("stock not found")
-            cur.execute("SELECT MAX(effective_from) FROM control.coverage_memberships WHERE coverage_tier=%s AND effective_to IS NULL", (coverage_tier,))
-            current = cur.fetchone()[0]
+            cur.execute("SELECT COALESCE(MAX(version),0), MAX(effective_from) FROM control.coverage_membership_versions WHERE coverage_tier=%s", (coverage_tier,))
+            version, current = cur.fetchone()
+            if expected_version is not None and expected_version != version:
+                raise ControlPlaneError("membership version conflict")
             if current is not None and effective_from <= current:
                 raise ValueError("effective_from must be after the current membership")
+            cur.execute("SELECT symbol FROM control.coverage_memberships WHERE coverage_tier=%s AND effective_to IS NULL", (coverage_tier,))
+            previous = {row[0] for row in cur.fetchall()}
+            version += 1
             cur.execute("UPDATE control.coverage_memberships SET effective_to=%s WHERE coverage_tier=%s AND effective_to IS NULL", (effective_from, coverage_tier))
             cur.executemany("INSERT INTO control.coverage_memberships(coverage_tier,symbol,effective_from,reason,owner) VALUES (%s,%s,%s,%s,%s)", [(coverage_tier, symbol, effective_from, reason.strip(), owner.strip()) for symbol in normalized])
+            cur.execute("INSERT INTO control.coverage_membership_versions(coverage_tier,version,effective_from) VALUES (%s,%s,%s)", (coverage_tier, version, effective_from))
+            detail = {"version": version, "effective_from": effective_from.isoformat(), "reason": reason.strip(), "added": sorted(set(normalized) - previous), "removed": sorted(previous - set(normalized))}
+            cur.execute("INSERT INTO control.admin_audit(action,resource,resource_key,actor,detail_json,created_at) VALUES ('update','coverage_membership',%s,%s,%s::jsonb,now())", (coverage_tier, owner.strip(), json.dumps(detail)))
         return self.coverage_membership(coverage_tier, as_of=effective_from)
+
+    def coverage_membership_revision(self, coverage_tier: str) -> tuple[int, datetime | None]:
+        with self.connection.cursor() as cur:
+            cur.execute("SELECT version,effective_from FROM control.coverage_membership_versions WHERE coverage_tier=%s ORDER BY version DESC LIMIT 1", (coverage_tier,))
+            row = cur.fetchone()
+            return (row[0], row[1]) if row else (0, None)
 
     def coverage_membership(self, coverage_tier: str, *, as_of: datetime | None = None) -> tuple[CoverageMembership, ...]:
         if coverage_tier not in {item.value for item in CoverageTier}:
@@ -330,7 +346,7 @@ class PostgreSQLControlPlane:
 
     def admin_audit(self, *, limit: int = 50) -> tuple[dict[str, Any], ...]:
         with self.connection.cursor() as cur:
-            cur.execute("SELECT action,resource,resource_key,actor,detail_json,created_at FROM control.admin_audit ORDER BY created_at DESC LIMIT %s", (limit,)); rows = cur.fetchall()
+            cur.execute("SELECT action,resource,resource_key,actor,detail_json,created_at FROM control.admin_audit ORDER BY created_at DESC,audit_id DESC LIMIT %s", (limit,)); rows = cur.fetchall()
         return tuple({"action": r[0], "resource": r[1], "resource_key": r[2], "actor": r[3], "detail": r[4], "created_at": r[5]} for r in rows)
 
     def put_cache(self, *_: Any, **__: Any) -> None:

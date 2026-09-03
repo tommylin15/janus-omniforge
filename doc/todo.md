@@ -1,12 +1,13 @@
 # Janus — TODO
 
-版本：1.8
+版本：1.9
 用途：只保留未完成工作與目前驗收條件；完成證據移至 archive。
 
 已完成項目與歷史 checkpoint：
 
 - [TODO 完成紀錄（截至 2026-08-31）](archive/todo-completed-through-2026-08-31.md)
 - [TODO 完成紀錄（2026-09-02）](archive/todo-completed-2026-09-02.md)
+- [TODO 完成紀錄（2026-09-03）](archive/todo-completed-2026-09-03.md)
 - [已完成 WBS 0／1／2／4](archive/wbs-completed-through-2026-08-31.md)
 
 目前執行順序：
@@ -17,21 +18,13 @@
 
 ## P0 — Admin Data Operations MVP
 
-- [x] 股票資料狀態頁：Core 最新日期、資料集覆蓋、精確 row count／null profile 與既有寫入安全／quarantine 摘要；本項未新增或校準 DQ 規則。（2026-09-03：本機 API、Iceberg aggregate、Admin Playwright 與 build 驗證通過；無 persisted quarantine 計數的資料集明示未提供。）
-
 - [ ] 將股票資料狀態、execution item、寫入安全／quarantine 的 raw JSON 主視圖改為類 Excel 欄列表格；支援 sticky header、排序、篩選、分頁、欄位顯示與按需子表，且不得暴露 raw payload／object URI／完整 upstream error。
 
 - [ ] 其餘 Admin 大型列表查詢須在 repository 層完成 bounded indexed cursor pagination；股票與 execution 已完成，明細維持按需載入。
 
-- [ ] Admin UI 管理全市場／核心 50 membership 與 effective date；超過 50 檔時必須拒絕，所有異動須留下 audit。
-
-- [ ] 將目前唯讀的資料源設定實體化為管理介面，支援 cadence、coverage tier 與 authorization status；`candidate`／`blocked` 來源不得啟用，異動須驗證並留下 audit。
-
 - [ ] 完整實作股票刪除 guard，涵蓋 collection config、execution、market、report、fundamental 等跨資料域引用，並在 UI 顯示各類引用數量與不可刪除原因。
 
 - [x] 在 WBS 5 persisted Mart consumer 完成前，將 Admin Analysis action 與「Mart 分析」hidden／disabled，且不得建立無 consumer 的 queued execution；Collection queue consumer、lease recovery、terminal state、item persistence 與指定來源／日期 backfill runtime 維持可用。（2026-09-02：dev revision `janus-web-00037-g25` 的 live Playwright 與 API smoke 通過；第一階段只顯示七個資料營運分頁，Analysis POST 回 400 且 execution IDs 不變，五檔 backfill／replay／failure execution 均由 persisted worker claim 至 terminal state。）
-
-- [ ] 將 Admin 排程時間異動自動同步至 Cloud Scheduler；目前 ingestion worker、holiday override 與 Stage retention／cleanup 已讀取 control DB，cleanup 具 Core commit fence，UI 會明示排程時間仍須同步。
 
 ## P0 — Stage／Core 與 Admin MVP 驗證
 

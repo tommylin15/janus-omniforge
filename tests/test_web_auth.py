@@ -44,6 +44,7 @@ class GoogleAuthMiddlewareTests(unittest.TestCase):
         self.assertEqual(status, "200 OK")
         self.assertIn(b"client.apps.googleusercontent.com", body)
         self.assertIn(b"handleGoogleCredential", body)
+        self.assertIn("登入中，正在建立安全連線".encode(), body)
         self.assertIn(b"X-Janus-CSRF", body)
         self.assertIn("accounts.google.com", headers["Content-Security-Policy"])
         status, headers, _ = self.request("/admin/stocks")
@@ -67,6 +68,10 @@ class GoogleAuthMiddlewareTests(unittest.TestCase):
         self.assertIn("Strict-Transport-Security", headers)
         session_cookie = headers["Set-Cookie"].split(";", 1)[0]
         status, _, body = self.request("/admin/stocks", cookie=session_cookie)
+        self.assertEqual(status, "200 OK")
+        self.assertIn(b"tommylin15@gmail.com", body)
+
+        status, _, body = self.request("/admin/stocks", cookie=f'g_state={{"i_l":0}}; {session_cookie}')
         self.assertEqual(status, "200 OK")
         self.assertIn(b"tommylin15@gmail.com", body)
 

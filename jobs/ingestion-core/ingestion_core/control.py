@@ -280,6 +280,13 @@ CREATE TABLE IF NOT EXISTS coverage_memberships (
     CHECK (effective_to IS NULL OR effective_to > effective_from)
 );
 CREATE INDEX IF NOT EXISTS coverage_memberships_lookup_idx ON coverage_memberships(coverage_tier, symbol, effective_from, effective_to);
+CREATE TABLE IF NOT EXISTS coverage_membership_versions (
+    coverage_tier TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    effective_from TEXT NOT NULL,
+    PRIMARY KEY (coverage_tier, version),
+    UNIQUE (coverage_tier, effective_from)
+);
 CREATE TABLE IF NOT EXISTS executions (
     execution_id TEXT PRIMARY KEY,
     trace_id TEXT NOT NULL,
@@ -498,7 +505,8 @@ class SQLiteControlPlane:
             rows = self.connection.execute(f"SELECT s.symbol FROM stock_master s WHERE 1=1{condition} ORDER BY s.symbol").fetchall()
         return tuple(row["symbol"] for row in rows)
 
-    def set_coverage_membership(self, coverage_tier: str, symbols: Iterable[str], *, effective_from: datetime, reason: str, owner: str) -> tuple[CoverageMembership, ...]:
+    def set_coverage_membership(self, coverage_tier: str, symbols: Iterable[str], *, effective_from: datetime, reason: str, owner: str,
+                                expected_version: int | None = None) -> tuple[CoverageMembership, ...]:
         if coverage_tier not in {item.value for item in CoverageTier}:
             raise ValueError("coverage_tier is invalid")
         if effective_from.tzinfo is None or not reason.strip() or not owner.strip():
@@ -507,17 +515,28 @@ class SQLiteControlPlane:
         if coverage_tier == CoverageTier.CORE_FOCUS.value and len(normalized) > 50:
             raise ControlPlaneError("core_focus membership cannot exceed 50 symbols")
         timestamp = _iso(effective_from)
-        current = self.connection.execute("SELECT MAX(effective_from) FROM coverage_memberships WHERE coverage_tier=? AND effective_to IS NULL", (coverage_tier,)).fetchone()[0]
-        if current is not None and timestamp <= current:
-            raise ValueError("effective_from must be after the current membership")
         missing = [symbol for symbol in normalized if self.connection.execute("SELECT 1 FROM stock_master WHERE symbol=?", (symbol,)).fetchone() is None]
         if missing:
             raise KeyError(f"stock not found: {missing[0]}")
-        self.connection.execute("UPDATE coverage_memberships SET effective_to=? WHERE coverage_tier=? AND effective_to IS NULL", (timestamp, coverage_tier))
-        for symbol in normalized:
-            self.connection.execute("INSERT INTO coverage_memberships(coverage_tier,symbol,effective_from,reason,owner) VALUES (?,?,?,?,?)", (coverage_tier, symbol, timestamp, reason.strip(), owner.strip()))
-        self.connection.commit()
+        row = self.connection.execute("SELECT COALESCE(MAX(version),0), MAX(effective_from) FROM coverage_membership_versions WHERE coverage_tier=?", (coverage_tier,)).fetchone()
+        version, current = row[0], row[1]
+        if expected_version is not None and expected_version != version:
+            raise ControlPlaneError("membership version conflict")
+        if current is not None and timestamp <= current:
+            raise ValueError("effective_from must be after the current membership")
+        previous = {row[0] for row in self.connection.execute("SELECT symbol FROM coverage_memberships WHERE coverage_tier=? AND effective_to IS NULL", (coverage_tier,)).fetchall()}
+        version += 1
+        detail = {"version": version, "effective_from": timestamp, "reason": reason.strip(), "added": sorted(set(normalized) - previous), "removed": sorted(previous - set(normalized))}
+        with self.connection:
+            self.connection.execute("UPDATE coverage_memberships SET effective_to=? WHERE coverage_tier=? AND effective_to IS NULL", (timestamp, coverage_tier))
+            self.connection.executemany("INSERT INTO coverage_memberships(coverage_tier,symbol,effective_from,reason,owner) VALUES (?,?,?,?,?)", [(coverage_tier, symbol, timestamp, reason.strip(), owner.strip()) for symbol in normalized])
+            self.connection.execute("INSERT INTO coverage_membership_versions(coverage_tier,version,effective_from) VALUES (?,?,?)", (coverage_tier, version, timestamp))
+            self.connection.execute("INSERT INTO admin_audit(action,resource,resource_key,actor,detail_json,created_at) VALUES (?,?,?,?,?,?)", ("update", "coverage_membership", coverage_tier, owner.strip(), json.dumps(detail), _iso(utc_now())))
         return self.coverage_membership(coverage_tier, as_of=effective_from)
+
+    def coverage_membership_revision(self, coverage_tier: str) -> tuple[int, datetime | None]:
+        row = self.connection.execute("SELECT version,effective_from FROM coverage_membership_versions WHERE coverage_tier=? ORDER BY version DESC LIMIT 1", (coverage_tier,)).fetchone()
+        return (row[0], _parse_time(row[1])) if row else (0, None)
 
     def coverage_membership(self, coverage_tier: str, *, as_of: datetime | None = None) -> tuple[CoverageMembership, ...]:
         if coverage_tier not in {item.value for item in CoverageTier}:
@@ -733,7 +752,7 @@ class SQLiteControlPlane:
         return version
 
     def admin_audit(self, *, limit: int = 50) -> tuple[dict[str, Any], ...]:
-        rows = self.connection.execute("SELECT action,resource,resource_key,actor,detail_json,created_at FROM admin_audit ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
+        rows = self.connection.execute("SELECT action,resource,resource_key,actor,detail_json,created_at FROM admin_audit ORDER BY created_at DESC,audit_id DESC LIMIT ?", (limit,)).fetchall()
         return tuple({"action": r[0], "resource": r[1], "resource_key": r[2], "actor": r[3], "detail": json.loads(r[4]), "created_at": r[5]} for r in rows)
 
     def prune(self, *, before: datetime, batch_size: int = 500) -> dict[str, int]:

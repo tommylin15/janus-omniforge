@@ -2,11 +2,10 @@
 
 最新驗證日期：2026-09-03
 
-最新完整本機驗證：targeted Python 48/48、Vitest 2/2、Playwright 6/6；完整
-`python -m pytest -q tests` 105/105、Python compileall、完整 Vitest 2/2、Playwright
-5/5、TypeScript typecheck、ESLint、Web production build 與 `git diff --check`
-passed。Windows Node 指令均使用 `npm.cmd`／`npx.cmd`，未啟動 WSL。真人 Google
-login 仍未執行。
+最新完整本機驗證：`python -m unittest discover -s tests` 113/113、Vitest 2/2、
+Playwright 8/8、TypeScript typecheck、ESLint、Web production build 與
+`git diff --check` passed。生效時間 UX 修正後 targeted Python 41/41、核心名單
+Playwright 1/1 與 ESLint 再次通過。Windows Node 指令均使用 `npm.cmd`，未啟動 WSL。
 
 ## P0 Admin 股票資料狀態（2026-09-03）
 
@@ -481,3 +480,36 @@ valuation 1 row、institutional 3 rows、market-activity 3 rows 已 commit，eve
 write paths 仍使用 explicit transaction。Web dev `/admin/stocks` 未登入回 303 並導向
 `/login`。Cloud Scheduler 維持 `30 7 * * *`、`Asia/Taipei`、enabled；Admin 變更
 排程時間的自動 Scheduler reconciliation 仍列為後續工作。
+
+## 2026-09-03 — Admin 狀態、來源、排程、版本與登入
+
+Admin 股票資料狀態已改為 bounded aggregate；資料源設定提供 typed edit，並由後端
+拒絕啟用 `candidate`／`blocked` 來源及以 authenticated actor 留下 audit。排程設定
+成功同步既有 Cloud Scheduler 後才提交 control DB 版本。`/health` 回傳 Cloud Run
+revision 並顯示於 Admin；Google 登入可解析 Google GSI 與 Janus session 並存的
+cookie，登入期間顯示可存取的 loading 狀態，成功後不保留登入頁 history。
+
+核心 50 使用 `coverage_membership_versions` 保存單調版本與 effective time，membership
+rows 保留不可變更歷史 interval；PUT 以 expected version 防止 lost update，actor 只取
+authenticated Google email，audit 保存原因與 added／removed diff。UI 會把下一版最低
+生效時間推進一分鐘，避免重送相同 effective time；51 檔輸入在 live UI 被拒絕且版本
+維持 v3。
+
+GCP dev PostgreSQL build `04fdc438-e079-4182-9b1f-6a77675f06ca` 成功，migration
+`013_membership_versions` 已套用既有 private PostgreSQL。Web build
+`2873d608-74b3-4409-9c11-e4cf3638b800` 成功；revision `janus-web-00049-ws5` 使用
+immutable digest `sha256:5c7db6bbb62b97105113d50f72cb5b494fd38fa61350b6a9c601ac10232c384d`。
+真人 Google login 後依序建立 v1 `2330`、v2 新增 `2327`、v3 移除 `2330`；三版
+effective interval、`tommylin15@gmail.com` actor、原因、版本與 audit diff 均由
+PostgreSQL 實查確認。
+
+dev-only `core-focus-smoke` 沒有固定 collection symbols；Cloud Run execution
+`janus-ingestion-core-t72bf` 使用既有 ingestion digest
+`sha256:b8840e7c456c3cafe3fee340c8ec3ebbee032c50c5be7ce9a74450bc7f0fea54` 成功。
+persisted execution `9ffb6fb9-345f-47ac-a45d-0fdf7f12d8e5` 的
+`requested_symbols=["2327"]`、status `succeeded`，MOPS financials 收到 28 rows 並
+`Core committed`，證明 worker 依 v3 最新有效名單執行；smoke config 驗收後已 disabled。
+
+驗收後資源 guard 仍為單一 `us-central1-a` `e2-micro`、30 GB `pd-standard`、private
+IP、無 external IP；未部署 production、未建立新 VM／disk／snapshot／NAT，亦未呼叫
+Artifact Analysis、Container Scanning 或 occurrence API。

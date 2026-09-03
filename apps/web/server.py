@@ -79,7 +79,7 @@ class WebApplication:
         request_body = request_body or {}
         json_type = "application/json; charset=utf-8"
         if path == "/health":
-            return {"status": "ok"}, "200 OK", json_type
+            return {"status": "ok", "revision": os.environ.get("K_REVISION", "local")}, "200 OK", json_type
         if method == "GET" and path in {"/admin", "/admin/stocks"}:
             return (STATIC_DIR / "admin.html").read_text(encoding="utf-8"), "200 OK", "text/html; charset=utf-8"
         if method == "GET" and path == "/assets/admin.css":
@@ -176,17 +176,21 @@ class WebApplication:
         if path.startswith("/api/v1/admin/memberships/"):
             tier = unquote(path.split("/")[5])
             if method == "GET":
-                return {"items": self.admin.membership(tier)}, "200 OK", json_type
+                return self.admin.membership_snapshot(tier), "200 OK", json_type
             if method == "PUT":
                 effective_from = self._required_text(request_body, "effective_from")
-                items = self.admin.set_membership(
+                expected = request_body.get("expected_version")
+                if isinstance(expected, bool) or not isinstance(expected, int) or expected < 0:
+                    raise ValueError("expected_version is required")
+                result = self.admin.set_membership(
                     tier,
                     self._symbols(request_body.get("symbols")) or (),
                     effective_from=self.admin.parse_datetime(effective_from),
                     reason=self._required_text(request_body, "reason"),
-                    owner=self._required_text(request_body, "owner"),
+                    owner=authenticated_actor or self._required_text(request_body, "owner"),
+                    expected_version=expected,
                 )
-                return {"items": items}, "200 OK", json_type
+                return result, "200 OK", json_type
         return {"error": "not found"}, "404 Not Found", json_type
 
     @staticmethod

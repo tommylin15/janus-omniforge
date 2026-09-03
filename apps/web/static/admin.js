@@ -4,7 +4,7 @@ const state = {
   limit: 10, stocks: [], selected: new Set(), loadedTabs: new Set(), activeTab: "stocks",
   stockPage: 0, stockCursors: [null], stockNext: null,
   executionPage: 0, executionCursors: [null], executionNext: null,
-  editingConfig: null,
+  editingConfig: null, membershipVersion: 0,
 };
 const byId = (id) => document.getElementById(id);
 const dialogOpeners = new WeakMap();
@@ -375,8 +375,12 @@ async function loadMembership() {
   try {
     const data = await request("/api/v1/admin/memberships/core_focus");
     const symbols = data.items.map((item) => item.symbol);
+    state.membershipVersion = data.version;
     byId("membership-symbols").value = symbols.join(", ");
-    byId("membership-count").textContent = `${symbols.length} / 50`;
+    byId("membership-count").textContent = `${symbols.length} / 50 · v${data.version}`;
+    const next = new Date(data.effective_from || Date.now()); next.setMinutes(next.getMinutes() + 1); next.setSeconds(0, 0);
+    const local = new Date(next.getTime() - next.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    byId("membership-effective").min = local; byId("membership-effective").value = local;
   } catch (error) { showNotice(error.message, true); }
 }
 
@@ -410,7 +414,7 @@ async function saveMembership(event) {
   const localTime = byId("membership-effective").value;
   if (!localTime) return showNotice("請設定生效時間", true);
   try {
-    await request("/api/v1/admin/memberships/core_focus", { method: "PUT", body: JSON.stringify({ symbols, effective_from: new Date(localTime).toISOString(), reason: byId("membership-reason").value, owner: byId("membership-owner").value }) });
+    await request("/api/v1/admin/memberships/core_focus", { method: "PUT", body: JSON.stringify({ symbols, effective_from: new Date(localTime).toISOString(), reason: byId("membership-reason").value, expected_version: state.membershipVersion }) });
     showNotice("核心名單版本已儲存");
     await loadMembership();
   } catch (error) { showNotice(error.message, true); }
@@ -479,7 +483,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
     dialog.addEventListener("close", restoreDialogFocus);
   });
-  try { await request("/health"); document.querySelector(".pulse").className = "pulse ok"; byId("runtime-label").textContent = "控制面服務正常"; } catch { document.querySelector(".pulse").className = "pulse error"; byId("runtime-label").textContent = "控制面服務無法使用"; }
+  try { const health = await request("/health"); document.querySelector(".pulse").className = "pulse ok"; byId("runtime-label").textContent = "控制面服務正常"; byId("build-version").textContent = health.revision || "unknown"; } catch { document.querySelector(".pulse").className = "pulse error"; byId("runtime-label").textContent = "控制面服務無法使用"; byId("build-version").textContent = "unknown"; }
   const initial = new URL(window.location.href).searchParams.get("tab") || "stocks";
   await activateTab(initial);
 });

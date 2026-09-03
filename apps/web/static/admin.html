@@ -27,7 +27,7 @@
         <button class="nav-link" id="tab-settings" role="tab" aria-selected="false" aria-controls="settings" data-tab="settings" type="button"><span aria-hidden="true">◷</span>排程與保存設定</button>
         <button class="nav-link" id="tab-catalog" role="tab" aria-selected="false" aria-controls="catalog" data-tab="catalog" type="button"><span aria-hidden="true">▤</span>資料源設定</button>
       </nav>
-      <div class="sidebar-note"><span class="tag">P0</span><p>所有操作只寫入控制面；長任務由 worker 非同步執行。</p></div>
+      <small class="build-version">版本 <span id="build-version">讀取中</span></small>
     </aside>
 
     <main id="main">
@@ -94,7 +94,7 @@
           <div class="panel-heading"><div><p class="eyebrow">COVERAGE</p><h2>核心 50 名單</h2></div><span id="membership-count" class="tag neutral">0 / 50</span></div>
           <form id="membership-form" class="stack-form">
             <label>股票代號（逗號或換行分隔）<textarea id="membership-symbols" rows="4" placeholder="2330, 2317"></textarea></label>
-            <div class="form-grid"><label>生效時間<input id="membership-effective" type="datetime-local" required></label><label>操作者<input id="membership-owner" required placeholder="operator@example.com"></label></div>
+            <label>生效時間<input id="membership-effective" type="datetime-local" required></label>
             <label>變更理由<input id="membership-reason" required placeholder="例：季度核心名單調整"></label>
             <button class="button primary" type="submit">儲存不可變更版本</button>
           </form>

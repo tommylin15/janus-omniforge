@@ -64,6 +64,7 @@ sudo docker exec \
     psql -U postgres -d janus_control -f /opt/janus/migrations/010_execution_runtime_options.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/011_control_settings_ownership.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/012_first_batch_source_ids.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/013_membership_versions.sql
     rm -f /tmp/vars.sql /tmp/web-vars.sql /tmp/mart-vars.sql
     openssl req -new -x509 -days 365 -nodes -text \
       -subj "/CN=janus-postgres-dev" -keyout "$PGDATA/server.key" -out "$PGDATA/server.crt" >/dev/null 2>&1

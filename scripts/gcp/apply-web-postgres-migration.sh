@@ -31,7 +31,7 @@ if [[ "${mode}" == "check" ]]; then
   exit 0
 fi
 
-old_image="$(sudo docker inspect --format '{{.Config.Image}}' janus-postgres)"
+old_image="$(sudo docker inspect --format '{{.Image}}' janus-postgres)"
 switched=false
 
 rollback() {
@@ -88,6 +88,7 @@ sudo docker exec --user postgres \
     psql -U postgres -d janus_control -f /opt/janus/migrations/010_execution_runtime_options.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/011_control_settings_ownership.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/012_first_batch_source_ids.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/013_membership_versions.sql
     rm -f /tmp/web-vars.sql
     psql -U postgres -d janus_control -v ON_ERROR_STOP=1 <<"SQL"
 SELECT rolname, rolsuper, rolcreatedb, rolcreaterole, rolreplication
