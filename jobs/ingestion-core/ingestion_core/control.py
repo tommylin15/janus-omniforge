@@ -438,9 +438,9 @@ class SQLiteControlPlane:
         ).fetchall()
         return tuple(Stock(row["symbol"], row["name"], row["market"], bool(row["enabled"]), _parse_time(row["updated_at"]), row["listing_status"], _parse_time(row["effective_from"])) for row in rows)
 
-    def put_collection_config(self, config: CollectionConfig, symbols: Iterable[str] = ()) -> None:
-        symbols = tuple(sorted({_symbol(value) for value in symbols}))
-        if config.coverage_tier == CoverageTier.CORE_FOCUS.value and len(symbols) > config.max_symbols:
+    def put_collection_config(self, config: CollectionConfig, symbols: Iterable[str] | None = None, *, actor: str | None = None) -> None:
+        normalized_symbols = None if symbols is None else tuple(sorted({_symbol(value) for value in symbols}))
+        if normalized_symbols is not None and config.coverage_tier == CoverageTier.CORE_FOCUS.value and len(normalized_symbols) > config.max_symbols:
             raise ControlPlaneError("core_focus collection exceeds max_symbols")
         self.connection.execute(
             """INSERT INTO collection_configs(config_id, dataset_id, source_ids, expected_fields, market,
@@ -463,13 +463,18 @@ class SQLiteControlPlane:
              config.cadence, config.scope, config.authorization_status, config.retention_class, int(config.contains_pii),
              int(config.republish_allowed), config.max_symbols),
         )
-        self.connection.execute("DELETE FROM collection_symbols WHERE config_id=?", (config.config_id,))
-        for symbol in symbols:
-            symbol = _symbol(symbol)
-            exists = self.connection.execute("SELECT 1 FROM stock_master WHERE symbol=?", (symbol,)).fetchone()
-            if exists is None:
-                raise KeyError(f"stock not found: {symbol}")
-            self.connection.execute("INSERT INTO collection_symbols(config_id, symbol) VALUES (?, ?)", (config.config_id, symbol))
+        if normalized_symbols is not None:
+            self.connection.execute("DELETE FROM collection_symbols WHERE config_id=?", (config.config_id,))
+            for symbol in normalized_symbols:
+                exists = self.connection.execute("SELECT 1 FROM stock_master WHERE symbol=?", (symbol,)).fetchone()
+                if exists is None:
+                    raise KeyError(f"stock not found: {symbol}")
+                self.connection.execute("INSERT INTO collection_symbols(config_id, symbol) VALUES (?, ?)", (config.config_id, symbol))
+        if actor:
+            self.connection.execute(
+                "INSERT INTO admin_audit(action,resource,resource_key,actor,detail_json,created_at) VALUES (?,?,?,?,?,?)",
+                ("update", "collection_config", config.config_id, actor.strip(), json.dumps({"authorization_status": config.authorization_status, "enabled": config.enabled}), _iso(utc_now())),
+            )
         self.connection.commit()
 
     def get_collection_config(self, config_id: str) -> CollectionConfig:

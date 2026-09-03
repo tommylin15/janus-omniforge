@@ -101,3 +101,18 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
   接續，不要求使用者再次提醒。只有無法安全切割的原子操作可留在同一回合完成。
 - checkpoint 必須記錄已修改檔案、實際測試結果、未完成依賴與下一切片入口；不得把
   「拆分以節省 token」誤用為跳過驗證、遺漏失敗或宣稱未完成項目已完成。
+
+## 10. 分級驗證
+
+- 預設只跑能覆蓋本次 diff 的最小驗證；不得因慣例在每個小改動後重跑完整測試、
+  compileall、Playwright、typecheck、lint 與 build。
+- 文件或純設定小改只做對應語法／格式檢查與 `git diff --check`；單一模組改動只跑
+  直接相關的 targeted test，Python 只編譯改動檔案，JavaScript／TypeScript 只跑
+  適用的單檔或單項檢查。
+- 修正 targeted test 失敗時只重跑失敗項與其直接相依項，不在每次修正後重跑全套。
+- 只有跨模組共用契約、資料庫 migration、安全／權限、依賴或建置鏈變更，或一個大型
+  WBS／里程碑準備結案時，才評估並執行一次完整測試；production build、Playwright
+  與 GCP dev 驗收只在改動實際觸及該路徑或驗收條件明列時執行。
+- 避免重複驗證：例如 `npm.cmd run build` 已包含 typecheck 與 lint 時，不另行先跑
+  同一組完整 typecheck／lint。交付時列出實際執行的最小驗證，以及未跑完整套件的
+  風險判斷。

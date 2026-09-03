@@ -39,7 +39,7 @@
       <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
 
       <section class="metrics" aria-label="執行摘要">
-        <article><span>已選股票</span><strong id="selected-count">0</strong><small>跨頁保留</small></article>
+        <article><span>待收集股票</span><strong id="selected-count">0</strong><small>跨頁選取，送入收集佇列</small></article>
         <article><span>執行紀錄</span><strong id="execution-count">—</strong><small>最近 50 筆</small></article>
         <article><span>進行中</span><strong id="active-count">—</strong><small>queued / running / retrying</small></article>
         <article><span>來源狀態</span><strong id="source-summary">—</strong><small>persisted telemetry</small></article>
@@ -59,9 +59,10 @@
           <label>回跑起日 <input id="backfill-start" type="date"></label>
           <label>回跑迄日 <input id="backfill-end" type="date"></label>
           <label>指定來源 <input id="backfill-sources" placeholder="twse,tpex" aria-label="Backfill source IDs"></label>
-          <button id="queue-collection" class="button primary" type="button">加入 Collection</button>
+          <button id="queue-collection" class="button primary" type="button">加入收集佇列</button>
           <button id="clear-selection" class="button quiet" type="button">清除選取</button>
         </div>
+        <p class="form-note">勾選的股票只用來建立一次資料收集工作；送出後由背景 worker 寫入 Stage／Core，可在「最近執行」追蹤。</p>
 
         <div class="table-wrap">
           <table>
@@ -75,7 +76,7 @@
       <section id="stock-status" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-status" hidden>
         <div class="panel-heading"><div><p class="eyebrow">CORE STATUS</p><h2>股票資料狀態</h2></div><span class="tag neutral">結構化資料</span></div>
         <form id="status-search" class="toolbar" role="search"><label class="search-field">股票代號<input id="status-symbol" required placeholder="2330" autocomplete="off"></label><button class="button primary" type="submit">查詢</button></form>
-        <div class="table-wrap"><table><thead><tr><th>資料集</th><th>最新日期</th><th>筆數</th><th>涵蓋</th><th>Null</th><th>DQ</th><th>來源</th><th>Snapshot</th><th>Quarantine</th></tr></thead><tbody id="status-rows"><tr><td colspan="9" class="empty">請輸入股票代號查詢</td></tr></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>資料集</th><th>Core 最新日期</th><th>Row count</th><th>Coverage</th><th>Null profile</th><th>寫入安全／DQ</th><th>來源</th><th>Snapshot</th><th>Quarantine</th></tr></thead><tbody id="status-rows"><tr><td colspan="9" class="empty">請輸入股票代號查詢</td></tr></tbody></table></div>
       </section>
 
       <section id="executions" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-executions" hidden>
@@ -108,7 +109,7 @@
         </form>
       </section>
       <section id="catalog" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-catalog" hidden>
-        <div class="panel-heading"><div><p class="eyebrow">SOURCE CATALOG</p><h2>資料源設定</h2></div><span class="tag neutral">blocked / candidate 不可啟用</span></div>
+        <div class="panel-heading"><div><p class="eyebrow">SOURCE CATALOG</p><h2>資料源設定</h2></div><span class="tag neutral">可編輯；blocked / candidate 不可啟用</span></div>
         <div id="catalog-list" class="card-list"><p class="empty">正在載入資料源設定…</p></div>
         <form id="review-form" class="stack-form review-form">
           <div class="form-grid"><label>候選 adapter<select id="review-adapter" required></select></label><label>審查決策<select id="review-status"><option value="candidate">candidate</option><option value="approved_fallback">approved_fallback</option><option value="blocked">blocked</option></select></label></div>
@@ -130,5 +131,15 @@
     <div id="dialog-content"></div>
   </dialog>
   <dialog id="stock-dialog" role="dialog" aria-modal="true" aria-labelledby="stock-dialog-title"><form id="stock-form" class="stack-form"><div class="dialog-heading"><h2 id="stock-dialog-title">新增股票</h2><button id="cancel-stock" class="icon-button" aria-label="取消" type="button">×</button></div><label>代號<input id="stock-symbol" required pattern="[A-Za-z0-9]+"></label><label>名稱<input id="stock-name" required></label><label>市場<select id="stock-market"><option>TWSE</option><option>TPEX</option></select></label><label>上市狀態<select id="stock-listing"><option>listed</option><option>suspended</option><option>delisted</option><option>unknown</option></select></label><label class="check-label"><input id="stock-enabled" type="checkbox" checked> 啟用</label><button class="button primary" type="submit">儲存</button></form></dialog>
+  <dialog id="config-dialog" role="dialog" aria-modal="true" aria-labelledby="config-dialog-title"><form id="config-form" class="stack-form"><div class="dialog-heading"><h2 id="config-dialog-title">編輯資料源設定</h2><button id="cancel-config" class="icon-button" aria-label="取消資料源設定" type="button">×</button></div>
+    <div class="form-grid"><label>設定 ID<input id="config-edit-id" readonly></label><label>資料集<input id="config-dataset" readonly></label></div>
+    <label>來源 ID（逗號分隔）<input id="config-sources" required></label>
+    <div class="form-grid"><label>頻率<select id="config-cadence"><option>intraday</option><option>daily</option><option>公告頻率</option><option>weekly</option><option>quarterly</option><option>on_demand</option></select></label><label>Coverage tier<select id="config-coverage"><option>market_wide</option><option>core_focus</option><option>market_macro</option></select></label></div>
+    <div class="form-grid"><label>Scope<input id="config-scope" required></label><label>Authorization<select id="config-authorization"><option>official</option><option>approved_fallback</option><option>candidate</option><option>blocked</option></select></label></div>
+    <div class="form-grid"><label>Retention<select id="config-retention"><option>raw_short</option><option>core_standard</option><option>deep_research</option><option>audit</option></select></label><label>最多股票數<input id="config-max-symbols" type="number" min="1" max="50" required></label></div>
+    <div class="form-grid"><label class="check-label"><input id="config-enabled" type="checkbox"> 啟用設定</label><label class="check-label"><input id="config-collection-enabled" type="checkbox"> 允許 Collection</label></div>
+    <label>操作者<input id="config-actor" required placeholder="operator@example.com"></label>
+    <p class="form-note">候選或封鎖來源不能啟用；Analysis 維持既有設定且目前不開放。</p><button class="button primary" type="submit">儲存資料源設定</button>
+  </form></dialog>
 </body>
 </html>

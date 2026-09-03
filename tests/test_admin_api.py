@@ -16,7 +16,8 @@ class AdminServiceTests(unittest.TestCase):
         self.control = SQLiteControlPlane()
         self.control.upsert_stock(Stock("2330", "台積電", "TWSE"))
         self.control.put_collection_config(CollectionConfig("ohlcv", "ohlcv", ("twse",), frozenset({"symbol"})), ("2330",))
-        self.admin = AdminService(self.control)
+        self.scheduler_values = []
+        self.admin = AdminService(self.control, schedule_sync=self.scheduler_values.append)
 
     def tearDown(self):
         self.control.close()
@@ -62,6 +63,7 @@ class AdminServiceTests(unittest.TestCase):
     def test_settings_are_validated_versioned_and_audited(self):
         saved = self.admin.save_setting("schedule", {"time": "08:00", "enabled": True, "holiday_overrides": ["2026-09-28"]}, actor="operator")
         self.assertEqual(saved["version"], 1)
+        self.assertEqual(self.scheduler_values[0]["time"], "08:00")
         self.assertEqual(self.admin.setting("schedule")["value"]["time"], "08:00")
         with self.assertRaises(Exception):
             self.admin.save_setting("schedule", {"time": "09:00", "enabled": True}, actor="operator", expected_version=0)
@@ -72,6 +74,14 @@ class AdminServiceTests(unittest.TestCase):
         self.assertEqual(execution["request_options"]["start_date"], "2026-08-24")
         with self.assertRaises(AdminValidationError):
             self.admin.enqueue_collection("ohlcv", ("2330",), request_options={"start_date": "2026-08-24"})
+
+    def test_collection_config_edit_preserves_symbols_and_writes_audit(self):
+        payload = {**self.admin.collection_configs()[0], "source_ids": ["twse"], "cadence": "weekly"}
+        saved = self.admin.save_collection_config(payload, actor="operator@example.com")
+
+        self.assertEqual(saved["cadence"], "weekly")
+        self.assertEqual(self.control.config_symbols("ohlcv", only_enabled=False), ("2330",))
+        self.assertEqual(self.admin.audit()[0]["resource"], "collection_config")
 
     def test_analysis_is_rejected_without_creating_an_execution(self):
         before = self.admin.executions()
@@ -94,6 +104,8 @@ class AdminServiceTests(unittest.TestCase):
         status = AdminService(self.control, core=Core()).stock_status("2330")
         self.assertEqual(status["items"][0]["dataset_id"], "ohlcv")
         self.assertEqual(status["items"][0]["null_count"], 1)
+        self.assertEqual(status["items"][0]["null_profile"], ({"field": "close", "count": 1, "ratio": 0.5},))
+        self.assertEqual(status["items"][0]["coverage_ratio"], 1.0)
         self.assertEqual(status["items"][0]["dq_warning_count"], 2)
         self.assertEqual(status["items"][0]["quarantine_count"], 1)
         self.assertEqual(status["items"][0]["execution_ids"], ("exec-1",))

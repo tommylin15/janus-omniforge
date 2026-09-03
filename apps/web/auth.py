@@ -17,7 +17,7 @@ from urllib.parse import parse_qs, urlsplit
 
 
 LOGGER = logging.getLogger(__name__)
-SESSION_COOKIE = "janus_session"
+SESSION_COOKIE = "__Host-janus_session"
 MAX_LOGIN_BYTES = 16 * 1024
 
 
@@ -85,17 +85,6 @@ class GoogleAuthMiddleware:
     def _google_callback(self, environ: dict[str, Any], start_response: Callable[..., Any]):
         try:
             form = self._request_form(environ)
-            handoff = form.get("handoff", [""])[0]
-            if handoff:
-                claims = self._decode_login_handoff(handoff)
-                session_expiry = int(claims["session_exp"])
-                session = self._encode_session({
-                    "email": claims["email"], "sub": claims["sub"], "exp": session_expiry,
-                })
-                return self._redirect(
-                    start_response, "/admin/stocks", session=session,
-                    max_age=session_expiry - int(self.clock()),
-                )
             csrf_body = form.get("g_csrf_token", [""])[0]
             csrf_header = str(environ.get("HTTP_X_JANUS_CSRF", ""))
             if (
@@ -125,10 +114,8 @@ class GoogleAuthMiddleware:
             expiry = min(google_expiry, int(self.clock()) + 3600)
             if expiry <= int(self.clock()):
                 return self._json(start_response, {"error": "Google credential has expired"}, "401 Unauthorized")
-            handoff = self._encode_login_handoff({
-                "email": email, "sub": subject, "session_exp": expiry,
-            })
-            return self._login_handoff(start_response, handoff=handoff)
+            session = self._encode_session({"email": email, "sub": subject, "exp": expiry})
+            return self._login_success(start_response, session=session, max_age=expiry - int(self.clock()))
         except ValueError:
             return self._json(start_response, {"error": "invalid Google credential"}, "401 Unauthorized")
         except Exception as error:  # Keep network/library details out of the response and logs.
@@ -199,31 +186,6 @@ class GoogleAuthMiddleware:
         except (ValueError, TypeError, json.JSONDecodeError):
             return False
 
-    def _encode_login_handoff(self, payload: dict[str, Any]) -> str:
-        claims = dict(payload)
-        claims["exp"] = int(self.clock()) + 60
-        encoded = self._b64(json.dumps(claims, separators=(",", ":"), sort_keys=True).encode("utf-8"))
-        signature = self._b64(hmac.new(self.session_secret, f"login-handoff.{encoded}".encode("ascii"), hashlib.sha256).digest())
-        return f"{encoded}.{signature}"
-
-    def _decode_login_handoff(self, token: str) -> dict[str, Any]:
-        try:
-            encoded, supplied = token.rsplit(".", 1)
-            expected = self._b64(hmac.new(self.session_secret, f"login-handoff.{encoded}".encode("ascii"), hashlib.sha256).digest())
-            if not hmac.compare_digest(supplied, expected):
-                raise ValueError("invalid login handoff")
-            claims = json.loads(self._unb64(encoded).decode("utf-8"))
-            if (
-                int(claims.get("exp", 0)) <= int(self.clock())
-                or int(claims.get("session_exp", 0)) <= int(self.clock())
-                or str(claims.get("email", "")).lower() not in self.allowed_emails
-                or not str(claims.get("sub", ""))
-            ):
-                raise ValueError("expired login handoff")
-            return claims
-        except (ValueError, TypeError, json.JSONDecodeError) as error:
-            raise ValueError("invalid login handoff") from error
-
     @staticmethod
     def _cookie(environ: dict[str, Any], name: str) -> str | None:
         cookie = SimpleCookie()
@@ -248,7 +210,7 @@ class GoogleAuthMiddleware:
         script_nonce = html.escape(nonce, quote=True)
         return f"""<!doctype html>
 <html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Janus Admin 登入</title><script nonce="{script_nonce}">async function handleGoogleCredential(response){{const csrf="{csrf}";const body=new URLSearchParams({{credential:response.credential,g_csrf_token:csrf}});try{{const result=await fetch("/auth/google",{{method:"POST",headers:{{"Content-Type":"application/x-www-form-urlencoded","X-Janus-CSRF":csrf}},credentials:"same-origin",body}});const value=await result.json();if(result.ok&&value.handoff){{const form=document.createElement("form");form.method="POST";form.action="/auth/google";const input=document.createElement("input");input.type="hidden";input.name="handoff";input.value=value.handoff;form.appendChild(input);document.body.appendChild(form);form.submit();return;}}document.getElementById("login-error").textContent=value.error||"登入失敗";}}catch(error){{document.getElementById("login-error").textContent="登入服務暫時無法使用";}}}}</script><script src="https://accounts.google.com/gsi/client" async defer></script>
+<title>Janus Admin 登入</title><script nonce="{script_nonce}">async function handleGoogleCredential(response){{const csrf="{csrf}";const body=new URLSearchParams({{credential:response.credential,g_csrf_token:csrf}});try{{const result=await fetch("/auth/google",{{method:"POST",headers:{{"Content-Type":"application/x-www-form-urlencoded","X-Janus-CSRF":csrf}},credentials:"same-origin",body}});const value=await result.json();if(result.ok&&value.redirect){{window.location.assign(value.redirect);return;}}document.getElementById("login-error").textContent=value.error||"登入失敗";}}catch(error){{document.getElementById("login-error").textContent="登入服務暫時無法使用";}}}}</script><script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>html{{color-scheme:dark}}body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#07101d;color:#edf5ff;font-family:system-ui,sans-serif}}main{{width:min(28rem,calc(100% - 2rem));padding:2rem;border:1px solid #263950;border-radius:18px;background:#0d1929;box-shadow:0 24px 70px #0008}}.brand{{letter-spacing:.18em;color:#63d3ff;font-weight:700}}h1{{margin:.8rem 0}}p{{color:#a9b9ca;line-height:1.6}}.signin{{margin-top:1.5rem;min-height:44px}}</style></head>
 <body><main><div class="brand">JANUS</div><h1>Data Operations</h1><p>請使用已授權的 Google 帳號登入。</p>
 <div id="g_id_onload" data-client_id="{client_id}" data-callback="handleGoogleCredential" data-ux_mode="popup" data-auto_prompt="false"></div>
@@ -287,12 +249,13 @@ class GoogleAuthMiddleware:
         start_response(status, headers)
         return [payload]
 
-    def _login_handoff(self, start_response: Callable[..., Any], *, handoff: str):
-        payload = json.dumps({"handoff": handoff}, separators=(",", ":")).encode("utf-8")
+    def _login_success(self, start_response: Callable[..., Any], *, session: str, max_age: int):
+        payload = b'{"redirect":"/admin/stocks"}'
         headers = [
             ("Content-Type", "application/json; charset=utf-8"),
             ("Content-Length", str(len(payload))),
             ("Cache-Control", "no-store"),
+            ("Set-Cookie", f"{SESSION_COOKIE}={session}; Path=/; Max-Age={max(1, max_age)}; HttpOnly; Secure; SameSite=Lax"),
         ]
         headers.extend(self._security_headers())
         start_response("200 OK", headers)

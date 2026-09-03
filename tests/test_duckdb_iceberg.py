@@ -10,6 +10,7 @@ ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT))
 
 from packages.duckdb_query import DuckDBEngine, DuckDBIcebergCore, IcebergQuery
+from packages.web_api import CoreQueryService
 
 
 class DuckDBIcebergTests(unittest.TestCase):
@@ -56,6 +57,20 @@ class DuckDBIcebergTests(unittest.TestCase):
         second = self.core.write(rows=[{"benchmark_id": "TAIEX", "trade_date": "2026-08-25", "close": "24001"}], **common)
         self.assertEqual(second.updated, 1)
         self.assertNotEqual(first.snapshot_id, second.snapshot_id)
+
+    def test_core_summary_aggregates_exact_row_and_null_counts(self):
+        self.core.write(
+            dataset_id="valuation",
+            rows=[
+                {"symbol": "2330", "market": "TWSE", "observed_date": "2026-08-25", "pe_ratio": "20"},
+                {"symbol": "2330", "market": "TWSE", "observed_date": "2026-08-26", "pe_ratio": None},
+            ],
+            execution_id="exec-1", provenance_id="prov-1", source_id="twse", partition_date=date(2026, 8, 26),
+        )
+        summary = CoreQueryService(IcebergQuery(self.catalog, self.engine).query).summary("2330", datasets=("valuation",))["datasets"]["valuation"]
+
+        self.assertEqual(summary["row_count"], 2)
+        self.assertEqual(summary["null_profile"]["pe_ratio"], 1)
 
     def test_additive_schema_evolution_preserves_field_ids_and_old_snapshot(self):
         common = dict(dataset_id="valuation", execution_id="exec-1", provenance_id="prov", source_id="twse",

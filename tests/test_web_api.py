@@ -16,6 +16,9 @@ class CoreQueryServiceTests(unittest.TestCase):
 
         def query(identifier, sql, parameters):
             self.calls.append((identifier, sql, parameters))
+            if "count(COLUMNS(*))" in sql:
+                fields = self.rows[0].keys()
+                return [{"__row_count": len(self.rows), **{field: sum(row.get(field) is not None for row in self.rows) for field in fields}}]
             return self.rows
 
         self.service = CoreQueryService(query)
@@ -36,6 +39,7 @@ class CoreQueryServiceTests(unittest.TestCase):
     def test_summary_has_bounded_data_quality_metadata(self):
         summary = self.service.summary("2330", datasets=("ohlcv",))
         self.assertEqual(summary["datasets"]["ohlcv"]["row_count"], 2)
+        self.assertIn("count(COLUMNS(*))", self.calls[-1][1])
 
     def test_stock_summary_does_not_treat_symbol_as_benchmark_id(self):
         summary = self.service.summary("2330")

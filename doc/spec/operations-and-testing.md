@@ -1,12 +1,42 @@
 # Operations and testing
 
-最新驗證日期：2026-09-02
+最新驗證日期：2026-09-03
 
-最新完整本機驗證：targeted Python 22/22、Vitest 2/2、Playwright 5/5；完整
+最新完整本機驗證：targeted Python 48/48、Vitest 2/2、Playwright 6/6；完整
 `python -m pytest -q tests` 105/105、Python compileall、完整 Vitest 2/2、Playwright
 5/5、TypeScript typecheck、ESLint、Web production build 與 `git diff --check`
 passed。Windows Node 指令均使用 `npm.cmd`／`npx.cmd`，未啟動 WSL。真人 Google
 login 仍未執行。
+
+## P0 Admin 股票資料狀態（2026-09-03）
+
+股票資料狀態表已顯示 Core 最新日期、精確 row count、coverage 比例、逐欄 null
+count／ratio、既有 DQ、來源、snapshot 與 quarantine 摘要；Core reader 使用 bounded
+aggregate 計數，不再把最多 200 筆的明細頁誤當總筆數。沒有 persisted quarantine
+計數時明示未提供，未新增或校準 DQ 規則。Collection 操作改為「選取股票 → 加入收集
+佇列 → 最近執行」，成功送出會清除暫存選取並切至 execution 追蹤。
+
+Targeted Python 48/48、Vitest 2/2、Playwright 6/6、TypeScript typecheck、ESLint、
+Web production build 與 `git diff --check` passed；未操作 GCP、未部署。
+
+## P0 五檔 Scheduler canary 觀察（2026-09-03）
+
+Cloud Scheduler `janus-ingestion-daily` 維持 `ENABLED`、`30 7 * * *`、
+`Asia/Taipei`。2026-09-03 07:30（Asia/Taipei）準時觸發 Cloud Run execution
+`janus-ingestion-core-8mvg4`，使用既有 immutable image
+`sha256:673d74bd2da1798f7d581e45e1142deb986ed284950a4ea7f8ffe63642aa1186`；兩次 task
+attempt 均失敗，persisted execution IDs 為
+`629adfdc-63c5-4608-92e3-bc8cb6e0108f` 與
+`74aeeff7-fd33-43bc-b6e7-d8cead2b0ad8`。五檔仍為
+`1102／2327／2330／2381／4958`；`twse-valuation`、`twse-institutional` 收到 HTTP
+307，`mops`、`twse-events` 收到 HTML，整體正確標記 failed，未誤報成功。retry 的
+freshness guard 略過已完成的 7 項，未重複寫入 Core。
+
+相同 image 的前一日 Scheduler execution `janus-ingestion-core-485bg` 於
+2026-09-02 07:30 成功；四個官方 endpoint 在 2026-09-03 11:02 再次唯讀檢查時已回
+HTTP 200，故目前記為上游排程時段異常，不修改程式或手動補跑。連續成功計數重置為
+0/3，下一個交易日繼續觀察；尚未產生可結案的三日 expected／received／missing、
+8 來源、Core profile 與成本摘要。
 
 ## P0 WBS 3 第一個可獨立驗收切片（2026-09-02）
 
@@ -39,9 +69,18 @@ success／fallback／合法 empty items，安全訊息只包含 `Core committed`
 `retry_count=2`、`error_code=COLLECTION_FAILED`，Admin response 無 traceback 或完整
 error，未誤標成功；partial item 狀態由 framework regression 驗證。
 
-Web 設定維持 `minScale=0`；Cloud Monitoring 04:02Z 顯示最終 revision 的 active／
-idle instance 均為 0，實際 scale-to-zero 通過。本切片其餘條件只剩 Stage cleanup
-實機驗收；連續 3 個交易日 Scheduler、完整 DQ 校準與其他 WBS 仍未宣稱完成。
+Stage cleanup 於 2026-09-02 15:47–15:50（Asia/Taipei）以相同 immutable ingestion
+image 執行；Cloud Run execution `janus-ingestion-core-fvltp` 與 persisted execution
+`4e134da7-2a6d-488f-a704-b9c78b1cb87d` 均 succeeded。retention 經 Admin API 與 audit
+由 30 天暫改 1 天後，三個 cleanup items 分別刪除 18／9／18 個 Stage objects；清理後
+三個 Stage prefix 均為 0 objects，三個 `core-commit.json` immutable fence 均保留。
+既有 failed execution `cfd83043-c8aa-4ce8-bff9-8cc3ab34b881` 未成為 cleanup candidate，
+狀態維持 failed。retention 已透過相同 API 恢復 30 天、`cleanup_enabled=true`、version
+3，兩次異動均由 `tommylin15@gmail.com` 留下 audit。
+
+Web 設定維持 `minScale=0`；Cloud Monitoring 04:02Z 顯示 final revision 的 active／
+idle instance 均為 0，實際 scale-to-zero 通過。本切片已完成；下一項為連續 3 個交易日
+Scheduler 驗收，完整 DQ 校準與其他 WBS 仍未宣稱完成。
 未部署 production、未建立新資源或提高限額，且未呼叫 Artifact Analysis／
 Container Scanning／occurrence API。
 

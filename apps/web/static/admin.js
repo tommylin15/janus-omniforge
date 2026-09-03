@@ -4,6 +4,7 @@ const state = {
   limit: 10, stocks: [], selected: new Set(), loadedTabs: new Set(), activeTab: "stocks",
   stockPage: 0, stockCursors: [null], stockNext: null,
   executionPage: 0, executionCursors: [null], executionNext: null,
+  editingConfig: null,
 };
 const byId = (id) => document.getElementById(id);
 const dialogOpeners = new WeakMap();
@@ -63,6 +64,15 @@ function formatDate(value) {
   if (!value) return "—";
   const date = new Date(value);
   return Number.isNaN(date.valueOf()) ? "—" : new Intl.DateTimeFormat("zh-TW", { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+function formatRatio(value) {
+  return typeof value === "number" ? `${Math.round(value * 1000) / 10}%` : "—";
+}
+
+function formatNullProfile(item) {
+  if (!item.null_profile?.length) return item.row_count ? "0（無 Null）" : "—";
+  return `${item.null_count} · ${item.null_profile.map((field) => `${field.field} ${field.count} (${formatRatio(field.ratio)})`).join("；")}`;
 }
 
 function selectionChanged() {
@@ -166,10 +176,10 @@ async function openStatus(stock) {
     data.items.forEach((item) => {
       const tr = document.createElement("tr");
       tr.append(node("td", item.dataset_id), node("td", formatDate(item.latest_date)), node("td", item.row_count),
-        node("td", `${item.received_symbols}/${item.requested_symbols}`), node("td", item.null_count),
-        node("td", item.quality_flags.length ? item.quality_flags.join(", ") : "good"),
+        node("td", `${item.received_symbols}/${item.requested_symbols} (${formatRatio(item.coverage_ratio)})`), node("td", formatNullProfile(item)),
+        node("td", item.dq_warning_count ? `${item.dq_warning_count} · ${item.quality_flags.join(", ") || "warning"}` : "good"),
         node("td", item.source_ids.join(", ") || "—"), node("td", item.snapshot_ids.join(", ") || "—"),
-        node("td", item.quarantine_count ?? "尚未提供"));
+        node("td", item.quarantine_state === "available" ? `${item.quarantine_count} 筆` : "未提供"));
       body.append(tr);
     });
     byId("status-symbol").value = symbol;
@@ -191,7 +201,9 @@ async function enqueueCollection() {
     };
     const execution = await request("/api/v1/admin/executions/collection", { method: "POST", body: JSON.stringify(payload) });
     showNotice(`Collection 已加入佇列：${execution.execution_id}`);
-    await loadExecutions();
+    state.selected.clear();
+    selectionChanged();
+    await activateTab("executions", { reload: true });
   } catch (error) { showNotice(error.message, true); }
 }
 
@@ -274,6 +286,7 @@ async function loadCatalog() {
     data.items.forEach((config) => {
       const card = node("article", null, "source-card");
       card.append(node("strong", `${config.config_id} · ${config.dataset_id}`), node("p", `來源 ${config.source_ids.join(", ")} · ${config.cadence} · ${config.coverage_tier}`), statusBadge(config.authorization_status));
+      const edit = node("button", "編輯", "button quiet"); edit.type = "button"; edit.addEventListener("click", () => openConfig(config, edit)); card.append(edit);
       list.append(card);
       if (["candidate", "blocked"].includes(config.authorization_status)) config.source_ids.forEach((source) => candidates.add(source));
     });
@@ -285,6 +298,46 @@ async function loadCatalog() {
     if (candidates.size) await loadReview();
   }
   catch (error) { list.replaceChildren(node("p", "資料源設定目前無法使用", "empty")); showNotice(error.message, true); }
+}
+
+function updateConfigAuthorization() {
+  const blocked = ["candidate", "blocked"].includes(byId("config-authorization").value);
+  byId("config-enabled").disabled = blocked;
+  if (blocked) byId("config-enabled").checked = false;
+}
+
+function openConfig(config, opener) {
+  state.editingConfig = config;
+  byId("config-edit-id").value = config.config_id;
+  byId("config-dataset").value = config.dataset_id;
+  byId("config-sources").value = config.source_ids.join(", ");
+  byId("config-cadence").value = config.cadence;
+  byId("config-coverage").value = config.coverage_tier;
+  byId("config-scope").value = config.scope;
+  byId("config-authorization").value = config.authorization_status;
+  byId("config-retention").value = config.retention_class;
+  byId("config-max-symbols").value = config.max_symbols;
+  byId("config-enabled").checked = config.enabled;
+  byId("config-collection-enabled").checked = config.collection_enabled;
+  updateConfigAuthorization();
+  const dialog = byId("config-dialog"); dialogOpeners.set(dialog, opener); dialog.showModal(); byId("config-sources").focus();
+}
+
+async function saveConfig(event) {
+  event.preventDefault();
+  const payload = {
+    ...state.editingConfig,
+    actor: byId("config-actor").value.trim(),
+    source_ids: byId("config-sources").value.split(/[\s,]+/).filter(Boolean),
+    cadence: byId("config-cadence").value, coverage_tier: byId("config-coverage").value,
+    scope: byId("config-scope").value.trim(), authorization_status: byId("config-authorization").value,
+    retention_class: byId("config-retention").value, max_symbols: Number(byId("config-max-symbols").value),
+    enabled: byId("config-enabled").checked, collection_enabled: byId("config-collection-enabled").checked,
+  };
+  try {
+    await request("/api/v1/admin/source-catalog", { method: "PUT", body: JSON.stringify(payload) });
+    byId("config-dialog").close(); showNotice("資料源設定已儲存並寫入 audit"); await loadCatalog();
+  } catch (error) { showNotice(error.message, true); }
 }
 
 async function loadReview() {
@@ -342,7 +395,7 @@ async function saveSettings(event) {
     const holidays = byId("holiday-overrides").value.split(/[\s,]+/).filter(Boolean);
     const schedule = await request("/api/v1/admin/settings/schedule", { method: "PUT", body: JSON.stringify({ actor, expected_version: Number(form.dataset.scheduleVersion || 0), value: { time: byId("schedule-time").value, enabled: byId("schedule-enabled").checked, holiday_overrides: holidays } }) });
     const retention = await request("/api/v1/admin/settings/retention", { method: "PUT", body: JSON.stringify({ actor, expected_version: Number(form.dataset.retentionVersion || 0), value: { days: Number(byId("retention-days").value), cleanup_enabled: byId("cleanup-enabled").checked } }) });
-    form.dataset.scheduleVersion = schedule.version; form.dataset.retentionVersion = retention.version; showNotice("設定已儲存；排程時間需同步後才套用 runtime");
+    form.dataset.scheduleVersion = schedule.version; form.dataset.retentionVersion = retention.version; showNotice("設定已儲存，Cloud Scheduler 已同步");
   } catch (error) { showNotice(error.message, true); }
 }
 
@@ -417,8 +470,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   byId("settings-form").addEventListener("submit", saveSettings);
   byId("review-adapter").addEventListener("change", loadReview);
   byId("review-form").addEventListener("submit", saveReview);
+  byId("config-authorization").addEventListener("change", updateConfigAuthorization);
+  byId("config-form").addEventListener("submit", saveConfig);
   byId("close-dialog").addEventListener("click", () => byId("execution-dialog").close());
   byId("cancel-stock").addEventListener("click", () => byId("stock-dialog").close());
+  byId("cancel-config").addEventListener("click", () => byId("config-dialog").close());
   document.querySelectorAll("dialog").forEach((dialog) => {
     dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
     dialog.addEventListener("close", restoreDialogFocus);

@@ -13,6 +13,7 @@ from typing import Any
 from packages.admin_api import AdminService
 from packages.duckdb_query import DuckDBIcebergCore, IcebergQuery
 from packages.web_api import CoreQueryService
+from .scheduler import CloudSchedulerSync
 
 
 def _required(*names: str) -> dict[str, str]:
@@ -67,8 +68,14 @@ def build_runtime() -> WebRuntime:
     reader = IcebergQuery(iceberg.catalog, engine=iceberg.engine)
     core_service = CoreQueryService(reader.query, max_limit=int(os.environ.get("WEB_QUERY_MAX_ROWS", "200")))
     control = PostgreSQLControlPlane(control_connect)
+    scheduler = None
+    if os.environ.get("ADMIN_SCHEDULER_JOB", "").strip():
+        scheduler = CloudSchedulerSync(
+            settings["GCP_PROJECT_ID"], os.environ.get("ADMIN_SCHEDULER_LOCATION", "us-central1"),
+            os.environ["ADMIN_SCHEDULER_JOB"], timezone=os.environ.get("ADMIN_SCHEDULER_TIMEZONE", "Asia/Taipei"),
+        )
     return WebRuntime(
         core=core_service,
-        admin=AdminService(control, core=core_service),
+        admin=AdminService(control, core=core_service, schedule_sync=scheduler),
         closeables=(control, iceberg),
     )

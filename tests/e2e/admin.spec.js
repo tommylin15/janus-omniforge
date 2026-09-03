@@ -36,6 +36,7 @@ async function mockAdmin(page, { candidate = false } = {}) {
     const url = new URL(route.request().url());
     const path = url.pathname;
     if (path === "/api/v1/admin/stocks") return route.fulfill({ json: { items: [{ symbol: "2330", name: "台積電", market: "TWSE", enabled: true, listing_status: "listed", effective_from: "2026-08-31T00:00:00Z" }], limit: 10, next_cursor: null } });
+    if (path === "/api/v1/admin/stocks/2330/status") return route.fulfill({ json: { symbol: "2330", items: [{ dataset_id: "ohlcv", latest_date: "2026-08-31", row_count: 2, received_symbols: 1, requested_symbols: 1, coverage_ratio: 1, null_count: 1, null_profile: [{ field: "close", count: 1, ratio: 0.5 }], quality_flags: ["warning"], dq_warning_count: 1, source_ids: ["twse"], snapshot_ids: ["42"], quarantine_count: 1, quarantine_state: "available" }] } });
     if (path === "/api/v1/admin/executions") return route.fulfill({ json: { items: [execution], limit: 10, next_cursor: null } });
     if (path === `/api/v1/admin/executions/${execution.execution_id}`) return route.fulfill({ json: execution });
     if (path === "/api/v1/admin/source-catalog") return route.fulfill({ json: { items: candidate ? [{ config_id: "anue-news", dataset_id: "news", source_ids: ["anue"], cadence: "intraday", coverage_tier: "core_focus", authorization_status: "candidate" }] : [] } });
@@ -85,6 +86,18 @@ test("stock dialog cancellation does not write and restores focus", async ({ pag
   expect(writes).toBe(0);
 });
 
+test("stock status renders Core coverage, null profile and quarantine", async ({ page }) => {
+  await mockAdmin(page);
+  await page.goto("/admin/stocks?tab=status");
+  await page.locator("#status-symbol").fill("2330");
+  await page.getByRole("button", { name: "查詢" }).click();
+  const row = page.locator("#status-rows tr");
+  await expect(row).toContainText("2026");
+  await expect(row).toContainText("1/1 (100%)");
+  await expect(row).toContainText("close 1 (50%)");
+  await expect(row).toContainText("1 筆");
+});
+
 test("execution row opens details by keyboard and restores focus", async ({ page }) => {
   await mockAdmin(page);
   await page.goto("/admin/stocks?tab=executions");
@@ -118,6 +131,26 @@ test("candidate adapter review submits full checklist and optimistic version", a
   expect(saved.expected_version).toBe(2);
   expect(Object.values(saved.value.checks).every(Boolean)).toBe(true);
   expect(Object.keys(saved.value.checks)).toHaveLength(11);
+});
+
+test("source config editor saves typed values and blocks candidate enablement", async ({ page }) => {
+  const config = { config_id: "first-batch", dataset_id: "ohlcv", source_ids: ["twse"], expected_fields: ["symbol"], market: "TWSE", enabled: true, collection_enabled: true, analysis_enabled: false, lookback_days: 30, overlap_days: 2, full_refresh_interval_days: 0, batch_scope: "market", coverage_tier: "market_wide", cadence: "daily", scope: "market", authorization_status: "official", retention_class: "core_standard", contains_pii: false, republish_allowed: false, max_symbols: 50 };
+  let saved;
+  await mockAdmin(page);
+  await page.route("**/api/v1/admin/source-catalog", async (route) => {
+    if (route.request().method() === "GET") return route.fulfill({ json: { items: [config] } });
+    saved = route.request().postDataJSON(); return route.fulfill({ json: saved });
+  });
+  await page.goto("/admin/stocks?tab=catalog");
+  await page.getByRole("button", { name: "編輯" }).click();
+  await page.getByLabel("頻率").selectOption("weekly");
+  await page.getByLabel("Authorization").selectOption("candidate");
+  await expect(page.getByLabel("啟用設定")).toBeDisabled();
+  await page.locator("#config-actor").fill("operator@example.com");
+  await page.getByRole("button", { name: "儲存資料源設定" }).click();
+  expect(saved.cadence).toBe("weekly");
+  expect(saved.enabled).toBe(false);
+  expect(saved.analysis_enabled).toBe(false);
 });
 
 test("logout clears the Admin session and returns to login", async ({ page, context }) => {

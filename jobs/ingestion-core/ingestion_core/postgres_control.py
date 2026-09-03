@@ -103,18 +103,21 @@ class PostgreSQLControlPlane:
             cur.execute(f"SELECT symbol,name,market,enabled,updated_at,listing_status,effective_from FROM control.stock_master WHERE {' AND '.join(clauses)} ORDER BY symbol LIMIT %s", args)
             return tuple(Stock(r[0], r[1], r[2], r[3], r[4], r[5], r[6]) for r in cur.fetchall())
 
-    def put_collection_config(self, config: CollectionConfig, symbols: tuple[str, ...] | list[str] = ()) -> None:
-        symbols = tuple(sorted({_symbol(value) for value in symbols}))
-        if config.coverage_tier == CoverageTier.CORE_FOCUS.value and len(symbols) > config.max_symbols:
+    def put_collection_config(self, config: CollectionConfig, symbols: tuple[str, ...] | list[str] | None = None, *, actor: str | None = None) -> None:
+        normalized_symbols = None if symbols is None else tuple(sorted({_symbol(value) for value in symbols}))
+        if normalized_symbols is not None and config.coverage_tier == CoverageTier.CORE_FOCUS.value and len(normalized_symbols) > config.max_symbols:
             raise ControlPlaneError("core_focus collection exceeds max_symbols")
         with self._tx() as cur:
             cur.execute("""INSERT INTO control.collection_configs(config_id,dataset_id,source_ids,expected_fields,market,enabled,collection_enabled,analysis_enabled,lookback_days,overlap_days,full_refresh_interval_days,batch_scope,coverage_tier,cadence,scope,authorization_status,retention_class,contains_pii,republish_allowed,max_symbols)
                 VALUES (%s,%s,%s::jsonb,%s::jsonb,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 ON CONFLICT(config_id) DO UPDATE SET dataset_id=EXCLUDED.dataset_id,source_ids=EXCLUDED.source_ids,expected_fields=EXCLUDED.expected_fields,market=EXCLUDED.market,enabled=EXCLUDED.enabled,collection_enabled=EXCLUDED.collection_enabled,analysis_enabled=EXCLUDED.analysis_enabled,lookback_days=EXCLUDED.lookback_days,overlap_days=EXCLUDED.overlap_days,full_refresh_interval_days=EXCLUDED.full_refresh_interval_days,batch_scope=EXCLUDED.batch_scope,coverage_tier=EXCLUDED.coverage_tier,cadence=EXCLUDED.cadence,scope=EXCLUDED.scope,authorization_status=EXCLUDED.authorization_status,retention_class=EXCLUDED.retention_class,contains_pii=EXCLUDED.contains_pii,republish_allowed=EXCLUDED.republish_allowed,max_symbols=EXCLUDED.max_symbols""",
                 (config.config_id, config.dataset_id, json.dumps(config.source_ids), json.dumps(sorted(config.expected_fields)), config.market, config.enabled, config.collection_enabled, config.analysis_enabled, config.lookback_days, config.overlap_days, config.full_refresh_interval_days, config.batch_scope, config.coverage_tier, config.cadence, config.scope, config.authorization_status, config.retention_class, config.contains_pii, config.republish_allowed, config.max_symbols))
-            cur.execute("DELETE FROM control.collection_symbols WHERE config_id=%s", (config.config_id,))
-            for symbol in symbols:
-                cur.execute("INSERT INTO control.collection_symbols(config_id,symbol) VALUES (%s,%s)", (config.config_id, _symbol(symbol)))
+            if normalized_symbols is not None:
+                cur.execute("DELETE FROM control.collection_symbols WHERE config_id=%s", (config.config_id,))
+                for symbol in normalized_symbols:
+                    cur.execute("INSERT INTO control.collection_symbols(config_id,symbol) VALUES (%s,%s)", (config.config_id, symbol))
+            if actor:
+                cur.execute("INSERT INTO control.admin_audit(action,resource,resource_key,actor,detail_json,created_at) VALUES ('update','collection_config',%s,%s,%s::jsonb,now())", (config.config_id, actor.strip(), json.dumps({"authorization_status": config.authorization_status, "enabled": config.enabled})))
 
     def get_collection_config(self, config_id: str) -> CollectionConfig:
         with self.connection.cursor() as cur:

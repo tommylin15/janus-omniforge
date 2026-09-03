@@ -19,9 +19,10 @@ class AdminValidationError(ValueError):
 
 
 class AdminService:
-    def __init__(self, control: Any, *, core: Any | None = None) -> None:
+    def __init__(self, control: Any, *, core: Any | None = None, schedule_sync: Any | None = None) -> None:
         self.control = control
         self.core = core
+        self.schedule_sync = schedule_sync
 
     def stocks(self, query: str = "", *, enabled: bool | None = None, limit: int = 50,
                cursor: str | None = None) -> tuple[dict[str, Any], ...]:
@@ -108,8 +109,10 @@ class AdminService:
             raise AdminValidationError("limit must be between 1 and 200")
         return tuple(self._config(item) for item in self.control.list_collection_configs())[:limit]
 
-    def save_collection_config(self, payload: dict[str, Any]) -> dict[str, Any]:
+    def save_collection_config(self, payload: dict[str, Any], *, actor: str) -> dict[str, Any]:
         from ingestion_core.control import CollectionConfig
+        if not isinstance(actor, str) or not actor.strip():
+            raise AdminValidationError("actor is required")
         required = ("config_id", "dataset_id", "source_ids")
         if any(not isinstance(payload.get(key), str if key != "source_ids" else list) for key in required):
             raise AdminValidationError("config_id, dataset_id and source_ids are required")
@@ -129,8 +132,8 @@ class AdminService:
                 raise AdminValidationError("candidate or blocked source cannot be enabled")
             if config.enabled and any(not self.control.source_is_approved(source_id) for source_id in config.source_ids):
                 raise AdminValidationError("every enabled source requires an approved review")
-            symbols = tuple(payload.get("symbols", []))
-            self.control.put_collection_config(config, symbols)
+            symbols = tuple(payload["symbols"]) if "symbols" in payload else None
+            self.control.put_collection_config(config, symbols, actor=actor.strip())
             return self._config(config)
         except (TypeError, ValueError) as error:
             raise AdminValidationError(str(error)) from error
@@ -156,8 +159,21 @@ class AdminService:
             raise AdminValidationError("retention requires cleanup_enabled and days between 1 and 3650")
         if key == "source_config" and not isinstance(value, dict):
             raise AdminValidationError("source_config must be an object")
-        version = self.control.put_admin_setting(key, value, actor=actor.strip(), expected_version=expected_version)
-        return {"key": key, "value": value, "version": version}
+        current = self.control.get_admin_setting(key)
+        scheduler = None
+        if key == "schedule":
+            if self.schedule_sync is None:
+                raise AdminValidationError("Cloud Scheduler sync is unavailable")
+            if current and expected_version is not None and current[1] != expected_version:
+                raise AdminValidationError("setting has changed; reload before saving")
+            scheduler = self.schedule_sync(value)
+        try:
+            version = self.control.put_admin_setting(key, value, actor=actor.strip(), expected_version=expected_version)
+        except Exception:
+            if key == "schedule" and current:
+                self.schedule_sync(current[0])
+            raise
+        return {"key": key, "value": value, "version": version, **({"scheduler": scheduler} if scheduler else {})}
 
     def audit(self, *, limit: int = 50) -> tuple[dict[str, Any], ...]:
         if not 1 <= limit <= 50:
@@ -241,18 +257,27 @@ class AdminService:
         items = []
         for dataset_id, dataset in summary.get("datasets", {}).items():
             null_profile = dataset.get("null_profile", {})
+            row_count = int(dataset.get("row_count", 0))
             associations = dataset.get("associations", {})
             quality_flags = dataset.get("quality_flags", ())
             warning_count = dataset.get("warning_count", dataset.get("dq_warning_count", len(quality_flags)))
             quarantine_count = dataset.get("quarantined_count", dataset.get("quarantine_count"))
+            coverage = dataset.get("coverage", {})
+            received_symbols = int(coverage.get("received_symbols", 0))
+            requested_symbols = int(coverage.get("requested_symbols", 1))
             items.append({
                 "dataset_id": dataset_id,
                 "latest_date": dataset.get("latest_date"),
-                "row_count": dataset.get("row_count", 0),
-                "received_symbols": dataset.get("coverage", {}).get("received_symbols", 0),
-                "requested_symbols": dataset.get("coverage", {}).get("requested_symbols", 1),
+                "row_count": row_count,
+                "received_symbols": received_symbols,
+                "requested_symbols": requested_symbols,
+                "coverage_ratio": received_symbols / requested_symbols if requested_symbols else None,
                 "null_count": sum(int(value) for value in null_profile.values()),
-                "null_fields": tuple(null_profile),
+                "null_profile": tuple({
+                    "field": field,
+                    "count": int(count),
+                    "ratio": int(count) / row_count if row_count else None,
+                } for field, count in sorted(null_profile.items())),
                 "quality_flags": tuple(quality_flags),
                 "dq_warning_count": warning_count,
                 "source_ids": tuple(associations.get("source_id", ())),
@@ -262,11 +287,18 @@ class AdminService:
                 "quarantine_count": quarantine_count,
                 "quarantine_state": "available" if quarantine_count is not None else "unavailable",
             })
-        return {"symbol": summary.get("symbol", symbol), "items": tuple(items)}
+        return {"symbol": summary.get("symbol", symbol), "items": tuple(sorted(items, key=lambda item: item["dataset_id"]))}
 
     @staticmethod
     def _config(config: Any) -> dict[str, Any]:
-        return {"config_id": config.config_id, "dataset_id": config.dataset_id, "source_ids": config.source_ids, "enabled": config.enabled, "collection_enabled": config.collection_enabled, "analysis_enabled": config.analysis_enabled, "coverage_tier": config.coverage_tier, "cadence": config.cadence, "scope": config.scope, "authorization_status": config.authorization_status, "retention_class": config.retention_class, "max_symbols": config.max_symbols}
+        result = {key: getattr(config, key) for key in (
+            "config_id", "dataset_id", "source_ids", "expected_fields", "market", "enabled",
+            "collection_enabled", "analysis_enabled", "lookback_days", "overlap_days",
+            "full_refresh_interval_days", "batch_scope", "coverage_tier", "cadence", "scope",
+            "authorization_status", "retention_class", "contains_pii", "republish_allowed", "max_symbols",
+        )}
+        result["expected_fields"] = tuple(sorted(result["expected_fields"]))
+        return result
 
     @staticmethod
     def parse_datetime(value: str) -> datetime:

@@ -146,7 +146,8 @@ class WebApplication:
         if method == "GET" and path == "/api/v1/admin/source-catalog":
             return {"items": self.admin.collection_configs(limit=int(query.get("limit", ["200"])[0]))}, "200 OK", json_type
         if method in {"POST", "PUT"} and path == "/api/v1/admin/source-catalog":
-            return self.admin.save_collection_config(request_body), "200 OK", json_type
+            actor = authenticated_actor or self._required_text(request_body, "actor")
+            return self.admin.save_collection_config(request_body, actor=actor), "200 OK", json_type
         if path.startswith("/api/v1/admin/source-reviews/"):
             adapter_id = unquote(path.split("/")[5])
             if method == "GET":

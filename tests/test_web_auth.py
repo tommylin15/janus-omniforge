@@ -57,20 +57,14 @@ class GoogleAuthMiddlewareTests(unittest.TestCase):
 
     def test_allowed_google_account_gets_signed_session(self):
         csrf = self.auth._encode_login_csrf()
-        status, _, body = self.request(
+        status, headers, body = self.request(
             "/auth/google", method="POST", csrf_header=csrf,
             form={"g_csrf_token": csrf, "credential": "valid-token"},
         )
         self.assertEqual(status, "200 OK")
-        handoff = json.loads(body)["handoff"]
-        status, headers, _ = self.request(
-            "/auth/google", method="POST", form={"handoff": handoff},
-        )
-        self.assertEqual(status, "303 See Other")
-        self.assertEqual(headers["Location"], "/admin/stocks")
+        self.assertEqual(json.loads(body)["redirect"], "/admin/stocks")
         self.assertTrue(headers["Set-Cookie"].startswith(f"{SESSION_COOKIE}="))
         self.assertIn("Strict-Transport-Security", headers)
-        self.assertEqual(_, b"")
         session_cookie = headers["Set-Cookie"].split(";", 1)[0]
         status, _, body = self.request("/admin/stocks", cookie=session_cookie)
         self.assertEqual(status, "200 OK")
@@ -92,17 +86,11 @@ class GoogleAuthMiddlewareTests(unittest.TestCase):
 
     def test_tampered_session_is_rejected(self):
         csrf = self.auth._encode_login_csrf()
-        status, _, body = self.request(
+        status, headers, body = self.request(
             "/auth/google", method="POST", csrf_header=csrf,
             form={"g_csrf_token": csrf, "credential": "valid-token"},
         )
         self.assertEqual(status, "200 OK")
-        handoff = json.loads(body)["handoff"]
-        status, headers, _ = self.request(
-            "/auth/google", method="POST", form={"handoff": handoff},
-        )
-        self.assertEqual(status, "303 See Other")
-        self.assertEqual(headers["Location"], "/admin/stocks")
         session_cookie = headers["Set-Cookie"].split(";", 1)[0] + "x"
         status, _, _ = self.request("/admin/stocks", cookie=session_cookie)
         self.assertEqual(status, "303 See Other")

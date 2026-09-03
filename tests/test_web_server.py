@@ -56,6 +56,10 @@ class _Admin:
     def collection_configs(self, *, limit=200):
         return ({"config_id": "ohlcv", "dataset_id": "ohlcv", "source_ids": ("twse",)},)
 
+    def save_collection_config(self, payload, *, actor):
+        self.actor = actor
+        return {**payload, "actor": actor}
+
     def source_review(self, adapter_id):
         return {"adapter_id": adapter_id, "value": None, "version": 0}
 
@@ -177,6 +181,12 @@ class WebServerTests(unittest.TestCase):
         self.assertEqual(status, "200 OK")
         self.assertEqual(body["adapter_id"], "anue")
         self.assertEqual(admin.actor, "reviewer@example.com")
+
+    def test_source_config_uses_authenticated_actor(self):
+        admin = _Admin()
+        status, body = self.request("/api/v1/admin/source-catalog", method="PUT", body={"config_id": "ohlcv", "dataset_id": "ohlcv", "source_ids": ["twse"], "actor": "spoofed@example.com"}, admin=admin, authenticated_actor="operator@example.com")
+        self.assertEqual(status, "200 OK")
+        self.assertEqual(body["actor"], "operator@example.com")
 
 
 if __name__ == "__main__":

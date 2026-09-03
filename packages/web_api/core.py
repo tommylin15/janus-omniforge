@@ -82,11 +82,23 @@ class CoreQueryService:
         for dataset in selected:
             page = self.page(dataset, normalized_symbol, limit=self.max_limit)
             rows = page.rows
+            profile_rows = self._query(
+                self.TABLE_NAMES[dataset],
+                f"SELECT count(*) AS __row_count, count(COLUMNS(*)) FROM {self.TABLE_NAMES[dataset]} "
+                f"WHERE {self.FILTER_FIELDS[dataset]} = ?",
+                (normalized_symbol,),
+            )
+            profile = dict(profile_rows[0]) if profile_rows else {}
+            row_count = int(profile.pop("__row_count", 0))
             result["datasets"][dataset] = {
-                "row_count": len(rows),
-                "coverage": {"received_symbols": 1 if rows else 0, "requested_symbols": 1},
+                "row_count": row_count,
+                "coverage": {"received_symbols": 1 if row_count else 0, "requested_symbols": 1},
                 "latest_date": self._latest_date(rows),
-                "null_profile": self._null_profile(rows),
+                "null_profile": {
+                    field: row_count - int(non_null_count)
+                    for field, non_null_count in sorted(profile.items())
+                    if row_count - int(non_null_count)
+                },
                 "quality_flags": sorted({
                     str(row["quality_flag"]) for row in rows
                     if row.get("quality_flag") not in (None, "")

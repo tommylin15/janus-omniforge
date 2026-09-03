@@ -6,6 +6,7 @@
 已完成項目與歷史 checkpoint：
 
 - [TODO 完成紀錄（截至 2026-08-31）](archive/todo-completed-through-2026-08-31.md)
+- [TODO 完成紀錄（2026-09-02）](archive/todo-completed-2026-09-02.md)
 - [已完成 WBS 0／1／2／4](archive/wbs-completed-through-2026-08-31.md)
 
 目前執行順序：
@@ -16,7 +17,7 @@
 
 ## P0 — Admin Data Operations MVP
 
-- [ ] 股票資料狀態頁：Core 最新日期、資料集覆蓋、row count 與既有寫入安全／quarantine 摘要；本項不新增或校準 DQ 規則。
+- [x] 股票資料狀態頁：Core 最新日期、資料集覆蓋、精確 row count／null profile 與既有寫入安全／quarantine 摘要；本項未新增或校準 DQ 規則。（2026-09-03：本機 API、Iceberg aggregate、Admin Playwright 與 build 驗證通過；無 persisted quarantine 計數的資料集明示未提供。）
 
 - [ ] 將股票資料狀態、execution item、寫入安全／quarantine 的 raw JSON 主視圖改為類 Excel 欄列表格；支援 sticky header、排序、篩選、分頁、欄位顯示與按需子表，且不得暴露 raw payload／object URI／完整 upstream error。
 
@@ -48,9 +49,7 @@
   （2026-09-02：實際 dev URL 的 live Playwright、API/runtime 與安全輸出已通過；
   revision／digest 詳見 operations-and-testing。真人 Google login 仍未執行。）
 
-- [ ] 以既有 5 檔 canary 從 Admin 完成手動 Collection、指定日期 backfill、同日 replay、failure／retry 與 Stage cleanup；每次均可追至 execution item、Stage manifest／quarantine、Core commit fence 與 terminal status。（2026-09-02：Collection／單日 backfill、同日 replay、failure／retry 已實機通過；兩次成功 execution 各有 11 組 Stage payload／metadata／manifest、0 quarantine、1 Core commit fence，replay 為 `created=0／updated=0／reused=403`。僅剩 Stage cleanup 實機驗收。）
-
-- [ ] 5 檔 canary 由既有 Scheduler 連續 3 個交易日正常完成；expected／received／missing、8 個核准來源狀態、Core row/hash/date/null profile 與成本摘要均留下證據。
+- [ ] 5 檔 canary 由既有 Scheduler 連續 3 個交易日正常完成；expected／received／missing、8 個核准來源狀態、Core row/hash/date/null profile 與成本摘要均留下證據。（2026-09-03：首日 execution `janus-ingestion-core-8mvg4` 經既有一次 retry 後失敗，連續成功為 0/3；詳見 operations-and-testing。）
 
 - [ ] canary 通過後才擴至當日 enabled 全市場；market-scope endpoint 單次抓取並 symbol fan-out，不逐檔重複請求。
 
