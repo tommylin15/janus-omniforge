@@ -1,6 +1,6 @@
 # Operations and testing
 
-最新驗證日期：2026-09-03
+最新驗證日期：2026-09-04
 
 最新完整本機驗證：`python -m unittest discover -s tests` 113/113、Vitest 2/2、
 Playwright 8/8、TypeScript typecheck、ESLint、Web production build 與

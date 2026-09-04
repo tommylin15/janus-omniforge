@@ -1,6 +1,6 @@
 # Janus — TODO
 
-版本：1.9
+版本：2.0
 用途：只保留未完成工作與目前驗收條件；完成證據移至 archive。
 
 已完成項目與歷史 checkpoint：
@@ -12,11 +12,11 @@
 
 目前執行順序：
 
-1. 完成 WBS 3 的 Dev Stage → Core → Admin Data Operations MVP。
-2. 完成 WBS 4J 個人交易筆記 MVP；可先於公開 Mart／Agents／LLM。
-3. 再執行全市場深化、WBS 5 Intelligence Mart、公開 FastAPI／Flutter 與後續 PIT／發布。
+1. 完成個人工作台需要的最小股票 master／行情 Core、User auth 與 Private Iceberg 基礎；WBS 3 其餘 Admin polish／全市場擴張可延後。
+2. 並列 P0：完成 WBS 4J 個人記帳／筆記／關注股與 WBS 4C Codex／ChatGPT／Gemini 可切換聊天室。
+3. 再完成 WBS 3 其餘驗收、全市場深化、WBS 5 Intelligence Mart、公開 Flutter 與後續 PIT／發布。
 
-## P0 — Admin Data Operations MVP
+## P1（私人 P0 後續）— Admin Data Operations MVP
 
 - [ ] 將股票資料狀態、execution item、寫入安全／quarantine 的 raw JSON 主視圖改為類 Excel 欄列表格；支援 sticky header、排序、篩選、分頁、欄位顯示與按需子表，且不得暴露 raw payload／object URI／完整 upstream error。
 
@@ -26,7 +26,7 @@
 
 - [x] 在 WBS 5 persisted Mart consumer 完成前，將 Admin Analysis action 與「Mart 分析」hidden／disabled，且不得建立無 consumer 的 queued execution；Collection queue consumer、lease recovery、terminal state、item persistence 與指定來源／日期 backfill runtime 維持可用。（2026-09-02：dev revision `janus-web-00037-g25` 的 live Playwright 與 API smoke 通過；第一階段只顯示七個資料營運分頁，Analysis POST 回 400 且 execution IDs 不變，五檔 backfill／replay／failure execution 均由 persisted worker claim 至 terminal state。）
 
-## P0 — Stage／Core 與 Admin MVP 驗證
+## P1（私人 P0 後續）— Stage／Core 與 Admin MVP 驗證
 
 - [ ] PostgreSQL migration、role isolation、queue claim、connection exhaustion、VM restart/reconnect、retention/pruning tests。（migration／Web role contract／retention-pruning 自動測試已通過；queue claim、connection exhaustion、VM restart/reconnect 實機驗證仍待完成）
 
@@ -46,31 +46,61 @@
 
 - [ ] canary 通過後才擴至當日 enabled 全市場；market-scope endpoint 單次抓取並 symbol fan-out，不逐檔重複請求。
 
-- [ ] 第一階段完成定義：營運者只透過 Admin 即可設定已核准來源與核心名單、觸發／排程 Collection、查看 Stage／Core／quarantine、定位失敗並安全重跑，不需登入 GCP 或直接查資料庫。
+- [ ] 第一階段完成定義：營運者只透過 Admin 即可設定已核准來源與去識別化深度追蹤名單、觸發／排程 Collection、查看 Stage／Core／quarantine、定位失敗並安全重跑，不需登入 GCP 或直接查資料庫。
 
-## P1（第二階段／WBS 4J）— 個人交易筆記 MVP
+## P0（WBS 4J）— 個人記帳、筆記與關注股 MVP
 
-- [ ] 建立最小 `services/api` FastAPI app，只包含 health、Google OIDC User auth boundary 與 `/api/v1/me/journal/*`；使用獨立 User OAuth client／audience，驗證 issuer／audience／expiry，以 Google `sub` 對應內部 UUID `user_id`，email 只供顯示。既有 WSGI Admin 保留至後續回歸完成。
+- [ ] 建立最小 `services/api` FastAPI app，只包含 health、Google OIDC User auth boundary 與 `/api/v1/me/journal/*`、`/api/v1/me/notes/*`、`/api/v1/me/watchlist/*`；使用獨立 User OAuth client／audience，驗證 issuer／audience／expiry，以 Google `sub` 對應內部 UUID `user_id`，email 只供顯示。既有 WSGI Admin 保留至後續回歸完成。
 
-- [ ] PostgreSQL 建立隔離的 append-only trade ledger、reversal／replacement、optimistic version、idempotency key、單調遞增 `ledger_version`、user-leading indexes 與 RLS／等價 ownership guard；金額一律固定精度 decimal，不建立 outbox。
+- [ ] PostgreSQL 建立隔離的 append-only `BUY`／`SELL`／`CASH_DIV`／`STOCK_DIV` ledger、reversal／replacement、optimistic version、idempotency key、單調遞增 `ledger_version`、user-leading indexes 與 RLS／等價 ownership guard；date、symbol、shares、price、fee、tax、currency 依類型驗證並使用固定精度 decimal，不建立 outbox。
 
-- [ ] 建立 PostgreSQL ledger → Private Iceberg Core batch pipeline：依 persisted checkpoint 讀取新 `ledger_version`，冪等寫入後才推進 checkpoint，失敗可重跑；不建立 Private Stage／DataSrc。使用獨立 bucket prefix／namespace／role／retention，public、一般 Admin 與其他使用者不可讀取。
+- [ ] 建立 PostgreSQL private event/index → Private Iceberg Core batch pipeline：依 persisted checkpoint 讀取新 ledger／note／watchlist version，冪等寫入後才推進 checkpoint，失敗可重跑；不建立 Private Stage／DataSrc。使用獨立 bucket prefix／namespace／role／retention，public、一般 Admin 與其他使用者不可讀取。
 
 - [ ] 建立 `mart_user_positions`、`mart_user_realized_pnl`、`mart_user_unrealized_pnl`、`mart_user_annual_pnl`；使用第一階段股票 master／行情 Core，MVP 成本法固定移動平均，缺價不顯示 0。
 
-- [ ] 建立 `/api/v1/me/journal/*` typed contract：新增交易、更正、歷史、持股、年度損益、匯出與刪除；身分只取自驗證內容，不接受 client 指定 `user_id`。
+- [ ] 建立 typed contract：journal 新增／更正／歷史／持股／損益、note revision 與 symbol／trade relation、watchlist 關注／取消／排序／目標價；身分只取自驗證內容，不接受 client 指定 `user_id`。
 
-- [ ] 實作本人 ledger 匯出與可稽核、可重試的私人資料刪除工作流；涵蓋 PostgreSQL、Private Core／Mart、cache、完成證據與依法或安全要求保留的最小 audit metadata。
+- [ ] 實作本人交易／筆記／關注股匯出與可稽核、可重試的私人資料刪除工作流；涵蓋 PostgreSQL、Private Core／Mart、cache、完成證據與依法或安全要求保留的最小 audit metadata。
 
-- [ ] 建立最小 Flutter「筆記／我的」流程；「今日／探索／個股分析」保持 coming soon／disabled，不得觸發 scraper、Agent 或 LLM。
+- [ ] 建立最小 Flutter「關注／筆記／我的」流程；「筆記」內含記帳／一般筆記。「今日／公開探索」保持 coming soon／disabled，一般 page load 不得觸發 scraper、Agent 或 LLM。
 
-- [ ] 驗證超賣拒絕、更正事件、費稅、跨年、估值日期、重跑冪等、刪除與使用者 A／B 隔離；Private artifact 不得進 public service index。
+- [ ] 驗證超賣拒絕、更正事件、note revision、關注異動、50-symbol 營運護欄、費稅、跨年、估值日期、重跑冪等、刪除與使用者 A／B 隔離；Private artifact 與 user-to-symbol 關係不得進 public／Admin service index。
 
 - [ ] 驗證 User／Admin audience 混用、偽造或 client 指定 `user_id` 均被拒絕，email 變更不改變資料所有權；Dev User allowlist 不得授予 Admin 權限。
 
-- [ ] 未來個人化分析只在 authenticated-user 邊界內引用公開 `mart_scoped_analysis` 的 symbol scope；不阻擋交易筆記 MVP，也不把私人交易資料寫回公開 Mart。
+- [ ] 個人化分析只在 authenticated-user 邊界內引用公開 `mart_scoped_analysis` 的 symbol scope；不阻擋記帳／筆記／關注股／聊天室 MVP，也不把私人資料寫回公開 Mart。
 
 - [ ] 不實作券商同步、自動下單、公開績效排行榜或 FIFO 切換；這些需另行法遵／會計／安全決策。
+
+## P0（WBS 4C）— Codex／ChatGPT／Gemini 可切換私人聊天室
+
+- [ ] 實作三個受控 profile：`codex`、`chatgpt`、`gemini`。Codex／ChatGPT 共用 Codex App Server 與 ChatGPT managed OAuth／device-code，但使用不同 agentic／conversation policy；不建立第二個虛構的 ChatGPT App Server daemon。
+
+- [ ] 禁止 OpenAI API key、Responses API、Codex API 或其他按量 OpenAI API；以 contract／configuration test 證明不存在 API-key request、secret 或 fallback 路徑。
+
+- [ ] Gemini 以 GCP workload identity 呼叫並支援 Google Search grounding；顯示來源與查詢時間。付費啟用前必須取得人工同意，並實作每次搜尋、每人每日與每月成本 hard limit。
+
+- [ ] 建立 `/api/v1/me/chats/*`：conversation 建立／列表／fork、message、bounded SSE events、取消、匯出與刪除。每個 conversation 固定 engine，切換只能新建／fork，不靜默 fallback。
+
+- [ ] 對話 messages、選定的私人 context snapshot、engine／model、search flag 與 citations 儘可能寫入 Private Iceberg；PostgreSQL 只保存 session index、status、idempotency、checkpoint 與 artifact reference。provider credential／refresh token 不得進 PostgreSQL、Iceberg、log 或 Flutter storage。
+
+- [ ] 所有 profile 禁止 shell、檔案寫入、Admin、交易／筆記／watchlist mutation 與下單；驗證 web／note prompt injection 無法解除 tool、ownership 或 publication policy。
+
+- [ ] Flutter AI 頁顯示 engine selector、Codex subscription login／logout／plan／rate limit、Gemini grounding／billing 狀態、所選 context、資料日期、citations 與免責聲明；切換前提示建立新 conversation／fork。
+
+- [ ] 驗證 Codex／ChatGPT／Gemini 切換與 lineage、SSE 斷線續接／去重、provider unavailable、usage limit、citation、A／B 隔離、Iceberg 重跑／匯出／刪除及無 placeholder response。
+
+## P1（WBS 4R）— 個人曝險、績效與 AI 壓力測試
+
+- [ ] 建立 investment profile：risk tolerance、investment horizon、primary goal、minimum cash ratio；目前值保留 bounded private index，revision history 寫入 Private Iceberg，只有使用者 opt-in 才能加入 chat context。
+
+- [ ] 建立具 effective time／provenance 的多產業 membership 與 `mart_user_exposure`；分攤方法、現金、持股市值、valuation date 與 membership snapshot 可追溯，Flutter／LLM 不重算。
+
+- [ ] 建立年度現金流與 XIRR；先通過買賣、現金／股票股利、更正、跨年、無根、多根與缺資料測試，非唯一有效結果不得填 0。
+
+- [ ] 建立 deterministic portfolio stress scenarios 與 cash-safety result，再交由使用者選定的 Codex／ChatGPT／Gemini profile 解釋；模型不得修改數值或產生下單動作。
+
+- [ ] 建立 private investment-profile、portfolio summary／exposure／performance／stress-test typed endpoints 與 Flutter 儀表板；通過 A／B 隔離、重跑、資料日期、缺價、profile opt-in、citation 與免責聲明驗收。
 
 ## P1 — 全市場量化網
 
@@ -84,9 +114,9 @@
 
 - [ ] 驗證全市場同日 replay 冪等、bounded memory／runtime、GCS 成本與缺檔不被誤標成功。
 
-## P1 — 核心 50 放大鏡
+## P1 — 個人關注股深度追蹤
 
-- [ ] 以 control DB 核心 membership 收集深度財報、公司事件／重大訊息、公司行動與 PIT publication time。
+- [ ] 以 authenticated watchlist 形成去識別化 active symbol membership，收集深度財報、公司事件／重大訊息、公司行動與 PIT publication time；Admin 不得取得 user-to-symbol 對應。
 
 - [ ] 對已核准行情來源建立分 K／Tick 獨立排程、quota、retention、failure policy 與成本量測；未核准前保持 blocked。
 
@@ -96,7 +126,7 @@
 
 - [ ] 建立文本正規化、dedup、language、published time、entity-to-symbol 與 source authority Core tables；entity-to-symbol 保留規則／模型版本、confidence、evidence 與人工覆核狀態，sentiment、buzz、AI alert 與投資判讀只寫 versioned Mart。
 
-- [ ] 驗證核心名單變更不改寫歷史 membership，移出名單後停止深度收集但保留依法可保存的歷史 provenance。
+- [ ] 驗證關注需求變更不改寫歷史 membership；最後一位使用者取消關注後停止新的深度收集，但保留依法可保存的歷史 provenance。MVP 超過 50 個 distinct active symbols 時安全拒絕並顯示 quota。
 
 ## P1 — Mart／Agents
 
@@ -146,7 +176,7 @@
 
 - [ ] `mart_scoped_analysis` 的 industry scope 只分析該次 immutable membership snapshot；symbol scope 產出獨立 role payload。兩者只用 PIT 合格 evidence，並驗證 prompt version 變更不覆寫歷史 Mart。
 
-## P1 — LLM
+## P1 — 公開 Mart LLM
 
 - [ ] 建立 evidence-only structured prompt。
 
@@ -154,7 +184,7 @@
 
 - [ ] 禁止模型修改 score、confidence、quality、publication。
 
-- [ ] 接 Gemini；429／`RESOURCE_EXHAUSTED`／provider unavailable 採 bounded retry，不接第二套 provider。
+- [ ] 公開批次 Mart 只接 Gemini，與 WBS 4C 的私人三 profile 聊天室分離；不得使用 OpenAI／Codex API。啟用付費前須通過人工 billing gate，429／`RESOURCE_EXHAUSTED`／provider unavailable 採 bounded retry。
 
 - [ ] 非 429 結構化失敗。
 
@@ -196,7 +226,7 @@
 
 - [ ] 分離 `/api/v1/public/*`、`/api/v1/me/*`、`/api/v1/admin/*` 的 router、response model、auth、CORS、rate limit、IAM 與 audit。
 
-- [ ] Public API 提供 health、daily brief、sector rotation、topics、candidates、stock health、history、Kline、events。
+- [ ] Public API 提供 health、daily brief、sector rotation、topics、candidates、stock health、history、Kline、events；Private API 延續 WBS 4J／4C 的 journal、notes、watchlist 與 chats contract。
 
 - [ ] 未知／停用股票 404。
 
@@ -208,7 +238,7 @@
 
 - [ ] Public API 只讀 PostgreSQL service index／publishable metadata，使用 bounded read-only pool 與 statement timeout；不得直連 catalog owner 或觸發即時抓取。Private journal API 使用獨立 role 並強制 authenticated-user ownership。
 
-- [ ] 建立 `apps/user_app` Flutter + Material 3 app；完成「今日、探索、筆記、我的」獨立導覽，不顯示 Admin 入口。
+- [ ] 建立 `apps/user_app` Flutter + Material 3 app；完成「今日、關注、筆記、AI、我的」獨立導覽，不顯示 Admin 入口。
 
 - [ ] 今日頁顯示同一 analysis-as-of 的市場狀態、三則重點、板塊輪動、熱門話題與五張候選股健康卡；資料日期不一致時顯示 partial。
 
@@ -216,9 +246,9 @@
 
 - [ ] 個股 K 線、Metrics、五角色與 provenance 放在預設收合的進階資料，不得先於健康度與白話摘要。
 
-- [ ] 交易筆記 UI 支援新增、更正、歷史篩選、持股與年度損益；正式成本／損益只讀 Private Mart，不在 Flutter 重算。
+- [ ] 個人工作台 UI 支援關注股、交易新增／更正、一般筆記 revision、歷史篩選、持股、年度損益與三 profile 聊天室；正式成本／損益只讀 Private Mart，不在 Flutter 或模型重算。
 
-- [ ] 全市場 screening 與核心標的深度頁分流；顯示 coverage、freshness、來源健康與資料不足。
+- [ ] 全市場 screening 與個人關注股深度頁分流；顯示 coverage、freshness、來源健康與資料不足。
 
 ## P1 — 全系統自動化測試
 
@@ -284,7 +314,7 @@
 
 ## P4 — UI 驗收後的資料品質強化（最後執行）
 
-順序 gate：Admin 資料營運中心與 Flutter「今日／探索／個股健康／交易筆記」完成自動化、實機與 A11y 驗收前，本節全部保持 blocked，不得提前開工。
+順序 gate：Admin 資料營運中心與 Flutter「關注／記帳／筆記／AI／個股健康」完成自動化、實機與 A11y 驗收前，本節全部保持 blocked，不得提前開工。
 
 - [ ] source health telemetry 按 coverage tier 保存 expected／received symbols、success count、latency、freshness、cache age、fallback、schema drift 與合法 empty／unavailable。
 
