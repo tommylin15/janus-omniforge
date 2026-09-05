@@ -130,13 +130,13 @@ class PostgresWorkspaceRepository:
                 "SELECT * FROM private.annual_pnl WHERE user_id=%s AND year=%s ORDER BY currency", (user_id, year)
             ).fetchall()]
 
-    def add_note(self, user_id: UUID, value: NoteIn, key: str, artifact_ref: str) -> dict[str, Any]:
+    def add_note(self, user_id: UUID, value: NoteIn, key: str, artifact_ref: str, note_id: UUID | None = None) -> dict[str, Any]:
         with self._connection() as connection:
             replay=self._mutation(connection,user_id,key)
             existing = connection.execute("SELECT * FROM private.note_index WHERE user_id=%s AND note_id=%s", (user_id,replay["entity_id"])).fetchone() if replay else None
             if existing: return dict(existing)
             self._require_owned_trade(connection,user_id,value.trade_event_id)
-            note_id, version = uuid4(), 1
+            note_id, version = note_id or uuid4(), 1
             row = connection.execute(
                 """INSERT INTO private.note_index(note_id,user_id,current_version,symbol,trade_event_id,needs_follow_up,artifact_ref,idempotency_key)
                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
@@ -169,7 +169,7 @@ class PostgresWorkspaceRepository:
     def notes(self, user_id: UUID, symbol: str | None = None) -> list[dict[str, Any]]:
         with self._connection() as connection:
             rows = connection.execute(
-                "SELECT * FROM private.note_index WHERE user_id=%s AND (%s IS NULL OR symbol=%s) ORDER BY updated_at DESC LIMIT 200",
+                "SELECT * FROM private.note_index WHERE user_id=%s AND (%s::text IS NULL OR symbol=%s) ORDER BY updated_at DESC LIMIT 200",
                 (user_id,symbol,symbol),
             ).fetchall()
             return [dict(row) for row in rows]

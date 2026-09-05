@@ -25,7 +25,7 @@ class Repository:
     def follow(self,user_id,value,key): self.calls.append((user_id,value,key)); return {"user_id":user_id,"symbol":value.symbol}
     def unfollow(self,user_id,symbol,key): self.calls.append((user_id,symbol,key))
     def notes(self,user_id,symbol=None): return [{"user_id":user_id,"artifact_ref":"private.note_revisions/n/1"}]
-    def add_note(self,user_id,value,key,ref): self.calls.append((user_id,value,key,ref)); return {"user_id":user_id,"artifact_ref":ref}
+    def add_note(self,user_id,value,key,ref,note_id=None): self.calls.append((user_id,value,key,ref,note_id)); return {"user_id":user_id,"artifact_ref":ref,"note_id":note_id}
     def request_deletion(self,user_id,key): self.calls.append((user_id,key)); return {"user_id":user_id,"status":"QUEUED"}
 
 

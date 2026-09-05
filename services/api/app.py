@@ -86,7 +86,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         repository.require_owned_trade(current.user_id,value.trade_event_id)
         note_id=uuid5(NAMESPACE_URL,f"janus-note:{current.user_id}:{idempotency_key}")
         ref=store.write_note(user_id=current.user_id,note_id=note_id,revision=1,**value.model_dump())
-        return jsonable_encoder(repository.add_note(current.user_id,value,idempotency_key,ref))
+        return jsonable_encoder(repository.add_note(current.user_id,value,idempotency_key,ref,note_id))
 
     @private.put("/notes/{note_id}")
     def revise_note(note_id:UUID,value:NoteRevisionIn,current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):

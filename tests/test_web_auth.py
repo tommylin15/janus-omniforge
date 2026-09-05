@@ -55,6 +55,7 @@ class GoogleAuthMiddlewareTests(unittest.TestCase):
         status, headers, _ = self.request("/private-journal-acceptance.html")
         self.assertEqual(status, "200 OK")
         self.assertIn("https://accounts.google.com/gsi/client", headers["Content-Security-Policy"])
+        self.assertIn("https://janus-api-2oo7qbkd5q-uc.a.run.app", headers["Content-Security-Policy"])
         self.assertIn("'unsafe-inline'", headers["Content-Security-Policy"])
 
     def test_api_rejects_missing_session(self):
