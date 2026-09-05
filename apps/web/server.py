@@ -82,6 +82,8 @@ class WebApplication:
             return {"status": "ok", "revision": os.environ.get("K_REVISION", "local")}, "200 OK", json_type
         if method == "GET" and path in {"/admin", "/admin/stocks"}:
             return (STATIC_DIR / "admin.html").read_text(encoding="utf-8"), "200 OK", "text/html; charset=utf-8"
+        if method == "GET" and path == "/private-journal-acceptance.html":
+            return (STATIC_DIR / "private-journal-acceptance.html").read_text(encoding="utf-8"), "200 OK", "text/html; charset=utf-8"
         if method == "GET" and path == "/assets/admin.css":
             return (STATIC_DIR / "admin.css").read_text(encoding="utf-8"), "200 OK", "text/css; charset=utf-8"
         if method == "GET" and path == "/assets/admin.js":

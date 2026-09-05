@@ -63,6 +63,8 @@ class GoogleAuthMiddleware:
 
         if path == "/health":
             return self.app(environ, self._secure_start_response(start_response))
+        if path == "/private-journal-acceptance.html" and method == "GET":
+            return self.app(environ, self._secure_start_response(start_response, google=True))
         if path == "/login" and method == "GET":
             session = self._session(environ)
             if session is not None:
@@ -216,12 +218,12 @@ class GoogleAuthMiddleware:
 <p id="login-error" role="alert"></p>
 </main></body></html>"""
 
-    def _secure_start_response(self, start_response: Callable[..., Any]):
+    def _secure_start_response(self, start_response: Callable[..., Any], *, google: bool = False):
         def secure(status: str, headers: list[tuple[str, str]], exc_info: Any = None):
             names = {name.lower() for name, _ in headers}
             if "cache-control" not in names:
                 headers.append(("Cache-Control", "no-store"))
-            headers.extend(self._security_headers())
+            headers.extend(self._security_headers(google=google))
             return start_response(status, headers, exc_info)
 
         return secure
@@ -270,10 +272,17 @@ class GoogleAuthMiddleware:
         return [b""]
 
     @staticmethod
-    def _security_headers(*, login: bool = False, nonce: str = "") -> list[tuple[str, str]]:
-        script = f"'self' https://accounts.google.com/gsi/client 'nonce-{nonce}'" if login else "'self'"
-        frame = "https://accounts.google.com/gsi/" if login else "'none'"
-        connect = "'self' https://accounts.google.com/gsi/" if login else "'self'"
+    def _security_headers(*, login: bool = False, google: bool = False, nonce: str = "") -> list[tuple[str, str]]:
+        if login:
+            script = f"'self' https://accounts.google.com/gsi/client 'nonce-{nonce}'"
+            frame = "https://accounts.google.com/gsi/"
+            connect = "'self' https://accounts.google.com/gsi/"
+        elif google:
+            script = "'self' https://accounts.google.com/gsi/client 'unsafe-inline'"
+            frame = "https://accounts.google.com/gsi/"
+            connect = "'self' https://accounts.google.com/gsi/ https://janus-api-2oo7qbkd5q-uc.a.run.app"
+        else:
+            script, frame, connect = "'self'", "'none'", "'self'"
         return [
             ("X-Content-Type-Options", "nosniff"),
             ("Strict-Transport-Security", "max-age=31536000; includeSubDomains"),

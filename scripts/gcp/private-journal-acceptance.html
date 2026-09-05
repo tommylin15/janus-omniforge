@@ -1,0 +1,75 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Janus dev private journal acceptance</title>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<h1>Janus private journal／note acceptance</h1>
+<p>單一已授權 Google 帳號；token 只保留在本頁記憶體。</p>
+<button id="signin" disabled>等待 Google 登入…</button>
+<button id="run" disabled>建立 BUY + note 並驗證</button>
+<pre id="result">Waiting for Google Identity Services…</pre>
+<script>
+const query = new URLSearchParams(location.search);
+const clientId = query.get('client_id');
+const api = query.get('api');
+const result = document.querySelector('#result');
+const signIn = document.querySelector('#signin');
+const runButton = document.querySelector('#run');
+let token;
+
+function show(value) { result.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2); }
+function idempotency(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
+async function request(path, options = {}) {
+  const response = await fetch(`${api}${path}`, {cache: 'no-store', ...options, headers: {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+    ...(options.headers || {})
+  }});
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw Error(`${path}: ${response.status} ${JSON.stringify(body)}`);
+  return body;
+}
+async function run() {
+  runButton.disabled = true;
+  try {
+    show(`Checking ${api}/health ...`);
+    const health = await fetch(`${api}/health`, {cache: 'no-store'});
+    if (!health.ok) throw Error(`/health: ${health.status}`);
+    show('API reachable. Creating BUY ...');
+    const event = await request('/api/v1/me/journal/events', {
+      method: 'POST', headers: {'Idempotency-Key': idempotency('journal-acceptance')},
+      body: JSON.stringify({event_type: 'BUY', trade_date: new Date().toISOString().slice(0, 10),
+        symbol: '2330', shares: '1', price: '100', currency: 'TWD', memo: 'dev acceptance'})
+    });
+    show('BUY created. Creating note ...');
+    const note = await request('/api/v1/me/notes', {
+      method: 'POST', headers: {'Idempotency-Key': idempotency('note-acceptance')},
+      body: JSON.stringify({body: `private acceptance ${event.event_id}`, symbol: '2330',
+        trade_event_id: event.event_id})
+    });
+    show('Note created. Reading journal and note ...');
+    const [history, notes] = await Promise.all([
+      request('/api/v1/me/journal/history?symbol=2330'),
+      request('/api/v1/me/notes?symbol=2330')
+    ]);
+    show({passed: history.some(row => row.event_id === event.event_id) &&
+      notes.some(row => row.note_id === note.note_id && row.body === `private acceptance ${event.event_id}`),
+      event_id: event.event_id, note_id: note.note_id,
+      journal_readback: history.some(row => row.event_id === event.event_id),
+      note_readback: notes.some(row => row.note_id === note.note_id),
+      next_step: 'Run PrivatePipeline and verify the corresponding Private Iceberg artifacts.'});
+  } catch (error) { show(`origin=${location.origin}\napi=${api}\n${error.message}`); }
+  runButton.disabled = false;
+}
+window.onload = () => {
+  if (!clientId || !api) { show('Missing client_id or api query parameter.'); return; }
+  google.accounts.id.initialize({client_id: clientId, callback: ({credential}) => {
+    token = credential;
+    signIn.textContent = 'Google 已登入';
+    signIn.disabled = true;
+    runButton.disabled = false;
+    show('Signed in. Click 建立 BUY + note 並驗證.');
+  }, auto_select: false});
+  google.accounts.id.renderButton(signIn, {type: 'standard', text: 'signin_with'});
+};
+runButton.onclick = () => run();
+</script>

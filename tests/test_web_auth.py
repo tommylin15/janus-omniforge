@@ -51,6 +51,12 @@ class GoogleAuthMiddlewareTests(unittest.TestCase):
         self.assertEqual(status, "303 See Other")
         self.assertEqual(headers["Location"], "/login")
 
+    def test_private_acceptance_page_is_public_with_google_gis_policy(self):
+        status, headers, _ = self.request("/private-journal-acceptance.html")
+        self.assertEqual(status, "200 OK")
+        self.assertIn("https://accounts.google.com/gsi/client", headers["Content-Security-Policy"])
+        self.assertIn("'unsafe-inline'", headers["Content-Security-Policy"])
+
     def test_api_rejects_missing_session(self):
         status, _, body = self.request("/api/v1/admin/stocks")
         self.assertEqual(status, "401 Unauthorized")
