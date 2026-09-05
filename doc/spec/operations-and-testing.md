@@ -1,11 +1,43 @@
 # Operations and testing
 
-最新驗證日期：2026-09-04
+最新驗證日期：2026-09-05
 
-最新完整本機驗證：`python -m unittest discover -s tests` 113/113、Vitest 2/2、
-Playwright 8/8、TypeScript typecheck、ESLint、Web production build 與
-`git diff --check` passed。生效時間 UX 修正後 targeted Python 41/41、核心名單
-Playwright 1/1 與 ESLint 再次通過。Windows Node 指令均使用 `npm.cmd`，未啟動 WSL。
+最新完整本機驗證：`python -m pytest tests -q` 123/123 passed；WBS 4J 最終 targeted
+pytest 13/13、Python `py_compile` 與 `git diff --check` passed。Flutter analyze／widget
+test、PostgreSQL 全 migration apply 與 bash syntax 由 GCP Cloud Build 驗證通過。
+2026-09-05 WBS 4J targeted pytest 14/14 passed；dev 真人 A/B OAuth 與 PostgreSQL
+watchlist ownership 隔離通過。
+
+## P0 WBS 4J 個人工作台實作（2026-09-05）
+
+新增最小 FastAPI User service、獨立 Google User OIDC audience boundary、以 Google
+`sub` 對應 UUID 的私人 PostgreSQL repository，以及 journal／notes／watchlist／export／
+deletion typed endpoints；client `user_id`、錯誤 issuer／audience／expiry 均拒絕。
+Ledger 為固定精度 append-only event，修正使用 reversal／replacement；筆記正文直接寫
+Private Iceberg，PostgreSQL 只留索引與 artifact reference。
+
+Private pipeline 依 persisted checkpoint 批次 upsert ledger、note reference、watchlist
+與四個 user Mart；移動平均成本納入費稅，缺價保持 null，Iceberg 全部成功後才推進
+checkpoint。另加入獨立 private bucket lifecycle、runtime service accounts／PostgreSQL
+roles、50-symbol 全域 guard 與 Iceberg-first 可重試刪除流程。最小 Flutter 啟用關注、
+記帳／筆記與我的，不加入券商、自動下單、排行榜或 FIFO。
+
+Cloud Build `aa011f3a-b96d-42da-a99e-7bd445eb4a92` 驗證 bash syntax；
+`c8a1d829-6898-4bf3-8f08-50c24b94a258` 在一次性 PostgreSQL 16 套用 001–014；
+`4f85bf89-ef44-4cab-b8bf-76a448b6bd0c` 通過 Flutter analyze 與 widget test。
+Dev migration `014_private_workspace` 已套用，PostgreSQL image digest 為
+`sha256:28989610fdf7ce9e379df0554c224b5fe13e7c36b5c32c4fc9522aa528cff0c8`。
+User API build `edf6fa7e-cab7-4432-b1cf-3f6c7580daf3` 成功，dev revision
+`janus-api-00004-p4q` 使用 image digest
+`sha256:487cf1a2824a8126679b9d4eb6b2cff03b86572c4c87805c666c43bdff34ff75`；
+`/health` 200、無 bearer 與錯誤 audience 均 401。
+
+兩個 Google OAuth 測試帳號完成真人登入，取得不同內部 `user_id`；A 建立 2330
+watchlist 後，B 看不到該列、刪除收到 404，A 仍可讀。PostgreSQL 只讀驗證為 2 users／
+2 distinct `google_sub`／2 distinct `user_id`，active watchlist 僅屬 1 user。OAuth client
+ID 與 private DSN 的 BOM 已移除；dev DB API 密碼已輪替，Secret 第 1 版已停用，Cloud
+Run 固定使用第 2 版。尚待真人 journal／note／Private Iceberg artifact 完整交易情境；
+公開 `mart_scoped_analysis` 尚未產生，個人化 overlay 維持未啟用。未部署 production。
 
 ## P0 Admin 股票資料狀態（2026-09-03）
 

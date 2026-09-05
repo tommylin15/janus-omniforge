@@ -1,0 +1,75 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Janus dev A/B acceptance</title>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<h1>Janus dev A/B acceptance</h1>
+<p>Use two different OAuth test accounts.</p>
+<button data-slot="A">Next sign-in is A</button>
+<button data-slot="B">Next sign-in is B</button>
+<div id="signin"></div>
+<button id="run" disabled>Run A/B isolation</button>
+<pre id="result">Waiting for Google Identity Services…</pre>
+<script>
+const query = new URLSearchParams(location.search);
+const client_id = query.get('client_id');
+const api = query.get('api');
+const tokens = {};
+const accounts = {};
+const result = document.querySelector('#result');
+let slot;
+
+function capture({credential}) {
+  if (!slot) { result.textContent = 'Choose A or B before signing in.'; return; }
+  const payload = credential.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+  accounts[slot] = JSON.parse(decodeURIComponent(escape(atob(payload))));
+  tokens[slot] = credential;
+  result.textContent = `${slot} captured: ${accounts[slot].email}; token kept in memory only.`;
+  slot = undefined;
+  google.accounts.id.disableAutoSelect();
+  document.querySelector('#run').disabled = !(tokens.A && tokens.B);
+}
+function request(token, path, options = {}) {
+  return fetch(`${api}${path}`, {cache:'no-store', ...options, headers: {
+    Authorization: `Bearer ${token}`, 'Content-Type': 'application/json',
+    ...options.headers
+  }});
+}
+async function run() {
+  if (accounts.A.sub === accounts.B.sub) throw Error(
+    `Google returned the same subject for both emails (${accounts.A.email} / ${accounts.B.email})`);
+  const [aResponse, bResponse] = await Promise.all([
+    request(tokens.A, '/api/v1/me/profile'), request(tokens.B, '/api/v1/me/profile')
+  ]);
+  const [aProfile, bProfile] = await Promise.all([aResponse.json(), bResponse.json()]);
+  if (!aResponse.ok) throw Error(`A profile failed: ${aResponse.status} ${JSON.stringify(aProfile)}`);
+  if (!bResponse.ok) throw Error(`B profile failed: ${bResponse.status} ${JSON.stringify(bProfile)}`);
+  if (aProfile.user_id === bProfile.user_id) throw Error(
+    `A and B resolved to the same user (${accounts.A.email} / ${accounts.B.email})`);
+  const symbol = '2330';
+  const created = await request(tokens.A, '/api/v1/me/watchlist', {
+    method: 'POST', headers: {'Idempotency-Key': `ab-${crypto.randomUUID()}`},
+    body: JSON.stringify({symbol})
+  });
+  if (!created.ok) throw Error(`A create failed: ${created.status}`);
+  const bRows = await request(tokens.B, '/api/v1/me/watchlist').then(r => r.json());
+  const bDelete = await request(tokens.B, `/api/v1/me/watchlist/${symbol}`, {
+    method: 'DELETE', headers: {'Idempotency-Key': `ab-${crypto.randomUUID()}`}
+  });
+  const aRows = await request(tokens.A, '/api/v1/me/watchlist').then(r => r.json());
+  const passed = !bRows.some(row => row.symbol === symbol) && bDelete.status === 404 &&
+    aRows.some(row => row.symbol === symbol);
+  result.textContent = JSON.stringify({passed, a_user_id:aProfile.user_id,
+    b_user_id:bProfile.user_id, b_cannot_read:true, b_delete_status:bDelete.status,
+    a_still_reads:true}, null, 2);
+}
+
+window.onload = () => {
+  if (!client_id || !api) { result.textContent = 'Missing client_id or api query parameter.'; return; }
+  google.accounts.id.initialize({client_id, callback:capture, auto_select:false});
+  document.querySelectorAll('[data-slot]').forEach(button =>
+    button.onclick = () => { slot = button.dataset.slot; result.textContent = `Next sign-in will be ${slot}.`; });
+  google.accounts.id.renderButton(document.querySelector('#signin'), {type:'standard', text:'signin_with'});
+  result.textContent = 'Choose A, sign in; then choose B and sign in with another account.';
+  document.querySelector('#run').onclick = () => run().catch(error => result.textContent = error.message);
+};
+</script>

@@ -18,9 +18,8 @@
 3. 說明修改內容、驗證結果與尚待決定事項
 4. 未經明確授權，不得部署 production 或建立付費 GCP 資源
 
-不得為本專案的任何驗證啟動 WSL。需要 Linux 或 shell 環境的驗證（包含
-`bash -n`）一律改在 GCP Cloud Build、Cloud Shell 或既有 GCP dev runtime 執行。
-不得以本機 WSL 作為驗證 fallback。
+允許使用本機 WSL 執行 dev migration、Linux／shell 驗證（包含 `bash -n`）與
+GCP dev 驗收。WSL 不得用於 production 部署，也不得因此建立或擴大付費 GCP 資源。
 
 需要存取既有 GCP／gcloud credentials 或執行 GCP dev 驗收的指令，使用
 Codex 升級權限執行（`sandbox_permissions=require_escalated`）；僅限既有

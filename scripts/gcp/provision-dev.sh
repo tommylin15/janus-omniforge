@@ -41,8 +41,10 @@ ensure_sa() {
 
 ensure_sa janus-ingestion-scheduler 'Janus ingestion scheduler'
 ensure_sa postgres-vm 'PostgreSQL VM runtime'
+ensure_sa janus-user-api 'Janus private User API'
+ensure_sa janus-private-pipeline 'Janus private pipeline'
 
-for layer in stage core mart; do
+for layer in stage core mart private; do
   bucket="${project}-dev-${layer}"
   if ! gcloud storage buckets describe "gs://${bucket}" >/dev/null 2>&1; then
     gcloud storage buckets create "gs://${bucket}" --project="${project}" \
@@ -51,6 +53,13 @@ for layer in stage core mart; do
   gcloud storage buckets update "gs://${bucket}" \
     --versioning --public-access-prevention --update-labels="environment=dev,layer=${layer},managed_by=github" \
     --quiet
+done
+gcloud storage buckets update "gs://${project}-dev-private" \
+  --lifecycle-file="${repo_root}/infra/private-bucket-lifecycle.json" --quiet
+for account in janus-user-api janus-private-pipeline; do
+  gcloud storage buckets add-iam-policy-binding "gs://${project}-dev-private" \
+    --member="serviceAccount:${account}@${project}.iam.gserviceaccount.com" \
+    --role=roles/storage.objectAdmin --quiet
 done
 
 for repository in janus-postgres janusai-poc; do

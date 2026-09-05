@@ -50,27 +50,33 @@
 
 ## P0（WBS 4J）— 個人記帳、筆記與關注股 MVP
 
-- [ ] 建立最小 `services/api` FastAPI app，只包含 health、Google OIDC User auth boundary 與 `/api/v1/me/journal/*`、`/api/v1/me/notes/*`、`/api/v1/me/watchlist/*`；使用獨立 User OAuth client／audience，驗證 issuer／audience／expiry，以 Google `sub` 對應內部 UUID `user_id`，email 只供顯示。既有 WSGI Admin 保留至後續回歸完成。
+- [x] 建立最小 `services/api` FastAPI app，只包含 health、Google OIDC User auth boundary 與 `/api/v1/me/journal/*`、`/api/v1/me/notes/*`、`/api/v1/me/watchlist/*`；使用獨立 User OAuth client／audience，驗證 issuer／audience／expiry，以 Google `sub` 對應內部 UUID `user_id`，email 只供顯示。既有 WSGI Admin 保留至後續回歸完成。
 
-- [ ] PostgreSQL 建立隔離的 append-only `BUY`／`SELL`／`CASH_DIV`／`STOCK_DIV` ledger、reversal／replacement、optimistic version、idempotency key、單調遞增 `ledger_version`、user-leading indexes 與 RLS／等價 ownership guard；date、symbol、shares、price、fee、tax、currency 依類型驗證並使用固定精度 decimal，不建立 outbox。
+- [x] PostgreSQL 建立隔離的 append-only `BUY`／`SELL`／`CASH_DIV`／`STOCK_DIV` ledger、reversal／replacement、optimistic version、idempotency key、單調遞增 `ledger_version`、user-leading indexes 與 RLS／等價 ownership guard；date、symbol、shares、price、fee、tax、currency 依類型驗證並使用固定精度 decimal，不建立 outbox。
 
-- [ ] 建立 PostgreSQL private event/index → Private Iceberg Core batch pipeline：依 persisted checkpoint 讀取新 ledger／note／watchlist version，冪等寫入後才推進 checkpoint，失敗可重跑；不建立 Private Stage／DataSrc。使用獨立 bucket prefix／namespace／role／retention，public、一般 Admin 與其他使用者不可讀取。
+- [x] 建立 PostgreSQL private event/index → Private Iceberg Core batch pipeline：依 persisted checkpoint 讀取新 ledger／note／watchlist version，冪等寫入後才推進 checkpoint，失敗可重跑；不建立 Private Stage／DataSrc。使用獨立 bucket prefix／namespace／role／retention，public、一般 Admin 與其他使用者不可讀取。
 
-- [ ] 建立 `mart_user_positions`、`mart_user_realized_pnl`、`mart_user_unrealized_pnl`、`mart_user_annual_pnl`；使用第一階段股票 master／行情 Core，MVP 成本法固定移動平均，缺價不顯示 0。
+- [x] 建立 `mart_user_positions`、`mart_user_realized_pnl`、`mart_user_unrealized_pnl`、`mart_user_annual_pnl`；使用第一階段股票 master／行情 Core，MVP 成本法固定移動平均，缺價不顯示 0。
 
-- [ ] 建立 typed contract：journal 新增／更正／歷史／持股／損益、note revision 與 symbol／trade relation、watchlist 關注／取消／排序／目標價；身分只取自驗證內容，不接受 client 指定 `user_id`。
+- [x] 建立 typed contract：journal 新增／更正／歷史／持股／損益、note revision 與 symbol／trade relation、watchlist 關注／取消／排序／目標價；身分只取自驗證內容，不接受 client 指定 `user_id`。
 
-- [ ] 實作本人交易／筆記／關注股匯出與可稽核、可重試的私人資料刪除工作流；涵蓋 PostgreSQL、Private Core／Mart、cache、完成證據與依法或安全要求保留的最小 audit metadata。
+- [x] 實作本人交易／筆記／關注股匯出與可稽核、可重試的私人資料刪除工作流；涵蓋 PostgreSQL、Private Core／Mart、cache、完成證據與依法或安全要求保留的最小 audit metadata。
 
-- [ ] 建立最小 Flutter「關注／筆記／我的」流程；「筆記」內含記帳／一般筆記。「今日／公開探索」保持 coming soon／disabled，一般 page load 不得觸發 scraper、Agent 或 LLM。
+- [x] 建立最小 Flutter「關注／筆記／我的」流程；「筆記」內含記帳／一般筆記。「今日／公開探索」保持 coming soon／disabled，一般 page load 不得觸發 scraper、Agent 或 LLM。
 
 - [ ] 驗證超賣拒絕、更正事件、note revision、關注異動、50-symbol 營運護欄、費稅、跨年、估值日期、重跑冪等、刪除與使用者 A／B 隔離；Private artifact 與 user-to-symbol 關係不得進 public／Admin service index。
 
-- [ ] 驗證 User／Admin audience 混用、偽造或 client 指定 `user_id` 均被拒絕，email 變更不改變資料所有權；Dev User allowlist 不得授予 Admin 權限。
+- [x] 驗證 User／Admin audience 混用、偽造或 client 指定 `user_id` 均被拒絕，email 變更不改變資料所有權；Dev User allowlist 不得授予 Admin 權限。
 
 - [ ] 個人化分析只在 authenticated-user 邊界內引用公開 `mart_scoped_analysis` 的 symbol scope；不阻擋記帳／筆記／關注股／聊天室 MVP，也不把私人資料寫回公開 Mart。
 
-- [ ] 不實作券商同步、自動下單、公開績效排行榜或 FIFO 切換；這些需另行法遵／會計／安全決策。
+- [x] 不實作券商同步、自動下單、公開績效排行榜或 FIFO 切換；這些需另行法遵／會計／安全決策。
+
+2026-09-05：dev 真人 Google User login 與 PostgreSQL watchlist A/B 隔離通過；兩個
+Google `sub` 對應不同 UUID，B 看不到或刪除 A 的 2330，A 仍可讀，targeted tests
+14/14 passed。migration 014、獨立 User OAuth、Private bucket 與 dev `janus-api` 已部署；
+尚未結案的是真人 journal／note／Private Iceberg artifact 完整交易情境與公開
+`mart_scoped_analysis`，故個人化 overlay 依契約維持未啟用。
 
 ## P0（WBS 4C）— Codex／ChatGPT／Gemini 可切換私人聊天室
 
