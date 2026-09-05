@@ -6,7 +6,7 @@
 
 - 提供 `codex | chatgpt | gemini` 三個受控 profile；`codex` 與 `chatgpt` 共用 Codex App Server，但分別採 agentic／conversation policy。`chatgpt` 是 Janus profile 名稱，不宣稱存在另一個官方 App Server daemon。
 - `codex`／`chatgpt` 只使用 ChatGPT managed OAuth 或 device-code 與使用者訂閱；禁止 OpenAI API key、Responses API、Codex API 或其他按量 OpenAI API。
-- `gemini` 使用 GCP workload identity；支援 Google Search grounding。任何付費啟用須先通過人工 billing gate。
+- `gemini` 使用 Google AI Studio 建立的 `GEMINI_API_KEY` 呼叫 Gemini Developer API 免費層，固定採支援免費 Google Search grounding 的模型；key 只存在伺服器端 Secret Manager／環境變數。付費層維持停用。
 - 每個 conversation 固定 engine/profile；切換建立新 conversation／fork，不在同一 lineage 無痕換引擎，也不做靜默 fallback。
 
 ### 4C.2 Context、儲存與安全
@@ -20,4 +20,4 @@
 
 - 聊天室顯示 engine selector、目前登入／額度狀態、使用中的私人 context、來源、資料日期與投資免責聲明；切換引擎前提示將建立新 conversation／fork。
 - 只允許聊天室 endpoint 使用 bounded SSE；一般頁面仍不得在 load 時啟動模型。取消、斷線重連與重複 event 必須冪等。
-- 驗證三 profile 可選、conversation lineage、Codex managed login/logout／rate limit、Gemini grounding citation、A／B 隔離、prompt injection、無 API-key 路徑、Iceberg 重跑／匯出／刪除與成本 hard limit。
+- 驗證三 profile 可選、conversation lineage、Codex managed login/logout／rate limit、Gemini grounding citation、A／B 隔離、prompt injection、無 OpenAI API-key 路徑、Iceberg 重跑／匯出／刪除與 Gemini 免費額度 hard limit。

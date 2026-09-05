@@ -1,75 +1,112 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>Janus private journal／note acceptance</title>
+<title>Janus dev A/B acceptance</title>
 <script src="https://accounts.google.com/gsi/client" async></script>
-<h1>Janus private journal／note acceptance</h1>
-<p>單一已授權 Google 帳號；token 只保留在本頁記憶體。</p>
-<button id="signin" disabled>等待 Google 登入…</button>
-<button id="run" disabled>建立 BUY + note 並驗證</button>
+<h1>Janus dev A/B acceptance</h1>
+<p>Use two different OAuth test accounts.</p>
+<button data-slot="A">Next sign-in is A</button>
+<button data-slot="B">Next sign-in is B</button>
+<div id="signin"></div>
+<button id="run" disabled>Run A/B isolation</button>
+<button id="delete" disabled>Queue A private-data deletion</button>
 <pre id="result">Waiting for Google Identity Services…</pre>
 <script>
 const query = new URLSearchParams(location.search);
-const clientId = query.get('client_id');
-const api = query.get('api') || 'https://janus-api-2oo7qbkd5q-uc.a.run.app';
+const client_id = query.get('client_id');
+const api = query.get('api');
+const tokens = {};
+const accounts = {};
 const result = document.querySelector('#result');
-const signIn = document.querySelector('#signin');
-const runButton = document.querySelector('#run');
-let token;
+let slot;
 
-function show(value) { result.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2); }
-function idempotency(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
-async function request(path, options = {}) {
-  const response = await fetch(`${api}${path}`, {cache: 'no-store', ...options, headers: {
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json',
-    ...(options.headers || {})
+function capture({credential}) {
+  if (!slot) { result.textContent = 'Choose A or B before signing in.'; return; }
+  const payload = credential.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+  accounts[slot] = JSON.parse(decodeURIComponent(escape(atob(payload))));
+  tokens[slot] = credential;
+  result.textContent = `${slot} captured: ${accounts[slot].email}; token kept in memory only.`;
+  slot = undefined;
+  google.accounts.id.disableAutoSelect();
+  document.querySelector('#run').disabled = !(tokens.A && tokens.B);
+}
+function request(token, path, options = {}) {
+  return fetch(`${api}${path}`, {cache:'no-store', ...options, headers: {
+    Authorization: `Bearer ${token}`, 'Content-Type': 'application/json',
+    ...options.headers
   }});
+}
+async function json(token, path, options = {}, expected = 200) {
+  const response = await request(token, path, options);
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw Error(`${path}: ${response.status} ${JSON.stringify(body)}`);
+  if (response.status !== expected) throw Error(`${path}: ${response.status} ${JSON.stringify(body)}`);
   return body;
 }
-async function run() {
-  runButton.disabled = true;
-  try {
-    show(`Checking ${api}/health ...`);
-    const health = await fetch(`${api}/health`, {cache: 'no-store'});
-    if (!health.ok) throw Error(`/health: ${health.status}`);
-    show('API reachable. Creating BUY ...');
-    const event = await request('/api/v1/me/journal/events', {
-      method: 'POST', headers: {'Idempotency-Key': idempotency('journal-acceptance')},
-      body: JSON.stringify({event_type: 'BUY', trade_date: new Date().toISOString().slice(0, 10),
-        symbol: '2330', shares: '1', price: '100', currency: 'TWD', memo: 'dev acceptance'})
-    });
-    show('BUY created. Creating note ...');
-    const note = await request('/api/v1/me/notes', {
-      method: 'POST', headers: {'Idempotency-Key': idempotency('note-acceptance')},
-      body: JSON.stringify({body: `private acceptance ${event.event_id}`, symbol: '2330',
-        trade_event_id: event.event_id})
-    });
-    show('Note created. Reading journal and note ...');
-    const [history, notes] = await Promise.all([
-      request('/api/v1/me/journal/history?symbol=2330'),
-      request('/api/v1/me/notes?symbol=2330')
-    ]);
-    show({passed: history.some(row => row.event_id === event.event_id) &&
-      notes.some(row => row.note_id === note.note_id && row.body === `private acceptance ${event.event_id}`),
-      event_id: event.event_id, note_id: note.note_id,
-      journal_readback: history.some(row => row.event_id === event.event_id),
-      note_readback: notes.some(row => row.note_id === note.note_id),
-      next_step: 'Run PrivatePipeline and verify the corresponding Private Iceberg artifacts.'});
-  } catch (error) { show(`origin=${location.origin}\napi=${api}\n${error.message}`); }
-  runButton.disabled = false;
+function mutation(method, key, body) {
+  return {method, headers:{'Idempotency-Key':key}, body:JSON.stringify(body)};
 }
+let accepted;
+async function run() {
+  if (accounts.A.sub === accounts.B.sub) throw Error(
+    `Google returned the same subject for both emails (${accounts.A.email} / ${accounts.B.email})`);
+  const [aProfile, bProfile] = await Promise.all([
+    json(tokens.A, '/api/v1/me/profile'), json(tokens.B, '/api/v1/me/profile')
+  ]);
+  if (aProfile.user_id === bProfile.user_id) throw Error(
+    `A and B resolved to the same user (${accounts.A.email} / ${accounts.B.email})`);
+  const symbol = (`A${Date.now().toString(36)}`).toUpperCase();
+  const buyKey=`accept-buy-${crypto.randomUUID()}`;
+  const buyBody={event_type:'BUY',trade_date:'2025-12-01',symbol,shares:'10',price:'100',fee:'10',currency:'TWD'};
+  const buy=await json(tokens.A,'/api/v1/me/journal/events',mutation('POST',buyKey,buyBody),201);
+  const replay=await json(tokens.A,'/api/v1/me/journal/events',mutation('POST',buyKey,buyBody),201);
+  const replacement=await json(tokens.A,`/api/v1/me/journal/events/${buy.event_id}/corrections`,mutation('POST',
+    `accept-correct-${crypto.randomUUID()}`,{expected_version:buy.record_version,replacement:{...buyBody,shares:'20',price:'90'}}),201);
+  await json(tokens.A,'/api/v1/me/journal/events',mutation('POST',`accept-sell-${crypto.randomUUID()}`,
+    {event_type:'SELL',trade_date:'2026-01-02',symbol,shares:'5',price:'110',fee:'2',tax:'3',currency:'TWD'}),201);
+  await json(tokens.A,'/api/v1/me/journal/events',mutation('POST',`accept-cash-${crypto.randomUUID()}`,
+    {event_type:'CASH_DIV',trade_date:'2026-06-01',symbol,cash_amount:'50',fee:'1',tax:'5',currency:'TWD'}),201);
+  await json(tokens.A,'/api/v1/me/journal/events',mutation('POST',`accept-stock-${crypto.randomUUID()}`,
+    {event_type:'STOCK_DIV',trade_date:'2026-07-01',symbol,shares:'1',currency:'TWD'}),201);
+  const oversell=await request(tokens.A,'/api/v1/me/journal/events',mutation('POST',`accept-oversell-${crypto.randomUUID()}`,
+    {event_type:'SELL',trade_date:'2026-08-01',symbol,shares:'999',price:'1',currency:'TWD'}));
+  const note=await json(tokens.A,'/api/v1/me/notes',mutation('POST',`accept-note-${crypto.randomUUID()}`,
+    {body:'acceptance revision 1',symbol,trade_event_id:replacement.event_id}),201);
+  await json(tokens.A,`/api/v1/me/notes/${note.note_id}`,mutation('PUT',`accept-note-revise-${crypto.randomUUID()}`,
+    {expected_version:1,body:'acceptance revision 2',symbol,trade_event_id:replacement.event_id,needs_follow_up:true}));
+  const [aHistory,aNotes,bHistory,bNotes]=await Promise.all([
+    json(tokens.A,`/api/v1/me/journal/history?symbol=${symbol}`),json(tokens.A,`/api/v1/me/notes?symbol=${symbol}`),
+    json(tokens.B,`/api/v1/me/journal/history?symbol=${symbol}`),json(tokens.B,`/api/v1/me/notes?symbol=${symbol}`)
+  ]);
+  const bCorrection=await request(tokens.B,`/api/v1/me/journal/events/${replacement.event_id}/corrections`,mutation('POST',
+    `accept-b-correct-${crypto.randomUUID()}`,{expected_version:1,replacement:buyBody}));
+  const bRevision=await request(tokens.B,`/api/v1/me/notes/${note.note_id}`,mutation('PUT',`accept-b-note-${crypto.randomUUID()}`,
+    {expected_version:2,body:'forbidden',symbol,trade_event_id:replacement.event_id}));
+  const passed=buy.event_id===replay.event_id && oversell.status===409 && bHistory.length===0 && bNotes.length===0 &&
+    bCorrection.status===404 && bRevision.status===404 && aHistory.some(row=>row.event_id===replacement.event_id) &&
+    aNotes.some(row=>row.note_id===note.note_id && row.current_version===2 && row.body==='acceptance revision 2');
+  accepted={a_user_id:aProfile.user_id,b_user_id:bProfile.user_id,symbol,buy_event_id:buy.event_id,
+    replacement_event_id:replacement.event_id,note_id:note.note_id};
+  document.querySelector('#delete').disabled=!passed;
+  result.textContent=JSON.stringify({passed,...accepted,idempotent_replay:true,oversell_status:oversell.status,
+    b_history_rows:bHistory.length,b_note_rows:bNotes.length,b_correction_status:bCorrection.status,
+    b_revision_status:bRevision.status,next_step:'Run PrivatePipeline, verify artifacts/marts, then click deletion.'},null,2);
+}
+
 window.onload = () => {
-  if (!clientId) { show('Missing client_id query parameter.'); return; }
-  google.accounts.id.initialize({client_id: clientId, callback: ({credential}) => {
-    token = credential;
-    signIn.textContent = 'Google 已登入';
-    signIn.disabled = true;
-    runButton.disabled = false;
-    show('Signed in. Click 建立 BUY + note 並驗證.');
-  }, auto_select: false});
-  google.accounts.id.renderButton(signIn, {type: 'standard', text: 'signin_with'});
+  if (!client_id || !api) { result.textContent = 'Missing client_id or api query parameter.'; return; }
+  google.accounts.id.initialize({client_id, callback:capture, auto_select:false});
+  document.querySelectorAll('[data-slot]').forEach(button =>
+    button.onclick = () => { slot = button.dataset.slot; result.textContent = `Next sign-in will be ${slot}.`; });
+  google.accounts.id.renderButton(document.querySelector('#signin'), {type:'standard', text:'signin_with'});
+  result.textContent = 'Choose A, sign in; then choose B and sign in with another account.';
+  document.querySelector('#run').onclick = () => run().catch(error => result.textContent = error.message);
+  document.querySelector('#delete').onclick = async () => {
+    try {
+      const deletion=await json(tokens.A,'/api/v1/me/private-data',
+        {method:'DELETE',headers:{'Idempotency-Key':`accept-delete-${crypto.randomUUID()}`}},202);
+      document.querySelector('#delete').disabled=true;
+      result.textContent=JSON.stringify({deletion_queued:true,request_id:deletion.request_id,user_id:accepted.a_user_id,
+        next_step:'Run PrivatePipeline and verify PostgreSQL plus every Private Iceberg table contain no A rows.'},null,2);
+    } catch (error) { result.textContent=error.message; }
+  };
 };
-runButton.onclick = () => run();
 </script>

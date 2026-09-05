@@ -122,3 +122,5 @@ def test_private_migration_has_decimal_append_only_and_user_leading_guards():
     assert "body" not in note_sql
     repository=(ROOT/"services/api/repository.py").read_text(encoding="utf-8")
     assert "pg_advisory_xact_lock" in repository and "count(DISTINCT symbol)" in repository
+    assert "ledger_events WHERE user_id=%s AND event_id=%s FOR UPDATE" not in repository
+    assert "ON CONFLICT(user_id,idempotency_key) DO NOTHING" in repository

@@ -8,25 +8,25 @@
 - [TODO 完成紀錄（截至 2026-08-31）](archive/todo-completed-through-2026-08-31.md)
 - [TODO 完成紀錄（2026-09-02）](archive/todo-completed-2026-09-02.md)
 - [TODO 完成紀錄（2026-09-03）](archive/todo-completed-2026-09-03.md)
+- [TODO 完成紀錄（2026-09-05）](archive/todo-completed-2026-09-05.md)
 - [已完成 WBS 0／1／2／4](archive/wbs-completed-through-2026-08-31.md)
 
 ## 目前進度（2026-09-05）
 
-- WBS 4J：9 項完成、2 項未完成；Google User OAuth 真人登入與 watchlist A／B 隔離已通過，尚缺 journal／note／Private Iceberg 完整交易情境，以及依賴 WBS 5 的個人化 analysis overlay。
+- WBS 4J 獨立 MVP：journal／note／Private Iceberg 完整交易、重跑、刪除與 A／B 隔離已結案；僅依賴 WBS 5 的個人化 analysis overlay 尚未啟用。
 - WBS 4C：0／8 項完成，為下一個 P0 主功能。
 - WBS 3 收尾：Admin Data Operations 1 項完成、3 項未完成；Stage／Core 實機驗證 7 項未完成。Scheduler canary 因 2026-09-03 上游時段異常重置為 0／3。
 - 最新驗證：完整本機 pytest 123／123、WBS 4J targeted pytest 14／14；Flutter analyze／widget test、migration 001–014 與 bash syntax 已通過 Cloud Build。
 
 ## 下一步執行佇列
 
-1. 【Sol】`WBS-4J-ACCEPTANCE`：完成真人 journal／note／Private Iceberg artifact 的完整交易、重跑、刪除與 A／B 隔離驗收；完成後才可結束 WBS 4J 的獨立 MVP 部分。
-2. 【Sol】`WBS-4C-ENGINE-SECURITY`：固定三 profile、managed OAuth／workload identity、無 OpenAI API key 路徑及 tool／prompt-injection 安全邊界。
-3. 【Luna】`WBS-4C-CHAT-API`：依已固定 contract 實作 conversation CRUD、fork、bounded SSE、取消、匯出與刪除。
-4. 【Sol】`WBS-4C-PRIVATE-STORAGE`：完成 conversation Private Iceberg／PostgreSQL index 邊界、credential 隔離、重跑與 A／B 隔離。
-5. 【Luna】`WBS-4C-FLUTTER`：實作 AI 頁、engine selector、登入／額度／citation／資料日期與切換提示。
-6. 【Sol】`WBS-3-ACCEPTANCE`：持續 3 交易日 canary，並完成 queue／connection／restart、VPC／firewall 與 Free Tier guard 實機驗證；只有再次出現相同失敗才進入 root-cause 修正。
-7. 【Luna】`WBS-3-ADMIN-POLISH`：完成表格、cursor pagination 與其 UI 驗收；股票跨域刪除 guard 另以【Sol】執行。
-8. 【Sol】`WBS-5` → 【Luna】`WBS-6` → 【Sol】`WBS-7` → 依逐項標籤執行 `WBS-8`；WBS 4J 個人化 overlay 等 `mart_scoped_analysis` 可用後再做。
+1. 【Sol】`WBS-4C-ENGINE-SECURITY`：固定三 profile、managed OAuth／Gemini AI Studio API key、無 OpenAI API key 路徑及 tool／prompt-injection 安全邊界。
+2. 【Luna】`WBS-4C-CHAT-API`：依已固定 contract 實作 conversation CRUD、fork、bounded SSE、取消、匯出與刪除。
+3. 【Sol】`WBS-4C-PRIVATE-STORAGE`：完成 conversation Private Iceberg／PostgreSQL index 邊界、credential 隔離、重跑與 A／B 隔離。
+4. 【Luna】`WBS-4C-FLUTTER`：實作 AI 頁、engine selector、登入／額度／citation／資料日期與切換提示。
+5. 【Sol】`WBS-3-ACCEPTANCE`：持續 3 交易日 canary，並完成 queue／connection／restart、VPC／firewall 與 Free Tier guard 實機驗證；只有再次出現相同失敗才進入 root-cause 修正。
+6. 【Luna】`WBS-3-ADMIN-POLISH`：完成表格、cursor pagination 與其 UI 驗收；股票跨域刪除 guard 另以【Sol】執行。
+7. 【Sol】`WBS-5` → 【Luna】`WBS-6` → 【Sol】`WBS-7` → 依逐項標籤執行 `WBS-8`；WBS 4J 個人化 overlay 等 `mart_scoped_analysis` 可用後再做。
 
 ## 模型確認規則
 
@@ -40,8 +40,6 @@
 - [ ] 【Luna】 其餘 Admin 大型列表查詢須在 repository 層完成 bounded indexed cursor pagination；股票與 execution 已完成，明細維持按需載入。
 
 - [ ] 【Sol】 完整實作股票刪除 guard，涵蓋 collection config、execution、market、report、fundamental 等跨資料域引用，並在 UI 顯示各類引用數量與不可刪除原因。
-
-- [x] 在 WBS 5 persisted Mart consumer 完成前，將 Admin Analysis action 與「Mart 分析」hidden／disabled，且不得建立無 consumer 的 queued execution；Collection queue consumer、lease recovery、terminal state、item persistence 與指定來源／日期 backfill runtime 維持可用。（2026-09-02：dev revision `janus-web-00037-g25` 的 live Playwright 與 API smoke 通過；第一階段只顯示七個資料營運分頁，Analysis POST 回 400 且 execution IDs 不變，五檔 backfill／replay／failure execution 均由 persisted worker claim 至 terminal state。）
 
 ## P1（私人 P0 後續）— Stage／Core 與 Admin MVP 驗證
 
@@ -67,41 +65,21 @@
 
 ## P0（WBS 4J）— 個人記帳、筆記與關注股 MVP
 
-- [x] 建立最小 `services/api` FastAPI app，只包含 health、Google OIDC User auth boundary 與 `/api/v1/me/journal/*`、`/api/v1/me/notes/*`、`/api/v1/me/watchlist/*`；使用獨立 User OAuth client／audience，驗證 issuer／audience／expiry，以 Google `sub` 對應內部 UUID `user_id`，email 只供顯示。既有 WSGI Admin 保留至後續回歸完成。
-
-- [x] PostgreSQL 建立隔離的 append-only `BUY`／`SELL`／`CASH_DIV`／`STOCK_DIV` ledger、reversal／replacement、optimistic version、idempotency key、單調遞增 `ledger_version`、user-leading indexes 與 RLS／等價 ownership guard；date、symbol、shares、price、fee、tax、currency 依類型驗證並使用固定精度 decimal，不建立 outbox。
-
-- [x] 建立 PostgreSQL private event/index → Private Iceberg Core batch pipeline：依 persisted checkpoint 讀取新 ledger／note／watchlist version，冪等寫入後才推進 checkpoint，失敗可重跑；不建立 Private Stage／DataSrc。使用獨立 bucket prefix／namespace／role／retention，public、一般 Admin 與其他使用者不可讀取。
-
-- [x] 建立 `mart_user_positions`、`mart_user_realized_pnl`、`mart_user_unrealized_pnl`、`mart_user_annual_pnl`；使用第一階段股票 master／行情 Core，MVP 成本法固定移動平均，缺價不顯示 0。
-
-- [x] 建立 typed contract：journal 新增／更正／歷史／持股／損益、note revision 與 symbol／trade relation、watchlist 關注／取消／排序／目標價；身分只取自驗證內容，不接受 client 指定 `user_id`。
-
-- [x] 實作本人交易／筆記／關注股匯出與可稽核、可重試的私人資料刪除工作流；涵蓋 PostgreSQL、Private Core／Mart、cache、完成證據與依法或安全要求保留的最小 audit metadata。
-
-- [x] 建立最小 Flutter「關注／筆記／我的」流程；「筆記」內含記帳／一般筆記。「今日／公開探索」保持 coming soon／disabled，一般 page load 不得觸發 scraper、Agent 或 LLM。
-
-- [ ] 【Sol】 驗證超賣拒絕、更正事件、note revision、關注異動、50-symbol 營運護欄、費稅、跨年、估值日期、重跑冪等、刪除與使用者 A／B 隔離；Private artifact 與 user-to-symbol 關係不得進 public／Admin service index。
-
-- [x] 驗證 User／Admin audience 混用、偽造或 client 指定 `user_id` 均被拒絕，email 變更不改變資料所有權；Dev User allowlist 不得授予 Admin 權限。
-
 - [ ] 【Sol】 個人化分析只在 authenticated-user 邊界內引用公開 `mart_scoped_analysis` 的 symbol scope；不阻擋記帳／筆記／關注股／聊天室 MVP，也不把私人資料寫回公開 Mart。
 
-- [x] 不實作券商同步、自動下單、公開績效排行榜或 FIFO 切換；這些需另行法遵／會計／安全決策。
-
-2026-09-05：dev 真人 Google User login 與 PostgreSQL watchlist A/B 隔離通過；兩個
-Google `sub` 對應不同 UUID，B 看不到或刪除 A 的 2330，A 仍可讀，targeted tests
-14/14 passed。migration 014、獨立 User OAuth、Private bucket 與 dev `janus-api` 已部署；
-尚未結案的是真人 journal／note／Private Iceberg artifact 完整交易情境與公開
-`mart_scoped_analysis`，故個人化 overlay 依契約維持未啟用。
 
 ## P0（WBS 4C）— Codex／ChatGPT／Gemini 可切換私人聊天室
+
+2026-09-05：完成 engine security contract：固定 `codex`／`chatgpt`／`gemini`
+profile policy、拒絕 OpenAI API-key provider 設定，以及拒絕 shell／寫檔／Admin／交易等
+不可信指令；`tests/test_engine_security.py` 5/5 通過。Managed OAuth runtime wiring、Gemini
+Developer API grounding 呼叫與免費額度持久化計數尚未完成。
 
 - [ ] 【Sol】 實作三個受控 profile：`codex`、`chatgpt`、`gemini`。Codex／ChatGPT 共用 Codex App Server 與 ChatGPT managed OAuth／device-code，但使用不同 agentic／conversation policy；不建立第二個虛構的 ChatGPT App Server daemon。
 
 - [ ] 【Sol】 禁止 OpenAI API key、Responses API、Codex API 或其他按量 OpenAI API；以 contract／configuration test 證明不存在 API-key request、secret 或 fallback 路徑。
 
-- [ ] 【Sol】 Gemini 以 GCP workload identity 呼叫並支援 Google Search grounding；顯示來源與查詢時間。付費啟用前必須取得人工同意，並實作每次搜尋、每人每日與每月成本 hard limit。
+- [ ] 【Sol】 Gemini 使用 Google AI Studio `GEMINI_API_KEY` 呼叫 Gemini Developer API 免費層並支援 Google Search grounding；key 只存在伺服器端 Secret Manager／環境變數，顯示來源、查詢時間與免費額度狀態，付費層維持停用。
 
 - [ ] 【Luna】 建立 `/api/v1/me/chats/*`：conversation 建立／列表／fork、message、bounded SSE events、取消、匯出與刪除。每個 conversation 固定 engine，切換只能新建／fork，不靜默 fallback。
 

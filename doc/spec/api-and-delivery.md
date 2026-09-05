@@ -15,7 +15,7 @@
 - User App 主頁以 `mart_daily_brief` 為唯一首屏資料入口；個股健檢讀取 `mart_candidate_health` 與可定位 evidence，前端不重算健康度。
 - `/api/v1/me/journal/*`、`/api/v1/me/notes/*`、`/api/v1/me/watchlist/*`、`/api/v1/me/chats/*`、`/api/v1/me/portfolio/*` 與 `/api/v1/me/investment-profile` 只允許 authenticated user 存取自己的資料。所有 query 與 index 以 `user_id` 作為所有權邊界；不接受 client 指定他人 `user_id`。
 - Chat engine/profile 受控字彙為 `codex | chatgpt | gemini`。每個 conversation 建立後固定其值；切換建立新 conversation／fork，不在同一 lineage 中無痕更換 provider。所有回答顯示 engine、model、資料日期、是否使用外部搜尋與 citations。
-- `codex`／`chatgpt` 只經 Codex App Server subscription auth；`gemini` 只經 GCP workload identity。禁止 client 傳入 provider credential，禁止任何聊天室工具寫入交易、筆記、watchlist、檔案系統或 Admin control plane。
+- `codex`／`chatgpt` 只經 Codex App Server subscription auth；`gemini` 只經伺服器端 `GEMINI_API_KEY` 使用 Gemini Developer API 免費層。禁止 client 傳入 provider credential，禁止任何聊天室工具寫入交易、筆記、watchlist、檔案系統或 Admin control plane。
 - User token 只接受 User OAuth audience 並只授權 `/api/v1/me/*`；不得用於 `/api/v1/admin/*`。Admin token／session 亦不因具管理權限而取得一般交易內容讀取能力。
 - User 可匯出自己的交易、筆記、關注股與對話資料並要求刪除私人資料；刪除採可稽核、可重試的非同步流程，涵蓋 PostgreSQL、Private Core／Mart、Codex local thread/auth state 與 service cache，且不影響依法或安全要求保留的最小 audit metadata。
 - 交易日誌／PnL 納入私人 MVP；市場投票排行榜、遊戲化、付費、公開績效排名與券商同步不在當前範圍。

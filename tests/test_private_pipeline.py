@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 import shutil
@@ -100,3 +100,8 @@ def test_private_iceberg_note_rows_are_scoped_by_user():
     finally:
         catalog.engine.dispose()
         shutil.rmtree(root)
+
+
+def test_private_iceberg_normalizes_postgres_gmt_timestamps():
+    value=PrivateIcebergStore._value(datetime(2026,9,5,tzinfo=timezone(timedelta(0),"GMT")))
+    assert str(value.tzinfo)=="UTC"

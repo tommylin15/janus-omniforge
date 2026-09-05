@@ -2,11 +2,10 @@
 
 最新驗證日期：2026-09-05
 
-最新完整本機驗證：`python -m pytest tests -q` 123/123 passed；WBS 4J 最終 targeted
-pytest 13/13、Python `py_compile` 與 `git diff --check` passed。Flutter analyze／widget
-test、PostgreSQL 全 migration apply 與 bash syntax 由 GCP Cloud Build 驗證通過。
-2026-09-05 WBS 4J targeted pytest 14/14 passed；dev 真人 A/B OAuth 與 PostgreSQL
-watchlist ownership 隔離通過。
+最新完整本機驗證：`python -m pytest tests -q` 123/123 passed；既有 WBS 4J targeted
+pytest 14/14、Python `py_compile`、inline JavaScript syntax 與 `git diff --check`
+passed。此次 host 缺少 FastAPI runtime，新增 API contract test 未在本機重跑；API image
+由 GCP Cloud Build lockfile build 驗證，真人 acceptance 由 GCP dev runtime 完成。
 
 ## P0 WBS 4J 個人工作台實作（2026-09-05）
 
@@ -36,8 +35,24 @@ User API build `edf6fa7e-cab7-4432-b1cf-3f6c7580daf3` 成功，dev revision
 watchlist 後，B 看不到該列、刪除收到 404，A 仍可讀。PostgreSQL 只讀驗證為 2 users／
 2 distinct `google_sub`／2 distinct `user_id`，active watchlist 僅屬 1 user。OAuth client
 ID 與 private DSN 的 BOM 已移除；dev DB API 密碼已輪替，Secret 第 1 版已停用，Cloud
-Run 固定使用第 2 版。尚待真人 journal／note／Private Iceberg artifact 完整交易情境；
-公開 `mart_scoped_analysis` 尚未產生，個人化 overlay 維持未啟用。未部署 production。
+Run 固定使用第 2 版。真人 journal／note／Private Iceberg artifact 完整交易情境已由下方
+GCP dev acceptance 完成；公開 `mart_scoped_analysis` 尚未產生，個人化 overlay 維持未啟用。
+未部署 production。
+
+## WBS 4J complete transaction acceptance (2026-09-05)
+
+GCP dev Web revision `janus-web-00057-h52` served the A/B acceptance page. Two
+Google User OAuth subjects resolved to distinct internal users. The acceptance
+covered idempotent BUY replay, reversal/replacement correction, cross-year BUY／SELL,
+fees／taxes, CASH_DIV／STOCK_DIV, oversell rejection (409), note revision, and
+cross-user history／note／correction／revision isolation (B returned 0 rows and 404).
+
+Private pipeline execution `janus-private-pipeline-srmnn` advanced checkpoint 23→46;
+the subsequent batch `janus-private-pipeline-kmc7m` advanced it to 54. Metadata
+hashes changed for all seven private tables after the latest batch. Deletion request
+`cffb8921-1f22-411b-8497-70bfdf8dad85` completed in
+`janus-private-pipeline-n7ml8`; PostgreSQL reported `COMPLETED`, A's user／ledger／note
+rows were absent, and B's user row remained. No public catalog tables were modified.
 
 ## P0 Admin 股票資料狀態（2026-09-03）
 

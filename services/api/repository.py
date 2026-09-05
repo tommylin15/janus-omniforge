@@ -70,10 +70,11 @@ class PostgresWorkspaceRepository:
 
     def correct_ledger(self, user_id: UUID, event_id: UUID, expected: int, value: LedgerEventIn, key: str) -> dict[str, Any]:
         with self._connection() as connection:
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))",(str(event_id),))
             repeated=connection.execute("SELECT * FROM private.ledger_events WHERE user_id=%s AND idempotency_key=%s",(user_id,key)).fetchone()
             if repeated: return dict(repeated)
             original = connection.execute(
-                "SELECT * FROM private.ledger_events WHERE user_id=%s AND event_id=%s FOR UPDATE", (user_id, event_id)
+                "SELECT * FROM private.ledger_events WHERE user_id=%s AND event_id=%s", (user_id, event_id)
             ).fetchone()
             if not original:
                 raise NotFoundError("ledger event not found")
@@ -258,9 +259,11 @@ class PostgresWorkspaceRepository:
         with self._connection() as connection:
             row=connection.execute(
                 """INSERT INTO private.deletion_requests(request_id,user_id,idempotency_key) VALUES(%s,%s,%s)
-                   ON CONFLICT(user_id,idempotency_key) DO UPDATE SET idempotency_key=EXCLUDED.idempotency_key RETURNING *""",
+                   ON CONFLICT(user_id,idempotency_key) DO NOTHING RETURNING *""",
                 (uuid4(),user_id,key),
             ).fetchone()
+            if not row:
+                row=connection.execute("SELECT * FROM private.deletion_requests WHERE user_id=%s AND idempotency_key=%s",(user_id,key)).fetchone()
             return dict(row)
 
     def pending_deletions(self, limit: int = 20) -> list[dict[str, Any]]:
@@ -297,10 +300,11 @@ class PostgresWorkspaceRepository:
 
     @staticmethod
     def _position(connection: Any,user_id: UUID,symbol: str,exclude: UUID | None=None) -> Decimal:
+        clause=" AND event_id<>%s" if exclude else ""
         row=connection.execute(
             """SELECT COALESCE(sum(CASE WHEN event_action='REVERSAL' THEN -1 ELSE 1 END *
                    CASE WHEN event_type IN ('BUY','STOCK_DIV') THEN shares WHEN event_type='SELL' THEN -shares ELSE 0 END),0) AS shares
-               FROM private.ledger_events WHERE user_id=%s AND symbol=%s AND (%s IS NULL OR event_id<>%s)""",(user_id,symbol,exclude,exclude)
+               FROM private.ledger_events WHERE user_id=%s AND symbol=%s"""+clause,(user_id,symbol,*([exclude] if exclude else []))
         ).fetchone()
         return row["shares"]
 

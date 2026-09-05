@@ -16,7 +16,7 @@
 - 同一 `analysis_as_of` 可從 `mart_daily_brief` 追溯市場狀態、板塊輪動、熱門話題、候選股及其 Core／Mart snapshot。
 - 私人交易可從 PostgreSQL ledger 重建 Private Core／Mart；跨年損益、更正事件與所有權隔離通過測試，且不出現在 public index。
 - 筆記、關注歷史、chat messages、context snapshot 與 citations 可從 Private Iceberg 依 authenticated user 讀取、匯出與刪除；PostgreSQL 不保存正文或完整對話 payload。
-- `codex`／`chatgpt`／`gemini` 可明確切換且不混淆 lineage；OpenAI API key／Responses API／Codex API 路徑不存在，Codex tools 無 shell／寫入／Admin／交易 mutation 權限，Gemini grounding 顯示來源且成本 hard limit 可驗證。
+- `codex`／`chatgpt`／`gemini` 可明確切換且不混淆 lineage；OpenAI API key／Responses API／Codex API 路徑不存在，Codex tools 無 shell／寫入／Admin／交易 mutation 權限，Gemini grounding 顯示來源且免費額度 hard limit 可驗證。
 - PIT 無 future leakage；排除樣本有原因與 provenance ID。
 - blocked 不進公開 latest／history；查無資料不即時運算。
 - 兩個 Job、FastAPI、Admin Web、User App 與各內嵌 DuckDB runtime 的 IAM、timeout、retry、監控與 rollback 通過。

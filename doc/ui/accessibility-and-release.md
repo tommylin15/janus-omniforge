@@ -27,7 +27,7 @@
 - [ ] 啟用「關注／筆記／AI／我的」；「今日」顯示 coming soon／disabled，一般 page load 不觸發即時分析。
 - [ ] 交易新增／更正、筆記 revision、關注異動、跨年年度損益、缺價、超賣、匯出與刪除路徑通過；Flutter 與模型不重算正式損益。
 - [ ] Codex／ChatGPT／Gemini 三 profile 可選，切換建立新 conversation／fork；provider、model、context、search 與 citations 可追溯，不使用 OpenAI API key／Responses API／Codex API。
-- [ ] Codex tools 沒有 shell／寫入／Admin／mutation 權限；Gemini grounding citation、billing gate 與成本 hard limit 通過。
+- [ ] Codex tools 沒有 shell／寫入／Admin／mutation 權限；Gemini grounding citation 與免費額度 hard limit 通過。
 - [ ] 使用者 A 無法讀寫或推測使用者 B 的 trade、note、watchlist、chat、position、PnL 或 private artifact reference。
 - [ ] User／Admin audience 混用與 client 指定 `user_id` 均被拒絕；email 變更不改變既有 ledger 所有權。
 - [ ] Mobile／iPad／desktop 無水平 overflow；主要路徑通過 VoiceOver／TalkBack。

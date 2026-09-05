@@ -58,7 +58,7 @@ K 線、五角色明細、估值指標與完整 provenance 屬「進階資料」
 ### 5.5 AI 聊天室
 
 - engine selector 固定顯示 `Codex`、`ChatGPT`、`Gemini`；Codex／ChatGPT 共用 Codex App Server subscription login，但採不同 agentic／conversation profile，UI 不宣稱存在兩個官方 App Server。
-- Codex／ChatGPT 顯示連結訂閱、登出、plan 與 rate-limit 狀態；不得要求 OpenAI API key。Gemini 顯示 grounding 與成本狀態，未通過 billing gate 時 disabled。
+- Codex／ChatGPT 顯示連結訂閱、登出、plan 與 rate-limit 狀態；不得要求 OpenAI API key。Gemini 顯示 grounding 與免費額度狀態；API key 不得進入 Flutter。
 - 每個 conversation 固定 engine；切換時提示建立新 conversation／fork。訊息顯示 engine、model、資料日期、選用的持股／筆記 context、search 狀態與可點擊 citations。
 - 允許使用者明確選取持股、交易、筆記或關注股加入 context；預設不自動送出全部私人資料。
 - 所有 profile 只讀，禁止 shell、檔案寫入、Admin、交易／筆記／watchlist mutation 與下單。缺 citation、資料不足、額度耗盡或 provider unavailable 顯示明確狀態，不靜默切換引擎。

@@ -34,7 +34,7 @@ User App 與 Admin UI 是兩個獨立入口。Flutter 的公開研究頁只讀�
 - 開發／重構期最低有效完整度為 30%；正式發布門檻日後依 PIT 回測與人工治理調整。
 - LLM 只做提取、摘要、解釋與白話轉譯；不計算或修改 deterministic 分數、不補值、不決定發布。
 - 私人聊天室提供 `codex`、`chatgpt`、`gemini` 三個可選 profile。官方沒有另一個獨立的 ChatGPT App Server daemon；`chatgpt` 是 Janus 在同一 Codex App Server 上提供的對話型 profile，使用 `appBrand=chatgpt` 的 managed OAuth 登入體驗，`codex` 則是受限工具的 agentic profile。兩者均使用使用者既有訂閱，不得要求或接受 OpenAI API key，也不得呼叫 Responses API、Codex API 或其他按量 OpenAI API。
-- `gemini` 是可主動選擇的並存 profile，不是靜默 fallback。它必須支援 Google Search grounding、回傳可點擊來源與查詢時間，並受每次查詢、每人每日與每月成本 hard limit 約束；啟用付費前必須人工核准。
+- `gemini` 是可主動選擇的並存 profile，不是靜默 fallback。它使用 Google AI Studio API key 與 Gemini Developer API 免費層，支援 Google Search grounding、回傳可點擊來源與查詢時間，並受每人每日與專案每日免費額度 hard limit 約束；付費層維持停用。
 - Codex／ChatGPT 認證資料不得寫入 PostgreSQL、Iceberg、log 或 client storage，由每位使用者隔離的 Codex-managed auth store 管理。任何 profile 都不得取得 shell、寫檔、Admin、交易 mutation 或自動下單能力。
 - Cloud Run Service 全部 `min-instances=0`；寫入 Core 的 ingestion Job 單 task 執行，API／query runtime 對 Core 採 read-only。
 - Artifact Registry 可由 source deploy／Cloud Build 自動管理，但底層仍需保存容器映像。

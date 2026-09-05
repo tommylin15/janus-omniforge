@@ -103,5 +103,6 @@ class PrivateIcebergStore:
     def _value(value: Any) -> Any:
         if isinstance(value, (UUID, Enum)): return str(value)
         if isinstance(value, Decimal): return str(value)
+        if isinstance(value, datetime) and value.tzinfo is not None: return value.astimezone(timezone.utc)
         if isinstance(value, date) and not isinstance(value, datetime): return value.isoformat()
         return value
