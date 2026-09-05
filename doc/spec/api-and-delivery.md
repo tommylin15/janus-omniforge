@@ -14,13 +14,34 @@
 - blocked report、raw payload、secret、traceback、broker data 不得公開。
 - User App 主頁以 `mart_daily_brief` 為唯一首屏資料入口；個股健檢讀取 `mart_candidate_health` 與可定位 evidence，前端不重算健康度。
 - `/api/v1/me/journal/*`、`/api/v1/me/notes/*`、`/api/v1/me/watchlist/*`、`/api/v1/me/chats/*`、`/api/v1/me/portfolio/*` 與 `/api/v1/me/investment-profile` 只允許 authenticated user 存取自己的資料。所有 query 與 index 以 `user_id` 作為所有權邊界；不接受 client 指定他人 `user_id`。
-- Chat engine/profile 受控字彙為 `codex | chatgpt | gemini`。每個 conversation 建立後固定其值；切換建立新 conversation／fork，不在同一 lineage 中無痕更換 provider。所有回答顯示 engine、model、資料日期、是否使用外部搜尋與 citations。
-- `codex`／`chatgpt` 只經 Codex App Server subscription auth；`gemini` 只經伺服器端 `GEMINI_API_KEY` 使用 Gemini Developer API 免費層。禁止 client 傳入 provider credential，禁止任何聊天室工具寫入交易、筆記、watchlist、檔案系統或 Admin control plane。
+- 私人助理 runtime 為 `openrouter | gemini | codex`，model／assistant profile 分離；每個 thread 固定 runtime／model，切換新建／fork，保留 parent lineage 與選取的 context。對話不綁定單一股票。
+- OpenRouter 使用 runtime `OPENROUTER_API_KEY` 動態選擇具所需 tools／streaming capability 的模型；Gemini 以 `GEMINI_API_KEY` 直接呼叫 Gemini Developer REST API 免費層，保留 Google Search Grounding／citations／查詢時間，不引入 Google GenAI SDK；Codex 由 Cloud Run Agent Gateway 在容器內以 stdio JSON-RPC 啟動 App Server，使用 managed OAuth／device-code，不使用直接 OpenAI API fallback。
+- 所有 runtime 共用 MCP Host 工具授權、Skills 與 AgentEvent UI；Codex 原生 sandbox／approval 另經 bridge 映射，不能用一般文字 token 串流取代。
 - User token 只接受 User OAuth audience 並只授權 `/api/v1/me/*`；不得用於 `/api/v1/admin/*`。Admin token／session 亦不因具管理權限而取得一般交易內容讀取能力。
-- User 可匯出自己的交易、筆記、關注股與對話資料並要求刪除私人資料；刪除採可稽核、可重試的非同步流程，涵蓋 PostgreSQL、Private Core／Mart、Codex local thread/auth state 與 service cache，且不影響依法或安全要求保留的最小 audit metadata。
+- User 可匯出自己的交易、筆記、關注股、Skills 與對話資料並要求刪除私人資料；刪除採可稽核、可重試的非同步流程，涵蓋 PostgreSQL、Private Core／Mart、GCS artifact、Codex thread／auth state 與 service cache，且不影響依法或安全要求保留的最小 audit metadata。
 - 交易日誌／PnL 納入私人 MVP；市場投票排行榜、遊戲化、付費、公開績效排名與券商同步不在當前範圍。
 - 個人記帳、筆記、關注股與私人聊天室可在公開 Mart 前獨立上線至 dev；未完成的「今日／公開探索」只顯示 coming soon，不得因此觸發即時分析或阻擋私人功能。
 - UI 詳細契約見 `../ui.md`。
+
+### 12.1 私人助理 runtime contract
+
+- 不建立 React／Tauri 或使用者地端 runtime。既有 Flutter Web／Android／iOS 經 FastAPI／Agent Gateway authenticated HTTPS 共用 threads／events；Node.js／TypeScript Agent Gateway、Codex App Server 與 stdio-only MCP 都只在 Cloud Run 容器內執行。
+- Agent Gateway 使用 Cloud Run Service `min-instances=0` 按需啟動，MVP concurrency=1，限制 max instances、CPU、memory、request timeout 與暫存 volume。每個 turn 在容器內啟動或租用 owner-bound Codex／MCP 子行程；完成、取消、timeout 或 disconnect 後清理。持久狀態與 replay cursor 外存，不依賴 instance affinity。
+- Codex App Server 的 stdio JSONL 只存在 container process boundary，gateway 對前端提供 HTTPS SSE／POST；不得直接暴露其實驗性 WebSocket transport。App Server 目前屬實驗性且官方不支援 production workload，因此 managed auth refresh、Linux sandbox、child-process lifecycle、timeout／重連必須先通過 dev POC 與人工 production gate。
+- MCP Host 每 server 一個 client／session，支援 Cloud Run 容器內 stdio、遠端 Streamable HTTP 與 legacy SSE；完成協定交涉、tools/list 分頁／變更、tools/call、取消、失敗清理與遠端認證。工具 namespace、參數 schema、timeout、輸出大小與 owner 必須驗證。可 HTTP 化且需獨立擴縮的 MCP 優先部署私有 Cloud Run Service。
+- Janus context adapter／內部 MCP 只讀已發布 Core／Mart 與 authenticated owner 的 Private Core／Mart，回傳 bounded records、as-of date、source ID、provenance 與 artifact reference；模型與外部 MCP 不取得 GCS URI、PostgreSQL credential 或任意 query。第三方 source 必須先登錄授權、quota、timeout、外送政策與 retention。
+- Assistant-facing source API 為 `GET /api/v1/me/ai-sources` 與 `POST /api/v1/me/chats/{conversation_id}/context-preview`。來源清單只回 source ID／kind、capabilities、as-of／freshness、owner scope、status、quota 與 disclosure；preview 只接受 typed resource selector／date range，回傳短預覽、provenance 摘要與短效 opaque `context_ref`，不接受 SQL、GCS URI、object path 或 client `user_id`。`POST .../messages` 只接受已核發且同 owner／thread／未過期的 `context_ref[]`，server 固定 turn snapshot 後再交 Agent。
+- Agent Gateway 只以 service identity 呼叫 `POST /internal/v1/assistant/context:resolve`；請求包含 signed owner／thread／turn claims 與 opaque refs，response bounded 且去除 storage locator。既有 public market／journal／portfolio API 與 ingestion pipeline 不因 assistant source API 改變；新路由只是安全選取與轉譯層。
+- MCP 管理 API 為 `GET／PUT /api/v1/me/mcp/servers` 與 `GET /api/v1/me/mcp/servers/{server_id}/tools`；前端只管理 allowlisted config reference、啟用狀態與 tool grants，不能提交 stdio command、container image、raw secret 或任意 remote URL。server-side discovery 成功後才回 namespaced tool schema／health。
+- OpenRouter／Gemini adapter 將工具 schema 轉成各自 Function Calling 格式，保留模型 continuation metadata，執行有限輪次 loop。Codex 透過 dynamic-tool bridge 或受控 MCP facade 共用 Host 執行邊界；不重跑其內建 agent loop，不以共用 registry 取代實際授權。
+- Skills 可載入／啟用／停用／自訂，版本化 system prompt fragments、required tools 與 workflow；內建 skill 隨 immutable image 發版，自訂 revision 存 Private Iceberg／GCS 並由 PostgreSQL bounded index 定位，turn 開始時物化核准 snapshot 到暫存 sandbox。Skill 不得包含任意上傳 executable、改寫 host policy 或取得未核准工具。
+- 最小事件 envelope 包含 eventId、seq、threadId、turnId 及可選 itemId／provider IDs；事件種類為 text delta、item upsert、tool request／result、approval request／resolved、citation、usage、turn completed／cancelled／error。
+- SSE 使用既有 chats events route，支援 bounded replay／cursor／backpressure；authenticated HTTPS POST 傳送 approval／cancel。批准必須綁定 owner／turn／request／參數，重播與過期拒絕；provider 專屬 approval decision 由 adapter 映射。
+- Shell／寫檔預設不授權，經明確批准後只限該 turn 的 Cloud Run 暫存 sandbox；MCP process 另做程序／環境隔離。Janus Admin、交易／筆記／watchlist mutation 與下單仍禁止；外部內容及 Skill 無法覆蓋。
+- API／MCP keys 與 Codex auth cache 只在 Secret Manager 或另經核准的隔離 GCP credential store，API payload 僅傳 connection reference。工具輸出／event 先去 secret 再儲存，不保存 raw provider error；auth refresh 安全持久化未通過 POC 時 fail closed。
+- 長正文／context／citations／items／skill revisions 儘可能進 Private Iceberg；PostgreSQL 保存 bounded thread／turn／pending approval／usage reservation 索引與 artifact references。Cloud Run filesystem 只作 bounded ephemeral storage；核准保留的 artifact 寫入 Private GCS／Iceberg，刪除涵蓋雲端狀態與暫存 reference。
+- Gemini 免費 Grounding 須確認模型能力與專案 quota；額度不足／不可用明確回報，禁止自動付費。OpenRouter 啟用付費另需同意；quota／budget 用原子 reservation 防併發超支。私人 context 外送須明確選取並顯示供應商。
+- 只有 Cloud Run 無法滿足超過 request timeout 的不可中斷 turn、必要持久 daemon／特殊 sandbox 權限，或實測資源／連線需求時，才提出 Compute Engine／GKE 方案；必須先提供成本、安全、維運、資料遷移與退出評估，取得使用者明確決定後才能實作或建立資源。
 
 ## 13. GCP 開發與 CI/CD
 

@@ -48,7 +48,7 @@ evidence_refs: string[]
 - `user_investment_profile` 保存 risk tolerance、investment horizon、primary goal 與 minimum cash ratio；目前值使用 bounded private index，歷史 revision 進 Private Iceberg，且只在使用者明確選取時加入聊天室 context。
 - `mart_user_exposure` 以現金、持股市值與有效日期的多產業 membership 計算曝險；一檔股票可屬多個產業，分攤方法與 membership snapshot 必須版本化，前端與 LLM 不自行計算。
 - `mart_user_annual_performance` 在現金流語意、股利與更正事件通過回歸後提供 XIRR；無根、多根或資料不足時回傳 typed status，不填 0。
-- 投資組合 stress test 先由 deterministic scenario 計算資產與現金水位變化，再由目前 conversation 選定的 `codex | chatgpt | gemini` profile 解釋；模型不得修改數值、替使用者下單或輸出保證性建議。
+- 投資組合 stress test 先由 deterministic scenario 計算資產與現金水位變化，再由目前 thread 選定的 OpenRouter／Gemini API／Codex runtime 與模型解釋；模型不得修改數值、替使用者下單或輸出保證性建議。
 - 新聞與情緒沿用公開 Core provenance／`mart_alternative_sentiment`；Gemini Google Search grounding 是對話當下的外部補充，只保存必要 query／citation metadata，不把未授權新聞全文寫入 Private Iceberg 或公開 Core。
 
 五角色：Fundamental、Valuation Risk、Positioning、Quant、Event Risk。

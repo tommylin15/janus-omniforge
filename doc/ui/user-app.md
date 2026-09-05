@@ -55,24 +55,29 @@ K 線、五角色明細、估值指標與完整 provenance 屬「進階資料」
 - 一般筆記使用單一 revision model，可獨立存在或連結股票／交易；列表提供文字、股票、年份與待追蹤狀態篩選，修改時保留歷史版本。
 - 所有 empty／loading／error 狀態不得洩漏其他使用者是否存在資料。
 
-### 5.5 AI 聊天室
+### 5.5 雲端私人助理
 
-- engine selector 固定顯示 `Codex`、`ChatGPT`、`Gemini`；Codex／ChatGPT 共用 Codex App Server subscription login，但採不同 agentic／conversation profile，UI 不宣稱存在兩個官方 App Server。
-- Codex／ChatGPT 顯示連結訂閱、登出、plan 與 rate-limit 狀態；不得要求 OpenAI API key。Gemini 顯示 grounding 與免費額度狀態；API key 不得進入 Flutter。
-- 每個 conversation 固定 engine；切換時提示建立新 conversation／fork。訊息顯示 engine、model、資料日期、選用的持股／筆記 context、search 狀態與可點擊 citations。
+- Runtime selector 顯示 `OpenRouter`、`Gemini API`、`Codex`；OpenRouter 再顯示具目前所需 capability 的核准模型，Gemini 直接用 REST API，Codex 顯示 Cloud Run Agent 與 subscription login 狀態。`ChatGPT` 如存在只顯示為 Codex preset。
+- 每個 thread 固定 runtime／model；切換時提示建立新 thread／fork 並選擇是否轉移 context。訊息顯示 provider、model、skill、資料日期、所選持股／筆記 context、search 狀態與可點擊 citations；不得暗中 fallback。
+- 既有 Flutter Web／Android／iOS 提供 Threads sidebar／drawer、Markdown／程式碼高亮、streaming transcript、Data Sources、MCP Servers／Tools 與 Skills controls；不建立 React／Tauri desktop app。Codex 另顯示 Turns、Items 與 Approval Requests。Item 依 itemId 更新，event 依 eventId／seq 去重，不把 delta 重複附加。
+- Data Sources 面板區分 Janus Public Core／Mart、Private Portfolio／Journal／Notes 與外部來源；顯示 source、as-of date、provenance、owner scope、連線／quota 狀態。私人 context 必須由使用者逐項選取，模型看不到 GCS URI 或資料庫 credential。
+- MCP 面板標示 `Cloud Run stdio` 或 `Remote HTTP/SSE`、service／tool namespace、權限、健康與最近錯誤；stdio 代表 Agent 容器內子行程，不代表使用者裝置。Skills 面板顯示 built-in／custom、revision、required tools、啟用範圍與 snapshot；不得提供任意 executable 上傳。
+- Approval card 顯示 provider／tool、命令或參數、Cloud Run sandbox／網路／檔案範圍、原因與到期；允許／拒絕／取消僅作用於該 owner、thread、turn、request。Janus Admin、交易／筆記／watchlist mutation 與下單不提供批准按鈕。
+- Cold start 顯示「正在啟動雲端 Agent」；中斷、timeout 或 instance recycle 後自動用 last event cursor 重連，不能顯示成完成，也不要求桌面程式。
+- OpenRouter 顯示 routed provider／model、用量與付費未啟用狀態；Gemini 顯示 Google Search Grounding、citation attribution 與免費 quota。API／MCP keys 與 Codex auth cache 不得進 UI state、URL、analytics 或前端 storage。
 - 允許使用者明確選取持股、交易、筆記或關注股加入 context；預設不自動送出全部私人資料。
-- 所有 profile 只讀，禁止 shell、檔案寫入、Admin、交易／筆記／watchlist mutation 與下單。缺 citation、資料不足、額度耗盡或 provider unavailable 顯示明確狀態，不靜默切換引擎。
+- 外送供應商前顯示供應商與資料範圍。使用者核准的 shell／寫檔只限該 turn 的 Cloud Run 暫存 sandbox；缺 citation、資料不足、額度耗盡、MCP 中斷、Agent timeout 或 provider unavailable 顯示明確狀態。
 
 ### 5.6 資產與風險（P1）
 
 - 顯示總資產、現金水位、持股、估值日期與缺價狀態；正式數值只讀 Private Mart。
 - 曝險先用可讀的現金／產業比例列表與總和，圖表為次要呈現；一檔股票跨產業時顯示版本化分攤說明。
 - 年度績效顯示已實現損益、股利、費稅、交易次數與 XIRR status；無根、多根或資料不足不得顯示 0%。
-- 壓力測試先選 deterministic scenario，再選 Codex／ChatGPT／Gemini profile 解釋結果；模型文案與計算數值分區呈現。
+- 壓力測試先選 deterministic scenario，再選 OpenRouter／Gemini API／Codex runtime 與模型解釋結果；模型文案與計算數值分區呈現。
 
 ### 5.7 我的
 
 - theme 使用 light／dark／system；字體縮放跟隨系統，不自建第二套縮放引擎。
 - 投資屬性提供風險承受度、投資期間、主要目標與最低現金比例；送入 AI 前須逐次或以清楚設定 opt-in。
-- 提供「匯出我的私人資料」與「永久刪除私人資料」，涵蓋交易、筆記、關注股、對話與 Codex local thread/auth state。刪除使用 danger zone、再次驗證與明確影響範圍，不以單次誤觸直接執行。
+- 提供「匯出我的私人資料」與「永久刪除私人資料」，涵蓋交易、筆記、關注股、Skills、對話與 Codex 雲端 thread／auth state。刪除使用 danger zone、再次驗證與明確影響範圍，不以單次誤觸直接執行。
 - 不放方案定價、預測戰績或公開排行榜；待產品與法遵另案確認後再新增。

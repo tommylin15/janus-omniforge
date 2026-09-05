@@ -19,7 +19,7 @@
 - Core 保存可重算的來源資料與 deterministic 標準化結果；NER 關聯必須保留模型／規則版本與 evidence。情緒分數、AI 示警、動態權重與投資判讀屬 Mart，不得回寫成來源事實。
 - Public 與 Private namespace、bucket prefix、Iceberg table、service index、IAM 與 retention 必須隔離；不得以只靠 Flutter 篩選來保護使用者交易資料。
 - 交易金額、股數、手續費、稅與損益使用固定精度 decimal，不使用 binary floating point。更正交易以 reversal／replacement event 留痕，不就地改寫稽核歷史。
-- 筆記使用單一 append-only revision model，可獨立存在或連結 symbol／trade event；AI 對話保存 message、所用私人 context snapshot、外部 citation、資料日期與執行版本。Codex／Gemini credential、refresh token 與 secret 一律不得進 Iceberg。
+- 筆記使用單一 append-only revision model，可獨立存在或連結 symbol／trade event；AI 對話保存 message、所用私人 context snapshot、外部 citation、資料日期與執行版本。OpenRouter／Gemini／MCP credential、Codex auth cache、refresh token 與 secret 一律不得進 Iceberg。
 
 ## 6. 資料供應模型與正式資料來源
 

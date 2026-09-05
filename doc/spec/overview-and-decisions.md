@@ -16,13 +16,13 @@ User App 與 Admin UI 是兩個獨立入口。Flutter 的公開研究頁只讀�
 
 1. 先完成個人工作台所需的最小 Dev Stage → Core、股票 master、User auth 與 Private Iceberg 基礎；WBS 3 其餘 Admin polish／全市場擴張不得阻擋私人 MVP。
 2. P0 交付交易記帳、個人筆記、關注股與最小 Flutter；正式損益只讀 Private Mart，私人長內容儘可能進 Iceberg。
-3. P0 同步交付可切換的私人聊天室：`codex` 與 `chatgpt` 兩種 profile 共用 Codex App Server 的 ChatGPT managed OAuth／device-code 與訂閱通道；`gemini` profile 使用 Gemini 加 Google Search grounding。禁止 OpenAI API key、Responses API、Codex API 或其他按量 OpenAI API 通道。
-4. 三種 profile 可並存，但每個 conversation 固定一個 engine/profile；切換時建立新 conversation 或 fork，保留原 provider、model、context 與 citation lineage。啟用 Gemini 計費資源前須另取得明確費用同意。
+3. P0 交付 GCP 雲端多供應商私人助理：OpenRouter 動態模型、Gemini Developer REST API（API key／免費層／Google Search Grounding），以及 Cloud Run 容器內 Codex App Server（stdio JSON-RPC／managed OAuth），以統一 Agent Runtime／events 整合資料源、MCP Host、Skills 與 Threads UI。
+4. 每個 thread 固定 runtime／model；切換時建立新 thread 或 fork，保留 provider、model、context、citation 與 parent lineage。Gemini 不引入 Google GenAI SDK，且付費層停用；OpenRouter 與新 GCP 付費資源啟用另需人工同意。
 5. 完成私人 MVP 後，再執行全市場深化、公開 Intelligence Mart、公開研究 UI 與發布流程。
 
 ## 2. 已確認的架構決策
 
-- 從第一天起在 GCP 開發、測試與部署，不以地端 runtime 為必要條件。
+- 市場資料、API 與私人助理全部在 GCP 開發、測試與部署；不建立 React／Tauri 桌面程式或使用者地端 Codex／MCP runtime。Web／mobile client 只經 authenticated HTTPS 連線。
 - 一個 GitHub monorepo，市場資料、智慧 Mart、私人帳本、API、User 與 Admin 保持清楚邊界；Core query 能力由 Job／API 各自內嵌的 DuckDB runtime 提供。
 - User 與 Admin 前端分離：`apps/user_app` 為 Flutter + Material 3；現有 `apps/web` 專注 Admin Web，不在 User App 暴露 Admin 導覽或管理功能。
 - Dev User authentication 固定使用 Google OIDC／Google Sign-In，使用獨立於 Admin 的 OAuth client／audience。API 驗證 issuer、audience、expiry，並以 `(provider="google", subject=sub)` 對應內部 UUID `user_id`；email 只供顯示，不作所有權鍵。Dev 可另加 User allowlist，不建立自有密碼系統。
@@ -33,9 +33,14 @@ User App 與 Admin UI 是兩個獨立入口。Flutter 的公開研究頁只讀�
 - `e2-micro` 僅承載 PostgreSQL，不承載 DuckDB 分析工作；DuckDB 內嵌於 Cloud Run Job／Service process，暫存與記憶體限制由各 runtime 獨立管理。
 - 開發／重構期最低有效完整度為 30%；正式發布門檻日後依 PIT 回測與人工治理調整。
 - LLM 只做提取、摘要、解釋與白話轉譯；不計算或修改 deterministic 分數、不補值、不決定發布。
-- 私人聊天室提供 `codex`、`chatgpt`、`gemini` 三個可選 profile。官方沒有另一個獨立的 ChatGPT App Server daemon；`chatgpt` 是 Janus 在同一 Codex App Server 上提供的對話型 profile，使用 `appBrand=chatgpt` 的 managed OAuth 登入體驗，`codex` 則是受限工具的 agentic profile。兩者均使用使用者既有訂閱，不得要求或接受 OpenAI API key，也不得呼叫 Responses API、Codex API 或其他按量 OpenAI API。
-- `gemini` 是可主動選擇的並存 profile，不是靜默 fallback。它使用 Google AI Studio API key 與 Gemini Developer API 免費層，支援 Google Search grounding、回傳可點擊來源與查詢時間，並受每人每日與專案每日免費額度 hard limit 約束；付費層維持停用。
-- Codex／ChatGPT 認證資料不得寫入 PostgreSQL、Iceberg、log 或 client storage，由每位使用者隔離的 Codex-managed auth store 管理。任何 profile 都不得取得 shell、寫檔、Admin、交易 mutation 或自動下單能力。
+- 私人助理不綁定個股或單一廠商，runtime 為 `openrouter | gemini | codex`；model 與 assistant／skill profile 分離。延續既有 Flutter Web／Android／iOS 與 FastAPI，新增的 Node.js／TypeScript Agent Gateway 只部署 Cloud Run。`chatgpt` 如保留僅是 Codex preset，不是獨立 provider。
+- Gemini 直接用 `GEMINI_API_KEY` 呼叫 Developer REST API 免費層，保留 Google Search Grounding、citations／查詢時間與免費額度限制；不用 Google GenAI SDK／Vertex AI workload identity。OpenRouter 以獨立 API key 動態選擇已核准模型，Codex 只用 managed OAuth／device-code，不建立直接 OpenAI API fallback。
+- Agent Gateway 與 Codex App Server 同置 Cloud Run Service；gateway 在容器內管理 stdio JSONL 子行程並透過 HTTPS SSE 提供統一 events。`min-instances=0`、MVP concurrency=1、bounded max instances／timeout；checkpoint 必須外部持久化，不能依賴容器記憶體、暫存檔或 session affinity。
+- Codex App Server 目前屬實驗性且官方不支援 production workload；先完成 dev Cloud Run POC 與 managed auth refresh／sandbox／重連驗證，通過人工 gate 後才可決定 production。不得靜默改用直接 OpenAI API。
+- Janus Core／Mart 與 owner-scoped Private Core／Mart 由 Cloud Run context service／內部 read-only MCP 提供 bounded context；外部資料源須先登錄授權、資料日期、provenance、quota 與外送政策。模型不得直接取得 GCS URI、資料庫 credential 或跨 owner query。
+- MCP Host 支援 Cloud Run 容器內 stdio 子行程、遠端 Streamable HTTP、legacy SSE、協定交涉與動態工具；可獨立擴縮的 MCP 優先部署私有 Cloud Run Service。Skills 可載入／啟用／自訂 prompt 與 workflow：內建版本隨 image 發布，自訂版本存 Private Iceberg／GCS 並在 turn 開始時物化到雲端暫存 sandbox。兩者共用 host tool policy／approval，不能靠 prompt 擴權或上傳任意可執行程式。
+- Provider／MCP secrets 與 Codex auth cache 使用 Secret Manager 或另經核准的隔離 GCP credential store，不進正文、image、log 或前端 storage；私人 context 外送須明確選取並揭露供應商資料處理條件。完整 runtime／data／MCP／Skills／事件契約見 [API 與交付](api-and-delivery.md)。
+- Cloud Run writable filesystem 只作有大小上限的 turn sandbox；核准保存的輸出去 secret 後寫入 Private GCS／Iceberg。只有 Cloud Run 無法滿足不可中斷長 turn、持久 daemon、特殊 sandbox 權限或實測資源需求時，才提出 Compute Engine／GKE 成本、安全、維運與退出評估，取得使用者明確決定後才能採用。
 - Cloud Run Service 全部 `min-instances=0`；寫入 Core 的 ingestion Job 單 task 執行，API／query runtime 對 Core 採 read-only。
 - Artifact Registry 可由 source deploy／Cloud Build 自動管理，但底層仍需保存容器映像。
 - Artifact Registry 僅使用 image、digest、metadata 與 cleanup；禁止 Artifact Analysis API、Container Scanning API、vulnerability scanning 與 occurrence API。SBOM 僅可離線產生，不以掃描結果作為 build gate。

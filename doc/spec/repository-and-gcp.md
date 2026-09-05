@@ -11,7 +11,8 @@ janus-omniforge/
 │   ├── ingestion-core/              # Scrapers、Stage、DQ、Core
 │   └── intelligence-mart/           # Features、ML、Agents、LLM、Mart
 ├── services/
-│   └── api/                         # FastAPI public/private/admin API（待建）
+│   ├── api/                         # FastAPI public/private/admin API
+│   └── agent-gateway/               # Cloud Run 私人助理、providers、Codex／MCP host
 ├── packages/
 │   ├── contracts/                   # Schema、events、API types
 │   ├── governance/                  # Parameters、publication policy
@@ -31,7 +32,9 @@ janus-omniforge/
 2. `intelligence-mart`：Cloud Run Job。
 3. `api`：FastAPI Cloud Run Service，提供 public、private-journal 與 Admin API；Core query 使用獨立、read-only 的內嵌 DuckDB instance。
 4. `admin-web`：受限制的 Admin Web 入口，只調用 Admin API。
-5. `user-app`：Flutter Android／iOS／Web client，只調用 Public／Private Journal API，不持有 catalog、control DB 或 GCS credential。
+5. `agent-gateway`：`min-instances=0` 的 Cloud Run Service；在容器內啟動 Codex App Server／stdio MCP 子行程，對 client 只公開 authenticated HTTPS events／commands。
+6. `mcp-*`：需獨立擴縮的 remote MCP 使用私有 Cloud Run Service；stdio-only MCP 建入 `agent-gateway` image，不在使用者裝置執行。
+7. `user-app`：Flutter Android／iOS／Web client，只調用 Public／Private API 與 Agent Gateway，不持有 provider、MCP、catalog、control DB 或 GCS credential；不新增 React／Tauri desktop client。
 
 ## 4. GCP 拓撲
 
@@ -56,6 +59,13 @@ flowchart TD
     P --> K
     F --> L["Read-only DuckDB query instance"]
     L --> K
+    M --> Q["Cloud Run Agent Gateway"]
+    Q --> R["Codex App Server + stdio MCP child processes"]
+    Q --> S["Private Cloud Run MCP services"]
+    Q --> T["OpenRouter / Gemini REST"]
+    L --> Q
+    P --> Q
+    Q --> U["Private conversation / skill artifacts"]
 ```
 
 建議區域：`us-central1`。開發初期可使用單一 `janus-dev` project，但 dev／staging／prod 至少要以 bucket、catalog/schema、service account、Cloud Run 名稱與 secret 完整隔離；正式上線前改成三個 project。

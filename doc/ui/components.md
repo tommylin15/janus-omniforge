@@ -195,5 +195,7 @@ Evidence 欄位：metric、value、unit、source、provenance ID、observed／pu
 ### NoteEditor／ChatRoom
 
 - `NoteEditor` 使用平台原生 multiline text field、可選 symbol／trade 關聯與待追蹤 toggle；儲存後顯示 revision ID，不加入富文字編輯器或附件系統。
-- `ChatRoom` 以 engine selector 建立 conversation；切換 engine 只允許新建／fork。訊息 delta、完成、錯誤與 citation event 以 event ID 去重，離頁可取消，重連只從 last event ID 接續。
+- `ChatRoom` 以 runtime／model selector 建立 thread；切換只允許新建／fork。訊息 delta、item、tool、approval、完成、錯誤與 citation event 以 event ID／seq 去重，item 依 item ID 更新；顯示 Cloud Run cold start／reconnect，離頁可取消，重連只從 last event ID 接續。
+- `DataSourcePicker` 顯示 Janus public／private context 與核准外部來源的 as-of date、provenance、owner scope、quota；私人資料預設未選取。`McpSkillPanel` 顯示 Cloud Run stdio／remote HTTP/SSE、tool scope、skill revision／required tools，不提供本地路徑或任意 executable 上傳。
+- `AgentTimeline` 以一般 message、Codex turn／item、MCP tool 與 approval card 顯示統一 AgentEvent；approval 顯示 Cloud Run sandbox 的具體操作、範圍與到期，禁止用單一全域「永遠允許」取代 request-bound decision。
 - citation 顯示標題、來源、查詢時間與可點擊連結；Gemini Google Search grounding suggestion／attribution 依供應者條款呈現，不把搜尋片段冒充 Janus 已驗證事實。

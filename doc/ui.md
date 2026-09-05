@@ -12,7 +12,7 @@
 | 任務 | 必讀切片 | 條件增讀 |
 |---|---|---|
 | 所有 UI、視覺、responsive、Navigation／Shell | [UI Foundations](ui/foundations.md) | 再讀一個目標功能切片 |
-| 今日、關注、個股、記帳／筆記、AI、資產、我的 | [User App 頁面](ui/user-app.md) | 實作元件時讀 Components；串 API 時讀 States/API |
+| 今日、關注、個股、記帳／筆記、雲端私人助理、資產、我的 | [User App 頁面](ui/user-app.md) | 實作元件時讀 Components；串 API 時讀 States/API |
 | Flutter／Web 共用呈現元件 | [元件契約](ui/components.md) | 只增讀元件所在頁面 |
 | loading／error 等狀態與 FastAPI endpoints | [狀態語意與 API 契約](ui/states-and-api.md) | 不需預讀 Admin |
 | Admin tabs、tables、governance、reports | [Admin UI](ui/admin.md) | 只在全域 layout 時讀 Foundations |

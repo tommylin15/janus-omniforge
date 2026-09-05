@@ -14,19 +14,27 @@
 ## 目前進度（2026-09-05）
 
 - WBS 4J 獨立 MVP：journal／note／Private Iceberg 完整交易、重跑、刪除與 A／B 隔離已結案；僅依賴 WBS 5 的個人化 analysis overlay 尚未啟用。
-- WBS 4C：0／8 項完成，為下一個 P0 主功能。
+- WBS 4C：GCP 雲端多供應商私人助理共 12 個切片，0／12 完成，為下一個 P0 主功能；先前固定三 profile／桌面 runtime 的草稿不算新版完成證據。
 - WBS 3 收尾：Admin Data Operations 1 項完成、3 項未完成；Stage／Core 實機驗證 7 項未完成。Scheduler canary 因 2026-09-03 上游時段異常重置為 0／3。
 - 最新驗證：完整本機 pytest 123／123、WBS 4J targeted pytest 14／14；Flutter analyze／widget test、migration 001–014 與 bash syntax 已通過 Cloud Build。
 
 ## 下一步執行佇列
 
-1. 【Sol】`WBS-4C-ENGINE-SECURITY`：固定三 profile、managed OAuth／Gemini AI Studio API key、無 OpenAI API key 路徑及 tool／prompt-injection 安全邊界。
-2. 【Luna】`WBS-4C-CHAT-API`：依已固定 contract 實作 conversation CRUD、fork、bounded SSE、取消、匯出與刪除。
-3. 【Sol】`WBS-4C-PRIVATE-STORAGE`：完成 conversation Private Iceberg／PostgreSQL index 邊界、credential 隔離、重跑與 A／B 隔離。
-4. 【Luna】`WBS-4C-FLUTTER`：實作 AI 頁、engine selector、登入／額度／citation／資料日期與切換提示。
-5. 【Sol】`WBS-3-ACCEPTANCE`：持續 3 交易日 canary，並完成 queue／connection／restart、VPC／firewall 與 Free Tier guard 實機驗證；只有再次出現相同失敗才進入 root-cause 修正。
-6. 【Luna】`WBS-3-ADMIN-POLISH`：完成表格、cursor pagination 與其 UI 驗收；股票跨域刪除 guard 另以【Sol】執行。
-7. 【Sol】`WBS-5` → 【Luna】`WBS-6` → 【Sol】`WBS-7` → 依逐項標籤執行 `WBS-8`；WBS 4J 個人化 overlay 等 `mart_scoped_analysis` 可用後再做。
+1. 【Sol】`WBS-4C-ENGINE-SECURITY`：固定 Agent Runtime／AgentEvent、provider capability、credential、privacy 與 approval contract；取代舊固定三 profile 草稿。
+2. 【Sol】`WBS-4C-CLOUD-RUNTIME`：以 Cloud Run Service POC 按需 Agent Gateway、容器內 Codex App Server、managed auth、sandbox、checkpoint 與重連；任何部署／付費先過人工 gate。
+3. 【Sol】`WBS-4C-CONTEXT-SOURCES`：固定 Janus Core／Private Mart 與核准外部資料源的 read-only、owner、日期、provenance 與 quota 契約。
+4. 【Sol】`WBS-4C-MCP-HOST`：實作容器內 stdio、遠端 Streamable HTTP／legacy SSE、協定交涉、工具發現與受控執行。
+5. 【Sol】`WBS-4C-CODEX-BRIDGE`：串接 Cloud Run 容器內 Codex App Server stdio JSON-RPC、managed auth、Threads／Turns／Items／Approvals。
+6. 【Luna】`WBS-4C-GEMINI-API`：直接串 Gemini REST API 免費層與 Google Search Grounding；不引入 Google GenAI SDK。
+7. 【Luna】`WBS-4C-OPENROUTER`：動態模型目錄、capability 篩選、streaming／tool loop；付費呼叫先過 billing gate。
+8. 【Sol】`WBS-4C-PRIVATE-STORAGE`：完成 threads／events／Skills／approval 的 Private Iceberg／PostgreSQL index、credential 隔離、重跑與 A／B 隔離。
+9. 【Sol】`WBS-4C-SKILLS`：實作 GCP 儲存、載入／啟用／自訂且不可擴權的版本化 Skills。
+10. 【Luna】`WBS-4C-CHAT-API`：實作 Threads CRUD／fork、bounded SSE、取消、approval response、匯出與刪除。
+11. 【Luna】`WBS-4C-ASSISTANT-UI`：延續 Flutter Web／mobile，完成 Markdown／程式碼高亮、MCP／Skills、Items／Turns／Approvals。
+12. 【Sol】`WBS-4C-ACCEPTANCE`：完成 Cloud Run、provider、資料源、MCP、Skills、streaming、approval、Grounding、privacy 與刪除整合驗收。
+13. 【Sol】`WBS-3-ACCEPTANCE`：持續 3 交易日 canary，並完成 queue／connection／restart、VPC／firewall 與 Free Tier guard 實機驗證。
+14. 【Luna】`WBS-3-ADMIN-POLISH`：完成表格、cursor pagination 與其 UI 驗收；股票跨域刪除 guard 另以【Sol】執行。
+15. 【Sol】`WBS-5` → 【Luna】`WBS-6` → 【Sol】`WBS-7` → 依逐項標籤執行 `WBS-8`；WBS 4J 個人化 overlay 等 `mart_scoped_analysis` 可用後再做。
 
 ## 模型確認規則
 
@@ -68,28 +76,31 @@
 - [ ] 【Sol】 個人化分析只在 authenticated-user 邊界內引用公開 `mart_scoped_analysis` 的 symbol scope；不阻擋記帳／筆記／關注股／聊天室 MVP，也不把私人資料寫回公開 Mart。
 
 
-## P0（WBS 4C）— Codex／ChatGPT／Gemini 可切換私人聊天室
+## P0（WBS 4C）— 多供應商私人助理／MCP／Skills
 
-2026-09-05：完成 engine security contract：固定 `codex`／`chatgpt`／`gemini`
-profile policy、拒絕 OpenAI API-key provider 設定，以及拒絕 shell／寫檔／Admin／交易等
-不可信指令；`tests/test_engine_security.py` 5/5 通過。Managed OAuth runtime wiring、Gemini
-Developer API grounding 呼叫與免費額度持久化計數尚未完成。
+- [ ] 【Sol】 定義並實作 `openrouter | gemini | codex` Agent Runtime、統一 AgentEvent 與 capability contract；provider、model、assistant／skill profile 分離，每個 thread 固定 runtime／model，切換新建／fork，不靜默 fallback。
 
-- [ ] 【Sol】 實作三個受控 profile：`codex`、`chatgpt`、`gemini`。Codex／ChatGPT 共用 Codex App Server 與 ChatGPT managed OAuth／device-code，但使用不同 agentic／conversation policy；不建立第二個虛構的 ChatGPT App Server daemon。
+- [ ] 【Sol】 建立 Cloud Run Agent Gateway POC：`min-instances=0`、bounded max instances／timeout、MVP concurrency=1；容器內啟動 Codex App Server stdio 子行程，驗證 Linux container、managed auth refresh、暫存 sandbox、取消、外部 checkpoint 與 cursor 重連。Codex App Server 屬實驗性且官方不支援 production，POC 未過不得宣稱 production-ready；部署或付費先過人工 gate。
 
-- [ ] 【Sol】 禁止 OpenAI API key、Responses API、Codex API 或其他按量 OpenAI API；以 contract／configuration test 證明不存在 API-key request、secret 或 fallback 路徑。
+- [ ] 【Sol】 資料源只讀已發布 Janus Core／Mart 與 authenticated owner 的 Private Core／Mart；實作 `GET /api/v1/me/ai-sources`、thread-bound `context-preview`／短效 opaque `context_ref` 與 service-identity-only internal resolve。只接受 typed selector，不接受 SQL、GCS URI、object path 或 client `user_id`。外部來源須有 allowlist、授權、日期、provenance、quota 與外送政策，不在 chat request 即時爬取未核准來源；既有 public／journal／portfolio／ingestion API 不改語意。
 
-- [ ] 【Sol】 Gemini 使用 Google AI Studio `GEMINI_API_KEY` 呼叫 Gemini Developer API 免費層並支援 Google Search grounding；key 只存在伺服器端 Secret Manager／環境變數，顯示來源、查詢時間與免費額度狀態，付費層維持停用。
+- [ ] 【Luna】 OpenRouter 以 `OPENROUTER_API_KEY` 動態列出已核准模型，依 tools／streaming capability 篩選 Claude、Llama、Gemini 等模型，完成 bounded function-call loop 與 provider／usage／fallback 可追溯；付費呼叫前須人工同意。
 
-- [ ] 【Luna】 建立 `/api/v1/me/chats/*`：conversation 建立／列表／fork、message、bounded SSE events、取消、匯出與刪除。每個 conversation 固定 engine，切換只能新建／fork，不靜默 fallback。
+- [ ] 【Luna】 Gemini 直接使用 Google AI Studio `GEMINI_API_KEY` 呼叫 Gemini Developer REST API 免費層，不加入 Google GenAI SDK／Vertex AI；必須支援 Google Search Grounding、citations／attribution／查詢時間、免費 quota 與 429／provider unavailable 狀態，禁止自動轉付費。
 
-- [ ] 【Sol】 對話 messages、選定的私人 context snapshot、engine／model、search flag 與 citations 儘可能寫入 Private Iceberg；PostgreSQL 只保存 session index、status、idempotency、checkpoint 與 artifact reference。provider credential／refresh token 不得進 PostgreSQL、Iceberg、log 或 Flutter storage。
+- [ ] 【Sol】 Codex 以 Cloud Run 容器內 App Server stdio JSON-RPC 與 managed OAuth／device-code 驅動；整合 Threads／Turns／Items／Approval Requests、取消及 sandbox。不得使用 OpenAI API key、Responses／Codex API 或其他直接付費 fallback。
 
-- [ ] 【Sol】 所有 profile 禁止 shell、檔案寫入、Admin、交易／筆記／watchlist mutation 與下單；驗證 web／note prompt injection 無法解除 tool、ownership 或 publication policy。
+- [ ] 【Sol】 應用作為 MCP Host，支援 Cloud Run 容器內 allowlisted stdio 子行程、遠端 Streamable HTTP 與 legacy SSE server；實作 MCP servers GET／PUT 與 namespaced tools discovery GET，前端只傳 allowlisted config reference／tool grants，不接受 raw command、image、secret 或任意 URL。完成 initialize／capability negotiation、tools discovery／change、JSON Schema validation、受控 tools/call、timeout／cancel／disconnect 與 secret／owner boundary；可 HTTP 化且需獨立擴縮的 MCP 優先部署私有 Cloud Run service。
 
-- [ ] 【Luna】 Flutter AI 頁顯示 engine selector、Codex subscription login／logout／plan／rate limit、Gemini grounding／billing 狀態、所選 context、資料日期、citations 與免責聲明；切換前提示建立新 conversation／fork。
+- [ ] 【Sol】 內建 Skills 隨 immutable image 發版；自訂 Skills 的 prompt／required tools／workflow revision 存 Private Iceberg／GCS 並以 PostgreSQL bounded index 定位，turn 開始時物化核准 snapshot 到 Cloud Run 暫存 sandbox。Skill 不允許任意可執行程式，且 Skill、MCP description、新聞或筆記不可擴大 host tool／ownership／publication policy。
 
-- [ ] 【Sol】 驗證 Codex／ChatGPT／Gemini 切換與 lineage、SSE 斷線續接／去重、provider unavailable、usage limit、citation、A／B 隔離、Iceberg 重跑／匯出／刪除及無 placeholder response。
+- [ ] 【Sol】 對話 messages、selected context、provider／model、skill revision、search／citations、Items／Turns、tool／approval events 儘可能寫入 Private Iceberg；PostgreSQL 只保存 bounded thread／turn／approval／usage reservation index、idempotency、checkpoint 與 artifact reference。provider／MCP credential 與 Codex auth cache 不得進資料庫、Iceberg、image、log 或前端 storage，只能使用 Secret Manager 或另經核准的隔離 GCP credential store。
+
+- [ ] 【Luna】 建立 `/api/v1/me/chats/*` 的 Threads CRUD／fork、message、bounded SSE events、cursor replay、取消、approval response、匯出與刪除；eventId／seq／itemId 去重，provider 原生 continuation metadata 可恢復。
+
+- [ ] 【Luna】 不建立 React／Tauri 或使用者地端 runtime；延續既有 Flutter Web／Android／iOS AI 入口，共用雲端 Threads／AgentEvent／citation contract，提供多 Threads、Markdown／程式碼高亮、streaming、provider／model／資料源／MCP／Skills controls，以及 Codex Items／Turns／Approval Requests。
+
+- [ ] 【Sol】 驗證 Cloud Run scale-to-zero／cold start／timeout／中斷重連、三 runtime、內外資料源 provenance、MCP stdio／HTTP／SSE、動態工具、Skill 權限、Codex auth／approval／取消、Grounding、quota／provider unavailable、context 外送提示、A／B 隔離、stream 續接／去重、Iceberg 重跑／匯出／刪除與無 placeholder。若 Cloud Run 無法滿足不可中斷長 turn、持久 daemon、特殊 sandbox 權限或實測資源需求，先提交 Compute Engine／GKE 成本、安全、維運與退出評估，取得使用者決定後才能採用。
 
 ## P1（WBS 4R）— 個人曝險、績效與 AI 壓力測試
 
@@ -185,7 +196,7 @@ Developer API grounding 呼叫與免費額度持久化計數尚未完成。
 
 - [ ] 【Sol】 禁止模型修改 score、confidence、quality、publication。
 
-- [ ] 【Sol】 公開批次 Mart 只接 Gemini，與 WBS 4C 的私人三 profile 聊天室分離；不得使用 OpenAI／Codex API。啟用付費前須通過人工 billing gate，429／`RESOURCE_EXHAUSTED`／provider unavailable 採 bounded retry。
+- [ ] 【Sol】 公開批次 Mart 只接 Gemini，與 WBS 4C 的多供應商私人助理分離；不得使用 OpenAI／Codex API。啟用付費前須通過人工 billing gate，429／`RESOURCE_EXHAUSTED`／provider unavailable 採 bounded retry。
 
 - [ ] 【Sol】 非 429 結構化失敗。
 
@@ -247,7 +258,7 @@ Developer API grounding 呼叫與免費額度持久化計數尚未完成。
 
 - [ ] 【Luna】 個股 K 線、Metrics、五角色與 provenance 放在預設收合的進階資料，不得先於健康度與白話摘要。
 
-- [ ] 【Luna】 個人工作台 UI 支援關注股、交易新增／更正、一般筆記 revision、歷史篩選、持股、年度損益與三 profile 聊天室；正式成本／損益只讀 Private Mart，不在 Flutter 或模型重算。
+- [ ] 【Luna】 個人工作台 UI 支援關注股、交易新增／更正、一般筆記 revision、歷史篩選、持股、年度損益與多供應商私人助理；正式成本／損益只讀 Private Mart，不在 Flutter 或模型重算。
 
 - [ ] 【Luna】 全市場 screening 與個人關注股深度頁分流；顯示 coverage、freshness、來源健康與資料不足。
 

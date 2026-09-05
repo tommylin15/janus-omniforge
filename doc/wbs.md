@@ -20,7 +20,7 @@
 | 已完成證據定位 | 【Luna】 | [已完成工作](wbs/completed-index.md) | 只在需要歷史證據時讀 archive |
 | 3：Ingestion／Core／Admin Data Operations | 【Sol】 | [WBS 3](wbs/wbs-3-ingestion-admin.md) | UI 變更再讀 Admin UI |
 | 4J：個人記帳、筆記、關注股 | 【Sol】 | [WBS 4J](wbs/wbs-4j-personal-workspace.md) | AI 整合才讀 4C；曝險才讀 4R |
-| 4C：Codex／ChatGPT／Gemini 私人聊天室 | 【Sol】 | [WBS 4C](wbs/wbs-4c-ai-chat.md) | 需要持股／筆記 context 時讀 4J |
+| 4C：多供應商私人助理／MCP／Skills | 【Sol】 | [WBS 4C](wbs/wbs-4c-ai-chat.md) | 需要持股／筆記 context 時讀 4J；UI 切片讀 User UI |
 | 4R：個人曝險、績效與壓力測試 | 【Sol】 | [WBS 4R](wbs/wbs-4r-personal-risk.md) | AI 解釋時讀 4C |
 | 5：Intelligence Mart | 【Sol】 | [WBS 5](wbs/wbs-5-intelligence-mart.md) | 不預讀私人 WBS |
 | 6：FastAPI、Flutter、Admin | 依 TODO | [WBS 6](wbs/wbs-6-api-and-apps.md) | 依目標入口讀 User 或 Admin UI |
