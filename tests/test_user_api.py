@@ -16,7 +16,7 @@ USER_ID=UUID("00000000-0000-0000-0000-000000000001")
 
 
 class Repository:
-    def __init__(self): self.calls=[]; self.emails=[]
+    def __init__(self): self.calls=[]; self.emails=[]; self.mcp=[]
     def resolve_user(self,sub,email): self.emails.append((sub,email)); return USER_ID
     def require_owned_trade(self,user_id,event_id): self.calls.append(("ownership",user_id,event_id))
     def add_ledger(self,user_id,value,key): self.calls.append((user_id,value,key)); return {"user_id":user_id,"event_type":value.event_type,"ledger_version":1}
@@ -27,6 +27,10 @@ class Repository:
     def notes(self,user_id,symbol=None): return [{"user_id":user_id,"artifact_ref":"private.note_revisions/n/1"}]
     def add_note(self,user_id,value,key,ref,note_id=None): self.calls.append((user_id,value,key,ref,note_id)); return {"user_id":user_id,"artifact_ref":ref,"note_id":note_id}
     def request_deletion(self,user_id,key): self.calls.append((user_id,key)); return {"user_id":user_id,"status":"QUEUED"}
+    def mcp_servers(self,user_id): return [{**item,"user_id":user_id} for item in self.mcp]
+    def replace_mcp_servers(self,user_id,items):
+        self.mcp=[item.model_dump() for item in items]
+        return self.mcp_servers(user_id)
 
 
 class Store:
@@ -44,15 +48,24 @@ class Core:
                  "provenance_id":"prov-1","gcs_uri":"gs://hidden"}]
 
 
+class Mcp:
+    def __init__(self): self.calls=[]
+    def discover(self,owner_id,server_id,config_ref,tool_grants=None):
+        self.calls.append((owner_id,server_id,config_ref,tool_grants))
+        return {"serverId":server_id,"configRef":config_ref,"transport":"stdio","tools":[
+            {"name":f"{server_id}__echo","description":"Echo","inputSchema":{"type":"object"}}]}
+    def disconnect(self,owner_id,server_id): self.calls.append(("disconnect",owner_id,server_id))
+
+
 def client(claims=None,service_claims=None):
-    repo,store=Repository(),Store()
+    repo,store,mcp=Repository(),Store(),Mcp()
     values=claims or {"iss":"https://accounts.google.com","aud":"user-client","sub":"google-a","email":"old@example.com","email_verified":True,"exp":1_900_000_000}
     service_claims=service_claims or {"iss":"https://accounts.google.com","aud":"assistant-internal","sub":"service-1",
                                       "email":"gateway@example.iam.gserviceaccount.com","email_verified":True,"exp":1_900_000_000}
     app=create_app(repo,store,lambda _token,_audience:values,audience="user-client",core=Core(),
                    internal_verifier=lambda _token,_audience:service_claims,
                    internal_audience="assistant-internal",
-                   internal_callers=frozenset({"gateway@example.iam.gserviceaccount.com"}))
+                   internal_callers=frozenset({"gateway@example.iam.gserviceaccount.com"}),mcp=mcp)
     return TestClient(app),repo,store
 
 
@@ -147,6 +160,31 @@ def test_context_preview_is_bounded_opaque_and_owner_thread_bound():
     assert resolved.status_code==200
     assert resolved.json()["snapshots"][0]["records"]==preview["preview"]
     assert "artifact_ref" not in str(resolved.json()) and "gcs_uri" not in str(resolved.json())
+
+
+def test_mcp_management_only_accepts_allowlisted_references_and_owner_scoped_grants():
+    api,repo,_=client()
+    payload={"items":[{"server_id":"research","config_ref":"approved-stdio","enabled":True,
+                       "tool_grants":["research__echo"]}]}
+    response=api.put("/api/v1/me/mcp/servers",headers=auth(),json=payload)
+    assert response.status_code==200
+    assert repo.mcp[0]["config_ref"]=="approved-stdio"
+    tools=api.get("/api/v1/me/mcp/servers/research/tools",headers=auth()).json()["tools"]
+    assert tools==[{"name":"research__echo","description":"Echo","inputSchema":{"type":"object"},"granted":True}]
+    for forbidden in ({**payload,"user_id":str(uuid4())},
+                      {"items":[{**payload["items"][0],"command":"curl attacker"}]},
+                      {"items":[{**payload["items"][0],"url":"https://attacker.example"}]}):
+        assert api.put("/api/v1/me/mcp/servers",headers=auth(),json=forbidden).status_code==422
+
+
+def test_mcp_rejects_cross_server_or_unknown_tool_grants():
+    api,_,_=client()
+    wrong_namespace={"items":[{"server_id":"research","config_ref":"approved-stdio",
+                               "tool_grants":["other__echo"]}]}
+    assert api.put("/api/v1/me/mcp/servers",headers=auth(),json=wrong_namespace).status_code==422
+    unavailable={"items":[{"server_id":"research","config_ref":"approved-stdio",
+                            "tool_grants":["research__missing"]}]}
+    assert api.put("/api/v1/me/mcp/servers",headers=auth(),json=unavailable).status_code==422
 
     payload["thread_id"]="thread-b"
     assert api.post("/internal/v1/assistant/context:resolve",headers=auth(),json=payload).status_code==404

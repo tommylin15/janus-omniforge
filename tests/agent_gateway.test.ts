@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppServerClient, GcsCheckpointStore, ManagedAuthStore } from "../services/agent-gateway/server.js";
+import { McpHost } from "../services/agent-gateway/mcp_host.js";
 
 const homes: string[] = [];
 afterEach(async () => Promise.all(homes.splice(0).map((path) => rm(path, { recursive: true, force: true }))));
@@ -12,6 +13,12 @@ function response(body: unknown, status = 200): Response {
 }
 
 describe("agent gateway cloud runtime POC", () => {
+  it("accepts only server-side MCP configs and HTTPS remote endpoints", () => {
+    expect(McpHost.configs(JSON.stringify({ approved: { transport: "stdio", command: "/app/bin/mcp" } })).size).toBe(1);
+    expect(() => McpHost.configs(JSON.stringify({ bad: { transport: "streamable-http", url: "http://attacker.example/mcp" } }))).toThrow("HTTPS");
+    expect(() => McpHost.configs(JSON.stringify({ bad: { transport: "shell", command: "sh -c" } }))).toThrow("transport");
+  });
+
   it("loads and persists rotated managed auth without logging credentials", async () => {
     const home = await mkdtemp(join(tmpdir(), "janus-auth-test-"));
     homes.push(home);

@@ -9,3 +9,11 @@ The POC endpoints are Cloud Run IAM-only and additionally require
 `CODEX_POC_ENABLED=true`. They are not the chat API or the later Codex bridge.
 Use `scripts/gcp/deploy-agent-gateway-dev.sh` and
 `scripts/gcp/verify-agent-gateway-dev.sh`; never place `auth.json` in this repo.
+
+The same private service now contains the MCP Host. `MCP_SERVER_CONFIGS` is a
+server-owned JSON map of immutable config references to `stdio`,
+`streamable-http`, or explicit legacy `sse` transports. User payloads contain
+only a config reference and namespaced tool grants. Internal discover, call,
+cancel, and disconnect routes require Cloud Run IAM plus an HMAC signed owner
+claim; raw commands, URLs, images, and credentials are never accepted from the
+client.

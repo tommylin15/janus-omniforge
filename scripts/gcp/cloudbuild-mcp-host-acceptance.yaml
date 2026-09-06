@@ -1,0 +1,18 @@
+steps:
+  - name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        secret_file="$(mktemp)"
+        trap 'rm -f "${secret_file}"' EXIT
+        gcloud secrets versions access latest --secret="${_SECRET}" --project="${PROJECT_ID}" --out-file="${secret_file}"
+        gateway="$(gcloud run services describe "${_GATEWAY_SERVICE}" --project="${PROJECT_ID}" --region="${_REGION}" --format='value(status.url)')"
+        token="$(gcloud auth print-identity-token)"
+        python3 scripts/gcp/mcp_host_acceptance.py "${gateway}" "${token}" "${secret_file}"
+substitutions:
+  _SECRET: janus-mcp-owner-signing-key
+  _GATEWAY_SERVICE: janus-agent-gateway
+  _REGION: us-central1
+options:
+  logging: CLOUD_LOGGING_ONLY

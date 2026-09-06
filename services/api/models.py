@@ -115,3 +115,28 @@ class ContextResolveIn(StrictModel):
         if len(self.context_refs) != len(set(self.context_refs)):
             raise ValueError("context_refs must be unique")
         return self
+
+
+class McpServerIn(StrictModel):
+    server_id: Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9-]{0,39}$")]
+    config_ref: Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")]
+    enabled: bool = True
+    tool_grants: Annotated[list[Annotated[str, Field(pattern=r"^[A-Za-z0-9._:-]{1,192}$")]], Field(max_length=128)] = []
+
+    @model_validator(mode="after")
+    def validate_grants(self) -> "McpServerIn":
+        if len(self.tool_grants) != len(set(self.tool_grants)):
+            raise ValueError("tool_grants must be unique")
+        if any(not grant.startswith(f"{self.server_id}__") for grant in self.tool_grants):
+            raise ValueError("tool grants must use the server namespace")
+        return self
+
+
+class McpServersPutIn(StrictModel):
+    items: Annotated[list[McpServerIn], Field(max_length=8)]
+
+    @model_validator(mode="after")
+    def validate_servers(self) -> "McpServersPutIn":
+        if len({item.server_id for item in self.items}) != len(self.items):
+            raise ValueError("server_id must be unique")
+        return self

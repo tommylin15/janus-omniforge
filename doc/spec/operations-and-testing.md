@@ -7,6 +7,33 @@ pytest 14/14、Python `py_compile`、inline JavaScript syntax 與 `git diff --ch
 passed。此次 host 缺少 FastAPI runtime，新增 API contract test 未在本機重跑；API image
 由 GCP Cloud Build lockfile build 驗證，真人 acceptance 由 GCP dev runtime 完成。
 
+## P0 WBS 4C MCP Host implementation (2026-09-06)
+
+GCP dev PostgreSQL migration `015_private_mcp_servers` 已套用並以
+`private.mcp_servers` 存在性驗證。新增 Secret Manager secret
+`janus-mcp-owner-signing-key`，僅授予 `janus-agent-gateway` 與 `janus-user-api`
+runtime accessor；未輸出 secret payload。
+
+Cloud Build `fe522ef7-0aed-4739-b7cd-a6fdd5b00c1f` 成功建置 Agent Gateway；最終
+dev revision `janus-agent-gateway-00011-d78` 使用 immutable image digest
+`sha256:a9e0aad9746c2144368b9808ed3b250e26309e268ab4f805c3049e8e2bbc2d78`。
+API Cloud Build `1a0151d4-1ad6-479b-9179-dcbab72cf02e` 成功建置；dev revision
+`janus-api-00018-jm9` 使用 image digest
+`sha256:ad6ef02c255be4c7666db8869879f6745c75a8c0c3a0760639aaf004a99a3894`。
+
+GCP dev fixture 為私有 Cloud Run `janus-mcp-fixture`，最終 revision
+`janus-mcp-fixture-00008-zn5`、image digest
+`sha256:7c1258a509c773b1e8b64b3573024033d7a26e36a6a9183a7bfa15c6c7124b3e`，維持
+`maxScale=1`、`concurrency=80`、scale-to-zero；gateway 維持 `maxScale=1`、
+`concurrency=2`、scale-to-zero。正式 acceptance 在 GCP dev Cloud Run Job
+`janus-mcp-acceptance-p7kpf` 通過，Job 完成後已自動刪除。
+
+Acceptance Cloud Build `2bad0afc-ca51-4eb7-abfb-fa05a4a38440` 建置 runner；結果：
+stdio `discover=modern/call=ok`、Streamable HTTP `discover=modern/call=ok`、legacy
+SSE `discover=legacy/call=ok`、secret structured-content redaction、timeout、
+`tools/list_changed`、並行 cancel 與 disconnect 均為 `ok`。有效 HMAC、owner-scoped
+tool grants、invalid config／credential boundary 亦已驗證；secret payload 從未輸出。
+
 ## P0 WBS 4C Context Sources（2026-09-06）
 
 GCP dev Cloud Build `92131984-c36e-4755-9c20-9f37ba3cea12` 成功完成 source list、

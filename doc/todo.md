@@ -15,24 +15,23 @@
 ## 目前進度（2026-09-06）
 
 - WBS 4J 獨立 MVP：journal／note／Private Iceberg 完整交易、重跑、刪除與 A／B 隔離已結案；僅依賴 WBS 5 的個人化 analysis overlay 尚未啟用。
-- WBS 4C：GCP 雲端多供應商私人助理共 12 個切片，3／12 完成；Agent Runtime／AgentEvent、security contract 與 context sources 已固定，Cloud Run runtime POC 已結案，下一步為 MCP host。
+- WBS 4C：GCP 雲端多供應商私人助理共 12 個切片，4／12 完成；Agent Runtime／AgentEvent、security contract、context sources 與 MCP host 已固定，Cloud Run runtime POC 已結案。
 - WBS 3 收尾：Admin Data Operations 1 項完成、3 項未完成；Stage／Core 實機驗證 7 項未完成。Scheduler canary 因 2026-09-03 上游時段異常重置為 0／3。
 - 最新驗證：WBS-4C-CONTEXT-SOURCES 已於 GCP dev Cloud Build 通過；完整本機 pytest 123／123、WBS 4J targeted pytest 14／14；Flutter analyze／widget test、migration 001–014 與 bash syntax 已通過 Cloud Build。
 
 ## 下一步執行佇列
 
-1. 【Sol】`WBS-4C-MCP-HOST`：實作容器內 stdio、遠端 Streamable HTTP／legacy SSE、協定交涉、工具發現與受控執行。
-2. 【Sol】`WBS-4C-CODEX-BRIDGE`：串接 Cloud Run 容器內 Codex App Server stdio JSON-RPC、managed auth、Threads／Turns／Items／Approvals。
-3. 【Luna】`WBS-4C-GEMINI-API`：直接串 Gemini REST API 免費層與 Google Search Grounding；不引入 Google GenAI SDK。
-4. 【Luna】`WBS-4C-OPENROUTER`：動態模型目錄、capability 篩選、streaming／tool loop；付費呼叫先過 billing gate。
-5. 【Sol】`WBS-4C-PRIVATE-STORAGE`：完成 threads／events／Skills／approval 的 Private Iceberg／PostgreSQL index、credential 隔離、重跑與 A／B 隔離。
-6. 【Sol】`WBS-4C-SKILLS`：實作 GCP 儲存、載入／啟用／自訂且不可擴權的版本化 Skills。
-7. 【Luna】`WBS-4C-CHAT-API`：實作 Threads CRUD／fork、bounded SSE、取消、approval response、匯出與刪除。
-8. 【Luna】`WBS-4C-ASSISTANT-UI`：延續 Flutter Web／mobile，完成 Markdown／程式碼高亮、MCP／Skills、Items／Turns／Approvals。
-9. 【Sol】`WBS-4C-ACCEPTANCE`：完成 Cloud Run、provider、資料源、MCP、Skills、streaming、approval、Grounding、privacy 與刪除整合驗收。
-10. 【Sol】`WBS-3-ACCEPTANCE`：持續 3 交易日 canary，並完成 queue／connection／restart、VPC／firewall 與 Free Tier guard 實機驗證。
-11. 【Luna】`WBS-3-ADMIN-POLISH`：完成表格、cursor pagination 與其 UI 驗收；股票跨域刪除 guard 另以【Sol】執行。
-12. 【Sol】`WBS-5` → 【Luna】`WBS-6` → 【Sol】`WBS-7` → 依逐項標籤執行 `WBS-8`；WBS 4J 個人化 overlay 等 `mart_scoped_analysis` 可用後再做。
+1. 【Sol】`WBS-4C-CODEX-BRIDGE`：串接 Cloud Run 容器內 Codex App Server stdio JSON-RPC、managed auth、Threads／Turns／Items／Approvals。
+2. 【Luna】`WBS-4C-GEMINI-API`：直接串 Gemini REST API 免費層與 Google Search Grounding；不引入 Google GenAI SDK。
+3. 【Luna】`WBS-4C-OPENROUTER`：動態模型目錄、capability 篩選、streaming／tool loop；付費呼叫先過 billing gate。
+4. 【Sol】`WBS-4C-PRIVATE-STORAGE`：完成 threads／events／Skills／approval 的 Private Iceberg／PostgreSQL index、credential 隔離、重跑與 A／B 隔離。
+5. 【Sol】`WBS-4C-SKILLS`：實作 GCP 儲存、載入／啟用／自訂且不可擴權的版本化 Skills。
+6. 【Luna】`WBS-4C-CHAT-API`：實作 Threads CRUD／fork、bounded SSE、取消、approval response、匯出與刪除。
+7. 【Luna】`WBS-4C-ASSISTANT-UI`：延續 Flutter Web／mobile，完成 Markdown／程式碼高亮、MCP／Skills、Items／Turns／Approvals。
+8. 【Sol】`WBS-4C-ACCEPTANCE`：完成 Cloud Run、provider、資料源、MCP、Skills、streaming、approval、Grounding、privacy 與刪除整合驗收。
+9. 【Sol】`WBS-3-ACCEPTANCE`：持續 3 交易日 canary，並完成 queue／connection／restart、VPC／firewall 與 Free Tier guard 實機驗證。
+10. 【Luna】`WBS-3-ADMIN-POLISH`：完成表格、cursor pagination 與其 UI 驗收；股票跨域刪除 guard 另以【Sol】執行。
+11. 【Sol】`WBS-5` → 【Luna】`WBS-6` → 【Sol】`WBS-7` → 依逐項標籤執行 `WBS-8`；WBS 4J 個人化 overlay 等 `mart_scoped_analysis` 可用後再做。
 
 ## 模型確認規則
 
@@ -84,7 +83,6 @@
 
 - [ ] 【Sol】 Codex 以 Cloud Run 容器內 App Server stdio JSON-RPC 與 managed OAuth／device-code 驅動；整合 Threads／Turns／Items／Approval Requests、取消及 sandbox。不得使用 OpenAI API key、Responses／Codex API 或其他直接付費 fallback。
 
-- [ ] 【Sol】 應用作為 MCP Host，支援 Cloud Run 容器內 allowlisted stdio 子行程、遠端 Streamable HTTP 與 legacy SSE server；實作 MCP servers GET／PUT 與 namespaced tools discovery GET，前端只傳 allowlisted config reference／tool grants，不接受 raw command、image、secret 或任意 URL。完成 initialize／capability negotiation、tools discovery／change、JSON Schema validation、受控 tools/call、timeout／cancel／disconnect 與 secret／owner boundary；可 HTTP 化且需獨立擴縮的 MCP 優先部署私有 Cloud Run service。
 
 - [ ] 【Sol】 內建 Skills 隨 immutable image 發版；自訂 Skills 的 prompt／required tools／workflow revision 存 Private Iceberg／GCS 並以 PostgreSQL bounded index 定位，turn 開始時物化核准 snapshot 到 Cloud Run 暫存 sandbox。Skill 不允許任意可執行程式，且 Skill、MCP description、新聞或筆記不可擴大 host tool／ownership／publication policy。
 

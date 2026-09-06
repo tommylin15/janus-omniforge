@@ -9,7 +9,7 @@ import os
 from typing import Any, Iterator
 from uuid import UUID, uuid4
 
-from .models import LedgerEventIn, LedgerType, NoteIn, WatchlistIn
+from .models import LedgerEventIn, LedgerType, McpServerIn, NoteIn, WatchlistIn
 
 
 class ConflictError(ValueError): pass
@@ -266,6 +266,24 @@ class PostgresWorkspaceRepository:
                 row=connection.execute("SELECT * FROM private.deletion_requests WHERE user_id=%s AND idempotency_key=%s",(user_id,key)).fetchone()
             return dict(row)
 
+    def mcp_servers(self, user_id: UUID) -> list[dict[str, Any]]:
+        with self._connection() as connection:
+            return [dict(row) for row in connection.execute(
+                "SELECT server_id,config_ref,enabled,tool_grants,updated_at FROM private.mcp_servers WHERE user_id=%s ORDER BY server_id",
+                (user_id,),
+            ).fetchall()]
+
+    def replace_mcp_servers(self, user_id: UUID, items: list[McpServerIn]) -> list[dict[str, Any]]:
+        with self._connection() as connection:
+            connection.execute("SELECT 1 FROM private.users WHERE user_id=%s FOR UPDATE",(user_id,))
+            connection.execute("DELETE FROM private.mcp_servers WHERE user_id=%s",(user_id,))
+            for item in items:
+                connection.execute(
+                    "INSERT INTO private.mcp_servers(user_id,server_id,config_ref,enabled,tool_grants) VALUES(%s,%s,%s,%s,%s)",
+                    (user_id,item.server_id,item.config_ref,item.enabled,item.tool_grants),
+                )
+        return self.mcp_servers(user_id)
+
     def pending_deletions(self, limit: int = 20) -> list[dict[str, Any]]:
         with self._connection() as connection:
             return [dict(row) for row in connection.execute(
@@ -274,7 +292,7 @@ class PostgresWorkspaceRepository:
 
     def complete_deletion(self, request_id: UUID, user_id: UUID) -> None:
         with self._connection() as connection:
-            for table in ("change_log","mutation_keys","note_index","watchlist","ledger_events","users"):
+            for table in ("change_log","mutation_keys","note_index","watchlist","mcp_servers","ledger_events","users"):
                 connection.execute(f"DELETE FROM private.{table} WHERE user_id=%s",(user_id,))
             connection.execute("UPDATE private.deletion_requests SET status='COMPLETED',completed_at=now() WHERE request_id=%s AND user_id=%s",(request_id,user_id))
 

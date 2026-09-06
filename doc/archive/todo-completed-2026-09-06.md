@@ -16,6 +16,20 @@ invalid selector/SQL。API 最終 revision 為 `janus-api-00016-4bv`，immutable
 依授權保留 dev 中 `janus-user-api` 對既有 Core catalog password Secret 的 read-only
 `roles/secretmanager.secretAccessor`。未部署 production，未新增付費 GCP 資源。
 
+## WBS-4C-MCP-HOST
+
+完成 MCP Host 與 server-owned configuration：allowlisted stdio、Streamable HTTP、
+legacy SSE、protocol negotiation、namespaced tools、JSON Schema validation、tool
+grants、timeout／cancel／disconnect、list-changed 與 structured-content redaction。
+新增 MCP servers GET／PUT、tools discovery API、private PostgreSQL migration 015、
+HMAC internal gateway boundary 與 dev-only MCP fixture。
+
+GCP dev 驗收：Cloud Run gateway revision `janus-agent-gateway-00011-d78`、fixture
+revision `janus-mcp-fixture-00008-zn5`；Cloud Run Job execution
+`janus-mcp-acceptance-p7kpf` 的 stdio／Streamable HTTP／legacy SSE discover與 call、
+redaction、timeout、tools/list_changed、並行 cancel、disconnect 全部通過。驗收後
+temporary Job 與 worker secret accessor 已清理；未部署 production。
+
 ## WBS-4C-CLOUD-RUNTIME
 
 完成 Cloud Run Agent Gateway POC：

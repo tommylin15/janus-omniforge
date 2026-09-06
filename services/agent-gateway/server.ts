@@ -1,10 +1,11 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
+import { McpHost } from "./mcp_host.js";
 
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 type RpcResponse = { id: number; result?: Json; error?: { message?: string } };
@@ -237,7 +238,31 @@ function send(response: ServerResponse, status: number, body: Json): void {
   response.end(JSON.stringify(body));
 }
 
-export function makeServer() {
+async function signedBody(request: IncomingMessage): Promise<Json> {
+  const key = process.env.MCP_OWNER_SIGNING_KEY;
+  const timestamp = request.headers["x-janus-timestamp"];
+  const signature = request.headers["x-janus-signature"];
+  if (!key || key.length < 32 || typeof timestamp !== "string" || typeof signature !== "string") {
+    throw new Error("MCP internal authentication is unavailable");
+  }
+  const issuedAt = Number(timestamp);
+  if (!Number.isInteger(issuedAt) || Math.abs(Date.now() - issuedAt) > 60_000) throw new Error("MCP internal request expired");
+  const chunks: Buffer[] = [];
+  let bytes = 0;
+  for await (const chunk of request) {
+    const value = Buffer.from(chunk);
+    bytes += value.length;
+    if (bytes > 131_072) throw new Error("MCP internal request is too large");
+    chunks.push(value);
+  }
+  const body = Buffer.concat(chunks);
+  const expected = createHmac("sha256", key).update(timestamp).update(".").update(body).digest();
+  const supplied = Buffer.from(signature.replace(/^v1=/, ""), "hex");
+  if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) throw new Error("MCP internal authentication failed");
+  return JSON.parse(body.toString("utf8")) as Json;
+}
+
+export function makeServer(mcp = new McpHost()) {
   let running = false;
   return createServer(async (request: IncomingMessage, response: ServerResponse) => {
     const url = new URL(request.url || "/", "http://localhost");
@@ -255,6 +280,21 @@ export function makeServer() {
         send(response, 503, { error: error instanceof Error ? error.message : "probe_failed" });
       } finally {
         running = false;
+      }
+      return;
+    }
+    const mcpMethod = request.method === "POST" && /^\/internal\/v1\/mcp\/(discover|call|cancel|disconnect)$/.exec(url.pathname)?.[1];
+    if (mcpMethod) {
+      if (process.env.MCP_HOST_ENABLED !== "true") return send(response, 404, { error: "not_found" });
+      try {
+        const body = await signedBody(request);
+        const result = mcpMethod === "discover" ? await mcp.discover(body)
+          : mcpMethod === "call" ? await mcp.call(body)
+          : mcpMethod === "cancel" ? mcp.cancel(body)
+          : await mcp.disconnect(body);
+        send(response, 200, result);
+      } catch (error) {
+        send(response, 400, { error: error instanceof Error ? error.message : "mcp_request_failed" });
       }
       return;
     }
@@ -279,5 +319,7 @@ export function makeServer() {
 
 if (process.env.NODE_ENV !== "test") {
   const port = Number(process.env.PORT || "8080");
-  makeServer().listen(port, "0.0.0.0", () => console.log(`agent gateway listening on ${port}`));
+  const mcp = new McpHost();
+  const server = makeServer(mcp).listen(port, "0.0.0.0", () => console.log(`agent gateway listening on ${port}`));
+  process.once("SIGTERM", () => server.close(() => void mcp.closeAll()));
 }
