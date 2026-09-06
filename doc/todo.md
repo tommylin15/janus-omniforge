@@ -16,6 +16,7 @@
 
 - WBS 4J 獨立 MVP：journal／note／Private Iceberg 完整交易、重跑、刪除與 A／B 隔離已結案；僅依賴 WBS 5 的個人化 analysis overlay 尚未啟用。
 - WBS 4C：GCP 雲端多供應商私人助理共 12 個切片，4／12 完成；Agent Runtime／AgentEvent、security contract、context sources 與 MCP host 已固定，Cloud Run runtime POC 已結案。
+- WBS-4C-CODEX-BRIDGE checkpoint：雙向 stdio JSON-RPC、Threads／Turns／Items、device-code managed login、request-bound Approvals、共用 MCP dynamic-tool path 與 `turn/started` 事件驅動 cancellation 已完成；GCP Cloud Build contract tests 5／5 通過，Cloud Run health 3／3 通過，live Codex cancellation 200 通過，checkpoint reconnect 通過。驗收 build `2d95aa6e-cc4e-47d5-97ae-ce9dcfafc479`、revision `janus-agent-gateway-00017-tpf`、digest `sha256:b03a041f2ddf19d3028777d7531f94599fee728024dac471156932ad64df9541`。
 - WBS 3 收尾：Admin Data Operations 1 項完成、3 項未完成；Stage／Core 實機驗證 7 項未完成。Scheduler canary 因 2026-09-03 上游時段異常重置為 0／3。
 - 最新驗證：WBS-4C-CONTEXT-SOURCES 已於 GCP dev Cloud Build 通過；完整本機 pytest 123／123、WBS 4J targeted pytest 14／14；Flutter analyze／widget test、migration 001–014 與 bash syntax 已通過 Cloud Build。
 

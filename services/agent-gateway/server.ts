@@ -5,11 +5,13 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
+import { CodexBridge, type AgentEvent } from "./codex_bridge.js";
 import { McpHost } from "./mcp_host.js";
 
-type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
-type RpcResponse = { id: number; result?: Json; error?: { message?: string } };
+export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
+export type RpcMessage = { id?: number; method?: string; params?: Json; result?: Json; error?: { code?: number; message?: string } };
 type Pending = { resolve: (value: Json) => void; reject: (error: Error) => void; timer: NodeJS.Timeout };
+type RpcHandler = (message: RpcMessage) => Promise<Json | undefined> | Json | undefined;
 
 const CODEX_VERSION = "0.153.0";
 const JSON_HEADERS = { "content-type": "application/json" };
@@ -18,6 +20,7 @@ export class AppServerClient {
   private child?: ChildProcessWithoutNullStreams;
   private nextId = 1;
   private pending = new Map<number, Pending>();
+  private handler?: RpcHandler;
 
   constructor(
     private command = process.env.CODEX_BIN || "codex",
@@ -32,17 +35,22 @@ export class AppServerClient {
       stdio: ["pipe", "pipe", "pipe"],
     });
     createInterface({ input: this.child.stdout }).on("line", (line) => this.receive(line));
+    this.child.stderr.resume();
     this.child.once("error", (error) => this.fail(error));
     this.child.once("exit", (code) => this.fail(new Error(`Codex App Server exited (${code ?? "signal"})`)));
   }
 
-  async initialize(): Promise<Json> {
+  async initialize(experimentalApi = false): Promise<Json> {
     const result = await this.request("initialize", {
       clientInfo: { name: "janus-agent-gateway", version: "0.1.0" },
-      capabilities: { experimentalApi: false },
+      capabilities: { experimentalApi },
     });
     this.notify("initialized", {});
     return result;
+  }
+
+  onMessage(handler: RpcHandler): void {
+    this.handler = handler;
   }
 
   request(method: string, params: Json = {}, timeoutMs = 15_000): Promise<Json> {
@@ -62,6 +70,10 @@ export class AppServerClient {
     this.child?.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", method, params })}\n`);
   }
 
+  respond(id: number, result: Json): void {
+    this.child?.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, result })}\n`);
+  }
+
   async stop(): Promise<void> {
     const child = this.child;
     this.child = undefined;
@@ -79,15 +91,15 @@ export class AppServerClient {
   }
 
   private receive(line: string): void {
-    let message: RpcResponse & { method?: string };
+    let message: RpcMessage;
     try {
-      message = JSON.parse(line) as RpcResponse & { method?: string };
+      message = JSON.parse(line) as RpcMessage;
     } catch {
       this.fail(new Error("Codex App Server emitted invalid JSONL"));
       return;
     }
-    if (typeof message.id === "number" && message.method) {
-      this.child?.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id: message.id, error: { code: -32601, message: "POC client does not handle server requests" } })}\n`);
+    if (message.method) {
+      void this.dispatch(message);
       return;
     }
     if (typeof message.id !== "number") return;
@@ -97,6 +109,23 @@ export class AppServerClient {
     this.pending.delete(message.id);
     if (message.error) pending.reject(new Error(message.error.message || "Codex App Server request failed"));
     else pending.resolve(message.result ?? null);
+  }
+
+  private async dispatch(message: RpcMessage): Promise<void> {
+    if (!this.handler) {
+      if (typeof message.id === "number") this.writeError(message.id, -32601, "Client does not handle server requests");
+      return;
+    }
+    try {
+      const result = await this.handler(message);
+      if (typeof message.id === "number" && result !== undefined) this.respond(message.id, result);
+    } catch (error) {
+      if (typeof message.id === "number") this.writeError(message.id, -32000, error instanceof Error ? error.message : "Client request failed");
+    }
+  }
+
+  private writeError(id: number, code: number, message: string): void {
+    this.child?.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, error: { code, message } })}\n`);
   }
 
   private fail(error: Error): void {
@@ -178,8 +207,7 @@ export class GcsCheckpointStore {
   }
 }
 
-type PocEvent = { eventId: string; seq: number; threadId: string; turnId: string; type: "turn_cancelled"; payload: { probe: "interrupted" } };
-type Checkpoint = { checkpointId: string; events: PocEvent[] };
+type Checkpoint = { checkpointId: string; events: AgentEvent[] };
 
 function object(value: Json): { [key: string]: Json } {
   if (!value || Array.isArray(value) || typeof value !== "object") throw new Error("Codex App Server returned an invalid object");
@@ -197,38 +225,32 @@ export async function runPoc(): Promise<Json> {
   const auth = new ManagedAuthStore(authSecret);
   const checkpoints = new GcsCheckpointStore(bucket);
   const client = new AppServerClient(process.env.CODEX_BIN || "codex", [], home);
+  const mcp = new McpHost();
   try {
     await mkdir(workspace, { mode: 0o700 });
     await auth.load(home);
     client.start();
-    await client.initialize();
-    const account = object(await client.request("account/read", { refreshToken: true }, 30_000));
-    if (!account.account) throw new Error("Codex managed auth is unavailable");
-    const thread = object(await client.request("thread/start", {
-      cwd: workspace,
-      sandbox: "workspace-write",
-      approvalPolicy: "untrusted",
-      ephemeral: true,
-    }, 30_000));
+    const bridge = new CodexBridge("00000000-0000-4000-8000-000000000001", workspace, client, mcp);
+    await bridge.initialize();
+    const thread = object(await bridge.startThread());
     const nativeThread = object(thread.thread ?? null);
     if (typeof nativeThread.id !== "string") throw new Error("Codex thread/start did not return a thread id");
-    const started = object(await client.request("turn/start", {
-      threadId: nativeThread.id,
-      input: [{ type: "text", text: "Reply with the single word OK." }],
-    }, 30_000));
+    const started = object(await bridge.startTurn(nativeThread.id, "Run the sandbox shell command `sleep 30` before replying. Do not skip the command.", { interruptOnStart: true }));
     const nativeTurn = object(started.turn ?? null);
     if (typeof nativeTurn.id !== "string") throw new Error("Codex turn/start did not return a turn id");
-    await client.request("turn/interrupt", { threadId: nativeThread.id, turnId: nativeTurn.id }, 30_000);
+    for (let attempt = 0; attempt < 40 && !bridge.eventsAfter().events.some((event) => event.type === "turn_cancelled"); attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    const events = bridge.eventsAfter().events;
+    if (!events.some((event) => event.type === "turn_cancelled")) throw new Error("Codex cancellation event was not received");
     const checkpointId = randomUUID();
-    const checkpoint: Checkpoint = {
-      checkpointId,
-      events: [{ eventId: randomUUID(), seq: 0, threadId: nativeThread.id, turnId: nativeTurn.id, type: "turn_cancelled", payload: { probe: "interrupted" } }],
-    };
+    const checkpoint: Checkpoint = { checkpointId, events };
     const authRotated = await auth.persist(home);
     await checkpoints.put(checkpointId, checkpoint as unknown as Json);
-    return { codexVersion: CODEX_VERSION, checkpointId, cursor: 0, authRotated, sandbox: "workspace-write", cancelled: true, process: "stopped-after-response" };
+    return { codexVersion: CODEX_VERSION, checkpointId, cursor: events.at(-1)!.seq, authRotated, sandbox: "workspace-write", cancelled: true, process: "stopped-after-response" };
   } finally {
     await client.stop();
+    await mcp.closeAll();
     await rm(root, { recursive: true, force: true });
   }
 }

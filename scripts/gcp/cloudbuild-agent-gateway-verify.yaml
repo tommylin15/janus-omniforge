@@ -3,6 +3,16 @@ substitutions:
   _TOKEN_SERVICE_ACCOUNT: ""
 
 steps:
+  - id: verify-codex-bridge-contract
+    name: node:22.20.0-bookworm-slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        npm ci
+        npm run build:agent-gateway
+        npm run test:agent-gateway
+
   - id: verify-private-agent-gateway
     name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
     entrypoint: bash
@@ -51,7 +61,7 @@ steps:
         cursor="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["cursor"])' <<<"${result}")"
         replay="$(curl --fail --silent --show-error --max-time 60 \
           -H "Authorization: Bearer ${token}" "${_SERVICE_URL}/internal/v1/poc/checkpoints/${checkpoint}?cursor=-1")"
-        python3 -c 'import json,sys; value=json.load(sys.stdin); assert value["events"][0]["seq"] == 0 and value["events"][0]["type"] == "turn_cancelled"' <<<"${replay}"
+        python3 -c 'import json,sys; value=json.load(sys.stdin); events=value["events"]; assert events and [e["seq"] for e in events] == list(range(len(events))); assert any(e["type"] == "turn_cancelled" for e in events); assert all(e["providerIds"]["codexThreadId"] == e["threadId"] for e in events)' <<<"${replay}"
         empty="$(curl --fail --silent --show-error --max-time 60 \
           -H "Authorization: Bearer ${token}" "${_SERVICE_URL}/internal/v1/poc/checkpoints/${checkpoint}?cursor=${cursor}")"
         python3 -c 'import json,sys; assert json.load(sys.stdin)["events"] == []' <<<"${empty}"

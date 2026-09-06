@@ -55,7 +55,7 @@ digest="$(gcloud artifacts docker images describe "${repository}/agent-gateway:$
 gcloud run deploy "${service}" --project="${project}" --region="${region}" \
   --image="${repository}/agent-gateway@${digest}" --service-account="${account}" \
   --no-allow-unauthenticated --ingress=all --execution-environment=gen2 \
-  --min-instances=0 --max-instances=1 --concurrency=2 --timeout=300 \
+  --min-instances=0 --max-instances=1 --concurrency=1 --timeout=300 \
   --cpu=1 --memory=1Gi \
   --add-volume=name=agent-sandbox,type=in-memory,size-limit=256Mi \
   --add-volume-mount=volume=agent-sandbox,mount-path=/var/run/janus \

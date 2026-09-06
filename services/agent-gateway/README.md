@@ -17,3 +17,12 @@ only a config reference and namespaced tool grants. Internal discover, call,
 cancel, and disconnect routes require Cloud Run IAM plus an HMAC signed owner
 claim; raw commands, URLs, images, and credentials are never accepted from the
 client.
+
+`CodexBridge` upgrades the POC client to the bidirectional App Server protocol:
+owner-bound threads/turns, item and delta events, device-code login, bounded
+request-scoped approvals, cancellation, and dynamic tools dispatched through
+the same `McpHost` grant checks. Chat routes and durable private thread storage
+remain separate later WBS slices.
+
+Bridge contract/build checks and the live managed-auth/cancellation/reconnect
+probe run only in GCP dev through `verify-agent-gateway-dev.sh`.
