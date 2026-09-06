@@ -24,3 +24,9 @@
 - WBS 4J targeted tests：14/14 passed；migration 014、獨立 User OAuth、Private bucket 與 dev `janus-api` 已部署。
 - pipeline 首寫、checkpoint 重跑冪等與 Iceberg metadata snapshot 通過。
 - deletion request `cffb8921-1f22-411b-8497-70bfdf8dad85` 由 execution `janus-private-pipeline-n7ml8` 完成，A rows／user 已刪除且 B 保留。
+
+## WBS 4C：多供應商私人助理
+
+- `WBS-4C-ENGINE-SECURITY`：以 `openrouter | gemini | codex` 取代舊固定三 profile 草稿，固定 provider／model／assistant／skill 分離、thread runtime／model 綁定與禁止 silent fallback。
+- 新增共用 `AgentEventV1`、model capability、credential mode、私人 context 外送 disclosure／consent，以及 owner／thread／turn／request／參數／期限綁定的 approval contract；禁止 approval 擴張 Admin、交易／筆記／watchlist mutation 或下單權限。
+- 驗證：targeted pytest 8／8、Python compile、JSON parse 與 `git diff --check` 通過；未建立或部署任何雲端／付費資源。

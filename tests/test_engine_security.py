@@ -1,54 +1,105 @@
+from datetime import datetime, timedelta, timezone
+import json
+from pathlib import Path
+
 import pytest
 
 from services.api.engine_security import (
-    GeminiFreeQuota, authorize_tools, gemini_api_key, gemini_request, managed_login_params, policy_for,
+    AgentEvent,
+    AgentEventType,
+    AgentRuntime,
+    ApprovalDecision,
+    ApprovalRequest,
+    Capability,
+    ContextEgress,
+    CredentialMode,
+    RuntimeBinding,
+    authorize_approval,
+    authorize_context_egress,
+    enforce_thread_binding,
+    policy_for,
+    require_capabilities,
     validate_provider_environment,
 )
 
 
-def test_profiles_are_fixed_and_have_distinct_policies():
-    codex, chatgpt, gemini = map(policy_for, ("codex", "chatgpt", "gemini"))
-    assert codex.backend == chatgpt.backend == "codex_app_server"
-    assert codex.agentic and not chatgpt.agentic
-    assert codex.app_brand == "codex" and chatgpt.app_brand == "chatgpt"
-    assert gemini.backend == "gemini_developer_api" and gemini.credential == "api_key" and gemini.grounding
-    assert gemini.model == "gemini-2.5-flash" and "google_search" in gemini.tools
+def test_runtime_capability_and_credential_contract():
+    assert {runtime.value for runtime in AgentRuntime} == {"openrouter", "gemini", "codex"}
+    assert policy_for("openrouter").credential_name == "OPENROUTER_API_KEY"
+    assert policy_for("gemini").credential_name == "GEMINI_API_KEY"
+    assert policy_for("codex").credential_mode is CredentialMode.MANAGED_AUTH_STORE
+    assert all(policy.fallback_runtime is None and not policy.paid_enabled for policy in map(policy_for, AgentRuntime))
+    gemini = RuntimeBinding(
+        AgentRuntime.GEMINI,
+        "gemini-flash",
+        "research",
+        model_capabilities=frozenset({Capability.STREAMING, Capability.GROUNDING, Capability.CITATIONS}),
+    )
+    require_capabilities(gemini, {Capability.GROUNDING, Capability.CITATIONS})
+    with pytest.raises(PermissionError):
+        require_capabilities(gemini, {Capability.TOOLS})
     with pytest.raises(ValueError):
-        policy_for("openai")
+        RuntimeBinding(
+            AgentRuntime.OPENROUTER,
+            "model-with-invalid-claim",
+            "research",
+            model_capabilities=frozenset({Capability.GROUNDING}),
+        )
+    with pytest.raises(ValueError):
+        validate_provider_environment({"OPENAI_API_KEY": "forbidden"})
 
 
-def test_openai_profiles_only_build_managed_login_requests():
-    assert managed_login_params("codex") == {
-        "type": "chatgpt", "useHostedLoginSuccessPage": True, "appBrand": "codex"
+def test_thread_binding_separates_profiles_and_requires_fork_for_runtime_or_model_change():
+    capabilities = frozenset({Capability.STREAMING})
+    current = RuntimeBinding(AgentRuntime.GEMINI, "gemini-flash", "research", "market-v1", capabilities)
+    enforce_thread_binding(current, RuntimeBinding(AgentRuntime.GEMINI, "gemini-flash", "concise", "market-v2", capabilities))
+    for changed in (
+        RuntimeBinding(AgentRuntime.OPENROUTER, "gemini-flash", "research"),
+        RuntimeBinding(AgentRuntime.GEMINI, "gemini-pro", "research"),
+    ):
+        with pytest.raises(ValueError):
+            enforce_thread_binding(current, changed)
+
+
+def test_agent_event_envelope_is_shared_and_schema_stays_in_sync():
+    event = AgentEvent("event-1", 0, "thread-1", "turn-1", AgentEventType.TEXT_DELTA, {"text": "hi"})
+    assert event.payload == {"text": "hi"}
+    schema = json.loads((Path(__file__).parents[1] / "packages/contracts/assistant.v1.json").read_text())
+    assert set(schema["definitions"]["RuntimeBindingV1"]["properties"]["runtime"]["enum"]) == {
+        runtime.value for runtime in AgentRuntime
     }
-    assert managed_login_params("chatgpt", device_code=True) == {"type": "chatgptDeviceCode"}
-    with pytest.raises(ValueError):
-        managed_login_params("gemini")
-
-
-def test_provider_key_and_prompt_injected_tools_are_rejected():
-    with pytest.raises(ValueError):
-        validate_provider_environment({"OPENAI_API_KEY": "x"})
-    assert authorize_tools("codex", {"read_private_context"}) == {"read_private_context"}
-    for tool in ("shell", "write_file", "admin", "mutate_trade", "mutate_note", "mutate_watchlist", "place_order"):
-        with pytest.raises(PermissionError):
-            authorize_tools("codex", {tool})
-
-
-def test_gemini_uses_server_key_and_enforces_free_tier_quotas():
-    assert gemini_api_key({"GEMINI_API_KEY": "secret"}) == "secret"
-    with pytest.raises(ValueError):
-        gemini_api_key({})
-    quota = GeminiFreeQuota()
-    quota.authorize(19, 499)
-    for counts in ((20, 0), (0, 500)):
-        with pytest.raises(PermissionError):
-            quota.authorize(*counts)
-
-
-def test_gemini_search_request_enables_google_search_grounding():
-    assert gemini_request("latest market news", search=True) == {
-        "model": "gemini-2.5-flash",
-        "input": "latest market news",
-        "tools": [{"type": "google_search"}],
+    assert set(schema["definitions"]["AgentEventV1"]["properties"]["type"]["enum"]) == {
+        event_type.value for event_type in AgentEventType
     }
+    with pytest.raises(ValueError):
+        AgentEvent("event-2", -1, "thread-1", "turn-1", AgentEventType.USAGE, {})
+
+
+def test_private_context_requires_explicit_selection_disclosure_and_consent():
+    allowed = ContextEgress("owner-1", "thread-1", AgentRuntime.CODEX, ("private-notes",), True, True, True)
+    authorize_context_egress(allowed)
+    for denied in (
+        ContextEgress("owner-1", "thread-1", AgentRuntime.CODEX, (), True, True, True),
+        ContextEgress("owner-1", "thread-1", AgentRuntime.CODEX, ("private-notes",), True, False, True),
+        ContextEgress("owner-1", "thread-1", AgentRuntime.CODEX, ("private-notes",), True, True, False),
+    ):
+        with pytest.raises((ValueError, PermissionError)):
+            authorize_context_egress(denied)
+
+
+def test_approval_is_request_bound_expiring_and_cannot_expand_product_permissions():
+    now = datetime.now(timezone.utc)
+    digest = "sha256:" + "a" * 64
+    request = ApprovalRequest("owner-1", "thread-1", "turn-1", "request-1", "shell", "turn_sandbox", digest, now + timedelta(minutes=5))
+    decision = ApprovalDecision("owner-1", "thread-1", "turn-1", "request-1", digest, True)
+    authorize_approval(request, decision, now=now)
+
+    with pytest.raises(PermissionError):
+        authorize_approval(request, ApprovalDecision("owner-2", "thread-1", "turn-1", "request-1", digest, True), now=now)
+    with pytest.raises(PermissionError):
+        authorize_approval(request, decision, now=request.expires_at)
+    with pytest.raises(PermissionError):
+        authorize_approval(request, decision, now=now, already_resolved=True)
+    forbidden = ApprovalRequest("owner-1", "thread-1", "turn-1", "request-2", "place_order", "account", digest, now + timedelta(minutes=5))
+    with pytest.raises(PermissionError):
+        authorize_approval(forbidden, ApprovalDecision("owner-1", "thread-1", "turn-1", "request-2", digest, True), now=now)

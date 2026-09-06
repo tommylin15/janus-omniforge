@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Janus private assistant contracts",
+  "version": "1.0.0",
+  "definitions": {
+    "RuntimeBindingV1": {
+      "type": "object",
+      "required": ["runtime", "model", "assistantProfile", "modelCapabilities"],
+      "properties": {
+        "runtime": {"enum": ["openrouter", "gemini", "codex"]},
+        "model": {"type": "string", "minLength": 1},
+        "assistantProfile": {"type": "string", "minLength": 1},
+        "skillProfile": {"type": ["string", "null"], "minLength": 1},
+        "modelCapabilities": {
+          "type": "array",
+          "items": {"enum": ["streaming", "tools", "grounding", "citations", "items", "approvals", "managed_auth"]},
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "AgentEventV1": {
+      "type": "object",
+      "required": ["eventId", "seq", "threadId", "turnId", "type", "payload"],
+      "properties": {
+        "eventId": {"type": "string", "minLength": 1},
+        "seq": {"type": "integer", "minimum": 0},
+        "threadId": {"type": "string", "minLength": 1},
+        "turnId": {"type": "string", "minLength": 1},
+        "itemId": {"type": ["string", "null"], "minLength": 1},
+        "providerIds": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1}},
+        "type": {"enum": ["text_delta", "item_upsert", "tool_request", "tool_result", "approval_request", "approval_resolved", "citation", "usage", "turn_completed", "turn_cancelled", "turn_error"]},
+        "payload": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "ContextEgressV1": {
+      "type": "object",
+      "required": ["ownerId", "threadId", "runtime", "sourceIds", "containsPrivateData", "providerDisclosed", "privateDataConsent"],
+      "properties": {
+        "ownerId": {"type": "string", "minLength": 1},
+        "threadId": {"type": "string", "minLength": 1},
+        "runtime": {"enum": ["openrouter", "gemini", "codex"]},
+        "sourceIds": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1, "uniqueItems": true},
+        "containsPrivateData": {"type": "boolean"},
+        "providerDisclosed": {"const": true},
+        "privateDataConsent": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "ApprovalRequestV1": {
+      "type": "object",
+      "required": ["ownerId", "threadId", "turnId", "requestId", "operation", "scope", "paramsDigest", "expiresAt"],
+      "properties": {
+        "ownerId": {"type": "string", "minLength": 1},
+        "threadId": {"type": "string", "minLength": 1},
+        "turnId": {"type": "string", "minLength": 1},
+        "requestId": {"type": "string", "minLength": 1},
+        "operation": {"type": "string", "minLength": 1, "not": {"enum": ["admin", "mutate_trade", "mutate_note", "mutate_watchlist", "place_order"]}},
+        "scope": {"type": "string", "minLength": 1},
+        "paramsDigest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "expiresAt": {"type": "string", "format": "date-time"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

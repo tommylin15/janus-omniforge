@@ -1,11 +1,34 @@
 # Operations and testing
 
-最新驗證日期：2026-09-05
+最新驗證日期：2026-09-06
 
 最新完整本機驗證：`python -m pytest tests -q` 123/123 passed；既有 WBS 4J targeted
 pytest 14/14、Python `py_compile`、inline JavaScript syntax 與 `git diff --check`
 passed。此次 host 缺少 FastAPI runtime，新增 API contract test 未在本機重跑；API image
 由 GCP Cloud Build lockfile build 驗證，真人 acceptance 由 GCP dev runtime 完成。
+
+## P0 WBS 4C Cloud Runtime POC（2026-09-06）
+
+Agent Gateway image 使用 immutable digest
+`sha256:3aada7f674da8f18d7362b4b02b99c435a78154006ad648b0bb2e5e240bb39e1`。
+GCP dev Cloud Run service `janus-agent-gateway` 的 acceptance revision
+`janus-agent-gateway-00005-gxb` 通過 100% traffic 驗收；完成後為恢復成本設定建立
+`janus-agent-gateway-00006-fj5`，目前為 `min-instances=0`、`max-instances=1`、
+`concurrency=1`。
+
+Cloud Build `bfbe9024-6a24-4452-8ca7-a717314813da` 在 GCP worker 內完成 health、
+Codex managed auth、workspace-write sandbox、turn cancellation、process stop、
+Private GCS checkpoint 與 cursor reconnect。POC response 為 Codex `0.153.0`、
+`authRotated=false`、checkpoint
+`b36ed5c5-c833-40d0-994f-8c06f8f1862a`、`cancelled=true`、
+`process=stopped-after-response`；checkpoint replay 與空 cursor replay 均通過。
+
+驗收期間只暫時授予 Cloud Build identity 對專用
+`janus-agent-poc-invoker` 的 `roles/iam.serviceAccountTokenCreator`，build 完成後已
+移除；本機未直接呼叫 Cloud Run URL 或使用 proxy。此前為處理 GFE 間歇性 500，驗收
+worker 的 health warm-up 改為最多 10 分鐘；最終以 `min-instances=1`、`max-instances=2`
+驗收成功後，已回復為上述 scale-to-zero 設定。Codex App Server 仍屬 POC，未宣稱
+production-ready。
 
 ## P0 WBS 4J 個人工作台實作（2026-09-05）
 

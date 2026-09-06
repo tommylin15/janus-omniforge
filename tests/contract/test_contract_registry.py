@@ -17,6 +17,8 @@ class ContractRegistryTests(unittest.TestCase):
         self.assertIn("core", self.registry["datasetIds"])
         self.assertIn("CoreDatasetReadyV1", self.registry["schemas"])
         self.assertIn("MartReportReadyV1", self.registry["schemas"])
+        for schema_name in ("RuntimeBindingV1", "AgentEventV1", "ContextEgressV1", "ApprovalRequestV1"):
+            self.assertIn(schema_name, self.registry["schemas"])
 
     def test_governance_blocking_policy(self):
         self.assertEqual(self.policy["developmentCompletenessGate"], 0.30)

@@ -9,32 +9,31 @@
 - [TODO 完成紀錄（2026-09-02）](archive/todo-completed-2026-09-02.md)
 - [TODO 完成紀錄（2026-09-03）](archive/todo-completed-2026-09-03.md)
 - [TODO 完成紀錄（2026-09-05）](archive/todo-completed-2026-09-05.md)
+- [TODO 完成紀錄（2026-09-06）](archive/todo-completed-2026-09-06.md)
 - [已完成 WBS 0／1／2／4](archive/wbs-completed-through-2026-08-31.md)
 
-## 目前進度（2026-09-05）
+## 目前進度（2026-09-06）
 
 - WBS 4J 獨立 MVP：journal／note／Private Iceberg 完整交易、重跑、刪除與 A／B 隔離已結案；僅依賴 WBS 5 的個人化 analysis overlay 尚未啟用。
-- WBS 4C：GCP 雲端多供應商私人助理共 12 個切片，0／12 完成，為下一個 P0 主功能；先前固定三 profile／桌面 runtime 的草稿不算新版完成證據。
+- WBS 4C：GCP 雲端多供應商私人助理共 12 個切片，2／12 完成；Agent Runtime／AgentEvent 與 security contract 已固定，Cloud Run runtime POC 已結案，下一步為 context sources。
 - WBS 3 收尾：Admin Data Operations 1 項完成、3 項未完成；Stage／Core 實機驗證 7 項未完成。Scheduler canary 因 2026-09-03 上游時段異常重置為 0／3。
 - 最新驗證：完整本機 pytest 123／123、WBS 4J targeted pytest 14／14；Flutter analyze／widget test、migration 001–014 與 bash syntax 已通過 Cloud Build。
 
 ## 下一步執行佇列
 
-1. 【Sol】`WBS-4C-ENGINE-SECURITY`：固定 Agent Runtime／AgentEvent、provider capability、credential、privacy 與 approval contract；取代舊固定三 profile 草稿。
-2. 【Sol】`WBS-4C-CLOUD-RUNTIME`：以 Cloud Run Service POC 按需 Agent Gateway、容器內 Codex App Server、managed auth、sandbox、checkpoint 與重連；任何部署／付費先過人工 gate。
-3. 【Sol】`WBS-4C-CONTEXT-SOURCES`：固定 Janus Core／Private Mart 與核准外部資料源的 read-only、owner、日期、provenance 與 quota 契約。
-4. 【Sol】`WBS-4C-MCP-HOST`：實作容器內 stdio、遠端 Streamable HTTP／legacy SSE、協定交涉、工具發現與受控執行。
-5. 【Sol】`WBS-4C-CODEX-BRIDGE`：串接 Cloud Run 容器內 Codex App Server stdio JSON-RPC、managed auth、Threads／Turns／Items／Approvals。
-6. 【Luna】`WBS-4C-GEMINI-API`：直接串 Gemini REST API 免費層與 Google Search Grounding；不引入 Google GenAI SDK。
-7. 【Luna】`WBS-4C-OPENROUTER`：動態模型目錄、capability 篩選、streaming／tool loop；付費呼叫先過 billing gate。
-8. 【Sol】`WBS-4C-PRIVATE-STORAGE`：完成 threads／events／Skills／approval 的 Private Iceberg／PostgreSQL index、credential 隔離、重跑與 A／B 隔離。
-9. 【Sol】`WBS-4C-SKILLS`：實作 GCP 儲存、載入／啟用／自訂且不可擴權的版本化 Skills。
-10. 【Luna】`WBS-4C-CHAT-API`：實作 Threads CRUD／fork、bounded SSE、取消、approval response、匯出與刪除。
-11. 【Luna】`WBS-4C-ASSISTANT-UI`：延續 Flutter Web／mobile，完成 Markdown／程式碼高亮、MCP／Skills、Items／Turns／Approvals。
-12. 【Sol】`WBS-4C-ACCEPTANCE`：完成 Cloud Run、provider、資料源、MCP、Skills、streaming、approval、Grounding、privacy 與刪除整合驗收。
-13. 【Sol】`WBS-3-ACCEPTANCE`：持續 3 交易日 canary，並完成 queue／connection／restart、VPC／firewall 與 Free Tier guard 實機驗證。
-14. 【Luna】`WBS-3-ADMIN-POLISH`：完成表格、cursor pagination 與其 UI 驗收；股票跨域刪除 guard 另以【Sol】執行。
-15. 【Sol】`WBS-5` → 【Luna】`WBS-6` → 【Sol】`WBS-7` → 依逐項標籤執行 `WBS-8`；WBS 4J 個人化 overlay 等 `mart_scoped_analysis` 可用後再做。
+1. 【Sol】`WBS-4C-CONTEXT-SOURCES`：固定 Janus Core／Private Mart 與核准外部資料源的 read-only、owner、日期、provenance 與 quota 契約。
+2. 【Sol】`WBS-4C-MCP-HOST`：實作容器內 stdio、遠端 Streamable HTTP／legacy SSE、協定交涉、工具發現與受控執行。
+3. 【Sol】`WBS-4C-CODEX-BRIDGE`：串接 Cloud Run 容器內 Codex App Server stdio JSON-RPC、managed auth、Threads／Turns／Items／Approvals。
+4. 【Luna】`WBS-4C-GEMINI-API`：直接串 Gemini REST API 免費層與 Google Search Grounding；不引入 Google GenAI SDK。
+5. 【Luna】`WBS-4C-OPENROUTER`：動態模型目錄、capability 篩選、streaming／tool loop；付費呼叫先過 billing gate。
+6. 【Sol】`WBS-4C-PRIVATE-STORAGE`：完成 threads／events／Skills／approval 的 Private Iceberg／PostgreSQL index、credential 隔離、重跑與 A／B 隔離。
+7. 【Sol】`WBS-4C-SKILLS`：實作 GCP 儲存、載入／啟用／自訂且不可擴權的版本化 Skills。
+8. 【Luna】`WBS-4C-CHAT-API`：實作 Threads CRUD／fork、bounded SSE、取消、approval response、匯出與刪除。
+9. 【Luna】`WBS-4C-ASSISTANT-UI`：延續 Flutter Web／mobile，完成 Markdown／程式碼高亮、MCP／Skills、Items／Turns／Approvals。
+10. 【Sol】`WBS-4C-ACCEPTANCE`：完成 Cloud Run、provider、資料源、MCP、Skills、streaming、approval、Grounding、privacy 與刪除整合驗收。
+11. 【Sol】`WBS-3-ACCEPTANCE`：持續 3 交易日 canary，並完成 queue／connection／restart、VPC／firewall 與 Free Tier guard 實機驗證。
+12. 【Luna】`WBS-3-ADMIN-POLISH`：完成表格、cursor pagination 與其 UI 驗收；股票跨域刪除 guard 另以【Sol】執行。
+13. 【Sol】`WBS-5` → 【Luna】`WBS-6` → 【Sol】`WBS-7` → 依逐項標籤執行 `WBS-8`；WBS 4J 個人化 overlay 等 `mart_scoped_analysis` 可用後再做。
 
 ## 模型確認規則
 
@@ -77,10 +76,6 @@
 
 
 ## P0（WBS 4C）— 多供應商私人助理／MCP／Skills
-
-- [ ] 【Sol】 定義並實作 `openrouter | gemini | codex` Agent Runtime、統一 AgentEvent 與 capability contract；provider、model、assistant／skill profile 分離，每個 thread 固定 runtime／model，切換新建／fork，不靜默 fallback。
-
-- [ ] 【Sol】 建立 Cloud Run Agent Gateway POC：`min-instances=0`、bounded max instances／timeout、MVP concurrency=1；容器內啟動 Codex App Server stdio 子行程，驗證 Linux container、managed auth refresh、暫存 sandbox、取消、外部 checkpoint 與 cursor 重連。Codex App Server 屬實驗性且官方不支援 production，POC 未過不得宣稱 production-ready；部署或付費先過人工 gate。
 
 - [ ] 【Sol】 資料源只讀已發布 Janus Core／Mart 與 authenticated owner 的 Private Core／Mart；實作 `GET /api/v1/me/ai-sources`、thread-bound `context-preview`／短效 opaque `context_ref` 與 service-identity-only internal resolve。只接受 typed selector，不接受 SQL、GCS URI、object path 或 client `user_id`。外部來源須有 allowlist、授權、日期、provenance、quota 與外送政策，不在 chat request 即時爬取未核准來源；既有 public／journal／portfolio／ingestion API 不改語意。
 

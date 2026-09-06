@@ -116,3 +116,6 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
 - 避免重複驗證：例如 `npm.cmd run build` 已包含 typecheck 與 lint 時，不另行先跑
   同一組完整 typecheck／lint。交付時列出實際執行的最小驗證，以及未跑完整套件的
   風險判斷。
+- Cloud Run dev 實機驗收一律由 GCP dev runtime 或 Cloud Build worker 內執行；
+  本機只提交驗收、執行 contract／語法檢查與查詢必要狀態，不直接呼叫 Cloud Run
+  URL 或使用本機 proxy 驗收。
