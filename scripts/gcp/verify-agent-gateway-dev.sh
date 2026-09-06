@@ -6,13 +6,12 @@ region="${GCP_REGION:-us-central1}"
 service="janus-agent-gateway"
 build_account="${GCP_BUILD_SERVICE_ACCOUNT:-$(gcloud projects describe "${project}" --format='value(projectNumber)')-compute@developer.gserviceaccount.com}"
 invoker="janus-agent-poc-invoker@${project}.iam.gserviceaccount.com"
-signing_secret="${MCP_OWNER_SIGNING_SECRET_NAME:-janus-mcp-owner-signing-key}"
+provider_bundle="${AGENT_PROVIDER_BUNDLE_SECRET_NAME:-janus-agent-provider-bundle}"
 url="$(gcloud run services describe janus-agent-gateway \
   --project="${project}" --region="${region}" --format='value(status.url)')"
 
 member="serviceAccount:${build_account}"
 token_added=false
-secret_added=false
 token_existing="$(gcloud iam service-accounts get-iam-policy "${invoker}" --project="${project}" \
   --flatten='bindings[].members' \
   --filter="bindings.role:roles/iam.serviceAccountTokenCreator AND bindings.members:${member}" \
@@ -27,10 +26,6 @@ cleanup() {
     gcloud iam service-accounts remove-iam-policy-binding "${invoker}" --project="${project}" \
       --member="${member}" --role=roles/iam.serviceAccountTokenCreator --quiet >/dev/null || true
   fi
-  if [[ "${secret_added}" == true ]]; then
-    gcloud secrets remove-iam-policy-binding "${signing_secret}" --project="${project}" \
-      --member="serviceAccount:${build_account}" --role=roles/secretmanager.secretAccessor --quiet >/dev/null || true
-  fi
 }
 trap cleanup EXIT
 
@@ -43,14 +38,13 @@ if [[ "${token_added}" == true ]]; then
   done
 fi
 
-if ! gcloud secrets get-iam-policy "${signing_secret}" --project="${project}" \
+if ! gcloud secrets get-iam-policy "${provider_bundle}" --project="${project}" \
   --flatten='bindings[].members' --filter="bindings.role:roles/secretmanager.secretAccessor AND bindings.members:serviceAccount:${build_account}" \
   --format='value(bindings.members)' | grep -q .; then
-  gcloud secrets add-iam-policy-binding "${signing_secret}" --project="${project}" \
+  gcloud secrets add-iam-policy-binding "${provider_bundle}" --project="${project}" \
     --member="serviceAccount:${build_account}" --role=roles/secretmanager.secretAccessor --quiet >/dev/null
-  secret_added=true
 fi
 
 gcloud builds submit . --project="${project}" \
   --config=scripts/gcp/cloudbuild-agent-gateway-verify.yaml \
-  --substitutions="_SERVICE_URL=${url},_TOKEN_SERVICE_ACCOUNT=${invoker},_LIVE_VERIFY=${LIVE_VERIFY:-false},_OWNER_SIGNING_SECRET_NAME=${signing_secret},_OWNER_ID=${CODEX_OWNER_ID:-00000000-0000-4000-8000-000000000001}"
+  --substitutions="_SERVICE_URL=${url},_TOKEN_SERVICE_ACCOUNT=${invoker},_LIVE_VERIFY=${LIVE_VERIFY:-false},_AGENT_PROVIDER_BUNDLE_SECRET_NAME=${provider_bundle},_OWNER_ID=${CODEX_OWNER_ID:-00000000-0000-4000-8000-000000000001}"

@@ -16,6 +16,11 @@ agent gateway current revisions 分別使用 bundle 版本 5、3、2。未使用
 驗收 fixture，已合併指向 temp secret；temp payload 是空 JSON，未用於宣稱 live
 Codex auth 驗收，正式 owner isolation 仍待後續 lifecycle work。
 
+目前 metadata inventory 為 9 個 Secret：provider bundle、A／B owner Codex auth、
+legacy temp auth，以及 5 個 PostgreSQL bundle。名稱、欄位名稱、consumer 與 IAM
+metadata 已獨立記錄於 [`doc/secret_list.md`](../secret_list.md)；本次查詢未讀取
+任何 Secret payload。
+
 ## P0 WBS 4C Skills（2026-09-06）
 
 GCP dev Cloud Build `262243c4-1323-4eea-80a5-48d1c631be7b` 使用既有
@@ -31,9 +36,15 @@ Scanning／occurrence API。
 GCP dev Cloud Build `a44a6463-3e76-4d31-b784-84337ea9af88` 通過 Agent Gateway
 TypeScript build 與 targeted Vitest；`f1ee3054-7d2f-4bdf-ae61-6f82b0ccfdf3`
 通過 private-storage/deletion contract；修正後 `d5301537-af3f-42ac-876a-4587f916b493`
-再通過 Gateway build、Vitest 與 Bash syntax。此 checkpoint 尚未部署；現有 dev
-只有共用 `janus-codex-managed-auth`，因此 A／B owner Secret、live owner isolation、
-logout／session eviction 與 cleanup retry 尚待人工 gate。
+再通過 Gateway build、Vitest 與 Bash syntax。
+
+本次使用 A/B owner Secret 部署 revision `janus-agent-gateway-00025-nf8`，image
+digest `sha256:2fd0d990487d49a1d4c9f2ad52a31e700307542f3a7b4d28b860030efc3339e3`，
+設定為 `min=0`、`max=1`、`concurrency=1`。Cloud Build
+`e0ee5456-69ec-4af0-b0a9-831aca689e59` SUCCESS，完成 A owner-bound run、
+cancellation、checkpoint replay、logout／session eviction 與 destroy retry；A
+version 已 destroyed，B version 保留 enabled 供下一次獨立 live run。完整跨 request
+device-login provisioning 與 B owner live run 尚未完成，故 WBS 仍不可結案。
 
 人工 gate 通過後建立 `janus-codex-owner-a`／`janus-codex-owner-b`（各自
 `us-central1`、僅保留 dev fixture），並部署 Gateway revision

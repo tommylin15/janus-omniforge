@@ -4,7 +4,6 @@ set -Eeuo pipefail
 project="${GCP_PROJECT_ID:?GCP_PROJECT_ID is required}"
 region="${GCP_REGION:-us-central1}"
 owner_secrets="${CODEX_OWNER_SECRETS:?CODEX_OWNER_SECRETS JSON map is required}"
-owner_secret="${MCP_OWNER_SIGNING_SECRET_NAME:-janus-mcp-owner-signing-key}"
 provider_bundle="${AGENT_PROVIDER_BUNDLE_SECRET_NAME:-janus-agent-provider-bundle}"
 service="janus-agent-gateway"
 account="janus-agent-gateway@${project}.iam.gserviceaccount.com"
@@ -20,7 +19,6 @@ if [[ "${ALLOW_AGENT_GATEWAY_DEV_DEPLOY:-false}" != "true" ]]; then
   echo 'Refusing deployment: set ALLOW_AGENT_GATEWAY_DEV_DEPLOY=true explicitly.' >&2
   exit 1
 fi
-gcloud secrets describe "${owner_secret}" --project="${project}" >/dev/null
 gcloud secrets describe "${provider_bundle}" --project="${project}" >/dev/null
 gcloud storage buckets describe "gs://${bucket}" --project="${project}" >/dev/null
 
@@ -37,6 +35,7 @@ for role in roles/storage.objectCreator roles/storage.objectViewer; do
     --member="serviceAccount:${account}" --role="${role}" --quiet
 done
 while IFS= read -r resource; do
+  resource="${resource//$'\r'/}"
   secret_name="${resource##*/}"
   gcloud secrets describe "${secret_name}" --project="${project}" >/dev/null
   for role in roles/secretmanager.secretAccessor roles/secretmanager.secretVersionAdder roles/secretmanager.secretVersionManager; do
@@ -46,11 +45,6 @@ while IFS= read -r resource; do
 done < <(OWNER_SECRETS="${owner_secrets}" python3 -c 'import json,os; print("\n".join(dict.fromkeys(json.loads(os.environ["OWNER_SECRETS"]).values())))')
 gcloud secrets add-iam-policy-binding "${provider_bundle}" --project="${project}" \
   --member="serviceAccount:${account}" --role=roles/secretmanager.secretAccessor --quiet >/dev/null
-for runtime in "${account}" "janus-user-api@${project}.iam.gserviceaccount.com"; do
-  gcloud secrets add-iam-policy-binding "${owner_secret}" --project="${project}" \
-    --member="serviceAccount:${runtime}" --role=roles/secretmanager.secretAccessor --quiet
-done
-
 if [[ "${SKIP_AGENT_GATEWAY_BUILD:-false}" != "true" ]]; then
   gcloud builds submit . --project="${project}" --config=cloudbuild.yaml \
     --substitutions="_DOCKERFILE=services/agent-gateway/Dockerfile,_IMAGE_NAME=agent-gateway,_IMAGE_TAG=${tag},_DEPLOY_TARGET=,_RUNTIME_NAME=,_REGION=${region}"

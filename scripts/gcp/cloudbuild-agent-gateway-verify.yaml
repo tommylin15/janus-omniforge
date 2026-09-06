@@ -2,7 +2,7 @@ substitutions:
   _SERVICE_URL: ""
   _TOKEN_SERVICE_ACCOUNT: ""
   _LIVE_VERIFY: "false"
-  _OWNER_SIGNING_SECRET_NAME: "janus-mcp-owner-signing-key"
+  _AGENT_PROVIDER_BUNDLE_SECRET_NAME: "janus-agent-provider-bundle"
   _OWNER_ID: "00000000-0000-4000-8000-000000000001"
 
 steps:
@@ -29,7 +29,8 @@ steps:
         fi
         test -n "${_SERVICE_URL}"
         test -n "${_TOKEN_SERVICE_ACCOUNT}"
-        gcloud secrets versions access latest --secret="${_OWNER_SIGNING_SECRET_NAME}" --project="${PROJECT_ID}" --out-file=/tmp/janus-owner-signing-key
+        gcloud secrets versions access latest --secret="${_AGENT_PROVIDER_BUNDLE_SECRET_NAME}" --project="${PROJECT_ID}" --out-file=/tmp/janus-agent-provider-bundle
+        python3 -c 'import json; print(json.load(open("/tmp/janus-agent-provider-bundle"))["mcp_owner_signing_key"], end="")' > /tmp/janus-owner-signing-key
         token=''
         for attempt in {1..24}; do
           if token="$(gcloud auth print-identity-token \
