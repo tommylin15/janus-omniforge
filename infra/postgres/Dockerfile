@@ -8,3 +8,4 @@ COPY postgresql.conf /opt/janus/postgresql.conf
 COPY pg_hba.conf /opt/janus/pg_hba.conf
 COPY migrations /opt/janus/migrations
 COPY readiness.sql /opt/janus/readiness.sql
+COPY private-storage-acceptance.sql /opt/janus/private-storage-acceptance.sql

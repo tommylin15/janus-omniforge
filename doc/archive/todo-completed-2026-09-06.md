@@ -50,3 +50,33 @@ Codex `0.153.0`、`authRotated=false`、`cancelled=true`、
 Cloud Build 對專用 invoker 的暫時 `roles/iam.serviceAccountTokenCreator` 已移除；
 未執行本機到 Cloud Run URL 或 proxy 驗收。Codex App Server 僅作 POC，未宣稱
 production-ready。
+
+## WBS-4C-OPENROUTER
+
+完成 OpenRouter REST adapter：動態讀取 `/api/v1/models`，依價格與
+`supported_parameters` 篩選 free／tools／streaming 模型；Chat Completions 支援
+bounded function-call loop、SSE text delta、usage metadata 與 quota／provider
+unavailable 錯誤分類。free-only 預設，付費模型必須同時明確開啟 billing gate；不做
+silent fallback，provider 原始錯誤不回傳。
+
+本機驗證：OpenRouter／Gemini／既有 Gateway targeted Vitest 12／12 passed；
+`npm.cmd run build:agent-gateway` 通過；`git diff --check` 通過。未使用 live API key、
+未部署 Cloud Run，未建立或擴大 GCP 資源。
+
+## WBS-4C-GEMINI-API
+
+完成 Gemini Developer REST API adapter：使用 `GEMINI_API_KEY` header、可選
+Google Search Grounding、citation／attribution、搜尋 query 與查詢時間、usage
+metadata，以及 429 quota／5xx provider unavailable 的結構化錯誤。Gemini paid tier
+以 `GEMINI_PAID_ENABLED=true` fail closed；未加入 Google GenAI SDK／Vertex AI，且不
+保存 provider 原始錯誤內容。
+
+本機驗證：`npx.cmd vitest run tests/gemini_provider.test.ts --config vitest.config.js`
+4／4 passed；`npm.cmd run build:agent-gateway` 通過；`git diff --check` 通過。未部署
+production，未建立或擴大 GCP 資源。
+
+## WBS-4C-PRIVATE-STORAGE
+
+完成 migration 016：Private PostgreSQL owner-leading bounded indexes for threads／turns／events／skills／approvals／usage reservations；完整 event／Skill revision payload 及其 snapshot 進 Private Iceberg。持久化邊界拒絕 credential-shaped fields；event／Skill idempotency 先保留 index、再 Iceberg upsert、最後標記 persisted，支援中斷重跑。Codex auth 外部清理未接線時以 `CLEANUP_PENDING` 記錄，不虛報完成。
+
+GCP dev 驗證：Cloud Build contract `2b49fbbc-1dde-4091-9664-7ba33447f2ac` SUCCESS；PostgreSQL image build `96ec69fc-5c1a-4b65-97de-cda22b57cba6` digest `sha256:b7f927ea03656eda2c311d77004078efa8379242a3b7fa3ff413c9ec153a1216`，IAP 套用至 `janus-postgres-dev` 並通過 A／B、replay、role／credential-column SQL（測試交易 rollback）；真實 GCS／Iceberg 由既有 `janus-private-pipeline-wwxtl` execution 通過，隨機測試資料已刪除。既有 Job 已恢復至現存 `janus-api` digest `sha256:ad6ef02c255be4c7666db8869879f6745c75a8c0c3a0760639aaf004a99a3894`，未部署 production。

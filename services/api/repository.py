@@ -284,17 +284,215 @@ class PostgresWorkspaceRepository:
                 )
         return self.mcp_servers(user_id)
 
+    def create_assistant_thread(self, user_id: UUID, thread_id: str, binding: Any,
+                                *, parent_thread_id: str | None = None) -> dict[str, Any]:
+        with self._connection() as connection:
+            row=connection.execute(
+                """INSERT INTO private.assistant_threads
+                   (user_id,thread_id,runtime,model,assistant_profile,skill_profile,parent_thread_id)
+                   VALUES(%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(user_id,thread_id) DO NOTHING RETURNING *""",
+                (user_id,thread_id,binding.runtime.value,binding.model,binding.assistant_profile,
+                 binding.skill_profile,parent_thread_id),
+            ).fetchone()
+            if not row:
+                row=connection.execute(
+                    "SELECT * FROM private.assistant_threads WHERE user_id=%s AND thread_id=%s",
+                    (user_id,thread_id),
+                ).fetchone()
+            if (row["runtime"],row["model"]) != (binding.runtime.value,binding.model):
+                raise ConflictError("thread runtime and model are immutable")
+            return dict(row)
+
+    def start_assistant_turn(self, user_id: UUID, thread_id: str, turn_id: str, key: str,
+                             *, context_artifact_ref: str | None = None, skill_id: str | None = None,
+                             skill_revision: int | None = None) -> dict[str, Any]:
+        with self._connection() as connection:
+            row=connection.execute(
+                """INSERT INTO private.assistant_turns
+                   (user_id,thread_id,turn_id,idempotency_key,context_artifact_ref,skill_id,skill_revision)
+                   VALUES(%s,%s,%s,%s,%s,%s,%s)
+                   ON CONFLICT(user_id,thread_id,idempotency_key) DO NOTHING RETURNING *""",
+                (user_id,thread_id,turn_id,key,context_artifact_ref,skill_id,skill_revision),
+            ).fetchone()
+            if not row:
+                row=connection.execute(
+                    "SELECT * FROM private.assistant_turns WHERE user_id=%s AND thread_id=%s AND idempotency_key=%s",
+                    (user_id,thread_id,key),
+                ).fetchone()
+            if row["turn_id"] != turn_id:
+                raise ConflictError("turn idempotency key was already used")
+            return dict(row)
+
+    def finish_assistant_turn(self, user_id: UUID, thread_id: str, turn_id: str,
+                              status: str) -> dict[str, Any]:
+        if status not in {"COMPLETED","CANCELLED","ERROR"}:
+            raise ValueError("turn terminal status is invalid")
+        with self._connection() as connection:
+            row=connection.execute(
+                """UPDATE private.assistant_turns SET status=%s,completed_at=now()
+                   WHERE user_id=%s AND thread_id=%s AND turn_id=%s AND status='RUNNING' RETURNING *""",
+                (status,user_id,thread_id,turn_id),
+            ).fetchone()
+            if not row:
+                row=connection.execute(
+                    """SELECT * FROM private.assistant_turns
+                       WHERE user_id=%s AND thread_id=%s AND turn_id=%s""", (user_id,thread_id,turn_id),
+                ).fetchone()
+            if not row: raise NotFoundError("assistant turn not found")
+            if row["status"] != status: raise ConflictError("assistant turn already reached another terminal status")
+            return dict(row)
+
+    def reserve_assistant_event(self, user_id: UUID, event: Any, key: str,
+                                payload_digest: str) -> dict[str, Any]:
+        with self._connection() as connection:
+            row=connection.execute(
+                """INSERT INTO private.assistant_event_index
+                   (user_id,thread_id,turn_id,event_id,seq,event_type,payload_digest,idempotency_key)
+                   VALUES(%s,%s,%s,%s,%s,%s,%s,%s)
+                   ON CONFLICT(user_id,thread_id,idempotency_key) DO NOTHING RETURNING *""",
+                (user_id,event.thread_id,event.turn_id,event.event_id,event.seq,event.event_type.value,
+                 payload_digest,key),
+            ).fetchone()
+            if not row:
+                row=connection.execute(
+                    "SELECT * FROM private.assistant_event_index WHERE user_id=%s AND thread_id=%s AND idempotency_key=%s",
+                    (user_id,event.thread_id,key),
+                ).fetchone()
+            expected=(event.event_id,event.turn_id,event.seq,event.event_type.value,payload_digest)
+            actual=(row["event_id"],row["turn_id"],row["seq"],row["event_type"],row["payload_digest"])
+            if actual != expected:
+                raise ConflictError("event idempotency key was already used")
+            return dict(row)
+
+    def complete_assistant_event(self, user_id: UUID, thread_id: str, event_id: str,
+                                 artifact_ref: str) -> None:
+        with self._connection() as connection:
+            row=connection.execute(
+                """UPDATE private.assistant_event_index SET status='PERSISTED',artifact_ref=%s,persisted_at=now()
+                   WHERE user_id=%s AND thread_id=%s AND event_id=%s RETURNING seq""",
+                (artifact_ref,user_id,thread_id,event_id),
+            ).fetchone()
+            if not row: raise NotFoundError("assistant event not found")
+            connection.execute(
+                "UPDATE private.assistant_threads SET updated_at=now() WHERE user_id=%s AND thread_id=%s",
+                (user_id,thread_id),
+            )
+
+    def assistant_events_after(self, user_id: UUID, thread_id: str, cursor: int,
+                               limit: int = 200) -> list[dict[str, Any]]:
+        with self._connection() as connection:
+            return [dict(row) for row in connection.execute(
+                """SELECT event_id,turn_id,seq,event_type,artifact_ref,created_at FROM private.assistant_event_index
+                   WHERE user_id=%s AND thread_id=%s AND status='PERSISTED' AND seq>%s
+                   ORDER BY seq LIMIT %s""", (user_id,thread_id,cursor,min(limit,200)),
+            ).fetchall()]
+
+    def reserve_skill_revision(self, user_id: UUID, skill_id: str, revision: int, key: str,
+                               content_digest: str) -> dict[str, Any]:
+        with self._connection() as connection:
+            row=connection.execute(
+                """INSERT INTO private.assistant_skill_revisions
+                   (user_id,skill_id,revision,content_digest,idempotency_key) VALUES(%s,%s,%s,%s,%s)
+                   ON CONFLICT(user_id,idempotency_key) DO NOTHING RETURNING *""",
+                (user_id,skill_id,revision,content_digest,key),
+            ).fetchone()
+            if not row:
+                row=connection.execute(
+                    "SELECT * FROM private.assistant_skill_revisions WHERE user_id=%s AND idempotency_key=%s",
+                    (user_id,key),
+                ).fetchone()
+            if (row["skill_id"],row["revision"],row["content_digest"]) != (skill_id,revision,content_digest):
+                raise ConflictError("skill revision idempotency key was already used")
+            return dict(row)
+
+    def complete_skill_revision(self, user_id: UUID, skill_id: str, revision: int,
+                                artifact_ref: str) -> None:
+        with self._connection() as connection:
+            row=connection.execute(
+                """UPDATE private.assistant_skill_revisions SET status='PERSISTED',artifact_ref=%s
+                   WHERE user_id=%s AND skill_id=%s AND revision=%s RETURNING revision""",
+                (artifact_ref,user_id,skill_id,revision),
+            ).fetchone()
+            if not row: raise NotFoundError("skill revision not found")
+            connection.execute(
+                """INSERT INTO private.assistant_skill_state(user_id,skill_id,current_revision)
+                   VALUES(%s,%s,%s) ON CONFLICT(user_id,skill_id) DO UPDATE SET
+                   current_revision=EXCLUDED.current_revision,updated_at=now()""",
+                (user_id,skill_id,revision),
+            )
+
+    def save_approval(self, request: Any, artifact_ref: str) -> dict[str, Any]:
+        with self._connection() as connection:
+            row=connection.execute(
+                """INSERT INTO private.assistant_approvals
+                   (user_id,thread_id,turn_id,request_id,operation,scope,params_digest,artifact_ref,expires_at)
+                   VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                   ON CONFLICT(user_id,thread_id,turn_id,request_id) DO NOTHING RETURNING *""",
+                (request.owner_id,request.thread_id,request.turn_id,request.request_id,request.operation,
+                 request.scope,request.params_digest,artifact_ref,request.expires_at),
+            ).fetchone()
+            if not row:
+                row=connection.execute(
+                    """SELECT * FROM private.assistant_approvals
+                       WHERE user_id=%s AND thread_id=%s AND turn_id=%s AND request_id=%s""",
+                    (request.owner_id,request.thread_id,request.turn_id,request.request_id),
+                ).fetchone()
+            if row["params_digest"] != request.params_digest:
+                raise ConflictError("approval request binding changed")
+            return dict(row)
+
+    def approval(self, user_id: UUID | str, thread_id: str, turn_id: str,
+                 request_id: str) -> dict[str, Any]:
+        with self._connection() as connection:
+            row=connection.execute(
+                """SELECT * FROM private.assistant_approvals
+                   WHERE user_id=%s AND thread_id=%s AND turn_id=%s AND request_id=%s""",
+                (user_id,thread_id,turn_id,request_id),
+            ).fetchone()
+            if not row: raise NotFoundError("approval request not found")
+            return dict(row)
+
+    def resolve_approval(self, decision: Any, status: str, resolved_at: Any) -> dict[str, Any]:
+        with self._connection() as connection:
+            row=connection.execute(
+                """UPDATE private.assistant_approvals SET status=%s,resolved_at=%s
+                   WHERE user_id=%s AND thread_id=%s AND turn_id=%s AND request_id=%s
+                     AND params_digest=%s AND status='PENDING' RETURNING *""",
+                (status,resolved_at,decision.owner_id,decision.thread_id,decision.turn_id,
+                 decision.request_id,decision.params_digest),
+            ).fetchone()
+            if not row: raise ConflictError("approval was already resolved or binding changed")
+            return dict(row)
+
     def pending_deletions(self, limit: int = 20) -> list[dict[str, Any]]:
         with self._connection() as connection:
             return [dict(row) for row in connection.execute(
-                "SELECT * FROM private.deletion_requests WHERE status='QUEUED' ORDER BY requested_at LIMIT %s",(min(limit,20),)
+                "SELECT * FROM private.deletion_requests WHERE status IN ('QUEUED','CLEANUP_PENDING') ORDER BY requested_at LIMIT %s",(min(limit,20),)
             ).fetchall()]
+
+    def assistant_cleanup_required(self, user_id: UUID) -> bool:
+        with self._connection() as connection:
+            return connection.execute(
+                "SELECT 1 FROM private.assistant_threads WHERE user_id=%s AND runtime='codex' LIMIT 1",
+                (user_id,),
+            ).fetchone() is not None
+
+    def mark_deletion_cleanup_pending(self, request_id: UUID, user_id: UUID) -> None:
+        with self._connection() as connection:
+            connection.execute(
+                """UPDATE private.deletion_requests SET status='CLEANUP_PENDING',cleanup_pending=ARRAY['codex_auth_state']
+                   WHERE request_id=%s AND user_id=%s""", (request_id,user_id),
+            )
 
     def complete_deletion(self, request_id: UUID, user_id: UUID) -> None:
         with self._connection() as connection:
+            connection.execute("DELETE FROM private.assistant_threads WHERE user_id=%s",(user_id,))
+            connection.execute("DELETE FROM private.assistant_skill_state WHERE user_id=%s",(user_id,))
+            connection.execute("DELETE FROM private.assistant_skill_revisions WHERE user_id=%s",(user_id,))
             for table in ("change_log","mutation_keys","note_index","watchlist","mcp_servers","ledger_events","users"):
                 connection.execute(f"DELETE FROM private.{table} WHERE user_id=%s",(user_id,))
-            connection.execute("UPDATE private.deletion_requests SET status='COMPLETED',completed_at=now() WHERE request_id=%s AND user_id=%s",(request_id,user_id))
+            connection.execute("""UPDATE private.deletion_requests SET status='COMPLETED',cleanup_pending='{}',completed_at=now()
+                                WHERE request_id=%s AND user_id=%s""",(request_id,user_id))
 
     @staticmethod
     def _next_version(connection: Any, user_id: UUID) -> int:

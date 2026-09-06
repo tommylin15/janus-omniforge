@@ -15,21 +15,18 @@
 ## 目前進度（2026-09-06）
 
 - WBS 4J 獨立 MVP：journal／note／Private Iceberg 完整交易、重跑、刪除與 A／B 隔離已結案；僅依賴 WBS 5 的個人化 analysis overlay 尚未啟用。
-- WBS 4C：GCP 雲端多供應商私人助理共 12 個切片，4／12 完成；Agent Runtime／AgentEvent、security contract、context sources 與 MCP host 已固定，Cloud Run runtime POC 已結案。
+- WBS 4C：GCP 雲端多供應商私人助理共 12 個切片，7／12 完成；Agent Runtime／AgentEvent、security contract、context sources、MCP host、Gemini REST、OpenRouter provider 與 Private Storage 已固定，Cloud Run runtime POC 已結案。
 - WBS-4C-CODEX-BRIDGE checkpoint：雙向 stdio JSON-RPC、Threads／Turns／Items、device-code managed login、request-bound Approvals、共用 MCP dynamic-tool path 與 `turn/started` 事件驅動 cancellation 已完成；GCP Cloud Build contract tests 5／5 通過，Cloud Run health 3／3 通過，live Codex cancellation 200 通過，checkpoint reconnect 通過。驗收 build `2d95aa6e-cc4e-47d5-97ae-ce9dcfafc479`、revision `janus-agent-gateway-00017-tpf`、digest `sha256:b03a041f2ddf19d3028777d7531f94599fee728024dac471156932ad64df9541`。
+- WBS-4C-PRIVATE-STORAGE：migration 016、Private Iceberg assistant events／Skill revisions、PostgreSQL bounded index、credential-shaped field fail-closed、冪等重跑、A／B 隔離與 Codex auth cleanup pending 契約已完成；GCP dev evidence 詳見 `spec/operations-and-testing.md`。
 - WBS 3 收尾：Admin Data Operations 1 項完成、3 項未完成；Stage／Core 實機驗證 7 項未完成。Scheduler canary 因 2026-09-03 上游時段異常重置為 0／3。
-- 最新驗證：WBS-4C-CONTEXT-SOURCES 已於 GCP dev Cloud Build 通過；完整本機 pytest 123／123、WBS 4J targeted pytest 14／14；Flutter analyze／widget test、migration 001–014 與 bash syntax 已通過 Cloud Build。
+- 最新驗證：WBS-4C-OPENROUTER／GEMINI／Gateway targeted Vitest 12／12、Agent Gateway TypeScript build 通過；WBS-4C-CONTEXT-SOURCES 已於 GCP dev Cloud Build 通過；完整本機 pytest 123／123、WBS 4J targeted pytest 14／14；Flutter analyze／widget test、migration 001–014 與 bash syntax 已通過 Cloud Build。
 
 ## 下一步執行佇列
 
-1. 【Sol】`WBS-4C-CODEX-BRIDGE`：串接 Cloud Run 容器內 Codex App Server stdio JSON-RPC、managed auth、Threads／Turns／Items／Approvals。
-2. 【Luna】`WBS-4C-GEMINI-API`：直接串 Gemini REST API 免費層與 Google Search Grounding；不引入 Google GenAI SDK。
-3. 【Luna】`WBS-4C-OPENROUTER`：動態模型目錄、capability 篩選、streaming／tool loop；付費呼叫先過 billing gate。
-4. 【Sol】`WBS-4C-PRIVATE-STORAGE`：完成 threads／events／Skills／approval 的 Private Iceberg／PostgreSQL index、credential 隔離、重跑與 A／B 隔離。
-5. 【Sol】`WBS-4C-SKILLS`：實作 GCP 儲存、載入／啟用／自訂且不可擴權的版本化 Skills。
-6. 【Luna】`WBS-4C-CHAT-API`：實作 Threads CRUD／fork、bounded SSE、取消、approval response、匯出與刪除。
-7. 【Luna】`WBS-4C-ASSISTANT-UI`：延續 Flutter Web／mobile，完成 Markdown／程式碼高亮、MCP／Skills、Items／Turns／Approvals。
-8. 【Sol】`WBS-4C-ACCEPTANCE`：完成 Cloud Run、provider、資料源、MCP、Skills、streaming、approval、Grounding、privacy 與刪除整合驗收。
+1. 【Sol】`WBS-4C-SKILLS`：實作 GCP 儲存、載入／啟用／自訂且不可擴權的版本化 Skills。
+2. 【Luna】`WBS-4C-CHAT-API`：實作 Threads CRUD／fork、bounded SSE、取消、approval response、匯出與刪除。
+3. 【Luna】`WBS-4C-ASSISTANT-UI`：延續 Flutter Web／mobile，完成 Markdown／程式碼高亮、streaming、MCP／Skills、Items／Turns／Approvals。
+4. 【Sol】`WBS-4C-ACCEPTANCE`：完成 Cloud Run、provider、資料源、MCP、Skills、streaming、approval、Grounding、privacy 與刪除整合驗收。
 9. 【Sol】`WBS-3-ACCEPTANCE`：持續 3 交易日 canary，並完成 queue／connection／restart、VPC／firewall 與 Free Tier guard 實機驗證。
 10. 【Luna】`WBS-3-ADMIN-POLISH`：完成表格、cursor pagination 與其 UI 驗收；股票跨域刪除 guard 另以【Sol】執行。
 11. 【Sol】`WBS-5` → 【Luna】`WBS-6` → 【Sol】`WBS-7` → 依逐項標籤執行 `WBS-8`；WBS 4J 個人化 overlay 等 `mart_scoped_analysis` 可用後再做。
@@ -78,16 +75,16 @@
 
 - [ ] 【Sol】 資料源只讀已發布 Janus Core／Mart 與 authenticated owner 的 Private Core／Mart；實作 `GET /api/v1/me/ai-sources`、thread-bound `context-preview`／短效 opaque `context_ref` 與 service-identity-only internal resolve。只接受 typed selector，不接受 SQL、GCS URI、object path 或 client `user_id`。外部來源須有 allowlist、授權、日期、provenance、quota 與外送政策，不在 chat request 即時爬取未核准來源；既有 public／journal／portfolio／ingestion API 不改語意。
 
-- [ ] 【Luna】 OpenRouter 以 `OPENROUTER_API_KEY` 動態列出已核准模型，依 tools／streaming capability 篩選 Claude、Llama、Gemini 等模型，完成 bounded function-call loop 與 provider／usage／fallback 可追溯；付費呼叫前須人工同意。
+- [x] 【Luna】 OpenRouter 以 `OPENROUTER_API_KEY` 動態列出已核准模型，依 tools／streaming capability 篩選模型，完成 bounded function-call loop、SSE streaming、provider／usage 可追溯；free-only 預設，付費模型須明確 billing gate，無 silent fallback。完成證據：`tests/openrouter_provider.test.ts` 3／3、`npm.cmd run build:agent-gateway`。
 
-- [ ] 【Luna】 Gemini 直接使用 Google AI Studio `GEMINI_API_KEY` 呼叫 Gemini Developer REST API 免費層，不加入 Google GenAI SDK／Vertex AI；必須支援 Google Search Grounding、citations／attribution／查詢時間、免費 quota 與 429／provider unavailable 狀態，禁止自動轉付費。
+- [x] 【Luna】 Gemini 直接使用 Google AI Studio `GEMINI_API_KEY` 呼叫 Gemini Developer REST API 免費層，不加入 Google GenAI SDK／Vertex AI；已支援 Google Search Grounding、citations／attribution／查詢時間、免費 quota 與 429／provider unavailable 狀態，並禁止自動轉付費。完成證據：`tests/gemini_provider.test.ts` 4／4、`npm.cmd run build:agent-gateway`。
 
 - [ ] 【Sol】 Codex 以 Cloud Run 容器內 App Server stdio JSON-RPC 與 managed OAuth／device-code 驅動；整合 Threads／Turns／Items／Approval Requests、取消及 sandbox。不得使用 OpenAI API key、Responses／Codex API 或其他直接付費 fallback。
 
 
 - [ ] 【Sol】 內建 Skills 隨 immutable image 發版；自訂 Skills 的 prompt／required tools／workflow revision 存 Private Iceberg／GCS 並以 PostgreSQL bounded index 定位，turn 開始時物化核准 snapshot 到 Cloud Run 暫存 sandbox。Skill 不允許任意可執行程式，且 Skill、MCP description、新聞或筆記不可擴大 host tool／ownership／publication policy。
 
-- [ ] 【Sol】 對話 messages、selected context、provider／model、skill revision、search／citations、Items／Turns、tool／approval events 儘可能寫入 Private Iceberg；PostgreSQL 只保存 bounded thread／turn／approval／usage reservation index、idempotency、checkpoint 與 artifact reference。provider／MCP credential 與 Codex auth cache 不得進資料庫、Iceberg、image、log 或前端 storage，只能使用 Secret Manager 或另經核准的隔離 GCP credential store。
+- [x] 【Sol】 對話 messages、selected context、provider／model、skill revision、search／citations、Items／Turns、tool／approval events 儘可能寫入 Private Iceberg；PostgreSQL 只保存 bounded thread／turn／approval／usage reservation index、idempotency、checkpoint 與 artifact reference。provider／MCP credential 與 Codex auth cache 不得進資料庫、Iceberg、image、log 或前端 storage，只能使用 Secret Manager 或另經核准的隔離 GCP credential store。完成證據：migration 016、Cloud Build contract `2b49fbbc-1dde-4091-9664-7ba33447f2ac`、GCP dev PostgreSQL／GCS-Iceberg acceptance。
 
 - [ ] 【Luna】 建立 `/api/v1/me/chats/*` 的 Threads CRUD／fork、message、bounded SSE events、cursor replay、取消、approval response、匯出與刪除；eventId／seq／itemId 去重，provider 原生 continuation metadata 可恢復。
 

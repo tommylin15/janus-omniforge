@@ -21,6 +21,8 @@ class PrivateIcebergStore:
         "mart_user_unrealized_pnl": ("user_id", "symbol", "currency", "ledger_version", "valuation_date"),
         "mart_user_annual_pnl": ("user_id", "year", "currency", "ledger_version", "valuation_date"),
         "context_snapshots": ("user_id", "context_id"),
+        "assistant_events": ("user_id", "thread_id", "event_id"),
+        "assistant_skill_revisions": ("user_id", "skill_id", "revision"),
     }
 
     def __init__(self, catalog: Any, warehouse: str, namespace: str = "private") -> None:
@@ -89,11 +91,45 @@ class PrivateIcebergStore:
         return {key:value for key,value in row.items() if key not in {"records_json","provenance_json"}} | {
             "records":json.loads(row["records_json"]), "provenance":json.loads(row["provenance_json"])}
 
-    def rows(self, table: str, user_id: Any) -> list[dict[str, Any]]:
+    def write_assistant_event(self, *, user_id: Any, record: dict[str, Any]) -> str:
+        from .assistant_storage import _json
+        ref=f"private.assistant_events/{record['thread_id']}/{record['event_id']}"
+        self.upsert("assistant_events", [{"user_id":str(user_id), "thread_id":record["thread_id"],
+            "turn_id":record["turn_id"], "event_id":record["event_id"], "seq":record["seq"],
+            "event_type":record["event_type"], "record_json":_json(record),
+            "created_at":datetime.now(timezone.utc), "artifact_ref":ref}])
+        return ref
+
+    def read_assistant_event(self, user_id: Any, thread_id: str, event_id: str) -> dict[str, Any] | None:
+        identifier=f"{self.namespace}.assistant_events"
+        if not self.catalog.table_exists(identifier): return None
+        from pyiceberg.expressions import And, EqualTo
+        rows=self.catalog.load_table(identifier).scan(row_filter=And(
+            And(EqualTo("user_id",str(user_id)),EqualTo("thread_id",thread_id)),EqualTo("event_id",event_id)
+        ),limit=1).to_arrow().to_pylist()
+        return json.loads(rows[0]["record_json"]) if rows else None
+
+    def write_skill_revision(self, *, user_id: Any, skill_id: str, revision: int,
+                             definition: Any, content_digest: str) -> str:
+        from .assistant_storage import _json
+        ref=f"private.assistant_skill_revisions/{skill_id}/{revision}"
+        self.upsert("assistant_skill_revisions", [{"user_id":str(user_id), "skill_id":skill_id,
+            "revision":revision, "content_digest":content_digest, "definition_json":_json(definition),
+            "created_at":datetime.now(timezone.utc), "artifact_ref":ref}])
+        return ref
+
+    def export_assistant(self, user_id: Any) -> dict[str, list[dict[str, Any]]]:
+        names=("assistant_events","assistant_skill_revisions")
+        return {name:self.rows(name,user_id,limit=None) for name in names}
+
+    def rows(self, table: str, user_id: Any, limit: int | None = 200) -> list[dict[str, Any]]:
         identifier = f"{self.namespace}.{table}"
         if not self.catalog.table_exists(identifier): return []
         from pyiceberg.expressions import EqualTo
-        return self.catalog.load_table(identifier).scan(row_filter=EqualTo("user_id",str(user_id)),limit=200).to_arrow().to_pylist()
+        scan_kwargs={"row_filter":EqualTo("user_id",str(user_id))}
+        if limit is not None: scan_kwargs["limit"]=min(limit,200)
+        scan=self.catalog.load_table(identifier).scan(**scan_kwargs)
+        return scan.to_arrow().to_pylist()
 
     def upsert(self, table_name: str, rows: list[dict[str, Any]]) -> int | None:
         if not rows: return None

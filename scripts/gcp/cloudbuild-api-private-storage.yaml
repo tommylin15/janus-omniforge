@@ -1,0 +1,16 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file=services/api/Dockerfile
+      - --tag=us-central1-docker.pkg.dev/$PROJECT_ID/janusai-poc/api:private-storage-dev
+      - .
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - us-central1-docker.pkg.dev/$PROJECT_ID/janusai-poc/api:private-storage-dev
+
+images:
+  - us-central1-docker.pkg.dev/$PROJECT_ID/janusai-poc/api:private-storage-dev
+options:
+  logging: CLOUD_LOGGING_ONLY

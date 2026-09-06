@@ -72,6 +72,7 @@ sudo docker exec \
     printf "\\getenv private_api_password PRIVATE_API_PASSWORD\n\\getenv private_pipeline_password PRIVATE_PIPELINE_PASSWORD\n" > /tmp/private-vars.sql
     cat /tmp/private-vars.sql /opt/janus/migrations/014_private_workspace.sql | psql -U postgres -d janus_control
     psql -U postgres -d janus_control -f /opt/janus/migrations/015_private_mcp_servers.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/016_private_assistant_storage.sql
     rm -f /tmp/vars.sql /tmp/web-vars.sql /tmp/mart-vars.sql /tmp/private-vars.sql
     openssl req -new -x509 -days 365 -nodes -text \
       -subj "/CN=janus-postgres-dev" -keyout "$PGDATA/server.key" -out "$PGDATA/server.crt" >/dev/null 2>&1

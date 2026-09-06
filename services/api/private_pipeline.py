@@ -87,8 +87,9 @@ def calculate_marts(events: Iterable[dict[str, Any]], prices: dict[str, Decimal 
 
 class PrivatePipeline:
     def __init__(self, repository: Any, store: Any,
-                 prices: Callable[[set[str],date],dict[str,Decimal|None]]) -> None:
-        self.repository,self.store,self.prices=repository,store,prices
+                 prices: Callable[[set[str],date],dict[str,Decimal|None]],
+                 assistant_cleanup: Callable[[Any],None] | None = None) -> None:
+        self.repository,self.store,self.prices,self.assistant_cleanup=repository,store,prices,assistant_cleanup
 
     def run(self, valuation_date: date, limit: int = 500) -> int:
         checkpoint=self.repository.pipeline_checkpoint(); changes=self.repository.pipeline_batch(checkpoint,limit)
@@ -107,11 +108,21 @@ class PrivatePipeline:
             self.repository.advance_pipeline_checkpoint(completed)
         for request in self.repository.pending_deletions():
             self.store.delete_user(request["user_id"])
+            cleanup_required=getattr(self.repository,"assistant_cleanup_required",lambda _user_id:False)(request["user_id"])
+            if cleanup_required and self.assistant_cleanup is None:
+                self.repository.mark_deletion_cleanup_pending(request["request_id"],request["user_id"])
+                continue
+            if cleanup_required: self.assistant_cleanup(request["user_id"])
             self.repository.complete_deletion(request["request_id"],request["user_id"])
         return completed
 
 
 def main() -> None:
+    if os.getenv("ASSISTANT_STORAGE_ACCEPTANCE") == "true":
+        from .assistant_storage_acceptance import run
+        run()
+        print("private assistant GCS/Iceberg acceptance passed")
+        return
     from .repository import repository_from_env
     from .store import PrivateIcebergStore
 

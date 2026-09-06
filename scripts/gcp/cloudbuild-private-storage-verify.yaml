@@ -1,0 +1,14 @@
+steps:
+  - id: private-storage-contract
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        docker build --file=services/api/Dockerfile --tag=janus-api-private-storage:test .
+        docker run --rm --volume=/workspace:/workspace --workdir=/workspace \
+          janus-api-private-storage:test python -m unittest tests.test_assistant_storage
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 1200s

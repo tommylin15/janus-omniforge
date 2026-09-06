@@ -623,3 +623,18 @@ persisted execution `9ffb6fb9-345f-47ac-a45d-0fdf7f12d8e5` 的
 驗收後資源 guard 仍為單一 `us-central1-a` `e2-micro`、30 GB `pd-standard`、private
 IP、無 external IP；未部署 production、未建立新 VM／disk／snapshot／NAT，亦未呼叫
 Artifact Analysis、Container Scanning 或 occurrence API。
+
+## P0 WBS 4C Private Storage (2026-09-06)
+
+Cloud Build contract `2b49fbbc-1dde-4091-9664-7ba33447f2ac` succeeded. PostgreSQL
+image build `96ec69fc-5c1a-4b65-97de-cda22b57cba6` produced digest
+`sha256:b7f927ea03656eda2c311d77004078efa8379242a3b7fa3ff413c9ec153a1216`;
+IAP migration on `janus-postgres-dev` passed migration 016, A/B owner isolation,
+event replay, role privilege and credential-column checks in a rolled-back test
+transaction. Existing private-pipeline execution `janus-private-pipeline-wwxtl`
+passed real GCS/Iceberg event／Skill isolation and cleanup using random owners.
+
+The temporary Job image was restored to the existing `janus-api` digest
+`sha256:ad6ef02c255be4c7666db8869879f6745c75a8c0c3a0760639aaf004a99a3894` and the
+acceptance flag was removed. Codex managed-auth cleanup remains explicitly
+`CLEANUP_PENDING` until an owner-scoped external credential cleaner exists.
