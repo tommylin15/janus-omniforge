@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -140,3 +140,34 @@ class McpServersPutIn(StrictModel):
         if len({item.server_id for item in self.items}) != len(self.items):
             raise ValueError("server_id must be unique")
         return self
+
+
+class SkillStep(StrictModel):
+    tool: Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$")]
+    args: dict[str, Any] = Field(default_factory=dict)
+
+
+class SkillDefinition(StrictModel):
+    prompt: Annotated[str, Field(min_length=1, max_length=12_000)]
+    required_tools: Annotated[list[Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$")]], Field(max_length=32)] = Field(default_factory=list)
+    workflow: Annotated[list[SkillStep], Field(max_length=32)] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_scope(self) -> "SkillDefinition":
+        if len(self.required_tools) != len(set(self.required_tools)):
+            raise ValueError("required_tools must be unique")
+        required = set(self.required_tools)
+        if any(step.tool not in required for step in self.workflow):
+            raise ValueError("workflow tools must be declared in required_tools")
+        return self
+
+
+class SkillRevisionIn(StrictModel):
+    skill_id: Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9-]{0,127}$")]
+    revision: Annotated[int, Field(ge=1)]
+    definition: SkillDefinition
+
+
+class SkillStateIn(StrictModel):
+    enabled: bool
+    revision: Annotated[int | None, Field(ge=1)] = None

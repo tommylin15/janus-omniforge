@@ -118,6 +118,17 @@ class PrivateIcebergStore:
             "created_at":datetime.now(timezone.utc), "artifact_ref":ref}])
         return ref
 
+    def read_skill_revision(self, user_id: Any, skill_id: str, revision: int) -> dict[str, Any] | None:
+        identifier = f"{self.namespace}.assistant_skill_revisions"
+        if not self.catalog.table_exists(identifier): return None
+        from pyiceberg.expressions import And, EqualTo
+        rows = self.catalog.load_table(identifier).scan(row_filter=And(
+            And(EqualTo("user_id", str(user_id)), EqualTo("skill_id", skill_id)),
+            EqualTo("revision", revision),
+        ), limit=1).to_arrow().to_pylist()
+        if not rows: return None
+        return json.loads(rows[0]["definition_json"])
+
     def export_assistant(self, user_id: Any) -> dict[str, list[dict[str, Any]]]:
         names=("assistant_events","assistant_skill_revisions")
         return {name:self.rows(name,user_id,limit=None) for name in names}

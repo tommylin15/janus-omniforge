@@ -8,6 +8,7 @@ import json
 from typing import Any, Mapping
 
 from .engine_security import AgentEvent, ApprovalDecision, ApprovalRequest, authorize_approval
+from .models import SkillDefinition
 from .repository import ConflictError
 
 
@@ -63,7 +64,8 @@ class AssistantStorage:
 
     def write_skill_revision(self, owner_id: Any, skill_id: str, revision: int,
                              definition: Mapping[str, Any], idempotency_key: str) -> dict[str, Any]:
-        digest = _digest(definition)
+        validated = safe_private_record(SkillDefinition.model_validate(definition).model_dump(mode="json"))
+        digest = _digest(validated)
         index = self.repository.reserve_skill_revision(
             owner_id, skill_id, revision, idempotency_key, digest,
         )
@@ -71,11 +73,20 @@ class AssistantStorage:
             raise ConflictError("skill revision conflicts with an existing idempotency key")
         if index["status"] == "PERSISTED": return index
         ref = self.store.write_skill_revision(
-            user_id=owner_id, skill_id=skill_id, revision=revision, definition=definition,
+            user_id=owner_id, skill_id=skill_id, revision=revision, definition=validated,
             content_digest=digest,
         )
         self.repository.complete_skill_revision(owner_id, skill_id, revision, ref)
         return {**index, "artifact_ref": ref, "status": "PERSISTED"}
+
+    def read_skill_revision(self, owner_id: Any, skill_id: str, revision: int) -> dict[str, Any]:
+        index = self.repository.skill_revision(owner_id, skill_id, revision)
+        if index["status"] != "PERSISTED":
+            raise ValueError("skill revision is not available")
+        definition = self.store.read_skill_revision(owner_id, skill_id, revision)
+        if definition is None:
+            raise ValueError("skill revision artifact is missing")
+        return {**index, "definition": definition}
 
     def request_approval(self, request: ApprovalRequest, artifact_ref: str) -> dict[str, Any]:
         if not artifact_ref.startswith("private.assistant_events/"):

@@ -32,8 +32,35 @@ class Store:
         self.records.append(value)
         return f"private.assistant_events/{value['record']['thread_id']}/{value['record']['event_id']}"
 
+    def write_skill_revision(self, **value):
+        self.skill = value
+        return f"private.assistant_skill_revisions/{value['skill_id']}/{value['revision']}"
+
 
 class AssistantStorageTest(unittest.TestCase):
+    def test_skill_manifest_is_versioned_and_cannot_use_undeclared_workflow_tools(self):
+        repository, store = Repository(), Store()
+        repository.reserve_skill_revision = lambda *args: {
+            "content_digest": args[-1], "status": "PENDING",
+        }
+        repository.complete_skill_revision = lambda *args: None
+        storage = AssistantStorage(repository, store)
+        result = storage.write_skill_revision(
+            USER_A, "research", 1,
+            {"prompt": "Summarize", "required_tools": ["research__search"],
+             "workflow": [{"tool": "research__search", "args": {"limit": 5}}]},
+            "skill-key",
+        )
+        self.assertEqual(result["status"], "PERSISTED")
+        self.assertEqual(store.skill["definition"]["required_tools"], ["research__search"])
+        with self.assertRaises(ValueError):
+            storage.write_skill_revision(USER_A, "unsafe", 1,
+                {"prompt": "Run", "workflow": [{"tool": "shell"}]}, "unsafe-key")
+        with self.assertRaises(ValueError):
+            storage.write_skill_revision(USER_A, "secret", 1,
+                {"prompt": "No", "required_tools": ["research__search"],
+                 "workflow": [{"tool": "research__search", "args": {"api_key": "x"}}]}, "secret-key")
+
     def test_event_replay_is_an_idempotent_upsert_and_digest_collision_fails(self):
         repository,store=Repository(),Store()
         storage=AssistantStorage(repository,store)

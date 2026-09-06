@@ -421,6 +421,57 @@ class PostgresWorkspaceRepository:
                 (user_id,skill_id,revision),
             )
 
+    def skill_revision(self, user_id: UUID, skill_id: str, revision: int) -> dict[str, Any]:
+        with self._connection() as connection:
+            row = connection.execute(
+                """SELECT r.*, COALESCE(s.enabled, false) AS enabled,
+                          (s.current_revision = r.revision) AS active
+                   FROM private.assistant_skill_revisions r
+                   LEFT JOIN private.assistant_skill_state s
+                     ON s.user_id=r.user_id AND s.skill_id=r.skill_id
+                   WHERE r.user_id=%s AND r.skill_id=%s AND r.revision=%s""",
+                (user_id, skill_id, revision),
+            ).fetchone()
+            if not row: raise NotFoundError("skill revision not found")
+            return dict(row)
+
+    def skill_revisions(self, user_id: UUID, limit: int = 100) -> list[dict[str, Any]]:
+        with self._connection() as connection:
+            return [dict(row) for row in connection.execute(
+                """SELECT r.*, COALESCE(s.enabled, false) AS enabled,
+                          (s.current_revision = r.revision) AS active
+                   FROM private.assistant_skill_revisions r
+                   LEFT JOIN private.assistant_skill_state s
+                     ON s.user_id=r.user_id AND s.skill_id=r.skill_id
+                   WHERE r.user_id=%s ORDER BY r.skill_id, r.revision DESC LIMIT %s""",
+                (user_id, min(limit, 100)),
+            ).fetchall()]
+
+    def set_skill_state(self, user_id: UUID, skill_id: str, *, enabled: bool,
+                        revision: int | None = None) -> dict[str, Any]:
+        with self._connection() as connection:
+            if revision is None:
+                row = connection.execute(
+                    """SELECT current_revision FROM private.assistant_skill_state
+                       WHERE user_id=%s AND skill_id=%s""", (user_id, skill_id),
+                ).fetchone()
+                if not row: raise NotFoundError("skill not found")
+                revision = row["current_revision"]
+            revision_row = connection.execute(
+                """SELECT 1 FROM private.assistant_skill_revisions
+                   WHERE user_id=%s AND skill_id=%s AND revision=%s AND status='PERSISTED'""",
+                (user_id, skill_id, revision),
+            ).fetchone()
+            if not revision_row: raise NotFoundError("skill revision not found")
+            row = connection.execute(
+                """INSERT INTO private.assistant_skill_state(user_id,skill_id,current_revision,enabled)
+                   VALUES(%s,%s,%s,%s)
+                   ON CONFLICT(user_id,skill_id) DO UPDATE SET current_revision=EXCLUDED.current_revision,
+                   enabled=EXCLUDED.enabled,updated_at=now() RETURNING *""",
+                (user_id, skill_id, revision, enabled),
+            ).fetchone()
+            return dict(row)
+
     def save_approval(self, request: Any, artifact_ref: str) -> dict[str, Any]:
         with self._connection() as connection:
             row=connection.execute(

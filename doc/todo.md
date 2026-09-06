@@ -15,7 +15,7 @@
 ## 目前進度（2026-09-06）
 
 - WBS 4J 獨立 MVP：journal／note／Private Iceberg 完整交易、重跑、刪除與 A／B 隔離已結案；僅依賴 WBS 5 的個人化 analysis overlay 尚未啟用。
-- WBS 4C：GCP 雲端多供應商私人助理共 13 個切片，7／13 完成；Agent Runtime／AgentEvent、security contract、context sources、MCP host、Gemini REST、OpenRouter provider 與 Private Storage 已固定，Cloud Run runtime POC 已結案。
+- WBS 4C：GCP 雲端多供應商私人助理共 13 個切片，8／13 完成；Agent Runtime／AgentEvent、security contract、context sources、MCP host、Gemini REST、OpenRouter provider、Private Storage 與 Skills contract 已固定，Cloud Run runtime POC 已結案。
 - WBS-4C-CODEX-BRIDGE checkpoint：雙向 stdio JSON-RPC、Threads／Turns／Items、device-code managed login、request-bound Approvals、共用 MCP dynamic-tool path 與 `turn/started` 事件驅動 cancellation 已完成；GCP Cloud Build contract tests 5／5 通過，Cloud Run health 3／3 通過，live Codex cancellation 200 通過，checkpoint reconnect 通過。現有全域 Secret／固定 owner 仍僅是 dev POC，不代表 owner-scoped auth lifecycle 完成。驗收 build `2d95aa6e-cc4e-47d5-97ae-ce9dcfafc479`、revision `janus-agent-gateway-00017-tpf`、digest `sha256:b03a041f2ddf19d3028777d7531f94599fee728024dac471156932ad64df9541`。
 - WBS-4C-PRIVATE-STORAGE：migration 016、Private Iceberg assistant events／Skill revisions、PostgreSQL bounded index、credential-shaped field fail-closed、冪等重跑、A／B 隔離與 Codex auth cleanup pending 契約已完成；GCP dev evidence 詳見 `spec/operations-and-testing.md`。
 - WBS-4C-CODEX-AUTH-LIFECYCLE：owner allowlist、Secret 版本輪替驗證／舊版銷毀、冪等 auth destroy、logout／session eviction 與 deletion pipeline wiring 已完成 GCP dev contract／live acceptance；device-code login 完成後的跨 request session provisioning 與真實 rotation 尚待後續 Chat API slice。
@@ -86,7 +86,7 @@
 - [ ] 【Sol】 Codex auth lifecycle 必須先於 Chat API／Assistant UI：authenticated owner 經 service-authenticated internal request 傳入 Gateway，每個 owner 使用隔離 Secret、`CODEX_HOME` 與 App Server process；refresh 成功後銷毀舊版本。刪除時拒絕該 owner 新 login／turn／artifact write，停止 session、logout、刪 owner auth，失敗保留 `CLEANUP_PENDING` 並可重試；無 Codex thread 或 Secret 已不存在也須冪等完成。Gateway 不接受 client owner／Secret name，不授 project-wide Secret Manager admin；dev credential 由 operator 為 allowlisted owner 建立，正式自助 provisioning 另案決定。建立 per-owner Secret 或擴大付費資源前須人工同意。
 
 
-- [ ] 【Sol】 內建 Skills 隨 immutable image 發版；自訂 Skills 的 prompt／required tools／workflow revision 存 Private Iceberg／GCS 並以 PostgreSQL bounded index 定位，turn 開始時物化核准 snapshot 到 Cloud Run 暫存 sandbox。Skill 不允許任意可執行程式，且 Skill、MCP description、新聞或筆記不可擴大 host tool／ownership／publication policy。
+- [x] 【Sol】 內建 Skills 隨 immutable image 發版；自訂 Skills 的 prompt／required tools／workflow revision 存 Private Iceberg／GCS 並以 PostgreSQL bounded index 定位，提供 owner-scoped 載入與啟用／停用 API；嚴格 manifest 不允許任意可執行程式，workflow 只可使用宣告的 tool scope。完成證據：`tests/test_assistant_storage.py -k skill` 通過、Python 語法編譯與 `git diff --check` 通過；完整既有 Iceberg 測試受本機缺少 `zoneinfo/pytz` 依賴阻擋。
 
 - [x] 【Sol】 對話 messages、selected context、provider／model、skill revision、search／citations、Items／Turns、tool／approval events 儘可能寫入 Private Iceberg；PostgreSQL 只保存 bounded thread／turn／approval／usage reservation index、idempotency、checkpoint 與 artifact reference。provider／MCP credential 與 Codex auth cache 不得進資料庫、Iceberg、image、log 或前端 storage，只能使用 Secret Manager 或另經核准的隔離 GCP credential store。完成證據：migration 016、Cloud Build contract `2b49fbbc-1dde-4091-9664-7ba33447f2ac`、GCP dev PostgreSQL／GCS-Iceberg acceptance。
 

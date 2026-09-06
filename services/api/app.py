@@ -16,7 +16,9 @@ from .context_sources import (ContextReferenceNotFound, ContextSourceError, Cont
                               CoreContextReader)
 from .mcp_gateway import McpGatewayClient, McpGatewayError
 from .models import (ContextPreviewIn, ContextResolveIn, CorrectionIn, LedgerEventIn, NoteIn,
-                     McpServersPutIn, NoteRevisionIn, WatchlistIn, WatchlistOrderIn)
+                     McpServersPutIn, NoteRevisionIn, SkillRevisionIn, SkillStateIn,
+                     WatchlistIn, WatchlistOrderIn)
+from .assistant_storage import AssistantStorage
 from .repository import ConflictError, NotFoundError, OversellError, repository_from_env
 from .store import PrivateIcebergStore
 
@@ -41,6 +43,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     core = core or _Lazy(CoreContextReader.from_env)
     mcp = mcp or _Lazy(McpGatewayClient.from_env)
     contexts = ContextSourceService(repository,store,core)
+    skills = AssistantStorage(repository, store)
     auth = GoogleUserAuthenticator(audience or os.getenv("GOOGLE_USER_CLIENT_ID", ""), repository,
                                    allowed_emails=allowed_user_emails(), verifier=verifier)
     service_auth = GoogleServiceAuthenticator(
@@ -121,6 +124,28 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         discovered=mcp.discover(current.user_id,server_id,server["config_ref"])
         grants=set(server["tool_grants"])
         return jsonable_encoder({**discovered,"tools":[{**tool,"granted":tool["name"] in grants} for tool in discovered["tools"]]})
+
+    @private.post("/skills", status_code=201)
+    def create_skill(value: SkillRevisionIn, current: AuthenticatedUser = Depends(user),
+                     idempotency_key: str = Depends(key)):
+        return jsonable_encoder(skills.write_skill_revision(
+            current.user_id, value.skill_id, value.revision,
+            value.definition.model_dump(mode="json"), idempotency_key,
+        ))
+
+    @private.get("/skills")
+    def list_skills(current: AuthenticatedUser = Depends(user)):
+        return jsonable_encoder({"items": repository.skill_revisions(current.user_id)})
+
+    @private.get("/skills/{skill_id}/{revision}")
+    def get_skill(skill_id: str, revision: int, current: AuthenticatedUser = Depends(user)):
+        return jsonable_encoder(skills.read_skill_revision(current.user_id, skill_id, revision))
+
+    @private.put("/skills/{skill_id}/state")
+    def set_skill_state(skill_id: str, value: SkillStateIn, current: AuthenticatedUser = Depends(user)):
+        return jsonable_encoder(repository.set_skill_state(
+            current.user_id, skill_id, enabled=value.enabled, revision=value.revision,
+        ))
 
     @private.post("/journal/events", status_code=201)
     def add_ledger(value: LedgerEventIn, current: AuthenticatedUser = Depends(user), idempotency_key: str = Depends(key)):
