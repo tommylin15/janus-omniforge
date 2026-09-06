@@ -1,0 +1,146 @@
+"""Bounded, owner-scoped context snapshots for the private assistant."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta, timezone
+from hashlib import sha256
+import json
+from secrets import token_urlsafe
+from typing import Any, Callable, Mapping, Sequence
+
+from .models import ContextSelector
+
+
+MAX_CONTEXT_BYTES = 32_768
+REF_TTL = timedelta(minutes=15)
+DATE_FIELDS = ("trade_date", "observed_date", "published_at", "valuation_date", "updated_at", "date")
+STORAGE_FIELDS = frozenset({"user_id", "artifact_ref", "artifact_reference", "object_path", "gcs_uri",
+                            "storage_uri", "raw_payload", "credential", "password", "secret", "token"})
+
+
+@dataclass(frozen=True)
+class SourceSpec:
+    source_id: str
+    kind: str
+    owner_scope: str
+    resources: tuple[str, ...]
+    freshness: str
+    disclosure: str
+
+
+SOURCES = (
+    SourceSpec("janus-core", "core", "public", ("ohlcv", "valuation", "institutional", "financials", "events", "market-activity", "benchmark"), "published daily data", "Published Janus market data."),
+    SourceSpec("janus-private-core", "private_core", "owner", ("notes", "watchlist"), "latest owner snapshot", "Private notes or watchlist selected by you."),
+    SourceSpec("janus-private-mart", "private_mart", "owner", ("positions", "annual-pnl"), "latest completed valuation", "Private portfolio calculations selected by you."),
+)
+SOURCE_BY_ID = {source.source_id: source for source in SOURCES}
+# Direct third-party chat sources remain fail-closed until license, quota, timeout,
+# provenance, egress, and retention fields are all approved.
+EXTERNAL_SOURCE_ALLOWLIST: frozenset[str] = frozenset()
+
+
+class ContextSourceError(ValueError): pass
+class ContextReferenceNotFound(LookupError): pass
+
+
+class CoreContextReader:
+    """Read-only PyIceberg scan over fixed Core identifiers."""
+
+    def __init__(self, catalog: Any) -> None: self.catalog = catalog
+
+    @classmethod
+    def from_env(cls) -> "CoreContextReader":
+        from .private_pipeline import CorePriceReader
+        return cls(CorePriceReader.from_env().catalog)
+
+    def page(self, dataset_id: str, symbol: str, limit: int) -> Sequence[Mapping[str, Any]]:
+        if dataset_id not in SOURCE_BY_ID["janus-core"].resources:
+            raise ContextSourceError("resource is not allowed for source")
+        identifier = f"core.{dataset_id.replace('-', '_')}_v1"
+        if not self.catalog.table_exists(identifier): return ()
+        from pyiceberg.expressions import EqualTo
+        field = "benchmark_id" if dataset_id == "benchmark" else "symbol"
+        return self.catalog.load_table(identifier).scan(row_filter=EqualTo(field,symbol),limit=min(limit,200)).to_arrow().to_pylist()
+
+
+class ContextSourceService:
+    def __init__(self, repository: Any, store: Any, core: Any, *,
+                 clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc)) -> None:
+        self.repository, self.store, self.core, self.clock = repository, store, core, clock
+
+    @staticmethod
+    def sources() -> list[dict[str, Any]]:
+        return [{"source_id":source.source_id, "kind":source.kind, "capabilities":["preview","date_range"],
+                 "as_of":None, "freshness":source.freshness, "owner_scope":source.owner_scope,
+                 "status":"available", "quota":{"max_records":20,"max_range_days":366,"max_output_bytes":MAX_CONTEXT_BYTES},
+                 "disclosure":source.disclosure} for source in SOURCES]
+
+    def preview(self, owner_id: Any, thread_id: str, selector: ContextSelector) -> dict[str, Any]:
+        source = SOURCE_BY_ID.get(selector.source_id)
+        if source is None or selector.resource not in source.resources:
+            raise ContextSourceError("source or resource is not allowed")
+        if not 1 <= len(thread_id.strip()) <= 128: raise ContextSourceError("thread_id is invalid")
+        rows = self._load(owner_id,selector)
+        records = [self._sanitize(row) for row in self._date_filter(rows,selector)][:selector.limit]
+        while records and len(json.dumps(records,default=str).encode()) > MAX_CONTEXT_BYTES: records.pop()
+        provenance = self._provenance(selector.source_id,records)
+        as_of = self._as_of(records)
+        context_ref = token_urlsafe(32)
+        expires_at = self.clock() + REF_TTL
+        self.store.write_context_snapshot(user_id=owner_id,context_id=sha256(context_ref.encode()).hexdigest(),
+            thread_id=thread_id,source_id=selector.source_id,resource=selector.resource,as_of=as_of,
+            expires_at=expires_at,records=records,provenance=provenance)
+        return {"source_id":selector.source_id,"resource":selector.resource,"preview":records,
+                "as_of":as_of,"provenance":provenance,"context_ref":context_ref,"expires_at":expires_at}
+
+    def resolve(self, owner_id: Any, thread_id: str, turn_id: str, refs: Sequence[str]) -> dict[str, Any]:
+        snapshots=[]
+        for context_ref in refs:
+            row=self.store.read_context_snapshot(owner_id,sha256(context_ref.encode()).hexdigest())
+            expires=row.get("expires_at") if row else None
+            if not row or row.get("thread_id") != thread_id or not isinstance(expires,datetime) or self.clock() >= expires:
+                raise ContextReferenceNotFound("context reference is invalid or expired")
+            snapshots.append({key:row[key] for key in ("source_id","resource","as_of","records","provenance")})
+        return {"owner_id":str(owner_id),"thread_id":thread_id,"turn_id":turn_id,"snapshots":snapshots}
+
+    def _load(self, owner_id: Any, selector: ContextSelector) -> Sequence[Mapping[str, Any]]:
+        if selector.source_id == "janus-core":
+            if not selector.symbol: raise ContextSourceError("symbol is required for Janus Core")
+            return self.core.page(selector.resource,selector.symbol,200)
+        if selector.resource == "notes":
+            return self.store.read_notes(owner_id,self.repository.notes(owner_id,selector.symbol))
+        if selector.resource == "watchlist": return self.repository.watchlist(owner_id)
+        table = "mart_user_positions" if selector.resource == "positions" else "mart_user_annual_pnl"
+        return self.store.mart(table,owner_id)
+
+    @classmethod
+    def _date_filter(cls, rows: Sequence[Mapping[str, Any]], selector: ContextSelector) -> list[Mapping[str, Any]]:
+        if not selector.start_date and not selector.end_date: return list(rows)
+        result=[]
+        for row in rows:
+            raw=next((row.get(field) for field in DATE_FIELDS if row.get(field) is not None),None)
+            try: value=raw.date() if isinstance(raw,datetime) else raw if isinstance(raw,date) else date.fromisoformat(str(raw)[:10])
+            except (TypeError,ValueError): continue
+            if (not selector.start_date or value >= selector.start_date) and (not selector.end_date or value <= selector.end_date): result.append(row)
+        return result
+
+    @classmethod
+    def _sanitize(cls, value: Any) -> Any:
+        if isinstance(value,Mapping):
+            return {key:cls._sanitize(item) for key,item in value.items()
+                    if str(key).lower() not in STORAGE_FIELDS and not str(key).lower().endswith(("_uri","_path","_credential","_password","_secret","_token"))}
+        if isinstance(value,(list,tuple)): return [cls._sanitize(item) for item in value]
+        if isinstance(value,str) and len(value) > 2_000: return value[:2_000]
+        return value
+
+    @staticmethod
+    def _as_of(rows: Sequence[Mapping[str, Any]]) -> str | None:
+        values=[str(row[field]) for row in rows for field in DATE_FIELDS if row.get(field) is not None]
+        return max(values) if values else None
+
+    @staticmethod
+    def _provenance(source_id: str, rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+        fields=("source_id","provenance_id","snapshot_id","ledger_version","valuation_date")
+        items={tuple((field,str(row[field])) for field in fields if row.get(field) is not None) for row in rows}
+        return [{"context_source_id":source_id,**dict(item)} for item in sorted(items)] or [{"context_source_id":source_id}]

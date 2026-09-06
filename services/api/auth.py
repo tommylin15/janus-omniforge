@@ -74,5 +74,44 @@ class GoogleUserAuthenticator:
         return id_token.verify_oauth2_token(token, requests.Request(), audience)
 
 
+class GoogleServiceAuthenticator:
+    """Google identity-token boundary for the internal Agent Gateway."""
+
+    def __init__(self, audience: str, allowed_callers: frozenset[str], *,
+                 verifier: Callable[[str, str], Mapping[str, Any]] | None = None,
+                 clock: Callable[[], float] = time.time) -> None:
+        self.audience = audience.strip()
+        self.allowed_callers = frozenset(value.strip().lower() for value in allowed_callers if value.strip())
+        self.verifier = verifier or GoogleUserAuthenticator._verify_google_token
+        self.clock = clock
+
+    def __call__(self, request: Request) -> Mapping[str, Any]:
+        if not self.audience or not self.allowed_callers:
+            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "internal authentication unavailable")
+        scheme, _, token = request.headers.get("Authorization", "").partition(" ")
+        if scheme.lower() != "bearer" or not token:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "service authentication required")
+        try:
+            claims = dict(self.verifier(token, self.audience))
+            audience = claims.get("aud")
+            audiences = {audience} if isinstance(audience, str) else set(audience or ())
+            email = str(claims.get("email", "")).strip().lower()
+            if str(claims.get("iss", "")) not in GOOGLE_ISSUERS or self.audience not in audiences:
+                raise ValueError("wrong token issuer or audience")
+            if int(claims.get("exp", 0)) <= int(self.clock()) or claims.get("email_verified") is not True:
+                raise ValueError("expired or unverified identity")
+            if email not in self.allowed_callers:
+                raise PermissionError("caller is not allowed")
+        except PermissionError as error:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "service account is not allowed") from error
+        except Exception as error:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid service credential") from error
+        return claims
+
+
 def allowed_user_emails() -> frozenset[str]:
     return frozenset(value.strip() for value in os.getenv("GOOGLE_USER_ALLOWED_EMAILS", "").split(",") if value.strip())
+
+
+def allowed_assistant_callers() -> frozenset[str]:
+    return frozenset(value.strip() for value in os.getenv("ASSISTANT_SERVICE_ACCOUNTS", "").split(",") if value.strip())

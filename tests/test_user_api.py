@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 import sys
@@ -30,16 +30,29 @@ class Repository:
 
 
 class Store:
-    def __init__(self): self.writes=[]
+    def __init__(self): self.writes=[]; self.contexts={}
     def write_note(self,**value): self.writes.append(value); return "private.note_revisions/n/1"
     def read_notes(self,user_id,indexes): return [{**indexes[0],"body":"private"}]
-    def mart(self,table,user_id,**filters): return [{"user_id":str(user_id),"table":table,**filters}]
+    def mart(self,table,user_id,**filters): return [{"user_id":str(user_id),"table":table,"valuation_date":"2026-09-05","artifact_ref":"private/hidden",**filters}]
+    def write_context_snapshot(self,**value): self.contexts[(str(value["user_id"]),value["context_id"])]=value; return "private.context/hidden"
+    def read_context_snapshot(self,user_id,context_id): return self.contexts.get((str(user_id),context_id))
 
 
-def client(claims=None):
+class Core:
+    def page(self,dataset,symbol,limit):
+        return [{"symbol":symbol,"trade_date":"2026-09-05","close":"100","source_id":"twse",
+                 "provenance_id":"prov-1","gcs_uri":"gs://hidden"}]
+
+
+def client(claims=None,service_claims=None):
     repo,store=Repository(),Store()
     values=claims or {"iss":"https://accounts.google.com","aud":"user-client","sub":"google-a","email":"old@example.com","email_verified":True,"exp":1_900_000_000}
-    app=create_app(repo,store,lambda _token,_audience:values,audience="user-client")
+    service_claims=service_claims or {"iss":"https://accounts.google.com","aud":"assistant-internal","sub":"service-1",
+                                      "email":"gateway@example.iam.gserviceaccount.com","email_verified":True,"exp":1_900_000_000}
+    app=create_app(repo,store,lambda _token,_audience:values,audience="user-client",core=Core(),
+                   internal_verifier=lambda _token,_audience:service_claims,
+                   internal_audience="assistant-internal",
+                   internal_callers=frozenset({"gateway@example.iam.gserviceaccount.com"}))
     return TestClient(app),repo,store
 
 
@@ -111,6 +124,57 @@ def test_private_deletion_is_authenticated_and_queued_for_the_same_user():
     response=api.delete("/api/v1/me/private-data",headers={**auth(),"Idempotency-Key":"delete-key-1"})
     assert response.status_code==202
     assert repo.calls[-1]==(USER_ID,"delete-key-1")
+
+
+def test_context_preview_is_bounded_opaque_and_owner_thread_bound():
+    api,_,store=client()
+    sources=api.get("/api/v1/me/ai-sources",headers=auth()).json()["items"]
+    assert {item["source_id"] for item in sources}=={"janus-core","janus-private-core","janus-private-mart"}
+    assert all(item["quota"]["max_records"]==20 for item in sources)
+
+    response=api.post("/api/v1/me/chats/thread-a/context-preview",headers=auth(),json={"selector":{
+        "source_id":"janus-core","resource":"ohlcv","symbol":"2330","limit":1}})
+    assert response.status_code==200
+    preview=response.json()
+    assert preview["preview"]==[{"symbol":"2330","trade_date":"2026-09-05","close":"100","source_id":"twse","provenance_id":"prov-1"}]
+    assert "thread-a" not in preview["context_ref"] and str(USER_ID) not in preview["context_ref"]
+    assert preview["provenance"]==[{"context_source_id":"janus-core","source_id":"twse","provenance_id":"prov-1"}]
+    assert all(ref != preview["context_ref"] for _,ref in store.contexts)
+
+    payload={"owner_id":str(USER_ID),"thread_id":"thread-a","turn_id":"turn-a","context_refs":[preview["context_ref"]]}
+    assert api.post("/internal/v1/assistant/context:resolve",json=payload).status_code==401
+    resolved=api.post("/internal/v1/assistant/context:resolve",headers=auth(),json=payload)
+    assert resolved.status_code==200
+    assert resolved.json()["snapshots"][0]["records"]==preview["preview"]
+    assert "artifact_ref" not in str(resolved.json()) and "gcs_uri" not in str(resolved.json())
+
+    payload["thread_id"]="thread-b"
+    assert api.post("/internal/v1/assistant/context:resolve",headers=auth(),json=payload).status_code==404
+    payload["thread_id"]="thread-a"; payload["owner_id"]=str(uuid4())
+    assert api.post("/internal/v1/assistant/context:resolve",headers=auth(),json=payload).status_code==404
+    payload["owner_id"]=str(USER_ID)
+    next(iter(store.contexts.values()))["expires_at"]=datetime.now(timezone.utc)-timedelta(seconds=1)
+    assert api.post("/internal/v1/assistant/context:resolve",headers=auth(),json=payload).status_code==404
+
+
+def test_context_selector_rejects_unknown_sources_sql_and_unbounded_ranges():
+    api,_,_=client()
+    for selector in (
+        {"source_id":"unknown","resource":"ohlcv","symbol":"2330"},
+        {"source_id":"janus-core","resource":"ohlcv","symbol":"2330","sql":"select *"},
+        {"source_id":"janus-core","resource":"ohlcv","symbol":"2330","start_date":"2024-01-01","end_date":"2026-01-02"},
+    ):
+        response=api.post("/api/v1/me/chats/thread-a/context-preview",headers=auth(),json={"selector":selector})
+        assert response.status_code==422
+
+
+def test_internal_context_resolver_rejects_unapproved_service_account():
+    claims={"iss":"https://accounts.google.com","aud":"assistant-internal","sub":"service-2",
+            "email":"other@example.iam.gserviceaccount.com","email_verified":True,"exp":1_900_000_000}
+    api,_,_=client(service_claims=claims)
+    response=api.post("/internal/v1/assistant/context:resolve",headers=auth(),json={
+        "owner_id":str(USER_ID),"thread_id":"thread-a","turn_id":"turn-a","context_refs":["x"*32]})
+    assert response.status_code==403
 
 
 def test_private_migration_has_decimal_append_only_and_user_leading_guards():

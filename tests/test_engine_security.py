@@ -71,6 +71,7 @@ def test_agent_event_envelope_is_shared_and_schema_stays_in_sync():
     assert set(schema["definitions"]["AgentEventV1"]["properties"]["type"]["enum"]) == {
         event_type.value for event_type in AgentEventType
     }
+    assert {"ContextSourceV1","ContextSelectorV1","ContextPreviewV1","ContextResolveV1"} <= set(schema["definitions"])
     with pytest.raises(ValueError):
         AgentEvent("event-2", -1, "thread-1", "turn-1", AgentEventType.USAGE, {})
 

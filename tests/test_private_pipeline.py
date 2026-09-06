@@ -97,6 +97,13 @@ def test_private_iceberg_note_rows_are_scoped_by_user():
         store.write_note(user_id=other,note_id=uuid4(),revision=1,body="other",symbol=None,trade_event_id=None,needs_follow_up=False)
         rows=store.rows("note_revisions",USER)
         assert [row["body"] for row in rows]==["mine"]
+
+        expires=datetime.now(timezone.utc)+timedelta(minutes=15)
+        store.write_context_snapshot(user_id=USER,context_id="a"*64,thread_id="thread-a",source_id="janus-core",
+                                     resource="ohlcv",as_of="2026-09-05",expires_at=expires,
+                                     records=[{"symbol":"2330"}],provenance=[{"source_id":"twse"}])
+        assert store.read_context_snapshot(USER,"a"*64)["records"]==[{"symbol":"2330"}]
+        assert store.read_context_snapshot(other,"a"*64) is None
     finally:
         catalog.engine.dispose()
         shutil.rmtree(root)

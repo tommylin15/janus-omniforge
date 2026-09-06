@@ -1,5 +1,21 @@
 # TODO 完成紀錄（2026-09-06）
 
+## WBS-4C-CONTEXT-SOURCES
+
+完成 read-only context sources：Janus Core、Private Core、Private Mart；加入
+owner/thread scope、日期與 limit quota、provenance disclosure、opaque short-lived
+context reference，以及 fail-closed 的外部 source allowlist。新增 source list、preview
+與 internal resolve API，並將 context snapshot 以 owner/context ID 隔離寫入 Private Iceberg。
+
+GCP dev 驗收由 Cloud Build `92131984-c36e-4755-9c20-9f37ba3cea12` 通過，涵蓋 source
+list、Core／Private Mart preview、opaque reference、owner/thread isolation、resolve 與
+invalid selector/SQL。API 最終 revision 為 `janus-api-00016-4bv`，immutable image digest
+為 `sha256:3e702dac14143d478b7eb11925c8bff4c40c8826f28b4b0907d4228ab55871f9`。
+
+驗收期間的兩個暫時 `roles/iam.serviceAccountTokenCreator` binding 已由腳本自動移除；
+依授權保留 dev 中 `janus-user-api` 對既有 Core catalog password Secret 的 read-only
+`roles/secretmanager.secretAccessor`。未部署 production，未新增付費 GCP 資源。
+
 ## WBS-4C-CLOUD-RUNTIME
 
 完成 Cloud Run Agent Gateway POC：

@@ -79,3 +79,39 @@ class WatchlistIn(StrictModel):
 class WatchlistOrderIn(StrictModel):
     symbols: Annotated[list[str], Field(max_length=50)]
     expected_version: Annotated[int, Field(ge=1)]
+
+
+class ContextSelector(StrictModel):
+    source_id: Annotated[str, Field(pattern=r"^[a-z0-9-]{1,40}$")]
+    resource: Annotated[str, Field(pattern=r"^[a-z0-9-]{1,40}$")]
+    symbol: Annotated[str | None, Field(pattern=r"^[0-9A-Z._-]{1,20}$")] = None
+    start_date: date | None = None
+    end_date: date | None = None
+    limit: Annotated[int, Field(ge=1, le=20)] = 10
+
+    @model_validator(mode="after")
+    def validate_dates(self) -> "ContextSelector":
+        if (self.start_date is None) != (self.end_date is None):
+            raise ValueError("start_date and end_date must be supplied together")
+        if self.start_date and self.end_date and self.start_date > self.end_date:
+            raise ValueError("start_date cannot be after end_date")
+        if self.start_date and self.end_date and (self.end_date - self.start_date).days > 366:
+            raise ValueError("context date range cannot exceed 366 days")
+        return self
+
+
+class ContextPreviewIn(StrictModel):
+    selector: ContextSelector
+
+
+class ContextResolveIn(StrictModel):
+    owner_id: UUID
+    thread_id: Annotated[str, Field(min_length=1, max_length=128)]
+    turn_id: Annotated[str, Field(min_length=1, max_length=128)]
+    context_refs: Annotated[list[Annotated[str, Field(min_length=32, max_length=128)]], Field(min_length=1, max_length=10)]
+
+    @model_validator(mode="after")
+    def validate_refs(self) -> "ContextResolveIn":
+        if len(self.context_refs) != len(set(self.context_refs)):
+            raise ValueError("context_refs must be unique")
+        return self

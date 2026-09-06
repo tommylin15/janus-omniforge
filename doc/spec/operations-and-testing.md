@@ -7,6 +7,19 @@ pytest 14/14、Python `py_compile`、inline JavaScript syntax 與 `git diff --ch
 passed。此次 host 缺少 FastAPI runtime，新增 API contract test 未在本機重跑；API image
 由 GCP Cloud Build lockfile build 驗證，真人 acceptance 由 GCP dev runtime 完成。
 
+## P0 WBS 4C Context Sources（2026-09-06）
+
+GCP dev Cloud Build `92131984-c36e-4755-9c20-9f37ba3cea12` 成功完成 source list、
+Janus Core／Private Mart preview、opaque context reference、owner/thread isolation、
+resolve 與 invalid selector/SQL 驗收。API 最終為 revision `janus-api-00016-4bv`，image
+digest `sha256:3e702dac14143d478b7eb11925c8bff4c40c8826f28b4b0907d4228ab55871f9`。
+
+驗收腳本在 Cloud Build worker 內建立的兩個暫時 Token Creator binding 已清理；
+`janus-user-api` 對既有 Core catalog password Secret 的 dev read-only accessor 依授權保留。
+本機新增 API 測試因 host 缺少 FastAPI runtime 未能 collection；既有 targeted tests 為
+13 passed、1 項因 host 缺少 `zoneinfo`／`pytz` 而失敗。腳本 `bash -n` 與 `git diff --check`
+通過。
+
 ## P0 WBS 4C Cloud Runtime POC（2026-09-06）
 
 Agent Gateway image 使用 immutable digest

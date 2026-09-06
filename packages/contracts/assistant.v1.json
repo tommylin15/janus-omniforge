@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Janus private assistant contracts",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "definitions": {
     "RuntimeBindingV1": {
       "type": "object",
@@ -60,6 +60,69 @@
         "scope": {"type": "string", "minLength": 1},
         "paramsDigest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
         "expiresAt": {"type": "string", "format": "date-time"}
+      },
+      "additionalProperties": false
+    },
+    "ContextSourceV1": {
+      "type": "object",
+      "required": ["sourceId", "kind", "capabilities", "asOf", "freshness", "ownerScope", "status", "quota", "disclosure"],
+      "properties": {
+        "sourceId": {"type": "string", "pattern": "^[a-z0-9-]{1,40}$"},
+        "kind": {"enum": ["core", "private_core", "private_mart", "external"]},
+        "capabilities": {"type": "array", "items": {"enum": ["preview", "date_range"]}, "uniqueItems": true},
+        "asOf": {"type": ["string", "null"], "format": "date-time"},
+        "freshness": {"type": "string", "minLength": 1},
+        "ownerScope": {"enum": ["public", "owner"]},
+        "status": {"enum": ["available", "stale", "quota_exhausted", "unavailable"]},
+        "quota": {
+          "type": "object",
+          "required": ["maxRecords", "maxRangeDays", "maxOutputBytes"],
+          "properties": {
+            "maxRecords": {"type": "integer", "minimum": 1, "maximum": 20},
+            "maxRangeDays": {"type": "integer", "minimum": 1, "maximum": 366},
+            "maxOutputBytes": {"type": "integer", "minimum": 1, "maximum": 32768}
+          },
+          "additionalProperties": false
+        },
+        "disclosure": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "ContextSelectorV1": {
+      "type": "object",
+      "required": ["sourceId", "resource"],
+      "properties": {
+        "sourceId": {"type": "string", "pattern": "^[a-z0-9-]{1,40}$"},
+        "resource": {"type": "string", "pattern": "^[a-z0-9-]{1,40}$"},
+        "symbol": {"type": ["string", "null"], "pattern": "^[0-9A-Z._-]{1,20}$"},
+        "startDate": {"type": ["string", "null"], "format": "date"},
+        "endDate": {"type": ["string", "null"], "format": "date"},
+        "limit": {"type": "integer", "minimum": 1, "maximum": 20, "default": 10}
+      },
+      "additionalProperties": false
+    },
+    "ContextPreviewV1": {
+      "type": "object",
+      "required": ["sourceId", "resource", "preview", "asOf", "provenance", "contextRef", "expiresAt"],
+      "properties": {
+        "sourceId": {"type": "string", "minLength": 1},
+        "resource": {"type": "string", "minLength": 1},
+        "preview": {"type": "array", "maxItems": 20, "items": {"type": "object"}},
+        "asOf": {"type": ["string", "null"]},
+        "provenance": {"type": "array", "items": {"type": "object"}},
+        "contextRef": {"type": "string", "minLength": 32},
+        "expiresAt": {"type": "string", "format": "date-time"}
+      },
+      "additionalProperties": false
+    },
+    "ContextResolveV1": {
+      "type": "object",
+      "required": ["ownerId", "threadId", "turnId", "contextRefs"],
+      "properties": {
+        "ownerId": {"type": "string", "format": "uuid"},
+        "threadId": {"type": "string", "minLength": 1, "maxLength": 128},
+        "turnId": {"type": "string", "minLength": 1, "maxLength": 128},
+        "contextRefs": {"type": "array", "minItems": 1, "maxItems": 10, "uniqueItems": true, "items": {"type": "string", "minLength": 32}}
       },
       "additionalProperties": false
     }

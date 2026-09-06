@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from enum import Enum
+import json
 import os
 from typing import Any, Iterable
 from uuid import UUID
@@ -19,6 +20,7 @@ class PrivateIcebergStore:
         "mart_user_realized_pnl": ("user_id", "event_id", "ledger_version", "valuation_date"),
         "mart_user_unrealized_pnl": ("user_id", "symbol", "currency", "ledger_version", "valuation_date"),
         "mart_user_annual_pnl": ("user_id", "year", "currency", "ledger_version", "valuation_date"),
+        "context_snapshots": ("user_id", "context_id"),
     }
 
     def __init__(self, catalog: Any, warehouse: str, namespace: str = "private") -> None:
@@ -65,6 +67,27 @@ class PrivateIcebergStore:
         if not rows: return []
         latest=max((row.get("ledger_version",0),str(row.get("valuation_date",""))) for row in rows)
         return [row for row in rows if (row.get("ledger_version",0),str(row.get("valuation_date","")))==latest]
+
+    def write_context_snapshot(self, *, user_id: Any, context_id: str, thread_id: str, source_id: str,
+                               resource: str, as_of: str | None, expires_at: datetime,
+                               records: list[dict[str, Any]], provenance: list[dict[str, Any]]) -> str:
+        ref = f"private.context_snapshots/{context_id}"
+        self.upsert("context_snapshots", [{"user_id":str(user_id), "context_id":context_id,
+            "thread_id":thread_id, "source_id":source_id, "resource":resource, "as_of":as_of,
+            "expires_at":expires_at, "records_json":json.dumps(records,default=str,separators=(",",":")),
+            "provenance_json":json.dumps(provenance,default=str,separators=(",",":")), "artifact_ref":ref}])
+        return ref
+
+    def read_context_snapshot(self, user_id: Any, context_id: str) -> dict[str, Any] | None:
+        identifier = f"{self.namespace}.context_snapshots"
+        if not self.catalog.table_exists(identifier): return None
+        from pyiceberg.expressions import And, EqualTo
+        rows=self.catalog.load_table(identifier).scan(
+            row_filter=And(EqualTo("user_id",str(user_id)),EqualTo("context_id",context_id)),limit=1).to_arrow().to_pylist()
+        row=rows[0] if rows else None
+        if row is None: return None
+        return {key:value for key,value in row.items() if key not in {"records_json","provenance_json"}} | {
+            "records":json.loads(row["records_json"]), "provenance":json.loads(row["provenance_json"])}
 
     def rows(self, table: str, user_id: Any) -> list[dict[str, Any]]:
         identifier = f"{self.namespace}.{table}"

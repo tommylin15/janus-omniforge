@@ -10,8 +10,12 @@ from fastapi import APIRouter, Depends, FastAPI, Header, Query, Request, Respons
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 
-from .auth import AuthenticatedUser, GoogleUserAuthenticator, allowed_user_emails
-from .models import CorrectionIn, LedgerEventIn, NoteIn, NoteRevisionIn, WatchlistIn, WatchlistOrderIn
+from .auth import (AuthenticatedUser, GoogleServiceAuthenticator, GoogleUserAuthenticator,
+                   allowed_assistant_callers, allowed_user_emails)
+from .context_sources import (ContextReferenceNotFound, ContextSourceError, ContextSourceService,
+                              CoreContextReader)
+from .models import (ContextPreviewIn, ContextResolveIn, CorrectionIn, LedgerEventIn, NoteIn,
+                     NoteRevisionIn, WatchlistIn, WatchlistOrderIn)
 from .repository import ConflictError, NotFoundError, OversellError, repository_from_env
 from .store import PrivateIcebergStore
 
@@ -26,17 +30,28 @@ class _Lazy:
 
 
 def create_app(repository: Any | None = None, store: Any | None = None,
-               verifier: Callable[..., Any] | None = None, *, audience: str | None = None) -> FastAPI:
+               verifier: Callable[..., Any] | None = None, *, audience: str | None = None,
+               core: Any | None = None, internal_verifier: Callable[..., Any] | None = None,
+               internal_audience: str | None = None,
+               internal_callers: frozenset[str] | None = None) -> FastAPI:
     repository = repository or _Lazy(repository_from_env)
     store = store or _Lazy(PrivateIcebergStore.from_env)
+    core = core or _Lazy(CoreContextReader.from_env)
+    contexts = ContextSourceService(repository,store,core)
     auth = GoogleUserAuthenticator(audience or os.getenv("GOOGLE_USER_CLIENT_ID", ""), repository,
                                    allowed_emails=allowed_user_emails(), verifier=verifier)
+    service_auth = GoogleServiceAuthenticator(
+        internal_audience or os.getenv("INTERNAL_ASSISTANT_AUDIENCE", ""),
+        internal_callers if internal_callers is not None else allowed_assistant_callers(),
+        verifier=internal_verifier,
+    )
     api = FastAPI(title="Janus User API", version="0.1.0", docs_url=None, redoc_url=None)
     origins=[value.strip() for value in os.getenv("USER_CORS_ORIGINS","").split(",") if value.strip()]
     if origins:
         api.add_middleware(CORSMiddleware,allow_origins=origins,allow_credentials=False,
                            allow_methods=["GET","POST","PUT","DELETE"],allow_headers=["Authorization","Content-Type","Idempotency-Key"])
     def authenticate(request: Request) -> AuthenticatedUser: return auth(request)
+    def authenticate_service(request: Request) -> Any: return service_auth(request)
     private = APIRouter(prefix="/api/v1/me", dependencies=[Depends(authenticate)])
 
     def user(request_user: AuthenticatedUser = Depends(authenticate)) -> AuthenticatedUser: return request_user
@@ -50,9 +65,15 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         from fastapi.responses import JSONResponse
         return JSONResponse({"detail":str(error)}, status_code=status.HTTP_404_NOT_FOUND)
 
+    async def invalid_handler(_request: Any, error: Exception):
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"detail":str(error)}, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
     api.add_exception_handler(ConflictError, conflict_handler)
     api.add_exception_handler(OversellError, conflict_handler)
     api.add_exception_handler(NotFoundError, missing_handler)
+    api.add_exception_handler(ContextReferenceNotFound, missing_handler)
+    api.add_exception_handler(ContextSourceError, invalid_handler)
 
     @api.get("/health")
     def health() -> dict[str, str]: return {"status":"ok"}
@@ -60,6 +81,14 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @private.get("/profile")
     def profile(current: AuthenticatedUser = Depends(user)) -> dict[str, Any]:
         return {"user_id":current.user_id,"email":current.email}
+
+    @private.get("/ai-sources")
+    def ai_sources(_current: AuthenticatedUser = Depends(user)):
+        return {"items":contexts.sources()}
+
+    @private.post("/chats/{conversation_id}/context-preview")
+    def context_preview(conversation_id:str,value:ContextPreviewIn,current:AuthenticatedUser=Depends(user)):
+        return jsonable_encoder(contexts.preview(current.user_id,conversation_id,value.selector))
 
     @private.post("/journal/events", status_code=201)
     def add_ledger(value: LedgerEventIn, current: AuthenticatedUser = Depends(user), idempotency_key: str = Depends(key)):
@@ -124,6 +153,10 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @private.delete("/private-data",status_code=202)
     def delete_private_data(current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
         return jsonable_encoder(repository.request_deletion(current.user_id,idempotency_key))
+
+    @api.post("/internal/v1/assistant/context:resolve",dependencies=[Depends(authenticate_service)])
+    def resolve_context(value:ContextResolveIn):
+        return jsonable_encoder(contexts.resolve(value.owner_id,value.thread_id,value.turn_id,value.context_refs))
 
     api.include_router(private)
     return api
