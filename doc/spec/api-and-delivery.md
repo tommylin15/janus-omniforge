@@ -18,7 +18,7 @@
 - OpenRouter 使用 runtime `OPENROUTER_API_KEY` 動態選擇具所需 tools／streaming capability 的模型；Gemini 以 `GEMINI_API_KEY` 直接呼叫 Gemini Developer REST API 免費層，保留 Google Search Grounding／citations／查詢時間，不引入 Google GenAI SDK；Codex 由 Cloud Run Agent Gateway 在容器內以 stdio JSON-RPC 啟動 App Server，使用 managed OAuth／device-code，不使用直接 OpenAI API fallback。
 - 所有 runtime 共用 MCP Host 工具授權、Skills 與 AgentEvent UI；Codex 原生 sandbox／approval 另經 bridge 映射，不能用一般文字 token 串流取代。
 - User token 只接受 User OAuth audience 並只授權 `/api/v1/me/*`；不得用於 `/api/v1/admin/*`。Admin token／session 亦不因具管理權限而取得一般交易內容讀取能力。
-- User 可匯出自己的交易、筆記、關注股、Skills 與對話資料並要求刪除私人資料；刪除採可稽核、可重試的非同步流程，涵蓋 PostgreSQL、Private Core／Mart、GCS artifact、Codex thread／auth state 與 service cache，且不影響依法或安全要求保留的最小 audit metadata。
+- User 可匯出自己的交易、筆記、關注股、Skills 與對話資料並要求刪除私人資料；刪除採可稽核、可重試的非同步流程，涵蓋 PostgreSQL、Private Core／Mart、GCS artifact、Codex thread／auth state 與 service cache，且不影響依法或安全要求保留的最小 audit metadata。排隊後該 owner 進入 `DELETING` 並拒絕新 login、turn 與 artifact write；任一步失敗保留 `CLEANUP_PENDING`，只有必要 cleanup 全部完成才可標示 `COMPLETED`。
 - 交易日誌／PnL 納入私人 MVP；市場投票排行榜、遊戲化、付費、公開績效排名與券商同步不在當前範圍。
 - 個人記帳、筆記、關注股與私人聊天室可在公開 Mart 前獨立上線至 dev；未完成的「今日／公開探索」只顯示 coming soon，不得因此觸發即時分析或阻擋私人功能。
 - UI 詳細契約見 `../ui.md`。
@@ -38,7 +38,9 @@
 - 最小事件 envelope 包含 eventId、seq、threadId、turnId 及可選 itemId／provider IDs；事件種類為 text delta、item upsert、tool request／result、approval request／resolved、citation、usage、turn completed／cancelled／error。
 - SSE 使用既有 chats events route，支援 bounded replay／cursor／backpressure；authenticated HTTPS POST 傳送 approval／cancel。批准必須綁定 owner／turn／request／參數，重播與過期拒絕；provider 專屬 approval decision 由 adapter 映射。
 - Shell／寫檔預設不授權，經明確批准後只限該 turn 的 Cloud Run 暫存 sandbox；MCP process 另做程序／環境隔離。Janus Admin、交易／筆記／watchlist mutation 與下單仍禁止；外部內容及 Skill 無法覆蓋。
-- API／MCP keys 與 Codex auth cache 只在 Secret Manager 或另經核准的隔離 GCP credential store，API payload 僅傳 connection reference。工具輸出／event 先去 secret 再儲存，不保存 raw provider error；auth refresh 安全持久化未通過 POC 時 fail closed。
+- API／MCP keys 與 Codex auth cache 只在 Secret Manager 或另經核准的隔離 GCP credential store，API payload 僅傳 connection reference。Codex 正式路徑由 authenticated identity 映射內部 owner UUID，Gateway 不接受 client 指定 owner 或 Secret resource name；每個 owner 使用隔離 auth resource、`CODEX_HOME` 與 App Server process。refresh 新版本確認成功後銷毀舊版本；Gateway 只讀／輪替、deletion runtime 只刪除且不讀 payload，均不得取得 project-wide admin。工具輸出／event 先去 secret 再儲存，不保存 raw provider error；owner-scoped auth lifecycle 未通過 GCP dev 驗收時 fail closed。
+- Dev credential resource 由 operator 僅為 allowlisted owner 建立並逐資源授權；大量正式使用者的自助 provisioning 與成本另案核准，不藉此擴大 Gateway 或 User API 權限。
+- Codex 刪除依序停止 owner session、執行 App Server logout、刪除 owner auth，再清私人 artifacts 與 PostgreSQL index；各步驟冪等，無 thread 或 auth 已不存在仍可成功。App Server logout 只代表 managed credentials 已清除，不宣稱供應商端 refresh token 已撤銷。Iceberg snapshot／orphan file 與 GCS object version 的實際保留期限必須被驗證並向 UI 揭露。
 - 長正文／context／citations／items／skill revisions 儘可能進 Private Iceberg；PostgreSQL 保存 bounded thread／turn／pending approval／usage reservation 索引與 artifact references。Cloud Run filesystem 只作 bounded ephemeral storage；核准保留的 artifact 寫入 Private GCS／Iceberg，刪除涵蓋雲端狀態與暫存 reference。
 - Gemini 免費 Grounding 須確認模型能力與專案 quota；額度不足／不可用明確回報，禁止自動付費。OpenRouter 啟用付費另需同意；quota／budget 用原子 reservation 防併發超支。私人 context 外送須明確選取並顯示供應商。
 - 只有 Cloud Run 無法滿足超過 request timeout 的不可中斷 turn、必要持久 daemon／特殊 sandbox 權限，或實測資源／連線需求時，才提出 Compute Engine／GKE 方案；必須先提供成本、安全、維運、資料遷移與退出評估，取得使用者明確決定後才能實作或建立資源。

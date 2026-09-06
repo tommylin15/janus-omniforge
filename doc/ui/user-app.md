@@ -57,7 +57,7 @@ K 線、五角色明細、估值指標與完整 provenance 屬「進階資料」
 
 ### 5.5 雲端私人助理
 
-- Runtime selector 顯示 `OpenRouter`、`Gemini API`、`Codex`；OpenRouter 再顯示具目前所需 capability 的核准模型，Gemini 直接用 REST API，Codex 顯示 Cloud Run Agent 與 subscription login 狀態。`ChatGPT` 如存在只顯示為 Codex preset。
+- Runtime selector 顯示 `OpenRouter`、`Gemini API`、`Codex`；OpenRouter 再顯示具目前所需 capability 的核准模型，Gemini 直接用 REST API，Codex 顯示該使用者自己的 Cloud Run Agent 與 subscription login 狀態。刪除進行中禁止重新登入或啟動 turn；刪除完成後再次使用 Codex 必須重新登入。`ChatGPT` 如存在只顯示為 Codex preset。
 - 每個 thread 固定 runtime／model；切換時提示建立新 thread／fork 並選擇是否轉移 context。訊息顯示 provider、model、skill、資料日期、所選持股／筆記 context、search 狀態與可點擊 citations；不得暗中 fallback。
 - 既有 Flutter Web／Android／iOS 提供 Threads sidebar／drawer、Markdown／程式碼高亮、streaming transcript、Data Sources、MCP Servers／Tools 與 Skills controls；不建立 React／Tauri desktop app。Codex 另顯示 Turns、Items 與 Approval Requests。Item 依 itemId 更新，event 依 eventId／seq 去重，不把 delta 重複附加。
 - Data Sources 面板區分 Janus Public Core／Mart、Private Portfolio／Journal／Notes 與外部來源；顯示 source、as-of date、provenance、owner scope、連線／quota 狀態。私人 context 必須由使用者逐項選取，模型看不到 GCS URI 或資料庫 credential。
@@ -79,5 +79,5 @@ K 線、五角色明細、估值指標與完整 provenance 屬「進階資料」
 
 - theme 使用 light／dark／system；字體縮放跟隨系統，不自建第二套縮放引擎。
 - 投資屬性提供風險承受度、投資期間、主要目標與最低現金比例；送入 AI 前須逐次或以清楚設定 opt-in。
-- 提供「匯出我的私人資料」與「永久刪除私人資料」，涵蓋交易、筆記、關注股、Skills、對話與 Codex 雲端 thread／auth state。刪除使用 danger zone、再次驗證與明確影響範圍，不以單次誤觸直接執行。
+- 提供「匯出我的私人資料」與「永久刪除私人資料」，涵蓋交易、筆記、關注股、Skills、對話與 Codex 雲端 thread／auth state。刪除使用 danger zone、再次驗證與明確影響範圍，不以單次誤觸直接執行；提交後顯示 `QUEUED`／`CLEANUP_PENDING`／`COMPLETED` 對應文案與可重試狀態。`CLEANUP_PENDING` 不得顯示成功；若 Iceberg snapshot 或 GCS object version 尚在必要 lifecycle／保留期，顯示實際期限。完成後 Codex 顯示需重新登入。
 - 不放方案定價、預測戰績或公開排行榜；待產品與法遵另案確認後再新增。

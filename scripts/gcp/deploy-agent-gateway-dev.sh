@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 project="${GCP_PROJECT_ID:?GCP_PROJECT_ID is required}"
 region="${GCP_REGION:-us-central1}"
-secret="${CODEX_AUTH_SECRET_NAME:-janus-codex-managed-auth}"
+owner_secrets="${CODEX_OWNER_SECRETS:?CODEX_OWNER_SECRETS JSON map is required}"
 owner_secret="${MCP_OWNER_SIGNING_SECRET_NAME:-janus-mcp-owner-signing-key}"
 service="janus-agent-gateway"
 account="janus-agent-gateway@${project}.iam.gserviceaccount.com"
@@ -19,7 +19,6 @@ if [[ "${ALLOW_AGENT_GATEWAY_DEV_DEPLOY:-false}" != "true" ]]; then
   echo 'Refusing deployment: set ALLOW_AGENT_GATEWAY_DEV_DEPLOY=true explicitly.' >&2
   exit 1
 fi
-gcloud secrets describe "${secret}" --project="${project}" >/dev/null
 gcloud secrets describe "${owner_secret}" --project="${project}" >/dev/null
 gcloud storage buckets describe "gs://${bucket}" --project="${project}" >/dev/null
 
@@ -35,10 +34,14 @@ for role in roles/storage.objectCreator roles/storage.objectViewer; do
   gcloud storage buckets add-iam-policy-binding "gs://${bucket}" \
     --member="serviceAccount:${account}" --role="${role}" --quiet
 done
-for role in roles/secretmanager.secretAccessor roles/secretmanager.secretVersionAdder; do
-  gcloud secrets add-iam-policy-binding "${secret}" --project="${project}" \
-    --member="serviceAccount:${account}" --role="${role}" --quiet
-done
+while IFS= read -r resource; do
+  secret_name="${resource##*/}"
+  gcloud secrets describe "${secret_name}" --project="${project}" >/dev/null
+  for role in roles/secretmanager.secretAccessor roles/secretmanager.secretVersionAdder roles/secretmanager.secretVersionManager; do
+    gcloud secrets add-iam-policy-binding "${secret_name}" --project="${project}" \
+      --member="serviceAccount:${account}" --role="${role}" --quiet >/dev/null
+  done
+done < <(OWNER_SECRETS="${owner_secrets}" python3 -c 'import json,os; print("\n".join(dict.fromkeys(json.loads(os.environ["OWNER_SECRETS"]).values())))')
 for runtime in "${account}" "janus-user-api@${project}.iam.gserviceaccount.com"; do
   gcloud secrets add-iam-policy-binding "${owner_secret}" --project="${project}" \
     --member="serviceAccount:${runtime}" --role=roles/secretmanager.secretAccessor --quiet
@@ -59,7 +62,7 @@ gcloud run deploy "${service}" --project="${project}" --region="${region}" \
   --cpu=1 --memory=1Gi \
   --add-volume=name=agent-sandbox,type=in-memory,size-limit=256Mi \
   --add-volume-mount=volume=agent-sandbox,mount-path=/var/run/janus \
-  --set-env-vars="^~^CODEX_POC_ENABLED=true~MCP_HOST_ENABLED=true~CODEX_AUTH_SECRET=projects/${project}/secrets/${secret}~AGENT_CHECKPOINT_BUCKET=${bucket}~MCP_SERVER_CONFIGS=${mcp_configs}" \
+  --set-env-vars="^~^CODEX_POC_ENABLED=true~MCP_HOST_ENABLED=true~CODEX_OWNER_SECRETS=${owner_secrets}~AGENT_CHECKPOINT_BUCKET=${bucket}~MCP_SERVER_CONFIGS=${mcp_configs}" \
   --set-secrets="MCP_OWNER_SIGNING_KEY=${owner_secret}:latest" \
   --quiet
 gcloud run services add-iam-policy-binding "${service}" --project="${project}" --region="${region}" \

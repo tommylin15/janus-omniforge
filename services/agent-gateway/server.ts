@@ -153,19 +153,49 @@ async function googleJson(fetcher: typeof fetch, url: string, init: RequestInit 
     ...init,
     headers: { authorization: `Bearer ${token}`, ...JSON_HEADERS, ...init.headers },
   });
-  if (!response.ok) throw new Error(`Google API request failed (${response.status})`);
+  if (!response.ok) {
+    const error = new Error(`Google API request failed (${response.status})`) as Error & { status: number };
+    error.status = response.status;
+    throw error;
+  }
   return response.json() as Promise<Json>;
+}
+
+export class OwnerAuthRegistry {
+  private constructor(private resources: Map<string, string>) {}
+
+  static parse(value: string): OwnerAuthRegistry {
+    const parsed = JSON.parse(value) as unknown;
+    if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") throw new Error("CODEX_OWNER_SECRETS is invalid");
+    const resources = new Map<string, string>();
+    for (const [ownerId, resource] of Object.entries(parsed)) {
+      if (!/^[0-9a-f-]{36}$/i.test(ownerId) || typeof resource !== "string" || !/^projects\/[^/]+\/secrets\/[^/]+$/.test(resource)) {
+        throw new Error("CODEX_OWNER_SECRETS is invalid");
+      }
+      resources.set(ownerId.toLowerCase(), resource);
+    }
+    if (!resources.size) throw new Error("CODEX_OWNER_SECRETS is empty");
+    return new OwnerAuthRegistry(resources);
+  }
+
+  resource(ownerId: string): string {
+    if (!/^[0-9a-f-]{36}$/i.test(ownerId)) throw new Error("owner id is invalid");
+    const resource = this.resources.get(ownerId.toLowerCase());
+    if (!resource) throw new Error("owner is not allowlisted for Codex");
+    return resource;
+  }
 }
 
 export class ManagedAuthStore {
   private digest?: string;
+  private version?: string;
 
   constructor(private resource: string, private fetcher: typeof fetch = fetch) {
     if (!/^projects\/[^/]+\/secrets\/[^/]+$/.test(resource)) throw new Error("CODEX_AUTH_SECRET is invalid");
   }
 
   async load(home: string): Promise<void> {
-    const body = await googleJson(this.fetcher, `https://secretmanager.googleapis.com/v1/${this.resource}/versions/latest:access`) as { payload?: { data?: string } };
+    const body = await googleJson(this.fetcher, `https://secretmanager.googleapis.com/v1/${this.resource}/versions/latest:access`) as { name?: string; payload?: { data?: string } };
     if (!body.payload?.data) throw new Error("Codex managed auth secret is empty");
     const raw = Buffer.from(body.payload.data, "base64");
     JSON.parse(raw.toString("utf8"));
@@ -173,18 +203,54 @@ export class ManagedAuthStore {
     await writeFile(join(home, "auth.json"), raw, { mode: 0o600 });
     await chmod(join(home, "auth.json"), 0o600);
     this.digest = createHash("sha256").update(raw).digest("hex");
+    this.version = body.name;
   }
 
   async persist(home: string): Promise<boolean> {
     const raw = await readFile(join(home, "auth.json"));
     const digest = createHash("sha256").update(raw).digest("hex");
-    if (digest === this.digest) return false;
-    await googleJson(this.fetcher, `https://secretmanager.googleapis.com/v1/${this.resource}:addVersion`, {
-      method: "POST",
-      body: JSON.stringify({ payload: { data: raw.toString("base64") } }),
-    });
-    this.digest = digest;
-    return true;
+    const rotated = digest !== this.digest;
+    if (rotated) {
+      const added = await googleJson(this.fetcher, `https://secretmanager.googleapis.com/v1/${this.resource}:addVersion`, {
+        method: "POST",
+        body: JSON.stringify({ payload: { data: raw.toString("base64") } }),
+      }) as { name?: string };
+      if (!added.name) throw new Error("Codex managed auth version name missing");
+      const verified = await googleJson(this.fetcher, `https://secretmanager.googleapis.com/v1/${added.name}:access`) as { payload?: { data?: string } };
+      if (!verified.payload?.data || createHash("sha256").update(Buffer.from(verified.payload.data, "base64")).digest("hex") !== digest) {
+        throw new Error("Codex managed auth rotation verification failed");
+      }
+      this.digest = digest;
+      this.version = added.name;
+    }
+    await this.destroyVersions(this.version);
+    return rotated;
+  }
+
+  async destroy(): Promise<void> {
+    await this.destroyVersions();
+    this.digest = undefined;
+    this.version = undefined;
+  }
+
+  private async destroyVersions(keep?: string): Promise<void> {
+    let pageToken = "";
+    do {
+      const query = new URLSearchParams({ pageSize: "100", ...(pageToken ? { pageToken } : {}) });
+      let body: { versions?: Array<{ name?: string; state?: string }>; nextPageToken?: string };
+      try {
+        body = await googleJson(this.fetcher, `https://secretmanager.googleapis.com/v1/${this.resource}/versions?${query}`) as typeof body;
+      } catch (error) {
+        if ((error as Error & { status?: number }).status === 404) return;
+        throw error;
+      }
+      for (const version of body.versions ?? []) {
+        if (version.name && version.name !== keep && version.state !== "DESTROYED") {
+          await googleJson(this.fetcher, `https://secretmanager.googleapis.com/v1/${version.name}:destroy`, { method: "POST", body: "{}" });
+        }
+      }
+      pageToken = body.nextPageToken ?? "";
+    } while (pageToken);
   }
 }
 
@@ -214,10 +280,9 @@ function object(value: Json): { [key: string]: Json } {
   return value;
 }
 
-export async function runPoc(): Promise<Json> {
-  const authSecret = process.env.CODEX_AUTH_SECRET;
+export async function runPoc(ownerId: string, authSecret: string): Promise<Json> {
   const bucket = process.env.AGENT_CHECKPOINT_BUCKET;
-  if (!authSecret || !bucket) throw new Error("managed auth and external checkpoint settings are required");
+  if (!bucket) throw new Error("external checkpoint setting is required");
 
   const root = await mkdtemp(join(process.env.SANDBOX_ROOT || tmpdir(), "turn-"));
   const home = join(root, "codex-home");
@@ -230,7 +295,7 @@ export async function runPoc(): Promise<Json> {
     await mkdir(workspace, { mode: 0o700 });
     await auth.load(home);
     client.start();
-    const bridge = new CodexBridge("00000000-0000-4000-8000-000000000001", workspace, client, mcp);
+    const bridge = new CodexBridge(ownerId, workspace, client, mcp);
     await bridge.initialize();
     const thread = object(await bridge.startThread());
     const nativeThread = object(thread.thread ?? null);
@@ -247,10 +312,25 @@ export async function runPoc(): Promise<Json> {
     const checkpoint: Checkpoint = { checkpointId, events };
     const authRotated = await auth.persist(home);
     await checkpoints.put(checkpointId, checkpoint as unknown as Json);
-    return { codexVersion: CODEX_VERSION, checkpointId, cursor: events.at(-1)!.seq, authRotated, sandbox: "workspace-write", cancelled: true, process: "stopped-after-response" };
+    return { ownerId, codexVersion: CODEX_VERSION, checkpointId, cursor: events.at(-1)!.seq, authRotated, sandbox: "workspace-write", cancelled: true, process: "stopped-after-response" };
   } finally {
     await client.stop();
     await mcp.closeAll();
+    await rm(root, { recursive: true, force: true });
+  }
+}
+
+export async function logoutOwner(ownerId: string, authSecret: string): Promise<void> {
+  const root = await mkdtemp(join(process.env.SANDBOX_ROOT || tmpdir(), "logout-"));
+  const home = join(root, "codex-home");
+  const client = new AppServerClient(process.env.CODEX_BIN || "codex", [], home);
+  try {
+    await new ManagedAuthStore(authSecret).load(home);
+    client.start();
+    await client.initialize();
+    await client.request("account/logout", {}, 30_000);
+  } finally {
+    await client.stop();
     await rm(root, { recursive: true, force: true });
   }
 }
@@ -297,9 +377,42 @@ export function makeServer(mcp = new McpHost()) {
       if (running) return send(response, 409, { error: "probe_already_running" });
       running = true;
       try {
-        send(response, 200, await runPoc());
+        const body = object(await signedBody(request));
+        const ownerId = typeof body.ownerId === "string" ? body.ownerId : "";
+        if (body.ownerState !== "ACTIVE") throw new Error("owner is not active");
+        const resource = OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").resource(ownerId);
+        send(response, 200, await runPoc(ownerId, resource));
       } catch (error) {
-        send(response, 503, { error: error instanceof Error ? error.message : "probe_failed" });
+        send(response, 400, { error: error instanceof Error ? error.message : "probe_failed" });
+      } finally {
+        running = false;
+      }
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/internal/v1/codex/auth:destroy") {
+      try {
+        const body = object(await signedBody(request));
+        const ownerId = typeof body.ownerId === "string" ? body.ownerId : "";
+        const resource = OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").resource(ownerId);
+        await new ManagedAuthStore(resource).destroy();
+        send(response, 200, { ownerId, destroyed: true });
+      } catch (error) {
+        send(response, 400, { error: error instanceof Error ? error.message : "auth_destroy_failed" });
+      }
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/internal/v1/codex/session:logout") {
+      if (running) return send(response, 409, { error: "session_busy" });
+      running = true;
+      try {
+        const body = object(await signedBody(request));
+        const ownerId = typeof body.ownerId === "string" ? body.ownerId : "";
+        const resource = OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").resource(ownerId);
+        await logoutOwner(ownerId, resource);
+        send(response, 200, { ownerId, loggedOut: true, sessionEvicted: true });
+      } catch (error) {
+        const status = (error as Error & { status?: number }).status === 404 ? 200 : 400;
+        send(response, status, status === 200 ? { loggedOut: true, sessionEvicted: true } : { error: error instanceof Error ? error.message : "logout_failed" });
       } finally {
         running = false;
       }

@@ -80,8 +80,8 @@ def test_deletion_removes_iceberg_before_postgres_completion():
         def complete_deletion(self,request_id,user_id): calls.append(("postgres",user_id))
     class DeletionStore:
         def delete_user(self,user_id): calls.append(("iceberg",user_id))
-    assert PrivatePipeline(DeletionRepository(),DeletionStore(),lambda symbols,when:{}).run(date(2026,9,4))==9
-    assert calls==[("iceberg",USER),("postgres",USER)]
+    assert PrivatePipeline(DeletionRepository(),DeletionStore(),lambda symbols,when:{},lambda user_id:calls.append(("auth",user_id))).run(date(2026,9,4))==9
+    assert calls==[("iceberg",USER),("auth",USER),("postgres",USER)]
 
 
 def test_private_iceberg_note_rows_are_scoped_by_user():

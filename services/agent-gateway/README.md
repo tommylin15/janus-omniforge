@@ -1,8 +1,8 @@
 # Agent Gateway dev POC
 
 Private Cloud Run service for the `WBS-4C-CLOUD-RUNTIME` feasibility check. It
-starts pinned Codex App Server `0.153.0` over stdio JSONL, refreshes managed
-auth from Secret Manager, uses a bounded in-memory turn sandbox, and proves
+starts pinned Codex App Server `0.153.0` over stdio JSONL, refreshes owner-scoped
+managed auth from an operator allowlist of Secret Manager resources, uses a bounded in-memory turn sandbox, and proves
 cursor reconnect from an external Private GCS checkpoint.
 
 The POC endpoints are Cloud Run IAM-only and additionally require
@@ -23,6 +23,11 @@ owner-bound threads/turns, item and delta events, device-code login, bounded
 request-scoped approvals, cancellation, and dynamic tools dispatched through
 the same `McpHost` grant checks. Chat routes and durable private thread storage
 remain separate later WBS slices.
+
+The internal Codex lifecycle endpoints require the same service HMAC and accept
+only an owner UUID: `session:logout` evicts the owner session, while
+`auth:destroy` destroys all versions idempotently. Secret resource names are
+never accepted from request payloads.
 
 Bridge contract/build checks and the live managed-auth/cancellation/reconnect
 probe run only in GCP dev through `verify-agent-gateway-dev.sh`.

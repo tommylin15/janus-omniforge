@@ -160,6 +160,10 @@ export class CodexBridge {
     return this.client.request("account/login/cancel", { loginId: id(loginId, "login id") }, 30_000);
   }
 
+  logout(): Promise<Json> {
+    return this.client.request("account/logout", {}, 30_000);
+  }
+
   resolveApproval(requestId: string, threadId: string, turnId: string, paramsDigest: string, decision: "accept" | "decline" | "cancel"): void {
     const pending = this.approvals.get(requestId);
     if (!pending || pending.ownerId !== this.ownerId || pending.threadId !== threadId || pending.turnId !== turnId || pending.paramsDigest !== paramsDigest) {

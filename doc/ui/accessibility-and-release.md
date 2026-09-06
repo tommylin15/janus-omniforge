@@ -31,6 +31,7 @@
 - [ ] Codex Items／Turns／Approval Requests 可操作且 request-bound；Cloud Run cold start／timeout／reconnect 有明確狀態，核准 shell／寫檔限 turn 暫存 sandbox，Admin／私人 mutation／下單不可核准；Gemini REST API Grounding citation 與免費額度通過。
 - [ ] 使用者 A 無法讀寫或推測使用者 B 的 trade、note、watchlist、chat、position、PnL 或 private artifact reference。
 - [ ] User／Admin audience 混用與 client 指定 `user_id` 均被拒絕；email 變更不改變既有 ledger 所有權。
+- [ ] 私人資料刪除顯示 `QUEUED`／`CLEANUP_PENDING`／`COMPLETED`，pending 時停用 Codex login／新 turn／私人寫入且不宣稱完成；狀態可由 request owner 重查，完成後 Codex 要求重新登入，保留中 object version 顯示期限。
 - [ ] Mobile／iPad／desktop 無水平 overflow；主要路徑通過 VoiceOver／TalkBack。
 
 ### 11.3 個人曝險與壓力測試

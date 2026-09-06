@@ -13,6 +13,8 @@
 | insufficient_data | 資料完整度不足，無法評估 | zinc，不顯示方向 |
 | blocked | 報告未通過發布審查 | 公開端不回傳；Admin red |
 | error | 服務暫時發生問題 | 安全文案，不顯示 traceback |
+| deleting | 正在刪除私人資料，暫時無法建立新對話或登入 Codex | amber + progress，不提供相關寫入操作 |
+| cleanup_pending | 部分雲端資料仍在清理，系統會安全重試 | amber + request ID／重試狀態，不顯示完成 |
 
 ## 8. User UI／FastAPI／Cloud Run Agent 契約
 
@@ -60,5 +62,6 @@
 - `GET /api/v1/me/portfolio/performance?year=YYYY`
 - `POST /api/v1/me/portfolio/stress-tests`
 - `DELETE /api/v1/me/private-data`
+- `GET /api/v1/me/private-data/deletions/{request_id}`
 
-Private endpoint 只接受獨立 User OAuth audience 的 Google OIDC token；API 驗證 issuer、audience、expiry，以 Google `sub` 對應內部 UUID `user_id`，email 只供顯示。使用者身分不接受 request body 或 query string 指定 `user_id`，User token 不得存取 Admin endpoint。Provider／MCP connection 只傳 opaque reference，API key／Codex auth cache 不經 payload。`context-preview` 只接受 typed selector，回短效 owner／thread-bound `context_ref`；message 不接受 SQL、GCS URI、object path 或 raw private payload。Approval response 另驗證 owner、thread、turn、request、參數摘要、expiry 與一次性消費；所有 mutation 具 idempotency key、optimistic version 與 audit event。
+Private endpoint 只接受獨立 User OAuth audience 的 Google OIDC token；API 驗證 issuer、audience、expiry，以 Google `sub` 對應內部 UUID `user_id`，email 只供顯示。使用者身分不接受 request body 或 query string 指定 `user_id`，User token 不得存取 Admin endpoint。Provider／MCP connection 只傳 opaque reference，API key／Codex auth cache 不經 payload。`context-preview` 只接受 typed selector，回短效 owner／thread-bound `context_ref`；message 不接受 SQL、GCS URI、object path 或 raw private payload。Approval response 另驗證 owner、thread、turn、request、參數摘要、expiry 與一次性消費；所有 mutation 具 idempotency key、optimistic version 與 audit event。`DELETE /private-data` 回 `202`、request ID 與初始狀態；status endpoint 僅允許 request owner 查詢。owner 為 `DELETING` 時，新的 Codex login／turn 與私人 artifact mutation 回 typed conflict，不得在 client 端假裝完成。

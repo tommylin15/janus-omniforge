@@ -33,7 +33,13 @@ class McpGatewayClient:
     def disconnect(self, owner_id: Any, server_id: str) -> None:
         self._post("disconnect", {"ownerId":str(owner_id), "serverId":server_id})
 
-    def _post(self, operation: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def destroy_codex_auth(self, owner_id: Any) -> None:
+        self._post("auth:destroy", {"ownerId":str(owner_id)}, prefix="codex")
+
+    def logout_codex_session(self, owner_id: Any) -> None:
+        self._post("session:logout", {"ownerId":str(owner_id)}, prefix="codex")
+
+    def _post(self, operation: str, payload: dict[str, Any], prefix: str = "mcp") -> dict[str, Any]:
         body=json.dumps(payload,separators=(",",":"),sort_keys=True).encode()
         timestamp=str(int(time.time()*1000))
         signature=hmac.new(self.signing_key,timestamp.encode()+b"."+body,sha256).hexdigest()
@@ -46,7 +52,7 @@ class McpGatewayClient:
         else:
             requester,token_provider=self.requester,self.token_provider
         try:
-            response=requester(f"{self.url}/internal/v1/mcp/{operation}",data=body,timeout=65,
+            response=requester(f"{self.url}/internal/v1/{prefix}/{operation}",data=body,timeout=65,
                 headers={"Authorization":f"Bearer {token_provider(self.url)}","Content-Type":"application/json",
                          "X-Janus-Timestamp":timestamp,"X-Janus-Signature":f"v1={signature}"})
             if not response.ok: raise McpGatewayError(f"MCP gateway request failed ({response.status_code})")

@@ -15,18 +15,20 @@
 ## 目前進度（2026-09-06）
 
 - WBS 4J 獨立 MVP：journal／note／Private Iceberg 完整交易、重跑、刪除與 A／B 隔離已結案；僅依賴 WBS 5 的個人化 analysis overlay 尚未啟用。
-- WBS 4C：GCP 雲端多供應商私人助理共 12 個切片，7／12 完成；Agent Runtime／AgentEvent、security contract、context sources、MCP host、Gemini REST、OpenRouter provider 與 Private Storage 已固定，Cloud Run runtime POC 已結案。
-- WBS-4C-CODEX-BRIDGE checkpoint：雙向 stdio JSON-RPC、Threads／Turns／Items、device-code managed login、request-bound Approvals、共用 MCP dynamic-tool path 與 `turn/started` 事件驅動 cancellation 已完成；GCP Cloud Build contract tests 5／5 通過，Cloud Run health 3／3 通過，live Codex cancellation 200 通過，checkpoint reconnect 通過。驗收 build `2d95aa6e-cc4e-47d5-97ae-ce9dcfafc479`、revision `janus-agent-gateway-00017-tpf`、digest `sha256:b03a041f2ddf19d3028777d7531f94599fee728024dac471156932ad64df9541`。
+- WBS 4C：GCP 雲端多供應商私人助理共 13 個切片，7／13 完成；Agent Runtime／AgentEvent、security contract、context sources、MCP host、Gemini REST、OpenRouter provider 與 Private Storage 已固定，Cloud Run runtime POC 已結案。
+- WBS-4C-CODEX-BRIDGE checkpoint：雙向 stdio JSON-RPC、Threads／Turns／Items、device-code managed login、request-bound Approvals、共用 MCP dynamic-tool path 與 `turn/started` 事件驅動 cancellation 已完成；GCP Cloud Build contract tests 5／5 通過，Cloud Run health 3／3 通過，live Codex cancellation 200 通過，checkpoint reconnect 通過。現有全域 Secret／固定 owner 仍僅是 dev POC，不代表 owner-scoped auth lifecycle 完成。驗收 build `2d95aa6e-cc4e-47d5-97ae-ce9dcfafc479`、revision `janus-agent-gateway-00017-tpf`、digest `sha256:b03a041f2ddf19d3028777d7531f94599fee728024dac471156932ad64df9541`。
 - WBS-4C-PRIVATE-STORAGE：migration 016、Private Iceberg assistant events／Skill revisions、PostgreSQL bounded index、credential-shaped field fail-closed、冪等重跑、A／B 隔離與 Codex auth cleanup pending 契約已完成；GCP dev evidence 詳見 `spec/operations-and-testing.md`。
+- WBS-4C-CODEX-AUTH-LIFECYCLE：owner allowlist、Secret 版本輪替驗證／舊版銷毀、冪等 auth destroy、logout／session eviction 與 deletion pipeline wiring 已完成 GCP dev contract／live acceptance；device-code login 完成後的跨 request session provisioning 與真實 rotation 尚待後續 Chat API slice。
 - WBS 3 收尾：Admin Data Operations 1 項完成、3 項未完成；Stage／Core 實機驗證 7 項未完成。Scheduler canary 因 2026-09-03 上游時段異常重置為 0／3。
 - 最新驗證：WBS-4C-OPENROUTER／GEMINI／Gateway targeted Vitest 12／12、Agent Gateway TypeScript build 通過；WBS-4C-CONTEXT-SOURCES 已於 GCP dev Cloud Build 通過；完整本機 pytest 123／123、WBS 4J targeted pytest 14／14；Flutter analyze／widget test、migration 001–014 與 bash syntax 已通過 Cloud Build。
 
 ## 下一步執行佇列
 
-1. 【Sol】`WBS-4C-SKILLS`：實作 GCP 儲存、載入／啟用／自訂且不可擴權的版本化 Skills。
-2. 【Luna】`WBS-4C-CHAT-API`：實作 Threads CRUD／fork、bounded SSE、取消、approval response、匯出與刪除。
-3. 【Luna】`WBS-4C-ASSISTANT-UI`：延續 Flutter Web／mobile，完成 Markdown／程式碼高亮、streaming、MCP／Skills、Items／Turns／Approvals。
-4. 【Sol】`WBS-4C-ACCEPTANCE`：完成 Cloud Run、provider、資料源、MCP、Skills、streaming、approval、Grounding、privacy 與刪除整合驗收。
+1. 【Sol】`WBS-4C-CODEX-AUTH-LIFECYCLE`：先移除共用 auth／固定 owner 的產品阻斷點，完成 owner-scoped login／rotation／logout／session eviction／cleanup retry 與最小 IAM；dev 僅由 operator 建立 allowlisted owner credential，建立 per-owner Secret 或新增費用前先取得人工同意。
+2. 【Sol】`WBS-4C-SKILLS`：實作 GCP 儲存、載入／啟用／自訂且不可擴權的版本化 Skills。
+3. 【Luna】`WBS-4C-CHAT-API`：實作 Threads CRUD／fork、bounded SSE、取消、approval response、匯出與刪除。
+4. 【Luna】`WBS-4C-ASSISTANT-UI`：延續 Flutter Web／mobile，完成 Markdown／程式碼高亮、streaming、MCP／Skills、Items／Turns／Approvals。
+5. 【Sol】`WBS-4C-ACCEPTANCE`：完成 Cloud Run、provider、資料源、MCP、Skills、streaming、approval、Grounding、privacy 與刪除整合驗收。
 9. 【Sol】`WBS-3-ACCEPTANCE`：持續 3 交易日 canary，並完成 queue／connection／restart、VPC／firewall 與 Free Tier guard 實機驗證。
 10. 【Luna】`WBS-3-ADMIN-POLISH`：完成表格、cursor pagination 與其 UI 驗收；股票跨域刪除 guard 另以【Sol】執行。
 11. 【Sol】`WBS-5` → 【Luna】`WBS-6` → 【Sol】`WBS-7` → 依逐項標籤執行 `WBS-8`；WBS 4J 個人化 overlay 等 `mart_scoped_analysis` 可用後再做。
@@ -81,16 +83,18 @@
 
 - [ ] 【Sol】 Codex 以 Cloud Run 容器內 App Server stdio JSON-RPC 與 managed OAuth／device-code 驅動；整合 Threads／Turns／Items／Approval Requests、取消及 sandbox。不得使用 OpenAI API key、Responses／Codex API 或其他直接付費 fallback。
 
+- [ ] 【Sol】 Codex auth lifecycle 必須先於 Chat API／Assistant UI：authenticated owner 經 service-authenticated internal request 傳入 Gateway，每個 owner 使用隔離 Secret、`CODEX_HOME` 與 App Server process；refresh 成功後銷毀舊版本。刪除時拒絕該 owner 新 login／turn／artifact write，停止 session、logout、刪 owner auth，失敗保留 `CLEANUP_PENDING` 並可重試；無 Codex thread 或 Secret 已不存在也須冪等完成。Gateway 不接受 client owner／Secret name，不授 project-wide Secret Manager admin；dev credential 由 operator 為 allowlisted owner 建立，正式自助 provisioning 另案決定。建立 per-owner Secret 或擴大付費資源前須人工同意。
+
 
 - [ ] 【Sol】 內建 Skills 隨 immutable image 發版；自訂 Skills 的 prompt／required tools／workflow revision 存 Private Iceberg／GCS 並以 PostgreSQL bounded index 定位，turn 開始時物化核准 snapshot 到 Cloud Run 暫存 sandbox。Skill 不允許任意可執行程式，且 Skill、MCP description、新聞或筆記不可擴大 host tool／ownership／publication policy。
 
 - [x] 【Sol】 對話 messages、selected context、provider／model、skill revision、search／citations、Items／Turns、tool／approval events 儘可能寫入 Private Iceberg；PostgreSQL 只保存 bounded thread／turn／approval／usage reservation index、idempotency、checkpoint 與 artifact reference。provider／MCP credential 與 Codex auth cache 不得進資料庫、Iceberg、image、log 或前端 storage，只能使用 Secret Manager 或另經核准的隔離 GCP credential store。完成證據：migration 016、Cloud Build contract `2b49fbbc-1dde-4091-9664-7ba33447f2ac`、GCP dev PostgreSQL／GCS-Iceberg acceptance。
 
-- [ ] 【Luna】 建立 `/api/v1/me/chats/*` 的 Threads CRUD／fork、message、bounded SSE events、cursor replay、取消、approval response、匯出與刪除；eventId／seq／itemId 去重，provider 原生 continuation metadata 可恢復。
+- [ ] 【Luna】 在 Codex auth lifecycle 通過後，建立 `/api/v1/me/chats/*` 的 Threads CRUD／fork、message、bounded SSE events、cursor replay、取消、approval response、匯出與刪除；eventId／seq／itemId 去重，provider 原生 continuation metadata 可恢復。`DELETE /api/v1/me/private-data` 回傳 deletion request，並提供 owner-scoped status 查詢；只有所有必要 cleanup 完成才顯示 `COMPLETED`。
 
 - [ ] 【Luna】 不建立 React／Tauri 或使用者地端 runtime；延續既有 Flutter Web／Android／iOS AI 入口，共用雲端 Threads／AgentEvent／citation contract，提供多 Threads、Markdown／程式碼高亮、streaming、provider／model／資料源／MCP／Skills controls，以及 Codex Items／Turns／Approval Requests。
 
-- [ ] 【Sol】 驗證 Cloud Run scale-to-zero／cold start／timeout／中斷重連、三 runtime、內外資料源 provenance、MCP stdio／HTTP／SSE、動態工具、Skill 權限、Codex auth／approval／取消、Grounding、quota／provider unavailable、context 外送提示、A／B 隔離、stream 續接／去重、Iceberg 重跑／匯出／刪除與無 placeholder。若 Cloud Run 無法滿足不可中斷長 turn、持久 daemon、特殊 sandbox 權限或實測資源需求，先提交 Compute Engine／GKE 成本、安全、維運與退出評估，取得使用者決定後才能採用。
+- [ ] 【Sol】 驗證 Cloud Run scale-to-zero／cold start／timeout／中斷重連、三 runtime、內外資料源 provenance、MCP stdio／HTTP／SSE、動態工具、Skill 權限、Codex auth／approval／取消、Grounding、quota／provider unavailable、context 外送提示、A／B 隔離、stream 續接／去重、Iceberg 重跑／匯出／刪除與無 placeholder。Codex auth 必須覆蓋 A／B load／rotate／destroy 隔離、orphan auth、cleanup 403 重試、刪除期間寫入拒絕、session eviction／logout、刪後重新登入與 secrets 不落 log／DB／Iceberg；另驗證 Iceberg snapshot／orphan file 與 GCS object version 的實際物理清除期限。若 Cloud Run 無法滿足不可中斷長 turn、持久 daemon、特殊 sandbox 權限或實測資源需求，先提交 Compute Engine／GKE 成本、安全、維運與退出評估，取得使用者決定後才能採用。
 
 ## P1（WBS 4R）— 個人曝險、績效與 AI 壓力測試
 

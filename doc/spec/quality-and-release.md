@@ -16,7 +16,7 @@
 - 同一 `analysis_as_of` 可從 `mart_daily_brief` 追溯市場狀態、板塊輪動、熱門話題、候選股及其 Core／Mart snapshot。
 - 私人交易可從 PostgreSQL ledger 重建 Private Core／Mart；跨年損益、更正事件與所有權隔離通過測試，且不出現在 public index。
 - 筆記、關注歷史、chat messages、context snapshot 與 citations 可從 Private Iceberg 依 authenticated user 讀取、匯出與刪除；PostgreSQL 不保存正文或完整對話 payload。
-- 私人助理 OpenRouter／Gemini REST API／Codex App Server 可切換且 lineage 可追溯；驗證 Cloud Run scale-to-zero／cold start／timeout／重連、Core／Private／外部資料源 provenance、容器內 MCP stdio、遠端 Streamable HTTP／legacy SSE、動態工具、GCP Skills revision、統一 events、Codex managed auth／Items／Turns／Approvals、雲端暫存 sandbox、未授權 mutation 拒絕及 Gemini Google Search Grounding／免費額度。Codex 不使用直接 OpenAI API fallback；App Server dev POC 與人工 production gate 未通過不得發布。
+- 私人助理 OpenRouter／Gemini REST API／Codex App Server 可切換且 lineage 可追溯；驗證 Cloud Run scale-to-zero／cold start／timeout／重連、Core／Private／外部資料源 provenance、容器內 MCP stdio、遠端 Streamable HTTP／legacy SSE、動態工具、GCP Skills revision、統一 events、Codex managed auth／Items／Turns／Approvals、雲端暫存 sandbox、未授權 mutation 拒絕及 Gemini Google Search Grounding／免費額度。Codex owner-scoped auth 必須通過 A／B rotation／舊版銷毀、orphan auth deletion、session eviction／logout、cleanup retry、刪除期間拒絕寫入與 secret non-persistence；共用 auth／固定 owner 的 dev POC 不算完成。Codex 不使用直接 OpenAI API fallback；App Server dev POC 與人工 production gate 未通過不得發布。
 - PIT 無 future leakage；排除樣本有原因與 provenance ID。
 - blocked 不進公開 latest／history；查無資料不即時運算。
 - 兩個 Job、FastAPI、Admin Web、User App 與各內嵌 DuckDB runtime 的 IAM、timeout、retry、監控與 rollback 通過。
@@ -24,4 +24,5 @@
 - pytest、FastAPI contract tests、Flutter analyze／test、Vitest、Playwright、TypeScript、production build 通過。
 - iOS Safari、Android Chrome、iPad Safari、VoiceOver、TalkBack、WCAG AA 實機通過。
 - 無 secret、raw payload、敏感 URL、未授權來源外洩。
+- 私人資料刪除狀態可查詢；`CLEANUP_PENDING` 不顯示成功，且 Iceberg snapshot／orphan file、GCS object version 的實際清除期限已有 GCP dev 證據與使用者文案。
 - runbook、備份、還原與 rollback 演練完成。

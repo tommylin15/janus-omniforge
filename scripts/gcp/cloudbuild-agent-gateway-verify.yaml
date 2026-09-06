@@ -1,6 +1,9 @@
 substitutions:
   _SERVICE_URL: ""
   _TOKEN_SERVICE_ACCOUNT: ""
+  _LIVE_VERIFY: "false"
+  _OWNER_SIGNING_SECRET_NAME: "janus-mcp-owner-signing-key"
+  _OWNER_ID: "00000000-0000-4000-8000-000000000001"
 
 steps:
   - id: verify-codex-bridge-contract
@@ -12,6 +15,7 @@ steps:
         npm ci
         npm run build:agent-gateway
         npm run test:agent-gateway
+        bash -n scripts/gcp/deploy-agent-gateway-dev.sh scripts/gcp/verify-agent-gateway-dev.sh
 
   - id: verify-private-agent-gateway
     name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
@@ -19,8 +23,13 @@ steps:
     args:
       - -ceu
       - |
+        if [[ "${_LIVE_VERIFY}" != "true" ]]; then
+          echo "GCP dev contract tests passed; live verification deferred."
+          exit 0
+        fi
         test -n "${_SERVICE_URL}"
         test -n "${_TOKEN_SERVICE_ACCOUNT}"
+        gcloud secrets versions access latest --secret="${_OWNER_SIGNING_SECRET_NAME}" --project="${PROJECT_ID}" --out-file=/tmp/janus-owner-signing-key
         token=''
         for attempt in {1..24}; do
           if token="$(gcloud auth print-identity-token \
@@ -43,11 +52,16 @@ steps:
           sleep 5
         done
         [[ "${ready}" == 3 ]]
+        body="$(OWNER_ID="${_OWNER_ID}" python3 -c 'import json,os; print(json.dumps({"ownerId":os.environ["OWNER_ID"],"ownerState":"ACTIVE"},separators=(",",":")))')"
+        timestamp="$(date +%s%3N)"
+        signature="$(KEY_FILE=/tmp/janus-owner-signing-key TIMESTAMP="${timestamp}" BODY="${body}" python3 -c 'import hashlib,hmac,os; print(hmac.new(open(os.environ["KEY_FILE"],"rb").read(),(os.environ["TIMESTAMP"]+"."+os.environ["BODY"]).encode(),hashlib.sha256).hexdigest())')"
         response_file="$(mktemp)"
         status=000
         for attempt in {1..12}; do
           if status="$(curl --silent --show-error --max-time 300 --output "${response_file}" --write-out '%{http_code}' -X POST \
-            -H "Authorization: Bearer ${token}" --data '' "${_SERVICE_URL}/internal/v1/poc/codex")"; then
+            -H "Authorization: Bearer ${token}" -H "Content-Type: application/json" \
+            -H "X-Janus-Timestamp: ${timestamp}" -H "X-Janus-Signature: v1=${signature}" \
+            --data "${body}" "${_SERVICE_URL}/internal/v1/poc/codex")"; then
             echo "poc attempt=${attempt} status=${status}"
             [[ "${status}" == 200 ]] && break
           else
@@ -65,6 +79,26 @@ steps:
         empty="$(curl --fail --silent --show-error --max-time 60 \
           -H "Authorization: Bearer ${token}" "${_SERVICE_URL}/internal/v1/poc/checkpoints/${checkpoint}?cursor=${cursor}")"
         python3 -c 'import json,sys; assert json.load(sys.stdin)["events"] == []' <<<"${empty}"
+        logout_body="$(OWNER_ID="${_OWNER_ID}" python3 -c 'import json,os; print(json.dumps({"ownerId":os.environ["OWNER_ID"]},separators=(",",":")))')"
+        logout_timestamp="$(date +%s%3N)"
+        logout_signature="$(KEY_FILE=/tmp/janus-owner-signing-key TIMESTAMP="${logout_timestamp}" BODY="${logout_body}" python3 -c 'import hashlib,hmac,os; print(hmac.new(open(os.environ["KEY_FILE"],"rb").read(),(os.environ["TIMESTAMP"]+"."+os.environ["BODY"]).encode(),hashlib.sha256).hexdigest())')"
+        logout_status="$(curl --fail --silent --show-error --max-time 300 --output /tmp/logout.json --write-out '%{http_code}' -X POST \
+          -H "Authorization: Bearer ${token}" -H "Content-Type: application/json" \
+          -H "X-Janus-Timestamp: ${logout_timestamp}" -H "X-Janus-Signature: v1=${logout_signature}" \
+          --data "${logout_body}" "${_SERVICE_URL}/internal/v1/codex/session:logout")"
+        test "${logout_status}" = 200
+        python3 -c 'import json,sys; value=json.load(sys.stdin); assert value["loggedOut"] is True and value["sessionEvicted"] is True' </tmp/logout.json
+        destroy_body="$(OWNER_ID="${_OWNER_ID}" python3 -c 'import json,os; print(json.dumps({"ownerId":os.environ["OWNER_ID"]},separators=(",",":")))')"
+        destroy_timestamp="$(date +%s%3N)"
+        destroy_signature="$(KEY_FILE=/tmp/janus-owner-signing-key TIMESTAMP="${destroy_timestamp}" BODY="${destroy_body}" python3 -c 'import hashlib,hmac,os; print(hmac.new(open(os.environ["KEY_FILE"],"rb").read(),(os.environ["TIMESTAMP"]+"."+os.environ["BODY"]).encode(),hashlib.sha256).hexdigest())')"
+        for attempt in 1 2; do
+          destroy_status="$(curl --fail --silent --show-error --max-time 60 --output /tmp/destroy.json --write-out '%{http_code}' -X POST \
+            -H "Authorization: Bearer ${token}" -H "Content-Type: application/json" \
+            -H "X-Janus-Timestamp: ${destroy_timestamp}" -H "X-Janus-Signature: v1=${destroy_signature}" \
+            --data "${destroy_body}" "${_SERVICE_URL}/internal/v1/codex/auth:destroy")"
+          test "${destroy_status}" = 200
+          python3 -c 'import json,sys; assert json.load(sys.stdin)["destroyed"] is True' </tmp/destroy.json
+        done
         printf '%s\n' "${result}" "GCP dev checkpoint reconnect passed: ${checkpoint}"
 
 options:

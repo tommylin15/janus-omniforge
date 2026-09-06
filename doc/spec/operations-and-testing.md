@@ -7,6 +7,28 @@ pytest 14/14、Python `py_compile`、inline JavaScript syntax 與 `git diff --ch
 passed。此次 host 缺少 FastAPI runtime，新增 API contract test 未在本機重跑；API image
 由 GCP Cloud Build lockfile build 驗證，真人 acceptance 由 GCP dev runtime 完成。
 
+## P0 WBS 4C Codex auth lifecycle checkpoint（2026-09-06）
+
+GCP dev Cloud Build `a44a6463-3e76-4d31-b784-84337ea9af88` 通過 Agent Gateway
+TypeScript build 與 targeted Vitest；`f1ee3054-7d2f-4bdf-ae61-6f82b0ccfdf3`
+通過 private-storage/deletion contract；修正後 `d5301537-af3f-42ac-876a-4587f916b493`
+再通過 Gateway build、Vitest 與 Bash syntax。此 checkpoint 尚未部署；現有 dev
+只有共用 `janus-codex-managed-auth`，因此 A／B owner Secret、live owner isolation、
+logout／session eviction 與 cleanup retry 尚待人工 gate。
+
+人工 gate 通過後建立 `janus-codex-owner-a`／`janus-codex-owner-b`（各自
+`us-central1`、僅保留 dev fixture），並部署 Gateway revision
+`janus-agent-gateway-00019-qvv`，image digest
+`sha256:dc28e2f4abc51bdad685afea7dcbc6e89f525fdc4cc02f50f6d39d84c5a25daa`。
+Live Cloud Build `9f7da474-8a16-457e-a84c-510c06fddb88`（A）與
+`a3ef9a23-bd83-482b-ad40-d0802090b129`（B）通過 owner-bound run、cancellation、
+GCS checkpoint replay；`eb45609e-e101-4b2c-8349-7d2b233d0b31` 通過 A destroy
+兩次冪等後，`c5e69d10-2427-4cf7-af03-935d286ca53c` 證明 B 仍可獨立執行。
+更新 logout endpoint 後部署 revision `janus-agent-gateway-00019-qvv`，
+Cloud Build `1084498e-0d2f-481f-aa9a-762e1c5ca033` 通過 B run、logout／session
+eviction 與 destroy retry；A／B Secret 版本最後均為 `DESTROYED`。Gateway 維持
+`concurrency=1`、`maxScale=1`、`minScale=0`。
+
 ## P0 WBS 4C MCP Host implementation (2026-09-06)
 
 GCP dev PostgreSQL migration `015_private_mcp_servers` 已套用並以

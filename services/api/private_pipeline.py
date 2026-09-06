@@ -108,11 +108,10 @@ class PrivatePipeline:
             self.repository.advance_pipeline_checkpoint(completed)
         for request in self.repository.pending_deletions():
             self.store.delete_user(request["user_id"])
-            cleanup_required=getattr(self.repository,"assistant_cleanup_required",lambda _user_id:False)(request["user_id"])
-            if cleanup_required and self.assistant_cleanup is None:
+            if self.assistant_cleanup is None:
                 self.repository.mark_deletion_cleanup_pending(request["request_id"],request["user_id"])
                 continue
-            if cleanup_required: self.assistant_cleanup(request["user_id"])
+            self.assistant_cleanup(request["user_id"])
             self.repository.complete_deletion(request["request_id"],request["user_id"])
         return completed
 
@@ -125,8 +124,16 @@ def main() -> None:
         return
     from .repository import repository_from_env
     from .store import PrivateIcebergStore
+    from .mcp_gateway import McpGatewayClient
 
-    completed=PrivatePipeline(repository_from_env(),PrivateIcebergStore.from_env(),CorePriceReader.from_env()).run(
+    if os.getenv("MCP_GATEWAY_URL") and os.getenv("MCP_OWNER_SIGNING_KEY"):
+        gateway=McpGatewayClient.from_env()
+        def cleanup(user_id: Any) -> None:
+            gateway.logout_codex_session(user_id)
+            gateway.destroy_codex_auth(user_id)
+    else:
+        cleanup=None
+    completed=PrivatePipeline(repository_from_env(),PrivateIcebergStore.from_env(),CorePriceReader.from_env(),cleanup).run(
         date.fromisoformat(os.getenv("VALUATION_DATE",date.today().isoformat())))
     print(f"private pipeline checkpoint={completed}")
 

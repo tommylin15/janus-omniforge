@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AppServerClient, GcsCheckpointStore, ManagedAuthStore, type Json, type RpcMessage } from "../services/agent-gateway/server.js";
+import { AppServerClient, GcsCheckpointStore, ManagedAuthStore, OwnerAuthRegistry, type Json, type RpcMessage } from "../services/agent-gateway/server.js";
 import { CodexBridge } from "../services/agent-gateway/codex_bridge.js";
 import { McpHost } from "../services/agent-gateway/mcp_host.js";
 
@@ -32,6 +32,7 @@ describe("agent gateway cloud runtime POC", () => {
     const bridge = new CodexBridge("00000000-0000-4000-8000-000000000001", "/tmp/janus-turn", client, mcp);
 
     await bridge.initialize();
+    await bridge.logout();
     await bridge.startDeviceLogin();
     await bridge.startThread("gpt-5.6-sol", [{ serverId: "quotes", configRef: "approved", toolGrants: ["quotes__latest"] }]);
     await bridge.startTurn("thread-1", "Get the latest quote.", { interruptOnStart: true });
@@ -46,6 +47,7 @@ describe("agent gateway cloud runtime POC", () => {
 
     expect(client.initialize).toHaveBeenCalledWith(true);
     expect(client.request).toHaveBeenCalledWith("account/login/start", { type: "chatgptDeviceCode" }, 30_000);
+    expect(client.request).toHaveBeenCalledWith("account/logout", {}, 30_000);
     expect(client.request).toHaveBeenCalledWith("turn/interrupt", { threadId: "thread-1", turnId: "turn-1" }, 30_000);
     expect(client.request).toHaveBeenCalledWith("thread/start", expect.objectContaining({ dynamicTools: [expect.objectContaining({ name: "quotes__latest" })] }), 30_000);
     expect(mcp.call).toHaveBeenCalledWith(expect.objectContaining({ ownerId: "00000000-0000-4000-8000-000000000001", toolName: "quotes__latest" }));
@@ -68,14 +70,40 @@ describe("agent gateway cloud runtime POC", () => {
     const first = Buffer.from('{"tokens":"old"}').toString("base64");
     const fetcher = vi.fn()
       .mockResolvedValueOnce(response({ access_token: "metadata-token" }))
-      .mockResolvedValueOnce(response({ payload: { data: first } }))
+      .mockResolvedValueOnce(response({ name: "projects/p/secrets/codex-auth/versions/1", payload: { data: first } }))
       .mockResolvedValueOnce(response({ access_token: "metadata-token" }))
-      .mockResolvedValueOnce(response({ name: "projects/p/secrets/codex-auth/versions/2" }));
+      .mockResolvedValueOnce(response({ name: "projects/p/secrets/codex-auth/versions/2" }))
+      .mockResolvedValueOnce(response({ access_token: "metadata-token" }))
+      .mockResolvedValueOnce(response({ payload: { data: Buffer.from('{"tokens":"new"}').toString("base64") } }))
+      .mockResolvedValueOnce(response({ access_token: "metadata-token" }))
+      .mockResolvedValueOnce(response({ versions: [
+        { name: "projects/p/secrets/codex-auth/versions/1", state: "ENABLED" },
+        { name: "projects/p/secrets/codex-auth/versions/2", state: "ENABLED" },
+      ] }))
+      .mockResolvedValueOnce(response({ access_token: "metadata-token" }))
+      .mockResolvedValueOnce(response({ name: "projects/p/secrets/codex-auth/versions/1", state: "DESTROYED" }));
     const auth = new ManagedAuthStore("projects/p/secrets/codex-auth", fetcher as typeof fetch);
     await auth.load(home);
     await import("node:fs/promises").then(({ writeFile }) => writeFile(join(home, "auth.json"), '{"tokens":"new"}'));
     expect(await auth.persist(home)).toBe(true);
     expect(fetcher.mock.calls[3][1].body).not.toContain("new");
+    expect(fetcher.mock.calls.some(([url]) => String(url).endsWith("/versions/1:destroy"))).toBe(true);
+  });
+
+  it("maps allowlisted owners without accepting a credential locator from requests", () => {
+    const registry = OwnerAuthRegistry.parse(JSON.stringify({
+      "00000000-0000-4000-8000-000000000001": "projects/p/secrets/codex-auth-a",
+      "00000000-0000-4000-8000-000000000002": "projects/p/secrets/codex-auth-b",
+    }));
+    expect(registry.resource("00000000-0000-4000-8000-000000000002")).toBe("projects/p/secrets/codex-auth-b");
+    expect(() => registry.resource("00000000-0000-4000-8000-000000000003")).toThrow("allowlisted");
+  });
+
+  it("treats an already absent owner auth secret as destroyed", async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(response({ access_token: "metadata-token" }))
+      .mockResolvedValueOnce(response({}, 404));
+    await expect(new ManagedAuthStore("projects/p/secrets/codex-auth", fetcher as typeof fetch).destroy()).resolves.toBeUndefined();
   });
 
   it("round-trips an external checkpoint for cursor reconnect", async () => {
