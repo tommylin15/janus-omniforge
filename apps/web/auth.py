@@ -294,6 +294,11 @@ class GoogleAuthMiddleware:
 
 def protect_with_google(app: Callable[..., Any]) -> Callable[..., Any]:
     """Wrap the app when JANUS_AUTH_REQUIRED is explicitly enabled."""
+    from packages.postgres_bundle import load_postgres_bundle
+    load_postgres_bundle("JANUS_WEB_POSTGRES_BUNDLE", {
+        "GOOGLE_CLIENT_ID": "google_client_id",
+        "JANUS_SESSION_SECRET": "session_secret",
+    })
     required = os.environ.get("JANUS_AUTH_REQUIRED", "false").strip().lower() == "true"
     if not required:
         return app

@@ -16,6 +16,23 @@ type RpcHandler = (message: RpcMessage) => Promise<Json | undefined> | Json | un
 const CODEX_VERSION = "0.153.0";
 const JSON_HEADERS = { "content-type": "application/json" };
 
+function loadAgentBundle(): void {
+  const raw = process.env.JANUS_AGENT_PROVIDER_BUNDLE?.trim();
+  if (!raw) return;
+  const bundle = JSON.parse(raw) as Record<string, unknown>;
+  for (const [target, source] of Object.entries({
+    GEMINI_API_KEY: "gemini_api_key",
+    OPENROUTER_API_KEY: "openrouter_api_key",
+    MCP_OWNER_SIGNING_KEY: "mcp_owner_signing_key",
+  })) {
+    if (!process.env[target] && typeof bundle[source] === "string" && bundle[source].trim()) {
+      process.env[target] = bundle[source].trim();
+    }
+  }
+}
+
+loadAgentBundle();
+
 export class AppServerClient {
   private child?: ChildProcessWithoutNullStreams;
   private nextId = 1;

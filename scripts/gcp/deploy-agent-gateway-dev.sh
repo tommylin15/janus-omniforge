@@ -5,6 +5,7 @@ project="${GCP_PROJECT_ID:?GCP_PROJECT_ID is required}"
 region="${GCP_REGION:-us-central1}"
 owner_secrets="${CODEX_OWNER_SECRETS:?CODEX_OWNER_SECRETS JSON map is required}"
 owner_secret="${MCP_OWNER_SIGNING_SECRET_NAME:-janus-mcp-owner-signing-key}"
+provider_bundle="${AGENT_PROVIDER_BUNDLE_SECRET_NAME:-janus-agent-provider-bundle}"
 service="janus-agent-gateway"
 account="janus-agent-gateway@${project}.iam.gserviceaccount.com"
 invoker="janus-agent-poc-invoker@${project}.iam.gserviceaccount.com"
@@ -20,6 +21,7 @@ if [[ "${ALLOW_AGENT_GATEWAY_DEV_DEPLOY:-false}" != "true" ]]; then
   exit 1
 fi
 gcloud secrets describe "${owner_secret}" --project="${project}" >/dev/null
+gcloud secrets describe "${provider_bundle}" --project="${project}" >/dev/null
 gcloud storage buckets describe "gs://${bucket}" --project="${project}" >/dev/null
 
 if ! gcloud iam service-accounts describe "${account}" --project="${project}" >/dev/null 2>&1; then
@@ -42,6 +44,8 @@ while IFS= read -r resource; do
       --member="serviceAccount:${account}" --role="${role}" --quiet >/dev/null
   done
 done < <(OWNER_SECRETS="${owner_secrets}" python3 -c 'import json,os; print("\n".join(dict.fromkeys(json.loads(os.environ["OWNER_SECRETS"]).values())))')
+gcloud secrets add-iam-policy-binding "${provider_bundle}" --project="${project}" \
+  --member="serviceAccount:${account}" --role=roles/secretmanager.secretAccessor --quiet >/dev/null
 for runtime in "${account}" "janus-user-api@${project}.iam.gserviceaccount.com"; do
   gcloud secrets add-iam-policy-binding "${owner_secret}" --project="${project}" \
     --member="serviceAccount:${runtime}" --role=roles/secretmanager.secretAccessor --quiet
@@ -63,7 +67,7 @@ gcloud run deploy "${service}" --project="${project}" --region="${region}" \
   --add-volume=name=agent-sandbox,type=in-memory,size-limit=256Mi \
   --add-volume-mount=volume=agent-sandbox,mount-path=/var/run/janus \
   --set-env-vars="^~^CODEX_POC_ENABLED=true~MCP_HOST_ENABLED=true~CODEX_OWNER_SECRETS=${owner_secrets}~AGENT_CHECKPOINT_BUCKET=${bucket}~MCP_SERVER_CONFIGS=${mcp_configs}" \
-  --set-secrets="MCP_OWNER_SIGNING_KEY=${owner_secret}:latest" \
+  --set-secrets="JANUS_AGENT_PROVIDER_BUNDLE=${provider_bundle}:latest" \
   --quiet
 gcloud run services add-iam-policy-binding "${service}" --project="${project}" --region="${region}" \
   --member="serviceAccount:${invoker}" --role=roles/run.invoker --quiet
@@ -77,6 +81,6 @@ gcloud iam service-accounts add-iam-policy-binding "${invoker}" --project="${pro
 gateway_url="$(gcloud run services describe "${service}" --project="${project}" --region="${region}" --format='value(status.url)')"
 gcloud run services update janus-api --project="${project}" --region="${region}" \
   --update-env-vars="MCP_GATEWAY_URL=${gateway_url}" \
-  --update-secrets="MCP_OWNER_SIGNING_KEY=${owner_secret}:latest" --quiet
+  --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" --quiet
 
 echo "Deployed private dev ${service} at immutable digest ${digest}."

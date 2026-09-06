@@ -38,6 +38,11 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                internal_audience: str | None = None,
                internal_callers: frozenset[str] | None = None,
                mcp: Any | None = None) -> FastAPI:
+    from packages.postgres_bundle import load_postgres_bundle
+    load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", {
+        "GOOGLE_USER_CLIENT_ID": "google_user_client_id",
+        "MCP_OWNER_SIGNING_KEY": "mcp_owner_signing_key",
+    })
     repository = repository or _Lazy(repository_from_env)
     store = store or _Lazy(PrivateIcebergStore.from_env)
     core = core or _Lazy(CoreContextReader.from_env)

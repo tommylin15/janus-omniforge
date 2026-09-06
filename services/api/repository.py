@@ -582,4 +582,10 @@ class PostgresWorkspaceRepository:
 
 
 def repository_from_env() -> PostgresWorkspaceRepository:
+    from packages.postgres_bundle import load_postgres_bundle
+    load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", {
+        "PRIVATE_DATABASE_URL": "database_url",
+        "PRIVATE_CATALOG_PASSWORD": "catalog_password",
+        "CORE_CATALOG_PASSWORD": "core_catalog_password",
+    })
     return PostgresWorkspaceRepository(os.getenv("PRIVATE_DATABASE_URL", ""))

@@ -29,6 +29,11 @@ def _is_private(address: str) -> bool:
 
 def postgres_smoke(connect: Callable[..., Any] | None = None) -> dict[str, object]:
     """Verify both Mart identities reach PostgreSQL privately with bounded grants."""
+    from packages.postgres_bundle import load_postgres_bundle
+    load_postgres_bundle("JANUS_MART_POSTGRES_BUNDLE", {
+        "CATALOG_DB_PASSWORD": "catalog_password",
+        "PUBLICATION_DB_PASSWORD": "publication_password",
+    })
     if connect is None:
         import psycopg
 

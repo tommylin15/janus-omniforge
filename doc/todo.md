@@ -20,7 +20,7 @@
 - WBS-4C-PRIVATE-STORAGE：migration 016、Private Iceberg assistant events／Skill revisions、PostgreSQL bounded index、credential-shaped field fail-closed、冪等重跑、A／B 隔離與 Codex auth cleanup pending 契約已完成；GCP dev evidence 詳見 `spec/operations-and-testing.md`。
 - WBS-4C-CODEX-AUTH-LIFECYCLE：owner allowlist、Secret 版本輪替驗證／舊版銷毀、冪等 auth destroy、logout／session eviction 與 deletion pipeline wiring 已完成 GCP dev contract／live acceptance；device-code login 完成後的跨 request session provisioning 與真實 rotation 尚待後續 Chat API slice。
 - WBS 3 收尾：Admin Data Operations 1 項完成、3 項未完成；Stage／Core 實機驗證 7 項未完成。Scheduler canary 因 2026-09-03 上游時段異常重置為 0／3。
-- 最新驗證：WBS-4C-OPENROUTER／GEMINI／Gateway targeted Vitest 12／12、Agent Gateway TypeScript build 通過；WBS-4C-CONTEXT-SOURCES 已於 GCP dev Cloud Build 通過；完整本機 pytest 123／123、WBS 4J targeted pytest 14／14；Flutter analyze／widget test、migration 001–014 與 bash syntax 已通過 Cloud Build。
+- 最新驗證：WBS-4C-SKILLS GCP dev Cloud Build `262243c4-1323-4eea-80a5-48d1c631be7b` 完整 `tests.test_assistant_storage` 通過；7-resource Secret Manager consolidation 後，API／Web／agent Cloud Run revisions 均成功部署，既有 API／Web／agent acceptance build 分別為 `8c81dcfd-e08e-4965-81db-7d9dc41a44ee`、`7a9dfa6c-e070-4ca0-b65c-cb297de24e43`、`478e3982-1745-4a8d-8930-75ec365bd359`。Owner A／B 已合併為 acceptance-only temp secret；實際 Codex login 尚待重新上傳 credential，保留 resource 各僅一個 enabled latest version。其餘既有 WBS 驗證證據見 `spec/operations-and-testing.md`。
 
 ## 下一步執行佇列
 

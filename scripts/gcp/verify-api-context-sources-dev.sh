@@ -10,6 +10,7 @@ user_api="janus-user-api@${project}.iam.gserviceaccount.com"
 gateway="janus-agent-gateway@${project}.iam.gserviceaccount.com"
 added_user=false
 added_gateway=false
+added_bundle=false
 
 cleanup() {
   if [[ "${added_user}" == true ]]; then
@@ -19,6 +20,10 @@ cleanup() {
   if [[ "${added_gateway}" == true ]]; then
     gcloud iam service-accounts remove-iam-policy-binding "${gateway}" --project="${project}" \
       --member="serviceAccount:${build_account}" --role=roles/iam.serviceAccountTokenCreator --quiet >/dev/null || true
+  fi
+  if [[ "${added_bundle}" == true ]]; then
+    gcloud secrets remove-iam-policy-binding janus-postgres-api-bundle --project="${project}" \
+      --member="serviceAccount:${build_account}" --role=roles/secretmanager.secretAccessor --quiet >/dev/null || true
   fi
 }
 trap cleanup EXIT
@@ -33,6 +38,14 @@ for account in "${user_api}" "${gateway}"; do
     if [[ "${account}" == "${user_api}" ]]; then added_user=true; else added_gateway=true; fi
   fi
 done
+
+if ! gcloud secrets get-iam-policy janus-postgres-api-bundle --project="${project}" \
+  --flatten='bindings[].members' --filter="bindings.role:roles/secretmanager.secretAccessor AND bindings.members:serviceAccount:${build_account}" \
+  --format='value(bindings.members)' | grep -q .; then
+  gcloud secrets add-iam-policy-binding janus-postgres-api-bundle --project="${project}" \
+    --member="serviceAccount:${build_account}" --role=roles/secretmanager.secretAccessor --quiet >/dev/null
+  added_bundle=true
+fi
 
 if [[ "${added_user}" == true || "${added_gateway}" == true ]]; then
   wait_seconds="${IAM_PROPAGATION_WAIT_SECONDS:-300}"

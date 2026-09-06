@@ -1,0 +1,18 @@
+substitutions:
+  _WEB_URL: ""
+
+steps:
+  - id: web-bundle-health
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        test -n "${_WEB_URL}"
+        curl --fail --silent --show-error --max-time 60 "${_WEB_URL}/health" > /tmp/health.json
+        grep -q '"status"' /tmp/health.json
+        echo 'web bundle health acceptance passed'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 600s

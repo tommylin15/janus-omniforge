@@ -32,6 +32,11 @@ def _holidays(value: str) -> set[date]:
 
 
 def _control_plane() -> PostgreSQLControlPlane:
+    from packages.postgres_bundle import load_postgres_bundle
+    load_postgres_bundle("JANUS_INGESTION_POSTGRES_BUNDLE", {
+        "CONTROL_DB_PASSWORD": "control_password",
+        "CATALOG_DB_PASSWORD": "catalog_password",
+    })
     required = ("CONTROL_DB_HOST", "CONTROL_DB_NAME", "CONTROL_DB_USER", "CONTROL_DB_PASSWORD")
     missing = [name for name in required if not os.environ.get(name, "").strip()]
     if missing:
@@ -61,6 +66,11 @@ def _control_symbols() -> tuple[str, ...]:
 
 
 def _iceberg_core(core_bucket: str) -> DuckDBIcebergCore:
+    from packages.postgres_bundle import load_postgres_bundle
+    load_postgres_bundle("JANUS_INGESTION_POSTGRES_BUNDLE", {
+        "CONTROL_DB_PASSWORD": "control_password",
+        "CATALOG_DB_PASSWORD": "catalog_password",
+    })
     required = ("CATALOG_DB_HOST", "CATALOG_DB_NAME", "CATALOG_DB_USER", "CATALOG_DB_PASSWORD", "GCP_PROJECT_ID")
     missing = [name for name in required if not os.environ.get(name, "").strip()]
     if missing:

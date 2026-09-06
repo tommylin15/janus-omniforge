@@ -16,8 +16,9 @@ steps:
         api="${_API_URL}"
         user_sa="${_USER_API_SERVICE_ACCOUNT}"
         token_sa="${_TOKEN_SERVICE_ACCOUNT}"
-        client_id="$(gcloud secrets versions access 2 --project="${PROJECT_ID}" \
-          --secret=google-user-client-id --impersonate-service-account="${user_sa}")"
+        client_id="$(gcloud secrets versions access latest --project="${PROJECT_ID}" \
+          --secret=janus-postgres-api-bundle --impersonate-service-account="${user_sa}" \
+          | python3 -c 'import json,sys; print(json.load(sys.stdin)["google_user_client_id"])')"
         user_token="$(gcloud auth print-identity-token --impersonate-service-account="${user_sa}" \
           --audiences="${client_id}" --include-email)"
         internal_token="$(gcloud auth print-identity-token --impersonate-service-account="${token_sa}" \

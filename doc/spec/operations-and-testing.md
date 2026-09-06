@@ -2,10 +2,29 @@
 
 最新驗證日期：2026-09-06
 
-最新完整本機驗證：`python -m pytest tests -q` 123/123 passed；既有 WBS 4J targeted
-pytest 14/14、Python `py_compile`、inline JavaScript syntax 與 `git diff --check`
-passed。此次 host 缺少 FastAPI runtime，新增 API contract test 未在本機重跑；API image
-由 GCP Cloud Build lockfile build 驗證，真人 acceptance 由 GCP dev runtime 完成。
+最新完整本機驗證：既有基線 `python -m pytest tests -q` 曾 123/123 passed；本次
+Skill 變更的本機 targeted tests 為 5 passed，完整 `tests.test_assistant_storage`
+在 host 因缺少 `zoneinfo`／`pytz` 的既有 PyIceberg timestamp 路徑受阻。Python
+`py_compile` 與 `git diff --check` passed；完整 Iceberg regression 改由下方 GCP
+Cloud Build worker 驗證。
+
+同日完成 GCP dev Secret Manager 7-resource consolidation：5 個 PostgreSQL
+bundle、1 個 agent provider bundle（含 MCP signing）、1 個 acceptance-only
+owner temp secret。API／Web OAuth 已併入各自 PostgreSQL bundle；API、Web、
+agent gateway current revisions 分別使用 bundle 版本 5、3、2。未使用的 resource
+已刪除；保留 resource 各只留一個 enabled latest version。Owner A／B 原本只是
+驗收 fixture，已合併指向 temp secret；temp payload 是空 JSON，未用於宣稱 live
+Codex auth 驗收，正式 owner isolation 仍待後續 lifecycle work。
+
+## P0 WBS 4C Skills（2026-09-06）
+
+GCP dev Cloud Build `262243c4-1323-4eea-80a5-48d1c631be7b` 使用既有
+`scripts/gcp/cloudbuild-private-storage-verify.yaml`，在 containerized API image
+內執行完整 `python -m unittest tests.test_assistant_storage`，結果 SUCCESS。
+驗證涵蓋 Skill manifest validation／credential fail-closed、assistant event
+owner isolation／delete、PostgreSQL index contract 與 Codex deletion cleanup
+guard；未部署 Cloud Run、未建立新資源，亦未呼叫 Artifact Analysis／Container
+Scanning／occurrence API。
 
 ## P0 WBS 4C Codex auth lifecycle checkpoint（2026-09-06）
 
