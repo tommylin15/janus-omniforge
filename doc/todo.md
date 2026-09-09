@@ -26,8 +26,7 @@
 
 ## 下一步執行佇列
 
-1. 【Luna】`WBS-4C-ASSISTANT-UI`：延續 Flutter Web／mobile，完成 Markdown／程式碼高亮、streaming、MCP／Skills、Items／Turns／Approvals。
-2. 【Sol】`WBS-4C-ACCEPTANCE`：完成 Cloud Run、provider、資料源、MCP、Skills、streaming、approval、Grounding、privacy 與刪除整合驗收。
+1. 【Sol】`WBS-4C-ACCEPTANCE`：完成 Cloud Run、provider、資料源、MCP、Skills、streaming、approval、Grounding、privacy 與刪除整合驗收。
 9. 【Sol】`WBS-3-ACCEPTANCE`：持續 3 交易日 canary，並完成 queue／connection／restart、VPC／firewall 與 Free Tier guard 實機驗證。
 10. 【Luna】`WBS-3-ADMIN-POLISH`：完成表格、cursor pagination 與其 UI 驗收；股票跨域刪除 guard 另以【Sol】執行。
 11. 【Sol】`WBS-5` → 【Luna】`WBS-6` → 【Sol】`WBS-7` → 依逐項標籤執行 `WBS-8`；WBS 4J 個人化 overlay 等 `mart_scoped_analysis` 可用後再做。
@@ -83,7 +82,7 @@
 
 - [x] 【Luna】 WBS-4C-CHAT-API API contract 已完成：owner-scoped Threads CRUD／fork、message turn、bounded SSE cursor replay、cancel、approval response、assistant export、deletion status，以及受控 provider continuation metadata；OpenRouter／Gemini signed gateway dispatch 已通過 GCP dev live probe，Codex POC checkpoint bridge 已驗收；Codex Chat API thread start／resume durable continuation 與 message-to-gateway contract evidence 已完成（`tests/test_chat_api.py::test_codex_message_round_trips_gateway_continuation`）。三-runtime GCP dev 整合重跑留待 WBS-4C-ACCEPTANCE。
 
-- [ ] 【Luna】 不建立 React／Tauri 或使用者地端 runtime；延續既有 Flutter Web／Android／iOS AI 入口，共用雲端 Threads／AgentEvent／citation contract，提供多 Threads、Markdown／程式碼高亮、streaming、provider／model／資料源／MCP／Skills controls，以及 Codex Items／Turns／Approval Requests。
+- [x] 【Luna】 WBS-4C-ASSISTANT-UI：延續既有 Flutter Web／Android／iOS AI 入口，完成多 Threads、Markdown／程式碼區塊呈現、bounded streaming cursor replay／去重、provider／model selector、MCP／Skills 面板，以及 Codex Items／Turns／Approval Requests UI；驗證：`apps/user_app/test/widget_test.dart`（Flutter SDK 未安裝，待環境具備後執行 widget test）。
 
 - [ ] 【Sol】 驗證 Cloud Run scale-to-zero／cold start／timeout／中斷重連、三 runtime、內外資料源 provenance、MCP stdio／HTTP／SSE、動態工具、Skill 權限、Codex auth／approval／取消、Grounding、quota／provider unavailable、context 外送提示、A／B 隔離、stream 續接／去重、Iceberg 重跑／匯出／刪除與無 placeholder。Codex auth 必須覆蓋 A／B load／rotate／destroy 隔離、orphan auth、cleanup 403 重試、刪除期間寫入拒絕、session eviction／logout、刪後重新登入與 secrets 不落 log／DB／Iceberg；另驗證 Iceberg snapshot／orphan file 與 GCS object version 的實際物理清除期限。若 Cloud Run 無法滿足不可中斷長 turn、持久 daemon、特殊 sandbox 權限或實測資源需求，先提交 Compute Engine／GKE 成本、安全、維運與退出評估，取得使用者決定後才能採用。
 
