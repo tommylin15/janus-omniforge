@@ -266,6 +266,15 @@ class PostgresWorkspaceRepository:
                 row=connection.execute("SELECT * FROM private.deletion_requests WHERE user_id=%s AND idempotency_key=%s",(user_id,key)).fetchone()
             return dict(row)
 
+    def deletion_request(self, user_id: UUID, request_id: UUID) -> dict[str, Any]:
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM private.deletion_requests WHERE user_id=%s AND request_id=%s",
+                (user_id, request_id),
+            ).fetchone()
+            if not row: raise NotFoundError("deletion request not found")
+            return dict(row)
+
     def mcp_servers(self, user_id: UUID) -> list[dict[str, Any]]:
         with self._connection() as connection:
             return [dict(row) for row in connection.execute(
@@ -303,16 +312,57 @@ class PostgresWorkspaceRepository:
                 raise ConflictError("thread runtime and model are immutable")
             return dict(row)
 
+    def assistant_threads(self, user_id: UUID, limit: int = 100) -> list[dict[str, Any]]:
+        with self._connection() as connection:
+            return [dict(row) for row in connection.execute(
+                "SELECT * FROM private.assistant_threads WHERE user_id=%s ORDER BY updated_at DESC LIMIT %s",
+                (user_id, min(limit, 100)),
+            ).fetchall()]
+
+    def assistant_thread(self, user_id: UUID, thread_id: str) -> dict[str, Any]:
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM private.assistant_threads WHERE user_id=%s AND thread_id=%s",
+                (user_id, thread_id),
+            ).fetchone()
+            if not row: raise NotFoundError("assistant thread not found")
+            return dict(row)
+
+    def next_assistant_seq(self, user_id: UUID, thread_id: str) -> int:
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT COALESCE(MAX(seq), -1) + 1 AS next_seq FROM private.assistant_event_index WHERE user_id=%s AND thread_id=%s",
+                (user_id, thread_id),
+            ).fetchone()
+            return int(row["next_seq"])
+
+    def assistant_event_for_key(self, user_id: UUID, thread_id: str, key: str) -> dict[str, Any] | None:
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM private.assistant_event_index WHERE user_id=%s AND thread_id=%s AND idempotency_key=%s",
+                (user_id, thread_id, key),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def latest_assistant_continuation(self, user_id: UUID, thread_id: str) -> dict[str, Any]:
+        with self._connection() as connection:
+            row = connection.execute(
+                """SELECT continuation FROM private.assistant_turns
+                   WHERE user_id=%s AND thread_id=%s AND continuation <> '{}'::jsonb
+                   ORDER BY started_at DESC LIMIT 1""", (user_id, thread_id),
+            ).fetchone()
+            return dict(row["continuation"]) if row and row["continuation"] else {}
+
     def start_assistant_turn(self, user_id: UUID, thread_id: str, turn_id: str, key: str,
                              *, context_artifact_ref: str | None = None, skill_id: str | None = None,
-                             skill_revision: int | None = None) -> dict[str, Any]:
+                             skill_revision: int | None = None, continuation: dict[str, Any] | None = None) -> dict[str, Any]:
         with self._connection() as connection:
             row=connection.execute(
                 """INSERT INTO private.assistant_turns
-                   (user_id,thread_id,turn_id,idempotency_key,context_artifact_ref,skill_id,skill_revision)
-                   VALUES(%s,%s,%s,%s,%s,%s,%s)
+                   (user_id,thread_id,turn_id,idempotency_key,context_artifact_ref,skill_id,skill_revision,continuation)
+                   VALUES(%s,%s,%s,%s,%s,%s,%s,%s)
                    ON CONFLICT(user_id,thread_id,idempotency_key) DO NOTHING RETURNING *""",
-                (user_id,thread_id,turn_id,key,context_artifact_ref,skill_id,skill_revision),
+                (user_id,thread_id,turn_id,key,context_artifact_ref,skill_id,skill_revision,continuation or {}),
             ).fetchone()
             if not row:
                 row=connection.execute(
@@ -324,14 +374,15 @@ class PostgresWorkspaceRepository:
             return dict(row)
 
     def finish_assistant_turn(self, user_id: UUID, thread_id: str, turn_id: str,
-                              status: str) -> dict[str, Any]:
+                              status: str, continuation: dict[str, Any] | None = None) -> dict[str, Any]:
         if status not in {"COMPLETED","CANCELLED","ERROR"}:
             raise ValueError("turn terminal status is invalid")
         with self._connection() as connection:
             row=connection.execute(
-                """UPDATE private.assistant_turns SET status=%s,completed_at=now()
+                """UPDATE private.assistant_turns SET status=%s,completed_at=now(),
+                   continuation=COALESCE(%s, continuation)
                    WHERE user_id=%s AND thread_id=%s AND turn_id=%s AND status='RUNNING' RETURNING *""",
-                (status,user_id,thread_id,turn_id),
+                (status, continuation, user_id, thread_id, turn_id),
             ).fetchone()
             if not row:
                 row=connection.execute(

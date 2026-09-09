@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { CodexBridge, type AgentEvent } from "./codex_bridge.js";
+import { dispatchAssistant } from "./assistant_dispatch.js";
 import { McpHost } from "./mcp_host.js";
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
@@ -271,6 +272,67 @@ export class ManagedAuthStore {
   }
 }
 
+type LoginSession = {
+  ownerId: string;
+  root: string;
+  home: string;
+  auth: ManagedAuthStore;
+  client: AppServerClient;
+  timer: NodeJS.Timeout;
+};
+
+export class OwnerSessionRegistry {
+  private sessions = new Map<string, LoginSession>();
+
+  async start(ownerId: string, authSecret: string): Promise<Json> {
+    const key = ownerId.toLowerCase();
+    if (this.sessions.has(key)) throw new Error("owner login session already exists");
+    const root = await mkdtemp(join(process.env.SANDBOX_ROOT || tmpdir(), "login-"));
+    const home = join(root, "codex-home");
+    const client = new AppServerClient(process.env.CODEX_BIN || "codex", [], home);
+    try {
+      await mkdir(home, { recursive: true, mode: 0o700 });
+      client.start();
+      await client.initialize();
+      const result = object(await client.request("account/login/start", { type: "chatgptDeviceCode" }, 30_000));
+      const loginId = typeof result.loginId === "string" ? result.loginId : "";
+      if (!loginId) throw new Error("Codex login id missing");
+      const timer = setTimeout(() => { void this.evict(ownerId, false); }, 10 * 60_000);
+      timer.unref();
+      this.sessions.set(key, { ownerId, root, home, auth: new ManagedAuthStore(authSecret), client, timer });
+      const safe = Object.fromEntries(Object.entries(result).filter(([name, value]) => name !== "loginId" && ["authUrl", "userCode", "verificationUri", "verificationUriComplete", "expiresAt", "interval"].includes(name) && ["string", "number"].includes(typeof value)));
+      return { ownerId, loginId, ...safe } as Json;
+    } catch (error) {
+      await client.stop();
+      await rm(root, { recursive: true, force: true });
+      throw error;
+    }
+  }
+
+  async status(ownerId: string): Promise<Json> {
+    const session = this.sessions.get(ownerId.toLowerCase());
+    if (!session) throw new Error("owner login session not found");
+    const account = object(await session.client.request("account/read", { refreshToken: true }, 30_000));
+    if (!account.account) return { ownerId, status: "PENDING" };
+    return { ownerId, status: "AUTHENTICATED", authRotated: await session.auth.persist(session.home) };
+  }
+
+  async evict(ownerId: string, logout: boolean): Promise<boolean> {
+    const key = ownerId.toLowerCase();
+    const session = this.sessions.get(key);
+    if (!session) return false;
+    this.sessions.delete(key);
+    clearTimeout(session.timer);
+    try {
+      if (logout) await session.client.request("account/logout", {}, 30_000);
+    } finally {
+      await session.client.stop();
+      await rm(session.root, { recursive: true, force: true });
+    }
+    return true;
+  }
+}
+
 export class GcsCheckpointStore {
   constructor(private bucket: string, private fetcher: typeof fetch = fetch) {
     if (!/^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$/.test(bucket)) throw new Error("AGENT_CHECKPOINT_BUCKET is invalid");
@@ -291,6 +353,49 @@ export class GcsCheckpointStore {
 }
 
 type Checkpoint = { checkpointId: string; events: AgentEvent[] };
+
+async function dispatchCodexTurn(ownerId: string, threadId: string, model: string,
+  messages: Array<{ role?: string; content?: string }>, continuation: Record<string, Json>): Promise<Json> {
+  const resource = OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").resource(ownerId);
+  const root = await mkdtemp(join(process.env.SANDBOX_ROOT || tmpdir(), "chat-turn-"));
+  const home = join(root, "codex-home");
+  const workspace = join(root, "workspace");
+  const client = new AppServerClient(process.env.CODEX_BIN || "codex", [], home);
+  const mcp = new McpHost();
+  try {
+    await mkdir(workspace, { mode: 0o700 });
+    await new ManagedAuthStore(resource).load(home);
+    client.start();
+    const bridge = new CodexBridge(ownerId, workspace, client, mcp);
+    await bridge.initialize();
+    let nativeThread = typeof continuation.codexThreadId === "string" ? continuation.codexThreadId : "";
+    if (!nativeThread) {
+      const started = object(await bridge.startThread(model));
+      const thread = object(started.thread ?? null);
+      nativeThread = typeof thread.id === "string" ? thread.id : "";
+    }
+    if (!nativeThread) throw new Error("Codex thread id is missing");
+    if (typeof continuation.codexThreadId === "string") await bridge.resumeThread(nativeThread);
+    const text = messages.at(-1)?.content || "";
+    const started = object(await bridge.startTurn(nativeThread, text));
+    const nativeTurn = object(started.turn ?? null);
+    const nativeTurnId = typeof nativeTurn.id === "string" ? nativeTurn.id : "";
+    if (!nativeTurnId) throw new Error("Codex turn id is missing");
+    for (let attempt = 0; attempt < 600; attempt++) {
+      const events = bridge.eventsAfter(-1).events;
+      if (events.some((event) => event.turnId === nativeTurnId && ["turn_completed", "turn_cancelled", "turn_error"].includes(event.type))) {
+        return { events: events.filter((event) => event.turnId === nativeTurnId) as unknown as Json[],
+          continuation: { runtime: "codex", codexThreadId: nativeThread, codexTurnId: nativeTurnId, model } };
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    throw new Error("Codex turn did not reach a terminal event");
+  } finally {
+    await client.stop();
+    await mcp.closeAll();
+    await rm(root, { recursive: true, force: true });
+  }
+}
 
 function object(value: Json): { [key: string]: Json } {
   if (!value || Array.isArray(value) || typeof value !== "object") throw new Error("Codex App Server returned an invalid object");
@@ -381,7 +486,7 @@ async function signedBody(request: IncomingMessage): Promise<Json> {
   return JSON.parse(body.toString("utf8")) as Json;
 }
 
-export function makeServer(mcp = new McpHost()) {
+export function makeServer(mcp = new McpHost(), sessions = new OwnerSessionRegistry()) {
   let running = false;
   return createServer(async (request: IncomingMessage, response: ServerResponse) => {
     const url = new URL(request.url || "/", "http://localhost");
@@ -411,6 +516,7 @@ export function makeServer(mcp = new McpHost()) {
         const body = object(await signedBody(request));
         const ownerId = typeof body.ownerId === "string" ? body.ownerId : "";
         const resource = OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").resource(ownerId);
+        await sessions.evict(ownerId, true);
         await new ManagedAuthStore(resource).destroy();
         send(response, 200, { ownerId, destroyed: true });
       } catch (error) {
@@ -425,13 +531,51 @@ export function makeServer(mcp = new McpHost()) {
         const body = object(await signedBody(request));
         const ownerId = typeof body.ownerId === "string" ? body.ownerId : "";
         const resource = OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").resource(ownerId);
-        await logoutOwner(ownerId, resource);
+        if (!await sessions.evict(ownerId, true)) await logoutOwner(ownerId, resource);
         send(response, 200, { ownerId, loggedOut: true, sessionEvicted: true });
       } catch (error) {
         const status = (error as Error & { status?: number }).status === 404 ? 200 : 400;
         send(response, status, status === 200 ? { loggedOut: true, sessionEvicted: true } : { error: error instanceof Error ? error.message : "logout_failed" });
       } finally {
         running = false;
+      }
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/internal/v1/codex/session:login-start") {
+      try {
+        const body = object(await signedBody(request));
+        const ownerId = typeof body.ownerId === "string" ? body.ownerId : "";
+        const resource = OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").resource(ownerId);
+        send(response, 200, await sessions.start(ownerId, resource));
+      } catch (error) {
+        send(response, 400, { error: error instanceof Error ? error.message : "login_start_failed" });
+      }
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/internal/v1/codex/session:login-status") {
+      try {
+        const body = object(await signedBody(request));
+        const ownerId = typeof body.ownerId === "string" ? body.ownerId : "";
+        OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").resource(ownerId);
+        send(response, 200, await sessions.status(ownerId));
+      } catch (error) {
+        send(response, 400, { error: error instanceof Error ? error.message : "login_status_failed" });
+      }
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/internal/v1/assistant/turn") {
+      try {
+        const body = object(await signedBody(request));
+        const runtime = body.runtime;
+        if (runtime !== "openrouter" && runtime !== "gemini" && runtime !== "codex") throw new Error("runtime dispatch is unavailable");
+        if (typeof body.ownerId !== "string" || typeof body.threadId !== "string" || typeof body.turnId !== "string" || typeof body.model !== "string" || !Array.isArray(body.messages)) throw new Error("assistant turn request is invalid");
+        const continuation = body.continuation && typeof body.continuation === "object" && !Array.isArray(body.continuation) ? body.continuation as Record<string, Json> : {};
+        send(response, 200, runtime === "codex"
+          ? await dispatchCodexTurn(body.ownerId, body.threadId, body.model, body.messages as Array<{ role?: string; content?: string }>, continuation)
+          : await dispatchAssistant({ ownerId: body.ownerId, threadId: body.threadId,
+            turnId: body.turnId, runtime, model: body.model, messages: body.messages as never[], continuation }));
+      } catch (error) {
+        send(response, 400, { error: error instanceof Error ? error.message : "assistant_turn_failed" });
       }
       return;
     }

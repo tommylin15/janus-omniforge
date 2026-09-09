@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import os
+import json
+from datetime import datetime, timezone
 from typing import Any, Callable
-from uuid import NAMESPACE_URL, UUID, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from fastapi import APIRouter, Depends, FastAPI, Header, Query, Request, Response, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from .auth import (AuthenticatedUser, GoogleServiceAuthenticator, GoogleUserAuthenticator,
                    allowed_assistant_callers, allowed_user_emails)
@@ -17,8 +20,12 @@ from .context_sources import (ContextReferenceNotFound, ContextSourceError, Cont
 from .mcp_gateway import McpGatewayClient, McpGatewayError
 from .models import (ContextPreviewIn, ContextResolveIn, CorrectionIn, LedgerEventIn, NoteIn,
                      McpServersPutIn, NoteRevisionIn, SkillRevisionIn, SkillStateIn,
-                     WatchlistIn, WatchlistOrderIn)
+                     WatchlistIn, WatchlistOrderIn, ApprovalResponseIn, ForkThreadIn,
+                     MessageIn, ThreadCreateIn)
 from .assistant_storage import AssistantStorage
+from .assistant_storage import safe_private_record
+from .engine_security import (AgentEvent, AgentEventType, AgentRuntime, ApprovalDecision,
+                               ApprovalRequest, RuntimeBinding)
 from .repository import ConflictError, NotFoundError, OversellError, repository_from_env
 from .store import PrivateIcebergStore
 
@@ -101,6 +108,114 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @private.post("/chats/{conversation_id}/context-preview")
     def context_preview(conversation_id:str,value:ContextPreviewIn,current:AuthenticatedUser=Depends(user)):
         return jsonable_encoder(contexts.preview(current.user_id,conversation_id,value.selector))
+
+    @private.post("/chats/threads", status_code=201)
+    def create_chat_thread(value: ThreadCreateIn, current: AuthenticatedUser = Depends(user),
+                           idempotency_key: str = Depends(key)):
+        binding = RuntimeBinding(value.runtime, value.model, value.assistant_profile,
+                                 value.skill_profile, frozenset(value.model_capabilities))
+        thread_id = value.thread_id or f"thread-{uuid5(NAMESPACE_URL, f'janus-thread:{current.user_id}:{idempotency_key}') }"
+        if value.parent_thread_id:
+            parent = repository.assistant_thread(current.user_id, value.parent_thread_id)
+            if (parent["runtime"], parent["model"]) != (value.runtime.value, value.model):
+                raise ConflictError("forked thread must keep the runtime and model")
+        return jsonable_encoder(repository.create_assistant_thread(
+            current.user_id, thread_id, binding, parent_thread_id=value.parent_thread_id,
+        ))
+
+    @private.get("/chats/threads")
+    def list_chat_threads(current: AuthenticatedUser = Depends(user)):
+        return jsonable_encoder({"items": repository.assistant_threads(current.user_id)})
+
+    @private.get("/chats/threads/{thread_id}")
+    def get_chat_thread(thread_id: str, current: AuthenticatedUser = Depends(user)):
+        return jsonable_encoder(repository.assistant_thread(current.user_id, thread_id))
+
+    @private.post("/chats/threads/{thread_id}/fork", status_code=201)
+    def fork_chat_thread(thread_id: str, value: ForkThreadIn | None = None,
+                         current: AuthenticatedUser = Depends(user), idempotency_key: str = Depends(key)):
+        parent = repository.assistant_thread(current.user_id, thread_id)
+        binding = RuntimeBinding(AgentRuntime(parent["runtime"]), parent["model"], parent["assistant_profile"],
+                                 parent.get("skill_profile"))
+        return jsonable_encoder(repository.create_assistant_thread(
+            current.user_id, value.thread_id if value and value.thread_id else f"thread-{uuid5(NAMESPACE_URL, f'janus-fork:{current.user_id}:{idempotency_key}') }",
+            binding, parent_thread_id=thread_id,
+        ))
+
+    @private.post("/chats/threads/{thread_id}/messages", status_code=202)
+    def post_chat_message(thread_id: str, value: MessageIn, current: AuthenticatedUser = Depends(user),
+                          idempotency_key: str = Depends(key)):
+        thread = repository.assistant_thread(current.user_id, thread_id)
+        existing = repository.assistant_event_for_key(current.user_id, thread_id, idempotency_key)
+        turn_id = value.turn_id or f"turn-{uuid5(NAMESPACE_URL, f'janus-turn:{current.user_id}:{idempotency_key}') }"
+        if existing:
+            return jsonable_encoder({"thread": thread, "turn": repository.start_assistant_turn(
+                current.user_id, thread_id, turn_id, idempotency_key,
+            ), "event": existing})
+        previous_continuation = repository.latest_assistant_continuation(current.user_id, thread_id)
+        continuation = previous_continuation or value.continuation
+        turn = repository.start_assistant_turn(
+            current.user_id, thread_id, turn_id, idempotency_key,
+            context_artifact_ref=value.context_artifact_ref, skill_id=value.skill_id,
+            skill_revision=value.skill_revision, continuation=safe_private_record(continuation),
+        )
+        event = AgentEvent(
+            event_id=f"event-{uuid4()}", seq=repository.next_assistant_seq(current.user_id, thread_id),
+            thread_id=thread_id, turn_id=turn_id, event_type=AgentEventType.ITEM_UPSERT,
+            item_id=f"message-{uuid4()}", payload={"role": "user", "content": value.content},
+        )
+        persisted = skills.append_event(current.user_id, event, idempotency_key)
+        dispatch = getattr(mcp, "dispatch_assistant_turn", None)
+        if dispatch:
+            result = dispatch(current.user_id, thread_id=thread_id, turn_id=turn_id,
+                              runtime=thread["runtime"], model=thread["model"],
+                              messages=[{"role": "user", "content": value.content}],
+                               continuation=turn.get("continuation") or continuation)
+            for item in result.get("events", []):
+                event_type = AgentEventType(item["type"])
+                continuation = item.get("continuation", {})
+                skills.append_event(current.user_id, AgentEvent(
+                    event_id=item["eventId"], seq=repository.next_assistant_seq(current.user_id, thread_id),
+                    thread_id=thread_id, turn_id=turn_id, event_type=event_type,
+                    payload=safe_private_record(item.get("payload", {})),
+                    provider_ids=safe_private_record(item.get("providerIds", {})),
+                ), f"{idempotency_key}:{item['eventId']}")
+            result_continuation = safe_private_record(result.get("continuation", {}))
+            turn = repository.finish_assistant_turn(current.user_id, thread_id, turn_id, "COMPLETED", result_continuation)
+            return jsonable_encoder({"thread": thread, "turn": turn, "event": persisted,
+                                     "dispatch": {"status": "COMPLETED", "continuation": result_continuation}})
+        return jsonable_encoder({"thread": thread, "turn": turn, "event": persisted,
+                                 "dispatch": {"status": "QUEUED"}})
+
+    @private.get("/chats/threads/{thread_id}/events")
+    def chat_events(thread_id: str, cursor: int = Query(ge=-1, default=-1),
+                    limit: int = Query(ge=1, le=200, default=200),
+                    current: AuthenticatedUser = Depends(user)):
+        repository.assistant_thread(current.user_id, thread_id)
+        indexes = repository.assistant_events_after(current.user_id, thread_id, cursor, limit)
+        def stream():
+            for index in indexes:
+                record = store.read_assistant_event(current.user_id, thread_id, index["event_id"])
+                if record is None: continue
+                yield f"id: {index['seq']}\nevent: {index['event_type']}\ndata: {json.dumps(jsonable_encoder(record), separators=(',', ':'))}\n\n"
+        return StreamingResponse(stream(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    @private.post("/chats/threads/{thread_id}/turns/{turn_id}/cancel")
+    def cancel_chat_turn(thread_id: str, turn_id: str, current: AuthenticatedUser = Depends(user)):
+        return jsonable_encoder(repository.finish_assistant_turn(
+            current.user_id, thread_id, turn_id, "CANCELLED",
+        ))
+
+    @private.post("/chats/threads/{thread_id}/turns/{turn_id}/approvals/{request_id}")
+    def respond_chat_approval(thread_id: str, turn_id: str, request_id: str,
+                              value: ApprovalResponseIn, current: AuthenticatedUser = Depends(user)):
+        row = repository.approval(current.user_id, thread_id, turn_id, request_id)
+        request = ApprovalRequest(current.user_id, thread_id, turn_id, request_id,
+                                  row["operation"], row["scope"], row["params_digest"], row["expires_at"])
+        decision = ApprovalDecision(current.user_id, thread_id, turn_id, request_id,
+                                    value.params_digest, value.approved)
+        return jsonable_encoder(skills.resolve_approval(request, decision, now=datetime.now(timezone.utc)))
 
     @private.get("/mcp/servers")
     def mcp_servers(current:AuthenticatedUser=Depends(user)):
@@ -210,11 +325,16 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         indexes=repository.notes(current.user_id)
         return jsonable_encoder({"journal":repository.ledger_history(current.user_id,None,None),
             "notes":store.read_notes(current.user_id,indexes),"watchlist":repository.watchlist(current.user_id),
-            "positions":store.mart("mart_user_positions",current.user_id)})
+            "positions":store.mart("mart_user_positions",current.user_id),
+            "assistant":store.export_assistant(current.user_id)})
 
     @private.delete("/private-data",status_code=202)
     def delete_private_data(current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
         return jsonable_encoder(repository.request_deletion(current.user_id,idempotency_key))
+
+    @private.get("/private-data/{request_id}")
+    def deletion_status(request_id: UUID, current: AuthenticatedUser = Depends(user)):
+        return jsonable_encoder(repository.deletion_request(current.user_id, request_id))
 
     @api.post("/internal/v1/assistant/context:resolve",dependencies=[Depends(authenticate_service)])
     def resolve_context(value:ContextResolveIn):

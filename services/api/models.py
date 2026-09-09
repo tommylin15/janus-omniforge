@@ -8,6 +8,8 @@ from enum import StrEnum
 from typing import Annotated, Any
 from uuid import UUID
 
+from .engine_security import AgentRuntime, Capability
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
@@ -171,3 +173,34 @@ class SkillRevisionIn(StrictModel):
 class SkillStateIn(StrictModel):
     enabled: bool
     revision: Annotated[int | None, Field(ge=1)] = None
+
+
+class RuntimeBindingIn(StrictModel):
+    runtime: AgentRuntime
+    model: Annotated[str, Field(min_length=1, max_length=128)]
+    assistant_profile: Annotated[str, Field(min_length=1, max_length=128)]
+    skill_profile: Annotated[str | None, Field(min_length=1, max_length=128)] = None
+    model_capabilities: list[Capability] = Field(default_factory=list)
+
+
+class ThreadCreateIn(RuntimeBindingIn):
+    thread_id: Annotated[str | None, Field(min_length=1, max_length=128)] = None
+    parent_thread_id: Annotated[str | None, Field(min_length=1, max_length=128)] = None
+
+
+class ForkThreadIn(StrictModel):
+    thread_id: Annotated[str | None, Field(min_length=1, max_length=128)] = None
+
+
+class MessageIn(StrictModel):
+    content: Annotated[str, Field(min_length=1, max_length=50_000)]
+    turn_id: Annotated[str | None, Field(min_length=1, max_length=128)] = None
+    context_artifact_ref: Annotated[str | None, Field(min_length=1, max_length=512)] = None
+    skill_id: Annotated[str | None, Field(pattern=r"^[a-z0-9][a-z0-9-]{0,127}$")] = None
+    skill_revision: Annotated[int | None, Field(ge=1)] = None
+    continuation: dict[str, Any] = Field(default_factory=dict)
+
+
+class ApprovalResponseIn(StrictModel):
+    approved: bool
+    params_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]

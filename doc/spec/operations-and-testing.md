@@ -1,6 +1,6 @@
 # Operations and testing
 
-最新驗證日期：2026-09-06
+最新驗證日期：2026-09-09
 
 最新完整本機驗證：既有基線 `python -m pytest tests -q` 曾 123/123 passed；本次
 Skill 變更的本機 targeted tests 為 5 passed，完整 `tests.test_assistant_storage`
@@ -21,6 +21,10 @@ legacy temp auth，以及 5 個 PostgreSQL bundle。名稱、欄位名稱、cons
 metadata 已獨立記錄於 [`doc/secret_list.md`](../secret_list.md)；本次查詢未讀取
 任何 Secret payload。
 
+本切片新增 owner login session registry 與 login start/status contract；本機
+`npm.cmd run build:agent-gateway` 通過，targeted Agent Gateway tests 為 6 passed。
+GCP B owner managed-auth live login／rotation／logout／destroy 驗收已於下一個原子切片完成；互動式 device-code login 仍未做真人流程驗收。
+
 ## P0 WBS 4C Skills（2026-09-06）
 
 GCP dev Cloud Build `262243c4-1323-4eea-80a5-48d1c631be7b` 使用既有
@@ -38,13 +42,14 @@ TypeScript build 與 targeted Vitest；`f1ee3054-7d2f-4bdf-ae61-6f82b0ccfdf3`
 通過 private-storage/deletion contract；修正後 `d5301537-af3f-42ac-876a-4587f916b493`
 再通過 Gateway build、Vitest 與 Bash syntax。
 
-本次使用 A/B owner Secret 部署 revision `janus-agent-gateway-00025-nf8`，image
-digest `sha256:2fd0d990487d49a1d4c9f2ad52a31e700307542f3a7b4d28b860030efc3339e3`，
+本次使用 A/B owner Secret 部署 revision `janus-agent-gateway-00026-s8h`，image
+digest `sha256:ee1bfd630b6ac2fb1912b764030ef0e866c41c078c60040799e51041d0345db0`，
 設定為 `min=0`、`max=1`、`concurrency=1`。Cloud Build
-`e0ee5456-69ec-4af0-b0a9-831aca689e59` SUCCESS，完成 A owner-bound run、
-cancellation、checkpoint replay、logout／session eviction 與 destroy retry；A
-version 已 destroyed，B version 保留 enabled 供下一次獨立 live run。完整跨 request
-device-login provisioning 與 B owner live run 尚未完成，故 WBS 仍不可結案。
+`b131ee1a-cea5-44d2-97f8-04e0d04ef183`（A）與
+`7c478c2a-7a5b-4f38-b7f3-146fbad2d237`（B）均 SUCCESS，完成各自 owner-bound
+managed-auth load／refresh、cancellation、checkpoint replay、logout／session
+eviction 與 destroy retry；兩個 owner Secret version 最終均 destroyed，證明
+A/B Secret isolation。互動式 device-code login 的真人瀏覽器流程尚未驗收。
 
 人工 gate 通過後建立 `janus-codex-owner-a`／`janus-codex-owner-b`（各自
 `us-central1`、僅保留 dev fixture），並部署 Gateway revision
@@ -58,6 +63,22 @@ GCS checkpoint replay；`eb45609e-e101-4b2c-8349-7d2b233d0b31` 通過 A destroy
 Cloud Build `1084498e-0d2f-481f-aa9a-762e1c5ca033` 通過 B run、logout／session
 eviction 與 destroy retry；A／B Secret 版本最後均為 `DESTROYED`。Gateway 維持
 `concurrency=1`、`maxScale=1`、`minScale=0`。
+
+## P0 WBS 4C runtime dispatch acceptance (2026-09-09)
+
+GCP dev Gateway revision `janus-agent-gateway-00029-5hk` 完成 OpenRouter／Gemini
+signed dispatch live probe；Cloud Build `20050302-861a-4c84-84ad-c96f21903776`
+結果為 `openrouter dispatch passed`、`gemini dispatch passed`、`DONE`。Codex
+既有 POC bridge 由 Cloud Build `9dec1039-0052-420d-9ef1-6719ed46991a`
+完成 health、owner-bound login／checkpoint reconnect、logout／session eviction、
+destroy retry；checkpoint 為 `60ddd412-f367-4ac9-a5c6-8bbcd6f29e08`。
+
+驗收期間暫時授予 Cloud Build provider bundle accessor 與 dev invoker
+Token Creator，完成後均已移除；Gateway 維持 `min=0`、`max=1`、
+`concurrency=1`。目前證據包含 Codex POC checkpoint、OpenRouter／Gemini
+gateway probe，以及 `tests/test_chat_api.py::test_codex_message_round_trips_gateway_continuation`
+的 message → gateway → 下一 turn continuation contract evidence。GCP dev 的
+三-runtime 整合重跑仍屬 WBS-4C-ACCEPTANCE，不在本切片宣稱完成。
 
 ## P0 WBS 4C MCP Host implementation (2026-09-06)
 

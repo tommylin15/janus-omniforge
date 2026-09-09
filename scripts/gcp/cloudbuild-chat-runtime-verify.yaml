@@ -1,0 +1,40 @@
+substitutions:
+  _SERVICE_URL: ""
+  _TOKEN_SERVICE_ACCOUNT: ""
+  _PROVIDER_BUNDLE_SECRET_NAME: "janus-agent-provider-bundle"
+
+steps:
+  - id: verify-openrouter-gemini-continuation
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        test -n "${_SERVICE_URL}"
+        test -n "${_TOKEN_SERVICE_ACCOUNT}"
+        gcloud secrets versions access latest --secret="${_PROVIDER_BUNDLE_SECRET_NAME}" --project="${PROJECT_ID}" --out-file=/tmp/provider-bundle
+        python3 -c 'import json; print(json.load(open("/tmp/provider-bundle"))["mcp_owner_signing_key"], end="")' > /tmp/signing-key
+        token="$(gcloud auth print-identity-token --impersonate-service-account="${_TOKEN_SERVICE_ACCOUNT}" --audiences="${_SERVICE_URL}" --include-email)"
+        sign() {
+          local body="$1" output="$2" timestamp
+          timestamp="$(date +%s%3N)"
+          signature="$(KEY_FILE=/tmp/signing-key TIMESTAMP="${timestamp}" BODY="${body}" python3 -c 'import hashlib,hmac,os; print(hmac.new(open(os.environ["KEY_FILE"],"rb").read(),(os.environ["TIMESTAMP"]+"."+os.environ["BODY"]).encode(),hashlib.sha256).hexdigest())')"
+          curl --silent --show-error --max-time 300 -o "${output}" -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer ${token}" -H "Content-Type: application/json" \
+            -H "X-Janus-Timestamp: ${timestamp}" -H "X-Janus-Signature: v1=${signature}" \
+            --data "${body}" "${_SERVICE_URL}/internal/v1/assistant/turn"
+        }
+        first='{"ownerId":"00000000-0000-0000-0000-000000000001","threadId":"runtime-probe-openrouter","turnId":"turn-1","runtime":"openrouter","model":"openrouter/free","messages":[{"role":"user","content":"Reply with the single word ok."}],"continuation":{}}'
+        openrouter_status="$(sign "${first}" /tmp/openrouter.json)"
+        [[ "${openrouter_status}" == 200 ]] || { echo "openrouter dispatch failed status=${openrouter_status}"; exit 22; }
+        openrouter="$(cat /tmp/openrouter.json)"
+        OPENROUTER_RESULT="${openrouter}" python3 -c 'import json,os; v=json.loads(os.environ["OPENROUTER_RESULT"]); assert v["events"] and v["continuation"]["runtime"] == "openrouter"; assert all("api_key" not in json.dumps(e).lower() for e in v["events"]); print("openrouter dispatch passed")'
+        gemini='{"ownerId":"00000000-0000-0000-0000-000000000001","threadId":"runtime-probe-gemini","turnId":"turn-1","runtime":"gemini","model":"gemini-2.5-flash","messages":[{"role":"user","content":"Reply with the single word ok."}],"continuation":{}}'
+        gemini_status="$(sign "${gemini}" /tmp/gemini.json)"
+        [[ "${gemini_status}" == 200 ]] || { echo "gemini dispatch failed status=${gemini_status}"; exit 22; }
+        gemini_result="$(cat /tmp/gemini.json)"
+        GEMINI_RESULT="${gemini_result}" python3 -c 'import json,os; v=json.loads(os.environ["GEMINI_RESULT"]); assert v["events"] and v["continuation"]["runtime"] == "gemini"; assert all("api_key" not in json.dumps(e).lower() for e in v["events"]); print("gemini dispatch passed")'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  substitutionOption: ALLOW_LOOSE

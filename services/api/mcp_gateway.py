@@ -39,6 +39,18 @@ class McpGatewayClient:
     def logout_codex_session(self, owner_id: Any) -> None:
         self._post("session:logout", {"ownerId":str(owner_id)}, prefix="codex")
 
+    def start_codex_login(self, owner_id: Any) -> dict[str, Any]:
+        return self._post("session:login-start", {"ownerId":str(owner_id)}, prefix="codex")
+
+    def codex_login_status(self, owner_id: Any) -> dict[str, Any]:
+        return self._post("session:login-status", {"ownerId":str(owner_id)}, prefix="codex")
+
+    def dispatch_assistant_turn(self, owner_id: Any, *, thread_id: str, turn_id: str,
+                                runtime: str, model: str, messages: list[dict[str, Any]],
+                                continuation: dict[str, Any] | None = None) -> dict[str, Any]:
+        return self._post("turn", {"ownerId":str(owner_id), "threadId":thread_id, "turnId":turn_id,
+            "runtime":runtime, "model":model, "messages":messages, "continuation":continuation or {}}, prefix="assistant")
+
     def _post(self, operation: str, payload: dict[str, Any], prefix: str = "mcp") -> dict[str, Any]:
         body=json.dumps(payload,separators=(",",":"),sort_keys=True).encode()
         timestamp=str(int(time.time()*1000))

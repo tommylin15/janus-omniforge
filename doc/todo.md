@@ -10,26 +10,24 @@
 - [TODO 完成紀錄（2026-09-03）](archive/todo-completed-2026-09-03.md)
 - [TODO 完成紀錄（2026-09-05）](archive/todo-completed-2026-09-05.md)
 - [TODO 完成紀錄（2026-09-06）](archive/todo-completed-2026-09-06.md)
+- [TODO 完成紀錄（2026-09-09）](archive/todo-completed-2026-09-09.md)
 - [已完成 WBS 0／1／2／4](archive/wbs-completed-through-2026-08-31.md)
 
-## 目前進度（2026-09-06）
+## 目前進度（2026-09-09）
 
 - WBS 4J 獨立 MVP：journal／note／Private Iceberg 完整交易、重跑、刪除與 A／B 隔離已結案；僅依賴 WBS 5 的個人化 analysis overlay 尚未啟用。
-- WBS 4C：GCP 雲端多供應商私人助理共 13 個切片，8／13 完成；Agent Runtime／AgentEvent、security contract、context sources、MCP host、Gemini REST、OpenRouter provider、Private Storage 與 Skills contract 已固定，Cloud Run runtime POC 已結案。
+- WBS 4C：Agent Runtime／AgentEvent、security contract、context sources、MCP host、Gemini REST、OpenRouter provider、Private Storage、Skills contract、Codex auth lifecycle 與 Chat API contract 的已完成部分已歸檔；Codex Chat API durable continuation、真人 device-code 流程與整合驗收仍未完成。
 - WBS-4C-CODEX-BRIDGE checkpoint：雙向 stdio JSON-RPC、Threads／Turns／Items、device-code managed login、request-bound Approvals、共用 MCP dynamic-tool path 與 `turn/started` 事件驅動 cancellation 已完成；GCP Cloud Build contract tests 5／5 通過，Cloud Run health 3／3 通過，live Codex cancellation 200 通過，checkpoint reconnect 通過。現有全域 Secret／固定 owner 仍僅是 dev POC，不代表 owner-scoped auth lifecycle 完成。驗收 build `2d95aa6e-cc4e-47d5-97ae-ce9dcfafc479`、revision `janus-agent-gateway-00017-tpf`、digest `sha256:b03a041f2ddf19d3028777d7531f94599fee728024dac471156932ad64df9541`。
 - WBS-4C-PRIVATE-STORAGE：migration 016、Private Iceberg assistant events／Skill revisions、PostgreSQL bounded index、credential-shaped field fail-closed、冪等重跑、A／B 隔離與 Codex auth cleanup pending 契約已完成；GCP dev evidence 詳見 `spec/operations-and-testing.md`。
-- WBS-4C-CODEX-AUTH-LIFECYCLE：owner allowlist、Secret 版本輪替驗證／舊版銷毀、冪等 auth destroy、logout／session eviction 與 deletion pipeline wiring 已完成 GCP dev contract；A owner live acceptance `e0ee5456-69ec-4af0-b0a9-831aca689e59` 通過，B Secret 保留 enabled。跨 request device-code session provisioning、B owner live run 與真實 rotation 尚未完成。
+- WBS-4C-CODEX-AUTH-LIFECYCLE：完成部分已移至 [`archive/todo-completed-2026-09-09.md`](archive/todo-completed-2026-09-09.md)；互動式 device-code login 真人流程仍未驗收。
 - WBS 3 收尾：Admin Data Operations 1 項完成、3 項未完成；Stage／Core 實機驗證 7 項未完成。Scheduler canary 因 2026-09-03 上游時段異常重置為 0／3。
-- 最新驗證：WBS-4C-SKILLS GCP dev Cloud Build `262243c4-1323-4eea-80a5-48d1c631be7b` 完整 `tests.test_assistant_storage` 通過；本次 auth lifecycle live build `e0ee5456-69ec-4af0-b0a9-831aca689e59` SUCCESS，revision `janus-agent-gateway-00025-nf8`、digest 與 Secret inventory 見 `spec/operations-and-testing.md` 與 [`secret_list.md`](secret_list.md)。其餘既有 WBS 驗證證據見 `spec/operations-and-testing.md`。
+- 最新驗證：Codex POC bridge Cloud Build `9dec1039-0052-420d-9ef1-6719ed46991a` 與 OpenRouter／Gemini runtime probe `20050302-861a-4c84-84ad-c96f21903776` 均 SUCCESS；完整證據與既有驗證見 `spec/operations-and-testing.md` 與 [`secret_list.md`](secret_list.md)。
 - Secret inventory：目前 GCP dev 共 9 個 Secret，完整名稱／bundle 欄位／consumer／IAM metadata 見 [`doc/secret_list.md`](secret_list.md)；`janus-agent-provider-bundle` 已包含 `mcp_owner_signing_key`，不再建立獨立 signing Secret。
 
 ## 下一步執行佇列
 
-1. 【Sol】`WBS-4C-CODEX-AUTH-LIFECYCLE`：先移除共用 auth／固定 owner 的產品阻斷點，完成 owner-scoped login／rotation／logout／session eviction／cleanup retry 與最小 IAM；dev 僅由 operator 建立 allowlisted owner credential，建立 per-owner Secret 或新增費用前先取得人工同意。
-2. 【Sol】`WBS-4C-SKILLS`：實作 GCP 儲存、載入／啟用／自訂且不可擴權的版本化 Skills。
-3. 【Luna】`WBS-4C-CHAT-API`：實作 Threads CRUD／fork、bounded SSE、取消、approval response、匯出與刪除。
-4. 【Luna】`WBS-4C-ASSISTANT-UI`：延續 Flutter Web／mobile，完成 Markdown／程式碼高亮、streaming、MCP／Skills、Items／Turns／Approvals。
-5. 【Sol】`WBS-4C-ACCEPTANCE`：完成 Cloud Run、provider、資料源、MCP、Skills、streaming、approval、Grounding、privacy 與刪除整合驗收。
+1. 【Luna】`WBS-4C-ASSISTANT-UI`：延續 Flutter Web／mobile，完成 Markdown／程式碼高亮、streaming、MCP／Skills、Items／Turns／Approvals。
+2. 【Sol】`WBS-4C-ACCEPTANCE`：完成 Cloud Run、provider、資料源、MCP、Skills、streaming、approval、Grounding、privacy 與刪除整合驗收。
 9. 【Sol】`WBS-3-ACCEPTANCE`：持續 3 交易日 canary，並完成 queue／connection／restart、VPC／firewall 與 Free Tier guard 實機驗證。
 10. 【Luna】`WBS-3-ADMIN-POLISH`：完成表格、cursor pagination 與其 UI 驗收；股票跨域刪除 guard 另以【Sol】執行。
 11. 【Sol】`WBS-5` → 【Luna】`WBS-6` → 【Sol】`WBS-7` → 依逐項標籤執行 `WBS-8`；WBS 4J 個人化 overlay 等 `mart_scoped_analysis` 可用後再做。
@@ -78,20 +76,12 @@
 
 - [ ] 【Sol】 資料源只讀已發布 Janus Core／Mart 與 authenticated owner 的 Private Core／Mart；實作 `GET /api/v1/me/ai-sources`、thread-bound `context-preview`／短效 opaque `context_ref` 與 service-identity-only internal resolve。只接受 typed selector，不接受 SQL、GCS URI、object path 或 client `user_id`。外部來源須有 allowlist、授權、日期、provenance、quota 與外送政策，不在 chat request 即時爬取未核准來源；既有 public／journal／portfolio／ingestion API 不改語意。
 
-- [x] 【Luna】 OpenRouter 以 `OPENROUTER_API_KEY` 動態列出已核准模型，依 tools／streaming capability 篩選模型，完成 bounded function-call loop、SSE streaming、provider／usage 可追溯；free-only 預設，付費模型須明確 billing gate，無 silent fallback。完成證據：`tests/openrouter_provider.test.ts` 3／3、`npm.cmd run build:agent-gateway`。
-
-- [x] 【Luna】 Gemini 直接使用 Google AI Studio `GEMINI_API_KEY` 呼叫 Gemini Developer REST API 免費層，不加入 Google GenAI SDK／Vertex AI；已支援 Google Search Grounding、citations／attribution／查詢時間、免費 quota 與 429／provider unavailable 狀態，並禁止自動轉付費。完成證據：`tests/gemini_provider.test.ts` 4／4、`npm.cmd run build:agent-gateway`。
-
 - [ ] 【Sol】 Codex 以 Cloud Run 容器內 App Server stdio JSON-RPC 與 managed OAuth／device-code 驅動；整合 Threads／Turns／Items／Approval Requests、取消及 sandbox。不得使用 OpenAI API key、Responses／Codex API 或其他直接付費 fallback。
 
 - [ ] 【Sol】 Codex auth lifecycle 必須先於 Chat API／Assistant UI：authenticated owner 經 service-authenticated internal request 傳入 Gateway，每個 owner 使用隔離 Secret、`CODEX_HOME` 與 App Server process；refresh 成功後銷毀舊版本。刪除時拒絕該 owner 新 login／turn／artifact write，停止 session、logout、刪 owner auth，失敗保留 `CLEANUP_PENDING` 並可重試；無 Codex thread 或 Secret 已不存在也須冪等完成。Gateway 不接受 client owner／Secret name，不授 project-wide Secret Manager admin；dev credential 由 operator 為 allowlisted owner 建立，正式自助 provisioning 另案決定。建立 per-owner Secret 或擴大付費資源前須人工同意。
 
 
-- [x] 【Sol】 內建 Skills 隨 immutable image 發版；自訂 Skills 的 prompt／required tools／workflow revision 存 Private Iceberg／GCS 並以 PostgreSQL bounded index 定位，提供 owner-scoped 載入與啟用／停用 API；嚴格 manifest 不允許任意可執行程式，workflow 只可使用宣告的 tool scope。完成證據：`tests/test_assistant_storage.py -k skill` 通過、Python 語法編譯與 `git diff --check` 通過；完整既有 Iceberg 測試受本機缺少 `zoneinfo/pytz` 依賴阻擋。
-
-- [x] 【Sol】 對話 messages、selected context、provider／model、skill revision、search／citations、Items／Turns、tool／approval events 儘可能寫入 Private Iceberg；PostgreSQL 只保存 bounded thread／turn／approval／usage reservation index、idempotency、checkpoint 與 artifact reference。provider／MCP credential 與 Codex auth cache 不得進資料庫、Iceberg、image、log 或前端 storage，只能使用 Secret Manager 或另經核准的隔離 GCP credential store。完成證據：migration 016、Cloud Build contract `2b49fbbc-1dde-4091-9664-7ba33447f2ac`、GCP dev PostgreSQL／GCS-Iceberg acceptance。
-
-- [ ] 【Luna】 在 Codex auth lifecycle 通過後，建立 `/api/v1/me/chats/*` 的 Threads CRUD／fork、message、bounded SSE events、cursor replay、取消、approval response、匯出與刪除；eventId／seq／itemId 去重，provider 原生 continuation metadata 可恢復。`DELETE /api/v1/me/private-data` 回傳 deletion request，並提供 owner-scoped status 查詢；只有所有必要 cleanup 完成才顯示 `COMPLETED`。
+- [x] 【Luna】 WBS-4C-CHAT-API API contract 已完成：owner-scoped Threads CRUD／fork、message turn、bounded SSE cursor replay、cancel、approval response、assistant export、deletion status，以及受控 provider continuation metadata；OpenRouter／Gemini signed gateway dispatch 已通過 GCP dev live probe，Codex POC checkpoint bridge 已驗收；Codex Chat API thread start／resume durable continuation 與 message-to-gateway contract evidence 已完成（`tests/test_chat_api.py::test_codex_message_round_trips_gateway_continuation`）。三-runtime GCP dev 整合重跑留待 WBS-4C-ACCEPTANCE。
 
 - [ ] 【Luna】 不建立 React／Tauri 或使用者地端 runtime；延續既有 Flutter Web／Android／iOS AI 入口，共用雲端 Threads／AgentEvent／citation contract，提供多 Threads、Markdown／程式碼高亮、streaming、provider／model／資料源／MCP／Skills controls，以及 Codex Items／Turns／Approval Requests。
 

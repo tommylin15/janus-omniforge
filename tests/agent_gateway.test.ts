@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AppServerClient, GcsCheckpointStore, ManagedAuthStore, OwnerAuthRegistry, type Json, type RpcMessage } from "../services/agent-gateway/server.js";
+import { AppServerClient, GcsCheckpointStore, ManagedAuthStore, OwnerAuthRegistry, OwnerSessionRegistry, type Json, type RpcMessage } from "../services/agent-gateway/server.js";
 import { CodexBridge } from "../services/agent-gateway/codex_bridge.js";
 import { McpHost } from "../services/agent-gateway/mcp_host.js";
 
@@ -104,6 +104,21 @@ describe("agent gateway cloud runtime POC", () => {
       .mockResolvedValueOnce(response({ access_token: "metadata-token" }))
       .mockResolvedValueOnce(response({}, 404));
     await expect(new ManagedAuthStore("projects/p/secrets/codex-auth", fetcher as typeof fetch).destroy()).resolves.toBeUndefined();
+  });
+
+  it("evicts an owner login session before cleanup", async () => {
+    const root = await mkdtemp(join(tmpdir(), "janus-login-test-"));
+    homes.push(root);
+    const ownerId = "00000000-0000-4000-8000-000000000001";
+    const client = { request: vi.fn().mockResolvedValue({}), stop: vi.fn().mockResolvedValue(undefined) };
+    const timer = setTimeout(() => undefined, 60_000);
+    timer.unref();
+    const registry = new OwnerSessionRegistry() as OwnerSessionRegistry & { sessions: Map<string, unknown> };
+    registry.sessions.set(ownerId, { ownerId, root, home: root, auth: {}, client, timer });
+    await expect(registry.evict(ownerId, true)).resolves.toBe(true);
+    expect(client.request).toHaveBeenCalledWith("account/logout", {}, 30_000);
+    expect(client.stop).toHaveBeenCalled();
+    await expect(registry.evict(ownerId, true)).resolves.toBe(false);
   });
 
   it("round-trips an external checkpoint for cursor reconnect", async () => {

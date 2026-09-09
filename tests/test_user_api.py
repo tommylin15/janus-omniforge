@@ -160,6 +160,13 @@ def test_context_preview_is_bounded_opaque_and_owner_thread_bound():
     assert resolved.status_code==200
     assert resolved.json()["snapshots"][0]["records"]==preview["preview"]
     assert "artifact_ref" not in str(resolved.json()) and "gcs_uri" not in str(resolved.json())
+    payload["thread_id"]="thread-b"
+    assert api.post("/internal/v1/assistant/context:resolve",headers=auth(),json=payload).status_code==404
+    payload["thread_id"]="thread-a"; payload["owner_id"]=str(uuid4())
+    assert api.post("/internal/v1/assistant/context:resolve",headers=auth(),json=payload).status_code==404
+    payload["owner_id"]=str(USER_ID)
+    next(iter(store.contexts.values()))["expires_at"]=datetime.now(timezone.utc)-timedelta(seconds=1)
+    assert api.post("/internal/v1/assistant/context:resolve",headers=auth(),json=payload).status_code==404
 
 
 def test_mcp_management_only_accepts_allowlisted_references_and_owner_scoped_grants():
@@ -185,15 +192,6 @@ def test_mcp_rejects_cross_server_or_unknown_tool_grants():
     unavailable={"items":[{"server_id":"research","config_ref":"approved-stdio",
                             "tool_grants":["research__missing"]}]}
     assert api.put("/api/v1/me/mcp/servers",headers=auth(),json=unavailable).status_code==422
-
-    payload["thread_id"]="thread-b"
-    assert api.post("/internal/v1/assistant/context:resolve",headers=auth(),json=payload).status_code==404
-    payload["thread_id"]="thread-a"; payload["owner_id"]=str(uuid4())
-    assert api.post("/internal/v1/assistant/context:resolve",headers=auth(),json=payload).status_code==404
-    payload["owner_id"]=str(USER_ID)
-    next(iter(store.contexts.values()))["expires_at"]=datetime.now(timezone.utc)-timedelta(seconds=1)
-    assert api.post("/internal/v1/assistant/context:resolve",headers=auth(),json=payload).status_code==404
-
 
 def test_context_selector_rejects_unknown_sources_sql_and_unbounded_ranges():
     api,_,_=client()

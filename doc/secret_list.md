@@ -11,7 +11,7 @@ Region：`us-central1`
 |---|---|---|---|---|
 | `janus-agent-provider-bundle` | `gemini_api_key`, `openrouter_api_key`, `mcp_owner_signing_key` | `janus-agent-gateway` | latest enabled | Gateway `secretAccessor` |
 | `janus-codex-owner-a` | Codex managed `auth.json` payload | Gateway；owner `00000000-0000-4000-8000-000000000001` | version 1 destroyed | Gateway `secretAccessor`, `secretVersionAdder`, `secretVersionManager` |
-| `janus-codex-owner-b` | Codex managed `auth.json` payload | Gateway；owner `00000000-0000-4000-8000-000000000002` | version 1 enabled | Gateway `secretAccessor`, `secretVersionAdder`, `secretVersionManager` |
+| `janus-codex-owner-b` | Codex managed `auth.json` payload | Gateway；owner `00000000-0000-4000-8000-000000000002` | version 1 destroyed | Gateway `secretAccessor`, `secretVersionAdder`, `secretVersionManager` |
 | `janus-codex-owner-temp` | acceptance-only／legacy temporary Codex auth payload | Gateway legacy fixture | metadata not inspected | Gateway `secretAccessor` |
 | `janus-postgres-api-bundle` | `database_url`, `catalog_password`, `core_catalog_password`, `google_user_client_id`, `mcp_owner_signing_key` | `janus-user-api` | latest enabled | API `secretAccessor` |
 | `janus-postgres-ingestion-bundle` | `control_password`, `catalog_password` | ingestion Cloud Run Job | latest enabled | 尚未授予 runtime IAM |

@@ -1,6 +1,6 @@
 # Janus WBS 4C — 多供應商私人助理
 
-狀態：新版目標契約；尚未完成 runtime 驗收。個股為可選 context，對話不綁定單一股票或 AI 廠商。
+狀態：混合 WBS；完成切片證據移至 [`archive/todo-completed-2026-09-09.md`](../archive/todo-completed-2026-09-09.md)。尚待真人 device-code 流程與整合驗收。個股為可選 context，對話不綁定單一股票或 AI 廠商。
 
 ## 執行切片與必讀文件
 
@@ -21,7 +21,7 @@
 | `WBS-4C-CODEX-AUTH-LIFECYCLE` | authenticated owner 傳遞、owner-scoped managed auth、版本輪替／舊版銷毀、session eviction／logout、刪除重試與最小 IAM | CODEX-BRIDGE POC、PRIVATE-STORAGE；建立 per-owner Secret 或付費資源前須人工 gate |
 | `WBS-4C-SKILLS` | GCP 儲存、載入／啟用／自訂 skill、版本化 prompt／workflow 與 tool scope | ENGINE-SECURITY、MCP-HOST、PRIVATE-STORAGE |
 | `WBS-4C-PRIVATE-STORAGE` | Private Iceberg 正文／events／Skills 與 PostgreSQL index、owner isolation、冪等／匯出／刪除／雲端暫存清理 | runtime／event contract |
-| `WBS-4C-CHAT-API` | Threads CRUD／fork、bounded SSE、取消、approval response 與續接去重 | runtime／storage／approval contract、CODEX-AUTH-LIFECYCLE |
+| `WBS-4C-CHAT-API` | Threads CRUD／fork、message turn、bounded SSE、取消、approval response 與續接去重 | runtime／storage／approval contract、CODEX-AUTH-LIFECYCLE |
 | `WBS-4C-ASSISTANT-UI` | 既有 Flutter Web／mobile 私人助理、Markdown／程式碼高亮／streaming、MCP／Skills／Approval 操作 | CHAT-API、provider／MCP／Skills contracts |
 | `WBS-4C-ACCEPTANCE` | Cloud Run、三 runtime、資料源、MCP transports、Skills、approval、Grounding、privacy、重跑／刪除與 UI 驗收 | 上述切片 |
 
@@ -63,6 +63,7 @@
 - Provider API keys、MCP credentials 與 Codex auth cache 只存在 Secret Manager 或經核准的隔離 GCP credential store，不進 browser／Flutter storage、PostgreSQL、Iceberg、image 或 log。Codex auth 以內部 owner UUID 隔離；API payload 不接受 credential locator。每個 owner 使用隔離的 `CODEX_HOME`／App Server process；refresh 新版本確認成功後銷毀舊版本，不得只 disable。Gateway 只讀取／輪替 owner auth，deletion runtime 只刪除且不可讀取 payload；不得授予 project-wide Secret Manager admin。Cloud Run managed auth lifecycle 未通過 dev 驗收不得上 production。
 - GCP dev 先由 operator 為 allowlisted 測試 owner 建立 credential resource 並逐資源綁定 IAM；正式自助建立大量 owner credential 需另案決定最小權限 provisioning path 與成本，不把 secret-admin 權限交給 Gateway 或 User API。
 - GCP dev Secret／bundle inventory、欄位、consumer 與 IAM 必須同步 [Secret Bundle 清單](../secret_list.md)；provider bundle 提供 MCP signing key，Codex A／B auth 維持獨立 owner Secret。
+- 跨 request device login 使用 owner-scoped `/internal/v1/codex/session:login-start`／`login-status`；login session 有 bounded TTL，logout／destroy 必須先 eviction，成功登入後才 persist auth version。跨 instance 的 durable chat session 仍由 Chat API slice 負責。
 - Context 僅由 authenticated owner 明確選取；外送雲端前顯示供應商與資料範圍。Gemini 免費層的資料處理條件需揭露，未取得相應同意前不外送敏感私人內容。
 - Messages、context、citations、已過濾的 items／events／tool results 儘可能存 Private Iceberg；PostgreSQL 只存 bounded thread／turn／approval 狀態索引、idempotency、checkpoint／artifact reference。可恢復的 approval／event 狀態不能只存在程序記憶體。
 - 匯出／刪除涵蓋雲端私人 artifact、skill revision、thread／cache／auth state 與暫存 artifact reference。刪除排隊時將 owner 標為 `DELETING` 並拒絕新 login、turn 與 artifact write；依序停止 owner session、執行 App Server logout、刪除 owner auth、刪 Private Iceberg／GCS artifact，最後才刪 PostgreSQL bounded index。各步驟須冪等；資源已不存在視為成功，單一 request 失敗轉 `CLEANUP_PENDING` 且不阻塞整批。只有 `cleanup_pending` 為空才能以 DB transaction 完成；不可用「曾有 Codex thread」判斷是否需要清 auth，也不得宣稱 App Server logout 已撤銷供應商端 token。
@@ -70,6 +71,8 @@
 - Gemini 付費層停用；OpenRouter 付費啟用仍需人工 billing gate 與核准的 request／user／project limits。quota／預算計數須支援原子 reservation、併發與重啟；僅傳入數字做比較不算 hard limit。
 
 ## 4C.5 Threads、Streaming 與驗收
+
+API slice 已提供 owner-scoped thread create/list/read/fork、message turn、bounded SSE cursor replay、cancel、approval response、assistant export 與 deletion status；message 以既有 `assistant_event_index` 冪等索引及 Private Iceberg event artifact 保存，provider continuation metadata 以受控 JSON 持久化。OpenRouter／Gemini signed gateway dispatch 已於 GCP dev live probe 通過，Codex POC checkpoint bridge 亦已驗收；本切片補上 Chat API 直通 Codex 的 thread start／resume durable continuation，並以 `tests/test_chat_api.py` 驗證 message → gateway → 下一 turn continuation。
 
 - 共用事件包含 text delta、item upsert、tool request／result、approval request／resolved、citation、usage、turn completed／cancelled／error；保留 threadId／turnId／itemId／eventId／seq 與 provider 原生 ID 映射。
 - UI 只用統一事件模型渲染，Codex 額外顯示 Items、Turns 與 Approval Requests。SSE 使用 cursor 續接、bounded replay、backpressure；approval／cancel 只經 authenticated HTTPS POST。

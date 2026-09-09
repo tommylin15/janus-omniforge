@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS private.assistant_turns (
     skill_id varchar(128),
     skill_revision integer CHECK (skill_revision > 0),
     context_artifact_ref text,
+    continuation jsonb NOT NULL DEFAULT '{}'::jsonb,
     idempotency_key varchar(128) NOT NULL,
     started_at timestamptz NOT NULL DEFAULT now(),
     completed_at timestamptz,
