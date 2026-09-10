@@ -49,7 +49,7 @@ describe("agent gateway cloud runtime POC", () => {
     expect(client.request).toHaveBeenCalledWith("account/login/start", { type: "chatgptDeviceCode" }, 30_000);
     expect(client.request).toHaveBeenCalledWith("account/logout", {}, 30_000);
     expect(client.request).toHaveBeenCalledWith("turn/interrupt", { threadId: "thread-1", turnId: "turn-1" }, 30_000);
-    expect(client.request).toHaveBeenCalledWith("thread/start", expect.objectContaining({ dynamicTools: [expect.objectContaining({ name: "quotes__latest" })] }), 30_000);
+    expect(client.request).toHaveBeenCalledWith("thread/start", expect.objectContaining({ sandbox: "workspace-write", dynamicTools: [expect.objectContaining({ name: "quotes__latest" })] }), 30_000);
     expect(mcp.call).toHaveBeenCalledWith(expect.objectContaining({ ownerId: "00000000-0000-4000-8000-000000000001", toolName: "quotes__latest" }));
     expect(toolResult).toEqual(expect.objectContaining({ success: true }));
     expect(responses).toEqual([[81, { decision: "accept" }]]);

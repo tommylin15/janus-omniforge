@@ -47,9 +47,39 @@ class McpGatewayClient:
 
     def dispatch_assistant_turn(self, owner_id: Any, *, thread_id: str, turn_id: str,
                                 runtime: str, model: str, messages: list[dict[str, Any]],
-                                continuation: dict[str, Any] | None = None) -> dict[str, Any]:
+                                continuation: dict[str, Any] | None = None,
+                                grounding: bool = False) -> dict[str, Any]:
         return self._post("turn", {"ownerId":str(owner_id), "threadId":thread_id, "turnId":turn_id,
-            "runtime":runtime, "model":model, "messages":messages, "continuation":continuation or {}}, prefix="assistant")
+            "runtime":runtime, "model":model, "messages":messages, "grounding":grounding,
+            "continuation":continuation or {}}, prefix="assistant")
+
+    def start_codex_turn(self, owner_id: Any, *, thread_id: str, turn_id: str, model: str,
+                         messages: list[dict[str, Any]],
+                         continuation: dict[str, Any] | None = None) -> dict[str, Any]:
+        return self._post("turn:start", {"ownerId":str(owner_id), "threadId":thread_id, "turnId":turn_id,
+            "runtime":"codex", "model":model, "messages":messages,
+            "continuation":continuation or {}}, prefix="assistant")
+
+    def codex_turn_events(self, owner_id: Any, *, turn_handle: str, thread_id: str,
+                          native_thread_id: str, turn_id: str, native_turn_id: str,
+                          cursor: int = -1) -> dict[str, Any]:
+        return self._post("turn:events", {"ownerId":str(owner_id), "turnHandle":turn_handle,
+            "threadId":thread_id, "nativeThreadId":native_thread_id, "turnId":turn_id,
+            "nativeTurnId":native_turn_id, "cursor":cursor}, prefix="assistant")
+
+    def codex_approval(self, owner_id: Any, *, turn_handle: str, thread_id: str,
+                       native_thread_id: str, turn_id: str, native_turn_id: str,
+                       request_id: str, params_digest: str, decision: str) -> dict[str, Any]:
+        return self._post("approval", {"ownerId":str(owner_id), "turnHandle":turn_handle,
+            "threadId":thread_id, "nativeThreadId":native_thread_id, "turnId":turn_id,
+            "nativeTurnId":native_turn_id, "requestId":request_id,
+            "paramsDigest":params_digest, "decision":decision}, prefix="assistant")
+
+    def cancel_codex_turn(self, owner_id: Any, *, turn_handle: str, thread_id: str,
+                          native_thread_id: str, turn_id: str, native_turn_id: str) -> dict[str, Any]:
+        return self._post("turn:cancel", {"ownerId":str(owner_id), "turnHandle":turn_handle,
+            "threadId":thread_id, "nativeThreadId":native_thread_id, "turnId":turn_id,
+            "nativeTurnId":native_turn_id}, prefix="assistant")
 
     def _post(self, operation: str, payload: dict[str, Any], prefix: str = "mcp") -> dict[str, Any]:
         body=json.dumps(payload,separators=(",",":"),sort_keys=True).encode()

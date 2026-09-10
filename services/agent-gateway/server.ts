@@ -14,8 +14,9 @@ export type RpcMessage = { id?: number; method?: string; params?: Json; result?:
 type Pending = { resolve: (value: Json) => void; reject: (error: Error) => void; timer: NodeJS.Timeout };
 type RpcHandler = (message: RpcMessage) => Promise<Json | undefined> | Json | undefined;
 
-const CODEX_VERSION = "0.153.0";
+const CODEX_VERSION = "0.153.4";
 const JSON_HEADERS = { "content-type": "application/json" };
+const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 
 function loadAgentBundle(): void {
   const raw = process.env.JANUS_AGENT_PROVIDER_BUNDLE?.trim();
@@ -39,6 +40,7 @@ export class AppServerClient {
   private nextId = 1;
   private pending = new Map<number, Pending>();
   private handler?: RpcHandler;
+  private failureHandler?: (error: Error) => void;
 
   constructor(
     private command = process.env.CODEX_BIN || "codex",
@@ -69,6 +71,10 @@ export class AppServerClient {
 
   onMessage(handler: RpcHandler): void {
     this.handler = handler;
+  }
+
+  onFailure(handler: (error: Error) => void): void {
+    this.failureHandler = handler;
   }
 
   request(method: string, params: Json = {}, timeoutMs = 15_000): Promise<Json> {
@@ -152,6 +158,7 @@ export class AppServerClient {
       pending.reject(error);
     }
     this.pending.clear();
+    this.failureHandler?.(error);
   }
 }
 
@@ -300,7 +307,7 @@ export class OwnerSessionRegistry {
       const timer = setTimeout(() => { void this.evict(ownerId, false); }, 10 * 60_000);
       timer.unref();
       this.sessions.set(key, { ownerId, root, home, auth: new ManagedAuthStore(authSecret), client, timer });
-      const safe = Object.fromEntries(Object.entries(result).filter(([name, value]) => name !== "loginId" && ["authUrl", "userCode", "verificationUri", "verificationUriComplete", "expiresAt", "interval"].includes(name) && ["string", "number"].includes(typeof value)));
+      const safe = Object.fromEntries(Object.entries(result).filter(([name, value]) => name !== "loginId" && ["authUrl", "verificationUrl", "userCode", "verificationUri", "verificationUriComplete", "expiresAt", "interval"].includes(name) && ["string", "number"].includes(typeof value)));
       return { ownerId, loginId, ...safe } as Json;
     } catch (error) {
       await client.stop();
@@ -353,6 +360,144 @@ export class GcsCheckpointStore {
 }
 
 type Checkpoint = { checkpointId: string; events: AgentEvent[] };
+
+type CodexTurnSession = {
+  ownerId: string;
+  threadId: string;
+  nativeThreadId: string;
+  turnId: string;
+  nativeTurnId: string;
+  bridge: CodexBridge;
+  client: AppServerClient;
+  mcp: McpHost;
+  root: string;
+  lastReturnedSeq: number;
+  timer: NodeJS.Timeout;
+  cleanupPending?: string[];
+};
+
+/** Short-lived in-memory handles are intentional: the native approval RPC is process-bound. */
+export class CodexTurnRegistry {
+  private sessions = new Map<string, CodexTurnSession>();
+
+  async start(ownerId: string, threadId: string, turnId: string, model: string,
+    messages: Array<{ role?: string; content?: string }>, continuation: Record<string, Json>): Promise<Json> {
+    if (!/^[0-9a-f-]{36}$/i.test(ownerId) || !ID.test(threadId) || !ID.test(turnId) || !ID.test(model)) {
+      throw new Error("codex turn binding is invalid");
+    }
+    if (!messages.length || messages.some((message) => !message || typeof message.content !== "string" || !message.content.trim())) {
+      throw new Error("codex turn messages are invalid");
+    }
+    if (continuation.runtime !== undefined && continuation.runtime !== "codex") throw new Error("codex continuation runtime is invalid");
+    const resource = OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").resource(ownerId);
+    const root = await mkdtemp(join(process.env.SANDBOX_ROOT || tmpdir(), "chat-turn-"));
+    const home = join(root, "codex-home");
+    const workspace = join(root, "workspace");
+    const client = new AppServerClient(process.env.CODEX_BIN || "codex", [], home);
+    const mcp = new McpHost();
+    try {
+      await mkdir(workspace, { mode: 0o700 });
+      await new ManagedAuthStore(resource).load(home);
+      client.start();
+      const bridge = new CodexBridge(ownerId, workspace, client, mcp);
+      client.onFailure(() => bridge.processError());
+      await bridge.initialize();
+      let nativeThread = typeof continuation.codexThreadId === "string" ? continuation.codexThreadId : "";
+      if (!nativeThread) {
+        const started = object(await bridge.startThread(model));
+        nativeThread = typeof object(started.thread ?? null).id === "string" ? String(object(started.thread ?? null).id) : "";
+      }
+      if (!nativeThread) throw new Error("Codex thread id is missing");
+      if (typeof continuation.codexThreadId === "string") await bridge.resumeThread(nativeThread);
+      const started = object(await bridge.startTurn(nativeThread, messages.at(-1)?.content || ""));
+      const nativeTurnId = typeof object(started.turn ?? null).id === "string" ? String(object(started.turn ?? null).id) : "";
+      if (!nativeTurnId) throw new Error("Codex turn id is missing");
+      const handle = randomUUID();
+      const timer = setTimeout(() => void this.expire(handle), 600_000);
+      timer.unref();
+      this.sessions.set(handle, { ownerId, threadId, nativeThreadId: nativeThread, turnId, nativeTurnId,
+        bridge, client, mcp, root, lastReturnedSeq: -1, timer });
+      return this.wait(handle);
+    } catch (error) {
+      await Promise.allSettled([client.stop(), mcp.closeAll(), rm(root, { recursive: true, force: true })]);
+      throw error;
+    }
+  }
+
+  async wait(handle: string): Promise<Json> {
+    const session = this.sessions.get(handle);
+    if (!session) throw new Error("turn handle not found");
+    for (let attempt = 0; attempt < 600; attempt++) {
+      const events = session.bridge.eventsAfter(session.lastReturnedSeq).events.filter((event) => event.turnId === session.nativeTurnId);
+      const terminal = events.find((event) => ["turn_completed", "turn_cancelled", "turn_error"].includes(event.type));
+      const approval = events.find((event) => event.type === "approval_request");
+      if (terminal || approval) {
+        if (events.length) session.lastReturnedSeq = events.at(-1)!.seq;
+        const status = terminal?.type === "turn_cancelled" ? "CANCELLED" : terminal?.type === "turn_error" ? "ERROR" : terminal ? "COMPLETED" : "AWAITING_APPROVAL";
+        const result = { status, turnHandle: handle, ownerId: session.ownerId, threadId: session.threadId,
+          nativeThreadId: session.nativeThreadId, turnId: session.turnId, nativeTurnId: session.nativeTurnId,
+          cursor: session.lastReturnedSeq, events,
+          continuation: { runtime: "codex", codexThreadId: session.nativeThreadId, codexTurnId: session.nativeTurnId, turnHandle: handle } };
+        if (terminal) {
+          await this.cleanup(handle);
+          if (session.cleanupPending?.length) return { ...result, status: "CLEANUP_PENDING", cleanupPending: session.cleanupPending } as unknown as Json;
+        }
+        return result as unknown as Json;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    return { status: "IN_PROGRESS", turnHandle: handle, ownerId: session.ownerId, threadId: session.threadId,
+      nativeThreadId: session.nativeThreadId, turnId: session.turnId, nativeTurnId: session.nativeTurnId, cursor: session.lastReturnedSeq,
+      events: [], continuation: { runtime: "codex", codexThreadId: session.nativeThreadId, codexTurnId: session.nativeTurnId, turnHandle: handle } } as unknown as Json;
+  }
+
+  async resolve(handle: string, ownerId: string, threadId: string, nativeThreadId: string, turnId: string, nativeTurnId: string,
+    requestId: string,
+    paramsDigest: string, decision: "accept" | "decline" | "cancel"): Promise<Json> {
+    const session = this.sessions.get(handle);
+    if (!session || session.ownerId !== ownerId || session.threadId !== threadId || session.nativeThreadId !== nativeThreadId || session.turnId !== turnId || session.nativeTurnId !== nativeTurnId) throw new Error("turn handle binding mismatch");
+    session.bridge.resolveApproval(requestId, nativeThreadId, nativeTurnId, paramsDigest, decision);
+    return this.wait(handle);
+  }
+
+  async cancel(handle: string, ownerId: string, threadId: string, nativeThreadId: string, turnId: string, nativeTurnId: string): Promise<Json> {
+    const session = this.sessions.get(handle);
+    if (!session || session.ownerId !== ownerId || session.threadId !== threadId || session.nativeThreadId !== nativeThreadId || session.turnId !== turnId || session.nativeTurnId !== nativeTurnId) throw new Error("turn handle binding mismatch");
+    await session.bridge.interrupt(nativeThreadId, nativeTurnId);
+    return this.wait(handle);
+  }
+
+  async events(handle: string, ownerId: string, threadId: string, nativeThreadId: string, turnId: string, nativeTurnId: string, cursor: number): Promise<Json> {
+    const session = this.sessions.get(handle);
+    if (!session || session.ownerId !== ownerId || session.threadId !== threadId || session.nativeThreadId !== nativeThreadId || session.turnId !== turnId || session.nativeTurnId !== nativeTurnId) throw new Error("turn handle binding mismatch");
+    if (!Number.isInteger(cursor) || cursor < -1) throw new Error("cursor is invalid");
+    const result = session.bridge.eventsAfter(cursor);
+    const events = result.events.filter((event) => event.turnId === session.nativeTurnId);
+    if (events.some((event) => ["turn_completed", "turn_cancelled", "turn_error"].includes(event.type))) await this.cleanup(handle);
+    return { ...result, events, ownerId, threadId, nativeThreadId, turnId, nativeTurnId,
+      continuation: { runtime: "codex", codexThreadId: nativeThreadId, codexTurnId: nativeTurnId, turnHandle: handle } } as unknown as Json;
+  }
+
+  private async expire(handle: string): Promise<void> {
+    const session = this.sessions.get(handle);
+    if (!session) return;
+    session.bridge.processError();
+    await this.cleanup(handle);
+  }
+
+  private async cleanup(handle: string): Promise<void> {
+    const session = this.sessions.get(handle);
+    if (!session) return;
+    const results = await Promise.allSettled([session.client.stop(), session.mcp.closeAll(), rm(session.root, { recursive: true, force: true })]);
+    const pending = results.flatMap((result, index) => result.status === "rejected" ? [(["app_server", "mcp", "sandbox"] as const)[index]] : []);
+    if (pending.length) {
+      session.cleanupPending = pending;
+      return;
+    }
+    this.sessions.delete(handle);
+    clearTimeout(session.timer);
+  }
+}
 
 async function dispatchCodexTurn(ownerId: string, threadId: string, model: string,
   messages: Array<{ role?: string; content?: string }>, continuation: Record<string, Json>): Promise<Json> {
@@ -486,7 +631,7 @@ async function signedBody(request: IncomingMessage): Promise<Json> {
   return JSON.parse(body.toString("utf8")) as Json;
 }
 
-export function makeServer(mcp = new McpHost(), sessions = new OwnerSessionRegistry()) {
+export function makeServer(mcp = new McpHost(), sessions = new OwnerSessionRegistry(), turns = new CodexTurnRegistry()) {
   let running = false;
   return createServer(async (request: IncomingMessage, response: ServerResponse) => {
     const url = new URL(request.url || "/", "http://localhost");
@@ -563,17 +708,60 @@ export function makeServer(mcp = new McpHost(), sessions = new OwnerSessionRegis
       }
       return;
     }
+    if (request.method === "POST" && url.pathname === "/internal/v1/assistant/turn:start") {
+      try {
+        const body = object(await signedBody(request));
+        if (body.runtime !== "codex" || typeof body.ownerId !== "string" || typeof body.threadId !== "string" || typeof body.turnId !== "string" || typeof body.model !== "string" || !Array.isArray(body.messages)) throw new Error("codex turn start request is invalid");
+        const continuation = body.continuation && typeof body.continuation === "object" && !Array.isArray(body.continuation) ? body.continuation as Record<string, Json> : {};
+        send(response, 200, await turns.start(body.ownerId, body.threadId, body.turnId, body.model, body.messages as Array<{ role?: string; content?: string }>, continuation));
+      } catch (error) {
+        send(response, 400, { error: error instanceof Error ? error.message : "codex_turn_start_failed" });
+      }
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/internal/v1/assistant/turn:events") {
+      try {
+        const body = object(await signedBody(request));
+        if (typeof body.turnHandle !== "string" || typeof body.ownerId !== "string" || typeof body.threadId !== "string" || typeof body.nativeThreadId !== "string" || typeof body.turnId !== "string" || typeof body.nativeTurnId !== "string") throw new Error("turn events binding is invalid");
+        const cursor = body.cursor === undefined ? -1 : Number(body.cursor);
+        send(response, 200, await turns.events(body.turnHandle, body.ownerId, body.threadId, body.nativeThreadId, body.turnId, body.nativeTurnId, cursor));
+      } catch (error) {
+        send(response, 400, { error: error instanceof Error ? error.message : "codex_turn_events_failed" });
+      }
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/internal/v1/assistant/approval") {
+      try {
+        const body = object(await signedBody(request));
+        if (typeof body.turnHandle !== "string" || typeof body.ownerId !== "string" || typeof body.requestId !== "string" || typeof body.threadId !== "string" || typeof body.nativeThreadId !== "string" || typeof body.turnId !== "string" || typeof body.nativeTurnId !== "string" || typeof body.paramsDigest !== "string" || !["accept", "decline", "cancel"].includes(String(body.decision))) throw new Error("approval request is invalid");
+        send(response, 200, await turns.resolve(body.turnHandle, body.ownerId, body.threadId, body.nativeThreadId, body.turnId, body.nativeTurnId, body.requestId, body.paramsDigest, body.decision as "accept" | "decline" | "cancel"));
+      } catch (error) {
+        send(response, 400, { error: error instanceof Error ? error.message : "codex_approval_failed" });
+      }
+      return;
+    }
+    if (request.method === "POST" && url.pathname === "/internal/v1/assistant/turn:cancel") {
+      try {
+        const body = object(await signedBody(request));
+        if (typeof body.turnHandle !== "string" || typeof body.ownerId !== "string" || typeof body.threadId !== "string" || typeof body.nativeThreadId !== "string" || typeof body.turnId !== "string" || typeof body.nativeTurnId !== "string") throw new Error("cancel request is invalid");
+        send(response, 200, await turns.cancel(body.turnHandle, body.ownerId, body.threadId, body.nativeThreadId, body.turnId, body.nativeTurnId));
+      } catch (error) {
+        send(response, 400, { error: error instanceof Error ? error.message : "codex_turn_cancel_failed" });
+      }
+      return;
+    }
     if (request.method === "POST" && url.pathname === "/internal/v1/assistant/turn") {
       try {
         const body = object(await signedBody(request));
         const runtime = body.runtime;
         if (runtime !== "openrouter" && runtime !== "gemini" && runtime !== "codex") throw new Error("runtime dispatch is unavailable");
         if (typeof body.ownerId !== "string" || typeof body.threadId !== "string" || typeof body.turnId !== "string" || typeof body.model !== "string" || !Array.isArray(body.messages)) throw new Error("assistant turn request is invalid");
+        if (body.grounding !== undefined && typeof body.grounding !== "boolean") throw new Error("grounding is invalid");
         const continuation = body.continuation && typeof body.continuation === "object" && !Array.isArray(body.continuation) ? body.continuation as Record<string, Json> : {};
         send(response, 200, runtime === "codex"
           ? await dispatchCodexTurn(body.ownerId, body.threadId, body.model, body.messages as Array<{ role?: string; content?: string }>, continuation)
           : await dispatchAssistant({ ownerId: body.ownerId, threadId: body.threadId,
-            turnId: body.turnId, runtime, model: body.model, messages: body.messages as never[], continuation }));
+            turnId: body.turnId, runtime, model: body.model, messages: body.messages as never[], grounding: body.grounding === true, continuation }));
       } catch (error) {
         send(response, 400, { error: error instanceof Error ? error.message : "assistant_turn_failed" });
       }

@@ -119,3 +119,6 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
 - Cloud Run dev 實機驗收一律由 GCP dev runtime 或 Cloud Build worker 內執行；
   本機只提交驗收、執行 contract／語法檢查與查詢必要狀態，不直接呼叫 Cloud Run
   URL 或使用本機 proxy 驗收。
+- 任何標示為 GCP dev／live／E2E 的驗收，禁止以 `localhost`、本機 HTTP server、
+  Flutter local run 或本機 proxy 取代；需要人工 OAuth 時，登入頁也必須由 GCP dev
+  服務提供。本機只能做 unit／contract／靜態檢查。

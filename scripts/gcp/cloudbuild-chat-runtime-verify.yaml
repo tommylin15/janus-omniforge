@@ -29,11 +29,11 @@ steps:
         [[ "${openrouter_status}" == 200 ]] || { echo "openrouter dispatch failed status=${openrouter_status}"; exit 22; }
         openrouter="$(cat /tmp/openrouter.json)"
         OPENROUTER_RESULT="${openrouter}" python3 -c 'import json,os; v=json.loads(os.environ["OPENROUTER_RESULT"]); assert v["events"] and v["continuation"]["runtime"] == "openrouter"; assert all("api_key" not in json.dumps(e).lower() for e in v["events"]); print("openrouter dispatch passed")'
-        gemini='{"ownerId":"00000000-0000-0000-0000-000000000001","threadId":"runtime-probe-gemini","turnId":"turn-1","runtime":"gemini","model":"gemini-2.5-flash","messages":[{"role":"user","content":"Reply with the single word ok."}],"continuation":{}}'
+        gemini='{"ownerId":"00000000-0000-0000-0000-000000000001","threadId":"runtime-probe-gemini","turnId":"turn-1","runtime":"gemini","model":"gemini-2.5-flash","messages":[{"role":"user","content":"Use Google Search grounding to answer: what is the current capital of France? Include source citations."}],"grounding":true,"continuation":{}}'
         gemini_status="$(sign "${gemini}" /tmp/gemini.json)"
         [[ "${gemini_status}" == 200 ]] || { echo "gemini dispatch failed status=${gemini_status}"; exit 22; }
         gemini_result="$(cat /tmp/gemini.json)"
-        GEMINI_RESULT="${gemini_result}" python3 -c 'import json,os; v=json.loads(os.environ["GEMINI_RESULT"]); assert v["events"] and v["continuation"]["runtime"] == "gemini"; assert all("api_key" not in json.dumps(e).lower() for e in v["events"]); print("gemini dispatch passed")'
+        GEMINI_RESULT="${gemini_result}" python3 -c 'import json,os; v=json.loads(os.environ["GEMINI_RESULT"]); assert v["events"] and v["continuation"]["runtime"] == "gemini"; assert any(e["type"] == "turn_completed" and e["payload"].get("citations") for e in v["events"]); assert all("api_key" not in json.dumps(e).lower() for e in v["events"]); print("gemini grounding dispatch passed")'
 
 options:
   logging: CLOUD_LOGGING_ONLY

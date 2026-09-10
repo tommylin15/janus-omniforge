@@ -9,6 +9,7 @@ export type DispatchRequest = {
   runtime: "openrouter" | "gemini";
   model: string;
   messages: ChatMessage[];
+  grounding?: boolean;
   continuation?: Record<string, Json>;
 };
 
@@ -30,7 +31,7 @@ export async function dispatchAssistant(request: DispatchRequest): Promise<Json>
     return { events, continuation: { runtime: "openrouter", model } };
   }
   const prompt = request.messages.map((message) => `${message.role}: ${message.content ?? ""}`).join("\n");
-  const result = await GeminiProvider.fromEnvironment().generate(prompt);
+  const result = await GeminiProvider.fromEnvironment().generate(prompt, { grounding: request.grounding === true });
   return { events: [
     { eventId: `${request.turnId}-0`, seq: 0, threadId: request.threadId, turnId: request.turnId,
       type: "text_delta", payload: { text: result.text }, providerIds: { runtime: "gemini", model: result.model } },

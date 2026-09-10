@@ -20,7 +20,15 @@ if not TOKEN:
     with urllib.request.urlopen(token_request, timeout=10) as response:
         TOKEN = response.read().decode()
 OWNER = "00000000-0000-4000-8000-000000000001"
-KEY = open(SECRET_FILE, "rb").read() if SECRET_FILE else os.environ["MCP_ACCEPTANCE_SECRET"].encode()
+def load_key(raw: bytes) -> bytes:
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError:
+        return raw
+    return value["mcp_owner_signing_key"].encode()
+
+
+KEY = load_key(open(SECRET_FILE, "rb").read()) if SECRET_FILE else load_key(os.environ["MCP_ACCEPTANCE_SECRET"].encode())
 
 
 def request(method, payload):

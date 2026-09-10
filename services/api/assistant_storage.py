@@ -109,5 +109,7 @@ class AssistantStorage:
             decision.owner_id, decision.thread_id, decision.turn_id, decision.request_id, decision.params_digest
         ):
             raise PermissionError("approval decision binding mismatch or request already resolved")
+        elif resolved_at >= request.expires_at:
+            raise PermissionError("approval expired")
         status = "APPROVED" if decision.approved else "DENIED"
         return self.repository.resolve_approval(decision, status, resolved_at)

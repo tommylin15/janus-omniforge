@@ -1,6 +1,6 @@
 # Operations and testing
 
-最新驗證日期：2026-09-09
+最新驗證日期：2026-09-10
 
 最新完整本機驗證：既有基線 `python -m pytest tests -q` 曾 123/123 passed；本次
 Skill 變更的本機 targeted tests 為 5 passed，完整 `tests.test_assistant_storage`
@@ -23,7 +23,124 @@ metadata 已獨立記錄於 [`doc/secret_list.md`](../secret_list.md)；本次�
 
 本切片新增 owner login session registry 與 login start/status contract；本機
 `npm.cmd run build:agent-gateway` 通過，targeted Agent Gateway tests 為 6 passed。
-GCP B owner managed-auth live login／rotation／logout／destroy 驗收已於下一個原子切片完成；互動式 device-code login 仍未做真人流程驗收。
+ GCP B owner managed-auth live login／rotation／logout／destroy 驗收已於下一個原子切片完成；互動式 device-code login 仍未做真人流程驗收。
+
+## P0 WBS 4C acceptance implementation checkpoint（2026-09-10）
+
+本地完成 Gateway handle contract 與 Chat API 串接：Codex 使用
+`turn:start`／`turn:events`／`approval`／`turn:cancel`，保存 opaque handle，綁定
+owner、logical/native thread、logical/native turn、request 與 params digest；terminal、
+expiry、cancel、process error 會清理 App Server、MCP 與 sandbox，部分失敗保留
+`CLEANUP_PENDING` 可重試。Chat API 將 gateway event 以既有 Private Storage／event
+index 冪等落盤，建立 approval index，SSE 依 gateway cursor 增量同步；OpenRouter／
+Gemini 舊同步路徑保留。
+
+本地驗證：`python -m pytest -q tests` 為 150 passed；`npm.cmd run test:unit` 為
+17 passed；`npm.cmd run typecheck`、`npm.cmd run build:agent-gateway`、Python
+compile 與 `git diff --check` 通過。新增 Chat API contract test 覆蓋 Codex handle、
+approval 落盤與 terminal continuation。Flutter 3.47.3／Dart 3.13.3 已準備完成，
+`dart format lib test`、`flutter analyze`（無 error，20 個既有 info）與
+`flutter test test/widget_test.dart`（2 passed）通過。
+
+GCP dev 已部署既有服務：Gateway revision `janus-agent-gateway-00041-fn`，image
+digest `sha256:8c1d0f3f1da04e1f4a336eec0ab97c088afdeb692f4c5a2957001e1ba2aa846b`；
+API revision `janus-api-00048-x6x`。Gateway 仍為 `min=0`、`max=1`、
+`concurrency=2`、`timeout=300`；本 revision 僅增加 dev-only
+`CODEX_SANDBOX_MODE=read-only`，預設 `workspace-write` 與 OpenRouter／Gemini 舊路徑
+保留。Gateway image build `0ec796ff-4bc6-4704-aa44-d18e703d9e23` SUCCESS。
+
+owner B `auth_mode=chatgpt` 已重新登入，本機 App Server
+`account/read(refreshToken=true)` 回傳 account，並上傳至既有
+`janus-codex-owner-b` enabled version 7；owner A 版本全數 destroyed。新 revision
+Codex approval live probe `cc5fecfa-b0e4-46f8-be22-391b96e2e15d` SUCCESS：產生真實
+`approval_request`、錯誤 native-turn binding 被拒絕、accept 後 command completed、
+decline 後沒有 completed command。此前安全 workspace command 直接
+`turn_completed` 的 probes 僅作 root-cause evidence，不作 approval evidence。
+probe 後 Cloud Build worker 臨時 IAM 已清空，暫存 probe 檔案已刪除。
+
+獨立的 `google-user-client-id` Secret 不存在，但既有
+`janus-postgres-api-bundle` 內已有 `google_user_client_id`；bundle 內目前沒有
+`google_user_client_secret`，因此 Chat API 的真人 Google OAuth E2E 尚未完成。
+OpenRouter/Gemini live build `7d661ef6-3ac5-4dd3-9f69-080966746ad0` SUCCESS；MCP
+allowlist 後的 job 仍只有 readiness、未留下 application log，故本次 MCP execution
+與完整整合仍未宣稱通過。Private Storage broad Cloud Build 因安全審核拒絕整個
+workspace upload 而未重跑，保留本機 150 tests 證據；SSE reconnect 仍待 Chat API
+真人 OAuth 路徑驗證。
+
+## P0 WBS 4C acceptance checkpoint（2026-09-09）
+
+Provider live probe Cloud Build `fd435461-71fc-4b8f-86bf-e583431900c5` SUCCESS：
+GCP dev gateway signed OpenRouter `openrouter/free` 與 Gemini `gemini-2.5-flash`
+dispatch、continuation metadata 與事件中的 API key redaction 均通過；worker
+temporary IAM 已清理。
+
+Grounding-enabled gateway revision `janus-agent-gateway-00034-g7l`（digest
+`sha256:cf488f313aaa0c598034aecca679a141d0f1cf8024e357bc6487292727b68d98`）完成
+部署；Cloud Build `31b2f8ac-25fa-4bbb-aca2-46c2ea3210aa` SUCCESS，實際驗證
+OpenRouter streaming 與 Gemini Google Search Grounding citations／usage。
+Approval／quota／stream contract Cloud Build `7960f7b5-e1fe-4b63-86cb-50d4b878a8fd`
+SUCCESS，涵蓋 Agent Gateway、Gemini、OpenRouter 與 engine-security tests。
+
+Private Storage／privacy／delete contract regression Cloud Build
+`275ec264-0dde-46d7-b755-c49ad90b870e` SUCCESS，沿用 containerized API image
+執行 `tests.test_assistant_storage`。
+
+GCP dev Cloud Build `a4b5179a-81c2-4688-8558-19656d15ef91`（context sources）、
+`115d9d6b-271d-4bf5-b85b-5d3210aa6b57`（Private Storage／Skills）與
+`4e481c84-ac3f-4e78-8dad-6758c549cfa7`（Web bundle）均 SUCCESS。MCP transports
+在 gateway revision `janus-agent-gateway-00032-k8r` 的 dev-only concurrency=2
+驗收中 stdio／Streamable HTTP／legacy SSE、dynamic tools、redaction、timeout、
+cancel、disconnect 全部通過；驗收後已恢復 concurrency=1，Job `janus-mcp-acceptance`
+已刪除。Gateway 最終 revision `janus-agent-gateway-00033-22h`，acceptance image
+digest `sha256:ac1139d7ab5c848c1d5f313069789530303cea1e78faaf95f654e16c6640ce8d`。
+
+Codex managed-auth retry deployed gateway revision `janus-agent-gateway-00035-xtq`
+with `@openai/codex@0.153.4` (Cloud Build `75fa29cf-7dfb-4176-9235-0c2ca5a9f0b5`
+SUCCESS). Live POC build `ca212276-2dde-4ce1-bbdf-6982c3d943a2` still returned
+HTTP 400 `Google API request failed (400)`. A fresh dev device-code probe
+`e7b91774-8682-4077-8f5d-d50054d9640d` reached the gateway but returned HTTP 400
+`failed to request device code: error sending request for url
+(https://auth.openai.com/api/accounts/deviceauth/usercode)`, so no verification code
+was produced for the required human approval step. Managed-auth／approval live flow
+therefore remains blocked by the upstream auth request; temporary IAM was removed
+after both probes.
+
+Follow-up GCP dev diagnostics narrowed this to the Codex Linux App Server rather
+than general egress: Cloud Build `6b838dc2-faa2-4eb3-aa3d-594ae02d852a` resolved
+and reached the endpoint (GET 405), and `9a251707-c075-40d2-9f32-a6c75eb11023`
+received a valid POST device code (`200`). Direct App Server probe
+`eff86a80-a94a-44da-af76-0f1efccef287` on Linux `0.153.4` still returned the same
+request error. No auth workaround or API-key fallback was introduced; the remaining
+action is an upstream Codex CLI/device-auth compatibility fix or an approved newer
+runtime release.
+An isolated alpha probe of `0.154.0-alpha.10.2` (`e04655d7-28bd-47fa-9a28-8fa98bf61358`)
+reproduced the same App Server error, so it was not adopted.
+OpenRouter／Gemini 既有成功 probe 仍可參照前述 runtime dispatch evidence。為配合
+2026-09-09 approval-handle remediation deployed revision `janus-agent-gateway-00038-j78`
+(`sha256:74d2d17903b75ec5540a0150a3f00eb7cbb4a5496888c153c31ce59bcff33f05`) with
+`concurrency=2`, `maxScale=1`, and `minScale=0`. Live owner-B turn on the dev
+service returned an opaque `turnHandle` and a real shell `approval_request`; the
+human-approved `accept` was routed back to the same Codex bridge, produced
+`approval_resolved`, command `exitCode=0`, and `turn_completed`. The side effect
+created `approved.txt` containing `JANUS_APPROVAL_SIDE_EFFECT`. An initial binding
+mismatch was safely rejected, then fixed by separating Janus and Codex native thread
+ids before the successful rerun. This validates the dev-only live approval flow;
+the in-memory handle remains process-bound and is not a production durability claim.
+現行 provider bundle，MCP acceptance 改讀 `mcp_owner_signing_key` 欄位，不建立新
+Secret。
+
+2026-09-09 device-auth remediation：Gateway runtime image 已安裝
+`ca-certificates` 並設定 `CODEX_CA_CERTIFICATE=/etc/ssl/certs/ca-certificates.crt`；
+`verificationUrl` 亦納入 login-start 安全回傳欄位。Cloud Build
+`0baeea94-9174-4ceb-9acd-b968e50759dd` SUCCESS，image digest
+`sha256:d4cc395510db6216ca518946c167767b9a1ef1679c405dae9c06f910e2192845`，
+Cloud Run revision `janus-agent-gateway-00036-2s6`。真人 device-code login
+Cloud Build `a98d47f9-508a-4fd6-ae80-4f6c6831d39a` SUCCESS，回報
+`device login authenticated`；既有 bridge live verify Cloud Build
+`8d3e76c9-7025-442d-ab4c-e9b6dde8db17` SUCCESS，checkpoint reconnect、
+cancellation、logout／destroy 通過。驗收後已移除暫時 Cloud Build Secret accessor
+與 invoker impersonation IAM。Approval 的真人 side-effect turn 尚未執行，WBS
+4C 整合驗收仍未結案。
 
 ## P0 WBS 4C Skills（2026-09-06）
 

@@ -6,9 +6,13 @@ $invoker = "janus-agent-poc-invoker@$project.iam.gserviceaccount.com"
 $builder = "$(gcloud projects describe $project --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
 $imageRepo = "us-central1-docker.pkg.dev/$project/janusai-poc/mcp-acceptance"
 $tag = 'wbs4c-host-20260906'
-$secret = 'janus-mcp-owner-signing-key'
+$secret = 'janus-agent-provider-bundle'
+$secretAdded = $false
 
-gcloud secrets add-iam-policy-binding $secret --project=$project --member="serviceAccount:$invoker" --role=roles/secretmanager.secretAccessor --quiet | Out-Null
+if (-not (gcloud secrets get-iam-policy $secret --project=$project --flatten='bindings[].members' --filter="bindings.role:roles/secretmanager.secretAccessor AND bindings.members:serviceAccount:$invoker" --format='value(bindings.members)')) {
+  gcloud secrets add-iam-policy-binding $secret --project=$project --member="serviceAccount:$invoker" --role=roles/secretmanager.secretAccessor --quiet | Out-Null
+  $secretAdded = $true
+}
 try {
   gcloud builds submit . --project=$project --config=cloudbuild.yaml --substitutions="_DOCKERFILE=scripts/gcp/mcp-acceptance.Dockerfile,_IMAGE_NAME=mcp-acceptance,_IMAGE_TAG=$tag,_DEPLOY_TARGET=,_RUNTIME_NAME=,_REGION=$region" | Out-Host
   $digest = gcloud artifacts docker images describe "$imageRepo`:$tag" --project=$project --format='value(image_summary.digest)'
@@ -19,5 +23,5 @@ try {
   gcloud run jobs executions list --job=$job --project=$project --region=$region --limit=1 --format='value(status.conditions[0].state)' 
 } finally {
   gcloud run jobs delete $job --project=$project --region=$region --quiet | Out-Null
-  gcloud secrets remove-iam-policy-binding $secret --project=$project --member="serviceAccount:$invoker" --role=roles/secretmanager.secretAccessor --quiet | Out-Null
+  if ($secretAdded) { gcloud secrets remove-iam-policy-binding $secret --project=$project --member="serviceAccount:$invoker" --role=roles/secretmanager.secretAccessor --quiet | Out-Null }
 }

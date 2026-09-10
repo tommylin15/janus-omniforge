@@ -328,6 +328,15 @@ class PostgresWorkspaceRepository:
             if not row: raise NotFoundError("assistant thread not found")
             return dict(row)
 
+    def assistant_turn(self, user_id: UUID, thread_id: str, turn_id: str) -> dict[str, Any]:
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM private.assistant_turns WHERE user_id=%s AND thread_id=%s AND turn_id=%s",
+                (user_id, thread_id, turn_id),
+            ).fetchone()
+            if not row: raise NotFoundError("assistant turn not found")
+            return dict(row)
+
     def next_assistant_seq(self, user_id: UUID, thread_id: str) -> int:
         with self._connection() as connection:
             row = connection.execute(
@@ -392,6 +401,26 @@ class PostgresWorkspaceRepository:
             if not row: raise NotFoundError("assistant turn not found")
             if row["status"] != status: raise ConflictError("assistant turn already reached another terminal status")
             return dict(row)
+
+    def update_assistant_turn_continuation(self, user_id: UUID, thread_id: str, turn_id: str,
+                                           continuation: dict[str, Any]) -> dict[str, Any]:
+        with self._connection() as connection:
+            row = connection.execute(
+                """UPDATE private.assistant_turns SET continuation=%s
+                   WHERE user_id=%s AND thread_id=%s AND turn_id=%s AND status='RUNNING'
+                   RETURNING *""", (continuation, user_id, thread_id, turn_id),
+            ).fetchone()
+            if not row: raise NotFoundError("running assistant turn not found")
+            return dict(row)
+
+    def active_assistant_turns(self, user_id: UUID, thread_id: str) -> list[dict[str, Any]]:
+        with self._connection() as connection:
+            return [dict(row) for row in connection.execute(
+                """SELECT * FROM private.assistant_turns
+                   WHERE user_id=%s AND thread_id=%s AND status='RUNNING'
+                     AND continuation->>'turnHandle' IS NOT NULL
+                   ORDER BY started_at""", (user_id, thread_id),
+            ).fetchall()]
 
     def reserve_assistant_event(self, user_id: UUID, event: Any, key: str,
                                 payload_digest: str) -> dict[str, Any]:

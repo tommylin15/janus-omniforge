@@ -56,11 +56,11 @@ digest="$(gcloud artifacts docker images describe "${repository}/agent-gateway:$
 gcloud run deploy "${service}" --project="${project}" --region="${region}" \
   --image="${repository}/agent-gateway@${digest}" --service-account="${account}" \
   --no-allow-unauthenticated --ingress=all --execution-environment=gen2 \
-  --min-instances=0 --max-instances=1 --concurrency=1 --timeout=300 \
+  --min-instances=0 --max-instances=1 --concurrency=2 --timeout=300 \
   --cpu=1 --memory=1Gi \
   --add-volume=name=agent-sandbox,type=in-memory,size-limit=256Mi \
   --add-volume-mount=volume=agent-sandbox,mount-path=/var/run/janus \
-  --set-env-vars="^~^CODEX_POC_ENABLED=true~MCP_HOST_ENABLED=true~CODEX_OWNER_SECRETS=${owner_secrets}~AGENT_CHECKPOINT_BUCKET=${bucket}~MCP_SERVER_CONFIGS=${mcp_configs}" \
+  --set-env-vars="^~^CODEX_POC_ENABLED=true~MCP_HOST_ENABLED=true~CODEX_SANDBOX_MODE=read-only~CODEX_OWNER_SECRETS=${owner_secrets}~AGENT_CHECKPOINT_BUCKET=${bucket}~MCP_SERVER_CONFIGS=${mcp_configs}" \
   --set-secrets="JANUS_AGENT_PROVIDER_BUNDLE=${provider_bundle}:latest" \
   --quiet
 gcloud run services add-iam-policy-binding "${service}" --project="${project}" --region="${region}" \

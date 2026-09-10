@@ -75,6 +75,91 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def user(request_user: AuthenticatedUser = Depends(authenticate)) -> AuthenticatedUser: return request_user
     def key(value: str = Header(alias="Idempotency-Key", min_length=8, max_length=128)) -> str: return value
 
+    def persist_gateway_result(owner_id: UUID, thread_id: str, turn_id: str, key_prefix: str,
+                               result: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+        if not isinstance(result, dict) or not isinstance(result.get("events", []), list):
+            raise ValueError("assistant gateway returned an invalid event response")
+        native_thread = result.get("nativeThreadId")
+        native_turn = result.get("nativeTurnId")
+        continuation = result.get("continuation") if isinstance(result.get("continuation"), dict) else {}
+        continuation = dict(continuation)
+        if isinstance(result.get("turnHandle"), str): continuation.setdefault("turnHandle", result["turnHandle"])
+        if isinstance(result.get("nativeThreadId"), str): continuation.setdefault("codexThreadId", result["nativeThreadId"])
+        if isinstance(result.get("nativeTurnId"), str): continuation.setdefault("codexTurnId", result["nativeTurnId"])
+        if isinstance(result.get("cursor"), int): continuation["gatewayCursor"] = result["cursor"]
+        for item in result["events"]:
+            if not isinstance(item, dict) or not isinstance(item.get("eventId"), str) or not isinstance(item.get("type"), str):
+                raise ValueError("assistant gateway returned an invalid event")
+            if isinstance(native_thread, str) and item.get("threadId") not in (None, native_thread):
+                raise PermissionError("assistant gateway thread binding mismatch")
+            if isinstance(native_turn, str) and item.get("turnId") not in (None, native_turn):
+                raise PermissionError("assistant gateway turn binding mismatch")
+            event_type = AgentEventType(item["type"])
+            payload = safe_private_record(item.get("payload", {}))
+            if not isinstance(payload, dict): raise ValueError("assistant gateway event payload is invalid")
+            provider_ids = item.get("providerIds", {})
+            if not isinstance(provider_ids, dict): raise ValueError("assistant gateway provider ids are invalid")
+            provider_ids = {str(k): str(v) for k, v in safe_private_record(provider_ids).items()}
+            event_key = f"{key_prefix}:{item['eventId']}"
+            existing_event = repository.assistant_event_for_key(owner_id, thread_id, event_key)
+            if existing_event and existing_event.get("status") == "PERSISTED": continue
+            event = AgentEvent(
+                event_id=item["eventId"], seq=int(existing_event["seq"]) if existing_event else repository.next_assistant_seq(owner_id, thread_id),
+                thread_id=thread_id, turn_id=turn_id, event_type=event_type,
+                item_id=item.get("itemId") if isinstance(item.get("itemId"), str) else None,
+                payload=payload, provider_ids=provider_ids,
+            )
+            persisted = skills.append_event(owner_id, event, event_key)
+            if event_type is AgentEventType.APPROVAL_REQUEST:
+                expires_at = datetime.fromisoformat(str(payload["expiresAt"]).replace("Z", "+00:00"))
+                request = ApprovalRequest(
+                    str(owner_id), thread_id, turn_id, str(payload["requestId"]),
+                    str(payload.get("operation", "shell")), str(payload.get("scope", "turn_sandbox")),
+                    str(payload["paramsDigest"]), expires_at,
+                )
+                skills.request_approval(request, str(persisted["artifact_ref"]))
+        terminal = next((item for item in result["events"] if item.get("type") in {"turn_completed", "turn_cancelled", "turn_error"}), None)
+        result_status = str(result.get("status", ""))
+        status = {"COMPLETED": "COMPLETED", "CANCELLED": "CANCELLED", "ERROR": "ERROR"}.get(result_status)
+        if terminal:
+            status = {"turn_completed": "COMPLETED", "turn_cancelled": "CANCELLED", "turn_error": "ERROR"}[terminal["type"]]
+        safe_continuation = safe_private_record(continuation)
+        if status:
+            turn = repository.finish_assistant_turn(owner_id, thread_id, turn_id, status, safe_continuation)
+        else:
+            update = getattr(repository, "update_assistant_turn_continuation", None)
+            turn = update(owner_id, thread_id, turn_id, safe_continuation) if update else repository.start_assistant_turn(
+                owner_id, thread_id, turn_id, key_prefix, continuation=safe_continuation,
+            )
+        return turn, {"status": result_status or (status or "IN_PROGRESS"), "continuation": safe_continuation}
+
+    def codex_binding(turn: dict[str, Any], owner_id: UUID, thread_id: str, turn_id: str) -> dict[str, Any]:
+        continuation = turn.get("continuation") if isinstance(turn.get("continuation"), dict) else {}
+        required = ("turnHandle", "codexThreadId", "codexTurnId")
+        if any(not isinstance(continuation.get(name), str) for name in required):
+            raise ValueError("codex turn handle is unavailable")
+        return {"turn_handle": continuation["turnHandle"], "native_thread_id": continuation["codexThreadId"],
+                "native_turn_id": continuation["codexTurnId"], "thread_id": thread_id, "turn_id": turn_id,
+                "owner_id": owner_id}
+
+    def sync_codex_turn(owner_id: UUID, thread_id: str, turn: dict[str, Any]) -> None:
+        events_call = getattr(mcp, "codex_turn_events", None)
+        if not events_call or turn.get("status") != "RUNNING": return
+        binding = codex_binding(turn, owner_id, thread_id, str(turn["turn_id"]))
+        continuation = turn.get("continuation") if isinstance(turn.get("continuation"), dict) else {}
+        try:
+            result = events_call(**binding, cursor=int(continuation.get("gatewayCursor", -1)))
+            persist_gateway_result(owner_id, thread_id, str(turn["turn_id"]), f"sync:{turn['turn_id']}", result)
+        except McpGatewayError:
+            event = AgentEvent(
+                event_id=f"gateway-handle-lost-{turn['turn_id']}", seq=repository.next_assistant_seq(owner_id, thread_id),
+                thread_id=thread_id, turn_id=str(turn["turn_id"]), event_type=AgentEventType.TURN_ERROR,
+                payload={"code": "gateway_handle_unavailable"},
+            )
+            persist_gateway_result(owner_id, thread_id, str(turn["turn_id"]), "handle-lost", {
+                "status": "ERROR", "events": [{"eventId": event.event_id, "type": event.event_type.value, "payload": event.payload}],
+            })
+
     async def conflict_handler(_request: Any, error: Exception):
         from fastapi.responses import JSONResponse
         return JSONResponse({"detail":str(error)}, status_code=status.HTTP_409_CONFLICT)
@@ -166,6 +251,14 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         )
         persisted = skills.append_event(current.user_id, event, idempotency_key)
         dispatch = getattr(mcp, "dispatch_assistant_turn", None)
+        codex_start = getattr(mcp, "start_codex_turn", None)
+        if thread["runtime"] == "codex" and codex_start:
+            result = codex_start(current.user_id, thread_id=thread_id, turn_id=turn_id,
+                                  model=thread["model"], messages=[{"role": "user", "content": value.content}],
+                                  continuation=turn.get("continuation") or continuation)
+            turn, dispatch_result = persist_gateway_result(current.user_id, thread_id, turn_id, idempotency_key, result)
+            return jsonable_encoder({"thread": thread, "turn": turn, "event": persisted,
+                                     "dispatch": dispatch_result})
         if dispatch:
             result = dispatch(current.user_id, thread_id=thread_id, turn_id=turn_id,
                               runtime=thread["runtime"], model=thread["model"],
@@ -192,6 +285,9 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                     limit: int = Query(ge=1, le=200, default=200),
                     current: AuthenticatedUser = Depends(user)):
         repository.assistant_thread(current.user_id, thread_id)
+        active_turns = getattr(repository, "active_assistant_turns", lambda *_: [])(current.user_id, thread_id)
+        for active_turn in active_turns:
+            sync_codex_turn(current.user_id, thread_id, active_turn)
         indexes = repository.assistant_events_after(current.user_id, thread_id, cursor, limit)
         def stream():
             for index in indexes:
@@ -203,9 +299,16 @@ def create_app(repository: Any | None = None, store: Any | None = None,
 
     @private.post("/chats/threads/{thread_id}/turns/{turn_id}/cancel")
     def cancel_chat_turn(thread_id: str, turn_id: str, current: AuthenticatedUser = Depends(user)):
-        return jsonable_encoder(repository.finish_assistant_turn(
-            current.user_id, thread_id, turn_id, "CANCELLED",
-        ))
+        turn = repository.assistant_turn(current.user_id, thread_id, turn_id)
+        if turn["status"] != "RUNNING": raise ConflictError("assistant turn is already terminal")
+        thread = repository.assistant_thread(current.user_id, thread_id)
+        cancel = getattr(mcp, "cancel_codex_turn", None)
+        if thread["runtime"] == "codex" and cancel:
+            binding = codex_binding(turn, current.user_id, thread_id, turn_id)
+            result = cancel(**binding)
+            updated, _ = persist_gateway_result(current.user_id, thread_id, turn_id, f"cancel:{turn_id}", result)
+            return jsonable_encoder(updated)
+        return jsonable_encoder(repository.finish_assistant_turn(current.user_id, thread_id, turn_id, "CANCELLED"))
 
     @private.post("/chats/threads/{thread_id}/turns/{turn_id}/approvals/{request_id}")
     def respond_chat_approval(thread_id: str, turn_id: str, request_id: str,
@@ -215,7 +318,18 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                                   row["operation"], row["scope"], row["params_digest"], row["expires_at"])
         decision = ApprovalDecision(current.user_id, thread_id, turn_id, request_id,
                                     value.params_digest, value.approved)
-        return jsonable_encoder(skills.resolve_approval(request, decision, now=datetime.now(timezone.utc)))
+        resolved = skills.resolve_approval(request, decision, now=datetime.now(timezone.utc))
+        turn = repository.assistant_turn(current.user_id, thread_id, turn_id)
+        thread = repository.assistant_thread(current.user_id, thread_id)
+        approve = getattr(mcp, "codex_approval", None)
+        if thread["runtime"] == "codex" and approve:
+            binding = codex_binding(turn, current.user_id, thread_id, turn_id)
+            result = approve(**binding, request_id=request_id, params_digest=value.params_digest,
+                             decision="accept" if value.approved else "decline")
+            updated, dispatch_result = persist_gateway_result(current.user_id, thread_id, turn_id,
+                                                               f"approval:{request_id}", result)
+            return jsonable_encoder({"approval": resolved, "turn": updated, "dispatch": dispatch_result})
+        return jsonable_encoder(resolved)
 
     @private.get("/mcp/servers")
     def mcp_servers(current:AuthenticatedUser=Depends(user)):

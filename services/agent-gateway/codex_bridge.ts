@@ -38,6 +38,12 @@ type PendingApproval = {
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const MAX_EVENTS = 512;
 
+function sandboxMode(): "read-only" | "workspace-write" {
+  const value = process.env.CODEX_SANDBOX_MODE || "workspace-write";
+  if (value !== "read-only" && value !== "workspace-write") throw new Error("Codex sandbox mode is invalid");
+  return value;
+}
+
 function record(value: unknown, message = "Codex App Server returned an invalid object"): Record<string, Json> {
   if (!value || Array.isArray(value) || typeof value !== "object") throw new Error(message);
   return value as Record<string, Json>;
@@ -63,6 +69,7 @@ export class CodexBridge {
   private tools = new Map<string, Map<string, ToolBinding>>();
   private approvals = new Map<string, PendingApproval>();
   private cancelOnTurnStart = new Set<string>();
+  private activeTurn?: { threadId: string; turnId: string };
 
   constructor(
     private ownerId: string,
@@ -99,7 +106,7 @@ export class CodexBridge {
     }
     const response = record(await this.client.request("thread/start", {
       cwd: this.workspace,
-      sandbox: "workspace-write",
+      sandbox: sandboxMode(),
       approvalPolicy: "on-request",
       serviceName: "janus-agent-gateway",
       ...(model ? { model } : {}),
@@ -137,13 +144,23 @@ export class CodexBridge {
   async startTurn(threadId: string, text: string, options: { interruptOnStart?: boolean } = {}): Promise<Json> {
     this.requireThread(threadId);
     if (!text.trim() || Buffer.byteLength(text) > 32_768) throw new Error("turn input is invalid");
+    this.activeTurn = { threadId, turnId: "pending" };
     if (options.interruptOnStart) this.cancelOnTurnStart.add(threadId);
     try {
-      return await this.client.request("turn/start", { threadId, input: [{ type: "text", text }] }, 30_000);
+      const response = record(await this.client.request("turn/start", { threadId, input: [{ type: "text", text }] }, 30_000));
+      const turnId = id(record(response.turn).id, "Codex turn id");
+      this.activeTurn = { threadId, turnId };
+      return response;
     } catch (error) {
       this.cancelOnTurnStart.delete(threadId);
+      this.activeTurn = undefined;
       throw error;
     }
+  }
+
+  processError(): void {
+    if (!this.activeTurn || this.activeTurn.turnId === "pending") return;
+    this.emit(this.activeTurn.threadId, this.activeTurn.turnId, "turn_error", { code: "codex_process_error" });
   }
 
   interrupt(threadId: string, turnId: string): Promise<Json> {
@@ -247,6 +264,8 @@ export class CodexBridge {
       paramsDigest,
       expiresAt: new Date(expiresAt).toISOString(),
       reason: typeof params.reason === "string" ? params.reason : "Codex requested approval",
+      command: params.command ?? null,
+      cwd: typeof params.cwd === "string" ? params.cwd : null,
     }, typeof params.itemId === "string" ? params.itemId : undefined);
   }
 
@@ -276,7 +295,7 @@ export class CodexBridge {
       const status = record(params.turn).status;
       this.emit(threadId, turnId, status === "interrupted" ? "turn_cancelled" : status === "failed" ? "turn_error" : "turn_completed", { status: typeof status === "string" ? status : "unknown" });
     } else if (method === "error") {
-      this.emit(threadId, turnId, "turn_error", { error: params.error ?? null });
+      this.emit(threadId, turnId, "turn_error", { code: "codex_turn_error" });
     }
   }
 

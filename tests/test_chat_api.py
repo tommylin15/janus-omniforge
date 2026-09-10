@@ -10,7 +10,7 @@ USER = UUID("00000000-0000-0000-0000-000000000001")
 
 
 class Repo:
-    def __init__(self): self.threads = {}; self.events = {}; self.turns = {}
+    def __init__(self): self.threads = {}; self.events = {}; self.turns = {}; self.approvals = {}
     def resolve_user(self, _sub, _email): return USER
     def create_assistant_thread(self, user_id, thread_id, binding, *, parent_thread_id=None):
         row = self.threads.setdefault((user_id, thread_id), {
@@ -23,6 +23,14 @@ class Repo:
     def assistant_thread(self, user_id, thread_id):
         if (user_id, thread_id) not in self.threads: raise Exception("missing")
         return self.threads[(user_id, thread_id)]
+    def assistant_turn(self, user_id, thread_id, turn_id):
+        for key, row in self.turns.items():
+            if key[:2] == (user_id, thread_id) and row["turn_id"] == turn_id: return row
+        raise Exception("missing turn")
+    def active_assistant_turns(self, user_id, thread_id):
+        return [row for key, row in self.turns.items() if key[:2] == (user_id, thread_id) and row["status"] == "RUNNING" and row.get("continuation", {}).get("turnHandle")]
+    def update_assistant_turn_continuation(self, user_id, thread_id, turn_id, continuation):
+        row = self.assistant_turn(user_id, thread_id, turn_id); row["continuation"] = continuation; return row
     def assistant_event_for_key(self, user_id, thread_id, key):
         return self.events.get((user_id, thread_id, key))
     def latest_assistant_continuation(self, user_id, thread_id):
@@ -51,6 +59,18 @@ class Repo:
         for row in self.events.values():
             if row["user_id"] == user_id and row["thread_id"] == thread_id and row["event_id"] == event_id:
                 row.update(status="PERSISTED", artifact_ref=ref)
+    def save_approval(self, request, artifact_ref):
+        row = {"user_id": request.owner_id, "thread_id": request.thread_id, "turn_id": request.turn_id,
+               "request_id": request.request_id, "operation": request.operation, "scope": request.scope,
+               "params_digest": request.params_digest, "artifact_ref": artifact_ref, "expires_at": request.expires_at,
+               "status": "PENDING"}
+        self.approvals[(UUID(str(request.owner_id)), request.thread_id, request.turn_id, request.request_id)] = row
+        return row
+    def approval(self, user_id, thread_id, turn_id, request_id):
+        return self.approvals[(user_id, thread_id, turn_id, request_id)]
+    def resolve_approval(self, decision, status, resolved_at):
+        row = self.approvals[(UUID(str(decision.owner_id)), decision.thread_id, decision.turn_id, decision.request_id)]
+        row.update(status=status, resolved_at=resolved_at); return row
     def assistant_events_after(self, user_id, thread_id, cursor, limit):
         return [row for row in self.events.values() if row["user_id"] == user_id and row["thread_id"] == thread_id and row["seq"] > cursor][:limit]
 
@@ -108,3 +128,43 @@ def test_codex_message_round_trips_gateway_continuation():
     second = client.post("/api/v1/me/chats/threads/codex-thread/messages", headers={**headers, "Idempotency-Key": "message-2"}, json={"content": "continue"})
     assert second.status_code == 202
     assert calls[1][1]["continuation"] == continuation
+
+
+def test_codex_message_uses_handle_and_persists_approval():
+    repo, store, calls = Repo(), Store(), []
+    digest = "sha256:" + "a" * 64
+    class Gateway:
+        def start_codex_turn(self, owner_id, **request):
+            calls.append(("start", owner_id, request))
+            return {"status": "AWAITING_APPROVAL", "turnHandle": "handle-1", "nativeThreadId": "native-thread",
+                    "nativeTurnId": "native-turn", "cursor": 1,
+                    "continuation": {"runtime": "codex", "codexThreadId": "native-thread", "codexTurnId": "native-turn", "turnHandle": "handle-1"},
+                    "events": [{"eventId": "approval-1", "threadId": "native-thread", "turnId": "native-turn",
+                                 "type": "approval_request", "payload": {"requestId": "request-1", "operation": "shell",
+                                 "scope": "turn_sandbox", "paramsDigest": digest, "expiresAt": "2099-01-01T00:00:00+00:00",
+                                 "reason": "run command", "command": ["echo", "ok"]}}]}
+        def codex_approval(self, owner_id, **request):
+            calls.append(("approval", owner_id, request))
+            return {"status": "COMPLETED", "turnHandle": "handle-1", "nativeThreadId": "native-thread", "nativeTurnId": "native-turn",
+                    "events": [{"eventId": "done-1", "threadId": "native-thread", "turnId": "native-turn", "type": "turn_completed",
+                                "payload": {"status": "completed"}}], "continuation": {"runtime": "codex", "codexThreadId": "native-thread", "codexTurnId": "native-turn", "turnHandle": "handle-1"}}
+    app = create_app(repo, store, lambda _token, _audience: {
+        "iss": "https://accounts.google.com", "aud": "user-client", "sub": "google-a",
+        "email": "owner@example.com", "email_verified": True, "exp": 1_900_000_000,
+    }, audience="user-client", internal_audience="assistant-internal", internal_callers=frozenset(), mcp=Gateway())
+    client = TestClient(app)
+    headers = {"Authorization": "Bearer token"}
+    assert client.post("/api/v1/me/chats/threads", headers={**headers, "Idempotency-Key": "thread-1"}, json={
+        "thread_id": "codex-thread", "runtime": "codex", "model": "gpt-5", "assistant_profile": "default",
+    }).status_code == 201
+    message = client.post("/api/v1/me/chats/threads/codex-thread/messages", headers={**headers, "Idempotency-Key": "message-1"}, json={"content": "run it"})
+    assert message.status_code == 202
+    assert message.json()["dispatch"]["status"] == "AWAITING_APPROVAL"
+    assert message.json()["turn"]["continuation"]["turnHandle"] == "handle-1"
+    assert calls[0][0] == "start"
+    turn_id = message.json()["turn"]["turn_id"]
+    approved = client.post(f"/api/v1/me/chats/threads/codex-thread/turns/{turn_id}/approvals/request-1",
+                           headers=headers, json={"approved": True, "params_digest": digest})
+    assert approved.status_code == 200
+    assert calls[1][0] == "approval"
+    assert approved.json()["turn"]["status"] == "COMPLETED"
