@@ -1,66 +1,57 @@
 # GCP Dev Secret Bundle 清單
 
-更新日期：2026-09-11
+更新日期：2026-09-11  
 Project：`gen-lang-client-0593591102`  
 Region：`us-central1`
 
-本表是本次從 GCP Secret Manager 重新讀取的 metadata 快照，只記錄 Secret
-resource、用途、欄位名稱、消費者、版本狀態與 IAM metadata；不記錄任何
-payload、token、password、API key 或 auth 內容。GCP dev 在遷移前仍有 8 個
-Secret；本次唯讀盤點有 6 個 enabled version。若同一 billing account 沒有其他
-project 的 active versions，則正好落在每月 6 個免費額度內；Secret container 與
-management operation 本身不收費。下列三 bundle 收斂已通過人工安全 gate，但尚未
-執行 GCP 寫入與驗收。
+本文件只記錄 Secret resource、欄位名稱、consumer、版本狀態與 IAM metadata，
+不記錄 payload、token、password、API key 或 auth 內容。GCP dev 已完成收斂，
+目前只保留 3 個 Secret container、2 個 enabled versions。
 
-| Secret | 類型／欄位名稱（不含值） | 消費者 | version 狀態 | 目前 IAM metadata |
+| Secret | 欄位／格式（不含值） | Consumer | Version | IAM |
 |---|---|---|---|---|
-| `janus-agent-provider-bundle` | `gemini_api_key`, `openrouter_api_key`, `mcp_owner_signing_key` | `janus-agent-gateway` | v1 destroyed；v2 enabled | Gateway `secretAccessor` |
-| `janus-codex-owner-a` | Codex managed `auth.json` payload | Gateway；owner `00000000-0000-4000-8000-000000000001` | v1–v5 destroyed | Gateway `secretAccessor`, `secretVersionAdder`, `secretVersionManager` |
-| `janus-codex-owner-b` | Codex managed `auth.json` payload | Gateway；owner `00000000-0000-4000-8000-000000000002` | v1–v7 destroyed | Gateway `secretAccessor`, `secretVersionAdder`, `secretVersionManager` |
-| `janus-postgres-api-bundle` | `database_url`, `catalog_password`, `core_catalog_password`, `google_user_client_id`, `google_user_client_secret`, `mcp_owner_signing_key` | `janus-user-api`；private-pipeline Core catalog | v1–v6 destroyed；v7 enabled | API、Pipeline `secretAccessor` |
-| `janus-postgres-ingestion-bundle` | `control_password`, `catalog_password` | ingestion Cloud Run Job | v1 enabled | `ingestion-core` `secretAccessor` |
-| `janus-postgres-mart-bundle` | `catalog_password`, `publication_password` | Mart Cloud Run Job | v1 enabled | `intelligence-mart` `secretAccessor` |
-| `janus-postgres-pipeline-bundle` | `database_url`, `catalog_password` | `janus-private-pipeline`（private DB／catalog） | v1 enabled | Pipeline `secretAccessor` |
-| `janus-postgres-web-bundle` | `control_password`, `catalog_password`, `google_client_id`, `session_secret` | Admin Web | v1–v2 destroyed；v3 enabled | `web-runtime` `secretAccessor` |
+| `janus-postgres-api-bundle` | API 欄位；`web_*`、`pipeline_*` workload 欄位 | `janus-api`、`janus-web`、`janus-private-pipeline` | v14 enabled；舊版 destroyed | 三 runtime `secretAccessor` |
+| `janus-agent-provider-bundle` | provider／MCP 欄位；`mart_*`、`ingestion_*` workload 欄位 | `janus-agent-gateway`、`janus-intelligence-mart`、`janus-ingestion-core` | v8 enabled；舊版 destroyed | 三 runtime `secretAccessor`；Gateway provider access |
+| `janus-codex-owners-bundle` | 頂層 key 為 allowlisted owner UUID；value 為該 owner 的 Codex `auth.json` object | Agent Gateway | 無 enabled version（尚未建立 auth entry） | Gateway `secretAccessor`、`secretVersionAdder`、`secretVersionManager` |
 
-## 使用規則
+## 欄位規則
 
-- 目標只保留三個 Secret container：
-  - `janus-postgres-api-bundle`：原 API 欄位，加 `web_*` 與 `pipeline_*` 欄位；
-    consumer 為 API、Web、private pipeline。
-  - `janus-agent-provider-bundle`：原 provider／MCP 欄位，加 `mart_*` 與
-    `ingestion_*` 欄位；consumer 為 Agent Gateway、Mart、ingestion。
-  - `janus-codex-owners-bundle`：頂層 key 為 allowlisted owner UUID，value 為該
-    owner 的 Codex `auth.json` object；兩個 owner 不共用 auth payload。
-- 同名 PostgreSQL credential 不可互相覆蓋；Web、Pipeline、Mart、Ingestion 欄位
-  使用 workload prefix，程式在遷移期間才允許 fallback 至舊欄位名稱。
-- `janus-agent-provider-bundle` 仍是 MCP signing key 的唯一 bundle 來源。
-- Rotation 先建立並驗證新 version，再銷毀舊 version；不得只 disable。
-- Codex bundle mutation 在目前 `max-instances=1` 下以 process lock 序列化；提高
-  instance 數前必須改用 distributed lock／CAS，避免 owner 更新互相覆蓋。
-- 本次重讀只輸出 JSON key 名稱，未記錄或輸出任何 Secret payload value。
+- API／Web／Pipeline 的同名 credential 不互相覆蓋；合併欄位使用 `web_*`、
+  `pipeline_*` prefix。Agent／Mart／Ingestion 同理使用 `mart_*`、`ingestion_*`。
+- `janus-agent-provider-bundle` 是 MCP signing key 的唯一來源。
+- Codex A/B 共用 Secret resource，但 auth payload 以 owner UUID 分區；每個 owner
+  仍使用隔離的 `CODEX_HOME` 與 App Server process。
+- Codex rotate 採 read-modify-write：建立並驗證新 version 後銷毀舊 version；destroy
+  只移除目標 owner entry。Cloud Run 目前 `max-instances=1`，程式以 process lock
+  序列化 mutation；提高 instance 數前必須改用 distributed lock／CAS。
+- 新版 PostgreSQL loader 在遷移期間支援舊欄位 fallback；legacy containers 已刪除後，
+  fallback 僅作 rollback compatibility，不應再新增舊欄位。
 
-## 遷移順序（尚未執行）
+## GCP migration evidence
 
-1. `ALLOW_SECRET_BUNDLE_MIGRATION=true scripts/gcp/migrate-secret-bundles-dev.sh prepare`
-   建立兩個 merged version、`janus-codex-owners-bundle` 與 bounded IAM。
-2. 部署 API、Web、Pipeline、Agent、Mart、Ingestion 新映像與 Secret references。
-3. 執行 targeted tests、bundle runtime probes、A／B entry rotate／destroy isolation
-   與 log payload 檢查。
-4. 驗收通過後，另設 `ALLOW_SECRET_BUNDLE_CLEANUP=true` 執行 `cleanup`，刪除六個
-   legacy containers；驗收失敗時不得 cleanup。
+- `migrate-secret-bundles-dev.sh prepare` 建立並驗證 API v14、Agent v8，並將舊 merged
+  versions 設為 `DESTROYED`。
+- API、Web、Pipeline 已切換至 `janus-postgres-api-bundle:latest`；Agent、Mart、
+  Ingestion 已切換至 `janus-agent-provider-bundle:latest`。
+- Gateway revision `janus-agent-gateway-00042-kj2` 使用 provider bundle，Codex owner
+  mapping 指向 `janus-codex-owners-bundle`。
+- 六個 legacy containers（Web／Pipeline／Mart／Ingestion 舊 bundle、Codex A/B）已在
+  明確授權後刪除；刪除前所有 legacy versions 均已確認 destroyed，沒有 active payload
+  被刪除。
 
-## 遷移前 Runtime reference（2026-09-11）
+## Runtime acceptance
 
-- `janus-ingestion-core` 已移除 alias／individual refs，只引用
-  `janus-postgres-ingestion-bundle:latest`；Job Ready，runtime probe
-  `janus-ingestion-core-n8mh2` 成功。
-- `janus-intelligence-mart` 已移除 individual refs，只引用
-  `janus-postgres-mart-bundle:latest`；Job Ready，runtime probe
-  `janus-intelligence-mart-j2hgn` 成功。
-- `janus-private-pipeline` 已移除 3 個 individual refs，改用
-  `janus-postgres-pipeline-bundle:latest` 加
-  `janus-postgres-api-bundle:latest`（Core catalog 欄位）；Job Ready，runtime
-  probe `janus-private-pipeline-rvmct` 成功。
-- 舊 execution `janus-private-pipeline-k7gtz` 的 bundle schema failure 是修正前證據，
-  不列為驗收成功；以上是 dev runtime 設定，不代表 production topology 或授權。
+- Python targeted tests：14 passed；Agent Gateway tests：10 passed。
+- Agent Gateway TypeScript build、Git Bash `bash -n`、Cloud Build contract 均通過；
+  contract build：`6bb119e7-da07-4ec2-b52b-3f1f1170a649`。
+- Mart smoke：`janus-intelligence-mart-mrz8q`；Pipeline smoke：
+  `janus-private-pipeline-8vxnm`；Ingestion smoke：`janus-ingestion-core-7qxbx`，均
+  `Completed=True`。
+- Codex A/B live auth rotate／destroy isolation 尚未驗證，因新 owner bundle 目前沒有
+  active auth entry；建立 dev owner auth 後需重新執行該項驗收。
+
+## Cost note
+
+Secret Manager active versions 與 access operations 才是主要計費項目；若 billing
+account 沒有其他 project 的 active versions，目前 2 個 enabled versions 低於每月
+6 個免費額度。Secret container 與 management operations 本身不收費。

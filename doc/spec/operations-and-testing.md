@@ -13,10 +13,10 @@ versions，依 6-version 免費額度，當下 active-version 儲存費預估為
 降低未來 version 成本與操作負擔，不代表目前已有節費。
 
 程式、向後相容欄位 loader、部署順序與 phased GCP migration／cleanup 腳本已修改；
-依使用者要求，本 checkpoint 尚未執行任何 test、lint、shell syntax、build、GCP 寫入、
-部署或 runtime acceptance，也未刪除 legacy Secret。下一步必須先完成本機 targeted
-驗證，再執行 dev prepare／部署／A-B owner entry isolation 與 runtime probes；全部通過
-後才能執行 cleanup。
+targeted tests、TypeScript build、bash syntax、Cloud Build contract 與三個既有 Job
+smoke 均已通過。GCP prepare／部署已完成，六個 legacy Secret 尚未刪除；Codex A/B
+live auth isolation 尚待人工建立 owner auth entry。cleanup 是最後的不可逆步驟，需另外
+明確授權。
 
 ## WBS-3-ADMIN-POLISH 驗證（2026-09-11）
 

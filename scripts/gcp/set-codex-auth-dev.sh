@@ -21,7 +21,7 @@ if ! gcloud secrets describe "${secret}" --project="${project}" >/dev/null 2>&1;
   gcloud secrets create "${secret}" --project="${project}" \
     --replication-policy=automatic --labels=environment=dev,service=agent-gateway --quiet
 fi
-latest="$(gcloud secrets versions list "${secret}" --project="${project}" --filter='state=ENABLED' --format='value(name)' --limit=1)"
+latest="$(gcloud secrets versions list "${secret}" --project="${project}" --filter='state=ENABLED' --format='value(name)' --limit=1 || true)"
 if [[ -z "${latest}" ]]; then
   python3 -c 'import pathlib,sys; pathlib.Path(sys.argv[1]).write_text("{}")' "${tmp}/current.json"
 else
@@ -30,10 +30,16 @@ fi
 python3 -c 'import json,pathlib,sys; bundle=json.load(open(sys.argv[1])); bundle[sys.argv[3].lower()]=json.load(open(sys.argv[2])); pathlib.Path(sys.argv[4]).write_text(json.dumps(bundle,separators=(",",":")))' \
   "${tmp}/current.json" "${auth_file}" "${owner}" "${tmp}/updated.json"
 added="$(gcloud secrets versions add "${secret}" --project="${project}" --data-file="${tmp}/updated.json" --format='value(name)' --quiet)"
+added="${added//$'\r'/}"
 version="${added##*/}"
-gcloud secrets versions access "${version}" --secret="${secret}" --project="${project}" --out-file="${tmp}/verify.json" --quiet
+for attempt in {1..10}; do
+  gcloud secrets versions access "${version}" --secret="${secret}" --project="${project}" --out-file="${tmp}/verify.json" --quiet && break
+  [[ "${attempt}" == 10 ]] && exit 1
+  sleep 2
+done
 python3 -c 'import json,sys; assert sys.argv[2].lower() in json.load(open(sys.argv[1]))' "${tmp}/verify.json" "${owner}"
 while IFS= read -r old; do
+  old="${old//$'\r'/}"
   [[ -z "${old}" || "${old}" == "${version}" ]] || gcloud secrets versions destroy "${old}" --secret="${secret}" --project="${project}" --quiet
 done < <(gcloud secrets versions list "${secret}" --project="${project}" --filter='state=ENABLED' --format='value(name)')
 echo "Uploaded Codex managed auth for ${owner} to ${secret}; no credential content was printed."

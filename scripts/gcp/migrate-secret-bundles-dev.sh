@@ -23,10 +23,16 @@ access() {
 replace_bundle() {
   local secret="$1" payload="$2" expected="$3" added version
   added="$(gcloud secrets versions add "${secret}" --project="${project}" --data-file="${payload}" --format='value(name)' --quiet)"
+  added="${added//$'\r'/}"
   version="${added##*/}"
-  gcloud secrets versions access "${version}" --secret="${secret}" --project="${project}" --out-file="${tmp}/verify.json" --quiet
+  for attempt in {1..10}; do
+    gcloud secrets versions access "${version}" --secret="${secret}" --project="${project}" --out-file="${tmp}/verify.json" --quiet && break
+    [[ "${attempt}" == 10 ]] && exit 1
+    sleep 2
+  done
   python3 -c 'import json,sys; actual=json.load(open(sys.argv[1])); expected=set(sys.argv[2].split(",")); missing=expected-set(actual); assert not missing, "missing fields: "+",".join(sorted(missing))' "${tmp}/verify.json" "${expected}"
   while IFS= read -r old; do
+    old="${old//$'\r'/}"
     [[ -z "${old}" || "${old}" == "${version}" ]] || gcloud secrets versions destroy "${old}" --secret="${secret}" --project="${project}" --quiet
   done < <(gcloud secrets versions list "${secret}" --project="${project}" --filter='state=ENABLED' --format='value(name)')
 }
@@ -68,11 +74,11 @@ PY
     if ! gcloud secrets describe "${owner_bundle}" --project="${project}" >/dev/null 2>&1; then
       gcloud secrets create "${owner_bundle}" --project="${project}" --replication-policy=automatic --labels=environment=dev,service=agent-gateway --quiet
     fi
-    owner_bundle_latest="$(gcloud secrets versions list "${owner_bundle}" --project="${project}" --filter='state=ENABLED' --format='value(name)' --limit=1)"
+    owner_bundle_latest="$(gcloud secrets versions list "${owner_bundle}" --project="${project}" --filter='state=ENABLED' --format='value(name)' --limit=1 || true)"
     if [[ -z "${owner_bundle_latest}" ]]; then
       for source in a b; do
         legacy_secret="janus-codex-owner-${source}"
-        latest="$(gcloud secrets versions list "${legacy_secret}" --project="${project}" --filter='state=ENABLED' --format='value(name)' --limit=1)"
+        latest="$(gcloud secrets versions list "${legacy_secret}" --project="${project}" --filter='state=ENABLED' --format='value(name)' --limit=1 || true)"
         [[ -z "${latest}" ]] || gcloud secrets versions access "${latest}" --secret="${legacy_secret}" --project="${project}" --out-file="${tmp}/owner-${source}.json" --quiet
       done
       owner_keys="$(python3 - "${tmp}" <<'PY'
