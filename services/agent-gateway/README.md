@@ -2,7 +2,7 @@
 
 Private Cloud Run service for the `WBS-4C-CLOUD-RUNTIME` feasibility check. It
 starts pinned Codex App Server `0.153.0` over stdio JSONL, refreshes owner-scoped
-managed auth from an operator allowlist of Secret Manager resources, uses a bounded in-memory turn sandbox, and proves
+managed auth from an operator allowlist backed by an owner-keyed Secret Manager bundle, uses a bounded in-memory turn sandbox, and proves
 cursor reconnect from an external Private GCS checkpoint.
 
 The POC endpoints are Cloud Run IAM-only and additionally require
@@ -26,8 +26,12 @@ remain separate later WBS slices.
 
 The internal Codex lifecycle endpoints require the same service HMAC and accept
 only an owner UUID: `session:logout` evicts the owner session, while
-`auth:destroy` destroys all versions idempotently. Secret resource names are
-never accepted from request payloads.
+`auth:destroy` removes only the selected owner entry and rotates the shared bundle
+idempotently. Secret resource names are never accepted from request payloads.
+
+The shared auth bundle relies on the current Cloud Run `max-instances=1` setting
+and a process-wide mutation lock. Add a distributed lock or compare-and-swap
+before increasing the instance limit.
 
 Bridge contract/build checks and the live managed-auth/cancellation/reconnect
 probe run only in GCP dev through `verify-agent-gateway-dev.sh`.

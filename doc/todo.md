@@ -23,7 +23,7 @@
 - WBS-4C-CODEX-AUTH-LIFECYCLE：完成部分已移至 [`archive/todo-completed-2026-09-09.md`](archive/todo-completed-2026-09-09.md)；互動式 device-code login 真人流程仍未驗收。
 - WBS 3 收尾：`WBS-3-ACCEPTANCE` 暫停於 1/3；既有 Scheduler 繼續自動累積 canary，切換至 WBS 5 期間不得宣告 WBS 3 結案。queue claim、connection exhaustion、VM restart/reconnect、bundle runtime probes、Direct VPC／identity negative evidence 與 billing／Free Tier dev guard 已通過。
 - 最新驗證：Codex POC bridge Cloud Build `9dec1039-0052-420d-9ef1-6719ed46991a` 與 OpenRouter／Gemini runtime probe `20050302-861a-4c84-84ad-c96f21903776` 均 SUCCESS；完整證據與既有驗證見 `spec/operations-and-testing.md` 與 [`secret_list.md`](secret_list.md)。
-- Secret inventory：目前 GCP dev 共 8 個 Secret，完整名稱／bundle 欄位／consumer／IAM metadata 見 [`doc/secret_list.md`](secret_list.md)；`janus-agent-provider-bundle` 已包含 `mcp_owner_signing_key`，不再建立獨立 signing Secret。
+- Secret bundle consolidation：已核准將 8 個 dev Secret 收斂為 3 個 bundle；程式與遷移腳本已修改，尚待測試、GCP dev prepare／部署驗收與 legacy cleanup，詳見 [`doc/secret_list.md`](secret_list.md)。
 
 ## 下一步執行佇列
 
@@ -70,7 +70,7 @@
 
 - [ ] 【Sol】 Codex 以 Cloud Run 容器內 App Server stdio JSON-RPC 與 managed OAuth／device-code 驅動；整合 Threads／Turns／Items／Approval Requests、取消及 sandbox。不得使用 OpenAI API key、Responses／Codex API 或其他直接付費 fallback。
 
-- [ ] 【Sol】 Codex auth lifecycle 必須先於 Chat API／Assistant UI：authenticated owner 經 service-authenticated internal request 傳入 Gateway，每個 owner 使用隔離 Secret、`CODEX_HOME` 與 App Server process；refresh 成功後銷毀舊版本。刪除時拒絕該 owner 新 login／turn／artifact write，停止 session、logout、刪 owner auth，失敗保留 `CLEANUP_PENDING` 並可重試；無 Codex thread 或 Secret 已不存在也須冪等完成。Gateway 不接受 client owner／Secret name，不授 project-wide Secret Manager admin；dev credential 由 operator 為 allowlisted owner 建立，正式自助 provisioning 另案決定。建立 per-owner Secret 或擴大付費資源前須人工同意。
+- [ ] 【Sol】 Codex auth lifecycle 必須先於 Chat API／Assistant UI：authenticated owner 經 service-authenticated internal request 傳入 Gateway；A／B 共用一個 Secret bundle，但 payload 以 owner UUID 分區，並各自使用隔離 `CODEX_HOME` 與 App Server process。refresh 以 read-modify-write 建立新 bundle version、驗證該 owner 後銷毀舊版本；刪除只移除該 owner entry。刪除時拒絕該 owner 新 login／turn／artifact write，停止 session、logout、刪 owner auth，失敗保留 `CLEANUP_PENDING` 並可重試。Gateway 不接受 client owner／Secret name，不授 project-wide Secret Manager admin；MVP 維持 `max-instances=1` 以序列化 bundle 寫入，擴展多 instance 前須改用 distributed lock／CAS。
 
 
 
@@ -119,7 +119,7 @@
 
 ## P1 — Mart／Agents
 
-- [ ] 【Sol】 建立可執行的 `intelligence_mart` package／Cloud Run Job entrypoint、bounded runtime 設定與 persisted queue claim；2026-08-31 已完成 connectivity entrypoint、1 CPU／1 GiB／300s／1 retry Job 與實機 smoke。2026-09-11 已實作 analysis-only `FOR UPDATE SKIP LOCKED` lease、bounded retry／terminal transition 與 immutable input／artifact completion fence；本機 targeted tests 8/8 通過、`git diff --check` 通過。GCP dev migration 017、函式 EXECUTE-only privilege、queue rejection／retry execution `janus-intelligence-mart-zj8zw` 與 smoke execution `janus-intelligence-mart-fq96m` 已驗證；Cloud Build `fcc58745-42a1-44de-9771-785f522d16af` SUCCESS。完整 processor／matching artifact 成功路徑仍待後續切片；Analysis 排隊或 claim 成功不得視為完成。
+- [ ] 【Sol】 建立可執行的 `intelligence_mart` package／Cloud Run Job entrypoint、bounded runtime 設定與 persisted queue claim；2026-08-31 已完成 connectivity entrypoint、1 CPU／1 GiB／300s／1 retry Job 與實機 smoke。2026-09-11 已實作 analysis-only `FOR UPDATE SKIP LOCKED` lease、bounded retry／terminal transition 與 immutable input／artifact completion fence；本機 targeted tests 9/9 通過、`git diff --check` 通過。GCP dev migration 017、函式 EXECUTE-only privilege、queue rejection／retry execution `janus-intelligence-mart-zj8zw` 與 smoke execution `janus-intelligence-mart-fq96m` 已驗證；matching Core manifest 的 SHA-256／execution／snapshot fence、deterministic create-if-absent Mart input artifact、首次 succeeded `janus-intelligence-mart-z5tn8` 與 replay `janus-intelligence-mart-xr64n` 已驗證；Cloud Build `fe30fa4f-7cd4-4bb7-8500-41d1a8cfe077` SUCCESS。完整 feature／role／publication pipeline 仍待後續切片；Analysis 排隊或 claim 成功不得視為完成。
 
 - [ ] 【Sol】 persisted Mart consumer 完成並通過 terminal-state／retry 驗收後，才重新啟用 Admin Analysis action 與「Mart 分析」。
 

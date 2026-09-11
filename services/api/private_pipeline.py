@@ -118,9 +118,9 @@ class PrivatePipeline:
 
 def main() -> None:
     from packages.postgres_bundle import load_postgres_bundle
-    load_postgres_bundle("JANUS_PIPELINE_POSTGRES_BUNDLE", {
-        "PRIVATE_DATABASE_URL": "database_url",
-        "PRIVATE_CATALOG_PASSWORD": "catalog_password",
+    load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", {
+        "PRIVATE_DATABASE_URL": ("pipeline_database_url", "database_url"),
+        "PRIVATE_CATALOG_PASSWORD": ("pipeline_catalog_password", "catalog_password"),
     })
     if os.getenv("ASSISTANT_STORAGE_ACCEPTANCE") == "true":
         from .assistant_storage_acceptance import run

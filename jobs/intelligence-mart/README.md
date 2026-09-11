@@ -13,3 +13,8 @@ passwords or performs feature/evidence writes.
 `FOR UPDATE SKIP LOCKED`. Completion requires the processor to persist a
 `gs://` artifact tied to the claimed immutable Core snapshot; claim/enqueue
 success alone cannot mark the execution succeeded.
+
+Set `MART_OPERATION=queue` and `MART_BUCKET` to process one execution. The
+processor reads and hashes the supplied immutable Core snapshot manifest,
+checks its execution/snapshot fence, and writes a create-if-absent input
+artifact for later deterministic feature stages.

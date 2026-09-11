@@ -3,7 +3,7 @@ FROM python:3.12.8-slim-bookworm
 WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app/jobs/intelligence-mart \
+    PYTHONPATH=/app:/app/jobs/intelligence-mart:/app/jobs/ingestion-core \
     PORT=8080
 
 COPY jobs/intelligence-mart/requirements.lock ./requirements.lock

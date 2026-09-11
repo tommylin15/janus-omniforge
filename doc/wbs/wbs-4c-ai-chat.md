@@ -18,7 +18,7 @@
 | `WBS-4C-CONTEXT-SOURCES` | Janus Core／Private Mart read-only context、外部來源 allowlist、source list／preview／opaque ref API、日期／provenance／owner 邊界 | ENGINE-SECURITY |
 | `WBS-4C-MCP-HOST` | 容器內 stdio、遠端 Streamable HTTP／legacy SSE、協定交涉、工具發現與受控執行 | ENGINE-SECURITY、CLOUD-RUNTIME |
 | `WBS-4C-CODEX-BRIDGE` | Cloud Run 容器內 stdio JSON-RPC、managed login、Threads／Turns／Items／Approvals 與共用 MCP 路徑；現有 checkpoint 只算單一共用 auth 的 dev POC | CLOUD-RUNTIME、MCP-HOST |
-| `WBS-4C-CODEX-AUTH-LIFECYCLE` | authenticated owner 傳遞、owner-scoped managed auth、版本輪替／舊版銷毀、session eviction／logout、刪除重試與最小 IAM | CODEX-BRIDGE POC、PRIVATE-STORAGE；建立 per-owner Secret 或付費資源前須人工 gate |
+| `WBS-4C-CODEX-AUTH-LIFECYCLE` | authenticated owner 傳遞、owner-keyed managed auth bundle、版本輪替／舊版銷毀、session eviction／logout、刪除重試與 bounded IAM | CODEX-BRIDGE POC、PRIVATE-STORAGE；擴展多 instance 或付費資源前須人工 gate |
 | `WBS-4C-SKILLS` | GCP 儲存、載入／啟用／自訂 skill、版本化 prompt／workflow 與 tool scope | ENGINE-SECURITY、MCP-HOST、PRIVATE-STORAGE |
 | `WBS-4C-PRIVATE-STORAGE` | Private Iceberg 正文／events／Skills 與 PostgreSQL index、owner isolation、冪等／匯出／刪除／雲端暫存清理 | runtime／event contract |
 | `WBS-4C-CHAT-API` | Threads CRUD／fork、message turn、bounded SSE、取消、approval response 與續接去重 | runtime／storage／approval contract、CODEX-AUTH-LIFECYCLE |
@@ -60,9 +60,9 @@
 
 - 預設最小權限。使用者核准的 shell／寫檔只在該 turn 的 Cloud Run 暫存 sandbox 內執行，approval 顯示操作與範圍，拒絕／到期／取消即不執行。MCP subprocess 本身亦需隔離，不假設 Codex sandbox 保護外部 MCP。
 - Approval 不可授予 Janus Admin、交易／筆記／watchlist mutation 或下單；這些既有產品限制仍保留，擴充需另外明確決策。
-- Provider API keys、MCP credentials 與 Codex auth cache 只存在 Secret Manager 或經核准的隔離 GCP credential store，不進 browser／Flutter storage、PostgreSQL、Iceberg、image 或 log。Codex auth 以內部 owner UUID 隔離；API payload 不接受 credential locator。每個 owner 使用隔離的 `CODEX_HOME`／App Server process；refresh 新版本確認成功後銷毀舊版本，不得只 disable。Gateway 只讀取／輪替 owner auth，deletion runtime 只刪除且不可讀取 payload；不得授予 project-wide Secret Manager admin。Cloud Run managed auth lifecycle 未通過 dev 驗收不得上 production。
+- Provider API keys、MCP credentials 與 Codex auth cache 只存在 Secret Manager 或經核准的 GCP credential store，不進 browser／Flutter storage、PostgreSQL、Iceberg、image 或 log。Codex auth 在共用 bundle 內以 owner UUID 分區；API payload 不接受 credential locator。每個 owner 使用隔離的 `CODEX_HOME`／App Server process；refresh 新 bundle version 確認成功後銷毀舊版本，不得只 disable，刪除只移除目標 owner entry。MVP 以單 instance 內 lock 序列化 mutation；擴展多 instance 前改用 distributed lock／CAS。不得授予 project-wide Secret Manager admin，且 Cloud Run managed auth lifecycle 未通過 dev 驗收不得上 production。
 - GCP dev 先由 operator 為 allowlisted 測試 owner 建立 credential resource 並逐資源綁定 IAM；正式自助建立大量 owner credential 需另案決定最小權限 provisioning path 與成本，不把 secret-admin 權限交給 Gateway 或 User API。
-- GCP dev Secret／bundle inventory、欄位、consumer 與 IAM 必須同步 [Secret Bundle 清單](../secret_list.md)；provider bundle 提供 MCP signing key，Codex A／B auth 維持獨立 owner Secret。
+- GCP dev Secret／bundle inventory、欄位、consumer 與 IAM 必須同步 [Secret Bundle 清單](../secret_list.md)；provider bundle 提供 MCP signing key，Codex A／B auth 共用 Secret resource 但維持 owner-keyed payload 隔離。
 - 跨 request device login 使用 owner-scoped `/internal/v1/codex/session:login-start`／`login-status`；login session 有 bounded TTL，logout／destroy 必須先 eviction，成功登入後才 persist auth version。跨 instance 的 durable chat session 仍由 Chat API slice 負責。
 - Context 僅由 authenticated owner 明確選取；外送雲端前顯示供應商與資料範圍。Gemini 免費層的資料處理條件需揭露，未取得相應同意前不外送敏感私人內容。
 - Messages、context、citations、已過濾的 items／events／tool results 儘可能存 Private Iceberg；PostgreSQL 只存 bounded thread／turn／approval 狀態索引、idempotency、checkpoint／artifact reference。可恢復的 approval／event 狀態不能只存在程序記憶體。
@@ -77,5 +77,5 @@ API slice 已提供 owner-scoped thread create/list/read/fork、message turn、b
 - 共用事件包含 text delta、item upsert、tool request／result、approval request／resolved、citation、usage、turn completed／cancelled／error；保留 threadId／turnId／itemId／eventId／seq 與 provider 原生 ID 映射。
 - UI 只用統一事件模型渲染，Codex 額外顯示 Items、Turns 與 Approval Requests。SSE 使用 cursor 續接、bounded replay、backpressure；approval／cancel 只經 authenticated HTTPS POST。
 - Approval 綁定 owner、thread、turn、request 及具體參數；拒絕跨 owner、過期或重播，不能將 UI boolean 當全域權限。
-- 驗收需覆蓋 Cloud Run scale-to-zero／cold start／timeout／中斷重連、三 runtime 真實或受控協定測試、內部與外部資料源 provenance、MCP stdio／HTTP／SSE、動態工具、Skill 權限、Codex managed auth／approval／取消、Grounding 來源、provider unavailable／quota、A／B 隔離、匯出／刪除、stream 續接去重及無 placeholder。Codex auth 另須以 A／B owner Secret 驗證 load／rotate／destroy 隔離、無 thread 的 orphan auth 刪除、cleanup 403 後重試、刪除期間拒絕寫入、logout／session eviction、刪後要求重新登入，以及 log／DB／Iceberg／build output 無 credential payload。
+- 驗收需覆蓋 Cloud Run scale-to-zero／cold start／timeout／中斷重連、三 runtime 真實或受控協定測試、內部與外部資料源 provenance、MCP stdio／HTTP／SSE、動態工具、Skill 權限、Codex managed auth／approval／取消、Grounding 來源、provider unavailable／quota、A／B 隔離、匯出／刪除、stream 續接去重及無 placeholder。Codex auth 另須以共用 bundle 的 A／B entries 驗證 load／rotate／destroy 隔離、其中一方更新或刪除不影響另一方、無 thread orphan auth、cleanup 403 重試、刪除期間拒絕寫入、logout／session eviction、刪後重新登入，以及 log／DB／Iceberg／build output 無 credential payload。
 - MCP Host、Skills、遠端 transport 與 approval UI 都是本 WBS 必交付能力；可分切片，不能在完成宣告時省略。

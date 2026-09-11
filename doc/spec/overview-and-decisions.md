@@ -39,7 +39,7 @@ User App 與 Admin UI 是兩個獨立入口。Flutter 的公開研究頁只讀�
 - Codex App Server 目前屬實驗性且官方不支援 production workload；先完成 dev Cloud Run POC 與 managed auth refresh／sandbox／重連驗證，通過人工 gate 後才可決定 production。不得靜默改用直接 OpenAI API。
 - Janus Core／Mart 與 owner-scoped Private Core／Mart 由 Cloud Run context service／內部 read-only MCP 提供 bounded context；外部資料源須先登錄授權、資料日期、provenance、quota 與外送政策。模型不得直接取得 GCS URI、資料庫 credential 或跨 owner query。
 - MCP Host 支援 Cloud Run 容器內 stdio 子行程、遠端 Streamable HTTP、legacy SSE、協定交涉與動態工具；可獨立擴縮的 MCP 優先部署私有 Cloud Run Service。Skills 可載入／啟用／自訂 prompt 與 workflow：內建版本隨 image 發布，自訂版本存 Private Iceberg／GCS 並在 turn 開始時物化到雲端暫存 sandbox。兩者共用 host tool policy／approval，不能靠 prompt 擴權或上傳任意可執行程式。
-- Provider／MCP secrets 與 Codex auth cache 使用 Secret Manager 或另經核准的隔離 GCP credential store，不進正文、image、log 或前端 storage；私人 context 外送須明確選取並揭露供應商資料處理條件。完整 runtime／data／MCP／Skills／事件契約見 [API 與交付](api-and-delivery.md)。
+- Provider／MCP／PostgreSQL secrets 與 Codex auth cache 使用 Secret Manager，不進正文、image、log 或前端 storage。Dev 經人工安全 gate 核准收斂為 API＋Web＋Pipeline、Agent＋Mart＋Ingestion、owner-keyed Codex auth 三個 bundle；這是降低 IAM 隔離以換取管理簡化的 dev/MVP 取捨。私人 context 外送須明確選取並揭露供應商資料處理條件。完整 runtime／data／MCP／Skills／事件契約見 [API 與交付](api-and-delivery.md)。
 - Cloud Run writable filesystem 只作有大小上限的 turn sandbox；核准保存的輸出去 secret 後寫入 Private GCS／Iceberg。只有 Cloud Run 無法滿足不可中斷長 turn、持久 daemon、特殊 sandbox 權限或實測資源需求時，才提出 Compute Engine／GKE 成本、安全、維運與退出評估，取得使用者明確決定後才能採用。
 - Cloud Run Service 全部 `min-instances=0`；寫入 Core 的 ingestion Job 單 task 執行，API／query runtime 對 Core 採 read-only。
 - Artifact Registry 可由 source deploy／Cloud Build 自動管理，但底層仍需保存容器映像。

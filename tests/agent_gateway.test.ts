@@ -95,8 +95,51 @@ describe("agent gateway cloud runtime POC", () => {
       "00000000-0000-4000-8000-000000000001": "projects/p/secrets/codex-auth-a",
       "00000000-0000-4000-8000-000000000002": "projects/p/secrets/codex-auth-b",
     }));
-    expect(registry.resource("00000000-0000-4000-8000-000000000002")).toBe("projects/p/secrets/codex-auth-b");
-    expect(() => registry.resource("00000000-0000-4000-8000-000000000003")).toThrow("allowlisted");
+    expect(registry.auth("00000000-0000-4000-8000-000000000002")).toEqual({ resource: "projects/p/secrets/codex-auth-b" });
+    expect(() => registry.auth("00000000-0000-4000-8000-000000000003")).toThrow("allowlisted");
+  });
+
+  it("keeps owner auth entries separate inside a shared bundle", async () => {
+    const home = await mkdtemp(join(tmpdir(), "janus-auth-bundle-test-"));
+    homes.push(home);
+    const ownerA = "00000000-0000-4000-8000-000000000001";
+    const ownerB = "00000000-0000-4000-8000-000000000002";
+    const current = { [ownerA]: { tokens: "a" } };
+    const expected = { ...current, [ownerB]: { tokens: "b" } };
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(response({ access_token: "metadata-token" }))
+      .mockResolvedValueOnce(response({ payload: { data: Buffer.from(JSON.stringify(current)).toString("base64") } }))
+      .mockResolvedValueOnce(response({ access_token: "metadata-token" }))
+      .mockResolvedValueOnce(response({ name: "projects/p/secrets/codex-auth/versions/2" }))
+      .mockResolvedValueOnce(response({ access_token: "metadata-token" }))
+      .mockResolvedValueOnce(response({ payload: { data: Buffer.from(JSON.stringify(expected)).toString("base64") } }))
+      .mockResolvedValueOnce(response({ access_token: "metadata-token" }))
+      .mockResolvedValueOnce(response({ versions: [{ name: "projects/p/secrets/codex-auth/versions/2", state: "ENABLED" }] }));
+    await import("node:fs/promises").then(({ writeFile }) => writeFile(join(home, "auth.json"), JSON.stringify(expected[ownerB])));
+
+    expect(await new ManagedAuthStore("projects/p/secrets/codex-auth", fetcher as typeof fetch, ownerB).persist(home)).toBe(true);
+    const request = JSON.parse(String(fetcher.mock.calls[3][1].body));
+    expect(JSON.parse(Buffer.from(request.payload.data, "base64").toString("utf8"))).toEqual(expected);
+  });
+
+  it("removes only one owner from a shared auth bundle", async () => {
+    const ownerA = "00000000-0000-4000-8000-000000000001";
+    const ownerB = "00000000-0000-4000-8000-000000000002";
+    const current = { [ownerA]: { tokens: "a" }, [ownerB]: { tokens: "b" } };
+    const expected = { [ownerA]: current[ownerA] };
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(response({ access_token: "metadata-token" }))
+      .mockResolvedValueOnce(response({ payload: { data: Buffer.from(JSON.stringify(current)).toString("base64") } }))
+      .mockResolvedValueOnce(response({ access_token: "metadata-token" }))
+      .mockResolvedValueOnce(response({ name: "projects/p/secrets/codex-auth/versions/2" }))
+      .mockResolvedValueOnce(response({ access_token: "metadata-token" }))
+      .mockResolvedValueOnce(response({ payload: { data: Buffer.from(JSON.stringify(expected)).toString("base64") } }))
+      .mockResolvedValueOnce(response({ access_token: "metadata-token" }))
+      .mockResolvedValueOnce(response({ versions: [{ name: "projects/p/secrets/codex-auth/versions/2", state: "ENABLED" }] }));
+
+    await new ManagedAuthStore("projects/p/secrets/codex-auth", fetcher as typeof fetch, ownerB).destroy();
+    const request = JSON.parse(String(fetcher.mock.calls[3][1].body));
+    expect(JSON.parse(Buffer.from(request.payload.data, "base64").toString("utf8"))).toEqual(expected);
   });
 
   it("treats an already absent owner auth secret as destroyed", async () => {

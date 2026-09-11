@@ -2,6 +2,22 @@
 
 最新驗證日期：2026-09-11
 
+## Secret bundle consolidation checkpoint（未驗證）
+
+已取得人工安全 gate，同意以較大的 workload IAM blast radius 換取較少的 Secret
+版本與管理項目。目標由 8 個 container 收斂為 `janus-postgres-api-bundle`（API／Web／
+Pipeline）、`janus-agent-provider-bundle`（Agent／Mart／Ingestion）及
+`janus-codex-owners-bundle`（owner UUID keyed auth）三個。2026-09-11 唯讀盤點顯示
+現有 6 個 enabled versions；若同一 billing account 沒有其他 project 的 active
+versions，依 6-version 免費額度，當下 active-version 儲存費預估為 US$0。收斂主要
+降低未來 version 成本與操作負擔，不代表目前已有節費。
+
+程式、向後相容欄位 loader、部署順序與 phased GCP migration／cleanup 腳本已修改；
+依使用者要求，本 checkpoint 尚未執行任何 test、lint、shell syntax、build、GCP 寫入、
+部署或 runtime acceptance，也未刪除 legacy Secret。下一步必須先完成本機 targeted
+驗證，再執行 dev prepare／部署／A-B owner entry isolation 與 runtime probes；全部通過
+後才能執行 cleanup。
+
 ## WBS-3-ADMIN-POLISH 驗證（2026-09-11）
 
 Admin status／execution item 改為安全結構化欄表格，支援 sticky header、排序、篩選、分頁、欄位顯示與按需子表；source health／collection config 讀取改為 repository-level bounded keyset cursor。股票刪除 guard 現在會檢查 collection config、execution、market、report、fundamental 五類引用，提供結構化 references endpoint、409 引用摘要與 UI 阻擋原因。完整 `python -m pytest -q tests` 為 154 passed，`npm.cmd run test:unit` 為 18 passed，Admin Playwright 為 9 passed。`npm.cmd run build` 的 typecheck 通過，但 lint 被既有 `.tmp` urllib3 worker 與 `services/agent-gateway/dist` 生成檔 56 個 `no-undef` 阻擋；未修改或清理該生成物。未部署 production、未建立付費資源。

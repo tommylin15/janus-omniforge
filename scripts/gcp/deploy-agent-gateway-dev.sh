@@ -3,7 +3,8 @@ set -Eeuo pipefail
 
 project="${GCP_PROJECT_ID:?GCP_PROJECT_ID is required}"
 region="${GCP_REGION:-us-central1}"
-owner_secrets="${CODEX_OWNER_SECRETS:?CODEX_OWNER_SECRETS JSON map is required}"
+owner_bundle="${CODEX_OWNER_BUNDLE_SECRET_NAME:-janus-codex-owners-bundle}"
+owner_secrets="${CODEX_OWNER_SECRETS:-$(printf '{"00000000-0000-4000-8000-000000000001":"projects/%s/secrets/%s","00000000-0000-4000-8000-000000000002":"projects/%s/secrets/%s"}' "${project}" "${owner_bundle}" "${project}" "${owner_bundle}")}"
 provider_bundle="${AGENT_PROVIDER_BUNDLE_SECRET_NAME:-janus-agent-provider-bundle}"
 service="janus-agent-gateway"
 account="janus-agent-gateway@${project}.iam.gserviceaccount.com"

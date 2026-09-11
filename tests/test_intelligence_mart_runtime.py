@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import unittest
@@ -8,7 +9,18 @@ from unittest.mock import patch
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "jobs" / "intelligence-mart"))
 
-from intelligence_mart.runtime import AnalysisExecution, consume_queued_analysis, postgres_smoke
+from intelligence_mart.runtime import AnalysisExecution, consume_queued_analysis, deterministic_processor, postgres_smoke
+
+
+def _analysis_options():
+    payload = b'{"execution_id":"core-1","snapshot_id":"snapshot-1"}'
+    from hashlib import sha256
+    return payload, {"core_execution_id": "core-1", "analysis_as_of": "2026-09-10",
+                     "core_snapshot_id": "snapshot-1", "schema_version": "1",
+                     "feature_version": "1", "model_version": "1",
+                     "governance_snapshot_version": "1",
+                     "core_snapshot_uri": "gs://core/snapshots/snapshot-1.json",
+                     "core_snapshot_hash": f"sha256:{sha256(payload).hexdigest()}"}
 
 
 class _Cursor:
@@ -74,11 +86,8 @@ class MartRuntimeTests(unittest.TestCase):
             postgres_smoke(lambda **kwargs: PublicConnection(kwargs["user"]))
 
     def test_analysis_claim_is_not_complete_without_matching_persisted_artifact(self):
-        execution = AnalysisExecution("execution-1", "first-batch", ("2330",), 0,
-                                      {"core_execution_id": "core-1", "analysis_as_of": "2026-09-10",
-                                       "core_snapshot_id": "snapshot-1", "schema_version": "1",
-                                       "feature_version": "1", "model_version": "1",
-                                       "governance_snapshot_version": "1"})
+        _, options = _analysis_options()
+        execution = AnalysisExecution("execution-1", "first-batch", ("2330",), 0, options)
 
         class Queue:
             def __init__(self): self.transitions = []
@@ -91,11 +100,8 @@ class MartRuntimeTests(unittest.TestCase):
         self.assertEqual(queue.transitions[0][0][2], "retrying")
 
     def test_analysis_completes_only_for_claimed_snapshot_artifact(self):
-        execution = AnalysisExecution("execution-1", "first-batch", ("2330",), 0,
-                                      {"core_execution_id": "core-1", "analysis_as_of": "2026-09-10",
-                                       "core_snapshot_id": "snapshot-1", "schema_version": "1",
-                                       "feature_version": "1", "model_version": "1",
-                                       "governance_snapshot_version": "1"})
+        _, options = _analysis_options()
+        execution = AnalysisExecution("execution-1", "first-batch", ("2330",), 0, options)
 
         class Queue:
             def __init__(self): self.transitions = []
@@ -111,6 +117,29 @@ class MartRuntimeTests(unittest.TestCase):
         )
         self.assertEqual(result["status"], "succeeded")
         self.assertEqual(queue.transitions[0][0][2], "succeeded")
+
+    def test_deterministic_processor_reads_fenced_core_and_writes_input_artifact(self):
+        payload, options = _analysis_options()
+        execution = AnalysisExecution("execution-1", "first-batch", ("2330",), 0, options)
+
+        class Store:
+            objects = {("core", "snapshots/snapshot-1.json"): payload}
+            def __init__(self, bucket): self.bucket = bucket
+            def read(self, name): return self.objects[(self.bucket, name)]
+            def create(self, name, value, _content_type):
+                key = (self.bucket, name)
+                if key in self.objects: return False
+                self.objects[key] = value
+                return True
+
+        with patch.dict(os.environ, {"MART_BUCKET": "mart"}, clear=True):
+            first = deterministic_processor(execution, Store)
+            stored = Store.objects[("mart", "executions/execution-1/input.json")]
+            second = deterministic_processor(execution, Store)
+
+        self.assertEqual(first, second)
+        self.assertEqual(first["artifact_uri"], "gs://mart/executions/execution-1/input.json")
+        self.assertEqual(json.loads(stored)["core_snapshot_hash"], options["core_snapshot_hash"])
 
 
 if __name__ == "__main__":

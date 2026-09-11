@@ -27,6 +27,18 @@ class PostgresBundleTest(unittest.TestCase):
         finally:
             os.environ.pop("TEST_POSTGRES_BUNDLE", None)
 
+    def test_bundle_uses_legacy_field_during_cutover(self):
+        os.environ["TEST_POSTGRES_BUNDLE"] = '{"legacy_url":"postgres://db"}'
+        os.environ.pop("TEST_URL", None)
+        try:
+            load_postgres_bundle("TEST_POSTGRES_BUNDLE", {
+                "TEST_URL": ("new_url", "legacy_url"),
+            })
+            self.assertEqual(os.environ["TEST_URL"], "postgres://db")
+        finally:
+            for name in ("TEST_POSTGRES_BUNDLE", "TEST_URL"):
+                os.environ.pop(name, None)
+
 
 if __name__ == "__main__":
     unittest.main()

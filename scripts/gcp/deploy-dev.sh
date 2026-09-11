@@ -46,27 +46,33 @@ if [[ "${ALLOW_DEV_DEPLOY:-false}" != "true" ]]; then
   exit 1
 fi
 
-case "${component}" in
-  ingestion-core)
-    gcloud run jobs update "${runtime_name}" --project="${project}" --region="${region}" \
-      --remove-secrets="CONTROL_DB_PASSWORD,CATALOG_DB_PASSWORD" \
-      --update-secrets="JANUS_INGESTION_POSTGRES_BUNDLE=janus-postgres-ingestion-bundle:latest" --quiet
-    ;;
-  intelligence-mart)
-    gcloud run jobs update "${runtime_name}" --project="${project}" --region="${region}" \
-      --remove-secrets="CATALOG_DB_PASSWORD,PUBLICATION_DB_PASSWORD" \
-      --update-secrets="JANUS_MART_POSTGRES_BUNDLE=janus-postgres-mart-bundle:latest" --quiet
-    ;;
-  private-pipeline)
-    gcloud run jobs update "${runtime_name}" --project="${project}" --region="${region}" \
-      --remove-secrets="PRIVATE_DATABASE_URL,CORE_CATALOG_PASSWORD,PRIVATE_CATALOG_PASSWORD" \
-      --update-secrets="JANUS_PIPELINE_POSTGRES_BUNDLE=janus-postgres-pipeline-bundle:latest,JANUS_API_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" --quiet
-    ;;
-esac
-
 gcloud builds submit . \
   --project="${project}" \
   --config=cloudbuild.yaml \
   --substitutions="_DOCKERFILE=${dockerfile},_IMAGE_NAME=${image_name},_IMAGE_TAG=${tag},_DEPLOY_TARGET=${deploy_target},_RUNTIME_NAME=${runtime_name},_REGION=${region}"
+
+# The new image accepts both legacy and merged field names. Deploy it before
+# changing the Secret reference so service revisions never see an incompatible payload.
+case "${component}" in
+  ingestion-core)
+    gcloud run jobs update "${runtime_name}" --project="${project}" --region="${region}" \
+      --remove-secrets="CONTROL_DB_PASSWORD,CATALOG_DB_PASSWORD" \
+      --update-secrets="JANUS_INGESTION_POSTGRES_BUNDLE=janus-agent-provider-bundle:latest" --quiet
+    ;;
+  intelligence-mart)
+    gcloud run jobs update "${runtime_name}" --project="${project}" --region="${region}" \
+      --remove-secrets="CATALOG_DB_PASSWORD,PUBLICATION_DB_PASSWORD" \
+      --update-secrets="JANUS_MART_POSTGRES_BUNDLE=janus-agent-provider-bundle:latest" --quiet
+    ;;
+  private-pipeline)
+    gcloud run jobs update "${runtime_name}" --project="${project}" --region="${region}" \
+      --remove-secrets="PRIVATE_DATABASE_URL,CORE_CATALOG_PASSWORD,PRIVATE_CATALOG_PASSWORD,JANUS_PIPELINE_POSTGRES_BUNDLE" \
+      --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" --quiet
+    ;;
+  web)
+    gcloud run services update "${runtime_name}" --project="${project}" --region="${region}" \
+      --update-secrets="JANUS_WEB_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" --quiet
+    ;;
+esac
 
 echo "Dev deployment completed for ${runtime_name}; verify the immutable digest in Cloud Build logs."

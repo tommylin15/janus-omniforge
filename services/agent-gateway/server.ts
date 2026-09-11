@@ -186,6 +186,8 @@ async function googleJson(fetcher: typeof fetch, url: string, init: RequestInit 
   return response.json() as Promise<Json>;
 }
 
+export type OwnerAuthRef = { resource: string; ownerId?: string };
+
 export class OwnerAuthRegistry {
   private constructor(private resources: Map<string, string>) {}
 
@@ -203,27 +205,36 @@ export class OwnerAuthRegistry {
     return new OwnerAuthRegistry(resources);
   }
 
-  resource(ownerId: string): string {
+  auth(ownerId: string): OwnerAuthRef {
     if (!/^[0-9a-f-]{36}$/i.test(ownerId)) throw new Error("owner id is invalid");
     const resource = this.resources.get(ownerId.toLowerCase());
     if (!resource) throw new Error("owner is not allowlisted for Codex");
-    return resource;
+    const shared = [...this.resources.values()].filter((value) => value === resource).length > 1;
+    return { resource, ...(shared ? { ownerId: ownerId.toLowerCase() } : {}) };
   }
 }
 
 export class ManagedAuthStore {
+  // ponytail: one process-wide lock is enough while Cloud Run max-instances=1; use a
+  // distributed lock before allowing concurrent bundle writers across instances.
+  private static mutation = Promise.resolve();
   private digest?: string;
   private version?: string;
 
-  constructor(private resource: string, private fetcher: typeof fetch = fetch) {
+  constructor(private resource: string, private fetcher: typeof fetch = fetch, private ownerId?: string) {
     if (!/^projects\/[^/]+\/secrets\/[^/]+$/.test(resource)) throw new Error("CODEX_AUTH_SECRET is invalid");
+    if (ownerId && !/^[0-9a-f-]{36}$/i.test(ownerId)) throw new Error("owner id is invalid");
   }
 
   async load(home: string): Promise<void> {
     const body = await googleJson(this.fetcher, `https://secretmanager.googleapis.com/v1/${this.resource}/versions/latest:access`) as { name?: string; payload?: { data?: string } };
     if (!body.payload?.data) throw new Error("Codex managed auth secret is empty");
-    const raw = Buffer.from(body.payload.data, "base64");
-    JSON.parse(raw.toString("utf8"));
+    let raw = Buffer.from(body.payload.data, "base64");
+    const parsed = object(JSON.parse(raw.toString("utf8")) as Json);
+    if (this.ownerId) {
+      const auth = object(parsed[this.ownerId] ?? null);
+      raw = Buffer.from(JSON.stringify(auth));
+    }
     await mkdir(home, { recursive: true, mode: 0o700 });
     await writeFile(join(home, "auth.json"), raw, { mode: 0o600 });
     await chmod(join(home, "auth.json"), 0o600);
@@ -233,29 +244,75 @@ export class ManagedAuthStore {
 
   async persist(home: string): Promise<boolean> {
     const raw = await readFile(join(home, "auth.json"));
-    const digest = createHash("sha256").update(raw).digest("hex");
+    const auth = object(JSON.parse(raw.toString("utf8")) as Json);
+    const digest = createHash("sha256").update(this.ownerId ? JSON.stringify(auth) : raw).digest("hex");
     const rotated = digest !== this.digest;
+    if (!this.ownerId) return this.persistPayload(raw, digest, rotated);
+    return this.withMutationLock(async () => {
+      if (rotated) {
+        const current = await this.readBundle();
+        current.payload[this.ownerId!] = auth;
+        await this.persistPayload(Buffer.from(JSON.stringify(current.payload)), digest, true, this.ownerId);
+      } else {
+        await this.destroyVersions(this.version);
+      }
+      return rotated;
+    });
+  }
+
+  async destroy(): Promise<void> {
+    if (!this.ownerId) await this.destroyVersions();
+    else await this.withMutationLock(async () => {
+      const current = await this.readBundle();
+      if (!(this.ownerId! in current.payload)) return;
+      delete current.payload[this.ownerId!];
+      if (Object.keys(current.payload).length) {
+        await this.persistPayload(Buffer.from(JSON.stringify(current.payload)), "", true);
+      } else {
+        await this.destroyVersions();
+      }
+    });
+    this.digest = undefined;
+    this.version = undefined;
+  }
+
+  private async persistPayload(raw: Buffer, digest: string, rotated: boolean, verifyOwner?: string): Promise<boolean> {
     if (rotated) {
       const added = await googleJson(this.fetcher, `https://secretmanager.googleapis.com/v1/${this.resource}:addVersion`, {
-        method: "POST",
-        body: JSON.stringify({ payload: { data: raw.toString("base64") } }),
+        method: "POST", body: JSON.stringify({ payload: { data: raw.toString("base64") } }),
       }) as { name?: string };
       if (!added.name) throw new Error("Codex managed auth version name missing");
       const verified = await googleJson(this.fetcher, `https://secretmanager.googleapis.com/v1/${added.name}:access`) as { payload?: { data?: string } };
-      if (!verified.payload?.data || createHash("sha256").update(Buffer.from(verified.payload.data, "base64")).digest("hex") !== digest) {
-        throw new Error("Codex managed auth rotation verification failed");
-      }
-      this.digest = digest;
+      if (!verified.payload?.data) throw new Error("Codex managed auth rotation verification failed");
+      const verifiedRaw = Buffer.from(verified.payload.data, "base64");
+      const verifiedDigest = verifyOwner
+        ? createHash("sha256").update(JSON.stringify(object(object(JSON.parse(verifiedRaw.toString("utf8")) as Json)[verifyOwner] ?? null))).digest("hex")
+        : createHash("sha256").update(verifiedRaw).digest("hex");
+      if (digest && verifiedDigest !== digest) throw new Error("Codex managed auth rotation verification failed");
+      this.digest = digest || undefined;
       this.version = added.name;
     }
     await this.destroyVersions(this.version);
     return rotated;
   }
 
-  async destroy(): Promise<void> {
-    await this.destroyVersions();
-    this.digest = undefined;
-    this.version = undefined;
+  private async readBundle(): Promise<{ payload: Record<string, Json> }> {
+    try {
+      const body = await googleJson(this.fetcher, `https://secretmanager.googleapis.com/v1/${this.resource}/versions/latest:access`) as { payload?: { data?: string } };
+      if (!body.payload?.data) throw new Error("Codex managed auth bundle is empty");
+      return { payload: object(JSON.parse(Buffer.from(body.payload.data, "base64").toString("utf8")) as Json) };
+    } catch (error) {
+      if ((error as Error & { status?: number }).status === 404) return { payload: {} };
+      throw error;
+    }
+  }
+
+  private async withMutationLock<T>(action: () => Promise<T>): Promise<T> {
+    const previous = ManagedAuthStore.mutation;
+    let release!: () => void;
+    ManagedAuthStore.mutation = new Promise<void>((resolve) => { release = resolve; });
+    await previous;
+    try { return await action(); } finally { release(); }
   }
 
   private async destroyVersions(keep?: string): Promise<void> {
@@ -291,7 +348,7 @@ type LoginSession = {
 export class OwnerSessionRegistry {
   private sessions = new Map<string, LoginSession>();
 
-  async start(ownerId: string, authSecret: string): Promise<Json> {
+  async start(ownerId: string, authRef: OwnerAuthRef): Promise<Json> {
     const key = ownerId.toLowerCase();
     if (this.sessions.has(key)) throw new Error("owner login session already exists");
     const root = await mkdtemp(join(process.env.SANDBOX_ROOT || tmpdir(), "login-"));
@@ -306,7 +363,7 @@ export class OwnerSessionRegistry {
       if (!loginId) throw new Error("Codex login id missing");
       const timer = setTimeout(() => { void this.evict(ownerId, false); }, 10 * 60_000);
       timer.unref();
-      this.sessions.set(key, { ownerId, root, home, auth: new ManagedAuthStore(authSecret), client, timer });
+      this.sessions.set(key, { ownerId, root, home, auth: new ManagedAuthStore(authRef.resource, fetch, authRef.ownerId), client, timer });
       const safe = Object.fromEntries(Object.entries(result).filter(([name, value]) => name !== "loginId" && ["authUrl", "verificationUrl", "userCode", "verificationUri", "verificationUriComplete", "expiresAt", "interval"].includes(name) && ["string", "number"].includes(typeof value)));
       return { ownerId, loginId, ...safe } as Json;
     } catch (error) {
@@ -389,7 +446,7 @@ export class CodexTurnRegistry {
       throw new Error("codex turn messages are invalid");
     }
     if (continuation.runtime !== undefined && continuation.runtime !== "codex") throw new Error("codex continuation runtime is invalid");
-    const resource = OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").resource(ownerId);
+    const auth = OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").auth(ownerId);
     const root = await mkdtemp(join(process.env.SANDBOX_ROOT || tmpdir(), "chat-turn-"));
     const home = join(root, "codex-home");
     const workspace = join(root, "workspace");
@@ -397,7 +454,7 @@ export class CodexTurnRegistry {
     const mcp = new McpHost();
     try {
       await mkdir(workspace, { mode: 0o700 });
-      await new ManagedAuthStore(resource).load(home);
+      await new ManagedAuthStore(auth.resource, fetch, auth.ownerId).load(home);
       client.start();
       const bridge = new CodexBridge(ownerId, workspace, client, mcp);
       client.onFailure(() => bridge.processError());
@@ -501,7 +558,7 @@ export class CodexTurnRegistry {
 
 async function dispatchCodexTurn(ownerId: string, threadId: string, model: string,
   messages: Array<{ role?: string; content?: string }>, continuation: Record<string, Json>): Promise<Json> {
-  const resource = OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").resource(ownerId);
+  const auth = OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").auth(ownerId);
   const root = await mkdtemp(join(process.env.SANDBOX_ROOT || tmpdir(), "chat-turn-"));
   const home = join(root, "codex-home");
   const workspace = join(root, "workspace");
@@ -509,7 +566,7 @@ async function dispatchCodexTurn(ownerId: string, threadId: string, model: strin
   const mcp = new McpHost();
   try {
     await mkdir(workspace, { mode: 0o700 });
-    await new ManagedAuthStore(resource).load(home);
+    await new ManagedAuthStore(auth.resource, fetch, auth.ownerId).load(home);
     client.start();
     const bridge = new CodexBridge(ownerId, workspace, client, mcp);
     await bridge.initialize();
@@ -547,14 +604,14 @@ function object(value: Json): { [key: string]: Json } {
   return value;
 }
 
-export async function runPoc(ownerId: string, authSecret: string): Promise<Json> {
+export async function runPoc(ownerId: string, authRef: OwnerAuthRef): Promise<Json> {
   const bucket = process.env.AGENT_CHECKPOINT_BUCKET;
   if (!bucket) throw new Error("external checkpoint setting is required");
 
   const root = await mkdtemp(join(process.env.SANDBOX_ROOT || tmpdir(), "turn-"));
   const home = join(root, "codex-home");
   const workspace = join(root, "workspace");
-  const auth = new ManagedAuthStore(authSecret);
+  const auth = new ManagedAuthStore(authRef.resource, fetch, authRef.ownerId);
   const checkpoints = new GcsCheckpointStore(bucket);
   const client = new AppServerClient(process.env.CODEX_BIN || "codex", [], home);
   const mcp = new McpHost();
@@ -587,12 +644,12 @@ export async function runPoc(ownerId: string, authSecret: string): Promise<Json>
   }
 }
 
-export async function logoutOwner(ownerId: string, authSecret: string): Promise<void> {
+export async function logoutOwner(ownerId: string, authRef: OwnerAuthRef): Promise<void> {
   const root = await mkdtemp(join(process.env.SANDBOX_ROOT || tmpdir(), "logout-"));
   const home = join(root, "codex-home");
   const client = new AppServerClient(process.env.CODEX_BIN || "codex", [], home);
   try {
-    await new ManagedAuthStore(authSecret).load(home);
+    await new ManagedAuthStore(authRef.resource, fetch, authRef.ownerId).load(home);
     client.start();
     await client.initialize();
     await client.request("account/logout", {}, 30_000);
@@ -647,8 +704,8 @@ export function makeServer(mcp = new McpHost(), sessions = new OwnerSessionRegis
         const body = object(await signedBody(request));
         const ownerId = typeof body.ownerId === "string" ? body.ownerId : "";
         if (body.ownerState !== "ACTIVE") throw new Error("owner is not active");
-        const resource = OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").resource(ownerId);
-        send(response, 200, await runPoc(ownerId, resource));
+        const auth = OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").auth(ownerId);
+        send(response, 200, await runPoc(ownerId, auth));
       } catch (error) {
         send(response, 400, { error: error instanceof Error ? error.message : "probe_failed" });
       } finally {
@@ -660,9 +717,9 @@ export function makeServer(mcp = new McpHost(), sessions = new OwnerSessionRegis
       try {
         const body = object(await signedBody(request));
         const ownerId = typeof body.ownerId === "string" ? body.ownerId : "";
-        const resource = OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").resource(ownerId);
+        const auth = OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").auth(ownerId);
         await sessions.evict(ownerId, true);
-        await new ManagedAuthStore(resource).destroy();
+        await new ManagedAuthStore(auth.resource, fetch, auth.ownerId).destroy();
         send(response, 200, { ownerId, destroyed: true });
       } catch (error) {
         send(response, 400, { error: error instanceof Error ? error.message : "auth_destroy_failed" });
@@ -675,8 +732,8 @@ export function makeServer(mcp = new McpHost(), sessions = new OwnerSessionRegis
       try {
         const body = object(await signedBody(request));
         const ownerId = typeof body.ownerId === "string" ? body.ownerId : "";
-        const resource = OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").resource(ownerId);
-        if (!await sessions.evict(ownerId, true)) await logoutOwner(ownerId, resource);
+        const auth = OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").auth(ownerId);
+        if (!await sessions.evict(ownerId, true)) await logoutOwner(ownerId, auth);
         send(response, 200, { ownerId, loggedOut: true, sessionEvicted: true });
       } catch (error) {
         const status = (error as Error & { status?: number }).status === 404 ? 200 : 400;
@@ -690,8 +747,8 @@ export function makeServer(mcp = new McpHost(), sessions = new OwnerSessionRegis
       try {
         const body = object(await signedBody(request));
         const ownerId = typeof body.ownerId === "string" ? body.ownerId : "";
-        const resource = OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").resource(ownerId);
-        send(response, 200, await sessions.start(ownerId, resource));
+        const auth = OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").auth(ownerId);
+        send(response, 200, await sessions.start(ownerId, auth));
       } catch (error) {
         send(response, 400, { error: error instanceof Error ? error.message : "login_start_failed" });
       }
@@ -701,7 +758,7 @@ export function makeServer(mcp = new McpHost(), sessions = new OwnerSessionRegis
       try {
         const body = object(await signedBody(request));
         const ownerId = typeof body.ownerId === "string" ? body.ownerId : "";
-        OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").resource(ownerId);
+        OwnerAuthRegistry.parse(process.env.CODEX_OWNER_SECRETS || "").auth(ownerId);
         send(response, 200, await sessions.status(ownerId));
       } catch (error) {
         send(response, 400, { error: error instanceof Error ? error.message : "login_status_failed" });

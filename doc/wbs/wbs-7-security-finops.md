@@ -5,7 +5,7 @@
 ### 7.1 IAM／Secret
 
 - ingestion、Mart、FastAPI 與 Admin Web 分離 service account；Flutter client 不持有 GCP service-account credential。
-- Secret Manager 單項授權。
+- Secret Manager 依核准的 workload bundle 授權，並記錄擴大的 blast radius。
 - production 權限與 dev 分離。
 - PostgreSQL dev VM 使用 private IP、≤30 GB Standard Persistent Disk、IAP／OS Login；不得公開 `5432`，Free Tier 模式不自動建立 snapshot／backup／replica。
 

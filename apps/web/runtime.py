@@ -43,8 +43,8 @@ def build_runtime() -> WebRuntime:
     """Create the read-only query and control-plane services for Cloud Run."""
     from packages.postgres_bundle import load_postgres_bundle
     load_postgres_bundle("JANUS_WEB_POSTGRES_BUNDLE", {
-        "CONTROL_DB_PASSWORD": "control_password",
-        "CATALOG_DB_PASSWORD": "catalog_password",
+        "CONTROL_DB_PASSWORD": ("web_control_password", "control_password"),
+        "CATALOG_DB_PASSWORD": ("web_catalog_password", "catalog_password"),
     })
     settings = _required(
         "GCP_PROJECT_ID", "CORE_BUCKET", "CATALOG_DB_HOST", "CATALOG_DB_NAME",

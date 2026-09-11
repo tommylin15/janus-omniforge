@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+from hashlib import sha256
 from ipaddress import ip_interface
+import json
 import os
 from typing import Any, Callable
+from urllib.parse import urlparse
 
 
 _DATABASES = {
@@ -27,6 +30,7 @@ class AnalysisExecution:
         required = (
             "core_execution_id", "analysis_as_of", "core_snapshot_id", "schema_version",
             "feature_version", "model_version", "governance_snapshot_version",
+            "core_snapshot_uri", "core_snapshot_hash",
         )
         missing = [name for name in required if not str(self.request_options.get(name, "")).strip()]
         if missing:
@@ -91,11 +95,60 @@ def consume_queued_analysis(queue: PostgreSQLAnalysisQueue, processor: Callable[
         raise
 
 
-def run_queued_validation() -> dict[str, object]:
-    """Run the queue fence against one dev execution; no artifact is fabricated."""
+def deterministic_processor(execution: AnalysisExecution, store_factory: Callable[[str], Any] | None = None) -> dict[str, object]:
+    """Materialise one immutable, deterministic Mart input artifact."""
+    if store_factory is None:
+        from ingestion_core.stage import GcsObjectStore
+        store_factory = GcsObjectStore
+    source = urlparse(str(execution.request_options["core_snapshot_uri"]))
+    if source.scheme != "gs" or not source.netloc or not source.path.strip("/"):
+        raise ValueError("core_snapshot_uri must be a gs:// object")
+    payload = store_factory(source.netloc).read(source.path.lstrip("/"))
+    digest = f"sha256:{sha256(payload).hexdigest()}"
+    if digest != execution.request_options["core_snapshot_hash"]:
+        raise ValueError("Core snapshot hash mismatch")
+    snapshot = json.loads(payload)
+    if not isinstance(snapshot, dict):
+        raise ValueError("Core snapshot manifest must be a JSON object")
+    if str(snapshot.get("execution_id", "")) != execution.request_options["core_execution_id"]:
+        raise ValueError("Core snapshot execution mismatch")
+    if str(snapshot.get("snapshot_id", "")) != execution.core_snapshot_id:
+        raise ValueError("Core snapshot ID mismatch")
+
+    artifact = {
+        "artifact_kind": "mart_input_v1",
+        "analysis_execution_id": execution.execution_id,
+        "analysis_as_of": execution.request_options["analysis_as_of"],
+        "core_execution_id": execution.request_options["core_execution_id"],
+        "core_snapshot_id": execution.core_snapshot_id,
+        "core_snapshot_uri": execution.request_options["core_snapshot_uri"],
+        "core_snapshot_hash": digest,
+        "requested_symbols": list(execution.requested_symbols),
+        "schema_version": execution.request_options["schema_version"],
+        "feature_version": execution.request_options["feature_version"],
+        "model_version": execution.request_options["model_version"],
+        "governance_snapshot_version": execution.request_options["governance_snapshot_version"],
+    }
+    target_bucket = os.environ.get("MART_BUCKET", "").strip()
+    if not target_bucket or "/" in target_bucket:
+        raise ValueError("MART_BUCKET is required")
+    target_name = f"executions/{execution.execution_id}/input.json"
+    target_store = store_factory(target_bucket)
+    artifact_payload = json.dumps(
+        artifact, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
+    if not target_store.create(target_name, artifact_payload, "application/json") \
+            and target_store.read(target_name) != artifact_payload:
+        raise RuntimeError("immutable Mart input artifact conflict")
+    return {"artifact_uri": f"gs://{target_bucket}/{target_name}",
+            "core_snapshot_id": execution.core_snapshot_id}
+
+
+def run_queued_analysis() -> dict[str, object]:
+    """Run one persisted analysis execution through the immutable input materialiser."""
     from packages.postgres_bundle import load_postgres_bundle
     load_postgres_bundle("JANUS_MART_POSTGRES_BUNDLE", {
-        "PUBLICATION_DB_PASSWORD": "publication_password",
+        "PUBLICATION_DB_PASSWORD": ("mart_publication_password", "publication_password"),
     })
     settings = _settings("PUBLICATION_DB")
     import psycopg
@@ -106,7 +159,7 @@ def run_queued_validation() -> dict[str, object]:
         options="-c statement_timeout=15000 -c idle_in_transaction_session_timeout=15000",
     ) as connection:
         return consume_queued_analysis(
-            PostgreSQLAnalysisQueue(connection), lambda _: {},
+            PostgreSQLAnalysisQueue(connection), deterministic_processor,
             worker_id=os.environ.get("QUEUE_WORKER_ID", "intelligence-mart").strip(),
             max_retries=int(os.environ.get("QUEUE_MAX_RETRIES", "1")),
         )
@@ -130,8 +183,8 @@ def postgres_smoke(connect: Callable[..., Any] | None = None) -> dict[str, objec
     """Verify both Mart identities reach PostgreSQL privately with bounded grants."""
     from packages.postgres_bundle import load_postgres_bundle
     load_postgres_bundle("JANUS_MART_POSTGRES_BUNDLE", {
-        "CATALOG_DB_PASSWORD": "catalog_password",
-        "PUBLICATION_DB_PASSWORD": "publication_password",
+        "CATALOG_DB_PASSWORD": ("mart_catalog_password", "catalog_password"),
+        "PUBLICATION_DB_PASSWORD": ("mart_publication_password", "publication_password"),
     })
     if connect is None:
         import psycopg

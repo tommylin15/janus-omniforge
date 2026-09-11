@@ -28,7 +28,7 @@
 - 不建立 React／Tauri 或使用者地端 runtime。既有 Flutter Web／Android／iOS 經 FastAPI／Agent Gateway authenticated HTTPS 共用 threads／events；Node.js／TypeScript Agent Gateway、Codex App Server 與 stdio-only MCP 都只在 Cloud Run 容器內執行。
 - Agent Gateway 使用 Cloud Run Service `min-instances=0` 按需啟動，MVP concurrency=1，限制 max instances、CPU、memory、request timeout 與暫存 volume。每個 turn 在容器內啟動或租用 owner-bound Codex／MCP 子行程；完成、取消、timeout 或 disconnect 後清理。持久狀態與 replay cursor 外存，不依賴 instance affinity。
 - Codex App Server 的 stdio JSONL 只存在 container process boundary，gateway 對前端提供 HTTPS SSE／POST；不得直接暴露其實驗性 WebSocket transport。App Server 目前屬實驗性且官方不支援 production workload，因此 managed auth refresh、Linux sandbox、child-process lifecycle、timeout／重連必須先通過 dev POC 與人工 production gate。
-- Codex device login 由 authenticated service request 呼叫 `/internal/v1/codex/session:login-start`，再以同一 owner 呼叫 `/internal/v1/codex/session:login-status`；Gateway 只回傳 bounded device-code 欄位，session 與 App Server process 綁定 owner，TTL 到期自動 eviction，成功後將 auth rotation 寫入該 owner Secret。
+- Codex device login 由 authenticated service request 呼叫 `/internal/v1/codex/session:login-start`，再以同一 owner 呼叫 `/internal/v1/codex/session:login-status`；Gateway 只回傳 bounded device-code 欄位，session 與 App Server process 綁定 owner，TTL 到期自動 eviction，成功後將 auth rotation 寫入 owner-keyed bundle entry。
 - MCP Host 每 server 一個 client／session，支援 Cloud Run 容器內 stdio、遠端 Streamable HTTP 與 legacy SSE；完成協定交涉、tools/list 分頁／變更、tools/call、取消、失敗清理與遠端認證。工具 namespace、參數 schema、timeout、輸出大小與 owner 必須驗證。可 HTTP 化且需獨立擴縮的 MCP 優先部署私有 Cloud Run Service。
 - Janus context adapter／內部 MCP 只讀已發布 Core／Mart 與 authenticated owner 的 Private Core／Mart，回傳 bounded records、as-of date、source ID、provenance 與 artifact reference；模型與外部 MCP 不取得 GCS URI、PostgreSQL credential 或任意 query。第三方 source 必須先登錄授權、quota、timeout、外送政策與 retention。
 - Assistant-facing source API 為 `GET /api/v1/me/ai-sources` 與 `POST /api/v1/me/chats/{conversation_id}/context-preview`。來源清單只回 source ID／kind、capabilities、as-of／freshness、owner scope、status、quota 與 disclosure；preview 只接受 typed resource selector／date range，回傳短預覽、provenance 摘要與短效 opaque `context_ref`，不接受 SQL、GCS URI、object path 或 client `user_id`。`POST .../messages` 只接受已核發且同 owner／thread／未過期的 `context_ref[]`，server 固定 turn snapshot 後再交 Agent。
@@ -40,7 +40,7 @@
 - SSE 使用既有 chats events route，支援 bounded replay／cursor／backpressure；authenticated HTTPS POST 傳送 approval／cancel。批准必須綁定 owner／turn／request／參數，重播與過期拒絕；provider 專屬 approval decision 由 adapter 映射。
 - Chat API 已提供 owner-scoped `POST/GET /api/v1/me/chats/threads`、thread read/fork、`POST .../messages`、bounded `GET .../events?cursor=&limit=`、cancel、approval response、assistant export 與 deletion status；message turn 的 provider continuation metadata 以受控 JSON 持久化於 PostgreSQL，event 仍寫入 Private Iceberg／索引。Agent Gateway 的 signed OpenRouter／Gemini dispatch 已於 GCP dev live probe 通過；Codex Chat API dispatch 會以 owner auth 啟動或 resume 原生 thread，並由 `tests/test_chat_api.py` 驗證 message → gateway → 下一 turn continuation。
 - Shell／寫檔預設不授權，經明確批准後只限該 turn 的 Cloud Run 暫存 sandbox；MCP process 另做程序／環境隔離。Janus Admin、交易／筆記／watchlist mutation 與下單仍禁止；外部內容及 Skill 無法覆蓋。
-- API／MCP keys 與 Codex auth cache 只在 Secret Manager 或另經核准的隔離 GCP credential store，API payload 僅傳 connection reference。Codex 正式路徑由 authenticated identity 映射內部 owner UUID，Gateway 不接受 client 指定 owner 或 Secret resource name；每個 owner 使用隔離 auth resource、`CODEX_HOME` 與 App Server process。refresh 新版本確認成功後銷毀舊版本；Gateway 只讀／輪替、deletion runtime 只刪除且不讀 payload，均不得取得 project-wide admin。工具輸出／event 先去 secret 再儲存，不保存 raw provider error；owner-scoped auth lifecycle 未通過 GCP dev 驗收時 fail closed。
+- API／MCP keys 與 Codex auth cache 只在 Secret Manager 或另經核准的 GCP credential store，API payload 僅傳 connection reference。Dev 以三個 workload bundle 管理 credential；同 bundle consumer 共享 resource-level IAM 的安全取捨已由 owner 核准。Codex 由 authenticated identity 映射內部 owner UUID，Gateway 不接受 client 指定 Secret resource name；A／B auth 在共用 bundle 內以 UUID 分區，`CODEX_HOME` 與 App Server process 仍隔離。refresh 驗證該 owner 的新 entry 後銷毀舊 bundle version，刪除只移除該 owner entry；Gateway 不得取得 project-wide admin。工具輸出／event 先去 secret 再儲存，不保存 raw provider error；owner-scoped auth lifecycle 未通過 GCP dev 驗收時 fail closed。
 - Dev credential resource 由 operator 僅為 allowlisted owner 建立並逐資源授權；大量正式使用者的自助 provisioning 與成本另案核准，不藉此擴大 Gateway 或 User API 權限。
 - GCP dev Secret／bundle 對照、欄位名稱、消費者與 IAM metadata 以 [Secret Bundle 清單](../secret_list.md) 為單一查閱入口；provider bundle 包含 MCP signing key，不建立獨立 signing Secret。
 - Codex 刪除依序停止 owner session、執行 App Server logout、刪除 owner auth，再清私人 artifacts 與 PostgreSQL index；各步驟冪等，無 thread 或 auth 已不存在仍可成功。App Server logout 只代表 managed credentials 已清除，不宣稱供應商端 refresh token 已撤銷。Iceberg snapshot／orphan file 與 GCS object version 的實際保留期限必須被驗證並向 UI 揭露。
@@ -58,7 +58,7 @@
 | 建置 | Cloud Build path-based pipelines |
 | Image | Artifact Registry，由 source deploy／Cloud Build 管理 |
 | 部署 | 同一 immutable image digest 依序 promote dev → staging → prod |
-| Secret | Secret Manager，runtime identity 單項授權 |
+| Secret | Secret Manager，依三個 workload bundle 對 runtime identity 授權 |
 | IaC | GitHub Actions／gcloud idempotent scripts；production apply 需人工批准 |
 
 ### 13.1 Dev PostgreSQL VM

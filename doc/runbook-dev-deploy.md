@@ -147,6 +147,28 @@ Artifact Analysis、Container Scanning 或 occurrence API。
 
 ## 6. Secret 建立、輪替與驗證
 
+### 6.0 三 bundle 收斂
+
+先完成本機 targeted tests 與 shell syntax check，再執行：
+
+```bash
+export GCP_PROJECT_ID=gen-lang-client-0593591102
+export ALLOW_SECRET_BUNDLE_MIGRATION=true
+scripts/gcp/migrate-secret-bundles-dev.sh prepare
+```
+
+依序以 `scripts/gcp/deploy-dev.sh` 部署 `ingestion-core`、`intelligence-mart`、
+`private-pipeline`、`web`，並以 `scripts/gcp/deploy-agent-gateway-dev.sh` 部署 Gateway。
+新版 loader 先隨映像部署，再切換 Secret reference；不得反轉順序。完成所有 runtime
+probes 與 Codex A／B entry rotate／destroy 隔離驗收後，才可另設
+`ALLOW_SECRET_BUNDLE_CLEANUP=true` 執行：
+
+```bash
+scripts/gcp/migrate-secret-bundles-dev.sh cleanup
+```
+
+cleanup 會刪除六個 legacy Secret container；驗收未全數通過時禁止執行。
+
 Secret 值不得出現在 command argv、shell trace、process listing、Cloud Build
 substitution、deployment metadata 或 log。特別禁止使用
 `docker exec -e PGPASSWORD=<value>`；該值可能被 process listing 讀到。Windows
