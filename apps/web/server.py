@@ -42,7 +42,7 @@ class WebApplication:
         except (ValueError, KeyError) as error:
             body, status, content_type = {"error": redact(error)}, "400 Bad Request", "application/json; charset=utf-8"
         except StockInUseError as error:
-            body, status, content_type = {"error": redact(error)}, "409 Conflict", "application/json; charset=utf-8"
+            body, status, content_type = {"error": redact(error), "references": getattr(error, "references", {})}, "409 Conflict", "application/json; charset=utf-8"
         except ControlPlaneError as error:
             body, status, content_type = {"error": redact(error)}, "409 Conflict", "application/json; charset=utf-8"
         except Exception as error:
@@ -121,6 +121,8 @@ class WebApplication:
                 raise ValueError("enabled must be a boolean")
             self.admin.set_stock_enabled(symbol, request_body["enabled"])
             return {"symbol": symbol, "enabled": request_body["enabled"]}, "200 OK", json_type
+        if method == "GET" and path.startswith("/api/v1/admin/stocks/") and path.endswith("/references"):
+            return self.admin.stock_references(unquote(path.split("/")[5])), "200 OK", json_type
         if method == "DELETE" and path.startswith("/api/v1/admin/stocks/"):
             symbol = unquote(path.split("/")[5])
             self.admin.delete_stock(symbol)
@@ -144,9 +146,16 @@ class WebApplication:
                 return enqueue(config_id, symbols), "202 Accepted", json_type
             return enqueue(config_id, symbols, request_options=options), "202 Accepted", json_type
         if method == "GET" and path == "/api/v1/admin/source-health":
-            return {"items": self.admin.source_health(limit=int(query.get("limit", ["200"])[0]))}, "200 OK", json_type
+            limit = self._page_limit(query, maximum=200)
+            items = self.admin.source_health(limit=limit + 1, cursor=query.get("cursor", [None])[0])
+            page = items[:limit]
+            next_cursor = f'{page[-1]["source_id"]},{page[-1]["dataset_id"]}' if len(items) > limit else None
+            return {"items": page, "limit": limit, "next_cursor": next_cursor}, "200 OK", json_type
         if method == "GET" and path == "/api/v1/admin/source-catalog":
-            return {"items": self.admin.collection_configs(limit=int(query.get("limit", ["200"])[0]))}, "200 OK", json_type
+            limit = self._page_limit(query, maximum=200)
+            items = self.admin.collection_configs(limit=limit + 1, cursor=query.get("cursor", [None])[0])
+            page = items[:limit]
+            return {"items": page, "limit": limit, "next_cursor": page[-1]["config_id"] if len(items) > limit else None}, "200 OK", json_type
         if method in {"POST", "PUT"} and path == "/api/v1/admin/source-catalog":
             actor = authenticated_actor or self._required_text(request_body, "actor")
             return self.admin.save_collection_config(request_body, actor=actor), "200 OK", json_type
@@ -201,6 +210,13 @@ class WebApplication:
         if not isinstance(value, str) or not value.strip():
             raise ValueError(f"{field} is required")
         return value.strip()
+
+    @staticmethod
+    def _page_limit(query: dict[str, list[str]], *, maximum: int) -> int:
+        limit = int(query.get("limit", ["50"])[0])
+        if not 1 <= limit <= maximum:
+            raise ValueError("limit is invalid")
+        return limit
 
     @staticmethod
     def _symbols(value: Any) -> tuple[str, ...] | None:

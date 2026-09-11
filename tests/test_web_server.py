@@ -37,6 +37,9 @@ class _Admin:
     def delete_stock(self, symbol):
         return None
 
+    def stock_references(self, symbol):
+        return {"symbol": symbol, "can_delete": False, "references": {"collection_config": 1, "execution": 2, "market": 3, "report": 4, "fundamental": 5}}
+
     def executions(self, *, limit=50, cursor=None):
         return ({"execution_id": "00000000-0000-0000-0000-000000000001", "status": "queued", "requested_at": "2026-08-31T00:00:00+00:00"},)
 
@@ -50,10 +53,12 @@ class _Admin:
         from packages.admin_api import AdminValidationError
         raise AdminValidationError("analysis is unavailable until its persisted consumer is enabled")
 
-    def source_health(self, *, limit=200):
+    def source_health(self, *, limit=200, cursor=None):
+        self.cursor = cursor
         return ({"source_id": "twse", "dataset_id": "ohlcv", "success_rate": 1.0, "last_state": "success"},)
 
-    def collection_configs(self, *, limit=200):
+    def collection_configs(self, *, limit=200, cursor=None):
+        self.cursor = cursor
         return ({"config_id": "ohlcv", "dataset_id": "ohlcv", "source_ids": ("twse",)},)
 
     def save_collection_config(self, payload, *, actor):
@@ -142,6 +147,12 @@ class WebServerTests(unittest.TestCase):
         self.assertEqual(status, "200 OK")
         self.assertEqual(body["symbol"], "2330")
 
+    def test_admin_stock_reference_summary_is_structured(self):
+        status, body = self.request("/api/v1/admin/stocks/2330/references", admin=_Admin())
+        self.assertEqual(status, "200 OK")
+        self.assertFalse(body["can_delete"])
+        self.assertEqual(body["references"]["fundamental"], 5)
+
     def test_collection_queues_and_analysis_is_rejected(self):
         admin = _Admin()
         status, body = self.request("/api/v1/admin/executions/collection", method="POST", body={"config_id": "ohlcv", "symbols": ["2330"]}, admin=admin)
@@ -162,6 +173,10 @@ class WebServerTests(unittest.TestCase):
         self.assertEqual(self.request("/api/v1/admin/source-health", admin=admin)[1]["items"][0]["source_id"], "twse")
         self.assertEqual(self.request("/api/v1/admin/memberships/core_focus", admin=admin)[1]["items"][0]["symbol"], "2330")
         self.assertEqual(self.request("/api/v1/admin/source-catalog", admin=admin)[1]["items"][0]["config_id"], "ohlcv")
+        self.request("/api/v1/admin/source-health?cursor=twse,ohlcv", admin=admin)
+        self.assertEqual(admin.cursor, "twse,ohlcv")
+        self.request("/api/v1/admin/source-catalog?cursor=ohlcv", admin=admin)
+        self.assertEqual(admin.cursor, "ohlcv")
 
     def test_invalid_json_shape_is_a_safe_client_error(self):
         status, body = self.request("/api/v1/admin/stocks/2330/enabled", method="PATCH", body={"enabled": "false"}, admin=_Admin())

@@ -12,6 +12,8 @@ class PostgreSQLAdminCursorTests(unittest.TestCase):
         self.assertIn("requested_at DESC, execution_id DESC", migration)
         self.assertIn("(requested_at, execution_id) <", repository)
         self.assertIn("symbol>%s", repository)
+        self.assertIn("(source_id, dataset_id) >", repository)
+        self.assertIn("config_id>%s", repository)
         self.assertNotIn("OFFSET %s", repository)
 
     def test_runtime_migration_paths_include_cursor_index(self):

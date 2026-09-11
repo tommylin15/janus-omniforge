@@ -19,6 +19,9 @@ class AdminValidationError(ValueError):
 
 
 class AdminService:
+    FUNDAMENTAL_DATASETS = frozenset({"financials"})
+    REPORT_DATASETS = frozenset({"report", "reports", "mart-report", "mart_scoped_analysis"})
+
     def __init__(self, control: Any, *, core: Any | None = None, schedule_sync: Any | None = None) -> None:
         self.control = control
         self.core = core
@@ -57,10 +60,31 @@ class AdminService:
         ))
         return self._stock(stock)
 
+    def stock_references(self, symbol: str) -> dict[str, Any]:
+        references = self.control.stock_references(symbol)
+        external = self._data_references(symbol)
+        for key, value in external.items():
+            references[key] += value
+        return {"symbol": symbol.strip().upper(), "can_delete": not any(references.values()), "references": references}
+
     def delete_stock(self, symbol: str) -> None:
-        # The control-plane FK/reference guard is authoritative and deliberately
-        # maps to a safe domain error at the HTTP boundary.
-        self.control.delete_stock(symbol)
+        # Control references are rechecked inside the delete transaction; Core
+        # references are immutable and cannot appear without an execution ref.
+        self.control.delete_stock(symbol, external_references=self._data_references(symbol))
+
+    def _data_references(self, symbol: str) -> dict[str, int]:
+        if self.core is None:
+            raise RuntimeError("stock reference check unavailable")
+        counts = {"market": 0, "report": 0, "fundamental": 0}
+        for dataset_id, dataset in self.core.summary(symbol).get("datasets", {}).items():
+            count = int(dataset.get("row_count", 0))
+            if dataset_id in self.FUNDAMENTAL_DATASETS:
+                counts["fundamental"] += count
+            elif dataset_id in self.REPORT_DATASETS:
+                counts["report"] += count
+            else:
+                counts["market"] += count
+        return counts
 
     def executions(self, *, limit: int = 50, cursor: str | None = None) -> tuple[dict[str, Any], ...]:
         if not 1 <= limit <= 51:
@@ -104,16 +128,26 @@ class AdminService:
         self.control.set_coverage_membership(coverage_tier, symbols, effective_from=effective_from, reason=reason, owner=owner, expected_version=expected_version)
         return self.membership_snapshot(coverage_tier)
 
-    def source_health(self, *, limit: int = 200) -> tuple[dict[str, Any], ...]:
+    def source_health(self, *, limit: int = 200, cursor: str | None = None) -> tuple[dict[str, Any], ...]:
         """Return persisted telemetry only; this method never calls an upstream source."""
-        if not 1 <= limit <= 200:
-            raise AdminValidationError("limit must be between 1 and 200")
-        return tuple(self.control.source_health_summary())[:limit]
+        if not 1 <= limit <= 201:
+            raise AdminValidationError("limit must be between 1 and 201")
+        after = None
+        if cursor is not None:
+            try:
+                after = tuple(cursor.rsplit(",", 1))
+                if len(after) != 2 or any(not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", value) for value in after):
+                    raise ValueError
+            except (AttributeError, ValueError) as error:
+                raise AdminValidationError("source health cursor is invalid") from error
+        return tuple(self.control.source_health_summary(limit=limit, after=after))
 
-    def collection_configs(self, *, limit: int = 200) -> tuple[dict[str, Any], ...]:
-        if not 1 <= limit <= 200:
-            raise AdminValidationError("limit must be between 1 and 200")
-        return tuple(self._config(item) for item in self.control.list_collection_configs())[:limit]
+    def collection_configs(self, *, limit: int = 200, cursor: str | None = None) -> tuple[dict[str, Any], ...]:
+        if not 1 <= limit <= 201:
+            raise AdminValidationError("limit must be between 1 and 201")
+        if cursor is not None and not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", cursor):
+            raise AdminValidationError("collection config cursor is invalid")
+        return tuple(self._config(item) for item in self.control.list_collection_configs(limit=limit, after=cursor))
 
     def save_collection_config(self, payload: dict[str, Any], *, actor: str) -> dict[str, Any]:
         from ingestion_core.control import CollectionConfig
@@ -271,6 +305,9 @@ class AdminService:
             coverage = dataset.get("coverage", {})
             received_symbols = int(coverage.get("received_symbols", 0))
             requested_symbols = int(coverage.get("requested_symbols", 1))
+            freshness = dataset.get("freshness_state", dataset.get("freshness"))
+            if not isinstance(freshness, (str, int, float, bool)):
+                freshness = None
             items.append({
                 "dataset_id": dataset_id,
                 "latest_date": dataset.get("latest_date"),
@@ -290,6 +327,8 @@ class AdminService:
                 "execution_ids": tuple(associations.get("execution_id", ())),
                 "provenance_ids": tuple(associations.get("provenance_id", ())),
                 "snapshot_ids": tuple(associations.get("snapshot_id", ())),
+                "freshness": freshness,
+                "updated_at": dataset.get("updated_at", dataset.get("materialized_at")),
                 "quarantine_count": quarantine_count,
                 "quarantine_state": "available" if quarantine_count is not None else "unavailable",
             })

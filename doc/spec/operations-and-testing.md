@@ -1,29 +1,63 @@
 # Operations and testing
 
-最新驗證日期：2026-09-10
+最新驗證日期：2026-09-11
 
-最新完整本機驗證：既有基線 `python -m pytest tests -q` 曾 123/123 passed；本次
-Skill 變更的本機 targeted tests 為 5 passed，完整 `tests.test_assistant_storage`
-在 host 因缺少 `zoneinfo`／`pytz` 的既有 PyIceberg timestamp 路徑受阻。Python
-`py_compile` 與 `git diff --check` passed；完整 Iceberg regression 改由下方 GCP
-Cloud Build worker 驗證。
+## WBS-3-ADMIN-POLISH 驗證（2026-09-11）
 
-同日完成 GCP dev Secret Manager 7-resource consolidation：5 個 PostgreSQL
-bundle、1 個 agent provider bundle（含 MCP signing）、1 個 acceptance-only
-owner temp secret。API／Web OAuth 已併入各自 PostgreSQL bundle；API、Web、
-agent gateway current revisions 分別使用 bundle 版本 5、3、2。未使用的 resource
-已刪除；保留 resource 各只留一個 enabled latest version。Owner A／B 原本只是
-驗收 fixture，已合併指向 temp secret；temp payload 是空 JSON，未用於宣稱 live
-Codex auth 驗收，正式 owner isolation 仍待後續 lifecycle work。
+Admin status／execution item 改為安全結構化欄表格，支援 sticky header、排序、篩選、分頁、欄位顯示與按需子表；source health／collection config 讀取改為 repository-level bounded keyset cursor。股票刪除 guard 現在會檢查 collection config、execution、market、report、fundamental 五類引用，提供結構化 references endpoint、409 引用摘要與 UI 阻擋原因。完整 `python -m pytest -q tests` 為 154 passed，`npm.cmd run test:unit` 為 18 passed，Admin Playwright 為 9 passed。`npm.cmd run build` 的 typecheck 通過，但 lint 被既有 `.tmp` urllib3 worker 與 `services/agent-gateway/dist` 生成檔 56 個 `no-undef` 阻擋；未修改或清理該生成物。未部署 production、未建立付費資源。
 
-目前 metadata inventory 為 9 個 Secret：provider bundle、A／B owner Codex auth、
-legacy temp auth，以及 5 個 PostgreSQL bundle。名稱、欄位名稱、consumer 與 IAM
-metadata 已獨立記錄於 [`doc/secret_list.md`](../secret_list.md)；本次查詢未讀取
-任何 Secret payload。
+最新完整本機驗證：本次 private-pipeline bundle loader targeted tests 為 6 passed；
+`git diff --check` passed。WSL／Windows bash 在本環境回傳 `E_ACCESSDENIED`，因此
+未能執行 `bash -n`；未以此宣稱 shell syntax 已驗證。
 
-本切片新增 owner login session registry 與 login start/status contract；本機
-`npm.cmd run build:agent-gateway` 通過，targeted Agent Gateway tests 為 6 passed。
- GCP B owner managed-auth live login／rotation／logout／destroy 驗收已於下一個原子切片完成；互動式 device-code login 仍未做真人流程驗收。
+## WBS-3-ACCEPTANCE GCP dev checkpoint（2026-09-11）
+
+唯讀 baseline：project `gen-lang-client-0593591102`／`us-central1`；唯一 Compute
+instance `janus-postgres-dev` 為 `e2-micro`、30 GB `pd-standard`、private IP
+`10.42.0.5`、無 external IP；無 Cloud Router／NAT／snapshot／VPC connector。Direct
+VPC subnet `10.42.0.0/24` 的 firewall 只允許 target tag `janus-postgres-db` 的
+`5432`。Cloud Billing API 已啟用；project 已綁定 `open=true` 的 billing account，
+現有 budget `tommyGCP_limitAmt` 為 TWD 100。Google API 沒有直接回報此帳戶的
+e2-micro／region 剩餘資格沒有逐項額度 API；依本輪驗收判定，billing／Free Tier
+dev guard **通過**。此判定不等同 GCP 對帳單為 US$0 的保證。
+
+PostgreSQL acceptance：兩個並行 transaction 對固定 rollback fixture 執行
+`FOR UPDATE SKIP LOCKED`，僅一個 worker claim 成功，fixture 已刪除；35 個短暫連線
+中 30 成功、5 個收到 `too many clients already`，釋放後 probe 成功。VM reset
+後回到 `RUNNING`，`pg_isready` accepting connections，控制面保留 18 executions。
+
+Secret runtime 修正：GCP metadata 重讀確認目前 8 個 Secret，詳見
+[`doc/secret_list.md`](../secret_list.md)。ingestion／mart／private-pipeline 已
+分別切換至既有 bundle；private-pipeline API image build
+`b7d47342-906c-44c0-8eea-cceda10898c7` SUCCESS，digest
+`sha256:dcfe5857e6cd95ce6d576a8394ee0f061530e6e03f6ff756115e5b8f1b28a4be`。
+Bundle runtime probes：ingestion idle `janus-ingestion-core-2zhhj`、完整 smoke
+`janus-ingestion-core-n8mh2`、mart `janus-intelligence-mart-j2hgn`、private
+pipeline `janus-private-pipeline-rvmct` 均 Completed=True；完整 ingestion smoke
+為 5 檔、12 items、0 failed、1 個合法 sparse empty。
+
+Canary 證據：既有三個成功 execution（`3fb8c93e...`、`29cabcc3...`、
+`89a60703...`）各為 5 檔、12 items、0 failed；bundle 修正後手動觸發既有
+Scheduler 的 Cloud Run execution `janus-ingestion-core-j5qbv` 及 control execution
+`53d7b34d-85a1-45af-ae1a-3ce6245622ee` 亦成功，5 檔、12 items、0 failed、1 個
+合法 sparse empty、5 個 source IDs。這次是 scheduler smoke，不計入連續 3 個交易日；
+2026-09-11 07:30（Asia/Taipei）的自動排程 execution
+`janus-ingestion-core-4zft5` 成功完成資料日 2026-09-10，control execution
+`aa86076c-942e-4f2a-8fa9-2455f3753b5f` 為 5 檔、expected 12 items、received 12、
+missing 0、158 received rows、0 failed、0 retries，8 個核准 source／dataset health
+均為 `success`；Core 為
+143 created、0 reused、8 updated。單次 task 約 4 分 31 秒，既有 job 維持 1 task、
+1 vCPU、1 GiB、900 秒 timeout、maxRetries 1，未建立或擴大任何資源。post-fix scheduled
+canary 目前為 **1/3**；後續只計 distinct 有效資料日 2026-09-11、2026-09-14，對應
+Scheduler 執行日 2026-09-12、2026-09-15，週末重複資料日不重複計數。三日完成後再彙整
+expected／received／missing、Core hash/date/null profile 與完整成本摘要。
+
+Negative VPC／identity evidence：workstation 對 private IP `10.42.0.5:5432`
+的 TCP probe 為 `False`；暫時移除 PostgreSQL VM 的 `janus-postgres-db` target tag
+後，Cloud Run execution `janus-ingestion-core-kjsl4` 已確認 `Started=True` 並以
+exit code 1 結束，tag 隨即恢復且 VM 仍 `RUNNING`。`janus-private-pipeline` identity
+在 ingestion bundle IAM policy 中沒有 `secretAccessor`。第一次未等 task 啟動即恢復
+tag 的 execution `janus-ingestion-core-2hz9h` 不列為負向證據。
 
 ## P0 WBS 4C acceptance implementation checkpoint（2026-09-10）
 

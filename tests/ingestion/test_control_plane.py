@@ -119,6 +119,15 @@ class ControlPlaneTests(unittest.TestCase):
         with self.assertRaises(StockInUseError):
             self.control.delete_stock("2330")
 
+    def test_market_membership_and_external_domains_protect_stock_reference(self):
+        self.control.put_collection_config(self.config, ())
+        self.control.set_coverage_membership("core_focus", ("2330",), effective_from=datetime(2026, 8, 1, tzinfo=timezone.utc), reason="tracked", owner="test")
+        with self.assertRaises(StockInUseError) as blocked:
+            self.control.delete_stock("2330", external_references={"market": 2, "report": 3, "fundamental": 4})
+        self.assertEqual(blocked.exception.references, {
+            "collection_config": 0, "execution": 0, "market": 3, "report": 3, "fundamental": 4,
+        })
+
     def test_enabled_filter_and_config_selection(self):
         self.control.set_stock_enabled("2317", False)
         self.assertEqual(tuple(stock.symbol for stock in self.control.search_stocks(enabled=True)), ("2330",))

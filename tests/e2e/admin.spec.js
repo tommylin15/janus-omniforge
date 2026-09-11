@@ -27,15 +27,18 @@ test.afterAll(async () => {
 const execution = {
   execution_id: "00000000-0000-0000-0000-000000000001", trace_id: "trace-1",
   status: "queued", trigger_type: "collection", config_id: "ohlcv", retry_count: 0,
-  requested_at: "2026-08-31T08:00:00+00:00", finished_at: null, items: [],
+  requested_at: "2026-08-31T08:00:00+00:00", finished_at: null,
+  items: [{ source_id: "twse", dataset_id: "ohlcv", state: "success", rows_received: 2, retry_count: 0, cache_hit: false, safe_message: "completed" }],
 };
 
-async function mockAdmin(page, { candidate = false } = {}) {
+async function mockAdmin(page, { candidate = false, references = null, onDelete = () => {} } = {}) {
   await page.route("**/health", (route) => route.fulfill({ json: { status: "ok", revision: "janus-web-test" } }));
   await page.route("**/api/v1/admin/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
     if (path === "/api/v1/admin/stocks") return route.fulfill({ json: { items: [{ symbol: "2330", name: "台積電", market: "TWSE", enabled: true, listing_status: "listed", effective_from: "2026-08-31T00:00:00Z" }], limit: 10, next_cursor: null } });
+    if (path === "/api/v1/admin/stocks/2330/references") return route.fulfill({ json: { symbol: "2330", can_delete: !references || !Object.values(references).some(Boolean), references: references || { collection_config: 0, execution: 0, market: 0, report: 0, fundamental: 0 } } });
+    if (path === "/api/v1/admin/stocks/2330" && route.request().method() === "DELETE") { onDelete(); return route.fulfill({ json: { symbol: "2330", deleted: true } }); }
     if (path === "/api/v1/admin/stocks/2330/status") return route.fulfill({ json: { symbol: "2330", items: [{ dataset_id: "ohlcv", latest_date: "2026-08-31", row_count: 2, received_symbols: 1, requested_symbols: 1, coverage_ratio: 1, null_count: 1, null_profile: [{ field: "close", count: 1, ratio: 0.5 }], quality_flags: ["warning"], dq_warning_count: 1, source_ids: ["twse"], snapshot_ids: ["42"], quarantine_count: 1, quarantine_state: "available" }] } });
     if (path === "/api/v1/admin/executions") return route.fulfill({ json: { items: [execution], limit: 10, next_cursor: null } });
     if (path === `/api/v1/admin/executions/${execution.execution_id}`) return route.fulfill({ json: execution });
@@ -88,6 +91,15 @@ test("stock dialog cancellation does not write and restores focus", async ({ pag
   expect(writes).toBe(0);
 });
 
+test("stock delete shows cross-domain counts and does not send a blocked delete", async ({ page }) => {
+  let deletes = 0;
+  await mockAdmin(page, { references: { collection_config: 1, execution: 2, market: 3, report: 4, fundamental: 5 }, onDelete: () => { deletes += 1; } });
+  await page.goto("/admin/stocks");
+  await page.getByRole("button", { name: "刪除" }).click();
+  await expect(page.locator("#notice")).toContainText("Collection 設定 1、Execution 2、市場資料 3、研報 4、基本面 5");
+  expect(deletes).toBe(0);
+});
+
 test("core membership saves effective version without spoofable actor", async ({ page }) => {
   let saved;
   await mockAdmin(page);
@@ -115,6 +127,11 @@ test("stock status renders Core coverage, null profile and quarantine", async ({
   await expect(row).toContainText("1/1 (100%)");
   await expect(row).toContainText("close 1 (50%)");
   await expect(row).toContainText("1 筆");
+  await page.getByRole("button", { name: "查看" }).click();
+  await expect(page.locator("#status-rows .detail-row")).toContainText("warning");
+  await page.locator("#status-search .column-picker summary").click();
+  await page.locator('[data-column-target="status-table"][value="8"]').uncheck();
+  await expect(page.locator("#status-table thead th").nth(8)).toBeHidden();
 });
 
 test("execution row opens details by keyboard and restores focus", async ({ page }) => {
@@ -124,6 +141,7 @@ test("execution row opens details by keyboard and restores focus", async ({ page
   await row.focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("dialog", { name: "執行明細" })).toBeVisible();
+  await expect(page.locator("#execution-items-table")).toContainText("completed");
   await page.getByRole("button", { name: "關閉明細" }).click();
   await expect(row).toBeFocused();
   await row.click();
@@ -156,7 +174,7 @@ test("source config editor saves typed values and blocks candidate enablement", 
   const config = { config_id: "first-batch", dataset_id: "ohlcv", source_ids: ["twse"], expected_fields: ["symbol"], market: "TWSE", enabled: true, collection_enabled: true, analysis_enabled: false, lookback_days: 30, overlap_days: 2, full_refresh_interval_days: 0, batch_scope: "market", coverage_tier: "market_wide", cadence: "daily", scope: "market", authorization_status: "official", retention_class: "core_standard", contains_pii: false, republish_allowed: false, max_symbols: 50 };
   let saved;
   await mockAdmin(page);
-  await page.route("**/api/v1/admin/source-catalog", async (route) => {
+  await page.route("**/api/v1/admin/source-catalog**", async (route) => {
     if (route.request().method() === "GET") return route.fulfill({ json: { items: [config] } });
     saved = route.request().postDataJSON(); return route.fulfill({ json: saved });
   });

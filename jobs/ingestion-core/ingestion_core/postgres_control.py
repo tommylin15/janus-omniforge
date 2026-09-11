@@ -78,12 +78,30 @@ class PostgreSQLControlPlane:
             if cur.rowcount != 1:
                 raise KeyError("stock not found")
 
-    def delete_stock(self, symbol: str) -> None:
+    def stock_references(self, symbol: str) -> dict[str, int]:
+        symbol = _symbol(symbol)
+        with self.connection.cursor() as cur:
+            cur.execute("""SELECT
+                (SELECT count(*) FROM control.collection_symbols WHERE symbol=%s),
+                (SELECT count(*) FROM control.execution_symbols WHERE symbol=%s),
+                (SELECT count(*) FROM control.coverage_memberships WHERE symbol=%s)""", (symbol, symbol, symbol))
+            collection, execution, market = cur.fetchone()
+        return {"collection_config": collection, "execution": execution, "market": market, "report": 0, "fundamental": 0}
+
+    def delete_stock(self, symbol: str, *, external_references: dict[str, int] | None = None) -> None:
         symbol = _symbol(symbol)
         with self._tx() as cur:
-            cur.execute("SELECT EXISTS(SELECT 1 FROM control.collection_symbols WHERE symbol=%s UNION ALL SELECT 1 FROM control.execution_symbols WHERE symbol=%s)", (symbol, symbol))
-            if cur.fetchone()[0]:
-                raise StockInUseError("stock is referenced by a collection configuration or execution")
+            cur.execute("""SELECT
+                (SELECT count(*) FROM control.collection_symbols WHERE symbol=%s),
+                (SELECT count(*) FROM control.execution_symbols WHERE symbol=%s),
+                (SELECT count(*) FROM control.coverage_memberships WHERE symbol=%s)""", (symbol, symbol, symbol))
+            collection, execution, market = cur.fetchone()
+            references = {"collection_config": collection, "execution": execution, "market": market, "report": 0, "fundamental": 0}
+            for key, value in (external_references or {}).items():
+                if key in references:
+                    references[key] += int(value)
+            if any(references.values()):
+                raise StockInUseError(references)
             cur.execute("DELETE FROM control.stock_master WHERE symbol=%s", (symbol,))
             if cur.rowcount != 1:
                 raise KeyError("stock not found")
@@ -126,9 +144,13 @@ class PostgreSQLControlPlane:
         if not r: raise KeyError("collection config not found")
         return CollectionConfig(r[0], r[1], tuple(r[2]), frozenset(r[3]), r[4], r[5], r[6], r[7], r[8], r[9], r[10], r[11], r[12], r[13], r[14], r[15], r[16], r[17], r[18], r[19])
 
-    def list_collection_configs(self) -> tuple[CollectionConfig, ...]:
+    def list_collection_configs(self, *, limit: int = 200, after: str | None = None) -> tuple[CollectionConfig, ...]:
+        if not 1 <= limit <= 201:
+            raise ValueError("limit must be 1..201")
         with self.connection.cursor() as cur:
-            cur.execute("SELECT config_id FROM control.collection_configs ORDER BY config_id"); ids = [r[0] for r in cur.fetchall()]
+            clause = "WHERE config_id>%s" if after is not None else ""
+            parameters = (after, limit) if after is not None else (limit,)
+            cur.execute(f"SELECT config_id FROM control.collection_configs {clause} ORDER BY config_id LIMIT %s", parameters); ids = [r[0] for r in cur.fetchall()]
         return tuple(self.get_collection_config(item) for item in ids)
 
     def config_symbols(self, config_id: str, *, only_enabled: bool = True) -> tuple[str, ...]:
@@ -294,15 +316,22 @@ class PostgreSQLControlPlane:
             cur.execute("SELECT execution_id,item_key,source_id,dataset_id,state,rows_received,retry_count,cache_hit,is_fallback,error_code,safe_message FROM control.execution_items WHERE execution_id=%s ORDER BY item_key", (execution_id,))
             return tuple(ExecutionItem(str(r[0]),r[1],r[2],r[3],DataState(r[4]),r[5],r[6],r[7],r[8],r[9],r[10]) for r in cur.fetchall())
 
-    def source_health_summary(self, *, source_id: str | None = None, dataset_id: str | None = None) -> tuple[dict[str, Any], ...]:
+    def source_health_summary(self, *, source_id: str | None = None, dataset_id: str | None = None,
+                              limit: int = 200, after: tuple[str, str] | None = None) -> tuple[dict[str, Any], ...]:
+        if not 1 <= limit <= 201:
+            raise ValueError("limit must be 1..201")
         clauses, values = [], []
         if source_id is not None:
             clauses.append("source_id=%s"); values.append(source_id)
         if dataset_id is not None:
             clauses.append("dataset_id=%s"); values.append(dataset_id)
+        if after is not None:
+            clauses.append("(source_id, dataset_id) > (%s, %s)")
+            values.extend(after)
         where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        values.append(limit)
         with self.connection.cursor() as cur:
-            cur.execute(f"SELECT source_id,dataset_id,success_count,failure_count,total_latency_ms,last_fetched_at,latest_observation_at,last_state,expected_symbols,received_symbols,cache_hits,fallback_count,schema_drift_count,coverage_tier,last_cache_age_seconds FROM control.source_health{where} ORDER BY source_id,dataset_id", values)
+            cur.execute(f"SELECT source_id,dataset_id,success_count,failure_count,total_latency_ms,last_fetched_at,latest_observation_at,last_state,expected_symbols,received_symbols,cache_hits,fallback_count,schema_drift_count,coverage_tier,last_cache_age_seconds FROM control.source_health{where} ORDER BY source_id,dataset_id LIMIT %s", values)
             rows = cur.fetchall()
         return tuple({"source_id": r[0], "dataset_id": r[1], "success_rate": r[2] / (r[2] + r[3]) if r[2] + r[3] else 0.0, "average_latency_ms": r[4] / (r[2] + r[3]) if r[2] + r[3] else 0.0, "last_fetched_at": r[5], "latest_observation_at": r[6], "last_state": r[7], "expected_symbols": r[8], "received_symbols": r[9], "cache_hits": r[10], "fallback_count": r[11], "schema_drift_count": r[12], "coverage_tier": r[13], "cache_age_seconds": r[14]} for r in rows)
 

@@ -1,13 +1,13 @@
 import sys
 import unittest
-from datetime import timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "jobs" / "ingestion-core"))
 
-from ingestion_core import CollectionConfig, SQLiteControlPlane, Stock
+from ingestion_core import CollectionConfig, DataState, SQLiteControlPlane, Stock
 from packages.admin_api import AdminService, AdminValidationError
 
 
@@ -59,6 +59,19 @@ class AdminServiceTests(unittest.TestCase):
         self.assertEqual(parsed.tzinfo, timezone.utc)
         with self.assertRaises(AdminValidationError):
             self.admin.parse_datetime("not-a-date")
+
+    def test_source_health_and_configs_use_repository_cursors(self):
+        now = datetime(2026, 9, 10, tzinfo=timezone.utc)
+        self.control.record_health("twse", "ohlcv", state=DataState.SUCCESS, latency_ms=1, fetched_at=now)
+        self.control.record_health("tpex", "ohlcv", state=DataState.SUCCESS, latency_ms=1, fetched_at=now)
+        first = self.admin.source_health(limit=1)
+        cursor = f'{first[0]["source_id"]},{first[0]["dataset_id"]}'
+        self.assertNotEqual(first, self.admin.source_health(limit=1, cursor=cursor))
+        self.control.put_collection_config(CollectionConfig("valuation", "valuation", ("twse",), frozenset({"symbol"})))
+        first_config = self.admin.collection_configs(limit=1)
+        self.assertNotEqual(first_config, self.admin.collection_configs(limit=1, cursor=first_config[0]["config_id"]))
+        with self.assertRaises(AdminValidationError):
+            self.admin.source_health(cursor="bad")
 
     def test_settings_are_validated_versioned_and_audited(self):
         saved = self.admin.save_setting("schedule", {"time": "08:00", "enabled": True, "holiday_overrides": ["2026-09-28"]}, actor="operator")
@@ -117,6 +130,24 @@ class AdminServiceTests(unittest.TestCase):
         self.assertEqual(status["items"][0]["execution_ids"], ("exec-1",))
         self.assertEqual(status["items"][0]["provenance_ids"], ("prov-1",))
         self.assertNotIn("summary", status)
+
+    def test_stock_delete_guard_combines_control_market_report_and_fundamental_references(self):
+        class Core:
+            @staticmethod
+            def summary(symbol):
+                return {"symbol": symbol, "datasets": {
+                    "ohlcv": {"row_count": 2}, "financials": {"row_count": 3}, "mart-report": {"row_count": 4},
+                }}
+
+        admin = AdminService(self.control, core=Core())
+        summary = admin.stock_references("2330")
+        self.assertEqual(summary["references"], {
+            "collection_config": 1, "execution": 0, "market": 2, "report": 4, "fundamental": 3,
+        })
+        self.assertFalse(summary["can_delete"])
+        with self.assertRaisesRegex(Exception, "stock cannot be deleted"):
+            admin.delete_stock("2330")
+        self.assertEqual(self.control.search_stocks("2330")[0].symbol, "2330")
 
     def test_source_review_requires_all_checks_before_approval(self):
         checks = {key: True for key in ("license", "terms", "robots", "rate_limit", "stability", "duplication", "retention", "deletion", "republishing", "cost", "security")}

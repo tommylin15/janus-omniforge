@@ -14,4 +14,18 @@ describe("Admin Data Operations contract", () => {
   it("uses safe persisted-state vocabulary", () => {
     expect(["queued", "running", "partial", "failed", "retrying", "unavailable"]).toContain("queued");
   });
+  it("renders sortable structured tables without a raw JSON escape hatch", async () => {
+    const [html, js, css] = await Promise.all([
+      readFile(resolve("apps/web/static/admin.html"), "utf8"),
+      readFile(resolve("apps/web/static/admin.js"), "utf8"),
+      readFile(resolve("apps/web/static/admin.css"), "utf8"),
+    ]);
+    expect(html).toContain("data-status-sort");
+    expect(html).toContain("data-column-target");
+    expect(js).toContain("execution-items-table");
+    expect(js).toContain("/references");
+    expect(js).toContain("基本面");
+    expect(css).toContain("position:sticky");
+    expect(`${html}${js}`).not.toContain("查看 JSON");
+  });
 });

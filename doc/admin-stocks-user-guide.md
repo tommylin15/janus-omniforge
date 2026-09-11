@@ -78,7 +78,7 @@
 
 停用股票不會被 enabled-only collection 選取，也不應出現在 public 股票搜尋。
 
-刪除前必須確認股票不再被 collection config 或 execution 引用；有引用時 API 會拒絕刪除。現行版本尚未完整檢查 market／report／fundamental 關聯，也不會顯示各類引用數量，因此不要把「刪除成功」當成完整的跨資料域清除流程。
+刪除前會檢查 collection config、execution、market、report、fundamental 五類引用；任一引用數量非零時 API 會拒絕刪除，Admin 會顯示各類數量與解除引用原因。
 
 ## 6. 建立 Collection execution
 
@@ -143,6 +143,5 @@ Collection 命令寫入 persisted queue 後由既有 consumer 處理；成功取
 - 股票 dialog 的「×」會進入 submit handler，取消時請使用 `Esc`。
 - execution 明細只能按「查看」開啟，尚未支援規格要求的整列 click。
 - dialog 關閉後不保證恢復到原本 opener 的鍵盤焦點。
-- 刪除 guard 尚未涵蓋並列出 market／report／fundamental 引用數量。
 - Collection consumer 已存在；Analysis／Mart persisted consumer 尚未完成，舊 revision 的 Analysis 按鈕不得使用。
 - 排程與 retention 設定目前只持久化，尚未驅動 Cloud Scheduler／cleanup runtime。

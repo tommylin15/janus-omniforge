@@ -11,25 +11,26 @@
 - [TODO 完成紀錄（2026-09-05）](archive/todo-completed-2026-09-05.md)
 - [TODO 完成紀錄（2026-09-06）](archive/todo-completed-2026-09-06.md)
 - [TODO 完成紀錄（2026-09-09）](archive/todo-completed-2026-09-09.md)
+- [TODO 完成紀錄（2026-09-11）](archive/todo-completed-2026-09-11.md)
 - [已完成 WBS 0／1／2／4](archive/wbs-completed-through-2026-08-31.md)
 
-## 目前進度（2026-09-09）
+## 目前進度（2026-09-11）
 
 - WBS 4J 獨立 MVP：journal／note／Private Iceberg 完整交易、重跑、刪除與 A／B 隔離已結案；僅依賴 WBS 5 的個人化 analysis overlay 尚未啟用。
 - WBS 4C：Agent Runtime／AgentEvent、security contract、context sources、MCP host、Gemini REST、OpenRouter provider、Private Storage、Skills contract、Codex auth lifecycle 與 Chat API contract 的已完成部分已歸檔；Codex Chat API durable continuation、真人 device-code 流程與整合驗收仍未完成。
 - WBS-4C-CODEX-BRIDGE checkpoint：雙向 stdio JSON-RPC、Threads／Turns／Items、device-code managed login、request-bound Approvals、共用 MCP dynamic-tool path 與 `turn/started` 事件驅動 cancellation 已完成；GCP Cloud Build contract tests 5／5 通過，Cloud Run health 3／3 通過，live Codex cancellation 200 通過，checkpoint reconnect 通過。現有全域 Secret／固定 owner 仍僅是 dev POC，不代表 owner-scoped auth lifecycle 完成。驗收 build `2d95aa6e-cc4e-47d5-97ae-ce9dcfafc479`、revision `janus-agent-gateway-00017-tpf`、digest `sha256:b03a041f2ddf19d3028777d7531f94599fee728024dac471156932ad64df9541`。
 - WBS-4C-PRIVATE-STORAGE：migration 016、Private Iceberg assistant events／Skill revisions、PostgreSQL bounded index、credential-shaped field fail-closed、冪等重跑、A／B 隔離與 Codex auth cleanup pending 契約已完成；GCP dev evidence 詳見 `spec/operations-and-testing.md`。
 - WBS-4C-CODEX-AUTH-LIFECYCLE：完成部分已移至 [`archive/todo-completed-2026-09-09.md`](archive/todo-completed-2026-09-09.md)；互動式 device-code login 真人流程仍未驗收。
-- WBS 3 收尾：Admin Data Operations 1 項完成、3 項未完成；Stage／Core 實機驗證 7 項未完成。Scheduler canary 因 2026-09-03 上游時段異常重置為 0／3。
+- WBS 3 收尾：`WBS-3-ACCEPTANCE` 暫停於 1/3；既有 Scheduler 繼續自動累積 canary，切換至 WBS 5 期間不得宣告 WBS 3 結案。queue claim、connection exhaustion、VM restart/reconnect、bundle runtime probes、Direct VPC／identity negative evidence 與 billing／Free Tier dev guard 已通過。
 - 最新驗證：Codex POC bridge Cloud Build `9dec1039-0052-420d-9ef1-6719ed46991a` 與 OpenRouter／Gemini runtime probe `20050302-861a-4c84-84ad-c96f21903776` 均 SUCCESS；完整證據與既有驗證見 `spec/operations-and-testing.md` 與 [`secret_list.md`](secret_list.md)。
-- Secret inventory：目前 GCP dev 共 9 個 Secret，完整名稱／bundle 欄位／consumer／IAM metadata 見 [`doc/secret_list.md`](secret_list.md)；`janus-agent-provider-bundle` 已包含 `mcp_owner_signing_key`，不再建立獨立 signing Secret。
+- Secret inventory：目前 GCP dev 共 8 個 Secret，完整名稱／bundle 欄位／consumer／IAM metadata 見 [`doc/secret_list.md`](secret_list.md)；`janus-agent-provider-bundle` 已包含 `mcp_owner_signing_key`，不再建立獨立 signing Secret。
 
 ## 下一步執行佇列
 
-1. 【Sol】`WBS-4C-ACCEPTANCE`：完成 Cloud Run、provider、資料源、MCP、Skills、streaming、approval、Grounding、privacy 與刪除整合驗收。
-9. 【Sol】`WBS-3-ACCEPTANCE`：持續 3 交易日 canary，並完成 queue／connection／restart、VPC／firewall 與 Free Tier guard 實機驗證。
-10. 【Luna】`WBS-3-ADMIN-POLISH`：完成表格、cursor pagination 與其 UI 驗收；股票跨域刪除 guard 另以【Sol】執行。
-11. 【Sol】`WBS-5` → 【Luna】`WBS-6` → 【Sol】`WBS-7` → 依逐項標籤執行 `WBS-8`；WBS 4J 個人化 overlay 等 `mart_scoped_analysis` 可用後再做。
+1. 【Sol】`WBS-5`：目前執行；先完成 persisted analysis queue claim 與 `core.dataset.ready.v1` immutable input fence，再依 WBS 5 切片逐項驗收。
+2. 【Sol】`WBS-3-ACCEPTANCE`：暫停於 canary 1/3；只由既有 Scheduler 自動累積，不與 WBS 5 同回合結案。
+3. 【Sol】`WBS-4C-ACCEPTANCE`：完成 Cloud Run、provider、資料源、MCP、Skills、streaming、approval、Grounding、privacy 與刪除整合驗收。
+4. 【Luna】`WBS-6` → 【Sol】`WBS-7` → 依逐項標籤執行 `WBS-8`；WBS 4J 個人化 overlay 等 `mart_scoped_analysis` 可用後再做。
 
 ## 模型確認規則
 
@@ -38,19 +39,11 @@
 
 ## P1（私人 P0 後續）— Admin Data Operations MVP
 
-- [ ] 【Luna】 將股票資料狀態、execution item、寫入安全／quarantine 的 raw JSON 主視圖改為類 Excel 欄列表格；支援 sticky header、排序、篩選、分頁、欄位顯示與按需子表，且不得暴露 raw payload／object URI／完整 upstream error。
-
-- [ ] 【Luna】 其餘 Admin 大型列表查詢須在 repository 層完成 bounded indexed cursor pagination；股票與 execution 已完成，明細維持按需載入。
-
-- [ ] 【Sol】 完整實作股票刪除 guard，涵蓋 collection config、execution、market、report、fundamental 等跨資料域引用，並在 UI 顯示各類引用數量與不可刪除原因。
 
 ## P1（私人 P0 後續）— Stage／Core 與 Admin MVP 驗證
 
-- [ ] 【Sol】 PostgreSQL migration、role isolation、queue claim、connection exhaustion、VM restart/reconnect、retention/pruning tests。（migration／Web role contract／retention-pruning 自動測試已通過；queue claim、connection exhaustion、VM restart/reconnect 實機驗證仍待完成）
+- [ ] 【Sol】 PostgreSQL migration、role isolation、queue claim、connection exhaustion、VM restart/reconnect、retention/pruning tests。（queue claim、connection exhaustion、VM restart/reconnect 已於 GCP dev 通過；migration／Web role contract／retention-pruning 自動測試已通過）
 
-- [ ] 【Sol】 Direct VPC egress／firewall tests：指定 workload 可連 `5432`，public internet、未授權 identity 與其他 network tag 不可連線。
-
-- [ ] 【Sol】 Free Tier gcloud guard tests：只允許一台 `e2-micro`、eligible `us-central1` zone、全部 Standard Persistent Disk ≤30 GB、無 external IP／NAT／snapshot／replica／Serverless VPC connector。
 
 - [ ] 【Sol】 UI 驗收可使用本地瀏覽器／Playwright，或按需啟動既有 GCP dev Cloud Run
   service，以實際 dev URL 驗證 responsive、interaction、API/runtime connectivity
@@ -60,7 +53,7 @@
   （2026-09-02：實際 dev URL 的 live Playwright、API/runtime 與安全輸出已通過；
   revision／digest 詳見 operations-and-testing。真人 Google login 仍未執行。）
 
-- [ ] 【Sol】 5 檔 canary 由既有 Scheduler 連續 3 個交易日正常完成；expected／received／missing、8 個核准來源狀態、Core row/hash/date/null profile 與成本摘要均留下證據。（2026-09-03：首日 execution `janus-ingestion-core-8mvg4` 經既有一次 retry 後失敗，連續成功為 0/3；詳見 operations-and-testing。）
+- [ ] 【Sol】 5 檔 canary 由既有 Scheduler 連續 3 個交易日正常完成；expected／received／missing、8 個核准來源狀態、Core row/hash/date/null profile 與成本摘要均留下證據。（bundle 修正後已完成 Scheduler smoke `janus-ingestion-core-j5qbv`；2026-09-11 的自動排程 execution `janus-ingestion-core-4zft5` 已完成資料日 2026-09-10，post-fix scheduled canary 目前 1/3，詳見 operations-and-testing。）
 
 - [ ] 【Sol】 canary 通過後才擴至當日 enabled 全市場；market-scope endpoint 單次抓取並 symbol fan-out，不逐檔重複請求。
 
@@ -80,9 +73,7 @@
 - [ ] 【Sol】 Codex auth lifecycle 必須先於 Chat API／Assistant UI：authenticated owner 經 service-authenticated internal request 傳入 Gateway，每個 owner 使用隔離 Secret、`CODEX_HOME` 與 App Server process；refresh 成功後銷毀舊版本。刪除時拒絕該 owner 新 login／turn／artifact write，停止 session、logout、刪 owner auth，失敗保留 `CLEANUP_PENDING` 並可重試；無 Codex thread 或 Secret 已不存在也須冪等完成。Gateway 不接受 client owner／Secret name，不授 project-wide Secret Manager admin；dev credential 由 operator 為 allowlisted owner 建立，正式自助 provisioning 另案決定。建立 per-owner Secret 或擴大付費資源前須人工同意。
 
 
-- [x] 【Luna】 WBS-4C-CHAT-API API contract 已完成：owner-scoped Threads CRUD／fork、message turn、bounded SSE cursor replay、cancel、approval response、assistant export、deletion status，以及受控 provider continuation metadata；OpenRouter／Gemini signed gateway dispatch 已通過 GCP dev live probe，Codex POC checkpoint bridge 已驗收；Codex Chat API thread start／resume durable continuation 與 message-to-gateway contract evidence 已完成（`tests/test_chat_api.py::test_codex_message_round_trips_gateway_continuation`）。三-runtime GCP dev 整合重跑留待 WBS-4C-ACCEPTANCE。
 
-- [x] 【Luna】 WBS-4C-ASSISTANT-UI：延續既有 Flutter Web／Android／iOS AI 入口，完成多 Threads、Markdown／程式碼區塊呈現、bounded streaming cursor replay／去重、provider／model selector、MCP／Skills 面板，以及 Codex Items／Turns／Approval Requests UI；驗證：Flutter 3.47.3／Dart 3.13.3、`flutter analyze` 無 error、`flutter test test/widget_test.dart` 2 passed。
 
 - [ ] 【Sol】 驗證 Cloud Run scale-to-zero／cold start／timeout／中斷重連、三 runtime、內外資料源 provenance、MCP stdio／HTTP／SSE、動態工具、Skill 權限、Codex auth／approval／取消、Grounding、quota／provider unavailable、context 外送提示、A／B 隔離、stream 續接／去重、Iceberg 重跑／匯出／刪除與無 placeholder。Codex auth 必須覆蓋 A／B load／rotate／destroy 隔離、orphan auth、cleanup 403 重試、刪除期間寫入拒絕、session eviction／logout、刪後重新登入與 secrets 不落 log／DB／Iceberg；另驗證 Iceberg snapshot／orphan file 與 GCS object version 的實際物理清除期限。若 Cloud Run 無法滿足不可中斷長 turn、持久 daemon、特殊 sandbox 權限或實測資源需求，先提交 Compute Engine／GKE 成本、安全、維運與退出評估，取得使用者決定後才能採用。（2026-09-09 checkpoint：provider live probe `fd435461-71fc-4b8f-86bf-e583431900c5`、Grounding/stream live probe `31b2f8ac-25fa-4bbb-aca2-46c2ea3210aa`、approval/quota contracts `7960f7b5-e1fe-4b63-86cb-50d4b878a8fd`、Private Storage/privacy/delete regression `275ec264-0dde-46d7-b755-c49ad90b870e`、context sources、Skills、Web bundle 與 MCP transports GCP dev 通過；Codex 0.153.4 POC `ca212276-2dde-4ce1-bbdf-6982c3d943a2`、device-code probe `e7b91774-8682-4077-8f5d-d50054d9640d`、直接 App Server probe `eff86a80-a94a-44da-af76-0f1efccef287` 與 alpha probe `e04655d7-28bd-47fa-9a28-8fa98bf61358` 均因 Codex device-auth request error 失敗，網路診斷 `9a251707-c075-40d2-9f32-a6c75eb11023` 已證實 endpoint 可正常回傳 device code；managed-auth／approval live flow 保持未完成，詳見 operations-and-testing。）
 - 2026-09-09 後續：CA remediation image／revision 已部署，真人 device-code、cancellation、checkpoint reconnect、logout／destroy 已通過；approval-handle dev revision `janus-agent-gateway-00038-j78` 已完成真人 side-effect turn（approval request／accept／resolved、command exitCode=0、turn completed；詳見 `spec/operations-and-testing.md`）。其餘整合驗收仍未完成。
@@ -128,7 +119,7 @@
 
 ## P1 — Mart／Agents
 
-- [ ] 【Sol】 建立可執行的 `intelligence_mart` package／Cloud Run Job entrypoint、bounded runtime 設定與 persisted queue claim；2026-08-31 已完成 connectivity entrypoint、1 CPU／1 GiB／300s／1 retry Job 與實機 smoke，persisted queue claim 仍待完成，Analysis 排隊成功不得視為完成。
+- [ ] 【Sol】 建立可執行的 `intelligence_mart` package／Cloud Run Job entrypoint、bounded runtime 設定與 persisted queue claim；2026-08-31 已完成 connectivity entrypoint、1 CPU／1 GiB／300s／1 retry Job 與實機 smoke。2026-09-11 已實作 analysis-only `FOR UPDATE SKIP LOCKED` lease、bounded retry／terminal transition 與 immutable input／artifact completion fence；本機 targeted tests 8/8 通過、`git diff --check` 通過。GCP dev migration 017、函式 EXECUTE-only privilege、queue rejection／retry execution `janus-intelligence-mart-zj8zw` 與 smoke execution `janus-intelligence-mart-fq96m` 已驗證；Cloud Build `fcc58745-42a1-44de-9771-785f522d16af` SUCCESS。完整 processor／matching artifact 成功路徑仍待後續切片；Analysis 排隊或 claim 成功不得視為完成。
 
 - [ ] 【Sol】 persisted Mart consumer 完成並通過 terminal-state／retry 驗收後，才重新啟用 Admin Analysis action 與「Mart 分析」。
 

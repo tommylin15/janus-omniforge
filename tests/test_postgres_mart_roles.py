@@ -9,6 +9,7 @@ class MartRoleMigrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.sql = (ROOT / "infra" / "postgres" / "migrations" / "008_mart_runtime_roles.sql").read_text(encoding="utf-8")
+        cls.queue_sql = (ROOT / "infra" / "postgres" / "migrations" / "017_mart_analysis_queue.sql").read_text(encoding="utf-8")
         cls.hba = (ROOT / "infra" / "postgres" / "pg_hba.conf").read_text(encoding="utf-8")
         cls.bootstrap = (ROOT / "infra" / "postgres" / "bootstrap-vm.sh").read_text(encoding="utf-8")
 
@@ -24,8 +25,15 @@ class MartRoleMigrationTests(unittest.TestCase):
         self.assertNotIn("ALL PRIVILEGES", self.sql.upper())
         self.assertNotIn("GRANT USAGE ON SCHEMA control", self.sql)
 
+    def test_analysis_queue_grants_are_column_bounded(self):
+        self.assertIn("GRANT SELECT (", self.queue_sql)
+        self.assertIn("GRANT UPDATE (", self.queue_sql)
+        self.assertNotIn("ALL TABLES", self.queue_sql.upper())
+        self.assertNotIn("ALL PRIVILEGES", self.queue_sql.upper())
+
     def test_fresh_bootstrap_applies_the_mart_migration(self):
         self.assertIn("008_mart_runtime_roles.sql", self.bootstrap)
+        self.assertIn("017_mart_analysis_queue.sql", self.bootstrap)
         self.assertIn("MART_CATALOG_PASSWORD", self.bootstrap)
         self.assertIn("MART_PUBLICATION_PASSWORD", self.bootstrap)
 

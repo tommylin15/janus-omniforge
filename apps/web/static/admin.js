@@ -3,7 +3,11 @@
 const state = {
   limit: 10, stocks: [], selected: new Set(), loadedTabs: new Set(), activeTab: "stocks",
   stockPage: 0, stockCursors: [null], stockNext: null,
-  executionPage: 0, executionCursors: [null], executionNext: null,
+  statusItems: [], statusPage: 0, statusSort: "dataset_id", statusDirection: 1, expandedStatus: new Set(),
+  executions: [], executionPage: 0, executionCursors: [null], executionNext: null,
+  executionSort: "requested_at", executionDirection: -1,
+  sourcePage: 0, sourceCursors: [null], sourceNext: null,
+  catalogPage: 0, catalogCursors: [null], catalogNext: null,
   editingConfig: null, membershipVersion: 0,
 };
 const byId = (id) => document.getElementById(id);
@@ -73,6 +77,32 @@ function formatRatio(value) {
 function formatNullProfile(item) {
   if (!item.null_profile?.length) return item.row_count ? "0（無 Null）" : "—";
   return `${item.null_count} · ${item.null_profile.map((field) => `${field.field} ${field.count} (${formatRatio(field.ratio)})`).join("；")}`;
+}
+
+function compareValues(left, right) {
+  if (left === right) return 0;
+  if (left === null || left === undefined) return 1;
+  if (right === null || right === undefined) return -1;
+  return typeof left === "number" && typeof right === "number"
+    ? left - right
+    : String(left).localeCompare(String(right), "zh-Hant", { numeric: true });
+}
+
+function sorted(items, key, direction) {
+  return [...items].sort((left, right) => compareValues(left[key], right[key]) * direction);
+}
+
+function updateSort(selector, key, direction) {
+  document.querySelectorAll(selector).forEach((button) => {
+    button.parentElement.setAttribute("aria-sort", button.dataset.statusSort === key || button.dataset.executionSort === key
+      ? (direction === 1 ? "ascending" : "descending") : "none");
+  });
+}
+
+function toggleColumn(input) {
+  const table = byId(input.dataset.columnTarget);
+  const index = Number(input.value) + 1;
+  table.querySelectorAll(`tr > :nth-child(${index})`).forEach((cell) => { cell.hidden = !input.checked; });
 }
 
 function selectionChanged() {
@@ -161,8 +191,14 @@ function openStock(stock = null) {
 }
 
 async function deleteStock(stock) {
-  if (!window.confirm(`${stock.symbol} 若仍被設定或 execution 使用將無法刪除。確定刪除？`)) return;
-  try { await request(`/api/v1/admin/stocks/${encodeURIComponent(stock.symbol)}`, { method: "DELETE" }); showNotice(`${stock.symbol} 已刪除`); await loadStocks(); }
+  const labels = { collection_config: "Collection 設定", execution: "Execution", market: "市場資料", report: "研報", fundamental: "基本面" };
+  try {
+    const summary = await request(`/api/v1/admin/stocks/${encodeURIComponent(stock.symbol)}/references`);
+    const detail = Object.entries(labels).map(([key, label]) => `${label} ${summary.references[key] || 0}`).join("、");
+    if (!summary.can_delete) return showNotice(`無法刪除 ${stock.symbol}：${detail}。請先解除所有引用。`, true);
+    if (!window.confirm(`${stock.symbol} 引用檢查：${detail}。確定刪除？`)) return;
+    await request(`/api/v1/admin/stocks/${encodeURIComponent(stock.symbol)}`, { method: "DELETE" }); showNotice(`${stock.symbol} 已刪除`); await loadStocks();
+  }
   catch (error) { showNotice(error.message, true); }
 }
 
@@ -171,22 +207,61 @@ async function openStatus(stock) {
   if (!symbol) return showNotice("請輸入股票代號", true);
   try {
     const data = await request(`/api/v1/admin/stocks/${encodeURIComponent(symbol)}/status`);
-    const body = byId("status-rows"); body.replaceChildren();
-    if (!data.items.length) body.append(rowMessage("目前沒有 Core 資料", 9));
-    data.items.forEach((item) => {
-      const tr = document.createElement("tr");
-      tr.append(node("td", item.dataset_id), node("td", formatDate(item.latest_date)), node("td", item.row_count),
-        node("td", `${item.received_symbols}/${item.requested_symbols} (${formatRatio(item.coverage_ratio)})`), node("td", formatNullProfile(item)),
-        node("td", item.dq_warning_count ? `${item.dq_warning_count} · ${item.quality_flags.join(", ") || "warning"}` : "good"),
-        node("td", item.source_ids.join(", ") || "—"), node("td", item.snapshot_ids.join(", ") || "—"),
-        node("td", item.quarantine_state === "available" ? `${item.quarantine_count} 筆` : "未提供"));
-      body.append(tr);
-    });
+    state.statusItems = data.items;
+    state.statusPage = 0;
+    state.expandedStatus.clear();
     byId("status-symbol").value = symbol;
+    renderStatus();
     state.loadedTabs.add("status");
     await activateTab("status");
   }
   catch (error) { showNotice(error.message, true); }
+}
+
+function renderStatus() {
+  const filter = byId("status-filter").value.trim().toLocaleLowerCase("zh-Hant");
+  const matching = state.statusItems.filter((item) => !filter || item.dataset_id.toLocaleLowerCase("zh-Hant").includes(filter));
+  const start = state.statusPage * state.limit;
+  const page = sorted(matching, state.statusSort, state.statusDirection).slice(start, start + state.limit);
+  const body = byId("status-rows"); body.replaceChildren();
+  if (!page.length) body.append(rowMessage(matching.length ? "此頁沒有資料" : "目前沒有符合條件的 Core 資料", 12));
+  page.forEach((item) => {
+    const key = item.dataset_id;
+    const expanded = state.expandedStatus.has(key);
+    const detail = node("button", expanded ? "收合" : "查看", "button quiet");
+    detail.type = "button"; detail.setAttribute("aria-expanded", String(expanded));
+    detail.addEventListener("click", () => { expanded ? state.expandedStatus.delete(key) : state.expandedStatus.add(key); renderStatus(); });
+    const detailCell = document.createElement("td"); detailCell.append(detail);
+    const dq = document.createElement("td"); dq.append(statusBadge(item.dq_warning_count ? "partial" : "success")); dq.append(` ${item.dq_warning_count || 0}`);
+    const tr = document.createElement("tr");
+    tr.append(detailCell, node("td", item.dataset_id), node("td", formatDate(item.latest_date)), node("td", item.row_count ?? "—", "numeric"),
+      node("td", `${item.received_symbols ?? "—"}/${item.requested_symbols ?? "—"} (${formatRatio(item.coverage_ratio)})`, "numeric"),
+      node("td", formatNullProfile(item)), dq, node("td", item.source_ids?.join(", ") || "—"),
+      node("td", item.snapshot_ids?.join(", ") || "—"), node("td", item.freshness ?? "—"), node("td", formatDate(item.updated_at)),
+      node("td", item.quarantine_state === "available" ? `${item.quarantine_count} 筆` : "—", "numeric"));
+    body.append(tr);
+    if (expanded) {
+      const nested = document.createElement("table");
+      nested.innerHTML = "<thead><tr><th>Null 欄位</th><th class=\"numeric\">筆數</th><th class=\"numeric\">比例</th><th>Quality flags</th><th>Execution</th><th>Provenance</th></tr></thead>";
+      const nestedBody = document.createElement("tbody");
+      const profiles = item.null_profile?.length ? item.null_profile : [{ field: "—", count: 0, ratio: null }];
+      profiles.forEach((field, index) => {
+        const row = document.createElement("tr");
+        row.append(node("td", field.field || "—"), node("td", field.count ?? "—", "numeric"), node("td", formatRatio(field.ratio), "numeric"),
+          node("td", index ? "—" : item.quality_flags?.join(", ") || "—"), node("td", index ? "—" : item.execution_ids?.join(", ") || "—"),
+          node("td", index ? "—" : item.provenance_ids?.join(", ") || "—"));
+        nestedBody.append(row);
+      });
+      nested.append(nestedBody);
+      const detailRow = document.createElement("tr"); const cell = document.createElement("td");
+      detailRow.className = "detail-row"; cell.colSpan = 12; cell.append(nested); detailRow.append(cell); body.append(detailRow);
+    }
+  });
+  byId("status-page-label").textContent = `第 ${state.statusPage + 1} 頁 · ${matching.length} 筆`;
+  byId("prev-status-page").disabled = state.statusPage === 0;
+  byId("next-status-page").disabled = start + state.limit >= matching.length;
+  updateSort("[data-status-sort]", state.statusSort, state.statusDirection);
+  document.querySelectorAll('[data-column-target="status-table"]').forEach(toggleColumn);
 }
 
 async function enqueueCollection() {
@@ -214,33 +289,40 @@ async function loadExecutions() {
     const cursor = state.executionCursors[state.executionPage];
     if (cursor) params.set("cursor", cursor);
     const data = await request(`/api/v1/admin/executions?${params}`);
+    state.executions = data.items;
     state.executionNext = data.next_cursor;
-    body.replaceChildren();
-    if (!data.items.length) body.append(rowMessage("尚無 persisted execution", 6));
-    let active = 0;
-    data.items.forEach((execution) => {
-      if (["queued", "running", "retrying"].includes(execution.status)) active += 1;
-      const tr = document.createElement("tr");
-      const status = document.createElement("td"); status.append(statusBadge(execution.status));
-      const detailCell = document.createElement("td"); detailCell.className = "align-right";
-      const detail = node("button", "查看", "button quiet"); detail.type = "button";
-      detail.addEventListener("click", (event) => { event.stopPropagation(); openExecution(execution.execution_id, detail); });
-      detailCell.append(detail);
-      tr.append(status, node("td", execution.trigger_type), node("td", execution.config_id), node("td", formatDate(execution.requested_at)), node("td", execution.retry_count), detailCell);
-      tr.tabIndex = 0; tr.setAttribute("role", "button"); tr.setAttribute("aria-label", `查看 execution ${execution.execution_id}`);
-      tr.addEventListener("click", () => openExecution(execution.execution_id, tr));
-      tr.addEventListener("keydown", (event) => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); openExecution(execution.execution_id, tr); } });
-      body.append(tr);
-    });
-    byId("execution-count").textContent = data.items.length;
-    byId("active-count").textContent = active;
-    byId("execution-page-label").textContent = `第 ${state.executionPage + 1} 頁`;
-    byId("prev-execution-page").disabled = state.executionPage === 0;
-    byId("next-execution-page").disabled = !state.executionNext;
+    renderExecutions();
   } catch (error) {
     body.replaceChildren(rowMessage("執行紀錄目前無法使用", 6));
     showNotice(error.message, true);
   }
+}
+
+function renderExecutions() {
+  const filter = byId("execution-filter").value.trim().toLocaleLowerCase("zh-Hant");
+  const items = sorted(state.executions.filter((item) => !filter || [item.status, item.trigger_type, item.config_id].some((value) => String(value || "").toLocaleLowerCase("zh-Hant").includes(filter))), state.executionSort, state.executionDirection);
+  const body = byId("execution-rows"); body.replaceChildren();
+  if (!items.length) body.append(rowMessage(filter ? "本頁沒有符合條件的 execution" : "尚無 persisted execution", 6));
+  items.forEach((execution) => {
+    const tr = document.createElement("tr");
+    const status = document.createElement("td"); status.append(statusBadge(execution.status));
+    const detailCell = document.createElement("td"); detailCell.className = "align-right";
+    const detail = node("button", "查看", "button quiet"); detail.type = "button";
+    detail.addEventListener("click", (event) => { event.stopPropagation(); openExecution(execution.execution_id, detail); });
+    detailCell.append(detail);
+    tr.append(status, node("td", execution.trigger_type || "—"), node("td", execution.config_id || "—"), node("td", formatDate(execution.requested_at)), node("td", execution.retry_count ?? "—", "numeric"), detailCell);
+    tr.tabIndex = 0; tr.setAttribute("role", "button"); tr.setAttribute("aria-label", `查看 execution ${execution.execution_id}`);
+    tr.addEventListener("click", () => openExecution(execution.execution_id, tr));
+    tr.addEventListener("keydown", (event) => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); openExecution(execution.execution_id, tr); } });
+    body.append(tr);
+  });
+  byId("execution-count").textContent = state.executions.length;
+  byId("active-count").textContent = state.executions.filter((item) => ["queued", "running", "retrying"].includes(item.status)).length;
+  byId("execution-page-label").textContent = `第 ${state.executionPage + 1} 頁`;
+  byId("prev-execution-page").disabled = state.executionPage === 0;
+  byId("next-execution-page").disabled = !state.executionNext;
+  updateSort("[data-execution-sort]", state.executionSort, state.executionDirection);
+  document.querySelectorAll('[data-column-target="execution-table"]').forEach(toggleColumn);
 }
 
 async function openExecution(id, opener) {
@@ -250,36 +332,56 @@ async function openExecution(id, opener) {
     const list = document.createElement("dl"); list.className = "detail-grid";
     [["Execution ID", execution.execution_id], ["狀態", execution.status], ["類型", execution.trigger_type], ["設定", execution.config_id], ["要求時間", formatDate(execution.requested_at)], ["完成時間", formatDate(execution.finished_at)]].forEach(([term, value]) => { const wrap = document.createElement("div"); wrap.append(node("dt", term), node("dd", value)); list.append(wrap); });
     content.append(list, node("h3", "工作項目"));
-    const items = node("div", null, "item-list");
-    (execution.items || []).forEach((item) => { const card = node("article", null, "item-card"); card.append(statusBadge(item.state), node("strong", ` ${item.dataset_id || "dataset"} · ${item.source_id || "source"}`), node("p", item.safe_message || `rows: ${item.rows_received ?? "—"}`)); items.append(card); });
-    if (!execution.items?.length) items.append(node("p", "尚無工作項目", "empty"));
-    content.append(items);
+    const wrap = node("div", null, "table-wrap"); const table = document.createElement("table"); table.id = "execution-items-table";
+    table.innerHTML = "<thead><tr><th>來源</th><th>資料集</th><th>狀態</th><th class=\"numeric\">Processed</th><th class=\"numeric\">Success</th><th class=\"numeric\">Failure</th><th class=\"numeric\">Retry</th><th>Stage</th><th>Core commit</th><th>Safe message</th></tr></thead>";
+    const body = document.createElement("tbody"); body.id = "execution-item-rows";
+    (execution.items || []).forEach((item) => {
+      const good = ["success", "fallback"].includes(item.state);
+      const failed = ["failed", "unavailable", "schema_drift"].includes(item.state);
+      const row = document.createElement("tr"); const status = document.createElement("td"); status.append(statusBadge(item.state));
+      row.append(node("td", item.source_id || "—"), node("td", item.dataset_id || "—"), status,
+        node("td", item.rows_received ?? "—", "numeric"), node("td", good ? item.rows_received ?? 0 : 0, "numeric"),
+        node("td", failed ? 1 : 0, "numeric"), node("td", item.retry_count ?? 0, "numeric"),
+        node("td", item.cache_hit ? "cache hit" : "—"), node("td", item.core_committed === true ? "committed" : "—"), node("td", item.safe_message || "—"));
+      body.append(row);
+    });
+    if (!execution.items?.length) body.append(rowMessage("尚無工作項目", 10));
+    table.append(body); wrap.append(table); content.append(wrap);
     const dialog = byId("execution-dialog"); dialogOpeners.set(dialog, opener); dialog.showModal(); byId("close-dialog").focus();
   } catch (error) { showNotice(error.message, true); }
 }
 
 async function loadSources() {
-  const list = byId("source-list");
+  const body = byId("source-list");
   try {
-    const data = await request("/api/v1/admin/source-health");
-    list.replaceChildren();
-    if (!data.items.length) list.append(node("p", "尚無 persisted telemetry", "empty"));
+    const params = new URLSearchParams({ limit: state.limit });
+    const cursor = state.sourceCursors[state.sourcePage]; if (cursor) params.set("cursor", cursor);
+    const data = await request(`/api/v1/admin/source-health?${params}`);
+    state.sourceNext = data.next_cursor;
+    body.replaceChildren();
+    if (!data.items.length) body.append(rowMessage("尚無 persisted telemetry", 6));
     let healthy = 0;
     data.items.forEach((source) => {
       const rate = typeof source.success_rate === "number" ? Math.round(source.success_rate * 100) : null;
       if (["success", "fallback", "partial"].includes(source.last_state)) healthy += 1;
-      const card = node("article", null, "source-card");
-      card.append(node("strong", `${source.source_id} · ${source.dataset_id}`), node("p", `成功率 ${rate === null ? "—" : `${rate}%`} · 最後取得 ${formatDate(source.last_fetched_at)}`), statusBadge(source.last_state));
-      list.append(card);
+      const status = document.createElement("td"); status.append(statusBadge(source.last_state));
+      const row = document.createElement("tr"); row.append(node("td", source.source_id || "—"), node("td", source.dataset_id || "—"), status,
+        node("td", rate === null ? "—" : `${rate}%`, "numeric"), node("td", formatDate(source.last_fetched_at)), node("td", source.coverage_tier || "—")); body.append(row);
     });
     byId("source-summary").textContent = data.items.length ? `${healthy}/${data.items.length}` : "—";
-  } catch (error) { list.replaceChildren(node("p", "來源健康目前無法使用", "empty")); showNotice(error.message, true); }
+    byId("source-page-label").textContent = `第 ${state.sourcePage + 1} 頁`;
+    byId("prev-source-page").disabled = state.sourcePage === 0;
+    byId("next-source-page").disabled = !state.sourceNext;
+  } catch (error) { body.replaceChildren(rowMessage("來源健康目前無法使用", 6)); showNotice(error.message, true); }
 }
 
 async function loadCatalog() {
   const list = byId("catalog-list");
   try {
-    const data = await request("/api/v1/admin/source-catalog");
+    const params = new URLSearchParams({ limit: state.limit });
+    const cursor = state.catalogCursors[state.catalogPage]; if (cursor) params.set("cursor", cursor);
+    const data = await request(`/api/v1/admin/source-catalog?${params}`);
+    state.catalogNext = data.next_cursor;
     list.replaceChildren();
     if (!data.items.length) list.append(node("p", "尚無資料源設定", "empty"));
     const candidates = new Set();
@@ -296,6 +398,9 @@ async function loadCatalog() {
     if (candidates.has(previous)) select.value = previous;
     byId("review-form").hidden = candidates.size === 0;
     if (candidates.size) await loadReview();
+    byId("catalog-page-label").textContent = `第 ${state.catalogPage + 1} 頁`;
+    byId("prev-catalog-page").disabled = state.catalogPage === 0;
+    byId("next-catalog-page").disabled = !state.catalogNext;
   }
   catch (error) { list.replaceChildren(node("p", "資料源設定目前無法使用", "empty")); showNotice(error.message, true); }
 }
@@ -465,6 +570,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   byId("refresh-executions").addEventListener("click", loadExecutions);
   byId("prev-execution-page").addEventListener("click", () => { if (state.executionPage > 0) { state.executionPage -= 1; loadExecutions(); } });
   byId("next-execution-page").addEventListener("click", () => { if (state.executionNext) { state.executionPage += 1; state.executionCursors[state.executionPage] = state.executionNext; loadExecutions(); } });
+  byId("execution-filter").addEventListener("input", renderExecutions);
+  document.querySelectorAll("[data-execution-sort]").forEach((button) => button.addEventListener("click", () => {
+    const key = button.dataset.executionSort; state.executionDirection = state.executionSort === key ? -state.executionDirection : 1; state.executionSort = key; renderExecutions();
+  }));
+  byId("status-filter").addEventListener("input", () => { state.statusPage = 0; renderStatus(); });
+  byId("prev-status-page").addEventListener("click", () => { if (state.statusPage > 0) { state.statusPage -= 1; renderStatus(); } });
+  byId("next-status-page").addEventListener("click", () => { state.statusPage += 1; renderStatus(); });
+  document.querySelectorAll("[data-status-sort]").forEach((button) => button.addEventListener("click", () => {
+    const key = button.dataset.statusSort; state.statusDirection = state.statusSort === key ? -state.statusDirection : 1; state.statusSort = key; state.statusPage = 0; renderStatus();
+  }));
+  document.querySelectorAll("[data-column-target]").forEach((input) => input.addEventListener("change", () => toggleColumn(input)));
+  byId("prev-source-page").addEventListener("click", () => { if (state.sourcePage > 0) { state.sourcePage -= 1; loadSources(); } });
+  byId("next-source-page").addEventListener("click", () => { if (state.sourceNext) { state.sourcePage += 1; state.sourceCursors[state.sourcePage] = state.sourceNext; loadSources(); } });
+  byId("prev-catalog-page").addEventListener("click", () => { if (state.catalogPage > 0) { state.catalogPage -= 1; loadCatalog(); } });
+  byId("next-catalog-page").addEventListener("click", () => { if (state.catalogNext) { state.catalogPage += 1; state.catalogCursors[state.catalogPage] = state.catalogNext; loadCatalog(); } });
   byId("refresh-all").addEventListener("click", refreshAll);
   byId("logout").addEventListener("click", logout);
   byId("status-search").addEventListener("submit", (event) => { event.preventDefault(); openStatus(byId("status-symbol").value); });

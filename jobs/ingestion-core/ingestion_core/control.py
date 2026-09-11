@@ -89,6 +89,11 @@ class ControlPlaneError(RuntimeError):
 class StockInUseError(ControlPlaneError):
     """Raised when a stock is still referenced by control records."""
 
+    def __init__(self, references: dict[str, int]):
+        self.references = {key: int(value) for key, value in references.items()}
+        used = ", ".join(f"{key}={value}" for key, value in self.references.items() if value)
+        super().__init__(f"stock cannot be deleted while referenced: {used}")
+
 
 class InvalidTransitionError(ControlPlaneError):
     """Raised when an execution state transition is not allowed."""
@@ -416,12 +421,24 @@ class SQLiteControlPlane:
             raise KeyError("stock not found")
         self.connection.commit()
 
-    def delete_stock(self, symbol: str) -> None:
+    def stock_references(self, symbol: str) -> dict[str, int]:
         symbol = _symbol(symbol)
-        references = self.connection.execute("SELECT COUNT(*) FROM collection_symbols WHERE symbol=?", (symbol,)).fetchone()[0]
-        references += self.connection.execute("SELECT COUNT(*) FROM execution_symbols WHERE symbol=?", (symbol,)).fetchone()[0]
-        if references:
-            raise StockInUseError("stock is referenced by a collection configuration or execution")
+        return {
+            "collection_config": self.connection.execute("SELECT COUNT(*) FROM collection_symbols WHERE symbol=?", (symbol,)).fetchone()[0],
+            "execution": self.connection.execute("SELECT COUNT(*) FROM execution_symbols WHERE symbol=?", (symbol,)).fetchone()[0],
+            "market": self.connection.execute("SELECT COUNT(*) FROM coverage_memberships WHERE symbol=?", (symbol,)).fetchone()[0],
+            "report": 0,
+            "fundamental": 0,
+        }
+
+    def delete_stock(self, symbol: str, *, external_references: dict[str, int] | None = None) -> None:
+        symbol = _symbol(symbol)
+        references = self.stock_references(symbol)
+        for key, value in (external_references or {}).items():
+            if key in references:
+                references[key] += int(value)
+        if any(references.values()):
+            raise StockInUseError(references)
         cursor = self.connection.execute("DELETE FROM stock_master WHERE symbol=?", (symbol,))
         if cursor.rowcount != 1:
             raise KeyError("stock not found")
@@ -490,8 +507,14 @@ class SQLiteControlPlane:
             raise KeyError("collection config not found")
         return CollectionConfig(row["config_id"], row["dataset_id"], tuple(json.loads(row["source_ids"])), frozenset(json.loads(row["expected_fields"])), row["market"], bool(row["enabled"]), bool(row["collection_enabled"]), bool(row["analysis_enabled"]), row["lookback_days"], row["overlap_days"], row["full_refresh_interval_days"], row["batch_scope"], row["coverage_tier"], row["cadence"], row["scope"], row["authorization_status"], row["retention_class"], bool(row["contains_pii"]), bool(row["republish_allowed"]), row["max_symbols"])
 
-    def list_collection_configs(self) -> tuple[CollectionConfig, ...]:
-        rows = self.connection.execute("SELECT config_id FROM collection_configs ORDER BY config_id").fetchall()
+    def list_collection_configs(self, *, limit: int = 200, after: str | None = None) -> tuple[CollectionConfig, ...]:
+        if not 1 <= limit <= 201:
+            raise ValueError("limit must be 1..201")
+        clause = "WHERE config_id>?" if after is not None else ""
+        values = (after, limit) if after is not None else (limit,)
+        rows = self.connection.execute(
+            f"SELECT config_id FROM collection_configs {clause} ORDER BY config_id LIMIT ?", values,
+        ).fetchall()
         return tuple(self.get_collection_config(row[0]) for row in rows)
 
     def config_symbols(self, config_id: str, *, only_enabled: bool = True) -> tuple[str, ...]:
@@ -714,15 +737,22 @@ class SQLiteControlPlane:
         self.connection.execute("""INSERT INTO source_health(source_id, dataset_id, success_count, failure_count, total_latency_ms, last_fetched_at, latest_observation_at, last_state, expected_symbols, received_symbols, cache_hits, fallback_count, schema_drift_count, coverage_tier, last_cache_age_seconds) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(source_id, dataset_id) DO UPDATE SET success_count=source_health.success_count+excluded.success_count, failure_count=source_health.failure_count+excluded.failure_count, total_latency_ms=source_health.total_latency_ms+excluded.total_latency_ms, last_fetched_at=excluded.last_fetched_at, latest_observation_at=COALESCE(excluded.latest_observation_at, source_health.latest_observation_at), last_state=excluded.last_state, expected_symbols=MAX(source_health.expected_symbols, excluded.expected_symbols), received_symbols=source_health.received_symbols+excluded.received_symbols, cache_hits=source_health.cache_hits+excluded.cache_hits, fallback_count=source_health.fallback_count+excluded.fallback_count, schema_drift_count=source_health.schema_drift_count+excluded.schema_drift_count, coverage_tier=excluded.coverage_tier, last_cache_age_seconds=excluded.last_cache_age_seconds""", (source_id, dataset_id, success, int(not success), latency_ms, _iso(fetched_at), _iso(latest_observation_at), state.value, expected_symbols, received_symbols, int(cache_hit), int(state == DataState.FALLBACK), int(state == DataState.SCHEMA_DRIFT), coverage_tier, cache_age_seconds))
         self.connection.commit()
 
-    def source_health_summary(self, *, source_id: str | None = None, dataset_id: str | None = None) -> tuple[dict[str, Any], ...]:
+    def source_health_summary(self, *, source_id: str | None = None, dataset_id: str | None = None,
+                              limit: int = 200, after: tuple[str, str] | None = None) -> tuple[dict[str, Any], ...]:
         """Return persisted health aggregates without exposing raw responses."""
+        if not 1 <= limit <= 201:
+            raise ValueError("limit must be 1..201")
         clauses, values = [], []
         if source_id is not None:
             clauses.append("source_id=?"); values.append(source_id)
         if dataset_id is not None:
             clauses.append("dataset_id=?"); values.append(dataset_id)
+        if after is not None:
+            clauses.append("(source_id>? OR (source_id=? AND dataset_id>?))")
+            values.extend((after[0], after[0], after[1]))
         where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
-        rows = self.connection.execute(f"SELECT source_id,dataset_id,success_count,failure_count,total_latency_ms,last_fetched_at,latest_observation_at,last_state,expected_symbols,received_symbols,cache_hits,fallback_count,schema_drift_count,coverage_tier,last_cache_age_seconds FROM source_health{where} ORDER BY source_id,dataset_id", values).fetchall()
+        values.append(limit)
+        rows = self.connection.execute(f"SELECT source_id,dataset_id,success_count,failure_count,total_latency_ms,last_fetched_at,latest_observation_at,last_state,expected_symbols,received_symbols,cache_hits,fallback_count,schema_drift_count,coverage_tier,last_cache_age_seconds FROM source_health{where} ORDER BY source_id,dataset_id LIMIT ?", values).fetchall()
         result = []
         for row in rows:
             total = row[2] + row[3]

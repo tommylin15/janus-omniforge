@@ -8,7 +8,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "jobs" / "intelligence-mart"))
 
-from intelligence_mart.runtime import postgres_smoke
+from intelligence_mart.runtime import AnalysisExecution, consume_queued_analysis, postgres_smoke
 
 
 class _Cursor:
@@ -72,6 +72,45 @@ class MartRuntimeTests(unittest.TestCase):
 
         with patch.dict(os.environ, settings, clear=True), self.assertRaisesRegex(RuntimeError, "private"):
             postgres_smoke(lambda **kwargs: PublicConnection(kwargs["user"]))
+
+    def test_analysis_claim_is_not_complete_without_matching_persisted_artifact(self):
+        execution = AnalysisExecution("execution-1", "first-batch", ("2330",), 0,
+                                      {"core_execution_id": "core-1", "analysis_as_of": "2026-09-10",
+                                       "core_snapshot_id": "snapshot-1", "schema_version": "1",
+                                       "feature_version": "1", "model_version": "1",
+                                       "governance_snapshot_version": "1"})
+
+        class Queue:
+            def __init__(self): self.transitions = []
+            def claim(self, _worker_id): return execution
+            def transition(self, *args, **kwargs): self.transitions.append((args, kwargs))
+
+        queue = Queue()
+        with self.assertRaisesRegex(ValueError, "persist an artifact"):
+            consume_queued_analysis(queue, lambda _: {}, worker_id="mart-1")
+        self.assertEqual(queue.transitions[0][0][2], "retrying")
+
+    def test_analysis_completes_only_for_claimed_snapshot_artifact(self):
+        execution = AnalysisExecution("execution-1", "first-batch", ("2330",), 0,
+                                      {"core_execution_id": "core-1", "analysis_as_of": "2026-09-10",
+                                       "core_snapshot_id": "snapshot-1", "schema_version": "1",
+                                       "feature_version": "1", "model_version": "1",
+                                       "governance_snapshot_version": "1"})
+
+        class Queue:
+            def __init__(self): self.transitions = []
+            def claim(self, _worker_id): return execution
+            def transition(self, *args, **kwargs): self.transitions.append((args, kwargs))
+
+        queue = Queue()
+        result = consume_queued_analysis(
+            queue,
+            lambda _: {"artifact_uri": "gs://mart/execution-1/report.json",
+                       "core_snapshot_id": "snapshot-1"},
+            worker_id="mart-1",
+        )
+        self.assertEqual(result["status"], "succeeded")
+        self.assertEqual(queue.transitions[0][0][2], "succeeded")
 
 
 if __name__ == "__main__":
