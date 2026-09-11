@@ -14,3 +14,7 @@ correlation fields.
 explicit context egress, and request-bound approval records. Runtime enforcement
 lives in `services/api/engine_security.py` and defaults to no paid provider or
 silent fallback.
+
+`mart.v1.json` keeps deterministic analysis outcome separate from publication
+lifecycle, and defines PIT evidence, five discriminated role payloads, scoped
+analysis, and the metadata-only publication index boundary.

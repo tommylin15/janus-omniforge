@@ -10,6 +10,7 @@ class MartRoleMigrationTests(unittest.TestCase):
     def setUpClass(cls):
         cls.sql = (ROOT / "infra" / "postgres" / "migrations" / "008_mart_runtime_roles.sql").read_text(encoding="utf-8")
         cls.queue_sql = (ROOT / "infra" / "postgres" / "migrations" / "017_mart_analysis_queue.sql").read_text(encoding="utf-8")
+        cls.publication_sql = (ROOT / "infra" / "postgres" / "migrations" / "018_mart_publication.sql").read_text(encoding="utf-8")
         cls.hba = (ROOT / "infra" / "postgres" / "pg_hba.conf").read_text(encoding="utf-8")
         cls.bootstrap = (ROOT / "infra" / "postgres" / "bootstrap-vm.sh").read_text(encoding="utf-8")
 
@@ -34,8 +35,21 @@ class MartRoleMigrationTests(unittest.TestCase):
     def test_fresh_bootstrap_applies_the_mart_migration(self):
         self.assertIn("008_mart_runtime_roles.sql", self.bootstrap)
         self.assertIn("017_mart_analysis_queue.sql", self.bootstrap)
+        self.assertIn("018_mart_publication.sql", self.bootstrap)
         self.assertIn("MART_CATALOG_PASSWORD", self.bootstrap)
         self.assertIn("MART_PUBLICATION_PASSWORD", self.bootstrap)
+
+    def test_publication_index_is_metadata_only_and_filters_blocked_results(self):
+        table = self.publication_sql.split("CREATE TABLE IF NOT EXISTS publication.mart_report_index", 1)[1].split(");", 1)[0]
+        self.assertNotIn("json", table.lower())
+        self.assertNotIn("payload", table.lower())
+        self.assertNotIn("evidence", table.lower())
+        self.assertIn("analysis_outcome = 'complete'", self.publication_sql)
+        self.assertIn("publication_status IN ('publishable','published')", self.publication_sql)
+        self.assertIn("ready_at IS NOT NULL", self.publication_sql)
+        self.assertIn("p_status = 'succeeded'", self.publication_sql)
+        self.assertIn("REVOKE ALL ON publication.mart_report_index", self.publication_sql)
+        self.assertIn("GRANT EXECUTE ON FUNCTION publication.register_mart_report", self.publication_sql)
 
 
 if __name__ == "__main__":

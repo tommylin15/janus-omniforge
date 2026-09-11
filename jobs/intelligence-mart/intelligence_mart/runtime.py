@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from hashlib import sha256
 from ipaddress import ip_interface
 import json
@@ -72,6 +72,31 @@ class PostgreSQLAnalysisQueue:
                 raise RuntimeError("analysis execution lease is no longer owned by this worker")
 
 
+class PostgreSQLPublicationIndex:
+    """Register metadata only; the database function cannot accept a full report."""
+
+    def __init__(self, connection: Any) -> None:
+        self.connection = connection
+
+    def register(self, report: dict[str, Any], reference: dict[str, Any], artifact_hash: str, *, retention_days: int) -> None:
+        scope, aggregate = report["scope"], report["aggregate"]
+        if retention_days not in range(1, 3651):
+            raise ValueError("Mart retention_days must be between 1 and 3650")
+        params = (
+            report["execution_id"], report["analysis_as_of"], scope["type"], scope["id"], report["core_snapshot_id"],
+            reference["artifact_uri"], artifact_hash, report["deterministic_hash"], reference["table_identifier"],
+            reference["iceberg_snapshot_id"], str(report["schema_version"]), str(report["feature_version"]),
+            str(report["model_version"]), str(report["governance_snapshot_version"]), report["prompt_version"],
+            report["prompt_hash"], aggregate["completeness"], aggregate["confidence"], report["data_quality"],
+            aggregate["analysis_outcome"], aggregate["publication_status"],
+            date.fromisoformat(report["analysis_as_of"]) + timedelta(days=retention_days),
+        )
+        with self.connection.transaction(), self.connection.cursor() as cursor:
+            cursor.execute("SELECT publication.register_mart_report(" + ",".join(["%s"] * len(params)) + ")", params)
+            if not cursor.fetchone()[0]:
+                raise RuntimeError("Mart publication registration failed")
+
+
 def consume_queued_analysis(queue: PostgreSQLAnalysisQueue, processor: Callable[[AnalysisExecution], dict[str, object]],
                             *, worker_id: str, max_retries: int = 1) -> dict[str, object]:
     """Process one leased execution; claiming alone can never mark analysis complete."""
@@ -95,11 +120,8 @@ def consume_queued_analysis(queue: PostgreSQLAnalysisQueue, processor: Callable[
         raise
 
 
-def deterministic_processor(execution: AnalysisExecution, store_factory: Callable[[str], Any] | None = None) -> dict[str, object]:
-    """Materialise one immutable, deterministic Mart input artifact."""
-    if store_factory is None:
-        from ingestion_core.stage import GcsObjectStore
-        store_factory = GcsObjectStore
+def _fenced_core_manifest(execution: AnalysisExecution, store_factory: Callable[[str], Any]) -> dict[str, Any]:
+    """Load a hash-, execution-, and snapshot-fenced Core manifest."""
     source = urlparse(str(execution.request_options["core_snapshot_uri"]))
     if source.scheme != "gs" or not source.netloc or not source.path.strip("/"):
         raise ValueError("core_snapshot_uri must be a gs:// object")
@@ -114,6 +136,16 @@ def deterministic_processor(execution: AnalysisExecution, store_factory: Callabl
         raise ValueError("Core snapshot execution mismatch")
     if str(snapshot.get("snapshot_id", "")) != execution.core_snapshot_id:
         raise ValueError("Core snapshot ID mismatch")
+    return snapshot
+
+
+def deterministic_processor(execution: AnalysisExecution, store_factory: Callable[[str], Any] | None = None) -> dict[str, object]:
+    """Materialise one immutable, deterministic Mart input artifact."""
+    if store_factory is None:
+        from ingestion_core.stage import GcsObjectStore
+        store_factory = GcsObjectStore
+    _fenced_core_manifest(execution, store_factory)
+    digest = str(execution.request_options["core_snapshot_hash"])
 
     artifact = {
         "artifact_kind": "mart_input_v1",
@@ -144,10 +176,108 @@ def deterministic_processor(execution: AnalysisExecution, store_factory: Callabl
             "core_snapshot_id": execution.core_snapshot_id}
 
 
+def mart_processor(execution: AnalysisExecution, publication_connection: Any, *,
+                   store_factory: Callable[[str], Any] | None = None,
+                   catalog_factory: Callable[[], Any] | None = None,
+                   narrator_factory: Callable[[], Any] | None = None) -> dict[str, object]:
+    """Run the complete deterministic Mart and optional Gemini/publication stages."""
+    if store_factory is None:
+        from ingestion_core.stage import GcsObjectStore
+        store_factory = GcsObjectStore
+    from .analysis import analyze, canonical_json, prompt_bundle, scopes
+    from .storage import MartIcebergStore, load_core_datasets, sql_catalog_from_environment
+
+    manifest = _fenced_core_manifest(execution, store_factory)
+    deterministic_processor(execution, store_factory)
+    prompts, prompt_hash = prompt_bundle()
+    bucket = os.environ.get("MART_BUCKET", "").strip()
+    target_store = store_factory(bucket)
+    target_name = f"executions/{execution.execution_id}/manifest.json"
+    catalog = (catalog_factory or sql_catalog_from_environment)()
+    warehouse = os.environ.get("MART_ICEBERG_WAREHOUSE", f"gs://{os.environ.get('MART_BUCKET', '')}/warehouse")
+    mart_store = MartIcebergStore(catalog, warehouse)
+    try:
+        configured_scopes = scopes(execution.request_options, execution.requested_symbols)
+        selected_symbols = tuple(sorted(set(execution.requested_symbols) | {
+            symbol for scope in configured_scopes for symbol in scope["symbols"]
+        }))
+        datasets = load_core_datasets(catalog, manifest, selected_symbols,
+                                     row_limit=int(os.environ.get("CORE_SNAPSHOT_ROW_LIMIT", "100000")))
+        reports = analyze(
+            execution_id=execution.execution_id,
+            analysis_as_of=str(execution.request_options["analysis_as_of"]),
+            core_snapshot_id=execution.core_snapshot_id,
+            requested_symbols=execution.requested_symbols,
+            options=execution.request_options,
+            datasets=datasets,
+            prompts=prompts,
+            prompt_hash=prompt_hash,
+        )
+        expected_hashes = {(report["scope"]["type"], report["scope"]["id"]): report["deterministic_hash"] for report in reports}
+        existing_manifest = None
+        try:
+            existing_manifest = json.loads(target_store.read(target_name))
+        except FileNotFoundError:
+            pass
+        except Exception as error:
+            from urllib.error import HTTPError
+            if not isinstance(error, HTTPError) or error.code != 404:
+                raise
+        if existing_manifest is not None:
+            indexed = existing_manifest.get("reports", [])
+            actual_hashes = {(item["scope_type"], item["scope_id"]): item["deterministic_hash"] for item in indexed}
+            if existing_manifest.get("core_snapshot_id") != execution.core_snapshot_id or actual_hashes != expected_hashes:
+                raise RuntimeError("immutable Mart execution manifest conflict")
+            narratives = {(item["scope_type"], item["scope_id"]): item for item in existing_manifest.get("llm", [])}
+        else:
+            narratives: dict[tuple[str, str], dict[str, Any]] = {}
+            if os.environ.get("MART_LLM_ENABLED", "false").lower() in {"1", "true", "yes"}:
+                if narrator_factory is None:
+                    from .gemini import GeminiNarrator
+                    narrator_factory = GeminiNarrator.from_environment
+                narrator = narrator_factory()
+                for report in reports:
+                    scope = report["scope"]
+                    narratives[(scope["type"], scope["id"])] = narrator.narrate(report, prompts)
+            references = mart_store.write(reports, narratives)
+    finally:
+        mart_store.close()
+
+    publication = PostgreSQLPublicationIndex(publication_connection)
+    if existing_manifest is None:
+        indexed = []
+        for report in reports:
+            scope = report["scope"]
+            reference = references[(scope["type"], scope["id"])]
+            artifact = urlparse(reference["artifact_uri"])
+            if artifact.scheme != "gs" or not artifact.netloc or not artifact.path.strip("/"):
+                raise ValueError("Iceberg metadata location must be an immutable GCS object")
+            artifact_payload = store_factory(artifact.netloc).read(artifact.path.lstrip("/"))
+            artifact_hash = f"sha256:{sha256(artifact_payload).hexdigest()}"
+            indexed.append({"scope_type": scope["type"], "scope_id": scope["id"], **reference,
+                            "artifact_hash": artifact_hash, "deterministic_hash": report["deterministic_hash"],
+                            "analysis_outcome": report["aggregate"]["analysis_outcome"],
+                            "publication_status": report["aggregate"]["publication_status"]})
+        result_manifest = {
+            "artifact_kind": "mart_execution_v1", "execution_id": execution.execution_id,
+            "analysis_as_of": execution.request_options["analysis_as_of"], "core_snapshot_id": execution.core_snapshot_id,
+            "reports": indexed, "llm": [{"scope_type": key[0], "scope_id": key[1], **value} for key, value in sorted(narratives.items())],
+        }
+        payload = canonical_json(result_manifest)
+        if not target_store.create(target_name, payload, "application/json") and target_store.read(target_name) != payload:
+            raise RuntimeError("immutable Mart execution manifest conflict")
+    retention_days = int(execution.request_options.get("retention_days", 365))
+    for report, index in zip(reports, indexed, strict=True):
+        publication.register(report, index, index["artifact_hash"], retention_days=retention_days)
+    return {"artifact_uri": f"gs://{bucket}/{target_name}", "core_snapshot_id": execution.core_snapshot_id,
+            "reports": len(reports), "publishable": sum(item["publication_status"] in {"publishable", "published"} for item in indexed)}
+
+
 def run_queued_analysis() -> dict[str, object]:
     """Run one persisted analysis execution through the immutable input materialiser."""
     from packages.postgres_bundle import load_postgres_bundle
     load_postgres_bundle("JANUS_MART_POSTGRES_BUNDLE", {
+        "CATALOG_DB_PASSWORD": ("mart_catalog_password", "catalog_password"),
         "PUBLICATION_DB_PASSWORD": ("mart_publication_password", "publication_password"),
     })
     settings = _settings("PUBLICATION_DB")
@@ -159,7 +289,7 @@ def run_queued_analysis() -> dict[str, object]:
         options="-c statement_timeout=15000 -c idle_in_transaction_session_timeout=15000",
     ) as connection:
         return consume_queued_analysis(
-            PostgreSQLAnalysisQueue(connection), deterministic_processor,
+            PostgreSQLAnalysisQueue(connection), lambda execution: mart_processor(execution, connection),
             worker_id=os.environ.get("QUEUE_WORKER_ID", "intelligence-mart").strip(),
             max_retries=int(os.environ.get("QUEUE_MAX_RETRIES", "1")),
         )

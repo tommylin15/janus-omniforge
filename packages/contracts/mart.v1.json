@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Janus public Intelligence Mart",
+  "version": "1.0.0",
+  "$defs": {
+    "EvidenceV1": {
+      "type": "object",
+      "required": ["evidence_id", "dataset_id", "metric", "unit", "source_id", "source_authorization", "observed_at", "record_at", "quality_flag", "provenance_id", "core_snapshot_id", "location"],
+      "properties": {
+        "evidence_id": {"type": "string", "pattern": "^ev-[0-9a-f]{24}$"},
+        "dataset_id": {"type": "string", "minLength": 1},
+        "symbol": {"type": ["string", "null"]},
+        "metric": {"type": "string", "minLength": 1},
+        "value": {},
+        "unit": {"type": "string", "minLength": 1},
+        "source_id": {"type": "string", "minLength": 1},
+        "source_authorization": {"enum": ["official", "approved_fallback"]},
+        "published_at": {"type": ["string", "null"], "format": "date-time"},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "record_at": {"type": "string", "format": "date-time"},
+        "quality_flag": {"enum": ["good", "warning", "critical", "unknown"]},
+        "severity": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
+        "manual_review_required": {"type": "boolean"},
+        "provenance_id": {"type": "string", "minLength": 1},
+        "core_snapshot_id": {"type": "string", "minLength": 1},
+        "location": {"type": "string", "pattern": "^(https|gs|iceberg)://"}
+      },
+      "additionalProperties": false
+    },
+    "RolePayloadV1": {
+      "type": "object",
+      "required": ["role", "score", "completeness", "confidence", "missing_data", "evidence_ids", "features"],
+      "properties": {
+        "role": {"enum": ["fundamental", "valuation", "positioning", "quant", "event_risk"]},
+        "score": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
+        "completeness": {"type": "number", "minimum": 0, "maximum": 1},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "missing_data": {"type": "array", "items": {"type": "string"}},
+        "evidence_ids": {"type": "array", "items": {"type": "string"}},
+        "features": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "MartScopedAnalysisV1": {
+      "type": "object",
+      "required": ["schema_version", "feature_version", "model_version", "governance_snapshot_version", "execution_id", "analysis_as_of", "core_snapshot_id", "scope", "membership_snapshot", "membership_snapshot_hash", "prompt_version", "prompt_hash", "governance", "features", "roles", "evidence", "rejected_evidence", "data_quality", "aggregate", "deterministic_hash"],
+      "properties": {
+        "schema_version": {"type": "string", "minLength": 1},
+        "feature_version": {"type": "string", "minLength": 1},
+        "model_version": {"type": "string", "minLength": 1},
+        "governance_snapshot_version": {"type": "string", "minLength": 1},
+        "execution_id": {"type": "string", "minLength": 1},
+        "analysis_as_of": {"type": "string", "format": "date"},
+        "core_snapshot_id": {"type": "string", "minLength": 1},
+        "scope": {
+          "type": "object",
+          "required": ["type", "id", "symbols"],
+          "properties": {
+            "type": {"enum": ["market", "industry", "symbol"]},
+            "id": {"type": "string", "minLength": 1},
+            "name": {"type": "string", "minLength": 1},
+            "coverage": {"type": "string", "minLength": 1},
+            "symbols": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+          },
+          "additionalProperties": false
+        },
+        "membership_snapshot": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "membership_snapshot_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "prompt_version": {"type": "string", "minLength": 1},
+        "prompt_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "governance": {"type": "object"},
+        "published_components": {"type": "array", "items": {"type": "object"}},
+        "features": {"type": "object"},
+        "roles": {"type": "array", "minItems": 5, "maxItems": 5, "items": {"$ref": "#/$defs/RolePayloadV1"}},
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/EvidenceV1"}},
+        "rejected_evidence": {"type": "array", "items": {"type": "object"}},
+        "data_quality": {"enum": ["good", "warning", "critical", "unknown"]},
+        "aggregate": {
+          "type": "object",
+          "required": ["aggregate_score", "completeness", "confidence", "confidence_semantics", "bull", "bear", "contradictions", "contributions", "devils_advocate", "analysis_outcome", "publication_status", "reason"],
+          "properties": {
+            "aggregate_score": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
+            "completeness": {"type": "number", "minimum": 0, "maximum": 1},
+            "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+            "bull": {"type": "array", "items": {"type": "string"}},
+            "bear": {"type": "array", "items": {"type": "string"}},
+            "contradictions": {"type": "array", "items": {"type": "string"}},
+            "contributions": {"type": "array", "items": {"type": "object"}},
+            "devils_advocate": {"type": "object"},
+            "analysis_outcome": {"enum": ["complete", "invalid", "review_required", "risk_blocked", "insufficient_data"]},
+            "publication_status": {"enum": ["draft", "blocked", "publishable", "published", "superseded"]},
+            "reason": {"type": ["string", "null"]}
+            ,"confidence_semantics": {"const": "data_and_analysis_confidence_not_profit_probability"}
+          }
+        },
+        "deterministic_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      },
+      "additionalProperties": false
+    },
+    "MartPublicationIndexV1": {
+      "type": "object",
+      "required": ["execution_id", "analysis_as_of", "scope_type", "scope_id", "core_snapshot_id", "artifact_uri", "artifact_hash", "table_identifier", "iceberg_snapshot_id", "analysis_outcome", "publication_status"],
+      "properties": {
+        "execution_id": {"type": "string", "minLength": 1},
+        "analysis_as_of": {"type": "string", "format": "date"},
+        "scope_type": {"enum": ["market", "industry", "symbol"]},
+        "scope_id": {"type": "string", "minLength": 1},
+        "core_snapshot_id": {"type": "string", "minLength": 1},
+        "artifact_uri": {"type": "string", "pattern": "^gs://"},
+        "artifact_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "table_identifier": {"const": "mart.mart_scoped_analysis_v1"},
+        "iceberg_snapshot_id": {"type": "integer"},
+        "analysis_outcome": {"enum": ["complete", "invalid", "review_required", "risk_blocked", "insufficient_data"]},
+        "publication_status": {"enum": ["draft", "blocked", "publishable", "published", "superseded"]}
+      },
+      "additionalProperties": true
+    },
+    "MartCandidateHealthV1": {
+      "type": "object",
+      "required": ["stock_id", "stock_name", "mart_health_score", "chips_status", "ai_whitepaper_analysis", "analysis_as_of", "data_status", "confidence", "evidence_refs", "ai_evidence_refs"],
+      "properties": {
+        "stock_id": {"type": "string", "minLength": 1},
+        "stock_name": {"type": "string", "minLength": 1},
+        "mart_health_score": {"type": ["integer", "null"], "minimum": 1, "maximum": 100},
+        "chips_status": {"enum": ["accumulating", "neutral", "distributing", "insufficient_data"]},
+        "ai_whitepaper_analysis": {"type": ["string", "null"]},
+        "analysis_as_of": {"type": "string", "format": "date"},
+        "data_status": {"enum": ["draft", "blocked", "publishable", "published", "superseded"]},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+        "ai_evidence_refs": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    }
+  }
+}

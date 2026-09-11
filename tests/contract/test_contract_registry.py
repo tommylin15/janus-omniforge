@@ -20,6 +20,10 @@ class ContractRegistryTests(unittest.TestCase):
         for schema_name in ("RuntimeBindingV1", "AgentEventV1", "ContextEgressV1", "ContextSourceV1",
                             "ContextSelectorV1", "ContextPreviewV1", "ContextResolveV1", "ApprovalRequestV1"):
             self.assertIn(schema_name, self.registry["schemas"])
+        for schema_name in ("MartEvidenceV1", "MartRolePayloadV1", "MartScopedAnalysisV1", "MartPublicationIndexV1", "MartCandidateHealthV1"):
+            self.assertIn(schema_name, self.registry["schemas"])
+        self.assertEqual(set(self.registry["enums"]["analysisOutcome"]),
+                         {"complete", "invalid", "review_required", "risk_blocked", "insufficient_data"})
 
     def test_governance_blocking_policy(self):
         self.assertEqual(self.policy["developmentCompletenessGate"], 0.30)

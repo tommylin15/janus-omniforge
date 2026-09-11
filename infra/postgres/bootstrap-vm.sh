@@ -65,6 +65,7 @@ sudo docker exec \
     printf "\\getenv mart_catalog_password MART_CATALOG_PASSWORD\n\\getenv mart_publication_password MART_PUBLICATION_PASSWORD\n" > /tmp/mart-vars.sql
     cat /tmp/mart-vars.sql /opt/janus/migrations/008_mart_runtime_roles.sql | psql -U postgres -d janus_control
     psql -U postgres -d janus_control -f /opt/janus/migrations/017_mart_analysis_queue.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/018_mart_publication.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/009_admin_cursor_indexes.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/010_execution_runtime_options.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/011_control_settings_ownership.sql

@@ -14,9 +14,9 @@ versions，依 6-version 免費額度，當下 active-version 儲存費預估為
 
 程式、向後相容欄位 loader、部署順序與 phased GCP migration／cleanup 腳本已修改；
 targeted tests、TypeScript build、bash syntax、Cloud Build contract 與三個既有 Job
-smoke 均已通過。GCP prepare／部署已完成，六個 legacy Secret 尚未刪除；Codex A/B
-live auth isolation 尚待人工建立 owner auth entry。cleanup 是最後的不可逆步驟，需另外
-明確授權。
+smoke 均已通過。GCP prepare／部署與六個 legacy Secret cleanup 已完成；目前只剩
+三個 Secret container、兩個 enabled versions。Codex A/B live auth isolation 尚待
+人工建立 owner auth entry。
 
 ## WBS-3-ADMIN-POLISH 驗證（2026-09-11）
 
@@ -42,7 +42,7 @@ PostgreSQL acceptance：兩個並行 transaction 對固定 rollback fixture 執�
 中 30 成功、5 個收到 `too many clients already`，釋放後 probe 成功。VM reset
 後回到 `RUNNING`，`pg_isready` accepting connections，控制面保留 18 executions。
 
-Secret runtime 修正：GCP metadata 重讀確認目前 8 個 Secret，詳見
+Secret runtime 修正：GCP metadata 重讀確認目前 3 個 Secret，詳見
 [`doc/secret_list.md`](../secret_list.md)。ingestion／mart／private-pipeline 已
 分別切換至既有 bundle；private-pipeline API image build
 `b7d47342-906c-44c0-8eea-cceda10898c7` SUCCESS，digest

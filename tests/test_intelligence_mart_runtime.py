@@ -9,7 +9,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "jobs" / "intelligence-mart"))
 
-from intelligence_mart.runtime import AnalysisExecution, consume_queued_analysis, deterministic_processor, postgres_smoke
+from intelligence_mart.runtime import AnalysisExecution, PostgreSQLPublicationIndex, consume_queued_analysis, deterministic_processor, postgres_smoke
 
 
 def _analysis_options():
@@ -43,6 +43,33 @@ class _Connection:
 
 
 class MartRuntimeTests(unittest.TestCase):
+    def test_publication_writer_sends_metadata_only_to_bounded_function(self):
+        calls = []
+        class Cursor:
+            def __enter__(self): return self
+            def __exit__(self, *_): pass
+            def execute(self, query, params): calls.append((query, params))
+            def fetchone(self): return (True,)
+        class Transaction:
+            def __enter__(self): return self
+            def __exit__(self, *_): pass
+        class Connection:
+            def transaction(self): return Transaction()
+            def cursor(self): return Cursor()
+        report = {"execution_id": "11111111-1111-1111-1111-111111111111", "analysis_as_of": "2026-09-10",
+                  "core_snapshot_id": "core-1", "scope": {"type": "symbol", "id": "2330"},
+                  "deterministic_hash": "sha256:" + "1" * 64, "schema_version": "1", "feature_version": "1",
+                  "model_version": "1", "governance_snapshot_version": "1", "prompt_version": "v1",
+                  "prompt_hash": "sha256:" + "2" * 64, "data_quality": "good",
+                  "aggregate": {"completeness": 1.0, "confidence": 0.8, "analysis_outcome": "complete",
+                                "publication_status": "publishable"}}
+        reference = {"artifact_uri": "gs://mart/metadata.json", "table_identifier": "mart.mart_scoped_analysis_v1",
+                     "iceberg_snapshot_id": 1}
+        PostgreSQLPublicationIndex(Connection()).register(report, reference, "sha256:" + "3" * 64, retention_days=365)
+        self.assertIn("publication.register_mart_report", calls[0][0])
+        self.assertNotIn("features", calls[0][1])
+        self.assertNotIn("evidence", calls[0][1])
+
     def test_smoke_uses_separate_credentials_and_private_postgres(self):
         settings = {
             "CATALOG_DB_HOST": "10.42.0.5", "CATALOG_DB_NAME": "janus_control",
