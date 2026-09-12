@@ -177,7 +177,7 @@ class PostgresWorkspaceRepository:
 
     def watchlist(self, user_id: UUID) -> list[dict[str, Any]]:
         with self._connection() as connection:
-            return [dict(row) for row in connection.execute("SELECT * FROM private.watchlist WHERE user_id=%s ORDER BY sort_order,symbol",(user_id,)).fetchall()]
+            return [dict(row) for row in connection.execute("SELECT * FROM private.watchlist WHERE user_id=%s AND active ORDER BY sort_order,symbol",(user_id,)).fetchall()]
 
     def follow(self, user_id: UUID, value: WatchlistIn, key: str) -> dict[str, Any]:
         with self._connection() as connection:
@@ -202,6 +202,7 @@ class PostgresWorkspaceRepository:
             ).fetchone()
             change_version=self._next_change_version(connection,user_id); self._change(connection,user_id,change_version,"watchlist",value.symbol,None)
             self._record_mutation(connection,user_id,key,"watchlist",value.symbol)
+            connection.execute("SELECT control.record_deep_tracking_demand(%s)", (value.symbol,))
             return dict(row)
 
     def unfollow(self, user_id: UUID, symbol: str, key: str) -> None:
@@ -213,6 +214,7 @@ class PostgresWorkspaceRepository:
             if not row: raise NotFoundError("watchlist item not found")
             version=self._next_change_version(connection,user_id); self._change(connection,user_id,version,"watchlist",symbol,None)
             self._record_mutation(connection,user_id,key,"watchlist",symbol)
+            connection.execute("SELECT control.record_deep_tracking_demand(%s)", (symbol,))
 
     def reorder(self, user_id: UUID, symbols: list[str], expected: int, key: str) -> list[dict[str, Any]]:
         with self._connection() as connection:
@@ -253,7 +255,10 @@ class PostgresWorkspaceRepository:
             ).fetchall()]
 
     def watchlist_for_pipeline(self, user_id: UUID) -> list[dict[str, Any]]:
-        return self.watchlist(user_id)
+        with self._connection() as connection:
+            return [dict(row) for row in connection.execute(
+                "SELECT * FROM private.watchlist WHERE user_id=%s ORDER BY updated_at,symbol", (user_id,)
+            ).fetchall()]
 
     def request_deletion(self, user_id: UUID, key: str) -> dict[str, Any]:
         with self._connection() as connection:

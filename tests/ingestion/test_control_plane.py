@@ -79,25 +79,49 @@ class ControlPlaneTests(unittest.TestCase):
     def tearDown(self):
         self.control.close()
 
+    @staticmethod
+    def ready(execution):
+        return {"eventType":"core.dataset.ready.v1","executionId":execution.execution_id,"configId":execution.config_id,
+                "datasetId":"core","schemaVersion":"1.0.0","rowCount":2,"analysisAsOf":"2026-09-12",
+                "coreSnapshotId":"snapshot-1","coreSnapshotUri":"gs://core/executions/core-1/core-snapshot.json",
+                "coreSnapshotHash":"sha256:" + "1" * 64,
+                "scopes":[{"type":"symbol","id":"2330","symbols":["2330"]}]}
+
     def test_collection_and_analysis_are_separate_queued_commands(self):
         collection = self.control.enqueue_collection("twse-ohlcv", ("2330",), trace_id="trace-collection")
+        self.control.transition_execution(collection.execution_id, ExecutionStatus.RUNNING)
+        _, automatic = self.control.complete_collection(collection.execution_id, self.ready(collection))
         analysis = self.control.enqueue_analysis("twse-ohlcv", ("2330",), trace_id="trace-analysis")
-        self.assertEqual(collection.status, ExecutionStatus.QUEUED)
+        self.assertEqual(self.control.get_execution(collection.execution_id).status, ExecutionStatus.SUCCEEDED)
         self.assertEqual(collection.trigger_type.value, "collection")
         self.assertEqual(analysis.status, ExecutionStatus.QUEUED)
-        self.assertNotEqual(collection.execution_id, analysis.execution_id)
-        self.assertEqual({item.trace_id for item in self.control.list_executions(limit=2)}, {"trace-collection", "trace-analysis"})
+        self.assertNotEqual(automatic.execution_id, analysis.execution_id)
+        self.assertEqual(analysis.request_options["core_snapshot_id"], "snapshot-1")
+        self.assertEqual(analysis.request_options["scopes"], [{"type":"symbol","id":"2330","symbols":["2330"]}])
+        with self.assertRaisesRegex(ControlPlaneError, "latest Core snapshot"):
+            self.control.enqueue_analysis("twse-ohlcv", ("2317",))
 
     def test_queue_claim_filters_worker_type_and_releases_lease_on_completion(self):
         collection = self.control.enqueue_collection("twse-ohlcv", ("2330",))
-        analysis = self.control.enqueue_analysis("twse-ohlcv", ("2330",))
         claimed = self.control.claim_execution("ingestion-1", trigger_type=TriggerType.COLLECTION)
         self.assertEqual(claimed.execution_id, collection.execution_id)
         self.assertEqual(claimed.status, ExecutionStatus.RUNNING)
         self.assertIsNone(self.control.claim_execution("ingestion-2", trigger_type=TriggerType.COLLECTION))
-        self.control.transition_execution(claimed.execution_id, ExecutionStatus.SUCCEEDED)
+        _, analysis = self.control.complete_collection(claimed.execution_id, self.ready(claimed))
         claimed_analysis = self.control.claim_execution("mart-1", trigger_type=TriggerType.ANALYSIS)
         self.assertEqual(claimed_analysis.execution_id, analysis.execution_id)
+
+    def test_core_ready_replay_is_idempotent_and_failed_collection_does_not_trigger(self):
+        execution = self.control.enqueue_collection("twse-ohlcv", ("2330",))
+        self.control.transition_execution(execution.execution_id, ExecutionStatus.RUNNING)
+        completed, first = self.control.complete_collection(execution.execution_id, self.ready(execution))
+        replayed, second = self.control.complete_collection(execution.execution_id, self.ready(execution))
+        self.assertEqual((completed.status, first.execution_id), (ExecutionStatus.SUCCEEDED, second.execution_id))
+        failed = self.control.enqueue_collection("twse-ohlcv", ("2330",))
+        self.control.transition_execution(failed.execution_id, ExecutionStatus.RUNNING)
+        self.control.transition_execution(failed.execution_id, ExecutionStatus.FAILED)
+        with self.assertRaises(Exception):
+            self.control.complete_collection(failed.execution_id, self.ready(failed))
 
     def test_expired_queue_lease_can_be_reclaimed(self):
         execution = self.control.enqueue_collection("twse-ohlcv", ("2330",))

@@ -50,8 +50,11 @@ class _Admin:
         return {"execution_id": "collection-1", "config_id": config_id, "requested_symbols": symbols, "request_options": request_options or {}, "status": "queued"}
 
     def enqueue_analysis(self, config_id, symbols=None, *, trace_id=None):
-        from packages.admin_api import AdminValidationError
-        raise AdminValidationError("analysis is unavailable until its persisted consumer is enabled")
+        return {"execution_id": "analysis-1", "config_id": config_id, "requested_symbols": symbols, "status": "queued"}
+
+    def mart_reports(self, **_filters):
+        return ({"execution_id":"analysis-1","analysis_as_of":"2026-09-12","scope_type":"symbol",
+                 "scope_id":"2330","artifact_uri":"gs://mart/metadata.json"},)
 
     def source_health(self, *, limit=200, cursor=None):
         self.cursor = cursor
@@ -153,19 +156,24 @@ class WebServerTests(unittest.TestCase):
         self.assertFalse(body["can_delete"])
         self.assertEqual(body["references"]["fundamental"], 5)
 
-    def test_collection_queues_and_analysis_is_rejected(self):
+    def test_collection_and_analysis_use_persisted_queues(self):
         admin = _Admin()
         status, body = self.request("/api/v1/admin/executions/collection", method="POST", body={"config_id": "ohlcv", "symbols": ["2330"]}, admin=admin)
         self.assertEqual(status, "202 Accepted")
         self.assertEqual(body["status"], "queued")
 
         status, body = self.request("/api/v1/admin/executions/analysis", method="POST", body={"config_id": "ohlcv", "symbols": ["2330"]}, admin=admin)
-        self.assertEqual(status, "400 Bad Request")
-        self.assertIn("persisted consumer", body["error"])
+        self.assertEqual(status, "202 Accepted")
+        self.assertEqual(body["status"], "queued")
 
         status, body = self.request("/api/v1/admin/executions/collection", method="POST", body={"config_id": "ohlcv", "symbols": ["2330"], "options": {"start_date": "2026-08-24", "end_date": "2026-08-28", "source_ids": ["twse"]}}, admin=admin)
         self.assertEqual(status, "202 Accepted")
         self.assertEqual(body["request_options"]["source_ids"], ["twse"])
+
+    def test_mart_report_query_is_a_persisted_metadata_surface(self):
+        status, body = self.request("/api/v1/admin/mart-reports?scope_type=symbol&scope_id=2330", admin=_Admin())
+        self.assertEqual(status, "200 OK")
+        self.assertEqual(body["items"][0]["artifact_uri"], "gs://mart/metadata.json")
 
     def test_execution_health_and_membership_reads_are_bounded_surfaces(self):
         admin = _Admin()

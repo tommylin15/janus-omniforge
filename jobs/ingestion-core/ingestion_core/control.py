@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 import sqlite3
 from typing import Any, Iterable
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 
 class ExecutionStatus(StrEnum):
@@ -330,6 +330,38 @@ CREATE TABLE IF NOT EXISTS execution_items (
     safe_message TEXT,
     PRIMARY KEY (execution_id, item_key)
 );
+CREATE TABLE IF NOT EXISTS core_ready_events (
+    core_execution_id TEXT PRIMARY KEY REFERENCES executions(execution_id) ON DELETE RESTRICT,
+    analysis_execution_id TEXT UNIQUE,
+    payload_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS mart_report_index (
+    execution_id TEXT NOT NULL,
+    analysis_as_of TEXT NOT NULL,
+    scope_type TEXT NOT NULL,
+    scope_id TEXT NOT NULL,
+    core_snapshot_id TEXT NOT NULL,
+    artifact_uri TEXT NOT NULL,
+    artifact_hash TEXT NOT NULL,
+    deterministic_hash TEXT NOT NULL,
+    table_identifier TEXT NOT NULL,
+    iceberg_snapshot_id INTEGER NOT NULL,
+    schema_version TEXT NOT NULL,
+    feature_version TEXT NOT NULL,
+    model_version TEXT NOT NULL,
+    governance_snapshot_version TEXT NOT NULL,
+    prompt_version TEXT NOT NULL,
+    prompt_hash TEXT NOT NULL,
+    completeness REAL NOT NULL,
+    confidence REAL NOT NULL,
+    data_quality TEXT NOT NULL,
+    analysis_outcome TEXT NOT NULL,
+    publication_status TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    ready_at TEXT,
+    PRIMARY KEY(execution_id,scope_type,scope_id)
+);
 CREATE TABLE IF NOT EXISTS response_cache (
     cache_key TEXT PRIMARY KEY,
     source_id TEXT NOT NULL,
@@ -576,7 +608,14 @@ class SQLiteControlPlane:
         return self._enqueue(config_id, TriggerType.COLLECTION, symbols, trace_id, request_options)
 
     def enqueue_analysis(self, config_id: str, symbols: Iterable[str] | None = None, *, trace_id: str | None = None) -> Execution:
-        return self._enqueue(config_id, TriggerType.ANALYSIS, symbols, trace_id, None)
+        row = self.connection.execute(
+            "SELECT payload_json FROM core_ready_events WHERE json_extract(payload_json,'$.configId')=? ORDER BY created_at DESC LIMIT 1",
+            (config_id,),
+        ).fetchone()
+        if row is None:
+            raise ControlPlaneError("no successful Core snapshot is available for analysis")
+        requested, options = _analysis_request(json.loads(row[0]), symbols)
+        return self._enqueue(config_id, TriggerType.ANALYSIS, requested, trace_id, options)
 
     def _enqueue(self, config_id: str, trigger_type: TriggerType, symbols: Iterable[str] | None,
                  trace_id: str | None, request_options: dict[str, Any] | None) -> Execution:
@@ -653,6 +692,20 @@ class SQLiteControlPlane:
         ).fetchall()
         return tuple(row[0] for row in rows)
 
+    def list_mart_reports(self, *, filters: dict[str, str], limit: int = 50) -> tuple[dict[str, Any], ...]:
+        clauses, values = [], []
+        for field, value in filters.items():
+            if field not in {"analysis_as_of","scope_type","scope_id","prompt_version","analysis_outcome","publication_status"}:
+                raise ValueError("invalid Mart report filter")
+            clauses.append(f"{field}=?")
+            values.append(value)
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        values.append(limit)
+        return tuple(dict(row) for row in self.connection.execute(
+            f"SELECT * FROM mart_report_index{where} ORDER BY analysis_as_of DESC,created_at DESC,execution_id DESC,scope_type,scope_id LIMIT ?",
+            values,
+        ).fetchall())
+
     def claim_execution(self, worker_id: str, *, trigger_type: TriggerType | None = None,
                         lease: timedelta = timedelta(minutes=5), now: datetime | None = None) -> Execution | None:
         if not worker_id.strip() or lease <= timedelta(0):
@@ -693,6 +746,48 @@ class SQLiteControlPlane:
         self.connection.execute("UPDATE executions SET status=?, started_at=?, finished_at=?, retry_count=?, error_code=?, claimed_by=NULL, claimed_until=NULL WHERE execution_id=?", (status.value, _iso(started), _iso(finished), current.retry_count if retry_count is None else retry_count, error_code, execution_id))
         self.connection.commit()
         return self.get_execution(execution_id)
+
+    def complete_collection(self, execution_id: str, ready_event: dict[str, Any] | None = None) -> tuple[Execution, Execution | None]:
+        """Atomically commit collection success and idempotently enqueue its Mart work."""
+        current = self.get_execution(execution_id)
+        existing = self.connection.execute(
+            "SELECT analysis_execution_id,payload_json FROM core_ready_events WHERE core_execution_id=?", (execution_id,)
+        ).fetchone()
+        if current.status is ExecutionStatus.SUCCEEDED and existing:
+            if ready_event is not None and json.loads(existing["payload_json"]) != ready_event:
+                raise ControlPlaneError("immutable Core ready event conflict")
+            analysis = self.get_execution(existing["analysis_execution_id"]) if existing["analysis_execution_id"] else None
+            return current, analysis
+        if current.status is not ExecutionStatus.RUNNING:
+            raise InvalidTransitionError(f"cannot complete collection from {current.status}")
+        if ready_event and (ready_event.get("executionId") != execution_id or ready_event.get("configId") != current.config_id):
+            raise ControlPlaneError("Core ready event does not match its collection execution")
+        analysis_id = str(uuid5(NAMESPACE_URL, f"janus:mart:{execution_id}")) if ready_event else None
+        options = _analysis_options(ready_event) if ready_event else None
+        with self.connection:
+            self.connection.execute(
+                "UPDATE executions SET status='succeeded',finished_at=?,claimed_by=NULL,claimed_until=NULL WHERE execution_id=?",
+                (_iso(utc_now()), execution_id),
+            )
+            if ready_event:
+                self.connection.execute(
+                    "INSERT INTO core_ready_events(core_execution_id,analysis_execution_id,payload_json,created_at) VALUES(?,?,?,?)",
+                    (execution_id, analysis_id, json.dumps(ready_event, sort_keys=True, separators=(",", ":")), _iso(utc_now())),
+                )
+                config = self.get_collection_config(current.config_id)
+                if config.analysis_enabled:
+                    self.connection.execute(
+                        "INSERT INTO executions(execution_id,trace_id,config_id,trigger_type,status,requested_symbols,requested_at,request_options) VALUES(?,?,?,?,?,?,?,?)",
+                        (analysis_id, current.trace_id, current.config_id, "analysis", "queued", json.dumps(current.requested_symbols), _iso(utc_now()), json.dumps(options)),
+                    )
+                    self.connection.executemany(
+                        "INSERT INTO execution_symbols(execution_id,symbol) VALUES(?,?)",
+                        ((analysis_id, symbol) for symbol in current.requested_symbols),
+                    )
+                else:
+                    self.connection.execute("UPDATE core_ready_events SET analysis_execution_id=NULL WHERE core_execution_id=?", (execution_id,))
+                    analysis_id = None
+        return self.get_execution(execution_id), self.get_execution(analysis_id) if analysis_id else None
 
     def save_item(self, item: ExecutionItem) -> None:
         self.connection.execute(
@@ -813,3 +908,46 @@ def _symbol(value: str) -> str:
     if not normalized or len(normalized) > 20 or not all(character.isalnum() or character in "-_" for character in normalized):
         raise ValueError("invalid stock symbol")
     return normalized
+
+
+def _analysis_options(event: dict[str, Any]) -> dict[str, Any]:
+    required = {
+        "eventType": "core.dataset.ready.v1", "datasetId": "core", "schemaVersion": "1.0.0",
+        "executionId": None, "analysisAsOf": None, "coreSnapshotId": None,
+        "coreSnapshotUri": None, "coreSnapshotHash": None,
+    }
+    missing = [key for key, expected in required.items() if not str(event.get(key, "")).strip() or expected and event[key] != expected]
+    if missing or not isinstance(event.get("rowCount"), int) or event["rowCount"] < 0:
+        raise ControlPlaneError(f"invalid Core ready event: {','.join(missing) or 'rowCount'}")
+    if not str(event["coreSnapshotUri"]).startswith("gs://"):
+        raise ControlPlaneError("invalid Core ready event: coreSnapshotUri")
+    digest = str(event["coreSnapshotHash"])
+    if len(digest) != 71 or not digest.startswith("sha256:") or any(character not in "0123456789abcdef" for character in digest[7:]):
+        raise ControlPlaneError("invalid Core ready event: coreSnapshotHash")
+    date.fromisoformat(str(event["analysisAsOf"]))
+    options = {
+        "core_execution_id": event["executionId"], "analysis_as_of": event["analysisAsOf"],
+        "core_snapshot_id": event["coreSnapshotId"], "core_snapshot_uri": event["coreSnapshotUri"],
+        "core_snapshot_hash": event["coreSnapshotHash"], "schema_version": event.get("martSchemaVersion", "1"),
+        "feature_version": event.get("featureVersion", "1"), "model_version": event.get("modelVersion", "deterministic-v1"),
+        "governance_snapshot_version": event.get("governanceSnapshotVersion", "gov-1"),
+    }
+    if isinstance(event.get("scopes"), list):
+        options["scopes"] = event["scopes"]
+    return options
+
+
+def _analysis_request(event: dict[str, Any], symbols: Iterable[str] | None) -> tuple[tuple[str, ...], dict[str, Any]]:
+    options = _analysis_options(event)
+    scopes = options.get("scopes", [])
+    if any(not isinstance(scope, dict) or not isinstance(scope.get("symbols"), list) for scope in scopes):
+        raise ControlPlaneError("Core snapshot scopes are invalid")
+    available = {_symbol(symbol) for scope in scopes for symbol in scope["symbols"]}
+    requested = tuple(sorted({_symbol(symbol) for symbol in symbols})) if symbols is not None else tuple(sorted(available))
+    if not requested:
+        raise ControlPlaneError("Core snapshot has no symbols available for analysis")
+    if available and not set(requested) <= available:
+        raise ControlPlaneError("selected stocks are not available in the latest Core snapshot")
+    if symbols is not None:
+        options["scopes"] = [{"type": "symbol", "id": symbol, "symbols": [symbol]} for symbol in requested]
+    return requested, options

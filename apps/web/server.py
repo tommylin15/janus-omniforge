@@ -135,6 +135,16 @@ class WebApplication:
             page = items[:limit]
             next_cursor = f'{page[-1]["requested_at"]},{page[-1]["execution_id"]}' if len(items) > limit else None
             return {"items": page, "limit": limit, "next_cursor": next_cursor}, "200 OK", json_type
+        if method == "GET" and path == "/api/v1/admin/mart-reports":
+            limit = int(query.get("limit", ["50"])[0])
+            reports = self.admin.mart_reports(
+                analysis_as_of=query.get("analysis_as_of", [""])[0], scope_type=query.get("scope_type", [""])[0],
+                scope_id=query.get("scope_id", [""])[0], role=query.get("role", [""])[0],
+                prompt_version=query.get("prompt_version", [""])[0],
+                analysis_outcome=query.get("analysis_outcome", [""])[0],
+                publication_status=query.get("publication_status", [""])[0], limit=limit,
+            )
+            return {"items": reports, "limit": limit}, "200 OK", json_type
         if method == "GET" and path.startswith("/api/v1/admin/executions/"):
             return self.admin.execution_details(unquote(path.split("/")[5])), "200 OK", json_type
         if method == "POST" and path in {"/api/v1/admin/executions/collection", "/api/v1/admin/executions/analysis"}:

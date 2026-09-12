@@ -6,6 +6,7 @@ import json
 import os
 import re
 import time
+from datetime import date
 from typing import Any, Callable
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
@@ -14,35 +15,110 @@ from urllib.request import Request, urlopen
 from .analysis import canonical_json
 
 
+_STABLE_MODEL_PRIORITY = ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash")
+_DAILY_MODEL_CACHE: dict[str, tuple[str, ...]] = {}
+
+
+def _rest_schema(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: value[key].upper() if key == "type" and isinstance(value[key], str)
+                else _rest_schema(value[key]) for key in value}
+    if isinstance(value, list):
+        return [_rest_schema(item) for item in value]
+    return value
+
+
+def _select_stable_models(document: Any) -> tuple[str, ...]:
+    available = set()
+    for item in document.get("models", []) if isinstance(document, dict) else []:
+        if not isinstance(item, dict) or "generateContent" not in item.get("supportedGenerationMethods", []):
+            continue
+        name = str(item.get("name", "")).removeprefix("models/")
+        if name in _STABLE_MODEL_PRIORITY:
+            available.add(name)
+    return tuple(name for name in _STABLE_MODEL_PRIORITY if name in available)[:3]
+
+
+def _daily_stable_models(api_key: str, opener: Callable[..., Any] = urlopen) -> tuple[str, ...]:
+    today = date.today().isoformat()
+    if today in _DAILY_MODEL_CACHE:
+        return _DAILY_MODEL_CACHE[today]
+    request = Request("https://generativelanguage.googleapis.com/v1beta/models",
+                      headers={"x-goog-api-key": api_key})
+    try:
+        with opener(request, timeout=10) as response:
+            selected = _select_stable_models(json.load(response))
+    except Exception:
+        selected = ()
+    result = selected or _STABLE_MODEL_PRIORITY[:3]
+    _DAILY_MODEL_CACHE[today] = result
+    return result
+
+
 class GeminiNarrator:
-    def __init__(self, api_key: str, *, model: str = "gemini-2.5-flash", attempts: int = 3,
+    def __init__(self, api_key: str, *, model: str = "gemini-2.5-flash", models: tuple[str, ...] | None = None,
+                 attempts: int = 3,
                  opener: Callable[..., Any] = urlopen, sleeper: Callable[[float], None] = time.sleep) -> None:
         if not api_key.strip():
             raise ValueError("GEMINI_API_KEY is required")
-        if os.environ.get("GEMINI_PAID_ENABLED", "false").lower() in {"1", "true", "yes"}:
+        paid = os.environ.get("GEMINI_PAID_ENABLED", "false").lower() in {"1", "true", "yes"}
+        approved = os.environ.get("GEMINI_BILLING_APPROVED", "false").lower() in {"1", "true", "yes"}
+        if paid and not approved:
             raise ValueError("Gemini paid tier requires a separate approved billing gate")
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", model) or attempts not in range(1, 5):
             raise ValueError("invalid Gemini model or retry bound")
-        self.api_key, self.model, self.attempts, self.opener, self.sleeper = api_key, model, attempts, opener, sleeper
+        selected = tuple(models or (model,))
+        if not selected or any(not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", item) for item in selected):
+            raise ValueError("invalid Gemini model or retry bound")
+        self.api_key, self.models, self.attempts, self.opener, self.sleeper = api_key, selected, attempts, opener, sleeper
+
+    @property
+    def model(self) -> str:
+        return self.models[0]
 
     @classmethod
     def from_environment(cls) -> "GeminiNarrator":
-        return cls(os.environ.get("GEMINI_API_KEY", ""), model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
-                   attempts=int(os.environ.get("GEMINI_MAX_ATTEMPTS", "3")))
+        api_key = os.environ.get("GEMINI_API_KEY", "")
+        configured = os.environ.get("GEMINI_MODEL", "").strip()
+        models = (configured,) if configured else _daily_stable_models(api_key)
+        return cls(api_key, model=models[0], models=models, attempts=int(os.environ.get("GEMINI_MAX_ATTEMPTS", "3")))
 
     def narrate(self, report: dict[str, Any], prompts: dict[str, Any]) -> dict[str, Any]:
         evidence_ids = {item["evidence_id"] for item in report["evidence"]}
         context = {"analysis_as_of": report["analysis_as_of"], "scope": report["scope"],
                    "role_instructions": prompts["roles"], "roles": report["roles"],
                    "aggregate": report["aggregate"], "evidence": report["evidence"]}
+        fault = os.environ.get("MART_ACCEPTANCE_FAULT", "").strip()
+        if fault and os.environ.get("ENVIRONMENT", "").lower() != "dev":
+            raise ValueError("Mart acceptance faults are dev-only")
+        if fault not in {"", "quota", "provider_unavailable", "invalid_structured_output"}:
+            raise ValueError("invalid Mart acceptance fault")
+        failures = []
+        for model in self.models:
+            result = self._narrate_model(model, report, prompts, context, evidence_ids, fault)
+            if result["status"] == "succeeded":
+                return result
+            failures.append(result["error"])
+        return {"status": "failed", "provider": "gemini", "model": self.model,
+                "attempted_models": list(self.models), "error": failures[-1]}
+
+    def _narrate_model(self, model: str, report: dict[str, Any], prompts: dict[str, Any],
+                       context: dict[str, Any], evidence_ids: set[str], fault: str) -> dict[str, Any]:
         body = {
             "systemInstruction": {"parts": [{"text": prompts["system"]}]},
             "contents": [{"role": "user", "parts": [{"text": canonical_json(context).decode()}]}],
-            "generationConfig": {"responseMimeType": "application/json", "responseSchema": prompts["response_schema"]},
+            "generationConfig": {"responseMimeType": "application/json", "responseSchema": _rest_schema(prompts["response_schema"])},
         }
-        endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{quote(self.model, safe='')}:generateContent"
+        endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{quote(model, safe='')}:generateContent"
         last: dict[str, Any] = {"kind": "provider_unavailable", "status": 0}
         for attempt in range(self.attempts):
+            if fault:
+                last = {"kind": fault, "status": 429 if fault == "quota" else 503 if fault == "provider_unavailable" else 200}
+                if fault == "invalid_structured_output":
+                    break
+                if attempt + 1 < self.attempts:
+                    self.sleeper(2 ** attempt)
+                continue
             request = Request(endpoint, data=canonical_json(body), method="POST",
                               headers={"Content-Type": "application/json", "x-goog-api-key": self.api_key})
             try:
@@ -61,7 +137,7 @@ class GeminiNarrator:
                 claimed = self._numbers({key: value for key, value in narrative.items() if key != "evidence_ids"})
                 if not claimed <= allowed:
                     raise ValueError("Gemini narrative contains a number absent from evidence")
-                return {"status": "succeeded", "provider": "gemini", "model": self.model,
+                return {"status": "succeeded", "provider": "gemini", "model": model,
                         "prompt_version": prompts["version"], "narrative": narrative}
             except HTTPError as error:
                 kind = "quota" if error.code == 429 else "provider_unavailable" if error.code >= 500 else "provider_error"
@@ -75,7 +151,7 @@ class GeminiNarrator:
                 break
             if attempt + 1 < self.attempts:
                 self.sleeper(2 ** attempt)
-        return {"status": "failed", "provider": "gemini", "model": self.model, "error": last}
+        return {"status": "failed", "provider": "gemini", "model": model, "error": last}
 
     @classmethod
     def _numbers(cls, value: Any, key: str = "") -> set[str]:

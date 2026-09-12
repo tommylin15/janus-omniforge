@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 from dataclasses import replace
+from hashlib import sha256
 import json
 import os
 import sys
@@ -27,6 +28,68 @@ except ZoneInfoNotFoundError:  # Minimal containers may omit the optional tzdata
 SPARSE_DATASETS = frozenset({"finmind", "twse-events"})
 
 
+def _core_ready_event(*, core_bucket: str, execution_id: str, config_id: str,
+                      analysis_as_of: str, iceberg_tables: dict[str, dict[str, object]],
+                      symbols: tuple[str, ...], market: str,
+                      industries: list[dict[str, object]] | None = None) -> dict[str, object] | None:
+    if not iceberg_tables:
+        return None
+    tables_payload = json.dumps(iceberg_tables, sort_keys=True, separators=(",", ":")).encode()
+    snapshot_id = f"sha256:{sha256(tables_payload).hexdigest()}"
+    manifest = {
+        "artifact_kind": "core_snapshot_v1", "execution_id": execution_id,
+        "analysis_as_of": analysis_as_of, "snapshot_id": snapshot_id, "iceberg_tables": iceberg_tables,
+    }
+    payload = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
+    object_name = f"executions/{execution_id}/core-snapshot.json"
+    store = GcsObjectStore(core_bucket)
+    if not store.create(object_name, payload, "application/json") and store.read(object_name) != payload:
+        raise RuntimeError("immutable Core snapshot manifest conflict")
+    scopes = [{"type": "market", "id": market, "symbols": list(symbols)}]
+    for item in industries or []:
+        if not isinstance(item, dict):
+            continue
+        members = sorted(set(map(str, item.get("symbols", []))) & set(symbols))
+        if str(item.get("id", "")).strip() and members:
+            scopes.append({"type": "industry", "id": str(item["id"]), "name": str(item.get("name", item["id"])), "symbols": members})
+    scopes.extend({"type": "symbol", "id": symbol, "symbols": [symbol]} for symbol in symbols)
+    return {
+        "eventType": "core.dataset.ready.v1", "executionId": execution_id, "configId": config_id,
+        "datasetId": "core", "schemaVersion": "1.0.0", "rowCount": sum(int(value["rows"]) for value in iceberg_tables.values()),
+        "analysisAsOf": analysis_as_of, "coreSnapshotId": snapshot_id,
+        "coreSnapshotUri": f"gs://{core_bucket}/{object_name}",
+        "coreSnapshotHash": f"sha256:{sha256(payload).hexdigest()}",
+        "martSchemaVersion": os.environ.get("MART_SCHEMA_VERSION", "1"),
+        "featureVersion": os.environ.get("MART_FEATURE_VERSION", "1"),
+        "modelVersion": os.environ.get("MART_MODEL_VERSION", "deterministic-v1"),
+        "governanceSnapshotVersion": os.environ.get("MART_GOVERNANCE_VERSION", "gov-1"),
+        "scopes": scopes,
+    }
+
+
+def _trigger_mart(analysis_execution_id: str | None) -> dict[str, object]:
+    job = os.environ.get("MART_JOB", "").strip()
+    project = os.environ.get("GCP_PROJECT_ID", "").strip()
+    region = os.environ.get("GCP_REGION", "us-central1").strip()
+    if not analysis_execution_id or not job:
+        return {"status": "not_required"}
+    try:
+        import google.auth
+        from google.auth.transport.requests import AuthorizedSession
+        credentials, detected_project = google.auth.default(scopes=("https://www.googleapis.com/auth/cloud-platform",))
+        project = project or detected_project or ""
+        if not project:
+            raise ValueError("GCP_PROJECT_ID is required for Mart trigger")
+        response = AuthorizedSession(credentials).post(
+            f"https://run.googleapis.com/v2/projects/{project}/locations/{region}/jobs/{job}:run",
+            json={}, timeout=10,
+        )
+        response.raise_for_status()
+        return {"status": "accepted", "analysis_execution_id": analysis_execution_id}
+    except Exception as error:
+        # The persisted queue remains authoritative and can be safely retriggered.
+        return {"status": "deferred", "analysis_execution_id": analysis_execution_id,
+                "error_code": type(error).__name__.upper()[:64]}
 def _holidays(value: str) -> set[date]:
     return {date.fromisoformat(item.strip()) for item in value.split(",") if item.strip()}
 
@@ -295,6 +358,21 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                                                        DataState.FAILED, 0, 0, False, key == "finmind",
                                                        type(error).__name__.upper(), "source collection failed"))
 
+    core_committed = bool(iceberg_tables)
+    if core_committed:
+        for dataset_id in sorted({configured[key].dataset_id for key in selected}):
+            identifier = core.table_identifier(dataset_id)
+            if identifier in iceberg_tables or not core.table_exists(dataset_id):
+                continue
+            table = core.catalog.load_table(identifier)
+            snapshot = table.current_snapshot()
+            if snapshot:
+                iceberg_tables[identifier] = {
+                    "rows": int(snapshot.summary.get("total-records", 0)),
+                    "snapshot_id": snapshot.snapshot_id,
+                    "metadata_location": table.metadata_location,
+                }
+
     summary: dict[str, object] = {
         "component": "ingestion-core",
         "execution_id": execution_id,
@@ -320,6 +398,14 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
             raise RuntimeError(json.dumps(summary, ensure_ascii=False, sort_keys=True))
         if execution_scoped:
             stage_writer.mark_core_committed(execution_id, stage_results=stage_results)
+            if persisted_execution:
+                industry_setting = control.get_admin_setting("mart_industry_scopes")
+                industries = industry_setting[0] if industry_setting and isinstance(industry_setting[0], list) else []
+                summary["ready_event"] = _core_ready_event(
+                    core_bucket=core_bucket, execution_id=execution_id, config_id=config_id,
+                    analysis_as_of=dates[-1].isoformat(), iceberg_tables=iceberg_tables if core_committed else {},
+                    symbols=tuple(symbols), market=config.market, industries=industries,
+                )
             retention_setting = control.get_admin_setting("retention")
             retention = retention_setting[0] if retention_setting and isinstance(retention_setting[0], dict) else {}
             cleanup_results = []
@@ -353,8 +439,10 @@ def consume_queued_collection() -> dict[str, object]:
         try:
             summary = collect_stage(execution_id=execution.execution_id, symbols=execution.requested_symbols,
                                     config_id=execution.config_id, request_options=execution.request_options, control=control)
-            control.transition_execution(execution.execution_id, ExecutionStatus.SUCCEEDED)
-            return {**summary, "status": "succeeded", "claimed": True}
+            _, analysis = control.complete_collection(execution.execution_id, summary.get("ready_event"))
+            return {**summary, "status": "succeeded", "claimed": True,
+                    "analysis_execution_id": analysis.execution_id if analysis else None,
+                    "mart_trigger": _trigger_mart(analysis.execution_id if analysis else None)}
         except Exception:
             retry_count = execution.retry_count + 1
             status = ExecutionStatus.RETRYING if retry_count <= max_retries else ExecutionStatus.FAILED
@@ -374,8 +462,10 @@ def run_scheduled_collection() -> dict[str, object]:
         try:
             summary = collect_stage(execution_id=execution.execution_id, symbols=execution.requested_symbols,
                                     config_id=config_id, request_options=execution.request_options, control=control)
-            control.transition_execution(execution.execution_id, ExecutionStatus.SUCCEEDED)
-            return {**summary, "status": "succeeded", "scheduled": True}
+            _, analysis = control.complete_collection(execution.execution_id, summary.get("ready_event"))
+            return {**summary, "status": "succeeded", "scheduled": True,
+                    "analysis_execution_id": analysis.execution_id if analysis else None,
+                    "mart_trigger": _trigger_mart(analysis.execution_id if analysis else None)}
         except Exception:
             control.transition_execution(execution.execution_id, ExecutionStatus.FAILED, error_code="COLLECTION_FAILED")
             raise

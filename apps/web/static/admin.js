@@ -16,7 +16,7 @@ const dialogOpeners = new WeakMap();
 const tabLoaders = {
   stocks: loadStocks, status: () => Promise.resolve(), executions: loadExecutions,
   sources: loadSources, membership: loadMembership, settings: loadSettings,
-  catalog: loadCatalog, prompts: () => Promise.resolve(), mart: () => Promise.resolve(),
+  catalog: loadCatalog, mart: loadMart,
 };
 
 async function activateTab(name, { focus = false, reload = false } = {}) {
@@ -280,6 +280,47 @@ async function enqueueCollection() {
     selectionChanged();
     await activateTab("executions", { reload: true });
   } catch (error) { showNotice(error.message, true); }
+}
+
+async function enqueueAnalysis() {
+  const configId = byId("config-id").value.trim();
+  if (!configId) return showNotice("請輸入設定 ID", true);
+  if (!state.selected.size) return showNotice("請先選取至少一檔股票", true);
+  try {
+    const execution = await request("/api/v1/admin/executions/analysis", {
+      method: "POST", body: JSON.stringify({ config_id: configId, symbols: [...state.selected] }),
+    });
+    showNotice(`Analysis 已加入 persisted 佇列：${execution.execution_id}`);
+    state.selected.clear(); selectionChanged();
+    await activateTab("executions", { reload: true });
+  } catch (error) { showNotice(error.message, true); }
+}
+
+async function loadMart() {
+  const params = new URLSearchParams({ limit: "100" });
+  [["analysis_as_of", "mart-date"], ["scope_type", "mart-scope"], ["scope_id", "mart-scope-id"],
+    ["role", "mart-role"], ["prompt_version", "mart-prompt"], ["analysis_outcome", "mart-outcome"],
+    ["publication_status", "mart-publication"]].forEach(([name, id]) => {
+    const value = byId(id).value.trim(); if (value) params.set(name, value);
+  });
+  const body = byId("mart-rows");
+  try {
+    const data = await request(`/api/v1/admin/mart-reports?${params}`);
+    body.replaceChildren();
+    if (!data.items.length) body.append(rowMessage("此條件沒有 persisted Mart artifact", 8));
+    data.items.forEach((report) => {
+      const artifact = node("a", report.selected_role ? `artifact · ${report.selected_role}` : "artifact");
+      artifact.href = report.artifact_console_url; artifact.target = "_blank"; artifact.rel = "noopener noreferrer";
+      artifact.title = `${report.table_identifier} @ snapshot ${report.iceberg_snapshot_id}`;
+      const artifactCell = document.createElement("td"); artifactCell.append(artifact);
+      const outcome = document.createElement("td"); outcome.append(statusBadge(report.analysis_outcome));
+      const publication = document.createElement("td"); publication.append(statusBadge(report.publication_status));
+      const row = document.createElement("tr");
+      row.append(node("td", report.analysis_as_of), node("td", report.scope_type), node("td", report.scope_id),
+        outcome, publication, node("td", report.prompt_version), node("td", formatRatio(report.completeness)), artifactCell);
+      body.append(row);
+    });
+  } catch (error) { body.replaceChildren(rowMessage("Mart index 目前無法使用", 8)); showNotice(error.message, true); }
 }
 
 async function loadExecutions() {
@@ -567,6 +608,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   byId("select-page").addEventListener("change", (event) => { state.stocks.forEach((stock) => event.target.checked ? state.selected.add(stock.symbol) : state.selected.delete(stock.symbol)); selectionChanged(); renderStocks(); });
   byId("clear-selection").addEventListener("click", () => { state.selected.clear(); renderStocks(); });
   byId("queue-collection").addEventListener("click", enqueueCollection);
+  byId("queue-analysis").addEventListener("click", enqueueAnalysis);
   byId("refresh-executions").addEventListener("click", loadExecutions);
   byId("prev-execution-page").addEventListener("click", () => { if (state.executionPage > 0) { state.executionPage -= 1; loadExecutions(); } });
   byId("next-execution-page").addEventListener("click", () => { if (state.executionNext) { state.executionPage += 1; state.executionCursors[state.executionPage] = state.executionNext; loadExecutions(); } });
@@ -589,6 +631,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   byId("logout").addEventListener("click", logout);
   byId("status-search").addEventListener("submit", (event) => { event.preventDefault(); openStatus(byId("status-symbol").value); });
   byId("membership-form").addEventListener("submit", saveMembership);
+  byId("mart-filter").addEventListener("submit", (event) => { event.preventDefault(); loadMart(); });
   byId("add-stock").addEventListener("click", () => openStock());
   byId("stock-form").addEventListener("submit", async (event) => { event.preventDefault(); const dialog = byId("stock-dialog"); try { await request("/api/v1/admin/stocks", { method: "PUT", body: JSON.stringify({ symbol: byId("stock-symbol").value, name: byId("stock-name").value, market: byId("stock-market").value, listing_status: byId("stock-listing").value, enabled: byId("stock-enabled").checked }) }); dialog.close(); showNotice("股票資料已儲存"); await loadStocks(); } catch (error) { showNotice(error.message, true); } });
   byId("settings-form").addEventListener("submit", saveSettings);

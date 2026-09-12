@@ -467,6 +467,9 @@ def analyze(*, execution_id: str, analysis_as_of: str, core_snapshot_id: str, re
         }
         if scope["type"] == "market" and components:
             report["published_components"] = components
-        report["deterministic_hash"] = f"sha256:{sha256(canonical_json(report)).hexdigest()}"
+        # Execution identity is audit metadata, not analytical input. Exclude
+        # it so rebuilding the same immutable snapshot/as-of is comparable.
+        hash_payload = {key: value for key, value in report.items() if key != "execution_id"}
+        report["deterministic_hash"] = f"sha256:{sha256(canonical_json(hash_payload)).hexdigest()}"
         reports.append(report)
     return reports

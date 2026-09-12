@@ -11,6 +11,7 @@ from datetime import date, datetime, timezone
 import re
 from typing import Any
 from urllib.parse import urlsplit
+from urllib.parse import quote
 from uuid import UUID
 
 
@@ -114,7 +115,35 @@ class AdminService:
         ))
 
     def enqueue_analysis(self, config_id: str, symbols: tuple[str, ...] | None = None, *, trace_id: str | None = None) -> dict[str, Any]:
-        raise AdminValidationError("analysis is unavailable until its persisted consumer is enabled")
+        return self._execution(self.control.enqueue_analysis(config_id, symbols, trace_id=trace_id))
+
+    def mart_reports(self, *, analysis_as_of: str = "", scope_type: str = "", scope_id: str = "",
+                     role: str = "", prompt_version: str = "", analysis_outcome: str = "",
+                     publication_status: str = "", limit: int = 50) -> tuple[dict[str, Any], ...]:
+        if not 1 <= limit <= 100:
+            raise AdminValidationError("limit must be between 1 and 100")
+        if analysis_as_of and not self._iso_date(analysis_as_of):
+            raise AdminValidationError("analysis_as_of must be an ISO date")
+        allowed = {
+            "scope_type": {"market", "industry", "symbol"},
+            "role": {"fundamental", "valuation", "positioning", "quant", "event_risk"},
+            "analysis_outcome": {"complete", "invalid", "review_required", "risk_blocked", "insufficient_data"},
+            "publication_status": {"draft", "blocked", "publishable", "published", "superseded"},
+        }
+        for name, value in (("scope_type", scope_type), ("role", role), ("analysis_outcome", analysis_outcome),
+                            ("publication_status", publication_status)):
+            if value and value not in allowed[name]:
+                raise AdminValidationError(f"{name} is invalid")
+        if scope_id and not re.fullmatch(r"[\w.:-]{1,80}", scope_id):
+            raise AdminValidationError("scope_id is invalid")
+        if prompt_version and not re.fullmatch(r"[\w.:-]{1,80}", prompt_version):
+            raise AdminValidationError("prompt_version is invalid")
+        filters = {key: value for key, value in {
+            "analysis_as_of": analysis_as_of, "scope_type": scope_type, "scope_id": scope_id,
+            "prompt_version": prompt_version, "analysis_outcome": analysis_outcome,
+            "publication_status": publication_status,
+        }.items() if value}
+        return tuple(self._report(item, role=role) for item in self.control.list_mart_reports(filters=filters, limit=limit))
 
     def membership(self, coverage_tier: str, *, as_of: datetime | None = None) -> tuple[dict[str, Any], ...]:
         return tuple({"coverage_tier": item.coverage_tier.value, "symbol": item.symbol, "effective_from": item.effective_from.isoformat(), "effective_to": item.effective_to.isoformat() if item.effective_to else None, "reason": item.reason, "owner": item.owner} for item in self.control.coverage_membership(coverage_tier, as_of=as_of))
@@ -362,6 +391,14 @@ class AdminService:
     @staticmethod
     def _execution(execution: Any) -> dict[str, Any]:
         return {"execution_id": execution.execution_id, "trace_id": execution.trace_id, "config_id": execution.config_id, "trigger_type": execution.trigger_type.value, "status": execution.status.value, "requested_symbols": execution.requested_symbols, "request_options": execution.request_options, "requested_at": execution.requested_at.isoformat() if execution.requested_at else None, "started_at": execution.started_at.isoformat() if execution.started_at else None, "finished_at": execution.finished_at.isoformat() if execution.finished_at else None, "retry_count": execution.retry_count, "error_code": execution.error_code}
+
+    @staticmethod
+    def _report(report: dict[str, Any], *, role: str) -> dict[str, Any]:
+        item = {key: value.isoformat() if isinstance(value, (date, datetime)) else value for key, value in report.items()}
+        uri = urlsplit(str(item["artifact_uri"]))
+        item["artifact_console_url"] = f"https://console.cloud.google.com/storage/browser/_details/{quote(uri.netloc)}/{quote(uri.path.lstrip('/'))}"
+        item["selected_role"] = role or None
+        return item
 
     @staticmethod
     def _item(item: Any) -> dict[str, Any]:

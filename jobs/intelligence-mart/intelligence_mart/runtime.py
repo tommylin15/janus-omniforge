@@ -280,6 +280,11 @@ def run_queued_analysis() -> dict[str, object]:
         "CATALOG_DB_PASSWORD": ("mart_catalog_password", "catalog_password"),
         "PUBLICATION_DB_PASSWORD": ("mart_publication_password", "publication_password"),
     })
+    if not os.environ.get("GEMINI_API_KEY"):
+        bundle = json.loads(os.environ.get("JANUS_MART_POSTGRES_BUNDLE", "{}"))
+        key = str(bundle.get("gemini_api_key", "")).strip()
+        if key:
+            os.environ["GEMINI_API_KEY"] = key
     settings = _settings("PUBLICATION_DB")
     import psycopg
 

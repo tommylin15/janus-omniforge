@@ -11,12 +11,12 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 import json
 from typing import Any, Callable, Iterator
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from .control import (
     AuthorizationStatus, CacheMetadata, CollectionConfig, ControlPlaneError, CoverageMembership, CoverageTier, Cursor, DataState,
     Execution, ExecutionItem, ExecutionStatus, InvalidTransitionError, SOURCE_AUTHORIZATION, SOURCE_REVIEW_CHECKS, Stock,
-    StockInUseError, TriggerType, _iso, _parse_time, _symbol, utc_now,
+    StockInUseError, TriggerType, _analysis_options, _analysis_request, _iso, _parse_time, _symbol, utc_now,
 )
 
 
@@ -157,12 +157,13 @@ class PostgreSQLControlPlane:
         config = self.get_collection_config(config_id)
         condition = " AND s.enabled" if only_enabled else ""
         with self.connection.cursor() as cur:
-            cur.execute(f"SELECT cs.symbol FROM control.collection_symbols cs JOIN control.stock_master s USING(symbol) WHERE cs.config_id=%s{condition} ORDER BY cs.symbol", (config_id,))
-            rows = cur.fetchall()
-            if not rows and config.coverage_tier == CoverageTier.CORE_FOCUS.value:
-                cur.execute("SELECT cm.symbol FROM control.coverage_memberships cm JOIN control.stock_master s USING(symbol) WHERE cm.coverage_tier=%s AND cm.effective_from<=now() AND (cm.effective_to IS NULL OR cm.effective_to>now())" + (" AND s.enabled" if only_enabled else "") + " ORDER BY cm.symbol", (config.coverage_tier,))
+            if config.coverage_tier == CoverageTier.CORE_FOCUS.value:
+                cur.execute("SELECT dm.symbol FROM control.active_deep_tracking_memberships dm JOIN control.stock_master s USING(symbol) WHERE true" + condition + " ORDER BY dm.symbol")
                 rows = cur.fetchall()
-            elif not rows and config.coverage_tier == CoverageTier.MARKET_WIDE.value:
+            else:
+                cur.execute(f"SELECT cs.symbol FROM control.collection_symbols cs JOIN control.stock_master s USING(symbol) WHERE cs.config_id=%s{condition} ORDER BY cs.symbol", (config_id,))
+                rows = cur.fetchall()
+            if not rows and config.coverage_tier == CoverageTier.MARKET_WIDE.value:
                 cur.execute(f"SELECT symbol FROM control.stock_master WHERE true{condition} ORDER BY symbol")
                 rows = cur.fetchall()
             return tuple(r[0] for r in rows)
@@ -235,7 +236,14 @@ class PostgreSQLControlPlane:
         return self.get_execution(str(execution_id))
 
     def enqueue_collection(self, config_id: str, symbols: tuple[str, ...] | None = None, *, trace_id: str | None = None, request_options: dict[str, Any] | None = None) -> Execution: return self._enqueue(config_id, TriggerType.COLLECTION, symbols, trace_id, request_options)
-    def enqueue_analysis(self, config_id: str, symbols: tuple[str, ...] | None = None, *, trace_id: str | None = None) -> Execution: return self._enqueue(config_id, TriggerType.ANALYSIS, symbols, trace_id)
+    def enqueue_analysis(self, config_id: str, symbols: tuple[str, ...] | None = None, *, trace_id: str | None = None) -> Execution:
+        with self.connection.cursor() as cur:
+            cur.execute("SELECT payload FROM control.core_ready_events WHERE config_id=%s ORDER BY created_at DESC LIMIT 1", (config_id,))
+            row = cur.fetchone()
+        if row is None:
+            raise ControlPlaneError("no successful Core snapshot is available for analysis")
+        requested, options = _analysis_request(row[0], symbols)
+        return self._enqueue(config_id, TriggerType.ANALYSIS, requested, trace_id, options)
 
     def source_is_approved(self, source_id: str) -> bool:
         baseline = SOURCE_AUTHORIZATION.get(source_id, AuthorizationStatus.BLOCKED)
@@ -284,6 +292,26 @@ class PostgreSQLControlPlane:
             cur.execute("SELECT execution_id FROM control.executions WHERE status='succeeded' AND finished_at < %s ORDER BY finished_at LIMIT %s", (before, limit))
             return tuple(str(row[0]) for row in cur.fetchall())
 
+    def list_mart_reports(self, *, filters: dict[str, str], limit: int = 50) -> tuple[dict[str, Any], ...]:
+        fields = ("execution_id","analysis_as_of","scope_type","scope_id","core_snapshot_id","artifact_uri",
+                  "artifact_hash","deterministic_hash","table_identifier","iceberg_snapshot_id","schema_version",
+                  "feature_version","model_version","governance_snapshot_version","prompt_version","prompt_hash",
+                  "completeness","confidence","data_quality","analysis_outcome","publication_status","created_at","ready_at")
+        clauses, values = [], []
+        for field, value in filters.items():
+            if field not in {"analysis_as_of","scope_type","scope_id","prompt_version","analysis_outcome","publication_status"}:
+                raise ValueError("invalid Mart report filter")
+            clauses.append(f"{field}=%s")
+            values.append(value)
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        values.append(limit)
+        with self.connection.cursor() as cur:
+            cur.execute(
+                f"SELECT {','.join(fields)} FROM publication.mart_report_index{where} ORDER BY analysis_as_of DESC,created_at DESC,execution_id DESC,scope_type,scope_id LIMIT %s",
+                values,
+            )
+            return tuple(dict(zip(fields, row, strict=True)) for row in cur.fetchall())
+
     def claim_execution(self, worker_id: str, *, trigger_type: TriggerType | None = None,
                         lease: timedelta = timedelta(minutes=5)) -> Execution | None:
         if not worker_id.strip() or lease <= timedelta(0):
@@ -303,6 +331,53 @@ class PostgreSQLControlPlane:
         with self._tx() as cur:
             cur.execute("UPDATE control.executions SET status=%s,started_at=COALESCE(started_at,CASE WHEN %s IN ('running','retrying') THEN now() END),finished_at=CASE WHEN %s IN ('succeeded','partial','failed') THEN now() END,retry_count=COALESCE(%s,retry_count),error_code=%s,claimed_by=NULL,claimed_until=NULL WHERE execution_id=%s", (status.value,status.value,status.value,retry_count,error_code,execution_id))
         return self.get_execution(execution_id)
+
+    def complete_collection(self, execution_id: str, ready_event: dict[str, Any] | None = None) -> tuple[Execution, Execution | None]:
+        """Atomically commit collection success and idempotently enqueue its Mart work."""
+        analysis_id = uuid5(NAMESPACE_URL, f"janus:mart:{execution_id}") if ready_event else None
+        with self._tx() as cur:
+            cur.execute(
+                "SELECT trace_id,config_id,status,requested_symbols FROM control.executions WHERE execution_id=%s FOR UPDATE",
+                (execution_id,),
+            )
+            row = cur.fetchone()
+            if row is None:
+                raise KeyError("execution not found")
+            trace_id, config_id, status, requested = row
+            if ready_event and (ready_event.get("executionId") != execution_id or ready_event.get("configId") != config_id):
+                raise ControlPlaneError("Core ready event does not match its collection execution")
+            options = _analysis_options(ready_event) if ready_event else None
+            cur.execute("SELECT analysis_execution_id,payload FROM control.core_ready_events WHERE core_execution_id=%s", (execution_id,))
+            existing = cur.fetchone()
+            if status == "succeeded" and existing:
+                if ready_event is not None and existing[1] != ready_event:
+                    raise ControlPlaneError("immutable Core ready event conflict")
+                analysis_id = existing[0]
+            elif status != "running":
+                raise InvalidTransitionError(f"cannot complete collection from {status}")
+            else:
+                cur.execute(
+                    "UPDATE control.executions SET status='succeeded',finished_at=now(),claimed_by=NULL,claimed_until=NULL WHERE execution_id=%s",
+                    (execution_id,),
+                )
+                if ready_event:
+                    cur.execute("SELECT analysis_enabled FROM control.collection_configs WHERE config_id=%s", (config_id,))
+                    if not cur.fetchone()[0]:
+                        analysis_id = None
+                    if analysis_id:
+                        cur.execute(
+                            "INSERT INTO control.executions(execution_id,trace_id,config_id,trigger_type,status,requested_symbols,request_options) VALUES(%s,%s,%s,'analysis','queued',%s::jsonb,%s::jsonb)",
+                            (analysis_id, trace_id, config_id, json.dumps(requested), json.dumps(options)),
+                        )
+                        cur.executemany(
+                            "INSERT INTO control.execution_symbols(execution_id,symbol) VALUES(%s,%s)",
+                            [(analysis_id, symbol) for symbol in requested],
+                        )
+                    cur.execute(
+                        "INSERT INTO control.core_ready_events(core_execution_id,analysis_execution_id,config_id,payload) VALUES(%s,%s,%s,%s::jsonb)",
+                        (execution_id, analysis_id, config_id, json.dumps(ready_event, sort_keys=True, separators=(",", ":"))),
+                    )
+        return self.get_execution(execution_id), self.get_execution(str(analysis_id)) if analysis_id else None
 
     def save_item(self, item: ExecutionItem) -> None:
         with self._tx() as cur:

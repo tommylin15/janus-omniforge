@@ -64,9 +64,28 @@ missing 0、158 received rows、0 failed、0 retries，8 個核准 source／data
 均為 `success`；Core 為
 143 created、0 reused、8 updated。單次 task 約 4 分 31 秒，既有 job 維持 1 task、
 1 vCPU、1 GiB、900 秒 timeout、maxRetries 1，未建立或擴大任何資源。post-fix scheduled
-canary 目前為 **1/3**；後續只計 distinct 有效資料日 2026-09-11、2026-09-14，對應
-Scheduler 執行日 2026-09-12、2026-09-15，週末重複資料日不重複計數。三日完成後再彙整
+canary 目前為 **2/3**：第二個交易日為 2026-09-12（Asia/Taipei），Scheduler
+execution `janus-ingestion-core-824gh` 於 2026-09-11 23:33:53Z 成功，對應 control
+execution `9a8086c2-66d5-4be5-88c1-c2e35f19bcf3` 於 23:33:50Z 成功、0 retries；資料日
+為 2026-09-11。後續只計 distinct 有效資料日 2026-09-14，對應 Scheduler 執行日
+2026-09-15，週末重複資料日不重複計數。三日完成後再彙整
 expected／received／missing、Core hash/date/null profile 與完整成本摘要。
+
+## WBS-5 feature／publication pipeline GCP dev acceptance（2026-09-12）
+
+WBS-5 的 replay、blocked case 與 Iceberg object listing 已完成。Immutable Core
+fixture `wbs5-core-acceptance-20260911` 通過同一 execution replay：Cloud Run
+execution `janus-intelligence-mart-ncx8d` 成功，原 execution 的 publication
+index 維持 1 筆、Iceberg snapshot 未新增，outbox 維持 1 筆。`manual_review_required`
+fixture `99999999-9999-4999-8999-999999999999` 由 execution
+`janus-intelligence-mart-n4qbr` 成功處理，結果為 `review_required`／`blocked`，
+`ready_at` 為 NULL，不進 `publishable_mart_reports`。
+
+Dev Mart bucket `gen-lang-client-0593591102-dev-mart` wildcard listing 共 62 個
+objects，涵蓋 11 個 public Iceberg v2 tables：screening、core alpha、risk portfolio、
+alternative sentiment、scoped analysis、market regime、sector rotation、topic trends、
+candidate health、daily brief、LLM narratives。WBS-3 acceptance 仍維持暫停 2/3，
+本節不宣告 WBS-3 結案。
 
 Negative VPC／identity evidence：workstation 對 private IP `10.42.0.5:5432`
 的 TCP probe 為 `False`；暫時移除 PostgreSQL VM 的 `janus-postgres-db` target tag
@@ -74,6 +93,64 @@ Negative VPC／identity evidence：workstation 對 private IP `10.42.0.5:5432`
 exit code 1 結束，tag 隨即恢復且 VM 仍 `RUNNING`。`janus-private-pipeline` identity
 在 ingestion bundle IAM policy 中沒有 `secretAccessor`。第一次未等 task 啟動即恢復
 tag 的 execution `janus-ingestion-core-2hz9h` 不列為負向證據。
+
+### WBS-5 integration／Gemini dev checkpoint（2026-09-12）
+
+Migration 019 已套用至既有 PostgreSQL dev VM；`core.dataset.ready.v1` 只在 Core
+commit 成功時入庫，ingestion failed／partial 不入 queue，重送以 Core execution
+唯一鍵去重。正確資料 scope 的 ingestion execution `janus-ingestion-core-dnpjd`
+觸發 Mart execution `janus-intelligence-mart-8g6qm`，queue
+`bd91a12c-ef28-52da-8a4e-1b12cfb45e7c` 成功，產出 market／industry／5 symbol 共 7
+份 report。`4ffc17cd-8fb7-5a20-9f39-2f8d3e6422c4` 與
+`5ffc17cd-8fb7-5a20-9f39-2f8d3e6422c4` 以相同 Core snapshot 重建，12 份對應
+report 的 deterministic hash 全數一致，未重新計算上游分數。
+
+Gemini dev-only fault probes 已通過：quota（429）、provider unavailable（503）、
+invalid structured output（200）均保留 deterministic report、queue terminal
+`succeeded`，且不寫 placeholder narrative，publication 維持 `blocked`。既有
+`JANUS_MART_POSTGRES_BUNDLE` 內的 `gemini_api_key` 已由 Mart runtime 安全映射到
+`GEMINI_API_KEY`；真實 live probe `janus-intelligence-mart-9dms6` 確實送出 7 個
+scope，但因 REST schema enum 使用小寫而全數回 400 `provider_error`。已修正 request
+時的 schema enum 正規化並部署 image digest
+`sha256:7355c3a01be5d3e40129a02a60ea9ef5261e90e78b864229d3133bcd6c397623`。新一輪
+3-scope live probe `janus-intelligence-mart-ql998`（market／industry／symbol，各 1
+次）仍回 400 `provider_error`，queue 與 publication 依然 fail-closed；目前需
+保留 provider response body 的安全診斷或確認 bundle key 在 Gemini project 的有效性。
+Admin／真人 watchlist flow 仍待 GCP dev authenticated browser session；本機 proxy
+不列為驗收證據。期間發現既有 `janus-api` 指向已銷毀的 Secret version 7，已改綁
+現有 enabled version 14，重建缺失的 API image（Cloud Build
+`bc77ff1e-d19f-4f19-aeb5-d4013cccfa6a`）並部署 revision `janus-api-00052-468`；
+直接 GCP URL 現回 401（服務已啟動，僅缺 Google user token）。
+
+Gemini runtime 現已在未指定 `GEMINI_MODEL` 時，每日首次 process 呼叫查詢官方
+`models` 清單，依 `gemini-3.8-flash`、`gemini-3.7-flash`、`gemini-3.6-flash`、
+`gemini-3.5-flash` 的 Stable 優先序取前三個可用模型並逐一 fallback；明確指定
+`GEMINI_MODEL` 時維持單模型模式。模型探索結果按日快取，paid gate 與 scope／次數
+上限仍由執行設定控制。
+
+自動選模 live probe `janus-intelligence-mart-cjlpq`（1 個 symbol scope、最多 3 次）
+實際依序嘗試 `gemini-3.8-flash`、`gemini-3.7-flash`、`gemini-3.6-flash`，三次均回
+400 `provider_error`；queue `succeeded`、report `blocked` 且無 placeholder。模型
+fallback 規則已由 GCP dev execution 證實，provider 400 的 key／project 或 request
+詳情仍待確認。
+
+### WBS-5 persisted consumer／Admin Analysis authenticated acceptance（2026-09-12）
+
+本機 targeted Python `70 passed`、Admin Vitest `3 passed`、Admin Playwright `9
+passed`；Python／JavaScript syntax 與 `git diff --check` 通過。既有 GCP dev project
+`gen-lang-client-0593591102` 的 Mart、ingestion-core 與 Web image 已部署；Web
+revision `janus-web-00073-lw9`，Web digest
+`sha256:da0222d465cff05780064ff5b9876f4478228f1c2acfd37d17248120e40979fa`，Mart
+digest `sha256:700ab9d6247a84338ed1302ac476a8d640b2deba91e777a0af749b6d7a424db3`，
+ingestion digest `sha256:dacfa965dbc93005942c2190a7531ba4343f3967299c8bf1df5f459b22ef4070`。
+
+GCP dev authenticated Admin 以 `first-batch` immutable Core snapshot 選取 2330，
+建立 Analysis execution `8851256a-7cf5-456f-b5dd-f8384ca571d0`；queued 後由既有
+Mart Job execution `janus-intelligence-mart-dk558` 消費並成功完成，Admin 顯示
+`succeeded`、retry `0`、進行中 `0`。「Mart 分析」入口以
+`2026-09-10`／`symbol`／`2330`／`quant`／`publishable` 篩選顯示單筆
+`complete`／`publishable`、completeness `75.9%`，artifact link 可解析至 immutable
+GCS metadata object。登入前 POST 正確 fail-closed 為 `authentication required`。
 
 ## P0 WBS 4C acceptance implementation checkpoint（2026-09-10）
 

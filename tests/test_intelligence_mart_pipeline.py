@@ -1,5 +1,6 @@
 import io
 import json
+import os
 import shutil
 import sys
 import unittest
@@ -7,13 +8,14 @@ from uuid import uuid4
 from datetime import date, timedelta
 from pathlib import Path
 from urllib.error import HTTPError
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "jobs" / "intelligence-mart"))
 
 from intelligence_mart.analysis import analyze, prompt_bundle
-from intelligence_mart.gemini import GeminiNarrator
+from intelligence_mart.gemini import GeminiNarrator, _select_stable_models
 from intelligence_mart.storage import MART_TABLES, MartIcebergStore
 
 
@@ -46,11 +48,11 @@ def datasets():
             "financials": financials, "valuation": valuation, "events": []}
 
 
-def report(source=None, **option_overrides):
+def report(source=None, execution_id="11111111-1111-1111-1111-111111111111", **option_overrides):
     prompts, digest = prompt_bundle()
     options = {"schema_version": "1", "feature_version": "1", "model_version": "deterministic-v1",
                "governance_snapshot_version": "gov-1", **option_overrides}
-    return analyze(execution_id="11111111-1111-1111-1111-111111111111", analysis_as_of=AS_OF.isoformat(),
+    return analyze(execution_id=execution_id, analysis_as_of=AS_OF.isoformat(),
                    core_snapshot_id="core-1", requested_symbols=("2330",), options=options,
                    datasets=source or datasets(), prompts=prompts, prompt_hash=digest)[0]
 
@@ -64,6 +66,9 @@ class MartPipelineTests(unittest.TestCase):
         self.assertEqual(first["aggregate"]["analysis_outcome"], "complete")
         self.assertEqual(first["aggregate"]["publication_status"], "publishable")
         self.assertEqual(first["features"]["quant"]["return_20d"], 20.0)
+
+    def test_rebuild_hash_excludes_execution_identity(self):
+        self.assertEqual(report()["deterministic_hash"], report(execution_id="22222222-2222-2222-2222-222222222222")["deterministic_hash"])
 
     def test_insufficient_data_is_an_outcome_not_a_publication_status(self):
         sparse = {"ohlcv": datasets()["ohlcv"]}
@@ -140,6 +145,28 @@ class _Response:
 
 
 class GeminiNarratorTests(unittest.TestCase):
+    def test_stable_model_selection_is_ordered_and_bounded(self):
+        selected = _select_stable_models({"models": [
+            {"name": "models/gemini-3.5-flash", "supportedGenerationMethods": ["generateContent"]},
+            {"name": "models/gemini-3.8-flash", "supportedGenerationMethods": ["generateContent"]},
+            {"name": "models/gemini-3.7-flash", "supportedGenerationMethods": ["generateContent"]},
+            {"name": "models/gemini-3.6-flash", "supportedGenerationMethods": ["generateContent"]},
+        ]})
+        self.assertEqual(selected, ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"))
+
+    def test_paid_gemini_requires_explicit_billing_approval(self):
+        with patch.dict(os.environ, {"GEMINI_PAID_ENABLED":"true","GEMINI_BILLING_APPROVED":"false"}, clear=True), self.assertRaisesRegex(ValueError, "billing gate"):
+            GeminiNarrator("secret")
+        with patch.dict(os.environ, {"GEMINI_PAID_ENABLED":"true","GEMINI_BILLING_APPROVED":"true"}, clear=True):
+            self.assertEqual(GeminiNarrator("secret").model, "gemini-2.5-flash")
+
+    def test_dev_acceptance_faults_are_structured_and_have_no_placeholder(self):
+        for fault in ("quota", "provider_unavailable", "invalid_structured_output"):
+            with self.subTest(fault=fault), patch.dict(os.environ, {"ENVIRONMENT":"dev","MART_ACCEPTANCE_FAULT":fault}, clear=True):
+                result = GeminiNarrator("secret", attempts=2, sleeper=lambda _: None).narrate(report(), prompt_bundle()[0])
+                self.assertEqual((result["status"], result["error"]["kind"]), ("failed", fault))
+                self.assertNotIn("narrative", result)
+
     def test_429_is_bounded_then_structured_output_succeeds(self):
         calls = []
         narrative = {"summary": "evidence only", "bull_case": [], "bear_case": [], "risks": [], "evidence_ids": []}
@@ -163,6 +190,18 @@ class GeminiNarratorTests(unittest.TestCase):
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["error"]["kind"], "invalid_structured_output")
         self.assertNotIn("narrative", result)
+
+    def test_rest_schema_uses_uppercase_enum_types(self):
+        captured = {}
+        narrative = {"summary": "evidence only", "bull_case": [], "bear_case": [], "risks": [], "evidence_ids": []}
+        def opener(request, timeout):
+            captured.update(json.loads(request.data))
+            return _Response({"candidates": [{"content": {"parts": [{"text": json.dumps(narrative)}]}}]})
+        result = GeminiNarrator("secret", opener=opener).narrate(report(), prompt_bundle()[0])
+        self.assertEqual(result["status"], "succeeded")
+        schema = captured["generationConfig"]["responseSchema"]
+        self.assertEqual((schema["type"], schema["properties"]["bull_case"]["type"], schema["properties"]["bull_case"]["items"]["type"]),
+                         ("OBJECT", "ARRAY", "STRING"))
 
 
 if __name__ == "__main__":

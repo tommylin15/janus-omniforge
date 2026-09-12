@@ -75,6 +75,7 @@ sudo docker exec \
     cat /tmp/private-vars.sql /opt/janus/migrations/014_private_workspace.sql | psql -U postgres -d janus_control
     psql -U postgres -d janus_control -f /opt/janus/migrations/015_private_mcp_servers.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/016_private_assistant_storage.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/019_core_mart_integration.sql
     rm -f /tmp/vars.sql /tmp/web-vars.sql /tmp/mart-vars.sql /tmp/private-vars.sql
     openssl req -new -x509 -days 365 -nodes -text \
       -subj "/CN=janus-postgres-dev" -keyout "$PGDATA/server.key" -out "$PGDATA/server.crt" >/dev/null 2>&1

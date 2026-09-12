@@ -40,6 +40,7 @@ ensure_sa() {
 }
 
 ensure_sa janus-ingestion-scheduler 'Janus ingestion scheduler'
+ensure_sa ingestion-core 'Janus ingestion Core runtime'
 ensure_sa postgres-vm 'PostgreSQL VM runtime'
 ensure_sa janus-user-api 'Janus private User API'
 ensure_sa janus-private-pipeline 'Janus private pipeline'
@@ -103,6 +104,9 @@ gcloud artifacts repositories add-iam-policy-binding janusai-poc --location="${r
   --member="serviceAccount:${ci_sa}" --role=roles/artifactregistry.writer --quiet
 gcloud projects add-iam-policy-binding "${project}" \
   --member="serviceAccount:${ci_sa}" --role=roles/run.admin --condition=None --quiet
+gcloud run jobs add-iam-policy-binding janus-intelligence-mart --region="${region}" \
+  --member="serviceAccount:ingestion-core@${project}.iam.gserviceaccount.com" \
+  --role=roles/run.invoker --quiet
 
 # Existing Free Tier PostgreSQL is intentionally not auto-created here. Fail
 # closed if the fixed, private topology is absent or has drifted.

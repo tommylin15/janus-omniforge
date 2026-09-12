@@ -54,13 +54,23 @@
     },
     "CoreDatasetReadyV1": {
       "type": "object",
-      "required": ["eventType", "executionId", "datasetId", "schemaVersion", "rowCount"],
+      "required": ["eventType", "executionId", "configId", "datasetId", "schemaVersion", "rowCount", "analysisAsOf", "coreSnapshotId", "coreSnapshotUri", "coreSnapshotHash"],
       "properties": {
         "eventType": {"const": "core.dataset.ready.v1"},
         "executionId": {"type": "string", "minLength": 1},
+        "configId": {"type": "string", "minLength": 1},
         "datasetId": {"const": "core"},
         "schemaVersion": {"const": "1.0.0"},
-        "rowCount": {"type": "integer", "minimum": 0}
+        "rowCount": {"type": "integer", "minimum": 0},
+        "analysisAsOf": {"type": "string", "format": "date"},
+        "coreSnapshotId": {"type": "string", "minLength": 1},
+        "coreSnapshotUri": {"type": "string", "pattern": "^gs://[^/]+/.+$"},
+        "coreSnapshotHash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "martSchemaVersion": {"type": "string", "minLength": 1},
+        "featureVersion": {"type": "string", "minLength": 1},
+        "modelVersion": {"type": "string", "minLength": 1},
+          "governanceSnapshotVersion": {"type": "string", "minLength": 1},
+          "scopes": {"type": "array", "minItems": 1, "items": {"type": "object"}}
       },
       "additionalProperties": false
     },

@@ -102,11 +102,29 @@ class AdminServiceTests(unittest.TestCase):
         self.assertEqual(self.control.config_symbols("ohlcv", only_enabled=False), ("2330",))
         self.assertEqual(self.admin.audit()[0]["resource"], "collection_config")
 
-    def test_analysis_is_rejected_without_creating_an_execution(self):
-        before = self.admin.executions()
-        with self.assertRaisesRegex(AdminValidationError, "persisted consumer"):
-            self.admin.enqueue_analysis("ohlcv", ("2330",))
-        self.assertEqual(self.admin.executions(), before)
+    def test_analysis_uses_latest_successful_core_snapshot(self):
+        collection = self.control.enqueue_collection("ohlcv", ("2330",))
+        from ingestion_core import ExecutionStatus
+        self.control.transition_execution(collection.execution_id, ExecutionStatus.RUNNING)
+        self.control.complete_collection(collection.execution_id, {
+            "eventType":"core.dataset.ready.v1","executionId":collection.execution_id,"configId":"ohlcv",
+            "datasetId":"core","schemaVersion":"1.0.0","rowCount":1,"analysisAsOf":"2026-09-12",
+            "coreSnapshotId":"snapshot-1","coreSnapshotUri":"gs://core/snapshot.json",
+            "coreSnapshotHash":"sha256:" + "1" * 64,
+        })
+        analysis = self.admin.enqueue_analysis("ohlcv", ("2330",))
+        self.assertEqual((analysis["status"], analysis["request_options"]["core_snapshot_id"]), ("queued", "snapshot-1"))
+        self.assertEqual(analysis["request_options"]["scopes"], [{"type":"symbol","id":"2330","symbols":["2330"]}])
+
+    def test_mart_reports_filter_metadata_and_build_immutable_navigation(self):
+        values = ("11111111-1111-1111-1111-111111111111","2026-09-12","symbol","2330","core-1",
+                  "gs://mart/warehouse/metadata.json","sha256:"+"1"*64,"sha256:"+"2"*64,
+                  "mart.mart_scoped_analysis_v1",42,"1","1","deterministic-v1","gov-1","v1","sha256:"+"3"*64,
+                  .8,.7,"good","complete","publishable","2026-09-12T00:00:00+00:00","2026-09-12T00:01:00+00:00")
+        self.control.connection.execute("INSERT INTO mart_report_index VALUES(" + ",".join("?" for _ in values) + ")", values)
+        report = self.admin.mart_reports(scope_type="symbol", scope_id="2330", role="quant")[0]
+        self.assertEqual((report["selected_role"], report["iceberg_snapshot_id"]), ("quant", 42))
+        self.assertTrue(report["artifact_console_url"].startswith("https://console.cloud.google.com/storage/browser/_details/mart/"))
 
     def test_retention_bounds(self):
         with self.assertRaises(AdminValidationError):

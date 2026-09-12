@@ -11,6 +11,7 @@ class MartRoleMigrationTests(unittest.TestCase):
         cls.sql = (ROOT / "infra" / "postgres" / "migrations" / "008_mart_runtime_roles.sql").read_text(encoding="utf-8")
         cls.queue_sql = (ROOT / "infra" / "postgres" / "migrations" / "017_mart_analysis_queue.sql").read_text(encoding="utf-8")
         cls.publication_sql = (ROOT / "infra" / "postgres" / "migrations" / "018_mart_publication.sql").read_text(encoding="utf-8")
+        cls.integration_sql = (ROOT / "infra" / "postgres" / "migrations" / "019_core_mart_integration.sql").read_text(encoding="utf-8")
         cls.hba = (ROOT / "infra" / "postgres" / "pg_hba.conf").read_text(encoding="utf-8")
         cls.bootstrap = (ROOT / "infra" / "postgres" / "bootstrap-vm.sh").read_text(encoding="utf-8")
 
@@ -36,6 +37,7 @@ class MartRoleMigrationTests(unittest.TestCase):
         self.assertIn("008_mart_runtime_roles.sql", self.bootstrap)
         self.assertIn("017_mart_analysis_queue.sql", self.bootstrap)
         self.assertIn("018_mart_publication.sql", self.bootstrap)
+        self.assertIn("019_core_mart_integration.sql", self.bootstrap)
         self.assertIn("MART_CATALOG_PASSWORD", self.bootstrap)
         self.assertIn("MART_PUBLICATION_PASSWORD", self.bootstrap)
 
@@ -50,6 +52,11 @@ class MartRoleMigrationTests(unittest.TestCase):
         self.assertIn("p_status = 'succeeded'", self.publication_sql)
         self.assertIn("REVOKE ALL ON publication.mart_report_index", self.publication_sql)
         self.assertIn("GRANT EXECUTE ON FUNCTION publication.register_mart_report", self.publication_sql)
+
+    def test_core_ready_event_and_analysis_queue_are_immutable_and_idempotent(self):
+        self.assertIn("core_execution_id uuid PRIMARY KEY", self.integration_sql)
+        self.assertIn("analysis_execution_id uuid UNIQUE", self.integration_sql)
+        self.assertIn("payload->>'eventType' = 'core.dataset.ready.v1'", self.integration_sql)
 
 
 if __name__ == "__main__":

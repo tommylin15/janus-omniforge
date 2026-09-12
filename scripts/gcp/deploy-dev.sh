@@ -56,6 +56,8 @@ gcloud builds submit . \
 case "${component}" in
   ingestion-core)
     gcloud run jobs update "${runtime_name}" --project="${project}" --region="${region}" \
+      --service-account="ingestion-core@${project}.iam.gserviceaccount.com" \
+      --update-env-vars="MART_JOB=janus-intelligence-mart,GCP_REGION=${region}" \
       --remove-secrets="CONTROL_DB_PASSWORD,CATALOG_DB_PASSWORD" \
       --update-secrets="JANUS_INGESTION_POSTGRES_BUNDLE=janus-agent-provider-bundle:latest" --quiet
     ;;

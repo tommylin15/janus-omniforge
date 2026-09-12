@@ -108,6 +108,7 @@ sudo docker exec --user postgres \
     cat /tmp/mart-vars.sql /opt/janus/migrations/008_mart_runtime_roles.sql | psql -U postgres -d janus_control
     psql -U postgres -d janus_control -f /opt/janus/migrations/017_mart_analysis_queue.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/018_mart_publication.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/019_core_mart_integration.sql
     rm -f /tmp/mart-vars.sql
     psql -U postgres -d janus_control -v ON_ERROR_STOP=1 <<"SQL"
 SELECT rolname, rolsuper, rolcreatedb, rolcreaterole, rolreplication
@@ -115,7 +116,7 @@ FROM pg_roles
 WHERE rolname IN ($$janus_mart_catalog$$, $$janus_mart_publication$$)
 ORDER BY rolname;
 SELECT EXISTS (
-  SELECT 1 FROM control.schema_migrations WHERE version = $$018_mart_publication$$
+  SELECT 1 FROM control.schema_migrations WHERE version = $$019_core_mart_integration$$
 ) AS migration_recorded;
 SQL
   '

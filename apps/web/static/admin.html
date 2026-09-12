@@ -26,6 +26,7 @@
         <button class="nav-link" id="tab-membership" role="tab" aria-selected="false" aria-controls="membership" data-tab="membership" type="button"><span aria-hidden="true">◎</span>核心 50 名單</button>
         <button class="nav-link" id="tab-settings" role="tab" aria-selected="false" aria-controls="settings" data-tab="settings" type="button"><span aria-hidden="true">◷</span>排程與保存設定</button>
         <button class="nav-link" id="tab-catalog" role="tab" aria-selected="false" aria-controls="catalog" data-tab="catalog" type="button"><span aria-hidden="true">▤</span>資料源設定</button>
+        <button class="nav-link" id="tab-mart" role="tab" aria-selected="false" aria-controls="mart" data-tab="mart" type="button"><span aria-hidden="true">◇</span>Mart 分析</button>
       </nav>
       <small class="build-version">版本 <span id="build-version">讀取中</span></small>
     </aside>
@@ -60,9 +61,10 @@
           <label>回跑迄日 <input id="backfill-end" type="date"></label>
           <label>指定來源 <input id="backfill-sources" placeholder="twse,tpex" aria-label="Backfill source IDs"></label>
           <button id="queue-collection" class="button primary" type="button">加入收集佇列</button>
+          <button id="queue-analysis" class="button secondary" type="button">加入 Analysis 佇列</button>
           <button id="clear-selection" class="button quiet" type="button">清除選取</button>
         </div>
-        <p class="form-note">勾選的股票只用來建立一次資料收集工作；送出後由背景 worker 寫入 Stage／Core，可在「最近執行」追蹤。</p>
+        <p class="form-note">Collection 產生成功的 immutable Core snapshot 後會自動排入 Mart；Analysis 可用最近一次成功 Core snapshot 重跑，兩者都在「最近執行」追蹤 terminal／retry 狀態。</p>
 
         <div class="table-wrap">
           <table>
@@ -104,6 +106,20 @@
             <button class="button primary" type="submit">儲存不可變更版本</button>
           </form>
         </section>
+      <section id="mart" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-mart" hidden>
+        <div class="panel-heading"><div><p class="eyebrow">IMMUTABLE MART</p><h2>Mart 分析</h2></div><span class="tag neutral">persisted artifacts only</span></div>
+        <form id="mart-filter" class="toolbar" role="search">
+          <label>Analysis date<input id="mart-date" type="date"></label>
+          <label>Scope<select id="mart-scope"><option value="">全部</option><option>market</option><option>industry</option><option>symbol</option></select></label>
+          <label>Industry／Symbol<input id="mart-scope-id" placeholder="例如 2330"></label>
+          <label>角色<select id="mart-role"><option value="">全部</option><option>fundamental</option><option>valuation</option><option>positioning</option><option>quant</option><option>event_risk</option></select></label>
+          <label>Prompt<input id="mart-prompt" placeholder="v1"></label>
+          <label>Outcome<select id="mart-outcome"><option value="">全部</option><option>complete</option><option>invalid</option><option>review_required</option><option>risk_blocked</option><option>insufficient_data</option></select></label>
+          <label>Publication<select id="mart-publication"><option value="">全部</option><option>draft</option><option>blocked</option><option>publishable</option><option>published</option><option>superseded</option></select></label>
+          <button class="button primary" type="submit">查詢</button>
+        </form>
+        <div class="table-wrap"><table><thead><tr><th>日期</th><th>Scope</th><th>ID</th><th>Outcome</th><th>Publication</th><th>Prompt</th><th>Completeness</th><th>Artifact</th></tr></thead><tbody id="mart-rows"><tr><td colspan="8" class="empty">正在載入 persisted Mart index…</td></tr></tbody></table></div>
+      </section>
       <section id="settings" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-settings" hidden>
         <div class="panel-heading"><div><p class="eyebrow">OPERATIONS SETTINGS</p><h2>排程與保存設定</h2></div><span class="tag neutral">需填寫操作者與版本</span></div>
         <form id="settings-form" class="form-grid">
@@ -145,7 +161,7 @@
     <div class="form-grid"><label>Retention<select id="config-retention"><option>raw_short</option><option>core_standard</option><option>deep_research</option><option>audit</option></select></label><label>最多股票數<input id="config-max-symbols" type="number" min="1" max="50" required></label></div>
     <div class="form-grid"><label class="check-label"><input id="config-enabled" type="checkbox"> 啟用設定</label><label class="check-label"><input id="config-collection-enabled" type="checkbox"> 允許 Collection</label></div>
     <label>操作者<input id="config-actor" required placeholder="operator@example.com"></label>
-    <p class="form-note">候選或封鎖來源不能啟用；Analysis 維持既有設定且目前不開放。</p><button class="button primary" type="submit">儲存資料源設定</button>
+    <p class="form-note">候選或封鎖來源不能啟用；Analysis 僅讀取已成功提交的 immutable Core snapshot。</p><button class="button primary" type="submit">儲存資料源設定</button>
   </form></dialog>
 </body>
 </html>

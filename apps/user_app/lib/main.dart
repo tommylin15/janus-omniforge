@@ -724,11 +724,19 @@ class _WatchlistPageState extends State<WatchlistPage> {
     if (symbol == null) return;
     if (!mounted) return;
     final target = await textDialog(context, '設定目標價', '可留空');
-    await widget.api.post('/api/v1/me/watchlist', {
-      'symbol': symbol.toUpperCase(),
-      if (target?.isNotEmpty == true) 'target_price': target
-    });
-    reload();
+    try {
+      await widget.api.post('/api/v1/me/watchlist', {
+        'symbol': symbol.toUpperCase(),
+        if (target?.isNotEmpty == true) 'target_price': target
+      });
+      reload();
+    } catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(error.toString().contains('deep-tracking symbol limit')
+                ? '已達 50 個 distinct active symbols 深度追蹤上限'
+                : error.toString().replaceFirst('Exception: ', ''))));
+    }
   }
 
   @override

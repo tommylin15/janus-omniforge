@@ -12,29 +12,31 @@
 - [TODO 完成紀錄（2026-09-06）](archive/todo-completed-2026-09-06.md)
 - [TODO 完成紀錄（2026-09-09）](archive/todo-completed-2026-09-09.md)
 - [TODO 完成紀錄（2026-09-11）](archive/todo-completed-2026-09-11.md)
+- [TODO 完成紀錄（2026-09-12：WBS-5）](archive/todo-completed-2026-09-12-wbs5.md)
 - [已完成 WBS 0／1／2／4](archive/wbs-completed-through-2026-08-31.md)
 
-## 目前進度（2026-09-11）
+## 目前進度（2026-09-12）
 
 - WBS 4J 獨立 MVP：journal／note／Private Iceberg 完整交易、重跑、刪除與 A／B 隔離已結案；僅依賴 WBS 5 的個人化 analysis overlay 尚未啟用。
 - WBS 4C：Agent Runtime／AgentEvent、security contract、context sources、MCP host、Gemini REST、OpenRouter provider、Private Storage、Skills contract、Codex auth lifecycle 與 Chat API contract 的已完成部分已歸檔；Codex Chat API durable continuation、真人 device-code 流程與整合驗收仍未完成。
 - WBS-4C-CODEX-BRIDGE checkpoint：雙向 stdio JSON-RPC、Threads／Turns／Items、device-code managed login、request-bound Approvals、共用 MCP dynamic-tool path 與 `turn/started` 事件驅動 cancellation 已完成；GCP Cloud Build contract tests 5／5 通過，Cloud Run health 3／3 通過，live Codex cancellation 200 通過，checkpoint reconnect 通過。現有全域 Secret／固定 owner 仍僅是 dev POC，不代表 owner-scoped auth lifecycle 完成。驗收 build `2d95aa6e-cc4e-47d5-97ae-ce9dcfafc479`、revision `janus-agent-gateway-00017-tpf`、digest `sha256:b03a041f2ddf19d3028777d7531f94599fee728024dac471156932ad64df9541`。
 - WBS-4C-PRIVATE-STORAGE：migration 016、Private Iceberg assistant events／Skill revisions、PostgreSQL bounded index、credential-shaped field fail-closed、冪等重跑、A／B 隔離與 Codex auth cleanup pending 契約已完成；GCP dev evidence 詳見 `spec/operations-and-testing.md`。
 - WBS-4C-CODEX-AUTH-LIFECYCLE：完成部分已移至 [`archive/todo-completed-2026-09-09.md`](archive/todo-completed-2026-09-09.md)；互動式 device-code login 真人流程仍未驗收。
-- WBS 3 收尾：`WBS-3-ACCEPTANCE` 暫停於 1/3；既有 Scheduler 繼續自動累積 canary，切換至 WBS 5 期間不得宣告 WBS 3 結案。queue claim、connection exhaustion、VM restart/reconnect、bundle runtime probes、Direct VPC／identity negative evidence 與 billing／Free Tier dev guard 已通過。
+- WBS 3 收尾：`WBS-3-ACCEPTANCE` 暫停於 2/3；既有 Scheduler 繼續自動累積 canary，切換至 WBS 5 期間不得宣告 WBS 3 結案。queue claim、connection exhaustion、VM restart/reconnect、bundle runtime probes、Direct VPC／identity negative evidence 與 billing／Free Tier dev guard 已通過。
 - 最新驗證：Codex POC bridge Cloud Build `9dec1039-0052-420d-9ef1-6719ed46991a` 與 OpenRouter／Gemini runtime probe `20050302-861a-4c84-84ad-c96f21903776` 均 SUCCESS；完整證據與既有驗證見 `spec/operations-and-testing.md` 與 [`secret_list.md`](secret_list.md)。
 - Secret bundle consolidation：已完成程式、測試、GCP dev prepare／部署與三個 Job smoke；尚待 Codex A/B live auth entry isolation，以及明確授權後的 legacy cleanup，詳見 [`doc/secret_list.md`](secret_list.md)。
 
 ## 下一步執行佇列
 
-1. 【Sol】`WBS-5`：目前執行；先完成 persisted analysis queue claim 與 `core.dataset.ready.v1` immutable input fence，再依 WBS 5 切片逐項驗收。
-2. 【Sol】`WBS-3-ACCEPTANCE`：暫停於 canary 1/3；只由既有 Scheduler 自動累積，不與 WBS 5 同回合結案。
+1. 【Sol】`WBS-5`：核心 feature／role／LLM／publication pipeline、`core.dataset.ready.v1` trigger 與 Admin Analysis／Mart 分析入口已完成；下一步為 Gemini provider 診斷、artifact／公開 API 查詢整合。
+2. 【Sol】`WBS-3-ACCEPTANCE`：暫停於 canary 2/3；只由既有 Scheduler 自動累積，不與 WBS 5 同回合結案。
 3. 【Sol】`WBS-4C-ACCEPTANCE`：完成 Cloud Run、provider、資料源、MCP、Skills、streaming、approval、Grounding、privacy 與刪除整合驗收。
 4. 【Luna】`WBS-6` → 【Sol】`WBS-7` → 依逐項標籤執行 `WBS-8`；WBS 4J 個人化 overlay 等 `mart_scoped_analysis` 可用後再做。
 
 ## 模型確認規則
 
 - 每次只取佇列中的一個原子任務。正式執行前，AI 必須先提醒建議模型與任務名稱，等使用者明確回覆已切換模型後才開始；完成後停止，下一項重新確認。
+- 每個日曆日第一次 Gemini 串接前，先查官方模型清單，選出當日前三個 Stable model，依序試用；優先 free tier，不自動開啟 paid gate，並受使用者明確授權的 scope／次數上限約束。全部失敗時維持 fail-closed、不得寫 placeholder。
 - 下方每個未完成待辦均已標示【Sol】或【Luna】；若一項同時含安全／底層與 UI／CRUD，執行前先依上方佇列拆分，不用單一模型包辦混合範圍。
 
 ## P1（私人 P0 後續）— Admin Data Operations MVP
@@ -53,7 +55,7 @@
   （2026-09-02：實際 dev URL 的 live Playwright、API/runtime 與安全輸出已通過；
   revision／digest 詳見 operations-and-testing。真人 Google login 仍未執行。）
 
-- [ ] 【Sol】 5 檔 canary 由既有 Scheduler 連續 3 個交易日正常完成；expected／received／missing、8 個核准來源狀態、Core row/hash/date/null profile 與成本摘要均留下證據。（bundle 修正後已完成 Scheduler smoke `janus-ingestion-core-j5qbv`；2026-09-11 的自動排程 execution `janus-ingestion-core-4zft5` 已完成資料日 2026-09-10，post-fix scheduled canary 目前 1/3，詳見 operations-and-testing。）
+- [ ] 【Sol】 5 檔 canary 由既有 Scheduler 連續 3 個交易日正常完成；expected／received／missing、8 個核准來源狀態、Core row/hash/date/null profile 與成本摘要均留下證據。（2026-09-11／資料日 2026-09-10 的 `janus-ingestion-core-4zft5` 與 2026-09-12／資料日 2026-09-11 的 `janus-ingestion-core-824gh` 均成功；post-fix scheduled canary 目前 2/3，詳見 operations-and-testing。）
 
 - [ ] 【Sol】 canary 通過後才擴至當日 enabled 全市場；market-scope endpoint 單次抓取並 symbol fan-out，不逐檔重複請求。
 
@@ -117,89 +119,15 @@
 
 - [ ] 【Sol】 驗證關注需求變更不改寫歷史 membership；最後一位使用者取消關注後停止新的深度收集，但保留依法可保存的歷史 provenance。MVP 超過 50 個 distinct active symbols 時安全拒絕並顯示 quota。
 
-## P1 — Mart／Agents
-
-- [ ] 【Sol】 建立可執行的 `intelligence_mart` package／Cloud Run Job entrypoint、bounded runtime 設定與 persisted queue claim；2026-08-31 已完成 connectivity entrypoint、1 CPU／1 GiB／300s／1 retry Job 與實機 smoke。2026-09-11 已實作 analysis-only `FOR UPDATE SKIP LOCKED` lease、bounded retry／terminal transition 與 immutable input／artifact completion fence；本機 targeted tests 9/9 通過、`git diff --check` 通過。GCP dev migration 017、函式 EXECUTE-only privilege、queue rejection／retry execution `janus-intelligence-mart-zj8zw` 與 smoke execution `janus-intelligence-mart-fq96m` 已驗證；matching Core manifest 的 SHA-256／execution／snapshot fence、deterministic create-if-absent Mart input artifact、首次 succeeded `janus-intelligence-mart-z5tn8` 與 replay `janus-intelligence-mart-xr64n` 已驗證；Cloud Build `fe30fa4f-7cd4-4bb7-8500-41d1a8cfe077` SUCCESS。完整 feature／role／publication pipeline 的新實作見下方 checkpoint，尚待測試驗收；Analysis 排隊或 claim 成功不得視為完成。
-
-- 2026-09-11 WBS-5 implementation checkpoint：已完成 exact Core Iceberg snapshot reader、deterministic screening／Fundamental／Valuation／Positioning／Quant／Event Risk features、五角色 payload、PIT Evidence Validator、effective-weight Aggregator／Devil's Advocate、repository prompt／governance hash fence、Gemini-only optional structured narrative，以及 11 個 public Iceberg v2/Parquet data products。migration 018 已建立 metadata-only report index、`ready_at` publishable view、terminal transition 原子 outbox 與 `mart.report.ready.v1`；完整 payload 不進 PostgreSQL。相關 contract／unit／Iceberg／migration tests 已寫妥但依使用者指示尚未執行，migration 018 亦尚未套用 GCP dev；下一步須先切換驗收模型，再執行 targeted tests、SQL／contract check、Cloud Build 與既有 GCP dev migration／queue E2E。
-
-- [ ] 【Sol】 persisted Mart consumer 完成並通過 terminal-state／retry 驗收後，才重新啟用 Admin Analysis action 與「Mart 分析」。
-
-- [ ] 【Sol】 建立 `core.dataset.ready.v1` → Mart 的 workflow／event trigger；只接受 ingestion 最小寫入安全檢查／Core commit 成功且帶有 execution ID、immutable Core snapshot ID 的事件，並驗證 ingestion failed／partial 不觸發、重送保持冪等。不得以同時各自排程 ingestion 與 Mart 取代依賴串接。
-
-- [ ] 【Sol】 Mart Job 只透過 Direct VPC egress 與專用 read/write role 存取 PostgreSQL metadata；2026-08-31 已驗證 catalog／publication role 與 private path，feature／evidence payload 的 GCS／Iceberg 寫入邊界仍待實作與驗收。
-
-- [ ] 【Sol】 固定 Mart execution input contract：`execution_id`、`analysis_as_of`、Core snapshot ID、schema／feature／model version 與 immutable governance snapshot version；禁止 Analysis 即時補抓或改寫 Core。
-
-- [ ] 【Sol】 建立公開 versioned Iceberg Mart schemas：screening／core alpha／risk／sentiment、單一 `mart_scoped_analysis`，以及 `mart_market_regime_daily`、`mart_sector_rotation_daily`、`mart_topic_trends_daily`、`mart_candidate_health` 與 `mart_daily_brief`；共用欄位涵蓋 analysis date、lineage、completeness、confidence、data quality、analysis outcome、publication status 與 evidence／artifact reference。
-
-- [ ] 【Sol】 建立市場狀態與每日摘要 pipeline；`mart_daily_brief` 只能組合同一 analysis-as-of 的已發布 market／sector／topic／candidate artifact，不重算上游分數。
-
-- [ ] 【Sol】 建立板塊輪動 deterministic features：產業 membership snapshot、5 日法人買超力道、力道變化、20 日成交金額與漲潮／輪動／觀望／退潮狀態。
-
-- [ ] 【Sol】 建立候選股健康度 contract：`stock_id`、`stock_name`、1–100 `mart_health_score`、受控 `chips_status`、evidence-only `ai_whitepaper_analysis`、analysis-as-of、資料狀態與 evidence references；LLM 不得計算分數。
-
-- [ ] 【Sol】 定義 repository 版控的五角色固定 structured prompt contract；不提供 Admin 編輯或 scope override，Mart execution 固定 prompt version／content hash 至 immutable governance snapshot。
-
-- [ ] 【Sol】 Fundamental features／Agent。
-
-- [ ] 【Sol】 Valuation features／Agent。
-
-- [ ] 【Sol】 Positioning features／Agent。
-
-- [ ] 【Sol】 Quant features／Agent。
-
-- [ ] 【Sol】 Event Risk features／Agent。
-
-- [ ] 【Sol】 Evidence Validator：驗證 URL、時間、單位、duplicate、stale、conflict、source authorization 與 future leakage；evidence 必須可追至 provenance／Core snapshot。
-
-- [ ] 【Sol】 Devil's Advocate 反證階段只引用合格 evidence，不得自行補資料或產生無來源數字。
-
-- [ ] 【Sol】 Aggregator bull／bear／contradictions／contributions。
-
-- [ ] 【Sol】 將 contracts、API／UI mapping 與 contract tests 同步為正式文件已固定的 `insufficient_data` 語意：它是 completeness gate 的 analysis outcome／reason，與 `PublicationStatusV1` 分欄；低於 30% 或無有效分數不得進公開 index。
-
-- [ ] 【Sol】 blocked／publishable view；只有 `publishable`／`published` 可進公開 service index。
-
-- [ ] 【Sol】 immutable governance snapshot version。
-
-- [ ] 【Luna】 deterministic rerun tests。
-
-- [ ] 【Sol】 `mart_scoped_analysis` 的 industry scope 只分析該次 immutable membership snapshot；symbol scope 產出獨立 role payload。兩者只用 PIT 合格 evidence，並驗證 prompt version 變更不覆寫歷史 Mart。
-
 ## P1 — 公開 Mart LLM
 
-- [ ] 【Sol】 建立 evidence-only structured prompt。
-
-- [ ] 【Sol】 禁止模型產生未在 evidence 出現的數字。
-
-- [ ] 【Sol】 禁止模型修改 score、confidence、quality、publication。
-
-- [ ] 【Sol】 公開批次 Mart 只接 Gemini，與 WBS 4C 的多供應商私人助理分離；不得使用 OpenAI／Codex API。啟用付費前須通過人工 billing gate，429／`RESOURCE_EXHAUSTED`／provider unavailable 採 bounded retry。
-
-- [ ] 【Sol】 非 429 結構化失敗。
-
-- [ ] 【Sol】 LLM 失敗不得寫 placeholder report。
-
-- [ ] 【Sol】 LLM 關閉時 deterministic outputs 完全一致。
+- [ ] 【Sol】 公開批次 Mart 只接 Gemini，與 WBS 4C 的多供應商私人助理分離；不得使用 OpenAI／Codex API。啟用付費前須通過人工 billing gate，429／`RESOURCE_EXHAUSTED`／provider unavailable 採 bounded retry。（2026-09-12：free-tier live probe 已送出 7 scope；修正 REST schema enum 後再送 3 scope，各 1 次仍回 400 `provider_error`，需確認 bundle key 有效性或補安全 provider response 診斷。）
 
 ## P1 — Mart 閉環
 
-- [ ] 【Sol】 建立 GCS Mart warehouse／Iceberg namespace 與 versioned partition strategy，產製 `spec.md` 定義的公開 Mart tables；不得以固定表數掩蓋市場／板塊／話題／候選／每日摘要資料產品。
+- [ ] 【Sol】 將 model／evaluation artifact 與大型 governance diff 寫入 GCS；feature／role／evidence／aggregation payload、完整結構化 report 及其 object URI／snapshot ID／hash 已由 WBS-5 pipeline 保存。
 
-- [ ] 【Sol】 將 feature／role／evidence／aggregation payload、model／evaluation artifact、完整結構化 report 與大型 governance diff 寫入 GCS；保存 object URI、snapshot ID、hash 與版本。
-
-- [ ] 【Sol】 以 migration 建立 PostgreSQL report metadata 與 publication service index；使用唯一鍵、bounded pool、statement timeout、retention 與 workload-specific role。
-
-- [ ] 【Sol】 PostgreSQL 的市場分析邊界只保存 catalog／control／publication／audit／service-index metadata 與 artifact reference；私人 ledger 使用獨立 schema／role。以 schema／integration test 阻擋完整 report、feature、evidence 或 Private Mart payload 寫入 Free Tier VM。
-
-- [ ] 【Luna】 發出 `mart.report.ready.v1`。
-
-- [ ] 【Luna】 驗證 blocked 不進 publishable view。
-
-- [ ] 【Sol】 驗證 publication index 可解析至正確 immutable GCS／Iceberg artifact，且 blocked／insufficient-data 成品不會被公開 API／Web 讀取。
-
-- [ ] 【Sol】 驗證 2330 在相同 Core snapshot、governance、schema／feature／model version 下可重現 deterministic Mart；LLM 關閉時 deterministic output 不變。
+- [ ] 【Sol】 驗證 publication index 可解析至正確 immutable GCS／Iceberg artifact，且 blocked／insufficient-data 成品不會被公開 API／Web 讀取；目前已完成 GCS／Iceberg URI 與 publishable view 驗證，公開 API／Web 仍待建立。
 
 ## P1 — Admin Governance／Reports
 
@@ -209,7 +137,6 @@
 
 - [ ] 【Luna】 Report block／unblock 保存理由與 audit。
 
-- [ ] 【Luna】 「Mart 分析」以表格檢視 market／industry／symbol scope 的 `mart_scoped_analysis`，支援 analysis date、scope、industry、symbol、角色、prompt version、analysis outcome、publication status 篩選，並可解析至 immutable Core／Mart artifact。
 
 ## P1 — FastAPI／Flutter User
 

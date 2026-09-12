@@ -224,3 +224,14 @@ def test_private_migration_has_decimal_append_only_and_user_leading_guards():
     assert "pg_advisory_xact_lock" in repository and "count(DISTINCT symbol)" in repository
     assert "ledger_events WHERE user_id=%s AND event_id=%s FOR UPDATE" not in repository
     assert "ON CONFLICT(user_id,idempotency_key) DO NOTHING" in repository
+
+
+def test_watchlist_demand_history_is_deidentified_append_only_and_quota_bounded():
+    sql=(ROOT/"infra/postgres/migrations/019_core_mart_integration.sql").read_text(encoding="utf-8")
+    assert "deep_tracking_membership_events" in sql
+    assert "last_unfollow" in sql and "demand_count" in sql
+    assert "REVOKE UPDATE, DELETE, TRUNCATE" in sql
+    assert "user_id" not in sql[sql.index("CREATE TABLE IF NOT EXISTS control.deep_tracking_membership_events"):sql.index("CREATE INDEX IF NOT EXISTS deep_tracking_membership_history")]
+    repository=(ROOT/"services/api/repository.py").read_text(encoding="utf-8")
+    assert repository.count("record_deep_tracking_demand") == 2
+    assert "global_count>=50" in repository

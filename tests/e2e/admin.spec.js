@@ -41,6 +41,7 @@ async function mockAdmin(page, { candidate = false, references = null, onDelete 
     if (path === "/api/v1/admin/stocks/2330" && route.request().method() === "DELETE") { onDelete(); return route.fulfill({ json: { symbol: "2330", deleted: true } }); }
     if (path === "/api/v1/admin/stocks/2330/status") return route.fulfill({ json: { symbol: "2330", items: [{ dataset_id: "ohlcv", latest_date: "2026-08-31", row_count: 2, received_symbols: 1, requested_symbols: 1, coverage_ratio: 1, null_count: 1, null_profile: [{ field: "close", count: 1, ratio: 0.5 }], quality_flags: ["warning"], dq_warning_count: 1, source_ids: ["twse"], snapshot_ids: ["42"], quarantine_count: 1, quarantine_state: "available" }] } });
     if (path === "/api/v1/admin/executions") return route.fulfill({ json: { items: [execution], limit: 10, next_cursor: null } });
+    if (path === "/api/v1/admin/mart-reports") return route.fulfill({ json: { items: [] } });
     if (path === `/api/v1/admin/executions/${execution.execution_id}`) return route.fulfill({ json: execution });
     if (path === "/api/v1/admin/source-catalog") return route.fulfill({ json: { items: candidate ? [{ config_id: "anue-news", dataset_id: "news", source_ids: ["anue"], cadence: "intraday", coverage_tier: "core_focus", authorization_status: "candidate" }] : [] } });
     if (path === "/api/v1/admin/memberships/core_focus") return route.fulfill({ json: { items: [{ symbol: "2330" }], version: 2, effective_from: "2026-09-03T08:40:00Z" } });
@@ -62,11 +63,12 @@ test("tab deep link, keyboard, ARIA and responsive shell", async ({ page }) => {
   await expect(page.getByRole("tab", { name: /資料源健康/ })).toHaveAttribute("aria-selected", "true");
   await expect(page).toHaveURL(/tab=sources/);
   await expect(page.getByRole("button", { name: /加入 Analysis/ })).toHaveCount(0);
-  await expect(page.getByRole("tab", { name: /Mart 分析/ })).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: /Mart 分析/ })).toHaveCount(1);
   await page.keyboard.press("End");
-  await expect(page.getByRole("tab", { name: /資料源設定/ })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: /Mart 分析/ })).toHaveAttribute("aria-selected", "true");
   await page.keyboard.press("Home");
   await expect(page.getByRole("tab", { name: /股票管理/ })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("button", { name: /加入 Analysis/ })).toHaveCount(1);
   for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 }, { width: 1280, height: 800 }]) {
     await page.setViewportSize(viewport);
     await expect(page.getByRole("heading", { name: "資料營運中心" })).toBeVisible();
