@@ -18,6 +18,11 @@ class _Core:
         return type("Page", (), {"dataset_id": dataset, "symbol": symbol, "rows": (), "limit": limit, "offset": offset})()
 
 
+class _Public:
+    def report(self, scope_type, scope_id, *, analysis_as_of=""):
+        return {"scope_type": scope_type, "scope_id": scope_id, "analysis_as_of": analysis_as_of or "2026-09-12", "data": {"score": 80}}
+
+
 class _Admin:
     def __init__(self):
         self.enabled = None
@@ -92,8 +97,8 @@ class _Admin:
 
 
 class WebServerTests(unittest.TestCase):
-    def request(self, path, *, method="GET", body=None, admin=None, authenticated_actor=None):
-        app = WebApplication(core=_Core(), admin=admin)
+    def request(self, path, *, method="GET", body=None, admin=None, public=None, authenticated_actor=None):
+        app = WebApplication(core=_Core(), admin=admin, public=public)
         target = urlsplit(path)
         encoded = json.dumps(body).encode() if body is not None else b""
         environ = {"PATH_INFO": target.path, "QUERY_STRING": target.query, "REQUEST_METHOD": method, "CONTENT_LENGTH": str(len(encoded)), "wsgi.input": BytesIO(encoded)}
@@ -112,6 +117,11 @@ class WebServerTests(unittest.TestCase):
         status, body = self.request("/api/v1/core/2330/summary")
         self.assertEqual(status, "200 OK")
         self.assertEqual(body["symbol"], "2330")
+
+    def test_public_report_route_reads_persisted_service(self):
+        status, body = self.request("/api/v1/public/reports/symbol/2330?analysis_as_of=2026-09-12", public=_Public())
+        self.assertEqual(status, "200 OK")
+        self.assertEqual(body["data"]["score"], 80)
 
     def test_core_dataset_route_passes_dataset_before_symbol(self):
         status, body = self.request("/api/v1/core/2330/datasets/ohlcv")

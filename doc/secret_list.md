@@ -1,6 +1,6 @@
 # GCP Dev Secret Bundle 清單
 
-更新日期：2026-09-11  
+更新日期：2026-09-12
 Project：`gen-lang-client-0593591102`  
 Region：`us-central1`
 
@@ -10,7 +10,7 @@ Region：`us-central1`
 
 | Secret | 欄位／格式（不含值） | Consumer | Version | IAM |
 |---|---|---|---|---|
-| `janus-postgres-api-bundle` | API 欄位；`web_*`、`pipeline_*` workload 欄位 | `janus-api`、`janus-web`、`janus-private-pipeline` | v14 enabled；舊版 destroyed | 三 runtime `secretAccessor` |
+| `janus-postgres-api-bundle` | API 欄位；`web_*`、`pipeline_*` workload 欄位；含 `web_publication_password` | `janus-api`、`janus-web`、`janus-private-pipeline` | v15 enabled；舊版 preserved／未輸出 payload | 三 runtime `secretAccessor` |
 | `janus-agent-provider-bundle` | provider／MCP 欄位；`mart_*`、`ingestion_*` workload 欄位 | `janus-agent-gateway`、`janus-intelligence-mart`、`janus-ingestion-core` | v8 enabled；舊版 destroyed | 三 runtime `secretAccessor`；Gateway provider access |
 | `janus-codex-owners-bundle` | 頂層 key 為 allowlisted owner UUID；value 為該 owner 的 Codex `auth.json` object | Agent Gateway | 無 enabled version（尚未建立 auth entry） | Gateway `secretAccessor`、`secretVersionAdder`、`secretVersionManager` |
 

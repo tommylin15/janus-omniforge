@@ -9,7 +9,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "jobs" / "intelligence-mart"))
 
-from intelligence_mart.runtime import AnalysisExecution, PostgreSQLPublicationIndex, consume_queued_analysis, deterministic_processor, postgres_smoke
+from intelligence_mart.runtime import AnalysisExecution, PostgreSQLPublicationIndex, _write_immutable_json, consume_queued_analysis, deterministic_processor, postgres_smoke
 
 
 def _analysis_options():
@@ -43,6 +43,21 @@ class _Connection:
 
 
 class MartRuntimeTests(unittest.TestCase):
+    def test_model_evaluation_and_governance_artifacts_are_create_only(self):
+        class Store:
+            objects = {}
+            def create(self, name, payload, _content_type):
+                if name in self.objects: return False
+                self.objects[name] = payload
+                return True
+            def read(self, name): return self.objects[name]
+        store = Store()
+        first = _write_immutable_json(store, "mart", "executions/e/artifacts/evaluation.json", {"score": 1})
+        second = _write_immutable_json(store, "mart", "executions/e/artifacts/evaluation.json", {"score": 1})
+        self.assertEqual(first, second)
+        with self.assertRaisesRegex(RuntimeError, "immutable"):
+            _write_immutable_json(store, "mart", "executions/e/artifacts/evaluation.json", {"score": 2})
+
     def test_publication_writer_sends_metadata_only_to_bounded_function(self):
         calls = []
         class Cursor:

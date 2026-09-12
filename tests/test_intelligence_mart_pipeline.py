@@ -191,7 +191,7 @@ class GeminiNarratorTests(unittest.TestCase):
         self.assertEqual(result["error"]["kind"], "invalid_structured_output")
         self.assertNotIn("narrative", result)
 
-    def test_rest_schema_uses_uppercase_enum_types(self):
+    def test_rest_schema_uses_current_response_format(self):
         captured = {}
         narrative = {"summary": "evidence only", "bull_case": [], "bear_case": [], "risks": [], "evidence_ids": []}
         def opener(request, timeout):
@@ -199,9 +199,21 @@ class GeminiNarratorTests(unittest.TestCase):
             return _Response({"candidates": [{"content": {"parts": [{"text": json.dumps(narrative)}]}}]})
         result = GeminiNarrator("secret", opener=opener).narrate(report(), prompt_bundle()[0])
         self.assertEqual(result["status"], "succeeded")
-        schema = captured["generationConfig"]["responseSchema"]
+        schema = captured["generationConfig"]["responseFormat"]["text"]["schema"]
+        self.assertEqual(captured["generationConfig"]["responseFormat"]["text"]["mimeType"], "APPLICATION_JSON")
         self.assertEqual((schema["type"], schema["properties"]["bull_case"]["type"], schema["properties"]["bull_case"]["items"]["type"]),
-                         ("OBJECT", "ARRAY", "STRING"))
+                         ("object", "array", "string"))
+
+    def test_http_error_keeps_only_bounded_redacted_diagnostics(self):
+        payload = {"error": {"status": "INVALID_ARGUMENT", "message": "api_key=top-secret invalid schema",
+                             "details": [{"reason": "API_KEY_INVALID", "metadata": {"secret": "hidden"}}]}}
+        def opener(request, timeout):
+            raise HTTPError(request.full_url, 400, "bad request", {}, io.BytesIO(json.dumps(payload).encode()))
+        result = GeminiNarrator("secret", opener=opener).narrate(report(), prompt_bundle()[0])
+        self.assertEqual(result["error"]["provider_status"], "INVALID_ARGUMENT")
+        self.assertEqual(result["error"]["provider_reason"], "API_KEY_INVALID")
+        self.assertIn("<redacted>", result["error"]["message"])
+        self.assertNotIn("top-secret", json.dumps(result))
 
 
 if __name__ == "__main__":

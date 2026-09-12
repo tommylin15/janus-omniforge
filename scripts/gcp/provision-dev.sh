@@ -57,6 +57,9 @@ for layer in stage core mart private; do
 done
 gcloud storage buckets update "gs://${project}-dev-private" \
   --lifecycle-file="${repo_root}/infra/private-bucket-lifecycle.json" --quiet
+gcloud storage buckets add-iam-policy-binding "gs://${project}-dev-mart" \
+  --member="serviceAccount:web-runtime@${project}.iam.gserviceaccount.com" \
+  --role=roles/storage.objectViewer --quiet
 for account in janus-user-api janus-private-pipeline; do
   gcloud storage buckets add-iam-policy-binding "gs://${project}-dev-private" \
     --member="serviceAccount:${account}@${project}.iam.gserviceaccount.com" \

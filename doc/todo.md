@@ -28,7 +28,7 @@
 
 ## 下一步執行佇列
 
-1. 【Sol】`WBS-5`：核心 feature／role／LLM／publication pipeline、`core.dataset.ready.v1` trigger 與 Admin Analysis／Mart 分析入口已完成；下一步為 Gemini provider 診斷、artifact／公開 API 查詢整合。
+1. 【Sol】`WBS-5`：核心 feature／role／LLM／publication pipeline、`core.dataset.ready.v1` trigger、Gemini provider 與 Admin Analysis／Mart 分析入口已完成；下一步為 model／evaluation artifact、公開 API 查詢整合。
 2. 【Sol】`WBS-3-ACCEPTANCE`：暫停於 canary 2/3；只由既有 Scheduler 自動累積，不與 WBS 5 同回合結案。
 3. 【Sol】`WBS-4C-ACCEPTANCE`：完成 Cloud Run、provider、資料源、MCP、Skills、streaming、approval、Grounding、privacy 與刪除整合驗收。
 4. 【Luna】`WBS-6` → 【Sol】`WBS-7` → 依逐項標籤執行 `WBS-8`；WBS 4J 個人化 overlay 等 `mart_scoped_analysis` 可用後再做。
@@ -119,19 +119,15 @@
 
 - [ ] 【Sol】 驗證關注需求變更不改寫歷史 membership；最後一位使用者取消關注後停止新的深度收集，但保留依法可保存的歷史 provenance。MVP 超過 50 個 distinct active symbols 時安全拒絕並顯示 quota。
 
-## P1 — 公開 Mart LLM
-
-- [ ] 【Sol】 公開批次 Mart 只接 Gemini，與 WBS 4C 的多供應商私人助理分離；不得使用 OpenAI／Codex API。啟用付費前須通過人工 billing gate，429／`RESOURCE_EXHAUSTED`／provider unavailable 採 bounded retry。（2026-09-12：free-tier live probe 已送出 7 scope；修正 REST schema enum 後再送 3 scope，各 1 次仍回 400 `provider_error`，需確認 bundle key 有效性或補安全 provider response 診斷。）
-
 ## P1 — Mart 閉環
 
-- [ ] 【Sol】 將 model／evaluation artifact 與大型 governance diff 寫入 GCS；feature／role／evidence／aggregation payload、完整結構化 report 及其 object URI／snapshot ID／hash 已由 WBS-5 pipeline 保存。
+- [x] 【Sol】 將 model／evaluation artifact 與大型 governance diff 寫入 GCS；feature／role／evidence／aggregation payload、完整結構化 report 及其 object URI／snapshot ID／hash 已由 WBS-5 pipeline 保存。（2026-09-12：create-only GCS artifact、manifest reference、本機測試與 GCP dev Cloud Build 驗收完成。）
 
-- [ ] 【Sol】 驗證 publication index 可解析至正確 immutable GCS／Iceberg artifact，且 blocked／insufficient-data 成品不會被公開 API／Web 讀取；目前已完成 GCS／Iceberg URI 與 publishable view 驗證，公開 API／Web 仍待建立。
+- [x] 【Sol】 驗證 publication index 可解析至正確 immutable GCS／Iceberg artifact，且 blocked／insufficient-data 成品不會被公開 API／Web 讀取；公開 API／Web、GCS hash 與 exact Iceberg snapshot 讀取已實作。（2026-09-12：本機測試與 GCP dev Cloud Build worker 驗收完成；blocked／insufficient_data fail-closed。）
 
 ## P1 — Admin Governance／Reports
 
-- [ ] 【Sol】 Governance／audit metadata 使用 PostgreSQL migration、optimistic lock、retention 與專用 role；大 payload／diff artifact 放 GCS。
+- [x] 【Sol】 Governance／audit metadata 使用 PostgreSQL migration、optimistic lock、retention 與專用 role；大 payload／diff artifact 放 GCS。（2026-09-12：migration 020／021、audit owner CAS、bounded pruning、public read-only role 與 GCP dev SQL 驗收完成。）
 
 - [ ] 【Luna】 Governance typed editing、validation、diff、history、optimistic lock。
 

@@ -1,6 +1,6 @@
 # Operations and testing
 
-最新驗證日期：2026-09-11
+最新驗證日期：2026-09-12
 
 ## Secret bundle consolidation checkpoint（未驗證）
 
@@ -151,6 +151,28 @@ Mart Job execution `janus-intelligence-mart-dk558` 消費並成功完成，Admin
 `2026-09-10`／`symbol`／`2330`／`quant`／`publishable` 篩選顯示單筆
 `complete`／`publishable`、completeness `75.9%`，artifact link 可解析至 immutable
 GCS metadata object。登入前 POST 正確 fail-closed 為 `authentication required`。
+
+### WBS-5 Gemini provider diagnosis／dev acceptance（2026-09-12）
+
+- 本機 targeted `tests/test_intelligence_mart_pipeline.py` 為 `17 passed`；改動檔
+  Python compile 與 `git diff --check` 通過。
+- Gemini REST adapter 使用官方 `responseFormat.text`、`mimeType=APPLICATION_JSON`
+  與小寫 JSON Schema；provider HTTP error 只保留 bounded
+  `provider_status`／`provider_reason`／redacted `message`，不寫入 key 或原始
+  response body。
+- Cloud Build `e2a5410b-8c4d-4d1d-918f-5506e931d1e2` 成功，既有
+  `janus-intelligence-mart` Job 使用 image digest
+  `sha256:013db1d7fdca9f8da12a9603affff197c5fd36e595f23e974ad2271a1c73b652`。
+- LLM-enabled probe `69d9f07a-d459-4eeb-809d-d6b69318021a` 確認 bundle key／project
+  可送達 Gemini；400 根因為 `mimeType=application/json` 不符合 REST enum，未寫
+  placeholder，publication 仍 `blocked`。
+- 修正後 probe `3f86a955-88be-4d1e-ad51-bc91885a7300` 由既有 Job execution
+  `janus-intelligence-mart-8jfp6` 成功完成；`gemini-3.8-flash` 回傳 structured
+  narrative、evidence IDs 可驗證，`llm.status=succeeded`。同一 deterministic
+  report 仍為 `invalid`／`blocked`，因此 blocked 成品未進公開狀態。
+- Admin authenticated Mart query 以 `2026-09-11`／`symbol`／`2330` 顯示最新
+  immutable artifact `00019-cfad2174-c802-4f31-8934-38b9451a50b7.metadata.json`；
+  execution `3f86a955-88be-4d1e-ad51-bc91885a7300` 顯示 `succeeded`、retry `0`。
 
 ## P0 WBS 4C acceptance implementation checkpoint（2026-09-10）
 
@@ -955,3 +977,19 @@ The temporary Job image was restored to the existing `janus-api` digest
 `sha256:ad6ef02c255be4c7666db8869879f6745c75a8c0c3a0760639aaf004a99a3894` and the
 acceptance flag was removed. Codex managed-auth cleanup remains explicitly
 `CLEANUP_PENDING` until an owner-scoped external credential cleaner exists.
+
+## Sol model artifacts／public API／governance audit acceptance（2026-09-12）
+
+- Local targeted Python suite for the changed paths: `46 passed`; additional pipeline,
+  admin, cursor, and contract suites also passed. `py_compile`, shell syntax checks, and
+  `git diff --check` passed.
+- Cloud Build `35d9314c-6832-4d7c-aace-fa3a09a9e6da` built the PostgreSQL image; IAP SQL
+  acceptance confirmed migrations `020`／`021`, audit tables, CAS execution, and public
+  view-only privileges. Secret bundle version 15 contains the publication password; the
+  value was not logged.
+- Web revision `janus-web-00076-b4w` deployed to the existing dev Cloud Run service.
+  Cloud Build `c0691a59-ee17-4920-9bde-29de34ac8a22` passed the health/public-report
+  contract from a GCP worker, including publication-index lookup and immutable Iceberg
+  snapshot parsing. An initial 503 was fixed by granting the existing Web runtime
+  service account objectViewer on the existing Mart bucket.
+- No production deployment, new VM/disk/NAT/snapshot, or new paid resource was created.

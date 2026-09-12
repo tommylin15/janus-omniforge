@@ -11,6 +11,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 from uuid import uuid4
 
 from packages.observability import redact
+from packages.web_api import PublicReportNotFound
 try:
     from ingestion_core.control import ControlPlaneError, StockInUseError
 except ImportError:  # pragma: no cover - web-only deployments include this package
@@ -24,9 +25,10 @@ LOGGER = logging.getLogger(__name__)
 
 
 class WebApplication:
-    def __init__(self, *, core: Any | None = None, admin: Any | None = None) -> None:
+    def __init__(self, *, core: Any | None = None, admin: Any | None = None, public: Any | None = None) -> None:
         self.core = core
         self.admin = admin
+        self.public = public
 
     def __call__(self, environ: dict[str, Any], start_response: Callable[..., Any]):
         path = urlsplit(environ.get("PATH_INFO", "/")).path.rstrip("/") or "/"
@@ -45,6 +47,8 @@ class WebApplication:
             body, status, content_type = {"error": redact(error), "references": getattr(error, "references", {})}, "409 Conflict", "application/json; charset=utf-8"
         except ControlPlaneError as error:
             body, status, content_type = {"error": redact(error)}, "409 Conflict", "application/json; charset=utf-8"
+        except PublicReportNotFound:
+            body, status, content_type = {"error": "not found"}, "404 Not Found", "application/json; charset=utf-8"
         except Exception as error:
             LOGGER.warning("web request failed: %s", type(error).__name__)
             body, status, content_type = {"error": "service unavailable"}, "503 Service Unavailable", "application/json; charset=utf-8"
@@ -98,6 +102,15 @@ class WebApplication:
                 limit = int(query.get("limit", ["50"])[0]); offset = int(query.get("offset", ["0"])[0])
                 page = self.core.page(unquote(parts[6]), unquote(parts[4]), limit=limit, offset=offset)
                 return {"dataset_id": page.dataset_id, "symbol": page.symbol, "rows": page.rows, "limit": page.limit, "offset": page.offset}, "200 OK", json_type
+        if method == "GET" and path.startswith("/api/v1/public/reports/"):
+            if self.public is None:
+                return {"error": "public reports unavailable"}, "503 Service Unavailable", json_type
+            parts = path.split("/")
+            if len(parts) == 7:
+                return self.public.report(
+                    unquote(parts[5]), unquote(parts[6]),
+                    analysis_as_of=query.get("analysis_as_of", [""])[0],
+                ), "200 OK", json_type
         if path.startswith("/api/v1/admin/") and self.admin is None:
             return {"error": "admin unavailable"}, "503 Service Unavailable", json_type
         if method == "GET" and path == "/api/v1/admin/stocks":
@@ -248,7 +261,7 @@ def application() -> Callable[..., Any]:
         LOGGER.warning("web runtime unavailable: %s", redact(error))
         app = WebApplication()
     else:
-        app = WebApplication(core=runtime.core, admin=runtime.admin)
+        app = WebApplication(core=runtime.core, admin=runtime.admin, public=runtime.public)
     from .auth import protect_with_google
     return protect_with_google(app)
 

@@ -33,13 +33,14 @@ class WebRuntimeTests(unittest.TestCase):
             "GCP_PROJECT_ID": "project", "CORE_BUCKET": "core", "CATALOG_DB_HOST": "catalog",
             "CATALOG_DB_NAME": "db", "CATALOG_DB_USER": "reader", "CATALOG_DB_PASSWORD": "secret",
             "CONTROL_DB_HOST": "control", "CONTROL_DB_NAME": "db", "CONTROL_DB_USER": "admin",
-            "CONTROL_DB_PASSWORD": "secret",
+            "CONTROL_DB_PASSWORD": "secret", "PUBLICATION_DB_PASSWORD": "public-secret",
         }
         with patch.object(runtime, "_required", return_value=settings), \
              patch.object(runtime, "DuckDBIcebergCore", _Iceberg), \
              patch.object(runtime, "IcebergQuery", _Reader), \
              patch.dict("sys.modules", {"psycopg": type("P", (), {"connect": staticmethod(lambda **kwargs: None)}),
-                                        "ingestion_core.postgres_control": type("M", (), {"PostgreSQLControlPlane": _Control})}):
+                                        "ingestion_core.postgres_control": type("M", (), {"PostgreSQLControlPlane": _Control}),
+                                        "ingestion_core.stage": type("S", (), {"GcsObjectStore": object})}):
             result = runtime.build_runtime()
         self.assertTrue(_Iceberg.kwargs["read_only"])
         result.close()

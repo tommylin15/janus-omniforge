@@ -46,7 +46,7 @@ case "${phase}" in
     access janus-postgres-mart-bundle "${tmp}/mart.json"
     access janus-postgres-ingestion-bundle "${tmp}/ingestion.json"
     python3 - "${tmp}" <<'PY'
-import json, pathlib, sys
+import json, pathlib, secrets, sys
 
 root = pathlib.Path(sys.argv[1])
 load = lambda name: json.loads((root / f"{name}.json").read_text())
@@ -55,6 +55,7 @@ agent, mart, ingestion = load("agent"), load("mart"), load("ingestion")
 api.update({
     "web_control_password": web["control_password"],
     "web_catalog_password": web["catalog_password"],
+    "web_publication_password": api.get("web_publication_password") or secrets.token_urlsafe(32),
     "web_google_client_id": web["google_client_id"],
     "web_session_secret": web["session_secret"],
     "pipeline_database_url": pipeline["database_url"],
@@ -69,7 +70,7 @@ agent.update({
 (root / "api-merged.json").write_text(json.dumps(api, separators=(",", ":")))
 (root / "agent-merged.json").write_text(json.dumps(agent, separators=(",", ":")))
 PY
-    replace_bundle "${api_bundle}" "${tmp}/api-merged.json" 'database_url,catalog_password,core_catalog_password,google_user_client_id,mcp_owner_signing_key,web_control_password,web_catalog_password,web_google_client_id,web_session_secret,pipeline_database_url,pipeline_catalog_password'
+    replace_bundle "${api_bundle}" "${tmp}/api-merged.json" 'database_url,catalog_password,core_catalog_password,google_user_client_id,mcp_owner_signing_key,web_control_password,web_catalog_password,web_publication_password,web_google_client_id,web_session_secret,pipeline_database_url,pipeline_catalog_password'
     replace_bundle "${agent_bundle}" "${tmp}/agent-merged.json" 'gemini_api_key,openrouter_api_key,mcp_owner_signing_key,mart_catalog_password,mart_publication_password,ingestion_control_password,ingestion_catalog_password'
     if ! gcloud secrets describe "${owner_bundle}" --project="${project}" >/dev/null 2>&1; then
       gcloud secrets create "${owner_bundle}" --project="${project}" --replication-policy=automatic --labels=environment=dev,service=agent-gateway --quiet

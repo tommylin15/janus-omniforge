@@ -61,7 +61,7 @@ class GoogleAuthMiddleware:
         path = urlsplit(environ.get("PATH_INFO", "/")).path.rstrip("/") or "/"
         method = environ.get("REQUEST_METHOD", "GET").upper()
 
-        if path == "/health":
+        if path == "/health" or (method == "GET" and path.startswith("/api/v1/public/")):
             return self.app(environ, self._secure_start_response(start_response))
         if path == "/private-journal-acceptance.html" and method == "GET":
             return self.app(environ, self._secure_start_response(start_response, google=True))

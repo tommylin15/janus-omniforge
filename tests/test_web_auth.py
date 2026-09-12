@@ -63,6 +63,11 @@ class GoogleAuthMiddlewareTests(unittest.TestCase):
         self.assertEqual(status, "401 Unauthorized")
         self.assertIn(b"authentication required", body)
 
+    def test_public_api_does_not_require_admin_session(self):
+        status, _, body = self.request("/api/v1/public/reports/symbol/2330")
+        self.assertEqual(status, "200 OK")
+        self.assertEqual(json.loads(body), {"email": None})
+
     def test_allowed_google_account_gets_signed_session(self):
         csrf = self.auth._encode_login_csrf()
         status, headers, body = self.request(

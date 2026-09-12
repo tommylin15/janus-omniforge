@@ -12,7 +12,7 @@ from typing import Any
 
 from packages.admin_api import AdminService
 from packages.duckdb_query import DuckDBIcebergCore, IcebergQuery
-from packages.web_api import CoreQueryService
+from packages.web_api import CoreQueryService, IcebergArtifactReader, PostgreSQLPublicIndex, PublicMartService
 from .scheduler import CloudSchedulerSync
 
 
@@ -27,9 +27,11 @@ def _required(*names: str) -> dict[str, str]:
 class WebRuntime:
     """Owns one bounded catalog/ DuckDB reader and one control repository."""
 
-    def __init__(self, *, core: Any, admin: AdminService, closeables: tuple[Any, ...] = ()) -> None:
+    def __init__(self, *, core: Any, admin: AdminService, public: PublicMartService,
+                 closeables: tuple[Any, ...] = ()) -> None:
         self.core = core
         self.admin = admin
+        self.public = public
         self._closeables = closeables
 
     def close(self) -> None:
@@ -45,11 +47,12 @@ def build_runtime() -> WebRuntime:
     load_postgres_bundle("JANUS_WEB_POSTGRES_BUNDLE", {
         "CONTROL_DB_PASSWORD": ("web_control_password", "control_password"),
         "CATALOG_DB_PASSWORD": ("web_catalog_password", "catalog_password"),
+        "PUBLICATION_DB_PASSWORD": ("web_publication_password",),
     })
     settings = _required(
         "GCP_PROJECT_ID", "CORE_BUCKET", "CATALOG_DB_HOST", "CATALOG_DB_NAME",
         "CATALOG_DB_USER", "CATALOG_DB_PASSWORD", "CONTROL_DB_HOST",
-        "CONTROL_DB_NAME", "CONTROL_DB_USER", "CONTROL_DB_PASSWORD",
+        "CONTROL_DB_NAME", "CONTROL_DB_USER", "CONTROL_DB_PASSWORD", "PUBLICATION_DB_PASSWORD",
     )
 
     import psycopg
@@ -73,6 +76,17 @@ def build_runtime() -> WebRuntime:
     reader = IcebergQuery(iceberg.catalog, engine=iceberg.engine)
     core_service = CoreQueryService(reader.query, max_limit=int(os.environ.get("WEB_QUERY_MAX_ROWS", "200")))
     control = PostgreSQLControlPlane(control_connect)
+    publication_connection = psycopg.connect(
+        host=os.environ.get("PUBLICATION_DB_HOST", settings["CONTROL_DB_HOST"]),
+        dbname=os.environ.get("PUBLICATION_DB_NAME", settings["CONTROL_DB_NAME"]),
+        user=os.environ.get("PUBLICATION_DB_USER", "janus_public_api"), password=settings["PUBLICATION_DB_PASSWORD"],
+        sslmode=os.environ.get("PUBLICATION_DB_SSLMODE", "require"), connect_timeout=5, autocommit=True,
+    )
+    from ingestion_core.stage import GcsObjectStore
+    public = PublicMartService(
+        PostgreSQLPublicIndex(publication_connection),
+        IcebergArtifactReader(iceberg.catalog, GcsObjectStore),
+    )
     scheduler = None
     if os.environ.get("ADMIN_SCHEDULER_JOB", "").strip():
         scheduler = CloudSchedulerSync(
@@ -82,5 +96,6 @@ def build_runtime() -> WebRuntime:
     return WebRuntime(
         core=core_service,
         admin=AdminService(control, core=core_service, schedule_sync=scheduler),
-        closeables=(control, iceberg),
+        public=public,
+        closeables=(publication_connection, control, iceberg),
     )

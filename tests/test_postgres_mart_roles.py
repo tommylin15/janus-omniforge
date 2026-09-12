@@ -12,6 +12,7 @@ class MartRoleMigrationTests(unittest.TestCase):
         cls.queue_sql = (ROOT / "infra" / "postgres" / "migrations" / "017_mart_analysis_queue.sql").read_text(encoding="utf-8")
         cls.publication_sql = (ROOT / "infra" / "postgres" / "migrations" / "018_mart_publication.sql").read_text(encoding="utf-8")
         cls.integration_sql = (ROOT / "infra" / "postgres" / "migrations" / "019_core_mart_integration.sql").read_text(encoding="utf-8")
+        cls.governance_sql = (ROOT / "infra" / "postgres" / "migrations" / "020_governance_audit.sql").read_text(encoding="utf-8")
         cls.hba = (ROOT / "infra" / "postgres" / "pg_hba.conf").read_text(encoding="utf-8")
         cls.bootstrap = (ROOT / "infra" / "postgres" / "bootstrap-vm.sh").read_text(encoding="utf-8")
 
@@ -38,6 +39,7 @@ class MartRoleMigrationTests(unittest.TestCase):
         self.assertIn("017_mart_analysis_queue.sql", self.bootstrap)
         self.assertIn("018_mart_publication.sql", self.bootstrap)
         self.assertIn("019_core_mart_integration.sql", self.bootstrap)
+        self.assertIn("020_governance_audit.sql", self.bootstrap)
         self.assertIn("MART_CATALOG_PASSWORD", self.bootstrap)
         self.assertIn("MART_PUBLICATION_PASSWORD", self.bootstrap)
 
@@ -57,6 +59,16 @@ class MartRoleMigrationTests(unittest.TestCase):
         self.assertIn("core_execution_id uuid PRIMARY KEY", self.integration_sql)
         self.assertIn("analysis_execution_id uuid UNIQUE", self.integration_sql)
         self.assertIn("payload->>'eventType' = 'core.dataset.ready.v1'", self.integration_sql)
+
+    def test_governance_metadata_has_cas_retention_and_audit_role(self):
+        self.assertIn("SET ROLE janus_audit", self.governance_sql)
+        self.assertIn("current_version=p_expected_version", self.governance_sql)
+        self.assertIn("ERRCODE='40001'", self.governance_sql)
+        self.assertIn("prune_governance_revisions", self.governance_sql)
+        self.assertIn("candidate.version <> head.current_version", self.governance_sql)
+        table = self.governance_sql.split("CREATE TABLE IF NOT EXISTS audit.governance_revisions", 1)[1].split(");", 1)[0]
+        self.assertNotIn("json", table.lower())
+        self.assertIn("diff_artifact_uri", table)
 
 
 if __name__ == "__main__":

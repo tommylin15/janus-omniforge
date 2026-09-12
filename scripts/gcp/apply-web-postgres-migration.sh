@@ -3,9 +3,10 @@ set -Eeuo pipefail
 umask 077
 
 # Apply only the Web runtime role migration to the existing dev PostgreSQL VM.
-# The two passwords are read from stdin in this order:
+# The three passwords are read from stdin in this order:
 #   janus-postgres-web-control-password
 #   janus-postgres-web-catalog-password
+#   janus-postgres-web-publication-password
 
 image="${1:?immutable PostgreSQL image is required}"
 mode="${2:-apply}"
@@ -19,11 +20,13 @@ fi
 
 read -r web_control_password
 read -r web_catalog_password
+read -r web_publication_password
 # PowerShell/OpenSSH may deliver CRLF even though the remote shell splits on LF.
 web_control_password="${web_control_password%$'\r'}"
 web_catalog_password="${web_catalog_password%$'\r'}"
-if [[ -z "${web_control_password}" || -z "${web_catalog_password}" ]]; then
-  echo "Both Web PostgreSQL passwords are required." >&2
+web_publication_password="${web_publication_password%$'\r'}"
+if [[ -z "${web_control_password}" || -z "${web_catalog_password}" || -z "${web_publication_password}" ]]; then
+  echo "All Web PostgreSQL passwords are required." >&2
   exit 1
 fi
 echo "Validated Web migration inputs."
@@ -45,7 +48,7 @@ rollback() {
       -p 5432:5432 -v "${data_dir}:/var/lib/postgresql/data" "${old_image}" \
       -c config_file=/opt/janus/postgresql.conf -c hba_file=/opt/janus/pg_hba.conf >/dev/null
   fi
-  unset web_control_password web_catalog_password
+  unset web_control_password web_catalog_password web_publication_password
   sudo rm -rf "${docker_config}" >/dev/null 2>&1 || true
   exit "${status}"
 }
@@ -81,6 +84,7 @@ sudo docker exec --user postgres janus-postgres pg_isready -U postgres -d janus_
 sudo docker exec --user postgres \
   -e WEB_CONTROL_PASSWORD="${web_control_password}" \
   -e WEB_CATALOG_PASSWORD="${web_catalog_password}" \
+  -e WEB_PUBLICATION_PASSWORD="${web_publication_password}" \
   janus-postgres bash -ceu '
     printf "\\getenv web_control_password WEB_CONTROL_PASSWORD\n\\getenv web_catalog_password WEB_CATALOG_PASSWORD\n" > /tmp/web-vars.sql
     cat /tmp/web-vars.sql /opt/janus/migrations/007_web_runtime_roles.sql | psql -U postgres -d janus_control
@@ -89,15 +93,18 @@ sudo docker exec --user postgres \
     psql -U postgres -d janus_control -f /opt/janus/migrations/011_control_settings_ownership.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/012_first_batch_source_ids.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/013_membership_versions.sql
-    rm -f /tmp/web-vars.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/020_governance_audit.sql
+    printf "\\getenv web_publication_password WEB_PUBLICATION_PASSWORD\n" > /tmp/public-vars.sql
+    cat /tmp/public-vars.sql /opt/janus/migrations/021_public_api_role.sql | psql -U postgres -d janus_control
+    rm -f /tmp/web-vars.sql /tmp/public-vars.sql
     psql -U postgres -d janus_control -v ON_ERROR_STOP=1 <<"SQL"
 SELECT rolname, rolsuper, rolcreatedb, rolcreaterole, rolreplication
 FROM pg_roles
-WHERE rolname IN ($$janus_web_control$$, $$janus_web_catalog$$)
+WHERE rolname IN ($$janus_web_control$$, $$janus_web_catalog$$, $$janus_public_api$$)
 ORDER BY rolname;
 SELECT current_setting($$default_transaction_read_only$$) = $$off$$ AS server_default_writable;
 SELECT EXISTS (
-  SELECT 1 FROM control.schema_migrations WHERE version = $$009_admin_cursor_indexes$$
+  SELECT 1 FROM control.schema_migrations WHERE version = $$021_public_api_role$$
 ) AS migration_recorded;
 SELECT tableowner = $$janus_control$$ AS control_settings_owned
 FROM pg_tables WHERE schemaname = $$control$$ AND tablename = $$admin_settings$$;
@@ -109,5 +116,5 @@ SQL
 
 switched=false
 trap - ERR
-unset web_control_password web_catalog_password
+unset web_control_password web_catalog_password web_publication_password
 echo "Web PostgreSQL migration applied with immutable image ${image}."

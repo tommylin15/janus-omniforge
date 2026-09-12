@@ -13,19 +13,33 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 from .analysis import canonical_json
+from packages.observability import redact
 
 
 _STABLE_MODEL_PRIORITY = ("gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash")
 _DAILY_MODEL_CACHE: dict[str, tuple[str, ...]] = {}
 
 
-def _rest_schema(value: Any) -> Any:
-    if isinstance(value, dict):
-        return {key: value[key].upper() if key == "type" and isinstance(value[key], str)
-                else _rest_schema(value[key]) for key in value}
-    if isinstance(value, list):
-        return [_rest_schema(item) for item in value]
-    return value
+def _safe_http_error(error: HTTPError) -> dict[str, str]:
+    try:
+        detail = json.loads(error.read())
+        provider = detail.get("error", {}) if isinstance(detail, dict) else {}
+    except Exception:
+        return {}
+    if not isinstance(provider, dict):
+        return {}
+    result = {}
+    status = str(provider.get("status", ""))[:64]
+    message = redact(provider.get("message", ""))
+    reasons = [str(item.get("reason", ""))[:64] for item in provider.get("details", [])
+               if isinstance(item, dict) and item.get("reason")]
+    if status:
+        result["provider_status"] = status
+    if reasons:
+        result["provider_reason"] = reasons[0]
+    if message:
+        result["message"] = message
+    return result
 
 
 def _select_stable_models(document: Any) -> tuple[str, ...]:
@@ -107,7 +121,9 @@ class GeminiNarrator:
         body = {
             "systemInstruction": {"parts": [{"text": prompts["system"]}]},
             "contents": [{"role": "user", "parts": [{"text": canonical_json(context).decode()}]}],
-            "generationConfig": {"responseMimeType": "application/json", "responseSchema": _rest_schema(prompts["response_schema"])},
+            "generationConfig": {"responseFormat": {"text": {
+                "mimeType": "APPLICATION_JSON", "schema": prompts["response_schema"],
+            }}},
         }
         endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{quote(model, safe='')}:generateContent"
         last: dict[str, Any] = {"kind": "provider_unavailable", "status": 0}
@@ -141,7 +157,7 @@ class GeminiNarrator:
                         "prompt_version": prompts["version"], "narrative": narrative}
             except HTTPError as error:
                 kind = "quota" if error.code == 429 else "provider_unavailable" if error.code >= 500 else "provider_error"
-                last = {"kind": kind, "status": error.code}
+                last = {"kind": kind, "status": error.code, **_safe_http_error(error)}
                 if kind not in {"quota", "provider_unavailable"}:
                     break
             except URLError:

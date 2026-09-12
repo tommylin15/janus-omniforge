@@ -9,6 +9,9 @@
 - 套用 governance snapshot 與 publication policy。
 - LLM 依合格 evidence 產生繁體中文結構化摘要。
 - 寫入 Mart、report metadata、publication index 與 `mart.report.ready.v1`。
+- 每次 Mart execution 以 create-only GCS object 保存 `model.json`、`evaluation.json` 與
+  `governance-diff.json`；manifest 只引用其 URI 與 SHA-256。PostgreSQL governance
+  revision 只保存 snapshot／diff artifact reference，不保存大型 payload 或 diff JSON。
 
 資料超市至少區分：
 
@@ -89,6 +92,9 @@ effective_weight = base_weight × completeness × confidence × data_quality / 1
 | 驗證及政策通過 | complete | publishable |
 
 `insufficient_data` 只屬 analysis outcome／reason，不是 publication lifecycle 狀態；只有 `publishable`／`published` 可進公開 service index。
+
+Governance／audit metadata 由 `janus_audit` 擁有；revision head 以 expected version 做
+原子 compare-and-swap。Retention 只可分批清除已過期且不是 current head 的歷史 revision。
 
 所有權重與門檻除已核准發布政策外，均視為開發期保守設定；正式值須 PIT 回測與人工 revision。
 

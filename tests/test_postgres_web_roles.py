@@ -10,6 +10,7 @@ class WebRoleMigrationTests(unittest.TestCase):
     def setUpClass(cls):
         cls.sql = (ROOT / "infra" / "postgres" / "migrations" / "007_web_runtime_roles.sql").read_text(encoding="utf-8")
         cls.hba = (ROOT / "infra" / "postgres" / "pg_hba.conf").read_text(encoding="utf-8")
+        cls.public_sql = (ROOT / "infra" / "postgres" / "migrations" / "021_public_api_role.sql").read_text(encoding="utf-8")
 
     def test_web_roles_are_non_privileged_and_network_scoped(self):
         for role in ("janus_web_control", "janus_web_catalog"):
@@ -23,6 +24,13 @@ class WebRoleMigrationTests(unittest.TestCase):
         self.assertIn("control.execution_items", self.sql)
         self.assertIn("control.source_health", self.sql)
         self.assertNotIn("GRANT USAGE ON SCHEMA catalog TO janus_web_control", self.sql)
+
+    def test_public_api_role_can_only_read_publishable_view(self):
+        self.assertIn("CREATE ROLE janus_public_api LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION", self.public_sql)
+        self.assertIn("GRANT SELECT ON publication.publishable_mart_reports TO janus_public_api", self.public_sql)
+        self.assertIn("default_transaction_read_only = on", self.public_sql)
+        self.assertIn("REVOKE ALL ON publication.mart_report_index", self.public_sql)
+        self.assertIn("hostssl janus_control   janus_public_api", self.hba)
 
 
 if __name__ == "__main__":

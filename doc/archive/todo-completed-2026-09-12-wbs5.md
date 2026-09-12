@@ -62,3 +62,29 @@
   篩選顯示單筆 `complete`／`publishable`、completeness `75.9%`，artifact link
   可解析至 immutable GCS metadata object；登入前 POST 亦正確 fail-closed 為
   `authentication required`。
+
+## 公開 Mart LLM provider diagnosis
+
+- 本機 Gemini targeted test `17 passed`；Python compile 與 `git diff --check` 通過。
+- Gemini REST adapter 改用 `responseFormat.text`、`mimeType=APPLICATION_JSON`、
+  小寫 JSON Schema，並以 bounded／redacted provider diagnostics fail-closed。
+- Cloud Build `e2a5410b-8c4d-4d1d-918f-5506e931d1e2` 成功，dev Mart image digest
+  `sha256:013db1d7fdca9f8da12a9603affff197c5fd36e595f23e974ad2271a1c73b652`。
+- Probe `69d9f07a-d459-4eeb-809d-d6b69318021a` 定位 `application/json` enum 錯誤；
+  修正後 probe `3f86a955-88be-4d1e-ad51-bc91885a7300`／Cloud Run execution
+  `janus-intelligence-mart-8jfp6` 成功，`gemini-3.8-flash` structured narrative
+  驗證通過，deterministic report 仍 `invalid`／`blocked` 且未公開。
+
+## Sol model artifacts／public API／governance audit（2026-09-12）
+
+- Mart execution now writes model, evaluation, and governance-diff JSON artifacts with
+  create-only GCS semantics and SHA-256 references in the execution manifest.
+- Public Web route reads only `publication.publishable_mart_reports`, verifies the
+  immutable GCS hash and exact Iceberg snapshot, and fail-closes `blocked`／
+  `insufficient_data` rows. Local targeted tests: `46 passed`.
+- PostgreSQL migrations 020／021 add audit CAS／bounded retention and the dedicated
+  read-only `janus_public_api` role. GCP dev migration SQL acceptance passed; Cloud Build
+  `c0691a59-ee17-4920-9bde-29de34ac8a22` passed the live Web public-report contract.
+- Initial Web probe returned 503 because the existing Mart bucket lacked the Web runtime
+  objectViewer binding; the binding was added to the existing bucket and the same contract
+  then passed. No production deployment or new paid resource was created.

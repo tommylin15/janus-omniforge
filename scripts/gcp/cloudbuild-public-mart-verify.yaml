@@ -1,0 +1,33 @@
+substitutions:
+  _WEB_URL: ""
+  _SCOPE_TYPE: "symbol"
+  _SCOPE_ID: "2330"
+
+steps:
+  - name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        test -n "${_WEB_URL}"
+        curl --fail --silent --show-error --max-time 60 "${_WEB_URL}/health" > /tmp/health.json
+        report_status="$(curl --silent --show-error --max-time 60 --output /tmp/report.json --write-out '%{http_code}' \
+          "${_WEB_URL}/api/v1/public/reports/${_SCOPE_TYPE}/${_SCOPE_ID}")"
+        python3 - "${report_status}" <<'PY'
+        import json, pathlib, sys
+        status = int(sys.argv[1])
+        body = json.loads(pathlib.Path('/tmp/report.json').read_text())
+        if status == 404:
+            print('public report absent: no publishable artifact for requested scope')
+            raise SystemExit(0)
+        if status != 200:
+            raise SystemExit(f'unexpected public report status: {status}')
+        assert body.get('data_status') in {'publishable', 'published'}
+        assert body.get('scope_type') == 'symbol'
+        assert 'artifact_uri' not in body
+        assert body.get('data') is not None
+        print('public report parsed from the publication index and immutable Iceberg snapshot')
+        PY
+
+options:
+  logging: CLOUD_LOGGING_ONLY

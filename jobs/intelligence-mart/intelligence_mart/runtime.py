@@ -176,6 +176,13 @@ def deterministic_processor(execution: AnalysisExecution, store_factory: Callabl
             "core_snapshot_id": execution.core_snapshot_id}
 
 
+def _write_immutable_json(store: Any, bucket: str, name: str, value: object) -> dict[str, str]:
+    payload = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str).encode()
+    if not store.create(name, payload, "application/json") and store.read(name) != payload:
+        raise RuntimeError("immutable Mart artifact conflict")
+    return {"artifact_uri": f"gs://{bucket}/{name}", "artifact_hash": f"sha256:{sha256(payload).hexdigest()}"}
+
+
 def mart_processor(execution: AnalysisExecution, publication_connection: Any, *,
                    store_factory: Callable[[str], Any] | None = None,
                    catalog_factory: Callable[[], Any] | None = None,
@@ -245,6 +252,33 @@ def mart_processor(execution: AnalysisExecution, publication_connection: Any, *,
 
     publication = PostgreSQLPublicationIndex(publication_connection)
     if existing_manifest is None:
+        artifact_prefix = f"executions/{execution.execution_id}/artifacts"
+        governance_diff = execution.request_options.get("governance_diff", [])
+        if not isinstance(governance_diff, (dict, list)):
+            raise ValueError("governance_diff must be a JSON object or array")
+        artifacts = {
+            "model": _write_immutable_json(target_store, bucket, f"{artifact_prefix}/model.json", {
+                "artifact_kind": "model_v1", "model_version": execution.request_options["model_version"],
+                "prompt_version": reports[0]["prompt_version"] if reports else None,
+                "prompt_hash": prompt_hash, "llm": [
+                    {"scope_type": key[0], "scope_id": key[1], **value}
+                    for key, value in sorted(narratives.items())
+                ],
+            }),
+            "evaluation": _write_immutable_json(target_store, bucket, f"{artifact_prefix}/evaluation.json", {
+                "artifact_kind": "evaluation_v1", "execution_id": execution.execution_id,
+                "reports": [{
+                    "scope_type": report["scope"]["type"], "scope_id": report["scope"]["id"],
+                    "deterministic_hash": report["deterministic_hash"], **report["aggregate"],
+                } for report in reports],
+            }),
+            "governance_diff": _write_immutable_json(target_store, bucket, f"{artifact_prefix}/governance-diff.json", {
+                "artifact_kind": "governance_diff_v1",
+                "governance_snapshot_version": execution.request_options["governance_snapshot_version"],
+                "base_governance_snapshot_version": execution.request_options.get("base_governance_snapshot_version"),
+                "diff": governance_diff,
+            }),
+        }
         indexed = []
         for report in reports:
             scope = report["scope"]
@@ -261,7 +295,8 @@ def mart_processor(execution: AnalysisExecution, publication_connection: Any, *,
         result_manifest = {
             "artifact_kind": "mart_execution_v1", "execution_id": execution.execution_id,
             "analysis_as_of": execution.request_options["analysis_as_of"], "core_snapshot_id": execution.core_snapshot_id,
-            "reports": indexed, "llm": [{"scope_type": key[0], "scope_id": key[1], **value} for key, value in sorted(narratives.items())],
+            "artifacts": artifacts, "reports": indexed,
+            "llm": [{"scope_type": key[0], "scope_id": key[1], **value} for key, value in sorted(narratives.items())],
         }
         payload = canonical_json(result_manifest)
         if not target_store.create(target_name, payload, "application/json") and target_store.read(target_name) != payload:
