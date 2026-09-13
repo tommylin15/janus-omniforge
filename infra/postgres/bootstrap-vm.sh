@@ -81,6 +81,7 @@ sudo docker exec \
     psql -U postgres -d janus_control -f /opt/janus/migrations/020_governance_audit.sql
     printf "\\getenv web_publication_password WEB_PUBLICATION_PASSWORD\n" > /tmp/public-vars.sql
     cat /tmp/public-vars.sql /opt/janus/migrations/021_public_api_role.sql | psql -U postgres -d janus_control
+    psql -U postgres -d janus_control -f /opt/janus/migrations/022_mart_publication_review.sql
     rm -f /tmp/vars.sql /tmp/web-vars.sql /tmp/mart-vars.sql /tmp/private-vars.sql /tmp/public-vars.sql
     openssl req -new -x509 -days 365 -nodes -text \
       -subj "/CN=janus-postgres-dev" -keyout "$PGDATA/server.key" -out "$PGDATA/server.crt" >/dev/null 2>&1

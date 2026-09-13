@@ -1,0 +1,43 @@
+substitutions:
+  _SERVICE_URL: https://janus-api-2oo7qbkd5q-uc.a.run.app
+steps:
+  - name: python:3.12-slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        python - <<'PY'
+        import json
+        import urllib.error
+        import urllib.request
+
+        base = "${_SERVICE_URL}".rstrip("/")
+
+        def get(path):
+            try:
+                response = urllib.request.urlopen(base + path, timeout=20)
+                return response.status, json.loads(response.read())
+            except urllib.error.HTTPError as error:
+                return error.code, json.loads(error.read())
+
+        assert get("/health")[0] == 200
+        assert get("/api/v1/public/health")[0] == 200
+        for path in (
+            "/api/v1/public/daily-brief",
+            "/api/v1/public/topics",
+            "/api/v1/public/candidates",
+            "/api/v1/public/history/2330",
+            "/api/v1/public/kline/2330",
+            "/api/v1/public/events/2330",
+        ):
+            status, payload = get(path)
+            assert status in {200, 404, 503}, (path, status, payload)
+            if status == 200 and isinstance(payload, dict):
+                text = json.dumps(payload, ensure_ascii=False).lower()
+                assert "traceback" not in text and "raw_payload" not in text
+            if status == 503:
+                assert payload == {"detail": "public data unavailable"}, (path, payload)
+        print("public API GCP dev acceptance passed")
+        PY
+options:
+  logging: CLOUD_LOGGING_ONLY

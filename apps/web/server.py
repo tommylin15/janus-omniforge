@@ -1,4 +1,4 @@
-"""Small Cloud Run-compatible WSGI boundary for Core and Admin services."""
+"""Legacy test adapter; the deployed Admin boundary is services.api.app."""
 
 from __future__ import annotations
 
@@ -158,6 +158,16 @@ class WebApplication:
                 publication_status=query.get("publication_status", [""])[0], limit=limit,
             )
             return {"items": reports, "limit": limit}, "200 OK", json_type
+        if method == "PATCH" and path.startswith("/api/v1/admin/mart-reports/") and path.endswith("/publication"):
+            parts = path.split("/")
+            if len(parts) != 9:
+                raise ValueError("Mart report publication path is invalid")
+            actor = authenticated_actor or self._required_text(request_body, "actor")
+            return self.admin.review_mart_report(
+                unquote(parts[5]), unquote(parts[6]), unquote(parts[7]),
+                self._required_text(request_body, "action"),
+                self._required_text(request_body, "reason"), actor,
+            ), "200 OK", json_type
         if method == "GET" and path.startswith("/api/v1/admin/executions/"):
             return self.admin.execution_details(unquote(path.split("/")[5])), "200 OK", json_type
         if method == "POST" and path in {"/api/v1/admin/executions/collection", "/api/v1/admin/executions/analysis"}:
@@ -267,5 +277,5 @@ def application() -> Callable[..., Any]:
 
 
 if __name__ == "__main__":
-    from wsgiref.simple_server import make_server
-    make_server("0.0.0.0", int(os.environ.get("PORT", "8080")), application()).serve_forever()
+    import uvicorn
+    uvicorn.run("services.api.app:app", host="0.0.0.0", port=int(os.environ.get("PORT", "8080")))

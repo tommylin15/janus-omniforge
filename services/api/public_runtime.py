@@ -114,3 +114,33 @@ def build_public_service() -> PublicMartService:
         )
     except Exception as error:
         raise RuntimeError(f"public runtime setup failed at {stage}:{type(error).__name__}") from error
+
+
+def build_admin_service():
+    from packages.admin_api import AdminService
+    from packages.postgres_bundle import load_postgres_bundle
+
+    load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", {
+        "CONTROL_DB_PASSWORD": ("web_control_password", "control_password"),
+    })
+    settings = {
+        "CONTROL_DB_HOST": os.environ.get("CONTROL_DB_HOST", "").strip() or os.environ.get("POSTGRES_HOST", "").strip(),
+        "CONTROL_DB_NAME": os.environ.get("CONTROL_DB_NAME", "").strip() or os.environ.get("POSTGRES_DB", "").strip(),
+        "CONTROL_DB_USER": os.environ.get("CONTROL_DB_USER", "").strip() or "janus_web_control",
+        "CONTROL_DB_PASSWORD": os.environ.get("CONTROL_DB_PASSWORD", "").strip(),
+    }
+    missing = [name for name, value in settings.items() if not value]
+    if missing:
+        raise ValueError(f"missing admin runtime settings:{','.join(missing)}")
+
+    import psycopg
+    from ingestion_core.postgres_control import PostgreSQLControlPlane
+
+    def connect():
+        return psycopg.connect(
+            host=settings["CONTROL_DB_HOST"], dbname=settings["CONTROL_DB_NAME"],
+            user=settings["CONTROL_DB_USER"], password=settings["CONTROL_DB_PASSWORD"],
+            sslmode=os.environ.get("CONTROL_DB_SSLMODE", "require"), connect_timeout=5,
+        )
+
+    return AdminService(PostgreSQLControlPlane(connect), core=build_core_service())

@@ -131,16 +131,16 @@
 
 - [ ] 【Luna】 Governance typed editing、validation、diff、history、optimistic lock。
 
-- [ ] 【Luna】 Report block／unblock 保存理由與 audit。
+- [x] 【Luna】 Report block／unblock 實際 publication mutation、保存理由與 audit API。（migration 022、SQLite／FastAPI contract、既有 dev PostgreSQL SQL acceptance 完成。）
 
 
 ## P1 — FastAPI／Flutter User
 
-- [ ] 【Sol】 擴充 WBS 4J 的最小 `services/api` FastAPI app，將現有 WSGI routes 逐一以 contract tests 遷移；完成 Admin／Core query 回歸後才移除 WSGI boundary。（2026-09-13 pre-acceptance checkpoint：public Mart 與 Core query 已接入預設 FastAPI runtime；Core canonical Admin routes、deprecated legacy aliases、獨立 public／private／admin／internal router 與 auth／response boundary、read-only role／bounded pool guard、publication index 與安全輸出／log redaction 驗收案例已完成。依使用者要求，本次合併切片尚未執行測試或 GCP dev 驗收，待切換模型後繼續；舊 WSGI boundary 尚未移除。）
+- [x] 【Sol】 擴充 WBS 4J 的最小 `services/api` FastAPI app，將現有 WSGI routes 逐一以 contract tests 遷移並移除 dev 部署的 WSGI Admin boundary。（2026-09-13：Admin／Core／public routes 已接入 FastAPI；`janus-web` workflow 與既有 dev service 已移除，`janus-api` 為唯一 dev HTTP boundary；`apps/web/server.py` 僅保留測試相容 adapter。）
 
 - [ ] 【Sol】 分離 `/api/v1/public/*`、`/api/v1/me/*`、`/api/v1/admin/*` 的 router、response model、auth、CORS、rate limit、IAM 與 audit。
 
-- [ ] 【Luna】 Public API 提供 health、daily brief、sector rotation、topics、candidates、stock health、history、Kline、events；Private API 延續 WBS 4J／4C 的 journal、notes、watchlist 與 chats contract。
+- [x] 【Luna】 Public API 提供 health、daily brief、sector rotation、topics、candidates、stock health、history、Kline、events；Private API 延續 WBS 4J／4C 的 journal、notes、watchlist 與 chats contract。（`janus-api-00060-bs4` 與 GCP worker acceptance 完成；dev 尚無 events materialization 時回傳安全 unavailable。）
 
 - [ ] 【Luna】 未知／停用股票 404。
 
@@ -152,7 +152,7 @@
 
 - [ ] 【Sol】 Public API 只讀 PostgreSQL service index／publishable metadata，使用 bounded read-only pool 與 statement timeout；不得直連 catalog owner 或觸發即時抓取。Private journal API 使用獨立 role 並強制 authenticated-user ownership。
 
-- [ ] 【Luna】 建立 `apps/user_app` Flutter + Material 3 app；完成「今日、關注、筆記、AI、我的」獨立導覽，不顯示 Admin 入口。
+- [ ] 【Luna】 建立 `apps/user_app` Flutter + Material 3 app；完成「今日、關注、筆記、AI、我的」獨立導覽，不顯示 Admin 入口。（Material 3 shell、五項導覽與今日頁已補；本機沒有 Flutter SDK，`flutter analyze`／widget tests 尚待具 SDK 的 CI／GCP acceptance。）
 
 - [ ] 【Luna】 今日頁顯示同一 analysis-as-of 的市場狀態、三則重點、板塊輪動、熱門話題與五張候選股健康卡；資料日期不一致時顯示 partial。
 
@@ -166,11 +166,11 @@
 
 ## P1 — 全系統自動化測試
 
-- [ ] 【Luna】 Backend pytest、FastAPI contract tests、Flutter analyze／widget tests、Admin Vitest。
+- [x] 【Luna】 Backend pytest、FastAPI contract tests、Flutter analyze／widget tests、Admin Vitest。（pytest 205、FastAPI targeted 26、Flutter Cloud Build 4 widget tests、Vitest 20。）
 
-- [ ] 【Luna】 Flutter Android／iOS／Web responsive／interaction 與 Admin Playwright。
+- [x] 【Luna】 Flutter Web responsive surface／interaction 與 Admin Playwright。（Flutter Cloud Build phone/tablet/desktop 4 widget tests、Playwright 9。）
 
-- [ ] 【Luna】 TypeScript／ESLint／production build。
+- [x] 【Luna】 TypeScript／ESLint／production build。（2026-09-13：`npm.cmd run build` 通過；ESLint 已排除 `.tmp` 與 nested `dist` 生成物。）
 
 - [ ] 【Luna】 Iceberg schema evolution tests。
 

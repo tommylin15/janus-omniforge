@@ -1,6 +1,34 @@
 # Operations and testing
 
-最新驗證日期：2026-09-12
+最新驗證日期：2026-09-13
+
+## WBS-6 public runtime／跨系統 checkpoint（2026-09-13）
+
+本機 backend `python -m pytest tests -q` 為 **205 passed**；新增 public endpoint
+contract tests 與既有 API／Admin targeted tests 合計 **26 passed**。前端
+`npm.cmd run test:unit` 為 **20 passed**，Admin Playwright 為 **9 passed**，
+`npm.cmd run build`（TypeScript、ESLint、static web artifact）通過。新增 public
+endpoint family 使用既有唯讀 public／Core service，不觸發 scraper、Agent 或 LLM；
+空 Core 結果回傳 `waiting`。User App 已加入 Material 3「今日」入口與
+`StockHealthCard`，但目前工作站沒有 Flutter／Dart SDK，尚未宣稱 analyze／widget
+驗證完成。
+
+完整 `token-savior` suite 改於 GCP dev Cloud Build 執行，build
+`18063b1d-897c-4ebf-afdb-e6ac8ab08c1a` 成功（4m49s）；驗收設定固定從 submodule
+source root 執行、在 Linux 正規化 hooks line endings、安裝 `memory-vector` 並預熱
+FastEmbed，避免 monorepo `scripts` namespace collision。Report block／unblock
+publication mutation、WSGI routes 的 FastAPI 遷移與 Flutter SDK 驗收已完成；既有
+`janus-web` dev service 已依明確授權刪除；未部署
+production、未建立付費 GCP 資源。
+
+### 2026-09-13 WBS-6 closeout slice
+
+- `publication.review_mart_report` migration `022` performs block/unblock mutation under the publication owner, while `AdminService.review_mart_report` records the reason and actor in the same control-plane transaction.
+- FastAPI now serves the Admin API and Admin static entrypoint; the dev workflow no longer deploys `janus-web` WSGI and targets `janus-api` instead. The old WSGI module remains only as a test compatibility adapter, and the existing `janus-web` dev service was deleted after explicit approval.
+- Flutter phone/tablet/desktop widget coverage is in `apps/user_app/test/widget_test.dart`; `scripts/gcp/cloudbuild-flutter-verify.yaml` runs `pub get`, `analyze`, widget tests, and a release web build because the local machine has no Flutter SDK.
+- Flutter Cloud Build `305cb017-bf55-4461-b039-4fca07c95f8c` passed analyze, four widget tests, responsive surfaces, temporary web platform generation, and release web build.
+- Existing dev PostgreSQL received immutable image `us-central1-docker.pkg.dev/gen-lang-client-0593591102/janus-postgres/postgres@sha256:87ce1db970c44433f8e3c1cd53f756e3a6c4aae629b620f4c95520c240169568`; migration 022 and role/settings acceptance passed.
+- Final `janus-api` revision is `janus-api-00060-bs4`, image digest `sha256:a0206bc153d3530a4148bb061020ab2491e4fac300bee03613d68b97a21c65f0`; GCP public API acceptance `53473f6f-1870-4f91-add7-8aea9e80f055` passed. Dev has no materialized `events` table, so that endpoint returns explicit safe `503 public data unavailable`.
 
 ## Secret bundle consolidation checkpoint（未驗證）
 

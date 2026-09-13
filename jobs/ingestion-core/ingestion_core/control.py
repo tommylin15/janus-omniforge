@@ -706,6 +706,36 @@ class SQLiteControlPlane:
             values,
         ).fetchall())
 
+    def review_mart_report(self, execution_id: str, scope_type: str, scope_id: str,
+                           action: str, reason: str, actor: str) -> dict[str, Any]:
+        if action not in {"block", "unblock"} or not reason.strip() or not actor.strip():
+            raise ValueError("publication review action, reason and actor are required")
+        row = self.connection.execute(
+            "SELECT * FROM mart_report_index WHERE execution_id=? AND scope_type=? AND scope_id=?",
+            (execution_id, scope_type, scope_id),
+        ).fetchone()
+        if row is None:
+            raise KeyError("Mart report not found")
+        current = row["publication_status"]
+        if action == "block" and current not in {"publishable", "published"}:
+            raise ValueError("only publishable reports can be blocked")
+        if action == "unblock" and current != "blocked":
+            raise ValueError("only blocked reports can be unblocked")
+        target = "blocked" if action == "block" else "publishable"
+        self.connection.execute(
+            "UPDATE mart_report_index SET publication_status=? WHERE execution_id=? AND scope_type=? AND scope_id=?",
+            (target, execution_id, scope_type, scope_id),
+        )
+        now = _iso(utc_now())
+        self.connection.execute(
+            "INSERT INTO admin_audit(action,resource,resource_key,actor,detail_json,created_at) VALUES (?,?,?,?,?,?)",
+            (action, "mart_report_publication", f"{execution_id}:{scope_type}:{scope_id}", actor.strip(),
+             json.dumps({"reason": reason.strip(), "publication_status": target}, ensure_ascii=False), now),
+        )
+        self.connection.commit()
+        return {"execution_id": execution_id, "scope_type": scope_type, "scope_id": scope_id,
+                "publication_status": target, "reason": reason.strip(), "actor": actor.strip(), "updated_at": now}
+
     def claim_execution(self, worker_id: str, *, trigger_type: TriggerType | None = None,
                         lease: timedelta = timedelta(minutes=5), now: datetime | None = None) -> Execution | None:
         if not worker_id.strip() or lease <= timedelta(0):

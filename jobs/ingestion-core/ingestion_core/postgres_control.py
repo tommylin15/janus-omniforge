@@ -312,6 +312,28 @@ class PostgreSQLControlPlane:
             )
             return tuple(dict(zip(fields, row, strict=True)) for row in cur.fetchall())
 
+    def review_mart_report(self, execution_id: str, scope_type: str, scope_id: str,
+                           action: str, reason: str, actor: str) -> dict[str, Any]:
+        if action not in {"block", "unblock"} or not reason.strip() or not actor.strip():
+            raise ValueError("publication review action, reason and actor are required")
+        with self._tx() as cur:
+            cur.execute(
+                "SELECT publication_status, updated_at FROM publication.review_mart_report(%s,%s,%s,%s)",
+                (execution_id, scope_type, scope_id, action),
+            )
+            row = cur.fetchone()
+            if row is None:
+                raise KeyError("Mart report not found")
+            cur.execute(
+                "INSERT INTO control.admin_audit(action,resource,resource_key,actor,detail_json,created_at) "
+                "VALUES (%s,%s,%s,%s,%s::jsonb,now())",
+                (action, "mart_report_publication", f"{execution_id}:{scope_type}:{scope_id}", actor.strip(),
+                 json.dumps({"reason": reason.strip(), "publication_status": row[0]}, ensure_ascii=False)),
+            )
+        return {"execution_id": execution_id, "scope_type": scope_type, "scope_id": scope_id,
+                "publication_status": row[0], "reason": reason.strip(), "actor": actor.strip(),
+                "updated_at": row[1]}
+
     def claim_execution(self, worker_id: str, *, trigger_type: TriggerType | None = None,
                         lease: timedelta = timedelta(minutes=5)) -> Execution | None:
         if not worker_id.strip() or lease <= timedelta(0):

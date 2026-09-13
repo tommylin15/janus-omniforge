@@ -126,6 +126,22 @@ class AdminServiceTests(unittest.TestCase):
         self.assertEqual((report["selected_role"], report["iceberg_snapshot_id"]), ("quant", 42))
         self.assertTrue(report["artifact_console_url"].startswith("https://console.cloud.google.com/storage/browser/_details/mart/"))
 
+    def test_mart_publication_review_mutates_status_and_audits_reason(self):
+        values = ("11111111-1111-1111-1111-111111111111", "2026-09-12", "symbol", "2330", "core-1",
+                  "gs://mart/report.json", "sha256:" + "1" * 64, "sha256:" + "2" * 64,
+                  "mart.mart_scoped_analysis_v1", 42, "1", "1", "deterministic-v1", "gov-1", "v1",
+                  "sha256:" + "3" * 64, .8, .7, "good", "complete", "publishable",
+                  "2026-09-12T00:00:00+00:00", "2026-09-12T00:01:00+00:00")
+        self.control.connection.execute(
+            "INSERT INTO mart_report_index VALUES(" + ",".join("?" for _ in values) + ")", values,
+        )
+        blocked = self.admin.review_mart_report(values[0], values[2], values[3], "block", "policy hold", "reviewer")
+        self.assertEqual(blocked["publication_status"], "blocked")
+        self.assertEqual(self.control.list_mart_reports(filters={"publication_status": "blocked"})[0]["publication_status"], "blocked")
+        unblocked = self.admin.review_mart_report(values[0], values[2], values[3], "unblock", "evidence cleared", "reviewer")
+        self.assertEqual(unblocked["publication_status"], "publishable")
+        self.assertEqual(self.admin.audit(limit=2)[0]["detail"]["reason"], "evidence cleared")
+
     def test_retention_bounds(self):
         with self.assertRaises(AdminValidationError):
             self.admin.save_setting("retention", {"days": 0, "cleanup_enabled": True}, actor="operator")

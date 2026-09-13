@@ -307,7 +307,7 @@ async function loadMart() {
   try {
     const data = await request(`/api/v1/admin/mart-reports?${params}`);
     body.replaceChildren();
-    if (!data.items.length) body.append(rowMessage("此條件沒有 persisted Mart artifact", 8));
+    if (!data.items.length) body.append(rowMessage("此條件沒有 persisted Mart artifact", 9));
     data.items.forEach((report) => {
       const artifact = node("a", report.selected_role ? `artifact · ${report.selected_role}` : "artifact");
       artifact.href = report.artifact_console_url; artifact.target = "_blank"; artifact.rel = "noopener noreferrer";
@@ -315,9 +315,26 @@ async function loadMart() {
       const artifactCell = document.createElement("td"); artifactCell.append(artifact);
       const outcome = document.createElement("td"); outcome.append(statusBadge(report.analysis_outcome));
       const publication = document.createElement("td"); publication.append(statusBadge(report.publication_status));
+      const reviewCell = document.createElement("td");
+      if (["publishable", "published", "blocked"].includes(report.publication_status) && report.analysis_outcome === "complete") {
+        const action = report.publication_status === "blocked" ? "unblock" : "block";
+        const button = node("button", action === "block" ? "Block" : "Unblock");
+        button.className = "button quiet"; button.type = "button";
+        button.addEventListener("click", async () => {
+          const reason = window.prompt("請輸入 publication 審查理由");
+          if (!reason || !reason.trim()) return;
+          try {
+            await request(`/api/v1/admin/mart-reports/${encodeURIComponent(report.execution_id)}/${encodeURIComponent(report.scope_type)}/${encodeURIComponent(report.scope_id)}/publication`, {
+              method: "PATCH", body: JSON.stringify({ action, reason: reason.trim() }),
+            });
+            showNotice(`Publication 已${action === "block" ? "封鎖" : "解除封鎖"}`); await loadMart();
+          } catch (error) { showNotice(error.message, true); }
+        });
+        reviewCell.append(button);
+      } else reviewCell.append(node("span", "—"));
       const row = document.createElement("tr");
       row.append(node("td", report.analysis_as_of), node("td", report.scope_type), node("td", report.scope_id),
-        outcome, publication, node("td", report.prompt_version), node("td", formatRatio(report.completeness)), artifactCell);
+        outcome, publication, node("td", report.prompt_version), node("td", formatRatio(report.completeness)), artifactCell, reviewCell);
       body.append(row);
     });
   } catch (error) { body.replaceChildren(rowMessage("Mart index 目前無法使用", 8)); showNotice(error.message, true); }

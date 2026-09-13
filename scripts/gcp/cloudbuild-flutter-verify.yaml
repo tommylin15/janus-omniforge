@@ -1,0 +1,14 @@
+steps:
+  - name: ghcr.io/cirruslabs/flutter:stable
+    dir: apps/user_app
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        flutter pub get
+        flutter analyze --no-fatal-infos
+        flutter test
+        flutter create . --platforms web --no-pub
+        flutter build web --release --dart-define=JANUS_API_BASE_URL=https://janus-api-2oo7qbkd5q-uc.a.run.app
+options:
+  logging: CLOUD_LOGGING_ONLY

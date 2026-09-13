@@ -29,14 +29,14 @@ case "${component}" in
     deploy_target="job"
     runtime_name="janus-private-pipeline"
     ;;
-  web)
-    dockerfile="apps/web/Dockerfile"
-    image_name="web"
+  api)
+    dockerfile="services/api/Dockerfile"
+    image_name="api"
     deploy_target="service"
-    runtime_name="janus-web"
+    runtime_name="janus-api"
     ;;
   *)
-    echo "Usage: $0 {ingestion-core|intelligence-mart|private-pipeline|web}" >&2
+    echo "Usage: $0 {ingestion-core|intelligence-mart|private-pipeline|api}" >&2
     exit 2
     ;;
 esac
@@ -71,9 +71,9 @@ case "${component}" in
       --remove-secrets="PRIVATE_DATABASE_URL,CORE_CATALOG_PASSWORD,PRIVATE_CATALOG_PASSWORD,JANUS_PIPELINE_POSTGRES_BUNDLE" \
       --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" --quiet
     ;;
-  web)
+  api)
     gcloud run services update "${runtime_name}" --project="${project}" --region="${region}" \
-      --update-secrets="JANUS_WEB_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" --quiet
+      --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" --quiet
     ;;
 esac
 

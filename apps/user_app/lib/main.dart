@@ -184,6 +184,7 @@ class _WorkspaceState extends State<Workspace> {
   @override
   Widget build(BuildContext context) {
     final pages = [
+      TodayPage(widget.api),
       WatchlistPage(widget.api),
       JournalNotesPage(widget.api),
       ChatPage(widget.api),
@@ -196,6 +197,8 @@ class _WorkspaceState extends State<Workspace> {
             selectedIndex: page,
             onDestinationSelected: (value) => setState(() => page = value),
             destinations: const [
+              NavigationDestination(
+                  icon: Icon(Icons.today_outlined), label: '今日'),
               NavigationDestination(
                   icon: Icon(Icons.star_outline), label: '關注'),
               NavigationDestination(
@@ -784,6 +787,77 @@ class _WatchlistPageState extends State<WatchlistPage> {
                   reload();
                 });
           }));
+}
+
+class TodayPage extends StatefulWidget {
+  const TodayPage(this.api, {super.key});
+  final Api api;
+  @override
+  State<TodayPage> createState() => _TodayPageState();
+}
+
+class _TodayPageState extends State<TodayPage> {
+  late Future<dynamic> brief = widget.api.get('/api/v1/public/daily-brief');
+  void reload() => setState(() => brief = widget.api.get('/api/v1/public/daily-brief'));
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<dynamic>(
+      future: brief,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done)
+          return const Center(child: CircularProgressIndicator());
+        if (snapshot.hasError) return ErrorView(snapshot.error.toString(), reload);
+        final root = snapshot.data as Map?;
+        final items = root?['items'] is List ? root!['items'] as List : const [];
+        final report = items.isNotEmpty && items.first is Map ? items.first as Map : const {};
+        final data = report['data'] is Map ? report['data'] as Map : report;
+        final candidates = data['candidates'] is List ? data['candidates'] as List : const [];
+        final topics = data['topics'] is List ? data['topics'] as List : const [];
+        return ListView(padding: const EdgeInsets.all(16), children: [
+          Text('今日', style: Theme.of(context).textTheme.headlineMedium),
+          Text('資料日期：${report['analysis_as_of'] ?? '—'}'),
+          const SizedBox(height: 12),
+          Card(child: ListTile(
+              leading: Icon(Icons.public, color: Theme.of(context).colorScheme.primary),
+              title: Text(data['market_status']?.toString() ?? '市場狀態'),
+              subtitle: Text(data['summary']?.toString() ?? '今日公開研究摘要'))),
+          if (topics.isNotEmpty) ...[
+            const ListTile(title: Text('熱門話題')),
+            for (final topic in topics.take(3))
+              ListTile(leading: const Icon(Icons.trending_up), title: Text(topic.toString()))
+          ],
+          const ListTile(title: Text('候選股健康')),
+          if (candidates.isEmpty)
+            const Card(child: ListTile(title: Text('目前沒有可發布候選股'))),
+          for (final candidate in candidates.take(5))
+            StockHealthCard(value: candidate is Map
+                ? Map<String, dynamic>.from(candidate)
+                : {'symbol': candidate})
+        ]);
+      });
+}
+
+class StockHealthCard extends StatelessWidget {
+  const StockHealthCard({required this.value, super.key});
+  final Map<String, dynamic> value;
+  @override
+  Widget build(BuildContext context) {
+    final blocked = {'blocked', 'insufficient_data'}.contains(
+        value['status']?.toString() ?? value['analysis_outcome']?.toString());
+    final score = value['score'] ?? value['health_score'];
+    return Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(child: Text(value['symbol']?.toString() ?? '—',
+            style: Theme.of(context).textTheme.titleLarge)),
+        Chip(label: Text(value['positioning']?.toString() ?? '籌碼狀態未提供'))
+      ]),
+      ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.psychology),
+          title: Text(value['summary']?.toString() ?? '白話摘要未提供'),
+          subtitle: Text(blocked ? '資料不足，暫不顯示分數' : '健康度：${score ?? '—'}')),
+      Text('資料日期：${value['analysis_as_of'] ?? '—'} · 風險：${value['risk'] ?? '—'}')
+    ])));
+  }
 }
 
 class JournalNotesPage extends StatefulWidget {

@@ -2,7 +2,7 @@ import js from "@eslint/js";
 
 export default [
   {
-    ignores: ["dist/**", "node_modules/**", "test-results/**", "token-savior/**"]
+    ignores: ["dist/**", "**/dist/**", "node_modules/**", "test-results/**", ".tmp/**", "token-savior/**"]
   },
   js.configs.recommended,
   {

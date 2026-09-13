@@ -10,7 +10,7 @@ on:
         options:
           - ingestion-core
           - intelligence-mart
-          - web
+          - api
 
 permissions:
   contents: read
@@ -29,7 +29,7 @@ jobs:
     outputs:
       ingestion: ${{ steps.filter.outputs.ingestion }}
       mart: ${{ steps.filter.outputs.mart }}
-      web: ${{ steps.filter.outputs.web }}
+      api: ${{ steps.filter.outputs.api }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -50,8 +50,11 @@ jobs:
               - 'packages/observability/**'
               - 'cloudbuild.yaml'
               - 'scripts/gcp/**'
-            web:
-              - 'apps/web/**'
+            api:
+              - 'services/api/**'
+              - 'packages/admin_api/**'
+              - 'packages/web_api/**'
+              - 'apps/web/static/**'
               - 'cloudbuild.yaml'
               - 'scripts/gcp/**'
 
@@ -95,11 +98,11 @@ jobs:
         shell: bash
         run: bash scripts/gcp/verify-dev.sh
 
-  deploy-web:
+  deploy-api:
     needs: detect
     if: >-
-      needs.detect.outputs.web == 'true' ||
-      (github.event_name == 'workflow_dispatch' && inputs.component == 'web')
+      needs.detect.outputs.api == 'true' ||
+      (github.event_name == 'workflow_dispatch' && inputs.component == 'api')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -108,9 +111,9 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Deploy web
+      - name: Deploy api
         shell: bash
-        run: bash scripts/gcp/deploy-dev.sh web
+        run: bash scripts/gcp/deploy-dev.sh api
       - name: Verify dev runtimes
         shell: bash
         run: bash scripts/gcp/verify-dev.sh

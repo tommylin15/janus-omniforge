@@ -5,18 +5,20 @@ from __future__ import annotations
 import json
 import logging
 import os
+from pathlib import Path
 from datetime import datetime, timezone
 from typing import Any, Callable
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
-from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Body, Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
 from packages.observability import redact
+from packages.admin_api import AdminValidationError
 from packages.web_api import PublicReportNotFound, QueryValidationError
-from .auth import (AuthenticatedUser, GoogleAdminAuthenticator, GoogleServiceAuthenticator,
+from .auth import (AuthenticatedAdmin, AuthenticatedUser, GoogleAdminAuthenticator, GoogleServiceAuthenticator,
                    GoogleUserAuthenticator, allowed_admin_emails, allowed_assistant_callers,
                    allowed_user_emails)
 from .context_sources import (ContextReferenceNotFound, ContextSourceError, ContextSourceService,
@@ -32,7 +34,7 @@ from .assistant_storage import safe_private_record
 from .engine_security import (AgentEvent, AgentEventType, AgentRuntime, ApprovalDecision,
                                ApprovalRequest, RuntimeBinding)
 from .repository import ConflictError, NotFoundError, OversellError, repository_from_env
-from .public_runtime import build_core_service, build_public_service
+from .public_runtime import build_admin_service, build_core_service, build_public_service
 from .store import PrivateIcebergStore
 
 
@@ -54,6 +56,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                admin_verifier: Callable[..., Any] | None = None,
                admin_audience: str | None = None,
                admin_emails: frozenset[str] | None = None,
+               admin_service: Any | None = None,
                internal_verifier: Callable[..., Any] | None = None,
                internal_audience: str | None = None,
                internal_callers: frozenset[str] | None = None,
@@ -87,6 +90,14 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                 LOGGER.warning("public runtime unavailable: %s", detail)
                 raise HTTPException(status_code=503, detail="public reports unavailable") from error
         public = _Lazy(unavailable_public)
+    if admin_service is None:
+        def unavailable_admin() -> Any:
+            try:
+                return build_admin_service()
+            except Exception as error:
+                LOGGER.warning("admin runtime unavailable: %s", type(error).__name__)
+                raise HTTPException(status_code=503, detail="admin unavailable") from error
+        admin_service = _Lazy(unavailable_admin)
     contexts = ContextSourceService(repository,store,core)
     skills = AssistantStorage(repository, store)
     auth = GoogleUserAuthenticator(audience or os.getenv("GOOGLE_USER_CLIENT_ID", ""), repository,
@@ -216,6 +227,9 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         LOGGER.warning("api request failed: %s", type(error).__name__)
         return JSONResponse({"detail":"service unavailable"}, status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
 
+    async def admin_invalid_handler(_request: Any, error: Exception):
+        return JSONResponse({"detail": redact(error)}, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
     api.add_exception_handler(ConflictError, conflict_handler)
     api.add_exception_handler(OversellError, conflict_handler)
     api.add_exception_handler(NotFoundError, missing_handler)
@@ -224,6 +238,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     api.add_exception_handler(ContextSourceError, invalid_handler)
     api.add_exception_handler(McpGatewayError, invalid_handler)
     api.add_exception_handler(QueryValidationError, invalid_handler)
+    api.add_exception_handler(AdminValidationError, admin_invalid_handler)
     api.add_exception_handler(Exception, unavailable_handler)
 
     @api.get("/health")
@@ -232,9 +247,74 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @public_router.get("/health")
     def public_health() -> dict[str, str]: return {"status":"ok"}
 
+    static_dir = Path(__file__).resolve().parents[2] / "apps" / "web" / "static"
+
+    @api.get("/admin", include_in_schema=False)
+    @api.get("/admin/stocks", include_in_schema=False)
+    def admin_page():
+        return FileResponse(static_dir / "admin.html")
+
+    @api.get("/assets/admin.css", include_in_schema=False)
+    def admin_css(): return FileResponse(static_dir / "admin.css")
+
+    @api.get("/assets/admin.js", include_in_schema=False)
+    def admin_js(): return FileResponse(static_dir / "admin.js")
+
+    @api.get("/private-journal-acceptance.html", include_in_schema=False)
+    def private_journal_acceptance():
+        return FileResponse(static_dir / "private-journal-acceptance.html")
+
     @public_router.get("/reports/{scope_type}/{scope_id}", response_model=PublicReportOut)
     def public_report(scope_type: str, scope_id: str, analysis_as_of: str = Query(default="", max_length=10)):
         return jsonable_encoder(public.report(scope_type, scope_id, analysis_as_of=analysis_as_of))
+
+    def public_report_list(scope_type: str, scope_id: str, analysis_as_of: str = "") -> dict[str, Any]:
+        return {"items": [jsonable_encoder(public.report(scope_type, scope_id, analysis_as_of=analysis_as_of))]}
+
+    @public_router.get("/daily-brief")
+    def daily_brief(scope_id: str = Query("market", max_length=80), analysis_as_of: str = Query("", max_length=10)):
+        return public_report_list("market", scope_id, analysis_as_of)
+
+    @public_router.get("/sector-rotation")
+    def sector_rotation(scope_id: str = Query(..., min_length=1, max_length=80), analysis_as_of: str = Query("", max_length=10)):
+        return public_report_list("industry", scope_id, analysis_as_of)
+
+    @public_router.get("/topics")
+    def topics(scope_id: str = Query("market", max_length=80), analysis_as_of: str = Query("", max_length=10)):
+        return public_report_list("market", scope_id, analysis_as_of)
+
+    @public_router.get("/candidates")
+    def candidates(scope_id: str = Query("market", max_length=80), analysis_as_of: str = Query("", max_length=10)):
+        return public_report_list("market", scope_id, analysis_as_of)
+
+    @public_router.get("/stock-health/{symbol}")
+    def stock_health(symbol: str, analysis_as_of: str = Query("", max_length=10)):
+        return jsonable_encoder(public.report("symbol", symbol, analysis_as_of=analysis_as_of))
+
+    def public_dataset(symbol: str, dataset_id: str, limit: int, offset: int) -> dict[str, Any]:
+        try:
+            page = query_core.page(dataset_id, symbol, limit=limit, offset=offset)
+        except QueryValidationError:
+            return {"data_status": "waiting", "dataset_id": dataset_id, "symbol": symbol.upper(),
+                    "rows": [], "limit": limit, "offset": offset}
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail="public data unavailable") from error
+        status_name = "available" if page.rows else "waiting"
+        return jsonable_encoder({"data_status": status_name, "dataset_id": page.dataset_id,
+                                 "symbol": page.symbol, "rows": page.rows,
+                                 "limit": page.limit, "offset": page.offset})
+
+    @public_router.get("/history/{symbol}")
+    def public_history(symbol: str, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0)):
+        return public_dataset(symbol, "ohlcv", limit, offset)
+
+    @public_router.get("/kline/{symbol}")
+    def public_kline(symbol: str, limit: int = Query(200, ge=1, le=200), offset: int = Query(0, ge=0)):
+        return public_dataset(symbol, "ohlcv", limit, offset)
+
+    @public_router.get("/events/{symbol}")
+    def public_events(symbol: str, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0)):
+        return public_dataset(symbol, "events", limit, offset)
 
     def core_summary(symbol: str):
         try:
@@ -525,6 +605,156 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @private.get("/private-data/{request_id}")
     def deletion_status(request_id: UUID, current: AuthenticatedUser = Depends(user)):
         return jsonable_encoder(repository.deletion_request(current.user_id, request_id))
+
+    def admin_actor(current: AuthenticatedAdmin = Depends(authenticate_admin)) -> str:
+        return current.email
+
+    @admin.get("/stocks")
+    def admin_stocks(q: str = Query("", max_length=80), enabled: bool | None = Query(None),
+                     limit: int = Query(10, ge=1, le=100), cursor: str | None = Query(None)):
+        items = admin_service.stocks(q, enabled=enabled, limit=limit + 1, cursor=cursor)
+        page = items[:limit]
+        return jsonable_encoder({"items": page, "limit": limit,
+                                 "next_cursor": page[-1]["symbol"] if len(items) > limit else None})
+
+    @admin.post("/stocks")
+    @admin.put("/stocks")
+    def admin_upsert_stock(payload: dict[str, Any] = Body(...)):
+        return jsonable_encoder(admin_service.upsert_stock(payload))
+
+    @admin.patch("/stocks/{symbol}/enabled")
+    def admin_set_stock_enabled(symbol: str, payload: dict[str, Any] = Body(...)):
+        if not isinstance(payload.get("enabled"), bool):
+            raise AdminValidationError("enabled must be a boolean")
+        admin_service.set_stock_enabled(symbol, payload["enabled"])
+        return {"symbol": symbol, "enabled": payload["enabled"]}
+
+    @admin.get("/stocks/{symbol}/references")
+    def admin_stock_references(symbol: str):
+        return jsonable_encoder(admin_service.stock_references(symbol))
+
+    @admin.delete("/stocks/{symbol}")
+    def admin_delete_stock(symbol: str):
+        admin_service.delete_stock(symbol)
+        return {"symbol": symbol, "deleted": True}
+
+    @admin.get("/stocks/{symbol}/status")
+    def admin_stock_status(symbol: str):
+        return jsonable_encoder(admin_service.stock_status(symbol))
+
+    @admin.get("/executions")
+    def admin_executions(limit: int = Query(10, ge=1, le=50), cursor: str | None = Query(None)):
+        items = admin_service.executions(limit=limit + 1, cursor=cursor)
+        page = items[:limit]
+        next_cursor = f'{page[-1]["requested_at"]},{page[-1]["execution_id"]}' if len(items) > limit else None
+        return jsonable_encoder({"items": page, "limit": limit, "next_cursor": next_cursor})
+
+    @admin.get("/executions/{execution_id}")
+    def admin_execution_details(execution_id: str):
+        return jsonable_encoder(admin_service.execution_details(execution_id))
+
+    @admin.post("/executions/collection", status_code=202)
+    def admin_enqueue_collection(payload: dict[str, Any] = Body(...)):
+        config_id = payload.get("config_id")
+        if not isinstance(config_id, str) or not config_id.strip():
+            raise AdminValidationError("config_id is required")
+        symbols = tuple(payload["symbols"]) if isinstance(payload.get("symbols"), list) else None
+        return jsonable_encoder(admin_service.enqueue_collection(
+            config_id, symbols, request_options=payload.get("options") or {},
+        ))
+
+    @admin.post("/executions/analysis", status_code=202)
+    def admin_enqueue_analysis(payload: dict[str, Any] = Body(...)):
+        config_id = payload.get("config_id")
+        if not isinstance(config_id, str) or not config_id.strip():
+            raise AdminValidationError("config_id is required")
+        symbols = tuple(payload["symbols"]) if isinstance(payload.get("symbols"), list) else None
+        return jsonable_encoder(admin_service.enqueue_analysis(config_id, symbols))
+
+    @admin.get("/mart-reports")
+    def admin_mart_reports(analysis_as_of: str = Query("", max_length=10), scope_type: str = Query(""),
+                           scope_id: str = Query(""), role: str = Query(""), prompt_version: str = Query(""),
+                           analysis_outcome: str = Query(""), publication_status: str = Query(""),
+                           limit: int = Query(50, ge=1, le=100)):
+        return jsonable_encoder({"items": admin_service.mart_reports(
+            analysis_as_of=analysis_as_of, scope_type=scope_type, scope_id=scope_id, role=role,
+            prompt_version=prompt_version, analysis_outcome=analysis_outcome,
+            publication_status=publication_status, limit=limit), "limit": limit})
+
+    @admin.patch("/mart-reports/{execution_id}/{scope_type}/{scope_id}/publication")
+    def admin_review_mart_report(execution_id: str, scope_type: str, scope_id: str,
+                                 payload: dict[str, Any] = Body(...), actor: str = Depends(admin_actor)):
+        return jsonable_encoder(admin_service.review_mart_report(
+            execution_id, scope_type, scope_id, payload.get("action", ""), payload.get("reason", ""), actor,
+        ))
+
+    @admin.get("/source-health")
+    def admin_source_health(limit: int = Query(200, ge=1, le=200), cursor: str | None = Query(None)):
+        items = admin_service.source_health(limit=limit + 1, cursor=cursor)
+        page = items[:limit]
+        next_cursor = f'{page[-1]["source_id"]},{page[-1]["dataset_id"]}' if len(items) > limit else None
+        return jsonable_encoder({"items": page, "limit": limit, "next_cursor": next_cursor})
+
+    @admin.get("/source-catalog")
+    def admin_source_catalog(limit: int = Query(200, ge=1, le=200), cursor: str | None = Query(None)):
+        items = admin_service.collection_configs(limit=limit + 1, cursor=cursor)
+        page = items[:limit]
+        return jsonable_encoder({"items": page, "limit": limit,
+                                 "next_cursor": page[-1]["config_id"] if len(items) > limit else None})
+
+    @admin.post("/source-catalog")
+    @admin.put("/source-catalog")
+    def admin_save_source_catalog(payload: dict[str, Any] = Body(...), actor: str = Depends(admin_actor)):
+        return jsonable_encoder(admin_service.save_collection_config(payload, actor=actor))
+
+    @admin.get("/source-reviews/{adapter_id}")
+    def admin_source_review(adapter_id: str):
+        return jsonable_encoder(admin_service.source_review(adapter_id))
+
+    @admin.post("/source-reviews/{adapter_id}")
+    @admin.put("/source-reviews/{adapter_id}")
+    def admin_save_source_review(adapter_id: str, payload: dict[str, Any] = Body(...), actor: str = Depends(admin_actor)):
+        expected = payload.get("expected_version")
+        if isinstance(expected, bool) or not isinstance(expected, int) or expected < 0:
+            raise AdminValidationError("expected_version is required")
+        return jsonable_encoder(admin_service.save_source_review(
+            adapter_id, payload.get("value"), actor=actor, expected_version=expected,
+        ))
+
+    @admin.get("/settings/{setting_key}")
+    def admin_setting(setting_key: str):
+        return jsonable_encoder(admin_service.setting(setting_key))
+
+    @admin.post("/settings/{setting_key}")
+    @admin.put("/settings/{setting_key}")
+    def admin_save_setting(setting_key: str, payload: dict[str, Any] = Body(...), actor: str = Depends(admin_actor)):
+        expected = payload.get("expected_version")
+        if expected is not None and (isinstance(expected, bool) or not isinstance(expected, int) or expected < 0):
+            raise AdminValidationError("expected_version must be a non-negative integer")
+        return jsonable_encoder(admin_service.save_setting(
+            setting_key, payload.get("value"), actor=actor, expected_version=expected,
+        ))
+
+    @admin.get("/audit")
+    def admin_audit(limit: int = Query(50, ge=1, le=50)):
+        return jsonable_encoder({"items": admin_service.audit(limit=limit)})
+
+    @admin.get("/memberships/{coverage_tier}")
+    def admin_membership(coverage_tier: str):
+        return jsonable_encoder(admin_service.membership_snapshot(coverage_tier))
+
+    @admin.put("/memberships/{coverage_tier}")
+    def admin_set_membership(coverage_tier: str, payload: dict[str, Any] = Body(...), actor: str = Depends(admin_actor)):
+        expected = payload.get("expected_version")
+        if isinstance(expected, bool) or not isinstance(expected, int) or expected < 0:
+            raise AdminValidationError("expected_version is required")
+        symbols = payload.get("symbols")
+        if not isinstance(symbols, list):
+            raise AdminValidationError("symbols are required")
+        return jsonable_encoder(admin_service.set_membership(
+            coverage_tier, tuple(symbols), effective_from=admin_service.parse_datetime(payload.get("effective_from", "")),
+            reason=payload.get("reason", ""), owner=actor, expected_version=expected,
+        ))
 
     @internal.post("/assistant/context:resolve")
     def resolve_context(value:ContextResolveIn):

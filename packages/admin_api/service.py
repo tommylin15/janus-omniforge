@@ -145,6 +145,22 @@ class AdminService:
         }.items() if value}
         return tuple(self._report(item, role=role) for item in self.control.list_mart_reports(filters=filters, limit=limit))
 
+    def review_mart_report(self, execution_id: str, scope_type: str, scope_id: str,
+                           action: str, reason: str, actor: str) -> dict[str, Any]:
+        if not re.fullmatch(r"[0-9a-fA-F-]{36}", execution_id):
+            raise AdminValidationError("execution_id is invalid")
+        if scope_type not in {"market", "industry", "symbol"}:
+            raise AdminValidationError("scope_type is invalid")
+        if not re.fullmatch(r"[\w.:-]{1,80}", scope_id):
+            raise AdminValidationError("scope_id is invalid")
+        if action not in {"block", "unblock"}:
+            raise AdminValidationError("publication review action is invalid")
+        if not isinstance(reason, str) or not reason.strip() or len(reason) > 2000:
+            raise AdminValidationError("publication review reason is required")
+        if not isinstance(actor, str) or not actor.strip():
+            raise AdminValidationError("actor is required")
+        return self.control.review_mart_report(execution_id, scope_type, scope_id, action, reason, actor)
+
     def membership(self, coverage_tier: str, *, as_of: datetime | None = None) -> tuple[dict[str, Any], ...]:
         return tuple({"coverage_tier": item.coverage_tier.value, "symbol": item.symbol, "effective_from": item.effective_from.isoformat(), "effective_to": item.effective_to.isoformat() if item.effective_to else None, "reason": item.reason, "owner": item.owner} for item in self.control.coverage_membership(coverage_tier, as_of=as_of))
 

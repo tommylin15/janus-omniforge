@@ -10,18 +10,31 @@ umask 077
 
 image="${1:?immutable PostgreSQL image is required}"
 mode="${2:-apply}"
+credential_source="${3:-stdin}"
 data_dir=/mnt/stateful_partition/postgres
 docker_config=/run/janus-web-migration-docker
+credential_file="${4:-}"
 
 if [[ "${image}" != *@sha256:* ]]; then
   echo "Refusing mutable PostgreSQL image: ${image}" >&2
   exit 1
 fi
 
-read -r web_control_password
-read -r web_catalog_password
-read -r web_publication_password
-# PowerShell/OpenSSH may deliver CRLF even though the remote shell splits on LF.
+if [[ "${credential_source}" == stdin ]]; then
+  credential_file="/tmp/janus-web-credentials-$$"
+  { IFS= read -r web_control_password; IFS= read -r web_catalog_password; IFS= read -r web_publication_password; } || true
+  printf '%s\n%s\n%s\n' "${web_control_password%$'\r'}" "${web_catalog_password%$'\r'}" "${web_publication_password%$'\r'}" > "${credential_file}"
+elif [[ "${credential_source}" == file ]]; then
+  case "${credential_file}" in
+    /tmp/janus-web-credentials-*) ;;
+    *) echo "Refusing credential file outside the dedicated /tmp prefix." >&2; exit 2 ;;
+  esac
+  chmod 600 "${credential_file}"
+  { IFS= read -r web_control_password; IFS= read -r web_catalog_password; IFS= read -r web_publication_password; } < "${credential_file}"
+else
+  echo "Unsupported credential source: ${credential_source}" >&2
+  exit 2
+fi
 web_control_password="${web_control_password%$'\r'}"
 web_catalog_password="${web_catalog_password%$'\r'}"
 web_publication_password="${web_publication_password%$'\r'}"
@@ -50,6 +63,7 @@ rollback() {
   fi
   unset web_control_password web_catalog_password web_publication_password
   sudo rm -rf "${docker_config}" >/dev/null 2>&1 || true
+  rm -f -- "${credential_file}" >/dev/null 2>&1 || true
   exit "${status}"
 }
 trap rollback ERR
@@ -81,11 +95,17 @@ for _ in $(seq 1 60); do
 done
 sudo docker exec --user postgres janus-postgres pg_isready -U postgres -d janus_control >/dev/null
 
+sudo docker cp "${credential_file}" janus-postgres:/tmp/janus-web-migration-credentials
+sudo docker exec janus-postgres chown postgres:postgres /tmp/janus-web-migration-credentials
+sudo docker exec janus-postgres chmod 600 /tmp/janus-web-migration-credentials
+
 sudo docker exec --user postgres \
-  -e WEB_CONTROL_PASSWORD="${web_control_password}" \
-  -e WEB_CATALOG_PASSWORD="${web_catalog_password}" \
-  -e WEB_PUBLICATION_PASSWORD="${web_publication_password}" \
   janus-postgres bash -ceu '
+    credential_file=/tmp/janus-web-migration-credentials
+    IFS= read -r WEB_CONTROL_PASSWORD < "${credential_file}"
+    IFS= read -r WEB_CATALOG_PASSWORD < <(sed -n "2p" "${credential_file}")
+    IFS= read -r WEB_PUBLICATION_PASSWORD < <(sed -n "3p" "${credential_file}")
+    export WEB_CONTROL_PASSWORD WEB_CATALOG_PASSWORD WEB_PUBLICATION_PASSWORD
     printf "\\getenv web_control_password WEB_CONTROL_PASSWORD\n\\getenv web_catalog_password WEB_CATALOG_PASSWORD\n" > /tmp/web-vars.sql
     cat /tmp/web-vars.sql /opt/janus/migrations/007_web_runtime_roles.sql | psql -U postgres -d janus_control
     psql -U postgres -d janus_control -f /opt/janus/migrations/009_admin_cursor_indexes.sql
@@ -96,7 +116,8 @@ sudo docker exec --user postgres \
     psql -U postgres -d janus_control -f /opt/janus/migrations/020_governance_audit.sql
     printf "\\getenv web_publication_password WEB_PUBLICATION_PASSWORD\n" > /tmp/public-vars.sql
     cat /tmp/public-vars.sql /opt/janus/migrations/021_public_api_role.sql | psql -U postgres -d janus_control
-    rm -f /tmp/web-vars.sql /tmp/public-vars.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/022_mart_publication_review.sql
+    rm -f /tmp/web-vars.sql /tmp/public-vars.sql "${credential_file}"
     psql -U postgres -d janus_control -v ON_ERROR_STOP=1 <<"SQL"
 SELECT rolname, rolsuper, rolcreatedb, rolcreaterole, rolreplication
 FROM pg_roles
@@ -106,6 +127,9 @@ SELECT current_setting($$default_transaction_read_only$$) = $$off$$ AS server_de
 SELECT EXISTS (
   SELECT 1 FROM control.schema_migrations WHERE version = $$021_public_api_role$$
 ) AS migration_recorded;
+SELECT EXISTS (
+  SELECT 1 FROM control.schema_migrations WHERE version = $$022_mart_publication_review$$
+) AS publication_review_recorded;
 SELECT tableowner = $$janus_control$$ AS control_settings_owned
 FROM pg_tables WHERE schemaname = $$control$$ AND tablename = $$admin_settings$$;
 SELECT source_ids = $$["taiex", "tpex-benchmark", "twse", "mops", "finmind"]$$::jsonb
@@ -117,4 +141,5 @@ SQL
 switched=false
 trap - ERR
 unset web_control_password web_catalog_password web_publication_password
+rm -f -- "${credential_file}"
 echo "Web PostgreSQL migration applied with immutable image ${image}."
