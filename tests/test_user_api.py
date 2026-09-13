@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 ROOT=Path(__file__).parents[1]
 sys.path.insert(0,str(ROOT))
 
+import services.api.app as app_module
 from services.api.app import create_app
 
 
@@ -48,6 +49,28 @@ class Core:
                  "provenance_id":"prov-1","gcs_uri":"gs://hidden"}]
 
 
+class Public:
+    def report(self, scope_type, scope_id, *, analysis_as_of=""):
+        return {"scope_type": scope_type, "scope_id": scope_id,
+                "analysis_as_of": analysis_as_of or "2026-09-12", "data_status": "published",
+                "confidence": .8, "completeness": .9, "schema_version": "1", "model_version": "1",
+                "governance_snapshot_version": "gov-1", "data": {"score": 80}}
+
+
+class ExplodingPublic:
+    def report(self, *_args, **_kwargs):
+        raise RuntimeError("password=top-secret traceback=private")
+
+
+class QueryCore:
+    def summary(self, symbol):
+        return {"symbol": symbol, "datasets": {}}
+
+    def page(self, dataset_id, symbol, *, limit, offset):
+        return type("Page", (), {"dataset_id": dataset_id, "symbol": symbol, "rows": (),
+                                 "limit": limit, "offset": offset})()
+
+
 class Mcp:
     def __init__(self): self.calls=[]
     def discover(self,owner_id,server_id,config_ref,tool_grants=None):
@@ -57,19 +80,29 @@ class Mcp:
     def disconnect(self,owner_id,server_id): self.calls.append(("disconnect",owner_id,server_id))
 
 
-def client(claims=None,service_claims=None):
+def client(claims=None,service_claims=None,public=None,query_core=None,raise_server_exceptions=True):
     repo,store,mcp=Repository(),Store(),Mcp()
     values=claims or {"iss":"https://accounts.google.com","aud":"user-client","sub":"google-a","email":"old@example.com","email_verified":True,"exp":1_900_000_000}
     service_claims=service_claims or {"iss":"https://accounts.google.com","aud":"assistant-internal","sub":"service-1",
                                       "email":"gateway@example.iam.gserviceaccount.com","email_verified":True,"exp":1_900_000_000}
+    admin_claims={"iss":"https://accounts.google.com","aud":"admin-client","sub":"admin-1",
+                  "email":"admin@example.com","email_verified":True,"exp":1_900_000_000}
+    def verify_admin(token, _audience):
+        if token == "valid-admin-token": return admin_claims
+        if token == "other-admin-token": return {**admin_claims,"email":"other@example.com"}
+        return values
     app=create_app(repo,store,lambda _token,_audience:values,audience="user-client",core=Core(),
+                   query_core=query_core,
+                   admin_verifier=verify_admin,admin_audience="admin-client",
+                   admin_emails=frozenset({"admin@example.com"}),
                    internal_verifier=lambda _token,_audience:service_claims,
                    internal_audience="assistant-internal",
-                   internal_callers=frozenset({"gateway@example.iam.gserviceaccount.com"}),mcp=mcp)
-    return TestClient(app),repo,store
+                   internal_callers=frozenset({"gateway@example.iam.gserviceaccount.com"}),mcp=mcp,public=public)
+    return TestClient(app, raise_server_exceptions=raise_server_exceptions),repo,store
 
 
 def auth(): return {"Authorization":"Bearer valid-user-token"}
+def admin_auth(): return {"Authorization":"Bearer valid-admin-token"}
 
 
 def test_health_is_public_and_private_routes_require_bearer():
@@ -78,6 +111,48 @@ def test_health_is_public_and_private_routes_require_bearer():
     response=api.get("/api/v1/me/profile")
     assert response.status_code==401
     assert response.json()=={"detail":"authentication required"}
+
+
+def test_public_report_route_is_unauthenticated_and_uses_persisted_service():
+    api,_,_=client(public=Public())
+    response=api.get("/api/v1/public/reports/symbol/2330?analysis_as_of=2026-09-12")
+    assert response.status_code==200
+    assert response.json()["data"]=={"score":80}
+
+    unavailable=client()[0].get("/api/v1/public/reports/symbol/2330")
+    assert unavailable.status_code==503
+    assert unavailable.json()=={"detail":"public reports unavailable"}
+
+
+def test_public_report_route_uses_default_runtime_factory(monkeypatch):
+    monkeypatch.setattr(app_module, "build_public_service", lambda: Public())
+    api,_,_=client()
+    response=api.get("/api/v1/public/reports/symbol/2330")
+    assert response.status_code==200
+    assert response.json()["data"]=={"score":80}
+
+
+def test_unhandled_error_response_and_log_do_not_leak_secret(caplog):
+    api,_,_=client(public=ExplodingPublic(),raise_server_exceptions=False)
+    response=api.get("/api/v1/public/reports/symbol/2330")
+    assert response.status_code==503
+    assert response.json()=={"detail":"service unavailable"}
+    assert "top-secret" not in response.text
+    assert "top-secret" not in caplog.text
+    assert "RuntimeError" in caplog.text
+
+
+def test_core_routes_require_admin_audience_and_preserve_legacy_contract():
+    api,_,_=client(query_core=QueryCore())
+    assert api.get("/api/v1/admin/core/2330/summary").status_code==401
+    assert api.get("/api/v1/admin/core/2330/summary",headers=auth()).status_code==401
+    assert api.get("/api/v1/admin/core/2330/summary",headers={"Authorization":"Bearer other-admin-token"}).status_code==403
+    assert api.get("/api/v1/admin/core/2330/summary",headers=admin_auth()).json()=={
+        "symbol":"2330","datasets":{}
+    }
+    page=api.get("/api/v1/core/2330/datasets/ohlcv?limit=10&offset=2",headers=admin_auth())
+    assert page.status_code==200
+    assert page.json()=={"dataset_id":"ohlcv","symbol":"2330","rows":[],"limit":10,"offset":2}
 
 
 def test_oidc_rejects_admin_audience_expiry_and_untrusted_issuer():

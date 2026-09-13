@@ -21,6 +21,32 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class CorePageOut(BaseModel):
+    dataset_id: str
+    symbol: str
+    rows: list[dict[str, Any]]
+    limit: int
+    offset: int
+
+
+class CoreSummaryOut(BaseModel):
+    symbol: str
+    datasets: dict[str, dict[str, Any]]
+
+
+class PublicReportOut(BaseModel):
+    analysis_as_of: str
+    scope_type: str
+    scope_id: str
+    data_status: str
+    confidence: float
+    completeness: float
+    schema_version: str
+    model_version: str
+    governance_snapshot_version: str
+    data: dict[str, Any]
+
+
 class LedgerType(StrEnum):
     BUY = "BUY"
     SELL = "SELL"

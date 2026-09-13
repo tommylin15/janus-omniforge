@@ -10,6 +10,25 @@ from typing import Any, Callable
 from urllib.parse import urlsplit
 
 
+_FORBIDDEN_PAYLOAD_KEYS = frozenset({
+    "artifact_ref", "artifact_uri", "authorization", "credential", "gcs_uri", "object_path",
+    "password", "raw_payload", "secret", "storage_uri", "token", "traceback",
+})
+_FORBIDDEN_PAYLOAD_SUFFIXES = ("_credential", "_password", "_secret", "_token", "_uri", "_path")
+
+
+def _validate_public_payload(value: Any) -> None:
+    if isinstance(value, dict):
+        for key, item in value.items():
+            normalized = str(key).lower()
+            if normalized in _FORBIDDEN_PAYLOAD_KEYS or normalized.endswith(_FORBIDDEN_PAYLOAD_SUFFIXES):
+                raise ValueError("public artifact contains a forbidden field")
+            _validate_public_payload(item)
+    elif isinstance(value, list):
+        for item in value:
+            _validate_public_payload(item)
+
+
 class PublicReportNotFound(LookupError):
     pass
 
@@ -99,6 +118,7 @@ class PublicMartService:
         payload = json.loads(row["payload_json"])
         if not isinstance(payload, dict):
             raise ValueError("public artifact payload must be an object")
+        _validate_public_payload(payload)
         return {
             "analysis_as_of": self._iso(index["analysis_as_of"]),
             "scope_type": scope_type,

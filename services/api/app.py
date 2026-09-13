@@ -2,24 +2,29 @@
 
 from __future__ import annotations
 
-import os
 import json
+import logging
+import os
 from datetime import datetime, timezone
 from typing import Any, Callable
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
-from fastapi import APIRouter, Depends, FastAPI, Header, Query, Request, Response, status
+from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
-from .auth import (AuthenticatedUser, GoogleServiceAuthenticator, GoogleUserAuthenticator,
-                   allowed_assistant_callers, allowed_user_emails)
+from packages.observability import redact
+from packages.web_api import PublicReportNotFound, QueryValidationError
+from .auth import (AuthenticatedUser, GoogleAdminAuthenticator, GoogleServiceAuthenticator,
+                   GoogleUserAuthenticator, allowed_admin_emails, allowed_assistant_callers,
+                   allowed_user_emails)
 from .context_sources import (ContextReferenceNotFound, ContextSourceError, ContextSourceService,
                               CoreContextReader)
 from .mcp_gateway import McpGatewayClient, McpGatewayError
-from .models import (ContextPreviewIn, ContextResolveIn, CorrectionIn, LedgerEventIn, NoteIn,
-                     McpServersPutIn, NoteRevisionIn, SkillRevisionIn, SkillStateIn,
+from .models import (ContextPreviewIn, ContextResolveIn, CorePageOut, CoreSummaryOut, CorrectionIn,
+                     LedgerEventIn, McpServersPutIn, NoteIn, NoteRevisionIn, PublicReportOut,
+                     SkillRevisionIn, SkillStateIn,
                      WatchlistIn, WatchlistOrderIn, ApprovalResponseIn, ForkThreadIn,
                      MessageIn, ThreadCreateIn)
 from .assistant_storage import AssistantStorage
@@ -27,7 +32,11 @@ from .assistant_storage import safe_private_record
 from .engine_security import (AgentEvent, AgentEventType, AgentRuntime, ApprovalDecision,
                                ApprovalRequest, RuntimeBinding)
 from .repository import ConflictError, NotFoundError, OversellError, repository_from_env
+from .public_runtime import build_core_service, build_public_service
 from .store import PrivateIcebergStore
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class _Lazy:
@@ -41,23 +50,52 @@ class _Lazy:
 
 def create_app(repository: Any | None = None, store: Any | None = None,
                verifier: Callable[..., Any] | None = None, *, audience: str | None = None,
-               core: Any | None = None, internal_verifier: Callable[..., Any] | None = None,
+               core: Any | None = None, query_core: Any | None = None,
+               admin_verifier: Callable[..., Any] | None = None,
+               admin_audience: str | None = None,
+               admin_emails: frozenset[str] | None = None,
+               internal_verifier: Callable[..., Any] | None = None,
                internal_audience: str | None = None,
                internal_callers: frozenset[str] | None = None,
-               mcp: Any | None = None) -> FastAPI:
+               mcp: Any | None = None, public: Any | None = None) -> FastAPI:
     from packages.postgres_bundle import load_postgres_bundle
     load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", {
         "GOOGLE_USER_CLIENT_ID": "google_user_client_id",
+        "GOOGLE_ADMIN_CLIENT_ID": ("web_google_client_id", "google_client_id"),
         "MCP_OWNER_SIGNING_KEY": "mcp_owner_signing_key",
     })
     repository = repository or _Lazy(repository_from_env)
     store = store or _Lazy(PrivateIcebergStore.from_env)
     core = core or _Lazy(CoreContextReader.from_env)
     mcp = mcp or _Lazy(McpGatewayClient.from_env)
+    if query_core is None:
+        def unavailable_core() -> Any:
+            try:
+                return build_core_service()
+            except Exception as error:
+                LOGGER.warning("core runtime unavailable: %s", type(error).__name__)
+                raise HTTPException(status_code=503, detail="core query unavailable") from error
+        query_core = _Lazy(unavailable_core)
+    if public is None:
+        def unavailable_public() -> Any:
+            try:
+                return build_public_service()
+            except Exception as error:
+                detail = str(error)
+                prefix = "public runtime setup failed at "
+                detail = detail.removeprefix(prefix) if detail.startswith(prefix) else type(error).__name__
+                LOGGER.warning("public runtime unavailable: %s", detail)
+                raise HTTPException(status_code=503, detail="public reports unavailable") from error
+        public = _Lazy(unavailable_public)
     contexts = ContextSourceService(repository,store,core)
     skills = AssistantStorage(repository, store)
     auth = GoogleUserAuthenticator(audience or os.getenv("GOOGLE_USER_CLIENT_ID", ""), repository,
                                    allowed_emails=allowed_user_emails(), verifier=verifier)
+    admin_auth = GoogleAdminAuthenticator(
+        admin_audience or os.getenv("GOOGLE_ADMIN_CLIENT_ID", ""),
+        admin_emails if admin_emails is not None else allowed_admin_emails(),
+        verifier=admin_verifier,
+    )
     service_auth = GoogleServiceAuthenticator(
         internal_audience or os.getenv("INTERNAL_ASSISTANT_AUDIENCE", ""),
         internal_callers if internal_callers is not None else allowed_assistant_callers(),
@@ -69,8 +107,13 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         api.add_middleware(CORSMiddleware,allow_origins=origins,allow_credentials=False,
                            allow_methods=["GET","POST","PUT","DELETE"],allow_headers=["Authorization","Content-Type","Idempotency-Key"])
     def authenticate(request: Request) -> AuthenticatedUser: return auth(request)
+    def authenticate_admin(request: Request) -> Any: return admin_auth(request)
     def authenticate_service(request: Request) -> Any: return service_auth(request)
-    private = APIRouter(prefix="/api/v1/me", dependencies=[Depends(authenticate)])
+    public_router = APIRouter(prefix="/api/v1/public", tags=["public"])
+    private = APIRouter(prefix="/api/v1/me", dependencies=[Depends(authenticate)], tags=["private"])
+    admin = APIRouter(prefix="/api/v1/admin", dependencies=[Depends(authenticate_admin)], tags=["admin"])
+    legacy_core = APIRouter(prefix="/api/v1/core", dependencies=[Depends(authenticate_admin)], tags=["admin"])
+    internal = APIRouter(prefix="/internal/v1", dependencies=[Depends(authenticate_service)], tags=["internal"])
 
     def user(request_user: AuthenticatedUser = Depends(authenticate)) -> AuthenticatedUser: return request_user
     def key(value: str = Header(alias="Idempotency-Key", min_length=8, max_length=128)) -> str: return value
@@ -161,26 +204,59 @@ def create_app(repository: Any | None = None, store: Any | None = None,
             })
 
     async def conflict_handler(_request: Any, error: Exception):
-        from fastapi.responses import JSONResponse
-        return JSONResponse({"detail":str(error)}, status_code=status.HTTP_409_CONFLICT)
+        return JSONResponse({"detail":redact(error)}, status_code=status.HTTP_409_CONFLICT)
 
     async def missing_handler(_request: Any, error: Exception):
-        from fastapi.responses import JSONResponse
-        return JSONResponse({"detail":str(error)}, status_code=status.HTTP_404_NOT_FOUND)
+        return JSONResponse({"detail":redact(error) or "not found"}, status_code=status.HTTP_404_NOT_FOUND)
 
     async def invalid_handler(_request: Any, error: Exception):
-        from fastapi.responses import JSONResponse
-        return JSONResponse({"detail":str(error)}, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        return JSONResponse({"detail":redact(error)}, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    async def unavailable_handler(_request: Any, error: Exception):
+        LOGGER.warning("api request failed: %s", type(error).__name__)
+        return JSONResponse({"detail":"service unavailable"}, status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
 
     api.add_exception_handler(ConflictError, conflict_handler)
     api.add_exception_handler(OversellError, conflict_handler)
     api.add_exception_handler(NotFoundError, missing_handler)
     api.add_exception_handler(ContextReferenceNotFound, missing_handler)
+    api.add_exception_handler(PublicReportNotFound, missing_handler)
     api.add_exception_handler(ContextSourceError, invalid_handler)
     api.add_exception_handler(McpGatewayError, invalid_handler)
+    api.add_exception_handler(QueryValidationError, invalid_handler)
+    api.add_exception_handler(Exception, unavailable_handler)
 
     @api.get("/health")
     def health() -> dict[str, str]: return {"status":"ok"}
+
+    @public_router.get("/health")
+    def public_health() -> dict[str, str]: return {"status":"ok"}
+
+    @public_router.get("/reports/{scope_type}/{scope_id}", response_model=PublicReportOut)
+    def public_report(scope_type: str, scope_id: str, analysis_as_of: str = Query(default="", max_length=10)):
+        return jsonable_encoder(public.report(scope_type, scope_id, analysis_as_of=analysis_as_of))
+
+    def core_summary(symbol: str):
+        try:
+            return jsonable_encoder(query_core.summary(symbol))
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail="core query unavailable") from error
+
+    def core_page(symbol: str, dataset_id: str, limit: int = Query(50, ge=1, le=200),
+                  offset: int = Query(0, ge=0)):
+        try:
+            page = query_core.page(dataset_id, symbol, limit=limit, offset=offset)
+        except RuntimeError as error:
+            raise HTTPException(status_code=503, detail="core query unavailable") from error
+        return jsonable_encoder({"dataset_id":page.dataset_id,"symbol":page.symbol,"rows":page.rows,
+                                 "limit":page.limit,"offset":page.offset})
+
+    admin.add_api_route("/core/{symbol}/summary", core_summary, methods=["GET"], response_model=CoreSummaryOut)
+    admin.add_api_route("/core/{symbol}/datasets/{dataset_id}", core_page, methods=["GET"], response_model=CorePageOut)
+    legacy_core.add_api_route("/{symbol}/summary", core_summary, methods=["GET"], response_model=CoreSummaryOut,
+                              deprecated=True)
+    legacy_core.add_api_route("/{symbol}/datasets/{dataset_id}", core_page, methods=["GET"],
+                              response_model=CorePageOut, deprecated=True)
 
     @private.get("/profile")
     def profile(current: AuthenticatedUser = Depends(user)) -> dict[str, Any]:
@@ -450,11 +526,15 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def deletion_status(request_id: UUID, current: AuthenticatedUser = Depends(user)):
         return jsonable_encoder(repository.deletion_request(current.user_id, request_id))
 
-    @api.post("/internal/v1/assistant/context:resolve",dependencies=[Depends(authenticate_service)])
+    @internal.post("/assistant/context:resolve")
     def resolve_context(value:ContextResolveIn):
         return jsonable_encoder(contexts.resolve(value.owner_id,value.thread_id,value.turn_id,value.context_refs))
 
+    api.include_router(public_router)
     api.include_router(private)
+    api.include_router(admin)
+    api.include_router(legacy_core)
+    api.include_router(internal)
     return api
 
 

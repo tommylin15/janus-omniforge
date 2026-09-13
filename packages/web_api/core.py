@@ -13,6 +13,30 @@ from datetime import date, datetime
 from typing import Any, Callable, Mapping, Sequence
 
 
+_HIDDEN_FIELDS = frozenset({
+    "artifact_ref", "artifact_uri", "authorization", "credential", "gcs_uri", "object_path",
+    "password", "raw_payload", "secret", "storage_uri", "token", "traceback",
+})
+_HIDDEN_SUFFIXES = ("_credential", "_password", "_secret", "_token", "_uri", "_path")
+
+
+def _is_hidden_key(key: Any) -> bool:
+    normalized = str(key).lower()
+    return normalized in _HIDDEN_FIELDS or normalized.endswith(_HIDDEN_SUFFIXES)
+
+
+def _safe_record(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {
+            str(key): _safe_record(item)
+            for key, item in value.items()
+            if not _is_hidden_key(key)
+        }
+    if isinstance(value, (list, tuple)):
+        return [_safe_record(item) for item in value]
+    return value
+
+
 class QueryValidationError(ValueError):
     """Safe client-facing validation error."""
 
@@ -70,7 +94,7 @@ class CoreQueryService:
             rows = self._query(self.TABLE_NAMES[dataset], sql, (normalized_symbol, limit, offset))
         except Exception as error:
             raise RuntimeError("Core query unavailable") from error
-        return QueryPage(dataset, normalized_symbol, tuple(dict(row) for row in rows), limit, offset)
+        return QueryPage(dataset, normalized_symbol, tuple(_safe_record(row) for row in rows), limit, offset)
 
     def summary(self, symbol: str, *, datasets: Sequence[str] | None = None) -> dict[str, Any]:
         normalized_symbol = self._symbol(symbol)
@@ -97,7 +121,7 @@ class CoreQueryService:
                 "null_profile": {
                     field: row_count - int(non_null_count)
                     for field, non_null_count in sorted(profile.items())
-                    if row_count - int(non_null_count)
+                    if not _is_hidden_key(field) and row_count - int(non_null_count)
                 },
                 "quality_flags": sorted({
                     str(row["quality_flag"]) for row in rows

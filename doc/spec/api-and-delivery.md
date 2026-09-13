@@ -5,6 +5,9 @@
 - Flutter User App 與 Admin Web 為兩個獨立入口；User 導覽不顯示 Admin，Admin 必須通過獨立認證與授權。
 - FastAPI 作為共用 HTTP boundary，但 `/api/v1/public/*`、`/api/v1/me/*` 與 `/api/v1/admin/*` 分離 router、response model、auth、rate limit、CORS 與 audit policy。
 - 公開端只讀 publishable Mart／service index，不直讀 Iceberg catalog owner 或 control schema。
+- Core query 的 canonical boundary 為 Admin-authenticated `GET /api/v1/admin/core/{symbol}/summary` 與
+  `GET /api/v1/admin/core/{symbol}/datasets/{dataset_id}`；遷移期保留相同契約的 deprecated
+  `/api/v1/core/*` alias，完成 Admin／Core 回歸後才移除舊 WSGI boundary。
 - `GET /api/v1/public/reports/{scope_type}/{scope_id}` 可用 `analysis_as_of` 精確選日；服務由
   `janus_public_api` 只讀 publishable view，驗證 immutable GCS metadata hash，再讀 index
   指定的 Iceberg snapshot。回應不公開 object URI，且輸出前再次拒絕 blocked／insufficient data。

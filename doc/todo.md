@@ -136,7 +136,7 @@
 
 ## P1 — FastAPI／Flutter User
 
-- [ ] 【Sol】 擴充 WBS 4J 的最小 `services/api` FastAPI app，將現有 WSGI routes 逐一以 contract tests 遷移；完成 Admin／Core query 回歸後才移除 WSGI boundary。
+- [ ] 【Sol】 擴充 WBS 4J 的最小 `services/api` FastAPI app，將現有 WSGI routes 逐一以 contract tests 遷移；完成 Admin／Core query 回歸後才移除 WSGI boundary。（2026-09-13 pre-acceptance checkpoint：public Mart 與 Core query 已接入預設 FastAPI runtime；Core canonical Admin routes、deprecated legacy aliases、獨立 public／private／admin／internal router 與 auth／response boundary、read-only role／bounded pool guard、publication index 與安全輸出／log redaction 驗收案例已完成。依使用者要求，本次合併切片尚未執行測試或 GCP dev 驗收，待切換模型後繼續；舊 WSGI boundary 尚未移除。）
 
 - [ ] 【Sol】 分離 `/api/v1/public/*`、`/api/v1/me/*`、`/api/v1/admin/*` 的 router、response model、auth、CORS、rate limit、IAM 與 audit。
 
@@ -178,7 +178,7 @@
 
 - [ ] 【Sol】 PostgreSQL role isolation、pool exhaustion、restart/reconnect、migration rollback 與 publication index tests。
 
-- [ ] 【Sol】 安全輸出與 log redaction tests。
+- [ ] 【Sol】 安全輸出與 log redaction tests。（2026-09-13：本機與 GCP dev API 驗收完成；完整 `token-savior` suite 改由 GCP dev acceptance 執行，固定從 `token-savior` 子目錄啟動以避免 monorepo `scripts` namespace collision。）
 
 ## P2 — PIT 與治理校準
 

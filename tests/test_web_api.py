@@ -30,6 +30,17 @@ class CoreQueryServiceTests(unittest.TestCase):
         self.assertNotIn("2330", self.calls[0][1])
         self.assertEqual(self.calls[0][2], ("2330", 10, 0))
 
+    def test_page_removes_storage_and_secret_fields_recursively(self):
+        self.rows[0].update({
+            "gcs_uri": "gs://private/object",
+            "raw_payload": {"token": "secret", "safe": "visible"},
+            "evidence": [{"object_path": "private/path", "source_id": "twse"}],
+        })
+        row = self.service.page("ohlcv", "2330").rows[0]
+        self.assertNotIn("gcs_uri", row)
+        self.assertNotIn("raw_payload", row)
+        self.assertEqual(row["evidence"], [{"source_id": "twse"}])
+
     def test_dataset_specific_filter_and_order_fields_are_allowlisted(self):
         self.service.page("valuation", "2330")
         self.assertIn("WHERE symbol = ? ORDER BY observed_date DESC", self.calls[-1][1])

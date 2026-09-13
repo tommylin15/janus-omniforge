@@ -1,0 +1,17 @@
+steps:
+  - id: token-savior-pytest
+    name: python:3.12-slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        apt-get update
+        apt-get install -y --no-install-recommends git nodejs npm
+        find hooks -type f -name '*.sh' -exec sed -i 's/\r$//' {} +
+        python -m pip install --no-cache-dir -e '.[dev,memory-vector]'
+        python -c "from fastembed import TextEmbedding; list(TextEmbedding(model_name='nomic-ai/nomic-embed-text-v1.5-Q').embed(['prewarm'])); print('embedding model ready')"
+        python -m pytest tests/ -q
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 1200s

@@ -20,6 +20,8 @@ class WebRoleMigrationTests(unittest.TestCase):
 
     def test_catalog_role_is_read_only_and_control_access_is_schema_bounded(self):
         self.assertIn("default_transaction_read_only = on", self.sql)
+        self.assertIn("statement_timeout = '60s'", self.sql)
+        self.assertIn("idle_in_transaction_session_timeout = '15s'", self.sql)
         self.assertNotIn("ALL PRIVILEGES", self.sql.upper())
         self.assertIn("control.execution_items", self.sql)
         self.assertIn("control.source_health", self.sql)
@@ -29,6 +31,8 @@ class WebRoleMigrationTests(unittest.TestCase):
         self.assertIn("CREATE ROLE janus_public_api LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION", self.public_sql)
         self.assertIn("GRANT SELECT ON publication.publishable_mart_reports TO janus_public_api", self.public_sql)
         self.assertIn("default_transaction_read_only = on", self.public_sql)
+        self.assertIn("statement_timeout = '5s'", self.public_sql)
+        self.assertIn("idle_in_transaction_session_timeout = '5s'", self.public_sql)
         self.assertIn("REVOKE ALL ON publication.mart_report_index", self.public_sql)
         self.assertIn("hostssl janus_control   janus_public_api", self.hba)
 
