@@ -1,9 +1,10 @@
 """Read-only Core query and safe Admin application services."""
 
 from .core import CoreQueryService, QueryValidationError
-from .public import IcebergArtifactReader, PostgreSQLPublicIndex, PublicMartService, PublicReportNotFound
+from .public import (IcebergArtifactReader, PostgreSQLPublicIndex, PublicMartService,
+                     PublicReportNotFound, PublicReportWaiting, PublicStockNotFound)
 
 __all__ = [
     "CoreQueryService", "IcebergArtifactReader", "PostgreSQLPublicIndex", "PublicMartService",
-    "PublicReportNotFound", "QueryValidationError",
+    "PublicReportNotFound", "PublicReportWaiting", "PublicStockNotFound", "QueryValidationError",
 ]

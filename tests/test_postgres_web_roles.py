@@ -11,6 +11,7 @@ class WebRoleMigrationTests(unittest.TestCase):
         cls.sql = (ROOT / "infra" / "postgres" / "migrations" / "007_web_runtime_roles.sql").read_text(encoding="utf-8")
         cls.hba = (ROOT / "infra" / "postgres" / "pg_hba.conf").read_text(encoding="utf-8")
         cls.public_sql = (ROOT / "infra" / "postgres" / "migrations" / "021_public_api_role.sql").read_text(encoding="utf-8")
+        cls.stock_sql = (ROOT / "infra" / "postgres" / "migrations" / "023_public_stock_index.sql").read_text(encoding="utf-8")
 
     def test_web_roles_are_non_privileged_and_network_scoped(self):
         for role in ("janus_web_control", "janus_web_catalog"):
@@ -35,6 +36,14 @@ class WebRoleMigrationTests(unittest.TestCase):
         self.assertIn("idle_in_transaction_session_timeout = '5s'", self.public_sql)
         self.assertIn("REVOKE ALL ON publication.mart_report_index", self.public_sql)
         self.assertIn("hostssl janus_control   janus_public_api", self.hba)
+
+    def test_public_stock_index_exposes_only_enabled_symbols(self):
+        self.assertIn("BEGIN;", self.stock_sql)
+        self.assertIn("COMMIT;", self.stock_sql)
+        self.assertIn("SELECT upper(symbol) AS symbol", self.stock_sql)
+        self.assertIn("WHERE enabled = true", self.stock_sql)
+        self.assertIn("GRANT SELECT ON publication.enabled_stock_symbols TO janus_public_api", self.stock_sql)
+        self.assertNotIn("TO janus_public_api", self.stock_sql.split("control.stock_master", 1)[0])
 
 
 if __name__ == "__main__":

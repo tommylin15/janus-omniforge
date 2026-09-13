@@ -50,6 +50,8 @@ class Core:
 
 
 class Public:
+    def require_enabled_symbol(self, symbol): return symbol.upper()
+
     def report(self, scope_type, scope_id, *, analysis_as_of=""):
         return {"scope_type": scope_type, "scope_id": scope_id,
                 "analysis_as_of": analysis_as_of or "2026-09-12", "data_status": "published",

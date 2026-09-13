@@ -2,6 +2,63 @@
 
 最新驗證日期：2026-09-13
 
+## Sol API policy closeout（2026-09-13）
+
+Public policy slice 已完成並部署既有 GCP dev `janus-api`；最終 revision
+`janus-api-00070-rvf`（image digest
+`sha256:f7c629c71883691148f023b57d702fc021e25911a31ff6e5c3a93173b9557387`）。
+Migration `023_public_stock_index` 已套用至既有 `janus-postgres-dev`；SQL acceptance
+確認 migration marker 存在、`janus_public_api` 無 `control` schema USAGE、只能 SELECT
+publication enabled-stock view，且 view 可查詢。Public runtime 維持 bounded catalog pool、
+單一序列化 publication connection、read-only transaction 與 5 秒 statement timeout。
+
+本機 public／runtime／role／user targeted tests 為 **40 passed**，Git Bash `bash -n` 與
+`git diff --check` 通過。Cloud Build public API acceptance
+`28887ea1-b194-4d95-ab03-63fdebf5609a` 通過 404／waiting／fail-closed auth boundary／
+redaction probes；完整 token-savior pytest Cloud Build
+`acfeaf2d-deb8-43d5-b5a1-c7749ae8efcf` 為 **3176 passed／5 skipped**。
+
+本切片的 rate-limit／audit policy 已在後續 WBS-6 gate 完成；PostgreSQL
+pool exhaustion、restart/reconnect、migration rollback 深測亦已於既有 GCP dev 完成。
+
+## WBS-6 router／PostgreSQL／Flutter／Iceberg acceptance（2026-09-13）
+
+程式已補齊 router-family 固定視窗 rate limit、無 query／token／body 的結構化 request
+audit、public typed response，以及 private／admin 分離的 OpenAPI response boundary。
+Public publication connection 遇 SQLSTATE `08`／closed connection 時只重連重試一次；
+migration 023 改為單一 transaction。GCP dev 驗收腳本另檢查 Cloud Run runtime service
+account／anonymous invoker 邊界、PostgreSQL role isolation、publication view/index regression、
+失敗 transaction rollback、並行 pool 壓力與 VM restart 後 API reconnect。
+
+Flutter 已加入同日 Today sections、partial 提示、StockHealthCard 圓環與 blocked 隱藏、
+screening 分流、關注股個股深度頁、預設收合的 Kline／metrics／五角色／provenance，及
+phone／tablet NavigationBar、desktop NavigationRail。App 只呈現後端 Mart 分數與損益。
+Iceberg 驗收沿用既有 additive evolution／field ID／old snapshot、incompatible type
+rollback 與 Mart replay snapshot idempotency tests，並新增 retry exhaustion fail-closed
+case。
+
+依使用者 gate，換模後已依序完成 targeted pytest／完整 pytest、Flutter Cloud Build、API
+Cloud Build 與 dev deploy、public API acceptance，以及
+`ALLOW_DEV_POSTGRES_RESTART=true scripts/gcp/verify-api-policy-dev.sh` 的既有 dev VM
+深測：
+
+- 本機 targeted backend／API／role／runtime／Iceberg tests：**40 passed**；
+  `git diff --check` 與 Git Bash `bash -n` 通過。
+- `token-savior` 完整 pytest 於 GCP Cloud Build `acfeaf2d-deb8-43d5-b5a1-c7749ae8efcf`：
+  **3176 passed／5 skipped**。
+- Flutter Cloud Build `edaad569-2c5b-4b7d-a93a-e1cc178cd9e6`：analyze 無 error、
+  **6 widget tests passed**、phone／tablet／desktop responsive 與 release web build 通過；
+  僅有既存 info-level lint notices，且本機沒有 Flutter SDK。
+- Public API acceptance Cloud Build `28887ea1-b194-4d95-ab03-63fdebf5609a` 通過。
+  最終 API Cloud Build `aea710f6-cda7-44dd-8816-1e80e3ffe23b` 部署至既有
+  `janus-api-00070-rvf`，image digest 為
+  `sha256:f7c629c71883691148f023b57d702fc021e25911a31ff6e5c3a93173b9557387`。
+  Admin audit probe request ID `7425a207-ddef-4650-91a3-7c96a2bb6028` 在 Cloud Run
+  log 出現 safe audit line，query secret 未出現。
+- GCP dev PostgreSQL 深測通過：role isolation、publication view/index regression、
+  transaction rollback、24 並行 bounded-pool requests，以及 VM reset 後 public API
+  reconnect。無 production deploy、無新付費 GCP resource、無 commit／push。
+
 ## WBS-6 public runtime／跨系統 checkpoint（2026-09-13）
 
 本機 backend `python -m pytest tests -q` 為 **205 passed**；新增 public endpoint

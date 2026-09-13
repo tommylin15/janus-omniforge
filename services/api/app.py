@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+from hashlib import sha256
 import logging
 import os
 from pathlib import Path
+from threading import Lock
+from time import monotonic
 from datetime import datetime, timezone
 from typing import Any, Callable
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
@@ -17,15 +20,17 @@ from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
 from packages.observability import redact
 from packages.admin_api import AdminValidationError
-from packages.web_api import PublicReportNotFound, QueryValidationError
+from packages.web_api import (PublicReportNotFound, PublicReportWaiting, PublicStockNotFound,
+                              QueryValidationError)
 from .auth import (AuthenticatedAdmin, AuthenticatedUser, GoogleAdminAuthenticator, GoogleServiceAuthenticator,
                    GoogleUserAuthenticator, allowed_admin_emails, allowed_assistant_callers,
                    allowed_user_emails)
 from .context_sources import (ContextReferenceNotFound, ContextSourceError, ContextSourceService,
                               CoreContextReader)
 from .mcp_gateway import McpGatewayClient, McpGatewayError
-from .models import (ContextPreviewIn, ContextResolveIn, CorePageOut, CoreSummaryOut, CorrectionIn,
-                     LedgerEventIn, McpServersPutIn, NoteIn, NoteRevisionIn, PublicReportOut,
+from .models import (AdminResponseOut, ContextPreviewIn, ContextResolveIn, CorePageOut, CoreSummaryOut,
+                     CorrectionIn, HealthOut, LedgerEventIn, McpServersPutIn, NoteIn, NoteRevisionIn,
+                     PrivateResponseOut, PublicDatasetOut, PublicReportListOut, PublicReportOut, PublicWaitingOut,
                      SkillRevisionIn, SkillStateIn,
                      WatchlistIn, WatchlistOrderIn, ApprovalResponseIn, ForkThreadIn,
                      MessageIn, ThreadCreateIn)
@@ -39,6 +44,58 @@ from .store import PrivateIcebergStore
 
 
 LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.INFO)
+AUDIT_LOGGER = logging.getLogger("uvicorn.error")
+AUDIT_LOGGER.setLevel(logging.INFO)
+
+
+def _router_family(path: str) -> str | None:
+    for family, prefix in (("public", "/api/v1/public/"), ("private", "/api/v1/me/"),
+                           ("admin", "/api/v1/admin/"), ("admin", "/api/v1/core/"),
+                           ("internal", "/internal/v1/")):
+        if path.startswith(prefix):
+            return family
+    return None
+
+
+class _RateLimiter:
+    """Small per-process fixed-window guard; Cloud Run instance scaling remains the outer ceiling."""
+
+    def __init__(self, limits: dict[str, int], *, window_seconds: int = 60) -> None:
+        self.limits, self.window_seconds = limits, window_seconds
+        self._buckets: dict[tuple[str, str], tuple[float, int]] = {}
+        self._lock = Lock()
+
+    def retry_after(self, family: str, identity: str) -> int:
+        now, bucket = monotonic(), (family, identity)
+        with self._lock:
+            if bucket not in self._buckets and len(self._buckets) >= 4096:
+                self._buckets = {key: value for key, value in self._buckets.items()
+                                 if now - value[0] < self.window_seconds}
+                if len(self._buckets) >= 4096:
+                    self._buckets.pop(next(iter(self._buckets)))
+            started, count = self._buckets.get(bucket, (now, 0))
+            if now - started >= self.window_seconds:
+                started, count = now, 0
+            if count >= self.limits[family]:
+                return max(1, int(self.window_seconds - (now - started) + .999))
+            self._buckets[bucket] = (started, count + 1)
+        return 0
+
+
+def _positive_env(name: str, default: int) -> int:
+    value = int(os.getenv(name, str(default)))
+    if value < 1:
+        raise ValueError(f"{name} must be positive")
+    return value
+
+
+class _PublicUserCORSMiddleware(CORSMiddleware):
+    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+        if scope["type"] == "http" and not scope["path"].startswith(("/api/v1/public/", "/api/v1/me/")):
+            await self.app(scope, receive, send)
+            return
+        await super().__call__(scope, receive, send)
 
 
 class _Lazy:
@@ -113,16 +170,50 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         verifier=internal_verifier,
     )
     api = FastAPI(title="Janus User API", version="0.1.0", docs_url=None, redoc_url=None)
+    limiter = _RateLimiter({
+        "public": _positive_env("PUBLIC_RATE_LIMIT_PER_MINUTE", 120),
+        "private": _positive_env("PRIVATE_RATE_LIMIT_PER_MINUTE", 60),
+        "admin": _positive_env("ADMIN_RATE_LIMIT_PER_MINUTE", 30),
+        "internal": _positive_env("INTERNAL_RATE_LIMIT_PER_MINUTE", 120),
+    })
+
+    @api.middleware("http")
+    async def boundary_policy(request: Request, call_next: Callable[..., Any]):
+        family = _router_family(request.url.path)
+        if family and not request.url.path.endswith("/health"):
+            authorization = request.headers.get("authorization", "")
+            peer = request.client.host if request.client else "unknown"
+            identity = peer if family == "public" else (
+                sha256(authorization.encode()).hexdigest()[:16] if authorization else peer)
+            retry = limiter.retry_after(family, identity)
+            if retry:
+                response = JSONResponse({"detail": "rate limit exceeded"}, status_code=429,
+                                        headers={"Retry-After": str(retry)})
+            else:
+                response = await call_next(request)
+        else:
+            response = await call_next(request)
+        request_id = str(uuid4())
+        response.headers["X-Request-ID"] = request_id
+        if family and (family == "admin" or request.method not in {"GET", "HEAD", "OPTIONS"}
+                       or response.status_code >= 400):
+            audit_message = (f"api_audit family={family} method={request.method} "
+                             f"status={response.status_code} request_id={request_id}")
+            LOGGER.info(audit_message)
+            AUDIT_LOGGER.info(audit_message)
+        return response
     origins=[value.strip() for value in os.getenv("USER_CORS_ORIGINS","").split(",") if value.strip()]
     if origins:
-        api.add_middleware(CORSMiddleware,allow_origins=origins,allow_credentials=False,
-                           allow_methods=["GET","POST","PUT","DELETE"],allow_headers=["Authorization","Content-Type","Idempotency-Key"])
+        api.add_middleware(_PublicUserCORSMiddleware,allow_origins=origins,allow_credentials=False,
+                           allow_methods=["GET","POST","PUT","PATCH","DELETE"],allow_headers=["Authorization","Content-Type","Idempotency-Key"])
     def authenticate(request: Request) -> AuthenticatedUser: return auth(request)
     def authenticate_admin(request: Request) -> Any: return admin_auth(request)
     def authenticate_service(request: Request) -> Any: return service_auth(request)
     public_router = APIRouter(prefix="/api/v1/public", tags=["public"])
-    private = APIRouter(prefix="/api/v1/me", dependencies=[Depends(authenticate)], tags=["private"])
-    admin = APIRouter(prefix="/api/v1/admin", dependencies=[Depends(authenticate_admin)], tags=["admin"])
+    private = APIRouter(prefix="/api/v1/me", dependencies=[Depends(authenticate)], tags=["private"],
+                        responses={200: {"model": PrivateResponseOut}})
+    admin = APIRouter(prefix="/api/v1/admin", dependencies=[Depends(authenticate_admin)], tags=["admin"],
+                      responses={200: {"model": AdminResponseOut}})
     legacy_core = APIRouter(prefix="/api/v1/core", dependencies=[Depends(authenticate_admin)], tags=["admin"])
     internal = APIRouter(prefix="/internal/v1", dependencies=[Depends(authenticate_service)], tags=["internal"])
 
@@ -235,16 +326,17 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     api.add_exception_handler(NotFoundError, missing_handler)
     api.add_exception_handler(ContextReferenceNotFound, missing_handler)
     api.add_exception_handler(PublicReportNotFound, missing_handler)
+    api.add_exception_handler(PublicStockNotFound, missing_handler)
     api.add_exception_handler(ContextSourceError, invalid_handler)
     api.add_exception_handler(McpGatewayError, invalid_handler)
     api.add_exception_handler(QueryValidationError, invalid_handler)
     api.add_exception_handler(AdminValidationError, admin_invalid_handler)
     api.add_exception_handler(Exception, unavailable_handler)
 
-    @api.get("/health")
+    @api.get("/health", response_model=HealthOut)
     def health() -> dict[str, str]: return {"status":"ok"}
 
-    @public_router.get("/health")
+    @public_router.get("/health", response_model=HealthOut)
     def public_health() -> dict[str, str]: return {"status":"ok"}
 
     static_dir = Path(__file__).resolve().parents[2] / "apps" / "web" / "static"
@@ -264,34 +356,43 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def private_journal_acceptance():
         return FileResponse(static_dir / "private-journal-acceptance.html")
 
-    @public_router.get("/reports/{scope_type}/{scope_id}", response_model=PublicReportOut)
+    @public_router.get("/reports/{scope_type}/{scope_id}", response_model=PublicReportOut | PublicWaitingOut)
     def public_report(scope_type: str, scope_id: str, analysis_as_of: str = Query(default="", max_length=10)):
-        return jsonable_encoder(public.report(scope_type, scope_id, analysis_as_of=analysis_as_of))
+        try:
+            return jsonable_encoder(public.report(scope_type, scope_id, analysis_as_of=analysis_as_of))
+        except PublicReportWaiting:
+            return {"analysis_as_of": analysis_as_of, "scope_type": "symbol", "scope_id": scope_id.upper(),
+                    "data_status": "waiting", "data": {}}
 
     def public_report_list(scope_type: str, scope_id: str, analysis_as_of: str = "") -> dict[str, Any]:
         return {"items": [jsonable_encoder(public.report(scope_type, scope_id, analysis_as_of=analysis_as_of))]}
 
-    @public_router.get("/daily-brief")
+    @public_router.get("/daily-brief", response_model=PublicReportListOut)
     def daily_brief(scope_id: str = Query("market", max_length=80), analysis_as_of: str = Query("", max_length=10)):
         return public_report_list("market", scope_id, analysis_as_of)
 
-    @public_router.get("/sector-rotation")
+    @public_router.get("/sector-rotation", response_model=PublicReportListOut)
     def sector_rotation(scope_id: str = Query(..., min_length=1, max_length=80), analysis_as_of: str = Query("", max_length=10)):
         return public_report_list("industry", scope_id, analysis_as_of)
 
-    @public_router.get("/topics")
+    @public_router.get("/topics", response_model=PublicReportListOut)
     def topics(scope_id: str = Query("market", max_length=80), analysis_as_of: str = Query("", max_length=10)):
         return public_report_list("market", scope_id, analysis_as_of)
 
-    @public_router.get("/candidates")
+    @public_router.get("/candidates", response_model=PublicReportListOut)
     def candidates(scope_id: str = Query("market", max_length=80), analysis_as_of: str = Query("", max_length=10)):
         return public_report_list("market", scope_id, analysis_as_of)
 
-    @public_router.get("/stock-health/{symbol}")
+    @public_router.get("/stock-health/{symbol}", response_model=PublicReportOut | PublicWaitingOut)
     def stock_health(symbol: str, analysis_as_of: str = Query("", max_length=10)):
-        return jsonable_encoder(public.report("symbol", symbol, analysis_as_of=analysis_as_of))
+        try:
+            return jsonable_encoder(public.report("symbol", symbol, analysis_as_of=analysis_as_of))
+        except PublicReportWaiting:
+            return {"analysis_as_of": analysis_as_of, "scope_type": "symbol", "scope_id": symbol.upper(),
+                    "data_status": "waiting", "data": {}}
 
     def public_dataset(symbol: str, dataset_id: str, limit: int, offset: int) -> dict[str, Any]:
+        symbol = public.require_enabled_symbol(symbol)
         try:
             page = query_core.page(dataset_id, symbol, limit=limit, offset=offset)
         except QueryValidationError:
@@ -304,15 +405,15 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                                  "symbol": page.symbol, "rows": page.rows,
                                  "limit": page.limit, "offset": page.offset})
 
-    @public_router.get("/history/{symbol}")
+    @public_router.get("/history/{symbol}", response_model=PublicDatasetOut)
     def public_history(symbol: str, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0)):
         return public_dataset(symbol, "ohlcv", limit, offset)
 
-    @public_router.get("/kline/{symbol}")
+    @public_router.get("/kline/{symbol}", response_model=PublicDatasetOut)
     def public_kline(symbol: str, limit: int = Query(200, ge=1, le=200), offset: int = Query(0, ge=0)):
         return public_dataset(symbol, "ohlcv", limit, offset)
 
-    @public_router.get("/events/{symbol}")
+    @public_router.get("/events/{symbol}", response_model=PublicDatasetOut)
     def public_events(symbol: str, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0)):
         return public_dataset(symbol, "events", limit, offset)
 

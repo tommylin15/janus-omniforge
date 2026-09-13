@@ -138,47 +138,47 @@
 
 - [x] 【Sol】 擴充 WBS 4J 的最小 `services/api` FastAPI app，將現有 WSGI routes 逐一以 contract tests 遷移並移除 dev 部署的 WSGI Admin boundary。（2026-09-13：Admin／Core／public routes 已接入 FastAPI；`janus-web` workflow 與既有 dev service 已移除，`janus-api` 為唯一 dev HTTP boundary；`apps/web/server.py` 僅保留測試相容 adapter。）
 
-- [ ] 【Sol】 分離 `/api/v1/public/*`、`/api/v1/me/*`、`/api/v1/admin/*` 的 router、response model、auth、CORS、rate limit、IAM 與 audit。
+- [x] 【Sol】 分離 `/api/v1/public/*`、`/api/v1/me/*`、`/api/v1/admin/*` 的 router、response model、auth、CORS、rate limit、IAM 與 audit。（2026-09-13：router boundary、固定視窗 rate-limit、safe audit redaction、IAM／OpenAPI response boundary 已完成；public acceptance `28887ea1-b194-4d95-ab03-63fdebf5609a`、final revision `janus-api-00070-rvf` 通過。）
 
 - [x] 【Luna】 Public API 提供 health、daily brief、sector rotation、topics、candidates、stock health、history、Kline、events；Private API 延續 WBS 4J／4C 的 journal、notes、watchlist 與 chats contract。（`janus-api-00060-bs4` 與 GCP worker acceptance 完成；dev 尚無 events materialization 時回傳安全 unavailable。）
 
-- [ ] 【Luna】 未知／停用股票 404。
+- [x] 【Luna】 未知／停用股票 404。（2026-09-13：public enabled-symbol guard、本機 contract tests 與 Cloud Build acceptance `74d81a1c-62a8-49cd-9331-d3f0c66dac31` 通過。）
 
-- [ ] 【Luna】 已啟用無資料顯示等待批次。
+- [x] 【Luna】 已啟用無資料顯示等待批次。（2026-09-13：symbol report／stock-health waiting contract 與本機 targeted tests 通過。）
 
-- [ ] 【Luna】 查無資料不觸發 scraper／Agent／LLM。
+- [x] 【Luna】 查無資料不觸發 scraper／Agent／LLM。（2026-09-13：404 先於 Core query 的 no-call contract 與 Cloud Build public endpoint acceptance 通過。）
 
-- [ ] 【Sol】 blocked、raw payload、secret、traceback 不公開。
+- [x] 【Sol】 blocked、raw payload、secret、traceback 不公開。（2026-09-13：public artifact／Core safe-record、FastAPI generic error、Cloud Build public acceptance `74d81a1c-62a8-49cd-9331-d3f0c66dac31` 通過。）
 
-- [ ] 【Sol】 Public API 只讀 PostgreSQL service index／publishable metadata，使用 bounded read-only pool 與 statement timeout；不得直連 catalog owner 或觸發即時抓取。Private journal API 使用獨立 role 並強制 authenticated-user ownership。
+- [x] 【Sol】 Public API 只讀 PostgreSQL service index／publishable metadata，使用 bounded read-only pool 與 statement timeout；不得直連 catalog owner 或觸發即時抓取。Private journal API 使用獨立 role 並強制 authenticated-user ownership。（2026-09-13：migration 023、public role SQL、並行 pool 壓力與 VM restart/reconnect 均於既有 GCP dev 通過；final revision `janus-api-00070-rvf`。）
 
-- [ ] 【Luna】 建立 `apps/user_app` Flutter + Material 3 app；完成「今日、關注、筆記、AI、我的」獨立導覽，不顯示 Admin 入口。（Material 3 shell、五項導覽與今日頁已補；本機沒有 Flutter SDK，`flutter analyze`／widget tests 尚待具 SDK 的 CI／GCP acceptance。）
+- [x] 【Luna】 建立 `apps/user_app` Flutter + Material 3 app；完成「今日、關注、筆記、AI、我的」獨立導覽，不顯示 Admin 入口。（2026-09-13：Flutter Cloud Build `edaad569-2c5b-4b7d-a93a-e1cc178cd9e6` analyze、6 widget tests、responsive 與 web build 通過；本機仍無 Flutter SDK。）
 
-- [ ] 【Luna】 今日頁顯示同一 analysis-as-of 的市場狀態、三則重點、板塊輪動、熱門話題與五張候選股健康卡；資料日期不一致時顯示 partial。
+- [x] 【Luna】 今日頁顯示同一 analysis-as-of 的市場狀態、三則重點、板塊輪動、熱門話題與五張候選股健康卡；資料日期不一致時顯示 partial。（Flutter Cloud Build `edaad569-2c5b-4b7d-a93a-e1cc178cd9e6` 通過。）
 
-- [ ] 【Luna】 實作 `StockHealthCard`：健康度圓環、籌碼 Chip、`Icons.psychology` 白話 AI Card、資料日期、風險與「非獲利機率」；blocked／insufficient 不顯示分數。
+- [x] 【Luna】 實作 `StockHealthCard`：健康度圓環、籌碼 Chip、`Icons.psychology` 白話 AI Card、資料日期、風險與「非獲利機率」；blocked／insufficient 不顯示分數。（Flutter Cloud Build `edaad569-2c5b-4b7d-a93a-e1cc178cd9e6` 通過。）
 
-- [ ] 【Luna】 個股 K 線、Metrics、五角色與 provenance 放在預設收合的進階資料，不得先於健康度與白話摘要。
+- [x] 【Luna】 個股 K 線、Metrics、五角色與 provenance 放在預設收合的進階資料，不得先於健康度與白話摘要。（Flutter Cloud Build `edaad569-2c5b-4b7d-a93a-e1cc178cd9e6` 通過。）
 
-- [ ] 【Luna】 個人工作台 UI 支援關注股、交易新增／更正、一般筆記 revision、歷史篩選、持股、年度損益與多供應商私人助理；正式成本／損益只讀 Private Mart，不在 Flutter 或模型重算。
+- [x] 【Luna】 個人工作台 UI 支援關注股、交易新增／更正、一般筆記 revision、歷史篩選、持股、年度損益與多供應商私人助理；正式成本／損益只讀 Private Mart，不在 Flutter 或模型重算。（Flutter Cloud Build `edaad569-2c5b-4b7d-a93a-e1cc178cd9e6` 通過；既有 WBS 4J 私人交易／筆記 contract 沿用。）
 
-- [ ] 【Luna】 全市場 screening 與個人關注股深度頁分流；顯示 coverage、freshness、來源健康與資料不足。
+- [x] 【Luna】 全市場 screening 與個人關注股深度頁分流；顯示 coverage、freshness、來源健康與資料不足。（Flutter Cloud Build `edaad569-2c5b-4b7d-a93a-e1cc178cd9e6` 通過。）
 
 ## P1 — 全系統自動化測試
 
-- [x] 【Luna】 Backend pytest、FastAPI contract tests、Flutter analyze／widget tests、Admin Vitest。（pytest 205、FastAPI targeted 26、Flutter Cloud Build 4 widget tests、Vitest 20。）
+- [x] 【Luna】 Backend pytest、FastAPI contract tests、Flutter analyze／widget tests、Admin Vitest。（本機 targeted 40；GCP `token-savior` Cloud Build `acfeaf2d-deb8-43d5-b5a1-c7749ae8efcf` 為 3176 passed／5 skipped；Flutter Cloud Build `edaad569-2c5b-4b7d-a93a-e1cc178cd9e6` 6 widget tests；既有 Vitest 維持通過。）
 
 - [x] 【Luna】 Flutter Web responsive surface／interaction 與 Admin Playwright。（Flutter Cloud Build phone/tablet/desktop 4 widget tests、Playwright 9。）
 
 - [x] 【Luna】 TypeScript／ESLint／production build。（2026-09-13：`npm.cmd run build` 通過；ESLint 已排除 `.tmp` 與 nested `dist` 生成物。）
 
-- [ ] 【Luna】 Iceberg schema evolution tests。
+- [x] 【Luna】 Iceberg schema evolution tests。（既有 additive evolution、field ID、old snapshot、incompatible type rollback 與 snapshot idempotency tests 通過；本機 targeted 40 與 GCP 完整 suite `acfeaf2d-deb8-43d5-b5a1-c7749ae8efcf` 通過。）
 
-- [ ] 【Luna】 Failure／retry／idempotency tests。
+- [x] 【Luna】 Failure／retry／idempotency tests。（retry exhaustion fail-closed、failure transition、replay idempotency tests 通過；本機 targeted 40 與 GCP 完整 suite `acfeaf2d-deb8-43d5-b5a1-c7749ae8efcf` 通過。）
 
-- [ ] 【Sol】 PostgreSQL role isolation、pool exhaustion、restart/reconnect、migration rollback 與 publication index tests。
+- [x] 【Sol】 PostgreSQL role isolation、pool exhaustion、restart/reconnect、migration rollback 與 publication index tests。（2026-09-13：既有 GCP dev `janus-postgres-dev` 深測通過；role／view／index、transaction rollback、24 並行請求與 VM reset 後 reconnect 均通過。）
 
-- [ ] 【Sol】 安全輸出與 log redaction tests。（2026-09-13：本機與 GCP dev API 驗收完成；完整 `token-savior` suite 改由 GCP dev acceptance 執行，固定從 `token-savior` 子目錄啟動以避免 monorepo `scripts` namespace collision。）
+- [x] 【Sol】 安全輸出與 log redaction tests。（2026-09-13：本機 targeted 40 passed；GCP public acceptance `28887ea1-b194-4d95-ab03-63fdebf5609a` passed；完整 `token-savior` suite Cloud Build `acfeaf2d-deb8-43d5-b5a1-c7749ae8efcf` 為 3176 passed／5 skipped，source root 固定為 `token-savior`。）
 
 ## P2 — PIT 與治理校準
 

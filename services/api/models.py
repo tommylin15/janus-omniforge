@@ -5,12 +5,12 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 from enum import StrEnum
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from .engine_security import AgentRuntime, Capability
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, RootModel, model_validator
 
 
 Money = Annotated[Decimal, Field(max_digits=20, decimal_places=4, ge=0)]
@@ -45,6 +45,39 @@ class PublicReportOut(BaseModel):
     model_version: str
     governance_snapshot_version: str
     data: dict[str, Any]
+
+
+class PublicWaitingOut(BaseModel):
+    analysis_as_of: str = ""
+    scope_type: Literal["symbol"] = "symbol"
+    scope_id: str
+    data_status: Literal["waiting"] = "waiting"
+    data: dict[str, Any] = Field(default_factory=dict)
+
+
+class HealthOut(BaseModel):
+    status: Literal["ok"]
+
+
+class PublicReportListOut(BaseModel):
+    items: list[PublicReportOut]
+
+
+class PublicDatasetOut(BaseModel):
+    data_status: Literal["available", "waiting"]
+    dataset_id: str
+    symbol: str
+    rows: list[dict[str, Any]]
+    limit: int
+    offset: int
+
+
+class PrivateResponseOut(RootModel[dict[str, Any] | list[Any] | None]):
+    """Named OpenAPI boundary for owner-scoped responses with varied domain shapes."""
+
+
+class AdminResponseOut(RootModel[dict[str, Any] | list[Any] | None]):
+    """Named OpenAPI boundary for admin responses with varied domain shapes."""
 
 
 class LedgerType(StrEnum):

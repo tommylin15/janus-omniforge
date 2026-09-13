@@ -6,6 +6,7 @@ from datetime import date, datetime
 from hashlib import sha256
 import json
 import re
+from threading import Lock
 from typing import Any, Callable
 from urllib.parse import urlsplit
 
@@ -33,6 +34,14 @@ class PublicReportNotFound(LookupError):
     pass
 
 
+class PublicReportWaiting(LookupError):
+    pass
+
+
+class PublicStockNotFound(LookupError):
+    pass
+
+
 class PostgreSQLPublicIndex:
     """The public role can only select the fail-closed publication view."""
 
@@ -43,22 +52,44 @@ class PostgreSQLPublicIndex:
         "completeness", "confidence", "data_quality", "analysis_outcome", "publication_status",
     )
 
-    def __init__(self, connection: Any) -> None:
-        self.connection = connection
+    def __init__(self, connection: Any, reconnect: Callable[[], Any] | None = None) -> None:
+        self.connection, self.reconnect = connection, reconnect
+        self._lock = Lock()
+
+    def _query(self, sql: str, parameters: list[Any] | tuple[Any, ...]) -> Any:
+        with self._lock:
+            for attempt in range(2):
+                try:
+                    with self.connection.cursor() as cursor:
+                        cursor.execute(sql, parameters)
+                        return cursor.fetchone()
+                except Exception as error:
+                    disconnected = bool(getattr(self.connection, "closed", False)) or str(
+                        getattr(error, "sqlstate", "")).startswith("08")
+                    if attempt or not self.reconnect or not disconnected:
+                        raise
+                    try:
+                        self.connection.close()
+                    except Exception:
+                        pass
+                    self.connection = self.reconnect()
 
     def latest(self, scope_type: str, scope_id: str, analysis_as_of: date | None) -> dict[str, Any] | None:
         clause, values = "", [scope_type, scope_id]
         if analysis_as_of is not None:
             clause, values = " AND analysis_as_of=%s", [scope_type, scope_id, analysis_as_of]
-        with self.connection.cursor() as cursor:
-            cursor.execute(
-                f"SELECT {','.join(self.FIELDS)} FROM publication.publishable_mart_reports "
-                f"WHERE scope_type=%s AND scope_id=%s{clause} "
-                "ORDER BY analysis_as_of DESC,ready_at DESC,execution_id DESC LIMIT 1",
-                values,
-            )
-            row = cursor.fetchone()
+        row = self._query(
+            f"SELECT {','.join(self.FIELDS)} FROM publication.publishable_mart_reports "
+            f"WHERE scope_type=%s AND scope_id=%s{clause} "
+            "ORDER BY analysis_as_of DESC,ready_at DESC,execution_id DESC LIMIT 1",
+            values,
+        )
         return dict(zip(self.FIELDS, row, strict=True)) if row else None
+
+    def symbol_enabled(self, symbol: str) -> bool:
+        return self._query(
+            "SELECT 1 FROM publication.enabled_stock_symbols WHERE symbol=%s LIMIT 1", (symbol,),
+        ) is not None
 
 
 class IcebergArtifactReader:
@@ -102,9 +133,13 @@ class PublicMartService:
     def report(self, scope_type: str, scope_id: str, *, analysis_as_of: str = "") -> dict[str, Any]:
         if scope_type not in self.SCOPE_TYPES or not re.fullmatch(r"[\w.:-]{1,80}", scope_id):
             raise ValueError("invalid public report scope")
+        if scope_type == "symbol":
+            scope_id = self.require_enabled_symbol(scope_id)
         as_of = date.fromisoformat(analysis_as_of) if analysis_as_of else None
         index = self.index.latest(scope_type, scope_id, as_of)
         if index is None:
+            if scope_type == "symbol":
+                raise PublicReportWaiting
             raise PublicReportNotFound
         row = self.read_artifact(index)
         if (
@@ -131,6 +166,12 @@ class PublicMartService:
             "governance_snapshot_version": row["governance_snapshot_version"],
             "data": payload,
         }
+
+    def require_enabled_symbol(self, symbol: str) -> str:
+        value = str(symbol).strip().upper()
+        if not re.fullmatch(r"[A-Z0-9._-]{1,20}", value) or not self.index.symbol_enabled(value):
+            raise PublicStockNotFound("stock not found")
+        return value
 
     @staticmethod
     def _iso(value: Any) -> str:

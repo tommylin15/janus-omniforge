@@ -181,22 +181,25 @@ class Workspace extends StatefulWidget {
 
 class _WorkspaceState extends State<Workspace> {
   int page = 0;
+  void openStock(String symbol) => Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => StockDetailPage(
+          api: widget.api,
+          symbol: symbol,
+          onAskAi: () {
+            Navigator.of(context).pop();
+            setState(() => page = 3);
+          })));
+
   @override
   Widget build(BuildContext context) {
     final pages = [
-      TodayPage(widget.api),
-      WatchlistPage(widget.api),
+      TodayPage(widget.api, onOpenStock: openStock),
+      WatchlistPage(widget.api, onOpenStock: openStock),
       JournalNotesPage(widget.api),
       ChatPage(widget.api),
       ProfilePage(api: widget.api, email: widget.email, onTheme: widget.onTheme)
     ];
-    return Scaffold(
-        appBar: AppBar(title: const Text('Janus')),
-        body: pages[page],
-        bottomNavigationBar: NavigationBar(
-            selectedIndex: page,
-            onDestinationSelected: (value) => setState(() => page = value),
-            destinations: const [
+    const destinations = [
               NavigationDestination(
                   icon: Icon(Icons.today_outlined), label: '今日'),
               NavigationDestination(
@@ -207,7 +210,31 @@ class _WorkspaceState extends State<Workspace> {
                   icon: Icon(Icons.chat_bubble_outline), label: 'AI'),
               NavigationDestination(
                   icon: Icon(Icons.person_outline), label: '我的')
-            ]));
+            ];
+    return LayoutBuilder(builder: (context, constraints) {
+      final wide = constraints.maxWidth >= 900;
+      return Scaffold(
+          appBar: AppBar(title: const Text('Janus')),
+          body: Row(children: [
+            if (wide)
+              NavigationRail(
+                  selectedIndex: page,
+                  labelType: NavigationRailLabelType.all,
+                  onDestinationSelected: (value) => setState(() => page = value),
+                  destinations: const [
+                    NavigationRailDestination(icon: Icon(Icons.today_outlined), label: Text('今日')),
+                    NavigationRailDestination(icon: Icon(Icons.star_outline), label: Text('關注')),
+                    NavigationRailDestination(icon: Icon(Icons.edit_note), label: Text('記帳／筆記')),
+                    NavigationRailDestination(icon: Icon(Icons.chat_bubble_outline), label: Text('AI')),
+                    NavigationRailDestination(icon: Icon(Icons.person_outline), label: Text('我的')),
+                  ]),
+            Expanded(child: pages[page])
+          ]),
+          bottomNavigationBar: wide ? null : NavigationBar(
+              selectedIndex: page,
+              onDestinationSelected: (value) => setState(() => page = value),
+              destinations: destinations));
+    });
   }
 }
 
@@ -712,8 +739,9 @@ class _TogglePanel extends StatelessWidget {
 }
 
 class WatchlistPage extends StatefulWidget {
-  const WatchlistPage(this.api, {super.key});
+  const WatchlistPage(this.api, {this.onOpenStock, super.key});
   final Api api;
+  final ValueChanged<String>? onOpenStock;
   @override
   State<WatchlistPage> createState() => _WatchlistPageState();
 }
@@ -760,6 +788,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                   for (final row in rows)
                     ListTile(
                         key: ValueKey(row['symbol']),
+                        onTap: () => widget.onOpenStock?.call(row['symbol']),
                         title: Text(row['symbol']),
                         subtitle: Text(row['target_price'] == null
                             ? '尚未設定目標價'
@@ -790,8 +819,9 @@ class _WatchlistPageState extends State<WatchlistPage> {
 }
 
 class TodayPage extends StatefulWidget {
-  const TodayPage(this.api, {super.key});
+  const TodayPage(this.api, {this.onOpenStock, super.key});
   final Api api;
+  final ValueChanged<String>? onOpenStock;
   @override
   State<TodayPage> createState() => _TodayPageState();
 }
@@ -804,27 +834,60 @@ class _TodayPageState extends State<TodayPage> {
   Widget build(BuildContext context) => FutureBuilder<dynamic>(
       future: brief,
       builder: (context, snapshot) {
+        if (snapshot.hasError) return ErrorView(snapshot.error.toString(), reload);
         if (snapshot.connectionState != ConnectionState.done)
           return const Center(child: CircularProgressIndicator());
-        if (snapshot.hasError) return ErrorView(snapshot.error.toString(), reload);
         final root = snapshot.data as Map?;
         final items = root?['items'] is List ? root!['items'] as List : const [];
         final report = items.isNotEmpty && items.first is Map ? items.first as Map : const {};
         final data = report['data'] is Map ? report['data'] as Map : report;
-        final candidates = data['candidates'] is List ? data['candidates'] as List : const [];
-        final topics = data['topics'] is List ? data['topics'] as List : const [];
+        final candidates = _asList(data['candidates']);
+        final highlights = _asList(data['highlights']);
+        final sectors = _asList(data['sector_rotation']);
+        final rotations = [
+          ...sectors.where((item) => item is Map && item['state'] == 'warming').take(3),
+          ...sectors.where((item) => item is Map && item['state'] == 'cooling').take(3),
+        ];
+        final topics = _asList(data['topics']);
+        final reportDate = report['analysis_as_of']?.toString() ?? '';
+        final componentDates = data['component_dates'];
+        final mixedDates = componentDates is Map && componentDates.values
+            .where((value) => value != null).any((value) => value.toString() != reportDate);
+        final partial = mixedDates || {'partial', 'stale', 'fallback'}
+            .contains(data['data_status']?.toString());
         return ListView(padding: const EdgeInsets.all(16), children: [
           Text('今日', style: Theme.of(context).textTheme.headlineMedium),
-          Text('資料日期：${report['analysis_as_of'] ?? '—'}'),
+          Text('資料日期：${reportDate.isEmpty ? '—' : reportDate}'),
+          if (partial)
+            const ListTile(leading: Icon(Icons.info_outline),
+                title: Text('部分資料日期不一致，本頁只顯示同日可用內容')),
           const SizedBox(height: 12),
           Card(child: ListTile(
               leading: Icon(Icons.public, color: Theme.of(context).colorScheme.primary),
-              title: Text(data['market_status']?.toString() ?? '市場狀態'),
+              title: Text(data['market_regime']?.toString() ??
+                  data['market_status']?.toString() ?? '市場狀態'),
               subtitle: Text(data['summary']?.toString() ?? '今日公開研究摘要'))),
+          const ListTile(title: Text('今日重點')),
+          if (highlights.isEmpty)
+            const Card(child: ListTile(title: Text('目前沒有可發布重點'))),
+          for (final item in highlights.take(3))
+            ListTile(leading: const Icon(Icons.bolt_outlined),
+                title: Text(item is Map ? '${item['title'] ?? item['summary'] ?? '重點'}' : '$item'),
+                subtitle: item is Map ? Text('支撐：${item['support'] ?? '—'} · 風險：${item['risk'] ?? '—'}') : null),
+          const ListTile(title: Text('產業輪動')),
+          if (rotations.isEmpty)
+            const Card(child: ListTile(title: Text('目前沒有可發布產業輪動'))),
+          for (final item in rotations)
+            ListTile(leading: Icon(item is Map && item['state'] == 'cooling'
+                ? Icons.south_east : Icons.north_east),
+                title: Text(item is Map ? '${item['industry'] ?? item['name'] ?? '產業'}' : '$item'),
+                trailing: item is Map ? Text('${item['state'] ?? '—'}') : null),
           if (topics.isNotEmpty) ...[
             const ListTile(title: Text('熱門話題')),
-            for (final topic in topics.take(3))
-              ListTile(leading: const Icon(Icons.trending_up), title: Text(topic.toString()))
+            for (final topic in topics.take(5))
+              ListTile(leading: const Icon(Icons.trending_up),
+                  title: Text(topic is Map ? '${topic['topic'] ?? topic['name'] ?? '話題'}' : '$topic'),
+                  subtitle: topic is Map ? Text('來源 ${topic['source_count'] ?? '—'} · 不確定性 ${topic['uncertainty'] ?? '—'}') : null)
           ],
           const ListTile(title: Text('候選股健康')),
           if (candidates.isEmpty)
@@ -832,32 +895,154 @@ class _TodayPageState extends State<TodayPage> {
           for (final candidate in candidates.take(5))
             StockHealthCard(value: candidate is Map
                 ? Map<String, dynamic>.from(candidate)
-                : {'symbol': candidate})
+                : {'stock_id': candidate},
+                onTap: candidate is Map
+                    ? () => widget.onOpenStock?.call('${candidate['stock_id'] ?? candidate['symbol']}')
+                    : null),
+          Align(alignment: Alignment.centerLeft, child: FilledButton.tonalIcon(
+              icon: const Icon(Icons.filter_alt_outlined),
+              label: const Text('查看全市場篩選'),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => ScreeningPage(widget.api, onOpenStock: widget.onOpenStock))))),
+          const SizedBox(height: 16),
+          const Text('本服務提供研究資訊，不構成投資建議。')
         ]);
       });
 }
 
 class StockHealthCard extends StatelessWidget {
-  const StockHealthCard({required this.value, super.key});
+  const StockHealthCard({required this.value, this.onTap, super.key});
   final Map<String, dynamic> value;
+  final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) {
     final blocked = {'blocked', 'insufficient_data'}.contains(
-        value['status']?.toString() ?? value['analysis_outcome']?.toString());
-    final score = value['score'] ?? value['health_score'];
-    return Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(
+        value['data_status']?.toString() ?? value['analysis_outcome']?.toString());
+    final score = num.tryParse('${value['mart_health_score'] ?? ''}');
+    final symbol = '${value['stock_id'] ?? '—'}';
+    final scoreLabel = blocked || score == null ? '資料不足，暫不顯示分數' : '健康度 ${score.round()} 分';
+    return Card(child: InkWell(onTap: onTap, child: Padding(padding: const EdgeInsets.all(14), child: Column(
         crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        Expanded(child: Text(value['symbol']?.toString() ?? '—',
+        if (!blocked && score != null)
+          Semantics(label: scoreLabel, child: SizedBox.square(dimension: 48,
+              child: CircularProgressIndicator(value: (score / 100).clamp(0, 1).toDouble(),
+                  strokeWidth: 7))),
+        if (!blocked && score != null) const SizedBox(width: 12),
+        Expanded(child: Text('$symbol ${value['stock_name'] ?? ''}'.trim(),
             style: Theme.of(context).textTheme.titleLarge)),
-        Chip(label: Text(value['positioning']?.toString() ?? '籌碼狀態未提供'))
+        Chip(label: Text(value['chips_status']?.toString() ?? '籌碼狀態未提供'))
       ]),
       ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.psychology),
-          title: Text(value['summary']?.toString() ?? '白話摘要未提供'),
-          subtitle: Text(blocked ? '資料不足，暫不顯示分數' : '健康度：${score ?? '—'}')),
+          title: Text(value['ai_whitepaper_analysis']?.toString() ?? '白話摘要未提供'),
+          subtitle: Text(scoreLabel)),
+      const Text('信心度不是獲利機率。'),
       Text('資料日期：${value['analysis_as_of'] ?? '—'} · 風險：${value['risk'] ?? '—'}')
-    ])));
+    ]))));
   }
+}
+
+List<dynamic> _asList(dynamic value) => value is List ? value : const [];
+
+class ScreeningPage extends StatelessWidget {
+  const ScreeningPage(this.api, {this.onOpenStock, super.key});
+  final Api api;
+  final ValueChanged<String>? onOpenStock;
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: const Text('全市場篩選')),
+      body: FutureBuilder<dynamic>(future: api.get('/api/v1/public/candidates'), builder: (context, snapshot) {
+        if (snapshot.hasError) return ErrorView(snapshot.error.toString(), () {});
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        final root = snapshot.data as Map?;
+        final reports = _asList(root?['items']);
+        final report = reports.isNotEmpty && reports.first is Map ? reports.first as Map : const {};
+        final data = report['data'] is Map ? report['data'] as Map : const {};
+        final rows = _asList(data['candidates']);
+        return ListView(padding: const EdgeInsets.all(16), children: [
+          Text('涵蓋 ${data['coverage'] ?? rows.length} 檔 · 資料日期 ${report['analysis_as_of'] ?? '—'}'),
+          Text('來源健康：${data['source_health'] ?? '—'} · 完整度 ${report['completeness'] ?? '—'}'),
+          if (rows.isEmpty) const Card(child: ListTile(title: Text('資料不足，暫無篩選結果'))),
+          for (final row in rows)
+            StockHealthCard(value: row is Map ? Map<String, dynamic>.from(row) : {'stock_id': row},
+                onTap: row is Map ? () => onOpenStock?.call('${row['stock_id'] ?? row['symbol']}') : null)
+        ]);
+      }));
+}
+
+class StockDetailPage extends StatelessWidget {
+  const StockDetailPage({required this.api, required this.symbol, required this.onAskAi, super.key});
+  final Api api;
+  final String symbol;
+  final VoidCallback onAskAi;
+  @override
+  Widget build(BuildContext context) => Scaffold(
+      appBar: AppBar(title: Text(symbol)),
+      body: FutureBuilder<List<dynamic>>(future: Future.wait([
+        api.get('/api/v1/public/stock-health/$symbol'),
+        api.get('/api/v1/me/journal/positions'),
+        api.get('/api/v1/me/notes?symbol=$symbol'),
+        api.get('/api/v1/public/kline/$symbol'),
+        api.get('/api/v1/public/events/$symbol'),
+      ]), builder: (context, snapshot) {
+        if (snapshot.hasError) return ErrorView(snapshot.error.toString(), () {});
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        final result = snapshot.data!;
+        final report = result[0] is Map ? result[0] as Map : const {};
+        final data = report['data'] is Map ? Map<String, dynamic>.from(report['data']) : <String, dynamic>{};
+        data.putIfAbsent('stock_id', () => symbol);
+        data.putIfAbsent('analysis_as_of', () => report['analysis_as_of']);
+        data.putIfAbsent('data_status', () => report['data_status']);
+        final positions = _asList(result[1]).where((row) => row is Map && row['symbol'] == symbol).toList();
+        final notes = _asList(result[2]);
+        final kline = result[3] is Map ? _asList((result[3] as Map)['rows']) : const [];
+        final events = result[4] is Map ? _asList((result[4] as Map)['rows']) : const [];
+        final roles = _asList(data['role_analyses']);
+        final position = positions.isNotEmpty && positions.first is Map ? positions.first as Map : const {};
+        final metrics = data['metrics'] is Map ? data['metrics'] as Map : const {};
+        final provenance = data['provenance'] is Map ? data['provenance'] as Map : const {};
+        final evidence = _asList(data['evidence_refs']);
+        return ListView(padding: const EdgeInsets.all(16), children: [
+          Text('$symbol ${data['stock_name'] ?? ''}'.trim(), style: Theme.of(context).textTheme.headlineMedium),
+          ListTile(title: const Text('持股摘要'), subtitle: Text(positions.isEmpty ? '目前無持股' :
+              '${position['shares'] ?? position['quantity'] ?? '—'} 股 · 成本 ${position['average_cost'] ?? '—'} · 損益 ${position['unrealized_pnl'] ?? '—'}')),
+          ListTile(title: const Text('我的筆記'), subtitle: Text(notes.isEmpty ? '尚無筆記' : '${notes.first['body']}')),
+          StockHealthCard(value: data),
+          ListTile(title: const Text('為什麼'), subtitle: Text('${data['why'] ?? '尚無可發布說明'}')),
+          ListTile(title: const Text('主要風險'), subtitle: Text('${data['risks'] ?? data['risk'] ?? '—'}')),
+          ListTile(title: const Text('籌碼'), subtitle: Text('${data['chips_status'] ?? '—'}')),
+          const ListTile(title: Text('事件')),
+          if (events.isEmpty) const ListTile(title: Text('目前沒有事件')),
+          for (final event in events.take(5))
+            ListTile(title: Text(event is Map ? '${event['title'] ?? event['event_type'] ?? '事件'}' : '$event'),
+                subtitle: event is Map ? Text('${event['published_at'] ?? event['event_date'] ?? '—'}') : null),
+          const ListTile(title: Text('證據')),
+          if (evidence.isEmpty) const ListTile(title: Text('目前沒有可公開證據')),
+          for (final item in evidence.take(5))
+            ListTile(title: Text(item is Map ? '${item['label'] ?? item['source_id'] ?? '證據'}' : '$item')),
+          ExpansionTile(title: const Text('進階資料'), children: [
+            const ListTile(title: Text('K 線／OHLCV')),
+            if (kline.isEmpty) const ListTile(title: Text('資料等待中')),
+            for (final row in kline.take(5))
+              ListTile(title: Text(row is Map ? '${row['trade_date'] ?? '—'}' : '$row'),
+                  subtitle: row is Map ? Text('O ${row['open'] ?? '—'} · H ${row['high'] ?? '—'} · L ${row['low'] ?? '—'} · C ${row['close'] ?? '—'} · V ${row['volume_shares'] ?? '—'}') : null),
+            const ListTile(title: Text('指標')),
+            if (metrics.isEmpty) const ListTile(title: Text('目前沒有指標')),
+            for (final metric in metrics.entries.take(8))
+              ListTile(title: Text('${metric.key}'), trailing: Text('${metric.value ?? '—'}')),
+            const ListTile(title: Text('五角色分析')),
+            if (roles.isEmpty) const ListTile(title: Text('目前沒有角色分析')),
+            for (final role in roles.take(5))
+              ListTile(title: Text(role is Map ? '${role['role'] ?? '角色'}' : '$role'),
+                  subtitle: role is Map ? Text('${role['summary'] ?? role['outcome'] ?? '—'}') : null),
+            ListTile(title: const Text('來源與版本'), subtitle: Text(
+                '來源 ${provenance['source_id'] ?? '—'} · schema ${provenance['schema_version'] ?? report['schema_version'] ?? '—'} · model ${provenance['model_version'] ?? report['model_version'] ?? '—'}')),
+          ]),
+          FilledButton.icon(onPressed: onAskAi, icon: const Icon(Icons.chat_bubble_outline), label: const Text('針對這檔問 AI')),
+          const SizedBox(height: 12),
+          const Text('信心度不是獲利機率；本服務提供研究資訊，不構成投資建議。')
+        ]);
+      }));
 }
 
 class JournalNotesPage extends StatefulWidget {
@@ -869,9 +1054,16 @@ class JournalNotesPage extends StatefulWidget {
 
 class _JournalNotesPageState extends State<JournalNotesPage> {
   int segment = 0;
+  String? symbolFilter;
+  int? yearFilter;
   late Future<dynamic> rows = load();
-  Future<dynamic> load() => widget.api
-      .get(segment == 0 ? '/api/v1/me/journal/history' : '/api/v1/me/notes');
+  Future<dynamic> load() {
+    if (segment != 0) return widget.api.get('/api/v1/me/notes');
+    return widget.api.get(Uri(path: '/api/v1/me/journal/history', queryParameters: {
+      if (symbolFilter?.isNotEmpty == true) 'symbol': symbolFilter,
+      if (yearFilter != null) 'year': '$yearFilter',
+    }).toString());
+  }
   void reload() => setState(() => rows = load());
   Future<void> add() async {
     if (segment == 1) {
@@ -909,6 +1101,25 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
                       segment = value.first;
                       rows = load();
                     }))),
+        if (segment == 0)
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Wrap(spacing: 8, children: [
+            ActionChip(label: Text(symbolFilter == null ? '股票：全部' : '股票：$symbolFilter'),
+                onPressed: () async {
+                  final value = await textDialog(context, '歷史篩選', '股票代號，可留空');
+                  if (value != null) setState(() {
+                    symbolFilter = value.trim().isEmpty ? null : value.trim().toUpperCase();
+                    rows = load();
+                  });
+                }),
+            DropdownButton<int>(value: yearFilter ?? 0, items: [
+              const DropdownMenuItem(value: 0, child: Text('年度：全部')),
+              for (var year = DateTime.now().year; year >= DateTime.now().year - 5; year--)
+                DropdownMenuItem(value: year, child: Text('年度：$year'))
+            ], onChanged: (value) => setState(() {
+              yearFilter = value == 0 ? null : value;
+              rows = load();
+            }))
+          ])),
         Expanded(
             child: FutureBuilder(
                 future: rows,

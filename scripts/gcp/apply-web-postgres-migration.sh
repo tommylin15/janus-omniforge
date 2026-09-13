@@ -117,6 +117,7 @@ sudo docker exec --user postgres \
     printf "\\getenv web_publication_password WEB_PUBLICATION_PASSWORD\n" > /tmp/public-vars.sql
     cat /tmp/public-vars.sql /opt/janus/migrations/021_public_api_role.sql | psql -U postgres -d janus_control
     psql -U postgres -d janus_control -f /opt/janus/migrations/022_mart_publication_review.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/023_public_stock_index.sql
     rm -f /tmp/web-vars.sql /tmp/public-vars.sql "${credential_file}"
     psql -U postgres -d janus_control -v ON_ERROR_STOP=1 <<"SQL"
 SELECT rolname, rolsuper, rolcreatedb, rolcreaterole, rolreplication
@@ -130,6 +131,9 @@ SELECT EXISTS (
 SELECT EXISTS (
   SELECT 1 FROM control.schema_migrations WHERE version = $$022_mart_publication_review$$
 ) AS publication_review_recorded;
+SELECT EXISTS (
+  SELECT 1 FROM control.schema_migrations WHERE version = $$023_public_stock_index$$
+) AS public_stock_index_recorded;
 SELECT tableowner = $$janus_control$$ AS control_settings_owned
 FROM pg_tables WHERE schemaname = $$control$$ AND tablename = $$admin_settings$$;
 SELECT source_ids = $$["taiex", "tpex-benchmark", "twse", "mops", "finmind"]$$::jsonb

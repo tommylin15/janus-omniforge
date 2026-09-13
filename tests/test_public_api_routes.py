@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+import logging
 
 from fastapi.testclient import TestClient
 
 from services.api.app import create_app
-from packages.web_api import PublicReportNotFound, QueryValidationError
+from packages.web_api import PublicReportNotFound, PublicReportWaiting, QueryValidationError
 
 
 REPORT = {
@@ -27,15 +28,32 @@ class Public:
             raise PublicReportNotFound
         return {**REPORT, "scope_type": scope_type, "scope_id": scope_id}
 
+    def require_enabled_symbol(self, symbol: str) -> str:
+        if symbol.upper() == "9999":
+            from packages.web_api import PublicStockNotFound
+            raise PublicStockNotFound("stock not found")
+        return symbol.upper()
+
 
 class Core:
+    def __init__(self) -> None:
+        self.calls = []
+
     def page(self, dataset_id: str, symbol: str, *, limit: int, offset: int):
+        self.calls.append((dataset_id, symbol))
         return SimpleNamespace(dataset_id=dataset_id, symbol=symbol.upper(), rows=[], limit=limit, offset=offset)
 
 
 class MissingDatasetCore(Core):
     def page(self, dataset_id: str, symbol: str, *, limit: int, offset: int):
         raise QueryValidationError("dataset is not available")
+
+
+class WaitingPublic(Public):
+    def report(self, scope_type: str, scope_id: str, *, analysis_as_of: str = ""):
+        if scope_type == "symbol":
+            raise PublicReportWaiting
+        return super().report(scope_type, scope_id, analysis_as_of=analysis_as_of)
 
 
 class Admin:
@@ -89,3 +107,71 @@ def test_missing_public_dataset_is_waiting_not_a_fetch_or_server_error() -> None
     response = api.get("/api/v1/public/events/2330")
     assert response.status_code == 200
     assert response.json()["data_status"] == "waiting"
+
+
+def test_missing_or_disabled_stock_is_404_before_any_core_query() -> None:
+    public, core = Public(), Core()
+    api = TestClient(create_app(object(), object(), public=public, query_core=core))
+    response = api.get("/api/v1/public/history/9999")
+    assert response.status_code == 404
+    assert response.json() == {"detail": "stock not found"}
+    assert core.calls == []
+
+
+def test_enabled_stock_without_report_returns_waiting() -> None:
+    api = TestClient(create_app(object(), object(), public=WaitingPublic(), query_core=Core()))
+    for path in ("/api/v1/public/reports/symbol/2330", "/api/v1/public/stock-health/2330"):
+        response = api.get(path)
+        assert response.status_code == 200
+        assert response.json() == {
+            "analysis_as_of": "", "scope_type": "symbol", "scope_id": "2330",
+            "data_status": "waiting", "data": {},
+        }
+
+
+def test_cors_is_scoped_to_public_and_user_routers(monkeypatch) -> None:
+    monkeypatch.setenv("USER_CORS_ORIGINS", "https://user.example")
+    api = TestClient(create_app(object(), object(), public=Public(), query_core=Core()))
+    headers = {"Origin": "https://user.example", "Access-Control-Request-Method": "GET"}
+    assert api.options("/api/v1/public/health", headers=headers).headers["access-control-allow-origin"] == "https://user.example"
+    assert "access-control-allow-origin" not in api.options("/api/v1/admin/stocks", headers=headers).headers
+
+
+def test_router_rate_limits_are_separate_and_health_is_exempt(monkeypatch) -> None:
+    monkeypatch.setenv("PUBLIC_RATE_LIMIT_PER_MINUTE", "1")
+    monkeypatch.setenv("PRIVATE_RATE_LIMIT_PER_MINUTE", "1")
+    api = TestClient(create_app(object(), object(), public=Public(), query_core=Core()))
+
+    assert api.get("/api/v1/public/daily-brief").status_code == 200
+    limited = api.get("/api/v1/public/topics")
+    assert limited.status_code == 429
+    assert int(limited.headers["retry-after"]) >= 1
+    assert api.get("/api/v1/me/profile").status_code in {401, 503}
+    assert api.get("/api/v1/me/profile").status_code == 429
+    assert api.get("/api/v1/public/health").status_code == 200
+
+
+def test_admin_audit_policy_never_logs_token_query_or_body(caplog) -> None:
+    claims = {"iss": "https://accounts.google.com", "aud": "admin-client", "sub": "admin-sub",
+              "email": "admin@example.com", "email_verified": True, "exp": 4_000_000_000}
+    api = TestClient(create_app(object(), object(), public=Public(), query_core=Core(), admin_service=Admin(),
+                                admin_audience="admin-client", admin_emails=frozenset({"admin@example.com"}),
+                                admin_verifier=lambda _token, _audience: claims))
+    caplog.set_level(logging.INFO, logger="services.api.app")
+    response = api.get("/api/v1/admin/stocks?q=query-secret",
+                       headers={"Authorization": "Bearer bearer-secret"})
+
+    assert response.status_code == 200
+    assert response.headers["x-request-id"]
+    assert "api_audit family=admin method=GET status=200" in caplog.text
+    assert "query-secret" not in caplog.text
+    assert "bearer-secret" not in caplog.text
+
+
+def test_openapi_keeps_public_private_and_admin_response_boundaries_distinct() -> None:
+    schema = create_app(object(), object(), public=Public(), query_core=Core()).openapi()
+    components = schema["components"]["schemas"]
+    assert {"PublicReportListOut", "PublicDatasetOut", "PrivateResponseOut", "AdminResponseOut"} <= set(components)
+    assert schema["paths"]["/api/v1/public/daily-brief"]["get"]["tags"] == ["public"]
+    assert schema["paths"]["/api/v1/me/profile"]["get"]["tags"] == ["private"]
+    assert schema["paths"]["/api/v1/admin/stocks"]["get"]["tags"] == ["admin"]

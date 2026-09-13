@@ -16,12 +16,20 @@ steps:
         def get(path):
             try:
                 response = urllib.request.urlopen(base + path, timeout=20)
-                return response.status, json.loads(response.read())
+                result = response.status, json.loads(response.read())
             except urllib.error.HTTPError as error:
-                return error.code, json.loads(error.read())
+                result = error.code, json.loads(error.read())
+            payload = result[1] if isinstance(result[1], dict) else {}
+            print(path, result[0], payload.get("detail", payload.get("data_status", "ok")))
+            return result
 
         assert get("/health")[0] == 200
         assert get("/api/v1/public/health")[0] == 200
+        assert get("/api/v1/me/profile")[0] == 401
+        admin_status, _ = get("/api/v1/admin/stocks")
+        assert admin_status in {401, 503}, admin_status
+        unknown = get("/api/v1/public/history/JANUS-NOT-A-STOCK")
+        assert unknown == (404, {"detail": "stock not found"}), unknown
         for path in (
             "/api/v1/public/daily-brief",
             "/api/v1/public/topics",
@@ -34,7 +42,9 @@ steps:
             assert status in {200, 404, 503}, (path, status, payload)
             if status == 200 and isinstance(payload, dict):
                 text = json.dumps(payload, ensure_ascii=False).lower()
-                assert "traceback" not in text and "raw_payload" not in text
+                for forbidden in ("traceback", "raw_payload", "artifact_uri", "gcs_uri", "secret", "token", "password"):
+                    assert forbidden not in text, (path, forbidden, payload)
+                assert payload.get("data_status") in {"waiting", "publishable", "published", None}, (path, payload)
             if status == 503:
                 assert payload == {"detail": "public data unavailable"}, (path, payload)
         print("public API GCP dev acceptance passed")

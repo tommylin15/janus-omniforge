@@ -141,6 +141,23 @@ class MartRuntimeTests(unittest.TestCase):
             consume_queued_analysis(queue, lambda _: {}, worker_id="mart-1")
         self.assertEqual(queue.transitions[0][0][2], "retrying")
 
+    def test_analysis_retry_exhaustion_fails_without_publication(self):
+        _, options = _analysis_options()
+        execution = AnalysisExecution("execution-1", "first-batch", ("2330",), 1, options)
+
+        class Queue:
+            def __init__(self): self.transitions = []
+            def claim(self, _worker_id): return execution
+            def transition(self, *args, **kwargs): self.transitions.append((args, kwargs))
+
+        queue = Queue()
+        with self.assertRaisesRegex(RuntimeError, "provider failed"):
+            consume_queued_analysis(queue, lambda _: (_ for _ in ()).throw(RuntimeError("provider failed")),
+                                    worker_id="mart-1", max_retries=1)
+        self.assertEqual(queue.transitions, [
+            (("execution-1", "mart-1", "failed"), {"retry_count": 2, "error_code": "RUNTIMEERROR"})
+        ])
+
     def test_analysis_completes_only_for_claimed_snapshot_artifact(self):
         _, options = _analysis_options()
         execution = AnalysisExecution("execution-1", "first-batch", ("2330",), 0, options)

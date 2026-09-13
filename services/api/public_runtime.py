@@ -101,16 +101,18 @@ def build_public_service() -> PublicMartService:
                "pool_size": 1, "max_overflow": 0, "pool_timeout": 5, "pool_pre_ping": "true"},
         )
         stage = "publication connection"
-        connection = psycopg.connect(
-            host=os.environ.get("PUBLICATION_DB_HOST", settings["CATALOG_DB_HOST"]),
-            dbname=os.environ.get("PUBLICATION_DB_NAME", settings["CATALOG_DB_NAME"]),
-            user=publication_user,
-            password=settings["PUBLICATION_DB_PASSWORD"],
-            sslmode=os.environ.get("PUBLICATION_DB_SSLMODE", "require"), connect_timeout=5,
-            options="-c statement_timeout=5000 -c default_transaction_read_only=on", autocommit=True,
-        )
+        def connect_publication():
+            return psycopg.connect(
+                host=os.environ.get("PUBLICATION_DB_HOST", settings["CATALOG_DB_HOST"]),
+                dbname=os.environ.get("PUBLICATION_DB_NAME", settings["CATALOG_DB_NAME"]),
+                user=publication_user,
+                password=settings["PUBLICATION_DB_PASSWORD"],
+                sslmode=os.environ.get("PUBLICATION_DB_SSLMODE", "require"), connect_timeout=5,
+                options="-c statement_timeout=5000 -c default_transaction_read_only=on", autocommit=True,
+            )
+        connection = connect_publication()
         return PublicMartService(
-            PostgreSQLPublicIndex(connection), IcebergArtifactReader(catalog, GcsObjectStore),
+            PostgreSQLPublicIndex(connection, connect_publication), IcebergArtifactReader(catalog, GcsObjectStore),
         )
     except Exception as error:
         raise RuntimeError(f"public runtime setup failed at {stage}:{type(error).__name__}") from error
