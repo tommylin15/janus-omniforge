@@ -57,22 +57,29 @@ case "${component}" in
   ingestion-core)
     gcloud run jobs update "${runtime_name}" --project="${project}" --region="${region}" \
       --service-account="ingestion-core@${project}.iam.gserviceaccount.com" \
+      --tasks=1 --parallelism=1 --max-retries=1 --task-timeout=30m \
       --update-env-vars="MART_JOB=janus-intelligence-mart,GCP_REGION=${region}" \
       --remove-secrets="CONTROL_DB_PASSWORD,CATALOG_DB_PASSWORD" \
       --update-secrets="JANUS_INGESTION_POSTGRES_BUNDLE=janus-agent-provider-bundle:latest" --quiet
     ;;
   intelligence-mart)
     gcloud run jobs update "${runtime_name}" --project="${project}" --region="${region}" \
+      --service-account="intelligence-mart@${project}.iam.gserviceaccount.com" \
+      --tasks=1 --parallelism=1 --max-retries=1 --task-timeout=30m \
       --remove-secrets="CATALOG_DB_PASSWORD,PUBLICATION_DB_PASSWORD" \
       --update-secrets="JANUS_MART_POSTGRES_BUNDLE=janus-agent-provider-bundle:latest" --quiet
     ;;
   private-pipeline)
     gcloud run jobs update "${runtime_name}" --project="${project}" --region="${region}" \
+      --service-account="janus-private-pipeline@${project}.iam.gserviceaccount.com" \
+      --tasks=1 --parallelism=1 --max-retries=1 --task-timeout=30m \
       --remove-secrets="PRIVATE_DATABASE_URL,CORE_CATALOG_PASSWORD,PRIVATE_CATALOG_PASSWORD,JANUS_PIPELINE_POSTGRES_BUNDLE" \
       --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" --quiet
     ;;
   api)
     gcloud run services update "${runtime_name}" --project="${project}" --region="${region}" \
+      --service-account="janus-user-api@${project}.iam.gserviceaccount.com" \
+      --min-instances=0 --max-instances=2 --concurrency=20 --timeout=60 \
       --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" --quiet
     ;;
 esac

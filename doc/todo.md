@@ -180,6 +180,16 @@
 
 - [x] 【Sol】 安全輸出與 log redaction tests。（2026-09-13：本機 targeted 40 passed；GCP public acceptance `28887ea1-b194-4d95-ab03-63fdebf5609a` passed；完整 `token-savior` suite Cloud Build `acfeaf2d-deb8-43d5-b5a1-c7749ae8efcf` 為 3176 passed／5 skipped，source root 固定為 `token-savior`。）
 
+## P1 — WBS-7 安全、監控與 FinOps
+
+- [x] 【Sol】 WBS-7.1 IAM／Secret：active runtime service-account 分離、Secret bundle 最小 consumer、dev／production guard、無 user-managed key、PostgreSQL private IP／IAP boundary。（2026-09-13：既有 GCP dev configure／verify 通過；Cloud Run 四 runtime 使用分離 identity，無 user-managed key，PostgreSQL `e2-micro`／30GB `pd-standard`／private IP／IAP 通過。）
+
+- [x] 【Sol】 WBS-7.2 Observability：execution／trace lineage、source／dataset health、Job duration／retry／publication、API SLI、safe error taxonomy 與 aggregate core-focus gap。（2026-09-13：本機 targeted pytest 57 passed；API／Job telemetry、lineage、health 與 redaction 已部署至 dev，Cloud Build public API runtime acceptance 通過。）
+
+- [x] 【Sol】 WBS-7.3 FinOps：Cloud Run min/max、GCS lifecycle、Artifact Registry cleanup／禁止 scanning API、Free Tier PostgreSQL 無 snapshot guard、US$1／US$5／US$10 budget threshold 與 monthly resource report。（2026-09-13：GCP dev verify 通過；billing account 為 TWD，已建立 320 TWD（核准的 US$10 等值）budget，10%／50%／100% threshold；未建立付費 BigQuery billing export、snapshot、backup、HA 或 replica。）
+
+- [x] 【Sol】 WBS-7.4 安全驗收：無長效 key、無 secret／raw payload／敏感 URI 外洩，並可由 execution ID 追蹤 UI → Job → Core → Mart report。（2026-09-13：targeted pytest 57、Vitest 20、TypeScript、ESLint、bash syntax 通過；GCP dev verify 與 Cloud Build public API acceptance 通過，lineage／redaction／IAM／network guard 有實機證據。）
+
 ## P2 — PIT 與治理校準
 
 - [ ] 【Sol】 PIT outcome／sample payload 寫 GCS／Iceberg；PostgreSQL 只保存有 retention 的索引、排除原因與 audit metadata，避免 Free Tier disk 無界成長。

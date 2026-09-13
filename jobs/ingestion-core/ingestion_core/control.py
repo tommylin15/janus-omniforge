@@ -679,6 +679,15 @@ class SQLiteControlPlane:
         rows = self.connection.execute(f"SELECT * FROM executions {clause} ORDER BY requested_at DESC, execution_id DESC LIMIT ?", values).fetchall()
         return tuple(self._execution(row) for row in rows)
 
+    def list_executions_by_trace(self, trace_id: str, *, limit: int = 20) -> tuple[Execution, ...]:
+        if not trace_id.strip() or not 1 <= limit <= 50:
+            raise ValueError("trace_id and limit 1..50 are required")
+        rows = self.connection.execute(
+            "SELECT * FROM executions WHERE trace_id=? ORDER BY requested_at,execution_id LIMIT ?",
+            (trace_id, limit),
+        ).fetchall()
+        return tuple(self._execution(row) for row in rows)
+
     @staticmethod
     def _execution(row: sqlite3.Row) -> Execution:
         return Execution(row["execution_id"], row["trace_id"], row["config_id"], TriggerType(row["trigger_type"]), ExecutionStatus(row["status"]), tuple(json.loads(row["requested_symbols"])), _parse_time(row["requested_at"]), _parse_time(row["started_at"]), _parse_time(row["finished_at"]), row["retry_count"], row["error_code"], json.loads(row["request_options"]))
@@ -695,7 +704,7 @@ class SQLiteControlPlane:
     def list_mart_reports(self, *, filters: dict[str, str], limit: int = 50) -> tuple[dict[str, Any], ...]:
         clauses, values = [], []
         for field, value in filters.items():
-            if field not in {"analysis_as_of","scope_type","scope_id","prompt_version","analysis_outcome","publication_status"}:
+            if field not in {"execution_id","analysis_as_of","scope_type","scope_id","prompt_version","analysis_outcome","publication_status"}:
                 raise ValueError("invalid Mart report filter")
             clauses.append(f"{field}=?")
             values.append(value)
@@ -859,7 +868,7 @@ class SQLiteControlPlane:
 
     def record_health(self, source_id: str, dataset_id: str, *, state: DataState, latency_ms: float, fetched_at: datetime, latest_observation_at: datetime | None = None, expected_symbols: int = 0, received_symbols: int = 0, cache_hit: bool = False, coverage_tier: str = CoverageTier.MARKET_WIDE.value, cache_age_seconds: float | None = None) -> None:
         success = int(state in {DataState.SUCCESS, DataState.FALLBACK, DataState.PARTIAL})
-        self.connection.execute("""INSERT INTO source_health(source_id, dataset_id, success_count, failure_count, total_latency_ms, last_fetched_at, latest_observation_at, last_state, expected_symbols, received_symbols, cache_hits, fallback_count, schema_drift_count, coverage_tier, last_cache_age_seconds) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(source_id, dataset_id) DO UPDATE SET success_count=source_health.success_count+excluded.success_count, failure_count=source_health.failure_count+excluded.failure_count, total_latency_ms=source_health.total_latency_ms+excluded.total_latency_ms, last_fetched_at=excluded.last_fetched_at, latest_observation_at=COALESCE(excluded.latest_observation_at, source_health.latest_observation_at), last_state=excluded.last_state, expected_symbols=MAX(source_health.expected_symbols, excluded.expected_symbols), received_symbols=source_health.received_symbols+excluded.received_symbols, cache_hits=source_health.cache_hits+excluded.cache_hits, fallback_count=source_health.fallback_count+excluded.fallback_count, schema_drift_count=source_health.schema_drift_count+excluded.schema_drift_count, coverage_tier=excluded.coverage_tier, last_cache_age_seconds=excluded.last_cache_age_seconds""", (source_id, dataset_id, success, int(not success), latency_ms, _iso(fetched_at), _iso(latest_observation_at), state.value, expected_symbols, received_symbols, int(cache_hit), int(state == DataState.FALLBACK), int(state == DataState.SCHEMA_DRIFT), coverage_tier, cache_age_seconds))
+        self.connection.execute("""INSERT INTO source_health(source_id, dataset_id, success_count, failure_count, total_latency_ms, last_fetched_at, latest_observation_at, last_state, expected_symbols, received_symbols, cache_hits, fallback_count, schema_drift_count, coverage_tier, last_cache_age_seconds) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(source_id, dataset_id) DO UPDATE SET success_count=source_health.success_count+excluded.success_count, failure_count=source_health.failure_count+excluded.failure_count, total_latency_ms=source_health.total_latency_ms+excluded.total_latency_ms, last_fetched_at=excluded.last_fetched_at, latest_observation_at=COALESCE(excluded.latest_observation_at, source_health.latest_observation_at), last_state=excluded.last_state, expected_symbols=excluded.expected_symbols, received_symbols=excluded.received_symbols, cache_hits=source_health.cache_hits+excluded.cache_hits, fallback_count=source_health.fallback_count+excluded.fallback_count, schema_drift_count=source_health.schema_drift_count+excluded.schema_drift_count, coverage_tier=excluded.coverage_tier, last_cache_age_seconds=excluded.last_cache_age_seconds""", (source_id, dataset_id, success, int(not success), latency_ms, _iso(fetched_at), _iso(latest_observation_at), state.value, expected_symbols, received_symbols, int(cache_hit), int(state == DataState.FALLBACK), int(state == DataState.SCHEMA_DRIFT), coverage_tier, cache_age_seconds))
         self.connection.commit()
 
     def source_health_summary(self, *, source_id: str | None = None, dataset_id: str | None = None,

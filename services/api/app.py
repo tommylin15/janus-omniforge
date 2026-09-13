@@ -179,6 +179,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
 
     @api.middleware("http")
     async def boundary_policy(request: Request, call_next: Callable[..., Any]):
+        started = monotonic()
         family = _router_family(request.url.path)
         if family and not request.url.path.endswith("/health"):
             authorization = request.headers.get("authorization", "")
@@ -194,11 +195,17 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         else:
             response = await call_next(request)
         request_id = str(uuid4())
+        duration_ms = round((monotonic() - started) * 1000)
         response.headers["X-Request-ID"] = request_id
+        if family:
+            request_message = (f"api_request family={family} method={request.method} "
+                               f"status={response.status_code} duration_ms={duration_ms} request_id={request_id}")
+            LOGGER.info(request_message)
+            AUDIT_LOGGER.info(request_message)
         if family and (family == "admin" or request.method not in {"GET", "HEAD", "OPTIONS"}
                        or response.status_code >= 400):
             audit_message = (f"api_audit family={family} method={request.method} "
-                             f"status={response.status_code} request_id={request_id}")
+                             f"status={response.status_code} duration_ms={duration_ms} request_id={request_id}")
             LOGGER.info(audit_message)
             AUDIT_LOGGER.info(audit_message)
         return response

@@ -28,6 +28,7 @@ class AdminServiceTests(unittest.TestCase):
         self.assertEqual(execution["status"], "queued")
         details = self.admin.execution_details(execution["execution_id"])
         self.assertEqual(details["trace_id"], "trace-1")
+        self.assertEqual(details["lineage"]["executions"][0]["execution_id"], execution["execution_id"])
         self.assertNotIn("payload", details)
 
     def test_invalid_page_is_rejected(self):
@@ -106,7 +107,7 @@ class AdminServiceTests(unittest.TestCase):
         collection = self.control.enqueue_collection("ohlcv", ("2330",))
         from ingestion_core import ExecutionStatus
         self.control.transition_execution(collection.execution_id, ExecutionStatus.RUNNING)
-        self.control.complete_collection(collection.execution_id, {
+        _, automatic = self.control.complete_collection(collection.execution_id, {
             "eventType":"core.dataset.ready.v1","executionId":collection.execution_id,"configId":"ohlcv",
             "datasetId":"core","schemaVersion":"1.0.0","rowCount":1,"analysisAsOf":"2026-09-12",
             "coreSnapshotId":"snapshot-1","coreSnapshotUri":"gs://core/snapshot.json",
@@ -115,6 +116,8 @@ class AdminServiceTests(unittest.TestCase):
         analysis = self.admin.enqueue_analysis("ohlcv", ("2330",))
         self.assertEqual((analysis["status"], analysis["request_options"]["core_snapshot_id"]), ("queued", "snapshot-1"))
         self.assertEqual(analysis["request_options"]["scopes"], [{"type":"symbol","id":"2330","symbols":["2330"]}])
+        lineage = self.admin.execution_details(collection.execution_id)["lineage"]["executions"]
+        self.assertEqual({item["execution_id"] for item in lineage}, {collection.execution_id, automatic.execution_id})
 
     def test_mart_reports_filter_metadata_and_build_immutable_navigation(self):
         values = ("11111111-1111-1111-1111-111111111111","2026-09-12","symbol","2330","core-1",

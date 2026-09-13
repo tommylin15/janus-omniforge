@@ -38,9 +38,9 @@ $env:ALLOW_DEV_PROVISION = "true"
 
 ## 2A. Dev runtime deployment (current path)
 
-Automatic deployment is initiated by three GCP Cloud Build Developer Connect
-triggers. They watch `main` and invoke `cloudbuild.yaml` only when their
-component paths match. No service-account JSON key or Terraform is required.
+Automatic deployment is initiated by the active GCP Cloud Build Developer Connect
+triggers. They watch `main` and invoke `cloudbuild.yaml` only when their component
+paths match. No service-account JSON key or Terraform is required.
 
 `.github/workflows/deploy-dev.yml` is a manual-only fallback using GitHub OIDC.
 Configure these repository Variables before using that fallback:
@@ -53,7 +53,8 @@ The fallback refuses to run unless the selected ref is `main`; it invokes
 
 Automatic trigger mapping:
 
-- `apps/web/**` or `cloudbuild.yaml` → `janus-web`
+- `services/api/**`, `packages/admin_api/**`, `packages/web_api/**`,
+  `apps/web/static/**`, or `cloudbuild.yaml` → `janus-api`
 - `jobs/ingestion-core/**`, `packages/contracts/**`,
   `packages/observability/**`, or `cloudbuild.yaml` → `janus-ingestion-core`
 - `jobs/intelligence-mart/**`, `packages/contracts/**`,
@@ -62,10 +63,31 @@ Automatic trigger mapping:
 Other paths, including documentation and `scripts/gcp/**`, do not trigger an
 automatic runtime deployment.
 
-The active automatic deployment source is now the three GCP Developer Connect
-triggers `janus-ingestion-core`, `janus-intelligence-mart`, and `janus-web`.
+The active automatic deployment targets are `janus-ingestion-core`,
+`janus-intelligence-mart`, and `janus-api`; the legacy `janus-web` runtime is absent.
 The GitHub Actions workflow is manual-only and must remain that way, or the same
 push will be deployed twice.
+
+## 2B. WBS-7 dev security／FinOps
+
+After explicit dev authorization, configure and then verify existing resources:
+
+```powershell
+$env:GCP_PROJECT_ID = "gen-lang-client-0593591102"
+$env:GCP_REGION = "us-central1"
+$env:GCP_ZONE = "us-central1-a"
+$env:GCP_BILLING_ACCOUNT_ID = "BILLING_ACCOUNT_ID"
+$env:ALLOW_DEV_SECURITY_FINOPS = "true"
+& "C:\Program Files\Git\bin\bash.exe" scripts/gcp/security-finops-dev.sh configure
+& "C:\Program Files\Git\bin\bash.exe" scripts/gcp/security-finops-dev.sh verify
+& "C:\Program Files\Git\bin\bash.exe" scripts/gcp/security-finops-dev.sh report
+```
+
+The budget is a 320 TWD notification budget (the approved US$10 equivalent for
+this TWD billing account) with 10%／50%／100% thresholds; it is not a spending cap. The report is a bounded resource-exposure inventory. Exact
+billed spend remains in Cloud Billing because this dev path does not create a
+paid BigQuery billing export. Free Tier PostgreSQL verification requires no
+snapshot／backup／HA／replica.
 
 ## 3. 透過 PostgreSQL VM 執行 migration
 

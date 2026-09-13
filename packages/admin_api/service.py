@@ -105,7 +105,16 @@ class AdminService:
 
     def execution_details(self, execution_id: str) -> dict[str, Any]:
         execution = self.control.get_execution(execution_id)
-        return {**self._execution(execution), "items": tuple(self._item(item) for item in self.control.list_items(execution_id))}
+        related = tuple(self._execution(item) for item in self.control.list_executions_by_trace(execution.trace_id))
+        reports = tuple(
+            self._report(item, role="")
+            for item in self.control.list_mart_reports(filters={"execution_id": execution_id}, limit=50)
+        )
+        return {
+            **self._execution(execution),
+            "items": tuple(self._item(item) for item in self.control.list_items(execution_id)),
+            "lineage": {"trace_id": execution.trace_id, "executions": related, "reports": reports},
+        }
 
     def enqueue_collection(self, config_id: str, symbols: tuple[str, ...] | None = None, *, trace_id: str | None = None,
                            request_options: dict[str, Any] | None = None) -> dict[str, Any]:

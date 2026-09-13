@@ -2,6 +2,34 @@
 
 最新驗證日期：2026-09-13
 
+## WBS-7 security／observability／FinOps acceptance（2026-09-13）
+
+WBS-7.1～7.4 程式已完成：runtime service-account 與 bounded scaling 寫入 dev deploy；
+configure path 會移除 Secret bundle 的 legacy `web-runtime` consumer；四個 dev bucket 共用 noncurrent-version
+lifecycle；`security-finops-dev.sh` 提供 guarded configure、read-only verify 與 bounded
+monthly resource report。單一 320 TWD budget（核准的 US$10 等值）使用 10%／50%／100% current-spend threshold，
+對應 32／160／320 TWD；budget 不是 spending cap。Free Tier PostgreSQL 不建立付費
+snapshot／backup／HA／replica，驗收反而要求 snapshot 為空。未建立 BigQuery billing export。
+
+Observability 已補 API family request ID／duration SLI、Ingestion execution trace 傳遞、
+Job duration／retry／publication counts、無原始 exception 的 bounded failure taxonomy、
+source health latest expected／received semantics、Admin aggregate coverage／freshness／cache age／
+schema drift，以及 execution → same-trace executions → Core snapshot／Mart report lineage。
+
+本機驗證：targeted pytest **57 passed**、Vitest **20 passed**、TypeScript、ESLint、四個
+GCP shell scripts 的 `bash -n` 與 `git diff --check` 通過；Flutter SDK 不在本機環境，未以
+本機替代 Flutter acceptance。GCP dev `security-finops-dev.sh verify` 通過 IAM、secrets、
+無 user-managed key、network、Cloud Run scaling、GCS lifecycle、Artifact cleanup、禁止
+scanning API、PostgreSQL private IP／IAP、無 snapshot 與 320 TWD budget guard。
+
+既有 dev 設定已套用，並由 Cloud Build 建置／部署 `janus-private-pipeline`、`janus-api`、
+`janus-ingestion-core`、`janus-intelligence-mart`，共用 tag `wbs7-20260913`；API revision
+為 `janus-api-00073-bv9`，後續 security configure revision 為 `janus-api-00074-xxj`。
+Cloud Build public API runtime acceptance `1d1ec15c-280b-48ec-afe7-ac8a6b007737` SUCCESS，
+驗證 health、404、waiting／publishable、401 boundary 與 redaction forbidden fields。
+FinOps budget ID 為 `3a2b9ce0-e903-4094-8ce5-179760eb23e7`。完整 GCP report 的 GCS size
+query 以 bounded timeout 保護；實際 billed spend 仍以 Cloud Billing 為準。
+
 ## Sol API policy closeout（2026-09-13）
 
 Public policy slice 已完成並部署既有 GCP dev `janus-api`；最終 revision

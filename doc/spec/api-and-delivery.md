@@ -67,6 +67,15 @@
 | Secret | Secret Manager，依三個 workload bundle 對 runtime identity 授權 |
 | IaC | GitHub Actions／gcloud idempotent scripts；production apply 需人工批准 |
 
+API request telemetry contains only router family、method、status、duration、
+server-generated request ID；query、body、token 與 object URI 不進 log。Ingestion／
+Mart Job completion records contain execution／trace ID、duration、retry and publication
+counts plus bounded error taxonomy. Admin execution details expose the shared trace、
+related persisted executions、Core snapshot ID and Mart publication state, allowing an
+operator to trace UI → Job → Core → Mart without exposing raw payload or storage credentials。
+Source health shows latest expected／received coverage、freshness、cache age and schema drift;
+core-focus gap remains aggregate-only and never exposes user-to-symbol membership。
+
 ### 13.1 Dev PostgreSQL VM
 
 - 使用 Compute Engine `e2-micro`，只承載 control plane、Iceberg catalog、publication index、audit metadata 與低流量私人交易 ledger；GCS／Iceberg 不搬到 VM。

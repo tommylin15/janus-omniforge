@@ -8,6 +8,7 @@ from hashlib import sha256
 import json
 import os
 import sys
+from time import monotonic
 from uuid import uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -211,7 +212,7 @@ def _requested_dates(*, today: date, holidays: set[date], single: str = "", star
 
 def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] | None = None,
                   config_id: str | None = None, request_options: dict[str, object] | None = None,
-                  control: object | None = None) -> dict[str, object]:
+                  control: object | None = None, trace_id: str | None = None) -> dict[str, object]:
     bucket = os.environ.get("STAGE_BUCKET", "").strip()
     core_bucket = os.environ.get("CORE_BUCKET", "").strip()
     if not bucket:
@@ -259,6 +260,7 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
         end=str(options.get("end_date", os.environ.get("BACKFILL_END_DATE", ""))))))
     persisted_execution = execution_id is not None
     execution_id = execution_id or str(uuid4())
+    trace_id = trace_id or str(uuid4())
     store = GcsObjectStore(bucket)
     stage_writer = StageWriter(store)
     core = _iceberg_core(core_bucket)
@@ -295,7 +297,7 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                     continue
                 request = CollectionRequest(
                     execution_id=execution_id,
-                    trace_id=str(uuid4()),
+                    trace_id=trace_id,
                     source_id=adapter.source_id,
                     dataset_id=adapter.dataset_id,
                     market="TPEX" if adapter.source_id in {"tpex", "tpex-benchmark"} else "TWSE",
@@ -348,7 +350,7 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                         control.save_item(ExecutionItem(execution_id, item_key, adapter.source_id, adapter.dataset_id,
                                                        state, len(response.rows), 0, False, key == "finmind", None, "Core committed"))
                 except Exception as error:
-                    failures.append({"dataset": key, "date": as_of.isoformat(), "error": type(error).__name__, "message": str(error)[:120]})
+                    failures.append({"dataset": key, "date": as_of.isoformat(), "error": type(error).__name__, "message": "source collection failed"})
                     control.record_health(
                         adapter.source_id, adapter.dataset_id, state=DataState.FAILED, latency_ms=0,
                         fetched_at=datetime.now(timezone.utc), expected_symbols=len(requested_symbols), received_symbols=0,
@@ -376,6 +378,7 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
     summary: dict[str, object] = {
         "component": "ingestion-core",
         "execution_id": execution_id,
+        "trace_id": trace_id,
         "as_of": dates[-1].isoformat(),
         "dates": [item.isoformat() for item in dates],
         "symbols": list(symbols),
@@ -438,7 +441,8 @@ def consume_queued_collection() -> dict[str, object]:
             return {"component": "ingestion-core", "status": "idle", "claimed": False}
         try:
             summary = collect_stage(execution_id=execution.execution_id, symbols=execution.requested_symbols,
-                                    config_id=execution.config_id, request_options=execution.request_options, control=control)
+                                    config_id=execution.config_id, request_options=execution.request_options,
+                                    control=control, trace_id=execution.trace_id)
             _, analysis = control.complete_collection(execution.execution_id, summary.get("ready_event"))
             return {**summary, "status": "succeeded", "claimed": True,
                     "analysis_execution_id": analysis.execution_id if analysis else None,
@@ -461,7 +465,8 @@ def run_scheduled_collection() -> dict[str, object]:
         control.transition_execution(execution.execution_id, ExecutionStatus.RUNNING)
         try:
             summary = collect_stage(execution_id=execution.execution_id, symbols=execution.requested_symbols,
-                                    config_id=config_id, request_options=execution.request_options, control=control)
+                                    config_id=config_id, request_options=execution.request_options,
+                                    control=control, trace_id=execution.trace_id)
             _, analysis = control.complete_collection(execution.execution_id, summary.get("ready_event"))
             return {**summary, "status": "succeeded", "scheduled": True,
                     "analysis_execution_id": analysis.execution_id if analysis else None,
@@ -472,11 +477,16 @@ def run_scheduled_collection() -> dict[str, object]:
 
 
 def main() -> None:
+    started = monotonic()
     try:
         operation = consume_queued_collection if os.environ.get("QUEUE_CONSUMER", "false").lower() in {"1", "true", "yes"} else run_scheduled_collection
-        print(json.dumps(operation(), ensure_ascii=False, sort_keys=True))
+        result = operation()
+        result["duration_ms"] = round((monotonic() - started) * 1000)
+        print(json.dumps(result, ensure_ascii=False, sort_keys=True))
     except Exception as error:
-        print(json.dumps({"component": "ingestion-core", "status": "failed", "error": str(error)}, ensure_ascii=False, sort_keys=True), file=sys.stderr)
+        print(json.dumps({"component": "ingestion-core", "status": "failed",
+                          "error_code": type(error).__name__.upper()[:64],
+                          "duration_ms": round((monotonic() - started) * 1000)}, sort_keys=True), file=sys.stderr)
         raise SystemExit(1) from error
 
 

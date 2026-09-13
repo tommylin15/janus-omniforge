@@ -49,14 +49,16 @@ class SafeError(RuntimeError):
 
 
 _SECRET = re.compile(r"(?i)(password|passwd|secret|token|api[-_]?key|authorization)\s*[=:]\s*[^\s,;]+")
-_URL_QUERY = re.compile(r"([?&](?:key|token|secret|password|signature|sig)=[^&\s]+)", re.I)
+_URL_QUERY = re.compile(r"([?&][^=&\s]+)=[^&\s]+")
+_OBJECT_URI = re.compile(r"\b(?:gs|s3)://[^\s,;]+", re.I)
 
 
 def redact(value: Any) -> str:
     """Return a short, non-sensitive diagnostic string."""
     text = str(value).replace("\r", " ").replace("\n", " ")
     text = _SECRET.sub(lambda match: f"{match.group(1)}=<redacted>", text)
-    text = _URL_QUERY.sub(lambda match: match.group(1).split("=", 1)[0] + "=<redacted>", text)
+    text = _URL_QUERY.sub(lambda match: match.group(1) + "=<redacted>", text)
+    text = _OBJECT_URI.sub("<redacted-uri>", text)
     return text[:240]
 
 

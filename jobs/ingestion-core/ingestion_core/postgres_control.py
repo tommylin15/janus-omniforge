@@ -281,6 +281,16 @@ class PostgreSQLControlPlane:
             cur.execute(f"SELECT execution_id,trace_id,config_id,trigger_type,status,requested_symbols,requested_at,started_at,finished_at,retry_count,error_code,request_options FROM control.executions {clause} ORDER BY requested_at DESC, execution_id DESC LIMIT %s", parameters)
             return tuple(self._execution(row) for row in cur.fetchall())
 
+    def list_executions_by_trace(self, trace_id: str, *, limit: int = 20) -> tuple[Execution, ...]:
+        if not trace_id.strip() or not 1 <= limit <= 50:
+            raise ValueError("trace_id and limit 1..50 are required")
+        with self.connection.cursor() as cur:
+            cur.execute(
+                "SELECT execution_id,trace_id,config_id,trigger_type,status,requested_symbols,requested_at,started_at,finished_at,retry_count,error_code,request_options FROM control.executions WHERE trace_id=%s ORDER BY requested_at,execution_id LIMIT %s",
+                (trace_id, limit),
+            )
+            return tuple(self._execution(row) for row in cur.fetchall())
+
     @staticmethod
     def _execution(row: Any) -> Execution:
         return Execution(str(row[0]), str(row[1]), row[2], TriggerType(row[3]), ExecutionStatus(row[4]), tuple(row[5]), row[6], row[7], row[8], row[9], row[10], row[11])
@@ -299,7 +309,7 @@ class PostgreSQLControlPlane:
                   "completeness","confidence","data_quality","analysis_outcome","publication_status","created_at","ready_at")
         clauses, values = [], []
         for field, value in filters.items():
-            if field not in {"analysis_as_of","scope_type","scope_id","prompt_version","analysis_outcome","publication_status"}:
+            if field not in {"execution_id","analysis_as_of","scope_type","scope_id","prompt_version","analysis_outcome","publication_status"}:
                 raise ValueError("invalid Mart report filter")
             clauses.append(f"{field}=%s")
             values.append(value)
@@ -446,7 +456,7 @@ class PostgreSQLControlPlane:
         success = state in {DataState.SUCCESS, DataState.FALLBACK, DataState.PARTIAL}
         with self._tx() as cur:
             cur.execute("""INSERT INTO control.source_health(source_id,dataset_id,success_count,failure_count,total_latency_ms,last_fetched_at,latest_observation_at,last_state,expected_symbols,received_symbols,cache_hits,fallback_count,schema_drift_count,coverage_tier,last_cache_age_seconds) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                ON CONFLICT(source_id,dataset_id) DO UPDATE SET success_count=control.source_health.success_count+EXCLUDED.success_count,failure_count=control.source_health.failure_count+EXCLUDED.failure_count,total_latency_ms=control.source_health.total_latency_ms+EXCLUDED.total_latency_ms,last_fetched_at=EXCLUDED.last_fetched_at,latest_observation_at=COALESCE(EXCLUDED.latest_observation_at,control.source_health.latest_observation_at),last_state=EXCLUDED.last_state,expected_symbols=GREATEST(control.source_health.expected_symbols,EXCLUDED.expected_symbols),received_symbols=control.source_health.received_symbols+EXCLUDED.received_symbols,cache_hits=control.source_health.cache_hits+EXCLUDED.cache_hits,fallback_count=control.source_health.fallback_count+EXCLUDED.fallback_count,schema_drift_count=control.source_health.schema_drift_count+EXCLUDED.schema_drift_count,coverage_tier=EXCLUDED.coverage_tier,last_cache_age_seconds=EXCLUDED.last_cache_age_seconds""", (source_id,dataset_id,int(success),int(not success),latency_ms,fetched_at,latest_observation_at,state.value,expected_symbols,received_symbols,int(cache_hit),int(state == DataState.FALLBACK),int(state == DataState.SCHEMA_DRIFT),coverage_tier,cache_age_seconds))
+                ON CONFLICT(source_id,dataset_id) DO UPDATE SET success_count=control.source_health.success_count+EXCLUDED.success_count,failure_count=control.source_health.failure_count+EXCLUDED.failure_count,total_latency_ms=control.source_health.total_latency_ms+EXCLUDED.total_latency_ms,last_fetched_at=EXCLUDED.last_fetched_at,latest_observation_at=COALESCE(EXCLUDED.latest_observation_at,control.source_health.latest_observation_at),last_state=EXCLUDED.last_state,expected_symbols=EXCLUDED.expected_symbols,received_symbols=EXCLUDED.received_symbols,cache_hits=control.source_health.cache_hits+EXCLUDED.cache_hits,fallback_count=control.source_health.fallback_count+EXCLUDED.fallback_count,schema_drift_count=control.source_health.schema_drift_count+EXCLUDED.schema_drift_count,coverage_tier=EXCLUDED.coverage_tier,last_cache_age_seconds=EXCLUDED.last_cache_age_seconds""", (source_id,dataset_id,int(success),int(not success),latency_ms,fetched_at,latest_observation_at,state.value,expected_symbols,received_symbols,int(cache_hit),int(state == DataState.FALLBACK),int(state == DataState.SCHEMA_DRIFT),coverage_tier,cache_age_seconds))
 
     def source_health(self, source_id: str, dataset_id: str) -> dict[str, Any] | None:
         with self.connection.cursor() as cur:

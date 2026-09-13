@@ -388,7 +388,7 @@ async function openExecution(id, opener) {
     const execution = await request(`/api/v1/admin/executions/${encodeURIComponent(id)}`);
     const content = byId("dialog-content"); content.replaceChildren();
     const list = document.createElement("dl"); list.className = "detail-grid";
-    [["Execution ID", execution.execution_id], ["狀態", execution.status], ["類型", execution.trigger_type], ["設定", execution.config_id], ["要求時間", formatDate(execution.requested_at)], ["完成時間", formatDate(execution.finished_at)]].forEach(([term, value]) => { const wrap = document.createElement("div"); wrap.append(node("dt", term), node("dd", value)); list.append(wrap); });
+    [["Execution ID", execution.execution_id], ["Trace ID", execution.trace_id], ["狀態", execution.status], ["類型", execution.trigger_type], ["設定", execution.config_id], ["要求時間", formatDate(execution.requested_at)], ["完成時間", formatDate(execution.finished_at)]].forEach(([term, value]) => { const wrap = document.createElement("div"); wrap.append(node("dt", term), node("dd", value)); list.append(wrap); });
     content.append(list, node("h3", "工作項目"));
     const wrap = node("div", null, "table-wrap"); const table = document.createElement("table"); table.id = "execution-items-table";
     table.innerHTML = "<thead><tr><th>來源</th><th>資料集</th><th>狀態</th><th class=\"numeric\">Processed</th><th class=\"numeric\">Success</th><th class=\"numeric\">Failure</th><th class=\"numeric\">Retry</th><th>Stage</th><th>Core commit</th><th>Safe message</th></tr></thead>";
@@ -405,6 +405,16 @@ async function openExecution(id, opener) {
     });
     if (!execution.items?.length) body.append(rowMessage("尚無工作項目", 10));
     table.append(body); wrap.append(table); content.append(wrap);
+    const lineage = execution.lineage || { executions: [], reports: [] };
+    content.append(node("h3", "執行鏈"));
+    const chain = document.createElement("ul");
+    (lineage.executions || []).forEach((item) => chain.append(node("li", `${item.trigger_type} · ${item.execution_id} · ${item.status}`)));
+    if (!chain.children.length) chain.append(node("li", "尚無關聯 execution"));
+    content.append(chain, node("h3", "Mart reports"));
+    const reports = document.createElement("ul");
+    (lineage.reports || []).forEach((item) => reports.append(node("li", `${item.scope_type}:${item.scope_id} · Core ${item.core_snapshot_id} · ${item.publication_status}`)));
+    if (!reports.children.length) reports.append(node("li", "尚無 Mart report"));
+    content.append(reports);
     const dialog = byId("execution-dialog"); dialogOpeners.set(dialog, opener); dialog.showModal(); byId("close-dialog").focus();
   } catch (error) { showNotice(error.message, true); }
 }
@@ -417,14 +427,19 @@ async function loadSources() {
     const data = await request(`/api/v1/admin/source-health?${params}`);
     state.sourceNext = data.next_cursor;
     body.replaceChildren();
-    if (!data.items.length) body.append(rowMessage("尚無 persisted telemetry", 6));
+    if (!data.items.length) body.append(rowMessage("尚無 persisted telemetry", 11));
     let healthy = 0;
     data.items.forEach((source) => {
       const rate = typeof source.success_rate === "number" ? Math.round(source.success_rate * 100) : null;
       if (["success", "fallback", "partial"].includes(source.last_state)) healthy += 1;
       const status = document.createElement("td"); status.append(statusBadge(source.last_state));
+      const expected = Number(source.expected_symbols || 0); const received = Number(source.received_symbols || 0);
+      const gap = source.coverage_tier === "core_focus" ? Math.max(0, expected - received) : 0;
       const row = document.createElement("tr"); row.append(node("td", source.source_id || "—"), node("td", source.dataset_id || "—"), status,
-        node("td", rate === null ? "—" : `${rate}%`, "numeric"), node("td", formatDate(source.last_fetched_at)), node("td", source.coverage_tier || "—")); body.append(row);
+        node("td", rate === null ? "—" : `${rate}%`, "numeric"), node("td", `${expected}/${received}`, "numeric"),
+        node("td", gap, "numeric"), node("td", formatDate(source.last_fetched_at)), node("td", formatDate(source.latest_observation_at)),
+        node("td", source.cache_age_seconds == null ? "—" : `${Math.round(source.cache_age_seconds)}s`, "numeric"),
+        node("td", source.schema_drift_count ?? 0, "numeric"), node("td", source.coverage_tier || "—")); body.append(row);
     });
     byId("source-summary").textContent = data.items.length ? `${healthy}/${data.items.length}` : "—";
     byId("source-page-label").textContent = `第 ${state.sourcePage + 1} 頁`;

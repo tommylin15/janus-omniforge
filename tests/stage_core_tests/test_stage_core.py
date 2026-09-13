@@ -142,10 +142,12 @@ class StageWriterTests(unittest.TestCase):
             def repository():
                 return SQLiteControlPlane(database)
 
-            with patch("ingestion_core.__main__._control_plane", repository), patch("ingestion_core.__main__.collect_stage", return_value={"component": "ingestion-core"}):
+            with patch("ingestion_core.__main__._control_plane", repository), patch("ingestion_core.__main__.collect_stage", return_value={"component": "ingestion-core"}) as collect:
                 self.assertEqual(run_scheduled_collection()["status"], "succeeded")
             control = SQLiteControlPlane(database)
-            self.assertEqual(control.list_executions()[0].status, ExecutionStatus.SUCCEEDED)
+            persisted = control.list_executions()[0]
+            self.assertEqual(persisted.status, ExecutionStatus.SUCCEEDED)
+            self.assertEqual(collect.call_args.kwargs["trace_id"], persisted.trace_id)
             control.put_admin_setting("schedule", {"time": "08:00", "enabled": False}, actor="operator")
             control.close()
             with patch("ingestion_core.__main__._control_plane", repository):

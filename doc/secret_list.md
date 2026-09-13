@@ -1,6 +1,6 @@
 # GCP Dev Secret Bundle 清單
 
-更新日期：2026-09-12
+更新日期：2026-09-13
 Project：`gen-lang-client-0593591102`  
 Region：`us-central1`
 
@@ -10,7 +10,7 @@ Region：`us-central1`
 
 | Secret | 欄位／格式（不含值） | Consumer | Version | IAM |
 |---|---|---|---|---|
-| `janus-postgres-api-bundle` | API 欄位；`web_*`、`pipeline_*` workload 欄位；含 `web_publication_password` | `janus-api`、`janus-web`、`janus-private-pipeline` | v15 enabled；舊版 preserved／未輸出 payload | 三 runtime `secretAccessor` |
+| `janus-postgres-api-bundle` | API 欄位；`web_*`、`pipeline_*` workload 欄位；含 `web_publication_password` | `janus-api`、`janus-private-pipeline` | v15 enabled；舊版 preserved／未輸出 payload | API／private pipeline `secretAccessor`；legacy `web-runtime` removed |
 | `janus-agent-provider-bundle` | provider／MCP 欄位；`mart_*`、`ingestion_*` workload 欄位 | `janus-agent-gateway`、`janus-intelligence-mart`、`janus-ingestion-core` | v8 enabled；舊版 destroyed | 三 runtime `secretAccessor`；Gateway provider access |
 | `janus-codex-owners-bundle` | 頂層 key 為 allowlisted owner UUID；value 為該 owner 的 Codex `auth.json` object | Agent Gateway | 無 enabled version（尚未建立 auth entry） | Gateway `secretAccessor`、`secretVersionAdder`、`secretVersionManager` |
 
@@ -24,6 +24,10 @@ Region：`us-central1`
 - Codex rotate 採 read-modify-write：建立並驗證新 version 後銷毀舊 version；destroy
   只移除目標 owner entry。Cloud Run 目前 `max-instances=1`，程式以 process lock
   序列化 mutation；提高 instance 數前必須改用 distributed lock／CAS。
+
+WBS-7 dev IAM verify（2026-09-13）確認 `janus-web` service 不存在，
+`janus-postgres-api-bundle` 不再授權 `web-runtime`；API 與 private pipeline 使用
+分離 runtime identity。其他 secret consumers 依表格列示，未擴大 blast radius。
 - 新版 PostgreSQL loader 在遷移期間支援舊欄位 fallback；legacy containers 已刪除後，
   fallback 僅作 rollback compatibility，不應再新增舊欄位。
 

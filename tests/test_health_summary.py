@@ -22,6 +22,17 @@ class SourceHealthSummaryTests(unittest.TestCase):
         self.assertNotIn("payload", summary[0])
         control.close()
 
+    def test_summary_uses_latest_coverage_counts(self):
+        control = SQLiteControlPlane()
+        now = datetime(2026, 8, 28, tzinfo=timezone.utc)
+        control.record_health("twse", "ohlcv", state=DataState.SUCCESS, latency_ms=1,
+                              fetched_at=now, expected_symbols=100, received_symbols=90)
+        control.record_health("twse", "ohlcv", state=DataState.PARTIAL, latency_ms=1,
+                              fetched_at=now, expected_symbols=100, received_symbols=80)
+        summary = control.source_health_summary()[0]
+        self.assertEqual((summary["expected_symbols"], summary["received_symbols"]), (100, 80))
+        control.close()
+
 
 if __name__ == "__main__":
     unittest.main()

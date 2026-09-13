@@ -48,3 +48,21 @@ Both `janusai-poc` and `janus-postgres` apply
 `infra/artifact-registry-cleanup-policy.json`: each image package keeps only its
 most recent version, while older tagged and untagged versions are eligible for
 deletion after one second. Cleanup dry-run is disabled.
+
+## WBS-7 dev security and FinOps guard
+
+`scripts/gcp/security-finops-dev.sh` is the single operator entry point:
+
+- `configure` applies least-privilege runtime identities, bounded Cloud Run
+  scaling, bucket lifecycle rules, and one 320 TWD project budget (the approved
+  US$10 equivalent for this TWD billing account) with 10%／50%／100% current-spend
+  thresholds. It requires `ALLOW_DEV_SECURITY_FINOPS=true`.
+- `verify` checks service-account separation, absence of user-managed keys,
+  Secret Manager consumers, prohibited APIs, private PostgreSQL／IAP topology,
+  Cloud Run limits, GCS lifecycle, Artifact Registry cleanup, and budget rules.
+- `report` prints a bounded monthly resource-exposure report without secret
+  values or raw payloads.
+
+The Free Tier dev path intentionally verifies that no persistent-disk snapshot
+exists. It does not create a snapshot, backup, HA, replica, or paid BigQuery
+billing export; those require separate cost approval.

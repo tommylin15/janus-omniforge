@@ -10,9 +10,10 @@ from packages.observability import PostgresHealthCollector, redact
 
 class ObservabilityTests(unittest.TestCase):
     def test_redaction_removes_secrets_and_url_credentials(self):
-        value = redact("password=hunter2 https://example.test/x?token=abc&x=1")
+        value = redact("password=hunter2 https://example.test/x?token=abc&x=1 gs://private/user.json")
         self.assertNotIn("hunter2", value)
         self.assertNotIn("abc", value)
+        self.assertNotIn("private/user.json", value)
         self.assertIn("<redacted>", value)
 
     def test_postgres_snapshot_is_bounded_and_aggregate_only(self):

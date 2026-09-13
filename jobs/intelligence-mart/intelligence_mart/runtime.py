@@ -111,7 +111,10 @@ def consume_queued_analysis(queue: PostgreSQLAnalysisQueue, processor: Callable[
             raise ValueError("analysis processor must persist an artifact for the claimed Core snapshot")
         queue.transition(execution.execution_id, worker_id, "succeeded", retry_count=execution.retry_count)
         return {"component": "intelligence-mart", "status": "succeeded", "claimed": True,
-                "execution_id": execution.execution_id, "artifact_uri": artifact_uri}
+                "execution_id": execution.execution_id, "retry_count": execution.retry_count,
+                "artifact_uri": artifact_uri,
+                "reports": int(result.get("reports", 0)),
+                "publishable": int(result.get("publishable", 0))}
     except Exception as error:
         retry_count = execution.retry_count + 1
         status = "retrying" if retry_count <= max_retries else "failed"

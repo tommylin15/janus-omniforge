@@ -171,10 +171,11 @@ class MartRuntimeTests(unittest.TestCase):
         result = consume_queued_analysis(
             queue,
             lambda _: {"artifact_uri": "gs://mart/execution-1/report.json",
-                       "core_snapshot_id": "snapshot-1"},
+                       "core_snapshot_id": "snapshot-1", "reports": 3, "publishable": 2},
             worker_id="mart-1",
         )
-        self.assertEqual(result["status"], "succeeded")
+        self.assertEqual((result["status"], result["retry_count"], result["reports"], result["publishable"]),
+                         ("succeeded", 0, 3, 2))
         self.assertEqual(queue.transitions[0][0][2], "succeeded")
 
     def test_deterministic_processor_reads_fenced_core_and_writes_input_artifact(self):

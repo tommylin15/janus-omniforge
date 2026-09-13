@@ -164,6 +164,7 @@ def test_admin_audit_policy_never_logs_token_query_or_body(caplog) -> None:
     assert response.status_code == 200
     assert response.headers["x-request-id"]
     assert "api_audit family=admin method=GET status=200" in caplog.text
+    assert "api_request family=admin method=GET status=200 duration_ms=" in caplog.text
     assert "query-secret" not in caplog.text
     assert "bearer-secret" not in caplog.text
 

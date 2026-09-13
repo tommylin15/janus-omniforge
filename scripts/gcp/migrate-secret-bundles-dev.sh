@@ -97,7 +97,7 @@ PY
 )"
       [[ -z "${owner_keys}" ]] || replace_bundle "${owner_bundle}" "${tmp}/owners-merged.json" "${owner_keys}"
     fi
-    for member in janus-user-api web-runtime janus-private-pipeline; do
+    for member in janus-user-api janus-private-pipeline; do
       gcloud secrets add-iam-policy-binding "${api_bundle}" --project="${project}" --member="serviceAccount:${member}@${project}.iam.gserviceaccount.com" --role=roles/secretmanager.secretAccessor --quiet >/dev/null
     done
     for member in janus-agent-gateway ingestion-core intelligence-mart; do

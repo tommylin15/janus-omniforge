@@ -29,6 +29,7 @@ const execution = {
   status: "queued", trigger_type: "collection", config_id: "ohlcv", retry_count: 0,
   requested_at: "2026-08-31T08:00:00+00:00", finished_at: null,
   items: [{ source_id: "twse", dataset_id: "ohlcv", state: "success", rows_received: 2, retry_count: 0, cache_hit: false, safe_message: "completed" }],
+  lineage: { trace_id: "trace-1", executions: [{ execution_id: "00000000-0000-0000-0000-000000000001", trigger_type: "collection", status: "queued" }], reports: [] },
 };
 
 async function mockAdmin(page, { candidate = false, references = null, onDelete = () => {} } = {}) {
@@ -144,6 +145,7 @@ test("execution row opens details by keyboard and restores focus", async ({ page
   await page.keyboard.press("Enter");
   await expect(page.getByRole("dialog", { name: "執行明細" })).toBeVisible();
   await expect(page.locator("#execution-items-table")).toContainText("completed");
+  await expect(page.getByRole("dialog", { name: "執行明細" })).toContainText("trace-1");
   await page.getByRole("button", { name: "關閉明細" }).click();
   await expect(row).toBeFocused();
   await row.click();

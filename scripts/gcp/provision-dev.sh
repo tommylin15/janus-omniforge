@@ -44,6 +44,8 @@ ensure_sa ingestion-core 'Janus ingestion Core runtime'
 ensure_sa postgres-vm 'PostgreSQL VM runtime'
 ensure_sa janus-user-api 'Janus private User API'
 ensure_sa janus-private-pipeline 'Janus private pipeline'
+ensure_sa intelligence-mart 'Janus Intelligence Mart runtime'
+ensure_sa janus-agent-gateway 'Janus Agent Gateway runtime'
 
 for layer in stage core mart private; do
   bucket="${project}-dev-${layer}"
@@ -52,13 +54,13 @@ for layer in stage core mart private; do
       --location="${region}" --uniform-bucket-level-access --public-access-prevention
   fi
   gcloud storage buckets update "gs://${bucket}" \
-    --versioning --public-access-prevention --update-labels="environment=dev,layer=${layer},managed_by=github" \
+    --versioning --public-access-prevention \
+    --lifecycle-file="${repo_root}/infra/private-bucket-lifecycle.json" \
+    --update-labels="environment=dev,layer=${layer},managed_by=github" \
     --quiet
 done
-gcloud storage buckets update "gs://${project}-dev-private" \
-  --lifecycle-file="${repo_root}/infra/private-bucket-lifecycle.json" --quiet
 gcloud storage buckets add-iam-policy-binding "gs://${project}-dev-mart" \
-  --member="serviceAccount:web-runtime@${project}.iam.gserviceaccount.com" \
+  --member="serviceAccount:janus-user-api@${project}.iam.gserviceaccount.com" \
   --role=roles/storage.objectViewer --quiet
 for account in janus-user-api janus-private-pipeline; do
   gcloud storage buckets add-iam-policy-binding "gs://${project}-dev-private" \
