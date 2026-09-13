@@ -8,7 +8,7 @@ const state = {
   executionSort: "requested_at", executionDirection: -1,
   sourcePage: 0, sourceCursors: [null], sourceNext: null,
   catalogPage: 0, catalogCursors: [null], catalogNext: null,
-  editingConfig: null, membershipVersion: 0,
+  editingConfig: null, membershipVersion: 0, governanceVersion: 0,
 };
 const byId = (id) => document.getElementById(id);
 const dialogOpeners = new WeakMap();
@@ -16,7 +16,7 @@ const dialogOpeners = new WeakMap();
 const tabLoaders = {
   stocks: loadStocks, status: () => Promise.resolve(), executions: loadExecutions,
   sources: loadSources, membership: loadMembership, settings: loadSettings,
-  catalog: loadCatalog, mart: loadMart,
+  catalog: loadCatalog, mart: loadMart, governance: loadGovernance,
 };
 
 async function activateTab(name, { focus = false, reload = false } = {}) {
@@ -562,6 +562,74 @@ async function loadMembership() {
   } catch (error) { showNotice(error.message, true); }
 }
 
+function governanceValue() {
+  return {
+    version: byId("governance-policy-version").value.trim(),
+    developmentCompletenessGate: Number(byId("governance-gate").value),
+    roleWeights: Object.fromEntries(["fundamental", "valuation", "positioning", "quant", "event_risk"].map((role) => [role, Number(byId(`governance-weight-${role}`).value)])),
+    blocking: { manualReviewRequired: byId("governance-manual-review").checked, criticalQualityFlag: byId("governance-critical-quality").checked, highRiskScoreAtLeast: Number(byId("governance-high-risk").value) },
+    deterministicConstants: { status: byId("governance-constant-status").value, approved: byId("governance-approved").checked, values: { highRiskScoreThreshold: Number(byId("governance-constant-risk").value), largeMovePercent: Number(byId("governance-constant-move").value), completenessGatePercent: Number(byId("governance-constant-gate").value) } },
+  };
+}
+
+function fillGovernance(value) {
+  byId("governance-policy-version").value = value.version;
+  byId("governance-gate").value = value.developmentCompletenessGate;
+  Object.entries(value.roleWeights).forEach(([role, weight]) => { byId(`governance-weight-${role}`).value = weight; });
+  byId("governance-manual-review").checked = value.blocking.manualReviewRequired;
+  byId("governance-critical-quality").checked = value.blocking.criticalQualityFlag;
+  byId("governance-high-risk").value = value.blocking.highRiskScoreAtLeast;
+  byId("governance-constant-status").value = value.deterministicConstants.status;
+  byId("governance-approved").checked = value.deterministicConstants.approved;
+  byId("governance-constant-risk").value = value.deterministicConstants.values.highRiskScoreThreshold;
+  byId("governance-constant-move").value = value.deterministicConstants.values.largeMovePercent;
+  byId("governance-constant-gate").value = value.deterministicConstants.values.completenessGatePercent;
+}
+
+function renderGovernanceHistory(items) {
+  const body = byId("governance-history"); body.replaceChildren();
+  if (!items.length) return body.append(node("p", "尚無已提交版本", "empty"));
+  items.forEach((item) => {
+    const card = document.createElement("article"); card.className = "card";
+    card.append(node("strong", `v${item.detail?.version ?? "?"} · ${item.detail?.status || "pending"}`), node("small", `${item.actor} · ${formatDate(item.created_at)}`));
+    card.append(node("p", item.detail?.reason || "—"));
+    const changes = item.detail?.changes || [];
+    card.append(node("small", `${changes.length} 項變更`));
+    body.append(card);
+  });
+}
+
+async function loadGovernance() {
+  try {
+    const [current, history] = await Promise.all([request("/api/v1/admin/governance/policy"), request("/api/v1/admin/governance/policy/history")]);
+    state.governanceVersion = current.version; fillGovernance(current);
+    byId("governance-status").value = current.status;
+    byId("governance-version").value = current.version;
+    byId("governance-state").textContent = `${current.status} · v${current.version}`;
+    renderGovernanceHistory(history.items);
+  } catch (error) { showNotice(error.message, true); }
+}
+
+async function previewGovernance() {
+  try {
+    const diff = await request("/api/v1/admin/governance/policy/diff", { method: "POST", body: JSON.stringify({ value: governanceValue() }) });
+    byId("governance-diff").textContent = diff.changes.length
+      ? diff.changes.map((change) => `${change.path}: ${JSON.stringify(change.before)} → ${JSON.stringify(change.after)}`).join("\n")
+      : "沒有變更";
+  } catch (error) { showNotice(error.message, true); }
+}
+
+async function saveGovernance(event) {
+  event.preventDefault();
+  try {
+    const saved = await request("/api/v1/admin/governance/policy", { method: "PUT", body: JSON.stringify({ value: governanceValue(), status: byId("governance-status").value, reason: byId("governance-reason").value.trim(), expected_version: state.governanceVersion }) });
+    state.governanceVersion = saved.version; byId("governance-version").value = saved.version;
+    byId("governance-state").textContent = `${saved.status} · v${saved.version}`;
+    byId("governance-reason").value = ""; byId("governance-diff").textContent = "已儲存新版本";
+    showNotice(`Governance v${saved.version} 已儲存`); await loadGovernance();
+  } catch (error) { showNotice(error.message, true); }
+}
+
 async function loadSettings() {
   try {
     const schedule = await request("/api/v1/admin/settings/schedule"); const retention = await request("/api/v1/admin/settings/retention");
@@ -663,6 +731,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   byId("logout").addEventListener("click", logout);
   byId("status-search").addEventListener("submit", (event) => { event.preventDefault(); openStatus(byId("status-symbol").value); });
   byId("membership-form").addEventListener("submit", saveMembership);
+  byId("governance-preview").addEventListener("click", previewGovernance);
+  byId("governance-form").addEventListener("submit", saveGovernance);
   byId("mart-filter").addEventListener("submit", (event) => { event.preventDefault(); loadMart(); });
   byId("add-stock").addEventListener("click", () => openStock());
   byId("stock-form").addEventListener("submit", async (event) => { event.preventDefault(); const dialog = byId("stock-dialog"); try { await request("/api/v1/admin/stocks", { method: "PUT", body: JSON.stringify({ symbol: byId("stock-symbol").value, name: byId("stock-name").value, market: byId("stock-market").value, listing_status: byId("stock-listing").value, enabled: byId("stock-enabled").checked }) }); dialog.close(); showNotice("股票資料已儲存"); await loadStocks(); } catch (error) { showNotice(error.message, true); } });

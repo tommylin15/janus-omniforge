@@ -32,9 +32,11 @@ configure() {
       --lifecycle-file="${repo_root}/infra/private-bucket-lifecycle.json" --quiet
   done
 
-  gcloud storage buckets add-iam-policy-binding "gs://${project}-dev-mart" --project="${project}" \
-    --member="serviceAccount:janus-user-api@${project}.iam.gserviceaccount.com" \
-    --role=roles/storage.objectViewer --quiet >/dev/null
+  for account in janus-user-api janus-private-pipeline; do
+    gcloud storage buckets add-iam-policy-binding "gs://${project}-dev-mart" --project="${project}" \
+      --member="serviceAccount:${account}@${project}.iam.gserviceaccount.com" \
+      --role=roles/storage.objectViewer --quiet >/dev/null
+  done
   gcloud storage buckets remove-iam-policy-binding "gs://${project}-dev-mart" --project="${project}" \
     --member="serviceAccount:web-runtime@${project}.iam.gserviceaccount.com" \
     --role=roles/storage.objectViewer --quiet >/dev/null 2>&1 || true

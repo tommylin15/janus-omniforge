@@ -132,6 +132,10 @@ class MartPipelineTests(unittest.TestCase):
                 self.assertEqual(table.metadata.format_version, 2)
                 self.assertIn("payload_json", {field.name for field in table.schema().fields})
                 self.assertEqual(len(table.scan().to_arrow()), 1)
+                screening=catalog.load_table("mart.mart_screening_signals_v1").scan().to_arrow().to_pylist()
+                self.assertEqual(len(screening),1)
+                self.assertEqual(set(json.loads(screening[0]["payload_json"])),
+                                 {"breakout_20d","volume_ratio_20d","liquidity_turnover_20d","return_anomaly"})
         finally:
             store.close()
             catalog.engine.dispose()

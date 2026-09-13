@@ -17,7 +17,7 @@ USER_ID=UUID("00000000-0000-0000-0000-000000000001")
 
 
 class Repository:
-    def __init__(self): self.calls=[]; self.emails=[]; self.mcp=[]
+    def __init__(self): self.calls=[]; self.emails=[]; self.mcp=[]; self.profile={"risk_tolerance":None,"investment_horizon":None,"primary_goal":None,"minimum_cash_ratio":None,"ai_context_opt_in":False,"version":0,"updated_at":None}
     def resolve_user(self,sub,email): self.emails.append((sub,email)); return USER_ID
     def require_owned_trade(self,user_id,event_id): self.calls.append(("ownership",user_id,event_id))
     def add_ledger(self,user_id,value,key): self.calls.append((user_id,value,key)); return {"user_id":user_id,"event_type":value.event_type,"ledger_version":1}
@@ -32,13 +32,28 @@ class Repository:
     def replace_mcp_servers(self,user_id,items):
         self.mcp=[item.model_dump() for item in items]
         return self.mcp_servers(user_id)
+    def investment_profile(self,user_id): return self.profile
+    def save_investment_profile(self,user_id,value,key):
+        self.calls.append((user_id,value,key))
+        self.profile={**value.model_dump(exclude={"expected_version"}),"version":value.expected_version+1,"updated_at":"2026-09-13T00:00:00Z"}
+        return self.profile
 
 
 class Store:
-    def __init__(self): self.writes=[]; self.contexts={}
+    def __init__(self): self.writes=[]; self.contexts={}; self.upserts=[]; self.mart_calls=[]
+    def upsert(self,table,rows): self.upserts.append((table,rows))
     def write_note(self,**value): self.writes.append(value); return "private.note_revisions/n/1"
     def read_notes(self,user_id,indexes): return [{**indexes[0],"body":"private"}]
-    def mart(self,table,user_id,**filters): return [{"user_id":str(user_id),"table":table,"valuation_date":"2026-09-05","artifact_ref":"private/hidden",**filters}]
+    def mart(self,table,user_id,**filters):
+        self.mart_calls.append((table,user_id,filters))
+        common={"user_id":str(user_id),"ledger_version":1,"valuation_date":"2026-09-05"}
+        rows={
+          "mart_user_portfolio_summary":{**common,"currency":"TWD","market_value":"1200","cost_basis":"1000","unrealized_pnl":"200","missing_price_count":0,"cash_safety_status":"insufficient_data","cash_ratio":None,"minimum_cash_ratio":"0.1"},
+          "mart_user_exposure":{**common,"currency":"TWD","industry":"semiconductor","market_value":"1200","portfolio_ratio":"1","allocation_method":"equal_weight_per_membership_v1","symbols":"[\"2330\"]","membership_snapshot":"[]","membership_snapshot_hash":"sha256:"+"0"*64},
+          "mart_user_annual_performance":{**common,"year":filters.get("year",2026),"currency":"TWD","xirr_status":"available","xirr":.1,"cash_flow_count":2,"method":"xirr_actual_365_v1"},
+          "mart_user_stress_tests":{**common,"currency":"TWD","scenario_id":"broad_market_down_20","shock":"-0.2","portfolio_value_before":"1200","portfolio_value_after":"960","loss":"-240","cash_safety_status":"insufficient_data","cash_ratio":None,"minimum_cash_ratio":"0.1","valuation_status":"available","method":"deterministic_parallel_shock_v1"},
+        }
+        return [rows.get(table,{**common,"table":table,"artifact_ref":"private/hidden",**filters})]
     def write_context_snapshot(self,**value): self.contexts[(str(value["user_id"]),value["context_id"])]=value; return "private.context/hidden"
     def read_context_snapshot(self,user_id,context_id): return self.contexts.get((str(user_id),context_id))
 
@@ -193,6 +208,32 @@ def test_identity_cannot_be_supplied_by_client_and_routes_scope_to_authenticated
     assert repo.calls[0][0]==USER_ID
 
 
+def test_investment_profile_and_portfolio_routes_are_typed_and_owner_scoped():
+    api,repo,store=client()
+    empty=api.get("/api/v1/me/investment-profile",headers=auth())
+    assert empty.json()["version"]==0
+    payload={"risk_tolerance":"moderate","investment_horizon":"long","primary_goal":"growth",
+             "minimum_cash_ratio":"0.15","ai_context_opt_in":True,"expected_version":0}
+    saved=api.put("/api/v1/me/investment-profile",headers={**auth(),"Idempotency-Key":"profile-1"},json=payload)
+    assert saved.status_code==200 and saved.json()["version"]==1
+    assert repo.calls[-1][0]==USER_ID
+    assert store.upserts[0][0]=="investment_profile_revisions" and store.upserts[0][1][0]["user_id"]==USER_ID
+    for path,table in (("summary","mart_user_portfolio_summary"),("exposure","mart_user_exposure"),
+                       ("performance?year=2026","mart_user_annual_performance"),("stress-tests","mart_user_stress_tests")):
+        result=api.get(f"/api/v1/me/portfolio/{path}",headers=auth())
+        assert result.status_code==200 and len(result.json()["items"])==1
+        assert store.mart_calls[-1][0:2]==(table,USER_ID)
+        assert "user_id" not in result.json()["items"][0] and "artifact_ref" not in result.json()["items"][0]
+
+
+def test_investment_profile_rejects_unknown_fields_and_unbounded_cash_ratio():
+    api,_,_=client()
+    base={"risk_tolerance":"moderate","investment_horizon":"long","primary_goal":"growth",
+          "minimum_cash_ratio":"0.15","ai_context_opt_in":False,"expected_version":0}
+    for payload in ({**base,"user_id":str(uuid4())},{**base,"minimum_cash_ratio":"1.1"}):
+        assert api.put("/api/v1/me/investment-profile",headers={**auth(),"Idempotency-Key":"profile-2"},json=payload).status_code==422
+
+
 def test_note_body_goes_to_private_store_not_repository_index():
     api,repo,store=client()
     response=api.post("/api/v1/me/notes",headers={**auth(),"Idempotency-Key":"note-key-1"},json={"body":"private"})
@@ -244,6 +285,16 @@ def test_context_preview_is_bounded_opaque_and_owner_thread_bound():
     payload["owner_id"]=str(USER_ID)
     next(iter(store.contexts.values()))["expires_at"]=datetime.now(timezone.utc)-timedelta(seconds=1)
     assert api.post("/internal/v1/assistant/context:resolve",headers=auth(),json=payload).status_code==404
+
+
+def test_investment_profile_context_requires_explicit_opt_in():
+    api,repo,_=client()
+    selector={"selector":{"source_id":"janus-private-mart","resource":"investment-profile","limit":1}}
+    assert api.post("/api/v1/me/chats/thread-a/context-preview",headers=auth(),json=selector).status_code==422
+    repo.profile={"risk_tolerance":"moderate","investment_horizon":"long","primary_goal":"growth",
+                  "minimum_cash_ratio":Decimal("0.1"),"ai_context_opt_in":True,"version":1,"updated_at":None}
+    response=api.post("/api/v1/me/chats/thread-a/context-preview",headers=auth(),json=selector)
+    assert response.status_code==200 and response.json()["preview"][0]["risk_tolerance"]=="moderate"
 
 
 def test_mcp_management_only_accepts_allowlisted_references_and_owner_scoped_grants():
@@ -301,6 +352,15 @@ def test_private_migration_has_decimal_append_only_and_user_leading_guards():
     assert "pg_advisory_xact_lock" in repository and "count(DISTINCT symbol)" in repository
     assert "ledger_events WHERE user_id=%s AND event_id=%s FOR UPDATE" not in repository
     assert "ON CONFLICT(user_id,idempotency_key) DO NOTHING" in repository
+
+
+def test_investment_profile_migration_is_bounded_owner_scoped_and_minimally_granted():
+    sql=(ROOT/"infra/postgres/migrations/024_private_investment_profile.sql").read_text(encoding="utf-8")
+    assert "PRIMARY KEY REFERENCES private.users(user_id)" in sql
+    assert "minimum_cash_ratio BETWEEN 0 AND 1" in sql
+    assert "ai_context_opt_in" in sql and "version integer" in sql
+    assert "GRANT SELECT, INSERT, UPDATE ON private.investment_profiles TO janus_private_api" in sql
+    assert "GRANT SELECT, DELETE ON private.investment_profiles TO janus_private_pipeline" in sql
 
 
 def test_watchlist_demand_history_is_deidentified_append_only_and_quota_bounded():

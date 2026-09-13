@@ -440,7 +440,7 @@ class PostgreSQLControlPlane:
         with self.connection.cursor() as cur:
             cur.execute(f"SELECT source_id,dataset_id,success_count,failure_count,total_latency_ms,last_fetched_at,latest_observation_at,last_state,expected_symbols,received_symbols,cache_hits,fallback_count,schema_drift_count,coverage_tier,last_cache_age_seconds FROM control.source_health{where} ORDER BY source_id,dataset_id LIMIT %s", values)
             rows = cur.fetchall()
-        return tuple({"source_id": r[0], "dataset_id": r[1], "success_rate": r[2] / (r[2] + r[3]) if r[2] + r[3] else 0.0, "average_latency_ms": r[4] / (r[2] + r[3]) if r[2] + r[3] else 0.0, "last_fetched_at": r[5], "latest_observation_at": r[6], "last_state": r[7], "expected_symbols": r[8], "received_symbols": r[9], "cache_hits": r[10], "fallback_count": r[11], "schema_drift_count": r[12], "coverage_tier": r[13], "cache_age_seconds": r[14]} for r in rows)
+        return tuple({"source_id": r[0], "dataset_id": r[1], "success_rate": r[2] / (r[2] + r[3]) if r[2] + r[3] else 0.0, "average_latency_ms": r[4] / (r[2] + r[3]) if r[2] + r[3] else 0.0, "last_fetched_at": r[5], "latest_observation_at": r[6], "last_state": r[7], "expected_symbols": r[8], "received_symbols": r[9], "missing_symbols": max(0,r[8]-r[9]), "cache_hits": r[10], "fallback_count": r[11], "schema_drift_count": r[12], "coverage_tier": r[13], "cache_age_seconds": r[14]} for r in rows)
 
     def get_cursor(self, cursor_key: str) -> Cursor:
         with self.connection.cursor() as cur:
@@ -463,26 +463,44 @@ class PostgreSQLControlPlane:
             cur.execute("SELECT success_count,failure_count,total_latency_ms,last_fetched_at,latest_observation_at,last_state,expected_symbols,received_symbols,cache_hits,fallback_count,schema_drift_count,coverage_tier,last_cache_age_seconds FROM control.source_health WHERE source_id=%s AND dataset_id=%s", (source_id,dataset_id)); r = cur.fetchone()
         if not r: return None
         total = r[0] + r[1]
-        return {"source_id":source_id,"dataset_id":dataset_id,"success_rate":r[0]/total if total else 0.0,"average_latency_ms":r[2]/total if total else 0.0,"last_fetched_at":r[3],"latest_observation_at":r[4],"last_state":r[5],"expected_symbols":r[6],"received_symbols":r[7],"cache_hits":r[8],"fallback_count":r[9],"schema_drift_count":r[10],"coverage_tier":r[11],"cache_age_seconds":r[12]}
+        return {"source_id":source_id,"dataset_id":dataset_id,"success_rate":r[0]/total if total else 0.0,"average_latency_ms":r[2]/total if total else 0.0,"last_fetched_at":r[3],"latest_observation_at":r[4],"last_state":r[5],"expected_symbols":r[6],"received_symbols":r[7],"missing_symbols":max(0,r[6]-r[7]),"cache_hits":r[8],"fallback_count":r[9],"schema_drift_count":r[10],"coverage_tier":r[11],"cache_age_seconds":r[12]}
 
     def get_admin_setting(self, key: str) -> tuple[Any, int] | None:
         with self.connection.cursor() as cur:
             cur.execute("SELECT value_json,version FROM control.admin_settings WHERE setting_key=%s", (key,)); row = cur.fetchone()
         return (row[0], row[1]) if row else None
 
-    def put_admin_setting(self, key: str, value: Any, *, actor: str, expected_version: int | None = None) -> int:
-        current = self.get_admin_setting(key)
-        if current and expected_version is not None and current[1] != expected_version:
-            raise ControlPlaneError("setting has changed; reload before saving")
-        version = current[1] + 1 if current else 1
+    def put_admin_setting(self, key: str, value: Any, *, actor: str, expected_version: int | None = None,
+                          audit_resource: str = "admin_setting", audit_detail: dict[str, Any] | None = None) -> int:
+        if expected_version is not None and (isinstance(expected_version, bool) or expected_version < 0):
+            raise ControlPlaneError("expected version must be non-negative")
+        detail = dict(audit_detail or {})
         with self._tx() as cur:
-            cur.execute("INSERT INTO control.admin_settings(setting_key,value_json,version,updated_at,updated_by) VALUES (%s,%s::jsonb,%s,now(),%s) ON CONFLICT(setting_key) DO UPDATE SET value_json=EXCLUDED.value_json,version=EXCLUDED.version,updated_at=now(),updated_by=EXCLUDED.updated_by", (key, json.dumps(value, ensure_ascii=False), version, actor.strip()))
-            cur.execute("INSERT INTO control.admin_audit(action,resource,resource_key,actor,detail_json,created_at) VALUES ('update','admin_setting',%s,%s,%s::jsonb,now())", (key, actor.strip(), json.dumps({"version": version})))
+            cur.execute(
+                """INSERT INTO control.admin_settings(setting_key,value_json,version,updated_at,updated_by)
+                   VALUES (%s,%s::jsonb,1,now(),%s)
+                   ON CONFLICT(setting_key) DO UPDATE SET value_json=EXCLUDED.value_json,
+                       version=control.admin_settings.version+1,updated_at=now(),updated_by=EXCLUDED.updated_by
+                   WHERE %s IS NULL OR control.admin_settings.version=%s
+                   RETURNING version""",
+                (key, json.dumps(value, ensure_ascii=False), actor.strip(), expected_version, expected_version),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise ControlPlaneError("setting has changed; reload before saving")
+            version = row[0]
+            detail["version"] = version
+            cur.execute("INSERT INTO control.admin_audit(action,resource,resource_key,actor,detail_json,created_at) VALUES ('update',%s,%s,%s,%s::jsonb,now())", (audit_resource, key.removeprefix("governance:"), actor.strip(), json.dumps(detail, ensure_ascii=False)))
         return version
 
     def admin_audit(self, *, limit: int = 50) -> tuple[dict[str, Any], ...]:
         with self.connection.cursor() as cur:
             cur.execute("SELECT action,resource,resource_key,actor,detail_json,created_at FROM control.admin_audit ORDER BY created_at DESC,audit_id DESC LIMIT %s", (limit,)); rows = cur.fetchall()
+        return tuple({"action": r[0], "resource": r[1], "resource_key": r[2], "actor": r[3], "detail": r[4], "created_at": r[5]} for r in rows)
+
+    def governance_history(self, governance_key: str, *, limit: int = 50) -> tuple[dict[str, Any], ...]:
+        with self.connection.cursor() as cur:
+            cur.execute("SELECT action,resource,resource_key,actor,detail_json,created_at FROM control.admin_audit WHERE resource='governance' AND resource_key=%s ORDER BY created_at DESC,audit_id DESC LIMIT %s", (governance_key, limit)); rows = cur.fetchall()
         return tuple({"action": r[0], "resource": r[1], "resource_key": r[2], "actor": r[3], "detail": r[4], "created_at": r[5]} for r in rows)
 
     def put_cache(self, *_: Any, **__: Any) -> None:

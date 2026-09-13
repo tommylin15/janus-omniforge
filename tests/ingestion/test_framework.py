@@ -57,6 +57,16 @@ class FrameworkTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(first.status.value, "succeeded")
         self.assertTrue(self.control.list_items(second.execution_id)[0].cache_hit)
         self.assertEqual(len(second.rows), 2)
+        health=self.control.source_health("twse","ohlcv")
+        self.assertEqual((health["expected_symbols"],health["received_symbols"],health["missing_symbols"]),(2,2,0))
+
+    async def test_market_coverage_counts_unique_symbols_not_rows(self):
+        config=self.config()
+        response=SourceResponse((row("2330"),{**row("2330"),"trade_date":"2026-08-24"}),
+                                observed_at=datetime(2026,8,25,6,tzinfo=UTC))
+        await self.execute(config,{"twse":CallableAdapter("twse",lambda _request:response)})
+        health=self.control.source_health("twse","ohlcv")
+        self.assertEqual((health["expected_symbols"],health["received_symbols"],health["missing_symbols"]),(2,1,1))
 
     async def test_retry_is_bounded_and_persisted(self):
         config = self.config()

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 from typing import Annotated, Any, Literal
@@ -19,6 +19,17 @@ Quantity = Annotated[Decimal, Field(max_digits=20, decimal_places=8, gt=0)]
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+class GovernanceDiffIn(StrictModel):
+    value: dict[str, Any]
+
+
+class GovernanceEditIn(StrictModel):
+    value: dict[str, Any]
+    status: Literal["approved", "development-default", "pending"] = "pending"
+    reason: Annotated[str, Field(min_length=1, max_length=2000)]
+    expected_version: Annotated[int, Field(ge=0)]
 
 
 class CorePageOut(BaseModel):
@@ -140,6 +151,94 @@ class WatchlistIn(StrictModel):
 class WatchlistOrderIn(StrictModel):
     symbols: Annotated[list[str], Field(max_length=50)]
     expected_version: Annotated[int, Field(ge=1)]
+
+
+class InvestmentProfileIn(StrictModel):
+    risk_tolerance: Literal["conservative", "moderate", "aggressive"]
+    investment_horizon: Literal["short", "medium", "long"]
+    primary_goal: Literal["capital_preservation", "income", "growth", "retirement"]
+    minimum_cash_ratio: Annotated[Decimal, Field(ge=0, le=1, max_digits=5, decimal_places=4)]
+    ai_context_opt_in: bool = False
+    expected_version: Annotated[int, Field(ge=0)]
+
+
+class InvestmentProfileOut(BaseModel):
+    risk_tolerance: Literal["conservative", "moderate", "aggressive"] | None = None
+    investment_horizon: Literal["short", "medium", "long"] | None = None
+    primary_goal: Literal["capital_preservation", "income", "growth", "retirement"] | None = None
+    minimum_cash_ratio: Decimal | None = None
+    ai_context_opt_in: bool = False
+    version: int = 0
+    updated_at: datetime | None = None
+
+
+class PortfolioSummaryItem(BaseModel):
+    currency: str
+    market_value: Decimal
+    cost_basis: Decimal
+    unrealized_pnl: Decimal | None
+    missing_price_count: int
+    cash_safety_status: Literal["available", "insufficient_data"]
+    cash_ratio: Decimal | None
+    minimum_cash_ratio: Decimal | None
+    ledger_version: int
+    valuation_date: date
+
+
+class PortfolioSummaryOut(BaseModel):
+    items: list[PortfolioSummaryItem]
+
+
+class PortfolioExposureItem(BaseModel):
+    currency: str
+    industry: str
+    market_value: Decimal
+    portfolio_ratio: Decimal | None
+    allocation_method: Literal["equal_weight_per_membership_v1"]
+    symbols: list[str]
+    membership_snapshot: list[dict[str, Any]]
+    membership_snapshot_hash: str
+    ledger_version: int
+    valuation_date: date
+
+
+class PortfolioExposureOut(BaseModel):
+    items: list[PortfolioExposureItem]
+
+
+class PortfolioPerformanceItem(BaseModel):
+    year: int
+    currency: str
+    xirr_status: Literal["available", "insufficient_data", "no_root", "multiple_roots"]
+    xirr: float | None
+    cash_flow_count: int
+    method: Literal["xirr_actual_365_v1"]
+    ledger_version: int
+    valuation_date: date
+
+
+class PortfolioPerformanceOut(BaseModel):
+    items: list[PortfolioPerformanceItem]
+
+
+class PortfolioStressItem(BaseModel):
+    currency: str
+    scenario_id: Literal["broad_market_down_20", "sector_shock_down_30", "liquidity_shock_down_15"]
+    shock: Decimal
+    portfolio_value_before: Decimal
+    portfolio_value_after: Decimal
+    loss: Decimal
+    cash_safety_status: Literal["available", "insufficient_data"]
+    cash_ratio: Decimal | None
+    minimum_cash_ratio: Decimal | None
+    valuation_status: Literal["available", "partial"]
+    method: Literal["deterministic_parallel_shock_v1"]
+    ledger_version: int
+    valuation_date: date
+
+
+class PortfolioStressOut(BaseModel):
+    items: list[PortfolioStressItem]
 
 
 class ContextSelector(StrictModel):

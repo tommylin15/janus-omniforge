@@ -890,7 +890,7 @@ class SQLiteControlPlane:
         result = []
         for row in rows:
             total = row[2] + row[3]
-            result.append({"source_id": row[0], "dataset_id": row[1], "success_rate": row[2] / total if total else 0.0, "average_latency_ms": row[4] / total if total else 0.0, "last_fetched_at": row[5], "latest_observation_at": row[6], "last_state": row[7], "expected_symbols": row[8], "received_symbols": row[9], "cache_hits": row[10], "fallback_count": row[11], "schema_drift_count": row[12], "coverage_tier": row[13], "cache_age_seconds": row[14]})
+            result.append({"source_id": row[0], "dataset_id": row[1], "success_rate": row[2] / total if total else 0.0, "average_latency_ms": row[4] / total if total else 0.0, "last_fetched_at": row[5], "latest_observation_at": row[6], "last_state": row[7], "expected_symbols": row[8], "received_symbols": row[9], "missing_symbols": max(0,row[8]-row[9]), "cache_hits": row[10], "fallback_count": row[11], "schema_drift_count": row[12], "coverage_tier": row[13], "cache_age_seconds": row[14]})
         return tuple(result)
 
     def source_health(self, source_id: str, dataset_id: str) -> dict[str, Any] | None:
@@ -898,25 +898,45 @@ class SQLiteControlPlane:
         if row is None:
             return None
         total = row["success_count"] + row["failure_count"]
-        return {"source_id": source_id, "dataset_id": dataset_id, "success_rate": row["success_count"] / total if total else 0.0, "average_latency_ms": row["total_latency_ms"] / total if total else 0.0, "last_fetched_at": row["last_fetched_at"], "latest_observation_at": row["latest_observation_at"], "last_state": row["last_state"], "expected_symbols": row["expected_symbols"], "received_symbols": row["received_symbols"], "cache_hits": row["cache_hits"], "fallback_count": row["fallback_count"], "schema_drift_count": row["schema_drift_count"], "coverage_tier": row["coverage_tier"], "cache_age_seconds": row["last_cache_age_seconds"]}
+        return {"source_id": source_id, "dataset_id": dataset_id, "success_rate": row["success_count"] / total if total else 0.0, "average_latency_ms": row["total_latency_ms"] / total if total else 0.0, "last_fetched_at": row["last_fetched_at"], "latest_observation_at": row["latest_observation_at"], "last_state": row["last_state"], "expected_symbols": row["expected_symbols"], "received_symbols": row["received_symbols"], "missing_symbols": max(0,row["expected_symbols"]-row["received_symbols"]), "cache_hits": row["cache_hits"], "fallback_count": row["fallback_count"], "schema_drift_count": row["schema_drift_count"], "coverage_tier": row["coverage_tier"], "cache_age_seconds": row["last_cache_age_seconds"]}
 
     def get_admin_setting(self, key: str) -> tuple[Any, int] | None:
         row = self.connection.execute("SELECT value_json,version FROM admin_settings WHERE setting_key=?", (key,)).fetchone()
         return (json.loads(row[0]), row[1]) if row else None
 
-    def put_admin_setting(self, key: str, value: Any, *, actor: str, expected_version: int | None = None) -> int:
+    def put_admin_setting(self, key: str, value: Any, *, actor: str, expected_version: int | None = None,
+                          audit_resource: str = "admin_setting", audit_detail: dict[str, Any] | None = None) -> int:
         current = self.get_admin_setting(key)
-        if current and expected_version is not None and current[1] != expected_version:
-            raise ControlPlaneError("setting has changed; reload before saving")
-        version = current[1] + 1 if current else 1
+        if expected_version is not None and expected_version < 0:
+            raise ControlPlaneError("expected version must be non-negative")
         now = _iso(utc_now())
-        self.connection.execute("INSERT INTO admin_settings(setting_key,value_json,version,updated_at,updated_by) VALUES (?,?,?,?,?) ON CONFLICT(setting_key) DO UPDATE SET value_json=excluded.value_json,version=excluded.version,updated_at=excluded.updated_at,updated_by=excluded.updated_by", (key, json.dumps(value, ensure_ascii=False), version, now, actor))
-        self.connection.execute("INSERT INTO admin_audit(action,resource,resource_key,actor,detail_json,created_at) VALUES (?,?,?,?,?,?)", ("update", "admin_setting", key, actor, json.dumps({"version": version}, ensure_ascii=False), now))
-        self.connection.commit()
+        detail = dict(audit_detail or {})
+        with self.connection:
+            if current is None:
+                if expected_version not in (None, 0):
+                    raise ControlPlaneError("setting has changed; reload before saving")
+                version = 1
+                try:
+                    self.connection.execute("INSERT INTO admin_settings(setting_key,value_json,version,updated_at,updated_by) VALUES (?,?,?,?,?)", (key, json.dumps(value, ensure_ascii=False), version, now, actor))
+                except sqlite3.IntegrityError as error:
+                    raise ControlPlaneError("setting has changed; reload before saving") from error
+            else:
+                if expected_version is not None and current[1] != expected_version:
+                    raise ControlPlaneError("setting has changed; reload before saving")
+                version = current[1] + 1
+                updated = self.connection.execute("UPDATE admin_settings SET value_json=?,version=?,updated_at=?,updated_by=? WHERE setting_key=?" + (" AND version=?" if expected_version is not None else ""), (json.dumps(value, ensure_ascii=False), version, now, actor, key, expected_version) if expected_version is not None else (json.dumps(value, ensure_ascii=False), version, now, actor, key))
+                if expected_version is not None and updated.rowcount != 1:
+                    raise ControlPlaneError("setting has changed; reload before saving")
+            detail["version"] = version
+            self.connection.execute("INSERT INTO admin_audit(action,resource,resource_key,actor,detail_json,created_at) VALUES (?,?,?,?,?,?)", ("update", audit_resource, key.removeprefix("governance:"), actor, json.dumps(detail, ensure_ascii=False), now))
         return version
 
     def admin_audit(self, *, limit: int = 50) -> tuple[dict[str, Any], ...]:
         rows = self.connection.execute("SELECT action,resource,resource_key,actor,detail_json,created_at FROM admin_audit ORDER BY created_at DESC,audit_id DESC LIMIT ?", (limit,)).fetchall()
+        return tuple({"action": r[0], "resource": r[1], "resource_key": r[2], "actor": r[3], "detail": json.loads(r[4]), "created_at": r[5]} for r in rows)
+
+    def governance_history(self, governance_key: str, *, limit: int = 50) -> tuple[dict[str, Any], ...]:
+        rows = self.connection.execute("SELECT action,resource,resource_key,actor,detail_json,created_at FROM admin_audit WHERE resource='governance' AND resource_key=? ORDER BY created_at DESC,audit_id DESC LIMIT ?", (governance_key, limit)).fetchall()
         return tuple({"action": r[0], "resource": r[1], "resource_key": r[2], "actor": r[3], "detail": json.loads(r[4]), "created_at": r[5]} for r in rows)
 
     def prune(self, *, before: datetime, batch_size: int = 500) -> dict[str, int]:

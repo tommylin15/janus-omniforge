@@ -1,6 +1,7 @@
 import sys
 import unittest
 from datetime import datetime, timezone
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
@@ -8,7 +9,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "jobs" / "ingestion-core"))
 
 from ingestion_core import CollectionConfig, DataState, SQLiteControlPlane, Stock
-from packages.admin_api import AdminService, AdminValidationError
+from packages.admin_api import AdminConflictError, AdminService, AdminValidationError
 
 
 class AdminServiceTests(unittest.TestCase):
@@ -82,6 +83,25 @@ class AdminServiceTests(unittest.TestCase):
         with self.assertRaises(Exception):
             self.admin.save_setting("schedule", {"time": "09:00", "enabled": True}, actor="operator", expected_version=0)
         self.assertEqual(self.admin.audit()[0]["resource_key"], "schedule")
+
+    def test_governance_is_typed_diffed_historic_and_optimistically_locked(self):
+        current = self.admin.governance()
+        self.assertEqual((current["status"], current["version"]), ("development-default", 0))
+        edited = json.loads(json.dumps(current["value"]))
+        edited["blocking"]["highRiskScoreAtLeast"] = 80
+        diff = self.admin.governance_diff("policy", edited)
+        self.assertEqual((diff["base_version"], diff["changes"][0]["path"]), (0, "blocking.highRiskScoreAtLeast"))
+        saved = self.admin.save_governance("policy", edited, actor="reviewer", reason="raise review threshold")
+        self.assertEqual((saved["version"], saved["status"]), (1, "pending"))
+        self.assertEqual(self.admin.governance_history()[0]["detail"]["reason"], "raise review threshold")
+        with self.assertRaises(AdminConflictError):
+            self.admin.save_governance("policy", edited, actor="stale", reason="stale", expected_version=0)
+
+    def test_governance_rejects_invalid_group_values(self):
+        value = self.admin.governance()["value"]
+        value["roleWeights"]["quant"] = 2
+        with self.assertRaises(AdminValidationError):
+            self.admin.governance_diff("policy", value)
 
     def test_collection_backfill_options_are_validated_and_persisted(self):
         execution = self.admin.enqueue_collection("ohlcv", ("2330",), request_options={"start_date": "2026-08-24", "end_date": "2026-08-28", "source_ids": ["twse"]})

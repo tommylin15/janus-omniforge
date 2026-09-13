@@ -19,7 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 
 from packages.observability import redact
-from packages.admin_api import AdminValidationError
+from packages.admin_api import AdminConflictError, AdminValidationError
 from packages.web_api import (PublicReportNotFound, PublicReportWaiting, PublicStockNotFound,
                               QueryValidationError)
 from .auth import (AuthenticatedAdmin, AuthenticatedUser, GoogleAdminAuthenticator, GoogleServiceAuthenticator,
@@ -29,11 +29,13 @@ from .context_sources import (ContextReferenceNotFound, ContextSourceError, Cont
                               CoreContextReader)
 from .mcp_gateway import McpGatewayClient, McpGatewayError
 from .models import (AdminResponseOut, ContextPreviewIn, ContextResolveIn, CorePageOut, CoreSummaryOut,
-                     CorrectionIn, HealthOut, LedgerEventIn, McpServersPutIn, NoteIn, NoteRevisionIn,
+                     CorrectionIn, HealthOut, InvestmentProfileIn, InvestmentProfileOut, LedgerEventIn,
+                     McpServersPutIn, NoteIn, NoteRevisionIn, PortfolioExposureOut,
+                     PortfolioPerformanceOut, PortfolioStressOut, PortfolioSummaryOut,
                      PrivateResponseOut, PublicDatasetOut, PublicReportListOut, PublicReportOut, PublicWaitingOut,
                      SkillRevisionIn, SkillStateIn,
                      WatchlistIn, WatchlistOrderIn, ApprovalResponseIn, ForkThreadIn,
-                     MessageIn, ThreadCreateIn)
+                     MessageIn, ThreadCreateIn, GovernanceDiffIn, GovernanceEditIn)
 from .assistant_storage import AssistantStorage
 from .assistant_storage import safe_private_record
 from .engine_security import (AgentEvent, AgentEventType, AgentRuntime, ApprovalDecision,
@@ -329,6 +331,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         return JSONResponse({"detail": redact(error)}, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
     api.add_exception_handler(ConflictError, conflict_handler)
+    api.add_exception_handler(AdminConflictError, conflict_handler)
     api.add_exception_handler(OversellError, conflict_handler)
     api.add_exception_handler(NotFoundError, missing_handler)
     api.add_exception_handler(ContextReferenceNotFound, missing_handler)
@@ -449,6 +452,17 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @private.get("/profile")
     def profile(current: AuthenticatedUser = Depends(user)) -> dict[str, Any]:
         return {"user_id":current.user_id,"email":current.email}
+
+    @private.get("/investment-profile", response_model=InvestmentProfileOut)
+    def investment_profile(current: AuthenticatedUser = Depends(user)):
+        return jsonable_encoder(repository.investment_profile(current.user_id))
+
+    @private.put("/investment-profile", response_model=InvestmentProfileOut)
+    def update_investment_profile(value: InvestmentProfileIn, current: AuthenticatedUser = Depends(user),
+                                  idempotency_key: str = Depends(key)):
+        result=repository.save_investment_profile(current.user_id,value,idempotency_key)
+        store.upsert("investment_profile_revisions",[{"user_id":current.user_id,**result}])
+        return jsonable_encoder(result)
 
     @private.get("/ai-sources")
     def ai_sources(_current: AuthenticatedUser = Depends(user)):
@@ -665,6 +679,29 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def pnl(year:int=Query(...,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):
         return jsonable_encoder(store.mart("mart_user_annual_pnl",current.user_id,year=year))
 
+    def portfolio_mart(table: str, current: AuthenticatedUser, **filters: Any) -> dict[str, Any]:
+        rows=jsonable_encoder(store.mart(table,current.user_id,**filters))
+        if table=="mart_user_exposure":
+            for row in rows:
+                row["symbols"]=json.loads(row["symbols"]); row["membership_snapshot"]=json.loads(row["membership_snapshot"])
+        return {"items":rows}
+
+    @private.get("/portfolio/summary", response_model=PortfolioSummaryOut)
+    def portfolio_summary(current: AuthenticatedUser = Depends(user)):
+        return portfolio_mart("mart_user_portfolio_summary",current)
+
+    @private.get("/portfolio/exposure", response_model=PortfolioExposureOut)
+    def portfolio_exposure(current: AuthenticatedUser = Depends(user)):
+        return portfolio_mart("mart_user_exposure",current)
+
+    @private.get("/portfolio/performance", response_model=PortfolioPerformanceOut)
+    def portfolio_performance(year:int=Query(...,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):
+        return portfolio_mart("mart_user_annual_performance",current,year=year)
+
+    @private.get("/portfolio/stress-tests", response_model=PortfolioStressOut)
+    def portfolio_stress_tests(current: AuthenticatedUser = Depends(user)):
+        return portfolio_mart("mart_user_stress_tests",current)
+
     @private.post("/notes",status_code=201)
     def add_note(value:NoteIn,current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
         repository.require_owned_trade(current.user_id,value.trade_event_id)
@@ -703,7 +740,12 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         indexes=repository.notes(current.user_id)
         return jsonable_encoder({"journal":repository.ledger_history(current.user_id,None,None),
             "notes":store.read_notes(current.user_id,indexes),"watchlist":repository.watchlist(current.user_id),
+            "investment_profile":repository.investment_profile(current.user_id),
             "positions":store.mart("mart_user_positions",current.user_id),
+            "portfolio_summary":store.mart("mart_user_portfolio_summary",current.user_id),
+            "portfolio_exposure":store.mart("mart_user_exposure",current.user_id),
+            "portfolio_performance":store.mart("mart_user_annual_performance",current.user_id),
+            "portfolio_stress_tests":store.mart("mart_user_stress_tests",current.user_id),
             "assistant":store.export_assistant(current.user_id)})
 
     @private.delete("/private-data",status_code=202)
@@ -841,6 +883,25 @@ def create_app(repository: Any | None = None, store: Any | None = None,
             raise AdminValidationError("expected_version must be a non-negative integer")
         return jsonable_encoder(admin_service.save_setting(
             setting_key, payload.get("value"), actor=actor, expected_version=expected,
+        ))
+
+    @admin.get("/governance/{governance_key}/history")
+    def admin_governance_history(governance_key: str, limit: int = Query(50, ge=1, le=50)):
+        return jsonable_encoder({"items": admin_service.governance_history(governance_key, limit=limit), "limit": limit})
+
+    @admin.post("/governance/{governance_key}/diff")
+    def admin_governance_diff(governance_key: str, payload: GovernanceDiffIn):
+        return jsonable_encoder(admin_service.governance_diff(governance_key, payload.value))
+
+    @admin.get("/governance/{governance_key}")
+    def admin_governance(governance_key: str):
+        return jsonable_encoder(admin_service.governance(governance_key))
+
+    @admin.put("/governance/{governance_key}")
+    def admin_save_governance(governance_key: str, payload: GovernanceEditIn, actor: str = Depends(admin_actor)):
+        return jsonable_encoder(admin_service.save_governance(
+            governance_key, payload.value, actor=actor, reason=payload.reason,
+            status=payload.status, expected_version=payload.expected_version,
         ))
 
     @admin.get("/audit")

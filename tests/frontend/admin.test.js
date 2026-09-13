@@ -9,6 +9,8 @@ describe("Admin Data Operations contract", () => {
     expect(html).toContain("加入收集佇列");
     expect(html).toContain("queue-analysis");
     expect(html).toContain("Mart 分析");
+    expect(html).toContain("Governance");
+    expect(html).toContain("governance-preview");
     expect(html).not.toContain("AI Prompt");
   });
   it("uses safe persisted-state vocabulary", () => {

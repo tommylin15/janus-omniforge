@@ -2,6 +2,17 @@
 
 最新驗證日期：2026-09-13
 
+## WBS-6 Governance typed editing（2026-09-13）
+
+Admin 已提供 policy governance 的 typed read／diff／save／history API 與 UI。欄位只接受
+既定的 role weights、blocking policy、deterministic constants 與 completeness gate；群組
+驗證失敗即拒絕，diff 只回傳 bounded path changes。每次儲存要求 reason、status 與
+expected version，控制面以原子版本條件更新並追加 immutable audit history；衝突回傳
+409，執行流程只讀取已提交 revision。
+
+本機驗證：Admin／FastAPI／PostgreSQL contract pytest **36 passed**，Vitest **20 passed**，
+TypeScript 與 ESLint 通過；尚未部署或進行新的 GCP dev acceptance。
+
 ## WBS-7 security／observability／FinOps acceptance（2026-09-13）
 
 WBS-7.1～7.4 程式已完成：runtime service-account 與 bounded scaling 寫入 dev deploy；

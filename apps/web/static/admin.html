@@ -27,6 +27,7 @@
         <button class="nav-link" id="tab-settings" role="tab" aria-selected="false" aria-controls="settings" data-tab="settings" type="button"><span aria-hidden="true">◷</span>排程與保存設定</button>
         <button class="nav-link" id="tab-catalog" role="tab" aria-selected="false" aria-controls="catalog" data-tab="catalog" type="button"><span aria-hidden="true">▤</span>資料源設定</button>
         <button class="nav-link" id="tab-mart" role="tab" aria-selected="false" aria-controls="mart" data-tab="mart" type="button"><span aria-hidden="true">◇</span>Mart 分析</button>
+        <button class="nav-link" id="tab-governance" role="tab" aria-selected="false" aria-controls="governance" data-tab="governance" type="button"><span aria-hidden="true">◆</span>Governance</button>
       </nav>
       <small class="build-version">版本 <span id="build-version">讀取中</span></small>
     </aside>
@@ -128,6 +129,23 @@
           <label class="check-label"><input id="schedule-enabled" type="checkbox" checked> 啟用排程</label><label class="check-label"><input id="cleanup-enabled" type="checkbox" checked> 啟用 Stage cleanup</label>
           <label>操作者<input id="settings-actor" required placeholder="operator@example.com"></label><button class="button primary" type="submit">儲存設定</button>
         </form>
+      </section>
+      <section id="governance" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-governance" hidden>
+        <div class="panel-heading"><div><p class="eyebrow">GOVERNANCE</p><h2>治理設定</h2></div><span id="governance-state" class="tag neutral">讀取中</span></div>
+        <p class="form-note">只編輯已定義的 typed policy 欄位；每次儲存建立新版本，分析執行只讀取已提交 snapshot。</p>
+        <form id="governance-form" class="stack-form">
+          <div class="form-grid"><label>Version<input id="governance-policy-version" required></label><label>Development completeness gate<input id="governance-gate" type="number" min="0" max="1" step="0.01" required></label></div>
+          <fieldset><legend>Role weights（總和必須為 1）</legend><div class="form-grid">
+            <label>Fundamental<input id="governance-weight-fundamental" type="number" min="0.01" max="1" step="0.01" required></label><label>Valuation<input id="governance-weight-valuation" type="number" min="0.01" max="1" step="0.01" required></label><label>Positioning<input id="governance-weight-positioning" type="number" min="0.01" max="1" step="0.01" required></label><label>Quant<input id="governance-weight-quant" type="number" min="0.01" max="1" step="0.01" required></label><label>Event risk<input id="governance-weight-event_risk" type="number" min="0.01" max="1" step="0.01" required></label>
+          </div></fieldset>
+          <fieldset><legend>Blocking policy</legend><div class="form-grid"><label class="check-label"><input id="governance-manual-review" type="checkbox"> 需要人工審查</label><label class="check-label"><input id="governance-critical-quality" type="checkbox"> Critical quality flag</label><label>High risk score<input id="governance-high-risk" type="number" min="1" max="100" required></label></div></fieldset>
+          <fieldset><legend>Deterministic constants</legend><div class="form-grid"><label>Status<select id="governance-constant-status"><option>development-default</option><option>pending</option><option>approved</option></select></label><label class="check-label"><input id="governance-approved" type="checkbox"> Approved</label><label>High risk threshold<input id="governance-constant-risk" type="number" min="0" max="100" required></label><label>Large move %<input id="governance-constant-move" type="number" min="0" max="100" required></label><label>Completeness gate %<input id="governance-constant-gate" type="number" min="0" max="100" required></label></div></fieldset>
+          <div class="form-grid"><label>Workflow status<select id="governance-status"><option>pending</option><option>development-default</option><option>approved</option></select></label><label>Version<input id="governance-version" value="0" readonly></label></div>
+          <label>變更理由<textarea id="governance-reason" rows="3" required></textarea></label>
+          <div><button id="governance-preview" class="button secondary" type="button">預覽 Diff</button><button class="button primary" type="submit">儲存新版本</button></div>
+        </form>
+        <pre id="governance-diff" class="form-note" aria-live="polite">尚未預覽變更</pre>
+        <h3>Immutable history</h3><div id="governance-history" class="card-list"><p class="empty">正在載入歷史…</p></div>
       </section>
       <section id="catalog" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-catalog" hidden>
         <div class="panel-heading"><div><p class="eyebrow">SOURCE CATALOG</p><h2>資料源設定</h2></div><span class="tag neutral">可編輯；blocked / candidate 不可啟用</span></div>

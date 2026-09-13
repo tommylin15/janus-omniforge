@@ -59,9 +59,11 @@ for layer in stage core mart private; do
     --update-labels="environment=dev,layer=${layer},managed_by=github" \
     --quiet
 done
-gcloud storage buckets add-iam-policy-binding "gs://${project}-dev-mart" \
-  --member="serviceAccount:janus-user-api@${project}.iam.gserviceaccount.com" \
-  --role=roles/storage.objectViewer --quiet
+for account in janus-user-api janus-private-pipeline; do
+  gcloud storage buckets add-iam-policy-binding "gs://${project}-dev-mart" \
+    --member="serviceAccount:${account}@${project}.iam.gserviceaccount.com" \
+    --role=roles/storage.objectViewer --quiet
+done
 for account in janus-user-api janus-private-pipeline; do
   gcloud storage buckets add-iam-policy-binding "gs://${project}-dev-private" \
     --member="serviceAccount:${account}@${project}.iam.gserviceaccount.com" \

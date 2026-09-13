@@ -9,7 +9,7 @@ import hashlib
 import inspect
 import json
 import time
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 from .adapters import CollectionRequest, ErrorCode, IngestionError, SourceAdapter, SourceResponse, classify_exception
 from .control import CollectionConfig, DataState, ExecutionItem, ExecutionStatus, SQLiteControlPlane
@@ -151,12 +151,14 @@ class IngestionFramework:
             adapter = adapters.get(source_id)
             if adapter is None:
                 last_code, last_message = ErrorCode.UNAVAILABLE.value, "source adapter is unavailable"
+                self.control.record_health(source_id,config.dataset_id,state=DataState.UNAVAILABLE,latency_ms=0,
+                    fetched_at=datetime.now(timezone.utc),expected_symbols=len(symbols),coverage_tier=config.coverage_tier)
                 continue
             key = self.cache_key(config, source_id, window, symbols)
             cached = self.control.get_cache(key)
             if cached is not None:
                 payload, _, observed = cached
-                self.control.record_health(source_id, config.dataset_id, state=DataState.SUCCESS, latency_ms=0, fetched_at=datetime.now(timezone.utc), latest_observation_at=observed, expected_symbols=len(symbols), received_symbols=len(payload), cache_hit=True, coverage_tier=config.coverage_tier, cache_age_seconds=max(0.0, (datetime.now(timezone.utc) - observed).total_seconds()) if observed else None)
+                self.control.record_health(source_id, config.dataset_id, state=DataState.SUCCESS, latency_ms=0, fetched_at=datetime.now(timezone.utc), latest_observation_at=observed, expected_symbols=len(symbols), received_symbols=self._received_symbol_count(payload,symbols), cache_hit=True, coverage_tier=config.coverage_tier, cache_age_seconds=max(0.0, (datetime.now(timezone.utc) - observed).total_seconds()) if observed else None)
                 return DataState.SUCCESS, source_id, self._select_rows(payload, symbols), total_attempts, True, source_position > 0, None, None, observed
             limiter = self.limiters.setdefault(source_id, RateLimiter(self.rate_limit_per_second))
             request = CollectionRequest(execution_id, trace_id, source_id, config.dataset_id, config.market, symbols, window.start, window.end, self.timeout_seconds)
@@ -168,7 +170,7 @@ class IngestionFramework:
                 if state == DataState.SCHEMA_DRIFT:
                     last_state = state
                     last_code, last_message = ErrorCode.SCHEMA_DRIFT.value, "source response schema changed"
-                    self.control.record_health(source_id, config.dataset_id, state=state, latency_ms=(time.monotonic() - started) * 1000, fetched_at=datetime.now(timezone.utc), latest_observation_at=response.observed_at, expected_symbols=len(symbols), received_symbols=len(response.rows), coverage_tier=config.coverage_tier)
+                    self.control.record_health(source_id, config.dataset_id, state=state, latency_ms=(time.monotonic() - started) * 1000, fetched_at=datetime.now(timezone.utc), latest_observation_at=response.observed_at, expected_symbols=len(symbols), received_symbols=self._received_symbol_count(response.rows,symbols), coverage_tier=config.coverage_tier)
                     continue
                 if not response.rows:
                     last_state = DataState.EMPTY
@@ -179,6 +181,10 @@ class IngestionFramework:
                 if state == DataState.STALE and source_position + 1 < len(config.source_ids):
                     last_state = state
                     last_code, last_message = DataState.STALE.value, "source data is stale"
+                    self.control.record_health(source_id,config.dataset_id,state=state,
+                        latency_ms=(time.monotonic()-started)*1000,fetched_at=datetime.now(timezone.utc),
+                        latest_observation_at=response.observed_at,expected_symbols=len(symbols),
+                        received_symbols=self._received_symbol_count(response.rows,symbols),coverage_tier=config.coverage_tier)
                     continue
                 payload = [dict(row) for row in response.rows]
                 digest = "sha256:" + hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode()).hexdigest()
@@ -187,18 +193,18 @@ class IngestionFramework:
                 # the next execution and must not be promoted by the cache.
                 if state == DataState.SUCCESS:
                     self.control.put_cache(key, source_id, config.dataset_id, payload, digest, datetime.now(timezone.utc), self.cache_ttl, response.observed_at)
-                self.control.record_health(source_id, config.dataset_id, state=state, latency_ms=(time.monotonic() - started) * 1000, fetched_at=datetime.now(timezone.utc), latest_observation_at=response.observed_at, expected_symbols=len(symbols), received_symbols=len(response.rows), coverage_tier=config.coverage_tier)
+                self.control.record_health(source_id, config.dataset_id, state=state, latency_ms=(time.monotonic() - started) * 1000, fetched_at=datetime.now(timezone.utc), latest_observation_at=response.observed_at, expected_symbols=len(symbols), received_symbols=self._received_symbol_count(response.rows,symbols), coverage_tier=config.coverage_tier)
                 return state, source_id, self._select_rows(payload, symbols), total_attempts, False, source_position > 0 or response.is_fallback, None, None, response.observed_at
             except FetchFailure as error:
                 last_state = DataState.UNAVAILABLE
                 total_attempts += error.attempts
                 last_code, last_message = error.code.value, error.safe_message
-                self.control.record_health(source_id, config.dataset_id, state=DataState.UNAVAILABLE, latency_ms=(time.monotonic() - started) * 1000, fetched_at=datetime.now(timezone.utc))
+                self.control.record_health(source_id, config.dataset_id, state=DataState.UNAVAILABLE, latency_ms=(time.monotonic() - started) * 1000, fetched_at=datetime.now(timezone.utc), expected_symbols=len(symbols), coverage_tier=config.coverage_tier)
             except IngestionError as error:
                 last_state = DataState.UNAVAILABLE
                 total_attempts += self.retry_policy.max_attempts
                 last_code, last_message = error.code.value, error.safe_message
-                self.control.record_health(source_id, config.dataset_id, state=DataState.UNAVAILABLE, latency_ms=(time.monotonic() - started) * 1000, fetched_at=datetime.now(timezone.utc))
+                self.control.record_health(source_id, config.dataset_id, state=DataState.UNAVAILABLE, latency_ms=(time.monotonic() - started) * 1000, fetched_at=datetime.now(timezone.utc), expected_symbols=len(symbols), coverage_tier=config.coverage_tier)
         return last_state, config.source_ids[-1], (), total_attempts, False, False, last_code, last_message, None
 
     async def _fetch(self, adapter: SourceAdapter, request: CollectionRequest, limiter: RateLimiter, execution_id: str) -> tuple[SourceResponse, int]:
@@ -232,6 +238,14 @@ class IngestionFramework:
         if not rows or "symbol" not in rows[0]:
             return tuple(rows)
         return tuple(row for row in rows if str(row.get("symbol")) in selected)
+
+    @staticmethod
+    def _received_symbol_count(rows: Iterable[Mapping[str, Any]], symbols: tuple[str, ...]) -> int:
+        rows=list(rows)
+        if not rows: return 0
+        selected=set(symbols)
+        if "symbol" not in rows[0]: return min(len(rows),len(selected))
+        return len({str(row.get("symbol")) for row in rows if str(row.get("symbol")) in selected})
 
     @staticmethod
     def _validate_response(response: SourceResponse, config: CollectionConfig) -> DataState:

@@ -1224,6 +1224,123 @@ class SummaryCards extends StatelessWidget {
           child: Column(children: [Text(title), Text(value)])));
 }
 
+class PortfolioDashboard extends StatefulWidget {
+  const PortfolioDashboard(this.api, {super.key});
+  final Api api;
+  @override
+  State<PortfolioDashboard> createState() => _PortfolioDashboardState();
+}
+
+class _PortfolioDashboardState extends State<PortfolioDashboard> {
+  Map<String, dynamic>? profile;
+  List<dynamic> summary = [], exposure = [], performance = [], stress = [];
+  String risk = 'moderate', horizon = 'medium', goal = 'growth';
+  double minimumCash = .1;
+  bool aiContext = false, busy = false;
+  Object? error;
+
+  @override
+  void initState() { super.initState(); load(); }
+
+  Future<void> load() async {
+    setState(() { busy = true; error = null; });
+    try {
+      final year = DateTime.now().year;
+      final values = await Future.wait([
+        widget.api.get('/api/v1/me/investment-profile'),
+        widget.api.get('/api/v1/me/portfolio/summary'),
+        widget.api.get('/api/v1/me/portfolio/exposure'),
+        widget.api.get('/api/v1/me/portfolio/performance?year=$year'),
+        widget.api.get('/api/v1/me/portfolio/stress-tests')
+      ]);
+      if (!mounted) return;
+      final next = values[0] as Map<String, dynamic>;
+      setState(() {
+        profile = next;
+        risk = next['risk_tolerance'] ?? 'moderate';
+        horizon = next['investment_horizon'] ?? 'medium';
+        goal = next['primary_goal'] ?? 'growth';
+        minimumCash = double.tryParse('${next['minimum_cash_ratio'] ?? .1}') ?? .1;
+        aiContext = next['ai_context_opt_in'] == true;
+        summary = (values[1] as Map<String, dynamic>)['items'] as List<dynamic>;
+        exposure = (values[2] as Map<String, dynamic>)['items'] as List<dynamic>;
+        performance = (values[3] as Map<String, dynamic>)['items'] as List<dynamic>;
+        stress = (values[4] as Map<String, dynamic>)['items'] as List<dynamic>;
+      });
+    } catch (value) { if (mounted) setState(() => error = value); }
+    finally { if (mounted) setState(() => busy = false); }
+  }
+
+  Future<void> save() async {
+    setState(() => busy = true);
+    try {
+      await widget.api.put('/api/v1/me/investment-profile', {
+        'risk_tolerance': risk, 'investment_horizon': horizon,
+        'primary_goal': goal, 'minimum_cash_ratio': minimumCash,
+        'ai_context_opt_in': aiContext, 'expected_version': profile?['version'] ?? 0
+      });
+      await load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('投資屬性已儲存')));
+    } catch (value) { if (mounted) setState(() { error = value; busy = false; }); }
+  }
+
+  String money(dynamic value) => value == null ? '資料不足' : '${double.tryParse('$value')?.toStringAsFixed(0) ?? value}';
+
+  @override
+  Widget build(BuildContext context) {
+    if (busy && profile == null) return const Center(child: CircularProgressIndicator());
+    return Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('資產與風險', style: Theme.of(context).textTheme.titleLarge),
+        if (error != null) Text('資料暫時無法使用', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+        const SizedBox(height: 12),
+        Wrap(spacing: 12, runSpacing: 12, children: [
+          SizedBox(width: 210, child: DropdownButtonFormField<String>(initialValue: risk,
+            decoration: const InputDecoration(labelText: '風險承受度'),
+            items: const {'conservative':'保守','moderate':'穩健','aggressive':'積極'}.entries
+              .map((item) => DropdownMenuItem(value: item.key, child: Text(item.value))).toList(),
+            onChanged: (value) { if (value != null) setState(() => risk = value); })),
+          SizedBox(width: 210, child: DropdownButtonFormField<String>(initialValue: horizon,
+            decoration: const InputDecoration(labelText: '投資期間'),
+            items: const {'short':'短期','medium':'中期','long':'長期'}.entries
+              .map((item) => DropdownMenuItem(value: item.key, child: Text(item.value))).toList(),
+            onChanged: (value) { if (value != null) setState(() => horizon = value); })),
+          SizedBox(width: 210, child: DropdownButtonFormField<String>(initialValue: goal,
+            decoration: const InputDecoration(labelText: '主要目標'),
+            items: const {'capital_preservation':'保本','income':'現金流','growth':'成長','retirement':'退休'}.entries
+              .map((item) => DropdownMenuItem(value: item.key, child: Text(item.value))).toList(),
+            onChanged: (value) { if (value != null) setState(() => goal = value); }))
+        ]),
+        Semantics(label: '最低現金比例 ${(minimumCash * 100).round()}%', child: Slider(
+          value: minimumCash, divisions: 20, label: '${(minimumCash * 100).round()}%',
+          onChanged: (value) => setState(() => minimumCash = value))),
+        SwitchListTile(contentPadding: EdgeInsets.zero, value: aiContext,
+          title: const Text('允許我主動選取投資屬性作為 AI 對話 context'),
+          onChanged: (value) => setState(() => aiContext = value)),
+        Align(alignment: Alignment.centerLeft, child: FilledButton.icon(
+          onPressed: busy ? null : save, icon: const Icon(Icons.save_outlined), label: const Text('儲存投資屬性'))),
+        const Divider(height: 32),
+        for (final row in summary.cast<Map<String, dynamic>>())
+          ListTile(title: Text('${row['currency']} 投資組合'),
+            subtitle: Text('市值 ${money(row['market_value'])}・未實現 ${money(row['unrealized_pnl'])}'),
+            trailing: Text(row['cash_safety_status'] == 'insufficient_data' ? '現金資料不足' : '${row['cash_ratio']}')),
+        ExpansionTile(title: const Text('產業曝險'), children: [
+          for (final row in exposure.cast<Map<String, dynamic>>())
+            ListTile(title: Text('${row['industry']}'), trailing: Text('${money(row['portfolio_ratio'] == null ? null : double.parse('${row['portfolio_ratio']}') * 100)}%'))
+        ]),
+        ExpansionTile(title: const Text('年度 XIRR'), children: [
+          for (final row in performance.cast<Map<String, dynamic>>())
+            ListTile(title: Text('${row['year']} ${row['currency']}'), trailing: Text(row['xirr_status'] == 'available' ? '${(double.parse('${row['xirr']}') * 100).toStringAsFixed(2)}%' : '資料不足'))
+        ]),
+        ExpansionTile(title: const Text('壓力測試'), children: [
+          for (final row in stress.cast<Map<String, dynamic>>())
+            ListTile(title: Text('${row['scenario_id']}'), trailing: Text(money(row['loss'])))
+        ]),
+        const Text('壓力測試為固定情境估算，不構成投資建議；AI 不會改寫計算結果。')
+      ])));
+  }
+}
+
 class ProfilePage extends StatelessWidget {
   const ProfilePage(
       {required this.api,
@@ -1240,6 +1357,7 @@ class ProfilePage extends StatelessWidget {
             leading: const Icon(Icons.account_circle),
             title: Text(email),
             subtitle: const Text('Google 帳號')),
+        PortfolioDashboard(api),
         const Divider(),
         const ListTile(title: Text('外觀')),
         DropdownButtonFormField<ThemeMode>(

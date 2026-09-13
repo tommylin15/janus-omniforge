@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from services.api.private_pipeline import PrivatePipeline, calculate_marts
+from services.api.private_pipeline import PrivatePipeline, calculate_marts, calculate_risk_marts, xirr
 from services.api.store import PrivateIcebergStore
 
 
@@ -50,6 +50,7 @@ class Repository:
     def pipeline_batch(self,checkpoint,limit): return [{"change_id":8,"user_id":USER}]
     def ledger_for_pipeline(self,user_id): return [event(1,"BUY",date(2026,1,1),Decimal("1"),Decimal("10"))]
     def watchlist_for_pipeline(self,user_id): return []
+    def investment_profile_for_pipeline(self,user_id): return None
     def advance_pipeline_checkpoint(self,value): self.advanced.append(value)
     def pending_deletions(self): return []
 
@@ -69,6 +70,33 @@ def test_checkpoint_advances_only_after_all_private_writes():
     failed_repo=Repository()
     with pytest.raises(RuntimeError): PrivatePipeline(failed_repo,Store(True),lambda symbols,when:{}).run(date(2026,9,4))
     assert failed_repo.advanced==[]
+
+
+def test_xirr_reports_unique_missing_and_multiple_roots_without_filling_zero():
+    unique=xirr([(date(2025,1,1),Decimal("-100")),(date(2026,1,1),Decimal("110"))])
+    assert unique["status"]=="available" and abs(unique["value"]-.1)<1e-6
+    assert xirr([(date(2025,1,1),Decimal("100")),(date(2026,1,1),Decimal("10"))])=={
+        "status":"insufficient_data","value":None}
+    multiple=xirr([(date(2024,1,1),Decimal("-100")),(date(2025,1,1),Decimal("230")),
+                   (date(2026,1,1),Decimal("-132"))])
+    assert multiple=={"status":"multiple_roots","value":None}
+
+
+def test_exposure_splits_multi_industry_and_stress_is_deterministic():
+    buy=event(1,"BUY",date(2025,1,1),Decimal("10"),Decimal("100"))
+    positions=calculate_marts([buy],{"2330":Decimal("120")},date(2026,1,1))["mart_user_positions"]
+    memberships={"2330":[
+        {"industry":"semiconductor","effective_date":"2026-01-01","membership_snapshot_hash":"a","provenance_id":"p1"},
+        {"industry":"ai","effective_date":"2026-01-01","membership_snapshot_hash":"b","provenance_id":"p2"},
+    ]}
+    profile={"user_id":USER,"minimum_cash_ratio":Decimal("0.1")}
+    first=calculate_risk_marts([buy],positions,profile,memberships,date(2026,1,1))
+    second=calculate_risk_marts([buy],positions,profile,memberships,date(2026,1,1))
+    assert first==second
+    assert sum(row["market_value"] for row in first["mart_user_exposure"])==Decimal("1200")
+    assert {row["market_value"] for row in first["mart_user_exposure"]}=={Decimal("600")}
+    assert first["mart_user_portfolio_summary"][0]["cash_safety_status"]=="insufficient_data"
+    assert first["mart_user_annual_performance"][0]["xirr_status"]=="available"
 
 
 def test_deletion_removes_iceberg_before_postgres_completion():

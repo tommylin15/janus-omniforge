@@ -32,7 +32,7 @@ class SourceSpec:
 SOURCES = (
     SourceSpec("janus-core", "core", "public", ("ohlcv", "valuation", "institutional", "financials", "events", "market-activity", "benchmark"), "published daily data", "Published Janus market data."),
     SourceSpec("janus-private-core", "private_core", "owner", ("notes", "watchlist"), "latest owner snapshot", "Private notes or watchlist selected by you."),
-    SourceSpec("janus-private-mart", "private_mart", "owner", ("positions", "annual-pnl"), "latest completed valuation", "Private portfolio calculations selected by you."),
+    SourceSpec("janus-private-mart", "private_mart", "owner", ("positions", "annual-pnl", "investment-profile", "exposure", "performance", "stress-tests"), "latest completed valuation", "Private portfolio calculations selected by you."),
 )
 SOURCE_BY_ID = {source.source_id: source for source in SOURCES}
 # Direct third-party chat sources remain fail-closed until license, quota, timeout,
@@ -111,7 +111,13 @@ class ContextSourceService:
         if selector.resource == "notes":
             return self.store.read_notes(owner_id,self.repository.notes(owner_id,selector.symbol))
         if selector.resource == "watchlist": return self.repository.watchlist(owner_id)
-        table = "mart_user_positions" if selector.resource == "positions" else "mart_user_annual_pnl"
+        if selector.resource == "investment-profile":
+            profile=self.repository.investment_profile(owner_id)
+            if not profile.get("ai_context_opt_in"): raise ContextSourceError("investment profile context is not enabled")
+            return [profile]
+        table = {"positions":"mart_user_positions","annual-pnl":"mart_user_annual_pnl",
+                 "exposure":"mart_user_exposure","performance":"mart_user_annual_performance",
+                 "stress-tests":"mart_user_stress_tests"}[selector.resource]
         return self.store.mart(table,owner_id)
 
     @classmethod

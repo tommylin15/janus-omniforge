@@ -9,7 +9,7 @@ import os
 from typing import Any, Iterator
 from uuid import UUID, uuid4
 
-from .models import LedgerEventIn, LedgerType, McpServerIn, NoteIn, WatchlistIn
+from .models import InvestmentProfileIn, LedgerEventIn, LedgerType, McpServerIn, NoteIn, WatchlistIn
 
 
 class ConflictError(ValueError): pass
@@ -179,6 +179,43 @@ class PostgresWorkspaceRepository:
         with self._connection() as connection:
             return [dict(row) for row in connection.execute("SELECT * FROM private.watchlist WHERE user_id=%s AND active ORDER BY sort_order,symbol",(user_id,)).fetchall()]
 
+    def investment_profile(self, user_id: UUID) -> dict[str, Any]:
+        with self._connection() as connection:
+            row=connection.execute("""SELECT risk_tolerance,investment_horizon,primary_goal,minimum_cash_ratio,
+                                      ai_context_opt_in,version,updated_at
+                                      FROM private.investment_profiles WHERE user_id=%s""",(user_id,)).fetchone()
+            return dict(row) if row else {"risk_tolerance":None,"investment_horizon":None,"primary_goal":None,
+                "minimum_cash_ratio":None,"ai_context_opt_in":False,"version":0,"updated_at":None}
+
+    def save_investment_profile(self, user_id: UUID, value: InvestmentProfileIn, key: str) -> dict[str, Any]:
+        with self._connection() as connection:
+            replay=self._mutation(connection,user_id,key)
+            if replay:
+                row=connection.execute("""SELECT risk_tolerance,investment_horizon,primary_goal,minimum_cash_ratio,
+                                          ai_context_opt_in,version,updated_at
+                                          FROM private.investment_profiles WHERE user_id=%s""",(user_id,)).fetchone()
+                if row: return dict(row)
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))",(f"investment-profile:{user_id}",))
+            current=connection.execute("SELECT version FROM private.investment_profiles WHERE user_id=%s FOR UPDATE",(user_id,)).fetchone()
+            version=int(current["version"]) if current else 0
+            if version != value.expected_version: raise ConflictError("investment profile version changed")
+            row=connection.execute(
+                """INSERT INTO private.investment_profiles
+                   (user_id,risk_tolerance,investment_horizon,primary_goal,minimum_cash_ratio,ai_context_opt_in,version,idempotency_key)
+                   VALUES(%s,%s,%s,%s,%s,%s,%s,%s)
+                   ON CONFLICT(user_id) DO UPDATE SET risk_tolerance=EXCLUDED.risk_tolerance,
+                   investment_horizon=EXCLUDED.investment_horizon,primary_goal=EXCLUDED.primary_goal,
+                   minimum_cash_ratio=EXCLUDED.minimum_cash_ratio,ai_context_opt_in=EXCLUDED.ai_context_opt_in,
+                   version=EXCLUDED.version,idempotency_key=EXCLUDED.idempotency_key,updated_at=now()
+                   RETURNING risk_tolerance,investment_horizon,primary_goal,minimum_cash_ratio,
+                             ai_context_opt_in,version,updated_at""",
+                (user_id,value.risk_tolerance,value.investment_horizon,value.primary_goal,value.minimum_cash_ratio,
+                 value.ai_context_opt_in,version+1,key),).fetchone()
+            change_version=self._next_change_version(connection,user_id)
+            self._change(connection,user_id,change_version,"investment-profile",user_id,None)
+            self._record_mutation(connection,user_id,key,"investment-profile",user_id)
+            return dict(row)
+
     def follow(self, user_id: UUID, value: WatchlistIn, key: str) -> dict[str, Any]:
         with self._connection() as connection:
             replay=self._mutation(connection,user_id,key)
@@ -259,6 +296,13 @@ class PostgresWorkspaceRepository:
             return [dict(row) for row in connection.execute(
                 "SELECT * FROM private.watchlist WHERE user_id=%s ORDER BY updated_at,symbol", (user_id,)
             ).fetchall()]
+
+    def investment_profile_for_pipeline(self, user_id: UUID) -> dict[str, Any] | None:
+        with self._connection() as connection:
+            row=connection.execute("""SELECT user_id,risk_tolerance,investment_horizon,primary_goal,
+                                      minimum_cash_ratio,ai_context_opt_in,version,updated_at
+                                      FROM private.investment_profiles WHERE user_id=%s""",(user_id,)).fetchone()
+            return dict(row) if row else None
 
     def request_deletion(self, user_id: UUID, key: str) -> dict[str, Any]:
         with self._connection() as connection:
@@ -625,7 +669,7 @@ class PostgresWorkspaceRepository:
             connection.execute("DELETE FROM private.assistant_threads WHERE user_id=%s",(user_id,))
             connection.execute("DELETE FROM private.assistant_skill_state WHERE user_id=%s",(user_id,))
             connection.execute("DELETE FROM private.assistant_skill_revisions WHERE user_id=%s",(user_id,))
-            for table in ("change_log","mutation_keys","note_index","watchlist","mcp_servers","ledger_events","users"):
+            for table in ("change_log","mutation_keys","note_index","watchlist","mcp_servers","investment_profiles","ledger_events","users"):
                 connection.execute(f"DELETE FROM private.{table} WHERE user_id=%s",(user_id,))
             connection.execute("""UPDATE private.deletion_requests SET status='COMPLETED',cleanup_pending='{}',completed_at=now()
                                 WHERE request_id=%s AND user_id=%s""",(request_id,user_id))

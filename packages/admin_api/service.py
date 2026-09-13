@@ -8,6 +8,8 @@ execution for a worker to claim later.
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
+import json
+from pathlib import Path
 import re
 from typing import Any
 from urllib.parse import urlsplit
@@ -19,9 +21,17 @@ class AdminValidationError(ValueError):
     """Safe validation failure suitable for an API 4xx response."""
 
 
+class AdminConflictError(RuntimeError):
+    """A typed edit lost its optimistic-lock race."""
+
+
 class AdminService:
     FUNDAMENTAL_DATASETS = frozenset({"financials"})
     REPORT_DATASETS = frozenset({"report", "reports", "mart-report", "mart_scoped_analysis"})
+    GOVERNANCE_KEY = "policy"
+    GOVERNANCE_SETTING = "governance:policy"
+    GOVERNANCE_STATUSES = frozenset({"approved", "development-default", "pending"})
+    GOVERNANCE_ROLES = frozenset({"fundamental", "valuation", "positioning", "quant", "event_risk"})
 
     def __init__(self, control: Any, *, core: Any | None = None, schedule_sync: Any | None = None) -> None:
         self.control = control
@@ -237,6 +247,116 @@ class AdminService:
             raise AdminValidationError("setting key is invalid")
         current = self.control.get_admin_setting(key)
         return {"key": key, "value": current[0] if current else None, "version": current[1] if current else 0}
+
+    def governance(self, governance_key: str = GOVERNANCE_KEY) -> dict[str, Any]:
+        self._validate_governance_key(governance_key)
+        current = self.control.get_admin_setting(self.GOVERNANCE_SETTING)
+        if current:
+            envelope = current[0]
+            if not isinstance(envelope, dict) or envelope.get("status") not in self.GOVERNANCE_STATUSES:
+                raise AdminValidationError("stored governance revision is invalid")
+            self._validate_governance(envelope.get("value"))
+            return {"key": governance_key, "status": envelope["status"], "value": envelope["value"],
+                    "version": current[1], "reason": envelope.get("reason", "")}
+        return {"key": governance_key, "status": "development-default", "value": self._default_governance(),
+                "version": 0, "reason": "repository default"}
+
+    def governance_diff(self, governance_key: str, value: dict[str, Any]) -> dict[str, Any]:
+        self._validate_governance_key(governance_key)
+        validated = self._validate_governance(value)
+        current = self.governance(governance_key)
+        changes = self._governance_diff(current["value"], validated)
+        return {"key": governance_key, "base_version": current["version"], "valid": True, "changes": changes}
+
+    def save_governance(self, governance_key: str, value: dict[str, Any], *, actor: str, reason: str,
+                        status: str = "pending", expected_version: int = 0) -> dict[str, Any]:
+        self._validate_governance_key(governance_key)
+        if not isinstance(actor, str) or not actor.strip():
+            raise AdminValidationError("actor is required")
+        if not isinstance(reason, str) or not reason.strip() or len(reason) > 2000:
+            raise AdminValidationError("reason is required")
+        if status not in self.GOVERNANCE_STATUSES:
+            raise AdminValidationError("governance status is invalid")
+        if isinstance(expected_version, bool) or not isinstance(expected_version, int) or expected_version < 0:
+            raise AdminValidationError("expected_version is required")
+        validated = self._validate_governance(value)
+        current = self.governance(governance_key)
+        if current["version"] != expected_version:
+            raise AdminConflictError("governance revision has changed; reload before saving")
+        changes = self._governance_diff(current["value"], validated)
+        if not changes:
+            raise AdminValidationError("governance edit has no changes")
+        envelope = {"status": status, "value": validated, "reason": reason.strip()}
+        try:
+            version = self.control.put_admin_setting(
+                self.GOVERNANCE_SETTING, envelope, actor=actor.strip(), expected_version=expected_version,
+                audit_resource="governance", audit_detail={"status": status, "reason": reason.strip(), "changes": changes},
+            )
+        except Exception as error:
+            if "conflict" in str(error).lower() or "changed" in str(error).lower():
+                raise AdminConflictError("governance revision has changed; reload before saving") from error
+            raise
+        return {"key": governance_key, "status": status, "value": validated, "version": version,
+                "changes": changes, "reason": reason.strip()}
+
+    def governance_history(self, governance_key: str = GOVERNANCE_KEY, *, limit: int = 50) -> tuple[dict[str, Any], ...]:
+        self._validate_governance_key(governance_key)
+        if not 1 <= limit <= 50:
+            raise AdminValidationError("limit must be between 1 and 50")
+        history = getattr(self.control, "governance_history", None)
+        if history is None:
+            return tuple(item for item in self.control.admin_audit(limit=limit)
+                         if item["resource"] == "governance" and item["resource_key"] == governance_key)
+        return tuple(history(governance_key, limit=limit))
+
+    @classmethod
+    def _validate_governance_key(cls, governance_key: str) -> None:
+        if governance_key != cls.GOVERNANCE_KEY:
+            raise AdminValidationError("governance key is invalid")
+
+    @staticmethod
+    def _default_governance() -> dict[str, Any]:
+        path = Path(__file__).resolve().parents[1] / "governance" / "policy.json"
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    @classmethod
+    def _validate_governance(cls, value: Any) -> dict[str, Any]:
+        if not isinstance(value, dict):
+            raise AdminValidationError("governance value must be an object")
+        required = {"version", "developmentCompletenessGate", "roleWeights", "blocking", "deterministicConstants"}
+        if set(value) != required or not isinstance(value["version"], str) or not re.fullmatch(r"[A-Za-z0-9._:-]{1,40}", value["version"]):
+            raise AdminValidationError("governance fields are invalid")
+        gate = value["developmentCompletenessGate"]
+        if isinstance(gate, bool) or not isinstance(gate, (int, float)) or not 0 <= gate <= 1:
+            raise AdminValidationError("developmentCompletenessGate must be between 0 and 1")
+        weights = value["roleWeights"]
+        if not isinstance(weights, dict) or set(weights) != cls.GOVERNANCE_ROLES or any(isinstance(item, bool) or not isinstance(item, (int, float)) or not 0 < item <= 1 for item in weights.values()) or abs(sum(weights.values()) - 1) > 1e-6:
+            raise AdminValidationError("roleWeights must contain five positive weights summing to 1")
+        blocking = value["blocking"]
+        if not isinstance(blocking, dict) or set(blocking) != {"manualReviewRequired", "criticalQualityFlag", "highRiskScoreAtLeast"} or not isinstance(blocking.get("manualReviewRequired"), bool) or not isinstance(blocking.get("criticalQualityFlag"), bool) or isinstance(blocking.get("highRiskScoreAtLeast"), bool) or not isinstance(blocking.get("highRiskScoreAtLeast"), int) or not 1 <= blocking["highRiskScoreAtLeast"] <= 100:
+            raise AdminValidationError("blocking policy is invalid")
+        constants = value["deterministicConstants"]
+        constant_values = constants.get("values") if isinstance(constants, dict) else None
+        if not isinstance(constants, dict) or set(constants) != {"status", "approved", "values"} or constants.get("status") not in cls.GOVERNANCE_STATUSES or not isinstance(constants.get("approved"), bool) or not isinstance(constant_values, dict) or set(constant_values) != {"highRiskScoreThreshold", "largeMovePercent", "completenessGatePercent"} or any(isinstance(item, bool) or not isinstance(item, int) or not 0 <= item <= 100 for item in constant_values.values()):
+            raise AdminValidationError("deterministic constants are invalid")
+        return json.loads(json.dumps(value, ensure_ascii=False))
+
+    @staticmethod
+    def _governance_diff(before: Any, after: Any) -> list[dict[str, Any]]:
+        changes: list[dict[str, Any]] = []
+
+        def walk(left: Any, right: Any, path: str) -> None:
+            if len(changes) >= 200:
+                return
+            if isinstance(left, dict) and isinstance(right, dict):
+                for key in sorted(set(left) | set(right)):
+                    walk(left.get(key), right.get(key), f"{path}.{key}" if path else key)
+                return
+            if left != right:
+                changes.append({"path": path, "before": left, "after": right})
+
+        walk(before, after, "")
+        return changes
 
     def save_setting(self, key: str, value: Any, *, actor: str, expected_version: int | None = None) -> dict[str, Any]:
         if not isinstance(actor, str) or not actor.strip():

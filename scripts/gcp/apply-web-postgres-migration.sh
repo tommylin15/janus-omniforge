@@ -31,6 +31,18 @@ elif [[ "${credential_source}" == file ]]; then
   esac
   chmod 600 "${credential_file}"
   { IFS= read -r web_control_password; IFS= read -r web_catalog_password; IFS= read -r web_publication_password; } < "${credential_file}"
+elif [[ "${credential_source}" == secret-manager ]]; then
+  project="${4:?GCP project is required for Secret Manager credentials}"
+  token="$(curl -fsS -H 'Metadata-Flavor: Google' \
+    'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token' \
+    | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')"
+  bundle="$(curl -fsS -H "Authorization: Bearer ${token}" \
+    "https://secretmanager.googleapis.com/v1/projects/${project}/secrets/janus-postgres-api-bundle/versions/latest:access" \
+    | sed -n 's/.*"data":"\([^"]*\)".*/\1/p' | base64 -d)"
+  web_control_password="$(printf '%s' "${bundle}" | sed -n 's/.*"web_control_password":"\([^"]*\)".*/\1/p')"
+  web_catalog_password="$(printf '%s' "${bundle}" | sed -n 's/.*"web_catalog_password":"\([^"]*\)".*/\1/p')"
+  web_publication_password="$(printf '%s' "${bundle}" | sed -n 's/.*"web_publication_password":"\([^"]*\)".*/\1/p')"
+  unset token bundle
 else
   echo "Unsupported credential source: ${credential_source}" >&2
   exit 2
@@ -118,6 +130,7 @@ sudo docker exec --user postgres \
     cat /tmp/public-vars.sql /opt/janus/migrations/021_public_api_role.sql | psql -U postgres -d janus_control
     psql -U postgres -d janus_control -f /opt/janus/migrations/022_mart_publication_review.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/023_public_stock_index.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/024_private_investment_profile.sql
     rm -f /tmp/web-vars.sql /tmp/public-vars.sql "${credential_file}"
     psql -U postgres -d janus_control -v ON_ERROR_STOP=1 <<"SQL"
 SELECT rolname, rolsuper, rolcreatedb, rolcreaterole, rolreplication
@@ -134,6 +147,9 @@ SELECT EXISTS (
 SELECT EXISTS (
   SELECT 1 FROM control.schema_migrations WHERE version = $$023_public_stock_index$$
 ) AS public_stock_index_recorded;
+SELECT EXISTS (
+  SELECT 1 FROM control.schema_migrations WHERE version = $$024_private_investment_profile$$
+) AS private_investment_profile_recorded;
 SELECT tableowner = $$janus_control$$ AS control_settings_owned
 FROM pg_tables WHERE schemaname = $$control$$ AND tablename = $$admin_settings$$;
 SELECT source_ids = $$["taiex", "tpex-benchmark", "twse", "mops", "finmind"]$$::jsonb

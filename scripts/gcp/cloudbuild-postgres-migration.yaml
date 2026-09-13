@@ -1,0 +1,55 @@
+substitutions:
+  _POSTGRES_VM: janus-postgres-dev
+  _POSTGRES_ZONE: us-central1-a
+  _POSTGRES_IMAGE: ""
+
+steps:
+  - id: migrate-existing-dev-postgres
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    secretEnv:
+      - POSTGRES_BUNDLE
+    args:
+      - -ceu
+      - |
+        test -n "${_POSTGRES_IMAGE}"
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        bundle = json.loads(os.environ["POSTGRES_BUNDLE"])
+        fields = ("web_control_password", "web_catalog_password", "web_publication_password")
+        values = [bundle[field] for field in fields]
+        Path("/workspace/janus-web-credentials-build").write_text("\n".join(values) + "\n")
+        PY
+        chmod 600 /workspace/janus-web-credentials-build
+
+        cleanup() {
+          rm -f /workspace/janus-web-credentials-build
+          gcloud compute ssh "${_POSTGRES_VM}" --project="${PROJECT_ID}" --zone="${_POSTGRES_ZONE}" \
+            --tunnel-through-iap --quiet --command \
+            'sudo rm -f /tmp/janus-web-credentials-build /tmp/apply-web-postgres-migration.sh janus-web-credentials-build apply-web-postgres-migration.sh' >/dev/null 2>&1 || true
+        }
+        trap cleanup EXIT
+
+        gcloud compute scp scripts/gcp/apply-web-postgres-migration.sh \
+          /workspace/janus-web-credentials-build \
+          "${_POSTGRES_VM}:" --project="${PROJECT_ID}" --zone="${_POSTGRES_ZONE}" \
+          --tunnel-through-iap --quiet
+        gcloud compute ssh "${_POSTGRES_VM}" --project="${PROJECT_ID}" --zone="${_POSTGRES_ZONE}" \
+          --tunnel-through-iap --quiet --command \
+          "sudo mv apply-web-postgres-migration.sh /tmp/apply-web-postgres-migration.sh && sudo mv janus-web-credentials-build /tmp/janus-web-credentials-build && sudo chmod 700 /tmp/apply-web-postgres-migration.sh && sudo chmod 600 /tmp/janus-web-credentials-build"
+        gcloud compute ssh "${_POSTGRES_VM}" --project="${PROJECT_ID}" --zone="${_POSTGRES_ZONE}" \
+          --tunnel-through-iap --quiet --command \
+          "sudo bash /tmp/apply-web-postgres-migration.sh '${_POSTGRES_IMAGE}' apply file /tmp/janus-web-credentials-build"
+        echo "PostgreSQL dev migration completed."
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/$PROJECT_ID/secrets/janus-postgres-api-bundle/versions/latest
+      env: POSTGRES_BUNDLE
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 1800s

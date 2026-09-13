@@ -7,6 +7,8 @@ class FakeApi extends Api {
   final Map<String, dynamic> values;
   @override
   Future<dynamic> get(String path) async => values[path] ?? const [];
+  @override
+  Future<dynamic> put(String path, Map<String, dynamic> body) async => values[path] ?? body;
 }
 
 void main() {
@@ -87,5 +89,21 @@ void main() {
     await tester.pump();
     expect(find.text('進階資料'), findsOneWidget);
     expect(find.text('K 線／OHLCV'), findsNothing);
+  });
+
+  testWidgets('portfolio dashboard renders persisted marts without recalculation', (tester) async {
+    final api = FakeApi({
+      '/api/v1/me/investment-profile': {'risk_tolerance':'moderate','investment_horizon':'long',
+        'primary_goal':'growth','minimum_cash_ratio':'0.1','ai_context_opt_in':false,'version':1},
+      '/api/v1/me/portfolio/summary': {'items':[{'currency':'TWD','market_value':'1200','unrealized_pnl':'200','cash_safety_status':'insufficient_data'}]},
+      '/api/v1/me/portfolio/exposure': {'items':[{'industry':'semiconductor','portfolio_ratio':'1'}]},
+      '/api/v1/me/portfolio/performance?year=${DateTime.now().year}': {'items':[{'year':DateTime.now().year,'currency':'TWD','xirr_status':'available','xirr':.1}]},
+      '/api/v1/me/portfolio/stress-tests': {'items':[{'scenario_id':'broad_market_down_20','loss':'-240'}]},
+    });
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: SingleChildScrollView(child: PortfolioDashboard(api)))));
+    await tester.pumpAndSettle();
+    expect(find.text('資產與風險'), findsOneWidget);
+    expect(find.textContaining('市值 1200'), findsOneWidget);
+    expect(find.textContaining('不構成投資建議'), findsOneWidget);
   });
 }

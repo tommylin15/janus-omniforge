@@ -13,9 +13,10 @@
 - [TODO 完成紀錄（2026-09-09）](archive/todo-completed-2026-09-09.md)
 - [TODO 完成紀錄（2026-09-11）](archive/todo-completed-2026-09-11.md)
 - [TODO 完成紀錄（2026-09-12：WBS-5）](archive/todo-completed-2026-09-12-wbs5.md)
+- [TODO 完成紀錄（2026-09-13：WBS-6／WBS-7）](archive/todo-completed-2026-09-13-wbs6-wbs7.md)
 - [已完成 WBS 0／1／2／4](archive/wbs-completed-through-2026-08-31.md)
 
-## 目前進度（2026-09-12）
+## 目前進度（2026-09-13）
 
 - WBS 4J 獨立 MVP：journal／note／Private Iceberg 完整交易、重跑、刪除與 A／B 隔離已結案；僅依賴 WBS 5 的個人化 analysis overlay 尚未啟用。
 - WBS 4C：Agent Runtime／AgentEvent、security contract、context sources、MCP host、Gemini REST、OpenRouter provider、Private Storage、Skills contract、Codex auth lifecycle 與 Chat API contract 的已完成部分已歸檔；Codex Chat API durable continuation、真人 device-code 流程與整合驗收仍未完成。
@@ -25,13 +26,13 @@
 - WBS 3 收尾：`WBS-3-ACCEPTANCE` 暫停於 2/3；既有 Scheduler 繼續自動累積 canary，切換至 WBS 5 期間不得宣告 WBS 3 結案。queue claim、connection exhaustion、VM restart/reconnect、bundle runtime probes、Direct VPC／identity negative evidence 與 billing／Free Tier dev guard 已通過。
 - 最新驗證：Codex POC bridge Cloud Build `9dec1039-0052-420d-9ef1-6719ed46991a` 與 OpenRouter／Gemini runtime probe `20050302-861a-4c84-84ad-c96f21903776` 均 SUCCESS；完整證據與既有驗證見 `spec/operations-and-testing.md` 與 [`secret_list.md`](secret_list.md)。
 - Secret bundle consolidation：已完成程式、測試、GCP dev prepare／部署與三個 Job smoke；尚待 Codex A/B live auth entry isolation，以及明確授權後的 legacy cleanup，詳見 [`doc/secret_list.md`](secret_list.md)。
+- WBS 4R 與全市場／關注股切片：source implementation 已完成，包含 bounded investment profile、Private Iceberg revision、effective-time 多產業曝險、typed XIRR、deterministic stress、typed API、Flutter dashboard，以及 market coverage 唯一 symbol 語意。依使用者指示停在測試執行前；尚未宣告驗收完成。
 
 ## 下一步執行佇列
 
-1. 【Sol】`WBS-5`：核心 feature／role／LLM／publication pipeline、`core.dataset.ready.v1` trigger、Gemini provider 與 Admin Analysis／Mart 分析入口已完成；下一步為 model／evaluation artifact、公開 API 查詢整合。
-2. 【Sol】`WBS-3-ACCEPTANCE`：暫停於 canary 2/3；只由既有 Scheduler 自動累積，不與 WBS 5 同回合結案。
-3. 【Sol】`WBS-4C-ACCEPTANCE`：完成 Cloud Run、provider、資料源、MCP、Skills、streaming、approval、Grounding、privacy 與刪除整合驗收。
-4. 【Luna】`WBS-6` → 【Sol】`WBS-7` → 依逐項標籤執行 `WBS-8`；WBS 4J 個人化 overlay 等 `mart_scoped_analysis` 可用後再做。
+1. 【Sol】WBS-4R／MARKET-SCOPE-ACCEPTANCE：執行本機 targeted contracts、PostgreSQL migration、Private Iceberg 重跑、typed API、Flutter analyze／widget／responsive 與既有 GCP dev 驗收；不得在 canary 3/3 前觸發實際全市場抓取。
+2. 【Sol】WBS-3-ACCEPTANCE：Scheduler 5-stock canary 第 3 次，通過後再擴展全市場。
+3. 【Sol】WBS-4C-ACCEPTANCE：完成 managed auth、Chat API／SSE、MCP 與 privacy 的整合驗收。
 
 ## 模型確認規則
 
@@ -43,9 +44,6 @@
 
 
 ## P1（私人 P0 後續）— Stage／Core 與 Admin MVP 驗證
-
-- [ ] 【Sol】 PostgreSQL migration、role isolation、queue claim、connection exhaustion、VM restart/reconnect、retention/pruning tests。（queue claim、connection exhaustion、VM restart/reconnect 已於 GCP dev 通過；migration／Web role contract／retention-pruning 自動測試已通過）
-
 
 - [ ] 【Sol】 UI 驗收可使用本地瀏覽器／Playwright，或按需啟動既有 GCP dev Cloud Run
   service，以實際 dev URL 驗證 responsive、interaction、API/runtime connectivity
@@ -83,31 +81,31 @@
 
 ## P1（WBS 4R）— 個人曝險、績效與 AI 壓力測試
 
-- [ ] 【Sol】 建立 investment profile：risk tolerance、investment horizon、primary goal、minimum cash ratio；目前值保留 bounded private index，revision history 寫入 Private Iceberg，只有使用者 opt-in 才能加入 chat context。
+- [ ] 【Sol】 建立 investment profile：risk tolerance、investment horizon、primary goal、minimum cash ratio；目前值保留 bounded private index，revision history 寫入 Private Iceberg，只有使用者 opt-in 才能加入 chat context。（source complete；待 PostgreSQL／Iceberg／opt-in acceptance。）
 
-- [ ] 【Sol】 建立具 effective time／provenance 的多產業 membership 與 `mart_user_exposure`；分攤方法、現金、持股市值、valuation date 與 membership snapshot 可追溯，Flutter／LLM 不重算。
+- [ ] 【Sol】 建立具 effective time／provenance 的多產業 membership 與 `mart_user_exposure`；分攤方法、現金、持股市值、valuation date 與 membership snapshot 可追溯，Flutter／LLM 不重算。（source complete；現行 ledger 無入出金事件，cash-safety 明示 `insufficient_data`，不得推算。）
 
-- [ ] 【Sol】 建立年度現金流與 XIRR；先通過買賣、現金／股票股利、更正、跨年、無根、多根與缺資料測試，非唯一有效結果不得填 0。
+- [ ] 【Sol】 建立年度現金流與 XIRR；先通過買賣、現金／股票股利、更正、跨年、無根、多根與缺資料測試，非唯一有效結果不得填 0。（source／回歸案例 complete；待執行。）
 
-- [ ] 【Sol】 建立 deterministic portfolio stress scenarios 與 cash-safety result，再交由使用者選定的 Codex／ChatGPT／Gemini profile 解釋；模型不得修改數值或產生下單動作。
+- [ ] 【Sol】 建立 deterministic portfolio stress scenarios 與 cash-safety result，再交由使用者選定的 Codex／ChatGPT／Gemini profile 解釋；模型不得修改數值或產生下單動作。（deterministic source complete；待重跑／模型不可改寫 acceptance。）
 
-- [ ] 【Sol】 建立 private investment-profile、portfolio summary／exposure／performance／stress-test typed endpoints 與 Flutter 儀表板；通過 A／B 隔離、重跑、資料日期、缺價、profile opt-in、citation 與免責聲明驗收。
+- [ ] 【Sol】 建立 private investment-profile、portfolio summary／exposure／performance／stress-test typed endpoints 與 Flutter 儀表板；通過 A／B 隔離、重跑、資料日期、缺價、profile opt-in、citation 與免責聲明驗收。（source complete；待 Flutter／API／GCP dev acceptance。）
 
 ## P1 — 全市場量化網
 
 - [ ] 【Sol】 以當日 enabled 股票 master 收集全市場日 OHLCV、PE/PB、法人、融資券／借券／當沖、基本面摘要與官方 benchmark。
 
-- [ ] 【Luna】 對 market-scope endpoint 採單次抓取、批次快取與 symbol fan-out；不得逐檔重複請求。
+- [ ] 【Luna】 對 market-scope endpoint 採單次抓取、批次快取與 symbol fan-out；不得逐檔重複請求。（source／回歸案例 complete；實際全市場執行仍等 WBS-3 canary 3/3。）
 
-- [ ] 【Luna】 產製每日 market coverage report：expected／received／missing symbols、來源成功數、freshness、合法 empty／unavailable 與最小寫入安全摘要；完整 DQ 延至 P4。
+- [ ] 【Luna】 產製每日 market coverage report：expected／received／missing symbols、來源成功數、freshness、合法 empty／unavailable 與最小寫入安全摘要；完整 DQ 延至 P4。（既有 source health 已補唯一 symbol 與 missing 計數；待 GCP dev acceptance。）
 
-- [ ] 【Sol】 建立 `mart_screening_signals`：技術面突破、量能、流動性與異動候選；結果不得在 collection request 內即時計算。
+- [ ] 【Sol】 建立 `mart_screening_signals`：技術面突破、量能、流動性與異動候選；結果不得在 collection request 內即時計算。（既有 Intelligence Mart source complete；待 GCP dev acceptance。）
 
 - [ ] 【Sol】 驗證全市場同日 replay 冪等、bounded memory／runtime、GCS 成本與缺檔不被誤標成功。
 
 ## P1 — 個人關注股深度追蹤
 
-- [ ] 【Sol】 以 authenticated watchlist 形成去識別化 active symbol membership，收集深度財報、公司事件／重大訊息、公司行動與 PIT publication time；Admin 不得取得 user-to-symbol 對應。
+- [ ] 【Sol】 以 authenticated watchlist 形成去識別化 active symbol membership，收集深度財報、公司事件／重大訊息、公司行動與 PIT publication time；Admin 不得取得 user-to-symbol 對應。（去識別化 append-only membership source complete；實際深度來源仍受下列授權 gate。）
 
 - [ ] 【Sol】 對已核准行情來源建立分 K／Tick 獨立排程、quota、retention、failure policy 與成本量測；未核准前保持 blocked。
 
@@ -121,74 +119,13 @@
 
 ## P1 — Mart 閉環
 
-- [x] 【Sol】 將 model／evaluation artifact 與大型 governance diff 寫入 GCS；feature／role／evidence／aggregation payload、完整結構化 report 及其 object URI／snapshot ID／hash 已由 WBS-5 pipeline 保存。（2026-09-12：create-only GCS artifact、manifest reference、本機測試與 GCP dev Cloud Build 驗收完成。）
-
-- [x] 【Sol】 驗證 publication index 可解析至正確 immutable GCS／Iceberg artifact，且 blocked／insufficient-data 成品不會被公開 API／Web 讀取；公開 API／Web、GCS hash 與 exact Iceberg snapshot 讀取已實作。（2026-09-12：本機測試與 GCP dev Cloud Build worker 驗收完成；blocked／insufficient_data fail-closed。）
-
 ## P1 — Admin Governance／Reports
-
-- [x] 【Sol】 Governance／audit metadata 使用 PostgreSQL migration、optimistic lock、retention 與專用 role；大 payload／diff artifact 放 GCS。（2026-09-12：migration 020／021、audit owner CAS、bounded pruning、public read-only role 與 GCP dev SQL 驗收完成。）
-
-- [ ] 【Luna】 Governance typed editing、validation、diff、history、optimistic lock。
-
-- [x] 【Luna】 Report block／unblock 實際 publication mutation、保存理由與 audit API。（migration 022、SQLite／FastAPI contract、既有 dev PostgreSQL SQL acceptance 完成。）
-
 
 ## P1 — FastAPI／Flutter User
 
-- [x] 【Sol】 擴充 WBS 4J 的最小 `services/api` FastAPI app，將現有 WSGI routes 逐一以 contract tests 遷移並移除 dev 部署的 WSGI Admin boundary。（2026-09-13：Admin／Core／public routes 已接入 FastAPI；`janus-web` workflow 與既有 dev service 已移除，`janus-api` 為唯一 dev HTTP boundary；`apps/web/server.py` 僅保留測試相容 adapter。）
-
-- [x] 【Sol】 分離 `/api/v1/public/*`、`/api/v1/me/*`、`/api/v1/admin/*` 的 router、response model、auth、CORS、rate limit、IAM 與 audit。（2026-09-13：router boundary、固定視窗 rate-limit、safe audit redaction、IAM／OpenAPI response boundary 已完成；public acceptance `28887ea1-b194-4d95-ab03-63fdebf5609a`、final revision `janus-api-00070-rvf` 通過。）
-
-- [x] 【Luna】 Public API 提供 health、daily brief、sector rotation、topics、candidates、stock health、history、Kline、events；Private API 延續 WBS 4J／4C 的 journal、notes、watchlist 與 chats contract。（`janus-api-00060-bs4` 與 GCP worker acceptance 完成；dev 尚無 events materialization 時回傳安全 unavailable。）
-
-- [x] 【Luna】 未知／停用股票 404。（2026-09-13：public enabled-symbol guard、本機 contract tests 與 Cloud Build acceptance `74d81a1c-62a8-49cd-9331-d3f0c66dac31` 通過。）
-
-- [x] 【Luna】 已啟用無資料顯示等待批次。（2026-09-13：symbol report／stock-health waiting contract 與本機 targeted tests 通過。）
-
-- [x] 【Luna】 查無資料不觸發 scraper／Agent／LLM。（2026-09-13：404 先於 Core query 的 no-call contract 與 Cloud Build public endpoint acceptance 通過。）
-
-- [x] 【Sol】 blocked、raw payload、secret、traceback 不公開。（2026-09-13：public artifact／Core safe-record、FastAPI generic error、Cloud Build public acceptance `74d81a1c-62a8-49cd-9331-d3f0c66dac31` 通過。）
-
-- [x] 【Sol】 Public API 只讀 PostgreSQL service index／publishable metadata，使用 bounded read-only pool 與 statement timeout；不得直連 catalog owner 或觸發即時抓取。Private journal API 使用獨立 role 並強制 authenticated-user ownership。（2026-09-13：migration 023、public role SQL、並行 pool 壓力與 VM restart/reconnect 均於既有 GCP dev 通過；final revision `janus-api-00070-rvf`。）
-
-- [x] 【Luna】 建立 `apps/user_app` Flutter + Material 3 app；完成「今日、關注、筆記、AI、我的」獨立導覽，不顯示 Admin 入口。（2026-09-13：Flutter Cloud Build `edaad569-2c5b-4b7d-a93a-e1cc178cd9e6` analyze、6 widget tests、responsive 與 web build 通過；本機仍無 Flutter SDK。）
-
-- [x] 【Luna】 今日頁顯示同一 analysis-as-of 的市場狀態、三則重點、板塊輪動、熱門話題與五張候選股健康卡；資料日期不一致時顯示 partial。（Flutter Cloud Build `edaad569-2c5b-4b7d-a93a-e1cc178cd9e6` 通過。）
-
-- [x] 【Luna】 實作 `StockHealthCard`：健康度圓環、籌碼 Chip、`Icons.psychology` 白話 AI Card、資料日期、風險與「非獲利機率」；blocked／insufficient 不顯示分數。（Flutter Cloud Build `edaad569-2c5b-4b7d-a93a-e1cc178cd9e6` 通過。）
-
-- [x] 【Luna】 個股 K 線、Metrics、五角色與 provenance 放在預設收合的進階資料，不得先於健康度與白話摘要。（Flutter Cloud Build `edaad569-2c5b-4b7d-a93a-e1cc178cd9e6` 通過。）
-
-- [x] 【Luna】 個人工作台 UI 支援關注股、交易新增／更正、一般筆記 revision、歷史篩選、持股、年度損益與多供應商私人助理；正式成本／損益只讀 Private Mart，不在 Flutter 或模型重算。（Flutter Cloud Build `edaad569-2c5b-4b7d-a93a-e1cc178cd9e6` 通過；既有 WBS 4J 私人交易／筆記 contract 沿用。）
-
-- [x] 【Luna】 全市場 screening 與個人關注股深度頁分流；顯示 coverage、freshness、來源健康與資料不足。（Flutter Cloud Build `edaad569-2c5b-4b7d-a93a-e1cc178cd9e6` 通過。）
-
 ## P1 — 全系統自動化測試
 
-- [x] 【Luna】 Backend pytest、FastAPI contract tests、Flutter analyze／widget tests、Admin Vitest。（本機 targeted 40；GCP `token-savior` Cloud Build `acfeaf2d-deb8-43d5-b5a1-c7749ae8efcf` 為 3176 passed／5 skipped；Flutter Cloud Build `edaad569-2c5b-4b7d-a93a-e1cc178cd9e6` 6 widget tests；既有 Vitest 維持通過。）
-
-- [x] 【Luna】 Flutter Web responsive surface／interaction 與 Admin Playwright。（Flutter Cloud Build phone/tablet/desktop 4 widget tests、Playwright 9。）
-
-- [x] 【Luna】 TypeScript／ESLint／production build。（2026-09-13：`npm.cmd run build` 通過；ESLint 已排除 `.tmp` 與 nested `dist` 生成物。）
-
-- [x] 【Luna】 Iceberg schema evolution tests。（既有 additive evolution、field ID、old snapshot、incompatible type rollback 與 snapshot idempotency tests 通過；本機 targeted 40 與 GCP 完整 suite `acfeaf2d-deb8-43d5-b5a1-c7749ae8efcf` 通過。）
-
-- [x] 【Luna】 Failure／retry／idempotency tests。（retry exhaustion fail-closed、failure transition、replay idempotency tests 通過；本機 targeted 40 與 GCP 完整 suite `acfeaf2d-deb8-43d5-b5a1-c7749ae8efcf` 通過。）
-
-- [x] 【Sol】 PostgreSQL role isolation、pool exhaustion、restart/reconnect、migration rollback 與 publication index tests。（2026-09-13：既有 GCP dev `janus-postgres-dev` 深測通過；role／view／index、transaction rollback、24 並行請求與 VM reset 後 reconnect 均通過。）
-
-- [x] 【Sol】 安全輸出與 log redaction tests。（2026-09-13：本機 targeted 40 passed；GCP public acceptance `28887ea1-b194-4d95-ab03-63fdebf5609a` passed；完整 `token-savior` suite Cloud Build `acfeaf2d-deb8-43d5-b5a1-c7749ae8efcf` 為 3176 passed／5 skipped，source root 固定為 `token-savior`。）
-
 ## P1 — WBS-7 安全、監控與 FinOps
-
-- [x] 【Sol】 WBS-7.1 IAM／Secret：active runtime service-account 分離、Secret bundle 最小 consumer、dev／production guard、無 user-managed key、PostgreSQL private IP／IAP boundary。（2026-09-13：既有 GCP dev configure／verify 通過；Cloud Run 四 runtime 使用分離 identity，無 user-managed key，PostgreSQL `e2-micro`／30GB `pd-standard`／private IP／IAP 通過。）
-
-- [x] 【Sol】 WBS-7.2 Observability：execution／trace lineage、source／dataset health、Job duration／retry／publication、API SLI、safe error taxonomy 與 aggregate core-focus gap。（2026-09-13：本機 targeted pytest 57 passed；API／Job telemetry、lineage、health 與 redaction 已部署至 dev，Cloud Build public API runtime acceptance 通過。）
-
-- [x] 【Sol】 WBS-7.3 FinOps：Cloud Run min/max、GCS lifecycle、Artifact Registry cleanup／禁止 scanning API、Free Tier PostgreSQL 無 snapshot guard、US$1／US$5／US$10 budget threshold 與 monthly resource report。（2026-09-13：GCP dev verify 通過；billing account 為 TWD，已建立 320 TWD（核准的 US$10 等值）budget，10%／50%／100% threshold；未建立付費 BigQuery billing export、snapshot、backup、HA 或 replica。）
-
-- [x] 【Sol】 WBS-7.4 安全驗收：無長效 key、無 secret／raw payload／敏感 URI 外洩，並可由 execution ID 追蹤 UI → Job → Core → Mart report。（2026-09-13：targeted pytest 57、Vitest 20、TypeScript、ESLint、bash syntax 通過；GCP dev verify 與 Cloud Build public API acceptance 通過，lineage／redaction／IAM／network guard 有實機證據。）
 
 ## P2 — PIT 與治理校準
 

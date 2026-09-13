@@ -71,10 +71,10 @@ case "${component}" in
     ;;
   private-pipeline)
     gcloud run jobs update "${runtime_name}" --project="${project}" --region="${region}" \
-      --service-account="janus-private-pipeline@${project}.iam.gserviceaccount.com" \
-      --tasks=1 --parallelism=1 --max-retries=1 --task-timeout=30m \
-      --remove-secrets="PRIVATE_DATABASE_URL,CORE_CATALOG_PASSWORD,PRIVATE_CATALOG_PASSWORD,JANUS_PIPELINE_POSTGRES_BUNDLE" \
-      --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" --quiet
+    --service-account="janus-private-pipeline@${project}.iam.gserviceaccount.com" \
+    --tasks=1 --parallelism=1 --max-retries=1 --task-timeout=30m \
+      --remove-secrets="PRIVATE_DATABASE_URL,PRIVATE_CATALOG_PASSWORD,JANUS_PIPELINE_POSTGRES_BUNDLE" \
+      --update-secrets="CORE_CATALOG_PASSWORD=janus-postgres-api-bundle:latest,JANUS_API_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" --quiet
     ;;
   api)
     gcloud run services update "${runtime_name}" --project="${project}" --region="${region}" \
