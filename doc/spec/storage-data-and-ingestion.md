@@ -68,6 +68,26 @@ snapshot、Cloud SQL、HA、replica、second PostgreSQL VM 或無界 retention�
 
 未核准的候選來源只保留為 disabled／blocked 設定，不建立 adapter、排程或 Admin 審查 UI。取得外部授權與成本核准後，另開 WBS 定義最小審查證據與實作範圍；只有 `official`／`approved_fallback` 可被啟用。
 
+### 6.4 Supply-chain Intelligence 共用資料模型
+
+Supply-chain Intelligence 延伸既有 Stage → Core → Mart 邊界，不另建資料庫或 runtime。
+概念模型至少包含 `supply_chain_node`、`supply_chain_edge`、`company_exposure`、
+`leading_indicator_definition`、`leading_indicator_observation`、`supply_chain_signal`
+與 `expectation_signal`。Edge 至少保存 upstream／downstream node、product／component、
+relationship type、`effective_from`、`effective_to`、confidence、evidence／source 與
+provenance；關係不是永久靜態 tag。
+
+Relationship／exposure evidence 使用 `confirmed`、`reported`、`inferred`、`hypothesis`
+分類。`inferred`／`hypothesis` 不得冒充 confirmed fact，也不得在 deterministic analysis
+中視為同等可信度。重要 relationship、indicator 與 signal 均需保留 as-of／effective
+time、provenance、source 與 confidence／quality status。
+
+六個 domain 共用一份 Source Matrix。每個 candidate indicator 至少記錄 node／demand
+driver、expected lead metric、lead time、affected companies、exposure interpretation、
+PIT availability、source license／API terms／retention、collection／storage cost、
+coverage、cadence、provenance 與 approval status；未知欄位標 `Unknown`，未核准來源只
+能是 `candidate`／`blocked`，不得建立 production adapter。
+
 ## 7. Provenance 與時間
 
 所有重要資料必須記錄：

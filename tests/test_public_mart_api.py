@@ -103,6 +103,7 @@ class PublicMartTests(unittest.TestCase):
                "governance_snapshot_version": "gov-1", "payload_json": json.dumps({"score": 80})}
         result = PublicMartService(_Index(index), lambda _: row).report("symbol", "2330")
         self.assertEqual(result["data"], {"score": 80})
+        self.assertEqual(result["execution_id"], "exec-1")
         self.assertNotIn("artifact_uri", result)
 
     def test_blocked_or_insufficient_artifact_fails_closed(self):

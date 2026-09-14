@@ -155,6 +155,7 @@ class PublicMartService:
             raise ValueError("public artifact payload must be an object")
         _validate_public_payload(payload)
         return {
+            "execution_id": str(index["execution_id"]),
             "analysis_as_of": self._iso(index["analysis_as_of"]),
             "scope_type": scope_type,
             "scope_id": scope_id,

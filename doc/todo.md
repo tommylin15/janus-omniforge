@@ -39,19 +39,21 @@
 
 以下項目可立即開始，不以前置完成 WBS-3-ACCEPTANCE 為條件：
 
-1. 【Sol】WBS-7-PILOT-LEDGER-DURABILITY：建立 bounded `pg_dump → restricted Private GCS` ledger backup，完成至少一次 isolated restore evidence。
-2. 【Sol】WBS-8-PILOT-OUTCOME-COLLECTION：Pilot Day 1 開始收集 analysis identity／lineage、5／20／60 outcome、benchmark、MFE／MAE 與 exclusion provenance。
-3. 【Sol】WBS-6-PILOT-USEFULNESS-FEEDBACK：建立 owner-scoped bounded usefulness feedback，優先重用既有 analysis card。
-4. 【Sol】WBS-8-PILOT-RELEASE-BASELINE：建立 Pilot baseline／epoch lineage，記錄 git SHA、immutable digest、governance／prompt／schema／model／source revision。
-5. 【Sol】WBS-6-CHATGPT-MCP-CONTRACT：確認 Custom MCP／OAuth compatibility 與三個 read-only tool contract。
-6. 【Sol】WBS-6-CHATGPT-MCP-ADAPTER：依 contract 在既有 `janus-api` 建立 bounded read-only adapter；不安全時停止並提交架構決策；不等待 WBS-3。
-7. 【Sol】WBS-8-CHATGPT-MCP-ACCEPTANCE：完成 connector acceptance；若外部 plan／UI 阻擋，等待使用者決定是否以 blocked connector 啟動 Pilot。
+1. 【Sol】`WBS-5-SUPPLY-INTELLIGENCE-PLANNING`：完成 Supply-chain Intelligence Foundation、六 domain Source Matrix、seed graph／signal contract 與 Pilot measurement／epoch design。Acceptance：six domains documented、common ontology reviewed、relationship evidence classes、effective-time、candidate indicators、source／license／cost／PIT status、Pilot evaluation mapping；Gate A＝foundation／contract、Source Matrix 第一版與 epoch design ready，Gate B＝每個 source 的 identity／indicator／PIT／license／retention／quota／cost／provenance／fallback approval，Gate C＝Gate A＋至少一個 Gate B source 才能排 schema／ingestion，Gate D＝Core ingestion／PIT／provenance／replay／bounded DQ 完成才可排 Mart signal，Gate E＝任何新 GCP／IAM／paid service 另提成本／安全／退出方案並取得明確同意；不新增 adapter、paid source、GCP resource，六個 domain 不要求 Pilot Day 1 ingestion-ready。
+2. 【Sol】WBS-7-PILOT-LEDGER-DURABILITY：建立 bounded `pg_dump → restricted Private GCS` ledger backup，完成至少一次 isolated restore evidence。
+3. 【Sol】WBS-8-PILOT-OUTCOME-COLLECTION：Pilot Day 1 開始收集 analysis identity／lineage、5／20／60 outcome、benchmark、MFE／MAE 與 exclusion provenance。
+4. 【Sol】WBS-6-PILOT-USEFULNESS-FEEDBACK：建立 owner-scoped bounded usefulness feedback，優先重用既有 analysis card。
+5. 【Sol】WBS-8-PILOT-RELEASE-BASELINE：建立 Pilot baseline／epoch lineage，記錄 git SHA、immutable digest、governance／prompt／schema／model／source／config／feature／signal revision 與 relevant Core／Mart snapshot；不得用新資料或新模型改寫舊 epoch artifact。
+6. 【Sol】WBS-6-CHATGPT-MCP-CONTRACT：確認 Custom MCP／OAuth compatibility 與三個 read-only tool contract。
+7. 【Sol】WBS-6-CHATGPT-MCP-ADAPTER：依 contract 在既有 `janus-api` 建立 bounded read-only adapter；不安全時停止並提交架構決策；不等待 WBS-3。
+8. 【Sol】WBS-8-CHATGPT-MCP-ACCEPTANCE：完成 connector acceptance；若外部 plan／UI 阻擋，等待使用者決定是否以 blocked connector 啟動 Pilot。
 
 只有 `WBS-8-DEV-PILOT-ENTRY` 必須等待：
 
 1. Track A 的 WBS-3 safety／full-market gate 完成。
-2. Track B 四個 Pilot readiness gap ready。
-3. ChatGPT MCP acceptance 完成，或因外部 plan／UI capability blocked 且經人工允許。
+2. Track B 四個既有 Pilot readiness gap ready。
+3. `WBS-5-SUPPLY-INTELLIGENCE-PLANNING` 完成；這只要求正式 planning evidence，不要求六個 domain ingestion-ready。
+4. ChatGPT MCP acceptance 完成，或因外部 plan／UI capability blocked 且經人工允許。
 
 Entry Gate 通過後才記錄 `pilot_started_at`，進入 `WBS-8-DEV-PILOT-RUN` 的 6 calendar
 months operational phase；完成後才可開始 `WBS-8-PROD-GO-NOGO`。
@@ -178,6 +180,12 @@ correctness 或明確核准的 Pilot use case 必要；既有可用功能保留�
 - Pilot 實際不用的完整 device／A11y matrix；實際使用裝置所需的 release coverage 仍保留。
 - 新 GCP service、HA／replica／multi-region／GKE，以及為架構漂亮而新增 infrastructure。
 
+Supply-chain Intelligence foundation／research planning 是本 freeze 的明確例外；只允許
+ontology、Source Matrix、seed graph、signal contract 與 Pilot measurement／epoch planning。
+production ingestion、schema／migration、crawler、未核准 adapter、paid source、tick／
+high-frequency source、Mart implementation 與新 GCP resource 仍 frozen／deferred，直到
+WBS-5 Gate A–E 及個別 source approval 條件滿足。
+
 ## P2 — PIT 與治理校準
 
 Pilot Day-1 outcome collection 已前移至 `WBS-8-PILOT-OUTCOME-COLLECTION`；本節保留
@@ -230,7 +238,7 @@ Pilot Day-1 outcome collection 已前移至 `WBS-8-PILOT-OUTCOME-COLLECTION`；�
 
 ## P2 — WBS 8 Dev Pilot／Production Readiness
 
-- [ ] 【Sol】 `WBS-8-DEV-PILOT-ENTRY`：Blocked until WBS-3 canary／full-market safety、ledger durability successful restore、outcome collection、usefulness feedback、release baseline、minimum data-safety DQ（required key／type、duplicate、future leakage、freshness、basic coverage、schema drift、適用時的 obvious outlier／corporate-action sanity）與 security／privacy／cost evidence ready；ChatGPT MCP acceptance 完成，或使用者明確決定允許 connector blocked 狀態啟動 Pilot。只有 Entry Gate 通過時記錄 `pilot_started_at`，不新增 staging／production infrastructure；完整 DQ dashboard／tuning／大型 drill-down 留後續。
+- [ ] 【Sol】 `WBS-8-DEV-PILOT-ENTRY`：Blocked until WBS-3 canary／full-market safety、ledger durability successful restore、outcome collection、usefulness feedback、release baseline、minimum data-safety DQ（required key／type、duplicate、future leakage、freshness、basic coverage、schema drift、適用時的 obvious outlier／corporate-action sanity）與 security／privacy／cost evidence ready；`WBS-5-SUPPLY-INTELLIGENCE-PLANNING` 也必須完成，但不要求六個 domain ingestion-ready。ChatGPT MCP acceptance 完成，或使用者明確決定允許 connector blocked 狀態啟動 Pilot。只有 Entry Gate 通過時記錄 `pilot_started_at`，不新增 staging／production infrastructure；完整 DQ dashboard／tuning／大型 drill-down 留後續。
 
 - [ ] 【Sol】 `WBS-8-DEV-PILOT-RUN`：Entry 完成後開始 6 calendar months operational phase，持續執行 Scheduler／ingestion／analysis，累積 monthly evidence summary、backup／restore、outcome、usefulness、cost、manual intervention、recurring failure 與 security／privacy evidence；不新增 feature roadmap，production promotion blocked。
 

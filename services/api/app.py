@@ -28,7 +28,7 @@ from .auth import (AuthenticatedAdmin, AuthenticatedUser, GoogleAdminAuthenticat
 from .context_sources import (ContextReferenceNotFound, ContextSourceError, ContextSourceService,
                               CoreContextReader)
 from .mcp_gateway import McpGatewayClient, McpGatewayError
-from .models import (AdminResponseOut, ContextPreviewIn, ContextResolveIn, CorePageOut, CoreSummaryOut,
+from .models import (AdminResponseOut, AnalysisFeedbackIn, ContextPreviewIn, ContextResolveIn, CorePageOut, CoreSummaryOut,
                      CorrectionIn, HealthOut, InvestmentProfileIn, InvestmentProfileOut, LedgerEventIn,
                      McpServersPutIn, NoteIn, NoteRevisionIn, PortfolioExposureOut,
                      PortfolioPerformanceOut, PortfolioStressOut, PortfolioSummaryOut,
@@ -702,6 +702,18 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def portfolio_stress_tests(current: AuthenticatedUser = Depends(user)):
         return portfolio_mart("mart_user_stress_tests",current)
 
+    @private.get("/analysis-feedback")
+    def analysis_feedback(analysis_execution_id:UUID,scope_type:str=Query(...,pattern="^(market|industry|symbol)$"),
+                          scope_id:str=Query(...,min_length=1,max_length=80),
+                          current:AuthenticatedUser=Depends(user)):
+        return jsonable_encoder(repository.analysis_feedback(
+            current.user_id,analysis_execution_id,scope_type,scope_id))
+
+    @private.put("/analysis-feedback")
+    def save_analysis_feedback(value:AnalysisFeedbackIn,current:AuthenticatedUser=Depends(user),
+                               idempotency_key:str=Depends(key)):
+        return jsonable_encoder(repository.save_analysis_feedback(current.user_id,value,idempotency_key))
+
     @private.post("/notes",status_code=201)
     def add_note(value:NoteIn,current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
         repository.require_owned_trade(current.user_id,value.trade_event_id)
@@ -746,6 +758,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
             "portfolio_exposure":store.mart("mart_user_exposure",current.user_id),
             "portfolio_performance":store.mart("mart_user_annual_performance",current.user_id),
             "portfolio_stress_tests":store.mart("mart_user_stress_tests",current.user_id),
+            "analysis_feedback":repository.analysis_feedback_export(current.user_id),
             "assistant":store.export_assistant(current.user_id)})
 
     @private.delete("/private-data",status_code=202)

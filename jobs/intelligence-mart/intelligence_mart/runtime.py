@@ -10,6 +10,7 @@ import json
 import os
 from typing import Any, Callable
 from urllib.parse import urlparse
+from uuid import NAMESPACE_URL, uuid5
 
 
 _DATABASES = {
@@ -78,7 +79,35 @@ class PostgreSQLPublicationIndex:
     def __init__(self, connection: Any) -> None:
         self.connection = connection
 
-    def register(self, report: dict[str, Any], reference: dict[str, Any], artifact_hash: str, *, retention_days: int) -> None:
+    def register_baseline(self, execution: AnalysisExecution, prompt_version: str, prompt_hash: str) -> str | None:
+        git_sha = os.environ.get("JANUS_GIT_SHA", "").strip().lower()
+        image_digest = os.environ.get("JANUS_IMAGE_DIGEST", "").strip().lower()
+        if not git_sha and not image_digest:
+            return None
+        if not (7 <= len(git_sha) <= 64 and all(character in "0123456789abcdef" for character in git_sha)):
+            raise ValueError("JANUS_GIT_SHA must be a hexadecimal revision")
+        if len(image_digest) != 71 or not image_digest.startswith("sha256:"):
+            raise ValueError("JANUS_IMAGE_DIGEST must be an immutable sha256 digest")
+        lineage = {
+            "git_sha": git_sha,
+            "image_digest": image_digest,
+            "governance_revision": str(execution.request_options["governance_snapshot_version"]),
+            "prompt_version": prompt_version,
+            "prompt_hash": prompt_hash,
+            "schema_revision": str(execution.request_options["schema_version"]),
+            "model_provider": "gemini" if os.environ.get("MART_LLM_ENABLED", "false").lower() in {"1", "true", "yes"} else "deterministic",
+            "model_version": str(execution.request_options["model_version"]),
+            "source_config_revision": str(execution.request_options.get("source_config_revision", execution.config_id)),
+        }
+        digest = f"sha256:{sha256(json.dumps(lineage, sort_keys=True, separators=(',', ':')).encode()).hexdigest()}"
+        baseline_id = str(uuid5(NAMESPACE_URL, f"janus-pilot-baseline:{digest}"))
+        params = (baseline_id, "material_change", f"material-{digest[7:19]}", digest, *lineage.values())
+        with self.connection.transaction(), self.connection.cursor() as cursor:
+            cursor.execute("SELECT publication.register_pilot_baseline(" + ",".join(["%s"] * len(params)) + ")", params)
+            return str(cursor.fetchone()[0])
+
+    def register(self, report: dict[str, Any], reference: dict[str, Any], artifact_hash: str, *,
+                 retention_days: int, pilot_baseline_id: str | None = None) -> None:
         scope, aggregate = report["scope"], report["aggregate"]
         if retention_days not in range(1, 3651):
             raise ValueError("Mart retention_days must be between 1 and 3650")
@@ -91,10 +120,65 @@ class PostgreSQLPublicationIndex:
             aggregate["analysis_outcome"], aggregate["publication_status"],
             date.fromisoformat(report["analysis_as_of"]) + timedelta(days=retention_days),
         )
+        function = "publication.register_mart_report"
+        if pilot_baseline_id:
+            function = "publication.register_pilot_mart_report"
+            params += (pilot_baseline_id, report["membership_snapshot_hash"])
         with self.connection.transaction(), self.connection.cursor() as cursor:
-            cursor.execute("SELECT publication.register_mart_report(" + ",".join(["%s"] * len(params)) + ")", params)
+            cursor.execute("SELECT " + function + "(" + ",".join(["%s"] * len(params)) + ")", params)
             if not cursor.fetchone()[0]:
                 raise RuntimeError("Mart publication registration failed")
+
+    def pending_outcomes(self, symbols: list[str], *, limit: int = 1500) -> list[dict[str, Any]]:
+        if not symbols:
+            return []
+        from psycopg.rows import dict_row
+        with self.connection.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                """SELECT report.execution_id AS analysis_execution_id,report.scope_type,report.scope_id,
+                          report.analysis_as_of,horizon.horizon_days,report.pilot_baseline_id,
+                          report.membership_snapshot_hash
+                     FROM publication.mart_report_index report
+                     CROSS JOIN (VALUES (5),(20),(60)) horizon(horizon_days)
+                     LEFT JOIN publication.pilot_analysis_outcomes outcome
+                       ON outcome.analysis_execution_id=report.execution_id
+                      AND outcome.scope_type=report.scope_type AND outcome.scope_id=report.scope_id
+                      AND outcome.horizon_days=horizon.horizon_days
+                    WHERE report.scope_type='symbol' AND report.scope_id=ANY(%s)
+                      AND report.analysis_outcome='complete'
+                      AND report.publication_status IN ('publishable','published')
+                      AND report.pilot_baseline_id IS NOT NULL
+                      AND report.membership_snapshot_hash IS NOT NULL
+                      AND (outcome.status IS NULL OR outcome.status='pending')
+                    ORDER BY report.analysis_as_of,report.execution_id,horizon.horizon_days LIMIT %s""",
+                (symbols,min(limit,1500)),
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def save_outcomes(self, rows: list[dict[str, Any]]) -> None:
+        if not rows:
+            return
+        sql = """INSERT INTO publication.pilot_analysis_outcomes(
+                    analysis_execution_id,scope_type,scope_id,analysis_as_of,horizon_days,
+                    pilot_baseline_id,membership_snapshot_hash,status,exclusion_reason,benchmark_id,
+                    entry_date,outcome_date,return_ratio,benchmark_return_ratio,relative_return_ratio,
+                    mfe_ratio,mae_ratio,price_snapshot_id,benchmark_snapshot_id,provenance_id)
+                 VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                 ON CONFLICT(analysis_execution_id,scope_type,scope_id,horizon_days) DO UPDATE SET
+                    status=EXCLUDED.status,exclusion_reason=EXCLUDED.exclusion_reason,
+                    entry_date=EXCLUDED.entry_date,outcome_date=EXCLUDED.outcome_date,
+                    return_ratio=EXCLUDED.return_ratio,benchmark_return_ratio=EXCLUDED.benchmark_return_ratio,
+                    relative_return_ratio=EXCLUDED.relative_return_ratio,mfe_ratio=EXCLUDED.mfe_ratio,
+                    mae_ratio=EXCLUDED.mae_ratio,price_snapshot_id=EXCLUDED.price_snapshot_id,
+                    benchmark_snapshot_id=EXCLUDED.benchmark_snapshot_id,
+                    provenance_id=EXCLUDED.provenance_id,evaluated_at=now()
+                 WHERE publication.pilot_analysis_outcomes.status='pending'"""
+        fields = ("analysis_execution_id","scope_type","scope_id","analysis_as_of","horizon_days",
+                  "pilot_baseline_id","membership_snapshot_hash","status","exclusion_reason","benchmark_id",
+                  "entry_date","outcome_date","return_ratio","benchmark_return_ratio","relative_return_ratio",
+                  "mfe_ratio","mae_ratio","price_snapshot_id","benchmark_snapshot_id","provenance_id")
+        with self.connection.transaction(), self.connection.cursor() as cursor:
+            cursor.executemany(sql, [tuple(row.get(field) for field in fields) for row in rows])
 
 
 def consume_queued_analysis(queue: PostgreSQLAnalysisQueue, processor: Callable[[AnalysisExecution], dict[str, object]],
@@ -254,6 +338,7 @@ def mart_processor(execution: AnalysisExecution, publication_connection: Any, *,
         mart_store.close()
 
     publication = PostgreSQLPublicationIndex(publication_connection)
+    pilot_baseline_id = publication.register_baseline(execution, prompts["version"], prompt_hash)
     if existing_manifest is None:
         artifact_prefix = f"executions/{execution.execution_id}/artifacts"
         governance_diff = execution.request_options.get("governance_diff", [])
@@ -306,9 +391,15 @@ def mart_processor(execution: AnalysisExecution, publication_connection: Any, *,
             raise RuntimeError("immutable Mart execution manifest conflict")
     retention_days = int(execution.request_options.get("retention_days", 365))
     for report, index in zip(reports, indexed, strict=True):
-        publication.register(report, index, index["artifact_hash"], retention_days=retention_days)
+        publication.register(report, index, index["artifact_hash"], retention_days=retention_days,
+                             pilot_baseline_id=pilot_baseline_id)
+    outcomes_updated = 0
+    if pilot_baseline_id:
+        from .outcomes import collect_pilot_outcomes
+        outcomes_updated = collect_pilot_outcomes(publication, datasets)
     return {"artifact_uri": f"gs://{bucket}/{target_name}", "core_snapshot_id": execution.core_snapshot_id,
-            "reports": len(reports), "publishable": sum(item["publication_status"] in {"publishable", "published"} for item in indexed)}
+            "reports": len(reports), "publishable": sum(item["publication_status"] in {"publishable", "published"} for item in indexed),
+            "outcomes_updated": outcomes_updated, "pilot_baseline_id": pilot_baseline_id}
 
 
 def run_queued_analysis() -> dict[str, object]:

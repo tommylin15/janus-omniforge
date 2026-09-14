@@ -74,7 +74,8 @@ void main() {
 
   testWidgets('stock detail keeps advanced market data collapsed by default', (tester) async {
     final api = FakeApi({
-      '/api/v1/public/stock-health/2330': {'analysis_as_of': '2026-09-12', 'data_status': 'published', 'data': {
+      '/api/v1/public/stock-health/2330': {'execution_id': '11111111-1111-1111-1111-111111111111',
+        'analysis_as_of': '2026-09-12', 'scope_type': 'symbol', 'scope_id': '2330', 'data_status': 'published', 'data': {
         'stock_id': '2330', 'mart_health_score': 80, 'chips_status': '偏多',
         'ai_whitepaper_analysis': '摘要', 'analysis_as_of': '2026-09-12'
       }},
@@ -89,6 +90,7 @@ void main() {
     await tester.pump();
     expect(find.text('進階資料'), findsOneWidget);
     expect(find.text('K 線／OHLCV'), findsNothing);
+    expect(find.text('這份分析有幫助嗎？'), findsOneWidget);
   });
 
   testWidgets('portfolio dashboard renders persisted marts without recalculation', (tester) async {

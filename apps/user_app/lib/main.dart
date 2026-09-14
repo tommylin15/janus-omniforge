@@ -942,6 +942,76 @@ class StockHealthCard extends StatelessWidget {
   }
 }
 
+class AnalysisFeedbackCard extends StatefulWidget {
+  const AnalysisFeedbackCard({required this.api, required this.executionId,
+      required this.scopeType, required this.scopeId, super.key});
+  final Api api;
+  final String executionId;
+  final String scopeType;
+  final String scopeId;
+  @override
+  State<AnalysisFeedbackCard> createState() => _AnalysisFeedbackCardState();
+}
+
+class _AnalysisFeedbackCardState extends State<AnalysisFeedbackCard> {
+  String? selected;
+  bool busy = true;
+  String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    load();
+  }
+
+  Future<void> load() async {
+    try {
+      final value = await widget.api.get(Uri(path: '/api/v1/me/analysis-feedback', queryParameters: {
+        'analysis_execution_id': widget.executionId,
+        'scope_type': widget.scopeType,
+        'scope_id': widget.scopeId,
+      }).toString());
+      if (mounted) setState(() { selected = value is Map ? value['feedback']?.toString() : null; busy = false; });
+    } catch (_) {
+      if (mounted) setState(() { error = '回饋暫時無法載入'; busy = false; });
+    }
+  }
+
+  Future<void> save(String value) async {
+    setState(() { busy = true; error = null; });
+    try {
+      await widget.api.put('/api/v1/me/analysis-feedback', {
+        'analysis_execution_id': widget.executionId,
+        'scope_type': widget.scopeType,
+        'scope_id': widget.scopeId,
+        'feedback': value,
+      });
+      if (mounted) setState(() { selected = value; busy = false; });
+    } catch (_) {
+      if (mounted) setState(() { error = '回饋儲存失敗'; busy = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Card(child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('這份分析有幫助嗎？'),
+        const SizedBox(height: 8),
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'useful', label: Text('有幫助'), icon: Icon(Icons.thumb_up_outlined)),
+            ButtonSegment(value: 'neutral', label: Text('普通'), icon: Icon(Icons.horizontal_rule)),
+            ButtonSegment(value: 'misleading', label: Text('可能誤導'), icon: Icon(Icons.report_outlined)),
+          ],
+          selected: selected == null ? const {} : {selected!},
+          emptySelectionAllowed: true,
+          onSelectionChanged: busy ? null : (values) { if (values.isNotEmpty) save(values.first); },
+        ),
+        if (busy) const LinearProgressIndicator(),
+        if (error != null) Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+      ])));
+
 List<dynamic> _asList(dynamic value) => value is List ? value : const [];
 
 class ScreeningPage extends StatelessWidget {
@@ -1008,6 +1078,9 @@ class StockDetailPage extends StatelessWidget {
               '${position['shares'] ?? position['quantity'] ?? '—'} 股 · 成本 ${position['average_cost'] ?? '—'} · 損益 ${position['unrealized_pnl'] ?? '—'}')),
           ListTile(title: const Text('我的筆記'), subtitle: Text(notes.isEmpty ? '尚無筆記' : '${notes.first['body']}')),
           StockHealthCard(value: data),
+          if (report['execution_id'] != null)
+            AnalysisFeedbackCard(api: api, executionId: '${report['execution_id']}',
+                scopeType: '${report['scope_type'] ?? 'symbol'}', scopeId: '${report['scope_id'] ?? symbol}'),
           ListTile(title: const Text('為什麼'), subtitle: Text('${data['why'] ?? '尚無可發布說明'}')),
           ListTile(title: const Text('主要風險'), subtitle: Text('${data['risks'] ?? data['risk'] ?? '—'}')),
           ListTile(title: const Text('籌碼'), subtitle: Text('${data['chips_status'] ?? '—'}')),

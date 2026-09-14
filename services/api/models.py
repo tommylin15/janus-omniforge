@@ -46,6 +46,7 @@ class CoreSummaryOut(BaseModel):
 
 
 class PublicReportOut(BaseModel):
+    execution_id: UUID
     analysis_as_of: str
     scope_type: str
     scope_id: str
@@ -170,6 +171,17 @@ class InvestmentProfileOut(BaseModel):
     ai_context_opt_in: bool = False
     version: int = 0
     updated_at: datetime | None = None
+
+
+class AnalysisFeedbackIn(StrictModel):
+    analysis_execution_id: UUID
+    scope_type: Literal["market", "industry", "symbol"]
+    scope_id: Annotated[str, Field(min_length=1, max_length=80, pattern=r"^[0-9A-Za-z_.:-]+$")]
+    feedback: Literal["useful", "neutral", "misleading"]
+    reason: Literal[
+        "discovered_risk", "useful_context", "already_known", "too_generic", "stale",
+        "missing_data", "wrong_interpretation", "other",
+    ] | None = None
 
 
 class PortfolioSummaryItem(BaseModel):

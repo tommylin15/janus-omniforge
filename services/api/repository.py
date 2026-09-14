@@ -9,7 +9,7 @@ import os
 from typing import Any, Iterator
 from uuid import UUID, uuid4
 
-from .models import InvestmentProfileIn, LedgerEventIn, LedgerType, McpServerIn, NoteIn, WatchlistIn
+from .models import AnalysisFeedbackIn, InvestmentProfileIn, LedgerEventIn, LedgerType, McpServerIn, NoteIn, WatchlistIn
 
 
 class ConflictError(ValueError): pass
@@ -130,6 +130,57 @@ class PostgresWorkspaceRepository:
             return [dict(row) for row in connection.execute(
                 "SELECT * FROM private.annual_pnl WHERE user_id=%s AND year=%s ORDER BY currency", (user_id, year)
             ).fetchall()]
+
+    def analysis_feedback(self, user_id: UUID, execution_id: UUID, scope_type: str, scope_id: str) -> dict[str, Any] | None:
+        with self._connection() as connection:
+            row=connection.execute(
+                """SELECT analysis_execution_id,scope_type,scope_id,feedback,reason,version,updated_at
+                   FROM private.analysis_feedback
+                   WHERE user_id=%s AND analysis_execution_id=%s AND scope_type=%s AND scope_id=%s""",
+                (user_id,execution_id,scope_type,scope_id),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def analysis_feedback_export(self, user_id: UUID) -> list[dict[str, Any]]:
+        with self._connection() as connection:
+            return [dict(row) for row in connection.execute(
+                """SELECT analysis_execution_id,scope_type,scope_id,feedback,reason,version,updated_at
+                   FROM private.analysis_feedback WHERE user_id=%s ORDER BY updated_at,feedback_id""",
+                (user_id,),
+            ).fetchall()]
+
+    def save_analysis_feedback(self, user_id: UUID, value: AnalysisFeedbackIn, key: str) -> dict[str, Any]:
+        with self._connection() as connection:
+            target=connection.execute(
+                """SELECT deterministic_hash FROM publication.feedback_analysis_targets
+                   WHERE execution_id=%s AND scope_type=%s AND scope_id=%s""",
+                (value.analysis_execution_id,value.scope_type,value.scope_id),
+            ).fetchone()
+            if not target: raise NotFoundError("analysis result not found")
+            repeated=connection.execute(
+                "SELECT * FROM private.analysis_feedback WHERE user_id=%s AND idempotency_key=%s",
+                (user_id,key),
+            ).fetchone()
+            if repeated:
+                if (repeated["analysis_execution_id"],repeated["scope_type"],repeated["scope_id"],
+                    repeated["feedback"],repeated["reason"]) != (
+                    value.analysis_execution_id,value.scope_type,value.scope_id,value.feedback,value.reason):
+                    raise ConflictError("feedback idempotency key was reused")
+                return dict(repeated)
+            row=connection.execute(
+                """INSERT INTO private.analysis_feedback(
+                       feedback_id,user_id,analysis_execution_id,scope_type,scope_id,analysis_hash,
+                       feedback,reason,idempotency_key)
+                   VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                   ON CONFLICT(user_id,analysis_execution_id,scope_type,scope_id) DO UPDATE
+                     SET feedback=EXCLUDED.feedback,reason=EXCLUDED.reason,
+                         analysis_hash=EXCLUDED.analysis_hash,idempotency_key=EXCLUDED.idempotency_key,
+                         version=private.analysis_feedback.version+1,updated_at=now()
+                   RETURNING *""",
+                (uuid4(),user_id,value.analysis_execution_id,value.scope_type,value.scope_id,
+                 target["deterministic_hash"],value.feedback,value.reason,key),
+            ).fetchone()
+            return dict(row)
 
     def add_note(self, user_id: UUID, value: NoteIn, key: str, artifact_ref: str, note_id: UUID | None = None) -> dict[str, Any]:
         with self._connection() as connection:
@@ -669,7 +720,7 @@ class PostgresWorkspaceRepository:
             connection.execute("DELETE FROM private.assistant_threads WHERE user_id=%s",(user_id,))
             connection.execute("DELETE FROM private.assistant_skill_state WHERE user_id=%s",(user_id,))
             connection.execute("DELETE FROM private.assistant_skill_revisions WHERE user_id=%s",(user_id,))
-            for table in ("change_log","mutation_keys","note_index","watchlist","mcp_servers","investment_profiles","ledger_events","users"):
+            for table in ("analysis_feedback","change_log","mutation_keys","note_index","watchlist","mcp_servers","investment_profiles","ledger_events","users"):
                 connection.execute(f"DELETE FROM private.{table} WHERE user_id=%s",(user_id,))
             connection.execute("""UPDATE private.deletion_requests SET status='COMPLETED',cleanup_pending='{}',completed_at=now()
                                 WHERE request_id=%s AND user_id=%s""",(request_id,user_id))

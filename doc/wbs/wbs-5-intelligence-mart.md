@@ -79,3 +79,63 @@
 - Contract、Iceberg schema evolution 與儲存邊界測試證明 PostgreSQL 沒有完整 Mart payload，且 publication index 可解析至正確 immutable GCS／Iceberg artifact。
 - market／industry／symbol 分析可由 Admin 解析至正確 immutable `mart_scoped_analysis` artifact；切換 repository prompt version 後只影響新 execution，舊結果仍可依 version／hash 重現。
 - 市場狀態、每日摘要、板塊輪動、熱門話題與候選健康度可由相同 analysis-as-of 重建，且 Flutter 不參與分數計算。
+
+`WBS-5-SUPPLY-INTELLIGENCE-PLANNING` 是本次 todo 的 planning umbrella，涵蓋以下
+foundation、Source Matrix、seed graph、signal／Mart contract 四個切片；它不代表任何
+implementation unlock，Gate A–E 仍須逐一滿足。
+
+### 5.7 `WBS-5-SUPPLY-FOUNDATION` — Supply-chain foundation planning
+
+本切片只做 documentation／planning。定義共用 ontology、node／edge／company exposure
+contract、effective-time semantics、PIT／provenance、evidence class 與 signal boundary；
+不建立 schema、migration、Iceberg table、adapter 或 Mart implementation。
+
+驗收：common ontology review、relationship／exposure contract、effective time、
+`confirmed`／`reported`／`inferred`／`hypothesis`、provenance／PIT requirements 與六個
+domain scope 均可由規格判讀。
+
+### 5.8 `WBS-5-SUPPLY-SOURCE-MATRIX` — 六 domain Source Matrix planning
+
+同一份矩陣涵蓋 AI Server／Semiconductor、Memory、EV、Networking、Apple supply chain、
+Industrial automation。每列記錄 indicator、source candidate、official／external、lead
+metric／time、PIT、license／retention、cost、coverage、cadence、provenance 與 approval
+status；未知值使用 `Unknown`／`candidate`／`blocked`，不猜測 license、price、quota 或
+coverage，也不建立 source adapter。
+
+### 5.9 `WBS-5-SUPPLY-SEED-GRAPH` — 可驗證 seed graph planning
+
+六個 domain 均在 scope；第一版只規劃可驗證 relationship、evidence 與 effective time。
+不得讓 AI 自動把文章轉成正式 supplier／customer fact，不建立 Graph DB、crawler 或
+完整公司清單。
+
+### 5.10 `WBS-5-SUPPLY-SIGNAL-MART` — Signal／Mart contract planning
+
+只定義 `leading indicator → exposure → expected impact → market expectation → expectation
+gap` contract 與輸出欄位；future implementation 必須重用既有 Stage／Core、PIT、
+provenance、immutable snapshot、Mart 與 Cloud Run topology。LLM 只能解釋 evidence，不得
+計算 deterministic exposure、score 或數字。
+
+### 5.11 Supply-chain implementation unlock gates
+
+以下 gate 是後續 WBS 的必要前置，未通過時只能補 planning／evidence：
+
+- **Gate A — Foundation／Contract Ready**：ontology、node／edge／exposure、effective
+  time、evidence、provenance／PIT、六 domain Source Matrix 第一版與 Pilot measurement／
+  epoch design 全部 review 完成。未通過不得建立 schema／ingestion implementation WBS、
+  migration、Iceberg table、adapter 或 Mart implementation。
+- **Gate B — Individual Source Approved**：每個 source 個別確認 identity、target
+  indicator、expected metric／lead time、coverage／cadence、PIT／history、license／API
+  terms、retention、citation／redistribution、quota、cost、provenance 與 fallback／failure
+  behavior。只有 `approved`、`approved_fallback` 或 `official` 可解鎖最小 ingestion WBS；
+  `candidate`／`blocked` 不得 production ingestion。
+- **Gate C — Schema／Ingestion Implementation**：Gate A 通過且至少一個 source 通過 Gate
+  B，才可排 schema／Iceberg evolution、Stage → Core normalization、DQ／provenance 與
+  deterministic signal input；優先重用 existing ingestion-core、catalog、GCS 與 Cloud
+  Run jobs／services，不自動新增 runtime。
+- **Gate D — Mart Signal Implementation**：至少一組 Supply-chain Core data 已完成
+  ingestion、PIT validation、provenance、deterministic replay 與 bounded DQ，才可實作
+  leading indicator、company exposure、signal、expectation gap 與 Mart product。
+- **Gate E — New GCP Resource**：新增任何 GCP resource、IAM binding、paid API／service
+  都要先證明既有 architecture 不足，提出 architecture reason、cheaper alternative、
+  cost、operations、IAM／security 與 rollback／exit strategy，並取得使用者明確同意；
+  不因 Gate A–D 通過而自動解鎖。

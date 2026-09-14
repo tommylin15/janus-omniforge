@@ -10,6 +10,7 @@ from packages.web_api import PublicReportNotFound, PublicReportWaiting, QueryVal
 
 
 REPORT = {
+    "execution_id": "11111111-1111-1111-1111-111111111111",
     "analysis_as_of": "2026-09-12", "scope_type": "market", "scope_id": "market",
     "data_status": "published", "confidence": 0.8, "completeness": 0.9,
     "schema_version": "1", "model_version": "1", "governance_snapshot_version": "gov-1",

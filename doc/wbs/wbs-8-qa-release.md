@@ -43,6 +43,10 @@
 
 - 核心 MVP／acceptance 與必要的安全、資料、runtime gate 足以安全長期運作後才能開始。
 - WBS-3 canary／full-market safety gate、Pilot ledger durability（至少一次 successful restore evidence）、outcome collection、usefulness feedback、release baseline 與 security／privacy／cost evidence 必須 ready。
+- Supply-chain Intelligence 的 `WBS-5-SUPPLY-FOUNDATION`、`WBS-5-SUPPLY-SOURCE-MATRIX`、
+  `WBS-5-SUPPLY-SEED-GRAPH`、`WBS-5-SUPPLY-SIGNAL-MART` planning evidence 與本節的
+  `WBS-8-SUPPLY-PILOT-EVALUATION` contract 必須 ready；這是 planning prerequisite，不是
+  六個 domain 全部 ingestion-ready，也不解鎖 implementation。
 - Pilot Entry 前至少確認 data-safety DQ 已存在：required key／type、duplicate、future leakage、freshness、basic coverage、schema drift，以及適用時的 obvious outlier／corporate-action sanity；完整 DQ dashboard、quality-score tuning 與大型 drill-down 留在後續。
 - ChatGPT MCP acceptance 必須完成；若被外部 ChatGPT plan／UI capability 阻擋，須由使用者明確決定是否允許在 connector blocked 狀態啟動 Pilot。
 - 上述 WBS-3 gate、四個 Pilot readiness gap 與 ChatGPT MCP CONTRACT／ADAPTER／ACCEPTANCE 可在 Entry 前平行準備；WBS-3 不構成任何 Track B task 的前置 dependency。
@@ -97,3 +101,16 @@ source／config revision。可採 monthly baseline、materially changed analysis
 baseline 或 named Pilot epoch 其中一種簡單制度；不建立 staging，也不要求每次
 commit 成為正式 release。Artifact Registry retention 本次不變；若未來需要 exact
 old binary rerun，另案評估 image retention 成本。
+
+Supply-chain 的 epoch lineage 另外要求 feature／signal revision 與 relevant Core／Mart
+snapshot；不得用新資料或新模型改寫舊 epoch 的歷史 analysis artifact。這些欄位沿用本節
+baseline mechanism，不建立新的 release system。
+
+### 8.9 `WBS-8-SUPPLY-PILOT-EVALUATION` — Supply-chain Pilot measurement
+
+Supply-chain signal 共用既有 Pilot outcome／PIT artifact，不另建 evaluation infrastructure。
+規劃 5／20／60 trading-day outcome、benchmark-relative outcome、MFE、MAE、valid／excluded
+與 exclusion provenance，並比較 signal lead time、incremental predictive value 及不同
+epoch／revision。沒有 evidence value 的 indicator 可標記淘汰；Pilot 目的不是證明六個
+domain 全部有效。Pilot Day 1 不要求六個 domain 全部 ingestion-ready，且所有 materially
+affecting change 必須可追溯至 baseline／epoch lineage。

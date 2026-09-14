@@ -66,3 +66,9 @@ deletion after one second. Cleanup dry-run is disabled.
 The Free Tier dev path intentionally verifies that no persistent-disk snapshot
 exists. It does not create a snapshot, backup, HA, replica, or paid BigQuery
 billing export; those require separate cost approval.
+
+`scripts/gcp/ledger-durability-dev.sh` is the separately gated Pilot exception.
+It installs a daily `pg_dump` timer on the existing PostgreSQL VM, writes only
+to `pilot-ledger-backups/` in the restricted Private bucket, retains 14 daily
+and six monthly objects, and restores into a network-isolated temporary
+container. It creates no VM, disk, snapshot, database service, or new bucket.

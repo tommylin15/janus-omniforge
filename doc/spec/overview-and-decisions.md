@@ -77,6 +77,36 @@ regression、Pilot blocker fix，以及維持既有功能正常所需的最小 m
 現有 OpenRouter、Gemini、Codex、MCP Host 與 Skills 的已完成或可用部分可以保留；
 未完成的 WBS-4C 擴張不再是 Pilot Entry blocker。
 
+### 1.5 Supply-chain Intelligence 核心研究方向
+
+Supply-chain Intelligence 是 Janus 的核心差異化研究方向，目標是結合供應鏈關係、
+leading indicators、company exposure、PIT data、market expectation 與個人 portfolio
+context，尋找 demand／earnings inflection 與 market expectation gap。主要時間尺度是
+days／weeks／months，不追求 ultra-low-latency trading，也不是另一套一般財經資料平台。
+
+六個初始研究 domain 全部進入 roadmap，但共用同一套 architecture，不代表 Pilot Day 1
+必須同時具備六套 ingestion pipeline：
+
+| Domain | 初始研究鏈（ontology seed，非已證實關係） |
+|---|---|
+| AI Server／Semiconductor | demand → GPU／ASIC → foundry → advanced packaging → PCB／ABF／CCL → power／cooling → ODM |
+| Memory | end demand → DRAM／HBM／NAND → wafer → packaging／testing → module |
+| EV | EV demand → OEM → battery → power semiconductor → motor／inverter → connector／PCB／charging |
+| Networking | cloud／datacenter demand → switch／router → ASIC → optical → PCB → connector |
+| Apple supply chain | Apple product demand → assembly → SoC → camera／display → PCB／components |
+| Industrial automation | manufacturing cycle → PLC／servo／robot → motor／drive → sensor／components |
+
+共用流程為 `External／Official Data → Stage → Core → relationship model → leading
+indicators → company exposure → expectation signal／gap → Mart → Janus／ChatGPT analysis`。
+優先重用既有 GCS、Iceberg、DuckDB／PyIceberg、Cloud Run jobs／services、Mart、PIT、
+provenance 與 immutable snapshot／baseline；第一版不新增 Graph DB、Neo4j、BigQuery、
+Cloud Run runtime 或其他 paid GCP resource。
+
+Pilot Scope Freeze 的明確例外只允許 architecture／spec planning、ontology design、
+source matrix research、seed graph planning 與 Pilot measurement design。production
+ingestion、crawler、未核准 adapter、paid source、tick／high-frequency source 與新 GCP
+resource 仍 frozen／deferred，並須依 WBS-5／WBS-8 的 unlock gates 個別解鎖。
+
 ## 2. 已確認的架構決策
 
 - 市場資料、API 與私人助理全部在 GCP 開發、測試與部署；不建立 React／Tauri 桌面程式或使用者地端 Codex／MCP runtime。Web／mobile client 只經 authenticated HTTPS 連線。

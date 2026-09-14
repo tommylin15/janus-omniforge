@@ -26,6 +26,18 @@
 - `mart_candidate_health`：候選股的 1–100 健康度、籌碼狀態、白話 AI 分析、風險、完整度與來源；分數只能由版本化 deterministic Mart 聚合產生，LLM 只能翻譯已通過 Validator 的 evidence。
 - `mart_daily_brief`：只組合同一 `analysis_as_of`、已發布的市場狀態、板塊輪動、熱門話題與候選股；不重算上游分數。
 
+Supply-chain Intelligence 未來沿用相同 Mart／PIT／publication 邊界，概念輸出至少能
+表達 direction、magnitude、confidence、lead_time、affected nodes／companies、company
+exposure、expected metric／period、evidence、contradictions、market expectation／
+priced-in assessment 與 expectation gap。leading indicator → exposure → expected impact
+→ market expectation → expectation gap 的 deterministic contract 只在相應 WBS unlock
+後實作；本次只定義 contract 與 planning。
+
+LLM 只能做 evidence summarization、contradiction explanation 與自然語言 synthesis；
+不得自行生成 deterministic exposure、score 或數字，也不得把 `inferred`／`hypothesis`
+寫成 confirmed relationship。所有 signal 必須可回溯 Core／Mart snapshot、PIT、
+provenance、effective time、source 與 feature／signal revision。
+
 User App 最小個股健檢契約：
 
 ```yaml
