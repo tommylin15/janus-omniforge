@@ -31,11 +31,47 @@
 
 ### 8.5 Release
 
-- dev → staging → production 同一 digest。
-- canary、rollback、backup／restore、runbook。
-- 人工 production approval。
+#### 8.5.1 Dev Pilot Entry
+
+- 核心 MVP／acceptance 與必要的安全、資料、runtime gate 足以安全長期運作後才能開始。
+- 記錄正式 `pilot_started_at`；Pilot duration = 6 calendar months。
+- 定義本次 Pilot evidence scope，確認使用既有 Dev environment。
+- 確認不因 Pilot 自動新增 staging／production infrastructure。
+
+#### 8.5.2 Six-Month Dev Pilot
+
+- Scheduler／ingestion／analysis 持續執行，累積 Data／Analysis／Operations／Cost／Security evidence。
+- 建議產生 bounded monthly summary；summary 是 evidence checkpoint，不是 production approval。
+- application 可以正常迭代，但重要分析結果必須保留足夠 lineage，避免 Pilot 後無法解釋版本差異。
+- production promotion 保持 blocked；這是 calendar-duration operational phase，不要求單一 Codex session 執行六個月。
+
+#### 8.5.3 Production Go／Extend／No-Go Review
+
+- 六個 calendar months 完成後 review Pilot evidence，outcome = `GO`／`EXTEND_PILOT`／`NO_GO`。
+- `GO` 只代表允許開始 production architecture／migration planning，不等於自動部署 production。
+- production resource、IAM、HA、backup、RTO／RPO 等仍需獨立設計與人工授權。
+- `EXTEND_PILOT` 繼續 Dev Pilot；`NO_GO` 不建立 production。
+- 保留 same digest promotion principle、canary、rollback、backup／restore、runbook 與 human production approval。
+- Release flow：`dev acceptance → six-month Dev Pilot → human Go/Extend/No-Go → conditional staging/production planning`；Pilot 後再決定是否需要 staging。
 
 ### 8.6 驗收條件
 
 - 所有 release gate 通過才可宣稱正式上線。
 - 任何 blocked item 都有 owner、deadline、evidence link。
+
+### 8.7 `WBS-8-CHATGPT-MCP-ACCEPTANCE`
+
+模型：【Sol】。Blocked until MCP adapter complete、使用者確認支援所需 custom
+read-only MCP integration 的 ChatGPT plan／UI，並對任何 GCP dev deployment／test
+給予明確授權。
+
+驗收 ChatGPT Developer Mode／custom app 是否能 discover Janus tools，並覆蓋 OAuth
+login／reconnect／expiry／refresh、unauthenticated deny、server-side owner binding、
+owner A／B isolation、market context、approved private positions／performance／trades、
+investment-profile opt-in、v1 notes unavailable、arbitrary SQL／URI／owner injection
+rejection、source／as-of／provenance、secret／storage locator absence、range／output
+limits、no mutation、no unnecessary context snapshot growth、Cloud Run scale-to-zero
+compatibility 與 bounded cost evidence。若第二個 owner／account 不可用，owner-isolation
+live test 必須標為 blocked，不得捏造成功。
+
+此 connector acceptance 不新增 Janus Production Release prerequisite。

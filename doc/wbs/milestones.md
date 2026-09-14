@@ -13,3 +13,4 @@
 | M2 | WBS 5 | 市場／板塊／話題／候選健康度 Mart、30% gate 與 blocked 正確 |
 | M3 | WBS 6 | 擴充 FastAPI、公開 Flutter 與 Admin governance／reports 完整讀取 persisted Mart |
 | M4 | WBS 7–8 | UI 實機驗收後完成 DQ 強化、監控、安全、PIT、canary／rollback |
+| M4.5 | WBS 8 Dev Pilot／Production Readiness | Pilot Entry Gate 通過；既有 Dev environment 持續運作 6 calendar months；Data／Analysis／Reliability／Operations／Cost／Security evidence 可回顧；完成 Production Go／Extend／No-Go review；沒有人工 GO 前不得宣稱 production-ready 或建立 production environment |

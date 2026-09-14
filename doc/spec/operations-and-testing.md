@@ -1,6 +1,24 @@
 # Operations and testing
 
-最新驗證日期：2026-09-13
+最新驗證日期：2026-09-14
+
+## Artifact Registry／Cloud Run image cleanup repair（2026-09-14）
+
+既有 `janus-api` revision 曾指向已不存在的
+`janusai-poc/api@sha256:5de7428d15c2aebdf5757739c73ee587a97039936287d78eb397ad8e053d21b8`；
+該 digest 由 build `348ba66d-2015-4faa-8b59-41424ed409f7` 產生，後續同 tag 的
+build `194841bf-7b5c-4d6c-a2f1-ad780749acf9` 產生現存的
+`sha256:058d442f239b8a757c6321f1638b653930fbbfe014943b177cd8a01d92fb9939`。
+`janus-api` 已切換至後者，revision `janus-api-00077-6s9` 的 Ready、ConfigurationsReady
+與 RoutesReady 均為 True。
+
+依明確 dev cleanup 授權刪除無 active Cloud Run／VM 引用的三個 image：
+`janusai-poc/mcp-acceptance@sha256:0dab19f8e48b92ba303a1d225d08bf39f78789f9805c90ae3be4e799d2460624`、
+`janusai-poc/web@sha256:064327b47d334337e169cd5a3a0c72e82879356f739e6dda992fab28e6c5c672`、
+`janusai-poc/janus-postgres@sha256:8f2a6bf9b77c5e16b630544007c98a7944caba37cdbf93e4a83bd6889d929b9d`。
+兩個 Artifact Registry repository 的 cleanup policy 維持每個 package 最新 1 版、dry-run disabled；
+因此不保留 rollback image，未來同一 package 若先產生新 image 而尚未同步更新所有 workload，仍可能重現
+active digest 被清理的風險。`janus-postgres/postgres` 與 `janus-postgres-api-bundle` 14／15 版未修改。
 
 ## WBS-6 Governance typed editing（2026-09-13）
 
@@ -194,6 +212,14 @@ execution `9a8086c2-66d5-4be5-88c1-c2e35f19bcf3` 於 23:33:50Z 成功、0 retrie
 為 2026-09-11。後續只計 distinct 有效資料日 2026-09-14，對應 Scheduler 執行日
 2026-09-15，週末重複資料日不重複計數。三日完成後再彙整
 expected／received／missing、Core hash/date/null profile 與完整成本摘要。
+
+使用者要求下於 2026-09-14 05:52Z 手動觸發既有 `janus-ingestion-daily` Scheduler；
+Cloud Run execution `janus-ingestion-core-29d2f` 於 05:55Z 成功，5 檔仍為
+`1102／2327／2330／2381／4958`，control execution
+`31233b8b-6882-436e-ba4a-95a92d938803`，資料日仍為 2026-09-11，`failed=0`、
+`empty=0`、`requested=8`、`skipped=12`，全部為既有 fresh data。這是正式排程路徑的
+成功 smoke／replay，不新增 distinct trading day，故 canary 維持 **2/3**；未觸發全市場
+抓取，也未修改 Scheduler 或 job 設定。
 
 ## WBS-5 feature／publication pipeline GCP dev acceptance（2026-09-12）
 

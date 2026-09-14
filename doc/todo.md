@@ -16,7 +16,7 @@
 - [TODO 完成紀錄（2026-09-13：WBS-6／WBS-7）](archive/todo-completed-2026-09-13-wbs6-wbs7.md)
 - [已完成 WBS 0／1／2／4](archive/wbs-completed-through-2026-08-31.md)
 
-## 目前進度（2026-09-13）
+## 目前進度（2026-09-14）
 
 - WBS 4J 獨立 MVP：journal／note／Private Iceberg 完整交易、重跑、刪除與 A／B 隔離已結案；僅依賴 WBS 5 的個人化 analysis overlay 尚未啟用。
 - WBS 4C：Agent Runtime／AgentEvent、security contract、context sources、MCP host、Gemini REST、OpenRouter provider、Private Storage、Skills contract、Codex auth lifecycle 與 Chat API contract 的已完成部分已歸檔；Codex Chat API durable continuation、真人 device-code 流程與整合驗收仍未完成。
@@ -26,13 +26,13 @@
 - WBS 3 收尾：`WBS-3-ACCEPTANCE` 暫停於 2/3；既有 Scheduler 繼續自動累積 canary，切換至 WBS 5 期間不得宣告 WBS 3 結案。queue claim、connection exhaustion、VM restart/reconnect、bundle runtime probes、Direct VPC／identity negative evidence 與 billing／Free Tier dev guard 已通過。
 - 最新驗證：Codex POC bridge Cloud Build `9dec1039-0052-420d-9ef1-6719ed46991a` 與 OpenRouter／Gemini runtime probe `20050302-861a-4c84-84ad-c96f21903776` 均 SUCCESS；完整證據與既有驗證見 `spec/operations-and-testing.md` 與 [`secret_list.md`](secret_list.md)。
 - Secret bundle consolidation：已完成程式、測試、GCP dev prepare／部署與三個 Job smoke；尚待 Codex A/B live auth entry isolation，以及明確授權後的 legacy cleanup，詳見 [`doc/secret_list.md`](secret_list.md)。
-- WBS 4R 與全市場／關注股切片：source implementation 已完成，包含 bounded investment profile、Private Iceberg revision、effective-time 多產業曝險、typed XIRR、deterministic stress、typed API、Flutter dashboard，以及 market coverage 唯一 symbol 語意。依使用者指示停在測試執行前；尚未宣告驗收完成。
+- WBS 4R 與全市場／關注股切片：source／contract 與 GCP dev acceptance 已完成，證據移至 [`archive/todo-completed-2026-09-14-wbs4r-market-scope.md`](archive/todo-completed-2026-09-14-wbs4r-market-scope.md)。實際全市場抓取仍受 WBS-3 canary 2/3 gate；分 K／Tick、新聞、研究仍受來源授權與成本 gate。
+- Dev image cleanup repair：`janus-api` 已切換至現存 immutable digest，並刪除無 active 引用的 `mcp-acceptance`、舊 `web` 與舊 `janusai-poc/janus-postgres` image；兩個 Artifact Registry repo 仍維持每個 package 最新 1 版，active digest 保護風險詳見 `spec/operations-and-testing.md`。
 
 ## 下一步執行佇列
 
-1. 【Sol】WBS-4R／MARKET-SCOPE-ACCEPTANCE：執行本機 targeted contracts、PostgreSQL migration、Private Iceberg 重跑、typed API、Flutter analyze／widget／responsive 與既有 GCP dev 驗收；不得在 canary 3/3 前觸發實際全市場抓取。
-2. 【Sol】WBS-3-ACCEPTANCE：Scheduler 5-stock canary 第 3 次，通過後再擴展全市場。
-3. 【Sol】WBS-4C-ACCEPTANCE：完成 managed auth、Chat API／SSE、MCP 與 privacy 的整合驗收。
+1. 【Sol】WBS-3-ACCEPTANCE：Scheduler 5-stock canary 第 3 次，通過後再擴展全市場。
+2. 【Sol】WBS-4C-ACCEPTANCE：完成 managed auth、Chat API／SSE、MCP 與 privacy 的整合驗收。
 
 ## 模型確認規則
 
@@ -81,31 +81,31 @@
 
 ## P1（WBS 4R）— 個人曝險、績效與 AI 壓力測試
 
-- [ ] 【Sol】 建立 investment profile：risk tolerance、investment horizon、primary goal、minimum cash ratio；目前值保留 bounded private index，revision history 寫入 Private Iceberg，只有使用者 opt-in 才能加入 chat context。（source complete；待 PostgreSQL／Iceberg／opt-in acceptance。）
+- [x] 【Sol】 建立 investment profile：risk tolerance、investment horizon、primary goal、minimum cash ratio；目前值保留 bounded private index，revision history 寫入 Private Iceberg，只有使用者 opt-in 才能加入 chat context。（source／PostgreSQL／Iceberg／API／GCP dev acceptance complete；證據見 archive。）
 
-- [ ] 【Sol】 建立具 effective time／provenance 的多產業 membership 與 `mart_user_exposure`；分攤方法、現金、持股市值、valuation date 與 membership snapshot 可追溯，Flutter／LLM 不重算。（source complete；現行 ledger 無入出金事件，cash-safety 明示 `insufficient_data`，不得推算。）
+- [x] 【Sol】 建立具 effective time／provenance 的多產業 membership 與 `mart_user_exposure`；分攤方法、現金、持股市值、valuation date 與 membership snapshot 可追溯，Flutter／LLM 不重算。（source／API／GCP dev acceptance complete；現行 ledger 無入出金事件，cash-safety 明示 `insufficient_data`，不得推算。）
 
-- [ ] 【Sol】 建立年度現金流與 XIRR；先通過買賣、現金／股票股利、更正、跨年、無根、多根與缺資料測試，非唯一有效結果不得填 0。（source／回歸案例 complete；待執行。）
+- [x] 【Sol】 建立年度現金流與 XIRR；先通過買賣、現金／股票股利、更正、跨年、無根、多根與缺資料測試，非唯一有效結果不得填 0。（source／回歸案例／API／GCP dev acceptance complete。）
 
-- [ ] 【Sol】 建立 deterministic portfolio stress scenarios 與 cash-safety result，再交由使用者選定的 Codex／ChatGPT／Gemini profile 解釋；模型不得修改數值或產生下單動作。（deterministic source complete；待重跑／模型不可改寫 acceptance。）
+- [x] 【Sol】 建立 deterministic portfolio stress scenarios 與 cash-safety result，再交由使用者選定的 Codex／ChatGPT／Gemini profile 解釋；模型不得修改數值或產生下單動作。（source／API／GCP dev acceptance complete；模型不可改寫數值。）
 
-- [ ] 【Sol】 建立 private investment-profile、portfolio summary／exposure／performance／stress-test typed endpoints 與 Flutter 儀表板；通過 A／B 隔離、重跑、資料日期、缺價、profile opt-in、citation 與免責聲明驗收。（source complete；待 Flutter／API／GCP dev acceptance。）
+- [x] 【Sol】 建立 private investment-profile、portfolio summary／exposure／performance／stress-test typed endpoints 與 Flutter 儀表板；通過 A／B 隔離、重跑、資料日期、缺價、profile opt-in、citation 與免責聲明驗收。（Flutter／API／GCP dev acceptance complete；證據見 archive。）
 
 ## P1 — 全市場量化網
 
 - [ ] 【Sol】 以當日 enabled 股票 master 收集全市場日 OHLCV、PE/PB、法人、融資券／借券／當沖、基本面摘要與官方 benchmark。
 
-- [ ] 【Luna】 對 market-scope endpoint 採單次抓取、批次快取與 symbol fan-out；不得逐檔重複請求。（source／回歸案例 complete；實際全市場執行仍等 WBS-3 canary 3/3。）
+- [x] 【Luna】 對 market-scope endpoint 採單次抓取、批次快取與 symbol fan-out；不得逐檔重複請求。（source／回歸案例 complete；實際全市場執行仍等 WBS-3 canary 3/3。）
 
-- [ ] 【Luna】 產製每日 market coverage report：expected／received／missing symbols、來源成功數、freshness、合法 empty／unavailable 與最小寫入安全摘要；完整 DQ 延至 P4。（既有 source health 已補唯一 symbol 與 missing 計數；待 GCP dev acceptance。）
+- [x] 【Luna】 產製每日 market coverage report：expected／received／missing symbols、來源成功數、freshness、合法 empty／unavailable 與最小寫入安全摘要；完整 DQ 延至 P4。（source／回歸案例 complete；實際全市場執行仍等 WBS-3 canary 3/3。）
 
-- [ ] 【Sol】 建立 `mart_screening_signals`：技術面突破、量能、流動性與異動候選；結果不得在 collection request 內即時計算。（既有 Intelligence Mart source complete；待 GCP dev acceptance。）
+- [x] 【Sol】 建立 `mart_screening_signals`：技術面突破、量能、流動性與異動候選；結果不得在 collection request 內即時計算。（source／回歸案例 complete；實際全市場執行仍等 WBS-3 canary 3/3。）
 
 - [ ] 【Sol】 驗證全市場同日 replay 冪等、bounded memory／runtime、GCS 成本與缺檔不被誤標成功。
 
 ## P1 — 個人關注股深度追蹤
 
-- [ ] 【Sol】 以 authenticated watchlist 形成去識別化 active symbol membership，收集深度財報、公司事件／重大訊息、公司行動與 PIT publication time；Admin 不得取得 user-to-symbol 對應。（去識別化 append-only membership source complete；實際深度來源仍受下列授權 gate。）
+- [x] 【Sol】 以 authenticated watchlist 形成去識別化 active symbol membership，收集深度財報、公司事件／重大訊息、公司行動與 PIT publication time；Admin 不得取得 user-to-symbol 對應。（去識別化 append-only membership source／contract complete；實際深度來源仍受下列授權 gate。）
 
 - [ ] 【Sol】 對已核准行情來源建立分 K／Tick 獨立排程、quota、retention、failure policy 與成本量測；未核准前保持 blocked。
 
@@ -126,6 +126,14 @@
 ## P1 — 全系統自動化測試
 
 ## P1 — WBS-7 安全、監控與 FinOps
+
+## P1 — ChatGPT MCP Connector（Dev Pilot Enabler）
+
+- [ ] 【Sol】 `WBS-6-CHATGPT-MCP-CONTRACT`：確認當時 OpenAI Custom MCP／OAuth requirements 與 Janus Google OIDC compatibility；定義 `janus_sources`、`janus_market_context`、`janus_private_context` 的 read-only schema、owner binding、public／private allowlist、shared bounded query、provenance、quota／disclosure。不得部署或建立新 GCP／auth resource；不依賴完整 `WBS-4C-ACCEPTANCE`。
+
+- [ ] 【Sol】 `WBS-6-CHATGPT-MCP-ADAPTER`：Blocked until `WBS-6-CHATGPT-MCP-CONTRACT` complete；在既有 `janus-api` 實作 remote read-only MCP adapter，重用 shared bounded query，拒絕 arbitrary SQL／URI／table／owner input、mutation 與不必要 chat snapshot。若 ingress／auth／protocol hosting 不安全，停止並提交 architecture／cost／security decision，不自行新增 service。
+
+- [ ] 【Sol】 `WBS-8-CHATGPT-MCP-ACCEPTANCE`：Blocked until adapter complete、使用者確認支援所需 ChatGPT custom read-only MCP plan／UI，且明確授權任何 GCP dev deployment／test；驗收 discovery、OAuth lifecycle、owner isolation、market／private bounded reads、opt-in、sanitization、provenance、limits、no mutation 與 cost evidence。此 connector 不得成為 Janus Production Release prerequisite。
 
 ## P2 — PIT 與治理校準
 
@@ -172,6 +180,14 @@
 - [ ] 【Sol】 incident runbook。
 
 - [ ] 【Sol】 production 人工批准。
+
+## P2 — WBS 8 Dev Pilot／Production Readiness
+
+- [ ] 【Sol】 `WBS-8-DEV-PILOT-ENTRY`：驗證 Pilot minimum entry conditions，只有 Entry Gate 通過時記錄 `pilot_started_at`；確認既有 observability／lineage／billing evidence 可支援六個月後 review，若有 evidence gap 再另拆最小 WBS；不新增 staging／production infrastructure。
+
+- [ ] 【Sol】 `WBS-8-DEV-PILOT-RUN`：Entry 完成後開始 6 calendar months 的 operational phase，持續追蹤 Data／Analysis／Runtime／Operations／Cost／Security，產生 bounded monthly evidence summary，並保持 production promotion blocked；不是一次性 Codex implementation。
+
+- [ ] 【Sol】 `WBS-8-PROD-GO-NOGO`：Blocked until Pilot 完整執行 6 calendar months；人工 review outcome 為 `GO`／`EXTEND_PILOT`／`NO_GO`。`GO` 只允許開始 production architecture／migration planning，不得直接 deploy production。
 
 ## P4 — UI 驗收後的資料品質強化（最後執行）
 

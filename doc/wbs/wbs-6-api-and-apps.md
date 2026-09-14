@@ -45,3 +45,34 @@
 - 詳細驗收依 `../ui.md`。
 - tab 具鍵盤操作、ARIA 與可分享 query-string deep link；重載後保留所選分頁，未選面板不重複抓取大型 details。
 - 詳細 User／Admin 驗收依 `../ui.md`；今日頁所有卡片必須使用同一 analysis-as-of，個人工作台通過交易更正、筆記 revision、關注異動、聊天室 engine lineage 與跨使用者隔離測試。
+
+### 6.5 Janus ChatGPT MCP Connector
+
+ChatGPT connector 是 P1／Dev Pilot Enabler，採 existing `janus-api` remote
+read-only MCP path，預設不新增 Cloud Run service，且不成為 Janus Production
+Release prerequisite。它只可讀已核准 public market data、owner-scoped private
+investment data 與 bounded journal／ledger data；不得接受任意 SQL、table、URI 或
+client-selected owner，也不得提供 mutation。
+
+#### `WBS-6-CHATGPT-MCP-CONTRACT`（【Sol】）
+
+- Scope：確認當時 OpenAI Custom MCP／OAuth requirements、Janus auth compatibility、
+  三個 logical tools、read-only classification、owner binding、shared bounded
+  query、public／private allowlist、output／provenance／quota contract。
+- Acceptance：無 arbitrary SQL／URI／table／owner input、無 mutation、重用既有
+  Janus data readers、auth compatibility 有明確 verdict；任何新 auth／GCP component
+  只記為 blocked decision，不部署。
+- Dependency：相關 Core／Private Mart／journal owner-scoped reader contract 已被
+  理解；不依賴完整 `WBS-4C-ACCEPTANCE`。
+
+#### `WBS-6-CHATGPT-MCP-ADAPTER`（【Sol】）
+
+- Blocked until `WBS-6-CHATGPT-MCP-CONTRACT` complete。
+- Scope：在既有 `services/api`／`janus-api` 實作 remote read-only MCP adapter，重用
+  shared bounded query layer，完成 authenticated owner mapping、tool discovery／call、
+  bounded error／timeout／rate／output limit，且不產生不必要的 Janus chat snapshot。
+- Acceptance：MCP initialization／discovery contract、三個 tools schema、owner 不可
+  由 client 選擇、resources allowlisted、輸出 sanitized／bounded、既有 public／me／admin
+  semantics 不變。
+- 若既有 `janus-api` 無法安全承載 external MCP endpoint，立即停止並提交架構決策，
+  不自行新增 resource 或擴大 ingress。

@@ -20,6 +20,44 @@ User App 與 Admin UI 是兩個獨立入口。Flutter 的公開研究頁只讀�
 4. 每個 thread 固定 runtime／model；切換時建立新 thread 或 fork，保留 provider、model、context、citation 與 parent lineage。Gemini 不引入 Google GenAI SDK，且付費層停用；OpenRouter 與新 GCP 付費資源啟用另需人工同意。
 5. 完成私人 MVP 後，再執行全市場深化、公開 Intelligence Mart、公開研究 UI 與發布流程。
 
+### 1.2 Dev Pilot before Production
+
+MVP／Dev 驗收通過後不得直接進入 production。Janus 先在既有 Dev topology
+執行 6 個 calendar months 的 Dev Pilot，持續累積真實資料、分析結果、可靠性、
+維運與成本 evidence。Pilot 起始日不是本文件修改日；只有 Pilot Entry Gate
+實際通過時才記錄 `pilot_started_at`。
+
+Pilot 期間不要求建立 staging 或 production environment，也不因 Pilot 自動升級
+PostgreSQL Free Tier VM、建立 HA／replica／backup infrastructure 或其他
+production-only GCP component。既有 `e2-micro` PostgreSQL 仍是 Dev／MVP 配置，
+不是 production HA architecture；任何 paid GCP resource 仍需人工同意。
+
+Pilot 完成後，依實際 workload、reliability、cost、security 與 operations
+evidence 重新評估 production architecture，並由人工 Go／Extend／No-Go review
+決定；不得自動 promotion。Codex production gate 與既有安全決策仍然有效。
+
+### 1.3 Janus ChatGPT MCP Connector
+
+ChatGPT Custom MCP App 定位為 Janus 的 external read-only data consumer，供經
+Janus 驗證身分的 owner 讀取已核准的 public market data 與自己的 private
+investment data 進行分析。它不是 Janus 的第四個 AI provider／runtime，不是
+Janus MCP Host、Skill runtime 或 Chat API thread，也不建立新的分析資料庫；不要求
+OpenAI API key。
+
+首選 topology 為 `ChatGPT → remote read-only MCP → existing janus-api → shared
+bounded context/query boundary → existing Public Core/Mart、owner-scoped Private
+Core/Mart 或 bounded journal reader`。ChatGPT 不得直接連 GCS、Iceberg catalog 或
+PostgreSQL，不得傳 SQL、table name、GCS URI、object path、`user_id`／`owner_id` 或
+credential locator，也不得執行 Admin、journal、note、watchlist、下單、ingestion
+或 analysis mutation。第一版完全 read-only，且不預設新增 `janus-mcp` Cloud Run
+service。
+
+實作前必須確認既有 `janus-api` 的 ingress、authentication 與 protocol hosting
+能安全支援 remote MCP；若不能，先提出 existing service adjustment、Secure MCP
+Tunnel 與 separate Cloud Run MCP service 的成本／安全／IAM／維運／退出比較，取得
+人工決定後才能建立新 resource。ChatGPT connector 不是 Janus Production Release
+的必要條件。
+
 ## 2. 已確認的架構決策
 
 - 市場資料、API 與私人助理全部在 GCP 開發、測試與部署；不建立 React／Tauri 桌面程式或使用者地端 Codex／MCP runtime。Web／mobile client 只經 authenticated HTTPS 連線。

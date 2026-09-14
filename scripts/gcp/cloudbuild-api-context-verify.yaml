@@ -68,6 +68,27 @@ steps:
           --data '{"selector":{"source_id":"janus-core","resource":"ohlcv","symbol":"2330","sql":"select *"}}' \
           "${api}/api/v1/me/chats/wbs-4c-context/context-preview")"
         test "${invalid}" = 422
+
+        profile_status="$(curl --silent --show-error --output /tmp/investment-profile.json --write-out '%{http_code}' \
+          --max-time 60 "${auth[@]}" "${api}/api/v1/me/investment-profile")"
+        if [[ "${profile_status}" != 200 && "${profile_status}" != 404 ]]; then
+          echo "investment_profile_status=${profile_status}"; cat /tmp/investment-profile.json; exit 1
+        fi
+        if [[ "${profile_status}" == 200 ]]; then
+          python3 -c 'import json; p=json.load(open("/tmp/investment-profile.json")); assert isinstance(p["version"], int)'
+        fi
+        for route in \
+          portfolio/summary \
+          portfolio/exposure \
+          'portfolio/performance?year=2026' \
+          portfolio/stress-tests; do
+          portfolio_status="$(curl --silent --show-error --output /tmp/portfolio.json --write-out '%{http_code}' \
+            --max-time 60 "${auth[@]}" "${api}/api/v1/me/${route}")"
+          if [[ "${portfolio_status}" != 200 ]]; then
+            echo "${route}_status=${portfolio_status}"; cat /tmp/portfolio.json; exit 1
+          fi
+          python3 -c 'import json; assert isinstance(json.load(open("/tmp/portfolio.json"))["items"], list)'
+        done
         echo 'api context source acceptance passed'
 
 options:

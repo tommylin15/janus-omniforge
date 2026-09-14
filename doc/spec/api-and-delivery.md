@@ -54,6 +54,49 @@
 - Gemini 免費 Grounding 須確認模型能力與專案 quota；額度不足／不可用明確回報，禁止自動付費。OpenRouter 啟用付費另需同意；quota／budget 用原子 reservation 防併發超支。私人 context 外送須明確選取並顯示供應商。
 - 只有 Cloud Run 無法滿足超過 request timeout 的不可中斷 turn、必要持久 daemon／特殊 sandbox 權限，或實測資源／連線需求時，才提出 Compute Engine／GKE 方案；必須先提供成本、安全、維運、資料遷移與退出評估，取得使用者明確決定後才能實作或建立資源。
 
+### 12.2 Janus ChatGPT MCP Connector
+
+ChatGPT Custom MCP App 是 external MCP client／consumer，不是第四個 Janus
+runtime、Janus MCP Host、Skill runtime 或 Janus Chat API thread；不加入
+`openrouter | gemini | codex` provider loop，不共享 Janus thread lifecycle，不
+自動載入 Janus Skills，也不把 ChatGPT conversation persistence 寫入 Private
+Iceberg。若未來要把 Janus Skill 暴露成 external MCP capability，另案 review。
+
+首選路徑為 `ChatGPT → remote read-only MCP → existing janus-api → shared bounded
+query boundary`。不得預設新增 `janus-mcp` Cloud Run service；implementation 前
+必須確認既有 `janus-api` ingress、authentication 與 protocol hosting 是否安全
+可用，否則先停下並提交新 service／tunnel／既有 service adjustment 的架構、成本、
+安全、IAM、維運與退出比較。
+
+第一版 logical tool surface 固定為：
+
+- `janus_sources`：回傳 capability、resource enum、freshness、quota／bounds 與 disclosure，不回傳 storage locator。
+- `janus_market_context`：接受 `symbol`、allowlisted `resource`、optional bounded `start_date`／`end_date` 與 bounded `limit`；resource 沿用既有 Janus market allowlist，不接受 arbitrary dataset／table。現況已核准 resource 包含 `ohlcv`、`valuation`、`institutional`、`financials`、`events`、`market-activity` 與 `benchmark`。
+- `janus_private_context`：owner 不在 tool input，由 authenticated principal 映射取得。第一版目標 scope 為 `positions`、`annual-pnl`、`exposure`、`performance`、`stress-tests`、`investment-profile`、`watchlist` 與 `trades`；`trades` 必須重用既有 owner-scoped journal／private ledger reader，若 bounded read contract 尚未存在則標為 implementation gap，不捏造 endpoint／table。`investment-profile` 保留既有 AI context opt-in；第一版不暴露 free-form `notes`。
+
+所有 tools 都要求 authentication，包括 public market tool，以避免匿名 abuse／quota
+cost。MCP request 不接受 `user_id`、`owner_id`、Google `sub`、Secret name 或
+credential locator；owner 只能由 authenticated external principal 映射至既有
+internal UUID。現有 Janus Google OIDC contract 與 ChatGPT Custom MCP OAuth flow
+的相容性仍為 implementation-time unknown，必須先查當時官方 remote MCP／OAuth
+requirements；若不能安全重用，不得在同一 WBS 自行建立 OAuth broker、token
+exchange、Identity Platform、Auth0 或其他新 auth infrastructure。
+
+MCP output 沿用既有 sanitization，至少保留 source、as-of、provenance、bounded
+records 與 material availability／partial status；不得外送 GCS URI、object path、
+raw payload、credential、password、secret、token、private artifact locator 或
+internal owner identifier。私人資料送往 ChatGPT 必須在 connector setup／UI 明確
+揭露為 external AI data use，不預先宣稱 OpenAI retention／training policy。
+
+ChatGPT MCP adapter 必須重用或抽離 shared bounded query boundary 的 source
+allowlist、owner scope、typed selector、date／range bound、record／output limit、
+sanitization、provenance 與 as-of semantics。不得直接重用目前 chat-only
+`ContextSourceService.preview()` 而產生不必要的 `context_ref`／snapshot；ChatGPT
+路徑應回傳 direct bounded read result，不需要 Janus chat `context_ref`。
+
+第一版只需要 remote MCP tool integration，不要求 embedded ChatGPT UI、Apps SDK
+component、custom React UI、write action 或 ChatGPT-side workflow builder。
+
 ## 13. GCP 開發與 CI/CD
 
 | 項目 | 選擇 |
@@ -63,7 +106,7 @@
 | GCP 認證 | Workload Identity Federation，不使用長效 JSON key |
 | 建置 | Cloud Build path-based pipelines |
 | Image | Artifact Registry，由 source deploy／Cloud Build 管理 |
-| 部署 | 同一 immutable image digest 依序 promote dev → staging → prod |
+| 部署 | Dev acceptance 後先進既有 Dev Pilot；六個月後依人工 Go／Extend／No-Go 再條件式規劃 staging／production，沿用同一 immutable image digest |
 | Secret | Secret Manager，依三個 workload bundle 對 runtime identity 授權 |
 | IaC | GitHub Actions／gcloud idempotent scripts；production apply 需人工批准 |
 

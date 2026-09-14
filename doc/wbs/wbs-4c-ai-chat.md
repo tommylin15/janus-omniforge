@@ -39,6 +39,11 @@
 
 ## 4C.2 MCP Host 與 Skills
 
+- ChatGPT Custom MCP App 是 external MCP client／consumer，不是 Janus MCP Host、
+  第四個 runtime 或另一個 server config；不加入 Janus Agent Gateway provider loop，
+  不共享 Janus Chat thread lifecycle，不自動載入 Janus Skills，也不把 ChatGPT
+  conversation persistence 寫入 Janus Private Iceberg。未來若要暴露 Janus Skill，
+  另案 review。本需求不新增 WBS-4C implementation slice。
 - 應用作為 MCP Host，對每個已核准 server 建立獨立 client／session；支援 Agent Cloud Run 容器內的 stdio 子行程、遠端 Streamable HTTP 與明確設定的 legacy SSE。瀏覽器與使用者裝置不啟動 MCP process。
 - 使用 MCP SDK 處理 initialize／capability negotiation／initialized、`tools/list` 分頁與 list-changed、`tools/call`、timeout／cancel／disconnect。resources／prompts 等依已交涉能力提供；不支援的 server-initiated requests 明確拒絕。
 - 工具名稱以穩定 namespace 映射至 server／tool，驗證 JSON Schema、ownership 與授權；雲端 adapters 執行 bounded tool loop，保留 provider 所需原始 continuation metadata。
