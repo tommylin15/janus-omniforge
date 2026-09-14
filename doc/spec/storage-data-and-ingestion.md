@@ -21,6 +21,13 @@
 - 交易金額、股數、手續費、稅與損益使用固定精度 decimal，不使用 binary floating point。更正交易以 reversal／replacement event 留痕，不就地改寫稽核歷史。
 - 筆記使用單一 append-only revision model，可獨立存在或連結 symbol／trade event；AI 對話保存 message、所用私人 context snapshot、外部 citation、資料日期與執行版本。OpenRouter／Gemini／MCP credential、Codex auth cache、refresh token 與 secret 一律不得進 Iceberg。
 
+PostgreSQL append-only private transaction ledger 是私人交易事實的 OLTP source of
+truth；Private Core／Mart 是 derived／normalized result，不是 ledger backup。Dev
+Pilot 使用已人工核准的 bounded logical backup：`PostgreSQL logical backup
+(pg_dump) → restricted Private GCS`，不改變 ledger semantics、reversal／replacement
+history、Private Iceberg pipeline 或 public／private isolation。此例外不授權 PD
+snapshot、Cloud SQL、HA、replica、second PostgreSQL VM 或無界 retention。
+
 ## 6. 資料供應模型與正式資料來源
 
 ### 6.1 雙軌 coverage

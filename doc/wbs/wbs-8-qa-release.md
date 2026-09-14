@@ -2,12 +2,20 @@
 
 ## WBS 8 — PIT、QA 與發布
 
-### 8.1 PIT
+### 8.1 `WBS-8-PILOT-OUTCOME-COLLECTION` — Pilot Day-1 outcome collection
 
-- 5／20／60 交易日 outcome。
-- relative benchmark、MFE／MAE、coverage、calibration。
+- 每個適用 analysis 至少可追溯 analysis identity、`analysis_as_of`、symbol／scope、
+  relevant Core／Mart snapshot、governance revision、prompt／analysis revision、
+  code／image revision，以及適用時的 provider／model。
+- 從 Pilot Day 1 開始收集 5／20／60 trading-day outcome、relative benchmark、MFE、
+  MAE、valid／excluded status、exclusion reason 與 provenance；優先重用既有 PIT／
+  evaluation artifact model。
 - 不合格樣本排除原因與 provenance ID。
 - membership 與來源授權均以 effective time 納入 PIT；不得用今日關注股深度追蹤名單回填歷史樣本。
+
+### 8.1.1 Calibration／optimization（後置）
+
+- walk-forward tuning、role weight optimization、40／60 threshold revision 與 governance tuning 留在後續，不提前成為 Pilot Entry blocker。
 
 ### 8.2 自動化 QA
 
@@ -34,6 +42,10 @@
 #### 8.5.1 Dev Pilot Entry
 
 - 核心 MVP／acceptance 與必要的安全、資料、runtime gate 足以安全長期運作後才能開始。
+- WBS-3 canary／full-market safety gate、Pilot ledger durability（至少一次 successful restore evidence）、outcome collection、usefulness feedback、release baseline 與 security／privacy／cost evidence 必須 ready。
+- Pilot Entry 前至少確認 data-safety DQ 已存在：required key／type、duplicate、future leakage、freshness、basic coverage、schema drift，以及適用時的 obvious outlier／corporate-action sanity；完整 DQ dashboard、quality-score tuning 與大型 drill-down 留在後續。
+- ChatGPT MCP acceptance 必須完成；若被外部 ChatGPT plan／UI capability 阻擋，須由使用者明確決定是否允許在 connector blocked 狀態啟動 Pilot。
+- 上述 WBS-3 gate、四個 Pilot readiness gap 與 ChatGPT MCP CONTRACT／ADAPTER／ACCEPTANCE 可在 Entry 前平行準備；WBS-3 不構成任何 Track B task 的前置 dependency。
 - 記錄正式 `pilot_started_at`；Pilot duration = 6 calendar months。
 - 定義本次 Pilot evidence scope，確認使用既有 Dev environment。
 - 確認不因 Pilot 自動新增 staging／production infrastructure。
@@ -75,3 +87,13 @@ compatibility 與 bounded cost evidence。若第二個 owner／account 不可用
 live test 必須標為 blocked，不得捏造成功。
 
 此 connector acceptance 不新增 Janus Production Release prerequisite。
+
+### 8.8 `WBS-8-PILOT-RELEASE-BASELINE`
+
+Pilot 期間仍可開發與部署 Dev，但重要 analysis 必須能歸入可識別的 Pilot
+baseline／epoch。至少保存或可追溯 git SHA、immutable image digest、governance
+revision、prompt version／hash、relevant schema revision、model／provider 與
+source／config revision。可採 monthly baseline、materially changed analysis
+baseline 或 named Pilot epoch 其中一種簡單制度；不建立 staging，也不要求每次
+commit 成為正式 release。Artifact Registry retention 本次不變；若未來需要 exact
+old binary rerun，另案評估 image retention 成本。

@@ -83,11 +83,12 @@ $env:ALLOW_DEV_SECURITY_FINOPS = "true"
 & "C:\Program Files\Git\bin\bash.exe" scripts/gcp/security-finops-dev.sh report
 ```
 
-The budget is a 320 TWD notification budget (the approved US$10 equivalent for
-this TWD billing account) with 10%／50%／100% thresholds; it is not a spending cap. The report is a bounded resource-exposure inventory. Exact
+The budget is a single 320 TWD notification budget with 10%／50%／100% thresholds;
+it is not a spending cap. The report is a bounded resource-exposure inventory. Exact
 billed spend remains in Cloud Billing because this dev path does not create a
 paid BigQuery billing export. Free Tier PostgreSQL verification requires no
-snapshot／backup／HA／replica.
+snapshot／PD backup／HA／replica; the Pilot ledger backup is a separately bounded
+logical `pg_dump` to restricted Private GCS strategy.
 
 ## 3. 透過 PostgreSQL VM 執行 migration
 

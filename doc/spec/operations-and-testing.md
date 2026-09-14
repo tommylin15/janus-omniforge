@@ -36,9 +36,10 @@ TypeScript 與 ESLint 通過；尚未部署或進行新的 GCP dev acceptance。
 WBS-7.1～7.4 程式已完成：runtime service-account 與 bounded scaling 寫入 dev deploy；
 configure path 會移除 Secret bundle 的 legacy `web-runtime` consumer；四個 dev bucket 共用 noncurrent-version
 lifecycle；`security-finops-dev.sh` 提供 guarded configure、read-only verify 與 bounded
-monthly resource report。單一 320 TWD budget（核准的 US$10 等值）使用 10%／50%／100% current-spend threshold，
-對應 32／160／320 TWD；budget 不是 spending cap。Free Tier PostgreSQL 不建立付費
-snapshot／backup／HA／replica，驗收反而要求 snapshot 為空。未建立 BigQuery billing export。
+monthly resource report。單一 320 TWD notification budget 使用 10%／50%／100% current-spend
+threshold，對應 32／160／320 TWD；budget 不是 spending cap。Free Tier PostgreSQL 不建立付費
+snapshot／PD backup／HA／replica；Pilot ledger durability 另採 bounded `pg_dump → restricted
+Private GCS`，驗收仍要求 PD snapshot 為空。未建立 BigQuery billing export。
 
 Observability 已補 API family request ID／duration SLI、Ingestion execution trace 傳遞、
 Job duration／retry／publication counts、無原始 exception 的 bounded failure taxonomy、

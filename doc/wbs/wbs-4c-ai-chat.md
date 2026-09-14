@@ -2,6 +2,12 @@
 
 狀態：混合 WBS；完成切片證據移至 [`archive/todo-completed-2026-09-09.md`](../archive/todo-completed-2026-09-09.md)。尚待真人 device-code 流程與整合驗收。個股為可選 context，對話不綁定單一股票或 AI 廠商。
 
+目前決策：WBS 4C remaining expansion is frozen for the six-month Dev Pilot unless
+required by security、correctness 或 explicitly approved Pilot use case。Codex
+productionization、multi-instance Codex、new MCP workflow、new Skills capability
+與 new provider 均 frozen；既有可用功能仍可保留，未完成的 `WBS-4C-ACCEPTANCE`
+不得假裝完成，也不再是 Pilot Entry 或 ChatGPT MCP prerequisite。
+
 ## 執行切片與必讀文件
 
 所有切片先讀 [API／Assistant contract](../spec/api-and-delivery.md) 與

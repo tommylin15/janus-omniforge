@@ -7,7 +7,7 @@
 - GCP services 同區以避免跨區成本。
 - 統一 execution／trace ID；log redaction。
 - 監控來源成功率、latency、freshness、schema drift、fallback、Job 狀態、publication 與 API error。
-- 設定 Cloud Billing US$1／US$5／US$10 告警、GCS lifecycle、Artifact Registry cleanup、Workstation 自動停止。
+- 設定目前 Dev 使用的 single TWD 320 notification budget，threshold 為 10%／50%／100%；budget 是 notification，不是 spending cap，actual spend 以 Cloud Billing 為準；另維持 GCS lifecycle、Artifact Registry cleanup 與 Workstation 自動停止，不新增 paid BigQuery billing export。
 - 不宣稱固定 $0；費用以當期定價與實際帳單為準。
 
 ## 15. Release Gate
@@ -16,7 +16,7 @@
 - 同一 `analysis_as_of` 可從 `mart_daily_brief` 追溯市場狀態、板塊輪動、熱門話題、候選股及其 Core／Mart snapshot。
 - 私人交易可從 PostgreSQL ledger 重建 Private Core／Mart；跨年損益、更正事件與所有權隔離通過測試，且不出現在 public index。
 - 筆記、關注歷史、chat messages、context snapshot 與 citations 可從 Private Iceberg 依 authenticated user 讀取、匯出與刪除；PostgreSQL 不保存正文或完整對話 payload。
-- 私人助理 OpenRouter／Gemini REST API／Codex App Server 可切換且 lineage 可追溯；驗證 Cloud Run scale-to-zero／cold start／timeout／重連、Core／Private／外部資料源 provenance、容器內 MCP stdio、遠端 Streamable HTTP／legacy SSE、動態工具、GCP Skills revision、統一 events、Codex managed auth／Items／Turns／Approvals、雲端暫存 sandbox、未授權 mutation 拒絕及 Gemini Google Search Grounding／免費額度。Codex owner-scoped auth 必須通過 A／B rotation／舊版銷毀、orphan auth deletion、session eviction／logout、cleanup retry、刪除期間拒絕寫入與 secret non-persistence；共用 auth／固定 owner 的 dev POC 不算完成。Codex 不使用直接 OpenAI API fallback；App Server dev POC 與人工 production gate 未通過不得發布。
+- Production scope 只要求實際保留並準備進 production 的 runtime／capability 通過對應 gate；每項必須是 `enabled and accepted`，或明確 `disabled / removed from production scope`，不得停留在 enabled-but-unvalidated 或 production UI 可選但 backend 不安全的狀態。若六個月後保留 OpenRouter／Gemini、移除 Codex，或不 productionize Janus Skills，Codex／Skills 未完成不阻擋整個 Janus Production。對保留項目仍須驗證 Cloud Run scale-to-zero／cold start／timeout／重連、Core／Private／外部資料源 provenance、MCP／Skills／auth／privacy 等對應能力；ChatGPT MCP 不是 Janus Production prerequisite。
 - PIT 無 future leakage；排除樣本有原因與 provenance ID。
 - blocked 不進公開 latest／history；查無資料不即時運算。
 - 兩個 Job、FastAPI、Admin Web、User App 與各內嵌 DuckDB runtime 的 IAM、timeout、retry、監控與 rollback 通過。
@@ -35,6 +35,11 @@ Dev Pilot；只有 Entry Gate 通過時才記錄 `pilot_started_at`。Pilot 期�
 production promotion 保持 blocked，不要求建立 staging 或 production environment，
 也不自動新增 production-only GCP infrastructure。
 
+Pilot ledger durability 使用已人工核准的 bounded logical backup strategy：
+`pg_dump → restricted Private GCS`。這不代表 Dev 具備 HA／PITR；Entry 前至少要有
+一次 isolated non-production restore evidence，且不得以新增付費 persistent
+resource 取代人工決策。
+
 Pilot evidence 至少涵蓋以下類別；本節只定義 evidence scope，不預設尚未決定的
 pass threshold：
 
@@ -42,7 +47,9 @@ pass threshold：
   drift、quarantine／retry、source stability。
 - Analysis：result availability、deterministic／reproducible portions、
   provenance／citations／source coverage、適用時的 PIT／future-leakage evidence、
-  model／provider／analysis revision lineage，以及人工判斷是否仍具研究價值。
+  model／provider／analysis revision lineage、5／20／60 trading-day outcome、
+  relative benchmark、MFE／MAE、valid／excluded status、exclusion reason、
+  provenance、usefulness feedback，以及 Pilot baseline／version grouping。
 - Runtime／Operations：Cloud Run Job／Service 與 Scheduler reliability、retry／
   idempotency、適用時的 cold start／timeout／reconnect、manual intervention
   frequency 與 recurring operational failures。

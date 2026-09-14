@@ -5,7 +5,7 @@
 ```text
 janus-omniforge/
 ├── apps/
-│   ├── user_app/                    # Flutter + Material 3 User App（待建）
+│   ├── user_app/                    # Flutter + Material 3 User App
 │   └── web/                         # 現有 Admin Web，遷移後不承載 public UI
 ├── jobs/
 │   ├── ingestion-core/              # Scrapers、Stage、DQ、Core
@@ -68,4 +68,7 @@ flowchart TD
     Q --> U["Private conversation / skill artifacts"]
 ```
 
-建議區域：`us-central1`。開發初期可使用單一 `janus-dev` project，但 dev／staging／prod 至少要以 bucket、catalog/schema、service account、Cloud Run 名稱與 secret 完整隔離；正式上線前改成三個 project。
+建議區域：`us-central1`。開發初期可使用單一 `janus-dev` project。六個月 Dev
+Pilot 後只有人工 `GO` 才開始 Production topology review；是否需要 separate
+staging、separate production project 或 three-project split，由 Pilot evidence
+決定，不預先建立。

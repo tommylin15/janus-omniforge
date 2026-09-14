@@ -76,3 +76,14 @@ client-selected owner，也不得提供 mutation。
   semantics 不變。
 - 若既有 `janus-api` 無法安全承載 external MCP endpoint，立即停止並提交架構決策，
   不自行新增 resource 或擴大 ingress。
+
+#### `WBS-6-PILOT-USEFULNESS-FEEDBACK`（【Sol】）
+
+- 目的：累積六個月後判斷分析對使用者是否有持續研究價值；只做最小 instrumentation，
+  不做 model tuning 或大型 UI redesign。
+- Feedback values：`useful`、`neutral`、`misleading`；可選 bounded reason 為
+  `discovered_risk`、`useful_context`、`already_known`、`too_generic`、`stale`、
+  `missing_data`、`wrong_interpretation`、`other`。
+- Feedback 必須 authenticated owner-scoped、綁定 immutable／traceable analysis
+  result、只保存 bounded metadata、不修改歷史 analysis、不影響 deterministic score、
+  不成為 publication input；優先重用既有 Flutter／Web analysis card。

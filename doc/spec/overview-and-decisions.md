@@ -58,6 +58,25 @@ Tunnel 與 separate Cloud Run MCP service 的成本／安全／IAM／維運／�
 人工決定後才能建立新 resource。ChatGPT connector 不是 Janus Production Release
 的必要條件。
 
+### 1.4 Pilot Scope Freeze
+
+最新 scope control policy 為：停止擴功能，先補齊 4 個 Pilot readiness gap，完成
+ChatGPT MCP，啟動 6 個月 Dev Pilot，六個月後再依實際 evidence 決定哪些功能值得
+留下，以及是否進入 Production planning。這不是刪除已完成 code，而是停止繼續投入
+尚未證明 business value 的功能擴張。
+
+六個月 Pilot 開始前與期間，以下項目維持 feature freeze：Codex App Server
+productionization、Codex multi-instance／distributed auth expansion、新增第四個
+AI provider、更多 Janus MCP workflow、更多 Janus Skills capability、新 AI roles、
+新 analysis dashboard、未核准社群／Podcast／alternative-data adapter、額外 UI
+cosmetic polish、Pilot 實際不用的平台完整 A11y／device matrix、新 GCP service、
+HA／replica／multi-region／GKE，以及為架構漂亮而新增 infrastructure。
+
+Freeze 不代表刪除現有 code。允許 correctness、security、data-integrity、cost
+regression、Pilot blocker fix，以及維持既有功能正常所需的最小 maintenance。
+現有 OpenRouter、Gemini、Codex、MCP Host 與 Skills 的已完成或可用部分可以保留；
+未完成的 WBS-4C 擴張不再是 Pilot Entry blocker。
+
 ## 2. 已確認的架構決策
 
 - 市場資料、API 與私人助理全部在 GCP 開發、測試與部署；不建立 React／Tauri 桌面程式或使用者地端 Codex／MCP runtime。Web／mobile client 只經 authenticated HTTPS 連線。
