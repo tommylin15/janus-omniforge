@@ -65,3 +65,16 @@
 - `GET /api/v1/me/private-data/deletions/{request_id}`
 
 Private endpoint 只接受獨立 User OAuth audience 的 Google OIDC token；API 驗證 issuer、audience、expiry，以 Google `sub` 對應內部 UUID `user_id`，email 只供顯示。使用者身分不接受 request body 或 query string 指定 `user_id`，User token 不得存取 Admin endpoint。Provider／MCP connection 只傳 opaque reference，API key／Codex auth cache 不經 payload。`context-preview` 只接受 typed selector，回短效 owner／thread-bound `context_ref`；message 不接受 SQL、GCS URI、object path 或 raw private payload。Approval response 另驗證 owner、thread、turn、request、參數摘要、expiry 與一次性消費；所有 mutation 具 idempotency key、optimistic version 與 audit event。`DELETE /private-data` 回 `202`、request ID 與初始狀態；status endpoint 僅允許 request owner 查詢。owner 為 `DELETING` 時，新的 Codex login／turn 與私人 artifact mutation 回 typed conflict，不得在 client 端假裝完成。
+
+## 9. ResearchContext state／API planning
+
+ResearchContext 沿用 `loading | empty | unavailable | partial | stale | fallback |
+insufficient_data | error`，不建立第二套狀態。例如 margin 缺失為 `partial`、
+financial data 超過 freshness contract 為 `stale`、缺少足以判斷的核心資料為
+`insufficient_data`；UI 不得將缺值顯示為 0，LLM 不得補值。
+
+`ResearchContext` endpoint／response 目前為 **planned／proposed**，不在上方 implemented
+endpoint 清單中。未來 response 必須 typed、bounded、owner-scoped，保留同一
+`analysis_as_of`、freshness、provenance、PIT 與 explicit missing／stale／partial。
+ChatGPT MCP 使用同一 server boundary，不接受 arbitrary SQL、GCS locator 或 owner ID，
+且不提供 mutation。

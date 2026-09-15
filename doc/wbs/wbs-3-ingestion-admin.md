@@ -93,3 +93,9 @@
 - queue claim concurrency、connection exhaustion、PostgreSQL restart／reconnect、Direct VPC／firewall 與 Free Tier guard 實機通過。
 - 營運者只透過 Admin 即可設定、觸發、追蹤、定位失敗並安全重跑，不需登入 GCP 或直接查資料庫。
 - 驗收只使用既有 dev 資源；不得部署 production、提高既有限額或建立新付費資源。
+
+### 3.10 `WBS-3-DATASET-COVERAGE-INVENTORY`（Pilot Evolution／Planned）
+
+- 先以 Dataset Coverage Inventory／Gap Matrix 驗證 OHLCV、valuation、institutional、margin／financing、securities lending／short、day-trade／market activity、monthly revenue、quarterly financials、events、benchmark、sector／industry benchmark 與 macro／regime inputs。
+- 每列需 source、adapter、Core publication／acceptance evidence、coverage、cadence、freshness、PIT、provenance 與 approval；狀態限 `Implemented | Partial | Unknown | Missing | Candidate | Blocked`。
+- 現有 context allowlist 只證明 resource contract，不證明 dataset coverage 完整。先盤點再考慮 provider；新 source 仍須 Data Source admission／approval，本切片不建 adapter、ingestion 或核准 source。

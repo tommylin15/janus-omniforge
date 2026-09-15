@@ -131,3 +131,17 @@ resource 仍 frozen／deferred，並須依 WBS-5／WBS-8 的 unlock gates 個別
 - Cloud Run Service 全部 `min-instances=0`；寫入 Core 的 ingestion Job 單 task 執行，API／query runtime 對 Core 採 read-only。
 - Artifact Registry 可由 source deploy／Cloud Build 自動管理，但底層仍需保存容器映像。
 - Artifact Registry 僅使用 image、digest、metadata 與 cleanup；禁止 Artifact Analysis API、Container Scanning API、vulnerability scanning 與 occurrence API。SBOM 僅可離線產生，不以掃描結果作為 build gate。
+
+## 2.1 Research Context 產品方向（Pilot Evolution）
+
+Janus 將正式或已核准外部資料依 `Stage → Core → deterministic Mart／Supply-chain
+Intelligence → bounded ResearchContext → existing janus-api` 提供給 User App 與
+read-only ChatGPT MCP。私人資料沿用 PostgreSQL control／ledger、Private Core／Mart
+與 owner isolation。`ResearchContext` 是 server-side composed output contract，不是新資料庫、
+新 pipeline 或 ChatGPT-specific data platform。
+
+Google Drive 中的投資研究資料僅作外部需求參考；不作 runtime source、
+source of truth、sync／ingestion 目標或 MCP dependency。本方向全部分類為
+**Pilot Evolution**，不新增 Dev Pilot Entry blocker。Supply-chain Intelligence 仍沿用
+Gate A–E；社群、Podcast、廣泛另類資料、昂貴付費研究與高頻基礎設施
+為 Post-Pilot Conditional。

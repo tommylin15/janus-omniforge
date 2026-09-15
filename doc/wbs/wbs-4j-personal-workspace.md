@@ -28,3 +28,10 @@
 - 使用者 A 無法讀寫或推測使用者 B 的 ledger／notes／watchlist／Private Core／Mart；交易更正、筆記 revision、關注異動、跨年損益、超賣拒絕、缺價、重跑與刪除路徑可重現。
 - User／Admin OAuth audience 混用、偽造或 client 指定 `user_id` 均被拒絕；email 變更不改變資料所有權。
 - Flutter 不重算正式損益；所有結果可追至 ledger version、Private Iceberg snapshot 與 valuation date。
+
+### 4J.5 `WBS-4J-PRIVATE-RESEARCH-STATE-CONTRACT`（Pilot Evolution／Planned）
+
+- 先定義 owner-scoped `research_thesis`、`candidate_state`、`strategy_state`、`decision_record` 與 `investment_policy` semantic contract；欄位與 effective-time／revision semantics 以 [Intelligence and governance](../spec/intelligence-and-governance.md) 為準。
+- 優先重用既有 note revisions、artifact／index、Private Core／Mart 與 owner isolation。Trade ledger 與 research thesis 保持不同資料模型；歷史 thesis／strategy 不就地覆寫。
+- 現有 investment profile 已有 risk tolerance、horizon、goal、minimum cash；concentration boundaries 與 mandate 為 **Schema Extension Candidate**。本切片不決定 PostgreSQL table／migration。
+- 後續 Private Context exposure 必須 typed、bounded、owner-scoped、PIT／provenance-aware，並顯式回傳 stale／missing／partial。

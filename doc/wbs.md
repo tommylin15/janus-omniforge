@@ -26,4 +26,5 @@
 | 6：FastAPI、Flutter、Admin | 依 TODO | [WBS 6](wbs/wbs-6-api-and-apps.md) | 依目標入口讀 User 或 Admin UI |
 | 7：安全、監控、FinOps | 【Sol】 | [WBS 7](wbs/wbs-7-security-finops.md) | 依受影響服務增讀其 WBS |
 | 8：PIT、QA、發布 | 依 TODO | [WBS 8](wbs/wbs-8-qa-release.md) | 需要現況證據時讀測試摘要 |
+| Research Context（Pilot Evolution） | 【Sol】 | [WBS 3](wbs/wbs-3-ingestion-admin.md)、[4J](wbs/wbs-4j-personal-workspace.md)、[5](wbs/wbs-5-intelligence-mart.md)、[6](wbs/wbs-6-api-and-apps.md)、[8](wbs/wbs-8-qa-release.md) | 不重開 WBS 4C；Supply-chain 依 Gate A–E |
 | 里程碑規劃 | 【Sol】 | [建議里程碑](wbs/milestones.md) | 不作單一 WBS 的驗收來源 |

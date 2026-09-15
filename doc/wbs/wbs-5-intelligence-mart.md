@@ -139,3 +139,10 @@ provenance、immutable snapshot、Mart 與 Cloud Run topology。LLM 只能解釋
   都要先證明既有 architecture 不足，提出 architecture reason、cheaper alternative、
   cost、operations、IAM／security 與 rollback／exit strategy，並取得使用者明確同意；
   不因 Gate A–D 通過而自動解鎖。
+
+### 5.12 `WBS-5-RESEARCH-MART-CONTRACT`（Pilot Evolution／Planned）
+
+- 定義 research-ready deterministic Mart：MA 5／10／20、recent high／low、ATR、RVOL、volume trend、institutional 3／5／10-day aggregation、margin change、relative strength、benchmark-relative return、price／volume state、formally defined breakout／trend state 與 existing approved chip／positioning indicators。
+- formula、window、null handling、trading-calendar、revision 與 PIT semantics 在 future implementation contract 中 deterministic 定義；本 planning 不選定公式，LLM 僅解釋。
+- 定義 bounded `Market Regime` contract；輸入僅限當時已核准且有 coverage evidence 的 benchmark、breadth、turnover、institutional、financing 與 macro inputs，其餘標 `Unknown`／`Candidate`／`Blocked`。輸出包含 state、`analysis_as_of`、deterministic confidence、evidence 與 missing data。
+- ResearchContext 的 market／company sections 必須可由同一 snapshot／revision replay。Supply-chain indicators 僅在 Gate D 後增量併入；不新建 graph platform／Mart track。

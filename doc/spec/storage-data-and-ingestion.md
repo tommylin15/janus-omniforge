@@ -127,3 +127,35 @@ quality_details: object
 - 核准的新聞排程使用獨立 execution、bounded overlap window、dedup、quota 與 retention；新聞先寫 Stage／Core 並完成 PIT／provenance／entity-to-symbol，之後才可供 Mart sentiment 與事件分析。
 
 不得：執行 Agent、產生研報、呼叫 LLM 或更改 publication。
+
+## 6.4 Dataset Coverage Inventory 與 Research Context 資料邊界（Planned）
+
+新增 `Dataset Coverage Inventory / Gap Matrix` 作為新 provider 評估前的必要
+planning evidence。每個 dataset family 記錄 source、adapter／Core publication evidence、
+market／symbol／time coverage、cadence、freshness、PIT history、provenance、license／
+approval 與 gap；狀態僅使用 `Implemented | Partial | Unknown | Missing | Candidate |
+Blocked`。只有 repository 中可驗證的 adapter、Core publication 與 acceptance evidence
+才可標為 `Implemented`；規格列出欄位不等於已實作。新 source 仍須通過
+既有 Data Source admission／approval rule。
+
+盤點至少包含 OHLCV、valuation、institutional、margin／financing、securities
+lending／short-related、day-trade／market activity、monthly revenue、quarterly financials、
+corporate events、benchmark、sector／industry benchmark 與 macro／market-regime inputs。
+目前 code 僅證明 bounded `janus-core` resource allowlist 包含 `ohlcv`、`valuation`、
+`institutional`、`financials`、`events`、`market-activity`、`benchmark`；這不證明
+各市場、欄位、日期與 Core publication 已完整，其實際 coverage 待 inventory 驗證。
+
+Core 保存可重算輸入；Mart 須 deterministic 產生 MA 5／10／20、recent
+high／low、ATR、RVOL、volume trend、法人 3／5／10 日聚合、margin change、
+relative strength、benchmark-relative return、price／volume state、已定義的
+breakout／trend state、已核准籌碼指標，以及 Gate D 後的 supply-chain indicators。
+formula、window、null handling、trading-calendar semantics、revision 與 PIT semantics
+必須在 implementation contract 中 deterministic 定義；LLM 僅解釋結果。
+
+Private Research State 優先重用 notes revisions、artifact／index、Private Core／Mart
+與 owner isolation；儲存責任先由 semantic contract 決定，不預設新 PostgreSQL
+table。現有 investment profile 有 risk tolerance、horizon、primary goal 與 minimum cash，
+但 concentration boundary／mandate 為 **Schema Extension Candidate**。ResearchContext 只組合
+已持久化、同一 `analysis_as_of` 可見的 bounded snapshots，並顯式保留
+freshness、missing／stale／partial、fallback、provenance 與 PIT status；禁止把不同
+日期的 latest 拼成假的同一時點。

@@ -71,3 +71,15 @@ application／code／image revision、適用時的 analysis／skill／config rev
 Production Go 不能只因「所有功能開發完成」而通過。
 `GO` 只允許開始 production architecture／migration planning，不能取代後續的
 人工 production approval。
+
+## 16.1 ResearchContext acceptance semantics（Pilot Evolution）
+
+未來 ResearchContext／Market Regime／Private Research State／MCP implementation 的最小
+acceptance 為：所有區段 same-`analysis_as_of` consistency、PIT 無 future leakage、相同
+snapshot／revision deterministic replay、provenance present、stale／missing／partial explicit、
+owner A／B isolation、bounded records／bytes／dates、無 secret／credential／storage locator
+leakage、無 private-user mixing，且無 LLM-generated canonical numeric result。MCP 另須
+negative-test arbitrary SQL／URI／owner injection 與 private-data leakage。
+
+這些是 Pilot Evolution capability acceptance，不新增 Dev Pilot Entry blocker；若某條已屬
+現有 gate，只 cross-reference 該 gate。Supply-chain acceptance 仍依 Gate A–E。

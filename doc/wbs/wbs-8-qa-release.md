@@ -114,3 +114,10 @@ Supply-chain signal 共用既有 Pilot outcome／PIT artifact，不另建 evalua
 epoch／revision。沒有 evidence value 的 indicator 可標記淘汰；Pilot 目的不是證明六個
 domain 全部有效。Pilot Day 1 不要求六個 domain 全部 ingestion-ready，且所有 materially
 affecting change 必須可追溯至 baseline／epoch lineage。
+
+### 8.10 `WBS-8-RESEARCH-CONTEXT-ACCEPTANCE`（Pilot Evolution／Planned）
+
+- 驗證 ResearchContext same-`analysis_as_of`、PIT／future-leakage、provenance、stale／missing／partial、bounded output 與 deterministic signal reproducibility。
+- 驗證 owner A／B isolation、private-data leakage negative cases、secret／storage locator absence，以及 ChatGPT MCP 對 SQL／URI／owner injection／mutation 的拒絕。
+- 驗證 LLM 關閉不改變 canonical numeric result，UI 不將 null／missing 顯示為 0。
+- 本 acceptance 不新增 Dev Pilot Entry blocker；Supply-chain 依現有 Gate A–E 與 `WBS-8-SUPPLY-PILOT-EVALUATION`。

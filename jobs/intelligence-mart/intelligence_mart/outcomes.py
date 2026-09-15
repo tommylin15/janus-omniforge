@@ -45,7 +45,11 @@ def evaluate_outcome(candidate: dict[str, Any], ohlcv: list[dict[str, Any]],
               "return_ratio": None, "benchmark_return_ratio": None,
               "relative_return_ratio": None, "mfe_ratio": None, "mae_ratio": None,
               "price_snapshot_id": None, "benchmark_snapshot_id": None}
-    if not before or len(after) < horizon:
+    if not before:
+        common.update(status="excluded", exclusion_reason="missing_entry_price")
+        common["provenance_id"] = _provenance(candidate, horizon, after, "missing_entry_price")
+        return common
+    if len(after) < horizon:
         common["provenance_id"] = _provenance(candidate, horizon, before[-1:] + after, "pending")
         return common
     entry, window, target = before[-1], after[:horizon], after[horizon - 1]

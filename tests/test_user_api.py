@@ -17,7 +17,7 @@ USER_ID=UUID("00000000-0000-0000-0000-000000000001")
 
 
 class Repository:
-    def __init__(self): self.calls=[]; self.emails=[]; self.mcp=[]; self.profile={"risk_tolerance":None,"investment_horizon":None,"primary_goal":None,"minimum_cash_ratio":None,"ai_context_opt_in":False,"version":0,"updated_at":None}
+    def __init__(self): self.calls=[]; self.emails=[]; self.mcp=[]; self.feedback=None; self.profile={"risk_tolerance":None,"investment_horizon":None,"primary_goal":None,"minimum_cash_ratio":None,"ai_context_opt_in":False,"version":0,"updated_at":None}
     def resolve_user(self,sub,email): self.emails.append((sub,email)); return USER_ID
     def require_owned_trade(self,user_id,event_id): self.calls.append(("ownership",user_id,event_id))
     def add_ledger(self,user_id,value,key): self.calls.append((user_id,value,key)); return {"user_id":user_id,"event_type":value.event_type,"ledger_version":1}
@@ -37,6 +37,14 @@ class Repository:
         self.calls.append((user_id,value,key))
         self.profile={**value.model_dump(exclude={"expected_version"}),"version":value.expected_version+1,"updated_at":"2026-09-13T00:00:00Z"}
         return self.profile
+    def analysis_feedback(self,user_id,execution_id,scope_type,scope_id):
+        self.calls.append(("feedback-read",user_id,execution_id,scope_type,scope_id))
+        return self.feedback
+    def analysis_feedback_export(self,user_id): return [self.feedback] if self.feedback else []
+    def save_analysis_feedback(self,user_id,value,key):
+        self.calls.append(("feedback-write",user_id,value,key))
+        self.feedback={**value.model_dump(),"version":1,"updated_at":"2026-09-14T00:00:00Z"}
+        return self.feedback
 
 
 class Store:
@@ -68,7 +76,8 @@ class Public:
     def require_enabled_symbol(self, symbol): return symbol.upper()
 
     def report(self, scope_type, scope_id, *, analysis_as_of=""):
-        return {"scope_type": scope_type, "scope_id": scope_id,
+        return {"execution_id":"11111111-1111-1111-1111-111111111111",
+                "scope_type": scope_type, "scope_id": scope_id,
                 "analysis_as_of": analysis_as_of or "2026-09-12", "data_status": "published",
                 "confidence": .8, "completeness": .9, "schema_version": "1", "model_version": "1",
                 "governance_snapshot_version": "gov-1", "data": {"score": 80}}
@@ -232,6 +241,19 @@ def test_investment_profile_rejects_unknown_fields_and_unbounded_cash_ratio():
           "minimum_cash_ratio":"0.15","ai_context_opt_in":False,"expected_version":0}
     for payload in ({**base,"user_id":str(uuid4())},{**base,"minimum_cash_ratio":"1.1"}):
         assert api.put("/api/v1/me/investment-profile",headers={**auth(),"Idempotency-Key":"profile-2"},json=payload).status_code==422
+
+
+def test_analysis_feedback_is_bounded_and_scoped_to_authenticated_owner():
+    api,repo,_=client()
+    payload={"analysis_execution_id":"11111111-1111-1111-1111-111111111111",
+             "scope_type":"symbol","scope_id":"2330","feedback":"useful","reason":"discovered_risk"}
+    saved=api.put("/api/v1/me/analysis-feedback",headers={**auth(),"Idempotency-Key":"feedback-1"},json=payload)
+    assert saved.status_code==200 and saved.json()["feedback"]=="useful"
+    assert repo.calls[-1][0:2]==("feedback-write",USER_ID)
+    query="analysis_execution_id=11111111-1111-1111-1111-111111111111&scope_type=symbol&scope_id=2330"
+    assert api.get(f"/api/v1/me/analysis-feedback?{query}",headers=auth()).json()["reason"]=="discovered_risk"
+    assert api.put("/api/v1/me/analysis-feedback",headers={**auth(),"Idempotency-Key":"feedback-2"},
+                   json={**payload,"feedback":"great"}).status_code==422
 
 
 def test_note_body_goes_to_private_store_not_repository_index():

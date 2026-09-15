@@ -136,3 +136,29 @@ PostgreSQL VM 是 Iceberg SQL catalog 與 control DB 的前置基礎；必須先
 - SBOM 如有需要，使用本地工具產生 SPDX／CycloneDX，作為一般 build artifact 保存；不建立掃描 occurrence，也不等待 vulnerability result。
 
 Schema evolution、migration、backfill、production Job trigger 不得隨 API、Admin Web 或 User App deployment 自動執行。
+
+## 13.3 ResearchContext composition contract（Proposed／not implemented）
+
+`ResearchContext` 是 existing `janus-api` 上的 typed、bounded、owner-scoped、
+provenance-aware 與 PIT-aware server composition contract，不是現有 API response 或新
+storage layer。概念區段為 `market`、`company`、`supply_chain`、`private`、
+`quality`；頂層固定 `analysis_as_of`。`market` 包含 regime／benchmark／systemic
+risk／freshness；`company` 包含 market data、valuation、institutional、leverage、
+revenue、financials、events 與 deterministic signals；`supply_chain` 包含 nodes、
+relationships、exposures、leading indicators 與 signals；`private` 包含 position、
+cost basis、cash／portfolio exposure、investment policy、research thesis、candidate／strategy
+state 與 prior decisions；`quality` 包含 missing／stale datasets、fallback sources、
+provenance 與 `pit_status`。
+
+Composition 只接受 typed selector、allowlisted resource、bounded date／range／record／byte
+limit 與 authenticated principal；私人區段由 principal 綁定 owner，不接受
+`user_id`／`owner_id`。各區段必須與同一 `analysis_as_of` 一致，並顯式回傳
+missing、stale、partial、freshness 與 provenance。不得輸出 credential、SQL、table
+name、GCS URI、object path、raw payload 或內部 owner identifier。
+
+Janus UI 使用 bounded response；ChatGPT MCP 是同一 boundary 的 read-only consumer，可使用
+direct bounded result 或 opaque／short-lived context reference，但不得成為 arbitrary SQL client、
+GCS／database browser、scraper、canonical financial／technical／portfolio calculator 或 mutation
+interface。優先重用 existing `janus-api`；未來只有 insufficiency evidence、cost／security／
+operations review 與 explicit approval 後才能提案新 runtime。Google Drive 不在 MCP runtime
+contract。

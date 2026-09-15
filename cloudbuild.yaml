@@ -6,6 +6,7 @@ substitutions:
   _DEPLOY_TARGET: ""
   _RUNTIME_NAME: ""
   _REGION: us-central1
+  _GIT_SHA: ""
 
 steps:
   - id: build
@@ -38,12 +39,16 @@ steps:
         test -n "${digest}"
         printf '%s' "${digest}" > /workspace/deployed-digest
         image="${_IMAGE_REPOSITORY}/${_IMAGE_NAME}@${digest}"
+        runtime_flags=()
+        if [[ "${_RUNTIME_NAME}" == janus-intelligence-mart && "${_GIT_SHA}" =~ ^[0-9a-f]{7,64}$ ]]; then
+          runtime_flags+=(--update-env-vars="JANUS_GIT_SHA=${_GIT_SHA},JANUS_IMAGE_DIGEST=${digest}")
+        fi
         if [[ "${_DEPLOY_TARGET}" == "service" ]]; then
           gcloud run services update "${_RUNTIME_NAME}" \
-            --region="${_REGION}" --image="${image}" --quiet
+            --region="${_REGION}" --image="${image}" "${runtime_flags[@]}" --quiet
         elif [[ "${_DEPLOY_TARGET}" == "job" ]]; then
           gcloud run jobs update "${_RUNTIME_NAME}" \
-            --region="${_REGION}" --image="${image}" --quiet
+            --region="${_REGION}" --image="${image}" "${runtime_flags[@]}" --quiet
         else
           echo "Unsupported deploy target: ${_DEPLOY_TARGET}" >&2
           exit 1

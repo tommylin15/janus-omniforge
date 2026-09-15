@@ -86,7 +86,8 @@ class PostgreSQLPublicationIndex:
             return None
         if not (7 <= len(git_sha) <= 64 and all(character in "0123456789abcdef" for character in git_sha)):
             raise ValueError("JANUS_GIT_SHA must be a hexadecimal revision")
-        if len(image_digest) != 71 or not image_digest.startswith("sha256:"):
+        if (len(image_digest) != 71 or not image_digest.startswith("sha256:")
+                or any(character not in "0123456789abcdef" for character in image_digest[7:])):
             raise ValueError("JANUS_IMAGE_DIGEST must be an immutable sha256 digest")
         lineage = {
             "git_sha": git_sha,
@@ -95,6 +96,8 @@ class PostgreSQLPublicationIndex:
             "prompt_version": prompt_version,
             "prompt_hash": prompt_hash,
             "schema_revision": str(execution.request_options["schema_version"]),
+            "feature_revision": str(execution.request_options["feature_version"]),
+            "signal_revision": str(execution.request_options.get("signal_revision", "not_applicable")),
             "model_provider": "gemini" if os.environ.get("MART_LLM_ENABLED", "false").lower() in {"1", "true", "yes"} else "deterministic",
             "model_version": str(execution.request_options["model_version"]),
             "source_config_revision": str(execution.request_options.get("source_config_revision", execution.config_id)),
@@ -198,7 +201,9 @@ def consume_queued_analysis(queue: PostgreSQLAnalysisQueue, processor: Callable[
                 "execution_id": execution.execution_id, "retry_count": execution.retry_count,
                 "artifact_uri": artifact_uri,
                 "reports": int(result.get("reports", 0)),
-                "publishable": int(result.get("publishable", 0))}
+                "publishable": int(result.get("publishable", 0)),
+                "outcomes_updated": int(result.get("outcomes_updated", 0)),
+                "pilot_baseline_id": result.get("pilot_baseline_id")}
     except Exception as error:
         retry_count = execution.retry_count + 1
         status = "retrying" if retry_count <= max_retries else "failed"
@@ -338,7 +343,9 @@ def mart_processor(execution: AnalysisExecution, publication_connection: Any, *,
         mart_store.close()
 
     publication = PostgreSQLPublicationIndex(publication_connection)
-    pilot_baseline_id = publication.register_baseline(execution, prompts["version"], prompt_hash)
+    stored_baseline = existing_manifest.get("pilot_baseline_id") if existing_manifest is not None else None
+    pilot_baseline_id = str(stored_baseline) if stored_baseline else publication.register_baseline(
+        execution, prompts["version"], prompt_hash)
     if existing_manifest is None:
         artifact_prefix = f"executions/{execution.execution_id}/artifacts"
         governance_diff = execution.request_options.get("governance_diff", [])
@@ -383,6 +390,7 @@ def mart_processor(execution: AnalysisExecution, publication_connection: Any, *,
         result_manifest = {
             "artifact_kind": "mart_execution_v1", "execution_id": execution.execution_id,
             "analysis_as_of": execution.request_options["analysis_as_of"], "core_snapshot_id": execution.core_snapshot_id,
+            "pilot_baseline_id": pilot_baseline_id,
             "artifacts": artifacts, "reports": indexed,
             "llm": [{"scope_type": key[0], "scope_id": key[1], **value} for key, value in sorted(narratives.items())],
         }

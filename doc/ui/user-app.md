@@ -81,3 +81,11 @@ K 線、五角色明細、估值指標與完整 provenance 屬「進階資料」
 - 投資屬性提供風險承受度、投資期間、主要目標與最低現金比例；送入 AI 前須逐次或以清楚設定 opt-in。
 - 提供「匯出我的私人資料」與「永久刪除私人資料」，涵蓋交易、筆記、關注股、Skills、對話與 Codex 雲端 thread／auth state。刪除使用 danger zone、再次驗證與明確影響範圍，不以單次誤觸直接執行；提交後顯示 `QUEUED`／`CLEANUP_PENDING`／`COMPLETED` 對應文案與可重試狀態。`CLEANUP_PENDING` 不得顯示成功；若 Iceberg snapshot 或 GCS object version 尚在必要 lifecycle／保留期，顯示實際期限。完成後 Codex 顯示需重新登入。
 - 不放方案定價、預測戰績或公開排行榜；待產品與法遵另案確認後再新增。
+
+### 5.8 Research Context 整合（Planned）
+
+- 「今日」擴充既有 `MarketRegimeCard`，不建立同義元件；與 Daily Brief 使用同一 `analysis_as_of`，顯示 deterministic confidence、evidence、freshness 及 partial／stale／fallback／insufficient-data。
+- 「關注」可在 contract 支援時顯示 candidate state、research priority、thesis freshness 與 missing-data indicator；不轉為平台推薦排行榜。
+- 「個股健康檢查」在現有資訊架構納入 market regime、deterministic signal summary、research thesis 的 supporting／invalidating evidence、candidate／strategy state、可用時的 supply-chain exposure／signal、portfolio impact、provenance 與 freshness。AI summary 不得蓋過 canonical data。
+- 「個人記帳與筆記」保留 append-only／revision semantics；research state 可連結 note，但 trade ledger 與 thesis 不合併為同一模型。
+- 「雲端私人助理」沿用 Data Sources panel，ResearchContext 顯示 source、as-of、freshness、provenance、owner scope 與 missing／stale state；private sections 仍由使用者明確選取。

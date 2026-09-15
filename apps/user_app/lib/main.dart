@@ -1011,6 +1011,7 @@ class _AnalysisFeedbackCardState extends State<AnalysisFeedbackCard> {
         if (busy) const LinearProgressIndicator(),
         if (error != null) Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
       ])));
+}
 
 List<dynamic> _asList(dynamic value) => value is List ? value : const [];
 

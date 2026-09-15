@@ -8,6 +8,8 @@ bucket="${LEDGER_BACKUP_BUCKET:-${project}-dev-private}"
 prefix="pilot-ledger-backups"
 mode="${1:-}"
 backup_id="${2:-}"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "${script_dir}/../.." && pwd)"
 
 fail() { echo "Pilot ledger durability failed: $*" >&2; exit 1; }
 [[ "${GCP_ENVIRONMENT:-dev}" == dev ]] || fail 'GCP_ENVIRONMENT must be dev'
@@ -19,6 +21,7 @@ vm() {
 }
 
 configure() {
+  local build_sa
   [[ "${ALLOW_DEV_LEDGER_DURABILITY:-false}" == true ]] || \
     fail 'set ALLOW_DEV_LEDGER_DURABILITY=true to configure the existing dev VM and bucket prefix'
   gcloud storage buckets describe "gs://${bucket}" --project="${project}" >/dev/null
@@ -27,6 +30,11 @@ configure() {
     --role=roles/storage.objectAdmin \
     --condition="expression=resource.name.startsWith('projects/_/buckets/${bucket}/objects/${prefix}/'),title=pilot-ledger-backups-only" \
     --quiet >/dev/null
+  build_sa="$(gcloud builds get-default-service-account --project="${project}")"
+  gcloud storage buckets add-iam-policy-binding "gs://${bucket}" --project="${project}" \
+    --member="serviceAccount:${build_sa}" --role=roles/storage.objectViewer \
+    --condition="expression=resource.name.startsWith('projects/_/buckets/${bucket}/objects/${prefix}/'),title=pilot-ledger-restore-read" \
+    --quiet >/dev/null
   gcloud compute scp "$0" "janus-postgres-dev:/tmp/janus-ledger-durability" \
     --project="${project}" --zone="${zone}" --tunnel-through-iap --quiet
   vm "sudo env GCP_PROJECT_ID='${project}' LEDGER_BACKUP_BUCKET='${bucket}' GCP_ENVIRONMENT=dev bash /tmp/janus-ledger-durability install"
@@ -34,7 +42,8 @@ configure() {
 }
 
 install_timer() {
-  install -m 700 "$0" /usr/local/sbin/janus-ledger-durability
+  install -d -m 755 /var/lib/janus
+  install -m 700 "$0" /var/lib/janus/ledger-durability
   cat >/etc/systemd/system/janus-ledger-backup.service <<EOF
 [Unit]
 Description=Janus bounded Pilot ledger logical backup
@@ -45,7 +54,7 @@ Type=oneshot
 Environment=GCP_PROJECT_ID=${project}
 Environment=LEDGER_BACKUP_BUCKET=${bucket}
 Environment=GCP_ENVIRONMENT=dev
-ExecStart=/usr/local/sbin/janus-ledger-durability vm-backup
+ExecStart=/bin/bash /var/lib/janus/ledger-durability vm-backup
 EOF
   cat >/etc/systemd/system/janus-ledger-backup.timer <<'EOF'
 [Unit]
@@ -118,7 +127,7 @@ PY
 }
 
 vm_backup() {
-  local temporary day month bytes digest
+  local temporary day month bytes digest owners ledger_events
   temporary="$(mktemp -d /tmp/janus-ledger-backup.XXXXXX)"
   trap 'rm -rf -- "${temporary}"' EXIT
   day="$(date -u +%F)"; month="${day%-*}"
@@ -126,83 +135,56 @@ vm_backup() {
     pg_dump --format=custom --compress=9 --no-owner --no-acl --dbname=janus_control >"${temporary}/ledger.dump"
   bytes="$(stat -c %s "${temporary}/ledger.dump")"
   digest="$(sha256sum "${temporary}/ledger.dump" | cut -d' ' -f1)"
+  owners="$(docker exec --user postgres janus-postgres psql -At -d janus_control -c 'SELECT count(*) FROM private.users')"
+  ledger_events="$(docker exec --user postgres janus-postgres psql -At -d janus_control -c 'SELECT count(*) FROM private.ledger_events')"
   gcs_object upload "${prefix}/daily/${day}.dump" "${temporary}/ledger.dump"
   gcs_object upload "${prefix}/monthly/${month}.dump" "${temporary}/ledger.dump"
   gcs_object prune "${prefix}/daily/" '' 14
   gcs_object prune "${prefix}/monthly/" '' 6
-  printf '{"backup_id":"%s","bytes":%s,"sha256":"sha256:%s","projected_retention_bytes":%s}\n' \
-    "${day}" "${bytes}" "${digest}" "$((bytes * 20))"
+  printf '{"backup_id":"%s","owners":%s,"ledger_events":%s,"bytes":%s,"sha256":"sha256:%s","projected_retention_bytes":%s}\n' \
+    "${day}" "${owners}" "${ledger_events}" "${bytes}" "${digest}" "$((bytes * 20))"
 }
 
-vm_restore() {
-  local temporary object restore_name image evidence
-  temporary="$(mktemp -d /tmp/janus-ledger-restore.XXXXXX)"
-  restore_name="janus-ledger-restore-$$"
-  trap 'docker rm -f "${restore_name}" >/dev/null 2>&1 || true; rm -rf -- "${temporary}"' EXIT
+restore_build() {
+  local object
   if [[ -z "${backup_id}" ]]; then
-    object="$(gcs_object latest "${prefix}/daily/")"
-  else
-    [[ "${backup_id}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || fail 'backup ID must be YYYY-MM-DD'
-    object="${prefix}/daily/${backup_id}.dump"
+    object="$(gcloud storage ls "gs://${bucket}/${prefix}/daily/*.dump" --project="${project}" 2>/dev/null | sort | tail -1)"
+    [[ -n "${object}" ]] || fail 'no daily ledger backup is available'
+    backup_id="${object##*/}"; backup_id="${backup_id%.dump}"
   fi
-  [[ -n "${object}" ]] || fail 'no daily ledger backup is available'
-  gcs_object download "${object}" "${temporary}/ledger.dump"
-  image="$(docker inspect --format '{{.Config.Image}}' janus-postgres)"
-  docker run -d --rm --name "${restore_name}" --network none \
-    --tmpfs /var/lib/postgresql/data:rw,size=768m -e POSTGRES_HOST_AUTH_METHOD=trust "${image}" >/dev/null
-  for _ in $(seq 1 60); do
-    docker exec "${restore_name}" pg_isready -U postgres >/dev/null 2>&1 && break
-    sleep 1
-  done
-  docker exec "${restore_name}" pg_isready -U postgres >/dev/null
-  docker exec "${restore_name}" createdb -U postgres janus_restore
-  docker cp "${temporary}/ledger.dump" "${restore_name}:/tmp/ledger.dump"
-  docker exec "${restore_name}" pg_restore --exit-on-error --no-owner --no-acl -U postgres -d janus_restore /tmp/ledger.dump
-  evidence="$(docker exec "${restore_name}" psql -At -U postgres -d janus_restore <<'SQL'
-SELECT json_build_object(
-  'owners',(SELECT count(*) FROM private.users),
-  'ledger_events',(SELECT count(*) FROM private.ledger_events),
-  'owner_boundary_valid',NOT EXISTS(
-    SELECT 1 FROM private.ledger_events event LEFT JOIN private.users owner USING(user_id) WHERE owner.user_id IS NULL),
-  'latest_versions_valid',NOT EXISTS(
-    SELECT 1 FROM private.users owner WHERE owner.ledger_version <>
-      COALESCE((SELECT max(event.ledger_version) FROM private.ledger_events event WHERE event.user_id=owner.user_id),0)),
-  'correction_links_valid',NOT EXISTS(
-    SELECT 1 FROM private.ledger_events event
-     WHERE (event.event_action='REVERSAL' AND event.reverses_event_id IS NULL)
-        OR (event.event_action='REPLACEMENT' AND event.replaces_event_id IS NULL)),
-  'credential_columns',(
-    SELECT count(*) FROM information_schema.columns
-     WHERE table_schema IN ('private','publication','control','audit')
-       AND column_name ~* '(password|secret|token|credential|api_key)'));
-SQL
-)"
-  printf '{"restore":"success","backup_id":"%s","checks":%s}\n' "${object##*/}" "${evidence}"
+  [[ "${backup_id}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || fail 'backup ID must be YYYY-MM-DD'
+  object="${prefix}/daily/${backup_id}.dump"
+  gcloud builds submit "${repo_root}" --project="${project}" \
+    --config="${repo_root}/scripts/gcp/cloudbuild-ledger-restore.yaml" \
+    --substitutions="_BUCKET=${bucket},_OBJECT=${object}" --quiet
 }
 
 verify() {
+  local build_sa policy
   vm "sudo systemctl is-enabled janus-ledger-backup.timer && sudo systemctl is-active janus-ledger-backup.timer"
+  build_sa="$(gcloud builds get-default-service-account --project="${project}")"
   policy="$(gcloud storage buckets get-iam-policy "gs://${bucket}" --project="${project}" --format=json)"
   POLICY_JSON="${policy}" EXPECTED_MEMBER="serviceAccount:postgres-vm@${project}.iam.gserviceaccount.com" \
+    EXPECTED_BUILD_MEMBER="serviceAccount:${build_sa}" \
     EXPECTED_PREFIX="projects/_/buckets/${bucket}/objects/${prefix}/" python3 - <<'PY'
 import json, os
 policy = json.loads(os.environ["POLICY_JSON"])
-matches = [binding for binding in policy.get("bindings", [])
-           if binding.get("role") == "roles/storage.objectAdmin"
-           and os.environ["EXPECTED_MEMBER"] in binding.get("members", [])]
-assert len(matches) == 1
-assert os.environ["EXPECTED_PREFIX"] in matches[0].get("condition", {}).get("expression", "")
+for role, member in (("roles/storage.objectAdmin", os.environ["EXPECTED_MEMBER"]),
+                     ("roles/storage.objectViewer", os.environ["EXPECTED_BUILD_MEMBER"])):
+    matches = [binding for binding in policy.get("bindings", [])
+               if binding.get("role") == role and member in binding.get("members", [])]
+    assert len(matches) == 1
+    assert os.environ["EXPECTED_PREFIX"] in matches[0].get("condition", {}).get("expression", "")
 PY
-  echo 'Pilot ledger timer and prefix-scoped VM access are configured.'
+  echo 'Pilot ledger timer and prefix-scoped backup/restore access are configured.'
 }
 
 case "${mode}" in
   configure) configure ;;
-  run) vm "sudo env GCP_PROJECT_ID='${project}' LEDGER_BACKUP_BUCKET='${bucket}' GCP_ENVIRONMENT=dev /usr/local/sbin/janus-ledger-durability vm-backup" ;;
-  restore) vm "sudo env GCP_PROJECT_ID='${project}' LEDGER_BACKUP_BUCKET='${bucket}' GCP_ENVIRONMENT=dev /usr/local/sbin/janus-ledger-durability vm-restore '${backup_id}'" ;;
+  run) vm "sudo env GCP_PROJECT_ID='${project}' LEDGER_BACKUP_BUCKET='${bucket}' GCP_ENVIRONMENT=dev /bin/bash /var/lib/janus/ledger-durability vm-backup" ;;
+  restore) restore_build ;;
   verify) verify ;;
   install) install_timer ;;
   vm-backup) vm_backup ;;
-  vm-restore) vm_restore ;;
   *) echo "Usage: $0 {configure|run|verify|restore [YYYY-MM-DD]}" >&2; exit 2 ;;
 esac

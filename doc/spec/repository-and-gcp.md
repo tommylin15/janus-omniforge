@@ -72,3 +72,11 @@ flowchart TD
 Pilot 後只有人工 `GO` 才開始 Production topology review；是否需要 separate
 staging、separate production project 或 three-project split，由 Pilot evidence
 決定，不預先建立。
+
+## 4.1 Research Context topology guard
+
+ResearchContext、Market Regime、Private Research State 與 ChatGPT MCP 預設重用現有
+GCS／Iceberg、PostgreSQL、DuckDB／PyIceberg、Cloud Run 與 `janus-api`。本需求不
+導入 BigQuery、Neo4j／Graph DB、Vector DB、Google Drive integration、ChatGPT-specific
+Cloud Run service、新 scheduler 或重複 data lifecycle。只有既有 topology 不足的實證、
+cost／security／operations／exit review 與使用者明確批准後才可例外。

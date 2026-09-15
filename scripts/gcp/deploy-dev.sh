@@ -8,6 +8,7 @@ set -Eeuo pipefail
 project="${GCP_PROJECT_ID:?GCP_PROJECT_ID is required}"
 region="${GCP_REGION:-us-central1}"
 tag="${IMAGE_TAG:-dev-${GITHUB_SHA:-local}}"
+git_sha="${GITHUB_SHA:-$(git rev-parse HEAD)}"
 
 component="${1:-}"
 case "${component}" in
@@ -49,7 +50,7 @@ fi
 gcloud builds submit . \
   --project="${project}" \
   --config=cloudbuild.yaml \
-  --substitutions="_DOCKERFILE=${dockerfile},_IMAGE_NAME=${image_name},_IMAGE_TAG=${tag},_DEPLOY_TARGET=${deploy_target},_RUNTIME_NAME=${runtime_name},_REGION=${region}"
+  --substitutions="_DOCKERFILE=${dockerfile},_IMAGE_NAME=${image_name},_IMAGE_TAG=${tag},_DEPLOY_TARGET=${deploy_target},_RUNTIME_NAME=${runtime_name},_REGION=${region},_GIT_SHA=${git_sha}"
 
 # The new image accepts both legacy and merged field names. Deploy it before
 # changing the Secret reference so service revisions never see an incompatible payload.

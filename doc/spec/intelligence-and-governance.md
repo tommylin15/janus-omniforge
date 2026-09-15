@@ -117,3 +117,35 @@ Governance／audit metadata 由 `janus_audit` 擁有；revision head 以 expecte
 - Query runtime 不得寫 Core；寫入仍由 ingestion Job 序列化，避免並行 Iceberg commit 衝突。
 - DuckDB 本機資料、spill 與 temp 均為可丟棄暫存；GCS 保存 Iceberg data/metadata，PostgreSQL 只保存 catalog、control、publication、audit、服務索引與隔離的私人 ledger。
 - backfill 必須拆批並限制 scan rows／bytes、memory、timeout；超過單機與 Cloud Run 執行限制時，再評估分散式引擎，不預先恢復 Trino。
+
+## 11.1 Research intelligence gate（Planned）
+
+研究分析依 `macro／market → industry／supply chain → stock signal → portfolio
+decision` 逐層組合；任一層的 missing、stale 或 partial 不得由下層或 LLM
+猜測補齊。Market Regime 為 bounded deterministic context，可使用當時已核准且
+可用的 TAIEX、TPEx、market breadth、turnover、institutional flow、financing leverage
+及 FX／rates／futures／macro inputs。未核准或無 coverage evidence 者為 `Unknown`、
+`Candidate` 或 `Blocked`，不因本列表獲得核准。
+
+Market Regime 輸出至少保留 `state`（`risk_on | neutral | caution | risk_off |
+insufficient_data`）、`analysis_as_of`、`confidence`、`evidence` 與 `missing_data`。
+`confidence` 僅可來自 deterministic／explicit quality semantics，不由 LLM 自行產生。
+
+Private Research State 是 owner-scoped、effective-time 與 revision-aware 的 semantic contract：
+
+- `research_thesis`：`symbol`、`thesis`、`supporting_conditions`、`invalidating_conditions`、
+  `effective_from`、`effective_to`、`review_after`、`status`、`revision`。
+- `candidate_state`：`symbol`、`candidate_status`、可選 `priority／tier`、`rationale`、
+  `effective_from`、`effective_to`、`requires_refresh`、`revision`。
+- `strategy_state`：current strategy hypothesis、entry／add／reduce／invalidate concepts、
+  `evidence_as_of`、effective time 與 revision；不就地 overwrite 歷史策略。
+- `decision_record`：decision／decision time、`analysis_as_of`、key evidence references、
+  portfolio context 與 thesis／strategy revision references。
+- `investment_policy`：risk tolerance、horizon、minimum cash、concentration boundaries 與
+  mandate；現有 profile 不足部分為 Schema Extension Candidate。
+
+Supply-chain Research Context 僅沿用 `supply_chain_node`、`supply_chain_edge`、
+`company_exposure`、`leading_indicator_definition`、`leading_indicator_observation`、
+`supply_chain_signal`、`expectation_signal` 的共用規劃，保留 effective time、
+provenance、quality／confidence 與 `confirmed | reported | inferred | hypothesis`。AI inference
+不得升級為 confirmed fact，且不得繞過 Gate A–E。

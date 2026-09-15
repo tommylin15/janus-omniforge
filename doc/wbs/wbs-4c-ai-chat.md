@@ -90,3 +90,7 @@ API slice 已提供 owner-scoped thread create/list/read/fork、message turn、b
 - Approval 綁定 owner、thread、turn、request 及具體參數；拒絕跨 owner、過期或重播，不能將 UI boolean 當全域權限。
 - 驗收需覆蓋 Cloud Run scale-to-zero／cold start／timeout／中斷重連、三 runtime 真實或受控協定測試、內部與外部資料源 provenance、MCP stdio／HTTP／SSE、動態工具、Skill 權限、Codex managed auth／approval／取消、Grounding 來源、provider unavailable／quota、A／B 隔離、匯出／刪除、stream 續接去重及無 placeholder。Codex auth 另須以共用 bundle 的 A／B entries 驗證 load／rotate／destroy 隔離、其中一方更新或刪除不影響另一方、無 thread orphan auth、cleanup 403 重試、刪除期間拒絕寫入、logout／session eviction、刪後重新登入，以及 log／DB／Iceberg／build output 無 credential payload。
 - MCP Host、Skills、遠端 transport 與 approval UI 都是本 WBS 必交付能力；可分切片，不能在完成宣告時省略。
+
+## 4C.6 Research Context cross-reference
+
+ResearchContext 的 semantic contract、server composition 與 external ChatGPT MCP 實作歸 WBS 4J／5／6／8，不重開本 track。WBS 4C 只沿用既有 typed selector、context preview、owner／thread-bound opaque reference、provenance 與私人 context 明確選取。ChatGPT 仍是 bounded read-only consumer，不得引入 Google Drive runtime dependency、任意 SQL／GCS access 或新 ChatGPT runtime。

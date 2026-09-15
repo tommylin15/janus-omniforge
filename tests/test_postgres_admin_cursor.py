@@ -54,6 +54,14 @@ class PostgreSQLAdminCursorTests(unittest.TestCase):
         ):
             self.assertIn("013_membership_versions.sql", path)
 
+    def test_pilot_readiness_migration_is_in_bootstrap_and_runtime_paths(self):
+        for path in (
+            ROOT / "infra" / "postgres" / "bootstrap-vm.sh",
+            ROOT / "scripts" / "gcp" / "apply-web-postgres-migration.sh",
+            ROOT / "scripts" / "gcp" / "apply-mart-postgres-migration.sh",
+        ):
+            self.assertIn("025_pilot_readiness.sql", path.read_text(encoding="utf-8"))
+
 
 if __name__ == "__main__":
     unittest.main()

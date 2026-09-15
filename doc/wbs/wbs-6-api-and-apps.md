@@ -87,3 +87,11 @@ client-selected owner，也不得提供 mutation。
 - Feedback 必須 authenticated owner-scoped、綁定 immutable／traceable analysis
   result、只保存 bounded metadata、不修改歷史 analysis、不影響 deterministic score、
   不成為 publication input；優先重用既有 Flutter／Web analysis card。
+
+### 6.6 `WBS-6-RESEARCH-CONTEXT-COMPOSITION`（Pilot Evolution／Planned）
+
+- `WBS-6-RESEARCH-CONTEXT-CONTRACT` 先固定 market／company／supply-chain／private／quality sections、typed selectors、same-`analysis_as_of`、PIT、freshness、provenance 與 explicit missing-state semantics；它是 proposed contract，不是現有 endpoint。
+- 在 existing `janus-api` 組合 proposed `ResearchContext`，共用 typed selectors、allowlist、owner binding、date／record／byte bounds、sanitization、provenance 與 same-`analysis_as_of`。
+- UI 與 `WBS-6-CHATGPT-MCP-*` 消費同一 bounded contract；MCP 只讀、不接受 SQL／table／URI／owner input，不回傳 storage locator／credential，不提供 mutation。
+- Google Drive 不是 runtime dependency。不新建 ChatGPT Cloud Run service；若 existing `janus-api` 安全上不足，依既有 MCP contract 停止並提交架構決策。
+- UI 不計算 canonical financial／technical／portfolio values；只呈現 Mart 值、evidence、freshness、missing／stale／partial 與 owner scope。

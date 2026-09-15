@@ -199,3 +199,11 @@ Evidence 欄位：metric、value、unit、source、provenance ID、observed／pu
 - `DataSourcePicker` 顯示 Janus public／private context 與核准外部來源的 as-of date、provenance、owner scope、quota；私人資料預設未選取。`McpSkillPanel` 顯示 Cloud Run stdio／remote HTTP/SSE、tool scope、skill revision／required tools，不提供本地路徑或任意 executable 上傳。
 - `AgentTimeline` 以一般 message、Codex turn／item、MCP tool 與 approval card 顯示統一 AgentEvent；approval 顯示 Cloud Run sandbox 的具體操作、範圍與到期，禁止用單一全域「永遠允許」取代 request-bound decision。
 - citation 顯示標題、來源、查詢時間與可點擊連結；Gemini Google Search grounding suggestion／attribution 依供應者條款呈現，不把搜尋片段冒充 Janus 已驗證事實。
+
+### Research Context 元件（Planned）
+
+- 擴充既有 `MarketRegimeCard`：輸入 state、`analysis_as_of`、deterministic confidence、evidence、freshness 與 missing data；`insufficient_data` 不顯示方向。
+- 新增概念元件僅限 `ResearchThesisCard`、`ResearchStateBadge`、`DataFreshnessBadge`、`MissingDataList`、`SupplyChainExposureCard` 與 `DeterministicSignalSummary`；實作時若既有元件可承載則直接重用。
+- `ResearchThesisCard` 顯示 revision／effective time、supporting／invalidating conditions 與 review status；`ResearchStateBadge` 只呈現 candidate／strategy state，不產生建議。
+- `DataFreshnessBadge`／`MissingDataList` 共用 partial、stale、fallback、insufficient-data semantics，null 不顯示為 0。`SupplyChainExposureCard` 顯示 evidence class、effective time 與 provenance，不把 inferred／hypothesis 標為 confirmed。
+- `DeterministicSignalSummary` 只顯示 Mart 已計算值與 formula／revision reference。所有 UI 元件都不計算 canonical financial、technical 或 portfolio values。
