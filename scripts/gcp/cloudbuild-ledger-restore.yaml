@@ -34,9 +34,11 @@ steps:
         docker exec "$${restore}" pg_isready -U postgres >/dev/null
         docker exec "$${restore}" createdb -U postgres janus_restore
         docker cp /workspace/ledger.dump "$${restore}:/tmp/ledger.dump" >/dev/null
+        echo 'restore container ready'
         docker exec "$${restore}" pg_restore --exit-on-error --no-owner --no-acl \
-          -U postgres -d janus_restore /tmp/ledger.dump >/dev/null
-        checks="$(docker exec "$${restore}" psql -At -U postgres -d janus_restore <<'SQL'
+          -U postgres -d janus_restore /tmp/ledger.dump
+        echo 'pg_restore completed'
+        checks="$(docker exec -i "$${restore}" psql -At -U postgres -d janus_restore 2>&1 <<'SQL' || true
         SELECT NOT EXISTS(
             SELECT 1 FROM private.ledger_events event LEFT JOIN private.users owner USING(user_id)
              WHERE owner.user_id IS NULL)
@@ -53,10 +55,11 @@ steps:
             SELECT 1 FROM information_schema.columns
              WHERE table_schema IN ('private','publication','control','audit')
                AND column_name ~* '(password|secret|token|credential|api_key)');
-SQL
+        SQL
         )"
+        echo "restore_checks=$${checks}"
         [[ "$${checks}" == t ]]
-        evidence="$(docker exec "$${restore}" psql -At -U postgres -d janus_restore <<'SQL'
+        evidence="$(docker exec -i "$${restore}" psql -At -U postgres -d janus_restore <<'SQL'
         SELECT json_build_object(
           'owners',(SELECT count(*) FROM private.users),
           'ledger_events',(SELECT count(*) FROM private.ledger_events),
@@ -75,7 +78,7 @@ SQL
             SELECT count(*) FROM information_schema.columns
              WHERE table_schema IN ('private','publication','control','audit')
                AND column_name ~* '(password|secret|token|credential|api_key)'));
-SQL
+        SQL
         )"
         printf '{"restore":"success","backup_id":"%s","checks":%s}\n' "$${object##*/}" "$${evidence}"
 

@@ -10,6 +10,8 @@ mode="${1:-}"
 backup_id="${2:-}"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/../.." && pwd)"
+python_bin=python3
+python3 -c 'pass' >/dev/null 2>&1 || python_bin=python
 
 fail() { echo "Pilot ledger durability failed: $*" >&2; exit 1; }
 [[ "${GCP_ENVIRONMENT:-dev}" == dev ]] || fail 'GCP_ENVIRONMENT must be dev'
@@ -25,15 +27,16 @@ configure() {
   [[ "${ALLOW_DEV_LEDGER_DURABILITY:-false}" == true ]] || \
     fail 'set ALLOW_DEV_LEDGER_DURABILITY=true to configure the existing dev VM and bucket prefix'
   gcloud storage buckets describe "gs://${bucket}" --project="${project}" >/dev/null
-  gcloud storage buckets add-iam-policy-binding "gs://${bucket}" --project="${project}" \
+  if ! gcloud storage managed-folders describe "gs://${bucket}/${prefix}/" --project="${project}" >/dev/null 2>&1; then
+    gcloud storage managed-folders create "gs://${bucket}/${prefix}/" --project="${project}" --quiet >/dev/null
+  fi
+  gcloud storage managed-folders add-iam-policy-binding "gs://${bucket}/${prefix}/" --project="${project}" \
     --member="serviceAccount:postgres-vm@${project}.iam.gserviceaccount.com" \
     --role=roles/storage.objectAdmin \
-    --condition="expression=resource.name.startsWith('projects/_/buckets/${bucket}/objects/${prefix}/'),title=pilot-ledger-backups-only" \
     --quiet >/dev/null
   build_sa="$(gcloud builds get-default-service-account --project="${project}")"
-  gcloud storage buckets add-iam-policy-binding "gs://${bucket}" --project="${project}" \
+  gcloud storage managed-folders add-iam-policy-binding "gs://${bucket}/${prefix}/" --project="${project}" \
     --member="serviceAccount:${build_sa}" --role=roles/storage.objectViewer \
-    --condition="expression=resource.name.startsWith('projects/_/buckets/${bucket}/objects/${prefix}/'),title=pilot-ledger-restore-read" \
     --quiet >/dev/null
   gcloud compute scp "$0" "janus-postgres-dev:/tmp/janus-ledger-durability" \
     --project="${project}" --zone="${zone}" --tunnel-through-iap --quiet
@@ -129,7 +132,7 @@ PY
 vm_backup() {
   local temporary day month bytes digest owners ledger_events
   temporary="$(mktemp -d /tmp/janus-ledger-backup.XXXXXX)"
-  trap 'rm -rf -- "${temporary}"' EXIT
+  trap "rm -rf -- '${temporary}'" EXIT
   day="$(date -u +%F)"; month="${day%-*}"
   docker exec --user postgres janus-postgres \
     pg_dump --format=custom --compress=9 --no-owner --no-acl --dbname=janus_control >"${temporary}/ledger.dump"
@@ -163,10 +166,10 @@ verify() {
   local build_sa policy
   vm "sudo systemctl is-enabled janus-ledger-backup.timer && sudo systemctl is-active janus-ledger-backup.timer"
   build_sa="$(gcloud builds get-default-service-account --project="${project}")"
-  policy="$(gcloud storage buckets get-iam-policy "gs://${bucket}" --project="${project}" --format=json)"
+  policy="$(gcloud storage managed-folders get-iam-policy "gs://${bucket}/${prefix}/" --project="${project}" --format=json)"
   POLICY_JSON="${policy}" EXPECTED_MEMBER="serviceAccount:postgres-vm@${project}.iam.gserviceaccount.com" \
     EXPECTED_BUILD_MEMBER="serviceAccount:${build_sa}" \
-    EXPECTED_PREFIX="projects/_/buckets/${bucket}/objects/${prefix}/" python3 - <<'PY'
+    "${python_bin}" - <<'PY'
 import json, os
 policy = json.loads(os.environ["POLICY_JSON"])
 for role, member in (("roles/storage.objectAdmin", os.environ["EXPECTED_MEMBER"]),
@@ -174,9 +177,8 @@ for role, member in (("roles/storage.objectAdmin", os.environ["EXPECTED_MEMBER"]
     matches = [binding for binding in policy.get("bindings", [])
                if binding.get("role") == role and member in binding.get("members", [])]
     assert len(matches) == 1
-    assert os.environ["EXPECTED_PREFIX"] in matches[0].get("condition", {}).get("expression", "")
 PY
-  echo 'Pilot ledger timer and prefix-scoped backup/restore access are configured.'
+  echo 'Pilot ledger timer and managed-folder backup/restore access are configured.'
 }
 
 case "${mode}" in

@@ -5,10 +5,14 @@ import 'package:janus_user_app/main.dart';
 class FakeApi extends Api {
   FakeApi(this.values) : super('test');
   final Map<String, dynamic> values;
+  final writes = <Map<String, dynamic>>[];
   @override
   Future<dynamic> get(String path) async => values[path] ?? const [];
   @override
-  Future<dynamic> put(String path, Map<String, dynamic> body) async => values[path] ?? body;
+  Future<dynamic> put(String path, Map<String, dynamic> body) async {
+    writes.add(body);
+    return values[path] ?? body;
+  }
 }
 
 void main() {
@@ -86,11 +90,29 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     expect(find.text('信心度不是獲利機率。'), findsOneWidget);
+    expect(find.text('這份分析有幫助嗎？'), findsOneWidget);
     await tester.drag(find.byType(ListView), const Offset(0, -700));
     await tester.pump();
     expect(find.text('進階資料'), findsOneWidget);
     expect(find.text('K 線／OHLCV'), findsNothing);
-    expect(find.text('這份分析有幫助嗎？'), findsOneWidget);
+  });
+
+  testWidgets('analysis feedback loads the owner choice and saves a new choice', (tester) async {
+    const executionId = '11111111-1111-1111-1111-111111111111';
+    final feedbackPath = Uri(path: '/api/v1/me/analysis-feedback', queryParameters: {
+      'analysis_execution_id': executionId, 'scope_type': 'symbol', 'scope_id': '2330',
+    }).toString();
+    final api = FakeApi({feedbackPath: {'feedback': 'useful'}});
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: AnalysisFeedbackCard(
+        api: api, executionId: executionId, scopeType: 'symbol', scopeId: '2330'))));
+    await tester.pumpAndSettle();
+    expect(tester.widget<SegmentedButton<String>>(find.byType(SegmentedButton<String>)).selected,
+        {'useful'});
+    await tester.tap(find.text('可能誤導'));
+    await tester.pumpAndSettle();
+    expect(api.writes, hasLength(1));
+    expect(api.writes.single, containsPair('analysis_execution_id', executionId));
+    expect(api.writes.single, containsPair('feedback', 'misleading'));
   });
 
   testWidgets('portfolio dashboard renders persisted marts without recalculation', (tester) async {

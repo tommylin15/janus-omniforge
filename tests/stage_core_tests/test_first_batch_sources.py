@@ -9,6 +9,7 @@ from ingestion_core.adapters import CollectionRequest
 from ingestion_core.control import CollectionConfig, SQLiteControlPlane, Stock
 from ingestion_core.stage import LocalObjectStore
 from ingestion_core.core import IncrementalCoreWriter
+from packages.duckdb_query import DuckDBIcebergCore
 from ingestion_core.first_batch import (JsonDatasetAdapter, effective_trading_day,
     dataset_adapters,
     normalise_benchmark, normalise_events, normalise_financials,
@@ -41,6 +42,15 @@ class FirstBatchSourceTests(unittest.TestCase):
         self.assertEqual(response.rows[0]["source_id"], "taiex")
         self.assertEqual(response.rows[0]["observed_at"], "2026-08-25T00:00:00Z")
 
+    def test_ohlcv_adapters_are_registered_for_symbol_scoped_runtime(self):
+        raw = json.dumps({"data": [["115/08/25", "1,234", "100,000", "80", "82", "79", "81", "+1", "456"]]}).encode()
+        adapters = dataset_adapters(lambda _: raw)
+        response = adapters["twse-ohlcv"].fetch(self.request("ohlcv"))
+        self.assertEqual((response.rows[0]["volume_shares"], response.rows[0]["change_percent"]), (1234, None))
+        self.assertEqual((adapters["twse-ohlcv"].dataset_id, adapters["twse-ohlcv"].batch_scope), ("ohlcv", "symbol"))
+        self.assertIn("tpex-ohlcv", adapters)
+        self.assertEqual(DuckDBIcebergCore.IDENTIFIERS["ohlcv"], ("symbol", "market", "trade_date"))
+
     def test_benchmark_updates_independently_of_stock_rows_and_calendar_looks_back(self):
         self.assertEqual(effective_trading_day(date(2026, 8, 30)), date(2026, 8, 28))
         self.assertEqual(effective_trading_day(date(2026, 8, 31), holidays={date(2026, 8, 31)}), date(2026, 8, 28))
@@ -49,8 +59,12 @@ class FirstBatchSourceTests(unittest.TestCase):
         raw = json.dumps({"data": [{"date": "2026-08-25", "close": "23000"}]}).encode()
         response = JsonDatasetAdapter("taiex", "benchmark", "https://example.test/data", normalise_benchmark, lambda _: raw).fetch(self.request())
         with tempfile.TemporaryDirectory() as directory:
-            staged, metadata = stage_raw_response(response, self.request(), bucket="janus-stage", store=LocalObjectStore(Path(directory)))
+            staged, metadata = stage_raw_response(
+                response, self.request(), bucket="janus-stage", store=LocalObjectStore(Path(directory)),
+                quarantine_violations=[{"code": "DQ", "field": "close", "message": "test", "severity": "critical"}],
+            )
             self.assertTrue((Path(directory) / staged.object_name).exists())
+            self.assertTrue(tuple(Path(directory).rglob("violations.json")))
             self.assertEqual(metadata.payload_uri, f"gs://janus-stage/{staged.object_name}")
             self.assertTrue(metadata.content_hash.startswith("sha256:"))
 

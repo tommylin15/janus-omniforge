@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .adapters import CollectionRequest, SourceResponse
 from .control import DataState, ExecutionItem, ExecutionStatus, TriggerType
+from .dq import validate_ohlcv
 from .postgres_control import PostgreSQLControlPlane
 from .first_batch import dataset_adapters, effective_trading_day, stage_raw_response
 from .stage import GcsObjectStore, StageResult, StageWriter
@@ -222,7 +223,9 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
     configured = dataset_adapters()
     options = request_options or {}
     selected_sources = set(options.get("source_ids", ()))
-    selected = tuple(item.strip() for item in os.environ.get("INGESTION_DATASETS", ",".join(configured)).split(",") if item.strip())
+    dataset_setting = os.environ.get("INGESTION_DATASETS", "").strip()
+    default_datasets = ",".join(key for key, adapter in configured.items() if adapter.dataset_id != "ohlcv")
+    selected = tuple(item.strip() for item in (dataset_setting or default_datasets).split(",") if item.strip())
     if selected_sources:
         selected = tuple(key for key in selected if key in selected_sources or configured[key].source_id in selected_sources)
     unknown = sorted(set(selected) - set(configured))
@@ -271,13 +274,14 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
     empty_items: list[dict[str, object]] = []
     skipped_items: list[dict[str, object]] = []
     stage_results: list[StageResult] = []
+    dq_items: list[dict[str, object]] = []
     execution_scoped = os.environ.get("STAGE_EXECUTION_SCOPED", "true").lower() in {"1", "true", "yes"}
     force_refresh = os.environ.get("FORCE_REFRESH", "false").lower() in {"1", "true", "yes"}
 
     for as_of in dates:
         for key in selected:
             adapter = configured[key]
-            request_symbols = tuple((symbol,) for symbol in symbols) if key == "finmind" else (symbols,)
+            request_symbols = tuple((symbol,) for symbol in symbols) if key == "finmind" or getattr(adapter, "batch_scope", "market") == "symbol" else (symbols,)
             for requested_symbols in request_symbols:
                 item_key = f"{key}:{as_of.isoformat()}:{','.join(requested_symbols)}"
                 should_collect, reason = _should_collect(
@@ -324,9 +328,35 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                                                                DataState.EMPTY, 0, 0, False, key == "finmind", None, "source returned no rows"))
                             continue
                         raise ValueError("source returned no rows for configured symbols")
-                    result, _ = stage_raw_response(response, request, bucket=bucket, store=store, execution_scoped=execution_scoped)
+                    quarantine_violations: list[dict[str, str]] = []
+                    if adapter.dataset_id == "ohlcv":
+                        dq = validate_ohlcv((dict(row) for row in response.rows), analysis_as_of=as_of)
+                        quarantine_violations = [
+                            violation.to_dict()
+                            for _, violations in dq.quarantined
+                            for violation in violations
+                        ]
+                        fields = ("open", "high", "low", "close", "volume_shares", "turnover_twd", "change_percent")
+                        dq_items.append({
+                            "dataset": key,
+                            "date": as_of.isoformat(),
+                            "symbols": list(requested_symbols),
+                            "accepted": len(dq.accepted),
+                            "quarantined": len(dq.quarantined),
+                            "warnings": len(dq.warnings),
+                            "null_profile": {field: sum(row.get(field) is None for row in dq.accepted) for field in fields},
+                        })
+                        response = replace(response, rows=dq.accepted,
+                                           fields=frozenset(dq.accepted[0].keys()) if dq.accepted else frozenset())
+                    result, _ = stage_raw_response(
+                        response, request, bucket=bucket, store=store,
+                        execution_scoped=execution_scoped,
+                        quarantine_violations=quarantine_violations,
+                    )
                     staged.append(result.object_name)
                     stage_results.append(result)
+                    if not response.rows:
+                        raise ValueError("OHLCV DQ rejected all rows")
                     committed = core.write(dataset_id=adapter.dataset_id, rows=[dict(row) for row in response.rows],
                                            execution_id=execution_id, provenance_id=result.idempotency_key,
                                            source_id=adapter.source_id, partition_date=as_of)
@@ -389,6 +419,7 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
         "empty_items": empty_items,
         "skipped": len(skipped_items),
         "skipped_items": skipped_items,
+        "dq": dq_items,
         "core_created": core_created,
         "core_updated": core_updated,
         "core_reused": core_reused,

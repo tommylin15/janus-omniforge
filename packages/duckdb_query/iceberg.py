@@ -27,6 +27,7 @@ class DuckDBIcebergCore:
     """Natural-key merge in DuckDB followed by an atomic Iceberg v2 upsert."""
 
     IDENTIFIERS = {
+        "ohlcv": ("symbol", "market", "trade_date"),
         "valuation": ("symbol", "market", "observed_date"),
         "institutional": ("symbol", "market", "trade_date", "investor_type"),
         "financials": ("symbol", "fiscal_year", "fiscal_quarter", "statement_type", "published_at", "metric"),
@@ -36,6 +37,7 @@ class DuckDBIcebergCore:
     }
     TABLE_NAMES = {dataset: f"{dataset.replace('-', '_')}_v1" for dataset in IDENTIFIERS}
     PARTITIONS = {
+        "ohlcv": (("trade_date", "month"), ("symbol", "bucket[32]")),
         "valuation": (("observed_date", "month"), ("symbol", "bucket[32]")),
         "institutional": (("trade_date", "month"), ("symbol", "bucket[32]")),
         "financials": (("published_at", "year"), ("symbol", "bucket[32]")),

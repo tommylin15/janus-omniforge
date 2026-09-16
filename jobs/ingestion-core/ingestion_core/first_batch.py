@@ -16,6 +16,7 @@ from uuid import uuid4
 
 from .adapters import CollectionRequest, SourceResponse, validate_source_url
 from .control import CacheMetadata, DataState
+from .sources import ExchangeOhlcvAdapter, tpex_ohlcv_adapter, twse_ohlcv_adapter
 from .stage import StageResult, StageWriter
 from packages.provenance import Provenance, content_hash
 
@@ -215,6 +216,7 @@ def stage_raw_response(
     cache_ttl: timedelta = timedelta(hours=24),
     fetched_at: datetime | None = None,
     execution_scoped: bool = False,
+    quarantine_violations: list[dict[str, str]] | None = None,
 ) -> tuple[StageResult, CacheMetadata]:
     """Write upstream bytes to Stage and return metadata for the control plane.
 
@@ -242,7 +244,8 @@ def stage_raw_response(
         content_hash=content_hash(payload),
         is_fallback=response.is_fallback,
     )
-    staged = StageWriter(store).write_raw(
+    writer = StageWriter(store)
+    staged = writer.write_raw(
         payload=payload,
         media_type="application/json",
         extension="json",
@@ -250,6 +253,16 @@ def stage_raw_response(
         provenance=provenance,
         execution_scoped=execution_scoped,
     )
+    if quarantine_violations:
+        writer.quarantine(
+            payload=payload,
+            media_type="application/json",
+            extension="json",
+            execution_id=request.execution_id,
+            provenance=provenance,
+            violations=quarantine_violations,
+            execution_scoped=execution_scoped,
+        )
     metadata = CacheMetadata(
         cache_key=staged.idempotency_key,
         source_id=request.source_id,
@@ -272,7 +285,7 @@ def effective_trading_day(as_of: date, *, holidays: set[date] = frozenset()) -> 
     return current
 
 
-def dataset_adapters(transport: Callable[[str], bytes] | None = None) -> dict[str, JsonDatasetAdapter]:
+def dataset_adapters(transport: Callable[[str], bytes] | None = None) -> dict[str, JsonDatasetAdapter | ExchangeOhlcvAdapter]:
     """Configured first-batch source set; URLs are credential-free endpoints."""
     def dated(endpoint: str, **fixed: str) -> Callable[[CollectionRequest], str]:
         def build(request: CollectionRequest) -> str:
@@ -290,6 +303,8 @@ def dataset_adapters(transport: Callable[[str], bytes] | None = None) -> dict[st
         return "https://api.finmindtrade.com/api/v4/data?" + urlencode(values)
 
     return {
+        "twse-ohlcv": twse_ohlcv_adapter(transport),
+        "tpex-ohlcv": tpex_ohlcv_adapter(transport),
         "taiex": JsonDatasetAdapter("taiex", "benchmark", "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST", lambda rows: normalise_benchmark(rows, "TAIEX"), transport, dated("https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST", response="json")),
         "tpex-benchmark": JsonDatasetAdapter("tpex-benchmark", "benchmark", "https://www.tpex.org.tw/openapi/v1/tpex_index", lambda rows: normalise_benchmark(rows, "TPEx"), transport),
         "twse-valuation": JsonDatasetAdapter("twse", "valuation", "https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d", normalise_valuation, transport, dated("https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d", selectType="ALL", response="json")),

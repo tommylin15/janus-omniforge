@@ -1,6 +1,74 @@
 # Operations and testing
 
-最新驗證日期：2026-09-14
+最新驗證日期：2026-09-16
+
+## WBS-6 Pilot usefulness feedback acceptance（2026-09-16）
+
+Local API／model tests `python -m pytest -q tests/test_user_api.py
+tests/test_pilot_readiness.py`: **28 passed**. Flutter Cloud Build
+`c83cab17-862f-44f9-b722-f57b701a0fb5`: **SUCCESS**, 8 widget tests passed,
+analyze passed with existing info-level lints allowed, and release web build
+passed. Feedback widget coverage checks loading the owner’s choice and saving a
+new choice.
+
+On existing `janus-postgres-dev`, a rollback-only transaction verified feedback
+for two synthetic owners remains separate, an update increments its version,
+feedback retains the target deterministic hash, and `janus_private_api` cannot
+DELETE feedback. The transaction ended with `ROLLBACK`; no fixture data remains.
+Migration `025_pilot_readiness` was already recorded by WBS-8 acceptance.
+
+No Cloud Run update was made. Current `janus-api-00077-6s9` image build predates
+the feedback API change, while Artifact Registry cleanup keeps only the latest
+tagged package version; therefore no live authenticated HTTP acceptance is
+claimed until a rollback-safe dev deployment window. No production deployment
+or new GCP resource was created.
+
+## WBS-8 Pilot outcome collection acceptance（2026-09-16）
+
+Pilot outcome collection is wired into the Mart processor. Each complete,
+publishable symbol report creates immutable 5／20／60 pending rows keyed by
+analysis identity and membership snapshot; later runs fill exact trading-day
+outcomes with TAIEX-relative return, MFE／MAE, price／benchmark snapshots and
+hashed provenance. Missing entry／benchmark data is excluded with a reason;
+insufficient future rows remain pending. Core ready events freeze the
+analysis-as-of scope and membership used for the report, so outcome evaluation
+does not backfill historical samples from the current watchlist.
+
+Local verification: `python -m unittest tests.test_pilot_readiness` **4 passed**;
+Python compile and `git diff --check` passed.
+
+GCP dev acceptance on existing `janus-postgres-dev` passed migration marker,
+lineage columns, outcome／feedback relations, role privilege boundaries and
+baseline registration. The acceptance transaction ended with `ROLLBACK`; the
+two temporary SQL files were removed. No production deployment or new paid
+resource was created.
+
+The existing `janus-intelligence-mart` Cloud Run Job was then updated to
+immutable digest
+`sha256:b497e6ee00792d0caf1f65584674f6bf5fa66ba2ed8facb3b7e392d9c002dd8c`
+by Cloud Build `727f5730-4baa-458f-a33a-655ccc32f329`; bounded smoke execution
+`janus-intelligence-mart-k98dm` completed successfully. The queue was empty,
+so the dev database has no baseline-linked reports or outcome rows yet; this is
+recorded as runtime-ready evidence, with collection beginning on the next real
+publishable report rather than fabricating a sample.
+
+## WBS-7 Pilot ledger durability acceptance（2026-09-16）
+
+既有 `janus-postgres-dev` 已啟用每日 bounded logical backup timer；既有 Private GCS
+bucket 的 `pilot-ledger-backups/` managed folder 提供 prefix-isolated VM objectAdmin
+與 Cloud Build objectViewer，daily retention 為 14、monthly checkpoint retention 為 6。
+VM 維持 private IP／Free Tier machine 與既有 persistent disk；本次僅修正已核准的
+`devstorage.read_write` OAuth scope，未建立新 VM、disk、snapshot、Cloud SQL、HA 或 replica。
+
+2026-09-16 UTC backup evidence：owners=2、ledger_events=0、compressed dump
+161278 bytes、projected retention 3225560 bytes；daily／monthly object count 各 1。
+Cloud Build isolated restore `b12d64a5-dab9-4aef-9853-f06324a015d3` SUCCESS，使用 pinned
+PostgreSQL image、`--network none` 與 tmpfs；restore checks 為 `t`，owners=2、ledger_events=0、
+owner boundary、latest ledger versions、reversal／replacement correction links 均 valid，
+credential-shaped columns=0。
+
+本機驗證：durability shell `bash -n`、Cloud Build YAML parse、`tests/test_pilot_readiness.py`
+4 passed、`git diff --check`。
 
 ## Artifact Registry／Cloud Run image cleanup repair（2026-09-14）
 
@@ -221,6 +289,116 @@ Cloud Run execution `janus-ingestion-core-29d2f` 於 05:55Z 成功，5 檔仍為
 `empty=0`、`requested=8`、`skipped=12`，全部為既有 fresh data。這是正式排程路徑的
 成功 smoke／replay，不新增 distinct trading day，故 canary 維持 **2/3**；未觸發全市場
 抓取，也未修改 Scheduler 或 job 設定。
+
+## WBS-3-ACCEPTANCE 完成（2026-09-15）
+
+第三個 distinct trading day 由既有 `janus-ingestion-daily` 自動排程完成：資料日
+`2026-09-14`（Asia/Taipei），Cloud Run execution `janus-ingestion-core-c995d`，
+control execution `3ee7a128-3a69-4704-8563-2def733032ad`。Scheduler 維持
+`ENABLED`、`30 7 * * *`、`Asia/Taipei`；execution 於 `2026-09-14T23:30:03Z`
+建立、`2026-09-14T23:32:45Z` 成功完成，`Completed=True`、`succeededCount=1`。
+
+固定 5 檔為 `1102`／`2327`／`2330`／`2381`／`4958`。8 個核准 source／dataset
+work items 的摘要為 `requested=8`、`staged=7`、`skipped=5`、`failed=0`、
+`empty=0`；5 個 FinMind symbol 因 `official_source_fresh` 合法跳過，故
+`expected=12`、`received=12`、`missing=0`。三日 canary 現為 **3/3**。
+8 個核准 source／dataset 狀態均為可接受成功：`taiex`、`tpex-benchmark`、
+`twse-valuation`、`twse-institutional`、`mops`、`twse-events`、
+`twse-market-activity` 實際成功寫入；`finmind` 以 official-source-fresh cache hit
+成功略過，沒有 failed／unavailable 狀態。
+
+Core ready event／snapshot 保存 `as_of=2026-09-14`、`row_count=1982`、
+`coreSnapshotHash=sha256:64cb0ef47c9102cf0b8c689e9b709acbe018919105beaef6eaedfec929638f98`、
+snapshot id `sha256:9834993558b99526296cdd6dece75ff654723a8136aac0b15967971f60c7a642`。
+Snapshot 列出 6 個 incremental Core table 的 row counts；本次沒有 DQ failure 或
+quarantine，且 artifact 沒有 OHLCV `null_profile` 欄位（本次未選取 OHLCV dataset）。
+
+第三次沿用 immutable image
+`ingestion-core@sha256:c5fc66a0ed0d395d07b66b96e6baedcf9739ff94328cb5eb4504ddd2889849f1`；
+job 維持 1 task、1 vCPU、1 GiB、1800 秒 timeout、maxRetries 1，execution 約
+2 分 22.75 秒。未建立或擴大 GCP 資源；該次 execution 未觸發全市場抓取，後續
+full enabled market bounded acceptance 見下節。
+
+## WBS-3 full enabled market bounded acceptance（2026-09-15）
+
+使用者指定「full enabled market」以當時 `control.stock_master` 的 5 檔 enabled universe
+為範圍：`1102`／`2327`／`2330`／`2381`／`4958`。既有 market-scope config
+`full-market-acceptance` 複用 8 個核准 source／dataset，未設定 symbol allowlist，
+由 PostgreSQL market-wide fallback 一次解析 enabled symbols，再由 source adapter 做
+symbol fan-out；沒有逐檔重複發出 market-scope request。驗收用 bounded config 已於完成後
+停用（`enabled=false`、`collection_enabled=false`、`analysis_enabled=false`），保留 audit
+record，避免意外重跑。
+
+第一次執行 `janus-ingestion-core-rpwnz` 立即以 `UNDEFINEDTABLE` 失敗；root cause 是
+PostgreSQL fallback query 使用 `s.enabled` 卻未宣告 `s` alias。已在共用
+`config_symbols()` 修正為 `FROM control.stock_master s`，並新增最小 repository query
+assertion；`python -m pytest -q tests/test_postgres_admin_cursor.py` 為 **6 passed**，
+`git diff --check` 通過。修正後 Cloud Build
+`8f9e9ca1-8373-4fdb-af37-ff263f68528c` SUCCESS，immutable image
+`ingestion-core@sha256:248c170a8a1fe8422dd95ab078eb8d7259ab4ea22b9a86e32978c86d547bead2`。
+
+以 `FORCE_REFRESH=true` 在既有 dev job 完成實抓：Cloud Run execution
+`janus-ingestion-core-tf66g` SUCCESS，約 4 分 42.23 秒；control execution
+`2191139b-2dab-4bf4-886b-12735e6cdc02` 狀態 `succeeded`。`as_of=2026-09-14`，
+`requested=8`、`staged=11`、`skipped=0`、`failed=0`、`empty=1`；唯一 empty 是
+FinMind financials 的 `2381`，屬合法 empty。5 檔 fan-out 與 8 個 source／dataset
+work items 全部有結果，故 `expected=12`、`received=12`、`missing=0`、`failed=0`。
+
+Core ready event／snapshot：`row_count=1982`、
+`coreSnapshotHash=sha256:85ee010136df0bc8f4d98f8d90a18180b9fe8eecba10d07779b76881b5bb5a2f`、
+snapshot id `sha256:8adc893ae302055caa227db8b22551cacdd13d59ebd938d84631af3c0aeafee3`，
+object `gs://gen-lang-client-0593591102-dev-core/executions/2191139b-2dab-4bf4-886b-12735e6cdc02/core-snapshot.json`。
+6 個 Core Iceberg table rows 為 benchmark 42、events 16、financials 1632、
+institutional 120、market_activity 132、valuation 40；`analysis_enabled=false`，
+因此 `mart_trigger.status=not_required`。本 config 未選 OHLCV，故不宣稱 OHLCV
+`null_profile` 驗收。既有 job 維持 1 task、1 parallelism、1 vCPU、1 GiB、1800 秒
+timeout、maxRetries 1；未建立或擴大 GCP 資源，也未呼叫 Artifact Analysis／Scanning。
+
+## OHLCV runtime 接入與 5 檔 dev 驗收 checkpoint（2026-09-15）
+
+已將既有 TWSE／TPEx OHLCV adapters 接入 ingestion runtime registry；symbol-scoped
+adapter 以每個 symbol fan-out，只有明確 `INGESTION_DATASETS=twse-ohlcv`／`tpex-ohlcv`
+才會執行，既有 `first-batch` 預設排程仍固定 8 個原有 dataset。OHLCV rows 先經既有
+`validate_ohlcv`，違規資料寫入 Stage quarantine，Core writer 現支援
+`core.ohlcv_v1`，summary 保存 accepted／quarantined／warnings／null_profile。TWSE
+成交量按官方「成交股數」保存，不再乘以 1,000；來源未提供漲跌百分比時保留 null，避免
+把成交筆數誤當百分比。
+
+本機 targeted tests：
+`PYTHONPATH=jobs/ingestion-core;. python -m pytest -q tests/stage_core_tests/test_first_batch_sources.py tests/stage_core_tests/test_stage_core.py tests/stage_core_tests/test_2330_closed_loop.py`
+為 **27 passed**；`git diff --check` 通過。Cloud Build
+`16962da0-7706-4a08-83aa-1348404d6d45` SUCCESS，既有 `janus-ingestion-core` dev job
+使用 immutable image
+`ingestion-core@sha256:a8953df49f42a9324adeb3eb7cb622de43e75f7fad56763ce11d2bb2beb75dbc`。
+
+Bounded config `ohlcv-acceptance`（TWSE、market-wide、analysis disabled、無 symbol
+allowlist）第一次實抓 execution `janus-ingestion-core-x2jh8` 因 stale enabled
+`2381` 回傳 0 rows 而阻擋；control item 為 `VALUEERROR`／`failed`。已在既有 dev
+`stock_master` 將 `2381` 設為 `enabled=false`、`listing_status=delisted`，並寫入
+`stock_disable` audit。這使原先宣告的 5 檔集合收斂為 4 檔有效 enabled universe：
+`1102`／`2327`／`2330`／`4958`。
+
+停用 stale symbol 後重跑：Cloud Run execution `janus-ingestion-core-rwt4w`、control
+execution `cffec813-2054-4a2d-a4b4-05846f5d8c46` 均成功。4 個 symbol item 各收到
+10 rows，合計 `staged=4`、`accepted=40`、`empty=0`、`failed=0`、`quarantined=0`；
+每檔 `change_percent` 的 10 筆為預期 null（官方 OHLCV response 未提供該欄），其餘
+OHLCV 欄位 null count 為 0。`core.ohlcv_v1` snapshot row count 為 40，metadata
+位於 `gs://gen-lang-client-0593591102-dev-core/warehouse/ohlcv_v1/metadata/00005-f4b9a2a5-1a22-4093-b742-661560f5aac3.metadata.json`。
+驗收完成後 `ohlcv-acceptance` 已停用並寫入 `acceptance_complete` audit；Scheduler
+job 的預設 8 個 dataset 未改動。原始 5 檔中的 stale `2381` 不再被強行納入，故本次
+有效 acceptance 是 4 檔，而非虛報 5 檔成功。
+
+同日 replay checkpoint：以 `INGESTION_DATE=2026-09-14`、`FORCE_REFRESH=true` 重抓，
+Cloud Run execution `janus-ingestion-core-scdrp`、control execution
+`ecd1aef9-c6ec-4e03-ab31-b83506a31cc2` 成功；`core_created=0`、`core_reused=40`、
+`core_updated=0`，`core.ohlcv_v1` 維持 40 rows 與相同 snapshot id，證明 natural-key
+replay 冪等。每檔仍 accepted 10 rows；每檔另隔離 1 筆 `FUTURE_DATE`／`DATE_ORDER`
+（合計 4 筆）至 Stage quarantine，未寫入 Core。runtime application duration 為
+14,795 ms；既有 job bounded 為 1 task／1 parallelism／1 vCPU／1 GiB／1800 秒、
+maxRetries=1。此次 replay Stage prefix 為 21 objects／32,394 bytes，Core execution
+prefix 為 437 bytes；未建立新 GCP 資源。先前 `2381` 空回導致 collection failed 的
+負向 execution 亦證明缺檔不會被誤標成功。驗收 config 已再次停用；下一切片才是
+`WBS-5-SUPPLY-INTELLIGENCE-PLANNING`。
 
 ## WBS-5 feature／publication pipeline GCP dev acceptance（2026-09-12）
 

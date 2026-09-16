@@ -36,8 +36,8 @@ def _row(symbol: str, market: str, values: list[Any]) -> dict[str, Any]:
     return {"symbol": symbol, "market": market, "trade_date": _date(values[0]),
             "open": _number(values[3]), "high": _number(values[4]),
             "low": _number(values[5]), "close": _number(values[6]),
-            "volume_shares": int(float(str(values[1]).replace(",", "") or 0)) * 1000,
-            "turnover_twd": _number(values[2]), "change_percent": _number(values[8])}
+            "volume_shares": int(str(values[1]).replace(",", "") or 0),
+            "turnover_twd": _number(values[2]), "change_percent": None}
 
 
 def parse_twse(payload: bytes, symbol: str = "2330") -> tuple[dict[str, Any], ...]:
@@ -58,6 +58,8 @@ class ExchangeOhlcvAdapter:
     endpoint: str
     parser: Callable[[bytes, str], tuple[dict[str, Any], ...]]
     transport: Callable[[str], bytes] | None = None
+    dataset_id: str = "ohlcv"
+    batch_scope: str = "symbol"
 
     def __post_init__(self) -> None:
         validate_source_url(self.endpoint)

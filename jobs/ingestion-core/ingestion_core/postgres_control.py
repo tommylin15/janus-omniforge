@@ -164,7 +164,7 @@ class PostgreSQLControlPlane:
                 cur.execute(f"SELECT cs.symbol FROM control.collection_symbols cs JOIN control.stock_master s USING(symbol) WHERE cs.config_id=%s{condition} ORDER BY cs.symbol", (config_id,))
                 rows = cur.fetchall()
             if not rows and config.coverage_tier == CoverageTier.MARKET_WIDE.value:
-                cur.execute(f"SELECT symbol FROM control.stock_master WHERE true{condition} ORDER BY symbol")
+                cur.execute(f"SELECT s.symbol FROM control.stock_master s WHERE true{condition} ORDER BY s.symbol")
                 rows = cur.fetchall()
             return tuple(r[0] for r in rows)
 

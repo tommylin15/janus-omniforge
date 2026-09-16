@@ -94,6 +94,7 @@ class PilotReadinessTests(unittest.TestCase):
         self.assertIn("WHERE publication.pilot_analysis_outcomes.status='pending'", (ROOT / "jobs/intelligence-mart/intelligence_mart/runtime.py").read_text(encoding="utf-8"))
         self.assertIn("'' 14", backup)
         self.assertIn("'' 6", backup)
+        self.assertIn("managed-folders", backup)
         self.assertIn("--network none", restore)
         self.assertNotIn("compute instances create", backup)
         self.assertNotIn("disks snapshot", backup)
