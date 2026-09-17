@@ -1,0 +1,78 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Janus dev usefulness feedback acceptance</title>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<h1>Janus usefulness feedback acceptance</h1>
+<p>使用真人 Google OAuth；token 只保留在本頁記憶體。請對真實分析留下實際評價。</p>
+<label>股票代號 <input id="symbol" value="2330" maxlength="20"></label>
+<div id="signin"></div>
+<button id="load" disabled>載入分析</button>
+<fieldset id="feedback" disabled>
+  <legend>這份分析有幫助嗎？</legend>
+  <label><input type="radio" name="value" value="useful"> 有幫助</label>
+  <label><input type="radio" name="value" value="neutral"> 普通</label>
+  <label><input type="radio" name="value" value="misleading"> 可能誤導</label>
+  <button id="save">儲存並讀回</button>
+</fieldset>
+<pre id="result">Waiting for Google Identity Services…</pre>
+<script>
+const clientId = new URLSearchParams(location.search).get('client_id');
+const result = document.querySelector('#result');
+const loadButton = document.querySelector('#load');
+const feedback = document.querySelector('#feedback');
+let token;
+let report;
+
+function show(value) {
+  result.textContent = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+}
+async function json(path, options = {}) {
+  const response = await fetch(path, {cache: 'no-store', ...options, headers: {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+    ...(options.headers || {})
+  }});
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw Error(`${path}: ${response.status} ${JSON.stringify(body)}`);
+  return body;
+}
+async function load() {
+  const symbol = document.querySelector('#symbol').value.trim().toUpperCase();
+  if (!/^[0-9A-Z_.:-]{1,20}$/.test(symbol)) throw Error('股票代號格式錯誤');
+  report = await json(`/api/v1/public/reports/symbol/${encodeURIComponent(symbol)}`);
+  if (!report.execution_id) throw Error('目前沒有可評價的已發布分析');
+  const query = new URLSearchParams({analysis_execution_id: report.execution_id,
+    scope_type: report.scope_type, scope_id: report.scope_id});
+  const current = await json(`/api/v1/me/analysis-feedback?${query}`);
+  feedback.disabled = false;
+  show({authenticated: true, analysis_execution_id: report.execution_id,
+    analysis_as_of: report.analysis_as_of, scope_type: report.scope_type,
+    scope_id: report.scope_id, current_feedback: current});
+}
+async function save() {
+  const selected = document.querySelector('input[name="value"]:checked')?.value;
+  if (!selected) throw Error('請先選擇實際評價');
+  const payload = {analysis_execution_id: report.execution_id, scope_type: report.scope_type,
+    scope_id: report.scope_id, feedback: selected};
+  const saved = await json('/api/v1/me/analysis-feedback', {method: 'PUT',
+    headers: {'Idempotency-Key': `usefulness-live-${crypto.randomUUID()}`},
+    body: JSON.stringify(payload)});
+  const query = new URLSearchParams({analysis_execution_id: report.execution_id,
+    scope_type: report.scope_type, scope_id: report.scope_id});
+  const readback = await json(`/api/v1/me/analysis-feedback?${query}`);
+  if (readback.feedback !== selected) throw Error('feedback readback mismatch');
+  show({passed: true, saved, readback});
+}
+window.onload = () => {
+  if (!clientId) { show('Missing client_id query parameter.'); return; }
+  google.accounts.id.initialize({client_id: clientId, callback: ({credential}) => {
+    token = credential;
+    document.querySelector('#signin').textContent = 'Google 已登入';
+    loadButton.disabled = false;
+    show('Signed in. Load a real published analysis.');
+  }, auto_select: false});
+  google.accounts.id.renderButton(document.querySelector('#signin'), {type: 'standard', text: 'signin_with'});
+};
+loadButton.onclick = () => load().catch(error => show(error.message));
+document.querySelector('#save').onclick = () => save().catch(error => show(error.message));
+</script>

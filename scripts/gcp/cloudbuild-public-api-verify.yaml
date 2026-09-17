@@ -26,6 +26,12 @@ steps:
         assert get("/health")[0] == 200
         assert get("/api/v1/public/health")[0] == 200
         assert get("/api/v1/me/profile")[0] == 401
+        feedback = get("/api/v1/me/analysis-feedback?analysis_execution_id=11111111-1111-1111-1111-111111111111&scope_type=symbol&scope_id=2330")
+        assert feedback[0] == 401, feedback
+        with urllib.request.urlopen(base + "/usefulness-feedback-acceptance.html", timeout=20) as response:
+            page = response.read().decode("utf-8")
+        assert "Janus usefulness feedback acceptance" in page
+        assert "google.accounts.id.initialize" in page
         admin_status, _ = get("/api/v1/admin/stocks")
         assert admin_status in {401, 503}, admin_status
         unknown = get("/api/v1/public/history/JANUS-NOT-A-STOCK")

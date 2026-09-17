@@ -213,8 +213,18 @@ PY
     POLICIES="${policies}" python3 - <<'PY'
 import json, os
 policies = json.loads(os.environ["POLICIES"])
-text = json.dumps(policies)
-assert "keep-latest-tagged-version" in text and '"keepCount": 1' in text, "cleanup keepCount drift"
+assert any(
+    item.get("action", {}).get("type") == "Keep"
+    and item.get("mostRecentVersions", {}).get("keepCount") == 1
+    and not item.get("mostRecentVersions", {}).get("packageNamePrefixes")
+    for item in policies
+), "cleanup global keepCount drift"
+assert any(
+    item.get("action", {}).get("type") == "Keep"
+    and item.get("mostRecentVersions", {}).get("keepCount") == 2
+    and "api" in item.get("mostRecentVersions", {}).get("packageNamePrefixes", [])
+    for item in policies
+), "cleanup API rollback keepCount drift"
 PY
   done
 

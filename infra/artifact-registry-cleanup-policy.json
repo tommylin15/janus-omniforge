@@ -22,5 +22,13 @@
       "packageNamePrefixes": [],
       "keepCount": 1
     }
+  },
+  {
+    "name": "keep-two-api-versions-for-dev-rollback",
+    "action": { "type": "Keep" },
+    "mostRecentVersions": {
+      "packageNamePrefixes": ["api"],
+      "keepCount": 2
+    }
   }
 ]

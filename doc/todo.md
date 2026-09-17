@@ -16,6 +16,7 @@
 - [TODO 完成紀錄（2026-09-13：WBS-6／WBS-7）](archive/todo-completed-2026-09-13-wbs6-wbs7.md)
 - [TODO 完成紀錄（2026-09-16：WBS-6 usefulness feedback）](archive/todo-completed-2026-09-16-wbs6-usefulness-feedback.md)
 - [TODO 完成紀錄（2026-09-16：WBS-8 outcome collection）](archive/todo-completed-2026-09-16-wbs8-outcome-collection.md)
+- [TODO 完成紀錄（2026-09-17：WBS-8 pilot release baseline）](archive/todo-completed-2026-09-17-wbs8-pilot-release-baseline.md)
 - [已完成 WBS 0／1／2／4](archive/wbs-completed-through-2026-08-31.md)
 
 ## 目前進度（2026-09-16）
@@ -27,17 +28,21 @@
 - WBS-4C-CODEX-AUTH-LIFECYCLE：完成部分已移至 [`archive/todo-completed-2026-09-09.md`](archive/todo-completed-2026-09-09.md)；互動式 device-code login 真人流程仍未驗收。
 - WBS 3 收尾：`WBS-3-ACCEPTANCE` 的 Scheduler 5-stock canary 已於 2026-09-15 完成 3/3；full enabled market 亦已完成 bounded GCP dev 驗收，證據已移至 [`archive/todo-completed-2026-09-15-wbs3-acceptance.md`](archive/todo-completed-2026-09-15-wbs3-acceptance.md) 與 [`archive/todo-completed-2026-09-15-wbs3-full-market.md`](archive/todo-completed-2026-09-15-wbs3-full-market.md)。當時 enabled universe 為 5 檔；queue claim、connection exhaustion、VM restart/reconnect、bundle runtime probes、Direct VPC／identity negative evidence 與 billing／Free Tier dev guard 已通過。
 - WBS-5-SUPPLY-INTELLIGENCE-PLANNING：foundation／ontology、六 domain Source Matrix、seed graph、signal／Mart contract 與 Pilot measurement／epoch planning 已完成；Gate A ready for review，Gate B 仍須逐一完成來源授權。證據見 [`spec/supply-chain-planning.md`](spec/supply-chain-planning.md) 與 [`archive/todo-completed-2026-09-16-wbs5-supply-planning.md`](archive/todo-completed-2026-09-16-wbs5-supply-planning.md)。
-- WBS-7-PILOT-LEDGER-DURABILITY：bounded daily／monthly logical backup 與 isolated restore 已完成；GCP dev evidence 見 [`archive/todo-completed-2026-09-16-wbs7-ledger-durability.md`](archive/todo-completed-2026-09-16-wbs7-ledger-durability.md)。
-- WBS-8-PILOT-OUTCOME-COLLECTION【Dev Pilot Entry Target—已滿足】：Pilot outcome pipeline 與 lineage 已完成；本機 4/4 targeted tests、GCP dev migration／acceptance 通過，證據見 [`archive/todo-completed-2026-09-16-wbs8-outcome-collection.md`](archive/todo-completed-2026-09-16-wbs8-outcome-collection.md)。
+- WBS-7-PILOT-LEDGER-DURABILITY【High-Completion Target—已滿足】：bounded daily／monthly logical backup 與 isolated restore 已完成；GCP dev evidence 見 [`archive/todo-completed-2026-09-16-wbs7-ledger-durability.md`](archive/todo-completed-2026-09-16-wbs7-ledger-durability.md)。
+- WBS-8-PILOT-OUTCOME-COLLECTION【High-Completion Target—已滿足】：Pilot outcome pipeline 與 lineage 已完成；本機 4/4 targeted tests、GCP dev migration／acceptance 通過，證據見 [`archive/todo-completed-2026-09-16-wbs8-outcome-collection.md`](archive/todo-completed-2026-09-16-wbs8-outcome-collection.md)。
+- WBS-8-PILOT-RELEASE-BASELINE【High-Completion Target—已滿足】：material-change baseline／epoch lineage 已完成；本機 4/4 targeted tests、既有 GCP dev migration／acceptance 與 Mart Job immutable image/env evidence 通過，證據見 [`archive/todo-completed-2026-09-17-wbs8-pilot-release-baseline.md`](archive/todo-completed-2026-09-17-wbs8-pilot-release-baseline.md)。
 - 最新驗證：Codex POC bridge Cloud Build `9dec1039-0052-420d-9ef1-6719ed46991a` 與 OpenRouter／Gemini runtime probe `20050302-861a-4c84-84ad-c96f21903776` 均 SUCCESS；完整證據與既有驗證見 `spec/operations-and-testing.md` 與 [`secret_list.md`](secret_list.md)。
 - Secret bundle consolidation：已完成程式、測試、GCP dev prepare／部署與三個 Job smoke；尚待 Codex A/B live auth entry isolation，以及明確授權後的 legacy cleanup，詳見 [`doc/secret_list.md`](secret_list.md)。
 - WBS 4R 與全市場／關注股切片：source／contract 與 GCP dev acceptance 已完成，證據移至 [`archive/todo-completed-2026-09-14-wbs4r-market-scope.md`](archive/todo-completed-2026-09-14-wbs4r-market-scope.md)。實際全市場抓取仍受 WBS-3 canary 2/3 gate；分 K／Tick、新聞、研究仍受來源授權與成本 gate。
 - Dev image cleanup repair：`janus-api` 已切換至現存 immutable digest，並刪除無 active 引用的 `mcp-acceptance`、舊 `web` 與舊 `janusai-poc/janus-postgres` image；兩個 Artifact Registry repo 仍維持每個 package 最新 1 版，active digest 保護風險詳見 `spec/operations-and-testing.md`。
 
-## Dev Pilot Entry Target（planning marker；不變更正式 Entry Gate）
+## High-Completion Dev Pilot Target（planning marker；不變更正式 Entry Gate）
 
-- 依 2026-09-16 planning，15 個目標映射為 14 條目前未勾選 checklist 加上已完成的 `WBS-8-PILOT-OUTCOME-COLLECTION`；只以 `【Dev Pilot Entry Target】` 標示執行目標，不代表完成，也不建立新的永久 blocker 集合。
-- `todo.md` 目前共有 58 條未勾選 checklist，較原規劃母集合 49 條多 9 條 Research Context roadmap 項目；此標記不改動 checklist 狀態或正式 `WBS-8-DEV-PILOT-ENTRY` Gate。
+- 使用者選擇 High-Completion strategy：在不越過 Production、Post-Pilot evidence-dependent work、未核准 data source、frozen scope 與 human approval gates 的前提下，盡可能提高 Dev Pilot Day 1 完成度。
+- `High-Completion Target` 是使用者選擇的較高完成度 execution strategy，不改變正式 `Dev Pilot Entry Gate`；未完成 target 中的非正式 blocker，不等同於正式 Entry Gate failure。
+- 正式 `WBS-8-DEV-PILOT-ENTRY` Gate 不變；某項即使標記 `【High-Completion Target】`，也不代表其 governance classification 已變成 `Entry Blocker`。正式 `WBS-8-DEV-PILOT-ENTRY` checklist 保持獨立標記與判定。
+- 35 個 logical target = 32 條目前未勾選 checklist + 3 條已滿足的既有 WBS：`WBS-6-PILOT-USEFULNESS-FEEDBACK`、`WBS-7-PILOT-LEDGER-DURABILITY`、`WBS-8-PILOT-OUTCOME-COLLECTION`。Useful feedback 的 Cloud Run rollout／真人 OAuth journey 已完成；其餘未完成項目仍由 Dev UI/runtime acceptance 追蹤，不視為已驗收。
+- `todo.md` 目前共有 58 條未勾選 checklist；未標記的 26 條保留原 governance classification。Research Context planning 可按 High-Completion 提前完成，但仍屬 Pilot Evolution，不是正式 Entry blocker。
 
 ## 下一步執行佇列（兩條可平行 track）
 
@@ -49,10 +54,9 @@ WBS-3-ACCEPTANCE 與 full enabled market bounded 驗收均已完成並歸檔；�
 
 以下項目可立即開始，不以前置完成 WBS-3-ACCEPTANCE 為條件：
 
-1. 【Sol】WBS-8-PILOT-RELEASE-BASELINE：建立 Pilot baseline／epoch lineage，記錄 git SHA、immutable digest、governance／prompt／schema／model／source／config／feature／signal revision 與 relevant Core／Mart snapshot；不得用新資料或新模型改寫舊 epoch artifact。
-2. 【Sol】WBS-6-CHATGPT-MCP-CONTRACT：確認 Custom MCP／OAuth compatibility 與三個 read-only tool contract。
-3. 【Sol】WBS-6-CHATGPT-MCP-ADAPTER：依 contract 在既有 `janus-api` 建立 bounded read-only adapter；不安全時停止並提交架構決策；不等待 WBS-3。
-4. 【Sol】WBS-8-CHATGPT-MCP-ACCEPTANCE：完成 connector acceptance；若外部 plan／UI 阻擋，等待使用者決定是否以 blocked connector 啟動 Pilot。
+1. 【Sol】WBS-6-CHATGPT-MCP-CONTRACT：確認 Custom MCP／OAuth compatibility 與三個 read-only tool contract。
+2. 【Sol】WBS-6-CHATGPT-MCP-ADAPTER：依 contract 在既有 `janus-api` 建立 bounded read-only adapter；不安全時停止並提交架構決策；不等待 WBS-3。
+3. 【Sol】WBS-8-CHATGPT-MCP-ACCEPTANCE：完成 connector acceptance；若外部 plan／UI 阻擋，等待使用者決定是否以 blocked connector 啟動 Pilot。
 
 只有 `WBS-8-DEV-PILOT-ENTRY` 必須等待：
 
@@ -75,7 +79,7 @@ months operational phase；完成後才可開始 `WBS-8-PROD-GO-NOGO`。
 
 ## P1（私人 P0 後續）— Stage／Core 與 Admin MVP 驗證
 
-- [ ] 【Sol】 【Dev Pilot Entry Target】 UI 驗收可使用本地瀏覽器／Playwright，或按需啟動既有 GCP dev Cloud Run
+- [ ] 【Sol】 【High-Completion Target】 UI 驗收可使用本地瀏覽器／Playwright，或按需啟動既有 GCP dev Cloud Run
   service，以實際 dev URL 驗證 responsive、interaction、API/runtime connectivity
   與安全輸出；既有 dev service 通過人工 billing gate 後可直接啟動，不需逐次
   另行授權。驗收證據須記錄 revision、immutable image digest、測試 URL／時間與
@@ -85,11 +89,11 @@ months operational phase；完成後才可開始 `WBS-8-PROD-GO-NOGO`。
 
 - [x] 【Sol】 canary 通過後才擴至當日 enabled 全市場；market-scope endpoint 單次抓取並 symbol fan-out，不逐檔重複請求。2026-09-15 以當時 enabled 5 檔 `1102`／`2327`／`2330`／`2381`／`4958` 完成：Cloud Run `janus-ingestion-core-tf66g`、control execution `2191139b-2dab-4bf4-886b-12735e6cdc02`，11 staged、1 legal empty、missing=0、failed=0；bounded config 已停用防止意外重跑。證據見 [`archive/todo-completed-2026-09-15-wbs3-full-market.md`](archive/todo-completed-2026-09-15-wbs3-full-market.md)。
 
-- [ ] 【Sol】 【Dev Pilot Entry Target】 第一階段完成定義：營運者只透過 Admin 即可設定已核准來源與去識別化深度追蹤名單、觸發／排程 Collection、查看 Stage／Core／quarantine、定位失敗並安全重跑，不需登入 GCP 或直接查資料庫。
+- [ ] 【Sol】 【High-Completion Target】 第一階段完成定義：營運者只透過 Admin 即可設定已核准來源與去識別化深度追蹤名單、觸發／排程 Collection、查看 Stage／Core／quarantine、定位失敗並安全重跑，不需登入 GCP 或直接查資料庫。
 
 ## P0（WBS 4J）— 個人記帳、筆記與關注股 MVP
 
-- [ ] 【Sol】 個人化分析只在 authenticated-user 邊界內引用公開 `mart_scoped_analysis` 的 symbol scope；不阻擋記帳／筆記／關注股／聊天室 MVP，也不把私人資料寫回公開 Mart。
+- [ ] 【Sol】 【High-Completion Target】 個人化分析只在 authenticated-user 邊界內引用公開 `mart_scoped_analysis` 的 symbol scope；不阻擋記帳／筆記／關注股／聊天室 MVP，也不把私人資料寫回公開 Mart。
 
 
 ## P0（WBS 4C）— 多供應商私人助理／MCP／Skills（Pilot frozen／deferred）
@@ -148,7 +152,7 @@ correctness 或明確核准的 Pilot use case 必要；既有可用功能保留�
 
 - [ ] 【Sol】 建立文本正規化、dedup、language、published time、entity-to-symbol 與 source authority Core tables；entity-to-symbol 保留規則／模型版本、confidence、evidence 與人工覆核狀態，sentiment、buzz、AI alert 與投資判讀只寫 versioned Mart。
 
-- [ ] 【Sol】 驗證關注需求變更不改寫歷史 membership；最後一位使用者取消關注後停止新的深度收集，但保留依法可保存的歷史 provenance。MVP 超過 50 個 distinct active symbols 時安全拒絕並顯示 quota。
+- [ ] 【Sol】 【High-Completion Target】 驗證關注需求變更不改寫歷史 membership；最後一位使用者取消關注後停止新的深度收集，但保留依法可保存的歷史 provenance。MVP 超過 50 個 distinct active symbols 時安全拒絕並顯示 quota。
 
 ## P1 — Mart 閉環
 
@@ -162,16 +166,16 @@ correctness 或明確核准的 Pilot use case 必要；既有可用功能保留�
 
 ## P1 — Pilot Readiness Gaps
 
-- [x] 【Sol】 `WBS-6-PILOT-USEFULNESS-FEEDBACK`：提供 authenticated owner-scoped `useful`／`neutral`／`misleading` bounded feedback，綁定 immutable analysis result，不改 deterministic score 或 publication input，優先重用既有 analysis card。Local API tests、Flutter widget／web build 與 GCP dev database acceptance 通過；Cloud Run dev rollout／真人 OAuth journey 尚未執行，詳見 [`archive/todo-completed-2026-09-16-wbs6-usefulness-feedback.md`](archive/todo-completed-2026-09-16-wbs6-usefulness-feedback.md)。
-- [ ] 【Sol】 【Dev Pilot Entry Target】 `WBS-8-PILOT-RELEASE-BASELINE`：建立簡單 monthly／material-change／named-epoch baseline，追蹤 git SHA、immutable image digest、governance、prompt、schema、model／provider 與 source/config revision；不調整 Artifact Registry retention。
+- [x] 【Sol】 【High-Completion Target—runtime acceptance + OAuth verified】 `WBS-6-PILOT-USEFULNESS-FEEDBACK`：提供 authenticated owner-scoped `useful`／`neutral`／`misleading` bounded feedback，綁定 immutable analysis result，不改 deterministic score 或 publication input，優先重用既有 analysis card。既有 local API／Flutter／GCP dev database evidence 見 [`archive/todo-completed-2026-09-16-wbs6-usefulness-feedback.md`](archive/todo-completed-2026-09-16-wbs6-usefulness-feedback.md)；2026-09-16 zero-traffic candidate smoke、canonical dev rollout 與 rollback tag 已完成。2026-09-17 使用者確認後，既有 OAuth client 加入 canonical origin；真人登入載入 2330 已發布分析，選擇 `neutral`，save/readback 顯示 `passed: true`。完整 revision／digest／時間／rollback 與 OAuth evidence 見 [`spec/operations-and-testing.md`](spec/operations-and-testing.md)。
+- [x] 【Sol】 【High-Completion Target】 `WBS-8-PILOT-RELEASE-BASELINE`：建立 material-change baseline／epoch lineage，追蹤 git SHA、immutable image digest、governance、prompt、schema、feature／signal、model／provider、source/config revision 與 Core／Mart snapshot；不調整 Artifact Registry retention。完成證據見 [`archive/todo-completed-2026-09-17-wbs8-pilot-release-baseline.md`](archive/todo-completed-2026-09-17-wbs8-pilot-release-baseline.md)。
 
 ## P1 — ChatGPT MCP Connector（Dev Pilot Enabler）
 
-- [ ] 【Sol】 【Dev Pilot Entry Target】 `WBS-6-CHATGPT-MCP-CONTRACT`：確認當時 OpenAI Custom MCP／OAuth requirements 與 Janus Google OIDC compatibility；定義 `janus_sources`、`janus_market_context`、`janus_private_context` 的 read-only schema、owner binding、public／private allowlist、shared bounded query、provenance、quota／disclosure。不得部署或建立新 GCP／auth resource；不依賴完整 `WBS-4C-ACCEPTANCE`。
+- [ ] 【Sol】 【High-Completion Target】 `WBS-6-CHATGPT-MCP-CONTRACT`：確認當時 OpenAI Custom MCP／OAuth requirements 與 Janus Google OIDC compatibility；定義 `janus_sources`、`janus_market_context`、`janus_private_context` 的 read-only schema、owner binding、public／private allowlist、shared bounded query、provenance、quota／disclosure。不得部署或建立新 GCP／auth resource；不依賴完整 `WBS-4C-ACCEPTANCE`。
 
-- [ ] 【Sol】 【Dev Pilot Entry Target】 `WBS-6-CHATGPT-MCP-ADAPTER`：Blocked until `WBS-6-CHATGPT-MCP-CONTRACT` complete；在既有 `janus-api` 實作 remote read-only MCP adapter，重用 shared bounded query，拒絕 arbitrary SQL／URI／table／owner input、mutation 與不必要 chat snapshot。若 ingress／auth／protocol hosting 不安全，停止並提交 architecture／cost／security decision，不自行新增 service。
+- [ ] 【Sol】 【High-Completion Target】 `WBS-6-CHATGPT-MCP-ADAPTER`：Blocked until `WBS-6-CHATGPT-MCP-CONTRACT` complete；在既有 `janus-api` 實作 remote read-only MCP adapter，重用 shared bounded query，拒絕 arbitrary SQL／URI／table／owner input、mutation 與不必要 chat snapshot。若 ingress／auth／protocol hosting 不安全，停止並提交 architecture／cost／security decision，不自行新增 service。
 
-- [ ] 【Sol】 【Dev Pilot Entry Target】 `WBS-8-CHATGPT-MCP-ACCEPTANCE`：Blocked until adapter complete、使用者確認支援所需 ChatGPT custom read-only MCP plan／UI，且明確授權任何 GCP dev deployment／test；驗收 discovery、OAuth lifecycle、owner isolation、market／private bounded reads、opt-in、sanitization、provenance、limits、no mutation 與 cost evidence。此 connector 不得成為 Janus Production Release prerequisite。
+- [ ] 【Sol】 【High-Completion Target】 `WBS-8-CHATGPT-MCP-ACCEPTANCE`：Blocked until adapter complete、使用者確認支援所需 ChatGPT custom read-only MCP plan／UI，且明確授權任何 GCP dev deployment／test；驗收 discovery、OAuth lifecycle、owner isolation、market／private bounded reads、opt-in、sanitization、provenance、limits、no mutation 與 cost evidence。此 connector 不得成為 Janus Production Release prerequisite。
 
 ## Pilot Feature Freeze／Deferred
 
@@ -194,15 +198,15 @@ Pilot Day-1 outcome collection 已前移至 `WBS-8-PILOT-OUTCOME-COLLECTION`；�
 後續 calibration／optimization、artifact hardening 與治理 revision，不把 model tuning
 提前成為 Pilot Entry blocker。
 
-- [ ] 【Sol】 PIT outcome／sample payload 寫 GCS／Iceberg；PostgreSQL 只保存有 retention 的索引、排除原因與 audit metadata，避免 Free Tier disk 無界成長。
+- [ ] 【Sol】 【High-Completion Target】 PIT outcome／sample payload 寫 GCS／Iceberg；PostgreSQL 只保存有 retention 的索引、排除原因與 audit metadata，避免 Free Tier disk 無界成長。
 
-- [ ] 【Sol】 5／20／60 交易日 outcome pipeline。
+- [ ] 【Sol】 【High-Completion Target】 5／20／60 交易日 outcome pipeline。
 
-- [ ] 【Sol】 relative benchmark、MFE／MAE、coverage。
+- [ ] 【Sol】 【High-Completion Target】 relative benchmark、MFE／MAE、coverage。
 
-- [ ] 【Sol】 缺 publication time／provenance 樣本排除。
+- [ ] 【Sol】 【High-Completion Target】 缺 publication time／provenance 樣本排除。
 
-- [ ] 【Sol】 每個排除保留原因與 ID。
+- [ ] 【Sol】 【High-Completion Target】 每個排除保留原因與 ID。
 
 - [ ] 【Sol】 對 weights／40-60 thresholds 做 walk-forward。
 
@@ -210,37 +214,37 @@ Pilot Day-1 outcome collection 已前移至 `WBS-8-PILOT-OUTCOME-COLLECTION`；�
 
 ## P2 — 實機、A11y 與發布
 
-- [ ] 【Luna】 【Dev Pilot Entry Target】 Flutter Android／iOS／Web 的 phone、tablet、desktop breakpoint。
+- [ ] 【Luna】 【High-Completion Target】 Flutter Android／iOS／Web 的 phone、tablet、desktop breakpoint。
 
-- [ ] 【Luna】 【Dev Pilot Entry Target】 iOS Safari。
+- [ ] 【Luna】 【High-Completion Target】 iOS Safari。
 
-- [ ] 【Luna】 【Dev Pilot Entry Target】 Android Chrome。
+- [ ] 【Luna】 【High-Completion Target】 Android Chrome。
 
-- [ ] 【Luna】 iPad Safari。
+- [ ] 【Luna】 【High-Completion Target】 iPad Safari。
 
-- [ ] 【Luna】 VoiceOver／TalkBack。
+- [ ] 【Luna】 【High-Completion Target】 VoiceOver／TalkBack。
 
-- [ ] 【Luna】 WCAG AA contrast。
+- [ ] 【Luna】 【High-Completion Target】 WCAG AA contrast。
 
-- [ ] 【Luna】 【Dev Pilot Entry Target】 所有主要控制 ≥44×44。
+- [ ] 【Luna】 【High-Completion Target】 所有主要控制 ≥44×44。
 
-- [ ] 【Luna】 【Dev Pilot Entry Target】 K 線 pan／zoom／tooltip／替代表格。
+- [ ] 【Luna】 【High-Completion Target】 K 線 pan／zoom／tooltip／替代表格。
 
-- [ ] 【Luna】 【Dev Pilot Entry Target】 Dialog focus trap、Escape、restore、scroll lock。
+- [ ] 【Luna】 【High-Completion Target】 Dialog focus trap、Escape、restore、scroll lock。
 
-- [ ] 【Sol】 【Dev Pilot Entry Target—Dev only】 canary／rollback。
+- [ ] 【Sol】 【High-Completion Target—Dev only】 canary／rollback。
 
 - [ ] 【Sol】 production 發布前重新決定 PostgreSQL topology、HA、backup、retention 與成本；Free Tier `e2-micro` dev VM 不得直接 promote 為 production。
 
 - [ ] 【Sol】 取得付費儲存／backup 明確授權後，執行 production backup／restore 演練；Free Tier dev 模式不宣稱具備備份保障。
 
-- [ ] 【Sol】 incident runbook。
+- [ ] 【Sol】 【High-Completion Target—Dev only】 incident runbook。
 
 - [ ] 【Sol】 production 人工批准。
 
 ## P2 — WBS 8 Dev Pilot／Production Readiness
 
-- [ ] 【Sol】 【Dev Pilot Entry Target】 `WBS-8-DEV-PILOT-ENTRY`：Blocked until WBS-3 canary／full-market safety、ledger durability successful restore、outcome collection、usefulness feedback、release baseline、minimum data-safety DQ（required key／type、duplicate、future leakage、freshness、basic coverage、schema drift、適用時的 obvious outlier／corporate-action sanity）與 security／privacy／cost evidence ready；`WBS-5-SUPPLY-INTELLIGENCE-PLANNING` 也必須完成，但不要求六個 domain ingestion-ready。ChatGPT MCP acceptance 完成，或使用者明確決定允許 connector blocked 狀態啟動 Pilot。只有 Entry Gate 通過時記錄 `pilot_started_at`，不新增 staging／production infrastructure；完整 DQ dashboard／tuning／大型 drill-down 留後續。
+- [ ] 【Sol】 `WBS-8-DEV-PILOT-ENTRY`：Blocked until WBS-3 canary／full-market safety、ledger durability successful restore、outcome collection、usefulness feedback、release baseline、minimum data-safety DQ（required key／type、duplicate、future leakage、freshness、basic coverage、schema drift、適用時的 obvious outlier／corporate-action sanity）與 security／privacy／cost evidence ready；`WBS-5-SUPPLY-INTELLIGENCE-PLANNING` 也必須完成，但不要求六個 domain ingestion-ready。ChatGPT MCP acceptance 完成，或使用者明確決定允許 connector blocked 狀態啟動 Pilot。只有 Entry Gate 通過時記錄 `pilot_started_at`，不新增 staging／production infrastructure；完整 DQ dashboard／tuning／大型 drill-down 留後續。
 
 - [ ] 【Sol】 `WBS-8-DEV-PILOT-RUN`：Entry 完成後開始 6 calendar months operational phase，持續執行 Scheduler／ingestion／analysis，累積 monthly evidence summary、backup／restore、outcome、usefulness、cost、manual intervention、recurring failure 與 security／privacy evidence；不新增 feature roadmap，production promotion blocked。
 
@@ -250,15 +254,15 @@ Pilot Day-1 outcome collection 已前移至 `WBS-8-PILOT-OUTCOME-COLLECTION`；�
 
 順序 gate：Admin 資料營運中心與 Flutter「關注／記帳／筆記／AI／個股健康」完成自動化、實機與 A11y 驗收前，本節全部保持 blocked，不得提前開工。
 
-- [ ] 【Luna】 source health telemetry 按 coverage tier 保存 expected／received symbols、success count、latency、freshness、cache age、fallback、schema drift 與合法 empty／unavailable。
+- [ ] 【Luna】 【High-Completion Target】 source health telemetry 按 coverage tier 保存 expected／received symbols、success count、latency、freshness、cache age、fallback、schema drift 與合法 empty／unavailable。
 
-- [ ] 【Sol】 建立跨源一致性、null profile、freshness、coverage、schema drift、outlier 與 corporate-action 的完整 DQ ruleset；版本化門檻與例外理由。
+- [ ] 【Sol】 【High-Completion Target】 建立跨源一致性、null profile、freshness、coverage、schema drift、outlier 與 corporate-action 的完整 DQ ruleset；版本化門檻與例外理由。
 
 - [ ] 【Sol】 校準 market regime、sector rotation、topic uncertainty、candidate health 與 private PnL 的 quality discount；只影響新 Mart revision，不改寫歷史結果。
 
-- [ ] 【Luna】 完成 Admin DQ dashboard、quarantine drill-down、quality revision diff 與 evidence link；不提供 raw payload／object URI 旁路。
+- [ ] 【Luna】 【High-Completion Target】 完成 Admin DQ dashboard、quarantine drill-down、quality revision diff 與 evidence link；不提供 raw payload／object URI 旁路。
 
-- [ ] 【Luna】 以 UI 驗收發現的閱讀誤差、partial／stale 混淆與缺價案例建立回歸集，再決定是否提高 30% development gate。
+- [ ] 【Luna】 【High-Completion Target】 以 UI 驗收發現的閱讀誤差、partial／stale 混淆與缺價案例建立回歸集，再決定是否提高 30% development gate。
 
 - [ ] 【Sol】 對 30% gate 做 coverage／錯誤率分析，產出可審查的門檻 revision 提案。
 
@@ -268,10 +272,10 @@ Pilot Day-1 outcome collection 已前移至 `WBS-8-PILOT-OUTCOME-COLLECTION`；�
 
 本 roadmap 全部為 `planned`，不新增 Dev Pilot Entry blocker；完成狀態必須由 repository／acceptance evidence 更新。
 
-1. [ ] `WBS-3-DATASET-COVERAGE-INVENTORY` — status: `planned`；dependency: 現有 source registry／adapter／Core publication evidence；gate: Data Source admission；classification: Pilot Evolution。先完成 coverage／gap validation，不批准新 source。
-2. [ ] `WBS-6-RESEARCH-CONTEXT-CONTRACT` — status: `planned`；dependency: coverage inventory 語意與現有 bounded context boundary；gate: contract review；classification: Pilot Evolution。
-3. [ ] `WBS-4J-PRIVATE-RESEARCH-STATE-CONTRACT` — status: `planned`；dependency: notes／artifacts／Private Core／Mart 現況；gate: owner isolation／revision review；classification: Pilot Evolution。先 contract，再決定 schema extension。
-4. [ ] `WBS-5-RESEARCH-MART-CONTRACT` — status: `planned`；dependency: coverage inventory／ResearchContext contract；gate: deterministic／PIT contract review；classification: Pilot Evolution。規劃 deterministic signals 與 Market Regime，不在本項定公式。
+1. [ ] `WBS-3-DATASET-COVERAGE-INVENTORY` 【High-Completion Target】 — status: `planned`；dependency: 現有 source registry／adapter／Core publication evidence；gate: Data Source admission；classification: Pilot Evolution。先完成 coverage／gap validation，不批准新 source。
+2. [ ] `WBS-6-RESEARCH-CONTEXT-CONTRACT` 【High-Completion Target】 — status: `planned`；dependency: coverage inventory 語意與現有 bounded context boundary；gate: contract review；classification: Pilot Evolution。
+3. [ ] `WBS-4J-PRIVATE-RESEARCH-STATE-CONTRACT` 【High-Completion Target】 — status: `planned`；dependency: notes／artifacts／Private Core／Mart 現況；gate: owner isolation／revision review；classification: Pilot Evolution。先 contract，再決定 schema extension。
+4. [ ] `WBS-5-RESEARCH-MART-CONTRACT` 【High-Completion Target】 — status: `planned`；dependency: coverage inventory／ResearchContext contract；gate: deterministic／PIT contract review；classification: Pilot Evolution。規劃 deterministic signals 與 Market Regime，不在本項定公式。
 5. [ ] `WBS-3-RESEARCH-DATASET-GAPS` — status: `blocked`；dependency: inventory 證明 Missing／Partial 且個別 source approved；gate: Data Source admission／cost／license；classification: Pilot Evolution。只實作必要 Core gap。
 6. [ ] `WBS-6-RESEARCH-CONTEXT-COMPOSITION` — status: `blocked`；dependency: semantic、Private Research State 與 Mart contracts；gate: API security／owner scope review；classification: Pilot Evolution。重用 existing `janus-api`。
 7. [ ] `WBS-6-RESEARCH-CONTEXT-UI` — status: `blocked`；dependency: server composition；gate: UI states／provenance acceptance；classification: Pilot Evolution。

@@ -45,9 +45,10 @@ API, vulnerability scanning, and occurrence APIs must not be enabled or called.
 Any SBOM must be generated locally without those APIs.
 
 Both `janusai-poc` and `janus-postgres` apply
-`infra/artifact-registry-cleanup-policy.json`: each image package keeps only its
-most recent version, while older tagged and untagged versions are eligible for
-deletion after one second. Cleanup dry-run is disabled.
+`infra/artifact-registry-cleanup-policy.json`: image packages keep their most
+recent version, while the `api` package keeps two versions for dev rollback.
+Older tagged and untagged versions are eligible for deletion after one second.
+Cleanup dry-run is disabled.
 
 ## WBS-7 dev security and FinOps guard
 

@@ -1,8 +1,30 @@
 # Operations and testing
 
-最新驗證日期：2026-09-16
+最新驗證日期：2026-09-17
 
-## WBS-6 Pilot usefulness feedback acceptance（2026-09-16）
+## WBS-8 Pilot release baseline acceptance（2026-09-17）
+
+The existing Mart pipeline registers a deterministic `material_change` baseline
+from git SHA, immutable image digest, governance／prompt／schema／feature／signal
+revisions, model／provider and source／config revision. The baseline ID is derived
+from the lineage digest; PostgreSQL rejects conflicting re-registration, and the
+Mart manifest／publication linkage rejects Core／Mart or baseline changes for an
+existing execution. Artifact Registry retention was not changed.
+
+Local targeted verification `python -m unittest tests/test_pilot_readiness.py`
+passed **4 tests**. The existing `janus-postgres-dev` guard remained
+`e2-micro`／30 GB `pd-standard`／private IP with no external IP. Its bounded
+`pilot-readiness-acceptance.sql` passed migration `025_pilot_readiness`, lineage
+relations／columns, role boundaries and transactional baseline registration; the
+transaction ended with `ROLLBACK`, so no fixture row remained.
+
+The existing `janus-intelligence-mart` Cloud Run Job is pinned to immutable image
+digest `sha256:b497e6ee00792d0caf1f65584674f6bf5fa66ba2ed8facb3b7e392d9c002dd8c`
+and carries `JANUS_GIT_SHA=b965410e3fb180a06d20728d3dad0be4306a2a79` plus the same
+`JANUS_IMAGE_DIGEST` environment value. No production deployment or new paid GCP
+resource was created.
+
+## WBS-6 Pilot usefulness feedback acceptance（2026-09-17）
 
 Local API／model tests `python -m pytest -q tests/test_user_api.py
 tests/test_pilot_readiness.py`: **28 passed**. Flutter Cloud Build
@@ -17,11 +39,41 @@ feedback retains the target deterministic hash, and `janus_private_api` cannot
 DELETE feedback. The transaction ended with `ROLLBACK`; no fixture data remains.
 Migration `025_pilot_readiness` was already recorded by WBS-8 acceptance.
 
-No Cloud Run update was made. Current `janus-api-00077-6s9` image build predates
-the feedback API change, while Artifact Registry cleanup keeps only the latest
-tagged package version; therefore no live authenticated HTTP acceptance is
-claimed until a rollback-safe dev deployment window. No production deployment
-or new GCP resource was created.
+Additional targeted local verification: `python -m pytest -q tests/test_user_api.py`
+passed **25 tests**; `bash -n` for the changed deployment and FinOps scripts,
+Cloud Build YAML／cleanup JSON parsing, and `git diff --check` passed.
+
+On 2026-09-16, both existing Artifact Registry repositories were updated to keep
+two recent versions only for packages with the `api` prefix and one for other
+packages; their existing tagged／untagged deletion rules were unchanged. Before
+rollout, `janus-api-00077-6s9` received the `usefulness-rollback` tag without
+changing its 100% traffic. Cloud Build `67c9b245-d4cf-462c-ab83-bd2f51c0ee48`
+deployed candidate image digest
+`sha256:f2a9059591cccbefa34e15376bf3f1b649676aa742ac4a2fe382fbc9cae63c23`.
+The candidate revision `janus-api-useful-20260916-config` passed readiness and
+initially served 0% traffic. Cloud Build `54735d34-6ac1-4e67-81c9-96df751060ff`
+passed health, acceptance-page delivery, unauthenticated feedback／profile 401,
+and the existing public API smoke assertions. The public Mart route returned the
+published 2330 report from its publication index and immutable Iceberg snapshot
+in Cloud Builds `de653d4c-07f4-4911-9299-bf45df7685eb` (candidate) and
+`9f20b78a-f4c7-4d3b-acf7-8379813b91bd` (canonical URL). The candidate now serves
+100% of canonical dev traffic; the previous revision remains tagged for
+rollback. An initial Mart verifier invocation failed before making an HTTP
+request because PowerShell combined multiple substitutions; the URL-only retry
+passed.
+
+After explicit action-time confirmation, the existing `Janus User Dev` OAuth
+client was updated with the exact Authorized JavaScript origin
+`https://janus-api-2oo7qbkd5q-uc.a.run.app`; redirect URIs and other OAuth
+settings were unchanged. The real browser journey then authenticated a user,
+loaded the published 2330 report (`analysis_execution_id`
+`77777777-7777-4777-8777-777777777777`, `analysis_as_of=2026-09-10`), saved the
+user-selected `neutral` feedback, and read it back successfully. The acceptance
+page showed `passed: true`; feedback id was
+`d5b87b7f-1d28-4a30-aeac-df1075ea082c`, version `1`, updated at
+`2026-09-17T01:41:40.800708+00:00`, with deterministic analysis hash
+`sha256:2f69320e883782d1345d1b0be6b47a885b25e5b1832c548d2fade2ad43554cff`.
+No production deployment or new GCP resource was created.
 
 ## WBS-8 Pilot outcome collection acceptance（2026-09-16）
 

@@ -9,6 +9,14 @@ project="${GCP_PROJECT_ID:?GCP_PROJECT_ID is required}"
 region="${GCP_REGION:-us-central1}"
 tag="${IMAGE_TAG:-dev-${GITHUB_SHA:-local}}"
 git_sha="${GITHUB_SHA:-$(git rev-parse HEAD)}"
+no_traffic="${DEV_DEPLOY_NO_TRAFFIC:-false}"
+traffic_tag="${DEV_TRAFFIC_TAG:-}"
+revision_suffix="${DEV_REVISION_SUFFIX:-}"
+
+if [[ "${no_traffic}" != "true" && "${no_traffic}" != "false" ]]; then
+  echo "DEV_DEPLOY_NO_TRAFFIC must be true or false." >&2
+  exit 2
+fi
 
 component="${1:-}"
 case "${component}" in
@@ -50,7 +58,7 @@ fi
 gcloud builds submit . \
   --project="${project}" \
   --config=cloudbuild.yaml \
-  --substitutions="_DOCKERFILE=${dockerfile},_IMAGE_NAME=${image_name},_IMAGE_TAG=${tag},_DEPLOY_TARGET=${deploy_target},_RUNTIME_NAME=${runtime_name},_REGION=${region},_GIT_SHA=${git_sha}"
+  --substitutions="_DOCKERFILE=${dockerfile},_IMAGE_NAME=${image_name},_IMAGE_TAG=${tag},_DEPLOY_TARGET=${deploy_target},_RUNTIME_NAME=${runtime_name},_REGION=${region},_GIT_SHA=${git_sha},_NO_TRAFFIC=${no_traffic},_TRAFFIC_TAG=${traffic_tag},_REVISION_SUFFIX=${revision_suffix}"
 
 # The new image accepts both legacy and merged field names. Deploy it before
 # changing the Secret reference so service revisions never see an incompatible payload.
@@ -78,10 +86,15 @@ case "${component}" in
       --update-secrets="CORE_CATALOG_PASSWORD=janus-postgres-api-bundle:latest,JANUS_API_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" --quiet
     ;;
   api)
+    service_flags=()
+    if [[ "${no_traffic}" == "true" ]]; then service_flags+=(--no-traffic); fi
+    if [[ -n "${traffic_tag}" ]]; then service_flags+=(--tag="${traffic_tag}"); fi
+    if [[ -n "${revision_suffix}" ]]; then service_flags+=(--revision-suffix="${revision_suffix}-config"); fi
     gcloud run services update "${runtime_name}" --project="${project}" --region="${region}" \
       --service-account="janus-user-api@${project}.iam.gserviceaccount.com" \
       --min-instances=0 --max-instances=2 --concurrency=20 --timeout=60 \
-      --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" --quiet
+      --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" \
+      "${service_flags[@]}" --quiet
     ;;
 esac
 

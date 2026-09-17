@@ -139,6 +139,13 @@ def test_health_is_public_and_private_routes_require_bearer():
     assert response.json()=={"detail":"authentication required"}
 
 
+def test_usefulness_feedback_acceptance_page_is_served():
+    api,_,_=client()
+    response=api.get("/usefulness-feedback-acceptance.html")
+    assert response.status_code==200
+    assert "google.accounts.id.initialize" in response.text
+
+
 def test_public_report_route_is_unauthenticated_and_uses_persisted_service():
     api,_,_=client(public=Public())
     response=api.get("/api/v1/public/reports/symbol/2330?analysis_as_of=2026-09-12")

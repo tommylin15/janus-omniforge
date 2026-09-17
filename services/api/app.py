@@ -366,6 +366,10 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def private_journal_acceptance():
         return FileResponse(static_dir / "private-journal-acceptance.html")
 
+    @api.get("/usefulness-feedback-acceptance.html", include_in_schema=False)
+    def usefulness_feedback_acceptance():
+        return FileResponse(static_dir / "usefulness-feedback-acceptance.html")
+
     @public_router.get("/reports/{scope_type}/{scope_id}", response_model=PublicReportOut | PublicWaitingOut)
     def public_report(scope_type: str, scope_id: str, analysis_as_of: str = Query(default="", max_length=10)):
         try:

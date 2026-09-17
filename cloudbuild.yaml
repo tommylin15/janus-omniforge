@@ -7,6 +7,9 @@ substitutions:
   _RUNTIME_NAME: ""
   _REGION: us-central1
   _GIT_SHA: ""
+  _NO_TRAFFIC: "false"
+  _TRAFFIC_TAG: ""
+  _REVISION_SUFFIX: ""
 
 steps:
   - id: build
@@ -44,6 +47,9 @@ steps:
           runtime_flags+=(--update-env-vars="JANUS_GIT_SHA=${_GIT_SHA},JANUS_IMAGE_DIGEST=${digest}")
         fi
         if [[ "${_DEPLOY_TARGET}" == "service" ]]; then
+          if [[ "${_NO_TRAFFIC}" == "true" ]]; then runtime_flags+=(--no-traffic); fi
+          if [[ -n "${_TRAFFIC_TAG}" ]]; then runtime_flags+=(--tag="${_TRAFFIC_TAG}"); fi
+          if [[ -n "${_REVISION_SUFFIX}" ]]; then runtime_flags+=(--revision-suffix="${_REVISION_SUFFIX}"); fi
           gcloud run services update "${_RUNTIME_NAME}" \
             --region="${_REGION}" --image="${image}" "${runtime_flags[@]}" --quiet
         elif [[ "${_DEPLOY_TARGET}" == "job" ]]; then
