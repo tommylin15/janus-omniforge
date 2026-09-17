@@ -90,9 +90,17 @@ case "${component}" in
     if [[ "${no_traffic}" == "true" ]]; then service_flags+=(--no-traffic); fi
     if [[ -n "${traffic_tag}" ]]; then service_flags+=(--tag="${traffic_tag}"); fi
     if [[ -n "${revision_suffix}" ]]; then service_flags+=(--revision-suffix="${revision_suffix}-config"); fi
+    api_env="MCP_OAUTH_ENABLED=${MCP_OAUTH_ENABLED:-false}"
+    if [[ "${MCP_OAUTH_ENABLED:-false}" == "true" ]]; then
+      oauth_issuer="${MCP_OAUTH_ISSUER:?MCP_OAUTH_ISSUER is required when MCP_OAUTH_ENABLED=true}"
+      oauth_resource="${MCP_RESOURCE_URL:?MCP_RESOURCE_URL is required when MCP_OAUTH_ENABLED=true}"
+      oauth_emails="${GOOGLE_USER_ALLOWED_EMAILS:?GOOGLE_USER_ALLOWED_EMAILS is required when MCP_OAUTH_ENABLED=true}"
+      api_env="${api_env},MCP_OAUTH_ISSUER=${oauth_issuer},MCP_RESOURCE_URL=${oauth_resource},GOOGLE_USER_ALLOWED_EMAILS=${oauth_emails}"
+    fi
     gcloud run services update "${runtime_name}" --project="${project}" --region="${region}" \
       --service-account="janus-user-api@${project}.iam.gserviceaccount.com" \
       --min-instances=0 --max-instances=2 --concurrency=20 --timeout=60 \
+      --update-env-vars="${api_env}" \
       --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" \
       "${service_flags[@]}" --quiet
     ;;

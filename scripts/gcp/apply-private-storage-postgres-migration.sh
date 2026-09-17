@@ -44,7 +44,8 @@ for _ in $(seq 1 60); do
 done
 sudo docker exec --user postgres janus-postgres pg_isready -U postgres -d janus_control >/dev/null
 sudo docker exec --user postgres janus-postgres \
-  psql -U postgres -d janus_control -f /opt/janus/migrations/016_private_assistant_storage.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/016_private_assistant_storage.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/026_mcp_oauth_codes.sql
 sudo docker exec --user postgres janus-postgres \
   psql -U postgres -d janus_control -f /opt/janus/private-storage-acceptance.sql
 

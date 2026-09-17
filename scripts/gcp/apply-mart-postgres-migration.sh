@@ -110,6 +110,7 @@ sudo docker exec --user postgres \
     psql -U postgres -d janus_control -f /opt/janus/migrations/018_mart_publication.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/019_core_mart_integration.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/025_pilot_readiness.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/026_mcp_oauth_codes.sql
     rm -f /tmp/mart-vars.sql
     psql -U postgres -d janus_control -v ON_ERROR_STOP=1 <<"SQL"
 SELECT rolname, rolsuper, rolcreatedb, rolcreaterole, rolreplication
@@ -122,6 +123,9 @@ SELECT EXISTS (
 SELECT EXISTS (
   SELECT 1 FROM control.schema_migrations WHERE version = $$025_pilot_readiness$$
 ) AS pilot_readiness_recorded;
+SELECT EXISTS (
+  SELECT 1 FROM control.schema_migrations WHERE version = $$026_mcp_oauth_codes$$
+) AS mcp_oauth_codes_recorded;
 SQL
   '
 

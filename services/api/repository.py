@@ -43,6 +43,27 @@ class PostgresWorkspaceRepository:
             ).fetchone()
             return row["user_id"]
 
+    def create_mcp_oauth_code(self, code_hash: str, value: dict[str, Any], expires_at: int) -> None:
+        with self._connection() as connection:
+            connection.execute(
+                """INSERT INTO private.mcp_oauth_codes
+                   (code_hash,user_id,client_id,redirect_uri,resource,scope,code_challenge,expires_at)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,to_timestamp(%s))""",
+                (code_hash, value["user_id"], value["client_id"], value["redirect_uri"], value["resource"],
+                 value["scope"], value["challenge"], expires_at),
+            )
+
+    def consume_mcp_oauth_code(self, code_hash: str, now: int) -> dict[str, Any] | None:
+        with self._connection() as connection:
+            row = connection.execute(
+                """UPDATE private.mcp_oauth_codes
+                   SET consumed_at=now()
+                   WHERE code_hash=%s AND consumed_at IS NULL AND expires_at > to_timestamp(%s)
+                   RETURNING user_id,client_id,redirect_uri,resource,scope,code_challenge""",
+                (code_hash, now),
+            ).fetchone()
+            return dict(row) if row else None
+
     def require_owned_trade(self, user_id: UUID, event_id: UUID | None) -> None:
         with self._connection() as connection: self._require_owned_trade(connection,user_id,event_id)
 

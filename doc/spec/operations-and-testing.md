@@ -2,6 +2,53 @@
 
 最新驗證日期：2026-09-17
 
+## WBS-6 ChatGPT MCP OAuth dev rollout acceptance（2026-09-17）
+
+The existing `janus-api` revision `janus-api-mcp-oauth3-config` was deployed with
+no production traffic and the `mcp-oauth` tag. API bundle version 16 contains
+`google_user_client_secret` and `mcp_oauth_signing_key`; the explicit dev user
+allowlist is `tommylin15@gmail.com`. PostgreSQL migration `026_mcp_oauth_codes`
+was applied to the existing `janus-postgres-dev` VM using immutable image
+`sha256:c635d2fd249cb9e0c66db313011bcd3bd52fd44f63be108bd868fd0683490733`.
+
+GCP dev VM/IAP acceptance passed: protected-resource metadata 200,
+authorization-server metadata 200, incomplete token exchange 400, and missing
+S256 authorize request 400; a valid S256 request returned a Google upstream 302.
+The exact Google callback remains
+`https://janus-api-2oo7qbkd5q-uc.a.run.app/oauth/google/callback`; configure it in
+the existing Google OAuth client before a browser login. MCP adapter implementation
+is now complete; connector acceptance remains the next WBS.
+
+## WBS-6 ChatGPT MCP adapter GCP dev rollout acceptance（2026-09-17）
+
+The workspace source archive was uploaded to the existing Cloud Build bucket by
+explicit user approval. Cloud Build `7d070e60-d8c1-4e7f-821f-5d8a54bd9196`
+successfully built and pushed image digest
+`sha256:a9672d6ddfa8d81a483ea257deaf707cd7576998729bad8f1d5492a61053be01`.
+Cloud Run revision `janus-api-mcp-adapter3` is Ready, tagged `mcp-adapter`, and
+serves 0% traffic. The OAuth PKCE fix uses the same image in revision
+`janus-api-mcp-oauth4`, tagged `mcp-oauth`, also with 0% traffic.
+
+From the existing `janus-postgres-dev` VM through IAP, the adapter tag returned
+initialize 200, tools/list 200 with exactly three read-only tools and per-tool
+OAuth scopes, and an unauthenticated tools/call 401 with the protected-resource
+challenge. A temporary owner OAuth code exchanged for a Bearer token (200),
+`janus_sources` returned three bounded sources (200), and an owner-scoped
+`janus_private_context` trades read returned bounded `status=missing` (200) with
+no `user_id` or `artifact_ref`. The fixture row was deleted and verified absent.
+No production traffic or new paid GCP resource was created.
+
+## WBS-6 ChatGPT MCP adapter implementation checkpoint（2026-09-17）
+
+The existing `janus-api` now exposes stateless `POST /mcp` JSON-RPC for
+`initialize`, `ping`, `tools/list`, and authenticated `tools/call`. The three
+read-only tools use per-tool OAuth scopes, token-subject owner binding, shared
+bounded direct reads, sanitization, and no chat `context_ref` persistence.
+Local targeted verification `python -m pytest -q tests/test_mcp_adapter.py
+tests/test_mcp_oauth.py tests/test_user_api.py` passed **32 tests**; Python
+compile, Git Bash `bash -n`, and `git diff --check` also passed. GCP dev
+deployment and runtime acceptance are recorded above.
+
 ## WBS-8 Pilot release baseline acceptance（2026-09-17）
 
 The existing Mart pipeline registers a deterministic `material_change` baseline

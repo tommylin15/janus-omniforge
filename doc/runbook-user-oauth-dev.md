@@ -83,6 +83,21 @@ Deploy `janus-api` in `us-central1` with scale-to-zero, service account
 - `GCP_PROJECT_ID=PROJECT`
 - `USER_CORS_ORIGINS=http://localhost:8080`
 
+For the dev MCP OAuth facade (same `janus-api`, no new service), first prepare
+the merged API bundle with `google_user_client_secret` and a fresh
+`mcp_oauth_signing_key`, then deploy with:
+
+- `MCP_OAUTH_ENABLED=true`
+- `MCP_OAUTH_ISSUER=https://janus-api-2oo7qbkd5q-uc.a.run.app`
+- `MCP_RESOURCE_URL=https://janus-api-2oo7qbkd5q-uc.a.run.app/mcp`
+- `GOOGLE_USER_ALLOWED_EMAILS` set to the explicit dev operator/test allowlist
+
+The Google Web client must allow the exact callback
+`https://janus-api-2oo7qbkd5q-uc.a.run.app/oauth/google/callback`. The facade
+issues short-lived Janus access tokens with the MCP resource in `aud` and
+stores only hashed, one-time authorization codes in PostgreSQL. Keep it
+disabled until the bundle version and callback allowlist are verified in dev.
+
 Grant the runtime account access only to those three runtime secrets and
 `roles/storage.objectAdmin` only on the private bucket. Public invocation is
 acceptable because `/health` is public and every `/api/v1/me/*` route enforces

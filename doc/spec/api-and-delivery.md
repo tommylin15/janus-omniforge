@@ -68,19 +68,74 @@ query boundary`。不得預設新增 `janus-mcp` Cloud Run service；implementat
 可用，否則先停下並提交新 service／tunnel／既有 service adjustment 的架構、成本、
 安全、IAM、維運與退出比較。
 
-第一版 logical tool surface 固定為：
+第一版 logical tool surface 固定為三個 read-only tool；全部宣告
+`readOnlyHint=true`、`destructiveHint=false`、`openWorldHint=false`，JSON Schema
+全部 `additionalProperties=false`：
 
-- `janus_sources`：回傳 capability、resource enum、freshness、quota／bounds 與 disclosure，不回傳 storage locator。
-- `janus_market_context`：接受 `symbol`、allowlisted `resource`、optional bounded `start_date`／`end_date` 與 bounded `limit`；resource 沿用既有 Janus market allowlist，不接受 arbitrary dataset／table。現況已核准 resource 包含 `ohlcv`、`valuation`、`institutional`、`financials`、`events`、`market-activity` 與 `benchmark`。
-- `janus_private_context`：owner 不在 tool input，由 authenticated principal 映射取得。第一版目標 scope 為 `positions`、`annual-pnl`、`exposure`、`performance`、`stress-tests`、`investment-profile`、`watchlist` 與 `trades`；`trades` 必須重用既有 owner-scoped journal／private ledger reader，若 bounded read contract 尚未存在則標為 implementation gap，不捏造 endpoint／table。`investment-profile` 保留既有 AI context opt-in；第一版不暴露 free-form `notes`。
+- `janus_sources`：input 為空 object。使用 OAuth scope `janus.sources.read`；回傳目前
+  principal 可用的 `source_id`、`owner_scope`、resource enum、freshness、status、
+  quota／bounds 與 disclosure，不回傳資料內容或 storage locator。
+- `janus_market_context`：使用 OAuth scope `janus.market.read`。input 必填 `symbol`
+  （`^[0-9A-Z._-]{1,20}$`）與 `resource` enum；resource 固定為 `ohlcv`、
+  `valuation`、`institutional`、`financials`、`events`、`market-activity`、
+  `benchmark`。`start_date`／`end_date` 必須同時提供、ISO date、順序正確且 range
+  不超過 366 天；`limit` default 10、min 1、max 20。不接受 dataset／table／URI／
+  offset／raw query。
+- `janus_private_context`：使用 OAuth scope `janus.private.read`。input 必填
+  `resource` enum，固定為 `positions`、`annual-pnl`、`exposure`、`performance`、
+  `stress-tests`、`investment-profile`、`watchlist`、`trades`；optional `symbol`
+  只適用於 `positions`／`watchlist`／`trades`，optional `year`（1900–9999）為
+  `annual-pnl`／`performance` 必填且可用於 `trades`，`limit` default 10、min 1、
+  max 20。其他 resource／selector 組合安全拒絕。`trades` 重用既有 owner-scoped
+  `ledger_history`；`investment-profile` 僅在既有 `ai_context_opt_in=true` 時回傳；
+  第一版不暴露 free-form `notes`。
+
+`janus_market_context` 與 `janus_private_context` 共用以下 output envelope：
+
+```json
+{
+  "schema_version": "janus.mcp.v1",
+  "status": "available|partial|missing|stale",
+  "resource": "allowlisted-resource",
+  "as_of": "ISO-8601-or-null",
+  "records": [],
+  "provenance": [],
+  "bounds": {"limit": 10, "returned": 0, "truncated": false, "max_output_bytes": 32768},
+  "disclosure": "source and external-AI disclosure"
+}
+```
+
+`records` 合計最多 20 筆／32 KiB；超限只在完整 record 邊界截斷並明示
+`truncated=true`。`provenance` 只允許 `source_id`、`provenance_id`、`snapshot_id`、
+`ledger_version`、`valuation_date` 等非 locator metadata。空資料回 `missing` 與空陣列，
+不得補算、即時爬取或用 LLM 產生 placeholder。
 
 所有 tools 都要求 authentication，包括 public market tool，以避免匿名 abuse／quota
-cost。MCP request 不接受 `user_id`、`owner_id`、Google `sub`、Secret name 或
-credential locator；owner 只能由 authenticated external principal 映射至既有
-internal UUID。現有 Janus Google OIDC contract 與 ChatGPT Custom MCP OAuth flow
-的相容性仍為 implementation-time unknown，必須先查當時官方 remote MCP／OAuth
-requirements；若不能安全重用，不得在同一 WBS 自行建立 OAuth broker、token
-exchange、Identity Platform、Auth0 或其他新 auth infrastructure。
+cost。MCP request 不接受 `user_id`、`owner_id`、Google `sub`、email、Secret name 或
+credential locator；owner 只能由 server 驗證後的 `(issuer, subject)` binding 映射至
+既有 internal UUID，不得只用 email 自動合併帳號。
+
+依 2026-09-17 官方 OpenAI remote MCP contract，public endpoint 必須是 stable HTTPS
+Streamable HTTP（通常 `/mcp`）；OAuth 必須提供 MCP protected-resource metadata、
+authorization-server／OIDC discovery、authorization-code + PKCE `S256`、精確的
+`resource` 傳遞與 token audience／scope 驗證，並以 CIMD、DCR 或 predefined client
+識別 OpenAI host。每個 tool 宣告自己的 `securitySchemes`；未認證 tool call 同時回
+`401 WWW-Authenticate` 與 MCP `_meta["mcp/www_authenticate"]`。Canonical resource
+由 trusted deployment config 固定為完整 `/mcp` HTTPS URL，不從 request `Host` header
+推導。官方參考：[Authenticate users](https://developers.openai.com/plugins/build/auth)、
+[Build an MCP server](https://developers.openai.com/plugins/build/mcp-server)、
+[Connect and test](https://developers.openai.com/plugins/deploy/connect-chatgpt)。
+
+現有 `GoogleUserAuthenticator` 驗證的是 Google OIDC ID token，且 audience 固定為
+Janus User OAuth client ID；ChatGPT MCP 會把 OAuth access token 放入 MCP Bearer request，
+並要求 token 綁定 MCP `resource`。因此現有 Google browser OIDC token boundary **不能
+直接重用**，Google email 也不能取代 issuer／subject／audience binding。已採用同一
+`janus-api` 內嵌 OAuth authorization facade：Google standard OAuth 僅作上游登入，Janus
+以 `MCP_OAUTH_SIGNING_KEY` 簽發短效 access token，token 含 issuer／subject／resource
+audience／scope，authorization code 只存 hash 且一次性消費。不得在本 WBS 建立獨立
+OAuth broker／Cloud Run service；GCP dev callback、bundle、issuer 與 metadata 已驗證，
+adapter 不再維持 `auth_blocked`。anonymous market tool、shared static bearer、client
+supplied owner 與以 email 推測 owner 也全部拒絕。
 
 MCP output 沿用既有 sanitization，至少保留 source、as-of、provenance、bounded
 records 與 material availability／partial status；不得外送 GCS URI、object path、
@@ -93,6 +148,18 @@ allowlist、owner scope、typed selector、date／range bound、record／output 
 sanitization、provenance 與 as-of semantics。不得直接重用目前 chat-only
 `ContextSourceService.preview()` 而產生不必要的 `context_ref`／snapshot；ChatGPT
 路徑應回傳 direct bounded read result，不需要 Janus chat `context_ref`。
+
+Protocol discovery／`tools/list` 只公開上述 schema、annotation、scope 與 disclosure，
+不含 owner data；`tools/call` 才執行 server-side auth／owner binding／quota。第一版不提供
+resources、prompts、subscriptions、mutation、write confirmation 或 ChatGPT conversation
+snapshot storage。Developer mode／workspace plan 或 policy 是否允許連線屬 acceptance-time
+外部 capability，contract 不預先宣稱可用。
+
+既有 `janus-api` 現提供 stateless Streamable HTTP JSON-RPC `POST /mcp`，只處理
+initialize、ping、tools/list、tools/call 與必要 notification。三個 tool 均宣告 per-tool
+OAuth scope 與 read-only annotations；tool call 驗證 Janus access token 後，以 token subject
+綁定 internal owner。Chat API preview 與 MCP direct result 共用同一 bounded read／sanitize
+boundary，但 MCP 不建立 `context_ref` 或 conversation snapshot。
 
 第一版只需要 remote MCP tool integration，不要求 embedded ChatGPT UI、Apps SDK
 component、custom React UI、write action 或 ChatGPT-side workflow builder。

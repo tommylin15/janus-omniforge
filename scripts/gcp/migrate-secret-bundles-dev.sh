@@ -58,6 +58,8 @@ api.update({
     "web_publication_password": api.get("web_publication_password") or secrets.token_urlsafe(32),
     "web_google_client_id": web["google_client_id"],
     "web_session_secret": web["session_secret"],
+    "google_user_client_secret": web["client_secret"],
+    "mcp_oauth_signing_key": api.get("mcp_oauth_signing_key") or secrets.token_urlsafe(48),
     "pipeline_database_url": pipeline["database_url"],
     "pipeline_catalog_password": pipeline["catalog_password"],
 })
@@ -70,7 +72,7 @@ agent.update({
 (root / "api-merged.json").write_text(json.dumps(api, separators=(",", ":")))
 (root / "agent-merged.json").write_text(json.dumps(agent, separators=(",", ":")))
 PY
-    replace_bundle "${api_bundle}" "${tmp}/api-merged.json" 'database_url,catalog_password,core_catalog_password,google_user_client_id,mcp_owner_signing_key,web_control_password,web_catalog_password,web_publication_password,web_google_client_id,web_session_secret,pipeline_database_url,pipeline_catalog_password'
+    replace_bundle "${api_bundle}" "${tmp}/api-merged.json" 'database_url,catalog_password,core_catalog_password,google_user_client_id,google_user_client_secret,mcp_owner_signing_key,mcp_oauth_signing_key,web_control_password,web_catalog_password,web_publication_password,web_google_client_id,web_session_secret,pipeline_database_url,pipeline_catalog_password'
     replace_bundle "${agent_bundle}" "${tmp}/agent-merged.json" 'gemini_api_key,openrouter_api_key,mcp_owner_signing_key,mart_catalog_password,mart_publication_password,ingestion_control_password,ingestion_catalog_password'
     if ! gcloud secrets describe "${owner_bundle}" --project="${project}" >/dev/null 2>&1; then
       gcloud secrets create "${owner_bundle}" --project="${project}" --replication-policy=automatic --labels=environment=dev,service=agent-gateway --quiet

@@ -16,7 +16,8 @@ MAX_CONTEXT_BYTES = 32_768
 REF_TTL = timedelta(minutes=15)
 DATE_FIELDS = ("trade_date", "observed_date", "published_at", "valuation_date", "updated_at", "date")
 STORAGE_FIELDS = frozenset({"user_id", "artifact_ref", "artifact_reference", "object_path", "gcs_uri",
-                            "storage_uri", "raw_payload", "credential", "password", "secret", "token"})
+                            "storage_uri", "raw_payload", "credential", "password", "secret", "token",
+                            "table", "table_name"})
 
 
 @dataclass(frozen=True)
@@ -31,7 +32,7 @@ class SourceSpec:
 
 SOURCES = (
     SourceSpec("janus-core", "core", "public", ("ohlcv", "valuation", "institutional", "financials", "events", "market-activity", "benchmark"), "published daily data", "Published Janus market data."),
-    SourceSpec("janus-private-core", "private_core", "owner", ("notes", "watchlist"), "latest owner snapshot", "Private notes or watchlist selected by you."),
+    SourceSpec("janus-private-core", "private_core", "owner", ("notes", "watchlist", "trades"), "latest owner snapshot", "Private notes, watchlist, or trades selected by you."),
     SourceSpec("janus-private-mart", "private_mart", "owner", ("positions", "annual-pnl", "investment-profile", "exposure", "performance", "stress-tests"), "latest completed valuation", "Private portfolio calculations selected by you."),
 )
 SOURCE_BY_ID = {source.source_id: source for source in SOURCES}
@@ -77,22 +78,31 @@ class ContextSourceService:
                  "disclosure":source.disclosure} for source in SOURCES]
 
     def preview(self, owner_id: Any, thread_id: str, selector: ContextSelector) -> dict[str, Any]:
-        source = SOURCE_BY_ID.get(selector.source_id)
-        if source is None or selector.resource not in source.resources:
-            raise ContextSourceError("source or resource is not allowed")
         if not 1 <= len(thread_id.strip()) <= 128: raise ContextSourceError("thread_id is invalid")
-        rows = self._load(owner_id,selector)
-        records = [self._sanitize(row) for row in self._date_filter(rows,selector)][:selector.limit]
-        while records and len(json.dumps(records,default=str).encode()) > MAX_CONTEXT_BYTES: records.pop()
-        provenance = self._provenance(selector.source_id,records)
-        as_of = self._as_of(records)
+        result = self.read(owner_id, selector)
         context_ref = token_urlsafe(32)
         expires_at = self.clock() + REF_TTL
         self.store.write_context_snapshot(user_id=owner_id,context_id=sha256(context_ref.encode()).hexdigest(),
-            thread_id=thread_id,source_id=selector.source_id,resource=selector.resource,as_of=as_of,
-            expires_at=expires_at,records=records,provenance=provenance)
-        return {"source_id":selector.source_id,"resource":selector.resource,"preview":records,
-                "as_of":as_of,"provenance":provenance,"context_ref":context_ref,"expires_at":expires_at}
+            thread_id=thread_id,source_id=selector.source_id,resource=selector.resource,as_of=result["as_of"],
+            expires_at=expires_at,records=result["records"],provenance=result["provenance"])
+        return {"source_id":selector.source_id,"resource":selector.resource,"preview":result["records"],
+                "as_of":result["as_of"],"provenance":result["provenance"],"context_ref":context_ref,"expires_at":expires_at}
+
+    def read(self, owner_id: Any, selector: ContextSelector) -> dict[str, Any]:
+        source = SOURCE_BY_ID.get(selector.source_id)
+        if source is None or selector.resource not in source.resources:
+            raise ContextSourceError("source or resource is not allowed")
+        rows = self._date_filter(self._load(owner_id, selector), selector)
+        records = [self._sanitize(row) for row in rows[:selector.limit]]
+        truncated = len(rows) > len(records)
+        while records and len(json.dumps(records,default=str,separators=(",", ":")).encode()) > MAX_CONTEXT_BYTES:
+            records.pop(); truncated = True
+        return {"schema_version":"janus.mcp.v1", "status":"partial" if truncated else "available" if records else "missing",
+                "resource":selector.resource, "as_of":self._as_of(records), "records":records,
+                "provenance":self._provenance(selector.source_id,records),
+                "bounds":{"limit":selector.limit,"returned":len(records),"truncated":truncated,
+                          "max_output_bytes":MAX_CONTEXT_BYTES},
+                "disclosure":f"{source.disclosure} Data is shared with an external AI service."}
 
     def resolve(self, owner_id: Any, thread_id: str, turn_id: str, refs: Sequence[str]) -> dict[str, Any]:
         snapshots=[]
@@ -110,7 +120,11 @@ class ContextSourceService:
             return self.core.page(selector.resource,selector.symbol,200)
         if selector.resource == "notes":
             return self.store.read_notes(owner_id,self.repository.notes(owner_id,selector.symbol))
-        if selector.resource == "watchlist": return self.repository.watchlist(owner_id)
+        if selector.resource == "watchlist":
+            rows = self.repository.watchlist(owner_id)
+            return [row for row in rows if not selector.symbol or row.get("symbol") == selector.symbol]
+        if selector.resource == "trades":
+            return self.repository.ledger_history(owner_id,selector.symbol,selector.year,limit=200)
         if selector.resource == "investment-profile":
             profile=self.repository.investment_profile(owner_id)
             if not profile.get("ai_context_opt_in"): raise ContextSourceError("investment profile context is not enabled")
@@ -118,7 +132,8 @@ class ContextSourceService:
         table = {"positions":"mart_user_positions","annual-pnl":"mart_user_annual_pnl",
                  "exposure":"mart_user_exposure","performance":"mart_user_annual_performance",
                  "stress-tests":"mart_user_stress_tests"}[selector.resource]
-        return self.store.mart(table,owner_id)
+        filters = {key:value for key,value in (("symbol",selector.symbol),("year",selector.year)) if value is not None}
+        return self.store.mart(table,owner_id,**filters)
 
     @classmethod
     def _date_filter(cls, rows: Sequence[Mapping[str, Any]], selector: ContextSelector) -> list[Mapping[str, Any]]:

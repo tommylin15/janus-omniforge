@@ -259,6 +259,7 @@ class ContextSelector(StrictModel):
     symbol: Annotated[str | None, Field(pattern=r"^[0-9A-Z._-]{1,20}$")] = None
     start_date: date | None = None
     end_date: date | None = None
+    year: Annotated[int | None, Field(ge=1900, le=9999)] = None
     limit: Annotated[int, Field(ge=1, le=20)] = 10
 
     @model_validator(mode="after")

@@ -132,6 +132,7 @@ sudo docker exec --user postgres \
     psql -U postgres -d janus_control -f /opt/janus/migrations/023_public_stock_index.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/024_private_investment_profile.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/025_pilot_readiness.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/026_mcp_oauth_codes.sql
     rm -f /tmp/web-vars.sql /tmp/public-vars.sql "${credential_file}"
     psql -U postgres -d janus_control -v ON_ERROR_STOP=1 <<"SQL"
 SELECT rolname, rolsuper, rolcreatedb, rolcreaterole, rolreplication
@@ -154,6 +155,9 @@ SELECT EXISTS (
 SELECT EXISTS (
   SELECT 1 FROM control.schema_migrations WHERE version = $$025_pilot_readiness$$
 ) AS pilot_readiness_recorded;
+SELECT EXISTS (
+  SELECT 1 FROM control.schema_migrations WHERE version = $$026_mcp_oauth_codes$$
+) AS mcp_oauth_codes_recorded;
 SELECT tableowner = $$janus_control$$ AS control_settings_owned
 FROM pg_tables WHERE schemaname = $$control$$ AND tablename = $$admin_settings$$;
 SELECT source_ids = $$["taiex", "tpex-benchmark", "twse", "mops", "finmind"]$$::jsonb

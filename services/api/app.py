@@ -28,6 +28,8 @@ from .auth import (AuthenticatedAdmin, AuthenticatedUser, GoogleAdminAuthenticat
 from .context_sources import (ContextReferenceNotFound, ContextSourceError, ContextSourceService,
                               CoreContextReader)
 from .mcp_gateway import McpGatewayClient, McpGatewayError
+from .mcp_adapter import McpAdapter
+from .mcp_oauth import McpOAuth, OAuthSettings, RepositoryOAuthCodeStore, parse_form
 from .models import (AdminResponseOut, AnalysisFeedbackIn, ContextPreviewIn, ContextResolveIn, CorePageOut, CoreSummaryOut,
                      CorrectionIn, HealthOut, InvestmentProfileIn, InvestmentProfileOut, LedgerEventIn,
                      McpServersPutIn, NoteIn, NoteRevisionIn, PortfolioExposureOut,
@@ -52,7 +54,7 @@ AUDIT_LOGGER.setLevel(logging.INFO)
 
 
 def _router_family(path: str) -> str | None:
-    for family, prefix in (("public", "/api/v1/public/"), ("private", "/api/v1/me/"),
+    for family, prefix in (("mcp", "/mcp"), ("public", "/api/v1/public/"), ("private", "/api/v1/me/"),
                            ("admin", "/api/v1/admin/"), ("admin", "/api/v1/core/"),
                            ("internal", "/internal/v1/")):
         if path.startswith(prefix):
@@ -119,13 +121,20 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                internal_verifier: Callable[..., Any] | None = None,
                internal_audience: str | None = None,
                internal_callers: frozenset[str] | None = None,
-               mcp: Any | None = None, public: Any | None = None) -> FastAPI:
+               mcp: Any | None = None, public: Any | None = None,
+               oauth_facade: Any | None = None) -> FastAPI:
     from packages.postgres_bundle import load_postgres_bundle
-    load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", {
+    bundle_fields: dict[str, str | tuple[str, ...]] = {
         "GOOGLE_USER_CLIENT_ID": "google_user_client_id",
         "GOOGLE_ADMIN_CLIENT_ID": ("web_google_client_id", "google_client_id"),
         "MCP_OWNER_SIGNING_KEY": "mcp_owner_signing_key",
-    })
+    }
+    if oauth_facade is None and os.getenv("MCP_OAUTH_ENABLED", "false").strip().lower() == "true":
+        bundle_fields.update({
+            "GOOGLE_USER_CLIENT_SECRET": "google_user_client_secret",
+            "MCP_OAUTH_SIGNING_KEY": "mcp_oauth_signing_key",
+        })
+    load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", bundle_fields)
     repository = repository or _Lazy(repository_from_env)
     store = store or _Lazy(PrivateIcebergStore.from_env)
     core = core or _Lazy(CoreContextReader.from_env)
@@ -171,12 +180,27 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         internal_callers if internal_callers is not None else allowed_assistant_callers(),
         verifier=internal_verifier,
     )
+    mcp_oauth = oauth_facade if oauth_facade is not None else _Lazy(lambda: McpOAuth(
+        OAuthSettings.from_env(), RepositoryOAuthCodeStore(repository), repository.resolve_user,
+    ))
+
+    def oauth_service() -> McpOAuth:
+        try:
+            if not isinstance(mcp_oauth, _Lazy): return mcp_oauth
+            if mcp_oauth.value is None:
+                mcp_oauth.value = mcp_oauth.factory()
+            return mcp_oauth.value
+        except ValueError as error:
+            LOGGER.warning("MCP OAuth configuration unavailable: %s", error)
+            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "MCP OAuth is unavailable") from error
+
     api = FastAPI(title="Janus User API", version="0.1.0", docs_url=None, redoc_url=None)
     limiter = _RateLimiter({
         "public": _positive_env("PUBLIC_RATE_LIMIT_PER_MINUTE", 120),
         "private": _positive_env("PRIVATE_RATE_LIMIT_PER_MINUTE", 60),
         "admin": _positive_env("ADMIN_RATE_LIMIT_PER_MINUTE", 30),
         "internal": _positive_env("INTERNAL_RATE_LIMIT_PER_MINUTE", 120),
+        "mcp": _positive_env("MCP_RATE_LIMIT_PER_MINUTE", 60),
     })
 
     @api.middleware("http")
@@ -228,6 +252,46 @@ def create_app(repository: Any | None = None, store: Any | None = None,
 
     def user(request_user: AuthenticatedUser = Depends(authenticate)) -> AuthenticatedUser: return request_user
     def key(value: str = Header(alias="Idempotency-Key", min_length=8, max_length=128)) -> str: return value
+
+    @api.get("/.well-known/oauth-protected-resource")
+    def mcp_protected_resource() -> dict[str, Any]:
+        return oauth_service().protected_resource_metadata()
+
+    @api.get("/.well-known/oauth-authorization-server")
+    def mcp_authorization_server() -> dict[str, Any]:
+        return oauth_service().authorization_server_metadata()
+
+    @api.get("/oauth/authorize")
+    def mcp_authorize(request: Request) -> Response:
+        return oauth_service().begin_authorization(dict(request.query_params))
+
+    @api.get("/oauth/google/callback")
+    def mcp_google_callback(request: Request) -> Response:
+        return oauth_service().google_callback(dict(request.query_params))
+
+    @api.post("/oauth/authorize/complete")
+    async def mcp_authorize_complete(request: Request) -> Response:
+        form = parse_form(request, await request.body())
+        return oauth_service().complete_authorization(form.get("token", ""), form.get("approved") == "true")
+
+    @api.post("/oauth/token")
+    async def mcp_token(request: Request) -> dict[str, Any]:
+        return oauth_service().exchange_token(parse_form(request, await request.body()))
+
+    @api.post("/mcp")
+    async def mcp_endpoint(request: Request) -> Response:
+        body = await request.body()
+        if len(body) > 65_536:
+            return JSONResponse({"jsonrpc":"2.0","id":None,
+                                 "error":{"code":-32600,"message":"Request too large"}}, status_code=413)
+        try: value = json.loads(body)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return JSONResponse({"jsonrpc":"2.0","id":None,
+                                 "error":{"code":-32700,"message":"Parse error"}}, status_code=400)
+        response, response_status, headers = McpAdapter(contexts, oauth_service()).handle(
+            value, request.headers.get("authorization", ""))
+        if response is None: return Response(status_code=response_status, headers=headers)
+        return JSONResponse(jsonable_encoder(response), status_code=response_status, headers=headers)
 
     def persist_gateway_result(owner_id: UUID, thread_id: str, turn_id: str, key_prefix: str,
                                result: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
