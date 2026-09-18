@@ -88,12 +88,12 @@ the merged API bundle with `google_user_client_secret` and a fresh
 `mcp_oauth_signing_key`, then deploy with:
 
 - `MCP_OAUTH_ENABLED=true`
-- `MCP_OAUTH_ISSUER=https://janus-api-2oo7qbkd5q-uc.a.run.app`
-- `MCP_RESOURCE_URL=https://janus-api-2oo7qbkd5q-uc.a.run.app/mcp`
+- `MCP_OAUTH_ISSUER=https://mcp-oauth---janus-api-2oo7qbkd5q-uc.a.run.app`
+- `MCP_RESOURCE_URL=https://mcp-adapter---janus-api-2oo7qbkd5q-uc.a.run.app/mcp`
 - `GOOGLE_USER_ALLOWED_EMAILS` set to the explicit dev operator/test allowlist
 
 The Google Web client must allow the exact callback
-`https://janus-api-2oo7qbkd5q-uc.a.run.app/oauth/google/callback`. The facade
+`https://mcp-oauth---janus-api-2oo7qbkd5q-uc.a.run.app/oauth/google/callback`. The facade
 issues short-lived Janus access tokens with the MCP resource in `aud` and
 stores only hashed, one-time authorization codes in PostgreSQL. Keep it
 disabled until the bundle version and callback allowlist are verified in dev.

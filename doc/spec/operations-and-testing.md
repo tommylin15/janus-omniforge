@@ -2,6 +2,36 @@
 
 最新驗證日期：2026-09-17
 
+## WBS-8 ChatGPT MCP consent redirect defect acceptance（2026-09-17）
+
+The consent response now keeps the existing restrictive CSP and changes only
+`form-action` to `self https://chatgpt.com`; redirect validation and the three
+read-only scopes are unchanged. Local targeted verification passed **33 tests**
+(`tests/test_mcp_oauth.py`, `tests/test_mcp_adapter.py`, and
+`tests/test_user_api.py`), plus Python compile and `git diff --check`.
+
+The source archive was uploaded to the existing Cloud Build bucket by explicit
+dev authorization. Cloud Build `715e6b3f-4d64-4a86-9200-b365eafeaabe` produced
+image digest
+`sha256:acda861018e33c2af30e0c14d80ed1b25df9f587c644c8590bca3445b68cfcc6`.
+Cloud Run revisions `janus-api-mcp-csp-adapter` and
+`janus-api-mcp-csp-oauth` are Ready, tagged `mcp-adapter`／`mcp-oauth`, and
+receive 0% traffic; the service default remains on the existing candidate.
+
+Tagged metadata/negative acceptance passed in Cloud Build
+`24b32072-c56f-4695-b982-05d245430a60`: protected-resource and
+authorization-server metadata, S256/none declarations, and OAuth negative
+guards. Chrome browser acceptance then used the existing ChatGPT custom app
+`Janus Dev Read-only v2`: Google callback → Janus consent → clicking `允許`
+actually navigated to
+`https://chatgpt.com/connector_platform_oauth_redirect` (the popup closed back
+to ChatGPT). From the existing `janus-postgres-dev` VM through IAP, the
+browser-returned code exchanged successfully and all three tools returned 200:
+`janus_sources`, `janus_market_context`, and `janus_private_context`; the
+private/market responses were bounded `status=missing` and sanitized.
+
+No new GCP resource, IAM grant, service, or production traffic was created.
+
 ## WBS-6 ChatGPT MCP OAuth dev rollout acceptance（2026-09-17）
 
 The existing `janus-api` revision `janus-api-mcp-oauth3-config` was deployed with
@@ -14,9 +44,9 @@ was applied to the existing `janus-postgres-dev` VM using immutable image
 GCP dev VM/IAP acceptance passed: protected-resource metadata 200,
 authorization-server metadata 200, incomplete token exchange 400, and missing
 S256 authorize request 400; a valid S256 request returned a Google upstream 302.
-The exact Google callback remains
-`https://janus-api-2oo7qbkd5q-uc.a.run.app/oauth/google/callback`; configure it in
-the existing Google OAuth client before a browser login. MCP adapter implementation
+The exact Google callback is now
+`https://mcp-oauth---janus-api-2oo7qbkd5q-uc.a.run.app/oauth/google/callback`;
+configure it in the existing Google OAuth client before a browser login. MCP adapter implementation
 is now complete; connector acceptance remains the next WBS.
 
 ## WBS-6 ChatGPT MCP adapter GCP dev rollout acceptance（2026-09-17）
@@ -37,6 +67,28 @@ challenge. A temporary owner OAuth code exchanged for a Bearer token (200),
 `janus_private_context` trades read returned bounded `status=missing` (200) with
 no `user_id` or `artifact_ref`. The fixture row was deleted and verified absent.
 No production traffic or new paid GCP resource was created.
+
+## WBS-8 ChatGPT MCP acceptance preflight — dev OAuth routing defect correction（2026-09-17）
+
+The adapter tag initially advertised the untagged API issuer, while OAuth-enabled
+revisions existed only behind tags. The dev deployment now pins
+`MCP_RESOURCE_URL=https://mcp-adapter---janus-api-2oo7qbkd5q-uc.a.run.app/mcp`
+and `MCP_OAUTH_ISSUER=https://mcp-oauth---janus-api-2oo7qbkd5q-uc.a.run.app`.
+Revisions `janus-api-mcp-adapter6` and `janus-api-mcp-oauth6` are Ready, tagged,
+and receive 0% traffic; the service default traffic remains unchanged. The
+deploy script rejects untagged OAuth/resource values when OAuth is enabled.
+
+GCP VM/IAP checks passed: protected-resource metadata 200 names the adapter tag
+and OAuth tag; authorization-server metadata 200 advertises the tagged authorize
+and token endpoints, `none` client authentication, all three read scopes, and
+S256; authorize returns Google 302 with the tagged Google callback; token exchange
+returns a resource-bound token; authenticated sources, market, and private calls
+all return 200 with bounded sanitized results. The Google endpoint preflight
+returned 302 without `redirect_uri_mismatch`. The existing ChatGPT custom app
+`Janus Dev Read-only v2` is available in development mode and its browser OAuth
+popup now completes through the tagged consent page to the ChatGPT callback;
+tool discovery/UI invocation remains the only outstanding connector acceptance
+item. No production traffic or new GCP resource was used.
 
 ## WBS-6 ChatGPT MCP adapter implementation checkpoint（2026-09-17）
 

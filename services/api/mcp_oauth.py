@@ -185,7 +185,7 @@ class McpOAuth:
             state["exp"] = self._now() + self.settings.authorization_ttl
             return Response(content=self._consent_page(self._sign(state)), media_type="text/html", headers={
                 "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
-                "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'",
+                "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https://chatgpt.com; base-uri 'none'",
             })
         except Exception:
             return self._client_error(state, "access_denied")

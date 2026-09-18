@@ -137,6 +137,26 @@ def test_private_iceberg_note_rows_are_scoped_by_user():
         shutil.rmtree(root)
 
 
+def test_core_price_reader_uses_canonical_iceberg_catalog(monkeypatch):
+    from pyiceberg.catalog import sql
+    from services.api.private_pipeline import CorePriceReader
+
+    captured=[]
+
+    class Catalog:
+        def __init__(self, name, **kwargs):
+            captured.append(name)
+
+    monkeypatch.setattr(sql, "SqlCatalog", Catalog)
+    for name in ("POSTGRES_HOST", "POSTGRES_DB", "CORE_CATALOG_USER", "CORE_CATALOG_PASSWORD",
+                 "CORE_ICEBERG_WAREHOUSE", "GCP_PROJECT_ID"):
+        monkeypatch.setenv(name, "test")
+
+    CorePriceReader.from_env()
+
+    assert captured == ["janus"]
+
+
 def test_private_iceberg_normalizes_postgres_gmt_timestamps():
     value=PrivateIcebergStore._value(datetime(2026,9,5,tzinfo=timezone(timedelta(0),"GMT")))
     assert str(value.tzinfo)=="UTC"

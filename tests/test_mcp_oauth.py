@@ -92,6 +92,24 @@ class McpOAuthTests(unittest.TestCase):
         })
         self.assertEqual(self.oauth.verify_access_token(token["access_token"], "janus.market.read")["sub"], "owner-uuid")
 
+    def test_consent_page_csp_allows_chatgpt_form_action(self):
+        verifier = "v" * 64
+        response = self.oauth.begin_authorization({
+            "response_type": "code", "client_id": MCP_CLIENT_ID, "redirect_uri": MCP_REDIRECT_URI,
+            "resource": self.settings.resource, "scope": "janus.sources.read",
+            "code_challenge": self.oauth._pkce(verifier), "code_challenge_method": "S256", "state": "state",
+        })
+        google_state = parse_qs(urlsplit(response.headers["location"]).query)["state"][0]
+        consent = self.oauth.google_callback({"state": google_state, "code": "google-code"})
+        csp = consent.headers["Content-Security-Policy"]
+
+        self.assertIn("form-action 'self' https://chatgpt.com", csp)
+        self.assertNotIn("form-action 'self';", csp)
+        self.assertIn("default-src 'none'", csp)
+        self.assertIn("style-src 'unsafe-inline'", csp)
+        self.assertIn("base-uri 'none'", csp)
+        self.assertIn(b"action='/oauth/authorize/complete'", consent.body)
+
 
 if __name__ == "__main__":
     unittest.main()

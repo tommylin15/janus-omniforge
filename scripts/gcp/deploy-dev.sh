@@ -95,6 +95,8 @@ case "${component}" in
       oauth_issuer="${MCP_OAUTH_ISSUER:?MCP_OAUTH_ISSUER is required when MCP_OAUTH_ENABLED=true}"
       oauth_resource="${MCP_RESOURCE_URL:?MCP_RESOURCE_URL is required when MCP_OAUTH_ENABLED=true}"
       oauth_emails="${GOOGLE_USER_ALLOWED_EMAILS:?GOOGLE_USER_ALLOWED_EMAILS is required when MCP_OAUTH_ENABLED=true}"
+      [[ "${oauth_issuer}" == https://mcp-oauth---*.a.run.app ]] || { echo "Dev OAuth issuer must use the mcp-oauth tag." >&2; exit 1; }
+      [[ "${oauth_resource}" == https://mcp-adapter---*.a.run.app/mcp ]] || { echo "Dev MCP resource must use the mcp-adapter tag." >&2; exit 1; }
       api_env="${api_env},MCP_OAUTH_ISSUER=${oauth_issuer},MCP_RESOURCE_URL=${oauth_resource},GOOGLE_USER_ALLOWED_EMAILS=${oauth_emails}"
     fi
     gcloud run services update "${runtime_name}" --project="${project}" --region="${region}" \

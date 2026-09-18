@@ -29,7 +29,7 @@ class CorePriceReader:
         uri=URL.create("postgresql+psycopg",username=values["CORE_CATALOG_USER"],password=values["CORE_CATALOG_PASSWORD"],
                        host=values["POSTGRES_HOST"],port=5432,database=values["POSTGRES_DB"],
                        query={"sslmode":os.getenv("POSTGRES_SSLMODE","require"),"options":"-csearch_path=catalog"})
-        return cls(SqlCatalog("janus-core-prices",type="sql",uri=uri,warehouse=values["CORE_ICEBERG_WAREHOUSE"],
+        return cls(SqlCatalog("janus",type="sql",uri=uri,warehouse=values["CORE_ICEBERG_WAREHOUSE"],
                    init_catalog_tables="false",**{"py-io-impl":"pyiceberg.io.pyarrow.PyArrowFileIO","gcs.project-id":values["GCP_PROJECT_ID"],
                    "pool_size":1,"max_overflow":0,"pool_timeout":5}))
 

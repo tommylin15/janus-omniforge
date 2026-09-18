@@ -175,7 +175,7 @@ correctness 或明確核准的 Pilot use case 必要；既有可用功能保留�
 
 - [x] 【Sol】 【High-Completion Target—GCP dev rollout and runtime acceptance complete】 `WBS-6-CHATGPT-MCP-ADAPTER`：已在既有 `janus-api` 加入 stateless `POST /mcp`、三個 read-only tool、per-tool OAuth scope／challenge、token-subject owner binding，並抽出 Chat preview／MCP 共用的 bounded direct read；拒絕 arbitrary SQL／URI／table／owner input、mutation 與不必要 chat snapshot。`tests/test_mcp_adapter.py`、`tests/test_mcp_oauth.py`、`tests/test_user_api.py` 共 32 tests 通過，Python compile、Git Bash `bash -n`、`git diff --check` 通過；Cloud Build `7d070e60-d8c1-4e7f-821f-5d8a54bd9196` source upload／image push、Cloud Run no-traffic revisions `janus-api-mcp-adapter3`／`janus-api-mcp-oauth4` 與 GCP VM/IAP protocol／OAuth／bounded-read acceptance 完成。證據見 [`spec/operations-and-testing.md`](spec/operations-and-testing.md) 與 [`archive/todo-completed-2026-09-17-wbs6-chatgpt-mcp-adapter.md`](archive/todo-completed-2026-09-17-wbs6-chatgpt-mcp-adapter.md)。
 
-- [ ] 【Sol】 【High-Completion Target】 `WBS-8-CHATGPT-MCP-ACCEPTANCE`：Blocked until adapter complete、使用者確認支援所需 ChatGPT custom read-only MCP plan／UI，且明確授權任何 GCP dev deployment／test；驗收 discovery、OAuth lifecycle、owner isolation、market／private bounded reads、opt-in、sanitization、provenance、limits、no mutation 與 cost evidence。此 connector 不得成為 Janus Production Release prerequisite。
+- [ ] 【Sol】 【High-Completion Target】 `WBS-8-CHATGPT-MCP-ACCEPTANCE`：adapter、ChatGPT custom app OAuth lifecycle 與 consent redirect 已在 GCP dev 通過；仍待 ChatGPT app tool discovery／三個工具 UI invocation 與完整 connector acceptance。此 connector 不得成為 Janus Production Release prerequisite；最新證據見 [`spec/operations-and-testing.md`](spec/operations-and-testing.md)。
 
 ## Pilot Feature Freeze／Deferred
 
