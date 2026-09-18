@@ -8,15 +8,15 @@ const state = {
   executionSort: "requested_at", executionDirection: -1,
   sourcePage: 0, sourceCursors: [null], sourceNext: null,
   catalogPage: 0, catalogCursors: [null], catalogNext: null,
-  editingConfig: null, membershipVersion: 0, governanceVersion: 0,
+  editingConfig: null, governanceVersion: 0,
 };
 const byId = (id) => document.getElementById(id);
 const dialogOpeners = new WeakMap();
 
 const tabLoaders = {
   stocks: loadStocks, status: () => Promise.resolve(), executions: loadExecutions,
-  sources: loadSources, membership: loadMembership, settings: loadSettings,
-  catalog: loadCatalog, mart: loadMart, governance: loadGovernance,
+  sources: loadSources, settings: loadSettings,
+  catalog: loadCatalog, mart: loadMart, backfill: () => Promise.resolve(), governance: loadGovernance,
 };
 
 async function activateTab(name, { focus = false, reload = false } = {}) {
@@ -549,19 +549,6 @@ async function saveReview(event) {
   } catch (error) { showNotice(error.message, true); }
 }
 
-async function loadMembership() {
-  try {
-    const data = await request("/api/v1/admin/memberships/core_focus");
-    const symbols = data.items.map((item) => item.symbol);
-    state.membershipVersion = data.version;
-    byId("membership-symbols").value = symbols.join(", ");
-    byId("membership-count").textContent = `${symbols.length} / 50 · v${data.version}`;
-    const next = new Date(data.effective_from || Date.now()); next.setMinutes(next.getMinutes() + 1); next.setSeconds(0, 0);
-    const local = new Date(next.getTime() - next.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-    byId("membership-effective").min = local; byId("membership-effective").value = local;
-  } catch (error) { showNotice(error.message, true); }
-}
-
 function governanceValue() {
   return {
     version: byId("governance-policy-version").value.trim(),
@@ -630,6 +617,26 @@ async function saveGovernance(event) {
   } catch (error) { showNotice(error.message, true); }
 }
 
+async function runBackfill(event) {
+  event.preventDefault();
+  const start = byId("bf-start").value;
+  const end = byId("bf-end").value;
+  if (!start || !end) return showNotice("請填寫起訖日期", true);
+  const result = byId("backfill-result");
+  result.textContent = "送出中…";
+  try {
+    const data = await request("/api/v1/admin/pipeline/backfill", {
+      method: "POST",
+      body: JSON.stringify({ start_date: start, end_date: end, trigger_mart: byId("bf-trigger-mart").checked }),
+    });
+    result.textContent = JSON.stringify(data, null, 2);
+    showNotice(`補跑已送出：${data.execution_name || data.status}`);
+  } catch (error) {
+    result.textContent = error.message;
+    showNotice(error.message, true);
+  }
+}
+
 async function loadSettings() {
   try {
     const schedule = await request("/api/v1/admin/settings/schedule"); const retention = await request("/api/v1/admin/settings/retention");
@@ -646,23 +653,6 @@ async function saveSettings(event) {
     const schedule = await request("/api/v1/admin/settings/schedule", { method: "PUT", body: JSON.stringify({ actor, expected_version: Number(form.dataset.scheduleVersion || 0), value: { time: byId("schedule-time").value, enabled: byId("schedule-enabled").checked, holiday_overrides: holidays } }) });
     const retention = await request("/api/v1/admin/settings/retention", { method: "PUT", body: JSON.stringify({ actor, expected_version: Number(form.dataset.retentionVersion || 0), value: { days: Number(byId("retention-days").value), cleanup_enabled: byId("cleanup-enabled").checked } }) });
     form.dataset.scheduleVersion = schedule.version; form.dataset.retentionVersion = retention.version; showNotice("設定已儲存，Cloud Scheduler 已同步");
-  } catch (error) { showNotice(error.message, true); }
-}
-
-function membershipSymbols() {
-  return [...new Set(byId("membership-symbols").value.split(/[\s,]+/).map((value) => value.trim().toUpperCase()).filter(Boolean))];
-}
-
-async function saveMembership(event) {
-  event.preventDefault();
-  const symbols = membershipSymbols();
-  if (symbols.length > 50) return showNotice("核心名單不可超過 50 檔", true);
-  const localTime = byId("membership-effective").value;
-  if (!localTime) return showNotice("請設定生效時間", true);
-  try {
-    await request("/api/v1/admin/memberships/core_focus", { method: "PUT", body: JSON.stringify({ symbols, effective_from: new Date(localTime).toISOString(), reason: byId("membership-reason").value, expected_version: state.membershipVersion }) });
-    showNotice("核心名單版本已儲存");
-    await loadMembership();
   } catch (error) { showNotice(error.message, true); }
 }
 
@@ -699,7 +689,6 @@ function setupTabs() {
 
 document.addEventListener("DOMContentLoaded", async () => {
   setupTabs();
-  const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); byId("membership-effective").value = now.toISOString().slice(0, 16);
   const resetStockPage = () => { state.stockPage = 0; state.stockCursors = [null]; state.stockNext = null; };
   byId("stock-search").addEventListener("submit", (event) => { event.preventDefault(); resetStockPage(); loadStocks(); });
   byId("enabled-filter").addEventListener("change", () => { resetStockPage(); loadStocks(); });
@@ -730,12 +719,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   byId("refresh-all").addEventListener("click", refreshAll);
   byId("logout").addEventListener("click", logout);
   byId("status-search").addEventListener("submit", (event) => { event.preventDefault(); openStatus(byId("status-symbol").value); });
-  byId("membership-form").addEventListener("submit", saveMembership);
   byId("governance-preview").addEventListener("click", previewGovernance);
   byId("governance-form").addEventListener("submit", saveGovernance);
   byId("mart-filter").addEventListener("submit", (event) => { event.preventDefault(); loadMart(); });
   byId("add-stock").addEventListener("click", () => openStock());
   byId("stock-form").addEventListener("submit", async (event) => { event.preventDefault(); const dialog = byId("stock-dialog"); try { await request("/api/v1/admin/stocks", { method: "PUT", body: JSON.stringify({ symbol: byId("stock-symbol").value, name: byId("stock-name").value, market: byId("stock-market").value, listing_status: byId("stock-listing").value, enabled: byId("stock-enabled").checked }) }); dialog.close(); showNotice("股票資料已儲存"); await loadStocks(); } catch (error) { showNotice(error.message, true); } });
+  byId("backfill-form").addEventListener("submit", runBackfill);
   byId("settings-form").addEventListener("submit", saveSettings);
   byId("review-adapter").addEventListener("change", loadReview);
   byId("review-form").addEventListener("submit", saveReview);

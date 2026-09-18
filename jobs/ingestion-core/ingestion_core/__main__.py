@@ -69,19 +69,22 @@ def _core_ready_event(*, core_bucket: str, execution_id: str, config_id: str,
     }
 
 
-def _trigger_mart(analysis_execution_id: str | None) -> dict[str, object]:
+def _trigger_mart(analysis_execution_id: str | None, *, delay_seconds: int = 10) -> dict[str, object]:
     job = os.environ.get("MART_JOB", "").strip()
     project = os.environ.get("GCP_PROJECT_ID", "").strip()
     region = os.environ.get("GCP_REGION", "us-central1").strip()
     if not analysis_execution_id or not job:
         return {"status": "not_required"}
     try:
+        import time
         import google.auth
         from google.auth.transport.requests import AuthorizedSession
         credentials, detected_project = google.auth.default(scopes=("https://www.googleapis.com/auth/cloud-platform",))
         project = project or detected_project or ""
         if not project:
             raise ValueError("GCP_PROJECT_ID is required for Mart trigger")
+        # Wait for the DB commit to be visible to the mart job before it starts.
+        time.sleep(delay_seconds)
         response = AuthorizedSession(credentials).post(
             f"https://run.googleapis.com/v2/projects/{project}/locations/{region}/jobs/{job}:run",
             json={}, timeout=10,

@@ -118,6 +118,71 @@ def build_public_service() -> PublicMartService:
         raise RuntimeError(f"public runtime setup failed at {stage}:{type(error).__name__}") from error
 
 
+class PipelineService:
+    """Thin wrapper to trigger Cloud Run Jobs for backfill operations."""
+
+    def __init__(self, *, project: str, region: str, ingestion_job: str, mart_job: str) -> None:
+        self._project = project
+        self._region = region
+        self._ingestion_job = ingestion_job
+        self._mart_job = mart_job
+
+    @classmethod
+    def from_env(cls) -> "PipelineService":
+        project = os.environ.get("GCP_PROJECT_ID", "").strip()
+        region = os.environ.get("GCP_REGION", "us-central1").strip()
+        ingestion_job = os.environ.get("INGESTION_JOB", "janus-ingestion-core").strip()
+        mart_job = os.environ.get("MART_JOB", "janus-intelligence-mart").strip()
+        if not project:
+            raise ValueError("GCP_PROJECT_ID is required for pipeline service")
+        return cls(project=project, region=region, ingestion_job=ingestion_job, mart_job=mart_job)
+
+    def _jobs_url(self, job: str) -> str:
+        return f"https://run.googleapis.com/v2/projects/{self._project}/locations/{self._region}/jobs/{job}"
+
+    def _authorized_session(self) -> Any:
+        import google.auth
+        from google.auth.transport.requests import AuthorizedSession
+        credentials, _ = google.auth.default(scopes=("https://www.googleapis.com/auth/cloud-platform",))
+        return AuthorizedSession(credentials)
+
+    def backfill(self, start_date: str, end_date: str, *, trigger_mart: bool = False) -> dict[str, Any]:
+        """Update job env-vars and execute ingestion backfill."""
+        from datetime import date as _date
+        _date.fromisoformat(start_date)  # validate
+        _date.fromisoformat(end_date)
+        session = self._authorized_session()
+        # Patch env-vars on the job definition
+        patch_url = self._jobs_url(self._ingestion_job)
+        patch_resp = session.patch(
+            patch_url,
+            json={"template": {"template": {"containers": [{"env": [
+                {"name": "BACKFILL_START_DATE", "value": start_date},
+                {"name": "BACKFILL_END_DATE", "value": end_date},
+                {"name": "FORCE_REFRESH", "value": "true"},
+                {"name": "MART_JOB", "value": self._mart_job if trigger_mart else ""},
+            ]}]}}},
+            params={"updateMask": "template.template.containers"},
+            timeout=15,
+        )
+        patch_resp.raise_for_status()
+        # Execute the job
+        run_resp = session.post(self._jobs_url(self._ingestion_job) + ":run", json={}, timeout=10)
+        run_resp.raise_for_status()
+        run_data = run_resp.json()
+        return {
+            "status": "accepted",
+            "start_date": start_date,
+            "end_date": end_date,
+            "trigger_mart": trigger_mart,
+            "execution_name": run_data.get("metadata", {}).get("name", ""),
+        }
+
+
+def build_pipeline_service() -> PipelineService:
+    return PipelineService.from_env()
+
+
 def build_admin_service():
     from packages.admin_api import AdminService
     from packages.postgres_bundle import load_postgres_bundle

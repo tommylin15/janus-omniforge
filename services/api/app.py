@@ -43,7 +43,7 @@ from .assistant_storage import safe_private_record
 from .engine_security import (AgentEvent, AgentEventType, AgentRuntime, ApprovalDecision,
                                ApprovalRequest, RuntimeBinding)
 from .repository import ConflictError, NotFoundError, OversellError, repository_from_env
-from .public_runtime import build_admin_service, build_core_service, build_public_service
+from .public_runtime import build_admin_service, build_core_service, build_pipeline_service, build_public_service
 from .store import PrivateIcebergStore
 
 
@@ -118,6 +118,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                admin_audience: str | None = None,
                admin_emails: frozenset[str] | None = None,
                admin_service: Any | None = None,
+               pipeline_service: Any | None = None,
                internal_verifier: Callable[..., Any] | None = None,
                internal_audience: str | None = None,
                internal_callers: frozenset[str] | None = None,
@@ -166,6 +167,14 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                 LOGGER.warning("admin runtime unavailable: %s", type(error).__name__)
                 raise HTTPException(status_code=503, detail="admin unavailable") from error
         admin_service = _Lazy(unavailable_admin)
+    if pipeline_service is None:
+        def unavailable_pipeline() -> Any:
+            try:
+                return build_pipeline_service()
+            except Exception as error:
+                LOGGER.warning("pipeline service unavailable: %s", type(error).__name__)
+                raise HTTPException(status_code=503, detail="pipeline service unavailable") from error
+        pipeline_service = _Lazy(unavailable_pipeline)
     contexts = ContextSourceService(repository,store,core)
     skills = AssistantStorage(repository, store)
     auth = GoogleUserAuthenticator(audience or os.getenv("GOOGLE_USER_CLIENT_ID", ""), repository,
@@ -416,16 +425,18 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     static_dir = Path(__file__).resolve().parents[2] / "apps" / "web" / "static"
     flutter_dir = Path(__file__).resolve().parents[2] / "apps" / "user_app" / "build" / "web"
 
+    _coop_headers = {"Cross-Origin-Opener-Policy": "unsafe-none"}
+
     @api.get("/app", include_in_schema=False)
     def flutter_app_root():
-        return FileResponse(flutter_dir / "index.html")
+        return FileResponse(flutter_dir / "index.html", headers=_coop_headers)
 
     @api.get("/app/{path:path}", include_in_schema=False)
     def flutter_app(path: str):
         candidate = flutter_dir / path
         if candidate.is_file():
             return FileResponse(candidate)
-        return FileResponse(flutter_dir / "index.html")
+        return FileResponse(flutter_dir / "index.html", headers=_coop_headers)
 
     @api.get("/admin", include_in_schema=False)
     @api.get("/admin/stocks", include_in_schema=False)
@@ -1000,23 +1011,6 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @admin.get("/audit")
     def admin_audit(limit: int = Query(50, ge=1, le=50)):
         return jsonable_encoder({"items": admin_service.audit(limit=limit)})
-
-    @admin.get("/memberships/{coverage_tier}")
-    def admin_membership(coverage_tier: str):
-        return jsonable_encoder(admin_service.membership_snapshot(coverage_tier))
-
-    @admin.put("/memberships/{coverage_tier}")
-    def admin_set_membership(coverage_tier: str, payload: dict[str, Any] = Body(...), actor: str = Depends(admin_actor)):
-        expected = payload.get("expected_version")
-        if isinstance(expected, bool) or not isinstance(expected, int) or expected < 0:
-            raise AdminValidationError("expected_version is required")
-        symbols = payload.get("symbols")
-        if not isinstance(symbols, list):
-            raise AdminValidationError("symbols are required")
-        return jsonable_encoder(admin_service.set_membership(
-            coverage_tier, tuple(symbols), effective_from=admin_service.parse_datetime(payload.get("effective_from", "")),
-            reason=payload.get("reason", ""), owner=actor, expected_version=expected,
-        ))
 
     @internal.post("/assistant/context:resolve")
     def resolve_context(value:ContextResolveIn):

@@ -55,6 +55,7 @@ jobs:
               - 'packages/admin_api/**'
               - 'packages/web_api/**'
               - 'apps/web/static/**'
+              - 'apps/user_app/**'
               - 'cloudbuild.yaml'
               - 'scripts/gcp/**'
 

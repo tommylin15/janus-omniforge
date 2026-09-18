@@ -283,13 +283,18 @@ class GoogleAuthMiddleware:
             connect = "'self' https://accounts.google.com/gsi/ https://janus-api-2oo7qbkd5q-uc.a.run.app"
         else:
             script, frame, connect = "'self'", "'none'", "'self'"
-        return [
+        headers = [
             ("X-Content-Type-Options", "nosniff"),
             ("Strict-Transport-Security", "max-age=31536000; includeSubDomains"),
             ("Referrer-Policy", "no-referrer"),
             ("Permissions-Policy", "camera=(), microphone=(), geolocation=()"),
             ("Content-Security-Policy", f"default-src 'none'; script-src {script}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.googleusercontent.com; frame-src {frame}; connect-src {connect}; base-uri 'none'; form-action 'self' https://accounts.google.com"),
         ]
+        if login:
+            # Google GSI popup mode requires cross-origin window access (window.closed).
+            # Restrict opener access while still allowing the GSI popup to communicate.
+            headers.append(("Cross-Origin-Opener-Policy", "unsafe-none"))
+        return headers
 
 
 def protect_with_google(app: Callable[..., Any]) -> Callable[..., Any]:

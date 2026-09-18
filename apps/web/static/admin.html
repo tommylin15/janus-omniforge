@@ -23,10 +23,10 @@
         <button class="nav-link" id="tab-status" role="tab" aria-selected="false" aria-controls="stock-status" data-tab="status" type="button"><span aria-hidden="true">▦</span>股票資料狀態</button>
         <button class="nav-link" id="tab-executions" role="tab" aria-selected="false" aria-controls="executions" data-tab="executions" type="button"><span aria-hidden="true">↻</span>最近執行</button>
         <button class="nav-link" id="tab-sources" role="tab" aria-selected="false" aria-controls="sources" data-tab="sources" type="button"><span aria-hidden="true">⌁</span>資料源健康</button>
-        <button class="nav-link" id="tab-membership" role="tab" aria-selected="false" aria-controls="membership" data-tab="membership" type="button"><span aria-hidden="true">◎</span>核心 50 名單</button>
         <button class="nav-link" id="tab-settings" role="tab" aria-selected="false" aria-controls="settings" data-tab="settings" type="button"><span aria-hidden="true">◷</span>排程與保存設定</button>
         <button class="nav-link" id="tab-catalog" role="tab" aria-selected="false" aria-controls="catalog" data-tab="catalog" type="button"><span aria-hidden="true">▤</span>資料源設定</button>
         <button class="nav-link" id="tab-mart" role="tab" aria-selected="false" aria-controls="mart" data-tab="mart" type="button"><span aria-hidden="true">◇</span>Mart 分析</button>
+        <button class="nav-link" id="tab-backfill" role="tab" aria-selected="false" aria-controls="backfill" data-tab="backfill" type="button"><span aria-hidden="true">↺</span>歷史補跑</button>
         <button class="nav-link" id="tab-governance" role="tab" aria-selected="false" aria-controls="governance" data-tab="governance" type="button"><span aria-hidden="true">◆</span>Governance</button>
       </nav>
       <small class="build-version">版本 <span id="build-version">讀取中</span></small>
@@ -98,15 +98,6 @@
           <div class="pagination"><span id="source-page-label">第 1 頁</span><div><button id="prev-source-page" class="button quiet" type="button">上一頁</button><button id="next-source-page" class="button quiet" type="button">下一頁</button></div></div>
         </section>
 
-        <section id="membership" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-membership" hidden>
-          <div class="panel-heading"><div><p class="eyebrow">COVERAGE</p><h2>核心 50 名單</h2></div><span id="membership-count" class="tag neutral">0 / 50</span></div>
-          <form id="membership-form" class="stack-form">
-            <label>股票代號（逗號或換行分隔）<textarea id="membership-symbols" rows="4" placeholder="2330, 2317"></textarea></label>
-            <label>生效時間<input id="membership-effective" type="datetime-local" required></label>
-            <label>變更理由<input id="membership-reason" required placeholder="例：季度核心名單調整"></label>
-            <button class="button primary" type="submit">儲存不可變更版本</button>
-          </form>
-        </section>
       <section id="mart" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-mart" hidden>
         <div class="panel-heading"><div><p class="eyebrow">IMMUTABLE MART</p><h2>Mart 分析</h2></div><span class="tag neutral">persisted artifacts only</span></div>
         <form id="mart-filter" class="toolbar" role="search">
@@ -121,6 +112,18 @@
         </form>
         <div class="table-wrap"><table><thead><tr><th>日期</th><th>Scope</th><th>ID</th><th>Outcome</th><th>Publication</th><th>Prompt</th><th>Completeness</th><th>Artifact</th><th>審查</th></tr></thead><tbody id="mart-rows"><tr><td colspan="9" class="empty">正在載入 persisted Mart index…</td></tr></tbody></table></div>
       </section>
+      <section id="backfill" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-backfill" hidden>
+        <div class="panel-heading"><div><p class="eyebrow">PIPELINE OPS</p><h2>歷史補跑</h2></div><span class="tag neutral">觸發 Cloud Run Job</span></div>
+        <p class="form-note">設定日期區間後送出，系統會更新 <code>janus-ingestion-core</code> 的環境變數並立即執行。最多 367 個日曆天。</p>
+        <form id="backfill-form" class="form-grid">
+          <label>起始日期<input id="bf-start" type="date" required></label>
+          <label>結束日期<input id="bf-end" type="date" required></label>
+          <label class="check-label"><input id="bf-trigger-mart" type="checkbox"> 完成後觸發 Mart</label>
+          <button class="button primary" type="submit">執行補跑</button>
+        </form>
+        <pre id="backfill-result" class="form-note" aria-live="polite"></pre>
+      </section>
+
       <section id="settings" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-settings" hidden>
         <div class="panel-heading"><div><p class="eyebrow">OPERATIONS SETTINGS</p><h2>排程與保存設定</h2></div><span class="tag neutral">需填寫操作者與版本</span></div>
         <form id="settings-form" class="form-grid">

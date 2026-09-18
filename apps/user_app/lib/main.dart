@@ -836,9 +836,13 @@ class _TodayPageState extends State<TodayPage> {
   Widget build(BuildContext context) => FutureBuilder<dynamic>(
       future: brief,
       builder: (context, snapshot) {
-        if (snapshot.hasError) return ErrorView(snapshot.error.toString(), reload);
         if (snapshot.connectionState != ConnectionState.done)
           return const Center(child: CircularProgressIndicator());
+        if (snapshot.hasError)
+          return ListView(padding: const EdgeInsets.all(16), children: [
+            const ListTile(leading: Icon(Icons.info_outline), title: Text('今日市場資料尚未就緒')),
+            const Text('本服務提供研究資訊，不構成投資建議。')
+          ]);
         final root = snapshot.data as Map?;
         final items = root?['items'] is List ? root!['items'] as List : const [];
         final report = items.isNotEmpty && items.first is Map ? items.first as Map : const {};
