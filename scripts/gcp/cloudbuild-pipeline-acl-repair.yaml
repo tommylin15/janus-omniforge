@@ -1,0 +1,35 @@
+substitutions:
+  _POSTGRES_VM: janus-postgres-dev
+  _POSTGRES_ZONE: us-central1-a
+
+steps:
+  - id: apply-027-pipeline-acl-repair
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        gcloud compute ssh "${_POSTGRES_VM}" --project="${PROJECT_ID}" --zone="${_POSTGRES_ZONE}" \
+          --tunnel-through-iap --quiet --command \
+          $'sudo docker exec --user postgres janus-postgres psql -U postgres -d janus_control -v ON_ERROR_STOP=1 -c \
+          "GRANT SELECT, DELETE ON private.mcp_oauth_codes TO janus_private_pipeline; \
+           INSERT INTO control.schema_migrations(version) VALUES (\'027_pipeline_acl_repair\') ON CONFLICT(version) DO NOTHING;"\''
+        echo "Migration 027 applied."
+
+  - id: verify-pipeline-acl
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        result=$(gcloud compute ssh "${_POSTGRES_VM}" --project="${PROJECT_ID}" --zone="${_POSTGRES_ZONE}" \
+          --tunnel-through-iap --quiet --command \
+          'sudo docker exec --user postgres janus-postgres psql -U postgres -d janus_control -t -A -c \
+          "SELECT (has_table_privilege($$janus_private_pipeline$$, $$private.mcp_oauth_codes$$, $$SELECT$$) AND has_table_privilege($$janus_private_pipeline$$, $$private.mcp_oauth_codes$$, $$DELETE$$))::text || chr(124) || (SELECT version FROM control.schema_migrations WHERE version=$$027_pipeline_acl_repair$$)"')
+        echo "ACL check result: ${result}"
+        echo "${result}" | grep -q "^t|027_pipeline_acl_repair$" || { echo "ACL verification FAILED"; exit 1; }
+        echo "ACL verification passed."
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 300s

@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from services.api.private_pipeline import PrivatePipeline, calculate_marts, calculate_risk_marts, xirr
+from services.api.private_pipeline import PrivatePipeline, calculate_marts, calculate_risk_marts, resolve_valuation_date, xirr
 from services.api.store import PrivateIcebergStore
 
 
@@ -70,6 +70,90 @@ def test_checkpoint_advances_only_after_all_private_writes():
     failed_repo=Repository()
     with pytest.raises(RuntimeError): PrivatePipeline(failed_repo,Store(True),lambda symbols,when:{}).run(date(2026,9,4))
     assert failed_repo.advanced==[]
+
+
+def test_empty_queue_does_not_resolve_valuation_rewrite_marts_or_advance_checkpoint():
+    class EmptyRepository:
+        def pipeline_checkpoint(self): return 7
+        def pipeline_batch(self,checkpoint,limit): return []
+        def pending_deletions(self): return []
+        def advance_pipeline_checkpoint(self,value): raise AssertionError("checkpoint advanced")
+    store=Store()
+    pipeline=PrivatePipeline(EmptyRepository(),store,lambda *_: {},
+        valuation_date_resolver=lambda: (_ for _ in ()).throw(AssertionError("valuation resolved")))
+    assert pipeline.run()==7
+    assert store.tables==[]
+
+
+@pytest.mark.parametrize(("now","persisted"),(
+    (datetime(2026,9,19,8,tzinfo=timezone(timedelta(hours=8))),date(2026,9,18)),  # weekend
+    (datetime(2026,9,16,11,tzinfo=timezone(timedelta(hours=8))),date(2026,9,15)), # holiday/incomplete ingestion
+    (datetime(2026,9,16,21,30,tzinfo=timezone(timedelta(hours=8))),date(2026,9,16)), # completed ingestion
+))
+def test_normal_valuation_uses_latest_persisted_date(now,persisted):
+    calls=[]
+    def latest(eligible_through):
+        calls.append(eligible_through)
+        return persisted
+    assert resolve_valuation_date(None,latest,now)==persisted
+    assert calls==[now.date()]
+
+
+def test_valuation_override_and_future_data_prevention():
+    assert resolve_valuation_date("2025-12-31",lambda _: (_ for _ in ()).throw(AssertionError()))==date(2025,12,31)
+    with pytest.raises(ValueError,match="future data"):
+        resolve_valuation_date(None,lambda _:date(2026,9,21),datetime(2026,9,20,tzinfo=timezone.utc))
+
+
+def test_core_price_reader_selects_latest_eligible_persisted_date():
+    from services.api.private_pipeline import CorePriceReader
+    class Scan:
+        def to_arrow(self): return self
+        def to_pylist(self): return [{"trade_date":date(2026,9,17)},{"trade_date":date(2026,9,18)}]
+    class Table:
+        def scan(self,**kwargs):
+            assert kwargs["selected_fields"]==("trade_date",)
+            return Scan()
+    class Catalog:
+        def table_exists(self,name): return name=="core.ohlcv_v1"
+        def load_table(self,name): return Table()
+    assert CorePriceReader(Catalog()).latest_valuation_date(date(2026,9,20))==date(2026,9,18)
+
+
+def test_partial_write_replay_is_logically_idempotent():
+    class ReplayRepository(Repository):
+        def __init__(self): super().__init__(); self.checkpoint=7
+        def pipeline_checkpoint(self): return self.checkpoint
+        def pipeline_batch(self,checkpoint,limit):
+            return [] if checkpoint>=8 else [{"change_id":8,"user_id":USER}]
+        def advance_pipeline_checkpoint(self,value): self.checkpoint=value
+    class ReplayStore:
+        def __init__(self): self.rows={}; self.calls=0; self.fail=True
+        def upsert(self,table,rows):
+            self.calls+=1
+            bucket=self.rows.setdefault(table,set())
+            bucket.update(tuple(sorted((key,str(value)) for key,value in row.items())) for row in rows)
+            if self.fail and self.calls==3: raise RuntimeError("partial write")
+    repo,store=ReplayRepository(),ReplayStore()
+    pipeline=PrivatePipeline(repo,store,lambda symbols,when:{"2330":Decimal("12")})
+    with pytest.raises(RuntimeError,match="partial write"): pipeline.run(date(2026,9,18))
+    assert repo.checkpoint==7
+    before={table:len(rows) for table,rows in store.rows.items()}
+    store.fail=False
+    assert pipeline.run(date(2026,9,18))==8
+    assert repo.checkpoint==8
+    assert all(len(rows)>=before.get(table,0) for table,rows in store.rows.items())
+
+
+def test_current_mart_prefers_latest_valuation_over_historical_replay():
+    store=object.__new__(PrivateIcebergStore)
+    store.rows=lambda *_args,**_kwargs:[
+        {"valuation_date":"2026-09-18","ledger_version":4,"value":"current"},
+        {"valuation_date":"2026-09-05","ledger_version":5,"value":"replay"},
+        {"valuation_date":"2026-09-18","ledger_version":5,"value":"corrected"},
+    ]
+    assert store.mart("mart_user_positions",USER)==[
+        {"valuation_date":"2026-09-18","ledger_version":5,"value":"corrected"}]
 
 
 def test_xirr_reports_unique_missing_and_multiple_roots_without_filling_zero():

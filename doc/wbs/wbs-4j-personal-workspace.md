@@ -12,6 +12,8 @@
 ### 4J.2 Private Core／Mart
 
 - private pipeline 依 persisted checkpoint 批次讀取 ledger／note／watchlist version，將新事件冪等地直接正規化至 Private Iceberg Core；失敗從最後成功 checkpoint 重跑，不建立 Private Stage／DataSrc。
+- normal execution 未指定 `VALUATION_DATE` 時，只使用執行當下可見且不晚於 Asia/Taipei 當日的最新 persisted Core OHLCV trading date；週末、休市或當日 ingestion 尚未完成時沿用最近可用日期。explicit `VALUATION_DATE=YYYY-MM-DD` 保留 deterministic historical replay。
+- dev 以四個 weekday Cloud Scheduler（07:40／11:00／14:00／21:30，`Asia/Taipei`）觸發同一 `janus-private-pipeline` Cloud Run Job；空 change queue 不解析 valuation、不重寫 Mart、不推進 checkpoint。
 - 產製 `mart_user_positions`、`mart_user_realized_pnl`、`mart_user_unrealized_pnl` 與 `mart_user_annual_pnl`；使用第一階段股票 master／行情 Core，MVP 成本法固定移動平均，估值缺價不得當成 0。
 - 筆記正文與 revision、關注歷史儘可能保存在 Private Iceberg；PostgreSQL 只保留交易 OLTP facts、目前關注狀態、必要索引、版本、checkpoint 與 artifact reference。
 - Private Core／Mart 只由 `/api/v1/me/*` 依 authenticated user 讀取，不進 public publication index、話題或排行榜；公開 `mart_scoped_analysis` 完成後再加入 symbol-scope 個人化 overlay。

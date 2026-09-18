@@ -414,6 +414,18 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def public_health() -> dict[str, str]: return {"status":"ok"}
 
     static_dir = Path(__file__).resolve().parents[2] / "apps" / "web" / "static"
+    flutter_dir = Path(__file__).resolve().parents[2] / "apps" / "user_app" / "build" / "web"
+
+    @api.get("/app", include_in_schema=False)
+    def flutter_app_root():
+        return FileResponse(flutter_dir / "index.html")
+
+    @api.get("/app/{path:path}", include_in_schema=False)
+    def flutter_app(path: str):
+        candidate = flutter_dir / path
+        if candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(flutter_dir / "index.html")
 
     @api.get("/admin", include_in_schema=False)
     @api.get("/admin/stocks", include_in_schema=False)

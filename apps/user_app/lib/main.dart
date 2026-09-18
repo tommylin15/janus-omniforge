@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 
+const portfolioPendingMessage = '交易已儲存，等待投資組合批次更新';
+
 void main() => runApp(const JanusApp());
 
 class JanusApp extends StatefulWidget {
@@ -114,9 +116,9 @@ class _LoginPageState extends State<LoginPage> {
     });
     try {
       const client = String.fromEnvironment('GOOGLE_USER_CLIENT_ID');
-      final account =
-          await GoogleSignIn(clientId: client, serverClientId: client).signIn();
-      final token = (await account?.authentication)?.idToken;
+      final account = await GoogleSignIn(clientId: client).signIn();
+      final auth = await account?.authentication;
+      final token = auth?.idToken ?? auth?.accessToken;
       if (account == null || token == null) return;
       if (mounted)
         Navigator.of(context).pushReplacement(MaterialPageRoute(
@@ -1139,6 +1141,8 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
     }).toString());
   }
   void reload() => setState(() => rows = load());
+  void showPortfolioPending() => ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(portfolioPendingMessage)));
   Future<void> add() async {
     if (segment == 1) {
       final body = await textDialog(context, '新增筆記', '筆記內容');
@@ -1151,6 +1155,7 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
     final payload = await transactionDialog(context);
     if (payload != null) {
       await widget.api.post('/api/v1/me/journal/events', payload);
+      if (mounted) showPortfolioPending();
       reload();
     }
   }
@@ -1229,6 +1234,7 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
                                                 row['record_version'],
                                             'replacement': replacement
                                           });
+                                      if (mounted) showPortfolioPending();
                                       reload();
                                     }
                                   } else {
@@ -1459,11 +1465,11 @@ class ProfilePage extends StatelessWidget {
                   await textDialog(context, '永久刪除私人資料', '輸入 DELETE 確認');
               if (answer == 'DELETE' && context.mounted) {
                 const client = String.fromEnvironment('GOOGLE_USER_CLIENT_ID');
-                final google =
-                    GoogleSignIn(clientId: client, serverClientId: client);
+                final google = GoogleSignIn(clientId: client);
                 await google.signOut();
                 final account = await google.signIn();
-                final token = (await account?.authentication)?.idToken;
+                final auth = await account?.authentication;
+                final token = auth?.idToken ?? auth?.accessToken;
                 if (token != null)
                   await Api(token).delete('/api/v1/me/private-data');
                 if (context.mounted)

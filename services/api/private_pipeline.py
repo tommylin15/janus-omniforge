@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from functools import reduce
 from hashlib import sha256
@@ -11,9 +11,12 @@ from math import exp
 import json
 import os
 from typing import Any, Callable, Iterable
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 ZERO = Decimal("0")
+try: TAIPEI = ZoneInfo("Asia/Taipei")
+except ZoneInfoNotFoundError: TAIPEI = timezone(timedelta(hours=8))
 
 
 class CorePriceReader:
@@ -44,6 +47,19 @@ class CorePriceReader:
         for row in rows:
             if row["symbol"] not in latest or row["trade_date"]>latest[row["symbol"]]["trade_date"]: latest[row["symbol"]]=row
         return {symbol:Decimal(str(row["close"])) for symbol,row in latest.items()}
+
+    def latest_valuation_date(self, eligible_through: date) -> date:
+        identifier="core.ohlcv_v1"
+        if not self.catalog.table_exists(identifier):
+            raise ValueError("no persisted OHLCV is available for valuation")
+        from pyiceberg.expressions import LessThanOrEqual
+        rows=self.catalog.load_table(identifier).scan(
+            row_filter=LessThanOrEqual("trade_date",eligible_through),
+            selected_fields=("trade_date",)).to_arrow().to_pylist()
+        dates=[value.date() if isinstance(value:=row["trade_date"],datetime)
+               else value if isinstance(value,date) else date.fromisoformat(str(value)) for row in rows]
+        if not dates: raise ValueError("no eligible persisted valuation date is available")
+        return max(dates)
 
     def memberships(self, symbols: set[str], valuation_date: date) -> dict[str, list[dict[str, Any]]]:
         identifier="mart.mart_sector_rotation_daily_v1"
@@ -203,14 +219,19 @@ class PrivatePipeline:
     def __init__(self, repository: Any, store: Any,
                  prices: Callable[[set[str],date],dict[str,Decimal|None]],
                  assistant_cleanup: Callable[[Any],None] | None = None,
-                 memberships: Callable[[set[str],date],dict[str,list[dict[str,Any]]]] | None = None) -> None:
+                 memberships: Callable[[set[str],date],dict[str,list[dict[str,Any]]]] | None = None,
+                 valuation_date_resolver: Callable[[],date] | None = None) -> None:
         self.repository,self.store,self.prices,self.assistant_cleanup=repository,store,prices,assistant_cleanup
         self.memberships=memberships or (lambda _symbols,_when:{})
+        self.valuation_date_resolver=valuation_date_resolver
 
-    def run(self, valuation_date: date, limit: int = 500) -> int:
+    def run(self, valuation_date: date | None = None, limit: int = 500) -> int:
         checkpoint=self.repository.pipeline_checkpoint(); changes=self.repository.pipeline_batch(checkpoint,limit)
         completed=checkpoint
         if changes:
+            if valuation_date is None:
+                if self.valuation_date_resolver is None: raise ValueError("valuation date is unavailable")
+                valuation_date=self.valuation_date_resolver()
             user_ids={row["user_id"] for row in changes}
             for user_id in user_ids:
                 ledger=self.repository.ledger_for_pipeline(user_id)
@@ -231,6 +252,9 @@ class PrivatePipeline:
         for request in self.repository.pending_deletions():
             self.store.delete_user(request["user_id"])
             if self.assistant_cleanup is None:
+                if not self.repository.assistant_cleanup_required(request["user_id"]):
+                    self.repository.complete_deletion(request["request_id"],request["user_id"])
+                    continue
                 self.repository.mark_deletion_cleanup_pending(request["request_id"],request["user_id"])
                 continue
             self.assistant_cleanup(request["user_id"])
@@ -238,11 +262,21 @@ class PrivatePipeline:
         return completed
 
 
+def resolve_valuation_date(override: str | None, latest: Callable[[date],date],
+                           now: datetime | None = None) -> date:
+    if override: return date.fromisoformat(override)
+    current=(now or datetime.now(TAIPEI)).astimezone(TAIPEI).date()
+    resolved=latest(current)
+    if resolved>current: raise ValueError("valuation date cannot use future data")
+    return resolved
+
+
 def main() -> None:
     from packages.postgres_bundle import load_postgres_bundle
     load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", {
         "PRIVATE_DATABASE_URL": ("pipeline_database_url", "database_url"),
         "PRIVATE_CATALOG_PASSWORD": ("pipeline_catalog_password", "catalog_password"),
+        "CORE_CATALOG_PASSWORD": "core_catalog_password",
     })
     if os.getenv("ASSISTANT_STORAGE_ACCEPTANCE") == "true":
         from .assistant_storage_acceptance import run
@@ -261,8 +295,10 @@ def main() -> None:
     else:
         cleanup=None
     market=CorePriceReader.from_env()
-    completed=PrivatePipeline(repository_from_env(),PrivateIcebergStore.from_env(),market,cleanup,market.memberships).run(
-        date.fromisoformat(os.getenv("VALUATION_DATE",date.today().isoformat())))
+    override=os.getenv("VALUATION_DATE") or None
+    completed=PrivatePipeline(repository_from_env(),PrivateIcebergStore.from_env(),market,cleanup,market.memberships,
+        lambda:resolve_valuation_date(None,market.latest_valuation_date)).run(
+        date.fromisoformat(override) if override else None)
     print(f"private pipeline checkpoint={completed}")
 
 

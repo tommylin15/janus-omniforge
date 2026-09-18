@@ -45,6 +45,8 @@ K 線、五角色明細、估值指標與完整 provenance 屬「進階資料」
 
 ### 5.4 個人記帳與筆記
 
+- 交易或更正 API 成功只代表 ledger 已持久化；UI 顯示「交易已儲存，等待投資組合批次更新」，positions／PnL／exposure／performance 仍以最新成功 Private Mart 的 valuation date 為準。
+
 - 本頁是 P0 User App 主功能，不依賴公開 Mart／LLM；使用 segmented control 切換「記帳／筆記」。
 - 與市場探索分頁，進入後先顯示「目前持股」、「本年已實現損益」與「待完成筆記」三張摘要卡。
 - 交易類型：買進、賣出、現金股利、股票股利；依類型顯示日期、股票代號／名稱、股數、成交單價、股利金額、手續費、證券交易稅、幣別與備註，不顯示無關欄位。

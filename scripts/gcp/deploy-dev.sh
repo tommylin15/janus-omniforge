@@ -80,10 +80,11 @@ case "${component}" in
     ;;
   private-pipeline)
     gcloud run jobs update "${runtime_name}" --project="${project}" --region="${region}" \
-    --service-account="janus-private-pipeline@${project}.iam.gserviceaccount.com" \
-    --tasks=1 --parallelism=1 --max-retries=1 --task-timeout=30m \
-      --remove-secrets="PRIVATE_DATABASE_URL,PRIVATE_CATALOG_PASSWORD,JANUS_PIPELINE_POSTGRES_BUNDLE" \
-      --update-secrets="CORE_CATALOG_PASSWORD=janus-postgres-api-bundle:latest,JANUS_API_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" --quiet
+      --service-account="janus-private-pipeline@${project}.iam.gserviceaccount.com" \
+      --tasks=1 --parallelism=1 --max-retries=1 --task-timeout=30m \
+      --remove-env-vars="VALUATION_DATE" \
+      --remove-secrets="CORE_CATALOG_PASSWORD,PRIVATE_DATABASE_URL,PRIVATE_CATALOG_PASSWORD,JANUS_PIPELINE_POSTGRES_BUNDLE" \
+      --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" --quiet
     ;;
   api)
     service_flags=()
@@ -99,7 +100,11 @@ case "${component}" in
       [[ "${oauth_resource}" == https://mcp-adapter---*.a.run.app/mcp ]] || { echo "Dev MCP resource must use the mcp-adapter tag." >&2; exit 1; }
       api_env="${api_env},MCP_OAUTH_ISSUER=${oauth_issuer},MCP_RESOURCE_URL=${oauth_resource},GOOGLE_USER_ALLOWED_EMAILS=${oauth_emails}"
     fi
+    deployed_digest="$(gcloud artifacts docker images describe \
+      "us-central1-docker.pkg.dev/${project}/janusai-poc/api:${tag}" \
+      --project="${project}" --format='value(image_summary.digest)')"
     gcloud run services update "${runtime_name}" --project="${project}" --region="${region}" \
+      --image="us-central1-docker.pkg.dev/${project}/janusai-poc/api@${deployed_digest}" \
       --service-account="janus-user-api@${project}.iam.gserviceaccount.com" \
       --min-instances=0 --max-instances=2 --concurrency=20 --timeout=60 \
       --update-env-vars="${api_env}" \

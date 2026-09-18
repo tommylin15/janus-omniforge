@@ -1,6 +1,55 @@
 # Operations and testing
 
-最新驗證日期：2026-09-17
+## WBS 4J Private Pipeline ACL repair（2026-09-18）
+
+根因：`apply-private-storage-postgres-migration.sh` 有 shell bug，第二個 `psql` 命令
+缺少 `sudo docker exec`，導致 migration 026 在本機執行而非容器內，使
+`private.mcp_oauth_codes` 的 `janus_private_pipeline` 只有 DELETE 沒有 SELECT。
+`DELETE ... WHERE user_id=%s` 需要 SELECT 評估 predicate，因此 deletion flow 失敗。
+
+修正：
+- `infra/postgres/migrations/027_pipeline_acl_repair.sql`：冪等 `GRANT SELECT, DELETE ON private.mcp_oauth_codes TO janus_private_pipeline`
+- `scripts/gcp/apply-private-storage-postgres-migration.sh`：修正 shell bug，兩個 psql 合入同一 `docker exec bash`
+- `apply-mart-postgres-migration.sh`、`apply-web-postgres-migration.sh`：加入 027
+- `infra/postgres/private-storage-acceptance.sql`：加入 `has_table_privilege` SELECT+DELETE 驗證
+
+GCP dev 直接透過 IAP SSH 執行：`GRANT` + `INSERT 0 1`（migration marker）成功。
+ACL 驗證 `SELECT=t, DELETE=t, migrated=t`。
+Pipeline execution `janus-private-pipeline-mvnnz`：`succeededCount=1`、`checkpoint=62`、`exit(0)`。
+本機 targeted tests：`pytest tests/test_private_pipeline.py tests/test_private_pipeline_scheduler.py` **19 passed**。
+
+## WBS 4J Private Portfolio closed-loop implementation checkpoint（2026-09-18）
+
+Private Pipeline normal execution 改為在有 pending change 時，從 persisted
+`core.ohlcv_v1` 解析不晚於 Asia/Taipei 執行日的最新 trading date；explicit
+`VALUATION_DATE` 仍保留 historical replay。空 queue 不解析 valuation、不寫 Mart、
+不推 checkpoint。current Mart 先取最新 valuation date、同日再取最新 ledger version，
+避免 historical replay 蓋掉較新的正常 valuation。dev deploy config 會移除既有固定
+`VALUATION_DATE`。
+
+新增四個共用既有 `janus-private-pipeline` Job 的 dev Scheduler config：weekday
+07:40／11:00／14:00／21:30、`Asia/Taipei`，沿用
+`janus-ingestion-scheduler` identity，僅要求該 Job 的 `roles/run.invoker`。套用腳本具
+dev 與 explicit apply guard。
+
+模型切換後已完成本機 targeted validation：47 tests passed、Git Bash `bash -n` 與
+`git diff --check` 通過。既有 GCP dev project
+`gen-lang-client-0593591102` 已部署 Cloud Build
+`faf36436-1287-495a-a0e8-46f2fbc908de` 產出的 private-pipeline image
+`sha256:e2b0a93023242e13f4c4578d953bf58ba8d14709f1c30b1f1cefd1aa3d1bc368`；Job
+已移除固定 `VALUATION_DATE`，保留既有 service account／network／retry 設定。
+四個 Scheduler 已套用且均為 `ENABLED`，target 都是同一個既有 Job；既有 Job 的
+`roles/run.invoker` 已授予 `janus-ingestion-scheduler`。
+
+GCP dev smoke execution `janus-private-pipeline-lw895` 以 `Completed=True`、
+`succeededCount=1`、log `exit(0)` 完成，application log checkpoint=54；IAP 唯讀
+聚合查詢顯示 pipeline checkpoint=54、change-log max=0、pending=0、owners=3、
+ledger_events=0。這驗證了空 queue no-op 與新部署可正常啟動。瀏覽器交易入口可載入，
+但本次 Google login popup 的 UI 控制逾時，因此本 checkpoint 不宣稱新建交易→批次
+Mart→刪除的真人 browser E2E 已完成；既有 2026-09-05 完整交易 acceptance 證據仍
+有效，後續只需重新執行該 browser flow 即可補齊本次 runtime change 的 live trade path。
+
+最新驗證日期：2026-09-18
 
 ## WBS-8 ChatGPT MCP consent redirect defect acceptance（2026-09-17）
 

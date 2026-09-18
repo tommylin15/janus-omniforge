@@ -19,9 +19,13 @@
 - [TODO 完成紀錄（2026-09-17：WBS-8 pilot release baseline）](archive/todo-completed-2026-09-17-wbs8-pilot-release-baseline.md)
 - [已完成 WBS 0／1／2／4](archive/wbs-completed-through-2026-08-31.md)
 
-## 目前進度（2026-09-16）
+## 目前進度（2026-09-18，Flutter web deploy）
 
-- WBS 4J 獨立 MVP：journal／note／Private Iceberg 完整交易、重跑、刪除與 A／B 隔離已結案；僅依賴 WBS 5 的個人化 analysis overlay 尚未啟用。
+- Flutter web 部署（方式 B）：`services/api/Dockerfile` 改為 multi-stage build（stage 1：`ghcr.io/cirruslabs/flutter:stable` build `apps/user_app`；stage 2：Python image，`COPY --from=flutter-build`）；`services/api/app.py` 加入 `/app` 與 `/app/{path:path}` SPA catch-all 路由，serve `apps/user_app/build/web/`。部署指令：`ALLOW_DEV_DEPLOY=true bash scripts/gcp/deploy-dev.sh api`；部署後 URL：`https://janus-api-2oo7qbkd5q-uc.a.run.app/app`。GCP dev 驗收待執行。
+
+## 目前進度（2026-09-18）
+
+- WBS 4J 獨立 MVP：journal／note／Private Iceberg 完整交易、重跑、刪除與 A／B 隔離已結案；Private Portfolio closed-loop maintenance 已完成 code／local tests／GCP dev Job smoke／Scheduler config，四個 Scheduler 已 active；本次新交易 browser E2E 因 Google login popup UI 控制逾時尚未重跑，不宣稱本次 live trade path 完整驗收；個人化 analysis overlay 尚未啟用。
 - WBS 4C：Agent Runtime／AgentEvent、security contract、context sources、MCP host、Gemini REST、OpenRouter provider、Private Storage、Skills contract、Codex auth lifecycle 與 Chat API contract 的已完成部分已歸檔；Codex Chat API durable continuation、真人 device-code 流程與整合驗收仍未完成。
 - WBS-4C-CODEX-BRIDGE checkpoint：雙向 stdio JSON-RPC、Threads／Turns／Items、device-code managed login、request-bound Approvals、共用 MCP dynamic-tool path 與 `turn/started` 事件驅動 cancellation 已完成；GCP Cloud Build contract tests 5／5 通過，Cloud Run health 3／3 通過，live Codex cancellation 200 通過，checkpoint reconnect 通過。現有全域 Secret／固定 owner 仍僅是 dev POC，不代表 owner-scoped auth lifecycle 完成。驗收 build `2d95aa6e-cc4e-47d5-97ae-ce9dcfafc479`、revision `janus-agent-gateway-00017-tpf`、digest `sha256:b03a041f2ddf19d3028777d7531f94599fee728024dac471156932ad64df9541`。
 - WBS-4C-PRIVATE-STORAGE：migration 016、Private Iceberg assistant events／Skill revisions、PostgreSQL bounded index、credential-shaped field fail-closed、冪等重跑、A／B 隔離與 Codex auth cleanup pending 契約已完成；GCP dev evidence 詳見 `spec/operations-and-testing.md`。

@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS private.mcp_oauth_codes (
 CREATE INDEX IF NOT EXISTS mcp_oauth_codes_expiry_idx ON private.mcp_oauth_codes(expires_at);
 REVOKE ALL ON private.mcp_oauth_codes FROM PUBLIC;
 GRANT SELECT, INSERT, UPDATE, DELETE ON private.mcp_oauth_codes TO janus_private_api;
+GRANT SELECT, DELETE ON private.mcp_oauth_codes TO janus_private_pipeline;
 
 INSERT INTO control.schema_migrations(version) VALUES ('026_mcp_oauth_codes') ON CONFLICT(version) DO NOTHING;
 

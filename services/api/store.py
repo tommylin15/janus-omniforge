@@ -78,8 +78,8 @@ class PrivateIcebergStore:
         rows = self.rows(table, user_id)
         rows=[row for row in rows if all(row.get(key) == value for key, value in filters.items())]
         if not rows: return []
-        latest=max((row.get("ledger_version",0),str(row.get("valuation_date",""))) for row in rows)
-        return [row for row in rows if (row.get("ledger_version",0),str(row.get("valuation_date","")))==latest]
+        latest=max((str(row.get("valuation_date","")),row.get("ledger_version",0)) for row in rows)
+        return [row for row in rows if (str(row.get("valuation_date","")),row.get("ledger_version",0))==latest]
 
     def write_context_snapshot(self, *, user_id: Any, context_id: str, thread_id: str, source_id: str,
                                resource: str, as_of: str | None, expires_at: datetime,

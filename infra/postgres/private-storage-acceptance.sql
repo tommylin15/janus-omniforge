@@ -38,6 +38,10 @@ BEGIN
   IF has_table_privilege('janus_private_api','private.assistant_threads','DELETE') THEN
     RAISE EXCEPTION 'private API role must not hard-delete assistant threads';
   END IF;
+  IF NOT (has_table_privilege('janus_private_pipeline','private.mcp_oauth_codes','SELECT')
+      AND has_table_privilege('janus_private_pipeline','private.mcp_oauth_codes','DELETE')) THEN
+    RAISE EXCEPTION 'janus_private_pipeline must have SELECT and DELETE on private.mcp_oauth_codes';
+  END IF;
 END $$;
 
 ROLLBACK;

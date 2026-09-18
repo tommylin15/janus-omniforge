@@ -89,10 +89,17 @@ def test_mcp_private_selectors_are_owner_bound_and_reject_extra_or_invalid_combi
     assert result["resource"]=="trades" and result["records"][0]["symbol"]=="2330"
     assert str(OWNER) not in str(result)
 
+    for resource,extra in (("positions",{}),("annual-pnl",{"year":2026}),
+                           ("exposure",{}),("performance",{"year":2026})):
+        response=rpc(api,"tools/call",{"name":"janus_private_context","arguments":{
+            "resource":resource,"limit":2,**extra}},token="valid")
+        value=response.json()["result"]["structuredContent"]
+        assert response.status_code==200 and value["resource"]==resource
+        assert value["bounds"]["returned"]==1 and str(OWNER) not in str(value)
+
     for arguments in ({"resource":"positions","owner_id":str(OWNER)},
                       {"resource":"annual-pnl"},
                       {"resource":"stress-tests","symbol":"2330"},
                       {"resource":"notes"}):
         response=rpc(api,"tools/call",{"name":"janus_private_context","arguments":arguments},token="valid")
         assert response.status_code==200 and response.json()["result"]["isError"] is True
-

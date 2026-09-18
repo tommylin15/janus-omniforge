@@ -16,6 +16,10 @@ class FakeApi extends Api {
 }
 
 void main() {
+  test('trade save wording distinguishes persistence from portfolio refresh', () {
+    expect(portfolioPendingMessage, '交易已儲存，等待投資組合批次更新');
+  });
+
   testWidgets('shows the Google login boundary', (tester) async {
     await tester.pumpWidget(const JanusApp());
     expect(find.text('你的私人投資工作台'), findsOneWidget);

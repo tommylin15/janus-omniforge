@@ -127,5 +127,22 @@ class AssistantStorageTest(unittest.TestCase):
         PrivatePipeline(DeletionRepository(),DeletionStore(),lambda symbols,when:{}).run(date(2026,9,6))
         self.assertEqual(calls,[("iceberg",USER_A),("pending",USER_A)])
 
+    def test_deletion_completes_without_external_cleanup_when_no_assistant_state_exists(self):
+        from datetime import date
+        from services.api.private_pipeline import PrivatePipeline
+
+        calls=[]
+        class DeletionRepository:
+            def pipeline_checkpoint(self): return 0
+            def pipeline_batch(self,checkpoint,limit): return []
+            def pending_deletions(self): return [{"request_id":"request-1","user_id":USER_A}]
+            def assistant_cleanup_required(self,user_id): return False
+            def complete_deletion(self,request_id,user_id): calls.append(("complete",user_id))
+        class DeletionStore:
+            def delete_user(self,user_id): calls.append(("iceberg",user_id))
+
+        PrivatePipeline(DeletionRepository(),DeletionStore(),lambda symbols,when:{}).run(date(2026,9,6))
+        self.assertEqual(calls,[("iceberg",USER_A),("complete",USER_A)])
+
 
 if __name__ == "__main__": unittest.main()
