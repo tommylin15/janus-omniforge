@@ -1,7 +1,13 @@
 # Janus — UI Specification
 
-版本：1.7
+版本：1.8
 狀態：索引；頁面與元件契約依下列切片為準
+
+## 目前 UI 環境定位
+
+目前 GCP `dev` UI 是個人使用階段的真實操作介面，不是 demo／mock UI。User／Admin 畫面預設呈現已持久化的真實 dev 資料、真實登入狀態、真實 API／MCP／provider 狀態與實際 Job／Scheduler 結果；資料缺失、服務不可用、partial／stale 時要明確顯示狀態，不以 sample／placeholder 假裝成功。
+
+測試 fixture、假 secret、故障注入或 localhost 頁面只供自動化／異常驗收，不應出現在正常使用者操作流或被列成正式資料來源。未來若建立獨立 Production UI，是多人化／HA／正式對外營運議題，不是目前 dev UI 能否真實使用的前置條件。
 
 ## AI 最小讀取規則
 
