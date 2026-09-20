@@ -60,8 +60,29 @@ function node(tag, text, className) {
   return element;
 }
 
+const statusLabels = {
+  succeeded: "成功", unavailable: "無法使用", enabled: "已啟用", disabled: "已停用",
+  partial: "部分可用", success: "成功", fallback: "備援", failed: "失敗",
+  schema_drift: "結構變更", queued: "排隊中", running: "執行中", retrying: "重試中",
+  blocked: "已阻擋", publishable: "可發布", published: "已發布", superseded: "已取代",
+  draft: "草稿", complete: "完整", invalid: "無效", review_required: "需要審查",
+  risk_blocked: "風險阻擋", insufficient_data: "資料不足", candidate: "候選", approved: "已核准",
+  approved_fallback: "核准備援", pending: "待處理", development_default: "開發預設",
+  "development-default": "開發預設", official: "官方", collection: "資料收集", analysis: "分析",
+  market: "市場", industry: "產業", symbol: "個股", fundamental: "基本面", valuation: "估值",
+  positioning: "籌碼與定位", quant: "量化", event_risk: "事件風險", intraday: "盤中", daily: "每日",
+  weekly: "每週", quarterly: "每季", on_demand: "按需", market_wide: "全市場", core_focus: "核心聚焦",
+  market_macro: "市場總體", raw_short: "原始資料短期", core_standard: "Core 標準",
+  deep_research: "深度研究", audit: "稽核", available: "可用", suspended: "暫停交易",
+  delisted: "下市", unknown: "未知",
+};
+
+function displayStatus(value) {
+  return statusLabels[value] || value || "無法使用";
+}
+
 function statusBadge(value) {
-  return node("span", value || "unavailable", `state ${value || "unavailable"}`);
+  return node("span", displayStatus(value), `state ${value || "unavailable"}`);
 }
 
 function formatDate(value) {
@@ -75,7 +96,7 @@ function formatRatio(value) {
 }
 
 function formatNullProfile(item) {
-  if (!item.null_profile?.length) return item.row_count ? "0（無 Null）" : "—";
+  if (!item.null_profile?.length) return item.row_count ? "0（無缺值）" : "—";
   return `${item.null_count} · ${item.null_profile.map((field) => `${field.field} ${field.count} (${formatRatio(field.ratio)})`).join("；")}`;
 }
 
@@ -154,8 +175,7 @@ function renderStocks() {
     const identity = document.createElement("td");
     identity.append(node("strong", stock.symbol), node("small", stock.name));
     const enabled = document.createElement("td");
-    enabled.append(statusBadge(stock.enabled ? "succeeded" : "unavailable"));
-    enabled.lastChild.textContent = stock.enabled ? "enabled" : "disabled";
+    enabled.append(statusBadge(stock.enabled ? "enabled" : "disabled"));
     const action = document.createElement("td");
     action.className = "align-right";
     const toggle = node("button", stock.enabled ? "停用" : "啟用", "button quiet");
@@ -191,7 +211,7 @@ function openStock(stock = null) {
 }
 
 async function deleteStock(stock) {
-  const labels = { collection_config: "Collection 設定", execution: "Execution", market: "市場資料", report: "研報", fundamental: "基本面" };
+  const labels = { collection_config: "收集設定", execution: "執行紀錄", market: "市場資料", report: "研報", fundamental: "基本面" };
   try {
     const summary = await request(`/api/v1/admin/stocks/${encodeURIComponent(stock.symbol)}/references`);
     const detail = Object.entries(labels).map(([key, label]) => `${label} ${summary.references[key] || 0}`).join("、");
@@ -242,7 +262,7 @@ function renderStatus() {
     body.append(tr);
     if (expanded) {
       const nested = document.createElement("table");
-      nested.innerHTML = "<thead><tr><th>Null 欄位</th><th class=\"numeric\">筆數</th><th class=\"numeric\">比例</th><th>Quality flags</th><th>Execution</th><th>Provenance</th></tr></thead>";
+      nested.innerHTML = "<thead><tr><th>缺值欄位</th><th class=\"numeric\">筆數</th><th class=\"numeric\">比例</th><th>品質標記</th><th>執行紀錄</th><th>來源追溯</th></tr></thead>";
       const nestedBody = document.createElement("tbody");
       const profiles = item.null_profile?.length ? item.null_profile : [{ field: "—", count: 0, ratio: null }];
       profiles.forEach((field, index) => {
@@ -275,7 +295,7 @@ async function enqueueCollection() {
       source_ids: byId("backfill-sources").value.split(/[\s,]+/).filter(Boolean),
     };
     const execution = await request("/api/v1/admin/executions/collection", { method: "POST", body: JSON.stringify(payload) });
-    showNotice(`Collection 已加入佇列：${execution.execution_id}`);
+    showNotice(`資料收集已加入佇列：${execution.execution_id}`);
     state.selected.clear();
     selectionChanged();
     await activateTab("executions", { reload: true });
@@ -290,7 +310,7 @@ async function enqueueAnalysis() {
     const execution = await request("/api/v1/admin/executions/analysis", {
       method: "POST", body: JSON.stringify({ config_id: configId, symbols: [...state.selected] }),
     });
-    showNotice(`Analysis 已加入 persisted 佇列：${execution.execution_id}`);
+    showNotice(`分析已加入已保存佇列：${execution.execution_id}`);
     state.selected.clear(); selectionChanged();
     await activateTab("executions", { reload: true });
   } catch (error) { showNotice(error.message, true); }
@@ -307,9 +327,9 @@ async function loadMart() {
   try {
     const data = await request(`/api/v1/admin/mart-reports?${params}`);
     body.replaceChildren();
-    if (!data.items.length) body.append(rowMessage("此條件沒有 persisted Mart artifact", 9));
+    if (!data.items.length) body.append(rowMessage("此條件沒有已保存的 Mart 成果物", 9));
     data.items.forEach((report) => {
-      const artifact = node("a", report.selected_role ? `artifact · ${report.selected_role}` : "artifact");
+      const artifact = node("a", report.selected_role ? `成果物 · ${displayStatus(report.selected_role)}` : "成果物");
       artifact.href = report.artifact_console_url; artifact.target = "_blank"; artifact.rel = "noopener noreferrer";
       artifact.title = `${report.table_identifier} @ snapshot ${report.iceberg_snapshot_id}`;
       const artifactCell = document.createElement("td"); artifactCell.append(artifact);
@@ -318,16 +338,16 @@ async function loadMart() {
       const reviewCell = document.createElement("td");
       if (["publishable", "published", "blocked"].includes(report.publication_status) && report.analysis_outcome === "complete") {
         const action = report.publication_status === "blocked" ? "unblock" : "block";
-        const button = node("button", action === "block" ? "Block" : "Unblock");
+        const button = node("button", action === "block" ? "封鎖" : "解除封鎖");
         button.className = "button quiet"; button.type = "button";
         button.addEventListener("click", async () => {
-          const reason = window.prompt("請輸入 publication 審查理由");
+          const reason = window.prompt("請輸入發布審查理由");
           if (!reason || !reason.trim()) return;
           try {
             await request(`/api/v1/admin/mart-reports/${encodeURIComponent(report.execution_id)}/${encodeURIComponent(report.scope_type)}/${encodeURIComponent(report.scope_id)}/publication`, {
               method: "PATCH", body: JSON.stringify({ action, reason: reason.trim() }),
             });
-            showNotice(`Publication 已${action === "block" ? "封鎖" : "解除封鎖"}`); await loadMart();
+            showNotice(`發布狀態已${action === "block" ? "封鎖" : "解除封鎖"}`); await loadMart();
           } catch (error) { showNotice(error.message, true); }
         });
         reviewCell.append(button);
@@ -360,7 +380,7 @@ function renderExecutions() {
   const filter = byId("execution-filter").value.trim().toLocaleLowerCase("zh-Hant");
   const items = sorted(state.executions.filter((item) => !filter || [item.status, item.trigger_type, item.config_id].some((value) => String(value || "").toLocaleLowerCase("zh-Hant").includes(filter))), state.executionSort, state.executionDirection);
   const body = byId("execution-rows"); body.replaceChildren();
-  if (!items.length) body.append(rowMessage(filter ? "本頁沒有符合條件的 execution" : "尚無 persisted execution", 6));
+  if (!items.length) body.append(rowMessage(filter ? "本頁沒有符合條件的執行紀錄" : "尚無已保存的執行紀錄", 6));
   items.forEach((execution) => {
     const tr = document.createElement("tr");
     const status = document.createElement("td"); status.append(statusBadge(execution.status));
@@ -368,8 +388,8 @@ function renderExecutions() {
     const detail = node("button", "查看", "button quiet"); detail.type = "button";
     detail.addEventListener("click", (event) => { event.stopPropagation(); openExecution(execution.execution_id, detail); });
     detailCell.append(detail);
-    tr.append(status, node("td", execution.trigger_type || "—"), node("td", execution.config_id || "—"), node("td", formatDate(execution.requested_at)), node("td", execution.retry_count ?? "—", "numeric"), detailCell);
-    tr.tabIndex = 0; tr.setAttribute("role", "button"); tr.setAttribute("aria-label", `查看 execution ${execution.execution_id}`);
+    tr.append(status, node("td", displayStatus(execution.trigger_type)), node("td", execution.config_id || "—"), node("td", formatDate(execution.requested_at)), node("td", execution.retry_count ?? "—", "numeric"), detailCell);
+    tr.tabIndex = 0; tr.setAttribute("role", "button"); tr.setAttribute("aria-label", `查看執行紀錄 ${execution.execution_id}`);
     tr.addEventListener("click", () => openExecution(execution.execution_id, tr));
     tr.addEventListener("keydown", (event) => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); openExecution(execution.execution_id, tr); } });
     body.append(tr);
@@ -388,10 +408,10 @@ async function openExecution(id, opener) {
     const execution = await request(`/api/v1/admin/executions/${encodeURIComponent(id)}`);
     const content = byId("dialog-content"); content.replaceChildren();
     const list = document.createElement("dl"); list.className = "detail-grid";
-    [["Execution ID", execution.execution_id], ["Trace ID", execution.trace_id], ["狀態", execution.status], ["類型", execution.trigger_type], ["設定", execution.config_id], ["要求時間", formatDate(execution.requested_at)], ["完成時間", formatDate(execution.finished_at)]].forEach(([term, value]) => { const wrap = document.createElement("div"); wrap.append(node("dt", term), node("dd", value)); list.append(wrap); });
+    [["執行紀錄 ID", execution.execution_id], ["追蹤 ID", execution.trace_id], ["狀態", displayStatus(execution.status)], ["類型", displayStatus(execution.trigger_type)], ["設定", execution.config_id], ["要求時間", formatDate(execution.requested_at)], ["完成時間", formatDate(execution.finished_at)]].forEach(([term, value]) => { const wrap = document.createElement("div"); wrap.append(node("dt", term), node("dd", value)); list.append(wrap); });
     content.append(list, node("h3", "工作項目"));
     const wrap = node("div", null, "table-wrap"); const table = document.createElement("table"); table.id = "execution-items-table";
-    table.innerHTML = "<thead><tr><th>來源</th><th>資料集</th><th>狀態</th><th class=\"numeric\">Processed</th><th class=\"numeric\">Success</th><th class=\"numeric\">Failure</th><th class=\"numeric\">Retry</th><th>Stage</th><th>Core commit</th><th>Safe message</th></tr></thead>";
+    table.innerHTML = "<thead><tr><th>來源</th><th>資料集</th><th>狀態</th><th class=\"numeric\">已處理</th><th class=\"numeric\">成功</th><th class=\"numeric\">失敗</th><th class=\"numeric\">重試</th><th>階段</th><th>Core 提交</th><th>安全訊息</th></tr></thead>";
     const body = document.createElement("tbody"); body.id = "execution-item-rows";
     (execution.items || []).forEach((item) => {
       const good = ["success", "fallback"].includes(item.state);
@@ -400,7 +420,7 @@ async function openExecution(id, opener) {
       row.append(node("td", item.source_id || "—"), node("td", item.dataset_id || "—"), status,
         node("td", item.rows_received ?? "—", "numeric"), node("td", good ? item.rows_received ?? 0 : 0, "numeric"),
         node("td", failed ? 1 : 0, "numeric"), node("td", item.retry_count ?? 0, "numeric"),
-        node("td", item.cache_hit ? "cache hit" : "—"), node("td", item.core_committed === true ? "committed" : "—"), node("td", item.safe_message || "—"));
+        node("td", item.cache_hit ? "已命中快取" : "—"), node("td", item.core_committed === true ? "已提交" : "—"), node("td", item.safe_message || "—"));
       body.append(row);
     });
     if (!execution.items?.length) body.append(rowMessage("尚無工作項目", 10));
@@ -408,12 +428,12 @@ async function openExecution(id, opener) {
     const lineage = execution.lineage || { executions: [], reports: [] };
     content.append(node("h3", "執行鏈"));
     const chain = document.createElement("ul");
-    (lineage.executions || []).forEach((item) => chain.append(node("li", `${item.trigger_type} · ${item.execution_id} · ${item.status}`)));
-    if (!chain.children.length) chain.append(node("li", "尚無關聯 execution"));
-    content.append(chain, node("h3", "Mart reports"));
+    (lineage.executions || []).forEach((item) => chain.append(node("li", `${displayStatus(item.trigger_type)} · ${item.execution_id} · ${displayStatus(item.status)}`)));
+    if (!chain.children.length) chain.append(node("li", "尚無關聯執行紀錄"));
+    content.append(chain, node("h3", "Mart 報告"));
     const reports = document.createElement("ul");
-    (lineage.reports || []).forEach((item) => reports.append(node("li", `${item.scope_type}:${item.scope_id} · Core ${item.core_snapshot_id} · ${item.publication_status}`)));
-    if (!reports.children.length) reports.append(node("li", "尚無 Mart report"));
+    (lineage.reports || []).forEach((item) => reports.append(node("li", `${displayStatus(item.scope_type)}:${item.scope_id} · Core ${item.core_snapshot_id} · ${displayStatus(item.publication_status)}`)));
+    if (!reports.children.length) reports.append(node("li", "尚無 Mart 報告"));
     content.append(reports);
     const dialog = byId("execution-dialog"); dialogOpeners.set(dialog, opener); dialog.showModal(); byId("close-dialog").focus();
   } catch (error) { showNotice(error.message, true); }
@@ -427,7 +447,7 @@ async function loadSources() {
     const data = await request(`/api/v1/admin/source-health?${params}`);
     state.sourceNext = data.next_cursor;
     body.replaceChildren();
-    if (!data.items.length) body.append(rowMessage("尚無 persisted telemetry", 11));
+    if (!data.items.length) body.append(rowMessage("尚無已保存的監測資料", 11));
     let healthy = 0;
     data.items.forEach((source) => {
       const rate = typeof source.success_rate === "number" ? Math.round(source.success_rate * 100) : null;
@@ -439,7 +459,7 @@ async function loadSources() {
         node("td", rate === null ? "—" : `${rate}%`, "numeric"), node("td", `${expected}/${received}`, "numeric"),
         node("td", gap, "numeric"), node("td", formatDate(source.last_fetched_at)), node("td", formatDate(source.latest_observation_at)),
         node("td", source.cache_age_seconds == null ? "—" : `${Math.round(source.cache_age_seconds)}s`, "numeric"),
-        node("td", source.schema_drift_count ?? 0, "numeric"), node("td", source.coverage_tier || "—")); body.append(row);
+      node("td", source.schema_drift_count ?? 0, "numeric"), node("td", displayStatus(source.coverage_tier))); body.append(row);
     });
     byId("source-summary").textContent = data.items.length ? `${healthy}/${data.items.length}` : "—";
     byId("source-page-label").textContent = `第 ${state.sourcePage + 1} 頁`;
@@ -460,7 +480,7 @@ async function loadCatalog() {
     const candidates = new Set();
     data.items.forEach((config) => {
       const card = node("article", null, "source-card");
-      card.append(node("strong", `${config.config_id} · ${config.dataset_id}`), node("p", `來源 ${config.source_ids.join(", ")} · ${config.cadence} · ${config.coverage_tier}`), statusBadge(config.authorization_status));
+      card.append(node("strong", `${config.config_id} · ${config.dataset_id}`), node("p", `來源 ${config.source_ids.join(", ")} · ${displayStatus(config.cadence)} · ${displayStatus(config.coverage_tier)}`), statusBadge(config.authorization_status));
       const edit = node("button", "編輯", "button quiet"); edit.type = "button"; edit.addEventListener("click", () => openConfig(config, edit)); card.append(edit);
       list.append(card);
       if (["candidate", "blocked"].includes(config.authorization_status)) config.source_ids.forEach((source) => candidates.add(source));
@@ -514,7 +534,7 @@ async function saveConfig(event) {
   };
   try {
     await request("/api/v1/admin/source-catalog", { method: "PUT", body: JSON.stringify(payload) });
-    byId("config-dialog").close(); showNotice("資料源設定已儲存並寫入 audit"); await loadCatalog();
+    byId("config-dialog").close(); showNotice("資料源設定已儲存並寫入稽核紀錄"); await loadCatalog();
   } catch (error) { showNotice(error.message, true); }
 }
 
@@ -545,7 +565,7 @@ async function saveReview(event) {
     const saved = await request(`/api/v1/admin/source-reviews/${encodeURIComponent(byId("review-adapter").value)}`, { method: "PUT", body: JSON.stringify(payload) });
     byId("review-version").value = saved.version;
     byId("review-decision-time").textContent = `決策時間：${formatDate(saved.value.decided_at)}`;
-    showNotice("候選 adapter 審查已儲存並寫入 audit");
+    showNotice("候選資料介面審查已儲存並寫入稽核紀錄");
   } catch (error) { showNotice(error.message, true); }
 }
 
@@ -578,7 +598,7 @@ function renderGovernanceHistory(items) {
   if (!items.length) return body.append(node("p", "尚無已提交版本", "empty"));
   items.forEach((item) => {
     const card = document.createElement("article"); card.className = "card";
-    card.append(node("strong", `v${item.detail?.version ?? "?"} · ${item.detail?.status || "pending"}`), node("small", `${item.actor} · ${formatDate(item.created_at)}`));
+    card.append(node("strong", `v${item.detail?.version ?? "?"} · ${displayStatus(item.detail?.status || "pending")}`), node("small", `${item.actor} · ${formatDate(item.created_at)}`));
     card.append(node("p", item.detail?.reason || "—"));
     const changes = item.detail?.changes || [];
     card.append(node("small", `${changes.length} 項變更`));
@@ -592,7 +612,7 @@ async function loadGovernance() {
     state.governanceVersion = current.version; fillGovernance(current);
     byId("governance-status").value = current.status;
     byId("governance-version").value = current.version;
-    byId("governance-state").textContent = `${current.status} · v${current.version}`;
+    byId("governance-state").textContent = `${displayStatus(current.status)} · v${current.version}`;
     renderGovernanceHistory(history.items);
   } catch (error) { showNotice(error.message, true); }
 }
@@ -611,9 +631,9 @@ async function saveGovernance(event) {
   try {
     const saved = await request("/api/v1/admin/governance/policy", { method: "PUT", body: JSON.stringify({ value: governanceValue(), status: byId("governance-status").value, reason: byId("governance-reason").value.trim(), expected_version: state.governanceVersion }) });
     state.governanceVersion = saved.version; byId("governance-version").value = saved.version;
-    byId("governance-state").textContent = `${saved.status} · v${saved.version}`;
+    byId("governance-state").textContent = `${displayStatus(saved.status)} · v${saved.version}`;
     byId("governance-reason").value = ""; byId("governance-diff").textContent = "已儲存新版本";
-    showNotice(`Governance v${saved.version} 已儲存`); await loadGovernance();
+    showNotice(`治理設定 v${saved.version} 已儲存`); await loadGovernance();
   } catch (error) { showNotice(error.message, true); }
 }
 

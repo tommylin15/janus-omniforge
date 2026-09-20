@@ -11,6 +11,23 @@ import 'sign_in_button.dart'
 
 const portfolioPendingMessage = '交易已儲存，等待投資組合批次更新';
 
+String uiLabel(Object? value) => const {
+      'fundamental': '基本面',
+      'valuation': '估值',
+      'positioning': '籌碼與定位',
+      'quant': '量化',
+      'event_risk': '事件風險',
+      'warming': '升溫',
+      'cooling': '降溫',
+      'available': '可用',
+      'partial': '部分可用',
+      'stale': '資料過期',
+      'fallback': '備援',
+      'success': '成功',
+      'failed': '失敗',
+      'insufficient_data': '資料不足',
+    }[value?.toString()] ?? value?.toString() ?? '—';
+
 String requireGoogleIdToken(String? token) =>
     token ?? (throw StateError('Google ID token is required'));
 
@@ -262,7 +279,7 @@ class _WorkspaceState extends State<Workspace> {
               NavigationDestination(
                   icon: Icon(Icons.edit_note), label: '記帳／筆記'),
               NavigationDestination(
-                  icon: Icon(Icons.chat_bubble_outline), label: 'AI'),
+                  icon: Icon(Icons.chat_bubble_outline), label: 'AI（建構中）', enabled: false),
               NavigationDestination(
                   icon: Icon(Icons.person_outline), label: '我的')
             ];
@@ -275,12 +292,15 @@ class _WorkspaceState extends State<Workspace> {
               NavigationRail(
                   selectedIndex: page,
                   labelType: NavigationRailLabelType.all,
-                  onDestinationSelected: (value) => setState(() => page = value),
+                  onDestinationSelected: (value) {
+                    if (value == 3) return;
+                    setState(() => page = value);
+                  },
                   destinations: const [
                     NavigationRailDestination(icon: Icon(Icons.today_outlined), label: Text('今日')),
                     NavigationRailDestination(icon: Icon(Icons.star_outline), label: Text('關注')),
                     NavigationRailDestination(icon: Icon(Icons.edit_note), label: Text('記帳／筆記')),
-                    NavigationRailDestination(icon: Icon(Icons.chat_bubble_outline), label: Text('AI')),
+                    NavigationRailDestination(icon: Icon(Icons.chat_bubble_outline), label: Text('AI（建構中）')),
                     NavigationRailDestination(icon: Icon(Icons.person_outline), label: Text('我的')),
                   ]),
             Expanded(child: pages[page])
@@ -536,7 +556,7 @@ class _Room extends StatelessWidget {
                   child: DropdownButtonFormField<String>(
                       initialValue: runtime,
                       decoration: InputDecoration(
-                          labelText: 'Runtime',
+                          labelText: '執行環境',
                           helperText: connection == 'disconnected'
                               ? '連線中斷，可重新載入事件'
                               : null),
@@ -552,7 +572,7 @@ class _Room extends StatelessWidget {
                       })),
               const SizedBox(width: 8),
               IconButton(
-                  tooltip: 'MCP／Skills／資料源',
+                  tooltip: '工具（MCP）／技能／資料源',
                   onPressed: onTools,
                   icon: const Icon(Icons.tune))
             ])),
@@ -723,23 +743,23 @@ class _AssistantControlsState extends State<AssistantControls> {
               padding: const EdgeInsets.all(16),
               shrinkWrap: true,
               children: [
-            Text('資料源、MCP 與 Skills',
+            Text('資料源、MCP 與技能',
                 style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             _Panel(
-                'MCP Servers',
+                'MCP 伺服器',
                 mcp,
                 (v) =>
                     '${v['server_id']} · ${v['enabled'] == true ? '已啟用' : '未啟用'}'),
             _TogglePanel(
-                'Skills',
+                '技能',
                 skills,
-                (v) => '${v['skill_id']} · revision ${v['revision']}',
+                (v) => '${v['skill_id']} · 版本 ${v['revision']}',
                 toggleSkill),
             const ListTile(
                 leading: Icon(Icons.info_outline),
                 title: Text('私人資料須逐項選取'),
-                subtitle: Text('API key、Codex auth 與資料庫憑證不會進入裝置。'))
+                subtitle: Text('API 金鑰、Codex 驗證資料與資料庫憑證不會進入裝置。'))
           ]));
 }
 
@@ -923,8 +943,8 @@ class _TodayPageState extends State<TodayPage> {
           const SizedBox(height: 12),
           Card(child: ListTile(
               leading: Icon(Icons.public, color: Theme.of(context).colorScheme.primary),
-              title: Text(data['market_regime']?.toString() ??
-                  data['market_status']?.toString() ?? '市場狀態'),
+              title: Text(uiLabel(data['market_regime'] ??
+                  data['market_status'] ?? '市場狀態')),
               subtitle: Text(data['summary']?.toString() ?? '今日公開研究摘要'))),
           const ListTile(title: Text('今日重點')),
           if (highlights.isEmpty)
@@ -940,7 +960,7 @@ class _TodayPageState extends State<TodayPage> {
             ListTile(leading: Icon(item is Map && item['state'] == 'cooling'
                 ? Icons.south_east : Icons.north_east),
                 title: Text(item is Map ? '${item['industry'] ?? item['name'] ?? '產業'}' : '$item'),
-                trailing: item is Map ? Text('${item['state'] ?? '—'}') : null),
+                trailing: item is Map ? Text(uiLabel(item['state'])) : null),
           if (topics.isNotEmpty) ...[
             const ListTile(title: Text('熱門話題')),
             for (final topic in topics.take(5))
@@ -990,7 +1010,7 @@ class StockHealthCard extends StatelessWidget {
         if (!blocked && score != null) const SizedBox(width: 12),
         Expanded(child: Text('$symbol ${value['stock_name'] ?? ''}'.trim(),
             style: Theme.of(context).textTheme.titleLarge)),
-        Chip(label: Text(value['chips_status']?.toString() ?? '籌碼狀態未提供'))
+        Chip(label: Text(uiLabel(value['chips_status'] ?? '籌碼狀態未提供')))
       ]),
       ListTile(contentPadding: EdgeInsets.zero, leading: const Icon(Icons.psychology),
           title: Text(value['ai_whitepaper_analysis']?.toString() ?? '白話摘要未提供'),
@@ -1166,12 +1186,12 @@ class StockDetailPage extends StatelessWidget {
             const ListTile(title: Text('五角色分析')),
             if (roles.isEmpty) const ListTile(title: Text('目前沒有角色分析')),
             for (final role in roles.take(5))
-              ListTile(title: Text(role is Map ? '${role['role'] ?? '角色'}' : '$role'),
+              ListTile(title: Text(role is Map ? uiLabel(role['role'] ?? '角色') : '$role'),
                   subtitle: role is Map ? Text('${role['summary'] ?? role['outcome'] ?? '—'}') : null),
             ListTile(title: const Text('來源與版本'), subtitle: Text(
                 '來源 ${provenance['source_id'] ?? '—'} · schema ${provenance['schema_version'] ?? report['schema_version'] ?? '—'} · model ${provenance['model_version'] ?? report['model_version'] ?? '—'}')),
           ]),
-          FilledButton.icon(onPressed: onAskAi, icon: const Icon(Icons.chat_bubble_outline), label: const Text('針對這檔問 AI')),
+          FilledButton.icon(onPressed: null, icon: const Icon(Icons.chat_bubble_outline), label: const Text('針對這檔問 AI（建構中）')),
           const SizedBox(height: 12),
           const Text('信心度不是獲利機率；本服務提供研究資訊，不構成投資建議。')
         ]);
@@ -1282,7 +1302,7 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
                                 : row['body'] ?? ''),
                             subtitle: Text(segment == 0
                                 ? '${row['trade_date']} · ${row['shares'] ?? row['cash_amount'] ?? ''}'
-                                : '${row['symbol'] ?? '一般筆記'} · revision ${row['revision']}'),
+                                : '${row['symbol'] ?? '一般筆記'} · 版本 ${row['revision']}'),
                             trailing: TextButton(
                                 onPressed: () async {
                                   if (segment == 0) {
@@ -1460,7 +1480,7 @@ class _PortfolioDashboardState extends State<PortfolioDashboard> {
           value: minimumCash, divisions: 20, label: '${(minimumCash * 100).round()}%',
           onChanged: (value) => setState(() => minimumCash = value))),
         SwitchListTile(contentPadding: EdgeInsets.zero, value: aiContext,
-          title: const Text('允許我主動選取投資屬性作為 AI 對話 context'),
+          title: const Text('允許我主動選取投資屬性作為 AI 對話內容'),
           onChanged: (value) => setState(() => aiContext = value)),
         Align(alignment: Alignment.centerLeft, child: FilledButton.icon(
           onPressed: busy ? null : save, icon: const Icon(Icons.save_outlined), label: const Text('儲存投資屬性'))),

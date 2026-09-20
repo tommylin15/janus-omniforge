@@ -4,20 +4,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="color-scheme" content="dark">
-  <title>Janus Admin · Data Operations</title>
+  <title>Janus 管理介面 · 資料營運</title>
   <link rel="stylesheet" href="/assets/admin.css">
   <script src="/assets/admin.js" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">跳至主要內容</a>
   <header class="topbar">
-    <div class="brand"><span class="brand-mark" aria-hidden="true">J</span><div><strong>JANUS</strong><small>DATA OPERATIONS</small></div></div>
+    <div class="brand"><span class="brand-mark" aria-hidden="true">J</span><div><strong>JANUS</strong><small>資料營運</small></div></div>
     <div class="runtime"><span class="pulse" aria-hidden="true"></span><span id="runtime-label">正在檢查服務</span><button id="logout" class="button quiet" type="button">登出</button></div>
   </header>
 
   <div class="shell">
-    <aside class="sidebar" aria-label="Admin 導覽">
-      <p class="eyebrow">Workspace</p>
+    <aside class="sidebar" aria-label="管理導覽">
+      <p class="eyebrow">工作區</p>
       <nav role="tablist" aria-label="資料營運功能">
         <button class="nav-link active" id="tab-stocks" role="tab" aria-selected="true" aria-controls="stocks" data-tab="stocks" type="button"><span aria-hidden="true">◫</span>股票管理</button>
         <button class="nav-link" id="tab-status" role="tab" aria-selected="false" aria-controls="stock-status" data-tab="status" type="button"><span aria-hidden="true">▦</span>股票資料狀態</button>
@@ -27,14 +27,14 @@
         <button class="nav-link" id="tab-catalog" role="tab" aria-selected="false" aria-controls="catalog" data-tab="catalog" type="button"><span aria-hidden="true">▤</span>資料源設定</button>
         <button class="nav-link" id="tab-mart" role="tab" aria-selected="false" aria-controls="mart" data-tab="mart" type="button"><span aria-hidden="true">◇</span>Mart 分析</button>
         <button class="nav-link" id="tab-backfill" role="tab" aria-selected="false" aria-controls="backfill" data-tab="backfill" type="button"><span aria-hidden="true">↺</span>歷史補跑</button>
-        <button class="nav-link" id="tab-governance" role="tab" aria-selected="false" aria-controls="governance" data-tab="governance" type="button"><span aria-hidden="true">◆</span>Governance</button>
+        <button class="nav-link" id="tab-governance" role="tab" aria-selected="false" aria-controls="governance" data-tab="governance" type="button"><span aria-hidden="true">◆</span>治理</button>
       </nav>
       <small class="build-version">版本 <span id="build-version">讀取中</span></small>
     </aside>
 
     <main id="main">
       <div class="page-heading">
-        <div><p class="eyebrow">CONTROL PLANE</p><h1>資料營運中心</h1><p class="lede">管理資料收集範圍、追蹤執行狀態，並查看已持久化的來源健康資訊。</p></div>
+        <div><p class="eyebrow">控制面</p><h1>資料營運中心</h1><p class="lede">管理資料收集範圍、追蹤執行狀態，並查看已保存的資料源健康資訊。</p></div>
         <button id="refresh-all" class="button secondary" type="button">重新整理</button>
       </div>
 
@@ -43,12 +43,12 @@
       <section class="metrics" aria-label="執行摘要">
         <article><span>待收集股票</span><strong id="selected-count">0</strong><small>跨頁選取，送入收集佇列</small></article>
         <article><span>執行紀錄</span><strong id="execution-count">—</strong><small>最近 50 筆</small></article>
-        <article><span>進行中</span><strong id="active-count">—</strong><small>queued / running / retrying</small></article>
-        <article><span>來源狀態</span><strong id="source-summary">—</strong><small>persisted telemetry</small></article>
+        <article><span>進行中</span><strong id="active-count">—</strong><small>排隊中／執行中／重試中</small></article>
+        <article><span>來源狀態</span><strong id="source-summary">—</strong><small>已保存的監測資料</small></article>
       </section>
 
       <section id="stocks" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-stocks">
-        <div class="panel-heading"><div><p class="eyebrow">STOCK MASTER</p><h2>股票管理</h2></div><span class="tag neutral">每頁 10 筆</span></div>
+        <div class="panel-heading"><div><p class="eyebrow">股票主檔</p><h2>股票管理</h2></div><span class="tag neutral">每頁 10 筆</span></div>
         <form id="stock-search" class="toolbar" role="search">
           <label class="search-field"><span class="sr-only">搜尋股票代號或名稱</span><input id="stock-query" type="search" placeholder="搜尋代號或名稱，例如 2330" autocomplete="off"></label>
           <label><span class="sr-only">啟用狀態</span><select id="enabled-filter"><option value="">全部狀態</option><option value="true">已啟用</option><option value="false">已停用</option></select></label>
@@ -57,15 +57,15 @@
 
         <div class="bulk-bar">
           <span><strong id="bulk-count">0</strong> 檔已選</span>
-          <label>設定 ID <input id="config-id" value="ohlcv" aria-label="Collection config ID"></label>
+          <label>設定 ID <input id="config-id" value="ohlcv" aria-label="收集設定 ID"></label>
           <label>回跑起日 <input id="backfill-start" type="date"></label>
           <label>回跑迄日 <input id="backfill-end" type="date"></label>
-          <label>指定來源 <input id="backfill-sources" placeholder="twse,tpex" aria-label="Backfill source IDs"></label>
+          <label>指定來源 <input id="backfill-sources" placeholder="twse,tpex" aria-label="補跑來源 ID"></label>
           <button id="queue-collection" class="button primary" type="button">加入收集佇列</button>
-          <button id="queue-analysis" class="button secondary" type="button">加入 Analysis 佇列</button>
+          <button id="queue-analysis" class="button secondary" type="button">加入分析佇列</button>
           <button id="clear-selection" class="button quiet" type="button">清除選取</button>
         </div>
-        <p class="form-note">Collection 產生成功的 immutable Core snapshot 後會自動排入 Mart；Analysis 可用最近一次成功 Core snapshot 重跑，兩者都在「最近執行」追蹤 terminal／retry 狀態。</p>
+        <p class="form-note">資料收集成功產生不可變更的 Core 快照後會自動排入 Mart；分析可用最近一次成功的 Core 快照重新執行，兩者都在「最近執行」追蹤完成／重試狀態。</p>
 
         <div class="table-wrap">
           <table>
@@ -77,90 +77,90 @@
       </section>
 
       <section id="stock-status" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-status" hidden>
-        <div class="panel-heading"><div><p class="eyebrow">CORE STATUS</p><h2>股票資料狀態</h2></div><span class="tag neutral">結構化資料</span></div>
+        <div class="panel-heading"><div><p class="eyebrow">Core 狀態</p><h2>股票資料狀態</h2></div><span class="tag neutral">結構化資料</span></div>
         <form id="status-search" class="toolbar" role="search"><label>股票代號<input id="status-symbol" required placeholder="2330" autocomplete="off"></label><label class="search-field">篩選資料集<input id="status-filter" type="search" placeholder="例如 ohlcv" autocomplete="off"></label><button class="button primary" type="submit">查詢</button>
-          <details class="column-picker"><summary>欄位</summary><div><label><input type="checkbox" data-column-target="status-table" value="2" checked> 最新日期</label><label><input type="checkbox" data-column-target="status-table" value="4" checked> Coverage</label><label><input type="checkbox" data-column-target="status-table" value="7" checked> 來源</label><label><input type="checkbox" data-column-target="status-table" value="8" checked> Snapshot</label><label><input type="checkbox" data-column-target="status-table" value="9" checked> Freshness</label><label><input type="checkbox" data-column-target="status-table" value="10" checked> 更新時間</label></div></details>
+          <details class="column-picker"><summary>欄位</summary><div><label><input type="checkbox" data-column-target="status-table" value="2" checked> 最新日期</label><label><input type="checkbox" data-column-target="status-table" value="4" checked> 覆蓋率</label><label><input type="checkbox" data-column-target="status-table" value="7" checked> 來源</label><label><input type="checkbox" data-column-target="status-table" value="8" checked> 快照</label><label><input type="checkbox" data-column-target="status-table" value="9" checked> 新鮮度</label><label><input type="checkbox" data-column-target="status-table" value="10" checked> 更新時間</label></div></details>
         </form>
-        <div class="table-wrap"><table id="status-table"><thead><tr><th>明細</th><th aria-sort="ascending"><button class="sort-button" data-status-sort="dataset_id" type="button">資料集</button></th><th><button class="sort-button" data-status-sort="latest_date" type="button">Core 最新日期</button></th><th class="numeric"><button class="sort-button" data-status-sort="row_count" type="button">Rows</button></th><th class="numeric"><button class="sort-button" data-status-sort="coverage_ratio" type="button">Coverage</button></th><th class="numeric"><button class="sort-button" data-status-sort="null_count" type="button">Null</button></th><th><button class="sort-button" data-status-sort="dq_warning_count" type="button">寫入安全／DQ</button></th><th>來源</th><th>Snapshot</th><th><button class="sort-button" data-status-sort="freshness" type="button">Freshness</button></th><th><button class="sort-button" data-status-sort="updated_at" type="button">更新時間</button></th><th class="numeric"><button class="sort-button" data-status-sort="quarantine_count" type="button">Quarantine</button></th></tr></thead><tbody id="status-rows"><tr><td colspan="12" class="empty">請輸入股票代號查詢</td></tr></tbody></table></div>
+        <div class="table-wrap"><table id="status-table"><thead><tr><th>明細</th><th aria-sort="ascending"><button class="sort-button" data-status-sort="dataset_id" type="button">資料集</button></th><th><button class="sort-button" data-status-sort="latest_date" type="button">Core 最新日期</button></th><th class="numeric"><button class="sort-button" data-status-sort="row_count" type="button">筆數</button></th><th class="numeric"><button class="sort-button" data-status-sort="coverage_ratio" type="button">覆蓋率</button></th><th class="numeric"><button class="sort-button" data-status-sort="null_count" type="button">缺值</button></th><th><button class="sort-button" data-status-sort="dq_warning_count" type="button">寫入安全／品質標記</button></th><th>來源</th><th>快照</th><th><button class="sort-button" data-status-sort="freshness" type="button">新鮮度</button></th><th><button class="sort-button" data-status-sort="updated_at" type="button">更新時間</button></th><th class="numeric"><button class="sort-button" data-status-sort="quarantine_count" type="button">隔離</button></th></tr></thead><tbody id="status-rows"><tr><td colspan="12" class="empty">請輸入股票代號查詢</td></tr></tbody></table></div>
         <div class="pagination"><span id="status-page-label">第 1 頁</span><div><button id="prev-status-page" class="button quiet" type="button">上一頁</button><button id="next-status-page" class="button quiet" type="button">下一頁</button></div></div>
       </section>
 
       <section id="executions" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-executions" hidden>
-        <div class="panel-heading"><div><p class="eyebrow">PERSISTED QUEUE</p><h2>最近執行</h2></div><button id="refresh-executions" class="button quiet" type="button">重新整理</button></div>
+        <div class="panel-heading"><div><p class="eyebrow">已保存佇列</p><h2>最近執行</h2></div><button id="refresh-executions" class="button quiet" type="button">重新整理</button></div>
         <div class="toolbar"><label class="search-field">篩選執行<input id="execution-filter" type="search" placeholder="狀態、類型或設定" autocomplete="off"></label><details class="column-picker"><summary>欄位</summary><div><label><input type="checkbox" data-column-target="execution-table" value="1" checked> 類型</label><label><input type="checkbox" data-column-target="execution-table" value="2" checked> 設定</label><label><input type="checkbox" data-column-target="execution-table" value="4" checked> 重試</label></div></details></div>
         <div class="table-wrap"><table id="execution-table"><thead><tr><th aria-sort="descending"><button class="sort-button" data-execution-sort="status" type="button">狀態</button></th><th><button class="sort-button" data-execution-sort="trigger_type" type="button">類型</button></th><th><button class="sort-button" data-execution-sort="config_id" type="button">設定</button></th><th><button class="sort-button" data-execution-sort="requested_at" type="button">要求時間</button></th><th class="numeric"><button class="sort-button" data-execution-sort="retry_count" type="button">重試</button></th><th class="align-right">明細</th></tr></thead><tbody id="execution-rows"><tr><td colspan="6" class="empty">正在載入執行紀錄…</td></tr></tbody></table></div>
         <div class="pagination"><span id="execution-page-label">第 1 頁</span><div><button id="prev-execution-page" class="button quiet" type="button">上一頁</button><button id="next-execution-page" class="button quiet" type="button">下一頁</button></div></div>
       </section>
 
         <section id="sources" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-sources" hidden>
-          <div class="panel-heading"><div><p class="eyebrow">OBSERVABILITY</p><h2>資料源健康</h2></div><span class="tag neutral">唯讀</span></div>
-          <div class="table-wrap"><table><thead><tr><th>來源</th><th>資料集</th><th>狀態</th><th class="numeric">成功率</th><th class="numeric">Expected／received</th><th class="numeric">深度缺口</th><th>最後取得</th><th>Freshness</th><th class="numeric">Cache age</th><th class="numeric">Schema drift</th><th>Coverage tier</th></tr></thead><tbody id="source-list"><tr><td colspan="11" class="empty">正在載入 persisted telemetry…</td></tr></tbody></table></div>
+          <div class="panel-heading"><div><p class="eyebrow">可觀測性</p><h2>資料源健康</h2></div><span class="tag neutral">唯讀</span></div>
+          <div class="table-wrap"><table><thead><tr><th>來源</th><th>資料集</th><th>狀態</th><th class="numeric">成功率</th><th class="numeric">預期／實際</th><th class="numeric">深度缺口</th><th>最後取得</th><th>新鮮度</th><th class="numeric">快取年齡</th><th class="numeric">結構變更</th><th>覆蓋層級</th></tr></thead><tbody id="source-list"><tr><td colspan="11" class="empty">正在載入已保存的監測資料…</td></tr></tbody></table></div>
           <div class="pagination"><span id="source-page-label">第 1 頁</span><div><button id="prev-source-page" class="button quiet" type="button">上一頁</button><button id="next-source-page" class="button quiet" type="button">下一頁</button></div></div>
         </section>
 
       <section id="mart" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-mart" hidden>
-        <div class="panel-heading"><div><p class="eyebrow">IMMUTABLE MART</p><h2>Mart 分析</h2></div><span class="tag neutral">persisted artifacts only</span></div>
+        <div class="panel-heading"><div><p class="eyebrow">不可變更 Mart</p><h2>Mart 分析</h2></div><span class="tag neutral">僅顯示已保存成果物</span></div>
         <form id="mart-filter" class="toolbar" role="search">
-          <label>Analysis date<input id="mart-date" type="date"></label>
-          <label>Scope<select id="mart-scope"><option value="">全部</option><option>market</option><option>industry</option><option>symbol</option></select></label>
-          <label>Industry／Symbol<input id="mart-scope-id" placeholder="例如 2330"></label>
-          <label>角色<select id="mart-role"><option value="">全部</option><option>fundamental</option><option>valuation</option><option>positioning</option><option>quant</option><option>event_risk</option></select></label>
-          <label>Prompt<input id="mart-prompt" placeholder="v1"></label>
-          <label>Outcome<select id="mart-outcome"><option value="">全部</option><option>complete</option><option>invalid</option><option>review_required</option><option>risk_blocked</option><option>insufficient_data</option></select></label>
-          <label>Publication<select id="mart-publication"><option value="">全部</option><option>draft</option><option>blocked</option><option>publishable</option><option>published</option><option>superseded</option></select></label>
+          <label>分析日期<input id="mart-date" type="date"></label>
+          <label>範圍<select id="mart-scope"><option value="">全部</option><option value="market">市場</option><option value="industry">產業</option><option value="symbol">個股</option></select></label>
+          <label>產業／代號<input id="mart-scope-id" placeholder="例如 2330"></label>
+          <label>角色<select id="mart-role"><option value="">全部</option><option value="fundamental">基本面</option><option value="valuation">估值</option><option value="positioning">籌碼與定位</option><option value="quant">量化</option><option value="event_risk">事件風險</option></select></label>
+          <label>提示詞<input id="mart-prompt" placeholder="v1"></label>
+          <label>分析結果<select id="mart-outcome"><option value="">全部</option><option value="complete">完整</option><option value="invalid">無效</option><option value="review_required">需要審查</option><option value="risk_blocked">風險阻擋</option><option value="insufficient_data">資料不足</option></select></label>
+          <label>發布狀態<select id="mart-publication"><option value="">全部</option><option value="draft">草稿</option><option value="blocked">已阻擋</option><option value="publishable">可發布</option><option value="published">已發布</option><option value="superseded">已取代</option></select></label>
           <button class="button primary" type="submit">查詢</button>
         </form>
-        <div class="table-wrap"><table><thead><tr><th>日期</th><th>Scope</th><th>ID</th><th>Outcome</th><th>Publication</th><th>Prompt</th><th>Completeness</th><th>Artifact</th><th>審查</th></tr></thead><tbody id="mart-rows"><tr><td colspan="9" class="empty">正在載入 persisted Mart index…</td></tr></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>日期</th><th>範圍</th><th>ID</th><th>分析結果</th><th>發布狀態</th><th>提示詞</th><th>完整度</th><th>成果物</th><th>審查</th></tr></thead><tbody id="mart-rows"><tr><td colspan="9" class="empty">正在載入已保存的 Mart 索引…</td></tr></tbody></table></div>
       </section>
       <section id="backfill" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-backfill" hidden>
-        <div class="panel-heading"><div><p class="eyebrow">PIPELINE OPS</p><h2>歷史補跑</h2></div><span class="tag neutral">觸發 Cloud Run Job</span></div>
+        <div class="panel-heading"><div><p class="eyebrow">流程操作</p><h2>歷史補跑</h2></div><span class="tag neutral">觸發 Cloud Run Job</span></div>
         <p class="form-note">設定日期區間後送出，系統會更新 <code>janus-ingestion-core</code> 的環境變數並立即執行。最多 367 個日曆天。</p>
         <form id="backfill-form" class="form-grid">
           <label>起始日期<input id="bf-start" type="date" required></label>
           <label>結束日期<input id="bf-end" type="date" required></label>
-          <label class="check-label"><input id="bf-trigger-mart" type="checkbox"> 完成後觸發 Mart</label>
+          <label class="check-label"><input id="bf-trigger-mart" type="checkbox"> 完成後觸發 Mart 分析</label>
           <button class="button primary" type="submit">執行補跑</button>
         </form>
         <pre id="backfill-result" class="form-note" aria-live="polite"></pre>
       </section>
 
       <section id="settings" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-settings" hidden>
-        <div class="panel-heading"><div><p class="eyebrow">OPERATIONS SETTINGS</p><h2>排程與保存設定</h2></div><span class="tag neutral">需填寫操作者與版本</span></div>
+        <div class="panel-heading"><div><p class="eyebrow">營運設定</p><h2>排程與保存設定</h2></div><span class="tag neutral">需填寫操作者與版本</span></div>
         <form id="settings-form" class="form-grid">
           <label>排程時間<input id="schedule-time" type="time" required></label><label>保留天數<input id="retention-days" type="number" min="1" max="3650" value="30" required></label>
-          <label>休市 override（逗號分隔）<input id="holiday-overrides" placeholder="2026-09-28, 2026-10-09"></label>
-          <label class="check-label"><input id="schedule-enabled" type="checkbox" checked> 啟用排程</label><label class="check-label"><input id="cleanup-enabled" type="checkbox" checked> 啟用 Stage cleanup</label>
+          <label>休市覆寫（逗號分隔）<input id="holiday-overrides" placeholder="2026-09-28, 2026-10-09"></label>
+          <label class="check-label"><input id="schedule-enabled" type="checkbox" checked> 啟用排程</label><label class="check-label"><input id="cleanup-enabled" type="checkbox" checked> 啟用階段清理</label>
           <label>操作者<input id="settings-actor" required placeholder="operator@example.com"></label><button class="button primary" type="submit">儲存設定</button>
         </form>
       </section>
       <section id="governance" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-governance" hidden>
-        <div class="panel-heading"><div><p class="eyebrow">GOVERNANCE</p><h2>治理設定</h2></div><span id="governance-state" class="tag neutral">讀取中</span></div>
-        <p class="form-note">只編輯已定義的 typed policy 欄位；每次儲存建立新版本，分析執行只讀取已提交 snapshot。</p>
+        <div class="panel-heading"><div><p class="eyebrow">治理</p><h2>治理設定</h2></div><span id="governance-state" class="tag neutral">讀取中</span></div>
+        <p class="form-note">只編輯已定義的結構化政策欄位；每次儲存建立新版本，分析執行只讀取已提交快照。</p>
         <form id="governance-form" class="stack-form">
-          <div class="form-grid"><label>Version<input id="governance-policy-version" required></label><label>Development completeness gate<input id="governance-gate" type="number" min="0" max="1" step="0.01" required></label></div>
-          <fieldset><legend>Role weights（總和必須為 1）</legend><div class="form-grid">
-            <label>Fundamental<input id="governance-weight-fundamental" type="number" min="0.01" max="1" step="0.01" required></label><label>Valuation<input id="governance-weight-valuation" type="number" min="0.01" max="1" step="0.01" required></label><label>Positioning<input id="governance-weight-positioning" type="number" min="0.01" max="1" step="0.01" required></label><label>Quant<input id="governance-weight-quant" type="number" min="0.01" max="1" step="0.01" required></label><label>Event risk<input id="governance-weight-event_risk" type="number" min="0.01" max="1" step="0.01" required></label>
+          <div class="form-grid"><label>版本<input id="governance-policy-version" required></label><label>開發期完整度閘門<input id="governance-gate" type="number" min="0" max="1" step="0.01" required></label></div>
+          <fieldset><legend>角色權重（總和必須為 1）</legend><div class="form-grid">
+            <label>基本面<input id="governance-weight-fundamental" type="number" min="0.01" max="1" step="0.01" required></label><label>估值<input id="governance-weight-valuation" type="number" min="0.01" max="1" step="0.01" required></label><label>籌碼與定位<input id="governance-weight-positioning" type="number" min="0.01" max="1" step="0.01" required></label><label>量化<input id="governance-weight-quant" type="number" min="0.01" max="1" step="0.01" required></label><label>事件風險<input id="governance-weight-event_risk" type="number" min="0.01" max="1" step="0.01" required></label>
           </div></fieldset>
-          <fieldset><legend>Blocking policy</legend><div class="form-grid"><label class="check-label"><input id="governance-manual-review" type="checkbox"> 需要人工審查</label><label class="check-label"><input id="governance-critical-quality" type="checkbox"> Critical quality flag</label><label>High risk score<input id="governance-high-risk" type="number" min="1" max="100" required></label></div></fieldset>
-          <fieldset><legend>Deterministic constants</legend><div class="form-grid"><label>Status<select id="governance-constant-status"><option>development-default</option><option>pending</option><option>approved</option></select></label><label class="check-label"><input id="governance-approved" type="checkbox"> Approved</label><label>High risk threshold<input id="governance-constant-risk" type="number" min="0" max="100" required></label><label>Large move %<input id="governance-constant-move" type="number" min="0" max="100" required></label><label>Completeness gate %<input id="governance-constant-gate" type="number" min="0" max="100" required></label></div></fieldset>
-          <div class="form-grid"><label>Workflow status<select id="governance-status"><option>pending</option><option>development-default</option><option>approved</option></select></label><label>Version<input id="governance-version" value="0" readonly></label></div>
+          <fieldset><legend>阻擋政策</legend><div class="form-grid"><label class="check-label"><input id="governance-manual-review" type="checkbox"> 需要人工審查</label><label class="check-label"><input id="governance-critical-quality" type="checkbox"> 重大品質標記</label><label>高風險分數<input id="governance-high-risk" type="number" min="1" max="100" required></label></div></fieldset>
+          <fieldset><legend>確定性常數</legend><div class="form-grid"><label>狀態<select id="governance-constant-status"><option>development-default</option><option>pending</option><option>approved</option></select></label><label class="check-label"><input id="governance-approved" type="checkbox"> 已核准</label><label>高風險門檻<input id="governance-constant-risk" type="number" min="0" max="100" required></label><label>大幅變動百分比<input id="governance-constant-move" type="number" min="0" max="100" required></label><label>完整度閘門百分比<input id="governance-constant-gate" type="number" min="0" max="100" required></label></div></fieldset>
+          <div class="form-grid"><label>工作流程狀態<select id="governance-status"><option>pending</option><option>development-default</option><option>approved</option></select></label><label>版本<input id="governance-version" value="0" readonly></label></div>
           <label>變更理由<textarea id="governance-reason" rows="3" required></textarea></label>
-          <div><button id="governance-preview" class="button secondary" type="button">預覽 Diff</button><button class="button primary" type="submit">儲存新版本</button></div>
+          <div><button id="governance-preview" class="button secondary" type="button">預覽差異</button><button class="button primary" type="submit">儲存新版本</button></div>
         </form>
         <pre id="governance-diff" class="form-note" aria-live="polite">尚未預覽變更</pre>
-        <h3>Immutable history</h3><div id="governance-history" class="card-list"><p class="empty">正在載入歷史…</p></div>
+        <h3>不可變更歷史</h3><div id="governance-history" class="card-list"><p class="empty">正在載入歷史…</p></div>
       </section>
       <section id="catalog" class="panel tab-panel" role="tabpanel" aria-labelledby="tab-catalog" hidden>
-        <div class="panel-heading"><div><p class="eyebrow">SOURCE CATALOG</p><h2>資料源設定</h2></div><span class="tag neutral">可編輯；blocked / candidate 不可啟用</span></div>
+        <div class="panel-heading"><div><p class="eyebrow">資料源目錄</p><h2>資料源設定</h2></div><span class="tag neutral">可編輯；已阻擋／候選狀態不可啟用</span></div>
         <div id="catalog-list" class="card-list"><p class="empty">正在載入資料源設定…</p></div>
         <div class="pagination"><span id="catalog-page-label">第 1 頁</span><div><button id="prev-catalog-page" class="button quiet" type="button">上一頁</button><button id="next-catalog-page" class="button quiet" type="button">下一頁</button></div></div>
         <form id="review-form" class="stack-form review-form">
-          <div class="form-grid"><label>候選 adapter<select id="review-adapter" required></select></label><label>審查決策<select id="review-status"><option value="candidate">candidate</option><option value="approved_fallback">approved_fallback</option><option value="blocked">blocked</option></select></label></div>
-          <fieldset><legend>完整審查 checklist</legend><div class="check-grid">
-            <label><input name="review-check" value="license" type="checkbox"> License</label><label><input name="review-check" value="terms" type="checkbox"> Terms / API policy</label><label><input name="review-check" value="robots" type="checkbox"> Robots</label><label><input name="review-check" value="rate_limit" type="checkbox"> Rate limit</label><label><input name="review-check" value="retention" type="checkbox"> Retention</label><label><input name="review-check" value="deletion" type="checkbox"> Deletion</label><label><input name="review-check" value="republishing" type="checkbox"> Republishing</label><label><input name="review-check" value="stability" type="checkbox"> Stability</label><label><input name="review-check" value="duplication" type="checkbox"> Duplication</label><label><input name="review-check" value="cost" type="checkbox"> Cost</label><label><input name="review-check" value="security" type="checkbox"> Security</label>
+          <div class="form-grid"><label>候選資料介面<select id="review-adapter" required></select></label><label>審查決策<select id="review-status"><option value="candidate">候選</option><option value="approved_fallback">核准備援</option><option value="blocked">已阻擋</option></select></label></div>
+          <fieldset><legend>完整審查清單</legend><div class="check-grid">
+            <label><input name="review-check" value="license" type="checkbox"> 授權條款</label><label><input name="review-check" value="terms" type="checkbox"> 條款／API 政策</label><label><input name="review-check" value="robots" type="checkbox"> 爬蟲規則</label><label><input name="review-check" value="rate_limit" type="checkbox"> 速率限制</label><label><input name="review-check" value="retention" type="checkbox"> 保存期限</label><label><input name="review-check" value="deletion" type="checkbox"> 刪除</label><label><input name="review-check" value="republishing" type="checkbox"> 重新發布</label><label><input name="review-check" value="stability" type="checkbox"> 穩定性</label><label><input name="review-check" value="duplication" type="checkbox"> 重複資料</label><label><input name="review-check" value="cost" type="checkbox"> 成本</label><label><input name="review-check" value="security" type="checkbox"> 安全性</label>
           </div></fieldset>
           <label>證據 URL（HTTPS、不可含 query）<input id="review-evidence" type="url" placeholder="https://example.com/review"></label>
-          <div class="form-grid"><label>Reviewer<input id="review-actor" required placeholder="reviewer@example.com"></label><label>Version<input id="review-version" value="0" readonly></label></div>
+          <div class="form-grid"><label>審查者<input id="review-actor" required placeholder="reviewer@example.com"></label><label>版本<input id="review-version" value="0" readonly></label></div>
           <label>決策理由<textarea id="review-reason" rows="3" required></textarea></label>
           <p id="review-decision-time" class="form-note">尚未審查</p>
           <button class="button primary" type="submit">儲存審查</button>
@@ -170,19 +170,19 @@
   </div>
 
   <dialog id="execution-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
-    <div class="dialog-heading"><div><p class="eyebrow">EXECUTION DETAILS</p><h2 id="dialog-title">執行明細</h2></div><button id="close-dialog" class="icon-button" aria-label="關閉明細" type="button">×</button></div>
+    <div class="dialog-heading"><div><p class="eyebrow">執行明細</p><h2 id="dialog-title">執行明細</h2></div><button id="close-dialog" class="icon-button" aria-label="關閉明細" type="button">×</button></div>
     <div id="dialog-content"></div>
   </dialog>
-  <dialog id="stock-dialog" role="dialog" aria-modal="true" aria-labelledby="stock-dialog-title"><form id="stock-form" class="stack-form"><div class="dialog-heading"><h2 id="stock-dialog-title">新增股票</h2><button id="cancel-stock" class="icon-button" aria-label="取消" type="button">×</button></div><label>代號<input id="stock-symbol" required pattern="[A-Za-z0-9]+"></label><label>名稱<input id="stock-name" required></label><label>市場<select id="stock-market"><option>TWSE</option><option>TPEX</option></select></label><label>上市狀態<select id="stock-listing"><option>listed</option><option>suspended</option><option>delisted</option><option>unknown</option></select></label><label class="check-label"><input id="stock-enabled" type="checkbox" checked> 啟用</label><button class="button primary" type="submit">儲存</button></form></dialog>
+  <dialog id="stock-dialog" role="dialog" aria-modal="true" aria-labelledby="stock-dialog-title"><form id="stock-form" class="stack-form"><div class="dialog-heading"><h2 id="stock-dialog-title">新增股票</h2><button id="cancel-stock" class="icon-button" aria-label="取消" type="button">×</button></div><label>代號<input id="stock-symbol" required pattern="[A-Za-z0-9]+"></label><label>名稱<input id="stock-name" required></label><label>市場<select id="stock-market"><option value="TWSE">上市（TWSE）</option><option value="TPEX">上櫃（TPEX）</option></select></label><label>上市狀態<select id="stock-listing"><option value="listed">上市</option><option value="suspended">暫停交易</option><option value="delisted">下市</option><option value="unknown">未知</option></select></label><label class="check-label"><input id="stock-enabled" type="checkbox" checked> 啟用</label><button class="button primary" type="submit">儲存</button></form></dialog>
   <dialog id="config-dialog" role="dialog" aria-modal="true" aria-labelledby="config-dialog-title"><form id="config-form" class="stack-form"><div class="dialog-heading"><h2 id="config-dialog-title">編輯資料源設定</h2><button id="cancel-config" class="icon-button" aria-label="取消資料源設定" type="button">×</button></div>
     <div class="form-grid"><label>設定 ID<input id="config-edit-id" readonly></label><label>資料集<input id="config-dataset" readonly></label></div>
     <label>來源 ID（逗號分隔）<input id="config-sources" required></label>
-    <div class="form-grid"><label>頻率<select id="config-cadence"><option>intraday</option><option>daily</option><option>公告頻率</option><option>weekly</option><option>quarterly</option><option>on_demand</option></select></label><label>Coverage tier<select id="config-coverage"><option>market_wide</option><option>core_focus</option><option>market_macro</option></select></label></div>
-    <div class="form-grid"><label>Scope<input id="config-scope" required></label><label>Authorization<select id="config-authorization"><option>official</option><option>approved_fallback</option><option>candidate</option><option>blocked</option></select></label></div>
-    <div class="form-grid"><label>Retention<select id="config-retention"><option>raw_short</option><option>core_standard</option><option>deep_research</option><option>audit</option></select></label><label>最多股票數<input id="config-max-symbols" type="number" min="1" max="50" required></label></div>
-    <div class="form-grid"><label class="check-label"><input id="config-enabled" type="checkbox"> 啟用設定</label><label class="check-label"><input id="config-collection-enabled" type="checkbox"> 允許 Collection</label></div>
+    <div class="form-grid"><label>頻率<select id="config-cadence"><option value="intraday">盤中</option><option value="daily">每日</option><option value="公告頻率">公告頻率</option><option value="weekly">每週</option><option value="quarterly">每季</option><option value="on_demand">按需</option></select></label><label>覆蓋層級<select id="config-coverage"><option value="market_wide">全市場</option><option value="core_focus">核心聚焦</option><option value="market_macro">市場總體</option></select></label></div>
+    <div class="form-grid"><label>範圍<input id="config-scope" required></label><label>授權狀態<select id="config-authorization"><option value="official">官方</option><option value="approved_fallback">核准備援</option><option value="candidate">候選</option><option value="blocked">已阻擋</option></select></label></div>
+    <div class="form-grid"><label>保存期限<select id="config-retention"><option value="raw_short">原始資料短期</option><option value="core_standard">Core 標準</option><option value="deep_research">深度研究</option><option value="audit">稽核</option></select></label><label>最多股票數<input id="config-max-symbols" type="number" min="1" max="50" required></label></div>
+    <div class="form-grid"><label class="check-label"><input id="config-enabled" type="checkbox"> 啟用設定</label><label class="check-label"><input id="config-collection-enabled" type="checkbox"> 允許資料收集</label></div>
     <label>操作者<input id="config-actor" required placeholder="operator@example.com"></label>
-    <p class="form-note">候選或封鎖來源不能啟用；Analysis 僅讀取已成功提交的 immutable Core snapshot。</p><button class="button primary" type="submit">儲存資料源設定</button>
+    <p class="form-note">候選或封鎖來源不能啟用；分析僅讀取已成功提交的不可變更 Core 快照。</p><button class="button primary" type="submit">儲存資料源設定</button>
   </form></dialog>
 </body>
 </html>

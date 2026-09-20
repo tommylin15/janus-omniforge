@@ -85,6 +85,11 @@ void main() {
       await tester.binding.setSurfaceSize(size);
       await tester.pump();
       expect(find.byType(NavigationDestination), findsNWidgets(5));
+      expect(find.text('AI（建構中）'), findsOneWidget);
+      expect(
+          tester.widget<NavigationDestination>(find.byWidgetPredicate((widget) =>
+              widget is NavigationDestination && widget.label == 'AI（建構中）')).enabled,
+          isFalse);
       expect(tester.takeException(), isNull);
     }
     await tester.binding.setSurfaceSize(const Size(1280, 800));

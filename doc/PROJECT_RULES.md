@@ -122,3 +122,11 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
 - 任何標示為 GCP dev／live／E2E 的驗收，禁止以 `localhost`、本機 HTTP server、
   Flutter local run 或本機 proxy 取代；需要人工 OAuth 時，登入頁也必須由 GCP dev
   服務提供。本機只能做 unit／contract／靜態檢查。
+
+## 11. 中文優先用詞規則
+
+- 目前有效的 SPEC／WBS／TODO／UI 文件，以及使用者可見的 UI 文案，均以繁體中文為主要語言。
+- 專有名詞第一次出現時可寫成「中文（English）」；後續優先使用中文。
+- API path、schema 欄位、程式識別字、WBS ID，以及 provider／model／product 名稱保留原文，避免破壞介面契約。
+- 工程識別資訊可放在「進階資訊／詳細資訊」中；不得讓不必要的英文成為主要操作文案。
+- 歷史紀錄、封存文件與測試證據可保留原始用詞；只要它們不是目前有效的使用者契約。
