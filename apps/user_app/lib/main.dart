@@ -1244,16 +1244,19 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-      floatingActionButton:
-          FloatingActionButton(onPressed: add, child: const Icon(Icons.add)),
+      floatingActionButton: FloatingActionButton.extended(
+          onPressed: add,
+          icon: const Icon(Icons.add),
+          label: Text(segment == 0 ? '新增交易' : '新增筆記')),
       body: Column(children: [
         SummaryCards(widget.api),
         Padding(
             padding: const EdgeInsets.all(12),
             child: SegmentedButton<int>(
+                showSelectedIcon: false,
                 segments: const [
-                  ButtonSegment(value: 0, label: Text('記帳')),
-                  ButtonSegment(value: 1, label: Text('筆記'))
+                  ButtonSegment(value: 0, label: Text('交易紀錄')),
+                  ButtonSegment(value: 1, label: Text('投資筆記'))
                 ],
                 selected: {
                   segment
@@ -1264,22 +1267,36 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
                     }))),
         if (segment == 0)
           Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Wrap(spacing: 8, children: [
-            ActionChip(label: Text(symbolFilter == null ? '股票：全部' : '股票：$symbolFilter'),
+            OutlinedButton(
                 onPressed: () async {
                   final value = await textDialog(context, '歷史篩選', '股票代號，可留空');
                   if (value != null) setState(() {
                     symbolFilter = value.trim().isEmpty ? null : value.trim().toUpperCase();
                     rows = load();
                   });
-                }),
-            DropdownButton<int>(value: yearFilter ?? 0, items: [
-              const DropdownMenuItem(value: 0, child: Text('年度：全部')),
-              for (var year = DateTime.now().year; year >= DateTime.now().year - 5; year--)
-                DropdownMenuItem(value: year, child: Text('年度：$year'))
-            ], onChanged: (value) => setState(() {
-              yearFilter = value == 0 ? null : value;
-              rows = load();
-            }))
+                },
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(symbolFilter == null ? '股票：全部' : '股票：$symbolFilter'),
+                  const Icon(Icons.arrow_drop_down)
+                ])),
+            MenuAnchor(
+                builder: (context, controller, child) => OutlinedButton(
+                    onPressed: () => controller.isOpen ? controller.close() : controller.open(),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text(yearFilter == null ? '年度：全部' : '年度：$yearFilter'),
+                      const Icon(Icons.arrow_drop_down)
+                    ])),
+                menuChildren: [
+                  MenuItemButton(onPressed: () => setState(() {
+                    yearFilter = null;
+                    rows = load();
+                  }), child: const Text('全部年度')),
+                  for (var year = DateTime.now().year; year >= DateTime.now().year - 5; year--)
+                    MenuItemButton(onPressed: () => setState(() {
+                      yearFilter = year;
+                      rows = load();
+                    }), child: Text('$year'))
+                ])
           ])),
         Expanded(
             child: FutureBuilder(

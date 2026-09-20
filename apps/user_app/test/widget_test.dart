@@ -60,6 +60,24 @@ void main() {
     expect(result, containsPair('price', '1000'));
   });
 
+  testWidgets('journal controls clearly separate mode, filters, and add action',
+      (tester) async {
+    await tester.pumpWidget(
+        MaterialApp(home: JournalNotesPage(FakeApi(const {}))));
+    await tester.pumpAndSettle();
+
+    expect(find.text('交易紀錄'), findsOneWidget);
+    expect(find.text('投資筆記'), findsOneWidget);
+    expect(find.byIcon(Icons.check), findsNothing);
+    expect(find.text('股票：全部'), findsOneWidget);
+    expect(find.text('年度：全部'), findsOneWidget);
+    expect(find.text('新增交易'), findsOneWidget);
+
+    await tester.tap(find.text('投資筆記'));
+    await tester.pumpAndSettle();
+    expect(find.text('新增筆記'), findsOneWidget);
+  });
+
   testWidgets('shows the Google login boundary', (tester) async {
     await tester.pumpWidget(const JanusApp());
     expect(find.text('你的私人投資工作台'), findsOneWidget);
