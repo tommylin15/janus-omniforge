@@ -19,6 +19,26 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
    但和費用及安全性相關的決定，請等待我回覆『同意』或給予修正意見後，你才能進行下一步。
    如果有需要人工輸入資訊的也請在執行終端機指令前，必須先用文字問我。
 
+### 1.1 Dev 平行上線環境政策
+
+- 目前 `dev` 是 Janus 個人使用階段的主要真實運行環境（parallel-live environment），不是只供假資料、mock、demo 或 pre-production 演練的 staging。
+- Dev 預設直接使用已核准的真實資料、真實 API、真實 MCP、Google OAuth、Cloud Run／Job／Scheduler、PostgreSQL／Iceberg 與實際個人 workflow；完成條件優先以這條真實鏈路的 runtime evidence 驗證。
+- `prod` 代表未來對外、多使用者或更高可靠性需求下的 HA、權限、發布與營運強化，不是目前個人真實使用的前置條件。除非某項需求本身只適用正式多使用者營運，不得以「尚未 productionize」阻擋已可在 dev 真實使用的功能。
+- Mock／fixture／localhost simulation 只用於真實服務難以安全、可重現地製造的 timeout、cancel、disconnect、error、secret-redaction 等異常情境；不得取代主要 real-path acceptance，也不得成為不必要的 WBS blocker。
+- 保留既有 `dev` 資源名稱、腳本、URL、Secret 與環境變數，避免為命名或環境分層做無價值重構；文件中的 `dev` 應解讀為「目前真實個人運行環境」。
+- 平行上線不放棄最低安全底線：secret 不得進 log／前端／一般資料表；大量或不可逆刪除需有防誤觸與可恢復策略；schema 變更走 migration／version；重要資料至少具有可重建來源、匯出或已核准的 bounded backup／restore 路徑；owner／auth 邊界保留；partial success 不得宣稱 full success。
+- 上述政策只調整環境與驗收語意，不取消 research-only、canonical、PIT、provenance、source authorization 等資料治理邊界；研究暫存資料不能因位於 dev 就自動升格為 canonical production data。
+
+### 1.2 ChatGPT 直接 GitHub 回寫範圍
+
+- 本專案目前只維持單一 `main` branch。ChatGPT 透過 GitHub connector 直接回寫時，不另開 branch／PR；允許的文件變更直接 commit 到 `main`。
+- **ChatGPT 直接 GitHub 回寫只允許文件類內容。**可修改範圍包含 `doc/**/*.md`、README／說明文件，以及 SPEC／WBS／TODO／UI／runbook／governance／research planning 等純文件內容。
+- **ChatGPT 不得直接修改任何程式或可執行／部署內容。**包含但不限於 Python、TypeScript／JavaScript、Dart、SQL migration、shell／PowerShell、Dockerfile、Cloud Build、GitHub Actions、Terraform／IaC、GCP deployment config、runtime config、schema implementation、tests 與 application source。
+- 即使文件工作發現程式碼、migration、infra、CI/CD 或 deployment 需要調整，ChatGPT 只能讀取／分析現況、指出差異、提出 patch／腳本／Codex 工作指令或驗收清單；**不得使用 GitHub write API 直接改這些檔案**。
+- 真正的程式實作、migration、infra、CI/CD、deployment 與需要執行測試的程式變更，交由 Codex／Work／本機開發流程或其他明確獲准的執行環境處理；其完成狀態仍須以 GitHub、tests、CI、deployment 與 runtime evidence 判定。
+- 若未來要允許 ChatGPT 直接修改程式，必須由使用者明確修改本專案規則；單次一般開發要求不得默認解除本限制。
+- 文件回寫仍不得偽造 implementation status：文件可改需求／規格／計畫，但不能因文件已更新就把尚未實作、未測試或未部署的項目標成完成。
+
 ## 2. WBS 執行方式
 
 - 收到「執行 `WBS-ID`」時，自行從 todo 取得必讀文件、目標與驗收條件。
@@ -26,6 +46,7 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
 - `ready` 可執行；`blocked` 只做安全盤點，不假設已取得人工決策、正式環境或外部權限。
 - ID 不在 todo 時不得自行從 backlog 開工。
 - 採最小合理變更，不以檔案數限制犧牲完整性。
+- 若 WBS 涉及程式實作，ChatGPT 依 1.2 只可完成文件／分析部分並產出 Codex／執行環境所需指令，不得直接回寫程式檔。
 
 ## 3. 最小文件讀取
 
@@ -43,6 +64,7 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
    完成證據，主索引保留全部未完成條件與 archive 連結。新增但未排程工作放入
    backlog。
 6. 正式規格只保存契約、現況與未完成條件，不寫除錯或開發過程。
+7. ChatGPT 透過 GitHub connector 的回寫受 1.2 限制，只能修改文件；程式、migration、infra、CI/CD、deployment 與 tests 不得直接回寫。
 
 ## 5. 交付格式
 
@@ -64,15 +86,14 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
   使用者明確授權。
 - Standard Persistent Disk 總配置量上限為 30 GB，VM 不配置 external IP，並將
   outbound data 控制在每月 1 GB Free Tier 額度內。
-- Free Tier 模式不自動建立 snapshot、backup、HA、replica 或其他會產生額外
-  儲存費用的 PostgreSQL 保護資源；任何例外必須先取得明確授權。
+- Free Tier 模式不自動建立 snapshot、HA、replica 或其他會產生額外儲存費用的 PostgreSQL 保護資源；重要資料優先使用既有 bounded logical backup／export／可重建來源。任何新增付費保護資源仍須先取得明確授權。
 - Free Tier 是 billing account／region 條件，自動化 guard 只能檢查資源規格，
   不能保證帳單為 US$0；部署前仍須檢查資格與 billing budget。
 
 ## 8. Windows PowerShell 的 Node.js 指令
 
 - 允許使用本機 WSL 執行 dev migration、Linux／shell 驗證（包含 `bash -n`）與
-  GCP dev 驗收。WSL 不得用於 production 部署，也不得因此建立或擴大付費 GCP
+  GCP dev 驗收。WSL 不得用於未來獨立 production 部署，也不得因此建立或擴大付費 GCP
   資源。
 - 在 Windows PowerShell 執行 Node.js 專案指令時，一律優先使用
   `npm.cmd`／`npx.cmd`，例如 `npm.cmd test`、`npm.cmd run build`、
@@ -121,7 +142,7 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
   URL 或使用本機 proxy 驗收。
 - 任何標示為 GCP dev／live／E2E 的驗收，禁止以 `localhost`、本機 HTTP server、
   Flutter local run 或本機 proxy 取代；需要人工 OAuth 時，登入頁也必須由 GCP dev
-  服務提供。本機只能做 unit／contract／靜態檢查。
+  服務提供。本機只能做 unit／contract／靜態檢查。這是因為 dev 本身就是目前的平行上線環境，而不是要求另外建立 production 才算真實驗收。
 
 ## 11. 中文優先用詞規則
 

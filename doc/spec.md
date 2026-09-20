@@ -1,8 +1,14 @@
 # Janus — Project Specification
 
-版本：1.9
+版本：2.0
 日期：2026-09-20
 狀態：索引；正式契約依下列領域切片為準
+
+## 全域環境定位
+
+目前 `dev` 是 Janus 個人使用階段的主要真實運行環境（parallel-live environment），可直接使用已核准的真實資料、API、MCP、OAuth、Cloud Run／Job／Scheduler、PostgreSQL／Iceberg 與實際使用流程。`prod` 是未來對外、多使用者或高可靠性營運的強化階段，不是目前功能可真實使用的前置條件。
+
+Fixture／mock／localhost simulation 只補足真實服務難以安全重現的 timeout、cancel、disconnect、error、secret-redaction 等異常測試，不得取代主要 real-path acceptance，也不得單獨成為 WBS blocker。研究暫存、canonical、PIT、provenance、來源授權等資料治理邊界仍照原規格執行。
 
 ## AI 最小讀取規則
 
