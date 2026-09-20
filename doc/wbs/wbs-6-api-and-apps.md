@@ -2,6 +2,12 @@
 
 ## WBS 6 — FastAPI、Flutter User 與 Admin
 
+### 6.0 目前使用環境
+
+- 目前 GCP `dev` 是 Janus 個人使用階段的真實平行上線環境。WBS-6 的 API、Flutter、Admin、ChatGPT MCP 等能力，只要各自通過必要的 auth、data、runtime 與 integration acceptance，即可在 dev 真實使用；不需要等待另一套 Production 環境或 Pilot 結束。
+- localhost／mock／fixture 可做快速開發與 fault injection，但不能代替宣稱完成的 GCP dev URL、真實 OAuth／owner、persisted data、API／MCP／provider 與 Flutter／Admin real-path evidence。
+- 未來 `Production` 是多人／對外、HA／SLA、正式營運隔離等升級層級；文件中 `Production Profile` 則是 Analysis Profile 的版本狀態名稱，兩者不可混為同一個環境資格 gate。
+
 ### 6.1 FastAPI
 
 - 擴充 WBS 4J 建立的最小 `services/api` FastAPI app；將現有 WSGI handler 逐路由遷移並以 contract tests 保持既有 Admin 行為，完成後才移除 WSGI boundary。
@@ -19,6 +25,7 @@
 - 「我的」提供全部私人資料匯出與可稽核刪除流程；刪除涵蓋 PostgreSQL、Private Core／Mart、Codex local thread／auth state 與 cache。
 - 支援 light／dark／system theme、phone／iPad／web responsive、VoiceOver／TalkBack 與至少 44×44 target。
 - User App 不顯示 Admin 導覽、公開績效排行榜、下單或券商同步控制。
+- UI 驗收必須呈現真實 backend 已知狀態；missing／stale／partial／unavailable／blocked 不得用 mock、sample 或 placeholder 補成成功畫面。
 
 ### 6.3 Admin UI
 
@@ -48,7 +55,7 @@
 
 ### 6.3.1 Planned Admin workspace slices
 
-以下切片全部為 `Planned`，只描述後續 implementation scope：
+以下切片全部為 `Planned`，只描述後續 implementation scope；它們未完成時不得宣稱對應能力完成，但也不構成與其無關的現有 dev 功能必須停留在 POC 的理由：
 
 | WBS | Dependency | Acceptance |
 |---|---|---|
@@ -57,6 +64,8 @@
 | `WBS-6-ADMIN-STOCK-WORKBENCH` | ADMIN-SHELL、Core／Mart persisted readers | 代號／中文名搜尋、dataset health、gap repair、role-impact mapping、affected-role rerun、historical facts／roles／CIO view；old execution immutable |
 | `WBS-6-ADMIN-ANALYSIS-PROFILE` | MART role/provider/validation contracts、ADMIN-SHELL | Production version history、direct new Production version、rollback with audit lineage、role／CIO prompt editors、locked guardrail、model/capability picker、fixed 5–10 symbols、compare、per-role override |
 | `WBS-6-ADMIN-LEGACY-RETIREMENT` | all four slices above、Admin auth acceptance、browser/runtime acceptance、rollback plan | only after Flutter parity and acceptance may legacy HTML Admin be deprecated; no early deletion |
+
+表中的 `Production version` 是 Analysis Profile 的 active/released profile 狀態，不表示必須有獨立 Production GCP environment 才能在 dev 使用或驗收該 profile。
 
 ### 6.4 驗收條件
 
@@ -68,6 +77,7 @@
 - 詳細驗收依 `../ui.md`。
 - tab 具鍵盤操作、ARIA 與可分享 query-string deep link；重載後保留所選分頁，未選面板不重複抓取大型 details。
 - 詳細 User／Admin 驗收依 `../ui.md`；今日頁所有卡片必須使用同一 analysis-as-of，個人工作台通過交易更正、筆記 revision、關注異動、聊天室 engine lineage 與跨使用者隔離測試。
+- 對宣稱 live accepted 的 UI 流程，至少要有目前 GCP dev 真實 URL／runtime、真實 auth／persisted backend 與實際互動 evidence；mock/sample 只可補測，不可獨立完成驗收。
 
 ### 6.4.1 Planned Admin analysis semantics
 
@@ -78,12 +88,13 @@
 - Profile 修改可直接建立新的 Production version；禁止覆蓋舊 Production；rollback
   也必須建立 audit／version lineage。固定 5–10 檔 test symbols 只作比較，不是
   Candidate approval gate。
+- `Production Profile` 是模型／prompt 治理狀態；canonical facts、publication authority 與環境 release status 仍各自獨立。
 
 ### 6.5 Janus ChatGPT MCP Connector
 
-ChatGPT connector 是 P1／Dev Pilot Enabler，採 existing `janus-api` remote
-read-only MCP path，預設不新增 Cloud Run service，且不成為 Janus Production
-Release prerequisite。它只可讀已核准 public market data、owner-scoped private
+ChatGPT connector 是 P1／parallel-live dev capability，採 existing `janus-api` remote
+read-only MCP path，預設不新增 Cloud Run service，且不成為 Janus 未來 Production
+topology 的 prerequisite。只要 MCP 自身通過 real-path acceptance，即可在目前 dev 真實使用；它只可讀已核准 public market data、owner-scoped private
 investment data 與 bounded journal／ledger data；不得接受任意 SQL、table、URI 或
 client-selected owner，也不得提供 mutation。
 
@@ -100,7 +111,7 @@ client-selected owner，也不得提供 mutation。
 
 #### `WBS-6-CHATGPT-MCP-ADAPTER`（【Sol】）
 
-- Blocked until `WBS-6-CHATGPT-MCP-CONTRACT` complete。
+- Blocked until `WBS-6-CHATGPT-MCP-CONTRACT` complete；這是 MCP 本身的 dependency，不是整個 Janus dev 使用資格 gate。
 - Scope：在既有 `services/api`／`janus-api` 實作 remote read-only MCP adapter，重用
   shared bounded query layer，完成 authenticated owner mapping、tool discovery／call、
   bounded error／timeout／rate／output limit，且不產生不必要的 Janus chat snapshot。
@@ -112,7 +123,7 @@ client-selected owner，也不得提供 mutation。
 
 #### `WBS-6-PILOT-USEFULNESS-FEEDBACK`（【Sol】）
 
-- 目的：累積六個月後判斷分析對使用者是否有持續研究價值；只做最小 instrumentation，
+- 目的：在真實使用期間累積分析是否有持續研究價值的 evidence；只做最小 instrumentation，
   不做 model tuning 或大型 UI redesign。
 - Feedback values：`useful`、`neutral`、`misleading`；可選 bounded reason 為
   `discovered_risk`、`useful_context`、`already_known`、`too_generic`、`stale`、
@@ -128,3 +139,4 @@ client-selected owner，也不得提供 mutation。
 - UI 與 `WBS-6-CHATGPT-MCP-*` 消費同一 bounded contract；MCP 只讀、不接受 SQL／table／URI／owner input，不回傳 storage locator／credential，不提供 mutation。
 - Google Drive 不是 runtime dependency。不新建 ChatGPT Cloud Run service；若 existing `janus-api` 安全上不足，依既有 MCP contract 停止並提交架構決策。
 - UI 不計算 canonical financial／technical／portfolio values；只呈現 Mart 值、evidence、freshness、missing／stale／partial 與 owner scope。
+- 本節 planned 能力通過自身 acceptance 後可直接在 parallel-live dev 使用；不另外等待 Production 環境。
