@@ -6,6 +6,14 @@
 
 收到 WBS ID 時，先從 TODO 取得範圍與驗收，再只讀對應切片及其直接引用的 SPEC／UI 切片。每次只執行一個 WBS；未指定 WBS 時不得預讀全部切片。
 
+## Dev 平行上線驗收原則
+
+- 目前 `dev` 是個人使用階段的真實平行上線環境；WBS 的主要驗收預設走實際 GCP dev URL、真實 OAuth、真實持久化資料、真實 API／MCP／provider 與既有 Job／Scheduler，而不是先以 mock／fixture／假資料取代。
+- 本機 unit／contract／fixture 仍保留，但定位是快速回歸或故障注入；只有 timeout、cancel、disconnect、list-changed、secret-redaction 等真實服務不適合故意製造的情境，才以 fixture 作主要證據。
+- 「productionization／Production」只代表未來對外、多使用者、HA／SLA 或更嚴格營運需求；除非 WBS 明確屬於該範圍，不能以尚未 productionize 阻擋目前 dev 的個人真實使用。
+- 完成仍需真實證據：程式已寫完但未部署、未觸發、未連真實依賴或只跑模擬資料，不得宣稱整體完成。partial success 不得包裝成 full success。
+- 最低安全底線仍有效：secret redaction、owner/auth boundary、migration 可追蹤、重要資料可重建／備份、不可逆大量刪除防護，以及 research/canonical/PIT/provenance/source authorization 邊界。
+
 ## 模型執行閘門
 
 - 每個待辦以 TODO 內的【Sol】／【Luna】為準；混合任務先拆成可獨立驗收的最小切片。
