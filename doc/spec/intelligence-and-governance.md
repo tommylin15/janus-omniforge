@@ -1,5 +1,27 @@
 # Janus SPEC — Intelligence、Aggregator 與 Runtime
 
+## 9.0 Current truth 與 approved next-version design
+
+目前實作邊界：`analysis.py` 產生 deterministic features、五個 score/feature
+payload、evidence 與 aggregate；`runtime.py` 以 immutable Core snapshot 執行
+deterministic Mart，`gemini.py` 只提供可選的單一 Gemini evidence-only narrator。
+`OpenRouter` 目前屬私人 Agent Gateway provider，不是 Mart provider。五個獨立 AI
+analyst、CIO synthesis、其 deterministic validators、Analysis Profile、content-
+addressed reuse 與 Flutter Admin workspace 尚未實作；本節以下的 next-version
+能力均標為 **Planned**，不得當作現有能力。
+
+下一版核准架構為：
+
+`Core immutable snapshot → Evidence Validation → Deterministic Fact Engine →
+5 evidence-grounded AI Analysts → Deterministic AI Output Validator → CIO /
+Synthesis AI → Deterministic Synthesis Validator → Governance / Publication Gate →
+Immutable Mart artifacts`。
+
+Deterministic Fact Engine 的正式定位是 Fact Pack，分為 Fundamental、Valuation、
+Positioning、Quant、Event Risk 五包。它負責數字、PIT、feature calculation、歷史
+比較、missing-data semantics、provenance、evidence refs 與 baseline score；baseline
+score 保留作 regression／drift／outcome reference，但不等於完整研究分析。
+
 ## 9. Mart + ML／AI／LLM Job
 
 職責：
@@ -33,10 +55,11 @@ priced-in assessment 與 expectation gap。leading indicator → exposure → ex
 → market expectation → expectation gap 的 deterministic contract 只在相應 WBS unlock
 後實作；本次只定義 contract 與 planning。
 
-LLM 只能做 evidence summarization、contradiction explanation 與自然語言 synthesis；
-不得自行生成 deterministic exposure、score 或數字，也不得把 `inferred`／`hypothesis`
-寫成 confirmed relationship。所有 signal 必須可回溯 Core／Mart snapshot、PIT、
-provenance、effective time、source 與 feature／signal revision。
+AI analyst／CIO 只能使用 immutable Fact Pack 與 validated evidence，不能改 canonical
+numbers、baseline score、publication status 或 governance outcome，也不得把
+`inferred`／`hypothesis` 寫成 confirmed relationship。所有 signal、claim 與 synthesis
+必須可回溯 Core／Mart snapshot、PIT、provenance、effective time、source 與
+feature／signal revision。
 
 User App 最小個股健檢契約：
 
@@ -68,7 +91,50 @@ evidence_refs: string[]
 
 五角色：Fundamental、Valuation Risk、Positioning、Quant、Event Risk。
 
-每個角色使用 repository 版控的固定 structured prompt；不提供 Admin 編輯、產業或個股 override。Mart execution 把 prompt version／content hash 固定進 immutable governance snapshot，修改只影響新 execution。prompt 只能要求 evidence-grounded structured output，不得注入 secret、未核准來源或解除 Validator／publication policy。
+### Planned AI analyst、CIO 與 prompt contract
+
+五個角色是獨立的 evidence-grounded analysis stage，可平行執行。每個 stage 輸入
+immutable Fact Pack、validated evidence、`analysis_as_of`、Core snapshot identity、
+immutable system guardrail、versioned role methodology prompt 與 provider/model/
+parameters。輸出至少包含 `stance`、`thesis`、`key_findings`、`positive_evidence`、
+`negative_evidence`、`contradictions`、`change_drivers`、`risks`、
+`missing_information`、`what_would_change_my_view`、`confidence` 與 `evidence_ids`。
+
+System Guardrail 不可由 Admin 編輯，至少禁止 fabricated numbers、future data、未披露
+missing information、無 evidence ID 的 claims、修改 deterministic facts、決定
+publication，並明示 confidence 不是 profit probability。Role Methodology Prompt
+（五角色及 CIO）可由唯一 Admin 編輯，但每次修改都建立 immutable version、content
+hash、author、timestamp 與 Analysis Profile reference；Output Schema 由系統控制。
+
+### Planned CIO、validation、rerun 與 reuse
+
+CIO 只讀 deterministic Fact summaries、五份 validated role analyses、baseline signals、
+evidence refs 與 governance constraints，輸出 overall stance／thesis、supporting／
+opposing roles、contradictions、bull／bear、principal risks、watch items 與 change
+since previous analysis。CIO 沒有 publication authority；role 與 CIO 都必須通過
+deterministic validator。Validator 至少檢查 schema、evidence existence、numeric
+grounding、`analysis_as_of` fence、future leakage、missing-data honesty、claim/evidence
+coverage、provider/model/prompt lineage 與 immutable input identity。invalid role 必須
+留下 structured failure，不寫 placeholder；一個 role 失敗不得宣稱 five-role full
+success。
+
+正式 rerun semantics：Fact Pack 未變時單角色重跑只執行該 role、validator、CIO、CIO
+validator 與 governance recalc，其他 role artifact reuse；Core／相關 Fact Pack 改變
+時先重建受影響 Fact Pack；prompt/model 改變不重算 facts；CIO prompt/model 改變只跑
+CIO；governance 改變只做 deterministic governance evaluation；全部重跑只放在進階。
+
+Role artifact 的 content-addressed identity 至少包含 `fact_pack_hash`、`evidence_hash`、
+`role_prompt_hash`、provider、model、model parameters、system guardrail version 與
+relevant schema version。相同 identity 可 reuse immutable artifact，但每次 reuse 都要
+留下 audit／lineage，不得重複 AI call。Facts 與 interpretations 分開保存，例如
+`executions/{execution_id}/facts/*`、`executions/{execution_id}/interpretations/*`、
+`synthesis/cio.json`、`validation/*` 與 `manifest.json`；實際 storage contract 仍依
+既有 GCS／Iceberg boundary 設計。
+
+Governance／Publication Gate 仍是 deterministic：`complete`、`insufficient_data`、
+`invalid`、`review_required`、`risk_blocked` 是 analysis outcome；`publishable`、
+`blocked`、`published`、`superseded` 是 publication lifecycle。AI 不得自行宣告
+`publishable`，`insufficient_data` 不得當成成功或公開狀態。
 
 主要規則：
 

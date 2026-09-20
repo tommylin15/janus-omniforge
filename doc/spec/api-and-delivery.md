@@ -2,7 +2,11 @@
 
 ## 12. User、Admin 與 API
 
-- Flutter User App 與 Admin Web 為兩個獨立入口；User 導覽不顯示 Admin，Admin 必須通過獨立認證與授權。
+- User 與 Admin 是同一 Flutter codebase 內的不同 workspace／navigation surface；User
+  導覽不顯示 Admin。`/api/v1/admin/*` 仍由 backend 每次 request enforce Admin
+  authorization，並使用與 User 不同的 token audience／CORS／audit boundary。現有
+  static Admin 在 migration 期間保留，直到 Flutter parity 與 auth／browser acceptance
+  完成，不得先刪除。
 - FastAPI 作為共用 HTTP boundary，但 `/api/v1/public/*`、`/api/v1/me/*` 與 `/api/v1/admin/*` 分離 router、response model、auth、rate limit、CORS 與 audit policy。
 - 公開端只讀 publishable Mart／service index，不直讀 Iceberg catalog owner 或 control schema。
 - Core query 的 canonical boundary 為 Admin-authenticated `GET /api/v1/admin/core/{symbol}/summary` 與
@@ -15,8 +19,10 @@
 - Admin 只寫 control DB／queue，不在 request 中執行長任務。
 - Admin「資料營運中心」保留為資料操作入口；`/admin/stocks` 右側一次只呈現一個分頁面板，不把所有管理功能同時展開。
 - 股票資料狀態以可排序、篩選、分頁的欄列表格呈現，不以原始 JSON 作主要 UI；巢狀 DQ／quarantine／execution 明細亦轉為子表或定義清單。
-- 第一階段只開放 Collection／backfill；Analysis action 與「Mart 分析」必須 hidden／disabled，且不得建立無 consumer 的 queued execution。完成 Mart persisted queue consumer 後才啟用。
-- Admin 可按 market／industry／symbol scope 檢視已持久化的 `mart_scoped_analysis`；讀取不得觸發即時 Agent。Prompt 由 repository 版控，不提供 Admin 編輯。
+- Legacy static Admin current surface 已有 Collection／backfill、Analysis queue 與 persisted
+  Mart index；新 Flutter workspace 必須保留已驗收的 bounded read／review semantics，且在
+  新 AI consumer 未完成前不得把 AI role／CIO／Profile controls 當作可用。
+- Admin 可按 market／industry／symbol scope 檢視已持久化的 `mart_scoped_analysis`；讀取不得觸發即時 Agent。System Guardrail 與 Output Schema 由系統鎖定；Role Methodology／CIO Prompt 由唯一 Admin 以 immutable version、content hash、author、timestamp 與 Profile reference 管理。
 - blocked report、raw payload、secret、traceback、broker data 不得公開。
 - User App 主頁以 `mart_daily_brief` 為唯一首屏資料入口；個股健檢讀取 `mart_candidate_health` 與可定位 evidence，前端不重算健康度。
 - `/api/v1/me/journal/*`、`/api/v1/me/notes/*`、`/api/v1/me/watchlist/*`、`/api/v1/me/chats/*`、`/api/v1/me/portfolio/*` 與 `/api/v1/me/investment-profile` 只允許 authenticated user 存取自己的資料。所有 query 與 index 以 `user_id` 作為所有權邊界；不接受 client 指定他人 `user_id`。
@@ -28,6 +34,22 @@
 - 交易日誌／PnL 納入私人 MVP；市場投票排行榜、遊戲化、付費、公開績效排名與券商同步不在當前範圍。
 - 個人記帳、筆記、關注股與私人聊天室可在公開 Mart 前獨立上線至 dev；未完成的「今日／公開探索」只顯示 coming soon，不得因此觸發即時分析或阻擋私人功能。
 - UI 詳細契約見 `../ui.md`。
+
+### 12.0 Planned Mart AI and rerun API semantics
+
+下一版 API contract（尚未實作）必須保留 immutable execution／artifact lineage，並
+遵守以下 dependency semantics：
+
+- 單角色重跑預設使用目前 Production Profile，只重建受影響 role、validator、CIO、
+  CIO validator 與 governance；其他 role artifact reuse。進階操作才可 override profile。
+- Core／相關 Fact Pack 改變時，先更新 Fact Pack 再跑 role；prompt/model 改變不重算
+  deterministic facts；CIO prompt/model 改變只跑 CIO；governance-only change 不呼叫
+  LLM；全部重跑保留於進階。
+- retry 只允許 retryable failed item，不把 partial success 變成 full success；舊
+  execution 永久保留，新的 execution／retry lineage 可稽核。
+- Planned Analysis Profile endpoints 應支援 current／history、建立新的 Production
+  version、compare（role／CIO diff、validator failure、provider/model、latency、token
+  usage、cost、fact hash）與 rollback；rollback 不覆蓋舊版。
 
 ### 12.1 私人助理 runtime contract
 

@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   google_sign_in: 6.3.0
+  google_sign_in_web: 0.12.4+4
   http: 1.6.0
 
 dev_dependencies:

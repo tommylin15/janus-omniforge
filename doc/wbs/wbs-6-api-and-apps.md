@@ -22,29 +22,62 @@
 
 ### 6.3 Admin UI
 
-- WBS 3 已負責 Stage／Core Data Operations 的可操作閉環；本節延伸公開 Mart、governance 與 reports，不重建第二套資料營運入口。
+- WBS 3 已負責 Stage／Core Data Operations 的可操作閉環；本節延伸公開 Mart、governance
+  與 reports。目標是單一 Flutter codebase 內的 User／Admin workspace，不是長期維護
+  另一套獨立 HTML／JS UI；現有 static Admin 在 migration 期間保留，直到 parity、
+  Admin auth、browser/runtime acceptance 與 rollback plan 全部完成。
+- Flutter 隱藏控制不是 security boundary。`/api/v1/admin/*` 每次 request 仍由 backend
+  enforce Admin authorization；User token 不得假設可呼叫 Admin API，User／Admin
+  token audience 差異必須在 implementation WBS 驗證。
+- Admin 主導覽使用中文：總覽、批次、個股、AI 分析、進階管理；工程欄位與 lineage
+  放在「進階／詳細資訊」。
 - 保留「資料營運中心」名稱與入口；`/admin/stocks` 使用 tablist／單面板模式，右側一次只顯示目前功能，不同功能不得整頁同時堆疊。
 - 分頁至少包含：股票管理、股票資料狀態、最近執行、資料源健康、深度追蹤名單、排程與保存設定、資料源設定、Mart 分析。
 - 股票管理支援跨頁批次選取；股票資料狀態與 execution／DQ／quarantine 明細以類 Excel 的欄列表格呈現，支援 sticky header、排序、篩選、分頁與欄位顯示，不以 raw JSON 作主要介面。
 - Collection／Analysis 分開觸發。
-- WBS 3 第一階段只啟用 Collection；Analysis 與「Mart 分析」在 WBS 5 persisted consumer 完成前 hidden／disabled。
+- Legacy static Admin current surface 已有 Collection、Analysis queue 與 persisted「Mart 分析」
+  index；它不代表新五角色 AI／CIO／Analysis Profile 已完成。Flutter parity 必須保留已驗收
+  的 persisted read／review semantics，再依本 WBS 增加 Planned AI operations。
 - 最近 50 次 execution 與按需明細。
 - Governance typed edit、validation、diff、history、optimistic lock。
 - Data-source health persisted telemetry。
 - 全市場／去識別化關注股深度 membership、effective date、cadence、來源授權狀態與 quota 管理；MVP 超過 50 個 active distinct symbols 必須拒絕，Admin 不得取得 user-to-symbol 對應。
 - 「資料源設定」只管理已核准來源；候選來源維持 disabled／blocked 設定，不提供審查或啟用控制。
 - 「Mart 分析」按 analysis date、scope、industry、symbol、角色、prompt version、analysis outcome 與 publication status 篩選 `mart_scoped_analysis`，只讀已持久化 artifact。
-- Admin 使用獨立入口與認證；一般 Admin 營運頁不得瀏覽使用者交易內容。只有另行核准的隱私事件處理流程可接觸必要最小 metadata，且必須 audit。
+- 一般 Admin 營運頁不得瀏覽使用者交易內容。只有另行核准的隱私事件處理流程可接觸必要最小 metadata，且必須 audit。
+
+### 6.3.1 Planned Admin workspace slices
+
+以下切片全部為 `Planned`，只描述後續 implementation scope：
+
+| WBS | Dependency | Acceptance |
+|---|---|---|
+| `WBS-6-FLUTTER-ADMIN-SHELL` | existing Flutter app、Admin API auth contract、legacy static Admin | 單一 Flutter workspace、responsive shell、中文主導覽；backend Admin auth／audience negative tests 通過；legacy static 保留 |
+| `WBS-6-ADMIN-OVERVIEW-BATCH` | ADMIN-SHELL、execution／retry API contract | actionable-issues-first overview、Core／Mart／AI／failure cards、retry classification、retryable failed item、execution lineage；正常 execution 不佔首頁主要空間 |
+| `WBS-6-ADMIN-STOCK-WORKBENCH` | ADMIN-SHELL、Core／Mart persisted readers | 代號／中文名搜尋、dataset health、gap repair、role-impact mapping、affected-role rerun、historical facts／roles／CIO view；old execution immutable |
+| `WBS-6-ADMIN-ANALYSIS-PROFILE` | MART role/provider/validation contracts、ADMIN-SHELL | Production version history、direct new Production version、rollback with audit lineage、role／CIO prompt editors、locked guardrail、model/capability picker、fixed 5–10 symbols、compare、per-role override |
+| `WBS-6-ADMIN-LEGACY-RETIREMENT` | all four slices above、Admin auth acceptance、browser/runtime acceptance、rollback plan | only after Flutter parity and acceptance may legacy HTML Admin be deprecated; no early deletion |
 
 ### 6.4 驗收條件
 
 - UI 不自行計算後端分數。
-- Flutter 不自行計算正式損益；User 與 Admin 入口、token audience、CORS 與導覽分離。
+- Flutter 不自行計算正式損益；User／Admin navigation and workspace state are separated,
+  while backend authorization, token audience and CORS remain enforced independently.
 - empty／unavailable／partial／fallback／blocked 語意正確。
 - 未啟用股票 404；已啟用無資料顯示等待批次。
 - 詳細驗收依 `../ui.md`。
 - tab 具鍵盤操作、ARIA 與可分享 query-string deep link；重載後保留所選分頁，未選面板不重複抓取大型 details。
 - 詳細 User／Admin 驗收依 `../ui.md`；今日頁所有卡片必須使用同一 analysis-as-of，個人工作台通過交易更正、筆記 revision、關注異動、聊天室 engine lineage 與跨使用者隔離測試。
+
+### 6.4.1 Planned Admin analysis semantics
+
+- 單角色重跑預設使用目前 Production Profile；進階才能 override，完成後自動重跑 CIO
+  與 governance recalc，其他 role artifact reuse。
+- Core／Fact Pack 改變先更新受影響 Fact Pack；prompt/model 改變不重算 facts；CIO
+  prompt/model 改變只跑 CIO；全部重跑保留但藏在進階。
+- Profile 修改可直接建立新的 Production version；禁止覆蓋舊 Production；rollback
+  也必須建立 audit／version lineage。固定 5–10 檔 test symbols 只作比較，不是
+  Candidate approval gate。
 
 ### 6.5 Janus ChatGPT MCP Connector
 

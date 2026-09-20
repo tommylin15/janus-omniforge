@@ -150,6 +150,31 @@ tests/test_mcp_oauth.py tests/test_user_api.py` passed **32 tests**; Python
 compile, Git Bash `bash -n`, and `git diff --check` also passed. GCP dev
 deployment and runtime acceptance are recorded above.
 
+## Secret bundle recovery after accidental deletion（2026-09-19）
+
+Audit Log recorded `google.cloud.secretmanager.v1.SecretManagerService.DeleteSecret`
+for `projects/131494961796/secrets/janus-postgres-api-bundle` at
+`2026-09-19T13:07:53.896564036Z`. The deleted container and its versions returned
+`NOT_FOUND`; Secret Manager payload recovery was not available.
+
+The same API secret name was recreated with enabled version 1. The payload was built
+from the local OAuth Web client file plus newly generated rotated credentials and was
+verified against all required API bundle fields without printing payload values. The
+six PostgreSQL roles `janus_private_api`, `janus_private_pipeline`, `janus_catalog`,
+`janus_web_control`, `janus_web_catalog`, and `janus_public_api` were rotated and
+verified as non-privileged roles.
+
+The existing provider bundle was read-modify-written with a new matching
+`mcp_owner_signing_key` as enabled version 9; version 8 was disabled, not destroyed,
+so the rotation remains reversible. API bundle Secret Manager accessor IAM was
+restored for `janus-user-api` and `janus-private-pipeline`. Recovery validation found
+`janus-api-00127-sqp` and `janus-agent-gateway-00044-jtn` Ready, and removed all
+remote temporary credential files.
+
+This recovery does not constitute MCP connector acceptance: `janus-api` still has
+`MCP_OAUTH_ENABLED=false`. OAuth enablement, ChatGPT tool discovery, consent redirect,
+and UI invocation remain the next acceptance slice.
+
 ## WBS-8 Pilot release baseline acceptance（2026-09-17）
 
 The existing Mart pipeline registers a deterministic `material_change` baseline

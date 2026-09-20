@@ -4,7 +4,13 @@
 
 建立以台股為主的個人投資工作台與湖倉型智慧投資研究平台。第一優先是讓使用者安全管理交易記帳、個人筆記、關注股與私人 AI 對話；後續才以官方與核准 fallback 資料產製市場、板塊、話題與候選股研究 Mart。
 
-User App 與 Admin UI 是兩個獨立入口。Flutter 的公開研究頁只讀取符合發布政策的公開 Mart 成品，私人記帳、筆記、關注股與 AI 對話只讀取 authenticated user 的 ledger／Private Core／Mart；Admin Web 用於資料營運、治理、執行與發布審查。除明確的私人聊天室外，兩者均只經 FastAPI 契約取用已持久化資料，不直讀 Stage，也不在一般 page load 內觸發即時爬取、Agent 或 LLM。
+User 與 Admin 是不同的 navigation、workspace state、token audience 與 backend authorization
+surface，但目標是共用單一 Flutter codebase；Flutter 的公開研究頁只讀取符合發布政策
+的公開 Mart 成品，私人記帳、筆記、關注股與 AI 對話只讀取 authenticated user 的
+ledger／Private Core／Mart。現有 static HTML／JS Admin 在 migration 期間保留，直到
+Flutter parity、Admin auth、browser/runtime acceptance 與 rollback plan 完成。除明確的
+私人聊天室外，兩者均只經 FastAPI 契約取用已持久化資料，不直讀 Stage，也不在一般
+page load 內觸發即時爬取、Agent 或 LLM。
 
 個人投資工作台是 User App 的第一優先私人功能。PostgreSQL append-only ledger 保存需要 OLTP 一致性的交易事實、冪等鍵與單調遞增 `ledger_version`；筆記正文、對話訊息、對話 context／citation snapshot、關注名單歷史與交易正規化資料儘可能保存於 Private Iceberg Core，PostgreSQL 只保留必要的目前狀態、索引、版本、工作狀態、checkpoint 與 artifact reference。Private Mart 計算庫存、成本與損益；同步失敗可從最後成功 checkpoint 重跑，不另建 outbox。私人資料不得進公開 Mart／service index、話題、排行榜或他人的分析。
 
@@ -66,9 +72,9 @@ ChatGPT MCP，啟動 6 個月 Dev Pilot，六個月後再依實際 evidence 決�
 尚未證明 business value 的功能擴張。
 
 六個月 Pilot 開始前與期間，以下項目維持 feature freeze：Codex App Server
-productionization、Codex multi-instance／distributed auth expansion、新增第四個
-AI provider、更多 Janus MCP workflow、更多 Janus Skills capability、新 AI roles、
-新 analysis dashboard、未核准社群／Podcast／alternative-data adapter、額外 UI
+productionization、Codex multi-instance／distributed auth expansion、Mart 核准五角色
+以外的新 AI roles、更多 Janus MCP workflow、更多 Janus Skills capability、未核准的
+額外 analysis dashboard、未核准社群／Podcast／alternative-data adapter、額外 UI
 cosmetic polish、Pilot 實際不用的平台完整 A11y／device matrix、新 GCP service、
 HA／replica／multi-region／GKE，以及為架構漂亮而新增 infrastructure。
 
@@ -111,7 +117,9 @@ resource 仍 frozen／deferred，並須依 WBS-5／WBS-8 的 unlock gates 個別
 
 - 市場資料、API 與私人助理全部在 GCP 開發、測試與部署；不建立 React／Tauri 桌面程式或使用者地端 Codex／MCP runtime。Web／mobile client 只經 authenticated HTTPS 連線。
 - 一個 GitHub monorepo，市場資料、智慧 Mart、私人帳本、API、User 與 Admin 保持清楚邊界；Core query 能力由 Job／API 各自內嵌的 DuckDB runtime 提供。
-- User 與 Admin 前端分離：`apps/user_app` 為 Flutter + Material 3；現有 `apps/web` 專注 Admin Web，不在 User App 暴露 Admin 導覽或管理功能。
+- User／Admin 使用單一 `apps/user_app` Flutter + Material 3 codebase，但維持不同
+  navigation、route guard、token audience、CORS、backend authorization 與 audit；
+  現有 `apps/web` static Admin 僅作 migration compatibility，parity 完成前不得刪除。
 - Dev User authentication 固定使用 Google OIDC／Google Sign-In，使用獨立於 Admin 的 OAuth client／audience。API 驗證 issuer、audience、expiry，並以 `(provider="google", subject=sub)` 對應內部 UUID `user_id`；email 只供顯示，不作所有權鍵。Dev 可另加 User allowlist，不建立自有密碼系統。
 - `services/api` 以 FastAPI 提供 public、private-journal 與 Admin API router；共用 service／repository 時仍使用不同路由、response model、認證、CORS、IAM 與 audit 邊界。現有 WSGI boundary 保留至 FastAPI 回歸測試完成後移除。
 - GCS + Iceberg + DuckDB／PyIceberg 是資料主架構；DuckDB 不作為獨立持久資料庫。
@@ -119,7 +127,10 @@ resource 仍 frozen／deferred，並須依 WBS-5／WBS-8 的 unlock gates 個別
 - Dev／MVP PostgreSQL 採 Compute Engine `e2-micro` 單一 VM 自架，位於 `us-central1`；Free Tier 模式限制 Standard Persistent Disk 總量 ≤30 GB、不配置 external IP，並以 IAP／OS Login 管理。此配置不作為 production HA 架構。
 - `e2-micro` 僅承載 PostgreSQL，不承載 DuckDB 分析工作；DuckDB 內嵌於 Cloud Run Job／Service process，暫存與記憶體限制由各 runtime 獨立管理。
 - 開發／重構期最低有效完整度為 30%；正式發布門檻日後依 PIT 回測與人工治理調整。
-- LLM 只做提取、摘要、解釋與白話轉譯；不計算或修改 deterministic 分數、不補值、不決定發布。
+- Mart AI analyst／CIO 可對 supplied Fact Pack 做 evidence-grounded analysis、
+  contradiction explanation 與 synthesis；不得計算或修改 canonical deterministic
+  numbers／facts、補值、宣告 publication 或改 governance outcome。私人 Agent runtime
+  維持既有 evidence／context 邊界。
 - 私人助理不綁定個股或單一廠商，runtime 為 `openrouter | gemini | codex`；model 與 assistant／skill profile 分離。延續既有 Flutter Web／Android／iOS 與 FastAPI，新增的 Node.js／TypeScript Agent Gateway 只部署 Cloud Run。`chatgpt` 如保留僅是 Codex preset，不是獨立 provider。
 - Gemini 直接用 `GEMINI_API_KEY` 呼叫 Developer REST API 免費層，保留 Google Search Grounding、citations／查詢時間與免費額度限制；不用 Google GenAI SDK／Vertex AI workload identity。OpenRouter 以獨立 API key 動態選擇已核准模型，Codex 只用 managed OAuth／device-code，不建立直接 OpenAI API fallback。
 - Agent Gateway 與 Codex App Server 同置 Cloud Run Service；gateway 在容器內管理 stdio JSONL 子行程並透過 HTTPS SSE 提供統一 events。`min-instances=0`、MVP concurrency=1、bounded max instances／timeout；checkpoint 必須外部持久化，不能依賴容器記憶體、暫存檔或 session affinity。
@@ -132,7 +143,26 @@ resource 仍 frozen／deferred，並須依 WBS-5／WBS-8 的 unlock gates 個別
 - Artifact Registry 可由 source deploy／Cloud Build 自動管理，但底層仍需保存容器映像。
 - Artifact Registry 僅使用 image、digest、metadata 與 cleanup；禁止 Artifact Analysis API、Container Scanning API、vulnerability scanning 與 occurrence API。SBOM 僅可離線產生，不以掃描結果作為 build gate。
 
-## 2.1 Research Context 產品方向（Pilot Evolution）
+## 2.1 Approved Mart Analysis Profile design (Planned)
+
+Analysis Profile 是 versioned immutable configuration，包含 provider、model、可用的
+reasoning level、bounded output length、provider-supported parameters、五個 role prompt
+version、CIO prompt version、per-role override 與 hashes／lineage。唯一 Admin 可直接
+建立新的 Production version；不可覆蓋舊版本，rollback 也建立 audit／version lineage。
+System Guardrail 永遠 locked；Role Methodology／CIO Prompt 可編輯；Output Schema 由
+系統控制。固定 5–10 檔 test symbols 用於 current Production 與新 version 的比較，
+不是 Candidate approval gate。這些皆為 Planned，與目前 Gemini narrator／static Admin
+current truth 分開。
+
+## 2.2 Mart analysis scope guardrails
+
+Fact Pack、AI interpretation 與 governance publication 永遠分層保存。`mart.v1` 維持
+相容；新 artifact／validator contract 先以 additive layer 規劃，只有 migration
+contract 與 tests 完整後才升版。Leading Indicators 與 Major-wave Prediction 不加入
+目前五角色、CIO、score 或 publication；最多保留 extensibility，屬後續 Research／
+Pilot Evolution。
+
+## 2.3 Research Context 產品方向（Pilot Evolution）
 
 Janus 將正式或已核准外部資料依 `Stage → Core → deterministic Mart／Supply-chain
 Intelligence → bounded ResearchContext → existing janus-api` 提供給 User App 與

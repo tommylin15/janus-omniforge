@@ -160,7 +160,36 @@ correctness 或明確核准的 Pilot use case 必要；既有可用功能保留�
 
 ## P1 — Mart 閉環
 
+本節是本次同步新增的 Mart next-version roadmap；全部 `Planned`，不表示現況已完成，
+也不自動開始 implementation WBS。既有 deterministic Mart／Gemini narrator／mart.v1
+evidence 保持 current truth。
+
+- [ ] 【Sol】 `WBS-5-MART-FACT-PACKS`（Planned；Pilot M1）：建立 Fundamental／Valuation／Positioning／Quant／Event Risk Fact Pack contract、PIT／missing-data／provenance／evidence、baseline compatibility、hash／version lineage；dependency：Core snapshot、既有 `analysis.py`／`mart.v1`；acceptance：LLM off 不改 facts、canonical numbers 可 replay、mart.v1 compatibility。
+- [ ] 【Sol】 `WBS-5-MART-AI-ROLE-CONTRACT`（Planned；Pilot M1）：五個 structured AI role output、locked system guardrail、versioned methodology prompts、CIO contract；dependency：FACT-PACKS；acceptance：schema／lineage fixture、invalid role structured failure、old artifact immutable。
+- [ ] 【Sol】 `WBS-5-MART-AI-VALIDATION`（Planned；Pilot M1）：schema、evidence ID、numeric grounding、analysis-as-of time fence、future leakage、missing-data honesty、claim coverage；dependency：ROLE-CONTRACT；acceptance：invalid output 不得 publish、one-role failure 不得宣稱 full success。
+- [ ] 【Sol】 `WBS-5-MART-V2-COMPAT`（Planned；Pilot M1）：保留 `mart.v1`、新增 additive artifact／validator contract、規劃 future mart.v2 migration；dependency：FACT-PACKS／ROLE-CONTRACT；acceptance：既有 v1 fixtures／consumer 不破壞，migration 前不升版。
+- [ ] 【Sol】 `WBS-5-MART-AI-PROVIDERS`（Planned；Pilot M2）：governed `MartAIProvider`、Gemini／OpenRouter、capability discovery、bounded parameters、billing gate、structured failure；dependency：ROLE-CONTRACT；acceptance：兩 provider contract tests、unsupported model／parameter rejection、429／unavailable retry bounds。
+- [ ] 【Sol】 `WBS-5-MART-CIO-SYNTHESIS`（Planned；Pilot M3）：validated roles only、CIO synthesis、CIO validator、無 publication authority；dependency：AI-VALIDATION；acceptance：CIO invalid blocked，publication 仍由 deterministic governance 決定。
+- [ ] 【Sol】 `WBS-5-MART-RERUN-CACHE`（Planned；Pilot M3）：single-role rerun、dependency invalidation、content-addressed reuse、immutable artifact lineage；dependency：FACT-PACKS／AI-VALIDATION／CIO-SYNTHESIS；acceptance：無關 role 不重跑、prompt/model 不重算 facts、governance-only 不呼叫 LLM、reuse 有 audit。
+
 ## P1 — Admin Governance／Reports
+
+- [ ] 【Luna】 `WBS-6-FLUTTER-ADMIN-SHELL`（Planned；Pilot M4）：單一 Flutter codebase 的 Admin workspace、中文主導覽、responsive shell；dependency：Admin auth contract、現有 User App／static Admin；acceptance：backend Admin auth／audience negative tests、legacy static 保留。
+- [ ] 【Luna】 `WBS-6-ADMIN-OVERVIEW-BATCH`（Planned；Pilot M4）：actionable-issues-first overview、batch、retry classification、retry failed item、execution lineage；dependency：ADMIN-SHELL、execution API；acceptance：只重試 retryable failed item、old execution preserved、partial 不作 full。
+- [ ] 【Sol】 `WBS-6-ADMIN-STOCK-WORKBENCH`（Planned；Pilot M4）：symbol／中文名 search、dataset health、gap repair、role-impact mapping、affected-role rerun、historical analysis；dependency：ADMIN-SHELL、Fact／Mart readers；acceptance：歷史 facts／roles／CIO 可讀、舊 artifact immutable、rerun lineage 可見。
+- [ ] 【Sol】 `WBS-6-ADMIN-ANALYSIS-PROFILE`（Planned；Pilot M5）：Production profile versioning、direct new Production、rollback、role／CIO prompt editor、locked guardrail、model picker、per-role override、fixed 5–10 symbols、compare；dependency：Mart role/provider/validation contracts、ADMIN-SHELL；acceptance：不可覆蓋舊版、rollback audit、unsupported parameter 不送出、comparison 可重現。
+- [ ] 【Luna】 `WBS-6-ADMIN-LEGACY-RETIREMENT`（Planned；Pilot M6）：只在 Flutter parity、Admin auth、browser/runtime acceptance、rollback plan 全部完成後 deprecate static Admin；dependency：前四個 Admin slices；acceptance：legacy 未達 gate 不刪除。
+
+## P1 — Pilot Mart AI evaluation
+
+- [ ] 【Sol】 `WBS-8-PILOT-MART-AI-EVALUATION`（Planned；Pilot M6）：收集 role validation pass rate、provider failure／retry／availability、latency、token usage、actual API cost、cache reuse、single-role rerun、manual intervention、rollback、usefulness、deterministic／AI divergence 與 outcome lineage；dependency：WBS-5 AI validation／CIO／rerun-cache、WBS-6 Analysis Profile；acceptance：每筆 evidence 綁 immutable lineage，清楚區分 partial／failure／full success；不是 predictive tuning。
+
+### Six-month relative mapping
+
+repository 尚無正式 `pilot_started_at`，只使用相對月份：M1 contracts／Fact foundation、
+M2 provider／AI analyst runtime、M3 CIO／precise rerun、M4 Flutter Admin migration、
+M5 Analysis Profile、M6 hardening／evidence／legacy retirement decision。未開始 Pilot，
+不得填寫假的 calendar date。
 
 ## P1 — FastAPI／Flutter User
 

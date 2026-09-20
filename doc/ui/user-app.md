@@ -41,7 +41,14 @@ P0 個人工作台尚未啟用本頁；以下契約留待公開 Mart 階段。
 9. 可收合的 `EvidenceAndSources`
 10. 「詢問 AI」入口與 `ComplianceDisclaimer`
 
-K 線、五角色明細、估值指標與完整 provenance 屬「進階資料」，預設收合且不得先於健康度與白話摘要。未知／停用股票顯示 404；已啟用但沒有 report 顯示「等待下一次批次」，不得啟動即時分析。
+K 線、deterministic Fact Pack、五角色 validated analysis、CIO、估值指標與完整
+provenance 屬「進階資料」，預設收合且不得先於健康度與白話摘要。未知／停用股票顯示
+404；已啟用但沒有 report 顯示「等待下一次批次」，不得啟動即時分析。AI 文案只讀
+validated evidence，不可把 confidence 當獲利機率或把缺失資料補成 0。
+
+歷史分析（Planned）可切換 `analysis_as_of`、execution 與 snapshot，並檢視舊 facts、
+roles 與 CIO；歷史 artifact immutable。單角色重跑由 Admin 操作，完成後 User 只看到
+新的 immutable result 與資料日期，不把 partial success 顯示成完整分析。
 
 ### 5.4 個人記帳與筆記
 

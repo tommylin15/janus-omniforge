@@ -22,9 +22,9 @@
 | 4J：個人記帳、筆記、關注股 | 【Sol】 | [WBS 4J](wbs/wbs-4j-personal-workspace.md) | AI 整合才讀 4C；曝險才讀 4R |
 | 4C：多供應商私人助理／MCP／Skills | 【Sol】 | [WBS 4C](wbs/wbs-4c-ai-chat.md) | 需要持股／筆記 context 時讀 4J；UI 切片讀 User UI |
 | 4R：個人曝險、績效與壓力測試 | 【Sol】 | [WBS 4R](wbs/wbs-4r-personal-risk.md) | AI 解釋時讀 4C |
-| 5：Intelligence Mart | 【Sol】 | [WBS 5](wbs/wbs-5-intelligence-mart.md) | 不預讀私人 WBS |
-| 6：FastAPI、Flutter、Admin | 依 TODO | [WBS 6](wbs/wbs-6-api-and-apps.md) | 依目標入口讀 User 或 Admin UI |
+| 5：Intelligence Mart／Fact Pack／AI analysts | 【Sol】 | [WBS 5](wbs/wbs-5-intelligence-mart.md) | 不預讀私人 WBS；atomic slices 依 TODO 的 Pilot M1–M3 |
+| 6：FastAPI、Flutter、Admin workspace | 依 TODO | [WBS 6](wbs/wbs-6-api-and-apps.md) | 依目標入口讀 User 或 Admin UI；Admin slices 依 Pilot M4–M6 |
 | 7：安全、監控、FinOps | 【Sol】 | [WBS 7](wbs/wbs-7-security-finops.md) | 依受影響服務增讀其 WBS |
-| 8：PIT、QA、發布 | 依 TODO | [WBS 8](wbs/wbs-8-qa-release.md) | 需要現況證據時讀測試摘要 |
+| 8：PIT、QA、發布／Pilot AI evaluation | 依 TODO | [WBS 8](wbs/wbs-8-qa-release.md) | 需要現況證據時讀測試摘要；Mart AI evaluation 為 Planned Pilot M6 slice |
 | Research Context（Pilot Evolution） | 【Sol】 | [WBS 3](wbs/wbs-3-ingestion-admin.md)、[4J](wbs/wbs-4j-personal-workspace.md)、[5](wbs/wbs-5-intelligence-mart.md)、[6](wbs/wbs-6-api-and-apps.md)、[8](wbs/wbs-8-qa-release.md) | 不重開 WBS 4C；Supply-chain 依 Gate A–E |
 | 里程碑規劃 | 【Sol】 | [建議里程碑](wbs/milestones.md) | 不作單一 WBS 的驗收來源 |

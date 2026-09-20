@@ -34,12 +34,21 @@
 
 ### 5.2 五角色與 Validator
 
-- 五個 discriminated role payload。
-- nullable score、confidence、missing_data、evidence。
+- Current implementation：五個 deterministic discriminated role payload，包含 nullable
+  score、confidence、missing_data、evidence；這是既有 `mart.v1` compatibility
+  surface，不是五個 AI analyst。
+- Planned：五個獨立、可平行執行的 evidence-grounded AI analyst stage，輸入 immutable
+  Fact Pack、validated evidence、`analysis_as_of`、Core snapshot identity、fixed
+  system guardrail、versioned methodology prompt 與 provider/model/parameters。
+- Planned role output 至少包含 stance、thesis、key findings、positive／negative
+  evidence、contradictions、change drivers、risks、missing information、
+  what-would-change-my-view、confidence 與 evidence IDs。
 - URL、時間、單位、duplicate、stale、conflict、future validation。
 - Evidence 必須引用可定位的 provenance／Core snapshot；未核准來源、缺 publication
   time 或超過 `analysis_as_of` 的資料不得成為角色或 LLM 輸入。
-- 五角色使用 repository 版控的固定 structured prompt，不提供 Admin 編輯或 scope override。每次 execution 固定 prompt version／content hash 至 immutable governance snapshot；修改不得回寫歷史分析。
+- Planned prompt boundary：System Guardrail locked；五個 Role Methodology Prompt 與
+  CIO Prompt 可由唯一 Admin 版本化編輯；Output Schema 由系統控制。所有 version、
+  content hash、author、timestamp 與 profile reference 寫入 immutable lineage。
 
 ### 5.3 Aggregator／Publication
 
@@ -55,9 +64,32 @@
 
 ### 5.4 LLM
 
-- 公開批次 Mart 的 LLM provider 只使用 Gemini，與 WBS 4C 的使用者可切換私人聊天室分離；不得使用 OpenAI／Codex API。
-- Structured output 與 evidence-only prompt；啟用 Gemini 付費前須通過人工 billing gate。
-- Gemini 發生 429／`RESOURCE_EXHAUSTED` 或 provider unavailable 時 bounded retry；仍失敗或其他錯誤皆結構化失敗，不寫 placeholder。
+- Current implementation：公開批次 Mart 只有可選 Gemini narrator；OpenRouter 目前只在
+  私人 Agent Gateway。這些現況不得寫成已完成五角色 AI。
+- Planned：以 governed `MartAIProvider` 支援 `GeminiMartProvider` 與
+  `OpenRouterMartProvider`；provider failure 不改 deterministic facts，未核准 provider
+  或不符合 structured output／context／required parameters 的 model 不可選。
+- Provider capability discovery、bounded supported parameters、429／unavailable
+  bounded retry、structured failure、usage／latency／cost lineage 與 billing gate
+  必須可測試。不得自動加入 Codex／OpenAI API；paid tier 仍須人工授權。
+
+### 5.4.1 Planned atomic WBS slices
+
+以下切片全部為 `Planned`，不表示目前 implementation 已完成；依 dependency 排入
+六個月 Dev Pilot：
+
+| WBS | 範圍 | Dependency | Acceptance |
+|---|---|---|---|
+| `WBS-5-MART-FACT-PACKS` | 五份 deterministic Fact Pack、baseline compatibility、hash／version lineage、mart.v1 compatibility | 既有 Core snapshot、analysis.py、mart.v1 | facts 可 deterministic replay；LLM off 不改 facts；canonical numbers、PIT、missing data、provenance 與 evidence refs 可驗證 |
+| `WBS-5-MART-AI-ROLE-CONTRACT` | 五個 role schema、guardrail boundary、versioned role prompts、CIO output contract | FACT-PACKS | schema／prompt／lineage fixtures 通過；invalid role 不得假裝成功；old artifacts immutable |
+| `WBS-5-MART-AI-PROVIDERS` | MartAIProvider、Gemini、OpenRouter、capability discovery、bounded parameters、billing gate、structured failure | ROLE-CONTRACT | Gemini／OpenRouter contract tests、unsupported model／parameter rejection、429／unavailable retry bounds 通過 |
+| `WBS-5-MART-AI-VALIDATION` | schema、evidence、numeric grounding、time fence、missing data、claim coverage validation | ROLE-CONTRACT、PROVIDERS | invalid output blocked；one role failure 不是 full success；provider/model/prompt/input identity 可追溯 |
+| `WBS-5-MART-CIO-SYNTHESIS` | validated roles only、CIO synthesis、synthesis validator、no publication authority | AI-VALIDATION | CIO 只讀 validated inputs；validator failure structured；publication 仍由 deterministic gate 決定 |
+| `WBS-5-MART-RERUN-CACHE` | single-role rerun、dependency invalidation、content-addressed reuse、immutable lineage | FACT-PACKS、AI-VALIDATION、CIO-SYNTHESIS | 無關 role 不重跑；prompt/model 不重算 facts；governance-only 不呼叫 LLM；相同 identity reuse 且 audit |
+| `WBS-5-MART-V2-COMPAT` | mart.v1 additive compatibility、future mart.v2 migration plan | FACT-PACKS、ROLE-CONTRACT | mart.v1 fixtures／consumers 維持；新 contract additive；未完成 migration 前不破壞 v1 |
+
+Leading Indicators 與 Major-wave Prediction 不屬本組 WBS；只保留 extensible contract
+space，不加入 role logic、score、CIO 或 publication。
 
 ### 5.5 Mart writer
 

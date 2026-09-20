@@ -19,13 +19,33 @@
 - Production scope 只要求實際保留並準備進 production 的 runtime／capability 通過對應 gate；每項必須是 `enabled and accepted`，或明確 `disabled / removed from production scope`，不得停留在 enabled-but-unvalidated 或 production UI 可選但 backend 不安全的狀態。若六個月後保留 OpenRouter／Gemini、移除 Codex，或不 productionize Janus Skills，Codex／Skills 未完成不阻擋整個 Janus Production。對保留項目仍須驗證 Cloud Run scale-to-zero／cold start／timeout／重連、Core／Private／外部資料源 provenance、MCP／Skills／auth／privacy 等對應能力；ChatGPT MCP 不是 Janus Production prerequisite。
 - PIT 無 future leakage；排除樣本有原因與 provenance ID。
 - blocked 不進公開 latest／history；查無資料不即時運算。
-- 兩個 Job、FastAPI、Admin Web、User App 與各內嵌 DuckDB runtime 的 IAM、timeout、retry、監控與 rollback 通過。
+- 兩個 Job、FastAPI、Flutter User／Admin workspace、migration 期間的 static Admin 與各
+  內嵌 DuckDB runtime 的 IAM、timeout、retry、監控與 rollback 通過；static Admin 只有
+  在 Flutter parity 後才可退役。
 - 全市場日頻與個人關注股深度 membership／cadence／50-symbol 營運護欄通過驗證；Admin 看不到 user-to-symbol 對應，未核准的高頻、新聞或社群來源保持 disabled／blocked。
 - pytest、FastAPI contract tests、Flutter analyze／test、Vitest、Playwright、TypeScript、production build 通過。
 - iOS Safari、Android Chrome、iPad Safari、VoiceOver、TalkBack、WCAG AA 實機通過。
 - 無 secret、raw payload、敏感 URL、未授權來源外洩。
 - 私人資料刪除狀態可查詢；`CLEANUP_PENDING` 不顯示成功，且 Iceberg snapshot／orphan file、GCS object version 的實際清除期限已有 GCP dev 證據與使用者文案。
 - runbook、備份、還原與 rollback 演練完成。
+
+### 15.1 Planned Mart AI acceptance
+
+- 相同 immutable facts、prompt/model/profile identity 可追溯且可 reproducible；LLM off
+  不改 deterministic facts。
+- AI 不得修改 canonical numbers；schema、evidence ID、numeric grounding、time fence、
+  missing-data honesty、claim coverage 與 provider/model/prompt lineage 失敗時不得 publish。
+- one-role failure 不得宣稱 five-role full success；single-role rerun 不重跑無關 role；
+  prompt/model change 不重算 facts；governance-only change 不重跑 LLM。
+- content-addressed reuse、old artifact immutability、Gemini／OpenRouter provider
+  contract、unsupported model／parameter、billing gate、retry bounds、429／unavailable
+  structured failure 均須有測試。
+- Admin API 每次 backend authorization；Flutter hidden control 不作 auth；Analysis
+  Profile version、direct Production update、rollback、fixed 5–10 symbol comparison、
+  historical analysis 與 retry lineage 均須可驗收。
+
+Leading Indicators 與 Major-wave Prediction 不屬本次 release scope，未實作、未納入
+score／CIO／publication，也不作 Pilot Entry blocker。
 
 ## 16. Production Readiness／Dev Pilot Gate
 

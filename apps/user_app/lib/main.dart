@@ -1,10 +1,18 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 
+import 'sign_in_button.dart'
+    if (dart.library.html) 'sign_in_button_web.dart'
+    if (dart.library.js_util) 'sign_in_button_web.dart';
+
 const portfolioPendingMessage = '交易已儲存，等待投資組合批次更新';
+
+String requireGoogleIdToken(String? token) =>
+    token ?? (throw StateError('Google ID token is required'));
 
 void main() => runApp(const JanusApp());
 
@@ -107,29 +115,79 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  static const client = String.fromEnvironment('GOOGLE_USER_CLIENT_ID');
+  late final GoogleSignIn google = GoogleSignIn(clientId: client);
+  late final StreamSubscription<GoogleSignInAccount?> accountChanges;
   bool busy = false;
+  bool finishing = false;
   String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    accountChanges = google.onCurrentUserChanged.listen((account) {
+      if (account != null) unawaited(finishLogin(account));
+    }, onError: (_) {
+      if (mounted) setState(() => error = '登入失敗，請再試一次');
+    });
+    unawaited(restoreLogin());
+  }
+
+  Future<void> restoreLogin() async {
+    try {
+      final account = await google.signInSilently(reAuthenticate: true);
+      if (account != null) await finishLogin(account);
+    } catch (_) {
+      // No saved Google session; keep showing the sign-in button.
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(accountChanges.cancel());
+    super.dispose();
+  }
+
   Future<void> login() async {
     setState(() {
       busy = true;
       error = null;
     });
     try {
-      const client = String.fromEnvironment('GOOGLE_USER_CLIENT_ID');
-      final account = await GoogleSignIn(clientId: client).signIn();
-      final auth = await account?.authentication;
-      final token = auth?.idToken ?? auth?.accessToken;
-      if (account == null || token == null) return;
-      if (mounted)
-        Navigator.of(context).pushReplacement(MaterialPageRoute(
+      await google.signIn();
+    } catch (_) {
+      if (mounted) setState(() => error = '登入失敗，請再試一次');
+    } finally {
+      if (mounted && !finishing) setState(() => busy = false);
+    }
+  }
+
+  Future<void> finishLogin(GoogleSignInAccount account) async {
+    if (finishing) return;
+    finishing = true;
+    if (mounted) {
+      setState(() {
+        busy = true;
+        error = null;
+      });
+    }
+    try {
+      final token = requireGoogleIdToken((await account.authentication).idToken);
+      if (mounted) {
+        await Navigator.of(context).pushReplacement(MaterialPageRoute(
             builder: (_) => Workspace(
                 api: Api(token),
                 email: account.email,
                 onTheme: widget.onTheme)));
+      }
     } catch (_) {
-      if (mounted) setState(() => error = '登入失敗，請再試一次');
-    } finally {
-      if (mounted) setState(() => busy = false);
+      finishing = false;
+      if (mounted) {
+        setState(() {
+          busy = false;
+          error = '登入憑證無效，請重新登入';
+        });
+      }
     }
   }
 
@@ -148,15 +206,7 @@ class _LoginPageState extends State<LoginPage> {
                     const SizedBox(height: 12),
                     const Text('你的私人投資工作台'),
                     const SizedBox(height: 24),
-                    FilledButton.icon(
-                        onPressed: busy ? null : login,
-                        icon: busy
-                            ? const SizedBox.square(
-                                dimension: 18,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.login),
-                        label: const Text('使用 Google 登入')),
+                    buildGoogleSignInButton(onPressed: login, busy: busy),
                     if (error != null)
                       Padding(
                           padding: const EdgeInsets.only(top: 12),
@@ -183,6 +233,7 @@ class Workspace extends StatefulWidget {
 
 class _WorkspaceState extends State<Workspace> {
   int page = 0;
+  Map<String, dynamic>? lastTransaction;
   void openStock(String symbol) => Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => StockDetailPage(
           api: widget.api,
@@ -197,7 +248,9 @@ class _WorkspaceState extends State<Workspace> {
     final pages = [
       TodayPage(widget.api, onOpenStock: openStock),
       WatchlistPage(widget.api, onOpenStock: openStock),
-      JournalNotesPage(widget.api),
+      JournalNotesPage(widget.api,
+          initialTransaction: lastTransaction,
+          onTransactionSaved: (value) => setState(() => lastTransaction = value)),
       ChatPage(widget.api),
       ProfilePage(api: widget.api, email: widget.email, onTheme: widget.onTheme)
     ];
@@ -1126,8 +1179,11 @@ class StockDetailPage extends StatelessWidget {
 }
 
 class JournalNotesPage extends StatefulWidget {
-  const JournalNotesPage(this.api, {super.key});
+  const JournalNotesPage(this.api,
+      {this.initialTransaction, this.onTransactionSaved, super.key});
   final Api api;
+  final Map<String, dynamic>? initialTransaction;
+  final ValueChanged<Map<String, dynamic>>? onTransactionSaved;
   @override
   State<JournalNotesPage> createState() => _JournalNotesPageState();
 }
@@ -1156,9 +1212,11 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
       }
       return;
     }
-    final payload = await transactionDialog(context);
+    final payload = await transactionDialog(context,
+        initial: widget.initialTransaction);
     if (payload != null) {
       await widget.api.post('/api/v1/me/journal/events', payload);
+      widget.onTransactionSaved?.call(Map<String, dynamic>.from(payload));
       if (mounted) showPortfolioPending();
       reload();
     }
@@ -1228,8 +1286,11 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
                             trailing: TextButton(
                                 onPressed: () async {
                                   if (segment == 0) {
-                                    final replacement =
-                                        await transactionDialog(context);
+                                    final replacement = await transactionDialog(
+                                        context,
+                                        initial:
+                                            Map<String, dynamic>.from(row),
+                                        title: '建立更正');
                                     if (replacement != null) {
                                       await widget.api.post(
                                           '/api/v1/me/journal/events/${row['event_id']}/corrections',
@@ -1473,9 +1534,8 @@ class ProfilePage extends StatelessWidget {
                 await google.signOut();
                 final account = await google.signIn();
                 final auth = await account?.authentication;
-                final token = auth?.idToken ?? auth?.accessToken;
-                if (token != null)
-                  await Api(token).delete('/api/v1/me/private-data');
+                final token = requireGoogleIdToken(auth?.idToken);
+                await Api(token).delete('/api/v1/me/private-data');
                 if (context.mounted)
                   ScaffoldMessenger.of(context)
                       .showSnackBar(const SnackBar(content: Text('刪除要求已排入處理')));
@@ -1519,48 +1579,121 @@ Future<String?> textDialog(BuildContext context, String title, String label,
               ]));
 }
 
-Future<Map<String, dynamic>?> transactionDialog(BuildContext context) async {
-  final type = await showDialog<String>(
-      context: context,
-      builder: (context) => SimpleDialog(title: const Text('交易類型'), children: [
-            for (final item in const {
-              'BUY': '買進',
-              'SELL': '賣出',
-              'CASH_DIV': '現金股利',
-              'STOCK_DIV': '股票股利'
-            }.entries)
-              SimpleDialogOption(
-                  onPressed: () => Navigator.pop(context, item.key),
-                  child: Text(item.value))
-          ]));
-  if (type == null || !context.mounted) return null;
-  final day = await showDatePicker(
-      context: context,
-      firstDate: DateTime(2000),
-      lastDate: DateTime.now(),
-      initialDate: DateTime.now());
-  if (day == null || !context.mounted) return null;
-  final symbol = await textDialog(context, '交易內容', '股票代號');
-  if (symbol == null || !context.mounted) return null;
-  final payload = <String, dynamic>{
-    'event_type': type,
-    'trade_date': day.toIso8601String().substring(0, 10),
-    'symbol': symbol.toUpperCase(),
-    'currency': 'TWD'
+Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
+    {Map<String, dynamic>? initial, String title = '新增交易'}) async {
+  const types = {
+    'BUY': '買進',
+    'SELL': '賣出',
+    'CASH_DIV': '現金股利',
+    'STOCK_DIV': '股票股利'
   };
-  if (type == 'CASH_DIV') {
-    final amount = await textDialog(context, '交易內容', '股利金額');
-    if (amount == null) return null;
-    payload['cash_amount'] = amount;
-  } else {
-    final shares = await textDialog(context, '交易內容', '股數');
-    if (shares == null) return null;
-    payload['shares'] = shares;
-    if ((type == 'BUY' || type == 'SELL') && context.mounted) {
-      final price = await textDialog(context, '交易內容', '成交單價');
-      if (price == null) return null;
-      payload['price'] = price;
-    }
+  var type = '${initial?['event_type'] ?? 'BUY'}';
+  if (!types.containsKey(type)) type = 'BUY';
+  final form = GlobalKey<FormState>();
+  var day =
+      '${initial?['trade_date'] ?? DateTime.now().toIso8601String().substring(0, 10)}';
+  var symbol = '${initial?['symbol'] ?? ''}';
+  var shares = '${initial?['shares'] ?? ''}';
+  var price = '${initial?['price'] ?? ''}';
+  var amount = '${initial?['cash_amount'] ?? ''}';
+
+  String? requiredText(String? value) =>
+      value == null || value.trim().isEmpty ? '必填' : null;
+  String? positiveNumber(String? value) {
+    final number = num.tryParse(value?.trim() ?? '');
+    return number == null || number <= 0 ? '請輸入大於 0 的數字' : null;
   }
-  return payload;
+
+  final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+                  title: Text(title),
+                  content: SizedBox(
+                      width: 420,
+                      child: SingleChildScrollView(
+                          child: Form(
+                              key: form,
+                              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                                DropdownButtonFormField<String>(
+                                    initialValue: type,
+                                    decoration: const InputDecoration(labelText: '交易類型'),
+                                    items: [
+                                      for (final item in types.entries)
+                                        DropdownMenuItem(value: item.key, child: Text(item.value))
+                                    ],
+                                    onChanged: (value) {
+                                      if (value != null) setDialogState(() => type = value);
+                                    }),
+                                TextFormField(
+                                    initialValue: day,
+                                    onChanged: (value) => day = value,
+                                    decoration: const InputDecoration(
+                                        labelText: '交易日期', hintText: 'YYYY-MM-DD'),
+                                    validator: (value) {
+                                      final text = value?.trim() ?? '';
+                                      final date = DateTime.tryParse(text);
+                                      if (date == null ||
+                                          date.toIso8601String().substring(0, 10) != text) {
+                                        return '請輸入正確日期';
+                                      }
+                                      final today = DateTime.now();
+                                      if (date.isBefore(DateTime(2000)) ||
+                                          date.isAfter(DateTime(today.year, today.month, today.day))) {
+                                        return '日期需介於 2000-01-01 至今天';
+                                      }
+                                      return null;
+                                    }),
+                                TextFormField(
+                                    initialValue: symbol,
+                                    onChanged: (value) => symbol = value,
+                                    autofocus: true,
+                                    textCapitalization: TextCapitalization.characters,
+                                    decoration: const InputDecoration(labelText: '股票代號'),
+                                    validator: requiredText),
+                                if (type != 'CASH_DIV')
+                                  TextFormField(
+                                      initialValue: shares,
+                                      onChanged: (value) => shares = value,
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      decoration: const InputDecoration(labelText: '股數'),
+                                      validator: positiveNumber),
+                                if (type == 'BUY' || type == 'SELL')
+                                  TextFormField(
+                                      initialValue: price,
+                                      onChanged: (value) => price = value,
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      decoration: const InputDecoration(labelText: '成交單價'),
+                                      validator: positiveNumber),
+                                if (type == 'CASH_DIV')
+                                  TextFormField(
+                                      initialValue: amount,
+                                      onChanged: (value) => amount = value,
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      decoration: const InputDecoration(labelText: '股利金額'),
+                                      validator: positiveNumber),
+                                const TextField(
+                                    enabled: false,
+                                    decoration: InputDecoration(labelText: '幣別', hintText: 'TWD'))
+                              ])))),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        child: const Text('取消')),
+                    FilledButton(
+                        onPressed: () {
+                          if (form.currentState?.validate() != true) return;
+                          Navigator.pop(dialogContext, <String, dynamic>{
+                            'event_type': type,
+                            'trade_date': day.trim(),
+                            'symbol': symbol.trim().toUpperCase(),
+                            'currency': 'TWD',
+                            if (type != 'CASH_DIV') 'shares': shares.trim(),
+                            if (type == 'BUY' || type == 'SELL') 'price': price.trim(),
+                            if (type == 'CASH_DIV') 'cash_amount': amount.trim()
+                          });
+                        },
+                        child: const Text('儲存'))
+                  ])));
+  return result;
 }

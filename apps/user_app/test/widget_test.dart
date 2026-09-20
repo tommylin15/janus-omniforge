@@ -16,8 +16,48 @@ class FakeApi extends Api {
 }
 
 void main() {
+  test('private API authentication requires a Google ID token', () {
+    expect(requireGoogleIdToken('id-token'), 'id-token');
+    expect(() => requireGoogleIdToken(null), throwsStateError);
+  });
+
   test('trade save wording distinguishes persistence from portfolio refresh', () {
     expect(portfolioPendingMessage, '交易已儲存，等待投資組合批次更新');
+  });
+
+  testWidgets('transaction editor shows one form and reuses the last values',
+      (tester) async {
+    Map<String, dynamic>? result;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    await tester.pumpWidget(MaterialApp(
+        home: Builder(
+            builder: (context) => FilledButton(
+                onPressed: () async {
+                  result = await transactionDialog(context, initial: {
+                    'event_type': 'BUY',
+                    'trade_date': today,
+                    'symbol': '2330',
+                    'shares': '10',
+                    'price': '1000'
+                  });
+                },
+                child: const Text('開啟')))));
+
+    await tester.tap(find.text('開啟'));
+    await tester.pumpAndSettle();
+    for (final label in ['交易類型', '交易日期', '股票代號', '股數', '成交單價', '幣別']) {
+      expect(find.text(label), findsOneWidget);
+    }
+    expect(find.text('2330'), findsOneWidget);
+    expect(find.text('10'), findsOneWidget);
+    expect(find.text('1000'), findsOneWidget);
+
+    await tester.enterText(find.widgetWithText(TextFormField, '股票代號'), '2317');
+    await tester.tap(find.text('儲存'));
+    await tester.pumpAndSettle();
+    expect(result, containsPair('symbol', '2317'));
+    expect(result, containsPair('shares', '10'));
+    expect(result, containsPair('price', '1000'));
   });
 
   testWidgets('shows the Google login boundary', (tester) async {

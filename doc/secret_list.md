@@ -1,6 +1,6 @@
 # GCP Dev Secret Bundle 清單
 
-更新日期：2026-09-13
+更新日期：2026-09-19
 Project：`gen-lang-client-0593591102`  
 Region：`us-central1`
 
@@ -10,8 +10,8 @@ Region：`us-central1`
 
 | Secret | 欄位／格式（不含值） | Consumer | Version | IAM |
 |---|---|---|---|---|
-| `janus-postgres-api-bundle` | API 欄位；`web_*`、`pipeline_*` workload 欄位；`google_user_client_secret`、`mcp_oauth_signing_key`；含 `web_publication_password` | `janus-api`、`janus-private-pipeline` | v16 enabled for MCP OAuth dev rollout；舊版 preserved／未輸出 payload | API／private pipeline `secretAccessor`；legacy `web-runtime` removed |
-| `janus-agent-provider-bundle` | provider／MCP 欄位；`mart_*`、`ingestion_*` workload 欄位 | `janus-agent-gateway`、`janus-intelligence-mart`、`janus-ingestion-core` | v8 enabled；舊版 destroyed | 三 runtime `secretAccessor`；Gateway provider access |
+| `janus-postgres-api-bundle` | API 欄位；`web_*`、`pipeline_*` workload 欄位；`google_user_client_secret`、`mcp_oauth_signing_key`；含 `web_publication_password` | `janus-api`、`janus-private-pipeline` | v1 enabled after 2026-09-19 recovery；原 container 刪除後舊 versions 不可取得 | API／private pipeline `secretAccessor`；legacy `web-runtime` removed |
+| `janus-agent-provider-bundle` | provider／MCP 欄位；`mart_*`、`ingestion_*` workload 欄位 | `janus-agent-gateway`、`janus-intelligence-mart`、`janus-ingestion-core` | v9 enabled；v8 disabled（可恢復），更舊 versions destroyed | 三 runtime `secretAccessor`；Gateway provider access |
 | `janus-market-data-bundle` | `finmind_api_token`、`fugle_api_key`、Fugle license／benchmark metadata、`shioaji_api_key`／`shioaji_secret_key`／simulation、`tiingo_api_key` | `janus-ingestion-core` | v1 enabled | 僅 ingestion-core `secretAccessor` |
 | `janus-codex-owners-bundle` | 頂層 key 為 allowlisted owner UUID；value 為該 owner 的 Codex `auth.json` object | Agent Gateway | 無 enabled version（尚未建立 auth entry） | Gateway `secretAccessor`、`secretVersionAdder`、`secretVersionManager` |
 
@@ -46,6 +46,21 @@ WBS-7 dev IAM verify（2026-09-13）確認 `janus-web` service 不存在，
 - 六個 legacy containers（Web／Pipeline／Mart／Ingestion 舊 bundle、Codex A/B）已在
   明確授權後刪除；刪除前所有 legacy versions 均已確認 destroyed，沒有 active payload
   被刪除。
+
+## 2026-09-19 Secret bundle recovery evidence
+
+- Audit Log 記錄 `janus-postgres-api-bundle` 的 `DeleteSecret` 於
+  `2026-09-19T13:07:53.896564036Z`；刪除後 container 與 versions 均回傳 `NOT_FOUND`。
+- 以相同 secret name 重建 API container，新增並驗證 v1；payload 只在暫存檔處理，未寫入
+  本文件或輸出至 log。
+- 重新輪替 `janus_private_api`、`janus_private_pipeline`、`janus_catalog`、
+  `janus_web_control`、`janus_web_catalog`、`janus_public_api` 六個 PostgreSQL roles；
+  驗證六者均為非 superuser／非 createdb／非 createrole／非 replication。
+- Agent bundle 新增並驗證 v9，使用新的 matching MCP owner signing key；舊 v8 僅停用，
+  未銷毀，以保留可恢復性。API bundle accessor IAM 已恢復給 `janus-user-api` 與
+  `janus-private-pipeline`。
+- Recovery 後 `janus-api-00127-sqp` 與 `janus-agent-gateway-00044-jtn` 均為 Ready；
+  `MCP_OAUTH_ENABLED=false` 仍維持，OAuth／ChatGPT connector acceptance 尚未因此宣稱完成。
 
 ## Runtime acceptance
 

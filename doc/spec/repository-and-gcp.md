@@ -5,8 +5,8 @@
 ```text
 janus-omniforge/
 ├── apps/
-│   ├── user_app/                    # Flutter + Material 3 User App
-│   └── web/                         # 現有 Admin Web，遷移後不承載 public UI
+│   ├── user_app/                    # Flutter + Material 3 User／Admin workspaces
+│   └── web/                         # migration 期間保留的 static Admin surface
 ├── jobs/
 │   ├── ingestion-core/              # Scrapers、Stage、DQ、Core
 │   └── intelligence-mart/           # Features、ML、Agents、LLM、Mart
@@ -31,7 +31,8 @@ janus-omniforge/
 1. `ingestion-core`：Cloud Run Job。
 2. `intelligence-mart`：Cloud Run Job。
 3. `api`：FastAPI Cloud Run Service，提供 public、private-journal 與 Admin API；Core query 使用獨立、read-only 的內嵌 DuckDB instance。
-4. `admin-web`：受限制的 Admin Web 入口，只調用 Admin API。
+4. Admin workspace：目標由 `apps/user_app` Flutter 提供，只調用 Admin API；現有
+   `apps/web` static Admin 在 parity／auth／browser acceptance 完成前保留，不得先刪除。
 5. `agent-gateway`：`min-instances=0` 的 Cloud Run Service；在容器內啟動 Codex App Server／stdio MCP 子行程，對 client 只公開 authenticated HTTPS events／commands。
 6. `mcp-*`：需獨立擴縮的 remote MCP 使用私有 Cloud Run Service；stdio-only MCP 建入 `agent-gateway` image，不在使用者裝置執行。
 7. `user-app`：Flutter Android／iOS／Web client，只調用 Public／Private API 與 Agent Gateway，不持有 provider、MCP、catalog、control DB 或 GCS credential；不新增 React／Tauri desktop client。
@@ -52,7 +53,7 @@ flowchart TD
     I --> K["FastAPI Service"]
     J --> K
     K --> M["Flutter User App"]
-    K --> N["Admin Web"]
+    K --> N["Flutter Admin workspace"]
     M -->|"manual journal"| K
     K --> O["PostgreSQL private ledger"]
     O --> P["Private Iceberg Core / Mart"]

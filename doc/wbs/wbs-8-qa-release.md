@@ -61,6 +61,19 @@
 - application 可以正常迭代，但重要分析結果必須保留足夠 lineage，避免 Pilot 後無法解釋版本差異。
 - production promotion 保持 blocked；這是 calendar-duration operational phase，不要求單一 Codex session 執行六個月。
 
+#### Mart AI evaluation slice — `WBS-8-PILOT-MART-AI-EVALUATION` (Planned)
+
+依賴 `WBS-5-MART-AI-VALIDATION`、`WBS-5-MART-CIO-SYNTHESIS`、
+`WBS-5-MART-RERUN-CACHE` 與 `WBS-6-ADMIN-ANALYSIS-PROFILE`。Pilot 期間只收集
+role validation pass rate、provider failure／retry／availability、latency、token
+usage、actual API cost、cache reuse、single-role rerun success、manual intervention、
+rollback events、usefulness feedback、deterministic／AI divergence 與 outcome evidence
+lineage。驗收要求每項 evidence 都綁 immutable execution／profile／provider／model／
+prompt lineage，且可區分 partial success、failure 與 full success。
+
+這不是 predictive model tuning；不提前做 role weight、threshold、leading-indicator
+或 major-wave forecast optimization。
+
 #### 8.5.3 Production Go／Extend／No-Go Review
 
 - 六個 calendar months 完成後 review Pilot evidence，outcome = `GO`／`EXTEND_PILOT`／`NO_GO`。

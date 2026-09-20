@@ -64,6 +64,19 @@
 - `DELETE /api/v1/me/private-data`
 - `GET /api/v1/me/private-data/deletions/{request_id}`
 
+Planned Admin workspace endpoints（不代表已實作）至少需要：
+
+- actionable overview、batch／execution details、retry classified failed item、retry lineage。
+- symbol／中文名稱 search、dataset health、gap repair、affected-role mapping、single-role
+  rerun、historical facts／roles／CIO。
+- Analysis Profile current／history、new Production version、compare、rollback、prompt
+  versions、provider/model capability 與 fixed test symbols。
+
+上述所有 `/api/v1/admin/*` endpoint 每次都必須由 backend Admin authorization enforce；
+Flutter 隱藏控制不構成 auth。單角色 rerun 預設使用 current Production Profile，依賴
+未變更的 Fact Pack reuse；Core／Fact Pack 改變先重建 facts，prompt/model 改變不重算
+facts，CIO-only 改變不重跑 role，governance-only 改變不呼叫 LLM。
+
 Private endpoint 只接受獨立 User OAuth audience 的 Google OIDC token；API 驗證 issuer、audience、expiry，以 Google `sub` 對應內部 UUID `user_id`，email 只供顯示。使用者身分不接受 request body 或 query string 指定 `user_id`，User token 不得存取 Admin endpoint。Provider／MCP connection 只傳 opaque reference，API key／Codex auth cache 不經 payload。`context-preview` 只接受 typed selector，回短效 owner／thread-bound `context_ref`；message 不接受 SQL、GCS URI、object path 或 raw private payload。Approval response 另驗證 owner、thread、turn、request、參數摘要、expiry 與一次性消費；所有 mutation 具 idempotency key、optimistic version 與 audit event。`DELETE /private-data` 回 `202`、request ID 與初始狀態；status endpoint 僅允許 request owner 查詢。owner 為 `DELETING` 時，新的 Codex login／turn 與私人 artifact mutation 回 typed conflict，不得在 client 端假裝完成。
 
 ## 9. ResearchContext state／API planning

@@ -381,6 +381,7 @@ def test_private_migration_has_decimal_append_only_and_user_leading_guards():
     assert "pg_advisory_xact_lock" in repository and "count(DISTINCT symbol)" in repository
     assert "ledger_events WHERE user_id=%s AND event_id=%s FOR UPDATE" not in repository
     assert "ON CONFLICT(user_id,idempotency_key) DO NOTHING" in repository
+    assert 'sslmode="require"' in repository
 
 
 def test_investment_profile_migration_is_bounded_owner_scoped_and_minimally_granted():

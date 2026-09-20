@@ -28,7 +28,7 @@ class PostgresWorkspaceRepository:
         import psycopg
         from psycopg.rows import dict_row
 
-        with psycopg.connect(self.dsn, connect_timeout=5, row_factory=dict_row) as connection:
+        with psycopg.connect(self.dsn, connect_timeout=5, sslmode="require", row_factory=dict_row) as connection:
             with connection.transaction():
                 yield connection
 

@@ -15,7 +15,9 @@
 ### 11.1 第一階段：Stage／Core／Admin
 
 - [ ] 七個資料營運分頁一次只顯示一個 panel；query-string deep link、鍵盤 tabs 與 responsive 導覽通過。
-- [ ] Collection／backfill 可完成並顯示 execution item、Stage／Core commit 與安全失敗資訊；Analysis／Mart 分析 hidden／disabled 且不建立 queued execution。
+- [ ] Collection／backfill 可完成並顯示 execution item、Stage／Core commit 與安全失敗資訊；
+  legacy static Admin 的 persisted Analysis／Mart read path 保持 bounded，queued／partial
+  不顯示為完成；新 AI role／CIO／Profile controls 在 Planned WBS 完成前不可用。
 - [ ] 股票狀態、execution、DQ／quarantine 均以 bounded 結構化表格呈現，沒有 raw JSON 主視圖。
 - [ ] 關注股深度追蹤 membership、50-symbol 營運護欄、已核准來源、排程與 retention 異動可驗證並留下 audit；Admin 看不到 user-to-symbol 關係，候選來源沒有審查或啟用控制。
 - [ ] raw payload、secret、敏感 URL、object URI 與 traceback 不出現在 DOM／network response。
@@ -23,7 +25,8 @@
 
 ### 11.2 P0：個人工作台與可切換 AI
 
-- [ ] Flutter `analyze`／widget tests 通過；User App 與 Admin Web 使用不同入口、認證與導覽。
+- [ ] Flutter `analyze`／widget tests 通過；User／Admin 使用同一 Flutter codebase 的不同
+  workspace、認證 audience 與導覽，backend Admin authorization 貫穿每個 Admin request。
 - [ ] 啟用「關注／筆記／AI／我的」；「今日」顯示 coming soon／disabled，一般 page load 不觸發即時分析。
 - [ ] 交易新增／更正、筆記 revision、關注異動、跨年年度損益、缺價、超賣、匯出與刪除路徑通過；Flutter 與模型不重算正式損益。
 - [ ] OpenRouter／Gemini API／Codex 三 runtime 可選，切換建立新 thread／fork；provider、model、skill、context、search、tools 與 citations 可追溯，Codex 不使用直接 OpenAI API fallback。

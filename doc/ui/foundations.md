@@ -8,7 +8,9 @@
 - confidence 固定標示為「資料／分析信心度，非獲利機率」。
 - 不輸出保證獲利、確定買賣指示或無依據目標價。
 - 所有來源只取當前資源／當前日期自己的 provenance。
-- User 與 Admin 是兩個獨立入口；User App 不出現 Admin 導覽，Admin Web 不混入小白的市場閱讀動線。
+- User 與 Admin 是同一 Flutter codebase 的不同 workspace；User App 不出現 Admin 導覽，
+  route guard、token audience、backend authorization、CORS 與 audit 仍分離。現有
+  static Admin 僅在 migration 期間保留，Flutter parity 與 acceptance 前不得刪除。
 - User App 使用「結論 → 原因 → 風險 → 來源」的減法層次；首屏不顯示 K 線、密集數字表格或內部 Agent 術語。
 - 個人記帳、筆記、關注股、AI 對話與公開市場分析的資料狀態分離；不顯示他人持倉、公開績效排名或下單按鈕。
 
@@ -51,8 +53,12 @@
 
 ### Admin shell
 
-- 獨立 Admin URL／host 與認證邊界，保留「資料營運中心」品牌。
-- 不使用 User App 的底部導覽；依桌面營運工作流提供 tabs／tables。
+- Flutter Admin workspace 使用總覽、批次、個股、AI 分析、進階管理主導覽；主操作以
+  中文呈現，工程欄位收在「進階／詳細資訊」。
+- 不使用 User App 的底部導覽；依桌面營運工作流提供 responsive tabs／tables。
+- Admin backend authorization 是唯一 security boundary；Flutter 隱藏按鈕不算授權。
+- static HTML／JS Admin 是 transitional compatibility surface，只有 Flutter parity、
+  Admin auth acceptance、browser/runtime acceptance 與 rollback plan 完成後才可 deprecate。
 
 ### Global status
 

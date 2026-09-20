@@ -81,7 +81,9 @@
 - Admin 開放股票管理、Collection／backfill、股票資料狀態、最近執行、資料源健康、去識別化深度追蹤名單、排程／Stage retention 與已核准資料源設定。
 - Collection 必須由 persisted queue consumer claim，依序留下 execution item、Stage manifest／quarantine、Core commit fence 與 terminal status；Admin 查詢不得呼叫上游來源。
 - 排程設定成功保存後自動 reconcile 至既有 Cloud Scheduler；retention／cleanup 只清除已有 Core commit fence 的 execution。
-- Analysis action 與「Mart 分析」在 persisted Mart consumer 完成前 hidden／disabled，不得建立無 consumer 的 queued execution。
+- Analysis／Mart 的 ownership 由 WBS 5 負責；WBS 3 不新增 AI capability。現有 static Admin
+  可讀取已存在的 persisted Mart consumer／index，但不得把 queued、partial 或 legacy
+  narrator surface 當成新五角色 AI／CIO 已完成。
 - 股票狀態、execution item、寫入安全與 quarantine 使用 bounded、可排序／篩選／分頁的結構化表格；不得顯示 raw payload、object URI、secret、完整 upstream error 或 traceback。
 - 股票刪除 guard 涵蓋 collection config、execution、market、report、fundamental 引用並顯示安全摘要；所有設定異動保存 audit。
 
