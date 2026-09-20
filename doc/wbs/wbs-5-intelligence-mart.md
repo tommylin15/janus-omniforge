@@ -4,6 +4,8 @@
 
 ### 5.0 Runtime 與輸入邊界
 
+- 目前 GCP `dev` 是 Janus 個人使用階段的真實平行上線環境。WBS-5 capability 通過各自 data-trust、runtime、publication 與 integration acceptance 後，可直接在 dev 使用真實資料與真實服務；不需要另一套 Production 環境作為資格證。
+- 這個環境定位不放寬資料可信度：canonical data、PIT／future leakage、provenance、source authorization、publication gate、immutable lineage、missing-data honesty 與 LLM 不得修改 canonical numbers 仍是必要條件。
 - `intelligence-mart` 以 Cloud Run Job 執行，只讀 analysis-as-of 可見的
   versioned Core snapshot；Analysis 不得即時補抓、呼叫 scraper 或改寫 Core。
 - Mart Job 使用 Direct VPC egress、專用 service account 與 workload-specific
@@ -72,11 +74,12 @@
 - Provider capability discovery、bounded supported parameters、429／unavailable
   bounded retry、structured failure、usage／latency／cost lineage 與 billing gate
   必須可測試。不得自動加入 Codex／OpenAI API；paid tier 仍須人工授權。
+- LLM 只能解釋、比較與合成經驗證 evidence；不得計算、補值、覆寫或發布 canonical deterministic numbers／facts。
 
 ### 5.4.1 Planned atomic WBS slices
 
 以下切片全部為 `Planned`，不表示目前 implementation 已完成；依 dependency 排入
-六個月 Dev Pilot：
+parallel-live dev roadmap，完成後依各自 acceptance 在目前 dev 真實使用並持續收集 evidence，不以六個月 Pilot 或未來 Production 作為首次使用資格：
 
 | WBS | 範圍 | Dependency | Acceptance |
 |---|---|---|---|
@@ -111,10 +114,11 @@ space，不加入 role logic、score、CIO 或 publication。
 - Contract、Iceberg schema evolution 與儲存邊界測試證明 PostgreSQL 沒有完整 Mart payload，且 publication index 可解析至正確 immutable GCS／Iceberg artifact。
 - market／industry／symbol 分析可由 Admin 解析至正確 immutable `mart_scoped_analysis` artifact；切換 repository prompt version 後只影響新 execution，舊結果仍可依 version／hash 重現。
 - 市場狀態、每日摘要、板塊輪動、熱門話題與候選健康度可由相同 analysis-as-of 重建，且 Flutter 不參與分數計算。
+- 宣稱某 Mart 能力已可在目前 dev 真實使用時，必須另有相應 live Job／data／publication／API／UI integration evidence；fixture 或 sample UI 不能單獨構成完成。
 
 `WBS-5-SUPPLY-INTELLIGENCE-PLANNING` 是本次 todo 的 planning umbrella，涵蓋以下
 foundation、Source Matrix、seed graph、signal／Mart contract 四個切片；它不代表任何
-implementation unlock，Gate A–E 仍須逐一滿足。
+implementation unlock，Gate A–E 仍須逐一滿足。這些 Gate 是資料可信度、來源授權、schema／ingestion 與成本／資源治理 gate，不是「dev 只能 POC」的環境 gate。
 
 ### 5.7 `WBS-5-SUPPLY-FOUNDATION` — Supply-chain foundation planning
 
@@ -149,7 +153,7 @@ provenance、immutable snapshot、Mart 與 Cloud Run topology。LLM 只能解釋
 
 ### 5.11 Supply-chain implementation unlock gates
 
-以下 gate 是後續 WBS 的必要前置，未通過時只能補 planning／evidence：
+以下 gate 是後續 Supply-chain capability 的必要前置，未通過時只能補 planning／evidence；它們不限制與 Supply-chain 無關的既有 Janus dev 真實使用：
 
 - **Gate A — Foundation／Contract Ready**：ontology、node／edge／exposure、effective
   time、evidence、provenance／PIT、六 domain Source Matrix 第一版與 Pilot measurement／
@@ -159,7 +163,7 @@ provenance、immutable snapshot、Mart 與 Cloud Run topology。LLM 只能解釋
   indicator、expected metric／lead time、coverage／cadence、PIT／history、license／API
   terms、retention、citation／redistribution、quota、cost、provenance 與 fallback／failure
   behavior。只有 `approved`、`approved_fallback` 或 `official` 可解鎖最小 ingestion WBS；
-  `candidate`／`blocked` 不得 production ingestion。
+  `candidate`／`blocked` 不得進 canonical／live ingestion 或 published analysis。
 - **Gate C — Schema／Ingestion Implementation**：Gate A 通過且至少一個 source 通過 Gate
   B，才可排 schema／Iceberg evolution、Stage → Core normalization、DQ／provenance 與
   deterministic signal input；優先重用 existing ingestion-core、catalog、GCS 與 Cloud
@@ -178,3 +182,4 @@ provenance、immutable snapshot、Mart 與 Cloud Run topology。LLM 只能解釋
 - formula、window、null handling、trading-calendar、revision 與 PIT semantics 在 future implementation contract 中 deterministic 定義；本 planning 不選定公式，LLM 僅解釋。
 - 定義 bounded `Market Regime` contract；輸入僅限當時已核准且有 coverage evidence 的 benchmark、breadth、turnover、institutional、financing 與 macro inputs，其餘標 `Unknown`／`Candidate`／`Blocked`。輸出包含 state、`analysis_as_of`、deterministic confidence、evidence 與 missing data。
 - ResearchContext 的 market／company sections 必須可由同一 snapshot／revision replay。Supply-chain indicators 僅在 Gate D 後增量併入；不新建 graph platform／Mart track。
+- 本節 capability 通過自身資料與 integration acceptance 後，可直接在目前 parallel-live dev 使用真實資料；`Pilot Evolution` 是 roadmap／evidence 分類，不等於只能用 mock 或等待未來 Production。
