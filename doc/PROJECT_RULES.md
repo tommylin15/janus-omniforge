@@ -29,6 +29,16 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
 - 平行上線不放棄最低安全底線：secret 不得進 log／前端／一般資料表；大量或不可逆刪除需有防誤觸與可恢復策略；schema 變更走 migration／version；重要資料至少具有可重建來源、匯出或已核准的 bounded backup／restore 路徑；owner／auth 邊界保留；partial success 不得宣稱 full success。
 - 上述政策只調整環境與驗收語意，不取消 research-only、canonical、PIT、provenance、source authorization 等資料治理邊界；研究暫存資料不能因位於 dev 就自動升格為 canonical production data。
 
+### 1.2 ChatGPT 直接 GitHub 回寫範圍
+
+- 本專案目前只維持單一 `main` branch。ChatGPT 透過 GitHub connector 直接回寫時，不另開 branch／PR；允許的文件變更直接 commit 到 `main`。
+- **ChatGPT 直接 GitHub 回寫只允許文件類內容。**可修改範圍包含 `doc/**/*.md`、README／說明文件，以及 SPEC／WBS／TODO／UI／runbook／governance／research planning 等純文件內容。
+- **ChatGPT 不得直接修改任何程式或可執行／部署內容。**包含但不限於 Python、TypeScript／JavaScript、Dart、SQL migration、shell／PowerShell、Dockerfile、Cloud Build、GitHub Actions、Terraform／IaC、GCP deployment config、runtime config、schema implementation、tests 與 application source。
+- 即使文件工作發現程式碼、migration、infra、CI/CD 或 deployment 需要調整，ChatGPT 只能讀取／分析現況、指出差異、提出 patch／腳本／Codex 工作指令或驗收清單；**不得使用 GitHub write API 直接改這些檔案**。
+- 真正的程式實作、migration、infra、CI/CD、deployment 與需要執行測試的程式變更，交由 Codex／Work／本機開發流程或其他明確獲准的執行環境處理；其完成狀態仍須以 GitHub、tests、CI、deployment 與 runtime evidence 判定。
+- 若未來要允許 ChatGPT 直接修改程式，必須由使用者明確修改本專案規則；單次一般開發要求不得默認解除本限制。
+- 文件回寫仍不得偽造 implementation status：文件可改需求／規格／計畫，但不能因文件已更新就把尚未實作、未測試或未部署的項目標成完成。
+
 ## 2. WBS 執行方式
 
 - 收到「執行 `WBS-ID`」時，自行從 todo 取得必讀文件、目標與驗收條件。
@@ -36,6 +46,7 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
 - `ready` 可執行；`blocked` 只做安全盤點，不假設已取得人工決策、正式環境或外部權限。
 - ID 不在 todo 時不得自行從 backlog 開工。
 - 採最小合理變更，不以檔案數限制犧牲完整性。
+- 若 WBS 涉及程式實作，ChatGPT 依 1.2 只可完成文件／分析部分並產出 Codex／執行環境所需指令，不得直接回寫程式檔。
 
 ## 3. 最小文件讀取
 
@@ -53,6 +64,7 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
    完成證據，主索引保留全部未完成條件與 archive 連結。新增但未排程工作放入
    backlog。
 6. 正式規格只保存契約、現況與未完成條件，不寫除錯或開發過程。
+7. ChatGPT 透過 GitHub connector 的回寫受 1.2 限制，只能修改文件；程式、migration、infra、CI/CD、deployment 與 tests 不得直接回寫。
 
 ## 5. 交付格式
 
