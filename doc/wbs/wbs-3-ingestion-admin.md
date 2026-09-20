@@ -2,6 +2,10 @@
 
 ## WBS 3 — Ingestion + Core + Admin Data Operations
 
+### 平行上線環境原則
+
+本 WBS 的 `dev` 是目前 Janus 個人實際使用的平行上線環境。資料收集、Scheduler、Stage → Core、Admin 操作與驗收預設走真實核准來源與既有 GCP dev runtime；mock／fixture 只補難以安全重現的失敗情境，不得取代主要 real-path acceptance。Production／staging 不是目前真實資料營運的前置條件。
+
 ### 3.1 Scraper framework
 
 - async HTTP、bounded timeout、retry、rate limit。
@@ -56,12 +60,14 @@
 - 個股行情已存在時 benchmark 仍更新。
 - 新 null 不覆蓋有效值。
 - Job 與 API 資源隔離。
+- 主要驗收證據使用真實 dev Scheduler／Cloud Run Job／Core／Admin 路徑；unit fixture 不得單獨作為「資料營運已可用」的完成證據。
 
 ### 3.6 PostgreSQL Free Tier VM 與 Control DB 基礎（WBS 4 前置）
 
-- Terraform 建立單一 Compute Engine `e2-micro`，固定於 `us-central1` eligible zone。
+- 既有 `scripts/gcp/provision-dev.sh` 為目前 idempotent dev bootstrap；Terraform 已不是現行部署路徑，不應再作為完成條件。
+- 單一 Compute Engine `e2-micro`，固定於 `us-central1` eligible zone。
 - VM 不配置 external IP，只使用 private IP；IAP／OS Login 管理，firewall 不公開 `5432`。
-- 使用總量 ≤30 GB 的 Standard Persistent Disk；Free Tier 模式不建立 snapshot、backup、HA 或 replica。
+- 使用總量 ≤30 GB 的 Standard Persistent Disk；Free Tier 模式不建立付費 HA／replica／PITR。重要 ledger／control 資料允許使用已核准的 bounded logical backup／restore 路徑。
 - 安裝固定 PostgreSQL 版本，建立 control、Iceberg catalog、publication、audit database/schema 與最小 database roles。
 - credential 由 Secret Manager 提供；Cloud Run、Cloud Run Jobs 與內嵌 DuckDB runtime 透過 VPC private path 連線。
 - 驗證 VM health、PostgreSQL readiness、schema migration、JDBC catalog smoke query 與 Free Tier 資源邊界。
@@ -69,7 +75,7 @@
 ### 3.7 PostgreSQL Control DB Integration（WBS 4 前置）
 
 - 將 control schema、FK、CHECK、index 與 execution transition migration 到 PostgreSQL。
-- 實作 PostgreSQL control repository；SQLite 只作 unit-test reference。
+- 實作 PostgreSQL control repository；SQLite 只作 unit-test reference，不作平行上線環境的實際資料來源。
 - 以 transaction／row lock／安全 claim 讓 queued execution 可被 worker 恢復與冪等處理。
 - Response cache 的 payload／raw response 留在 GCS Stage；PostgreSQL 僅保存 key、URI、hash、TTL、observed time 與狀態 metadata。
 - 設定低連線數 pool、statement／idle timeout、migration lock 與 reconnect，避免壓垮 `e2-micro`。
@@ -89,12 +95,12 @@
 
 ### 3.9 第一階段驗收條件
 
-- 先以既有 5 檔 canary 完成手動 Collection、指定日期 backfill、同日 replay、failure／retry 與 Stage cleanup。
+- 先以既有 5 檔 canary 完成手動 Collection、指定日期 backfill、同日 replay、failure／retry 與 Stage cleanup；canary 是風險控制，不代表資料必須停留在假資料／小型模擬環境。
 - 連續 3 個交易日由既有 Scheduler 正常完成；expected／received／missing、8 個核准來源狀態、Core row/hash/date/null profile 與成本摘要均有證據。
 - canary 通過後才擴至當日 enabled 全市場；market-scope endpoint 維持單次抓取與 symbol fan-out，不逐檔重複請求。
 - queue claim concurrency、connection exhaustion、PostgreSQL restart／reconnect、Direct VPC／firewall 與 Free Tier guard 實機通過。
 - 營運者只透過 Admin 即可設定、觸發、追蹤、定位失敗並安全重跑，不需登入 GCP 或直接查資料庫。
-- 驗收只使用既有 dev 資源；不得部署 production、提高既有限額或建立新付費資源。
+- 驗收使用既有 dev 平行上線資源與真實核准資料；不得因尚未建立 production／staging 而判定功能不可用。未經授權仍不得提高既有限額或建立新付費資源。
 
 ### 3.10 `WBS-3-DATASET-COVERAGE-INVENTORY`（Pilot Evolution／Planned）
 
