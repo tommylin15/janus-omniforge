@@ -19,6 +19,16 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
    但和費用及安全性相關的決定，請等待我回覆『同意』或給予修正意見後，你才能進行下一步。
    如果有需要人工輸入資訊的也請在執行終端機指令前，必須先用文字問我。
 
+### 1.1 Dev 平行上線環境政策
+
+- 目前 `dev` 是 Janus 個人使用階段的主要真實運行環境（parallel-live environment），不是只供假資料、mock、demo 或 pre-production 演練的 staging。
+- Dev 預設直接使用已核准的真實資料、真實 API、真實 MCP、Google OAuth、Cloud Run／Job／Scheduler、PostgreSQL／Iceberg 與實際個人 workflow；完成條件優先以這條真實鏈路的 runtime evidence 驗證。
+- `prod` 代表未來對外、多使用者或更高可靠性需求下的 HA、權限、發布與營運強化，不是目前個人真實使用的前置條件。除非某項需求本身只適用正式多使用者營運，不得以「尚未 productionize」阻擋已可在 dev 真實使用的功能。
+- Mock／fixture／localhost simulation 只用於真實服務難以安全、可重現地製造的 timeout、cancel、disconnect、error、secret-redaction 等異常情境；不得取代主要 real-path acceptance，也不得成為不必要的 WBS blocker。
+- 保留既有 `dev` 資源名稱、腳本、URL、Secret 與環境變數，避免為命名或環境分層做無價值重構；文件中的 `dev` 應解讀為「目前真實個人運行環境」。
+- 平行上線不放棄最低安全底線：secret 不得進 log／前端／一般資料表；大量或不可逆刪除需有防誤觸與可恢復策略；schema 變更走 migration／version；重要資料至少具有可重建來源、匯出或已核准的 bounded backup／restore 路徑；owner／auth 邊界保留；partial success 不得宣稱 full success。
+- 上述政策只調整環境與驗收語意，不取消 research-only、canonical、PIT、provenance、source authorization 等資料治理邊界；研究暫存資料不能因位於 dev 就自動升格為 canonical production data。
+
 ## 2. WBS 執行方式
 
 - 收到「執行 `WBS-ID`」時，自行從 todo 取得必讀文件、目標與驗收條件。
@@ -64,15 +74,14 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
   使用者明確授權。
 - Standard Persistent Disk 總配置量上限為 30 GB，VM 不配置 external IP，並將
   outbound data 控制在每月 1 GB Free Tier 額度內。
-- Free Tier 模式不自動建立 snapshot、backup、HA、replica 或其他會產生額外
-  儲存費用的 PostgreSQL 保護資源；任何例外必須先取得明確授權。
+- Free Tier 模式不自動建立 snapshot、HA、replica 或其他會產生額外儲存費用的 PostgreSQL 保護資源；重要資料優先使用既有 bounded logical backup／export／可重建來源。任何新增付費保護資源仍須先取得明確授權。
 - Free Tier 是 billing account／region 條件，自動化 guard 只能檢查資源規格，
   不能保證帳單為 US$0；部署前仍須檢查資格與 billing budget。
 
 ## 8. Windows PowerShell 的 Node.js 指令
 
 - 允許使用本機 WSL 執行 dev migration、Linux／shell 驗證（包含 `bash -n`）與
-  GCP dev 驗收。WSL 不得用於 production 部署，也不得因此建立或擴大付費 GCP
+  GCP dev 驗收。WSL 不得用於未來獨立 production 部署，也不得因此建立或擴大付費 GCP
   資源。
 - 在 Windows PowerShell 執行 Node.js 專案指令時，一律優先使用
   `npm.cmd`／`npx.cmd`，例如 `npm.cmd test`、`npm.cmd run build`、
@@ -121,7 +130,7 @@ Backlog、archive 與歷史文件只供參考。衝突先以程式與測試查�
   URL 或使用本機 proxy 驗收。
 - 任何標示為 GCP dev／live／E2E 的驗收，禁止以 `localhost`、本機 HTTP server、
   Flutter local run 或本機 proxy 取代；需要人工 OAuth 時，登入頁也必須由 GCP dev
-  服務提供。本機只能做 unit／contract／靜態檢查。
+  服務提供。本機只能做 unit／contract／靜態檢查。這是因為 dev 本身就是目前的平行上線環境，而不是要求另外建立 production 才算真實驗收。
 
 ## 11. 中文優先用詞規則
 
