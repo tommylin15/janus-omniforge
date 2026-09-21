@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Janus bounded context wire contract",
+  "version": "1.0.0",
+  "definitions": {
+    "SourceV1": {
+      "type": "object",
+      "required": ["source_id", "kind", "capabilities", "as_of", "freshness", "owner_scope", "status", "quota", "disclosure"],
+      "properties": {
+        "source_id": {"enum": ["janus-core", "janus-private-core", "janus-private-mart"]},
+        "kind": {"enum": ["core", "private_core", "private_mart"]},
+        "capabilities": {"type": "array", "items": {"enum": ["preview", "date_range"]}},
+        "as_of": {"type": ["string", "null"]},
+        "freshness": {"type": "string"},
+        "owner_scope": {"enum": ["public", "owner"]},
+        "status": {"enum": ["available", "stale", "quota_exhausted", "unavailable"]},
+        "quota": {
+          "type": "object",
+          "required": ["max_records", "max_range_days", "max_output_bytes"],
+          "properties": {
+            "max_records": {"type": "integer", "maximum": 20},
+            "max_range_days": {"type": "integer", "maximum": 366},
+            "max_output_bytes": {"type": "integer", "maximum": 32768}
+          },
+          "additionalProperties": false
+        },
+        "disclosure": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "SelectorV1": {
+      "type": "object",
+      "required": ["source_id", "resource"],
+      "properties": {
+        "source_id": {"type": "string", "pattern": "^[a-z0-9-]{1,40}$"},
+        "resource": {"type": "string", "pattern": "^[a-z0-9-]{1,40}$"},
+        "symbol": {"type": ["string", "null"], "pattern": "^[0-9A-Z._-]{1,20}$"},
+        "start_date": {"type": ["string", "null"], "format": "date"},
+        "end_date": {"type": ["string", "null"], "format": "date"},
+        "year": {"type": ["integer", "null"], "minimum": 1900, "maximum": 9999},
+        "limit": {"type": "integer", "minimum": 1, "maximum": 20, "default": 10}
+      },
+      "additionalProperties": false
+    },
+    "PreviewV1": {
+      "type": "object",
+      "required": ["source_id", "resource", "preview", "as_of", "provenance", "context_ref", "expires_at"],
+      "properties": {
+        "source_id": {"type": "string"},
+        "resource": {"type": "string"},
+        "preview": {"type": "array", "maxItems": 20, "items": {"type": "object"}},
+        "as_of": {"type": ["string", "null"]},
+        "provenance": {"type": "array", "items": {"type": "object", "required": ["context_source_id"]}},
+        "context_ref": {"type": "string", "minLength": 32, "maxLength": 128},
+        "expires_at": {"type": "string", "format": "date-time"}
+      },
+      "additionalProperties": false
+    },
+    "ResolveRequestV1": {
+      "type": "object",
+      "required": ["owner_id", "thread_id", "turn_id", "context_refs"],
+      "properties": {
+        "owner_id": {"type": "string", "format": "uuid"},
+        "thread_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "turn_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "context_refs": {"type": "array", "minItems": 1, "maxItems": 10, "uniqueItems": true, "items": {"type": "string", "minLength": 32, "maxLength": 128}}
+      },
+      "additionalProperties": false
+    },
+    "ResolveResponseV1": {
+      "type": "object",
+      "required": ["owner_id", "thread_id", "turn_id", "snapshots"],
+      "properties": {
+        "owner_id": {"type": "string", "format": "uuid"},
+        "thread_id": {"type": "string"},
+        "turn_id": {"type": "string"},
+        "snapshots": {
+          "type": "array", "maxItems": 10,
+          "items": {
+            "type": "object",
+            "required": ["source_id", "resource", "as_of", "records", "provenance"],
+            "properties": {
+              "source_id": {"type": "string"},
+              "resource": {"type": "string"},
+              "as_of": {"type": ["string", "null"]},
+              "records": {"type": "array", "maxItems": 20, "items": {"type": "object"}},
+              "provenance": {"type": "array", "items": {"type": "object", "required": ["context_source_id"]}}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

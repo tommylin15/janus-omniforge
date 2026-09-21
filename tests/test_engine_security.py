@@ -21,6 +21,7 @@ from services.api.engine_security import (
     require_capabilities,
     validate_provider_environment,
 )
+from services.api.janus_approval_policy import FORBIDDEN_APPROVAL_OPERATIONS
 
 
 def test_runtime_capability_and_credential_contract():
@@ -104,3 +105,8 @@ def test_approval_is_request_bound_expiring_and_cannot_expand_product_permission
     forbidden = ApprovalRequest("owner-1", "thread-1", "turn-1", "request-2", "place_order", "account", digest, now + timedelta(minutes=5))
     with pytest.raises(PermissionError):
         authorize_approval(forbidden, ApprovalDecision("owner-1", "thread-1", "turn-1", "request-2", digest, True), now=now)
+
+
+def test_janus_domain_denials_remain_in_compatibility_contract():
+    schema = json.loads((Path(__file__).parents[1] / "packages/contracts/assistant.v1.json").read_text())
+    assert set(schema["definitions"]["ApprovalRequestV1"]["properties"]["operation"]["not"]["enum"]) == FORBIDDEN_APPROVAL_OPERATIONS

@@ -10,10 +10,15 @@ constraints. The availability enum distinguishes an empty or stale source
 response from an execution failure; execution IDs and trace IDs remain internal
 correlation fields.
 
-`assistant.v1.json` defines runtime binding, the shared AgentEvent envelope,
-explicit context egress, and request-bound approval records. Runtime enforcement
-lives in `services/api/engine_security.py` and defaults to no paid provider or
-silent fallback.
+`janus-context.v1.json` is Janus-owned: it describes the current snake_case
+source/selector/preview/resolve wire boundary. Janus still enforces owner,
+source authorization, PIT/provenance, sanitization, and output bounds in
+`services/api/context_sources.py`; the schema does not replace those checks.
+`assistant.v1.json` and its registry references remain the live Janus
+compatibility contract, including Janus approval denials. Generic Agent
+contract ownership is in omniAgent; Janus's `engine_security.py` remains a
+compatibility implementation, with the domain deny list owned by
+`services/api/janus_approval_policy.py`. No runtime routing has moved.
 
 `mart.v1.json` keeps deterministic analysis outcome separate from publication
 lifecycle, and defines PIT evidence, five discriminated role payloads, scoped

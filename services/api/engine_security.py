@@ -9,6 +9,8 @@ from typing import Mapping
 import os
 import re
 
+from .janus_approval_policy import FORBIDDEN_APPROVAL_OPERATIONS
+
 
 class AgentRuntime(str, Enum):
     OPENROUTER = "openrouter"
@@ -150,13 +152,6 @@ class ApprovalDecision:
 
 
 _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
-_FORBIDDEN_APPROVAL_OPERATIONS = frozenset({
-    "admin",
-    "mutate_trade",
-    "mutate_note",
-    "mutate_watchlist",
-    "place_order",
-})
 _FORBIDDEN_PROVIDER_KEYS = frozenset({
     "OPENAI_API_KEY",
     "OPENAI_API_BASE",
@@ -209,7 +204,7 @@ def authorize_approval(
     now: datetime,
     already_resolved: bool = False,
 ) -> None:
-    if request.operation in _FORBIDDEN_APPROVAL_OPERATIONS:
+    if request.operation in FORBIDDEN_APPROVAL_OPERATIONS:
         raise PermissionError("approval cannot grant product mutation or admin access")
     if request.operation in {"shell", "write_file"} and request.scope != "turn_sandbox":
         raise PermissionError("shell and file writes are limited to the turn sandbox")

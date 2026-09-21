@@ -1,5 +1,6 @@
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+import json
 from pathlib import Path
 import sys
 from uuid import UUID, uuid4
@@ -290,7 +291,9 @@ def test_private_deletion_is_authenticated_and_queued_for_the_same_user():
 
 def test_context_preview_is_bounded_opaque_and_owner_thread_bound():
     api,_,store=client()
+    wire=json.loads((ROOT/"packages/contracts/janus-context.v1.json").read_text())["definitions"]
     sources=api.get("/api/v1/me/ai-sources",headers=auth()).json()["items"]
+    assert all(set(item)==set(wire["SourceV1"]["properties"]) for item in sources)
     assert {item["source_id"] for item in sources}=={"janus-core","janus-private-core","janus-private-mart"}
     assert all(item["quota"]["max_records"]==20 for item in sources)
 
@@ -298,6 +301,8 @@ def test_context_preview_is_bounded_opaque_and_owner_thread_bound():
         "source_id":"janus-core","resource":"ohlcv","symbol":"2330","limit":1}})
     assert response.status_code==200
     preview=response.json()
+    assert set(preview)==set(wire["PreviewV1"]["properties"])
+    assert len(preview["preview"])<=wire["PreviewV1"]["properties"]["preview"]["maxItems"]
     assert preview["preview"]==[{"symbol":"2330","trade_date":"2026-09-05","close":"100","source_id":"twse","provenance_id":"prov-1"}]
     assert "thread-a" not in preview["context_ref"] and str(USER_ID) not in preview["context_ref"]
     assert preview["provenance"]==[{"context_source_id":"janus-core","source_id":"twse","provenance_id":"prov-1"}]
@@ -307,6 +312,8 @@ def test_context_preview_is_bounded_opaque_and_owner_thread_bound():
     assert api.post("/internal/v1/assistant/context:resolve",json=payload).status_code==401
     resolved=api.post("/internal/v1/assistant/context:resolve",headers=auth(),json=payload)
     assert resolved.status_code==200
+    assert set(payload)==set(wire["ResolveRequestV1"]["properties"])
+    assert set(resolved.json())==set(wire["ResolveResponseV1"]["properties"])
     assert resolved.json()["snapshots"][0]["records"]==preview["preview"]
     assert "artifact_ref" not in str(resolved.json()) and "gcs_uri" not in str(resolved.json())
     payload["thread_id"]="thread-b"
