@@ -1,0 +1,472 @@
+omniAgent 拆分準備包 — Janus → omniAgent
+日期：2026-09-21
+狀態：PRE-SPLIT / PREPARATION ONLY
+來源 Repo：tommylin15/janus-omniforge
+GitHub baseline：main @ 251342e0a32d3e52943064bdf9c89c021e82b848
+預定本機來源：D:\vibeCode\github\janus-omniforge
+預定新專案：D:\vibeCode\github\omniAgent
+執行 Runbook：https://docs.google.com/document/d/1gXST0rDHPYaTVcpjg9soFhexri2JCtzA3kwFfV-Vmtw/edit
+
+0. 文件目的與限制
+
+本文件是交給 Codex／Work／本機開發流程執行的拆分準備包，不代表拆分已完成，也不代表已建立 omniAgent repo、已搬動程式、已修改 migration、已部署或已完成 live integration。
+
+依 janusChatGPT 專案規則，ChatGPT 可以分析目前 GitHub、更新文件、產出 Codex 工作指令、patch 建議與驗收條件，但不得直接修改 Python、TypeScript／JavaScript、Dart、SQL migration、shell／PowerShell、Dockerfile、Cloud Build、GitHub Actions、runtime／deployment config、tests 或 application source。因此本文件刻意不是可直接執行的 .ps1／.sh 搬檔腳本，而是可由 Codex 精確執行的 migration manifest + runbook。
+
+拆分原則：copy-first、boundary-first、acceptance-before-delete。不得先把 Janus 現有可用功能刪掉再補 omniAgent；不得把 partial success 包裝成 full success。
+
+1. 最終責任邊界
+
+1.1 omniAgent 負責
+- 通用 Chat UI / Chat API
+- Threads / Turns / Items / Sessions / Memory
+- Agent Runtime / orchestration
+- provider adapters：Gemini、OpenRouter、Codex
+- Codex App Server lifecycle / managed auth / device-code / bridge
+- generic MCP Host / MCP Client / tool discovery / tool dispatch
+- Skills runtime / skill versioning
+- Approval / shell / temporary file-operation boundary
+- streaming / cursor / reconnect / cancellation / checkpoints
+- generic assistant storage
+- future LangChain / LangGraph orchestration layer
+- 可同時連 Janus、life_assistant 與未來其他 domain systems
+
+1.2 Janus 保留
+- 市場資料 ingestion / Stage / Core / Mart
+- canonical data、PIT / future leakage、provenance、DQ
+- deterministic features / research models
+- Intelligence Mart / five-role research pipeline
+- Supply-chain Intelligence
+- portfolio / trades / journal / notes / watchlist / investment profile
+- investment-specific authentication / authorization / ownership
+- Janus bounded research/context API
+- Janus MCP Adapter / Gateway / OAuth（供 ChatGPT 等外部 consumer 使用）
+- publication / governance / audit
+- Janus User/Admin UI
+- Janus 不保留任何 chat/assistant product surface；所有 conversational / agent UX 歸 omniAgent
+
+核心規則：Domain system 負責「能做什麼」，omniAgent 負責「怎麼思考、怎麼串、先做什麼後做什麼」。Janus 不知道、不依賴 omniAgent 的具體實作；Janus 僅暴露穩定的 authenticated API/MCP capability。
+
+2. 不得破壞的系統邊界
+
+- omniAgent 不得直接 import Janus Python／TypeScript internal packages。
+- omniAgent 不得直接連 Janus PostgreSQL、GCS、Iceberg catalog 或知道 Janus table name、GCS URI、object path、credential locator。
+- omniAgent 取得 Janus 能力必須透過 authenticated bounded HTTP API 或 MCP。
+- Janus 回傳 context 時仍須保留 owner scope、PIT、as-of、provenance、bounded output 與 source authorization。
+- Janus canonical numbers / facts 不由 omniAgent LLM 修改。
+- ChatGPT Custom MCP App 與 omniAgent 是兩條不同 consumer path；拆 omniAgent 不得破壞既有 Janus MCP connector。
+- life_assistant 未來可作為第二個 domain connector，但第一階段不得為了它改壞 Janus。
+
+3. Migration classification
+
+MOVE-CANDIDATE：高信心屬於通用 Agent 平台；目標是搬入 omniAgent，但實際檔案移動由 Codex 執行。
+SPLIT-REFACTOR：同一檔案混合 Janus 與 Assistant 邏輯，必須拆，不能整檔搬。
+COPY-THEN-REFACTOR：先複製到 omniAgent，建立相容邊界後再決定何時從 Janus 移除舊版本。
+KEEP-JANUS：明確屬 Janus domain / data / MCP boundary。
+DEFER-REVIEW：涉及 live data、migration history、cloud resource、Secrets、OAuth 或 deployment，先保留，另案 cutover。
+
+4. 逐區拆分清單
+
+4.1 services/agent-gateway — MOVE-CANDIDATE（高信心）
+目前包含：
+- services/agent-gateway/assistant_dispatch.ts
+- services/agent-gateway/codex_bridge.ts
+- services/agent-gateway/gemini_provider.ts
+- services/agent-gateway/mcp_host.ts
+- services/agent-gateway/openrouter_provider.ts
+- services/agent-gateway/server.ts
+- services/agent-gateway/tsconfig.json
+- services/agent-gateway/Dockerfile
+- services/agent-gateway/README.md
+
+目標：整個 generic runtime 進 omniAgent。搬後不得內嵌 Janus DB / Core / Mart reader；Janus context 改由 remote authenticated Janus API/MCP 提供。
+
+4.2 Root Node package — SPLIT-REFACTOR
+目前 package.json 同時服務 Janus Admin/web tooling 與 Agent Gateway，且直接依賴：
+- @modelcontextprotocol/client 2.0.0
+- @modelcontextprotocol/server 2.0.0
+- @modelcontextprotocol/server-legacy 2.0.0
+- @openai/codex 0.153.4
+- zod 4.2.0
+
+Codex 應為 omniAgent 建立自己的 Node package/lock/tsconfig/lint/test boundary；Janus root package 只保留 Janus 實際仍需要的依賴。不得直接把 Janus root package.json 整份搬走。
+
+4.3 packages/contracts/assistant.v1.json — SPLIT-REFACTOR / COPY-FIRST
+現行 contract 同時混合兩類概念：
+A. 通用 Agent contract：RuntimeBindingV1、AgentEventV1、ApprovalRequestV1、provider capability。
+B. Janus domain context contract：ContextSourceV1、ContextSelectorV1、ContextPreviewV1、ContextResolveV1，其中 kind 直接包含 core/private_core/private_mart。
+
+目標：
+- omniAgent 建立 generic assistant contract。
+- Janus 保留 Janus context contract / extension。
+- cross-repo boundary 用 versioned wire contract，不用 source-code import。
+- 第一階段 copy-first，不先刪 Janus assistant.v1.json；等相容性與 consumer migration 通過後再整理。
+
+4.4 services/api/engine_security.py — SPLIT-REFACTOR
+此檔大部分是 generic Agent security：runtime enum、event type、capability、provider policy、context egress consent、approval binding。
+但也混入 Janus domain policy，例如 forbidden approval operations：admin、mutate_trade、mutate_note、mutate_watchlist、place_order。
+
+目標：
+- generic runtime security / approval framework → omniAgent。
+- Janus-specific forbidden operations / domain mutation policy → 留 Janus，作為 Janus connector policy。
+- 不可因抽出去而放寬 Janus 既有禁止交易／筆記／watchlist mutation 與下單政策。
+
+4.5 services/api/context_sources.py — KEEP-JANUS（重要）
+此檔直接知道：janus-core、janus-private-core、janus-private-mart、Core Iceberg identifier、notes/watchlist/trades、portfolio mart table、owner-scoped context snapshot、provenance sanitation。
+
+目標：留在 Janus，逐步整理成 bounded Janus Context API / MCP capability，omniAgent 只把它當外部 domain source。
+
+4.6 services/api/app.py — KEEP-JANUS + SPLIT ROUTES
+不能整檔搬。Codex 必須辨識其中 chat/assistant routes，先讓 omniAgent 有等價 API，再逐步把 Janus generic chat routes cut over / deprecate。Janus public/private investment/admin API 保留。
+
+4.7 services/api/assistant_storage.py、assistant_storage_acceptance.py — SPLIT-REFACTOR / DEFER DATA CUTOVER
+Assistant conversation/thread/event/skill storage 長期應歸 omniAgent，但目前 storage 與 Janus Private Iceberg/PostgreSQL ownership 有耦合。
+
+第一階段：不要刪資料、不要改 live schema、不要搬歷史資料。
+第二階段：定義 omniAgent storage schema / export-import / owner mapping。
+第三階段：copy / migrate / verify 後才切 write ownership。
+
+4.8 services/api/auth.py — KEEP-JANUS
+Janus User auth 留 Janus。omniAgent 必須建立自己的 auth boundary 或接受可信 service-to-service identity；不得 import Janus auth internals 作為永久架構。
+
+4.9 services/api/mcp_adapter.py、mcp_gateway.py、mcp_oauth.py — KEEP-JANUS
+這些是 Janus 對 ChatGPT 等 external consumer 暴露 Janus domain data 的 MCP boundary，不等同 services/agent-gateway/mcp_host.ts 的 generic MCP Host。
+拆 omniAgent 時不得誤搬。
+
+4.10 services/mcp-fixture — KEEP-JANUS initially / REVIEW later
+目前主要用途是 Janus MCP protocol/error-case acceptance。第一階段保留。未來若 omniAgent 也需要自己的 MCP fixture，再建立獨立 fixture，不要把 Janus real integration acceptance 用 fixture 取代。
+
+4.11 apps/user_app/lib/main.dart — SPLIT-REFACTOR，禁止整檔搬
+目前同一個 Flutter main.dart 同時包含：Janus login、Today、Watchlist、Journal/Notes、Stock detail、Profile，以及 ChatPage。
+ChatPage 目前直接呼叫 /api/v1/me/chats/threads 與 events endpoint，並包含 runtime/model、thread、polling、approval 等 generic assistant state。
+
+目標：
+- Janus app 保留 investment workspace。
+- generic ChatPage / Threads / runtime/provider / approval UX 抽到 omniAgent client。
+- Janus 不保留 Ask Janus、ChatPage 或任何 conversational/agent UX；相關 product surface 全部移至 omniAgent。Janus 僅提供投資 domain API/MCP capability，不主動呼叫 omniAgent。
+- apps/user_app/test/widget_test.dart 依功能拆分，不能整份搬。
+
+4.12 apps/web — KEEP-JANUS
+現有 apps/web 是 Janus Admin/public migration compatibility，不是本次 ChatGPT-like Assistant UI；不得因名稱 web 而搬到 omniAgent。
+
+4.13 jobs/intelligence-mart — KEEP-JANUS
+尤其 jobs/intelligence-mart/intelligence_mart/gemini.py 是 Janus research pipeline 的 domain model integration，不等同 generic Gemini provider。不得因檔名 Gemini 就搬。
+
+4.14 infra/postgres migration history — KEEP HISTORY / DEFER CUTOVER
+- 014_private_workspace.sql：KEEP-JANUS。
+- 015_private_mcp_servers.sql：DEFER-REVIEW；先判定是 generic assistant MCP config 還是 Janus private workspace ownership，但 migration history 永遠保留在 Janus repo。
+- 016_private_assistant_storage.sql：DEFER-REVIEW；歷史 migration 保留，未來 omniAgent 建自己的 schema / migration，不把已套用 migration 從 Janus history 消失。
+- 026_mcp_oauth_codes.sql：KEEP-JANUS，若其用途是 Janus ChatGPT MCP OAuth。
+
+規則：已部署 migration 不做「搬走等於刪除」；新 repo 從新的 schema ownership 開始。
+
+4.15 GCP / deployment scripts — 分類但暫不執行
+omniAgent 移轉候選：
+- cloudbuild-agent-gateway-verify.yaml
+- cloudbuild-chat-runtime-verify.yaml
+- deploy-agent-gateway-dev.sh
+- verify-agent-gateway-dev.sh
+- set-codex-auth-dev.sh
+- migrate-secret-bundles-dev.sh（需先做 ownership review）
+- MCP Host acceptance 中明確測 generic host 的部分
+
+Janus 保留：
+- cloudbuild-api-context-verify.yaml
+- verify-api-context-sources-dev.sh
+- Janus ChatGPT MCP OAuth verify
+- Janus public/private API、Mart、ingestion、ledger、pilot scripts
+
+任何 Cloud Run service、Secret Manager、IAM、OAuth client、Cloud Build trigger、deployment 的實際建立／改名／刪除，都不在第一階段自動執行，須有明確人工 approval。
+
+4.16 Tests
+MOVE-CANDIDATE / COPY-FIRST：
+- tests/agent_gateway.test.ts
+- tests/gemini_provider.test.ts
+- tests/openrouter_provider.test.ts
+
+SPLIT-REFACTOR：
+- tests/test_assistant_storage.py
+- tests/test_chat_api.py
+- tests/test_engine_security.py
+- apps/user_app/test/widget_test.dart
+
+KEEP-JANUS：
+- tests/test_mcp_adapter.py
+- tests/test_mcp_oauth.py
+- ingestion / Mart / provenance / public API / portfolio / journal / Admin tests
+
+完成拆分前，兩個 repo 都要有自己的 isolated unit/integration test command；不能因 tests 被搬走造成 Janus regression 無人發現。
+
+5. omniAgent 建議初始 repo 形狀
+
+omniAgent/
+  README.md
+  AGENTS.md
+  apps/
+    agent_app/            # 第一版可沿用 Flutter 概念；不預設 React
+  services/
+    agent-gateway/        # Codex/Gemini/OpenRouter/MCP runtime
+  packages/
+    contracts/            # generic assistant wire contracts
+    orchestration/        # future LangChain/LangGraph，第一階段可先空
+    security/             # generic approval/egress/runtime policy
+  tests/
+    unit/
+    integration/
+  docs/
+    architecture.md
+    janus-connector.md
+    life-assistant-connector.md
+    migration-from-janus.md
+
+LangChain / LangGraph 不列為第一階段拆分 blocker。先把 ownership boundary 拆乾淨，再導入 orchestration framework，避免「搬 repo + 換 framework」同時發生而無法定位 regression。
+
+6. 建議拆分階段
+
+Phase 0 — Freeze / Baseline
+- 等目前 Codex 工作正常結束。
+- 記錄當下 Janus main SHA 與 local working tree 狀態。
+- 若 SHA 已不同於本文件 baseline，Codex 必須先重新 diff 本文件與最新 tree，更新 migration matrix。
+- 不要求停用目前 dev；目前 dev 仍是實際使用中的 Janus。
+
+Phase 1 — 建立 omniAgent skeleton，copy-first
+- 在 D:\vibeCode\github\omniAgent 建新 repo/project。
+- 複製 generic Agent Gateway、generic contracts、對應 tests。
+- 先讓 omniAgent 在 isolation build/test。
+- 此階段 Janus 不刪原檔、不改 live routing。
+
+Phase 2 — 建立 Janus ↔ omniAgent 明確 wire boundary
+- Janus context/data 只透過 authenticated bounded API/MCP 提供。
+- omniAgent 移除任何直接 Janus storage/internal import。
+- 加 contract tests，確認 owner scope、PIT、provenance、bounded response。
+
+Phase 3 — Chat API / Assistant storage ownership
+- 建立 omniAgent threads/events/approval API 與 storage。
+- 設計 owner identity mapping。
+- 歷史 chat data 若需要保留，先 export/copy/verify；不得 destructive move。
+- 完成 dual-read/compatibility 或明確 cutover plan 後才切 write ownership。
+
+Phase 4 — UI extraction
+- 從 Janus Flutter main.dart 抽出 generic Chat UI。
+- Janus app 移除 generic provider/runtime/MCP/Skills/approval UI。
+- Janus 不保留任何 Ask Janus / Chat / assistant UI；所有 conversational / agent UX 完整歸 omniAgent。
+
+Phase 5 — Runtime / Deployment cutover
+- 新 omniAgent runtime 在 dev 真實環境驗證。
+- 驗證 Codex managed auth、Gemini、OpenRouter、MCP tool discovery/call、streaming、cancel、reconnect、approval。
+- 驗證 omniAgent → Janus real API/MCP，不以 fixture 當 full acceptance。
+- 未經人工同意，不建立新 paid resource 或變更 Secrets/IAM/OAuth。
+
+Phase 6 — Janus cleanup
+只有在 omniAgent build/tests/live integration 已有 evidence、Janus regression suite 通過、rollback 已驗證後，才由 Codex 移除 Janus 內已被取代的 generic assistant code。
+
+7. 驗收條件
+
+Janus acceptance：
+- ingestion/Core/Mart/portfolio/journal/watchlist/research 不因拆分 regression。
+- Janus MCP connector 仍可獨立被 ChatGPT 使用。
+- Janus context API 保有 owner scope、PIT、provenance、sanitization、output bounds。
+- Janus 不依賴、也不需要知道 omniAgent 的存在即可完整執行其 domain responsibilities 與產製 canonical research data。
+
+omniAgent acceptance：
+- 可獨立 build / test / start。
+- Gemini/OpenRouter/Codex provider tests 通過。
+- Threads/Turns/Events/streaming/cancel/reconnect 可用。
+- Approval request/decision 維持 digest、expiry、scope binding。
+- MCP discovery/call/timeout/cancel/disconnect 可用。
+- 無 Janus DB/GCS/Iceberg direct access。
+- 可用 real dev Janus API/MCP 取得投資 context。
+- 未來可接 life_assistant，不需 import Janus code。
+
+Integration acceptance：
+- 使用真實 dev Janus 做至少一條端到端流程：User → omniAgent → Janus bounded tool/context → model → answer/citation。
+- ChatGPT → Janus MCP path 仍獨立正常。
+- secret 不進 browser/client/log/thread payload。
+- rollback 可以把流量切回拆分前 Janus chat path（在 cleanup 前）。
+
+完成判定：只有 code、tests、CI、deployment、live runtime、real integration evidence 均符合才可稱 split complete。建立 repo 或搬完檔案不算完成。
+
+8. Rollback / 安全策略
+
+- 第一階段採 copy-first，不採跨 repo git mv 後立刻刪來源。
+- Janus 原有 chat runtime 在 omniAgent 未通過 live acceptance 前保留可回退。
+- Existing database migration history 不刪。
+- Existing conversation/private data 不自動搬、不自動刪。
+- Cloud resource 不自動 rename/delete。
+- 若拆分中發現 Janus-specific dependency，先建立 adapter，不以 direct DB/import shortcut 解決。
+
+9. Codex 執行指令（待目前工作結束後使用）
+
+任務：將 janus-omniforge 中的通用私人 Agent 平台依本文件拆出為新的 omniAgent 專案。
+
+執行前：
+1. 來源預期為 D:\vibeCode\github\janus-omniforge；目標為 D:\vibeCode\github\omniAgent。先確認實際路徑，不要猜。
+2. 先讀最新 GitHub main、本機 HEAD、git status、未提交變更與目前 Codex 工作成果。不得覆蓋任何尚未完成或未提交工作。
+3. 比對最新 main SHA 與本文件 baseline 251342e0a32d3e52943064bdf9c89c021e82b848。若不同，先重新分類新增／變更檔案，再開始拆分。
+4. Janus 目前只用 main；不要自行建立 branch/PR，除非使用者日後另有指示。
+
+實作規則：
+- 先建立 omniAgent skeleton，再 copy generic code；不要先刪 Janus。
+- services/agent-gateway 為第一批高信心候選。
+- package/config/test 需在 omniAgent 自成 build boundary，不得永久引用 ../janus-omniforge source path。
+- apps/user_app/lib/main.dart 只能 extract/refactor ChatPage，不能整檔搬；完成 cutover 後 Janus 不保留 ChatPage 或 AI 對話入口。
+- services/api/context_sources.py、Janus MCP adapter/gateway/oauth、investment data/research code 留 Janus。
+- assistant.v1 contract 拆 generic Agent contract 與 Janus context extension。
+- engine_security 拆 generic security 與 Janus domain deny policy。
+- 已套用 SQL migration 永遠保留在 Janus history；不要移除 migration files 來表示 ownership 變更。
+- omniAgent 不得 direct-access Janus PostgreSQL/GCS/Iceberg。
+- 不要同時導入 LangChain/LangGraph；先完成 repo/boundary split，framework migration 另案。
+- 不得直接變更 live cloud resource、Secret、IAM、OAuth、paid resource 或 deployment topology；先產出差異與需要的人工 approval。
+- 每一 phase 執行對應 tests/build，失敗就記錄 actual evidence，不得跳過後宣稱成功。
+
+交付報告必須列：
+- 實際搬／複製／拆分的檔案清單。
+- Janus 保留清單。
+- cross-repo API/MCP contract。
+- test/build 結果。
+- 尚未驗證項目。
+- deployment/live integration evidence。
+- rollback 方法。
+- 是否仍有 direct Janus internal dependency。
+
+10. 明確 KEEP-JANUS 清單（防止誤搬）
+
+- jobs/ingestion-core/**
+- jobs/intelligence-mart/**
+- packages/duckdb_query/**
+- packages/provenance/**
+- packages/governance/**
+- services/api/context_sources.py
+- services/api/mcp_adapter.py
+- services/api/mcp_gateway.py
+- services/api/mcp_oauth.py
+- Janus portfolio/trade/journal/note/watchlist/private pipeline
+- apps/web/**
+- Janus Admin/public UI
+- canonical data / PIT / provenance / publication / governance
+- Janus ChatGPT MCP connector
+
+11. 尚待人工決策，不應阻擋第一階段 repo split
+
+- omniAgent 最終 auth model：自有 Google OIDC、service-to-service identity，或其他方式。
+- assistant history 是否需要完整 migration，或只保留新系統建立後的新 threads。
+- omniAgent client 是否延續 Flutter Web/mobile，或未來另建 web frontend。
+- omniAgent Cloud Run service / GCP project / Secret Manager ownership 命名。
+- 不再評估 Janus thin Ask Janus；此 product surface 已決定移除。Janus 對 omniAgent 僅提供被動的 authenticated API/MCP capability。
+- life_assistant connector contract。
+- LangChain/LangGraph 導入時點與 evaluation baseline。
+
+12. 當前結論
+
+可以現在先準備，但不建議在另一個 Codex 任務尚未結束時開始實際拆 code。最佳時點是：目前 Codex 工作完成 → 確認 clean/known checkpoint → 重新掃最新 main/local diff → 按本準備包由 Codex 執行 copy-first split。
+
+本文件已以 2026-09-21 GitHub main 實作為 baseline；如果之後 Janus 有新 commit，執行前必須重新驗證，不可把本文件當成永遠正確的靜態 file list
+
+13. 文件同步拆分與 stale-reference gate
+
+文件更新不是拆分後的整理工作，而是每個 migration phase 的必要交付物。只要 active 文件仍把已移出的 generic Agent capability 描述成 Janus 內部 ownership，或 omniAgent 文件仍依賴舊 Janus internal path，該 phase 一律不得標示完成。
+
+13.1 必掃 Janus active 文件範圍
+
+至少包含：
+- README.md
+- AGENTS.md
+- doc/PROJECT_RULES.md（只更新與 ownership / repo boundary 有關的段落，不改既有治理原則）
+- doc/spec.md
+- doc/spec/*.md
+- doc/wbs.md
+- doc/wbs/*.md，尤其 wbs-4c-ai-chat.md、wbs-6-api-and-apps.md、wbs-8-qa-release.md
+- doc/todo.md 與任何 active todo / migration tracking 文件
+- doc/ui.md
+- doc/ui/*.md，尤其 user-app.md、states-and-api.md、components.md
+- doc/runbook-*.md，尤其 dev deploy / parallel live dev / OAuth / Agent Gateway 相關內容
+- services/agent-gateway/README.md 在 cutover 前須標示其 migration 狀態；真正 ownership 移出後 Janus 不得留下讓人誤以為它仍是 Janus runtime 的 active README
+- packages/contracts/README.md 若 contract ownership / extension 關係改變需同步更新
+- infra / scripts 下所有仍被視為 active runbook 或 deployment 說明的 Markdown
+
+13.2 文件拆分分類
+
+MOVE-DOC：內容純屬 generic Agent platform，移入 omniAgent docs，Janus 只保留必要 migration/history reference。
+
+SPLIT-DOC：同一份文件混合 Janus domain 與 generic Agent 描述，拆成 Janus retained responsibility + omniAgent responsibility + cross-project contract reference。
+
+KEEP-JANUS-DOC：canonical data、PIT、provenance、DQ、publication、portfolio、research、Janus MCP external connector、Janus UI/domain runbook 等繼續由 Janus 文件持有。
+
+ARCHIVE-HISTORICAL：已完成且具有歷史價值的 archive 不為了消除字串而改寫歷史，但必須確保 active docs 不再把舊架構當現況。歷史文件若可能誤導，應加 historical / superseded 標記，而不是改寫當時事實。
+
+CROSS-PROJECT-REFERENCE：Janus 與 omniAgent 都只記錄穩定的 wire contract / endpoint / MCP capability / ownership boundary，不互相引用對方 repository internal source path 作為正式架構。
+
+13.3 每一 phase 的文件同步要求
+
+Phase 1 建立 omniAgent skeleton 時：
+- 建立 omniAgent README、architecture、migration-from-janus、janus-connector 文件。
+- 標示哪些 code 只是 copy-first compatibility，尚未 cutover。
+- 不得在 omniAgent 文件宣稱已接管 live runtime，除非 runtime evidence 已存在。
+
+Phase 2 wire boundary 時：
+- Janus spec 更新為 domain API/MCP provider。
+- omniAgent spec 更新為 external consumer/orchestrator。
+- 明確記錄 owner identity、auth boundary、context contract、PIT/provenance、bounded response。
+
+Phase 3 chat/storage ownership 時：
+- WBS/todo/runbook 必須同步誰擁有 thread/event/storage/write path。
+- 若仍 dual-write / dual-read / compatibility，文件必須明寫，不可簡化成已完成 cutover。
+
+Phase 4 UI extraction 時：
+- Janus UI 文件移除 generic provider/runtime/MCP/Skills/approval ownership 描述。
+- omniAgent UI 文件新增完整 Chat/Threads/Tools/Approvals/Provider UX。
+- Janus UI 文件必須移除 Ask Janus、Chat、assistant、provider/runtime selector 等 conversational product surface；不得保留替代入口。
+
+Phase 5 deployment cutover 時：
+- runbook、service naming、health check、OAuth/Secret ownership、Cloud Run routing 與 rollback 全部同步。
+- 任何舊 service 名稱若仍暫時保留，必須明確標示 compatibility alias / legacy resource，而不是裝作不存在。
+
+Phase 6 cleanup 時：
+- 清除 active docs 中已失效的 Janus internal Agent Gateway / Chat API / generic assistant ownership 敘述。
+- 將 migration TODO 關閉前，必須完成 stale-reference scan。
+
+13.4 stale-reference scan 關鍵字
+
+Codex 在每個 phase 結束與最終 cleanup 前，需對 Janus 與 omniAgent 的 active docs 全域搜尋至少以下詞群，逐項判斷是否仍正確，不可機械式全刪：
+- agent-gateway / Agent Gateway
+- private assistant / 私人助理
+- WBS-4C
+- Chat API / chats/threads / events
+- assistant_storage / private_assistant_storage
+- Codex bridge / Codex App Server
+- OpenRouter / Gemini provider
+- MCP Host / MCP Servers / Tools
+- Skills / skill profile
+- approval / approval request
+- provider / runtime selector
+- assistant.v1
+- context_sources
+- janus-omniforge path references
+- services/agent-gateway
+- apps/user_app ChatPage
+- Cloud Run agent gateway service names
+- legacy POC / dev-only / production-only 語意
+
+注意：上述字串出現不代表一定要刪；歷史 migration/archive 可保留舊名稱，Janus MCP connector 也仍會合法包含 MCP。active Janus 架構文件則不得把 omniAgent、Agent Gateway、Chat runtime 描述成 Janus dependency 或內建責任；驗收的是 ownership / current-state 語意正確，而不是零字串命中。
+
+13.5 文件一致性驗收
+
+文件 gate 至少包含：
+- Janus README / WBS / spec / todo / UI / runbook 對同一 capability 的 owner 不互相矛盾。
+- omniAgent README / architecture / runbook 與實際 repo / runtime evidence 一致。
+- active Janus 文件不再把 generic assistant platform 描述成 Janus 長期內建 responsibility，且不得將 omniAgent 描述成 Janus 必要 dependency。
+- omniAgent 文件不得宣稱直接讀 Janus DB/GCS/Iceberg/internal packages。
+- Janus context/data governance 文件仍保留 canonical data、PIT、future leakage、provenance、source authorization、publication gate 與 LLM 不得改 canonical numbers。
+- Janus ChatGPT MCP connector 保持 Janus 自身 external-consumer boundary；omniAgent 僅作為其中一個可能的外部 consumer，不形成 Janus 反向依賴。
+- dev = 目前真實使用中的環境；不得因拆分重新引入「dev 只能 mock/POC、未到 prod 不算可用」舊語意。
+- archive/history 與 current/active 文件分層清楚。
+- 所有 active internal links / file paths / commands / service names 指向實際存在的新位置或明確 compatibility target。
+- 文件不能比 implementation 提前宣稱完成；partial / pending / dual-run 狀態要原樣揭露。
+
+13.6 完成定義補強
+
+omniAgent split complete = code ownership + tests + CI + deployment + live integration + documentation ownership + stale-reference scan 全部完成。
+
+若程式已拆，但 active docs 尚有舊 ownership / 舊路徑 / 舊 runtime 語意，狀態必須是 DOCUMENTATION MIGRATION INCOMPLETE，不得標示 split complete。
+。
+

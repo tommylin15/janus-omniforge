@@ -1,0 +1,38 @@
+substitutions:
+  _SERVICE_URL: ""
+
+steps:
+  - id: admin-flutter-runtime
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        test -n "${_SERVICE_URL}"
+        base="${_SERVICE_URL}"
+        base="${base%/}"
+        health="$(curl --fail --silent --show-error --max-time 60 "${base}/health")"
+        echo "health=${health}"
+        grep -q '"status"' <<<"${health}"
+        for path in /app /app/admin; do
+          status="$(curl --silent --show-error --max-time 60 --output "/tmp/$(basename "${path}").html" --write-out '%{http_code}' "${base}${path}")"
+          echo "path=${path} status=${status}"
+          test "${status}" = 200
+          grep -q '<base href="/app/">' "/tmp/$(basename "${path}").html"
+          grep -Eq 'main\.dart\.js|flutter_bootstrap\.js' "/tmp/$(basename "${path}").html"
+        done
+        for path in \
+          /api/v1/admin/stocks \
+          /api/v1/admin/executions?limit=1 \
+          /api/v1/admin/source-health?limit=1 \
+          /api/v1/admin/mart-reports?limit=1 \
+          /api/v1/admin/memberships/premium; do
+          status="$(curl --silent --show-error --max-time 60 --output /dev/null --write-out '%{http_code}' "${base}${path}")"
+          echo "path=${path} status=${status}"
+          test "${status}" = 401 || test "${status}" = 503
+        done
+        echo 'GCP dev Admin Flutter runtime acceptance passed'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 600s

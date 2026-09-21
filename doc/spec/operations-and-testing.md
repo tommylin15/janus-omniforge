@@ -1,5 +1,17 @@
 # Operations and testing
 
+## Admin／baseline GCP dev acceptance checkpoint（2026-09-21）
+
+`python -m pytest -q`：261 passed；`npm.cmd run test:unit`：20 passed；Flutter widget：16 passed（新增批次重試回歸曾抓到 `setState` 回傳 Future，已修正重跑）；`flutter analyze --no-fatal-infos`：exit 0，只有 info-level style notices；Python compile、Git Bash `bash -n scripts/gcp/deploy-dev.sh`、`git diff --check` 通過。root `pytest.ini` 將 Janus testpaths 固定為 `tests/`，避免內嵌 `token-savior/scripts` 與 root `scripts` namespace 衝突；內嵌套件測試仍應從其自身 root 獨立執行。
+
+Admin Flutter shell／overview／batch／stock 的本機開發已建立，static Admin 未移除；後端補 membership 與失敗 item 的受限重試 API。`pytz==2025.2` 已加入 API runtime lock；Admin 個股 health 使用 bounded `ohlcv` summary，避免完整 Core summary 在 Cloud Run 掃描大表逾時。
+
+本機：root `python -m pytest -q` **261 passed**；`npm.cmd run test:unit` **20 passed**；Flutter widget **16 passed**；`flutter analyze --no-fatal-infos` exit 0；Python compile、Git Bash `bash -n scripts/gcp/deploy-dev.sh`、`git diff --check` 通過。
+
+GCP dev：Cloud Build `0ebcb910-ede6-4f95-ad9a-3db6df6368b6` SUCCESS，image digest `sha256:36378556ae201a9e60c536e5146a687b6f6b527fc5219c15cd30db8fb254de22`，revision `janus-api-admin-flutter-mvp-20260921-config`；candidate runtime acceptance build `66cab6ed-7b3e-4071-a938-87fe25d81007` SUCCESS，檢查 `/health`、`/app`、`/app/admin` 與未授權 Admin API 邊界。canonical URL 真人 Google Admin OAuth（`tommylin15@gmail.com`）成功；Overview 實際顯示 Core 9、Mart 50、AI 待 WBS-5、失敗／阻擋 11；批次可讀既有 failed executions 與 detail；2330 個股頁顯示 `ohlcv` 10 rows、coverage 1/1、正常，並顯示歷史 Mart reports。
+
+GCP dev 既有 PostgreSQL web roles 已完成可用性驗證；先前為 migration 診斷暫加的 Cloud Build／Compute Secret Accessor 已清除。沒有 production deployment 或新付費資源。五角色／CIO、role-impact／affected-role rerun、完整 Admin parity 依賴 WBS-5，仍不宣稱 WBS-6 三個切片結案。
+
 ## WBS 4J Private Pipeline ACL repair（2026-09-18）
 
 根因：`apply-private-storage-postgres-migration.sh` 有 shell bug，第二個 `psql` 命令

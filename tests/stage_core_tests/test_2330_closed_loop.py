@@ -46,7 +46,8 @@ class PersistedCoreSummary:
     def __init__(self, store: LocalObjectStore):
         self.store = store
 
-    def summary(self, symbol: str):
+    def summary(self, symbol: str, *, datasets=None):
+        assert datasets == ("ohlcv",)
         prefix = f"core/ohlcv/v1/symbol={symbol}"
         rows = json.loads(self.store.read(f"{prefix}/data.json"))
         summary = json.loads(self.store.read(f"{prefix}/metadata.json"))

@@ -37,7 +37,7 @@ from .models import (AdminResponseOut, AnalysisFeedbackIn, ContextPreviewIn, Con
                      PrivateResponseOut, PublicDatasetOut, PublicReportListOut, PublicReportOut, PublicWaitingOut,
                      SkillRevisionIn, SkillStateIn,
                      WatchlistIn, WatchlistOrderIn, ApprovalResponseIn, ForkThreadIn,
-                     MessageIn, ThreadCreateIn, GovernanceDiffIn, GovernanceEditIn)
+                     MessageIn, ThreadCreateIn, GovernanceDiffIn, GovernanceEditIn, MembershipEditIn)
 from .assistant_storage import AssistantStorage
 from .assistant_storage import safe_private_record
 from .engine_security import (AgentEvent, AgentEventType, AgentRuntime, ApprovalDecision,
@@ -907,6 +907,10 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def admin_execution_details(execution_id: str):
         return jsonable_encoder(admin_service.execution_details(execution_id))
 
+    @admin.post("/executions/{execution_id}/items/{item_key}/retry", status_code=202)
+    def admin_retry_execution_item(execution_id: str, item_key: str):
+        return jsonable_encoder(admin_service.retry_execution_item(execution_id, item_key))
+
     @admin.post("/executions/collection", status_code=202)
     def admin_enqueue_collection(payload: dict[str, Any] = Body(...)):
         config_id = payload.get("config_id")
@@ -948,6 +952,18 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         page = items[:limit]
         next_cursor = f'{page[-1]["source_id"]},{page[-1]["dataset_id"]}' if len(items) > limit else None
         return jsonable_encoder({"items": page, "limit": limit, "next_cursor": next_cursor})
+
+    @admin.get("/memberships/{coverage_tier}")
+    def admin_membership(coverage_tier: str):
+        return jsonable_encoder(admin_service.membership_snapshot(coverage_tier))
+
+    @admin.put("/memberships/{coverage_tier}")
+    def admin_save_membership(coverage_tier: str, payload: MembershipEditIn,
+                              actor: str = Depends(admin_actor)):
+        return jsonable_encoder(admin_service.set_membership(
+            coverage_tier, tuple(payload.symbols), effective_from=payload.effective_from,
+            reason=payload.reason, owner=actor, expected_version=payload.expected_version,
+        ))
 
     @admin.get("/source-catalog")
     def admin_source_catalog(limit: int = Query(200, ge=1, le=200), cursor: str | None = Query(None)):

@@ -19,9 +19,16 @@
 - [TODO 完成紀錄（2026-09-17：WBS-8 pilot release baseline）](archive/todo-completed-2026-09-17-wbs8-pilot-release-baseline.md)
 - [已完成 WBS 0／1／2／4](archive/wbs-completed-through-2026-08-31.md)
 
+## 開發 checkpoint（2026-09-21；GCP dev Admin MVP 驗收完成）
+
+- 基線：root `python -m pytest -q` 261 passed、`npm.cmd run test:unit` 20 passed、Flutter widget 16 passed；root `pytest.ini` 只收 Janus `tests/`，內嵌 `token-savior` 需從其自身專案另跑。Admin membership service／FastAPI route 已補回，繁中 UI contract 已同步。
+- Admin：單一 Flutter codebase 增加獨立 Admin audience 的登入入口（`/app/admin`）、中文 responsive shell、persisted issue overview、批次／execution detail／受限重試、個股搜尋／Core health／Mart 歷史；既有 static Admin 保留。新五角色／CIO、role impact／affected-role rerun、完整 Admin parity 尚未實作，不勾選 WBS-6 三項。
+- GCP dev 驗收完成：Cloud Build `0ebcb910-ede6-4f95-ad9a-3db6df6368b6`、image digest `sha256:36378556ae201a9e60c536e5146a687b6f6b527fc5219c15cd30db8fb254de22`、revision `janus-api-admin-flutter-mvp-20260921-config`，runtime acceptance build `66cab6ed-7b3e-4071-a938-87fe25d81007`。canonical `janus-api-2oo7qbkd5q-uc.a.run.app/app/admin` 以 `tommylin15@gmail.com` 真人 OAuth 登入成功；Overview 顯示 Core 9／Mart 50／失敗阻擋 11，批次明細可讀，2330 個股顯示 `ohlcv` 10 rows、coverage 1/1、正常與歷史 Mart reports。
+- 這次修正 `pytz` runtime dependency，並將 Admin 個股 health 收斂為 bounded `ohlcv` summary，避免通用 summary 掃描全部 Core dataset 造成 Cloud Run 60 秒 timeout；既有 dev DB role migration 已完成，診斷用暫時 Secret Accessor 已移除。未部署 production、未新增 GCP 資源、未記錄 Pilot Entry。
+
 ## 目前進度（2026-09-18，Flutter web deploy）
 
-- Flutter web 部署（方式 B）：`services/api/Dockerfile` 改為 multi-stage build（stage 1：`ghcr.io/cirruslabs/flutter:stable` build `apps/user_app`；stage 2：Python image，`COPY --from=flutter-build`）；`services/api/app.py` 加入 `/app` 與 `/app/{path:path}` SPA catch-all 路由，serve `apps/user_app/build/web/`。部署指令：`ALLOW_DEV_DEPLOY=true bash scripts/gcp/deploy-dev.sh api`；部署後 URL：`https://janus-api-2oo7qbkd5q-uc.a.run.app/app`。GCP dev 驗收待執行。
+- Flutter web 部署（方式 B）：`services/api/Dockerfile` 改為 multi-stage build（stage 1：`ghcr.io/cirruslabs/flutter:stable` build `apps/user_app`；stage 2：Python image，`COPY --from=flutter-build`）；`services/api/app.py` 加入 `/app` 與 `/app/{path:path}` SPA catch-all 路由，serve `apps/user_app/build/web/`。部署指令：`ALLOW_DEV_DEPLOY=true bash scripts/gcp/deploy-dev.sh api`；部署後 URL：`https://janus-api-2oo7qbkd5q-uc.a.run.app/app`。Admin MVP GCP dev 驗收已移至上方 2026-09-21 checkpoint。
 
 ## 目前進度（2026-09-18）
 

@@ -32,6 +32,13 @@ class GovernanceEditIn(StrictModel):
     expected_version: Annotated[int, Field(ge=0)]
 
 
+class MembershipEditIn(StrictModel):
+    symbols: Annotated[list[Annotated[str, Field(pattern=r"^[0-9A-Z.-]{1,16}$")]], Field(max_length=50)]
+    effective_from: datetime
+    reason: Annotated[str, Field(min_length=1, max_length=2000)]
+    expected_version: Annotated[int, Field(ge=0)]
+
+
 class CorePageOut(BaseModel):
     dataset_id: str
     symbol: str

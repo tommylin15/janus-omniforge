@@ -179,6 +179,8 @@ def test_core_routes_require_admin_audience_and_preserve_legacy_contract():
     api,_,_=client(query_core=QueryCore())
     assert api.get("/api/v1/admin/core/2330/summary").status_code==401
     assert api.get("/api/v1/admin/core/2330/summary",headers=auth()).status_code==401
+    assert api.get("/api/v1/admin/memberships/core_focus",headers=auth()).status_code==401
+    assert api.post("/api/v1/admin/executions/old/items/item/retry",headers=auth()).status_code==401
     assert api.get("/api/v1/admin/core/2330/summary",headers={"Authorization":"Bearer other-admin-token"}).status_code==403
     assert api.get("/api/v1/admin/core/2330/summary",headers=admin_auth()).json()=={
         "symbol":"2330","datasets":{}

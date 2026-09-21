@@ -11,8 +11,10 @@ steps:
         flutter create . --platforms web --no-pub
         flutter build web --release \
           --dart-define=JANUS_API_BASE_URL=https://janus-api-2oo7qbkd5q-uc.a.run.app \
-          --dart-define=GOOGLE_USER_CLIENT_ID=$_GOOGLE_USER_CLIENT_ID
+          --dart-define=GOOGLE_USER_CLIENT_ID=$_GOOGLE_USER_CLIENT_ID \
+          --dart-define=GOOGLE_ADMIN_CLIENT_ID=$_GOOGLE_ADMIN_CLIENT_ID
 options:
   logging: CLOUD_LOGGING_ONLY
 substitutions:
   _GOOGLE_USER_CLIENT_ID: ''
+  _GOOGLE_ADMIN_CLIENT_ID: ''

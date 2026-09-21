@@ -32,6 +32,7 @@ class AdminService:
     GOVERNANCE_SETTING = "governance:policy"
     GOVERNANCE_STATUSES = frozenset({"approved", "development-default", "pending"})
     GOVERNANCE_ROLES = frozenset({"fundamental", "valuation", "positioning", "quant", "event_risk"})
+    RETRYABLE_ERRORS = frozenset({"timeout", "rate_limited", "transient", "unavailable"})
 
     def __init__(self, control: Any, *, core: Any | None = None, schedule_sync: Any | None = None) -> None:
         self.control = control
@@ -125,6 +126,25 @@ class AdminService:
             "items": tuple(self._item(item) for item in self.control.list_items(execution_id)),
             "lineage": {"trace_id": execution.trace_id, "executions": related, "reports": reports},
         }
+
+    def retry_execution_item(self, execution_id: str, item_key: str) -> dict[str, Any]:
+        execution = self.control.get_execution(execution_id)
+        if execution.trigger_type.value != "collection" or execution.status.value not in {"failed", "partial"}:
+            raise AdminValidationError("only collection items support targeted retry")
+        item = next((value for value in self.control.list_items(execution_id) if value.item_key == item_key), None)
+        if item is None:
+            raise AdminValidationError("execution item not found")
+        if self._retry_classification(item) != "retryable":
+            raise AdminValidationError("execution item is not retryable")
+        target = item.item_key.rsplit(":", 1)[-1]
+        symbols = (target,) if target in execution.requested_symbols else execution.requested_symbols
+        options = dict(execution.request_options or {})
+        options["source_ids"] = [item.source_id]
+        retried = self.control.enqueue_collection(
+            execution.config_id, symbols, trace_id=execution.trace_id, request_options=options,
+        )
+        return {"execution": self._execution(retried), "retried_item_key": item.item_key,
+                "previous_execution_id": execution.execution_id}
 
     def enqueue_collection(self, config_id: str, symbols: tuple[str, ...] | None = None, *, trace_id: str | None = None,
                            request_options: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -382,6 +402,41 @@ class AdminService:
             raise AdminValidationError("limit must be between 1 and 50")
         return tuple(self.control.admin_audit(limit=limit))
 
+    def membership_snapshot(self, coverage_tier: str) -> dict[str, Any]:
+        try:
+            items = self.control.coverage_membership(coverage_tier)
+            version, effective_from = self.control.coverage_membership_revision(coverage_tier)
+        except ValueError as error:
+            raise AdminValidationError(str(error)) from error
+        return {
+            "items": tuple(self._membership(item) for item in items),
+            "version": version,
+            "effective_from": effective_from.isoformat() if effective_from else None,
+        }
+
+    def set_membership(self, coverage_tier: str, symbols: tuple[str, ...], *, effective_from: datetime,
+                       reason: str, owner: str, expected_version: int) -> dict[str, Any]:
+        from ingestion_core.control import ControlPlaneError
+        if isinstance(expected_version, bool) or not isinstance(expected_version, int) or expected_version < 0:
+            raise AdminValidationError("expected_version is required")
+        try:
+            items = self.control.set_coverage_membership(
+                coverage_tier, symbols, effective_from=effective_from, reason=reason,
+                owner=owner, expected_version=expected_version,
+            )
+        except ValueError as error:
+            raise AdminValidationError(str(error)) from error
+        except ControlPlaneError as error:
+            if "conflict" in str(error).lower():
+                raise AdminConflictError("membership revision has changed; reload before saving") from error
+            raise
+        version, saved_at = self.control.coverage_membership_revision(coverage_tier)
+        return {
+            "items": tuple(self._membership(item) for item in items),
+            "version": version,
+            "effective_from": (saved_at or effective_from).isoformat(),
+        }
+
     def source_review(self, adapter_id: str) -> dict[str, Any]:
         adapter = self._adapter_id(adapter_id)
         current = self.control.get_admin_setting(f"source_review:{adapter}")
@@ -455,7 +510,7 @@ class AdminService:
     def stock_status(self, symbol: str) -> dict[str, Any]:
         if self.core is None:
             raise AdminValidationError("core status unavailable")
-        summary = self.core.summary(symbol)
+        summary = self.core.summary(symbol, datasets=("ohlcv",))
         items = []
         for dataset_id, dataset in summary.get("datasets", {}).items():
             null_profile = dataset.get("null_profile", {})
@@ -522,6 +577,16 @@ class AdminService:
         return {"symbol": stock.symbol, "name": stock.name, "market": stock.market, "enabled": stock.enabled, "listing_status": stock.listing_status, "updated_at": stock.updated_at.isoformat() if stock.updated_at else None, "effective_from": stock.effective_from.isoformat() if stock.effective_from else None}
 
     @staticmethod
+    def _membership(item: Any) -> dict[str, Any]:
+        return {
+            "coverage_tier": item.coverage_tier.value,
+            "symbol": item.symbol,
+            "effective_from": item.effective_from.isoformat(),
+            "effective_to": item.effective_to.isoformat() if item.effective_to else None,
+            "reason": item.reason,
+        }
+
+    @staticmethod
     def _execution(execution: Any) -> dict[str, Any]:
         return {"execution_id": execution.execution_id, "trace_id": execution.trace_id, "config_id": execution.config_id, "trigger_type": execution.trigger_type.value, "status": execution.status.value, "requested_symbols": execution.requested_symbols, "request_options": execution.request_options, "requested_at": execution.requested_at.isoformat() if execution.requested_at else None, "started_at": execution.started_at.isoformat() if execution.started_at else None, "finished_at": execution.finished_at.isoformat() if execution.finished_at else None, "retry_count": execution.retry_count, "error_code": execution.error_code}
 
@@ -535,4 +600,10 @@ class AdminService:
 
     @staticmethod
     def _item(item: Any) -> dict[str, Any]:
-        return {"item_key": item.item_key, "source_id": item.source_id, "dataset_id": item.dataset_id, "state": item.state.value, "rows_received": item.rows_received, "retry_count": item.retry_count, "cache_hit": item.cache_hit, "is_fallback": item.is_fallback, "error_code": item.error_code, "safe_message": item.safe_message}
+        return {"item_key": item.item_key, "source_id": item.source_id, "dataset_id": item.dataset_id, "state": item.state.value, "rows_received": item.rows_received, "retry_count": item.retry_count, "cache_hit": item.cache_hit, "is_fallback": item.is_fallback, "error_code": item.error_code, "safe_message": item.safe_message, "retry_classification": AdminService._retry_classification(item)}
+
+    @staticmethod
+    def _retry_classification(item: Any) -> str:
+        if item.state.value not in {"failed", "unavailable"}:
+            return "not_failed"
+        return "retryable" if str(item.error_code or "").lower() in AdminService.RETRYABLE_ERRORS else "non_retryable"

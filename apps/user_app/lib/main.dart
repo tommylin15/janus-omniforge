@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'sign_in_button.dart'
     if (dart.library.html) 'sign_in_button_web.dart'
     if (dart.library.js_util) 'sign_in_button_web.dart';
+import 'admin.dart';
 
 const portfolioPendingMessage = '交易已儲存，等待投資組合批次更新';
 
@@ -31,6 +32,10 @@ String uiLabel(Object? value) => const {
 String requireGoogleIdToken(String? token) =>
     token ?? (throw StateError('Google ID token is required'));
 
+bool adminWorkspaceRequested(Uri uri,
+        [String configured = const String.fromEnvironment('JANUS_WORKSPACE')]) =>
+    configured == 'admin' || uri.pathSegments.contains('admin');
+
 void main() => runApp(const JanusApp());
 
 class JanusApp extends StatefulWidget {
@@ -50,21 +55,29 @@ class _JanusAppState extends State<JanusApp> {
             colorSchemeSeed: Colors.cyan,
             brightness: Brightness.dark,
             useMaterial3: true),
-        home: LoginPage(onTheme: (value) => setState(() => mode = value)),
+        home: LoginPage(
+            admin: adminWorkspaceRequested(Uri.base),
+            onTheme: (value) => setState(() => mode = value)),
       );
 }
 
-class Api {
+class Api implements AdminApi {
   Api(this.token);
   final String token;
   static const base = String.fromEnvironment('JANUS_API_BASE_URL');
   Map<String, String> get headers =>
       {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'};
+  @override
   Future<dynamic> get(String path) => _send('GET', path);
+  @override
   Future<dynamic> post(String path, Map<String, dynamic> body) =>
       _send('POST', path, body);
+  @override
   Future<dynamic> put(String path, Map<String, dynamic> body) =>
       _send('PUT', path, body);
+  @override
+  Future<dynamic> patch(String path, Map<String, dynamic> body) =>
+      _send('PATCH', path, body);
   Future<dynamic> delete(String path) => _send('DELETE', path);
   Future<List<Map<String, dynamic>>> events(String thread, int cursor) async {
     final request = http.Request(
@@ -125,15 +138,18 @@ class Api {
 }
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({required this.onTheme, super.key});
+  const LoginPage({required this.onTheme, this.admin = false, super.key});
   final ValueChanged<ThemeMode> onTheme;
+  final bool admin;
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
-  static const client = String.fromEnvironment('GOOGLE_USER_CLIENT_ID');
-  late final GoogleSignIn google = GoogleSignIn(clientId: client);
+  static const userClient = String.fromEnvironment('GOOGLE_USER_CLIENT_ID');
+  static const adminClient = String.fromEnvironment('GOOGLE_ADMIN_CLIENT_ID');
+  late final GoogleSignIn google = GoogleSignIn(
+      clientId: widget.admin ? adminClient : userClient);
   late final StreamSubscription<GoogleSignInAccount?> accountChanges;
   bool busy = false;
   bool finishing = false;
@@ -191,11 +207,11 @@ class _LoginPageState extends State<LoginPage> {
     try {
       final token = requireGoogleIdToken((await account.authentication).idToken);
       if (mounted) {
+        final api = Api(token);
         await Navigator.of(context).pushReplacement(MaterialPageRoute(
-            builder: (_) => Workspace(
-                api: Api(token),
-                email: account.email,
-                onTheme: widget.onTheme)));
+            builder: (_) => widget.admin
+                ? AdminWorkspace(api: api, email: account.email, onTheme: widget.onTheme)
+                : Workspace(api: api, email: account.email, onTheme: widget.onTheme)));
       }
     } catch (_) {
       finishing = false;
@@ -221,7 +237,7 @@ class _LoginPageState extends State<LoginPage> {
                     Text('JANUS',
                         style: Theme.of(context).textTheme.headlineLarge),
                     const SizedBox(height: 12),
-                    const Text('你的私人投資工作台'),
+                    Text(widget.admin ? '資料營運中心' : '你的私人投資工作台'),
                     const SizedBox(height: 24),
                     buildGoogleSignInButton(onPressed: login, busy: busy),
                     if (error != null)

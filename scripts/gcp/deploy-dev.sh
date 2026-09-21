@@ -58,7 +58,7 @@ fi
 gcloud builds submit . \
   --project="${project}" \
   --config=cloudbuild.yaml \
-  --substitutions="_DOCKERFILE=${dockerfile},_IMAGE_NAME=${image_name},_IMAGE_TAG=${tag},_DEPLOY_TARGET=${deploy_target},_RUNTIME_NAME=${runtime_name},_REGION=${region},_GIT_SHA=${git_sha},_NO_TRAFFIC=${no_traffic},_TRAFFIC_TAG=${traffic_tag},_REVISION_SUFFIX=${revision_suffix}"
+  --substitutions="_DOCKERFILE=${dockerfile},_IMAGE_NAME=${image_name},_IMAGE_TAG=${tag},_DEPLOY_TARGET=${deploy_target},_RUNTIME_NAME=${runtime_name},_REGION=${region},_GIT_SHA=${git_sha},_NO_TRAFFIC=${no_traffic},_TRAFFIC_TAG=${traffic_tag},_REVISION_SUFFIX=${revision_suffix},_GOOGLE_ADMIN_CLIENT_ID=${GOOGLE_ADMIN_CLIENT_ID:-}"
 
 # The new image accepts both legacy and merged field names. Deploy it before
 # changing the Secret reference so service revisions never see an incompatible payload.
@@ -97,6 +97,9 @@ case "${component}" in
     if [[ -n "${traffic_tag}" ]]; then service_flags+=(--tag="${traffic_tag}"); fi
     if [[ -n "${revision_suffix}" ]]; then service_flags+=(--revision-suffix="${revision_suffix}-config"); fi
     api_env="MCP_OAUTH_ENABLED=${MCP_OAUTH_ENABLED:-false}"
+    if [[ -n "${GOOGLE_ADMIN_ALLOWED_EMAILS:-}" ]]; then
+      api_env="${api_env},GOOGLE_ADMIN_ALLOWED_EMAILS=${GOOGLE_ADMIN_ALLOWED_EMAILS}"
+    fi
     if [[ "${MCP_OAUTH_ENABLED:-false}" == "true" ]]; then
       oauth_issuer="${MCP_OAUTH_ISSUER:?MCP_OAUTH_ISSUER is required when MCP_OAUTH_ENABLED=true}"
       oauth_resource="${MCP_RESOURCE_URL:?MCP_RESOURCE_URL is required when MCP_OAUTH_ENABLED=true}"

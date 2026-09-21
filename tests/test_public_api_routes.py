@@ -77,6 +77,18 @@ class Admin:
     def save_governance(self, governance_key, value, *, actor, reason, status, expected_version):
         return {"key": governance_key, "status": status, "value": value, "version": expected_version + 1, "changes": [], "reason": reason}
 
+    def membership_snapshot(self, coverage_tier):
+        return {"items": [{"coverage_tier": coverage_tier, "symbol": "2330"}], "version": 1,
+                "effective_from": "2026-09-03T00:00:00+00:00"}
+
+    def set_membership(self, coverage_tier, symbols, *, effective_from, reason, owner, expected_version):
+        return {"items": [{"coverage_tier": coverage_tier, "symbol": symbol} for symbol in symbols],
+                "version": expected_version + 1, "effective_from": effective_from.isoformat(), "actor": owner}
+
+    def retry_execution_item(self, execution_id, item_key):
+        return {"execution": {"execution_id": "new-execution", "status": "queued"},
+                "previous_execution_id": execution_id, "retried_item_key": item_key}
+
 
 def client(public: Public) -> TestClient:
     return TestClient(create_app(object(), object(), public=public, query_core=Core()))
@@ -112,6 +124,18 @@ def test_fastapi_admin_routes_use_admin_auth_and_service_boundary() -> None:
     )
     assert result.status_code == 200
     assert result.json()["actor"] == "admin@example.com"
+    assert api.get("/api/v1/admin/memberships/core_focus", headers=headers).json()["version"] == 1
+    saved = api.put("/api/v1/admin/memberships/core_focus", headers=headers, json={
+        "symbols": ["2330"], "effective_from": "2026-09-04T00:00:00Z",
+        "reason": "rebalance", "expected_version": 1,
+    })
+    assert saved.status_code == 200
+    assert saved.json()["actor"] == "admin@example.com"
+    retried = api.post("/api/v1/admin/executions/old/items/ohlcv%3ATWSE%3A2330/retry", headers=headers)
+    assert retried.status_code == 202
+    assert retried.json()["execution"]["status"] == "queued"
+    assert api.post("/api/v1/admin/executions/old/items/ohlcv%3ATWSE%3A2330/retry").status_code == 401
+    assert api.get("/api/v1/admin/memberships/core_focus").status_code == 401
     assert api.get("/admin").status_code == 200
 
 

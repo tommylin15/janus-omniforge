@@ -8,7 +8,7 @@ ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "jobs" / "ingestion-core"))
 
-from ingestion_core import CollectionConfig, DataState, SQLiteControlPlane, Stock
+from ingestion_core import CollectionConfig, DataState, ExecutionItem, ExecutionStatus, SQLiteControlPlane, Stock
 from packages.admin_api import AdminConflictError, AdminService, AdminValidationError
 
 
@@ -31,6 +31,32 @@ class AdminServiceTests(unittest.TestCase):
         self.assertEqual(details["trace_id"], "trace-1")
         self.assertEqual(details["lineage"]["executions"][0]["execution_id"], execution["execution_id"])
         self.assertNotIn("payload", details)
+
+    def test_retry_failed_item_creates_narrow_lineage_execution(self):
+        execution = self.admin.enqueue_collection("ohlcv", ("2330",), trace_id="trace-retry")
+        self.control.transition_execution(execution["execution_id"], ExecutionStatus.FAILED)
+        self.control.save_item(ExecutionItem(
+            execution["execution_id"], "ohlcv:TWSE:2330", "twse", "ohlcv",
+            DataState.FAILED, 0, 1, False, False, "timeout", "source request timed out",
+        ))
+        details = self.admin.execution_details(execution["execution_id"])
+        self.assertEqual(details["items"][0]["retry_classification"], "retryable")
+
+        retried = self.admin.retry_execution_item(execution["execution_id"], "ohlcv:TWSE:2330")
+
+        self.assertEqual(retried["execution"]["requested_symbols"], ("2330",))
+        self.assertEqual(retried["execution"]["request_options"]["source_ids"], ["twse"])
+        self.assertEqual(retried["execution"]["trace_id"], "trace-retry")
+        self.assertEqual(self.admin.execution_details(execution["execution_id"])["status"], "failed")
+
+        self.control.save_item(ExecutionItem(
+            execution["execution_id"], "ohlcv:TWSE:2454", "twse", "ohlcv",
+            DataState.FAILED, 0, 1, False, False, "authentication", "source authentication failed",
+        ))
+        with self.assertRaises(AdminValidationError):
+            self.admin.retry_execution_item(execution["execution_id"], "ohlcv:TWSE:2454")
+        with self.assertRaises(AdminValidationError):
+            self.admin.retry_execution_item(execution["execution_id"], "missing")
 
     def test_invalid_page_is_rejected(self):
         with self.assertRaises(AdminValidationError):
@@ -174,7 +200,8 @@ class AdminServiceTests(unittest.TestCase):
     def test_stock_status_is_flattened_for_table_rendering(self):
         class Core:
             @staticmethod
-            def summary(symbol):
+            def summary(symbol, *, datasets=None):
+                self.assertEqual(datasets, ("ohlcv",))
                 return {"symbol": symbol, "datasets": {"ohlcv": {"row_count": 2, "latest_date": "2026-08-28", "coverage": {"received_symbols": 1, "requested_symbols": 1}, "null_profile": {"close": 1}, "quality_flags": ["warning"], "warning_count": 2, "quarantined_count": 1, "associations": {"source_id": ["twse"], "execution_id": ["exec-1"], "provenance_id": ["prov-1"], "snapshot_id": ["snap-1"]}}}}
 
         status = AdminService(self.control, core=Core()).stock_status("2330")

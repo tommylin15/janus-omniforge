@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
+import 'package:janus_user_app/admin.dart';
 import 'package:janus_user_app/main.dart';
 
 class FakeApi extends Api {
@@ -13,6 +14,16 @@ class FakeApi extends Api {
     writes.add(body);
     return values[path] ?? body;
   }
+  @override
+  Future<dynamic> post(String path, Map<String, dynamic> body) async {
+    writes.add({'path': path, ...body});
+    return values[path] ?? body;
+  }
+  @override
+  Future<dynamic> patch(String path, Map<String, dynamic> body) async {
+    writes.add({'path': path, ...body});
+    return values[path] ?? body;
+  }
 }
 
 void main() {
@@ -23,6 +34,85 @@ void main() {
 
   test('trade save wording distinguishes persistence from portfolio refresh', () {
     expect(portfolioPendingMessage, '交易已儲存，等待投資組合批次更新');
+  });
+
+  test('admin workspace is selected only by an explicit route or build mode', () {
+    expect(adminWorkspaceRequested(Uri.parse('https://example.test/app/admin')), isTrue);
+    expect(adminWorkspaceRequested(Uri.parse('https://example.test/app')), isFalse);
+    expect(adminWorkspaceRequested(Uri.parse('https://example.test/app'), 'admin'), isTrue);
+  });
+
+  testWidgets('admin shell shows actionable overview and desktop navigation', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    final api = FakeApi({
+      '/api/v1/admin/executions?limit=50': {'items': []},
+      '/api/v1/admin/source-health?limit=200': {'items': [
+        {'source_id': 'twse', 'dataset_id': 'ohlcv', 'state': 'success'}
+      ]},
+      '/api/v1/admin/mart-reports?limit=50': {'items': []},
+    });
+    await tester.pumpWidget(MaterialApp(home: AdminWorkspace(
+        api: api, email: 'admin@example.com', onTheme: (_) {})));
+    await tester.pumpAndSettle();
+    for (final label in ['總覽', '批次', '個股', 'AI 分析', '進階管理']) {
+      expect(find.text(label), findsWidgets);
+    }
+    expect(find.text('今日沒有需要處理的事項'), findsOneWidget);
+    expect(find.byType(NavigationRail), findsOneWidget);
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    await tester.pumpAndSettle();
+    expect(find.byType(NavigationRail), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('stock workbench reads persisted health and analysis', (tester) async {
+    final api = FakeApi({
+      '/api/v1/admin/stocks?q=&limit=10': {'items': [
+        {'symbol': '2330', 'name': '台積電', 'market': 'TWSE', 'enabled': true}
+      ]},
+      '/api/v1/admin/stocks/2330/status': {'items': [
+        {'dataset_id': 'ohlcv', 'row_count': 20, 'received_symbols': 1,
+          'requested_symbols': 1, 'dq_warning_count': 0}
+      ]},
+      '/api/v1/admin/mart-reports?scope_type=symbol&scope_id=2330&limit=50': {'items': [
+        {'analysis_as_of': '2026-09-20', 'analysis_outcome': 'complete',
+          'prompt_version': 'v1', 'publication_status': 'published'}
+      ]},
+    });
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: AdminStockWorkbench(api))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('2330 台積電'));
+    await tester.pumpAndSettle();
+    expect(find.text('資料健康'), findsOneWidget);
+    expect(find.text('ohlcv'), findsOneWidget);
+    expect(find.text('歷史分析'), findsOneWidget);
+    expect(find.textContaining('2026-09-20'), findsOneWidget);
+  });
+
+  testWidgets('batch retries only an explicitly retryable failed item', (tester) async {
+    final api = FakeApi({
+      '/api/v1/admin/executions?limit=50': {'items': [
+        {'execution_id': 'old', 'config_id': 'ohlcv', 'trigger_type': 'collection',
+          'status': 'partial', 'requested_at': '2026-09-20'}
+      ]},
+      '/api/v1/admin/executions/old': {'status': 'partial', 'items': [
+        {'item_key': 'ohlcv:TWSE:2330', 'dataset_id': 'ohlcv', 'source_id': 'twse',
+          'state': 'failed', 'retry_classification': 'retryable'},
+        {'item_key': 'ohlcv:TWSE:2454', 'dataset_id': 'ohlcv', 'source_id': 'twse',
+          'state': 'failed', 'retry_classification': 'non_retryable'}
+      ]},
+    });
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: AdminBatchPage(api))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('查看'));
+    await tester.pumpAndSettle();
+    expect(find.text('重試'), findsOneWidget);
+    expect(find.text('不可重試'), findsOneWidget);
+    await tester.tap(find.text('重試'));
+    await tester.pumpAndSettle();
+    expect(api.writes.single['path'],
+        '/api/v1/admin/executions/old/items/ohlcv%3ATWSE%3A2330/retry');
   });
 
   testWidgets('transaction editor shows one form and reuses the last values',
