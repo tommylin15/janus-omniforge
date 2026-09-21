@@ -1,13 +1,16 @@
 # Dev User OAuth deployment runbook
 
-This runbook is dev-only. Do not reuse the Admin OAuth client, deploy to
-production, enable scanning APIs, or print secret payloads.
+This runbook covers the current Janus parallel-live `dev` environment. `dev` is the real personal-use Janus runtime, not a disposable POC sandbox. A capability that passes its auth, data, runtime, and integration acceptance may be used here with real owner data; it does not need a separate Production environment first.
+
+Do not reuse the Admin OAuth client, deploy a separate future Production topology without an explicit decision, enable scanning APIs, or print secret payloads. The word `dev` in this runbook identifies the current environment and resource naming; it does not mean fake data, mock-only use, or “not allowed for real use.”
+
+Mock OAuth, injected verifiers, and local pages are useful for deterministic regression tests, but they do not replace the real Google login／allowlisted owner／Cloud Run／persisted-data evidence required when a user-facing OAuth path is declared live accepted.
 
 ## OAuth and secrets
 
 Create a Google Auth Platform Web client named `Janus User Dev`, with
 `http://localhost` and `http://localhost:8080` as authorized JavaScript
-origins. Put both test accounts on the OAuth Audience test-user list.
+origins. Put both acceptance accounts on the OAuth Audience test-user list where Google configuration requires it. These are real acceptance owners for the current dev path; do not treat their successful live login as sample-only evidence.
 
 Download the client JSON as `google-user-oauth-dev.json`. The exact filename is
 gitignored. Upload `web.client_id` and `web.client_secret` as new
@@ -68,6 +71,8 @@ Do not use a remote `postgres` HBA rule or a long-lived migration service
 account. If a temporary migration Job was created during diagnosis, delete it
 and revoke all bootstrap/private secret grants before continuing.
 
+Because the current dev database holds real personal-use data, migration success is not established by SQL completion alone: retain the migration marker, runtime readiness, owner isolation, and applicable rollback／rebuild evidence. Do not substitute a fixture database result for the live database acceptance when claiming this path complete.
+
 ## User API deployment
 
 Deploy `janus-api` in `us-central1` with scale-to-zero, service account
@@ -90,29 +95,29 @@ the merged API bundle with `google_user_client_secret` and a fresh
 - `MCP_OAUTH_ENABLED=true`
 - `MCP_OAUTH_ISSUER=https://mcp-oauth---janus-api-2oo7qbkd5q-uc.a.run.app`
 - `MCP_RESOURCE_URL=https://mcp-adapter---janus-api-2oo7qbkd5q-uc.a.run.app/mcp`
-- `GOOGLE_USER_ALLOWED_EMAILS` set to the explicit dev operator/test allowlist
+- `GOOGLE_USER_ALLOWED_EMAILS` set to the explicit current owner／acceptance allowlist
 
 The Google Web client must allow the exact callback
 `https://mcp-oauth---janus-api-2oo7qbkd5q-uc.a.run.app/oauth/google/callback`. The facade
 issues short-lived Janus access tokens with the MCP resource in `aud` and
-stores only hashed, one-time authorization codes in PostgreSQL. Keep it
-disabled until the bundle version and callback allowlist are verified in dev.
+stores only hashed, one-time authorization codes in PostgreSQL. Enable it only after the bundle version and callback allowlist are verified in the current dev environment; that verification is a safety gate for the MCP OAuth capability, not a reason to keep unrelated Janus features in mock mode.
 
 Grant the runtime account access only to those three runtime secrets and
 `roles/storage.objectAdmin` only on the private bucket. Public invocation is
 acceptable because `/health` is public and every `/api/v1/me/*` route enforces
 the independent Google bearer audience.
 
-## A/B acceptance
+## A/B live acceptance
 
-For each OAuth test account, obtain a fresh ID token for the User client and
+For each real acceptance account, obtain a fresh ID token for the User client and
 call `/api/v1/me/profile`. Record different internal `user_id` values. Then:
 
 Serve `scripts/gcp` as the local HTTP root and open
 `http://localhost:8080/user-ab-acceptance.html?client_id=...&api=...`. Select
 the A or B slot before each Google sign-in; tokens remain only in page memory.
+The local page is only an acceptance harness; the auth, Cloud Run API, PostgreSQL／Iceberg data, and owner isolation being verified are the real dev path.
 
-1. A creates a journal row, note, and watchlist entry.
+1. A creates a journal row, note, and watchlist entry against the real dev backend.
 2. B lists each collection and must see none of A's rows or artifact refs.
 3. B attempts A's known event/note identifiers and must receive 404/409, never
    A's data.
@@ -121,3 +126,5 @@ the A or B slot before each Google sign-in; tokens remain only in page memory.
 5. Query PostgreSQL and Private Iceberg by internal `user_id` to confirm A/B
    partitioning, then record revision, image digest, execution IDs, and UTC
    timestamps in `doc/spec/operations-and-testing.md`.
+
+A/B acceptance is complete only when the real OAuth journey and persisted owner isolation are both evidenced. Injected verifier tests, synthetic rows, or fixture-only results may supplement negative/error coverage but must not be reported as the live OAuth flow itself.
