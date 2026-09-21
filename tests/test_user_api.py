@@ -292,6 +292,7 @@ def test_private_deletion_is_authenticated_and_queued_for_the_same_user():
 def test_context_preview_is_bounded_opaque_and_owner_thread_bound():
     api,_,store=client()
     wire=json.loads((ROOT/"packages/contracts/janus-context.v1.json").read_text())["definitions"]
+    assert api.get("/api/v1/me/ai-sources").status_code==401
     sources=api.get("/api/v1/me/ai-sources",headers=auth()).json()["items"]
     assert all(set(item)==set(wire["SourceV1"]["properties"]) for item in sources)
     assert {item["source_id"] for item in sources}=={"janus-core","janus-private-core","janus-private-mart"}
@@ -304,6 +305,8 @@ def test_context_preview_is_bounded_opaque_and_owner_thread_bound():
     assert set(preview)==set(wire["PreviewV1"]["properties"])
     assert len(preview["preview"])<=wire["PreviewV1"]["properties"]["preview"]["maxItems"]
     assert preview["preview"]==[{"symbol":"2330","trade_date":"2026-09-05","close":"100","source_id":"twse","provenance_id":"prov-1"}]
+    assert preview["as_of"]=="2026-09-05"
+    assert len(json.dumps(preview["preview"]).encode())<=sources[0]["quota"]["max_output_bytes"]
     assert "thread-a" not in preview["context_ref"] and str(USER_ID) not in preview["context_ref"]
     assert preview["provenance"]==[{"context_source_id":"janus-core","source_id":"twse","provenance_id":"prov-1"}]
     assert all(ref != preview["context_ref"] for _,ref in store.contexts)
@@ -315,6 +318,8 @@ def test_context_preview_is_bounded_opaque_and_owner_thread_bound():
     assert set(payload)==set(wire["ResolveRequestV1"]["properties"])
     assert set(resolved.json())==set(wire["ResolveResponseV1"]["properties"])
     assert resolved.json()["snapshots"][0]["records"]==preview["preview"]
+    assert resolved.json()["snapshots"][0]["as_of"]==preview["as_of"]
+    assert resolved.json()["snapshots"][0]["provenance"]==preview["provenance"]
     assert "artifact_ref" not in str(resolved.json()) and "gcs_uri" not in str(resolved.json())
     payload["thread_id"]="thread-b"
     assert api.post("/internal/v1/assistant/context:resolve",headers=auth(),json=payload).status_code==404
@@ -377,6 +382,16 @@ def test_internal_context_resolver_rejects_unapproved_service_account():
     response=api.post("/internal/v1/assistant/context:resolve",headers=auth(),json={
         "owner_id":str(USER_ID),"thread_id":"thread-a","turn_id":"turn-a","context_refs":["x"*32]})
     assert response.status_code==403
+
+
+def test_internal_context_resolver_rejects_wrong_service_audience_and_expiry():
+    body={"owner_id":str(USER_ID),"thread_id":"thread-a","turn_id":"turn-a","context_refs":["x"*32]}
+    for claims in ({"aud":"wrong-audience"},{"exp":1},{"email_verified":False}):
+        service_claims={"iss":"https://accounts.google.com","aud":"assistant-internal","sub":"service-1",
+                        "email":"gateway@example.iam.gserviceaccount.com","email_verified":True,"exp":1_900_000_000,
+                        **claims}
+        api,_,_=client(service_claims=service_claims)
+        assert api.post("/internal/v1/assistant/context:resolve",headers=auth(),json=body).status_code==401
 
 
 def test_private_migration_has_decimal_append_only_and_user_leading_guards():
