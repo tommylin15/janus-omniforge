@@ -5,6 +5,8 @@ project `gen-lang-client-0593591102`、region `us-central1`。執行 GCP
 bootstrap、migration、Cloud Build 或 Cloud Run Job 前，仍須依
 `doc/PROJECT_RULES.md` 取得當次明確授權。
 
+omniAgent split Chat ownership checkpoint 未修改本 runbook 的 Janus dev 部署路徑：Janus 仍是 Chat thread/event 的 live writer，`016_private_assistant_storage.sql` 已套用歷史不得移除或重排。omniAgent 的 `omni_chat` schema 尚未套用，歷史 owner mapping／export-copy-verify、runtime dispatch、routing cutover 均待獨立驗收；本 runbook 不可作為已 cutover 的依據。
+
 ## 1. 工具與固定變數
 
 本專案使用已驗證的 gcloud binary：

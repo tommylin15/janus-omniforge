@@ -2,6 +2,8 @@
 
 狀態：混合 WBS；完成切片證據移至 [`archive/todo-completed-2026-09-09.md`](../archive/todo-completed-2026-09-09.md)。尚待真人 device-code 流程與整合驗收。個股為可選 context，對話不綁定單一股票或 AI 廠商。
 
+omniAgent split Chat ownership checkpoint 僅建立獨立 API／storage schema 與本地測試；Janus 仍為 live writer，歷史資料 migration、runtime dispatch、routing cutover 與完整驗收均未完成。不得刪除 Janus 已套用 migration 或破壞舊 conversation/private data。
+
 目前決策：WBS 4C remaining expansion is frozen for the six-month Dev Pilot unless
 required by security、correctness 或 explicitly approved Pilot use case。Codex
 productionization、multi-instance Codex、new MCP workflow、new Skills capability
