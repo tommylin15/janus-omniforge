@@ -30,7 +30,7 @@ productionization、multi-instance Codex、new MCP workflow、new Skills capabil
 | `WBS-4C-SKILLS` | GCP 儲存、載入／啟用／自訂 skill、版本化 prompt／workflow 與 tool scope | ENGINE-SECURITY、MCP-HOST、PRIVATE-STORAGE |
 | `WBS-4C-PRIVATE-STORAGE` | Private Iceberg 正文／events／Skills 與 PostgreSQL index、owner isolation、冪等／匯出／刪除／雲端暫存清理 | runtime／event contract |
 | `WBS-4C-CHAT-API` | Threads CRUD／fork、message turn、bounded SSE、取消、approval response 與續接去重 | runtime／storage／approval contract、CODEX-AUTH-LIFECYCLE |
-| `WBS-4C-ASSISTANT-UI` | 既有 Flutter Web／mobile 私人助理、Markdown／程式碼高亮／streaming、MCP／Skills／Approval 操作 | CHAT-API、provider／MCP／Skills contracts |
+| `WBS-4C-ASSISTANT-UI` | generic Flutter Chat／Threads／provider／tool／approval UI source 歸 omniAgent；Janus app 不保留對話入口。現僅本地 build／widget evidence，live OAuth／runtime／deployment cutover 未驗收 | CHAT-API、provider／MCP／Skills contracts |
 | `WBS-4C-ACCEPTANCE` | Cloud Run、三 runtime、資料源、MCP transports、Skills、approval、Grounding、privacy、重跑／刪除與 UI 驗收 | 上述切片 |
 
 ## 4C.1 多供應商 Agent Runtime

@@ -174,16 +174,7 @@ void main() {
     expect(find.text('使用 Google 登入'), findsOneWidget);
   });
 
-  testWidgets('renders markdown code blocks without executing markup',
-      (tester) async {
-    await tester.pumpWidget(const MaterialApp(
-        home: Scaffold(
-            body: MarkdownText('# title\n```dart\nfinal answer = 42;\n```'))));
-    expect(find.text('title'), findsOneWidget);
-    expect(find.text('final answer = 42;'), findsOneWidget);
-  });
-
-  testWidgets('workspace uses five destinations and a desktop navigation rail', (tester) async {
+  testWidgets('workspace keeps four investment destinations and a desktop navigation rail', (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(MaterialApp(
       home: Workspace(api: FakeApi({'/api/v1/public/daily-brief': {'items': []}}),
@@ -192,12 +183,8 @@ void main() {
     for (final size in [const Size(360, 800), const Size(768, 1024)]) {
       await tester.binding.setSurfaceSize(size);
       await tester.pump();
-      expect(find.byType(NavigationDestination), findsNWidgets(5));
-      expect(find.text('AI（建構中）'), findsOneWidget);
-      expect(
-          tester.widget<NavigationDestination>(find.byWidgetPredicate((widget) =>
-              widget is NavigationDestination && widget.label == 'AI（建構中）')).enabled,
-          isFalse);
+      expect(find.byType(NavigationDestination), findsNWidgets(4));
+      expect(find.text('AI（建構中）'), findsNothing);
       expect(tester.takeException(), isNull);
     }
     await tester.binding.setSurfaceSize(const Size(1280, 800));
@@ -243,11 +230,12 @@ void main() {
       '/api/v1/me/journal/positions': [], '/api/v1/me/notes?symbol=2330': [],
       '/api/v1/public/kline/2330': {'rows': []}, '/api/v1/public/events/2330': {'rows': []},
     });
-    await tester.pumpWidget(MaterialApp(home: StockDetailPage(api: api, symbol: '2330', onAskAi: () {})));
+    await tester.pumpWidget(MaterialApp(home: StockDetailPage(api: api, symbol: '2330')));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     expect(find.text('信心度不是獲利機率。'), findsOneWidget);
     expect(find.text('這份分析有幫助嗎？'), findsOneWidget);
+    expect(find.textContaining('問 AI'), findsNothing);
     await tester.drag(find.byType(ListView), const Offset(0, -700));
     await tester.pump();
     expect(find.text('進階資料'), findsOneWidget);

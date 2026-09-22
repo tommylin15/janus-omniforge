@@ -2,6 +2,8 @@
 
 GCP-first AI lakehouse investment research platform
 
+Janus 的 Flutter source 現僅持有投資 User/Admin UI；generic Chat UI source 已拆至 omniAgent。既有 dev deployment／Chat API 尚未 cutover，仍保持歷史資料與回退路徑。
+
 > Codex 開發前必須先閱讀 `AGENTS.md` 與 `doc/PROJECT_RULES.md`。
 
 ## Repository layout

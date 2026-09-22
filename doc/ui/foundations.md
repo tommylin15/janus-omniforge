@@ -12,7 +12,7 @@
   route guard、token audience、backend authorization、CORS 與 audit 仍分離。現有
   static Admin 僅在 migration 期間保留，Flutter parity 與 acceptance 前不得刪除。
 - User App 使用「結論 → 原因 → 風險 → 來源」的減法層次；首屏不顯示 K 線、密集數字表格或內部 Agent 術語。
-- 個人記帳、筆記、關注股、AI 對話與公開市場分析的資料狀態分離；不顯示他人持倉、公開績效排名或下單按鈕。
+- 個人記帳、筆記、關注股與公開市場分析的資料狀態分離；不顯示他人持倉、公開績效排名或下單按鈕。generic 對話介面由 omniAgent 持有。
 
 ## 2. 視覺系統
 
@@ -47,9 +47,9 @@
 ### User App shell
 
 - Material 3 `AppBar` 只放當前頁標題、資料日期與必要操作；不放 Admin 入口。
-- P0 `NavigationBar`：今日、關注、筆記、AI、我的；「筆記」內以 segmented control 切換記帳／一般筆記。熱門話題與板塊輪動後續收在「今日」，不再增加一排主導覽。
+- Janus `NavigationBar`：今日、關注、記帳／筆記、我的；「記帳／筆記」內切換交易與一般筆記。熱門話題與板塊輪動收在「今日」，不增加 Chat 導覽。
 - 未完成項目顯示 coming soon／disabled，不可只 `debugPrint`。safe-area bottom 不遮擋內容。
-- P0 啟用「關注／筆記／AI／我的」；「今日」保持 coming soon／disabled，直到公開 Mart API 完成。關注股詳情只讀已持久化行情、私人內容與聊天室，不因 page load 啟動模型。
+- Janus 個股／關注詳情只讀已持久化行情與私人內容，不因 page load 啟動模型，也不提供 Ask Janus 入口。
 
 ### Admin shell
 

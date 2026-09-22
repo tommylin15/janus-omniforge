@@ -29,8 +29,7 @@
   workspace、認證 audience 與導覽，backend Admin authorization 貫穿每個 Admin request。
 - [ ] 啟用「關注／筆記／AI／我的」；「今日」顯示 coming soon／disabled，一般 page load 不觸發即時分析。
 - [ ] 交易新增／更正、筆記 revision、關注異動、跨年年度損益、缺價、超賣、匯出與刪除路徑通過；Flutter 與模型不重算正式損益。
-- [ ] OpenRouter／Gemini API／Codex 三 runtime 可選，切換建立新 thread／fork；provider、model、skill、context、search、tools 與 citations 可追溯，Codex 不使用直接 OpenAI API fallback。
-- [ ] Data Sources 顯示 Janus public／private／external 的日期、provenance、owner／quota 狀態；私人 context 預設不選取。MCP 容器內 stdio／遠端 Streamable HTTP／legacy SSE、動態 tools 與 GCP Skills controls 通過鍵盤、讀屏、錯誤與重連驗收。
+- [ ] generic Chat／provider／tools／Skills／approval UI 驗收由 omniAgent 執行；Janus UI release 只驗證投資與 Admin surface。舊 Janus live Chat deployment 在獨立 cutover 前仍需保持可回退，不因 source 拆分視為已通過 omniAgent live 驗收。
 - [ ] Codex Items／Turns／Approval Requests 可操作且 request-bound；Cloud Run cold start／timeout／reconnect 有明確狀態，核准 shell／寫檔限 turn 暫存 sandbox，Admin／私人 mutation／下單不可核准；Gemini REST API Grounding citation 與免費額度通過。
 - [ ] 使用者 A 無法讀寫或推測使用者 B 的 trade、note、watchlist、chat、position、PnL 或 private artifact reference。
 - [ ] User／Admin audience 混用與 client 指定 `user_id` 均被拒絕；email 變更不改變既有 ledger 所有權。

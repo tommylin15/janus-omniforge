@@ -35,7 +35,7 @@ janus-omniforge/
    `apps/web` static Admin 在 parity／auth／browser acceptance 完成前保留，不得先刪除。
 5. `agent-gateway`：`min-instances=0` 的 Cloud Run Service；在容器內啟動 Codex App Server／stdio MCP 子行程，對 client 只公開 authenticated HTTPS events／commands。
 6. `mcp-*`：需獨立擴縮的 remote MCP 使用私有 Cloud Run Service；stdio-only MCP 建入 `agent-gateway` image，不在使用者裝置執行。測試專用 `mcp-fixture` 不視為正式資料來源，只用於難以在真實 MCP 安全重現的故障注入。
-7. `user-app`：Flutter Android／iOS／Web client，只調用 Public／Private API 與 Agent Gateway，不持有 provider、MCP、catalog、control DB 或 GCS credential；不新增 React／Tauri desktop client。
+7. `user-app`：Janus Flutter Android／iOS／Web 的投資 User/Admin client；generic Chat client source 已歸 omniAgent。Janus client 不持有 provider、MCP、catalog、control DB 或 GCS credential，也不主動呼叫 omniAgent；既有 dev UI deployment 尚未切換。
 
 ## 4. GCP 拓撲
 

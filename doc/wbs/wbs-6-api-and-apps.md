@@ -12,17 +12,17 @@
 
 - 擴充 WBS 4J 建立的最小 `services/api` FastAPI app；將現有 WSGI handler 逐路由遷移並以 contract tests 保持既有 Admin 行為，完成後才移除 WSGI boundary。
 - `/api/v1/public/*` 提供 health、daily brief、sector rotation、topics、candidates、stock health、history、Kline、events。
-- `/api/v1/me/*` 提供交易、筆記、關注股、私人聊天室、positions 與年度 PnL；身分只取自驗證內容，不接受 client 指定 `user_id`。
+- `/api/v1/me/*` 提供交易、筆記、關注股、positions 與年度 PnL；舊私人聊天室 API 在 deployment cutover 前仍屬 Janus live 相容性路徑，不再是 Janus User UI 的長期 product surface。身分只取自驗證內容，不接受 client 指定 `user_id`。
 - `/api/v1/admin/*` 保留控制面能力；public、private 與 admin router 分離 response model、auth、CORS、rate limit、IAM 與 audit。
 - cursor／pagination、safe error、404 waiting state；不公開 raw payload、blocked、secret、traceback 或 private artifact reference。
 
 ### 6.2 Flutter User App
 
 - 建立 `apps/user_app`，使用 Flutter Material 3 與平台原生元件；不先引入第三方 state／UI 套件。
-- P0 主動線依 `../ui.md` 提供關注、記帳／筆記、AI 與我的；後續「今日」顯示市場狀態、每日摘要、板塊輪動、熱門話題與候選股，公開探索收在今日的次頁。
+- Janus User App 依 `../ui.md` 提供今日、關注、記帳／筆記與我的；沒有 Chat／Ask Janus 導航。generic 對話介面由 omniAgent client source 持有，尚未切換 live deployment。
 - 個股首屏依序顯示健康度圓環、籌碼狀態與 `Icons.psychology` 白話 AI Card；K 線、Metrics、五角色與 provenance 預設收在進階資料。
-- 個人工作台提供關注股、手動交易、一般筆記、歷史明細、持股、已實現／未實現與年度損益，以及 WBS 4C 三 profile 私人聊天室；正式結果只讀 Private Mart，不在 Flutter 或模型內重算。
-- 「我的」提供全部私人資料匯出與可稽核刪除流程；刪除涵蓋 PostgreSQL、Private Core／Mart、Codex local thread／auth state 與 cache。
+- 個人工作台提供關注股、手動交易、一般筆記、歷史明細、持股、已實現／未實現與年度損益；正式結果只讀 Private Mart，不在 Flutter 或模型內重算。
+- 「我的」提供 Janus 私人資料匯出與可稽核刪除流程；cutover 前仍需涵蓋 Janus 持有的歷史 assistant 資料，不提前宣稱 omniAgent data migration 完成。
 - 支援 light／dark／system theme、phone／iPad／web responsive、VoiceOver／TalkBack 與至少 44×44 target。
 - User App 不顯示 Admin 導覽、公開績效排行榜、下單或券商同步控制。
 - UI 驗收必須呈現真實 backend 已知狀態；missing／stale／partial／unavailable／blocked 不得用 mock、sample 或 placeholder 補成成功畫面。

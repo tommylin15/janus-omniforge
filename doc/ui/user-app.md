@@ -39,7 +39,7 @@ P0 個人工作台尚未啟用本頁；以下契約留待公開 Mart 階段。
 7. `ChipsStatusCard`
 8. `CompanyEventTimeline`
 9. 可收合的 `EvidenceAndSources`
-10. 「詢問 AI」入口與 `ComplianceDisclaimer`
+10. `ComplianceDisclaimer`；不設「詢問 AI」入口
 
 K 線、deterministic Fact Pack、五角色 validated analysis、CIO、估值指標與完整
 provenance 屬「進階資料」，預設收合且不得先於健康度與白話摘要。未知／停用股票顯示
@@ -64,31 +64,22 @@ roles 與 CIO；歷史 artifact immutable。單角色重跑由 Admin 操作，�
 - 一般筆記使用單一 revision model，可獨立存在或連結股票／交易；列表提供文字、股票、年份與待追蹤狀態篩選，修改時保留歷史版本。
 - 所有 empty／loading／error 狀態不得洩漏其他使用者是否存在資料。
 
-### 5.5 雲端私人助理
+### 5.5 跨專案 UI 邊界
 
-- Runtime selector 顯示 `OpenRouter`、`Gemini API`、`Codex`；OpenRouter 再顯示具目前所需 capability 的核准模型，Gemini 直接用 REST API，Codex 顯示該使用者自己的 Cloud Run Agent 與 subscription login 狀態。刪除進行中禁止重新登入或啟動 turn；刪除完成後再次使用 Codex 必須重新登入。`ChatGPT` 如存在只顯示為 Codex preset。
-- 每個 thread 固定 runtime／model；切換時提示建立新 thread／fork 並選擇是否轉移 context。訊息顯示 provider、model、skill、資料日期、所選持股／筆記 context、search 狀態與可點擊 citations；不得暗中 fallback。
-- 既有 Flutter Web／Android／iOS 提供 Threads sidebar／drawer、Markdown／程式碼高亮、streaming transcript、Data Sources、MCP Servers／Tools 與 Skills controls；不建立 React／Tauri desktop app。Codex 另顯示 Turns、Items 與 Approval Requests。Item 依 itemId 更新，event 依 eventId／seq 去重，不把 delta 重複附加。
-- Data Sources 面板區分 Janus Public Core／Mart、Private Portfolio／Journal／Notes 與外部來源；顯示 source、as-of date、provenance、owner scope、連線／quota 狀態。私人 context 必須由使用者逐項選取，模型看不到 GCS URI 或資料庫 credential。
-- MCP 面板標示 `Cloud Run stdio` 或 `Remote HTTP/SSE`、service／tool namespace、權限、健康與最近錯誤；stdio 代表 Agent 容器內子行程，不代表使用者裝置。Skills 面板顯示 built-in／custom、revision、required tools、啟用範圍與 snapshot；不得提供任意 executable 上傳。
-- Approval card 顯示 provider／tool、命令或參數、Cloud Run sandbox／網路／檔案範圍、原因與到期；允許／拒絕／取消僅作用於該 owner、thread、turn、request。Janus Admin、交易／筆記／watchlist mutation 與下單不提供批准按鈕。
-- Cold start 顯示「正在啟動雲端 Agent」；中斷、timeout 或 instance recycle 後自動用 last event cursor 重連，不能顯示成完成，也不要求桌面程式。
-- OpenRouter 顯示 routed provider／model、用量與付費未啟用狀態；Gemini 顯示 Google Search Grounding、citation attribution 與免費 quota。API／MCP keys 與 Codex auth cache 不得進 UI state、URL、analytics 或前端 storage。
-- 允許使用者明確選取持股、交易、筆記或關注股加入 context；預設不自動送出全部私人資料。
-- 外送供應商前顯示供應商與資料範圍。使用者核准的 shell／寫檔只限該 turn 的 Cloud Run 暫存 sandbox；缺 citation、資料不足、額度耗盡、MCP 中斷、Agent timeout 或 provider unavailable 顯示明確狀態。
+Janus User App 不提供 Chat／Ask Janus／provider／runtime／MCP／Skills／approval 產品入口。generic 對話介面與其 UI 規格由 omniAgent 持有；Janus 僅透過 authenticated bounded API／MCP 提供使用者明確授權的投資 context。Janus 舊 Chat API／live UI deployment 在獨立 cutover 驗收前仍是相容性路徑，不以本次 source 拆分宣稱已切換。
 
 ### 5.6 資產與風險（P1）
 
 - 顯示總資產、現金水位、持股、估值日期與缺價狀態；正式數值只讀 Private Mart。
 - 曝險先用可讀的現金／產業比例列表與總和，圖表為次要呈現；一檔股票跨產業時顯示版本化分攤說明。
 - 年度績效顯示已實現損益、股利、費稅、交易次數與 XIRR status；無根、多根或資料不足不得顯示 0%。
-- 壓力測試先選 deterministic scenario，再選 OpenRouter／Gemini API／Codex runtime 與模型解釋結果；模型文案與計算數值分區呈現。
+- 壓力測試呈現 Janus deterministic scenario、計算數值與資料日期；若使用者日後在 omniAgent 要求模型解釋，須由其使用 Janus bounded contract，Janus UI 不提供 runtime selector。
 
 ### 5.7 我的
 
 - theme 使用 light／dark／system；字體縮放跟隨系統，不自建第二套縮放引擎。
 - 投資屬性提供風險承受度、投資期間、主要目標與最低現金比例；送入 AI 前須逐次或以清楚設定 opt-in。
-- 提供「匯出我的私人資料」與「永久刪除私人資料」，涵蓋交易、筆記、關注股、Skills、對話與 Codex 雲端 thread／auth state。刪除使用 danger zone、再次驗證與明確影響範圍，不以單次誤觸直接執行；提交後顯示 `QUEUED`／`CLEANUP_PENDING`／`COMPLETED` 對應文案與可重試狀態。`CLEANUP_PENDING` 不得顯示成功；若 Iceberg snapshot 或 GCS object version 尚在必要 lifecycle／保留期，顯示實際期限。完成後 Codex 顯示需重新登入。
+- 提供 Janus 私人資料的匯出與可稽核刪除，涵蓋交易、筆記、關注股及 cutover 前仍由 Janus 持有的歷史 assistant 資料；omniAgent 新資料的匯出／刪除另由其 owner boundary 處理。刪除使用 danger zone、再次驗證與明確影響範圍；`CLEANUP_PENDING` 不得顯示成功，保留期須如實揭露。
 - 不放方案定價、預測戰績或公開排行榜；待產品與法遵另案確認後再新增。
 
 ### 5.8 Research Context 整合（Planned）
@@ -97,4 +88,4 @@ roles 與 CIO；歷史 artifact immutable。單角色重跑由 Admin 操作，�
 - 「關注」可在 contract 支援時顯示 candidate state、research priority、thesis freshness 與 missing-data indicator；不轉為平台推薦排行榜。
 - 「個股健康檢查」在現有資訊架構納入 market regime、deterministic signal summary、research thesis 的 supporting／invalidating evidence、candidate／strategy state、可用時的 supply-chain exposure／signal、portfolio impact、provenance 與 freshness。AI summary 不得蓋過 canonical data。
 - 「個人記帳與筆記」保留 append-only／revision semantics；research state 可連結 note，但 trade ledger 與 thesis 不合併為同一模型。
-- 「雲端私人助理」沿用 Data Sources panel，ResearchContext 顯示 source、as-of、freshness、provenance、owner scope 與 missing／stale state；private sections 仍由使用者明確選取。
+- Janus ResearchContext 由 bounded API／MCP 向外部 consumer 提供 source、as-of、freshness、provenance、owner scope 與 missing／stale state；私人部分仍需使用者明確授權，Janus UI 不新增聊天面板。

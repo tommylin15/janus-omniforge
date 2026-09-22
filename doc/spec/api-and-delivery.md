@@ -53,7 +53,7 @@
 
 ### 12.1 私人助理 runtime contract
 
-- 不建立 React／Tauri 或使用者地端 runtime。既有 Flutter Web／Android／iOS 經 FastAPI／Agent Gateway authenticated HTTPS 共用 threads／events；Node.js／TypeScript Agent Gateway、Codex App Server 與 stdio-only MCP 都只在 Cloud Run 容器內執行。
+- 不建立 React／Tauri 或使用者地端 runtime。generic Flutter Chat client source 已歸 omniAgent，經其 authenticated Chat API 使用 threads／events；Janus Flutter source 只保留投資 User/Admin UI。既有 dev Janus Chat UI／FastAPI／Gateway 仍是 live 相容性路徑，尚未切換部署。Codex App Server 與 stdio-only MCP 仍只在雲端容器執行。
 - Agent Gateway 使用 Cloud Run Service `min-instances=0` 按需啟動，MVP concurrency=1，限制 max instances、CPU、memory、request timeout 與暫存 volume。每個 turn 在容器內啟動或租用 owner-bound Codex／MCP 子行程；完成、取消、timeout 或 disconnect 後清理。持久狀態與 replay cursor 外存，不依賴 instance affinity。
 - Codex App Server 的 stdio JSONL 只存在 container process boundary，gateway 對前端提供 HTTPS SSE／POST；不得直接暴露其實驗性 WebSocket transport。App Server 目前屬實驗性且官方不支援 production workload，因此 managed auth refresh、Linux sandbox、child-process lifecycle、timeout／重連必須先通過 dev POC 與人工 production gate。
 - Codex device login 由 authenticated service request 呼叫 `/internal/v1/codex/session:login-start`，再以同一 owner 呼叫 `/internal/v1/codex/session:login-status`；Gateway 只回傳 bounded device-code 欄位，session 與 App Server process 綁定 owner，TTL 到期自動 eviction，成功後將 auth rotation 寫入 owner-keyed bundle entry。

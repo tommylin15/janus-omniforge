@@ -5,7 +5,7 @@
 
 ## 目前 UI 環境定位
 
-目前 GCP `dev` UI 是個人使用階段的真實操作介面，不是 demo／mock UI。User／Admin 畫面預設呈現已持久化的真實 dev 資料、真實登入狀態、真實 API／MCP／provider 狀態與實際 Job／Scheduler 結果；資料缺失、服務不可用、partial／stale 時要明確顯示狀態，不以 sample／placeholder 假裝成功。
+目前 GCP `dev` UI 是個人使用階段的真實操作介面，不是 demo／mock UI。Janus User／Admin 畫面呈現已持久化的投資與營運資料、真實登入狀態及 Job／Scheduler 結果；資料缺失、服務不可用、partial／stale 時要明確顯示狀態，不以 sample／placeholder 假裝成功。generic Chat／Agent UI 的 source ownership 已移至 omniAgent；live deployment 尚未切換。
 
 測試 fixture、假 secret、故障注入或 localhost 頁面只供自動化／異常驗收，不應出現在正常使用者操作流或被列成正式資料來源。未來若建立獨立 Production UI，是多人化／HA／正式對外營運議題，不是目前 dev UI 能否真實使用的前置條件。
 
@@ -18,7 +18,7 @@
 | 任務 | 必讀切片 | 條件增讀 |
 |---|---|---|
 | 所有 UI、視覺、responsive、Navigation／Shell | [UI Foundations](ui/foundations.md) | 再讀一個目標功能切片 |
-| 今日、關注、個股、記帳／筆記、雲端私人助理、資產、我的、Research Context | [User App 頁面](ui/user-app.md) | 實作元件時讀 Components；串 API 時讀 States/API |
+| 今日、關注、個股、記帳／筆記、資產、我的、Research Context | [User App 頁面](ui/user-app.md) | 實作元件時讀 Components；串 API 時讀 States/API |
 | Flutter／Web 共用呈現元件 | [元件契約](ui/components.md) | 只增讀元件所在頁面 |
 | loading／error 等狀態與 FastAPI endpoints | [狀態語意與 API 契約](ui/states-and-api.md) | 不需預讀 Admin |
 | Admin tabs、tables、governance、reports | [Admin UI](ui/admin.md) | 只在全域 layout 時讀 Foundations |
