@@ -2,7 +2,9 @@
 
 GCP-first AI lakehouse investment research platform
 
-Janus 的 Flutter source 現僅持有投資 User/Admin UI；generic Chat UI source 已拆至 omniAgent。API Docker build 固定拆分前 User App Web artifact；部署保護已在 GCP dev 驗證，live API 仍提供舊 Chat UI。omniAgent OAuth、runtime dispatch、Janus context、Skills/MCP、歷史 migration 與 live cutover 尚未完成，詳見 [dev 部署 runbook](doc/runbook-dev-deploy.md)。
+Janus → omniAgent split Phases 0–5 are closed as migration checkpoints. Janus Flutter source now owns investment User/Admin UI only; generic Chat UI source is owned by omniAgent. Janus API Docker build pins the pre-split User App Web artifact, and that deployment protection is verified in GCP dev, so the live API can continue serving the legacy Chat path while later cutover work proceeds.
+
+Remaining omniAgent OAuth, live runtime dispatch, real Janus bounded context/MCP integration, historical migration/write ownership, live cutover, cleanup and final documentation/acceptance are **not** unfinished Phase 3–5 work. They are carried forward to Phase 6 deployment planning, Phase 6B real dev deployment/acceptance, Phase 7 Janus cleanup, Phase 8 documentation/stale-reference migration, and Phase 9 final acceptance. See [omniAgent split status](doc/omniagent-split-status.md) and the [dev deployment runbook](doc/runbook-dev-deploy.md).
 
 > Codex 開發前必須先閱讀 `AGENTS.md` 與 `doc/PROJECT_RULES.md`。
 
