@@ -7,6 +7,8 @@ bootstrap、migration、Cloud Build 或 Cloud Run Job 前，仍須依
 
 omniAgent split Chat ownership checkpoint 未修改本 runbook 的 Janus dev 部署路徑：Janus 仍是 Chat thread/event 的 live writer，`016_private_assistant_storage.sql` 已套用歷史不得移除或重排。omniAgent 的 `omni_chat` schema 尚未套用，歷史 owner mapping／export-copy-verify、runtime dispatch、routing cutover 均待獨立驗收；本 runbook 不可作為已 cutover 的依據。
 
+Phase 5 source split 已完成；部署保護把最後一版拆分前 source commit `5d24d0638b2667c6c4e9b68620223adef5c08e8d` 的 User App Web 產物固定於 `services/api/legacy-user-app-web.tar.gz`。每次 API image build 驗證該檔 SHA-256、`/app/` base href 與 legacy Chat route，再解包至 `/app`；不從目前已移除 Chat 的 Janus `apps/user_app` 建立。產物缺失或驗證失敗時 Cloud Build 不會更新 `janus-api`。產物內含目前 dev 使用的 Google User／Admin client IDs；替換時須重做 OAuth 與 UI 驗收。此保護尚未經新 image 的 GCP dev 部署驗收。omniAgent OAuth、runtime dispatch、Janus context、Skills/MCP、歷史資料 migration 與 live cutover 均未完成。
+
 ## 1. 工具與固定變數
 
 本專案使用已驗證的 gcloud binary：
@@ -64,6 +66,20 @@ Automatic trigger mapping:
 
 Other paths, including documentation and `scripts/gcp/**`, do not trigger an
 automatic runtime deployment.
+
+API 自動觸發與 GitHub OIDC 手動部署共用 `services/api/Dockerfile`，均套用上述固定 artifact。變更此 Dockerfile 會觸發一次自動 API 部署；推送前先確認 Web artifact 與 checksum 一起提交。不得以目前 Janus User App source 取代該 Web artifact，除非另行完成 UI cutover 與回退驗收。
+
+目前 100% live revision：`janus-api-admin-flutter-mvp-20260921`，image `us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/api@sha256:36378556ae201a9e60c536e5146a687b6f6b527fc5219c15cd30db8fb254de22`。registry 只保留最近兩個 API image，舊 digest 不應視為永久保留；repo 內固定 Web artifact 與其來源 commit 是可重建依據。部署前記錄當時 100% revision；如果新 API revision 或其 `/app` 異常，將流量回切該 revision：
+
+2026-09-22 唯讀盤點：live digest `36378556...` 仍在 registry 且有 tag；`usefulness-rollback` revision 所指的 `058d442f...` digest 已不存在，該舊 tag 不能當作可操作 rollback。registry 只保留最近兩版 API image；先建零流量候選再由 main 自動部署第二個新 image，可能清掉目前 live digest。部署前須先取得可操作的舊 API image 保留方案，並驗證固定 Web artifact；否則停止部署並回報 blocker。
+
+```powershell
+& $gcloud run services update-traffic janus-api `
+  --project=$project --region=$region `
+  --to-revisions=janus-api-admin-flutter-mvp-20260921=100
+```
+
+回切前唯讀確認該 revision 仍存在且 image digest 可用；若 registry 已清除舊 digest，從含固定 Web artifact 的 repo commit 重建候選 image 並以 `--no-traffic` 驗證 `/app` 後才調整流量。Chat 資料 writer 與 Janus 舊 API 在 UI cutover 前保持原路徑。
 
 The active automatic deployment targets are `janus-ingestion-core`,
 `janus-intelligence-mart`, and `janus-api`; the legacy `janus-web` runtime is absent.

@@ -1,19 +1,15 @@
-FROM ghcr.io/cirruslabs/flutter:stable AS flutter-build
-ARG GOOGLE_ADMIN_CLIENT_ID=""
-WORKDIR /src
-COPY apps/user_app apps/user_app
-RUN cd apps/user_app && flutter pub get && \
-    flutter create . --platforms web --no-pub && \
-    flutter build web --release --base-href=/app/ \
-        --dart-define=JANUS_API_BASE_URL=https://janus-api-2oo7qbkd5q-uc.a.run.app \
-        --dart-define=GOOGLE_USER_CLIENT_ID=131494961796-q066ts6ufuoch6t5uqod0nkqdb5nttjh.apps.googleusercontent.com \
-        --dart-define=GOOGLE_ADMIN_CLIENT_ID=${GOOGLE_ADMIN_CLIENT_ID}
-
 FROM python:3.12.8-slim-bookworm
 
 WORKDIR /app
 COPY . .
-COPY --from=flutter-build /src/apps/user_app/build/web apps/user_app/build/web
+# Pre-split Web artifact from 5d24d063. Keep the
+# legacy Chat UI while Janus source and omniAgent deployment are separate.
+RUN echo 'b2cd74213703d606dec511fa2c43befbc5518a8685f5c2bf3c19eab7c7e72825  services/api/legacy-user-app-web.tar.gz' | sha256sum -c - && \
+    rm -rf apps/user_app/build/web && mkdir -p apps/user_app/build/web && \
+    tar -xzf services/api/legacy-user-app-web.tar.gz -C apps/user_app/build/web && \
+    grep -q '<base href="/app/">' apps/user_app/build/web/index.html && \
+    grep -q '/api/v1/me/chats/threads' apps/user_app/build/web/main.dart.js && \
+    grep -q '131494961796-samjcgtts8kkprjs5nv7kh2qts92su0k.apps.googleusercontent.com' apps/user_app/build/web/main.dart.js
 RUN pip install --no-cache-dir --require-hashes -r services/api/requirements.lock
 
 ENV PYTHONPATH=/app:/app/jobs/ingestion-core PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PORT=8080

@@ -1,5 +1,11 @@
 # Operations and testing
 
+## Phase 5 UI split deployment safety（2026-09-22）
+
+Janus API Docker build 現使用從最後一版拆分前 source commit `5d24d0638b2667c6c4e9b68620223adef5c08e8d` 重建的固定 Web artifact `services/api/legacy-user-app-web.tar.gz`（SHA-256 `b2cd74213703d606dec511fa2c43befbc5518a8685f5c2bf3c19eab7c7e72825`）。本地檢查確認 archive 可解包、`/app/` base href、legacy Chat route 與 User／Admin OAuth client IDs 存在；Dockerfile 與 GitHub Actions 會驗證後才建 API image。目前 GCP dev live revision 仍是 `janus-api-admin-flutter-mvp-20260921`，image digest `sha256:36378556ae201a9e60c536e5146a687b6f6b527fc5219c15cd30db8fb254de22` 且 registry 可查；舊 `usefulness-rollback` revision 的 `sha256:058d442f...` image 已不可查。現有最近兩版保留政策無法支撐零流量候選加主線自動部署後仍保有目前 live digest；rollback artifact 保留尚未驗收。未部署新 image 或執行 GitHub Actions CI，詳見 [dev 部署 runbook](../runbook-dev-deploy.md)。
+
+Janus `apps/user_app`：`flutter pub get` 通過；原樣 `flutter analyze lib test` 因既有 20 個 info-level `curly_braces_in_flow_control_structures` exit 1，專案既有 `--no-fatal-infos` 版本 exit 0；`flutter test` 16 passed；原樣 `flutter build web` 因缺 Web host exit 1，依現有 Dockerfile 執行 `flutter create . --platforms web --no-pub` 後 build 成功。omniAgent `apps/agent_app`：`flutter pub get`、`flutter analyze lib test`、`flutter test` 4 passed、`flutter build web` 全部成功。兩 repo 已補 Flutter analyze/test/web build CI；remote run 尚未發生。source split 與部署保護已實作，OAuth、runtime dispatch、Janus context、Skills/MCP、historical migration、live cutover 仍未完成。
+
 ## Admin／baseline GCP dev acceptance checkpoint（2026-09-21）
 
 `python -m pytest -q`：261 passed；`npm.cmd run test:unit`：20 passed；Flutter widget：16 passed（新增批次重試回歸曾抓到 `setState` 回傳 Future，已修正重跑）；`flutter analyze --no-fatal-infos`：exit 0，只有 info-level style notices；Python compile、Git Bash `bash -n scripts/gcp/deploy-dev.sh`、`git diff --check` 通過。root `pytest.ini` 將 Janus testpaths 固定為 `tests/`，避免內嵌 `token-savior/scripts` 與 root `scripts` namespace 衝突；內嵌套件測試仍應從其自身 root 獨立執行。
