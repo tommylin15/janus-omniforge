@@ -5,9 +5,9 @@ project `gen-lang-client-0593591102`、region `us-central1`。執行 GCP
 bootstrap、migration、Cloud Build 或 Cloud Run Job 前，仍須依
 `doc/PROJECT_RULES.md` 取得當次明確授權。
 
-omniAgent split Chat ownership checkpoint 未修改本 runbook 的 Janus dev 部署路徑：Janus 仍是 Chat thread/event 的 live writer，`016_private_assistant_storage.sql` 已套用歷史不得移除或重排。omniAgent 的 `omni_chat` schema 尚未套用，歷史 owner mapping／export-copy-verify、runtime dispatch、routing cutover 均待獨立驗收；本 runbook 不可作為已 cutover 的依據。
+omniAgent split Chat ownership 尚未切換：Janus 仍是 Chat thread/event 的 live writer，`016_private_assistant_storage.sql` 已套用歷史不得移除或重排。omniAgent 的 `omni_chat` schema 尚未套用，歷史 owner mapping／export-copy-verify、runtime dispatch、routing cutover 均待獨立驗收；本 runbook 不可作為已 cutover 的依據。
 
-Phase 5 source split 已完成；部署保護把最後一版拆分前 source commit `5d24d0638b2667c6c4e9b68620223adef5c08e8d` 的 User App Web 產物固定於 `services/api/legacy-user-app-web.tar.gz`。每次 API image build 驗證該檔 SHA-256、`/app/` base href 與 legacy Chat route，再解包至 `/app`；不從目前已移除 Chat 的 Janus `apps/user_app` 建立。產物缺失或驗證失敗時 Cloud Build 不會更新 `janus-api`。產物內含目前 dev 使用的 Google User／Admin client IDs；替換時須重做 OAuth 與 UI 驗收。此保護尚未經新 image 的 GCP dev 部署驗收。omniAgent OAuth、runtime dispatch、Janus context、Skills/MCP、歷史資料 migration 與 live cutover 均未完成。
+Phase 5 source split 與部署保護已完成：API image 固定使用最後一版拆分前 commit `5d24d0638b2667c6c4e9b68620223adef5c08e8d` 的 `services/api/legacy-user-app-web.tar.gz`，建置時驗證 SHA-256、`/app/` base href、legacy Chat route 與 Admin OAuth client ID；不重建目前已移除 Chat 的 Janus `apps/user_app`。GCP dev build `d46fd92e-1bcf-482b-b4fd-ee59c4ef8c38`、候選驗收 `d61ac9ee-616f-4a37-8010-d1b7f6ddab07` 與 canonical 驗收 `123683e7-6fa8-444e-a00d-e12af07045c8` 均成功。omniAgent OAuth、runtime dispatch、Janus context、Skills/MCP、歷史資料 migration 與 live cutover 均未完成。
 
 ## 1. 工具與固定變數
 
@@ -42,9 +42,12 @@ $env:ALLOW_DEV_PROVISION = "true"
 
 ## 2A. Dev runtime deployment (current path)
 
-Automatic deployment is initiated by the active GCP Cloud Build Developer Connect
-triggers. They watch `main` and invoke `cloudbuild.yaml` only when their component
-paths match. No service-account JSON key or Terraform is required.
+2026-09-22 唯讀盤點：GCP Cloud Build `us-central1` 只有 `janus-web`、
+`janus-ingestion-core`、`janus-intelligence-mart` 三個 trigger；`global` 沒有
+trigger。**目前沒有 `janus-api` 自動觸發器**，推送 `main` 不會自動部署 API。
+`janus-web` 是舊 trigger，只包含 `apps/web/**` 與 `cloudbuild.yaml`。
+Janus API 使用 `cloudbuild.yaml` 手動提交既有 dev service image；這次直接以
+Cloud Build 更新 image，沒有修改 IAM、Secret 或 OAuth 設定。
 
 `.github/workflows/deploy-dev.yml` is a manual-only fallback using GitHub OIDC.
 Configure these repository Variables before using that fallback:
@@ -55,23 +58,18 @@ Configure these repository Variables before using that fallback:
 The fallback refuses to run unless the selected ref is `main`; it invokes
 `scripts/gcp/deploy-dev.sh` and then `scripts/gcp/verify-dev.sh`.
 
-Automatic trigger mapping:
+GitHub OIDC 手動部署與直接 Cloud Build 都使用 `services/api/Dockerfile`。
+推送前須將 Web artifact 與 checksum 一起提交；未完成 omniAgent cutover 前，
+不得改用目前的 Janus User App source 建置 `/app`。
 
-- `services/api/**`, `packages/admin_api/**`, `packages/web_api/**`,
-  `apps/web/static/**`, or `cloudbuild.yaml` → `janus-api`
-- `jobs/ingestion-core/**`, `packages/contracts/**`,
-  `packages/observability/**`, or `cloudbuild.yaml` → `janus-ingestion-core`
-- `jobs/intelligence-mart/**`, `packages/contracts/**`,
-  `packages/observability/**`, or `cloudbuild.yaml` → `janus-intelligence-mart`
-
-Other paths, including documentation and `scripts/gcp/**`, do not trigger an
-automatic runtime deployment.
-
-API 自動觸發與 GitHub OIDC 手動部署共用 `services/api/Dockerfile`，均套用上述固定 artifact。變更此 Dockerfile 會觸發一次自動 API 部署；推送前先確認 Web artifact 與 checksum 一起提交。不得以目前 Janus User App source 取代該 Web artifact，除非另行完成 UI cutover 與回退驗收。
-
-目前 100% live revision：`janus-api-admin-flutter-mvp-20260921`，image `us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/api@sha256:36378556ae201a9e60c536e5146a687b6f6b527fc5219c15cd30db8fb254de22`。registry 只保留最近兩個 API image，舊 digest 不應視為永久保留；repo 內固定 Web artifact 與其來源 commit 是可重建依據。部署前記錄當時 100% revision；如果新 API revision 或其 `/app` 異常，將流量回切該 revision：
-
-2026-09-22 唯讀盤點：live digest `36378556...` 仍在 registry 且有 tag；`usefulness-rollback` revision 所指的 `058d442f...` digest 已不存在，該舊 tag 不能當作可操作 rollback。registry 只保留最近兩版 API image；先建零流量候選再由 main 自動部署第二個新 image，可能清掉目前 live digest。部署前須先取得可操作的舊 API image 保留方案，並驗證固定 Web artifact；否則停止部署並回報 blocker。
+目前 100% live revision：`janus-api-00154-74s`，image
+`us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/api@sha256:3be7c05489ab6329632a94372f8c311f7de5a0f4ab485ec012d8340eb2c13d9c`。
+本次先以 `phase5-ui` tag 驗收 0% 流量候選，再明確將 100% canonical 流量指向同一 revision。
+舊 100% revision `janus-api-admin-flutter-mvp-20260921` 的 image digest 是
+`sha256:36378556ae201a9e60c536e5146a687b6f6b527fc5219c15cd30db8fb254de22`。
+Registry 只保留最近兩個 API image；舊 `usefulness-rollback` tag 指向的
+`sha256:058d442f...` image 已不存在。使用者已接受舊 image rollback 不保證可用。
+若需回切舊 revision，先確認該 digest 仍存在，再執行：
 
 ```powershell
 & $gcloud run services update-traffic janus-api `
@@ -79,12 +77,10 @@ API 自動觸發與 GitHub OIDC 手動部署共用 `services/api/Dockerfile`，�
   --to-revisions=janus-api-admin-flutter-mvp-20260921=100
 ```
 
-回切前唯讀確認該 revision 仍存在且 image digest 可用；若 registry 已清除舊 digest，從含固定 Web artifact 的 repo commit 重建候選 image 並以 `--no-traffic` 驗證 `/app` 後才調整流量。Chat 資料 writer 與 Janus 舊 API 在 UI cutover 前保持原路徑。
+若舊 digest 已清除，不能把舊 revision tag 視為有效 rollback。固定 Web artifact 仍可讓後續 Janus API image 保留舊 Chat UI。Chat 資料 writer 與 Janus 舊 API 在 omniAgent cutover 前保持原路徑。
 
-The active automatic deployment targets are `janus-ingestion-core`,
-`janus-intelligence-mart`, and `janus-api`; the legacy `janus-web` runtime is absent.
-The GitHub Actions workflow is manual-only and must remain that way, or the same
-push will be deployed twice.
+GitHub Actions `deploy-dev.yml` 仍是手動 fallback；新的 Flutter workflow 只驗證
+analyze／test／Web build，不部署 GCP。
 
 ## 2B. WBS-7 dev security／FinOps
 
@@ -262,7 +258,9 @@ Google OAuth 的自動測試使用注入 verifier 驗證 callback、CSRF、allow
 簽章與竄改拒絕。真正 Google 帳號登入及 OAuth Console redirect URI 是一次性人工
 驗收，不把 Google 帳密或 MFA 納入自動化。
 
-## 7. 本次已驗證的 dev 證據
+## 7. 早期 dev bootstrap 證據
+
+以下為早期 checkpoint；目前 trigger、image 與 rollback 現況以 2A 節為準。
 
 - Terraform 已從 repository 與 dev deployment path 移除；bootstrap 由
   `scripts/gcp/provision-dev.sh` 負責，PostgreSQL guard 驗證為 `e2-micro`、
