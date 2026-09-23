@@ -45,6 +45,43 @@ steps:
           "${_SERVICE_URL}/oauth/authorize?response_type=code&client_id=https%3A%2F%2Fchatgpt.com%2Foauth%2Fclient.json&redirect_uri=https%3A%2F%2Fchatgpt.com%2Fconnector_platform_oauth_redirect&resource=${resource_encoded}&scope=janus.market.read&state=test")"
         echo "authorize_negative_status=${status}"
         test "${status}" = 400
+        SERVICE_URL="${_SERVICE_URL}" python3 - <<'PY'
+        import json, os, urllib.error, urllib.request
+
+        base = os.environ['SERVICE_URL'].rstrip('/')
+
+        def rpc(method, params=None):
+            body = {'jsonrpc': '2.0', 'id': 1, 'method': method}
+            if params is not None:
+                body['params'] = params
+            request = urllib.request.Request(
+                base + '/mcp', json.dumps(body).encode(),
+                {'Content-Type': 'application/json'}, method='POST')
+            try:
+                with urllib.request.urlopen(request, timeout=30) as response:
+                    return response.status, response.headers, json.load(response)
+            except urllib.error.HTTPError as error:
+                return error.code, error.headers, json.load(error)
+
+        status, _, initialized = rpc('initialize', {
+            'protocolVersion': '2025-06-18', 'capabilities': {},
+            'clientInfo': {'name': 'gcp-acceptance', 'version': '1'}})
+        assert status == 200 and initialized['result']['protocolVersion'] == '2025-06-18'
+        status, _, listed = rpc('tools/list')
+        assert status == 200
+        tools = listed['result']['tools']
+        assert {tool['name'] for tool in tools} == {
+            'janus_sources', 'janus_market_context', 'janus_private_context'}
+        assert all(tool['annotations']['readOnlyHint'] for tool in tools)
+
+        status, headers, denied = rpc('tools/call', {
+            'name': 'janus_market_context',
+            'arguments': {'symbol': '2330', 'resource': 'ohlcv', 'limit': 1}})
+        assert status == 401
+        assert 'resource_metadata=' in headers.get('WWW-Authenticate', '')
+        assert 'mcp/www_authenticate' in denied['result']['_meta']
+        print('MCP initialize, tools/list and unauthenticated tools/call passed')
+        PY
         echo 'MCP OAuth metadata and negative guards passed.'
 
 options:
