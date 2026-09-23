@@ -41,19 +41,16 @@ configure() {
     --member="serviceAccount:web-runtime@${project}.iam.gserviceaccount.com" \
     --role=roles/storage.objectViewer --quiet >/dev/null 2>&1 || true
 
-  for account in janus-user-api janus-private-pipeline; do
-    gcloud secrets add-iam-policy-binding janus-postgres-api-bundle --project="${project}" \
+  for account in janus-user-api janus-private-pipeline ingestion-core intelligence-mart; do
+    gcloud secrets add-iam-policy-binding janus-runtime-bundle --project="${project}" \
       --member="serviceAccount:${account}@${project}.iam.gserviceaccount.com" \
       --role=roles/secretmanager.secretAccessor --quiet >/dev/null
   done
-  gcloud secrets remove-iam-policy-binding janus-postgres-api-bundle --project="${project}" \
-    --member="serviceAccount:web-runtime@${project}.iam.gserviceaccount.com" \
-    --role=roles/secretmanager.secretAccessor --quiet >/dev/null 2>&1 || true
-  for account in ingestion-core intelligence-mart; do
-    gcloud secrets add-iam-policy-binding janus-agent-provider-bundle --project="${project}" \
-      --member="serviceAccount:${account}@${project}.iam.gserviceaccount.com" \
-      --role=roles/secretmanager.secretAccessor --quiet >/dev/null
-  done
+  build_service_account="$(gcloud builds get-default-service-account --project="${project}" --region="${region}")"
+  [[ -n "${build_service_account}" ]] || fail 'Cloud Build default service account is unavailable'
+  gcloud secrets add-iam-policy-binding janus-runtime-bundle --project="${project}" \
+    --member="serviceAccount:${build_service_account}" \
+    --role=roles/secretmanager.secretAccessor --quiet >/dev/null
 
   gcloud run services update janus-api --project="${project}" --region="${region}" \
     --service-account="janus-user-api@${project}.iam.gserviceaccount.com" \
@@ -155,8 +152,10 @@ verify() {
       --managed-by=user --format='value(name)')" || fail "${account} key lookup timed out or failed"
     [[ -z "${keys}" ]] || fail "${account} has a user-managed key"
   done < <(gcloud iam service-accounts list --project="${project}" --format='value(email)')
-  check_secret janus-postgres-api-bundle janus-user-api janus-private-pipeline
-  check_secret janus-agent-provider-bundle ingestion-core intelligence-mart
+  check_secret janus-runtime-bundle janus-user-api janus-private-pipeline ingestion-core intelligence-mart
+  build_service_account="$(gcloud builds get-default-service-account --project="${project}" --region="${region}")"
+  secret_members janus-runtime-bundle | grep -Fx "serviceAccount:${build_service_account}" >/dev/null || \
+    fail 'janus-runtime-bundle is missing the Cloud Build migration accessor'
 
   vm_json="$(gcloud compute instances describe janus-postgres-dev --project="${project}" --zone="${zone}" --format=json)"
   VM_JSON="${vm_json}" PROJECT="${project}" python3 - <<'PY'

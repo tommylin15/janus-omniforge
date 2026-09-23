@@ -73,7 +73,7 @@ case "${component}" in
       --tasks=1 --parallelism=1 --max-retries=1 --task-timeout=30m \
       --update-env-vars="MART_JOB=janus-intelligence-mart,GCP_REGION=${region},MART_OPERATION=queue" \
       --remove-secrets="CONTROL_DB_PASSWORD,CATALOG_DB_PASSWORD" \
-      --update-secrets="JANUS_INGESTION_POSTGRES_BUNDLE=janus-agent-provider-bundle:latest" --quiet
+      --update-secrets="JANUS_INGESTION_POSTGRES_BUNDLE=janus-runtime-bundle:latest" --quiet
     # 確保 ingestion-core SA 有權限觸發 intelligence-mart job
     gcloud run jobs add-iam-policy-binding janus-intelligence-mart \
       --project="${project}" --region="${region}" \
@@ -85,7 +85,7 @@ case "${component}" in
       --service-account="intelligence-mart@${project}.iam.gserviceaccount.com" \
       --tasks=1 --parallelism=1 --max-retries=1 --task-timeout=30m \
       --remove-secrets="CATALOG_DB_PASSWORD,PUBLICATION_DB_PASSWORD" \
-      --update-secrets="JANUS_MART_POSTGRES_BUNDLE=janus-agent-provider-bundle:latest" --quiet
+      --update-secrets="JANUS_MART_POSTGRES_BUNDLE=janus-runtime-bundle:latest" --quiet
     ;;
   private-pipeline)
     gcloud run jobs update "${runtime_name}" --project="${project}" --region="${region}" \
@@ -93,7 +93,7 @@ case "${component}" in
       --tasks=1 --parallelism=1 --max-retries=1 --task-timeout=30m \
       --remove-env-vars="VALUATION_DATE" \
       --remove-secrets="CORE_CATALOG_PASSWORD,PRIVATE_DATABASE_URL,PRIVATE_CATALOG_PASSWORD,JANUS_PIPELINE_POSTGRES_BUNDLE" \
-      --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" --quiet
+      --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-runtime-bundle:latest" --quiet
     ;;
   api)
     service_flags=()
@@ -123,7 +123,7 @@ case "${component}" in
       --min-instances=0 --max-instances=2 --concurrency=20 --timeout=60 \
       "${service_env_flags[@]}" \
       --remove-env-vars="INTERNAL_ASSISTANT_AUDIENCE,ASSISTANT_SERVICE_ACCOUNTS,MCP_GATEWAY_URL" \
-      --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" \
+      --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-runtime-bundle:latest" \
       "${service_flags[@]}" --quiet
     ;;
 esac

@@ -6,27 +6,24 @@ Region：`us-central1`
 
 本文件只記錄 Secret resource、欄位名稱、consumer、版本狀態與 IAM metadata，
 不記錄 payload、token、password、API key 或 auth 內容。GCP dev 已完成收斂，
-目前只保留 3 個 Janus Secret container、3 個 enabled versions。Janus Agent split cleanup 已移除無版本的 Codex owner bundle。
+目前只保留 1 個 Janus Secret container、1 個 enabled version。資料庫、OAuth、Mart／Ingestion 與市場資料 provider 欄位合併於 `janus-runtime-bundle`；舊 bundle 已清除。
 
 | Secret | 欄位／格式（不含值） | Consumer | Version | IAM |
 |---|---|---|---|---|
-| `janus-postgres-api-bundle` | API 欄位；`web_*`、`pipeline_*` workload 欄位；`google_user_client_secret`、`mcp_oauth_signing_key`；含 `web_publication_password` | `janus-api`、`janus-private-pipeline` | v1 enabled after 2026-09-19 recovery；原 container 刪除後舊 versions 不可取得 | API／private pipeline `secretAccessor`；legacy `web-runtime` removed |
-| `janus-agent-provider-bundle` | `mart_*`、`ingestion_*` workload 欄位；其他共用 provider 欄位 | `janus-intelligence-mart`、`janus-ingestion-core` | v9 enabled；v8 disabled（可恢復），更舊 versions destroyed | 只授予 Mart／Ingestion `secretAccessor`；Janus Gateway binding 已移除 |
-| `janus-market-data-bundle` | `finmind_api_token`、`fugle_api_key`、Fugle license／benchmark metadata、`shioaji_api_key`／`shioaji_secret_key`／simulation、`tiingo_api_key` | `janus-ingestion-core` | v1 enabled | 僅 ingestion-core `secretAccessor` |
+| `janus-runtime-bundle` | PostgreSQL、Web/Pipeline、OAuth、Mart／Ingestion、provider／market-data 欄位；28 個唯一欄位 | Janus API、private pipeline、ingestion-core、intelligence-mart、PostgreSQL migration build | v1 enabled | 四個 Janus runtime service accounts 與 Cloud Build default identity 有直接 `secretAccessor` binding；另承接既有 project-level `omniforge-dev-runtime` accessor |
 
 ## 欄位規則
 
-- API／Web／Pipeline 的同名 credential 不互相覆蓋；合併欄位使用 `web_*`、
-  `pipeline_*` prefix。Agent／Mart／Ingestion 同理使用 `mart_*`、`ingestion_*`。
-- `janus-agent-provider-bundle` 持續供 Mart／Ingestion 共用；已移除 Agent Gateway consumer。
-- `janus-market-data-bundle` 僅保存 data-source provider credentials；目前只綁定
-  `ingestion-core`，不會自動啟用尚未核准或尚未實作的 adapter。`fugle_benchmark_symbol`
-  目前為空值，待 Source Matrix／provider scope 確認後再填入。
-- Janus Codex owners bundle 已刪除，因為沒有 enabled Secret version 且其唯一 consumer 已退役；不影響 Janus MCP OAuth，OAuth secrets 仍位於 API bundle。
+- API／Web／Pipeline、Mart／Ingestion 欄位保持既有 key 名；合併採 key union，重複的
+  `mcp_owner_signing_key` 僅在來源值一致時合併，沒有衝突。
+- 市場資料 credentials 僅合併儲存，不代表啟用 Fugle／Shioaji／Tiingo adapters 或改變
+  Source Matrix 核准狀態。
+- Janus Codex owners bundle 已在先前 cleanup 刪除，沒有 payload；本次未重建。
 
 WBS-7 dev IAM verify（2026-09-13）確認 `janus-web` service 不存在，
-`janus-postgres-api-bundle` 不再授權 `web-runtime`；API 與 private pipeline 使用
-分離 runtime identity。其他 secret consumers 依表格列示，未擴大 blast radius。
+API 與 private pipeline 使用分離 runtime identity。2026-09-23 依使用者核准將
+所有 Janus runtime secrets 合併；單一 bundle 的資源層級 IAM 會讓四個 runtime identities
+及 Cloud Build default identity 可讀完整欄位，無欄位級隔離。
 - 新版 PostgreSQL loader 在遷移期間支援舊欄位 fallback；legacy containers 已刪除後，
   fallback 僅作 rollback compatibility，不應再新增舊欄位。
 
@@ -34,8 +31,8 @@ WBS-7 dev IAM verify（2026-09-13）確認 `janus-web` service 不存在，
 
 - `migrate-secret-bundles-dev.sh prepare` 建立並驗證 API v14、Agent v8，並將舊 merged
   versions 設為 `DESTROYED`。
-- API、Web、Pipeline 已切換至 `janus-postgres-api-bundle:latest`；Agent、Mart、
-  Ingestion 已切換至 `janus-agent-provider-bundle:latest`。
+- 歷史 API／Web／Pipeline 曾使用 `janus-postgres-api-bundle`；Agent／Mart／Ingestion
+  曾使用 `janus-agent-provider-bundle`。
 - Janus Agent Gateway revisions historically used the provider bundle and Codex owner
   bundle; these references are historical after the 2026-09-23 split cleanup.
 - 六個 legacy containers（Web／Pipeline／Mart／Ingestion 舊 bundle、Codex A/B）已在
@@ -59,9 +56,14 @@ WBS-7 dev IAM verify（2026-09-13）確認 `janus-web` service 不存在，
 
 ## Runtime acceptance
 
-2026-09-23 cleanup removed the gateway's `secretAccessor` binding from the shared
-provider bundle. Only ingestion and mart service accounts retain access. The
-Janus API bundle remains because it provides API runtime secrets and MCP OAuth.
+2026-09-23 unified bundle migration replaced the three extant Janus bundles with
+`janus-runtime-bundle`. Janus API, private pipeline, ingestion-core, mart, and the
+PostgreSQL migration build now use the unified resource. The previous Codex owners
+bundle was already absent and had no payload. Secret values were merged in memory;
+only field names and conflict status were emitted. Candidate and canonical API,
+MCP/OAuth, and User/Admin UI acceptance all passed. No Job execution or PostgreSQL
+schema/data migration was run; Job templates and migration build references were
+verified as configured. The single-bundle resource-level access widening was approved.
 
 - Python targeted tests：14 passed；Agent Gateway tests：10 passed。
 - Agent Gateway TypeScript build、Git Bash `bash -n`、Cloud Build contract 均通過；
@@ -74,6 +76,6 @@ Janus API bundle remains because it provides API runtime secrets and MCP OAuth.
 
 ## Cost note
 
-Secret Manager active versions 與 access operations 才是主要計費項目；若 billing
-account 沒有其他 project 的 active versions，目前 3 個 enabled versions 低於每月
-6 個免費額度。Secret container 與 management operations 本身不收費。
+Secret Manager active versions 與 access operations 才是主要計費項目；Janus 目前
+使用 1 個 enabled version。帳戶免費額度仍取決於其他 project 的 active versions。
+Secret container 與 management operations 本身不收費。

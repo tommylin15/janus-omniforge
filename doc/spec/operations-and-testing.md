@@ -1,25 +1,44 @@
 # Operations and testing
 
-## Janus／omniAgent hard split — GCP dev acceptance (2026-09-23)
+## Janus hard split and unified Secret — GCP dev acceptance (2026-09-23)
 
 Pushed `main` source SHA `2692a09` plus MCP acceptance SHA `f80f3c6`. Local checks:
 root Python **241 passed**; TypeScript typecheck/lint passed; unit tests **3 passed**;
 Flutter analyze **0 errors** (20 existing info notices); Flutter widget tests
-**15 passed**; Git Bash `bash -n scripts/gcp/deploy-dev.sh`, Cloud Build YAML parse,
-and `git diff --check` passed.
+**15 passed**. This bundle follow-up: targeted Python tests **3 passed**, Git Bash
+syntax checks for the three changed scripts, migration Cloud Build YAML parse, and
+`git diff --check` passed.
 
-Cloud Build image `53aa871d-7805-4dd4-a8a9-c2eb9101204d` succeeded. Immutable digest
-`sha256:d1b9d7c2f3f5f05d142e514281cb36d791ef81b477ebf3ebadbf7fa310f591bf` was deployed
-as revision `janus-api-hard-split-20260923-config` and is canonical 100% traffic.
-`MCP_OAUTH_ENABLED=true`; old `INTERNAL_ASSISTANT_AUDIENCE`,
-`ASSISTANT_SERVICE_ACCOUNTS`, and `MCP_GATEWAY_URL` are absent. OAuth inputs were
-read from the existing dev config/bundle; no secret values were logged.
+Cloud Build image `53aa871d-7805-4dd4-a8a9-c2eb9101204d`, immutable digest
+`sha256:d1b9d7c2f3f5f05d142e514281cb36d791ef81b477ebf3ebadbf7fa310f591bf`, is canonical
+on revision `janus-api-runtime-bundle` at 100% traffic. `MCP_OAUTH_ENABLED=true`; the
+three obsolete Agent env vars remain absent.
 
-Zero-traffic candidate acceptance builds: MCP/OAuth `064e01e1-61e3-49c2-8328-5357b81e7f24`, public API `ed63f9a8-30f6-4006-a23f-c170372ddc12`, Flutter UI `e916abc7-77c6-488f-8865-a3e80b7a8f2a` — all **SUCCESS**. Post-promotion canonical builds: public API `91f2bda9-75af-48b5-bb8a-068b3079473d`, MCP/OAuth `f90de349-8e64-434a-9667-f0d9aa03e9d5`, Flutter UI `94167f29-c67e-439c-a14c-dcc2d01159d8` — all **SUCCESS**. After cleanup, public API `e5f9fbfa-84b4-4eeb-b5c5-7f10349d9c65` and MCP/OAuth/protocol `dc2f595b-950a-4f4b-986f-ac3497e652a8` — both **SUCCESS**.
+The three extant Secret payloads were merged in memory into enabled version 1 of
+`janus-runtime-bundle` (28 unique JSON fields, no conflicting duplicate keys); the
+Codex owners bundle was already absent. Old `janus-postgres-api-bundle`,
+`janus-agent-provider-bundle`, and `janus-market-data-bundle` were deleted. The four
+Janus runtime identities and Cloud Build default identity have `secretAccessor`;
+API and all three Cloud Run Job templates, plus PostgreSQL migration build scripts,
+reference the unified bundle. This resource-level access widening was explicitly
+approved; Secret Manager does not provide per-JSON-field IAM.
 
-Verified health/public domain API guards, Chat/internal routes return 404, `/app` and `/app/admin` bundle/base href/OAuth client ID, MCP OAuth metadata and invalid-flow guards, `initialize`, `tools/list` (three read-only tools), and unauthenticated `tools/call` 401 challenge. No interactive OAuth consent or authenticated `tools/call` was performed; this remains explicitly unverified. Existing three Cloud Run Jobs remain Ready; no data/migrations changed.
+Candidate acceptance builds: public API `6ecc1a49-91c4-4c98-b187-1539f70c4f9a`,
+MCP/OAuth `acf423f5-2fd8-49ec-9b8c-1e8efb793017`, User/Admin UI
+`e29095b1-7e58-4de3-a231-0d8ca16a1961` — all **SUCCESS**. Post-promotion canonical
+builds: public API `17dd3591-65a8-430e-9aff-9fa40876c0f6`, MCP/OAuth
+`6a653e48-d4ec-4a25-938d-6e27543b3ef6`, User/Admin UI
+`8fbe6d86-e52c-40c1-994a-93921eaaac93` — all **SUCCESS**. Verified API health/domain
+guards, removed Chat/internal routes, Flutter bundles, OAuth metadata/negative guards,
+MCP initialize/tools/list, and unauthenticated tool-call challenge. All three Jobs are
+Ready and point at `janus-runtime-bundle:latest`; no Job execution or PostgreSQL
+schema/data migration was run. No secret values were logged.
 
-After acceptance, deleted Janus-only `janus-agent-gateway`, `janus-mcp-fixture`, empty `janus-codex-owners-bundle`, gateway and POC-invoker service accounts; removed only the gateway SA binding from shared `janus-agent-provider-bundle`, leaving ingestion/mart access. Kept `omniagent-agent-gateway` because request logs show successful calls on 2026-09-23, and retained `omniagent-chat` because it remains the gateway invoker identity. No migration or historical data was deleted. Older Agent Gateway/Phase 5 results below are historical.
+No interactive OAuth consent or authenticated `tools/call` was performed; overall
+Phase 9 remains deferred. Janus-only gateway/fixture, empty Codex owners bundle and
+dedicated service accounts were removed. `omniagent-agent-gateway` and its chat caller
+remain because live requests were observed. No historical data or migrations were
+deleted. Older Agent Gateway/Phase 5 results below are historical.
 
 ## Phase 5 UI split deployment safety（2026-09-22）
 

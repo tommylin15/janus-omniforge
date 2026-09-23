@@ -5,7 +5,7 @@ project `gen-lang-client-0593591102`、region `us-central1`。執行 GCP
 bootstrap、migration、Cloud Build 或 Cloud Run Job 前，仍須依
 `doc/PROJECT_RULES.md` 取得當次明確授權。
 
-Janus Agent／Chat hard split 已推送並部署至 GCP dev。Canonical `janus-api` revision `janus-api-hard-split-20260923-config` 使用 immutable digest `sha256:d1b9d7c2f3f5f05d142e514281cb36d791ef81b477ebf3ebadbf7fa310f591bf`、承接 100% traffic，保留 Janus MCP/OAuth 與投資功能，不建置舊 Chat UI。`016_private_assistant_storage.sql` 與歷史資料必須保留。驗收證據與剩餘 gate 見 [split status](omniagent-split-status.md)。下方 Phase 5 記錄只供歷史查核，不代表目前 source／revision。
+Janus Agent／Chat hard split 與單一 Secret bundle 已部署至 GCP dev。Canonical `janus-api` revision `janus-api-runtime-bundle` 使用 immutable digest `sha256:d1b9d7c2f3f5f05d142e514281cb36d791ef81b477ebf3ebadbf7fa310f591bf`、承接 100% traffic，保留 Janus MCP/OAuth 與投資功能，不建置舊 Chat UI。Janus API、private pipeline、ingestion、mart 與 PostgreSQL migration build 共用 `janus-runtime-bundle`。`016_private_assistant_storage.sql` 與歷史資料必須保留。驗收證據與剩餘 gate 見 [split status](omniagent-split-status.md)。下方 Phase 5 記錄只供歷史查核，不代表目前 source／revision。
 
 本 runbook 下方既有的 assistant／Agent Gateway、三 bundle 遷移與 Chat deployment 步驟已過時；不得照舊執行或用來退役資源。Hard split 專用 build／runtime acceptance／cleanup 須依 [split status](omniagent-split-status.md) 逐 gate 執行。
 
@@ -68,7 +68,7 @@ MCP/OAuth acceptance；全部通過後才以 `gcloud run services update-traffic
 `true` 才須同時提供既有 issuer、resource URL 與 user allowlist。不得輸出或變更
 Secret payload、OAuth secret 或 callback 設定作為一般 image deploy 的副作用。
 
-目前 deployed revision 是 `janus-api-hard-split-20260923-config`。Cloud Build 會清理
+目前 deployed revision 是 `janus-api-runtime-bundle`。Cloud Build 會清理
 未標記的舊 image versions；回切前必須先確認舊 digest 仍存在，不可只憑 Cloud Run
 revision 名稱假設 image 可回復。舊 Phase 5 artifact/rollback 段落均為歷史證據。
 
@@ -177,27 +177,13 @@ Artifact Analysis、Container Scanning 或 occurrence API。
 
 ## 6. Secret 建立、輪替與驗證
 
-### 6.0 三 bundle 收斂
+### 6.0 Janus 單一 bundle（2026-09-23）
 
-先完成本機 targeted tests 與 shell syntax check，再執行：
-
-```bash
-export GCP_PROJECT_ID=gen-lang-client-0593591102
-export ALLOW_SECRET_BUNDLE_MIGRATION=true
-scripts/gcp/migrate-secret-bundles-dev.sh prepare
-```
-
-依序以 `scripts/gcp/deploy-dev.sh` 部署 `ingestion-core`、`intelligence-mart`、
-`private-pipeline`、`web`，並以 `scripts/gcp/deploy-agent-gateway-dev.sh` 部署 Gateway。
-新版 loader 先隨映像部署，再切換 Secret reference；不得反轉順序。完成所有 runtime
-probes 與 Codex A／B entry rotate／destroy 隔離驗收後，才可另設
-`ALLOW_SECRET_BUNDLE_CLEANUP=true` 執行：
-
-```bash
-scripts/gcp/migrate-secret-bundles-dev.sh cleanup
-```
-
-cleanup 會刪除六個 legacy Secret container；驗收未全數通過時禁止執行。
+目前 Janus 唯一 bundle 是 `janus-runtime-bundle`。三個仍存在的舊 bundle 已刪除；
+Codex owners bundle 先前已刪除且沒有 payload。不要再執行下方舊版三 bundle
+`migrate-secret-bundles-dev.sh prepare/cleanup` 流程或 Gateway 部署步驟。單一 Secret
+採資源層級 IAM，四個 Janus runtime identities 與 Cloud Build default identity 都可讀
+完整 bundle；不能依 JSON 欄位區分權限。輪替與 raw-byte 驗證規則仍依本節後續步驟。
 
 Secret 值不得出現在 command argv、shell trace、process listing、Cloud Build
 substitution、deployment metadata 或 log。特別禁止使用

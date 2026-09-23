@@ -37,7 +37,7 @@ elif [[ "${credential_source}" == secret-manager ]]; then
     'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token' \
     | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')"
   bundle="$(curl -fsS -H "Authorization: Bearer ${token}" \
-    "https://secretmanager.googleapis.com/v1/projects/${project}/secrets/janus-postgres-api-bundle/versions/latest:access" \
+    "https://secretmanager.googleapis.com/v1/projects/${project}/secrets/janus-runtime-bundle/versions/latest:access" \
     | sed -n 's/.*"data":"\([^"]*\)".*/\1/p' | base64 -d)"
   web_control_password="$(printf '%s' "${bundle}" | sed -n 's/.*"web_control_password":"\([^"]*\)".*/\1/p')"
   web_catalog_password="$(printf '%s' "${bundle}" | sed -n 's/.*"web_catalog_password":"\([^"]*\)".*/\1/p')"
