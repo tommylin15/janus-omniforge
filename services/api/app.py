@@ -9,39 +9,31 @@ import os
 from pathlib import Path
 from threading import Lock
 from time import monotonic
-from datetime import datetime, timezone
 from typing import Any, Callable
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from fastapi import APIRouter, Body, Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from packages.observability import redact
 from packages.admin_api import AdminConflictError, AdminValidationError
 from packages.web_api import (PublicReportNotFound, PublicReportWaiting, PublicStockNotFound,
                               QueryValidationError)
-from .auth import (AuthenticatedAdmin, AuthenticatedUser, GoogleAdminAuthenticator, GoogleServiceAuthenticator,
-                   GoogleUserAuthenticator, allowed_admin_emails, allowed_assistant_callers,
+from .auth import (AuthenticatedAdmin, AuthenticatedUser, GoogleAdminAuthenticator,
+                   GoogleUserAuthenticator, allowed_admin_emails,
                    allowed_user_emails)
-from .context_sources import (ContextReferenceNotFound, ContextSourceError, ContextSourceService,
-                              CoreContextReader)
-from .mcp_gateway import McpGatewayClient, McpGatewayError
+from .context_sources import ContextSourceError, ContextSourceService, CoreContextReader
 from .mcp_adapter import McpAdapter
 from .mcp_oauth import McpOAuth, OAuthSettings, RepositoryOAuthCodeStore, parse_form
-from .models import (AdminResponseOut, AnalysisFeedbackIn, ContextPreviewIn, ContextResolveIn, CorePageOut, CoreSummaryOut,
+from .models import (AdminResponseOut, AnalysisFeedbackIn, CorePageOut, CoreSummaryOut,
                      CorrectionIn, HealthOut, InvestmentProfileIn, InvestmentProfileOut, LedgerEventIn,
-                     McpServersPutIn, NoteIn, NoteRevisionIn, PortfolioExposureOut,
-                     PortfolioPerformanceOut, PortfolioStressOut, PortfolioSummaryOut,
+                     NoteIn, NoteRevisionIn, PortfolioExposureOut, PortfolioPerformanceOut,
+                     PortfolioStressOut, PortfolioSummaryOut,
                      PrivateResponseOut, PublicDatasetOut, PublicReportListOut, PublicReportOut, PublicWaitingOut,
-                     SkillRevisionIn, SkillStateIn,
-                     WatchlistIn, WatchlistOrderIn, ApprovalResponseIn, ForkThreadIn,
-                     MessageIn, ThreadCreateIn, GovernanceDiffIn, GovernanceEditIn, MembershipEditIn)
-from .assistant_storage import AssistantStorage
-from .assistant_storage import safe_private_record
-from .engine_security import (AgentEvent, AgentEventType, AgentRuntime, ApprovalDecision,
-                               ApprovalRequest, RuntimeBinding)
+                     WatchlistIn, WatchlistOrderIn,
+                     GovernanceDiffIn, GovernanceEditIn, MembershipEditIn)
 from .repository import ConflictError, NotFoundError, OversellError, repository_from_env
 from .public_runtime import build_admin_service, build_core_service, build_pipeline_service, build_public_service
 from .store import PrivateIcebergStore
@@ -55,8 +47,7 @@ AUDIT_LOGGER.setLevel(logging.INFO)
 
 def _router_family(path: str) -> str | None:
     for family, prefix in (("mcp", "/mcp"), ("public", "/api/v1/public/"), ("private", "/api/v1/me/"),
-                           ("admin", "/api/v1/admin/"), ("admin", "/api/v1/core/"),
-                           ("internal", "/internal/v1/")):
+                           ("admin", "/api/v1/admin/"), ("admin", "/api/v1/core/")):
         if path.startswith(prefix):
             return family
     return None
@@ -119,16 +110,12 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                admin_emails: frozenset[str] | None = None,
                admin_service: Any | None = None,
                pipeline_service: Any | None = None,
-               internal_verifier: Callable[..., Any] | None = None,
-               internal_audience: str | None = None,
-               internal_callers: frozenset[str] | None = None,
-               mcp: Any | None = None, public: Any | None = None,
+               public: Any | None = None,
                oauth_facade: Any | None = None) -> FastAPI:
     from packages.postgres_bundle import load_postgres_bundle
     bundle_fields: dict[str, str | tuple[str, ...]] = {
         "GOOGLE_USER_CLIENT_ID": "google_user_client_id",
         "GOOGLE_ADMIN_CLIENT_ID": ("web_google_client_id", "google_client_id"),
-        "MCP_OWNER_SIGNING_KEY": "mcp_owner_signing_key",
     }
     if oauth_facade is None and os.getenv("MCP_OAUTH_ENABLED", "false").strip().lower() == "true":
         bundle_fields.update({
@@ -139,7 +126,6 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     repository = repository or _Lazy(repository_from_env)
     store = store or _Lazy(PrivateIcebergStore.from_env)
     core = core or _Lazy(CoreContextReader.from_env)
-    mcp = mcp or _Lazy(McpGatewayClient.from_env)
     if query_core is None:
         def unavailable_core() -> Any:
             try:
@@ -176,18 +162,12 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                 raise HTTPException(status_code=503, detail="pipeline service unavailable") from error
         pipeline_service = _Lazy(unavailable_pipeline)
     contexts = ContextSourceService(repository,store,core)
-    skills = AssistantStorage(repository, store)
     auth = GoogleUserAuthenticator(audience or os.getenv("GOOGLE_USER_CLIENT_ID", ""), repository,
                                    allowed_emails=allowed_user_emails(), verifier=verifier)
     admin_auth = GoogleAdminAuthenticator(
         admin_audience or os.getenv("GOOGLE_ADMIN_CLIENT_ID", ""),
         admin_emails if admin_emails is not None else allowed_admin_emails(),
         verifier=admin_verifier,
-    )
-    service_auth = GoogleServiceAuthenticator(
-        internal_audience or os.getenv("INTERNAL_ASSISTANT_AUDIENCE", ""),
-        internal_callers if internal_callers is not None else allowed_assistant_callers(),
-        verifier=internal_verifier,
     )
     mcp_oauth = oauth_facade if oauth_facade is not None else _Lazy(lambda: McpOAuth(
         OAuthSettings.from_env(), RepositoryOAuthCodeStore(repository), repository.resolve_user,
@@ -208,7 +188,6 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         "public": _positive_env("PUBLIC_RATE_LIMIT_PER_MINUTE", 120),
         "private": _positive_env("PRIVATE_RATE_LIMIT_PER_MINUTE", 60),
         "admin": _positive_env("ADMIN_RATE_LIMIT_PER_MINUTE", 30),
-        "internal": _positive_env("INTERNAL_RATE_LIMIT_PER_MINUTE", 120),
         "mcp": _positive_env("MCP_RATE_LIMIT_PER_MINUTE", 60),
     })
 
@@ -250,14 +229,12 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                            allow_methods=["GET","POST","PUT","PATCH","DELETE"],allow_headers=["Authorization","Content-Type","Idempotency-Key"])
     def authenticate(request: Request) -> AuthenticatedUser: return auth(request)
     def authenticate_admin(request: Request) -> Any: return admin_auth(request)
-    def authenticate_service(request: Request) -> Any: return service_auth(request)
     public_router = APIRouter(prefix="/api/v1/public", tags=["public"])
     private = APIRouter(prefix="/api/v1/me", dependencies=[Depends(authenticate)], tags=["private"],
                         responses={200: {"model": PrivateResponseOut}})
     admin = APIRouter(prefix="/api/v1/admin", dependencies=[Depends(authenticate_admin)], tags=["admin"],
                       responses={200: {"model": AdminResponseOut}})
     legacy_core = APIRouter(prefix="/api/v1/core", dependencies=[Depends(authenticate_admin)], tags=["admin"])
-    internal = APIRouter(prefix="/internal/v1", dependencies=[Depends(authenticate_service)], tags=["internal"])
 
     def user(request_user: AuthenticatedUser = Depends(authenticate)) -> AuthenticatedUser: return request_user
     def key(value: str = Header(alias="Idempotency-Key", min_length=8, max_length=128)) -> str: return value
@@ -302,91 +279,6 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         if response is None: return Response(status_code=response_status, headers=headers)
         return JSONResponse(jsonable_encoder(response), status_code=response_status, headers=headers)
 
-    def persist_gateway_result(owner_id: UUID, thread_id: str, turn_id: str, key_prefix: str,
-                               result: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-        if not isinstance(result, dict) or not isinstance(result.get("events", []), list):
-            raise ValueError("assistant gateway returned an invalid event response")
-        native_thread = result.get("nativeThreadId")
-        native_turn = result.get("nativeTurnId")
-        continuation = result.get("continuation") if isinstance(result.get("continuation"), dict) else {}
-        continuation = dict(continuation)
-        if isinstance(result.get("turnHandle"), str): continuation.setdefault("turnHandle", result["turnHandle"])
-        if isinstance(result.get("nativeThreadId"), str): continuation.setdefault("codexThreadId", result["nativeThreadId"])
-        if isinstance(result.get("nativeTurnId"), str): continuation.setdefault("codexTurnId", result["nativeTurnId"])
-        if isinstance(result.get("cursor"), int): continuation["gatewayCursor"] = result["cursor"]
-        for item in result["events"]:
-            if not isinstance(item, dict) or not isinstance(item.get("eventId"), str) or not isinstance(item.get("type"), str):
-                raise ValueError("assistant gateway returned an invalid event")
-            if isinstance(native_thread, str) and item.get("threadId") not in (None, native_thread):
-                raise PermissionError("assistant gateway thread binding mismatch")
-            if isinstance(native_turn, str) and item.get("turnId") not in (None, native_turn):
-                raise PermissionError("assistant gateway turn binding mismatch")
-            event_type = AgentEventType(item["type"])
-            payload = safe_private_record(item.get("payload", {}))
-            if not isinstance(payload, dict): raise ValueError("assistant gateway event payload is invalid")
-            provider_ids = item.get("providerIds", {})
-            if not isinstance(provider_ids, dict): raise ValueError("assistant gateway provider ids are invalid")
-            provider_ids = {str(k): str(v) for k, v in safe_private_record(provider_ids).items()}
-            event_key = f"{key_prefix}:{item['eventId']}"
-            existing_event = repository.assistant_event_for_key(owner_id, thread_id, event_key)
-            if existing_event and existing_event.get("status") == "PERSISTED": continue
-            event = AgentEvent(
-                event_id=item["eventId"], seq=int(existing_event["seq"]) if existing_event else repository.next_assistant_seq(owner_id, thread_id),
-                thread_id=thread_id, turn_id=turn_id, event_type=event_type,
-                item_id=item.get("itemId") if isinstance(item.get("itemId"), str) else None,
-                payload=payload, provider_ids=provider_ids,
-            )
-            persisted = skills.append_event(owner_id, event, event_key)
-            if event_type is AgentEventType.APPROVAL_REQUEST:
-                expires_at = datetime.fromisoformat(str(payload["expiresAt"]).replace("Z", "+00:00"))
-                request = ApprovalRequest(
-                    str(owner_id), thread_id, turn_id, str(payload["requestId"]),
-                    str(payload.get("operation", "shell")), str(payload.get("scope", "turn_sandbox")),
-                    str(payload["paramsDigest"]), expires_at,
-                )
-                skills.request_approval(request, str(persisted["artifact_ref"]))
-        terminal = next((item for item in result["events"] if item.get("type") in {"turn_completed", "turn_cancelled", "turn_error"}), None)
-        result_status = str(result.get("status", ""))
-        status = {"COMPLETED": "COMPLETED", "CANCELLED": "CANCELLED", "ERROR": "ERROR"}.get(result_status)
-        if terminal:
-            status = {"turn_completed": "COMPLETED", "turn_cancelled": "CANCELLED", "turn_error": "ERROR"}[terminal["type"]]
-        safe_continuation = safe_private_record(continuation)
-        if status:
-            turn = repository.finish_assistant_turn(owner_id, thread_id, turn_id, status, safe_continuation)
-        else:
-            update = getattr(repository, "update_assistant_turn_continuation", None)
-            turn = update(owner_id, thread_id, turn_id, safe_continuation) if update else repository.start_assistant_turn(
-                owner_id, thread_id, turn_id, key_prefix, continuation=safe_continuation,
-            )
-        return turn, {"status": result_status or (status or "IN_PROGRESS"), "continuation": safe_continuation}
-
-    def codex_binding(turn: dict[str, Any], owner_id: UUID, thread_id: str, turn_id: str) -> dict[str, Any]:
-        continuation = turn.get("continuation") if isinstance(turn.get("continuation"), dict) else {}
-        required = ("turnHandle", "codexThreadId", "codexTurnId")
-        if any(not isinstance(continuation.get(name), str) for name in required):
-            raise ValueError("codex turn handle is unavailable")
-        return {"turn_handle": continuation["turnHandle"], "native_thread_id": continuation["codexThreadId"],
-                "native_turn_id": continuation["codexTurnId"], "thread_id": thread_id, "turn_id": turn_id,
-                "owner_id": owner_id}
-
-    def sync_codex_turn(owner_id: UUID, thread_id: str, turn: dict[str, Any]) -> None:
-        events_call = getattr(mcp, "codex_turn_events", None)
-        if not events_call or turn.get("status") != "RUNNING": return
-        binding = codex_binding(turn, owner_id, thread_id, str(turn["turn_id"]))
-        continuation = turn.get("continuation") if isinstance(turn.get("continuation"), dict) else {}
-        try:
-            result = events_call(**binding, cursor=int(continuation.get("gatewayCursor", -1)))
-            persist_gateway_result(owner_id, thread_id, str(turn["turn_id"]), f"sync:{turn['turn_id']}", result)
-        except McpGatewayError:
-            event = AgentEvent(
-                event_id=f"gateway-handle-lost-{turn['turn_id']}", seq=repository.next_assistant_seq(owner_id, thread_id),
-                thread_id=thread_id, turn_id=str(turn["turn_id"]), event_type=AgentEventType.TURN_ERROR,
-                payload={"code": "gateway_handle_unavailable"},
-            )
-            persist_gateway_result(owner_id, thread_id, str(turn["turn_id"]), "handle-lost", {
-                "status": "ERROR", "events": [{"eventId": event.event_id, "type": event.event_type.value, "payload": event.payload}],
-            })
-
     async def conflict_handler(_request: Any, error: Exception):
         return JSONResponse({"detail":redact(error)}, status_code=status.HTTP_409_CONFLICT)
 
@@ -407,11 +299,9 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     api.add_exception_handler(AdminConflictError, conflict_handler)
     api.add_exception_handler(OversellError, conflict_handler)
     api.add_exception_handler(NotFoundError, missing_handler)
-    api.add_exception_handler(ContextReferenceNotFound, missing_handler)
     api.add_exception_handler(PublicReportNotFound, missing_handler)
     api.add_exception_handler(PublicStockNotFound, missing_handler)
     api.add_exception_handler(ContextSourceError, invalid_handler)
-    api.add_exception_handler(McpGatewayError, invalid_handler)
     api.add_exception_handler(QueryValidationError, invalid_handler)
     api.add_exception_handler(AdminValidationError, admin_invalid_handler)
     api.add_exception_handler(Exception, unavailable_handler)
@@ -558,197 +448,6 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @private.get("/ai-sources")
     def ai_sources(_current: AuthenticatedUser = Depends(user)):
         return {"items":contexts.sources()}
-
-    @private.post("/chats/{conversation_id}/context-preview")
-    def context_preview(conversation_id:str,value:ContextPreviewIn,current:AuthenticatedUser=Depends(user)):
-        return jsonable_encoder(contexts.preview(current.user_id,conversation_id,value.selector))
-
-    @private.post("/chats/threads", status_code=201)
-    def create_chat_thread(value: ThreadCreateIn, current: AuthenticatedUser = Depends(user),
-                           idempotency_key: str = Depends(key)):
-        binding = RuntimeBinding(value.runtime, value.model, value.assistant_profile,
-                                 value.skill_profile, frozenset(value.model_capabilities))
-        thread_id = value.thread_id or f"thread-{uuid5(NAMESPACE_URL, f'janus-thread:{current.user_id}:{idempotency_key}') }"
-        if value.parent_thread_id:
-            parent = repository.assistant_thread(current.user_id, value.parent_thread_id)
-            if (parent["runtime"], parent["model"]) != (value.runtime.value, value.model):
-                raise ConflictError("forked thread must keep the runtime and model")
-        return jsonable_encoder(repository.create_assistant_thread(
-            current.user_id, thread_id, binding, parent_thread_id=value.parent_thread_id,
-        ))
-
-    @private.get("/chats/threads")
-    def list_chat_threads(current: AuthenticatedUser = Depends(user)):
-        return jsonable_encoder({"items": repository.assistant_threads(current.user_id)})
-
-    @private.get("/chats/threads/{thread_id}")
-    def get_chat_thread(thread_id: str, current: AuthenticatedUser = Depends(user)):
-        return jsonable_encoder(repository.assistant_thread(current.user_id, thread_id))
-
-    @private.post("/chats/threads/{thread_id}/fork", status_code=201)
-    def fork_chat_thread(thread_id: str, value: ForkThreadIn | None = None,
-                         current: AuthenticatedUser = Depends(user), idempotency_key: str = Depends(key)):
-        parent = repository.assistant_thread(current.user_id, thread_id)
-        binding = RuntimeBinding(AgentRuntime(parent["runtime"]), parent["model"], parent["assistant_profile"],
-                                 parent.get("skill_profile"))
-        return jsonable_encoder(repository.create_assistant_thread(
-            current.user_id, value.thread_id if value and value.thread_id else f"thread-{uuid5(NAMESPACE_URL, f'janus-fork:{current.user_id}:{idempotency_key}') }",
-            binding, parent_thread_id=thread_id,
-        ))
-
-    @private.post("/chats/threads/{thread_id}/messages", status_code=202)
-    def post_chat_message(thread_id: str, value: MessageIn, current: AuthenticatedUser = Depends(user),
-                          idempotency_key: str = Depends(key)):
-        thread = repository.assistant_thread(current.user_id, thread_id)
-        existing = repository.assistant_event_for_key(current.user_id, thread_id, idempotency_key)
-        turn_id = value.turn_id or f"turn-{uuid5(NAMESPACE_URL, f'janus-turn:{current.user_id}:{idempotency_key}') }"
-        if existing:
-            return jsonable_encoder({"thread": thread, "turn": repository.start_assistant_turn(
-                current.user_id, thread_id, turn_id, idempotency_key,
-            ), "event": existing})
-        previous_continuation = repository.latest_assistant_continuation(current.user_id, thread_id)
-        continuation = previous_continuation or value.continuation
-        turn = repository.start_assistant_turn(
-            current.user_id, thread_id, turn_id, idempotency_key,
-            context_artifact_ref=value.context_artifact_ref, skill_id=value.skill_id,
-            skill_revision=value.skill_revision, continuation=safe_private_record(continuation),
-        )
-        event = AgentEvent(
-            event_id=f"event-{uuid4()}", seq=repository.next_assistant_seq(current.user_id, thread_id),
-            thread_id=thread_id, turn_id=turn_id, event_type=AgentEventType.ITEM_UPSERT,
-            item_id=f"message-{uuid4()}", payload={"role": "user", "content": value.content},
-        )
-        persisted = skills.append_event(current.user_id, event, idempotency_key)
-        dispatch = getattr(mcp, "dispatch_assistant_turn", None)
-        codex_start = getattr(mcp, "start_codex_turn", None)
-        if thread["runtime"] == "codex" and codex_start:
-            result = codex_start(current.user_id, thread_id=thread_id, turn_id=turn_id,
-                                  model=thread["model"], messages=[{"role": "user", "content": value.content}],
-                                  continuation=turn.get("continuation") or continuation)
-            turn, dispatch_result = persist_gateway_result(current.user_id, thread_id, turn_id, idempotency_key, result)
-            return jsonable_encoder({"thread": thread, "turn": turn, "event": persisted,
-                                     "dispatch": dispatch_result})
-        if dispatch:
-            result = dispatch(current.user_id, thread_id=thread_id, turn_id=turn_id,
-                              runtime=thread["runtime"], model=thread["model"],
-                              messages=[{"role": "user", "content": value.content}],
-                               continuation=turn.get("continuation") or continuation)
-            for item in result.get("events", []):
-                event_type = AgentEventType(item["type"])
-                continuation = item.get("continuation", {})
-                skills.append_event(current.user_id, AgentEvent(
-                    event_id=item["eventId"], seq=repository.next_assistant_seq(current.user_id, thread_id),
-                    thread_id=thread_id, turn_id=turn_id, event_type=event_type,
-                    payload=safe_private_record(item.get("payload", {})),
-                    provider_ids=safe_private_record(item.get("providerIds", {})),
-                ), f"{idempotency_key}:{item['eventId']}")
-            result_continuation = safe_private_record(result.get("continuation", {}))
-            turn = repository.finish_assistant_turn(current.user_id, thread_id, turn_id, "COMPLETED", result_continuation)
-            return jsonable_encoder({"thread": thread, "turn": turn, "event": persisted,
-                                     "dispatch": {"status": "COMPLETED", "continuation": result_continuation}})
-        return jsonable_encoder({"thread": thread, "turn": turn, "event": persisted,
-                                 "dispatch": {"status": "QUEUED"}})
-
-    @private.get("/chats/threads/{thread_id}/events")
-    def chat_events(thread_id: str, cursor: int = Query(ge=-1, default=-1),
-                    limit: int = Query(ge=1, le=200, default=200),
-                    current: AuthenticatedUser = Depends(user)):
-        repository.assistant_thread(current.user_id, thread_id)
-        active_turns = getattr(repository, "active_assistant_turns", lambda *_: [])(current.user_id, thread_id)
-        for active_turn in active_turns:
-            sync_codex_turn(current.user_id, thread_id, active_turn)
-        indexes = repository.assistant_events_after(current.user_id, thread_id, cursor, limit)
-        def stream():
-            for index in indexes:
-                record = store.read_assistant_event(current.user_id, thread_id, index["event_id"])
-                if record is None: continue
-                yield f"id: {index['seq']}\nevent: {index['event_type']}\ndata: {json.dumps(jsonable_encoder(record), separators=(',', ':'))}\n\n"
-        return StreamingResponse(stream(), media_type="text/event-stream",
-                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
-
-    @private.post("/chats/threads/{thread_id}/turns/{turn_id}/cancel")
-    def cancel_chat_turn(thread_id: str, turn_id: str, current: AuthenticatedUser = Depends(user)):
-        turn = repository.assistant_turn(current.user_id, thread_id, turn_id)
-        if turn["status"] != "RUNNING": raise ConflictError("assistant turn is already terminal")
-        thread = repository.assistant_thread(current.user_id, thread_id)
-        cancel = getattr(mcp, "cancel_codex_turn", None)
-        if thread["runtime"] == "codex" and cancel:
-            binding = codex_binding(turn, current.user_id, thread_id, turn_id)
-            result = cancel(**binding)
-            updated, _ = persist_gateway_result(current.user_id, thread_id, turn_id, f"cancel:{turn_id}", result)
-            return jsonable_encoder(updated)
-        return jsonable_encoder(repository.finish_assistant_turn(current.user_id, thread_id, turn_id, "CANCELLED"))
-
-    @private.post("/chats/threads/{thread_id}/turns/{turn_id}/approvals/{request_id}")
-    def respond_chat_approval(thread_id: str, turn_id: str, request_id: str,
-                              value: ApprovalResponseIn, current: AuthenticatedUser = Depends(user)):
-        row = repository.approval(current.user_id, thread_id, turn_id, request_id)
-        request = ApprovalRequest(current.user_id, thread_id, turn_id, request_id,
-                                  row["operation"], row["scope"], row["params_digest"], row["expires_at"])
-        decision = ApprovalDecision(current.user_id, thread_id, turn_id, request_id,
-                                    value.params_digest, value.approved)
-        resolved = skills.resolve_approval(request, decision, now=datetime.now(timezone.utc))
-        turn = repository.assistant_turn(current.user_id, thread_id, turn_id)
-        thread = repository.assistant_thread(current.user_id, thread_id)
-        approve = getattr(mcp, "codex_approval", None)
-        if thread["runtime"] == "codex" and approve:
-            binding = codex_binding(turn, current.user_id, thread_id, turn_id)
-            result = approve(**binding, request_id=request_id, params_digest=value.params_digest,
-                             decision="accept" if value.approved else "decline")
-            updated, dispatch_result = persist_gateway_result(current.user_id, thread_id, turn_id,
-                                                               f"approval:{request_id}", result)
-            return jsonable_encoder({"approval": resolved, "turn": updated, "dispatch": dispatch_result})
-        return jsonable_encoder(resolved)
-
-    @private.get("/mcp/servers")
-    def mcp_servers(current:AuthenticatedUser=Depends(user)):
-        return jsonable_encoder({"items":repository.mcp_servers(current.user_id)})
-
-    @private.put("/mcp/servers")
-    def put_mcp_servers(value:McpServersPutIn,current:AuthenticatedUser=Depends(user)):
-        for item in value.items:
-            if not item.enabled: continue
-            discovered=mcp.discover(current.user_id,item.server_id,item.config_ref)
-            available={tool["name"] for tool in discovered.get("tools",[]) if isinstance(tool,dict) and isinstance(tool.get("name"),str)}
-            if not set(item.tool_grants)<=available: raise ContextSourceError("MCP tool grant is not available from the configured server")
-        previous={row["server_id"]:row for row in repository.mcp_servers(current.user_id)}
-        result=repository.replace_mcp_servers(current.user_id,value.items)
-        configured={item.server_id:item for item in value.items}
-        for server_id,row in previous.items():
-            item=configured.get(server_id)
-            if item is None or not item.enabled or item.config_ref != row["config_ref"]:
-                mcp.disconnect(current.user_id,server_id)
-        return jsonable_encoder({"items":result})
-
-    @private.get("/mcp/servers/{server_id}/tools")
-    def mcp_tools(server_id:str,current:AuthenticatedUser=Depends(user)):
-        server=next((item for item in repository.mcp_servers(current.user_id) if item["server_id"]==server_id),None)
-        if not server or not server["enabled"]: raise NotFoundError("MCP server not found")
-        discovered=mcp.discover(current.user_id,server_id,server["config_ref"])
-        grants=set(server["tool_grants"])
-        return jsonable_encoder({**discovered,"tools":[{**tool,"granted":tool["name"] in grants} for tool in discovered["tools"]]})
-
-    @private.post("/skills", status_code=201)
-    def create_skill(value: SkillRevisionIn, current: AuthenticatedUser = Depends(user),
-                     idempotency_key: str = Depends(key)):
-        return jsonable_encoder(skills.write_skill_revision(
-            current.user_id, value.skill_id, value.revision,
-            value.definition.model_dump(mode="json"), idempotency_key,
-        ))
-
-    @private.get("/skills")
-    def list_skills(current: AuthenticatedUser = Depends(user)):
-        return jsonable_encoder({"items": repository.skill_revisions(current.user_id)})
-
-    @private.get("/skills/{skill_id}/{revision}")
-    def get_skill(skill_id: str, revision: int, current: AuthenticatedUser = Depends(user)):
-        return jsonable_encoder(skills.read_skill_revision(current.user_id, skill_id, revision))
-
-    @private.put("/skills/{skill_id}/state")
-    def set_skill_state(skill_id: str, value: SkillStateIn, current: AuthenticatedUser = Depends(user)):
-        return jsonable_encoder(repository.set_skill_state(
-            current.user_id, skill_id, enabled=value.enabled, revision=value.revision,
-        ))
 
     @private.post("/journal/events", status_code=201)
     def add_ledger(value: LedgerEventIn, current: AuthenticatedUser = Depends(user), idempotency_key: str = Depends(key)):
@@ -1028,15 +727,10 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def admin_audit(limit: int = Query(50, ge=1, le=50)):
         return jsonable_encoder({"items": admin_service.audit(limit=limit)})
 
-    @internal.post("/assistant/context:resolve")
-    def resolve_context(value:ContextResolveIn):
-        return jsonable_encoder(contexts.resolve(value.owner_id,value.thread_id,value.turn_id,value.context_refs))
-
     api.include_router(public_router)
     api.include_router(private)
     api.include_router(admin)
     api.include_router(legacy_core)
-    api.include_router(internal)
     return api
 
 

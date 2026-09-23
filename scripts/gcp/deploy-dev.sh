@@ -50,6 +50,11 @@ case "${component}" in
     ;;
 esac
 
+if [[ "${component}" == api || "${component}" == private-pipeline ]]; then
+  : "${GOOGLE_USER_CLIENT_ID:?GOOGLE_USER_CLIENT_ID is required for the Janus Web build}"
+  : "${GOOGLE_ADMIN_CLIENT_ID:?GOOGLE_ADMIN_CLIENT_ID is required for the Janus Web build}"
+fi
+
 if [[ "${ALLOW_DEV_DEPLOY:-false}" != "true" ]]; then
   echo "Refusing deployment: set ALLOW_DEV_DEPLOY=true explicitly." >&2
   exit 1
@@ -58,7 +63,7 @@ fi
 gcloud builds submit . \
   --project="${project}" \
   --config=cloudbuild.yaml \
-  --substitutions="_DOCKERFILE=${dockerfile},_IMAGE_NAME=${image_name},_IMAGE_TAG=${tag},_DEPLOY_TARGET=${deploy_target},_RUNTIME_NAME=${runtime_name},_REGION=${region},_GIT_SHA=${git_sha},_NO_TRAFFIC=${no_traffic},_TRAFFIC_TAG=${traffic_tag},_REVISION_SUFFIX=${revision_suffix},_GOOGLE_ADMIN_CLIENT_ID=${GOOGLE_ADMIN_CLIENT_ID:-}"
+  --substitutions="_DOCKERFILE=${dockerfile},_IMAGE_NAME=${image_name},_IMAGE_TAG=${tag},_DEPLOY_TARGET=${deploy_target},_RUNTIME_NAME=${runtime_name},_REGION=${region},_GIT_SHA=${git_sha},_NO_TRAFFIC=${no_traffic},_TRAFFIC_TAG=${traffic_tag},_REVISION_SUFFIX=${revision_suffix},_GOOGLE_USER_CLIENT_ID=${GOOGLE_USER_CLIENT_ID:-},_GOOGLE_ADMIN_CLIENT_ID=${GOOGLE_ADMIN_CLIENT_ID:-}"
 
 # The new image accepts both legacy and merged field names. Deploy it before
 # changing the Secret reference so service revisions never see an incompatible payload.

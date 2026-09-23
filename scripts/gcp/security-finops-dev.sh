@@ -49,7 +49,7 @@ configure() {
   gcloud secrets remove-iam-policy-binding janus-postgres-api-bundle --project="${project}" \
     --member="serviceAccount:web-runtime@${project}.iam.gserviceaccount.com" \
     --role=roles/secretmanager.secretAccessor --quiet >/dev/null 2>&1 || true
-  for account in janus-agent-gateway ingestion-core intelligence-mart; do
+  for account in ingestion-core intelligence-mart; do
     gcloud secrets add-iam-policy-binding janus-agent-provider-bundle --project="${project}" \
       --member="serviceAccount:${account}@${project}.iam.gserviceaccount.com" \
       --role=roles/secretmanager.secretAccessor --quiet >/dev/null
@@ -58,9 +58,6 @@ configure() {
   gcloud run services update janus-api --project="${project}" --region="${region}" \
     --service-account="janus-user-api@${project}.iam.gserviceaccount.com" \
     --min-instances=0 --max-instances=2 --concurrency=20 --timeout=60 --quiet
-  gcloud run services update janus-agent-gateway --project="${project}" --region="${region}" \
-    --service-account="janus-agent-gateway@${project}.iam.gserviceaccount.com" \
-    --min-instances=0 --max-instances=1 --concurrency=2 --timeout=300 --quiet
   for definition in \
     'janus-ingestion-core ingestion-core' \
     'janus-intelligence-mart intelligence-mart' \
@@ -112,7 +109,7 @@ if os.environ["RUNTIME_KIND"] == "services":
     template_annotations = doc.get("spec", {}).get("template", {}).get("metadata", {}).get("annotations", {})
     maximum = int(service_annotations.get("run.googleapis.com/maxScale") or service_annotations.get("autoscaling.knative.dev/maxScale") or template_annotations.get("autoscaling.knative.dev/maxScale", "0"))
     minimum = int(service_annotations.get("run.googleapis.com/minScale") or service_annotations.get("autoscaling.knative.dev/minScale") or template_annotations.get("autoscaling.knative.dev/minScale", "0"))
-    expected_max = 1 if os.environ["RUNTIME_NAME"] == "janus-agent-gateway" else 2
+    expected_max = 2
     assert minimum == 0 and 0 < maximum <= expected_max, f"{os.environ['RUNTIME_NAME']} scaling drift"
 else:
     numeric = lambda key, default: int(next((item for item in values.get(key, []) if str(item).isdigit()), default))
@@ -143,7 +140,6 @@ verify() {
   [[ -n "${billing_account}" ]] || fail 'GCP_BILLING_ACCOUNT_ID is required to verify the dev budget'
 
   check_runtime services janus-api janus-user-api
-  check_runtime services janus-agent-gateway janus-agent-gateway
   check_runtime jobs janus-ingestion-core ingestion-core
   check_runtime jobs janus-intelligence-mart intelligence-mart
   check_runtime jobs janus-private-pipeline janus-private-pipeline
@@ -160,8 +156,7 @@ verify() {
     [[ -z "${keys}" ]] || fail "${account} has a user-managed key"
   done < <(gcloud iam service-accounts list --project="${project}" --format='value(email)')
   check_secret janus-postgres-api-bundle janus-user-api janus-private-pipeline
-  check_secret janus-agent-provider-bundle janus-agent-gateway ingestion-core intelligence-mart
-  check_secret janus-codex-owners-bundle janus-agent-gateway
+  check_secret janus-agent-provider-bundle ingestion-core intelligence-mart
 
   vm_json="$(gcloud compute instances describe janus-postgres-dev --project="${project}" --zone="${zone}" --format=json)"
   VM_JSON="${vm_json}" PROJECT="${project}" python3 - <<'PY'
@@ -246,7 +241,7 @@ PY
 
 report() {
   echo "month=$(date -u +%Y-%m) project=${project}"
-  for name in janus-api janus-agent-gateway; do
+  for name in janus-api; do
     gcloud run services describe "${name}" --project="${project}" --region="${region}" \
       --format='value(metadata.name,spec.template.spec.serviceAccountName)'
   done

@@ -1,19 +1,16 @@
-"""Bounded, owner-scoped context snapshots for the private assistant."""
+"""Bounded Janus market and owner-scoped context reads for MCP."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
-from hashlib import sha256
+from datetime import date, datetime
 import json
-from secrets import token_urlsafe
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 from .models import ContextSelector
 
 
 MAX_CONTEXT_BYTES = 32_768
-REF_TTL = timedelta(minutes=15)
 DATE_FIELDS = ("trade_date", "observed_date", "published_at", "valuation_date", "updated_at", "date")
 STORAGE_FIELDS = frozenset({"user_id", "artifact_ref", "artifact_reference", "object_path", "gcs_uri",
                             "storage_uri", "raw_payload", "credential", "password", "secret", "token",
@@ -36,13 +33,7 @@ SOURCES = (
     SourceSpec("janus-private-mart", "private_mart", "owner", ("positions", "annual-pnl", "investment-profile", "exposure", "performance", "stress-tests"), "latest completed valuation", "Private portfolio calculations selected by you."),
 )
 SOURCE_BY_ID = {source.source_id: source for source in SOURCES}
-# Direct third-party chat sources remain fail-closed until license, quota, timeout,
-# provenance, egress, and retention fields are all approved.
-EXTERNAL_SOURCE_ALLOWLIST: frozenset[str] = frozenset()
-
-
 class ContextSourceError(ValueError): pass
-class ContextReferenceNotFound(LookupError): pass
 
 
 class CoreContextReader:
@@ -66,27 +57,15 @@ class CoreContextReader:
 
 
 class ContextSourceService:
-    def __init__(self, repository: Any, store: Any, core: Any, *,
-                 clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc)) -> None:
-        self.repository, self.store, self.core, self.clock = repository, store, core, clock
+    def __init__(self, repository: Any, store: Any, core: Any) -> None:
+        self.repository, self.store, self.core = repository, store, core
 
     @staticmethod
     def sources() -> list[dict[str, Any]]:
-        return [{"source_id":source.source_id, "kind":source.kind, "capabilities":["preview","date_range"],
+        return [{"source_id":source.source_id, "kind":source.kind, "capabilities":["date_range"],
                  "as_of":None, "freshness":source.freshness, "owner_scope":source.owner_scope,
                  "status":"available", "quota":{"max_records":20,"max_range_days":366,"max_output_bytes":MAX_CONTEXT_BYTES},
                  "disclosure":source.disclosure} for source in SOURCES]
-
-    def preview(self, owner_id: Any, thread_id: str, selector: ContextSelector) -> dict[str, Any]:
-        if not 1 <= len(thread_id.strip()) <= 128: raise ContextSourceError("thread_id is invalid")
-        result = self.read(owner_id, selector)
-        context_ref = token_urlsafe(32)
-        expires_at = self.clock() + REF_TTL
-        self.store.write_context_snapshot(user_id=owner_id,context_id=sha256(context_ref.encode()).hexdigest(),
-            thread_id=thread_id,source_id=selector.source_id,resource=selector.resource,as_of=result["as_of"],
-            expires_at=expires_at,records=result["records"],provenance=result["provenance"])
-        return {"source_id":selector.source_id,"resource":selector.resource,"preview":result["records"],
-                "as_of":result["as_of"],"provenance":result["provenance"],"context_ref":context_ref,"expires_at":expires_at}
 
     def read(self, owner_id: Any, selector: ContextSelector) -> dict[str, Any]:
         source = SOURCE_BY_ID.get(selector.source_id)
@@ -103,16 +82,6 @@ class ContextSourceService:
                 "bounds":{"limit":selector.limit,"returned":len(records),"truncated":truncated,
                           "max_output_bytes":MAX_CONTEXT_BYTES},
                 "disclosure":f"{source.disclosure} Data is shared with an external AI service."}
-
-    def resolve(self, owner_id: Any, thread_id: str, turn_id: str, refs: Sequence[str]) -> dict[str, Any]:
-        snapshots=[]
-        for context_ref in refs:
-            row=self.store.read_context_snapshot(owner_id,sha256(context_ref.encode()).hexdigest())
-            expires=row.get("expires_at") if row else None
-            if not row or row.get("thread_id") != thread_id or not isinstance(expires,datetime) or self.clock() >= expires:
-                raise ContextReferenceNotFound("context reference is invalid or expired")
-            snapshots.append({key:row[key] for key in ("source_id","resource","as_of","records","provenance")})
-        return {"owner_id":str(owner_id),"thread_id":thread_id,"turn_id":turn_id,"snapshots":snapshots}
 
     def _load(self, owner_id: Any, selector: ContextSelector) -> Sequence[Mapping[str, Any]]:
         if selector.source_id == "janus-core":

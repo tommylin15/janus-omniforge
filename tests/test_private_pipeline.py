@@ -192,8 +192,8 @@ def test_deletion_removes_iceberg_before_postgres_completion():
         def complete_deletion(self,request_id,user_id): calls.append(("postgres",user_id))
     class DeletionStore:
         def delete_user(self,user_id): calls.append(("iceberg",user_id))
-    assert PrivatePipeline(DeletionRepository(),DeletionStore(),lambda symbols,when:{},lambda user_id:calls.append(("auth",user_id))).run(date(2026,9,4))==9
-    assert calls==[("iceberg",USER),("auth",USER),("postgres",USER)]
+    assert PrivatePipeline(DeletionRepository(),DeletionStore(),lambda symbols,when:{}).run(date(2026,9,4))==9
+    assert calls==[("iceberg",USER),("postgres",USER)]
 
 
 def test_private_iceberg_note_rows_are_scoped_by_user():
@@ -210,12 +210,6 @@ def test_private_iceberg_note_rows_are_scoped_by_user():
         rows=store.rows("note_revisions",USER)
         assert [row["body"] for row in rows]==["mine"]
 
-        expires=datetime.now(timezone.utc)+timedelta(minutes=15)
-        store.write_context_snapshot(user_id=USER,context_id="a"*64,thread_id="thread-a",source_id="janus-core",
-                                     resource="ohlcv",as_of="2026-09-05",expires_at=expires,
-                                     records=[{"symbol":"2330"}],provenance=[{"source_id":"twse"}])
-        assert store.read_context_snapshot(USER,"a"*64)["records"]==[{"symbol":"2330"}]
-        assert store.read_context_snapshot(other,"a"*64) is None
     finally:
         catalog.engine.dispose()
         shutil.rmtree(root)

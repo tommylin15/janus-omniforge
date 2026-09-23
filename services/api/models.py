@@ -8,8 +8,6 @@ from enum import StrEnum
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from .engine_security import AgentRuntime, Capability
-
 from pydantic import BaseModel, ConfigDict, Field, RootModel, model_validator
 
 
@@ -133,8 +131,6 @@ class LedgerEventIn(StrictModel):
         if supplied - allowed:
             raise ValueError(f"{self.event_type} contains unrelated fields")
         return self
-
-
 class CorrectionIn(StrictModel):
     expected_version: Annotated[int, Field(ge=1)]
     replacement: LedgerEventIn
@@ -278,107 +274,3 @@ class ContextSelector(StrictModel):
         if self.start_date and self.end_date and (self.end_date - self.start_date).days > 366:
             raise ValueError("context date range cannot exceed 366 days")
         return self
-
-
-class ContextPreviewIn(StrictModel):
-    selector: ContextSelector
-
-
-class ContextResolveIn(StrictModel):
-    owner_id: UUID
-    thread_id: Annotated[str, Field(min_length=1, max_length=128)]
-    turn_id: Annotated[str, Field(min_length=1, max_length=128)]
-    context_refs: Annotated[list[Annotated[str, Field(min_length=32, max_length=128)]], Field(min_length=1, max_length=10)]
-
-    @model_validator(mode="after")
-    def validate_refs(self) -> "ContextResolveIn":
-        if len(self.context_refs) != len(set(self.context_refs)):
-            raise ValueError("context_refs must be unique")
-        return self
-
-
-class McpServerIn(StrictModel):
-    server_id: Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9-]{0,39}$")]
-    config_ref: Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")]
-    enabled: bool = True
-    tool_grants: Annotated[list[Annotated[str, Field(pattern=r"^[A-Za-z0-9._:-]{1,192}$")]], Field(max_length=128)] = []
-
-    @model_validator(mode="after")
-    def validate_grants(self) -> "McpServerIn":
-        if len(self.tool_grants) != len(set(self.tool_grants)):
-            raise ValueError("tool_grants must be unique")
-        if any(not grant.startswith(f"{self.server_id}__") for grant in self.tool_grants):
-            raise ValueError("tool grants must use the server namespace")
-        return self
-
-
-class McpServersPutIn(StrictModel):
-    items: Annotated[list[McpServerIn], Field(max_length=8)]
-
-    @model_validator(mode="after")
-    def validate_servers(self) -> "McpServersPutIn":
-        if len({item.server_id for item in self.items}) != len(self.items):
-            raise ValueError("server_id must be unique")
-        return self
-
-
-class SkillStep(StrictModel):
-    tool: Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$")]
-    args: dict[str, Any] = Field(default_factory=dict)
-
-
-class SkillDefinition(StrictModel):
-    prompt: Annotated[str, Field(min_length=1, max_length=12_000)]
-    required_tools: Annotated[list[Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$")]], Field(max_length=32)] = Field(default_factory=list)
-    workflow: Annotated[list[SkillStep], Field(max_length=32)] = Field(default_factory=list)
-
-    @model_validator(mode="after")
-    def validate_scope(self) -> "SkillDefinition":
-        if len(self.required_tools) != len(set(self.required_tools)):
-            raise ValueError("required_tools must be unique")
-        required = set(self.required_tools)
-        if any(step.tool not in required for step in self.workflow):
-            raise ValueError("workflow tools must be declared in required_tools")
-        return self
-
-
-class SkillRevisionIn(StrictModel):
-    skill_id: Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9-]{0,127}$")]
-    revision: Annotated[int, Field(ge=1)]
-    definition: SkillDefinition
-
-
-class SkillStateIn(StrictModel):
-    enabled: bool
-    revision: Annotated[int | None, Field(ge=1)] = None
-
-
-class RuntimeBindingIn(StrictModel):
-    runtime: AgentRuntime
-    model: Annotated[str, Field(min_length=1, max_length=128)]
-    assistant_profile: Annotated[str, Field(min_length=1, max_length=128)]
-    skill_profile: Annotated[str | None, Field(min_length=1, max_length=128)] = None
-    model_capabilities: list[Capability] = Field(default_factory=list)
-
-
-class ThreadCreateIn(RuntimeBindingIn):
-    thread_id: Annotated[str | None, Field(min_length=1, max_length=128)] = None
-    parent_thread_id: Annotated[str | None, Field(min_length=1, max_length=128)] = None
-
-
-class ForkThreadIn(StrictModel):
-    thread_id: Annotated[str | None, Field(min_length=1, max_length=128)] = None
-
-
-class MessageIn(StrictModel):
-    content: Annotated[str, Field(min_length=1, max_length=50_000)]
-    turn_id: Annotated[str | None, Field(min_length=1, max_length=128)] = None
-    context_artifact_ref: Annotated[str | None, Field(min_length=1, max_length=512)] = None
-    skill_id: Annotated[str | None, Field(pattern=r"^[a-z0-9][a-z0-9-]{0,127}$")] = None
-    skill_revision: Annotated[int | None, Field(ge=1)] = None
-    continuation: dict[str, Any] = Field(default_factory=dict)
-
-
-class ApprovalResponseIn(StrictModel):
-    approved: bool
-    params_digest: Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]

@@ -5,7 +5,7 @@ project `gen-lang-client-0593591102`、region `us-central1`。執行 GCP
 bootstrap、migration、Cloud Build 或 Cloud Run Job 前，仍須依
 `doc/PROJECT_RULES.md` 取得當次明確授權。
 
-omniAgent split Chat ownership 尚未切換：Janus 仍是 Chat thread/event 的 live writer，`016_private_assistant_storage.sql` 已套用歷史不得移除或重排。omniAgent 的 `omni_chat` schema 尚未套用，歷史 owner mapping／export-copy-verify、runtime dispatch、routing cutover 均待獨立驗收；本 runbook 不可作為已 cutover 的依據。
+Janus Agent／Chat hard split 已有 source 變更，尚未測試或部署。既有 dev `janus-api` 仍提供舊 Chat runtime；新 source 將保留 Janus MCP/OAuth 與投資功能，不再建置舊 Chat UI。`016_private_assistant_storage.sql` 與歷史資料必須保留。請先看 [split status](omniagent-split-status.md)；下方舊 Phase 5 記錄僅供歷史查核，不可用於新部署。
 
 Phase 5 source split 與部署保護已完成：API image 固定使用最後一版拆分前 commit `5d24d0638b2667c6c4e9b68620223adef5c08e8d` 的 `services/api/legacy-user-app-web.tar.gz`，建置時驗證 SHA-256、`/app/` base href、legacy Chat route 與 Admin OAuth client ID；不重建目前已移除 Chat 的 Janus `apps/user_app`。GCP dev build `d46fd92e-1bcf-482b-b4fd-ee59c4ef8c38`、候選驗收 `d61ac9ee-616f-4a37-8010-d1b7f6ddab07` 與 canonical 驗收 `123683e7-6fa8-444e-a00d-e12af07045c8` 均成功。omniAgent OAuth、runtime dispatch、Janus context、Skills/MCP、歷史資料 migration 與 live cutover 均未完成。
 

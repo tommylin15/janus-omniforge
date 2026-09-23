@@ -5,13 +5,11 @@ on:
     paths:
       - 'apps/user_app/**'
       - 'services/api/Dockerfile'
-      - 'services/api/legacy-user-app-web.tar.gz'
       - '.github/workflows/flutter-user-app.yml'
   pull_request:
     paths:
       - 'apps/user_app/**'
       - 'services/api/Dockerfile'
-      - 'services/api/legacy-user-app-web.tar.gz'
       - '.github/workflows/flutter-user-app.yml'
 
 jobs:
@@ -22,15 +20,6 @@ jobs:
         working-directory: apps/user_app
     steps:
       - uses: actions/checkout@v4
-      - name: Verify pinned legacy Web artifact
-        working-directory: .
-        run: |
-          echo 'b2cd74213703d606dec511fa2c43befbc5518a8685f5c2bf3c19eab7c7e72825  services/api/legacy-user-app-web.tar.gz' | sha256sum -c -
-          mkdir -p "$RUNNER_TEMP/legacy-web"
-          tar -xzf services/api/legacy-user-app-web.tar.gz -C "$RUNNER_TEMP/legacy-web"
-          grep -q '<base href="/app/">' "$RUNNER_TEMP/legacy-web/index.html"
-          grep -q '/api/v1/me/chats/threads' "$RUNNER_TEMP/legacy-web/main.dart.js"
-          grep -q '131494961796-samjcgtts8kkprjs5nv7kh2qts92su0k.apps.googleusercontent.com' "$RUNNER_TEMP/legacy-web/main.dart.js"
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -39,4 +28,4 @@ jobs:
       - run: flutter analyze --no-fatal-infos lib test
       - run: flutter test
       - run: flutter create . --platforms web --no-pub
-      - run: flutter build web
+      - run: flutter build web --base-href /app/

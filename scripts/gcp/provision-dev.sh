@@ -45,7 +45,6 @@ ensure_sa postgres-vm 'PostgreSQL VM runtime'
 ensure_sa janus-user-api 'Janus private User API'
 ensure_sa janus-private-pipeline 'Janus private pipeline'
 ensure_sa intelligence-mart 'Janus Intelligence Mart runtime'
-ensure_sa janus-agent-gateway 'Janus Agent Gateway runtime'
 
 for layer in stage core mart private; do
   bucket="${project}-dev-${layer}"

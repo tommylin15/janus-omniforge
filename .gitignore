@@ -15,6 +15,7 @@ __pycache__/
 .eggs/
 build/
 dist/
+**/.dart_tool/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/

@@ -21,6 +21,12 @@ steps:
           grep -q '<base href="/app/">' "/tmp/$(basename "${path}").html"
           grep -Eq 'main\.dart\.js|flutter_bootstrap\.js' "/tmp/$(basename "${path}").html"
         done
+        bundle_status="$(curl --silent --show-error --max-time 60 --output /tmp/main.dart.js --write-out '%{http_code}' "${base}/app/main.dart.js")"
+        echo "path=/app/main.dart.js status=${bundle_status}"
+        test "${bundle_status}" = 200
+        ! grep -q '/api/v1/me/chats/threads' /tmp/main.dart.js
+        grep -q '131494961796-samjcgtts8kkprjs5nv7kh2qts92su0k.apps.googleusercontent.com' /tmp/main.dart.js
+        echo 'Janus Web bundle excludes legacy Chat API and contains Admin OAuth client'
         for path in \
           /api/v1/admin/stocks \
           /api/v1/admin/executions?limit=1 \

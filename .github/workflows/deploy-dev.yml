@@ -114,6 +114,9 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v2
       - name: Deploy api
         shell: bash
+        env:
+          GOOGLE_USER_CLIENT_ID: ${{ vars.GOOGLE_USER_CLIENT_ID }}
+          GOOGLE_ADMIN_CLIENT_ID: ${{ vars.GOOGLE_ADMIN_CLIENT_ID }}
         run: bash scripts/gcp/deploy-dev.sh api
       - name: Verify dev runtimes
         shell: bash

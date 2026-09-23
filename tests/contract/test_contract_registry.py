@@ -12,14 +12,14 @@ class ContractRegistryTests(unittest.TestCase):
         cls.registry = json.loads((ROOT / "packages/contracts/registry.json").read_text())
         cls.policy = json.loads((ROOT / "packages/governance/policy.json").read_text())
 
-    def test_required_ids_and_events_exist(self):
+    def test_janus_contracts_exist_and_agent_schemas_are_absent(self):
         self.assertIn("twse", self.registry["sourceIds"])
         self.assertIn("core", self.registry["datasetIds"])
         self.assertIn("CoreDatasetReadyV1", self.registry["schemas"])
         self.assertIn("MartReportReadyV1", self.registry["schemas"])
         for schema_name in ("RuntimeBindingV1", "AgentEventV1", "ContextEgressV1", "ContextSourceV1",
                             "ContextSelectorV1", "ContextPreviewV1", "ContextResolveV1", "ApprovalRequestV1"):
-            self.assertIn(schema_name, self.registry["schemas"])
+            self.assertNotIn(schema_name, self.registry["schemas"])
         for schema_name in ("MartEvidenceV1", "MartRolePayloadV1", "MartScopedAnalysisV1", "MartPublicationIndexV1", "MartCandidateHealthV1"):
             self.assertIn(schema_name, self.registry["schemas"])
         self.assertEqual(set(self.registry["enums"]["analysisOutcome"]),

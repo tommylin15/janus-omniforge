@@ -218,10 +218,9 @@ def calculate_marts(events: Iterable[dict[str, Any]], prices: dict[str, Decimal 
 class PrivatePipeline:
     def __init__(self, repository: Any, store: Any,
                  prices: Callable[[set[str],date],dict[str,Decimal|None]],
-                 assistant_cleanup: Callable[[Any],None] | None = None,
                  memberships: Callable[[set[str],date],dict[str,list[dict[str,Any]]]] | None = None,
                  valuation_date_resolver: Callable[[],date] | None = None) -> None:
-        self.repository,self.store,self.prices,self.assistant_cleanup=repository,store,prices,assistant_cleanup
+        self.repository,self.store,self.prices=repository,store,prices
         self.memberships=memberships or (lambda _symbols,_when:{})
         self.valuation_date_resolver=valuation_date_resolver
 
@@ -251,13 +250,6 @@ class PrivatePipeline:
             self.repository.advance_pipeline_checkpoint(completed)
         for request in self.repository.pending_deletions():
             self.store.delete_user(request["user_id"])
-            if self.assistant_cleanup is None:
-                if not self.repository.assistant_cleanup_required(request["user_id"]):
-                    self.repository.complete_deletion(request["request_id"],request["user_id"])
-                    continue
-                self.repository.mark_deletion_cleanup_pending(request["request_id"],request["user_id"])
-                continue
-            self.assistant_cleanup(request["user_id"])
             self.repository.complete_deletion(request["request_id"],request["user_id"])
         return completed
 
@@ -278,25 +270,12 @@ def main() -> None:
         "PRIVATE_CATALOG_PASSWORD": ("pipeline_catalog_password", "catalog_password"),
         "CORE_CATALOG_PASSWORD": "core_catalog_password",
     })
-    if os.getenv("ASSISTANT_STORAGE_ACCEPTANCE") == "true":
-        from .assistant_storage_acceptance import run
-        run()
-        print("private assistant GCS/Iceberg acceptance passed")
-        return
     from .repository import repository_from_env
     from .store import PrivateIcebergStore
-    from .mcp_gateway import McpGatewayClient
 
-    if os.getenv("MCP_GATEWAY_URL") and os.getenv("MCP_OWNER_SIGNING_KEY"):
-        gateway=McpGatewayClient.from_env()
-        def cleanup(user_id: Any) -> None:
-            gateway.logout_codex_session(user_id)
-            gateway.destroy_codex_auth(user_id)
-    else:
-        cleanup=None
     market=CorePriceReader.from_env()
     override=os.getenv("VALUATION_DATE") or None
-    completed=PrivatePipeline(repository_from_env(),PrivateIcebergStore.from_env(),market,cleanup,market.memberships,
+    completed=PrivatePipeline(repository_from_env(),PrivateIcebergStore.from_env(),market,market.memberships,
         lambda:resolve_valuation_date(None,market.latest_valuation_date)).run(
         date.fromisoformat(override) if override else None)
     print(f"private pipeline checkpoint={completed}")

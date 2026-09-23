@@ -19,6 +19,11 @@
 - [TODO 完成紀錄（2026-09-17：WBS-8 pilot release baseline）](archive/todo-completed-2026-09-17-wbs8-pilot-release-baseline.md)
 - [已完成 WBS 0／1／2／4](archive/wbs-completed-through-2026-08-31.md)
 
+## Janus／omniAgent hard split checkpoint（2026-09-23；本機測試通過，GCP 待驗收）
+
+- Janus source 已移除 generic Agent Gateway、Chat routes／storage runtime、generic MCP host/fixture、舊 Chat Web artifact；保留 Janus MCP/OAuth、bounded context、投資 User/Admin UI 與已套用 migration。本機 root Python 241 tests、TypeScript typecheck/lint/unit 3 tests、Flutter analyze（0 errors；20 existing info）與 Flutter widget tests 15 tests 通過。尚未 build API image、部署或做 GCP dev runtime acceptance，不標記 Phase 9 PASS。
+- 下一步 commit/push `main`、build immutable image、部署 GCP dev 並驗收 Janus/MCP；cleaned Janus 通過後，才盤點並移除 dedicated legacy Agent／omniAgent candidate runtime。詳見 [split status](omniagent-split-status.md)。
+
 ## 開發 checkpoint（2026-09-21；GCP dev Admin MVP 驗收完成）
 
 - 基線：root `python -m pytest -q` 261 passed、`npm.cmd run test:unit` 20 passed、Flutter widget 16 passed；root `pytest.ini` 只收 Janus `tests/`，內嵌 `token-savior` 需從其自身專案另跑。Admin membership service／FastAPI route 已補回，繁中 UI contract 已同步。

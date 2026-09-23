@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "version": "1.4.0",
+  "version": "2.0.0",
   "sourceIds": ["twse", "tpex", "mops", "finmind", "fugle", "shioaji", "taiex", "tpex-benchmark", "taifex", "tdcc", "yahoo-finance", "google-finance", "tiingo", "cmoney", "factset", "podcast", "ptt", "dcard", "stock-buzz"],
   "datasetIds": ["ohlcv", "valuation", "institutional", "financials", "events", "market-activity", "benchmark", "core", "mart-report"],
   "enums": {
@@ -111,30 +111,6 @@
     },
     "ExecutionV1": {
       "$ref": "control_plane.v1.json#/definitions/ExecutionV1"
-    },
-    "RuntimeBindingV1": {
-      "$ref": "assistant.v1.json#/definitions/RuntimeBindingV1"
-    },
-    "AgentEventV1": {
-      "$ref": "assistant.v1.json#/definitions/AgentEventV1"
-    },
-    "ContextEgressV1": {
-      "$ref": "assistant.v1.json#/definitions/ContextEgressV1"
-    },
-    "ContextSourceV1": {
-      "$ref": "assistant.v1.json#/definitions/ContextSourceV1"
-    },
-    "ContextSelectorV1": {
-      "$ref": "assistant.v1.json#/definitions/ContextSelectorV1"
-    },
-    "ContextPreviewV1": {
-      "$ref": "assistant.v1.json#/definitions/ContextPreviewV1"
-    },
-    "ContextResolveV1": {
-      "$ref": "assistant.v1.json#/definitions/ContextResolveV1"
-    },
-    "ApprovalRequestV1": {
-      "$ref": "assistant.v1.json#/definitions/ApprovalRequestV1"
     }
   }
 }

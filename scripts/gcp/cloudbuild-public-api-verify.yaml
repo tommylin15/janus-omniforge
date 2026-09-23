@@ -26,6 +26,20 @@ steps:
         assert get("/health")[0] == 200
         assert get("/api/v1/public/health")[0] == 200
         assert get("/api/v1/me/profile")[0] == 401
+        assert get("/api/v1/me/chats/threads")[0] == 404
+        internal = urllib.request.Request(
+            base + "/internal/v1/assistant/context:resolve",
+            data=b"{}",
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            urllib.request.urlopen(internal, timeout=20)
+            internal_status = 200
+        except urllib.error.HTTPError as error:
+            internal_status = error.code
+        print("/internal/v1/assistant/context:resolve", internal_status, "route removed")
+        assert internal_status == 404
         feedback = get("/api/v1/me/analysis-feedback?analysis_execution_id=11111111-1111-1111-1111-111111111111&scope_type=symbol&scope_id=2330")
         assert feedback[0] == 401, feedback
         with urllib.request.urlopen(base + "/usefulness-feedback-acceptance.html", timeout=20) as response:
@@ -50,7 +64,7 @@ steps:
                 text = json.dumps(payload, ensure_ascii=False).lower()
                 for forbidden in ("traceback", "raw_payload", "artifact_uri", "gcs_uri", "secret", "token", "password"):
                     assert forbidden not in text, (path, forbidden, payload)
-                assert payload.get("data_status") in {"waiting", "publishable", "published", None}, (path, payload)
+                assert payload.get("data_status") in {"available", "waiting", "publishable", "published", None}, (path, payload)
             if status == 503:
                 assert payload == {"detail": "public data unavailable"}, (path, payload)
         print("public API GCP dev acceptance passed")
