@@ -1,5 +1,18 @@
 # Operations and testing
 
+## Janus／omniAgent hard split — source checkpoint (2026-09-23)
+
+Source commit `4371487d241c53a2541d9d2a5552e8b96e693fd1` exists on local `main`.
+Local verification: root Python **241 passed**; TypeScript typecheck and lint passed,
+unit tests **3 passed**; Flutter analyze had **0 errors** (20 existing info notices),
+Flutter widget tests **15 passed**; `git diff --check` passed. No immutable image,
+deployment or runtime acceptance has been performed for this source. Read-only GCP
+inventory found the live `janus-api` still has the legacy Agent environment variable
+names and the dedicated Janus/omniAgent candidate services still exist. A deployment
+script update removes those three obsolete API variables; no GCP resources or data
+have been changed. Treat the Phase 5 material below as historical evidence, not as
+the current source/runtime status.
+
 ## Phase 5 UI split deployment safety（2026-09-22）
 
 Janus API Docker build 使用最後一版拆分前 source commit `5d24d0638b2667c6c4e9b68620223adef5c08e8d` 的固定 Web artifact `services/api/legacy-user-app-web.tar.gz`（SHA-256 `b2cd74213703d606dec511fa2c43befbc5518a8685f5c2bf3c19eab7c7e72825`）。本地與 GitHub CI 均確認 archive、`/app/` base href、legacy Chat route 與 User／Admin OAuth client IDs。Janus CI [run 35705589439](https://github.com/tommylin15/janus-omniforge/actions/runs/35705589439)、omniAgent CI [run 35705540272](https://github.com/tommylin15/omniAgent/actions/runs/35705540272) 均 SUCCESS。GCP dev image build `d46fd92e-1bcf-482b-b4fd-ee59c4ef8c38` SUCCESS，digest `sha256:3be7c05489ab6329632a94372f8c311f7de5a0f4ab485ec012d8340eb2c13d9c`；revision `janus-api-00154-74s` 先以 `phase5-ui` tag 做 0% 流量候選驗收 `d61ac9ee-616f-4a37-8010-d1b7f6ddab07`，再切為 canonical 100% 並通過驗收 `123683e7-6fa8-444e-a00d-e12af07045c8`。兩次 GCP worker 驗證 health、`/app`、`/app/admin`、legacy Chat route 與兩個 OAuth client ID。未執行 omniAgent UI cutover、migration、IAM／Secret／OAuth 變更。GCP 目前沒有 `janus-api` 自動 trigger；本次直接手動提交 `cloudbuild.yaml`，詳見 [dev 部署 runbook](../runbook-dev-deploy.md)。舊 `usefulness-rollback` image 已不存在，使用者接受不保留舊 image rollback。

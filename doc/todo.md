@@ -22,7 +22,7 @@
 ## Janus／omniAgent hard split checkpoint（2026-09-23；本機測試通過，GCP 待驗收）
 
 - Janus source 已移除 generic Agent Gateway、Chat routes／storage runtime、generic MCP host/fixture、舊 Chat Web artifact；保留 Janus MCP/OAuth、bounded context、投資 User/Admin UI 與已套用 migration。本機 root Python 241 tests、TypeScript typecheck/lint/unit 3 tests、Flutter analyze（0 errors；20 existing info）與 Flutter widget tests 15 tests 通過。尚未 build API image、部署或做 GCP dev runtime acceptance，不標記 Phase 9 PASS。
-- 下一步 commit/push `main`、build immutable image、部署 GCP dev 並驗收 Janus/MCP；cleaned Janus 通過後，才盤點並移除 dedicated legacy Agent／omniAgent candidate runtime。詳見 [split status](omniagent-split-status.md)。
+- Source commit `4371487d241c53a2541d9d2a5552e8b96e693fd1` 已建立於本機 `main`；推送 `origin/main` 曾遭自動審核拒絕兩次，尚未繞過。下一 gate 是獲准推送後 build immutable image、部署既有 GCP dev `janus-api` 並驗收 Janus/MCP；通過後才盤點並移除 dedicated legacy Agent／omniAgent candidate runtime。GCP 唯讀盤點顯示舊 API revision 仍帶 legacy Agent 環境變數。詳見 [split status](omniagent-split-status.md)。
 
 ## 開發 checkpoint（2026-09-21；GCP dev Admin MVP 驗收完成）
 
@@ -39,8 +39,8 @@
 
 - WBS 4J 獨立 MVP：journal／note／Private Iceberg 完整交易、重跑、刪除與 A／B 隔離已結案；Private Portfolio closed-loop maintenance 已完成 code／local tests／GCP dev Job smoke／Scheduler config，四個 Scheduler 已 active；本次新交易 browser E2E 因 Google login popup UI 控制逾時尚未重跑，不宣稱本次 live trade path 完整驗收；個人化 analysis overlay 尚未啟用。
 - WBS 4C：Agent Runtime／AgentEvent、security contract、context sources、MCP host、Gemini REST、OpenRouter provider、Private Storage、Skills contract、Codex auth lifecycle 與 Chat API contract 的已完成部分已歸檔；Codex Chat API durable continuation、真人 device-code 流程與整合驗收仍未完成。
-- omniAgent split Chat ownership：獨立 Chat API／storage schema 為 code-only checkpoint；Janus live writer、已套用 migration 016 與歷史 conversation/private data 不變。歷史 owner mapping 與 export/copy/verify、runtime dispatch、cutover 均待驗證，不標記完成。
-- Phase 5 UI source split 與 Janus API deployment safety 已完成 GCP dev 驗收：generic Chat source／widget tests 由 omniAgent 持有；Janus Flutter source 僅保留投資／Admin。API image 固定拆分前 Web artifact；兩 repo Flutter CI SUCCESS，Janus build `d46fd92e-1bcf-482b-b4fd-ee59c4ef8c38`、0% 候選 `d61ac9ee-616f-4a37-8010-d1b7f6ddab07` 與 canonical `123683e7-6fa8-444e-a00d-e12af07045c8` 驗收成功；`janus-api-00154-74s` 現承接 100% 流量並保留舊 Chat UI。舊 image rollback 不保證，使用者已接受；Janus 仍是 live Chat writer。omniAgent OAuth、runtime dispatch、Janus context、Skills/MCP、historical migration、live cutover 未完成，Phase 5 不標記 completed。
+- omniAgent split Chat ownership：Janus source 已不含 Chat writer/runtime；已套用 migration 016 與歷史 conversation/private data 不變。資料 export/copy、omniAgent runtime dispatch 與切換仍待驗證，不標記完成。
+- Phase 5 UI source split 與 Janus API deployment safety（2026-09-22 歷史狀態，已被 2026-09-23 hard split source 取代）：當時 `janus-api-00154-74s` 使用拆分前 Web artifact，並保留舊 Chat UI 與 writer；其 build／revision 驗收證據仍見 `spec/operations-and-testing.md`。目前 source 已移除 Chat writer/runtime，新的 GCP dev 部署與 hard split 驗收仍待完成。
 - WBS-4C-CODEX-BRIDGE checkpoint：雙向 stdio JSON-RPC、Threads／Turns／Items、device-code managed login、request-bound Approvals、共用 MCP dynamic-tool path 與 `turn/started` 事件驅動 cancellation 已完成；GCP Cloud Build contract tests 5／5 通過，Cloud Run health 3／3 通過，live Codex cancellation 200 通過，checkpoint reconnect 通過。現有全域 Secret／固定 owner 仍僅是 dev POC，不代表 owner-scoped auth lifecycle 完成。驗收 build `2d95aa6e-cc4e-47d5-97ae-ce9dcfafc479`、revision `janus-agent-gateway-00017-tpf`、digest `sha256:b03a041f2ddf19d3028777d7531f94599fee728024dac471156932ad64df9541`。
 - WBS-4C-PRIVATE-STORAGE：migration 016、Private Iceberg assistant events／Skill revisions、PostgreSQL bounded index、credential-shaped field fail-closed、冪等重跑、A／B 隔離與 Codex auth cleanup pending 契約已完成；GCP dev evidence 詳見 `spec/operations-and-testing.md`。
 - WBS-4C-CODEX-AUTH-LIFECYCLE：完成部分已移至 [`archive/todo-completed-2026-09-09.md`](archive/todo-completed-2026-09-09.md)；互動式 device-code login 真人流程仍未驗收。

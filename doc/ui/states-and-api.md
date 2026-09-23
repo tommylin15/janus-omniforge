@@ -18,9 +18,9 @@
 
 ## 8. Janus User UI／FastAPI 契約
 
-- Janus Flutter repository 只負責 Janus 投資／Admin HTTPS、typed decoding 與 UI 狀態；不得計算正式分數、損益或 fallback 內容。generic Chat／Agent／MCP／approval client 已移至 omniAgent source，Janus User UI 不主動呼叫 omniAgent。
+- Janus Flutter repository 只負責 Janus 投資／Admin HTTPS、typed decoding 與 UI 狀態；不得計算正式分數、損益或 fallback 內容。generic Chat／Agent client 不屬於 Janus source，Janus User UI 不主動呼叫 omniAgent。Janus 自有 MCP／OAuth adapter 保留於 API。
 - 200 保存 response；404 依 error code 顯示不存在或等待批次；401／403 導向登入或安全拒絕；network／5xx 顯示服務錯誤。
-- Janus 投資頁一般載入不得啟動 scraper、Agent、LLM 或 Private Mart 重算。舊 Janus Chat API／SSE route 在部署切換前仍保留給既有 live client，但不屬於 Janus 新 UI source 的導航或元件契約。
+- Janus 投資頁一般載入不得啟動 scraper、Agent、LLM 或 Private Mart 重算。Janus source 不再提供 Chat API／SSE；GCP dev 舊 revision 尚未部署替換，不構成目前 API 契約。
 
 主要 public endpoints：
 
@@ -65,7 +65,7 @@ Flutter 隱藏控制不構成 auth。單角色 rerun 預設使用 current Produc
 未變更的 Fact Pack reuse；Core／Fact Pack 改變先重建 facts，prompt/model 改變不重算
 facts，CIO-only 改變不重跑 role，governance-only 改變不呼叫 LLM。
 
-Janus Private endpoint 只接受獨立 User OAuth audience 的 Google OIDC token；API 驗證 issuer、audience、expiry，以 Google `sub` 對應內部 UUID `user_id`，email 只供顯示。使用者身分不接受 request body 或 query string 指定 `user_id`，User token 不得存取 Admin endpoint。`DELETE /private-data` 回 `202`、request ID 與初始狀態；status endpoint 僅允許 request owner 查詢。舊 Chat／approval／MCP／Skills API 在 live cutover 前仍由 Janus 安全維護，不構成 Janus UI 的長期 product surface。
+Janus Private endpoint 只接受獨立 User OAuth audience 的 Google OIDC token；API 驗證 issuer、audience、expiry，以 Google `sub` 對應內部 UUID `user_id`，email 只供顯示。使用者身分不接受 request body 或 query string 指定 `user_id`，User token 不得存取 Admin endpoint。`DELETE /private-data` 回 `202`、request ID 與初始狀態；status endpoint 僅允許 request owner 查詢。舊 Chat／approval／Skills runtime 已自 Janus source 移除；既有資料與已套用 migrations 保留，Janus MCP/OAuth boundary 繼續維護。
 
 ## 9. ResearchContext state／API planning
 

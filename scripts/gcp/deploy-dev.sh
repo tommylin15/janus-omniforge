@@ -65,8 +65,7 @@ gcloud builds submit . \
   --config=cloudbuild.yaml \
   --substitutions="_DOCKERFILE=${dockerfile},_IMAGE_NAME=${image_name},_IMAGE_TAG=${tag},_DEPLOY_TARGET=${deploy_target},_RUNTIME_NAME=${runtime_name},_REGION=${region},_GIT_SHA=${git_sha},_NO_TRAFFIC=${no_traffic},_TRAFFIC_TAG=${traffic_tag},_REVISION_SUFFIX=${revision_suffix},_GOOGLE_USER_CLIENT_ID=${GOOGLE_USER_CLIENT_ID:-},_GOOGLE_ADMIN_CLIENT_ID=${GOOGLE_ADMIN_CLIENT_ID:-}"
 
-# The new image accepts both legacy and merged field names. Deploy it before
-# changing the Secret reference so service revisions never see an incompatible payload.
+# Keep job configurations aligned with their immutable image and current Secret bundle.
 case "${component}" in
   ingestion-core)
     gcloud run jobs update "${runtime_name}" --project="${project}" --region="${region}" \
@@ -121,6 +120,7 @@ case "${component}" in
       --service-account="janus-user-api@${project}.iam.gserviceaccount.com" \
       --min-instances=0 --max-instances=2 --concurrency=20 --timeout=60 \
       --update-env-vars="${api_env}" \
+      --remove-env-vars="INTERNAL_ASSISTANT_AUDIENCE,ASSISTANT_SERVICE_ACCOUNTS,MCP_GATEWAY_URL" \
       --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" \
       "${service_flags[@]}" --quiet
     ;;

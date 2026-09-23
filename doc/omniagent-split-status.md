@@ -13,9 +13,9 @@
 
 本機驗證：`python -m pytest -q` 241 passed；TypeScript typecheck/lint 通過，unit tests 3 passed；Flutter analyze 0 errors（20 個既有 style info），widget tests 15 passed；`git diff --check` 通過。測試中修正 private pipeline 殘留縮排、保留筆記 idempotency 所需的 `uuid5` import，並更新 contract registry 測試以要求 generic Agent schemas 不存在。
 
-1. `/ponytail-review` 已執行，未發現可再簡化的必要 diff；commit/push `main` 並記錄 source SHA。建 immutable Janus image、部署既有 GCP dev `janus-api`，記錄 Cloud Build ID、digest、revision 與設定。
+1. Source commit `4371487d241c53a2541d9d2a5552e8b96e693fd1` 已建立於本機 `main`。`origin/main` push 曾遭自動審核拒絕兩次；未推送、未以其他路徑繞過。待取得對該遠端寫入的明確核准後，再推送並建 immutable Janus image、部署既有 GCP dev `janus-api`，記錄 Cloud Build ID、digest、revision 與設定。
 3. 從 GCP dev runtime／Cloud Build worker 驗 Janus health、User/Admin UI、domain APIs、workloads、MCP metadata、initialize、tools/list、未授權 guard、OAuth 與可行的 authenticated tool call。ChatGPT app UI invocation 若無法實測，獨立標示。
 4. cleaned Janus 驗收通過後，盤點 caller 與 resource ownership，再刪 dedicated `janus-agent-gateway`、generic MCP fixture、暫停的 omniAgent candidate runtime 及其專用 IAM／Secret／SA。共用或 ownership 不明的資源先列出，不猜測刪除。
 5. 再跑 Janus runtime smoke，更新 README、SPEC／WBS／TODO／UI、runbook、operations evidence 與本文件；再次 `/ponytail-review` 後提交文件 checkpoint。只有 source、runtime、MCP、歷史完整性都實際通過，才能標記 `JANUS / OMNIAGENT HARD SOURCE AND RUNTIME SPLIT COMPLETE`；omniAgent live acceptance 仍 deferred。
 
-目前未執行 production build、commit、push、GCP 操作或資料異動。舊 GCP dev revision 仍提供 generic Chat；Phase 9 狀態為待驗收。
+目前已執行本機測試、建立 source commit，並做 GCP dev 唯讀盤點；未 build、部署、刪除 GCP 資源或更動資料。盤點顯示舊 GCP dev `janus-api` revision 仍提供 generic Chat，且帶有待部署時移除的舊 Agent 環境變數；Phase 9 狀態仍待驗收。

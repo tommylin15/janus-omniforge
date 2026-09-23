@@ -5,7 +5,7 @@
 
 ## 目前 UI 環境定位
 
-目前 GCP `dev` UI 是個人使用階段的真實操作介面，不是 demo／mock UI。Janus User／Admin 畫面呈現已持久化的投資與營運資料、真實登入狀態及 Job／Scheduler 結果；資料缺失、服務不可用、partial／stale 時要明確顯示狀態，不以 sample／placeholder 假裝成功。generic Chat／Agent UI 的 source ownership 已移至 omniAgent；live deployment 尚未切換。
+目前 GCP `dev` UI 是個人使用階段的真實操作介面，不是 demo／mock UI。Janus User／Admin 畫面呈現已持久化的投資與營運資料、真實登入狀態及 Job／Scheduler 結果；資料缺失、服務不可用、partial／stale 時要明確顯示狀態，不以 sample／placeholder 假裝成功。Janus source 不再包含 generic Chat／Agent UI；live deployment 尚未切換，舊 revision 仍可能提供該介面。
 
 測試 fixture、假 secret、故障注入或 localhost 頁面只供自動化／異常驗收，不應出現在正常使用者操作流或被列成正式資料來源。未來若建立獨立 Production UI，是多人化／HA／正式對外營運議題，不是目前 dev UI 能否真實使用的前置條件。
 

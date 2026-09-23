@@ -25,12 +25,9 @@
 - Admin 可按 market／industry／symbol scope 檢視已持久化的 `mart_scoped_analysis`；讀取不得觸發即時 Agent。System Guardrail 與 Output Schema 由系統鎖定；Role Methodology／CIO Prompt 由唯一 Admin 以 immutable version、content hash、author、timestamp 與 Profile reference 管理。
 - blocked report、raw payload、secret、traceback、broker data 不得公開。
 - User App 主頁以 `mart_daily_brief` 為唯一首屏資料入口；個股健檢讀取 `mart_candidate_health` 與可定位 evidence，前端不重算健康度。
-- `/api/v1/me/journal/*`、`/api/v1/me/notes/*`、`/api/v1/me/watchlist/*`、`/api/v1/me/chats/*`、`/api/v1/me/portfolio/*` 與 `/api/v1/me/investment-profile` 只允許 authenticated user 存取自己的資料。所有 query 與 index 以 `user_id` 作為所有權邊界；不接受 client 指定他人 `user_id`。
-- 私人助理 runtime 為 `openrouter | gemini | codex`，model／assistant profile 分離；每個 thread 固定 runtime／model，切換新建／fork，保留 parent lineage 與選取的 context。對話不綁定單一股票。
-- OpenRouter 使用 runtime `OPENROUTER_API_KEY` 動態選擇具所需 tools／streaming capability 的模型；Gemini 以 `GEMINI_API_KEY` 直接呼叫 Gemini Developer REST API 免費層，保留 Google Search Grounding／citations／查詢時間，不引入 Google GenAI SDK；Codex 由 Cloud Run Agent Gateway 在容器內以 stdio JSON-RPC 啟動 App Server，使用 managed OAuth／device-code，不使用直接 OpenAI API fallback。
-- 所有 runtime 共用 MCP Host 工具授權、Skills 與 AgentEvent UI；Codex 原生 sandbox／approval 另經 bridge 映射，不能用一般文字 token 串流取代。
+- `/api/v1/me/journal/*`、`/api/v1/me/notes/*`、`/api/v1/me/watchlist/*`、`/api/v1/me/portfolio/*` 與 `/api/v1/me/investment-profile` 只允許 authenticated user 存取自己的資料。Janus source 不提供 `/api/v1/me/chats/*` runtime；既有 migration／歷史私人資料保留，不代表仍有 Janus Chat writer。
 - User token 只接受 User OAuth audience 並只授權 `/api/v1/me/*`；不得用於 `/api/v1/admin/*`。Admin token／session 亦不因具管理權限而取得一般交易內容讀取能力。
-- User 可匯出自己的交易、筆記、關注股、Skills 與對話資料並要求刪除私人資料；刪除採可稽核、可重試的非同步流程，涵蓋 PostgreSQL、Private Core／Mart、GCS artifact、Codex thread／auth state 與 service cache，且不影響依法或安全要求保留的最小 audit metadata。排隊後該 owner 進入 `DELETING` 並拒絕新 login、turn 與 artifact write；任一步失敗保留 `CLEANUP_PENDING`，只有必要 cleanup 全部完成才可標示 `COMPLETED`。
+- User 可匯出其支援的交易、筆記與關注股資料，並要求刪除私人資料；刪除採可稽核、可重試的非同步流程，涵蓋 Janus PostgreSQL、Private Core／Mart 與 GCS artifact，且不影響依法或安全要求保留的最小 audit metadata。既有 assistant migration／歷史資料保留於本次 source split；刪除使用者私人資料時仍依既有 cleanup policy 處理。排隊後該 owner 進入 `DELETING` 並拒絕相關寫入；任一步失敗保留 `CLEANUP_PENDING`，只有必要 cleanup 全部完成才可標示 `COMPLETED`。
 - 交易日誌／PnL 納入私人 MVP；市場投票排行榜、遊戲化、付費、公開績效排名與券商同步不在當前範圍。
 - 個人記帳、筆記、關注股與私人聊天室可在公開 Mart 前獨立上線至 dev；未完成的「今日／公開探索」只顯示 coming soon，不得因此觸發即時分析或阻擋私人功能。
 - UI 詳細契約見 `../ui.md`。
@@ -51,31 +48,18 @@
   version、compare（role／CIO diff、validator failure、provider/model、latency、token
   usage、cost、fact hash）與 rollback；rollback 不覆蓋舊版。
 
-### 12.1 私人助理 runtime contract
+### 12.1 Janus／omniAgent runtime ownership
 
-- 不建立 React／Tauri 或使用者地端 runtime。generic Flutter Chat client source 已歸 omniAgent，經其 authenticated Chat API 使用 threads／events；Janus Flutter source 只保留投資 User/Admin UI。API image 固定拆分前 User App Web artifact，已在 GCP dev 驗證舊 Chat UI 仍由 Janus live API 提供；Janus Chat UI／FastAPI／Gateway 仍是相容性路徑，尚未 cutover 至 omniAgent。Codex App Server 與 stdio-only MCP 仍只在雲端容器執行。
-- Agent Gateway 使用 Cloud Run Service `min-instances=0` 按需啟動，MVP concurrency=1，限制 max instances、CPU、memory、request timeout 與暫存 volume。每個 turn 在容器內啟動或租用 owner-bound Codex／MCP 子行程；完成、取消、timeout 或 disconnect 後清理。持久狀態與 replay cursor 外存，不依賴 instance affinity。
-- Codex App Server 的 stdio JSONL 只存在 container process boundary，gateway 對前端提供 HTTPS SSE／POST；不得直接暴露其實驗性 WebSocket transport。App Server 目前屬實驗性且官方不支援 production workload，因此 managed auth refresh、Linux sandbox、child-process lifecycle、timeout／重連必須先通過 dev POC 與人工 production gate。
-- Codex device login 由 authenticated service request 呼叫 `/internal/v1/codex/session:login-start`，再以同一 owner 呼叫 `/internal/v1/codex/session:login-status`；Gateway 只回傳 bounded device-code 欄位，session 與 App Server process 綁定 owner，TTL 到期自動 eviction，成功後將 auth rotation 寫入 owner-keyed bundle entry。
-- MCP Host 每 server 一個 client／session，支援 Cloud Run 容器內 stdio、遠端 Streamable HTTP 與 legacy SSE；完成協定交涉、tools/list 分頁／變更、tools/call、取消、失敗清理與遠端認證。工具 namespace、參數 schema、timeout、輸出大小與 owner 必須驗證。可 HTTP 化且需獨立擴縮的 MCP 優先部署私有 Cloud Run Service。
-- Janus context adapter／內部 MCP 只讀已發布 Core／Mart 與 authenticated owner 的 Private Core／Mart，回傳 bounded records、as-of date、source ID、provenance 與 artifact reference；模型與外部 MCP 不取得 GCS URI、PostgreSQL credential 或任意 query。第三方 source 必須先登錄授權、quota、timeout、外送政策與 retention。
-- Assistant-facing source API 為 `GET /api/v1/me/ai-sources` 與 `POST /api/v1/me/chats/{conversation_id}/context-preview`。來源清單只回 source ID／kind、capabilities、as-of／freshness、owner scope、status、quota 與 disclosure；preview 只接受 typed resource selector／date range，回傳短預覽、provenance 摘要與短效 opaque `context_ref`，不接受 SQL、GCS URI、object path 或 client `user_id`。`POST .../messages` 只接受已核發且同 owner／thread／未過期的 `context_ref[]`，server 固定 turn snapshot 後再交 Agent。
-- 目前 Janus 的 `POST /internal/v1/assistant/context:resolve` 以 Google service identity／caller allowlist 保護；request 攜帶 owner／thread／turn 與 opaque refs，Janus 再以 owner／thread／expiry 查核 snapshot，回應去除 storage locator。現況尚未把 owner claim 與 service token 加密綁定，不得將其文件化為已完成的 signed-owner boundary。`packages/contracts/janus-context.v1.json` 描述 Janus 擁有的 snake_case wire；omniAgent 擁有 generic Agent contract，只有後續經驗證的 external consumer 才能走此 bounded API/MCP，不直接讀 Janus storage。既有 public market／journal／portfolio API 與 ingestion pipeline 不因拆分改變。
-- MCP 管理 API 為 `GET／PUT /api/v1/me/mcp/servers` 與 `GET /api/v1/me/mcp/servers/{server_id}/tools`；前端只管理 allowlisted config reference、啟用狀態與 tool grants，不能提交 stdio command、container image、raw secret 或任意 remote URL。server-side discovery 成功後才回 namespaced tool schema／health。
-- OpenRouter／Gemini adapter 將工具 schema 轉成各自 Function Calling 格式，保留模型 continuation metadata，執行有限輪次 loop。Codex 透過 dynamic-tool bridge 或受控 MCP facade 共用 Host 執行邊界；不重跑其內建 agent loop，不以共用 registry 取代實際授權。
-- Skills 可載入／啟用／停用／自訂，版本化 system prompt fragments、required tools 與 workflow；內建 skill 隨 immutable image 發版，自訂 revision 存 Private Iceberg／GCS 並由 PostgreSQL bounded index 定位，turn 開始時物化核准 snapshot 到暫存 sandbox。Skill 不得包含任意上傳 executable、改寫 host policy 或取得未核准工具。
-- 最小事件 envelope 包含 eventId、seq、threadId、turnId 及可選 itemId／provider IDs；事件種類為 text delta、item upsert、tool request／result、approval request／resolved、citation、usage、turn completed／cancelled／error。
-- SSE 使用既有 chats events route，支援 bounded replay／cursor／backpressure；authenticated HTTPS POST 傳送 approval／cancel。批准必須綁定 owner／turn／request／參數，重播與過期拒絕；provider 專屬 approval decision 由 adapter 映射。
-- Chat API 已提供 owner-scoped `POST/GET /api/v1/me/chats/threads`、thread read/fork、`POST .../messages`、bounded `GET .../events?cursor=&limit=`、cancel、approval response、assistant export 與 deletion status；message turn 的 provider continuation metadata 以受控 JSON 持久化於 PostgreSQL，event 仍寫入 Private Iceberg／索引。Agent Gateway 的 signed OpenRouter／Gemini dispatch 已於 GCP dev live probe 通過；Codex Chat API dispatch 會以 owner auth 啟動或 resume 原生 thread，並由 `tests/test_chat_api.py` 驗證 message → gateway → 下一 turn continuation。
-- omniAgent split 的 Chat API／`omni_chat` schema 目前僅為獨立程式碼與本地契約；Janus 仍是 live writer，migration 016 與歷史私人資料保持原狀。歷史 owner mapping、資料 export/copy/verify、runtime dispatch 與 routing cutover 均未驗收，詳見 omniAgent `docs/chat-storage-migration.md`。
-- Shell／寫檔預設不授權，經明確批准後只限該 turn 的 Cloud Run 暫存 sandbox；MCP process 另做程序／環境隔離。Janus Admin、交易／筆記／watchlist mutation 與下單仍禁止；外部內容及 Skill 無法覆蓋。
-- API／MCP keys 與 Codex auth cache 只在 Secret Manager 或另經核准的 GCP credential store，API payload 僅傳 connection reference。Dev 以三個 workload bundle 管理 credential；同 bundle consumer 共享 resource-level IAM 的安全取捨已由 owner 核准。Codex 由 authenticated identity 映射內部 owner UUID，Gateway 不接受 client 指定 Secret resource name；A／B auth 在共用 bundle 內以 UUID 分區，`CODEX_HOME` 與 App Server process 仍隔離。refresh 驗證該 owner 的新 entry 後銷毀舊 bundle version，刪除只移除該 owner entry；Gateway 不得取得 project-wide admin。工具輸出／event 先去 secret 再儲存，不保存 raw provider error；owner-scoped auth lifecycle 未通過 GCP dev 驗收時 fail closed。
-- Dev credential resource 由 operator 僅為 allowlisted owner 建立並逐資源授權；大量正式使用者的自助 provisioning 與成本另案核准，不藉此擴大 Gateway 或 User API 權限。
-- GCP dev Secret／bundle 對照、欄位名稱、消費者與 IAM metadata 以 [Secret Bundle 清單](../secret_list.md) 為單一查閱入口；provider bundle 包含 MCP signing key，不建立獨立 signing Secret。
-- Codex 刪除依序停止 owner session、執行 App Server logout、刪除 owner auth，再清私人 artifacts 與 PostgreSQL index；各步驟冪等，無 thread 或 auth 已不存在仍可成功。App Server logout 只代表 managed credentials 已清除，不宣稱供應商端 refresh token 已撤銷。Iceberg snapshot／orphan file 與 GCS object version 的實際保留期限必須被驗證並向 UI 揭露。
-- 長正文／context／citations／items／skill revisions 儘可能進 Private Iceberg；PostgreSQL 保存 bounded thread／turn／pending approval／usage reservation 索引與 artifact references。Cloud Run filesystem 只作 bounded ephemeral storage；核准保留的 artifact 寫入 Private GCS／Iceberg，刪除涵蓋雲端狀態與暫存 reference。
-- Gemini 免費 Grounding 須確認模型能力與專案 quota；額度不足／不可用明確回報，禁止自動付費。OpenRouter 啟用付費另需同意；quota／budget 用原子 reservation 防併發超支。私人 context 外送須明確選取並顯示供應商。
-- 只有 Cloud Run 無法滿足超過 request timeout 的不可中斷 turn、必要持久 daemon／特殊 sandbox 權限，或實測資源／連線需求時，才提出 Compute Engine／GKE 方案；必須先提供成本、安全、維運、資料遷移與退出評估，取得使用者明確決定後才能實作或建立資源。
+Janus 負責投資 User／Admin、domain API、bounded context 與 authenticated read-only
+MCP／OAuth boundary。Generic Chat UI、provider dispatch、Agent Gateway、Skills、approval
+與 Chat persistence 由 omniAgent 負責，不屬於 Janus source／runtime 契約。Janus 不提供
+`/api/v1/me/chats/*`。
+
+Hard split 移除 Janus Chat writer/runtime，但保留已套用 migrations（含
+`016_private_assistant_storage.sql`）與歷史私人資料；不隱含執行 export、copy、migration
+或 deletion。GCP dev revision 尚未替換，必須先完成 live runtime 驗收，才能退役 dedicated
+legacy Janus／omniAgent candidate services。Janus MCP endpoint 與 OAuth discovery／授權仍由
+Janus API 提供。
 
 ### 12.2 Janus ChatGPT MCP Connector
 
@@ -166,11 +150,10 @@ raw payload、credential、password、secret、token、private artifact locator 
 internal owner identifier。私人資料送往 ChatGPT 必須在 connector setup／UI 明確
 揭露為 external AI data use，不預先宣稱 OpenAI retention／training policy。
 
-ChatGPT MCP adapter 必須重用或抽離 shared bounded query boundary 的 source
-allowlist、owner scope、typed selector、date／range bound、record／output limit、
-sanitization、provenance 與 as-of semantics。不得直接重用目前 chat-only
-`ContextSourceService.preview()` 而產生不必要的 `context_ref`／snapshot；ChatGPT
-路徑應回傳 direct bounded read result，不需要 Janus chat `context_ref`。
+Janus MCP adapter 使用 bounded query boundary 的 source allowlist、owner scope、typed
+selector、date／range bound、record／output limit、sanitization、provenance 與 as-of
+semantics。Janus 不提供 Chat-only `ContextSourceService.preview()`、`context_ref` 或
+conversation snapshot；MCP 回傳 direct bounded read result。
 
 Protocol discovery／`tools/list` 只公開上述 schema、annotation、scope 與 disclosure，
 不含 owner data；`tools/call` 才執行 server-side auth／owner binding／quota。第一版不提供
@@ -181,8 +164,8 @@ snapshot storage。Developer mode／workspace plan 或 policy 是否允許連線
 既有 `janus-api` 現提供 stateless Streamable HTTP JSON-RPC `POST /mcp`，只處理
 initialize、ping、tools/list、tools/call 與必要 notification。三個 tool 均宣告 per-tool
 OAuth scope 與 read-only annotations；tool call 驗證 Janus access token 後，以 token subject
-綁定 internal owner。Chat API preview 與 MCP direct result 共用同一 bounded read／sanitize
-boundary，但 MCP 不建立 `context_ref` 或 conversation snapshot。
+綁定 internal owner，並由 MCP direct result 使用 bounded read／sanitize boundary；不建立
+Janus Chat `context_ref` 或 conversation snapshot。
 
 第一版只需要 remote MCP tool integration，不要求 embedded ChatGPT UI、Apps SDK
 component、custom React UI、write action 或 ChatGPT-side workflow builder。

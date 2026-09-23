@@ -2,7 +2,7 @@
 
 GCP-first AI lakehouse investment research platform
 
-Janus 的 source 正在進行 Agent／Chat hard split：投資 User/Admin UI 與 Janus MCP/OAuth 保留，generic Agent／Chat implementation 已從工作樹移除。這批變更尚待本機測試、GCP dev 部署及 runtime 驗收；目前 live `janus-api` 仍是舊 revision。進度與後續 gate 見 [split status](doc/omniagent-split-status.md)。
+Janus source 已移除 generic Agent／Chat runtime，保留投資 User／Admin UI、Janus MCP／OAuth 與既有資料。來源變更已在本機測試並建立 commit；推送、GCP dev 部署與 runtime 驗收尚待完成，目前 live `janus-api` 仍是舊 revision。進度與 gate 見 [split status](doc/omniagent-split-status.md)。
 
 > Codex 開發前必須先閱讀 `AGENTS.md` 與 `doc/PROJECT_RULES.md`。
 
