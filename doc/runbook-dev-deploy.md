@@ -5,7 +5,7 @@ project `gen-lang-client-0593591102`、region `us-central1`。執行 GCP
 bootstrap、migration、Cloud Build 或 Cloud Run Job 前，仍須依
 `doc/PROJECT_RULES.md` 取得當次明確授權。
 
-Janus Agent／Chat hard split source 已完成本機驗證並提交本機 commit；推送與 GCP dev 部署仍待完成。GCP dev 的唯讀盤點確認目前 `janus-api` 仍提供舊 Chat runtime，並保留舊 Agent 環境變數；新部署腳本會移除這些變數。新 source 保留 Janus MCP/OAuth 與投資功能，不建置舊 Chat UI。`016_private_assistant_storage.sql` 與歷史資料必須保留。請先看 [split status](omniagent-split-status.md)。下方 Phase 5 記錄是舊部署的歷史證據，不能作為目前 source 的 build/deploy 指令或狀態依據。
+Janus Agent／Chat hard split 已推送並部署至 GCP dev。Canonical `janus-api` revision `janus-api-hard-split-20260923-config` 使用 immutable digest `sha256:d1b9d7c2f3f5f05d142e514281cb36d791ef81b477ebf3ebadbf7fa310f591bf`、承接 100% traffic，保留 Janus MCP/OAuth 與投資功能，不建置舊 Chat UI。`016_private_assistant_storage.sql` 與歷史資料必須保留。驗收證據與剩餘 gate 見 [split status](omniagent-split-status.md)。下方 Phase 5 記錄只供歷史查核，不代表目前 source／revision。
 
 本 runbook 下方既有的 assistant／Agent Gateway、三 bundle 遷移與 Chat deployment 步驟已過時；不得照舊執行或用來退役資源。Hard split 專用 build／runtime acceptance／cleanup 須依 [split status](omniagent-split-status.md) 逐 gate 執行。
 
@@ -44,42 +44,33 @@ $env:ALLOW_DEV_PROVISION = "true"
 
 ## 2A. Dev runtime deployment (current path)
 
-2026-09-22 唯讀盤點：GCP Cloud Build `us-central1` 只有 `janus-web`、
-`janus-ingestion-core`、`janus-intelligence-mart` 三個 trigger；`global` 沒有
-trigger。**目前沒有 `janus-api` 自動觸發器**，推送 `main` 不會自動部署 API。
-`janus-web` 是舊 trigger，只包含 `apps/web/**` 與 `cloudbuild.yaml`。
-Janus API 使用 `cloudbuild.yaml` 手動提交既有 dev service image；這次直接以
-Cloud Build 更新 image，沒有修改 IAM、Secret 或 OAuth 設定。
+目前沒有 `janus-api` 自動 Cloud Build trigger；推送 `main` 不會部署 API。
+Janus API 以 `scripts/gcp/deploy-dev.sh api` 手動提交既有 Cloud Build，先建置
+immutable image，再部署既有 `janus-api` service。source split 的 Cloud Build ID、
+digest、revision 與 acceptance builds 見 [split status](omniagent-split-status.md)。
 
 `.github/workflows/deploy-dev.yml` is a manual-only fallback using GitHub OIDC.
 Configure these repository Variables before using that fallback:
 
 - `GCP_WIF_PROVIDER`: full GCP Workload Identity provider resource name
 - `GCP_CI_SERVICE_ACCOUNT`: the allowed CI service account email
+- `GOOGLE_USER_CLIENT_ID` and `GOOGLE_ADMIN_CLIENT_ID`: existing public OAuth
+  client IDs required at Flutter Web build time
 
 The fallback refuses to run unless the selected ref is `main`; it invokes
 `scripts/gcp/deploy-dev.sh` and then `scripts/gcp/verify-dev.sh`.
 
-GitHub OIDC 手動部署與直接 Cloud Build 都使用 `services/api/Dockerfile`。
-推送前須將 Web artifact 與 checksum 一起提交；未完成 omniAgent cutover 前，
-不得改用目前的 Janus User App source 建置 `/app`。
+`services/api/Dockerfile` 會由 `apps/user_app` build `/app/`，要求既有 User/Admin
+OAuth public client IDs。正式切 traffic 前，先以唯一 revision suffix/tag 部署
+`DEV_DEPLOY_NO_TRAFFIC=true` 候選，從 Cloud Build worker 跑 public API、Flutter UI、
+MCP/OAuth acceptance；全部通過後才以 `gcloud run services update-traffic` 明確切換。
+`MCP_OAUTH_ENABLED` 未提供時，deploy script 保留現有 runtime OAuth 設定；明確指定
+`true` 才須同時提供既有 issuer、resource URL 與 user allowlist。不得輸出或變更
+Secret payload、OAuth secret 或 callback 設定作為一般 image deploy 的副作用。
 
-目前 100% live revision：`janus-api-00154-74s`，image
-`us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/api@sha256:3be7c05489ab6329632a94372f8c311f7de5a0f4ab485ec012d8340eb2c13d9c`。
-本次先以 `phase5-ui` tag 驗收 0% 流量候選，再明確將 100% canonical 流量指向同一 revision。
-舊 100% revision `janus-api-admin-flutter-mvp-20260921` 的 image digest 是
-`sha256:36378556ae201a9e60c536e5146a687b6f6b527fc5219c15cd30db8fb254de22`。
-Registry 只保留最近兩個 API image；舊 `usefulness-rollback` tag 指向的
-`sha256:058d442f...` image 已不存在。使用者已接受舊 image rollback 不保證可用。
-若需回切舊 revision，先確認該 digest 仍存在，再執行：
-
-```powershell
-& $gcloud run services update-traffic janus-api `
-  --project=$project --region=$region `
-  --to-revisions=janus-api-admin-flutter-mvp-20260921=100
-```
-
-若舊 digest 已清除，不能把舊 revision tag 視為有效 rollback。固定 Web artifact 仍可讓後續 Janus API image 保留舊 Chat UI。Chat 資料 writer 與 Janus 舊 API 在 omniAgent cutover 前保持原路徑。
+目前 deployed revision 是 `janus-api-hard-split-20260923-config`。Cloud Build 會清理
+未標記的舊 image versions；回切前必須先確認舊 digest 仍存在，不可只憑 Cloud Run
+revision 名稱假設 image 可回復。舊 Phase 5 artifact/rollback 段落均為歷史證據。
 
 GitHub Actions `deploy-dev.yml` 仍是手動 fallback；新的 Flutter workflow 只驗證
 analyze／test／Web build，不部署 GCP。

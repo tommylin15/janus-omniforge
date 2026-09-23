@@ -66,7 +66,7 @@ roles 與 CIO；歷史 artifact immutable。單角色重跑由 Admin 操作，�
 
 ### 5.5 跨專案 UI 邊界
 
-Janus User App 不提供 Chat／Ask Janus／provider／runtime／MCP／Skills／approval 產品入口。generic 對話介面由 omniAgent 持有；Janus 透過 authenticated bounded API／MCP 提供使用者明確授權的投資 context。Janus source 已移除舊 Chat API runtime；尚未切換的 GCP dev revision 可能仍提供舊介面，這是部署待辦而非 Janus source 相容性契約。
+Janus User App 不提供 Chat／Ask Janus／provider／runtime／MCP／Skills／approval 產品入口。generic 對話介面由 omniAgent 持有；Janus 透過 authenticated bounded API／MCP 提供使用者明確授權的投資 context。Janus source 與 canonical GCP dev revision 均已移除舊 Chat API runtime 與舊 Chat UI。
 
 ### 5.6 資產與風險（P1）
 

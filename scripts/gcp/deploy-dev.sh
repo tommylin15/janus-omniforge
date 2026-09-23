@@ -100,18 +100,20 @@ case "${component}" in
     if [[ "${no_traffic}" == "true" ]]; then service_flags+=(--no-traffic); fi
     if [[ -n "${traffic_tag}" ]]; then service_flags+=(--tag="${traffic_tag}"); fi
     if [[ -n "${revision_suffix}" ]]; then service_flags+=(--revision-suffix="${revision_suffix}-config"); fi
-    api_env="MCP_OAUTH_ENABLED=${MCP_OAUTH_ENABLED:-false}"
+    api_env="${MCP_OAUTH_ENABLED:+MCP_OAUTH_ENABLED=${MCP_OAUTH_ENABLED}}"
     if [[ -n "${GOOGLE_ADMIN_ALLOWED_EMAILS:-}" ]]; then
-      api_env="${api_env},GOOGLE_ADMIN_ALLOWED_EMAILS=${GOOGLE_ADMIN_ALLOWED_EMAILS}"
+      api_env="${api_env:+${api_env},}GOOGLE_ADMIN_ALLOWED_EMAILS=${GOOGLE_ADMIN_ALLOWED_EMAILS}"
     fi
-    if [[ "${MCP_OAUTH_ENABLED:-false}" == "true" ]]; then
+    if [[ "${MCP_OAUTH_ENABLED:-}" == "true" ]]; then
       oauth_issuer="${MCP_OAUTH_ISSUER:?MCP_OAUTH_ISSUER is required when MCP_OAUTH_ENABLED=true}"
       oauth_resource="${MCP_RESOURCE_URL:?MCP_RESOURCE_URL is required when MCP_OAUTH_ENABLED=true}"
       oauth_emails="${GOOGLE_USER_ALLOWED_EMAILS:?GOOGLE_USER_ALLOWED_EMAILS is required when MCP_OAUTH_ENABLED=true}"
       [[ "${oauth_issuer}" == https://mcp-oauth---*.a.run.app ]] || { echo "Dev OAuth issuer must use the mcp-oauth tag." >&2; exit 1; }
       [[ "${oauth_resource}" == https://mcp-adapter---*.a.run.app/mcp ]] || { echo "Dev MCP resource must use the mcp-adapter tag." >&2; exit 1; }
-      api_env="${api_env},MCP_OAUTH_ISSUER=${oauth_issuer},MCP_RESOURCE_URL=${oauth_resource},GOOGLE_USER_ALLOWED_EMAILS=${oauth_emails}"
+      api_env="${api_env:+${api_env},}MCP_OAUTH_ISSUER=${oauth_issuer},MCP_RESOURCE_URL=${oauth_resource},GOOGLE_USER_ALLOWED_EMAILS=${oauth_emails}"
     fi
+    service_env_flags=()
+    if [[ -n "${api_env}" ]]; then service_env_flags+=(--update-env-vars="${api_env}"); fi
     deployed_digest="$(gcloud artifacts docker images describe \
       "us-central1-docker.pkg.dev/${project}/janusai-poc/api:${tag}" \
       --project="${project}" --format='value(image_summary.digest)')"
@@ -119,7 +121,7 @@ case "${component}" in
       --image="us-central1-docker.pkg.dev/${project}/janusai-poc/api@${deployed_digest}" \
       --service-account="janus-user-api@${project}.iam.gserviceaccount.com" \
       --min-instances=0 --max-instances=2 --concurrency=20 --timeout=60 \
-      --update-env-vars="${api_env}" \
+      "${service_env_flags[@]}" \
       --remove-env-vars="INTERNAL_ASSISTANT_AUDIENCE,ASSISTANT_SERVICE_ACCOUNTS,MCP_GATEWAY_URL" \
       --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-postgres-api-bundle:latest" \
       "${service_flags[@]}" --quiet

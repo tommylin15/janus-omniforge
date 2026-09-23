@@ -20,7 +20,7 @@
 
 - Janus Flutter repository 只負責 Janus 投資／Admin HTTPS、typed decoding 與 UI 狀態；不得計算正式分數、損益或 fallback 內容。generic Chat／Agent client 不屬於 Janus source，Janus User UI 不主動呼叫 omniAgent。Janus 自有 MCP／OAuth adapter 保留於 API。
 - 200 保存 response；404 依 error code 顯示不存在或等待批次；401／403 導向登入或安全拒絕；network／5xx 顯示服務錯誤。
-- Janus 投資頁一般載入不得啟動 scraper、Agent、LLM 或 Private Mart 重算。Janus source 不再提供 Chat API／SSE；GCP dev 舊 revision 尚未部署替換，不構成目前 API 契約。
+- Janus 投資頁一般載入不得啟動 scraper、Agent、LLM 或 Private Mart 重算。Janus source 與 canonical GCP dev revision 均不提供 Chat API／SSE。
 
 主要 public endpoints：
 

@@ -57,9 +57,10 @@ MCP／OAuth boundary。Generic Chat UI、provider dispatch、Agent Gateway、Ski
 
 Hard split 移除 Janus Chat writer/runtime，但保留已套用 migrations（含
 `016_private_assistant_storage.sql`）與歷史私人資料；不隱含執行 export、copy、migration
-或 deletion。GCP dev revision 尚未替換，必須先完成 live runtime 驗收，才能退役 dedicated
-legacy Janus／omniAgent candidate services。Janus MCP endpoint 與 OAuth discovery／授權仍由
-Janus API 提供。
+或 deletion。GCP dev canonical revision 已切換至 cleaned source，Chat／Agent routes 不再
+提供；Janus 專用 gateway／fixture 與 IAM/Secret/SA 已清除。Janus MCP endpoint 與 OAuth
+discovery／授權仍由 Janus API 提供。互動式 authenticated tool call 尚未驗證；omniAgent
+live runtime acceptance 不由 Janus 部署代替。
 
 ### 12.2 Janus ChatGPT MCP Connector
 
