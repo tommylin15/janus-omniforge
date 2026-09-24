@@ -1,6 +1,6 @@
 # Operations and testing
 
-## WBS-6 transaction UX 2.0 — local implementation checkpoint (2026-09-24)
+## WBS-6 transaction UX 2.0 — dev candidate checkpoint (2026-09-24)
 
 User App now has holdings／records／reports／notes navigation, year-filtered month
 accordions, transaction detail／append-only correction, event-specific fee／tax／memo
@@ -11,9 +11,17 @@ values. Monthly summaries are hidden until their Mart `ledger_version` matches t
 current owner ledger. The Private Pipeline preserves each quote date, marks a quote stale
 when it predates the portfolio valuation date, and withholds aggregate unrealized PnL
 and XIRR when any held symbol is stale or missing. Local validation: Flutter widget tests **19 passed**, Flutter
-analyze clean, and targeted API／pipeline tests **43 passed**. No dev deployment or live
-browser acceptance was performed. The UI shows valuation date, stale-price, missing-price,
-and partial states from the backend. WBS-6 acceptance remains in progress.
+analyze clean, and targeted API／pipeline tests **43 passed**. Commit
+`50b1d41068cbfa281113ca039b37539083af2c49` was deployed to the existing dev Cloud Run
+service as no-traffic candidate revision `janus-api-txux2-20260924-config` (tag
+`txux2-20260924`), build `ddbbe092-0268-49d7-a754-b7470230d269`, image digest
+`sha256:ff40b91c48bd273616bacd25088051a987d809f87150a8721a18ef70900d6b36`.
+Revision Ready=True; `/health` and `/app/` returned HTTP 200; candidate traffic is 0%
+and existing dev traffic remains on `janus-api-ownerabfix20260924`. At 2026-09-24
+13:04 UTC, authenticated Chrome acceptance was still pending because Chrome was not
+available in the computer-use browser list (only Codex In-app Browser was available).
+The IAB showed the Google sign-in screen; no transaction data was created or changed.
+WBS-6 acceptance remains in progress pending authenticated browser acceptance.
 
 ## WBS-8 OAuth refresh-token follow-up — GCP dev (2026-09-24)
 
