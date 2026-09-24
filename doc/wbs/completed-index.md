@@ -1,13 +1,11 @@
 # Janus WBS — 已完成工作索引
 
-## 已完成 WBS 索引
+本檔只提供歷史導航；active execution queue 與未完成 acceptance 一律以 [`../todo.md`](../todo.md) 為準。
 
-WBS 0、1、2、4 已完成並移至
-[archive/wbs-completed-through-2026-08-31.md](../archive/wbs-completed-through-2026-08-31.md)。
-本檔只保留仍含未完成範圍的 WBS。
+## 已完成／退役範圍
 
-WBS 4J 的獨立 MVP 已於 2026-09-05 完成，證據移至
-[archive/todo-completed-2026-09-05.md](../archive/todo-completed-2026-09-05.md)。
-原 WBS 文件保留，因個人化 `mart_scoped_analysis` overlay 仍依賴 WBS 5。
+- WBS 0、1、2、4：已完成並移至 [`../archive/wbs-completed-through-2026-08-31.md`](../archive/wbs-completed-through-2026-08-31.md)。
+- WBS 4J 獨立 MVP：2026-09-05 checkpoint 見 [`../archive/todo-completed-2026-09-05.md`](../archive/todo-completed-2026-09-05.md)。原 WBS 文件仍保留，因後續個人化 analysis overlay 尚有跨 WBS dependency。
+- WBS 4C generic Chat／Agent：2026-09-23 Janus hard split 後退役。舊規劃見 [`../archive/wbs-4c-janus-assistant-plan-superseded-2026-09-23.md`](../archive/wbs-4c-janus-assistant-plan-superseded-2026-09-23.md)。Janus 只保留 domain API 與 authenticated read-only MCP／OAuth connector；其目前 acceptance 不屬於 WBS 4C，依 active TODO 判定。
 
-Janus 原 WBS 4C Chat／Agent runtime 已於 2026-09-23 hard split 後退役；Janus 保留 domain API 與 read-only MCP／OAuth connector。舊規劃移至[封存文件](../archive/wbs-4c-janus-assistant-plan-superseded-2026-09-23.md)，剩餘 split gate 見[狀態文件](../omniagent-split-status.md)。
+Janus／omniAgent split 的歷史入口為 [`../omniagent-split-status.md`](../omniagent-split-status.md)。omniAgent 自身後續 runtime／gateway／chat 驗收不再是 Janus active gate。

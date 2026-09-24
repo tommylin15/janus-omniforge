@@ -1,36 +1,36 @@
 # Janus — Parallel-Live Dev 操作 Runbook
 
-日期：2026-09-20
+日期：2026-09-24
 
-本文件補充 `runbook-dev-deploy.md`。現有 GCP dev 資源、名稱、project、region、URL、部署腳本與 Secret reference 不因政策調整而改名；改的是操作與驗收語意。
+本文件補充 [`runbook-dev-deploy.md`](runbook-dev-deploy.md)，只定義 parallel-live dev 的操作語意；實際部署、migration、Secret 與 Job 指令以主 runbook 與目前 GitHub implementation 為準。
 
 ## 1. 環境定位
 
 目前 `dev` 是 Janus 個人使用階段的真實平行上線環境。部署到 dev 會影響實際個人資料與使用流程，因此不得把它當成可隨意清空的 disposable sandbox；同時也不需要另外建立 staging／production 才能開始真實使用。
 
-正常開發目標是讓 main branch 的核准變更經既有 Cloud Build／deploy path 到達 GCP dev，並在真實 runtime 上用 bounded scope 驗證。`localhost`、mock、fixture 可以先做快速檢查，但不能代替標示為 live／GCP dev 的最終證據。
+正常開發目標是讓 `main` 的核准變更經既有 deployment path 到達 GCP dev，並在真實 runtime 上用 bounded scope 驗證。`localhost`、mock、fixture 可以先做快速檢查，但不能代替標示為 live／GCP dev 的最終證據。
 
 ## 2. 真實資料與服務
 
 Dev 預設使用：
 
-- 真實 Google OAuth／allowlisted owner。
-- 真實 PostgreSQL private ledger／control data 與 Private／Public Iceberg。
-- Janus Cloud Run API、Jobs 與 Scheduler；omniAgent runtime 不屬於本 runbook。
-- Janus authenticated MCP／OAuth connector 與已核准的 domain data path。
+- 真實 Google OAuth／allowlisted owner；
+- 真實 PostgreSQL private ledger／control data 與 Private／Public Iceberg；
+- Janus Cloud Run API、Jobs 與 Scheduler；
+- Janus authenticated MCP／OAuth connector 與已核准的 domain data path；
 - 真實 Flutter User／Admin surface。
 
 資料不足時 fail explicit：顯示 missing／stale／partial／unavailable，不產生 placeholder 或假資料補成功。
 
 ## 3. 部署與 migration
 
-沿用 `runbook-dev-deploy.md` 的既有腳本與 guard。因 dev 保存真實資料：
+沿用 [`runbook-dev-deploy.md`](runbook-dev-deploy.md) 的既有腳本與 guard。因 dev 保存真實資料：
 
 - schema 變更必須走 migration／version，保留可追溯紀錄；
 - destructive migration 或大量刪除先確認影響範圍與恢復／重建路徑；
 - secret rotation 不得把 secret 放入 argv、log、UI、build substitution 或一般資料表；
 - 部署後以 revision／immutable image digest／runtime probe 判定，不只看 build 成功；
-- partial success 必須保留 partial 狀態，不可因 Cloud Build 綠燈就宣稱 end-to-end 完成。
+- partial success 必須保留 partial 狀態，不可因 Cloud Build 或 CI 綠燈就宣稱 end-to-end 完成。
 
 ## 4. Backup／recovery 最低要求
 
@@ -39,18 +39,13 @@ Dev 預設使用：
 - 有既有 bounded logical backup／export 並有 restore evidence；或
 - 能從具 provenance 的上游來源與 migration／event ledger 可重建。
 
-私人 ledger 已核准的 `pg_dump → restricted Private GCS` 路徑繼續作為低成本 durability 手段。任何新增付費 persistent protection resource 仍需人工批准。
+私人 ledger 已核准的 bounded logical backup 路徑可作為低成本 durability 手段。任何新增付費 persistent protection resource 仍需人工批准。
 
-## 5. MCP fixture
+## 5. Fixture 與故障注入
 
-`janus-mcp-fixture` 已於 2026-09-23 cleanup 移除。MCP transport 故障注入只由本機／CI contract tests 驗證，不部署 fixture。
+Janus 不需要為一般 real-path acceptance 部署獨立 MCP fixture。timeout／cancel、disconnect／transport failure、tools list changed／invalid schema、secret-redaction／leakage 等情境可由本機／CI contract tests 做可重現故障注入。
 
-- timeout／cancel；
-- disconnect／transport failure；
-- tools list changed／invalid schema；
-- secret-redaction／leakage negative test。
-
-此 cleanup 不影響 Janus API／OAuth connector。omniAgent 到 Janus 的真實 authenticated tool call 仍是 split 的未完成驗收 gate，見 [split status](omniagent-split-status.md)。
+Janus MCP／OAuth connector 的現行驗收狀態以 [`todo.md`](todo.md) 與 [`spec/operations-and-testing.md`](spec/operations-and-testing.md) 為準。omniAgent 自身 gateway／chat runtime 的後續決策屬於獨立專案，不再是 Janus split gate；歷史入口見 [`omniagent-split-status.md`](omniagent-split-status.md)。
 
 ## 6. 未來 Production
 
