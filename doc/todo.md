@@ -118,7 +118,7 @@ M5 Analysis Profile、M6 hardening／evidence／legacy retirement decision。未
 
 ## P1 — ChatGPT MCP Connector（Dev Pilot Enabler）
 
-- [ ] 【Sol】 【High-Completion Target】 `WBS-8-CHATGPT-MCP-ACCEPTANCE`：refresh-token rotation/revocation 已實作；90 天閒置期限及自動加入 `offline_access` 的明確 consent 已部署到 GCP dev `mcp-oauth` 標籤；三工具 discovery、market／positions／performance／trades／investment-profile 實呼、schemas、metadata、unauthenticated challenge、negative input 與 OAuth negative acceptance 通過。90 天閒置期限下，access token 到期後 `janus_sources` 自動換發與 rotation 已由 Cloud Run token endpoint 200、資料庫 refresh token 筆數維持 1 且 `issued_at` 更新、沒有重新授權請求證實。第二個 Google owner `tommylin0119@gmail.com` 的 dev API allowlist 拼字已修正並切至預設流量；待以該身分重新登入／owner 建立，再驗證 B 只讀自己的私人資料、切回 A 仍只讀 A 的資料。此 connector 不得成為 Janus Production Release prerequisite；最新證據見 [`spec/operations-and-testing.md`](spec/operations-and-testing.md)。
+- [ ] 【Sol】 【High-Completion Target】 `WBS-8-CHATGPT-MCP-ACCEPTANCE`：refresh-token rotation/revocation 已實作；90 天閒置期限及自動加入 `offline_access` 的明確 consent 已部署到 GCP dev `mcp-oauth` 標籤；三工具 discovery、market／positions／performance／trades／investment-profile 實呼、schemas、metadata、unauthenticated challenge、negative input 與 OAuth negative acceptance 通過。90 天閒置期限下，access token 到期後 `janus_sources` 自動換發與 rotation 已由 Cloud Run token endpoint 200、資料庫 refresh token 筆數維持 1 且 `issued_at` 更新、沒有重新授權請求證實。第二個 Google owner `tommylin0119@gmail.com` 的 dev API 與 MCP allowlist 已修正，MCP 標籤切換後 Cloud Build acceptance 通過；已完成 authenticated investment-profile read，待確認該 ChatGPT 授權身分為 B，再比對 B 只讀自己的私人資料、切回 A 仍只讀 A 的資料。此 connector 不得成為 Janus Production Release prerequisite；最新證據見 [`spec/operations-and-testing.md`](spec/operations-and-testing.md)。
 
 ## Pilot Feature Freeze／Deferred
 

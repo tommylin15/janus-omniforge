@@ -78,10 +78,10 @@ approved this access, it was added to the existing dev allowlist. Revision
 `janus-api-ownerab20260924` (image digest
 `sha256:148ccac366a7a16aba42faab24735389a5c130db45cb0ea9c58b00e199b4783f`) passed
 OAuth/MCP acceptance build `875306fe-acc8-4953-a229-1c0032fef024`. The revision now
-receives 100% of existing dev API traffic and carries the existing `mcp-adapter` and
-`mcp-oauth` tags. No production service or new Cloud Run service was created. A/B live
-isolation remains pending until the second identity signs in, creates its own Janus user
-record, and its private MCP response is checked against owner A.
+received 100% of existing dev API traffic and carried the existing `mcp-adapter` and
+`mcp-oauth` tags at that checkpoint. No production service or new Cloud Run service was
+created. A/B live isolation remains pending until the second identity signs in, creates
+its own Janus user record, and its private MCP response is checked against owner A.
 
 The user later clarified the exact second account as `tommylin0119@gmail.com` (two `m`s
 in `tommylin`). The serving dev revision had the one-`m` typo `tomylin0119@gmail.com`,
@@ -89,10 +89,20 @@ which explains the 403; no API auth code change was needed. Candidate revision
 `janus-api-ownerabfix20260924` used the same image digest as the then-serving
 `janus-api-00166-k84` and differed only in `GOOGLE_USER_ALLOWED_EMAILS`. It was promoted
 to 100% default dev traffic on 2026-09-24. The existing `mcp-oauth` and `mcp-adapter`
-tags remain on `janus-api-ownerab20260924`. A separate metadata check against the
-candidate image showed it does not advertise `offline_access`, so that candidate was
-not used to change the MCP tags or claim OAuth acceptance. Authenticated owner B access
-and A/B isolation still need a live retest.
+tags initially remained on `janus-api-ownerab20260924`. That image had the same typo, so
+`janus-api-mcpownerbfix20260924` was created from its already-accepted image digest
+`sha256:148ccac366a7a16aba42faab24735389a5c130db45cb0ea9c58b00e199b4783f`, with only
+the owner allowlist corrected. Candidate acceptance build
+`684e727b-66a0-4714-a024-3f2a29ce4816` passed, then the existing `mcp-oauth` and
+`mcp-adapter` tags were moved to that revision. Post-cutover acceptance build
+`a2b4408c-f985-412f-a267-a9197c426ef6` passed OAuth metadata, `offline_access`, negative
+guards, MCP initialize/tool discovery, and unauthenticated challenge. A separate check
+against the unrelated `janus-api-ownerabfix20260924` image showed it lacks
+`offline_access`; it was not used for MCP tags. Authenticated owner B MCP access and A/B
+isolation still need a live ChatGPT tool call and comparison with owner A. A subsequent
+authenticated `janus_private_context(resource="investment-profile", limit=1)` call
+returned one available, opted-in record. The response omits account identity, so this
+proves authenticated private access but does not yet attribute the call to owner B.
 
 ## MCP market context runtime correction — GCP dev (2026-09-24)
 
