@@ -28,7 +28,7 @@
 | 已完成證據定位 | 【Luna】 | [已完成工作](wbs/completed-index.md) | 只在需要歷史證據時讀 archive |
 | 3：Ingestion／Core／Admin Data Operations | 【Sol】 | [WBS 3](wbs/wbs-3-ingestion-admin.md) | UI 變更再讀 Admin UI |
 | 4J：個人記帳、筆記、關注股 | 【Sol】 | [WBS 4J](wbs/wbs-4j-personal-workspace.md) | 外部助理只透過 Janus domain API／MCP 讀授權 context；曝險才讀 4R |
-| 4C：Janus Chat／Agent（已退役） | 歷史 | [目前責任摘要](wbs/wbs-4c-ai-chat.md) | 舊規劃只供查閱；split gate 見 [狀態文件](omniagent-split-status.md) |
+| 4C：Janus Chat／Agent（已退役） | 歷史 | [退役責任摘要](wbs/wbs-4c-ai-chat.md) | 不作 active execution；舊規劃只供 archive 查閱 |
 | 4R：個人曝險、績效與壓力測試 | 【Sol】 | [WBS 4R](wbs/wbs-4r-personal-risk.md) | 若交由外部助理解釋，依 bounded context／MCP 契約 |
 | 5：Intelligence Mart／Fact Pack／AI analysts | 【Sol】 | [WBS 5](wbs/wbs-5-intelligence-mart.md) | 不預讀私人 WBS；atomic slices 依 TODO 的 Pilot M1–M3 |
 | 6：FastAPI、Flutter、Admin workspace | 依 TODO | [WBS 6](wbs/wbs-6-api-and-apps.md) | 依目標入口讀 User 或 Admin UI；Admin slices 依 Pilot M4–M6 |

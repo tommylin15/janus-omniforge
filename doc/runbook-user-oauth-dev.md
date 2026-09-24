@@ -1,130 +1,78 @@
-# Dev User OAuth deployment runbook
+# Dev User／MCP OAuth Runbook
 
-This runbook covers the current Janus parallel-live `dev` environment. `dev` is the real personal-use Janus runtime, not a disposable POC sandbox. A capability that passes its auth, data, runtime, and integration acceptance may be used here with real owner data; it does not need a separate Production environment first.
+本 runbook 只描述目前 Janus parallel-live `dev` 的 User OAuth、MCP OAuth 與 owner-isolation 驗收程序。`dev` 是真實個人使用環境，不是 disposable POC；實際 source、env、Secret reference 與部署參數執行前一律以 GitHub `main` 與 GCP runtime 查證。
 
-Do not reuse the Admin OAuth client, deploy a separate future Production topology without an explicit decision, enable scanning APIs, or print secret payloads. The word `dev` in this runbook identifies the current environment and resource naming; it does not mean fake data, mock-only use, or “not allowed for real use.”
+最新 OAuth／MCP acceptance 狀態見 [`todo.md`](todo.md) 與 [`spec/operations-and-testing.md`](spec/operations-and-testing.md)。歷史 migration／舊 Secret 名稱／舊 revision 不在本文件保存。
 
-Mock OAuth, injected verifiers, and local pages are useful for deterministic regression tests, but they do not replace the real Google login／allowlisted owner／Cloud Run／persisted-data evidence required when a user-facing OAuth path is declared live accepted.
+## 1. 安全邊界
 
-## OAuth and secrets
+- User 與 Admin OAuth audience 必須分離；不得拿 Admin token 當 User token。
+- MCP OAuth 只提供 Janus 已授權的 read-only domain context；typed selector、limit、date range、owner scope 由 server contract 限制，不接受任意 SQL、GCS URI、object path 或 client-supplied user identity。
+- Secret payload 不得出現在 argv、shell trace、process listing、Cloud Build substitution、deployment metadata、UI 或 log。
+- 真實 Google login、allowlisted owner、Cloud Run API、PostgreSQL／Iceberg owner isolation 才能構成 live acceptance；mock verifier／fixture 只補 deterministic regression 與 negative coverage。
+- OAuth／MCP partial success 不得包裝成完整 acceptance。
 
-Create a Google Auth Platform Web client named `Janus User Dev`, with
-`http://localhost` and `http://localhost:8080` as authorized JavaScript
-origins. Put both acceptance accounts on the OAuth Audience test-user list where Google configuration requires it. These are real acceptance owners for the current dev path; do not treat their successful live login as sample-only evidence.
+## 2. Google OAuth client
 
-Download the client JSON as `google-user-oauth-dev.json`. The exact filename is
-gitignored. Upload `web.client_id` and `web.client_secret` as new
-versions of these Secret Manager secrets, verify both versions are enabled,
-then delete the local JSON:
+User Web client 必須使用 Janus User audience，並包含目前實際 UI／callback 所需的 authorized origins／redirect URIs。不要從歷史文件複製固定 URL；執行前以目前 Cloud Run tagged URL、Flutter build config 與 Google Auth Platform 設定交叉確認。
 
-- `google-user-client-id`
-- `google-user-client-secret`
+公開 client ID 可作為 Flutter Web build-time configuration；client secret、MCP signing material、database credentials 必須走目前 Secret bundle，不寫入 source、README 或一般 config。
 
-The private runtime uses these additional secrets:
+## 3. 目前 Secret 模型
 
-- `private-database-url`
-- `postgres-private-api-password`
-- `postgres-private-pipeline-password`
+目前 `scripts/gcp/deploy-dev.sh` 對 `janus-api` 使用整合後的 `janus-runtime-bundle`，以 `JANUS_API_POSTGRES_BUNDLE` 注入 runtime；Jobs 也使用同一 bundle 的對應 runtime env。不要再依照舊文件建立 `google-user-client-secret`、`private-database-url`、`postgres-private-api-password` 等分散 Secret 作為新的 canonical path。
 
-Never pass a secret value as a command argument. Pin Cloud Run secret refs to
-an enabled numeric version, not `latest`. On Windows, write upload files with
-`.NET` `UTF8Encoding(false)`; `Set-Content -Encoding utf8` in Windows
-PowerShell can add a BOM that makes an OAuth client ID or PostgreSQL DSN
-invalid. Before deployment, verify the first code point is the expected ASCII
-character and delete the temporary file in `finally`.
+Rotation／修改前：
 
-For rotation, create the new Secret versions first, update the PostgreSQL role
-password through an ACL-restricted temporary SQL file copied over IAP, pin
-Cloud Run to the new numeric versions, verify the new revision, then disable
-the old versions. The remote file must be mode `0600` and removed by a shell
-trap; never place the password in a command argument or terminal output.
+1. 先從目前 Cloud Run／Job template 與 [`secret_list.md`](secret_list.md) 唯讀確認 bundle 名稱、enabled versions、consumer references。
+2. 任何 bundle 變更都視為共享 runtime credential 變更；先評估 API、private pipeline、ingestion、mart 與 migration consumer 的影響。
+3. 新 version 建立後，以 raw-byte／schema 方式驗證，不輸出 payload；候選 runtime 驗證成功後才停用舊 version。
+4. 目前 deployment script 使用 `janus-runtime-bundle:latest`；若要改成 pin numeric version，屬於 runtime config／deployment 行為變更，須另開實作工作，不能只改本 runbook 假裝完成。
 
-## Build contexts
+## 4. User API／MCP OAuth deployment
 
-`cloudbuild.yaml` uses the submitted directory as Docker build context:
+API deployment 走 [`runbook-dev-deploy.md`](runbook-dev-deploy.md) 與 `scripts/gcp/deploy-dev.sh api`。目前 script 要求 Flutter build-time `GOOGLE_USER_CLIENT_ID`、`GOOGLE_ADMIN_CLIENT_ID`，並可在 `MCP_OAUTH_ENABLED=true` 時要求：
 
-- User API: submit repository root with `_DOCKERFILE=services/api/Dockerfile`
-- PostgreSQL: submit `infra/postgres` with `_DOCKERFILE=Dockerfile`
+- `MCP_OAUTH_ISSUER`
+- `MCP_RESOURCE_URL`
+- `GOOGLE_USER_ALLOWED_EMAILS`
 
-Resolve each pushed tag to a digest and deploy only the digest. A repository-
-root PostgreSQL build fails because its Dockerfile copies paths relative to
-`infra/postgres`.
+OAuth issuer 必須使用目前 `mcp-oauth` tagged URL，MCP resource 必須使用目前 `mcp-adapter` tagged URL；不要在文件固定某次 revision。候選 deploy 使用 no-traffic／tag 路徑，先驗證 metadata、authorization challenge、MCP initialize／tool schema、negative guards 與受影響的 authenticated path，再切 canonical traffic。
 
-## PostgreSQL migration 014
+部署或 allowlist 修正後，至少記錄 Git SHA、image digest、revision、UTC 時間與實際 acceptance result 到 [`spec/operations-and-testing.md`](spec/operations-and-testing.md)。
 
-1. Build and resolve the immutable PostgreSQL image as described above.
-2. For an existing dev database, apply only
-   `migrations/014_private_workspace.sql`; rerunning the non-idempotent role
-   bootstrap from migration 001 will fail. Copy the migration and a temporary
-   mode-`0600` variable file containing only the two private role passwords to
-   `janus-postgres-dev` through IAP, execute them inside the PostgreSQL
-   container, and remove both files with a trap.
-3. Restart the PostgreSQL container with the resolved image digest and
-   `--restart=always`. Local WSL, Windows gcloud, or Cloud Shell may be used;
-   prefer the environment that can reliably preserve file permissions and
-   cleanup.
-4. Verify `control.schema_migrations` contains `014_private_workspace`, both
-   private roles are non-privileged, readiness passes, and the running image is
-   the new digest.
+## 5. Refresh token acceptance
 
-Do not use a remote `postgres` HBA rule or a long-lived migration service
-account. If a temporary migration Job was created during diagnosis, delete it
-and revoke all bootstrap/private secret grants before continuing.
+目前 contract 包含 `offline_access`、refresh-token rotation／revocation 與 inactivity expiry。驗收時不要讀 token 值；只驗證行為與 bounded metadata：
 
-Because the current dev database holds real personal-use data, migration success is not established by SQL completion alone: retain the migration marker, runtime readiness, owner isolation, and applicable rollback／rebuild evidence. Do not substitute a fixture database result for the live database acceptance when claiming this path complete.
+1. 新授權後能建立有效 refresh state。
+2. access token 到期後，client 能透過 token endpoint refresh，而不重新進入 Google authorize flow。
+3. rotation 後 active refresh state 不無界增加，舊 token 不再可重用。
+4. revoke／expired／wrong client／wrong scope 等 negative path fail closed。
+5. server log、DB query、tool output 不洩漏 token／secret payload。
 
-## User API deployment
+## 6. A/B owner-isolation live acceptance
 
-Deploy `janus-api` in `us-central1` with scale-to-zero, service account
-`janus-user-api`, Direct VPC network `janusai-lake-poc`, subnet
-`janusai-lake-poc-uscentral1`, and `private-ranges-only` egress. Configure:
+A/B acceptance 必須使用兩個真實 allowlisted Google owner，分別建立／登入各自 Janus identity。驗收目標是證明 authenticated private context 由 server-side owner identity 隔離，而不是由 client 傳 `user_id` 控制。
 
-- `GOOGLE_USER_CLIENT_ID=google-user-client-id:VERSION`
-- `PRIVATE_DATABASE_URL=private-database-url:VERSION`
-- `PRIVATE_CATALOG_PASSWORD=postgres-private-api-password:VERSION`
-- `POSTGRES_HOST=10.42.0.5`, `POSTGRES_DB=janus_control`
-- `PRIVATE_CATALOG_USER=janus_private_api`
-- `PRIVATE_ICEBERG_WAREHOUSE=gs://PROJECT-dev-private/warehouse`
-- `GCP_PROJECT_ID=PROJECT`
-- `USER_CORS_ORIGINS=http://localhost:8080`
+最小流程：
 
-For the dev MCP OAuth facade (same `janus-api`, no new service), first prepare
-the merged API bundle with `google_user_client_secret` and a fresh
-`mcp_oauth_signing_key`, then deploy with:
+1. Owner A 登入，確認自己的 profile／private records／MCP private context 可讀。
+2. Owner B 重新登入並建立自己的 Janus owner state；B 的 private API／MCP 只看到 B 的資料，不得看到 A 的 positions、performance、trades、profile 或其他 private artifacts。
+3. 嘗試已知 A identifier 時，B 必須得到 404／403／bounded empty 等契約允許的隔離結果，不能洩漏 A payload。
+4. 切回 A 再次確認 A 仍只看到 A 的資料。
+5. wrong audience、unauthenticated、invalid selector／limit／date range 等 negative cases 照 contract fail closed。
+6. 只記錄 internal owner IDs 的必要對照、revision／digest、UTC timestamp 與結果；不要記錄 bearer／refresh token 值。
 
-- `MCP_OAUTH_ENABLED=true`
-- `MCP_OAUTH_ISSUER=https://mcp-oauth---janus-api-2oo7qbkd5q-uc.a.run.app`
-- `MCP_RESOURCE_URL=https://mcp-adapter---janus-api-2oo7qbkd5q-uc.a.run.app/mcp`
-- `GOOGLE_USER_ALLOWED_EMAILS` set to the explicit current owner／acceptance allowlist
+目前是否完成這個 A/B gate，只看 `todo.md` 與最新 operations evidence，不因本 runbook 存在就視為完成。
 
-The Google Web client must allow the exact callback
-`https://mcp-oauth---janus-api-2oo7qbkd5q-uc.a.run.app/oauth/google/callback`. The facade
-issues short-lived Janus access tokens with the MCP resource in `aud` and
-stores only hashed, one-time authorization codes in PostgreSQL. Enable it only after the bundle version and callback allowlist are verified in the current dev environment; that verification is a safety gate for the MCP OAuth capability, not a reason to keep unrelated Janus features in mock mode.
+## 7. Migration 與資料保留
 
-Grant the runtime account access only to those three runtime secrets and
-`roles/storage.objectAdmin` only on the private bucket. Public invocation is
-acceptable because `/health` is public and every `/api/v1/me/*` route enforces
-the independent Google bearer audience.
+OAuth／private schema 變更必須走 repository 的版本化 migration。不要重跑已被取代的 bootstrap migration，也不要從歷史 runbook 推測現在應套用哪個 migration number。
 
-## A/B live acceptance
+對 existing dev database：
 
-For each real acceptance account, obtain a fresh ID token for the User client and
-call `/api/v1/me/profile`. Record different internal `user_id` values. Then:
-
-Serve `scripts/gcp` as the local HTTP root and open
-`http://localhost:8080/user-ab-acceptance.html?client_id=...&api=...`. Select
-the A or B slot before each Google sign-in; tokens remain only in page memory.
-The local page is only an acceptance harness; the auth, Cloud Run API, PostgreSQL／Iceberg data, and owner isolation being verified are the real dev path.
-
-1. A creates a journal row, note, and watchlist entry against the real dev backend.
-2. B lists each collection and must see none of A's rows or artifact refs.
-3. B attempts A's known event/note identifiers and must receive 404/409, never
-   A's data.
-4. A still sees its own data; Admin-client and wrong-audience tokens receive
-   401; no bearer receives 401; `/health` receives 200.
-5. Query PostgreSQL and Private Iceberg by internal `user_id` to confirm A/B
-   partitioning, then record revision, image digest, execution IDs, and UTC
-   timestamps in `doc/spec/operations-and-testing.md`.
-
-A/B acceptance is complete only when the real OAuth journey and persisted owner isolation are both evidenced. Injected verifier tests, synthetic rows, or fixture-only results may supplement negative/error coverage but must not be reported as the live OAuth flow itself.
+- 先查 `control.schema_migrations`／目前 schema；
+- 只執行尚未套用、且屬於本次核准 WBS 的 additive／approved migration；
+- 執行後驗證 marker、role／constraint、runtime readiness 與 owner isolation；
+- 不刪除歷史 private data 或已套用 migration，除非另有明確不可逆操作授權。
