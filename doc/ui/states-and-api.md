@@ -52,6 +52,16 @@
 - `DELETE /api/v1/me/private-data`
 - `GET /api/v1/me/private-data/deletions/{request_id}`
 
+### 8.1 Transaction-record presentation contract（Planned）
+
+交易記錄 UX 2.0 可在不改變 append-only ledger 的前提下改進 presentation，但 canonical accounting semantics 必須留在 backend／Private Mart。Flutter 可以依既有 history 做年份／月份視覺 grouping；若月份摘要要顯示「已實現損益」、持股市值、未實現損益或其他正式數字，優先由既有 canonical endpoints 組合取得，或由後端新增 typed summary contract。不得由 Flutter 自行定義新的 realized PnL／fee／tax aggregation 公式。
+
+若後續確認現有 endpoints 無法在 bounded request 內提供月份摘要，才規劃 additive private summary endpoint；在正式 API contract、tests 與 implementation 完成以前，`monthly summary` 只屬 planned presentation requirement，不得在文件中假裝 endpoint 已存在。
+
+交易／更正 mutation 成功後不得同步觸發或假裝 Private Mart 已完成重算；UI 繼續顯示「交易已儲存，等待投資組合批次更新」。任何持股、成本、PnL、exposure、performance 值都必須帶最新成功 valuation date／資料狀態，partial／stale／missing 不得補 0。
+
+Planned UX 不需要預設新增 database migration。只有當未來核准多券商／多帳戶、費率規則、scenario trade、其他成本法或新的 persisted accounting semantic 時，才重新進行 schema／migration／governance review。
+
 Planned Admin workspace endpoints（不代表已實作）至少需要：
 
 - actionable overview、batch／execution details、retry classified failed item、retry lineage。
