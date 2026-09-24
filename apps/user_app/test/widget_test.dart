@@ -6,9 +6,13 @@ import 'package:janus_user_app/main.dart';
 class FakeApi extends Api {
   FakeApi(this.values) : super('test');
   final Map<String, dynamic> values;
+  final reads = <String>[];
   final writes = <Map<String, dynamic>>[];
   @override
-  Future<dynamic> get(String path) async => values[path] ?? const [];
+  Future<dynamic> get(String path) async {
+    reads.add(path);
+    return values[path] ?? const [];
+  }
   @override
   Future<dynamic> put(String path, Map<String, dynamic> body) async {
     writes.add(body);
@@ -166,6 +170,77 @@ void main() {
     await tester.tap(find.text('投資筆記'));
     await tester.pumpAndSettle();
     expect(find.text('新增筆記'), findsOneWidget);
+  });
+
+  testWidgets('journal shows only the replacement after one correction',
+      (tester) async {
+    final api = FakeApi({
+      '/api/v1/me/journal/history': [
+        {'event_id': 'A', 'event_action': 'ORIGINAL', 'event_type': 'BUY',
+          'symbol': 'TEST01', 'trade_date': '2026-09-20', 'shares': 1},
+        {'event_id': 'R1', 'event_action': 'REVERSAL', 'event_type': 'BUY',
+          'symbol': 'TEST01', 'trade_date': '2026-09-20', 'shares': 1,
+          'reverses_event_id': 'A'},
+        {'event_id': 'B', 'event_action': 'REPLACEMENT', 'event_type': 'BUY',
+          'symbol': '5876', 'trade_date': '2026-09-20', 'shares': 96000,
+          'replaces_event_id': 'A', 'record_version': 1, 'price': 10},
+      ],
+    });
+    await tester.pumpWidget(MaterialApp(home: JournalNotesPage(api)));
+    await tester.pumpAndSettle();
+
+    expect(api.reads, contains('/api/v1/me/journal/history'));
+    expect(find.text('BUY TEST01'), findsNothing);
+    expect(find.text('BUY 5876'), findsOneWidget);
+    expect(find.text('建立更正'), findsOneWidget);
+  });
+
+  testWidgets('journal keeps only the latest replacement after two corrections',
+      (tester) async {
+    final api = FakeApi({
+      '/api/v1/me/journal/history': [
+        {'event_id': 'A', 'event_action': 'ORIGINAL', 'event_type': 'BUY',
+          'symbol': 'TEST01', 'trade_date': '2026-09-20', 'shares': 1},
+        {'event_id': 'R1', 'event_action': 'REVERSAL', 'event_type': 'BUY',
+          'symbol': 'TEST01', 'trade_date': '2026-09-20', 'shares': 1,
+          'reverses_event_id': 'A'},
+        {'event_id': 'B', 'event_action': 'REPLACEMENT', 'event_type': 'BUY',
+          'symbol': '5876', 'trade_date': '2026-09-20', 'shares': 10,
+          'replaces_event_id': 'A'},
+        {'event_id': 'R2', 'event_action': 'REVERSAL', 'event_type': 'BUY',
+          'symbol': '5876', 'trade_date': '2026-09-20', 'shares': 10,
+          'reverses_event_id': 'B'},
+        {'event_id': 'C', 'event_action': 'REPLACEMENT', 'event_type': 'BUY',
+          'symbol': '5876', 'trade_date': '2026-09-20', 'shares': 96000,
+          'replaces_event_id': 'B', 'record_version': 1, 'price': 10},
+      ],
+    });
+    await tester.pumpWidget(MaterialApp(home: JournalNotesPage(api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('BUY TEST01'), findsNothing);
+    expect(find.text('BUY 5876'), findsOneWidget);
+    expect(find.text('建立更正'), findsOneWidget);
+    await tester.tap(find.text('建立更正'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('儲存'));
+    await tester.pumpAndSettle();
+    expect(api.writes.single['path'],
+        '/api/v1/me/journal/events/C/corrections');
+  });
+
+  testWidgets('journal keeps an uncorrected original trade', (tester) async {
+    final api = FakeApi({
+      '/api/v1/me/journal/history': [
+        {'event_id': 'A', 'event_action': 'ORIGINAL', 'event_type': 'BUY',
+          'symbol': 'TEST01', 'trade_date': '2026-09-20', 'shares': 1},
+      ],
+    });
+    await tester.pumpWidget(MaterialApp(home: JournalNotesPage(api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('BUY TEST01'), findsOneWidget);
+    expect(find.text('建立更正'), findsOneWidget);
   });
 
   testWidgets('shows the Google login boundary', (tester) async {

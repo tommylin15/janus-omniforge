@@ -29,6 +29,19 @@ String uiLabel(Object? value) => const {
       'insufficient_data': '資料不足',
     }[value?.toString()] ?? value?.toString() ?? '—';
 
+List<dynamic> effectiveLedgerEvents(List<dynamic> rows) {
+  final reversedIds = rows
+      .where((row) => row['event_action'] == 'REVERSAL')
+      .map((row) => row['reverses_event_id'])
+      .where((id) => id != null)
+      .toSet();
+  return rows
+      .where((row) =>
+          row['event_action'] != 'REVERSAL' &&
+          !reversedIds.contains(row['event_id']))
+      .toList();
+}
+
 String requireGoogleIdToken(String? token) =>
     token ?? (throw StateError('Google ID token is required'));
 
@@ -84,13 +97,15 @@ class Api implements AdminApi {
       [Map<String, dynamic>? body]) async {
     final request = http.Request(method, Uri.parse('$base$path'))
       ..headers.addAll(headers);
-    if (method != 'GET')
+    if (method != 'GET') {
       request.headers['Idempotency-Key'] =
           DateTime.now().microsecondsSinceEpoch.toString();
+    }
     if (body != null) request.body = jsonEncode(body);
     final response = await http.Response.fromStream(await request.send());
-    if (response.statusCode < 200 || response.statusCode >= 300)
+    if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(jsonDecode(response.body)['detail'] ?? '服務暫時無法使用');
+    }
     return response.body.isEmpty ? null : jsonDecode(response.body);
   }
 }
@@ -301,11 +316,12 @@ class _WatchlistPageState extends State<WatchlistPage> {
       });
       reload();
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(error.toString().contains('deep-tracking symbol limit')
                 ? '已達 50 個 distinct active symbols 深度追蹤上限'
                 : error.toString().replaceFirst('Exception: ', ''))));
+      }
     }
   }
 
@@ -316,10 +332,12 @@ class _WatchlistPageState extends State<WatchlistPage> {
       body: FutureBuilder(
           future: items,
           builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done)
+            if (snapshot.connectionState != ConnectionState.done) {
               return const Center(child: CircularProgressIndicator());
-            if (snapshot.hasError)
+            }
+            if (snapshot.hasError) {
               return ErrorView(snapshot.error.toString(), reload);
+            }
             final rows = (snapshot.data as List? ?? []);
             if (rows.isEmpty) return const Center(child: Text('尚未關注股票'));
             return ReorderableListView(
@@ -373,13 +391,15 @@ class _TodayPageState extends State<TodayPage> {
   Widget build(BuildContext context) => FutureBuilder<dynamic>(
       future: brief,
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done)
+        if (snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
-        if (snapshot.hasError)
+        }
+        if (snapshot.hasError) {
           return ListView(padding: const EdgeInsets.all(16), children: [
             const ListTile(leading: Icon(Icons.info_outline), title: Text('今日市場資料尚未就緒')),
             const Text('本服務提供研究資訊，不構成投資建議。')
           ]);
+        }
         final root = snapshot.data as Map?;
         final items = root?['items'] is List ? root!['items'] as List : const [];
         final report = items.isNotEmpty && items.first is Map ? items.first as Map : const {};
@@ -677,12 +697,19 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
   late Future<dynamic> rows = load();
   Future<dynamic> load() {
     if (segment != 0) return widget.api.get('/api/v1/me/notes');
-    return widget.api.get(Uri(path: '/api/v1/me/journal/history', queryParameters: {
+    final queryParameters = {
       if (symbolFilter?.isNotEmpty == true) 'symbol': symbolFilter,
       if (yearFilter != null) 'year': '$yearFilter',
-    }).toString());
+    };
+    return widget.api.get(Uri(
+            path: '/api/v1/me/journal/history',
+            queryParameters:
+                queryParameters.isEmpty ? null : queryParameters)
+        .toString());
   }
-  void reload() => setState(() => rows = load());
+  void reload() => setState(() {
+        rows = load();
+      });
   void showPortfolioPending() => ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text(portfolioPendingMessage)));
   Future<void> add() async {
@@ -732,10 +759,14 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
             OutlinedButton(
                 onPressed: () async {
                   final value = await textDialog(context, '歷史篩選', '股票代號，可留空');
-                  if (value != null) setState(() {
-                    symbolFilter = value.trim().isEmpty ? null : value.trim().toUpperCase();
-                    rows = load();
-                  });
+                  if (value != null) {
+                    setState(() {
+                      symbolFilter = value.trim().isEmpty
+                          ? null
+                          : value.trim().toUpperCase();
+                      rows = load();
+                    });
+                  }
                 },
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Text(symbolFilter == null ? '股票：全部' : '股票：$symbolFilter'),
@@ -764,13 +795,19 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
             child: FutureBuilder(
                 future: rows,
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState != ConnectionState.done)
+                  if (snapshot.connectionState != ConnectionState.done) {
                     return const Center(child: CircularProgressIndicator());
-                  if (snapshot.hasError)
+                  }
+                  if (snapshot.hasError) {
                     return ErrorView(snapshot.error.toString(), reload);
-                  final values = (snapshot.data as List? ?? []);
-                  if (values.isEmpty)
+                  }
+                  final rawValues = (snapshot.data as List? ?? []);
+                  final values = segment == 0
+                      ? effectiveLedgerEvents(rawValues)
+                      : rawValues;
+                  if (values.isEmpty) {
                     return Center(child: Text(segment == 0 ? '尚無交易' : '尚無筆記'));
+                  }
                   return ListView.builder(
                       itemCount: values.length,
                       itemBuilder: (context, index) {
@@ -838,9 +875,10 @@ class SummaryCards extends StatelessWidget {
         api.get('/api/v1/me/notes')
       ]),
       builder: (context, snapshot) {
-        if (!snapshot.hasData)
+        if (!snapshot.hasData) {
           return const SizedBox(
               height: 88, child: Center(child: CircularProgressIndicator()));
+        }
         final data = snapshot.data!;
         final pnl = data[1] as List;
         final pnlText = pnl.isEmpty
@@ -1035,9 +1073,10 @@ class ProfilePage extends StatelessWidget {
                 final auth = await account?.authentication;
                 final token = requireGoogleIdToken(auth?.idToken);
                 await Api(token).delete('/api/v1/me/private-data');
-                if (context.mounted)
+                if (context.mounted) {
                   ScaffoldMessenger.of(context)
                       .showSnackBar(const SnackBar(content: Text('刪除要求已排入處理')));
+                }
               }
             })
       ]);

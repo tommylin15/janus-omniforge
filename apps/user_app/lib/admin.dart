@@ -342,8 +342,10 @@ class _AdminBatchPageState extends State<AdminBatchPage> {
         {'config_id': result['config_id'], 'symbols': result['symbols']},
       );
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('批次無法加入佇列，請檢查設定與權限')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('批次無法加入佇列，請檢查設定與權限')));
+      }
       return;
     }
     if (!mounted) return;
@@ -359,8 +361,10 @@ class _AdminBatchPageState extends State<AdminBatchPage> {
         '/api/v1/admin/executions/${Uri.encodeComponent(id)}',
       ) as Map<String, dynamic>;
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('執行明細暫時無法使用')));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('執行明細暫時無法使用')));
+      }
       return;
     }
     if (!mounted) return;
@@ -388,8 +392,10 @@ class _AdminBatchPageState extends State<AdminBatchPage> {
                                   const {},
                                 );
                               } catch (_) {
-                                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('此項目目前無法重試')));
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('此項目目前無法重試')));
+                                }
                                 return;
                               }
                               if (context.mounted) Navigator.pop(context);
@@ -528,8 +534,10 @@ class _AdminStockWorkbenchState extends State<AdminStockWorkbench> {
         {'config_id': value, 'symbols': [selected!['symbol']]},
       );
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('無法建立執行紀錄，請檢查設定與權限')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('無法建立執行紀錄，請檢查設定與權限')));
+      }
       return;
     }
     if (mounted) {
@@ -569,9 +577,12 @@ class _AdminStockWorkbenchState extends State<AdminStockWorkbench> {
               final list = FutureBuilder<dynamic>(
                 future: stocks,
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState != ConnectionState.done)
+                  if (snapshot.connectionState != ConnectionState.done) {
                     return const Center(child: CircularProgressIndicator());
-                  if (snapshot.hasError) return const _Message('股票資料暫時無法使用');
+                  }
+                  if (snapshot.hasError) {
+                    return const _Message('股票資料暫時無法使用');
+                  }
                   final values = _items(snapshot.data);
                   if (values.isEmpty) return const _Message('找不到符合條件的股票');
                   return ListView(
@@ -597,12 +608,14 @@ class _AdminStockWorkbenchState extends State<AdminStockWorkbench> {
                   : FutureBuilder<List<dynamic>>(
                       future: detail,
                       builder: (context, snapshot) {
-                        if (snapshot.connectionState != ConnectionState.done)
+                        if (snapshot.connectionState != ConnectionState.done) {
                           return const Center(
                             child: CircularProgressIndicator(),
                           );
-                        if (snapshot.hasError)
+                        }
+                        if (snapshot.hasError) {
                           return const _Message('個股資料暫時無法使用');
+                        }
                         final health = _items(snapshot.data![0]);
                         final reports = _items(snapshot.data![1]);
                         return ListView(
