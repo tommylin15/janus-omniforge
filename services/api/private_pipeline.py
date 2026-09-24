@@ -15,6 +15,17 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 ZERO = Decimal("0")
+
+
+def ledger_net_cash_flow(row: dict[str, Any]) -> Decimal | None:
+    event_type=row.get("event_type")
+    fee=Decimal(str(row.get("fee") or 0)); tax=Decimal(str(row.get("tax") or 0))
+    if event_type=="BUY": return -(Decimal(str(row["shares"]))*Decimal(str(row["price"]))+fee+tax)
+    if event_type=="SELL": return Decimal(str(row["shares"]))*Decimal(str(row["price"]))-fee-tax
+    if event_type=="CASH_DIV": return Decimal(str(row["cash_amount"]))-fee-tax
+    return None
+
+
 try: TAIPEI = ZoneInfo("Asia/Taipei")
 except ZoneInfoNotFoundError: TAIPEI = timezone(timedelta(hours=8))
 
@@ -36,7 +47,7 @@ class CorePriceReader:
                    init_catalog_tables="false",**{"py-io-impl":"pyiceberg.io.pyarrow.PyArrowFileIO","gcs.project-id":values["GCP_PROJECT_ID"],
                    "pool_size":1,"max_overflow":0,"pool_timeout":5}))
 
-    def __call__(self, symbols: set[str], valuation_date: date) -> dict[str, Decimal | None]:
+    def __call__(self, symbols: set[str], valuation_date: date) -> dict[str, tuple[Decimal, date]]:
         if not symbols or not self.catalog.table_exists("core.ohlcv_v1"): return {}
         from pyiceberg.expressions import And, EqualTo, LessThanOrEqual, Or
         symbol_filter=reduce(Or,(EqualTo("symbol",symbol) for symbol in sorted(symbols)))
@@ -46,7 +57,9 @@ class CorePriceReader:
         latest:dict[str,dict[str,Any]]={}
         for row in rows:
             if row["symbol"] not in latest or row["trade_date"]>latest[row["symbol"]]["trade_date"]: latest[row["symbol"]]=row
-        return {symbol:Decimal(str(row["close"])) for symbol,row in latest.items()}
+        return {symbol:(Decimal(str(row["close"])),row["trade_date"].date()
+                        if isinstance(row["trade_date"],datetime) else row["trade_date"])
+                for symbol,row in latest.items()}
 
     def latest_valuation_date(self, eligible_through: date) -> date:
         identifier="core.ohlcv_v1"
@@ -116,11 +129,13 @@ def calculate_risk_marts(events: Iterable[dict[str, Any]], positions: list[dict[
     rows=list(events); user_id=str(rows[0]["user_id"]) if rows else str(profile["user_id"]) if profile else ""
     ledger_version=max((int(row["ledger_version"]) for row in rows),default=0)
     common={"user_id":user_id,"ledger_version":ledger_version,"valuation_date":valuation_date.isoformat()}
-    totals:dict[str,dict[str,Any]]=defaultdict(lambda:{"market_value":ZERO,"cost_basis":ZERO,"missing_price_count":0})
+    totals:dict[str,dict[str,Any]]=defaultdict(lambda:{"market_value":ZERO,"cost_basis":ZERO,
+        "missing_price_count":0,"stale_price_count":0})
     exposure:dict[tuple[str,str],dict[str,Any]]=defaultdict(lambda:{"market_value":ZERO,"symbols":set(),"memberships":[]})
     for position in positions:
         currency=position["currency"]; total=totals[currency]
         total["cost_basis"]+=Decimal(str(position["average_cost"]))*Decimal(str(position["shares"]))
+        if position.get("price_status")=="stale": total["stale_price_count"]+=1
         if position["market_value"] is None: total["missing_price_count"]+=1; continue
         value=Decimal(str(position["market_value"])); total["market_value"]+=value
         refs=memberships.get(position["symbol"],[])
@@ -151,7 +166,9 @@ def calculate_risk_marts(events: Iterable[dict[str, Any]], positions: list[dict[
             flows.append((row["trade_date"],amount))
         terminal=totals[currency]["market_value"]
         if terminal: flows.append((valuation_date,terminal))
-        result={"status":"insufficient_data","value":None} if totals[currency]["missing_price_count"] else xirr(flows)
+        result={"status":"insufficient_data","value":None} if (
+            totals[currency]["missing_price_count"] or totals[currency]["stale_price_count"]
+        ) else xirr(flows)
         performance.append({**common,"year":valuation_date.year,"currency":currency,"xirr_status":result["status"],
             "xirr":result["value"],"cash_flow_count":len(flows),"method":"xirr_actual_365_v1"})
     scenarios=(("broad_market_down_20",Decimal("-0.20")),("sector_shock_down_30",Decimal("-0.30")),
@@ -163,23 +180,30 @@ def calculate_risk_marts(events: Iterable[dict[str, Any]], positions: list[dict[
             stress.append({**common,"currency":currency,"scenario_id":scenario,"shock":shock,
                 "portfolio_value_before":total["market_value"],"portfolio_value_after":total["market_value"]*(1+shock),
                 "loss":total["market_value"]*shock,"cash_safety_status":"insufficient_data","cash_ratio":None,
-                "minimum_cash_ratio":minimum_cash,"valuation_status":"partial" if total["missing_price_count"] else "available",
+                "minimum_cash_ratio":minimum_cash,"valuation_status":("partial" if total["missing_price_count"] else
+                    "stale" if total["stale_price_count"] else "available"),
                 "method":"deterministic_parallel_shock_v1"})
         summary.append({**common,"currency":currency,"market_value":total["market_value"],"cost_basis":total["cost_basis"],
-            "unrealized_pnl":total["market_value"]-total["cost_basis"] if not total["missing_price_count"] else None,
-            "missing_price_count":total["missing_price_count"],"cash_safety_status":"insufficient_data",
+            "unrealized_pnl":total["market_value"]-total["cost_basis"] if not (
+                total["missing_price_count"] or total["stale_price_count"]
+            ) else None,
+            "missing_price_count":total["missing_price_count"],"stale_price_count":total["stale_price_count"],
+            "valuation_status":("partial" if total["missing_price_count"] else
+                "stale" if total["stale_price_count"] else "available"),"cash_safety_status":"insufficient_data",
             "cash_ratio":None,"minimum_cash_ratio":minimum_cash})
     return {"mart_user_exposure":exposure_rows,"mart_user_annual_performance":performance,
             "mart_user_stress_tests":stress,"mart_user_portfolio_summary":summary}
 
 
-def calculate_marts(events: Iterable[dict[str, Any]], prices: dict[str, Decimal | None],
+def calculate_marts(events: Iterable[dict[str, Any]], prices: dict[str, Decimal | tuple[Decimal, date] | None],
                     valuation_date: date) -> dict[str, list[dict[str, Any]]]:
     rows=list(events)
     reversed_ids={str(row["reverses_event_id"]) for row in rows if row.get("event_action")=="REVERSAL"}
     active=[row for row in rows if row.get("event_action")!="REVERSAL" and str(row["event_id"]) not in reversed_ids]
     states:dict[tuple[str,str,str],dict[str,Any]]={}
     annual:dict[tuple[str,int,str],dict[str,Any]]=defaultdict(lambda:{"realized_pnl":ZERO,"fees":ZERO,"taxes":ZERO,"cash_dividends":ZERO,"transaction_count":0})
+    monthly:dict[tuple[str,int,int,str],dict[str,Any]]=defaultdict(lambda:{"purchase_outflow":ZERO,"sale_proceeds":ZERO,
+        "cash_dividends":ZERO,"realized_pnl":ZERO,"fees":ZERO,"taxes":ZERO,"transaction_count":0})
     realized_rows=[]
     ledger_version=max((int(row["ledger_version"]) for row in rows),default=0)
     for row in sorted(active,key=lambda item:(item["trade_date"],item["ledger_version"])):
@@ -189,30 +213,48 @@ def calculate_marts(events: Iterable[dict[str, Any]], prices: dict[str, Decimal 
         fee=Decimal(str(row.get("fee") or 0)); tax=Decimal(str(row.get("tax") or 0))
         bucket=annual[(user_id,row["trade_date"].year,currency)]
         bucket["fees"]+=fee; bucket["taxes"]+=tax; bucket["transaction_count"]+=1
-        if row["event_type"]=="BUY": state["shares"]+=shares; state["cost"]+=shares*price+fee+tax
+        month=monthly[(user_id,row["trade_date"].year,row["trade_date"].month,currency)]
+        month["fees"]+=fee; month["taxes"]+=tax; month["transaction_count"]+=1
+        if row["event_type"]=="BUY":
+            state["shares"]+=shares; state["cost"]+=shares*price+fee+tax
+            month["purchase_outflow"]-=ledger_net_cash_flow(row) or ZERO
         elif row["event_type"]=="SELL":
             average=state["cost"]/state["shares"] if state["shares"] else ZERO
             realized=shares*price-fee-tax-shares*average
             state["shares"]-=shares; state["cost"]-=shares*average; state["realized"]+=realized; bucket["realized_pnl"]+=realized
+            month["sale_proceeds"]+=ledger_net_cash_flow(row) or ZERO; month["realized_pnl"]+=realized
             realized_rows.append({"user_id":user_id,"symbol":symbol,"currency":currency,"event_id":str(row["event_id"]),"realized_pnl":realized})
         elif row["event_type"]=="STOCK_DIV": state["shares"]+=shares
         elif row["event_type"]=="CASH_DIV":
             cash=Decimal(str(row.get("cash_amount") or 0)); state["realized"]+=cash-fee-tax; bucket["cash_dividends"]+=cash; bucket["realized_pnl"]+=cash-fee-tax
+            month["cash_dividends"]+=cash; month["realized_pnl"]+=ledger_net_cash_flow(row) or ZERO
     common={"ledger_version":ledger_version,"valuation_date":valuation_date.isoformat(),"cost_basis_method":"MOVING_AVERAGE"}
     positions=[]; unrealized=[]
     for (user_id,symbol,currency),state in states.items():
         if state["shares"]<=0: continue
-        average=state["cost"]/state["shares"]; price=prices.get(symbol)
-        lineage={"ledger_version":ledger_version,"price_status":"available" if price is not None else "missing"}
+        average=state["cost"]/state["shares"]; quote=prices.get(symbol)
+        if isinstance(quote,tuple): price,price_date=quote
+        else: price,price_date=quote,valuation_date if quote is not None else None
+        price_status=("missing" if price is None else
+                      "stale" if price_date is not None and price_date<valuation_date else "available")
+        lineage={"ledger_version":ledger_version,"price_status":price_status,
+                 "price_date":price_date.isoformat() if price_date else None}
         positions.append({"user_id":user_id,"symbol":symbol,"currency":currency,"shares":state["shares"],"average_cost":average,
-                          "market_price":price,"market_value":price*state["shares"] if price is not None else None,"lineage":str(lineage),**common})
+                          "market_price":price,"market_value":price*state["shares"] if price is not None else None,
+                          "price_status":price_status,"price_date":price_date.isoformat() if price_date else None,
+                          "lineage":str(lineage),**common})
         unrealized.append({"user_id":user_id,"symbol":symbol,"currency":currency,"unrealized_pnl":
-                           (price-average)*state["shares"] if price is not None else None,"price_status":lineage["price_status"],"lineage":str(lineage),**common})
+                           (price-average)*state["shares"] if price is not None else None,
+                           "price_status":price_status,"lineage":str(lineage),**common})
     realized=[{**row,**common,"lineage":f"ledger:{row['event_id']}"} for row in realized_rows]
     annual_rows=[{"user_id":user,"year":year,"currency":currency,**values,**common,"lineage":f"ledger-version:{ledger_version}"}
                  for (user,year,currency),values in annual.items()]
+    monthly_rows=[{"user_id":user,"year":year,"month":month,"currency":currency,**values,**common,
+                   "lineage":f"ledger-version:{ledger_version}"}
+                  for (user,year,month,currency),values in monthly.items()]
     return {"mart_user_positions":positions,"mart_user_realized_pnl":realized,
-            "mart_user_unrealized_pnl":unrealized,"mart_user_annual_pnl":annual_rows}
+            "mart_user_unrealized_pnl":unrealized,"mart_user_annual_pnl":annual_rows,
+            "mart_user_monthly_ledger_summary":monthly_rows}
 
 
 class PrivatePipeline:

@@ -1,5 +1,20 @@
 # Operations and testing
 
+## WBS-6 transaction UX 2.0 — local implementation checkpoint (2026-09-24)
+
+User App now has holdings／records／reports／notes navigation, year-filtered month
+accordions, transaction detail／append-only correction, event-specific fee／tax／memo
+fields, and responsive holdings cards. The private API adds owner-scoped monthly ledger
+summaries materialized by the existing Private Pipeline; canonical purchase outflow,
+sale proceeds, dividends, realized PnL, and per-position unrealized PnL remain backend
+values. Monthly summaries are hidden until their Mart `ledger_version` matches the
+current owner ledger. The Private Pipeline preserves each quote date, marks a quote stale
+when it predates the portfolio valuation date, and withholds aggregate unrealized PnL
+and XIRR when any held symbol is stale or missing. Local validation: Flutter widget tests **19 passed**, Flutter
+analyze clean, and targeted API／pipeline tests **43 passed**. No dev deployment or live
+browser acceptance was performed. The UI shows valuation date, stale-price, missing-price,
+and partial states from the backend. WBS-6 acceptance remains in progress.
+
 ## WBS-8 OAuth refresh-token follow-up — GCP dev (2026-09-24)
 
 Implemented OAuth `offline_access`, refresh-token issuance and atomic one-time rotation,

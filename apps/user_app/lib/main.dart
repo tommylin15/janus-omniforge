@@ -27,6 +27,10 @@ String uiLabel(Object? value) => const {
       'success': '成功',
       'failed': '失敗',
       'insufficient_data': '資料不足',
+      'BUY': '買進',
+      'SELL': '賣出',
+      'CASH_DIV': '現金股利',
+      'STOCK_DIV': '股票股利',
     }[value?.toString()] ?? value?.toString() ?? '—';
 
 List<dynamic> effectiveLedgerEvents(List<dynamic> rows) {
@@ -252,7 +256,8 @@ class _WorkspaceState extends State<Workspace> {
       WatchlistPage(widget.api, onOpenStock: openStock),
       JournalNotesPage(widget.api,
           initialTransaction: lastTransaction,
-          onTransactionSaved: (value) => setState(() => lastTransaction = value)),
+          onTransactionSaved: (value) => setState(() => lastTransaction = value),
+          onOpenStock: openStock),
       ProfilePage(api: widget.api, email: widget.email, onTheme: widget.onTheme)
     ];
     const destinations = [
@@ -682,30 +687,39 @@ class StockDetailPage extends StatelessWidget {
 
 class JournalNotesPage extends StatefulWidget {
   const JournalNotesPage(this.api,
-      {this.initialTransaction, this.onTransactionSaved, super.key});
+      {this.initialTransaction, this.onTransactionSaved, this.onOpenStock, super.key});
   final Api api;
   final Map<String, dynamic>? initialTransaction;
   final ValueChanged<Map<String, dynamic>>? onTransactionSaved;
+  final ValueChanged<String>? onOpenStock;
   @override
   State<JournalNotesPage> createState() => _JournalNotesPageState();
 }
 
 class _JournalNotesPageState extends State<JournalNotesPage> {
-  int segment = 0;
+  int section = 1;
   String? symbolFilter;
-  int? yearFilter;
+  int yearFilter = DateTime.now().year;
   late Future<dynamic> rows = load();
   Future<dynamic> load() {
-    if (segment != 0) return widget.api.get('/api/v1/me/notes');
-    final queryParameters = {
-      if (symbolFilter?.isNotEmpty == true) 'symbol': symbolFilter,
-      if (yearFilter != null) 'year': '$yearFilter',
-    };
-    return widget.api.get(Uri(
-            path: '/api/v1/me/journal/history',
-            queryParameters:
-                queryParameters.isEmpty ? null : queryParameters)
-        .toString());
+    if (section == 0) return widget.api.get('/api/v1/me/journal/positions');
+    if (section == 1) {
+      final query = Uri(path: '/api/v1/me/journal/history', queryParameters: {
+        'year': '$yearFilter',
+        if (symbolFilter?.isNotEmpty == true) 'symbol': symbolFilter!,
+      }).toString();
+      return Future.wait([
+        widget.api.get(query),
+        widget.api.get('/api/v1/me/journal/monthly-summary?year=$yearFilter')
+      ]);
+    }
+    if (section == 2) {
+      return Future.wait([
+        widget.api.get('/api/v1/me/journal/pnl?year=$yearFilter'),
+        widget.api.get('/api/v1/me/portfolio/performance?year=$yearFilter')
+      ]);
+    }
+    return widget.api.get('/api/v1/me/notes');
   }
   void reload() => setState(() {
         rows = load();
@@ -713,7 +727,7 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
   void showPortfolioPending() => ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text(portfolioPendingMessage)));
   Future<void> add() async {
-    if (segment == 1) {
+    if (section == 3) {
       final body = await textDialog(context, '新增筆記', '筆記內容');
       if (body != null) {
         await widget.api.post('/api/v1/me/notes', {'body': body});
@@ -721,147 +735,186 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
       }
       return;
     }
+    if (section != 1) return;
     final payload = await transactionDialog(context,
         initial: widget.initialTransaction);
     if (payload != null) {
       await widget.api.post('/api/v1/me/journal/events', payload);
       widget.onTransactionSaved?.call(Map<String, dynamic>.from(payload));
-      if (mounted) showPortfolioPending();
-      reload();
+      if (mounted) { showPortfolioPending(); reload(); }
     }
+  }
+
+  Future<void> correct(Map row) async {
+    final replacement = await transactionDialog(context,
+        initial: Map<String, dynamic>.from(row), title: '建立更正');
+    if (replacement == null || !mounted) return;
+    await widget.api.post('/api/v1/me/journal/events/${row['event_id']}/corrections', {
+      'expected_version': row['record_version'], 'replacement': replacement
+    });
+    if (mounted) { showPortfolioPending(); reload(); }
+  }
+
+  Future<void> showDetails(Map row) async {
+    final details = [
+      '${row['trade_date'] ?? '—'} · ${uiLabel(row['event_type'])}',
+      '股票：${row['symbol'] ?? '—'}',
+      if (row['shares'] != null) '股數：${row['shares']}',
+      if (row['price'] != null) '成交單價：${row['price']}',
+      if (row['cash_amount'] != null) '股利金額：${row['cash_amount']}',
+      if (row['net_cash_flow'] != null) '淨現金流：${row['net_cash_flow']}',
+      '手續費：${row['fee'] ?? '0'} · 證交稅：${row['tax'] ?? '0'}',
+      '幣別：${row['currency'] ?? 'TWD'}',
+      if ('${row['memo'] ?? ''}'.isNotEmpty) '備註：${row['memo']}',
+    ];
+    final edit = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+      title: Text('${uiLabel(row['event_type'])} ${row['symbol'] ?? ''}'),
+      content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
+        children: [for (final value in details) Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Text(value))]),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('關閉')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('建立更正'))
+      ]));
+    if (edit == true && mounted) await correct(row);
+  }
+
+  Widget content(AsyncSnapshot<dynamic> snapshot) {
+    if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
+    if (snapshot.hasError) return ErrorView(snapshot.error.toString(), reload);
+    if (section == 0) return holdings((snapshot.data as List? ?? []).cast<Map>());
+    if (section == 1) return trades(snapshot.data as List<dynamic>);
+    if (section == 2) return reports(snapshot.data as List<dynamic>);
+    return notes((snapshot.data as List? ?? []).cast<Map>());
+  }
+
+  Widget holdings(List<Map> values) {
+    if (values.isEmpty) return const Center(child: Text('尚無持股資料'));
+    return LayoutBuilder(builder: (context, constraints) {
+      final width = constraints.maxWidth >= 720 ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth;
+      return ListView(padding: const EdgeInsets.all(12), children: [
+        Wrap(spacing: 12, runSpacing: 12, children: [for (final row in values)
+          SizedBox(width: width, child: Card(child: ListTile(
+            onTap: () => widget.onOpenStock?.call('${row['symbol']}'),
+            title: Text('${row['symbol']} · ${row['currency'] ?? 'TWD'}'),
+            subtitle: Text('持有 ${row['shares'] ?? '—'} 股 · 現價 ${row['market_price'] ?? '—'} · 均價 ${row['average_cost'] ?? '—'}\n市值 ${row['market_value'] ?? '缺價'} · 未實現損益 ${row['unrealized_pnl'] ?? '資料不足'}\n估值日 ${row['valuation_date'] ?? '—'} · 行情日 ${row['price_date'] ?? '—'} · ${row['price_status'] == 'missing' ? '缺價' : row['price_status'] == 'stale' ? '資料過期' : '可用'}'),
+            isThreeLine: true,
+          )))]),
+      ]);
+    });
+  }
+
+  Widget trades(List<dynamic> result) {
+    final events = effectiveLedgerEvents(result.isNotEmpty && result[0] is List ? result[0] as List : const []);
+    final summaries = result.length > 1 && result[1] is Map ? _asList((result[1] as Map)['items']) : const [];
+    final byMonth = <int, List<dynamic>>{};
+    for (final row in events) {
+      final date = DateTime.tryParse('${row['trade_date'] ?? ''}');
+      if (date != null) byMonth.putIfAbsent(date.month, () => []).add(row);
+    }
+    final summaryByMonth = {for (final row in summaries) if (row is Map) row['month']: row};
+    final months = byMonth.keys.toList()..sort((a, b) => b.compareTo(a));
+    return ListView(padding: const EdgeInsets.symmetric(horizontal: 8), children: [
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: Wrap(spacing: 8, children: [
+        OutlinedButton(onPressed: () async {
+          final value = await textDialog(context, '股票篩選', '股票代號，可留空', initial: symbolFilter ?? '');
+          if (value != null) setState(() { symbolFilter = value.trim().isEmpty ? null : value.trim().toUpperCase(); rows = load(); });
+        }, child: Text(symbolFilter == null ? '股票：全部' : '股票：$symbolFilter')),
+        MenuAnchor(builder: (context, controller, child) => OutlinedButton(
+          onPressed: () => controller.isOpen ? controller.close() : controller.open(),
+          child: Text('年度：$yearFilter')),
+          menuChildren: [for (var year = DateTime.now().year; year >= DateTime.now().year - 5; year--)
+            MenuItemButton(onPressed: () => setState(() { yearFilter = year; rows = load(); }), child: Text('$year'))]),
+      ])),
+      if (months.isEmpty) const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('本年度尚無交易'))),
+      for (final month in months)
+        ExpansionTile(
+          initiallyExpanded: month == DateTime.now().month,
+          title: Text('$yearFilter 年 $month 月'),
+          subtitle: Text('${byMonth[month]!.length} 筆交易'),
+          children: [
+            if (summaryByMonth[month] is Map) ...[
+              Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                summaryLine('買進支出', summaryByMonth[month]!['purchase_outflow'], summaryByMonth[month]!['currency']),
+                summaryLine('賣出回收', summaryByMonth[month]!['sale_proceeds'], summaryByMonth[month]!['currency']),
+                summaryLine('股利收入', summaryByMonth[month]!['cash_dividends'], summaryByMonth[month]!['currency']),
+                summaryLine('已實現損益', summaryByMonth[month]!['realized_pnl'], summaryByMonth[month]!['currency']),
+                Text('資料日期：${summaryByMonth[month]!['valuation_date'] ?? '—'}')
+              ])),
+            ] else const ListTile(title: Text('摘要等待投資組合批次更新')),
+            ...((byMonth[month]!..sort((a, b) => '${b['trade_date']}'.compareTo('${a['trade_date']}'))).map((row) => ListTile(
+              onTap: () => showDetails(row as Map),
+              title: Text('${uiLabel(row['event_type'])} · ${row['symbol']}'),
+              subtitle: Text('${row['trade_date']} · ${row['shares'] != null ? '${row['shares']} 股 × ${row['price'] ?? '—'}' : '股利 ${row['cash_amount'] ?? '—'}'}\n淨現金流 ${row['net_cash_flow'] ?? '—'} ${row['currency'] ?? 'TWD'}'),
+              trailing: IconButton(tooltip: '建立更正', icon: const Icon(Icons.edit_note), onPressed: () => correct(row as Map)),
+            )))
+          ])
+    ]);
+  }
+
+  Widget summaryLine(String label, dynamic amount, dynamic currency) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 2), child: Text('$label：${currency ?? ''} ${amount ?? '資料不足'}'));
+
+  Widget reports(List<dynamic> result) {
+    final pnl = result.isNotEmpty && result[0] is List ? result[0] as List : const [];
+    final performance = result.length > 1 && result[1] is Map ? _asList((result[1] as Map)['items']) : const [];
+    if (pnl.isEmpty && performance.isEmpty) return const Center(child: Text('年度報表等待投資組合批次更新'));
+    return ListView(padding: const EdgeInsets.all(16), children: [
+      Text('$yearFilter 年報表', style: Theme.of(context).textTheme.titleLarge),
+      for (final row in pnl.whereType<Map>()) Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('${row['currency']} · 資料日期 ${row['valuation_date'] ?? '—'}'),
+        summaryLine('已實現損益', row['realized_pnl'], row['currency']),
+        summaryLine('股利收入', row['cash_dividends'], row['currency']),
+        summaryLine('手續費', row['fees'], row['currency']),
+        summaryLine('證券交易稅', row['taxes'], row['currency']),
+        Text('交易筆數：${row['transaction_count'] ?? '—'} · 成本法：${row['cost_basis_method'] ?? '移動平均法'}')
+      ]))),
+      for (final row in performance.whereType<Map>()) ListTile(
+        title: Text('XIRR · ${row['currency']}'), subtitle: Text('資料日期 ${row['valuation_date'] ?? '—'}'),
+        trailing: Text(row['xirr_status'] == 'available' ? '${row['xirr']}' : '資料不足'))
+    ]);
+  }
+
+  Widget notes(List<Map> values) {
+    if (values.isEmpty) return const Center(child: Text('尚無筆記'));
+    return ListView(children: [for (final row in values) ListTile(
+      title: Text('${row['body'] ?? ''}'), subtitle: Text('${row['symbol'] ?? '一般筆記'} · 版本 ${row['revision']}'),
+      trailing: TextButton(onPressed: () async {
+        final body = await textDialog(context, '修改筆記', '筆記內容', initial: row['body'] ?? '');
+        if (body == null) return;
+        await widget.api.put('/api/v1/me/notes/${row['note_id']}', {
+          'body': body, 'symbol': row['symbol'], 'trade_event_id': row['trade_event_id'],
+          'needs_follow_up': row['needs_follow_up'], 'expected_version': row['revision']
+        });
+        reload();
+      }, child: const Text('修改'))
+    )]);
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: (section == 1 || section == 3) ? FloatingActionButton.extended(
           onPressed: add,
           icon: const Icon(Icons.add),
-          label: Text(segment == 0 ? '新增交易' : '新增筆記')),
-      body: Column(children: [
+          label: Text(section == 1 ? '新增交易' : '新增筆記')) : null,
+      body: SafeArea(child: Column(children: [
         SummaryCards(widget.api),
         Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
             child: SegmentedButton<int>(
                 showSelectedIcon: false,
                 segments: const [
-                  ButtonSegment(value: 0, label: Text('交易紀錄')),
-                  ButtonSegment(value: 1, label: Text('投資筆記'))
+                  ButtonSegment(value: 0, label: Text('持股')),
+                  ButtonSegment(value: 1, label: Text('紀錄')),
+                  ButtonSegment(value: 2, label: Text('報表')),
+                  ButtonSegment(value: 3, label: Text('筆記'))
                 ],
-                selected: {
-                  segment
-                },
+                selected: {section},
                 onSelectionChanged: (value) => setState(() {
-                      segment = value.first;
+                      section = value.first;
                       rows = load();
                     }))),
-        if (segment == 0)
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Wrap(spacing: 8, children: [
-            OutlinedButton(
-                onPressed: () async {
-                  final value = await textDialog(context, '歷史篩選', '股票代號，可留空');
-                  if (value != null) {
-                    setState(() {
-                      symbolFilter = value.trim().isEmpty
-                          ? null
-                          : value.trim().toUpperCase();
-                      rows = load();
-                    });
-                  }
-                },
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Text(symbolFilter == null ? '股票：全部' : '股票：$symbolFilter'),
-                  const Icon(Icons.arrow_drop_down)
-                ])),
-            MenuAnchor(
-                builder: (context, controller, child) => OutlinedButton(
-                    onPressed: () => controller.isOpen ? controller.close() : controller.open(),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Text(yearFilter == null ? '年度：全部' : '年度：$yearFilter'),
-                      const Icon(Icons.arrow_drop_down)
-                    ])),
-                menuChildren: [
-                  MenuItemButton(onPressed: () => setState(() {
-                    yearFilter = null;
-                    rows = load();
-                  }), child: const Text('全部年度')),
-                  for (var year = DateTime.now().year; year >= DateTime.now().year - 5; year--)
-                    MenuItemButton(onPressed: () => setState(() {
-                      yearFilter = year;
-                      rows = load();
-                    }), child: Text('$year'))
-                ])
-          ])),
-        Expanded(
-            child: FutureBuilder(
-                future: rows,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState != ConnectionState.done) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return ErrorView(snapshot.error.toString(), reload);
-                  }
-                  final rawValues = (snapshot.data as List? ?? []);
-                  final values = segment == 0
-                      ? effectiveLedgerEvents(rawValues)
-                      : rawValues;
-                  if (values.isEmpty) {
-                    return Center(child: Text(segment == 0 ? '尚無交易' : '尚無筆記'));
-                  }
-                  return ListView.builder(
-                      itemCount: values.length,
-                      itemBuilder: (context, index) {
-                        final row = values[index];
-                        return ListTile(
-                            title: Text(segment == 0
-                                ? '${row['event_type']} ${row['symbol']}'
-                                : row['body'] ?? ''),
-                            subtitle: Text(segment == 0
-                                ? '${row['trade_date']} · ${row['shares'] ?? row['cash_amount'] ?? ''}'
-                                : '${row['symbol'] ?? '一般筆記'} · 版本 ${row['revision']}'),
-                            trailing: TextButton(
-                                onPressed: () async {
-                                  if (segment == 0) {
-                                    final replacement = await transactionDialog(
-                                        context,
-                                        initial:
-                                            Map<String, dynamic>.from(row),
-                                        title: '建立更正');
-                                    if (replacement != null) {
-                                      await widget.api.post(
-                                          '/api/v1/me/journal/events/${row['event_id']}/corrections',
-                                          {
-                                            'expected_version':
-                                                row['record_version'],
-                                            'replacement': replacement
-                                          });
-                                      if (mounted) showPortfolioPending();
-                                      reload();
-                                    }
-                                  } else {
-                                    final body = await textDialog(
-                                        context, '修改筆記', '筆記內容',
-                                        initial: row['body'] ?? '');
-                                    if (body != null) {
-                                      await widget.api.put(
-                                          '/api/v1/me/notes/${row['note_id']}',
-                                          {
-                                            'body': body,
-                                            'symbol': row['symbol'],
-                                            'trade_event_id':
-                                                row['trade_event_id'],
-                                            'needs_follow_up':
-                                                row['needs_follow_up'],
-                                            'expected_version': row['revision']
-                                          });
-                                      reload();
-                                    }
-                                  }
-                                },
-                                child: Text(segment == 0 ? '建立更正' : '修改')));
-                      });
-                }))
-      ]));
+        Expanded(child: FutureBuilder<dynamic>(future: rows, builder: (context, snapshot) => content(snapshot)))
+      ])));
 }
 
 class SummaryCards extends StatelessWidget {
@@ -870,35 +923,44 @@ class SummaryCards extends StatelessWidget {
   @override
   Widget build(BuildContext context) => FutureBuilder<List<dynamic>>(
       future: Future.wait([
-        api.get('/api/v1/me/journal/positions'),
+        api.get('/api/v1/me/portfolio/summary'),
         api.get('/api/v1/me/journal/pnl?year=${DateTime.now().year}'),
         api.get('/api/v1/me/notes')
       ]),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const SizedBox(
-              height: 88, child: Center(child: CircularProgressIndicator()));
-        }
+        if (snapshot.connectionState != ConnectionState.done) return const SizedBox(height: 88, child: Center(child: CircularProgressIndicator()));
+        if (snapshot.hasError) return const ListTile(title: Text('投資組合摘要暫時無法使用'));
         final data = snapshot.data!;
-        final pnl = data[1] as List;
-        final pnlText = pnl.isEmpty
-            ? '—'
-            : pnl.length == 1
-                ? '${pnl.first['currency']} ${pnl.first['realized_pnl']}'
-                : '多幣別';
-        final pending = (data[2] as List)
+        final portfolio = _asList(data[0] is Map ? (data[0] as Map)['items'] : null);
+        final pnl = _asList(data[1]);
+        final realized = pnl.isEmpty ? '資料不足' : pnl.length == 1
+            ? '${pnl.first['currency']} ${pnl.first['realized_pnl'] ?? '資料不足'}' : '多幣別';
+        final value = portfolio.isEmpty ? '資料不足' : portfolio.length == 1
+            ? '${portfolio.first['currency']} ${portfolio.first['market_value'] ?? '資料不足'}' : '多幣別';
+        final unrealized = portfolio.isEmpty ? '資料不足' : portfolio.length == 1
+            ? '${portfolio.first['currency']} ${portfolio.first['unrealized_pnl'] ?? ((portfolio.first['stale_price_count'] ?? 0) > 0 ? '資料過期' : '資料不足')}' : '多幣別';
+        final pending = _asList(data[2])
             .where((row) => row['needs_follow_up'] == true)
             .length;
+        final hasMissing = portfolio.any((row) => (row['missing_price_count'] ?? 0) > 0);
+        final hasStale = portfolio.any((row) => (row['stale_price_count'] ?? 0) > 0);
+        final valuationStatus = hasMissing && hasStale ? '部分可用，含缺價與過期行情'
+            : hasMissing ? '部分可用，含缺價' : hasStale ? '行情過期' : '資料完整';
         return SizedBox(
-            height: 88,
-            child: ListView(
+            height: 124,
+            child: Column(children: [
+              Expanded(child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.all(8),
                 children: [
-                  summary('目前持股', '${(data[0] as List).length} 檔'),
-                  summary('本年已實現損益', pnlText),
+                  summary('持股市值', value),
+                  summary('未實現損益', unrealized),
+                  summary('本年已實現損益', realized),
                   summary('待完成筆記', '$pending 則')
-                ]));
+                ])),
+              if (portfolio.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(
+                '估值日期：${portfolio.map((row) => row['valuation_date']).toSet().join(' / ')} · $valuationStatus'))
+            ]));
       });
   Widget summary(String title, String value) => Card(
       child: Padding(
@@ -1134,12 +1196,19 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
   var shares = '${initial?['shares'] ?? ''}';
   var price = '${initial?['price'] ?? ''}';
   var amount = '${initial?['cash_amount'] ?? ''}';
+  var fee = '${initial?['fee'] ?? '0'}';
+  var tax = '${initial?['tax'] ?? '0'}';
+  var memo = '${initial?['memo'] ?? ''}';
 
   String? requiredText(String? value) =>
       value == null || value.trim().isEmpty ? '必填' : null;
   String? positiveNumber(String? value) {
     final number = num.tryParse(value?.trim() ?? '');
     return number == null || number <= 0 ? '請輸入大於 0 的數字' : null;
+  }
+  String? nonNegativeNumber(String? value) {
+    final number = num.tryParse(value?.trim() ?? '');
+    return number == null || number < 0 ? '請輸入 0 或正數' : null;
   }
 
   final result = await showDialog<Map<String, dynamic>>(
@@ -1210,6 +1279,26 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                       decoration: const InputDecoration(labelText: '股利金額'),
                                       validator: positiveNumber),
+                                if (type != 'STOCK_DIV') ...[
+                                  TextFormField(
+                                      initialValue: fee,
+                                      onChanged: (value) => fee = value,
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      decoration: const InputDecoration(labelText: '手續費'),
+                                      validator: nonNegativeNumber),
+                                  TextFormField(
+                                      initialValue: tax,
+                                      onChanged: (value) => tax = value,
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      decoration: const InputDecoration(labelText: '證券交易稅'),
+                                      validator: nonNegativeNumber),
+                                ],
+                                TextFormField(
+                                    initialValue: memo,
+                                    onChanged: (value) => memo = value,
+                                    maxLength: 500,
+                                    maxLines: 2,
+                                    decoration: const InputDecoration(labelText: '備註')),
                                 const TextField(
                                     enabled: false,
                                     decoration: InputDecoration(labelText: '幣別', hintText: 'TWD'))
@@ -1228,7 +1317,10 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
                             'currency': 'TWD',
                             if (type != 'CASH_DIV') 'shares': shares.trim(),
                             if (type == 'BUY' || type == 'SELL') 'price': price.trim(),
-                            if (type == 'CASH_DIV') 'cash_amount': amount.trim()
+                            if (type == 'CASH_DIV') 'cash_amount': amount.trim(),
+                            if (type != 'STOCK_DIV') 'fee': fee.trim(),
+                            if (type != 'STOCK_DIV') 'tax': tax.trim(),
+                            if (memo.trim().isNotEmpty) 'memo': memo.trim(),
                           });
                         },
                         child: const Text('儲存'))

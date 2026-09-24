@@ -170,6 +170,13 @@ class PostgresWorkspaceRepository:
                 f"SELECT * FROM private.ledger_events WHERE {' AND '.join(clauses)} ORDER BY ledger_version DESC LIMIT %s", values
             ).fetchall()]
 
+    def latest_ledger_version(self, user_id: UUID) -> int:
+        with self._connection() as connection:
+            return connection.execute(
+                "SELECT COALESCE(MAX(ledger_version),0) AS version FROM private.ledger_events WHERE user_id=%s",
+                (user_id,),
+            ).fetchone()["version"]
+
     def positions(self, user_id: UUID) -> list[dict[str, Any]]:
         with self._connection() as connection:
             return [dict(row) for row in connection.execute(

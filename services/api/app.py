@@ -29,12 +29,14 @@ from .mcp_adapter import McpAdapter
 from .mcp_oauth import McpOAuth, OAuthSettings, RepositoryOAuthCodeStore, parse_form
 from .models import (AdminResponseOut, AnalysisFeedbackIn, CorePageOut, CoreSummaryOut,
                      CorrectionIn, HealthOut, InvestmentProfileIn, InvestmentProfileOut, LedgerEventIn,
+                     MonthlyLedgerSummaryOut,
                      NoteIn, NoteRevisionIn, PortfolioExposureOut, PortfolioPerformanceOut,
                      PortfolioStressOut, PortfolioSummaryOut,
                      PrivateResponseOut, PublicDatasetOut, PublicReportListOut, PublicReportOut, PublicWaitingOut,
                      WatchlistIn, WatchlistOrderIn,
                      GovernanceDiffIn, GovernanceEditIn, MembershipEditIn)
 from .repository import ConflictError, NotFoundError, OversellError, repository_from_env
+from .private_pipeline import ledger_net_cash_flow
 from .public_runtime import build_admin_service, build_core_service, build_pipeline_service, build_public_service
 from .store import PrivateIcebergStore
 
@@ -464,15 +466,29 @@ def create_app(repository: Any | None = None, store: Any | None = None,
 
     @private.get("/journal/history")
     def history(symbol: str|None=None,year:int|None=Query(None,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):
-        return jsonable_encoder(repository.ledger_history(current.user_id,symbol,year))
+        rows=repository.ledger_history(current.user_id,symbol,year)
+        return jsonable_encoder([{**row,"net_cash_flow":ledger_net_cash_flow(row)} for row in rows])
 
     @private.get("/journal/positions")
     def positions(current:AuthenticatedUser=Depends(user)):
-        return jsonable_encoder(store.mart("mart_user_positions",current.user_id))
+        rows=store.mart("mart_user_positions",current.user_id)
+        unrealized={(row.get("symbol"),row.get("currency")):row for row in
+                    store.mart("mart_user_unrealized_pnl",current.user_id)}
+        return jsonable_encoder([{**row,
+            "unrealized_pnl":unrealized.get((row.get("symbol"),row.get("currency")),{}).get("unrealized_pnl"),
+            "price_status":unrealized.get((row.get("symbol"),row.get("currency")),{}).get("price_status", "missing")}
+            for row in rows])
 
     @private.get("/journal/pnl")
     def pnl(year:int=Query(...,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):
         return jsonable_encoder(store.mart("mart_user_annual_pnl",current.user_id,year=year))
+
+    @private.get("/journal/monthly-summary", response_model=MonthlyLedgerSummaryOut)
+    def monthly_ledger_summary(year:int=Query(...,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):
+        rows=store.mart("mart_user_monthly_ledger_summary",current.user_id,year=year)
+        if rows and max(row.get("ledger_version",0) for row in rows)!=repository.latest_ledger_version(current.user_id):
+            rows=[]
+        return {"items":jsonable_encoder(rows)}
 
     def portfolio_mart(table: str, current: AuthenticatedUser, **filters: Any) -> dict[str, Any]:
         rows=jsonable_encoder(store.mart(table,current.user_id,**filters))

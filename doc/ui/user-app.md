@@ -65,7 +65,7 @@ roles 與 CIO；歷史 artifact immutable。單角色重跑由 Admin 操作，�
 
 #### 5.4.1 交易記錄 UX 2.0（Planned presentation contract）
 
-本節吸收 2026-09-24 交易／持股參考 App 的產品評估，只正式化適合 Janus 的 presentation contract；**不表示 Flutter、API 或 runtime 已完成以下 UX，也不改變目前 immediate execution queue 或 Dev Pilot Entry Gate。**
+本節吸收 2026-09-24 交易／持股參考 App 的產品評估，只正式化適合 Janus 的 presentation contract；**本地 Flutter/API implementation 已完成，dev runtime acceptance 尚待執行；本項是 immediate execution queue 最高優先，但不改變 Dev Pilot Entry Gate。每檔行情 date 早於 portfolio valuation date 時由 backend 標記 stale；aggregate unrealized PnL 在 stale 或缺價時保持 unavailable。**
 
 交易記錄第一屏在資料可用時應優先呈現：
 

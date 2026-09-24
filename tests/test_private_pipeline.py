@@ -44,6 +44,29 @@ def test_fees_and_taxes_are_included_in_moving_average_realized_pnl():
     assert marts["mart_user_annual_pnl"][0]["taxes"]==Decimal("3")
 
 
+def test_monthly_ledger_summary_uses_canonical_moving_average_and_net_cash_flows():
+    buy=event(1,"BUY",date(2026,2,1),Decimal("5"),Decimal("100"));buy["fee"]=Decimal("2");buy["tax"]=Decimal("3")
+    sell=event(2,"SELL",date(2026,2,10),Decimal("2"),Decimal("120"));sell["fee"]=Decimal("1");sell["tax"]=Decimal("2")
+    dividend=event(3,"CASH_DIV",date(2026,2,20),cash=Decimal("50"));dividend["fee"]=Decimal("1")
+    summary=calculate_marts([buy,sell,dividend],{"2330":Decimal("130")},date(2026,3,1))["mart_user_monthly_ledger_summary"][0]
+    assert summary["purchase_outflow"]==Decimal("505")
+    assert summary["sale_proceeds"]==Decimal("237")
+    assert summary["cash_dividends"]==Decimal("50")
+    assert summary["realized_pnl"]==Decimal("84")
+    assert summary["transaction_count"]==3
+
+
+def test_price_dates_drive_stale_status_and_withhold_aggregate_unrealized_pnl():
+    buy=event(1,"BUY",date(2026,9,1),Decimal("2"),Decimal("100"))
+    marts=calculate_marts([buy],{"2330":(Decimal("120"),date(2026,9,3))},date(2026,9,4))
+    position=marts["mart_user_positions"][0]
+    assert position["price_status"]=="stale" and position["price_date"]=="2026-09-03"
+    risk=calculate_risk_marts([buy],marts["mart_user_positions"],None,{},date(2026,9,4))
+    summary=risk["mart_user_portfolio_summary"][0]
+    assert summary["valuation_status"]=="stale"
+    assert summary["stale_price_count"]==1 and summary["unrealized_pnl"] is None
+
+
 class Repository:
     def __init__(self): self.advanced=[]
     def pipeline_checkpoint(self): return 7
@@ -67,6 +90,7 @@ def test_checkpoint_advances_only_after_all_private_writes():
     assert PrivatePipeline(repo,store,lambda symbols,when:{"2330":Decimal("12")}).run(date(2026,9,4))==8
     assert repo.advanced==[8]
     assert "mart_user_positions" in store.tables
+    assert "mart_user_monthly_ledger_summary" in store.tables
     failed_repo=Repository()
     with pytest.raises(RuntimeError): PrivatePipeline(failed_repo,Store(True),lambda symbols,when:{}).run(date(2026,9,4))
     assert failed_repo.advanced==[]
@@ -118,6 +142,26 @@ def test_core_price_reader_selects_latest_eligible_persisted_date():
         def table_exists(self,name): return name=="core.ohlcv_v1"
         def load_table(self,name): return Table()
     assert CorePriceReader(Catalog()).latest_valuation_date(date(2026,9,20))==date(2026,9,18)
+
+
+def test_core_price_reader_keeps_the_quote_date_for_stale_detection():
+    from services.api.private_pipeline import CorePriceReader
+    class Scan:
+        def to_arrow(self): return self
+        def to_pylist(self): return [
+            {"symbol":"2330","trade_date":date(2026,9,3),"close":Decimal("120")},
+            {"symbol":"2330","trade_date":date(2026,9,2),"close":Decimal("110")},
+        ]
+    class Table:
+        def scan(self,**kwargs):
+            assert kwargs["selected_fields"]==("symbol","trade_date","close")
+            return Scan()
+    class Catalog:
+        def table_exists(self,name): return name=="core.ohlcv_v1"
+        def load_table(self,name): return Table()
+    assert CorePriceReader(Catalog())({"2330"},date(2026,9,4))=={
+        "2330":(Decimal("120"),date(2026,9,3))
+    }
 
 
 def test_partial_write_replay_is_logically_idempotent():

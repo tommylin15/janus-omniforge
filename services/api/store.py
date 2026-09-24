@@ -21,6 +21,7 @@ class PrivateIcebergStore:
         "mart_user_realized_pnl": ("user_id", "event_id", "ledger_version", "valuation_date"),
         "mart_user_unrealized_pnl": ("user_id", "symbol", "currency", "ledger_version", "valuation_date"),
         "mart_user_annual_pnl": ("user_id", "year", "currency", "ledger_version", "valuation_date"),
+        "mart_user_monthly_ledger_summary": ("user_id", "year", "month", "currency", "ledger_version", "valuation_date"),
         "mart_user_exposure": ("user_id", "industry", "currency", "ledger_version", "valuation_date"),
         "mart_user_annual_performance": ("user_id", "year", "currency", "ledger_version", "valuation_date"),
         "mart_user_stress_tests": ("user_id", "scenario_id", "currency", "ledger_version", "valuation_date"),
@@ -72,17 +73,20 @@ class PrivateIcebergStore:
         return [{**wanted[row["artifact_ref"]], **row} for row in rows if row.get("artifact_ref") in wanted]
 
     def mart(self, table: str, user_id: Any, **filters: Any) -> list[dict[str, Any]]:
-        rows = self.rows(table, user_id)
-        rows=[row for row in rows if all(row.get(key) == value for key, value in filters.items())]
+        rows = self.rows(table, user_id, filters=filters)
         if not rows: return []
         latest=max((str(row.get("valuation_date","")),row.get("ledger_version",0)) for row in rows)
         return [row for row in rows if (str(row.get("valuation_date","")),row.get("ledger_version",0))==latest]
 
-    def rows(self, table: str, user_id: Any, limit: int | None = 200) -> list[dict[str, Any]]:
+    def rows(self, table: str, user_id: Any, limit: int | None = 200,
+             filters: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         identifier = f"{self.namespace}.{table}"
         if not self.catalog.table_exists(identifier): return []
-        from pyiceberg.expressions import EqualTo
-        scan_kwargs={"row_filter":EqualTo("user_id",str(user_id))}
+        from pyiceberg.expressions import And, EqualTo
+        row_filter=EqualTo("user_id",str(user_id))
+        for key,value in (filters or {}).items():
+            row_filter=And(row_filter,EqualTo(key,value))
+        scan_kwargs={"row_filter":row_filter}
         if limit is not None: scan_kwargs["limit"]=min(limit,200)
         scan=self.catalog.load_table(identifier).scan(**scan_kwargs)
         return scan.to_arrow().to_pylist()

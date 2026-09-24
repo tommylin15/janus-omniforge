@@ -193,6 +193,8 @@ class PortfolioSummaryItem(BaseModel):
     cost_basis: Decimal
     unrealized_pnl: Decimal | None
     missing_price_count: int
+    stale_price_count: int = 0
+    valuation_status: Literal["available", "partial", "stale"] | None = None
     cash_safety_status: Literal["available", "insufficient_data"]
     cash_ratio: Decimal | None
     minimum_cash_ratio: Decimal | None
@@ -202,6 +204,24 @@ class PortfolioSummaryItem(BaseModel):
 
 class PortfolioSummaryOut(BaseModel):
     items: list[PortfolioSummaryItem]
+
+
+class MonthlyLedgerSummaryItem(BaseModel):
+    year: int
+    month: int = Field(ge=1, le=12)
+    currency: str
+    purchase_outflow: Decimal
+    sale_proceeds: Decimal
+    cash_dividends: Decimal
+    realized_pnl: Decimal
+    fees: Decimal
+    taxes: Decimal
+    transaction_count: int
+    valuation_date: date
+
+
+class MonthlyLedgerSummaryOut(BaseModel):
+    items: list[MonthlyLedgerSummaryItem]
 
 
 class PortfolioExposureItem(BaseModel):
@@ -246,7 +266,7 @@ class PortfolioStressItem(BaseModel):
     cash_safety_status: Literal["available", "insufficient_data"]
     cash_ratio: Decimal | None
     minimum_cash_ratio: Decimal | None
-    valuation_status: Literal["available", "partial"]
+    valuation_status: Literal["available", "partial", "stale"]
     method: Literal["deterministic_parallel_shock_v1"]
     ledger_version: int
     valuation_date: date

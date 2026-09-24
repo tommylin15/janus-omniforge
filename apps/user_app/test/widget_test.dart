@@ -139,7 +139,7 @@ void main() {
 
     await tester.tap(find.text('開啟'));
     await tester.pumpAndSettle();
-    for (final label in ['交易類型', '交易日期', '股票代號', '股數', '成交單價', '幣別']) {
+    for (final label in ['交易類型', '交易日期', '股票代號', '股數', '成交單價', '手續費', '證券交易稅', '備註', '幣別']) {
       expect(find.text(label), findsOneWidget);
     }
     expect(find.text('2330'), findsOneWidget);
@@ -152,30 +152,71 @@ void main() {
     expect(result, containsPair('symbol', '2317'));
     expect(result, containsPair('shares', '10'));
     expect(result, containsPair('price', '1000'));
+    expect(result, containsPair('fee', '0'));
+    expect(result, containsPair('tax', '0'));
   });
 
-  testWidgets('journal controls clearly separate mode, filters, and add action',
+  testWidgets('journal exposes holdings, records, reports, and notes',
       (tester) async {
     await tester.pumpWidget(
         MaterialApp(home: JournalNotesPage(FakeApi(const {}))));
     await tester.pumpAndSettle();
 
-    expect(find.text('交易紀錄'), findsOneWidget);
-    expect(find.text('投資筆記'), findsOneWidget);
+    expect(find.text('持股'), findsOneWidget);
+    expect(find.text('紀錄'), findsOneWidget);
+    expect(find.text('報表'), findsOneWidget);
+    expect(find.text('筆記'), findsOneWidget);
     expect(find.byIcon(Icons.check), findsNothing);
     expect(find.text('股票：全部'), findsOneWidget);
-    expect(find.text('年度：全部'), findsOneWidget);
+    expect(find.text('年度：${DateTime.now().year}'), findsOneWidget);
     expect(find.text('新增交易'), findsOneWidget);
 
-    await tester.tap(find.text('投資筆記'));
+    await tester.tap(find.text('筆記'));
     await tester.pumpAndSettle();
     expect(find.text('新增筆記'), findsOneWidget);
+  });
+
+  testWidgets('transaction months show separate canonical summaries and holdings cards',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final year = DateTime.now().year;
+    final month = DateTime.now().month;
+    final monthText = month.toString().padLeft(2, '0');
+    final api = FakeApi({
+      '/api/v1/me/journal/history?year=$year': [
+        {'event_id':'A','event_action':'ORIGINAL','event_type':'BUY','symbol':'2330',
+          'trade_date':'$year-$monthText-01','shares':'2','price':'100','net_cash_flow':'-200',
+          'currency':'TWD','record_version':1}
+      ],
+      '/api/v1/me/journal/monthly-summary?year=$year': {'items':[
+        {'month':month,'currency':'TWD','purchase_outflow':'200','sale_proceeds':'0',
+          'cash_dividends':'0','realized_pnl':'0','valuation_date':'$year-$monthText-01'}
+      ]},
+      '/api/v1/me/journal/positions': [
+        {'symbol':'2330','currency':'TWD','shares':'2','market_price':'120','market_value':'240',
+          'average_cost':'100','unrealized_pnl':'40','price_status':'stale','price_date':'$year-$monthText-01',
+          'valuation_date':'$year-$monthText-02'}
+      ]
+    });
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    await tester.pumpWidget(MaterialApp(home: JournalNotesPage(api)));
+    await tester.pumpAndSettle();
+    expect(find.text('買進支出：TWD 200'), findsOneWidget);
+    expect(find.textContaining('淨現金流 -200'), findsOneWidget);
+    await tester.tap(find.text('持股'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('未實現損益 40'), findsOneWidget);
+    expect(find.textContaining('資料過期'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('journal shows only the replacement after one correction',
       (tester) async {
     final api = FakeApi({
-      '/api/v1/me/journal/history': [
+      '/api/v1/me/journal/history?year=${DateTime.now().year}': [
         {'event_id': 'A', 'event_action': 'ORIGINAL', 'event_type': 'BUY',
           'symbol': 'TEST01', 'trade_date': '2026-09-20', 'shares': 1},
         {'event_id': 'R1', 'event_action': 'REVERSAL', 'event_type': 'BUY',
@@ -189,16 +230,16 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: JournalNotesPage(api)));
     await tester.pumpAndSettle();
 
-    expect(api.reads, contains('/api/v1/me/journal/history'));
-    expect(find.text('BUY TEST01'), findsNothing);
-    expect(find.text('BUY 5876'), findsOneWidget);
-    expect(find.text('建立更正'), findsOneWidget);
+    expect(api.reads, contains('/api/v1/me/journal/history?year=${DateTime.now().year}'));
+    expect(find.text('買進 · TEST01'), findsNothing);
+    expect(find.text('買進 · 5876'), findsOneWidget);
+    expect(find.byTooltip('建立更正'), findsOneWidget);
   });
 
   testWidgets('journal keeps only the latest replacement after two corrections',
       (tester) async {
     final api = FakeApi({
-      '/api/v1/me/journal/history': [
+      '/api/v1/me/journal/history?year=${DateTime.now().year}': [
         {'event_id': 'A', 'event_action': 'ORIGINAL', 'event_type': 'BUY',
           'symbol': 'TEST01', 'trade_date': '2026-09-20', 'shares': 1},
         {'event_id': 'R1', 'event_action': 'REVERSAL', 'event_type': 'BUY',
@@ -218,9 +259,10 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: JournalNotesPage(api)));
     await tester.pumpAndSettle();
 
-    expect(find.text('BUY TEST01'), findsNothing);
-    expect(find.text('BUY 5876'), findsOneWidget);
-    expect(find.text('建立更正'), findsOneWidget);
+    expect(find.text('買進 · TEST01'), findsNothing);
+    expect(find.text('買進 · 5876'), findsOneWidget);
+    await tester.tap(find.text('買進 · 5876'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('建立更正'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('儲存'));
@@ -231,7 +273,7 @@ void main() {
 
   testWidgets('journal keeps an uncorrected original trade', (tester) async {
     final api = FakeApi({
-      '/api/v1/me/journal/history': [
+      '/api/v1/me/journal/history?year=${DateTime.now().year}': [
         {'event_id': 'A', 'event_action': 'ORIGINAL', 'event_type': 'BUY',
           'symbol': 'TEST01', 'trade_date': '2026-09-20', 'shares': 1},
       ],
@@ -239,8 +281,8 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: JournalNotesPage(api)));
     await tester.pumpAndSettle();
 
-    expect(find.text('BUY TEST01'), findsOneWidget);
-    expect(find.text('建立更正'), findsOneWidget);
+    expect(find.text('買進 · TEST01'), findsOneWidget);
+    expect(find.byTooltip('建立更正'), findsOneWidget);
   });
 
   testWidgets('shows the Google login boundary', (tester) async {

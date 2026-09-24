@@ -13,17 +13,19 @@
 - OAuth `offline_access`、refresh-token issuance、90-day sliding inactivity、one-time rotation 與 revocation 已部署；access token 到期後的 live refresh／rotation 已有 runtime evidence。
 - MCP market-context credential routing defect已修正並有 authenticated market read evidence。
 - **`WBS-8-CHATGPT-MCP-ACCEPTANCE` 尚未完成。**目前唯一剩餘 connector acceptance 是第二 owner 的 live A/B attribution／isolation：必須確認當前授權確實是 owner B、B 只能讀 B 私有資料，再切回 owner A 驗證 A 仍只能讀 A。
+- 依使用者 2026-09-24 指示，`WBS-6-TRANSACTION-UX-2` 已升為最高優先 immediate queue；Flutter/API 本地實作及 targeted tests 已完成，尚未部署或做 dev runtime acceptance，也不是 Dev Pilot Entry blocker。新 Mart 會保存每檔行情日，早於組合估值日的行情標為 stale；GCP dev runtime 尚未部署這項更新。
 
 ## 下一個執行序列
 
-1. **完成 `WBS-8-CHATGPT-MCP-ACCEPTANCE` 的 owner A/B live isolation。**
+1. **完成 `WBS-6-TRANSACTION-UX-2` acceptance。**本地實作已完成；接續按適用 dev 路徑部署既有 API／User App，完成 runtime acceptance。不得部署 production。
+2. **完成 `WBS-8-CHATGPT-MCP-ACCEPTANCE` 的 owner A/B live isolation。**
    - 不接受僅「authenticated private call 成功」作為證據；response 未帶 identity 時，必須用可稽核流程確認授權身分與各 owner 的資料邊界。
    - 不讀取或輸出 token／secret payload。
    - partial success 不得標記 full acceptance。
-2. **重新評估 `WBS-8-DEV-PILOT-ENTRY`。**
+3. **重新評估 `WBS-8-DEV-PILOT-ENTRY`。**
    - 依 `todo.md` 的正式 Entry Gate 逐項檢查；MCP connector 可由使用者明確決定是否允許以 blocked 狀態啟動 Pilot，不能由文件自行放寬 gate。
    - 只有 Entry Gate 真正通過時才記錄 `pilot_started_at`。
-3. **Pilot 開始後才進入 `WBS-8-DEV-PILOT-RUN`。**
+4. **Pilot 開始後才進入 `WBS-8-DEV-PILOT-RUN`。**
    - 6 個 calendar months 的 operational evidence 不得預填或以開發 checkpoint 代替。
 
 ## 不在立即執行佇列

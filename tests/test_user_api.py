@@ -22,6 +22,7 @@ class Repository:
     def require_owned_trade(self,user_id,event_id): self.calls.append(("ownership",user_id,event_id))
     def add_ledger(self,user_id,value,key): self.calls.append((user_id,value,key)); return {"user_id":user_id,"event_type":value.event_type,"ledger_version":1}
     def ledger_history(self,user_id,symbol,year): return [{"user_id":user_id,"symbol":symbol or "2330"}]
+    def latest_ledger_version(self,user_id): return 1
     def watchlist(self,user_id): return [{"user_id":user_id,"symbol":"2330"}]
     def follow(self,user_id,value,key): self.calls.append((user_id,value,key)); return {"user_id":user_id,"symbol":value.symbol}
     def unfollow(self,user_id,symbol,key): self.calls.append((user_id,symbol,key))
@@ -56,6 +57,13 @@ class Store:
           "mart_user_exposure":{**common,"currency":"TWD","industry":"semiconductor","market_value":"1200","portfolio_ratio":"1","allocation_method":"equal_weight_per_membership_v1","symbols":"[\"2330\"]","membership_snapshot":"[]","membership_snapshot_hash":"sha256:"+"0"*64},
           "mart_user_annual_performance":{**common,"year":filters.get("year",2026),"currency":"TWD","xirr_status":"available","xirr":.1,"cash_flow_count":2,"method":"xirr_actual_365_v1"},
           "mart_user_stress_tests":{**common,"currency":"TWD","scenario_id":"broad_market_down_20","shock":"-0.2","portfolio_value_before":"1200","portfolio_value_after":"960","loss":"-240","cash_safety_status":"insufficient_data","cash_ratio":None,"minimum_cash_ratio":"0.1","valuation_status":"available","method":"deterministic_parallel_shock_v1"},
+          "mart_user_monthly_ledger_summary":{**common,"year":filters.get("year",2026),"month":2,"currency":"TWD",
+            "purchase_outflow":"505","sale_proceeds":"237","cash_dividends":"50","realized_pnl":"84",
+            "fees":"4","taxes":"5","transaction_count":3},
+          "mart_user_positions":{"symbol":"2330","currency":"TWD","shares":"1","market_price":"120",
+            "market_value":"120","average_cost":"100","valuation_date":"2026-09-05"},
+          "mart_user_unrealized_pnl":{"symbol":"2330","currency":"TWD","unrealized_pnl":"20",
+            "price_status":"available","valuation_date":"2026-09-05"},
         }
         return [rows.get(table,{**common,"table":table,"artifact_ref":"private/hidden",**filters})]
 class Core:
@@ -221,6 +229,24 @@ def test_investment_profile_and_portfolio_routes_are_typed_and_owner_scoped():
         assert result.status_code==200 and len(result.json()["items"])==1
         assert store.mart_calls[-1][0:2]==(table,USER_ID)
         assert "user_id" not in result.json()["items"][0] and "artifact_ref" not in result.json()["items"][0]
+
+
+def test_monthly_journal_summary_is_typed_and_owner_scoped():
+    api,_,store=client()
+    result=api.get("/api/v1/me/journal/monthly-summary?year=2026",headers=auth())
+    assert result.status_code==200
+    assert result.json()=={"items":[{"year":2026,"month":2,"currency":"TWD","purchase_outflow":"505",
+        "sale_proceeds":"237","cash_dividends":"50","realized_pnl":"84","fees":"4","taxes":"5",
+        "transaction_count":3,"valuation_date":"2026-09-05"}]}
+    assert store.mart_calls[-1]==("mart_user_monthly_ledger_summary",USER_ID,{"year":2026})
+    assert "user_id" not in result.json()["items"][0]
+
+
+def test_monthly_journal_summary_waits_for_the_latest_ledger_version():
+    api,repo,_=client()
+    repo.latest_ledger_version=lambda _user_id: 2
+    result=api.get("/api/v1/me/journal/monthly-summary?year=2026",headers=auth())
+    assert result.status_code==200 and result.json()=={"items":[]}
 
 
 def test_investment_profile_rejects_unknown_fields_and_unbounded_cash_ratio():
