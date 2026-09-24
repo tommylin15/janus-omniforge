@@ -31,7 +31,7 @@
 
 ## 下一步執行佇列
 
-WBS-3 canary 與 bounded full-market 驗收已完成並歸檔。依使用者 2026-09-24 指示，`WBS-6-TRANSACTION-UX-2` 升為目前最高優先的 immediate queue；完成後接續 `WBS-8-CHATGPT-MCP-ACCEPTANCE`，再依正式條件評估 `WBS-8-DEV-PILOT-ENTRY`。此排序不改變 Dev Pilot Entry Gate。
+WBS-3 canary 與 bounded full-market 驗收、`WBS-6-TRANSACTION-UX-2`、`WBS-8-CHATGPT-MCP-ACCEPTANCE` 與 `WBS-8-DEV-PILOT-ENTRY` 均已完成。Entry Gate 通過時間 `2026-09-24T15:29:19Z` 為六個月 evidence window 的 `pilot_started_at`；下一項為 `WBS-8-DEV-PILOT-RUN`。
 
 ## 模型確認規則
 
@@ -103,10 +103,10 @@ evidence 保持 current truth。
 
 ### Six-month relative mapping
 
-repository 尚無正式 `pilot_started_at`，只使用相對月份：M1 contracts／Fact foundation、
+`pilot_started_at=2026-09-24T15:29:19Z`（Entry Gate 通過時間；此為文件追蹤值，
+沒有新增資料庫欄位）。Pilot 相對月份從此基準起算：M1 contracts／Fact foundation、
 M2 provider／AI analyst runtime、M3 CIO／precise rerun、M4 Flutter Admin migration、
-M5 Analysis Profile、M6 hardening／evidence／legacy retirement decision。未開始 Pilot，
-不得填寫假的 calendar date。
+M5 Analysis Profile、M6 hardening／evidence／legacy retirement decision。
 
 ## P1 — FastAPI／Flutter User
 
@@ -120,7 +120,7 @@ M5 Analysis Profile、M6 hardening／evidence／legacy retirement decision。未
 
 ## P1 — ChatGPT MCP Connector（Dev Pilot Enabler）
 
-- [ ] 【Sol】 【High-Completion Target】 `WBS-8-CHATGPT-MCP-ACCEPTANCE`：refresh-token rotation/revocation 已實作；90 天閒置期限及自動加入 `offline_access` 的明確 consent 已部署到 GCP dev `mcp-oauth` 標籤；三工具 discovery、market／positions／performance／trades／investment-profile 實呼、schemas、metadata、unauthenticated challenge、negative input 與 OAuth negative acceptance 通過。90 天閒置期限下，access token 到期後 `janus_sources` 自動換發與 rotation 已由 Cloud Run token endpoint 200、資料庫 refresh token 筆數維持 1 且 `issued_at` 更新、沒有重新授權請求證實。第二個 Google owner `tommylin0119@gmail.com` 的 dev API 與 MCP allowlist 已修正，MCP 標籤切換後 Cloud Build acceptance 通過；已完成 authenticated investment-profile read，待確認該 ChatGPT 授權身分為 B，再比對 B 只讀自己的私人資料、切回 A 仍只讀 A 的資料。此 connector 不得成為 Janus Production Release prerequisite；最新證據見 [`spec/operations-and-testing.md`](spec/operations-and-testing.md)。
+- [x] 【Sol】 【High-Completion Target】 `WBS-8-CHATGPT-MCP-ACCEPTANCE`：refresh-token rotation/revocation、90 天閒置期限、`offline_access`、三工具 discovery／bounded reads、schemas、metadata、unauthenticated challenge、negative input 與 OAuth negative acceptance 已驗證。2026-09-24 ChatGPT Developer Mode A/B isolation：帳戶設定可稽核確認 `tommy`（A）與 `tommylin0119`（B）分別選取，並在各自新對話呼叫相同 private resources；A 的 positions／trades／performance 有資料，B 對三者均回傳 missing，B 的 investment-profile 回傳 1 筆。`owner_id` 被工具 schema 的 `additionalProperties: false` 拒絕於送出前；不宣稱這次是 server-side injection 測試。ChatGPT 回報的 B profile SHA-256 在相同 `as_of` 兩次呼叫間不一致，因此 digest 不作為驗收證據；以帳戶選取狀態與 bounded status／count 比較確認 live owner isolation。此 connector 不得成為 Janus Production Release prerequisite；最新證據見 [`spec/operations-and-testing.md`](spec/operations-and-testing.md)。
 
 ## Pilot Feature Freeze／Deferred
 
@@ -188,8 +188,6 @@ Pilot Day-1 outcome collection 已前移至 `WBS-8-PILOT-OUTCOME-COLLECTION`；�
 - [ ] 【Sol】 production 人工批准。
 
 ## P2 — WBS 8 Dev Pilot／Production Readiness
-
-- [ ] 【Sol】 `WBS-8-DEV-PILOT-ENTRY`：Blocked until WBS-3 canary／full-market safety、ledger durability successful restore、outcome collection、usefulness feedback、release baseline、minimum data-safety DQ（required key／type、duplicate、future leakage、freshness、basic coverage、schema drift、適用時的 obvious outlier／corporate-action sanity）與 security／privacy／cost evidence ready；`WBS-5-SUPPLY-INTELLIGENCE-PLANNING` 也必須完成，但不要求六個 domain ingestion-ready。ChatGPT MCP acceptance 完成，或使用者明確決定允許 connector blocked 狀態啟動 Pilot。只有 Entry Gate 通過時記錄 `pilot_started_at`，不新增 staging／production infrastructure；完整 DQ dashboard／tuning／大型 drill-down 留後續。
 
 - [ ] 【Sol】 `WBS-8-DEV-PILOT-RUN`：Entry 完成後開始 6 calendar months operational phase，持續執行 Scheduler／ingestion／analysis，累積 monthly evidence summary、backup／restore、outcome、usefulness、cost、manual intervention、recurring failure 與 security／privacy evidence；不新增 feature roadmap，production promotion blocked。
 

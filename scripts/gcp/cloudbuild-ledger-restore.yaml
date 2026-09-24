@@ -54,12 +54,15 @@ steps:
           AND NOT EXISTS(
             SELECT 1 FROM information_schema.columns
              WHERE table_schema IN ('private','publication','control','audit')
-               AND column_name ~* '(password|secret|token|credential|api_key)');
+               -- OAuth token_hash is a stored digest, not a bearer token.
+               AND column_name ~* '(password|secret|token|credential|api_key)'
+               AND (table_schema,table_name,column_name) <>
+                   ('private','mcp_oauth_refresh_tokens','token_hash'));
         SQL
         )"
         echo "restore_checks=$${checks}"
         [[ "$${checks}" == t ]]
-        evidence="$(docker exec -i "$${restore}" psql -At -U postgres -d janus_restore <<'SQL'
+        evidence="$(docker exec -i "$${restore}" psql -v ON_ERROR_STOP=1 -At -U postgres -d janus_restore <<'SQL'
         SELECT json_build_object(
           'owners',(SELECT count(*) FROM private.users),
           'ledger_events',(SELECT count(*) FROM private.ledger_events),
@@ -77,7 +80,10 @@ steps:
           'credential_columns',(
             SELECT count(*) FROM information_schema.columns
              WHERE table_schema IN ('private','publication','control','audit')
-               AND column_name ~* '(password|secret|token|credential|api_key)'));
+               -- Match the restore guard above.
+               AND column_name ~* '(password|secret|token|credential|api_key)'
+               AND (table_schema,table_name,column_name) <>
+                   ('private','mcp_oauth_refresh_tokens','token_hash')));
         SQL
         )"
         printf '{"restore":"success","backup_id":"%s","checks":%s}\n' "$${object##*/}" "$${evidence}"

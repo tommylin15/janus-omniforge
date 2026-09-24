@@ -34,7 +34,7 @@ case "${component}" in
     ;;
   private-pipeline)
     dockerfile="services/api/Dockerfile"
-    image_name="api"
+    image_name="private-pipeline"
     deploy_target="job"
     runtime_name="janus-private-pipeline"
     ;;

@@ -151,7 +151,7 @@ verify() {
       --iam-account="${account}" --project="${project}" \
       --managed-by=user --format='value(name)')" || fail "${account} key lookup timed out or failed"
     [[ -z "${keys}" ]] || fail "${account} has a user-managed key"
-  done < <(gcloud iam service-accounts list --project="${project}" --format='value(email)')
+  done < <(gcloud iam service-accounts list --project="${project}" --format='value(email)' | tr -d '\r')
   check_secret janus-runtime-bundle janus-user-api janus-private-pipeline ingestion-core intelligence-mart
   build_service_account="$(gcloud builds get-default-service-account --project="${project}" --region="${region}")"
   secret_members janus-runtime-bundle | grep -Fx "serviceAccount:${build_service_account}" >/dev/null || \
@@ -208,13 +208,13 @@ PY
 import json, os
 policies = json.loads(os.environ["POLICIES"])
 assert any(
-    item.get("action", {}).get("type") == "Keep"
+    str(item.get("action", {}).get("type", "")).lower() == "keep"
     and item.get("mostRecentVersions", {}).get("keepCount") == 1
     and not item.get("mostRecentVersions", {}).get("packageNamePrefixes")
     for item in policies
 ), "cleanup global keepCount drift"
 assert any(
-    item.get("action", {}).get("type") == "Keep"
+    str(item.get("action", {}).get("type", "")).lower() == "keep"
     and item.get("mostRecentVersions", {}).get("keepCount") == 2
     and "api" in item.get("mostRecentVersions", {}).get("packageNamePrefixes", [])
     for item in policies

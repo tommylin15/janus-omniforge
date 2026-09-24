@@ -12,20 +12,15 @@
 - ChatGPT MCP 已可 discovery／invoke 三個 read-only tools：`janus_sources`、`janus_market_context`、`janus_private_context`；market 與 private bounded reads 已有 live evidence。
 - OAuth `offline_access`、refresh-token issuance、90-day sliding inactivity、one-time rotation 與 revocation 已部署；access token 到期後的 live refresh／rotation 已有 runtime evidence。
 - MCP market-context credential routing defect已修正並有 authenticated market read evidence。
-- **`WBS-8-CHATGPT-MCP-ACCEPTANCE` 尚未完成。**目前唯一剩餘 connector acceptance 是第二 owner 的 live A/B attribution／isolation：必須確認當前授權確實是 owner B、B 只能讀 B 私有資料，再切回 owner A 驗證 A 仍只能讀 A。
+- **`WBS-8-CHATGPT-MCP-ACCEPTANCE` 的 Owner A/B live read isolation 已通過。**ChatGPT 外掛帳戶設定分別確認 A、B 的目前選取狀態，再各自以新對話查詢相同四種私人資源；B 的 profile 可讀，但 positions／trades／performance 為 missing，而 A 的三項均有資料。owner_id 注入由工具 schema 在送出前拒絕。摘要雜湊不一致，故不作為驗收判據；詳細限制見 operations-and-testing。
+- **`WBS-8-DEV-PILOT-ENTRY` 已通過。**2026-09-24T15:29:19Z 記為 `pilot_started_at`；既有 `janus-private-pipeline` 已部署獨立 image digest，execution `janus-private-pipeline-dd77n` 以 `Completed=True`／`succeededCount=1` 結束。Outcome／feedback 仍為 0 rows、feedback target 1；尚無 baseline-linked report，沒有造測試資料。完整 evidence 見 operations-and-testing。
 - 最高優先項目 `WBS-6-TRANSACTION-UX-2` 已完成。Flutter/API 本地測試、canonical dev 100% traffic 切換及 Chrome authenticated read-only acceptance 均通過；持股、交易月份／明細、年度報表與表單可載入，缺價／partial 與 Mart pending 狀態正確顯示。操作表單後皆取消，沒有修改個人帳本。此項不是 Dev Pilot Entry blocker。新 Mart 會保存每檔行情日，早於組合估值日的行情標為 stale。
 
 ## 下一個執行序列
 
-1. **完成 `WBS-8-CHATGPT-MCP-ACCEPTANCE` 的 owner A/B live isolation。**
-   - 不接受僅「authenticated private call 成功」作為證據；response 未帶 identity 時，必須用可稽核流程確認授權身分與各 owner 的資料邊界。
-   - 不讀取或輸出 token／secret payload。
-   - partial success 不得標記 full acceptance。
-2. **重新評估 `WBS-8-DEV-PILOT-ENTRY`。**
-   - 依 `todo.md` 的正式 Entry Gate 逐項檢查；MCP connector 可由使用者明確決定是否允許以 blocked 狀態啟動 Pilot，不能由文件自行放寬 gate。
-   - 只有 Entry Gate 真正通過時才記錄 `pilot_started_at`。
-3. **Pilot 開始後才進入 `WBS-8-DEV-PILOT-RUN`。**
-   - 6 個 calendar months 的 operational evidence 不得預填或以開發 checkpoint 代替。
+1. **執行 `WBS-8-DEV-PILOT-RUN` 六個月 evidence window。**
+   - 起點 `pilot_started_at=2026-09-24T15:29:19Z`；持續記錄真實 Scheduler／ingestion／analysis、outcome、usefulness、cost、操作介入、失敗與 security／privacy evidence。
+   - 開發 checkpoint 不得代替六個 calendar months 的 operational evidence。
 
 ## 不在立即執行佇列
 

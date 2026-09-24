@@ -1,5 +1,82 @@
 # Operations and testing
 
+## WBS-8 Dev Pilot Entry Gate re-evaluation — 2026-09-24
+
+Owner A/B MCP read isolation is accepted as recorded below. Existing GCP dev
+durability verification also passed: timer and managed-folder permissions were
+valid; the 2026-09-24 bounded backup contained 3 owners and 10 ledger events
+(185310 bytes). Cloud Build `1dc84521-743b-4d84-a795-df7d34f09c57` restored it
+in an isolated container with networking disabled and tmpfs storage. The guard
+returned `restore_checks=t`; evidence reported 3 owners, 10 events, valid owner
+boundaries, ledger versions and correction links, and zero remaining
+credential-shaped columns after excluding the stored OAuth `token_hash` digest.
+
+The existing `pilot-readiness-acceptance.sql` also passed on `janus-postgres-dev`;
+its baseline registration ended in `ROLLBACK`. Count-only live state was one
+release baseline, zero outcome rows, zero feedback rows and one feedback target.
+No sample outcome or feedback was fabricated.
+
+The read-only `security-finops-dev.sh verify` passed against the existing dev
+project, including IAM/key, Secret, network, runtime scaling, storage lifecycle,
+Artifact Registry cleanup and budget guards. The verifier was made portable to
+Windows Git Bash by trimming CRLF from the service-account list and accepting
+the API's uppercase `KEEP` action value; no GCP configuration was changed.
+
+The latest ingestion execution succeeded at `2026-09-24T00:34:50Z`; the latest
+Mart execution succeeded at `2026-09-24T01:04:00Z`. The previous private-pipeline
+execution `janus-private-pipeline-7rkz7` failed because its `api` digest had
+been deleted. The deployment path now builds the same API Dockerfile as the
+separate `private-pipeline` Artifact Registry package, so API image cleanup
+cannot remove the Job's image. Cloud Build
+`b09efc62-93da-4afd-93ba-810a9def7ed2` succeeded and deployed
+`janus-private-pipeline@sha256:71cacb4cd012183f23a2a9f4b003a9ad1735a4fcc49eba1d3e50ffde45fe7cb1`.
+The existing Job was `Ready=True`; its runtime service account, command,
+single-task bound, timeout, retry count, and `janus-runtime-bundle:latest`
+reference matched the prior configuration. Execution `janus-private-pipeline-dd77n`
+completed with `Completed=True`, `succeededCount=1` at
+`2026-09-24T15:29:19Z`.
+
+`WBS-8-DEV-PILOT-ENTRY` passed at `2026-09-24T15:29:19Z`, which is recorded as
+`pilot_started_at` for the six-month evidence window. Existing WBS-3 canary／
+full-market safety, ledger isolated restore, outcome collection, usefulness
+feedback, release baseline, minimum data-safety DQ, security／privacy／cost
+checks, WBS-5 planning, and Owner A/B MCP isolation evidence were ready. The
+live count remains one release baseline, zero outcome rows, zero feedback rows,
+and one feedback target; no synthetic records were created. Outcome and feedback
+collection are implemented and accepted, and no baseline-linked report has yet
+produced outcomes or feedback. No staging or production resources were created.
+
+## WBS-8 ChatGPT Owner A/B live isolation — 2026-09-24
+
+ChatGPT Developer Mode 外掛設定顯示兩個已連結帳戶：`tommy`（Owner A）與
+`tommylin0119`（Owner B）。各自選取後，分別從「在聊天中試用」建立新對話並呼叫
+`janus_private_context` 的 `investment-profile`、`positions`、`trades`、
+`performance`；只檢視摘要，不輸出 records 原值或 token／secret。設定頁確認
+A selected／B unselected，再切換至 B selected／A unselected，完成兩個方向的歸屬。
+
+| Owner | Resource | Status | Returned | as_of |
+| --- | --- | --- | ---: | --- |
+| A | investment-profile | available | 1 | 2026-09-24 05:36:12 UTC |
+| A | positions | available | 1 | 2026-09-22 |
+| A | trades | partial | 3 | 2026-04-22 |
+| A | performance (`year=2026`) | available | 1 | 2026-09-22 |
+| B | investment-profile | available | 1 | 2026-09-24 09:49:14 UTC |
+| B | positions | missing | 0 | — |
+| B | trades | missing | 0 | — |
+| B | performance (`year=2026`) | missing | 0 | — |
+
+B 的 `performance` 不帶年份時曾回 `INVALID_ARGUMENT`；補上 `year=2026` 後回
+`missing`，沒有把 A 的一筆 performance 暴露給 B。A 同一查詢有 1 筆。嘗試以
+`trades` 傳入 A 的 `owner_id` 時，ChatGPT 工具 schema 因額外欄位而在送出前拒絕；
+這是 connector-side rejection，不等同於直接向伺服器送出任意 owner ID 的 live test。
+
+重要限制：ChatGPT 兩次回報 B profile 的 `as_of` 相同，但 SHA-256 分別為
+`c0c16d8e…c5b48a` 與 `8068e140…520d0f4`，摘要雜湊不可重現，故不作驗收依據。
+本次 isolation 結論只依可歸屬的帳戶選取狀態及各 bounded resource 的 status／count；
+records 原值未檢視。Owner A/B read-isolation acceptance 通過；本 connector 不因此成為
+Janus Production Release prerequisite。`WBS-8-DEV-PILOT-ENTRY` 後續依其正式條件
+於 `2026-09-24T15:29:19Z` 通過；最新 gate evidence 見本檔開頭。
+
 ## WBS-6 transaction UX 2.0 — canonical dev checkpoint (2026-09-24)
 
 User App now has holdings／records／reports／notes navigation, year-filtered month
