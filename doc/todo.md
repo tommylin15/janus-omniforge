@@ -110,7 +110,7 @@ M5 Analysis Profile、M6 hardening／evidence／legacy retirement decision。未
 
 ## P1 — FastAPI／Flutter User
 
-- [ ] 【Luna】 `WBS-6-TRANSACTION-UX-2`（In Progress；最高優先、immediate queue；Pilot UX evolution；**非 Dev Pilot Entry blocker**）：Flutter/API 本地實作、targeted tests、canonical dev deployment 及匿名 `/health`、`/app/` smoke checks 已完成；待使用者完成 Chrome 登入後驗收 authenticated UX／private flow。依 `ui/user-app.md` 5.4.1 完成交易記錄 `年份 → 月份 accordion → 單筆 detail`、手機快速新增 FAB、event-type-aware form、持股卡片與報表 presentation；保留 append-only correction semantics、Private Mart canonical valuation／PnL 與 pending-update 文案。若月份 canonical summary 不能由現有 bounded endpoints 組合取得，先定義 typed additive private summary contract，再交由 implementation；不得由 Flutter 自定 realized PnL／fee／tax 公式。acceptance：phone／desktop responsive、cash flow 與 PnL 分離、valuation date／partial／stale／missing 正確顯示、交易成功不假裝 portfolio 已同步、correction 不覆寫歷史、owner isolation 不退化。Private Mart 以各股 quote date 早於 valuation date 標記 stale，且 withheld stale／missing aggregate unrealized PnL。
+- [x] 【Luna】 `WBS-6-TRANSACTION-UX-2`（Done；最高優先 immediate queue 已完成；Pilot UX evolution；**非 Dev Pilot Entry blocker**）：Flutter/API targeted tests 與 canonical dev authenticated read-only acceptance 已完成；Chrome 驗收涵蓋持股、年份／月份交易紀錄、單筆明細、年度報表、notes 與 event-specific add／correction forms；缺價、partial valuation 及月摘要等待最新 Mart 的狀態正確顯示。表單皆取消，沒有修改個人帳本。Owner scoping、append-only correction、save/pending 文案及 phone／desktop responsive 由既有 targeted tests 覆蓋；Private Mart 保留 backend canonical valuation／PnL，stale／missing 時 withheld aggregate unrealized PnL。詳細 deployment evidence 見 `spec/operations-and-testing.md`。
 
 ## P1 — 全系統自動化測試
 

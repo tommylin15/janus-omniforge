@@ -19,10 +19,14 @@ service as revision `janus-api-txux2-20260924-config` (tag
 Revision Ready=True; following the user's direct-switch instruction, it now receives
 100% canonical dev traffic (switched at 2026-09-24 13:12 UTC); previous revision
 `janus-api-ownerabfix20260924` remains tagged at 0% for rollback. Canonical `/health`
-and `/app/` returned HTTP 200. Chrome shows the Google sign-in UI on the canonical
-origin; authenticated private-flow and transaction-screen acceptance remain pending
-until the user completes sign-in. No transaction data was created or changed. WBS-6
-acceptance remains in progress.
+and `/app/` returned HTTP 200. At 2026-09-24 13:32 UTC, Chrome authenticated read-only
+acceptance passed for holdings, month-grouped records, transaction detail, annual
+report, notes, and transaction/correction forms. The UI correctly showed missing-price
+and partial valuation states; the monthly summary correctly waited for a matching
+Private Mart ledger version. Forms were canceled without writes. Targeted API/pipeline
+tests (43), Flutter widget tests (19), and Flutter analyze were clean; these cover
+owner scoping, append-only correction behavior, save messaging, and responsive layouts.
+WBS-6 acceptance is complete; no personal ledger data was changed during browser QA.
 
 ## WBS-8 OAuth refresh-token follow-up — GCP dev (2026-09-24)
 
