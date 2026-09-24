@@ -29,8 +29,7 @@
   workspace、認證 audience 與導覽，backend Admin authorization 貫穿每個 Admin request。
 - [ ] 啟用「關注／筆記／AI／我的」；「今日」顯示 coming soon／disabled，一般 page load 不觸發即時分析。
 - [ ] 交易新增／更正、筆記 revision、關注異動、跨年年度損益、缺價、超賣、匯出與刪除路徑通過；Flutter 與模型不重算正式損益。
-- [ ] generic Chat／provider／tools／Skills／approval UI 驗收由 omniAgent 執行；Janus UI release 只驗證投資與 Admin surface。舊 Janus live Chat deployment 在獨立 cutover 前仍需保持可回退，不因 source 拆分視為已通過 omniAgent live 驗收。
-- [ ] Codex Items／Turns／Approval Requests 可操作且 request-bound；Cloud Run cold start／timeout／reconnect 有明確狀態，核准 shell／寫檔限 turn 暫存 sandbox，Admin／私人 mutation／下單不可核准；Gemini REST API Grounding citation 與免費額度通過。
+- Janus UI release 驗收只涵蓋投資與 Admin surface；generic Chat／provider／Skills／approval UX 由 omniAgent 自行驗收。
 - [ ] 使用者 A 無法讀寫或推測使用者 B 的 trade、note、watchlist、chat、position、PnL 或 private artifact reference。
 - [ ] User／Admin audience 混用與 client 指定 `user_id` 均被拒絕；email 變更不改變既有 ledger 所有權。
 - [ ] 私人資料刪除顯示 `QUEUED`／`CLEANUP_PENDING`／`COMPLETED`，pending 時停用 Codex login／新 turn／私人寫入且不宣稱完成；狀態可由 request owner 重查，完成後 Codex 要求重新登入，保留中 object version 顯示期限。

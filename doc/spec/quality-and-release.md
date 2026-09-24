@@ -25,7 +25,7 @@
 - 同一 `analysis_as_of` 可從 `mart_daily_brief` 追溯市場狀態、板塊輪動、熱門話題、候選股及其 Core／Mart snapshot。
 - 私人交易可從 PostgreSQL ledger 重建 Private Core／Mart；跨年損益、更正事件與所有權隔離通過測試，且不出現在 public index。
 - 筆記、關注歷史、chat messages、context snapshot 與 citations 可從 Private Iceberg 依 authenticated user 讀取、匯出與刪除；PostgreSQL 不保存正文或完整對話 payload。
-- 目前個人 live scope 只要求實際啟用的 runtime／capability 通過對應 real-path gate；每項必須是 `enabled and accepted`，或明確 `disabled`，不得停留在 UI 可選但 backend 不安全或只用 mock 證明的狀態。對啟用項目應依其風險驗證 Cloud Run scale-to-zero／cold start／timeout／重連、Core／Private／外部資料源 provenance、MCP／Skills／auth／privacy 等對應能力。ChatGPT MCP 或尚未 productionize 的能力不應阻擋與其無關的既有個人功能。
+- 目前個人 live scope 只要求實際啟用的 runtime／capability 通過對應 real-path gate；每項必須是 `enabled and accepted`，或明確 `disabled`，不得停留在 UI 可選但 backend 不安全或只用 mock 證明的狀態。對啟用項目應依其風險驗證 Cloud Run scale-to-zero／cold start／timeout／重連、Core／Private／外部資料源 provenance、Janus MCP／OAuth／privacy 等對應能力；omniAgent Skills／runtime 只由 omniAgent 驗收。ChatGPT MCP 或尚未 productionize 的能力不應阻擋與其無關的既有個人功能。
 - PIT 無 future leakage；排除樣本有原因與 provenance ID。
 - blocked 不進公開 latest／history；查無資料不即時運算。
 - 兩個 Job、FastAPI、Flutter User／Admin workspace、migration 期間的 static Admin 與各

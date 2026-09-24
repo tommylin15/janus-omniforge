@@ -112,6 +112,7 @@ sudo docker exec --user postgres \
     psql -U postgres -d janus_control -f /opt/janus/migrations/025_pilot_readiness.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/026_mcp_oauth_codes.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/027_pipeline_acl_repair.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/028_mcp_oauth_refresh_tokens.sql
     rm -f /tmp/mart-vars.sql
     psql -U postgres -d janus_control -v ON_ERROR_STOP=1 <<"SQL"
 SELECT rolname, rolsuper, rolcreatedb, rolcreaterole, rolreplication
@@ -130,6 +131,9 @@ SELECT EXISTS (
 SELECT EXISTS (
   SELECT 1 FROM control.schema_migrations WHERE version = $$027_pipeline_acl_repair$$
 ) AS pipeline_acl_repair_recorded;
+SELECT EXISTS (
+  SELECT 1 FROM control.schema_migrations WHERE version = $$028_mcp_oauth_refresh_tokens$$
+) AS mcp_oauth_refresh_tokens_recorded;
 SELECT has_table_privilege($$janus_private_pipeline$$, $$private.mcp_oauth_codes$$, $$SELECT$$)
   AND has_table_privilege($$janus_private_pipeline$$, $$private.mcp_oauth_codes$$, $$DELETE$$)
   AS pipeline_mcp_oauth_codes_select_delete;

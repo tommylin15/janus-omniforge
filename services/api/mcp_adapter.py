@@ -66,7 +66,7 @@ def _tool(name: str, title: str, description: str, model: type[BaseModel]) -> di
     return {"name":name, "title":title, "description":description,
             "inputSchema":model.model_json_schema(),
             "annotations":{"readOnlyHint":True,"destructiveHint":False,"openWorldHint":False},
-            "securitySchemes":[{"type":"oauth2","scopes":[TOOL_SCOPES[name]]}]}
+            "securitySchemes":[{"type":"oauth2","scopes":[TOOL_SCOPES[name],"offline_access"]}]}
 
 
 TOOLS = (

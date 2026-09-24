@@ -10,7 +10,7 @@ Region：`us-central1`
 
 | Secret | 欄位／格式（不含值） | Consumer | Version | IAM |
 |---|---|---|---|---|
-| `janus-runtime-bundle` | PostgreSQL、Web/Pipeline、OAuth、Mart／Ingestion、provider／market-data 欄位；28 個唯一欄位 | Janus API、private pipeline、ingestion-core、intelligence-mart、PostgreSQL migration build | v1 enabled | 四個 Janus runtime service accounts 與 Cloud Build default identity 有直接 `secretAccessor` binding；另承接既有 project-level `omniforge-dev-runtime` accessor |
+| `janus-runtime-bundle` | PostgreSQL、Web/Pipeline、OAuth、Mart／Ingestion、provider／market-data 欄位；28 個唯一欄位 | Janus API、private pipeline、ingestion-core、intelligence-mart、PostgreSQL migration build | v2 enabled；v1 disabled | 四個 Janus runtime service accounts 與 Cloud Build default identity 有直接 `secretAccessor` binding；另承接既有 project-level `omniforge-dev-runtime` accessor |
 
 ## 欄位規則
 
@@ -58,12 +58,27 @@ API 與 private pipeline 使用分離 runtime identity。2026-09-23 依使用者
 
 2026-09-23 unified bundle migration replaced the three extant Janus bundles with
 `janus-runtime-bundle`. Janus API, private pipeline, ingestion-core, mart, and the
-PostgreSQL migration build now use the unified resource. The previous Codex owners
+PostgreSQL migration build use the unified resource. The previous Codex owners
 bundle was already absent and had no payload. Secret values were merged in memory;
 only field names and conflict status were emitted. Candidate and canonical API,
-MCP/OAuth, and User/Admin UI acceptance all passed. No Job execution or PostgreSQL
-schema/data migration was run; Job templates and migration build references were
-verified as configured. The single-bundle resource-level access widening was approved.
+MCP/OAuth, and User/Admin UI acceptance passed. The single-bundle resource-level
+access widening was approved.
+
+On 2026-09-23, read-only Cloud Run PostgreSQL probes found stale credentials for
+`janus_catalog` and `janus_private_pipeline`; the bundle's consumer aliases for the
+shared `janus_catalog` role were inconsistent. The existing dev DB roles were
+reconciled to the canonical bundle values, v2 normalized those aliases, and v1 was
+disabled. A Cloud Run read-only `SELECT 1` probe passed for catalog aliases,
+`pipeline_database_url`, and the ingestion control role. Both Job templates are
+Ready, reference `janus-runtime-bundle:latest`, and their configured image digests
+exist. After scoped approval, private-pipeline execution
+`janus-private-pipeline-skpmx` completed successfully at checkpoint 68. Bounded
+ingestion execution `janus-ingestion-core-hn9mh` completed successfully for taiex
+on 2026-09-22 with `FORCE_REFRESH=false`; it staged one object and created one
+Core Iceberg table with 64 rows, and did not trigger Mart. No multi-month backfill
+was run. An initial bounded invocation had malformed CLI overrides and exited
+before source collection; the corrected execution-only overrides passed.
+Historical failed executions remain in Cloud Run history.
 
 - Python targeted tests：14 passed；Agent Gateway tests：10 passed。
 - Agent Gateway TypeScript build、Git Bash `bash -n`、Cloud Build contract 均通過；
@@ -71,8 +86,7 @@ verified as configured. The single-bundle resource-level access widening was app
 - Mart smoke：`janus-intelligence-mart-mrz8q`；Pipeline smoke：
   `janus-private-pipeline-8vxnm`；Ingestion smoke：`janus-ingestion-core-7qxbx`，均
   `Completed=True`。
-- Codex A/B live auth rotate／destroy isolation 尚未驗證，因新 owner bundle 目前沒有
-  active auth entry；建立 dev owner auth 後需重新執行該項驗收。
+- Codex A/B auth rotate／destroy isolation 不再是 Janus 驗收項目；Janus generic Codex runtime 與 owners bundle 已移除。omniAgent auth lifecycle 由其自身 acceptance 追蹤。
 
 ## Cost note
 

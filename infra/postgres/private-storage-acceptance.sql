@@ -42,6 +42,15 @@ BEGIN
       AND has_table_privilege('janus_private_pipeline','private.mcp_oauth_codes','DELETE')) THEN
     RAISE EXCEPTION 'janus_private_pipeline must have SELECT and DELETE on private.mcp_oauth_codes';
   END IF;
+  IF NOT (has_table_privilege('janus_private_api','private.mcp_oauth_refresh_tokens','SELECT')
+      AND has_table_privilege('janus_private_api','private.mcp_oauth_refresh_tokens','INSERT')
+      AND has_table_privilege('janus_private_api','private.mcp_oauth_refresh_tokens','UPDATE')) THEN
+    RAISE EXCEPTION 'janus_private_api must be able to create and rotate private MCP refresh tokens';
+  END IF;
+  IF NOT (has_table_privilege('janus_private_pipeline','private.mcp_oauth_refresh_tokens','SELECT')
+      AND has_table_privilege('janus_private_pipeline','private.mcp_oauth_refresh_tokens','DELETE')) THEN
+    RAISE EXCEPTION 'janus_private_pipeline must be able to remove refresh tokens during owner deletion';
+  END IF;
 END $$;
 
 ROLLBACK;

@@ -1,3 +1,5 @@
+歷史拆分準備包。Janus source hard split 已於 2026-09-23 完成；本文中的執行前清單與預期檔案狀態已過時，勿作現行指令。現況見 ../omniagent-split-status.md。
+
 omniAgent 拆分準備包 — Janus → omniAgent
 日期：2026-09-21
 狀態：PRE-SPLIT / PREPARATION ONLY

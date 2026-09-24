@@ -1,3 +1,5 @@
+> 已由 `doc/PROJECT_RULES.md` 第 1.1 節統一取代；下方內容僅供歷史查閱，其中 WBS-4C fixture／gateway 描述已過時。
+
 # Janus TODO — Dev 平行上線執行補充
 
 日期：2026-09-20

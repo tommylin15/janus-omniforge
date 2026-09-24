@@ -5,7 +5,7 @@
 目前實作邊界：`analysis.py` 產生確定性特徵、五個分數／特徵
 payload、evidence 與 aggregate；`runtime.py` 以 immutable Core snapshot 執行
  確定性 Mart，`gemini.py` 只提供可選的單一 Gemini 證據限定解說器。
-`OpenRouter` 目前屬私人 Agent Gateway provider，不是 Mart provider。五個獨立 AI
+通用 OpenRouter／Gemini／Codex runtime 屬 omniAgent，不是 Janus Mart provider。五個獨立 AI
 AI 分析角色、CIO 綜合分析、其確定性驗證器、分析設定檔、內容定址重用與 Flutter
 Admin 工作區尚未實作；本節以下的下一版能力均標為**規劃中**，不得當作現有能力。
 
@@ -81,10 +81,10 @@ evidence_refs: string[]
 
 個人風險與顧問功能排在上述私人 P0 後：
 
-- `user_investment_profile` 保存 risk tolerance、investment horizon、primary goal 與 minimum cash ratio；目前值使用 bounded private index，歷史 revision 進 Private Iceberg，且只在使用者明確選取時加入聊天室 context。
+- `user_investment_profile` 保存 risk tolerance、investment horizon、primary goal 與 minimum cash ratio；目前值使用 bounded private index，歷史 revision 進 Private Iceberg，且只在使用者明確授權時提供給外部助理 context。
 - `mart_user_exposure` 以現金、持股市值與有效日期的多產業 membership 計算曝險；一檔股票可屬多個產業，分攤方法與 membership snapshot 必須版本化，前端與 LLM 不自行計算。
 - `mart_user_annual_performance` 在現金流語意、股利與更正事件通過回歸後提供 XIRR；無根、多根或資料不足時回傳 typed status，不填 0。
-- 投資組合 stress test 先由 deterministic scenario 計算資產與現金水位變化，再由目前 thread 選定的 OpenRouter／Gemini API／Codex runtime 與模型解釋；模型不得修改數值、替使用者下單或輸出保證性建議。
+- 投資組合 stress test 先由 deterministic scenario 計算資產與現金水位變化；若外部助理解釋結果，只能使用已授權的 bounded context，且不得修改數值、替使用者下單或輸出保證性建議。
 - 新聞與情緒沿用公開 Core provenance／`mart_alternative_sentiment`；Gemini Google Search grounding 是對話當下的外部補充，只保存必要 query／citation metadata，不把未授權新聞全文寫入 Private Iceberg 或公開 Core。
 
 五角色：Fundamental、Valuation Risk、Positioning、Quant、Event Risk。

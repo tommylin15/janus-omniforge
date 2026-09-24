@@ -29,7 +29,7 @@
 - User token 只接受 User OAuth audience 並只授權 `/api/v1/me/*`；不得用於 `/api/v1/admin/*`。Admin token／session 亦不因具管理權限而取得一般交易內容讀取能力。
 - User 可匯出其支援的交易、筆記與關注股資料，並要求刪除私人資料；刪除採可稽核、可重試的非同步流程，涵蓋 Janus PostgreSQL、Private Core／Mart 與 GCS artifact，且不影響依法或安全要求保留的最小 audit metadata。既有 assistant migration／歷史資料保留於本次 source split；刪除使用者私人資料時仍依既有 cleanup policy 處理。排隊後該 owner 進入 `DELETING` 並拒絕相關寫入；任一步失敗保留 `CLEANUP_PENDING`，只有必要 cleanup 全部完成才可標示 `COMPLETED`。
 - 交易日誌／PnL 納入私人 MVP；市場投票排行榜、遊戲化、付費、公開績效排名與券商同步不在當前範圍。
-- 個人記帳、筆記、關注股與私人聊天室可在公開 Mart 前獨立上線至 dev；未完成的「今日／公開探索」只顯示 coming soon，不得因此觸發即時分析或阻擋私人功能。
+- 個人記帳、筆記與關注股可在公開 Mart 前獨立上線至 dev；未完成的「今日／公開探索」只顯示 coming soon，不得因此觸發即時分析或阻擋私人功能。
 - UI 詳細契約見 `../ui.md`。
 
 ### 12.0 Planned Mart AI and rerun API semantics

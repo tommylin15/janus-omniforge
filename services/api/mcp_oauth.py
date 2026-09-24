@@ -23,7 +23,7 @@ from .auth import GOOGLE_ISSUERS
 
 MCP_CLIENT_ID = "https://chatgpt.com/oauth/client.json"
 MCP_REDIRECT_URI = "https://chatgpt.com/connector_platform_oauth_redirect"
-MCP_SCOPES = frozenset({"janus.sources.read", "janus.market.read", "janus.private.read"})
+MCP_SCOPES = frozenset({"janus.sources.read", "janus.market.read", "janus.private.read", "offline_access"})
 _GOOGLE_AUTHORIZE = "https://accounts.google.com/o/oauth2/v2/auth"
 _GOOGLE_TOKEN = "https://oauth2.googleapis.com/token"
 
@@ -31,6 +31,10 @@ _GOOGLE_TOKEN = "https://oauth2.googleapis.com/token"
 class OAuthCodeStore(Protocol):
     def create(self, code_hash: str, value: Mapping[str, Any], expires_at: int) -> None: ...
     def consume(self, code_hash: str, now: int) -> Mapping[str, Any] | None: ...
+    def create_refresh(self, token_hash: str, value: Mapping[str, Any], expires_at: int) -> None: ...
+    def rotate_refresh(self, old_hash: str, new_hash: str, client_id: str, resource: str,
+                       now: int, expires_at: int) -> Mapping[str, Any] | None: ...
+    def revoke_refresh(self, token_hash: str, client_id: str) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -43,6 +47,7 @@ class OAuthSettings:
     allowed_emails: frozenset[str]
     authorization_ttl: int = 600
     access_ttl: int = 900
+    refresh_ttl: int = 90 * 24 * 60 * 60
 
     @classmethod
     def from_env(cls) -> "OAuthSettings":
@@ -72,6 +77,7 @@ class InMemoryOAuthCodeStore:
 
     def __init__(self) -> None:
         self._items: dict[str, tuple[dict[str, Any], int, bool]] = {}
+        self._refresh: dict[str, tuple[dict[str, Any], int]] = {}
 
     def create(self, code_hash: str, value: Mapping[str, Any], expires_at: int) -> None:
         self._items[code_hash] = (dict(value), expires_at, False)
@@ -83,6 +89,24 @@ class InMemoryOAuthCodeStore:
         self._items[code_hash] = (item[0], item[1], True)
         return dict(item[0])
 
+    def create_refresh(self, token_hash: str, value: Mapping[str, Any], expires_at: int) -> None:
+        self._refresh[token_hash] = (dict(value), expires_at)
+
+    def rotate_refresh(self, old_hash: str, new_hash: str, client_id: str, resource: str,
+                       now: int, expires_at: int) -> Mapping[str, Any] | None:
+        item = self._refresh.pop(old_hash, None)
+        if item is None or item[1] <= now or item[0]["client_id"] != client_id or item[0]["resource"] != resource:
+            if item is not None:
+                self._refresh[old_hash] = item
+            return None
+        self._refresh[new_hash] = (item[0], expires_at)
+        return dict(item[0])
+
+    def revoke_refresh(self, token_hash: str, client_id: str) -> None:
+        item = self._refresh.get(token_hash)
+        if item is not None and item[0]["client_id"] == client_id:
+            del self._refresh[token_hash]
+
 
 class RepositoryOAuthCodeStore:
     def __init__(self, repository: Any) -> None:
@@ -93,6 +117,17 @@ class RepositoryOAuthCodeStore:
 
     def consume(self, code_hash: str, now: int) -> Mapping[str, Any] | None:
         return self.repository.consume_mcp_oauth_code(code_hash, now)
+
+    def create_refresh(self, token_hash: str, value: Mapping[str, Any], expires_at: int) -> None:
+        self.repository.create_mcp_oauth_refresh_token(token_hash, dict(value), expires_at)
+
+    def rotate_refresh(self, old_hash: str, new_hash: str, client_id: str, resource: str,
+                       now: int, expires_at: int) -> Mapping[str, Any] | None:
+        return self.repository.rotate_mcp_oauth_refresh_token(
+            old_hash, new_hash, client_id, resource, now, expires_at)
+
+    def revoke_refresh(self, token_hash: str, client_id: str) -> None:
+        self.repository.revoke_mcp_oauth_refresh_token(token_hash, client_id)
 
 
 class McpOAuth:
@@ -127,6 +162,9 @@ class McpOAuth:
             "authorization_response_iss_parameter_supported": True,
             "authorization_endpoint": f"{base}/oauth/authorize",
             "token_endpoint": f"{base}/oauth/token",
+            "grant_types_supported": ["authorization_code", "refresh_token"],
+            "revocation_endpoint": f"{base}/oauth/revoke",
+            "revocation_endpoint_auth_methods_supported": ["none"],
             "client_id_metadata_document_supported": True,
             "token_endpoint_auth_methods_supported": ["none"],
             "code_challenge_methods_supported": ["S256"],
@@ -136,7 +174,7 @@ class McpOAuth:
     def begin_authorization(self, params: Mapping[str, str]) -> Response:
         client_id = params.get("client_id", "")
         redirect_uri = params.get("redirect_uri", "")
-        scope = self._scope(params.get("scope", ""))
+        scope = " ".join(dict.fromkeys((*self._scope(params.get("scope", "")).split(), "offline_access")))
         if params.get("response_type") != "code":
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "response_type must be code")
         if not params.get("state"):
@@ -205,26 +243,57 @@ class McpOAuth:
         return Response(status_code=status.HTTP_302_FOUND, headers={"Location": f"{state['redirect_uri']}?{urlencode(query)}"})
 
     def exchange_token(self, form: Mapping[str, str]) -> dict[str, Any]:
-        if form.get("grant_type") != "authorization_code":
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "only authorization_code is supported")
-        if not self._valid_client(form.get("client_id", "")) or not self._valid_redirect(form.get("redirect_uri", "")):
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "OAuth client or redirect URI is not allowed")
+        if not self._valid_client(form.get("client_id", "")):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "OAuth client is not allowed")
+        grant_type = form.get("grant_type")
+        if grant_type == "authorization_code" and not self._valid_redirect(form.get("redirect_uri", "")):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "OAuth redirect URI is not allowed")
         if form.get("resource") != self.settings.resource:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "resource is required")
-        code = form.get("code", "")
-        record = self.code_store.consume(self._hash(code), self._now()) if code else None
-        if not record or any(record.get(name) != form.get(name) for name in ("client_id", "redirect_uri", "resource")):
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid authorization code")
-        verifier = form.get("code_verifier", "")
-        challenge = self._pkce(verifier)
-        if not verifier or not hmac.compare_digest(challenge, str(record.get("code_challenge", record.get("challenge", "")))):
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid PKCE verifier")
         now = self._now()
+        if grant_type == "authorization_code":
+            code = form.get("code", "")
+            record = self.code_store.consume(self._hash(code), now) if code else None
+            if not record or any(record.get(name) != form.get(name) for name in ("client_id", "redirect_uri", "resource")):
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid authorization code")
+            verifier = form.get("code_verifier", "")
+            challenge = self._pkce(verifier)
+            if not verifier or not hmac.compare_digest(challenge, str(record.get("code_challenge", record.get("challenge", "")))):
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid PKCE verifier")
+            refresh_token = None
+            if "offline_access" in str(record["scope"]).split():
+                refresh_token = secrets.token_urlsafe(48)
+                self.code_store.create_refresh(self._hash(refresh_token), {
+                    "user_id": record["user_id"], "client_id": record["client_id"],
+                    "resource": record["resource"], "scope": record["scope"],
+                }, now + self.settings.refresh_ttl)
+        elif grant_type == "refresh_token":
+            presented = form.get("refresh_token", "")
+            replacement = secrets.token_urlsafe(48)
+            record = self.code_store.rotate_refresh(
+                self._hash(presented), self._hash(replacement), form["client_id"], form["resource"],
+                now, now + self.settings.refresh_ttl) if presented else None
+            if not record:
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid refresh token")
+            refresh_token = replacement
+        else:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "unsupported grant_type")
         payload = {"iss": self.settings.issuer, "sub": str(record["user_id"]), "aud": self.settings.resource,
                    "scope": str(record["scope"]), "iat": now, "exp": now + self.settings.access_ttl,
                    "jti": secrets.token_urlsafe(18)}
-        return {"access_token": self._sign(payload), "token_type": "Bearer", "expires_in": self.settings.access_ttl,
-                "scope": payload["scope"]}
+        result = {"access_token": self._sign(payload), "token_type": "Bearer", "expires_in": self.settings.access_ttl,
+                  "scope": payload["scope"]}
+        if refresh_token:
+            result["refresh_token"] = refresh_token
+        return result
+
+    def revoke_token(self, form: Mapping[str, str]) -> None:
+        client_id = form.get("client_id", "")
+        if not self._valid_client(client_id):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "OAuth client is not allowed")
+        token = form.get("token", "")
+        if token and form.get("token_type_hint", "refresh_token") == "refresh_token":
+            self.code_store.revoke_refresh(self._hash(token), client_id)
 
     def verify_access_token(self, token: str, required_scope: str) -> Mapping[str, Any]:
         payload = self._unsigned(token, "access")
@@ -242,7 +311,7 @@ class McpOAuth:
 
     def _consent_page(self, token: str) -> str:
         safe = html.escape(token, quote=True)
-        return f"<!doctype html><meta charset='utf-8'><title>Janus MCP authorization</title><main><h1>Janus MCP authorization</h1><p>允許 ChatGPT 讀取已核准的 Janus 市場與私人資料範圍？</p><form method='post' action='/oauth/authorize/complete'><input type='hidden' name='token' value='{safe}'><button name='approved' value='true'>允許</button><button name='approved' value='false'>拒絕</button></form></main>"
+        return f"<!doctype html><meta charset='utf-8'><title>Janus MCP authorization</title><main><h1>Janus MCP authorization</h1><p>允許 ChatGPT 讀取已核准的 Janus 市場與私人資料，並在短效存取憑證到期後自動續期？此授權閒置 90 天後失效；你可隨時在 ChatGPT 解除連結或撤銷。</p><form method='post' action='/oauth/authorize/complete'><input type='hidden' name='token' value='{safe}'><button name='approved' value='true'>允許</button><button name='approved' value='false'>拒絕</button></form></main>"
 
     def _sign(self, payload: Mapping[str, Any]) -> str:
         encoded = self._b64(json.dumps(dict(payload), separators=(",", ":"), sort_keys=True).encode())

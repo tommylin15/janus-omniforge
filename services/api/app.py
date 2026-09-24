@@ -264,6 +264,11 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     async def mcp_token(request: Request) -> dict[str, Any]:
         return oauth_service().exchange_token(parse_form(request, await request.body()))
 
+    @api.post("/oauth/revoke", status_code=status.HTTP_200_OK)
+    async def mcp_revoke(request: Request) -> Response:
+        oauth_service().revoke_token(parse_form(request, await request.body()))
+        return Response(status_code=status.HTTP_200_OK, headers={"Cache-Control": "no-store"})
+
     @api.post("/mcp")
     async def mcp_endpoint(request: Request) -> Response:
         body = await request.body()

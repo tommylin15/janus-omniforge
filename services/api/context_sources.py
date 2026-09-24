@@ -39,16 +39,19 @@ class ContextSourceError(ValueError): pass
 class CoreContextReader:
     """Read-only PyIceberg scan over fixed Core identifiers."""
 
-    def __init__(self, catalog: Any) -> None: self.catalog = catalog
+    def __init__(self, catalog: Any = None, query: Any = None) -> None:
+        self.catalog, self.query = catalog, query
 
     @classmethod
     def from_env(cls) -> "CoreContextReader":
-        from .private_pipeline import CorePriceReader
-        return cls(CorePriceReader.from_env().catalog)
+        from .public_runtime import build_core_service
+        return cls(query=build_core_service())
 
     def page(self, dataset_id: str, symbol: str, limit: int) -> Sequence[Mapping[str, Any]]:
         if dataset_id not in SOURCE_BY_ID["janus-core"].resources:
             raise ContextSourceError("resource is not allowed for source")
+        if self.query is not None:
+            return self.query.page(dataset_id, symbol, limit=min(limit, 200), offset=0).rows
         identifier = f"core.{dataset_id.replace('-', '_')}_v1"
         if not self.catalog.table_exists(identifier): return ()
         from pyiceberg.expressions import EqualTo

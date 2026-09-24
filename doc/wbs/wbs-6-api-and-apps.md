@@ -12,7 +12,7 @@
 
 - 擴充 WBS 4J 建立的最小 `services/api` FastAPI app；將現有 WSGI handler 逐路由遷移並以 contract tests 保持既有 Admin 行為，完成後才移除 WSGI boundary。
 - `/api/v1/public/*` 提供 health、daily brief、sector rotation、topics、candidates、stock health、history、Kline、events。
-- `/api/v1/me/*` 提供交易、筆記、關注股、positions 與年度 PnL；舊私人聊天室 API 在 deployment cutover 前仍屬 Janus live 相容性路徑，不再是 Janus User UI 的長期 product surface。身分只取自驗證內容，不接受 client 指定 `user_id`。
+- `/api/v1/me/*` 提供交易、筆記、關注股、positions 與年度 PnL；Janus Chat API 已在 2026-09-23 hard split 部署中移除；私人資料與已套用 migrations 保留，未隱含搬移或刪除。身分只取自驗證內容，不接受 client 指定 `user_id`。
 - `/api/v1/admin/*` 保留控制面能力；public、private 與 admin router 分離 response model、auth、CORS、rate limit、IAM 與 audit。
 - cursor／pagination、safe error、404 waiting state；不公開 raw payload、blocked、secret、traceback 或 private artifact reference。
 
@@ -76,7 +76,7 @@
 - 未啟用股票 404；已啟用無資料顯示等待批次。
 - 詳細驗收依 `../ui.md`。
 - tab 具鍵盤操作、ARIA 與可分享 query-string deep link；重載後保留所選分頁，未選面板不重複抓取大型 details。
-- 詳細 User／Admin 驗收依 `../ui.md`；今日頁所有卡片必須使用同一 analysis-as-of，個人工作台通過交易更正、筆記 revision、關注異動、聊天室 engine lineage 與跨使用者隔離測試。
+- 詳細 User／Admin 驗收依 `../ui.md`；今日頁所有卡片必須使用同一 analysis-as-of，個人工作台通過交易更正、筆記 revision、關注異動與跨使用者隔離測試。
 - 對宣稱 live accepted 的 UI 流程，至少要有目前 GCP dev 真實 URL／runtime、真實 auth／persisted backend 與實際互動 evidence；mock/sample 只可補測，不可獨立完成驗收。
 
 ### 6.4.1 Planned Admin analysis semantics

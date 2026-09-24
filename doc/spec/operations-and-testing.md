@@ -1,6 +1,114 @@
 # Operations and testing
 
-## Janus hard split and unified Secret — GCP dev acceptance (2026-09-23)
+## WBS-8 OAuth refresh-token follow-up — GCP dev (2026-09-24)
+
+Implemented OAuth `offline_access`, refresh-token issuance and atomic one-time rotation,
+hashed-token PostgreSQL storage, 90-day sliding inactivity expiry, and token revocation.
+Targeted Python tests: **31 passed**; changed Python modules compiled; four migration
+shell scripts passed `bash -n`; OAuth Cloud Build YAML parsed; `git diff --check` passed.
+
+PostgreSQL image build `e2fcc5a2-08df-41b7-b4c4-60012fea3ec1`, digest
+`sha256:e9c695544718e69ca4e46d48cb182c262d6d090de967eac95b3d0f562c73f081`.
+Migration Cloud Build `e5fdd659-e668-499d-b216-8b2ea55c49c2` could not reach the VM
+because its build identity lacked IAP permission (`4033 not authorized`); the additive
+`028_mcp_oauth_refresh_tokens` migration was instead applied through the operator's
+existing IAP access without restarting PostgreSQL. The private-storage transaction
+acceptance passed, including owner isolation and private API/pipeline table ACLs.
+
+API candidate build/deploy `1265d1c0-3c89-4fcb-a132-f071ecda18c9`, digest
+`sha256:857c6c50e3ee69a33a9cd6b1165f5a557369fc33df482419407eb5875a01f094`, revision
+`janus-api-mcp-refresh-90d-config`. Candidate acceptance `0f388856-e679-4c55-bdaf-0ced77bc206e`
+and post-promotion acceptance `a0e0a485-df3d-4e7a-b795-040444dd988a` passed OAuth
+metadata, `offline_access` discovery, refresh/revocation negative guards, MCP initialize,
+tool list, and unauthenticated challenge. The revision now receives 100% dev traffic;
+the existing `mcp-adapter` and `mcp-oauth` tags retain their URLs and point to it.
+
+Live ChatGPT app calls discovered and invoked all three tools: `janus_sources`,
+`janus_market_context`, and `janus_private_context`; market OHLCV, private positions,
+performance, and trades returned bounded records. SQL/URI symbols, limits above 20,
+367-day ranges, and v1 `notes` were rejected by the connector schema. A 20-row OHLCV
+request returned 10 records at 4,861 serialized bytes, below the 32,768-byte cap. All
+tools declare read-only behavior. The initial profile call returned no data while the
+owner profile table was empty. After the owner saved the profile and opted in, the live
+`investment-profile` call returned one bounded row with `ai_context_opt_in=true` at
+`2026-09-24 05:36:12 UTC`; the dev database count query confirmed one opted-in row. At
+that point only one OAuth owner account was configured; the second-owner setup is recorded
+below.
+
+ChatGPT authorization-code login and reconnect succeed, and an expired access token
+caused a reconnect. Initially ChatGPT omitted `offline_access`; it has now been added
+to all three tool `securitySchemes`. Scope-fix candidate build
+`1fbe4e57-36b4-4ae0-9957-18db75427fdf`, digest
+`sha256:2e9616d1bbd55f04089c17629c13586032acbb3159dba325af355f76ecd8827d`, is behind
+the existing `mcp-adapter` and `mcp-oauth` URLs. GCP acceptance build
+`56f36ab1-6caa-4d86-aa49-13aa2ac0878c` passed metadata, all three tool schemas including
+`offline_access`, OAuth negative guards, and the unauthenticated MCP challenge. Before the
+server-side scope adjustment below, ChatGPT's subsequent authorization still requested
+only the three read scopes, and a count-only DB query showed no active refresh-token row.
+Refresh after the 15-minute access-token expiry therefore remains unverified at that
+point. A second-owner test was also open at that point; WBS-8 is not complete.
+The existing Cloud Run service remains scale-to-zero
+(minimum instances 0) with a maximum of 2; no service or database resources were added.
+
+To handle ChatGPT continuing to omit the scope in its authorization request, the OAuth
+authorization server now adds `offline_access` to its allowlisted ChatGPT authorization
+grant and states the 90-day inactivity expiry and revocation option on the consent page.
+Targeted tests: **11 passed**; `py_compile` and `git diff --check` passed. Dev build
+`652f1a47-6e76-448d-882b-cdd6e175ba5c` succeeded and deployed revision
+`janus-api-mcprfrgrant` behind the existing `mcp-oauth` URL; the default 100% traffic
+remains on `janus-api-mcp-refresh-90d-config`, and `mcp-adapter` retains its existing
+tagged revision. Acceptance build `fa5d9559-f896-43ab-abf5-c0eca20a1d59` passed OAuth
+metadata, discovery, tool schemas, unauthenticated challenge, and negative guards.
+Fresh ChatGPT authorization is verified: the user reauthorized after deployment and
+called `janus_sources`; the new revision returned HTTP 200 from `/oauth/token` at
+`2026-09-24 04:54:00 UTC`, and a count-only query found one active, unexpired
+refresh-token row. After the access token expired at approximately
+`2026-09-24 05:09:01 UTC`, another `janus_sources` call returned successfully. Cloud Run
+logged `/oauth/token` HTTP 200 at `05:28:15 UTC`; the active token count remained one and
+its `issued_at` advanced to `05:28:18 UTC`. No `/oauth/authorize` or Google callback
+request occurred after expiry. This verifies live refresh and rotation without a new
+login. Token values were not read. The Codex Janus connector invocation itself returned
+`Unknown tool`, but ChatGPT Developer Mode completed both live calls.
+
+## WBS-8 second-owner dev setup (2026-09-24)
+
+The second Google identity initially received 403 from `/api/v1/me/investment-profile`
+because it was absent from `GOOGLE_USER_ALLOWED_EMAILS`. After the owner explicitly
+approved this access, it was added to the existing dev allowlist. Revision
+`janus-api-ownerab20260924` (image digest
+`sha256:148ccac366a7a16aba42faab24735389a5c130db45cb0ea9c58b00e199b4783f`) passed
+OAuth/MCP acceptance build `875306fe-acc8-4953-a229-1c0032fef024`. The revision now
+receives 100% of existing dev API traffic and carries the existing `mcp-adapter` and
+`mcp-oauth` tags. No production service or new Cloud Run service was created. A/B live
+isolation remains pending until the second identity signs in, creates its own Janus user
+record, and its private MCP response is checked against owner A.
+
+The user later clarified the exact second account as `tommylin0119@gmail.com` (two `m`s
+in `tommylin`). The serving dev revision had the one-`m` typo `tomylin0119@gmail.com`,
+which explains the 403; no API auth code change was needed. Candidate revision
+`janus-api-ownerabfix20260924` used the same image digest as the then-serving
+`janus-api-00166-k84` and differed only in `GOOGLE_USER_ALLOWED_EMAILS`. It was promoted
+to 100% default dev traffic on 2026-09-24. The existing `mcp-oauth` and `mcp-adapter`
+tags remain on `janus-api-ownerab20260924`. A separate metadata check against the
+candidate image showed it does not advertise `offline_access`, so that candidate was
+not used to change the MCP tags or claim OAuth acceptance. Authenticated owner B access
+and A/B isolation still need a live retest.
+
+## MCP market context runtime correction — GCP dev (2026-09-24)
+
+`CoreContextReader` used the private pipeline catalog credential while the API's Core
+catalog role is `janus_web_catalog`, causing authenticated market calls to fail with
+PostgreSQL password authentication errors. It now reuses the existing public Core query
+runtime and its web catalog credential bundle. Targeted MCP tests: **4 passed**;
+`py_compile` and `git diff --check` passed. Cloud Build
+`9f9bb605-dc0f-4ce2-9aed-32add2166a5b` succeeded; candidate revision
+`janus-api-marketctx` is behind the existing `mcp-adapter` and `mcp-oauth` URLs. The
+default service traffic remains on `janus-api-mcp-refresh-90d-config`. A direct
+authenticated `janus_market_context(symbol="2330", resource="ohlcv", limit=1)` call
+returned one OHLCV record (`as_of=2026-09-14`, status `partial` because the requested
+limit truncates the available rows).
+
+## Janus hard split, unified Secret and MCP connector — GCP dev acceptance (2026-09-24)
 
 Pushed `main` source SHA `2692a09` plus MCP acceptance SHA `f80f3c6`. Local checks:
 root Python **241 passed**; TypeScript typecheck/lint passed; unit tests **3 passed**;
@@ -14,9 +122,11 @@ Cloud Build image `53aa871d-7805-4dd4-a8a9-c2eb9101204d`, immutable digest
 on revision `janus-api-runtime-bundle` at 100% traffic. `MCP_OAUTH_ENABLED=true`; the
 three obsolete Agent env vars remain absent.
 
-The three extant Secret payloads were merged in memory into enabled version 1 of
-`janus-runtime-bundle` (28 unique JSON fields, no conflicting duplicate keys); the
-Codex owners bundle was already absent. Old `janus-postgres-api-bundle`,
+The three extant Secret payloads were merged in memory into `janus-runtime-bundle`
+(28 unique JSON fields, no conflicting duplicate keys); the Codex owners bundle was
+already absent. After read-only Cloud Run probes found stale database credentials,
+consumer aliases were normalized into version 2 and version 1 was disabled. Old
+`janus-postgres-api-bundle`,
 `janus-agent-provider-bundle`, and `janus-market-data-bundle` were deleted. The four
 Janus runtime identities and Cloud Build default identity have `secretAccessor`;
 API and all three Cloud Run Job templates, plus PostgreSQL migration build scripts,
@@ -31,14 +141,30 @@ builds: public API `17dd3591-65a8-430e-9aff-9fa40876c0f6`, MCP/OAuth
 `8fbe6d86-e52c-40c1-994a-93921eaaac93` — all **SUCCESS**. Verified API health/domain
 guards, removed Chat/internal routes, Flutter bundles, OAuth metadata/negative guards,
 MCP initialize/tools/list, and unauthenticated tool-call challenge. All three Jobs are
-Ready and point at `janus-runtime-bundle:latest`; no Job execution or PostgreSQL
-schema/data migration was run. No secret values were logged.
+Ready and point at `janus-runtime-bundle:latest`; their configured image digests
+exist. Read-only `SELECT 1` probes passed for catalog aliases, the private pipeline
+database URL, and the ingestion control role. After scoped approval, the private
+pipeline completed at checkpoint 68; bounded Taiex ingestion staged one object and
+created one Core Iceberg table with 64 rows, without triggering Mart. At that initial
+hard-split checkpoint, no schema migration or multi-month backfill was run. No secret values were logged. Detailed
+Secret version and Job evidence is in the [Secret inventory](../secret_list.md).
 
-No interactive OAuth consent or authenticated `tools/call` was performed; overall
-Phase 9 remains deferred. Janus-only gateway/fixture, empty Codex owners bundle and
-dedicated service accounts were removed. `omniagent-agent-gateway` and its chat caller
-remain because live requests were observed. No historical data or migrations were
-deleted. Older Agent Gateway/Phase 5 results below are historical.
+WBS-8 MCP acceptance initially found both `mcp-adapter` and `mcp-oauth` tags on
+stale revisions; Cloud Builds `262e97d4-54e2-4c4d-adeb-0bf23ccc9c40` and
+`67c2cd97-4811-4e25-8e04-3d0268088234` received HTTP 500. A control build against
+the canonical revision succeeded (`b23b9313-6341-4c88-b3f1-278d3d903253`). Both
+existing tags now point to `janus-api-runtime-bundle` at the same 100%-traffic
+revision. Adapter build `cf397f66-b5d1-4834-8d6f-19c691220c31` and OAuth build
+`a465864d-4137-4aad-b018-656cbb86ce5c` passed protected-resource and authorization
+metadata, MCP initialize, the exact three read-only tools, unauthenticated
+`tools/call` challenge, and OAuth negative checks. No traffic percentage, IAM,
+image, or resource count changed. ChatGPT UI discovery, authenticated calls, and
+owner A/B isolation remain unverified; full connector acceptance is not claimed.
+
+Janus-only gateway/fixture, empty Codex owners bundle and dedicated service
+accounts were removed. No historical data or migrations were deleted. All dated
+deployment and Agent Gateway entries below are historical snapshots; use the
+current runtime and MCP acceptance evidence above for present state.
 
 ## Phase 5 UI split deployment safety（2026-09-22）
 
@@ -496,7 +622,7 @@ production、未建立付費 GCP 資源。
 - Existing dev PostgreSQL received immutable image `us-central1-docker.pkg.dev/gen-lang-client-0593591102/janus-postgres/postgres@sha256:87ce1db970c44433f8e3c1cd53f756e3a6c4aae629b620f4c95520c240169568`; migration 022 and role/settings acceptance passed.
 - Final `janus-api` revision is `janus-api-00060-bs4`, image digest `sha256:a0206bc153d3530a4148bb061020ab2491e4fac300bee03613d68b97a21c65f0`; GCP public API acceptance `53473f6f-1870-4f91-add7-8aea9e80f055` passed. Dev has no materialized `events` table, so that endpoint returns explicit safe `503 public data unavailable`.
 
-## Secret bundle consolidation checkpoint（未驗證）
+## Historical Secret bundle consolidation checkpoint（superseded by 2026-09-23 runtime acceptance）
 
 已取得人工安全 gate，同意以較大的 workload IAM blast radius 換取較少的 Secret
 版本與管理項目。目標由 8 個 container 收斂為 `janus-postgres-api-bundle`（API／Web／

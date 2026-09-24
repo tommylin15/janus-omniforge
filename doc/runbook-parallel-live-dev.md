@@ -16,8 +16,8 @@ Dev 預設使用：
 
 - 真實 Google OAuth／allowlisted owner。
 - 真實 PostgreSQL private ledger／control data 與 Private／Public Iceberg。
-- 真實 Cloud Run API、Agent Gateway、Jobs 與 Scheduler。
-- 經核准的真實 OpenRouter／Gemini／Codex 路徑與 MCP server。
+- Janus Cloud Run API、Jobs 與 Scheduler；omniAgent runtime 不屬於本 runbook。
+- Janus authenticated MCP／OAuth connector 與已核准的 domain data path。
 - 真實 Flutter User／Admin surface。
 
 資料不足時 fail explicit：顯示 missing／stale／partial／unavailable，不產生 placeholder 或假資料補成功。
@@ -43,14 +43,14 @@ Dev 預設使用：
 
 ## 5. MCP fixture
 
-`janus-mcp-fixture` 不是正常 runtime 的業務依賴。真實 MCP 是正常功能驗收主體；fixture 只用於故障注入，例如：
+`janus-mcp-fixture` 已於 2026-09-23 cleanup 移除。MCP transport 故障注入只由本機／CI contract tests 驗證，不部署 fixture。
 
 - timeout／cancel；
 - disconnect／transport failure；
 - tools list changed／invalid schema；
 - secret-redaction／leakage negative test。
 
-Fixture 可 scale-to-zero、按需部署或保留程式碼而不長期運行。移除 fixture 的 GCP service 不應影響 Flutter Admin、主要 API 或正常 Agent Gateway → real MCP 路徑；真正刪除前仍須用當時的 dependency／integration evidence 確認沒有 runtime 綁定。
+此 cleanup 不影響 Janus API／OAuth connector。omniAgent 到 Janus 的真實 authenticated tool call 仍是 split 的未完成驗收 gate，見 [split status](omniagent-split-status.md)。
 
 ## 6. 未來 Production
 

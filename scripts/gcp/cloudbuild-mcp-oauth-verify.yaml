@@ -21,7 +21,7 @@ steps:
         protected = json.load(open('/tmp/protected.json'))
         assert protected['resource'] == os.environ['EXPECTED_RESOURCE']
         assert protected['authorization_servers'] == [os.environ['EXPECTED_ISSUER']]
-        assert set(protected['scopes_supported']) == {'janus.sources.read','janus.market.read','janus.private.read'}
+        assert set(protected['scopes_supported']) == {'janus.sources.read','janus.market.read','janus.private.read','offline_access'}
         PY
         authorization_status="$(curl --silent --show-error --output /tmp/authorization.json --write-out '%{http_code}' --max-time 30 "${_SERVICE_URL}/.well-known/oauth-authorization-server")"
         echo "authorization_status=${authorization_status}"
@@ -32,7 +32,9 @@ steps:
         assert metadata['issuer'] == os.environ['EXPECTED_ISSUER']
         assert metadata['code_challenge_methods_supported'] == ['S256']
         assert metadata['token_endpoint_auth_methods_supported'] == ['none']
+        assert metadata['grant_types_supported'] == ['authorization_code','refresh_token']
         assert metadata['client_id_metadata_document_supported'] is True
+        assert metadata['revocation_endpoint'] == os.environ['EXPECTED_ISSUER'].rstrip('/') + '/oauth/revoke'
         PY
         status="$(curl --silent --show-error --output /tmp/invalid.json --write-out '%{http_code}' --max-time 30 -X POST \
           -H 'Content-Type: application/x-www-form-urlencoded' \
@@ -40,6 +42,18 @@ steps:
           "${_SERVICE_URL}/oauth/token")"
         echo "token_negative_status=${status}"
         test "${status}" = 400
+        status="$(curl --silent --show-error --output /tmp/refresh-negative.json --write-out '%{http_code}' --max-time 30 -X POST \
+          -H 'Content-Type: application/x-www-form-urlencoded' \
+          --data 'grant_type=refresh_token&client_id=https%3A%2F%2Fchatgpt.com%2Foauth%2Fclient.json&resource=invalid' \
+          "${_SERVICE_URL}/oauth/token")"
+        echo "refresh_negative_status=${status}"
+        test "${status}" = 400
+        status="$(curl --silent --show-error --output /tmp/revoke.json --write-out '%{http_code}' --max-time 30 -X POST \
+          -H 'Content-Type: application/x-www-form-urlencoded' \
+          --data 'client_id=https%3A%2F%2Fchatgpt.com%2Foauth%2Fclient.json&token=unknown-token' \
+          "${_SERVICE_URL}/oauth/revoke")"
+        echo "revoke_status=${status}"
+        test "${status}" = 200
         resource_encoded="$(RESOURCE="${_EXPECTED_RESOURCE}" python3 -c 'import os,urllib.parse; print(urllib.parse.quote(os.environ["RESOURCE"], safe=""))')"
         status="$(curl --silent --show-error --output /tmp/authorize.json --write-out '%{http_code}' --max-time 30 \
           "${_SERVICE_URL}/oauth/authorize?response_type=code&client_id=https%3A%2F%2Fchatgpt.com%2Foauth%2Fclient.json&redirect_uri=https%3A%2F%2Fchatgpt.com%2Fconnector_platform_oauth_redirect&resource=${resource_encoded}&scope=janus.market.read&state=test")"
@@ -73,6 +87,7 @@ steps:
         assert {tool['name'] for tool in tools} == {
             'janus_sources', 'janus_market_context', 'janus_private_context'}
         assert all(tool['annotations']['readOnlyHint'] for tool in tools)
+        assert all('offline_access' in tool['securitySchemes'][0]['scopes'] for tool in tools)
 
         status, headers, denied = rpc('tools/call', {
             'name': 'janus_market_context',

@@ -64,6 +64,36 @@ class PostgresWorkspaceRepository:
             ).fetchone()
             return dict(row) if row else None
 
+    def create_mcp_oauth_refresh_token(self, token_hash: str, value: dict[str, Any], expires_at: int) -> None:
+        with self._connection() as connection:
+            connection.execute(
+                """INSERT INTO private.mcp_oauth_refresh_tokens
+                   (token_hash,user_id,client_id,resource,scope,expires_at)
+                   VALUES (%s,%s,%s,%s,%s,to_timestamp(%s))""",
+                (token_hash, value["user_id"], value["client_id"], value["resource"], value["scope"], expires_at),
+            )
+
+    def rotate_mcp_oauth_refresh_token(self, old_hash: str, new_hash: str, client_id: str,
+                                      resource: str, now: int, expires_at: int) -> dict[str, Any] | None:
+        with self._connection() as connection:
+            row = connection.execute(
+                """UPDATE private.mcp_oauth_refresh_tokens
+                   SET token_hash=%s,issued_at=to_timestamp(%s),expires_at=to_timestamp(%s)
+                   WHERE token_hash=%s AND client_id=%s AND resource=%s
+                     AND revoked_at IS NULL AND expires_at > to_timestamp(%s)
+                   RETURNING user_id,client_id,resource,scope""",
+                (new_hash, now, expires_at, old_hash, client_id, resource, now),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def revoke_mcp_oauth_refresh_token(self, token_hash: str, client_id: str) -> None:
+        with self._connection() as connection:
+            connection.execute(
+                """UPDATE private.mcp_oauth_refresh_tokens SET revoked_at=now()
+                   WHERE token_hash=%s AND client_id=%s AND revoked_at IS NULL""",
+                (token_hash, client_id),
+            )
+
     def require_owned_trade(self, user_id: UUID, event_id: UUID | None) -> None:
         with self._connection() as connection: self._require_owned_trade(connection,user_id,event_id)
 
@@ -407,7 +437,7 @@ class PostgresWorkspaceRepository:
             connection.execute("DELETE FROM private.assistant_threads WHERE user_id=%s",(user_id,))
             connection.execute("DELETE FROM private.assistant_skill_state WHERE user_id=%s",(user_id,))
             connection.execute("DELETE FROM private.assistant_skill_revisions WHERE user_id=%s",(user_id,))
-            for table in ("analysis_feedback","change_log","mutation_keys","note_index","watchlist","mcp_servers","mcp_oauth_codes","investment_profiles","ledger_events","users"):
+            for table in ("analysis_feedback","change_log","mutation_keys","note_index","watchlist","mcp_servers","mcp_oauth_refresh_tokens","mcp_oauth_codes","investment_profiles","ledger_events","users"):
                 connection.execute(f"DELETE FROM private.{table} WHERE user_id=%s",(user_id,))
             connection.execute("""UPDATE private.deletion_requests SET status='COMPLETED',cleanup_pending='{}',completed_at=now()
                                 WHERE request_id=%s AND user_id=%s""",(request_id,user_id))

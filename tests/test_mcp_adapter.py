@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from services.api.app import create_app
+from services.api.context_sources import CoreContextReader
 
 
 OWNER = UUID("00000000-0000-0000-0000-000000000001")
@@ -40,6 +41,16 @@ class Core:
                  "provenance_id":"prov-1","gcs_uri":"gs://hidden"}]
 
 
+def test_core_context_reader_uses_public_query_runtime(monkeypatch):
+    expected=[{"symbol":"2330","trade_date":"2026-09-17","close":"100"}]
+    class Query:
+        def page(self, dataset_id, symbol, *, limit, offset):
+            assert (dataset_id,symbol,limit,offset)==("ohlcv","2330",200,0)
+            return SimpleNamespace(rows=expected)
+    monkeypatch.setattr("services.api.public_runtime.build_core_service",lambda:Query())
+    assert CoreContextReader.from_env().page("ohlcv","2330",200)==expected
+
+
 def client():
     return TestClient(create_app(repository=Repository(), store=Store(), core=Core(), oauth_facade=OAuth()))
 
@@ -60,7 +71,8 @@ def test_mcp_initialization_and_tool_contract_are_read_only_and_explicitly_secur
     assert {tool["name"] for tool in tools}=={"janus_sources","janus_market_context","janus_private_context"}
     assert all(tool["inputSchema"]["additionalProperties"] is False for tool in tools)
     assert all(tool["annotations"]=={"readOnlyHint":True,"destructiveHint":False,"openWorldHint":False} for tool in tools)
-    assert all(tool["securitySchemes"][0]["type"]=="oauth2" for tool in tools)
+    assert all(tool["securitySchemes"][0]["type"]=="oauth2" and
+               "offline_access" in tool["securitySchemes"][0]["scopes"] for tool in tools)
 
 
 def test_mcp_tool_calls_require_oauth_and_return_bounded_sanitized_records():

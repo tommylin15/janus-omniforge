@@ -9,3 +9,5 @@ WBS 0、1、2、4 已完成並移至
 WBS 4J 的獨立 MVP 已於 2026-09-05 完成，證據移至
 [archive/todo-completed-2026-09-05.md](../archive/todo-completed-2026-09-05.md)。
 原 WBS 文件保留，因個人化 `mart_scoped_analysis` overlay 仍依賴 WBS 5。
+
+Janus 原 WBS 4C Chat／Agent runtime 已於 2026-09-23 hard split 後退役；Janus 保留 domain API 與 read-only MCP／OAuth connector。舊規劃移至[封存文件](../archive/wbs-4c-janus-assistant-plan-superseded-2026-09-23.md)，剩餘 split gate 見[狀態文件](../omniagent-split-status.md)。

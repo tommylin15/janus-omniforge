@@ -41,6 +41,11 @@ class McpOAuthTests(unittest.TestCase):
         self.assertEqual(metadata["issuer"], self.settings.issuer)
         self.assertEqual(metadata["code_challenge_methods_supported"], ["S256"])
         self.assertEqual(metadata["token_endpoint_auth_methods_supported"], ["none"])
+        self.assertEqual(metadata["grant_types_supported"], ["authorization_code", "refresh_token"])
+        self.assertIn("offline_access", metadata["scopes_supported"])
+        self.assertEqual(metadata["revocation_endpoint"], "https://api.example.test/oauth/revoke")
+        self.assertEqual(metadata["revocation_endpoint_auth_methods_supported"], ["none"])
+        self.assertEqual(self.settings.refresh_ttl, 90 * 24 * 60 * 60)
 
     def test_authorization_requires_exact_resource_and_s256(self):
         with self.assertRaises(HTTPException):
@@ -72,10 +77,59 @@ class McpOAuthTests(unittest.TestCase):
         })
         claims = self.oauth.verify_access_token(access["access_token"], "janus.market.read")
         self.assertEqual(claims["sub"], "owner-uuid")
+        self.assertIn("offline_access", access["scope"].split())
+        self.assertIn("refresh_token", access)
         with self.assertRaises(HTTPException):
             self.oauth.exchange_token({
                 "grant_type": "authorization_code", "client_id": MCP_CLIENT_ID, "redirect_uri": MCP_REDIRECT_URI,
                 "resource": self.settings.resource, "code": query["code"][0], "code_verifier": verifier,
+            })
+
+    def test_offline_access_refresh_rotates_once_and_revokes(self):
+        verifier = "refresh-verifier"
+        response = self.oauth.begin_authorization({
+            "response_type": "code", "client_id": MCP_CLIENT_ID, "redirect_uri": MCP_REDIRECT_URI,
+            "resource": self.settings.resource, "scope": "janus.market.read offline_access",
+            "code_challenge": self.oauth._pkce(verifier), "code_challenge_method": "S256", "state": "state",
+        })
+        google_state = parse_qs(urlsplit(response.headers["location"]).query)["state"][0]
+        consent = self.oauth.google_callback({"state": google_state, "code": "google-code"})
+        token = re.search(r"name='token' value='([^']+)'", consent.body.decode()).group(1)
+        redirect = self.oauth.complete_authorization(token, True)
+        code = parse_qs(urlsplit(redirect.headers["location"]).query)["code"][0]
+        original = self.oauth.exchange_token({
+            "grant_type": "authorization_code", "client_id": MCP_CLIENT_ID, "redirect_uri": MCP_REDIRECT_URI,
+            "resource": self.settings.resource, "code": code, "code_verifier": verifier,
+        })
+        self.assertIn("refresh_token", original)
+        renewed = self.oauth.exchange_token({
+            "grant_type": "refresh_token", "client_id": MCP_CLIENT_ID, "resource": self.settings.resource,
+            "refresh_token": original["refresh_token"],
+        })
+        self.assertNotEqual(renewed["refresh_token"], original["refresh_token"])
+        claims = self.oauth.verify_access_token(renewed["access_token"], "janus.market.read")
+        self.assertEqual(claims["sub"], "owner-uuid")
+        with self.assertRaises(HTTPException):
+            self.oauth.exchange_token({
+                "grant_type": "refresh_token", "client_id": MCP_CLIENT_ID, "resource": self.settings.resource,
+                "refresh_token": original["refresh_token"],
+            })
+        self.oauth.revoke_token({"client_id": MCP_CLIENT_ID, "token": renewed["refresh_token"]})
+        with self.assertRaises(HTTPException):
+            self.oauth.exchange_token({
+                "grant_type": "refresh_token", "client_id": MCP_CLIENT_ID, "resource": self.settings.resource,
+                "refresh_token": renewed["refresh_token"],
+            })
+
+    def test_refresh_token_expiration_is_enforced(self):
+        self.oauth.code_store.create_refresh(self.oauth._hash("expired-token"), {
+            "user_id": "owner-uuid", "client_id": MCP_CLIENT_ID, "resource": self.settings.resource,
+            "scope": "janus.market.read offline_access",
+        }, self.now - 1)
+        with self.assertRaises(HTTPException):
+            self.oauth.exchange_token({
+                "grant_type": "refresh_token", "client_id": MCP_CLIENT_ID, "resource": self.settings.resource,
+                "refresh_token": "expired-token",
             })
 
     def test_repository_code_challenge_field_is_accepted(self):
@@ -109,6 +163,7 @@ class McpOAuthTests(unittest.TestCase):
         self.assertIn("style-src 'unsafe-inline'", csp)
         self.assertIn("base-uri 'none'", csp)
         self.assertIn(b"action='/oauth/authorize/complete'", consent.body)
+        self.assertIn("閒置 90 天後失效".encode(), consent.body)
 
 
 if __name__ == "__main__":

@@ -297,12 +297,16 @@ def test_investment_profile_migration_is_bounded_owner_scoped_and_minimally_gran
     assert "GRANT SELECT, DELETE ON private.investment_profiles TO janus_private_pipeline" in sql
 
 
-def test_deletion_removes_oauth_codes_before_users():
+def test_deletion_removes_oauth_tokens_before_users():
     repository=(ROOT/"services/api/repository.py").read_text(encoding="utf-8")
     deletion=repository[repository.index("def complete_deletion"):repository.index("    @staticmethod", repository.index("def complete_deletion"))]
+    assert deletion.index('"mcp_oauth_refresh_tokens"') < deletion.index('"users"')
     assert deletion.index('"mcp_oauth_codes"') < deletion.index('"users"')
     migration=(ROOT/"infra/postgres/migrations/026_mcp_oauth_codes.sql").read_text(encoding="utf-8")
     assert "GRANT SELECT, DELETE ON private.mcp_oauth_codes TO janus_private_pipeline" in migration
+    refresh_migration=(ROOT/"infra/postgres/migrations/028_mcp_oauth_refresh_tokens.sql").read_text(encoding="utf-8")
+    assert "GRANT SELECT, INSERT, UPDATE, DELETE ON private.mcp_oauth_refresh_tokens TO janus_private_api" in refresh_migration
+    assert "GRANT SELECT, DELETE ON private.mcp_oauth_refresh_tokens TO janus_private_pipeline" in refresh_migration
 
 
 def test_watchlist_demand_history_is_deidentified_append_only_and_quota_bounded():

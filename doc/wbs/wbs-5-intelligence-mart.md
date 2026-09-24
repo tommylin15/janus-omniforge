@@ -66,8 +66,8 @@
 
 ### 5.4 LLM
 
-- Current implementation：公開批次 Mart 只有可選 Gemini narrator；OpenRouter 目前只在
-  私人 Agent Gateway。這些現況不得寫成已完成五角色 AI。
+- Current implementation：公開批次 Mart 只有可選 Gemini narrator；OpenRouter／Gemini／Codex
+  通用助理 runtime 歸 omniAgent，不是 Mart provider。這些現況不得寫成已完成五角色 AI。
 - Planned：以 governed `MartAIProvider` 支援 `GeminiMartProvider` 與
   `OpenRouterMartProvider`；provider failure 不改 deterministic facts，未核准 provider
   或不符合 structured output／context／required parameters 的 model 不可選。

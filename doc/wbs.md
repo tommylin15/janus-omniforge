@@ -27,9 +27,9 @@
 |---|---|---|---|
 | 已完成證據定位 | 【Luna】 | [已完成工作](wbs/completed-index.md) | 只在需要歷史證據時讀 archive |
 | 3：Ingestion／Core／Admin Data Operations | 【Sol】 | [WBS 3](wbs/wbs-3-ingestion-admin.md) | UI 變更再讀 Admin UI |
-| 4J：個人記帳、筆記、關注股 | 【Sol】 | [WBS 4J](wbs/wbs-4j-personal-workspace.md) | AI 整合才讀 4C；曝險才讀 4R |
-| 4C：多供應商私人助理／MCP／Skills | 【Sol】 | [WBS 4C](wbs/wbs-4c-ai-chat.md) | 需要持股／筆記 context 時讀 4J；UI 切片讀 User UI |
-| 4R：個人曝險、績效與壓力測試 | 【Sol】 | [WBS 4R](wbs/wbs-4r-personal-risk.md) | AI 解釋時讀 4C |
+| 4J：個人記帳、筆記、關注股 | 【Sol】 | [WBS 4J](wbs/wbs-4j-personal-workspace.md) | 外部助理只透過 Janus domain API／MCP 讀授權 context；曝險才讀 4R |
+| 4C：Janus Chat／Agent（已退役） | 歷史 | [目前責任摘要](wbs/wbs-4c-ai-chat.md) | 舊規劃只供查閱；split gate 見 [狀態文件](omniagent-split-status.md) |
+| 4R：個人曝險、績效與壓力測試 | 【Sol】 | [WBS 4R](wbs/wbs-4r-personal-risk.md) | 若交由外部助理解釋，依 bounded context／MCP 契約 |
 | 5：Intelligence Mart／Fact Pack／AI analysts | 【Sol】 | [WBS 5](wbs/wbs-5-intelligence-mart.md) | 不預讀私人 WBS；atomic slices 依 TODO 的 Pilot M1–M3 |
 | 6：FastAPI、Flutter、Admin workspace | 依 TODO | [WBS 6](wbs/wbs-6-api-and-apps.md) | 依目標入口讀 User 或 Admin UI；Admin slices 依 Pilot M4–M6 |
 | 7：安全、監控、FinOps | 【Sol】 | [WBS 7](wbs/wbs-7-security-finops.md) | 依受影響服務增讀其 WBS |
