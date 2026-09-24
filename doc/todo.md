@@ -110,6 +110,8 @@ M5 Analysis Profile、M6 hardening／evidence／legacy retirement decision。未
 
 ## P1 — FastAPI／Flutter User
 
+- [ ] 【Luna】 `WBS-6-TRANSACTION-UX-2`（Planned；Pilot UX evolution；**非 immediate queue、非 Dev Pilot Entry blocker**）：依 `ui/user-app.md` 5.4.1 完成交易記錄 `年份 → 月份 accordion → 單筆 detail`、手機快速新增 FAB、event-type-aware form、持股卡片與報表 presentation；保留 append-only correction semantics、Private Mart canonical valuation／PnL 與 pending-update 文案。若月份 canonical summary 不能由現有 bounded endpoints 組合取得，先定義 typed additive private summary contract，再交由 implementation；不得由 Flutter 自定 realized PnL／fee／tax 公式。acceptance：phone／desktop responsive、cash flow 與 PnL 分離、valuation date／partial／stale／missing 正確顯示、交易成功不假裝 portfolio 已同步、correction 不覆寫歷史、owner isolation 不退化。
+
 ## P1 — 全系統自動化測試
 
 ## P1 — WBS-7 安全、監控與 FinOps
