@@ -53,9 +53,8 @@ roles 與 CIO；歷史 artifact immutable。單角色重跑由 Admin 操作，�
 ### 5.4 個人記帳與筆記
 
 - 交易或更正 API 成功只代表 ledger 已持久化；UI 顯示「交易已儲存，等待投資組合批次更新」，positions／PnL／exposure／performance 仍以最新成功 Private Mart 的 valuation date 為準。
-
 - 本頁是 P0 User App 主功能，不依賴公開 Mart／LLM；使用 segmented control 切換「記帳／筆記」。
-- 與市場探索分頁，進入後先顯示「目前持股」、「本年已實現損益」與「待完成筆記」三張摘要卡。
+- 與市場探索分頁，現行能力可顯示「目前持股」、「本年已實現損益」與「待完成筆記」摘要；正式數值不得由 Flutter 自算。
 - 交易類型：買進、賣出、現金股利、股票股利；依類型顯示日期、股票代號／名稱、股數、成交單價、股利金額、手續費、證券交易稅、幣別與備註，不顯示無關欄位。
 - 使用十進位輸入、明確單位與即時格式驗證；不得用浮點數造成金額誤差，也不得預填虛構價格。
 - 歷史明細支援股票與年份篩選；修正既有交易時呈現「建立更正」而非無痕覆寫。
@@ -63,6 +62,42 @@ roles 與 CIO；歷史 artifact immutable。單角色重跑由 Admin 操作，�
 - 預設成本法為移動平均法並顯示在報表；尚未核准 FIFO 前不提供切換。
 - 一般筆記使用單一 revision model，可獨立存在或連結股票／交易；列表提供文字、股票、年份與待追蹤狀態篩選，修改時保留歷史版本。
 - 所有 empty／loading／error 狀態不得洩漏其他使用者是否存在資料。
+
+#### 5.4.1 交易記錄 UX 2.0（Planned presentation contract）
+
+本節吸收 2026-09-24 交易／持股參考 App 的產品評估，只正式化適合 Janus 的 presentation contract；**不表示 Flutter、API 或 runtime 已完成以下 UX，也不改變目前 immediate execution queue 或 Dev Pilot Entry Gate。**
+
+交易記錄第一屏在資料可用時應優先呈現：
+
+1. 持股市值：最新成功 Private Mart valuation date 的 market value。
+2. 未實現損益：與持股市值同一 valuation date 的 position unrealized PnL。
+3. 本年已實現損益：當年度 canonical realized PnL。
+4. 估值日期與缺價／stale／partial 狀態。
+5. 次導航「持股／紀錄／報表」；手機不得把三者塞成同一高密度表格。
+
+「紀錄」的目標資訊架構為 `年份 → 月份 accordion → 單筆交易`。月份摘要不得把所有金流混成「收入／支出」，至少分開：
+
+- 買進支出
+- 賣出回收
+- 股利收入
+- 已實現損益
+
+`cash flow` 與 `PnL` 是不同語意：賣出回收金額不等於獲利，股利收入也不得在沒有正式 contract 時直接冒充交易 realized PnL。正式 canonical 數值由 backend／Private Mart 提供；Flutter 可以做純視覺 grouping，但不得自行建立新的會計口徑。
+
+單筆交易列優先顯示日期、交易類型、股票名稱／代號、適用時的「股數 × 成交單價」與淨現金流。點入 detail 後再顯示成交總額、手續費、證券交易稅、幣別、備註、必要的 ledger／valuation 資訊，以及「建立更正」。append-only ledger 與 correction／replacement 語意不變。
+
+手機版可採明顯的 FAB「＋」作為快速新增入口；先選買進／賣出／現金股利／股票股利，再依 event type 顯示必要欄位。不得顯示不適用欄位，也不得因便利性改變 backend validation 或 ledger contract。
+
+「持股」在手機優先使用兩到三行卡片，而非橫向多欄表格；在資料可用時可顯示股票名稱／代號、持有股數、現價／均價、今日漲跌、未實現損益／報酬率，點擊後進 Janus 個股詳情並銜接持股、成本、筆記與研究內容。正式估值與損益仍只讀 Private Mart。
+
+「報表」可逐步納入持股占比、現金比例、年度已實現損益、股利、費用／稅、交易次數與年度比較；產業曝險只在正式 exposure contract 就緒後顯示。圓餅圖等圖表是次要呈現，不取代可讀數值與資料日期。
+
+以下參考 App 功能**不直接採納**：
+
+- 券商手續費折數不得取代 ledger 實際 fee；若日後提供，只能是輸入輔助。
+- 不提供任意切換 FIFO／移動平均等成本法；目前 canonical MVP 維持移動平均法。
+- 不提供「是否計入賣出費用」等會改變 canonical PnL 的自由 toggle。
+- 預計交易／scenario 不得直接寫入正式 ledger 或實際損益。
 
 ### 5.5 跨專案 UI 邊界
 
