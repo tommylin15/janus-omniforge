@@ -130,30 +130,41 @@ def normalise_financials(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, A
     result = []
     identity = {"出表日期", "年度", "季別", "公司代號", "公司名稱"}
     for row in rows:
+        source_report_date: str | None = None
+        fiscal_period_end: str | None = None
         if "stock_id" in row:
             fiscal_date = date.fromisoformat(str(row["date"]))
             metrics = ((str(row.get("type") or row.get("origin_name") or "unknown"), row.get("value")),)
             symbol, year, quarter, published = str(row["stock_id"]), fiscal_date.year, (fiscal_date.month - 1) // 3 + 1, fiscal_date.isoformat()
+            fiscal_period_end = fiscal_date.isoformat()
             statement = str(row.get("statement_type") or "financial")
         elif _pick(row, "fiscal_year", "year") is not None:
             symbol = str(_pick(row, "symbol", "code"))
             year = int(_pick(row, "fiscal_year", "year"))
             quarter = int(_pick(row, "fiscal_quarter", "quarter") or 0)
             published = str(_pick(row, "published_at", "published") or "")
+            source_report_date = _text(_pick(row, "source_report_date"))
+            fiscal_period_end = _text(_pick(row, "fiscal_period_end"))
             statement = str(_pick(row, "statement_type", "statement") or "unknown")
             metrics = ((str(_pick(row, "metric", "name") or "unknown"), _pick(row, "value", "amount")),)
         else:
             year_value = int(str(row.get("年度", "0")))
             year = year_value + 1911 if year_value < 1911 else year_value
             quarter = int(str(row.get("季別", "0")))
-            symbol, published = str(row.get("公司代號", "")), _iso_date(row.get("出表日期"))
+            source_report_date = _iso_date(row.get("出表日期"))
+            symbol, published = str(row.get("公司代號", "")), source_report_date
             statement = str(row.get("statement_type") or "income")
             metrics = tuple((str(key), value) for key, value in row.items() if key not in identity)
         for metric, value in metrics:
-            result.append({"symbol": symbol, "fiscal_year": year, "fiscal_quarter": quarter,
-                           "statement_type": statement, "published_at": published, "metric": metric,
-                           "value": _text(value), "unit": _financial_unit(metric, row),
-                           "currency": str(_pick(row, "currency", "Currency") or "TWD")})
+            item = {"symbol": symbol, "fiscal_year": year, "fiscal_quarter": quarter,
+                    "statement_type": statement, "published_at": published, "metric": metric,
+                    "value": _text(value), "unit": _financial_unit(metric, row),
+                    "currency": str(_pick(row, "currency", "Currency") or "TWD")}
+            if source_report_date:
+                item["source_report_date"] = source_report_date
+            if fiscal_period_end:
+                item["fiscal_period_end"] = fiscal_period_end
+            result.append(item)
     return tuple(result)
 
 
@@ -206,6 +217,8 @@ class JsonDatasetAdapter:
     observation_mode: str = "window_end"
     max_replay_age_days: int | None = None
     row_date_field: str | None = None
+    availability_field: str | None = None
+    publication_time_authoritative: bool | None = None
     clock: Callable[[], datetime] = _now_utc
 
     def __post_init__(self) -> None:
@@ -251,7 +264,13 @@ class JsonDatasetAdapter:
         observed = fetched if self.observation_mode == "fetch_time" else datetime.combine(
             request.window_end, datetime.min.time(), tzinfo=timezone.utc
         )
-        rows = tuple({**row, "observed_at": observed.isoformat().replace("+00:00", "Z")} for row in rows)
+        observed_text = observed.isoformat().replace("+00:00", "Z")
+        lineage: dict[str, Any] = {"observed_at": observed_text}
+        if self.availability_field:
+            lineage[self.availability_field] = observed_text
+        if self.publication_time_authoritative is not None:
+            lineage["publication_time_authoritative"] = self.publication_time_authoritative
+        rows = tuple({**row, **lineage} for row in rows)
         return SourceResponse(rows=rows, observed_at=observed, raw_payload=raw, source_url=url,
                               fields=frozenset(rows[0].keys()) if rows else frozenset())
 
@@ -373,9 +392,11 @@ def dataset_adapters(transport: Callable[[str], bytes] | None = None) -> dict[st
         "twse-valuation": JsonDatasetAdapter("twse", "valuation", "https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d", normalise_valuation, transport, dated("https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d", selectType="ALL", response="json")),
         "twse-institutional": JsonDatasetAdapter("twse", "institutional", "https://www.twse.com.tw/rwd/zh/fund/T86", normalise_institutional, transport, dated("https://www.twse.com.tw/rwd/zh/fund/T86", selectType="ALL", response="json")),
         "mops": JsonDatasetAdapter("mops", "financials", "https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci", normalise_financials, transport,
-                                   observation_mode="fetch_time", max_replay_age_days=7),
+                                   observation_mode="fetch_time", max_replay_age_days=7,
+                                   availability_field="availability_at", publication_time_authoritative=False),
         "finmind": JsonDatasetAdapter("finmind", "financials", "https://api.finmindtrade.com/api/v4/data", normalise_financials, transport, finmind,
-                                      observation_mode="fetch_time", max_replay_age_days=7),
+                                      observation_mode="fetch_time", max_replay_age_days=7,
+                                      availability_field="availability_at", publication_time_authoritative=False),
         "twse-events": JsonDatasetAdapter("twse", "events", "https://openapi.twse.com.tw/v1/opendata/t187ap04_L", normalise_events, transport,
                                           observation_mode="fetch_time", max_replay_age_days=7, row_date_field="published_at"),
         "twse-market-activity": JsonDatasetAdapter("twse", "market-activity", "https://www.twse.com.tw/exchangeReport/TWTB4U", normalise_market_activity, transport, dated("https://www.twse.com.tw/exchangeReport/TWTB4U", response="json")),
