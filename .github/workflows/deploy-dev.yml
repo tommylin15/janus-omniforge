@@ -67,7 +67,7 @@ jobs:
               - 'packages/provenance/**'
               - 'packages/governance/**'
               - 'cloudbuild.yaml'
-              - 'scripts/gcp/**'
+              - 'scripts/gcp/deploy-dev.sh'
             mart:
               - 'jobs/intelligence-mart/**'
               - 'packages/contracts/**'
@@ -75,7 +75,7 @@ jobs:
               - 'packages/provenance/**'
               - 'packages/governance/**'
               - 'cloudbuild.yaml'
-              - 'scripts/gcp/**'
+              - 'scripts/gcp/deploy-dev.sh'
             api:
               - 'services/api/**'
               - 'packages/admin_api/**'
@@ -86,7 +86,7 @@ jobs:
               - 'packages/observability/**'
               - 'packages/governance/**'
               - 'cloudbuild.yaml'
-              - 'scripts/gcp/**'
+              - 'scripts/gcp/deploy-dev.sh'
 
   test-ingestion:
     needs: detect
@@ -134,9 +134,9 @@ jobs:
       - name: Deploy ingestion-core
         shell: bash
         run: bash scripts/gcp/deploy-dev.sh ingestion-core
-      - name: Verify dev runtimes
+      - name: Verify ingestion-core
         shell: bash
-        run: bash scripts/gcp/verify-dev.sh
+        run: bash scripts/gcp/verify-dev.sh ingestion-core
 
   deploy-mart:
     needs: detect
@@ -154,9 +154,9 @@ jobs:
       - name: Deploy intelligence-mart
         shell: bash
         run: bash scripts/gcp/deploy-dev.sh intelligence-mart
-      - name: Verify dev runtimes
+      - name: Verify intelligence-mart
         shell: bash
-        run: bash scripts/gcp/verify-dev.sh
+        run: bash scripts/gcp/verify-dev.sh intelligence-mart
 
   deploy-api:
     needs: detect
@@ -177,6 +177,6 @@ jobs:
           GOOGLE_USER_CLIENT_ID: ${{ vars.GOOGLE_USER_CLIENT_ID }}
           GOOGLE_ADMIN_CLIENT_ID: ${{ vars.GOOGLE_ADMIN_CLIENT_ID }}
         run: bash scripts/gcp/deploy-dev.sh api
-      - name: Verify dev runtimes
+      - name: Verify api
         shell: bash
-        run: bash scripts/gcp/verify-dev.sh
+        run: bash scripts/gcp/verify-dev.sh api
