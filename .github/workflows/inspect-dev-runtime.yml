@@ -43,7 +43,20 @@ jobs:
               latest="$(gcloud storage ls "${prefix}*.metadata.json" 2>/dev/null | sort | tail -1)"
               [[ -n "${latest}" ]] || { echo 'financials Iceberg metadata not found' >&2; exit 2; }
               echo "metadata_object=${latest##*/}"
-              gcloud storage cat "${latest}" | jq '{format_version:."format-version",current_schema_id:."current-schema-id",schemas:[.schemas[]|{schema_id:."schema-id",fields:[.fields[]|{id,name,required,type}]}]}'
+              gcloud storage cat "${latest}" | jq '{
+                format_version:."format-version",
+                last_updated_ms:."last-updated-ms",
+                current_schema_id:."current-schema-id",
+                current_snapshot_id:."current-snapshot-id",
+                latest_snapshot:(.snapshots[-1] // null | if . == null then null else {
+                  snapshot_id:."snapshot-id",
+                  timestamp_ms:."timestamp-ms",
+                  operation:.summary.operation,
+                  janus_execution_id:.summary."janus.execution-id",
+                  total_records:.summary."total-records"
+                } end),
+                schemas:[.schemas[]|{schema_id:."schema-id",fields:[.fields[]|{id,name,required,type}]}]
+              }'
               ;;
             janus-ingestion-core)
               execution="$(jq -r '.execution // ""' "${file}")"
