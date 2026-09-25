@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_sign_in_web/web_only.dart' as web;
 
-const _janusTwinBeastAsset = 'assets/branding/janus_app_icon_512.webp';
+const _janusTwinBeastWebImage = '/app/og-image.jpg';
 
 Widget buildGoogleSignInButton({
   required VoidCallback onPressed,
@@ -35,12 +35,27 @@ Widget buildGoogleSignInButton({
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(28),
-                  child: Image.asset(
-                    _janusTwinBeastAsset,
+                  child: Image.network(
+                    _janusTwinBeastWebImage,
                     width: 220,
                     height: 220,
                     fit: BoxFit.cover,
+                    alignment: Alignment.centerRight,
                     semanticLabel: 'Janus 雙生獸投資研究圖示',
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      width: 220,
+                      height: 220,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: const Color(0x2200E5FF),
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                      child: const Icon(
+                        Icons.auto_awesome,
+                        size: 64,
+                        color: Color(0xFF8CF4FF),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),
