@@ -5,6 +5,10 @@ import 'package:janus_user_app/login_brand.dart';
 void main() {
   testWidgets('login branding keeps the Janus twin-beast icon on mobile',
       (tester) async {
+    expect(
+      janusAppIconAsset,
+      'assets/branding/janus_app_icon_512.webp',
+    );
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(360, 800));
     await tester.pumpWidget(MaterialApp(

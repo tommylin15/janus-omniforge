@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-const janusAppIconAsset = 'assets/branding/janus_app_icon_192.png';
+const janusAppIconAsset = 'assets/branding/janus_app_icon_512.webp';
 
 Widget buildLoginBranding(BuildContext context) {
   if (Uri.base.pathSegments.contains('admin')) {

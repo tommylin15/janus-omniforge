@@ -1,15 +1,16 @@
 {
   "name": "Janus OmniForge",
   "short_name": "Janus",
-  "start_url": ".",
-  "id": ".",
+  "id": "/app/",
+  "start_url": "/app/",
+  "scope": "/app/",
   "display": "standalone",
   "background_color": "#082D75",
   "theme_color": "#0B4FD6",
   "description": "Janus 投資研究系統：多源資料、AI 多分析師與個人化洞察。",
   "orientation": "portrait-primary",
   "icons": [
-    {"src": "icons/Icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
-    {"src": "icons/Icon-512.webp", "sizes": "512x512", "type": "image/webp", "purpose": "any maskable"}
+    {"src": "/app/icons/Icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/app/icons/Icon-512.webp", "sizes": "512x512", "type": "image/webp", "purpose": "any maskable"}
   ]
 }

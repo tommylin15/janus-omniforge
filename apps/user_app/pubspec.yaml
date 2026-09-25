@@ -22,3 +22,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/branding/janus_app_icon_192.png
+    - assets/branding/janus_app_icon_512.webp
