@@ -39,9 +39,11 @@ def datasets():
     institutional = [row("institutional", offset, symbol="2330", trade_date=(start + timedelta(days=offset)).isoformat(),
                          investor_type="foreign", net_shares=10_000) for offset in range(21)]
     financials = [row("financials", 1, symbol="2330", fiscal_year=2025, fiscal_quarter=4,
-                      published_at="2026-03-10", metric="revenue", value="100", unit="TWD_thousands"),
+                      published_at="2026-03-10", availability_at="2026-03-10T00:00:00Z",
+                      publication_time_authoritative=True, metric="revenue", value="100", unit="TWD_thousands"),
                   row("financials", 2, symbol="2330", fiscal_year=2026, fiscal_quarter=2,
-                      published_at="2026-08-10", metric="revenue", value="120", unit="TWD_thousands")]
+                      published_at="2026-08-10", availability_at="2026-08-10T00:00:00Z",
+                      publication_time_authoritative=True, metric="revenue", value="120", unit="TWD_thousands")]
     valuation = [row("valuation", 1, symbol="2330", observed_date=AS_OF.isoformat(), pe_ratio="15", pb_ratio="2",
                      dividend_yield_percent="2.5")]
     return {"ohlcv": ohlcv, "benchmark": benchmark, "institutional": institutional,
@@ -92,6 +94,17 @@ class MartPipelineTests(unittest.TestCase):
         self.assertFalse(any(item["metric"] == "future" for item in result["evidence"]))
         self.assertIn("future_leakage", {item["reason"] for item in result["rejected_evidence"]})
         self.assertEqual(result["aggregate"]["analysis_outcome"], "invalid")
+
+    def test_legacy_financial_rows_without_availability_fail_closed(self):
+        source = datasets()
+        for item in source["financials"]:
+            item.pop("availability_at", None)
+            item["publication_time_authoritative"] = False
+        result = report(source)
+        self.assertFalse(any(item["dataset_id"] == "financials" for item in result["evidence"]))
+        self.assertIn("missing_availability_time", {item["reason"] for item in result["rejected_evidence"]})
+        self.assertEqual(result["aggregate"]["analysis_outcome"], "invalid")
+        self.assertEqual(result["aggregate"]["publication_status"], "blocked")
 
     def test_manual_review_is_a_separate_blocked_outcome(self):
         result = report(manual_review_required=True)
