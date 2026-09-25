@@ -38,19 +38,27 @@ $env:ALLOW_DEV_PROVISION = "true"
 & "C:\Program Files\Git\bin\bash.exe" scripts/gcp/provision-dev.sh
 ```
 
-不要把 bootstrap 當成一般部署指令；若 runtime 已存在，只執行本次 WBS 真正需要的最小操作。
+不要把 bootstrap 當成一般部署指令；若 runtime 已存在，只執行本次工作真正需要的最小操作。
 
 ## 3. Dev deployment
 
-### 3.1 GitHub Actions
+### 3.1 GitHub Actions 自動部署
 
-`.github/workflows/deploy-dev.yml` 目前是 `workflow_dispatch` 手動 workflow，且只在 `main` 執行；可選 component 為：
+`.github/workflows/deploy-dev.yml` 是 dev 的主要 deployment controller。
+
+對 `main` 的 push 若修改到對應 runtime source、shared packages、`cloudbuild.yaml` 或 `scripts/gcp/**`，workflow 會以 path detection 自動判斷需要部署的 component：
 
 - `ingestion-core`
 - `intelligence-mart`
 - `api`
 
-它使用 GitHub OIDC／Workload Identity，最後呼叫 `scripts/gcp/deploy-dev.sh` 與 `scripts/gcp/verify-dev.sh`。使用前先確認 repository Variables／OAuth public client IDs 仍符合目前 workflow 定義。
+純文件變更不觸發 application deployment。workflow 自身變更可以觸發 `detect` 驗證，但若沒有 runtime path 命中，deployment jobs 必須保持 skipped。
+
+同一時間只允許一條 `deploy-dev-main` deployment chain 執行，既有 deployment 不因後續 push 被取消，以避免 runtime 落在不明中間狀態。
+
+workflow 使用 GitHub OIDC／Workload Identity，最後呼叫 `scripts/gcp/deploy-dev.sh` 與 `scripts/gcp/verify-dev.sh`。使用前仍須確認 repository Variables／OAuth public client IDs 符合目前 workflow 定義。
+
+`workflow_dispatch` 保留作為指定 component 的人工重跑／修復入口；一般 main code change 不需要人工按 deploy。
 
 ### 3.2 本機／受控執行入口
 
@@ -77,6 +85,8 @@ Migration 必須使用 repository 內版本化 SQL／migration tooling，不直�
 3. 以 `ON_ERROR_STOP=1` 或等價 fail-closed 模式執行。
 4. 完成後唯讀確認 migration marker、預期 schema／constraint／role，以及 service readiness。
 5. 對真實資料有影響的 migration，SQL 成功不是完整驗收；還需要適用的 runtime／owner isolation／integration evidence。
+
+版本化 dev migration 屬既有 dev 工程閉環，可在 rollback／rebuild 路徑明確時直接執行；若涉及大量不可逆資料刪除、無可靠復原路徑或新增付費資源，仍需人工授權。
 
 ## 5. Cloud Run Jobs
 
@@ -121,7 +131,7 @@ Secret 值不得出現在 command argv、shell trace、process listing、Cloud B
 
 ## 7. 驗收與紀錄
 
-每次 deployment／migration／Job／Secret 變更，依本次 WBS 只保存必要 evidence：
+每次 deployment／migration／Job／Secret 變更，依本次工作只保存必要 evidence：
 
 - Git commit SHA；
 - Cloud Build／workflow run ID（若適用）；
