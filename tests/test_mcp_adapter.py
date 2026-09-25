@@ -37,6 +37,13 @@ class Store:
 
 class Core:
     def page(self, resource, symbol, limit):
+        if resource == "financials":
+            return [{"symbol":symbol,"fiscal_year":2026,"fiscal_quarter":2,
+                     "availability_at":"2026-09-25T06:00:00+00:00",
+                     "published_at":"2026-09-24T00:00:00+00:00",
+                     "observed_at":"2026-06-30T00:00:00+00:00",
+                     "metric":"Revenue","value":"100","source_id":"mops",
+                     "provenance_id":"prov-financial","gcs_uri":"gs://hidden"}]
         return [{"symbol":symbol,"trade_date":"2026-09-17","close":"100","source_id":"twse",
                  "provenance_id":"prov-1","gcs_uri":"gs://hidden"}]
 
@@ -91,6 +98,21 @@ def test_mcp_tool_calls_require_oauth_and_return_bounded_sanitized_records():
     assert result["records"]==[{"symbol":"2330","trade_date":"2026-09-17","close":"100",
                                 "source_id":"twse","provenance_id":"prov-1"}]
     assert "gcs_uri" not in str(result) and str(OWNER) not in str(result)
+
+
+def test_mcp_financial_context_uses_availability_fence_for_date_bounds_and_as_of():
+    api=client()
+    params={"name":"janus_market_context","arguments":{
+        "symbol":"2330","resource":"financials","start_date":"2026-09-25",
+        "end_date":"2026-09-25","limit":1}}
+    response=rpc(api,"tools/call",params,token="valid")
+    assert response.status_code==200
+    result=response.json()["result"]["structuredContent"]
+    assert result["status"]=="available"
+    assert result["as_of"]=="2026-09-25T06:00:00+00:00"
+    assert result["records"][0]["availability_at"]=="2026-09-25T06:00:00+00:00"
+    assert result["records"][0]["published_at"]=="2026-09-24T00:00:00+00:00"
+    assert "gcs_uri" not in str(result)
 
 
 def test_mcp_private_selectors_are_owner_bound_and_reject_extra_or_invalid_combinations():
