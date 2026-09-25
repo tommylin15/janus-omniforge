@@ -13,6 +13,8 @@ on:
       - 'tests/stage_core_tests/test_first_batch_sources.py'
       - 'tests/stage_core_tests/test_data_cleaning_regressions.py'
       - 'jobs/intelligence-mart/**'
+      - 'tests/test_intelligence_mart_pipeline.py'
+      - 'tests/test_intelligence_mart_runtime.py'
       - 'services/api/**'
       - 'packages/contracts/**'
       - 'packages/observability/**'
@@ -57,7 +59,8 @@ jobs:
     outputs:
       ingestion_runtime: ${{ steps.filter.outputs.ingestion_runtime }}
       ingestion_test: ${{ steps.filter.outputs.ingestion_test }}
-      mart: ${{ steps.filter.outputs.mart }}
+      mart_runtime: ${{ steps.filter.outputs.mart_runtime }}
+      mart_test: ${{ steps.filter.outputs.mart_test }}
       api: ${{ steps.filter.outputs.api }}
     steps:
       - uses: actions/checkout@v4
@@ -82,7 +85,7 @@ jobs:
             ingestion_test:
               - 'tests/stage_core_tests/test_first_batch_sources.py'
               - 'tests/stage_core_tests/test_data_cleaning_regressions.py'
-            mart:
+            mart_runtime:
               - 'jobs/intelligence-mart/**'
               - 'packages/contracts/**'
               - 'packages/observability/**'
@@ -90,6 +93,9 @@ jobs:
               - 'packages/governance/**'
               - 'cloudbuild.yaml'
               - 'scripts/gcp/deploy-dev.sh'
+            mart_test:
+              - 'tests/test_intelligence_mart_pipeline.py'
+              - 'tests/test_intelligence_mart_runtime.py'
             api:
               - 'services/api/**'
               - 'packages/admin_api/**'
@@ -153,11 +159,42 @@ jobs:
         shell: bash
         run: bash scripts/gcp/verify-dev.sh ingestion-core
 
-  deploy-mart:
+  test-mart:
     needs: detect
     if: >-
-      needs.detect.outputs.mart == 'true' ||
+      needs.detect.outputs.mart_runtime == 'true' ||
+      needs.detect.outputs.mart_test == 'true' ||
       (github.event_name == 'workflow_dispatch' && inputs.component == 'intelligence-mart')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements-dev.txt
+            jobs/intelligence-mart/requirements.lock
+      - name: Install mart test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r jobs/intelligence-mart/requirements.lock
+          python -m pip install -r requirements-dev.txt
+      - name: Run mart targeted tests
+        env:
+          PYTHONPATH: jobs/intelligence-mart:.
+        run: >-
+          python -m pytest -q
+          tests/test_intelligence_mart_pipeline.py
+          tests/test_intelligence_mart_runtime.py
+
+  deploy-mart:
+    needs: [detect, test-mart]
+    if: >-
+      always() &&
+      needs.test-mart.result == 'success' &&
+      (needs.detect.outputs.mart_runtime == 'true' ||
+      (github.event_name == 'workflow_dispatch' && inputs.component == 'intelligence-mart'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
