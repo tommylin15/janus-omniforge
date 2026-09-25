@@ -129,7 +129,13 @@ class ContextSourceService:
 
     @staticmethod
     def _as_of(rows: Sequence[Mapping[str, Any]]) -> str | None:
-        values=[str(row[field]) for row in rows for field in DATE_FIELDS if row.get(field) is not None]
+        # DATE_FIELDS is an authority priority, not a bag of timestamps. Pick
+        # the first available date per row, then compute the newest row fence.
+        values = [
+            str(raw)
+            for row in rows
+            if (raw := next((row.get(field) for field in DATE_FIELDS if row.get(field) is not None), None)) is not None
+        ]
         return max(values) if values else None
 
     @staticmethod
