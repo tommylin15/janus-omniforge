@@ -22,6 +22,11 @@ statement-wide `TWD_thousands` default. Historical rows written before a
 normalisation correction require an explicit bounded backfill; deploying new
 code alone does not rewrite old Core snapshots.
 
+Changes under `jobs/ingestion-core/**` are gated by the targeted first-batch and
+data-cleaning regression tests in `.github/workflows/deploy-dev.yml`; a failed
+test or test-environment setup blocks the dev deployment rather than being
+reported as a successful release.
+
 The ingestion control plane is implemented by `ingestion_core.control` and the
 runtime by `ingestion_core.framework`. `SQLiteControlPlane` is the reference
 repository for the PostgreSQL control schema: it persists stock master,
