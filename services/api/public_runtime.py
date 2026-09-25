@@ -119,7 +119,7 @@ def build_public_service() -> PublicMartService:
 
 
 class PipelineService:
-    """Thin wrapper to trigger Cloud Run Jobs for backfill operations."""
+    """Thin wrapper to trigger Cloud Run Jobs with execution-scoped overrides."""
 
     def __init__(self, *, project: str, region: str, ingestion_job: str, mart_job: str) -> None:
         self._project = project
@@ -147,27 +147,27 @@ class PipelineService:
         return AuthorizedSession(credentials)
 
     def backfill(self, start_date: str, end_date: str, *, trigger_mart: bool = False) -> dict[str, Any]:
-        """Update job env-vars and execute ingestion backfill."""
+        """Execute a bounded ingestion backfill without mutating the Cloud Run Job definition."""
         from datetime import date as _date
-        _date.fromisoformat(start_date)  # validate
-        _date.fromisoformat(end_date)
+
+        first = _date.fromisoformat(start_date)
+        last = _date.fromisoformat(end_date)
+        if first > last:
+            raise ValueError("start_date must not be after end_date")
+        if (last - first).days > 366:
+            raise ValueError("backfill range cannot exceed 367 calendar days")
+
+        env = [
+            {"name": "INGESTION_DATE", "value": ""},
+            {"name": "BACKFILL_START_DATE", "value": start_date},
+            {"name": "BACKFILL_END_DATE", "value": end_date},
+            {"name": "FORCE_REFRESH", "value": "true"},
+            {"name": "QUEUE_CONSUMER", "value": "false"},
+            {"name": "MART_JOB", "value": self._mart_job if trigger_mart else ""},
+        ]
+        payload = {"overrides": {"containerOverrides": [{"env": env}]}}
         session = self._authorized_session()
-        # Patch env-vars on the job definition
-        patch_url = self._jobs_url(self._ingestion_job)
-        patch_resp = session.patch(
-            patch_url,
-            json={"template": {"template": {"containers": [{"env": [
-                {"name": "BACKFILL_START_DATE", "value": start_date},
-                {"name": "BACKFILL_END_DATE", "value": end_date},
-                {"name": "FORCE_REFRESH", "value": "true"},
-                {"name": "MART_JOB", "value": self._mart_job if trigger_mart else ""},
-            ]}]}}},
-            params={"updateMask": "template.template.containers"},
-            timeout=15,
-        )
-        patch_resp.raise_for_status()
-        # Execute the job
-        run_resp = session.post(self._jobs_url(self._ingestion_job) + ":run", json={}, timeout=10)
+        run_resp = session.post(self._jobs_url(self._ingestion_job) + ":run", json=payload, timeout=10)
         run_resp.raise_for_status()
         run_data = run_resp.json()
         return {
