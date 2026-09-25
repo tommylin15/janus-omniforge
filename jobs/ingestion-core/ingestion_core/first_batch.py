@@ -46,6 +46,30 @@ def _pick(row: Mapping[str, Any], *names: str) -> Any:
     return None
 
 
+def _integer_sum(*values: Any) -> str | None:
+    parsed = [_text(value) for value in values]
+    if any(value is None for value in parsed):
+        return None
+    try:
+        return str(sum(int(value) for value in parsed if value is not None))
+    except ValueError:
+        return None
+
+
+def _financial_unit(metric: str, row: Mapping[str, Any]) -> str | None:
+    explicit = _text(_pick(row, "unit", "Unit"))
+    if explicit:
+        return explicit
+    normalized = metric.strip().lower()
+    if "每股" in metric or normalized in {"eps", "earningspershare", "earnings_per_share"}:
+        return "TWD_per_share"
+    if "%" in metric or "百分比" in metric or normalized.endswith(("_percent", "_percentage")):
+        return "percent"
+    if "stock_id" in row:
+        return None
+    return "TWD_thousands"
+
+
 def normalise_benchmark(rows: Iterable[Mapping[str, Any]], benchmark_id: str = "TAIEX") -> tuple[dict[str, Any], ...]:
     result = []
     for row in rows:
@@ -70,18 +94,31 @@ def normalise_institutional(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str
     groups = (
         ("foreign", "外陸資買進股數(不含外資自營商)", "外陸資賣出股數(不含外資自營商)", "外陸資買賣超股數(不含外資自營商)"),
         ("investment_trust", "投信買進股數", "投信賣出股數", "投信買賣超股數"),
-        ("dealer", "自營商買進股數(自行買賣)", "自營商賣出股數(自行買賣)", "自營商買賣超股數"),
     )
     for row in rows:
         if _pick(row, "investor_type", "investor") is not None:
             groups_for_row = ((str(_pick(row, "investor_type", "investor")), "buy_shares", "sell_shares", "net_shares"),)
-        else:
-            groups_for_row = groups
-        for investor, buy, sell, net in groups_for_row:
-            result.append({"symbol": str(_pick(row, "symbol", "code", "證券代號")), "market": str(_pick(row, "market") or "TWSE"),
-                           "trade_date": _iso_date(_pick(row, "trade_date", "date", "Date")),
-                           "investor_type": investor, "buy_shares": _text(_pick(row, buy, "buy")),
-                           "sell_shares": _text(_pick(row, sell, "sell")), "net_shares": _text(_pick(row, net, "net"))})
+            for investor, buy, sell, net in groups_for_row:
+                result.append({"symbol": str(_pick(row, "symbol", "code", "證券代號")), "market": str(_pick(row, "market") or "TWSE"),
+                               "trade_date": _iso_date(_pick(row, "trade_date", "date", "Date")),
+                               "investor_type": investor, "buy_shares": _text(_pick(row, buy, "buy")),
+                               "sell_shares": _text(_pick(row, sell, "sell")), "net_shares": _text(_pick(row, net, "net"))})
+            continue
+
+        common = {"symbol": str(_pick(row, "symbol", "code", "證券代號")),
+                  "market": str(_pick(row, "market") or "TWSE"),
+                  "trade_date": _iso_date(_pick(row, "trade_date", "date", "Date"))}
+        for investor, buy, sell, net in groups:
+            result.append({**common, "investor_type": investor,
+                           "buy_shares": _text(_pick(row, buy)),
+                           "sell_shares": _text(_pick(row, sell)),
+                           "net_shares": _text(_pick(row, net))})
+
+        dealer_buy = _integer_sum(_pick(row, "自營商買進股數(自行買賣)"), _pick(row, "自營商買進股數(避險)"))
+        dealer_sell = _integer_sum(_pick(row, "自營商賣出股數(自行買賣)"), _pick(row, "自營商賣出股數(避險)"))
+        dealer_net = _text(_pick(row, "自營商買賣超股數"))
+        result.append({**common, "investor_type": "dealer", "buy_shares": dealer_buy,
+                       "sell_shares": dealer_sell, "net_shares": dealer_net})
     return tuple(result)
 
 
@@ -111,8 +148,8 @@ def normalise_financials(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, A
         for metric, value in metrics:
             result.append({"symbol": symbol, "fiscal_year": year, "fiscal_quarter": quarter,
                            "statement_type": statement, "published_at": published, "metric": metric,
-                           "value": _text(value), "unit": "TWD_thousands" if "stock_id" not in row else None,
-                           "currency": "TWD"})
+                           "value": _text(value), "unit": _financial_unit(metric, row),
+                           "currency": str(_pick(row, "currency", "Currency") or "TWD")})
     return tuple(result)
 
 
