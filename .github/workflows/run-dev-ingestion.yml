@@ -1,0 +1,115 @@
+name: Run dev ingestion request
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'ops/dev-ingestion-request.json'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: dev-ingestion-operation
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_REGION: us-central1
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate request
+        id: request
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          file='ops/dev-ingestion-request.json'
+          enabled="$(jq -r '.enabled // false' "${file}")"
+          if [[ "${enabled}" != 'true' ]]; then
+            echo 'enabled=false' >> "${GITHUB_OUTPUT}"
+            echo 'Request is disabled; nothing to execute.'
+            exit 0
+          fi
+
+          dataset="$(jq -r '.dataset // ""' "${file}")"
+          case "${dataset}" in
+            twse-ohlcv|tpex-ohlcv|taiex|tpex-benchmark|twse-valuation|twse-institutional|mops|finmind|twse-events|twse-market-activity) ;;
+            *) echo "Unsupported ingestion dataset: ${dataset}" >&2; exit 2 ;;
+          esac
+
+          force_refresh="$(jq -r '.force_refresh // false' "${file}")"
+          [[ "${force_refresh}" == 'true' || "${force_refresh}" == 'false' ]] || { echo 'force_refresh must be boolean' >&2; exit 2; }
+          disable_mart="$(jq -r '.disable_mart_trigger // true' "${file}")"
+          [[ "${disable_mart}" == 'true' || "${disable_mart}" == 'false' ]] || { echo 'disable_mart_trigger must be boolean' >&2; exit 2; }
+
+          single="$(jq -r '.date // ""' "${file}")"
+          start="$(jq -r '.start_date // ""' "${file}")"
+          end="$(jq -r '.end_date // ""' "${file}")"
+          date_re='^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+          for value in "${single}" "${start}" "${end}"; do
+            [[ -z "${value}" || "${value}" =~ ${date_re} ]] || { echo "Invalid ISO date: ${value}" >&2; exit 2; }
+          done
+          [[ -z "${single}" || ( -z "${start}" && -z "${end}" ) ]] || { echo 'date cannot be combined with start_date/end_date' >&2; exit 2; }
+          [[ ( -z "${start}" && -z "${end}" ) || ( -n "${start}" && -n "${end}" ) ]] || { echo 'start_date and end_date must be supplied together' >&2; exit 2; }
+
+          request_id="$(jq -r '.request_id // "unnamed"' "${file}")"
+          [[ "${request_id}" =~ ^[A-Za-z0-9._-]{1,80}$ ]] || { echo 'invalid request_id' >&2; exit 2; }
+
+          {
+            echo 'enabled=true'
+            echo "dataset=${dataset}"
+            echo "force_refresh=${force_refresh}"
+            echo "disable_mart=${disable_mart}"
+            echo "single=${single}"
+            echo "start=${start}"
+            echo "end=${end}"
+            echo "request_id=${request_id}"
+          } >> "${GITHUB_OUTPUT}"
+          echo "Validated dev ingestion request ${request_id}: dataset=${dataset}"
+
+      - uses: google-github-actions/auth@v2
+        if: steps.request.outputs.enabled == 'true'
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+        if: steps.request.outputs.enabled == 'true'
+
+      - name: Execute bounded ingestion request
+        if: steps.request.outputs.enabled == 'true'
+        shell: bash
+        env:
+          DATASET: ${{ steps.request.outputs.dataset }}
+          FORCE_REFRESH: ${{ steps.request.outputs.force_refresh }}
+          DISABLE_MART: ${{ steps.request.outputs.disable_mart }}
+          SINGLE_DATE: ${{ steps.request.outputs.single }}
+          START_DATE: ${{ steps.request.outputs.start }}
+          END_DATE: ${{ steps.request.outputs.end }}
+          REQUEST_ID: ${{ steps.request.outputs.request_id }}
+        run: |
+          set -Eeuo pipefail
+          overrides=(
+            "INGESTION_DATASETS=${DATASET}"
+            "FORCE_REFRESH=${FORCE_REFRESH}"
+            "QUEUE_CONSUMER=false"
+          )
+          if [[ "${DISABLE_MART}" == 'true' ]]; then overrides+=("MART_JOB="); fi
+          if [[ -n "${SINGLE_DATE}" ]]; then overrides+=("INGESTION_DATE=${SINGLE_DATE}"); fi
+          if [[ -n "${START_DATE}" ]]; then
+            overrides+=("BACKFILL_START_DATE=${START_DATE}" "BACKFILL_END_DATE=${END_DATE}")
+          fi
+          env_csv="$(IFS=,; echo "${overrides[*]}")"
+          echo "Executing ${REQUEST_ID} against janus-ingestion-core (${DATASET})."
+          gcloud run jobs execute janus-ingestion-core \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --update-env-vars="${env_csv}" \
+            --wait
