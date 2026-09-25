@@ -49,7 +49,7 @@ verify_service() {
   fi
 
   if [[ "${service}" == "janus-api" && "${GITHUB_SHA:-}" =~ ^[0-9a-f]{7,64}$ ]]; then
-    local service_url build_id index_html expected_bootstrap
+    local service_url build_id index_html expected_bootstrap brand_image
     service_url="$(gcloud run services describe "${service}" \
       --project="${project}" --region="${region}" --format='value(status.url)')"
     build_id="$(curl -fsS --retry 6 --retry-delay 2 \
@@ -69,7 +69,20 @@ verify_service() {
       echo "janus-api index does not reference ${expected_bootstrap}" >&2
       return 1
     fi
-    echo "janus-api traffic and web build match ${GITHUB_SHA}"
+
+    brand_image="$(mktemp)"
+    curl -fsS --retry 6 --retry-delay 2 \
+      "${service_url}/app/og-image.jpg?expected=${GITHUB_SHA}" -o "${brand_image}"
+    python - "${brand_image}" <<'PY'
+import pathlib
+import sys
+
+payload = pathlib.Path(sys.argv[1]).read_bytes()
+if len(payload) < 10_000 or not payload.startswith(b"\xff\xd8"):
+    raise SystemExit("Janus brand image is missing or is not a valid JPEG payload")
+PY
+    rm -f "${brand_image}"
+    echo "janus-api traffic, web build, and brand image match ${GITHUB_SHA}"
   fi
 }
 
