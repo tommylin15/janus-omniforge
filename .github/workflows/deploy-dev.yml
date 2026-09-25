@@ -5,7 +5,13 @@ on:
     branches:
       - main
     paths:
-      - 'jobs/ingestion-core/**'
+      - 'jobs/ingestion-core/ingestion_core/**'
+      - 'jobs/ingestion-core/schemas/**'
+      - 'jobs/ingestion-core/Dockerfile'
+      - 'jobs/ingestion-core/requirements.in'
+      - 'jobs/ingestion-core/requirements.lock'
+      - 'tests/stage_core_tests/test_first_batch_sources.py'
+      - 'tests/stage_core_tests/test_data_cleaning_regressions.py'
       - 'jobs/intelligence-mart/**'
       - 'services/api/**'
       - 'packages/contracts/**'
@@ -61,7 +67,13 @@ jobs:
         with:
           filters: |
             ingestion:
-              - 'jobs/ingestion-core/**'
+              - 'jobs/ingestion-core/ingestion_core/**'
+              - 'jobs/ingestion-core/schemas/**'
+              - 'jobs/ingestion-core/Dockerfile'
+              - 'jobs/ingestion-core/requirements.in'
+              - 'jobs/ingestion-core/requirements.lock'
+              - 'tests/stage_core_tests/test_first_batch_sources.py'
+              - 'tests/stage_core_tests/test_data_cleaning_regressions.py'
               - 'packages/contracts/**'
               - 'packages/observability/**'
               - 'packages/provenance/**'
