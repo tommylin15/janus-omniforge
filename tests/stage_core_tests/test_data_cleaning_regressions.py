@@ -61,6 +61,14 @@ class DataCleaningRegressionTests(unittest.TestCase):
         self.assertEqual(row["value"], "2.13")
         self.assertEqual(row["unit"], "TWD_per_share")
         self.assertEqual(row["currency"], "TWD")
+        self.assertEqual(row["source_report_date"], "2026-09-25")
+
+    def test_finmind_date_is_fiscal_period_end_not_publication_time_contract(self):
+        row = normalise_financials([
+            {"date": "2026-06-30", "stock_id": "2330", "type": "EPS", "value": 22.08}
+        ])[0]
+        self.assertEqual(row["fiscal_period_end"], "2026-06-30")
+        self.assertEqual((row["fiscal_year"], row["fiscal_quarter"]), (2026, 2))
 
     def test_explicit_financial_unit_is_preserved(self):
         row = normalise_financials([
@@ -78,7 +86,7 @@ class DataCleaningRegressionTests(unittest.TestCase):
         ])[0]
         self.assertEqual(row["unit"], "percent")
 
-    def test_snapshot_source_uses_fetch_time_not_requested_historical_date(self):
+    def test_snapshot_source_uses_fetch_time_as_explicit_availability(self):
         fetched = datetime(2026, 9, 25, 2, 30, tzinfo=timezone.utc)
         raw = json.dumps([{
             "出表日期": "1150925", "年度": "115", "季別": "2",
@@ -87,6 +95,7 @@ class DataCleaningRegressionTests(unittest.TestCase):
         adapter = JsonDatasetAdapter(
             "mops", "financials", "https://example.test/current", normalise_financials,
             lambda _: raw, observation_mode="fetch_time", max_replay_age_days=7,
+            availability_field="availability_at", publication_time_authoritative=False,
             clock=lambda: fetched,
         )
         request = CollectionRequest(
@@ -96,6 +105,9 @@ class DataCleaningRegressionTests(unittest.TestCase):
         response = adapter.fetch(request)
         self.assertEqual(response.observed_at, fetched)
         self.assertEqual(response.rows[0]["observed_at"], "2026-09-25T02:30:00Z")
+        self.assertEqual(response.rows[0]["availability_at"], "2026-09-25T02:30:00Z")
+        self.assertIs(response.rows[0]["publication_time_authoritative"], False)
+        self.assertEqual(response.rows[0]["source_report_date"], "2026-09-25")
 
     def test_snapshot_source_rejects_deep_historical_replay_before_transport(self):
         fetched = datetime(2026, 9, 25, 2, 30, tzinfo=timezone.utc)
@@ -138,6 +150,10 @@ class DataCleaningRegressionTests(unittest.TestCase):
             adapter = adapters[key]
             self.assertEqual(adapter.observation_mode, "fetch_time")
             self.assertEqual(adapter.max_replay_age_days, 7)
+        for key in ("mops", "finmind"):
+            adapter = adapters[key]
+            self.assertEqual(adapter.availability_field, "availability_at")
+            self.assertIs(adapter.publication_time_authoritative, False)
         self.assertEqual(adapters["tpex-benchmark"].row_date_field, "trade_date")
 
 
