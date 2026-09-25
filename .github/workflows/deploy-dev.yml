@@ -106,7 +106,8 @@ jobs:
       - name: Install ingestion test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements-dev.txt -r jobs/ingestion-core/requirements.lock
+          python -m pip install -r jobs/ingestion-core/requirements.lock
+          python -m pip install -r requirements-dev.txt
       - name: Run ingestion targeted tests
         env:
           PYTHONPATH: jobs/ingestion-core:.
