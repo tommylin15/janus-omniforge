@@ -16,6 +16,8 @@ on:
       - 'tests/test_intelligence_mart_pipeline.py'
       - 'tests/test_intelligence_mart_runtime.py'
       - 'services/api/**'
+      - 'tests/test_public_runtime.py'
+      - 'tests/test_public_api_routes.py'
       - 'packages/contracts/**'
       - 'packages/observability/**'
       - 'packages/provenance/**'
@@ -61,7 +63,8 @@ jobs:
       ingestion_test: ${{ steps.filter.outputs.ingestion_test }}
       mart_runtime: ${{ steps.filter.outputs.mart_runtime }}
       mart_test: ${{ steps.filter.outputs.mart_test }}
-      api: ${{ steps.filter.outputs.api }}
+      api_runtime: ${{ steps.filter.outputs.api_runtime }}
+      api_test: ${{ steps.filter.outputs.api_test }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -96,7 +99,7 @@ jobs:
             mart_test:
               - 'tests/test_intelligence_mart_pipeline.py'
               - 'tests/test_intelligence_mart_runtime.py'
-            api:
+            api_runtime:
               - 'services/api/**'
               - 'packages/admin_api/**'
               - 'packages/web_api/**'
@@ -107,6 +110,9 @@ jobs:
               - 'packages/governance/**'
               - 'cloudbuild.yaml'
               - 'scripts/gcp/deploy-dev.sh'
+            api_test:
+              - 'tests/test_public_runtime.py'
+              - 'tests/test_public_api_routes.py'
 
   test-ingestion:
     needs: detect
@@ -210,11 +216,42 @@ jobs:
         shell: bash
         run: bash scripts/gcp/verify-dev.sh intelligence-mart
 
-  deploy-api:
+  test-api:
     needs: detect
     if: >-
-      needs.detect.outputs.api == 'true' ||
+      needs.detect.outputs.api_runtime == 'true' ||
+      needs.detect.outputs.api_test == 'true' ||
       (github.event_name == 'workflow_dispatch' && inputs.component == 'api')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements-dev.txt
+            services/api/requirements.lock
+      - name: Install api test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r services/api/requirements.lock
+          python -m pip install -r requirements-dev.txt
+      - name: Run api targeted tests
+        env:
+          PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
+        run: >-
+          python -m pytest -q
+          tests/test_public_runtime.py
+          tests/test_public_api_routes.py
+
+  deploy-api:
+    needs: [detect, test-api]
+    if: >-
+      always() &&
+      needs.test-api.result == 'success' &&
+      (needs.detect.outputs.api_runtime == 'true' ||
+      (github.event_name == 'workflow_dispatch' && inputs.component == 'api'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
