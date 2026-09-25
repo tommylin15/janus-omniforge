@@ -26,23 +26,34 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Inspect latest ingestion executions
+      - name: Inspect ingestion execution
         shell: bash
         run: |
           set -Eeuo pipefail
-          gcloud run jobs executions list \
-            --job=janus-ingestion-core \
-            --project="${GCP_PROJECT_ID}" \
-            --region="${GCP_REGION}" \
-            --limit=5 \
-            --format='table(name,completionTime,startTime,runningCount,succeededCount,failedCount,cancelledCount)'
-          latest="$(gcloud run jobs executions list \
-            --job=janus-ingestion-core \
-            --project="${GCP_PROJECT_ID}" \
-            --region="${GCP_REGION}" \
-            --limit=1 --format='value(name)')"
-          if [[ -n "${latest}" ]]; then
-            gcloud run jobs executions describe "${latest}" \
-              --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
-              --format='yaml(name,startTime,completionTime,runningCount,succeededCount,failedCount,cancelledCount,conditions,logUri)'
+          file='ops/dev-runtime-inspect.json'
+          execution="$(jq -r '.execution // ""' "${file}")"
+          [[ -z "${execution}" || "${execution}" =~ ^janus-ingestion-core-[a-z0-9-]{1,64}$ ]] || {
+            echo 'invalid execution name' >&2
+            exit 2
+          }
+          if [[ -z "${execution}" ]]; then
+            execution="$(gcloud run jobs executions list \
+              --job=janus-ingestion-core \
+              --project="${GCP_PROJECT_ID}" \
+              --region="${GCP_REGION}" \
+              --limit=1 --format='value(metadata.name)')"
           fi
+          [[ -n "${execution}" ]] || { echo 'no ingestion execution found' >&2; exit 2; }
+          echo "Inspecting ${execution}"
+          gcloud run jobs executions describe "${execution}" \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --format=json
+          echo '--- bounded recent Cloud Run logs ---'
+          gcloud logging read \
+            "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"janus-ingestion-core\"" \
+            --project="${GCP_PROJECT_ID}" \
+            --freshness=20m \
+            --limit=100 \
+            --order=desc \
+            --format='table(timestamp,severity,labels.run.googleapis.com/execution_name,textPayload,jsonPayload.message)' \
+            || true
