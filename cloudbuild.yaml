@@ -21,6 +21,7 @@ steps:
       - --file=${_DOCKERFILE}
       - --build-arg=GOOGLE_USER_CLIENT_ID=${_GOOGLE_USER_CLIENT_ID}
       - --build-arg=GOOGLE_ADMIN_CLIENT_ID=${_GOOGLE_ADMIN_CLIENT_ID}
+      - --build-arg=JANUS_GIT_SHA=${_GIT_SHA}
       - --tag=${_IMAGE_REPOSITORY}/${_IMAGE_NAME}:${_IMAGE_TAG}
       - .
 

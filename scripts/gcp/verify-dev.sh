@@ -35,6 +35,26 @@ verify_service() {
     echo "Cloud Run service ${service} is not Ready" >&2
     return 1
   fi
+
+  if [[ "${service}" == "janus-api" && "${GITHUB_SHA:-}" =~ ^[0-9a-f]{7,64}$ ]]; then
+    local service_url build_id index_html expected_bootstrap
+    service_url="$(gcloud run services describe "${service}" \
+      --project="${project}" --region="${region}" --format='value(status.url)')"
+    build_id="$(curl -fsS --retry 6 --retry-delay 2 \
+      "${service_url}/app/build-id.txt?expected=${GITHUB_SHA}")"
+    if [[ "${build_id}" != "${GITHUB_SHA}" ]]; then
+      echo "janus-api web build mismatch: expected ${GITHUB_SHA}, got ${build_id}" >&2
+      return 1
+    fi
+    expected_bootstrap="flutter_bootstrap.${GITHUB_SHA}.js"
+    index_html="$(curl -fsS --retry 6 --retry-delay 2 \
+      "${service_url}/app/?expected=${GITHUB_SHA}")"
+    if [[ "${index_html}" != *"${expected_bootstrap}"* ]]; then
+      echo "janus-api index does not reference ${expected_bootstrap}" >&2
+      return 1
+    fi
+    echo "janus-api web build matches ${GITHUB_SHA}"
+  fi
 }
 
 case "${component}" in
