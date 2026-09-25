@@ -17,11 +17,11 @@
 |---|---|---|---|---|---|---|---|---|
 | `ohlcv` | TWSE / TPEX | TWSE `STOCK_DAY`; TPEX daily quotes | 2330、1102、2327、4958 可讀；近期資料存在 | 日資料；抽樣最新落在 2026-09-14 | `trade_date` + `observed_at` | 有 | Partial | `change_percent` 目前為 null；歷史深度與全市場 freshness 尚未量化；TPEX live coverage 未完成抽查 |
 | `valuation` | TWSE | TWSE `BWIBBU_d` | 2330、1102 有 PE/PB/殖利率近期資料 | 日資料；抽樣到 2026-09-17 | `observed_date` + `observed_at` | 有 | Partial | 尚未證明 TPEX/全市場 coverage、歷史深度與 missing-rate SLA |
-| `institutional` | TWSE | TWSE `T86` | 2330、1102 有外資／投信／自營商資料 | 日資料；抽樣到 2026-09-17 | `trade_date` + `observed_at` | 有 | Partial | live `dealer` buy/sell/net 不符合算術一致性；目前 normalizer 將自行買賣 buy/sell 與自營商總 net 混用，需修正並回補 |
-| `financials` | TWSE listed + fallback | MOPS/TWSE OpenAPI `t187ap06_L_ci`; FinMind fallback | 2330、1102、2327、4958 有 Q2 2026 rows | 財報週期 | `published_at` / `observed_at` | 有 | Partial | `出表日期` 被當 publication time，live Q2 row 出現 `published_at=2026-09-25`、`observed_at=2026-03-31`；EPS 被錯標 `TWD_thousands`；目前僅一般業損益表 endpoint，產業/statement coverage 不完整 |
+| `institutional` | TWSE | TWSE `T86` | 2330、1102 有外資／投信／自營商資料 | 日資料；抽樣到 2026-09-17 | `trade_date` + `observed_at` | 有 | Partial | live `dealer` buy/sell/net 不符合算術一致性；舊資料需依修正後 normalizer bounded backfill |
+| `financials` | TWSE listed + fallback | MOPS/TWSE OpenAPI `t187ap06_L_ci`; FinMind fallback | 2330、1102、2327、4958 有 Q2 2026 rows | 財報週期 | `published_at` / `observed_at` | 有 | Partial | `出表日期` 被當 publication time，live Q2 row 出現 `published_at=2026-09-25`、`observed_at=2026-03-31`；舊資料 EPS unit 錯；目前僅一般業損益表 endpoint，產業/statement coverage 不完整 |
 | `events` | TWSE | TWSE/MOPS material information | 2330、1102 有近期事件 | 事件驅動 | `published_at` + `effective_date` | 有 | Partial | 歷史深度薄；`severity` 多為 null；尚未建立完整事件 DQ / classification coverage |
 | `market-activity` | TWSE | TWSE `TWTB4U` 等 | 2330、1102 有當沖股數/金額 | 日資料；抽樣到 2026-09-17 | `trade_date` + `observed_at` | 有 | Partial | metric coverage 很窄；尚未量化全市場/歷史 completeness |
-| `benchmark` | TWSE / TPEX | TAIEX history; TPEX index | MCP resource contract 存在，但 2330、1102 查詢均 0 records | 預期日資料 | `trade_date` + `observed_at` | contract 有 | **Missing** | runtime 尚無 published Core benchmark；需查 source execution / adapter / Core commit / config，再補歷史 |
+| `benchmark` | TWSE / TPEX | TAIEX history; TPEX index | `benchmark_id=TAIEX` 可讀，live Core 至少有 2026-09-14～2026-09-22 rows | 日資料；抽樣到 2026-09-22 | `trade_date` + `observed_at` | 有 | Partial | `return_percent` 目前為 null；TPEX benchmark、歷史深度與 freshness SLA 尚未完整驗證；MCP 的 `symbol` selector 對此 resource 實際代表 `benchmark_id`，易造成誤判 |
 
 ## 已確認的 correctness 問題
 
@@ -33,13 +33,15 @@ TWSE `T86` 同時提供：
 - `自營商買進/賣出/買賣超股數(自行買賣)`
 - `自營商買進/賣出/買賣超股數(避險)`
 
-目前 normalizer 的 `dealer` 使用「自行買賣 buy/sell」搭配「總計 net」，因此可能產生 `buy - sell != net`。應改為：
+舊 normalizer 的 `dealer` 使用「自行買賣 buy/sell」搭配「總計 net」，因此可能產生 `buy - sell != net`。2026-09-25 已修改為：
 
 `dealer_buy = self_buy + hedge_buy`
 
 `dealer_sell = self_sell + hedge_sell`
 
-`dealer_net = official_total_net`，並做算術一致性 DQ。
+`dealer_net = official_total_net`
+
+並新增 regression test。舊 Core rows 仍需 bounded backfill 才會消除既有錯誤值。
 
 ### P0 — Financial PIT semantics
 
@@ -53,22 +55,27 @@ TWSE `T86` 同時提供：
 
 ### P0 — Financial units
 
-目前一般 MOPS row 的所有 metric 都被統一標為 `TWD_thousands`。例如 `基本每股盈餘（元）= 2.13` 仍被標為 `TWD_thousands`，語意錯誤。至少應先區分：
+舊 normalizer 將一般 MOPS row 的所有 metric 都標為 `TWD_thousands`，例如 `基本每股盈餘（元）= 2.13` 也被錯標。2026-09-25 已先修正 normalization：
 
 - EPS / 每股金額 → `TWD_per_share`
-- 百分比／ratio → 對應 ratio/percent
-- 金額型 statement metric → upstream 定義的貨幣單位
-- 無法可靠判定 → `null` / unknown，不猜測
+- 明確 `%` metric → `percent`
+- 上游若已提供 `unit` → 保留上游 unit
+- FinMind 等無可靠 unit metadata 的 fallback → 不自動猜成 `TWD_thousands`
+- 其他一般 MOPS 金額型 statement metric 暫維持現行 `TWD_thousands` contract，後續仍需逐 statement 對照官方欄位定義
 
-### P0 — Benchmark live missing
+舊 Core rows 仍需 bounded backfill。
 
-目前 `benchmark` adapter 與 Core contract 已存在，但 live Janus MCP 查不到任何 benchmark row。不能把「adapter 已寫」當成 dataset 已完成；要沿 source request → Stage → normalizer → Core commit → MCP publication 逐段查明。
+### P1 — Benchmark selector 語意
+
+`CoreContextReader.page()` 對一般 dataset 使用 `symbol` 欄位，但 `benchmark` 特例使用 `benchmark_id`。因此 `janus_market_context(symbol="2330", resource="benchmark")` 回 missing 並不能證明 benchmark Core 缺資料；使用 `symbol="TAIEX"` 可讀到 live benchmark rows。
+
+這是 context contract 的可用性問題，不是 benchmark dataset missing。後續應讓 tool/schema 說明更清楚，並另外驗證 benchmark freshness / history / TPEX coverage。
 
 ## 執行優先序
 
-1. 修正 institutional dealer normalization + invariant test，安排 bounded backfill。
-2. 修正 financial unit mapping；釐清 filing availability/PIT contract，再處理 historical backfill。
-3. 查明 benchmark live missing root cause，補 Core publication 與歷史資料。
+1. 完成 institutional / financial unit 修正的 CI、dev deployment 與 live evidence；再安排 bounded backfill。
+2. 釐清 financial filing availability/PIT contract，再處理 historical backfill。
+3. 補 benchmark return / freshness / TPEX coverage 驗證，修正文案避免 selector 誤判。
 4. 為 `valuation / institutional / financials / events / market-activity / benchmark` 建 dataset-specific DQ，不再只有 OHLCV 有強 DQ。
 5. 建立可重跑 coverage audit：至少統計 symbol coverage、date range、row count、null rate、duplicate/quarantine、freshness、provenance、PIT violations。
 6. Correctness 穩定後再擴 source 與大規模 backfill。
