@@ -26,34 +26,48 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Inspect ingestion execution
+      - name: Inspect requested runtime
         shell: bash
         run: |
           set -Eeuo pipefail
           file='ops/dev-runtime-inspect.json'
-          execution="$(jq -r '.execution // ""' "${file}")"
-          [[ -z "${execution}" || "${execution}" =~ ^janus-ingestion-core-[a-z0-9-]{1,64}$ ]] || {
-            echo 'invalid execution name' >&2
-            exit 2
-          }
-          if [[ -z "${execution}" ]]; then
-            execution="$(gcloud run jobs executions list \
-              --job=janus-ingestion-core \
-              --project="${GCP_PROJECT_ID}" \
-              --region="${GCP_REGION}" \
-              --limit=1 --format='value(metadata.name)')"
-          fi
-          [[ -n "${execution}" ]] || { echo 'no ingestion execution found' >&2; exit 2; }
-          echo "Inspecting ${execution}"
-          gcloud run jobs executions describe "${execution}" \
-            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
-            --format=json
-          echo '--- bounded recent Cloud Run logs ---'
-          gcloud logging read \
-            "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"janus-ingestion-core\"" \
-            --project="${GCP_PROJECT_ID}" \
-            --freshness=20m \
-            --limit=100 \
-            --order=desc \
-            --format=json \
-            || true
+          component="$(jq -r '.component // "janus-ingestion-core"' "${file}")"
+          case "${component}" in
+            janus-api)
+              gcloud run services describe janus-api \
+                --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+                --format='json(metadata.name,status.latestCreatedRevisionName,status.latestReadyRevisionName,status.traffic,spec.template.spec.containers[0].image)'
+              ;;
+            janus-ingestion-core)
+              execution="$(jq -r '.execution // ""' "${file}")"
+              [[ -z "${execution}" || "${execution}" =~ ^janus-ingestion-core-[a-z0-9-]{1,64}$ ]] || {
+                echo 'invalid execution name' >&2
+                exit 2
+              }
+              if [[ -z "${execution}" ]]; then
+                execution="$(gcloud run jobs executions list \
+                  --job=janus-ingestion-core \
+                  --project="${GCP_PROJECT_ID}" \
+                  --region="${GCP_REGION}" \
+                  --limit=1 --format='value(metadata.name)')"
+              fi
+              [[ -n "${execution}" ]] || { echo 'no ingestion execution found' >&2; exit 2; }
+              echo "Inspecting ${execution}"
+              gcloud run jobs executions describe "${execution}" \
+                --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+                --format=json
+              echo '--- bounded recent Cloud Run logs ---'
+              gcloud logging read \
+                "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"janus-ingestion-core\"" \
+                --project="${GCP_PROJECT_ID}" \
+                --freshness=20m \
+                --limit=100 \
+                --order=desc \
+                --format=json \
+                || true
+              ;;
+            *)
+              echo "unsupported runtime component: ${component}" >&2
+              exit 2
+              ;;
+          esac
