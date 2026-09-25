@@ -44,13 +44,13 @@ Drive 與 GitHub 不同時，目前實作狀態以 GitHub／runtime evidence 為
 - 平行上線不取消最低安全底線：secret 不進 log／前端／一般資料表；owner／auth boundary 保留；schema 變更走 migration／version；重要資料需有可重建、匯出或已核准 bounded backup／restore 路徑；partial 不包裝成 full success。
 - research-only、canonical、PIT、future leakage、provenance、source authorization、publication gate 等資料治理邊界仍有效；研究暫存不因位於 dev 自動升格為 canonical data。
 
-## 3. ChatGPT GitHub 回寫範圍
+## 3. ChatGPT GitHub 與工程執行權
 
-- repository 目前只維持 `main`；ChatGPT 文件回寫直接 commit 到 `main`，不主動建立 branch／PR。
-- ChatGPT 只可直接修改純文件：`doc/**/*.md`、README、SPEC／WBS／TODO／UI／runbook／governance／research planning 等。
-- ChatGPT 不得直接修改 Python、TypeScript／JavaScript、Dart、SQL migration、shell／PowerShell、Dockerfile、Cloud Build、GitHub Actions、Terraform／IaC、runtime/deployment config、tests、application source 或其他可執行／部署內容。
-- 若分析發現上述實作需要修改，只能讀取／分析、更新必要文件、產出 Codex 工作指令／patch 建議／腳本／驗收條件；實際修改交由 Codex／Work／本機開發流程。
-- 文件回寫不得偽造 implementation status。未實作、未測試、未部署、未觸發或未連上真實依賴的項目不得因文件已更新而標成完成。
+- repository 目前只維持 `main`；ChatGPT 預設直接 commit 到 `main`，不主動建立 branch／PR，除非使用者特別要求。
+- ChatGPT 可直接修改、建立、刪除並 commit 文件、Python、TypeScript／JavaScript、Dart、SQL migration、shell／PowerShell、Dockerfile、Cloud Build、GitHub Actions、Terraform／IaC、runtime／deployment config、tests、application source 與其他專案內容。
+- ChatGPT 可對既有 dev 環境執行或觸發 tests、CI、build、migration、Cloud Run deployment／Job／Scheduler 與既有 workload，並完成「分析 → 修改 → 測試 → commit → deploy → runtime 驗收 → 修正」閉環；直接驗收失敗時可在既有授權範圍內繼續修正與重新部署。
+- 新增或提高付費 GCP／第三方資源、啟用新的付費 API／模型／subscription、production 首次建立或重大權限擴張、大量且不可逆的真實資料刪除、沒有可靠 rollback／backup／rebuild 路徑的破壞性操作，以及 MFA／OAuth consent／付款／帳號管理，仍需使用者明確授權或本人操作。
+- 任何回寫都不得偽造 implementation status。未實作、未測試、未部署、未觸發或未連上真實依賴的項目不得因文件或程式已更新而標成完成。
 
 ## 4. WBS 執行方式
 
@@ -58,7 +58,7 @@ Drive 與 GitHub 不同時，目前實作狀態以 GitHub／runtime evidence 為
 - 每次只執行一個可獨立驗收的原子任務；完成後停止，不自動把下一項當成已授權。
 - `ready` 可執行；`blocked` 只做安全盤點，不假設外部授權、付費決策或依賴已滿足。
 - ID 不在 active TODO 時不得自行從 archive 或研究規劃開工。
-- 採最小合理變更；若為程式實作，ChatGPT 只完成文件／分析與 Codex handoff。
+- 採最小合理變更；不得因此省略必要 tests、migration、deployment 或 live acceptance。
 
 ## 5. 最小文件讀取
 
