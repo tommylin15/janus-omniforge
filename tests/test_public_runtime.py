@@ -3,8 +3,10 @@ import sys
 from types import ModuleType
 from unittest.mock import patch
 
+import pytest
+
 from packages.web_api import CoreQueryService, PublicMartService
-from services.api.public_runtime import _catalog_settings, build_core_service, build_public_service
+from services.api.public_runtime import PipelineService, _catalog_settings, build_core_service, build_public_service
 
 
 class _Catalog:
@@ -25,6 +27,32 @@ class _Psycopg:
     def connect(**kwargs):
         _Psycopg.kwargs = kwargs
         return object()
+
+
+class _RunResponse:
+    def __init__(self, payload=None):
+        self.payload = payload or {"metadata": {"name": "operations/backfill-1"}}
+        self.raised = False
+
+    def raise_for_status(self):
+        self.raised = True
+
+    def json(self):
+        return self.payload
+
+
+class _Session:
+    def __init__(self):
+        self.posts = []
+        self.patches = []
+
+    def post(self, url, **kwargs):
+        self.posts.append((url, kwargs))
+        return _RunResponse()
+
+    def patch(self, url, **kwargs):
+        self.patches.append((url, kwargs))
+        raise AssertionError("backfill must not patch the Cloud Run Job definition")
 
 
 def test_build_public_service_uses_bounded_read_only_runtime():
@@ -122,3 +150,56 @@ def test_build_core_service_uses_read_only_catalog_and_bounded_rows():
     assert isinstance(result, CoreQueryService)
     assert result.max_limit == 120
     assert calls["read_only"] is True
+
+
+def test_pipeline_backfill_uses_run_overrides_and_never_patches_job():
+    service = PipelineService(
+        project="project", region="us-central1",
+        ingestion_job="janus-ingestion-core", mart_job="janus-intelligence-mart",
+    )
+    session = _Session()
+    with patch.object(service, "_authorized_session", return_value=session):
+        result = service.backfill("2026-09-01", "2026-09-24", trigger_mart=False)
+
+    assert session.patches == []
+    assert len(session.posts) == 1
+    url, kwargs = session.posts[0]
+    assert url.endswith("/jobs/janus-ingestion-core:run")
+    assert kwargs["timeout"] == 10
+    env = {item["name"]: item["value"] for item in kwargs["json"]["overrides"]["containerOverrides"][0]["env"]}
+    assert env == {
+        "INGESTION_DATE": "",
+        "BACKFILL_START_DATE": "2026-09-01",
+        "BACKFILL_END_DATE": "2026-09-24",
+        "FORCE_REFRESH": "true",
+        "QUEUE_CONSUMER": "false",
+        "MART_JOB": "",
+    }
+    assert result["execution_name"] == "operations/backfill-1"
+
+
+def test_pipeline_backfill_can_trigger_mart_without_mutating_job():
+    service = PipelineService(
+        project="project", region="us-central1",
+        ingestion_job="janus-ingestion-core", mart_job="janus-intelligence-mart",
+    )
+    session = _Session()
+    with patch.object(service, "_authorized_session", return_value=session):
+        service.backfill("2026-09-01", "2026-09-02", trigger_mart=True)
+    env = {item["name"]: item["value"] for item in session.posts[0][1]["json"]["overrides"]["containerOverrides"][0]["env"]}
+    assert env["MART_JOB"] == "janus-intelligence-mart"
+
+
+def test_pipeline_backfill_rejects_invalid_or_unbounded_dates_before_network():
+    service = PipelineService(
+        project="project", region="us-central1",
+        ingestion_job="janus-ingestion-core", mart_job="janus-intelligence-mart",
+    )
+    session = _Session()
+    with patch.object(service, "_authorized_session", return_value=session):
+        with pytest.raises(ValueError, match="start_date"):
+            service.backfill("2026-09-24", "2026-09-01")
+        with pytest.raises(ValueError, match="367 calendar days"):
+            service.backfill("2025-01-01", "2026-09-24")
+    assert session.posts == []
+    assert session.patches == []
