@@ -24,7 +24,19 @@ jobs:
           import json
           import sys
           import time
+          from datetime import date
           from urllib.request import Request, urlopen
+
+          def parse_date(value):
+              text = str(value).strip().replace("/", "-")
+              if text.isdigit() and len(text) == 8:
+                  return date(int(text[:4]), int(text[4:6]), int(text[6:]))
+              if text.isdigit() and len(text) == 7:
+                  return date(int(text[:3]) + 1911, int(text[3:5]), int(text[5:]))
+              if len(text) == 9 and text.count("-") == 2:
+                  year, month, day = text.split("-")
+                  text = f"{int(year) + 1911:04d}-{int(month):02d}-{int(day):02d}"
+              return date.fromisoformat(text)
 
           url = "https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci"
           started = time.monotonic()
@@ -40,13 +52,32 @@ jobs:
                   content_type = response.headers.get_content_type()
               document = json.loads(payload)
               rows = document if isinstance(document, list) else document.get("data", document.get("rows", []))
-              contains_2330 = any(str(row.get("公司代號", row.get("symbol", ""))).strip() == "2330" for row in rows if isinstance(row, dict))
+              invalid_identity = 0
+              missing_identity = 0
+              contains_2330 = False
+              for row in rows:
+                  if not isinstance(row, dict):
+                      invalid_identity += 1
+                      continue
+                  symbol = str(row.get("公司代號", row.get("symbol", ""))).strip()
+                  contains_2330 = contains_2330 or symbol == "2330"
+                  if not symbol or row.get("出表日期") in {None, ""} or row.get("年度") in {None, ""} or row.get("季別") in {None, ""}:
+                      missing_identity += 1
+                      continue
+                  try:
+                      parse_date(row["出表日期"])
+                      int(str(row["年度"]))
+                      int(str(row["季別"]))
+                  except (TypeError, ValueError):
+                      invalid_identity += 1
               print(json.dumps({
                   "status": "ok",
                   "http_status": status,
                   "content_type": content_type,
                   "rows": len(rows),
                   "contains_2330": contains_2330,
+                  "missing_identity": missing_identity,
+                  "invalid_identity": invalid_identity,
                   "elapsed_ms": round((time.monotonic() - started) * 1000),
               }, sort_keys=True))
           except Exception as error:
