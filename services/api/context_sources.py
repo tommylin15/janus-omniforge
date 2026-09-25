@@ -11,7 +11,7 @@ from .models import ContextSelector
 
 
 MAX_CONTEXT_BYTES = 32_768
-DATE_FIELDS = ("trade_date", "observed_date", "published_at", "valuation_date", "updated_at", "date")
+DATE_FIELDS = ("trade_date", "availability_at", "observed_date", "observed_at", "published_at", "valuation_date", "updated_at", "date")
 STORAGE_FIELDS = frozenset({"user_id", "artifact_ref", "artifact_reference", "object_path", "gcs_uri",
                             "storage_uri", "raw_payload", "credential", "password", "secret", "token",
                             "table", "table_name"})
