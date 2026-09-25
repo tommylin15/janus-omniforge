@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT))
 from ingestion_core.adapters import CollectionRequest
 from ingestion_core.first_batch import (
     JsonDatasetAdapter,
+    dataset_adapters,
     normalise_benchmark,
     normalise_financials,
     normalise_institutional,
@@ -130,6 +131,14 @@ class DataCleaningRegressionTests(unittest.TestCase):
         response = adapter.fetch(request)
         self.assertEqual([row["trade_date"] for row in response.rows], ["2026-09-23"])
         self.assertEqual(response.observed_at, datetime(2026, 9, 24, tzinfo=timezone.utc))
+
+    def test_snapshot_financial_and_event_sources_are_replay_fenced(self):
+        adapters = dataset_adapters(lambda _: b"[]")
+        for key in ("mops", "finmind", "twse-events"):
+            adapter = adapters[key]
+            self.assertEqual(adapter.observation_mode, "fetch_time")
+            self.assertEqual(adapter.max_replay_age_days, 7)
+        self.assertEqual(adapters["tpex-benchmark"].row_date_field, "trade_date")
 
 
 if __name__ == "__main__":
