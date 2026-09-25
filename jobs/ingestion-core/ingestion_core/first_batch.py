@@ -46,6 +46,10 @@ def _pick(row: Mapping[str, Any], *names: str) -> Any:
     return None
 
 
+def _now_utc() -> datetime:
+    return datetime.now(timezone.utc)
+
+
 def _integer_sum(*values: Any) -> str | None:
     parsed = [_text(value) for value in values]
     if any(value is None for value in parsed):
@@ -199,11 +203,27 @@ class JsonDatasetAdapter:
     normalizer: Callable[[Iterable[Mapping[str, Any]]], tuple[dict[str, Any], ...]]
     transport: Callable[[str], bytes] | None = None
     url_builder: Callable[[CollectionRequest], str] | None = None
+    observation_mode: str = "window_end"
+    max_replay_age_days: int | None = None
+    row_date_field: str | None = None
+    clock: Callable[[], datetime] = _now_utc
 
     def __post_init__(self) -> None:
         validate_source_url(self.endpoint)
+        if self.observation_mode not in {"window_end", "fetch_time"}:
+            raise ValueError("invalid observation_mode")
+        if self.max_replay_age_days is not None and self.max_replay_age_days < 0:
+            raise ValueError("max_replay_age_days must be non-negative")
 
     def fetch(self, request: CollectionRequest) -> SourceResponse:
+        fetched = self.clock()
+        if fetched.tzinfo is None:
+            raise ValueError("adapter clock must return a timezone-aware datetime")
+        fetched = fetched.astimezone(timezone.utc)
+        if self.max_replay_age_days is not None:
+            oldest = fetched.date() - timedelta(days=self.max_replay_age_days)
+            if request.window_end < oldest:
+                raise ValueError("snapshot source does not support historical replay")
         url = self.url_builder(request) if self.url_builder else self.endpoint
         parsed_url = urlsplit(url)
         validate_source_url(urlunsplit((parsed_url.scheme, parsed_url.netloc, parsed_url.path, "", "")))
@@ -224,7 +244,13 @@ class JsonDatasetAdapter:
             if fields and upstream_rows and isinstance(upstream_rows[0], list):
                 upstream_rows = [dict(zip(fields, row, strict=False)) | {"Date": document.get("date")} for row in upstream_rows]
         rows = tuple({**row, "source_id": self.source_id} for row in self.normalizer(upstream_rows))
-        observed = datetime.combine(request.window_end, datetime.min.time(), tzinfo=timezone.utc)
+        if self.row_date_field:
+            rows = tuple(row for row in rows
+                         if row.get(self.row_date_field)
+                         and date.fromisoformat(str(row[self.row_date_field])[:10]) <= request.window_end)
+        observed = fetched if self.observation_mode == "fetch_time" else datetime.combine(
+            request.window_end, datetime.min.time(), tzinfo=timezone.utc
+        )
         rows = tuple({**row, "observed_at": observed.isoformat().replace("+00:00", "Z")} for row in rows)
         return SourceResponse(rows=rows, observed_at=observed, raw_payload=raw, source_url=url,
                               fields=frozenset(rows[0].keys()) if rows else frozenset())
@@ -343,11 +369,14 @@ def dataset_adapters(transport: Callable[[str], bytes] | None = None) -> dict[st
         "twse-ohlcv": twse_ohlcv_adapter(transport),
         "tpex-ohlcv": tpex_ohlcv_adapter(transport),
         "taiex": JsonDatasetAdapter("taiex", "benchmark", "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST", lambda rows: normalise_benchmark(rows, "TAIEX"), transport, dated("https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST", response="json")),
-        "tpex-benchmark": JsonDatasetAdapter("tpex-benchmark", "benchmark", "https://www.tpex.org.tw/openapi/v1/tpex_index", lambda rows: normalise_benchmark(rows, "TPEx"), transport),
+        "tpex-benchmark": JsonDatasetAdapter("tpex-benchmark", "benchmark", "https://www.tpex.org.tw/openapi/v1/tpex_index", lambda rows: normalise_benchmark(rows, "TPEx"), transport, row_date_field="trade_date"),
         "twse-valuation": JsonDatasetAdapter("twse", "valuation", "https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d", normalise_valuation, transport, dated("https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d", selectType="ALL", response="json")),
         "twse-institutional": JsonDatasetAdapter("twse", "institutional", "https://www.twse.com.tw/rwd/zh/fund/T86", normalise_institutional, transport, dated("https://www.twse.com.tw/rwd/zh/fund/T86", selectType="ALL", response="json")),
-        "mops": JsonDatasetAdapter("mops", "financials", "https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci", normalise_financials, transport),
-        "finmind": JsonDatasetAdapter("finmind", "financials", "https://api.finmindtrade.com/api/v4/data", normalise_financials, transport, finmind),
-        "twse-events": JsonDatasetAdapter("twse", "events", "https://openapi.twse.com.tw/v1/opendata/t187ap04_L", normalise_events, transport),
+        "mops": JsonDatasetAdapter("mops", "financials", "https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci", normalise_financials, transport,
+                                   observation_mode="fetch_time", max_replay_age_days=7),
+        "finmind": JsonDatasetAdapter("finmind", "financials", "https://api.finmindtrade.com/api/v4/data", normalise_financials, transport, finmind,
+                                      observation_mode="fetch_time", max_replay_age_days=7),
+        "twse-events": JsonDatasetAdapter("twse", "events", "https://openapi.twse.com.tw/v1/opendata/t187ap04_L", normalise_events, transport,
+                                          observation_mode="fetch_time", max_replay_age_days=7, row_date_field="published_at"),
         "twse-market-activity": JsonDatasetAdapter("twse", "market-activity", "https://www.twse.com.tw/exchangeReport/TWTB4U", normalise_market_activity, transport, dated("https://www.twse.com.tw/exchangeReport/TWTB4U", response="json")),
     }
