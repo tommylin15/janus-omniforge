@@ -40,7 +40,8 @@ class Core:
         if resource == "financials":
             return [{"symbol":symbol,"fiscal_year":2026,"fiscal_quarter":2,
                      "availability_at":"2026-09-25T06:00:00+00:00",
-                     "published_at":"2026-09-24T00:00:00+00:00",
+                     "published_at":"2026-09-30T00:00:00+00:00",
+                     "publication_time_authoritative":False,
                      "observed_at":"2026-06-30T00:00:00+00:00",
                      "metric":"Revenue","value":"100","source_id":"mops",
                      "provenance_id":"prov-financial","gcs_uri":"gs://hidden"}]
@@ -111,7 +112,8 @@ def test_mcp_financial_context_uses_availability_fence_for_date_bounds_and_as_of
     assert result["status"]=="available"
     assert result["as_of"]=="2026-09-25T06:00:00+00:00"
     assert result["records"][0]["availability_at"]=="2026-09-25T06:00:00+00:00"
-    assert result["records"][0]["published_at"]=="2026-09-24T00:00:00+00:00"
+    assert result["records"][0]["published_at"]=="2026-09-30T00:00:00+00:00"
+    assert result["records"][0]["publication_time_authoritative"] is False
     assert "gcs_uri" not in str(result)
 
 
