@@ -1,6 +1,24 @@
 name: Deploy dev with GitHub
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'jobs/ingestion-core/**'
+      - 'jobs/intelligence-mart/**'
+      - 'services/api/**'
+      - 'packages/contracts/**'
+      - 'packages/observability/**'
+      - 'packages/provenance/**'
+      - 'packages/governance/**'
+      - 'packages/admin_api/**'
+      - 'packages/web_api/**'
+      - 'apps/web/static/**'
+      - 'apps/user_app/**'
+      - 'cloudbuild.yaml'
+      - 'scripts/gcp/**'
+      - '.github/workflows/deploy-dev.yml'
   workflow_dispatch:
     inputs:
       component:
@@ -15,6 +33,10 @@ on:
 permissions:
   contents: read
   id-token: write
+
+concurrency:
+  group: deploy-dev-main
+  cancel-in-progress: false
 
 env:
   GCP_PROJECT_ID: gen-lang-client-0593591102
@@ -42,12 +64,16 @@ jobs:
               - 'jobs/ingestion-core/**'
               - 'packages/contracts/**'
               - 'packages/observability/**'
+              - 'packages/provenance/**'
+              - 'packages/governance/**'
               - 'cloudbuild.yaml'
               - 'scripts/gcp/**'
             mart:
               - 'jobs/intelligence-mart/**'
               - 'packages/contracts/**'
               - 'packages/observability/**'
+              - 'packages/provenance/**'
+              - 'packages/governance/**'
               - 'cloudbuild.yaml'
               - 'scripts/gcp/**'
             api:
@@ -56,6 +82,9 @@ jobs:
               - 'packages/web_api/**'
               - 'apps/web/static/**'
               - 'apps/user_app/**'
+              - 'packages/contracts/**'
+              - 'packages/observability/**'
+              - 'packages/governance/**'
               - 'cloudbuild.yaml'
               - 'scripts/gcp/**'
 
