@@ -58,7 +58,11 @@ Widget buildLoginBranding(BuildContext context) {
       final narrow = heroWidth < 820;
       final iconSize = narrow ? 180.0 : 235.0;
       final horizontalPadding = narrow ? 28.0 : 42.0;
-      final verticalPadding = narrow ? 28.0 : 34.0;
+      final gap = narrow ? 20.0 : 28.0;
+      final headlineSize = narrow ? 24.0 : 28.0;
+      final promiseSize = narrow ? 25.0 : 30.0;
+      final detailSize = narrow ? 13.0 : 15.0;
+      final textRightInset = horizontalPadding + iconSize + gap;
 
       return Padding(
         padding: const EdgeInsets.only(bottom: 24),
@@ -66,12 +70,6 @@ Widget buildLoginBranding(BuildContext context) {
           child: Container(
             width: heroWidth,
             height: 300,
-            padding: EdgeInsets.fromLTRB(
-              horizontalPadding,
-              verticalPadding,
-              horizontalPadding,
-              verticalPadding,
-            ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(32),
               gradient: const LinearGradient(
@@ -91,50 +89,64 @@ Widget buildLoginBranding(BuildContext context) {
                 ),
               ],
             ),
-            child: Row(
+            child: Stack(
               children: [
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '讓投資研究',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: narrow ? 24 : 28,
-                          fontWeight: FontWeight.w700,
-                        ),
+                Positioned.fill(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      34,
+                      textRightInset,
+                      34,
+                    ),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '讓投資研究',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: headlineSize,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '更聰明・更安心・更愉快',
+                            style: TextStyle(
+                              color: const Color(0xFF8CF4FF),
+                              fontSize: promiseSize,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Text(
+                            '市場洞察  ·  風險控管  ·  策略研究  ·  長期累積',
+                            style: TextStyle(
+                              color: const Color(0xFFDCEBFF),
+                              fontSize: detailSize,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '更聰明・更安心・更愉快',
-                        style: TextStyle(
-                          color: const Color(0xFF8CF4FF),
-                          fontSize: narrow ? 25 : 30,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        '市場洞察  ·  風險控管  ·  策略研究  ·  長期累積',
-                        style: TextStyle(
-                          color: const Color(0xFFDCEBFF),
-                          fontSize: narrow ? 13 : 15,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-                SizedBox(width: narrow ? 20 : 28),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(34),
-                  child: Image.asset(
-                    janusAppIconAsset,
-                    width: iconSize,
-                    height: iconSize,
-                    fit: BoxFit.cover,
-                    semanticLabel: 'Janus 雙生獸投資研究圖示',
+                Positioned(
+                  right: horizontalPadding,
+                  top: (300 - iconSize) / 2,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(34),
+                    child: Image.asset(
+                      janusAppIconAsset,
+                      width: iconSize,
+                      height: iconSize,
+                      fit: BoxFit.cover,
+                      semanticLabel: 'Janus 雙生獸投資研究圖示',
+                    ),
                   ),
                 ),
               ],
