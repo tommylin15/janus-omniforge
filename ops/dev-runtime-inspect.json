@@ -1,5 +1,4 @@
 {
-  "request_id": "inspect-ingestion-20260925-3",
-  "component": "janus-ingestion-core",
-  "execution": ""
+  "request_id": "inspect-api-traffic-20260925-1",
+  "component": "janus-api"
 }
