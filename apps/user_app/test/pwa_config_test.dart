@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:janus_user_app/login_brand.dart';
 
 void main() {
-  test('web manifest pins Janus app scope and PNG install icons', () {
+  test('web manifest pins Janus app scope and install icons', () {
     final manifest = jsonDecode(File('web/manifest.json').readAsStringSync())
         as Map<String, dynamic>;
 
@@ -17,21 +18,30 @@ void main() {
     expect(
       icons,
       contains(predicate<Map<String, dynamic>>((icon) =>
-          icon['src'] == 'icons/Icon-512.png' &&
-          icon['sizes'] == '512x512' &&
+          icon['src'] == '/app/icons/Icon-192.png' &&
+          icon['sizes'] == '192x192' &&
           icon['type'] == 'image/png')),
     );
     expect(
       icons,
       contains(predicate<Map<String, dynamic>>((icon) =>
-          icon['src'] == 'icons/maskable-512.png' &&
-          icon['purpose'] == 'maskable')),
+          icon['src'] == '/app/icons/Icon-512.webp' &&
+          icon['sizes'] == '512x512' &&
+          icon['type'] == 'image/webp')),
     );
   });
 
-  test('web entrypoint advertises dedicated Apple touch icon', () {
+  test('web entrypoint advertises canonical install metadata', () {
     final html = File('web/index.html').readAsStringSync();
-    expect(html, contains('apple-touch-icon.png'));
-    expect(html, isNot(contains('Icon-512.webp')));
+    expect(html, contains('href="/app/manifest.json"'));
+    expect(html, contains('href="/app/icons/Icon-192.png"'));
+    expect(html, contains('apple-mobile-web-app-capable'));
+  });
+
+  test('login branding uses the high-resolution asset', () {
+    expect(
+      janusAppIconAsset,
+      'assets/branding/janus_app_icon_512.webp',
+    );
   });
 }
