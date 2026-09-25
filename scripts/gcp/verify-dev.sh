@@ -37,15 +37,13 @@ verify_service() {
   fi
 
   if [[ "${service}" == "janus-api" ]]; then
-    local latest_ready traffic_revision traffic_percent
-    latest_ready="$(gcloud run services describe "${service}" \
-      --project="${project}" --region="${region}" --format='value(status.latestReadyRevisionName)')"
-    traffic_revision="$(gcloud run services describe "${service}" \
-      --project="${project}" --region="${region}" --format='value(status.traffic[].revisionName)')"
-    traffic_percent="$(gcloud run services describe "${service}" \
-      --project="${project}" --region="${region}" --format='value(status.traffic[].percent)')"
-    if [[ -z "${latest_ready}" || "${traffic_revision}" != "${latest_ready}" || "${traffic_percent}" != "100" ]]; then
-      echo "janus-api traffic is not 100% on latest ready revision: latest=${latest_ready} traffic=${traffic_revision} percent=${traffic_percent}" >&2
+    local traffic_state latest_ready traffic_revision traffic_percent active_count
+    traffic_state="$(gcloud run services describe "${service}" \
+      --project="${project}" --region="${region}" --format=json | \
+      python -c 'import json,sys; d=json.load(sys.stdin); s=d.get("status",{}); active=[t for t in s.get("traffic",[]) if int(t.get("percent") or 0)>0]; latest=s.get("latestReadyRevisionName",""); rev=active[0].get("revisionName","") if len(active)==1 else ""; pct=str(active[0].get("percent",0)) if len(active)==1 else "0"; print("\t".join((latest,rev,pct,str(len(active)))))')"
+    IFS=$'\t' read -r latest_ready traffic_revision traffic_percent active_count <<< "${traffic_state}"
+    if [[ -z "${latest_ready}" || "${active_count}" != "1" || "${traffic_revision}" != "${latest_ready}" || "${traffic_percent}" != "100" ]]; then
+      echo "janus-api traffic is not 100% on latest ready revision: latest=${latest_ready} traffic=${traffic_revision} percent=${traffic_percent} active=${active_count}" >&2
       return 1
     fi
   fi

@@ -7,6 +7,7 @@ COPY apps/user_app .
 ARG GOOGLE_USER_CLIENT_ID
 ARG GOOGLE_ADMIN_CLIENT_ID
 ARG JANUS_GIT_SHA=local
+# The checked-in web/ directory is canonical; never regenerate it with flutter create during image build.
 RUN test -n "$GOOGLE_USER_CLIENT_ID" && test -n "$GOOGLE_ADMIN_CLIENT_ID" && \
     grep -Fq 'Janus · OmniForge' web/index.html && \
     flutter build web --release --base-href /app/ \
