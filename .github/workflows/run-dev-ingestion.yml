@@ -96,15 +96,26 @@ jobs:
           REQUEST_ID: ${{ steps.request.outputs.request_id }}
         run: |
           set -Eeuo pipefail
+
+          # Historical API backfills patched these transient values onto the
+          # Cloud Run Job definition. Remove them before every explicit dev
+          # request so scheduled/default executions cannot inherit stale dates.
+          gcloud run jobs update janus-ingestion-core \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --remove-env-vars="BACKFILL_START_DATE,BACKFILL_END_DATE,INGESTION_DATE,FORCE_REFRESH" \
+            --quiet
+
           overrides=(
             "INGESTION_DATASETS=${DATASET}"
             "FORCE_REFRESH=${FORCE_REFRESH}"
             "QUEUE_CONSUMER=false"
+            "INGESTION_DATE=${SINGLE_DATE}"
+            "BACKFILL_START_DATE=${START_DATE}"
+            "BACKFILL_END_DATE=${END_DATE}"
           )
-          if [[ "${DISABLE_MART}" == 'true' ]]; then overrides+=("MART_JOB="); fi
-          if [[ -n "${SINGLE_DATE}" ]]; then overrides+=("INGESTION_DATE=${SINGLE_DATE}"); fi
-          if [[ -n "${START_DATE}" ]]; then
-            overrides+=("BACKFILL_START_DATE=${START_DATE}" "BACKFILL_END_DATE=${END_DATE}")
+          if [[ "${DISABLE_MART}" == 'true' ]]; then
+            overrides+=("MART_JOB=")
           fi
           env_csv="$(IFS=,; echo "${overrides[*]}")"
           echo "Executing ${REQUEST_ID} against janus-ingestion-core (${DATASET})."
