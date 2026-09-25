@@ -88,11 +88,37 @@ jobs:
               - 'cloudbuild.yaml'
               - 'scripts/gcp/**'
 
-  deploy-ingestion:
+  test-ingestion:
     needs: detect
     if: >-
       needs.detect.outputs.ingestion == 'true' ||
       (github.event_name == 'workflow_dispatch' && inputs.component == 'ingestion-core')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install ingestion test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt -r jobs/ingestion-core/requirements.lock
+      - name: Run ingestion targeted tests
+        env:
+          PYTHONPATH: jobs/ingestion-core:.
+        run: >-
+          python -m pytest -q
+          tests/stage_core_tests/test_first_batch_sources.py
+          tests/stage_core_tests/test_data_cleaning_regressions.py
+
+  deploy-ingestion:
+    needs: [detect, test-ingestion]
+    if: >-
+      always() &&
+      needs.test-ingestion.result == 'success' &&
+      (needs.detect.outputs.ingestion == 'true' ||
+      (github.event_name == 'workflow_dispatch' && inputs.component == 'ingestion-core'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
