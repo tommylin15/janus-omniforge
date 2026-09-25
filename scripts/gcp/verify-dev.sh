@@ -49,7 +49,7 @@ verify_service() {
   fi
 
   if [[ "${service}" == "janus-api" && "${GITHUB_SHA:-}" =~ ^[0-9a-f]{7,64}$ ]]; then
-    local service_url build_id index_html expected_bootstrap brand_image
+    local service_url build_id index_html expected_bootstrap brand_image app_icon pwa_icon manifest_json
     service_url="$(gcloud run services describe "${service}" \
       --project="${project}" --region="${region}" --format='value(status.url)')"
     build_id="$(curl -fsS --retry 6 --retry-delay 2 \
@@ -82,7 +82,41 @@ if len(payload) < 10_000 or not payload.startswith(b"\xff\xd8"):
     raise SystemExit("Janus brand image is missing or is not a valid JPEG payload")
 PY
     rm -f "${brand_image}"
-    echo "janus-api traffic, web build, and brand image match ${GITHUB_SHA}"
+
+    app_icon="$(mktemp)"
+    curl -fsS --retry 6 --retry-delay 2 \
+      "${service_url}/app/assets/assets/branding/janus_app_icon_192.png?expected=${GITHUB_SHA}" -o "${app_icon}"
+    python - "${app_icon}" <<'PY'
+import pathlib
+import sys
+
+payload = pathlib.Path(sys.argv[1]).read_bytes()
+if len(payload) < 5_000 or not payload.startswith(b"\x89PNG\r\n\x1a\n"):
+    raise SystemExit("Janus Flutter brand icon is missing or is not a valid PNG payload")
+PY
+    rm -f "${app_icon}"
+
+    pwa_icon="$(mktemp)"
+    curl -fsS --retry 6 --retry-delay 2 \
+      "${service_url}/app/icons/Icon-192.png?expected=${GITHUB_SHA}" -o "${pwa_icon}"
+    python - "${pwa_icon}" <<'PY'
+import pathlib
+import sys
+
+payload = pathlib.Path(sys.argv[1]).read_bytes()
+if len(payload) < 5_000 or not payload.startswith(b"\x89PNG\r\n\x1a\n"):
+    raise SystemExit("Janus PWA icon is missing or is not a valid PNG payload")
+PY
+    rm -f "${pwa_icon}"
+
+    manifest_json="$(curl -fsS --retry 6 --retry-delay 2 \
+      "${service_url}/app/manifest.json?expected=${GITHUB_SHA}")"
+    if [[ "${manifest_json}" != *"icons/Icon-192.png"* || "${manifest_json}" != *"image/png"* ]]; then
+      echo "janus-api manifest does not advertise the Janus PNG PWA icon" >&2
+      return 1
+    fi
+
+    echo "janus-api traffic, web build, brand image, Flutter icon, and PWA icon match ${GITHUB_SHA}"
   fi
 }
 
