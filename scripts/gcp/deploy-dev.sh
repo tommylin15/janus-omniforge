@@ -2,8 +2,8 @@
 set -Eeuo pipefail
 
 # GitHub Actions is the deployment controller for dev. This script deliberately
-# does not call Terraform; Cloud Build remains the image builder and runtime
-# deployer, while GitHub supplies the authenticated invocation.
+# does not call Terraform; Cloud Build builds/pushes the image and may stage the
+# runtime image, while this script applies the canonical runtime configuration.
 
 project="${GCP_PROJECT_ID:?GCP_PROJECT_ID is required}"
 region="${GCP_REGION:-us-central1}"
@@ -74,7 +74,6 @@ case "${component}" in
       --update-env-vars="MART_JOB=janus-intelligence-mart,GCP_REGION=${region},MART_OPERATION=queue" \
       --remove-secrets="CONTROL_DB_PASSWORD,CATALOG_DB_PASSWORD" \
       --update-secrets="JANUS_INGESTION_POSTGRES_BUNDLE=janus-runtime-bundle:latest" --quiet
-    # 確保 ingestion-core SA 有權限觸發 intelligence-mart job
     gcloud run jobs add-iam-policy-binding janus-intelligence-mart \
       --project="${project}" --region="${region}" \
       --member="serviceAccount:ingestion-core@${project}.iam.gserviceaccount.com" \
@@ -96,10 +95,23 @@ case "${component}" in
       --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-runtime-bundle:latest" --quiet
     ;;
   api)
+    # A canonical API deploy must create a distinct revision. Reusing an old
+    # template revision can leave 100% traffic on stale Flutter assets even
+    # when the service template image digest has changed.
+    service_revision_suffix="${revision_suffix}"
+    if [[ -z "${service_revision_suffix}" ]]; then
+      if [[ "${git_sha}" =~ ^[0-9a-f]{7,64}$ ]]; then
+        service_revision_suffix="g${git_sha:0:12}"
+      else
+        service_revision_suffix="manual-$(date -u +%Y%m%d%H%M%S)"
+      fi
+    fi
+
     service_flags=()
     if [[ "${no_traffic}" == "true" ]]; then service_flags+=(--no-traffic); fi
     if [[ -n "${traffic_tag}" ]]; then service_flags+=(--tag="${traffic_tag}"); fi
-    if [[ -n "${revision_suffix}" ]]; then service_flags+=(--revision-suffix="${revision_suffix}-config"); fi
+    service_flags+=(--revision-suffix="${service_revision_suffix}-config")
+
     api_env="${MCP_OAUTH_ENABLED:+MCP_OAUTH_ENABLED=${MCP_OAUTH_ENABLED}}"
     if [[ -n "${GOOGLE_ADMIN_ALLOWED_EMAILS:-}" ]]; then
       api_env="${api_env:+${api_env},}GOOGLE_ADMIN_ALLOWED_EMAILS=${GOOGLE_ADMIN_ALLOWED_EMAILS}"
@@ -125,7 +137,12 @@ case "${component}" in
       --remove-env-vars="INTERNAL_ASSISTANT_AUDIENCE,ASSISTANT_SERVICE_ACCOUNTS,MCP_GATEWAY_URL" \
       --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-runtime-bundle:latest" \
       "${service_flags[@]}" --quiet
+
+    if [[ "${no_traffic}" != "true" ]]; then
+      gcloud run services update-traffic "${runtime_name}" \
+        --project="${project}" --region="${region}" --to-latest --quiet
+    fi
     ;;
 esac
 
-echo "Dev deployment completed for ${runtime_name}; verify the immutable digest in Cloud Build logs."
+echo "Dev deployment completed for ${runtime_name}; verify the immutable digest and live revision."
