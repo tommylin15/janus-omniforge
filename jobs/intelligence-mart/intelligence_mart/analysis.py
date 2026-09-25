@@ -88,6 +88,21 @@ def _value_time(row: dict[str, Any]) -> datetime | None:
     return None
 
 
+def _financial_period_time(row: dict[str, Any]) -> datetime | None:
+    explicit = _instant(row.get("fiscal_period_end"))
+    if explicit:
+        return explicit
+    try:
+        year = int(row.get("fiscal_year", 0))
+        quarter = int(row.get("fiscal_quarter", 0))
+    except (TypeError, ValueError):
+        return None
+    month_day = {1: (3, 31), 2: (6, 30), 3: (9, 30), 4: (12, 31)}.get(quarter)
+    if year <= 0 or month_day is None:
+        return None
+    return datetime(year, month_day[0], month_day[1], tzinfo=timezone.utc)
+
+
 def _severity(value: Any) -> float | None:
     numeric = _number(value)
     if numeric is not None:
@@ -114,7 +129,12 @@ def evidence_from_rows(datasets: dict[str, list[dict[str, Any]]], core_snapshot_
             table = str(row.get("__table_identifier", f"core.{dataset_id.replace('-', '_')}_v1"))
             snapshot = str(row.get("__snapshot_id", core_snapshot_id))
             provenance = str(row.get("provenance_id", "")).strip()
-            observed = _row_time(row)
+            is_financial = dataset_id == "financials"
+            availability = _instant(row.get("availability_at")) if is_financial else None
+            publication_authoritative = not is_financial or row.get("publication_time_authoritative") is True
+            published = _instant(row.get("published_at")) if publication_authoritative else None
+            observed = availability if is_financial else _row_time(row)
+            record = _financial_period_time(row) if is_financial else _value_time(row)
             metric = _metric(row)
             value = row.get("value")
             unit = row.get("unit")
@@ -133,10 +153,11 @@ def evidence_from_rows(datasets: dict[str, list[dict[str, Any]]], core_snapshot_
                 "unit": unit or "not_applicable",
                 "source_id": row.get("source_id"),
                 "source_authorization": row.get("source_authorization", "official" if row.get("source_id") in APPROVED_SOURCES else "blocked"),
-                "published_at": (_instant(row.get("published_at")).isoformat().replace("+00:00", "Z")
-                                 if _instant(row.get("published_at")) else None),
+                "published_at": published.isoformat().replace("+00:00", "Z") if published else None,
+                "availability_at": availability.isoformat().replace("+00:00", "Z") if availability else None,
+                "publication_time_authoritative": publication_authoritative,
                 "observed_at": observed.isoformat().replace("+00:00", "Z") if observed else None,
-                "record_at": (_value_time(row).isoformat().replace("+00:00", "Z") if _value_time(row) else None),
+                "record_at": record.isoformat().replace("+00:00", "Z") if record else None,
                 "quality_flag": row.get("quality_flag", "good"),
                 "severity": _severity(row.get("severity")),
                 "manual_review_required": row.get("manual_review_required") is True,
@@ -172,7 +193,9 @@ def validate_evidence(items: Iterable[dict[str, Any]], analysis_as_of: date) -> 
             reason = "source_not_authorized"
         elif not item.get("provenance_id") or not item.get("core_snapshot_id"):
             reason = "missing_provenance"
-        elif item.get("dataset_id") in {"financials", "events"} and not item.get("published_at"):
+        elif item.get("dataset_id") == "financials" and not item.get("availability_at"):
+            reason = "missing_availability_time"
+        elif item.get("dataset_id") == "events" and not item.get("published_at"):
             reason = "missing_publication_time"
         elif observed is None:
             reason = "missing_observation_time"
@@ -207,6 +230,10 @@ def validate_evidence(items: Iterable[dict[str, Any]], analysis_as_of: date) -> 
         if severity is not None and severity >= 75:
             blockers.add("high_event_risk")
         valid.append(item)
+    if any(item.get("dataset_id") == "financials" for item in rows) and not any(
+        item.get("dataset_id") == "financials" for item in valid
+    ):
+        blockers.add("invalid_evidence")
     return valid, rejected, sorted(blockers)
 
 
