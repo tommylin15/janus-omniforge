@@ -1,0 +1,59 @@
+name: Probe MOPS source
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'ops/mops-source-probe.json'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe MOPS OpenAPI metadata only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import json
+          import sys
+          import time
+          from urllib.request import Request, urlopen
+
+          url = "https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci"
+          started = time.monotonic()
+          try:
+              request = Request(url, headers={
+                  "Accept": "application/json, text/plain, */*",
+                  "Accept-Language": "zh-TW,zh;q=0.9,en;q=0.8",
+                  "User-Agent": "Mozilla/5.0 (compatible; JanusAI-Upstream-Probe/1.0)",
+              })
+              with urlopen(request, timeout=30) as response:
+                  payload = response.read()
+                  status = response.status
+                  content_type = response.headers.get_content_type()
+              document = json.loads(payload)
+              rows = document if isinstance(document, list) else document.get("data", document.get("rows", []))
+              contains_2330 = any(str(row.get("公司代號", row.get("symbol", ""))).strip() == "2330" for row in rows if isinstance(row, dict))
+              print(json.dumps({
+                  "status": "ok",
+                  "http_status": status,
+                  "content_type": content_type,
+                  "rows": len(rows),
+                  "contains_2330": contains_2330,
+                  "elapsed_ms": round((time.monotonic() - started) * 1000),
+              }, sort_keys=True))
+          except Exception as error:
+              print(json.dumps({
+                  "status": "failed",
+                  "error_code": type(error).__name__,
+                  "elapsed_ms": round((time.monotonic() - started) * 1000),
+              }, sort_keys=True), file=sys.stderr)
+              raise SystemExit(1)
+          PY
