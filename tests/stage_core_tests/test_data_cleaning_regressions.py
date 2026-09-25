@@ -1,5 +1,7 @@
+import json
 import sys
 import unittest
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 
@@ -7,7 +9,13 @@ ROOT = Path(__file__).parents[2]
 sys.path.insert(0, str(ROOT / "jobs" / "ingestion-core"))
 sys.path.insert(0, str(ROOT))
 
-from ingestion_core.first_batch import normalise_financials, normalise_institutional
+from ingestion_core.adapters import CollectionRequest
+from ingestion_core.first_batch import (
+    JsonDatasetAdapter,
+    normalise_benchmark,
+    normalise_financials,
+    normalise_institutional,
+)
 
 
 class DataCleaningRegressionTests(unittest.TestCase):
@@ -68,6 +76,60 @@ class DataCleaningRegressionTests(unittest.TestCase):
             }
         ])[0]
         self.assertEqual(row["unit"], "percent")
+
+    def test_snapshot_source_uses_fetch_time_not_requested_historical_date(self):
+        fetched = datetime(2026, 9, 25, 2, 30, tzinfo=timezone.utc)
+        raw = json.dumps([{
+            "出表日期": "1150925", "年度": "115", "季別": "2",
+            "公司代號": "2330", "營業收入": "100",
+        }], ensure_ascii=False).encode()
+        adapter = JsonDatasetAdapter(
+            "mops", "financials", "https://example.test/current", normalise_financials,
+            lambda _: raw, observation_mode="fetch_time", max_replay_age_days=7,
+            clock=lambda: fetched,
+        )
+        request = CollectionRequest(
+            "e1", "t1", "mops", "financials", "TWSE", ("2330",),
+            date(2025, 8, 21), date(2026, 9, 24), 5,
+        )
+        response = adapter.fetch(request)
+        self.assertEqual(response.observed_at, fetched)
+        self.assertEqual(response.rows[0]["observed_at"], "2026-09-25T02:30:00Z")
+
+    def test_snapshot_source_rejects_deep_historical_replay_before_transport(self):
+        fetched = datetime(2026, 9, 25, 2, 30, tzinfo=timezone.utc)
+        calls = []
+        adapter = JsonDatasetAdapter(
+            "mops", "financials", "https://example.test/current", normalise_financials,
+            lambda url: calls.append(url) or b"[]", observation_mode="fetch_time",
+            max_replay_age_days=7, clock=lambda: fetched,
+        )
+        request = CollectionRequest(
+            "e1", "t1", "mops", "financials", "TWSE", ("2330",),
+            date(2024, 1, 1), date(2026, 8, 31), 5,
+        )
+        with self.assertRaisesRegex(ValueError, "historical replay"):
+            adapter.fetch(request)
+        self.assertEqual(calls, [])
+
+    def test_historical_list_source_filters_rows_after_requested_as_of(self):
+        fetched = datetime(2026, 9, 25, 2, 30, tzinfo=timezone.utc)
+        raw = json.dumps([
+            {"Date": "20260923", "Close": "48000"},
+            {"Date": "20260925", "Close": "49000"},
+        ]).encode()
+        adapter = JsonDatasetAdapter(
+            "tpex-benchmark", "benchmark", "https://example.test/history",
+            lambda rows: normalise_benchmark(rows, "TPEx"), lambda _: raw,
+            row_date_field="trade_date", clock=lambda: fetched,
+        )
+        request = CollectionRequest(
+            "e1", "t1", "tpex-benchmark", "benchmark", "TPEX", (),
+            date(2026, 9, 24), date(2026, 9, 24), 5,
+        )
+        response = adapter.fetch(request)
+        self.assertEqual([row["trade_date"] for row in response.rows], ["2026-09-23"])
+        self.assertEqual(response.observed_at, datetime(2026, 9, 24, tzinfo=timezone.utc))
 
 
 if __name__ == "__main__":
