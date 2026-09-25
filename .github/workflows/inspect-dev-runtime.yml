@@ -55,5 +55,5 @@ jobs:
             --freshness=20m \
             --limit=100 \
             --order=desc \
-            --format='table(timestamp,severity,labels.run.googleapis.com/execution_name,textPayload,jsonPayload.message)' \
+            --format=json \
             || true
