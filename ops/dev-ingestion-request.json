@@ -1,0 +1,8 @@
+{
+  "request_id": "financial-pit-refresh-20260925-1",
+  "enabled": true,
+  "dataset": "mops",
+  "force_refresh": true,
+  "disable_mart_trigger": true,
+  "date": "2026-09-24"
+}
