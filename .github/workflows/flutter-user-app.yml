@@ -27,5 +27,6 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos lib test
       - run: flutter test
-      - run: flutter create . --platforms web --no-pub
+      - run: grep -Fq 'Janus · OmniForge' web/index.html
       - run: flutter build web --base-href /app/
+      - run: grep -Fq 'Janus · OmniForge' build/web/index.html
