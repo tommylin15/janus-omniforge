@@ -25,7 +25,9 @@ code alone does not rewrite old Core snapshots.
 Changes under `jobs/ingestion-core/**` are gated by the targeted first-batch and
 data-cleaning regression tests in `.github/workflows/deploy-dev.yml`; a failed
 test or test-environment setup blocks the dev deployment rather than being
-reported as a successful release.
+reported as a successful release. Post-deploy verification is component-scoped:
+an ingestion deployment verifies the `janus-ingestion-core` Cloud Run Job and
+does not require unrelated PostgreSQL VM read permission.
 
 The ingestion control plane is implemented by `ingestion_core.control` and the
 runtime by `ingestion_core.framework`. `SQLiteControlPlane` is the reference
