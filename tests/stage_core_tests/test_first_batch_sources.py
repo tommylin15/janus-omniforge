@@ -81,6 +81,9 @@ class FirstBatchSourceTests(unittest.TestCase):
             key = next(key for key in payloads if key in url)
             return json.dumps(payloads[key], ensure_ascii=False).encode()
         adapters = dataset_adapters(transport)
+        fixture_now = datetime(2026, 8, 26, 8, 0, tzinfo=timezone.utc)
+        for key in ("mops", "finmind", "twse-events"):
+            adapters[key].clock = lambda now=fixture_now: now
         self.assertEqual(adapters["tpex-benchmark"].fetch(self.request()).rows[0]["trade_date"], "2026-08-25")
         self.assertEqual(adapters["twse-valuation"].fetch(self.request("valuation")).rows[0]["symbol"], "2330")
         self.assertEqual(len(adapters["twse-institutional"].fetch(self.request("institutional")).rows), 3)
