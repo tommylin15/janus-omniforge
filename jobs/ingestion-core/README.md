@@ -13,6 +13,15 @@ The Stage writer accepts only controlled source/dataset identifiers and safe
 path segments. Extreme moves over 11% are retained with a review warning; they
 are not silently deleted. Zero handling is field-semantic rather than global.
 
+First-batch normalisation also preserves dataset semantics instead of forcing a
+single unit or investor definition. TWSE dealer flows are aggregated from
+self-trading and hedging buy/sell columns and checked against the official total
+net field by regression tests. Financial statement units preserve explicit
+upstream units; per-share metrics such as EPS use `TWD_per_share` rather than a
+statement-wide `TWD_thousands` default. Historical rows written before a
+normalisation correction require an explicit bounded backfill; deploying new
+code alone does not rewrite old Core snapshots.
+
 The ingestion control plane is implemented by `ingestion_core.control` and the
 runtime by `ingestion_core.framework`. `SQLiteControlPlane` is the reference
 repository for the PostgreSQL control schema: it persists stock master,
