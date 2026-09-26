@@ -163,6 +163,9 @@ case "${component}" in
   intelligence-mart)
     verify_job janus-intelligence-mart
     ;;
+  private-pipeline)
+    verify_job janus-private-pipeline
+    ;;
   api)
     verify_service janus-api
     ;;
@@ -175,6 +178,7 @@ case "${component}" in
   all)
     verify_job janus-ingestion-core
     verify_job janus-intelligence-mart
+    verify_job janus-private-pipeline
     verify_service janus-api
     if [[ "${VERIFY_POSTGRES_VM:-false}" == "true" ]]; then
       "$0" postgres
