@@ -1,0 +1,69 @@
+name: Apply portfolio revaluation green
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/portfolio-revaluation-green.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements-dev.txt
+            services/api/requirements.lock
+      - name: Install API test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r services/api/requirements.lock
+          python -m pip install -r requirements-dev.txt
+      - name: Apply scheduled revaluation changes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          repository_path = Path('services/api/repository.py')
+          repository = repository_path.read_text()
+          anchor = '''    def ledger_for_pipeline(self, user_id: UUID) -> list[dict[str, Any]]:\n'''
+          addition = '''    def portfolio_user_ids_for_pipeline(self, limit: int = 500) -> list[UUID]:\n        bounded_limit = min(max(int(limit), 1), 500)\n        with self._connection() as connection:\n            rows = connection.execute(\n                "SELECT DISTINCT user_id FROM private.ledger_events ORDER BY user_id LIMIT %s",\n                (bounded_limit,),\n            ).fetchall()\n            return [row["user_id"] for row in rows]\n\n'''
+          if 'def portfolio_user_ids_for_pipeline' not in repository:
+              if anchor not in repository:
+                  raise SystemExit('repository ledger_for_pipeline anchor not found')
+              repository = repository.replace(anchor, addition + anchor, 1)
+              repository_path.write_text(repository)
+
+          pipeline_path = Path('services/api/private_pipeline.py')
+          pipeline = pipeline_path.read_text()
+          old = '''    def run(self, valuation_date: date | None = None, limit: int = 500) -> int:\n        checkpoint=self.repository.pipeline_checkpoint(); changes=self.repository.pipeline_batch(checkpoint,limit)\n        completed=checkpoint\n        if changes:\n            if valuation_date is None:\n                if self.valuation_date_resolver is None: raise ValueError("valuation date is unavailable")\n                valuation_date=self.valuation_date_resolver()\n            user_ids={row["user_id"] for row in changes}\n            for user_id in user_ids:\n                ledger=self.repository.ledger_for_pipeline(user_id)\n                watchlist=self.repository.watchlist_for_pipeline(user_id)\n                profile=self.repository.investment_profile_for_pipeline(user_id)\n                self.store.upsert("ledger_events",ledger)\n                self.store.upsert("watchlist_events",[{**row,"change_version":row["version"]} for row in watchlist])\n                if profile: self.store.upsert("investment_profile_revisions",[profile])\n                symbols={row["symbol"] for row in ledger}\n                identity_reader=getattr(self.repository,"stock_identities",None)\n                identities=identity_reader(symbols) if identity_reader else {}\n                marts=calculate_marts(ledger,self.prices(symbols,valuation_date),valuation_date,identities)\n                for table,rows in marts.items():\n                    self.store.upsert(table,rows)\n                for table,rows in calculate_risk_marts(ledger,marts["mart_user_positions"],profile,\n                                                       self.memberships(symbols,valuation_date),valuation_date).items():\n                    self.store.upsert(table,rows)\n            completed=changes[-1]["change_id"]\n            self.repository.advance_pipeline_checkpoint(completed)\n        for request in self.repository.pending_deletions():\n            self.store.delete_user(request["user_id"])\n            self.repository.complete_deletion(request["request_id"],request["user_id"])\n        return completed\n'''
+          new = '''    def run(self, valuation_date: date | None = None, limit: int = 500) -> int:\n        checkpoint=self.repository.pipeline_checkpoint(); changes=self.repository.pipeline_batch(checkpoint,limit)\n        completed=checkpoint\n        changed_user_ids={row["user_id"] for row in changes}\n        revaluation_reader=getattr(self.repository,"portfolio_user_ids_for_pipeline",None)\n        revaluation_user_ids=set(revaluation_reader(limit)) if revaluation_reader else set()\n        user_ids=changed_user_ids | revaluation_user_ids\n        if user_ids:\n            if valuation_date is None:\n                if self.valuation_date_resolver is None: raise ValueError("valuation date is unavailable")\n                valuation_date=self.valuation_date_resolver()\n            for user_id in user_ids:\n                ledger=self.repository.ledger_for_pipeline(user_id)\n                watchlist=self.repository.watchlist_for_pipeline(user_id)\n                profile=self.repository.investment_profile_for_pipeline(user_id)\n                self.store.upsert("ledger_events",ledger)\n                self.store.upsert("watchlist_events",[{**row,"change_version":row["version"]} for row in watchlist])\n                if profile: self.store.upsert("investment_profile_revisions",[profile])\n                symbols={row["symbol"] for row in ledger}\n                identity_reader=getattr(self.repository,"stock_identities",None)\n                identities=identity_reader(symbols) if identity_reader else {}\n                marts=calculate_marts(ledger,self.prices(symbols,valuation_date),valuation_date,identities)\n                for table,rows in marts.items():\n                    self.store.upsert(table,rows)\n                for table,rows in calculate_risk_marts(ledger,marts["mart_user_positions"],profile,\n                                                       self.memberships(symbols,valuation_date),valuation_date).items():\n                    self.store.upsert(table,rows)\n        if changes:\n            completed=changes[-1]["change_id"]\n            self.repository.advance_pipeline_checkpoint(completed)\n        for request in self.repository.pending_deletions():\n            self.store.delete_user(request["user_id"])\n            self.repository.complete_deletion(request["request_id"],request["user_id"])\n        return completed\n'''
+          if old not in pipeline:
+              raise SystemExit('PrivatePipeline.run anchor not found')
+          pipeline_path.write_text(pipeline.replace(old, new, 1))
+          PY
+      - name: Run RED-to-GREEN contract tests
+        env:
+          PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
+        run: |
+          python -m pytest -q \
+            tests/test_portfolio_revaluation.py \
+            tests/test_portfolio_completeness.py \
+            tests/test_private_pipeline.py
+      - name: Commit green implementation
+        run: |
+          git config user.name 'janus-ci'
+          git config user.email 'janus-ci@users.noreply.github.com'
+          git add services/api/repository.py services/api/private_pipeline.py
+          git commit -m 'fix: revalue portfolios on scheduled pipeline runs'
+          git push origin HEAD:main
