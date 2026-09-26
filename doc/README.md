@@ -1,6 +1,6 @@
 # Janus 文件入口
 
-更新：2026-09-24
+更新：2026-09-26
 
 本頁定義 repository 內文件的角色，避免同一件事同時在 README、SPEC、WBS、TODO、runbook 與測試紀錄各自形成不同版本。
 
@@ -31,6 +31,7 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `ui.md`：UI 索引；頁面／元件契約在 `ui/*.md`。
 - `spec/operations-and-testing.md`：完整 implementation／test／deployment／runtime evidence ledger，包含歷史 checkpoint；日常定位優先看 `status.md`，需要稽核才進本檔。
 - `runbook-dev-deploy.md`：目前 dev 部署、migration、Job 與 Secret 的操作程序。
+- `runbook-pilot-calendar-repair.md`：Dev Pilot TWSE 交易日曆修復、operator IAP migration 與 bounded ingestion 驗收程序。
 - `runbook-user-oauth-dev.md`：User／MCP OAuth 的專用操作與 A/B owner isolation 驗收程序。
 - `runbook-parallel-live-dev.md`：dev 作為個人真實平行上線環境的操作語意。
 - `secret_list.md`：Secret inventory 與相關 evidence；不得包含 secret payload。
