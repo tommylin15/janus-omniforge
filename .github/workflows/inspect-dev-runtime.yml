@@ -37,6 +37,20 @@ jobs:
               gcloud run services describe janus-api \
                 --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
                 --format='json(metadata.name,status.latestCreatedRevisionName,status.latestReadyRevisionName,status.traffic,spec.template.spec.containers[0].image)'
+              service_url="$(gcloud run services describe janus-api \
+                --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+                --format='value(status.url)')"
+              root_headers="$(mktemp)"
+              root_status="$(curl -sS --max-redirs 0 -o /dev/null -D "${root_headers}" -w '%{http_code}' "${service_url}/")"
+              root_location="$(awk 'BEGIN{IGNORECASE=1} /^location:/ {gsub("\r", "", $2); print $2; exit}' "${root_headers}")"
+              rm -f "${root_headers}"
+              [[ "${root_status}" == "307" ]] || { echo "janus-api root status ${root_status}, expected 307" >&2; exit 2; }
+              [[ "${root_location}" == "/app" ]] || { echo "janus-api root location ${root_location}, expected /app" >&2; exit 2; }
+              curl -fsS "${service_url}/app/" | grep -Fq 'Janus · OmniForge' || {
+                echo 'janus-api /app entrypoint is missing Janus branding' >&2
+                exit 2
+              }
+              echo "janus-api root redirects to /app and live entrypoint is reachable"
               ;;
             core-financial-schema)
               prefix="gs://${GCP_PROJECT_ID}-dev-core/warehouse/financials_v1/metadata/"
