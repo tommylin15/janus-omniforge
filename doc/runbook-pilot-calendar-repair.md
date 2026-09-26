@@ -88,9 +88,19 @@ Migration 成功後，用既有 `run-dev-ingestion.yml`／`ops/dev-ingestion-req
 1. 在 2026-09-26 執行、requested date 落在週末／休市區間時，runtime target trading date 應回推到 `2026-09-24`，不得再把 `2026-09-25` 當成交易日。
 2. `twse-valuation`、`twse-institutional`、`twse-market-activity` 不得再因 2026-09-25 休市回應造成相同 `ValueError` failure。
 3. 追蹤同一個 Cloud Run execution 到終態；partial／missing 依實際資料狀態回報，不包裝成 full success。
-4. 驗收後再更新 `spec/operations-and-testing.md` 的 Pilot evidence；未取得 live success 前，`WBS-8-DEV-PILOT-RUN` 仍保持進行中／partial。
+4. 驗收後更新 active status 與 Pilot evidence；未取得 live success 前，`WBS-8-DEV-PILOT-RUN` 仍保持進行中／partial。
 
-## 7. Rollback
+## 7. 2026-09-26 bounded acceptance evidence
+
+本節記錄 migration 套用後三個受影響 dataset 的 bounded live acceptance。Requested date 均為 `2026-09-26`，預期有效交易日為 `2026-09-24`。
+
+- `twse-valuation`：Cloud Run execution `janus-ingestion-core-7z8kv` 最終 `Completed=True`、`succeededCount=1`、container `exit(0)`；application summary 顯示 `as_of=2026-09-24`、`dates=[2026-09-24]`、`failed=0`、`status=succeeded`。
+- `twse-institutional`：GitHub Actions run `36216088848`；Cloud Run execution `janus-ingestion-core-pwgn9`。第 1 attempt 曾出現 transient `HTTPError`／container `exit(1)`，Cloud Run 依既有 `maxRetries=1` retry；第 2 attempt `exit(0)`，execution 最終 `Completed=True`、`succeededCount=1`。成功 summary 為 `as_of=2026-09-24`、`dates=[2026-09-24]`、`failed=0`、`status=succeeded`、`staged=1`、`core_created=12`；`core.institutional_v1` snapshot 324 rows，Mart trigger `not_required`。
+- `twse-market-activity`：GitHub Actions run `36218341537`；Cloud Run execution `janus-ingestion-core-zvbc9`。Execution `Completed=True`、`succeededCount=1`，attempt 0 container `exit(0)`。Runtime override 明確為 `INGESTION_DATASETS=twse-market-activity`、`INGESTION_DATE=2026-09-26`、`FORCE_REFRESH=true`、`MART_JOB` disabled；application summary 為 `as_of=2026-09-24`、`dates=[2026-09-24]`、`failed=0`、`status=succeeded`、`staged=1`、`core_created=12`，`core.market_activity_v1` snapshot 336 rows，Mart trigger `not_required`。
+
+三個 bounded acceptance 均未重現原本 `2026-09-25` 休市日造成的 calendar `ValueError`，因此本次 calendar repair 的 dataset-level bounded acceptance 切片完成。這只代表交易日曆修復的 bounded live acceptance 通過；`WBS-8-DEV-PILOT-RUN` 仍需累積六個 calendar months 的真實 operational evidence，狀態維持 `partial`。
+
+## 8. Rollback
 
 029 不刪除 canonical data，也不重建 schema。若確認需要回復 holiday setting，先從 `control.admin_audit` 中 actor `migration-029-twse-2026-calendar` 的最新紀錄取得 `previous_holiday_overrides`，再透過正常 Admin setting update／audit 路徑回復；不得直接刪除 audit history。
 
