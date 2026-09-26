@@ -34,51 +34,157 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
+          def gh(value: str) -> str:
+              return "$" + "{{ " + value + " }}"
+
           path = Path('.github/workflows/deploy-dev.yml')
           text = path.read_text()
 
-          old = '''          - intelligence-mart\n          - api\n'''
-          new = '''          - intelligence-mart\n          - private-pipeline\n          - api\n'''
+          old = "          - intelligence-mart\n          - api\n"
+          new = "          - intelligence-mart\n          - private-pipeline\n          - api\n"
           if old not in text: raise SystemExit('workflow dispatch options anchor not found')
           text = text.replace(old, new, 1)
 
-          old = '''      api_runtime: ${{ steps.filter.outputs.api_runtime }}\n      api_test: ${{ steps.filter.outputs.api_test }}\n'''
-          new = '''      private_pipeline_runtime: ${{ steps.filter.outputs.private_pipeline_runtime }}\n      api_runtime: ${{ steps.filter.outputs.api_runtime }}\n      api_test: ${{ steps.filter.outputs.api_test }}\n'''
+          old = (
+              "      api_runtime: " + gh("steps.filter.outputs.api_runtime") + "\n"
+              "      api_test: " + gh("steps.filter.outputs.api_test") + "\n"
+          )
+          new = (
+              "      private_pipeline_runtime: " + gh("steps.filter.outputs.private_pipeline_runtime") + "\n"
+              "      api_runtime: " + gh("steps.filter.outputs.api_runtime") + "\n"
+              "      api_test: " + gh("steps.filter.outputs.api_test") + "\n"
+          )
           if old not in text: raise SystemExit('detect outputs anchor not found')
           text = text.replace(old, new, 1)
 
-          old = '''            api_runtime:\n              - 'services/api/**'\n'''
-          new = '''            private_pipeline_runtime:\n              - 'services/api/**'\n              - 'packages/contracts/**'\n              - 'packages/observability/**'\n              - 'packages/provenance/**'\n              - 'packages/governance/**'\n              - 'cloudbuild.yaml'\n              - 'scripts/gcp/deploy-dev.sh'\n              - 'scripts/gcp/verify-dev.sh'\n            api_runtime:\n              - 'services/api/**'\n'''
+          old = "            api_runtime:\n              - 'services/api/**'\n"
+          new = """            private_pipeline_runtime:
+              - 'services/api/**'
+              - 'packages/contracts/**'
+              - 'packages/observability/**'
+              - 'packages/provenance/**'
+              - 'packages/governance/**'
+              - 'cloudbuild.yaml'
+              - 'scripts/gcp/deploy-dev.sh'
+              - 'scripts/gcp/verify-dev.sh'
+            api_runtime:
+              - 'services/api/**'
+"""
           if old not in text: raise SystemExit('private pipeline filter anchor not found')
           text = text.replace(old, new, 1)
 
-          old = '''            api_test:\n              - 'tests/test_public_runtime.py'\n              - 'tests/test_public_api_routes.py'\n              - 'tests/test_mcp_adapter.py'\n'''
-          new = '''            api_test:\n              - 'tests/test_public_runtime.py'\n              - 'tests/test_public_api_routes.py'\n              - 'tests/test_mcp_adapter.py'\n              - 'tests/test_private_pipeline.py'\n              - 'tests/test_user_api.py'\n              - 'tests/test_portfolio_completeness.py'\n              - 'tests/test_portfolio_api_completeness.py'\n'''
+          old = """            api_test:
+              - 'tests/test_public_runtime.py'
+              - 'tests/test_public_api_routes.py'
+              - 'tests/test_mcp_adapter.py'
+"""
+          new = """            api_test:
+              - 'tests/test_public_runtime.py'
+              - 'tests/test_public_api_routes.py'
+              - 'tests/test_mcp_adapter.py'
+              - 'tests/test_private_pipeline.py'
+              - 'tests/test_user_api.py'
+              - 'tests/test_portfolio_completeness.py'
+              - 'tests/test_portfolio_api_completeness.py'
+"""
           if old not in text: raise SystemExit('api test filter anchor not found')
           text = text.replace(old, new, 1)
 
-          old = '''          tests/test_public_runtime.py\n          tests/test_public_api_routes.py\n          tests/test_mcp_adapter.py\n\n  deploy-api:\n'''
-          new = '''          tests/test_public_runtime.py\n          tests/test_public_api_routes.py\n          tests/test_mcp_adapter.py\n          tests/test_private_pipeline.py\n          tests/test_user_api.py\n          tests/test_portfolio_completeness.py\n          tests/test_portfolio_api_completeness.py\n\n  deploy-private-pipeline:\n    needs: [detect, test-api]\n    if: >-\n      always() &&\n      needs.test-api.result == 'success' &&\n      (needs.detect.outputs.private_pipeline_runtime == 'true' ||\n      (github.event_name == 'workflow_dispatch' && inputs.component == 'private-pipeline'))\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: google-github-actions/auth@v2\n        with:\n          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}\n          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}\n      - uses: google-github-actions/setup-gcloud@v2\n      - name: Deploy private pipeline\n        shell: bash\n        env:\n          GOOGLE_USER_CLIENT_ID: ${{ vars.GOOGLE_USER_CLIENT_ID }}\n          GOOGLE_ADMIN_CLIENT_ID: ${{ vars.GOOGLE_ADMIN_CLIENT_ID }}\n        run: bash scripts/gcp/deploy-dev.sh private-pipeline\n      - name: Verify private pipeline\n        shell: bash\n        run: bash scripts/gcp/verify-dev.sh private-pipeline\n\n  deploy-api:\n'''
+          old = """          tests/test_public_runtime.py
+          tests/test_public_api_routes.py
+          tests/test_mcp_adapter.py
+
+  deploy-api:
+"""
+          job = """          tests/test_public_runtime.py
+          tests/test_public_api_routes.py
+          tests/test_mcp_adapter.py
+          tests/test_private_pipeline.py
+          tests/test_user_api.py
+          tests/test_portfolio_completeness.py
+          tests/test_portfolio_api_completeness.py
+
+  deploy-private-pipeline:
+    needs: [detect, test-api]
+    if: >-
+      always() &&
+      needs.test-api.result == 'success' &&
+      (needs.detect.outputs.private_pipeline_runtime == 'true' ||
+      (github.event_name == 'workflow_dispatch' && inputs.component == 'private-pipeline'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: __WIF__
+          service_account: __CI_SA__
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Deploy private pipeline
+        shell: bash
+        env:
+          GOOGLE_USER_CLIENT_ID: __USER_CLIENT__
+          GOOGLE_ADMIN_CLIENT_ID: __ADMIN_CLIENT__
+        run: bash scripts/gcp/deploy-dev.sh private-pipeline
+      - name: Verify private pipeline
+        shell: bash
+        run: bash scripts/gcp/verify-dev.sh private-pipeline
+
+  deploy-api:
+"""
+          job = (job.replace('__WIF__', gh('vars.GCP_WIF_PROVIDER'))
+                    .replace('__CI_SA__', gh('vars.GCP_CI_SERVICE_ACCOUNT'))
+                    .replace('__USER_CLIENT__', gh('vars.GOOGLE_USER_CLIENT_ID'))
+                    .replace('__ADMIN_CLIENT__', gh('vars.GOOGLE_ADMIN_CLIENT_ID')))
           if old not in text: raise SystemExit('deploy private pipeline insertion anchor not found')
-          text = text.replace(old, new, 1)
+          text = text.replace(old, job, 1)
           path.write_text(text)
 
           path = Path('scripts/gcp/verify-dev.sh')
           text = path.read_text()
-          old = '''  api)\n    verify_service janus-api\n    ;;\n'''
-          new = '''  private-pipeline)\n    verify_job janus-private-pipeline\n    ;;\n  api)\n    verify_service janus-api\n    ;;\n'''
+          old = """  api)
+    verify_service janus-api
+    ;;
+"""
+          new = """  private-pipeline)
+    verify_job janus-private-pipeline
+    ;;
+  api)
+    verify_service janus-api
+    ;;
+"""
           if old not in text: raise SystemExit('verify private pipeline anchor not found')
           text = text.replace(old, new, 1)
           path.write_text(text)
 
           path = Path('scripts/gcp/apply-private-storage-postgres-migration.sh')
           text = path.read_text()
-          old = '''    psql -U postgres -d janus_control -f /opt/janus/migrations/028_mcp_oauth_refresh_tokens.sql\n  '\n'''
-          new = '''    psql -U postgres -d janus_control -f /opt/janus/migrations/028_mcp_oauth_refresh_tokens.sql\n    psql -U postgres -d janus_control -f /opt/janus/migrations/030_private_stock_master_read.sql\n  '\n'''
+          old = """    psql -U postgres -d janus_control -f /opt/janus/migrations/028_mcp_oauth_refresh_tokens.sql
+  '
+"""
+          new = """    psql -U postgres -d janus_control -f /opt/janus/migrations/028_mcp_oauth_refresh_tokens.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/030_private_stock_master_read.sql
+  '
+"""
           if old not in text: raise SystemExit('migration 030 anchor not found')
           text = text.replace(old, new, 1)
-          old = '''sudo docker exec --user postgres janus-postgres \\\n  psql -U postgres -d janus_control -f /opt/janus/private-storage-acceptance.sql\n\nswitched=false\n'''
-          new = '''sudo docker exec --user postgres janus-postgres \\\n  psql -U postgres -d janus_control -f /opt/janus/private-storage-acceptance.sql\nsudo docker exec --user postgres janus-postgres psql -U postgres -d janus_control -v ON_ERROR_STOP=1 <<'SQL'\nSELECT has_schema_privilege('janus_private_api', 'control', 'USAGE')\n  AND has_table_privilege('janus_private_api', 'control.stock_master', 'SELECT')\n  AS private_api_stock_master_read;\nSELECT has_schema_privilege('janus_private_pipeline', 'control', 'USAGE')\n  AND has_table_privilege('janus_private_pipeline', 'control.stock_master', 'SELECT')\n  AS private_pipeline_stock_master_read;\nSQL\n\nswitched=false\n'''
+          old = """sudo docker exec --user postgres janus-postgres \\
+  psql -U postgres -d janus_control -f /opt/janus/private-storage-acceptance.sql
+
+switched=false
+"""
+          new = """sudo docker exec --user postgres janus-postgres \\
+  psql -U postgres -d janus_control -f /opt/janus/private-storage-acceptance.sql
+sudo docker exec --user postgres janus-postgres psql -U postgres -d janus_control -v ON_ERROR_STOP=1 <<'SQL'
+SELECT has_schema_privilege('janus_private_api', 'control', 'USAGE')
+  AND has_table_privilege('janus_private_api', 'control.stock_master', 'SELECT')
+  AS private_api_stock_master_read;
+SELECT has_schema_privilege('janus_private_pipeline', 'control', 'USAGE')
+  AND has_table_privilege('janus_private_pipeline', 'control.stock_master', 'SELECT')
+  AS private_pipeline_stock_master_read;
+SQL
+
+switched=false
+"""
           if old not in text: raise SystemExit('migration acceptance anchor not found')
           text = text.replace(old, new, 1)
           path.write_text(text)
