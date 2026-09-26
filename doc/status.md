@@ -2,45 +2,42 @@
 
 更新：2026-09-26
 
-用途：提供「現在在哪裡、下一步是什麼、哪些尚未完成」的短入口。這不是新的 source of truth；實作以 GitHub `main` 為準，完成狀態以 tests／CI／deployment／live runtime／integration evidence 為準。完整未完成工作仍在 [`todo.md`](todo.md)，完整歷史與 build／revision／digest evidence 仍在 [`spec/operations-and-testing.md`](spec/operations-and-testing.md)；六個月 Pilot 新增 operational checkpoint 記於 [`pilot-operational-evidence.md`](pilot-operational-evidence.md)，交易日曆修復的可重跑程序與 bounded acceptance evidence 見 [`runbook-pilot-calendar-repair.md`](runbook-pilot-calendar-repair.md)。
+用途：提供「現在在哪裡、下一步是什麼、哪些尚未完成」的短入口。這不是新的 source of truth；實作以 GitHub `main` 為準，完成狀態以 tests／CI／deployment／live runtime／integration evidence 為準。完整未完成工作見 [`todo.md`](todo.md)；六個月 Pilot 新增 operational checkpoint 見 [`pilot-operational-evidence.md`](pilot-operational-evidence.md)；完整歷史 evidence 見 [`spec/operations-and-testing.md`](spec/operations-and-testing.md)。
 
-## 目前結論
+## 現在的判定
 
-- GCP `dev` 是 Janus 個人使用階段的真實平行上線環境，不是只用 fixture／mock 的 POC 環境。
-- Janus hard split 已完成：通用 Chat／Agent runtime 不再屬於 Janus active scope；Janus 保留 User／Admin、投資 domain API，以及 authenticated read-only MCP／OAuth connector。
-- 現行 runtime 已收斂使用 `janus-runtime-bundle`；API 與既有三個 Cloud Run Jobs 的相關 runtime acceptance 已有 GCP dev evidence。
-- ChatGPT MCP 已可 discovery／invoke 三個 read-only tools：`janus_sources`、`janus_market_context`、`janus_private_context`；market 與 private bounded reads 已有 live evidence。
-- OAuth `offline_access`、refresh-token issuance、90-day sliding inactivity、one-time rotation 與 revocation 已部署；access token 到期後的 live refresh／rotation 已有 runtime evidence。
-- MCP market-context credential routing defect已修正並有 authenticated market read evidence。
-- **`WBS-8-CHATGPT-MCP-ACCEPTANCE` 的 Owner A/B live read isolation 已通過。**ChatGPT 外掛帳戶設定分別確認 A、B 的目前選取狀態，再各自以新對話查詢相同四種私人資源；B 的 profile 可讀，但 positions／trades／performance 為 missing，而 A 的三項均有資料。owner_id 注入由工具 schema 在送出前拒絕。摘要雜湊不一致，故不作為驗收判據；詳細限制見 operations-and-testing。
-- **`WBS-8-DEV-PILOT-ENTRY` 已通過。**2026-09-24T15:29:19Z 記為 `pilot_started_at`；既有 `janus-private-pipeline` 已部署獨立 image digest，execution `janus-private-pipeline-dd77n` 以 `Completed=True`／`succeededCount=1` 結束。Outcome／feedback 仍為 0 rows、feedback target 1；尚無 baseline-linked report，沒有造測試資料。完整 evidence 見 operations-and-testing。
-- **`WBS-8-DEV-PILOT-RUN` 已進入 operational evidence window，目前仍為 partial。第一份 operational checkpoint 已記錄。**Fresh read-only inspection GitHub Actions run `36224058493` 確認自然 Scheduler execution `janus-ingestion-core-n8bs2` 由 `janus-ingestion-scheduler` 建立於 `2026-09-25T23:30:01Z`（Asia/Taipei `2026-09-26 07:30:01`），兩次 attempt 都以 `exit(1)` 結束，execution 最終 `Completed=False`／`failedCount=1`／`retriedCount=1`。兩次 application failure summary 都把 `twse-valuation`、`twse-institutional`、`twse-market-activity` 的 target date 落在休市日 `2026-09-25`，並回 `ValueError`。版本化修復 `029_twse_2026_holiday_overrides.sql` 已由既有 operator IAP 路徑成功套用，migration marker 與 `2026-09-25`／`2026-09-28` holiday overrides 已有 live evidence。三個受影響 dataset 的 bounded live acceptance 均已通過：`twse-valuation` execution `janus-ingestion-core-7z8kv`；`twse-institutional` GitHub Actions run `36216088848`／execution `janus-ingestion-core-pwgn9`（保留第一次 transient `HTTPError` 後 retry 成功 evidence）；`twse-market-activity` GitHub Actions run `36218341537`／execution `janus-ingestion-core-zvbc9`，summary `failed=0`、`status=succeeded`、`core.market_activity_v1` 336 rows、Mart `not_required`。三個 bounded repair acceptance 均正確回推至 `2026-09-24`，calendar repair dataset-level slice 完成；但手動 bounded acceptance 不能代替後續自然 Scheduler recovery evidence。
-- **第一份 Pilot checkpoint 不宣稱新的 post-start analysis success。**觀察到的自然 Scheduler execution 在 ingestion 階段失敗；三個 repair acceptance 又明確停用 Mart／回報 `not_required`。因此本 checkpoint 的 post-start analysis evidence 記為 `not observed`，而不是推測成功或宣稱整個 GCP project 沒有 Mart execution。Backup／restore、outcome、usefulness、cost、security／privacy 的 post-start delta 本 checkpoint 亦未重新驗證，均維持 `not observed`；Entry baseline 仍保留，但不假設狀態未變。
-- 最高優先項目 `WBS-6-TRANSACTION-UX-2` 已完成。Flutter/API 本地測試、canonical dev 100% traffic 切換及 Chrome authenticated read-only acceptance 均通過；持股、交易月份／明細、年度報表與表單可載入，缺價／partial 與 Mart pending 狀態正確顯示。操作表單後皆取消，沒有修改個人帳本。此項不是 Dev Pilot Entry blocker。新 Mart 會保存每檔行情日，早於組合估值日的行情標為 stale。
+- GCP `dev` 是 Janus 個人使用階段的真實平行上線環境，不是 demo／mock staging。
+- Janus hard split、read-only MCP／OAuth、Dev Pilot Entry 等既有 acceptance 保持有效；是否完成仍以各自 implementation／runtime evidence 判定。
+- `WBS-8-DEV-PILOT-RUN` 已進入六個 calendar months operational evidence window，目前仍是 `partial`。第一份 checkpoint 已記錄自然 Scheduler failure、版本化 calendar repair 與 bounded dataset acceptance；下一個關鍵 runtime boundary 是 repair 後的自然 Scheduler recovery evidence。
+- **進入 observation window 不代表 feature freeze，也不代表產品功能完整。** Pilot observation 與產品完整度修復是兩條可並行的工作線；前者累積長期 operational evidence，後者補齊目前 dev 真實使用仍缺少的資料與操作閉環。
+- **User product completeness 目前未完成。** 現有 Flutter 已有交易／持股 presentation 與 missing／stale／partial 狀態處理，但真實持股若缺行情 coverage 或名稱解析，Private Mart 仍無法產生完整 aggregate valuation／unrealized PnL；UI 不得自行補算或用 placeholder 假裝完整。
+- **「今日」目前不能只以 `mart_daily_brief` 是否存在決定整頁是否有市場資料。** 目標契約改為先呈現 deterministic published market baseline；Mart／AI brief 是疊加層，缺少時只降級該區塊，不應讓已存在的 Core 市場資料在首頁完全不可見。
+- **Admin target workspace 尚未完成。** Legacy/static surface 在 migration 期間保留；Flutter Admin shell、overview／batch 與 stock data workbench 是產品完整度工作，不因六個月 observation window 而延後到 Pilot 結束後。
+- `WBS-6-TRANSACTION-UX-2` 的既有完成判定只代表該次 presentation／read-path／state acceptance 已完成，不代表全市場行情 coverage、股票名稱解析、aggregate portfolio valuation 或整體 User App 已完成。
 
-## 下一個執行序列
+## 兩條並行主線
 
-1. **繼續 `WBS-8-DEV-PILOT-RUN` 六個月 evidence window。**
-   - Checkpoint 001 已記錄於 [`pilot-operational-evidence.md`](pilot-operational-evidence.md)；它保留自然 Scheduler failure、版本化 repair、三個 bounded acceptance，以及目前 `not observed` 的 evidence categories。
-   - 下一個 runtime evidence boundary 是 **repair 後的下一筆自然 Scheduler execution**：必須觀察真實自動排程是否能正確避開休市日並走到終態；在該 execution 實際存在前保持 pending，不用手動 bounded run 代替。
-   - 起點 `pilot_started_at=2026-09-24T15:29:19Z`；後續仍需持續累積 Scheduler／ingestion／analysis、backup／restore、outcome、usefulness、cost、manual intervention、recurring failure 與 security／privacy evidence。
-   - 本原子 task 完成後停止；下一個原子項目必須依 [`todo.md`](todo.md) 的模型確認規則另行選定與確認，不自動開始。
-   - 開發 checkpoint 不得代替六個 calendar months 的 operational evidence。
+### A. Product Completeness foreground
 
-## 不在立即執行佇列
+依 [`todo.md`](todo.md) 一次只執行一個原子項目；目前順序為：
 
-以下仍是有效需求，但目前屬 planned／blocked／deferred，不應和上述步驟混成同一個 active queue：
+1. `WBS-6-PORTFOLIO-COMPLETENESS`：真實持股名稱、行情 coverage、Private Mart aggregate valuation／PnL 與可診斷 missing-state 閉環。
+2. `WBS-6-MARKET-HOME-DATA`：建立不依賴 LLM／Daily Brief 的 deterministic market-home bounded contract。
+3. `WBS-6-MARKET-HOME-UI`：讓「今日」先顯示 market baseline，再疊加 Mart／AI 內容。
+4. `WBS-3-FULL-MARKET-BASE-COVERAGE`：把 bounded canary universe 推進到當日 enabled stock master 的基礎市場 coverage。
+5. `WBS-6-FLUTTER-ADMIN-SHELL` → `WBS-6-ADMIN-OVERVIEW-BATCH` → `WBS-6-ADMIN-STOCK-WORKBENCH`：完成不進 GCP／DB 也能定位與處理資料營運問題的 Admin 主路徑。
 
-- 全市場其他 datasets 與個股深度追蹤來源擴充。
-- Mart Fact Packs、AI role contracts／validation／providers、CIO synthesis、rerun/cache。
-- Flutter Admin shell、overview／batch、stock workbench、Analysis Profile、legacy retirement。
-- Pilot Mart AI evaluation。
-- Research Context Pilot Evolution roadmap。
-- 完整 P2 calibration、跨裝置／A11y、production architecture／HA／backup planning。
-- P4 完整 DQ 強化與 30% gate calibration。
-- 未核准來源、paid source、新 GCP service／HA／multi-region 等仍維持各自 gate。
+下一個 foreground 原子項目是 **`WBS-6-PORTFOLIO-COMPLETENESS`**。
 
-完整 dependency、acceptance 與分類請直接讀 [`todo.md`](todo.md)，不要從本頁推導被省略的細節。
+### B. Dev Pilot operational observation
+
+- `pilot_started_at=2026-09-24T15:29:19Z`；六個月 window 繼續累積自然 Scheduler／ingestion／analysis、backup／restore、outcome、usefulness、cost、manual intervention、recurring failure 與 security／privacy evidence。
+- Checkpoint 不得用手動 bounded run 代替自然 Scheduler evidence；沒有新證據時維持 `not observed`／`pending`，不得補成成功。
+- Observation lane 不自動授權 Production、付費 source、新 GCP service、HA／multi-region 或其他仍受 gate 的工作。
+
+## 非 foreground 工作
+
+Mart Fact Packs、AI role contracts／validation／providers、CIO synthesis、rerun/cache、Analysis Profile、Pilot Mart AI evaluation、Research Context evolution、完整跨裝置／A11y、Production architecture／HA／backup planning 與 P4 DQ calibration 仍保留在 TODO，但不應先於上述產品完整度缺口。
 
 ## Evidence 讀取順序
 
@@ -49,7 +46,7 @@
 1. GitHub `main` 的實際 code／schema／migration／workflow／tests。
 2. 最新 tests／CI／Cloud Build／deployment／live runtime／trigger／workload／integration evidence。
 3. 本頁做快速定位。
-4. [`pilot-operational-evidence.md`](pilot-operational-evidence.md) 查六個月 evidence window 的新增 bounded checkpoint；[`spec/operations-and-testing.md`](spec/operations-and-testing.md) 查完整歷史 evidence ledger；交易日曆修復 procedure 與 bounded acceptance evidence 見 [`runbook-pilot-calendar-repair.md`](runbook-pilot-calendar-repair.md)。
-5. `archive/` 只用於歷史原因與被取代設計。
+4. [`todo.md`](todo.md) 看完整未完成 acceptance；[`pilot-operational-evidence.md`](pilot-operational-evidence.md) 看六個月 observation 新增 checkpoint；[`spec/operations-and-testing.md`](spec/operations-and-testing.md) 查完整歷史 evidence ledger。
+5. `archive/` 只用於歷史原因、已完成或被取代設計。
 
-文件修改、commit 或 status 摘要更新本身，都不代表功能完成。
+文件修改、commit、build 或單次 bounded success 本身，都不代表整體功能完成。

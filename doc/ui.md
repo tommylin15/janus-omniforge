@@ -1,6 +1,6 @@
 # Janus — UI Specification
 
-版本：1.8
+版本：1.9
 狀態：索引；頁面與元件契約依下列切片為準
 
 ## 目前 UI 環境定位
@@ -8,6 +8,13 @@
 目前 GCP `dev` UI 是個人使用階段的真實操作介面，不是 demo／mock UI。Janus User／Admin 畫面呈現已持久化的投資與營運資料、真實登入狀態及 Job／Scheduler 結果；資料缺失、服務不可用、partial／stale 時要明確顯示狀態，不以 sample／placeholder 假裝成功。Janus source 與 canonical dev deployment 均不含 generic Chat／Agent UI。
 
 測試 fixture、假 secret、故障注入或 localhost 頁面只供自動化／異常驗收，不應出現在正常使用者操作流或被列成正式資料來源。未來若建立獨立 Production UI，是多人化／HA／正式對外營運議題，不是目前 dev UI 能否真實使用的前置條件。
+
+## 產品完整度原則
+
+- UI shell／layout／read-path acceptance 與「資料已足以形成可用產品」是不同完成條件。只證明頁面可載入、能顯示 missing／stale，不得延伸宣稱 market coverage、portfolio valuation 或整體功能完成。
+- User「今日」必須先能呈現 deterministic published market baseline；Mart／AI Daily Brief 是 enhancement。Mart unavailable 時只降級相關研究區塊，不應讓已存在的 Core 市場資料整頁不可見。
+- 個人持股主要畫面應使用 canonical 股票名稱＋代號，正式 aggregate market value／cost basis／unrealized PnL／return 只讀 Private Mart。缺價／stale 時必須指出受影響範圍並 withholding 不可靠 aggregate，不由 Flutter 補算。
+- Admin target workspace 仍須完成 Flutter shell、overview／batch 與 stock data workbench 才能宣稱不依賴 GCP／DB 的主要營運閉環；legacy static Admin 在 parity 與 rollback gate 前保留。
 
 ## AI 最小讀取規則
 
