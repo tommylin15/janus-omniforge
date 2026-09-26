@@ -203,8 +203,8 @@ def calculate_risk_marts(events: Iterable[dict[str, Any]], positions: list[dict[
 
 
 def calculate_marts(events: Iterable[dict[str, Any]], prices: dict[str, Decimal | tuple[Decimal, date] | None],
-                    valuation_date: date) -> dict[str, list[dict[str, Any]]]:
-    rows=list(events)
+                    valuation_date: date, identities: dict[str, dict[str, Any]] | None = None) -> dict[str, list[dict[str, Any]]]:
+    rows=list(events); identities=identities or {}
     reversed_ids={str(row["reverses_event_id"]) for row in rows if row.get("event_action")=="REVERSAL"}
     active=[row for row in rows if row.get("event_action")!="REVERSAL" and str(row["event_id"]) not in reversed_ids]
     states:dict[tuple[str,str,str],dict[str,Any]]={}
@@ -240,6 +240,11 @@ def calculate_marts(events: Iterable[dict[str, Any]], prices: dict[str, Decimal 
     for (user_id,symbol,currency),state in states.items():
         if state["shares"]<=0: continue
         average=state["cost"]/state["shares"]; quote=prices.get(symbol)
+        identity=identities.get(symbol); identity_name=str(identity.get("name") or "").strip() if identity else ""
+        stock_name=identity_name or None
+        identity_status=("available" if stock_name and identity and identity.get("enabled") is True else
+                         "disabled" if stock_name and identity else "missing")
+        identity_missing_reason="stock_master_not_found" if identity_status=="missing" else None
         if isinstance(quote,tuple): price,price_date=quote
         else: price,price_date=quote,valuation_date if quote is not None else None
         price_status=("missing" if price is None else
@@ -250,9 +255,11 @@ def calculate_marts(events: Iterable[dict[str, Any]], prices: dict[str, Decimal 
         cost_basis=average*state["shares"]
         unrealized_return=(unrealized_pnl/cost_basis if unrealized_pnl is not None and cost_basis else None)
         lineage={"ledger_version":ledger_version,"price_status":price_status,
-                 "price_date":price_date.isoformat() if price_date else None,"missing_reason":missing_reason}
+                 "price_date":price_date.isoformat() if price_date else None,"missing_reason":missing_reason,
+                 "identity_status":identity_status}
         positions.append({"user_id":user_id,"symbol":symbol,"currency":currency,"shares":state["shares"],"average_cost":average,
-                          "market_price":price,"market_value":market_value,
+                          "market_price":price,"market_value":market_value,"stock_name":stock_name,
+                          "identity_status":identity_status,"identity_missing_reason":identity_missing_reason,
                           "price_status":price_status,"price_date":price_date.isoformat() if price_date else None,
                           "missing_reason":missing_reason,"lineage":str(lineage),**common})
         unrealized.append({"user_id":user_id,"symbol":symbol,"currency":currency,"unrealized_pnl":unrealized_pnl,
@@ -295,7 +302,9 @@ class PrivatePipeline:
                 self.store.upsert("watchlist_events",[{**row,"change_version":row["version"]} for row in watchlist])
                 if profile: self.store.upsert("investment_profile_revisions",[profile])
                 symbols={row["symbol"] for row in ledger}
-                marts=calculate_marts(ledger,self.prices(symbols,valuation_date),valuation_date)
+                identity_reader=getattr(self.repository,"stock_identities",None)
+                identities=identity_reader(symbols) if identity_reader else {}
+                marts=calculate_marts(ledger,self.prices(symbols,valuation_date),valuation_date,identities)
                 for table,rows in marts.items():
                     self.store.upsert(table,rows)
                 for table,rows in calculate_risk_marts(ledger,marts["mart_user_positions"],profile,

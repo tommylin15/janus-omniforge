@@ -28,6 +28,12 @@ class PrivateIcebergStore:
         "mart_user_portfolio_summary": ("user_id", "currency", "ledger_version", "valuation_date"),
     }
 
+    ADDITIVE_FIELDS = {
+        "mart_user_positions": frozenset({"stock_name","identity_status","identity_missing_reason","missing_reason"}),
+        "mart_user_unrealized_pnl": frozenset({"unrealized_return","price_date","missing_reason"}),
+        "mart_user_portfolio_summary": frozenset({"unrealized_return","aggregate_status","affected_symbol_count","affected_symbols"}),
+    }
+
     def __init__(self, catalog: Any, warehouse: str, namespace: str = "private") -> None:
         self.catalog, self.warehouse, self.namespace = catalog, warehouse.rstrip("/"), namespace
         catalog.create_namespace_if_not_exists(namespace)
@@ -106,8 +112,23 @@ class PrivateIcebergStore:
             with table.update_spec() as spec:
                 spec.add_field("user_id", "bucket[32]")
         table = self.catalog.load_table(identifier)
+        allowed=self.ADDITIVE_FIELDS.get(table_name,frozenset())
+        existing={field.name for field in table.schema().fields}
+        additions=[field for field in incoming.schema if field.name in allowed and field.name not in existing]
+        schema_evolved=bool(additions)
+        if schema_evolved:
+            with table.update_schema() as update:
+                update.union_by_name(pa.schema(additions))
+            table=self.catalog.load_table(identifier)
         incoming = pa.Table.from_pylist(normalized, schema=table.schema().as_arrow())
-        table.upsert(incoming, join_cols=list(self.TABLE_KEYS[table_name]))
+        if schema_evolved:
+            from functools import reduce
+            from pyiceberg.expressions import And, EqualTo, Or
+            predicates=[reduce(And,(EqualTo(key,row[key]) for key in self.TABLE_KEYS[table_name])) for row in normalized]
+            overwrite_filter=reduce(Or,predicates) if len(predicates)>1 else predicates[0]
+            table.overwrite(incoming, overwrite_filter=overwrite_filter)
+        else:
+            table.upsert(incoming, join_cols=list(self.TABLE_KEYS[table_name]))
         snapshot = self.catalog.load_table(identifier).current_snapshot()
         return snapshot.snapshot_id if snapshot else None
 

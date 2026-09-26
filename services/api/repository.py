@@ -170,6 +170,17 @@ class PostgresWorkspaceRepository:
                 f"SELECT * FROM private.ledger_events WHERE {' AND '.join(clauses)} ORDER BY ledger_version DESC LIMIT %s", values
             ).fetchall()]
 
+    def stock_identities(self, symbols: set[str]) -> dict[str, dict[str, Any]]:
+        requested=sorted({str(symbol).upper() for symbol in symbols if str(symbol).strip()})
+        if not requested: return {}
+        with self._connection() as connection:
+            rows=connection.execute(
+                """SELECT symbol,name,market,enabled FROM control.stock_master
+                   WHERE symbol = ANY(%s) ORDER BY symbol""",
+                (requested,),
+            ).fetchall()
+        return {str(row["symbol"]):dict(row) for row in rows}
+
     def latest_ledger_version(self, user_id: UUID) -> int:
         with self._connection() as connection:
             return connection.execute(
