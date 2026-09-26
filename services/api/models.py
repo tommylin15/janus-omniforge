@@ -189,9 +189,13 @@ class AnalysisFeedbackIn(StrictModel):
 
 class PortfolioSummaryItem(BaseModel):
     currency: str
-    market_value: Decimal
+    market_value: Decimal | None
     cost_basis: Decimal
     unrealized_pnl: Decimal | None
+    unrealized_return: Decimal | None = None
+    aggregate_status: Literal["available", "withheld"]
+    affected_symbol_count: int
+    affected_symbols: list[str]
     missing_price_count: int
     stale_price_count: int = 0
     valuation_status: Literal["available", "partial", "stale"] | None = None

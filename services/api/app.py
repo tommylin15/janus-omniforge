@@ -471,17 +471,39 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @private.get("/journal/history")
     def history(symbol: str|None=None,year:int|None=Query(None,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):
         rows=repository.ledger_history(current.user_id,symbol,year)
-        return jsonable_encoder([{**row,"net_cash_flow":ledger_net_cash_flow(row)} for row in rows])
+        symbols={str(row.get("symbol")) for row in rows if row.get("symbol")}
+        identities=repository.stock_identities(symbols) if symbols else {}
+        enriched=[]
+        for row in rows:
+            identity=identities.get(str(row.get("symbol")))
+            stock_name=str(identity.get("name") or "").strip() if identity else ""
+            identity_status=("available" if stock_name and identity and identity.get("enabled") is True else
+                             "disabled" if stock_name and identity else "missing")
+            enriched.append({**row,"stock_name":stock_name or None,"identity_status":identity_status,
+                "identity_missing_reason":"stock_master_not_found" if identity_status=="missing" else None,
+                "net_cash_flow":ledger_net_cash_flow(row)})
+        return jsonable_encoder(enriched)
 
     @private.get("/journal/positions")
     def positions(current:AuthenticatedUser=Depends(user)):
-        rows=store.mart("mart_user_positions",current.user_id)
+        summaries=store.mart("mart_user_portfolio_summary",current.user_id)
+        if not summaries: return []
+        anchors={(str(row.get("valuation_date")),int(row.get("ledger_version",0))) for row in summaries}
+        if len(anchors)!=1: return []
+        valuation_date,ledger_version=next(iter(anchors))
+        snapshot={"valuation_date":valuation_date,"ledger_version":ledger_version}
+        rows=store.mart("mart_user_positions",current.user_id,**snapshot)
         unrealized={(row.get("symbol"),row.get("currency")):row for row in
-                    store.mart("mart_user_unrealized_pnl",current.user_id)}
-        return jsonable_encoder([{**row,
-            "unrealized_pnl":unrealized.get((row.get("symbol"),row.get("currency")),{}).get("unrealized_pnl"),
-            "price_status":unrealized.get((row.get("symbol"),row.get("currency")),{}).get("price_status", "missing")}
-            for row in rows])
+                    store.mart("mart_user_unrealized_pnl",current.user_id,**snapshot)}
+        result=[]
+        for row in rows:
+            detail=unrealized.get((row.get("symbol"),row.get("currency")),{})
+            result.append({**row,"unrealized_pnl":detail.get("unrealized_pnl"),
+                "unrealized_return":detail.get("unrealized_return"),
+                "price_status":row.get("price_status") or detail.get("price_status","missing"),
+                "price_date":row.get("price_date") or detail.get("price_date"),
+                "missing_reason":row.get("missing_reason") or detail.get("missing_reason")})
+        return jsonable_encoder(result)
 
     @private.get("/journal/pnl")
     def pnl(year:int=Query(...,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):
@@ -499,6 +521,17 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         if table=="mart_user_exposure":
             for row in rows:
                 row["symbols"]=json.loads(row["symbols"]); row["membership_snapshot"]=json.loads(row["membership_snapshot"])
+        if table=="mart_user_portfolio_summary":
+            for row in rows:
+                missing=int(row.get("missing_price_count") or 0); stale=int(row.get("stale_price_count") or 0)
+                affected=bool(missing or stale)
+                row.setdefault("aggregate_status","withheld" if affected else "available")
+                raw=row.get("affected_symbols",[])
+                row["affected_symbols"]=json.loads(raw) if isinstance(raw,str) else list(raw or [])
+                row.setdefault("affected_symbol_count",len(row["affected_symbols"]))
+                row.setdefault("unrealized_return",None)
+                if row["aggregate_status"]=="withheld":
+                    row["market_value"]=None; row["unrealized_pnl"]=None; row["unrealized_return"]=None
         return {"items":rows}
 
     @private.get("/portfolio/summary", response_model=PortfolioSummaryOut)
