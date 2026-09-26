@@ -21,6 +21,25 @@ verify_job() {
   fi
 }
 
+verify_png() {
+  local path="$1"
+  local expected_width="$2"
+  local expected_height="$3"
+  python - "${path}" "${expected_width}" "${expected_height}" <<'PY'
+import pathlib
+import struct
+import sys
+
+payload = pathlib.Path(sys.argv[1]).read_bytes()
+expected = (int(sys.argv[2]), int(sys.argv[3]))
+if len(payload) < 32 or not payload.startswith(b"\x89PNG\r\n\x1a\n"):
+    raise SystemExit("payload is not a valid PNG")
+width, height = struct.unpack(">II", payload[16:24])
+if (width, height) != expected:
+    raise SystemExit(f"unexpected PNG size {(width, height)} != {expected}")
+PY
+}
+
 verify_service() {
   local service="$1"
   echo "--- Cloud Run service: ${service} ---"
@@ -49,7 +68,7 @@ verify_service() {
   fi
 
   if [[ "${service}" == "janus-api" && "${GITHUB_SHA:-}" =~ ^[0-9a-f]{7,64}$ ]]; then
-    local service_url build_id index_html expected_bootstrap brand_image app_icon pwa_icon pwa_icon_512 manifest_json
+    local service_url build_id index_html expected_bootstrap brand_image app_icon pwa_icon pwa_icon_512 maskable_icon manifest_json
     service_url="$(gcloud run services describe "${service}" \
       --project="${project}" --region="${region}" --format='value(status.url)')"
     build_id="$(curl -fsS --retry 6 --retry-delay 2 \
@@ -69,7 +88,7 @@ verify_service() {
       echo "janus-api index does not reference ${expected_bootstrap}" >&2
       return 1
     fi
-    if [[ "${index_html}" != *"/app/manifest.json"* || "${index_html}" != *"/app/icons/Icon-192.png"* ]]; then
+    if [[ "${index_html}" != *"/app/manifest.json"* || "${index_html}" != *"/app/apple-touch-icon.png"* || "${index_html}" != *"/app/favicon.png"* ]]; then
       echo "janus-api index does not advertise the canonical /app PWA metadata" >&2
       return 1
     fi
@@ -80,7 +99,6 @@ verify_service() {
     python - "${brand_image}" <<'PY'
 import pathlib
 import sys
-
 payload = pathlib.Path(sys.argv[1]).read_bytes()
 if len(payload) < 10_000 or not payload.startswith(b"\xff\xd8"):
     raise SystemExit("Janus brand image is missing or is not a valid JPEG payload")
@@ -89,49 +107,33 @@ PY
 
     app_icon="$(mktemp)"
     curl -fsS --retry 6 --retry-delay 2 \
-      "${service_url}/app/assets/assets/branding/janus_app_icon_512.webp?expected=${GITHUB_SHA}" -o "${app_icon}"
-    python - "${app_icon}" <<'PY'
-import pathlib
-import sys
-
-payload = pathlib.Path(sys.argv[1]).read_bytes()
-if len(payload) < 10_000 or not payload.startswith(b"RIFF") or payload[8:12] != b"WEBP":
-    raise SystemExit("Janus Flutter brand icon is missing or is not a valid high-resolution WebP payload")
-PY
+      "${service_url}/app/assets/assets/branding/janus_app_icon_512.png?expected=${GITHUB_SHA}" -o "${app_icon}"
+    verify_png "${app_icon}" 512 512
     rm -f "${app_icon}"
 
     pwa_icon="$(mktemp)"
     curl -fsS --retry 6 --retry-delay 2 \
       "${service_url}/app/icons/Icon-192.png?expected=${GITHUB_SHA}" -o "${pwa_icon}"
-    python - "${pwa_icon}" <<'PY'
-import pathlib
-import sys
-
-payload = pathlib.Path(sys.argv[1]).read_bytes()
-if len(payload) < 5_000 or not payload.startswith(b"\x89PNG\r\n\x1a\n"):
-    raise SystemExit("Janus PWA 192 icon is missing or is not a valid PNG payload")
-PY
+    verify_png "${pwa_icon}" 192 192
     rm -f "${pwa_icon}"
 
     pwa_icon_512="$(mktemp)"
     curl -fsS --retry 6 --retry-delay 2 \
-      "${service_url}/app/icons/Icon-512.webp?expected=${GITHUB_SHA}" -o "${pwa_icon_512}"
-    python - "${pwa_icon_512}" <<'PY'
-import pathlib
-import sys
-
-payload = pathlib.Path(sys.argv[1]).read_bytes()
-if len(payload) < 10_000 or not payload.startswith(b"RIFF") or payload[8:12] != b"WEBP":
-    raise SystemExit("Janus PWA 512 icon is missing or is not a valid WebP payload")
-PY
+      "${service_url}/app/icons/Icon-512.png?expected=${GITHUB_SHA}" -o "${pwa_icon_512}"
+    verify_png "${pwa_icon_512}" 512 512
     rm -f "${pwa_icon_512}"
+
+    maskable_icon="$(mktemp)"
+    curl -fsS --retry 6 --retry-delay 2 \
+      "${service_url}/app/icons/maskable-512.png?expected=${GITHUB_SHA}" -o "${maskable_icon}"
+    verify_png "${maskable_icon}" 512 512
+    rm -f "${maskable_icon}"
 
     manifest_json="$(curl -fsS --retry 6 --retry-delay 2 \
       "${service_url}/app/manifest.json?expected=${GITHUB_SHA}")"
     python - "${manifest_json}" <<'PY'
 import json
 import sys
-
 manifest = json.loads(sys.argv[1])
 if manifest.get("id") != "/app/":
     raise SystemExit("Janus manifest id is not /app/")
@@ -139,14 +141,18 @@ if manifest.get("start_url") != "/app/":
     raise SystemExit("Janus manifest start_url is not /app/")
 if manifest.get("scope") != "/app/":
     raise SystemExit("Janus manifest scope is not /app/")
-icons = {(item.get("src"), item.get("sizes"), item.get("type")) for item in manifest.get("icons", [])}
-if ("/app/icons/Icon-192.png", "192x192", "image/png") not in icons:
-    raise SystemExit("Janus manifest does not advertise the 192 PNG icon")
-if ("/app/icons/Icon-512.webp", "512x512", "image/webp") not in icons:
-    raise SystemExit("Janus manifest does not advertise the 512 high-resolution icon")
+icons = {(item.get("src"), item.get("sizes"), item.get("type"), item.get("purpose")) for item in manifest.get("icons", [])}
+required = {
+    ("/app/icons/Icon-192.png", "192x192", "image/png", "any"),
+    ("/app/icons/Icon-512.png", "512x512", "image/png", "any"),
+    ("/app/icons/maskable-512.png", "512x512", "image/png", "maskable"),
+}
+missing = required - icons
+if missing:
+    raise SystemExit(f"Janus manifest is missing PNG install icons: {sorted(missing)}")
 PY
 
-    echo "janus-api traffic, web build, high-resolution branding, and PWA metadata match ${GITHUB_SHA}"
+    echo "janus-api traffic, web build, high-resolution PNG branding, and PWA metadata match ${GITHUB_SHA}"
   fi
 }
 
