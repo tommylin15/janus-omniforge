@@ -1,4 +1,4 @@
-name: Apply Portfolio Completeness Core
+name: Apply Portfolio Completeness Identity
 
 on:
   push:
@@ -29,49 +29,72 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r services/api/requirements.lock
           python -m pip install -r requirements-dev.txt
-      - name: Apply bounded Private Mart changes
+      - name: Apply canonical identity and schema changes
         run: |
           python - <<'PY'
           from pathlib import Path
 
+          # Repository: bounded canonical stock-master reader.
+          path = Path('services/api/repository.py')
+          text = path.read_text()
+          anchor = '''    def latest_ledger_version(self, user_id: UUID) -> int:\n'''
+          method = '''    def stock_identities(self, symbols: set[str]) -> dict[str, dict[str, Any]]:\n        requested=sorted({str(symbol).upper() for symbol in symbols if str(symbol).strip()})\n        if not requested: return {}\n        with self._connection() as connection:\n            rows=connection.execute(\n                \"\"\"SELECT symbol,name,market,enabled FROM control.stock_master\n                   WHERE symbol = ANY(%s) ORDER BY symbol\"\"\",\n                (requested,),\n            ).fetchall()\n        return {str(row[\"symbol\"]):dict(row) for row in rows}\n\n'''
+          if 'def stock_identities(' not in text:
+              if anchor not in text: raise SystemExit('repository identity anchor not found')
+              text = text.replace(anchor, method + anchor, 1)
+          path.write_text(text)
+
+          # Private Mart: attach canonical identity and pass it from the pipeline.
           path = Path('services/api/private_pipeline.py')
           text = path.read_text()
-
-          old = '''    totals:dict[str,dict[str,Any]]=defaultdict(lambda:{"market_value":ZERO,"cost_basis":ZERO,\n        "missing_price_count":0,"stale_price_count":0})\n'''
-          new = '''    totals:dict[str,dict[str,Any]]=defaultdict(lambda:{"market_value":ZERO,"cost_basis":ZERO,\n        "missing_price_count":0,"stale_price_count":0,"affected_symbols":set()})\n'''
-          if old not in text:
-              raise SystemExit('risk totals anchor not found')
+          old = '''def calculate_marts(events: Iterable[dict[str, Any]], prices: dict[str, Decimal | tuple[Decimal, date] | None],\n                    valuation_date: date) -> dict[str, list[dict[str, Any]]]:\n    rows=list(events)\n'''
+          new = '''def calculate_marts(events: Iterable[dict[str, Any]], prices: dict[str, Decimal | tuple[Decimal, date] | None],\n                    valuation_date: date, identities: dict[str, dict[str, Any]] | None = None) -> dict[str, list[dict[str, Any]]]:\n    rows=list(events); identities=identities or {}\n'''
+          if old not in text: raise SystemExit('calculate_marts signature anchor not found')
           text = text.replace(old, new, 1)
 
-          old = '''        if position.get("price_status")=="stale": total["stale_price_count"]+=1\n        if position["market_value"] is None: total["missing_price_count"]+=1; continue\n'''
-          new = '''        if position.get("price_status")=="stale":\n            total["stale_price_count"]+=1; total["affected_symbols"].add(position["symbol"])\n        if position["market_value"] is None:\n            total["missing_price_count"]+=1; total["affected_symbols"].add(position["symbol"]); continue\n'''
-          if old not in text:
-              raise SystemExit('risk status anchor not found')
+          old = '''        average=state[\"cost\"]/state[\"shares\"]; quote=prices.get(symbol)\n        if isinstance(quote,tuple): price,price_date=quote\n'''
+          new = '''        average=state[\"cost\"]/state[\"shares\"]; quote=prices.get(symbol)\n        identity=identities.get(symbol); identity_name=str(identity.get(\"name\") or \"\").strip() if identity else \"\"\n        stock_name=identity_name or None\n        identity_status=(\"available\" if stock_name and identity and identity.get(\"enabled\") is True else\n                         \"disabled\" if stock_name and identity else \"missing\")\n        identity_missing_reason=\"stock_master_not_found\" if identity_status==\"missing\" else None\n        if isinstance(quote,tuple): price,price_date=quote\n'''
+          if old not in text: raise SystemExit('position identity anchor not found')
           text = text.replace(old, new, 1)
 
-          old = '''        summary.append({**common,"currency":currency,"market_value":total["market_value"],"cost_basis":total["cost_basis"],\n            "unrealized_pnl":total["market_value"]-total["cost_basis"] if not (\n                total["missing_price_count"] or total["stale_price_count"]\n            ) else None,\n            "missing_price_count":total["missing_price_count"],"stale_price_count":total["stale_price_count"],\n            "valuation_status":("partial" if total["missing_price_count"] else\n                "stale" if total["stale_price_count"] else "available"),"cash_safety_status":"insufficient_data",\n            "cash_ratio":None,"minimum_cash_ratio":minimum_cash})\n'''
-          new = '''        affected=bool(total["missing_price_count"] or total["stale_price_count"])\n        market_value=None if affected else total["market_value"]\n        unrealized_pnl=None if affected else total["market_value"]-total["cost_basis"]\n        unrealized_return=(unrealized_pnl/total["cost_basis"] if unrealized_pnl is not None and total["cost_basis"] else None)\n        affected_symbols=json.dumps(sorted(total["affected_symbols"]),separators=(",",":"))\n        summary.append({**common,"currency":currency,"market_value":market_value,"cost_basis":total["cost_basis"],\n            "unrealized_pnl":unrealized_pnl,"unrealized_return":unrealized_return,\n            "aggregate_status":"withheld" if affected else "available",\n            "affected_symbol_count":len(total["affected_symbols"]),"affected_symbols":affected_symbols,\n            "missing_price_count":total["missing_price_count"],"stale_price_count":total["stale_price_count"],\n            "valuation_status":("partial" if total["missing_price_count"] else\n                "stale" if total["stale_price_count"] else "available"),"cash_safety_status":"insufficient_data",\n            "cash_ratio":None,"minimum_cash_ratio":minimum_cash})\n'''
-          if old not in text:
-              raise SystemExit('summary anchor not found')
+          old = '''        lineage={\"ledger_version\":ledger_version,\"price_status\":price_status,\n                 \"price_date\":price_date.isoformat() if price_date else None,\"missing_reason\":missing_reason}\n        positions.append({\"user_id\":user_id,\"symbol\":symbol,\"currency\":currency,\"shares\":state[\"shares\"],\"average_cost\":average,\n                          \"market_price\":price,\"market_value\":market_value,\n                          \"price_status\":price_status,\"price_date\":price_date.isoformat() if price_date else None,\n                          \"missing_reason\":missing_reason,\"lineage\":str(lineage),**common})\n'''
+          new = '''        lineage={\"ledger_version\":ledger_version,\"price_status\":price_status,\n                 \"price_date\":price_date.isoformat() if price_date else None,\"missing_reason\":missing_reason,\n                 \"identity_status\":identity_status}\n        positions.append({\"user_id\":user_id,\"symbol\":symbol,\"currency\":currency,\"shares\":state[\"shares\"],\"average_cost\":average,\n                          \"market_price\":price,\"market_value\":market_value,\"stock_name\":stock_name,\n                          \"identity_status\":identity_status,\"identity_missing_reason\":identity_missing_reason,\n                          \"price_status\":price_status,\"price_date\":price_date.isoformat() if price_date else None,\n                          \"missing_reason\":missing_reason,\"lineage\":str(lineage),**common})\n'''
+          if old not in text: raise SystemExit('position row anchor not found')
           text = text.replace(old, new, 1)
 
-          old = '''        price_status=("missing" if price is None else\n                      "stale" if price_date is not None and price_date<valuation_date else "available")\n        lineage={"ledger_version":ledger_version,"price_status":price_status,\n                 "price_date":price_date.isoformat() if price_date else None}\n        positions.append({"user_id":user_id,"symbol":symbol,"currency":currency,"shares":state["shares"],"average_cost":average,\n                          "market_price":price,"market_value":price*state["shares"] if price is not None else None,\n                          "price_status":price_status,"price_date":price_date.isoformat() if price_date else None,\n                          "lineage":str(lineage),**common})\n        unrealized.append({"user_id":user_id,"symbol":symbol,"currency":currency,"unrealized_pnl":\n                           (price-average)*state["shares"] if price is not None else None,\n                           "price_status":price_status,"lineage":str(lineage),**common})\n'''
-          new = '''        price_status=("missing" if price is None else\n                      "stale" if price_date is not None and price_date<valuation_date else "available")\n        missing_reason="no_eligible_persisted_ohlcv" if price is None else None\n        market_value=price*state["shares"] if price is not None else None\n        unrealized_pnl=(price-average)*state["shares"] if price is not None else None\n        cost_basis=average*state["shares"]\n        unrealized_return=(unrealized_pnl/cost_basis if unrealized_pnl is not None and cost_basis else None)\n        lineage={"ledger_version":ledger_version,"price_status":price_status,\n                 "price_date":price_date.isoformat() if price_date else None,"missing_reason":missing_reason}\n        positions.append({"user_id":user_id,"symbol":symbol,"currency":currency,"shares":state["shares"],"average_cost":average,\n                          "market_price":price,"market_value":market_value,\n                          "price_status":price_status,"price_date":price_date.isoformat() if price_date else None,\n                          "missing_reason":missing_reason,"lineage":str(lineage),**common})\n        unrealized.append({"user_id":user_id,"symbol":symbol,"currency":currency,"unrealized_pnl":unrealized_pnl,\n                           "unrealized_return":unrealized_return,"price_status":price_status,\n                           "price_date":price_date.isoformat() if price_date else None,"missing_reason":missing_reason,\n                           "lineage":str(lineage),**common})\n'''
-          if old not in text:
-              raise SystemExit('position anchor not found')
+          old = '''                symbols={row[\"symbol\"] for row in ledger}\n                marts=calculate_marts(ledger,self.prices(symbols,valuation_date),valuation_date)\n'''
+          new = '''                symbols={row[\"symbol\"] for row in ledger}\n                identity_reader=getattr(self.repository,\"stock_identities\",None)\n                identities=identity_reader(symbols) if identity_reader else {}\n                marts=calculate_marts(ledger,self.prices(symbols,valuation_date),valuation_date,identities)\n'''
+          if old not in text: raise SystemExit('pipeline identity anchor not found')
           text = text.replace(old, new, 1)
-
           path.write_text(text)
+
+          # Private Iceberg: evolve only explicitly approved fields, never arbitrary incoming keys.
+          path = Path('services/api/store.py')
+          text = path.read_text()
+          anchor = '''    def __init__(self, catalog: Any, warehouse: str, namespace: str = \"private\") -> None:\n'''
+          additions = '''    ADDITIVE_FIELDS = {\n        \"mart_user_positions\": frozenset({\"stock_name\",\"identity_status\",\"identity_missing_reason\",\"missing_reason\"}),\n        \"mart_user_unrealized_pnl\": frozenset({\"unrealized_return\",\"price_date\",\"missing_reason\"}),\n        \"mart_user_portfolio_summary\": frozenset({\"unrealized_return\",\"aggregate_status\",\"affected_symbol_count\",\"affected_symbols\"}),\n    }\n\n'''
+          if 'ADDITIVE_FIELDS =' not in text:
+              if anchor not in text: raise SystemExit('store class anchor not found')
+              text = text.replace(anchor, additions + anchor, 1)
+
+          old = '''        table = self.catalog.load_table(identifier)\n        incoming = pa.Table.from_pylist(normalized, schema=table.schema().as_arrow())\n'''
+          new = '''        table = self.catalog.load_table(identifier)\n        allowed=self.ADDITIVE_FIELDS.get(table_name,frozenset())\n        existing={field.name for field in table.schema().fields}\n        additions=[field for field in incoming.schema if field.name in allowed and field.name not in existing]\n        if additions:\n            with table.update_schema() as update:\n                update.union_by_name(pa.schema(additions))\n            table=self.catalog.load_table(identifier)\n        incoming = pa.Table.from_pylist(normalized, schema=table.schema().as_arrow())\n'''
+          if old not in text: raise SystemExit('store schema anchor not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text)
+
+          migration = Path('infra/postgres/migrations/030_private_stock_master_read.sql')
+          migration.write_text('''BEGIN;\n\nGRANT USAGE ON SCHEMA control TO janus_private_api, janus_private_pipeline;\nGRANT SELECT ON control.stock_master TO janus_private_api, janus_private_pipeline;\n\nCOMMIT;\n''')
           PY
-      - name: Run RED-to-GREEN targeted tests
+      - name: Run identity RED-to-GREEN tests
         env:
           PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
         run: |
-          python -m pytest -q tests/test_portfolio_completeness.py tests/test_private_pipeline.py
-      - name: Commit green core
+          python -m pytest -q tests/test_portfolio_completeness.py tests/test_private_pipeline.py tests/test_postgres_web_roles.py
+      - name: Commit identity green
         run: |
           git config user.name 'janus-ci'
           git config user.email 'janus-ci@users.noreply.github.com'
-          git add services/api/private_pipeline.py
-          git commit -m 'feat: complete portfolio valuation contract'
+          git add services/api/repository.py services/api/private_pipeline.py services/api/store.py infra/postgres/migrations/030_private_stock_master_read.sql
+          git commit -m 'feat: resolve canonical portfolio identities'
           git push origin HEAD:main
