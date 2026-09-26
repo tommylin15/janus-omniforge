@@ -33,6 +33,23 @@ String uiLabel(Object? value) => const {
       'STOCK_DIV': '股票股利',
     }[value?.toString()] ?? value?.toString() ?? '—';
 
+String stockDisplayName(Map row) {
+  final symbol = '${row['symbol'] ?? '—'}';
+  final name = '${row['stock_name'] ?? ''}'.trim();
+  return name.isEmpty ? symbol : '$name（$symbol）';
+}
+
+String portfolioReturnLabel(Object? value) {
+  if (value == null) return '資料不足';
+  final ratio = double.tryParse('$value');
+  return ratio == null ? '$value' : '${(ratio * 100).toStringAsFixed(2)}%';
+}
+
+String portfolioMissingReasonLabel(Object? value) => const {
+      'no_eligible_persisted_ohlcv': '缺少符合估值日的正式行情',
+      'stock_master_not_found': '股票主檔缺少正式名稱',
+    }[value?.toString()] ?? '';
+
 List<dynamic> effectiveLedgerEvents(List<dynamic> rows) {
   final reversedIds = rows
       .where((row) => row['event_action'] == 'REVERSAL')
@@ -758,7 +775,7 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
   Future<void> showDetails(Map row) async {
     final details = [
       '${row['trade_date'] ?? '—'} · ${uiLabel(row['event_type'])}',
-      '股票：${row['symbol'] ?? '—'}',
+      '股票：${stockDisplayName(row)}',
       if (row['shares'] != null) '股數：${row['shares']}',
       if (row['price'] != null) '成交單價：${row['price']}',
       if (row['cash_amount'] != null) '股利金額：${row['cash_amount']}',
@@ -768,7 +785,7 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
       if ('${row['memo'] ?? ''}'.isNotEmpty) '備註：${row['memo']}',
     ];
     final edit = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
-      title: Text('${uiLabel(row['event_type'])} ${row['symbol'] ?? ''}'),
+      title: Text('${uiLabel(row['event_type'])} ${stockDisplayName(row)}'),
       content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
         children: [for (final value in details) Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Text(value))]),
       actions: [
@@ -795,8 +812,8 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
         Wrap(spacing: 12, runSpacing: 12, children: [for (final row in values)
           SizedBox(width: width, child: Card(child: ListTile(
             onTap: () => widget.onOpenStock?.call('${row['symbol']}'),
-            title: Text('${row['symbol']} · ${row['currency'] ?? 'TWD'}'),
-            subtitle: Text('持有 ${row['shares'] ?? '—'} 股 · 現價 ${row['market_price'] ?? '—'} · 均價 ${row['average_cost'] ?? '—'}\n市值 ${row['market_value'] ?? '缺價'} · 未實現損益 ${row['unrealized_pnl'] ?? '資料不足'}\n估值日 ${row['valuation_date'] ?? '—'} · 行情日 ${row['price_date'] ?? '—'} · ${row['price_status'] == 'missing' ? '缺價' : row['price_status'] == 'stale' ? '資料過期' : '可用'}'),
+            title: Text('${stockDisplayName(row)} · ${row['currency'] ?? 'TWD'}'),
+            subtitle: Text('持有 ${row['shares'] ?? '—'} 股 · 現價 ${row['market_price'] ?? '—'} · 均價 ${row['average_cost'] ?? '—'}\n市值 ${row['market_value'] ?? '缺價'} · 未實現損益 ${row['unrealized_pnl'] ?? '資料不足'} · 未實現報酬 ${portfolioReturnLabel(row['unrealized_return'])}\n估值日 ${row['valuation_date'] ?? '—'} · 行情日 ${row['price_date'] ?? '—'} · ${row['price_status'] == 'missing' ? '缺價' : row['price_status'] == 'stale' ? '資料過期' : '可用'}${portfolioMissingReasonLabel(row['missing_reason']).isEmpty ? '' : ' · ${portfolioMissingReasonLabel(row['missing_reason'])}'}'),
             isThreeLine: true,
           )))]),
       ]);
@@ -843,7 +860,7 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
             ] else const ListTile(title: Text('摘要等待投資組合批次更新')),
             ...((byMonth[month]!..sort((a, b) => '${b['trade_date']}'.compareTo('${a['trade_date']}'))).map((row) => ListTile(
               onTap: () => showDetails(row as Map),
-              title: Text('${uiLabel(row['event_type'])} · ${row['symbol']}'),
+              title: Text('${uiLabel(row['event_type'])} · ${stockDisplayName(row)}'),
               subtitle: Text('${row['trade_date']} · ${row['shares'] != null ? '${row['shares']} 股 × ${row['price'] ?? '—'}' : '股利 ${row['cash_amount'] ?? '—'}'}\n淨現金流 ${row['net_cash_flow'] ?? '—'} ${row['currency'] ?? 'TWD'}'),
               trailing: IconButton(tooltip: '建立更正', icon: const Icon(Icons.edit_note), onPressed: () => correct(row as Map)),
             )))
@@ -935,16 +952,22 @@ class SummaryCards extends StatelessWidget {
         final pnl = _asList(data[1]);
         final realized = pnl.isEmpty ? '資料不足' : pnl.length == 1
             ? '${pnl.first['currency']} ${pnl.first['realized_pnl'] ?? '資料不足'}' : '多幣別';
-        final value = portfolio.isEmpty ? '資料不足' : portfolio.length == 1
+        final aggregateWithheld = portfolio.any((row) => row['aggregate_status'] == 'withheld');
+        final value = aggregateWithheld ? '總額暫不發布' : portfolio.isEmpty ? '資料不足' : portfolio.length == 1
             ? '${portfolio.first['currency']} ${portfolio.first['market_value'] ?? '資料不足'}' : '多幣別';
-        final unrealized = portfolio.isEmpty ? '資料不足' : portfolio.length == 1
+        final unrealized = aggregateWithheld ? '總額暫不發布' : portfolio.isEmpty ? '資料不足' : portfolio.length == 1
             ? '${portfolio.first['currency']} ${portfolio.first['unrealized_pnl'] ?? ((portfolio.first['stale_price_count'] ?? 0) > 0 ? '資料過期' : '資料不足')}' : '多幣別';
         final pending = _asList(data[2])
             .where((row) => row['needs_follow_up'] == true)
             .length;
         final hasMissing = portfolio.any((row) => (row['missing_price_count'] ?? 0) > 0);
         final hasStale = portfolio.any((row) => (row['stale_price_count'] ?? 0) > 0);
-        final valuationStatus = hasMissing && hasStale ? '部分可用，含缺價與過期行情'
+        final affectedStatus = portfolio.where((row) => row['aggregate_status'] == 'withheld').map((row) {
+          final symbols = _asList(row['affected_symbols']).join('、');
+          return '受影響 ${row['affected_symbol_count'] ?? _asList(row['affected_symbols']).length} 檔${symbols.isEmpty ? '' : '：$symbols'}';
+        }).join(' / ');
+        final valuationStatus = aggregateWithheld ? affectedStatus
+            : hasMissing && hasStale ? '部分可用，含缺價與過期行情'
             : hasMissing ? '部分可用，含缺價' : hasStale ? '行情過期' : '資料完整';
         return SizedBox(
             height: 124,
@@ -1066,7 +1089,9 @@ class _PortfolioDashboardState extends State<PortfolioDashboard> {
         const Divider(height: 32),
         for (final row in summary.cast<Map<String, dynamic>>())
           ListTile(title: Text('${row['currency']} 投資組合'),
-            subtitle: Text('市值 ${money(row['market_value'])}・未實現 ${money(row['unrealized_pnl'])}'),
+            subtitle: Text(row['aggregate_status'] == 'withheld'
+              ? '總額暫不發布・受影響 ${row['affected_symbol_count'] ?? _asList(row['affected_symbols']).length} 檔${_asList(row['affected_symbols']).isEmpty ? '' : '：${_asList(row['affected_symbols']).join('、')}'}'
+              : '市值 ${money(row['market_value'])}・未實現 ${money(row['unrealized_pnl'])}・未實現報酬 ${portfolioReturnLabel(row['unrealized_return'])}'),
             trailing: Text(row['cash_safety_status'] == 'insufficient_data' ? '現金資料不足' : '${row['cash_ratio']}')),
         ExpansionTile(title: const Text('產業曝險'), children: [
           for (final row in exposure.cast<Map<String, dynamic>>())
