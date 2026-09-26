@@ -34,6 +34,12 @@ Drive 與 GitHub 不同時，目前實作狀態以 GitHub／runtime evidence 為
 
 費用、安全性、不可逆大量刪除、擴大權限、production／新付費資源等決定必須取得使用者明確授權。需要人工輸入帳密、MFA、OAuth consent 或其他資訊時，不得自行猜測。
 
+### 1.4 專案 Skill 使用邊界
+
+- **Janus／OmniForge 專案不使用 Superpowers plugin／skill。** 處理本專案的分析、規劃、實作、debug、testing、review、verification 或 completion 判定時，不得主動 invoke `using-superpowers`、`brainstorming`、`writing-plans`、`systematic-debugging`、`test-driven-development`、`verification-before-completion` 或其他 Superpowers skills。
+- Superpowers 即使安裝在 ChatGPT／Codex 執行環境，也不是 Janus 的權威來源、工作方法、WBS prerequisite、acceptance gate 或完成判定依據；不得因其存在而改變本文件、active `todo.md`、WBS／SPEC、GitHub `main` 或 runtime evidence 所定義的流程。
+- 本專案的工程工作直接依本文件、active TODO／WBS／SPEC、repository implementation、tests／CI 與真實 runtime evidence 執行。除非使用者日後在 Janus 專案內明確修改本規則，否則不得以通用 workflow skill 覆蓋或包裝 Janus 專案流程。
+
 ## 2. Dev 平行上線環境政策
 
 - 目前 `dev` 是 Janus 個人使用階段的主要真實運行環境（parallel-live environment），不是只供假資料、mock、demo 或 pre-production 演練的 staging。
