@@ -12,7 +12,6 @@ permissions:
 
 env:
   GCP_PROJECT_ID: gen-lang-client-0593591102
-  GCP_ZONE: us-central1-a
 
 jobs:
   inspect:
@@ -23,15 +22,7 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Describe failed ACL build
-        run: gcloud builds describe 831df3c9-432c-434b-9648-2f2e8b4f293f --project="${GCP_PROJECT_ID}"
-      - name: Print failed ACL build logs
-        run: gcloud builds log 831df3c9-432c-434b-9648-2f2e8b4f293f --project="${GCP_PROJECT_ID}" || true
-      - name: Probe direct IAP SSH as CI identity
-        run: >-
-          gcloud compute ssh janus-postgres-dev
-          --project="${GCP_PROJECT_ID}"
-          --zone="${GCP_ZONE}"
-          --tunnel-through-iap
-          --quiet
-          --command='echo JANUS_IAP_SSH_OK'
+      - name: Describe bounded IAP bootstrap build
+        run: gcloud builds describe c4b92126-c411-497f-b044-b7dd604d828d --project="${GCP_PROJECT_ID}"
+      - name: Print bounded IAP bootstrap build logs
+        run: gcloud builds log c4b92126-c411-497f-b044-b7dd604d828d --project="${GCP_PROJECT_ID}" || true
