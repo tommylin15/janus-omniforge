@@ -13,6 +13,8 @@ permissions:
 
 env:
   GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_ZONE: us-central1-a
+  POSTGRES_VM: janus-postgres-dev
 
 jobs:
   migrate:
@@ -37,12 +39,40 @@ jobs:
           esac
           test -f "infra/postgres/migrations/${migration}"
           echo "migration=${migration}" >> "${GITHUB_OUTPUT}"
-      - name: Apply migration through Cloud Build
+      - name: Apply migration through existing IAP path
         shell: bash
+        env:
+          MIGRATION: ${{ steps.request.outputs.migration }}
         run: |
           set -Eeuo pipefail
-          gcloud builds submit . \
-            --project="${GCP_PROJECT_ID}" \
-            --config=scripts/gcp/cloudbuild-control-migration.yaml \
-            --substitutions="_MIGRATION=${{ steps.request.outputs.migration }}" \
-            --quiet
+          source="infra/postgres/migrations/${MIGRATION}"
+          remote="/tmp/janus-control-migration-${GITHUB_RUN_ID}.sql"
+          cleanup() {
+            gcloud compute ssh "${POSTGRES_VM}" \
+              --project="${GCP_PROJECT_ID}" --zone="${GCP_ZONE}" \
+              --tunnel-through-iap --quiet \
+              --command="sudo rm -f '${remote}' /tmp/janus-control-migration.sql" \
+              >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          gcloud compute scp "${source}" "${POSTGRES_VM}:${remote}" \
+            --project="${GCP_PROJECT_ID}" --zone="${GCP_ZONE}" \
+            --tunnel-through-iap --quiet
+
+          gcloud compute ssh "${POSTGRES_VM}" \
+            --project="${GCP_PROJECT_ID}" --zone="${GCP_ZONE}" \
+            --tunnel-through-iap --quiet --command="
+              set -eu
+              sudo docker cp '${remote}' janus-postgres:/tmp/janus-control-migration.sql
+              sudo docker exec --user postgres janus-postgres \
+                psql -v ON_ERROR_STOP=1 -U postgres -d janus_control \
+                -f /tmp/janus-control-migration.sql
+              sudo docker exec --user postgres janus-postgres \
+                psql -v ON_ERROR_STOP=1 -U postgres -d janus_control -Atc \
+                \"SELECT version FROM control.schema_migrations WHERE version='029_twse_2026_holiday_overrides';\"
+              sudo docker exec --user postgres janus-postgres \
+                psql -v ON_ERROR_STOP=1 -U postgres -d janus_control -Atc \
+                \"SELECT jsonb_build_object('time',value_json->'time','enabled',value_json->'enabled','holiday_overrides',value_json->'holiday_overrides','version',version,'updated_by',updated_by) FROM control.admin_settings WHERE setting_key='schedule';\"
+              sudo rm -f '${remote}'
+            "
