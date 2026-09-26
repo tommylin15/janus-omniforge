@@ -1,6 +1,7 @@
 from contextlib import contextmanager
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 from uuid import UUID, uuid4
 
 from services.api.private_pipeline import calculate_marts, calculate_risk_marts
@@ -9,6 +10,7 @@ from services.api.store import PrivateIcebergStore
 
 
 USER = UUID("00000000-0000-0000-0000-000000000001")
+ROOT = Path(__file__).parents[1]
 
 
 def event(version: int, event_type: str, when: date, *, shares: str = "1", price: str = "100") -> dict:
@@ -190,3 +192,10 @@ def test_private_store_additively_evolves_position_schema(tmp_path):
 
     fields = {field.name for field in catalog.load_table("private.mart_user_positions").schema().fields}
     assert {"stock_name", "identity_status", "identity_missing_reason", "missing_reason"} <= fields
+
+
+def test_private_roles_have_bounded_stock_master_read_access():
+    sql = (ROOT / "infra" / "postgres" / "migrations" / "030_private_stock_master_read.sql").read_text(encoding="utf-8")
+    assert "GRANT USAGE ON SCHEMA control TO janus_private_api, janus_private_pipeline" in sql
+    assert "GRANT SELECT ON control.stock_master TO janus_private_api, janus_private_pipeline" in sql
+    assert "ALL PRIVILEGES" not in sql.upper()
