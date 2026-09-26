@@ -1,4 +1,4 @@
 {
-  "request_id": "legacy-deployment-controller-cleanup-20260926-1",
-  "mode": "cleanup"
+  "request_id": "legacy-deployment-controller-post-acceptance-20260926-1",
+  "mode": "verify"
 }
