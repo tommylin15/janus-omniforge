@@ -88,6 +88,62 @@ GitHub Actions run `36228336655`：
 
 結果：`PASS`。canonical runtime 在 legacy cleanup 後仍正常。
 
-## 後續治理觀察
+## Deployment controller consolidation 驗證
 
-同一時段的 runtime evidence 亦顯示 `janus-ingestion-core` 與 `janus-intelligence-mart` 的 regional Cloud Build triggers 曾與 GitHub deployment path 並行觸發並失敗。這兩個 workload 不屬於本次 `janus-web` 修復範圍，本事故沒有刪除或修改它們；應另開 bounded deployment-controller consolidation 項目確認是否仍需要保留 regional triggers，避免把未驗證的相關風險包裝成本次已完成。
+2026-09-26 以 bounded read-only probe（GitHub Actions run `36228985208`）直接驗證 `janus-ingestion-core` 與 `janus-intelligence-mart` 的 deployment controller 狀態。
+
+### Canonical GitHub path
+
+目前 `.github/workflows/deploy-dev.yml` 會在 `main` 對 ingestion-core / intelligence-mart 變更時執行 targeted tests，之後呼叫 `scripts/gcp/deploy-dev.sh ingestion-core` 或 `scripts/gcp/deploy-dev.sh intelligence-mart`。`deploy-dev.sh` 明確宣告 GitHub Actions 是 dev deployment controller，並透過 `gcloud builds submit` 建置後套用 canonical Cloud Run Job configuration。
+
+### GCP trigger 現況
+
+`global` location 沒有同名 triggers；`us-central1` 仍存在且未 disabled：
+
+- `janus-ingestion-core`
+  - trigger id: `5e201f5a-c206-4006-92b9-40a53c4155ed`
+  - config: `cloudbuild.yaml`
+  - Dockerfile: `jobs/ingestion-core/Dockerfile`
+  - runtime: `janus-ingestion-core`
+  - image tag: `main`
+- `janus-intelligence-mart`
+  - trigger id: `b8215cb9-1823-401d-b293-65fbdf73ce30`
+  - config: `cloudbuild.yaml`
+  - Dockerfile: `jobs/intelligence-mart/Dockerfile`
+  - runtime: `janus-intelligence-mart`
+  - image tag: `main`
+
+### 同一 commit 的雙重 build lineage
+
+commit `54a62b3fc5ae52ad481aaad03dec9d8fbaa33d5b` 提供直接重複證據：
+
+regional trigger path 在 `2026-09-25T09:53:39Z` 同時啟動：
+
+- ingestion-core build `841703eb-97da-4196-b2d4-58a52e60b0c6`，`buildTriggerId=5e201f5a-c206-4006-92b9-40a53c4155ed`，結果 `FAILURE`
+- intelligence-mart build `1fc89521-413d-491d-826c-27353a1f6ca4`，`buildTriggerId=b8215cb9-1823-401d-b293-65fbdf73ce30`，結果 `FAILURE`
+
+canonical GitHub path 對同一 commit 隨後另外建立無 trigger build：
+
+- ingestion-core build `514b90d9-3b7d-4a0d-b1b9-3ab412f77e9e`，`buildTriggerId=null`，image tag `dev-54a62b3...`，結果 `SUCCESS`
+- intelligence-mart build `cbac7b55-90ea-4702-b228-d8942dddff9f`，`buildTriggerId=null`，image tag `dev-54a62b3...`，結果 `SUCCESS`
+
+因此「兩套 deployment controller 並存」已由 live build lineage 證實，不再是推測。
+
+### Current runtime
+
+probe 當下兩個 Cloud Run Jobs 都為 `Ready=True`：
+
+- `janus-ingestion-core` generation `106`，image digest `sha256:d81bcac5e99f873f42b231535b5c5ab0640d6d10b447fcbfbd0a3602c1d39d5d`
+- `janus-intelligence-mart` generation `61`，image digest `sha256:a6299d50160f820437350fb55afc1cfca62a6c748d199b56b154625cf33bf4e5`
+
+兩者 `lastModifier` 都是 `janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com`。
+
+### 判定
+
+- deployment-controller duplication：`CONFIRMED`
+- canonical controller：GitHub Actions `deploy-dev.yml` + `scripts/gcp/deploy-dev.sh`
+- regional Cloud Build triggers：仍存在，屬於待 consolidation 的 legacy / duplicate controller surface
+- current Cloud Run Jobs：`Ready=True`
+- consolidation cleanup：`NOT YET APPLIED`
+
+本次驗證只做 read-only runtime inspection；未刪除或 disable ingestion-core / intelligence-mart triggers。
