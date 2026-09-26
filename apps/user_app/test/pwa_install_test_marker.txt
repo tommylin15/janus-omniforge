@@ -1,1 +1,0 @@
-PWA install tests are defined in pwa_config_test.dart; this marker is intentionally temporary and will be removed in the implementation commit.
