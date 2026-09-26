@@ -1,4 +1,4 @@
-name: Apply Portfolio Completeness API
+name: Apply Portfolio Completeness UI
 
 on:
   push:
@@ -13,59 +13,77 @@ permissions:
 jobs:
   apply:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/user_app
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: subosito/flutter-action@v2
         with:
-          python-version: '3.12'
-          cache: 'pip'
-          cache-dependency-path: |
-            requirements-dev.txt
-            services/api/requirements.lock
-      - name: Install API test dependencies
+          channel: stable
+          cache: true
+      - name: Apply portfolio UI completeness changes
+        working-directory: .
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r services/api/requirements.lock
-          python -m pip install -r requirements-dev.txt
-      - name: Apply portfolio API completeness changes
-        run: |
-          python - <<'PY'
+          python3 - <<'PY'
           from pathlib import Path
 
-          # Typed summary contract: aggregates can be intentionally withheld.
-          path = Path('services/api/models.py')
+          path = Path('apps/user_app/lib/main.dart')
           text = path.read_text()
-          old = '''class PortfolioSummaryItem(BaseModel):\n    currency: str\n    market_value: Decimal\n    cost_basis: Decimal\n    unrealized_pnl: Decimal | None\n    missing_price_count: int\n    stale_price_count: int = 0\n    valuation_status: Literal[\"available\", \"partial\", \"stale\"] | None = None\n    cash_safety_status: Literal[\"available\", \"insufficient_data\"]\n    cash_ratio: Decimal | None\n    minimum_cash_ratio: Decimal | None\n    ledger_version: int\n    valuation_date: date\n'''
-          new = '''class PortfolioSummaryItem(BaseModel):\n    currency: str\n    market_value: Decimal | None\n    cost_basis: Decimal\n    unrealized_pnl: Decimal | None\n    unrealized_return: Decimal | None = None\n    aggregate_status: Literal[\"available\", \"withheld\"]\n    affected_symbol_count: int\n    affected_symbols: list[str]\n    missing_price_count: int\n    stale_price_count: int = 0\n    valuation_status: Literal[\"available\", \"partial\", \"stale\"] | None = None\n    cash_safety_status: Literal[\"available\", \"insufficient_data\"]\n    cash_ratio: Decimal | None\n    minimum_cash_ratio: Decimal | None\n    ledger_version: int\n    valuation_date: date\n'''
-          if old not in text: raise SystemExit('PortfolioSummaryItem anchor not found')
-          text = text.replace(old, new, 1)
-          path.write_text(text)
 
-          # API: canonical history identity, summary-anchored position joins, safe legacy summary normalization.
-          path = Path('services/api/app.py')
-          text = path.read_text()
-          old = '''    @private.get(\"/journal/history\")\n    def history(symbol: str|None=None,year:int|None=Query(None,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):\n        rows=repository.ledger_history(current.user_id,symbol,year)\n        return jsonable_encoder([{**row,\"net_cash_flow\":ledger_net_cash_flow(row)} for row in rows])\n\n    @private.get(\"/journal/positions\")\n    def positions(current:AuthenticatedUser=Depends(user)):\n        rows=store.mart(\"mart_user_positions\",current.user_id)\n        unrealized={(row.get(\"symbol\"),row.get(\"currency\")):row for row in\n                    store.mart(\"mart_user_unrealized_pnl\",current.user_id)}\n        return jsonable_encoder([{**row,\n            \"unrealized_pnl\":unrealized.get((row.get(\"symbol\"),row.get(\"currency\")),{}).get(\"unrealized_pnl\"),\n            \"price_status\":unrealized.get((row.get(\"symbol\"),row.get(\"currency\")),{}).get(\"price_status\", \"missing\")}\n            for row in rows])\n'''
-          new = '''    @private.get(\"/journal/history\")\n    def history(symbol: str|None=None,year:int|None=Query(None,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):\n        rows=repository.ledger_history(current.user_id,symbol,year)\n        symbols={str(row.get(\"symbol\")) for row in rows if row.get(\"symbol\")}\n        identities=repository.stock_identities(symbols) if symbols else {}\n        enriched=[]\n        for row in rows:\n            identity=identities.get(str(row.get(\"symbol\")))\n            stock_name=str(identity.get(\"name\") or \"\").strip() if identity else \"\"\n            identity_status=(\"available\" if stock_name and identity and identity.get(\"enabled\") is True else\n                             \"disabled\" if stock_name and identity else \"missing\")\n            enriched.append({**row,\"stock_name\":stock_name or None,\"identity_status\":identity_status,\n                \"identity_missing_reason\":\"stock_master_not_found\" if identity_status==\"missing\" else None,\n                \"net_cash_flow\":ledger_net_cash_flow(row)})\n        return jsonable_encoder(enriched)\n\n    @private.get(\"/journal/positions\")\n    def positions(current:AuthenticatedUser=Depends(user)):\n        summaries=store.mart(\"mart_user_portfolio_summary\",current.user_id)\n        if not summaries: return []\n        anchors={(str(row.get(\"valuation_date\")),int(row.get(\"ledger_version\",0))) for row in summaries}\n        if len(anchors)!=1: return []\n        valuation_date,ledger_version=next(iter(anchors))\n        snapshot={\"valuation_date\":valuation_date,\"ledger_version\":ledger_version}\n        rows=store.mart(\"mart_user_positions\",current.user_id,**snapshot)\n        unrealized={(row.get(\"symbol\"),row.get(\"currency\")):row for row in\n                    store.mart(\"mart_user_unrealized_pnl\",current.user_id,**snapshot)}\n        result=[]\n        for row in rows:\n            detail=unrealized.get((row.get(\"symbol\"),row.get(\"currency\")),{})\n            result.append({**row,\"unrealized_pnl\":detail.get(\"unrealized_pnl\"),\n                \"unrealized_return\":detail.get(\"unrealized_return\"),\n                \"price_status\":row.get(\"price_status\") or detail.get(\"price_status\",\"missing\"),\n                \"price_date\":row.get(\"price_date\") or detail.get(\"price_date\"),\n                \"missing_reason\":row.get(\"missing_reason\") or detail.get(\"missing_reason\")})\n        return jsonable_encoder(result)\n'''
-          if old not in text: raise SystemExit('journal API anchor not found')
+          anchor = '''List<dynamic> effectiveLedgerEvents(List<dynamic> rows) {\n'''
+          helpers = '''String stockDisplayName(Map row) {\n  final symbol = '${row['symbol'] ?? '—'}';\n  final name = '${row['stock_name'] ?? ''}'.trim();\n  return name.isEmpty ? symbol : '$name（$symbol）';\n}\n\nString portfolioReturnLabel(Object? value) {\n  if (value == null) return '資料不足';\n  final ratio = double.tryParse('$value');\n  return ratio == null ? '$value' : '${(ratio * 100).toStringAsFixed(2)}%';\n}\n\nString portfolioMissingReasonLabel(Object? value) => const {\n      'no_eligible_persisted_ohlcv': '缺少符合估值日的正式行情',\n      'stock_master_not_found': '股票主檔缺少正式名稱',\n    }[value?.toString()] ?? '';\n\n'''
+          if 'String stockDisplayName(Map row)' not in text:
+              if anchor not in text: raise SystemExit('display helper anchor not found')
+              text = text.replace(anchor, helpers + anchor, 1)
+
+          text = text.replace("'股票：${row['symbol'] ?? '—'}',", "'股票：${stockDisplayName(row)}',", 1)
+          text = text.replace("title: Text('${uiLabel(row['event_type'])} ${row['symbol'] ?? ''}'),",
+                              "title: Text('${uiLabel(row['event_type'])} ${stockDisplayName(row)}'),", 1)
+
+          old = '''            title: Text('${row['symbol']} · ${row['currency'] ?? 'TWD'}'),\n            subtitle: Text('持有 ${row['shares'] ?? '—'} 股 · 現價 ${row['market_price'] ?? '—'} · 均價 ${row['average_cost'] ?? '—'}\\n市值 ${row['market_value'] ?? '缺價'} · 未實現損益 ${row['unrealized_pnl'] ?? '資料不足'}\\n估值日 ${row['valuation_date'] ?? '—'} · 行情日 ${row['price_date'] ?? '—'} · ${row['price_status'] == 'missing' ? '缺價' : row['price_status'] == 'stale' ? '資料過期' : '可用'}'),\n'''
+          new = '''            title: Text('${stockDisplayName(row)} · ${row['currency'] ?? 'TWD'}'),\n            subtitle: Text('持有 ${row['shares'] ?? '—'} 股 · 現價 ${row['market_price'] ?? '—'} · 均價 ${row['average_cost'] ?? '—'}\\n市值 ${row['market_value'] ?? '缺價'} · 未實現損益 ${row['unrealized_pnl'] ?? '資料不足'} · 未實現報酬 ${portfolioReturnLabel(row['unrealized_return'])}\\n估值日 ${row['valuation_date'] ?? '—'} · 行情日 ${row['price_date'] ?? '—'} · ${row['price_status'] == 'missing' ? '缺價' : row['price_status'] == 'stale' ? '資料過期' : '可用'}${portfolioMissingReasonLabel(row['missing_reason']).isEmpty ? '' : ' · ${portfolioMissingReasonLabel(row['missing_reason'])}'}'),\n'''
+          if old not in text: raise SystemExit('holdings card anchor not found')
           text = text.replace(old, new, 1)
 
-          old = '''    def portfolio_mart(table: str, current: AuthenticatedUser, **filters: Any) -> dict[str, Any]:\n        rows=jsonable_encoder(store.mart(table,current.user_id,**filters))\n        if table==\"mart_user_exposure\":\n            for row in rows:\n                row[\"symbols\"]=json.loads(row[\"symbols\"]); row[\"membership_snapshot\"]=json.loads(row[\"membership_snapshot\"])\n        return {\"items\":rows}\n'''
-          new = '''    def portfolio_mart(table: str, current: AuthenticatedUser, **filters: Any) -> dict[str, Any]:\n        rows=jsonable_encoder(store.mart(table,current.user_id,**filters))\n        if table==\"mart_user_exposure\":\n            for row in rows:\n                row[\"symbols\"]=json.loads(row[\"symbols\"]); row[\"membership_snapshot\"]=json.loads(row[\"membership_snapshot\"])\n        if table==\"mart_user_portfolio_summary\":\n            for row in rows:\n                missing=int(row.get(\"missing_price_count\") or 0); stale=int(row.get(\"stale_price_count\") or 0)\n                affected=bool(missing or stale)\n                row.setdefault(\"aggregate_status\",\"withheld\" if affected else \"available\")\n                raw=row.get(\"affected_symbols\",[])\n                row[\"affected_symbols\"]=json.loads(raw) if isinstance(raw,str) else list(raw or [])\n                row.setdefault(\"affected_symbol_count\",len(row[\"affected_symbols\"]))\n                row.setdefault(\"unrealized_return\",None)\n                if row[\"aggregate_status\"]==\"withheld\":\n                    row[\"market_value\"]=None; row[\"unrealized_pnl\"]=None; row[\"unrealized_return\"]=None\n        return {\"items\":rows}\n'''
-          if old not in text: raise SystemExit('portfolio_mart anchor not found')
+          old = "title: Text('${uiLabel(row['event_type'])} · ${row['symbol']}'),"
+          new = "title: Text('${uiLabel(row['event_type'])} · ${stockDisplayName(row)}'),"
+          if old not in text: raise SystemExit('transaction title anchor not found')
           text = text.replace(old, new, 1)
+
+          old = '''        final realized = pnl.isEmpty ? '資料不足' : pnl.length == 1\n            ? '${pnl.first['currency']} ${pnl.first['realized_pnl'] ?? '資料不足'}' : '多幣別';\n        final value = portfolio.isEmpty ? '資料不足' : portfolio.length == 1\n            ? '${portfolio.first['currency']} ${portfolio.first['market_value'] ?? '資料不足'}' : '多幣別';\n        final unrealized = portfolio.isEmpty ? '資料不足' : portfolio.length == 1\n            ? '${portfolio.first['currency']} ${portfolio.first['unrealized_pnl'] ?? ((portfolio.first['stale_price_count'] ?? 0) > 0 ? '資料過期' : '資料不足')}' : '多幣別';\n'''
+          new = '''        final realized = pnl.isEmpty ? '資料不足' : pnl.length == 1\n            ? '${pnl.first['currency']} ${pnl.first['realized_pnl'] ?? '資料不足'}' : '多幣別';\n        final aggregateWithheld = portfolio.any((row) => row['aggregate_status'] == 'withheld');\n        final value = aggregateWithheld ? '總額暫不發布' : portfolio.isEmpty ? '資料不足' : portfolio.length == 1\n            ? '${portfolio.first['currency']} ${portfolio.first['market_value'] ?? '資料不足'}' : '多幣別';\n        final unrealized = aggregateWithheld ? '總額暫不發布' : portfolio.isEmpty ? '資料不足' : portfolio.length == 1\n            ? '${portfolio.first['currency']} ${portfolio.first['unrealized_pnl'] ?? ((portfolio.first['stale_price_count'] ?? 0) > 0 ? '資料過期' : '資料不足')}' : '多幣別';\n'''
+          if old not in text: raise SystemExit('summary value anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''        final valuationStatus = hasMissing && hasStale ? '部分可用，含缺價與過期行情'\n            : hasMissing ? '部分可用，含缺價' : hasStale ? '行情過期' : '資料完整';\n'''
+          new = '''        final affectedStatus = portfolio.where((row) => row['aggregate_status'] == 'withheld').map((row) {\n          final symbols = _asList(row['affected_symbols']).join('、');\n          return '受影響 ${row['affected_symbol_count'] ?? _asList(row['affected_symbols']).length} 檔${symbols.isEmpty ? '' : '：$symbols'}';\n        }).join(' / ');\n        final valuationStatus = aggregateWithheld ? affectedStatus\n            : hasMissing && hasStale ? '部分可用，含缺價與過期行情'\n            : hasMissing ? '部分可用，含缺價' : hasStale ? '行情過期' : '資料完整';\n'''
+          if old not in text: raise SystemExit('summary status anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''        for (final row in summary.cast<Map<String, dynamic>>())\n          ListTile(title: Text('${row['currency']} 投資組合'),\n            subtitle: Text('市值 ${money(row['market_value'])}・未實現 ${money(row['unrealized_pnl'])}'),\n            trailing: Text(row['cash_safety_status'] == 'insufficient_data' ? '現金資料不足' : '${row['cash_ratio']}')),\n'''
+          new = '''        for (final row in summary.cast<Map<String, dynamic>>())\n          ListTile(title: Text('${row['currency']} 投資組合'),\n            subtitle: Text(row['aggregate_status'] == 'withheld'\n              ? '總額暫不發布・受影響 ${row['affected_symbol_count'] ?? _asList(row['affected_symbols']).length} 檔${_asList(row['affected_symbols']).isEmpty ? '' : '：${_asList(row['affected_symbols']).join('、')}'}'\n              : '市值 ${money(row['market_value'])}・未實現 ${money(row['unrealized_pnl'])}・未實現報酬 ${portfolioReturnLabel(row['unrealized_return'])}'),\n            trailing: Text(row['cash_safety_status'] == 'insufficient_data' ? '現金資料不足' : '${row['cash_ratio']}')),\n'''
+          if old not in text: raise SystemExit('portfolio dashboard anchor not found')
+          text = text.replace(old, new, 1)
+
           path.write_text(text)
           PY
-      - name: Run API RED-to-GREEN tests
-        env:
-          PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
+      - name: Generate Janus PNG branding assets
         run: |
-          python -m pytest -q tests/test_portfolio_completeness.py tests/test_portfolio_api_completeness.py tests/test_private_pipeline.py tests/test_user_api.py
-      - name: Commit API green
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3-pil
+          python3 tool/generate_brand_assets.py
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos lib test
+      - run: flutter test
+      - run: flutter build web --base-href /app/
+      - name: Commit UI green
+        working-directory: .
         run: |
           git config user.name 'janus-ci'
           git config user.email 'janus-ci@users.noreply.github.com'
-          git add services/api/models.py services/api/app.py
-          git commit -m 'feat: expose complete portfolio API contract'
+          git add apps/user_app/lib/main.dart
+          git commit -m 'feat: render complete portfolio state in user app'
           git push origin HEAD:main
