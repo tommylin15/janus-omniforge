@@ -19,6 +19,10 @@ on:
       - 'tests/test_public_runtime.py'
       - 'tests/test_public_api_routes.py'
       - 'tests/test_mcp_adapter.py'
+      - 'tests/test_private_pipeline.py'
+      - 'tests/test_user_api.py'
+      - 'tests/test_portfolio_completeness.py'
+      - 'tests/test_portfolio_api_completeness.py'
       - 'packages/contracts/**'
       - 'packages/observability/**'
       - 'packages/provenance/**'
@@ -39,6 +43,7 @@ on:
         options:
           - ingestion-core
           - intelligence-mart
+          - private-pipeline
           - api
 
 permissions:
@@ -64,6 +69,7 @@ jobs:
       ingestion_test: ${{ steps.filter.outputs.ingestion_test }}
       mart_runtime: ${{ steps.filter.outputs.mart_runtime }}
       mart_test: ${{ steps.filter.outputs.mart_test }}
+      private_pipeline_runtime: ${{ steps.filter.outputs.private_pipeline_runtime }}
       api_runtime: ${{ steps.filter.outputs.api_runtime }}
       api_test: ${{ steps.filter.outputs.api_test }}
     steps:
@@ -100,6 +106,15 @@ jobs:
             mart_test:
               - 'tests/test_intelligence_mart_pipeline.py'
               - 'tests/test_intelligence_mart_runtime.py'
+            private_pipeline_runtime:
+              - 'services/api/**'
+              - 'packages/contracts/**'
+              - 'packages/observability/**'
+              - 'packages/provenance/**'
+              - 'packages/governance/**'
+              - 'cloudbuild.yaml'
+              - 'scripts/gcp/deploy-dev.sh'
+              - 'scripts/gcp/verify-dev.sh'
             api_runtime:
               - 'services/api/**'
               - 'packages/admin_api/**'
@@ -115,6 +130,10 @@ jobs:
               - 'tests/test_public_runtime.py'
               - 'tests/test_public_api_routes.py'
               - 'tests/test_mcp_adapter.py'
+              - 'tests/test_private_pipeline.py'
+              - 'tests/test_user_api.py'
+              - 'tests/test_portfolio_completeness.py'
+              - 'tests/test_portfolio_api_completeness.py'
 
   test-ingestion:
     needs: detect
@@ -222,8 +241,9 @@ jobs:
     needs: detect
     if: >-
       needs.detect.outputs.api_runtime == 'true' ||
+      needs.detect.outputs.private_pipeline_runtime == 'true' ||
       needs.detect.outputs.api_test == 'true' ||
-      (github.event_name == 'workflow_dispatch' && inputs.component == 'api')
+      (github.event_name == 'workflow_dispatch' && (inputs.component == 'api' || inputs.component == 'private-pipeline'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -247,6 +267,35 @@ jobs:
           tests/test_public_runtime.py
           tests/test_public_api_routes.py
           tests/test_mcp_adapter.py
+          tests/test_private_pipeline.py
+          tests/test_user_api.py
+          tests/test_portfolio_completeness.py
+          tests/test_portfolio_api_completeness.py
+
+  deploy-private-pipeline:
+    needs: [detect, test-api]
+    if: >-
+      always() &&
+      needs.test-api.result == 'success' &&
+      (needs.detect.outputs.private_pipeline_runtime == 'true' ||
+      (github.event_name == 'workflow_dispatch' && inputs.component == 'private-pipeline'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Deploy private pipeline
+        shell: bash
+        env:
+          GOOGLE_USER_CLIENT_ID: ${{ vars.GOOGLE_USER_CLIENT_ID }}
+          GOOGLE_ADMIN_CLIENT_ID: ${{ vars.GOOGLE_ADMIN_CLIENT_ID }}
+        run: bash scripts/gcp/deploy-dev.sh private-pipeline
+      - name: Verify private pipeline
+        shell: bash
+        run: bash scripts/gcp/verify-dev.sh private-pipeline
 
   deploy-api:
     needs: [detect, test-api]
