@@ -23,6 +23,7 @@ on:
       - 'tests/test_user_api.py'
       - 'tests/test_portfolio_completeness.py'
       - 'tests/test_portfolio_api_completeness.py'
+      - 'tests/test_portfolio_revaluation.py'
       - 'packages/contracts/**'
       - 'packages/observability/**'
       - 'packages/provenance/**'
@@ -134,6 +135,7 @@ jobs:
               - 'tests/test_user_api.py'
               - 'tests/test_portfolio_completeness.py'
               - 'tests/test_portfolio_api_completeness.py'
+              - 'tests/test_portfolio_revaluation.py'
 
   test-ingestion:
     needs: detect
@@ -271,6 +273,7 @@ jobs:
           tests/test_user_api.py
           tests/test_portfolio_completeness.py
           tests/test_portfolio_api_completeness.py
+          tests/test_portfolio_revaluation.py
 
   deploy-private-pipeline:
     needs: [detect, test-api]
