@@ -10,7 +10,7 @@
 |---|---|---|
 | 現在程式到底怎麼做 | GitHub `main` 的 code／schema／migration／workflow／tests | Drive 設計稿、歷史文件 |
 | 現在在哪裡、下一步是什麼 | `status.md` | 大型 evidence ledger、archive |
-| 現在是否真的完成／可用 | tests、CI、deployment、live runtime、trigger／workload／integration evidence；完整 ledger 見 `spec/operations-and-testing.md` | 「文件已寫完」、舊 checkpoint |
+| 現在是否真的完成／可用 | tests、CI、deployment、live runtime、trigger／workload／integration evidence；完整歷史 ledger 見 `spec/operations-and-testing.md`，Dev Pilot evidence window 新 checkpoint 見 `pilot-operational-evidence.md` | 「文件已寫完」、舊 checkpoint |
 | 完整未完成工作與 acceptance | `todo.md` | archive、舊 roadmap |
 | 某 WBS 的責任與驗收邊界 | `wbs.md` → `wbs/*.md` | runtime snapshot |
 | 產品／資料／API／治理契約 | `spec.md` → `spec/*.md` | TODO 中的暫時執行筆記 |
@@ -29,7 +29,8 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `spec.md`：SPEC 索引；正式契約在 `spec/*.md`。
 - `wbs.md`：WBS 索引；工作切片在 `wbs/*.md`。
 - `ui.md`：UI 索引；頁面／元件契約在 `ui/*.md`。
-- `spec/operations-and-testing.md`：完整 implementation／test／deployment／runtime evidence ledger，包含歷史 checkpoint；日常定位優先看 `status.md`，需要稽核才進本檔。
+- `spec/operations-and-testing.md`：完整 implementation／test／deployment／runtime 歷史 evidence ledger，包含歷史 checkpoint；日常定位優先看 `status.md`，需要稽核才進本檔。
+- `pilot-operational-evidence.md`：`WBS-8-DEV-PILOT-RUN` 六個 calendar months evidence window 的新增 bounded checkpoint；保存 observed failure／recovery／manual intervention 與尚未觀察到的 evidence category，不把 checkpoint 當成 WBS 完成。
 - `runbook-dev-deploy.md`：目前 dev 部署、migration、Job 與 Secret 的操作程序。
 - `runbook-pilot-calendar-repair.md`：Dev Pilot TWSE 交易日曆修復、operator IAP migration 與 bounded ingestion 驗收程序。
 - `runbook-user-oauth-dev.md`：User／MCP OAuth 的專用操作與 A/B owner isolation 驗收程序。
@@ -40,7 +41,7 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 ## 3. 文件維護原則
 
 1. README 與索引只保存穩定導航與責任，不固定容易過期的 revision、digest、build ID。
-2. `status.md` 只回答「現在在哪、下一步是什麼」；SPEC 保存契約；TODO 保存所有尚未完成工作；Operations 保存完整 observed evidence。不要互相複製全文。
+2. `status.md` 只回答「現在在哪、下一步是什麼」；SPEC 保存契約；TODO 保存所有尚未完成工作；Operations／Pilot evidence ledger 保存 observed evidence。不要互相複製全文。
 3. Runbook 保存可重複執行的程序，不混入已失效的部署 checkpoint。實際 resource name／flag 若可能漂移，執行前以目前程式與 runtime 查證。
 4. 完成項目與被取代規劃移至 `archive/`，active 文件只留下必要連結。
 5. 未排程構想放在 `todo.md` 明確標示 Planned／Blocked／Deferred，或白名單 Drive 的研究／規劃文件；不得假裝已進 active queue。
@@ -48,4 +49,4 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 
 ## 4. Operations ledger 的處理方式
 
-`spec/operations-and-testing.md` 已累積大量歷史 checkpoint。GitHub connector 在不遺失原文的前提下無法安全做 server-side blob 搬移，因此目前**保留原檔完整 evidence，不做高風險整檔重寫**。日常工作以 `status.md` 作短入口；等有可驗證的完整搬移流程時，再把舊 checkpoint 分期移入 `archive/`。
+`spec/operations-and-testing.md` 已累積大量歷史 checkpoint。GitHub connector 在不遺失原文的前提下無法安全做 server-side blob 搬移或小範圍 patch，因此目前**保留原檔完整 evidence，不做高風險整檔重寫**。六個月 `WBS-8-DEV-PILOT-RUN` 的新增 bounded checkpoint 先追加至 `pilot-operational-evidence.md`，並由 `status.md` 連結目前判定；等有可驗證的完整搬移／patch 流程時，再考慮整併至 operations ledger 或將舊 checkpoint 分期移入 `archive/`。
