@@ -96,9 +96,9 @@ GitHub Actions run `36228336655`：
 
 目前 `.github/workflows/deploy-dev.yml` 會在 `main` 對 ingestion-core / intelligence-mart 變更時執行 targeted tests，之後呼叫 `scripts/gcp/deploy-dev.sh ingestion-core` 或 `scripts/gcp/deploy-dev.sh intelligence-mart`。`deploy-dev.sh` 明確宣告 GitHub Actions 是 dev deployment controller，並透過 `gcloud builds submit` 建置後套用 canonical Cloud Run Job configuration。
 
-### GCP trigger 現況
+### GCP trigger 現況（cleanup 前 checkpoint）
 
-`global` location 沒有同名 triggers；`us-central1` 仍存在且未 disabled：
+`global` location 沒有同名 triggers；run `36228985208` 當下 `us-central1` 仍存在且未 disabled：
 
 - `janus-ingestion-core`
   - trigger id: `5e201f5a-c206-4006-92b9-40a53c4155ed`
@@ -129,7 +129,7 @@ canonical GitHub path 對同一 commit 隨後另外建立無 trigger build：
 
 因此「兩套 deployment controller 並存」已由 live build lineage 證實，不再是推測。
 
-### Current runtime
+### Current runtime（cleanup 前 checkpoint）
 
 probe 當下兩個 Cloud Run Jobs 都為 `Ready=True`：
 
@@ -138,12 +138,27 @@ probe 當下兩個 Cloud Run Jobs 都為 `Ready=True`：
 
 兩者 `lastModifier` 都是 `janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com`。
 
-### 判定
+### 該 read-only checkpoint 當時判定
 
 - deployment-controller duplication：`CONFIRMED`
 - canonical controller：GitHub Actions `deploy-dev.yml` + `scripts/gcp/deploy-dev.sh`
-- regional Cloud Build triggers：仍存在，屬於待 consolidation 的 legacy / duplicate controller surface
+- regional Cloud Build triggers：當時仍存在，屬於待 consolidation 的 legacy / duplicate controller surface
 - current Cloud Run Jobs：`Ready=True`
-- consolidation cleanup：`NOT YET APPLIED`
+- consolidation cleanup：`NOT YET APPLIED`（僅描述 run `36228985208` 當時狀態）
 
-本次驗證只做 read-only runtime inspection；未刪除或 disable ingestion-core / intelligence-mart triggers。
+該次驗證只做 read-only runtime inspection；未刪除或 disable ingestion-core / intelligence-mart triggers。
+
+## 後續 consolidation closure
+
+上述 `NOT YET APPLIED` 是 cleanup 前的歷史 checkpoint，已被後續 closure 取代。正式完成證據見 [`deployment-controller-consolidation-2026-09-26.md`](deployment-controller-consolidation-2026-09-26.md)。
+
+後續 evidence：
+
+- guarded cleanup run `36229366763`：兩個 regional triggers 精確匹配後刪除，rollback artifact 先成功保存；
+- canonical bounded deployment acceptance run `36229503909`：ingestion-core / intelligence-mart targeted tests、deploy、verify 全部 success，API jobs skipped；
+- independent read-only post-acceptance run `36229702938`：verify mode 無 mutation，兩個 regional trigger names / IDs 仍 absent，兩個 Cloud Run Jobs 仍 `Ready=True`；
+- post-acceptance digests：
+  - `janus-ingestion-core`: `sha256:8009ae8eb017a463ea1f145942f2de910b64dc0e48234d0c8c8431c03fd6f9d8`
+  - `janus-intelligence-mart`: `sha256:d0d5100085fe2f30e4b87891f0e264327cf244f46685826aa180252b39d9c456`
+
+最終判定：duplicate deployment-controller condition `RESOLVED`；canonical dev deployment controller 為 GitHub Actions `.github/workflows/deploy-dev.yml` + `scripts/gcp/deploy-dev.sh`。
