@@ -57,24 +57,30 @@ jobs:
                 --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
                 --format='json(metadata.name,status.latestCreatedRevisionName,status.latestReadyRevisionName,status.traffic,spec.template.spec.containers[0].image)'; then
                 echo 'janus-web service is absent, matching the retired runtime state'
-                exit 0
+              else
+                latest_created="$(gcloud run services describe janus-web \
+                  --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+                  --format='value(status.latestCreatedRevisionName)')"
+                [[ -n "${latest_created}" ]] || { echo 'janus-web has no latest created revision' >&2; exit 2; }
+                echo "--- janus-web latest revision ---"
+                gcloud run revisions describe "${latest_created}" \
+                  --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+                  --format='json(metadata.name,status.conditions,spec.containers[0].image,spec.containers[0].command,spec.containers[0].args)'
+                echo '--- bounded janus-web latest revision logs ---'
+                gcloud logging read \
+                  "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"janus-web\" AND resource.labels.revision_name=\"${latest_created}\"" \
+                  --project="${GCP_PROJECT_ID}" \
+                  --freshness=2d \
+                  --limit=100 \
+                  --order=asc \
+                  --format=json \
+                  || true
               fi
-              latest_created="$(gcloud run services describe janus-web \
-                --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
-                --format='value(status.latestCreatedRevisionName)')"
-              [[ -n "${latest_created}" ]] || { echo 'janus-web has no latest created revision' >&2; exit 2; }
-              echo "--- janus-web latest revision ---"
-              gcloud run revisions describe "${latest_created}" \
-                --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
-                --format='json(metadata.name,status.conditions,spec.containers[0].image,spec.containers[0].command,spec.containers[0].args)'
-              echo '--- bounded janus-web latest revision logs ---'
-              gcloud logging read \
-                "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"janus-web\" AND resource.labels.revision_name=\"${latest_created}\"" \
+              echo '--- Cloud Build triggers matching janus-web ---'
+              gcloud builds triggers list \
                 --project="${GCP_PROJECT_ID}" \
-                --freshness=2d \
-                --limit=100 \
-                --order=asc \
-                --format=json \
+                --filter='name:janus-web' \
+                --format='json(id,name,disabled,filename,serviceAccount,createTime)' \
                 || true
               ;;
             core-financial-schema)
