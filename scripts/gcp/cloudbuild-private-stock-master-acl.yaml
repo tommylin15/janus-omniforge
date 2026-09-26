@@ -1,0 +1,38 @@
+substitutions:
+  _POSTGRES_VM: janus-postgres-dev
+  _POSTGRES_ZONE: us-central1-a
+
+steps:
+  - id: apply-030-private-stock-master-read
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        gcloud compute ssh "${_POSTGRES_VM}" --project="${PROJECT_ID}" --zone="${_POSTGRES_ZONE}" \
+          --tunnel-through-iap --quiet --command \
+          $'sudo docker exec --user postgres janus-postgres psql -U postgres -d janus_control -v ON_ERROR_STOP=1 -c \
+          "GRANT USAGE ON SCHEMA control TO janus_private_api, janus_private_pipeline; \
+           GRANT SELECT ON control.stock_master TO janus_private_api, janus_private_pipeline;"\''
+        echo "Migration 030 ACL applied."
+
+  - id: verify-030-private-stock-master-read
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        result=$(gcloud compute ssh "${_POSTGRES_VM}" --project="${PROJECT_ID}" --zone="${_POSTGRES_ZONE}" \
+          --tunnel-through-iap --quiet --command \
+          'sudo docker exec --user postgres janus-postgres psql -U postgres -d janus_control -t -A -c \
+          "SELECT has_schema_privilege($$janus_private_api$$, $$control$$, $$USAGE$$)::text || chr(124) || \
+                  has_table_privilege($$janus_private_api$$, $$control.stock_master$$, $$SELECT$$)::text || chr(124) || \
+                  has_schema_privilege($$janus_private_pipeline$$, $$control$$, $$USAGE$$)::text || chr(124) || \
+                  has_table_privilege($$janus_private_pipeline$$, $$control.stock_master$$, $$SELECT$$)::text"')
+        echo "Stock master ACL check result: ${result}"
+        echo "${result}" | grep -q "^t|t|t|t$" || { echo "Migration 030 ACL verification FAILED"; exit 1; }
+        echo "Migration 030 ACL verification passed."
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 300s
