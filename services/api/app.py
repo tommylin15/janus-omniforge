@@ -15,7 +15,7 @@ from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 from fastapi import APIRouter, Body, Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 
 from packages.observability import redact
 from packages.admin_api import AdminConflictError, AdminValidationError
@@ -324,6 +324,10 @@ def create_app(repository: Any | None = None, store: Any | None = None,
 
     _coop_headers = {"Cross-Origin-Opener-Policy": "unsafe-none"}
 
+    @api.get("/", include_in_schema=False)
+    def web_root():
+        return RedirectResponse("/app")
+
     @api.get("/app", include_in_schema=False)
     def flutter_app_root():
         return FileResponse(flutter_dir / "index.html", headers=_coop_headers)
@@ -461,7 +465,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         return jsonable_encoder(repository.add_ledger(current.user_id,value,idempotency_key))
 
     @private.post("/journal/events/{event_id}/corrections", status_code=201)
-    def correct_ledger(event_id: UUID,value: CorrectionIn,current: AuthenticatedUser=Depends(user),idempotency_key: str=Depends(key)):
+    def correct_ledger(event_id: UUID,value:CorrectionIn,current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
         return jsonable_encoder(repository.correct_ledger(current.user_id,event_id,value.expected_version,value.replacement,idempotency_key))
 
     @private.get("/journal/history")
