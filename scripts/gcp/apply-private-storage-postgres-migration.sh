@@ -48,9 +48,18 @@ sudo docker exec --user postgres janus-postgres bash -ceu '
     psql -U postgres -d janus_control -f /opt/janus/migrations/026_mcp_oauth_codes.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/027_pipeline_acl_repair.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/028_mcp_oauth_refresh_tokens.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/030_private_stock_master_read.sql
   '
 sudo docker exec --user postgres janus-postgres \
   psql -U postgres -d janus_control -f /opt/janus/private-storage-acceptance.sql
+sudo docker exec --user postgres janus-postgres psql -U postgres -d janus_control -v ON_ERROR_STOP=1 <<'SQL'
+SELECT has_schema_privilege('janus_private_api', 'control', 'USAGE')
+  AND has_table_privilege('janus_private_api', 'control.stock_master', 'SELECT')
+  AS private_api_stock_master_read;
+SELECT has_schema_privilege('janus_private_pipeline', 'control', 'USAGE')
+  AND has_table_privilege('janus_private_pipeline', 'control.stock_master', 'SELECT')
+  AS private_pipeline_stock_master_read;
+SQL
 
 switched=false
 trap - ERR
