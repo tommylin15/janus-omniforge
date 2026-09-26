@@ -1,0 +1,77 @@
+name: Apply Portfolio Completeness Core
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/portfolio-completeness-apply-core.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements-dev.txt
+            services/api/requirements.lock
+      - name: Install API test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r services/api/requirements.lock
+          python -m pip install -r requirements-dev.txt
+      - name: Apply bounded Private Mart changes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('services/api/private_pipeline.py')
+          text = path.read_text()
+
+          old = '''    totals:dict[str,dict[str,Any]]=defaultdict(lambda:{"market_value":ZERO,"cost_basis":ZERO,\n        "missing_price_count":0,"stale_price_count":0})\n'''
+          new = '''    totals:dict[str,dict[str,Any]]=defaultdict(lambda:{"market_value":ZERO,"cost_basis":ZERO,\n        "missing_price_count":0,"stale_price_count":0,"affected_symbols":set()})\n'''
+          if old not in text:
+              raise SystemExit('risk totals anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''        if position.get("price_status")=="stale": total["stale_price_count"]+=1\n        if position["market_value"] is None: total["missing_price_count"]+=1; continue\n'''
+          new = '''        if position.get("price_status")=="stale":\n            total["stale_price_count"]+=1; total["affected_symbols"].add(position["symbol"])\n        if position["market_value"] is None:\n            total["missing_price_count"]+=1; total["affected_symbols"].add(position["symbol"]); continue\n'''
+          if old not in text:
+              raise SystemExit('risk status anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''        summary.append({**common,"currency":currency,"market_value":total["market_value"],"cost_basis":total["cost_basis"],\n            "unrealized_pnl":total["market_value"]-total["cost_basis"] if not (\n                total["missing_price_count"] or total["stale_price_count"]\n            ) else None,\n            "missing_price_count":total["missing_price_count"],"stale_price_count":total["stale_price_count"],\n            "valuation_status":("partial" if total["missing_price_count"] else\n                "stale" if total["stale_price_count"] else "available"),"cash_safety_status":"insufficient_data",\n            "cash_ratio":None,"minimum_cash_ratio":minimum_cash})\n'''
+          new = '''        affected=bool(total["missing_price_count"] or total["stale_price_count"])\n        market_value=None if affected else total["market_value"]\n        unrealized_pnl=None if affected else total["market_value"]-total["cost_basis"]\n        unrealized_return=(unrealized_pnl/total["cost_basis"] if unrealized_pnl is not None and total["cost_basis"] else None)\n        affected_symbols=json.dumps(sorted(total["affected_symbols"]),separators=(",",":"))\n        summary.append({**common,"currency":currency,"market_value":market_value,"cost_basis":total["cost_basis"],\n            "unrealized_pnl":unrealized_pnl,"unrealized_return":unrealized_return,\n            "aggregate_status":"withheld" if affected else "available",\n            "affected_symbol_count":len(total["affected_symbols"]),"affected_symbols":affected_symbols,\n            "missing_price_count":total["missing_price_count"],"stale_price_count":total["stale_price_count"],\n            "valuation_status":("partial" if total["missing_price_count"] else\n                "stale" if total["stale_price_count"] else "available"),"cash_safety_status":"insufficient_data",\n            "cash_ratio":None,"minimum_cash_ratio":minimum_cash})\n'''
+          if old not in text:
+              raise SystemExit('summary anchor not found')
+          text = text.replace(old, new, 1)
+
+          old = '''        price_status=("missing" if price is None else\n                      "stale" if price_date is not None and price_date<valuation_date else "available")\n        lineage={"ledger_version":ledger_version,"price_status":price_status,\n                 "price_date":price_date.isoformat() if price_date else None}\n        positions.append({"user_id":user_id,"symbol":symbol,"currency":currency,"shares":state["shares"],"average_cost":average,\n                          "market_price":price,"market_value":price*state["shares"] if price is not None else None,\n                          "price_status":price_status,"price_date":price_date.isoformat() if price_date else None,\n                          "lineage":str(lineage),**common})\n        unrealized.append({"user_id":user_id,"symbol":symbol,"currency":currency,"unrealized_pnl":\n                           (price-average)*state["shares"] if price is not None else None,\n                           "price_status":price_status,"lineage":str(lineage),**common})\n'''
+          new = '''        price_status=("missing" if price is None else\n                      "stale" if price_date is not None and price_date<valuation_date else "available")\n        missing_reason="no_eligible_persisted_ohlcv" if price is None else None\n        market_value=price*state["shares"] if price is not None else None\n        unrealized_pnl=(price-average)*state["shares"] if price is not None else None\n        cost_basis=average*state["shares"]\n        unrealized_return=(unrealized_pnl/cost_basis if unrealized_pnl is not None and cost_basis else None)\n        lineage={"ledger_version":ledger_version,"price_status":price_status,\n                 "price_date":price_date.isoformat() if price_date else None,"missing_reason":missing_reason}\n        positions.append({"user_id":user_id,"symbol":symbol,"currency":currency,"shares":state["shares"],"average_cost":average,\n                          "market_price":price,"market_value":market_value,\n                          "price_status":price_status,"price_date":price_date.isoformat() if price_date else None,\n                          "missing_reason":missing_reason,"lineage":str(lineage),**common})\n        unrealized.append({"user_id":user_id,"symbol":symbol,"currency":currency,"unrealized_pnl":unrealized_pnl,\n                           "unrealized_return":unrealized_return,"price_status":price_status,\n                           "price_date":price_date.isoformat() if price_date else None,"missing_reason":missing_reason,\n                           "lineage":str(lineage),**common})\n'''
+          if old not in text:
+              raise SystemExit('position anchor not found')
+          text = text.replace(old, new, 1)
+
+          path.write_text(text)
+          PY
+      - name: Run RED-to-GREEN targeted tests
+        env:
+          PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
+        run: |
+          python -m pytest -q tests/test_portfolio_completeness.py tests/test_private_pipeline.py
+      - name: Commit green core
+        run: |
+          git config user.name 'janus-ci'
+          git config user.email 'janus-ci@users.noreply.github.com'
+          git add services/api/private_pipeline.py
+          git commit -m 'feat: complete portfolio valuation contract'
+          git push origin HEAD:main
