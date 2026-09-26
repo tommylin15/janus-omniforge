@@ -1,0 +1,44 @@
+substitutions:
+  _POSTGRES_VM: janus-postgres-dev
+  _POSTGRES_ZONE: us-central1-a
+
+steps:
+  - id: grant-build-sa-iap-on-postgres-only
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        project_number="$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)')"
+        instance_id="$(gcloud compute instances describe "${_POSTGRES_VM}" \
+          --project="${PROJECT_ID}" --zone="${_POSTGRES_ZONE}" --format='value(id)')"
+        principal="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+        base="https://iap.googleapis.com/v1/projects/${project_number}/iap_tunnel/zones/${_POSTGRES_ZONE}/instances/${instance_id}"
+        token="$(gcloud auth print-access-token)"
+        curl -fsS -X POST -H "Authorization: Bearer ${token}" -H 'Content-Type: application/json' \
+          -d '{}' "${base}:getIamPolicy" > /workspace/iap-policy.json
+        python - "${principal}" <<'PY'
+        import json, sys
+        path='/workspace/iap-policy.json'
+        principal=sys.argv[1]
+        with open(path) as f:
+            policy=json.load(f)
+        bindings=policy.setdefault('bindings', [])
+        target=next((b for b in bindings if b.get('role')=='roles/iap.tunnelResourceAccessor' and not b.get('condition')), None)
+        if target is None:
+            target={'role':'roles/iap.tunnelResourceAccessor','members':[]}
+            bindings.append(target)
+        if principal not in target['members']:
+            target['members'].append(principal)
+            target['members'].sort()
+        with open('/workspace/iap-policy-set.json','w') as f:
+            json.dump({'policy':policy}, f, separators=(',',':'))
+        PY
+        curl -fsS -X POST -H "Authorization: Bearer ${token}" -H 'Content-Type: application/json' \
+          --data-binary @/workspace/iap-policy-set.json "${base}:setIamPolicy" > /workspace/iap-policy-result.json
+        grep -q 'roles/iap.tunnelResourceAccessor' /workspace/iap-policy-result.json
+        echo "Bounded IAP tunnel binding applied to ${_POSTGRES_VM} only."
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 180s
