@@ -34,7 +34,6 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
-          # Repository: bounded canonical stock-master reader.
           path = Path('services/api/repository.py')
           text = path.read_text()
           anchor = '''    def latest_ledger_version(self, user_id: UUID) -> int:\n'''
@@ -44,7 +43,6 @@ jobs:
               text = text.replace(anchor, method + anchor, 1)
           path.write_text(text)
 
-          # Private Mart: attach canonical identity and pass it from the pipeline.
           path = Path('services/api/private_pipeline.py')
           text = path.read_text()
           old = '''def calculate_marts(events: Iterable[dict[str, Any]], prices: dict[str, Decimal | tuple[Decimal, date] | None],\n                    valuation_date: date) -> dict[str, list[dict[str, Any]]]:\n    rows=list(events)\n'''
@@ -68,7 +66,6 @@ jobs:
           text = text.replace(old, new, 1)
           path.write_text(text)
 
-          # Private Iceberg: evolve only explicitly approved fields, never arbitrary incoming keys.
           path = Path('services/api/store.py')
           text = path.read_text()
           anchor = '''    def __init__(self, catalog: Any, warehouse: str, namespace: str = \"private\") -> None:\n'''
@@ -77,9 +74,9 @@ jobs:
               if anchor not in text: raise SystemExit('store class anchor not found')
               text = text.replace(anchor, additions + anchor, 1)
 
-          old = '''        table = self.catalog.load_table(identifier)\n        incoming = pa.Table.from_pylist(normalized, schema=table.schema().as_arrow())\n'''
-          new = '''        table = self.catalog.load_table(identifier)\n        allowed=self.ADDITIVE_FIELDS.get(table_name,frozenset())\n        existing={field.name for field in table.schema().fields}\n        additions=[field for field in incoming.schema if field.name in allowed and field.name not in existing]\n        if additions:\n            with table.update_schema() as update:\n                update.union_by_name(pa.schema(additions))\n            table=self.catalog.load_table(identifier)\n        incoming = pa.Table.from_pylist(normalized, schema=table.schema().as_arrow())\n'''
-          if old not in text: raise SystemExit('store schema anchor not found')
+          old = '''        table = self.catalog.load_table(identifier)\n        incoming = pa.Table.from_pylist(normalized, schema=table.schema().as_arrow())\n        table.upsert(incoming, join_cols=list(self.TABLE_KEYS[table_name]))\n'''
+          new = '''        table = self.catalog.load_table(identifier)\n        allowed=self.ADDITIVE_FIELDS.get(table_name,frozenset())\n        existing={field.name for field in table.schema().fields}\n        additions=[field for field in incoming.schema if field.name in allowed and field.name not in existing]\n        schema_evolved=bool(additions)\n        if schema_evolved:\n            with table.update_schema() as update:\n                update.union_by_name(pa.schema(additions))\n            table=self.catalog.load_table(identifier)\n        incoming = pa.Table.from_pylist(normalized, schema=table.schema().as_arrow())\n        if schema_evolved:\n            from functools import reduce\n            from pyiceberg.expressions import And, EqualTo, Or\n            predicates=[reduce(And,(EqualTo(key,row[key]) for key in self.TABLE_KEYS[table_name])) for row in normalized]\n            overwrite_filter=reduce(Or,predicates) if len(predicates)>1 else predicates[0]\n            table.overwrite(incoming, overwrite_filter=overwrite_filter)\n        else:\n            table.upsert(incoming, join_cols=list(self.TABLE_KEYS[table_name]))\n'''
+          if old not in text: raise SystemExit('store schema/write anchor not found')
           text = text.replace(old, new, 1)
           path.write_text(text)
 
