@@ -76,11 +76,11 @@ jobs:
               gcloud run jobs executions describe "${execution}" \
                 --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
                 --format=json
-              echo '--- bounded recent Cloud Run logs ---'
+              echo '--- bounded execution Cloud Run logs ---'
               gcloud logging read \
-                "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"janus-ingestion-core\"" \
+                "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"janus-ingestion-core\" AND labels.\"run.googleapis.com/execution_name\"=\"${execution}\"" \
                 --project="${GCP_PROJECT_ID}" \
-                --freshness=20m \
+                --freshness=2d \
                 --limit=100 \
                 --order=desc \
                 --format=json \
