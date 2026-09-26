@@ -7,7 +7,7 @@ void main() {
       (tester) async {
     expect(
       janusAppIconAsset,
-      'assets/branding/janus_app_icon_512.webp',
+      'assets/branding/janus_app_icon_512.png',
     );
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(360, 800));
