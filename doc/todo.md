@@ -92,7 +92,7 @@ Dependency：Admin shell、Core persisted readers；AI role-impact／historical 
 ### `WBS-8-DEV-PILOT-RUN` — 【Sol】
 
 - [ ] 自 `pilot_started_at=2026-09-24T15:29:19Z` 起持續 6 calendar months operational phase；累積 monthly evidence summary、Scheduler／ingestion／analysis、backup／restore、outcome、usefulness、cost、manual intervention、recurring failure 與 security／privacy evidence。
-- [ ] 第一份 checkpoint 已記錄於 `pilot-operational-evidence.md`；repair 後下一筆自然 Scheduler execution 仍是 pending evidence boundary，手動 bounded acceptance 不得代替。
+- [ ] `pilot-operational-evidence.md` 已記錄 Checkpoint 001（自然 Scheduler failure、calendar repair 與 bounded dataset acceptance）及 Checkpoint 002（deployment-controller consolidation、canonical bounded deployment acceptance 與獨立 post-acceptance verification）；repair 後下一筆自然 Scheduler execution 仍是 pending evidence boundary，兩類手動／bounded acceptance 都不得代替自然 Scheduler recovery evidence。
 - [ ] 沒有實際 post-start evidence 的 category 維持 `not observed`／`unknown`；Entry baseline 不可自動當成狀態未變的證據。
 - [ ] 六個月 window 未完成前 Production promotion blocked。
 
