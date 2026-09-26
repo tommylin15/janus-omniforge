@@ -24,13 +24,18 @@ jobs:
         with:
           channel: stable
           cache: true
+      - name: Generate Janus PNG branding assets
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3-pil
+          python3 tool/generate_brand_assets.py
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos lib test
       - run: flutter test
       - run: grep -Fq 'Janus · OmniForge' web/index.html
       - name: Validate PWA metadata
         run: |
-          python - <<'PY'
+          python3 - <<'PY'
           import json
           from pathlib import Path
 
@@ -38,19 +43,25 @@ jobs:
           assert manifest['id'] == '/app/'
           assert manifest['start_url'] == '/app/'
           assert manifest['scope'] == '/app/'
-          icons = {(item['src'], item['sizes'], item['type']) for item in manifest['icons']}
-          assert ('/app/icons/Icon-192.png', '192x192', 'image/png') in icons
-          assert ('/app/icons/Icon-512.webp', '512x512', 'image/webp') in icons
+          icons = {(item['src'], item['sizes'], item['type'], item.get('purpose')) for item in manifest['icons']}
+          assert ('/app/icons/Icon-192.png', '192x192', 'image/png', 'any') in icons
+          assert ('/app/icons/Icon-512.png', '512x512', 'image/png', 'any') in icons
+          assert ('/app/icons/maskable-512.png', '512x512', 'image/png', 'maskable') in icons
           index = Path('web/index.html').read_text()
           assert 'href="/app/manifest.json"' in index
-          assert 'href="/app/icons/Icon-192.png"' in index
+          assert 'href="/app/apple-touch-icon.png"' in index
+          assert 'href="/app/favicon.png"' in index
+          assert 'Icon-512.webp' not in index
           PY
       - run: flutter build web --base-href /app/
       - run: grep -Fq 'Janus · OmniForge' build/web/index.html
       - name: Validate built PWA assets
         run: |
           test -s build/web/icons/Icon-192.png
-          test -s build/web/icons/Icon-512.webp
-          test -s build/web/assets/assets/branding/janus_app_icon_512.webp
+          test -s build/web/icons/Icon-512.png
+          test -s build/web/icons/maskable-512.png
+          test -s build/web/apple-touch-icon.png
+          test -s build/web/favicon.png
+          test -s build/web/assets/assets/branding/janus_app_icon_512.png
           grep -Fq '"start_url": "/app/"' build/web/manifest.json
           grep -Fq '"scope": "/app/"' build/web/manifest.json
