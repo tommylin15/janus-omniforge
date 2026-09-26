@@ -1,9 +1,6 @@
 {
-  "request_id": "portfolio-completeness-ohlcv-20260927-1",
+  "request_id": "portfolio-completeness-control-acl-20260927-1",
   "enabled": true,
-  "dataset": "twse-ohlcv",
-  "force_refresh": true,
-  "disable_mart_trigger": true,
-  "start_date": "2026-09-15",
-  "end_date": "2026-09-25"
+  "operation": "control-migration",
+  "migration": "030_private_stock_master_read"
 }
