@@ -47,3 +47,49 @@
 - Post-start analysis、backup／restore delta、outcome、usefulness、cost、security／privacy：本 checkpoint 沒有新增可宣稱 evidence；維持 `not observed`，待後續真實事件累積。
 
 相關程序與 calendar repair 細節見 [`runbook-pilot-calendar-repair.md`](runbook-pilot-calendar-repair.md)；parallel-live dev 操作語意見 [`runbook-parallel-live-dev.md`](runbook-parallel-live-dev.md)。
+
+## Checkpoint 002 — 2026-09-26
+
+觀察窗口：`2026-09-26T08:18:06Z` 至 `2026-09-26T08:25:40Z`。
+
+### Deployment controller reliability／manual intervention
+
+- 前一輪 runtime investigation 已由 live Cloud Build lineage 確認 `janus-ingestion-core` 與 `janus-intelligence-mart` 同時存在兩套 dev deployment controller：canonical GitHub Actions `.github/workflows/deploy-dev.yml` + `scripts/gcp/deploy-dev.sh`，以及 legacy `us-central1` regional Cloud Build triggers。此 duplicate surface 會讓同一個 `main` commit 另外啟動 regional build，形成不必要且失敗的第二條 deploy path。
+- Guarded cleanup run `36229366763` 在 mutation 前精確驗證兩個 trigger 的 ID、name、Dockerfile、runtime、image substitutions 與 enabled state，並確認兩個 Cloud Run Jobs 皆 `Ready=True`。
+- mutation 前完整 trigger JSON 與 Job image state 已先保存為 GitHub Actions artifact `10902226767`，digest `sha256:9b9054f51e86c53662b76b90836835acaf812cb51f60ca2f69ea45ecfdb84a13`；artifact 成功後才刪除：
+  - `janus-ingestion-core` trigger `5e201f5a-c206-4006-92b9-40a53c4155ed`
+  - `janus-intelligence-mart` trigger `b8215cb9-1823-401d-b293-65fbdf73ce30`
+- cleanup 後兩個 trigger names 不再出現在 `us-central1` trigger list，兩個 trigger IDs 都無法 describe；兩個 Cloud Run Jobs 仍 `Ready=True`，且 trigger-only cleanup 沒有改變原 runtime image。
+- 本次 cleanup 沒有新增 GCP resource、沒有擴大 IAM、沒有建立 Production topology，也沒有把 legacy regional triggers 修活或保留成 fallback controller。
+
+### Canonical bounded deployment acceptance
+
+- acceptance commit `5e572e6684d88b452f6ee81e0b5b46a21058c4ce` 只在兩個 Job Dockerfile 加入 stable deployment-controller 註解，用來命中 canonical path detection；沒有改 application runtime behavior。
+- GitHub Actions run `36229503909`：
+  - `test-ingestion`: `success`
+  - `test-mart`: `success`
+  - `deploy-ingestion`: `success`
+  - `deploy-mart`: `success`
+  - `test-api`: `skipped`
+  - `deploy-api`: `skipped`
+- canonical ingestion Cloud Build `6ff98342-ea87-4e40-bd58-bfcffdbb2de2` 成功，image tag `ingestion-core:dev-5e572e6684d88b452f6ee81e0b5b46a21058c4ce`；Cloud Run Job update 成功，`verify-dev.sh ingestion-core` 回報 `Ready=True`。
+- canonical mart Cloud Build `69277068-9412-448c-87e6-ee05c0181eb9` 成功，image tag `intelligence-mart:dev-5e572e6684d88b452f6ee81e0b5b46a21058c4ce`；Cloud Run Job update 成功，`verify-dev.sh intelligence-mart` 回報 `Ready=True`。
+- 這個 acceptance 只驗證 canonical deployment path、targeted tests 與 Cloud Run Job configuration；沒有執行 ingestion／Mart workload，因此不得解讀成 live-data workload acceptance。
+
+### Independent post-acceptance verification
+
+- request commit `827be464a7fb19f642e05378b26f18361dfd1e00` 將 guarded workflow 切到 `verify` mode；run `36229702938` 明確輸出 `verify mode: no trigger mutation requested`，因此此輪是獨立 read-only post-acceptance verification。
+- 驗證結果：兩個 legacy regional trigger names／IDs 仍 absent，canonical acceptance push 沒有把它們重新建立。
+- `janus-ingestion-core`：`Ready=True`，image digest `sha256:8009ae8eb017a463ea1f145942f2de910b64dc0e48234d0c8c8431c03fd6f9d8`。
+- `janus-intelligence-mart`：`Ready=True`，image digest `sha256:d0d5100085fe2f30e4b87891f0e264327cf244f46685826aa180252b39d9c456`。
+- 一次性 cleanup workflow／request 後續已從 `main` 移除，避免留下額外 mutation surface；正式 closure evidence 見 [`deployment-controller-consolidation-2026-09-26.md`](deployment-controller-consolidation-2026-09-26.md)。
+
+### Checkpoint 判定
+
+- duplicate dev deployment-controller condition：`RESOLVED`。
+- canonical dev deployment controller：GitHub Actions `.github/workflows/deploy-dev.yml` + `scripts/gcp/deploy-dev.sh`。
+- `janus-ingestion-core` deployment acceptance：`PASS`。
+- `janus-intelligence-mart` deployment acceptance：`PASS`。
+- `WBS-8-DEV-PILOT-RUN`：仍為 `partial`；本 checkpoint 增加的是 manual intervention／deployment reliability evidence，不代表六個 calendar months evidence window 完成。
+- 自然 Scheduler post-calendar-repair recovery：仍是下一個未取得的自然 runtime boundary；本 checkpoint 的 deployment acceptance 不可代替 Scheduler／workload recovery evidence。
+- Post-start analysis、backup／restore、outcome、usefulness、cost、security／privacy：本 checkpoint 沒有新增足以改變既有判定的 evidence，除 deployment reliability／manual intervention 類別外仍依前一 checkpoint 狀態累積。
