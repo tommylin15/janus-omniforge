@@ -76,12 +76,28 @@ jobs:
                   --format=json \
                   || true
               fi
-              echo '--- Cloud Build triggers matching janus-web ---'
-              gcloud builds triggers list \
-                --project="${GCP_PROJECT_ID}" \
-                --filter='name:janus-web' \
-                --format='json(id,name,disabled,filename,serviceAccount,createTime)' \
-                || true
+              ;;
+            janus-web-origin)
+              trigger_id='c08067dd-5c44-414f-9e8d-9d94e89b4089'
+              echo '--- historical janus-web trigger ---'
+              if ! gcloud builds triggers describe "${trigger_id}" \
+                --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+                --format='json(id,name,disabled,filename,serviceAccount,substitutions,createTime,github,repositoryEventConfig)'; then
+                gcloud builds triggers describe "${trigger_id}" \
+                  --project="${GCP_PROJECT_ID}" --region=global \
+                  --format='json(id,name,disabled,filename,serviceAccount,substitutions,createTime,github,repositoryEventConfig)' \
+                  || true
+              fi
+              echo '--- builds around janus-web recreation ---'
+              for location in global "${GCP_REGION}"; do
+                echo "location=${location}"
+                gcloud builds list \
+                  --project="${GCP_PROJECT_ID}" --region="${location}" \
+                  --filter="createTime>='2026-09-25T09:52:00Z' AND createTime<='2026-09-25T09:57:00Z'" \
+                  --format='json(id,createTime,startTime,finishTime,status,buildTriggerId,substitutions,images)' \
+                  --limit=20 \
+                  || true
+              done
               ;;
             core-financial-schema)
               prefix="gs://${GCP_PROJECT_ID}-dev-core/warehouse/financials_v1/metadata/"
