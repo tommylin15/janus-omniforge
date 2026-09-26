@@ -51,6 +51,18 @@ steps:
         if [[ "${_RUNTIME_NAME}" == janus-intelligence-mart && "${_GIT_SHA}" =~ ^[0-9a-f]{7,64}$ ]]; then
           runtime_flags+=(--update-env-vars="JANUS_GIT_SHA=${_GIT_SHA},JANUS_IMAGE_DIGEST=${digest}")
         fi
+        if [[ "${_RUNTIME_NAME}" == "janus-private-pipeline" ]]; then
+          runtime_flags+=(
+            --service-account="janus-private-pipeline@${PROJECT_ID}.iam.gserviceaccount.com"
+            --tasks=1
+            --parallelism=1
+            --max-retries=1
+            --task-timeout=30m
+            --remove-env-vars="VALUATION_DATE"
+            --remove-secrets="CORE_CATALOG_PASSWORD,PRIVATE_DATABASE_URL,PRIVATE_CATALOG_PASSWORD,JANUS_PIPELINE_POSTGRES_BUNDLE"
+            --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-runtime-bundle:latest"
+          )
+        fi
         if [[ "${_DEPLOY_TARGET}" == "service" ]]; then
           if [[ "${_NO_TRAFFIC}" == "true" ]]; then runtime_flags+=(--no-traffic); fi
           if [[ -n "${_TRAFFIC_TAG}" ]]; then runtime_flags+=(--tag="${_TRAFFIC_TAG}"); fi
