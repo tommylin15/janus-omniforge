@@ -50,10 +50,10 @@ void main() {
     expect(html, isNot(contains('Icon-512.webp')));
   });
 
-  test('login branding keeps the detailed 512px WebP asset', () {
+  test('login branding uses the runtime-verified 512px PNG asset', () {
     expect(
       janusAppIconAsset,
-      'assets/branding/janus_app_icon_512.webp',
+      'assets/branding/janus_app_icon_512.png',
     );
   });
 }
