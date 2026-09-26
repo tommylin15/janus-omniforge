@@ -1,5 +1,4 @@
 {
-  "request_id": "pilot-run-ingestion-failure-20260926-1",
-  "component": "janus-ingestion-core",
-  "execution": "janus-ingestion-core-n8bs2"
+  "request_id": "pilot-run-ingestion-scheduler-20260926-1",
+  "component": "janus-ingestion-scheduler"
 }
