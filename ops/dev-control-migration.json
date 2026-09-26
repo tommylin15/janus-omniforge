@@ -1,4 +1,4 @@
 {
-  "request_id": "pilot-run-calendar-repair-20260926-1",
+  "request_id": "pilot-run-calendar-repair-20260926-2",
   "migration": "029_twse_2026_holiday_overrides.sql"
 }
