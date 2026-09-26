@@ -86,6 +86,13 @@ jobs:
                 --format=json \
                 || true
               ;;
+            janus-ingestion-scheduler)
+              echo '--- schedulers targeting janus-ingestion-core ---'
+              gcloud scheduler jobs list \
+                --project="${GCP_PROJECT_ID}" --location="${GCP_REGION}" \
+                --format='json(name,schedule,timeZone,state,httpTarget.uri,httpTarget.httpMethod)' \
+                | jq '[.[] | select((.httpTarget.uri // "") | contains("/jobs/janus-ingestion-core:run"))]'
+              ;;
             *)
               echo "unsupported runtime component: ${component}" >&2
               exit 2
