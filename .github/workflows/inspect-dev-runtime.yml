@@ -86,12 +86,24 @@ jobs:
                 --format=json \
                 || true
               ;;
-            janus-ingestion-scheduler)
-              echo '--- schedulers targeting janus-ingestion-core ---'
-              gcloud scheduler jobs list \
-                --project="${GCP_PROJECT_ID}" --location="${GCP_REGION}" \
-                --format='json(name,schedule,timeZone,state,httpTarget.uri,httpTarget.httpMethod)' \
-                | jq '[.[] | select((.httpTarget.uri // "") | contains("/jobs/janus-ingestion-core:run"))]'
+            cloud-build)
+              build_id="$(jq -r '.build_id // ""' "${file}")"
+              [[ "${build_id}" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || {
+                echo 'invalid Cloud Build id' >&2
+                exit 2
+              }
+              gcloud builds describe "${build_id}" \
+                --project="${GCP_PROJECT_ID}" \
+                --format='json(id,status,createTime,startTime,finishTime,failureInfo,results,steps)'
+              echo '--- bounded Cloud Build logs ---'
+              gcloud logging read \
+                "resource.type=\"build\" AND resource.labels.build_id=\"${build_id}\"" \
+                --project="${GCP_PROJECT_ID}" \
+                --freshness=2d \
+                --limit=200 \
+                --order=asc \
+                --format=json \
+                || true
               ;;
             *)
               echo "unsupported runtime component: ${component}" >&2
