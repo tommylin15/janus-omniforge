@@ -1,4 +1,4 @@
-name: Apply Portfolio Completeness UI
+name: Apply Portfolio Deployment Closure
 
 on:
   push:
@@ -13,77 +13,86 @@ permissions:
 jobs:
   apply:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/user_app
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: subosito/flutter-action@v2
+      - uses: actions/setup-python@v5
         with:
-          channel: stable
-          cache: true
-      - name: Apply portfolio UI completeness changes
-        working-directory: .
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements-dev.txt
+            services/api/requirements.lock
+      - name: Install test dependencies
         run: |
-          python3 - <<'PY'
+          python -m pip install --upgrade pip
+          python -m pip install -r services/api/requirements.lock
+          python -m pip install -r requirements-dev.txt
+      - name: Apply deployment closure changes
+        run: |
+          python - <<'PY'
           from pathlib import Path
 
-          path = Path('apps/user_app/lib/main.dart')
+          path = Path('.github/workflows/deploy-dev.yml')
           text = path.read_text()
 
-          anchor = '''List<dynamic> effectiveLedgerEvents(List<dynamic> rows) {\n'''
-          helpers = '''String stockDisplayName(Map row) {\n  final symbol = '${row['symbol'] ?? '—'}';\n  final name = '${row['stock_name'] ?? ''}'.trim();\n  return name.isEmpty ? symbol : '$name（$symbol）';\n}\n\nString portfolioReturnLabel(Object? value) {\n  if (value == null) return '資料不足';\n  final ratio = double.tryParse('$value');\n  return ratio == null ? '$value' : '${(ratio * 100).toStringAsFixed(2)}%';\n}\n\nString portfolioMissingReasonLabel(Object? value) => const {\n      'no_eligible_persisted_ohlcv': '缺少符合估值日的正式行情',\n      'stock_master_not_found': '股票主檔缺少正式名稱',\n    }[value?.toString()] ?? '';\n\n'''
-          if 'String stockDisplayName(Map row)' not in text:
-              if anchor not in text: raise SystemExit('display helper anchor not found')
-              text = text.replace(anchor, helpers + anchor, 1)
-
-          text = text.replace("'股票：${row['symbol'] ?? '—'}',", "'股票：${stockDisplayName(row)}',", 1)
-          text = text.replace("title: Text('${uiLabel(row['event_type'])} ${row['symbol'] ?? ''}'),",
-                              "title: Text('${uiLabel(row['event_type'])} ${stockDisplayName(row)}'),", 1)
-
-          old = '''            title: Text('${row['symbol']} · ${row['currency'] ?? 'TWD'}'),\n            subtitle: Text('持有 ${row['shares'] ?? '—'} 股 · 現價 ${row['market_price'] ?? '—'} · 均價 ${row['average_cost'] ?? '—'}\\n市值 ${row['market_value'] ?? '缺價'} · 未實現損益 ${row['unrealized_pnl'] ?? '資料不足'}\\n估值日 ${row['valuation_date'] ?? '—'} · 行情日 ${row['price_date'] ?? '—'} · ${row['price_status'] == 'missing' ? '缺價' : row['price_status'] == 'stale' ? '資料過期' : '可用'}'),\n'''
-          new = '''            title: Text('${stockDisplayName(row)} · ${row['currency'] ?? 'TWD'}'),\n            subtitle: Text('持有 ${row['shares'] ?? '—'} 股 · 現價 ${row['market_price'] ?? '—'} · 均價 ${row['average_cost'] ?? '—'}\\n市值 ${row['market_value'] ?? '缺價'} · 未實現損益 ${row['unrealized_pnl'] ?? '資料不足'} · 未實現報酬 ${portfolioReturnLabel(row['unrealized_return'])}\\n估值日 ${row['valuation_date'] ?? '—'} · 行情日 ${row['price_date'] ?? '—'} · ${row['price_status'] == 'missing' ? '缺價' : row['price_status'] == 'stale' ? '資料過期' : '可用'}${portfolioMissingReasonLabel(row['missing_reason']).isEmpty ? '' : ' · ${portfolioMissingReasonLabel(row['missing_reason'])}'}'),\n'''
-          if old not in text: raise SystemExit('holdings card anchor not found')
+          old = '''          - intelligence-mart\n          - api\n'''
+          new = '''          - intelligence-mart\n          - private-pipeline\n          - api\n'''
+          if old not in text: raise SystemExit('workflow dispatch options anchor not found')
           text = text.replace(old, new, 1)
 
-          old = "title: Text('${uiLabel(row['event_type'])} · ${row['symbol']}'),"
-          new = "title: Text('${uiLabel(row['event_type'])} · ${stockDisplayName(row)}'),"
-          if old not in text: raise SystemExit('transaction title anchor not found')
+          old = '''      api_runtime: ${{ steps.filter.outputs.api_runtime }}\n      api_test: ${{ steps.filter.outputs.api_test }}\n'''
+          new = '''      private_pipeline_runtime: ${{ steps.filter.outputs.private_pipeline_runtime }}\n      api_runtime: ${{ steps.filter.outputs.api_runtime }}\n      api_test: ${{ steps.filter.outputs.api_test }}\n'''
+          if old not in text: raise SystemExit('detect outputs anchor not found')
           text = text.replace(old, new, 1)
 
-          old = '''        final realized = pnl.isEmpty ? '資料不足' : pnl.length == 1\n            ? '${pnl.first['currency']} ${pnl.first['realized_pnl'] ?? '資料不足'}' : '多幣別';\n        final value = portfolio.isEmpty ? '資料不足' : portfolio.length == 1\n            ? '${portfolio.first['currency']} ${portfolio.first['market_value'] ?? '資料不足'}' : '多幣別';\n        final unrealized = portfolio.isEmpty ? '資料不足' : portfolio.length == 1\n            ? '${portfolio.first['currency']} ${portfolio.first['unrealized_pnl'] ?? ((portfolio.first['stale_price_count'] ?? 0) > 0 ? '資料過期' : '資料不足')}' : '多幣別';\n'''
-          new = '''        final realized = pnl.isEmpty ? '資料不足' : pnl.length == 1\n            ? '${pnl.first['currency']} ${pnl.first['realized_pnl'] ?? '資料不足'}' : '多幣別';\n        final aggregateWithheld = portfolio.any((row) => row['aggregate_status'] == 'withheld');\n        final value = aggregateWithheld ? '總額暫不發布' : portfolio.isEmpty ? '資料不足' : portfolio.length == 1\n            ? '${portfolio.first['currency']} ${portfolio.first['market_value'] ?? '資料不足'}' : '多幣別';\n        final unrealized = aggregateWithheld ? '總額暫不發布' : portfolio.isEmpty ? '資料不足' : portfolio.length == 1\n            ? '${portfolio.first['currency']} ${portfolio.first['unrealized_pnl'] ?? ((portfolio.first['stale_price_count'] ?? 0) > 0 ? '資料過期' : '資料不足')}' : '多幣別';\n'''
-          if old not in text: raise SystemExit('summary value anchor not found')
+          old = '''            api_runtime:\n              - 'services/api/**'\n'''
+          new = '''            private_pipeline_runtime:\n              - 'services/api/**'\n              - 'packages/contracts/**'\n              - 'packages/observability/**'\n              - 'packages/provenance/**'\n              - 'packages/governance/**'\n              - 'cloudbuild.yaml'\n              - 'scripts/gcp/deploy-dev.sh'\n              - 'scripts/gcp/verify-dev.sh'\n            api_runtime:\n              - 'services/api/**'\n'''
+          if old not in text: raise SystemExit('private pipeline filter anchor not found')
           text = text.replace(old, new, 1)
 
-          old = '''        final valuationStatus = hasMissing && hasStale ? '部分可用，含缺價與過期行情'\n            : hasMissing ? '部分可用，含缺價' : hasStale ? '行情過期' : '資料完整';\n'''
-          new = '''        final affectedStatus = portfolio.where((row) => row['aggregate_status'] == 'withheld').map((row) {\n          final symbols = _asList(row['affected_symbols']).join('、');\n          return '受影響 ${row['affected_symbol_count'] ?? _asList(row['affected_symbols']).length} 檔${symbols.isEmpty ? '' : '：$symbols'}';\n        }).join(' / ');\n        final valuationStatus = aggregateWithheld ? affectedStatus\n            : hasMissing && hasStale ? '部分可用，含缺價與過期行情'\n            : hasMissing ? '部分可用，含缺價' : hasStale ? '行情過期' : '資料完整';\n'''
-          if old not in text: raise SystemExit('summary status anchor not found')
+          old = '''            api_test:\n              - 'tests/test_public_runtime.py'\n              - 'tests/test_public_api_routes.py'\n              - 'tests/test_mcp_adapter.py'\n'''
+          new = '''            api_test:\n              - 'tests/test_public_runtime.py'\n              - 'tests/test_public_api_routes.py'\n              - 'tests/test_mcp_adapter.py'\n              - 'tests/test_private_pipeline.py'\n              - 'tests/test_user_api.py'\n              - 'tests/test_portfolio_completeness.py'\n              - 'tests/test_portfolio_api_completeness.py'\n'''
+          if old not in text: raise SystemExit('api test filter anchor not found')
           text = text.replace(old, new, 1)
 
-          old = '''        for (final row in summary.cast<Map<String, dynamic>>())\n          ListTile(title: Text('${row['currency']} 投資組合'),\n            subtitle: Text('市值 ${money(row['market_value'])}・未實現 ${money(row['unrealized_pnl'])}'),\n            trailing: Text(row['cash_safety_status'] == 'insufficient_data' ? '現金資料不足' : '${row['cash_ratio']}')),\n'''
-          new = '''        for (final row in summary.cast<Map<String, dynamic>>())\n          ListTile(title: Text('${row['currency']} 投資組合'),\n            subtitle: Text(row['aggregate_status'] == 'withheld'\n              ? '總額暫不發布・受影響 ${row['affected_symbol_count'] ?? _asList(row['affected_symbols']).length} 檔${_asList(row['affected_symbols']).isEmpty ? '' : '：${_asList(row['affected_symbols']).join('、')}'}'\n              : '市值 ${money(row['market_value'])}・未實現 ${money(row['unrealized_pnl'])}・未實現報酬 ${portfolioReturnLabel(row['unrealized_return'])}'),\n            trailing: Text(row['cash_safety_status'] == 'insufficient_data' ? '現金資料不足' : '${row['cash_ratio']}')),\n'''
-          if old not in text: raise SystemExit('portfolio dashboard anchor not found')
+          old = '''          tests/test_public_runtime.py\n          tests/test_public_api_routes.py\n          tests/test_mcp_adapter.py\n\n  deploy-api:\n'''
+          new = '''          tests/test_public_runtime.py\n          tests/test_public_api_routes.py\n          tests/test_mcp_adapter.py\n          tests/test_private_pipeline.py\n          tests/test_user_api.py\n          tests/test_portfolio_completeness.py\n          tests/test_portfolio_api_completeness.py\n\n  deploy-private-pipeline:\n    needs: [detect, test-api]\n    if: >-\n      always() &&\n      needs.test-api.result == 'success' &&\n      (needs.detect.outputs.private_pipeline_runtime == 'true' ||\n      (github.event_name == 'workflow_dispatch' && inputs.component == 'private-pipeline'))\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: google-github-actions/auth@v2\n        with:\n          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}\n          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}\n      - uses: google-github-actions/setup-gcloud@v2\n      - name: Deploy private pipeline\n        shell: bash\n        env:\n          GOOGLE_USER_CLIENT_ID: ${{ vars.GOOGLE_USER_CLIENT_ID }}\n          GOOGLE_ADMIN_CLIENT_ID: ${{ vars.GOOGLE_ADMIN_CLIENT_ID }}\n        run: bash scripts/gcp/deploy-dev.sh private-pipeline\n      - name: Verify private pipeline\n        shell: bash\n        run: bash scripts/gcp/verify-dev.sh private-pipeline\n\n  deploy-api:\n'''
+          if old not in text: raise SystemExit('deploy private pipeline insertion anchor not found')
           text = text.replace(old, new, 1)
+          path.write_text(text)
 
+          path = Path('scripts/gcp/verify-dev.sh')
+          text = path.read_text()
+          old = '''  api)\n    verify_service janus-api\n    ;;\n'''
+          new = '''  private-pipeline)\n    verify_job janus-private-pipeline\n    ;;\n  api)\n    verify_service janus-api\n    ;;\n'''
+          if old not in text: raise SystemExit('verify private pipeline anchor not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text)
+
+          path = Path('scripts/gcp/apply-private-storage-postgres-migration.sh')
+          text = path.read_text()
+          old = '''    psql -U postgres -d janus_control -f /opt/janus/migrations/028_mcp_oauth_refresh_tokens.sql\n  '\n'''
+          new = '''    psql -U postgres -d janus_control -f /opt/janus/migrations/028_mcp_oauth_refresh_tokens.sql\n    psql -U postgres -d janus_control -f /opt/janus/migrations/030_private_stock_master_read.sql\n  '\n'''
+          if old not in text: raise SystemExit('migration 030 anchor not found')
+          text = text.replace(old, new, 1)
+          old = '''sudo docker exec --user postgres janus-postgres \\\n  psql -U postgres -d janus_control -f /opt/janus/private-storage-acceptance.sql\n\nswitched=false\n'''
+          new = '''sudo docker exec --user postgres janus-postgres \\\n  psql -U postgres -d janus_control -f /opt/janus/private-storage-acceptance.sql\nsudo docker exec --user postgres janus-postgres psql -U postgres -d janus_control -v ON_ERROR_STOP=1 <<'SQL'\nSELECT has_schema_privilege('janus_private_api', 'control', 'USAGE')\n  AND has_table_privilege('janus_private_api', 'control.stock_master', 'SELECT')\n  AS private_api_stock_master_read;\nSELECT has_schema_privilege('janus_private_pipeline', 'control', 'USAGE')\n  AND has_table_privilege('janus_private_pipeline', 'control.stock_master', 'SELECT')\n  AS private_pipeline_stock_master_read;\nSQL\n\nswitched=false\n'''
+          if old not in text: raise SystemExit('migration acceptance anchor not found')
+          text = text.replace(old, new, 1)
           path.write_text(text)
           PY
-      - name: Generate Janus PNG branding assets
+      - name: Run deployment closure tests
+        env:
+          PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends python3-pil
-          python3 tool/generate_brand_assets.py
-      - run: flutter pub get
-      - run: flutter analyze --no-fatal-infos lib test
-      - run: flutter test
-      - run: flutter build web --base-href /app/
-      - name: Commit UI green
-        working-directory: .
+          bash -n scripts/gcp/deploy-dev.sh scripts/gcp/verify-dev.sh scripts/gcp/apply-private-storage-postgres-migration.sh
+          python -m pytest -q tests/test_portfolio_deploy_contract.py tests/test_portfolio_completeness.py tests/test_portfolio_api_completeness.py tests/test_private_pipeline.py tests/test_user_api.py tests/test_postgres_web_roles.py
+      - name: Commit deployment green
         run: |
           git config user.name 'janus-ci'
           git config user.email 'janus-ci@users.noreply.github.com'
-          git add apps/user_app/lib/main.dart
-          git commit -m 'feat: render complete portfolio state in user app'
+          git add .github/workflows/deploy-dev.yml scripts/gcp/verify-dev.sh scripts/gcp/apply-private-storage-postgres-migration.sh
+          git commit -m 'ci: deploy private portfolio pipeline with api changes'
           git push origin HEAD:main
