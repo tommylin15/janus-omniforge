@@ -17,6 +17,7 @@ on:
       - 'tests/test_portfolio_completeness.py'
       - 'tests/test_portfolio_api_completeness.py'
       - 'tests/test_portfolio_deploy_contract.py'
+      - 'tests/test_portfolio_revaluation.py'
       - '.github/workflows/portfolio-completeness.yml'
   workflow_dispatch:
 
@@ -48,3 +49,4 @@ jobs:
           tests/test_portfolio_completeness.py
           tests/test_portfolio_api_completeness.py
           tests/test_portfolio_deploy_contract.py
+          tests/test_portfolio_revaluation.py
