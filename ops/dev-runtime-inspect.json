@@ -1,4 +1,4 @@
 {
-  "request_id": "inspect-financial-snapshot-20260925-1",
-  "component": "core-financial-schema"
+  "request_id": "pilot-run-ingestion-inspect-20260926-1",
+  "component": "janus-ingestion-core"
 }
