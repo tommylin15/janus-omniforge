@@ -4,6 +4,8 @@ WORKDIR /app/apps/user_app
 COPY apps/user_app/pubspec.yaml ./
 RUN flutter pub get
 COPY apps/user_app .
+RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-pil && rm -rf /var/lib/apt/lists/*
+RUN python3 tool/generate_brand_assets.py
 ARG GOOGLE_USER_CLIENT_ID
 ARG GOOGLE_ADMIN_CLIENT_ID
 ARG JANUS_GIT_SHA=local
@@ -17,6 +19,10 @@ RUN set -eux; \
     build_id="${JANUS_GIT_SHA:-local}"; \
     main_hash="$(sha256sum build/web/main.dart.js | cut -c1-16)"; \
     grep -Fq 'Janus · OmniForge' build/web/index.html; \
+    test -s build/web/icons/Icon-192.png; \
+    test -s build/web/icons/Icon-512.png; \
+    test -s build/web/icons/maskable-512.png; \
+    test -s build/web/assets/assets/branding/janus_app_icon_512.png; \
     cp build/web/main.dart.js "build/web/main.${main_hash}.dart.js"; \
     sed -i "s/main.dart.js/main.${main_hash}.dart.js/g" build/web/flutter_bootstrap.js; \
     cp build/web/flutter_bootstrap.js "build/web/flutter_bootstrap.${build_id}.js"; \
