@@ -87,12 +87,7 @@ case "${component}" in
       --update-secrets="JANUS_MART_POSTGRES_BUNDLE=janus-runtime-bundle:latest" --quiet
     ;;
   private-pipeline)
-    gcloud run jobs update "${runtime_name}" --project="${project}" --region="${region}" \
-      --service-account="janus-private-pipeline@${project}.iam.gserviceaccount.com" \
-      --tasks=1 --parallelism=1 --max-retries=1 --task-timeout=30m \
-      --remove-env-vars="VALUATION_DATE" \
-      --remove-secrets="CORE_CATALOG_PASSWORD,PRIVATE_DATABASE_URL,PRIVATE_CATALOG_PASSWORD,JANUS_PIPELINE_POSTGRES_BUNDLE" \
-      --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-runtime-bundle:latest" --quiet
+    echo "Private pipeline image and canonical runtime configuration were applied by Cloud Build."
     ;;
   api)
     # A canonical API deploy must create a distinct revision. Reusing an old
