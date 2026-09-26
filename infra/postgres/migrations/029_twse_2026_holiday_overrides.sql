@@ -6,6 +6,7 @@ SET search_path TO control, public;
 DO $migration$
 DECLARE
     existing_value jsonb;
+    previous_holidays jsonb;
     merged_holidays jsonb;
 BEGIN
     IF EXISTS (
@@ -25,15 +26,15 @@ BEGIN
         RAISE EXCEPTION 'schedule admin setting is required before applying TWSE holiday overrides';
     END IF;
 
+    previous_holidays := COALESCE(existing_value->'holiday_overrides', '[]'::jsonb);
+
     SELECT jsonb_agg(day ORDER BY day)
       INTO merged_holidays
       FROM (
         SELECT DISTINCT day
           FROM (
             SELECT value AS day
-              FROM jsonb_array_elements_text(
-                  COALESCE(existing_value->'holiday_overrides', '[]'::jsonb)
-              ) AS current(value)
+              FROM jsonb_array_elements_text(previous_holidays) AS current(value)
             UNION ALL
             SELECT day
               FROM (VALUES
@@ -82,6 +83,7 @@ BEGIN
         jsonb_build_object(
             'reason', 'repair dev Pilot trading-day correction from official TWSE 2026 holiday schedule',
             'holiday_override_count', jsonb_array_length(merged_holidays),
+            'previous_holiday_overrides', previous_holidays,
             'preserved_existing_overrides', true
         ),
         now()
