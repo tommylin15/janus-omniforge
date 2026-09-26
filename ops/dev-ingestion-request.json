@@ -1,8 +1,9 @@
 {
-  "request_id": "pilot-calendar-market-activity-acceptance-20260926-1",
+  "request_id": "portfolio-completeness-ohlcv-20260927-1",
   "enabled": true,
-  "dataset": "twse-market-activity",
+  "dataset": "twse-ohlcv",
   "force_refresh": true,
   "disable_mart_trigger": true,
-  "date": "2026-09-26"
+  "start_date": "2026-09-15",
+  "end_date": "2026-09-25"
 }
