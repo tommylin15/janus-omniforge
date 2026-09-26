@@ -1,5 +1,6 @@
 FROM python:3.12.8-slim-bookworm
 
+# Dev deployment controller: .github/workflows/deploy-dev.yml via scripts/gcp/deploy-dev.sh.
 WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
