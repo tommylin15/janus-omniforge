@@ -1,7 +1,7 @@
 {
-  "request_id": "pilot-calendar-valuation-acceptance-20260926-1",
+  "request_id": "pilot-calendar-institutional-acceptance-20260926-1",
   "enabled": true,
-  "dataset": "twse-valuation",
+  "dataset": "twse-institutional",
   "force_refresh": true,
   "disable_mart_trigger": true,
   "date": "2026-09-26"
