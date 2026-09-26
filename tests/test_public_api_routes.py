@@ -94,6 +94,13 @@ def client(public: Public) -> TestClient:
     return TestClient(create_app(object(), object(), public=public, query_core=Core()))
 
 
+def test_service_root_redirects_to_flutter_app() -> None:
+    api = client(Public())
+    response = api.get("/", follow_redirects=False)
+    assert response.status_code == 307
+    assert response.headers["location"] == "/app"
+
+
 def test_public_endpoint_family_is_read_only_and_uses_public_service() -> None:
     public = Public()
     api = client(public)
