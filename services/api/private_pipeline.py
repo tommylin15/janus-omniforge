@@ -130,13 +130,15 @@ def calculate_risk_marts(events: Iterable[dict[str, Any]], positions: list[dict[
     ledger_version=max((int(row["ledger_version"]) for row in rows),default=0)
     common={"user_id":user_id,"ledger_version":ledger_version,"valuation_date":valuation_date.isoformat()}
     totals:dict[str,dict[str,Any]]=defaultdict(lambda:{"market_value":ZERO,"cost_basis":ZERO,
-        "missing_price_count":0,"stale_price_count":0})
+        "missing_price_count":0,"stale_price_count":0,"affected_symbols":set()})
     exposure:dict[tuple[str,str],dict[str,Any]]=defaultdict(lambda:{"market_value":ZERO,"symbols":set(),"memberships":[]})
     for position in positions:
         currency=position["currency"]; total=totals[currency]
         total["cost_basis"]+=Decimal(str(position["average_cost"]))*Decimal(str(position["shares"]))
-        if position.get("price_status")=="stale": total["stale_price_count"]+=1
-        if position["market_value"] is None: total["missing_price_count"]+=1; continue
+        if position.get("price_status")=="stale":
+            total["stale_price_count"]+=1; total["affected_symbols"].add(position["symbol"])
+        if position["market_value"] is None:
+            total["missing_price_count"]+=1; total["affected_symbols"].add(position["symbol"]); continue
         value=Decimal(str(position["market_value"])); total["market_value"]+=value
         refs=memberships.get(position["symbol"],[])
         if not refs: refs=[{"industry":"unclassified","effective_date":None,"membership_snapshot_hash":None,"provenance_id":None}]
@@ -183,10 +185,15 @@ def calculate_risk_marts(events: Iterable[dict[str, Any]], positions: list[dict[
                 "minimum_cash_ratio":minimum_cash,"valuation_status":("partial" if total["missing_price_count"] else
                     "stale" if total["stale_price_count"] else "available"),
                 "method":"deterministic_parallel_shock_v1"})
-        summary.append({**common,"currency":currency,"market_value":total["market_value"],"cost_basis":total["cost_basis"],
-            "unrealized_pnl":total["market_value"]-total["cost_basis"] if not (
-                total["missing_price_count"] or total["stale_price_count"]
-            ) else None,
+        affected=bool(total["missing_price_count"] or total["stale_price_count"])
+        market_value=None if affected else total["market_value"]
+        unrealized_pnl=None if affected else total["market_value"]-total["cost_basis"]
+        unrealized_return=(unrealized_pnl/total["cost_basis"] if unrealized_pnl is not None and total["cost_basis"] else None)
+        affected_symbols=json.dumps(sorted(total["affected_symbols"]),separators=(",",":"))
+        summary.append({**common,"currency":currency,"market_value":market_value,"cost_basis":total["cost_basis"],
+            "unrealized_pnl":unrealized_pnl,"unrealized_return":unrealized_return,
+            "aggregate_status":"withheld" if affected else "available",
+            "affected_symbol_count":len(total["affected_symbols"]),"affected_symbols":affected_symbols,
             "missing_price_count":total["missing_price_count"],"stale_price_count":total["stale_price_count"],
             "valuation_status":("partial" if total["missing_price_count"] else
                 "stale" if total["stale_price_count"] else "available"),"cash_safety_status":"insufficient_data",
@@ -237,15 +244,21 @@ def calculate_marts(events: Iterable[dict[str, Any]], prices: dict[str, Decimal 
         else: price,price_date=quote,valuation_date if quote is not None else None
         price_status=("missing" if price is None else
                       "stale" if price_date is not None and price_date<valuation_date else "available")
+        missing_reason="no_eligible_persisted_ohlcv" if price is None else None
+        market_value=price*state["shares"] if price is not None else None
+        unrealized_pnl=(price-average)*state["shares"] if price is not None else None
+        cost_basis=average*state["shares"]
+        unrealized_return=(unrealized_pnl/cost_basis if unrealized_pnl is not None and cost_basis else None)
         lineage={"ledger_version":ledger_version,"price_status":price_status,
-                 "price_date":price_date.isoformat() if price_date else None}
+                 "price_date":price_date.isoformat() if price_date else None,"missing_reason":missing_reason}
         positions.append({"user_id":user_id,"symbol":symbol,"currency":currency,"shares":state["shares"],"average_cost":average,
-                          "market_price":price,"market_value":price*state["shares"] if price is not None else None,
+                          "market_price":price,"market_value":market_value,
                           "price_status":price_status,"price_date":price_date.isoformat() if price_date else None,
-                          "lineage":str(lineage),**common})
-        unrealized.append({"user_id":user_id,"symbol":symbol,"currency":currency,"unrealized_pnl":
-                           (price-average)*state["shares"] if price is not None else None,
-                           "price_status":price_status,"lineage":str(lineage),**common})
+                          "missing_reason":missing_reason,"lineage":str(lineage),**common})
+        unrealized.append({"user_id":user_id,"symbol":symbol,"currency":currency,"unrealized_pnl":unrealized_pnl,
+                           "unrealized_return":unrealized_return,"price_status":price_status,
+                           "price_date":price_date.isoformat() if price_date else None,"missing_reason":missing_reason,
+                           "lineage":str(lineage),**common})
     realized=[{**row,**common,"lineage":f"ledger:{row['event_id']}"} for row in realized_rows]
     annual_rows=[{"user_id":user,"year":year,"currency":currency,**values,**common,"lineage":f"ledger-version:{ledger_version}"}
                  for (user,year,currency),values in annual.items()]
