@@ -11,6 +11,7 @@ on:
       - 'services/api/models.py'
       - 'services/api/app.py'
       - 'tests/test_portfolio_completeness.py'
+      - 'tests/test_portfolio_api_completeness.py'
       - '.github/workflows/portfolio-completeness.yml'
   workflow_dispatch:
 
@@ -37,4 +38,4 @@ jobs:
       - name: Run portfolio completeness contract tests
         env:
           PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
-        run: python -m pytest -q tests/test_portfolio_completeness.py
+        run: python -m pytest -q tests/test_portfolio_completeness.py tests/test_portfolio_api_completeness.py
