@@ -49,6 +49,7 @@ sudo docker exec --user postgres janus-postgres bash -ceu '
     psql -U postgres -d janus_control -f /opt/janus/migrations/027_pipeline_acl_repair.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/028_mcp_oauth_refresh_tokens.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/030_private_stock_master_read.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/031_portfolio_market_coverage.sql
   '
 sudo docker exec --user postgres janus-postgres \
   psql -U postgres -d janus_control -f /opt/janus/private-storage-acceptance.sql
@@ -59,6 +60,21 @@ SELECT has_schema_privilege('janus_private_api', 'control', 'USAGE')
 SELECT has_schema_privilege('janus_private_pipeline', 'control', 'USAGE')
   AND has_table_privilege('janus_private_pipeline', 'control.stock_master', 'SELECT')
   AS private_pipeline_stock_master_read;
+SELECT has_function_privilege(
+    'janus_private_pipeline',
+    'control.request_portfolio_market_coverage(text[])',
+    'EXECUTE'
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM pg_proc AS p
+    JOIN pg_namespace AS n ON n.oid = p.pronamespace
+    JOIN pg_roles AS r ON r.oid = p.proowner
+    WHERE n.nspname = 'control'
+      AND p.proname = 'request_portfolio_market_coverage'
+      AND p.prosecdef
+      AND r.rolname = 'janus_control'
+  ) AS private_pipeline_bounded_market_coverage;
 SQL
 
 switched=false

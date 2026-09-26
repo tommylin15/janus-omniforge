@@ -44,10 +44,10 @@ jobs:
           case "${operation}" in
             control-migration)
               migration="$(jq -r '.migration // ""' "${file}")"
-              [[ "${migration}" == '030_private_stock_master_read' ]] || {
-                echo "Unsupported control migration: ${migration}" >&2
-                exit 2
-              }
+              case "${migration}" in
+                030_private_stock_master_read|031_portfolio_market_coverage) ;;
+                *) echo "Unsupported control migration: ${migration}" >&2; exit 2 ;;
+              esac
               {
                 echo 'enabled=true'
                 echo 'operation=control-migration'
