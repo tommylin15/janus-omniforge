@@ -289,11 +289,14 @@ class PrivatePipeline:
     def run(self, valuation_date: date | None = None, limit: int = 500) -> int:
         checkpoint=self.repository.pipeline_checkpoint(); changes=self.repository.pipeline_batch(checkpoint,limit)
         completed=checkpoint
-        if changes:
+        changed_user_ids={row["user_id"] for row in changes}
+        revaluation_reader=getattr(self.repository,"portfolio_user_ids_for_pipeline",None)
+        revaluation_user_ids=set(revaluation_reader(limit)) if revaluation_reader else set()
+        user_ids=changed_user_ids | revaluation_user_ids
+        if user_ids:
             if valuation_date is None:
                 if self.valuation_date_resolver is None: raise ValueError("valuation date is unavailable")
                 valuation_date=self.valuation_date_resolver()
-            user_ids={row["user_id"] for row in changes}
             for user_id in user_ids:
                 ledger=self.repository.ledger_for_pipeline(user_id)
                 watchlist=self.repository.watchlist_for_pipeline(user_id)
@@ -310,6 +313,7 @@ class PrivatePipeline:
                 for table,rows in calculate_risk_marts(ledger,marts["mart_user_positions"],profile,
                                                        self.memberships(symbols,valuation_date),valuation_date).items():
                     self.store.upsert(table,rows)
+        if changes:
             completed=changes[-1]["change_id"]
             self.repository.advance_pipeline_checkpoint(completed)
         for request in self.repository.pending_deletions():

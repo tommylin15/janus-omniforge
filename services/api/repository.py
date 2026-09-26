@@ -405,6 +405,15 @@ class PostgresWorkspaceRepository:
                 (name,change_id),
             )
 
+    def portfolio_user_ids_for_pipeline(self, limit: int = 500) -> list[UUID]:
+        bounded_limit = min(max(int(limit), 1), 500)
+        with self._connection() as connection:
+            rows = connection.execute(
+                "SELECT DISTINCT user_id FROM private.ledger_events ORDER BY user_id LIMIT %s",
+                (bounded_limit,),
+            ).fetchall()
+            return [row["user_id"] for row in rows]
+
     def ledger_for_pipeline(self, user_id: UUID) -> list[dict[str, Any]]:
         with self._connection() as connection:
             return [dict(row) for row in connection.execute(
