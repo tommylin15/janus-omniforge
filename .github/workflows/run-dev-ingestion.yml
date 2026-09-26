@@ -38,6 +38,29 @@ jobs:
             exit 0
           fi
 
+          request_id="$(jq -r '.request_id // "unnamed"' "${file}")"
+          [[ "${request_id}" =~ ^[A-Za-z0-9._-]{1,80}$ ]] || { echo 'invalid request_id' >&2; exit 2; }
+          operation="$(jq -r '.operation // "ingestion"' "${file}")"
+          case "${operation}" in
+            control-migration)
+              migration="$(jq -r '.migration // ""' "${file}")"
+              [[ "${migration}" == '030_private_stock_master_read' ]] || {
+                echo "Unsupported control migration: ${migration}" >&2
+                exit 2
+              }
+              {
+                echo 'enabled=true'
+                echo 'operation=control-migration'
+                echo "migration=${migration}"
+                echo "request_id=${request_id}"
+              } >> "${GITHUB_OUTPUT}"
+              echo "Validated bounded control migration request ${request_id}: ${migration}"
+              exit 0
+              ;;
+            ingestion) ;;
+            *) echo "Unsupported dev ingestion operation: ${operation}" >&2; exit 2 ;;
+          esac
+
           dataset="$(jq -r '.dataset // ""' "${file}")"
           case "${dataset}" in
             twse-ohlcv|tpex-ohlcv|taiex|tpex-benchmark|twse-valuation|twse-institutional|mops|finmind|twse-events|twse-market-activity) ;;
@@ -59,11 +82,10 @@ jobs:
           [[ -z "${single}" || ( -z "${start}" && -z "${end}" ) ]] || { echo 'date cannot be combined with start_date/end_date' >&2; exit 2; }
           [[ ( -z "${start}" && -z "${end}" ) || ( -n "${start}" && -n "${end}" ) ]] || { echo 'start_date and end_date must be supplied together' >&2; exit 2; }
 
-          request_id="$(jq -r '.request_id // "unnamed"' "${file}")"
-          [[ "${request_id}" =~ ^[A-Za-z0-9._-]{1,80}$ ]] || { echo 'invalid request_id' >&2; exit 2; }
-
           {
             echo 'enabled=true'
+            echo 'operation=ingestion'
+            echo 'migration='
             echo "dataset=${dataset}"
             echo "force_refresh=${force_refresh}"
             echo "disable_mart=${disable_mart}"
@@ -87,6 +109,8 @@ jobs:
         if: steps.request.outputs.enabled == 'true'
         shell: bash
         env:
+          OPERATION: ${{ steps.request.outputs.operation }}
+          MIGRATION: ${{ steps.request.outputs.migration }}
           DATASET: ${{ steps.request.outputs.dataset }}
           FORCE_REFRESH: ${{ steps.request.outputs.force_refresh }}
           DISABLE_MART: ${{ steps.request.outputs.disable_mart }}
@@ -106,7 +130,18 @@ jobs:
             --remove-env-vars="BACKFILL_START_DATE,BACKFILL_END_DATE,INGESTION_DATE,FORCE_REFRESH" \
             --quiet
 
+          if [[ "${OPERATION}" == 'control-migration' ]]; then
+            echo "Executing ${REQUEST_ID} against janus-ingestion-core (${MIGRATION})."
+            gcloud run jobs execute janus-ingestion-core \
+              --project="${GCP_PROJECT_ID}" \
+              --region="${GCP_REGION}" \
+              --update-env-vars="JANUS_CONTROL_MIGRATION=${MIGRATION},QUEUE_CONSUMER=false,MART_JOB=" \
+              --wait
+            exit 0
+          fi
+
           overrides=(
+            "JANUS_CONTROL_MIGRATION="
             "INGESTION_DATASETS=${DATASET}"
             "FORCE_REFRESH=${FORCE_REFRESH}"
             "QUEUE_CONSUMER=false"

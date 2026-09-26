@@ -8,7 +8,40 @@ import sys
 from time import monotonic
 from typing import Any
 
-from .__main__ import consume_queued_collection, run_scheduled_collection
+from .__main__ import _control_plane, consume_queued_collection, run_scheduled_collection
+
+
+CONTROL_MIGRATION_PRIVATE_STOCK_MASTER_READ = "030_private_stock_master_read"
+
+
+def _run_control_migration(name: str) -> dict[str, Any]:
+    """Apply the single allow-listed control-owner migration used by portfolio completeness."""
+    if name != CONTROL_MIGRATION_PRIVATE_STOCK_MASTER_READ:
+        raise ValueError("unsupported control migration")
+    with _control_plane() as control:
+        with control.connection.transaction(), control.connection.cursor() as cursor:
+            cursor.execute(
+                "GRANT USAGE ON SCHEMA control TO janus_private_api, janus_private_pipeline"
+            )
+            cursor.execute(
+                "GRANT SELECT ON control.stock_master TO janus_private_api, janus_private_pipeline"
+            )
+            cursor.execute(
+                """SELECT
+                    has_schema_privilege('janus_private_api', 'control', 'USAGE'),
+                    has_table_privilege('janus_private_api', 'control.stock_master', 'SELECT'),
+                    has_schema_privilege('janus_private_pipeline', 'control', 'USAGE'),
+                    has_table_privilege('janus_private_pipeline', 'control.stock_master', 'SELECT')"""
+            )
+            privileges = cursor.fetchone()
+            if privileges is None or not all(bool(value) for value in privileges):
+                raise RuntimeError("private stock-master ACL verification failed")
+    return {
+        "component": "ingestion-core",
+        "status": "succeeded",
+        "operation": "control_migration",
+        "migration": name,
+    }
 
 
 def _failure_details(error: Exception) -> list[dict[str, str]]:
@@ -39,12 +72,16 @@ def _failure_details(error: Exception) -> list[dict[str, str]]:
 def main() -> None:
     started = monotonic()
     try:
-        operation = (
-            consume_queued_collection
-            if os.environ.get("QUEUE_CONSUMER", "false").lower() in {"1", "true", "yes"}
-            else run_scheduled_collection
-        )
-        result: dict[str, Any] = operation()
+        control_migration = os.environ.get("JANUS_CONTROL_MIGRATION", "").strip()
+        if control_migration:
+            result = _run_control_migration(control_migration)
+        else:
+            operation = (
+                consume_queued_collection
+                if os.environ.get("QUEUE_CONSUMER", "false").lower() in {"1", "true", "yes"}
+                else run_scheduled_collection
+            )
+            result = operation()
         result["duration_ms"] = round((monotonic() - started) * 1000)
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
     except Exception as error:

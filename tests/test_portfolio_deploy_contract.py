@@ -3,8 +3,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
 WORKFLOW = (ROOT / ".github" / "workflows" / "deploy-dev.yml").read_text(encoding="utf-8")
+INGESTION_WORKFLOW = (ROOT / ".github" / "workflows" / "run-dev-ingestion.yml").read_text(encoding="utf-8")
 VERIFY = (ROOT / "scripts" / "gcp" / "verify-dev.sh").read_text(encoding="utf-8")
 MIGRATION_RUNNER = (ROOT / "scripts" / "gcp" / "apply-private-storage-postgres-migration.sh").read_text(encoding="utf-8")
+MIGRATION = (ROOT / "infra" / "postgres" / "migrations" / "030_private_stock_master_read.sql").read_text(encoding="utf-8")
+INGESTION_ENTRYPOINT = (ROOT / "jobs" / "ingestion-core" / "ingestion_core" / "runtime_entrypoint.py").read_text(encoding="utf-8")
 CLOUDBUILD = (ROOT / "cloudbuild.yaml").read_text(encoding="utf-8")
 DEPLOY = (ROOT / "scripts" / "gcp" / "deploy-dev.sh").read_text(encoding="utf-8")
 
@@ -49,3 +52,17 @@ def test_private_pipeline_runtime_configuration_is_applied_by_cloud_build_identi
 
 def test_private_stock_master_acl_migration_is_in_dev_migration_runner():
     assert "/opt/janus/migrations/030_private_stock_master_read.sql" in MIGRATION_RUNNER
+    assert "GRANT USAGE ON SCHEMA control TO janus_private_api, janus_private_pipeline" in MIGRATION
+    assert "GRANT SELECT ON control.stock_master TO janus_private_api, janus_private_pipeline" in MIGRATION
+
+
+def test_private_stock_master_acl_has_bounded_control_owner_transport():
+    compile(INGESTION_ENTRYPOINT, str(ROOT / "jobs/ingestion-core/ingestion_core/runtime_entrypoint.py"), "exec")
+    assert 'CONTROL_MIGRATION_PRIVATE_STOCK_MASTER_READ = "030_private_stock_master_read"' in INGESTION_ENTRYPOINT
+    assert 'raise ValueError("unsupported control migration")' in INGESTION_ENTRYPOINT
+    assert "has_schema_privilege('janus_private_api', 'control', 'USAGE')" in INGESTION_ENTRYPOINT
+    assert "has_table_privilege('janus_private_pipeline', 'control.stock_master', 'SELECT')" in INGESTION_ENTRYPOINT
+    assert "operation=control-migration" in INGESTION_WORKFLOW
+    assert "[[ \"${migration}\" == '030_private_stock_master_read' ]]" in INGESTION_WORKFLOW
+    assert "JANUS_CONTROL_MIGRATION=${MIGRATION}" in INGESTION_WORKFLOW
+    assert "gcloud run jobs execute janus-ingestion-core" in INGESTION_WORKFLOW
