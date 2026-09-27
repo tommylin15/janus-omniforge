@@ -423,25 +423,40 @@ class TodayPage extends StatefulWidget {
 }
 
 class _TodayPageState extends State<TodayPage> {
+  dynamic brief;
+  bool briefLoading = true;
   late Future<Map<String, dynamic>> home = _load();
 
   Future<Map<String, dynamic>> _load() async {
+    _loadBrief();
     dynamic market;
-    dynamic brief;
     try {
       market = await widget.api.get('/api/v1/public/market-home');
     } catch (_) {
       market = null;
     }
-    try {
-      brief = await widget.api.get('/api/v1/public/daily-brief');
-    } catch (_) {
-      brief = null;
-    }
-    return {'market': market, 'brief': brief};
+    return {'market': market};
   }
 
-  void reload() => setState(() => home = _load());
+  Future<void> _loadBrief() async {
+    dynamic result;
+    try {
+      result = await widget.api.get('/api/v1/public/daily-brief');
+    } catch (_) {
+      result = null;
+    }
+    if (!mounted) return;
+    setState(() {
+      brief = result;
+      briefLoading = false;
+    });
+  }
+
+  void reload() => setState(() {
+        brief = null;
+        briefLoading = true;
+        home = _load();
+      });
 
   @override
   Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
@@ -455,9 +470,7 @@ class _TodayPageState extends State<TodayPage> {
             : const {};
         final sections =
             market['sections'] is Map ? market['sections'] as Map : const {};
-        final root = snapshot.data?['brief'] is Map
-            ? snapshot.data!['brief'] as Map
-            : null;
+        final root = brief is Map ? brief as Map : null;
         final items =
             root?['items'] is List ? root!['items'] as List : const [];
         final report = items.isNotEmpty && items.first is Map
@@ -487,7 +500,6 @@ class _TodayPageState extends State<TodayPage> {
                 .contains(data['data_status']?.toString());
         return ListView(padding: const EdgeInsets.all(16), children: [
           Text('今日', style: Theme.of(context).textTheme.headlineMedium),
-          Text('市場資料日期：${market['as_of'] ?? '—'}'),
           for (final entry in sections.entries)
             if (entry.value is Map)
               Card(
@@ -502,14 +514,19 @@ class _TodayPageState extends State<TodayPage> {
                     '${entry.key}'),
                 subtitle: Text(_marketHomeDescription(entry.value as Map)),
               )),
-          if (sections.isEmpty)
+          if (snapshot.data?['market'] == null)
+            const Card(child: ListTile(title: Text('市場基礎資料暫時無法使用')))
+          else if (sections.isEmpty)
             const Card(child: ListTile(title: Text('市場基礎資料尚未就緒'))),
           const SizedBox(height: 12),
-          Text('研究摘要 · ${reportDate.isEmpty ? '尚未就緒' : reportDate}',
+          Text(
+              '研究摘要 · ${briefLoading ? '載入中' : (reportDate.isEmpty ? '尚未就緒' : reportDate)}',
               style: Theme.of(context).textTheme.titleMedium),
-          if (items.isEmpty)
+          if (briefLoading)
+            const Card(child: ListTile(title: Text('研究摘要載入中')))
+          else if (items.isEmpty)
             const Card(child: ListTile(title: Text('研究摘要尚未就緒'))),
-          if (items.isNotEmpty) ...[
+          if (!briefLoading && items.isNotEmpty) ...[
             if (partial)
               const ListTile(
                   leading: Icon(Icons.info_outline),
@@ -591,8 +608,6 @@ class _TodayPageState extends State<TodayPage> {
 
 String _marketHomeDescription(Map section) {
   final status = section['status']?.toString() ?? 'missing';
-  if (status == 'missing' || status == 'unavailable')
-    return '資料${status == 'missing' ? '缺失' : '暫時無法使用'}';
   final data = section['data'] is Map ? section['data'] as Map : const {};
   final coverage =
       section['coverage'] is Map ? section['coverage'] as Map : const {};
@@ -620,9 +635,24 @@ String _marketHomeDescription(Map section) {
           ? activity
           : institutional.isNotEmpty
               ? institutional
-              : '涵蓋 ${coverage['received_symbols'] ?? '—'} 檔';
-  return '$value · 資料日 ${section['as_of'] ?? '—'} · '
-      '${status == 'stale' ? '資料較舊' : '可用'}'
+              : '資料內容尚未就緒';
+  final statusLabel = const {
+        'available': '可用',
+        'partial': '部分資料可用',
+        'stale': '資料較舊',
+        'fallback': '使用備援資料',
+        'missing': '資料缺失',
+        'unavailable': '資料暫時無法使用',
+      }[status] ??
+      '狀態未知';
+  final received = coverage['received_symbols'];
+  final requested = coverage['requested_symbols'];
+  final coverageLabel = received == null
+      ? ''
+      : requested == null
+          ? ' · 涵蓋 $received 檔'
+          : ' · 涵蓋 $received/$requested 檔';
+  return '$value$coverageLabel · 資料日 ${section['as_of'] ?? '—'} · $statusLabel'
       '${section['freshness_days'] == null ? '' : '（${section['freshness_days']} 天前）'}';
 }
 

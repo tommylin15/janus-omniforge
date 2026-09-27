@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:janus_user_app/admin.dart';
@@ -8,9 +9,11 @@ class FakeApi extends Api {
   final Map<String, dynamic> values;
   final reads = <String>[];
   final writes = <Map<String, dynamic>>[];
+  final pendingReads = <String, Future<dynamic>>{};
   @override
   Future<dynamic> get(String path) async {
     reads.add(path);
+    if (pendingReads.containsKey(path)) return pendingReads[path]!;
     return values[path] ?? const [];
   }
 
@@ -36,25 +39,42 @@ class FakeApi extends Api {
 void main() {
   testWidgets('market baseline remains visible without a Daily Brief',
       (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    final dailyBrief = Completer<dynamic>();
     final api = FakeApi({
       '/api/v1/public/market-home': {
-        'as_of': '2026-09-26',
+        'as_of': null,
         'status': 'partial',
         'sections': {
           'taiex': {
-            'status': 'available',
+            'status': 'partial',
             'as_of': '2026-09-26',
             'freshness_days': 1,
             'data': {'close': '25000'},
-            'coverage': {'received_symbols': 1}
+            'coverage': {'received_symbols': 1, 'requested_symbols': 2}
           },
         }
       },
     });
+    api.pendingReads['/api/v1/public/daily-brief'] = dailyBrief.future;
     await tester.pumpWidget(MaterialApp(home: TodayPage(api)));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump();
     expect(find.textContaining('收盤 25000'), findsOneWidget);
+    expect(find.textContaining('2026-09-26'), findsOneWidget);
+    expect(find.textContaining('涵蓋 1/2 檔'), findsOneWidget);
+    expect(find.textContaining('部分資料可用'), findsOneWidget);
+    expect(find.text('研究摘要載入中'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    dailyBrief.complete({'items': []});
+    await tester.pumpAndSettle();
     expect(find.text('研究摘要尚未就緒'), findsOneWidget);
+
+    await tester.binding.setSurfaceSize(const Size(1280, 800));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 
   test('private API authentication requires a Google ID token', () {
