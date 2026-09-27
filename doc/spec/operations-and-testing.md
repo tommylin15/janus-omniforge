@@ -1910,8 +1910,12 @@ acceptance flag was removed. Codex managed-auth cleanup remains explicitly
   `portfolio_completeness_test.dart`: 5 passed. GitHub Actions `Deploy dev with
   GitHub` run `36308011802` and `Portfolio Completeness Contract` run
   `36308011803` succeeded.
-- Separate `Apply Portfolio Deployment Closure` run `36308010948` ended in
-  failure without jobs or logs; it did not affect the successful deployment or
-  contract run.
+- The one-off `Apply Portfolio Deployment Closure` runs `36308010948` and
+  `36309243633` failed before creating jobs: Python triple-quoted template
+  lines were left at column zero inside a YAML `run: |` block, making the
+  workflow invalid. Both runs had zero jobs/check runs and no downloadable
+  logs. The closure is already present in `deploy-dev.yml`, `verify-dev.sh`,
+  and the private-storage migration runner, so the obsolete one-off workflow
+  was removed; the normal deploy and contract workflows remain active.
 - No production deployment, new paid resource, or broader market collection
   was created.
