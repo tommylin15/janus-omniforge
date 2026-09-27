@@ -35,6 +35,8 @@ Observation window 不阻擋 correctness、data-integrity、market coverage、po
 
 Dependency：`WBS-3-LIQUID-500-ROTATION`。本 ID 的舊「所有 enabled 股票全市場」驗收條件由使用者於 2026-09-27 改為每週有效的 500 檔；不得把 500 檔結果宣稱為所有上市／上櫃股票完整 coverage。
 
+2026-09-27 dev bounded run 為 **partial**：effective 500、OHLCV 499/500、TWSE valuation 362/364、MOPS financials 336/500；TPEx valuation／institutional 與融資券／借券／當沖的合規來源仍 blocked。9,408 筆新 financials 已在 1 GiB Job 寫入；同日 replay 因多個上游 HTTP／JSON／資料驗證錯誤失敗，故 replay acceptance 尚未通過。Iceberg financials 手動清理與週排程已另行驗證，不代表本 WBS 的來源與 coverage 缺口完成；明日由此接續。
+
 - [ ] 對有效 500 檔收集日 OHLCV、PE/PB、法人、融資券／借券／當沖、基本面摘要與官方 benchmark；市場型 endpoint 必須單次抓取、批次快取、依 symbol 分配。來源缺少合規批次路徑時標 blocked，不以 500 次逐檔請求冒充完成。
 - [ ] coverage inventory 能指出有效 500 檔的 expected／received／missing，並保留 source／snapshot／execution provenance；其餘 enabled 股票標示不屬本週基礎 coverage。
 - [ ] 新增個人 watchlist 時由後端檢查有效 500 檔版本；既有項目離榜不自動刪除。真實 active holdings 即使離榜，仍須由正式行情補齊路徑估值或明示 missing／blocked。

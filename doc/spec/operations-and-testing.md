@@ -1,5 +1,12 @@
 # Operations and testing
 
+## WBS-3 weekly 500 coverage partial 與 Iceberg financials 維護（2026-09-27／28）
+
+- 500 檔 bounded dev ingestion：commit `6093e28` 將 Core merge 的讀取限於輸入日期與 symbol，純新增資料改用 append，避免逐次全表轉 Python list／大範圍 upsert。部署 workflow `36330347851` success。execution `janus-ingestion-core-bcvc5`／control execution `91a90fef-f661-4222-9c0e-c5a75234113f` 為 partial：Core 9,408 inserted、1,982 updated、4,994 reused，DQ event 0、Stage quarantine 0。financials 表從 2,546 增至 11,954 列，1 GiB Job 內成功；inventory effective 500，OHLCV 499/500、TWSE valuation 362/364、MOPS financials 336/500，TPEx valuation／institutional 與融資券／借券／當沖仍 blocked。`WBS-3-FULL-MARKET-BASE-COVERAGE` 尚未完成。
+- 同日 replay workflow `36331673592`／execution `janus-ingestion-core-8rfmx` failed；Job 明確列出 TWSE stock-profile JSONDecodeError、TAIEX／valuation／institutional HTTPError、MOPS／events ValueError。沒有可宣稱通過的 replay acceptance；常態 Job env 已還原。
+- 維護程式 commit `1944fe2` 的本機 targeted tests 47 passed，dev deploy workflow `36333213225` 的 ingestion tests、deployment 與 verify 均 success。手動 dry-run execution `janus-ingestion-core-4l2f7`：1,321 snapshots 中保留 22、預計過期 1,299，7 個 Core manifest 引用，預計清除 448 個舊 metadata JSON；原列數 11,954。apply execution `janus-ingestion-core-hpsrb` Completed=True：過期 1,299 snapshots、刪除 448 metadata JSON，原列數 11,954 且 7 個引用 snapshots 可讀。獨立 `gcloud storage du --summarize`：`warehouse/financials_v1/metadata/` 的有效物件從 361,299,847 降至 206,536,934 bytes，減少 154,762,913 bytes（約 42.8%）。
+- 空間下降後才提交每週維護 workflow commit `41848fe`；GitHub 顯示 `Maintain dev Iceberg financials` active，排程為 UTC Sunday 04:00（台北 Sunday 12:00），沿用既有 dev Job／WIF，不新增 GCP 資源。手動 dispatch 的 workflow run `36334128642` success；對應 dry-run execution `janus-ingestion-core-jxb7r` 再讀出 11,954 列、22 個保留 snapshots、7 個 Core manifest 引用、0 個待過期／待刪物件。**自然排程尚未到時，不能宣稱 scheduled occurrence 已觀察成功。**程序只處理 financials、保留 Core manifest／catalog refs／每日最後／近 24h／目前 snapshot，並以 generation precondition 刪除超過 7 天且不受引用的 metadata JSON。PyIceberg 0.11.1 的 expire 不直接移除 GCS 物件；本次未做 `.avro` orphan cleanup 或 manifest rewrite。Bucket 的 noncurrent version lifecycle 為 30 天、soft delete 為 7 天，不能把有效物件 bytes 降幅當成即時計費降幅。
+
 ## WBS-3 weekly liquid-500 Admin manual-swap — GCP dev acceptance (2026-09-27)
 
 Authenticated Admin opened the deployed Flutter workspace at `/app/admin` and

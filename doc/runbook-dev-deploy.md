@@ -112,6 +112,14 @@ Migration 必須使用 repository 內版本化 SQL／migration tooling，不直�
   --region=$region --project=$project --format="yaml(status)"
 ```
 
+### 5.1 Dev Iceberg financials 維護
+
+`.github/workflows/iceberg-maintenance-dev.yml` 每週日台北時間 12:00 執行既有 `janus-ingestion-core` Job 的 `apply` 模式；`workflow_dispatch` 預設 `dry-run`，可手動選 `apply`。與手動 ingestion 工作流共用 concurrency group，執行前會確認沒有尚未完成的 ingestion execution。此程序只處理既有 dev Core bucket 的 `core.financials_v1`，不建立新 GCP 資源。
+
+手動操作時，先確認無 ingestion execution 在跑，再以同一 Job 的 execution env override 執行 `ICEBERG_MAINTENANCE_MODE=dry-run`；檢查 Job JSON log 的 `planned_expiration`、`planned_metadata_json`、保留數與列數。確認後才改為 `apply`。使用 `gcloud storage du --summarize gs://gen-lang-client-0593591102-dev-core/warehouse/financials_v1/metadata/` 獨立比較清理前後的有效物件 bytes；Job 回報還會驗證原列數及 Core manifest 引用的 snapshots 可讀。Execution override 不應改寫 Job 的常態 env。
+
+保留條件為所有 Core manifest 引用、Iceberg catalog refs、每日最後一個、最近 24 小時及目前 snapshot。只刪超過 7 天且不在目前 catalog metadata log 或 Core manifest 中引用的舊 `*.metadata.json`，使用 GCS generation precondition。這次維護未清除 `.avro` 孤兒檔，也未重寫 manifests；若日後需要，先確認所有 PIT／publication 引用及所用 Iceberg runtime 的安全實作。Bucket 啟用 versioning，noncurrent version 30 天後才由 lifecycle 刪除，另有 7 天 soft delete；`du` 的有效物件下降不等於當天帳單 bytes 同幅下降。
+
 ## 6. Secret rotation
 
 目前 Janus runtime 採用整合後的 Secret bundle；實際 Secret 名稱、enabled versions 與 consumer references 必須先用目前 runtime／[`secret_list.md`](secret_list.md) 查證，不從歷史 split 文件推測。

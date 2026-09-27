@@ -1,6 +1,6 @@
 # Janus Current Status
 
-更新：2026-09-27
+更新：2026-09-28
 
 用途：提供「現在在哪裡、下一步是什麼、哪些尚未完成」的短入口。這不是新的 source of truth；實作以 GitHub `main` 為準，完成狀態以 tests／CI／deployment／live runtime／integration evidence 為準。完整未完成工作見 [`todo.md`](todo.md)；六個月 Pilot 新增 operational checkpoint 見 [`pilot-operational-evidence.md`](pilot-operational-evidence.md)；Janus web root routing incident evidence 見 [`janus-web-root-acceptance-2026-09-26.md`](janus-web-root-acceptance-2026-09-26.md)；deployment controller consolidation evidence 見 [`deployment-controller-consolidation-2026-09-26.md`](deployment-controller-consolidation-2026-09-26.md)；完整歷史 evidence 見 [`spec/operations-and-testing.md`](spec/operations-and-testing.md)。
 
@@ -12,6 +12,8 @@
 - **2026-09-26 dev deployment controller consolidation 已完成。** `janus-ingestion-core` 與 `janus-intelligence-mart` 的兩個 legacy `us-central1` Cloud Build triggers 已 guarded 刪除；cleanup run `36229366763` 先保存 rollback artifact，再精確刪除兩個 trigger。canonical GitHub deployment run `36229503909` 對 ingestion-core／intelligence-mart targeted tests、deploy、`verify-dev.sh` 全部成功，API jobs skipped。獨立 read-only post-acceptance run `36229702938` 再次確認兩個 regional triggers 仍 absent、兩個 Cloud Run Jobs 都 `Ready=True`。此項判定只代表 duplicate deployment-controller condition `RESOLVED` 與 deployment acceptance `PASS`，不等同 ingestion／Mart workload live-data acceptance。
 - **2026-09-26 Janus web root routing incident 已完成修復與 dev live acceptance。** 原因是 canonical Cloud Run service root `/` 沒有 FastAPI route，直接開啟會 404；修復 commit `27c8a0b7d091bcc0e86147688b5907762b32a2ba` 已部署到 revision `janus-api-g27c8a0b7d091-config`、100% traffic，image digest `sha256:002e52dbebb21dfeb231a556e3c049728e54c9aad2246f3ba834bd1eb2e73991`。Runtime inspect run `36226506571` 實際驗證 `/` 為 307、`Location: /app`，且 `/app/` Janus entrypoint 可達。此 routing 修復不代表 User／Admin product completeness 已完成。
 - **進入 observation window 不代表 feature freeze，也不代表產品功能完整。** Pilot observation 與產品完整度修復是兩條可並行的工作線；前者累積長期 operational evidence，後者補齊目前 dev 真實使用仍缺少的資料與操作閉環。
+- **`WBS-3-FULL-MARKET-BASE-COVERAGE` 維持 partial。** 2026-09-27 bounded dev run 的有效週量 500 已記錄 provenance；OHLCV 499/500、TWSE valuation 362/364、MOPS financials 336/500。TPEx valuation／institutional 及融資券／借券／當沖尚缺合規批次來源；同日 replay 因上游回應／資料驗證錯誤失敗。明日從缺口與 replay acceptance 接續，不將本次 Iceberg 維護視為 coverage 完成。
+- **Iceberg financials 手動維護已通過 dev 驗收並啟用每週排程。** 既有 1 GiB Job 保留 22 個 snapshots、過期 1,299 個，刪除 448 個舊 metadata JSON，原 11,954 列及 7 個 Core manifest 引用的 snapshots 維持可讀。GCS 有效 metadata bytes 從 361,299,847 降至 206,536,934（減少 154,762,913）；排程每週日台北時間 12:00 用同一 Job 執行，手動 dispatch dry-run 已通過，首次自然排程尚待觀察。Bucket versioning／soft delete 使實際計費空間延後下降；本程序尚未做 `.avro` orphan cleanup 或 manifest rewrite。
 - **User product completeness 目前未完成。** 現有 Flutter 已有交易／持股 presentation 與 missing／stale／partial 狀態處理，但真實持股若缺行情 coverage 或名稱解析，Private Mart 仍無法產生完整 aggregate valuation／unrealized PnL；UI 不得自行補算或用 placeholder 假裝完整。
 - **「今日」的 deterministic market-home API 與 User UI 均完成 dev acceptance。** Public endpoint 讀到已持久化 Core benchmark、市場活動與法人資料；各區塊保留各自資料日，日期不同時不顯示共用日期。登入後 Chrome `/app/` 顯示真實 Core 資料與「研究摘要尚未就緒」；390×844 手機 bottom navigation、1280×900 桌面 navigation rail 均驗收通過。UI commit `da3e83a69a73fa5004badc75602eb9a88642ec3d`、Flutter CI `36314185316`、dev deployment／verify `36314185317`、Ready revision `janus-api-gda3e83a69a73-config`（100% traffic）。詳見 [WBS-6-MARKET-HOME-UI archive](archive/wbs-6-market-home-ui-2026-09-27.md) 與 [operations evidence](spec/operations-and-testing.md)。
 - **Admin target workspace 尚未完成。** Legacy/static surface 在 migration 期間保留；Flutter Admin shell、overview／batch 與 stock data workbench 是產品完整度工作，不因六個月 observation window 而延後到 Pilot 結束後。
@@ -30,7 +32,7 @@ Shioaji 目前僅證實既有模擬憑證可登入及送出單檔 Quote 訂閱�
 
 `WBS-3-LIQUID-500-ROTATION` 已完成；live Admin 換股、500 檔數量、audit 與原名單復原均通過。完成 evidence 見 [`WBS-3 archive`](archive/wbs-3-liquid-500-rotation-completed-2026-09-27.md) 與 [`operations ledger`](spec/operations-and-testing.md)。
 
-下一個 foreground 原子項目是 **`WBS-3-FULL-MARKET-BASE-COVERAGE`**（建議模型：Sol）；本次未開始該項目。
+目前 foreground 原子項目仍是 **`WBS-3-FULL-MARKET-BASE-COVERAGE`**（建議模型：Sol），狀態 `partial`。依使用者指示，完成本次維護與文件回寫後暫停，明日再繼續。
 
 ### B. Dev Pilot operational observation
 
