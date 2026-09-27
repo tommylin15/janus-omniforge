@@ -6,6 +6,7 @@
 歷史入口：
 
 - [2026-09-26 Product Completeness reprioritization 與 TODO cleanup](archive/todo-cleanup-and-product-completeness-priority-2026-09-26.md)
+- [WBS-6 Portfolio Completeness completed (2026-09-27)](archive/todo-completed-2026-09-27-wbs6-portfolio-completeness.md)
 - [TODO 歷史 checkpoint、退役 WBS 4C 與已完成 checklist（2026-09-23）](archive/todo-history-and-completed-2026-09-23.md)
 - [已完成 WBS 0／1／2／4](archive/wbs-completed-through-2026-08-31.md)
 - 其他既有完成紀錄保留於 `archive/`；完整 runtime／deployment evidence 見 `spec/operations-and-testing.md`。
@@ -27,18 +28,7 @@ Observation window 不阻擋 correctness、data-integrity、market coverage、po
 
 ## A. Product Completeness foreground queue
 
-### 1. `WBS-6-PORTFOLIO-COMPLETENESS` — 【Sol】
-
-目標：讓真實個人持股從 ledger → stock master／market coverage → Private Mart → User UI 形成可用閉環，而不是只有 presentation shell。
-
-- [ ] 每筆有效持股都能解析股票代號與可顯示名稱；名稱解析使用 canonical stock master／正式 bounded reader，不由 Flutter hard-code。
-- [ ] 對所有真實 active holdings 驗證 market coverage；缺價時保留 affected symbol、price status、valuation date／price date 與安全的 missing reason，不只回傳泛化「資料不足」。
-- [ ] Private Mart 產生 per-position shares、average cost、market price／value、unrealized PnL／return 與同幣別 aggregate market value／cost basis／unrealized PnL／return；正式數值不得由 Flutter 或 LLM 重算。
-- [ ] aggregate 只有在 canonical contract 允許時才發布；missing／stale／跨 valuation date 不得拼成看似完整的總額，必須明確回報 partial／withheld 與 affected count／symbols。
-- [ ] User「持股」與交易相關主要列表優先顯示「股票名稱＋代號」，並顯示估值日、行情日與 missing／stale 狀態。
-- [ ] Acceptance 必須使用 authenticated owner 的 GCP dev 真實資料，至少證明目前所有 active holdings 的名稱解析與 coverage 結果；不得用 fixture 假裝 live completeness。
-
-### 2. `WBS-6-MARKET-HOME-DATA` — 【Sol】
+### 1. `WBS-6-MARKET-HOME-DATA` — 【Sol】
 
 目標：建立不依賴 LLM／`mart_daily_brief` 的 deterministic market-home contract。
 
@@ -47,7 +37,7 @@ Observation window 不阻擋 correctness、data-integrity、market coverage、po
 - [ ] 缺 dataset 時只讓該區塊 missing／partial，不以 0、placeholder 或 LLM 補值。
 - [ ] API contract 有 targeted tests、auth／public boundary 與 GCP dev persisted-data acceptance。
 
-### 3. `WBS-6-MARKET-HOME-UI` — 【Luna】
+### 2. `WBS-6-MARKET-HOME-UI` — 【Luna】
 
 Dependency：`WBS-6-MARKET-HOME-DATA`。
 

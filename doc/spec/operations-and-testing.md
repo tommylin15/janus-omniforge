@@ -1885,3 +1885,33 @@ acceptance flag was removed. Codex managed-auth cleanup remains explicitly
   snapshot parsing. An initial 503 was fixed by granting the existing Web runtime
   service account objectViewer on the existing Mart bucket.
 - No production deployment, new VM/disk/NAT/snapshot, or new paid resource was created.
+
+## 2026-09-27 — WBS-6 Portfolio Completeness GCP dev acceptance
+
+- Commits `d53d9de` and `ea6fb95` deployed to the existing GCP dev API and
+  private-pipeline Job. API revision `janus-api-gea6fb95196da-config` served
+  100% traffic; the Job was Ready on image digest
+  `sha256:83f85eb5473467be7749c591382d73dd506e73bad2dc64117e852a1219846bad`.
+- Authenticated owner UI acceptance inspected the full active portfolio. Each
+  position displays its canonical stock name and symbol. The missing-price row
+  retains `price_status=missing`, valuation date, null price date, and
+  `missing_reason=no_eligible_persisted_ohlcv`; the UI explains that no formal
+  quote is available for the valuation date. Aggregate market value and
+  unrealized PnL are withheld and affected symbols are identified. Owner
+  position identifiers and amounts remain in the private Mart, not this repo.
+- Dev `control.collection_configs` had no enabled symbol-scoped OHLCV config;
+  the existing `ohlcv-acceptance` config was disabled and market-wide. The
+  first run exposed that expected absence as a fatal Job error. The runtime now
+  reports partial coverage with
+  `no_eligible_enabled_symbol_scoped_ohlcv_config` while preserving the
+  position-level missing state. Final execution `janus-private-pipeline-vtp5z`
+  completed with `Completed=True`, `succeededCount=1`, `failedCount=0`.
+- Targeted Python tests: 46 passed; Flutter
+  `portfolio_completeness_test.dart`: 5 passed. GitHub Actions `Deploy dev with
+  GitHub` run `36308011802` and `Portfolio Completeness Contract` run
+  `36308011803` succeeded.
+- Separate `Apply Portfolio Deployment Closure` run `36308010948` ended in
+  failure without jobs or logs; it did not affect the successful deployment or
+  contract run.
+- No production deployment, new paid resource, or broader market collection
+  was created.
