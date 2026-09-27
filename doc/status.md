@@ -13,7 +13,7 @@
 - **2026-09-26 Janus web root routing incident 已完成修復與 dev live acceptance。** 原因是 canonical Cloud Run service root `/` 沒有 FastAPI route，直接開啟會 404；修復 commit `27c8a0b7d091bcc0e86147688b5907762b32a2ba` 已部署到 revision `janus-api-g27c8a0b7d091-config`、100% traffic，image digest `sha256:002e52dbebb21dfeb231a556e3c049728e54c9aad2246f3ba834bd1eb2e73991`。Runtime inspect run `36226506571` 實際驗證 `/` 為 307、`Location: /app`，且 `/app/` Janus entrypoint 可達。此 routing 修復不代表 User／Admin product completeness 已完成。
 - **進入 observation window 不代表 feature freeze，也不代表產品功能完整。** Pilot observation 與產品完整度修復是兩條可並行的工作線；前者累積長期 operational evidence，後者補齊目前 dev 真實使用仍缺少的資料與操作閉環。
 - **User product completeness 目前未完成。** 現有 Flutter 已有交易／持股 presentation 與 missing／stale／partial 狀態處理，但真實持股若缺行情 coverage 或名稱解析，Private Mart 仍無法產生完整 aggregate valuation／unrealized PnL；UI 不得自行補算或用 placeholder 假裝完整。
-- **「今日」目前不能只以 `mart_daily_brief` 是否存在決定整頁是否有市場資料。** 目標契約改為先呈現 deterministic published market baseline；Mart／AI brief 是疊加層，缺少時只降級該區塊，不應讓已存在的 Core 市場資料在首頁完全不可見。
+- **「今日」的 deterministic market-home API 已完成 dev acceptance。** Public endpoint 讀到已持久化 Core benchmark、市場活動與法人資料；各區塊保留各自資料日，頂層日期在日期不同時為 null。User UI 呈現仍由 `WBS-6-MARKET-HOME-UI` 完成。
 - **Admin target workspace 尚未完成。** Legacy/static surface 在 migration 期間保留；Flutter Admin shell、overview／batch 與 stock data workbench 是產品完整度工作，不因六個月 observation window 而延後到 Pilot 結束後。
 - `WBS-6-TRANSACTION-UX-2` 的既有完成判定只代表該次 presentation／read-path／state acceptance 已完成，不代表全市場行情 coverage、股票名稱解析、aggregate portfolio valuation 或整體 User App 已完成。
 
@@ -23,15 +23,13 @@
 
 依 [`todo.md`](todo.md) 一次只執行一個原子項目；目前順序為：
 
-1. `WBS-6-PORTFOLIO-COMPLETENESS`：真實持股名稱、行情 coverage、Private Mart aggregate valuation／PnL 與可診斷 missing-state 閉環。
-2. `WBS-6-MARKET-HOME-DATA`：建立不依賴 LLM／Daily Brief 的 deterministic market-home bounded contract。
-3. `WBS-6-MARKET-HOME-UI`：讓「今日」先顯示 market baseline，再疊加 Mart／AI 內容。
-4. `WBS-3-LIQUID-500-ROTATION` → `WBS-3-FULL-MARKET-BASE-COVERAGE`：先由每日各市場單次批次資料產生週量 500 個股，接著只對有效 500 執行基礎市場 coverage；原 WBS ID 保留，範圍已依使用者指示修訂。
-5. `WBS-6-FLUTTER-ADMIN-SHELL` → `WBS-6-ADMIN-OVERVIEW-BATCH` → `WBS-6-ADMIN-STOCK-WORKBENCH`：完成 Admin 主路徑，另增「市場資訊」以檢視／調整週量 500 進出。
+1. `WBS-6-MARKET-HOME-UI`：讓「今日」先顯示 market baseline，再疊加 Mart／AI 內容。
+2. `WBS-3-LIQUID-500-ROTATION` → `WBS-3-FULL-MARKET-BASE-COVERAGE`：先由每日各市場單次批次資料產生週量 500 個股，接著只對有效 500 執行基礎市場 coverage；原 WBS ID 保留，範圍已依使用者指示修訂。
+3. `WBS-6-FLUTTER-ADMIN-SHELL` → `WBS-6-ADMIN-OVERVIEW-BATCH` → `WBS-6-ADMIN-STOCK-WORKBENCH`：完成 Admin 主路徑，另增「市場資訊」以檢視／調整週量 500 進出。
 
 Shioaji 目前僅證實既有模擬憑證可登入及送出單檔 Quote 訂閱；正式環境登入回權限相關錯誤，且 2026-09-27 非交易時段，不能據此宣稱盤中即時股價或 User 市值更新可用。
 
-下一個 foreground 原子項目是 **`WBS-6-PORTFOLIO-COMPLETENESS`**。
+下一個 foreground 原子項目是 **`WBS-6-MARKET-HOME-UI`**（建議模型：Luna）。
 
 ### B. Dev Pilot operational observation
 

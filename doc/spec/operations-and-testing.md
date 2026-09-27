@@ -1,5 +1,22 @@
 # Operations and testing
 
+## WBS-6 Market Home Data — GCP dev acceptance (2026-09-27)
+
+Commit `6d6b53d8c4ec6de87f54e58f73509e1f22e6cca8` passed local
+`tests/test_market_home.py` (**4 passed**) and GitHub Actions `Deploy dev with
+GitHub` run `36311852140` (**success**). The workflow's API suite passed but does
+not include `test_market_home.py`; the targeted file was run locally. API Cloud
+Build `c36aaad2-723a-4ccd-af84-00d694dea5be` succeeded with image digest
+`sha256:e1a82558323bc26e59b0a21e2a178796971c63248d7d589c303cdf112be53b36`.
+Revision `janus-api-g6d6b53d8c4ec-config` is Ready and serves 100% traffic.
+
+Unauthenticated `GET /api/v1/public/market-home` returned HTTP 200 from persisted
+Core data: TAIEX dated 2026-09-25; TPEx, market activity and institutional dated
+2026-09-24. The top-level `as_of` was null for those mixed dates. Aggregate
+sections returned source and execution ID lists. Unauthenticated
+`GET /api/v1/admin/executions` returned HTTP 401. No production deployment,
+new service or paid resource was created.
+
 ## WBS-3 weekly liquid-500 rotation — GCP dev acceptance checkpoint (2026-09-27)
 
 The official TWSE／TPEx daily market-volume rows for 2026-09-21 through 2026-09-24

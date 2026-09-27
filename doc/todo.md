@@ -7,6 +7,7 @@
 
 - [2026-09-26 Product Completeness reprioritization 與 TODO cleanup](archive/todo-cleanup-and-product-completeness-priority-2026-09-26.md)
 - [WBS-6 Portfolio Completeness completed (2026-09-27)](archive/todo-completed-2026-09-27-wbs6-portfolio-completeness.md)
+- [WBS-6 Market Home Data completed (2026-09-27)](archive/wbs-6-market-home-data-2026-09-27.md)
 - [TODO 歷史 checkpoint、退役 WBS 4C 與已完成 checklist（2026-09-23）](archive/todo-history-and-completed-2026-09-23.md)
 - [已完成 WBS 0／1／2／4](archive/wbs-completed-through-2026-08-31.md)
 - 其他既有完成紀錄保留於 `archive/`；完整 runtime／deployment evidence 見 `spec/operations-and-testing.md`。
@@ -28,16 +29,7 @@ Observation window 不阻擋 correctness、data-integrity、market coverage、po
 
 ## A. Product Completeness foreground queue
 
-### 1. `WBS-6-MARKET-HOME-DATA` — 【Sol】
-
-目標：建立不依賴 LLM／`mart_daily_brief` 的 deterministic market-home contract。
-
-- [ ] 重用已發布 Core／bounded market readers，提供目前可合法取得的 benchmark、market activity、institutional 等市場 baseline；不因 Daily Brief 缺失而把整個市場首頁視為 unavailable。
-- [ ] 每個區塊保留 `as_of`／trade date、freshness、status、coverage 與 provenance；不同資料日期可以並列但不得假裝同一 analysis snapshot。
-- [ ] 缺 dataset 時只讓該區塊 missing／partial，不以 0、placeholder 或 LLM 補值。
-- [ ] API contract 有 targeted tests、auth／public boundary 與 GCP dev persisted-data acceptance。
-
-### 2. `WBS-6-MARKET-HOME-UI` — 【Luna】
+### 1. `WBS-6-MARKET-HOME-UI` — 【Luna】
 
 Dependency：`WBS-6-MARKET-HOME-DATA`。
 
