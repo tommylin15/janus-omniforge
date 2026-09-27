@@ -25,7 +25,7 @@
 主要 public endpoints：
 
 - `/api/v1/public/health`
-- `/api/v1/public/market-home`：無 LLM／Daily Brief 依賴；benchmark、市場活動與法人區塊各自回報 as-of、freshness、coverage、provenance、status。
+- `/api/v1/public/market-home`：無 LLM／Daily Brief 依賴；benchmark、市場活動與法人區塊各自回報 as-of、freshness、coverage、provenance、status。頂層 `as_of` 僅在所有區塊有相同資料日期時提供；彙總區塊 provenance 保留多個 source／execution／provenance ID，部分指標缺值時標記 `partial`。
 - `/api/v1/public/daily-brief?date=YYYY-MM-DD`
 - `/api/v1/public/sectors/rotation?date=YYYY-MM-DD`
 - `/api/v1/public/topics?date=YYYY-MM-DD`

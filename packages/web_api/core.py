@@ -132,8 +132,9 @@ class CoreQueryService:
                         sum(try_cast(net_shares AS DOUBLE)) FILTER (WHERE investor_type = 'dealer') AS dealer_net_shares"""
                 rows = self._query(table, (
                     f"SELECT trade_date, count(*) AS row_count, count(DISTINCT symbol) AS covered_symbols, "
-                    f"first(source_id) AS source_id, first(provenance_id) AS provenance_id, "
-                    f"first(execution_id) AS execution_id, {aggregates} FROM {table} "
+                    "list_sort(list(DISTINCT source_id)) AS source_ids, "
+                    "list_sort(list(DISTINCT provenance_id)) AS provenance_ids, "
+                    f"list_sort(list(DISTINCT execution_id)) AS execution_ids, {aggregates} FROM {table} "
                     f"WHERE trade_date = (SELECT max(trade_date) FROM {table}) GROUP BY trade_date"
                 ), ())
                 row = rows[0] if rows else None
@@ -145,9 +146,9 @@ class CoreQueryService:
                     {"received_symbols": int(row["covered_symbols"]) if row else 0, "expected_symbols": None}, data)
             except Exception:
                 sections[dataset] = self._market_section(None, today, 0, {}, unavailable=True)
-        dates = [part["as_of"] for part in sections.values() if part["as_of"]]
-        available = [part for part in sections.values() if part["status"] in {"available", "stale"}]
-        return {"schema_version": "market-home.v1", "as_of": max(dates) if dates else None,
+        dates = [part["as_of"] for part in sections.values()]
+        available = [part for part in sections.values() if part["status"] in {"available", "partial", "stale"}]
+        return {"schema_version": "market-home.v1", "as_of": dates[0] if dates[0] and len(set(dates)) == 1 else None,
                 "status": "missing" if not available else "available" if len(available) == len(sections)
                 and all(part["status"] == "available" for part in sections.values()) else "partial",
                 "sections": sections}
@@ -164,15 +165,21 @@ class CoreQueryService:
         if row and (age is None or age < 0):
             return {"status": "unavailable", "as_of": None, "freshness_days": None,
                     "row_count": 0, "coverage": {}, "provenance": {}, "data": {}}
-        return {"status": "unavailable" if unavailable else "missing" if not row else
-                "stale" if age is not None and age > 7 else "available",
+        values = dict(data) if data is not None else {
+            key: row[key] for key in ("benchmark_id", "close", "return_percent", "index_kind")
+            if row and row.get(key) is not None}
+        metric_count = len(data) if data is not None else int("close" in values)
+        expected_metrics = 3 if data is not None else 1
+        return {"status": "unavailable" if unavailable else "missing" if not row or not metric_count else
+                "stale" if age is not None and age > 7 else "partial" if metric_count < expected_metrics else "available",
                 "as_of": as_of, "freshness_days": age, "row_count": row_count,
                 "coverage": dict(coverage),
-                "provenance": {key: str(row[key]) for key in ("source_id", "provenance_id", "execution_id")
-                               if row and row.get(key) is not None},
-                "data": dict(data) if data is not None else {
-                    key: row[key] for key in ("benchmark_id", "close", "return_percent", "index_kind")
-                    if row and row.get(key) is not None}}
+                "provenance": {key: [str(item) for item in row[key] if item is not None]
+                               for key in ("source_ids", "provenance_ids", "execution_ids")
+                               if row and row.get(key) is not None} if data is not None else {
+                    key: str(row[key]) for key in ("source_id", "provenance_id", "execution_id")
+                    if row and row.get(key) is not None},
+                "data": values}
 
     def summary(self, symbol: str, *, datasets: Sequence[str] | None = None) -> dict[str, Any]:
         normalized_symbol = self._symbol(symbol)

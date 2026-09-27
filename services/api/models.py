@@ -90,12 +90,12 @@ class PublicDatasetOut(BaseModel):
 
 
 class MarketHomeSectionOut(BaseModel):
-    status: Literal["available", "stale", "missing", "unavailable"]
+    status: Literal["available", "partial", "stale", "missing", "unavailable"]
     as_of: date | None
     freshness_days: int | None
     row_count: int
     coverage: dict[str, int | None]
-    provenance: dict[str, str]
+    provenance: dict[str, str | list[str]]
     data: dict[str, Any]
 
 
