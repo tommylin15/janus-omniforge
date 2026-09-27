@@ -5,6 +5,7 @@ import unittest
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 
@@ -14,6 +15,7 @@ sys.path.insert(0, str(ROOT / "jobs" / "ingestion-core"))
 
 from ingestion_core.dq import merge_without_null_overwrite, semantic_zero, validate_ohlcv
 from ingestion_core.stage import LocalObjectStore, StageWriter
+from ingestion_core.iceberg_maintenance import _keep_snapshots, _protected_metadata
 from packages.provenance import Provenance, content_hash
 from ingestion_core.__main__ import (_coverage_status, _empty_is_nonfatal, _limit_response,
                                      _requested_dates, _should_collect, _skip_symbol_adapter_for_500,
@@ -305,6 +307,36 @@ class IcebergSchemaTests(unittest.TestCase):
             self.assertIn("execution_id", table["required_fields"])
             self.assertTrue(table["partitions"])
         self.assertEqual(catalog["evolution"]["snapshots"], "immutable")
+
+
+class IcebergMaintenanceTests(unittest.TestCase):
+    def test_preserves_referenced_recent_daily_and_current_snapshots(self):
+        timestamps = ["2026-09-20T10:00:00Z", "2026-09-20T11:00:00Z",
+                      "2026-09-21T10:00:00Z", "2026-09-21T11:00:00Z",
+                      "2026-09-27T11:00:00Z", "2026-09-27T12:00:00Z"]
+        snapshots = [SimpleNamespace(snapshot_id=index + 1,
+                                     timestamp_ms=int(datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp() * 1000))
+                     for index, value in enumerate(timestamps)]
+        table = SimpleNamespace(snapshots=lambda: snapshots, current_snapshot=lambda: snapshots[-1],
+                                metadata=SimpleNamespace(refs={"main": SimpleNamespace(snapshot_id=6)}))
+        keep = _keep_snapshots(table, {1}, datetime(2026, 9, 27, 13, tzinfo=timezone.utc))
+        self.assertEqual(keep, {1, 2, 4, 5, 6})
+        with self.assertRaisesRegex(RuntimeError, "unavailable"):
+            _keep_snapshots(table, {999}, datetime(2026, 9, 27, tzinfo=timezone.utc))
+
+    def test_protects_catalog_history_and_core_manifest_metadata(self):
+        prefix = "gs://dev-core/warehouse/financials_v1/metadata/"
+        table = SimpleNamespace(
+            metadata_location=prefix + "current.metadata.json",
+            metadata=SimpleNamespace(metadata_log=[SimpleNamespace(metadata_file=prefix + "previous.metadata.json")]),
+        )
+        self.assertEqual(_protected_metadata(table, "dev-core", {prefix + "pinned.metadata.json"}), {
+            "warehouse/financials_v1/metadata/current.metadata.json",
+            "warehouse/financials_v1/metadata/previous.metadata.json",
+            "warehouse/financials_v1/metadata/pinned.metadata.json",
+        })
+        with self.assertRaisesRegex(RuntimeError, "escaped"):
+            _protected_metadata(table, "dev-core", {"gs://other-bucket/metadata.json"})
 
 
 if __name__ == "__main__":

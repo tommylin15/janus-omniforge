@@ -111,8 +111,10 @@ class GcsObjectStore:
         with urlopen(request, timeout=self.timeout_seconds) as response:
             return response.read()
 
-    def delete(self, name: str) -> None:
+    def delete(self, name: str, *, generation: str | None = None) -> None:
         endpoint = f"https://storage.googleapis.com/storage/v1/b/{quote(self.bucket, safe='')}/o/{quote(name, safe='')}"
+        if generation is not None:
+            endpoint += f"?ifGenerationMatch={quote(generation, safe='')}"
         request = Request(endpoint, method="DELETE", headers={"Authorization": f"Bearer {self._token()}"})
         try:
             with urlopen(request, timeout=self.timeout_seconds):
@@ -123,7 +125,10 @@ class GcsObjectStore:
             raise
 
     def list(self, prefix: str) -> tuple[str, ...]:
-        names: list[str] = []
+        return tuple(item["name"] for item in self.objects(prefix))
+
+    def objects(self, prefix: str) -> tuple[dict[str, str], ...]:
+        items: list[dict[str, str]] = []
         token: str | None = None
         while True:
             query = f"prefix={quote(prefix, safe='')}&maxResults=1000"
@@ -133,10 +138,11 @@ class GcsObjectStore:
             request = Request(endpoint, headers={"Authorization": f"Bearer {self._token()}"})
             with urlopen(request, timeout=self.timeout_seconds) as response:
                 document = json.load(response)
-            names.extend(item["name"] for item in document.get("items", []))
+            items.extend({key: item[key] for key in ("name", "size", "updated", "generation")}
+                         for item in document.get("items", []))
             token = document.get("nextPageToken")
             if not token:
-                return tuple(names)
+                return tuple(items)
 
 
 @dataclass(frozen=True)

@@ -229,8 +229,13 @@ def _failure_details(error: Exception) -> list[dict[str, str]]:
 def main() -> None:
     started = monotonic()
     try:
+        maintenance_mode = os.environ.get("ICEBERG_MAINTENANCE_MODE", "").strip()
         control_migration = os.environ.get("JANUS_CONTROL_MIGRATION", "").strip()
-        if control_migration:
+        if maintenance_mode:
+            from .iceberg_maintenance import run
+
+            result = run(maintenance_mode)
+        elif control_migration:
             result = _run_control_migration(control_migration)
         else:
             operation = (
