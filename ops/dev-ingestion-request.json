@@ -1,6 +1,6 @@
 {
-  "request_id": "portfolio-completeness-control-acl-20260927-1",
+  "request_id": "portfolio-completeness-market-coverage-20260927-1",
   "enabled": true,
   "operation": "control-migration",
-  "migration": "030_private_stock_master_read"
+  "migration": "031_portfolio_market_coverage"
 }
