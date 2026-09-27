@@ -39,7 +39,10 @@ Runtime checkpoint（2026-09-27）：dev rotation 建立 version 1（500 檔、r
 既有 dev PostgreSQL 提前啟用，audit actor 為 `codex-dev-acceptance`。已部署 Admin 顯示目前
 有效 v1 共 500 檔。Chrome 使用者頁 live 驗收：2409 成功加入、1103 因不在有效 500 檔遭拒；
 移除測試項目後關注名單恢復空白。live 手動換股尚未操作；相關版本衝突、手動調整與 audit
-另有 targeted tests 覆蓋。詳細部署與驗收證據見 `spec/operations-and-testing.md`。
+另有 targeted tests 覆蓋。2026-09-27 新增 Core 批次完整度及 stock master 分類 fail-closed
+檢查；local 16 tests、GitHub workflow `36316000092` 與 dev rotation execution
+`janus-ingestion-core-n8vl5` 通過。live Admin 手動換股仍未驗收，因此本 WBS 保持 open。
+詳細部署與驗收證據見 `spec/operations-and-testing.md`。
 
 - [ ] 每個交易日由 TWSE／TPEx 各自單次批次抓取全市場盤後成交股數與必要識別資料，保留 Stage → Core provenance；不得把現有逐檔 OHLCV adapter 放大成全市場請求。週末只用已持久化的當週完整交易日資料排序。
 - [ ] 合併上市／上櫃且僅納入 enabled 個股；以當週成交股數合計排序，同量依成交金額及代號穩定排序。缺交易日、來源不完整、股票 master 無法分類或少於 500 檔時不換股，保留舊有效版本並回報 blocked／partial。

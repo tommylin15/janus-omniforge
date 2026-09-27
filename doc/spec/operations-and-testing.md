@@ -79,6 +79,30 @@ conflict and audit; a live Admin manual-swap action was not performed. Keep WBS-
 open for its remaining rotation/source and live manual-adjustment acceptance criteria.
 No production or new cloud resources were created.
 
+## WBS-3 weekly liquid-500 fail-closed guards — dev follow-up (2026-09-27)
+
+Commit `1302c2b693bf4a00e2f1a92714bde4877be45c04` added guards for incomplete
+Core market batches, Iceberg scan limits, and mismatched official stock-market
+classification. Local targeted verification passed: `tests/test_liquid_500.py`,
+`tests/test_market_volume_source.py`, and `tests/test_portfolio_deploy_contract.py`
+(**16 passed**). GitHub workflow `36316000092` completed successfully; its
+`test-ingestion` and `deploy-ingestion` jobs passed. The workflow test job covers
+the repository's first-batch and data-cleaning suites; the liquid-500 targeted
+files were run locally.
+
+Cloud Build `a83b7347-52aa-4b34-b6f2-39c6d7187c74` succeeded with image digest
+`sha256:db1062e1876e9249214969e6d3ef49e01b73f4002e4855291c9227683d2deb54`; the
+existing `janus-ingestion-core` Job is Ready. Dev execution
+`janus-ingestion-core-n8vl5` completed successfully at `2026-09-27T11:38:28Z`;
+its structured log reports `liquid_500_rotation`, `status=succeeded`, version 1.
+This was an idempotent replay of the already-effective version for week
+`2026-09-21` and exercised the persisted Core inputs through the new guards.
+
+Live Admin manual-swap acceptance remains open. The computer-use runtime could
+not load the browser inventory, and the local gcloud user credentials could not
+mint a token for the Admin OAuth audience. No manual adjustment was made. WBS-3
+remains open for live Admin manual-swap and audit acceptance.
+
 ## WBS-8 Dev Pilot Entry Gate re-evaluation — 2026-09-24
 
 Owner A/B MCP read isolation is accepted as recorded below. Existing GCP dev
