@@ -4,6 +4,7 @@ from decimal import Decimal
 from pathlib import Path
 from uuid import UUID, uuid4
 
+from services.api import private_pipeline_runtime
 from services.api.private_pipeline import PrivatePipeline
 from services.api.private_pipeline_runtime import register_active_portfolio_market_coverage
 from services.api.repository import PostgresWorkspaceRepository
@@ -175,6 +176,37 @@ def test_private_pipeline_runtime_skips_control_write_when_no_active_positions()
     repository._connection = connection
     assert register_active_portfolio_market_coverage(repository) == (0, 0)
     assert len(connection_object.calls) == 1
+
+
+def test_private_pipeline_runtime_reports_unavailable_coverage_without_failing(monkeypatch, capsys):
+    class MarketStub:
+        memberships = object()
+
+        def latest_valuation_date(self, day):
+            return day
+
+    class PipelineStub:
+        def __init__(self, *_args):
+            pass
+
+        def run(self, *_args):
+            return 42
+
+    market = MarketStub()
+    monkeypatch.setattr(private_pipeline_runtime, "load_postgres_bundle", lambda *_args: None)
+    monkeypatch.setattr(private_pipeline_runtime, "repository_from_env", lambda: object())
+    monkeypatch.setattr(private_pipeline_runtime.CorePriceReader, "from_env", classmethod(lambda _cls: market))
+    monkeypatch.setattr(private_pipeline_runtime.PrivateIcebergStore, "from_env", classmethod(lambda _cls: object()))
+    monkeypatch.setattr(private_pipeline_runtime, "PrivatePipeline", PipelineStub)
+    monkeypatch.setattr(private_pipeline_runtime, "register_active_portfolio_market_coverage", lambda _repo: (1, 0))
+
+    private_pipeline_runtime.main()
+
+    output = capsys.readouterr().out
+    assert "portfolio_coverage_status=partial" in output
+    assert "portfolio_coverage_requested=1 portfolio_coverage_accepted=0" in output
+    assert "portfolio_coverage_missing=1" in output
+    assert "portfolio_coverage_missing_reason=no_eligible_enabled_symbol_scoped_ohlcv_config" in output
 
 
 def test_private_pipeline_job_uses_coverage_runtime_entrypoint():

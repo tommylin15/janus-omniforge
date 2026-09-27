@@ -65,15 +65,16 @@ def main() -> None:
         lambda: resolve_valuation_date(None, market.latest_valuation_date),
     ).run(date.fromisoformat(override) if override else None)
     requested_count, accepted_count = register_active_portfolio_market_coverage(repository)
-    if accepted_count != requested_count:
-        raise RuntimeError(
-            "portfolio market coverage incomplete: "
-            f"accepted={accepted_count} requested={requested_count}"
-        )
+    missing_count = requested_count - accepted_count
+    coverage_status = "not_applicable" if not requested_count else "partial" if missing_count else "complete"
+    missing_reason = "no_eligible_enabled_symbol_scoped_ohlcv_config" if missing_count else "none"
     print(
         "private pipeline "
-        f"checkpoint={completed} portfolio_coverage_requested={requested_count} "
-        f"portfolio_coverage_accepted={accepted_count}"
+        f"checkpoint={completed} portfolio_coverage_status={coverage_status} "
+        f"portfolio_coverage_requested={requested_count} "
+        f"portfolio_coverage_accepted={accepted_count} "
+        f"portfolio_coverage_missing={missing_count} "
+        f"portfolio_coverage_missing_reason={missing_reason}"
     )
 
 
