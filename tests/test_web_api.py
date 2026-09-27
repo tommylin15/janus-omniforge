@@ -45,7 +45,7 @@ class CoreQueryServiceTests(unittest.TestCase):
         self.service.page("valuation", "2330")
         self.assertIn("WHERE symbol = ? ORDER BY observed_date DESC", self.calls[-1][1])
         self.service.page("benchmark", "TAIEX")
-        self.assertIn("WHERE benchmark_id = ? ORDER BY trade_date DESC", self.calls[-1][1])
+        self.assertIn("WHERE upper(benchmark_id) = ? ORDER BY trade_date DESC", self.calls[-1][1])
 
     def test_summary_has_bounded_data_quality_metadata(self):
         summary = self.service.summary("2330", datasets=("ohlcv",))

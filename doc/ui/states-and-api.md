@@ -25,6 +25,7 @@
 主要 public endpoints：
 
 - `/api/v1/public/health`
+- `/api/v1/public/market-home`：無 LLM／Daily Brief 依賴；benchmark、市場活動與法人區塊各自回報 as-of、freshness、coverage、provenance、status。
 - `/api/v1/public/daily-brief?date=YYYY-MM-DD`
 - `/api/v1/public/sectors/rotation?date=YYYY-MM-DD`
 - `/api/v1/public/topics?date=YYYY-MM-DD`

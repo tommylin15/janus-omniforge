@@ -197,7 +197,7 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
             .length;
         final core = sources
             .where(
-              (value) => !{'success', 'succeeded'}.contains(value['state']),
+              (value) => !{'success', 'succeeded'}.contains(value['last_state']),
             )
             .length;
         final mart = reports
@@ -376,8 +376,8 @@ class _AdminBatchPageState extends State<AdminBatchPage> {
           width: 640,
           child: ListView(
             shrinkWrap: true,
-            children: _items(detail)
-                .map(
+            children: [
+              ..._items(detail).map(
                   (item) => ListTile(
                     title: Text('${item['dataset_id']} · ${item['source_id']}'),
                     subtitle: Text(
@@ -404,8 +404,14 @@ class _AdminBatchPageState extends State<AdminBatchPage> {
                           )
                         : Text(_label(item['retry_classification'])),
                   ),
-                )
-                .toList(),
+                ),
+              const Divider(),
+              ListTile(title: const Text('執行追蹤'),
+                  subtitle: Text('追蹤 ID ${detail['trace_id'] ?? '—'}')),
+              for (final related in (((detail['lineage'] as Map?)?['executions'] as List?) ?? const []))
+                ListTile(title: Text('${related['execution_id'] ?? '—'}'),
+                    subtitle: Text(_label(related['status']))),
+            ],
           ),
         ),
         actions: [
@@ -646,12 +652,23 @@ class _AdminStockWorkbenchState extends State<AdminStockWorkbench> {
                                 subtitle: Text(
                                   '筆數 ${value['row_count'] ?? '—'} · 覆蓋 ${value['received_symbols'] ?? '—'}/${value['requested_symbols'] ?? '—'}',
                                 ),
-                                trailing: Text(
-                                  value['dq_warning_count'] == 0
-                                      ? '正常'
-                                      : '${value['dq_warning_count']} 個警示',
-                                ),
+                                trailing: Text(value['status'] == 'unavailable'
+                                    ? '無法使用' : value['status'] == 'missing'
+                                    ? '缺資料' : value['dq_warning_count'] == 0
+                                    ? '正常' : '${value['dq_warning_count']} 個警示'),
                               ),
+                            ),
+                            ExpansionTile(
+                              title: const Text('最近執行與資料版本'),
+                              children: [
+                                for (final value in health)
+                                  ListTile(
+                                    title: Text(value['dataset_id'].toString()),
+                                    subtitle: Text('執行 ${_label((value['execution_ids'] as List?)?.firstOrNull)} · '
+                                        '快照 ${_label((value['snapshot_ids'] as List?)?.firstOrNull)} · '
+                                        '資料日 ${_label(value['latest_date'])}'),
+                                  ),
+                              ],
                             ),
                             const Divider(),
                             Text(

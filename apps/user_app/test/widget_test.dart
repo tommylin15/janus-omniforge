@@ -31,6 +31,22 @@ class FakeApi extends Api {
 }
 
 void main() {
+  testWidgets('market baseline remains visible without a Daily Brief', (tester) async {
+    final api = FakeApi({
+      '/api/v1/public/market-home': {
+        'as_of': '2026-09-26', 'status': 'partial',
+        'sections': {
+          'taiex': {'status': 'available', 'as_of': '2026-09-26',
+            'freshness_days': 1, 'data': {'close': '25000'}, 'coverage': {'received_symbols': 1}},
+        }
+      },
+    });
+    await tester.pumpWidget(MaterialApp(home: TodayPage(api)));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('收盤 25000'), findsOneWidget);
+    expect(find.text('研究摘要尚未就緒'), findsOneWidget);
+  });
+
   test('private API authentication requires a Google ID token', () {
     expect(requireGoogleIdToken('id-token'), 'id-token');
     expect(() => requireGoogleIdToken(null), throwsStateError);
@@ -52,7 +68,7 @@ void main() {
     final api = FakeApi({
       '/api/v1/admin/executions?limit=50': {'items': []},
       '/api/v1/admin/source-health?limit=200': {'items': [
-        {'source_id': 'twse', 'dataset_id': 'ohlcv', 'state': 'success'}
+        {'source_id': 'twse', 'dataset_id': 'ohlcv', 'last_state': 'success'}
       ]},
       '/api/v1/admin/mart-reports?limit=50': {'items': []},
     });
@@ -334,6 +350,8 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: TodayPage(api))));
     await tester.pumpAndSettle();
     expect(find.textContaining('部分資料日期不一致'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('查看全市場篩選'), 250,
+        scrollable: find.byType(Scrollable).last);
     expect(find.text('查看全市場篩選'), findsOneWidget);
   });
 

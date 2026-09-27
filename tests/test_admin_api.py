@@ -201,10 +201,12 @@ class AdminServiceTests(unittest.TestCase):
         class Core:
             @staticmethod
             def summary(symbol, *, datasets=None):
-                self.assertEqual(datasets, ("ohlcv",))
+                if datasets != ("ohlcv",):
+                    return {"symbol": symbol, "datasets": {}}
                 return {"symbol": symbol, "datasets": {"ohlcv": {"row_count": 2, "latest_date": "2026-08-28", "coverage": {"received_symbols": 1, "requested_symbols": 1}, "null_profile": {"close": 1}, "quality_flags": ["warning"], "warning_count": 2, "quarantined_count": 1, "associations": {"source_id": ["twse"], "execution_id": ["exec-1"], "provenance_id": ["prov-1"], "snapshot_id": ["snap-1"]}}}}
 
         status = AdminService(self.control, core=Core()).stock_status("2330")
+        status["items"] = tuple(item for item in status["items"] if item["dataset_id"] == "ohlcv")
         self.assertEqual(status["items"][0]["dataset_id"], "ohlcv")
         self.assertEqual(status["items"][0]["null_count"], 1)
         self.assertEqual(status["items"][0]["null_profile"], ({"field": "close", "count": 1, "ratio": 0.5},))
@@ -214,6 +216,18 @@ class AdminServiceTests(unittest.TestCase):
         self.assertEqual(status["items"][0]["execution_ids"], ("exec-1",))
         self.assertEqual(status["items"][0]["provenance_ids"], ("prov-1",))
         self.assertNotIn("summary", status)
+
+    def test_stock_status_keeps_other_datasets_when_one_is_unavailable(self):
+        class Core:
+            @staticmethod
+            def summary(symbol, *, datasets=None):
+                if datasets == ("valuation",):
+                    raise RuntimeError("dataset unavailable")
+                return {"symbol": symbol, "datasets": {datasets[0]: {"row_count": 1}}}
+
+        items = AdminService(self.control, core=Core()).stock_status("2330")["items"]
+        assert next(item for item in items if item["dataset_id"] == "valuation")["status"] == "unavailable"
+        assert next(item for item in items if item["dataset_id"] == "ohlcv")["status"] == "available"
 
     def test_stock_delete_guard_combines_control_market_report_and_fundamental_references(self):
         class Core:

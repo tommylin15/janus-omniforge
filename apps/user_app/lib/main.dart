@@ -406,23 +406,28 @@ class TodayPage extends StatefulWidget {
 }
 
 class _TodayPageState extends State<TodayPage> {
-  late Future<dynamic> brief = widget.api.get('/api/v1/public/daily-brief');
-  void reload() => setState(() => brief = widget.api.get('/api/v1/public/daily-brief'));
+  late Future<Map<String, dynamic>> home = _load();
+
+  Future<Map<String, dynamic>> _load() async {
+    dynamic market;
+    dynamic brief;
+    try { market = await widget.api.get('/api/v1/public/market-home'); } catch (_) { market = null; }
+    try { brief = await widget.api.get('/api/v1/public/daily-brief'); } catch (_) { brief = null; }
+    return {'market': market, 'brief': brief};
+  }
+
+  void reload() => setState(() => home = _load());
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<dynamic>(
-      future: brief,
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+      future: home,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snapshot.hasError) {
-          return ListView(padding: const EdgeInsets.all(16), children: [
-            const ListTile(leading: Icon(Icons.info_outline), title: Text('今日市場資料尚未就緒')),
-            const Text('本服務提供研究資訊，不構成投資建議。')
-          ]);
-        }
-        final root = snapshot.data as Map?;
+        final market = snapshot.data?['market'] is Map ? snapshot.data!['market'] as Map : const {};
+        final sections = market['sections'] is Map ? market['sections'] as Map : const {};
+        final root = snapshot.data?['brief'] is Map ? snapshot.data!['brief'] as Map : null;
         final items = root?['items'] is List ? root!['items'] as List : const [];
         final report = items.isNotEmpty && items.first is Map ? items.first as Map : const {};
         final data = report['data'] is Map ? report['data'] as Map : report;
@@ -442,7 +447,22 @@ class _TodayPageState extends State<TodayPage> {
             .contains(data['data_status']?.toString());
         return ListView(padding: const EdgeInsets.all(16), children: [
           Text('今日', style: Theme.of(context).textTheme.headlineMedium),
-          Text('資料日期：${reportDate.isEmpty ? '—' : reportDate}'),
+          Text('市場資料日期：${market['as_of'] ?? '—'}'),
+          for (final entry in sections.entries)
+            if (entry.value is Map) Card(child: ListTile(
+              leading: const Icon(Icons.insights_outlined),
+              title: Text(const {'taiex': '加權指數', 'tpex': '櫃買指數',
+                  'market-activity': '市場活動', 'institutional': '法人資料'}[entry.key] ?? '${entry.key}'),
+              subtitle: Text(_marketHomeDescription(entry.value as Map)),
+            )),
+          if (sections.isEmpty)
+            const Card(child: ListTile(title: Text('市場基礎資料尚未就緒'))),
+          const SizedBox(height: 12),
+          Text('研究摘要 · ${reportDate.isEmpty ? '尚未就緒' : reportDate}',
+              style: Theme.of(context).textTheme.titleMedium),
+          if (items.isEmpty)
+            const Card(child: ListTile(title: Text('研究摘要尚未就緒'))),
+          if (items.isNotEmpty) ...[
           if (partial)
             const ListTile(leading: Icon(Icons.info_outline),
                 title: Text('部分資料日期不一致，本頁只顯示同日可用內容')),
@@ -489,10 +509,32 @@ class _TodayPageState extends State<TodayPage> {
               label: const Text('查看全市場篩選'),
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => ScreeningPage(widget.api, onOpenStock: widget.onOpenStock))))),
+          ],
           const SizedBox(height: 16),
           const Text('本服務提供研究資訊，不構成投資建議。')
         ]);
       });
+}
+
+String _marketHomeDescription(Map section) {
+  final status = section['status']?.toString() ?? 'missing';
+  if (status == 'missing' || status == 'unavailable') return '資料${status == 'missing' ? '缺失' : '暫時無法使用'}';
+  final data = section['data'] is Map ? section['data'] as Map : const {};
+  final coverage = section['coverage'] is Map ? section['coverage'] as Map : const {};
+  const activityLabels = {'day_trade_shares': '當沖股數', 'day_trade_buy_twd': '當沖買進金額',
+    'day_trade_sell_twd': '當沖賣出金額'};
+  const investorLabels = {'foreign': '外資', 'investment_trust': '投信', 'dealer': '自營商'};
+  final activity = activityLabels.entries.where((entry) => data[entry.key] != null)
+      .map((entry) => '${entry.value} ${data[entry.key]}').join(' · ');
+  final institutional = investorLabels.entries
+      .where((entry) => data['${entry.key}_net_shares'] != null)
+      .map((entry) => '${entry.value}淨額 ${data['${entry.key}_net_shares']}').join(' · ');
+  final value = data['close'] != null ? '收盤 ${data['close']}' :
+      activity.isNotEmpty ? activity : institutional.isNotEmpty ? institutional :
+      '涵蓋 ${coverage['received_symbols'] ?? '—'} 檔';
+  return '$value · 資料日 ${section['as_of'] ?? '—'} · '
+      '${status == 'stale' ? '資料較舊' : '可用'}'
+      '${section['freshness_days'] == null ? '' : '（${section['freshness_days']} 天前）'}';
 }
 
 class StockHealthCard extends StatelessWidget {

@@ -27,7 +27,7 @@ from .auth import (AuthenticatedAdmin, AuthenticatedUser, GoogleAdminAuthenticat
 from .context_sources import ContextSourceError, ContextSourceService, CoreContextReader
 from .mcp_adapter import McpAdapter
 from .mcp_oauth import McpOAuth, OAuthSettings, RepositoryOAuthCodeStore, parse_form
-from .models import (AdminResponseOut, AnalysisFeedbackIn, CorePageOut, CoreSummaryOut,
+from .models import (AdminResponseOut, AnalysisFeedbackIn, CorePageOut, CoreSummaryOut, MarketHomeOut,
                      CorrectionIn, HealthOut, InvestmentProfileIn, InvestmentProfileOut, LedgerEventIn,
                      MonthlyLedgerSummaryOut,
                      NoteIn, NoteRevisionIn, PortfolioExposureOut, PortfolioPerformanceOut,
@@ -372,6 +372,10 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @public_router.get("/daily-brief", response_model=PublicReportListOut)
     def daily_brief(scope_id: str = Query("market", max_length=80), analysis_as_of: str = Query("", max_length=10)):
         return public_report_list("market", scope_id, analysis_as_of)
+
+    @public_router.get("/market-home", response_model=MarketHomeOut)
+    def market_home():
+        return jsonable_encoder(query_core.market_home())
 
     @public_router.get("/sector-rotation", response_model=PublicReportListOut)
     def sector_rotation(scope_id: str = Query(..., min_length=1, max_length=80), analysis_as_of: str = Query("", max_length=10)):

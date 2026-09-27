@@ -510,7 +510,13 @@ class AdminService:
     def stock_status(self, symbol: str) -> dict[str, Any]:
         if self.core is None:
             raise AdminValidationError("core status unavailable")
-        summary = self.core.summary(symbol, datasets=("ohlcv",))
+        from packages.web_api import CoreQueryService
+        summary: dict[str, Any] = {"symbol": symbol, "datasets": {}}
+        for dataset_id in CoreQueryService.DEFAULT_SUMMARY_DATASETS:
+            try:
+                summary["datasets"].update(self.core.summary(symbol, datasets=(dataset_id,))["datasets"])
+            except RuntimeError:
+                summary["datasets"][dataset_id] = {"row_count": 0, "status": "unavailable"}
         items = []
         for dataset_id, dataset in summary.get("datasets", {}).items():
             null_profile = dataset.get("null_profile", {})
@@ -527,6 +533,7 @@ class AdminService:
                 freshness = None
             items.append({
                 "dataset_id": dataset_id,
+                "status": dataset.get("status", "available" if row_count else "missing"),
                 "latest_date": dataset.get("latest_date"),
                 "row_count": row_count,
                 "received_symbols": received_symbols,

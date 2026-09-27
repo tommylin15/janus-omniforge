@@ -24,7 +24,7 @@
   新 AI consumer 未完成前不得把 AI role／CIO／Profile controls 當作可用。
 - Admin 可按 market／industry／symbol scope 檢視已持久化的 `mart_scoped_analysis`；讀取不得觸發即時 Agent。System Guardrail 與 Output Schema 由系統鎖定；Role Methodology／CIO Prompt 由唯一 Admin 以 immutable version、content hash、author、timestamp 與 Profile reference 管理。
 - blocked report、raw payload、secret、traceback、broker data 不得公開。
-- User App 主頁以 `mart_daily_brief` 為唯一首屏資料入口；個股健檢讀取 `mart_candidate_health` 與可定位 evidence，前端不重算健康度。
+- User App「今日」先讀 `/api/v1/public/market-home` 的 deterministic Core baseline，再獨立讀取 `mart_daily_brief` 研究摘要；各區塊保留自身日期、狀態、coverage 與 provenance。個股健檢讀取 `mart_candidate_health` 與可定位 evidence，前端不重算健康度。
 - `/api/v1/me/journal/*`、`/api/v1/me/notes/*`、`/api/v1/me/watchlist/*`、`/api/v1/me/portfolio/*` 與 `/api/v1/me/investment-profile` 只允許 authenticated user 存取自己的資料。Janus source 不提供 `/api/v1/me/chats/*` runtime；既有 migration／歷史私人資料保留，不代表仍有 Janus Chat writer。
 - User token 只接受 User OAuth audience 並只授權 `/api/v1/me/*`；不得用於 `/api/v1/admin/*`。Admin token／session 亦不因具管理權限而取得一般交易內容讀取能力。
 - User 可匯出其支援的交易、筆記與關注股資料，並要求刪除私人資料；刪除採可稽核、可重試的非同步流程，涵蓋 Janus PostgreSQL、Private Core／Mart 與 GCS artifact，且不影響依法或安全要求保留的最小 audit metadata。既有 assistant migration／歷史資料保留於本次 source split；刪除使用者私人資料時仍依既有 cleanup policy 處理。排隊後該 owner 進入 `DELETING` 並拒絕相關寫入；任一步失敗保留 `CLEANUP_PENDING`，只有必要 cleanup 全部完成才可標示 `COMPLETED`。

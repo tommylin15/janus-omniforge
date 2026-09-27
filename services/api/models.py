@@ -89,6 +89,23 @@ class PublicDatasetOut(BaseModel):
     offset: int
 
 
+class MarketHomeSectionOut(BaseModel):
+    status: Literal["available", "stale", "missing", "unavailable"]
+    as_of: date | None
+    freshness_days: int | None
+    row_count: int
+    coverage: dict[str, int | None]
+    provenance: dict[str, str]
+    data: dict[str, Any]
+
+
+class MarketHomeOut(BaseModel):
+    schema_version: Literal["market-home.v1"]
+    as_of: date | None
+    status: Literal["available", "partial", "missing"]
+    sections: dict[str, MarketHomeSectionOut]
+
+
 class PrivateResponseOut(RootModel[dict[str, Any] | list[Any] | None]):
     """Named OpenAPI boundary for owner-scoped responses with varied domain shapes."""
 
