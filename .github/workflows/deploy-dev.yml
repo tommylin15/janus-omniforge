@@ -13,6 +13,7 @@ on:
       - 'tests/stage_core_tests/test_stage_core.py'
       - 'tests/stage_core_tests/test_first_batch_sources.py'
       - 'tests/stage_core_tests/test_data_cleaning_regressions.py'
+      - 'tests/test_portfolio_deploy_contract.py'
       - 'jobs/intelligence-mart/**'
       - 'tests/test_intelligence_mart_pipeline.py'
       - 'tests/test_intelligence_mart_runtime.py'
@@ -98,6 +99,7 @@ jobs:
               - 'tests/stage_core_tests/test_stage_core.py'
               - 'tests/stage_core_tests/test_first_batch_sources.py'
               - 'tests/stage_core_tests/test_data_cleaning_regressions.py'
+              - 'tests/test_portfolio_deploy_contract.py'
             mart_runtime:
               - 'jobs/intelligence-mart/**'
               - 'packages/contracts/**'
@@ -168,6 +170,7 @@ jobs:
           tests/stage_core_tests/test_first_batch_sources.py
           tests/stage_core_tests/test_stage_core.py
           tests/stage_core_tests/test_data_cleaning_regressions.py
+          tests/test_portfolio_deploy_contract.py
 
   deploy-ingestion:
     needs: [detect, test-ingestion]

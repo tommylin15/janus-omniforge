@@ -63,7 +63,7 @@ jobs:
 
           dataset="$(jq -r '.dataset // ""' "${file}")"
           case "${dataset}" in
-            twse-ohlcv|tpex-ohlcv|taiex|tpex-benchmark|twse-valuation|twse-institutional|mops|finmind|twse-events|twse-market-activity) ;;
+            full-market-500|twse-ohlcv|tpex-ohlcv|twse-market-volume|tpex-market-volume|taiex|tpex-benchmark|twse-valuation|twse-institutional|mops|finmind|twse-events|twse-market-activity) ;;
             *) echo "Unsupported ingestion dataset: ${dataset}" >&2; exit 2 ;;
           esac
 
@@ -140,9 +140,14 @@ jobs:
             exit 0
           fi
 
+          dataset_selection="${DATASET}"
+          if [[ "${DATASET}" == 'full-market-500' ]]; then
+            # An empty setting selects the ingestion runtime's approved default source list.
+            dataset_selection=""
+          fi
           overrides=(
             "JANUS_CONTROL_MIGRATION="
-            "INGESTION_DATASETS=${DATASET}"
+            "INGESTION_DATASETS=${dataset_selection}"
             "FORCE_REFRESH=${FORCE_REFRESH}"
             "QUEUE_CONSUMER=false"
             "INGESTION_DATE=${SINGLE_DATE}"

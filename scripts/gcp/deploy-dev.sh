@@ -72,6 +72,7 @@ case "${component}" in
       --service-account="ingestion-core@${project}.iam.gserviceaccount.com" \
       --tasks=1 --parallelism=1 --max-retries=1 --task-timeout=30m \
       --update-env-vars="MART_JOB=janus-intelligence-mart,GCP_REGION=${region},MART_OPERATION=queue" \
+      --remove-env-vars="INGESTION_DATASETS" \
       --remove-secrets="CONTROL_DB_PASSWORD,CATALOG_DB_PASSWORD" \
       --update-secrets="JANUS_INGESTION_POSTGRES_BUNDLE=janus-runtime-bundle:latest" --quiet
     gcloud run jobs add-iam-policy-binding janus-intelligence-mart \

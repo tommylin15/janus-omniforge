@@ -94,6 +94,14 @@ def test_liquid_500_tpex_source_is_enabled_and_rerunnable():
     assert "033_liquid_500_tpex_source" in LIQUID_500_TPEX_MIGRATION
 
 
+def test_full_500_collection_uses_batched_default_sources_in_dev():
+    assert '--remove-env-vars="INGESTION_DATASETS"' in DEPLOY
+    assert "full-market-500|" in INGESTION_WORKFLOW
+    assert 'dataset_selection=""' in INGESTION_WORKFLOW
+    assert "twse-market-volume|tpex-market-volume" in INGESTION_WORKFLOW
+    assert "tests/test_portfolio_deploy_contract.py" in WORKFLOW
+
+
 def test_private_stock_master_acl_has_bounded_control_owner_transport():
     compile(INGESTION_ENTRYPOINT, str(ROOT / "jobs/ingestion-core/ingestion_core/runtime_entrypoint.py"), "exec")
     assert 'CONTROL_MIGRATION_PRIVATE_STOCK_MASTER_READ = "030_private_stock_master_read"' in INGESTION_ENTRYPOINT
