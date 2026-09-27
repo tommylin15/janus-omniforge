@@ -91,6 +91,11 @@ class PostgreSQLControlPlane:
                            ORDER BY cs.symbol""")
             return tuple(row[0] for row in cur.fetchall())
 
+    def enabled_stock_symbols(self) -> tuple[str, ...]:
+        with self.connection.cursor() as cur:
+            cur.execute("SELECT symbol FROM control.stock_master WHERE enabled ORDER BY symbol")
+            return tuple(row[0] for row in cur.fetchall())
+
     def set_stock_enabled(self, symbol: str, enabled: bool) -> None:
         with self._tx() as cur:
             cur.execute("UPDATE control.stock_master SET enabled=%s,updated_at=now() WHERE symbol=%s", (enabled, _symbol(symbol)))

@@ -177,6 +177,10 @@ def _empty_is_nonfatal(adapter_key: str) -> bool:
     return adapter_key in SPARSE_DATASETS
 
 
+def _skip_symbol_adapter_for_500(adapter: object, active_500: bool) -> bool:
+    return active_500 and getattr(adapter, "batch_scope", "market") == "symbol"
+
+
 def _cursor_key(source_id: str, dataset_id: str, symbols: tuple[str, ...]) -> str:
     scope = ",".join(symbols) if len(symbols) == 1 else "market"
     return f"{source_id}:{dataset_id}:{scope}"
@@ -258,6 +262,12 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
             control.close()
         raise ValueError("control database returned no enabled ingestion symbols")
     universe, market_symbols = _market_universe(control, symbols)
+    active_500 = universe["status"] == "available"
+    members_by_market = {
+        market: {item["symbol"] for item in universe["items"] if item["market"] == market}
+        for market in ("TWSE", "TPEX")
+    } if active_500 else {}
+    holding_symbols = set(control.portfolio_coverage_symbols()) if active_500 and hasattr(control, "portfolio_coverage_symbols") else set()
     local_now = datetime.now(TAIPEI)
     schedule_setting = control.get_admin_setting("schedule")
     schedule = schedule_setting[0] if schedule_setting and isinstance(schedule_setting[0], dict) else {}
@@ -283,17 +293,41 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
     skipped_items: list[dict[str, object]] = []
     stage_results: list[StageResult] = []
     dq_items: list[dict[str, object]] = []
+    coverage_items: list[dict[str, object]] = []
+    holding_prices_by_date: dict[str, set[str]] = {}
     execution_scoped = os.environ.get("STAGE_EXECUTION_SCOPED", "true").lower() in {"1", "true", "yes"}
     force_refresh = os.environ.get("FORCE_REFRESH", "false").lower() in {"1", "true", "yes"}
 
     for as_of in dates:
         for key in selected:
             adapter = configured[key]
-            scoped_symbols = (market_symbols if getattr(adapter, "batch_scope", "market") == "market"
-                              and adapter.dataset_id in {"valuation", "institutional", "market-activity", "ohlcv"}
+            if active_500 and key == "finmind":
+                coverage_items.append({"date": as_of.isoformat(), "dataset": adapter.dataset_id,
+                                       "source": adapter.source_id, "status": "blocked",
+                                       "reason": "no_compliant_market_batch_endpoint"})
+                continue
+            if _skip_symbol_adapter_for_500(adapter, active_500):
+                # The approved market-volume batches provide the 500 prices and off-list holdings.
+                skipped_items.append({"dataset": key, "date": as_of.isoformat(), "reason": "market_batch_only"})
+                continue
+            if (key == "finmind" or getattr(adapter, "batch_scope", "market") == "symbol") and len(symbols) > 50:
+                coverage_items.append({"date": as_of.isoformat(), "dataset": adapter.dataset_id,
+                                       "source": adapter.source_id, "status": "blocked",
+                                       "reason": "symbol_source_exceeds_50"})
+                continue
+            scoped_symbols = (market_symbols if active_500 and getattr(adapter, "batch_scope", "market") == "market"
+                              and adapter.dataset_id not in {"market-volume", "stock-profile", "benchmark"}
                               else symbols)
             request_symbols = tuple((symbol,) for symbol in scoped_symbols) if key == "finmind" or getattr(adapter, "batch_scope", "market") == "symbol" else (scoped_symbols,)
             for requested_symbols in request_symbols:
+                price_coverage: dict[str, object] | None = None
+                market = ("ALL" if adapter.source_id == "mops" else
+                          "TPEX" if adapter.source_id in {"tpex", "tpex-benchmark"} else "TWSE")
+                expected = (members_by_market[market] if active_500 and adapter.source_id in {"twse", "tpex"}
+                            else set(market_symbols) if active_500 and adapter.source_id == "mops"
+                            else set(requested_symbols))
+                if adapter.dataset_id == "benchmark":
+                    expected = {"TPEx" if market == "TPEX" else "TAIEX"}
                 item_scope = "market" if len(requested_symbols) > 50 else ",".join(requested_symbols)
                 item_key = f"{key}:{as_of.isoformat()}:{item_scope}"
                 should_collect, reason = _should_collect(
@@ -305,8 +339,12 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                     control.record_health(
                         adapter.source_id, adapter.dataset_id, state=DataState.SUCCESS, latency_ms=0,
                         fetched_at=datetime.now(timezone.utc), latest_observation_at=datetime.combine(as_of, datetime.min.time(), timezone.utc),
-                        expected_symbols=len(requested_symbols), received_symbols=len(requested_symbols), cache_hit=True,
+                        expected_symbols=0, received_symbols=0, cache_hit=True,
                     )
+                    coverage_items.append({"date": as_of.isoformat(), "dataset": adapter.dataset_id,
+                                           "source": adapter.source_id, "market": market,
+                                           "expected": sorted(expected), "received": None, "missing": None,
+                                           "status": "cached_unverified", "reason": reason})
                     if persisted_execution:
                         control.save_item(ExecutionItem(execution_id, item_key, adapter.source_id, adapter.dataset_id,
                                                        DataState.SUCCESS, 0, 0, True, False, None, reason))
@@ -316,7 +354,7 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                     trace_id=trace_id,
                     source_id=adapter.source_id,
                     dataset_id=adapter.dataset_id,
-                    market="TPEX" if adapter.source_id in {"tpex", "tpex-benchmark"} else "TWSE",
+                    market="TWSE" if market == "ALL" else market,
                     symbols=requested_symbols,
                     window_start=as_of - timedelta(days=400) if adapter.dataset_id == "financials" else as_of,
                     window_end=as_of,
@@ -383,19 +421,27 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                         "metadata_location": committed.metadata_location,
                     }
                     if adapter.dataset_id == "market-volume":
-                        target_symbols = (({item["symbol"] for item in universe["items"]}
-                                           if universe["status"] == "available" else set(symbols))
-                                          | set(control.portfolio_coverage_symbols()
-                                                if hasattr(control, "portfolio_coverage_symbols") else ()))
+                        target_symbols = (set(market_symbols) if active_500 else set(symbols)) | holding_symbols
                         price_rows = tuple({key: row.get(key) for key in
                                             ("symbol", "market", "trade_date", "open", "high", "low", "close",
                                              "volume_shares", "turnover_twd", "source_id", "observed_at")}
                                            | {"change_percent": None}
                                            for row in response.rows if row["symbol"] in target_symbols)
+                        received_prices = {row["symbol"] for row in price_rows if row.get("close") is not None}
+                        holding_prices_by_date.setdefault(as_of.isoformat(), set()).update(received_prices)
+                        coverage_items.append({"date": as_of.isoformat(), "dataset": "ohlcv",
+                                               "source": adapter.source_id, "market": market,
+                                               "expected": sorted(expected),
+                                               "received": sorted(expected & received_prices),
+                                               "missing": sorted(expected - received_prices),
+                                               "status": "complete" if expected <= received_prices else "partial",
+                                               "stage_provenance_id": result.idempotency_key,
+                                               "snapshot_id": committed.snapshot_id})
+                        price_coverage = coverage_items[-1]
                         if universe["status"] == "available":
                             expected_market = {item["symbol"] for item in universe["items"]
                                                if item["market"] == adapter.market}
-                            if {row["symbol"] for row in price_rows} != expected_market:
+                            if not expected_market <= received_prices:
                                 raise ValueError("current market 500 OHLCV coverage is incomplete")
                         if price_rows:
                             checked = validate_ohlcv(price_rows, analysis_as_of=as_of)
@@ -412,22 +458,48 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                                 "snapshot_id": price_commit.snapshot_id,
                                 "metadata_location": price_commit.metadata_location,
                             }
+                            price_coverage["snapshot_id"] = price_commit.snapshot_id
+                    if adapter.dataset_id in {"valuation", "institutional", "financials", "benchmark", "market-activity"} and active_500:
+                        date_field = "observed_date" if adapter.dataset_id == "valuation" else "trade_date"
+                        received = {str(row.get("benchmark_id" if adapter.dataset_id == "benchmark" else "symbol", ""))
+                                    for row in response.rows
+                                    if adapter.dataset_id == "financials" or str(row.get(date_field, ""))[:10] == as_of.isoformat()}
+                        coverage_items.append({"date": as_of.isoformat(), "dataset": adapter.dataset_id,
+                                               "source": adapter.source_id, "market": market,
+                                               "expected": sorted(expected), "received": sorted(expected & received),
+                                               "missing": sorted(expected - received),
+                                               "status": "complete" if expected <= received else "partial",
+                                               "stage_provenance_id": result.idempotency_key,
+                                               "snapshot_id": committed.snapshot_id})
                     observed_at = datetime.combine(as_of, datetime.min.time(), timezone.utc)
                     control.advance_cursor(_cursor_key(adapter.source_id, adapter.dataset_id, requested_symbols), observed_at, successful=True)
-                    state = DataState.FALLBACK if key == "finmind" else DataState.SUCCESS
+                    state = (DataState.FALLBACK if key == "finmind" else
+                             DataState.PARTIAL if active_500 and coverage_items and
+                             coverage_items[-1].get("dataset") == adapter.dataset_id and
+                             coverage_items[-1].get("missing") else DataState.SUCCESS)
                     control.record_health(
                         adapter.source_id, adapter.dataset_id, state=state, latency_ms=0,
                         fetched_at=datetime.now(timezone.utc), latest_observation_at=observed_at,
-                        expected_symbols=len(requested_symbols), received_symbols=len({str(row.get("symbol", "")) for row in response.rows if row.get("symbol")}),
+                        expected_symbols=len(expected),
+                        received_symbols=len({str(row.get("benchmark_id" if adapter.dataset_id == "benchmark" else "symbol", ""))
+                                              for row in response.rows} & expected),
                     )
                     if persisted_execution:
                         control.save_item(ExecutionItem(execution_id, item_key, adapter.source_id, adapter.dataset_id,
                                                        state, len(response.rows), 0, False, key == "finmind", None, "Core committed"))
                 except Exception as error:
                     failures.append({"dataset": key, "date": as_of.isoformat(), "error": type(error).__name__, "message": "source collection failed"})
+                    if price_coverage is not None:
+                        price_coverage.update(status="failed", received=[], missing=price_coverage["expected"], snapshot_id=None)
+                    if active_500:
+                        coverage_items.append({"date": as_of.isoformat(), "dataset": adapter.dataset_id,
+                                               "source": adapter.source_id, "market": market,
+                                               "expected": sorted(expected), "received": [],
+                                               "missing": sorted(expected), "status": "failed",
+                                               "reason": type(error).__name__.upper()[:64]})
                     control.record_health(
                         adapter.source_id, adapter.dataset_id, state=DataState.FAILED, latency_ms=0,
-                        fetched_at=datetime.now(timezone.utc), expected_symbols=len(requested_symbols), received_symbols=0,
+                        fetched_at=datetime.now(timezone.utc), expected_symbols=len(expected), received_symbols=0,
                     )
                     if persisted_execution:
                         control.save_item(ExecutionItem(execution_id, item_key, adapter.source_id, adapter.dataset_id,
@@ -449,6 +521,63 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                     "metadata_location": table.metadata_location,
                 }
 
+    if active_500:
+        for as_of in dates:
+            outside_holdings = holding_symbols - set(market_symbols)
+            received = holding_prices_by_date.get(as_of.isoformat(), set()) & outside_holdings
+            holdings_cached = any(item["date"] == as_of.isoformat() and item["dataset"] in
+                                  {"twse-market-volume", "tpex-market-volume"} for item in skipped_items)
+            coverage_items.append({"date": as_of.isoformat(), "dataset": "outside_500_registered_portfolio_ohlcv",
+                                   "expected": sorted(outside_holdings), "received": sorted(received),
+                                   "missing": None if holdings_cached else sorted(outside_holdings - received),
+                                   "status": "cached_unverified" if holdings_cached else
+                                             "complete" if received == outside_holdings else "missing"})
+            required = {
+                ("ohlcv", "TWSE"): "twse", ("ohlcv", "TPEX"): "tpex",
+                ("valuation", "TWSE"): "twse", ("valuation", "TPEX"): "tpex",
+                ("institutional", "TWSE"): "twse", ("institutional", "TPEX"): "tpex",
+                ("financials", "ALL"): "mops",
+                ("benchmark", "TWSE"): "taiex", ("benchmark", "TPEX"): "tpex-benchmark",
+                ("financing", "TWSE"): "twse", ("financing", "TPEX"): "tpex",
+                ("securities_lending_short", "TWSE"): "twse", ("securities_lending_short", "TPEX"): "tpex",
+                ("day_trading", "TWSE"): "twse", ("day_trading", "TPEX"): "tpex",
+            }
+            for (dataset_id, market), source_id in required.items():
+                if any(item.get("date") == as_of.isoformat() and item.get("dataset") == dataset_id
+                       and item.get("market") == market for item in coverage_items):
+                    continue
+                missing_scope = (set(market_symbols) if market == "ALL" else
+                                 {"TAIEX" if market == "TWSE" else "TPEx"} if dataset_id == "benchmark" else
+                                 members_by_market[market])
+                coverage_items.append({"date": as_of.isoformat(), "dataset": dataset_id,
+                                       "source": source_id, "market": market,
+                                       "expected": sorted(missing_scope), "received": [],
+                                       "missing": sorted(missing_scope),
+                                       "status": "blocked", "reason": "no_approved_market_batch_adapter"})
+    for item in coverage_items:
+        for field in ("expected", "received", "missing"):
+            item[f"{field}_count"] = len(item[field]) if isinstance(item.get(field), list) else None
+    enabled_symbols = set(control.enabled_stock_symbols()) if hasattr(control, "enabled_stock_symbols") else set(symbols)
+    coverage_inventory = {
+        "schema_version": 1, "execution_id": execution_id, "config_id": config_id,
+        "universe_status": universe["status"], "universe_version": universe.get("version"),
+        "universe_source_snapshot": universe.get("source_snapshot"),
+        "effective_500": sorted(market_symbols) if active_500 else [],
+        "enabled_outside_weekly_coverage": sorted(enabled_symbols - set(market_symbols)) if active_500 else sorted(enabled_symbols),
+        "items": coverage_items,
+    }
+    inventory_payload = json.dumps(coverage_inventory, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str).encode()
+    inventory_name = f"executions/{execution_id}/coverage-inventory.json"
+    inventory_store = GcsObjectStore(core_bucket)
+    try:
+        if not inventory_store.create(inventory_name, inventory_payload, "application/json") and inventory_store.read(inventory_name) != inventory_payload:
+            raise RuntimeError("immutable coverage inventory conflict")
+    except Exception:
+        core.close()
+        if owned_control:
+            control.close()
+        raise
+
     summary: dict[str, object] = {
         "component": "ingestion-core",
         "execution_id": execution_id,
@@ -468,6 +597,8 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
         "core_updated": core_updated,
         "core_reused": core_reused,
         "iceberg_tables": iceberg_tables,
+        "coverage_inventory_uri": f"gs://{core_bucket}/{inventory_name}",
+        "coverage_inventory_hash": f"sha256:{sha256(inventory_payload).hexdigest()}",
         "objects": staged,
         "failures": failures,
     }

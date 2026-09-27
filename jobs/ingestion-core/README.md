@@ -13,6 +13,12 @@ The Stage writer accepts only controlled source/dataset identifiers and safe
 path segments. Extreme moves over 11% are retained with a review warning; they
 are not silently deleted. Zero handling is field-semantic rather than global.
 
+每次 collection 會在 Core bucket 的 `executions/<execution_id>/coverage-inventory.json`
+留下不可覆寫的覆蓋紀錄，包含有效 500 版本、其他 enabled 股票、各資料集／市場的
+expected、received、missing、來源、Stage provenance 與 Core snapshot。`cached_unverified`
+代表此次沿用 cursor，未重新量測缺口；`blocked` 代表沒有核准的市場批次 adapter。
+逐檔來源不得因 500 名單擴張，離榜持股沿用已註冊的正式市場整批行情路徑。
+
 First-batch normalisation also preserves dataset semantics instead of forcing a
 single unit or investor definition. TWSE dealer flows are aggregated from
 self-trading and hedging buy/sell columns and checked against the official total

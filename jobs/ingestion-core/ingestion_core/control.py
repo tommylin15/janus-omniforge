@@ -466,6 +466,10 @@ class SQLiteControlPlane:
                ORDER BY cs.symbol""").fetchall()
         return tuple(row[0] for row in rows)
 
+    def enabled_stock_symbols(self) -> tuple[str, ...]:
+        rows = self.connection.execute("SELECT symbol FROM stock_master WHERE enabled=1 ORDER BY symbol").fetchall()
+        return tuple(row[0] for row in rows)
+
     def set_stock_enabled(self, symbol: str, enabled: bool) -> None:
         cursor = self.connection.execute("UPDATE stock_master SET enabled=?, updated_at=? WHERE symbol=?", (int(enabled), _iso(utc_now()), _symbol(symbol)))
         if cursor.rowcount != 1:

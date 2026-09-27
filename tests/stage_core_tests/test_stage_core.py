@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT / "jobs" / "ingestion-core"))
 from ingestion_core.dq import merge_without_null_overwrite, semantic_zero, validate_ohlcv
 from ingestion_core.stage import LocalObjectStore, StageWriter
 from packages.provenance import Provenance, content_hash
-from ingestion_core.__main__ import _empty_is_nonfatal, _limit_response, _requested_dates, _should_collect, run_scheduled_collection
+from ingestion_core.__main__ import _empty_is_nonfatal, _limit_response, _requested_dates, _should_collect, _skip_symbol_adapter_for_500, run_scheduled_collection
 from ingestion_core import CollectionConfig, ExecutionStatus, SQLiteControlPlane, Stock
 from ingestion_core.adapters import SourceResponse
 
@@ -179,6 +179,14 @@ class StageWriterTests(unittest.TestCase):
     def test_sparse_financial_and_event_sources_allow_empty_windows(self):
         self.assertTrue(_empty_is_nonfatal("finmind"))
         self.assertTrue(_empty_is_nonfatal("twse-events"))
+
+    def test_effective_500_never_uses_symbol_scoped_adapter(self):
+        class Adapter:
+            batch_scope = "symbol"
+
+        self.assertTrue(_skip_symbol_adapter_for_500(Adapter(), True))
+        self.assertFalse(_skip_symbol_adapter_for_500(Adapter(), False))
+        self.assertFalse(_skip_symbol_adapter_for_500(object(), True))
 
     def test_freshness_guard_skips_committed_targets_and_uses_finmind_only_as_fallback(self):
         control = SQLiteControlPlane()

@@ -10,6 +10,7 @@ on:
       - 'jobs/ingestion-core/Dockerfile'
       - 'jobs/ingestion-core/requirements.in'
       - 'jobs/ingestion-core/requirements.lock'
+      - 'tests/stage_core_tests/test_stage_core.py'
       - 'tests/stage_core_tests/test_first_batch_sources.py'
       - 'tests/stage_core_tests/test_data_cleaning_regressions.py'
       - 'jobs/intelligence-mart/**'
@@ -94,6 +95,7 @@ jobs:
               - 'cloudbuild.yaml'
               - 'scripts/gcp/deploy-dev.sh'
             ingestion_test:
+              - 'tests/stage_core_tests/test_stage_core.py'
               - 'tests/stage_core_tests/test_first_batch_sources.py'
               - 'tests/stage_core_tests/test_data_cleaning_regressions.py'
             mart_runtime:
@@ -164,6 +166,7 @@ jobs:
         run: >-
           python -m pytest -q
           tests/stage_core_tests/test_first_batch_sources.py
+          tests/stage_core_tests/test_stage_core.py
           tests/stage_core_tests/test_data_cleaning_regressions.py
 
   deploy-ingestion:
