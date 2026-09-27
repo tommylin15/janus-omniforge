@@ -1,6 +1,9 @@
 {
-  "request_id": "portfolio-completeness-market-coverage-20260927-1",
+  "request_id": "wbs-3-full-market-base-coverage-20260927",
   "enabled": true,
-  "operation": "control-migration",
-  "migration": "031_portfolio_market_coverage"
+  "operation": "ingestion",
+  "dataset": "full-market-500",
+  "date": "2026-09-25",
+  "force_refresh": false,
+  "disable_mart_trigger": true
 }
