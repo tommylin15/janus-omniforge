@@ -17,6 +17,7 @@ from .control import DataState, ExecutionItem, ExecutionStatus, TriggerType
 from .dq import validate_ohlcv
 from .postgres_control import PostgreSQLControlPlane
 from .first_batch import dataset_adapters, effective_trading_day, stage_raw_response
+from .liquid_500 import rotate_from_core
 from .stage import GcsObjectStore, StageResult, StageWriter
 from packages.duckdb_query import DuckDBIcebergCore
 
@@ -124,15 +125,6 @@ def _control_plane() -> PostgreSQLControlPlane:
     return PostgreSQLControlPlane(connect)
 
 
-def _control_symbols() -> tuple[str, ...]:
-    """Read the enabled first-batch symbols from the PostgreSQL control plane."""
-    with _control_plane() as control:
-        symbols = control.config_symbols(os.environ.get("CONTROL_COLLECTION_CONFIG", "first-batch"))
-    if not symbols:
-        raise ValueError("control database returned no enabled ingestion symbols")
-    return symbols
-
-
 def _iceberg_core(core_bucket: str) -> DuckDBIcebergCore:
     from packages.postgres_bundle import load_postgres_bundle
     load_postgres_bundle("JANUS_INGESTION_POSTGRES_BUNDLE", {
@@ -158,8 +150,20 @@ def _iceberg_core(core_bucket: str) -> DuckDBIcebergCore:
     )
 
 
-def _limit_response(response: SourceResponse, symbols: tuple[str, ...]) -> SourceResponse:
+def _market_universe(control: object, fallback_symbols: tuple[str, ...]) -> tuple[dict[str, object], tuple[str, ...]]:
+    read = getattr(control, "liquid_500_snapshot", None)
+    universe = read() if read is not None else {"status": "missing", "items": []}
+    if universe["status"] == "available":
+        if len(universe["items"]) != 500:
+            raise ValueError("effective liquid 500 must contain exactly 500 stocks")
+        return universe, tuple(item["symbol"] for item in universe["items"])
+    return universe, fallback_symbols
+
+
+def _limit_response(response: SourceResponse, symbols: tuple[str, ...], *, dataset_id: str = "") -> SourceResponse:
     """Keep only selected stock rows before Stage persistence; benchmarks stay market-wide."""
+    if dataset_id in {"market-volume", "stock-profile"}:
+        return response  # Ranking input retains the full exchange batch in Stage and Core.
     if not response.rows or not any("symbol" in row for row in response.rows):
         return response
     selected = {symbol.upper() for symbol in symbols}
@@ -253,6 +257,7 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
         if owned_control:
             control.close()
         raise ValueError("control database returned no enabled ingestion symbols")
+    universe, market_symbols = _market_universe(control, symbols)
     local_now = datetime.now(TAIPEI)
     schedule_setting = control.get_admin_setting("schedule")
     schedule = schedule_setting[0] if schedule_setting and isinstance(schedule_setting[0], dict) else {}
@@ -284,9 +289,13 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
     for as_of in dates:
         for key in selected:
             adapter = configured[key]
-            request_symbols = tuple((symbol,) for symbol in symbols) if key == "finmind" or getattr(adapter, "batch_scope", "market") == "symbol" else (symbols,)
+            scoped_symbols = (market_symbols if getattr(adapter, "batch_scope", "market") == "market"
+                              and adapter.dataset_id in {"valuation", "institutional", "market-activity", "ohlcv"}
+                              else symbols)
+            request_symbols = tuple((symbol,) for symbol in scoped_symbols) if key == "finmind" or getattr(adapter, "batch_scope", "market") == "symbol" else (scoped_symbols,)
             for requested_symbols in request_symbols:
-                item_key = f"{key}:{as_of.isoformat()}:{','.join(requested_symbols)}"
+                item_scope = "market" if len(requested_symbols) > 50 else ",".join(requested_symbols)
+                item_key = f"{key}:{as_of.isoformat()}:{item_scope}"
                 should_collect, reason = _should_collect(
                     key, adapter.source_id, adapter.dataset_id, requested_symbols, as_of, control,
                     force=force_refresh,
@@ -314,7 +323,7 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                     timeout_seconds=30,
                 )
                 try:
-                    response = _limit_response(adapter.fetch(request), symbols)
+                    response = _limit_response(adapter.fetch(request), requested_symbols, dataset_id=adapter.dataset_id)
                     if not response.rows:
                         if _empty_is_nonfatal(key):
                             empty_items.append({
@@ -363,6 +372,8 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                     committed = core.write(dataset_id=adapter.dataset_id, rows=[dict(row) for row in response.rows],
                                            execution_id=execution_id, provenance_id=result.idempotency_key,
                                            source_id=adapter.source_id, partition_date=as_of)
+                    if adapter.dataset_id == "stock-profile":
+                        control.refresh_official_stock_profiles(tuple(dict(row) for row in response.rows))
                     core_created += committed.inserted
                     core_updated += committed.updated
                     core_reused += committed.reused
@@ -371,6 +382,36 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                         "snapshot_id": committed.snapshot_id,
                         "metadata_location": committed.metadata_location,
                     }
+                    if adapter.dataset_id == "market-volume":
+                        target_symbols = (({item["symbol"] for item in universe["items"]}
+                                           if universe["status"] == "available" else set(symbols))
+                                          | set(control.portfolio_coverage_symbols()
+                                                if hasattr(control, "portfolio_coverage_symbols") else ()))
+                        price_rows = tuple({key: row.get(key) for key in
+                                            ("symbol", "market", "trade_date", "open", "high", "low", "close",
+                                             "volume_shares", "turnover_twd", "source_id", "observed_at")}
+                                           | {"change_percent": None}
+                                           for row in response.rows if row["symbol"] in target_symbols)
+                        if universe["status"] == "available":
+                            expected_market = {item["symbol"] for item in universe["items"]
+                                               if item["market"] == adapter.market}
+                            if {row["symbol"] for row in price_rows} != expected_market:
+                                raise ValueError("current market 500 OHLCV coverage is incomplete")
+                        if price_rows:
+                            checked = validate_ohlcv(price_rows, analysis_as_of=as_of)
+                            if checked.quarantined:
+                                raise ValueError("selected market OHLCV failed validation")
+                            price_commit = core.write(dataset_id="ohlcv", rows=[dict(row) for row in checked.accepted],
+                                                      execution_id=execution_id, provenance_id=result.idempotency_key,
+                                                      source_id=adapter.source_id, partition_date=as_of)
+                            core_created += price_commit.inserted
+                            core_updated += price_commit.updated
+                            core_reused += price_commit.reused
+                            iceberg_tables[price_commit.table_identifier] = {
+                                "rows": price_commit.row_count,
+                                "snapshot_id": price_commit.snapshot_id,
+                                "metadata_location": price_commit.metadata_location,
+                            }
                     observed_at = datetime.combine(as_of, datetime.min.time(), timezone.utc)
                     control.advance_cursor(_cursor_key(adapter.source_id, adapter.dataset_id, requested_symbols), observed_at, successful=True)
                     state = DataState.FALLBACK if key == "finmind" else DataState.SUCCESS
@@ -494,6 +535,25 @@ def run_scheduled_collection() -> dict[str, object]:
         schedule = current[0] if current and isinstance(current[0], dict) else {"enabled": True}
         if schedule.get("enabled", True) is False:
             return {"component": "ingestion-core", "status": "disabled", "scheduled": False}
+        local_today = datetime.now(TAIPEI).date()
+        explicit_backfill = any(os.environ.get(key, "").strip() for key in (
+            "INGESTION_DATE", "BACKFILL_START_DATE", "BACKFILL_END_DATE"))
+        if local_today.weekday() == 6 and not explicit_backfill:
+            holidays = _holidays(os.environ.get("MARKET_HOLIDAYS", "")) | {
+                date.fromisoformat(item) for item in schedule.get("holiday_overrides", ())
+            }
+            week_start = local_today - timedelta(days=6)
+            trading_days = tuple(week_start + timedelta(days=offset) for offset in range(5)
+                                 if week_start + timedelta(days=offset) not in holidays)
+            effective_day = local_today + timedelta(days=1)
+            while effective_day.weekday() >= 5 or effective_day in holidays:
+                effective_day += timedelta(days=1)
+            core = _iceberg_core(os.environ["CORE_BUCKET"])
+            version = rotate_from_core(core.catalog, control, week_start=week_start,
+                                       trading_days=trading_days,
+                                       effective_from=datetime.combine(effective_day, datetime.min.time(), TAIPEI))
+            return {"component": "ingestion-core", "status": "succeeded", "scheduled": True,
+                    "operation": "liquid_500_rotation", "version": version}
         config_id = os.environ.get("CONTROL_COLLECTION_CONFIG", "first-batch")
         execution = control.enqueue_collection(config_id)
         control.transition_execution(execution.execution_id, ExecutionStatus.RUNNING)

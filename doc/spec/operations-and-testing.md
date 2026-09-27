@@ -1,5 +1,44 @@
 # Operations and testing
 
+## WBS-3 weekly liquid-500 rotation — GCP dev acceptance checkpoint (2026-09-27)
+
+The official TWSE／TPEx daily market-volume rows for 2026-09-21 through 2026-09-24
+and both company profiles were already persisted in Core. A read-only Core check
+found 7,904 market-volume rows (TWSE 4,341; TPEx 3,563) and 1,982 profile rows.
+The earlier bounded backfill had one truncated TPEx profile response; after
+confirming the complete market-week data and profiles in Core, the run was stopped
+instead of fetching the four days again. The shared source HTTP reader now retries
+`IncompleteRead` once; its regression test passed.
+
+Local Python verification: **299 passed**, one existing Starlette deprecation
+warning; feature-targeted Admin/API tests **44 passed** and Flutter widget tests
+**21 passed**. `git diff --check` passed with the existing Flutter CRLF warning. Cloud
+Build `ef714612-acc4-4d99-b3f1-eee96b23cc84` succeeded for
+`ingestion-core:dev-codex-20260927-07`, digest
+`sha256:fb646c24db8c2be7ab61c57d02630d6d10f3e4c372d29d0a8d4f6f6920f3ada4`; the
+existing `janus-ingestion-core` Job was updated and Ready. Weekly rotation execution
+`janus-ingestion-core-bnm9g` completed successfully at `2026-09-27T06:27:22Z`.
+Control DB checks show 1,982 enabled/listed stocks and liquid-500 version 1 with 500
+members ranked 1–500 for week `2026-09-21`.
+
+The existing `janus-api` service is Ready with 100% traffic on
+`janus-api-liquid500-admin-20260927-config`; `/health` returned HTTP 200. Version 1
+was initially scheduled for `2026-09-28T16:00:00Z` (`2026-09-29` Asia/Taipei). Per the
+user's instruction to accept the first candidate directly, its effective time was
+changed in the existing dev PostgreSQL to `2026-09-27T07:27:35.839059Z`; the audit
+records actor `codex-dev-acceptance` and the prior effective time. DB and Admin UI
+readback show v1 as the current effective 500-member list, with no upcoming version.
+
+Authenticated Chrome acceptance completed on the deployed user page `/app/`: adding
+`2409` succeeded and showed it in the watchlist; adding `1103` was rejected with
+`此股票不在本週市場資訊 500 檔名單`. The temporary `2409` entry was removed and a
+fresh UI readback showed an empty watchlist. The earlier white page did not recur;
+the app shell finished loading and the watchlist route worked, so no extra code change
+or deployment was needed. Targeted tests cover preview, manual adjustment, version
+conflict and audit; a live Admin manual-swap action was not performed. Keep WBS-3
+open for its remaining rotation/source and live manual-adjustment acceptance criteria.
+No production or new cloud resources were created.
+
 ## WBS-8 Dev Pilot Entry Gate re-evaluation — 2026-09-24
 
 Owner A/B MCP read isolation is accepted as recorded below. Existing GCP dev

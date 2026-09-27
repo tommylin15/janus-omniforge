@@ -1,5 +1,7 @@
+#!include:.gitignore
 .git/
 .tmp/
+tmp*/
 .venv/
 venv/
 **/__pycache__/

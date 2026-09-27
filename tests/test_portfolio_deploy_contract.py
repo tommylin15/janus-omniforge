@@ -8,6 +8,8 @@ VERIFY = (ROOT / "scripts" / "gcp" / "verify-dev.sh").read_text(encoding="utf-8"
 MIGRATION_RUNNER = (ROOT / "scripts" / "gcp" / "apply-private-storage-postgres-migration.sh").read_text(encoding="utf-8")
 MIGRATION = (ROOT / "infra" / "postgres" / "migrations" / "030_private_stock_master_read.sql").read_text(encoding="utf-8")
 COVERAGE_MIGRATION = (ROOT / "infra" / "postgres" / "migrations" / "031_portfolio_market_coverage.sql").read_text(encoding="utf-8")
+LIQUID_500_MIGRATION = (ROOT / "infra" / "postgres" / "migrations" / "032_liquid_500.sql").read_text(encoding="utf-8")
+LIQUID_500_TPEX_MIGRATION = (ROOT / "infra" / "postgres" / "migrations" / "033_liquid_500_tpex_source.sql").read_text(encoding="utf-8")
 INGESTION_ENTRYPOINT = (ROOT / "jobs" / "ingestion-core" / "ingestion_core" / "runtime_entrypoint.py").read_text(encoding="utf-8")
 CLOUDBUILD = (ROOT / "cloudbuild.yaml").read_text(encoding="utf-8")
 DEPLOY = (ROOT / "scripts" / "gcp" / "deploy-dev.sh").read_text(encoding="utf-8")
@@ -69,6 +71,27 @@ def test_portfolio_market_coverage_bridge_is_bounded_and_in_migration_runner():
     assert "REVOKE ALL ON FUNCTION control.request_portfolio_market_coverage(text[]) FROM PUBLIC" in COVERAGE_MIGRATION
     assert "GRANT EXECUTE ON FUNCTION control.request_portfolio_market_coverage(text[]) TO janus_private_pipeline" in COVERAGE_MIGRATION
     assert "janus_private_api" not in COVERAGE_MIGRATION.split("GRANT EXECUTE", 1)[1]
+
+
+def test_liquid_500_schema_is_in_bounded_dev_migration_runner():
+    compile(INGESTION_ENTRYPOINT, str(ROOT / "jobs/ingestion-core/ingestion_core/runtime_entrypoint.py"), "exec")
+    assert "032_liquid_500" in INGESTION_ENTRYPOINT
+    assert "032_liquid_500" in INGESTION_WORKFLOW
+    assert "CREATE TABLE IF NOT EXISTS control.liquid_500_versions" in INGESTION_ENTRYPOINT
+    assert "CREATE TABLE IF NOT EXISTS control.liquid_500_members" in INGESTION_ENTRYPOINT
+    assert "liquid_500_versions" in LIQUID_500_MIGRATION
+    assert "liquid_500_members" in LIQUID_500_MIGRATION
+    assert "rank BETWEEN 1 AND 500" in LIQUID_500_MIGRATION
+    assert "janus_web_control" in LIQUID_500_MIGRATION
+    assert "janus_private_api" in LIQUID_500_MIGRATION
+
+
+def test_liquid_500_tpex_source_is_enabled_and_rerunnable():
+    assert "033_liquid_500_tpex_source" in INGESTION_ENTRYPOINT
+    assert "033_liquid_500_tpex_source" in INGESTION_WORKFLOW
+    assert "source_ids ? 'tpex'" in INGESTION_ENTRYPOINT
+    assert "jsonb_array_elements_text" in LIQUID_500_TPEX_MIGRATION
+    assert "033_liquid_500_tpex_source" in LIQUID_500_TPEX_MIGRATION
 
 
 def test_private_stock_master_acl_has_bounded_control_owner_transport():

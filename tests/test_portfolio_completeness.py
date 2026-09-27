@@ -2,6 +2,7 @@ from contextlib import contextmanager
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
+import tempfile
 from uuid import UUID, uuid4
 
 from services.api.private_pipeline import calculate_marts, calculate_risk_marts
@@ -160,38 +161,43 @@ def test_repository_reads_stock_identity_from_canonical_stock_master():
     }
 
 
-def test_private_store_additively_evolves_position_schema(tmp_path):
+def test_private_store_additively_evolves_position_schema():
     from pyiceberg.catalog.sql import SqlCatalog
 
-    warehouse = (tmp_path / "warehouse").as_posix()
-    catalog = SqlCatalog("test", uri="sqlite:///" + (tmp_path / "catalog.db").as_posix(), warehouse=warehouse)
-    store = PrivateIcebergStore(catalog, warehouse)
-    base = {
-        "user_id": str(USER),
-        "symbol": "2330",
-        "currency": "TWD",
-        "ledger_version": 1,
-        "valuation_date": "2026-09-04",
-        "shares": "1",
-        "average_cost": "100",
-        "market_price": "120",
-        "market_value": "120",
-        "price_status": "available",
-        "price_date": "2026-09-04",
-        "lineage": "{}",
-        "cost_basis_method": "MOVING_AVERAGE",
-    }
-    store.upsert("mart_user_positions", [base])
-    store.upsert("mart_user_positions", [{
-        **base,
-        "stock_name": "台積電",
-        "identity_status": "available",
-        "identity_missing_reason": None,
-        "missing_reason": None,
-    }])
+    with tempfile.TemporaryDirectory(dir=Path.cwd()) as directory:
+        temp = Path(directory)
+        warehouse = f"./{temp.name}/warehouse"
+        catalog = SqlCatalog("test", uri="sqlite:///" + (temp / "catalog.db").as_posix(), warehouse=warehouse)
+        try:
+            store = PrivateIcebergStore(catalog, warehouse)
+            base = {
+                "user_id": str(USER),
+                "symbol": "2330",
+                "currency": "TWD",
+                "ledger_version": 1,
+                "valuation_date": "2026-09-04",
+                "shares": "1",
+                "average_cost": "100",
+                "market_price": "120",
+                "market_value": "120",
+                "price_status": "available",
+                "price_date": "2026-09-04",
+                "lineage": "{}",
+                "cost_basis_method": "MOVING_AVERAGE",
+            }
+            store.upsert("mart_user_positions", [base])
+            store.upsert("mart_user_positions", [{
+                **base,
+                "stock_name": "台積電",
+                "identity_status": "available",
+                "identity_missing_reason": None,
+                "missing_reason": None,
+            }])
 
-    fields = {field.name for field in catalog.load_table("private.mart_user_positions").schema().fields}
-    assert {"stock_name", "identity_status", "identity_missing_reason", "missing_reason"} <= fields
+            fields = {field.name for field in catalog.load_table("private.mart_user_positions").schema().fields}
+            assert {"stock_name", "identity_status", "identity_missing_reason", "missing_reason"} <= fields
+        finally:
+            catalog.engine.dispose()
 
 
 def test_private_roles_have_bounded_stock_master_read_access():

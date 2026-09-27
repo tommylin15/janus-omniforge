@@ -142,8 +142,11 @@ class StageWriterTests(unittest.TestCase):
             def repository():
                 return SQLiteControlPlane(database)
 
-            with patch("ingestion_core.__main__._control_plane", repository), patch("ingestion_core.__main__.collect_stage", return_value={"component": "ingestion-core"}) as collect:
-                self.assertEqual(run_scheduled_collection()["status"], "succeeded")
+            with patch("ingestion_core.__main__.datetime") as clock:
+                clock.now.return_value = datetime(2026, 8, 30, 9, tzinfo=timezone.utc)
+                with patch.dict("os.environ", {"INGESTION_DATE": "2026-08-28"}):
+                    with patch("ingestion_core.__main__._control_plane", repository), patch("ingestion_core.__main__.collect_stage", return_value={"component": "ingestion-core"}) as collect:
+                        self.assertEqual(run_scheduled_collection()["status"], "succeeded")
             control = SQLiteControlPlane(database)
             persisted = control.list_executions()[0]
             self.assertEqual(persisted.status, ExecutionStatus.SUCCEEDED)

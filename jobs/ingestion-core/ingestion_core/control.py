@@ -447,6 +447,25 @@ class SQLiteControlPlane:
         self.connection.commit()
         return Stock(symbol, stock.name.strip(), stock.market, stock.enabled, _parse_time(timestamp), stock.listing_status, _parse_time(effective_from))
 
+    def refresh_official_stock_profiles(self, rows: tuple[dict[str, Any], ...]) -> None:
+        timestamp = _iso(utc_now())
+        with self.connection:
+            self.connection.executemany(
+                """INSERT INTO stock_master(symbol,name,market,enabled,updated_at,listing_status,effective_from)
+                   VALUES (?,?,?,1,?,'listed',?)
+                   ON CONFLICT(symbol) DO UPDATE SET name=excluded.name,market=excluded.market,
+                   listing_status='listed',updated_at=excluded.updated_at""",
+                [(row["symbol"], row["stock_name"], row["market"], timestamp, timestamp) for row in rows],
+            )
+
+    def portfolio_coverage_symbols(self) -> tuple[str, ...]:
+        rows = self.connection.execute(
+            """SELECT DISTINCT cs.symbol FROM collection_symbols cs
+               JOIN collection_configs cc USING(config_id)
+               WHERE cc.dataset_id='ohlcv' AND cc.batch_scope='symbol' AND cc.enabled=1
+               ORDER BY cs.symbol""").fetchall()
+        return tuple(row[0] for row in rows)
+
     def set_stock_enabled(self, symbol: str, enabled: bool) -> None:
         cursor = self.connection.execute("UPDATE stock_master SET enabled=?, updated_at=? WHERE symbol=?", (int(enabled), _iso(utc_now()), _symbol(symbol)))
         if cursor.rowcount != 1:

@@ -8,7 +8,7 @@ callers should create bounded instances according to the connection budget.
 from __future__ import annotations
 
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 import json
 from typing import Any, Callable, Iterator
 from uuid import NAMESPACE_URL, uuid4, uuid5
@@ -71,6 +71,25 @@ class PostgreSQLControlPlane:
                 listing_status=EXCLUDED.listing_status,effective_from=EXCLUDED.effective_from""",
                 (symbol, stock.name.strip(), stock.market, stock.enabled, timestamp, stock.listing_status, effective_from))
         return Stock(symbol, stock.name.strip(), stock.market, stock.enabled, timestamp, stock.listing_status, effective_from)
+
+    def refresh_official_stock_profiles(self, rows: tuple[dict[str, Any], ...]) -> None:
+        """Publish source-backed identities without undoing an operator's disable decision."""
+        with self._tx() as cur:
+            cur.executemany(
+                """INSERT INTO control.stock_master(symbol,name,market,enabled,listing_status)
+                   VALUES (%s,%s,%s,true,'listed')
+                   ON CONFLICT(symbol) DO UPDATE SET name=EXCLUDED.name,market=EXCLUDED.market,
+                   listing_status='listed',updated_at=now()""",
+                [(row["symbol"], row["stock_name"], row["market"]) for row in rows],
+            )
+
+    def portfolio_coverage_symbols(self) -> tuple[str, ...]:
+        with self.connection.cursor() as cur:
+            cur.execute("""SELECT DISTINCT cs.symbol FROM control.collection_symbols cs
+                           JOIN control.collection_configs cc USING(config_id)
+                           WHERE cc.dataset_id='ohlcv' AND cc.batch_scope='symbol' AND cc.enabled
+                           ORDER BY cs.symbol""")
+            return tuple(row[0] for row in cur.fetchall())
 
     def set_stock_enabled(self, symbol: str, enabled: bool) -> None:
         with self._tx() as cur:
@@ -213,6 +232,78 @@ class PostgreSQLControlPlane:
         with self.connection.cursor() as cur:
             cur.execute("SELECT coverage_tier,symbol,effective_from,effective_to,reason,owner FROM control.coverage_memberships WHERE coverage_tier=%s AND effective_from<=%s AND (effective_to IS NULL OR effective_to>%s) ORDER BY symbol", (coverage_tier, point, point))
             return tuple(CoverageMembership(CoverageTier(r[0]), r[1], r[2], r[3], r[4], r[5]) for r in cur.fetchall())
+
+    def liquid_500_snapshot(self, *, upcoming: bool = False) -> dict[str, Any]:
+        with self.connection.cursor() as cur:
+            cur.execute("""SELECT version,week_start,effective_from,reason,actor,source_snapshot
+                           FROM control.liquid_500_versions WHERE effective_from """ +
+                        (">" if upcoming else "<=") + """ now()
+                           ORDER BY effective_from DESC LIMIT 1""")
+            version = cur.fetchone()
+            if version is None:
+                return {"status": "missing", "version": 0, "items": []}
+            cur.execute("""SELECT m.rank,m.symbol,s.name,s.market,m.volume_shares,m.turnover_twd,m.manual_override
+                           FROM control.liquid_500_members m JOIN control.stock_master s USING(symbol)
+                           WHERE m.version=%s ORDER BY m.rank""", (version[0],))
+            items = [{"rank": row[0], "symbol": row[1], "name": row[2], "market": row[3],
+                      "volume_shares": row[4], "turnover_twd": str(row[5]) if row[5] is not None else None,
+                      "manual_override": row[6]} for row in cur.fetchall()]
+            previous_version = ("effective_from<=now()" if upcoming else "effective_from<%s")
+            cur.execute("""SELECT m.symbol FROM control.liquid_500_members m
+                           WHERE m.version=(SELECT version FROM control.liquid_500_versions
+                                            WHERE """ + previous_version + """ ORDER BY effective_from DESC LIMIT 1)""",
+                        () if upcoming else (version[2],))
+            previous = {row[0] for row in cur.fetchall()}
+        current = {item["symbol"] for item in items}
+        return {"status": "available", "version": version[0], "week_start": version[1].isoformat(),
+                "effective_from": version[2].isoformat(), "reason": version[3],
+                "source_snapshot": version[5], "items": items,
+                "entered": sorted(current - previous) if previous else [],
+                "exited": sorted(previous - current)}
+
+    def publish_liquid_500(self, rows: tuple[dict[str, Any], ...], *, week_start: date,
+                           effective_from: datetime, reason: str, actor: str,
+                           source_snapshot: dict[str, Any], expected_version: int | None = None) -> int:
+        if len(rows) != 500 or {int(row["rank"]) for row in rows} != set(range(1, 501)):
+            raise ValueError("liquid 500 requires exactly 500 ranks")
+        symbols = [str(row["symbol"]) for row in rows]
+        if len(set(symbols)) != 500 or effective_from.tzinfo is None or not reason.strip() or not actor.strip():
+            raise ValueError("liquid 500 symbols, effective time, reason, or actor is invalid")
+        with self._tx() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(hashtext('liquid-500-version'))")
+            if reason == "weekly_volume_rank":
+                cur.execute("""SELECT version FROM control.liquid_500_versions
+                               WHERE week_start=%s AND reason='weekly_volume_rank'
+                               ORDER BY version DESC LIMIT 1""", (week_start,))
+                replay = cur.fetchone()
+                if replay is not None:
+                    return replay[0]
+            cur.execute("SELECT COALESCE(MAX(version),0),MAX(effective_from) FROM control.liquid_500_versions")
+            current_version, current_effective = cur.fetchone()
+            if expected_version is not None and expected_version != current_version:
+                raise ControlPlaneError("liquid 500 version conflict")
+            if current_effective is not None and effective_from <= current_effective:
+                raise ValueError("effective_from must advance")
+            cur.execute("""SELECT symbol FROM control.stock_master
+                           WHERE symbol=ANY(%s) AND enabled AND listing_status='listed'""", (symbols,))
+            if {row[0] for row in cur.fetchall()} != set(symbols):
+                raise ValueError("liquid 500 contains unknown or disabled stock")
+            cur.execute("""INSERT INTO control.liquid_500_versions
+                           (week_start,effective_from,reason,actor,source_snapshot)
+                           VALUES (%s,%s,%s,%s,%s::jsonb) RETURNING version""",
+                        (week_start, effective_from, reason.strip(), actor.strip(), json.dumps(source_snapshot)))
+            version = cur.fetchone()[0]
+            cur.executemany("""INSERT INTO control.liquid_500_members
+                              (version,rank,symbol,volume_shares,turnover_twd,manual_override)
+                              VALUES (%s,%s,%s,%s,%s,%s)""",
+                            [(version, row["rank"], row["symbol"], row.get("volume_shares"),
+                              row.get("turnover_twd"), bool(row.get("manual_override", False))) for row in rows])
+            cur.execute("""INSERT INTO control.admin_audit
+                           (action,resource,resource_key,actor,detail_json,created_at)
+                           VALUES ('update','liquid_500',%s,%s,%s::jsonb,now())""",
+                        (str(version), actor.strip(), json.dumps({"reason": reason.strip(),
+                         "week_start": week_start.isoformat(), "source_snapshot": source_snapshot})))
+        return version
 
     def _enqueue(self, config_id: str, trigger: TriggerType, symbols: tuple[str, ...] | None,
                  trace_id: str | None, request_options: dict[str, Any] | None = None) -> Execution:

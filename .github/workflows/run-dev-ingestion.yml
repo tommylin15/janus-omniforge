@@ -45,7 +45,7 @@ jobs:
             control-migration)
               migration="$(jq -r '.migration // ""' "${file}")"
               case "${migration}" in
-                030_private_stock_master_read|031_portfolio_market_coverage) ;;
+                030_private_stock_master_read|031_portfolio_market_coverage|032_liquid_500|033_liquid_500_tpex_source) ;;
                 *) echo "Unsupported control migration: ${migration}" >&2; exit 2 ;;
               esac
               {

@@ -297,7 +297,17 @@ class PostgresWorkspaceRepository:
 
     def watchlist(self, user_id: UUID) -> list[dict[str, Any]]:
         with self._connection() as connection:
-            return [dict(row) for row in connection.execute("SELECT * FROM private.watchlist WHERE user_id=%s AND active ORDER BY sort_order,symbol",(user_id,)).fetchall()]
+            return [dict(row) for row in connection.execute(
+                """SELECT w.*,s.name AS stock_name,EXISTS(
+                     SELECT 1 FROM control.liquid_500_members m
+                     WHERE m.symbol=w.symbol AND m.version=(
+                       SELECT version FROM control.liquid_500_versions
+                       WHERE effective_from<=now() ORDER BY effective_from DESC LIMIT 1)
+                   ) AS in_market_500
+                   FROM private.watchlist w LEFT JOIN control.stock_master s ON s.symbol=w.symbol
+                   WHERE w.user_id=%s AND w.active ORDER BY w.sort_order,w.symbol""",
+                (user_id,),
+            ).fetchall()]
 
     def investment_profile(self, user_id: UUID) -> dict[str, Any]:
         with self._connection() as connection:
@@ -345,7 +355,16 @@ class PostgresWorkspaceRepository:
             count = connection.execute("SELECT count(*) AS count FROM private.watchlist WHERE user_id=%s AND active",(user_id,)).fetchone()["count"]
             existing = connection.execute("SELECT * FROM private.watchlist WHERE user_id=%s AND symbol=%s FOR UPDATE",(user_id,value.symbol)).fetchone()
             if existing and existing["idempotency_key"]==key: return dict(existing)
-            if count >= 50 and not existing: raise ConflictError("watchlist limit reached")
+            if not existing or not existing["active"]:
+                eligible = connection.execute(
+                    """SELECT 1 FROM control.liquid_500_members m
+                       WHERE m.symbol=%s AND m.version=(
+                         SELECT version FROM control.liquid_500_versions
+                         WHERE effective_from<=now() ORDER BY effective_from DESC LIMIT 1)""",
+                    (value.symbol,),
+                ).fetchone()
+                if not eligible: raise ConflictError("stock is not in the current market 500")
+            if count >= 50 and not (existing and existing["active"]): raise ConflictError("watchlist limit reached")
             connection.execute("SELECT pg_advisory_xact_lock(hashtext('private-watchlist-symbol-limit'))")
             globally_known=connection.execute("SELECT 1 FROM private.watchlist WHERE symbol=%s AND active LIMIT 1",(value.symbol,)).fetchone()
             global_count=connection.execute("SELECT count(DISTINCT symbol) AS count FROM private.watchlist WHERE active").fetchone()["count"]

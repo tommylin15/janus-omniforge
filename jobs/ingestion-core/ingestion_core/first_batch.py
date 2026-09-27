@@ -16,7 +16,9 @@ from uuid import uuid4
 
 from .adapters import CollectionRequest, SourceResponse, validate_source_url
 from .control import CacheMetadata, DataState
-from .sources import ExchangeOhlcvAdapter, tpex_ohlcv_adapter, twse_ohlcv_adapter
+from .sources import (CompanyProfileAdapter, ExchangeOhlcvAdapter, MarketVolumeAdapter,
+                      tpex_ohlcv_adapter, twse_ohlcv_adapter, tpex_market_volume_adapter,
+                      twse_market_volume_adapter, tpex_company_profile_adapter, twse_company_profile_adapter)
 from .stage import StageResult, StageWriter
 from packages.provenance import Provenance, content_hash
 
@@ -367,7 +369,7 @@ def effective_trading_day(as_of: date, *, holidays: set[date] = frozenset()) -> 
     return current
 
 
-def dataset_adapters(transport: Callable[[str], bytes] | None = None) -> dict[str, JsonDatasetAdapter | ExchangeOhlcvAdapter]:
+def dataset_adapters(transport: Callable[[str], bytes] | None = None) -> dict[str, JsonDatasetAdapter | ExchangeOhlcvAdapter | MarketVolumeAdapter | CompanyProfileAdapter]:
     """Configured first-batch source set; URLs are credential-free endpoints."""
     def dated(endpoint: str, **fixed: str) -> Callable[[CollectionRequest], str]:
         def build(request: CollectionRequest) -> str:
@@ -385,6 +387,10 @@ def dataset_adapters(transport: Callable[[str], bytes] | None = None) -> dict[st
         return "https://api.finmindtrade.com/api/v4/data?" + urlencode(values)
 
     return {
+        "twse-stock-profile": twse_company_profile_adapter(transport),
+        "tpex-stock-profile": tpex_company_profile_adapter(transport),
+        "twse-market-volume": twse_market_volume_adapter(transport),
+        "tpex-market-volume": tpex_market_volume_adapter(transport),
         "twse-ohlcv": twse_ohlcv_adapter(transport),
         "tpex-ohlcv": tpex_ohlcv_adapter(transport),
         "taiex": JsonDatasetAdapter("taiex", "benchmark", "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST", lambda rows: normalise_benchmark(rows, "TAIEX"), transport, dated("https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST", response="json")),

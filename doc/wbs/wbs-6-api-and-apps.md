@@ -36,7 +36,7 @@
 - Flutter 隱藏控制不是 security boundary。`/api/v1/admin/*` 每次 request 仍由 backend
   enforce Admin authorization；User token 不得假設可呼叫 Admin API，User／Admin
   token audience 差異必須在 implementation WBS 驗證。
-- Admin 主導覽使用中文：總覽、批次、個股、AI 分析、進階管理；工程欄位與 lineage
+- Admin 主導覽使用中文：總覽、批次、個股、市場資訊、AI 分析、進階管理；工程欄位與 lineage
   放在「進階／詳細資訊」。
 - 保留「資料營運中心」名稱與入口；`/admin/stocks` 使用 tablist／單面板模式，右側一次只顯示目前功能，不同功能不得整頁同時堆疊。
 - 分頁至少包含：股票管理、股票資料狀態、最近執行、資料源健康、深度追蹤名單、排程與保存設定、資料源設定、Mart 分析。
@@ -49,6 +49,7 @@
 - Governance typed edit、validation、diff、history、optimistic lock。
 - Data-source health persisted telemetry。
 - 全市場／去識別化關注股深度 membership、effective date、cadence、來源授權狀態與 quota 管理；MVP 超過 50 個 active distinct symbols 必須拒絕，Admin 不得取得 user-to-symbol 對應。
+- 「市場資訊」專頁呈現每週有效 500 檔的排名、成交量、進入／退出、版本與來源狀態；手動納入／排除需原因、版本檢查、補位與稽核，不顯示 user-to-symbol 對應。
 - 「資料源設定」只管理已核准來源；候選來源維持 disabled／blocked 設定，不提供審查或啟用控制。
 - 「Mart 分析」按 analysis date、scope、industry、symbol、角色、prompt version、analysis outcome 與 publication status 篩選 `mart_scoped_analysis`，只讀已持久化 artifact。
 - 一般 Admin 營運頁不得瀏覽使用者交易內容。只有另行核准的隱私事件處理流程可接觸必要最小 metadata，且必須 audit。

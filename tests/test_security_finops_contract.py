@@ -9,11 +9,14 @@ class SecurityFinOpsContractTests(unittest.TestCase):
     def test_dev_security_and_cost_guards_are_declared(self):
         provision = (ROOT / "scripts/gcp/provision-dev.sh").read_text()
         deploy = (ROOT / "scripts/gcp/deploy-dev.sh").read_text()
+        cloudbuild = (ROOT / "cloudbuild.yaml").read_text()
         acceptance = (ROOT / "scripts/gcp/security-finops-dev.sh").read_text()
 
         self.assertNotIn("serviceAccount:web-runtime", provision)
-        for account in ("ingestion-core", "intelligence-mart", "janus-user-api", "janus-private-pipeline"):
+        for account in ("ingestion-core", "intelligence-mart", "janus-user-api"):
             self.assertIn(f'--service-account="{account}@${{project}}.iam.gserviceaccount.com"', deploy)
+        private_pipeline = cloudbuild.split('if [[ "${_RUNTIME_NAME}" == "janus-private-pipeline" ]]; then', 1)[1].split("\n        fi", 1)[0]
+        self.assertIn('--service-account="janus-private-pipeline@${PROJECT_ID}.iam.gserviceaccount.com"', private_pipeline)
         self.assertIn("--min-instances=0 --max-instances=2", deploy)
         self.assertIn("--threshold-rule=percent=0.1", acceptance)
         self.assertIn("--threshold-rule=percent=0.5", acceptance)

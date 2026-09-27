@@ -13,9 +13,13 @@ from .__main__ import _control_plane, consume_queued_collection, run_scheduled_c
 
 CONTROL_MIGRATION_PRIVATE_STOCK_MASTER_READ = "030_private_stock_master_read"
 CONTROL_MIGRATION_PORTFOLIO_MARKET_COVERAGE = "031_portfolio_market_coverage"
+CONTROL_MIGRATION_LIQUID_500 = "032_liquid_500"
+CONTROL_MIGRATION_LIQUID_500_TPEX_SOURCE = "033_liquid_500_tpex_source"
 CONTROL_MIGRATIONS = {
     CONTROL_MIGRATION_PRIVATE_STOCK_MASTER_READ,
     CONTROL_MIGRATION_PORTFOLIO_MARKET_COVERAGE,
+    CONTROL_MIGRATION_LIQUID_500,
+    CONTROL_MIGRATION_LIQUID_500_TPEX_SOURCE,
 }
 
 
@@ -101,6 +105,80 @@ def _apply_portfolio_market_coverage(cursor: Any) -> None:
         raise RuntimeError("portfolio market coverage ACL verification failed")
 
 
+def _apply_liquid_500(cursor: Any) -> None:
+    cursor.execute("SET LOCAL ROLE janus_control")
+    cursor.execute(
+        """CREATE TABLE IF NOT EXISTS control.liquid_500_versions (
+          version bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          week_start date NOT NULL,
+          effective_from timestamptz NOT NULL UNIQUE,
+          reason text NOT NULL CHECK (btrim(reason) <> ''),
+          actor text NOT NULL CHECK (btrim(actor) <> ''),
+          source_snapshot jsonb NOT NULL CHECK (jsonb_typeof(source_snapshot) = 'object'),
+          created_at timestamptz NOT NULL DEFAULT now()
+        )"""
+    )
+    cursor.execute(
+        """CREATE TABLE IF NOT EXISTS control.liquid_500_members (
+          version bigint NOT NULL REFERENCES control.liquid_500_versions(version) ON DELETE RESTRICT,
+          rank integer NOT NULL CHECK (rank BETWEEN 1 AND 500),
+          symbol text NOT NULL REFERENCES control.stock_master(symbol) ON DELETE RESTRICT,
+          volume_shares bigint,
+          turnover_twd numeric(24,2),
+          manual_override boolean NOT NULL DEFAULT false,
+          PRIMARY KEY (version, symbol),
+          UNIQUE (version, rank),
+          CHECK (volume_shares IS NULL OR volume_shares >= 0),
+          CHECK (turnover_twd IS NULL OR turnover_twd >= 0)
+        )"""
+    )
+    cursor.execute(
+        "GRANT SELECT, INSERT ON control.liquid_500_versions, control.liquid_500_members TO janus_web_control"
+    )
+    cursor.execute(
+        "GRANT USAGE, SELECT ON SEQUENCE control.liquid_500_versions_version_seq TO janus_web_control"
+    )
+    cursor.execute(
+        "GRANT SELECT ON control.liquid_500_versions, control.liquid_500_members TO janus_private_api"
+    )
+    cursor.execute(
+        "INSERT INTO control.schema_migrations(version) VALUES ('032_liquid_500') ON CONFLICT DO NOTHING"
+    )
+    cursor.execute(
+        """SELECT
+          has_table_privilege('janus_web_control', 'control.liquid_500_versions', 'INSERT'),
+          has_table_privilege('janus_web_control', 'control.liquid_500_members', 'INSERT'),
+          has_table_privilege('janus_private_api', 'control.liquid_500_versions', 'SELECT'),
+          has_table_privilege('janus_private_api', 'control.liquid_500_members', 'SELECT'),
+          EXISTS (SELECT 1 FROM control.schema_migrations WHERE version = '032_liquid_500')"""
+    )
+    privileges = cursor.fetchone()
+    if privileges is None or not all(bool(value) for value in privileges):
+        raise RuntimeError("liquid-500 schema and ACL verification failed")
+
+
+def _apply_liquid_500_tpex_source(cursor: Any) -> None:
+    cursor.execute("SET LOCAL ROLE janus_control")
+    cursor.execute(
+        """UPDATE control.collection_configs AS config
+        SET source_ids = (
+          SELECT jsonb_agg(DISTINCT source_id ORDER BY source_id)
+          FROM jsonb_array_elements_text(config.source_ids || '[\"tpex\"]'::jsonb)
+               AS sources(source_id)
+        )
+        WHERE config_id = 'first-batch'"""
+    )
+    cursor.execute(
+        "SELECT source_ids ? 'tpex' FROM control.collection_configs WHERE config_id = 'first-batch'"
+    )
+    enabled = cursor.fetchone()
+    if enabled is None or not bool(enabled[0]):
+        raise RuntimeError("TPEx market-volume source is not enabled")
+    cursor.execute(
+        "INSERT INTO control.schema_migrations(version) VALUES ('033_liquid_500_tpex_source') ON CONFLICT DO NOTHING"
+    )
+
+
 def _run_control_migration(name: str) -> dict[str, Any]:
     """Apply one allow-listed control-owner migration used by portfolio completeness."""
     if name not in CONTROL_MIGRATIONS:
@@ -109,8 +187,12 @@ def _run_control_migration(name: str) -> dict[str, Any]:
         with control.connection.transaction(), control.connection.cursor() as cursor:
             if name == CONTROL_MIGRATION_PRIVATE_STOCK_MASTER_READ:
                 _apply_private_stock_master_read(cursor)
-            else:
+            elif name == CONTROL_MIGRATION_PORTFOLIO_MARKET_COVERAGE:
                 _apply_portfolio_market_coverage(cursor)
+            elif name == CONTROL_MIGRATION_LIQUID_500:
+                _apply_liquid_500(cursor)
+            else:
+                _apply_liquid_500_tpex_source(cursor)
     return {
         "component": "ingestion-core",
         "status": "succeeded",

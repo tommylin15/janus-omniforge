@@ -497,13 +497,25 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         valuation_date,ledger_version=next(iter(anchors))
         snapshot={"valuation_date":valuation_date,"ledger_version":ledger_version}
         rows=store.mart("mart_user_positions",current.user_id,**snapshot)
+        missing_names={str(row.get("symbol")) for row in rows
+                       if row.get("symbol") and not str(row.get("stock_name") or "").strip()}
+        identities=repository.stock_identities(missing_names) if missing_names else {}
         unrealized={(row.get("symbol"),row.get("currency")):row for row in
                     store.mart("mart_user_unrealized_pnl",current.user_id,**snapshot)}
         result=[]
         for row in rows:
             detail=unrealized.get((row.get("symbol"),row.get("currency")),{})
+            identity=identities.get(str(row.get("symbol")))
+            stock_name=str(row.get("stock_name") or (identity or {}).get("name") or "").strip() or None
+            identity_status=row.get("identity_status") or (
+                "available" if stock_name and identity and identity.get("enabled") is True else
+                "disabled" if stock_name and identity else "missing" if identity is not None or not stock_name else None
+            )
             result.append({**row,"unrealized_pnl":detail.get("unrealized_pnl"),
                 "unrealized_return":detail.get("unrealized_return"),
+                "stock_name":stock_name,"identity_status":identity_status,
+                "identity_missing_reason":row.get("identity_missing_reason") or (
+                    "stock_master_not_found" if identity_status=="missing" else None),
                 "price_status":row.get("price_status") or detail.get("price_status","missing"),
                 "price_date":row.get("price_date") or detail.get("price_date"),
                 "missing_reason":row.get("missing_reason") or detail.get("missing_reason")})
@@ -717,6 +729,23 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @admin.get("/memberships/{coverage_tier}")
     def admin_membership(coverage_tier: str):
         return jsonable_encoder(admin_service.membership_snapshot(coverage_tier))
+
+    @admin.get("/market-universe")
+    def admin_market_universe():
+        return jsonable_encoder(admin_service.liquid_500_snapshot())
+
+    @admin.post("/market-universe/swap")
+    def admin_swap_market_universe(payload: dict[str, Any] = Body(...),
+                                   actor: str = Depends(admin_actor)):
+        expected = payload.get("expected_version")
+        if isinstance(expected, bool) or not isinstance(expected, int) or expected < 1:
+            raise AdminValidationError("expected_version is required")
+        return jsonable_encoder(admin_service.swap_liquid_500(
+            remove_symbol=str(payload.get("remove_symbol") or "").strip(),
+            add_symbol=str(payload.get("add_symbol") or "").strip(),
+            reason=str(payload.get("reason") or "").strip(), expected_version=expected,
+            actor=actor,
+        ))
 
     @admin.put("/memberships/{coverage_tier}")
     def admin_save_membership(coverage_tier: str, payload: MembershipEditIn,

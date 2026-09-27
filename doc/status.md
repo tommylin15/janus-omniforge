@@ -1,6 +1,6 @@
 # Janus Current Status
 
-更新：2026-09-26
+更新：2026-09-27
 
 用途：提供「現在在哪裡、下一步是什麼、哪些尚未完成」的短入口。這不是新的 source of truth；實作以 GitHub `main` 為準，完成狀態以 tests／CI／deployment／live runtime／integration evidence 為準。完整未完成工作見 [`todo.md`](todo.md)；六個月 Pilot 新增 operational checkpoint 見 [`pilot-operational-evidence.md`](pilot-operational-evidence.md)；Janus web root routing incident evidence 見 [`janus-web-root-acceptance-2026-09-26.md`](janus-web-root-acceptance-2026-09-26.md)；deployment controller consolidation evidence 見 [`deployment-controller-consolidation-2026-09-26.md`](deployment-controller-consolidation-2026-09-26.md)；完整歷史 evidence 見 [`spec/operations-and-testing.md`](spec/operations-and-testing.md)。
 
@@ -26,8 +26,10 @@
 1. `WBS-6-PORTFOLIO-COMPLETENESS`：真實持股名稱、行情 coverage、Private Mart aggregate valuation／PnL 與可診斷 missing-state 閉環。
 2. `WBS-6-MARKET-HOME-DATA`：建立不依賴 LLM／Daily Brief 的 deterministic market-home bounded contract。
 3. `WBS-6-MARKET-HOME-UI`：讓「今日」先顯示 market baseline，再疊加 Mart／AI 內容。
-4. `WBS-3-FULL-MARKET-BASE-COVERAGE`：把 bounded canary universe 推進到當日 enabled stock master 的基礎市場 coverage。
-5. `WBS-6-FLUTTER-ADMIN-SHELL` → `WBS-6-ADMIN-OVERVIEW-BATCH` → `WBS-6-ADMIN-STOCK-WORKBENCH`：完成不進 GCP／DB 也能定位與處理資料營運問題的 Admin 主路徑。
+4. `WBS-3-LIQUID-500-ROTATION` → `WBS-3-FULL-MARKET-BASE-COVERAGE`：先由每日各市場單次批次資料產生週量 500 個股，接著只對有效 500 執行基礎市場 coverage；原 WBS ID 保留，範圍已依使用者指示修訂。
+5. `WBS-6-FLUTTER-ADMIN-SHELL` → `WBS-6-ADMIN-OVERVIEW-BATCH` → `WBS-6-ADMIN-STOCK-WORKBENCH`：完成 Admin 主路徑，另增「市場資訊」以檢視／調整週量 500 進出。
+
+Shioaji 目前僅證實既有模擬憑證可登入及送出單檔 Quote 訂閱；正式環境登入回權限相關錯誤，且 2026-09-27 非交易時段，不能據此宣稱盤中即時股價或 User 市值更新可用。
 
 下一個 foreground 原子項目是 **`WBS-6-PORTFOLIO-COMPLETENESS`**。
 

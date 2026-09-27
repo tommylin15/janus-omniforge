@@ -14,7 +14,7 @@ SOURCE_IDS = frozenset({
     "taifex", "tdcc", "yahoo-finance", "google-finance", "tiingo", "cmoney", "factset",
     "podcast", "ptt", "dcard", "stock-buzz",
 })
-DATASET_IDS = frozenset({"ohlcv", "valuation", "institutional", "financials", "events", "market-activity", "benchmark"})
+DATASET_IDS = frozenset({"ohlcv", "valuation", "institutional", "financials", "events", "market-activity", "benchmark", "stock-profile", "market-volume"})
 QUALITY_FLAGS = frozenset({"good", "warning", "critical", "unknown"})
 
 

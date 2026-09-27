@@ -47,7 +47,9 @@ class PersistedCoreSummary:
         self.store = store
 
     def summary(self, symbol: str, *, datasets=None):
-        assert datasets == ("ohlcv",)
+        assert datasets is not None and len(datasets) == 1
+        if datasets[0] != "ohlcv":
+            return {"symbol": symbol, "datasets": {datasets[0]: {"row_count": 0}}}
         prefix = f"core/ohlcv/v1/symbol={symbol}"
         rows = json.loads(self.store.read(f"{prefix}/data.json"))
         summary = json.loads(self.store.read(f"{prefix}/metadata.json"))
@@ -114,7 +116,7 @@ class ClosedLoopTests(unittest.TestCase):
                     "REQUEST_METHOD": "GET", "CONTENT_LENGTH": "0", "wsgi.input": BytesIO(),
                 }, lambda status, headers: response_status.append(status)))
                 status = json.loads(response)
-                item = status["items"][0]
+                item = next(item for item in status["items"] if item["dataset_id"] == "ohlcv")
 
                 self.assertEqual(response_status, ["200 OK"])
                 self.assertEqual((item["dataset_id"], item["latest_date"], item["row_count"]), ("ohlcv", "2026-08-25", 1))

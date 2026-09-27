@@ -34,12 +34,13 @@ snapshot、Cloud SQL、HA、replica、second PostgreSQL VM 或無界 retention�
 
 | 軌道 | 對象 | 預設頻率 | 必要資料 | 用途 |
 |---|---|---|---|---|
-| 全市場量化網 | 股票 master 當日所有 enabled 上市／上櫃標的，約 1,700–2,000 檔 | 日頻／公告頻率 | 日 OHLCV、PE/PB、法人、融資券／借券／當沖、基本面摘要、benchmark | 異動偵測、流動性檢查、每日 screening |
+| 每週量 500 市場資訊網 | 當週成交股數前 500 檔 enabled 上市／上櫃個股；排名來源每日仍須各市場一次全市場批次抓取 | 週末換股、日頻行情 | 日 OHLCV、PE/PB、法人、融資券／借券／當沖、基本面摘要、benchmark | 異動偵測、流動性檢查、每日 screening |
 | 個人關注股深度追蹤 | authenticated users 的 active watchlist 所形成之去識別化 symbol 聯集；MVP 最多 50 個 distinct symbols | 日頻加上經核准的分 K／Tick、事件與文本 | 深度財報、公司行動／重大訊息、新聞與核准另類資料 | 個人關注、深度特徵、風險分析、PIT 回測與研究報告 |
 
 - `coverage_tier`、去識別化深度追蹤 membership、effective time、collection cadence 與授權狀態必須持久化並可稽核；關注異動不得改寫歷史 membership，Admin 不得看到使用者與 symbol 的對應。
 - 高頻、文本與另類資料不得因全市場 collection 自動擴張；MVP 超過 50 個 active distinct symbols 或提高抓取頻率須拒絕並另行評估來源限制、Cloud Run/GCS 成本與授權。此上限是營運護欄，不是「50 大」產品功能。
 - collection 與 analysis 分離；進入深度追蹤只代表有使用者關注需求且可收集相應資料，不代表平台推薦、可發布或可自動下單。
+- 週末換股使用 Stage → Core 的完整交易週成交量；有效版本不足 500 或來源不完整時沿用上一版。新加入 watchlist 必須屬有效 500；已持有股票即使離榜，也應沿源頭 → Stage → Core → Private Mart 補行情，不用 UI 假價。
 
 ### 6.2 五層資料供應責任
 
@@ -53,10 +54,10 @@ snapshot、Cloud SQL、HA、replica、second PostgreSQL VM 或無界 retention�
 
 | 領域 | Coverage | Primary | Fallback／限制 |
 |---|---|---|---|
-| OHLCV、PE/PB | 全市場日頻 | TWSE／TPEx | FinMind；yfinance 僅具名低優先 enrichment |
-| 法人／信用／借券／當沖／警示 | 全市場日頻 | TWSE／TPEx | 缺資料標 unavailable，不推算 |
-| 月營收／季報 | 全市場摘要、關注股深度 | MOPS | FinMind(MOPS fallback)，三類報表分別抓取與 provenance |
-| 公司事件／重大訊息 | 全市場索引、關注股全文或結構化內容 | TWSE／TPEx／MOPS | 更正公告保留新舊版本；RSS／頁面抓取須先確認穩定性與使用條款 |
+| OHLCV、PE/PB | 有效週量 500 日頻；排名來源全市場批次日頻 | TWSE／TPEx | FinMind；yfinance 僅具名低優先 enrichment；無批次路徑不得逐檔放大 |
+| 法人／信用／借券／當沖／警示 | 有效週量 500 日頻，依已核准市場批次來源能力 | TWSE／TPEx | 缺資料標 unavailable，不推算或逐檔放大 |
+| 月營收／季報 | 有效週量 500 摘要、關注股深度 | MOPS | FinMind(MOPS fallback)，三類報表分別抓取與 provenance |
+| 公司事件／重大訊息 | 有效週量 500 索引、關注股全文或結構化內容 | TWSE／TPEx／MOPS | 更正公告保留新舊版本；RSS／頁面抓取須先確認穩定性與使用條款 |
 | Benchmark／期貨宏觀 | 市場級 | 官方 TAIEX／TPEx、TAIFEX、政府行事曆 | 優先報酬指數，否則明示價格指數；美股／費半資料須使用核准 provider |
 | 持股級距 | 全市場或關注股，依來源能力 | TDCC／政府開放資料 | bucket 定義與更新頻率待人工核准 |
 | 分 K／Tick | 關注股 | 經核准 TWSE／TPEx MIS 或授權行情源 | 必須遵守 rate limit、使用與保存條款；未核准不得排程 |

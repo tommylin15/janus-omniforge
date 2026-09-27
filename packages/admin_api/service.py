@@ -7,7 +7,7 @@ execution for a worker to claim later.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import json
 from pathlib import Path
 import re
@@ -413,6 +413,43 @@ class AdminService:
             "version": version,
             "effective_from": effective_from.isoformat() if effective_from else None,
         }
+
+    def liquid_500_snapshot(self) -> dict[str, Any]:
+        return {"current": self.control.liquid_500_snapshot(),
+                "upcoming": self.control.liquid_500_snapshot(upcoming=True)}
+
+    def swap_liquid_500(self, *, remove_symbol: str, add_symbol: str, reason: str,
+                        expected_version: int, actor: str) -> dict[str, Any]:
+        from ingestion_core.control import ControlPlaneError
+        upcoming = self.control.liquid_500_snapshot(upcoming=True)
+        snapshot = upcoming if upcoming["status"] == "available" else self.control.liquid_500_snapshot()
+        if snapshot["status"] != "available" or len(snapshot["items"]) != 500:
+            raise AdminValidationError("liquid 500 is unavailable")
+        if not reason.strip() or len(reason.strip()) > 500:
+            raise AdminValidationError("reason is required and must be at most 500 characters")
+        if snapshot["version"] != expected_version:
+            raise AdminConflictError("liquid 500 version changed; reload before saving")
+        current = {item["symbol"] for item in snapshot["items"]}
+        if remove_symbol not in current or add_symbol in current or remove_symbol == add_symbol:
+            raise AdminValidationError("select one current stock and one different replacement")
+        rows = tuple({**item, "symbol": add_symbol, "volume_shares": None, "turnover_twd": None,
+                      "manual_override": True} if item["symbol"] == remove_symbol else item
+                     for item in snapshot["items"])
+        try:
+            self.control.publish_liquid_500(
+                rows, week_start=date.fromisoformat(snapshot["week_start"]),
+                effective_from=max(datetime.now(timezone.utc),
+                                   datetime.fromisoformat(snapshot["effective_from"]) + timedelta(microseconds=1)),
+                reason=reason.strip(), actor=actor,
+                source_snapshot={**snapshot["source_snapshot"], "manual_swap":
+                                 {"removed": remove_symbol, "added": add_symbol}},
+                expected_version=expected_version,
+            )
+        except ControlPlaneError as error:
+            raise AdminConflictError("liquid 500 version changed; reload before saving") from error
+        except ValueError as error:
+            raise AdminValidationError(str(error)) from error
+        return self.liquid_500_snapshot()
 
     def set_membership(self, coverage_tier: str, symbols: tuple[str, ...], *, effective_from: datetime,
                        reason: str, owner: str, expected_version: int) -> dict[str, Any]:

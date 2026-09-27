@@ -13,16 +13,19 @@ class FakeApi extends Api {
     reads.add(path);
     return values[path] ?? const [];
   }
+
   @override
   Future<dynamic> put(String path, Map<String, dynamic> body) async {
     writes.add(body);
     return values[path] ?? body;
   }
+
   @override
   Future<dynamic> post(String path, Map<String, dynamic> body) async {
     writes.add({'path': path, ...body});
     return values[path] ?? body;
   }
+
   @override
   Future<dynamic> patch(String path, Map<String, dynamic> body) async {
     writes.add({'path': path, ...body});
@@ -31,13 +34,20 @@ class FakeApi extends Api {
 }
 
 void main() {
-  testWidgets('market baseline remains visible without a Daily Brief', (tester) async {
+  testWidgets('market baseline remains visible without a Daily Brief',
+      (tester) async {
     final api = FakeApi({
       '/api/v1/public/market-home': {
-        'as_of': '2026-09-26', 'status': 'partial',
+        'as_of': '2026-09-26',
+        'status': 'partial',
         'sections': {
-          'taiex': {'status': 'available', 'as_of': '2026-09-26',
-            'freshness_days': 1, 'data': {'close': '25000'}, 'coverage': {'received_symbols': 1}},
+          'taiex': {
+            'status': 'available',
+            'as_of': '2026-09-26',
+            'freshness_days': 1,
+            'data': {'close': '25000'},
+            'coverage': {'received_symbols': 1}
+          },
         }
       },
     });
@@ -52,30 +62,71 @@ void main() {
     expect(() => requireGoogleIdToken(null), throwsStateError);
   });
 
-  test('trade save wording distinguishes persistence from portfolio refresh', () {
+  test('trade save wording distinguishes persistence from portfolio refresh',
+      () {
     expect(portfolioPendingMessage, '交易已儲存，等待投資組合批次更新');
   });
 
-  test('admin workspace is selected only by an explicit route or build mode', () {
-    expect(adminWorkspaceRequested(Uri.parse('https://example.test/app/admin')), isTrue);
-    expect(adminWorkspaceRequested(Uri.parse('https://example.test/app')), isFalse);
-    expect(adminWorkspaceRequested(Uri.parse('https://example.test/app'), 'admin'), isTrue);
+  test('admin workspace is selected only by an explicit route or build mode',
+      () {
+    expect(adminWorkspaceRequested(Uri.parse('https://example.test/app/admin')),
+        isTrue);
+    expect(adminWorkspaceRequested(Uri.parse('https://example.test/app')),
+        isFalse);
+    expect(
+        adminWorkspaceRequested(Uri.parse('https://example.test/app'), 'admin'),
+        isTrue);
   });
 
-  testWidgets('admin shell shows actionable overview and desktop navigation', (tester) async {
+  testWidgets('admin previews the scheduled market list separately',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1280, 1200));
+    final api = FakeApi({
+      '/api/v1/admin/market-universe': {
+        'current': {'status': 'missing', 'version': 0, 'items': []},
+        'upcoming': {
+          'status': 'available',
+          'version': 1,
+          'week_start': '2026-09-21',
+          'effective_from': '2026-09-29T00:00:00+08:00',
+          'entered': ['2330'],
+          'exited': [],
+          'items': [
+            {'rank': 1, 'symbol': '2330', 'name': '台積電', 'market': 'TWSE', 'volume_shares': 10}
+          ],
+        },
+      },
+    });
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: AdminMarketUniversePage(api))));
+    await tester.pumpAndSettle();
+    expect(find.text('即將生效名單'), findsOneWidget);
+    expect(find.textContaining('即將生效 · 第 1 版'), findsOneWidget);
+    expect(find.textContaining('台積電 2330'), findsOneWidget);
+    await tester.tap(find.text('目前有效名單'));
+    await tester.pumpAndSettle();
+    expect(find.text('目前尚無有效名單'), findsOneWidget);
+    expect(find.text('手動換股'), findsNothing);
+  });
+
+  testWidgets('admin shell shows actionable overview and desktop navigation',
+      (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(1280, 800));
     final api = FakeApi({
       '/api/v1/admin/executions?limit=50': {'items': []},
-      '/api/v1/admin/source-health?limit=200': {'items': [
-        {'source_id': 'twse', 'dataset_id': 'ohlcv', 'last_state': 'success'}
-      ]},
+      '/api/v1/admin/source-health?limit=200': {
+        'items': [
+          {'source_id': 'twse', 'dataset_id': 'ohlcv', 'last_state': 'success'}
+        ]
+      },
       '/api/v1/admin/mart-reports?limit=50': {'items': []},
     });
-    await tester.pumpWidget(MaterialApp(home: AdminWorkspace(
-        api: api, email: 'admin@example.com', onTheme: (_) {})));
+    await tester.pumpWidget(MaterialApp(
+        home: AdminWorkspace(
+            api: api, email: 'admin@example.com', onTheme: (_) {})));
     await tester.pumpAndSettle();
-    for (final label in ['總覽', '批次', '個股', 'AI 分析', '進階管理']) {
+    for (final label in ['總覽', '批次', '個股', '市場資訊', 'AI 分析', '進階管理']) {
       expect(find.text(label), findsWidgets);
     }
     expect(find.text('今日沒有需要處理的事項'), findsOneWidget);
@@ -86,21 +137,38 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('stock workbench reads persisted health and analysis', (tester) async {
+  testWidgets('stock workbench reads persisted health and analysis',
+      (tester) async {
     final api = FakeApi({
-      '/api/v1/admin/stocks?q=&limit=10': {'items': [
-        {'symbol': '2330', 'name': '台積電', 'market': 'TWSE', 'enabled': true}
-      ]},
-      '/api/v1/admin/stocks/2330/status': {'items': [
-        {'dataset_id': 'ohlcv', 'row_count': 20, 'received_symbols': 1,
-          'requested_symbols': 1, 'dq_warning_count': 0}
-      ]},
-      '/api/v1/admin/mart-reports?scope_type=symbol&scope_id=2330&limit=50': {'items': [
-        {'analysis_as_of': '2026-09-20', 'analysis_outcome': 'complete',
-          'prompt_version': 'v1', 'publication_status': 'published'}
-      ]},
+      '/api/v1/admin/stocks?q=&limit=10': {
+        'items': [
+          {'symbol': '2330', 'name': '台積電', 'market': 'TWSE', 'enabled': true}
+        ]
+      },
+      '/api/v1/admin/stocks/2330/status': {
+        'items': [
+          {
+            'dataset_id': 'ohlcv',
+            'row_count': 20,
+            'received_symbols': 1,
+            'requested_symbols': 1,
+            'dq_warning_count': 0
+          }
+        ]
+      },
+      '/api/v1/admin/mart-reports?scope_type=symbol&scope_id=2330&limit=50': {
+        'items': [
+          {
+            'analysis_as_of': '2026-09-20',
+            'analysis_outcome': 'complete',
+            'prompt_version': 'v1',
+            'publication_status': 'published'
+          }
+        ]
+      },
     });
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: AdminStockWorkbench(api))));
+    await tester.pumpWidget(
+        MaterialApp(home: Scaffold(body: AdminStockWorkbench(api))));
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('2330 台積電'));
     await tester.pumpAndSettle();
@@ -110,20 +178,42 @@ void main() {
     expect(find.textContaining('2026-09-20'), findsOneWidget);
   });
 
-  testWidgets('batch retries only an explicitly retryable failed item', (tester) async {
+  testWidgets('batch retries only an explicitly retryable failed item',
+      (tester) async {
     final api = FakeApi({
-      '/api/v1/admin/executions?limit=50': {'items': [
-        {'execution_id': 'old', 'config_id': 'ohlcv', 'trigger_type': 'collection',
-          'status': 'partial', 'requested_at': '2026-09-20'}
-      ]},
-      '/api/v1/admin/executions/old': {'status': 'partial', 'items': [
-        {'item_key': 'ohlcv:TWSE:2330', 'dataset_id': 'ohlcv', 'source_id': 'twse',
-          'state': 'failed', 'retry_classification': 'retryable'},
-        {'item_key': 'ohlcv:TWSE:2454', 'dataset_id': 'ohlcv', 'source_id': 'twse',
-          'state': 'failed', 'retry_classification': 'non_retryable'}
-      ]},
+      '/api/v1/admin/executions?limit=50': {
+        'items': [
+          {
+            'execution_id': 'old',
+            'config_id': 'ohlcv',
+            'trigger_type': 'collection',
+            'status': 'partial',
+            'requested_at': '2026-09-20'
+          }
+        ]
+      },
+      '/api/v1/admin/executions/old': {
+        'status': 'partial',
+        'items': [
+          {
+            'item_key': 'ohlcv:TWSE:2330',
+            'dataset_id': 'ohlcv',
+            'source_id': 'twse',
+            'state': 'failed',
+            'retry_classification': 'retryable'
+          },
+          {
+            'item_key': 'ohlcv:TWSE:2454',
+            'dataset_id': 'ohlcv',
+            'source_id': 'twse',
+            'state': 'failed',
+            'retry_classification': 'non_retryable'
+          }
+        ]
+      },
     });
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: AdminBatchPage(api))));
+    await tester
+        .pumpWidget(MaterialApp(home: Scaffold(body: AdminBatchPage(api))));
     await tester.pumpAndSettle();
     await tester.tap(find.text('查看'));
     await tester.pumpAndSettle();
@@ -155,7 +245,17 @@ void main() {
 
     await tester.tap(find.text('開啟'));
     await tester.pumpAndSettle();
-    for (final label in ['交易類型', '交易日期', '股票代號', '股數', '成交單價', '手續費', '證券交易稅', '備註', '幣別']) {
+    for (final label in [
+      '交易類型',
+      '交易日期',
+      '股票代號',
+      '股數',
+      '成交單價',
+      '手續費',
+      '證券交易稅',
+      '備註',
+      '幣別'
+    ]) {
       expect(find.text(label), findsOneWidget);
     }
     expect(find.text('2330'), findsOneWidget);
@@ -174,8 +274,8 @@ void main() {
 
   testWidgets('journal exposes holdings, records, reports, and notes',
       (tester) async {
-    await tester.pumpWidget(
-        MaterialApp(home: JournalNotesPage(FakeApi(const {}))));
+    await tester
+        .pumpWidget(MaterialApp(home: JournalNotesPage(FakeApi(const {}))));
     await tester.pumpAndSettle();
 
     expect(find.text('持股'), findsOneWidget);
@@ -192,7 +292,8 @@ void main() {
     expect(find.text('新增筆記'), findsOneWidget);
   });
 
-  testWidgets('transaction months show separate canonical summaries and holdings cards',
+  testWidgets(
+      'transaction months show separate canonical summaries and holdings cards',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final year = DateTime.now().year;
@@ -200,18 +301,45 @@ void main() {
     final monthText = month.toString().padLeft(2, '0');
     final api = FakeApi({
       '/api/v1/me/journal/history?year=$year': [
-        {'event_id':'A','event_action':'ORIGINAL','event_type':'BUY','symbol':'2330',
-          'trade_date':'$year-$monthText-01','shares':'2','price':'100','net_cash_flow':'-200',
-          'currency':'TWD','record_version':1}
+        {
+          'event_id': 'A',
+          'event_action': 'ORIGINAL',
+          'event_type': 'BUY',
+          'symbol': '2330',
+          'trade_date': '$year-$monthText-01',
+          'shares': '2',
+          'price': '100',
+          'net_cash_flow': '-200',
+          'currency': 'TWD',
+          'record_version': 1
+        }
       ],
-      '/api/v1/me/journal/monthly-summary?year=$year': {'items':[
-        {'month':month,'currency':'TWD','purchase_outflow':'200','sale_proceeds':'0',
-          'cash_dividends':'0','realized_pnl':'0','valuation_date':'$year-$monthText-01'}
-      ]},
+      '/api/v1/me/journal/monthly-summary?year=$year': {
+        'items': [
+          {
+            'month': month,
+            'currency': 'TWD',
+            'purchase_outflow': '200',
+            'sale_proceeds': '0',
+            'cash_dividends': '0',
+            'realized_pnl': '0',
+            'valuation_date': '$year-$monthText-01'
+          }
+        ]
+      },
       '/api/v1/me/journal/positions': [
-        {'symbol':'2330','currency':'TWD','shares':'2','market_price':'120','market_value':'240',
-          'average_cost':'100','unrealized_pnl':'40','price_status':'stale','price_date':'$year-$monthText-01',
-          'valuation_date':'$year-$monthText-02'}
+        {
+          'symbol': '2330',
+          'currency': 'TWD',
+          'shares': '2',
+          'market_price': '120',
+          'market_value': '240',
+          'average_cost': '100',
+          'unrealized_pnl': '40',
+          'price_status': 'stale',
+          'price_date': '$year-$monthText-01',
+          'valuation_date': '$year-$monthText-02'
+        }
       ]
     });
     await tester.binding.setSurfaceSize(const Size(360, 800));
@@ -233,20 +361,41 @@ void main() {
       (tester) async {
     final api = FakeApi({
       '/api/v1/me/journal/history?year=${DateTime.now().year}': [
-        {'event_id': 'A', 'event_action': 'ORIGINAL', 'event_type': 'BUY',
-          'symbol': 'TEST01', 'trade_date': '2026-09-20', 'shares': 1},
-        {'event_id': 'R1', 'event_action': 'REVERSAL', 'event_type': 'BUY',
-          'symbol': 'TEST01', 'trade_date': '2026-09-20', 'shares': 1,
-          'reverses_event_id': 'A'},
-        {'event_id': 'B', 'event_action': 'REPLACEMENT', 'event_type': 'BUY',
-          'symbol': '5876', 'trade_date': '2026-09-20', 'shares': 96000,
-          'replaces_event_id': 'A', 'record_version': 1, 'price': 10},
+        {
+          'event_id': 'A',
+          'event_action': 'ORIGINAL',
+          'event_type': 'BUY',
+          'symbol': 'TEST01',
+          'trade_date': '2026-09-20',
+          'shares': 1
+        },
+        {
+          'event_id': 'R1',
+          'event_action': 'REVERSAL',
+          'event_type': 'BUY',
+          'symbol': 'TEST01',
+          'trade_date': '2026-09-20',
+          'shares': 1,
+          'reverses_event_id': 'A'
+        },
+        {
+          'event_id': 'B',
+          'event_action': 'REPLACEMENT',
+          'event_type': 'BUY',
+          'symbol': '5876',
+          'trade_date': '2026-09-20',
+          'shares': 96000,
+          'replaces_event_id': 'A',
+          'record_version': 1,
+          'price': 10
+        },
       ],
     });
     await tester.pumpWidget(MaterialApp(home: JournalNotesPage(api)));
     await tester.pumpAndSettle();
 
-    expect(api.reads, contains('/api/v1/me/journal/history?year=${DateTime.now().year}'));
+    expect(api.reads,
+        contains('/api/v1/me/journal/history?year=${DateTime.now().year}'));
     expect(find.text('買進 · TEST01'), findsNothing);
     expect(find.text('買進 · 5876'), findsOneWidget);
     expect(find.byTooltip('建立更正'), findsOneWidget);
@@ -256,20 +405,52 @@ void main() {
       (tester) async {
     final api = FakeApi({
       '/api/v1/me/journal/history?year=${DateTime.now().year}': [
-        {'event_id': 'A', 'event_action': 'ORIGINAL', 'event_type': 'BUY',
-          'symbol': 'TEST01', 'trade_date': '2026-09-20', 'shares': 1},
-        {'event_id': 'R1', 'event_action': 'REVERSAL', 'event_type': 'BUY',
-          'symbol': 'TEST01', 'trade_date': '2026-09-20', 'shares': 1,
-          'reverses_event_id': 'A'},
-        {'event_id': 'B', 'event_action': 'REPLACEMENT', 'event_type': 'BUY',
-          'symbol': '5876', 'trade_date': '2026-09-20', 'shares': 10,
-          'replaces_event_id': 'A'},
-        {'event_id': 'R2', 'event_action': 'REVERSAL', 'event_type': 'BUY',
-          'symbol': '5876', 'trade_date': '2026-09-20', 'shares': 10,
-          'reverses_event_id': 'B'},
-        {'event_id': 'C', 'event_action': 'REPLACEMENT', 'event_type': 'BUY',
-          'symbol': '5876', 'trade_date': '2026-09-20', 'shares': 96000,
-          'replaces_event_id': 'B', 'record_version': 1, 'price': 10},
+        {
+          'event_id': 'A',
+          'event_action': 'ORIGINAL',
+          'event_type': 'BUY',
+          'symbol': 'TEST01',
+          'trade_date': '2026-09-20',
+          'shares': 1
+        },
+        {
+          'event_id': 'R1',
+          'event_action': 'REVERSAL',
+          'event_type': 'BUY',
+          'symbol': 'TEST01',
+          'trade_date': '2026-09-20',
+          'shares': 1,
+          'reverses_event_id': 'A'
+        },
+        {
+          'event_id': 'B',
+          'event_action': 'REPLACEMENT',
+          'event_type': 'BUY',
+          'symbol': '5876',
+          'trade_date': '2026-09-20',
+          'shares': 10,
+          'replaces_event_id': 'A'
+        },
+        {
+          'event_id': 'R2',
+          'event_action': 'REVERSAL',
+          'event_type': 'BUY',
+          'symbol': '5876',
+          'trade_date': '2026-09-20',
+          'shares': 10,
+          'reverses_event_id': 'B'
+        },
+        {
+          'event_id': 'C',
+          'event_action': 'REPLACEMENT',
+          'event_type': 'BUY',
+          'symbol': '5876',
+          'trade_date': '2026-09-20',
+          'shares': 96000,
+          'replaces_event_id': 'B',
+          'record_version': 1,
+          'price': 10
+        },
       ],
     });
     await tester.pumpWidget(MaterialApp(home: JournalNotesPage(api)));
@@ -283,15 +464,21 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('儲存'));
     await tester.pumpAndSettle();
-    expect(api.writes.single['path'],
-        '/api/v1/me/journal/events/C/corrections');
+    expect(
+        api.writes.single['path'], '/api/v1/me/journal/events/C/corrections');
   });
 
   testWidgets('journal keeps an uncorrected original trade', (tester) async {
     final api = FakeApi({
       '/api/v1/me/journal/history?year=${DateTime.now().year}': [
-        {'event_id': 'A', 'event_action': 'ORIGINAL', 'event_type': 'BUY',
-          'symbol': 'TEST01', 'trade_date': '2026-09-20', 'shares': 1},
+        {
+          'event_id': 'A',
+          'event_action': 'ORIGINAL',
+          'event_type': 'BUY',
+          'symbol': 'TEST01',
+          'trade_date': '2026-09-20',
+          'shares': 1
+        },
       ],
     });
     await tester.pumpWidget(MaterialApp(home: JournalNotesPage(api)));
@@ -307,11 +494,17 @@ void main() {
     expect(find.text('使用 Google 登入'), findsOneWidget);
   });
 
-  testWidgets('workspace keeps four investment destinations and a desktop navigation rail', (tester) async {
+  testWidgets(
+      'workspace keeps four investment destinations and a desktop navigation rail',
+      (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(MaterialApp(
-      home: Workspace(api: FakeApi({'/api/v1/public/daily-brief': {'items': []}}),
-          email: 'user@example.com', onTheme: (_) {}),
+      home: Workspace(
+          api: FakeApi({
+            '/api/v1/public/daily-brief': {'items': []}
+          }),
+          email: 'user@example.com',
+          onTheme: (_) {}),
     ));
     for (final size in [const Size(360, 800), const Size(768, 1024)]) {
       await tester.binding.setSurfaceSize(size);
@@ -328,25 +521,44 @@ void main() {
     expect(find.byType(NavigationDestination), findsNothing);
   });
 
-  testWidgets('blocked health cards hide the score and remain readable on a phone', (tester) async {
+  testWidgets(
+      'blocked health cards hide the score and remain readable on a phone',
+      (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(360, 800));
-    await tester.pumpWidget(const MaterialApp(home: Scaffold(body: StockHealthCard(value: {
-      'stock_id': '2330', 'data_status': 'insufficient_data', 'mart_health_score': 88,
-      'ai_whitepaper_analysis': '資料仍在等待批次', 'chips_status': '中性', 'analysis_as_of': '2026-09-12',
+    await tester.pumpWidget(const MaterialApp(
+        home: Scaffold(
+            body: StockHealthCard(value: {
+      'stock_id': '2330',
+      'data_status': 'insufficient_data',
+      'mart_health_score': 88,
+      'ai_whitepaper_analysis': '資料仍在等待批次',
+      'chips_status': '中性',
+      'analysis_as_of': '2026-09-12',
     }))));
     expect(find.text('資料不足，暫不顯示分數'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('today marks mixed analysis dates partial and exposes screening', (tester) async {
-    final api = FakeApi({'/api/v1/public/daily-brief': {'items': [{
-      'analysis_as_of': '2026-09-12', 'data': {
-        'component_dates': {'topics': '2026-09-11'},
-        'highlights': ['重點'], 'sector_rotation': [], 'topics': [], 'candidates': []
+  testWidgets('today marks mixed analysis dates partial and exposes screening',
+      (tester) async {
+    final api = FakeApi({
+      '/api/v1/public/daily-brief': {
+        'items': [
+          {
+            'analysis_as_of': '2026-09-12',
+            'data': {
+              'component_dates': {'topics': '2026-09-11'},
+              'highlights': ['重點'],
+              'sector_rotation': [],
+              'topics': [],
+              'candidates': []
+            }
+          }
+        ]
       }
-    }]}});
+    });
     await tester.pumpWidget(MaterialApp(home: Scaffold(body: TodayPage(api))));
     await tester.pumpAndSettle();
     expect(find.textContaining('部分資料日期不一致'), findsOneWidget);
@@ -355,17 +567,30 @@ void main() {
     expect(find.text('查看全市場篩選'), findsOneWidget);
   });
 
-  testWidgets('stock detail keeps advanced market data collapsed by default', (tester) async {
+  testWidgets('stock detail keeps advanced market data collapsed by default',
+      (tester) async {
     final api = FakeApi({
-      '/api/v1/public/stock-health/2330': {'execution_id': '11111111-1111-1111-1111-111111111111',
-        'analysis_as_of': '2026-09-12', 'scope_type': 'symbol', 'scope_id': '2330', 'data_status': 'published', 'data': {
-        'stock_id': '2330', 'mart_health_score': 80, 'chips_status': '偏多',
-        'ai_whitepaper_analysis': '摘要', 'analysis_as_of': '2026-09-12'
-      }},
-      '/api/v1/me/journal/positions': [], '/api/v1/me/notes?symbol=2330': [],
-      '/api/v1/public/kline/2330': {'rows': []}, '/api/v1/public/events/2330': {'rows': []},
+      '/api/v1/public/stock-health/2330': {
+        'execution_id': '11111111-1111-1111-1111-111111111111',
+        'analysis_as_of': '2026-09-12',
+        'scope_type': 'symbol',
+        'scope_id': '2330',
+        'data_status': 'published',
+        'data': {
+          'stock_id': '2330',
+          'mart_health_score': 80,
+          'chips_status': '偏多',
+          'ai_whitepaper_analysis': '摘要',
+          'analysis_as_of': '2026-09-12'
+        }
+      },
+      '/api/v1/me/journal/positions': [],
+      '/api/v1/me/notes?symbol=2330': [],
+      '/api/v1/public/kline/2330': {'rows': []},
+      '/api/v1/public/events/2330': {'rows': []},
     });
-    await tester.pumpWidget(MaterialApp(home: StockDetailPage(api: api, symbol: '2330')));
+    await tester.pumpWidget(
+        MaterialApp(home: StockDetailPage(api: api, symbol: '2330')));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     expect(find.text('信心度不是獲利機率。'), findsOneWidget);
@@ -377,34 +602,86 @@ void main() {
     expect(find.text('K 線／OHLCV'), findsNothing);
   });
 
-  testWidgets('analysis feedback loads the owner choice and saves a new choice', (tester) async {
+  testWidgets('analysis feedback loads the owner choice and saves a new choice',
+      (tester) async {
     const executionId = '11111111-1111-1111-1111-111111111111';
-    final feedbackPath = Uri(path: '/api/v1/me/analysis-feedback', queryParameters: {
-      'analysis_execution_id': executionId, 'scope_type': 'symbol', 'scope_id': '2330',
+    final feedbackPath =
+        Uri(path: '/api/v1/me/analysis-feedback', queryParameters: {
+      'analysis_execution_id': executionId,
+      'scope_type': 'symbol',
+      'scope_id': '2330',
     }).toString();
-    final api = FakeApi({feedbackPath: {'feedback': 'useful'}});
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: AnalysisFeedbackCard(
-        api: api, executionId: executionId, scopeType: 'symbol', scopeId: '2330'))));
+    final api = FakeApi({
+      feedbackPath: {'feedback': 'useful'}
+    });
+    await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+            body: AnalysisFeedbackCard(
+                api: api,
+                executionId: executionId,
+                scopeType: 'symbol',
+                scopeId: '2330'))));
     await tester.pumpAndSettle();
-    expect(tester.widget<SegmentedButton<String>>(find.byType(SegmentedButton<String>)).selected,
+    expect(
+        tester
+            .widget<SegmentedButton<String>>(
+                find.byType(SegmentedButton<String>))
+            .selected,
         {'useful'});
     await tester.tap(find.text('可能誤導'));
     await tester.pumpAndSettle();
     expect(api.writes, hasLength(1));
-    expect(api.writes.single, containsPair('analysis_execution_id', executionId));
+    expect(
+        api.writes.single, containsPair('analysis_execution_id', executionId));
     expect(api.writes.single, containsPair('feedback', 'misleading'));
   });
 
-  testWidgets('portfolio dashboard renders persisted marts without recalculation', (tester) async {
+  testWidgets(
+      'portfolio dashboard renders persisted marts without recalculation',
+      (tester) async {
     final api = FakeApi({
-      '/api/v1/me/investment-profile': {'risk_tolerance':'moderate','investment_horizon':'long',
-        'primary_goal':'growth','minimum_cash_ratio':'0.1','ai_context_opt_in':false,'version':1},
-      '/api/v1/me/portfolio/summary': {'items':[{'currency':'TWD','market_value':'1200','unrealized_pnl':'200','cash_safety_status':'insufficient_data'}]},
-      '/api/v1/me/portfolio/exposure': {'items':[{'industry':'semiconductor','portfolio_ratio':'1'}]},
-      '/api/v1/me/portfolio/performance?year=${DateTime.now().year}': {'items':[{'year':DateTime.now().year,'currency':'TWD','xirr_status':'available','xirr':.1}]},
-      '/api/v1/me/portfolio/stress-tests': {'items':[{'scenario_id':'broad_market_down_20','loss':'-240'}]},
+      '/api/v1/me/investment-profile': {
+        'risk_tolerance': 'moderate',
+        'investment_horizon': 'long',
+        'primary_goal': 'growth',
+        'minimum_cash_ratio': '0.1',
+        'ai_context_opt_in': false,
+        'version': 1
+      },
+      '/api/v1/me/portfolio/summary': {
+        'items': [
+          {
+            'currency': 'TWD',
+            'market_value': '1200',
+            'unrealized_pnl': '200',
+            'cash_safety_status': 'insufficient_data'
+          }
+        ]
+      },
+      '/api/v1/me/portfolio/exposure': {
+        'items': [
+          {'industry': 'semiconductor', 'portfolio_ratio': '1'}
+        ]
+      },
+      '/api/v1/me/portfolio/performance?year=${DateTime.now().year}': {
+        'items': [
+          {
+            'year': DateTime.now().year,
+            'currency': 'TWD',
+            'xirr_status': 'available',
+            'xirr': .1
+          }
+        ]
+      },
+      '/api/v1/me/portfolio/stress-tests': {
+        'items': [
+          {'scenario_id': 'broad_market_down_20', 'loss': '-240'}
+        ]
+      },
     });
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: SingleChildScrollView(child: PortfolioDashboard(api)))));
+    await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+            body: SingleChildScrollView(child: PortfolioDashboard(api)))));
     await tester.pumpAndSettle();
     expect(find.text('資產與風險'), findsOneWidget);
     expect(find.textContaining('市值 1200'), findsOneWidget);
