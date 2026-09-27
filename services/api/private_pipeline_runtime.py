@@ -17,10 +17,19 @@ def register_active_portfolio_market_coverage(repository: Any) -> tuple[int, int
     """Register only distinct active symbols; never move owner/quantity/cost into control plane."""
     with repository._connection() as connection:
         active_rows = connection.execute(
-            """SELECT DISTINCT symbol
-               FROM private.current_positions
-               WHERE shares > 0
-               ORDER BY symbol"""
+            """WITH reversed AS (
+                 SELECT reverses_event_id FROM private.ledger_events
+                 WHERE event_action='REVERSAL'
+               ), positions AS (
+                 SELECT e.user_id,e.symbol,e.currency,
+                   SUM(CASE WHEN e.event_type IN ('BUY','STOCK_DIV') THEN e.shares
+                            WHEN e.event_type='SELL' THEN -e.shares ELSE 0 END) AS shares
+                 FROM private.ledger_events e
+                 WHERE COALESCE(e.event_action,'')<>'REVERSAL'
+                   AND NOT EXISTS (SELECT 1 FROM reversed r WHERE r.reverses_event_id=e.event_id)
+                 GROUP BY e.user_id,e.symbol,e.currency
+               )
+               SELECT DISTINCT symbol FROM positions WHERE shares>0 ORDER BY symbol"""
         ).fetchall()
         requested = sorted(
             {str(row["symbol"]).strip().upper() for row in active_rows if str(row["symbol"]).strip()}

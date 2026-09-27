@@ -155,6 +155,7 @@ def test_core_price_reader_keeps_the_quote_date_for_stale_detection():
     class Table:
         def scan(self,**kwargs):
             assert kwargs["selected_fields"]==("symbol","trade_date","close")
+            assert "limit" not in kwargs
             return Scan()
     class Catalog:
         def table_exists(self,name): return name=="core.ohlcv_v1"

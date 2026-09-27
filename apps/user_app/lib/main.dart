@@ -51,7 +51,8 @@ String portfolioReturnLabel(Object? value) {
 String portfolioMissingReasonLabel(Object? value) =>
     const {
       'no_eligible_persisted_ohlcv': '缺少符合估值日的正式行情',
-      'stock_master_not_found': '股票主檔缺少正式名稱',
+      'stock_master_not_found': '股票主檔找不到此代號',
+      'stock_master_name_missing': '股票主檔缺少正式名稱',
     }[value?.toString()] ??
     '';
 
@@ -1115,7 +1116,7 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
                   title: Text(
                       '${stockDisplayName(row)} · ${row['currency'] ?? 'TWD'}'),
                   subtitle: Text(
-                      '持有 ${row['shares'] ?? '—'} 股 · 現價 ${row['market_price'] ?? '—'} · 均價 ${row['average_cost'] ?? '—'}\n市值 ${row['market_value'] ?? '缺價'} · 未實現損益 ${row['unrealized_pnl'] ?? '資料不足'} · 未實現報酬 ${portfolioReturnLabel(row['unrealized_return'])}\n估值日 ${row['valuation_date'] ?? '—'} · 行情日 ${row['price_date'] ?? '—'} · ${row['price_status'] == 'missing' ? '缺價' : row['price_status'] == 'stale' ? '資料過期' : '可用'}${portfolioMissingReasonLabel(row['missing_reason']).isEmpty ? '' : ' · ${portfolioMissingReasonLabel(row['missing_reason'])}'}'),
+                      '持有 ${row['shares'] ?? '—'} 股 · 現價 ${row['market_price'] ?? '—'} · 均價 ${row['average_cost'] ?? '—'}\n市值 ${row['market_value'] ?? '缺價'} · 未實現損益 ${row['unrealized_pnl'] ?? '資料不足'} · 未實現報酬 ${portfolioReturnLabel(row['unrealized_return'])}\n估值日 ${row['valuation_date'] ?? '—'} · 行情日 ${row['price_date'] ?? '—'} · ${row['price_status'] == 'missing' ? '缺價' : row['price_status'] == 'stale' ? '資料過期' : '可用'}${portfolioMissingReasonLabel(row['missing_reason']).isEmpty ? '' : ' · ${portfolioMissingReasonLabel(row['missing_reason'])}'}${row['identity_status'] == 'missing' ? ' · 名稱資料不完整：${portfolioMissingReasonLabel(row['identity_missing_reason'])}' : ''}'),
                   isThreeLine: true,
                 )))
         ]),

@@ -129,9 +129,11 @@ def test_private_pipeline_runtime_registers_only_distinct_active_symbols_via_bou
 
         def execute(self, sql, values=()):
             self.calls.append((sql, values))
-            if "FROM private.current_positions" in sql:
-                assert "user_id" not in sql
-                assert "shares > 0" in sql
+            if "WITH reversed AS" in sql:
+                assert "FROM private.ledger_events" in sql
+                assert "reverses_event_id" in sql
+                assert "GROUP BY e.user_id,e.symbol,e.currency" in sql
+                assert "SELECT DISTINCT symbol FROM positions WHERE shares>0" in sql
                 return Rows([{"symbol": "2330"}, {"symbol": "2317"}, {"symbol": "2330"}])
             assert sql == "SELECT symbol FROM control.request_portfolio_market_coverage(%s)"
             assert values == (["2317", "2330"],)
@@ -160,7 +162,7 @@ def test_private_pipeline_runtime_skips_control_write_when_no_active_positions()
 
         def execute(self, sql, values=()):
             self.calls.append((sql, values))
-            assert "FROM private.current_positions" in sql
+            assert "FROM private.ledger_events" in sql
             return Rows()
 
     repository = object.__new__(PostgresWorkspaceRepository)

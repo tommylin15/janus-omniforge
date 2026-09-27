@@ -100,7 +100,8 @@ def test_positions_fill_missing_snapshot_identity_from_stock_master():
         rows = mart(table, user_id, **filters)
         if table == "mart_user_positions":
             rows[0]["stock_name"] = None
-            rows[0].pop("identity_status", None)
+            rows[0]["identity_status"] = "missing"
+            rows[0]["identity_missing_reason"] = "stock_master_not_found"
         return rows
 
     store.mart = missing_name
@@ -108,6 +109,7 @@ def test_positions_fill_missing_snapshot_identity_from_stock_master():
     assert response.status_code == 200
     assert response.json()[0]["stock_name"] == "台積電"
     assert response.json()[0]["identity_status"] == "available"
+    assert response.json()[0]["identity_missing_reason"] is None
 
 
 def test_summary_contract_allows_withheld_aggregate_and_decodes_affected_symbols():

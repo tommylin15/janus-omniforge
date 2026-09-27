@@ -131,6 +131,36 @@ void main() {
     expect(find.textContaining('缺少符合估值日的正式行情'), findsOneWidget);
   });
 
+  testWidgets('holdings identify an unresolved stock name', (tester) async {
+    final year = DateTime.now().year;
+    final api = PortfolioFakeApi({
+      '/api/v1/me/portfolio/summary': withheldSummary(),
+      '/api/v1/me/journal/pnl?year=$year': const [],
+      '/api/v1/me/notes': const [],
+      '/api/v1/me/journal/history?year=$year': const [],
+      '/api/v1/me/journal/monthly-summary?year=$year': {'items': const []},
+      '/api/v1/me/journal/positions': [
+        {
+          'symbol': '2330',
+          'identity_status': 'missing',
+          'identity_missing_reason': 'stock_master_name_missing',
+          'currency': 'TWD',
+          'shares': '2',
+          'price_status': 'missing',
+          'valuation_date': '2026-09-26'
+        }
+      ]
+    });
+
+    await tester.pumpWidget(MaterialApp(home: JournalNotesPage(api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('持股'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2330 · TWD'), findsOneWidget);
+    expect(find.textContaining('名稱資料不完整：股票主檔缺少正式名稱'), findsOneWidget);
+  });
+
   testWidgets('transaction list prefers canonical stock name plus symbol',
       (tester) async {
     final year = DateTime.now().year;

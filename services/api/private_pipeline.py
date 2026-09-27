@@ -53,7 +53,7 @@ class CorePriceReader:
         symbol_filter=reduce(Or,(EqualTo("symbol",symbol) for symbol in sorted(symbols)))
         rows=self.catalog.load_table("core.ohlcv_v1").scan(
             row_filter=And(symbol_filter,LessThanOrEqual("trade_date",valuation_date)),
-            selected_fields=("symbol","trade_date","close"),limit=len(symbols)*260).to_arrow().to_pylist()
+            selected_fields=("symbol","trade_date","close")).to_arrow().to_pylist()
         latest:dict[str,dict[str,Any]]={}
         for row in rows:
             if row["symbol"] not in latest or row["trade_date"]>latest[row["symbol"]]["trade_date"]: latest[row["symbol"]]=row
@@ -202,6 +202,13 @@ def calculate_risk_marts(events: Iterable[dict[str, Any]], positions: list[dict[
             "mart_user_stress_tests":stress,"mart_user_portfolio_summary":summary}
 
 
+def stock_identity(identity: dict[str, Any] | None) -> tuple[str | None, str, str | None]:
+    name = str(identity.get("name") or "").strip() if identity else ""
+    if not name:
+        return None, "missing", "stock_master_name_missing" if identity else "stock_master_not_found"
+    return name, "available" if identity.get("enabled") is True else "disabled", None
+
+
 def calculate_marts(events: Iterable[dict[str, Any]], prices: dict[str, Decimal | tuple[Decimal, date] | None],
                     valuation_date: date, identities: dict[str, dict[str, Any]] | None = None) -> dict[str, list[dict[str, Any]]]:
     rows=list(events); identities=identities or {}
@@ -240,11 +247,7 @@ def calculate_marts(events: Iterable[dict[str, Any]], prices: dict[str, Decimal 
     for (user_id,symbol,currency),state in states.items():
         if state["shares"]<=0: continue
         average=state["cost"]/state["shares"]; quote=prices.get(symbol)
-        identity=identities.get(symbol); identity_name=str(identity.get("name") or "").strip() if identity else ""
-        stock_name=identity_name or None
-        identity_status=("available" if stock_name and identity and identity.get("enabled") is True else
-                         "disabled" if stock_name and identity else "missing")
-        identity_missing_reason="stock_master_not_found" if identity_status=="missing" else None
+        stock_name,identity_status,identity_missing_reason=stock_identity(identities.get(symbol))
         if isinstance(quote,tuple): price,price_date=quote
         else: price,price_date=quote,valuation_date if quote is not None else None
         price_status=("missing" if price is None else

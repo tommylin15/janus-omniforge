@@ -36,7 +36,7 @@ from .models import (AdminResponseOut, AnalysisFeedbackIn, CorePageOut, CoreSumm
                      WatchlistIn, WatchlistOrderIn,
                      GovernanceDiffIn, GovernanceEditIn, MembershipEditIn)
 from .repository import ConflictError, NotFoundError, OversellError, repository_from_env
-from .private_pipeline import ledger_net_cash_flow
+from .private_pipeline import ledger_net_cash_flow, stock_identity
 from .public_runtime import build_admin_service, build_core_service, build_pipeline_service, build_public_service
 from .store import PrivateIcebergStore
 
@@ -480,11 +480,9 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         enriched=[]
         for row in rows:
             identity=identities.get(str(row.get("symbol")))
-            stock_name=str(identity.get("name") or "").strip() if identity else ""
-            identity_status=("available" if stock_name and identity and identity.get("enabled") is True else
-                             "disabled" if stock_name and identity else "missing")
-            enriched.append({**row,"stock_name":stock_name or None,"identity_status":identity_status,
-                "identity_missing_reason":"stock_master_not_found" if identity_status=="missing" else None,
+            stock_name,identity_status,identity_missing_reason=stock_identity(identity)
+            enriched.append({**row,"stock_name":stock_name,"identity_status":identity_status,
+                "identity_missing_reason":identity_missing_reason,
                 "net_cash_flow":ledger_net_cash_flow(row)})
         return jsonable_encoder(enriched)
 
@@ -506,16 +504,13 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         for row in rows:
             detail=unrealized.get((row.get("symbol"),row.get("currency")),{})
             identity=identities.get(str(row.get("symbol")))
-            stock_name=str(row.get("stock_name") or (identity or {}).get("name") or "").strip() or None
-            identity_status=row.get("identity_status") or (
-                "available" if stock_name and identity and identity.get("enabled") is True else
-                "disabled" if stock_name and identity else "missing" if identity is not None or not stock_name else None
-            )
+            fallback_name,fallback_status,fallback_reason=stock_identity(identity)
+            stock_name=str(row.get("stock_name") or fallback_name or "").strip() or None
+            identity_status=(fallback_status if identity else row.get("identity_status") or fallback_status)
             result.append({**row,"unrealized_pnl":detail.get("unrealized_pnl"),
                 "unrealized_return":detail.get("unrealized_return"),
                 "stock_name":stock_name,"identity_status":identity_status,
-                "identity_missing_reason":row.get("identity_missing_reason") or (
-                    "stock_master_not_found" if identity_status=="missing" else None),
+                "identity_missing_reason":fallback_reason if identity else row.get("identity_missing_reason") or fallback_reason,
                 "price_status":row.get("price_status") or detail.get("price_status","missing"),
                 "price_date":row.get("price_date") or detail.get("price_date"),
                 "missing_reason":row.get("missing_reason") or detail.get("missing_reason")})

@@ -129,6 +129,12 @@ def test_position_identity_is_canonical_and_missing_identity_is_explicit():
         date(2026, 9, 4),
         {},
     )["mart_user_positions"][0]
+    unnamed = calculate_marts(
+        [buy],
+        {"2330": (Decimal("120"), date(2026, 9, 4))},
+        date(2026, 9, 4),
+        {"2330": {"name": "", "market": "TWSE", "enabled": True}},
+    )["mart_user_positions"][0]
 
     assert resolved["stock_name"] == "台積電"
     assert resolved["identity_status"] == "available"
@@ -136,6 +142,7 @@ def test_position_identity_is_canonical_and_missing_identity_is_explicit():
     assert unresolved["stock_name"] is None
     assert unresolved["identity_status"] == "missing"
     assert unresolved["identity_missing_reason"] == "stock_master_not_found"
+    assert unnamed["identity_missing_reason"] == "stock_master_name_missing"
 
 
 def test_repository_reads_stock_identity_from_canonical_stock_master():
