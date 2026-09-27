@@ -8,6 +8,7 @@
 - [2026-09-26 Product Completeness reprioritization 與 TODO cleanup](archive/todo-cleanup-and-product-completeness-priority-2026-09-26.md)
 - [WBS-6 Portfolio Completeness completed (2026-09-27)](archive/todo-completed-2026-09-27-wbs6-portfolio-completeness.md)
 - [WBS-6 Market Home Data completed (2026-09-27)](archive/wbs-6-market-home-data-2026-09-27.md)
+- [WBS-6 Market Home UI completed (2026-09-27)](archive/wbs-6-market-home-ui-2026-09-27.md)
 - [TODO 歷史 checkpoint、退役 WBS 4C 與已完成 checklist（2026-09-23）](archive/todo-history-and-completed-2026-09-23.md)
 - [已完成 WBS 0／1／2／4](archive/wbs-completed-through-2026-08-31.md)
 - 其他既有完成紀錄保留於 `archive/`；完整 runtime／deployment evidence 見 `spec/operations-and-testing.md`。
@@ -29,16 +30,7 @@ Observation window 不阻擋 correctness、data-integrity、market coverage、po
 
 ## A. Product Completeness foreground queue
 
-### 1. `WBS-6-MARKET-HOME-UI` — 【Luna】
-
-Dependency：`WBS-6-MARKET-HOME-DATA`。
-
-- [ ] 「今日」先呈現 deterministic market baseline 與資料日期／freshness；`mart_daily_brief`、Market Regime、AI summary 等是 enhancement，不是 baseline 可見性的 prerequisite。
-- [ ] Mart／AI unavailable 時只顯示「研究摘要尚未就緒」等 bounded state，既有 market baseline 仍可讀。
-- [ ] partial／stale／fallback／missing 使用既有 UI state semantics；不把不同日期資料拼成單一「今日分析」。
-- [ ] phone／desktop responsive、loading／error 與 authenticated GCP dev browser acceptance 通過。
-
-### 4. `WBS-3-LIQUID-500-ROTATION` — 【Sol】
+### 1. `WBS-3-LIQUID-500-ROTATION` — 【Sol】
 
 目標：以官方盤後市場批次資料產生每週成交股數前 500 檔個股，作為下一週市場資訊收集與新加入個人觀察名單的有效名單。
 
@@ -54,7 +46,7 @@ Runtime checkpoint（2026-09-27）：dev rotation 建立 version 1（500 檔、r
 - [ ] 名單版本記錄週別、排名、成交股數、來源 snapshot、進入／退出、effective time 與人工調整理由；週末產生、下一交易日生效，不回寫歷史。
 - [ ] Admin 可檢視 500 檔及進出，手動納入／排除須有原因、版本檢查、稽核及補位；不得取得 user-to-symbol 對應。
 
-### 5. `WBS-3-FULL-MARKET-BASE-COVERAGE` — 【Sol；ID 保留，範圍修訂為週量 500 檔】
+### 2. `WBS-3-FULL-MARKET-BASE-COVERAGE` — 【Sol；ID 保留，範圍修訂為週量 500 檔】
 
 Dependency：`WBS-3-LIQUID-500-ROTATION`。本 ID 的舊「所有 enabled 股票全市場」驗收條件由使用者於 2026-09-27 改為每週有效的 500 檔；不得把 500 檔結果宣稱為所有上市／上櫃股票完整 coverage。
 
@@ -63,13 +55,13 @@ Dependency：`WBS-3-LIQUID-500-ROTATION`。本 ID 的舊「所有 enabled 股票
 - [ ] 新增個人 watchlist 時由後端檢查有效 500 檔版本；既有項目離榜不自動刪除。真實 active holdings 即使離榜，仍須由正式行情補齊路徑估值或明示 missing／blocked。
 - [ ] replay、成本、runtime、DQ 與 quarantine acceptance 維持既有 WBS 3 規則。
 
-### 6. `WBS-6-FLUTTER-ADMIN-SHELL` — 【Luna】
+### 3. `WBS-6-FLUTTER-ADMIN-SHELL` — 【Luna】
 
 - [ ] 單一 Flutter codebase 的 Admin workspace、中文主導覽、responsive shell。
 - [ ] backend Admin auth／token audience negative tests 通過；Flutter 隱藏控制不作 security boundary。
 - [ ] Legacy static Admin 在 parity、browser/runtime acceptance 與 rollback plan 完成前保留。
 
-### 7. `WBS-6-ADMIN-OVERVIEW-BATCH` — 【Luna】
+### 4. `WBS-6-ADMIN-OVERVIEW-BATCH` — 【Luna】
 
 Dependency：`WBS-6-FLUTTER-ADMIN-SHELL`。
 
@@ -77,7 +69,7 @@ Dependency：`WBS-6-FLUTTER-ADMIN-SHELL`。
 - [ ] batch／retry classification、retryable failed item、execution lineage 可操作；partial success 不作 full success。
 - [ ] Operator 能不登入 GCP／直接查 DB 就定位近期失敗與安全重跑既有允許的 workload。
 
-### 8. `WBS-6-ADMIN-STOCK-WORKBENCH` — 【Sol】
+### 5. `WBS-6-ADMIN-STOCK-WORKBENCH` — 【Sol】
 
 Dependency：Admin shell、Core persisted readers；AI role-impact／historical role/CIO 功能仍受 Mart contracts dependency。
 
@@ -85,7 +77,7 @@ Dependency：Admin shell、Core persisted readers；AI role-impact／historical 
 - [ ] 技術 lineage 放在進階，不以 raw JSON 作主要 UX；old execution／snapshot immutable。
 - [ ] 未完成 Fact Pack／AI role／CIO contracts 時，不顯示或假裝相關 rerun／historical AI capability 已可用。
 
-### 9. `WBS-6-PORTFOLIO-INTRADAY-QUOTE` — 【Blocked：正式行情來源授權】
+### 6. `WBS-6-PORTFOLIO-INTRADAY-QUOTE` — 【Blocked：正式行情來源授權】
 
 - [ ] 先確認持股即時行情供應者的帳戶資格、使用／保存／雲端展示條款、quota 與費用；未核准前不啟用新來源或把盤後價稱為即時價。
 - [ ] Shioaji 一次性連線探測（2026-09-27）：既有 Secret 標為 `simulation=true`，模擬環境登入、2330 合約查詢及單檔 Quote 訂閱／取消成功；相同憑證切 `simulation=false` 登入回 `BadRequestError`（含 permission 訊息）。週末無交易時段報價，尚未證明正式環境授權、即時報價到達、保存／雲端展示權利或費用；正式帳戶資格需另確認。

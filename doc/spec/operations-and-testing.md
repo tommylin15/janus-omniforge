@@ -1,5 +1,28 @@
 # Operations and testing
 
+## WBS-6 Market Home UI — GCP dev acceptance (2026-09-27)
+
+Commit `da3e83a69a73fa5004badc75602eb9a88642ec3d` passed local
+`flutter test test/widget_test.dart` (**21 passed**) and the Flutter User App
+workflow `36314185316` (**success**, including analyze, tests, PWA checks and Web
+build). Local `flutter analyze --no-pub --no-fatal-infos lib test` passed with 20
+existing style infos outside the changed lines; local
+`flutter build web --base-href /app/` succeeded.
+
+Deploy workflow `36314185317` and `verify-api` passed. Cloud Build
+`1f614a4f-803d-4641-8ea3-d91b047632a2` succeeded with digest
+`sha256:621e4e35747410aac4ade2600e63f61374ab7cb6d946f76f7baa8d09eebacd72`.
+Cloud Run revision `janus-api-gda3e83a69a73-config` is Ready and serves 100%
+canonical traffic.
+
+Authenticated Chrome `/app/` acceptance showed TAIEX data dated 2026-09-25 and
+TPEx, market activity and institutional data dated 2026-09-24; the common
+top-level date was not shown. With Daily Brief unavailable, the page showed
+`研究摘要尚未就緒` while the market baseline remained visible. At 390×844 the
+page used bottom navigation and wrapped card details without horizontal overflow;
+at 1280×900 it used the desktop navigation rail. Temporary viewport overrides
+were reset. No production deployment, new service or paid resource was created.
+
 ## WBS-6 Market Home Data — GCP dev acceptance (2026-09-27)
 
 Commit `6d6b53d8c4ec6de87f54e58f73509e1f22e6cca8` passed local
