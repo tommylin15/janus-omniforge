@@ -1,9 +1,11 @@
 from contextlib import contextmanager
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 from uuid import UUID, uuid4
 
 from services.api.private_pipeline import PrivatePipeline
+from services.api.private_pipeline_runtime import register_active_portfolio_market_coverage
 from services.api.repository import PostgresWorkspaceRepository
 
 
@@ -111,3 +113,71 @@ def test_repository_enumerates_only_bounded_users_with_ledger_history_for_schedu
 
     repository._connection = connection
     assert repository.portfolio_user_ids_for_pipeline(123) == [USER]
+
+
+def test_private_pipeline_runtime_registers_only_distinct_active_symbols_via_bounded_function():
+    class Rows:
+        def __init__(self, rows):
+            self.rows = rows
+
+        def fetchall(self):
+            return self.rows
+
+    class Connection:
+        def __init__(self):
+            self.calls = []
+
+        def execute(self, sql, values=()):
+            self.calls.append((sql, values))
+            if "FROM private.current_positions" in sql:
+                assert "user_id" not in sql
+                assert "shares > 0" in sql
+                return Rows([{"symbol": "2330"}, {"symbol": "2317"}, {"symbol": "2330"}])
+            assert sql == "SELECT symbol FROM control.request_portfolio_market_coverage(%s)"
+            assert values == (["2317", "2330"],)
+            return Rows([{"symbol": "2317"}, {"symbol": "2330"}])
+
+    repository = object.__new__(PostgresWorkspaceRepository)
+    connection_object = Connection()
+
+    @contextmanager
+    def connection():
+        yield connection_object
+
+    repository._connection = connection
+    assert register_active_portfolio_market_coverage(repository) == (2, 2)
+    assert len(connection_object.calls) == 2
+
+
+def test_private_pipeline_runtime_skips_control_write_when_no_active_positions():
+    class Rows:
+        def fetchall(self):
+            return []
+
+    class Connection:
+        def __init__(self):
+            self.calls = []
+
+        def execute(self, sql, values=()):
+            self.calls.append((sql, values))
+            assert "FROM private.current_positions" in sql
+            return Rows()
+
+    repository = object.__new__(PostgresWorkspaceRepository)
+    connection_object = Connection()
+
+    @contextmanager
+    def connection():
+        yield connection_object
+
+    repository._connection = connection
+    assert register_active_portfolio_market_coverage(repository) == (0, 0)
+    assert len(connection_object.calls) == 1
+
+
+def test_private_pipeline_job_uses_coverage_runtime_entrypoint():
+    cloudbuild = (Path(__file__).parents[1] / "cloudbuild.yaml").read_text(encoding="utf-8")
+    private_branch = cloudbuild.split('if [[ "${_RUNTIME_NAME}" == "janus-private-pipeline" ]]', 1)[1]
+    private_branch = private_branch.split("        fi", 1)[0]
+    assert '--command="python"' in private_branch
+    assert '--args="-m,services.api.private_pipeline_runtime"' in private_branch

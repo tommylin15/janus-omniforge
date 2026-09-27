@@ -58,6 +58,8 @@ steps:
             --parallelism=1
             --max-retries=1
             --task-timeout=30m
+            --command="python"
+            --args="-m,services.api.private_pipeline_runtime"
             --remove-env-vars="VALUATION_DATE"
             --remove-secrets="CORE_CATALOG_PASSWORD,PRIVATE_DATABASE_URL,PRIVATE_CATALOG_PASSWORD,JANUS_PIPELINE_POSTGRES_BUNDLE"
             --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-runtime-bundle:latest"
