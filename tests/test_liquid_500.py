@@ -14,15 +14,18 @@ def test_weekly_ranking_requires_both_markets_each_day_and_stable_tie_break():
          "volume_shares": 10, "turnover_twd": "100"}
         for symbol in range(1000, 1500)
     ]
-    rows.append({"symbol": "2000", "market": "TPEX", "trade_date": day.isoformat(),
-                 "volume_shares": 10, "turnover_twd": "100"})
+    rows.extend({"symbol": str(symbol), "market": "TPEX", "trade_date": day.isoformat(),
+                 "volume_shares": 10, "turnover_twd": "100"}
+                for symbol in range(2000, 2500))
     approved = {row["symbol"] for row in rows}
     result = rank_week(rows, [day], approved)
     assert len(result) == 500
     assert result[0]["symbol"] == "1000"
     assert result[-1]["symbol"] == "1499"
-    with pytest.raises(ValueError, match="missing a trading day"):
+    with pytest.raises(ValueError, match="incomplete market batch"):
         rank_week(rows[:-1], [day], approved)
+    with pytest.raises(ValueError, match="missing a trading day"):
+        rank_week(rows[:500], [day], approved)
 
 
 def test_market_batch_uses_only_the_complete_effective_500():

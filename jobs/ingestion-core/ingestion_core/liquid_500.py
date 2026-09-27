@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Iterable, Mapping, Any
@@ -18,6 +18,7 @@ def rank_week(
         raise ValueError("trading week has no days")
     expected = {(market, day.isoformat()) for market in ("TWSE", "TPEX") for day in days}
     seen_batches: set[tuple[str, str]] = set()
+    batch_sizes: Counter[tuple[str, str]] = Counter()
     seen_rows: set[tuple[str, str, str]] = set()
     totals: dict[str, dict[str, Any]] = defaultdict(lambda: {"volume_shares": 0, "turnover_twd": Decimal(0)})
     for row in rows:
@@ -26,6 +27,7 @@ def rank_week(
         if (market, day) not in expected:
             raise ValueError("Core market volume is outside requested week")
         seen_batches.add((market, day))
+        batch_sizes[(market, day)] += 1
         symbol = str(row["symbol"])
         key = (market, day, symbol)
         if key in seen_rows:
@@ -41,6 +43,8 @@ def rank_week(
         totals[symbol]["turnover_twd"] += turnover
     if seen_batches != expected:
         raise ValueError("Core market volume is missing a trading day or market")
+    if any(batch_sizes[batch] < 500 for batch in expected):
+        raise ValueError("Core market volume has an incomplete market batch")
     if len(totals) < 500:
         raise ValueError("fewer than 500 approved stocks have weekly volume")
     ordered = sorted(totals.items(), key=lambda item: (-item[1]["volume_shares"],
@@ -63,10 +67,15 @@ def rotate_from_core(catalog: Any, control: Any, *, week_start: date,
         selected_fields=("symbol", "market", "trade_date", "volume_shares", "turnover_twd"),
         limit=20000,
     ).to_arrow().to_pylist()
+    if len(market_rows) >= 20000:
+        raise ValueError("Core market volume scan reached its row limit")
     profile_rows = profile_table.scan(
-        row_filter=LessThanOrEqual("observed_date", effective_from.date()),
-        selected_fields=("symbol", "market", "observed_date"), limit=10000,
+        row_filter=And(GreaterThanOrEqual("observed_date", week_start),
+                       LessThanOrEqual("observed_date", effective_from.date())),
+        selected_fields=("symbol", "market", "observed_date"), limit=20000,
     ).to_arrow().to_pylist()
+    if len(profile_rows) >= 20000:
+        raise ValueError("Core stock profile scan reached its row limit")
     latest_profile: dict[str, date] = {}
     for row in profile_rows:
         value = row["observed_date"]
@@ -74,13 +83,28 @@ def rotate_from_core(catalog: Any, control: Any, *, week_start: date,
         latest_profile[row["market"]] = max(latest_profile.get(row["market"], date.min), day)
     if set(latest_profile) != {"TWSE", "TPEX"}:
         raise ValueError("both official company profiles are required")
-    official = {str(row["symbol"]) for row in profile_rows
-                if (row["observed_date"].date() if isinstance(row["observed_date"], datetime)
-                    else row["observed_date"]) == latest_profile[row["market"]]}
+    official: dict[str, str] = {}
+    for row in profile_rows:
+        observed = row["observed_date"]
+        day = observed.date() if isinstance(observed, datetime) else observed
+        if day != latest_profile[row["market"]]:
+            continue
+        symbol, market = str(row["symbol"]), str(row["market"])
+        if symbol in official and official[symbol] != market:
+            raise ValueError("official company profiles disagree on stock market")
+        official[symbol] = market
+    if any(row["symbol"] in official and official[row["symbol"]] != row["market"]
+           for row in market_rows):
+        raise ValueError("Core market volume disagrees with official stock market")
     with control.connection.cursor() as cur:
-        cur.execute("""SELECT symbol FROM control.stock_master
-                       WHERE symbol=ANY(%s) AND enabled AND listing_status='listed'""", (list(official),))
-        approved = {row[0] for row in cur.fetchall()}
+        cur.execute("""SELECT symbol,market,enabled,listing_status FROM control.stock_master
+                       WHERE symbol=ANY(%s)""", (list(official),))
+        master = {row[0]: row[1:] for row in cur.fetchall()}
+    if set(master) != set(official) or any(master[symbol][0] != market
+                                          for symbol, market in official.items()):
+        raise ValueError("stock master cannot classify official company profiles")
+    approved = {symbol for symbol, (_, enabled, status) in master.items()
+                if enabled and status == "listed"}
     ranked = rank_week(market_rows, trading_days, approved)
     snapshots = {"trading_days": [day.isoformat() for day in trading_days],
                  "market_volume_snapshot": volume_table.current_snapshot().snapshot_id,
