@@ -99,6 +99,8 @@ def test_full_500_collection_uses_batched_default_sources_in_dev():
     assert "full-market-500|" in INGESTION_WORKFLOW
     assert 'dataset_selection=""' in INGESTION_WORKFLOW
     assert "twse-market-volume|tpex-market-volume" in INGESTION_WORKFLOW
+    assert "trap cleanup_job_env EXIT" in INGESTION_WORKFLOW
+    assert 'MART_JOB=janus-intelligence-mart,GCP_REGION=${GCP_REGION},MART_OPERATION=queue' in INGESTION_WORKFLOW
     assert "tests/test_portfolio_deploy_contract.py" in WORKFLOW
 
 

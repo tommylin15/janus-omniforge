@@ -130,6 +130,22 @@ jobs:
             --remove-env-vars="BACKFILL_START_DATE,BACKFILL_END_DATE,INGESTION_DATE,FORCE_REFRESH" \
             --quiet
 
+          cleanup_job_env() {
+            local exit_status=$?
+            trap - EXIT
+            if ! gcloud run jobs update janus-ingestion-core \
+              --project="${GCP_PROJECT_ID}" \
+              --region="${GCP_REGION}" \
+              --remove-env-vars="BACKFILL_START_DATE,BACKFILL_END_DATE,INGESTION_DATE,FORCE_REFRESH,INGESTION_DATASETS,JANUS_CONTROL_MIGRATION,QUEUE_CONSUMER" \
+              --update-env-vars="MART_JOB=janus-intelligence-mart,GCP_REGION=${GCP_REGION},MART_OPERATION=queue" \
+              --quiet; then
+              echo 'Failed to restore canonical dev ingestion Job settings.' >&2
+              exit_status=1
+            fi
+            exit "${exit_status}"
+          }
+          trap cleanup_job_env EXIT
+
           if [[ "${OPERATION}" == 'control-migration' ]]; then
             echo "Executing ${REQUEST_ID} against janus-ingestion-core (${MIGRATION})."
             gcloud run jobs execute janus-ingestion-core \
