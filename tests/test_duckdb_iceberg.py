@@ -3,6 +3,7 @@ import sys
 import unittest
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 from uuid import uuid4
 
 
@@ -57,6 +58,49 @@ class DuckDBIcebergTests(unittest.TestCase):
         second = self.core.write(rows=[{"benchmark_id": "TAIEX", "trade_date": "2026-08-25", "close": "24001"}], **common)
         self.assertEqual(second.updated, 1)
         self.assertNotEqual(first.snapshot_id, second.snapshot_id)
+
+    def test_incremental_merge_preserves_table_row_count_outside_scanned_partition(self):
+        common = dict(dataset_id="valuation", execution_id="exec-1", provenance_id="prov", source_id="twse",
+                      partition_date=date(2026, 9, 1))
+        first = self.core.write(rows=[
+            {"symbol": "2330", "market": "TWSE", "observed_date": "2026-08-25", "pe_ratio": "20"},
+            {"symbol": "2317", "market": "TWSE", "observed_date": "2026-09-01", "pe_ratio": "15"},
+        ], **common)
+        table = self.catalog.load_table(first.table_identifier)
+        original_scan = type(table).scan
+        row_filters = []
+
+        def scan(instance, *args, **kwargs):
+            row_filters.append(kwargs.get("row_filter"))
+            return original_scan(instance, *args, **kwargs)
+
+        with patch.object(type(table), "scan", scan):
+            update = self.core.write(
+                rows=[{"symbol": "2330", "market": "TWSE", "observed_date": "2026-08-25", "pe_ratio": "21"}],
+                **(common | {"execution_id": "exec-2"}),
+            )
+
+        self.assertEqual((first.row_count, update.updated, update.row_count), (2, 1, 2))
+        self.assertTrue(row_filters[0])
+        self.assertEqual(
+            IcebergQuery(self.catalog, self.engine).query(
+                "core.valuation_v1", "SELECT symbol, pe_ratio FROM core_table ORDER BY symbol"
+            ),
+            ({"symbol": "2317", "pe_ratio": "15"}, {"symbol": "2330", "pe_ratio": "21"}),
+        )
+
+    def test_new_keys_append_without_building_upsert_predicate(self):
+        common = dict(dataset_id="valuation", provenance_id="prov", source_id="twse",
+                      partition_date=date(2026, 9, 1))
+        first = self.core.write(rows=[
+            {"symbol": "2330", "market": "TWSE", "observed_date": "2026-08-25", "pe_ratio": "20"},
+        ], execution_id="exec-1", **common)
+        table = self.catalog.load_table(first.table_identifier)
+        with patch.object(type(table), "upsert", side_effect=AssertionError("new keys must append")):
+            second = self.core.write(rows=[
+                {"symbol": "2330", "market": "TWSE", "observed_date": "2026-09-01", "pe_ratio": "21"},
+            ], execution_id="exec-2", **common)
+        self.assertEqual((second.inserted, second.updated, second.row_count), (1, 0, 2))
 
     def test_core_summary_aggregates_exact_row_and_null_counts(self):
         self.core.write(

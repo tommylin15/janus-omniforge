@@ -154,30 +154,41 @@ class DuckDBIcebergCore:
                 update.add_field(field, transform)
             update.commit()
             table = self.catalog.load_table(identifier)
+            existing = []
         else:
             table = self.catalog.load_table(identifier)
             incoming_arrow = self._arrow_table(incoming, existing_schema=table.schema().as_arrow())
             with table.update_schema() as update:
                 update.union_by_name(incoming_arrow.schema)
             table = self.catalog.load_table(identifier)
+            from pyiceberg.expressions import And, EqualTo, GreaterThanOrEqual, In, LessThanOrEqual
 
-        existing = table.scan().to_arrow().to_pylist()
+            partition_field = self.PARTITIONS[dataset_id][0][0]
+            selection_field = self.PARTITIONS[dataset_id][1][0]
+            first = min(row[partition_field] for row in incoming)
+            last = max(row[partition_field] for row in incoming)
+            row_filter = EqualTo(partition_field, first) if first == last else And(
+                GreaterThanOrEqual(partition_field, first), LessThanOrEqual(partition_field, last))
+            if all(row.get(selection_field) is not None for row in incoming):
+                row_filter = And(row_filter, In(selection_field, {row[selection_field] for row in incoming}))
+            existing = table.scan(row_filter=row_filter).to_arrow().to_pylist()
         merged = self.engine.merge(existing, incoming, identifiers)
         if merged.changed_rows:
             changed = pa.Table.from_pylist(list(merged.changed_rows), schema=table.schema().as_arrow())
-            table.upsert(
-                changed,
-                join_cols=list(identifiers),
-                snapshot_properties={"janus.execution-id": execution_id, "janus.dataset-id": dataset_id},
-            )
+            properties = {"janus.execution-id": execution_id, "janus.dataset-id": dataset_id}
+            if merged.updated:
+                table.upsert(changed, join_cols=list(identifiers), snapshot_properties=properties)
+            else:
+                table.append(changed, snapshot_properties=properties)
             table = self.catalog.load_table(identifier)
         snapshot = table.current_snapshot()
+        row_count = int(snapshot.summary["total-records"]) if snapshot else len(merged.rows)
         return IcebergCommitResult(
             dataset_id=dataset_id,
             inserted=merged.inserted,
             updated=merged.updated,
             reused=merged.reused,
-            row_count=len(merged.rows),
+            row_count=row_count,
             table_identifier=identifier,
             metadata_location=table.metadata_location,
             snapshot_id=snapshot.snapshot_id if snapshot else None,
