@@ -15,7 +15,9 @@ sys.path.insert(0, str(ROOT / "jobs" / "ingestion-core"))
 from ingestion_core.dq import merge_without_null_overwrite, semantic_zero, validate_ohlcv
 from ingestion_core.stage import LocalObjectStore, StageWriter
 from packages.provenance import Provenance, content_hash
-from ingestion_core.__main__ import _empty_is_nonfatal, _limit_response, _requested_dates, _should_collect, _skip_symbol_adapter_for_500, run_scheduled_collection
+from ingestion_core.__main__ import (_coverage_status, _empty_is_nonfatal, _limit_response,
+                                     _requested_dates, _should_collect, _skip_symbol_adapter_for_500,
+                                     consume_queued_collection, run_scheduled_collection)
 from ingestion_core import CollectionConfig, ExecutionStatus, SQLiteControlPlane, Stock
 from ingestion_core.adapters import SourceResponse
 
@@ -187,6 +189,42 @@ class StageWriterTests(unittest.TestCase):
         self.assertTrue(_skip_symbol_adapter_for_500(Adapter(), True))
         self.assertFalse(_skip_symbol_adapter_for_500(Adapter(), False))
         self.assertFalse(_skip_symbol_adapter_for_500(object(), True))
+
+    def test_market_coverage_status_preserves_partial_and_blocked_states(self):
+        self.assertEqual(_coverage_status([{"status": "complete"}], True), "complete")
+        self.assertEqual(_coverage_status([{"status": "partial"}], True), "partial")
+        self.assertEqual(_coverage_status([{"status": "blocked"}], True), "partial")
+        self.assertEqual(_coverage_status([{"status": "failed"}], True), "failed")
+        self.assertEqual(_coverage_status([], False), "not_applicable")
+
+    def test_partial_market_coverage_finishes_without_publishing_ready_event(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "control.db"
+            control = SQLiteControlPlane(database)
+            control.upsert_stock(Stock("2330", "台積電", "TWSE"))
+            control.put_collection_config(
+                CollectionConfig("first-batch", "ohlcv", ("twse",), frozenset({"symbol"})),
+                ("2330",),
+            )
+            queued = control.enqueue_collection("first-batch")
+            control.close()
+
+            with patch("ingestion_core.__main__._control_plane", lambda: SQLiteControlPlane(database)), \
+                 patch("ingestion_core.__main__.collect_stage", return_value={
+                     "coverage_status": "partial",
+                     "ready_event": {"eventType": "core.dataset.ready.v1"},
+                 }):
+                result = consume_queued_collection()
+
+            self.assertEqual(result["status"], "partial")
+            self.assertEqual(result["mart_trigger"]["status"], "not_required")
+            control = SQLiteControlPlane(database)
+            try:
+                self.assertEqual(control.get_execution(queued.execution_id).status, ExecutionStatus.PARTIAL)
+                self.assertEqual(control.connection.execute("SELECT count(*) FROM executions").fetchone()[0], 1)
+                self.assertEqual(control.connection.execute("SELECT count(*) FROM core_ready_events").fetchone()[0], 0)
+            finally:
+                control.close()
 
     def test_freshness_guard_skips_committed_targets_and_uses_finmind_only_as_fallback(self):
         control = SQLiteControlPlane()

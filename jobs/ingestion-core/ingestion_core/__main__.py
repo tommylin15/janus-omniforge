@@ -181,6 +181,23 @@ def _skip_symbol_adapter_for_500(adapter: object, active_500: bool) -> bool:
     return active_500 and getattr(adapter, "batch_scope", "market") == "symbol"
 
 
+def _coverage_status(items: list[dict[str, object]], active_500: bool) -> str:
+    if not active_500:
+        return "not_applicable"
+    statuses = {str(item.get("status", "")) for item in items}
+    if "failed" in statuses:
+        return "failed"
+    if statuses & {"partial", "missing", "blocked", "cached_unverified"}:
+        return "partial"
+    return "complete"
+
+
+def _finish_collection(control: object, execution_id: str, summary: dict[str, object]):
+    if summary.get("coverage_status") == "partial":
+        return control.transition_execution(execution_id, ExecutionStatus.PARTIAL), None
+    return control.complete_collection(execution_id, summary.get("ready_event"))
+
+
 def _cursor_key(source_id: str, dataset_id: str, symbols: tuple[str, ...]) -> str:
     scope = ",".join(symbols) if len(symbols) == 1 else "market"
     return f"{source_id}:{dataset_id}:{scope}"
@@ -438,11 +455,6 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                                                "stage_provenance_id": result.idempotency_key,
                                                "snapshot_id": committed.snapshot_id})
                         price_coverage = coverage_items[-1]
-                        if universe["status"] == "available":
-                            expected_market = {item["symbol"] for item in universe["items"]
-                                               if item["market"] == adapter.market}
-                            if not expected_market <= received_prices:
-                                raise ValueError("current market 500 OHLCV coverage is incomplete")
                         if price_rows:
                             checked = validate_ohlcv(price_rows, analysis_as_of=as_of)
                             if checked.quarantined:
@@ -473,10 +485,12 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                                                "snapshot_id": committed.snapshot_id})
                     observed_at = datetime.combine(as_of, datetime.min.time(), timezone.utc)
                     control.advance_cursor(_cursor_key(adapter.source_id, adapter.dataset_id, requested_symbols), observed_at, successful=True)
+                    item_coverage = (price_coverage if price_coverage is not None else
+                                     coverage_items[-1] if coverage_items and
+                                     coverage_items[-1].get("dataset") == adapter.dataset_id else None)
                     state = (DataState.FALLBACK if key == "finmind" else
-                             DataState.PARTIAL if active_500 and coverage_items and
-                             coverage_items[-1].get("dataset") == adapter.dataset_id and
-                             coverage_items[-1].get("missing") else DataState.SUCCESS)
+                             DataState.PARTIAL if active_500 and item_coverage and
+                             item_coverage.get("missing") else DataState.SUCCESS)
                     control.record_health(
                         adapter.source_id, adapter.dataset_id, state=state, latency_ms=0,
                         fetched_at=datetime.now(timezone.utc), latest_observation_at=observed_at,
@@ -558,8 +572,10 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
         for field in ("expected", "received", "missing"):
             item[f"{field}_count"] = len(item[field]) if isinstance(item.get(field), list) else None
     enabled_symbols = set(control.enabled_stock_symbols()) if hasattr(control, "enabled_stock_symbols") else set(symbols)
+    coverage_status = _coverage_status(coverage_items, active_500)
     coverage_inventory = {
         "schema_version": 1, "execution_id": execution_id, "config_id": config_id,
+        "coverage_status": coverage_status,
         "universe_status": universe["status"], "universe_version": universe.get("version"),
         "universe_source_snapshot": universe.get("source_snapshot"),
         "effective_500": sorted(market_symbols) if active_500 else [],
@@ -599,6 +615,7 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
         "iceberg_tables": iceberg_tables,
         "coverage_inventory_uri": f"gs://{core_bucket}/{inventory_name}",
         "coverage_inventory_hash": f"sha256:{sha256(inventory_payload).hexdigest()}",
+        "coverage_status": coverage_status,
         "objects": staged,
         "failures": failures,
     }
@@ -649,8 +666,8 @@ def consume_queued_collection() -> dict[str, object]:
             summary = collect_stage(execution_id=execution.execution_id, symbols=execution.requested_symbols,
                                     config_id=execution.config_id, request_options=execution.request_options,
                                     control=control, trace_id=execution.trace_id)
-            _, analysis = control.complete_collection(execution.execution_id, summary.get("ready_event"))
-            return {**summary, "status": "succeeded", "claimed": True,
+            completed, analysis = _finish_collection(control, execution.execution_id, summary)
+            return {**summary, "status": completed.status.value, "claimed": True,
                     "analysis_execution_id": analysis.execution_id if analysis else None,
                     "mart_trigger": _trigger_mart(analysis.execution_id if analysis else None)}
         except Exception:
@@ -692,8 +709,8 @@ def run_scheduled_collection() -> dict[str, object]:
             summary = collect_stage(execution_id=execution.execution_id, symbols=execution.requested_symbols,
                                     config_id=config_id, request_options=execution.request_options,
                                     control=control, trace_id=execution.trace_id)
-            _, analysis = control.complete_collection(execution.execution_id, summary.get("ready_event"))
-            return {**summary, "status": "succeeded", "scheduled": True,
+            completed, analysis = _finish_collection(control, execution.execution_id, summary)
+            return {**summary, "status": completed.status.value, "scheduled": True,
                     "analysis_execution_id": analysis.execution_id if analysis else None,
                     "mart_trigger": _trigger_mart(analysis.execution_id if analysis else None)}
         except Exception:
