@@ -102,49 +102,47 @@ class CoreQueryService:
         """Published Core baseline; each fixed section fails independently."""
         today = datetime.now(ZoneInfo("Asia/Taipei")).date()
         sections: dict[str, dict[str, Any]] = {}
-        for benchmark_id in ("TAIEX", "TPEx"):
-            key = benchmark_id.lower()
-            try:
-                rows = self.page("benchmark", benchmark_id, limit=1).rows
-                row = rows[0] if rows else None
-                sections[key] = self._market_section(row, today, 1 if row else 0,
-                                                      {"requested_symbols": 1, "received_symbols": 1 if row else 0})
-            except RuntimeError:
-                sections[key] = self._market_section(None, today, 0, {}, unavailable=True)
+        benchmark_table = self.TABLE_NAMES["benchmark"]
+        try:
+            rows = self._query(benchmark_table, (
+                f"WITH latest AS (SELECT upper(benchmark_id) AS benchmark_id, max(trade_date) AS trade_date "
+                f"FROM {benchmark_table} WHERE upper(benchmark_id) IN (?, ?) GROUP BY upper(benchmark_id)) "
+                f"SELECT b.* FROM {benchmark_table} b JOIN latest l "
+                "ON upper(b.benchmark_id) = l.benchmark_id AND b.trade_date = l.trade_date"
+            ), ("TAIEX", "TPEX"))
+            benchmarks = {str(row.get("benchmark_id", "")).upper(): row for row in rows}
+        except Exception:
+            benchmarks = None
+        for benchmark_id in ("TAIEX", "TPEX"):
+            row = benchmarks.get(benchmark_id) if benchmarks is not None else None
+            sections[benchmark_id.lower()] = self._market_section(
+                row, today, 1 if row else 0,
+                {"requested_symbols": 1, "received_symbols": 1 if row else 0},
+                unavailable=benchmarks is None)
         for dataset in ("market-activity", "institutional"):
             table = self.TABLE_NAMES[dataset]
             try:
-                latest = self._query(table, f"SELECT max(trade_date) AS trade_date FROM {table}", ())
-                day = latest[0]["trade_date"] if latest else None
-                if day:
-                    counts = self._query(table, (
-                        f"SELECT count(*) AS row_count, count(DISTINCT symbol) AS covered_symbols "
-                        f"FROM {table} WHERE trade_date = ?"
-                    ), (day,))[0]
-                    sample = self._query(table, (
-                        f"SELECT source_id, provenance_id, execution_id FROM {table} "
-                        "WHERE trade_date = ? LIMIT 1"
-                    ), (day,))
-                    if dataset == "market-activity":
-                        values = self._query(table, (
-                            f"SELECT metric, sum(try_cast(value AS DOUBLE)) AS total_value "
-                            f"FROM {table} WHERE trade_date = ? AND metric IN "
-                            "('day_trade_shares', 'day_trade_buy_twd', 'day_trade_sell_twd') GROUP BY metric"
-                        ), (day,))
-                        data = {str(value["metric"]): value["total_value"] for value in values}
-                    else:
-                        values = self._query(table, (
-                            f"SELECT investor_type, sum(try_cast(net_shares AS DOUBLE)) AS net_shares "
-                            f"FROM {table} WHERE trade_date = ? AND investor_type IN "
-                            "('foreign', 'investment_trust', 'dealer') GROUP BY investor_type"
-                        ), (day,))
-                        data = {f"{value['investor_type']}_net_shares": value["net_shares"] for value in values}
-                    row = {"trade_date": day, **(dict(sample[0]) if sample else {})}
-                    sections[dataset] = self._market_section(
-                        row, today, int(counts["row_count"]),
-                        {"received_symbols": int(counts["covered_symbols"]), "expected_symbols": None}, data)
+                if dataset == "market-activity":
+                    aggregates = """sum(try_cast(value AS DOUBLE)) FILTER (WHERE metric = 'day_trade_shares') AS day_trade_shares,
+                        sum(try_cast(value AS DOUBLE)) FILTER (WHERE metric = 'day_trade_buy_twd') AS day_trade_buy_twd,
+                        sum(try_cast(value AS DOUBLE)) FILTER (WHERE metric = 'day_trade_sell_twd') AS day_trade_sell_twd"""
                 else:
-                    sections[dataset] = self._market_section(None, today, 0, {})
+                    aggregates = """sum(try_cast(net_shares AS DOUBLE)) FILTER (WHERE investor_type = 'foreign') AS foreign_net_shares,
+                        sum(try_cast(net_shares AS DOUBLE)) FILTER (WHERE investor_type = 'investment_trust') AS investment_trust_net_shares,
+                        sum(try_cast(net_shares AS DOUBLE)) FILTER (WHERE investor_type = 'dealer') AS dealer_net_shares"""
+                rows = self._query(table, (
+                    f"SELECT trade_date, count(*) AS row_count, count(DISTINCT symbol) AS covered_symbols, "
+                    f"first(source_id) AS source_id, first(provenance_id) AS provenance_id, "
+                    f"first(execution_id) AS execution_id, {aggregates} FROM {table} "
+                    f"WHERE trade_date = (SELECT max(trade_date) FROM {table}) GROUP BY trade_date"
+                ), ())
+                row = rows[0] if rows else None
+                data_fields = ("day_trade_shares", "day_trade_buy_twd", "day_trade_sell_twd") if dataset == "market-activity" else (
+                    "foreign_net_shares", "investment_trust_net_shares", "dealer_net_shares")
+                data = {key: row[key] for key in data_fields if row and row.get(key) is not None}
+                sections[dataset] = self._market_section(
+                    row, today, int(row["row_count"]) if row else 0,
+                    {"received_symbols": int(row["covered_symbols"]) if row else 0, "expected_symbols": None}, data)
             except Exception:
                 sections[dataset] = self._market_section(None, today, 0, {}, unavailable=True)
         dates = [part["as_of"] for part in sections.values() if part["as_of"]]
