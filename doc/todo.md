@@ -6,6 +6,7 @@
 歷史入口：
 
 - [2026-09-26 Product Completeness reprioritization 與 TODO cleanup](archive/todo-cleanup-and-product-completeness-priority-2026-09-26.md)
+- [WBS-3 Liquid-500 rotation completed (2026-09-27)](archive/wbs-3-liquid-500-rotation-completed-2026-09-27.md)
 - [WBS-6 Portfolio Completeness completed (2026-09-27)](archive/todo-completed-2026-09-27-wbs6-portfolio-completeness.md)
 - [WBS-6 Market Home Data completed (2026-09-27)](archive/wbs-6-market-home-data-2026-09-27.md)
 - [WBS-6 Market Home UI completed (2026-09-27)](archive/wbs-6-market-home-ui-2026-09-27.md)
@@ -30,26 +31,7 @@ Observation window 不阻擋 correctness、data-integrity、market coverage、po
 
 ## A. Product Completeness foreground queue
 
-### 1. `WBS-3-LIQUID-500-ROTATION` — 【Sol】
-
-目標：以官方盤後市場批次資料產生每週成交股數前 500 檔個股，作為下一週市場資訊收集與新加入個人觀察名單的有效名單。
-
-Runtime checkpoint（2026-09-27）：dev rotation 建立 version 1（500 檔、rank 1–500、週別
-2026-09-21），原定 2026-09-28T16:00Z 生效；依使用者指示將此候選版直接視為驗收完成，並在
-既有 dev PostgreSQL 提前啟用，audit actor 為 `codex-dev-acceptance`。已部署 Admin 顯示目前
-有效 v1 共 500 檔。Chrome 使用者頁 live 驗收：2409 成功加入、1103 因不在有效 500 檔遭拒；
-移除測試項目後關注名單恢復空白。live 手動換股尚未操作；相關版本衝突、手動調整與 audit
-另有 targeted tests 覆蓋。2026-09-27 新增 Core 批次完整度及 stock master 分類 fail-closed
-檢查；local 16 tests、GitHub workflow `36316000092` 與 dev rotation execution
-`janus-ingestion-core-n8vl5` 通過。live Admin 手動換股仍未驗收，因此本 WBS 保持 open。
-詳細部署與驗收證據見 `spec/operations-and-testing.md`。
-
-- [ ] 每個交易日由 TWSE／TPEx 各自單次批次抓取全市場盤後成交股數與必要識別資料，保留 Stage → Core provenance；不得把現有逐檔 OHLCV adapter 放大成全市場請求。週末只用已持久化的當週完整交易日資料排序。
-- [ ] 合併上市／上櫃且僅納入 enabled 個股；以當週成交股數合計排序，同量依成交金額及代號穩定排序。缺交易日、來源不完整、股票 master 無法分類或少於 500 檔時不換股，保留舊有效版本並回報 blocked／partial。
-- [ ] 名單版本記錄週別、排名、成交股數、來源 snapshot、進入／退出、effective time 與人工調整理由；週末產生、下一交易日生效，不回寫歷史。
-- [ ] Admin 可檢視 500 檔及進出，手動納入／排除須有原因、版本檢查、稽核及補位；不得取得 user-to-symbol 對應。
-
-### 2. `WBS-3-FULL-MARKET-BASE-COVERAGE` — 【Sol；ID 保留，範圍修訂為週量 500 檔】
+### 1. `WBS-3-FULL-MARKET-BASE-COVERAGE` — 【Sol；ID 保留，範圍修訂為週量 500 檔】
 
 Dependency：`WBS-3-LIQUID-500-ROTATION`。本 ID 的舊「所有 enabled 股票全市場」驗收條件由使用者於 2026-09-27 改為每週有效的 500 檔；不得把 500 檔結果宣稱為所有上市／上櫃股票完整 coverage。
 
@@ -58,13 +40,13 @@ Dependency：`WBS-3-LIQUID-500-ROTATION`。本 ID 的舊「所有 enabled 股票
 - [ ] 新增個人 watchlist 時由後端檢查有效 500 檔版本；既有項目離榜不自動刪除。真實 active holdings 即使離榜，仍須由正式行情補齊路徑估值或明示 missing／blocked。
 - [ ] replay、成本、runtime、DQ 與 quarantine acceptance 維持既有 WBS 3 規則。
 
-### 3. `WBS-6-FLUTTER-ADMIN-SHELL` — 【Luna】
+### 2. `WBS-6-FLUTTER-ADMIN-SHELL` — 【Luna】
 
 - [ ] 單一 Flutter codebase 的 Admin workspace、中文主導覽、responsive shell。
 - [ ] backend Admin auth／token audience negative tests 通過；Flutter 隱藏控制不作 security boundary。
 - [ ] Legacy static Admin 在 parity、browser/runtime acceptance 與 rollback plan 完成前保留。
 
-### 4. `WBS-6-ADMIN-OVERVIEW-BATCH` — 【Luna】
+### 3. `WBS-6-ADMIN-OVERVIEW-BATCH` — 【Luna】
 
 Dependency：`WBS-6-FLUTTER-ADMIN-SHELL`。
 
@@ -72,7 +54,7 @@ Dependency：`WBS-6-FLUTTER-ADMIN-SHELL`。
 - [ ] batch／retry classification、retryable failed item、execution lineage 可操作；partial success 不作 full success。
 - [ ] Operator 能不登入 GCP／直接查 DB 就定位近期失敗與安全重跑既有允許的 workload。
 
-### 5. `WBS-6-ADMIN-STOCK-WORKBENCH` — 【Sol】
+### 4. `WBS-6-ADMIN-STOCK-WORKBENCH` — 【Sol】
 
 Dependency：Admin shell、Core persisted readers；AI role-impact／historical role/CIO 功能仍受 Mart contracts dependency。
 
@@ -80,7 +62,7 @@ Dependency：Admin shell、Core persisted readers；AI role-impact／historical 
 - [ ] 技術 lineage 放在進階，不以 raw JSON 作主要 UX；old execution／snapshot immutable。
 - [ ] 未完成 Fact Pack／AI role／CIO contracts 時，不顯示或假裝相關 rerun／historical AI capability 已可用。
 
-### 6. `WBS-6-PORTFOLIO-INTRADAY-QUOTE` — 【Blocked：正式行情來源授權】
+### 5. `WBS-6-PORTFOLIO-INTRADAY-QUOTE` — 【Blocked：正式行情來源授權】
 
 - [ ] 先確認持股即時行情供應者的帳戶資格、使用／保存／雲端展示條款、quota 與費用；未核准前不啟用新來源或把盤後價稱為即時價。
 - [ ] Shioaji 一次性連線探測（2026-09-27）：既有 Secret 標為 `simulation=true`，模擬環境登入、2330 合約查詢及單檔 Quote 訂閱／取消成功；相同憑證切 `simulation=false` 登入回 `BadRequestError`（含 permission 訊息）。週末無交易時段報價，尚未證明正式環境授權、即時報價到達、保存／雲端展示權利或費用；正式帳戶資格需另確認。

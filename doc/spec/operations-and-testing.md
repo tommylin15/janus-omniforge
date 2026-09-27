@@ -1,5 +1,28 @@
 # Operations and testing
 
+## WBS-3 weekly liquid-500 Admin manual-swap — GCP dev acceptance (2026-09-27)
+
+Authenticated Admin opened the deployed Flutter workspace at `/app/admin` and
+read the current effective version 1 list (500 members, ranks 1–500, week
+`2026-09-21`). Admin stock search confirmed `9911` (`櫻花`) is enabled and listed;
+market-universe search showed it was outside the current 500. The current list
+showed `2330` (`台積電`) at rank 58.
+
+Using the Admin manual-swap form with `expected_version=1`, the operator removed
+`2330`, added `9911`, and supplied a reason. The UI showed effective version 2
+with 500 members, `9911` entered, `2330` exited, and the replacement marked as
+manual. The reverse Admin action used `expected_version=2`, removed `9911`,
+restored `2330`, and supplied a restoration reason; the UI showed effective
+version 3 with 500 members, `2330` entered, and `9911` exited.
+
+Read-only IAP PostgreSQL verification found 500 rows at ranks 1–500 in each of
+versions 1, 2, and 3. Version 1 and 3 had `2330` and not `9911`; version 2 had
+`9911` and not `2330`. The symmetric difference between version 1 and 3 was
+zero. `control.admin_audit` contained update records 22 and 23 for liquid-500
+versions 2 and 3, with the matching authenticated Admin actor and reasons.
+WBS-3 rotation acceptance is complete. No production deployment or new cloud
+resource was created.
+
 ## WBS-6 Market Home UI — GCP dev acceptance (2026-09-27)
 
 Commit `da3e83a69a73fa5004badc75602eb9a88642ec3d` passed local
@@ -98,10 +121,9 @@ its structured log reports `liquid_500_rotation`, `status=succeeded`, version 1.
 This was an idempotent replay of the already-effective version for week
 `2026-09-21` and exercised the persisted Core inputs through the new guards.
 
-Live Admin manual-swap acceptance remains open. The computer-use runtime could
-not load the browser inventory, and the local gcloud user credentials could not
-mint a token for the Admin OAuth audience. No manual adjustment was made. WBS-3
-remains open for live Admin manual-swap and audit acceptance.
+At the time of this follow-up, live Admin manual-swap acceptance had not yet
+been performed. It was completed later on 2026-09-27; see the live acceptance
+record at the top of this ledger.
 
 ## WBS-8 Dev Pilot Entry Gate re-evaluation — 2026-09-24
 

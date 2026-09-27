@@ -23,12 +23,14 @@
 
 依 [`todo.md`](todo.md) 一次只執行一個原子項目；目前順序為：
 
-1. `WBS-3-LIQUID-500-ROTATION` → `WBS-3-FULL-MARKET-BASE-COVERAGE`：先由每日各市場單次批次資料產生週量 500 個股，接著只對有效 500 執行基礎市場 coverage；原 WBS ID 保留，範圍已依使用者指示修訂。
+1. `WBS-3-FULL-MARKET-BASE-COVERAGE`：只對有效週量 500 執行基礎市場 coverage；不得把 500 檔結果宣稱為所有股票完整 coverage。
 2. `WBS-6-FLUTTER-ADMIN-SHELL` → `WBS-6-ADMIN-OVERVIEW-BATCH` → `WBS-6-ADMIN-STOCK-WORKBENCH`：完成 Admin 主路徑，另增「市場資訊」以檢視／調整週量 500 進出。
 
 Shioaji 目前僅證實既有模擬憑證可登入及送出單檔 Quote 訂閱；正式環境登入回權限相關錯誤，且 2026-09-27 非交易時段，不能據此宣稱盤中即時股價或 User 市值更新可用。
 
-下一個 foreground 原子項目是 **`WBS-3-LIQUID-500-ROTATION`**（建議模型：Sol）。
+`WBS-3-LIQUID-500-ROTATION` 已完成；live Admin 換股、500 檔數量、audit 與原名單復原均通過。完成 evidence 見 [`WBS-3 archive`](archive/wbs-3-liquid-500-rotation-completed-2026-09-27.md) 與 [`operations ledger`](spec/operations-and-testing.md)。
+
+下一個 foreground 原子項目是 **`WBS-3-FULL-MARKET-BASE-COVERAGE`**（建議模型：Sol）；本次未開始該項目。
 
 ### B. Dev Pilot operational observation
 
