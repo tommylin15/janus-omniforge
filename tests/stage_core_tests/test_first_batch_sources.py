@@ -118,11 +118,23 @@ class FirstBatchSourceTests(unittest.TestCase):
                                 "公司代號": symbol, "公司名稱": "測試", "營業收入": "100"}], ensure_ascii=False).encode()
         adapter = dataset_adapters(transport)["mops"]
         adapter.clock = lambda: datetime(2026, 9, 26, tzinfo=timezone.utc)
+        fetched_at_normalization: list[int] = []
+        normalizer = adapter.normalizer
+
+        def normalize_incrementally(rows):
+            def track_fetches():
+                for row in rows:
+                    fetched_at_normalization.append(len(urls))
+                    yield row
+            return normalizer(track_fetches())
+
+        adapter.normalizer = normalize_incrementally
         request = CollectionRequest("e1", "t1", "mops", "financials", "TWSE", (), None, date(2026, 9, 24), 5)
         response = adapter.fetch(request)
         self.assertEqual(len(urls), 6)
         self.assertEqual({row["symbol"] for row in response.rows}, {str(1000 + n) for n in range(1, 7)})
         self.assertEqual(set(json.loads(response.raw_payload)), set(urls))
+        self.assertEqual(fetched_at_normalization, list(range(1, 7)))
 
     def test_ohlcv_adapters_are_registered_for_symbol_scoped_runtime(self):
         raw = json.dumps({"data": [["115/08/25", "1,234", "100,000", "80", "82", "79", "81", "+1", "456"]]}).encode()

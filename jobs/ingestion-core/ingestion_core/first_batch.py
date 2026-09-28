@@ -307,34 +307,50 @@ class JsonDatasetAdapter:
         parsed_url = urlsplit(url)
         validate_source_url(urlunsplit((parsed_url.scheme, parsed_url.netloc, parsed_url.path, "", "")))
         raw = self.transport(url) if self.transport else self._https(url)
-        document = json.loads(raw)
+        endpoint_payloads: list[tuple[str, bytes]] = []
         if self.extra_endpoints:
-            if not isinstance(document, list):
+            initial_rows = json.loads(raw)
+            if not isinstance(initial_rows, list):
                 raise ValueError("batch source must return a JSON list")
-            sources = {url: document}
-            for endpoint in self.extra_endpoints:
-                payload = self.transport(endpoint) if self.transport else self._https(endpoint)
-                rows = json.loads(payload)
-                if not isinstance(rows, list):
-                    raise ValueError("batch source must return a JSON list")
-                sources[endpoint] = rows
-            document = [row for rows in sources.values() for row in rows]
-            raw = json.dumps(sources, ensure_ascii=False, separators=(",", ":")).encode()
-        if isinstance(document, list):
-            upstream_rows = document
+            endpoint_payloads.append((url, raw))
+
+            def upstream_batches():
+                yield from initial_rows
+                for endpoint in self.extra_endpoints:
+                    payload = self.transport(endpoint) if self.transport else self._https(endpoint)
+                    endpoint_payloads.append((endpoint, payload))
+                    batch = json.loads(payload)
+                    if not isinstance(batch, list):
+                        raise ValueError("batch source must return a JSON list")
+                    yield from batch
+
+            upstream_rows = upstream_batches()
+            fields = None
         else:
-            if document.get("tables"):
-                upstream_rows = []
-                for table in document["tables"]:
-                    fields = table.get("fields", [])
-                    upstream_rows.extend(dict(zip(fields, row, strict=False)) | {"Date": document.get("date"), "_cells": row} for row in table.get("data", []))
-                fields = None
+            document = json.loads(raw)
+            if isinstance(document, list):
+                upstream_rows = document
             else:
-                upstream_rows = document.get("data", document.get("rows", []))
-                fields = document.get("fields")
-            if fields and upstream_rows and isinstance(upstream_rows[0], list):
-                upstream_rows = [dict(zip(fields, row, strict=False)) | {"Date": document.get("date"), "_cells": row} for row in upstream_rows]
+                if document.get("tables"):
+                    upstream_rows = []
+                    for table in document["tables"]:
+                        fields = table.get("fields", [])
+                        upstream_rows.extend(dict(zip(fields, row, strict=False)) | {"Date": document.get("date"), "_cells": row} for row in table.get("data", []))
+                    fields = None
+                else:
+                    upstream_rows = document.get("data", document.get("rows", []))
+                    fields = document.get("fields")
+                if fields and upstream_rows and isinstance(upstream_rows[0], list):
+                    upstream_rows = [dict(zip(fields, row, strict=False)) | {"Date": document.get("date"), "_cells": row} for row in upstream_rows]
         rows = tuple({**row, "source_id": self.source_id} for row in self.normalizer(upstream_rows))
+        if endpoint_payloads:
+            parts = [b"{"]
+            for index, (source_url, payload) in enumerate(endpoint_payloads):
+                if index:
+                    parts.append(b",")
+                parts.extend((json.dumps(source_url, ensure_ascii=False).encode(), b":", payload))
+            parts.append(b"}")
+            raw = b"".join(parts)
         if self.row_date_field:
             rows = tuple(row for row in rows
                          if row.get(self.row_date_field)
