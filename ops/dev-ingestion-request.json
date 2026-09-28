@@ -1,6 +1,6 @@
 {
   "request_id": "wbs-3-tpex-valuation-20260928",
-  "enabled": true,
+  "enabled": false,
   "operation": "ingestion",
   "dataset": "tpex-valuation",
   "date": "2026-09-24",
