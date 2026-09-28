@@ -35,16 +35,16 @@ Observation window 不阻擋 correctness、data-integrity、market coverage、po
 
 Dependency：`WBS-3-LIQUID-500-ROTATION`。本 ID 的舊「所有 enabled 股票全市場」驗收條件於 2026-09-27 改為每週有效 500 檔，再依使用者 2026-09-28 最新指示改為只從 TWSE 上市個股選滿 500 檔；不得把結果宣稱為所有上市股票完整 coverage。
 
-舊跨市場名單的 2026-09-28 bounded replay 為 **partial**：OHLCV 499/500、TWSE valuation 362/364、MOPS financials 336/500。TPEx 估值及三大法人的舊驗收見 [`operations-and-testing`](spec/operations-and-testing.md)；這些結果不作新上市 500 的驗收證據。新範圍尚未測試或在 GCP dev 驗收。
+最新 TWSE-only 500 整批 GCP dev replay `janus-ingestion-core-8xhlx` 已完成，來源失敗 0、coverage 仍 **partial**。OHLCV 499/500、valuation 498/500、institutional 499/500、MOPS financials 499/500、financing 498/500、securities lending／short 499/500、day trading 482/500、TAIEX 1/1；官方回應未涵蓋的代號保留 missing，詳見 [`operations-and-testing`](spec/operations-and-testing.md)。舊跨市場名單與 TPEx 驗收不作新上市 500 的證據。
 
 舊跨市場 inventory 的 TPEx `3718` 估值仍保留 missing=1 的歷史事實，不追補、不改寫；新 TWSE 500 名單不包含該股。
 
-本輪工作樹已改成 TWSE 專用週量排名與 coverage，接入 TWSE 融資、融券借券、個股當沖及 MOPS 上市非一般業批次來源；Core 沿用既有表。**尚未執行測試、部署或 GCP dev 驗收**，因此下列 acceptance 仍未勾選。舊上市資料的少數 OHLCV、估值、法人缺值仍須在整批驗收時核對來源與 missing，不以推算值補齊。依使用者指定，在開始測試驗收前暫停等待模型切換。
+TWSE 專用週量排名、來源接入、Stage／Core 批次寫入及 coverage inventory 已在 GCP dev 真實整批路徑驗收；既有 Job 由使用者批准調至 2 GiB，單次應用耗時約 2 分鐘。仍須核對官方缺檔的業務語意、watchlist／離榜持股路徑，以及 replay／成本／DQ／quarantine 的完整驗收條件；不以推算值補齊來源缺值。
 
-驗收入口：先做 targeted tests 與來源 schema 核對；再用既有 dev ingestion job 的一次性 `LIQUID_500_ROTATE_ONCE=true` 依上週完整 TWSE Core 批次重發有效名單，確認恰為 500 檔上市股後執行整批 replay。舊跨市場版本在新版本生效前不得充當上市 500 驗收；一次性 env 驗收後還原。
+下一入口：依最新 immutable inventory 的 missing 清單核對官方批次；用既有 dev 路徑驗收 watchlist／離榜持股與剩餘 runtime／DQ／成本條件。一次性 replay env 已還原；舊跨市場版本不得充當上市 500 驗收。
 
 - [ ] 對有效 500 檔收集日 OHLCV、PE/PB、法人、融資券／借券／當沖、基本面摘要與官方 benchmark；市場型 endpoint 必須單次抓取、批次快取、依 symbol 分配。來源缺少合規批次路徑時標 blocked，不以 500 次逐檔請求冒充完成。
-- [ ] coverage inventory 能指出有效 500 檔的 expected／received／missing，並保留 source／snapshot／execution provenance；其餘 enabled 股票標示不屬本週基礎 coverage。
+- [x] coverage inventory 能指出有效 500 檔的 expected／received／missing，並保留 source／snapshot／execution provenance；其餘 enabled 股票標示不屬本週基礎 coverage。
 - [ ] 新增個人 watchlist 時由後端檢查有效 500 檔版本；既有項目離榜不自動刪除。真實 active holdings 即使離榜，仍須由正式行情補齊路徑估值或明示 missing／blocked。
 - [ ] replay、成本、runtime、DQ 與 quarantine acceptance 維持既有 WBS 3 規則。
 
