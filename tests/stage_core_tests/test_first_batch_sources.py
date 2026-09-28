@@ -108,6 +108,10 @@ class FirstBatchSourceTests(unittest.TestCase):
                 self.assertTrue(all((row["market"], row["trade_date"], row["source_id"]) ==
                                     (market, "2026-09-24", adapter.source_id) for row in response.rows))
                 self.assertTrue(set(metrics.items()) <= {(row["metric"], row["value"]) for row in response.rows})
+                with tempfile.TemporaryDirectory() as directory:
+                    staged, _ = stage_raw_response(
+                        response, request, bucket="janus-stage", store=LocalObjectStore(Path(directory)))
+                    self.assertTrue((Path(directory) / staged.object_name).exists())
 
     def test_mops_financials_combines_listed_industry_batches(self):
         urls = []
