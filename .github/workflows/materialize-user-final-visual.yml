@@ -1,0 +1,60 @@
+name: Materialize User Final Visual
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .visual-upload/READY
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Decode and verify final visual references
+        shell: bash
+        run: |
+          set -euo pipefail
+          target_dir="doc/ui/reference/user-app-final"
+          mkdir -p "$target_dir"
+          for name in today watchlist ledger stock-detail; do
+            parts=(.visual-upload/${name}.part-*)
+            test -e "${parts[0]}"
+            cat "${parts[@]}" | tr -d '\r\n' | base64 --decode > "$target_dir/${name}.png"
+          done
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import struct
+
+          root = Path('doc/ui/reference/user-app-final')
+          for name in ('today', 'watchlist', 'ledger', 'stock-detail'):
+              path = root / f'{name}.png'
+              data = path.read_bytes()
+              if data[:8] != b'\x89PNG\r\n\x1a\n':
+                  raise SystemExit(f'{path}: invalid PNG signature')
+              width, height = struct.unpack('>II', data[16:24])
+              if width < 300 or height < 500:
+                  raise SystemExit(f'{path}: unexpected dimensions {width}x{height}')
+              print(f'{path}: {width}x{height} {len(data)} bytes')
+          PY
+
+          sha256sum "$target_dir"/*.png
+
+      - name: Commit binary references and remove transport files
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .visual-upload
+          rm -f .github/workflows/materialize-user-final-visual.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add doc/ui/reference/user-app-final .visual-upload .github/workflows/materialize-user-final-visual.yml
+          git commit -m "docs: add final user app visual references"
+          git push origin HEAD:main
