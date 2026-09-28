@@ -128,6 +128,23 @@ def normalise_institutional(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str
     return tuple(result)
 
 
+def normalise_tpex_institutional(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, Any], ...]:
+    # Keep "foreign" consistent with TWSE: foreign dealers are excluded.
+    groups = (
+        ("foreign", "Foreign Investors include Mainland Area Investors (Foreign Dealers excluded)-Total Buy",
+         " Foreign Investors include Mainland Area Investors (Foreign Dealers excluded)-Total Sell",
+         "Foreign Investors include Mainland Area Investors (Foreign Dealers excluded)-Difference"),
+        ("investment_trust", "SecuritiesInvestmentTrustCompanies-TotalBuy",
+         "SecuritiesInvestmentTrustCompanies-TotalSell", "SecuritiesInvestmentTrustCompanies-Difference"),
+        ("dealer", "Dealers-TotalBuy", "Dealers-TotalSell", "Dealers-Difference"),
+    )
+    return normalise_institutional(
+        {"symbol": row["SecuritiesCompanyCode"], "market": "TPEX", "date": row["Date"],
+         "investor_type": investor, "buy_shares": row[buy], "sell_shares": row[sell], "net_shares": row[net]}
+        for row in rows for investor, buy, sell, net in groups
+    )
+
+
 def normalise_financials(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, Any], ...]:
     result = []
     identity = {"出表日期", "年度", "季別", "公司代號", "公司名稱"}
@@ -398,6 +415,7 @@ def dataset_adapters(transport: Callable[[str], bytes] | None = None) -> dict[st
         "twse-valuation": JsonDatasetAdapter("twse", "valuation", "https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d", normalise_valuation, transport, dated("https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d", selectType="ALL", response="json")),
         "tpex-valuation": JsonDatasetAdapter("tpex", "valuation", "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_peratio_analysis", lambda rows: normalise_valuation(rows, market="TPEX"), transport, row_date_field="observed_date"),
         "twse-institutional": JsonDatasetAdapter("twse", "institutional", "https://www.twse.com.tw/rwd/zh/fund/T86", normalise_institutional, transport, dated("https://www.twse.com.tw/rwd/zh/fund/T86", selectType="ALL", response="json")),
+        "tpex-institutional": JsonDatasetAdapter("tpex", "institutional", "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading", normalise_tpex_institutional, transport, row_date_field="trade_date"),
         "mops": JsonDatasetAdapter("mops", "financials", "https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci", normalise_financials, transport,
                                    observation_mode="fetch_time", max_replay_age_days=7,
                                    availability_field="availability_at", publication_time_authoritative=False),

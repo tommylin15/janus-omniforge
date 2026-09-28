@@ -53,6 +53,35 @@ class FirstBatchSourceTests(unittest.TestCase):
         self.assertEqual((row["symbol"], row["market"], row["observed_date"]), ("1240", "TPEX", "2026-09-24"))
         self.assertEqual((row["pe_ratio"], row["pb_ratio"], row["dividend_yield_percent"]), ("18.5", "2.1", "3.2"))
 
+    def test_tpex_institutional_uses_official_columns_and_excludes_foreign_dealers(self):
+        source_row = {
+            "Date": "1150924", "SecuritiesCompanyCode": "5483",
+            "Foreign Investors include Mainland Area Investors (Foreign Dealers excluded)-Total Buy": "10679689",
+            " Foreign Investors include Mainland Area Investors (Foreign Dealers excluded)-Total Sell": "8178100",
+            "Foreign Investors include Mainland Area Investors (Foreign Dealers excluded)-Difference": "2501589",
+            "ForeignInvestorsIncludeMainlandAreaInvestors-TotalBuy": "10679689",
+            "ForeignInvestorsIncludeMainlandAreaInvestors-TotalSell": "8178100",
+            "ForeignInvestorsInclude MainlandAreaInvestors-Difference": "2501589",
+            "SecuritiesInvestmentTrustCompanies-TotalBuy": "0",
+            "SecuritiesInvestmentTrustCompanies-TotalSell": "24000",
+            "SecuritiesInvestmentTrustCompanies-Difference": "-24000",
+            "Dealers-TotalBuy": "421928", "Dealers-TotalSell": "304679",
+            "Dealers-Difference": "117249", "Dealers -TotalSell": "129679",
+        }
+        raw = json.dumps([source_row]).encode()
+        urls = []
+        adapter = dataset_adapters(lambda url: urls.append(url) or raw)["tpex-institutional"]
+        request = CollectionRequest("e1", "t1", "tpex", "institutional", "TPEX", ("5483",), None, date(2026, 9, 24), 5)
+        rows = adapter.fetch(request).rows
+        self.assertEqual(urls, ["https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading"])
+        self.assertEqual([(row["investor_type"], row["buy_shares"], row["sell_shares"], row["net_shares"])
+                          for row in rows], [
+            ("foreign", "10679689", "8178100", "2501589"),
+            ("investment_trust", "0", "24000", "-24000"),
+            ("dealer", "421928", "304679", "117249"),
+        ])
+        self.assertTrue(all((row["symbol"], row["market"], row["trade_date"]) == ("5483", "TPEX", "2026-09-24") for row in rows))
+
     def test_ohlcv_adapters_are_registered_for_symbol_scoped_runtime(self):
         raw = json.dumps({"data": [["115/08/25", "1,234", "100,000", "80", "82", "79", "81", "+1", "456"]]}).encode()
         adapters = dataset_adapters(lambda _: raw)
