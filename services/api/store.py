@@ -120,7 +120,13 @@ class PrivateIcebergStore:
             with table.update_schema() as update:
                 update.union_by_name(pa.schema(additions))
             table=self.catalog.load_table(identifier)
-        incoming = pa.Table.from_pylist(normalized, schema=table.schema().as_arrow())
+        schema = table.schema().as_arrow()
+        string_fields = {field.name for field in schema if pa.types.is_string(field.type)}
+        for row in normalized:
+            for field in string_fields & row.keys():
+                if isinstance(row[field], float):
+                    row[field] = str(row[field])
+        incoming = pa.Table.from_pylist(normalized, schema=schema)
         if schema_evolved:
             from functools import reduce
             from pyiceberg.expressions import And, EqualTo, Or

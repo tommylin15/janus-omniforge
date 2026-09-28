@@ -260,6 +260,31 @@ def test_private_iceberg_note_rows_are_scoped_by_user():
         shutil.rmtree(root)
 
 
+def test_private_iceberg_accepts_xirr_after_missing_price():
+    from types import SimpleNamespace
+    import pyarrow as pa
+
+    schema = pa.schema([pa.field("user_id", pa.string()), pa.field("year", pa.int64()),
+                        pa.field("currency", pa.string()), pa.field("ledger_version", pa.int64()),
+                        pa.field("valuation_date", pa.string()), pa.field("xirr_status", pa.string()),
+                        pa.field("xirr", pa.string()), pa.field("cash_flow_count", pa.int64()),
+                        pa.field("method", pa.string())])
+    class Table:
+        def schema(self): return SimpleNamespace(as_arrow=lambda: schema, fields=[])
+        def upsert(self, incoming, **_kwargs):
+            assert incoming.column("xirr").to_pylist() == ["0.1"]
+        def current_snapshot(self): return SimpleNamespace(snapshot_id=1)
+
+    table = Table()
+    catalog = SimpleNamespace(table_exists=lambda _identifier: True, load_table=lambda _identifier: table)
+    store = object.__new__(PrivateIcebergStore)
+    store.catalog, store.namespace = catalog, "private"
+    row = {"user_id": str(USER), "year": 2026, "currency": "TWD", "ledger_version": 1,
+           "valuation_date": "2026-09-24", "xirr_status": "available", "xirr": 0.1,
+           "cash_flow_count": 2, "method": "xirr_actual_365_v1"}
+    assert store.upsert("mart_user_annual_performance", [row]) == 1
+
+
 def test_core_price_reader_uses_canonical_iceberg_catalog(monkeypatch):
     from pyiceberg.catalog import sql
     from services.api.private_pipeline import CorePriceReader
