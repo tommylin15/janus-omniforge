@@ -2,6 +2,21 @@
 
 ## 5. User App 頁面
 
+### 5.0 Final Visual Contract
+
+Janus User App 的手機版最終 presentation target 由 [`reference/user-app-final/README.md`](reference/user-app-final/README.md) 定義，固定預留四張圖：
+
+- `reference/user-app-final/today.png` — 今日
+- `reference/user-app-final/watchlist.png` — 關注
+- `reference/user-app-final/ledger.png` — 記帳／筆記
+- `reference/user-app-final/stock-detail.png` — 個股詳情
+
+這四張圖不是 disposable mockup；後續 User App implementation 應逐步 convergence 至其資訊架構、section order、card hierarchy、手機資訊密度與跨頁視覺語言。圖片中的 sample price、PnL、法人金額、日期、AI prose、健康度結果、股票 logo、sparkline 與裝飾圖表只作 illustrative presentation，不得 hard-code 或當成 canonical data。
+
+資料正確性、missing／stale／partial／blocked 語意、auth／owner isolation、PIT／provenance、source authorization、canonical number、publication 與 LLM boundary 仍以 active SPEC／WBS／runtime contract 為準；圖片不得覆蓋治理。圖片與 active contract 衝突時必須指出差異並先更新 active contract，不得靜默選邊。
+
+在四張 PNG binary 尚未 commit 至固定路徑前，只能說 Final Visual Contract 已建立，不能宣稱 visual reference binary 或 final visual acceptance 已完成。四頁與 cross-screen acceptance 的完整清單見 `reference/user-app-final/README.md`。
+
 ### 5.1 今日
 
 「今日」是 User App 的市場入口。它不得以公開 Mart／LLM 是否完成作為市場 baseline 可見性的 prerequisite；先顯示 deterministic published market data，再在可用時疊加 Mart／AI 研究內容。
@@ -18,7 +33,7 @@
 
 Deterministic market cards 可以各自保留 source-specific `as_of`／trade date，不必為了視覺一致硬湊同一天，但必須如實顯示日期與 freshness。Mart 子產品仍必須使用同一 `analysis_as_of`；任一 Mart 子產品日期不同時顯示 partial，不得把不同日期的最新版拼成「今日分析」。
 
-`mart_daily_brief` 缺失、error 或尚未產生時，只讓 Mart／AI 研究區塊顯示「研究摘要尚未就緒」；不得讓 deterministic market baseline 整頁退化成「今日市場資料尚未就緒」。
+`mart_daily_brief` 缺失、error 或尚未產生時，只讓 Mart／AI 研究區塊顯示「研究摘要尚未就緒」；不得讓 deterministic market baseline 整頁退化成「今日市場資料尚未就緒」。首頁 request／section loading 必須 bounded；任一單一 dependency timeout／error 不得造成永久 spinner 或無限阻塞整頁。
 
 ### 5.2 關注
 
@@ -28,6 +43,7 @@ Deterministic market cards 可以各自保留 source-specific `as_of`／trade da
 - 預設只顯示自己的 active watchlist、最近已持久化行情、持股狀態、待完成筆記與資料日期，不顯示平台推薦榜。
 - 股票主要識別優先顯示 canonical 股票名稱＋代號；名稱缺失是資料 completeness 問題，不以空白名稱當成完整狀態。
 - MVP 最多 50 個 active distinct symbols；達上限時顯示 quota 說明，不以「50 大」命名。
+- 手機版 presentation target 採可掃描的 stock cards，至少容納名稱／代號、recent persisted price／date、held／not-held、target price、待追蹤狀態與 bounded missing／stale；不得為了貼近 mockup 而虛構行情或持股狀態。
 - 後續公開探索、板塊輪動、候選股與歷史回放收在「今日／看更多」，不得取代個人關注首頁。
 
 ### 5.3 個股健康檢查
