@@ -63,8 +63,8 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 ## 4. WBS 執行方式
 
 - 收到「執行 `WBS-ID`」時，先從 `todo.md` 找 active item，再依 `wbs.md` 讀對應切片與直接引用的 SPEC／UI。
-- 使用者指定一個 WBS 後，以該 WBS 的整體 acceptance scope 作為工作單位；同來源或可共用驗收流程的項目應合併成 bounded batches，一次完成該 WBS 內所有可完成的條件。dataset／adapter 等內部原子步驟是實作順序，不是每步停等或重新授權的邊界。
-- 同一 WBS 中不得在每個 dataset／原子步驟完成後自行停止或要求使用者再次確認。使用者明確要求暫停時才整體暫停；遇到 §1.3 外部核准、成本／安全／範圍 blocker 時，只暫停受影響的動作，繼續其他安全且獨立的條件。只有沒有其他可安全推進的工作時才停下等待；整體未滿足 acceptance 時維持 partial／blocked，不宣稱 WBS 完成。
+- 使用者指定一個 WBS 後，預設以該 WBS 的整體 acceptance scope 結案；按驗收條件組織一段連續工作，不按 dataset、adapter、文件或程式改動切成多輪。合併同來源、共用整合路徑或可一起驗收的工作；dataset／adapter 等內部步驟只作進度 checkpoint，不是停等、重新授權或另開對話的邊界。
+- 同一 WBS 中不得在每個 dataset／內部步驟完成後自行停止或要求使用者再次確認。只有使用者明確要求暫停、既定模型切換／驗收閘門，或 §1.3 外部核准及真實成本／安全／範圍 blocker 才暫停受影響部分；其餘安全且獨立的工作繼續推進。閘門解除後接續同一 WBS，直到整體 acceptance 完成，或只剩無法自行解除的 blocker；未滿足 acceptance 時維持 partial／blocked，不宣稱 WBS 完成。
 - 一個 WBS 的授權不延伸到其他 WBS；完成當前 WBS，或完成所有可繼續部分且剩餘條件確實受阻後停止，下一個 WBS 重新走模型與授權閘門。
 - `ready` 可執行；`blocked` 只做安全盤點，不假設外部授權、付費決策或依賴已滿足。
 - ID 不在 active TODO 時不得自行從 archive 或研究規劃開工。
