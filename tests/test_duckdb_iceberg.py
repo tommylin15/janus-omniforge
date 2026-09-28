@@ -112,6 +112,41 @@ class DuckDBIcebergTests(unittest.TestCase):
             ], execution_id="exec-2", **common)
         self.assertEqual((second.inserted, second.updated, second.row_count), (1, 0, 2))
 
+    def test_bulk_update_preserves_rows_outside_selected_symbols_and_dates(self):
+        def valuation(symbol, observed_date, value, note="keep"):
+            return {"symbol": symbol, "market": "TWSE", "observed_date": observed_date,
+                    "pe_ratio": value, "note": note}
+
+        common = dict(dataset_id="valuation", provenance_id="prov", source_id="twse",
+                      partition_date=date(2026, 9, 24))
+        first = self.core.write(rows=[
+            valuation("2330", "2026-08-01", "100"),
+            valuation("2317", "2026-08-01", "200"),
+            valuation("1101", "2026-08-01", "300"),
+            valuation("2330", "2026-04-01", "90"),
+            valuation("2330", "2025-08-01", "80"),
+        ], execution_id="exec-1", **common)
+        with patch.object(self.core, "UPSERT_KEY_LIMIT", 1):
+            second = self.core.write(rows=[
+                valuation("2330", "2026-08-01", "101", None),
+                valuation("2317", "2026-08-01", "201"),
+                valuation("2454", "2026-08-01", "400"),
+            ], execution_id="exec-2", **common)
+
+        self.assertEqual((second.inserted, second.updated, second.row_count), (1, 2, 6))
+        self.assertNotEqual(first.snapshot_id, second.snapshot_id)
+        table = self.catalog.load_table(second.table_identifier)
+        rows = {(row["symbol"], row["observed_date"].isoformat()): row
+                for row in table.scan().to_arrow().to_pylist()}
+        self.assertEqual(len(rows), 6)
+        self.assertEqual(rows[("2330", "2026-08-01")]["pe_ratio"], "101")
+        self.assertEqual(rows[("2330", "2026-08-01")]["note"], "keep")
+        self.assertEqual(rows[("2317", "2026-08-01")]["pe_ratio"], "201")
+        self.assertEqual(rows[("2454", "2026-08-01")]["pe_ratio"], "400")
+        self.assertEqual(rows[("1101", "2026-08-01")]["pe_ratio"], "300")
+        self.assertEqual(rows[("2330", "2026-04-01")]["pe_ratio"], "90")
+        self.assertEqual(rows[("2330", "2025-08-01")]["pe_ratio"], "80")
+
     def test_core_summary_aggregates_exact_row_and_null_counts(self):
         self.core.write(
             dataset_id="valuation",

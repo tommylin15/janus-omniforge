@@ -442,10 +442,11 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                     )
                     staged.append(result.object_name)
                     stage_results.append(result)
+                    response = replace(response, raw_payload=None)
                     if not response.rows:
                         raise ValueError("OHLCV DQ rejected all rows")
                     committed = core.write(dataset_id=getattr(adapter, "core_dataset_id", None) or adapter.dataset_id,
-                                           rows=[dict(row) for row in response.rows],
+                                           rows=list(response.rows),
                                            execution_id=execution_id, provenance_id=result.idempotency_key,
                                            source_id=adapter.source_id, partition_date=as_of)
                     if adapter.dataset_id == "stock-profile":

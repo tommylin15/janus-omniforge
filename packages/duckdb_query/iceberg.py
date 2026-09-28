@@ -51,6 +51,7 @@ class DuckDBIcebergCore:
     }
     DATE_FIELDS = frozenset({"observed_date", "trade_date", "effective_date"})
     TIMESTAMP_FIELDS = frozenset({"published_at", "observed_at"})
+    UPSERT_KEY_LIMIT = 512
 
     def __init__(self, catalog: Any, warehouse: str, *, namespace: str = "core",
                  engine: DuckDBEngine | None = None, create_namespace: bool = True) -> None:
@@ -175,12 +176,18 @@ class DuckDBIcebergCore:
             existing = table.scan(row_filter=row_filter).to_arrow().to_pylist()
         merged = self.engine.merge(existing, incoming, identifiers)
         if merged.changed_rows:
-            changed = pa.Table.from_pylist(list(merged.changed_rows), schema=table.schema().as_arrow())
             properties = {"janus.execution-id": execution_id, "janus.dataset-id": dataset_id}
-            if merged.updated:
-                table.upsert(changed, join_cols=list(identifiers), snapshot_properties=properties)
+            schema = table.schema().as_arrow()
+            if merged.updated and len(merged.changed_rows) > self.UPSERT_KEY_LIMIT:
+                # PyIceberg upsert builds one predicate branch per changed natural key.
+                replacement = pa.Table.from_pylist(list(merged.rows), schema=schema)
+                table.overwrite(replacement, overwrite_filter=row_filter, snapshot_properties=properties)
             else:
-                table.append(changed, snapshot_properties=properties)
+                changed = pa.Table.from_pylist(list(merged.changed_rows), schema=schema)
+                if merged.updated:
+                    table.upsert(changed, join_cols=list(identifiers), snapshot_properties=properties)
+                else:
+                    table.append(changed, snapshot_properties=properties)
             table = self.catalog.load_table(identifier)
         snapshot = table.current_snapshot()
         row_count = int(snapshot.summary["total-records"]) if snapshot else len(merged.rows)

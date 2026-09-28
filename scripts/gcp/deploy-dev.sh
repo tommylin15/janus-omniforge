@@ -70,7 +70,7 @@ case "${component}" in
   ingestion-core)
     gcloud run jobs update "${runtime_name}" --project="${project}" --region="${region}" \
       --service-account="ingestion-core@${project}.iam.gserviceaccount.com" \
-      --tasks=1 --parallelism=1 --max-retries=1 --task-timeout=30m \
+      --tasks=1 --parallelism=1 --max-retries=1 --task-timeout=30m --memory=2Gi \
       --update-env-vars="MART_JOB=janus-intelligence-mart,GCP_REGION=${region},MART_OPERATION=queue" \
       --remove-env-vars="INGESTION_DATASETS" \
       --remove-secrets="CONTROL_DB_PASSWORD,CATALOG_DB_PASSWORD" \
