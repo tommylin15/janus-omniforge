@@ -6,7 +6,8 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+from urllib.error import HTTPError
 
 
 ROOT = Path(__file__).parents[2]
@@ -17,7 +18,7 @@ from ingestion_core.dq import merge_without_null_overwrite, semantic_zero, valid
 from ingestion_core.stage import LocalObjectStore, StageWriter
 from ingestion_core.iceberg_maintenance import _keep_snapshots, _protected_metadata
 from packages.provenance import Provenance, content_hash
-from ingestion_core.__main__ import (_coverage_status, _empty_is_nonfatal, _limit_response,
+from ingestion_core.__main__ import (_coverage_status, _empty_is_nonfatal, _fetch_source, _limit_response,
                                      _requested_dates, _should_collect, _skip_symbol_adapter_for_500,
                                      consume_queued_collection, run_scheduled_collection)
 from ingestion_core import CollectionConfig, ExecutionStatus, SQLiteControlPlane, Stock
@@ -241,6 +242,23 @@ class StageWriterTests(unittest.TestCase):
         finally:
             control.close()
         self.assertFalse(_empty_is_nonfatal("twse-valuation"))
+
+    def test_source_fetch_retries_transient_errors_once(self):
+        response = SourceResponse(rows=())
+        for error in (json.JSONDecodeError("bad JSON", "", 0),
+                      HTTPError("https://example.test", 503, "unavailable", {}, None)):
+            with self.subTest(error=type(error).__name__):
+                adapter = SimpleNamespace(fetch=Mock(side_effect=[error, response]))
+                with patch("ingestion_core.__main__.sleep") as pause:
+                    self.assertIs(_fetch_source(adapter, object()), response)
+                self.assertEqual(adapter.fetch.call_count, 2)
+                pause.assert_called_once_with(1)
+
+        adapter = SimpleNamespace(fetch=Mock(side_effect=HTTPError("https://example.test", 403, "forbidden", {}, None)))
+        with patch("ingestion_core.__main__.sleep") as pause, self.assertRaises(HTTPError):
+            _fetch_source(adapter, object())
+        self.assertEqual(adapter.fetch.call_count, 1)
+        pause.assert_not_called()
 
 
 class CoreDqTests(unittest.TestCase):

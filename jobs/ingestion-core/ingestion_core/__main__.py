@@ -5,10 +5,12 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 from dataclasses import replace
 from hashlib import sha256
+from http.client import IncompleteRead
 import json
 import os
 import sys
-from time import monotonic
+from time import monotonic, sleep
+from urllib.error import HTTPError, URLError
 from uuid import uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -220,6 +222,18 @@ def _should_collect(adapter_key: str, source_id: str, dataset_id: str, symbols: 
     return True, "missing_target"
 
 
+def _fetch_source(adapter: object, request: CollectionRequest) -> SourceResponse:
+    try:
+        return adapter.fetch(request)
+    except HTTPError as error:
+        if error.code not in {500, 502, 503, 504}:
+            raise
+    except (json.JSONDecodeError, IncompleteRead, TimeoutError, URLError):
+        pass
+    sleep(1)
+    return adapter.fetch(request)
+
+
 def _requested_dates(*, today: date, holidays: set[date], single: str = "", start: str = "", end: str = "") -> tuple[date, ...]:
     """Resolve bounded single-day or interval replay input for a job run."""
     if single.strip() and (start.strip() or end.strip()):
@@ -378,7 +392,7 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                     timeout_seconds=30,
                 )
                 try:
-                    response = _limit_response(adapter.fetch(request), requested_symbols, dataset_id=adapter.dataset_id)
+                    response = _limit_response(_fetch_source(adapter, request), requested_symbols, dataset_id=adapter.dataset_id)
                     if not response.rows:
                         if _empty_is_nonfatal(key):
                             empty_items.append({
