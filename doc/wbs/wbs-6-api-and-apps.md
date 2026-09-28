@@ -20,7 +20,7 @@
 
 - 建立 `apps/user_app`，使用 Flutter Material 3 與平台原生元件；不先引入第三方 state／UI 套件。
 - Janus User App 依 `../ui.md` 提供今日、關注、記帳／筆記與我的；沒有 Chat／Ask Janus 導航。generic 對話介面由 omniAgent client source 持有，尚未切換 live deployment。
-- 個股首屏依序顯示健康度圓環、籌碼狀態與 `Icons.psychology` 白話 AI Card；K 線、Metrics、五角色與 provenance 預設收在進階資料。
+- 個股頁 primary content 依 `../ui/user-app.md` 與 Final Visual Contract：`StockHeader` → 個人持股／成本／估值日 → 筆記與待追蹤 → 健康度 → 白話 AI 摘要 → why／risk → 籌碼 → 公司事件 → evidence／disclaimer；K 線、Metrics、Fact Pack、五角色、CIO 與完整 provenance 預設收在進階資料。
 - 個人工作台提供關注股、手動交易、一般筆記、歷史明細、持股、已實現／未實現與年度損益；正式結果只讀 Private Mart，不在 Flutter 或模型內重算。
 - 「我的」提供 Janus 私人資料匯出與可稽核刪除流程；cutover 前仍需涵蓋 Janus 持有的歷史 assistant 資料，不提前宣稱 omniAgent data migration 完成。
 - 支援 light／dark／system theme、phone／iPad／web responsive、VoiceOver／TalkBack 與至少 44×44 target。
