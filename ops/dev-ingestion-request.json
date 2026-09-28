@@ -1,8 +1,8 @@
 {
-  "request_id": "wbs-3-tpex-valuation-20260928",
-  "enabled": false,
+  "request_id": "wbs-3-tpex-institutional-20260928",
+  "enabled": true,
   "operation": "ingestion",
-  "dataset": "tpex-valuation",
+  "dataset": "tpex-institutional",
   "date": "2026-09-24",
   "force_refresh": true,
   "disable_mart_trigger": true
