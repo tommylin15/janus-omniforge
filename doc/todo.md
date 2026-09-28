@@ -35,7 +35,7 @@ Observation window 不阻擋 correctness、data-integrity、market coverage、po
 
 Dependency：`WBS-3-LIQUID-500-ROTATION`。本 ID 的舊「所有 enabled 股票全市場」驗收條件由使用者於 2026-09-27 改為每週有效的 500 檔；不得把 500 檔結果宣稱為所有上市／上櫃股票完整 coverage。
 
-2026-09-28 完整 bounded replay 仍為 **partial**：effective 500、OHLCV 499/500、TWSE valuation 362/364、MOPS financials 336/500。其後 TPEx 官方估值批次 adapter 完成 GCP dev 定向驗收（workflow `36379062350`／execution `janus-ingestion-core-nkq8x`）：135/136，缺 `3718`，官方同日原始回應亦無此代號，依使用者指示停止追補。TPEx 三大法人 adapter 已依官方 `/tpex_3insti_daily_trading` 欄位實作，本機 first-batch targeted tests 10 passed；部署與 GCP dev 定向驗收待做。融資券／借券／當沖及其餘缺口未完成。詳見 [`operations-and-testing`](spec/operations-and-testing.md)。
+2026-09-28 完整 bounded replay 仍為 **partial**：effective 500、OHLCV 499/500、TWSE valuation 362/364、MOPS financials 336/500。TPEx 官方估值 adapter 完成 GCP dev 驗收（workflow `36379062350`／execution `janus-ingestion-core-nkq8x`）：135/136，缺 `3718`；官方同日原始回應亦無此代號，依使用者指示停止追補。TPEx 三大法人 adapter 亦完成 GCP dev 定向驗收（workflow `36381307608`／execution `janus-ingestion-core-rpkp9`）：effective 500 中 TPEx institutional 136/136，missing 0，Core 新增 408 筆。融資券／借券／當沖及其餘缺口未完成。詳見 [`operations-and-testing`](spec/operations-and-testing.md)。
 
 依使用者 2026-09-28 指示，停止追補 `3718` 的 TPEx 估值；仍保留其有效 500 membership 與 expected／missing，不將 135/136 改寫成 136/136。
 

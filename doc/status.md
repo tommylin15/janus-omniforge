@@ -12,7 +12,7 @@
 - **2026-09-26 dev deployment controller consolidation 已完成。** `janus-ingestion-core` 與 `janus-intelligence-mart` 的兩個 legacy `us-central1` Cloud Build triggers 已 guarded 刪除；cleanup run `36229366763` 先保存 rollback artifact，再精確刪除兩個 trigger。canonical GitHub deployment run `36229503909` 對 ingestion-core／intelligence-mart targeted tests、deploy、`verify-dev.sh` 全部成功，API jobs skipped。獨立 read-only post-acceptance run `36229702938` 再次確認兩個 regional triggers 仍 absent、兩個 Cloud Run Jobs 都 `Ready=True`。此項判定只代表 duplicate deployment-controller condition `RESOLVED` 與 deployment acceptance `PASS`，不等同 ingestion／Mart workload live-data acceptance。
 - **2026-09-26 Janus web root routing incident 已完成修復與 dev live acceptance。** 原因是 canonical Cloud Run service root `/` 沒有 FastAPI route，直接開啟會 404；修復 commit `27c8a0b7d091bcc0e86147688b5907762b32a2ba` 已部署到 revision `janus-api-g27c8a0b7d091-config`、100% traffic，image digest `sha256:002e52dbebb21dfeb231a556e3c049728e54c9aad2246f3ba834bd1eb2e73991`。Runtime inspect run `36226506571` 實際驗證 `/` 為 307、`Location: /app`，且 `/app/` Janus entrypoint 可達。此 routing 修復不代表 User／Admin product completeness 已完成。
 - **進入 observation window 不代表 feature freeze，也不代表產品功能完整。** Pilot observation 與產品完整度修復是兩條可並行的工作線；前者累積長期 operational evidence，後者補齊目前 dev 真實使用仍缺少的資料與操作閉環。
-- **`WBS-3-FULL-MARKET-BASE-COVERAGE` 維持 partial。** 上次完整 bounded replay 的有效名單 500、OHLCV 499/500、TWSE valuation 362/364、MOPS financials 336/500。2026-09-28 TPEx 官方估值批次 adapter 已部署並完成 GCP dev 定向驗收：TPEx valuation 135/136，缺 `3718`（官方同日批次亦無此代號）；workflow `36379062350`／execution `janus-ingestion-core-nkq8x` 成功，Core 新增 135。TPEx institutional、融資券／借券／當沖與其他缺口仍待後續原子項目；詳見 operations evidence。
+- **`WBS-3-FULL-MARKET-BASE-COVERAGE` 維持 partial。** 上次完整 bounded replay 的有效名單 500、OHLCV 499/500、TWSE valuation 362/364、MOPS financials 336/500。TPEx valuation 為 135/136，缺 `3718`（官方同日批次亦無此代號）；三大法人 adapter 已完成 GCP dev 定向驗收，TPEx institutional 136/136、missing 0，Core 新增 408 筆（每檔三種法人），詳見 workflow `36381307608`、execution `janus-ingestion-core-rpkp9` 與 operations evidence。融資券／借券／當沖及其他缺口仍待後續原子項目。
 - 依使用者 2026-09-28 指示，`3718` 的 TPEx 估值停止追補；保留該檔在有效 500 名單及 coverage `missing` 中，不將來源缺值視為成功。
 - **Iceberg financials 手動維護已通過 dev 驗收並啟用每週排程。** 既有 1 GiB Job 保留 22 個 snapshots、過期 1,299 個，刪除 448 個舊 metadata JSON，原 11,954 列及 7 個 Core manifest 引用的 snapshots 維持可讀。GCS 有效 metadata bytes 從 361,299,847 降至 206,536,934（減少 154,762,913）；排程每週日台北時間 12:00 用同一 Job 執行，手動 dispatch dry-run 已通過，首次自然排程尚待觀察。Bucket versioning／soft delete 使實際計費空間延後下降；本程序尚未做 `.avro` orphan cleanup 或 manifest rewrite。
 - **User product completeness 目前未完成。** 現有 Flutter 已有交易／持股 presentation 與 missing／stale／partial 狀態處理，但真實持股若缺行情 coverage 或名稱解析，Private Mart 仍無法產生完整 aggregate valuation／unrealized PnL；UI 不得自行補算或用 placeholder 假裝完整。
@@ -33,7 +33,7 @@ Shioaji 目前僅證實既有模擬憑證可登入及送出單檔 Quote 訂閱�
 
 `WBS-3-LIQUID-500-ROTATION` 已完成；live Admin 換股、500 檔數量、audit 與原名單復原均通過。完成 evidence 見 [`WBS-3 archive`](archive/wbs-3-liquid-500-rotation-completed-2026-09-27.md) 與 [`operations ledger`](spec/operations-and-testing.md)。
 
-目前 foreground WBS 仍是 **`WBS-3-FULL-MARKET-BASE-COVERAGE`**，狀態 `partial`。TPEx 估值原子項目已完成；三大法人 adapter 本機 targeted tests 10 項通過，部署與 GCP dev 定向驗收待做。`3718` 依使用者指示停止追補，仍保留 coverage missing。
+目前 foreground WBS 仍是 **`WBS-3-FULL-MARKET-BASE-COVERAGE`**，狀態 `partial`。TPEx 估值與三大法人 adapter 原子項目均已完成；三大法人 dev inventory 為 136/136，`3718` 依使用者指示停止追補，仍保留估值 coverage missing。融資券／借券／當沖等資料缺口尚未完成。
 
 ### B. Dev Pilot operational observation
 
