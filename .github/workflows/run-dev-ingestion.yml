@@ -63,7 +63,7 @@ jobs:
 
           dataset="$(jq -r '.dataset // ""' "${file}")"
           case "${dataset}" in
-            full-market-500|twse-ohlcv|tpex-ohlcv|twse-market-volume|tpex-market-volume|taiex|tpex-benchmark|twse-valuation|tpex-valuation|twse-institutional|tpex-institutional|mops|finmind|twse-events|twse-market-activity) ;;
+            full-market-500|twse-ohlcv|tpex-ohlcv|twse-market-volume|tpex-market-volume|taiex|tpex-benchmark|twse-valuation|tpex-valuation|twse-institutional|tpex-institutional|mops|finmind|twse-events|twse-market-activity|twse-financing|twse-securities-lending-short) ;;
             *) echo "Unsupported ingestion dataset: ${dataset}" >&2; exit 2 ;;
           esac
 

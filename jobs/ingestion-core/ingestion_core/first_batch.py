@@ -225,6 +225,49 @@ def normalise_market_activity(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[s
     return tuple(result)
 
 
+def _activity_rows(symbol: str, trade_date: str,
+                   values: Iterable[tuple[str, Any, str]]) -> tuple[dict[str, Any], ...]:
+    return tuple({"symbol": symbol, "market": "TWSE", "trade_date": trade_date,
+                  "metric": metric, "value": _text(value), "unit": unit}
+                 for metric, value, unit in values)
+
+
+def normalise_twse_financing(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, Any], ...]:
+    result = []
+    for row in rows:
+        cells = row.get("_cells")
+        if not isinstance(cells, list) or len(cells) < 16:
+            continue
+        symbol = str(cells[0]).strip()
+        if not (symbol.isascii() and symbol.isalnum() and 4 <= len(symbol) <= 6):
+            continue
+        result.extend(_activity_rows(symbol, _iso_date(row["Date"]), (
+            ("margin_buy", cells[2], "trading_units"),
+            ("margin_sell", cells[3], "trading_units"),
+            ("margin_cash_redemption", cells[4], "trading_units"),
+            ("margin_balance", cells[6], "trading_units"),
+        )))
+    return tuple(result)
+
+
+def normalise_twse_securities_lending_short(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, Any], ...]:
+    result = []
+    for row in rows:
+        cells = row.get("_cells")
+        if not isinstance(cells, list) or len(cells) < 15:
+            continue
+        symbol = str(cells[0]).strip()
+        if not (symbol.isascii() and symbol.isalnum() and 4 <= len(symbol) <= 6):
+            continue
+        result.extend(_activity_rows(symbol, _iso_date(row["Date"]), (
+            ("margin_short_sell", cells[3], "shares"),
+            ("margin_short_balance", cells[6], "shares"),
+            ("sbl_short_sell", cells[9], "shares"),
+            ("sbl_short_balance", cells[12], "shares"),
+        )))
+    return tuple(result)
+
+
 @dataclass
 class JsonDatasetAdapter:
     source_id: str
@@ -239,6 +282,8 @@ class JsonDatasetAdapter:
     availability_field: str | None = None
     publication_time_authoritative: bool | None = None
     clock: Callable[[], datetime] = _now_utc
+    core_dataset_id: str | None = None
+    extra_endpoints: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         validate_source_url(self.endpoint)
@@ -246,6 +291,8 @@ class JsonDatasetAdapter:
             raise ValueError("invalid observation_mode")
         if self.max_replay_age_days is not None and self.max_replay_age_days < 0:
             raise ValueError("max_replay_age_days must be non-negative")
+        for endpoint in self.extra_endpoints:
+            validate_source_url(endpoint)
 
     def fetch(self, request: CollectionRequest) -> SourceResponse:
         fetched = self.clock()
@@ -261,6 +308,18 @@ class JsonDatasetAdapter:
         validate_source_url(urlunsplit((parsed_url.scheme, parsed_url.netloc, parsed_url.path, "", "")))
         raw = self.transport(url) if self.transport else self._https(url)
         document = json.loads(raw)
+        if self.extra_endpoints:
+            if not isinstance(document, list):
+                raise ValueError("batch source must return a JSON list")
+            sources = {url: document}
+            for endpoint in self.extra_endpoints:
+                payload = self.transport(endpoint) if self.transport else self._https(endpoint)
+                rows = json.loads(payload)
+                if not isinstance(rows, list):
+                    raise ValueError("batch source must return a JSON list")
+                sources[endpoint] = rows
+            document = [row for rows in sources.values() for row in rows]
+            raw = json.dumps(sources, ensure_ascii=False, separators=(",", ":")).encode()
         if isinstance(document, list):
             upstream_rows = document
         else:
@@ -268,13 +327,13 @@ class JsonDatasetAdapter:
                 upstream_rows = []
                 for table in document["tables"]:
                     fields = table.get("fields", [])
-                    upstream_rows.extend(dict(zip(fields, row, strict=False)) | {"Date": document.get("date")} for row in table.get("data", []))
+                    upstream_rows.extend(dict(zip(fields, row, strict=False)) | {"Date": document.get("date"), "_cells": row} for row in table.get("data", []))
                 fields = None
             else:
                 upstream_rows = document.get("data", document.get("rows", []))
                 fields = document.get("fields")
             if fields and upstream_rows and isinstance(upstream_rows[0], list):
-                upstream_rows = [dict(zip(fields, row, strict=False)) | {"Date": document.get("date")} for row in upstream_rows]
+                upstream_rows = [dict(zip(fields, row, strict=False)) | {"Date": document.get("date"), "_cells": row} for row in upstream_rows]
         rows = tuple({**row, "source_id": self.source_id} for row in self.normalizer(upstream_rows))
         if self.row_date_field:
             rows = tuple(row for row in rows
@@ -418,11 +477,15 @@ def dataset_adapters(transport: Callable[[str], bytes] | None = None) -> dict[st
         "tpex-institutional": JsonDatasetAdapter("tpex", "institutional", "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading", normalise_tpex_institutional, transport, row_date_field="trade_date"),
         "mops": JsonDatasetAdapter("mops", "financials", "https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci", normalise_financials, transport,
                                    observation_mode="fetch_time", max_replay_age_days=7,
-                                   availability_field="availability_at", publication_time_authoritative=False),
+                                   availability_field="availability_at", publication_time_authoritative=False,
+                                   extra_endpoints=tuple("https://openapi.twse.com.tw/v1/opendata/t187ap06_L_" + suffix
+                                                         for suffix in ("basi", "bd", "fh", "ins", "mim"))),
         "finmind": JsonDatasetAdapter("finmind", "financials", "https://api.finmindtrade.com/api/v4/data", normalise_financials, transport, finmind,
                                       observation_mode="fetch_time", max_replay_age_days=7,
                                       availability_field="availability_at", publication_time_authoritative=False),
         "twse-events": JsonDatasetAdapter("twse", "events", "https://openapi.twse.com.tw/v1/opendata/t187ap04_L", normalise_events, transport,
                                           observation_mode="fetch_time", max_replay_age_days=7, row_date_field="published_at"),
-        "twse-market-activity": JsonDatasetAdapter("twse", "market-activity", "https://www.twse.com.tw/exchangeReport/TWTB4U", normalise_market_activity, transport, dated("https://www.twse.com.tw/exchangeReport/TWTB4U", response="json")),
+        "twse-financing": JsonDatasetAdapter("twse", "financing", "https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN", normalise_twse_financing, transport, dated("https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN", selectType="ALL", response="json"), core_dataset_id="market-activity"),
+        "twse-securities-lending-short": JsonDatasetAdapter("twse", "securities_lending_short", "https://www.twse.com.tw/exchangeReport/TWT93U", normalise_twse_securities_lending_short, transport, dated("https://www.twse.com.tw/exchangeReport/TWT93U", response="json"), core_dataset_id="market-activity"),
+        "twse-market-activity": JsonDatasetAdapter("twse", "day_trading", "https://www.twse.com.tw/exchangeReport/TWTB4U", normalise_market_activity, transport, dated("https://www.twse.com.tw/exchangeReport/TWTB4U", response="json"), core_dataset_id="market-activity"),
     }

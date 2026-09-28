@@ -300,7 +300,7 @@ class PostgresWorkspaceRepository:
             return [dict(row) for row in connection.execute(
                 """SELECT w.*,s.name AS stock_name,EXISTS(
                      SELECT 1 FROM control.liquid_500_members m
-                     WHERE m.symbol=w.symbol AND m.version=(
+                     WHERE m.symbol=w.symbol AND s.market='TWSE' AND m.version=(
                        SELECT version FROM control.liquid_500_versions
                        WHERE effective_from<=now() ORDER BY effective_from DESC LIMIT 1)
                    ) AS in_market_500
@@ -358,7 +358,8 @@ class PostgresWorkspaceRepository:
             if not existing or not existing["active"]:
                 eligible = connection.execute(
                     """SELECT 1 FROM control.liquid_500_members m
-                       WHERE m.symbol=%s AND m.version=(
+                       JOIN control.stock_master s ON s.symbol=m.symbol
+                       WHERE m.symbol=%s AND s.market='TWSE' AND m.version=(
                          SELECT version FROM control.liquid_500_versions
                          WHERE effective_from<=now() ORDER BY effective_from DESC LIMIT 1)""",
                     (value.symbol,),

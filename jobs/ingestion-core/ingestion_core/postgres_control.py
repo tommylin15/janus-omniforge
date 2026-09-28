@@ -276,10 +276,10 @@ class PostgreSQLControlPlane:
             raise ValueError("liquid 500 symbols, effective time, reason, or actor is invalid")
         with self._tx() as cur:
             cur.execute("SELECT pg_advisory_xact_lock(hashtext('liquid-500-version'))")
-            if reason == "weekly_volume_rank":
+            if reason in {"weekly_volume_rank", "weekly_volume_rank_twse"}:
                 cur.execute("""SELECT version FROM control.liquid_500_versions
-                               WHERE week_start=%s AND reason='weekly_volume_rank'
-                               ORDER BY version DESC LIMIT 1""", (week_start,))
+                               WHERE week_start=%s AND reason=%s
+                               ORDER BY version DESC LIMIT 1""", (week_start, reason))
                 replay = cur.fetchone()
                 if replay is not None:
                     return replay[0]
@@ -290,7 +290,7 @@ class PostgreSQLControlPlane:
             if current_effective is not None and effective_from <= current_effective:
                 raise ValueError("effective_from must advance")
             cur.execute("""SELECT symbol FROM control.stock_master
-                           WHERE symbol=ANY(%s) AND enabled AND listing_status='listed'""", (symbols,))
+                           WHERE symbol=ANY(%s) AND enabled AND listing_status='listed' AND market='TWSE'""", (symbols,))
             if {row[0] for row in cur.fetchall()} != set(symbols):
                 raise ValueError("liquid 500 contains unknown or disabled stock")
             cur.execute("""INSERT INTO control.liquid_500_versions

@@ -16,13 +16,15 @@ def rank_week(
     days = tuple(sorted(set(trading_days)))
     if not days:
         raise ValueError("trading week has no days")
-    expected = {(market, day.isoformat()) for market in ("TWSE", "TPEX") for day in days}
+    expected = {("TWSE", day.isoformat()) for day in days}
     seen_batches: set[tuple[str, str]] = set()
     batch_sizes: Counter[tuple[str, str]] = Counter()
     seen_rows: set[tuple[str, str, str]] = set()
     totals: dict[str, dict[str, Any]] = defaultdict(lambda: {"volume_shares": 0, "turnover_twd": Decimal(0)})
     for row in rows:
         market = str(row["market"])
+        if market != "TWSE":
+            continue
         day = str(row["trade_date"])[:10]
         if (market, day) not in expected:
             raise ValueError("Core market volume is outside requested week")
@@ -42,7 +44,7 @@ def rank_week(
         totals[symbol]["volume_shares"] += volume
         totals[symbol]["turnover_twd"] += turnover
     if seen_batches != expected:
-        raise ValueError("Core market volume is missing a trading day or market")
+        raise ValueError("Core TWSE market volume is missing a trading day")
     if any(batch_sizes[batch] < 500 for batch in expected):
         raise ValueError("Core market volume has an incomplete market batch")
     if len(totals) < 500:
@@ -80,11 +82,14 @@ def rotate_from_core(catalog: Any, control: Any, *, week_start: date,
     for row in profile_rows:
         value = row["observed_date"]
         day = value.date() if isinstance(value, datetime) else value
-        latest_profile[row["market"]] = max(latest_profile.get(row["market"], date.min), day)
-    if set(latest_profile) != {"TWSE", "TPEX"}:
-        raise ValueError("both official company profiles are required")
+        if row["market"] == "TWSE":
+            latest_profile["TWSE"] = max(latest_profile.get("TWSE", date.min), day)
+    if "TWSE" not in latest_profile:
+        raise ValueError("official TWSE company profile is required")
     official: dict[str, str] = {}
     for row in profile_rows:
+        if row["market"] != "TWSE":
+            continue
         observed = row["observed_date"]
         day = observed.date() if isinstance(observed, datetime) else observed
         if day != latest_profile[row["market"]]:
@@ -93,8 +98,8 @@ def rotate_from_core(catalog: Any, control: Any, *, week_start: date,
         if symbol in official and official[symbol] != market:
             raise ValueError("official company profiles disagree on stock market")
         official[symbol] = market
-    if any(row["symbol"] in official and official[row["symbol"]] != row["market"]
-           for row in market_rows):
+    if any(row["market"] == "TWSE" and row["symbol"] in official
+           and official[row["symbol"]] != row["market"] for row in market_rows):
         raise ValueError("Core market volume disagrees with official stock market")
     with control.connection.cursor() as cur:
         cur.execute("""SELECT symbol,market,enabled,listing_status FROM control.stock_master
@@ -106,9 +111,9 @@ def rotate_from_core(catalog: Any, control: Any, *, week_start: date,
     approved = {symbol for symbol, (_, enabled, status) in master.items()
                 if enabled and status == "listed"}
     ranked = rank_week(market_rows, trading_days, approved)
-    snapshots = {"trading_days": [day.isoformat() for day in trading_days],
+    snapshots = {"market": "TWSE", "trading_days": [day.isoformat() for day in trading_days],
                  "market_volume_snapshot": volume_table.current_snapshot().snapshot_id,
                  "stock_profile_snapshot": profile_table.current_snapshot().snapshot_id}
     return control.publish_liquid_500(ranked, week_start=week_start,
-                                      effective_from=effective_from, reason="weekly_volume_rank",
+                                      effective_from=effective_from, reason="weekly_volume_rank_twse",
                                       actor="scheduled_ingestion", source_snapshot=snapshots)

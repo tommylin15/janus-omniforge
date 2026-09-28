@@ -82,6 +82,48 @@ class FirstBatchSourceTests(unittest.TestCase):
         ])
         self.assertTrue(all((row["symbol"], row["market"], row["trade_date"]) == ("5483", "TPEX", "2026-09-24") for row in rows))
 
+    def test_market_batch_activity_sources_keep_metrics_and_provenance(self):
+        twse_margin = ["2330", "台積電", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24"]
+        twse_short = ["2330", "台積電", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"]
+        payloads = {
+            "MI_MARGN": {"date": "20260924", "tables": [{"fields": ["證券代號"] * 16, "data": [twse_margin]}]},
+            "TWT93U": {"date": "20260924", "tables": [{"fields": ["證券代號"] * 15, "data": [twse_short]}]},
+            "TWTB4U": {"date": "20260924", "tables": [{"fields": ["證券代號", "當日沖銷交易成交股數", "當日沖銷交易買進成交金額", "當日沖銷交易賣出成交金額"], "data": [["2330", "100", "200", "300"]]}]},
+        }
+        def transport(url):
+            return json.dumps(next(value for key, value in payloads.items() if key in url), ensure_ascii=False).encode()
+        adapters = dataset_adapters(transport)
+        expected = {
+            "twse-financing": ("TWSE", {"margin_buy": "11", "margin_balance": "15"}),
+            "twse-securities-lending-short": ("TWSE", {"margin_short_sell": "2", "sbl_short_balance": "11"}),
+            "twse-market-activity": ("TWSE", {"day_trade_shares": "100"}),
+        }
+        for key, (market, metrics) in expected.items():
+            with self.subTest(key=key):
+                adapter = adapters[key]
+                request = CollectionRequest("e1", "t1", adapter.source_id, adapter.dataset_id, market,
+                                            ("2330",), None, date(2026, 9, 24), 5)
+                response = adapter.fetch(request)
+                self.assertEqual(adapter.core_dataset_id, "market-activity")
+                self.assertTrue(all((row["market"], row["trade_date"], row["source_id"]) ==
+                                    (market, "2026-09-24", adapter.source_id) for row in response.rows))
+                self.assertTrue(set(metrics.items()) <= {(row["metric"], row["value"]) for row in response.rows})
+
+    def test_mops_financials_combines_listed_industry_batches(self):
+        urls = []
+        def transport(url):
+            urls.append(url)
+            symbol = str(1000 + len(urls))
+            return json.dumps([{"出表日期": "1150924", "年度": "115", "季別": "2",
+                                "公司代號": symbol, "公司名稱": "測試", "營業收入": "100"}], ensure_ascii=False).encode()
+        adapter = dataset_adapters(transport)["mops"]
+        adapter.clock = lambda: datetime(2026, 9, 26, tzinfo=timezone.utc)
+        request = CollectionRequest("e1", "t1", "mops", "financials", "TWSE", (), None, date(2026, 9, 24), 5)
+        response = adapter.fetch(request)
+        self.assertEqual(len(urls), 6)
+        self.assertEqual({row["symbol"] for row in response.rows}, {str(1000 + n) for n in range(1, 7)})
+        self.assertEqual(set(json.loads(response.raw_payload)), set(urls))
+
     def test_ohlcv_adapters_are_registered_for_symbol_scoped_runtime(self):
         raw = json.dumps({"data": [["115/08/25", "1,234", "100,000", "80", "82", "79", "81", "+1", "456"]]}).encode()
         adapters = dataset_adapters(lambda _: raw)

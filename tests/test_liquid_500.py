@@ -7,7 +7,7 @@ from ingestion_core.liquid_500 import rank_week
 from packages.admin_api import AdminConflictError, AdminService
 
 
-def test_weekly_ranking_requires_both_markets_each_day_and_stable_tie_break():
+def test_weekly_ranking_uses_only_twse_and_requires_each_day():
     day = date(2026, 9, 24)
     rows = [
         {"symbol": str(symbol), "market": "TWSE", "trade_date": day.isoformat(),
@@ -23,9 +23,9 @@ def test_weekly_ranking_requires_both_markets_each_day_and_stable_tie_break():
     assert result[0]["symbol"] == "1000"
     assert result[-1]["symbol"] == "1499"
     with pytest.raises(ValueError, match="incomplete market batch"):
-        rank_week(rows[:-1], [day], approved)
+        rank_week(rows[:499], [day], approved)
     with pytest.raises(ValueError, match="missing a trading day"):
-        rank_week(rows[:500], [day], approved)
+        rank_week(rows, [day, day + timedelta(days=1)], approved)
 
 
 def test_market_batch_uses_only_the_complete_effective_500():
@@ -33,7 +33,7 @@ def test_market_batch_uses_only_the_complete_effective_500():
 
     class Control:
         def liquid_500_snapshot(self):
-            return {"status": "available", "items": [{"symbol": symbol} for symbol in symbols]}
+            return {"status": "available", "items": [{"symbol": symbol, "market": "TWSE"} for symbol in symbols]}
 
     universe, selected = _market_universe(Control(), ("2330",))
     assert universe["status"] == "available"
@@ -47,6 +47,13 @@ def test_market_batch_uses_only_the_complete_effective_500():
 
     with pytest.raises(ValueError, match="exactly 500"):
         _market_universe(Partial(), ("2330",))
+
+    class Mixed:
+        def liquid_500_snapshot(self):
+            return {"status": "available", "items": [{"symbol": symbol, "market": "TPEX" if symbol == "1000" else "TWSE"} for symbol in symbols]}
+
+    with pytest.raises(ValueError, match="TWSE-listed"):
+        _market_universe(Mixed(), ("2330",))
 
 
 def test_admin_swap_previews_future_version_without_activating_it():

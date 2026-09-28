@@ -31,13 +31,17 @@ Observation window 不阻擋 correctness、data-integrity、market coverage、po
 
 ## A. Product Completeness foreground queue
 
-### 1. `WBS-3-FULL-MARKET-BASE-COVERAGE` — 【Sol；ID 保留，範圍修訂為週量 500 檔】
+### 1. `WBS-3-FULL-MARKET-BASE-COVERAGE` — 【Sol；ID 保留，範圍修訂為 TWSE 週量 500 檔】
 
-Dependency：`WBS-3-LIQUID-500-ROTATION`。本 ID 的舊「所有 enabled 股票全市場」驗收條件由使用者於 2026-09-27 改為每週有效的 500 檔；不得把 500 檔結果宣稱為所有上市／上櫃股票完整 coverage。
+Dependency：`WBS-3-LIQUID-500-ROTATION`。本 ID 的舊「所有 enabled 股票全市場」驗收條件於 2026-09-27 改為每週有效 500 檔，再依使用者 2026-09-28 最新指示改為只從 TWSE 上市個股選滿 500 檔；不得把結果宣稱為所有上市股票完整 coverage。
 
-2026-09-28 完整 bounded replay 仍為 **partial**：effective 500、OHLCV 499/500、TWSE valuation 362/364、MOPS financials 336/500。TPEx 官方估值 adapter 完成 GCP dev 驗收（workflow `36379062350`／execution `janus-ingestion-core-nkq8x`）：135/136，缺 `3718`；官方同日原始回應亦無此代號，依使用者指示停止追補。TPEx 三大法人 adapter 亦完成 GCP dev 定向驗收（workflow `36381307608`／execution `janus-ingestion-core-rpkp9`）：effective 500 中 TPEx institutional 136/136，missing 0，Core 新增 408 筆。融資券／借券／當沖及其餘缺口未完成。詳見 [`operations-and-testing`](spec/operations-and-testing.md)。
+舊跨市場名單的 2026-09-28 bounded replay 為 **partial**：OHLCV 499/500、TWSE valuation 362/364、MOPS financials 336/500。TPEx 估值及三大法人的舊驗收見 [`operations-and-testing`](spec/operations-and-testing.md)；這些結果不作新上市 500 的驗收證據。新範圍尚未測試或在 GCP dev 驗收。
 
-依使用者 2026-09-28 指示，停止追補 `3718` 的 TPEx 估值；仍保留其有效 500 membership 與 expected／missing，不將 135/136 改寫成 136/136。
+舊跨市場 inventory 的 TPEx `3718` 估值仍保留 missing=1 的歷史事實，不追補、不改寫；新 TWSE 500 名單不包含該股。
+
+本輪工作樹已改成 TWSE 專用週量排名與 coverage，接入 TWSE 融資、融券借券、個股當沖及 MOPS 上市非一般業批次來源；Core 沿用既有表。**尚未執行測試、部署或 GCP dev 驗收**，因此下列 acceptance 仍未勾選。舊上市資料的少數 OHLCV、估值、法人缺值仍須在整批驗收時核對來源與 missing，不以推算值補齊。依使用者指定，在開始測試驗收前暫停等待模型切換。
+
+驗收入口：先做 targeted tests 與來源 schema 核對；再用既有 dev ingestion job 的一次性 `LIQUID_500_ROTATE_ONCE=true` 依上週完整 TWSE Core 批次重發有效名單，確認恰為 500 檔上市股後執行整批 replay。舊跨市場版本在新版本生效前不得充當上市 500 驗收；一次性 env 驗收後還原。
 
 - [ ] 對有效 500 檔收集日 OHLCV、PE/PB、法人、融資券／借券／當沖、基本面摘要與官方 benchmark；市場型 endpoint 必須單次抓取、批次快取、依 symbol 分配。來源缺少合規批次路徑時標 blocked，不以 500 次逐檔請求冒充完成。
 - [ ] coverage inventory 能指出有效 500 檔的 expected／received／missing，並保留 source／snapshot／execution provenance；其餘 enabled 股票標示不屬本週基礎 coverage。

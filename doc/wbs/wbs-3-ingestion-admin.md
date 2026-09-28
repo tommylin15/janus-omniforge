@@ -27,12 +27,12 @@
 
 ### 3.2A 每週量 500 市場資訊網（修訂原全市場基礎 coverage）
 
-- 每交易日先由 TWSE／TPEx 官方全市場批次盤後資料取得成交股數，原始回應進 Stage，正規化後進 Core；週末只用當週完整交易日的 Core 資料，合併 enabled 上市／上櫃**個股**，依週成交股數、成交金額、代號排序取 500 檔。來源或股票類型不完整時保留舊版本並標 blocked，不發佈不足 500 的名單。
+- 每交易日先由 TWSE 官方全市場批次盤後資料取得成交股數，原始回應進 Stage，正規化後進 Core；週末只用當週完整交易日的 Core 資料，從 enabled **上市個股**依週成交股數、成交金額、代號排序取 500 檔。來源或股票類型不完整時保留舊版本並標 blocked，不發佈不足 500 的名單。TPEx 歷史資料保留，但不納入本 WBS 的新版本與驗收。
 - 名單版本包含週別、排名、量、來源、effective time、進出差異與人工調整稽核；下一交易日生效。Admin「市場資訊」顯示這些資訊並可具理由、版本檢查地手動調整，仍維持 500 檔。
-- 以有效 500 檔收集日 OHLCV、PE/PB、法人、融資券／借券／當沖、基本面摘要與 benchmark；逐檔 OHLCV adapter 不能放大為 500 次市場抓取，必須換成各市場一次批次抓取、Stage／Core 快取與 symbol fan-out。無合法批次來源的欄位標 blocked。
+- 以有效 500 檔上市股收集日 OHLCV、PE/PB、法人、融資券／借券／當沖、基本面摘要與 TWSE benchmark；逐檔 OHLCV adapter 不能放大為 500 次市場抓取，必須使用一次批次抓取、Stage／Core 快取與 symbol fan-out。無合法批次來源的欄位標 blocked。
 - 每日產製 500 檔 expected／received／missing、source health、freshness 與合法 empty／unavailable 摘要；500 檔不得稱為所有股票 coverage。
 - 新增個人觀察名單只允許當前有效 500 檔；離榜既有關注不自動刪除。真實持股在 500 檔外仍保留正式行情需求與缺價診斷。
-- 首版必須等 TWSE／TPEx 各市場完整交易週的 Stage／Core 批次資料與官方公司名單；目前單次來源只提供最新一期，不把單日排名冒充週排行。週末輪換由既有 dev ingestion 排程在週日執行，並確認既有排程實際涵蓋週日；不得為此新增付費資源。
+- 首版必須等 TWSE 完整交易週的 Stage／Core 批次資料與官方上市公司名單；目前單次來源只提供最新一期，不把單日排名冒充週排行。週末輪換由既有 dev ingestion 排程在週日執行，並確認既有排程實際涵蓋週日；不得為此新增付費資源。
 - 產製 `mart_screening_signals` 所需 deterministic Core inputs；screening 不在 ingestion request 內執行。
 
 ### 3.2B 個人關注股深度追蹤

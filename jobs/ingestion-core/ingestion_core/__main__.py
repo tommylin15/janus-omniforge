@@ -158,6 +158,8 @@ def _market_universe(control: object, fallback_symbols: tuple[str, ...]) -> tupl
     if universe["status"] == "available":
         if len(universe["items"]) != 500:
             raise ValueError("effective liquid 500 must contain exactly 500 stocks")
+        if any(item["market"] != "TWSE" for item in universe["items"]):
+            raise ValueError("effective liquid 500 must contain TWSE-listed stocks only")
         return universe, tuple(item["symbol"] for item in universe["items"])
     return universe, fallback_symbols
 
@@ -294,9 +296,13 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
         raise ValueError("control database returned no enabled ingestion symbols")
     universe, market_symbols = _market_universe(control, symbols)
     active_500 = universe["status"] == "available"
+    if active_500:
+        selected = tuple(key for key in selected if configured[key].source_id not in {"tpex", "tpex-benchmark"})
+        if not selected:
+            raise ValueError("no TWSE sources selected for listed-only liquid 500")
     members_by_market = {
         market: {item["symbol"] for item in universe["items"] if item["market"] == market}
-        for market in ("TWSE", "TPEX")
+        for market in ("TWSE",)
     } if active_500 else {}
     holding_symbols = set(control.portfolio_coverage_symbols()) if active_500 and hasattr(control, "portfolio_coverage_symbols") else set()
     local_now = datetime.now(TAIPEI)
@@ -438,7 +444,8 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                     stage_results.append(result)
                     if not response.rows:
                         raise ValueError("OHLCV DQ rejected all rows")
-                    committed = core.write(dataset_id=adapter.dataset_id, rows=[dict(row) for row in response.rows],
+                    committed = core.write(dataset_id=getattr(adapter, "core_dataset_id", None) or adapter.dataset_id,
+                                           rows=[dict(row) for row in response.rows],
                                            execution_id=execution_id, provenance_id=result.idempotency_key,
                                            source_id=adapter.source_id, partition_date=as_of)
                     if adapter.dataset_id == "stock-profile":
@@ -485,11 +492,13 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                                 "metadata_location": price_commit.metadata_location,
                             }
                             price_coverage["snapshot_id"] = price_commit.snapshot_id
-                    if adapter.dataset_id in {"valuation", "institutional", "financials", "benchmark", "market-activity"} and active_500:
+                    if adapter.dataset_id in {"valuation", "institutional", "financials", "benchmark", "financing", "securities_lending_short", "day_trading"} and active_500:
                         date_field = "observed_date" if adapter.dataset_id == "valuation" else "trade_date"
                         received = {str(row.get("benchmark_id" if adapter.dataset_id == "benchmark" else "symbol", ""))
                                     for row in response.rows
-                                    if adapter.dataset_id == "financials" or str(row.get(date_field, ""))[:10] == as_of.isoformat()}
+                                    if (adapter.dataset_id == "financials" or str(row.get(date_field, ""))[:10] == as_of.isoformat())
+                                    and (adapter.dataset_id not in {"financing", "securities_lending_short", "day_trading"}
+                                         or row.get("value") is not None)}
                         coverage_items.append({"date": as_of.isoformat(), "dataset": adapter.dataset_id,
                                                "source": adapter.source_id, "market": market,
                                                "expected": sorted(expected), "received": sorted(expected & received),
@@ -536,7 +545,8 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
 
     core_committed = bool(iceberg_tables)
     if core_committed:
-        for dataset_id in sorted({configured[key].dataset_id for key in selected}):
+        for dataset_id in sorted({getattr(configured[key], "core_dataset_id", None) or configured[key].dataset_id
+                                  for key in selected}):
             identifier = core.table_identifier(dataset_id)
             if identifier in iceberg_tables or not core.table_exists(dataset_id):
                 continue
@@ -561,14 +571,14 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                                    "status": "cached_unverified" if holdings_cached else
                                              "complete" if received == outside_holdings else "missing"})
             required = {
-                ("ohlcv", "TWSE"): "twse", ("ohlcv", "TPEX"): "tpex",
-                ("valuation", "TWSE"): "twse", ("valuation", "TPEX"): "tpex",
-                ("institutional", "TWSE"): "twse", ("institutional", "TPEX"): "tpex",
+                ("ohlcv", "TWSE"): "twse",
+                ("valuation", "TWSE"): "twse",
+                ("institutional", "TWSE"): "twse",
                 ("financials", "ALL"): "mops",
-                ("benchmark", "TWSE"): "taiex", ("benchmark", "TPEX"): "tpex-benchmark",
-                ("financing", "TWSE"): "twse", ("financing", "TPEX"): "tpex",
-                ("securities_lending_short", "TWSE"): "twse", ("securities_lending_short", "TPEX"): "tpex",
-                ("day_trading", "TWSE"): "twse", ("day_trading", "TPEX"): "tpex",
+                ("benchmark", "TWSE"): "taiex",
+                ("financing", "TWSE"): "twse",
+                ("securities_lending_short", "TWSE"): "twse",
+                ("day_trading", "TWSE"): "twse",
             }
             for (dataset_id, market), source_id in required.items():
                 if any(item.get("date") == as_of.isoformat() and item.get("dataset") == dataset_id
@@ -700,20 +710,22 @@ def run_scheduled_collection() -> dict[str, object]:
         local_today = datetime.now(TAIPEI).date()
         explicit_backfill = any(os.environ.get(key, "").strip() for key in (
             "INGESTION_DATE", "BACKFILL_START_DATE", "BACKFILL_END_DATE"))
-        if local_today.weekday() == 6 and not explicit_backfill:
+        rotate_once = os.environ.get("LIQUID_500_ROTATE_ONCE", "false").lower() in {"1", "true", "yes"}
+        if (local_today.weekday() == 6 or rotate_once) and not explicit_backfill:
             holidays = _holidays(os.environ.get("MARKET_HOLIDAYS", "")) | {
                 date.fromisoformat(item) for item in schedule.get("holiday_overrides", ())
             }
-            week_start = local_today - timedelta(days=6)
+            week_start = local_today - timedelta(days=6 if local_today.weekday() == 6 else local_today.weekday() + 7)
             trading_days = tuple(week_start + timedelta(days=offset) for offset in range(5)
                                  if week_start + timedelta(days=offset) not in holidays)
-            effective_day = local_today + timedelta(days=1)
+            effective_day = local_today if rotate_once else local_today + timedelta(days=1)
             while effective_day.weekday() >= 5 or effective_day in holidays:
                 effective_day += timedelta(days=1)
             core = _iceberg_core(os.environ["CORE_BUCKET"])
             version = rotate_from_core(core.catalog, control, week_start=week_start,
                                        trading_days=trading_days,
-                                       effective_from=datetime.combine(effective_day, datetime.min.time(), TAIPEI))
+                                       effective_from=datetime.now(TAIPEI) if rotate_once and effective_day == local_today
+                                       else datetime.combine(effective_day, datetime.min.time(), TAIPEI))
             return {"component": "ingestion-core", "status": "succeeded", "scheduled": True,
                     "operation": "liquid_500_rotation", "version": version}
         config_id = os.environ.get("CONTROL_COLLECTION_CONFIG", "first-batch")
