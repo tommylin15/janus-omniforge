@@ -27,6 +27,59 @@
 - User App 不顯示 Admin 導覽、公開績效排行榜、下單或券商同步控制。
 - UI 驗收必須呈現真實 backend 已知狀態；missing／stale／partial／unavailable／blocked 不得用 mock、sample 或 placeholder 補成成功畫面。
 
+### 6.2.1 `WBS-6-USER-FINAL-VISUAL-CONVERGENCE` — User App 最終 presentation acceptance
+
+本切片是 **presentation acceptance overlay**，不取代資料、API、Mart、Private Mart 或 auth 的既有 WBS，也不表示四頁背後所有 capability 已完成。它定義 User App 在相關 dependency 逐步完成後必須收斂到的最終畫面與 cross-screen acceptance。
+
+權威來源：
+
+- `../ui/user-app.md`
+- `../ui/reference/user-app-final/README.md`
+- 固定 binary path：`today.png`、`watchlist.png`、`ledger.png`、`stock-detail.png`
+
+四張 PNG 尚未 commit 前，只有 contract 與 path reservation 成立，不得宣稱 visual reference binary 已到位。
+
+#### Today Final
+
+- 保留 deterministic market baseline first：加權／櫃買、market activity、institutional 不依賴 Mart／LLM 才能顯示。
+- Mart 可用時疊加 market regime、最多三則 Daily Brief、sector rotation、topics、candidate health；未就緒只退化相應區塊。
+- section 各自呈現 date／freshness／coverage／partial／missing；任一 request timeout／error 不得造成永久 spinner。
+- 候選股可進 stock detail；Flutter 不自行計算 canonical score。
+
+#### Watchlist Final
+
+- 以 owner-scoped active watchlist 為中心，不顯示平台推薦榜。
+- card 顯示 canonical 股票名稱＋代號、recent persisted price／date、held state、target price、pending note／follow-up 與 bounded missing／stale。
+- add／remove／reorder、有效 500 檔 admission、50 active distinct symbols quota 與離榜保留語意維持 backend contract。
+- 點擊 item 進入 stock detail；不得因 presentation target 自行啟動 scraper／Agent／LLM。
+
+#### Ledger Final
+
+- 第一屏優先 aggregate market value、unrealized PnL／return、YTD realized PnL、valuation date／status。
+- aggregate withheld 時顯示 bounded diagnosis，不由 Flutter 忽略 missing/stale position 後自行加總。
+- 次導航「持股／紀錄／報表」；持股手機版使用 card hierarchy。
+- 紀錄維持 `年份 → 月份 → 單筆交易`，買進支出／賣出回收／股利收入／已實現損益分開。
+- 交易 append-only／correction semantics 不變，寫入成功後顯示「交易已儲存，等待投資組合批次更新」。
+
+#### Stock Detail Final
+
+primary content 順序固定為：`StockHeader` → 個人持股／成本／估值日 → 筆記與待追蹤 → `StockHealthCard` → `AiPlainLanguageCard` → 三項「為什麼」／三項「要注意什麼」 → `ChipsStatusCard` → `CompanyEventTimeline` → 可收合 `EvidenceAndSources` → disclaimer。
+
+K 線、Fact Pack、五角色 validated analysis、CIO、估值指標與完整 provenance 屬 advanced section，必須位於 primary content 之後。Fact Pack／roles／CIO 等 dependency 未完成時不得用 sample／placeholder 冒充可用。
+
+#### Cross-screen Acceptance
+
+宣稱本 WBS 完成時至少必須：
+
+- 四張 PNG binary 已存在固定 repository path，且 sample values 明確僅作 illustrative；
+- Flutter targeted／golden／screenshot regression 覆蓋四頁主要 hierarchy 與 loading／empty／error／partial／stale／missing states；
+- 390×844 級手機 viewport 無 overflow，section order 與 final visual contract 一致；
+- 四頁使用一致的 Material 3／cyan-teal／card-based presentation language，不重新發明另一套 User App 資訊架構；
+- GCP dev 真實 authenticated URL、真實 owner、persisted backend data 完成 screenshot／browser acceptance；
+- UI 不 hard-code mock price、PnL、AI prose、logo 或其他 sample result；
+- backend capability 未完成時維持 bounded unavailable／hidden，partial 不得包裝 full success；
+- final visual acceptance 與資料／auth／runtime acceptance 必須同時成立，圖片或 build 成功不能單獨構成完成。
+
 ### 6.3 Admin UI
 
 - WBS 3 已負責 Stage／Core Data Operations 的可操作閉環；本節延伸公開 Mart、governance
@@ -76,6 +129,7 @@
 - empty／unavailable／partial／fallback／blocked 語意正確。
 - 未啟用股票 404；已啟用無資料顯示等待批次。
 - 詳細驗收依 `../ui.md`。
+- User App presentation／layout／visual regression 另依 `../ui/user-app.md` 與 `../ui/reference/user-app-final/README.md`；四張 PNG binary 未 commit 或 cross-screen live screenshot acceptance 未完成時，不得宣稱 Final Visual Convergence 完成。
 - tab 具鍵盤操作、ARIA 與可分享 query-string deep link；重載後保留所選分頁，未選面板不重複抓取大型 details。
 - 詳細 User／Admin 驗收依 `../ui.md`；今日頁所有卡片必須使用同一 analysis-as-of，個人工作台通過交易更正、筆記 revision、關注異動與跨使用者隔離測試。
 - 對宣稱 live accepted 的 UI 流程，至少要有目前 GCP dev 真實 URL／runtime、真實 auth／persisted backend 與實際互動 evidence；mock/sample 只可補測，不可獨立完成驗收。
