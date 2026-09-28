@@ -1,6 +1,6 @@
 # Janus 文件入口
 
-更新：2026-09-26
+更新：2026-09-28
 
 本頁定義 repository 內文件的角色，避免同一件事同時在 README、SPEC、WBS、TODO、runbook 與測試紀錄各自形成不同版本。
 
@@ -14,7 +14,7 @@
 | 完整未完成工作與 acceptance | `todo.md` | archive、舊 roadmap |
 | 某 WBS 的責任與驗收邊界 | `wbs.md` → `wbs/*.md` | runtime snapshot |
 | 產品／資料／API／治理契約 | `spec.md` → `spec/*.md` | TODO 中的暫時執行筆記 |
-| UI 契約 | `ui.md` → `ui/*.md` | mock screenshot／過期 implementation note |
+| UI 契約 | `ui.md` → `ui/*.md`；User App 最終 presentation 另見 `ui/reference/user-app-final/README.md` | mock screenshot／過期 implementation note／圖片中的 sample value |
 | 怎麼安全操作 | `runbook-*.md` | 歷史 build ID／revision |
 | 已完成／已取代的歷史 | `archive/` | active execution queue |
 | 原始設計、研究規劃、模型研究產物 | Google Drive 白名單根目錄 `janusChatGPT` | GitHub／runtime 的實作現況 |
@@ -29,6 +29,7 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `spec.md`：SPEC 索引；正式契約在 `spec/*.md`。
 - `wbs.md`：WBS 索引；工作切片在 `wbs/*.md`。
 - `ui.md`：UI 索引；頁面／元件契約在 `ui/*.md`。
+- `ui/reference/user-app-final/README.md`：Janus User App 的 active Final Visual Contract；固定 `today.png`、`watchlist.png`、`ledger.png`、`stock-detail.png` 四個 presentation target 路徑。PNG binary 未實際 commit 前，不得宣稱 final screenshot reference 已到位。
 - `spec/operations-and-testing.md`：完整 implementation／test／deployment／runtime 歷史 evidence ledger，包含歷史 checkpoint；日常定位優先看 `status.md`，需要稽核才進本檔。
 - `pilot-operational-evidence.md`：`WBS-8-DEV-PILOT-RUN` 六個 calendar months evidence window 的新增 bounded checkpoint；保存 observed failure／recovery／manual intervention 與尚未觀察到的 evidence category，不把 checkpoint 當成 WBS 完成。
 - `runbook-dev-deploy.md`：目前 dev 部署、migration、Job 與 Secret 的操作程序。
@@ -46,6 +47,7 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 4. 完成項目與被取代規劃移至 `archive/`，active 文件只留下必要連結。
 5. 未排程構想放在 `todo.md` 明確標示 Planned／Blocked／Deferred，或白名單 Drive 的研究／規劃文件；不得假裝已進 active queue。
 6. 文件 commit 只能改變文件本身。是否「完成」仍要用 implementation、tests、CI、deployment 與 live integration evidence 判定。
+7. Final Visual Contract 的圖片屬 presentation acceptance target，不是 canonical data source；sample value 不得反向污染 API／schema／Mart／Private Mart contract。
 
 ## 4. Operations ledger 的處理方式
 
