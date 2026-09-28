@@ -86,6 +86,17 @@ Dependency：Admin shell、Core persisted readers；AI role-impact／historical 
 
 ## C. 其他有效 backlog（不在 foreground queue）
 
+### P0 — User App Final Visual Convergence（presentation acceptance overlay）
+
+本節不改變目前 foreground queue 的執行順序；它固定 User App 的最終 presentation target，並要求所有相關 User WBS 在各自 dependency 完成時向同一成品收斂。權威 contract：`ui/user-app.md` 與 `ui/reference/user-app-final/README.md`。
+
+- [ ] 【Luna】 `WBS-6-USER-FINAL-VISUAL-CONVERGENCE`：依固定路徑 `today.png`／`watchlist.png`／`ledger.png`／`stock-detail.png` 完成四頁 final presentation convergence；目前 PNG binary 尚待由可寫 binary 的 Git／GitHub 環境補入，未補入前不得宣稱 visual reference binary 已完成。
+- [ ] 【Luna】 Today Final：deterministic market baseline first；Mart 研究區塊可獨立 partial／unavailable；request bounded、不得永久 spinner；390×844 級手機 hierarchy 與 final contract 一致。
+- [ ] 【Luna】 Watchlist Final：canonical name＋symbol、persisted recent price/date、held state、target price、pending note、500 admission／50 quota／離榜保留；card presentation 與 stock-detail navigation 完整。
+- [ ] 【Luna】 Ledger Final：aggregate market value／unrealized PnL／return／YTD realized／valuation status、持股／紀錄／報表、append-only trade UX；Flutter 不自行計算 canonical PnL。
+- [ ] 【Luna】 Stock Detail Final：依固定 primary order 顯示持股、筆記、健康度、白話摘要、why／risk、籌碼、事件、evidence；K 線／Fact Pack／五角色／CIO 只在 dependency 可用時放進 advanced section，不以 placeholder 冒充。
+- [ ] 【Sol】 Cross-screen live acceptance：targeted／golden／screenshot regression + GCP dev 真實 authenticated owner／persisted data browser screenshot；四頁一致視覺語言、loading／empty／error／partial／stale／missing 不破版，sample mock data 未進 canonical runtime。
+
 ### P0／P1 個人化與深度追蹤
 
 - [ ] 【Sol】 個人化分析只在 authenticated-user 邊界內引用公開 `mart_scoped_analysis` 的 symbol scope；不把私人資料寫回公開 Mart。
