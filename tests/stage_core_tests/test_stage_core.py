@@ -19,24 +19,13 @@ from ingestion_core.stage import LocalObjectStore, StageWriter
 from ingestion_core.iceberg_maintenance import _keep_snapshots, _protected_metadata
 from packages.provenance import Provenance, content_hash
 from ingestion_core.__main__ import (_coverage_status, _empty_is_nonfatal, _fetch_source, _limit_response,
-                                     _financial_symbol_batches, _requested_dates, _should_collect, _skip_symbol_adapter_for_500,
+                                     _requested_dates, _should_collect, _skip_symbol_adapter_for_500,
                                      consume_queued_collection, run_scheduled_collection)
 from ingestion_core import CollectionConfig, ExecutionStatus, SQLiteControlPlane, Stock
 from ingestion_core.adapters import SourceResponse
 
 
 class StageWriterTests(unittest.TestCase):
-    def test_financial_core_batches_keep_each_symbol_together_and_cap_unique_symbols(self):
-        rows = [{"symbol": f"{symbol:04}", "metric": metric}
-                for symbol in range(101) for metric in ("revenue", "assets")]
-
-        batches = list(_financial_symbol_batches(rows))
-
-        self.assertEqual([len({row["symbol"] for row in batch}) for batch in batches], [50, 50, 1])
-        self.assertTrue(all(len(batch) == 2 * len({row["symbol"] for row in batch}) for batch in batches))
-        self.assertEqual(sorted(row["symbol"] for batch in batches for row in batch),
-                         sorted(row["symbol"] for row in rows))
-
     def provenance(self, payload: bytes) -> Provenance:
         return Provenance(
             provenance_id="prov-1",

@@ -32,6 +32,16 @@ class DuckDBIcebergTests(unittest.TestCase):
         self.core.close()
         shutil.rmtree(self.root)
 
+    def test_merge_does_not_mutate_existing_or_incoming_rows(self):
+        existing = [{"symbol": "2330", "value": "old"}]
+        incoming = [{"symbol": "2330", "value": "new"}]
+
+        result = self.engine.merge(existing, incoming, ("symbol",))
+
+        self.assertEqual((result.inserted, result.updated, result.reused), (0, 1, 0))
+        self.assertEqual(existing, [{"symbol": "2330", "value": "old"}])
+        self.assertEqual(incoming, [{"symbol": "2330", "value": "new"}])
+
     def test_natural_key_replay_reuses_snapshot_and_null_does_not_overwrite(self):
         first = self.core.write(
             dataset_id="valuation",

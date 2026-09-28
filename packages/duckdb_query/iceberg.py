@@ -160,6 +160,7 @@ class DuckDBIcebergCore:
             incoming_arrow = self._arrow_table(incoming, existing_schema=table.schema().as_arrow())
             with table.update_schema() as update:
                 update.union_by_name(incoming_arrow.schema)
+            del incoming_arrow
             table = self.catalog.load_table(identifier)
             from pyiceberg.expressions import And, EqualTo, GreaterThanOrEqual, In, LessThanOrEqual
 

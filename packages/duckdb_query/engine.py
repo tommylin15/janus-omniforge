@@ -88,8 +88,8 @@ class DuckDBEngine:
         keys = tuple(identifiers)
         if not keys:
             raise ValueError("at least one identifier is required")
-        existing_rows = [dict(row) for row in existing]
-        incoming_rows = [dict(row) for row in incoming]
+        existing_rows = list(existing)
+        incoming_rows = list(incoming)
         for row in incoming_rows:
             missing = [key for key in keys if row.get(key) in {None, ""}]
             if missing:
@@ -150,10 +150,11 @@ class DuckDBEngine:
         for row in merged_rows:
             key = self._key(row, keys)
             prior = existing_by_key.get(key)
-            row["content_hash"] = self.content_hash(row)
             if key not in incoming_keys:
                 final_rows.append(prior or row)
-            elif prior is None:
+                continue
+            row["content_hash"] = self.content_hash(row)
+            if prior is None:
                 inserted += 1
                 changed.append(row)
                 final_rows.append(row)

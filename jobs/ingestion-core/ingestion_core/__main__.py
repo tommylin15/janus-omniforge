@@ -176,16 +176,6 @@ def _limit_response(response: SourceResponse, symbols: tuple[str, ...], *, datas
     return replace(response, rows=rows, fields=frozenset(rows[0].keys()) if rows else response.fields, raw_payload=payload)
 
 
-def _financial_symbol_batches(rows: tuple[dict[str, object], ...]):
-    grouped: dict[str, list[dict[str, object]]] = {}
-    for row in rows:
-        grouped.setdefault(str(row.get("symbol", "")), []).append(row)
-    symbols = sorted(grouped)
-    # ponytail: 50 symbols caps Core merge copies; tune only from dev memory evidence.
-    for offset in range(0, len(symbols), 50):
-        yield [row for symbol in symbols[offset:offset + 50] for row in grouped[symbol]]
-
-
 def _empty_is_nonfatal(adapter_key: str) -> bool:
     """Financial and event sources can legitimately have no rows in a window."""
     return adapter_key in SPARSE_DATASETS
@@ -454,24 +444,20 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                     stage_results.append(result)
                     if not response.rows:
                         raise ValueError("OHLCV DQ rejected all rows")
-                    write_batches = (_financial_symbol_batches(response.rows)
-                                     if active_500 and adapter.source_id == "mops" and adapter.dataset_id == "financials"
-                                     else (response.rows,))
-                    for write_rows in write_batches:
-                        committed = core.write(
-                            dataset_id=getattr(adapter, "core_dataset_id", None) or adapter.dataset_id,
-                            rows=[dict(row) for row in write_rows], execution_id=execution_id,
-                            provenance_id=result.idempotency_key, source_id=adapter.source_id, partition_date=as_of)
-                        core_created += committed.inserted
-                        core_updated += committed.updated
-                        core_reused += committed.reused
-                        iceberg_tables[committed.table_identifier] = {
-                            "rows": committed.row_count,
-                            "snapshot_id": committed.snapshot_id,
-                            "metadata_location": committed.metadata_location,
-                        }
+                    committed = core.write(dataset_id=getattr(adapter, "core_dataset_id", None) or adapter.dataset_id,
+                                           rows=[dict(row) for row in response.rows],
+                                           execution_id=execution_id, provenance_id=result.idempotency_key,
+                                           source_id=adapter.source_id, partition_date=as_of)
                     if adapter.dataset_id == "stock-profile":
                         control.refresh_official_stock_profiles(tuple(dict(row) for row in response.rows))
+                    core_created += committed.inserted
+                    core_updated += committed.updated
+                    core_reused += committed.reused
+                    iceberg_tables[committed.table_identifier] = {
+                        "rows": committed.row_count,
+                        "snapshot_id": committed.snapshot_id,
+                        "metadata_location": committed.metadata_location,
+                    }
                     if adapter.dataset_id == "market-volume":
                         target_symbols = (set(market_symbols) if active_500 else set(symbols)) | holding_symbols
                         price_rows = tuple({key: row.get(key) for key in
