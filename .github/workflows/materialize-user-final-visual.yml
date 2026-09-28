@@ -24,7 +24,11 @@ jobs:
           target_dir="doc/ui/reference/user-app-final"
           mkdir -p "$target_dir"
           for name in today watchlist ledger stock-detail; do
-            parts=(.visual-upload/${name}.part-*)
+            if [[ "$name" == "stock-detail" ]]; then
+              parts=(.visual-upload/stock-final.part-*)
+            else
+              parts=(.visual-upload/${name}.part-*)
+            fi
             test -e "${parts[0]}"
             cat "${parts[@]}" | tr -d '\r\n' | base64 --decode > "$target_dir/${name}.png"
           done
