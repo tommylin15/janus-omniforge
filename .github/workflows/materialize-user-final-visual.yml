@@ -24,12 +24,13 @@ jobs:
           target_dir="doc/ui/reference/user-app-final"
           mkdir -p "$target_dir"
           for name in today watchlist ledger stock-detail; do
-            if [[ "$name" == "stock-detail" ]]; then
-              parts=(.visual-upload/stock-final.part-*)
-            else
-              parts=(.visual-upload/${name}.part-*)
-            fi
+            case "$name" in
+              today) parts=(.visual-upload/today-final.part-*) ;;
+              stock-detail) parts=(.visual-upload/stock-final.part-*) ;;
+              *) parts=(.visual-upload/${name}.part-*) ;;
+            esac
             test -e "${parts[0]}"
+            echo "decoding $name from ${#parts[@]} parts"
             cat "${parts[@]}" | tr -d '\r\n' | base64 --decode > "$target_dir/${name}.png"
           done
 
