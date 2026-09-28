@@ -30,6 +30,8 @@
 
 Drive 與 GitHub 不同時，目前實作狀態以 GitHub／runtime evidence 為準；Drive 保留原始設計／核准規格的參考價值。必須指出差異，不自行把任一方改寫成另一方。
 
+Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference/user-app-final/README.md` 定義。該 visual contract 對資訊架構、section order、component hierarchy 與 presentation convergence 具規範性；但 canonical number、auth／owner isolation、PIT／provenance、source authorization、missing／stale／partial／blocked 語意與 publication／LLM boundary 仍以 active SPEC／runtime contract 為準。圖片中的 sample price、PnL、日期、AI prose、logo 或其他示意值永遠不得當成 canonical fact。
+
 ### 1.3 人工決策
 
 費用、安全性、不可逆大量刪除、擴大權限、production／新付費資源等決定必須取得使用者明確授權。需要人工輸入帳密、MFA、OAuth consent 或其他資訊時，不得自行猜測。
@@ -76,6 +78,8 @@ Drive 與 GitHub 不同時，目前實作狀態以 GitHub／runtime evidence 為
 - 直接相關的程式、測試、workflow 或 infra；
 - 目錄內若存在額外 `AGENTS.md`，再遵守該局部規則。
 
+**凡 ChatGPT／Codex／其他工程 agent 的任務涉及 Janus User App presentation、layout、visual regression、Product Completeness，或「今日／關注／記帳／筆記／個股詳情」任一畫面，必須額外讀 `ui/user-app.md` 與 `ui/reference/user-app-final/README.md`。對應 PNG binary 已存在時也必須實際檢視；binary 尚未 commit 時不得假裝已做 screenshot comparison 或 final visual acceptance。**
+
 禁止預設把整個 `doc/`、archive、所有 SPEC 或所有 WBS 全部載入。只有跨領域契約、安全邊界、引用缺失或盤點任務才擴大範圍。
 
 ## 6. 文件角色與回寫
@@ -83,7 +87,7 @@ Drive 與 GitHub 不同時，目前實作狀態以 GitHub／runtime evidence 為
 1. `todo.md`：active queue、未完成 acceptance、blocked／deferred；完成證據移入 archive。
 2. `wbs.md`／`wbs/*.md`：責任與驗收邊界，不保存短期 runtime snapshot。
 3. `spec.md`／`spec/*.md`：目前契約；除 operations 外，不寫除錯流水帳。
-4. `ui.md`／`ui/*.md`：目前 UI 契約與狀態語意。
+4. `ui.md`／`ui/*.md`：目前 UI 契約與狀態語意；`ui/reference/user-app-final/README.md` 是 User App 的 active Final Visual Contract，對應 PNG 是 presentation acceptance target，不是可丟棄的 mock screenshot。
 5. `spec/operations-and-testing.md`：只保存最新完整 evidence summary；舊 checkpoint 應定期移入 `archive/`，不得無限 append。
 6. `runbook-*.md`：可重跑的操作程序；容易漂移的 revision、digest、build ID 只放 operations／archive，不固定在 README 或一般 runbook。
 7. `archive/`：已完成、已取代、歷史 checkpoint；不得當 active 指令來源。
@@ -96,6 +100,7 @@ Drive 與 GitHub 不同時，目前實作狀態以 GitHub／runtime evidence 為
 - 跨模組契約、migration、安全／權限、依賴、建置鏈或里程碑結案時，再評估完整測試。
 - GCP dev／live／E2E 驗收必須由真實 GCP dev runtime 或其受控 acceptance path 證明；localhost／fixture 不得冒充 live evidence。
 - 完成狀態依 implementation、tests、CI、deployment、runtime、trigger／workload、integration evidence 綜合判斷。
+- `WBS-6-USER-FINAL-VISUAL-CONVERGENCE` 額外要求四張 final PNG binary、Flutter targeted／golden／screenshot regression，以及 GCP dev 真實 authenticated screenshot／browser acceptance；只完成文件、圖片、widget、golden 或 build 任一單項都不得宣稱整體完成。
 
 ## 8. 成本與安全限制
 
