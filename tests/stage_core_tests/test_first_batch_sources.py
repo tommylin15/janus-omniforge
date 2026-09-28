@@ -119,9 +119,11 @@ class FirstBatchSourceTests(unittest.TestCase):
         adapter = dataset_adapters(transport)["mops"]
         adapter.clock = lambda: datetime(2026, 9, 26, tzinfo=timezone.utc)
         fetched_at_normalization: list[int] = []
+        endpoint_count_at_normalization: list[int] = []
         normalizer = adapter.normalizer
 
         def normalize_incrementally(rows):
+            endpoint_count_at_normalization.append(len(urls))
             def track_fetches():
                 for row in rows:
                     fetched_at_normalization.append(len(urls))
@@ -129,12 +131,14 @@ class FirstBatchSourceTests(unittest.TestCase):
             return normalizer(track_fetches())
 
         adapter.normalizer = normalize_incrementally
-        request = CollectionRequest("e1", "t1", "mops", "financials", "TWSE", (), None, date(2026, 9, 24), 5)
+        request = CollectionRequest("e1", "t1", "mops", "financials", "TWSE",
+                                    ("1001", "1003", "1006"), None, date(2026, 9, 24), 5)
         response = adapter.fetch(request)
         self.assertEqual(len(urls), 6)
-        self.assertEqual({row["symbol"] for row in response.rows}, {str(1000 + n) for n in range(1, 7)})
+        self.assertEqual({row["symbol"] for row in response.rows}, {"1001", "1003", "1006"})
         self.assertEqual(set(json.loads(response.raw_payload)), set(urls))
-        self.assertEqual(fetched_at_normalization, list(range(1, 7)))
+        self.assertEqual(endpoint_count_at_normalization, list(range(1, 7)))
+        self.assertEqual(fetched_at_normalization, [1, 3, 6])
 
     def test_ohlcv_adapters_are_registered_for_symbol_scoped_runtime(self):
         raw = json.dumps({"data": [["115/08/25", "1,234", "100,000", "80", "82", "79", "81", "+1", "456"]]}).encode()

@@ -314,17 +314,24 @@ class JsonDatasetAdapter:
                 raise ValueError("batch source must return a JSON list")
             endpoint_payloads.append((url, raw))
 
+            selected = {symbol.upper() for symbol in request.symbols}
+
+            def is_selected(row: Mapping[str, Any]) -> bool:
+                return not selected or str(_pick(row, "symbol", "code", "公司代號")).strip().upper() in selected
+
             def upstream_batches():
-                yield from initial_rows
+                yield (row for row in initial_rows if is_selected(row))
+                initial_rows.clear()
                 for endpoint in self.extra_endpoints:
                     payload = self.transport(endpoint) if self.transport else self._https(endpoint)
                     endpoint_payloads.append((endpoint, payload))
                     batch = json.loads(payload)
                     if not isinstance(batch, list):
                         raise ValueError("batch source must return a JSON list")
-                    yield from batch
+                    yield (row for row in batch if is_selected(row))
+                    batch.clear()
 
-            upstream_rows = upstream_batches()
+            batches = upstream_batches()
             fields = None
         else:
             document = json.loads(raw)
@@ -342,7 +349,13 @@ class JsonDatasetAdapter:
                     fields = document.get("fields")
                 if fields and upstream_rows and isinstance(upstream_rows[0], list):
                     upstream_rows = [dict(zip(fields, row, strict=False)) | {"Date": document.get("date"), "_cells": row} for row in upstream_rows]
-        rows = tuple({**row, "source_id": self.source_id} for row in self.normalizer(upstream_rows))
+        rows = tuple(
+            {**row, "source_id": self.source_id}
+            for batch in batches
+            for row in self.normalizer(batch)
+        ) if endpoint_payloads else tuple(
+            {**row, "source_id": self.source_id} for row in self.normalizer(upstream_rows)
+        )
         if endpoint_payloads:
             parts = [b"{"]
             for index, (source_url, payload) in enumerate(endpoint_payloads):
