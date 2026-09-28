@@ -1,6 +1,6 @@
 # Janus — UI Specification
 
-版本：1.9
+版本：1.10
 狀態：索引；頁面與元件契約依下列切片為準
 
 ## 目前 UI 環境定位
@@ -15,17 +15,20 @@
 - User「今日」必須先能呈現 deterministic published market baseline；Mart／AI Daily Brief 是 enhancement。Mart unavailable 時只降級相關研究區塊，不應讓已存在的 Core 市場資料整頁不可見。
 - 個人持股主要畫面應使用 canonical 股票名稱＋代號，正式 aggregate market value／cost basis／unrealized PnL／return 只讀 Private Mart。缺價／stale 時必須指出受影響範圍並 withholding 不可靠 aggregate，不由 Flutter 補算。
 - Admin target workspace 仍須完成 Flutter shell、overview／batch 與 stock data workbench 才能宣稱不依賴 GCP／DB 的主要營運閉環；legacy static Admin 在 parity 與 rollback gate 前保留。
+- Janus User App 的最終 presentation target 由 [User App Final Visual Contract](ui/reference/user-app-final/README.md) 定義；圖片中的 sample price／PnL／AI prose／logo 只屬示意，canonical data 與狀態語意仍依 active SPEC／runtime contract。
 
 ## AI 最小讀取規則
 
 所有 UI 工作先讀 foundations，再只讀目標頁面、元件或 API 狀態切片。Admin 工作不需讀 User App 頁面；純後端工作不需讀 UI；release 驗收才讀 A11y 與 checklist。
+
+凡工作涉及 User App 的 presentation、layout、visual regression、Product Completeness，或「今日／關注／記帳／筆記／個股詳情」任一畫面，除 `ui/user-app.md` 外還必須讀 `ui/reference/user-app-final/README.md`；對應 PNG 已存在時必須實際檢視，未存在時不得宣稱 final visual screenshot acceptance。
 
 ## UI 路由
 
 | 任務 | 必讀切片 | 條件增讀 |
 |---|---|---|
 | 所有 UI、視覺、responsive、Navigation／Shell | [UI Foundations](ui/foundations.md) | 再讀一個目標功能切片 |
-| 今日、關注、個股、記帳／筆記、資產、我的、Research Context | [User App 頁面](ui/user-app.md) | 實作元件時讀 Components；串 API 時讀 States/API |
+| 今日、關注、個股、記帳／筆記、資產、我的、Research Context | [User App 頁面](ui/user-app.md) + [Final Visual Contract](ui/reference/user-app-final/README.md) | 對應 PNG 已存在時檢視；實作元件時讀 Components；串 API 時讀 States/API |
 | Flutter／Web 共用呈現元件 | [元件契約](ui/components.md) | 只增讀元件所在頁面 |
 | loading／error 等狀態與 FastAPI endpoints | [狀態語意與 API 契約](ui/states-and-api.md) | 不需預讀 Admin |
 | Admin tabs、tables、governance、reports | [Admin UI](ui/admin.md) | 只在全域 layout 時讀 Foundations |
