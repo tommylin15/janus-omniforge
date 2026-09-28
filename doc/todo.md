@@ -18,14 +18,14 @@
 
 Janus 已進入六個月 Dev Pilot observation window，但這不等於 feature freeze 或產品完成。現在分成兩條彼此獨立的主線：
 
-1. **Product Completeness foreground**：補齊目前 dev 真實使用的資料與操作閉環；每次仍只執行一個可獨立驗收的原子項目。
+1. **Product Completeness foreground**：補齊目前 dev 真實使用的資料與操作閉環；以使用者指定的整個 WBS 為工作與驗收單位，將可合併項目批次完成，不在每個 dataset／內部原子步驟間停等。遇到真實外部 blocker 時，繼續完成其他獨立條件並如實標記未完成部分。
 2. **`WBS-8-DEV-PILOT-RUN` operational observation**：持續累積自然 Scheduler／ingestion／analysis、backup／restore、outcome、usefulness、cost、manual intervention、recurring failure 與 security／privacy evidence；沒有新 evidence 時不製造人工 checkpoint。
 
 Observation window 不阻擋 correctness、data-integrity、market coverage、portfolio valuation、User baseline usability 或 Admin operability 修復；但也不自動授權 Production、付費 source、新付費 API／model、新 GCP service、HA／multi-region 或其他仍受 gate 的範圍。
 
 ## 模型確認規則
 
-- 每次只取 foreground queue 中的一個原子任務。正式執行前，AI 必須先提醒建議模型與任務名稱，等使用者明確回覆已切換模型後才開始；完成後停止，下一項重新確認。
+- 每次只取 foreground queue 中的一個 WBS。正式執行前，AI 必須先提醒建議模型與 WBS ID／名稱，等使用者明確回覆已切換模型後才開始；開始後完成該 WBS 的整體 acceptance scope，不在其內部 datasets／原子步驟間重複停等。遇到需使用者決策的 blocker 時，先完成其餘可繼續部分；完成整體或只剩無法自行解除的 blocker 後停止，下一個 WBS 再重新確認。
 - 六個月 observation checkpoint 是 evidence 工作，不應為了「下一項」而人工觸發本來應自然發生的 production-like workload；需要執行 bounded repair／acceptance 時仍依各 WBS 的模型與授權規則。
 - 每個日曆日第一次 Gemini 串接前，先查官方模型清單，選出當日前三個 Stable model，依序試用；優先 free tier，不自動開啟 paid gate，並受使用者明確授權的 scope／次數上限約束。全部失敗時維持 fail-closed、不得寫 placeholder。
 
