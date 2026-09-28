@@ -42,6 +42,17 @@ class FirstBatchSourceTests(unittest.TestCase):
         self.assertEqual(response.rows[0]["source_id"], "taiex")
         self.assertEqual(response.rows[0]["observed_at"], "2026-08-25T00:00:00Z")
 
+    def test_tpex_valuation_uses_official_batch_fields_and_roc_date(self):
+        raw = json.dumps([{"Date": "1150924", "SecuritiesCompanyCode": "1240",
+                           "PriceEarningRatio": "18.5", "PriceBookRatio": "2.1", "YieldRatio": "3.2"}]).encode()
+        urls = []
+        adapter = dataset_adapters(lambda url: urls.append(url) or raw)["tpex-valuation"]
+        request = CollectionRequest("e1", "t1", "tpex", "valuation", "TPEX", ("1240",), None, date(2026, 9, 24), 5)
+        row = adapter.fetch(request).rows[0]
+        self.assertEqual(urls, ["https://www.tpex.org.tw/openapi/v1/tpex_mainboard_peratio_analysis"])
+        self.assertEqual((row["symbol"], row["market"], row["observed_date"]), ("1240", "TPEX", "2026-09-24"))
+        self.assertEqual((row["pe_ratio"], row["pb_ratio"], row["dividend_yield_percent"]), ("18.5", "2.1", "3.2"))
+
     def test_ohlcv_adapters_are_registered_for_symbol_scoped_runtime(self):
         raw = json.dumps({"data": [["115/08/25", "1,234", "100,000", "80", "82", "79", "81", "+1", "456"]]}).encode()
         adapters = dataset_adapters(lambda _: raw)

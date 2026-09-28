@@ -87,11 +87,11 @@ def normalise_benchmark(rows: Iterable[Mapping[str, Any]], benchmark_id: str = "
     return tuple(result)
 
 
-def normalise_valuation(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, Any], ...]:
-    return tuple({"symbol": str(_pick(row, "symbol", "code", "Code", "證券代號")), "market": str(_pick(row, "market") or "TWSE"),
+def normalise_valuation(rows: Iterable[Mapping[str, Any]], *, market: str = "TWSE") -> tuple[dict[str, Any], ...]:
+    return tuple({"symbol": str(_pick(row, "symbol", "code", "Code", "SecuritiesCompanyCode", "證券代號")), "market": str(_pick(row, "market") or market),
                   "observed_date": _iso_date(_pick(row, "observed_date", "date", "Date")),
-                  "pe_ratio": _text(_pick(row, "pe_ratio", "pe", "PEratio", "本益比")), "pb_ratio": _text(_pick(row, "pb_ratio", "pb", "PBratio", "股價淨值比")),
-                  "dividend_yield_percent": _text(_pick(row, "dividend_yield_percent", "dividend_yield", "DividendYield", "殖利率(%)"))}
+                  "pe_ratio": _text(_pick(row, "pe_ratio", "pe", "PEratio", "PriceEarningRatio", "本益比")), "pb_ratio": _text(_pick(row, "pb_ratio", "pb", "PBratio", "PriceBookRatio", "股價淨值比")),
+                  "dividend_yield_percent": _text(_pick(row, "dividend_yield_percent", "dividend_yield", "DividendYield", "YieldRatio", "殖利率(%)"))}
                  for row in rows)
 
 
@@ -396,6 +396,7 @@ def dataset_adapters(transport: Callable[[str], bytes] | None = None) -> dict[st
         "taiex": JsonDatasetAdapter("taiex", "benchmark", "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST", lambda rows: normalise_benchmark(rows, "TAIEX"), transport, dated("https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST", response="json")),
         "tpex-benchmark": JsonDatasetAdapter("tpex-benchmark", "benchmark", "https://www.tpex.org.tw/openapi/v1/tpex_index", lambda rows: normalise_benchmark(rows, "TPEx"), transport, row_date_field="trade_date"),
         "twse-valuation": JsonDatasetAdapter("twse", "valuation", "https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d", normalise_valuation, transport, dated("https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d", selectType="ALL", response="json")),
+        "tpex-valuation": JsonDatasetAdapter("tpex", "valuation", "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_peratio_analysis", lambda rows: normalise_valuation(rows, market="TPEX"), transport, row_date_field="observed_date"),
         "twse-institutional": JsonDatasetAdapter("twse", "institutional", "https://www.twse.com.tw/rwd/zh/fund/T86", normalise_institutional, transport, dated("https://www.twse.com.tw/rwd/zh/fund/T86", selectType="ALL", response="json")),
         "mops": JsonDatasetAdapter("mops", "financials", "https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci", normalise_financials, transport,
                                    observation_mode="fetch_time", max_replay_age_days=7,
