@@ -36,7 +36,7 @@ Final Visual Contract 的權威範圍是 presentation：資訊架構、區塊順
 
 - 手機版以單欄、可掃描的 card-based Material 3 layout 為主；
 - Janus 使用一致的 cyan／teal 主視覺、清楚字階、適度留白與圓角卡片；
-- 底部主要導航維持「今日／關注／記帳／筆記／我的」的既有產品心智；
+- 底部主要導航維持四個既有入口：「今日」、「關注」、「記帳／筆記」、「我的」；
 - 各頁主要 section 的順序與 hierarchy 必須符合本檔與 `doc/ui/user-app.md`；
 - primary information 先於 advanced information；進階資料不得搶在健康度、持股、白話摘要等主要內容之前；
 - 手機版不得退回高密度 Excel 式表格作為主要 UX；
