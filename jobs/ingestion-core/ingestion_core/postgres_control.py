@@ -182,7 +182,11 @@ class PostgreSQLControlPlane:
         condition = " AND s.enabled" if only_enabled else ""
         with self.connection.cursor() as cur:
             if config.coverage_tier == CoverageTier.CORE_FOCUS.value:
-                cur.execute("SELECT dm.symbol FROM control.active_deep_tracking_memberships dm JOIN control.stock_master s USING(symbol) WHERE true" + condition + " ORDER BY dm.symbol")
+                cur.execute("""SELECT dm.symbol FROM control.active_deep_tracking_memberships dm
+                               JOIN control.stock_master s USING(symbol)
+                               JOIN control.liquid_500_members m USING(symbol)
+                               WHERE m.version=(SELECT version FROM control.liquid_500_versions
+                                 WHERE effective_from<=now() ORDER BY effective_from DESC LIMIT 1)""" + condition + " ORDER BY dm.symbol")
                 rows = cur.fetchall()
             else:
                 cur.execute(f"SELECT cs.symbol FROM control.collection_symbols cs JOIN control.stock_master s USING(symbol) WHERE cs.config_id=%s{condition} ORDER BY cs.symbol", (config_id,))

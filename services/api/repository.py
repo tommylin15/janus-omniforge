@@ -296,6 +296,7 @@ class PostgresWorkspaceRepository:
             return [dict(row) for row in rows]
 
     def watchlist(self, user_id: UUID) -> list[dict[str, Any]]:
+        self.retire_offlist_watchlist(user_id)
         with self._connection() as connection:
             return [dict(row) for row in connection.execute(
                 """SELECT w.*,s.name AS stock_name,EXISTS(
@@ -305,9 +306,35 @@ class PostgresWorkspaceRepository:
                        WHERE effective_from<=now() ORDER BY effective_from DESC LIMIT 1)
                    ) AS in_market_500
                    FROM private.watchlist w LEFT JOIN control.stock_master s ON s.symbol=w.symbol
-                   WHERE w.user_id=%s AND w.active ORDER BY w.sort_order,w.symbol""",
+                   WHERE w.user_id=%s AND w.active AND EXISTS(
+                     SELECT 1 FROM control.liquid_500_members m
+                     WHERE m.symbol=w.symbol AND m.version=(
+                       SELECT version FROM control.liquid_500_versions
+                       WHERE effective_from<=now() ORDER BY effective_from DESC LIMIT 1))
+                   ORDER BY w.sort_order,w.symbol""",
                 (user_id,),
             ).fetchall()]
+
+    def retire_offlist_watchlist(self, user_id: UUID | None = None) -> int:
+        with self._connection() as connection:
+            retired = connection.execute(
+                """UPDATE private.watchlist w SET active=false,version=version+1,updated_at=now()
+                   WHERE w.active AND (%s::uuid IS NULL OR w.user_id=%s)
+                     AND EXISTS (SELECT 1 FROM control.liquid_500_versions WHERE effective_from<=now())
+                     AND NOT EXISTS (
+                       SELECT 1 FROM control.liquid_500_members m
+                       WHERE m.symbol=w.symbol AND m.version=(
+                         SELECT version FROM control.liquid_500_versions
+                         WHERE effective_from<=now() ORDER BY effective_from DESC LIMIT 1))
+                   RETURNING w.user_id,w.symbol""",
+                (user_id, user_id),
+            ).fetchall()
+            for row in retired:
+                version = self._next_change_version(connection, row["user_id"])
+                self._change(connection, row["user_id"], version, "watchlist", row["symbol"], None)
+            for symbol in {row["symbol"] for row in retired}:
+                connection.execute("SELECT control.record_deep_tracking_demand(%s)", (symbol,))
+            return len(retired)
 
     def investment_profile(self, user_id: UUID) -> dict[str, Any]:
         with self._connection() as connection:
@@ -347,6 +374,7 @@ class PostgresWorkspaceRepository:
             return dict(row)
 
     def follow(self, user_id: UUID, value: WatchlistIn, key: str) -> dict[str, Any]:
+        self.retire_offlist_watchlist(user_id)
         with self._connection() as connection:
             replay=self._mutation(connection,user_id,key)
             if replay:
@@ -394,6 +422,7 @@ class PostgresWorkspaceRepository:
             connection.execute("SELECT control.record_deep_tracking_demand(%s)", (symbol,))
 
     def reorder(self, user_id: UUID, symbols: list[str], expected: int, key: str) -> list[dict[str, Any]]:
+        self.retire_offlist_watchlist(user_id)
         with self._connection() as connection:
             if self._mutation(connection,user_id,key): return self.watchlist(user_id)
             current=connection.execute("SELECT symbol,version,idempotency_key FROM private.watchlist WHERE user_id=%s AND active FOR UPDATE",(user_id,)).fetchall()

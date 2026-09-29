@@ -50,6 +50,7 @@ sudo docker exec --user postgres janus-postgres bash -ceu '
     psql -U postgres -d janus_control -f /opt/janus/migrations/028_mcp_oauth_refresh_tokens.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/030_private_stock_master_read.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/031_portfolio_market_coverage.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/034_offlist_watchlist_retirement.sql
   '
 sudo docker exec --user postgres janus-postgres \
   psql -U postgres -d janus_control -f /opt/janus/private-storage-acceptance.sql

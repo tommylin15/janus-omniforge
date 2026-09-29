@@ -6,11 +6,50 @@ from uuid import UUID, uuid4
 
 from services.api import private_pipeline_runtime
 from services.api.private_pipeline import PrivatePipeline
-from services.api.private_pipeline_runtime import register_active_portfolio_market_coverage
 from services.api.repository import PostgresWorkspaceRepository
 
 
 USER = UUID("00000000-0000-0000-0000-000000000001")
+
+
+def test_offlist_retirement_preserves_history_and_records_demand():
+    class Rows:
+        def __init__(self, rows):
+            self.rows = rows
+
+        def fetchall(self):
+            return self.rows
+
+        def fetchone(self):
+            return self.rows[0]
+
+    class Connection:
+        def __init__(self):
+            self.calls = []
+
+        def execute(self, sql, values=()):
+            self.calls.append((sql, values))
+            if "UPDATE private.watchlist w" in sql:
+                assert "NOT EXISTS" in sql and "liquid_500_members" in sql
+                assert "active=false" in sql and "version=version+1" in sql
+                return Rows([{"user_id": USER, "symbol": "5876"}])
+            if "UPDATE private.users" in sql:
+                return Rows([{"change_version": 9}])
+            return Rows([])
+
+    repository = object.__new__(PostgresWorkspaceRepository)
+    connection_object = Connection()
+
+    @contextmanager
+    def connection():
+        yield connection_object
+
+    repository._connection = connection
+    assert repository.retire_offlist_watchlist(USER) == 1
+    assert any("INSERT INTO private.change_log" in sql for sql, _ in connection_object.calls)
+    assert any("record_deep_tracking_demand" in sql and values == ("5876",)
+               for sql, values in connection_object.calls)
+    assert all("ledger_events" not in sql for sql, _ in connection_object.calls)
 
 
 def _buy() -> dict:
@@ -116,97 +155,33 @@ def test_repository_enumerates_only_bounded_users_with_ledger_history_for_schedu
     assert repository.portfolio_user_ids_for_pipeline(123) == [USER]
 
 
-def test_private_pipeline_runtime_registers_only_distinct_active_symbols_via_bounded_function():
-    class Rows:
-        def __init__(self, rows):
-            self.rows = rows
-
-        def fetchall(self):
-            return self.rows
-
-    class Connection:
-        def __init__(self):
-            self.calls = []
-
-        def execute(self, sql, values=()):
-            self.calls.append((sql, values))
-            if "WITH reversed AS" in sql:
-                assert "FROM private.ledger_events" in sql
-                assert "reverses_event_id" in sql
-                assert "GROUP BY e.user_id,e.symbol,e.currency" in sql
-                assert "SELECT DISTINCT symbol FROM positions WHERE shares>0" in sql
-                return Rows([{"symbol": "2330"}, {"symbol": "2317"}, {"symbol": "2330"}])
-            assert sql == "SELECT symbol FROM control.request_portfolio_market_coverage(%s)"
-            assert values == (["2317", "2330"],)
-            return Rows([{"symbol": "2317"}, {"symbol": "2330"}])
-
-    repository = object.__new__(PostgresWorkspaceRepository)
-    connection_object = Connection()
-
-    @contextmanager
-    def connection():
-        yield connection_object
-
-    repository._connection = connection
-    assert register_active_portfolio_market_coverage(repository) == (2, 2)
-    assert len(connection_object.calls) == 2
-
-
-def test_private_pipeline_runtime_skips_control_write_when_no_active_positions():
-    class Rows:
-        def fetchall(self):
-            return []
-
-    class Connection:
-        def __init__(self):
-            self.calls = []
-
-        def execute(self, sql, values=()):
-            self.calls.append((sql, values))
-            assert "FROM private.ledger_events" in sql
-            return Rows()
-
-    repository = object.__new__(PostgresWorkspaceRepository)
-    connection_object = Connection()
-
-    @contextmanager
-    def connection():
-        yield connection_object
-
-    repository._connection = connection
-    assert register_active_portfolio_market_coverage(repository) == (0, 0)
-    assert len(connection_object.calls) == 1
-
-
-def test_private_pipeline_runtime_reports_unavailable_coverage_without_failing(monkeypatch, capsys):
+def test_private_pipeline_runtime_retires_offlist_before_processing(monkeypatch, capsys):
     class MarketStub:
         memberships = object()
 
         def latest_valuation_date(self, day):
             return day
 
+    class RepositoryStub:
+        def retire_offlist_watchlist(self):
+            return 1
+
     class PipelineStub:
-        def __init__(self, *_args):
-            pass
+        def __init__(self, repository, *_args):
+            assert isinstance(repository, RepositoryStub)
 
         def run(self, *_args):
             return 42
 
-    market = MarketStub()
     monkeypatch.setattr(private_pipeline_runtime, "load_postgres_bundle", lambda *_args: None)
-    monkeypatch.setattr(private_pipeline_runtime, "repository_from_env", lambda: object())
-    monkeypatch.setattr(private_pipeline_runtime.CorePriceReader, "from_env", classmethod(lambda _cls: market))
+    monkeypatch.setattr(private_pipeline_runtime, "repository_from_env", RepositoryStub)
+    monkeypatch.setattr(private_pipeline_runtime.CorePriceReader, "from_env", classmethod(lambda _cls: MarketStub()))
     monkeypatch.setattr(private_pipeline_runtime.PrivateIcebergStore, "from_env", classmethod(lambda _cls: object()))
     monkeypatch.setattr(private_pipeline_runtime, "PrivatePipeline", PipelineStub)
-    monkeypatch.setattr(private_pipeline_runtime, "register_active_portfolio_market_coverage", lambda _repo: (1, 0))
 
     private_pipeline_runtime.main()
 
-    output = capsys.readouterr().out
-    assert "portfolio_coverage_status=partial" in output
-    assert "portfolio_coverage_requested=1 portfolio_coverage_accepted=0" in output
-    assert "portfolio_coverage_missing=1" in output
-    assert "portfolio_coverage_missing_reason=no_eligible_enabled_symbol_scoped_ohlcv_config" in output
+    assert "checkpoint=42 offlist_watchlist_retired=1" in capsys.readouterr().out
 
 
 def test_private_pipeline_job_uses_coverage_runtime_entrypoint():
