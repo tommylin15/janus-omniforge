@@ -150,19 +150,20 @@ void main() {
     await tester.tap(repair);
     await tester.pumpAndSettle();
 
-    expect(
-      api.writes,
-      contains({
-        'path': '/api/v1/admin/executions/collection',
-        'config_id': 'valuation',
-        'symbols': ['2330'],
-      }),
-    );
+    expect(api.writes, hasLength(1));
+    expect(api.writes.single['path'], '/api/v1/admin/executions/collection');
+    expect(api.writes.single['config_id'], 'valuation');
+    expect(api.writes.single['symbols'], ['2330']);
     expect(
       api.writes.any((write) => write['config_id'] == 'valuation-blocked'),
       isFalse,
     );
 
+    await tester.scrollUntilVisible(
+      find.text('技術追蹤（唯讀）'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
     await tester.tap(find.text('技術追蹤（唯讀）'));
     await tester.pumpAndSettle();
     expect(find.textContaining('exec-old'), findsOneWidget);
