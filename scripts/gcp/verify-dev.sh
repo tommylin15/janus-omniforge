@@ -68,7 +68,7 @@ verify_service() {
   fi
 
   if [[ "${service}" == "janus-api" && "${GITHUB_SHA:-}" =~ ^[0-9a-f]{7,64}$ ]]; then
-    local service_url build_id index_html expected_bootstrap brand_image app_icon pwa_icon pwa_icon_512 maskable_icon manifest_json
+    local service_url build_id index_html expected_bootstrap admin_index legacy_admin admin_status brand_image app_icon pwa_icon pwa_icon_512 maskable_icon manifest_json
     service_url="$(gcloud run services describe "${service}" \
       --project="${project}" --region="${region}" --format='value(status.url)')"
     build_id="$(curl -fsS --retry 6 --retry-delay 2 \
@@ -90,6 +90,31 @@ verify_service() {
     fi
     if [[ "${index_html}" != *"/app/manifest.json"* || "${index_html}" != *"/app/apple-touch-icon.png"* || "${index_html}" != *"/app/favicon.png"* ]]; then
       echo "janus-api index does not advertise the canonical /app PWA metadata" >&2
+      return 1
+    fi
+
+    admin_index="$(curl -fsS --retry 6 --retry-delay 2 \
+      "${service_url}/app/admin?expected=${GITHUB_SHA}")"
+    if [[ "${admin_index}" != *"Janus · OmniForge"* || "${admin_index}" != *"${expected_bootstrap}"* ]]; then
+      echo "janus-api /app/admin is not served by the current Flutter workspace build" >&2
+      return 1
+    fi
+
+    admin_status="$(curl -sS -o /dev/null -w '%{http_code}' --retry 3 --retry-delay 1 \
+      "${service_url}/api/v1/admin/source-health?limit=1")"
+    if [[ "${admin_status}" != "401" ]]; then
+      echo "janus-api Admin API without an Admin token returned ${admin_status}, expected 401" >&2
+      return 1
+    fi
+
+    legacy_admin="$(curl -fsS --retry 6 --retry-delay 2 \
+      "${service_url}/admin/stocks?expected=${GITHUB_SHA}")"
+    if [[ "${legacy_admin}" != *"Janus 管理介面 · 資料營運"* || "${legacy_admin}" != *"/assets/admin.js"* ]]; then
+      echo "janus-api legacy static Admin rollback surface is not available" >&2
+      return 1
+    fi
+    if [[ "${legacy_admin}" == *"${expected_bootstrap}"* ]]; then
+      echo "janus-api legacy /admin/stocks unexpectedly resolves to the Flutter build" >&2
       return 1
     fi
 
@@ -152,7 +177,7 @@ if missing:
     raise SystemExit(f"Janus manifest is missing PNG install icons: {sorted(missing)}")
 PY
 
-    echo "janus-api traffic, web build, high-resolution PNG branding, and PWA metadata match ${GITHUB_SHA}"
+    echo "janus-api traffic, Flutter user/Admin workspace, Admin auth boundary, legacy Admin rollback surface, web build, high-resolution PNG branding, and PWA metadata match ${GITHUB_SHA}"
   fi
 }
 
