@@ -69,6 +69,30 @@ class MartPipelineTests(unittest.TestCase):
         self.assertEqual(first["aggregate"]["publication_status"], "publishable")
         self.assertEqual(first["features"]["quant"]["return_20d"], 20.0)
 
+    def test_fact_packs_are_replayable_and_baseline_compatible(self):
+        first = report()
+        replay = report(execution_id="22222222-2222-2222-2222-222222222222")
+        roles = {role["role"]: role for role in first["roles"]}
+        self.assertEqual([pack["pack_type"] for pack in first["fact_packs"]],
+                         ["fundamental", "valuation", "positioning", "quant", "event_risk"])
+        self.assertEqual([pack["fact_pack_hash"] for pack in first["fact_packs"]],
+                         [pack["fact_pack_hash"] for pack in replay["fact_packs"]])
+        for pack in first["fact_packs"]:
+            role = roles[pack["pack_type"]]
+            self.assertEqual(pack["fact_pack_version"], "1.0.0")
+            self.assertEqual(pack["analysis_as_of"], AS_OF.isoformat())
+            self.assertEqual(pack["core_snapshot_id"], "core-1")
+            self.assertEqual(pack["facts"], role["features"])
+            self.assertEqual(pack["missing_data"], role["missing_data"])
+            self.assertEqual(pack["evidence_ids"], role["evidence_ids"])
+            self.assertEqual(pack["baseline"]["score"], role["score"])
+            self.assertEqual(pack["baseline"]["completeness"], role["completeness"])
+            self.assertEqual(pack["baseline"]["confidence"], role["confidence"])
+            self.assertRegex(pack["evidence_hash"], r"^sha256:[0-9a-f]{64}$")
+            self.assertRegex(pack["fact_pack_hash"], r"^sha256:[0-9a-f]{64}$")
+            evidence = {item["evidence_id"]: item for item in first["evidence"]}
+            self.assertEqual(pack["provenance_ids"], sorted({evidence[item]["provenance_id"] for item in pack["evidence_ids"]}))
+
     def test_rebuild_hash_excludes_execution_identity(self):
         self.assertEqual(report()["deterministic_hash"], report(execution_id="22222222-2222-2222-2222-222222222222")["deterministic_hash"])
 
@@ -94,6 +118,9 @@ class MartPipelineTests(unittest.TestCase):
         self.assertFalse(any(item["metric"] == "future" for item in result["evidence"]))
         self.assertIn("future_leakage", {item["reason"] for item in result["rejected_evidence"]})
         self.assertEqual(result["aggregate"]["analysis_outcome"], "invalid")
+        event_pack = next(pack for pack in result["fact_packs"] if pack["pack_type"] == "event_risk")
+        self.assertEqual(event_pack["evidence_ids"], [])
+        self.assertEqual(event_pack["provenance_ids"], [])
 
     def test_legacy_financial_rows_without_availability_fail_closed(self):
         source = datasets()
@@ -198,6 +225,8 @@ class GeminiNarratorTests(unittest.TestCase):
         self.assertEqual(result["status"], "succeeded")
         self.assertEqual(len(calls), 2)
         self.assertEqual(deterministic, before)
+        self.assertEqual([pack["fact_pack_hash"] for pack in deterministic["fact_packs"]],
+                         [pack["fact_pack_hash"] for pack in before["fact_packs"]])
 
     def test_ungrounded_number_is_a_structured_failure_without_placeholder(self):
         narrative = {"summary": "target 999999", "bull_case": [], "bear_case": [], "risks": [], "evidence_ids": []}
