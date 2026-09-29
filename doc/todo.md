@@ -13,6 +13,7 @@
 - [WBS-6 Market Home UI completed (2026-09-27)](archive/wbs-6-market-home-ui-2026-09-27.md)
 - [WBS-6 Flutter Admin Shell completed (2026-09-29)](archive/wbs-6-flutter-admin-shell-completed-2026-09-29.md)
 - [WBS-6 Admin Overview / Batch completed (2026-09-29)](archive/wbs-6-admin-overview-batch-completed-2026-09-29.md)
+- [WBS-6 Admin Stock Workbench completed (2026-09-29)](archive/wbs-6-admin-stock-workbench-completed-2026-09-29.md)
 - [TODO 歷史 checkpoint、退役 WBS 4C 與已完成 checklist（2026-09-23）](archive/todo-history-and-completed-2026-09-23.md)
 - [已完成 WBS 0／1／2／4](archive/wbs-completed-through-2026-08-31.md)
 - 其他既有完成紀錄保留於 `archive/`；完整 runtime／deployment evidence 見 `spec/operations-and-testing.md`。
@@ -21,26 +22,30 @@
 
 Janus 已進入六個月 Dev Pilot observation window，但這不等於 feature freeze 或產品完成。現在分成兩條彼此獨立的主線：
 
-1. **Product Completeness foreground**：補齊目前 dev 真實使用的資料與操作閉環；以使用者指定的整個 WBS 為工作與驗收單位，將可合併項目批次完成，不在每個 dataset／內部原子步驟間停等。遇到真實外部 blocker 時，繼續完成其他獨立條件並如實標記未完成部分。
+1. **Product Completeness / five-analyst foreground**：補齊目前 dev 真實使用的資料與操作閉環，並依 `five-analyst-daily-operation-gate.md` 推進每日研究鏈路；以使用者指定的整個 WBS 為工作與驗收單位，將可合併項目批次完成，不在每個 dataset／內部原子步驟間停等。遇到真實外部 blocker 時，繼續完成其他安全且獨立的條件並如實標記未完成部分。
 2. **`WBS-8-DEV-PILOT-RUN` operational observation**：持續累積自然 Scheduler／ingestion／analysis、backup／restore、outcome、usefulness、cost、manual intervention、recurring failure 與 security／privacy evidence；沒有新 evidence 時不製造人工 checkpoint。
 
-Observation window 不阻擋 correctness、data-integrity、market coverage、portfolio valuation、User baseline usability 或 Admin operability 修復；但也不自動授權 Production、付費 source、新付費 API／model、新 GCP service、HA／multi-region 或其他仍受 gate 的範圍。
+Observation window 不阻擋 correctness、data-integrity、market coverage、portfolio valuation、User baseline usability、Admin operability 或 five-role dev daily analysis 的持續開發；但也不自動授權 Production、付費 source、新付費 API／model、新 GCP service、HA／multi-region 或其他仍受 gate 的範圍。
 
 ## 模型確認規則
 
-- 每次只取 foreground queue 中的一個 WBS。正式執行前，AI 必須先提醒建議模型與 WBS ID／名稱，等使用者明確回覆已切換模型後才開始；開始後完成該 WBS 的整體 acceptance scope，不在其內部 datasets／原子步驟間重複停等。遇到需使用者決策的 blocker 時，先完成其餘可繼續部分；完成整體或只剩無法自行解除的 blocker 後停止，下一個 WBS 再重新確認。
+- 每次只取 foreground queue 中的一個**可執行** WBS。正式執行前，AI 必須先提醒建議模型與 WBS ID／名稱，等使用者明確回覆已切換模型後才開始；開始後完成該 WBS 的整體 acceptance scope，不在其內部 datasets／原子步驟間重複停等。遇到需使用者決策的 blocker 時，先完成其餘可繼續部分；完成整體或只剩無法自行解除的 blocker 後停止，下一個 WBS 再重新確認。
 - 六個月 observation checkpoint 是 evidence 工作，不應為了「下一項」而人工觸發本來應自然發生的 production-like workload；需要執行 bounded repair／acceptance 時仍依各 WBS 的模型與授權規則。
 - 每個日曆日第一次 Gemini 串接前，先查官方模型清單，選出當日前三個 Stable model，依序試用；優先 free tier，不自動開啟 paid gate，並受使用者明確授權的 scope／次數上限約束。全部失敗時維持 fail-closed、不得寫 placeholder。
 
-## A. Product Completeness foreground queue
+## A. Foreground queue
 
-### 1. `WBS-6-ADMIN-STOCK-WORKBENCH` — 【Sol】
+`five-analyst-daily-operation-gate.md` 的 Gate 1 七個 Product Completeness prerequisite 已在 2026-09-29 全部完成。`WBS-6-PORTFOLIO-INTRADAY-QUOTE` 仍是有效產品缺口，但因正式行情來源授權 blocked，且不是 Gate 1 七項之一；在 blocker 未解除前不應停住安全且獨立的 five-analyst chain。
 
-Dependency：Admin shell、Overview／Batch（均已完成 2026-09-29）、Core persisted readers；AI role-impact／historical role/CIO 功能仍受 Mart contracts dependency。
+### 1. `WBS-5-MART-FACT-PACKS` — 【Sol】
 
-- [ ] 第一階段先完成代號／中文名搜尋、dataset health、coverage／gap、最近 execution／snapshot 與安全 gap-repair 入口。
-- [ ] 技術 lineage 放在進階，不以 raw JSON 作主要 UX；old execution／snapshot immutable。
-- [ ] 未完成 Fact Pack／AI role／CIO contracts 時，不顯示或假裝相關 rerun／historical AI capability 已可用。
+Dependency：five-analyst Gate 1 已完成；既有 canonical Core／Mart baseline、PIT／provenance governance。
+
+- [ ] 建立 Fundamental／Valuation／Positioning／Quant／Event Risk Fact Pack contract。
+- [ ] 明確保存 PIT、missing-data、provenance、evidence、baseline compatibility、hash／version lineage。
+- [ ] LLM off 不改 facts；LLM 不擁有 canonical facts／numbers，同一 as-of input 可 replay。
+- [ ] 保持 `mart.v1` consumer compatibility；不得因本 WBS 自動升級 schema major version。
+- [ ] 完成 implementation、tests、deployment／runtime 與 bounded live acceptance 後才可宣稱 Gate 2 完成；不得因此宣稱五位分析師已開始每日工作。
 
 ### 2. `WBS-6-PORTFOLIO-INTRADAY-QUOTE` — 【Blocked：正式行情來源授權】
 
@@ -86,9 +91,8 @@ Dependency：Admin shell、Overview／Batch（均已完成 2026-09-29）、Core 
 
 ### P1 — Mart 閉環（Planned；advanced capability）
 
-以下不應先於 Product Completeness foreground；既有 deterministic Mart／Gemini narrator／mart.v1 evidence 保持 current truth。
+`WBS-5-MART-FACT-PACKS` 已依 five-analyst gate 提升為 foreground。以下項目在其 dependency 與各自 gate 完成後依序推進；既有 deterministic Mart／Gemini narrator／mart.v1 evidence 保持 current truth。
 
-- [ ] 【Sol】 `WBS-5-MART-FACT-PACKS`：建立 Fundamental／Valuation／Positioning／Quant／Event Risk Fact Pack contract、PIT／missing-data／provenance／evidence、baseline compatibility、hash／version lineage；LLM off 不改 facts、canonical numbers 可 replay、mart.v1 compatibility。
 - [ ] 【Sol】 `WBS-5-MART-AI-ROLE-CONTRACT`：五個 structured AI role output、locked system guardrail、versioned methodology prompts、CIO contract；invalid role structured failure、old artifact immutable。
 - [ ] 【Sol】 `WBS-5-MART-AI-VALIDATION`：schema、evidence ID、numeric grounding、analysis-as-of time fence、future leakage、missing-data honesty、claim coverage；invalid output 不得 publish，one-role failure 不得宣稱 full success。
 - [ ] 【Sol】 `WBS-5-MART-V2-COMPAT`：保留 `mart.v1`、新增 additive artifact／validator contract、規劃 future mart.v2 migration；既有 v1 fixtures／consumer 不破壞，migration 前不升版。
