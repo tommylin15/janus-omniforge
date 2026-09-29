@@ -214,7 +214,7 @@ def _run_analysis_replay(config_id: str, symbols: tuple[str, ...], *, timeout_se
         raise ValueError("analysis replay timeout must be 30..1800 seconds")
     control = _control_plane()
     try:
-        execution = control.enqueue_analysis(config_id, symbols, trace_id=f"fact-pack-acceptance:{config_id}")
+        execution = control.enqueue_analysis(config_id, symbols)
         trigger = _trigger_mart(execution.execution_id, delay_seconds=0)
         if trigger.get("status") != "accepted":
             raise RuntimeError(f"Mart trigger was not accepted: {trigger.get('status', 'unknown')}")

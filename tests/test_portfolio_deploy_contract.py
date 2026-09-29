@@ -117,3 +117,9 @@ def test_private_stock_master_acl_has_bounded_control_owner_transport():
     assert "030_private_stock_master_read|031_portfolio_market_coverage" in INGESTION_WORKFLOW
     assert "JANUS_CONTROL_MIGRATION=${MIGRATION}" in INGESTION_WORKFLOW
     assert "gcloud run jobs execute janus-ingestion-core" in INGESTION_WORKFLOW
+
+
+def test_fact_pack_analysis_replay_uses_control_generated_uuid_trace():
+    compile(INGESTION_ENTRYPOINT, str(ROOT / "jobs/ingestion-core/ingestion_core/runtime_entrypoint.py"), "exec")
+    assert "control.enqueue_analysis(config_id, symbols)" in INGESTION_ENTRYPOINT
+    assert 'trace_id=f"fact-pack-acceptance:{config_id}"' not in INGESTION_ENTRYPOINT
