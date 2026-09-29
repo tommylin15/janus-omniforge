@@ -20,10 +20,22 @@ class ContractRegistryTests(unittest.TestCase):
         for schema_name in ("RuntimeBindingV1", "AgentEventV1", "ContextEgressV1", "ContextSourceV1",
                             "ContextSelectorV1", "ContextPreviewV1", "ContextResolveV1", "ApprovalRequestV1"):
             self.assertNotIn(schema_name, self.registry["schemas"])
-        for schema_name in ("MartEvidenceV1", "MartRolePayloadV1", "MartScopedAnalysisV1", "MartPublicationIndexV1", "MartCandidateHealthV1"):
+        for schema_name in ("MartEvidenceV1", "MartFactPackV1", "MartRolePayloadV1", "MartScopedAnalysisV1",
+                            "MartPublicationIndexV1", "MartCandidateHealthV1"):
             self.assertIn(schema_name, self.registry["schemas"])
         self.assertEqual(set(self.registry["enums"]["analysisOutcome"]),
                          {"complete", "invalid", "review_required", "risk_blocked", "insufficient_data"})
+
+    def test_mart_fact_pack_is_additive_v1_contract(self):
+        mart = json.loads((ROOT / "packages/contracts/mart.v1.json").read_text())
+        self.assertEqual(mart["version"], "1.1.0")
+        self.assertIn("FactPackV1", mart["$defs"])
+        scoped = mart["$defs"]["MartScopedAnalysisV1"]
+        self.assertIn("fact_packs", scoped["properties"])
+        self.assertNotIn("fact_packs", scoped["required"])
+        evidence = mart["$defs"]["EvidenceV1"]["properties"]
+        self.assertIn("availability_at", evidence)
+        self.assertIn("publication_time_authoritative", evidence)
 
     def test_governance_blocking_policy(self):
         self.assertEqual(self.policy["developmentCompletenessGate"], 0.30)
