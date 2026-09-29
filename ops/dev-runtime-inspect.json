@@ -1,5 +1,4 @@
 {
-  "request_id": "wbs-5-fact-pack-config-recovery-20260930",
-  "component": "janus-ingestion-core",
-  "execution": "janus-ingestion-core-8xhlx"
+  "request_id": "wbs-5-fact-pack-failure-diagnosis-20260930",
+  "component": "wbs-5-fact-pack"
 }
