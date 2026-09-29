@@ -27,6 +27,7 @@ ROLE_DATASETS = {
     "quant": frozenset({"ohlcv", "benchmark", "market-activity"}),
     "event_risk": frozenset({"events"}),
 }
+FACT_PACK_VERSION = "1.0.0"
 
 
 def canonical_json(value: object) -> bytes:
@@ -376,6 +377,38 @@ def _role(name: str, features: dict[str, Any], evidence: list[dict[str, Any]]) -
             "missing_data": [key for key, value in values.items() if value is None], "evidence_ids": refs, "features": values}
 
 
+def _fact_packs(*, roles: list[dict[str, Any]], evidence: list[dict[str, Any]], analysis_as_of: str,
+                core_snapshot_id: str, feature_version: object) -> list[dict[str, Any]]:
+    evidence_by_id = {item["evidence_id"]: item for item in evidence}
+    packs: list[dict[str, Any]] = []
+    for role in roles:
+        selected = [evidence_by_id[evidence_id] for evidence_id in role["evidence_ids"] if evidence_id in evidence_by_id]
+        selected.sort(key=lambda item: item["evidence_id"])
+        evidence_hash = f"sha256:{sha256(canonical_json(selected)).hexdigest()}"
+        payload = {
+            "fact_pack_version": FACT_PACK_VERSION,
+            "pack_type": role["role"],
+            "analysis_as_of": analysis_as_of,
+            "core_snapshot_id": core_snapshot_id,
+            "feature_version": str(feature_version),
+            "facts": role["features"],
+            "missing_data": role["missing_data"],
+            "evidence_ids": role["evidence_ids"],
+            "provenance_ids": sorted({item["provenance_id"] for item in selected}),
+            "evidence_hash": evidence_hash,
+            "baseline": {
+                "role": role["role"],
+                "score": role["score"],
+                "completeness": role["completeness"],
+                "confidence": role["confidence"],
+                "score_semantics": "deterministic_regression_baseline_not_full_research_analysis",
+            },
+        }
+        payload["fact_pack_hash"] = f"sha256:{sha256(canonical_json(payload)).hexdigest()}"
+        packs.append(payload)
+    return packs
+
+
 def _aggregate(roles: list[dict[str, Any]], blockers: list[str], weights: dict[str, float], data_quality: str,
                completeness_gate: float) -> dict[str, Any]:
     scored = [role for role in roles if role["score"] is not None]
@@ -467,6 +500,8 @@ def analyze(*, execution_id: str, analysis_as_of: str, core_snapshot_id: str, re
                      for name, rows in selected.items() if not rows or any(_evidence_id(name, row, core_snapshot_id) in valid_ids for row in rows[:512])}
         features = _features(validated)
         roles = [_role(name, features, evidence) for name in ROLE_WEIGHTS]
+        fact_packs = _fact_packs(roles=roles, evidence=evidence, analysis_as_of=analysis_as_of,
+                                 core_snapshot_id=core_snapshot_id, feature_version=options["feature_version"])
         data_quality = "critical" if "critical_data_quality" in blockers else ("warning" if rejected else "good")
         aggregate = _aggregate(roles, blockers, weights, data_quality, float(policy["developmentCompletenessGate"]))
         aggregate.update({
@@ -489,7 +524,8 @@ def analyze(*, execution_id: str, analysis_as_of: str, core_snapshot_id: str, re
                            "role_weights": weights, "completeness_gate": policy["developmentCompletenessGate"],
                            "high_event_risk_threshold": policy["blocking"]["highRiskScoreAtLeast"],
                            "manual_review_required": options.get("manual_review_required") is True},
-            "features": features, "roles": roles, "evidence": evidence, "rejected_evidence": rejected,
+            "features": features, "roles": roles, "fact_packs": fact_packs,
+            "evidence": evidence, "rejected_evidence": rejected,
             "data_quality": data_quality, "aggregate": aggregate,
         }
         if scope["type"] == "market" and components:
