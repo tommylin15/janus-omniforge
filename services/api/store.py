@@ -121,7 +121,8 @@ class PrivateIcebergStore:
                 update.union_by_name(pa.schema(additions))
             table=self.catalog.load_table(identifier)
         schema = table.schema().as_arrow()
-        string_fields = {field.name for field in schema if pa.types.is_string(field.type)}
+        string_fields = {field.name for field in schema
+                         if pa.types.is_string(field.type) or pa.types.is_large_string(field.type)}
         for row in normalized:
             for field in string_fields & row.keys():
                 if isinstance(row[field], float):

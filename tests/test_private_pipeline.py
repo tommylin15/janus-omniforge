@@ -267,7 +267,7 @@ def test_private_iceberg_accepts_xirr_after_missing_price():
     schema = pa.schema([pa.field("user_id", pa.string()), pa.field("year", pa.int64()),
                         pa.field("currency", pa.string()), pa.field("ledger_version", pa.int64()),
                         pa.field("valuation_date", pa.string()), pa.field("xirr_status", pa.string()),
-                        pa.field("xirr", pa.string()), pa.field("cash_flow_count", pa.int64()),
+                        pa.field("xirr", pa.large_string()), pa.field("cash_flow_count", pa.int64()),
                         pa.field("method", pa.string())])
     class Table:
         def schema(self): return SimpleNamespace(as_arrow=lambda: schema, fields=[])
