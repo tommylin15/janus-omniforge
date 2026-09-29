@@ -125,6 +125,34 @@ jobs:
                 --format=json \
                 || true
               ;;
+            wbs-5-fact-pack)
+              mkdir -p runtime-evidence
+              for job in janus-ingestion-core janus-intelligence-mart; do
+                execution="$(gcloud run jobs executions list \
+                  --job="${job}" \
+                  --project="${GCP_PROJECT_ID}" \
+                  --region="${GCP_REGION}" \
+                  --limit=1 --format='value(metadata.name)')"
+                [[ -n "${execution}" ]] || { echo "no ${job} execution found" >&2; exit 2; }
+                echo "Inspecting ${job} execution ${execution}"
+                gcloud run jobs executions describe "${execution}" \
+                  --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+                  --format=json > "runtime-evidence/${job}-execution.json"
+                if ! gcloud logging read \
+                  "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"${job}\" AND labels.\"run.googleapis.com/execution_name\"=\"${execution}\"" \
+                  --project="${GCP_PROJECT_ID}" \
+                  --freshness=2h \
+                  --limit=100 \
+                  --order=desc \
+                  --format=json > "runtime-evidence/${job}-logs.json"; then
+                  printf '[]\n' > "runtime-evidence/${job}-logs.json"
+                fi
+              done
+              jq '{metadata:{name:.metadata.name},status:{conditions:.status.conditions,completionTime:.status.completionTime,failedCount:.status.failedCount,succeededCount:.status.succeededCount}}' \
+                runtime-evidence/janus-ingestion-core-execution.json
+              jq '{metadata:{name:.metadata.name},status:{conditions:.status.conditions,completionTime:.status.completionTime,failedCount:.status.failedCount,succeededCount:.status.succeededCount}}' \
+                runtime-evidence/janus-intelligence-mart-execution.json
+              ;;
             cloud-build)
               build_id="$(jq -r '.build_id // ""' "${file}")"
               [[ "${build_id}" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || {
@@ -149,3 +177,11 @@ jobs:
               exit 2
               ;;
           esac
+      - name: Upload bounded runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-inspect-${{ github.run_id }}
+          path: runtime-evidence/*.json
+          if-no-files-found: ignore
+          retention-days: 7
