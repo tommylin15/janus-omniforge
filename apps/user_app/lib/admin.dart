@@ -28,9 +28,141 @@ String _label(Object? value) =>
       'invalid': '無效',
       'retryable': '可重試',
       'non_retryable': '不可重試',
+      'collection': '資料收集',
+      'analysis': '分析',
     }[value?.toString()] ??
     value?.toString() ??
     '—';
+
+bool _executionNeedsAttention(Map<String, dynamic> value) =>
+    {'failed', 'partial', 'retrying'}.contains(value['status']);
+
+int _executionOrder(Map<String, dynamic> value) {
+  switch (value['status']) {
+    case 'failed':
+      return 0;
+    case 'partial':
+      return 1;
+    case 'retrying':
+      return 2;
+    case 'running':
+      return 3;
+    case 'queued':
+      return 4;
+    case 'succeeded':
+      return 5;
+    default:
+      return 6;
+  }
+}
+
+Future<bool> _showExecutionDetails(
+  BuildContext context,
+  AdminApi api,
+  String id,
+) async {
+  late final Map<String, dynamic> detail;
+  try {
+    detail = await api.get(
+      '/api/v1/admin/executions/${Uri.encodeComponent(id)}',
+    ) as Map<String, dynamic>;
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('執行明細暫時無法使用')));
+    }
+    return false;
+  }
+  if (!context.mounted) return false;
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text('執行 ${_label(detail['status'])}'),
+      content: SizedBox(
+        width: 680,
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                '${detail['config_id'] ?? '—'} · ${_label(detail['trigger_type'])}',
+              ),
+              subtitle: Text(
+                '執行 ID ${detail['execution_id'] ?? '—'}\n追蹤 ID ${detail['trace_id'] ?? '—'}',
+              ),
+            ),
+            const Divider(),
+            Text('失敗項目與重試分類',
+                style: Theme.of(dialogContext).textTheme.titleMedium),
+            if (_items(detail).isEmpty)
+              const ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text('沒有逐項執行紀錄'),
+              ),
+            ..._items(detail).map(
+              (item) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text('${item['dataset_id']} · ${item['source_id']}'),
+                subtitle: Text(
+                  '${_label(item['state'])} · ${item['safe_message'] ?? '—'} · 重試 ${item['retry_count'] ?? 0} 次',
+                ),
+                trailing: item['retry_classification'] == 'retryable'
+                    ? FilledButton.tonal(
+                        onPressed: () async {
+                          try {
+                            await api.post(
+                              '/api/v1/admin/executions/${Uri.encodeComponent(id)}/items/${Uri.encodeComponent(item['item_key'].toString())}/retry',
+                              const {},
+                            );
+                          } catch (_) {
+                            if (dialogContext.mounted) {
+                              ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                const SnackBar(content: Text('此項目目前無法重試')),
+                              );
+                            }
+                            return;
+                          }
+                          if (dialogContext.mounted) {
+                            Navigator.pop(dialogContext, true);
+                          }
+                        },
+                        child: const Text('重試'),
+                      )
+                    : Text(_label(item['retry_classification'])),
+              ),
+            ),
+            const Divider(),
+            Text('執行追蹤',
+                style: Theme.of(dialogContext).textTheme.titleMedium),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text('追蹤 ID ${detail['trace_id'] ?? '—'}'),
+              subtitle: const Text('同一追蹤鏈的舊執行保持不可變更'),
+            ),
+            for (final related
+                in (((detail['lineage'] as Map?)?['executions'] as List?) ??
+                    const []))
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text('${related['execution_id'] ?? '—'}'),
+                subtitle: Text(
+                  '${_label(related['status'])} · ${related['requested_at'] ?? '—'}',
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('關閉'),
+        ),
+      ],
+    ),
+  );
+  return result == true;
+}
 
 class AdminWorkspace extends StatefulWidget {
   const AdminWorkspace({
@@ -180,14 +312,16 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
         widget.api.get('/api/v1/admin/mart-reports?limit=50'),
       ]);
 
+  void _reload() => setState(() {
+        data = _load();
+      });
+
   @override
   Widget build(BuildContext context) => _AdminPage(
         title: '需要處理的事項',
         action: IconButton(
           tooltip: '重新整理',
-          onPressed: () => setState(() {
-            data = _load();
-          }),
+          onPressed: _reload,
           icon: const Icon(Icons.refresh),
         ),
         child: FutureBuilder<List<dynamic>>(
@@ -200,48 +334,118 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
             final executions = _items(snapshot.data![0]);
             final sources = _items(snapshot.data![1]);
             final reports = _items(snapshot.data![2]);
-            final failed = executions
-                .where(
-                  (value) => {'failed', 'partial', 'retrying'}
-                      .contains(value['status']),
-                )
-                .length;
-            final core = sources
+            final attentionExecutions = executions
+                .where(_executionNeedsAttention)
+                .toList()
+              ..sort((a, b) => _executionOrder(a).compareTo(_executionOrder(b)));
+            final attentionSources = sources
                 .where(
                   (value) =>
                       !{'success', 'succeeded'}.contains(value['last_state']),
                 )
-                .length;
-            final mart = reports
+                .toList();
+            final attentionReports = reports
                 .where(
-                  (value) => {'blocked', 'review_required', 'invalid'}.contains(
-                    value['publication_status'] ?? value['analysis_outcome'],
-                  ),
+                  (value) =>
+                      {'blocked', 'review_required', 'invalid'}.contains(
+                            value['publication_status'],
+                          ) ||
+                      {'invalid', 'review_required', 'risk_blocked', 'insufficient_data'}
+                          .contains(value['analysis_outcome']),
                 )
-                .length;
-            final total = failed + core + mart;
+                .toList();
+            final total = attentionExecutions.length +
+                attentionSources.length +
+                attentionReports.length;
             return ListView(
               children: [
-                if (sources.isEmpty)
-                  const Card(
-                      child: ListTile(title: Text('尚無資料源健康紀錄，無法判定 Core 狀態'))),
-                if (total == 0 && sources.isNotEmpty)
-                  const Card(
-                    child: ListTile(
-                      leading: Icon(Icons.check_circle_outline),
-                      title: Text('今日沒有需要處理的事項'),
-                    ),
-                  ),
                 Wrap(
                   spacing: 12,
                   runSpacing: 12,
                   children: [
-                    _IssueCard('Core', core, Icons.storage_outlined),
-                    _IssueCard('Mart', mart, Icons.analytics_outlined),
+                    _IssueCard('Core', attentionSources.length, Icons.storage_outlined),
+                    _IssueCard('Mart', attentionReports.length, Icons.analytics_outlined),
                     const _IssueCard('AI 分析', null, Icons.psychology_outlined),
-                    _IssueCard('失敗／阻擋', failed, Icons.error_outline),
+                    _IssueCard(
+                      '失敗／部分完成',
+                      attentionExecutions.length,
+                      Icons.error_outline,
+                    ),
                   ],
                 ),
+                const SizedBox(height: 20),
+                Text('優先處理', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 4),
+                const Text('正常 execution 不會佔用此區塊'),
+                const SizedBox(height: 8),
+                if (sources.isEmpty)
+                  const Card(
+                    child: ListTile(
+                      leading: Icon(Icons.help_outline),
+                      title: Text('尚無資料源健康紀錄，無法判定 Core 狀態'),
+                    ),
+                  ),
+                if (total == 0 && sources.isNotEmpty)
+                  const Card(
+                    child: ListTile(
+                      leading: Icon(Icons.check_circle_outline),
+                      title: Text('目前沒有需要處理的事項'),
+                      subtitle: Text('成功的執行紀錄仍可在「批次」查閱。'),
+                    ),
+                  ),
+                for (final execution in attentionExecutions)
+                  Card(
+                    child: ListTile(
+                      leading: Icon(
+                        execution['status'] == 'failed'
+                            ? Icons.error_outline
+                            : Icons.warning_amber_outlined,
+                      ),
+                      title: Text(
+                        '${execution['config_id'] ?? '—'} · ${_label(execution['status'])}',
+                      ),
+                      subtitle: Text(
+                        '${_label(execution['trigger_type'])} · ${execution['requested_at'] ?? '—'}',
+                      ),
+                      trailing: TextButton(
+                        onPressed: () async {
+                          final retried = await _showExecutionDetails(
+                            context,
+                            widget.api,
+                            execution['execution_id'].toString(),
+                          );
+                          if (retried && mounted) _reload();
+                        },
+                        child: const Text('查看與處理'),
+                      ),
+                    ),
+                  ),
+                for (final source in attentionSources)
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.storage_outlined),
+                      title: Text(
+                        '${source['source_id'] ?? '—'} · ${source['dataset_id'] ?? '—'}',
+                      ),
+                      subtitle: Text(
+                        '${_label(source['last_state'])} · 最後取得 ${source['last_fetched_at'] ?? source['updated_at'] ?? '—'}',
+                      ),
+                      trailing: const Text('Core'),
+                    ),
+                  ),
+                for (final report in attentionReports)
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.analytics_outlined),
+                      title: Text(
+                        '${report['scope_id'] ?? report['scope_type'] ?? '—'} · ${_label(report['publication_status'] ?? report['analysis_outcome'])}',
+                      ),
+                      subtitle: Text(
+                        '${_label(report['analysis_outcome'])} · 分析日 ${report['analysis_as_of'] ?? '—'}',
+                      ),
+                      trailing: const Text('Mart'),
+                    ),
+                  ),
               ],
             );
           },
@@ -267,8 +471,10 @@ class _IssueCard extends StatelessWidget {
                 Icon(icon),
                 const SizedBox(height: 16),
                 Text(title, style: Theme.of(context).textTheme.titleMedium),
-                Text(count == null ? '待 WBS-5' : '$count 項',
-                    style: Theme.of(context).textTheme.headlineMedium),
+                Text(
+                  count == null ? '待 WBS-5' : '$count 項',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
               ],
             ),
           ),
@@ -295,6 +501,10 @@ class _AdminBatchPageState extends State<AdminBatchPage> {
 
   Future<dynamic> _load() =>
       widget.api.get('/api/v1/admin/executions?limit=50');
+
+  void _reload() => setState(() {
+        executions = _load();
+      });
 
   Future<void> _queue() async {
     final config = TextEditingController(text: 'ohlcv');
@@ -356,95 +566,25 @@ class _AdminBatchPageState extends State<AdminBatchPage> {
       );
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('批次無法加入佇列，請檢查設定與權限')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('批次無法加入佇列，請檢查設定與權限')),
+        );
       }
       return;
     }
     if (!mounted) return;
-    setState(() {
-      executions = _load();
-    });
+    _reload();
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('批次已加入佇列')));
   }
 
   Future<void> _details(String id) async {
-    late final Map<String, dynamic> detail;
-    try {
-      detail = await widget.api.get(
-        '/api/v1/admin/executions/${Uri.encodeComponent(id)}',
-      ) as Map<String, dynamic>;
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('執行明細暫時無法使用')));
-      }
-      return;
+    final retried = await _showExecutionDetails(context, widget.api, id);
+    if (retried && mounted) {
+      _reload();
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('重試已建立新的執行紀錄')));
     }
-    if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('執行 ${detail['status'] ?? '—'}'),
-        content: SizedBox(
-          width: 640,
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              ..._items(detail).map(
-                (item) => ListTile(
-                  title: Text('${item['dataset_id']} · ${item['source_id']}'),
-                  subtitle: Text(
-                    '${_label(item['state'])} · ${item['safe_message'] ?? '—'}',
-                  ),
-                  trailing: item['retry_classification'] == 'retryable'
-                      ? FilledButton.tonal(
-                          onPressed: () async {
-                            try {
-                              await widget.api.post(
-                                '/api/v1/admin/executions/${Uri.encodeComponent(id)}/items/${Uri.encodeComponent(item['item_key'].toString())}/retry',
-                                const {},
-                              );
-                            } catch (_) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('此項目目前無法重試')));
-                              }
-                              return;
-                            }
-                            if (context.mounted) Navigator.pop(context);
-                          },
-                          child: const Text('重試'),
-                        )
-                      : Text(_label(item['retry_classification'])),
-                ),
-              ),
-              const Divider(),
-              ListTile(
-                  title: const Text('執行追蹤'),
-                  subtitle: Text('追蹤 ID ${detail['trace_id'] ?? '—'}')),
-              for (final related
-                  in (((detail['lineage'] as Map?)?['executions'] as List?) ??
-                      const []))
-                ListTile(
-                    title: Text('${related['execution_id'] ?? '—'}'),
-                    subtitle: Text(_label(related['status']))),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('關閉'),
-          ),
-        ],
-      ),
-    );
-    if (mounted)
-      setState(() {
-        executions = _load();
-      });
   }
 
   @override
@@ -462,27 +602,67 @@ class _AdminBatchPageState extends State<AdminBatchPage> {
               return const Center(child: CircularProgressIndicator());
             }
             if (snapshot.hasError) return const _Message('執行紀錄暫時無法使用');
-            final values = _items(snapshot.data);
+            final values = _items(snapshot.data).toList()
+              ..sort((a, b) {
+                final order = _executionOrder(a).compareTo(_executionOrder(b));
+                if (order != 0) return order;
+                return (b['requested_at'] ?? '')
+                    .toString()
+                    .compareTo((a['requested_at'] ?? '').toString());
+              });
             if (values.isEmpty) return const _Message('目前沒有執行紀錄');
-            return ListView.separated(
-              itemCount: values.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final value = values[index];
-                return ListTile(
-                  leading: const Icon(Icons.playlist_play),
-                  title: Text(
-                    '${value['config_id']} · ${_label(value['trigger_type'])}',
+            final attention = values.where(_executionNeedsAttention).length;
+            final active = values
+                .where((value) => {'queued', 'running'}.contains(value['status']))
+                .length;
+            final completed =
+                values.where((value) => value['status'] == 'succeeded').length;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    Chip(label: Text('需要處理 $attention')),
+                    Chip(label: Text('執行中 $active')),
+                    Chip(label: Text('已完成 $completed')),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Text('部分完成仍列為需要處理，不會視為成功。'),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: values.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final value = values[index];
+                      final attention = _executionNeedsAttention(value);
+                      return ListTile(
+                        leading: Icon(
+                          attention
+                              ? Icons.warning_amber_outlined
+                              : value['status'] == 'succeeded'
+                                  ? Icons.check_circle_outline
+                                  : Icons.playlist_play,
+                        ),
+                        title: Text(
+                          '${value['config_id']} · ${_label(value['trigger_type'])}',
+                        ),
+                        subtitle: Text(
+                          '${_label(value['status'])} · ${value['requested_at'] ?? '—'}',
+                        ),
+                        trailing: TextButton(
+                          onPressed: () =>
+                              _details(value['execution_id'].toString()),
+                          child: const Text('查看'),
+                        ),
+                      );
+                    },
                   ),
-                  subtitle: Text(
-                    '${_label(value['status'])} · ${value['requested_at'] ?? '—'}',
-                  ),
-                  trailing: TextButton(
-                    onPressed: () => _details(value['execution_id'].toString()),
-                    child: const Text('查看'),
-                  ),
-                );
-              },
+                ),
+              ],
             );
           },
         ),
@@ -870,71 +1050,72 @@ class _AdminMarketUniversePageState extends State<AdminMarketUniversePage> {
                 if (value['status'] != 'available')
                   const Card(child: ListTile(title: Text('目前尚無有效名單')))
                 else ...[
-                Card(
-                    child: ListTile(
-                  title: Text('${showUpcoming && hasUpcoming ? '即將生效' : '目前有效'} · 第 ${value['version']} 版 · ${items.length} 檔'),
-                  subtitle: Text(
-                      '週別 ${value['week_start']} · 生效 ${value['effective_from']}'),
-                )),
-                Card(
-                    child: Column(children: [
-                  ListTile(
-                      title: const Text('進入'),
-                      subtitle: Text(entered.isEmpty ? '首版／無變動' : entered)),
-                  ListTile(
-                      title: const Text('退出'),
-                      subtitle: Text(exited.isEmpty ? '無變動' : exited)),
-                ])),
-                if (showUpcoming && hasUpcoming || !hasUpcoming)
                   Card(
-                    child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text('手動換股',
-                            style: Theme.of(context).textTheme.titleMedium),
-                        const SizedBox(height: 8),
-                        TextField(
-                            controller: remove,
-                            decoration:
-                                const InputDecoration(labelText: '移出代號')),
-                        TextField(
-                            controller: add,
-                            decoration:
-                                const InputDecoration(labelText: '納入代號')),
-                        TextField(
-                            controller: reason,
-                            decoration:
-                                const InputDecoration(labelText: '調整原因')),
-                        const SizedBox(height: 12),
-                        Align(
-                            alignment: Alignment.centerLeft,
-                            child: FilledButton(
-                              onPressed: saving
-                                  ? null
-                                  : () => swap(value['version'] as int),
-                              child: const Text('儲存換股'),
-                            )),
-                      ]),
-                )),
-                TextField(
-                  controller: search,
-                  decoration: const InputDecoration(
-                      labelText: '搜尋代號或名稱', prefixIcon: Icon(Icons.search)),
-                  onChanged: (_) => setState(() {}),
-                ),
-                for (final item in visible)
-                  ListTile(
-                    dense: true,
-                    title: Text(
-                        '${item['rank']}. ${item['name']} ${item['symbol']}'),
+                      child: ListTile(
+                    title: Text('${showUpcoming && hasUpcoming ? '即將生效' : '目前有效'} · 第 ${value['version']} 版 · ${items.length} 檔'),
                     subtitle: Text(
-                        '${item['market']} · 當週成交股數 ${item['volume_shares'] ?? '人工調整'}'),
-                    trailing: item['manual_override'] == true
-                        ? const Text('人工')
-                        : null,
+                        '週別 ${value['week_start']} · 生效 ${value['effective_from']}'),
+                  )),
+                  Card(
+                      child: Column(children: [
+                    ListTile(
+                        title: const Text('進入'),
+                        subtitle: Text(entered.isEmpty ? '首版／無變動' : entered)),
+                    ListTile(
+                        title: const Text('退出'),
+                        subtitle: Text(exited.isEmpty ? '無變動' : exited)),
+                  ])),
+                  if (showUpcoming && hasUpcoming || !hasUpcoming)
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text('手動換股',
+                                  style: Theme.of(context).textTheme.titleMedium),
+                              const SizedBox(height: 8),
+                              TextField(
+                                  controller: remove,
+                                  decoration:
+                                      const InputDecoration(labelText: '移出代號')),
+                              TextField(
+                                  controller: add,
+                                  decoration:
+                                      const InputDecoration(labelText: '納入代號')),
+                              TextField(
+                                  controller: reason,
+                                  decoration:
+                                      const InputDecoration(labelText: '調整原因')),
+                              const SizedBox(height: 12),
+                              Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: FilledButton(
+                                    onPressed: saving
+                                        ? null
+                                        : () => swap(value['version'] as int),
+                                    child: const Text('儲存換股'),
+                                  )),
+                            ]),
+                      ),
+                    ),
+                  TextField(
+                    controller: search,
+                    decoration: const InputDecoration(
+                        labelText: '搜尋代號或名稱', prefixIcon: Icon(Icons.search)),
+                    onChanged: (_) => setState(() {}),
                   ),
+                  for (final item in visible)
+                    ListTile(
+                      dense: true,
+                      title: Text(
+                          '${item['rank']}. ${item['name']} ${item['symbol']}'),
+                      subtitle: Text(
+                          '${item['market']} · 當週成交股數 ${item['volume_shares'] ?? '人工調整'}'),
+                      trailing: item['manual_override'] == true
+                          ? const Text('人工')
+                          : null,
+                    ),
                 ],
               ],
             );
