@@ -194,6 +194,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('資料健康'), findsOneWidget);
     expect(find.text('ohlcv'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('歷史分析'),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
     expect(find.text('歷史分析'), findsOneWidget);
     expect(find.textContaining('2026-09-20'), findsOneWidget);
   });
