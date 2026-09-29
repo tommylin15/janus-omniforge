@@ -1,6 +1,6 @@
 # Janus — 五位分析師每日運作 Gate
 
-更新：2026-09-27
+更新：2026-09-29
 
 ## 目的
 
@@ -20,7 +20,7 @@
 
 ## Gate 1 — Product Completeness foreground
 
-Mart advanced capability 不應先於目前 Product Completeness foreground。依 active `todo.md`，先完成：
+Mart advanced capability 不應先於目前 Product Completeness foreground。Gate 1 定義為以下七項：
 
 1. `WBS-6-PORTFOLIO-COMPLETENESS`
 2. `WBS-6-MARKET-HOME-DATA`
@@ -29,6 +29,8 @@ Mart advanced capability 不應先於目前 Product Completeness foreground。�
 5. `WBS-6-FLUTTER-ADMIN-SHELL`
 6. `WBS-6-ADMIN-OVERVIEW-BATCH`
 7. `WBS-6-ADMIN-STOCK-WORKBENCH`
+
+**目前狀態：Gate 1 已於 2026-09-29 完成。** 七項均已有 implementation、tests、deployment／runtime 或各自 acceptance evidence；最後一項 `WBS-6-ADMIN-STOCK-WORKBENCH` 的完成紀錄見 `archive/wbs-6-admin-stock-workbench-completed-2026-09-29.md`。這個判定不包含 `WBS-6-PORTFOLIO-INTRADAY-QUOTE`；該項仍因正式行情來源授權 blocked，但不是 Gate 1 的七項之一，因此不阻擋後續安全且獨立的 Gate 2 工作。
 
 這個 gate 的目的不是要求所有未來功能先完成，而是先讓真實持股、市場 baseline、全市場基礎 coverage 與 operator 可觀測性達到足以支撐每日研究的狀態。
 
@@ -40,6 +42,8 @@ Mart advanced capability 不應先於目前 Product Completeness foreground。�
 - PIT、missing-data、provenance、evidence、hash／version lineage 明確。
 - LLM 不擁有 canonical facts／numbers；關閉 LLM 不得改變 canonical facts。
 - 同一 as-of input 可重跑並追溯來源。
+
+**目前狀態：未完成；這是下一個可執行 foreground WBS。**
 
 達到此 gate 只代表「分析師有受治理的研究資料」，尚不能宣稱 5 位分析師已開始每日工作。
 
