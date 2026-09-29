@@ -12,6 +12,7 @@
 - [WBS-6 Market Home Data completed (2026-09-27)](archive/wbs-6-market-home-data-2026-09-27.md)
 - [WBS-6 Market Home UI completed (2026-09-27)](archive/wbs-6-market-home-ui-2026-09-27.md)
 - [WBS-6 Flutter Admin Shell completed (2026-09-29)](archive/wbs-6-flutter-admin-shell-completed-2026-09-29.md)
+- [WBS-6 Admin Overview / Batch completed (2026-09-29)](archive/wbs-6-admin-overview-batch-completed-2026-09-29.md)
 - [TODO 歷史 checkpoint、退役 WBS 4C 與已完成 checklist（2026-09-23）](archive/todo-history-and-completed-2026-09-23.md)
 - [已完成 WBS 0／1／2／4](archive/wbs-completed-through-2026-08-31.md)
 - 其他既有完成紀錄保留於 `archive/`；完整 runtime／deployment evidence 見 `spec/operations-and-testing.md`。
@@ -33,23 +34,15 @@ Observation window 不阻擋 correctness、data-integrity、market coverage、po
 
 ## A. Product Completeness foreground queue
 
-### 1. `WBS-6-ADMIN-OVERVIEW-BATCH` — 【Luna】
+### 1. `WBS-6-ADMIN-STOCK-WORKBENCH` — 【Sol】
 
-Dependency：`WBS-6-FLUTTER-ADMIN-SHELL`（已完成 2026-09-29）。
-
-- [ ] actionable-issues-first overview，先顯示需要處理的 Core／Mart／failure 問題；正常 execution 不佔首頁主要空間。
-- [ ] batch／retry classification、retryable failed item、execution lineage 可操作；partial success 不作 full success。
-- [ ] Operator 能不登入 GCP／直接查 DB 就定位近期失敗與安全重跑既有允許的 workload。
-
-### 2. `WBS-6-ADMIN-STOCK-WORKBENCH` — 【Sol】
-
-Dependency：Admin shell、Core persisted readers；AI role-impact／historical role/CIO 功能仍受 Mart contracts dependency。
+Dependency：Admin shell、Overview／Batch（均已完成 2026-09-29）、Core persisted readers；AI role-impact／historical role/CIO 功能仍受 Mart contracts dependency。
 
 - [ ] 第一階段先完成代號／中文名搜尋、dataset health、coverage／gap、最近 execution／snapshot 與安全 gap-repair 入口。
 - [ ] 技術 lineage 放在進階，不以 raw JSON 作主要 UX；old execution／snapshot immutable。
 - [ ] 未完成 Fact Pack／AI role／CIO contracts 時，不顯示或假裝相關 rerun／historical AI capability 已可用。
 
-### 3. `WBS-6-PORTFOLIO-INTRADAY-QUOTE` — 【Blocked：正式行情來源授權】
+### 2. `WBS-6-PORTFOLIO-INTRADAY-QUOTE` — 【Blocked：正式行情來源授權】
 
 - [ ] 先確認持股即時行情供應者的帳戶資格、使用／保存／雲端展示條款、quota 與費用；未核准前不啟用新來源或把盤後價稱為即時價。
 - [ ] Shioaji 一次性連線探測（2026-09-27）：既有 Secret 標為 `simulation=true`，模擬環境登入、2330 合約查詢及單檔 Quote 訂閱／取消成功；相同憑證切 `simulation=false` 登入回 `BadRequestError`（含 permission 訊息）。週末無交易時段報價，尚未證明正式環境授權、即時報價到達、保存／雲端展示權利或費用；正式帳戶資格需另確認。
