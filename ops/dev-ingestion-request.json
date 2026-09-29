@@ -1,9 +1,7 @@
 {
-  "request_id": "wbs-3-tpex-institutional-20260928",
-  "enabled": false,
-  "operation": "ingestion",
-  "dataset": "tpex-institutional",
-  "date": "2026-09-24",
-  "force_refresh": true,
-  "disable_mart_trigger": true
+  "request_id": "wbs-5-fact-pack-live-2330-20260930",
+  "enabled": true,
+  "operation": "analysis",
+  "config_id": "first-batch",
+  "symbols": ["2330"]
 }
