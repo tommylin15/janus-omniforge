@@ -1,6 +1,10 @@
 # Operations and testing
 
-## WBS-3 weekly 500 coverage partial 與 Iceberg financials 維護（2026-09-27／28）
+## WBS-3 TWSE 500 整批驗收最新結論（2026-09-29）
+
+在使用者指定的「各必要資料集缺值率嚴格低於 10%」門檻下，`WBS-3-FULL-MARKET-BASE-COVERAGE` 的有限 TWSE 500 驗收已結案。immutable inventory 各必要資料集缺值率為 0–3.6%，逐檔 `missing`、原始 `coverage_status=partial`、FinMind `blocked` 均未改寫。Private Pipeline 修復與部署後，`janus-private-pipeline-tr7rv` 成功，真實 5876 持股顯示 2026-09-24 正式行情價 48.95；離榜 future-feed 註冊仍明示 `requested=1`、`accepted=0` 與 `no_eligible_enabled_symbol_scoped_ohlcv_config`，未宣稱該路徑已收集行情。Admin 第 5 版短暫移出 5876，第 6 版已還原；第 4／6 版成員完全相同，驗收新增的關注股已清除。GCP Job、Stage bytes、DQ／quarantine 與成本邊界詳見 [結案紀錄](../archive/wbs-3-full-market-base-coverage-completed-2026-09-29.md)。
+
+## WBS-3 weekly 500 coverage 歷史 partial 與 Iceberg financials 維護（2026-09-27／28）
 
 - 2026-09-28 使用者將 `WBS-3-FULL-MARKET-BASE-COVERAGE` 改為只從 TWSE 上市個股選滿週量 500 檔。以下 TPEx 與跨市場 500 數字均為變更前的歷史證據，不能當作新範圍的 coverage；最新 TWSE-only 整批證據見下兩點，WBS 仍為 partial。
 - TWSE-only 500 整批在既有 1 GiB Cloud Run Job 遇到記憶體上限，使用者批准後將同一 dev Job 改為 2 GiB／1 CPU／30 分鐘，並由 commit `4e7f720` 固定部署設定、降低 Stage payload 與 Core bulk update 記憶體。`janus-ingestion-core-c9fpd` 已不再 OOM，financials 成功寫入 Core，但三個新 dataset 被 Stage provenance 白名單拒絕；commit `61e4331` 加入 `financing`、`securities_lending_short`、`day_trading`，相關本機測試 45 passed，GitHub dev deploy／verify workflow `36418043697` success。

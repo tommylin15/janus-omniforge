@@ -7,6 +7,7 @@
 
 - [2026-09-26 Product Completeness reprioritization 與 TODO cleanup](archive/todo-cleanup-and-product-completeness-priority-2026-09-26.md)
 - [WBS-3 Liquid-500 rotation completed (2026-09-27)](archive/wbs-3-liquid-500-rotation-completed-2026-09-27.md)
+- [WBS-3 TWSE 500 base coverage completed (2026-09-29)](archive/wbs-3-full-market-base-coverage-completed-2026-09-29.md)
 - [WBS-6 Portfolio Completeness completed (2026-09-27)](archive/todo-completed-2026-09-27-wbs6-portfolio-completeness.md)
 - [WBS-6 Market Home Data completed (2026-09-27)](archive/wbs-6-market-home-data-2026-09-27.md)
 - [WBS-6 Market Home UI completed (2026-09-27)](archive/wbs-6-market-home-ui-2026-09-27.md)
@@ -31,30 +32,13 @@ Observation window 不阻擋 correctness、data-integrity、market coverage、po
 
 ## A. Product Completeness foreground queue
 
-### 1. `WBS-3-FULL-MARKET-BASE-COVERAGE` — 【Sol；ID 保留，範圍修訂為 TWSE 週量 500 檔】
-
-Dependency：`WBS-3-LIQUID-500-ROTATION`。本 ID 的舊「所有 enabled 股票全市場」驗收條件於 2026-09-27 改為每週有效 500 檔，再依使用者 2026-09-28 最新指示改為只從 TWSE 上市個股選滿 500 檔；不得把結果宣稱為所有上市股票完整 coverage。
-
-最新 TWSE-only 500 整批 GCP dev replay `janus-ingestion-core-8xhlx` 已完成，來源失敗 0、coverage 仍 **partial**。OHLCV 499/500、valuation 498/500、institutional 499/500、MOPS financials 499/500、financing 498/500、securities lending／short 499/500、day trading 482/500、TAIEX 1/1；官方回應未涵蓋的代號保留 missing，詳見 [`operations-and-testing`](spec/operations-and-testing.md)。舊跨市場名單與 TPEx 驗收不作新上市 500 的證據。
-
-舊跨市場 inventory 的 TPEx `3718` 估值仍保留 missing=1 的歷史事實，不追補、不改寫；新 TWSE 500 名單不包含該股。
-
-TWSE 專用週量排名、來源接入、Stage／Core 批次寫入及 coverage inventory 已在 GCP dev 真實整批路徑驗收；既有 Job 由使用者批准調至 2 GiB，單次應用耗時約 2 分鐘。仍須核對官方缺檔的業務語意、watchlist／離榜持股路徑，以及 replay／成本／DQ／quarantine 的完整驗收條件；不以推算值補齊來源缺值。
-
-下一入口：依最新 immutable inventory 的 missing 清單核對官方批次；用既有 dev 路徑驗收 watchlist／離榜持股與剩餘 runtime／DQ／成本條件。一次性 replay env 已還原；舊跨市場版本不得充當上市 500 驗收。
-
-- [ ] 對有效 500 檔收集日 OHLCV、PE/PB、法人、融資券／借券／當沖、基本面摘要與官方 benchmark；市場型 endpoint 必須單次抓取、批次快取、依 symbol 分配。來源缺少合規批次路徑時標 blocked，不以 500 次逐檔請求冒充完成。
-- [x] coverage inventory 能指出有效 500 檔的 expected／received／missing，並保留 source／snapshot／execution provenance；其餘 enabled 股票標示不屬本週基礎 coverage。
-- [ ] 新增個人 watchlist 時由後端檢查有效 500 檔版本；既有項目離榜不自動刪除。真實 active holdings 即使離榜，仍須由正式行情補齊路徑估值或明示 missing／blocked。
-- [ ] replay、成本、runtime、DQ 與 quarantine acceptance 維持既有 WBS 3 規則。
-
-### 2. `WBS-6-FLUTTER-ADMIN-SHELL` — 【Luna】
+### 1. `WBS-6-FLUTTER-ADMIN-SHELL` — 【Luna】
 
 - [ ] 單一 Flutter codebase 的 Admin workspace、中文主導覽、responsive shell。
 - [ ] backend Admin auth／token audience negative tests 通過；Flutter 隱藏控制不作 security boundary。
 - [ ] Legacy static Admin 在 parity、browser/runtime acceptance 與 rollback plan 完成前保留。
 
-### 3. `WBS-6-ADMIN-OVERVIEW-BATCH` — 【Luna】
+### 2. `WBS-6-ADMIN-OVERVIEW-BATCH` — 【Luna】
 
 Dependency：`WBS-6-FLUTTER-ADMIN-SHELL`。
 
@@ -62,7 +46,7 @@ Dependency：`WBS-6-FLUTTER-ADMIN-SHELL`。
 - [ ] batch／retry classification、retryable failed item、execution lineage 可操作；partial success 不作 full success。
 - [ ] Operator 能不登入 GCP／直接查 DB 就定位近期失敗與安全重跑既有允許的 workload。
 
-### 4. `WBS-6-ADMIN-STOCK-WORKBENCH` — 【Sol】
+### 3. `WBS-6-ADMIN-STOCK-WORKBENCH` — 【Sol】
 
 Dependency：Admin shell、Core persisted readers；AI role-impact／historical role/CIO 功能仍受 Mart contracts dependency。
 
@@ -70,7 +54,7 @@ Dependency：Admin shell、Core persisted readers；AI role-impact／historical 
 - [ ] 技術 lineage 放在進階，不以 raw JSON 作主要 UX；old execution／snapshot immutable。
 - [ ] 未完成 Fact Pack／AI role／CIO contracts 時，不顯示或假裝相關 rerun／historical AI capability 已可用。
 
-### 5. `WBS-6-PORTFOLIO-INTRADAY-QUOTE` — 【Blocked：正式行情來源授權】
+### 4. `WBS-6-PORTFOLIO-INTRADAY-QUOTE` — 【Blocked：正式行情來源授權】
 
 - [ ] 先確認持股即時行情供應者的帳戶資格、使用／保存／雲端展示條款、quota 與費用；未核准前不啟用新來源或把盤後價稱為即時價。
 - [ ] Shioaji 一次性連線探測（2026-09-27）：既有 Secret 標為 `simulation=true`，模擬環境登入、2330 合約查詢及單檔 Quote 訂閱／取消成功；相同憑證切 `simulation=false` 登入回 `BadRequestError`（含 permission 訊息）。週末無交易時段報價，尚未證明正式環境授權、即時報價到達、保存／雲端展示權利或費用；正式帳戶資格需另確認。
