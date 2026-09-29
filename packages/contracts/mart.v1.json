@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Janus public Intelligence Mart",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "$defs": {
     "EvidenceV1": {
       "type": "object",
@@ -16,6 +16,8 @@
         "source_id": {"type": "string", "minLength": 1},
         "source_authorization": {"enum": ["official", "approved_fallback"]},
         "published_at": {"type": ["string", "null"], "format": "date-time"},
+        "availability_at": {"type": ["string", "null"], "format": "date-time"},
+        "publication_time_authoritative": {"type": "boolean"},
         "observed_at": {"type": "string", "format": "date-time"},
         "record_at": {"type": "string", "format": "date-time"},
         "quality_flag": {"enum": ["good", "warning", "critical", "unknown"]},
@@ -38,6 +40,36 @@
         "missing_data": {"type": "array", "items": {"type": "string"}},
         "evidence_ids": {"type": "array", "items": {"type": "string"}},
         "features": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "FactPackV1": {
+      "type": "object",
+      "required": ["fact_pack_version", "pack_type", "analysis_as_of", "core_snapshot_id", "feature_version", "facts", "missing_data", "evidence_ids", "provenance_ids", "evidence_hash", "baseline", "fact_pack_hash"],
+      "properties": {
+        "fact_pack_version": {"const": "1.0.0"},
+        "pack_type": {"enum": ["fundamental", "valuation", "positioning", "quant", "event_risk"]},
+        "analysis_as_of": {"type": "string", "format": "date"},
+        "core_snapshot_id": {"type": "string", "minLength": 1},
+        "feature_version": {"type": "string", "minLength": 1},
+        "facts": {"type": "object"},
+        "missing_data": {"type": "array", "items": {"type": "string"}},
+        "evidence_ids": {"type": "array", "items": {"type": "string", "pattern": "^ev-[0-9a-f]{24}$"}, "uniqueItems": true},
+        "provenance_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "evidence_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "baseline": {
+          "type": "object",
+          "required": ["role", "score", "completeness", "confidence", "score_semantics"],
+          "properties": {
+            "role": {"enum": ["fundamental", "valuation", "positioning", "quant", "event_risk"]},
+            "score": {"type": ["number", "null"], "minimum": 0, "maximum": 100},
+            "completeness": {"type": "number", "minimum": 0, "maximum": 1},
+            "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+            "score_semantics": {"const": "deterministic_regression_baseline_not_full_research_analysis"}
+          },
+          "additionalProperties": false
+        },
+        "fact_pack_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
       },
       "additionalProperties": false
     },
@@ -72,6 +104,7 @@
         "published_components": {"type": "array", "items": {"type": "object"}},
         "features": {"type": "object"},
         "roles": {"type": "array", "minItems": 5, "maxItems": 5, "items": {"$ref": "#/$defs/RolePayloadV1"}},
+        "fact_packs": {"type": "array", "minItems": 5, "maxItems": 5, "items": {"$ref": "#/$defs/FactPackV1"}},
         "evidence": {"type": "array", "items": {"$ref": "#/$defs/EvidenceV1"}},
         "rejected_evidence": {"type": "array", "items": {"type": "object"}},
         "data_quality": {"enum": ["good", "warning", "critical", "unknown"]},
@@ -89,8 +122,8 @@
             "devils_advocate": {"type": "object"},
             "analysis_outcome": {"enum": ["complete", "invalid", "review_required", "risk_blocked", "insufficient_data"]},
             "publication_status": {"enum": ["draft", "blocked", "publishable", "published", "superseded"]},
-            "reason": {"type": ["string", "null"]}
-            ,"confidence_semantics": {"const": "data_and_analysis_confidence_not_profit_probability"}
+            "reason": {"type": ["string", "null"]},
+            "confidence_semantics": {"const": "data_and_analysis_confidence_not_profit_probability"}
           }
         },
         "deterministic_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
