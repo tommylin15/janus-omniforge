@@ -52,9 +52,31 @@ jobs:
                 echo 'enabled=true'
                 echo 'operation=control-migration'
                 echo "migration=${migration}"
+                echo 'config_id='
+                echo 'symbols='
                 echo "request_id=${request_id}"
               } >> "${GITHUB_OUTPUT}"
               echo "Validated bounded control migration request ${request_id}: ${migration}"
+              exit 0
+              ;;
+            analysis)
+              config_id="$(jq -r '.config_id // ""' "${file}")"
+              [[ "${config_id}" =~ ^[A-Za-z0-9._-]{1,80}$ ]] || { echo 'invalid analysis config_id' >&2; exit 2; }
+              mapfile -t symbols < <(jq -r '(.symbols // [])[]' "${file}")
+              (( ${#symbols[@]} >= 1 && ${#symbols[@]} <= 50 )) || { echo 'analysis symbols must contain 1..50 items' >&2; exit 2; }
+              for symbol in "${symbols[@]}"; do
+                [[ "${symbol}" =~ ^[A-Za-z0-9._-]{1,20}$ ]] || { echo "invalid analysis symbol: ${symbol}" >&2; exit 2; }
+              done
+              symbol_csv="$(IFS=,; echo "${symbols[*]}")"
+              {
+                echo 'enabled=true'
+                echo 'operation=analysis'
+                echo 'migration='
+                echo "config_id=${config_id}"
+                echo "symbols=${symbol_csv}"
+                echo "request_id=${request_id}"
+              } >> "${GITHUB_OUTPUT}"
+              echo "Validated bounded Mart replay ${request_id}: config=${config_id}, symbols=${symbol_csv}"
               exit 0
               ;;
             ingestion) ;;
@@ -86,6 +108,8 @@ jobs:
             echo 'enabled=true'
             echo 'operation=ingestion'
             echo 'migration='
+            echo 'config_id='
+            echo 'symbols='
             echo "dataset=${dataset}"
             echo "force_refresh=${force_refresh}"
             echo "disable_mart=${disable_mart}"
@@ -111,6 +135,8 @@ jobs:
         env:
           OPERATION: ${{ steps.request.outputs.operation }}
           MIGRATION: ${{ steps.request.outputs.migration }}
+          CONFIG_ID: ${{ steps.request.outputs.config_id }}
+          SYMBOLS: ${{ steps.request.outputs.symbols }}
           DATASET: ${{ steps.request.outputs.dataset }}
           FORCE_REFRESH: ${{ steps.request.outputs.force_refresh }}
           DISABLE_MART: ${{ steps.request.outputs.disable_mart }}
@@ -121,13 +147,12 @@ jobs:
         run: |
           set -Eeuo pipefail
 
-          # Historical API backfills patched these transient values onto the
-          # Cloud Run Job definition. Remove them before every explicit dev
-          # request so scheduled/default executions cannot inherit stale dates.
+          # Historical/API/manual operations may patch transient values onto the
+          # Cloud Run Job definition. Remove them before every explicit dev request.
           gcloud run jobs update janus-ingestion-core \
             --project="${GCP_PROJECT_ID}" \
             --region="${GCP_REGION}" \
-            --remove-env-vars="BACKFILL_START_DATE,BACKFILL_END_DATE,INGESTION_DATE,FORCE_REFRESH" \
+            --remove-env-vars="BACKFILL_START_DATE,BACKFILL_END_DATE,INGESTION_DATE,FORCE_REFRESH,JANUS_ANALYSIS_REPLAY_CONFIG,JANUS_ANALYSIS_REPLAY_SYMBOLS,JANUS_ANALYSIS_REPLAY_TIMEOUT_SECONDS" \
             --quiet
 
           cleanup_job_env() {
@@ -136,7 +161,7 @@ jobs:
             if ! gcloud run jobs update janus-ingestion-core \
               --project="${GCP_PROJECT_ID}" \
               --region="${GCP_REGION}" \
-              --remove-env-vars="BACKFILL_START_DATE,BACKFILL_END_DATE,INGESTION_DATE,FORCE_REFRESH,INGESTION_DATASETS,JANUS_CONTROL_MIGRATION,QUEUE_CONSUMER" \
+              --remove-env-vars="BACKFILL_START_DATE,BACKFILL_END_DATE,INGESTION_DATE,FORCE_REFRESH,INGESTION_DATASETS,JANUS_CONTROL_MIGRATION,JANUS_ANALYSIS_REPLAY_CONFIG,JANUS_ANALYSIS_REPLAY_SYMBOLS,JANUS_ANALYSIS_REPLAY_TIMEOUT_SECONDS,QUEUE_CONSUMER" \
               --update-env-vars="MART_JOB=janus-intelligence-mart,GCP_REGION=${GCP_REGION},MART_OPERATION=queue" \
               --quiet; then
               echo 'Failed to restore canonical dev ingestion Job settings.' >&2
@@ -151,7 +176,17 @@ jobs:
             gcloud run jobs execute janus-ingestion-core \
               --project="${GCP_PROJECT_ID}" \
               --region="${GCP_REGION}" \
-              --update-env-vars="JANUS_CONTROL_MIGRATION=${MIGRATION},QUEUE_CONSUMER=false,MART_JOB=" \
+              --update-env-vars="JANUS_CONTROL_MIGRATION=${MIGRATION},JANUS_ANALYSIS_REPLAY_CONFIG=,JANUS_ANALYSIS_REPLAY_SYMBOLS=,QUEUE_CONSUMER=false,MART_JOB=" \
+              --wait
+            exit 0
+          fi
+
+          if [[ "${OPERATION}" == 'analysis' ]]; then
+            echo "Executing ${REQUEST_ID} Mart replay via janus-ingestion-core (${CONFIG_ID}: ${SYMBOLS})."
+            gcloud run jobs execute janus-ingestion-core \
+              --project="${GCP_PROJECT_ID}" \
+              --region="${GCP_REGION}" \
+              --update-env-vars="JANUS_CONTROL_MIGRATION=,JANUS_ANALYSIS_REPLAY_CONFIG=${CONFIG_ID},JANUS_ANALYSIS_REPLAY_SYMBOLS=${SYMBOLS},JANUS_ANALYSIS_REPLAY_TIMEOUT_SECONDS=900,QUEUE_CONSUMER=false,MART_JOB=janus-intelligence-mart,GCP_REGION=${GCP_REGION}" \
               --wait
             exit 0
           fi
@@ -163,6 +198,8 @@ jobs:
           fi
           overrides=(
             "JANUS_CONTROL_MIGRATION="
+            "JANUS_ANALYSIS_REPLAY_CONFIG="
+            "JANUS_ANALYSIS_REPLAY_SYMBOLS="
             "INGESTION_DATASETS=${dataset_selection}"
             "FORCE_REFRESH=${FORCE_REFRESH}"
             "QUEUE_CONSUMER=false"
