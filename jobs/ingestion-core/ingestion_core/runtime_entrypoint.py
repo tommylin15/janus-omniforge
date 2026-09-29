@@ -5,10 +5,10 @@ from __future__ import annotations
 import json
 import os
 import sys
-from time import monotonic
+from time import monotonic, sleep
 from typing import Any
 
-from .__main__ import _control_plane, consume_queued_collection, run_scheduled_collection
+from .__main__ import _control_plane, _trigger_mart, consume_queued_collection, run_scheduled_collection
 
 
 CONTROL_MIGRATION_PRIVATE_STOCK_MASTER_READ = "030_private_stock_master_read"
@@ -183,7 +183,8 @@ def _run_control_migration(name: str) -> dict[str, Any]:
     """Apply one allow-listed control-owner migration used by portfolio completeness."""
     if name not in CONTROL_MIGRATIONS:
         raise ValueError("unsupported control migration")
-    with _control_plane() as control:
+    control = _control_plane()
+    try:
         with control.connection.transaction(), control.connection.cursor() as cursor:
             if name == CONTROL_MIGRATION_PRIVATE_STOCK_MASTER_READ:
                 _apply_private_stock_master_read(cursor)
@@ -193,12 +194,57 @@ def _run_control_migration(name: str) -> dict[str, Any]:
                 _apply_liquid_500(cursor)
             else:
                 _apply_liquid_500_tpex_source(cursor)
+    finally:
+        control.close()
     return {
         "component": "ingestion-core",
         "status": "succeeded",
         "operation": "control_migration",
         "migration": name,
     }
+
+
+def _run_analysis_replay(config_id: str, symbols: tuple[str, ...], *, timeout_seconds: int = 900) -> dict[str, Any]:
+    """Replay one analysis from the latest immutable successful Core snapshot and wait for Mart."""
+    if not config_id or len(config_id) > 80 or any(character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for character in config_id):
+        raise ValueError("invalid analysis replay config")
+    if not symbols or len(symbols) > 50 or any(not symbol or len(symbol) > 20 for symbol in symbols):
+        raise ValueError("analysis replay requires 1..50 bounded symbols")
+    if not 30 <= timeout_seconds <= 1800:
+        raise ValueError("analysis replay timeout must be 30..1800 seconds")
+    control = _control_plane()
+    try:
+        execution = control.enqueue_analysis(config_id, symbols, trace_id=f"fact-pack-acceptance:{config_id}")
+        trigger = _trigger_mart(execution.execution_id, delay_seconds=0)
+        if trigger.get("status") != "accepted":
+            raise RuntimeError(f"Mart trigger was not accepted: {trigger.get('status', 'unknown')}")
+        deadline = monotonic() + timeout_seconds
+        while monotonic() < deadline:
+            current = control.get_execution(execution.execution_id)
+            if current.status.value == "succeeded":
+                reports = control.list_mart_reports(filters={"execution_id": execution.execution_id}, limit=51)
+                if not reports:
+                    raise RuntimeError("succeeded Mart replay has no publication index rows")
+                return {
+                    "component": "ingestion-core",
+                    "status": "succeeded",
+                    "operation": "analysis_replay",
+                    "analysis_execution_id": execution.execution_id,
+                    "config_id": config_id,
+                    "symbols": list(symbols),
+                    "reports": len(reports),
+                    "analysis_outcomes": sorted({str(report["analysis_outcome"]) for report in reports}),
+                    "publication_statuses": sorted({str(report["publication_status"]) for report in reports}),
+                    "mart_trigger": "accepted",
+                }
+            if current.status.value in {"failed", "partial"}:
+                raise RuntimeError(f"Mart replay ended in {current.status.value}")
+            if current.status.value == "retrying":
+                raise RuntimeError("Mart replay requires retry and is not accepted as live evidence")
+            sleep(5)
+        raise TimeoutError("Mart replay did not finish within the bounded acceptance window")
+    finally:
+        control.close()
 
 
 def _failure_details(error: Exception) -> list[dict[str, str]]:
@@ -231,12 +277,20 @@ def main() -> None:
     try:
         maintenance_mode = os.environ.get("ICEBERG_MAINTENANCE_MODE", "").strip()
         control_migration = os.environ.get("JANUS_CONTROL_MIGRATION", "").strip()
+        analysis_replay = os.environ.get("JANUS_ANALYSIS_REPLAY_CONFIG", "").strip()
         if maintenance_mode:
             from .iceberg_maintenance import run
 
             result = run(maintenance_mode)
         elif control_migration:
             result = _run_control_migration(control_migration)
+        elif analysis_replay:
+            symbols = tuple(sorted({item.strip().upper() for item in os.environ.get("JANUS_ANALYSIS_REPLAY_SYMBOLS", "").split(",") if item.strip()}))
+            result = _run_analysis_replay(
+                analysis_replay,
+                symbols,
+                timeout_seconds=int(os.environ.get("JANUS_ANALYSIS_REPLAY_TIMEOUT_SECONDS", "900")),
+            )
         else:
             operation = (
                 consume_queued_collection
