@@ -17,6 +17,7 @@ _DATABASES = {
     "catalog": ("CATALOG_DB", "catalog", "catalog.iceberg_tables"),
     "publication": ("PUBLICATION_DB", "publication", None),
 }
+_FACT_PACK_TYPES = frozenset({"fundamental", "valuation", "positioning", "quant", "event_risk"})
 
 
 @dataclass(frozen=True)
@@ -202,6 +203,8 @@ def consume_queued_analysis(queue: PostgreSQLAnalysisQueue, processor: Callable[
                 "artifact_uri": artifact_uri,
                 "reports": int(result.get("reports", 0)),
                 "publishable": int(result.get("publishable", 0)),
+                "fact_pack_reports_validated": int(result.get("fact_pack_reports_validated", 0)),
+                "fact_pack_count": int(result.get("fact_pack_count", 0)),
                 "outcomes_updated": int(result.get("outcomes_updated", 0)),
                 "pilot_baseline_id": result.get("pilot_baseline_id")}
     except Exception as error:
@@ -275,6 +278,36 @@ def _write_immutable_json(store: Any, bucket: str, name: str, value: object) -> 
     return {"artifact_uri": f"gs://{bucket}/{name}", "artifact_hash": f"sha256:{sha256(payload).hexdigest()}"}
 
 
+def _validate_fact_packs(reports: list[dict[str, Any]]) -> dict[str, int]:
+    """Fail closed unless every live report carries the complete replayable five-pack contract."""
+    total = 0
+    for report in reports:
+        packs = report.get("fact_packs")
+        if not isinstance(packs, list) or len(packs) != len(_FACT_PACK_TYPES):
+            raise ValueError("Mart report must contain exactly five Fact Packs")
+        if {pack.get("pack_type") for pack in packs if isinstance(pack, dict)} != _FACT_PACK_TYPES:
+            raise ValueError("Mart Fact Pack type set is incomplete")
+        roles = {role["role"]: role for role in report.get("roles", []) if isinstance(role, dict) and role.get("role")}
+        for pack in packs:
+            if not isinstance(pack, dict):
+                raise ValueError("Mart Fact Pack must be an object")
+            role = roles.get(pack.get("pack_type"))
+            digest = str(pack.get("fact_pack_hash", ""))
+            evidence_digest = str(pack.get("evidence_hash", ""))
+            if (pack.get("fact_pack_version") != "1.0.0"
+                    or pack.get("analysis_as_of") != report.get("analysis_as_of")
+                    or pack.get("core_snapshot_id") != report.get("core_snapshot_id")
+                    or pack.get("facts") != (role or {}).get("features")
+                    or pack.get("missing_data") != (role or {}).get("missing_data")
+                    or pack.get("evidence_ids") != (role or {}).get("evidence_ids")
+                    or (pack.get("baseline") or {}).get("score") != (role or {}).get("score")
+                    or not (digest.startswith("sha256:") and len(digest) == 71)
+                    or not (evidence_digest.startswith("sha256:") and len(evidence_digest) == 71)):
+                raise ValueError("Mart Fact Pack lineage or baseline invariant failed")
+        total += len(packs)
+    return {"fact_pack_reports_validated": len(reports), "fact_pack_count": total}
+
+
 def mart_processor(execution: AnalysisExecution, publication_connection: Any, *,
                    store_factory: Callable[[str], Any] | None = None,
                    catalog_factory: Callable[[], Any] | None = None,
@@ -312,6 +345,7 @@ def mart_processor(execution: AnalysisExecution, publication_connection: Any, *,
             prompts=prompts,
             prompt_hash=prompt_hash,
         )
+        fact_pack_validation = _validate_fact_packs(reports)
         expected_hashes = {(report["scope"]["type"], report["scope"]["id"]): report["deterministic_hash"] for report in reports}
         existing_manifest = None
         try:
@@ -407,6 +441,7 @@ def mart_processor(execution: AnalysisExecution, publication_connection: Any, *,
         outcomes_updated = collect_pilot_outcomes(publication, datasets)
     return {"artifact_uri": f"gs://{bucket}/{target_name}", "core_snapshot_id": execution.core_snapshot_id,
             "reports": len(reports), "publishable": sum(item["publication_status"] in {"publishable", "published"} for item in indexed),
+            **fact_pack_validation,
             "outcomes_updated": outcomes_updated, "pilot_baseline_id": pilot_baseline_id}
 
 
