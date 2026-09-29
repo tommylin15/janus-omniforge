@@ -17,7 +17,7 @@
 - **Iceberg financials 手動維護已通過 dev 驗收並啟用每週排程。** 維護當時的 1 GiB Job 保留 22 個 snapshots、過期 1,299 個，刪除 448 個舊 metadata JSON，當時 11,954 列及 7 個 Core manifest 引用的 snapshots 維持可讀。GCS 有效 metadata bytes 從 361,299,847 降至 206,536,934（減少 154,762,913）；排程每週日台北時間 12:00 用同一 Job 執行，手動 dispatch dry-run 已通過，首次自然排程尚待觀察。Job 現已依使用者批准改為 2 GiB；Bucket versioning／soft delete 使實際計費空間延後下降；本程序尚未做 `.avro` orphan cleanup 或 manifest rewrite。
 - **User product completeness 目前未完成。** 2026-09-29 Private Pipeline 修復後，真實 5876 持股已有正式盤後價且 aggregate valuation／unrealized PnL 恢復發布；其他持股若缺行情 coverage 或名稱解析，UI 仍須保留 missing／stale／partial 狀態，不自行補算或用 placeholder 假裝完整。
 - **「今日」的 deterministic market-home API 與 User UI 均完成 dev acceptance。** Public endpoint 讀到已持久化 Core benchmark、市場活動與法人資料；各區塊保留各自資料日，日期不同時不顯示共用日期。登入後 Chrome `/app/` 顯示真實 Core 資料與「研究摘要尚未就緒」；390×844 手機 bottom navigation、1280×900 桌面 navigation rail 均驗收通過。UI commit `da3e83a69a73fa5004badc75602eb9a88642ec3d`、Flutter CI `36314185316`、dev deployment／verify `36314185317`、Ready revision `janus-api-gda3e83a69a73-config`（100% traffic）。詳見 [WBS-6-MARKET-HOME-UI archive](archive/wbs-6-market-home-ui-2026-09-27.md) 與 [operations evidence](spec/operations-and-testing.md)。
-- **Admin target workspace 尚未完成。** Legacy/static surface 在 migration 期間保留；Flutter Admin shell、overview／batch 與 stock data workbench 是產品完整度工作，不因六個月 observation window 而延後到 Pilot 結束後。
+- **Flutter Admin shell 已完成 dev acceptance。** 單一 `apps/user_app` codebase 以 `/app/admin`／explicit Admin workspace 提供中文 `總覽／批次／個股／市場資訊／AI 分析／進階管理` 導覽，desktop `NavigationRail` 與 390×844 mobile `NavigationDrawer` regression 均通過；User／Admin OAuth audience 分離，`/api/v1/admin/*` security boundary 仍由 backend `GoogleAdminAuthenticator` 執行。commit `2c1b2babdd1548cb79373f7fd8c46739a4073923` 的 Flutter CI `36561885167` success，canonical dev workflow `36561885101` 的 API tests、deploy 與 live verify success；Cloud Run revision `janus-api-g2c1b2babdd15-config` Ready、100% traffic，image digest `sha256:9b1a2eb392f6ba348f1cf55ee8fce8f988f31da5512d0603fa922c96c0f408dd`。live verifier 同時確認 `/app/admin` 為當次 Flutter build、無 Admin token 的 Admin API 為 401、legacy `/admin/stocks` static rollback surface 仍存在。Overview／Batch 與 Stock Workbench 各自 WBS 尚未因 shell 結案而完成。詳見 [結案紀錄](archive/wbs-6-flutter-admin-shell-completed-2026-09-29.md)。
 - `WBS-6-TRANSACTION-UX-2` 的既有完成判定只代表該次 presentation／read-path／state acceptance 已完成，不代表全市場行情 coverage、股票名稱解析、aggregate portfolio valuation 或整體 User App 已完成。
 
 ## 兩條並行主線
@@ -26,13 +26,13 @@
 
 依 [`todo.md`](todo.md) 以使用者指定的整體 WBS 作為工作／驗收單位；WBS 內同來源或可共用驗收的資料集合併批次完成，不在資料集或內部步驟間停等。遇到 blocker 時先推進其餘安全且獨立的條件；目前順序為：
 
-1. `WBS-6-FLUTTER-ADMIN-SHELL` → `WBS-6-ADMIN-OVERVIEW-BATCH` → `WBS-6-ADMIN-STOCK-WORKBENCH`：完成 Admin 主路徑；既有「市場資訊」已可檢視／調整週量 500 進出。
+1. `WBS-6-ADMIN-OVERVIEW-BATCH` → `WBS-6-ADMIN-STOCK-WORKBENCH`：在已完成的 Flutter Admin shell 上補齊 operator overview／batch 與 stock data workbench 正式 acceptance；既有「市場資訊」已可檢視／調整週量 500 進出。
 
 Shioaji 目前僅證實既有模擬憑證可登入及送出單檔 Quote 訂閱；正式環境登入回權限相關錯誤，且 2026-09-27 非交易時段，不能據此宣稱盤中即時股價或 User 市值更新可用。
 
 `WBS-3-LIQUID-500-ROTATION` 已完成；live Admin 換股、500 檔數量、audit 與原名單復原均通過。完成 evidence 見 [`WBS-3 archive`](archive/wbs-3-liquid-500-rotation-completed-2026-09-27.md) 與 [`operations ledger`](spec/operations-and-testing.md)。
 
-`WBS-3-FULL-MARKET-BASE-COVERAGE` 已完成本次有限 TWSE 500 驗收。下一個 foreground WBS 是 `WBS-6-FLUTTER-ADMIN-SHELL`；依模型閘門需使用者另行指定並確認模型後才開始。
+`WBS-3-FULL-MARKET-BASE-COVERAGE` 與 `WBS-6-FLUTTER-ADMIN-SHELL` 均已完成。下一個 foreground WBS 是 `WBS-6-ADMIN-OVERVIEW-BATCH`；依模型閘門於下一個 WBS 開始前重新確認建議模型。
 
 ### B. Dev Pilot operational observation
 
