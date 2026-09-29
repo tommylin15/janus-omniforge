@@ -710,51 +710,127 @@ class _AdminStockWorkbenchState extends State<AdminStockWorkbench> {
         ]);
       });
 
-  Future<void> _queue(bool analysis) async {
-    final config = TextEditingController(text: 'ohlcv');
-    final value = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(analysis ? '建立分析批次' : '修復資料缺口'),
-        content: TextField(
-          controller: config,
-          decoration: const InputDecoration(labelText: '設定 ID'),
+  static int _intValue(Object? value) {
+    if (value is int) return value;
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static String _joined(Object? value) {
+    if (value is List && value.isNotEmpty) return value.join('、');
+    return '—';
+  }
+
+  static bool _needsGapRepair(Map<String, dynamic> value) {
+    final status = value['status']?.toString();
+    final received = _intValue(value['received_symbols']);
+    final requested = _intValue(value['requested_symbols']);
+    return {'missing', 'unavailable', 'stale', 'partial'}.contains(status) ||
+        (requested > 0 && received < requested);
+  }
+
+  static String _healthState(Map<String, dynamic> value) {
+    final status = value['status']?.toString();
+    final received = _intValue(value['received_symbols']);
+    final requested = _intValue(value['requested_symbols']);
+    final warnings = _intValue(value['dq_warning_count']);
+    if (status == 'unavailable') return '無法使用';
+    if (status == 'missing') return '缺資料';
+    if (requested > 0 && received < requested) {
+      return '缺口 ${requested - received}';
+    }
+    if (warnings > 0) return '$warnings 個警示';
+    return '正常';
+  }
+
+  Future<List<Map<String, dynamic>>> _repairOptions(String datasetId) async {
+    final catalog = await widget.api.get('/api/v1/admin/source-catalog?limit=200');
+    final options = _items(catalog)
+        .where(
+          (config) =>
+              config['dataset_id'] == datasetId &&
+              config['enabled'] == true &&
+              config['collection_enabled'] == true &&
+              {'official', 'approved_fallback'}
+                  .contains(config['authorization_status']),
+        )
+        .toList()
+      ..sort((a, b) => a['config_id']
+          .toString()
+          .compareTo(b['config_id'].toString()));
+    return options;
+  }
+
+  Future<void> _repair(Map<String, dynamic> health) async {
+    if (selected == null) return;
+    final datasetId = health['dataset_id'].toString();
+    late final List<Map<String, dynamic>> options;
+    try {
+      options = await _repairOptions(datasetId);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('無法讀取已核准的修復設定')),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+    if (options.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$datasetId 沒有可用的已核准收集設定')),
+      );
+      return;
+    }
+
+    String? configId;
+    if (options.length == 1) {
+      configId = options.single['config_id'].toString();
+    } else {
+      configId = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => SimpleDialog(
+          title: Text('選擇 $datasetId 修復設定'),
+          children: [
+            for (final option in options)
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(
+                  dialogContext,
+                  option['config_id'].toString(),
+                ),
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(option['config_id'].toString()),
+                  subtitle: Text(
+                    '${_label(option['authorization_status'])} · ${_joined(option['source_ids'])}',
+                  ),
+                ),
+              ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, config.text.trim()),
-            child: const Text('加入佇列'),
-          ),
-        ],
-      ),
-    );
-    config.dispose();
-    if (value == null || value.isEmpty || selected == null) return;
+      );
+    }
+    if (configId == null || configId.isEmpty || !mounted) return;
+
     try {
       await widget.api.post(
-        analysis
-            ? '/api/v1/admin/executions/analysis'
-            : '/api/v1/admin/executions/collection',
+        '/api/v1/admin/executions/collection',
         {
-          'config_id': value,
+          'config_id': configId,
           'symbols': [selected!['symbol']]
         },
       );
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('無法建立執行紀錄，請檢查設定與權限')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('無法建立缺口修復批次，請檢查設定與權限')),
+        );
       }
       return;
     }
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已建立新的執行紀錄')));
-    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('已建立 $datasetId 缺口修復批次（$configId）')),
+    );
   }
 
   @override
@@ -820,7 +896,7 @@ class _AdminStockWorkbenchState extends State<AdminStockWorkbench> {
                     },
                   );
                   final details = selected == null
-                      ? const _Message('選擇股票以查看資料健康與歷史分析')
+                      ? const _Message('選擇股票以查看資料健康與修復缺口')
                       : FutureBuilder<List<dynamic>>(
                           future: detail,
                           builder: (context, snapshot) {
@@ -837,54 +913,73 @@ class _AdminStockWorkbenchState extends State<AdminStockWorkbench> {
                             final reports = _items(snapshot.data![1]);
                             return ListView(
                               children: [
-                                Wrap(
-                                  spacing: 8,
-                                  children: [
-                                    FilledButton.tonal(
-                                      onPressed: () => _queue(false),
-                                      child: const Text('修復資料缺口'),
+                                Card(
+                                  child: ListTile(
+                                    leading: const Icon(Icons.lock_outline),
+                                    title: const Text('AI 五角色／CIO 尚未啟用'),
+                                    subtitle: const Text(
+                                      'Fact Pack、AI role 與 CIO contracts 完成前，個股工作台不提供 role rerun 或歷史角色操作。',
                                     ),
-                                    FilledButton.tonal(
-                                      onPressed: () => _queue(true),
-                                      child: const Text('重新分析'),
-                                    ),
-                                  ],
+                                  ),
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 8),
                                 Text(
                                   '資料健康',
                                   style:
                                       Theme.of(context).textTheme.titleMedium,
                                 ),
                                 if (health.isEmpty) const Text('目前沒有 Core 資料'),
-                                ...health.map(
-                                  (value) => ListTile(
-                                    dense: true,
-                                    title: Text(value['dataset_id'].toString()),
-                                    subtitle: Text(
-                                      '筆數 ${value['row_count'] ?? '—'} · 覆蓋 ${value['received_symbols'] ?? '—'}/${value['requested_symbols'] ?? '—'}',
+                                ...health.map((value) {
+                                  final received =
+                                      _intValue(value['received_symbols']);
+                                  final requested =
+                                      _intValue(value['requested_symbols']);
+                                  final gap = requested > received
+                                      ? requested - received
+                                      : 0;
+                                  final repairable = _needsGapRepair(value);
+                                  return Card(
+                                    child: ListTile(
+                                      dense: true,
+                                      title:
+                                          Text(value['dataset_id'].toString()),
+                                      subtitle: Text(
+                                        '筆數 ${value['row_count'] ?? '—'} · 覆蓋 $received/$requested${gap > 0 ? ' · 缺口 $gap' : ''}\n'
+                                        '資料日 ${value['latest_date'] ?? '—'}',
+                                      ),
+                                      trailing: Wrap(
+                                        spacing: 8,
+                                        crossAxisAlignment:
+                                            WrapCrossAlignment.center,
+                                        children: [
+                                          Text(_healthState(value)),
+                                          if (repairable)
+                                            FilledButton.tonal(
+                                              onPressed: () => _repair(value),
+                                              child: const Text('修復'),
+                                            ),
+                                        ],
+                                      ),
                                     ),
-                                    trailing: Text(value['status'] ==
-                                            'unavailable'
-                                        ? '無法使用'
-                                        : value['status'] == 'missing'
-                                            ? '缺資料'
-                                            : value['dq_warning_count'] == 0
-                                                ? '正常'
-                                                : '${value['dq_warning_count']} 個警示'),
-                                  ),
-                                ),
+                                  );
+                                }),
                                 ExpansionTile(
-                                  title: const Text('最近執行與資料版本'),
+                                  title: const Text('技術追蹤（唯讀）'),
+                                  subtitle:
+                                      const Text('舊 execution／snapshot 保持不可變更'),
                                   children: [
                                     for (final value in health)
                                       ListTile(
                                         title: Text(
-                                            value['dataset_id'].toString()),
+                                          value['dataset_id'].toString(),
+                                        ),
                                         subtitle: Text(
-                                            '執行 ${_label((value['execution_ids'] as List?)?.firstOrNull)} · '
-                                            '快照 ${_label((value['snapshot_ids'] as List?)?.firstOrNull)} · '
-                                            '資料日 ${_label(value['latest_date'])}'),
+                                          '來源 ${_joined(value['source_ids'])}\n'
+                                          'execution ${_joined(value['execution_ids'])}\n'
+                                          'snapshot ${_joined(value['snapshot_ids'])}\n'
+                                          'provenance ${_joined(value['provenance_ids'])}\n'
+                                          'freshness ${value['freshness'] ?? '—'} · 更新 ${value['updated_at'] ?? '—'}',
+                                        ),
                                       ),
                                   ],
                                 ),
@@ -893,6 +988,9 @@ class _AdminStockWorkbenchState extends State<AdminStockWorkbench> {
                                   '歷史分析',
                                   style:
                                       Theme.of(context).textTheme.titleMedium,
+                                ),
+                                const Text(
+                                  '僅顯示既有 persisted Mart 紀錄；不代表五角色、CIO 或 role rerun 已可用。',
                                 ),
                                 if (reports.isEmpty) const Text('目前沒有已持久化分析'),
                                 ...reports.map(
