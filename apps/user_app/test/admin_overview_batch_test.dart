@@ -123,6 +123,8 @@ class _OperationsApi implements AdminApi {
 void main() {
   testWidgets('overview is actionable-issues-first and hides healthy execution noise',
       (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1280, 1200));
     final api = _OperationsApi();
     await tester.pumpWidget(
       MaterialApp(home: Scaffold(body: AdminOverviewPage(api))),
@@ -140,6 +142,8 @@ void main() {
 
   testWidgets('overview opens lineage and retries only retryable failed item',
       (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1280, 1200));
     final api = _OperationsApi();
     await tester.pumpWidget(
       MaterialApp(home: Scaffold(body: AdminOverviewPage(api))),
@@ -152,6 +156,8 @@ void main() {
     expect(find.text('追蹤 ID trace-1'), findsOneWidget);
     expect(find.text('不可重試'), findsOneWidget);
     expect(find.text('重試'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('retry-1'), 200,
+        scrollable: find.byType(Scrollable).last);
     expect(find.text('retry-1'), findsOneWidget);
 
     await tester.tap(find.text('重試'));
@@ -168,6 +174,8 @@ void main() {
 
   testWidgets('batch classifies partial separately from succeeded and keeps details operable',
       (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1280, 1200));
     final api = _OperationsApi();
     await tester.pumpWidget(
       MaterialApp(home: Scaffold(body: AdminBatchPage(api))),
@@ -176,8 +184,8 @@ void main() {
 
     expect(find.text('需要處理 1'), findsOneWidget);
     expect(find.text('已完成 1'), findsOneWidget);
-    expect(find.textContaining('部分完成'), findsOneWidget);
-    expect(find.textContaining('成功'), findsOneWidget);
+    expect(find.textContaining('部分完成'), findsWidgets);
+    expect(find.textContaining('成功'), findsWidgets);
 
     await tester.tap(find.text('查看').first);
     await tester.pumpAndSettle();

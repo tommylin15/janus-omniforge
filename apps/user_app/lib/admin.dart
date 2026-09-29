@@ -389,7 +389,7 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
                   const Card(
                     child: ListTile(
                       leading: Icon(Icons.check_circle_outline),
-                      title: Text('目前沒有需要處理的事項'),
+                      title: Text('今日沒有需要處理的事項'),
                       subtitle: Text('成功的執行紀錄仍可在「批次」查閱。'),
                     ),
                   ),
