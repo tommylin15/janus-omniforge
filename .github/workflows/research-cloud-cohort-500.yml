@@ -23,26 +23,37 @@ env:
   RESEARCH_JOB: janus-research-big-move-500
   RESEARCH_SA_NAME: janus-research-big-move-500
   IMAGE_REPO: us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/research-cloud-cohort-500
+  DRIVE_SOURCE_FILE_ID: 18IEHD4l70fbXduc_UOscEuxD4okrhEFB
+  DRIVE_SOURCE_SIZE: '156889260'
+  DRIVE_SOURCE_SHA256: 0ed5d53ec912d47ab4087b2bc1e0743411c5e9ccac1a096060420eb1801fa590
+  MATERIALIZED_REVISION: 20260917T025906Z
 
 jobs:
-  bootstrap-and-run:
+  research-action:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: google-github-actions/auth@v2
+      - id: auth
+        uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: |
+            https://www.googleapis.com/auth/cloud-platform
+            https://www.googleapis.com/auth/drive.readonly
 
       - uses: google-github-actions/setup-gcloud@v2
 
-      - name: Validate research request isolation contract
+      - id: request
+        name: Validate research request isolation contract
         shell: bash
         run: |
           set -Eeuo pipefail
           python - <<'PY'
           import json
+          import os
           from pathlib import Path
 
           p = json.loads(Path('research/cloud-cohort-500/RUN_REQUEST.json').read_text())
@@ -53,8 +64,11 @@ jobs:
           assert p['database_allowed'] is False
           assert p['existing_janus_iceberg_allowed'] is False
           assert p['canonical_core_mart_writes_allowed'] is False
-          assert p['action'] == 'bootstrap'
-          print('research isolation contract: PASS')
+          action = str(p['action'])
+          assert action in {'bootstrap', 'stage_source_zip'}
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as f:
+              f.write(f'action={action}\n')
+          print(f'research isolation contract: PASS action={action}')
           PY
 
       - name: Verify dedicated research service account
@@ -77,10 +91,83 @@ jobs:
               --location="${GCP_REGION}" \
               --uniform-bucket-level-access
           fi
-          # Bucket IAM is deliberately NOT managed by CI. It is a one-time
-          # owner bootstrap so janus-ci never needs getIamPolicy/setIamPolicy.
+          # Bucket IAM is deliberately NOT managed by CI.
+
+      - name: Stage Step2A ZIP from Drive into research GCS
+        if: steps.request.outputs.action == 'stage_source_zip'
+        shell: bash
+        env:
+          DRIVE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          set -Eeuo pipefail
+          mkdir -p research-result
+          source_zip="/tmp/janus_step2a_materialized.zip"
+          curl --silent --show-error --fail --location \
+            --header "Authorization: Bearer ${DRIVE_ACCESS_TOKEN}" \
+            "https://www.googleapis.com/drive/v3/files/${DRIVE_SOURCE_FILE_ID}?alt=media&supportsAllDrives=true" \
+            --output "${source_zip}"
+
+          actual_size="$(stat -c '%s' "${source_zip}")"
+          test "${actual_size}" = "${DRIVE_SOURCE_SIZE}"
+          actual_sha="$(sha256sum "${source_zip}" | awk '{print $1}')"
+          test "${actual_sha}" = "${DRIVE_SOURCE_SHA256}"
+          unzip -tq "${source_zip}" >/dev/null
+          entry_count="$(unzip -Z1 "${source_zip}" | wc -l | tr -d ' ')"
+          test "${entry_count}" = '13120'
+          unzip -Z1 "${source_zip}" | grep -q "^janus_step2a_materialized/${MATERIALIZED_REVISION}/artifact_manifest.json$"
+
+          object="${RESEARCH_PREFIX}/sources/step2a/sha256=${actual_sha}/janus_step2a_materialized.zip"
+          gcloud storage cp "${source_zip}" "gs://${RESEARCH_BUCKET}/${object}"
+          gcloud storage cp "gs://${RESEARCH_BUCKET}/${object}" /tmp/staged-roundtrip.zip
+          roundtrip_sha="$(sha256sum /tmp/staged-roundtrip.zip | awk '{print $1}')"
+          test "${roundtrip_sha}" = "${actual_sha}"
+
+          python - <<'PY'
+          import hashlib, json, os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          sha = os.environ['DRIVE_SOURCE_SHA256']
+          manifest = {
+              'schema_version': 'janus.research.cloud-cohort-500.source-stage.v1',
+              'status': 'ok',
+              'source': {
+                  'provider': 'google_drive',
+                  'file_id': os.environ['DRIVE_SOURCE_FILE_ID'],
+                  'file_name': 'janus_step2a_materialized.zip',
+                  'size_bytes': int(os.environ['DRIVE_SOURCE_SIZE']),
+                  'sha256': sha,
+                  'entry_count': 13120,
+                  'materialized_revision': os.environ['MATERIALIZED_REVISION'],
+              },
+              'destination': {
+                  'bucket': os.environ['RESEARCH_BUCKET'],
+                  'object': f"{os.environ['RESEARCH_PREFIX']}/sources/step2a/sha256={sha}/janus_step2a_materialized.zip",
+                  'roundtrip_sha256_verified': True,
+              },
+              'isolation': {
+                  'postgresql_used': False,
+                  'database_used': False,
+                  'existing_janus_iceberg_catalog_used': False,
+                  'janus_core_written': False,
+                  'janus_mart_written': False,
+                  'janus_private_mart_written': False,
+                  'runtime_secret_used': False,
+              },
+              'generated_at': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+          }
+          Path('research-result/source_stage_manifest.json').write_text(
+              json.dumps(manifest, ensure_ascii=False, sort_keys=True, indent=2) + '\n',
+              encoding='utf-8',
+          )
+          PY
+          manifest_object="${RESEARCH_PREFIX}/sources/step2a/sha256=${actual_sha}/source_stage_manifest.json"
+          gcloud storage cp research-result/source_stage_manifest.json \
+            "gs://${RESEARCH_BUCKET}/${manifest_object}"
+          printf '%s\n' "${object}" > research-result/source_object.txt
 
       - name: Build isolated research image
+        if: steps.request.outputs.action == 'bootstrap'
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -97,16 +184,12 @@ jobs:
               --project="${GCP_PROJECT_ID}" \
               --format='value(status)')"
             case "${status}" in
-              SUCCESS)
-                break
-                ;;
+              SUCCESS) break ;;
               FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED)
                 echo "research Cloud Build failed: ${status}" >&2
                 exit 1
                 ;;
-              QUEUED|PENDING|WORKING)
-                sleep 5
-                ;;
+              QUEUED|PENDING|WORKING) sleep 5 ;;
               *)
                 echo "unexpected Cloud Build status: ${status}" >&2
                 exit 1
@@ -120,6 +203,7 @@ jobs:
           echo "RESEARCH_IMAGE=${IMAGE_REPO}@${digest}" >> "${GITHUB_ENV}"
 
       - name: Upload immutable request
+        if: steps.request.outputs.action == 'bootstrap'
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -129,6 +213,7 @@ jobs:
           echo "RESEARCH_REQUEST_OBJECT=${request_object}" >> "${GITHUB_ENV}"
 
       - name: Create or update research-only Cloud Run Job
+        if: steps.request.outputs.action == 'bootstrap'
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -154,6 +239,7 @@ jobs:
           fi
 
       - name: Execute bootstrap acceptance
+        if: steps.request.outputs.action == 'bootstrap'
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -172,6 +258,7 @@ jobs:
             --format=json > research-result/job_snapshot.json
 
       - name: Verify no DB or canonical data-plane use
+        if: steps.request.outputs.action == 'bootstrap'
         shell: bash
         run: |
           set -Eeuo pipefail
