@@ -1,0 +1,7 @@
+{
+  "execution_name": "janus-research-big-move-500-7lrtt",
+  "purpose": "read_only_failure_diagnosis",
+  "database_allowed": false,
+  "existing_janus_iceberg_allowed": false,
+  "canonical_core_mart_writes_allowed": false
+}
