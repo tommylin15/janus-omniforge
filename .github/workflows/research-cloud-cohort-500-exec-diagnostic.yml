@@ -1,0 +1,57 @@
+name: Research cloud cohort 500 execution diagnostic
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'research/cloud-cohort-500/EXEC_DIAG_REQUEST.json'
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_REGION: us-central1
+  RESEARCH_JOB: janus-research-big-move-500
+
+jobs:
+  execution-diagnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read failed execution metadata
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p research-result
+          execution="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('research/cloud-cohort-500/EXEC_DIAG_REQUEST.json').read_text())
+          print(p['execution_name'])
+          PY
+          )"
+          gcloud run jobs executions describe "${execution}" \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json \
+            > research-result/execution_detail.json
+          gcloud run jobs executions list \
+            --job="${RESEARCH_JOB}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --limit=5 --sort-by='~createTime' --format=json \
+            > research-result/recent_executions.json
+          cat research-result/execution_detail.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: research-cloud-cohort-500-exec-diagnostic-${{ github.sha }}
+          path: research-result/
+          if-no-files-found: error
+          retention-days: 7
