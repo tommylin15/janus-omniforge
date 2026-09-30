@@ -12,9 +12,80 @@ Admin AI 分析設定工作區尚未實作；除下述已實作 contract 外，�
 下一版核准架構為：
 
 `Core immutable snapshot → Evidence Validation → Deterministic Fact Engine →
-5 evidence-grounded AI Analysts → Deterministic AI Output Validator → CIO /
+5 independent Codex CLI Analysts（GCP batch；受控 fallback） → Deterministic AI Output Validator → CIO /
 Synthesis AI → Deterministic Synthesis Validator → Governance / Publication Gate →
 Immutable Mart artifacts`。
+
+### GCP 批次 Codex 分析師研究路線（Active planning；尚未實作）
+
+參考 [Codex Analyst Architecture](https://docs.google.com/document/d/1wPKndnPMbtVR1nkHEaUgmxTiUbt5_PkdyG-IY-l5Fo4/edit)
+的五個獨立分析師、Fact Pack／validator／CIO／publication 分層。Drive 原文仍是
+2026-09-25 的 Deferred research note；依使用者 2026-09-30 明確指示，本路線納入 active
+WBS 規劃，以 GCP 批次自行執行為目標，不把規劃更新寫成 runtime 已完成。
+
+- 首選 Codex CLI：既有 Mart Cloud Run Job／受控批次在 GCP 容器內啟動
+  Fundamental／Valuation／Positioning／Quant／Event Risk 五個獨立 role invocation。
+  每個 role 隔離輸入、workspace、輸出與 execution lineage；可先序列化，再依實測設定
+  bounded concurrency，不要求五個新 GCP service，也不依賴本機 Codex 桌面或逐次人工操作。
+- 本專案的「ChatGPT worker」尚未指定具體可驗證介面。本規劃優先以薄 worker wrapper
+  管理 CLI；CLI 的必要協定能力不足且有實測證據時，才評估具體的非互動式 worker bridge。
+  Bridge 必須證明 GCP 可達、auth、dispatch、cancel 與結果回收，不以人工貼 prompt／
+  ChatGPT 網頁操作充當批次。CLI／bridge 與 OpenAI API 是不同 transport，不自動改用 API。
+- Codex 為 primary；Gemini／OpenRouter 只作已核准、profile 明列順序與條件的受控 fallback。
+  Primary bounded retry 用盡或回 structured unavailable 後才可 fallback；輸出 validation
+  失敗不得靠換 provider 繞過 validator。保存每次 attempt、failure、fallback reason 與實際
+  provider／transport／model，禁止 silent fallback；沒有合格 fallback 時 fail closed。
+- 初始化登入／OAuth／MFA 可由使用者完成，但正常批次須在初始化後自行 dispatch／續期／
+  保存結果。Credentials／auth cache 僅放既有核准 secret storage，隔離執行身分並驗證 rotation／
+  cold start；不得進 image、argv、log、一般資料表或前端。Auth 過期／revoked／續期失敗時
+  留 structured failure／required user action，不用 placeholder。登入方式、GCP headless
+  可行性、subscription quota 與可觀察 cost 都待實測，不假定 CLI 免成本或 auth 永久有效。
+- CLI version、可用 model／structured-output／sandbox capability、參數、timeout、process-tree
+  cancel、退出碼、retry budget、memory／CPU／workspace 清理與冷啟動須有界且可驗證。
+  Artifact lineage／reuse identity 須保存實際 transport、CLI／bridge revision 與執行設定，
+  不把「研究」當成省略隔離、secret redaction、PIT 或 publication gate 的理由。
+  子程序只接收 allowlisted environment／role auth，不繼承 Janus catalog／control／publication
+  DB credentials 或完整 runtime secret bundle；只讀已準備的 Fact Packs 與隔離輸出目錄。
+- Fundamental／Valuation／Positioning／Quant 關閉 Web Search，只讀 Janus Fact Packs。
+  Event Risk 的 controlled Web Search 是獨立 capability／來源 gate，預設關閉；外部發現先留
+  research evidence，保存 URL／source／published_at／fetched_at／analysis_as_of／evidence_id，
+  通過 source authorization、PIT／provenance／evidence validation 後才可影響分析。
+  不直接補寫 Core，不能以這條例外解鎖 Analysis scraper 或無來源推論。
+  目前 locked guardrail 禁止外部抓取；解鎖此 capability 前須有系統控制的版本化
+  contract／guardrail 調整與來源驗收，不能用 methodology prompt 覆蓋。本次不啟用 Web Search。
+- Janus 仍負責收集／清洗／deterministic facts、驗證與 publication。Worker 無 Core／canonical
+  number／publication 寫入權；沿用 Gate 3 的 provider-neutral role contracts。CIO 只讀五份
+  validated artifacts；任一失敗為 partial／failed。本路線只涵蓋 Mart 研究批次，不重開
+  已退役 WBS-4C 通用 Chat／Agent，也不自動建立新資源、啟用付費 API 或部署 Production。
+
+主要驗收是 GCP dev 既有批次的五角色真實 execution、immutable Fact Pack fence、
+validator／artifact readback、cold-start auth 與 failure／fallback／cancel evidence。
+本機 CLI 成功、人工觸發成功或五個 schema fixtures 都不能替代 GCP 自主批次驗收；
+自然每日運行仍由 Gate 6 額外證明。研究可行性以實測判定，本次文件對齊不以官網聲明
+作為可行性結論；後續 implementation 仍須模型確認與現有成本／安全 gate。
+
+### 五角色個股批次範圍（Active planning；尚未接線）
+
+使用者 2026-09-30 選定 **active 關注股＋目前有效持股的 symbol 聯集，去重後分析**。
+每次批次依 `analysis_as_of` 可見的 membership／持股狀態固定並保存 immutable target
+symbols／membership hash；同一 symbol 不因多位使用者關注或同時持有而重複建立五角色工作。
+500 檔有效名單是資料網／deterministic screening，不自動產生 500×5 次 AI 分析；
+既有 ingestion event 的 market／industry／全部 symbol scopes 也不是 AI admission 名單。
+Market／industry AI analysis 須另有明確 scope profile／quota，不隱含於本個股批次。
+
+持股即使離開 500 名單仍在 AI target 聯集；這不自動新增深度來源、抓取頻率或付費資源。
+缺資料／PIT／來源資格不合格時保存 missing／insufficient_data／blocked，不用 AI 補值或
+宣稱完整成功。取消關注且已無有效持股才退出後續 target；歷史 membership／artifact 不覆寫。
+關注股的既有 50 distinct-symbol 護欄仍適用於 watchlist／deep collection，不等同於
+關注＋持股 AI 聯集的已核准無界 call quota；AI 批次另做 bounded 子批次、concurrency、
+attempt／token／quota／cost preflight，受控 queue 若有 50-symbol 單批限制仍須遵守。
+預算／quota 不足時明列未處理 symbol 與 partial／blocked reason，不靜默截斷或擴大付費範圍。
+
+Target membership 只使用已授權的控制／私人讀取邊界產生去識別化 symbols；公開 Mart 與
+Codex 只讀公開 canonical Fact Packs，不取得 user-to-symbol 對應、持股數量、成本或私人交易。
+私人持股／曝險解釋仍由 authenticated owner 邊界使用公開 analysis reference。
+驗收需涵蓋 watch-only／held-only／兩者重疊、多使用者去重、持股離榜、取消關注／清倉、
+as-of membership replay、quota／missing-data honesty 與 public／private isolation。
 
 ### AI role／CIO contract v1
 

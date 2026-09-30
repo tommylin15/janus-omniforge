@@ -71,12 +71,23 @@
 
 - Current implementation：公開批次 Mart 只有可選 Gemini narrator；OpenRouter／Gemini／Codex
   通用助理 runtime 歸 omniAgent，不是 Mart provider。這些現況不得寫成已完成五角色 AI。
-- Planned：以 governed `MartAIProvider` 支援 `GeminiMartProvider` 與
-  `OpenRouterMartProvider`；provider failure 不改 deterministic facts，未核准 provider
-  或不符合 structured output／context／required parameters 的 model 不可選。
+- Active planning：依 [GCP 批次研究契約](../spec/intelligence-and-governance.md#gcp-批次-codex-分析師研究路線active-planning尚未實作)，
+  既有 GCP Mart 批次自行啟動五個獨立 Codex CLI role invocation，先採 bounded／可序列化
+  worker wrapper；必要時才評估具體 ChatGPT worker bridge。CLI 優先，Gemini／OpenRouter
+  為 profile 明列的受控 fallback；不依賴本機桌面、人工貼 prompt 或逐次登入。
+- Provider failure 不改 deterministic facts；CLI／bridge capabilities、model／parameters、
+  GCP cold-start auth／續期、timeout／process-tree cancel／退出碼、隔離與 structured failure
+  必須實測。初次 OAuth／MFA 可由使用者完成，後續正常批次須自主執行；失敗 fail closed。
 - Provider capability discovery、bounded supported parameters、429／unavailable
   bounded retry、structured failure、usage／latency／cost lineage 與 billing gate
-  必須可測試。不得自動加入 Codex／OpenAI API；paid tier 仍須人工授權。
+  必須可測試。Codex CLI／worker 研究路線不等於 OpenAI API；不得自動切換付費 API。
+  未核准 model／fallback／paid tier 不可啟用，fallback 須保存 reason／attempt／實際 transport。
+- 前四角色禁止 Web Search；Event Risk controlled Web Search 預設關閉，只有來源／PIT／
+  provenance／evidence gate 通過才可使用研究 evidence，不直接寫 canonical Core。
+- 個股 AI target 固定為 as-of 可見的 active 關注＋有效持股 symbol 聯集，去重保存 membership
+  snapshot；持股離榜仍保留。500 檔只作資料網／deterministic screening，不把 ingestion scopes
+  自動轉成 500×5 次 AI 呼叫。AI 另受 bounded batch／quota／cost gate；不足明列 partial／blocked。
+  只傳公開 Fact Packs，不把私人持股數量／成本／user-to-symbol mapping 傳給公開 Mart／worker。
 - LLM 只能解釋、比較與合成經驗證 evidence；不得計算、補值、覆寫或發布 canonical deterministic numbers／facts。
 
 ### 5.4.1 Atomic WBS slices
@@ -88,8 +99,8 @@ parallel-live dev roadmap，完成後依各自 acceptance 在目前 dev 真實�
 |---|---|---|---|
 | `WBS-5-MART-FACT-PACKS` | 五份 deterministic Fact Pack、baseline compatibility、hash／version lineage、mart.v1 compatibility | 既有 Core snapshot、analysis.py、mart.v1 | facts 可 deterministic replay；LLM off 不改 facts；canonical numbers、PIT、missing data、provenance 與 evidence refs 可驗證 |
 | `WBS-5-MART-AI-ROLE-CONTRACT` | 五個 role schema、guardrail boundary、versioned role prompts、CIO output contract | FACT-PACKS | schema／prompt／lineage fixtures 通過；invalid role 不得假裝成功；old artifacts immutable |
-| `WBS-5-MART-AI-PROVIDERS` | MartAIProvider、Gemini、OpenRouter、capability discovery、bounded parameters、billing gate、structured failure | ROLE-CONTRACT | Gemini／OpenRouter contract tests、unsupported model／parameter rejection、429／unavailable retry bounds 通過 |
-| `WBS-5-MART-AI-VALIDATION` | schema、evidence、numeric grounding、time fence、missing data、claim coverage validation | ROLE-CONTRACT、PROVIDERS | invalid output blocked；one role failure 不是 full success；provider/model/prompt/input identity 可追溯 |
+| `WBS-5-MART-AI-PROVIDERS` | governed GCP 五角色 Codex CLI 批次／必要 worker bridge、關注＋持股聯集 admission／去重、auth lifecycle、capability／隔離／timeout／cancel、受控 fallback、billing gate | ROLE-CONTRACT、AI-VALIDATION contract | GCP 自主五角色 execution／validator／artifact readback；watch-only／held-only／重疊／離榜／退出／as-of／quota／private isolation；cold-start auth／structured failure、unsupported model／parameters、timeout／cancel／退出碼／retry bounds、fallback audit 與 zero secret leakage；不新增未核准資源 |
+| `WBS-5-MART-AI-VALIDATION` | provider-neutral schema、evidence、numeric grounding、time fence、missing data、claim coverage validation | ROLE-CONTRACT；provider 真實整合由 AI-PROVIDERS 驗收 | fixtures／negative cases 通過，invalid output blocked；one role failure 不是 full success；provider/model/prompt/input identity 可追溯，不把 fixtures 稱為 live worker success |
 | `WBS-5-MART-CIO-SYNTHESIS` | validated roles only、CIO synthesis、synthesis validator、no publication authority | AI-VALIDATION | CIO 只讀 validated inputs；validator failure structured；publication 仍由 deterministic gate 決定 |
 | `WBS-5-MART-RERUN-CACHE` | single-role rerun、dependency invalidation、content-addressed reuse、immutable lineage | FACT-PACKS、AI-VALIDATION、CIO-SYNTHESIS | 無關 role 不重跑；prompt/model 不重算 facts；governance-only 不呼叫 LLM；相同 identity reuse 且 audit |
 | `WBS-5-MART-V2-COMPAT` | mart.v1 additive compatibility、future mart.v2 migration plan | FACT-PACKS、ROLE-CONTRACT | mart.v1 fixtures／consumers 維持；新 contract additive；未完成 migration 前不破壞 v1 |

@@ -72,10 +72,11 @@
 
 依賴 `WBS-5-MART-AI-VALIDATION`、`WBS-5-MART-CIO-SYNTHESIS`、
 `WBS-5-MART-RERUN-CACHE` 與 `WBS-6-ADMIN-ANALYSIS-PROFILE`。Evidence window 期間收集
-role validation pass rate、provider failure／retry／availability、latency、token
-usage、actual API cost、cache reuse、single-role rerun success、manual intervention、
+role validation pass rate、Codex CLI／worker auth／cold start／timeout／cancel／退出碼、
+provider failure／retry／fallback／availability、latency、可觀察 token／quota／subscription／
+actual API cost（不可取得者明示 unknown）、cache reuse、single-role rerun success、manual intervention、
 rollback events、usefulness feedback、deterministic／AI divergence 與 outcome evidence
-lineage。驗收要求每項 evidence 都綁 immutable execution／profile／provider／model／
+lineage。驗收要求每項 evidence 都綁 immutable execution／profile／provider／transport／CLI revision／model／
 prompt lineage，且可區分 partial success、failure 與 full success。
 
 這不是 predictive model tuning；不提前做 role weight、threshold、leading-indicator

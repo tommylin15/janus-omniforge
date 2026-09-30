@@ -78,30 +78,47 @@ Gate 4／5／6 仍未完成，沒有啟用 AI provider 或自然每日角色 wor
 
 達到此 gate 後，5 位分析師輸出才具備可被系統接受或拒絕的 deterministic governance boundary。
 
-## Gate 5 — Provider runtime 可可靠執行
+## Gate 5 — GCP 自主 Codex CLI 批次／受控 fallback 可可靠執行
 
 完成 `WBS-5-MART-AI-PROVIDERS`：
 
 - governed `MartAIProvider` contract。
-- Gemini／OpenRouter 等已核准 provider 的 capability discovery。
+- GCP 既有 Mart 批次內五個獨立 Codex CLI role invocations，CLI 優先；必要 worker bridge
+  須驗證具體介面。Gemini／OpenRouter 只作 profile 明列條件與順序的已核准 fallback。
+- 初始人工授權後，headless dispatch／cold-start auth／續期／artifact 回收不依賴本機桌面
+  或逐次人工 ChatGPT 操作；auth expired／revoked 留 structured failure／required user action。
+- CLI／bridge revision、model／structured-output／sandbox capability discovery、role workspace
+  隔離、timeout／process-tree cancel／退出碼與 failure diagnostics／secret redaction。
 - bounded parameters。
 - unsupported model／parameter fail-closed。
-- 429／unavailable retry bounds。
+- CLI／worker failure 及 fallback provider 429／unavailable retry bounds；保存每次 attempt、
+  fallback reason 與實際 provider／transport／model，不以換 provider 繞過 validator。
 - billing／paid gate 仍受使用者明確授權，不因本里程碑自動開啟付費模型或 subscription。
 
 達到 Gate 2–5 後，可宣稱「5 位分析師可以可靠工作」，但還不能宣稱「已經天天工作」。
+
+詳細研究與安全邊界見 [GCP Codex 批次 SPEC](spec/intelligence-and-governance.md#gcp-批次-codex-分析師研究路線active-planning尚未實作)。
+Gate 4 的 provider-neutral validator fixtures 可先建立；Gate 5 必須另有 GCP 真實 worker
+整合 evidence，不能以 fixtures／本機 CLI／文件對齊代替。
 
 ## Gate 6 — Daily Scheduler／workload integration 與 natural live acceptance
 
 要宣稱「5 位分析師已經每天上班」，還必須有實際 dev parallel-live evidence 證明完整日常鏈路：
 
 1. 每日 upstream ingestion／required Fact Pack dependency 完成或進入明確 partial／missing 狀態。
-2. Scheduler／既有 approved workload 自然觸發 five-role analysis，而不是只靠人工 one-off trigger。
-3. 5 個 role 各自產生 success 或 structured failure artifact，保存 execution／input／prompt／model／provider／evidence lineage。
+2. Scheduler／既有 approved workload 自然觸發 GCP 內的 Codex CLI five-role batch，
+   以 active 關注＋有效持股的去重 symbol 聯集固定 as-of membership／target snapshot，
+   在持久化 analysis scope／quota 邊界內自主執行；不把 500 檔 collection
+   scopes 自動當成 500×5 個 AI invocations，也不只靠人工 one-off trigger。
+3. 5 個 role 各自產生 success 或 structured failure artifact，保存 execution／input／prompt／model／provider／transport／CLI revision／attempt／evidence lineage。
 4. validator 決定各 role artifact 是否可接受；partial success 不包裝成 full success。
 5. artifact persisted，可供後續 CIO／UI／Admin／evaluation 讀取。
 6. 至少完成自然 daily execution 的 live acceptance；手動 bounded run 只能作 repair／acceptance 證據，不能單獨證明「天天工作」。
 7. 後續自然日執行持續由 `WBS-8-DEV-PILOT-RUN` 累積 reliability、usefulness、cost、manual intervention、recurring failure 與 security／privacy evidence。
+
+個股範圍與 private isolation 見 [AI target SPEC](spec/intelligence-and-governance.md#五角色個股批次範圍active-planning尚未接線)。
+驗收需證明 held-only／watch-only／重疊去重／持股離榜／退出／as-of replay；quota 或
+missing-data 未達條件時仍列明 partial／blocked，不把持股保留語意當成無界付費授權。
 
 只有 Gate 1–6 都有 implementation、tests、deployment／runtime、trigger／workload 與 live evidence 時，才可在專案文件中寫：
 

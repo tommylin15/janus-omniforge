@@ -89,9 +89,21 @@ live artifact acceptance 見 [結案紀錄](archive/wbs-5-mart-ai-role-contract-
 
 `WBS-5-MART-FACT-PACKS`／`WBS-5-MART-AI-ROLE-CONTRACT` 已完成 Gate 2／3。以下項目在其 dependency 與各自 gate 完成後依序推進；既有 deterministic Mart／Gemini narrator／mart.v1 evidence 保持 current truth。
 
+使用者 2026-09-30 已指定 [Codex 五分析師研究方向](https://docs.google.com/document/d/1wPKndnPMbtVR1nkHEaUgmxTiUbt5_PkdyG-IY-l5Fo4/edit)：
+GCP 既有批次自主使用 Codex CLI 優先／必要 worker bridge，Gemini／OpenRouter 受控 fallback；
+詳細邊界見 [SPEC](spec/intelligence-and-governance.md#gcp-批次-codex-分析師研究路線active-planning尚未實作)。
+Drive 原文仍是 Deferred，這次依最新指示納入 active planning，並非 CLI／worker 已實作。
+個股 AI target 已選定為 **active 關注＋有效持股 symbol 聯集，依 as-of 固定並去重**，持股
+離榜仍納入；500 檔維持資料網／deterministic screening，不自動變成 500×5 次 AI 呼叫。
+AI 有自己的 bounded batch／quota／cost gate，未處理或缺資料須明列 partial／blocked；
+只傳公開 Fact Packs，不把私人持股內容或 owner mapping 寫回公開 Mart。
+先建立 provider-neutral validator contract，再驗收 GCP worker 真實整合；不把 provider dependency
+變成 validator fixtures 的循環前置，不因文件對齊自動啟動 implementation。
+
 - [ ] 【Sol】 `WBS-5-MART-AI-VALIDATION`：schema、evidence ID、numeric grounding、analysis-as-of time fence、future leakage、missing-data honesty、claim coverage；invalid output 不得 publish，one-role failure 不得宣稱 full success。
 - [ ] 【Sol】 `WBS-5-MART-V2-COMPAT`：保留 `mart.v1`、新增 additive artifact／validator contract、規劃 future mart.v2 migration；既有 v1 fixtures／consumer 不破壞，migration 前不升版。
-- [ ] 【Sol】 `WBS-5-MART-AI-PROVIDERS`：governed `MartAIProvider`、Gemini／OpenRouter、capability discovery、bounded parameters、billing gate、structured failure；unsupported model／parameter rejection、429／unavailable retry bounds。
+- [ ] 【Sol】 `WBS-5-MART-AI-PROVIDERS`：GCP 既有 Mart 批次自主啟動五個獨立 Codex CLI workers（primary；必要 bridge 須具體介面驗證）、初始授權後 headless dispatch／cold-start auth／續期、role workspace 隔離、capability／參數、timeout／process-tree cancel／退出碼／bounded retry；Gemini／OpenRouter 只作 profile 核准 fallback，保存 attempt／reason／transport／model。以 GCP dev 真實五角色 artifact／validator readback 驗收，不以本機 CLI 或人工 ChatGPT 操作替代；secret redaction、quota／cost／billing gate 保留，失敗 fail closed。
+- [ ] 【Sol】 同一 `WBS-5-MART-AI-PROVIDERS` 整體 acceptance：接線關注＋持股 immutable target 聯集，驗收 watch-only／held-only／重疊去重、多使用者、持股離榜、取消關注／清倉、as-of replay、quota／missing-data honesty 與 private isolation；不另開與五角色批次脫節的 implementation。
 - [ ] 【Sol】 `WBS-5-MART-CIO-SYNTHESIS`：validated roles only、CIO synthesis／validator、無 publication authority；publication 仍由 deterministic governance 決定。
 - [ ] 【Sol】 `WBS-5-MART-RERUN-CACHE`：single-role rerun、dependency invalidation、content-addressed reuse、immutable artifact lineage；prompt/model 不重算 facts、governance-only 不呼叫 LLM、reuse 有 audit。
 
@@ -99,7 +111,7 @@ live artifact acceptance 見 [結案紀錄](archive/wbs-5-mart-ai-role-contract-
 
 - [ ] 【Sol】 `WBS-6-ADMIN-ANALYSIS-PROFILE`：Production profile versioning、direct new Production、rollback、role／CIO prompt editor、locked guardrail、model picker、per-role override、fixed 5–10 symbols、compare；dependency：Mart role/provider/validation contracts、Admin shell。
 - [ ] 【Luna】 `WBS-6-ADMIN-LEGACY-RETIREMENT`：只在 Flutter parity、Admin auth、browser/runtime acceptance、rollback plan 與 foreground Admin slices 全部完成後 deprecate static Admin；legacy 未達 gate 不刪除。
-- [ ] 【Sol】 `WBS-8-PILOT-MART-AI-EVALUATION`：收集 role validation pass rate、provider failure／retry／availability、latency、token usage、actual API cost、cache reuse、single-role rerun、manual intervention、rollback、usefulness、deterministic／AI divergence 與 outcome lineage；每筆 evidence 綁 immutable lineage，清楚區分 partial／failure／full success；不是 predictive tuning。
+- [ ] 【Sol】 `WBS-8-PILOT-MART-AI-EVALUATION`：收集 role validation pass rate、Codex CLI／worker auth／cold start／timeout／cancel／退出碼、provider failure／retry／fallback／availability、latency、可觀察 token／quota／subscription／actual API cost（不可取得者明示 unknown）、cache reuse、single-role rerun、manual intervention、rollback、usefulness、deterministic／AI divergence 與 outcome lineage；每筆 evidence 綁實際 transport／CLI revision／immutable lineage，區分 partial／failure／full success；不是 predictive tuning。
 
 ## Pilot Feature Freeze／Deferred
 

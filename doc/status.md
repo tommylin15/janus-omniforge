@@ -34,6 +34,13 @@
 1. **`WBS-5-MART-AI-ROLE-CONTRACT` 已結案，Gate 3 通過。** 下一段是 TODO P1 Planned 的 validation／provider chain；開始前須重新核對 dependency 與模型 gate，不自動開工其他 WBS。五角色契約成立不代表已開始每日工作。
 2. **`WBS-6-PORTFOLIO-INTRADAY-QUOTE` 仍 blocked。** Shioaji 目前僅證實既有模擬憑證可登入及送出單檔 Quote 訂閱；正式環境登入回權限相關錯誤，且 2026-09-27 非交易時段，不能據此宣稱盤中即時股價或 User 市值更新可用。來源帳戶資格、保存／展示權利、quota 與費用未核准前，不啟用新正式行情來源。
 
+使用者 2026-09-30 已將 Codex 五分析師研究路線納入 active planning：**GCP 既有批次自主
+使用 Codex CLI 優先／必要 worker bridge，Gemini／OpenRouter 作受控 fallback**；不是
+OpenAI API，也不重開通用 Chat runtime。細節見 [研究契約](spec/intelligence-and-governance.md#gcp-批次-codex-分析師研究路線active-planning尚未實作)。
+目前僅對齊文件，GCP CLI auth／worker／daily runtime 尚未實作或驗收。
+個股 AI 範圍已指定為 active 關注＋有效持股 symbol 聯集並去重；500 檔保留資料網與
+deterministic screening，持股離榜仍在 target。Admission／quota／private isolation 尚未接線。
+
 `WBS-3-LIQUID-500-ROTATION` 已完成；live Admin 換股、500 檔數量、audit 與原名單復原均通過。完成 evidence 見 [`WBS-3 archive`](archive/wbs-3-liquid-500-rotation-completed-2026-09-27.md) 與 [`operations ledger`](spec/operations-and-testing.md)。
 
 `WBS-3-FULL-MARKET-BASE-COVERAGE`、`WBS-6-FLUTTER-ADMIN-SHELL`、`WBS-6-ADMIN-OVERVIEW-BATCH`、`WBS-6-ADMIN-STOCK-WORKBENCH`、`WBS-5-MART-FACT-PACKS` 與 `WBS-5-MART-AI-ROLE-CONTRACT` 均已完成。後續 Mart validation／provider 等 planned slices 依 TODO／WBS dependency 與模型閘門執行。
