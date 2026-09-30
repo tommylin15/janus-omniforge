@@ -29,7 +29,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - id: auth
         uses: google-github-actions/auth@v2
         with:
@@ -37,7 +36,6 @@ jobs:
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
           token_format: access_token
           access_token_scopes: https://www.googleapis.com/auth/cloud-platform
-
       - uses: google-github-actions/setup-gcloud@v2
 
       - name: Validate matched-study isolation contract
@@ -53,11 +51,8 @@ jobs:
           assert p['market']=='TWSE'
           assert p['security_type']=='common_equity'
           assert float(p['usable_ohlcv_coverage_min'])>=0.90
-          assert p['outcome_run_id']
-          assert p['event_run_id']
-          assert p['source_gcs_object']
-          assert len(p['source_sha256'])==64
-          assert int(p['source_size_bytes'])>0
+          assert p['outcome_run_id'] and p['event_run_id'] and p['source_gcs_object']
+          assert len(p['source_sha256'])==64 and int(p['source_size_bytes'])>0
           assert p['database_allowed'] is False
           assert p['existing_janus_iceberg_allowed'] is False
           assert p['canonical_core_mart_writes_allowed'] is False
@@ -115,12 +110,21 @@ jobs:
       - name: Execute matched antecedent study
         shell: bash
         run: |
-          set -Eeuo pipefail
+          set -uo pipefail
           mkdir -p research-result
+          set +e
           gcloud run jobs execute "${RESEARCH_JOB}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --wait --format=json > research-result/execution.json
+          rc=$?
+          set -e
+          gcloud run jobs describe "${RESEARCH_JOB}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json > research-result/job_snapshot.json || true
+          if [ "${rc}" -ne 0 ]; then
+            error_object="${RESEARCH_PREFIX}/executions/${GITHUB_SHA}/error_result.json"
+            gcloud storage cp "gs://${RESEARCH_BUCKET}/${error_object}" research-result/error_result.json || true
+            if [ -f research-result/error_result.json ]; then cat research-result/error_result.json; fi
+            exit "${rc}"
+          fi
           result_object="${RESEARCH_PREFIX}/executions/${GITHUB_SHA}/matched_feature_result.json"
           gcloud storage cp "gs://${RESEARCH_BUCKET}/${result_object}" research-result/action_result.json
-          gcloud run jobs describe "${RESEARCH_JOB}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json > research-result/job_snapshot.json
 
       - name: Verify matched-study acceptance
         shell: bash
@@ -130,8 +134,7 @@ jobs:
           import json
           from pathlib import Path
           p=json.loads(Path('research-result/action_result.json').read_text())
-          assert p['status']=='ok'
-          assert p['action']=='matched_antecedent_features'
+          assert p['status']=='ok' and p['action']=='matched_antecedent_features'
           iso=p['isolation']
           for k in ['postgresql_used','database_used','existing_janus_iceberg_catalog_used','janus_core_written','janus_mart_written','janus_private_mart_written','runtime_secret_used']:
               assert iso[k] is False, (k,iso[k])
@@ -142,8 +145,9 @@ jobs:
           PY
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: research-cloud-cohort-500-matched-${{ github.sha }}
           path: research-result/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
