@@ -1,5 +1,4 @@
 {
-  "request_id": "wbs-5-fact-pack-retrigger-ingestion-j2bhv-20260930",
-  "component": "janus-ingestion-core",
-  "execution": "janus-ingestion-core-j2bhv"
+  "request_id": "wbs-5-fact-pack-retrigger-progress-20260930",
+  "component": "wbs-5-fact-pack"
 }
