@@ -1,5 +1,5 @@
 {
   "schema_version": "janus.research.cloud-cohort-500.exec-diagnostic.v1",
   "export_revision": "36bc29505708b9b0f08fdaccd70c3230e405faa5",
-  "reason": "read-only export of successful Step 4 matched antecedent result tables"
+  "reason": "read-only export retry after revision env validation fix"
 }
