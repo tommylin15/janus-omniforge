@@ -49,6 +49,8 @@ def compatibility_smoke() -> dict[str, object]:
         "status": "ok",
         "operation": "compat-smoke",
         "schema_version": validated["schema_version"],
+        "base_contract": validated["base"]["contract"],
+        "base_contract_version": validated["base"]["contract_version"],
         "artifact_count": len(validated["artifacts"]),
         "publication_authority": validated["publication_authority"],
     }
