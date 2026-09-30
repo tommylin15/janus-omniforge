@@ -63,15 +63,18 @@ jobs:
           assert p['existing_janus_iceberg_allowed'] is False
           assert p['canonical_core_mart_writes_allowed'] is False
           action=str(p['action'])
-          assert action in {'bootstrap','stage_source_zip','build_cohort','preflight_and_outcomes','sensitivity_and_report'}
-          if action in {'preflight_and_outcomes','sensitivity_and_report'}:
+          assert action in {'bootstrap','stage_source_zip','build_cohort','preflight_and_outcomes','sensitivity_and_report','eventize_waves'}
+          if action in {'preflight_and_outcomes','sensitivity_and_report','eventize_waves'}:
               assert p['source_gcs_object']
               assert p['source_sha256']
               assert int(p['source_size_bytes']) > 0
           if action == 'preflight_and_outcomes':
               assert p['cohort_run_id']
-          if action == 'sensitivity_and_report':
+          if action in {'sensitivity_and_report','eventize_waves'}:
               assert p['outcome_run_id']
+          if action == 'eventize_waves':
+              assert float(p.get('event_seed_fraction',0.10)) == 0.10
+              assert int(p.get('event_gap_trading_days',7)) == 7
           with open(os.environ['GITHUB_OUTPUT'],'a',encoding='utf-8') as f: f.write(f'action={action}\n')
           print(f'research isolation contract: PASS action={action}')
           PY
@@ -181,6 +184,7 @@ jobs:
             build_cohort) result_name="cohort_build_result.json" ;;
             preflight_and_outcomes) result_name="outcome_run_result.json" ;;
             sensitivity_and_report) result_name="sensitivity_result.json" ;;
+            eventize_waves) result_name="eventization_result.json" ;;
             *) echo "unsupported action result mapping: ${action}" >&2; exit 1 ;;
           esac
           result_object="${RESEARCH_PREFIX}/executions/${GITHUB_SHA}/${result_name}"
@@ -221,6 +225,12 @@ jobs:
               assert p['gates']['source_daily_coverage_gate'] is True
               assert p['gates']['outcome_data_unknown_rate_le_10pct_pooled'] is True
               assert p['gates']['year_horizon_zero_valid_gap_screen'] == 'PASS'
+          elif action=='eventize_waves':
+              assert iso['runtime_secret_used'] is False
+              assert p['validation']['pass'] is True
+              assert p['rank_seed_counts']['seed_h60'] > p['primary_gap_summary']['event_count'] > 0
+              assert p['event_contract']['primary_gap_trading_days'] == 7
+              assert sorted(p['event_contract']['gap_sensitivity']) == [5,7,10]
           print(f'research action acceptance: PASS action={action}')
           PY
 
