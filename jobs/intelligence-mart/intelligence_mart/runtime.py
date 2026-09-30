@@ -408,6 +408,9 @@ def mart_processor(execution: AnalysisExecution, publication_connection: Any, *,
                 "diff": governance_diff,
             }),
         }
+        from .ai_contract import contract_bundle
+        artifacts["ai_role_contract"] = _write_immutable_json(
+            target_store, bucket, f"{artifact_prefix}/ai-role-contract.json", contract_bundle())
         indexed = []
         for report in reports:
             scope = report["scope"]

@@ -88,6 +88,8 @@
     "MartEvidenceV1": {
       "$ref": "mart.v1.json#/$defs/EvidenceV1"
     },
+    "MartAIRoleOutputV1": {"$ref": "mart_ai.v1.json#/$defs/RoleOutputV1"},
+    "MartCIOOutputV1": {"$ref": "mart_ai.v1.json#/$defs/CIOOutputV1"},
     "MartFactPackV1": {
       "$ref": "mart.v1.json#/$defs/FactPackV1"
     },

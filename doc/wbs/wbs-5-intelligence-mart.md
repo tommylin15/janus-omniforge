@@ -39,6 +39,9 @@
 - Current implementation：五個 deterministic discriminated role payload，包含 nullable
   score、confidence、missing_data、evidence；這是既有 `mart.v1` compatibility
   surface，不是五個 AI analyst。
+- AI role／CIO shape contract、locked guardrail、versioned methodology 與 create-only
+  interpretation lineage 已有 additive implementation；語意 validator、provider 與 CIO
+  執行仍是各自 WBS。Contract acceptance 不代表五角色每日 workload 成功。
 - Planned：五個獨立、可平行執行的 evidence-grounded AI analyst stage，輸入 immutable
   Fact Pack、validated evidence、`analysis_as_of`、Core snapshot identity、fixed
   system guardrail、versioned methodology prompt 與 provider/model/parameters。

@@ -1,5 +1,6 @@
 duckdb==1.5.5
 google-auth==2.57.0
 psycopg[binary]==3.2.10
+pydantic==2.13.4
 pyiceberg[pyarrow,sql-postgres]==0.11.1
 pytz==2025.2

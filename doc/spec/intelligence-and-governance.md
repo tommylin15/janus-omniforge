@@ -6,8 +6,8 @@
 payload、五份 deterministic Fact Pack、evidence 與 aggregate；`runtime.py` 以 immutable Core snapshot 執行
  確定性 Mart，`gemini.py` 只提供可選的單一 Gemini 證據限定解說器。
 通用 OpenRouter／Gemini／Codex runtime 屬 omniAgent，不是 Janus Mart provider。五個獨立 AI
-分析角色、CIO 綜合分析、其確定性驗證器、分析設定檔、內容定址重用與 Flutter
-Admin AI 分析設定工作區尚未實作；本節以下的下一版能力均標為**規劃中**，不得當作現有能力。
+分析角色的 provider 執行、CIO 綜合分析、其確定性語意驗證器、分析設定檔、內容定址重用與 Flutter
+Admin AI 分析設定工作區尚未實作；除下述已實作 contract 外，其餘下一版能力仍為**規劃中**。
 
 下一版核准架構為：
 
@@ -15,6 +15,26 @@ Admin AI 分析設定工作區尚未實作；本節以下的下一版能力均�
 5 evidence-grounded AI Analysts → Deterministic AI Output Validator → CIO /
 Synthesis AI → Deterministic Synthesis Validator → Governance / Publication Gate →
 Immutable Mart artifacts`。
+
+### AI role／CIO contract v1
+
+`intelligence_mart/ai_contract.py` 與 `packages/contracts/mart_ai.v1.json` 提供五個
+discriminated role output schema 及 CIO schema；不取代 `mart.v1` deterministic roles。
+所有主張使用 `Claim{text,evidence_ids}`；`insufficient_data` 可以沒有 thesis／evidence，
+但必須揭露 `missing_information`，不得填 placeholder。格式錯誤回傳 `failed` 與
+`invalid_structured_output`；未知角色回傳 `invalid_role`，兩者都不保存原始 provider 文字。
+格式通過僅為 `schema_validated / validation_status=pending`，不代表 evidence／numeric／PIT
+語意驗證通過、完整研究成功或取得 publication authority。
+
+System guardrail 固定於系統程式，不接受 methodology override。六份 methodology revision
+保存於 `prompts/ai_methodology.v1.json`，每份含 version、author、timezone timestamp、
+profile reference 與 content hash；Admin editor 留待自身 WBS。新 execution 的 create-only
+`artifacts/ai-role-contract.json` 保存 schema、prompt 與 guardrail 全文；舊 manifest 不補寫。
+Interpretation artifact 保存 execution／scope／as-of／Core snapshot、Fact Pack／evidence
+hash、feature／governance version、provider／model／parameters、profile 與 schema／prompt／
+guardrail version／hash，保存於 `interpretations/{artifact_hash}.json`；相同內容可重複保存，
+不同內容不得覆寫同一 object。此為不可變保存契約，不代表 rerun/cache orchestration 已完成。
+CIO schema 要求五份 validated role artifact hashes；實際資格驗證與 synthesis 執行仍屬後續 WBS。
 
 確定性事實引擎的正式定位是「事實包」，分為基本面、估值、籌碼、量化、事件風險五包。
 它負責數字、PIT、特徵計算、歷史比較、缺失資料語意、來源追溯、證據引用與基準分數；
@@ -100,7 +120,7 @@ evidence_refs: string[]
 
 五角色：Fundamental、Valuation Risk、Positioning、Quant、Event Risk。
 
-### 規劃中的 AI 分析角色、CIO 與提示詞契約
+### AI 分析角色、CIO 與提示詞契約（contract 已實作；AI 執行仍規劃中）
 
 五個角色是獨立、以證據為根據的分析階段，可平行執行。每個階段輸入不可變更的事實包、
 已驗證證據、`analysis_as_of`、Core snapshot identity、不可變更的系統護欄、版本化角色
