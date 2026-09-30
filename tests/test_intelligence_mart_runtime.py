@@ -9,7 +9,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "jobs" / "intelligence-mart"))
 
-from intelligence_mart.runtime import AnalysisExecution, PostgreSQLPublicationIndex, _validate_fact_packs, _write_immutable_json, consume_queued_analysis, deterministic_processor, postgres_smoke
+from intelligence_mart.runtime import AnalysisExecution, PostgreSQLAnalysisQueue, PostgreSQLPublicationIndex, _validate_fact_packs, _write_immutable_json, consume_queued_analysis, deterministic_processor, postgres_smoke
 
 
 def _analysis_options():
@@ -57,6 +57,42 @@ class _Connection:
 
 
 class MartRuntimeTests(unittest.TestCase):
+    def test_outcome_query_failure_rolls_back_before_queue_retry(self):
+        from contextlib import contextmanager
+        _, options = _analysis_options()
+        execution = AnalysisExecution("execution-1", "first-batch", ("2330",), 0, options)
+        class Connection:
+            aborted = False
+            transitions = []
+            @contextmanager
+            def transaction(self):
+                if self.aborted:
+                    raise RuntimeError("transaction already aborted")
+                try:
+                    yield
+                except Exception:
+                    self.aborted = False
+                    raise
+            @contextmanager
+            def cursor(self, **kwargs):
+                yield self
+            def execute(self, query, params):
+                if "pilot_analysis_outcomes" in query:
+                    self.aborted = True
+                    raise PermissionError("outcome read denied")
+                self.transitions.append(params)
+            def fetchone(self): return (True,)
+        connection = Connection()
+        queue = PostgreSQLAnalysisQueue(connection)
+        with patch.object(queue, "claim", return_value=execution):
+            with self.assertRaisesRegex(PermissionError, "outcome read denied"):
+                consume_queued_analysis(
+                    queue, lambda _: PostgreSQLPublicationIndex(connection).pending_outcomes(["2330"]),
+                    worker_id="mart-1")
+        self.assertEqual(connection.transitions,
+                         [("execution-1", "mart-1", "retrying", 1, "PERMISSIONERROR")])
+        self.assertFalse(connection.aborted)
+
     def test_model_evaluation_and_governance_artifacts_are_create_only(self):
         class Store:
             objects = {}

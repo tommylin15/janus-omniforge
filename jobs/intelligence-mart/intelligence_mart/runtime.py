@@ -137,7 +137,7 @@ class PostgreSQLPublicationIndex:
         if not symbols:
             return []
         from psycopg.rows import dict_row
-        with self.connection.cursor(row_factory=dict_row) as cursor:
+        with self.connection.transaction(), self.connection.cursor(row_factory=dict_row) as cursor:
             cursor.execute(
                 """SELECT report.execution_id AS analysis_execution_id,report.scope_type,report.scope_id,
                           report.analysis_as_of,horizon.horizon_days,report.pilot_baseline_id,
