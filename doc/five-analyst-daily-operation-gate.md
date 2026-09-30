@@ -43,7 +43,7 @@ Mart advanced capability 不應先於目前 Product Completeness foreground。Ga
 - LLM 不擁有 canonical facts／numbers；關閉 LLM 不得改變 canonical facts。
 - 同一 as-of input 可重跑並追溯來源。
 
-**目前狀態：Gate 2 已於 2026-09-30 完成。** 五份 Fact Pack contract、tests、dev deployment、原 target queue recovery 與 pinned Core／Mart real-data replay 均通過；驗收 snapshot 的缺值仍為 `insufficient_data / blocked`，沒有升格為完整研究或可發布。詳見 [結案紀錄](archive/wbs-5-mart-fact-packs-2026-09-30.md)。下一個可執行 foreground WBS 是 `WBS-5-MART-AI-ROLE-CONTRACT`，尚未開始。
+**目前狀態：Gate 2 已於 2026-09-30 完成。** 五份 Fact Pack contract、tests、dev deployment、原 target queue recovery 與 pinned Core／Mart real-data replay 均通過；驗收 snapshot 的缺值仍為 `insufficient_data / blocked`，沒有升格為完整研究或可發布。詳見 [結案紀錄](archive/wbs-5-mart-fact-packs-2026-09-30.md)。後續角色契約的完成判定見下方 Gate 3。
 
 達到此 gate 只代表「分析師有受治理的研究資料」，尚不能宣稱 5 位分析師已開始每日工作。
 
@@ -58,6 +58,11 @@ Mart advanced capability 不應先於目前 Product Completeness foreground。Ga
 - invalid role 必須 structured failure，不得用 placeholder 假裝成功。
 
 達到此 gate 可以說「5 位分析師角色已存在」，但尚不能說「可靠工作」或「天天工作」。
+
+**目前狀態：Gate 3 已於 2026-09-30 完成。** 五角色／CIO contract、versioned methodology、
+locked guardrail、schema／prompt／lineage fixtures、dev deployment 與 pinned 真實 snapshot
+的 create-only artifact／structured failure acceptance 均通過；詳見 [結案紀錄](archive/wbs-5-mart-ai-role-contract-2026-09-30.md)。
+Gate 4／5／6 仍未完成，沒有啟用 AI provider 或自然每日角色 workload。
 
 ## Gate 4 — 每位分析師輸出可被治理驗證
 

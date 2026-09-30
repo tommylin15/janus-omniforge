@@ -38,17 +38,12 @@ Observation window 不阻擋 correctness、data-integrity、market coverage、po
 
 `five-analyst-daily-operation-gate.md` 的 Gate 1 七個 Product Completeness prerequisite 已在 2026-09-29 全部完成。`WBS-6-PORTFOLIO-INTRADAY-QUOTE` 仍是有效產品缺口，但因正式行情來源授權 blocked，且不是 Gate 1 七項之一；在 blocker 未解除前不應停住安全且獨立的 five-analyst chain。
 
-### 1. `WBS-5-MART-AI-ROLE-CONTRACT` — 【Sol】
+`WBS-5-MART-AI-ROLE-CONTRACT` 已完成 Gate 3，implementation／tests／deployment／bounded
+live artifact acceptance 見 [結案紀錄](archive/wbs-5-mart-ai-role-contract-2026-09-30.md)。
+下一段 Mart validation／provider 工作仍在下方 P1 Planned；開始前重新核對 dependency 與模型 gate，
+本項結案不自動解鎖其他 WBS，也不代表五角色每日 workload 已完成。
 
-Dependency：five-analyst Gate 1／2 已完成；Fact Pack contract、既有 canonical Core／Mart baseline、PIT／provenance governance。`WBS-5-MART-FACT-PACKS` 的 implementation／tests／deployment／bounded live acceptance 見 [結案紀錄](archive/wbs-5-mart-fact-packs-2026-09-30.md)。
-
-- [ ] 建立五個 structured AI role output schema 與 versioned methodology prompts。
-- [ ] 定義 locked system guardrail、LLM 不可修改 facts／canonical numbers／publication 的邊界，以及 CIO output contract。
-- [ ] 保存 schema／prompt／immutable artifact lineage；old artifacts 不覆寫。
-- [ ] schema／prompt／lineage fixtures 通過；invalid role 必須 structured failure，不用 placeholder 假裝成功。
-- [ ] 完成自身 acceptance 才可宣稱 Gate 3；不得因此宣稱 provider／validator／natural daily workload 已完成。
-
-### 2. `WBS-6-PORTFOLIO-INTRADAY-QUOTE` — 【Blocked：正式行情來源授權】
+### 1. `WBS-6-PORTFOLIO-INTRADAY-QUOTE` — 【Blocked：正式行情來源授權】
 
 - [ ] 先確認持股即時行情供應者的帳戶資格、使用／保存／雲端展示條款、quota 與費用；未核准前不啟用新來源或把盤後價稱為即時價。
 - [ ] Shioaji 一次性連線探測（2026-09-27）：既有 Secret 標為 `simulation=true`，模擬環境登入、2330 合約查詢及單檔 Quote 訂閱／取消成功；相同憑證切 `simulation=false` 登入回 `BadRequestError`（含 permission 訊息）。週末無交易時段報價，尚未證明正式環境授權、即時報價到達、保存／雲端展示權利或費用；正式帳戶資格需另確認。
@@ -92,7 +87,7 @@ Dependency：five-analyst Gate 1／2 已完成；Fact Pack contract、既有 can
 
 ### P1 — Mart 閉環（Planned；advanced capability）
 
-`WBS-5-MART-FACT-PACKS` 已完成 Gate 2；`WBS-5-MART-AI-ROLE-CONTRACT` 是目前 foreground。以下項目在其 dependency 與各自 gate 完成後依序推進；既有 deterministic Mart／Gemini narrator／mart.v1 evidence 保持 current truth。
+`WBS-5-MART-FACT-PACKS`／`WBS-5-MART-AI-ROLE-CONTRACT` 已完成 Gate 2／3。以下項目在其 dependency 與各自 gate 完成後依序推進；既有 deterministic Mart／Gemini narrator／mart.v1 evidence 保持 current truth。
 
 - [ ] 【Sol】 `WBS-5-MART-AI-VALIDATION`：schema、evidence ID、numeric grounding、analysis-as-of time fence、future leakage、missing-data honesty、claim coverage；invalid output 不得 publish，one-role failure 不得宣稱 full success。
 - [ ] 【Sol】 `WBS-5-MART-V2-COMPAT`：保留 `mart.v1`、新增 additive artifact／validator contract、規劃 future mart.v2 migration；既有 v1 fixtures／consumer 不破壞，migration 前不升版。

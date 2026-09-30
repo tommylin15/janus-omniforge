@@ -1,13 +1,16 @@
 # Operations and testing
 
-## WBS-5 AI Role Contract 最新進度（2026-09-30）
+## WBS-5 AI Role Contract 最新結論（2026-09-30）
 
-目前 `partial`：五角色／CIO schema、locked guardrail、六份 versioned methodology、
-structured failure 與 create-only interpretation lineage 已實作；本機 targeted regression
-79 passed，`git diff --check`／acceptance script compile 通過。首次擴大測試因缺少
-`jobs/ingestion-core` PYTHONPATH 在 collection 失敗，補正執行環境後通過；未改測試以掩蓋錯誤。
-CI、dev deployment 與 pinned real-data storage acceptance 尚待執行，Gate 3 尚未宣稱完成。
-Provider／semantic validator／CIO synthesis／natural daily workload 未包含於此項進度。
+`WBS-5-MART-AI-ROLE-CONTRACT` 已完成 Gate 3。實作 commit `a21ce9b5448b89f765e652dfddf07cac47e7ccab`：
+五角色／CIO schema、locked guardrail、六份 versioned methodology、structured failure 與
+create-only interpretation lineage；本機 79 passed、Mart CI 53 passed，canonical dev workflow
+`36687180475` 全部 success，Job Ready／Git SHA／digest 獨立核對。Bounded dev execution
+`janus-intelligence-mart-9w9d2` Completed=True，使用 pinned 真實 Mart snapshot 保存契約及
+六份 failure injection artifacts；獨立 GCS readback 的 schema／prompt／raw-byte／content hashes
+與 lineage 均通過，舊 manifest 未補寫、原 `insufficient_data / blocked` 保持。零 provider
+呼叫／publication 寫入；shape 通過僅 `schema_validated / pending`，不代表 semantic validator、
+provider、CIO synthesis 或 natural daily workload 完成。詳見 [結案紀錄](../archive/wbs-5-mart-ai-role-contract-2026-09-30.md)。
 
 ## WBS-5 Mart Fact Packs 最新結論（2026-09-30）
 

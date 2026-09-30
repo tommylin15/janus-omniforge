@@ -22,6 +22,7 @@
 - **`WBS-6-ADMIN-STOCK-WORKBENCH` 已完成 dev acceptance。** 個股工作台支援代號／中文名搜尋，顯示 persisted dataset health、row count、coverage／gap、latest date，以及 advanced read-only source／execution／snapshot／provenance lineage。Gap repair 只允許同 dataset、enabled、collection-enabled 且來源授權狀態為 `official`／`approved_fallback` 的既有 config，並且只建立目前 symbol 的 bounded collection execution；沒有已核准 config 時 fail closed。Fact Pack／五角色／CIO 未完成前，UI 不提供會誤導成 advanced AI capability 已可用的 rerun／historical-role 操作。第一版 commit `7946e953cfd5fa3ced4d21dd51ed006708ce0cee` 的 Flutter run `36568576560` 為 38 passed / 2 failed，未當成功；經 `739a64384aa88319c76415e07720e552d30f40a5` 與 `9cceb3d1aa8777543f491393cda2c6fbe941a560` 修正後，Flutter run `36569491143` 全綠，canonical dev workflow `36569491137` success。Cloud Build `6ddfab32-02dd-44b9-b821-efb298ebe164` success，revision `janus-api-g9cceb3d1aa87-config` Ready、100% traffic，image digest `sha256:32517542be77d2c85b25cff35e95f9bd491a377878fb86f4f2d38dcd76cdcd2b`；live verifier 明確匹配 `9cceb3d1...`。詳見 [結案紀錄](archive/wbs-6-admin-stock-workbench-completed-2026-09-29.md)。
 - **五位分析師每日運作 Gate 1 已完成。** `five-analyst-daily-operation-gate.md` 所列七個 Product Completeness prerequisite 現在全部有正式完成證據；這只代表可以進入 Fact Pack／AI role chain，不代表五位分析師已開始每天工作。
 - **`WBS-5-MART-FACT-PACKS` 已完成 Gate 2。** 修復 Pilot outcome 的必要欄位 ACL 與 transaction recovery 後，原 target 與五筆舊 analysis 均恢復 succeeded；五包 contract、69 項本機測試、dev deploy／verify、十份 persisted schema／hash 驗證與真實 pinned Core replay 通過。資料不足的 report 保持 `insufficient_data / blocked`；角色／provider／validator／每日工作尚未完成。詳見 [結案紀錄](archive/wbs-5-mart-fact-packs-2026-09-30.md)。
+- **`WBS-5-MART-AI-ROLE-CONTRACT` 已完成 Gate 3。** 五角色／CIO schema、locked guardrail、六份 versioned prompts 與 immutable lineage 已建立；79 項本機測試、53 項 Mart CI、canonical dev deployment／verify、pinned 真實 Mart snapshot 的 create-only contract／六份 structured failure acceptance 與獨立 GCS readback 全部通過。格式通過僅 `schema_validated / pending`；provider／語意 validator／CIO synthesis／自然每日工作仍未完成。詳見 [結案紀錄](archive/wbs-5-mart-ai-role-contract-2026-09-30.md)。
 - `WBS-6-TRANSACTION-UX-2` 的既有完成判定只代表該次 presentation／read-path／state acceptance 已完成，不代表全市場行情 coverage、股票名稱解析、aggregate portfolio valuation 或整體 User App 已完成。
 
 ## 兩條並行主線
@@ -30,12 +31,12 @@
 
 依 [`todo.md`](todo.md) 以整個 WBS 作為工作／驗收單位；遇到 blocker 時先推進其餘安全且獨立的條件。目前：
 
-1. **下一個可執行 WBS：`WBS-5-MART-AI-ROLE-CONTRACT`【Sol】。** 目標是五個 structured role schema、locked system guardrail、versioned methodology prompts、CIO output contract 與 immutable lineage；尚未開始，執行前仍須模型 gate。Fact Pack 完成只代表 Gate 2，不代表五位分析師已開始每日工作。
+1. **`WBS-5-MART-AI-ROLE-CONTRACT` 已結案，Gate 3 通過。** 下一段是 TODO P1 Planned 的 validation／provider chain；開始前須重新核對 dependency 與模型 gate，不自動開工其他 WBS。五角色契約成立不代表已開始每日工作。
 2. **`WBS-6-PORTFOLIO-INTRADAY-QUOTE` 仍 blocked。** Shioaji 目前僅證實既有模擬憑證可登入及送出單檔 Quote 訂閱；正式環境登入回權限相關錯誤，且 2026-09-27 非交易時段，不能據此宣稱盤中即時股價或 User 市值更新可用。來源帳戶資格、保存／展示權利、quota 與費用未核准前，不啟用新正式行情來源。
 
 `WBS-3-LIQUID-500-ROTATION` 已完成；live Admin 換股、500 檔數量、audit 與原名單復原均通過。完成 evidence 見 [`WBS-3 archive`](archive/wbs-3-liquid-500-rotation-completed-2026-09-27.md) 與 [`operations ledger`](spec/operations-and-testing.md)。
 
-`WBS-3-FULL-MARKET-BASE-COVERAGE`、`WBS-6-FLUTTER-ADMIN-SHELL`、`WBS-6-ADMIN-OVERVIEW-BATCH`、`WBS-6-ADMIN-STOCK-WORKBENCH` 與 `WBS-5-MART-FACT-PACKS` 均已完成。下一個可執行 foreground WBS 是 `WBS-5-MART-AI-ROLE-CONTRACT`【Sol】；依模型閘門於開始前重新確認建議模型。
+`WBS-3-FULL-MARKET-BASE-COVERAGE`、`WBS-6-FLUTTER-ADMIN-SHELL`、`WBS-6-ADMIN-OVERVIEW-BATCH`、`WBS-6-ADMIN-STOCK-WORKBENCH`、`WBS-5-MART-FACT-PACKS` 與 `WBS-5-MART-AI-ROLE-CONTRACT` 均已完成。後續 Mart validation／provider 等 planned slices 依 TODO／WBS dependency 與模型閘門執行。
 
 ### B. Dev Pilot operational observation
 
@@ -45,7 +46,7 @@
 
 ## 非 foreground 工作
 
-AI role contracts／validation／providers、CIO synthesis、rerun/cache、Analysis Profile、Pilot Mart AI evaluation、Research Context evolution、完整跨裝置／A11y、Production architecture／HA／backup planning 與 P4 DQ calibration 仍保留在 TODO；其 dependency 與排序以 active TODO 和 `five-analyst-daily-operation-gate.md` 為準。
+AI validation／providers、CIO synthesis、rerun/cache、Analysis Profile、Pilot Mart AI evaluation、Research Context evolution、完整跨裝置／A11y、Production architecture／HA／backup planning 與 P4 DQ calibration 仍保留在 TODO；其 dependency 與排序以 active TODO 和 `five-analyst-daily-operation-gate.md` 為準。
 
 ## Evidence 讀取順序
 
