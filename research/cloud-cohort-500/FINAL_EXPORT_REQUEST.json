@@ -1,0 +1,10 @@
+{
+  "schema_version": "janus.research.cloud-cohort-500.final-export.v1",
+  "request_id": "final-export-20260930-01",
+  "cohort_run_id": "f7b91d3373bf6275493649fe8fbc5959f6e21e68",
+  "outcome_run_id": "3e11efb4ad5dce1e483b6ca05298759013eaafae",
+  "sensitivity_run_id": "41b743f9be311224441534cb9810bc67c6748ef3",
+  "database_allowed": false,
+  "existing_janus_iceberg_allowed": false,
+  "canonical_core_mart_writes_allowed": false
+}
