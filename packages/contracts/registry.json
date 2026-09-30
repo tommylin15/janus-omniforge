@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "sourceIds": ["twse", "tpex", "mops", "finmind", "fugle", "shioaji", "taiex", "tpex-benchmark", "taifex", "tdcc", "yahoo-finance", "google-finance", "tiingo", "cmoney", "factset", "podcast", "ptt", "dcard", "stock-buzz"],
   "datasetIds": ["ohlcv", "valuation", "institutional", "financials", "events", "market-activity", "benchmark", "core", "mart-report"],
   "enums": {
@@ -90,6 +90,9 @@
     },
     "MartAIRoleOutputV1": {"$ref": "mart_ai.v1.json#/$defs/RoleOutputV1"},
     "MartCIOOutputV1": {"$ref": "mart_ai.v1.json#/$defs/CIOOutputV1"},
+    "MartAIInterpretationArtifactReferenceV1": {"$ref": "mart_compat.v1.json#/$defs/InterpretationArtifactReferenceV1"},
+    "MartAIValidationArtifactReferenceV1": {"$ref": "mart_compat.v1.json#/$defs/ValidationArtifactReferenceV1"},
+    "MartAIAdditiveSidecarV1": {"$ref": "mart_compat.v1.json#/schemas/MartAIAdditiveSidecarV1"},
     "MartFactPackV1": {
       "$ref": "mart.v1.json#/$defs/FactPackV1"
     },
