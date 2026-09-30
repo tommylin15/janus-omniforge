@@ -1,6 +1,6 @@
 {
-  "execution_name": "janus-research-big-move-500-7lrtt",
-  "purpose": "read_only_failure_diagnosis",
+  "execution_name": "janus-research-big-move-500-5mrdk",
+  "purpose": "diagnose_step4_matched_antecedent_failure",
   "database_allowed": false,
   "existing_janus_iceberg_allowed": false,
   "canonical_core_mart_writes_allowed": false
