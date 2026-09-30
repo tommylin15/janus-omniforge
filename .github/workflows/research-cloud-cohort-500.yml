@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - 'research/cloud-cohort-500/**'
-      - '.github/workflows/research-cloud-cohort-500.yml'
 
 permissions:
   contents: read
@@ -58,20 +57,16 @@ jobs:
           print('research isolation contract: PASS')
           PY
 
-      - name: Ensure dedicated research service account
+      - name: Verify dedicated research service account
         shell: bash
         run: |
           set -Eeuo pipefail
           sa_email="${RESEARCH_SA_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
-          if ! gcloud iam service-accounts describe "${sa_email}" --project="${GCP_PROJECT_ID}" >/dev/null 2>&1; then
-            gcloud iam service-accounts create "${RESEARCH_SA_NAME}" \
-              --project="${GCP_PROJECT_ID}" \
-              --display-name="Janus research big-move cohort 500" \
-              --description="Research-only identity; no DB, Janus Iceberg, Core or Mart access."
-          fi
+          gcloud iam service-accounts describe "${sa_email}" \
+            --project="${GCP_PROJECT_ID}" >/dev/null
           echo "RESEARCH_SA_EMAIL=${sa_email}" >> "${GITHUB_ENV}"
 
-      - name: Ensure dedicated research bucket and bucket-scoped IAM
+      - name: Ensure dedicated research bucket exists
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -82,9 +77,8 @@ jobs:
               --location="${GCP_REGION}" \
               --uniform-bucket-level-access
           fi
-          gcloud storage buckets add-iam-policy-binding "${bucket_uri}" \
-            --member="serviceAccount:${RESEARCH_SA_EMAIL}" \
-            --role="roles/storage.objectAdmin" >/dev/null
+          # Bucket IAM is deliberately NOT managed by CI. It is a one-time
+          # owner bootstrap so janus-ci never needs getIamPolicy/setIamPolicy.
 
       - name: Build isolated research image
         shell: bash
