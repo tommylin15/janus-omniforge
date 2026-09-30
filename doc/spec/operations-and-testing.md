@@ -1,5 +1,9 @@
 # Operations and testing
 
+## WBS-5 Mart Fact Packs 最新結論（2026-09-30）
+
+`WBS-5-MART-FACT-PACKS` 已完成 Gate 2。修復 commit `9be6a15e391340ee5571cdd609abbaecfa3335a0` 的本機驗證 69 passed；canonical dev run `36675717825` 的 Mart CI 30 passed、deploy／verify success，Job Ready／Git SHA／digest 均獨立核對。版本化 migration `035_mart_outcome_read` 補齊必要 public metadata 欄位讀取，transaction failure 可正常 rollback／queue transition。原 target `4a429cb4-68ea-4506-985d-12bb817ea775` 由 `janus-intelligence-mart-bdfbz` 恢復 succeeded，先前五筆卡住 analysis 也恢復終態。十份 pinned persisted Fact Pack schema／hash 驗證與真實 Core replay 通過；LLM off、facts／baseline 一致、`mart.v1` additive compatibility 維持。驗收 snapshot 的 report 仍為 `insufficient_data / blocked`，不代表完整研究 coverage、AI role／provider／validator 或自然每日工作完成。原失敗 run 保留失敗判定；完整 bounded evidence 見 [結案紀錄](../archive/wbs-5-mart-fact-packs-2026-09-30.md)。
+
 ## WBS-3 TWSE 500 整批驗收最新結論（2026-09-29）
 
 在使用者指定的「各必要資料集缺值率嚴格低於 10%」門檻下，`WBS-3-FULL-MARKET-BASE-COVERAGE` 的有限 TWSE 500 驗收已結案。immutable inventory 各必要資料集缺值率為 0–3.6%，逐檔 `missing`、原始 `coverage_status=partial`、FinMind `blocked` 均未改寫。Private Pipeline 修復與部署後，`janus-private-pipeline-tr7rv` 成功，真實 5876 持股顯示 2026-09-24 正式行情價 48.95；離榜 future-feed 註冊仍明示 `requested=1`、`accepted=0` 與 `no_eligible_enabled_symbol_scoped_ohlcv_config`，未宣稱該路徑已收集行情。Admin 第 5 版短暫移出 5876，第 6 版已還原；第 4／6 版成員完全相同，驗收新增的關注股已清除。GCP Job、Stage bytes、DQ／quarantine 與成本邊界詳見 [結案紀錄](../archive/wbs-3-full-market-base-coverage-completed-2026-09-29.md)。

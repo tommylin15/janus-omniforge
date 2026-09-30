@@ -76,9 +76,9 @@
   必須可測試。不得自動加入 Codex／OpenAI API；paid tier 仍須人工授權。
 - LLM 只能解釋、比較與合成經驗證 evidence；不得計算、補值、覆寫或發布 canonical deterministic numbers／facts。
 
-### 5.4.1 Planned atomic WBS slices
+### 5.4.1 Atomic WBS slices
 
-以下切片全部為 `Planned`，不表示目前 implementation 已完成；依 dependency 排入
+以下切片定義責任與驗收邊界，目前執行狀態依 active TODO 與 runtime evidence 判定；依 dependency 排入
 parallel-live dev roadmap，完成後依各自 acceptance 在目前 dev 真實使用並持續收集 evidence，不以六個月 Pilot 或未來 Production 作為首次使用資格：
 
 | WBS | 範圍 | Dependency | Acceptance |

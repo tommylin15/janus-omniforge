@@ -1,6 +1,6 @@
 # Janus — 五位分析師每日運作 Gate
 
-更新：2026-09-29
+更新：2026-09-30
 
 ## 目的
 
@@ -43,7 +43,7 @@ Mart advanced capability 不應先於目前 Product Completeness foreground。Ga
 - LLM 不擁有 canonical facts／numbers；關閉 LLM 不得改變 canonical facts。
 - 同一 as-of input 可重跑並追溯來源。
 
-**目前狀態：未完成；這是下一個可執行 foreground WBS。**
+**目前狀態：Gate 2 已於 2026-09-30 完成。** 五份 Fact Pack contract、tests、dev deployment、原 target queue recovery 與 pinned Core／Mart real-data replay 均通過；驗收 snapshot 的缺值仍為 `insufficient_data / blocked`，沒有升格為完整研究或可發布。詳見 [結案紀錄](archive/wbs-5-mart-fact-packs-2026-09-30.md)。下一個可執行 foreground WBS 是 `WBS-5-MART-AI-ROLE-CONTRACT`，尚未開始。
 
 達到此 gate 只代表「分析師有受治理的研究資料」，尚不能宣稱 5 位分析師已開始每日工作。
 

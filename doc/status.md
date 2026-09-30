@@ -1,6 +1,6 @@
 # Janus Current Status
 
-更新：2026-09-29
+更新：2026-09-30
 
 用途：提供「現在在哪裡、下一步是什麼、哪些尚未完成」的短入口。這不是新的 source of truth；實作以 GitHub `main` 為準，完成狀態以 tests／CI／deployment／live runtime／integration evidence 為準。完整未完成工作見 [`todo.md`](todo.md)；五位分析師每日運作 gate 見 [`five-analyst-daily-operation-gate.md`](five-analyst-daily-operation-gate.md)；六個月 Pilot 新增 operational checkpoint 見 [`pilot-operational-evidence.md`](pilot-operational-evidence.md)；Janus web root routing incident evidence 見 [`janus-web-root-acceptance-2026-09-26.md`](janus-web-root-acceptance-2026-09-26.md)；deployment controller consolidation evidence 見 [`deployment-controller-consolidation-2026-09-26.md`](deployment-controller-consolidation-2026-09-26.md)；完整歷史 evidence 見 [`spec/operations-and-testing.md`](spec/operations-and-testing.md)。
 
@@ -21,6 +21,7 @@
 - **`WBS-6-ADMIN-OVERVIEW-BATCH` 已完成 dev acceptance。** Flutter Overview 現在只把 failed／partial／retrying execution、異常 Core source health 與 blocked／review-required／invalid Mart 項目放進 priority area；successful execution 不佔首頁主要空間，`partial` 明確不算完成。Overview／Batch 共用 execution detail，直接顯示 persisted `trace_id`、immutable execution lineage、逐項 `safe_message`、retry count 與 backend `retry_classification`；只有 `retryable` failed item 能從 UI 建立 narrow retry，安全邊界仍由 backend Admin service 決定。首次 commit `187c895b6203f5443ae0e21a489e6ebd6dd633e4` 的 Flutter run `36564380741` 因 4 個 widget regression 失敗，未當成功；修正 commit `9bf00f1fe6bd63ffd284023688a7a803fb13487d` 的 Flutter run `36565040429` 全綠，canonical dev workflow `36565040400` 的 API tests、deploy 與 live verify success。Cloud Build `10b6b6c9-f638-45bd-8187-8e29ccfbf4cd` success，revision `janus-api-g9bf00f1fe6bd-config` Ready、100% traffic，image digest `sha256:2f89421ab200ef9d22e681e76de8d840a2a60d226264788a97914af7dce27d22`。詳見 [結案紀錄](archive/wbs-6-admin-overview-batch-completed-2026-09-29.md)。
 - **`WBS-6-ADMIN-STOCK-WORKBENCH` 已完成 dev acceptance。** 個股工作台支援代號／中文名搜尋，顯示 persisted dataset health、row count、coverage／gap、latest date，以及 advanced read-only source／execution／snapshot／provenance lineage。Gap repair 只允許同 dataset、enabled、collection-enabled 且來源授權狀態為 `official`／`approved_fallback` 的既有 config，並且只建立目前 symbol 的 bounded collection execution；沒有已核准 config 時 fail closed。Fact Pack／五角色／CIO 未完成前，UI 不提供會誤導成 advanced AI capability 已可用的 rerun／historical-role 操作。第一版 commit `7946e953cfd5fa3ced4d21dd51ed006708ce0cee` 的 Flutter run `36568576560` 為 38 passed / 2 failed，未當成功；經 `739a64384aa88319c76415e07720e552d30f40a5` 與 `9cceb3d1aa8777543f491393cda2c6fbe941a560` 修正後，Flutter run `36569491143` 全綠，canonical dev workflow `36569491137` success。Cloud Build `6ddfab32-02dd-44b9-b821-efb298ebe164` success，revision `janus-api-g9cceb3d1aa87-config` Ready、100% traffic，image digest `sha256:32517542be77d2c85b25cff35e95f9bd491a377878fb86f4f2d38dcd76cdcd2b`；live verifier 明確匹配 `9cceb3d1...`。詳見 [結案紀錄](archive/wbs-6-admin-stock-workbench-completed-2026-09-29.md)。
 - **五位分析師每日運作 Gate 1 已完成。** `five-analyst-daily-operation-gate.md` 所列七個 Product Completeness prerequisite 現在全部有正式完成證據；這只代表可以進入 Fact Pack／AI role chain，不代表五位分析師已開始每天工作。
+- **`WBS-5-MART-FACT-PACKS` 已完成 Gate 2。** 修復 Pilot outcome 的必要欄位 ACL 與 transaction recovery 後，原 target 與五筆舊 analysis 均恢復 succeeded；五包 contract、69 項本機測試、dev deploy／verify、十份 persisted schema／hash 驗證與真實 pinned Core replay 通過。資料不足的 report 保持 `insufficient_data / blocked`；角色／provider／validator／每日工作尚未完成。詳見 [結案紀錄](archive/wbs-5-mart-fact-packs-2026-09-30.md)。
 - `WBS-6-TRANSACTION-UX-2` 的既有完成判定只代表該次 presentation／read-path／state acceptance 已完成，不代表全市場行情 coverage、股票名稱解析、aggregate portfolio valuation 或整體 User App 已完成。
 
 ## 兩條並行主線
@@ -29,12 +30,12 @@
 
 依 [`todo.md`](todo.md) 以整個 WBS 作為工作／驗收單位；遇到 blocker 時先推進其餘安全且獨立的條件。目前：
 
-1. **下一個可執行 WBS：`WBS-5-MART-FACT-PACKS`【Sol】。** 目標是建立 Fundamental／Valuation／Positioning／Quant／Event Risk 的可 replay 事實輸入 contract，保存 PIT／missing-data／provenance／evidence／hash/version lineage，且 LLM 不擁有 canonical facts／numbers。完成後只代表 five-analyst Gate 2，不代表角色、provider 或 daily scheduler 已完成。
+1. **下一個可執行 WBS：`WBS-5-MART-AI-ROLE-CONTRACT`【Sol】。** 目標是五個 structured role schema、locked system guardrail、versioned methodology prompts、CIO output contract 與 immutable lineage；尚未開始，執行前仍須模型 gate。Fact Pack 完成只代表 Gate 2，不代表五位分析師已開始每日工作。
 2. **`WBS-6-PORTFOLIO-INTRADAY-QUOTE` 仍 blocked。** Shioaji 目前僅證實既有模擬憑證可登入及送出單檔 Quote 訂閱；正式環境登入回權限相關錯誤，且 2026-09-27 非交易時段，不能據此宣稱盤中即時股價或 User 市值更新可用。來源帳戶資格、保存／展示權利、quota 與費用未核准前，不啟用新正式行情來源。
 
 `WBS-3-LIQUID-500-ROTATION` 已完成；live Admin 換股、500 檔數量、audit 與原名單復原均通過。完成 evidence 見 [`WBS-3 archive`](archive/wbs-3-liquid-500-rotation-completed-2026-09-27.md) 與 [`operations ledger`](spec/operations-and-testing.md)。
 
-`WBS-3-FULL-MARKET-BASE-COVERAGE`、`WBS-6-FLUTTER-ADMIN-SHELL`、`WBS-6-ADMIN-OVERVIEW-BATCH` 與 `WBS-6-ADMIN-STOCK-WORKBENCH` 均已完成。下一個可執行 foreground WBS 是 `WBS-5-MART-FACT-PACKS`【Sol】；依模型閘門於開始前重新確認建議模型。
+`WBS-3-FULL-MARKET-BASE-COVERAGE`、`WBS-6-FLUTTER-ADMIN-SHELL`、`WBS-6-ADMIN-OVERVIEW-BATCH`、`WBS-6-ADMIN-STOCK-WORKBENCH` 與 `WBS-5-MART-FACT-PACKS` 均已完成。下一個可執行 foreground WBS 是 `WBS-5-MART-AI-ROLE-CONTRACT`【Sol】；依模型閘門於開始前重新確認建議模型。
 
 ### B. Dev Pilot operational observation
 

@@ -3,11 +3,11 @@
 ## 9.0 現況事實與核准的下一版設計
 
 目前實作邊界：`analysis.py` 產生確定性特徵、五個分數／特徵
-payload、evidence 與 aggregate；`runtime.py` 以 immutable Core snapshot 執行
+payload、五份 deterministic Fact Pack、evidence 與 aggregate；`runtime.py` 以 immutable Core snapshot 執行
  確定性 Mart，`gemini.py` 只提供可選的單一 Gemini 證據限定解說器。
 通用 OpenRouter／Gemini／Codex runtime 屬 omniAgent，不是 Janus Mart provider。五個獨立 AI
-AI 分析角色、CIO 綜合分析、其確定性驗證器、分析設定檔、內容定址重用與 Flutter
-Admin 工作區尚未實作；本節以下的下一版能力均標為**規劃中**，不得當作現有能力。
+分析角色、CIO 綜合分析、其確定性驗證器、分析設定檔、內容定址重用與 Flutter
+Admin AI 分析設定工作區尚未實作；本節以下的下一版能力均標為**規劃中**，不得當作現有能力。
 
 下一版核准架構為：
 
@@ -19,6 +19,17 @@ Immutable Mart artifacts`。
 確定性事實引擎的正式定位是「事實包」，分為基本面、估值、籌碼、量化、事件風險五包。
 它負責數字、PIT、特徵計算、歷史比較、缺失資料語意、來源追溯、證據引用與基準分數；
 基準分數保留作回歸／漂移／結果評估參考，但不等於完整研究分析。
+
+目前 `FactPackV1` 版本為 `1.0.0`，保存 `pack_type`、`analysis_as_of`、
+`core_snapshot_id`、`feature_version`、`facts`、`missing_data`、`evidence_ids`、
+`provenance_ids`、`evidence_hash`、`baseline` 與 `fact_pack_hash`。
+Evidence 先通過 PIT／來源／provenance validation 再進 Fact Pack；同一 immutable
+input 可 deterministic replay。Hashes 使用 canonical JSON 的 SHA-256，不包含
+analysis execution identity 或 LLM narrative。Baseline 的 score／completeness／
+confidence 保留既有 deterministic role 語意，不是 AI analyst output。
+五包隨 `mart_scoped_analysis_v1.payload_json` 保存；`mart.v1` contract 的 additive
+`1.1.0` 將 `fact_packs` 保留為 optional 欄位，舊 consumer 不必有該欄位。
+LLM 關閉不改 facts，缺值不補算；缺資料的 report 仍受原 publication gate 限制。
 
 ## 9. Mart + ML／AI／LLM Job
 

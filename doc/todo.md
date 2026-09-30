@@ -8,6 +8,7 @@
 - [2026-09-26 Product Completeness reprioritization 與 TODO cleanup](archive/todo-cleanup-and-product-completeness-priority-2026-09-26.md)
 - [WBS-3 Liquid-500 rotation completed (2026-09-27)](archive/wbs-3-liquid-500-rotation-completed-2026-09-27.md)
 - [WBS-3 TWSE 500 base coverage completed (2026-09-29)](archive/wbs-3-full-market-base-coverage-completed-2026-09-29.md)
+- [WBS-5 Mart Fact Packs completed (2026-09-30)](archive/wbs-5-mart-fact-packs-2026-09-30.md)
 - [WBS-6 Portfolio Completeness completed (2026-09-27)](archive/todo-completed-2026-09-27-wbs6-portfolio-completeness.md)
 - [WBS-6 Market Home Data completed (2026-09-27)](archive/wbs-6-market-home-data-2026-09-27.md)
 - [WBS-6 Market Home UI completed (2026-09-27)](archive/wbs-6-market-home-ui-2026-09-27.md)
@@ -37,15 +38,15 @@ Observation window 不阻擋 correctness、data-integrity、market coverage、po
 
 `five-analyst-daily-operation-gate.md` 的 Gate 1 七個 Product Completeness prerequisite 已在 2026-09-29 全部完成。`WBS-6-PORTFOLIO-INTRADAY-QUOTE` 仍是有效產品缺口，但因正式行情來源授權 blocked，且不是 Gate 1 七項之一；在 blocker 未解除前不應停住安全且獨立的 five-analyst chain。
 
-### 1. `WBS-5-MART-FACT-PACKS` — 【Sol】
+### 1. `WBS-5-MART-AI-ROLE-CONTRACT` — 【Sol】
 
-Dependency：five-analyst Gate 1 已完成；既有 canonical Core／Mart baseline、PIT／provenance governance。
+Dependency：five-analyst Gate 1／2 已完成；Fact Pack contract、既有 canonical Core／Mart baseline、PIT／provenance governance。`WBS-5-MART-FACT-PACKS` 的 implementation／tests／deployment／bounded live acceptance 見 [結案紀錄](archive/wbs-5-mart-fact-packs-2026-09-30.md)。
 
-- [ ] 建立 Fundamental／Valuation／Positioning／Quant／Event Risk Fact Pack contract。
-- [ ] 明確保存 PIT、missing-data、provenance、evidence、baseline compatibility、hash／version lineage。
-- [ ] LLM off 不改 facts；LLM 不擁有 canonical facts／numbers，同一 as-of input 可 replay。
-- [ ] 保持 `mart.v1` consumer compatibility；不得因本 WBS 自動升級 schema major version。
-- [ ] 完成 implementation、tests、deployment／runtime 與 bounded live acceptance 後才可宣稱 Gate 2 完成；不得因此宣稱五位分析師已開始每日工作。
+- [ ] 建立五個 structured AI role output schema 與 versioned methodology prompts。
+- [ ] 定義 locked system guardrail、LLM 不可修改 facts／canonical numbers／publication 的邊界，以及 CIO output contract。
+- [ ] 保存 schema／prompt／immutable artifact lineage；old artifacts 不覆寫。
+- [ ] schema／prompt／lineage fixtures 通過；invalid role 必須 structured failure，不用 placeholder 假裝成功。
+- [ ] 完成自身 acceptance 才可宣稱 Gate 3；不得因此宣稱 provider／validator／natural daily workload 已完成。
 
 ### 2. `WBS-6-PORTFOLIO-INTRADAY-QUOTE` — 【Blocked：正式行情來源授權】
 
@@ -91,9 +92,8 @@ Dependency：five-analyst Gate 1 已完成；既有 canonical Core／Mart baseli
 
 ### P1 — Mart 閉環（Planned；advanced capability）
 
-`WBS-5-MART-FACT-PACKS` 已依 five-analyst gate 提升為 foreground。以下項目在其 dependency 與各自 gate 完成後依序推進；既有 deterministic Mart／Gemini narrator／mart.v1 evidence 保持 current truth。
+`WBS-5-MART-FACT-PACKS` 已完成 Gate 2；`WBS-5-MART-AI-ROLE-CONTRACT` 是目前 foreground。以下項目在其 dependency 與各自 gate 完成後依序推進；既有 deterministic Mart／Gemini narrator／mart.v1 evidence 保持 current truth。
 
-- [ ] 【Sol】 `WBS-5-MART-AI-ROLE-CONTRACT`：五個 structured AI role output、locked system guardrail、versioned methodology prompts、CIO contract；invalid role structured failure、old artifact immutable。
 - [ ] 【Sol】 `WBS-5-MART-AI-VALIDATION`：schema、evidence ID、numeric grounding、analysis-as-of time fence、future leakage、missing-data honesty、claim coverage；invalid output 不得 publish，one-role failure 不得宣稱 full success。
 - [ ] 【Sol】 `WBS-5-MART-V2-COMPAT`：保留 `mart.v1`、新增 additive artifact／validator contract、規劃 future mart.v2 migration；既有 v1 fixtures／consumer 不破壞，migration 前不升版。
 - [ ] 【Sol】 `WBS-5-MART-AI-PROVIDERS`：governed `MartAIProvider`、Gemini／OpenRouter、capability discovery、bounded parameters、billing gate、structured failure；unsupported model／parameter rejection、429／unavailable retry bounds。
