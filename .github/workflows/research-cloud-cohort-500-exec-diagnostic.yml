@@ -29,26 +29,36 @@ jobs:
           token_format: access_token
           access_token_scopes: https://www.googleapis.com/auth/cloud-platform
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Read failed execution metadata
+      - name: Read execution/build metadata
         shell: bash
         run: |
           set -Eeuo pipefail
           mkdir -p research-result
-          execution="$(python - <<'PY'
+          python - <<'PY' > /tmp/diag.env
           import json
           from pathlib import Path
           p=json.loads(Path('research/cloud-cohort-500/EXEC_DIAG_REQUEST.json').read_text())
-          print(p['execution_name'])
+          print('EXECUTION_NAME=' + str(p.get('execution_name','')))
+          print('BUILD_ID=' + str(p.get('build_id','')))
           PY
-          )"
-          gcloud run jobs executions describe "${execution}" \
-            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json \
-            > research-result/execution_detail.json
-          gcloud run jobs executions list \
-            --job="${RESEARCH_JOB}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
-            --limit=5 --sort-by='~createTime' --format=json \
-            > research-result/recent_executions.json
-          cat research-result/execution_detail.json
+          source /tmp/diag.env
+          if [ -n "${EXECUTION_NAME}" ]; then
+            gcloud run jobs executions describe "${EXECUTION_NAME}" \
+              --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json \
+              > research-result/execution_detail.json
+            gcloud run jobs executions list \
+              --job="${RESEARCH_JOB}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+              --limit=5 --sort-by='~createTime' --format=json \
+              > research-result/recent_executions.json
+          fi
+          if [ -n "${BUILD_ID}" ]; then
+            gcloud builds describe "${BUILD_ID}" \
+              --project="${GCP_PROJECT_ID}" --format=json \
+              > research-result/build_detail.json
+            cat research-result/build_detail.json
+          elif [ -f research-result/execution_detail.json ]; then
+            cat research-result/execution_detail.json
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: research-cloud-cohort-500-exec-diagnostic-${{ github.sha }}
