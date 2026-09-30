@@ -1,6 +1,5 @@
 {
   "schema_version": "janus.research.cloud-cohort-500.exec-diagnostic.v1",
-  "execution_name": "janus-research-big-move-500-b7khv",
-  "build_id": "fcb9b2c0-107d-4be1-a72b-1cc66babf122",
-  "reason": "diagnose bounded-memory v2 Cloud Build failure and retain prior OOM execution evidence"
+  "export_revision": "36bc29505708b9b0f08fdaccd70c3230e405faa5",
+  "reason": "read-only export of successful Step 4 matched antecedent result tables"
 }
