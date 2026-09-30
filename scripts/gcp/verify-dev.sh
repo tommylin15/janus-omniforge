@@ -21,6 +21,14 @@ verify_job() {
   fi
 }
 
+verify_mart_compat_runtime() {
+  echo "--- Intelligence Mart compatibility runtime smoke ---"
+  gcloud run jobs execute janus-intelligence-mart \
+    --project="${project}" --region="${region}" \
+    --update-env-vars="MART_OPERATION=compat-smoke" \
+    --tasks=1 --task-timeout=5m --wait
+}
+
 verify_png() {
   local path="$1"
   local expected_width="$2"
@@ -187,6 +195,7 @@ case "${component}" in
     ;;
   intelligence-mart)
     verify_job janus-intelligence-mart
+    verify_mart_compat_runtime
     ;;
   private-pipeline)
     verify_job janus-private-pipeline
