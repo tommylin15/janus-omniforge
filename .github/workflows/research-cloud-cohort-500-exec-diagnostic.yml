@@ -15,6 +15,8 @@ env:
   GCP_PROJECT_ID: gen-lang-client-0593591102
   GCP_REGION: us-central1
   RESEARCH_JOB: janus-research-big-move-500
+  RESEARCH_BUCKET: gen-lang-client-0593591102-dev-research-big-move-500
+  RESEARCH_PREFIX: research/big-move-cloud-cohort-500
 
 jobs:
   execution-diagnostic:
@@ -29,7 +31,7 @@ jobs:
           token_format: access_token
           access_token_scopes: https://www.googleapis.com/auth/cloud-platform
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Read execution/build metadata
+      - name: Read execution/build metadata or export matched result
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -40,6 +42,7 @@ jobs:
           p=json.loads(Path('research/cloud-cohort-500/EXEC_DIAG_REQUEST.json').read_text())
           print('EXECUTION_NAME=' + str(p.get('execution_name','')))
           print('BUILD_ID=' + str(p.get('build_id','')))
+          print('EXPORT_REVISION=' + str(p.get('export_revision','')))
           PY
           source /tmp/diag.env
           if [ -n "${EXECUTION_NAME}" ]; then
@@ -55,9 +58,29 @@ jobs:
             gcloud builds describe "${BUILD_ID}" \
               --project="${GCP_PROJECT_ID}" --format=json \
               > research-result/build_detail.json
+          fi
+          if [ -n "${EXPORT_REVISION}" ]; then
+            mkdir -p research-result/matched
+            base="gs://${RESEARCH_BUCKET}/${RESEARCH_PREFIX}/revisions/${EXPORT_REVISION}/matched"
+            for f in summary.json control_assignments.csv unmatched_events.csv paired_features.csv feature_comparison.csv feature_by_year.csv; do
+              gcloud storage cp "${base}/${f}" "research-result/matched/${f}"
+            done
+            python - <<'PY'
+          import json, os
+          from pathlib import Path
+          s=json.loads(Path('research-result/matched/summary.json').read_text())
+          assert s['status']=='ok'
+          assert s['run_id']==os.environ['EXPORT_REVISION']
+          assert s['feature_gate']['decision']=='DESCRIPTIVE_READY'
+          print('matched result export: PASS')
+          PY
+          fi
+          if [ -f research-result/build_detail.json ]; then
             cat research-result/build_detail.json
           elif [ -f research-result/execution_detail.json ]; then
             cat research-result/execution_detail.json
+          elif [ -f research-result/matched/summary.json ]; then
+            cat research-result/matched/summary.json
           fi
       - uses: actions/upload-artifact@v4
         with:
