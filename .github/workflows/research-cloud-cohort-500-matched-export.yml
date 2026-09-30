@@ -1,0 +1,77 @@
+name: Research cloud cohort 500 matched export
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'research/cloud-cohort-500/MATCH_EXPORT_REQUEST.json'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: research-cloud-cohort-500-export
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  RESEARCH_BUCKET: gen-lang-client-0593591102-dev-research-big-move-500
+  RESEARCH_PREFIX: research/big-move-cloud-cohort-500
+
+jobs:
+  export-matched:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Validate export request
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('research/cloud-cohort-500/MATCH_EXPORT_REQUEST.json').read_text())
+          assert p['artifact_kind']=='matched_antecedent_features'
+          assert len(p['matched_run_id'])==40
+          assert p['database_allowed'] is False
+          assert p['existing_janus_iceberg_allowed'] is False
+          assert p['canonical_core_mart_writes_allowed'] is False
+          print('matched export request: PASS')
+          PY
+      - name: Collect matched research outputs
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p research-result/matched
+          run_id="$(python -c "import json;print(json.load(open('research/cloud-cohort-500/MATCH_EXPORT_REQUEST.json'))['matched_run_id'])")"
+          root="gs://${RESEARCH_BUCKET}/${RESEARCH_PREFIX}/revisions/${run_id}/matched"
+          for f in summary.json control_assignments.csv unmatched_events.csv paired_features.csv feature_comparison.csv feature_by_year.csv; do
+            gcloud storage cp "${root}/${f}" "research-result/matched/${f}"
+          done
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('research/cloud-cohort-500/MATCH_EXPORT_REQUEST.json').read_text())
+          s=json.loads(Path('research-result/matched/summary.json').read_text())
+          assert s['run_id']==p['matched_run_id']
+          assert s['input']['event_run_id']==p['event_run_id']
+          assert s['input']['outcome_run_id']==p['outcome_run_id']
+          assert s['status']=='ok'
+          print('matched export identity: PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: research-cloud-cohort-500-matched-final-${{ github.sha }}
+          path: research-result/
+          if-no-files-found: error
+          retention-days: 30
