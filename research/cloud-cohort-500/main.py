@@ -116,7 +116,7 @@ def main() -> int:
             result = eventize_run.run(request, bucket, prefix, run_id)
             gcs_put_json(bucket, f"{prefix}/executions/{run_id}/eventization_result.json", result, token)
         elif action == "matched_antecedent_features":
-            import matched_feature_run
+            import matched_feature_run_v2 as matched_feature_run
             result = matched_feature_run.run(request, bucket, prefix, run_id)
             gcs_put_json(bucket, f"{prefix}/executions/{run_id}/matched_feature_result.json", result, token)
         else:
