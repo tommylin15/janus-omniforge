@@ -100,19 +100,20 @@ def main() -> int:
         result = bootstrap(bucket, prefix, request, run_id, research_sa, token)
     elif action == "build_cohort":
         import cohort_build
-
         result = cohort_build.run(request, bucket, prefix, run_id)
         gcs_put_json(bucket, f"{prefix}/executions/{run_id}/cohort_build_result.json", result, token)
     elif action == "preflight_and_outcomes":
         import outcome_run
-
         result = outcome_run.run(request, bucket, prefix, run_id)
         gcs_put_json(bucket, f"{prefix}/executions/{run_id}/outcome_run_result.json", result, token)
     elif action == "sensitivity_and_report":
         import sensitivity_run
-
         result = sensitivity_run.run(request, bucket, prefix, run_id)
         gcs_put_json(bucket, f"{prefix}/executions/{run_id}/sensitivity_result.json", result, token)
+    elif action == "eventize_waves":
+        import eventize_run
+        result = eventize_run.run(request, bucket, prefix, run_id)
+        gcs_put_json(bucket, f"{prefix}/executions/{run_id}/eventization_result.json", result, token)
     else:
         raise RuntimeError(f"unsupported Cloud Run research action: {action!r}")
 
