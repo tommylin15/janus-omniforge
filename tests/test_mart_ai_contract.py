@@ -257,6 +257,7 @@ def test_validator_rejects_rehashed_input_contract_tampering(mutation, reason):
         next(e for e in source["evidence"] if e["evidence_id"] in value["evidence_ids"])["value"] = 42.0
     elif mutation in ("prompt", "guardrail"):
         artifact["lineage"][mutation]["version"] = "arbitrary"
+        artifact["lineage"][mutation]["text"] = "api_key=secret-canary"
     elif mutation == "schema":
         artifact["lineage"]["output_schema_version"] = "arbitrary"
     else:
@@ -264,3 +265,4 @@ def test_validator_rejects_rehashed_input_contract_tampering(mutation, reason):
     artifact["artifact_hash"] = content_hash({k: v for k, v in artifact.items() if k != "artifact_hash"})
     result = validate_role(artifact, source)
     assert result["status"] == "blocked" and reason in result["errors"]
+    assert "secret-canary" not in json.dumps(result)

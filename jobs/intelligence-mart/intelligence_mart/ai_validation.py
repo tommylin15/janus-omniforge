@@ -71,11 +71,16 @@ def validate_role(artifact: dict, report: dict) -> dict:
             errors.add("missing_fact_contract_mismatch")
 
     output = artifact.get("output")
+    audit_context = {k: report.get(k) for k in ("execution_id", "analysis_as_of", "core_snapshot_id",
+                                               "governance_snapshot_version")}
+    audit_context.update(scope_type=report.get("scope", {}).get("type"), scope_id=report.get("scope", {}).get("id"))
     # Recheck schema AND system-controlled prompt/schema/guardrail, not caller status labels.
     try:
         expected = interpretation_artifact(role, output, {k: context[k] for k in Lineage.model_fields if k in context})
         if expected != artifact or expected.get("status") != "schema_validated":
             errors.add("invalid_interpretation_contract")
+        else:
+            audit_context = expected["lineage"]
     except (ValueError, TypeError):
         errors.add("invalid_interpretation_contract")
     if isinstance(output, dict) and role in ROLE_WEIGHTS and pack is not None:
@@ -113,7 +118,7 @@ def validate_role(artifact: dict, report: dict) -> dict:
             if parsed["stance"] != "insufficient_data" and not covered:
                 errors.add("unsupported_stance")
     result = {"artifact_kind": "mart_ai_validation_v1", "validator_version": VERSION,
-              "role": role, "source_artifact_hash": source_hash, "lineage": deepcopy(context),
+              "role": role, "source_artifact_hash": source_hash, "lineage": deepcopy(audit_context),
               "status": "blocked" if errors else "validated", "errors": sorted(errors),
               "analysis_outcome": "insufficient_data" if isinstance(output, dict) and output.get("stance") == "insufficient_data" else "interpreted",
               "publication_authority": False}
