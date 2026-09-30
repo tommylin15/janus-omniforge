@@ -1,0 +1,81 @@
+name: Research cloud cohort 500 export matched results
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'research/cloud-cohort-500/EXPORT_MATCH_REQUEST.json'
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  RESEARCH_BUCKET: gen-lang-client-0593591102-dev-research-big-move-500
+  RESEARCH_PREFIX: research/big-move-cloud-cohort-500
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Validate read-only export request
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('research/cloud-cohort-500/EXPORT_MATCH_REQUEST.json').read_text())
+          assert len(p['run_id'])==40
+          assert p['database_allowed'] is False
+          assert p['existing_janus_iceberg_allowed'] is False
+          assert p['canonical_core_mart_writes_allowed'] is False
+          print('matched export isolation contract: PASS')
+          PY
+      - name: Export matched result tables
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          run_id="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          print(json.loads(Path('research/cloud-cohort-500/EXPORT_MATCH_REQUEST.json').read_text())['run_id'])
+          PY
+          )"
+          mkdir -p matched-export
+          for f in summary.json control_assignments.csv unmatched_events.csv paired_features.csv feature_comparison.csv feature_by_year.csv; do
+            gcloud storage cp \
+              "gs://${RESEARCH_BUCKET}/${RESEARCH_PREFIX}/revisions/${run_id}/matched/${f}" \
+              "matched-export/${f}"
+          done
+          RUN_ID="${run_id}" python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p=json.loads(Path('matched-export/summary.json').read_text())
+          assert p['status']=='ok'
+          assert p['action']=='matched_antecedent_features'
+          assert p['run_id']==os.environ['RUN_ID']
+          assert p['isolation']['database_used'] is False
+          assert p['isolation']['existing_janus_iceberg_catalog_used'] is False
+          assert p['isolation']['janus_core_written'] is False
+          assert p['isolation']['janus_mart_written'] is False
+          assert p['isolation']['janus_private_mart_written'] is False
+          print('matched export identity/isolation: PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: research-cloud-cohort-500-matched-export-${{ github.sha }}
+          path: matched-export/
+          if-no-files-found: error
+          retention-days: 30
