@@ -1,0 +1,10 @@
+{
+  "schema_version": "janus.research.cloud-cohort-500.match-export-request.v1",
+  "artifact_kind": "matched_antecedent_features",
+  "matched_run_id": "36bc29505708b9b0f08fdaccd70c3230e405faa5",
+  "event_run_id": "3034073417a131d78f080f52562f1e036e7942b3",
+  "outcome_run_id": "3e11efb4ad5dce1e483b6ca05298759013eaafae",
+  "database_allowed": false,
+  "existing_janus_iceberg_allowed": false,
+  "canonical_core_mart_writes_allowed": false
+}
