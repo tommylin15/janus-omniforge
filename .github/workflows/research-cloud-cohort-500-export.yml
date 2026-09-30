@@ -1,0 +1,97 @@
+name: Research cloud cohort 500 final export
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'research/cloud-cohort-500/FINAL_EXPORT_REQUEST.json'
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  RESEARCH_BUCKET: gen-lang-client-0593591102-dev-research-big-move-500
+  RESEARCH_PREFIX: research/big-move-cloud-cohort-500
+
+jobs:
+  export-results:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Validate isolated final export request
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('research/cloud-cohort-500/FINAL_EXPORT_REQUEST.json').read_text())
+          assert p['schema_version']=='janus.research.cloud-cohort-500.final-export.v1'
+          assert p['database_allowed'] is False
+          assert p['existing_janus_iceberg_allowed'] is False
+          assert p['canonical_core_mart_writes_allowed'] is False
+          for k in ('cohort_run_id','outcome_run_id','sensitivity_run_id'):
+              v=str(p[k])
+              assert len(v)==40 and all(c in '0123456789abcdef' for c in v)
+          print('final export isolation contract: PASS')
+          PY
+
+      - name: Collect immutable research results from dedicated GCS
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p research-result/cohort research-result/outcomes research-result/sensitivity
+          COHORT_RUN="$(python -c "import json; print(json.load(open('research/cloud-cohort-500/FINAL_EXPORT_REQUEST.json'))['cohort_run_id'])")"
+          OUTCOME_RUN="$(python -c "import json; print(json.load(open('research/cloud-cohort-500/FINAL_EXPORT_REQUEST.json'))['outcome_run_id'])")"
+          SENS_RUN="$(python -c "import json; print(json.load(open('research/cloud-cohort-500/FINAL_EXPORT_REQUEST.json'))['sensitivity_run_id'])")"
+          base="gs://${RESEARCH_BUCKET}/${RESEARCH_PREFIX}/revisions"
+          gcloud storage cp "${base}/${COHORT_RUN}/cohort/cohort_build_result.json" research-result/cohort/
+          gcloud storage cp "${base}/${COHORT_RUN}/cohort/cohort_manifest.csv" research-result/cohort/
+          gcloud storage cp "${base}/${OUTCOME_RUN}/dq/preflight_summary.json" research-result/outcomes/
+          gcloud storage cp "${base}/${OUTCOME_RUN}/dq/exclusions.csv" research-result/outcomes/
+          gcloud storage cp "${base}/${OUTCOME_RUN}/dq/symbol_summary.csv" research-result/outcomes/
+          gcloud storage cp "${base}/${OUTCOME_RUN}/outcomes/mfe_distribution.csv" research-result/outcomes/
+          gcloud storage cp "${base}/${SENS_RUN}/sensitivity/sensitivity_summary.json" research-result/sensitivity/
+          gcloud storage cp "${base}/${SENS_RUN}/sensitivity/percentile_rank_bounds.csv" research-result/sensitivity/
+          gcloud storage cp "${base}/${SENS_RUN}/sensitivity/year_horizon_dq.csv" research-result/sensitivity/
+          gcloud storage cp "${base}/${SENS_RUN}/sensitivity/par_value_period_comparison.csv" research-result/sensitivity/
+          gcloud storage cp "${base}/${SENS_RUN}/sensitivity/concentration_overlap.csv" research-result/sensitivity/
+          cp research/cloud-cohort-500/FINAL_EXPORT_REQUEST.json research-result/export_request.json
+
+      - name: Verify exported result identities
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          req=json.loads(Path('research-result/export_request.json').read_text())
+          cohort=json.loads(Path('research-result/cohort/cohort_build_result.json').read_text())
+          outcome=json.loads(Path('research-result/outcomes/preflight_summary.json').read_text())
+          sens=json.loads(Path('research-result/sensitivity/sensitivity_summary.json').read_text())
+          assert cohort['run_id']==req['cohort_run_id'] and cohort['status']=='ok'
+          assert outcome['run_id']==req['outcome_run_id'] and outcome['status']=='ok'
+          assert sens['run_id']==req['sensitivity_run_id'] and sens['outcome_run_id']==req['outcome_run_id'] and sens['status']=='ok'
+          assert cohort['cohort']['selected_symbols']==500
+          assert outcome['cohort']['selected_symbols']==500
+          assert sens['gates']['source_daily_coverage_gate'] is True
+          print('final research result identity verification: PASS')
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: research-cloud-cohort-500-final-${{ github.sha }}
+          path: research-result/
+          if-no-files-found: error
+          retention-days: 30
