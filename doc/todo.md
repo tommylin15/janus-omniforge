@@ -34,6 +34,10 @@ Observation window 不阻擋 correctness、data-integrity、market coverage、po
 - 六個月 observation checkpoint 是 evidence 工作，不應為了「下一項」而人工觸發本來應自然發生的 production-like workload；需要執行 bounded repair／acceptance 時仍依各 WBS 的模型與授權規則。
 - 每個日曆日第一次 Gemini 串接前，先查官方模型清單，選出當日前三個 Stable model，依序試用；優先 free tier，不自動開啟 paid gate，並受使用者明確授權的 scope／次數上限約束。全部失敗時維持 fail-closed、不得寫 placeholder。
 
+目前執行：`WBS-5-MART-AI-VALIDATION`；使用者 2026-09-30 已指定下一步並確認沿用 Sol。
+範圍為 provider-neutral validator、negative cases、既有 GCP dev pinned snapshot artifact
+acceptance；未結案前不自動開始 AI provider／CLI workload。
+
 ## A. Foreground queue
 
 `five-analyst-daily-operation-gate.md` 的 Gate 1 七個 Product Completeness prerequisite 已在 2026-09-29 全部完成。`WBS-6-PORTFOLIO-INTRADAY-QUOTE` 仍是有效產品缺口，但因正式行情來源授權 blocked，且不是 Gate 1 七項之一；在 blocker 未解除前不應停住安全且獨立的 five-analyst chain。

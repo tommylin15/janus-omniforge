@@ -107,6 +107,30 @@ guardrail version／hash，保存於 `interpretations/{artifact_hash}.json`；�
 不同內容不得覆寫同一 object。此為不可變保存契約，不代表 rerun/cache orchestration 已完成。
 CIO schema 要求五份 validated role artifact hashes；實際資格驗證與 synthesis 執行仍屬後續 WBS。
 
+### 五角色 deterministic output validator
+
+`intelligence_mart/ai_validation.py` 提供 provider-neutral `role-validator-v1`，輸入為
+shape artifact 與由 Janus 提供的可信 immutable report；重新核對 schema／prompt／guardrail、
+execution／scope／as-of／snapshot／feature／governance、Fact Pack／evidence hash、provenance
+集合與 role evidence IDs。沿用原 evidence validator 檢查 URL、授權、單位、重複、衝突與
+dataset freshness；另檢查每筆 publication／availability／observation／record time fence。
+
+每個 Claim 的 evidence IDs 須屬於該 role，top-level IDs 必須等於所有 Claim IDs 聯集。
+`missing_information` 必須逐項列出 Fact Pack 的 missing fact keys；不得把已驗證的
+`insufficient_data` 包裝成完整研究成功。數字主張採保守、fail-closed 的複製契約：只有
+以分隔符隔開、逐字引用既有 `fact_key=value` 的數字可接受；自由數字、改值、rounding、
+額外單位／百分比或自行計算均拒絕。此規則不自行推算單位，也不宣稱任意自然語言的
+數字辨識或 qualitative entailment 已被證明；evidence coverage 不等於推論成立／投資有用。
+
+結果為 create-only `mart_ai_validation_v1` artifact，保存 source artifact hash、原 lineage、
+validator version、sorted error codes 與 `validated`／`blocked`，不複製 rejected output／
+exception input；artifact hash 與 source interpretation reference 必須一併供稽核讀回。
+只有五個不同角色、同 execution／scope／profile 的完整 validated 結果才形成 complete
+validation；任一 missing／blocked／跨 scope 為 partial，insufficient_data 不算 five-role
+full success。呼叫者須從可信保存邊界讀取 validator 結果，hash 不替代身分授權。
+Validator 永遠沒有 publication authority，既有 deterministic publication path 不變；CIO
+qualification／synthesis 與 Codex CLI runtime 分別留待自己的 WBS。
+
 確定性事實引擎的正式定位是「事實包」，分為基本面、估值、籌碼、量化、事件風險五包。
 它負責數字、PIT、特徵計算、歷史比較、缺失資料語意、來源追溯、證據引用與基準分數；
 基準分數保留作回歸／漂移／結果評估參考，但不等於完整研究分析。
