@@ -1,7 +1,7 @@
 {
   "schema_version": "janus.research.cloud-cohort-500.request.v1",
   "action": "bootstrap",
-  "request_id": "bootstrap-20260930-02",
+  "request_id": "bootstrap-20260930-03",
   "research_track": "big-move-cloud-cohort-500",
   "cohort_size": 500,
   "market": "TWSE",
