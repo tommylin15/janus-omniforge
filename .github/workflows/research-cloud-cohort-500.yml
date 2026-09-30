@@ -85,9 +85,34 @@ jobs:
         run: |
           set -Eeuo pipefail
           image_tag="${IMAGE_REPO}:${GITHUB_SHA}"
-          gcloud builds submit research/cloud-cohort-500 \
+          build_id="$(gcloud builds submit research/cloud-cohort-500 \
             --project="${GCP_PROJECT_ID}" \
-            --tag="${image_tag}"
+            --tag="${image_tag}" \
+            --async \
+            --format='value(id)')"
+          test -n "${build_id}"
+          echo "research Cloud Build id=${build_id}"
+          while true; do
+            status="$(gcloud builds describe "${build_id}" \
+              --project="${GCP_PROJECT_ID}" \
+              --format='value(status)')"
+            case "${status}" in
+              SUCCESS)
+                break
+                ;;
+              FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED)
+                echo "research Cloud Build failed: ${status}" >&2
+                exit 1
+                ;;
+              QUEUED|PENDING|WORKING)
+                sleep 5
+                ;;
+              *)
+                echo "unexpected Cloud Build status: ${status}" >&2
+                exit 1
+                ;;
+            esac
+          done
           digest="$(gcloud artifacts docker images describe "${image_tag}" \
             --project="${GCP_PROJECT_ID}" \
             --format='value(image_summary.digest)')"
