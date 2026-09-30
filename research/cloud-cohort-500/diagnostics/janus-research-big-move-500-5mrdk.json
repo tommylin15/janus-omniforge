@@ -1,0 +1,45 @@
+{
+  "execution_name": "janus-research-big-move-500-5mrdk",
+  "log_read_rc": 0,
+  "conditions": [
+    {
+      "lastTransitionTime": "2026-09-30T12:42:41.038712Z",
+      "message": "Task janus-research-big-move-500-5mrdk-task0 failed with exit code: 0 and message: The configured memory limit was reached.",
+      "status": "False",
+      "type": "Completed"
+    },
+    {
+      "lastTransitionTime": "2026-09-30T12:36:59.334321Z",
+      "message": "Provisioned imported containers.",
+      "status": "True",
+      "type": "ResourcesAvailable"
+    },
+    {
+      "lastTransitionTime": "2026-09-30T12:41:54.787802Z",
+      "message": "Started deployed execution in 4m55.45s.",
+      "status": "True",
+      "type": "Started"
+    },
+    {
+      "lastTransitionTime": "2026-09-30T12:36:59.159458Z",
+      "message": "Imported container image in 11.1s.",
+      "status": "True",
+      "type": "ContainerReady"
+    }
+  ],
+  "failed_count": 1,
+  "succeeded_count": null,
+  "completion_time": "2026-09-30T12:42:41.038712Z",
+  "log_entries": [
+    {
+      "timestamp": "2026-09-30T12:42:37.169991Z",
+      "severity": null,
+      "text": "Out-of-memory event detected in container"
+    },
+    {
+      "timestamp": "2026-09-30T12:42:37.221050Z",
+      "severity": "WARNING",
+      "text": "Container terminated on signal 9."
+    }
+  ]
+}
