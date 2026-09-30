@@ -44,7 +44,9 @@ jobs:
           print('BUILD_ID=' + str(p.get('build_id','')))
           print('EXPORT_REVISION=' + str(p.get('export_revision','')))
           PY
+          set -a
           source /tmp/diag.env
+          set +a
           if [ -n "${EXECUTION_NAME}" ]; then
             gcloud run jobs executions describe "${EXECUTION_NAME}" \
               --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json \
