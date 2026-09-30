@@ -1,0 +1,47 @@
+name: Research cloud cohort 500 diagnostic
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'research/cloud-cohort-500/DIAG_REQUEST.json'
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_REGION: us-central1
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Describe failed research execution
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p diagnostic
+          exec_name="$(python -c "import json;print(json.load(open('research/cloud-cohort-500/DIAG_REQUEST.json'))['execution_name'])")"
+          gcloud run jobs executions describe "${exec_name}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json > diagnostic/execution.json
+          python - <<'PY'
+          import json
+          p=json.load(open('diagnostic/execution.json'))
+          print(json.dumps({'metadata':p.get('metadata',{}).get('name'),'status':p.get('status',{})},ensure_ascii=False,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: research-cloud-cohort-500-diag-${{ github.sha }}
+          path: diagnostic/
+          if-no-files-found: error
+          retention-days: 7
