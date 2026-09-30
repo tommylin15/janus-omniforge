@@ -1,7 +1,7 @@
 {
   "schema_version": "janus.research.cloud-cohort-500.match-request.v1",
   "action": "matched_antecedent_features",
-  "request_id": "matched-antecedents-20261001-05-persisted-diagnostics",
+  "request_id": "matched-antecedents-20261001-06-memory-v2",
   "research_track": "big-move-cloud-cohort-500",
   "cohort_size": 500,
   "market": "TWSE",
