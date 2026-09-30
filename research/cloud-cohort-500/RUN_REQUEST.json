@@ -1,0 +1,12 @@
+{
+  "schema_version": "janus.research.cloud-cohort-500.request.v1",
+  "action": "bootstrap",
+  "research_track": "big-move-cloud-cohort-500",
+  "cohort_size": 500,
+  "market": "TWSE",
+  "security_type": "common_equity",
+  "usable_ohlcv_coverage_min": 0.9,
+  "database_allowed": false,
+  "existing_janus_iceberg_allowed": false,
+  "canonical_core_mart_writes_allowed": false
+}
