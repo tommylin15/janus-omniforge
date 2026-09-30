@@ -1,7 +1,7 @@
 {
   "schema_version": "janus.research.cloud-cohort-500.match-request.v1",
   "action": "matched_antecedent_features",
-  "request_id": "matched-antecedents-20260930-01",
+  "request_id": "matched-antecedents-20260930-02",
   "research_track": "big-move-cloud-cohort-500",
   "cohort_size": 500,
   "market": "TWSE",
