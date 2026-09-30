@@ -96,30 +96,54 @@ def main() -> int:
     request = gcs_get_json(bucket, request_object, token)
     action = str(request.get("action", "")).strip()
 
-    if action == "bootstrap":
-        result = bootstrap(bucket, prefix, request, run_id, research_sa, token)
-    elif action == "build_cohort":
-        import cohort_build
-        result = cohort_build.run(request, bucket, prefix, run_id)
-        gcs_put_json(bucket, f"{prefix}/executions/{run_id}/cohort_build_result.json", result, token)
-    elif action == "preflight_and_outcomes":
-        import outcome_run
-        result = outcome_run.run(request, bucket, prefix, run_id)
-        gcs_put_json(bucket, f"{prefix}/executions/{run_id}/outcome_run_result.json", result, token)
-    elif action == "sensitivity_and_report":
-        import sensitivity_run
-        result = sensitivity_run.run(request, bucket, prefix, run_id)
-        gcs_put_json(bucket, f"{prefix}/executions/{run_id}/sensitivity_result.json", result, token)
-    elif action == "eventize_waves":
-        import eventize_run_v2 as eventize_run
-        result = eventize_run.run(request, bucket, prefix, run_id)
-        gcs_put_json(bucket, f"{prefix}/executions/{run_id}/eventization_result.json", result, token)
-    elif action == "matched_antecedent_features":
-        import matched_feature_run
-        result = matched_feature_run.run(request, bucket, prefix, run_id)
-        gcs_put_json(bucket, f"{prefix}/executions/{run_id}/matched_feature_result.json", result, token)
-    else:
-        raise RuntimeError(f"unsupported Cloud Run research action: {action!r}")
+    try:
+        if action == "bootstrap":
+            result = bootstrap(bucket, prefix, request, run_id, research_sa, token)
+        elif action == "build_cohort":
+            import cohort_build
+            result = cohort_build.run(request, bucket, prefix, run_id)
+            gcs_put_json(bucket, f"{prefix}/executions/{run_id}/cohort_build_result.json", result, token)
+        elif action == "preflight_and_outcomes":
+            import outcome_run
+            result = outcome_run.run(request, bucket, prefix, run_id)
+            gcs_put_json(bucket, f"{prefix}/executions/{run_id}/outcome_run_result.json", result, token)
+        elif action == "sensitivity_and_report":
+            import sensitivity_run
+            result = sensitivity_run.run(request, bucket, prefix, run_id)
+            gcs_put_json(bucket, f"{prefix}/executions/{run_id}/sensitivity_result.json", result, token)
+        elif action == "eventize_waves":
+            import eventize_run_v2 as eventize_run
+            result = eventize_run.run(request, bucket, prefix, run_id)
+            gcs_put_json(bucket, f"{prefix}/executions/{run_id}/eventization_result.json", result, token)
+        elif action == "matched_antecedent_features":
+            import matched_feature_run
+            result = matched_feature_run.run(request, bucket, prefix, run_id)
+            gcs_put_json(bucket, f"{prefix}/executions/{run_id}/matched_feature_result.json", result, token)
+        else:
+            raise RuntimeError(f"unsupported Cloud Run research action: {action!r}")
+    except Exception as exc:
+        error_result = {
+            "schema_version": "janus.research.cloud-cohort-500.error.v1",
+            "status": "error",
+            "action": action,
+            "run_id": run_id,
+            "generated_at": utc_now(),
+            "error_type": type(exc).__name__,
+            "error_message": str(exc)[:4000],
+            "isolation": {
+                "postgresql_used": False,
+                "database_used": False,
+                "existing_janus_iceberg_catalog_used": False,
+                "janus_core_written": False,
+                "janus_mart_written": False,
+                "janus_private_mart_written": False,
+            },
+        }
+        try:
+            gcs_put_json(bucket, f"{prefix}/executions/{run_id}/error_result.json", error_result, token)
+        except Exception as evidence_exc:
+            print(json.dumps({"status":"error_evidence_write_failed","error":str(evidence_exc)}, ensure_ascii=False), file=sys.stderr)
+        raise
 
     print(json.dumps({"status": result.get("status"), "action": action, "run_id": run_id}, ensure_ascii=False))
     return 0
