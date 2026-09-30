@@ -8,7 +8,7 @@ on:
       - 'research/cloud-cohort-500/MATCH_REQUEST.json'
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 concurrency:
@@ -143,6 +143,42 @@ jobs:
           assert p['matching']['control_assignment_count'] == p['matching']['matched_event_count'] * 3
           print('matched antecedent acceptance: PASS')
           PY
+
+      - name: Persist matched run status
+        if: always()
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          req=json.loads(Path('research/cloud-cohort-500/MATCH_REQUEST.json').read_text())
+          result_path=Path('research-result/action_result.json')
+          error_path=Path('research-result/error_result.json')
+          if result_path.exists():
+              payload=json.loads(result_path.read_text())
+              state='success'
+          elif error_path.exists():
+              payload=json.loads(error_path.read_text())
+              state='failure'
+          else:
+              payload={'status':'unknown','error_message':'no action_result.json or error_result.json was recovered'}
+              state='failure_unknown'
+          out={
+              'workflow_commit':'${{ github.sha }}',
+              'request_id':req.get('request_id'),
+              'state':state,
+              'result':payload,
+          }
+          Path('research/cloud-cohort-500/LAST_MATCH_RUN.json').write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n')
+          PY
+          git config user.name 'janus-research-bot'
+          git config user.email 'janus-research-bot@users.noreply.github.com'
+          git add research/cloud-cohort-500/LAST_MATCH_RUN.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'research: record latest matched-study run status'
+          git pull --rebase origin main
+          git push origin HEAD:main
 
       - uses: actions/upload-artifact@v4
         if: always()
