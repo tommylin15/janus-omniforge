@@ -63,7 +63,12 @@ jobs:
           assert p['existing_janus_iceberg_allowed'] is False
           assert p['canonical_core_mart_writes_allowed'] is False
           action=str(p['action'])
-          assert action in {'bootstrap','stage_source_zip','build_cohort'}
+          assert action in {'bootstrap','stage_source_zip','build_cohort','preflight_and_outcomes'}
+          if action == 'preflight_and_outcomes':
+              assert p['cohort_run_id']
+              assert p['source_gcs_object']
+              assert p['source_sha256']
+              assert int(p['source_size_bytes']) > 0
           with open(os.environ['GITHUB_OUTPUT'],'a',encoding='utf-8') as f: f.write(f'action={action}\n')
           print(f'research isolation contract: PASS action={action}')
           PY
@@ -168,7 +173,12 @@ jobs:
           mkdir -p research-result
           gcloud run jobs execute "${RESEARCH_JOB}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --wait --format=json > research-result/execution.json
           action="${{ steps.request.outputs.action }}"
-          if [[ "${action}" == "bootstrap" ]]; then result_name="bootstrap_result.json"; else result_name="cohort_build_result.json"; fi
+          case "${action}" in
+            bootstrap) result_name="bootstrap_result.json" ;;
+            build_cohort) result_name="cohort_build_result.json" ;;
+            preflight_and_outcomes) result_name="outcome_run_result.json" ;;
+            *) echo "unsupported action result mapping: ${action}" >&2; exit 1 ;;
+          esac
           result_object="${RESEARCH_PREFIX}/executions/${GITHUB_SHA}/${result_name}"
           gcloud storage cp "gs://${RESEARCH_BUCKET}/${result_object}" research-result/action_result.json
           gcloud run jobs describe "${RESEARCH_JOB}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json > research-result/job_snapshot.json
@@ -195,6 +205,13 @@ jobs:
               assert p['cohort']['selected_symbols']==500
               assert float(p['cohort']['coverage_min'])>=0.90
               assert p['lifecycle']['status_counts'].get('resolved',0)>=500
+          elif action=='preflight_and_outcomes':
+              assert iso['runtime_secret_used'] is False
+              assert p['cohort']['selected_symbols']==500
+              assert p['dq']['cohort_coverage_gate_pass'] is True
+              for h in ('20','60'):
+                  assert p['outcomes']['pooled'][h]['potential_count'] > 0
+                  assert p['outcomes']['pooled'][h]['valid_count'] > 0
           print(f'research action acceptance: PASS action={action}')
           PY
 
