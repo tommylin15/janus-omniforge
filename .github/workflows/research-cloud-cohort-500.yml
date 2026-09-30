@@ -1,0 +1,184 @@
+name: Research cloud cohort 500
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'research/cloud-cohort-500/**'
+      - '.github/workflows/research-cloud-cohort-500.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: research-cloud-cohort-500
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_REGION: us-central1
+  RESEARCH_BUCKET: gen-lang-client-0593591102-dev-research-big-move-500
+  RESEARCH_PREFIX: research/big-move-cloud-cohort-500
+  RESEARCH_JOB: janus-research-big-move-500
+  RESEARCH_SA_NAME: janus-research-big-move-500
+  IMAGE_REPO: us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/research-cloud-cohort-500
+
+jobs:
+  bootstrap-and-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Validate research request isolation contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = json.loads(Path('research/cloud-cohort-500/RUN_REQUEST.json').read_text())
+          assert p['cohort_size'] == 500
+          assert p['market'] == 'TWSE'
+          assert p['security_type'] == 'common_equity'
+          assert float(p['usable_ohlcv_coverage_min']) >= 0.90
+          assert p['database_allowed'] is False
+          assert p['existing_janus_iceberg_allowed'] is False
+          assert p['canonical_core_mart_writes_allowed'] is False
+          assert p['action'] == 'bootstrap'
+          print('research isolation contract: PASS')
+          PY
+
+      - name: Ensure dedicated research service account
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sa_email="${RESEARCH_SA_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+          if ! gcloud iam service-accounts describe "${sa_email}" --project="${GCP_PROJECT_ID}" >/dev/null 2>&1; then
+            gcloud iam service-accounts create "${RESEARCH_SA_NAME}" \
+              --project="${GCP_PROJECT_ID}" \
+              --display-name="Janus research big-move cohort 500" \
+              --description="Research-only identity; no DB, Janus Iceberg, Core or Mart access."
+          fi
+          echo "RESEARCH_SA_EMAIL=${sa_email}" >> "${GITHUB_ENV}"
+
+      - name: Ensure dedicated research bucket and bucket-scoped IAM
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bucket_uri="gs://${RESEARCH_BUCKET}"
+          if ! gcloud storage buckets describe "${bucket_uri}" --project="${GCP_PROJECT_ID}" >/dev/null 2>&1; then
+            gcloud storage buckets create "${bucket_uri}" \
+              --project="${GCP_PROJECT_ID}" \
+              --location="${GCP_REGION}" \
+              --uniform-bucket-level-access
+          fi
+          gcloud storage buckets add-iam-policy-binding "${bucket_uri}" \
+            --member="serviceAccount:${RESEARCH_SA_EMAIL}" \
+            --role="roles/storage.objectAdmin" >/dev/null
+
+      - name: Build isolated research image
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          image_tag="${IMAGE_REPO}:${GITHUB_SHA}"
+          gcloud builds submit research/cloud-cohort-500 \
+            --project="${GCP_PROJECT_ID}" \
+            --tag="${image_tag}"
+          digest="$(gcloud artifacts docker images describe "${image_tag}" \
+            --project="${GCP_PROJECT_ID}" \
+            --format='value(image_summary.digest)')"
+          test -n "${digest}"
+          echo "RESEARCH_IMAGE=${IMAGE_REPO}@${digest}" >> "${GITHUB_ENV}"
+
+      - name: Upload immutable request
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          request_object="${RESEARCH_PREFIX}/requests/${GITHUB_SHA}.json"
+          gcloud storage cp research/cloud-cohort-500/RUN_REQUEST.json \
+            "gs://${RESEARCH_BUCKET}/${request_object}"
+          echo "RESEARCH_REQUEST_OBJECT=${request_object}" >> "${GITHUB_ENV}"
+
+      - name: Create or update research-only Cloud Run Job
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          common_flags=(
+            --project="${GCP_PROJECT_ID}"
+            --region="${GCP_REGION}"
+            --image="${RESEARCH_IMAGE}"
+            --service-account="${RESEARCH_SA_EMAIL}"
+            --tasks=1
+            --parallelism=1
+            --max-retries=0
+            --task-timeout=30m
+            --cpu=1
+            --memory=512Mi
+            --set-env-vars="RESEARCH_BUCKET=${RESEARCH_BUCKET},RESEARCH_PREFIX=${RESEARCH_PREFIX},RESEARCH_REQUEST_OBJECT=${RESEARCH_REQUEST_OBJECT},RESEARCH_RUN_ID=${GITHUB_SHA},RESEARCH_SERVICE_ACCOUNT=${RESEARCH_SA_EMAIL}"
+            --quiet
+          )
+          if gcloud run jobs describe "${RESEARCH_JOB}" \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" >/dev/null 2>&1; then
+            gcloud run jobs update "${RESEARCH_JOB}" "${common_flags[@]}"
+          else
+            gcloud run jobs create "${RESEARCH_JOB}" "${common_flags[@]}"
+          fi
+
+      - name: Execute bootstrap acceptance
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p research-result
+          gcloud run jobs execute "${RESEARCH_JOB}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --wait \
+            --format=json > research-result/execution.json
+          result_object="${RESEARCH_PREFIX}/executions/${GITHUB_SHA}/bootstrap_result.json"
+          gcloud storage cp "gs://${RESEARCH_BUCKET}/${result_object}" \
+            research-result/bootstrap_result.json
+          gcloud run jobs describe "${RESEARCH_JOB}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --format=json > research-result/job_snapshot.json
+
+      - name: Verify no DB or canonical data-plane use
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = json.loads(Path('research-result/bootstrap_result.json').read_text())
+          assert p['status'] == 'ok'
+          iso = p['isolation']
+          assert iso['postgresql_used'] is False
+          assert iso['database_used'] is False
+          assert iso['existing_janus_iceberg_catalog_used'] is False
+          assert iso['janus_core_written'] is False
+          assert iso['janus_mart_written'] is False
+          assert iso['janus_private_mart_written'] is False
+          assert iso['secrets_mounted'] is False
+          caps = p['capabilities']
+          assert caps['gcs_read_write'] is True
+          assert caps['cloud_run_job_execution'] is True
+          print('research cloud bootstrap acceptance: PASS')
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: research-cloud-cohort-500-${{ github.sha }}
+          path: research-result/
+          if-no-files-found: error
+          retention-days: 30
