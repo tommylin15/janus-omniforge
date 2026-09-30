@@ -111,7 +111,7 @@ def main() -> int:
         result = sensitivity_run.run(request, bucket, prefix, run_id)
         gcs_put_json(bucket, f"{prefix}/executions/{run_id}/sensitivity_result.json", result, token)
     elif action == "eventize_waves":
-        import eventize_run
+        import eventize_run_v2 as eventize_run
         result = eventize_run.run(request, bucket, prefix, run_id)
         gcs_put_json(bucket, f"{prefix}/executions/{run_id}/eventization_result.json", result, token)
     elif action == "matched_antecedent_features":
