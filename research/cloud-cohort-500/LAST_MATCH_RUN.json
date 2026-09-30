@@ -1,0 +1,9 @@
+{
+  "workflow_commit": "bb42727b31e43b5b0358a29e898dc584be59162d",
+  "request_id": "matched-antecedents-20261001-05-persisted-diagnostics",
+  "state": "failure_unknown",
+  "result": {
+    "status": "unknown",
+    "error_message": "no action_result.json or error_result.json was recovered"
+  }
+}
