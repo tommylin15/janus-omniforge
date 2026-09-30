@@ -62,7 +62,7 @@ Mart advanced capability 不應先於目前 Product Completeness foreground。Ga
 **目前狀態：Gate 3 已於 2026-09-30 完成。** 五角色／CIO contract、versioned methodology、
 locked guardrail、schema／prompt／lineage fixtures、dev deployment 與 pinned 真實 snapshot
 的 create-only artifact／structured failure acceptance 均通過；詳見 [結案紀錄](archive/wbs-5-mart-ai-role-contract-2026-09-30.md)。
-Gate 4／5／6 仍未完成，沒有啟用 AI provider 或自然每日角色 workload。
+Gate 4 完成狀態見下；Gate 5／6 仍未完成，沒有啟用 AI provider 或自然每日角色 workload。
 
 ## Gate 4 — 每位分析師輸出可被治理驗證
 
@@ -77,6 +77,12 @@ Gate 4／5／6 仍未完成，沒有啟用 AI provider 或自然每日角色 wor
 - 任一 role failure 不得包裝成 five-role full success。
 
 達到此 gate 後，5 位分析師輸出才具備可被系統接受或拒絕的 deterministic governance boundary。
+
+**目前狀態：Gate 4 已於 2026-09-30 完成。** Provider-neutral validator、78 項 Mart tests、
+4 項 registry tests、dev deploy／verify、pinned 真實 Fact Packs 的 5 validated／10 blocked
+fixtures 與獨立 30-object GCS hash／lineage readback 全數通過。
+已驗證 insufficient_data 不算完整研究成功，validator 沒有 publication authority；這不是
+五個 AI worker execution。詳見 [結案紀錄](archive/wbs-5-mart-ai-validation-2026-09-30.md)。
 
 ## Gate 5 — GCP 自主 Codex CLI 批次／受控 fallback 可可靠執行
 

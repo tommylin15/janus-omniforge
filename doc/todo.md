@@ -34,17 +34,13 @@ Observation window 不阻擋 correctness、data-integrity、market coverage、po
 - 六個月 observation checkpoint 是 evidence 工作，不應為了「下一項」而人工觸發本來應自然發生的 production-like workload；需要執行 bounded repair／acceptance 時仍依各 WBS 的模型與授權規則。
 - 每個日曆日第一次 Gemini 串接前，先查官方模型清單，選出當日前三個 Stable model，依序試用；優先 free tier，不自動開啟 paid gate，並受使用者明確授權的 scope／次數上限約束。全部失敗時維持 fail-closed、不得寫 placeholder。
 
-目前執行：`WBS-5-MART-AI-VALIDATION`；使用者 2026-09-30 已指定下一步並確認沿用 Sol。
-範圍為 provider-neutral validator、negative cases、既有 GCP dev pinned snapshot artifact
-acceptance；未結案前不自動開始 AI provider／CLI workload。
-
 ## A. Foreground queue
 
 `five-analyst-daily-operation-gate.md` 的 Gate 1 七個 Product Completeness prerequisite 已在 2026-09-29 全部完成。`WBS-6-PORTFOLIO-INTRADAY-QUOTE` 仍是有效產品缺口，但因正式行情來源授權 blocked，且不是 Gate 1 七項之一；在 blocker 未解除前不應停住安全且獨立的 five-analyst chain。
 
-`WBS-5-MART-AI-ROLE-CONTRACT` 已完成 Gate 3，implementation／tests／deployment／bounded
-live artifact acceptance 見 [結案紀錄](archive/wbs-5-mart-ai-role-contract-2026-09-30.md)。
-下一段 Mart validation／provider 工作仍在下方 P1 Planned；開始前重新核對 dependency 與模型 gate，
+`WBS-5-MART-AI-VALIDATION` 已完成 Gate 4，implementation／tests／deployment／bounded
+live artifact acceptance 見 [結案紀錄](archive/wbs-5-mart-ai-validation-2026-09-30.md)。
+下一段 Mart v1 compatibility／provider 工作仍在下方 P1 Planned；開始前重新核對 dependency 與模型 gate，
 本項結案不自動解鎖其他 WBS，也不代表五角色每日 workload 已完成。
 
 ### 1. `WBS-6-PORTFOLIO-INTRADAY-QUOTE` — 【Blocked：正式行情來源授權】
@@ -91,7 +87,7 @@ live artifact acceptance 見 [結案紀錄](archive/wbs-5-mart-ai-role-contract-
 
 ### P1 — Mart 閉環（Planned；advanced capability）
 
-`WBS-5-MART-FACT-PACKS`／`WBS-5-MART-AI-ROLE-CONTRACT` 已完成 Gate 2／3。以下項目在其 dependency 與各自 gate 完成後依序推進；既有 deterministic Mart／Gemini narrator／mart.v1 evidence 保持 current truth。
+`WBS-5-MART-FACT-PACKS`／`WBS-5-MART-AI-ROLE-CONTRACT`／`WBS-5-MART-AI-VALIDATION` 已完成 Gate 2／3／4。以下項目在其 dependency 與各自 gate 完成後依序推進；既有 deterministic Mart／Gemini narrator／mart.v1 evidence 保持 current truth。
 
 使用者 2026-09-30 已指定 [Codex 五分析師研究方向](https://docs.google.com/document/d/1wPKndnPMbtVR1nkHEaUgmxTiUbt5_PkdyG-IY-l5Fo4/edit)：
 GCP 既有批次自主使用 Codex CLI 優先／必要 worker bridge，Gemini／OpenRouter 受控 fallback；
@@ -101,10 +97,9 @@ Drive 原文仍是 Deferred，這次依最新指示納入 active planning，並�
 離榜仍納入；500 檔維持資料網／deterministic screening，不自動變成 500×5 次 AI 呼叫。
 AI 有自己的 bounded batch／quota／cost gate，未處理或缺資料須明列 partial／blocked；
 只傳公開 Fact Packs，不把私人持股內容或 owner mapping 寫回公開 Mart。
-先建立 provider-neutral validator contract，再驗收 GCP worker 真實整合；不把 provider dependency
-變成 validator fixtures 的循環前置，不因文件對齊自動啟動 implementation。
+Provider-neutral validator 已完成；下一項先做 mart.v1 additive compatibility，再驗收 GCP
+worker 真實整合。每項重新走模型閘門；不把 Gate 4 fixtures 稱為真實 AI worker success。
 
-- [ ] 【Sol】 `WBS-5-MART-AI-VALIDATION`：schema、evidence ID、numeric grounding、analysis-as-of time fence、future leakage、missing-data honesty、claim coverage；invalid output 不得 publish，one-role failure 不得宣稱 full success。
 - [ ] 【Sol】 `WBS-5-MART-V2-COMPAT`：保留 `mart.v1`、新增 additive artifact／validator contract、規劃 future mart.v2 migration；既有 v1 fixtures／consumer 不破壞，migration 前不升版。
 - [ ] 【Sol】 `WBS-5-MART-AI-PROVIDERS`：GCP 既有 Mart 批次自主啟動五個獨立 Codex CLI workers（primary；必要 bridge 須具體介面驗證）、初始授權後 headless dispatch／cold-start auth／續期、role workspace 隔離、capability／參數、timeout／process-tree cancel／退出碼／bounded retry；Gemini／OpenRouter 只作 profile 核准 fallback，保存 attempt／reason／transport／model。以 GCP dev 真實五角色 artifact／validator readback 驗收，不以本機 CLI 或人工 ChatGPT 操作替代；secret redaction、quota／cost／billing gate 保留，失敗 fail closed。
 - [ ] 【Sol】 同一 `WBS-5-MART-AI-PROVIDERS` 整體 acceptance：接線關注＋持股 immutable target 聯集，驗收 watch-only／held-only／重疊去重、多使用者、持股離榜、取消關注／清倉、as-of replay、quota／missing-data honesty 與 private isolation；不另開與五角色批次脫節的 implementation。

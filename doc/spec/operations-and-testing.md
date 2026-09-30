@@ -1,16 +1,20 @@
 # Operations and testing
 
-## WBS-5 AI Role Contract 最新結論（2026-09-30）
+## WBS-5 AI Validation 最新結論（2026-09-30）
 
-`WBS-5-MART-AI-ROLE-CONTRACT` 已完成 Gate 3。實作 commit `a21ce9b5448b89f765e652dfddf07cac47e7ccab`：
-五角色／CIO schema、locked guardrail、六份 versioned methodology、structured failure 與
-create-only interpretation lineage；本機 79 passed、Mart CI 53 passed，canonical dev workflow
-`36687180475` 全部 success，Job Ready／Git SHA／digest 獨立核對。Bounded dev execution
-`janus-intelligence-mart-9w9d2` Completed=True，使用 pinned 真實 Mart snapshot 保存契約及
-六份 failure injection artifacts；獨立 GCS readback 的 schema／prompt／raw-byte／content hashes
-與 lineage 均通過，舊 manifest 未補寫、原 `insufficient_data / blocked` 保持。零 provider
-呼叫／publication 寫入；shape 通過僅 `schema_validated / pending`，不代表 semantic validator、
-provider、CIO synthesis 或 natural daily workload 完成。詳見 [結案紀錄](../archive/wbs-5-mart-ai-role-contract-2026-09-30.md)。
+`WBS-5-MART-AI-VALIDATION` 已完成 Gate 4。最終 commit `12468e694bd5714daf435741b95b214d590d9211`：
+provider-neutral schema／evidence／numeric grounding／PIT／missing-data／claim coverage
+validator；本機及 Mart CI 78 passed、registry 4 passed，dev workflow `36694449235`
+test／deploy／verify success。Job Ready、Git SHA 與 image digest
+`sha256:68549911768ae6e2345e351cf158237c27d934dc36e0924ca14441bea41cdb43` 已獨立核對。
+Bounded execution `janus-intelligence-mart-7b6nd` Completed=True，pinned 真實 Fact Packs 上
+5 份 insufficient-data fixtures validated、10 份 fault injections blocked；獨立 30-object
+GCS raw-byte／content hash／lineage readback 通過，原 pinned metadata 未變。
+Evidence hash `sha256:5d25184e4e0ebfa7c0af3dc5ab3c3afa389eb40a7473ec0e5e87c7ea01f95da5`。
+零 provider 呼叫／publication 寫入，five_role_success=false；validator 不授予 publication
+權限，也不宣稱任意自然語言 entailment 已被證明。CLI／provider、CIO synthesis 與自然每日
+workload 仍未完成。詳見 [結案紀錄](../archive/wbs-5-mart-ai-validation-2026-09-30.md)。
+Gate 3 完成證據保留於 [Role Contract archive](../archive/wbs-5-mart-ai-role-contract-2026-09-30.md)。
 
 ## WBS-5 Mart Fact Packs 最新結論（2026-09-30）
 

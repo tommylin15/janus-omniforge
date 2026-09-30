@@ -122,7 +122,8 @@ dataset freshness；另檢查每筆 publication／availability／observation／r
 額外單位／百分比或自行計算均拒絕。此規則不自行推算單位，也不宣稱任意自然語言的
 數字辨識或 qualitative entailment 已被證明；evidence coverage 不等於推論成立／投資有用。
 
-結果為 create-only `mart_ai_validation_v1` artifact，保存 source artifact hash、原 lineage、
+結果為 create-only `mart_ai_validation_v1` artifact，保存 source artifact hash、合格 lineage
+（invalid contract 改用可信 report audit context）、
 validator version、sorted error codes 與 `validated`／`blocked`，不複製 rejected output／
 exception input；artifact hash 與 source interpretation reference 必須一併供稽核讀回。
 只有五個不同角色、同 execution／scope／profile 的完整 validated 結果才形成 complete
