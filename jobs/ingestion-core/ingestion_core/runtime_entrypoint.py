@@ -247,9 +247,7 @@ def _run_analysis_replay(config_id: str, symbols: tuple[str, ...], *, timeout_se
                 }
             if current.status.value in {"failed", "partial"}:
                 raise RuntimeError(f"Mart replay ended in {current.status.value}")
-            if current.status.value == "retrying":
-                raise RuntimeError("Mart replay requires retry and is not accepted as live evidence")
-            if current.status.value == "queued" and now >= next_trigger_at:
+            if current.status.value in {"queued", "retrying"} and now >= next_trigger_at:
                 retrigger = _trigger_mart(execution.execution_id, delay_seconds=0)
                 if retrigger.get("status") == "accepted":
                     mart_triggers += 1
