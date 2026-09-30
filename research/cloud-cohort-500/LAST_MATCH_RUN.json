@@ -1,9 +1,84 @@
 {
-  "workflow_commit": "bb42727b31e43b5b0358a29e898dc584be59162d",
-  "request_id": "matched-antecedents-20261001-05-persisted-diagnostics",
-  "state": "failure_unknown",
+  "workflow_commit": "36bc29505708b9b0f08fdaccd70c3230e405faa5",
+  "request_id": "matched-antecedents-20261001-07-memory-v2-smoke-fix",
+  "state": "success",
   "result": {
-    "status": "unknown",
-    "error_message": "no action_result.json or error_result.json was recovered"
+    "action": "matched_antecedent_features",
+    "calendar": {
+      "artifact": "janus_step2a_materialized/20260917T025906Z/metadata/taiwan_stock_trading_date.parquet",
+      "date_column": "date",
+      "rows": 6937,
+      "unique_dates": 2788
+    },
+    "design": {
+      "case": "primary G7 H60 top-decile wave anchor",
+      "contamination_exclusion": "control stock excluded if any primary seed is within +/-10 trading days",
+      "control_reuse": "not allowed within same anchor T; allowed across different dates",
+      "control_timing": "exact same anchor T",
+      "controls_per_event": 3,
+      "execution_memory_strategy": "bounded H60 Arrow batches + compact numpy candidate arrays + per-symbol streaming; no full observation frame or candidate tuple-key liquidity map",
+      "feature_information_cutoff": "anchor T close or earlier only",
+      "features": [
+        "ret_5",
+        "ret_20",
+        "ret_60",
+        "vol_20",
+        "vol_60",
+        "max_drawdown_20",
+        "max_drawdown_60",
+        "close_to_high_20",
+        "close_to_high_60",
+        "close_to_low_20",
+        "close_to_low_60",
+        "range_mean_20",
+        "turnover_med_20",
+        "turnover_med_60",
+        "turnover_ratio_5_20",
+        "volume_med_20",
+        "volume_ratio_5_20",
+        "turnover_z_20",
+        "volume_z_20",
+        "up_day_share_20",
+        "overnight_gap_t",
+        "intraday_return_t"
+      ],
+      "inference": "descriptive only; no p-values, no ML, no predictive claim",
+      "matching_key": "nearest log1p(anchor-pre20 median turnover_twd)",
+      "negative_pool": "valid H60 observations with global H60 MFE rank fraction > 0.20; top 10% seed and 10-20% grey zone excluded"
+    },
+    "feature_gate": {
+      "decision": "DESCRIPTIVE_READY",
+      "feature_count": 22,
+      "features_with_ge_90pct_paired_coverage": 22,
+      "matched_event_rate_ge_90pct": true
+    },
+    "generated_at": "2026-09-30T23:21:40.074780Z",
+    "input": {
+      "event_run_id": "3034073417a131d78f080f52562f1e036e7942b3",
+      "outcome_run_id": "3e11efb4ad5dce1e483b6ca05298759013eaafae",
+      "source_gcs_object": "research/big-move-cloud-cohort-500/sources/step2a/sha256=0ed5d53ec912d47ab4087b2bc1e0743411c5e9ccac1a096060420eb1801fa590/janus_step2a_materialized.zip"
+    },
+    "isolation": {
+      "database_used": false,
+      "existing_janus_iceberg_catalog_used": false,
+      "janus_core_written": false,
+      "janus_mart_written": false,
+      "janus_private_mart_written": false,
+      "postgresql_used": false,
+      "runtime_secret_used": false
+    },
+    "matching": {
+      "control_assignment_count": 10518,
+      "event_count": 3815,
+      "matched_event_count": 3506,
+      "matched_event_rate": 0.9190039318479686,
+      "median_abs_log_turnover_distance": 0.031163421205618214,
+      "unmatched_event_count": 309,
+      "valid_h60_count": 208214
+    },
+    "next_gate": "interpret_feature_stability_then_define_validation_protocol",
+    "run_id": "36bc29505708b9b0f08fdaccd70c3230e405faa5",
+    "schema_version": "janus.research.big-move.matched-antecedent.v2",
+    "status": "ok"
   }
 }
