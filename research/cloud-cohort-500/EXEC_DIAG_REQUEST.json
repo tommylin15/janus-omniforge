@@ -1,0 +1,5 @@
+{
+  "schema_version": "janus.research.cloud-cohort-500.exec-diagnostic.v1",
+  "execution_name": "janus-research-big-move-500-b7khv",
+  "reason": "matched_antecedent_features failed without Python error_result; read-only execution metadata diagnosis"
+}
