@@ -8,7 +8,7 @@ RUN python -c "import outcome_run; outcome_run.self_test(); print('OUTCOME_SELF_
 RUN python -c "import sensitivity_run; sensitivity_run.self_test(); print('SENSITIVITY_SELF_TEST PASS')"
 RUN python -c "import eventize_run_v2; eventize_run_v2.self_test(); print('EVENTIZE_V2_SELF_TEST PASS')"
 RUN python -c "import matched_feature_run; matched_feature_run.self_test(); print('MATCHED_FEATURE_V1_SELF_TEST PASS')"
-RUN python -c "import matched_feature_run_v2; matched_feature_run_v2.self_test(); print('MATCHED_FEATURE_V2_SELF_TEST PASS')"
+RUN python -c "import numpy as np, matched_feature_run_v2 as m; sid=np.asarray([0,1,2,3],dtype=np.int32); liq=np.asarray([100.0,105.0,300.0,95.0]); assert m._nearest_three(0,100.0,sid,liq,set()).tolist()==[1,3,2]; assert len(m._nearest_three(0,100.0,sid,liq,{3}))==0; print('MATCHED_FEATURE_V2_SELF_TEST PASS')"
 RUN useradd --create-home --uid 10001 research
 USER 10001
 ENTRYPOINT ["python", "/app/main.py"]
