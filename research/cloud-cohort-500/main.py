@@ -103,6 +103,11 @@ def main() -> int:
 
         result = cohort_build.run(request, bucket, prefix, run_id)
         gcs_put_json(bucket, f"{prefix}/executions/{run_id}/cohort_build_result.json", result, token)
+    elif action == "preflight_and_outcomes":
+        import outcome_run
+
+        result = outcome_run.run(request, bucket, prefix, run_id)
+        gcs_put_json(bucket, f"{prefix}/executions/{run_id}/outcome_run_result.json", result, token)
     else:
         raise RuntimeError(f"unsupported Cloud Run research action: {action!r}")
 
