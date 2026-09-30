@@ -78,7 +78,7 @@ def test_portfolio_market_coverage_bridge_is_bounded_and_in_migration_runner():
 
 
 def test_liquid_500_schema_is_in_bounded_dev_migration_runner():
-    compile(INGESTION_ENTRYPOINT, str(ROOT / "jobs/ingestion-core/ingestion_core/runtime_entrypoint.py"), "exec")
+    compile(INGESTION_ENTRYPOINT, str(ROOT / "jobs/ingestion-core" / "ingestion_core" / "runtime_entrypoint.py"), "exec")
     assert "032_liquid_500" in INGESTION_ENTRYPOINT
     assert "032_liquid_500" in INGESTION_WORKFLOW
     assert "CREATE TABLE IF NOT EXISTS control.liquid_500_versions" in INGESTION_ENTRYPOINT
@@ -108,8 +108,15 @@ def test_full_500_collection_uses_batched_default_sources_in_dev():
     assert "tests/test_portfolio_deploy_contract.py" in WORKFLOW
 
 
+def test_fact_pack_analysis_replay_disables_outer_cloud_run_retry_and_restores_default():
+    analysis_branch = INGESTION_WORKFLOW.split("if [[ \"${OPERATION}\" == 'analysis' ]]", 1)[1].split("fi", 1)[0]
+    cleanup = INGESTION_WORKFLOW.split("cleanup_job_env()", 1)[1].split("trap cleanup_job_env EXIT", 1)[0]
+    assert "--max-retries=0" in analysis_branch
+    assert "--max-retries=1" in cleanup
+
+
 def test_private_stock_master_acl_has_bounded_control_owner_transport():
-    compile(INGESTION_ENTRYPOINT, str(ROOT / "jobs/ingestion-core/ingestion_core/runtime_entrypoint.py"), "exec")
+    compile(INGESTION_ENTRYPOINT, str(ROOT / "jobs/ingestion-core" / "ingestion_core" / "runtime_entrypoint.py"), "exec")
     assert 'CONTROL_MIGRATION_PRIVATE_STOCK_MASTER_READ = "030_private_stock_master_read"' in INGESTION_ENTRYPOINT
     assert 'CONTROL_MIGRATION_PORTFOLIO_MARKET_COVERAGE = "031_portfolio_market_coverage"' in INGESTION_ENTRYPOINT
     assert 'raise ValueError("unsupported control migration")' in INGESTION_ENTRYPOINT
@@ -124,7 +131,7 @@ def test_private_stock_master_acl_has_bounded_control_owner_transport():
 
 
 def test_fact_pack_analysis_replay_uses_control_generated_uuid_trace():
-    compile(INGESTION_ENTRYPOINT, str(ROOT / "jobs/ingestion-core/ingestion_core/runtime_entrypoint.py"), "exec")
+    compile(INGESTION_ENTRYPOINT, str(ROOT / "jobs/ingestion-core" / "ingestion_core" / "runtime_entrypoint.py"), "exec")
     assert "control.enqueue_analysis(config_id, symbols)" in INGESTION_ENTRYPOINT
     assert 'trace_id=f"fact-pack-acceptance:{config_id}"' not in INGESTION_ENTRYPOINT
 
