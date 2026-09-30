@@ -6,7 +6,7 @@ import json
 import math
 import tempfile
 import zipfile
-from collections import Counter, defaultdict
+from collections import defaultdict
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -19,7 +19,7 @@ import eventize_run
 
 PRIMARY_HORIZON = 60
 SEED_FRACTION = 0.10
-NEGATIVE_RANK_FLOOR = 0.20  # exclude 10-20% grey zone
+NEGATIVE_RANK_FLOOR = 0.20
 CONTAMINATION_GAP_TD = 10
 CONTROLS_PER_EVENT = 3
 
@@ -82,9 +82,34 @@ def _load_prices(z: zipfile.ZipFile, base: str, sid: str) -> pd.DataFrame:
     return q
 
 
+def _view(q: pd.DataFrame) -> dict[str, Any]:
+    dates = q["trade_date"].tolist()
+    return {
+        "pos": {d: i for i, d in enumerate(dates)},
+        "dates": dates,
+        "open": q["open"].to_numpy(dtype=float),
+        "high": q["high"].to_numpy(dtype=float),
+        "low": q["low"].to_numpy(dtype=float),
+        "close": q["close"].to_numpy(dtype=float),
+        "volume": q["volume_shares"].to_numpy(dtype=float),
+        "turnover": q["turnover_twd"].to_numpy(dtype=float),
+    }
+
+
+def _turnover_med20(vw: dict[str, Any], t: date) -> float | None:
+    p = vw["pos"].get(t)
+    if p is None or p + 1 < 20:
+        return None
+    a = vw["turnover"][p-19:p+1]
+    good = a[np.isfinite(a) & (a >= 0)]
+    return float(np.median(good)) if len(good) >= 18 else None
+
+
 def _z_last(a: np.ndarray) -> float | None:
+    if len(a) == 0 or not math.isfinite(float(a[-1])):
+        return None
     x = a[np.isfinite(a)]
-    if len(x) < 2 or not math.isfinite(float(a[-1])):
+    if len(x) < 2:
         return None
     sd = float(np.std(x, ddof=1))
     if sd <= 0:
@@ -93,37 +118,31 @@ def _z_last(a: np.ndarray) -> float | None:
 
 
 def _max_drawdown(close: np.ndarray) -> float | None:
-    x = close[np.isfinite(close)]
-    if len(x) != len(close) or len(x) < 2 or np.any(x <= 0):
+    if len(close) < 2 or not np.all(np.isfinite(close)) or np.any(close <= 0):
         return None
-    peak = np.maximum.accumulate(x)
-    return float(np.min(x / peak - 1.0))
+    peak = np.maximum.accumulate(close)
+    return float(np.min(close / peak - 1.0))
 
 
-def feature_at(q: pd.DataFrame, t: date) -> dict[str, Any] | None:
-    pos_map = {d: i for i, d in enumerate(q["trade_date"].tolist())}
-    p = pos_map.get(t)
+def feature_at_view(vw: dict[str, Any], t: date) -> dict[str, Any] | None:
+    p = vw["pos"].get(t)
     if p is None:
         return None
-    o = q["open"].to_numpy(dtype=float)
-    h = q["high"].to_numpy(dtype=float)
-    l = q["low"].to_numpy(dtype=float)
-    c = q["close"].to_numpy(dtype=float)
-    v = q["volume_shares"].to_numpy(dtype=float)
-    tv = q["turnover_twd"].to_numpy(dtype=float)
+    o, h, l, c = vw["open"], vw["high"], vw["low"], vw["close"]
+    vol, turn = vw["volume"], vw["turnover"]
     if not (math.isfinite(c[p]) and c[p] > 0 and math.isfinite(o[p]) and o[p] > 0):
         return None
-
     out: dict[str, Any] = {}
+
     for n in (5, 20, 60):
         out[f"ret_{n}"] = float(c[p] / c[p-n] - 1.0) if p >= n and math.isfinite(c[p-n]) and c[p-n] > 0 else None
 
     for n in (20, 60):
         if p >= n:
-            closes_for_ret = c[p-n:p+1]
-            if np.all(np.isfinite(closes_for_ret)) and np.all(closes_for_ret > 0):
-                rets = closes_for_ret[1:] / closes_for_ret[:-1] - 1.0
-                out[f"vol_{n}"] = float(np.std(rets, ddof=1)) if len(rets) >= 2 else None
+            cr = c[p-n:p+1]
+            if np.all(np.isfinite(cr)) and np.all(cr > 0):
+                rr = cr[1:] / cr[:-1] - 1.0
+                out[f"vol_{n}"] = float(np.std(rr, ddof=1)) if len(rr) >= 2 else None
             else:
                 out[f"vol_{n}"] = None
         else:
@@ -133,27 +152,18 @@ def feature_at(q: pd.DataFrame, t: date) -> dict[str, Any] | None:
             sl = slice(p-n+1, p+1)
             cw, hw, lw = c[sl], h[sl], l[sl]
             out[f"max_drawdown_{n}"] = _max_drawdown(cw)
-            if np.all(np.isfinite(hw)) and np.nanmax(hw) > 0:
-                out[f"close_to_high_{n}"] = float(c[p] / np.max(hw) - 1.0)
-            else:
-                out[f"close_to_high_{n}"] = None
-            if np.all(np.isfinite(lw)) and np.nanmin(lw) > 0:
-                out[f"close_to_low_{n}"] = float(c[p] / np.min(lw) - 1.0)
-            else:
-                out[f"close_to_low_{n}"] = None
-            tvals = tv[sl]
-            good_t = tvals[np.isfinite(tvals) & (tvals >= 0)]
+            out[f"close_to_high_{n}"] = float(c[p] / np.max(hw) - 1.0) if np.all(np.isfinite(hw)) and np.min(hw) > 0 else None
+            out[f"close_to_low_{n}"] = float(c[p] / np.min(lw) - 1.0) if np.all(np.isfinite(lw)) and np.min(lw) > 0 else None
+            tv = turn[sl]
+            good_t = tv[np.isfinite(tv) & (tv >= 0)]
             out[f"turnover_med_{n}"] = float(np.median(good_t)) if len(good_t) >= math.ceil(n * 0.9) else None
             if n == 20:
-                vvals = v[sl]
-                good_v = vvals[np.isfinite(vvals) & (vvals >= 0)]
+                vv = vol[sl]
+                good_v = vv[np.isfinite(vv) & (vv >= 0)]
                 out["volume_med_20"] = float(np.median(good_v)) if len(good_v) >= 18 else None
-                if np.all(np.isfinite(hw)) and np.all(np.isfinite(lw)) and np.all(np.isfinite(cw)) and np.all(cw > 0):
-                    out["range_mean_20"] = float(np.mean((hw - lw) / cw))
-                else:
-                    out["range_mean_20"] = None
-                out["turnover_z_20"] = _z_last(tvals)
-                out["volume_z_20"] = _z_last(vvals)
+                out["range_mean_20"] = float(np.mean((hw - lw) / cw)) if np.all(np.isfinite(hw)) and np.all(np.isfinite(lw)) and np.all(np.isfinite(cw)) and np.all(cw > 0) else None
+                out["turnover_z_20"] = _z_last(tv)
+                out["volume_z_20"] = _z_last(vv)
         else:
             out[f"max_drawdown_{n}"] = None
             out[f"close_to_high_{n}"] = None
@@ -165,21 +175,17 @@ def feature_at(q: pd.DataFrame, t: date) -> dict[str, Any] | None:
                 out["turnover_z_20"] = None
                 out["volume_z_20"] = None
 
-    if p + 1 >= 20:
-        t20 = tv[p-19:p+1]
-        t5 = tv[p-4:p+1] if p >= 4 else np.array([])
-        v20 = v[p-19:p+1]
-        v5 = v[p-4:p+1] if p >= 4 else np.array([])
-        gt20 = t20[np.isfinite(t20) & (t20 >= 0)]
-        gt5 = t5[np.isfinite(t5) & (t5 >= 0)]
-        gv20 = v20[np.isfinite(v20) & (v20 >= 0)]
-        gv5 = v5[np.isfinite(v5) & (v5 >= 0)]
-        med20 = float(np.median(gt20)) if len(gt20) >= 18 else None
-        med5 = float(np.median(gt5)) if len(gt5) >= 5 else None
-        vmed20 = float(np.median(gv20)) if len(gv20) >= 18 else None
-        vmed5 = float(np.median(gv5)) if len(gv5) >= 5 else None
-        out["turnover_ratio_5_20"] = (med5 / med20 - 1.0) if med5 is not None and med20 and med20 > 0 else None
-        out["volume_ratio_5_20"] = (vmed5 / vmed20 - 1.0) if vmed5 is not None and vmed20 and vmed20 > 0 else None
+    if p + 1 >= 20 and p >= 4:
+        t20, t5 = turn[p-19:p+1], turn[p-4:p+1]
+        v20, v5 = vol[p-19:p+1], vol[p-4:p+1]
+        gt20, gt5 = t20[np.isfinite(t20) & (t20 >= 0)], t5[np.isfinite(t5) & (t5 >= 0)]
+        gv20, gv5 = v20[np.isfinite(v20) & (v20 >= 0)], v5[np.isfinite(v5) & (v5 >= 0)]
+        tm20 = float(np.median(gt20)) if len(gt20) >= 18 else None
+        tm5 = float(np.median(gt5)) if len(gt5) >= 5 else None
+        vm20 = float(np.median(gv20)) if len(gv20) >= 18 else None
+        vm5 = float(np.median(gv5)) if len(gv5) >= 5 else None
+        out["turnover_ratio_5_20"] = tm5 / tm20 - 1.0 if tm5 is not None and tm20 is not None and tm20 > 0 else None
+        out["volume_ratio_5_20"] = vm5 / vm20 - 1.0 if vm5 is not None and vm20 is not None and vm20 > 0 else None
     else:
         out["turnover_ratio_5_20"] = None
         out["volume_ratio_5_20"] = None
@@ -194,13 +200,13 @@ def feature_at(q: pd.DataFrame, t: date) -> dict[str, Any] | None:
     else:
         out["up_day_share_20"] = None
 
-    if p >= 1 and math.isfinite(c[p-1]) and c[p-1] > 0:
-        out["overnight_gap_t"] = float(o[p] / c[p-1] - 1.0)
-    else:
-        out["overnight_gap_t"] = None
+    out["overnight_gap_t"] = float(o[p] / c[p-1] - 1.0) if p >= 1 and math.isfinite(c[p-1]) and c[p-1] > 0 else None
     out["intraday_return_t"] = float(c[p] / o[p] - 1.0)
-    out["trade_date"] = t.isoformat()
     return out
+
+
+def feature_at(q: pd.DataFrame, t: date) -> dict[str, Any] | None:
+    return feature_at_view(_view(q), t)
 
 
 def _descriptive_auc(event_vals: np.ndarray, control_vals: np.ndarray) -> float | None:
@@ -249,6 +255,7 @@ def run(request: dict[str, Any], bucket: str, prefix: str, run_id: str) -> dict[
         buck.blob(source_obj).download_to_filename(source_path)
         if source_path.stat().st_size != expected_size or _sha256(source_path) != expected_sha:
             raise RuntimeError("staged source identity mismatch")
+
         events = pd.read_csv(io.BytesIO(buck.blob(event_obj).download_as_bytes()), dtype={"stock_id": str})
         if events.empty:
             raise RuntimeError("event manifest is empty")
@@ -263,8 +270,8 @@ def run(request: dict[str, Any], bucket: str, prefix: str, run_id: str) -> dict[
 
         base = f"janus_step2a_materialized/{materialized_revision}/"
         with zipfile.ZipFile(source_path) as z:
-            all_t = sorted(set(events["anchor_t"]))
-            calendar, calendar_meta = cohort_build.calendar(z, base, min(all_t), max(all_t))
+            anchors = sorted(set(events["anchor_t"]))
+            calendar, calendar_meta = cohort_build.calendar(z, base, min(anchors), max(anchors))
             cal_pos = {d: i for i, d in enumerate(calendar)}
 
             seed_pos: dict[str, list[int]] = defaultdict(list)
@@ -274,27 +281,25 @@ def run(request: dict[str, Any], bucket: str, prefix: str, run_id: str) -> dict[
                     if d is not None and d in cal_pos:
                         seed_pos[str(r.stock_id)].append(cal_pos[d])
 
-            anchor_set = set(all_t)
-            candidates = rank[(rank["t"].isin(anchor_set)) & (rank["rank_fraction"] > NEGATIVE_RANK_FLOOR)].copy()
-            candidates = candidates[~candidates.apply(lambda r: _contaminated(str(r["stock_id"]), r["t"], seed_pos, cal_pos), axis=1)].copy()
-
-            needed_liq: dict[str, set[date]] = defaultdict(set)
-            for r in events.itertuples(index=False):
-                needed_liq[str(r.stock_id)].add(r.anchor_t)
+            candidates = rank[(rank["t"].isin(set(anchors))) & (rank["rank_fraction"] > NEGATIVE_RANK_FLOOR)].copy()
+            keep = []
             for r in candidates.itertuples(index=False):
-                needed_liq[str(r.stock_id)].add(r.t)
+                keep.append(not _contaminated(str(r.stock_id), r.t, seed_pos, cal_pos))
+            candidates = candidates[np.asarray(keep, dtype=bool)].copy()
+
+            need_liq: dict[str, set[date]] = defaultdict(set)
+            for r in events.itertuples(index=False):
+                need_liq[str(r.stock_id)].add(r.anchor_t)
+            for r in candidates.itertuples(index=False):
+                need_liq[str(r.stock_id)].add(r.t)
 
             liq_map: dict[tuple[str, date], float] = {}
-            price_cache: dict[str, pd.DataFrame] = {}
-            for sid, dates in sorted(needed_liq.items()):
-                q = _load_prices(z, base, sid)
-                price_cache[sid] = q
+            for sid, dates in sorted(need_liq.items()):
+                vw = _view(_load_prices(z, base, sid))
                 for t in dates:
-                    f = feature_at(q, t)
-                    if f is not None:
-                        v = _finite(f.get("turnover_med_20"))
-                        if v is not None and v >= 0:
-                            liq_map[(sid, t)] = v
+                    x = _turnover_med20(vw, t)
+                    if x is not None:
+                        liq_map[(sid, t)] = x
 
             cand_by_t: dict[date, list[tuple[str, float, float]]] = defaultdict(list)
             for r in candidates.itertuples(index=False):
@@ -306,8 +311,7 @@ def run(request: dict[str, Any], bucket: str, prefix: str, run_id: str) -> dict[
             unmatched: list[dict[str, Any]] = []
             used_by_t: dict[date, set[str]] = defaultdict(set)
             for r in events.sort_values(["anchor_t", "event_id"]).itertuples(index=False):
-                sid = str(r.stock_id)
-                t = r.anchor_t
+                sid, t = str(r.stock_id), r.anchor_t
                 eli = liq_map.get((sid, t))
                 if eli is None:
                     unmatched.append({"event_id": r.event_id, "stock_id": sid, "anchor_t": t.isoformat(), "reason": "missing_event_turnover_med_20"})
@@ -316,8 +320,7 @@ def run(request: dict[str, Any], bucket: str, prefix: str, run_id: str) -> dict[
                 for csid, cliq, cmfe in cand_by_t.get(t, []):
                     if csid == sid or csid in used_by_t[t]:
                         continue
-                    dist = abs(math.log1p(eli) - math.log1p(cliq))
-                    pool.append((dist, csid, cliq, cmfe))
+                    pool.append((abs(math.log1p(eli) - math.log1p(cliq)), csid, cliq, cmfe))
                 pool.sort(key=lambda x: (x[0], x[1]))
                 chosen = pool[:CONTROLS_PER_EVENT]
                 if len(chosen) < CONTROLS_PER_EVENT:
@@ -337,35 +340,30 @@ def run(request: dict[str, Any], bucket: str, prefix: str, run_id: str) -> dict[
                         "control_mfe60": cmfe,
                     })
 
-            matched_event_ids = sorted({x["event_id"] for x in assignments})
+            matched_event_ids = sorted({a["event_id"] for a in assignments})
             match_rate = len(matched_event_ids) / len(events)
             if match_rate < 0.90:
                 raise RuntimeError(f"matched-event coverage below 90%: {match_rate:.4f}")
 
-            # Full features only for matched events and selected controls.
-            pair_keys: set[tuple[str, date]] = set()
             event_lookup = {str(r.event_id): r for r in events.itertuples(index=False)}
+            by_event_assign: dict[str, list[dict[str, Any]]] = defaultdict(list)
+            full_need: dict[str, set[date]] = defaultdict(set)
+            for a in assignments:
+                by_event_assign[a["event_id"]].append(a)
+                full_need[str(a["control_stock_id"])].add(parse_date(a["anchor_t"]))
             for eid in matched_event_ids:
                 er = event_lookup[eid]
-                pair_keys.add((str(er.stock_id), er.anchor_t))
-            for a in assignments:
-                pair_keys.add((str(a["control_stock_id"]), parse_date(a["anchor_t"])))
+                full_need[str(er.stock_id)].add(er.anchor_t)
 
             feature_map: dict[tuple[str, date], dict[str, Any]] = {}
-            for sid, t in sorted(pair_keys, key=lambda x: (x[0], x[1])):
-                q = price_cache.get(sid)
-                if q is None:
-                    q = _load_prices(z, base, sid)
-                    price_cache[sid] = q
-                f = feature_at(q, t)
-                if f is not None:
-                    feature_map[(sid, t)] = f
+            for sid, dates in sorted(full_need.items()):
+                vw = _view(_load_prices(z, base, sid))
+                for t in sorted(d for d in dates if d is not None):
+                    f = feature_at_view(vw, t)
+                    if f is not None:
+                        feature_map[(sid, t)] = f
 
         paired_rows: list[dict[str, Any]] = []
-        by_event_assign: dict[str, list[dict[str, Any]]] = defaultdict(list)
-        for a in assignments:
-            by_event_assign[a["event_id"]].append(a)
-
         for eid in matched_event_ids:
             er = event_lookup[eid]
             t = er.anchor_t
@@ -391,45 +389,40 @@ def run(request: dict[str, Any], bucket: str, prefix: str, run_id: str) -> dict[
                 cm = float(np.median(cvs)) if cvs else None
                 rec[f"event__{feat}"] = ev
                 rec[f"control_median__{feat}"] = cm
-                rec[f"diff__{feat}"] = (ev - cm) if ev is not None and cm is not None else None
+                rec[f"diff__{feat}"] = ev - cm if ev is not None and cm is not None else None
                 rec[f"control_n__{feat}"] = len(cvs)
             paired_rows.append(rec)
 
         paired = pd.DataFrame(paired_rows)
         assignments_df = pd.DataFrame(assignments)
         unmatched_df = pd.DataFrame(unmatched)
-
         comp_rows: list[dict[str, Any]] = []
         year_rows: list[dict[str, Any]] = []
+
         for feat in FEATURES:
-            ev_col = f"event__{feat}"
-            cm_col = f"control_median__{feat}"
-            d_col = f"diff__{feat}"
-            good = paired[[ev_col, cm_col, d_col]].apply(pd.to_numeric, errors="coerce").dropna()
+            ec, cc, dc = f"event__{feat}", f"control_median__{feat}", f"diff__{feat}"
+            good = paired[[ec, cc, dc]].apply(pd.to_numeric, errors="coerce").dropna()
             if good.empty:
                 continue
-            all_control_vals = []
-            all_event_vals = []
+            all_e, all_c = [], []
             for eid in paired.loc[good.index, "event_id"].tolist():
                 er = event_lookup[eid]
                 t = er.anchor_t
-                efx = feature_map.get((str(er.stock_id), t), {})
-                ev = _finite(efx.get(feat))
+                ev = _finite(feature_map.get((str(er.stock_id), t), {}).get(feat))
                 if ev is not None:
-                    all_event_vals.append(ev)
+                    all_e.append(ev)
                 for a in by_event_assign[eid]:
-                    cf = feature_map.get((str(a["control_stock_id"]), t), {})
-                    cv = _finite(cf.get(feat))
+                    cv = _finite(feature_map.get((str(a["control_stock_id"]), t), {}).get(feat))
                     if cv is not None:
-                        all_control_vals.append(cv)
-            diffs = good[d_col].to_numpy(dtype=float)
-            auc = _descriptive_auc(np.asarray(all_event_vals, dtype=float), np.asarray(all_control_vals, dtype=float))
+                        all_c.append(cv)
+            diffs = good[dc].to_numpy(dtype=float)
+            auc = _descriptive_auc(np.asarray(all_e, dtype=float), np.asarray(all_c, dtype=float))
             comp_rows.append({
                 "feature": feat,
                 "paired_event_count": int(len(good)),
                 "paired_event_coverage": float(len(good) / len(paired)),
-                "event_median": float(good[ev_col].median()),
-                "control_median": float(good[cm_col].median()),
+                "event_median": float(good[ec].median()),
+                "control_median": float(good[cc].median()),
                 "median_paired_diff": float(np.median(diffs)),
                 "mean_paired_diff": float(np.mean(diffs)),
                 "event_greater_share": float(np.mean(diffs > 0)),
@@ -437,20 +430,21 @@ def run(request: dict[str, Any], bucket: str, prefix: str, run_id: str) -> dict[
                 "descriptive_auc": auc,
                 "auc_distance_from_0_5": None if auc is None else float(abs(auc - 0.5)),
             })
-            for yr, gidx in paired.groupby("anchor_year").groups.items():
-                g = paired.loc[gidx, [d_col]].apply(pd.to_numeric, errors="coerce").dropna()
-                if g.empty:
-                    continue
-                dd = g[d_col].to_numpy(dtype=float)
-                year_rows.append({
-                    "feature": feat,
-                    "anchor_year": int(yr),
-                    "paired_event_count": int(len(g)),
-                    "median_paired_diff": float(np.median(dd)),
-                    "event_greater_share": float(np.mean(dd > 0)),
-                })
+            for yr, idxs in paired.groupby("anchor_year").groups.items():
+                g = paired.loc[idxs, [dc]].apply(pd.to_numeric, errors="coerce").dropna()
+                if not g.empty:
+                    dd = g[dc].to_numpy(dtype=float)
+                    year_rows.append({
+                        "feature": feat,
+                        "anchor_year": int(yr),
+                        "paired_event_count": int(len(g)),
+                        "median_paired_diff": float(np.median(dd)),
+                        "event_greater_share": float(np.mean(dd > 0)),
+                    })
 
-        comp = pd.DataFrame(comp_rows).sort_values(["auc_distance_from_0_5", "paired_event_count"], ascending=[False, False])
+        comp = pd.DataFrame(comp_rows)
+        if not comp.empty:
+            comp = comp.sort_values(["auc_distance_from_0_5", "paired_event_count"], ascending=[False, False])
         yrdf = pd.DataFrame(year_rows)
         summary = {
             "schema_version": "janus.research.big-move.matched-antecedent.v1",
@@ -458,11 +452,7 @@ def run(request: dict[str, Any], bucket: str, prefix: str, run_id: str) -> dict[
             "action": "matched_antecedent_features",
             "run_id": run_id,
             "generated_at": now(),
-            "input": {
-                "outcome_run_id": outcome_run_id,
-                "event_run_id": event_run_id,
-                "source_gcs_object": source_obj,
-            },
+            "input": {"outcome_run_id": outcome_run_id, "event_run_id": event_run_id, "source_gcs_object": source_obj},
             "design": {
                 "case": "primary G7 H60 top-decile wave anchor",
                 "control_timing": "exact same anchor T",
@@ -525,10 +515,9 @@ def self_test() -> None:
         "volume_shares": np.linspace(1000, 2000, 70),
         "turnover_twd": np.linspace(10000, 25000, 70),
     })
-    f = feature_at(q, q.iloc[-1]["trade_date"])
-    assert f is not None
-    assert f["ret_60"] is not None
-    assert f["turnover_med_20"] is not None
-    assert f["close_to_high_20"] <= 0
-    auc = _descriptive_auc(np.array([3.0, 4.0]), np.array([1.0, 2.0]))
-    assert auc == 1.0
+    vw = _view(q)
+    t = q.iloc[-1]["trade_date"]
+    assert _turnover_med20(vw, t) is not None
+    f = feature_at_view(vw, t)
+    assert f is not None and f["ret_60"] is not None and f["close_to_high_20"] <= 0
+    assert _descriptive_auc(np.array([3.0, 4.0]), np.array([1.0, 2.0])) == 1.0
