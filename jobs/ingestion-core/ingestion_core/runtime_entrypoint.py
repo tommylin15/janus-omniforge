@@ -21,6 +21,7 @@ CONTROL_MIGRATIONS = {
     CONTROL_MIGRATION_LIQUID_500,
     CONTROL_MIGRATION_LIQUID_500_TPEX_SOURCE,
 }
+ANALYSIS_REPLAY_RETRIGGER_SECONDS = 60
 
 
 def _apply_private_stock_master_read(cursor: Any) -> None:
@@ -218,8 +219,14 @@ def _run_analysis_replay(config_id: str, symbols: tuple[str, ...], *, timeout_se
         trigger = _trigger_mart(execution.execution_id, delay_seconds=0)
         if trigger.get("status") != "accepted":
             raise RuntimeError(f"Mart trigger was not accepted: {trigger.get('status', 'unknown')}")
-        deadline = monotonic() + timeout_seconds
-        while monotonic() < deadline:
+        started = monotonic()
+        deadline = started + timeout_seconds
+        next_trigger_at = started + ANALYSIS_REPLAY_RETRIGGER_SECONDS
+        mart_triggers = 1
+        while True:
+            now = monotonic()
+            if now >= deadline:
+                break
             current = control.get_execution(execution.execution_id)
             if current.status.value == "succeeded":
                 reports = control.list_mart_reports(filters={"execution_id": execution.execution_id}, limit=51)
@@ -236,11 +243,17 @@ def _run_analysis_replay(config_id: str, symbols: tuple[str, ...], *, timeout_se
                     "analysis_outcomes": sorted({str(report["analysis_outcome"]) for report in reports}),
                     "publication_statuses": sorted({str(report["publication_status"]) for report in reports}),
                     "mart_trigger": "accepted",
+                    "mart_triggers": mart_triggers,
                 }
             if current.status.value in {"failed", "partial"}:
                 raise RuntimeError(f"Mart replay ended in {current.status.value}")
             if current.status.value == "retrying":
                 raise RuntimeError("Mart replay requires retry and is not accepted as live evidence")
+            if current.status.value == "queued" and now >= next_trigger_at:
+                retrigger = _trigger_mart(execution.execution_id, delay_seconds=0)
+                if retrigger.get("status") == "accepted":
+                    mart_triggers += 1
+                next_trigger_at = now + ANALYSIS_REPLAY_RETRIGGER_SECONDS
             sleep(5)
         raise TimeoutError("Mart replay did not finish within the bounded acceptance window")
     finally:
