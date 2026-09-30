@@ -108,6 +108,11 @@ def main() -> int:
 
         result = outcome_run.run(request, bucket, prefix, run_id)
         gcs_put_json(bucket, f"{prefix}/executions/{run_id}/outcome_run_result.json", result, token)
+    elif action == "sensitivity_and_report":
+        import sensitivity_run
+
+        result = sensitivity_run.run(request, bucket, prefix, run_id)
+        gcs_put_json(bucket, f"{prefix}/executions/{run_id}/sensitivity_result.json", result, token)
     else:
         raise RuntimeError(f"unsupported Cloud Run research action: {action!r}")
 
