@@ -161,6 +161,7 @@ jobs:
             if ! gcloud run jobs update janus-ingestion-core \
               --project="${GCP_PROJECT_ID}" \
               --region="${GCP_REGION}" \
+              --max-retries=1 \
               --remove-env-vars="BACKFILL_START_DATE,BACKFILL_END_DATE,INGESTION_DATE,FORCE_REFRESH,INGESTION_DATASETS,JANUS_CONTROL_MIGRATION,JANUS_ANALYSIS_REPLAY_CONFIG,JANUS_ANALYSIS_REPLAY_SYMBOLS,JANUS_ANALYSIS_REPLAY_TIMEOUT_SECONDS,QUEUE_CONSUMER" \
               --update-env-vars="MART_JOB=janus-intelligence-mart,GCP_REGION=${GCP_REGION},MART_OPERATION=queue" \
               --quiet; then
@@ -183,6 +184,11 @@ jobs:
 
           if [[ "${OPERATION}" == 'analysis' ]]; then
             echo "Executing ${REQUEST_ID} Mart replay via janus-ingestion-core (${CONFIG_ID}: ${SYMBOLS})."
+            gcloud run jobs update janus-ingestion-core \
+              --project="${GCP_PROJECT_ID}" \
+              --region="${GCP_REGION}" \
+              --max-retries=0 \
+              --quiet
             gcloud run jobs execute janus-ingestion-core \
               --project="${GCP_PROJECT_ID}" \
               --region="${GCP_REGION}" \
