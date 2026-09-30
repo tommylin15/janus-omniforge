@@ -1,5 +1,6 @@
 {
   "schema_version": "janus.research.cloud-cohort-500.exec-diagnostic.v1",
   "execution_name": "janus-research-big-move-500-b7khv",
-  "reason": "matched_antecedent_features failed without Python error_result; read-only execution metadata diagnosis"
+  "build_id": "fcb9b2c0-107d-4be1-a72b-1cc66babf122",
+  "reason": "diagnose bounded-memory v2 Cloud Build failure and retain prior OOM execution evidence"
 }
