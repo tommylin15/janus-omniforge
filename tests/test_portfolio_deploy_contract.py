@@ -174,3 +174,52 @@ def test_fact_pack_analysis_replay_retriggers_when_older_queue_work_claims_first
     assert result["mart_triggers"] == 2
     assert result["reports"] == 1
     assert control.closed
+
+
+def test_fact_pack_analysis_replay_retries_same_target_after_mart_retrying():
+    class FakeControl:
+        def __init__(self):
+            self.statuses = iter(("retrying", "succeeded"))
+            self.enqueue_calls = 0
+            self.closed = False
+
+        def enqueue_analysis(self, config_id, symbols):
+            self.enqueue_calls += 1
+            assert (config_id, symbols) == ("first-batch", ("2330",))
+            return SimpleNamespace(execution_id="target-analysis")
+
+        def get_execution(self, execution_id):
+            assert execution_id == "target-analysis"
+            return SimpleNamespace(status=SimpleNamespace(value=next(self.statuses)))
+
+        def list_mart_reports(self, *, filters, limit):
+            assert filters == {"execution_id": "target-analysis"}
+            assert limit == 51
+            return [{"analysis_outcome": "complete", "publication_status": "published"}]
+
+        def close(self):
+            self.closed = True
+
+    control = FakeControl()
+    clock = iter((0.0, 61.0, 62.0))
+    triggers = []
+
+    def trigger(execution_id, *, delay_seconds):
+        triggers.append((execution_id, delay_seconds))
+        return {"status": "accepted", "analysis_execution_id": execution_id}
+
+    with (
+        patch.object(runtime_entrypoint, "_control_plane", return_value=control),
+        patch.object(runtime_entrypoint, "_trigger_mart", side_effect=trigger),
+        patch.object(runtime_entrypoint, "monotonic", side_effect=lambda: next(clock)),
+        patch.object(runtime_entrypoint, "sleep"),
+    ):
+        result = runtime_entrypoint._run_analysis_replay(
+            "first-batch", ("2330",), timeout_seconds=120
+        )
+
+    assert control.enqueue_calls == 1
+    assert triggers == [("target-analysis", 0), ("target-analysis", 0)]
+    assert result["analysis_execution_id"] == "target-analysis"
+    assert result["mart_triggers"] == 2
+    assert control.closed
