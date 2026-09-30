@@ -8,7 +8,7 @@ on:
       - 'research/cloud-cohort-500/DIAG_REQUEST.json'
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 env:
@@ -32,44 +32,67 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          mkdir -p research-diagnostic
+          mkdir -p research-diagnostic research/cloud-cohort-500/diagnostics
           execution="$(python - <<'PY'
           import json
           from pathlib import Path
-          p=json.loads(Path('research/cloud-cohort-500/DIAG_REQUEST.json').read_text())
-          print(p['execution_name'])
+          print(json.loads(Path('research/cloud-cohort-500/DIAG_REQUEST.json').read_text())['execution_name'])
           PY
           )"
-          echo "execution=${execution}"
           gcloud run jobs executions describe "${execution}" \
             --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json \
             > research-diagnostic/execution.json
           set +e
           gcloud logging read \
-            'resource.type="cloud_run_job" AND resource.labels.job_name="janus-research-big-move-500"' \
-            --project="${GCP_PROJECT_ID}" --freshness=2d --limit=300 --order=desc --format=json \
+            "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"janus-research-big-move-500\" AND labels.\"run.googleapis.com/execution_name\"=\"${execution}\"" \
+            --project="${GCP_PROJECT_ID}" --freshness=2d --limit=300 --order=asc --format=json \
             > research-diagnostic/cloud_logs.json 2> research-diagnostic/cloud_logs.stderr
-          echo "$?" > research-diagnostic/cloud_logs.rc
+          log_rc=$?
           set -e
-          python - <<'PY'
-          import json
+          EXECUTION="${execution}" LOG_RC="${log_rc}" python - <<'PY'
+          import json, os
           from pathlib import Path
-          p=json.loads(Path('research/cloud-cohort-500/DIAG_REQUEST.json').read_text())
-          x=json.loads(Path('research-diagnostic/execution.json').read_text())
+          exe=json.loads(Path('research-diagnostic/execution.json').read_text())
+          try:
+              logs=json.loads(Path('research-diagnostic/cloud_logs.json').read_text() or '[]')
+          except Exception:
+              logs=[]
+          out=[]
+          for e in logs:
+              text=e.get('textPayload')
+              jp=e.get('jsonPayload') or {}
+              msg=jp.get('message') if isinstance(jp,dict) else None
+              if not msg and isinstance(jp,dict):
+                  msg=jp.get('error') or jp.get('exception')
+              if text or msg:
+                  out.append({'timestamp':e.get('timestamp'),'severity':e.get('severity'),'text':text or msg})
           summary={
-            'execution_name':p['execution_name'],
-            'conditions':x.get('status',{}).get('conditions',[]),
-            'failed_count':x.get('status',{}).get('failedCount'),
-            'succeeded_count':x.get('status',{}).get('succeededCount'),
-            'completion_time':x.get('status',{}).get('completionTime'),
+              'execution_name':os.environ['EXECUTION'],
+              'log_read_rc':int(os.environ['LOG_RC']),
+              'conditions':exe.get('status',{}).get('conditions',[]),
+              'failed_count':exe.get('status',{}).get('failedCount'),
+              'succeeded_count':exe.get('status',{}).get('succeededCount'),
+              'completion_time':exe.get('status',{}).get('completionTime'),
+              'log_entries':out,
           }
-          Path('research-diagnostic/summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n')
+          dst=Path('research/cloud-cohort-500/diagnostics')/(os.environ['EXECUTION']+'.json')
+          dst.write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n')
           print(json.dumps(summary,ensure_ascii=False))
           PY
+      - name: Commit filtered diagnostic
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name 'janus-research-bot'
+          git config user.email 'janus-research-bot@users.noreply.github.com'
+          git add research/cloud-cohort-500/diagnostics/
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'research: record filtered Cloud Run diagnostic'
+          git push origin HEAD:main
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: research-cloud-cohort-500-diagnostic-${{ github.sha }}
           path: research-diagnostic/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
