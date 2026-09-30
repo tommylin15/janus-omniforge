@@ -1,0 +1,75 @@
+name: Research cloud cohort 500 diagnose execution
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'research/cloud-cohort-500/DIAG_REQUEST.json'
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_REGION: us-central1
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Diagnose failed research execution
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p research-diagnostic
+          execution="$(python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('research/cloud-cohort-500/DIAG_REQUEST.json').read_text())
+          print(p['execution_name'])
+          PY
+          )"
+          echo "execution=${execution}"
+          gcloud run jobs executions describe "${execution}" \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json \
+            > research-diagnostic/execution.json
+          set +e
+          gcloud logging read \
+            'resource.type="cloud_run_job" AND resource.labels.job_name="janus-research-big-move-500"' \
+            --project="${GCP_PROJECT_ID}" --freshness=2d --limit=300 --order=desc --format=json \
+            > research-diagnostic/cloud_logs.json 2> research-diagnostic/cloud_logs.stderr
+          echo "$?" > research-diagnostic/cloud_logs.rc
+          set -e
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('research/cloud-cohort-500/DIAG_REQUEST.json').read_text())
+          x=json.loads(Path('research-diagnostic/execution.json').read_text())
+          summary={
+            'execution_name':p['execution_name'],
+            'conditions':x.get('status',{}).get('conditions',[]),
+            'failed_count':x.get('status',{}).get('failedCount'),
+            'succeeded_count':x.get('status',{}).get('succeededCount'),
+            'completion_time':x.get('status',{}).get('completionTime'),
+          }
+          Path('research-diagnostic/summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n')
+          print(json.dumps(summary,ensure_ascii=False))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: research-cloud-cohort-500-diagnostic-${{ github.sha }}
+          path: research-diagnostic/
+          if-no-files-found: error
+          retention-days: 30
