@@ -1,0 +1,70 @@
+{
+  "schema_version": "janus.research.big-move.emerging-feature-watch.v1",
+  "status": "FROZEN_RESEARCH_ONLY",
+  "frozen_at": "2026-10-01",
+  "research_track": "big-move-cloud-cohort-500",
+  "watch_horizon_end": "2026-12-31",
+  "purpose": "Identify non-S90 frozen-panel stocks whose already observed antecedent features are converging toward the frozen S90-like pattern over the next three-month monitoring horizon. This is not a return forecast and not a calibrated probability model.",
+  "source": {
+    "registry_state_object": "research/big-move-cloud-cohort-500/prospective/pv1/state/latest_registry.json",
+    "use_all_available_blind_observation_T": true,
+    "minimum_observation_count": 3,
+    "panels": ["primary_500", "independent_500"],
+    "panel_ranking_remains_separate": true
+  },
+  "frozen_features": [
+    "range_mean_20",
+    "vol_60",
+    "vol_20",
+    "close_to_high_20",
+    "ret_5",
+    "max_drawdown_20",
+    "close_to_high_60",
+    "max_drawdown_60"
+  ],
+  "eligibility": {
+    "latest_available_feature_count_min": 6,
+    "latest_composite_score_required": true,
+    "current_S90_excluded": true,
+    "late_materialization_forbidden": true,
+    "outcome_fields_forbidden": true,
+    "minimum_latest_score_for_watch": 0.65
+  },
+  "trend_metrics": {
+    "score_delta_total": "latest composite_score - earliest composite_score",
+    "score_delta_recent": "latest composite_score - previous composite_score",
+    "two_step_rising_score": "earliest < previous < latest",
+    "feature_delta_total": "latest oriented_rank - earliest oriented_rank",
+    "improving_feature": "feature_delta_total >= 0.10",
+    "strong_feature_latest": "latest oriented_rank >= 0.80",
+    "near_strong_feature_latest": "latest oriented_rank >= 0.70"
+  },
+  "watch_classes": {
+    "A_near_S90_converging": "latest score >= 0.80 AND score_delta_total > 0 AND improving_feature_count >= 3",
+    "B_fast_converging": "latest score >= 0.75 AND score_delta_total >= 0.05 AND improving_feature_count >= 4",
+    "C_early_emergence": "latest score >= 0.65 AND score_delta_total >= 0.10 AND improving_feature_count >= 5"
+  },
+  "ranking": {
+    "class_order": ["A_near_S90_converging", "B_fast_converging", "C_early_emergence"],
+    "within_class": ["latest_score_desc", "improving_feature_count_desc", "score_delta_total_desc", "stock_id_asc"],
+    "maximum_report_rows": 20
+  },
+  "interpretation": {
+    "forecast_target": "future appearance/persistence of the frozen antecedent feature constellation, not price return",
+    "probability_calibrated": false,
+    "pv1_validation_use": false,
+    "canonical_signal": false,
+    "trading_recommendation": false,
+    "feature_reasons_are_explanatory_only": true
+  },
+  "embargo": {
+    "mfe60_forbidden": true,
+    "event_seed_forbidden": true,
+    "wave_event_forbidden": true,
+    "event_rate_forbidden": true,
+    "lift_forbidden": true,
+    "capture_forbidden": true,
+    "spearman_forbidden": true,
+    "pv1_pass_fail_forbidden": true
+  }
+}
