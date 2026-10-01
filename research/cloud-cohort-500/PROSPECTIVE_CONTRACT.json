@@ -1,0 +1,88 @@
+{
+  "schema_version": "janus.research.big-move.prospective-contract.v1",
+  "status": "FROZEN",
+  "frozen_at": "2026-10-01",
+  "historical_cutoff_inclusive": "2026-09-16",
+  "prospective_observation_start": "2026-09-17",
+  "research_track": "big-move-cloud-cohort-500",
+  "purpose": "prospective new-data replication of the already frozen antecedent score; no retuning during the prospective window",
+  "panels": {
+    "primary_500": {
+      "cohort_run_id": "f7b91d3373bf6275493649fe8fbc5959f6e21e68",
+      "size": 500
+    },
+    "independent_500": {
+      "cohort_run_id": "8ab9048f5738d9db9b6ed25d9bed45e5c6a71d12-ind-cohort",
+      "size": 500,
+      "stock_overlap_with_primary": 0
+    },
+    "score_ranking_rule": "rank separately within each frozen 500-stock panel on the same T; pooled-1000 metrics are auxiliary only"
+  },
+  "score": {
+    "features_in_order": [
+      "range_mean_20",
+      "vol_60",
+      "vol_20",
+      "close_to_high_20",
+      "ret_5",
+      "max_drawdown_20",
+      "close_to_high_60",
+      "max_drawdown_60"
+    ],
+    "higher_signal": ["range_mean_20", "vol_60", "vol_20"],
+    "lower_signal": ["close_to_high_20", "ret_5", "max_drawdown_20", "close_to_high_60", "max_drawdown_60"],
+    "cross_section": "same-T percentile rank within frozen panel",
+    "aggregation": "equal-weight arithmetic mean",
+    "minimum_available_features": 6,
+    "information_cutoff": "T close or earlier only",
+    "evaluation_bands": [0.9, 0.8, 0.7],
+    "retuning_allowed": false
+  },
+  "outcome": {
+    "entry": "next normal stock trading day open after T; no jumping if missing/untradeable",
+    "primary_horizon_trading_days": 60,
+    "mfe_formula": "max(high E..H60) / entry_open - 1",
+    "event_seed": "exact top 10% of valid H60 MFE observations within each frozen panel",
+    "eventization_gap_trading_days": 7,
+    "event_anchor": "earliest T in transitive G7 seed component",
+    "corporate_action_rule": "fail-closed exclusion for action within T..H60 using official evidence",
+    "maturity_rule": "observation remains pending_maturity until entry plus complete 60 stock trading days and corporate-action evidence are available"
+  },
+  "prospective_governance": {
+    "no_peeking_retune": true,
+    "no_feature_add_remove": true,
+    "no_direction_change": true,
+    "no_weight_change": true,
+    "no_event_gap_change": true,
+    "no_threshold_change": true,
+    "source_policy": "official TWSE/public issuer evidence only for new prospective raw inputs; archive raw payload/page evidence, fetch timestamp and SHA-256 under research-only GCS",
+    "missing_policy": "missing or unresolved official evidence remains unknown/pending; never impute canonical facts",
+    "canonical_publication_allowed": false
+  },
+  "metrics": [
+    "eligible_count",
+    "mature_count",
+    "pending_maturity_count",
+    "unknown_or_excluded_count",
+    "baseline_event_rate",
+    "score_decile_event_rate",
+    "top10_lift",
+    "top20_lift",
+    "top30_lift",
+    "top10_capture",
+    "top20_capture",
+    "top30_capture",
+    "decile_event_rate_spearman",
+    "panel_and_calendar_period_slices"
+  ],
+  "acceptance_not_evaluated_until": "sufficient post-2026-09-16 observations have fully matured through H60; no early pass/fail claim",
+  "current_state": "PENDING_MATURITY",
+  "isolation": {
+    "postgresql_allowed": false,
+    "database_allowed": false,
+    "existing_janus_iceberg_allowed": false,
+    "janus_core_mart_writes_allowed": false,
+    "runtime_secret_required": false,
+    "storage": "existing dedicated research-only GCS bucket/prefix"
+  }
+}
