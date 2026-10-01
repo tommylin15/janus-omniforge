@@ -139,6 +139,10 @@ def main() -> int:
             import pre_outcome_screen_run
             result = pre_outcome_screen_run.run(request, bucket, prefix, run_id)
             gcs_put_json(bucket, f"{prefix}/executions/{run_id}/pre_outcome_screen_result.json", result, token)
+        elif action == "export_emerging_feature_watch":
+            import emerging_feature_watch_run
+            result = emerging_feature_watch_run.run(request, bucket, prefix, run_id)
+            gcs_put_json(bucket, f"{prefix}/executions/{run_id}/emerging_feature_watch_result.json", result, token)
         else:
             raise RuntimeError(f"unsupported Cloud Run research action: {action!r}")
     except Exception as exc:
