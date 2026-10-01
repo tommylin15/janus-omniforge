@@ -1,7 +1,7 @@
 {
   "schema_version": "janus.research.cloud-cohort-500.independent-request.v1",
   "action": "derive_independent_cohort",
-  "request_id": "independent-holdout-500-20261001-01",
+  "request_id": "independent-holdout-500-20261001-02-trigger",
   "research_track": "big-move-cloud-cohort-500",
   "cohort_size": 500,
   "market": "TWSE",
