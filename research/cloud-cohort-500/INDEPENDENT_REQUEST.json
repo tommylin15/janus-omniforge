@@ -1,0 +1,14 @@
+{
+  "schema_version": "janus.research.cloud-cohort-500.independent-request.v1",
+  "action": "derive_independent_cohort",
+  "request_id": "independent-holdout-500-20261001-01",
+  "research_track": "big-move-cloud-cohort-500",
+  "cohort_size": 500,
+  "market": "TWSE",
+  "security_type": "common_equity",
+  "usable_ohlcv_coverage_min": 0.9,
+  "primary_cohort_run_id": "f7b91d3373bf6275493649fe8fbc5959f6e21e68",
+  "database_allowed": false,
+  "existing_janus_iceberg_allowed": false,
+  "canonical_core_mart_writes_allowed": false
+}
