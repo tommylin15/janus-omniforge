@@ -1,5 +1,9 @@
 # Operations and testing
 
+## WBS-5 Mart v1 additive compatibility 最新結論（2026-10-01）
+
+`WBS-5-MART-V2-COMPAT` 已完成。既有 `mart.v1` 保持 canonical，獨立 sidecar 綁定 AI references，不改 report／publication／舊 consumer。Commit `b787686`：本機相關 tests 96 passed；canonical dev run `36810205260` Linux tests 96 passed、deploy／verify success。Job Ready／Git SHA／immutable digest 已獨立核對；bounded execution `janus-intelligence-mart-mfg8c` 成功，真實 pinned report／Gate 4 artifacts 的 sidecar 保存與獨立 11-object hash／lineage readback 通過。原 manifest／metadata／report 保持不變；provider_calls=0、publication_writes=0、five_role_success=false，未切換 mart.v2，不代表 provider／自然 daily workload 完成。完整 hashes／execution／測試限制見 [結案紀錄](../archive/wbs-5-mart-v2-compat-2026-10-01.md)。
+
 ## WBS-6 持股 MIS 報價最新結論（2026-10-01）
 
 持股頁盤中／盤後均使用 MIS；盤中前景每 30 秒更新，非盤中點入只查一次，手動更新保留。使用既有休市表與 MIS 交易日期，價格兩位小數、其他數字整數會計格式；stale 保留最後成功價及估值。最終 implementation `05959ec`，dev run `36807577636` success，revision `janus-api-g05959ec780cf-config` Ready／100% traffic；真實 authenticated 390px UI、自動間隔 29.994 秒、手動 HTTP 200 及離頁停止已驗證。Flutter 44 passed、Python targeted 7 passed、analyze exit 0。盤後 marts 不回寫；臨時休市／年度日曆需維護，MIS 快取非持久化。詳見[驗收紀錄](../archive/wbs-6-portfolio-intraday-quote-2026-10-01.md)。

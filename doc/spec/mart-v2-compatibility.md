@@ -1,6 +1,6 @@
 # Janus Mart v1 → future v2 相容策略
 
-更新：2026-09-30
+更新：2026-10-01
 狀態：`WBS-5-MART-V2-COMPAT` implementation contract
 
 ## 現行 canonical 邊界
@@ -26,3 +26,12 @@
 5. **cutover decision**：只有全部 acceptance 與 rollback evidence 成立，才更新 canonical publication target。v1 保留可讀 rollback window；不得因 v2 candidate 存在自動刪除 v1。
 
 任何階段若 v2 candidate 與 v1 deterministic facts、PIT／future-leakage fence、provenance 或 publication governance 不一致，維持 v1 canonical 並將 migration 標為 blocked/partial。
+
+## Bounded dev 驗收
+
+沿用 `scripts/gcp/verify_mart_ai_contract.py --manifest-uri <既有 dev manifest URI> --verify-compat`，
+在既有 dev Mart Job 執行；必須先有同一 pinned report 的 AI validation acceptance evidence。
+讀回既有 interpretation／validation objects，核對 raw-byte／content hash，重跑 validator，
+保存並讀回五角色共十個 references 的 create-only sidecar；原 manifest／metadata／report 保持不變。
+真實驗收部分是 GCP runtime、pinned report、immutable storage 與 lineage；角色輸出沿用 validation fixtures，
+provider_calls／publication_writes 均為零，不代表 provider、CIO 或自然每日五角色運作完成。

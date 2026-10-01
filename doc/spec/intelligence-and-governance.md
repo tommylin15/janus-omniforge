@@ -147,6 +147,14 @@ confidence 保留既有 deterministic role 語意，不是 AI analyst output。
 `1.1.0` 將 `fact_packs` 保留為 optional 欄位，舊 consumer 不必有該欄位。
 LLM 關閉不改 facts，缺值不補算；缺資料的 report 仍受原 publication gate 限制。
 
+### mart.v1 additive compatibility
+
+AI interpretation／validation references 保存於獨立 `mart_compat.v1` sidecar，
+以 execution／scope／as-of／Core snapshot／deterministic hash 綁定 v1 report；
+不新增 strict `MartScopedAnalysisV1` 欄位，不改 publication authority。
+舊 consumer 仍讀原 v1 report。future v2 的 shadow／opt-in／cutover／rollback
+條件見 [Mart 相容策略](mart-v2-compatibility.md)，不得由 sidecar 存在推定 migration 完成。
+
 ## 9. Mart + ML／AI／LLM Job
 
 職責：

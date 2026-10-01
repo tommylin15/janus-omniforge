@@ -9,6 +9,7 @@
 - [WBS-3 Liquid-500 rotation completed (2026-09-27)](archive/wbs-3-liquid-500-rotation-completed-2026-09-27.md)
 - [WBS-3 TWSE 500 base coverage completed (2026-09-29)](archive/wbs-3-full-market-base-coverage-completed-2026-09-29.md)
 - [WBS-5 Mart Fact Packs completed (2026-09-30)](archive/wbs-5-mart-fact-packs-2026-09-30.md)
+- [WBS-5 Mart v1 additive compatibility completed (2026-10-01)](archive/wbs-5-mart-v2-compat-2026-10-01.md)
 - [WBS-6 MIS 持股報價 completed (2026-10-01)](archive/wbs-6-portfolio-intraday-quote-2026-10-01.md)
 - [WBS-6 Portfolio Completeness completed (2026-09-27)](archive/todo-completed-2026-09-27-wbs6-portfolio-completeness.md)
 - [WBS-6 Market Home Data completed (2026-09-27)](archive/wbs-6-market-home-data-2026-09-27.md)
@@ -41,8 +42,9 @@ Observation window 不阻擋 correctness、data-integrity、market coverage、po
 
 `WBS-5-MART-AI-VALIDATION` 已完成 Gate 4，implementation／tests／deployment／bounded
 live artifact acceptance 見 [結案紀錄](archive/wbs-5-mart-ai-validation-2026-09-30.md)。
-下一段 Mart v1 compatibility／provider 工作仍在下方 P1 Planned；開始前重新核對 dependency 與模型 gate，
-本項結案不自動解鎖其他 WBS，也不代表五角色每日 workload 已完成。
+`WBS-5-MART-V2-COMPAT` 已完成 v1 additive compatibility、CI 與既有 GCP dev pinned-report／artifact acceptance，見 [結案紀錄](archive/wbs-5-mart-v2-compat-2026-10-01.md)。
+下一項為 `WBS-5-MART-AI-PROVIDERS`；開始前重新核對 dependency 與模型 gate，
+compatibility 結案不代表五角色每日 workload 已完成。
 
 ## B. Dev Pilot operational observation
 
@@ -92,10 +94,9 @@ Drive 原文仍是 Deferred，這次依最新指示納入 active planning，並�
 離榜仍納入；500 檔維持資料網／deterministic screening，不自動變成 500×5 次 AI 呼叫。
 AI 有自己的 bounded batch／quota／cost gate，未處理或缺資料須明列 partial／blocked；
 只傳公開 Fact Packs，不把私人持股內容或 owner mapping 寫回公開 Mart。
-Provider-neutral validator 已完成；下一項先做 mart.v1 additive compatibility，再驗收 GCP
-worker 真實整合。每項重新走模型閘門；不把 Gate 4 fixtures 稱為真實 AI worker success。
+Provider-neutral validator 與 mart.v1 additive compatibility 已完成；下一項驗收 GCP
+worker 真實整合。每項重新走模型閘門；不把 Gate 4／compatibility fixtures 稱為真實 AI worker success。
 
-- [ ] 【Sol】 `WBS-5-MART-V2-COMPAT`：保留 `mart.v1`、新增 additive artifact／validator contract、規劃 future mart.v2 migration；既有 v1 fixtures／consumer 不破壞，migration 前不升版。
 - [ ] 【Sol】 `WBS-5-MART-AI-PROVIDERS`：GCP 既有 Mart 批次自主啟動五個獨立 Codex CLI workers（primary；必要 bridge 須具體介面驗證）、初始授權後 headless dispatch／cold-start auth／續期、role workspace 隔離、capability／參數、timeout／process-tree cancel／退出碼／bounded retry；Gemini／OpenRouter 只作 profile 核准 fallback，保存 attempt／reason／transport／model。以 GCP dev 真實五角色 artifact／validator readback 驗收，不以本機 CLI 或人工 ChatGPT 操作替代；secret redaction、quota／cost／billing gate 保留，失敗 fail closed。
 - [ ] 【Sol】 同一 `WBS-5-MART-AI-PROVIDERS` 整體 acceptance：接線關注＋持股 immutable target 聯集，驗收 watch-only／held-only／重疊去重、多使用者、持股離榜、取消關注／清倉、as-of replay、quota／missing-data honesty 與 private isolation；不另開與五角色批次脫節的 implementation。
 - [ ] 【Sol】 `WBS-5-MART-CIO-SYNTHESIS`：validated roles only、CIO synthesis／validator、無 publication authority；publication 仍由 deterministic governance 決定。

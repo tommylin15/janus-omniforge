@@ -1,6 +1,6 @@
 # Janus Current Status
 
-更新：2026-09-30
+更新：2026-10-01
 
 用途：提供「現在在哪裡、下一步是什麼、哪些尚未完成」的短入口。這不是新的 source of truth；實作以 GitHub `main` 為準，完成狀態以 tests／CI／deployment／live runtime／integration evidence 為準。完整未完成工作見 [`todo.md`](todo.md)；五位分析師每日運作 gate 見 [`five-analyst-daily-operation-gate.md`](five-analyst-daily-operation-gate.md)；六個月 Pilot 新增 operational checkpoint 見 [`pilot-operational-evidence.md`](pilot-operational-evidence.md)；Janus web root routing incident evidence 見 [`janus-web-root-acceptance-2026-09-26.md`](janus-web-root-acceptance-2026-09-26.md)；deployment controller consolidation evidence 見 [`deployment-controller-consolidation-2026-09-26.md`](deployment-controller-consolidation-2026-09-26.md)；完整歷史 evidence 見 [`spec/operations-and-testing.md`](spec/operations-and-testing.md)。
 
@@ -15,7 +15,7 @@
 - **`WBS-3-FULL-MARKET-BASE-COVERAGE` 已依使用者核准的各必要資料集缺值率 <10% 門檻結案。** TWSE 上市 500 檔的官方資料缺值率為 0–3.6%；整批 dev replay、官方缺檔、watchlist／離榜持股、Private Mart、DQ／quarantine 與 bounded 資源使用量均已核對。原始 inventory `partial`、逐檔 `missing`、FinMind `blocked`、離榜持股 future-feed 註冊 `partial` 照實保留；不宣稱 500/500 或未驗證的帳單零費用。詳見 [結案紀錄](archive/wbs-3-full-market-base-coverage-completed-2026-09-29.md)。
 - 使用者 2026-09-28 指示停止追補 TPEx `3718`；該 missing 屬歷史跨市場名單，新 TWSE 500 名單不包含此股，舊 TPEx 結果不作新範圍驗收。
 - **Iceberg financials 手動維護已通過 dev 驗收並啟用每週排程。** 維護當時的 1 GiB Job 保留 22 個 snapshots、過期 1,299 個，刪除 448 個舊 metadata JSON，當時 11,954 列及 7 個 Core manifest 引用的 snapshots 維持可讀。GCS 有效 metadata bytes 從 361,299,847 降至 206,536,934（減少 154,762,913）；排程每週日台北時間 12:00 用同一 Job 執行，手動 dispatch dry-run 已通過，首次自然排程尚待觀察。Job 現已依使用者批准改為 2 GiB；Bucket versioning／soft delete 使實際計費空間延後下降；本程序尚未做 `.avro` orphan cleanup 或 manifest rewrite。
-- **User product completeness 目前仍有 blocked 項目。** 2026-09-29 Private Pipeline 修復後，真實 5876 持股已有正式盤後價且 aggregate valuation／unrealized PnL 恢復發布；其他持股若缺行情 coverage 或名稱解析，UI 仍須保留 missing／stale／partial 狀態，不自行補算或用 placeholder 假裝完整。盤中即時行情仍受正式來源授權 gate 阻擋。
+- **User product completeness 目前仍有 blocked 項目。** 2026-09-29 Private Pipeline 修復後，真實 5876 持股已有正式盤後價且 aggregate valuation／unrealized PnL 恢復發布；其他持股若缺行情 coverage 或名稱解析，UI 仍須保留 missing／stale／partial 狀態，不自行補算或用 placeholder 假裝完整。持股 MIS 盤中／盤後報價已完成；其餘未核准來源仍受來源授權 gate 限制。
 - **「今日」的 deterministic market-home API 與 User UI 均完成 dev acceptance。** Public endpoint 讀到已持久化 Core benchmark、市場活動與法人資料；各區塊保留各自資料日，日期不同時不顯示共用日期。登入後 Chrome `/app/` 顯示真實 Core 資料與「研究摘要尚未就緒」；390×844 手機 bottom navigation、1280×900 桌面 navigation rail 均驗收通過。UI commit `da3e83a69a73fa5004badc75602eb9a88642ec3d`、Flutter CI `36314185316`、dev deployment／verify `36314185317`、Ready revision `janus-api-gda3e83a69a73-config`（100% traffic）。詳見 [WBS-6-MARKET-HOME-UI archive](archive/wbs-6-market-home-ui-2026-09-27.md) 與 [operations evidence](spec/operations-and-testing.md)。
 - **Flutter Admin shell 已完成 dev acceptance。** 單一 `apps/user_app` codebase 以 `/app/admin`／explicit Admin workspace 提供中文 `總覽／批次／個股／市場資訊／AI 分析／進階管理` 導覽，desktop `NavigationRail` 與 390×844 mobile `NavigationDrawer` regression 均通過；User／Admin OAuth audience 分離，`/api/v1/admin/*` security boundary 仍由 backend `GoogleAdminAuthenticator` 執行。commit `2c1b2babdd1548cb79373f7fd8c46739a4073923` 的 Flutter CI `36561885167` success，canonical dev workflow `36561885101` 的 API tests、deploy 與 live verify success；Cloud Run revision `janus-api-g2c1b2babdd15-config` Ready、100% traffic，image digest `sha256:9b1a2eb392f6ba348f1cf55ee8fce8f988f31da5512d0603fa922c96c0f408dd`。legacy `/admin/stocks` static rollback surface 仍存在。詳見 [結案紀錄](archive/wbs-6-flutter-admin-shell-completed-2026-09-29.md)。
 - **`WBS-6-ADMIN-OVERVIEW-BATCH` 已完成 dev acceptance。** Flutter Overview 現在只把 failed／partial／retrying execution、異常 Core source health 與 blocked／review-required／invalid Mart 項目放進 priority area；successful execution 不佔首頁主要空間，`partial` 明確不算完成。Overview／Batch 共用 execution detail，直接顯示 persisted `trace_id`、immutable execution lineage、逐項 `safe_message`、retry count 與 backend `retry_classification`；只有 `retryable` failed item 能從 UI 建立 narrow retry，安全邊界仍由 backend Admin service 決定。首次 commit `187c895b6203f5443ae0e21a489e6ebd6dd633e4` 的 Flutter run `36564380741` 因 4 個 widget regression 失敗，未當成功；修正 commit `9bf00f1fe6bd63ffd284023688a7a803fb13487d` 的 Flutter run `36565040429` 全綠，canonical dev workflow `36565040400` 的 API tests、deploy 與 live verify success。Cloud Build `10b6b6c9-f638-45bd-8187-8e29ccfbf4cd` success，revision `janus-api-g9bf00f1fe6bd-config` Ready、100% traffic，image digest `sha256:2f89421ab200ef9d22e681e76de8d840a2a60d226264788a97914af7dce27d22`。詳見 [結案紀錄](archive/wbs-6-admin-overview-batch-completed-2026-09-29.md)。
@@ -32,19 +32,19 @@
 
 依 [`todo.md`](todo.md) 以整個 WBS 作為工作／驗收單位；遇到 blocker 時先推進其餘安全且獨立的條件。目前：
 
-1. **`WBS-5-MART-AI-VALIDATION` 已結案，Gate 4 通過。** 下一項建議 `WBS-5-MART-V2-COMPAT`（Sol），之後是 GCP Codex CLI provider chain；開始前重新核對 dependency 與模型 gate，不自動開工其他 WBS。Validator 完成不代表已開始每日工作。
-2. **`WBS-6-PORTFOLIO-INTRADAY-QUOTE` 仍 blocked。** Shioaji 目前僅證實既有模擬憑證可登入及送出單檔 Quote 訂閱；正式環境登入回權限相關錯誤，且 2026-09-27 非交易時段，不能據此宣稱盤中即時股價或 User 市值更新可用。來源帳戶資格、保存／展示權利、quota 與費用未核准前，不啟用新正式行情來源。
+1. **`WBS-5-MART-V2-COMPAT` 已結案。** v1 additive sidecar、96 項 Linux CI、既有 dev deployment／smoke、真實 pinned report／artifact acceptance 與獨立 11-object readback 通過；詳見 [結案紀錄](archive/wbs-5-mart-v2-compat-2026-10-01.md)。下一項建議 `WBS-5-MART-AI-PROVIDERS`（Sol）；開始前重新核對 dependency 與模型 gate，不自動開工。Compatibility 完成不代表五角色已開始每日工作。
+2. **`WBS-6-PORTFOLIO-INTRADAY-QUOTE` 已完成。** 2026-10-01 使用已核准 MIS 路徑完成持股盤中／盤後報價、既有 dev 部署與 authenticated UI／30 秒前景更新驗收；詳見 [MIS 結案紀錄](archive/wbs-6-portfolio-intraday-quote-2026-10-01.md)。舊 Shioaji blocker 不再代表本 WBS 狀態；休市日曆仍需維護，MIS 快取非持久化。
 
 使用者 2026-09-30 已將 Codex 五分析師研究路線納入 active planning：**GCP 既有批次自主
 使用 Codex CLI 優先／必要 worker bridge，Gemini／OpenRouter 作受控 fallback**；不是
 OpenAI API，也不重開通用 Chat runtime。細節見 [研究契約](spec/intelligence-and-governance.md#gcp-批次-codex-分析師研究路線active-planning尚未實作)。
-Codex 路線仍是規劃，GCP CLI auth／worker／daily runtime 尚未實作或驗收。
+Codex CLI wrapper／provider orchestration 已有程式碼與 CI；GCP 真實五角色整合、auth lifecycle 與 daily runtime 尚待獨立驗收，不能由 compatibility smoke 推定完成。
 個股 AI 範圍已指定為 active 關注＋有效持股 symbol 聯集並去重；500 檔保留資料網與
-deterministic screening，持股離榜仍在 target。Admission／quota／private isolation 尚未接線。
+deterministic screening，持股離榜仍在 target。Admission／quota／private isolation 已有實作，真實整合 acceptance 尚未完成。
 
 `WBS-3-LIQUID-500-ROTATION` 已完成；live Admin 換股、500 檔數量、audit 與原名單復原均通過。完成 evidence 見 [`WBS-3 archive`](archive/wbs-3-liquid-500-rotation-completed-2026-09-27.md) 與 [`operations ledger`](spec/operations-and-testing.md)。
 
-`WBS-3-FULL-MARKET-BASE-COVERAGE`、`WBS-6-FLUTTER-ADMIN-SHELL`、`WBS-6-ADMIN-OVERVIEW-BATCH`、`WBS-6-ADMIN-STOCK-WORKBENCH`、`WBS-5-MART-FACT-PACKS`、`WBS-5-MART-AI-ROLE-CONTRACT` 與 `WBS-5-MART-AI-VALIDATION` 均已完成。後續 Mart compatibility／provider 等 planned slices 依 TODO／WBS dependency 與模型閘門執行。
+`WBS-3-FULL-MARKET-BASE-COVERAGE`、`WBS-6-FLUTTER-ADMIN-SHELL`、`WBS-6-ADMIN-OVERVIEW-BATCH`、`WBS-6-ADMIN-STOCK-WORKBENCH`、`WBS-5-MART-FACT-PACKS`、`WBS-5-MART-AI-ROLE-CONTRACT` 與 `WBS-5-MART-AI-VALIDATION` 均已完成。後續 Mart provider 等 planned slices 依 TODO／WBS dependency 與模型閘門執行。
 
 ### B. Dev Pilot operational observation
 
@@ -54,7 +54,7 @@ deterministic screening，持股離榜仍在 target。Admission／quota／privat
 
 ## 非 foreground 工作
 
-AI validation／providers、CIO synthesis、rerun/cache、Analysis Profile、Pilot Mart AI evaluation、Research Context evolution、完整跨裝置／A11y、Production architecture／HA／backup planning 與 P4 DQ calibration 仍保留在 TODO；其 dependency 與排序以 active TODO 和 `five-analyst-daily-operation-gate.md` 為準。
+AI providers、CIO synthesis、rerun/cache、Analysis Profile、Pilot Mart AI evaluation、Research Context evolution、完整跨裝置／A11y、Production architecture／HA／backup planning 與 P4 DQ calibration 仍保留在 TODO；其 dependency 與排序以 active TODO 和 `five-analyst-daily-operation-gate.md` 為準。
 
 ## Evidence 讀取順序
 
