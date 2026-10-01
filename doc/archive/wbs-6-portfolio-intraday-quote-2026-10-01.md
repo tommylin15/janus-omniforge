@@ -19,7 +19,7 @@
 - 初版 GitHub dev run `36804892892` 的全部 test／deploy／verify success。API revision `janus-api-00279-5cz` Ready、100% default traffic、`JANUS_MIS_QUOTES_ENABLED=true`；`/app/build-id.txt` 與初版 SHA 相同。
 - 真實 Google owner UI 成功讀取持股 MIS 報價；CDP 只擷取路徑、時間及 status（未讀／輸出 token）。初版 10 秒請求間隔約 10.006／9.997 秒，手動請求 HTTP 200，離開持股後超過一輪的觀測期間無新 quote 請求。
 - 初版 cold read 曾約 35 秒才完成，後續取價回應約 0.09–3.67 秒；這不構成固定 latency／SLA 保證。摘要的 8 秒 timeout 已依此修正。
-- 30 秒／兩位小數／過期保留版本 dev run `36806318280` 與非盤中／休市控制最終版本的 live acceptance 尚待完成。
+- 修正 run `36806318280` success；最終 commit `05959ec780cf6b2740240f07a35135beb3d2883d` 的 dev run `36807577636` test-api／deploy-api／deploy-private-pipeline／verify success。Ready revision `janus-api-g05959ec780cf-config` 承接 100% default traffic；build ID 與實際 browser bootstrap 均為最終 SHA。
 
 ## 保存與邊界
 
@@ -27,6 +27,12 @@
 
 MIS 是 API process 記憶體快取及當前 UI 保留值；服務重啟、重新開頁或多 instance 不保證保留同一筆。每個來源回應保留真實成交時間，超過 120 秒／非當日仍顯示最後成交但標 stale；此規則不修改正式盤後 aggregate 契約。
 
+最終真實 authenticated 390×844 UI 顯示 MIS 成交價、兩位小數現價／均價與 comma 市值／損益。觀測自動請求 timestamps 5614.026344／5644.020055，間隔 29.993711 秒；手動請求 5622.447454 → HTTP 200 5624.541898。首次 quote response 約 31.24 秒，busy guard 略過重疊 timer；之後回應約 2.09–3.52 秒。手機 screenshot 保存在本機 visualization 目錄，不將私人財務截圖推送 GitHub。
+
 本次只驗收持股功能，不宣稱四頁 Final Visual Convergence、production readiness、多使用者 throughput 或 MIS SLA 完成。未新增 GCP 資源、付費來源或 production 部署。
 
 盤中 gate 同時使用台北平日 09:00–13:30、既有 schedule.holiday_overrides／MARKET_HOLIDAYS 休市表與 MIS 回傳交易日期。日曆讀取失敗仍回傳價格，但停止輪詢。假日新增 fixture 2026-10-09 已驗證單次取價成功、market_open=false。
+
+休市設定需依年度／臨時休市維護；MIS 交易日期只是額外檢查，不是官方即時開市狀態 API。瀏覽器曾載入舊快取 bootstrap 49c7eaca；Page.reload(ignoreCache=true) 後核對 bootstrap 05959ec，必要時使用者應強制重新整理並重新登入。
+
+最終離開持股頁超過 30 秒的網路觀測沒有新 quote 請求。最終 API image digest：`sha256:8a46cc05ad00f517a295672a70b448654611a8acb5fb5cf6290b0372f84e1975`。

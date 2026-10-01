@@ -1,5 +1,9 @@
 # Operations and testing
 
+## WBS-6 持股 MIS 報價最新結論（2026-10-01）
+
+持股頁盤中／盤後均使用 MIS；盤中前景每 30 秒更新，非盤中點入只查一次，手動更新保留。使用既有休市表與 MIS 交易日期，價格兩位小數、其他數字整數會計格式；stale 保留最後成功價及估值。最終 implementation `05959ec`，dev run `36807577636` success，revision `janus-api-g05959ec780cf-config` Ready／100% traffic；真實 authenticated 390px UI、自動間隔 29.994 秒、手動 HTTP 200 及離頁停止已驗證。Flutter 44 passed、Python targeted 7 passed、analyze exit 0。盤後 marts 不回寫；臨時休市／年度日曆需維護，MIS 快取非持久化。詳見[驗收紀錄](../archive/wbs-6-portfolio-intraday-quote-2026-10-01.md)。
+
 ## WBS-5 AI Validation 最新結論（2026-09-30）
 
 `WBS-5-MART-AI-VALIDATION` 已完成 Gate 4。最終 commit `12468e694bd5714daf435741b95b214d590d9211`：

@@ -9,6 +9,7 @@
 - [WBS-3 Liquid-500 rotation completed (2026-09-27)](archive/wbs-3-liquid-500-rotation-completed-2026-09-27.md)
 - [WBS-3 TWSE 500 base coverage completed (2026-09-29)](archive/wbs-3-full-market-base-coverage-completed-2026-09-29.md)
 - [WBS-5 Mart Fact Packs completed (2026-09-30)](archive/wbs-5-mart-fact-packs-2026-09-30.md)
+- [WBS-6 MIS 持股報價 completed (2026-10-01)](archive/wbs-6-portfolio-intraday-quote-2026-10-01.md)
 - [WBS-6 Portfolio Completeness completed (2026-09-27)](archive/todo-completed-2026-09-27-wbs6-portfolio-completeness.md)
 - [WBS-6 Market Home Data completed (2026-09-27)](archive/wbs-6-market-home-data-2026-09-27.md)
 - [WBS-6 Market Home UI completed (2026-09-27)](archive/wbs-6-market-home-ui-2026-09-27.md)
@@ -36,18 +37,12 @@ Observation window 不阻擋 correctness、data-integrity、market coverage、po
 
 ## A. Foreground queue
 
-`five-analyst-daily-operation-gate.md` 的 Gate 1 七個 Product Completeness prerequisite 已在 2026-09-29 全部完成。`WBS-6-PORTFOLIO-INTRADAY-QUOTE` 仍是有效產品缺口，MIS 授權已由使用者確認，正在實作／驗收，且不是 Gate 1 七項之一；不應停住安全且獨立的 five-analyst chain。
+`five-analyst-daily-operation-gate.md` 的 Gate 1 七個 Product Completeness prerequisite 已在 2026-09-29 全部完成。`WBS-6-PORTFOLIO-INTRADAY-QUOTE` 已完成 MIS 實作、dev 部署及 bounded live 驗收，且不是 Gate 1 七項之一；不應停住安全且獨立的 five-analyst chain。
 
 `WBS-5-MART-AI-VALIDATION` 已完成 Gate 4，implementation／tests／deployment／bounded
 live artifact acceptance 見 [結案紀錄](archive/wbs-5-mart-ai-validation-2026-09-30.md)。
 下一段 Mart v1 compatibility／provider 工作仍在下方 P1 Planned；開始前重新核對 dependency 與模型 gate，
 本項結案不自動解鎖其他 WBS，也不代表五角色每日 workload 已完成。
-
-### 1. `WBS-6-PORTFOLIO-INTRADAY-QUOTE` — 【Active：MIS 授權已確認，實作／驗收中】
-
-- [x] 2026-10-01 使用者確認 TWSE MIS 自動取用與私人 UI 雲端展示許可；Shioaji 正式登入實測仍為 permission error，依使用者指示放棄本次整合，僅選 MIS。
-- [x] Shioaji 評估已結束，本次不採用。歷史一次性連線探測（2026-09-27）：既有 Secret 標為 `simulation=true`，模擬環境登入、2330 合約查詢及單檔 Quote 訂閱／取消成功；相同憑證切 `simulation=false` 登入回 `BadRequestError`（含 permission 訊息）。週末無交易時段報價，尚未證明正式環境授權、即時報價到達、保存／雲端展示權利或費用；2026-10-01 再次正式登入仍 permission error。
-- [ ] 經核准後只批次查詢真實持股所需 MIS symbol；後端保留報價時間／來源／freshness 並計算盤中市值，不覆蓋正式盤後 Core OHLCV／Private Mart。User UI 僅在持股分頁前景每 30 秒與手動更新都讀同一最新持久化／受控快取，失聯時顯示 stale。
 
 ## B. Dev Pilot operational observation
 
