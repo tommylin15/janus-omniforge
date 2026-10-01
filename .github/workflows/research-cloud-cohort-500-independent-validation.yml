@@ -1,0 +1,211 @@
+name: Research cloud cohort 500 independent-universe validation
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'research/cloud-cohort-500/INDEPENDENT_VALIDATION_REQUEST.json'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: research-cloud-cohort-500
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_REGION: us-central1
+  RESEARCH_BUCKET: gen-lang-client-0593591102-dev-research-big-move-500
+  RESEARCH_PREFIX: research/big-move-cloud-cohort-500
+  RESEARCH_JOB: janus-research-big-move-500
+  RESEARCH_SA_NAME: janus-research-big-move-500
+  IMAGE_REPO: us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/research-cloud-cohort-500
+
+jobs:
+  independent-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Validate independent-universe contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('research/cloud-cohort-500/INDEPENDENT_VALIDATION_REQUEST.json').read_text())
+          assert p['action']=='independent_universe_validation'
+          assert p['cohort_size']==500 and p['market']=='TWSE' and p['security_type']=='common_equity'
+          assert float(p['usable_ohlcv_coverage_min'])>=0.90
+          assert p['primary_cohort_run_id'] and p['frozen_validation_run_id']
+          assert p['source_gcs_object'] and len(p['source_sha256'])==64 and int(p['source_size_bytes'])>0
+          assert p['database_allowed'] is False
+          assert p['existing_janus_iceberg_allowed'] is False
+          assert p['canonical_core_mart_writes_allowed'] is False
+          print('independent-universe contract: PASS')
+          PY
+
+      - name: Verify dedicated research service account and bucket
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sa_email="${RESEARCH_SA_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+          gcloud iam service-accounts describe "${sa_email}" --project="${GCP_PROJECT_ID}" >/dev/null
+          gcloud storage buckets describe "gs://${RESEARCH_BUCKET}" --project="${GCP_PROJECT_ID}" >/dev/null
+          echo "RESEARCH_SA_EMAIL=${sa_email}" >> "${GITHUB_ENV}"
+
+      - name: Build isolated research image
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          image_tag="${IMAGE_REPO}:${GITHUB_SHA}"
+          build_id="$(gcloud builds submit research/cloud-cohort-500 --project="${GCP_PROJECT_ID}" --tag="${image_tag}" --async --format='value(id)')"
+          test -n "${build_id}"
+          while true; do
+            status="$(gcloud builds describe "${build_id}" --project="${GCP_PROJECT_ID}" --format='value(status)')"
+            case "${status}" in
+              SUCCESS) break ;;
+              FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED) echo "Cloud Build failed: ${status}" >&2; exit 1 ;;
+              QUEUED|PENDING|WORKING) sleep 5 ;;
+              *) echo "unexpected Cloud Build status: ${status}" >&2; exit 1 ;;
+            esac
+          done
+          digest="$(gcloud artifacts docker images describe "${image_tag}" --project="${GCP_PROJECT_ID}" --format='value(image_summary.digest)')"
+          test -n "${digest}"
+          echo "RESEARCH_IMAGE=${IMAGE_REPO}@${digest}" >> "${GITHUB_ENV}"
+
+      - name: Prepare immutable sub-requests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p research-result/requests
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p=json.loads(Path('research/cloud-cohort-500/INDEPENDENT_VALIDATION_REQUEST.json').read_text())
+          sha=os.environ['GITHUB_SHA']
+          ids={
+            'cohort': f'{sha}-ind-cohort',
+            'outcome': f'{sha}-ind-outcome',
+            'event': f'{sha}-ind-event',
+            'validation': f'{sha}-ind-validation',
+          }
+          common={k:v for k,v in p.items() if k not in {'action','request_id'}}
+          reqs={
+            'cohort': {**common,'action':'derive_independent_cohort','request_id':f'{sha}-derive-independent'},
+            'outcome': {**common,'action':'preflight_and_outcomes','request_id':f'{sha}-ind-outcome','cohort_run_id':ids['cohort']},
+            'event': {**common,'action':'eventize_waves','request_id':f'{sha}-ind-event','outcome_run_id':ids['outcome']},
+            'validation': {**common,'action':'validate_antecedent_score','request_id':f'{sha}-ind-validation','outcome_run_id':ids['outcome'],'event_run_id':ids['event']},
+          }
+          for name,req in reqs.items():
+            Path(f'research-result/requests/{name}.json').write_text(json.dumps(req,ensure_ascii=False,sort_keys=True,indent=2)+'\n')
+          Path('research-result/subrun_ids.json').write_text(json.dumps(ids,indent=2)+'\n')
+          PY
+
+      - name: Run independent cohort, outcomes, events, and frozen score validation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ids_file="research-result/subrun_ids.json"
+          run_one() {
+            local name="$1"
+            local result_file="$2"
+            local run_id
+            run_id="$(python -c "import json; print(json.load(open('${ids_file}'))['${name}'])")"
+            local req="research-result/requests/${name}.json"
+            local req_obj="${RESEARCH_PREFIX}/requests/${run_id}.json"
+            gcloud storage cp "${req}" "gs://${RESEARCH_BUCKET}/${req_obj}"
+            gcloud run jobs update "${RESEARCH_JOB}" \
+              --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+              --image="${RESEARCH_IMAGE}" --service-account="${RESEARCH_SA_EMAIL}" \
+              --tasks=1 --parallelism=1 --max-retries=0 --task-timeout=30m --cpu=1 --memory=512Mi \
+              --set-env-vars="RESEARCH_BUCKET=${RESEARCH_BUCKET},RESEARCH_PREFIX=${RESEARCH_PREFIX},RESEARCH_REQUEST_OBJECT=${req_obj},RESEARCH_RUN_ID=${run_id},RESEARCH_SERVICE_ACCOUNT=${RESEARCH_SA_EMAIL}" \
+              --quiet
+            set +e
+            gcloud run jobs execute "${RESEARCH_JOB}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --wait --format=json > "research-result/execution-${name}.json"
+            rc=$?
+            set -e
+            if [ "${rc}" -ne 0 ]; then
+              gcloud storage cp "gs://${RESEARCH_BUCKET}/${RESEARCH_PREFIX}/executions/${run_id}/error_result.json" "research-result/error-${name}.json" || true
+              if [ -f "research-result/error-${name}.json" ]; then cat "research-result/error-${name}.json"; fi
+              exit "${rc}"
+            fi
+            gcloud storage cp "gs://${RESEARCH_BUCKET}/${RESEARCH_PREFIX}/executions/${run_id}/${result_file}" "research-result/${name}-result.json"
+          }
+
+          run_one cohort independent_cohort_result.json
+          run_one outcome outcome_run_result.json
+          run_one event eventization_result.json
+          run_one validation validation_result.json
+
+          validation_id="$(python -c "import json; print(json.load(open('${ids_file}'))['validation'])")"
+          gcloud storage cp "gs://${RESEARCH_BUCKET}/${RESEARCH_PREFIX}/revisions/${validation_id}/validation/score_deciles.csv" research-result/independent-score-deciles.csv
+          gcloud storage cp "gs://${RESEARCH_BUCKET}/${RESEARCH_PREFIX}/revisions/${validation_id}/validation/validation_by_year.csv" research-result/independent-validation-by-year.csv
+
+      - name: Verify independent-universe acceptance
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          cohort=json.loads(Path('research-result/cohort-result.json').read_text())
+          outcome=json.loads(Path('research-result/outcome-result.json').read_text())
+          event=json.loads(Path('research-result/event-result.json').read_text())
+          val=json.loads(Path('research-result/validation-result.json').read_text())
+          master=json.loads(Path('research/cloud-cohort-500/INDEPENDENT_VALIDATION_REQUEST.json').read_text())
+
+          assert cohort['status']=='ok' and cohort['action']=='derive_independent_cohort'
+          c=cohort['cohort']
+          assert c['independent_selected_count']==500
+          assert c['stock_overlap_count']==0
+          assert c['qualified_unselected_reserve_count']>=500
+          assert outcome['status']=='ok'
+          assert event['status']=='ok' and event['action']=='eventize_waves'
+          assert val['status']=='ok' and val['action']=='validate_antecedent_score'
+          assert val['acceptance']['pass'] is True, val['acceptance']
+          assert val['validation']['top10_lift'] is not None and val['validation']['top10_lift']>1.0
+          assert val['validation']['decile_event_rate_spearman'] is not None and val['validation']['decile_event_rate_spearman']>0
+          frozen=['range_mean_20','vol_60','vol_20','close_to_high_20','ret_5','max_drawdown_20','close_to_high_60','max_drawdown_60']
+          assert val['design']['features']==frozen
+          for payload in (cohort,outcome,event,val):
+            iso=payload['isolation']
+            for k in ['postgresql_used','database_used','existing_janus_iceberg_catalog_used','janus_core_written','janus_mart_written','janus_private_mart_written','runtime_secret_used']:
+              assert iso[k] is False, (k,iso[k])
+          final={
+            'schema_version':'janus.research.big-move.independent-validation-acceptance.v1',
+            'status':'PASS',
+            'workflow_commit':master.get('workflow_commit_hint'),
+            'primary_cohort_run_id':master['primary_cohort_run_id'],
+            'frozen_validation_run_id':master['frozen_validation_run_id'],
+            'independent_cohort':c,
+            'validation':val['validation'],
+            'validation_years_top10_lift_gt_1':val['validation_years_top10_lift_gt_1'],
+            'validation_year_count':val['validation_year_count'],
+            'acceptance':val['acceptance'],
+            'interpretation':'stock-disjoint independent-universe replication of the frozen 8-feature score; still research-only and not a canonical publication threshold',
+          }
+          Path('research-result/independent-validation-acceptance.json').write_text(json.dumps(final,ensure_ascii=False,sort_keys=True,indent=2)+'\n')
+          print(json.dumps(final,ensure_ascii=False,indent=2))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: research-cloud-cohort-500-independent-validation-${{ github.sha }}
+          path: research-result/
+          if-no-files-found: warn
+          retention-days: 30
