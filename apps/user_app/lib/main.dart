@@ -42,10 +42,24 @@ String stockDisplayName(Map row) {
   return name.isEmpty ? symbol : '$name（$symbol）';
 }
 
+String accountingNumber(Object? value, {String missing = '—'}) {
+  if (value == null) return missing;
+  final match = RegExp(r'^([+-]?)(\d+)(?:\.(\d+))?$').firstMatch('$value');
+  if (match == null) return missing;
+  var whole = BigInt.parse(match[2]!);
+  final fraction = match[3] ?? '';
+  if (fraction.isNotEmpty && int.parse(fraction[0]) >= 5) whole += BigInt.one;
+  final grouped = whole.toString().replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (match) => '${match[1]},');
+  return match[1] == '-' && whole != BigInt.zero ? '($grouped)' : grouped;
+}
+
 String portfolioReturnLabel(Object? value) {
   if (value == null) return '資料不足';
   final ratio = double.tryParse('$value');
-  return ratio == null ? '$value' : '${(ratio * 100).toStringAsFixed(2)}%';
+  return ratio == null || !ratio.isFinite
+      ? '資料不足'
+      : '${accountingNumber((ratio * 100).toStringAsFixed(6))}%';
 }
 
 String portfolioMissingReasonLabel(Object? value) =>
@@ -53,6 +67,8 @@ String portfolioMissingReasonLabel(Object? value) =>
       'no_eligible_persisted_ohlcv': '缺少符合估值日的正式行情',
       'stock_master_not_found': '股票主檔找不到此代號',
       'stock_master_name_missing': '股票主檔缺少正式名稱',
+      'intraday_quote_stale': '最後成交報價過期',
+      'intraday_quote_missing': '尚無可用成交報價',
     }[value?.toString()] ??
     '';
 
@@ -1013,7 +1029,79 @@ class JournalNotesPage extends StatefulWidget {
   State<JournalNotesPage> createState() => _JournalNotesPageState();
 }
 
-class _JournalNotesPageState extends State<JournalNotesPage> {
+class _JournalNotesPageState extends State<JournalNotesPage>
+    with WidgetsBindingObserver {
+  Timer? quoteTimer;
+  bool quoteBusy = false;
+  bool foreground = true;
+  int quoteGeneration = 0;
+  int summaryRevision = 0;
+  Map<String, dynamic>? intraday;
+  String? quoteError;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    foreground = WidgetsBinding.instance.lifecycleState == null ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+  }
+
+  bool get quotesActive =>
+      section == 0 && foreground && (ModalRoute.of(context)?.isCurrent ?? true);
+
+  void startQuotes() {
+    quoteTimer?.cancel();
+    quoteTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (quotesActive) unawaited(refreshQuotes());
+    });
+    if (quotesActive) unawaited(refreshQuotes());
+  }
+
+  Future<void> refreshQuotes() async {
+    if (!quotesActive || quoteBusy) return;
+    final generation = quoteGeneration;
+    setState(() => quoteBusy = true);
+    try {
+      final result = await widget.api
+          .get('/api/v1/me/portfolio/quotes')
+          .timeout(const Duration(seconds: 8));
+      if (mounted && generation == quoteGeneration && quotesActive) {
+        setState(() {
+          intraday = Map<String, dynamic>.from(result as Map);
+          quoteError = null;
+        });
+      }
+    } catch (_) {
+      if (mounted && generation == quoteGeneration && quotesActive) {
+        setState(() => quoteError = '盤中報價暫時無法更新，保留最後資料；請查看報價時間');
+      }
+    } finally {
+      if (mounted && generation == quoteGeneration)
+        setState(() => quoteBusy = false);
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    foreground = state == AppLifecycleState.resumed;
+    if (!foreground) {
+      quoteTimer?.cancel();
+      quoteGeneration++;
+      quoteBusy = false;
+    } else if (section == 0) {
+      startQuotes();
+    }
+  }
+
+  @override
+  void dispose() {
+    quoteGeneration++;
+    quoteTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
   int section = 1;
   String? symbolFilter;
   int yearFilter = DateTime.now().year;
@@ -1041,6 +1129,8 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
 
   void reload() => setState(() {
         rows = load();
+        summaryRevision++;
+        intraday = null;
       });
   void showPortfolioPending() => ScaffoldMessenger.of(context)
       .showSnackBar(const SnackBar(content: Text(portfolioPendingMessage)));
@@ -1085,11 +1175,13 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
     final details = [
       '${row['trade_date'] ?? '—'} · ${uiLabel(row['event_type'])}',
       '股票：${stockDisplayName(row)}',
-      if (row['shares'] != null) '股數：${row['shares']}',
-      if (row['price'] != null) '成交單價：${row['price']}',
-      if (row['cash_amount'] != null) '股利金額：${row['cash_amount']}',
-      if (row['net_cash_flow'] != null) '淨現金流：${row['net_cash_flow']}',
-      '手續費：${row['fee'] ?? '0'} · 證交稅：${row['tax'] ?? '0'}',
+      if (row['shares'] != null) '股數：${accountingNumber(row['shares'])}',
+      if (row['price'] != null) '成交單價：${accountingNumber(row['price'])}',
+      if (row['cash_amount'] != null)
+        '股利金額：${accountingNumber(row['cash_amount'])}',
+      if (row['net_cash_flow'] != null)
+        '淨現金流：${accountingNumber(row['net_cash_flow'])}',
+      '手續費：${accountingNumber(row['fee'], missing: '0')} · 證交稅：${accountingNumber(row['tax'], missing: '0')}',
       '幣別：${row['currency'] ?? 'TWD'}',
       if ('${row['memo'] ?? ''}'.isNotEmpty) '備註：${row['memo']}',
     ];
@@ -1119,11 +1211,15 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
   }
 
   Widget content(AsyncSnapshot<dynamic> snapshot) {
+    if (section == 0 && intraday != null) {
+      return holdings(_asList(intraday!['positions']).cast<Map>());
+    }
     if (snapshot.connectionState != ConnectionState.done)
       return const Center(child: CircularProgressIndicator());
     if (snapshot.hasError) return ErrorView(snapshot.error.toString(), reload);
     if (section == 0)
-      return holdings((snapshot.data as List? ?? []).cast<Map>());
+      return holdings(
+          (_asList(intraday?['positions'] ?? snapshot.data)).cast<Map>());
     if (section == 1) return trades(snapshot.data as List<dynamic>);
     if (section == 2) return reports(snapshot.data as List<dynamic>);
     return notes((snapshot.data as List? ?? []).cast<Map>());
@@ -1146,7 +1242,7 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
                   title: Text(
                       '${stockDisplayName(row)} · ${row['currency'] ?? 'TWD'}'),
                   subtitle: Text(
-                      '持有 ${row['shares'] ?? '—'} 股 · 現價 ${row['market_price'] ?? '—'} · 均價 ${row['average_cost'] ?? '—'}\n市值 ${row['market_value'] ?? '缺價'} · 未實現損益 ${row['unrealized_pnl'] ?? '資料不足'} · 未實現報酬 ${portfolioReturnLabel(row['unrealized_return'])}\n估值日 ${row['valuation_date'] ?? '—'} · 行情日 ${row['price_date'] ?? '—'} · ${row['price_status'] == 'missing' ? '缺價' : row['price_status'] == 'stale' ? '資料過期' : '可用'}${portfolioMissingReasonLabel(row['missing_reason']).isEmpty ? '' : ' · ${portfolioMissingReasonLabel(row['missing_reason'])}'}${row['identity_status'] == 'missing' ? ' · 名稱資料不完整：${portfolioMissingReasonLabel(row['identity_missing_reason'])}' : ''}'),
+                      '持有 ${accountingNumber(row['shares'])} 股 · 現價 ${accountingNumber(row['market_price'])} · 均價 ${accountingNumber(row['average_cost'])}\n市值 ${accountingNumber(row['market_value'], missing: '缺價')} · 未實現損益 ${accountingNumber(row['unrealized_pnl'], missing: '資料不足')} · 未實現報酬 ${portfolioReturnLabel(row['unrealized_return'])}\n${row['valuation_kind'] == 'intraday' ? '盤中估值 · MIS 報價 ${row['quote_at'] ?? '等待成交'} · 成本批次日' : '估值日'} ${row['valuation_date'] ?? '—'} · 行情日 ${row['price_date'] ?? '—'} · ${row['price_status'] == 'missing' ? '缺價' : row['price_status'] == 'stale' ? '資料過期' : '可用'}${portfolioMissingReasonLabel(row['missing_reason']).isEmpty ? '' : ' · ${portfolioMissingReasonLabel(row['missing_reason'])}'}${row['identity_status'] == 'missing' ? ' · 名稱資料不完整：${portfolioMissingReasonLabel(row['identity_missing_reason'])}' : ''}'),
                   isThreeLine: true,
                 )))
         ]),
@@ -1254,7 +1350,7 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
                             title: Text(
                                 '${uiLabel(row['event_type'])} · ${stockDisplayName(row)}'),
                             subtitle: Text(
-                                '${row['trade_date']} · ${row['shares'] != null ? '${row['shares']} 股 × ${row['price'] ?? '—'}' : '股利 ${row['cash_amount'] ?? '—'}'}\n淨現金流 ${row['net_cash_flow'] ?? '—'} ${row['currency'] ?? 'TWD'}'),
+                                '${row['trade_date']} · ${row['shares'] != null ? '${accountingNumber(row['shares'])} 股 × ${accountingNumber(row['price'])}' : '股利 ${accountingNumber(row['cash_amount'])}'}\n淨現金流 ${accountingNumber(row['net_cash_flow'])} ${row['currency'] ?? 'TWD'}'),
                             trailing: IconButton(
                                 tooltip: '建立更正',
                                 icon: const Icon(Icons.edit_note),
@@ -1266,7 +1362,8 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
 
   Widget summaryLine(String label, dynamic amount, dynamic currency) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Text('$label：${currency ?? ''} ${amount ?? '資料不足'}'));
+      child: Text(
+          '$label：${currency ?? ''} ${accountingNumber(amount, missing: '資料不足')}'));
 
   Widget reports(List<dynamic> result) {
     final pnl =
@@ -1294,14 +1391,15 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
                       summaryLine('手續費', row['fees'], row['currency']),
                       summaryLine('證券交易稅', row['taxes'], row['currency']),
                       Text(
-                          '交易筆數：${row['transaction_count'] ?? '—'} · 成本法：${row['cost_basis_method'] ?? '移動平均法'}')
+                          '交易筆數：${accountingNumber(row['transaction_count'])} · 成本法：${row['cost_basis_method'] ?? '移動平均法'}')
                     ]))),
       for (final row in performance.whereType<Map>())
         ListTile(
             title: Text('XIRR · ${row['currency']}'),
             subtitle: Text('資料日期 ${row['valuation_date'] ?? '—'}'),
-            trailing: Text(
-                row['xirr_status'] == 'available' ? '${row['xirr']}' : '資料不足'))
+            trailing: Text(row['xirr_status'] == 'available'
+                ? portfolioReturnLabel(row['xirr'])
+                : '資料不足'))
     ]);
   }
 
@@ -1341,7 +1439,22 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
           : null,
       body: SafeArea(
           child: Column(children: [
-        SummaryCards(widget.api),
+        if (section == 0)
+          Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: quoteBusy ? null : refreshQuotes,
+                icon: const Icon(Icons.refresh),
+                label: Text(quoteBusy ? '更新中' : '更新即時報價'),
+              )),
+        if (section == 0 && quoteError != null)
+          Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(quoteError!)),
+        SummaryCards(widget.api,
+            revision: summaryRevision,
+            quoteStale: section == 0 && quoteError != null,
+            intraday: section == 0 ? intraday : null),
         Padding(
             padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
             child: SegmentedButton<int>(
@@ -1354,8 +1467,12 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
                 ],
                 selected: {section},
                 onSelectionChanged: (value) => setState(() {
+                      quoteGeneration++;
+                      quoteBusy = false;
+                      quoteTimer?.cancel();
                       section = value.first;
                       rows = load();
+                      if (section == 0) startQuotes();
                     }))),
         Expanded(
             child: FutureBuilder<dynamic>(
@@ -1364,30 +1481,49 @@ class _JournalNotesPageState extends State<JournalNotesPage> {
       ])));
 }
 
-class SummaryCards extends StatelessWidget {
-  const SummaryCards(this.api, {super.key});
+class SummaryCards extends StatefulWidget {
+  const SummaryCards(this.api,
+      {this.revision = 0, this.intraday, this.quoteStale = false, super.key});
   final Api api;
+  final int revision;
+  final Map<String, dynamic>? intraday;
+  final bool quoteStale;
+  @override
+  State<SummaryCards> createState() => _SummaryCardsState();
+}
+
+class _SummaryCardsState extends State<SummaryCards> {
+  late Future<List<dynamic>> data = load();
+  Future<List<dynamic>> load() => Future.wait([
+        widget.api.get('/api/v1/me/portfolio/summary'),
+        widget.api.get('/api/v1/me/journal/pnl?year=${DateTime.now().year}'),
+        widget.api.get('/api/v1/me/notes')
+      ]).timeout(const Duration(seconds: 8));
+  @override
+  void didUpdateWidget(SummaryCards oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.api != oldWidget.api || widget.revision != oldWidget.revision)
+      data = load();
+  }
+
   @override
   Widget build(BuildContext context) => FutureBuilder<List<dynamic>>(
-      future: Future.wait([
-        api.get('/api/v1/me/portfolio/summary'),
-        api.get('/api/v1/me/journal/pnl?year=${DateTime.now().year}'),
-        api.get('/api/v1/me/notes')
-      ]),
+      future: data,
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done)
+        if (snapshot.connectionState != ConnectionState.done &&
+            widget.intraday == null)
           return const SizedBox(
               height: 88, child: Center(child: CircularProgressIndicator()));
-        if (snapshot.hasError)
+        if (snapshot.hasError && widget.intraday == null)
           return const ListTile(title: Text('投資組合摘要暫時無法使用'));
-        final data = snapshot.data!;
-        final portfolio =
-            _asList(data[0] is Map ? (data[0] as Map)['items'] : null);
+        final data = snapshot.data ?? [null, null, null];
+        final portfolio = _asList(widget.intraday?['items'] ??
+            (data[0] is Map ? (data[0] as Map)['items'] : null));
         final pnl = _asList(data[1]);
         final realized = pnl.isEmpty
             ? '資料不足'
             : pnl.length == 1
-                ? '${pnl.first['currency']} ${pnl.first['realized_pnl'] ?? '資料不足'}'
+                ? '${pnl.first['currency']} ${accountingNumber(pnl.first['realized_pnl'], missing: '資料不足')}'
                 : '多幣別';
         final aggregateWithheld =
             portfolio.any((row) => row['aggregate_status'] == 'withheld');
@@ -1396,14 +1532,14 @@ class SummaryCards extends StatelessWidget {
             : portfolio.isEmpty
                 ? '資料不足'
                 : portfolio.length == 1
-                    ? '${portfolio.first['currency']} ${portfolio.first['market_value'] ?? '資料不足'}'
+                    ? '${portfolio.first['currency']} ${accountingNumber(portfolio.first['market_value'], missing: '資料不足')}'
                     : '多幣別';
         final unrealized = aggregateWithheld
             ? '總額暫不發布'
             : portfolio.isEmpty
                 ? '資料不足'
                 : portfolio.length == 1
-                    ? '${portfolio.first['currency']} ${portfolio.first['unrealized_pnl'] ?? ((portfolio.first['stale_price_count'] ?? 0) > 0 ? '資料過期' : '資料不足')}'
+                    ? '${portfolio.first['currency']} ${accountingNumber(portfolio.first['unrealized_pnl'], missing: (portfolio.first['stale_price_count'] ?? 0) > 0 ? '資料過期' : '資料不足')}'
                     : '多幣別';
         final pending = _asList(data[2])
             .where((row) => row['needs_follow_up'] == true)
@@ -1418,34 +1554,42 @@ class SummaryCards extends StatelessWidget {
           final symbols = _asList(row['affected_symbols']).join('、');
           return '受影響 ${row['affected_symbol_count'] ?? _asList(row['affected_symbols']).length} 檔${symbols.isEmpty ? '' : '：$symbols'}';
         }).join(' / ');
-        final valuationStatus = aggregateWithheld
-            ? affectedStatus
-            : hasMissing && hasStale
-                ? '部分可用，含缺價與過期行情'
-                : hasMissing
-                    ? '部分可用，含缺價'
-                    : hasStale
-                        ? '行情過期'
-                        : '資料完整';
-        return SizedBox(
-            height: 124,
-            child: Column(children: [
-              Expanded(
-                  child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.all(8),
-                      children: [
+        final valuationStatus = widget.quoteStale
+            ? '報價過期，保留最後估值'
+            : aggregateWithheld
+                ? affectedStatus
+                : hasMissing && hasStale
+                    ? '部分可用，含缺價與過期行情'
+                    : hasMissing
+                        ? '部分可用，含缺價'
+                        : hasStale
+                            ? '行情過期'
+                            : '資料完整';
+        return Column(mainAxisSize: MainAxisSize.min, children: [
+          SizedBox(
+              height: 48 + MediaQuery.textScalerOf(context).scale(40),
+              child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.all(8),
+                  children: [
                     summary('持股市值', value),
                     summary('未實現損益', unrealized),
+                    summary(
+                        '未實現報酬',
+                        portfolio.length == 1 && !aggregateWithheld
+                            ? portfolioReturnLabel(
+                                portfolio.first['unrealized_return'])
+                            : '資料不足'),
                     summary('本年已實現損益', realized),
                     summary('待完成筆記', '$pending 則')
                   ])),
-              if (portfolio.isNotEmpty)
-                Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                        '估值日期：${portfolio.map((row) => row['valuation_date']).toSet().join(' / ')} · $valuationStatus'))
-            ]));
+          if (portfolio.isNotEmpty)
+            Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(widget.intraday != null
+                    ? 'MIS 盤中估值 · ${widget.intraday!['checked_at'].toString().split('.').first.replaceFirst('T', ' ')} · $valuationStatus'
+                    : '估值日期：${portfolio.map((row) => row['valuation_date']).toSet().join(' / ')} · $valuationStatus'))
+        ]);
       });
   Widget summary(String title, String value) => Card(
       child: Padding(

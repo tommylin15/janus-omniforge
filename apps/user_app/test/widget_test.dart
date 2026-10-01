@@ -37,6 +37,7 @@ class FakeApi extends Api {
 }
 
 void main() {
+  final journalTradeDate = '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-01';
   testWidgets('market baseline remains visible without a Daily Brief',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -371,7 +372,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: JournalNotesPage(api)));
     await tester.pumpAndSettle();
     expect(find.text('買進支出：TWD 200'), findsOneWidget);
-    expect(find.textContaining('淨現金流 -200'), findsOneWidget);
+    expect(find.textContaining('淨現金流 (200)'), findsOneWidget);
     await tester.tap(find.text('持股'));
     await tester.pumpAndSettle();
     expect(find.textContaining('未實現損益 40'), findsOneWidget);
@@ -391,7 +392,7 @@ void main() {
           'event_action': 'ORIGINAL',
           'event_type': 'BUY',
           'symbol': 'TEST01',
-          'trade_date': '2026-09-20',
+          'trade_date': journalTradeDate,
           'shares': 1
         },
         {
@@ -399,7 +400,7 @@ void main() {
           'event_action': 'REVERSAL',
           'event_type': 'BUY',
           'symbol': 'TEST01',
-          'trade_date': '2026-09-20',
+          'trade_date': journalTradeDate,
           'shares': 1,
           'reverses_event_id': 'A'
         },
@@ -408,7 +409,7 @@ void main() {
           'event_action': 'REPLACEMENT',
           'event_type': 'BUY',
           'symbol': '5876',
-          'trade_date': '2026-09-20',
+          'trade_date': journalTradeDate,
           'shares': 96000,
           'replaces_event_id': 'A',
           'record_version': 1,
@@ -435,7 +436,7 @@ void main() {
           'event_action': 'ORIGINAL',
           'event_type': 'BUY',
           'symbol': 'TEST01',
-          'trade_date': '2026-09-20',
+          'trade_date': journalTradeDate,
           'shares': 1
         },
         {
@@ -443,7 +444,7 @@ void main() {
           'event_action': 'REVERSAL',
           'event_type': 'BUY',
           'symbol': 'TEST01',
-          'trade_date': '2026-09-20',
+          'trade_date': journalTradeDate,
           'shares': 1,
           'reverses_event_id': 'A'
         },
@@ -452,7 +453,7 @@ void main() {
           'event_action': 'REPLACEMENT',
           'event_type': 'BUY',
           'symbol': '5876',
-          'trade_date': '2026-09-20',
+          'trade_date': journalTradeDate,
           'shares': 10,
           'replaces_event_id': 'A'
         },
@@ -461,7 +462,7 @@ void main() {
           'event_action': 'REVERSAL',
           'event_type': 'BUY',
           'symbol': '5876',
-          'trade_date': '2026-09-20',
+          'trade_date': journalTradeDate,
           'shares': 10,
           'reverses_event_id': 'B'
         },
@@ -470,7 +471,7 @@ void main() {
           'event_action': 'REPLACEMENT',
           'event_type': 'BUY',
           'symbol': '5876',
-          'trade_date': '2026-09-20',
+          'trade_date': journalTradeDate,
           'shares': 96000,
           'replaces_event_id': 'B',
           'record_version': 1,
@@ -501,7 +502,7 @@ void main() {
           'event_action': 'ORIGINAL',
           'event_type': 'BUY',
           'symbol': 'TEST01',
-          'trade_date': '2026-09-20',
+          'trade_date': journalTradeDate,
           'shares': 1
         },
       ],

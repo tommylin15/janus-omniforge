@@ -39,6 +39,7 @@ from .repository import ConflictError, NotFoundError, OversellError, repository_
 from .private_pipeline import ledger_net_cash_flow, stock_identity
 from .public_runtime import build_admin_service, build_core_service, build_pipeline_service, build_public_service
 from .store import PrivateIcebergStore
+from .intraday_quotes import MisQuotes, value_holdings
 
 
 LOGGER = logging.getLogger(__name__)
@@ -113,7 +114,8 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                admin_service: Any | None = None,
                pipeline_service: Any | None = None,
                public: Any | None = None,
-               oauth_facade: Any | None = None) -> FastAPI:
+               oauth_facade: Any | None = None,
+               quotes: Any | None = None) -> FastAPI:
     from packages.postgres_bundle import load_postgres_bundle
     bundle_fields: dict[str, str | tuple[str, ...]] = {
         "GOOGLE_USER_CLIENT_ID": "google_user_client_id",
@@ -125,6 +127,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
             "MCP_OAUTH_SIGNING_KEY": "mcp_oauth_signing_key",
         })
     load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", bundle_fields)
+    quotes = quotes or MisQuotes()
     repository = repository or _Lazy(repository_from_env)
     store = store or _Lazy(PrivateIcebergStore.from_env)
     core = core or _Lazy(CoreContextReader.from_env)
@@ -515,6 +518,20 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                 "price_date":row.get("price_date") or detail.get("price_date"),
                 "missing_reason":row.get("missing_reason") or detail.get("missing_reason")})
         return jsonable_encoder(result)
+
+    @private.get("/portfolio/quotes")
+    def portfolio_quotes(current: AuthenticatedUser = Depends(user)):
+        rows = positions(current)
+        latest_version = repository.latest_ledger_version(current.user_id) if rows else 0
+        if rows and any(int(row.get("ledger_version", 0)) != latest_version for row in rows):
+            raise HTTPException(status_code=409, detail="交易已儲存，等待投資組合批次更新")
+        identities = repository.stock_identities({str(row["symbol"]) for row in rows}) if rows else {}
+        try:
+            prices = quotes.prices(identities) if rows else {}
+        except Exception as error:
+            LOGGER.warning("intraday quotes unavailable: %s", type(error).__name__)
+            raise HTTPException(status_code=503, detail="盤中報價暫時無法使用；保留最後資料，請查看報價時間") from error
+        return jsonable_encoder(value_holdings(rows, prices))
 
     @private.get("/journal/pnl")
     def pnl(year:int=Query(...,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):

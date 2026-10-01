@@ -108,7 +108,8 @@ case "${component}" in
     if [[ -n "${traffic_tag}" ]]; then service_flags+=(--tag="${traffic_tag}"); fi
     service_flags+=(--revision-suffix="${service_revision_suffix}-config")
 
-    api_env="${MCP_OAUTH_ENABLED:+MCP_OAUTH_ENABLED=${MCP_OAUTH_ENABLED}}"
+    # MIS personal/cloud display permission confirmed by the owner on 2026-10-01.
+    api_env="JANUS_MIS_QUOTES_ENABLED=true${MCP_OAUTH_ENABLED:+,MCP_OAUTH_ENABLED=${MCP_OAUTH_ENABLED}}"
     if [[ -n "${GOOGLE_ADMIN_ALLOWED_EMAILS:-}" ]]; then
       api_env="${api_env:+${api_env},}GOOGLE_ADMIN_ALLOWED_EMAILS=${GOOGLE_ADMIN_ALLOWED_EMAILS}"
     fi

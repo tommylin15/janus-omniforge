@@ -91,7 +91,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('台積電（2330） · TWD'), findsOneWidget);
-    expect(find.textContaining('未實現報酬 20.00%'), findsOneWidget);
+    expect(find.textContaining('未實現報酬 20%'), findsOneWidget);
     expect(find.textContaining('估值日 2026-09-26'), findsOneWidget);
     expect(find.textContaining('行情日 2026-09-26'), findsOneWidget);
   });
