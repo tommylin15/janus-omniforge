@@ -1,0 +1,16 @@
+{
+  "schema_version": "janus.research.big-move.pre-outcome-screen-request.v1",
+  "action": "export_pre_outcome_screen",
+  "request_id": "pv1-pre-outcome-screen-20261001-01",
+  "research_track": "big-move-cloud-cohort-500",
+  "latest_observation_only": true,
+  "minimum_available_features": 6,
+  "score_tiers": {
+    "S90_core": 0.9,
+    "S80_watch": 0.8,
+    "S70_observe": 0.7
+  },
+  "outcome_evaluation_allowed": false,
+  "event_label_materialization_allowed": false,
+  "canonical_publication_allowed": false
+}
