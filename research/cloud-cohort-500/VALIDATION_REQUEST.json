@@ -1,0 +1,22 @@
+{
+  "schema_version": "janus.research.cloud-cohort-500.validation-request.v1",
+  "action": "validate_antecedent_score",
+  "request_id": "antecedent-validation-20261001-01",
+  "research_track": "big-move-cloud-cohort-500",
+  "cohort_size": 500,
+  "market": "TWSE",
+  "security_type": "common_equity",
+  "usable_ohlcv_coverage_min": 0.9,
+  "research_start": "2015-01-01",
+  "research_end": "2026-09-16",
+  "materialized_revision": "20260917T025906Z",
+  "outcome_run_id": "3e11efb4ad5dce1e483b6ca05298759013eaafae",
+  "event_run_id": "3034073417a131d78f080f52562f1e036e7942b3",
+  "matched_run_id": "36bc29505708b9b0f08fdaccd70c3230e405faa5",
+  "source_gcs_object": "research/big-move-cloud-cohort-500/sources/step2a/sha256=0ed5d53ec912d47ab4087b2bc1e0743411c5e9ccac1a096060420eb1801fa590/janus_step2a_materialized.zip",
+  "source_sha256": "0ed5d53ec912d47ab4087b2bc1e0743411c5e9ccac1a096060420eb1801fa590",
+  "source_size_bytes": 156889260,
+  "database_allowed": false,
+  "existing_janus_iceberg_allowed": false,
+  "canonical_core_mart_writes_allowed": false
+}
