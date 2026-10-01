@@ -1,7 +1,7 @@
 {
   "schema_version": "janus.research.big-move.prospective-extension-request.v1",
   "action": "extend_prospective_registry",
-  "request_id": "pv1-extension-20261001-01-state-init",
+  "request_id": "pv1-extension-20261001-02-state-init",
   "research_track": "big-move-cloud-cohort-500",
   "cohort_size": 500,
   "market": "TWSE",
