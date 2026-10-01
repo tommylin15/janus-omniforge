@@ -1,0 +1,151 @@
+name: Research cloud cohort 500 independent holdout
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'research/cloud-cohort-500/INDEPENDENT_REQUEST.json'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: research-cloud-cohort-500
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_REGION: us-central1
+  RESEARCH_BUCKET: gen-lang-client-0593591102-dev-research-big-move-500
+  RESEARCH_PREFIX: research/big-move-cloud-cohort-500
+  RESEARCH_JOB: janus-research-big-move-500
+  RESEARCH_SA_NAME: janus-research-big-move-500
+  IMAGE_REPO: us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/research-cloud-cohort-500
+
+jobs:
+  derive-independent-holdout:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Validate independent holdout contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('research/cloud-cohort-500/INDEPENDENT_REQUEST.json').read_text())
+          assert p['action']=='derive_independent_cohort'
+          assert p['cohort_size']==500
+          assert p['market']=='TWSE' and p['security_type']=='common_equity'
+          assert float(p['usable_ohlcv_coverage_min'])>=0.90
+          assert p['primary_cohort_run_id']
+          assert p['database_allowed'] is False
+          assert p['existing_janus_iceberg_allowed'] is False
+          assert p['canonical_core_mart_writes_allowed'] is False
+          print('independent holdout contract: PASS')
+          PY
+
+      - name: Verify dedicated research service account and bucket
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sa_email="${RESEARCH_SA_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+          gcloud iam service-accounts describe "${sa_email}" --project="${GCP_PROJECT_ID}" >/dev/null
+          gcloud storage buckets describe "gs://${RESEARCH_BUCKET}" --project="${GCP_PROJECT_ID}" >/dev/null
+          echo "RESEARCH_SA_EMAIL=${sa_email}" >> "${GITHUB_ENV}"
+
+      - name: Build isolated research image
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          image_tag="${IMAGE_REPO}:${GITHUB_SHA}"
+          build_id="$(gcloud builds submit research/cloud-cohort-500 --project="${GCP_PROJECT_ID}" --tag="${image_tag}" --async --format='value(id)')"
+          test -n "${build_id}"
+          while true; do
+            status="$(gcloud builds describe "${build_id}" --project="${GCP_PROJECT_ID}" --format='value(status)')"
+            case "${status}" in
+              SUCCESS) break ;;
+              FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED) echo "Cloud Build failed: ${status}" >&2; exit 1 ;;
+              QUEUED|PENDING|WORKING) sleep 5 ;;
+              *) echo "unexpected Cloud Build status: ${status}" >&2; exit 1 ;;
+            esac
+          done
+          digest="$(gcloud artifacts docker images describe "${image_tag}" --project="${GCP_PROJECT_ID}" --format='value(image_summary.digest)')"
+          test -n "${digest}"
+          echo "RESEARCH_IMAGE=${IMAGE_REPO}@${digest}" >> "${GITHUB_ENV}"
+
+      - name: Upload immutable independent request
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          request_object="${RESEARCH_PREFIX}/requests/${GITHUB_SHA}-independent.json"
+          gcloud storage cp research/cloud-cohort-500/INDEPENDENT_REQUEST.json "gs://${RESEARCH_BUCKET}/${request_object}"
+          echo "RESEARCH_REQUEST_OBJECT=${request_object}" >> "${GITHUB_ENV}"
+
+      - name: Update research-only Cloud Run Job
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud run jobs update "${RESEARCH_JOB}" \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --image="${RESEARCH_IMAGE}" --service-account="${RESEARCH_SA_EMAIL}" \
+            --tasks=1 --parallelism=1 --max-retries=0 --task-timeout=30m --cpu=1 --memory=512Mi \
+            --set-env-vars="RESEARCH_BUCKET=${RESEARCH_BUCKET},RESEARCH_PREFIX=${RESEARCH_PREFIX},RESEARCH_REQUEST_OBJECT=${RESEARCH_REQUEST_OBJECT},RESEARCH_RUN_ID=${GITHUB_SHA},RESEARCH_SERVICE_ACCOUNT=${RESEARCH_SA_EMAIL}" \
+            --quiet
+
+      - name: Execute independent cohort derivation
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p research-result
+          set +e
+          gcloud run jobs execute "${RESEARCH_JOB}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --wait --format=json > research-result/execution.json
+          rc=$?
+          set -e
+          if [ "${rc}" -ne 0 ]; then
+            gcloud storage cp "gs://${RESEARCH_BUCKET}/${RESEARCH_PREFIX}/executions/${GITHUB_SHA}/error_result.json" research-result/error_result.json || true
+            if [ -f research-result/error_result.json ]; then cat research-result/error_result.json; fi
+            exit "${rc}"
+          fi
+          gcloud storage cp "gs://${RESEARCH_BUCKET}/${RESEARCH_PREFIX}/executions/${GITHUB_SHA}/independent_cohort_result.json" research-result/action_result.json
+          gcloud storage cp "gs://${RESEARCH_BUCKET}/${RESEARCH_PREFIX}/revisions/${GITHUB_SHA}/cohort/cohort_manifest.csv" research-result/cohort_manifest.csv
+
+      - name: Verify independent holdout acceptance
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('research-result/action_result.json').read_text())
+          assert p['status']=='ok' and p['action']=='derive_independent_cohort'
+          c=p['cohort']
+          assert c['primary_selected_count']==500
+          assert c['qualified_unselected_reserve_count']>=500
+          assert c['independent_selected_count']==500
+          assert c['stock_overlap_count']==0
+          iso=p['isolation']
+          for k in ['postgresql_used','database_used','existing_janus_iceberg_catalog_used','janus_core_written','janus_mart_written','janus_private_mart_written','runtime_secret_used']:
+              assert iso[k] is False, (k,iso[k])
+          print('independent holdout acceptance: PASS')
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: research-cloud-cohort-500-independent-${{ github.sha }}
+          path: research-result/
+          if-no-files-found: warn
+          retention-days: 30
