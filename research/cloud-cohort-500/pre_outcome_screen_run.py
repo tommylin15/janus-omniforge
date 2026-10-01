@@ -10,6 +10,16 @@ from google.cloud import storage
 import prospective_registry_run as base
 
 STATE_SUFFIX = "prospective/pv1/state/latest_registry.json"
+FEATURES = [
+    "range_mean_20",
+    "vol_60",
+    "vol_20",
+    "close_to_high_20",
+    "ret_5",
+    "max_drawdown_20",
+    "close_to_high_60",
+    "max_drawdown_60",
+]
 
 
 def _read_json(buck: Any, obj: str) -> dict[str, Any]:
@@ -64,6 +74,15 @@ def run(request: dict[str, Any], bucket: str, prefix: str, run_id: str) -> dict[
 
     q["composite_score"] = pd.to_numeric(q["composite_score"], errors="coerce")
     q["available_feature_count"] = pd.to_numeric(q["available_feature_count"], errors="coerce")
+    for f in FEATURES:
+        raw_col = f"feature_{f}"
+        rank_col = f"oriented_rank_{f}"
+        if raw_col not in q.columns or rank_col not in q.columns:
+            raise RuntimeError(f"frozen feature attribution column missing: {f}")
+        q[raw_col] = pd.to_numeric(q[raw_col], errors="coerce")
+        q[rank_col] = pd.to_numeric(q[rank_col], errors="coerce")
+        q[f"contribution_{f}"] = q[rank_col] / q["available_feature_count"]
+
     eligible = q[(q["available_feature_count"] >= 6) & q["composite_score"].notna()].copy()
     screen = eligible[eligible["composite_score"] >= 0.7].copy()
     screen["tier"] = screen["composite_score"].map(
@@ -71,14 +90,25 @@ def run(request: dict[str, Any], bucket: str, prefix: str, run_id: str) -> dict[
     )
     order = {"S90_core": 0, "S80_watch": 1, "S70_observe": 2}
     screen["_tier_order"] = screen["tier"].map(order)
-    cols = [
-        "panel_id", "observation_T", "stock_id", "composite_score", "available_feature_count",
-        "tier", "row_hash", "registry_revision", "scorer_revision", "source_bundle_hash",
+
+    base_cols = [
+        "panel_id", "observation_T", "stock_id", "composite_score", "available_feature_count", "tier",
     ]
+    attribution_cols: list[str] = []
+    for f in FEATURES:
+        attribution_cols.extend([f"feature_{f}", f"oriented_rank_{f}", f"contribution_{f}"])
+    lineage_cols = ["row_hash", "registry_revision", "scorer_revision", "source_bundle_hash"]
+    cols = base_cols + attribution_cols + lineage_cols
     screen = screen.sort_values(
         ["_tier_order", "composite_score", "panel_id", "stock_id"],
         ascending=[True, False, True, True],
     )[cols]
+
+    # Verify attribution reconstructs the frozen composite score.
+    contrib_cols = [f"contribution_{f}" for f in FEATURES]
+    reconstructed = screen[contrib_cols].sum(axis=1, skipna=True)
+    if ((reconstructed - screen["composite_score"]).abs() > 1e-10).any():
+        raise RuntimeError("feature attribution does not reconstruct composite_score")
 
     root = f"{prefix}/prospective/pv1/screens/{run_id}"
     csv_bytes = screen.to_csv(index=False).encode("utf-8-sig")
@@ -88,7 +118,7 @@ def run(request: dict[str, Any], bucket: str, prefix: str, run_id: str) -> dict[
     counts = screen.groupby(["panel_id", "tier"]).size().unstack(fill_value=0).to_dict("index")
     totals = {str(k): int(v) for k, v in screen.groupby("tier").size().to_dict().items()}
     result = {
-        "schema_version": "janus.research.big-move.pre-outcome-screen-result.v1",
+        "schema_version": "janus.research.big-move.pre-outcome-screen-result.v1.1",
         "status": "ok",
         "action": "export_pre_outcome_screen",
         "run_id": run_id,
@@ -105,6 +135,14 @@ def run(request: dict[str, Any], bucket: str, prefix: str, run_id: str) -> dict[
             "S90_core": "score >= 0.90",
             "S80_watch": "0.80 <= score < 0.90",
             "S70_observe": "0.70 <= score < 0.80",
+        },
+        "feature_attribution": {
+            "features": FEATURES,
+            "raw_values_included": True,
+            "oriented_percentile_ranks_included": True,
+            "equal_weight_contributions_included": True,
+            "contribution_formula": "oriented_rank / available_feature_count",
+            "reconstructs_composite_score": True,
         },
         "candidate_screen_object": screen_obj,
         "embargo": {
@@ -138,4 +176,5 @@ def run(request: dict[str, Any], bucket: str, prefix: str, run_id: str) -> dict[
 
 def self_test() -> None:
     assert STATE_SUFFIX.endswith("latest_registry.json")
+    assert len(FEATURES) == 8
     assert {"S90_core": 0.9, "S80_watch": 0.8, "S70_observe": 0.7}["S90_core"] == 0.9
