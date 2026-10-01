@@ -29,6 +29,9 @@ def test_decimal_values_missing_stale_and_canonical_snapshot_unchanged():
     quotes['2330']['quote_at'] = now.isoformat()
     assert value_holdings(mixed, quotes, now)['items'][0]['affected_symbols'] == ['6488']
     assert value_holdings(mixed, quotes, now)['items'][0]['market_value'] is None
+    assert value_holdings(rows, quotes, now)['market_open'] is True
+    assert value_holdings(rows, quotes, now.replace(hour=14))['market_open'] is False
+    assert value_holdings(rows, quotes, now.replace(day=3))['market_open'] is False
 
 
 def test_mis_batches_exchanges_uses_trade_not_asks_and_throttles_manual_clicks(monkeypatch):
@@ -55,17 +58,28 @@ def test_authenticated_quotes_read_only_owned_snapshot_and_pending_ledger_blocks
     repository, store = Repository(), Store()
     repository.latest_ledger_version = lambda owner: 7
     class Quotes:
+        market_date = '20261009'
         def prices(self, identities):
             assert set(identities) == {'2330'}
             return {'2330': {'price':'123.45','quote_at':datetime.now(TAIPEI).isoformat()}}
+    class Calendar:
+        def setting(self, key):
+            assert key == 'schedule'
+            return {'value': {'holiday_overrides': ['2026-10-09']}}
     claims = {'iss':'https://accounts.google.com','aud':'user-client','sub':'google-a',
               'email':'owner@example.com','email_verified':True,'exp':1_900_000_000}
     api = TestClient(create_app(repository,store,lambda _token,_audience: claims,
-                               audience='user-client', quotes=Quotes()))
+                               audience='user-client', quotes=Quotes(), admin_service=Calendar()))
     assert api.get('/api/v1/me/portfolio/quotes').status_code == 401
     response = api.get('/api/v1/me/portfolio/quotes',headers=auth())
     assert response.status_code == 200
     assert response.json()['positions'][0]['unrealized_pnl'] == '23.45'
     assert all(owner == USER_ID for _,owner,_ in store.calls)
+    with patch('services.api.app.value_holdings', side_effect=lambda rows, prices:
+               value_holdings(rows, prices, datetime(2026, 10, 9, 10, tzinfo=TAIPEI))):
+        holiday = api.get('/api/v1/me/portfolio/quotes', headers=auth())
+        assert holiday.status_code == 200
+        assert holiday.json()['market_open'] is False
+        assert holiday.json()['positions'][0]['market_price'] == '123.45'
     repository.latest_ledger_version = lambda owner: 8
     assert api.get('/api/v1/me/portfolio/quotes',headers=auth()).status_code == 409

@@ -14,6 +14,11 @@ class FakeApi extends Api {
   Future<dynamic> get(String path) async {
     reads.add(path);
     if (pendingReads.containsKey(path)) return pendingReads[path]!;
+    if (path == '/api/v1/me/portfolio/quotes') {
+      return {'positions': values['/api/v1/me/journal/positions'] ?? [],
+        'items': (values['/api/v1/me/portfolio/summary'] as Map?)?['items'] ?? [],
+        'checked_at': '2026-09-26T14:00:00+08:00', 'market_open': false};
+    }
     return values[path] ?? const [];
   }
 

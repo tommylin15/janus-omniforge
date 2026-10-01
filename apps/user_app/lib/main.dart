@@ -1026,11 +1026,13 @@ class JournalNotesPage extends StatefulWidget {
       {this.initialTransaction,
       this.onTransactionSaved,
       this.onOpenStock,
+      this.now = DateTime.now,
       super.key});
   final Api api;
   final Map<String, dynamic>? initialTransaction;
   final ValueChanged<Map<String, dynamic>>? onTransactionSaved;
   final ValueChanged<String>? onOpenStock;
+  final DateTime Function() now;
   @override
   State<JournalNotesPage> createState() => _JournalNotesPageState();
 }
@@ -1056,11 +1058,23 @@ class _JournalNotesPageState extends State<JournalNotesPage>
   bool get quotesActive =>
       section == 0 && foreground && (ModalRoute.of(context)?.isCurrent ?? true);
 
+  bool get marketHours {
+    final taipei = widget.now().toUtc().add(const Duration(hours: 8));
+    final minutes = taipei.hour * 60 + taipei.minute;
+    return taipei.weekday <= 5 && minutes >= 540 && minutes < 810;
+  }
+
   void startQuotes() {
     quoteTimer?.cancel();
-    quoteTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (quotesActive) unawaited(refreshQuotes());
-    });
+    if (marketHours) {
+      quoteTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+        if (!marketHours) {
+          quoteTimer?.cancel();
+        } else if (quotesActive) {
+          unawaited(refreshQuotes());
+        }
+      });
+    }
     if (quotesActive) unawaited(refreshQuotes());
   }
 
@@ -1071,16 +1085,17 @@ class _JournalNotesPageState extends State<JournalNotesPage>
     try {
       final result = await widget.api
           .get('/api/v1/me/portfolio/quotes')
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 60));
       if (mounted && generation == quoteGeneration && quotesActive) {
         setState(() {
           intraday = Map<String, dynamic>.from(result as Map);
           quoteError = null;
         });
+        if (intraday!['market_open'] == false) quoteTimer?.cancel();
       }
     } catch (_) {
       if (mounted && generation == quoteGeneration && quotesActive) {
-        setState(() => quoteError = '盤中報價暫時無法更新，保留最後資料；請查看報價時間');
+        setState(() => quoteError = 'MIS 報價暫時無法更新，保留最後資料；請查看報價時間');
       }
     } finally {
       if (mounted && generation == quoteGeneration)
@@ -1225,8 +1240,20 @@ class _JournalNotesPageState extends State<JournalNotesPage>
       return const Center(child: CircularProgressIndicator());
     if (snapshot.hasError) return ErrorView(snapshot.error.toString(), reload);
     if (section == 0)
-      return holdings(
-          (_asList(intraday?['positions'] ?? snapshot.data)).cast<Map>());
+      return holdings(_asList(snapshot.data)
+          .map((row) => {
+                ...row as Map,
+                'market_price': null,
+                'market_value': null,
+                'unrealized_pnl': null,
+                'unrealized_return': null,
+                'price_status': 'missing',
+                'price_date': null,
+                'quote_at': null,
+                'valuation_kind': 'intraday',
+                'missing_reason': 'intraday_quote_missing',
+              })
+          .toList());
     if (section == 1) return trades(snapshot.data as List<dynamic>);
     if (section == 2) return reports(snapshot.data as List<dynamic>);
     return notes((snapshot.data as List? ?? []).cast<Map>());
@@ -1249,7 +1276,7 @@ class _JournalNotesPageState extends State<JournalNotesPage>
                   title: Text(
                       '${stockDisplayName(row)} · ${row['currency'] ?? 'TWD'}'),
                   subtitle: Text(
-                      '持有 ${accountingNumber(row['shares'])} 股 · 現價 ${accountingNumber(row['market_price'], decimals: 2)} · 均價 ${accountingNumber(row['average_cost'], decimals: 2)}\n市值 ${accountingNumber(row['market_value'], missing: '缺價')} · 未實現損益 ${accountingNumber(row['unrealized_pnl'], missing: '資料不足')} · 未實現報酬 ${portfolioReturnLabel(row['unrealized_return'])}\n${row['valuation_kind'] == 'intraday' ? '盤中估值 · MIS 報價 ${row['quote_at'] ?? '等待成交'} · 成本批次日' : '估值日'} ${row['valuation_date'] ?? '—'} · 行情日 ${row['price_date'] ?? '—'} · ${row['price_status'] == 'missing' ? '缺價' : row['price_status'] == 'stale' ? '資料過期' : '可用'}${portfolioMissingReasonLabel(row['missing_reason']).isEmpty ? '' : ' · ${portfolioMissingReasonLabel(row['missing_reason'])}'}${row['identity_status'] == 'missing' ? ' · 名稱資料不完整：${portfolioMissingReasonLabel(row['identity_missing_reason'])}' : ''}'),
+                      '持有 ${accountingNumber(row['shares'])} 股 · 現價 ${accountingNumber(row['market_price'], decimals: 2)} · 均價 ${accountingNumber(row['average_cost'], decimals: 2)}\n市值 ${accountingNumber(row['market_value'], missing: '缺價')} · 未實現損益 ${accountingNumber(row['unrealized_pnl'], missing: '資料不足')} · 未實現報酬 ${portfolioReturnLabel(row['unrealized_return'])}\n${row['valuation_kind'] == 'intraday' ? 'MIS 成交價估值 · 報價 ${row['quote_at'] ?? '等待成交'} · 成本批次日' : '估值日'} ${row['valuation_date'] ?? '—'} · 行情日 ${row['price_date'] ?? '—'} · ${row['price_status'] == 'missing' ? '缺價' : row['price_status'] == 'stale' ? '資料過期' : '可用'}${portfolioMissingReasonLabel(row['missing_reason']).isEmpty ? '' : ' · ${portfolioMissingReasonLabel(row['missing_reason'])}'}${row['identity_status'] == 'missing' ? ' · 名稱資料不完整：${portfolioMissingReasonLabel(row['identity_missing_reason'])}' : ''}'),
                   isThreeLine: true,
                 )))
         ]),
@@ -1461,7 +1488,7 @@ class _JournalNotesPageState extends State<JournalNotesPage>
         SummaryCards(widget.api,
             revision: summaryRevision,
             quoteStale: section == 0 && quoteError != null,
-            intraday: section == 0 ? intraday : null),
+            intraday: section == 0 ? intraday ?? {'items': []} : null),
         Padding(
             padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
             child: SegmentedButton<int>(
@@ -1594,7 +1621,7 @@ class _SummaryCardsState extends State<SummaryCards> {
             Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(widget.intraday != null
-                    ? 'MIS 盤中估值 · ${widget.intraday!['checked_at'].toString().split('.').first.replaceFirst('T', ' ')} · $valuationStatus'
+                    ? 'MIS 成交價估值 · ${widget.intraday!['checked_at'].toString().split('.').first.replaceFirst('T', ' ')} · $valuationStatus'
                     : '估值日期：${portfolio.map((row) => row['valuation_date']).toSet().join(' / ')} · $valuationStatus'))
         ]);
       });

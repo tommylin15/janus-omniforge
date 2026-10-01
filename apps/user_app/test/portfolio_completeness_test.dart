@@ -7,7 +7,18 @@ class PortfolioFakeApi extends Api {
   final Map<String, dynamic> values;
 
   @override
-  Future<dynamic> get(String path) async => values[path] ?? const [];
+  Future<dynamic> get(String path) async {
+    if (path == '/api/v1/me/portfolio/quotes') {
+      return {
+        'positions': values['/api/v1/me/journal/positions'] ?? [],
+        'items':
+            (values['/api/v1/me/portfolio/summary'] as Map?)?['items'] ?? [],
+        'checked_at': '2026-09-26T14:00:00+08:00',
+        'market_open': false
+      };
+    }
+    return values[path] ?? const [];
+  }
 
   @override
   Future<dynamic> put(String path, Map<String, dynamic> body) async =>
@@ -193,7 +204,8 @@ void main() {
     expect(find.text('買進 · 台積電（2330）'), findsOneWidget);
   });
 
-  testWidgets('withheld aggregate never renders a partial total', (tester) async {
+  testWidgets('withheld aggregate never renders a partial total',
+      (tester) async {
     final year = DateTime.now().year;
     final api = PortfolioFakeApi({
       '/api/v1/me/portfolio/summary': withheldSummary(),
@@ -201,7 +213,8 @@ void main() {
       '/api/v1/me/notes': const [],
     });
 
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: SummaryCards(api))));
+    await tester
+        .pumpWidget(MaterialApp(home: Scaffold(body: SummaryCards(api))));
     await tester.pumpAndSettle();
 
     expect(find.text('總額暫不發布'), findsWidgets);

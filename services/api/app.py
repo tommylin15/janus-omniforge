@@ -531,7 +531,18 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         except Exception as error:
             LOGGER.warning("intraday quotes unavailable: %s", type(error).__name__)
             raise HTTPException(status_code=503, detail="盤中報價暫時無法使用；保留最後資料，請查看報價時間") from error
-        return jsonable_encoder(value_holdings(rows, prices))
+        result = value_holdings(rows, prices)
+        if not rows or getattr(quotes, 'market_date', None) != result['checked_at'][:10].replace('-', ''):
+            result['market_open'] = False
+        if result['market_open']:
+            try:
+                schedule = admin_service.setting('schedule').get('value') or {}
+                holidays = set(schedule.get('holiday_overrides', [])) | set(os.getenv('MARKET_HOLIDAYS', '').split(','))
+                result['market_open'] = result['checked_at'][:10] not in holidays
+            except Exception as error:
+                LOGGER.warning('quote calendar unavailable: %s', type(error).__name__)
+                result['market_open'] = False
+        return jsonable_encoder(result)
 
     @private.get("/journal/pnl")
     def pnl(year:int=Query(...,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):

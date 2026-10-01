@@ -7,6 +7,7 @@ class QuotesApi extends Api {
   int calls = 0;
   bool fail = false;
   bool stale = false;
+  bool marketOpen = true;
   @override
   Future<dynamic> get(String path) async {
     if (path == '/api/v1/me/portfolio/quotes') {
@@ -40,7 +41,8 @@ class QuotesApi extends Api {
             'valuation_date': '2026-10-01'
           }
         ],
-        'checked_at': '2026-10-01T10:00:00+08:00'
+        'checked_at': '2026-10-01T10:00:00+08:00',
+        'market_open': marketOpen
       };
     }
     return path.contains('/summary') ? {'items': []} : [];
@@ -56,6 +58,22 @@ class SlowSummaryApi extends QuotesApi {
 }
 
 void main() {
+  testWidgets('after hours fetches once on entry and permits manual refresh',
+      (tester) async {
+    final api = QuotesApi()..marketOpen = false;
+    await tester.pumpWidget(MaterialApp(
+        home: JournalNotesPage(api, now: () => DateTime.utc(2026, 10, 1, 6))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('持股'));
+    await tester.pumpAndSettle();
+    expect(api.calls, 1);
+    await tester.pump(const Duration(minutes: 2));
+    expect(api.calls, 1);
+    await tester.tap(find.text('更新即時報價'));
+    await tester.pumpAndSettle();
+    expect(api.calls, 2);
+    await tester.pumpWidget(const SizedBox());
+  });
   testWidgets('summary accepts a slow successful cold-start response',
       (tester) async {
     await tester.pumpWidget(MaterialApp(home: SummaryCards(SlowSummaryApi())));
@@ -87,7 +105,8 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final api = QuotesApi();
-    await tester.pumpWidget(MaterialApp(home: JournalNotesPage(api)));
+    await tester.pumpWidget(MaterialApp(
+        home: JournalNotesPage(api, now: () => DateTime.utc(2026, 10, 1, 2))));
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 60));
     expect(api.calls, 0);

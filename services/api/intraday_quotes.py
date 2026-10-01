@@ -16,6 +16,7 @@ class MisQuotes:
         self.lock = Lock()
         self.cache = {}
         self.next_fetch = 0.0
+        self.market_date = None
 
     def prices(self, identities):
         if os.getenv('JANUS_MIS_QUOTES_ENABLED', 'false').lower() != 'true':
@@ -39,6 +40,7 @@ class MisQuotes:
                     payload = json.load(response)
                 if payload.get('rtcode') != '0000' or not isinstance(payload.get('msgArray'), list):
                     raise ValueError('MIS quote response unavailable')
+                self.market_date = max((str(row.get('d', '')) for row in payload['msgArray']), default='')
                 for row in payload['msgArray']:
                     symbol = str(row.get('c', ''))
                     if symbol not in channels or str(row.get('ex', '')) + '_' + symbol + '.tw' != channels[symbol]:
@@ -60,6 +62,8 @@ class MisQuotes:
 
 def value_holdings(positions, quotes, now=None):
     now = now or datetime.now(TAIPEI)
+    local = now.astimezone(TAIPEI)
+    market_open = local.weekday() < 5 and 540 <= local.hour * 60 + local.minute < 810
     rows, totals = [], {}
     for position in positions:
         row = dict(position)
@@ -98,4 +102,5 @@ def value_holdings(positions, quotes, now=None):
                           'aggregate_status': 'withheld' if missing else 'stale' if affected else 'available',
                           'affected_symbol_count': len(affected), 'valuation_date': now.date().isoformat(),
                           'valuation_kind': 'intraday'})
-    return {'positions': rows, 'items': summaries, 'source': 'twse_mis', 'checked_at': now.isoformat()}
+    return {'positions': rows, 'items': summaries, 'source': 'twse_mis', 'checked_at': now.isoformat(),
+            'market_open': market_open}
