@@ -1,9 +1,11 @@
 {
-  "schema_version": "janus.research.big-move.prospective-contract.v1",
+  "schema_version": "janus.research.big-move.prospective-contract.v1.1",
   "status": "FROZEN",
   "frozen_at": "2026-10-01",
+  "clarified_pre_outcome_at": "2026-10-01",
   "historical_cutoff_inclusive": "2026-09-16",
   "prospective_observation_start": "2026-09-17",
+  "pv1_observation_end_inclusive": "2026-12-31",
   "research_track": "big-move-cloud-cohort-500",
   "purpose": "prospective new-data replication of the already frozen antecedent score; no retuning during the prospective window",
   "panels": {
@@ -16,7 +18,14 @@
       "size": 500,
       "stock_overlap_with_primary": 0
     },
+    "replacement_allowed": false,
     "score_ranking_rule": "rank separately within each frozen 500-stock panel on the same T; pooled-1000 metrics are auxiliary only"
+  },
+  "observation_calendar": {
+    "sampling_rule": "calendar is clipped to the frozen prospective start, then the historical weekly_first_trading_days implementation is reused; the first realized T is 2026-09-17",
+    "pv1_window": "2026-09-17 through 2026-12-31 inclusive",
+    "outcome_driven_date_add_remove_allowed": false,
+    "future_calendar_dates": "pending realization; never pre-impute a trading day"
   },
   "score": {
     "features_in_order": [
@@ -35,18 +44,35 @@
     "aggregation": "equal-weight arithmetic mean",
     "minimum_available_features": 6,
     "information_cutoff": "T close or earlier only",
-    "evaluation_bands": [0.9, 0.8, 0.7],
+    "evaluation_bands": {
+      "S90": 0.9,
+      "S80": 0.8,
+      "S70": 0.7
+    },
+    "historical_display_alias_only": {
+      "Top10": "S90",
+      "Top20": "S80",
+      "Top30": "S70"
+    },
+    "empirical_prospective_quantile_recalibration_allowed": false,
     "retuning_allowed": false
   },
   "outcome": {
     "entry": "next normal stock trading day open after T; no jumping if missing/untradeable",
     "primary_horizon_trading_days": 60,
     "mfe_formula": "max(high E..H60) / entry_open - 1",
-    "event_seed": "exact top 10% of valid H60 MFE observations within each frozen panel",
+    "event_seed": "exact top 10% of valid H60 MFE observations within each frozen panel and the fixed PV1 observation window only",
+    "event_seed_threshold_timing": "compute only after the full PV1 window is mature or deterministically excluded/unknown; no provisional threshold",
     "eventization_gap_trading_days": 7,
     "event_anchor": "earliest T in transitive G7 seed component",
     "corporate_action_rule": "fail-closed exclusion for action within T..H60 using official evidence",
     "maturity_rule": "observation remains pending_maturity until entry plus complete 60 stock trading days and corporate-action evidence are available"
+  },
+  "registry": {
+    "pre_outcome_registry": "immutable by row hash; feature/rank/score/provenance only; must exist before H60 maturity; corrections are append-only superseding revisions",
+    "maturity_outcome_ledger": "separate append-only ledger linked by registry row hash",
+    "forbidden_pre_outcome_fields": ["mfe60", "future_return", "event_seed", "wave_event", "event_rate", "lift", "capture", "h60_label"],
+    "late_materialization_primary_acceptance_allowed": false
   },
   "prospective_governance": {
     "no_peeking_retune": true,
@@ -59,6 +85,21 @@
     "missing_policy": "missing or unresolved official evidence remains unknown/pending; never impute canonical facts",
     "canonical_publication_allowed": false
   },
+  "acceptance": {
+    "evaluation_timing": "after full frozen PV1 window maturity plus DQ/lineage/no-peeking acceptance",
+    "primary_panel": {
+      "S90_lift_gt": 1.0,
+      "score_decile_event_rate_spearman_gt": 0.0
+    },
+    "independent_panel": {
+      "S90_lift_gt": 1.0,
+      "score_decile_event_rate_spearman_gt": 0.0
+    },
+    "cross_panel_confirmation_requires_both_panels": true,
+    "S80_S70_lift_capture_and_decile_rates": "report fully but do not promote to primary gate after outcomes are visible",
+    "insufficient_data_semantics": "PENDING_MATURITY or INSUFFICIENT_DATA; never package as PASS or forced FAIL",
+    "failed_directional_confirmation_semantics": "NOT_CONFIRMED; retuned results cannot reuse the same blind PV1 label"
+  },
   "metrics": [
     "eligible_count",
     "mature_count",
@@ -66,16 +107,15 @@
     "unknown_or_excluded_count",
     "baseline_event_rate",
     "score_decile_event_rate",
-    "top10_lift",
-    "top20_lift",
-    "top30_lift",
-    "top10_capture",
-    "top20_capture",
-    "top30_capture",
+    "S90_lift",
+    "S80_lift",
+    "S70_lift",
+    "S90_capture",
+    "S80_capture",
+    "S70_capture",
     "decile_event_rate_spearman",
     "panel_and_calendar_period_slices"
   ],
-  "acceptance_not_evaluated_until": "sufficient post-2026-09-16 observations have fully matured through H60; no early pass/fail claim",
   "current_state": "PENDING_MATURITY",
   "isolation": {
     "postgresql_allowed": false,
