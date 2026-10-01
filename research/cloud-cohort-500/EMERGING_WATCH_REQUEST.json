@@ -1,0 +1,13 @@
+{
+  "schema_version": "janus.research.big-move.emerging-feature-watch-request.v1",
+  "action": "export_emerging_feature_watch",
+  "request_id": "pv1-emerging-feature-watch-20261001-01",
+  "research_track": "big-move-cloud-cohort-500",
+  "watch_horizon_end": "2026-12-31",
+  "minimum_available_features": 6,
+  "minimum_latest_score": 0.65,
+  "minimum_observation_count": 3,
+  "outcome_evaluation_allowed": false,
+  "event_label_materialization_allowed": false,
+  "canonical_publication_allowed": false
+}
