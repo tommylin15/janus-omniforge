@@ -1,7 +1,7 @@
 {
   "schema_version": "janus.research.cloud-cohort-500.validation-request.v1",
   "action": "validate_antecedent_score",
-  "request_id": "antecedent-validation-20261001-01",
+  "request_id": "antecedent-validation-20261001-02-spearman-fix",
   "research_track": "big-move-cloud-cohort-500",
   "cohort_size": 500,
   "market": "TWSE",
