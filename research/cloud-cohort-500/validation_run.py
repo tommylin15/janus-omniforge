@@ -89,7 +89,9 @@ def _metrics(q: pd.DataFrame) -> dict[str, Any]:
     tab=d.groupby('score_decile',as_index=False).agg(n=('is_event','size'),events=('is_event','sum'))
     tab['event_rate']=tab['events']/tab['n']
     if len(tab)>=3 and tab['event_rate'].nunique()>1:
-        out['decile_event_rate_spearman']=float(tab['score_decile'].corr(tab['event_rate'],method='spearman'))
+        xr=tab['score_decile'].rank(method='average').to_numpy(dtype=float)
+        yr=tab['event_rate'].rank(method='average').to_numpy(dtype=float)
+        out['decile_event_rate_spearman']=float(np.corrcoef(xr,yr)[0,1]) if np.std(xr)>0 and np.std(yr)>0 else None
     else:
         out['decile_event_rate_spearman']=None
     return out
