@@ -1,5 +1,5 @@
 {
-  "schema_version": "janus.research.big-move.pre-outcome-screen.v1",
+  "schema_version": "janus.research.big-move.pre-outcome-screen.v1.1",
   "status": "FROZEN_RESEARCH_ONLY",
   "frozen_at": "2026-10-01",
   "research_track": "big-move-cloud-cohort-500",
@@ -27,6 +27,9 @@
     "stock_identity_allowed": true,
     "composite_score_allowed": true,
     "feature_availability_allowed": true,
+    "feature_raw_value_allowed": true,
+    "feature_oriented_percentile_rank_allowed": true,
+    "feature_equal_weight_contribution_allowed": true,
     "tier_allowed": true,
     "mfe60_forbidden": true,
     "event_seed_forbidden": true,
@@ -39,12 +42,19 @@
     "canonical_signal_publication_allowed": false,
     "trading_recommendation_semantics": false
   },
+  "attribution_semantics": {
+    "oriented_rank": "same-T panel-separated percentile rank after frozen direction orientation; larger means stronger antecedent alignment",
+    "equal_weight_contribution": "oriented_rank / available_feature_count for that row; contributions sum to composite_score subject to floating-point precision",
+    "major_drivers": "highest equal_weight_contribution among available frozen features",
+    "raw_feature_values_do_not_change_score_direction_or_weight": true
+  },
   "governance": {
     "screen_is_not_part_of_pv1_acceptance": true,
     "screen_cannot_change_frozen_score": true,
     "screen_cannot_change_observation_calendar": true,
     "screen_cannot_reselect_panel_membership": true,
     "screen_cannot_use_future_or_h60_information": true,
+    "feature_attribution_is_explanatory_only": true,
     "screen_output_must_be_labeled_research_only_pre_outcome": true
   }
 }
