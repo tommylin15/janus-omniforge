@@ -131,6 +131,10 @@ def main() -> int:
             import prospective_registry_run
             result = prospective_registry_run.run(request, bucket, prefix, run_id)
             gcs_put_json(bucket, f"{prefix}/executions/{run_id}/prospective_registry_result.json", result, token)
+        elif action == "extend_prospective_registry":
+            import prospective_extend_run
+            result = prospective_extend_run.run(request, bucket, prefix, run_id)
+            gcs_put_json(bucket, f"{prefix}/executions/{run_id}/prospective_extension_result.json", result, token)
         else:
             raise RuntimeError(f"unsupported Cloud Run research action: {action!r}")
     except Exception as exc:
