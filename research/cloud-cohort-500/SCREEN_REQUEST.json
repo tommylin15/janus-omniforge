@@ -1,7 +1,7 @@
 {
-  "schema_version": "janus.research.big-move.pre-outcome-screen-request.v1",
+  "schema_version": "janus.research.big-move.pre-outcome-screen-request.v1.1",
   "action": "export_pre_outcome_screen",
-  "request_id": "pv1-pre-outcome-screen-20261001-01",
+  "request_id": "pv1-pre-outcome-screen-20261001-02-attribution",
   "research_track": "big-move-cloud-cohort-500",
   "latest_observation_only": true,
   "minimum_available_features": 6,
