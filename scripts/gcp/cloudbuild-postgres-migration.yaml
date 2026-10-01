@@ -43,7 +43,18 @@ steps:
         gcloud compute ssh "${_POSTGRES_VM}" --project="${PROJECT_ID}" --zone="${_POSTGRES_ZONE}" \
           --tunnel-through-iap --quiet --command \
           "sudo bash /tmp/apply-web-postgres-migration.sh '${_POSTGRES_IMAGE}' apply file /tmp/janus-web-credentials-build"
-        echo "PostgreSQL dev migration completed."
+
+        # Apply the additive Mart AI target projection inside the same canonical
+        # dev PostgreSQL migration controller. No new database identity or
+        # external resource is created.
+        gcloud compute ssh "${_POSTGRES_VM}" --project="${PROJECT_ID}" --zone="${_POSTGRES_ZONE}" \
+          --tunnel-through-iap --quiet --command \
+          "sudo docker exec --user postgres janus-postgres psql -U postgres -d janus_control -v ON_ERROR_STOP=1 -f /opt/janus/migrations/036_mart_ai_targets.sql"
+        privilege_check="$(gcloud compute ssh "${_POSTGRES_VM}" --project="${PROJECT_ID}" --zone="${_POSTGRES_ZONE}" \
+          --tunnel-through-iap --quiet --command \
+          "sudo docker exec --user postgres janus-postgres psql -U postgres -d janus_control -Atqc \"SELECT EXISTS (SELECT 1 FROM control.schema_migrations WHERE version='036_mart_ai_targets'),has_schema_privilege('janus_mart_publication','control','USAGE'),has_function_privilege('janus_mart_publication','control.mart_ai_target_symbols(date)','EXECUTE'),has_table_privilege('janus_mart_publication','control.mart_ai_target_history','SELECT'),has_table_privilege('janus_mart_publication','control.mart_ai_target_history_meta','SELECT'),has_table_privilege('janus_mart_publication','private.watchlist','SELECT'),has_table_privilege('janus_mart_publication','private.ledger_events','SELECT');\"")"
+        test "${privilege_check}" = "t|t|t|t|t|f|f"
+        echo "PostgreSQL dev migration completed; Mart AI target projection reads de-identified control history without direct private-table SELECT."
 
 availableSecrets:
   secretManager:
