@@ -11,6 +11,10 @@ DB trigger／ACL rollback 驗收通過。尚缺跨 Job auth 續期保存／rotat
 整合；五次核准額度已使用，不啟用自然 AI 批次或新增 paid API／IAM。完整 evidence、失敗記錄與
 下一入口見 [partial checkpoint](../archive/wbs-5-mart-ai-providers-checkpoint-2026-10-01.md)。
 
+首次 GCS dispatch 的 404 處理追補為 `f6f25d1`；最終 dev run `36817064364` 98 tests／deploy／
+verify success，Job SHA／Ready 與 digest 已獨立核對，無模型 smoke `janus-intelligence-mart-wn52s`
+完成。未追加 provider calls；自然 AI 批次保持未啟用。
+
 ## WBS-5 Mart v1 additive compatibility 最新結論（2026-10-01）
 
 `WBS-5-MART-V2-COMPAT` 已完成。既有 `mart.v1` 保持 canonical，獨立 sidecar 綁定 AI references，不改 report／publication／舊 consumer。Commit `b787686`：本機相關 tests 96 passed；canonical dev run `36810205260` Linux tests 96 passed、deploy／verify success。Job Ready／Git SHA／immutable digest 已獨立核對；bounded execution `janus-intelligence-mart-mfg8c` 成功，真實 pinned report／Gate 4 artifacts 的 sidecar 保存與獨立 11-object hash／lineage readback 通過。原 manifest／metadata／report 保持不變；provider_calls=0、publication_writes=0、five_role_success=false，未切換 mart.v2，不代表 provider／自然 daily workload 完成。完整 hashes／execution／測試限制見 [結案紀錄](../archive/wbs-5-mart-v2-compat-2026-10-01.md)。

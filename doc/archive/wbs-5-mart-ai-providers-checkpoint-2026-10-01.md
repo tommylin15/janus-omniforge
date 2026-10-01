@@ -12,6 +12,11 @@ Secret bundle、先驗收最多一股×五角色且每角色一次，不啟用�
 - 本機完整相關驗證 **95 passed／3 deselected**（Windows 不跑 Linux process tests）；
   canonical dev workflow `36813262424` **98 passed**、deploy／verify success。
 - Job Ready；image digest `sha256:277511581df4fbb0bf7622c466d6447566f83c717ed1babca56229e2f9c4155a`。
+- 追補首次 GCS dispatch 的 HTTP 404 處理及真實 target rollback 驗收後，最終 code commit
+  `f6f25d1f60dc0ccbae4d4d30288d66c42df9abd9`，canonical dev run `36817064364`
+  98 tests／deploy／verify success；Job SHA／Ready 獨立核對，digest
+  `sha256:6d2e201e58f870b71987541ede3b1b0a3375b76a8fc6c01a7c766c065514237e`。
+  無模型 smoke `janus-intelligence-mart-wn52s` 完成；未追加 model calls。
 - 原 preflight `janus-intelligence-mart-vk4n5` 為 `blocked/auth_required`，無模型呼叫。
   使用者授權後，既有 `janus-runtime-bundle` 從 version 2 新增 version 3；只保存安全版本 metadata。
   Auth 內容經 stdin 傳輸，不進 repository、argv、log 或 artifact。未變更 IAM。

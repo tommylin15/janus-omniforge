@@ -70,8 +70,9 @@
 
 ### 5.4 LLM
 
-- Current implementation：公開批次 Mart 只有可選 Gemini narrator；OpenRouter／Gemini／Codex
-  通用助理 runtime 歸 omniAgent，不是 Mart provider。這些現況不得寫成已完成五角色 AI。
+- Canonical Mart facts 與可選 narrator 維持原邊界；五角色 Codex CLI provider 為獨立 additive
+  stage。其整體完成狀態依 TODO／runtime evidence 判定，不由 wrapper 存在推定完成。
+  OpenRouter／Gemini／Codex 通用助理 runtime 歸 omniAgent，不是 Mart provider。
 - Active planning：依 [GCP 批次研究契約](../spec/intelligence-and-governance.md#gcp-批次-codex-分析師研究路線active-planning尚未實作)，
   既有 GCP Mart 批次自行啟動五個獨立 Codex CLI role invocation，先採 bounded／可序列化
   worker wrapper；必要時才評估具體 ChatGPT worker bridge。CLI 優先，Gemini／OpenRouter
