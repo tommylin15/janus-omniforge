@@ -1,5 +1,16 @@
 # Operations and testing
 
+## WBS-5 Mart AI Providers 最新結論（2026-10-01）
+
+`WBS-5-MART-AI-PROVIDERS` 維持 **partial**。`ec8fdce` 的 canonical dev run `36813262424`
+98 tests／deploy／verify success；使用者已授權初始帳號資格保存與單股五次驗收。GCP execution
+`janus-intelligence-mart-l79st` 固定 `gpt-6.1-sol`／`low`、每角色一次、task 無 retry；五個 CLI
+outputs 均 schema 合格，3 validated／insufficient_data、2 blocked（claim coverage／numeric grounding），
+17-object 獨立 hash／lineage readback 通過，`five_role_success=false`。Migration 036 與九類真實
+DB trigger／ACL rollback 驗收通過。尚缺跨 Job auth 續期保存／rotation、target 與 provider 同 execution
+整合；五次核准額度已使用，不啟用自然 AI 批次或新增 paid API／IAM。完整 evidence、失敗記錄與
+下一入口見 [partial checkpoint](../archive/wbs-5-mart-ai-providers-checkpoint-2026-10-01.md)。
+
 ## WBS-5 Mart v1 additive compatibility 最新結論（2026-10-01）
 
 `WBS-5-MART-V2-COMPAT` 已完成。既有 `mart.v1` 保持 canonical，獨立 sidecar 綁定 AI references，不改 report／publication／舊 consumer。Commit `b787686`：本機相關 tests 96 passed；canonical dev run `36810205260` Linux tests 96 passed、deploy／verify success。Job Ready／Git SHA／immutable digest 已獨立核對；bounded execution `janus-intelligence-mart-mfg8c` 成功，真實 pinned report／Gate 4 artifacts 的 sidecar 保存與獨立 11-object hash／lineage readback 通過。原 manifest／metadata／report 保持不變；provider_calls=0、publication_writes=0、five_role_success=false，未切換 mart.v2，不代表 provider／自然 daily workload 完成。完整 hashes／execution／測試限制見 [結案紀錄](../archive/wbs-5-mart-v2-compat-2026-10-01.md)。

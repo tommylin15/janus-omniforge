@@ -192,11 +192,17 @@ def test_worker_auth_and_diagnostics_fail_closed(tmp_path, monkeypatch):
 
 def test_blocked_provider_persists_five_failures_and_replays_without_calls(monkeypatch):
     from test_intelligence_mart_pipeline import report
+    from urllib.error import HTTPError
     source = report()
     execution = type("Execution", (), {"execution_id": source["execution_id"],
         "core_snapshot_id": source["core_snapshot_id"],
         "request_options": {"analysis_as_of": source["analysis_as_of"]}})()
-    store = MemoryStore()
+    class GcsMemoryStore(MemoryStore):
+        def read(self, name):
+            if name not in self.objects:
+                raise HTTPError("https://storage.googleapis.com", 404, "missing", {}, None)
+            return super().read(name)
+    store = GcsMemoryStore()
     monkeypatch.setenv("MART_AI_ENABLED", "true"); monkeypatch.setenv("MART_BUCKET", "mart-bucket")
     monkeypatch.delenv("MART_AI_FALLBACK_PROVIDER", raising=False)
     monkeypatch.delenv("MART_CODEX_AUTH_JSON", raising=False); monkeypatch.delenv("CODEX_ACCESS_TOKEN", raising=False)

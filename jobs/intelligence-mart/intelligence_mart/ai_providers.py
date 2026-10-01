@@ -6,6 +6,7 @@ from hashlib import sha256
 import json
 import os
 from typing import Any, Callable
+from urllib.error import HTTPError
 
 from .ai_contract import ROLE_WEIGHTS, content_hash, interpretation_artifact, save_interpretation
 from .ai_targets import load_or_create_target_snapshot
@@ -65,7 +66,10 @@ def run_ai_provider_stage(execution: Any, publication_connection: Any, *, store_
     if not bucket or "/" in bucket: raise ValueError("MART_BUCKET is required")
     store = store_factory(bucket); manifest_name = f"executions/{execution.execution_id}/ai-provider-manifest.json"
     try: existing = json.loads(store.read(manifest_name))
-    except FileNotFoundError: existing = None
+    except (FileNotFoundError, HTTPError) as error:
+        if isinstance(error, HTTPError) and error.code != 404:
+            raise
+        existing = None
     if existing is not None:
         if (existing.get("execution_id") != execution.execution_id or
             existing.get("analysis_as_of") != execution.request_options["analysis_as_of"] or

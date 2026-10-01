@@ -32,7 +32,7 @@
 
 依 [`todo.md`](todo.md) 以整個 WBS 作為工作／驗收單位；遇到 blocker 時先推進其餘安全且獨立的條件。目前：
 
-1. **`WBS-5-MART-V2-COMPAT` 已結案。** v1 additive sidecar、96 項 Linux CI、既有 dev deployment／smoke、真實 pinned report／artifact acceptance 與獨立 11-object readback 通過；詳見 [結案紀錄](archive/wbs-5-mart-v2-compat-2026-10-01.md)。下一項建議 `WBS-5-MART-AI-PROVIDERS`（Sol）；開始前重新核對 dependency 與模型 gate，不自動開工。Compatibility 完成不代表五角色已開始每日工作。
+1. **`WBS-5-MART-AI-PROVIDERS` 目前 partial。** Sol 閘門及單股五次呼叫已核准，GCP 固定 `gpt-6.1-sol`／`low` 的五角色輸出、17-object readback 與九類 DB 投影驗收通過；validator 3 validated／insufficient_data、2 blocked，未完整成功。跨批次 auth 續期保存與 target/provider 同 execution 驗收仍待安全／新增 bounded quota 決策；詳見 [checkpoint](archive/wbs-5-mart-ai-providers-checkpoint-2026-10-01.md)。前項 [v1 compatibility](archive/wbs-5-mart-v2-compat-2026-10-01.md) 已結案，自然每日 AI 批次仍未啟用。
 2. **`WBS-6-PORTFOLIO-INTRADAY-QUOTE` 已完成。** 2026-10-01 使用已核准 MIS 路徑完成持股盤中／盤後報價、既有 dev 部署與 authenticated UI／30 秒前景更新驗收；詳見 [MIS 結案紀錄](archive/wbs-6-portfolio-intraday-quote-2026-10-01.md)。舊 Shioaji blocker 不再代表本 WBS 狀態；休市日曆仍需維護，MIS 快取非持久化。
 
 使用者 2026-09-30 已將 Codex 五分析師研究路線納入 active planning：**GCP 既有批次自主

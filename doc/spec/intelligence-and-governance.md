@@ -6,8 +6,9 @@
 payload、五份 deterministic Fact Pack、evidence 與 aggregate；`runtime.py` 以 immutable Core snapshot 執行
  確定性 Mart，`gemini.py` 只提供可選的單一 Gemini 證據限定解說器。
 通用 OpenRouter／Gemini／Codex runtime 屬 omniAgent，不是 Janus Mart provider。五個獨立 AI
-分析角色的 provider 執行、CIO 綜合分析、其確定性語意驗證器、分析設定檔、內容定址重用與 Flutter
-Admin AI 分析設定工作區尚未實作；除下述已實作 contract 外，其餘下一版能力仍為**規劃中**。
+分析角色已有 Codex CLI wrapper／provider orchestration 與 provider-neutral validator；GCP
+完整 target／provider 整合與 auth lifecycle 尚待驗收。CIO 綜合分析、分析設定檔、內容定址重用與
+Flutter Admin AI 分析設定工作區仍為**規劃中**。
 
 下一版核准架構為：
 
@@ -32,6 +33,8 @@ WBS 規劃，以 GCP 批次自行執行為目標，不把規劃更新寫成 runt
   Bridge 必須證明 GCP 可達、auth、dispatch、cancel 與結果回收，不以人工貼 prompt／
   ChatGPT 網頁操作充當批次。CLI／bridge 與 OpenAI API 是不同 transport，不自動改用 API。
 - Codex 為 primary；Gemini／OpenRouter 只作已核准、profile 明列順序與條件的受控 fallback。
+  使用者尚未選定模型前，預設 `gpt-6.1-sol`＋`low`（輕）；之後依使用者選定的 profile 執行。
+  Admin 須提供官方重新授權入口與該帳號最新可用模型清單；不得在 Admin 接收原始資格。
   Primary bounded retry 用盡或回 structured unavailable 後才可 fallback；輸出 validation
   失敗不得靠換 provider 繞過 validator。保存每次 attempt、failure、fallback reason 與實際
   provider／transport／model，禁止 silent fallback；沒有合格 fallback 時 fail closed。
@@ -63,6 +66,8 @@ validator／artifact readback、cold-start auth 與 failure／fallback／cancel 
 本機 CLI 成功、人工觸發成功或五個 schema fixtures 都不能替代 GCP 自主批次驗收；
 自然每日運行仍由 Gate 6 額外證明。研究可行性以實測判定，本次文件對齊不以官網聲明
 作為可行性結論；後續 implementation 仍須模型確認與現有成本／安全 gate。
+
+受控 dev 驗收與未完成 auth lifecycle 的操作限制見 [provider runbook](../runbook-mart-ai-providers.md)。
 
 ### 五角色個股批次範圍（Active planning；尚未接線）
 

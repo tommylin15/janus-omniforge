@@ -99,6 +99,7 @@ worker 真實整合。每項重新走模型閘門；不把 Gate 4／compatibilit
 
 - [ ] 【Sol】 `WBS-5-MART-AI-PROVIDERS`：GCP 既有 Mart 批次自主啟動五個獨立 Codex CLI workers（primary；必要 bridge 須具體介面驗證）、初始授權後 headless dispatch／cold-start auth／續期、role workspace 隔離、capability／參數、timeout／process-tree cancel／退出碼／bounded retry；Gemini／OpenRouter 只作 profile 核准 fallback，保存 attempt／reason／transport／model。以 GCP dev 真實五角色 artifact／validator readback 驗收，不以本機 CLI 或人工 ChatGPT 操作替代；secret redaction、quota／cost／billing gate 保留，失敗 fail closed。
 - [ ] 【Sol】 同一 `WBS-5-MART-AI-PROVIDERS` 整體 acceptance：接線關注＋持股 immutable target 聯集，驗收 watch-only／held-only／重疊去重、多使用者、持股離榜、取消關注／清倉、as-of replay、quota／missing-data honesty 與 private isolation；不另開與五角色批次脫節的 implementation。
+- 2026-10-01 **partial**：GCP `gpt-6.1-sol`＋`low` 五次真實 CLI 輸出、17-object readback 與九類 DB 投影驗收通過；validator 3 validated／insufficient_data、2 blocked。五次核准額度已使用，auth 跨批次續期保存與 target/provider 同 execution 整合仍待安全／有界 quota 決策。詳見 [checkpoint](archive/wbs-5-mart-ai-providers-checkpoint-2026-10-01.md)。
 - [ ] 【Sol】 `WBS-5-MART-CIO-SYNTHESIS`：validated roles only、CIO synthesis／validator、無 publication authority；publication 仍由 deterministic governance 決定。
 - [ ] 【Sol】 `WBS-5-MART-RERUN-CACHE`：single-role rerun、dependency invalidation、content-addressed reuse、immutable artifact lineage；prompt/model 不重算 facts、governance-only 不呼叫 LLM、reuse 有 audit。
 
