@@ -80,19 +80,22 @@ def value_holdings(positions, quotes, now=None):
                    missing_reason=None if fresh else 'intraday_quote_stale' if quote else 'intraday_quote_missing', price_source='twse_mis', valuation_kind='intraday')
         rows.append(row)
         total = totals.setdefault(row['currency'], {'currency': row['currency'], 'market_value': Decimal(0),
-                                                    'cost_basis': Decimal(0), 'affected_symbols': []})
+                                                    'cost_basis': Decimal(0), 'affected_symbols': [],
+                                                    'missing_price_count': 0, 'stale_price_count': 0})
         total['cost_basis'] += cost
         if not fresh:
             total['affected_symbols'].append(row['symbol'])
-        elif value is not None:
+            total['missing_price_count' if not quote else 'stale_price_count'] += 1
+        if value is not None:
             total['market_value'] += value
     summaries = []
     for total in totals.values():
         cost, value, affected = total['cost_basis'], total['market_value'], total['affected_symbols']
-        summaries.append({**total, 'cost_basis': str(cost), 'market_value': None if affected else str(value),
-                          'unrealized_pnl': None if affected else str(value-cost),
-                          'unrealized_return': None if affected or not cost else str((value-cost)/cost),
-                          'aggregate_status': 'withheld' if affected else 'available',
+        missing = total['missing_price_count'] > 0
+        summaries.append({**total, 'cost_basis': str(cost), 'market_value': None if missing else str(value),
+                          'unrealized_pnl': None if missing else str(value-cost),
+                          'unrealized_return': None if missing or not cost else str((value-cost)/cost),
+                          'aggregate_status': 'withheld' if missing else 'stale' if affected else 'available',
                           'affected_symbol_count': len(affected), 'valuation_date': now.date().isoformat(),
                           'valuation_kind': 'intraday'})
     return {'positions': rows, 'items': summaries, 'source': 'twse_mis', 'checked_at': now.isoformat()}

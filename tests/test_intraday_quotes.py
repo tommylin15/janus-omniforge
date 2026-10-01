@@ -18,12 +18,17 @@ def test_decimal_values_missing_stale_and_canonical_snapshot_unchanged():
     assert result['items'][0]['market_value'] == '125065.90'
     assert rows[0]['market_price'] == '90'
     quotes['2330']['quote_at'] = (now-timedelta(seconds=121)).isoformat()
-    assert value_holdings(rows, quotes, now)['items'][0]['market_value'] is None
+    stale = value_holdings(rows, quotes, now)['items'][0]
+    assert stale['market_value'] == '125065.90'
+    assert stale['unrealized_pnl'] == '1357.40'
+    assert stale['aggregate_status'] == 'stale'
+    assert stale['stale_price_count'] == 1
     assert value_holdings(rows, quotes, now)['positions'][0]['price_status'] == 'stale'
     assert value_holdings(rows, {}, now)['positions'][0]['price_status'] == 'missing'
     mixed = rows + [{'symbol':'6488', 'currency':'TWD', 'shares':'1', 'average_cost':'5'}]
     quotes['2330']['quote_at'] = now.isoformat()
     assert value_holdings(mixed, quotes, now)['items'][0]['affected_symbols'] == ['6488']
+    assert value_holdings(mixed, quotes, now)['items'][0]['market_value'] is None
 
 
 def test_mis_batches_exchanges_uses_trade_not_asks_and_throttles_manual_clicks(monkeypatch):

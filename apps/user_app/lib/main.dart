@@ -42,16 +42,22 @@ String stockDisplayName(Map row) {
   return name.isEmpty ? symbol : '$name（$symbol）';
 }
 
-String accountingNumber(Object? value, {String missing = '—'}) {
+String accountingNumber(Object? value,
+    {String missing = '—', int decimals = 0}) {
   if (value == null) return missing;
   final match = RegExp(r'^([+-]?)(\d+)(?:\.(\d+))?$').firstMatch('$value');
   if (match == null) return missing;
-  var whole = BigInt.parse(match[2]!);
-  final fraction = match[3] ?? '';
-  if (fraction.isNotEmpty && int.parse(fraction[0]) >= 5) whole += BigInt.one;
-  final grouped = whole.toString().replaceAllMapped(
+  final fraction = (match[3] ?? '').padRight(decimals + 1, '0');
+  var units = BigInt.parse('${match[2]}${fraction.substring(0, decimals)}');
+  if (int.parse(fraction[decimals]) >= 5) units += BigInt.one;
+  final digits = units.toString().padLeft(decimals + 1, '0');
+  final whole = digits.substring(0, digits.length - decimals);
+  final grouped = whole.replaceAllMapped(
       RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (match) => '${match[1]},');
-  return match[1] == '-' && whole != BigInt.zero ? '($grouped)' : grouped;
+  final formatted = decimals == 0
+      ? grouped
+      : '$grouped.${digits.substring(digits.length - decimals)}';
+  return match[1] == '-' && units != BigInt.zero ? '($formatted)' : formatted;
 }
 
 String portfolioReturnLabel(Object? value) {
@@ -404,7 +410,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                             : '${row['stock_name']} ${row['symbol']}'),
                         subtitle: Text(
                             '${row['in_market_500'] == false ? '不在本週市場資訊名單 · ' : ''}'
-                            '${row['target_price'] == null ? '尚未設定目標價' : '目標價 ${row['target_price']}'}'),
+                            '${row['target_price'] == null ? '尚未設定目標價' : '目標價 ${accountingNumber(row['target_price'], decimals: 2)}'}'),
                         trailing: IconButton(
                             icon: const Icon(Icons.delete_outline),
                             onPressed: () async {
@@ -1052,7 +1058,7 @@ class _JournalNotesPageState extends State<JournalNotesPage>
 
   void startQuotes() {
     quoteTimer?.cancel();
-    quoteTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+    quoteTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (quotesActive) unawaited(refreshQuotes());
     });
     if (quotesActive) unawaited(refreshQuotes());
@@ -1176,7 +1182,8 @@ class _JournalNotesPageState extends State<JournalNotesPage>
       '${row['trade_date'] ?? '—'} · ${uiLabel(row['event_type'])}',
       '股票：${stockDisplayName(row)}',
       if (row['shares'] != null) '股數：${accountingNumber(row['shares'])}',
-      if (row['price'] != null) '成交單價：${accountingNumber(row['price'])}',
+      if (row['price'] != null)
+        '成交單價：${accountingNumber(row['price'], decimals: 2)}',
       if (row['cash_amount'] != null)
         '股利金額：${accountingNumber(row['cash_amount'])}',
       if (row['net_cash_flow'] != null)
@@ -1242,7 +1249,7 @@ class _JournalNotesPageState extends State<JournalNotesPage>
                   title: Text(
                       '${stockDisplayName(row)} · ${row['currency'] ?? 'TWD'}'),
                   subtitle: Text(
-                      '持有 ${accountingNumber(row['shares'])} 股 · 現價 ${accountingNumber(row['market_price'])} · 均價 ${accountingNumber(row['average_cost'])}\n市值 ${accountingNumber(row['market_value'], missing: '缺價')} · 未實現損益 ${accountingNumber(row['unrealized_pnl'], missing: '資料不足')} · 未實現報酬 ${portfolioReturnLabel(row['unrealized_return'])}\n${row['valuation_kind'] == 'intraday' ? '盤中估值 · MIS 報價 ${row['quote_at'] ?? '等待成交'} · 成本批次日' : '估值日'} ${row['valuation_date'] ?? '—'} · 行情日 ${row['price_date'] ?? '—'} · ${row['price_status'] == 'missing' ? '缺價' : row['price_status'] == 'stale' ? '資料過期' : '可用'}${portfolioMissingReasonLabel(row['missing_reason']).isEmpty ? '' : ' · ${portfolioMissingReasonLabel(row['missing_reason'])}'}${row['identity_status'] == 'missing' ? ' · 名稱資料不完整：${portfolioMissingReasonLabel(row['identity_missing_reason'])}' : ''}'),
+                      '持有 ${accountingNumber(row['shares'])} 股 · 現價 ${accountingNumber(row['market_price'], decimals: 2)} · 均價 ${accountingNumber(row['average_cost'], decimals: 2)}\n市值 ${accountingNumber(row['market_value'], missing: '缺價')} · 未實現損益 ${accountingNumber(row['unrealized_pnl'], missing: '資料不足')} · 未實現報酬 ${portfolioReturnLabel(row['unrealized_return'])}\n${row['valuation_kind'] == 'intraday' ? '盤中估值 · MIS 報價 ${row['quote_at'] ?? '等待成交'} · 成本批次日' : '估值日'} ${row['valuation_date'] ?? '—'} · 行情日 ${row['price_date'] ?? '—'} · ${row['price_status'] == 'missing' ? '缺價' : row['price_status'] == 'stale' ? '資料過期' : '可用'}${portfolioMissingReasonLabel(row['missing_reason']).isEmpty ? '' : ' · ${portfolioMissingReasonLabel(row['missing_reason'])}'}${row['identity_status'] == 'missing' ? ' · 名稱資料不完整：${portfolioMissingReasonLabel(row['identity_missing_reason'])}' : ''}'),
                   isThreeLine: true,
                 )))
         ]),
@@ -1350,7 +1357,7 @@ class _JournalNotesPageState extends State<JournalNotesPage>
                             title: Text(
                                 '${uiLabel(row['event_type'])} · ${stockDisplayName(row)}'),
                             subtitle: Text(
-                                '${row['trade_date']} · ${row['shares'] != null ? '${accountingNumber(row['shares'])} 股 × ${accountingNumber(row['price'])}' : '股利 ${accountingNumber(row['cash_amount'])}'}\n淨現金流 ${accountingNumber(row['net_cash_flow'])} ${row['currency'] ?? 'TWD'}'),
+                                '${row['trade_date']} · ${row['shares'] != null ? '${accountingNumber(row['shares'])} 股 × ${accountingNumber(row['price'], decimals: 2)}' : '股利 ${accountingNumber(row['cash_amount'])}'}\n淨現金流 ${accountingNumber(row['net_cash_flow'])} ${row['currency'] ?? 'TWD'}'),
                             trailing: IconButton(
                                 tooltip: '建立更正',
                                 icon: const Icon(Icons.edit_note),
@@ -1498,7 +1505,7 @@ class _SummaryCardsState extends State<SummaryCards> {
         widget.api.get('/api/v1/me/portfolio/summary'),
         widget.api.get('/api/v1/me/journal/pnl?year=${DateTime.now().year}'),
         widget.api.get('/api/v1/me/notes')
-      ]).timeout(const Duration(seconds: 8));
+      ]);
   @override
   void didUpdateWidget(SummaryCards oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -1563,7 +1570,7 @@ class _SummaryCardsState extends State<SummaryCards> {
                     : hasMissing
                         ? '部分可用，含缺價'
                         : hasStale
-                            ? '行情過期'
+                            ? '報價過期，保留最後成功報價估值'
                             : '資料完整';
         return Column(mainAxisSize: MainAxisSize.min, children: [
           SizedBox(
