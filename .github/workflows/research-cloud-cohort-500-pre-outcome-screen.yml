@@ -1,0 +1,95 @@
+name: Research cloud cohort 500 pre-outcome screen
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'research/cloud-cohort-500/SCREEN_REQUEST.json'
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_REGION: us-central1
+  RESEARCH_BUCKET: gen-lang-client-0593591102-dev-research-big-move-500
+  RESEARCH_PREFIX: research/big-move-cloud-cohort-500
+  RESEARCH_JOB: janus-research-big-move-500
+  RESEARCH_SA_NAME: janus-research-big-move-500
+  IMAGE_REPO: us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/research-cloud-cohort-500
+
+jobs:
+  pre-outcome-screen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Validate screen request
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('research/cloud-cohort-500/SCREEN_REQUEST.json').read_text())
+          assert p['action']=='export_pre_outcome_screen'
+          assert p['latest_observation_only'] is True
+          assert p['minimum_available_features']==6
+          assert p['score_tiers']=={'S90_core':0.9,'S80_watch':0.8,'S70_observe':0.7}
+          assert p['outcome_evaluation_allowed'] is False
+          assert p['event_label_materialization_allowed'] is False
+          assert p['canonical_publication_allowed'] is False
+          print('screen request governance: PASS')
+          PY
+      - name: Build image
+        run: |
+          set -Eeuo pipefail
+          image_tag="${IMAGE_REPO}:screen-${GITHUB_SHA}"
+          build_id="$(gcloud builds submit research/cloud-cohort-500 --project="${GCP_PROJECT_ID}" --tag="${image_tag}" --async --format='value(id)')"
+          while true; do
+            status="$(gcloud builds describe "${build_id}" --project="${GCP_PROJECT_ID}" --format='value(status)')"
+            case "${status}" in SUCCESS) break;; FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED) exit 1;; *) sleep 5;; esac
+          done
+          digest="$(gcloud artifacts docker images describe "${image_tag}" --project="${GCP_PROJECT_ID}" --format='value(image_summary.digest)')"
+          echo "RESEARCH_IMAGE=${IMAGE_REPO}@${digest}" >> "${GITHUB_ENV}"
+      - name: Upload immutable request
+        run: |
+          request_object="${RESEARCH_PREFIX}/prospective/pv1/screen-requests/${GITHUB_SHA}.json"
+          gcloud storage cp research/cloud-cohort-500/SCREEN_REQUEST.json "gs://${RESEARCH_BUCKET}/${request_object}"
+          echo "RESEARCH_REQUEST_OBJECT=${request_object}" >> "${GITHUB_ENV}"
+      - name: Execute screen export
+        run: |
+          set -Eeuo pipefail
+          sa_email="${RESEARCH_SA_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+          gcloud run jobs update "${RESEARCH_JOB}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --image="${RESEARCH_IMAGE}" --service-account="${sa_email}" --tasks=1 --parallelism=1 --max-retries=0 --task-timeout=30m --cpu=1 --memory=512Mi --set-env-vars="RESEARCH_BUCKET=${RESEARCH_BUCKET},RESEARCH_PREFIX=${RESEARCH_PREFIX},RESEARCH_REQUEST_OBJECT=${RESEARCH_REQUEST_OBJECT},RESEARCH_RUN_ID=${GITHUB_SHA},RESEARCH_SERVICE_ACCOUNT=${sa_email}" --quiet
+          gcloud run jobs execute "${RESEARCH_JOB}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --wait >/dev/null
+      - name: Fetch and verify screen result
+        run: |
+          set -Eeuo pipefail
+          mkdir -p research-result
+          result_object="${RESEARCH_PREFIX}/executions/${GITHUB_SHA}/pre_outcome_screen_result.json"
+          gcloud storage cp "gs://${RESEARCH_BUCKET}/${result_object}" research-result/screen_result.json
+          screen_object="$(python -c "import json; print(json.load(open('research-result/screen_result.json'))['candidate_screen_object'])")"
+          gcloud storage cp "gs://${RESEARCH_BUCKET}/${screen_object}" research-result/candidate_screen.csv
+          python - <<'PY'
+          import json
+          p=json.load(open('research-result/screen_result.json'))
+          assert p['status']=='ok'
+          assert p['action']=='export_pre_outcome_screen'
+          assert p['research_only'] is True
+          assert p['canonical_signal'] is False
+          assert p['trading_recommendation'] is False
+          assert all(v is False for v in p['embargo'].values())
+          assert p['candidate_rows'] > 0
+          print('pre-outcome screen acceptance: PASS', p['observation_T'], p['counts_by_tier'])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: research-cloud-cohort-500-screen-${{ github.sha }}
+          path: research-result/
+          if-no-files-found: error
+          retention-days: 30
