@@ -67,6 +67,10 @@ def run_ai_provider_stage(execution: Any, publication_connection: Any, *, store_
     try: existing = json.loads(store.read(manifest_name))
     except FileNotFoundError: existing = None
     if existing is not None:
+        if (existing.get("execution_id") != execution.execution_id or
+            existing.get("analysis_as_of") != execution.request_options["analysis_as_of"] or
+            existing.get("core_snapshot_id") != execution.core_snapshot_id):
+            raise RuntimeError("immutable AI provider manifest identity mismatch")
         if existing.get("artifact_hash") != content_hash({k: v for k, v in existing.items() if k != "artifact_hash"}):
             raise RuntimeError("immutable AI provider manifest hash mismatch")
         return {"ai_status": existing["status"], "ai_target_count": existing["target_count"],
@@ -82,7 +86,7 @@ def run_ai_provider_stage(execution: Any, publication_connection: Any, *, store_
                      execution_id=execution.execution_id); preflight["artifact_hash"] = content_hash(preflight)
     preflight_ref = _save(store, bucket, "provider-preflight", preflight)
     results: list[dict[str, Any]] = []
-    if admitted and preflight["status"] == "ready":
+    if admitted:
         manifest = _fenced_core_manifest(execution, store_factory); catalog = (catalog_factory or sql_catalog_from_environment)()
         try:
             datasets = load_core_datasets(catalog, manifest, tuple(admitted), row_limit=int(os.environ.get("CORE_SNAPSHOT_ROW_LIMIT", "100000")))
@@ -101,14 +105,18 @@ def run_ai_provider_stage(execution: Any, publication_connection: Any, *, store_
                                 "five_role_success": False, "publication_authority": False}); continue
             validations, refs, attempts, failures = [], [], [], {}
             for role in ROLE_WEIGHTS:
-                provider_result = provider.invoke(role, _role_input(report, role))
+                provider_result = provider.invoke(role, _role_input(report, role)) if preflight["status"] == "ready" else \
+                    ProviderResult("failed", None, (), preflight.get("reason") or "provider_blocked")
                 for attempt in provider_result.attempts: attempts.append({"role": role, **_save(store, bucket, "provider-attempts", attempt)})
-                if provider_result.output is None: failures[role] = provider_result.reason or "provider_failed"; continue
                 interpretation = interpretation_artifact(role, provider_result.output, _lineage(report, role, provider))
+                if provider_result.output is None:
+                    failures[role] = provider_result.reason or "provider_failed"
+                    interpretation["error"] = {"kind": "provider_failed", "reason": failures[role]}
+                    interpretation["artifact_hash"] = content_hash({k: v for k, v in interpretation.items() if k != "artifact_hash"})
                 interpretation_ref = save_interpretation(store, bucket, interpretation); refs.append(artifact_reference(interpretation, interpretation_ref))
                 validation = validate_role(interpretation, report); validation_ref = _save(store, bucket, "validations", validation)
                 validations.append(validation); refs.append(artifact_reference(validation, validation_ref))
-                if validation.get("status") != "validated": failures[role] = "validation_blocked"
+                if validation.get("status") != "validated": failures.setdefault(role, "validation_blocked")
             summary = summarize_roles(validations); sidecar_ref = None
             if refs: sidecar_ref = _save(store, bucket, "compat-sidecars", build_compatibility_sidecar(report, refs))
             results.append({"symbol": symbol, "status": "complete" if summary["five_role_success"] else "partial",

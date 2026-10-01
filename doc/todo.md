@@ -105,6 +105,7 @@ worker 真實整合。每項重新走模型閘門；不把 Gate 4／compatibilit
 ### P1 — Admin advanced governance／AI operations
 
 - [ ] 【Sol】 `WBS-6-ADMIN-ANALYSIS-PROFILE`：Production profile versioning、direct new Production、rollback、role／CIO prompt editor、locked guardrail、model picker、per-role override、fixed 5–10 symbols、compare；dependency：Mart role/provider/validation contracts、Admin shell。
+- 同一 Admin profile 驗收須提供 provider 授權狀態／官方重新授權入口，以及使用者可選的預設模型；模型清單從目前授權帳號取得最新可用項目，保留來源／更新時間／失敗或過期狀態，不硬編碼或 silent fallback。使用者尚未選定前，預設 `gpt-6.1-sol`＋`low`（輕），之後以使用者選擇為準。登入／MFA／OAuth consent 由本人在官方流程操作，Admin 不接收或顯示原始 token。
 - [ ] 【Luna】 `WBS-6-ADMIN-LEGACY-RETIREMENT`：只在 Flutter parity、Admin auth、browser/runtime acceptance、rollback plan 與 foreground Admin slices 全部完成後 deprecate static Admin；legacy 未達 gate 不刪除。
 - [ ] 【Sol】 `WBS-8-PILOT-MART-AI-EVALUATION`：收集 role validation pass rate、Codex CLI／worker auth／cold start／timeout／cancel／退出碼、provider failure／retry／fallback／availability、latency、可觀察 token／quota／subscription／actual API cost（不可取得者明示 unknown）、cache reuse、single-role rerun、manual intervention、rollback、usefulness、deterministic／AI divergence 與 outcome lineage；每筆 evidence 綁實際 transport／CLI revision／immutable lineage，區分 partial／failure／full success；不是 predictive tuning。
 

@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import sys
 import textwrap
 import time
 
 import pytest
+
+sys.path.insert(0, str(Path(__file__).parent))
 
 from intelligence_mart.ai_providers import CodexCLIProvider, run_ai_provider_stage
 from intelligence_mart.ai_targets import TargetSnapshot, load_or_create_target_snapshot, target_snapshot
@@ -159,3 +162,54 @@ def test_provider_entrypoint_is_additive_and_keeps_publication_authority_false()
     assert "result = dict(mart_processor(execution, publication_connection))" in text
     assert "result.update(run_ai_provider_stage(execution, publication_connection))" in text
     assert '"publication_authority": False' in text and '"paid_api_enabled": False' in text and "OPENAI_API_KEY" in text
+
+
+def test_worker_auth_and_diagnostics_fail_closed(tmp_path, monkeypatch):
+    from intelligence_mart.codex_worker import _usage
+    from types import SimpleNamespace
+    monkeypatch.delenv("CODEX_ACCESS_TOKEN", raising=False)
+    monkeypatch.setenv("MART_CODEX_AUTH_JSON", '{"OPENAI_API_KEY":"do-not-persist"}')
+    provider = CodexCLIProvider(max_attempts=1)
+    assert provider.model == "gpt-6.1-sol" and provider.reasoning_effort == "low"
+    assert provider.preflight()["reason"] == "unapproved_auth_mode"
+    monkeypatch.setenv("MART_CODEX_AUTH_JSON", '{"tokens":{"access_token":"a","refresh_token":"r"}}')
+    monkeypatch.setenv("MART_CODEX_WORK_ROOT", str(tmp_path))
+    monkeypatch.setattr("intelligence_mart.codex_worker.subprocess.run", lambda *a, **k:
+                        SimpleNamespace(returncode=1, stdout="", stderr="secret-do-not-persist"))
+    assert provider.preflight()["cli_version"] == "unknown"
+    assert "secret-do-not-persist" not in json.dumps(provider.preflight())
+    assert _usage('null\n[]\n{"type":"turn.completed","usage":{"input_tokens":3,"secret":7,"output_tokens":true}}') == {"input_tokens": 3}
+    with provider._workspace("fundamental", {}, "auth_cache") as workspace:
+        config = (Path(workspace) / "home/.codex/config.toml").read_text()
+        assert 'shell_tool = false' in config and 'forced_login_method = "chatgpt"' in config
+        assert 'model = "gpt-6.1-sol"' in config and 'model_reasoning_effort = "low"' in config
+    monkeypatch.setattr("intelligence_mart.codex_worker.subprocess.Popen", lambda *a, **k:
+                        (_ for _ in ()).throw(OSError("secret-do-not-persist")))
+    result = provider.invoke("fundamental", {})
+    assert result.reason == "codex_cli_unavailable" and len(result.attempts) == 1
+    assert "secret-do-not-persist" not in json.dumps(result.attempts)
+
+
+def test_blocked_provider_persists_five_failures_and_replays_without_calls(monkeypatch):
+    from test_intelligence_mart_pipeline import report
+    source = report()
+    execution = type("Execution", (), {"execution_id": source["execution_id"],
+        "core_snapshot_id": source["core_snapshot_id"],
+        "request_options": {"analysis_as_of": source["analysis_as_of"]}})()
+    store = MemoryStore()
+    monkeypatch.setenv("MART_AI_ENABLED", "true"); monkeypatch.setenv("MART_BUCKET", "mart-bucket")
+    monkeypatch.delenv("MART_AI_FALLBACK_PROVIDER", raising=False)
+    monkeypatch.delenv("MART_CODEX_AUTH_JSON", raising=False); monkeypatch.delenv("CODEX_ACCESS_TOKEN", raising=False)
+    monkeypatch.setattr("intelligence_mart.runtime._fenced_core_manifest", lambda *a: {})
+    monkeypatch.setattr("intelligence_mart.storage.load_core_datasets", lambda *a, **k: {})
+    monkeypatch.setattr("intelligence_mart.analysis.analyze", lambda **k: [source])
+    result = run_ai_provider_stage(execution, Connection([("2330", True, False)]),
+        store_factory=lambda bucket: store, catalog_factory=object)
+    assert result["ai_status"] == "blocked" and result["ai_five_role_success_count"] == 0
+    objects = [json.loads(raw) for raw in store.objects.values()]
+    assert len([x for x in objects if x.get("artifact_kind") == "mart_ai_interpretation_v1" and x["status"] == "failed"]) == 5
+    assert len([x for x in objects if x.get("artifact_kind") == "mart_ai_validation_v1" and x["status"] == "blocked"]) == 5
+    assert run_ai_provider_stage(execution, object(), store_factory=lambda bucket: store) == result
+    execution.core_snapshot_id = "other-core"
+    with pytest.raises(RuntimeError, match="identity mismatch"):
+        run_ai_provider_stage(execution, object(), store_factory=lambda bucket: store)

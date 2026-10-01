@@ -18,7 +18,7 @@ from .ai_contract import OUTPUT_MODELS, ROLE_WEIGHTS, SYSTEM_GUARDRAIL, content_
 
 CODEX_CLI_VERSION = "0.159.2"
 PROVIDER_STAGE_VERSION = "1.0.0"
-DEFAULT_MODEL = "account_default"
+DEFAULT_MODEL = "gpt-6.1-sol"
 _ALLOWED_REASONING = frozenset({"low", "medium", "high", "xhigh", "max"})
 _RETRYABLE = frozenset({"quota", "provider_unavailable", "timeout", "transport_error"})
 
@@ -49,12 +49,13 @@ def _usage(stdout: str) -> dict[str, int] | None:
             event = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if event.get("type") in {"turn.completed", "turn.failed"}:
+        if isinstance(event, dict) and event.get("type") in {"turn.completed", "turn.failed"}:
             terminal = event
     raw = (terminal or {}).get("usage")
     if not isinstance(raw, dict):
         return None
-    clean = {str(k)[:64]: v for k, v in raw.items() if isinstance(v, int) and v >= 0}
+    clean = {k: v for k, v in raw.items() if k in {"input_tokens", "cached_input_tokens", "output_tokens"}
+             and type(v) is int and v >= 0}
     return clean or None
 
 
@@ -69,7 +70,7 @@ class ProviderResult:
 class CodexCLIProvider:
     """Bounded, isolated wrapper around the pinned Codex CLI."""
 
-    def __init__(self, *, binary: str = "codex", model: str = DEFAULT_MODEL, reasoning_effort: str = "medium",
+    def __init__(self, *, binary: str = "codex", model: str = DEFAULT_MODEL, reasoning_effort: str = "low",
                  timeout_seconds: int = 180, max_attempts: int = 2, kill_grace_seconds: int = 3) -> None:
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", model):
             raise ValueError("invalid Codex model")
@@ -86,7 +87,7 @@ class CodexCLIProvider:
         return cls(
             binary=os.environ.get("MART_CODEX_BINARY", "codex").strip() or "codex",
             model=os.environ.get("MART_CODEX_MODEL", DEFAULT_MODEL).strip() or DEFAULT_MODEL,
-            reasoning_effort=os.environ.get("MART_CODEX_REASONING_EFFORT", "medium").strip().lower(),
+            reasoning_effort=os.environ.get("MART_CODEX_REASONING_EFFORT", "low").strip().lower(),
             timeout_seconds=int(os.environ.get("MART_CODEX_TIMEOUT_SECONDS", "180")),
             max_attempts=int(os.environ.get("MART_CODEX_MAX_ATTEMPTS", "2")),
             kill_grace_seconds=int(os.environ.get("MART_CODEX_KILL_GRACE_SECONDS", "3")),
@@ -104,7 +105,14 @@ class CodexCLIProvider:
                 parsed = json.loads(cache)
             except json.JSONDecodeError:
                 return None, "invalid_auth_cache"
-            return ("auth_cache", None) if isinstance(parsed, dict) and parsed else (None, "invalid_auth_cache")
+            if not isinstance(parsed, dict) or not parsed:
+                return None, "invalid_auth_cache"
+            if parsed.get("OPENAI_API_KEY") or parsed.get("auth_mode") not in {None, "chatgpt"}:
+                return None, "unapproved_auth_mode"
+            tokens = parsed.get("tokens")
+            if not isinstance(tokens, dict) or not tokens.get("access_token") or not tokens.get("refresh_token"):
+                return None, "invalid_auth_cache"
+            return "auth_cache", None
         return None, "auth_required"
 
     @staticmethod
@@ -122,14 +130,15 @@ class CodexCLIProvider:
         env = self._base_env()
         try:
             version = subprocess.run([self.binary, "--version"], capture_output=True, text=True, timeout=5, env=env)
-            version_text = (version.stdout or version.stderr).strip()[:128]
-            if version.returncode or self.cli_version not in version_text:
-                return {"status": "blocked", "reason": "unsupported_cli_version", **common, "cli_version": version_text or "unknown"}
+            match = re.fullmatch(r"codex-cli (\d+\.\d+\.\d+)", version.stdout.strip())
+            version_text = match.group(1) if match else "unknown"
+            if version.returncode or self.cli_version != version_text:
+                return {"status": "blocked", "reason": "unsupported_cli_version", **common, "cli_version": version_text}
             help_run = subprocess.run([self.binary, "exec", "--help"], capture_output=True, text=True, timeout=5, env=env)
             help_text = (help_run.stdout or "") + (help_run.stderr or "")
             if help_run.returncode or any(flag not in help_text for flag in ("--json", "--output-schema", "--skip-git-repo-check", "--ephemeral")):
                 return {"status": "blocked", "reason": "unsupported_cli_capability", **common}
-        except (FileNotFoundError, subprocess.TimeoutExpired):
+        except (OSError, subprocess.TimeoutExpired):
             return {"status": "blocked", "reason": "codex_cli_unavailable", **common}
         return {"status": "ready", "reason": None, **common, "auth_mode": mode,
                 "billing_mode": "chatgpt_codex_account", "paid_api_enabled": False}
@@ -140,13 +149,18 @@ class CodexCLIProvider:
         workspace = tempfile.TemporaryDirectory(prefix=f"{role}-", dir=root)
         path = Path(workspace.name); path.chmod(0o700)
         codex_home = path / "home" / ".codex"; codex_home.mkdir(parents=True, mode=0o700)
-        model_line = '' if self.model == DEFAULT_MODEL else f'model = \"{self.model}\"\n'
+        model_line = '' if self.model == "account_default" else f'model = \"{self.model}\"\n'
         (codex_home / "config.toml").write_text(
             model_line + f'model_reasoning_effort = "{self.reasoning_effort}"\n'
             'approval_policy = "never"\nsandbox_mode = "read-only"\nweb_search = "disabled"\n'
-            'check_for_update_on_startup = false\n[features]\napps = false\nmulti_agent = false\n', encoding="utf-8")
+            'check_for_update_on_startup = false\ncli_auth_credentials_store = "file"\n'
+            'forced_login_method = "chatgpt"\n[features]\napps = false\nmulti_agent = false\n'
+            'shell_tool = false\nunified_exec = false\nplugins = false\nhooks = false\n'
+            'browser_use = false\ncomputer_use = false\ntool_search = false\n'
+            'image_generation = false\nview_image = false\n', encoding="utf-8")
         if auth_mode == "auth_cache":
             (codex_home / "auth.json").write_text(os.environ["MART_CODEX_AUTH_JSON"], encoding="utf-8")
+            (codex_home / "auth.json").chmod(0o600)
         (path / "schema.json").write_bytes(_canonical(schema))
         return workspace
 
@@ -178,10 +192,12 @@ class CodexCLIProvider:
                 command = [self.binary, "exec", "--json", "--ephemeral", "--skip-git-repo-check",
                            "--output-schema", str(path / "schema.json"), "-o", str(output), prompt]
                 started = time.monotonic(); reason = None; stdout = ""; stderr = ""; returncode = None
-                process = subprocess.Popen(command, cwd=path, env=self._env(path, auth_mode), text=True,
-                                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
                 try:
+                    process = subprocess.Popen(command, cwd=path, env=self._env(path, auth_mode), text=True,
+                                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
                     stdout, stderr = process.communicate(timeout=self.timeout_seconds); returncode = process.returncode
+                except OSError:
+                    reason = "codex_cli_unavailable"
                 except subprocess.TimeoutExpired:
                     reason = "timeout"
                     try: os.killpg(process.pid, signal.SIGTERM)
@@ -192,6 +208,11 @@ class CodexCLIProvider:
                         except ProcessLookupError: pass
                         stdout, stderr = process.communicate()
                     returncode = process.returncode
+                if auth_mode == "auth_cache":
+                    # Keep rotated credentials for subsequent roles; never place them in artifacts.
+                    refreshed = path / "home" / ".codex" / "auth.json"
+                    if refreshed.exists():
+                        os.environ["MART_CODEX_AUTH_JSON"] = refreshed.read_text(encoding="utf-8")
                 parsed = None
                 if reason is None and returncode == 0 and output.exists():
                     try: parsed = OUTPUT_MODELS[role].model_validate_json(output.read_text()).model_dump()

@@ -115,6 +115,7 @@ def main():
     parser.add_argument("--symbol", default="2330")
     parser.add_argument("--validate-roles", action="store_true")
     parser.add_argument("--verify-compat", action="store_true")
+    parser.add_argument("--verify-provider", action="store_true")
     args = parser.parse_args()
     bucket = os.environ["MART_BUCKET"]
     if os.environ.get("ENVIRONMENT") != "dev" or "-dev-" not in bucket:
@@ -143,6 +144,47 @@ def main():
     assert report["execution_id"] == manifest["execution_id"]
     assert report["core_snapshot_id"] == manifest["core_snapshot_id"]
     _validate_fact_packs([report])
+    if args.verify_provider:
+        from intelligence_mart.ai_providers import _load_codex_auth_from_runtime_bundle, _lineage, _role_input, _save
+        from intelligence_mart.codex_worker import CodexCLIProvider
+        _load_codex_auth_from_runtime_bundle()
+        provider = CodexCLIProvider.from_environment()
+        if provider.max_attempts != 1:
+            raise ValueError("provider acceptance permits only one attempt per role")
+        preflight = provider.preflight()
+        if preflight["status"] != "ready":
+            print(json.dumps({"acceptance": "blocked", "preflight": preflight, "provider_calls": 0}))
+            return
+        validations, refs, attempts = [], [], []
+        for pack in report["fact_packs"]:
+            role = pack["pack_type"]
+            result = provider.invoke(role, _role_input(report, role))
+            attempts.extend(_save(store, bucket, "provider-attempts", attempt) for attempt in result.attempts)
+            artifact = interpretation_artifact(role, result.output, _lineage(report, role, provider))
+            if result.output is None:
+                artifact["error"] = {"kind": "provider_failed", "reason": result.reason}
+                artifact["artifact_hash"] = content_hash({k: v for k, v in artifact.items() if k != "artifact_hash"})
+            ref = save_interpretation(store, bucket, artifact)
+            validation = validate_role(artifact, report)
+            validation_ref = _save(store, bucket, "validations", validation)
+            assert json.loads(store.read(urlparse(ref["artifact_uri"]).path.lstrip("/"))) == artifact
+            assert json.loads(store.read(urlparse(validation_ref["artifact_uri"]).path.lstrip("/"))) == validation
+            refs.extend((artifact_reference(artifact, ref), artifact_reference(validation, validation_ref)))
+            validations.append(validation)
+        sidecar = build_compatibility_sidecar(report, refs)
+        sidecar_ref = _save(store, bucket, "compat-sidecars", sidecar)
+        summary = summarize_roles(validations)
+        evidence = {"source_manifest_uri": args.manifest_uri, "symbol": args.symbol,
+                    "provider": "openai", "transport": "codex_cli", "cli_version": provider.cli_version,
+                    "model": provider.model, "preflight": preflight, "attempts": attempts,
+                    "sidecar": sidecar_ref, "summary": summary, "provider_calls": len(attempts),
+                    "publication_authority": False, "paid_api_enabled": False}
+        evidence_ref = _save(store, bucket, "acceptance/ai-providers", evidence)
+        assert store.read(metadata_location.path.lstrip("/")) == metadata
+        assert json.loads(store.read(location.path.lstrip("/"))) == manifest
+        print(json.dumps({"acceptance": "passed" if summary["five_role_success"] else "partial",
+                          **evidence_ref, "summary": summary, "provider_calls": len(attempts)}, sort_keys=True))
+        return
     if args.verify_compat:
         verify_compatibility(store, bucket, args.manifest_uri, report)
         assert store.read(metadata_location.path.lstrip("/")) == metadata
