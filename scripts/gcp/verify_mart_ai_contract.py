@@ -16,6 +16,41 @@ from intelligence_mart.ai_contract import (
 )
 from intelligence_mart.runtime import _validate_fact_packs, _write_immutable_json
 from intelligence_mart.ai_validation import VERSION as VALIDATOR_VERSION, validate_role, summarize_roles
+from intelligence_mart.compat import artifact_reference, build_compatibility_sidecar, validate_compatibility_sidecar
+
+
+def verify_compatibility(store, bucket, manifest_uri, report):
+    """Bind existing validation fixtures to a real v1 report without changing it."""
+    before = deepcopy(report)
+    prefix = f"acceptance/ai-validation/{VALIDATOR_VERSION}/{report['deterministic_hash'][7:]}"
+    evidence = json.loads(store.read(f"{prefix}/evidence.json"))
+    assert evidence["source_manifest_uri"] == manifest_uri
+    references = []
+    artifacts = {}
+    for ref in evidence["fixture_inputs"] + evidence["validations"]:
+        uri = urlparse(ref["artifact_uri"])
+        assert uri.scheme == "gs" and uri.netloc == bucket
+        raw = store.read(uri.path.lstrip("/"))
+        assert f"sha256:{sha256(raw).hexdigest()}" == ref["artifact_hash"]
+        artifact = json.loads(raw)
+        assert content_hash({key: value for key, value in artifact.items() if key != "artifact_hash"}) == artifact["artifact_hash"]
+        artifacts[artifact["artifact_hash"]] = (artifact, ref)
+    for artifact, ref in artifacts.values():
+        if artifact["artifact_kind"] != "mart_ai_validation_v1" or artifact["status"] != "validated":
+            continue
+        source, source_ref = artifacts[artifact["source_artifact_hash"]]
+        assert validate_role(source, report) == artifact
+        references.extend((artifact_reference(source, source_ref), artifact_reference(artifact, ref)))
+    assert len(references) == 10
+    sidecar = build_compatibility_sidecar(report, references)
+    prefix = f"acceptance/mart-compat/{sidecar['sidecar_hash'][7:]}"
+    ref = _write_immutable_json(store, bucket, f"{prefix}/sidecar.json", sidecar)
+    stored = json.loads(store.read(f"{prefix}/sidecar.json"))
+    assert validate_compatibility_sidecar(stored, report) == sidecar
+    assert report == before
+    print(json.dumps({"acceptance": "passed", **ref, "sidecar_hash": sidecar["sidecar_hash"],
+                      "base": sidecar["base"], "artifact_count": len(references),
+                      "provider_calls": 0, "publication_writes": 0, "five_role_success": False}, sort_keys=True))
 
 
 def verify_validation(store, bucket, manifest_uri, report):
@@ -79,6 +114,7 @@ def main():
     parser.add_argument("--manifest-uri", required=True)
     parser.add_argument("--symbol", default="2330")
     parser.add_argument("--validate-roles", action="store_true")
+    parser.add_argument("--verify-compat", action="store_true")
     args = parser.parse_args()
     bucket = os.environ["MART_BUCKET"]
     if os.environ.get("ENVIRONMENT") != "dev" or "-dev-" not in bucket:
@@ -107,6 +143,11 @@ def main():
     assert report["execution_id"] == manifest["execution_id"]
     assert report["core_snapshot_id"] == manifest["core_snapshot_id"]
     _validate_fact_packs([report])
+    if args.verify_compat:
+        verify_compatibility(store, bucket, args.manifest_uri, report)
+        assert store.read(metadata_location.path.lstrip("/")) == metadata
+        assert json.loads(store.read(location.path.lstrip("/"))) == manifest
+        return
     if args.validate_roles:
         verify_validation(store, bucket, args.manifest_uri, report)
         return

@@ -7,6 +7,8 @@ import pytest
 
 ROOT = Path(__file__).parents[2]
 sys.path.insert(0, str(ROOT / "jobs/intelligence-mart"))
+sys.path.insert(0, str(ROOT / "jobs/ingestion-core"))
+sys.path.insert(0, str(ROOT / "tests"))
 
 from intelligence_mart.compat import (
     artifact_reference,
@@ -93,3 +95,38 @@ def test_sidecar_rejects_tampered_base_and_cross_artifact_validation():
     references[1]["source_artifact_hash"] = _hash("d")
     with pytest.raises(ValueError, match="same-role interpretation"):
         build_compatibility_sidecar(source, references)
+
+
+def test_sidecar_rejects_duplicates_and_tampered_content():
+    references = _references()
+    with pytest.raises(ValueError, match="duplicate"):
+        build_compatibility_sidecar(_report(), references + references[:1])
+    sidecar = build_compatibility_sidecar(_report(), references)
+    sidecar["artifacts"][0]["artifact_uri"] = "gs://mart/other.json"
+    with pytest.raises(ValueError, match="hash mismatch"):
+        validate_compatibility_sidecar(sidecar, _report())
+
+
+def test_bounded_compat_acceptance_reads_saved_artifacts_and_preserves_v1():
+    from scripts.gcp.verify_mart_ai_contract import verify_compatibility, verify_validation
+    from test_intelligence_mart_pipeline import report
+
+    class Store:
+        def __init__(self): self.objects = {}
+        def read(self, name): return self.objects[name]
+        def create(self, name, payload, content_type):
+            if name in self.objects: return False
+            self.objects[name] = payload
+            return True
+
+    source, store = report(), Store()
+    before = copy.deepcopy(source)
+    verify_validation(store, "mart", "gs://mart/manifest.json", source)
+    verify_compatibility(store, "mart", "gs://mart/manifest.json", source)
+    assert source == before
+    sidecars = [json.loads(value) for key, value in store.objects.items() if key.endswith("sidecar.json")]
+    assert len(sidecars) == 1 and len(sidecars[0]["artifacts"]) == 10
+    artifact_path = next(key for key in store.objects if key.startswith("interpretations/"))
+    store.objects[artifact_path] += b" "
+    with pytest.raises(AssertionError):
+        verify_compatibility(store, "mart", "gs://mart/manifest.json", source)
