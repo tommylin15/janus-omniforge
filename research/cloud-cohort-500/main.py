@@ -103,6 +103,10 @@ def main() -> int:
             import cohort_build
             result = cohort_build.run(request, bucket, prefix, run_id)
             gcs_put_json(bucket, f"{prefix}/executions/{run_id}/cohort_build_result.json", result, token)
+        elif action == "derive_independent_cohort":
+            import independent_cohort_run
+            result = independent_cohort_run.run(request, bucket, prefix, run_id)
+            gcs_put_json(bucket, f"{prefix}/executions/{run_id}/independent_cohort_result.json", result, token)
         elif action == "preflight_and_outcomes":
             import outcome_run
             result = outcome_run.run(request, bucket, prefix, run_id)
