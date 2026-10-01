@@ -18,6 +18,7 @@ on:
       - 'tests/test_intelligence_mart_pipeline.py'
       - 'tests/test_intelligence_mart_runtime.py'
       - 'tests/test_mart_ai_contract.py'
+      - 'tests/test_mart_ai_providers.py'
       - 'services/api/**'
       - 'tests/test_public_runtime.py'
       - 'tests/test_public_api_routes.py'
@@ -113,6 +114,7 @@ jobs:
               - 'tests/test_intelligence_mart_pipeline.py'
               - 'tests/test_intelligence_mart_runtime.py'
               - 'tests/test_mart_ai_contract.py'
+              - 'tests/test_mart_ai_providers.py'
             private_pipeline_runtime:
               - 'services/api/**'
               - 'packages/contracts/**'
@@ -225,6 +227,7 @@ jobs:
           tests/test_intelligence_mart_pipeline.py
           tests/test_intelligence_mart_runtime.py
           tests/test_mart_ai_contract.py
+          tests/test_mart_ai_providers.py
 
   deploy-mart:
     needs: [detect, test-mart]
