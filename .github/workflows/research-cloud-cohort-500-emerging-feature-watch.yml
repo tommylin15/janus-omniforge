@@ -1,0 +1,97 @@
+name: Research cloud cohort 500 emerging feature watch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'research/cloud-cohort-500/EMERGING_WATCH_REQUEST.json'
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_REGION: us-central1
+  RESEARCH_BUCKET: gen-lang-client-0593591102-dev-research-big-move-500
+  RESEARCH_PREFIX: research/big-move-cloud-cohort-500
+  RESEARCH_JOB: janus-research-big-move-500
+  RESEARCH_SA_NAME: janus-research-big-move-500
+  IMAGE_REPO: us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/research-cloud-cohort-500
+
+jobs:
+  emerging-feature-watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Validate emerging watch request
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=json.loads(Path('research/cloud-cohort-500/EMERGING_WATCH_REQUEST.json').read_text())
+          assert p['action']=='export_emerging_feature_watch'
+          assert p['watch_horizon_end']=='2026-12-31'
+          assert p['minimum_available_features']==6
+          assert p['minimum_latest_score']==0.65
+          assert p['minimum_observation_count']==3
+          assert p['outcome_evaluation_allowed'] is False
+          assert p['event_label_materialization_allowed'] is False
+          assert p['canonical_publication_allowed'] is False
+          print('emerging watch request governance: PASS')
+          PY
+      - name: Build image
+        run: |
+          set -Eeuo pipefail
+          image_tag="${IMAGE_REPO}:emerging-watch-${GITHUB_SHA}"
+          build_id="$(gcloud builds submit research/cloud-cohort-500 --project="${GCP_PROJECT_ID}" --tag="${image_tag}" --async --format='value(id)')"
+          while true; do
+            status="$(gcloud builds describe "${build_id}" --project="${GCP_PROJECT_ID}" --format='value(status)')"
+            case "${status}" in SUCCESS) break;; FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED) exit 1;; *) sleep 5;; esac
+          done
+          digest="$(gcloud artifacts docker images describe "${image_tag}" --project="${GCP_PROJECT_ID}" --format='value(image_summary.digest)')"
+          echo "RESEARCH_IMAGE=${IMAGE_REPO}@${digest}" >> "${GITHUB_ENV}"
+      - name: Upload immutable request
+        run: |
+          request_object="${RESEARCH_PREFIX}/prospective/pv1/emerging-watch-requests/${GITHUB_SHA}.json"
+          gcloud storage cp research/cloud-cohort-500/EMERGING_WATCH_REQUEST.json "gs://${RESEARCH_BUCKET}/${request_object}"
+          echo "RESEARCH_REQUEST_OBJECT=${request_object}" >> "${GITHUB_ENV}"
+      - name: Execute emerging feature watch
+        run: |
+          set -Eeuo pipefail
+          sa_email="${RESEARCH_SA_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+          gcloud run jobs update "${RESEARCH_JOB}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --image="${RESEARCH_IMAGE}" --service-account="${sa_email}" --tasks=1 --parallelism=1 --max-retries=0 --task-timeout=30m --cpu=1 --memory=512Mi --set-env-vars="RESEARCH_BUCKET=${RESEARCH_BUCKET},RESEARCH_PREFIX=${RESEARCH_PREFIX},RESEARCH_REQUEST_OBJECT=${RESEARCH_REQUEST_OBJECT},RESEARCH_RUN_ID=${GITHUB_SHA},RESEARCH_SERVICE_ACCOUNT=${sa_email}" --quiet
+          gcloud run jobs execute "${RESEARCH_JOB}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --wait >/dev/null
+      - name: Fetch and verify emerging watch result
+        run: |
+          set -Eeuo pipefail
+          mkdir -p research-result
+          result_object="${RESEARCH_PREFIX}/executions/${GITHUB_SHA}/emerging_feature_watch_result.json"
+          gcloud storage cp "gs://${RESEARCH_BUCKET}/${result_object}" research-result/watch_result.json
+          watch_object="$(python -c "import json; print(json.load(open('research-result/watch_result.json'))['watch_object'])")"
+          gcloud storage cp "gs://${RESEARCH_BUCKET}/${watch_object}" research-result/emerging_feature_watch.csv
+          python - <<'PY'
+          import json
+          p=json.load(open('research-result/watch_result.json'))
+          assert p['status']=='ok'
+          assert p['action']=='export_emerging_feature_watch'
+          assert p['research_only'] is True
+          assert p['probability_calibrated'] is False
+          assert p['canonical_signal'] is False
+          assert p['trading_recommendation'] is False
+          assert all(v is False for v in p['embargo'].values())
+          assert 0 < p['candidate_rows'] <= 20
+          print('emerging feature watch acceptance: PASS', p['counts_by_class'])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: research-cloud-cohort-500-emerging-watch-${{ github.sha }}
+          path: research-result/
+          if-no-files-found: error
+          retention-days: 30
