@@ -9,18 +9,4 @@ tests
 **/node_modules
 apps/user_app/build/
 apps/user_app/.dart_tool/
-# Legacy static Admin adapter is repository-only after 2026-10-02 retirement.
-# Keep apps/web/static acceptance helper HTMLs available to services/api, but do not
-# carry the retired Python web adapter or its standalone image files into API images.
-apps/web/*.py
-apps/web/Dockerfile
-apps/web/README.md
-# Root Node/Playwright/Vitest files belong to the retired static Admin test/build path;
-# the active API image builds Flutter directly and does not need them at runtime.
-package.json
-package-lock.json
-eslint.config.js
-playwright.config.js
-vitest.config.js
-scripts/build-web.mjs
 .tmp-*
