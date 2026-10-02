@@ -3,13 +3,21 @@
 僅使用既有 dev Mart Job、bucket 與 PostgreSQL；先讀 [專案規則](PROJECT_RULES.md)。
 本程序不代表自然 daily workload、CIO 或 production 已完成。
 
-## 授權與模型
+## 授權、Routing 與模型
 
 - 初始化登入／MFA／OAuth consent 由本人在官方流程完成。搬移登入資格、使用帳號 quota
   或變更 Secret IAM 前取得明確授權；原始資格不進 argv、log、repository、artifact 或 Admin 表單。
 - 帳號 cache 使用已核准的獨立 `janus-mart-codex-auth` Secret；不得放入 GitHub CI。
   Mart 只具該 Secret 的讀取／新增版本權限，沒有共享 DB bundle 的寫入權。
-- 未由使用者選定前，預設 `gpt-6.1-sol`＋`low`（輕）；明確 env/profile override 必須保存在
+- 使用者 2026-10-02 指定五分析師 default provider route：**Codex CLI → OpenRouter → Gemini**。
+  只有 approved／authorized provider profile 才能進 effective route；Admin reorder 不等於授權。
+- Routing 必須 versioned；execution 啟動時固定 effective route、routing config version/hash 與
+  provider profile snapshot。後續 Admin 調整順序不得改寫舊 execution。每次 attempt 保存
+  provider、transport、model、parameters、reason、latency、可觀察 usage/cost 與 fallback reason。
+- Fallback 只在 timeout、transport、rate-limit、provider unavailable、auth/capacity unavailable
+  等已核准 failure class 發生；schema／validator／grounding／PIT／missing-data failure 不得藉由
+  換 provider 靜默繞過。沒有 approved route 時 fail closed。
+- 未由使用者選定前，Codex 預設 `gpt-6.1-sol`＋`low`（輕）；明確 env/profile override 必須保存在
   lineage。Admin 模型選單仍待 `WBS-6-ADMIN-ANALYSIS-PROFILE` 實作，須取得該授權帳號的
   最新可用清單並標示來源／更新時間／失敗狀態，不把快取冒充即時清單。
 - CLI preflight 的 `ready` 僅代表 cache 形狀與 CLI capability 通過；真實授權、model access
@@ -18,6 +26,26 @@
   設定 `MART_CODEX_AUTH_SECRET=janus-mart-codex-auth` 時，使用獨立 autocommit DB session lock
   序列化帳號批次；每次 CLI 退出後驗證並保存更新的 cache，讀回成功才允許下一角色。
   完成狀態仍須真實 rotation／cold-start evidence；程式存在不代表 lifecycle 已驗收。
+
+## 2026-10-02 Credential／免費 gate live probe
+
+既有 `janus-runtime-bundle` 已做只輸出 bounded metadata 的安全 probe，不輸出任何 secret 值：
+
+- Fugle：`fugle_api_key` 存在，`2330` quote HTTP 200。
+- Gemini：`gemini_api_key` 存在，models endpoint HTTP 200，可見 `generateContent` model；這只證明
+  credential／model discovery 可用，**不證明 Free Tier／billing 狀態**。
+- OpenRouter：`openrouter_api_key` 存在，key endpoint HTTP 200；metadata 回報
+  `is_free_tier=false`，因此不能直接當成 approved-free。
+
+免費限制：
+
+- Fugle 可進免費 source approval，範圍限 Janus owner-private display／bounded latest-quote cache；
+  不核准 public redistribution，也不把 operational quote 冒充 canonical Core historical data。
+- OpenRouter 只允許 `free_only` profile；必須實際驗證 prompt/completion 都為 `$0` 的 route。
+  找不到 `$0` route、free model unavailable 或 metadata 不足時 fail closed，不退到付費模型。
+- Gemini 在確認 key 所屬 project 的 Free Tier／billing gate 前，不發 generation request；models
+  endpoint 成功不等於 free entitlement acceptance。
+- 任何新付費 API／model／subscription 仍需使用者明確授權，不能由 routing reorder 自動打開。
 
 ## 有界驗收
 
@@ -29,16 +57,20 @@
 4. 該次 execution 固定 `maxRetries=0`，避免 Cloud Run task 重試重複消耗額度。既有 Job 若須
    暫時調整建立 execution，立刻恢復 canonical queue 設定並獨立核對兩者。
 5. 讀回 evidence、五角色 interpretation／validation／attempt、sidecar，核對 immutable hashes、
-   Fact Pack／Core lineage、實際模型、失敗 reason 與 usage；原 manifest／metadata 保持不變。
-   `blocked`、資料不足或 validation failure 不改寫成完整研究成功。
+   Fact Pack／Core lineage、實際模型、routing version/hash、失敗 reason 與 usage；原 manifest／metadata
+   保持不變。`blocked`、資料不足或 validation failure 不改寫成完整研究成功。
 6. 以 `scripts/gcp/verify_mart_ai_targets.sql` 在既有 dev PostgreSQL 執行真實 trigger／ACL
    驗收；所有合成 owner／ledger／watchlist／投影都在同一交易 rollback。此測試不能取代
    target snapshot 與 provider 批次同 execution 的整合驗收。
+7. OpenRouter fallback 驗收時只允許已確認 `$0`／free-only model route；若實際 request 沒有
+   可驗證的 free metadata 或任何 paid possibility，直接 structured blocked。
+8. Gemini fallback 驗收前先確認 Free Tier／billing gate；未確認前保持
+   `blocked_pending_free_tier_confirmation`，不得為了測 routing 發 generation request。
 
 Quota、usage／actual cost 不可觀察時保留 unknown；沒有已核准 fallback 時 fail closed。
 尚未核准持續批次額度／完成 auth lifecycle 前，不啟用 `MART_AI_ENABLED=true` 的自然批次。
 
-## 2026-10-02 接續方案（已核准；驗收狀態見 status／checkpoint）
+## 2026-10-02 接續方案（已核准；驗收狀態見 status／TODO）
 
 ### 跨批次 auth 保存
 
@@ -74,7 +106,7 @@ Enabled 與 Disabled 都計入 active。超額版本為每版本每月 USD 0.06�
 
 已準備 `scripts/gcp/verify_mart_ai_provider_execution.py`。它讀取既有 immutable Mart
 `input.json` 與明確 SHA-256，以新 UUID 建立 acceptance execution；重新核對 Core
-hash／snapshot／execution fence，使用正式 target projection 及正式 provider stage，
+hash／snapshot／execution fence，使用正式 target projection及正式 provider stage，
 只保存 additive AI artifacts，不呼叫 deterministic publication writer。
 
 執行前必須使用 migration replay floor 之後的真實 input；不得把舊 `analysis_as_of` 改成
@@ -92,3 +124,11 @@ Core／scope lineage，並再次執行同 execution 的 stage，證明 immutable
 每批最多一股×五角色、每角色一次，無 task retry／provider retry／fallback。第二批驗收
 最新 auth version 與同 execution target integration；未發生真實 rotation 時，rotation
 仍標示 not observed，不能由 cold start 冒充。額度用完即停止，不啟用自然每日 AI 批次。
+
+### Completion boundary
+
+- Credential probe 成功 ≠ provider runtime approved。
+- Provider-routing targeted tests 成功 ≠ GCP dev five-role acceptance。
+- Deploy success ≠ same-execution target／provider／validator success。
+- OpenRouter `free_only` 與 Gemini Free Tier gate 未完成前，兩者不得在 effective route 中執行。
+- `WBS-5-MART-AI-PROVIDERS` 只有在 TODO 定義的整體 acceptance 全部具備 evidence 後才能標 completed。
