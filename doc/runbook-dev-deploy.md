@@ -112,13 +112,15 @@ Migration 必須使用 repository 內版本化 SQL／migration tooling，不直�
   --region=$region --project=$project --format="yaml(status)"
 ```
 
-### 5.1 Dev Iceberg financials 維護
+### 5.1 Dev 總控與資料清理
 
-`.github/workflows/iceberg-maintenance-dev.yml` 每週日台北時間 12:00 執行既有 `janus-ingestion-core` Job 的 `apply` 模式；`workflow_dispatch` 預設 `dry-run`，可手動選 `apply`。與手動 ingestion 工作流共用 concurrency group，執行前會確認沒有尚未完成的 ingestion execution。此程序只處理既有 dev Core bucket 的 `core.financials_v1`，不建立新 GCP 資源。
+既有 Scheduler `janus-ingestion-daily` 每小時台北時間 `:30` 呼叫 Cloud Run Job `janus-batch-controller`。原 `janus-mart-daily`、`janus-private-pipeline-2130` 暫停保留供回復；自然排程與依賴、防重複驗收通過後才移除。三支資料工作 Job 保留，由總控呼叫。GitHub `iceberg-maintenance-dev.yml` 只保留手動 financials 維護入口。
 
-手動操作時，先確認無 ingestion execution 在跑，再以同一 Job 的 execution env override 執行 `ICEBERG_MAINTENANCE_MODE=dry-run`；檢查 Job JSON log 的 `planned_expiration`、`planned_metadata_json`、保留數與列數。確認後才改為 `apply`。使用 `gcloud storage du --summarize gs://gen-lang-client-0593591102-dev-core/warehouse/financials_v1/metadata/` 獨立比較清理前後的有效物件 bytes；Job 回報還會驗證原列數及 Core manifest 引用的 snapshots 可讀。Execution override 不應改寫 Job 的常態 env。
+總控規則在 `ingestion_core/batch_controller.py`：ingestion 每日 07:30、Mart 工作日 09:00 依賴 ingestion、private 工作日 21:30 依賴 ingestion；Core／Stage 清理每日 23:30 依賴 ingestion，Mart 清理依賴 Core 清理。初期每小時輪詢，未到時間、依賴未成功或 Job 尚未結束時保留待辦，不等待或取消子 Job。PostgreSQL 總控 session lock 防止同時調度，持久化 occurrence 防止重複；不確定的 dispatch 必須人工核對 Cloud execution，不能自動重送。資料寫入／清理共用另一把資料鎖。事件先寫 PostgreSQL outbox，再冪等寫入 `ops.batch_events_v1`，讀回確認後才 acknowledge；Admin UI 查詢尚待串接。
 
-保留條件為所有 Core manifest 引用、Iceberg catalog refs、每日最後一個、最近 24 小時及目前 snapshot。只刪超過 7 天且不在目前 catalog metadata log 或 Core manifest 中引用的舊 `*.metadata.json`，使用 GCS generation precondition。這次維護未清除 `.avro` 孤兒檔，也未重寫 manifests；若日後需要，先確認所有 PIT／publication 引用及所用 Iceberg runtime 的安全實作。Bucket 啟用 versioning，noncurrent version 30 天後才由 lifecycle 刪除，另有 7 天 soft delete；`du` 的有效物件下降不等於當天帳單 bytes 同幅下降。
+完整清理先確認三支資料 Job 無 active execution，再對 ingestion 執行 `ICEBERG_MAINTENANCE_MODE=retention-dry-run`（`QUEUE_CONSUMER=false,MART_JOB=`），核對計畫後改 `retention-apply`。Mart 使用 `MART_OPERATION=retention,MART_RETENTION_MODE=dry-run,MART_AI_ENABLED=false`，核對後改 `apply`。保留 Stage 7 日、Mart 90 日、Core 日資料 365 日及各財報群組至少 12 個既有季度；缺少的歷史資料不造假補齊，未解決 quarantine 繼續保護。所有固定 manifest／publication／catalog refs 保護，孤兒檔與舊 metadata 至少 7 日且使用 generation precondition；歷史引用可能使實體檔案保留更久。報告保存在各 bucket `maintenance/retention/` 並讀回，另獨立盤點 live／全部版本／soft delete。使用者核准 Core／Stage／Mart／Private／research-big-move-500 的非當前版本 lifecycle 改為 3 日、關閉 soft delete；不立即刪除 live 檔案。research bucket 原本未啟用 versioning，3 日規則只約束既有非當前版本，不新增版本副本。既有 soft-deleted 物件仍按刪除時期限到期；GCS lifecycle 非同步執行，live bytes 減少不等於當天計費 bytes 同幅減少。
+
+總控 manifest 由 `scripts/gcp/prepare-batch-controller-dev.py` 依目前 ingestion immutable image、既有網路與 Secret refs 產生，預設 `observe`。更新 image 時須保留既有 `BATCH_CONTROLLER_MODE`、`BATCH_CONTROLLER_NOT_BEFORE`，不能直接套用預設 manifest 後忘記恢復 active。首次啟用先以 seed 採認當天原 Scheduler executions，驗證建立時間符合排程，設定有 timezone 的啟用時間後才 active。限定 IAM 清單見 `infra/gcp/dev-batch-controller-iam.json`；不得自行擴大至 production 或取消／刪除 execution。實際切換與清理證據見 operations ledger。
 
 ## 6. Secret rotation
 

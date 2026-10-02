@@ -1,9 +1,6 @@
 name: Maintain dev Iceberg financials
 
 on:
-  schedule:
-    # Sunday 12:00 Asia/Taipei, after the daily 07:30 ingestion.
-    - cron: '0 4 * * 0'
   workflow_dispatch:
     inputs:
       mode:
@@ -34,7 +31,7 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v2
       - name: Maintain existing dev financials table
         env:
-          MODE: ${{ github.event_name == 'schedule' && 'apply' || inputs.mode }}
+          MODE: ${{ inputs.mode }}
         shell: bash
         run: |
           set -Eeuo pipefail

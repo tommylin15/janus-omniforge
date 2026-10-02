@@ -28,7 +28,7 @@ configure() {
 
   for bucket in stage core mart private; do
     gcloud storage buckets update "gs://${project}-dev-${bucket}" --project="${project}" \
-      --versioning --public-access-prevention \
+      --versioning --public-access-prevention --clear-soft-delete \
       --lifecycle-file="${repo_root}/infra/private-bucket-lifecycle.json" --quiet
   done
 
@@ -193,7 +193,8 @@ import json, os
 bucket = json.loads(os.environ["BUCKET_JSON"])
 assert bucket.get("public_access_prevention") == "enforced"
 assert bucket.get("versioning_enabled") is True
-assert bucket.get("lifecycle_config", {}).get("rule"), "bucket lifecycle missing"
+assert bucket.get("lifecycle_config", {}).get("rule") == [{"action": {"type": "Delete"}, "condition": {"daysSinceNoncurrentTime": 3}}], "bucket lifecycle drift"
+assert int(bucket.get("soft_delete_policy", {}).get("retentionDurationSeconds", 0)) == 0, "soft delete must be disabled"
 PY
   done
 

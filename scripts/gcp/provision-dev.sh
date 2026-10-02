@@ -53,7 +53,7 @@ for layer in stage core mart private; do
       --location="${region}" --uniform-bucket-level-access --public-access-prevention
   fi
   gcloud storage buckets update "gs://${bucket}" \
-    --versioning --public-access-prevention \
+    --versioning --public-access-prevention --clear-soft-delete \
     --lifecycle-file="${repo_root}/infra/private-bucket-lifecycle.json" \
     --update-labels="environment=dev,layer=${layer},managed_by=github" \
     --quiet

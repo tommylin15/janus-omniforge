@@ -5,6 +5,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import json
 import os
+from pathlib import Path
+import sys
+import traceback
 from typing import Any
 
 from .stage import GcsObjectStore
@@ -92,7 +95,9 @@ def maintain_financials(*, core: Any, store: GcsObjectStore, apply: bool,
         if expire:
             table.maintenance.expire_snapshots().by_ids(expire).commit()
             table = core.catalog.load_table(identifier)
-        if int(table.current_snapshot().summary["total-records"]) != original_rows:
+        current_snapshot = table.current_snapshot()
+        current_rows = int(current_snapshot.summary["total-records"]) if current_snapshot else 0
+        if current_rows != original_rows:
             raise RuntimeError("financials row count changed during snapshot maintenance")
         actual_ids, actual_metadata = _references(store, identifier)
         if (actual_ids | set(protected_snapshot_ids or ()), actual_metadata | set(protected_metadata or ())) != (referenced_ids, referenced_metadata):
@@ -113,9 +118,10 @@ def maintain_financials(*, core: Any, store: GcsObjectStore, apply: bool,
             if index % 50 == 0 and core.catalog.load_table(identifier).metadata_location != current:
                 raise RuntimeError("financials catalog changed during metadata cleanup")
             store.delete(item["name"], generation=item["generation"])
-        after = sum(int(item["size"]) for item in store.objects(table_prefix))
-        if candidates and after >= before:
-            raise RuntimeError("financials GCS active metadata bytes did not decrease")
+        remaining = store.objects(table_prefix)
+        if {item["name"] for item in candidates} & {item["name"] for item in remaining}:
+            raise RuntimeError("metadata deletion readback mismatch")
+        after = sum(int(item["size"]) for item in remaining)
         for snapshot_id in referenced_ids:
             table.scan(snapshot_id=snapshot_id, limit=1).to_arrow()
     else:
@@ -148,5 +154,11 @@ def run(mode: str) -> dict[str, Any]:
                 from .retention import maintain_public_data
                 return maintain_public_data(core=core, apply=mode == "retention-apply")
             return maintain_financials(core=core, store=GcsObjectStore(bucket), apply=mode == "apply")
+    except Exception as error:
+        frame = traceback.extract_tb(error.__traceback__)[-1]
+        print(json.dumps({"component": "iceberg-maintenance", "status": "failed",
+                          "error_code": type(error).__name__.upper(),
+                          "error_location": f"{Path(frame.filename).name}:{frame.lineno}"}), file=sys.stderr)
+        raise
     finally:
         core.close()
