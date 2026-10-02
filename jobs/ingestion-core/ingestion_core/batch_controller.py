@@ -279,6 +279,8 @@ def run(*, now=None, session=None, control=None, core=None):
                 state = {**state, "status": "ambiguous", "reason": "inspect_cloud_execution_before_manual_recovery"}
             record(connection, tick, key, state, "dispatch_result")
         core = core or _iceberg_core(PROJECT + "-dev-core")
+        record(connection, tick, "controller", {"status": "tick_completed", "model_calls": 0,
+               "execution": os.environ.get("CLOUD_RUN_EXECUTION", "")}, "tick", update=False)
         return {"status": "tick_completed", "tick": tick, "exported_events": export_events(connection, core), "model_calls": 0}
     finally:
         if locked:

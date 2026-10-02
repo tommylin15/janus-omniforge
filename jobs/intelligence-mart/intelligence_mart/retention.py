@@ -23,6 +23,7 @@ def run():
     })
     import psycopg
     settings = _settings("PUBLICATION_DB")
+    settings["dbname"] = settings.pop("name")
     apply = mode == "apply"
     now = datetime.now(timezone.utc)
     catalog = sql_catalog_from_environment()
