@@ -8,7 +8,7 @@
 
 以目前五位分析師／五份 Fact Pack 的真實缺資料 evidence 為起點，先完成「缺口判定 → 既有必要資料修復 → 官方事件／產業資料擴充」的第一版資料補強。
 
-**`WBS-5-MART-AI-PROVIDERS` 2026-10-02 checkpoint 所揭露的資料需求是本 WBS 的最低要求（acceptance floor），不是範例、候選或僅供參考的 research wish list。** S0 必須逐項證實 root cause；S1／S2 必須把其中可由既有／可核准資料路徑解決的必要需求實作到可供五角色使用。若某項最低要求因來源授權、官方資料不存在或其他不可自行解除的 blocker 無法滿足，WBS 必須維持 `partial`／`blocked`，不得只因完成盤點而標 Done。
+**`WBS-5-MART-AI-PROVIDERS` 2026-10-02 checkpoint 所揭露的資料需求是本 WBS 的最低要求（acceptance floor），不是範例、候選或僅供參考的 research wish list。** S0 必須逐項證實 root cause；S1／S2 必須把其中可由既有／可核准資料路徑解決的必要需求實作到可供五角色使用。若某項最低要求因來源授權、官方資料不存在或其他不可自行解除的 blocker 無法滿足，必須觸發下方 **Stop-and-Discuss Gate**；不得把 `partial`／`blocked` 當成可跳過該要求、繼續下一階段或下一個 WBS 的通行證。
 
 本 WBS 不以「消除所有 null」或「全市場全部歷史 100% 完整」為目標，也不把模型 `missing_information` 未經查證就自動視為 source-level gap。checkpoint 需求先以正式 Core／Fact Pack／provenance／runtime evidence 驗證其 applicability 與 root cause；驗證後屬必要研究輸入者即成為本版最低 acceptance，屬特殊會計不適用欄位才可標 `not_applicable`，不得為消除 null 補造數字。
 
@@ -21,6 +21,18 @@
 - Event Risk：`events`
 
 2026-10-02 `2327` 的 `WBS-5-MART-AI-PROVIDERS` bounded GCP checkpoint 是本 WBS 第一組 real-data baseline：五角色第二批均通過 validator，但研究結果均為 `insufficient_data`。該 checkpoint 已證實部分缺口屬 history／metric／semantic／provenance 問題，而不是 provider failure 或「所有資料源都不存在」。
+
+## Stop-and-Discuss Gate
+
+本節是 `WBS-3-DATA-SUPPLEMENT-V1` 的強制人工決策閘門，優先於一般 WBS「先完成其他可繼續部分」的慣例。
+
+- S0、S1、S2 任一階段，只要有一項 **checkpoint minimum requirement** 或已證實的現行必要 feature 經充分查核後確認無法由目前授權、既有 dev 資源、官方／approved-fallback source 或安全 deterministic 實作自行滿足，立即停止本 WBS 的後續執行。
+- 停止後只可整理完成決策所需的最小證據，不得繼續下一個 S 階段、不得先做其他補資料擴張、不得切到下一個 WBS，也不得自行把該要求降級成 `research_enrichment`、`accepted gap`、Parking Lot 或非必要項目。
+- 必須回報使用者：無法滿足的精確 requirement、root cause、已驗證 evidence、受影響 role／Fact Pack／daily-operation gate、可行方案、每個方案的授權／費用／PIT／資料品質／維運風險，以及不處理的後果。
+- 需要新付費來源、付費 API／subscription、新 GCP 資源、重大權限、外部 credential consent 或其他既定人工授權時，停在此 gate 等待使用者決定；不得繞過授權或以替代 provider 隱藏缺口。
+- `partial`／`blocked` 只能描述停下來時的真實狀態，**不是 completion，也不是 skip permission**。
+- 只有使用者明確決定採用某個修復方案、調整 requirement、接受特定缺口或把特定項目移出 active scope 後，才能依該決定繼續。
+- 尚未證實的 `unknown` 可以繼續做 bounded investigation；一旦確認為無法自行解除的 blocker，就立即觸發本 gate。
 
 ## Checkpoint minimum requirement floor
 
@@ -144,13 +156,15 @@ S0 不呼叫 LLM 補 canonical facts，也不因 gap inventory 存在就核准�
 7. 對會影響 PIT correctness 的 `published_at`／`availability_at` 補足 source contract、mapping 或 explicit `unknown` 語意；不得用 fetched time 代替官方發布時間。
 8. Snapshot composition／Core read path 若是根因，優先修 composition/read window，不為已有資料新增外部來源。
 
-若 S0 證實某個**checkpoint minimum requirement 或現行必要 feature** 是真正 `source_gap`，且現有 official／approved-fallback 無法解決，可把該 bounded source admission／adapter 提前併入 S1；仍須遵守 source authorization、費用與外部授權 gate。這個例外不等於開放一般新聞／券商／社群來源擴張。
+若 S0 證實某個**checkpoint minimum requirement 或現行必要 feature** 是真正 `source_gap`，且現有 official／approved-fallback 無法解決，先觸發 **Stop-and-Discuss Gate**。只有使用者明確決定採用並授權某個 bounded source admission／adapter 後，才可把該來源併入 S1；不得自行以「可併入 S1」為理由繼續執行。這個例外不等於開放一般新聞／券商／社群來源擴張。
 
 S1 不要求 TWSE 500 各 dataset 500/500，不為消除已接受 `partial` 逐筆追缺；但不得以「不追求 100%」為理由豁免上方 checkpoint minimum floor。
 
 ## S2 — Official Event / Industry Expansion
 
-在 S0/S1 已把現行 hard blockers 分清楚後，第一版再做 bounded 官方／已核准研究資料擴充。S2 同時負責補足 checkpoint minimum floor 中，單靠現有七類 Core dataset 無法合理完成、但可由官方／已核准事件／產業資料解決的部分。
+只有 S0／S1 的 checkpoint minimum floor 沒有未決 Stop-and-Discuss blocker，或所有 blocker 都已取得使用者明確決策後，才可進入 S2。不得因 S1 被標 `partial`／`blocked` 就自行跳到 S2。
+
+S2 做 bounded 官方／已核准研究資料擴充，並負責補足 checkpoint minimum floor 中，單靠現有七類 Core dataset 無法合理完成、但可由官方／已核准事件／產業資料解決的部分。
 
 候選範圍只包含可驗證授權、PIT/time semantics 清楚、且能建立 deterministic contract 的官方／已核准資料，例如：
 
@@ -162,26 +176,28 @@ S1 不要求 TWSE 500 各 dataset 500/500，不為消除已接受 `partial` 逐�
 
 任何 S2 dataset 要進 Core／Fact Pack 前都必須先定義 source authorization、schema、PIT fields、cadence、retention、provenance、DQ／missing semantics 與 deterministic consumer。沒有 consumer contract 的候選只保留 research note，不建立 production ingestion。
 
+S2 若遇到 minimum floor 無法滿足或需要額外人工授權，同樣立即觸發 **Stop-and-Discuss Gate**，不得以候選資料不足為理由直接結束 S2 或轉往後續 WBS。
+
 S2 不新增付費 API／subscription／GCP resource，除非使用者另行明確授權。
 
 ## S0～S2 驗收條件
 
 `WBS-3-DATA-SUPPLEMENT-V1` 完成至少需同時滿足：
 
-1. **2026-10-02 `WBS-5-MART-AI-PROVIDERS` checkpoint 的資料需求為最低 acceptance floor；所有經 runtime evidence 判定 applicable 的項目必須有可用 deterministic input／contract，或有無法自行解除的明確 external blocker。只完成分類不得標 Done。**
+1. **2026-10-02 `WBS-5-MART-AI-PROVIDERS` checkpoint 的資料需求為最低 acceptance floor；所有經 runtime evidence 判定 applicable 的項目必須有可用 deterministic input／contract。若出現無法自行解除的 blocker，必須先觸發 Stop-and-Discuss Gate 並取得使用者明確決策；未決 blocker 存在時不得標 Done、不得進下一 S 階段或下一 WBS。**
 2. 五角色所有目前 `missing_data`／`insufficient_data` 都有 machine-readable root cause；不再只用籠統 `insufficient_data` 當診斷。
 3. `2327` 與代表性 active targets 的 gap matrix 可由真實 dev Core／Fact Pack／provenance 重建，且 pinned as-of replay 結果可稽核。
 4. confirmed blocker 可明確路由到 snapshot composition、history、normalization/derived metric、provenance time、semantic mapping 或 true source gap。
 5. `not_applicable` 必須有 deterministic applicability evidence；不得把仍未查明的 checkpoint requirement 降級成 `research_enrichment` 或 `not_applicable`。`unknown` 不猜測，但若屬最低要求則會阻擋 WBS completion。
 6. S1/S2 修復不放寬 validator、不由 LLM 補 canonical number、不以 provider fallback 隱藏資料不足。
-7. 修復後以相同／可比較 pinned as-of input 重跑；`2327` 必須證明 checkpoint 中 confirmed hard gaps 已按預期消失或轉成有證據的外部 blocker，Fact Pack／interpretation 的 missing/completeness 變化與 immutable lineage 可稽核。
-8. 若某項 checkpoint minimum requirement 需要新 source，只有通過 source admission／authorization 的來源可進 executable path；未取得必要授權時 WBS 保持 `partial`／`blocked`，不得降低 requirement 來結案。
+7. 修復後以相同／可比較 pinned as-of input 重跑；`2327` 必須證明 checkpoint 中 confirmed hard gaps 已按預期消失。若仍有最低要求無法滿足，必須有使用者在 Stop-and-Discuss Gate 的明確決策；Fact Pack／interpretation 的 missing/completeness 變化與 immutable lineage 可稽核。
+8. 若某項 checkpoint minimum requirement 需要新 source，只有通過 source admission／authorization 且取得必要人工決策的來源可進 executable path；未取得必要授權或決策時立即停在 Stop-and-Discuss Gate，不得降低 requirement、標成 accepted gap 或跳往後續工作。
 9. S2 只把通過 source admission 且有 deterministic consumer contract 的官方／已核准資料接入；candidate 不得文件先行寫成 available。
 10. 有相稱的 tests、CI／deployment（如有程式變更）、dev live integration evidence；文件完成本身不等於 WBS 完成。
 
 ## 不在本版範圍
 
-S3～S6 明確放在 [`../parking-lot.md`](../parking-lot.md)，目前不做、不計入未完成度，也不阻塞五位分析師目前版本的 daily-operation gate；但若 S0 證實其中某類來源是滿足 checkpoint minimum floor 唯一合理且可核准的方式，只把該 bounded 必要 source 拉入 S1/S2，不等於整個 S3～S6 roadmap 啟動。
+S3～S6 明確放在 [`../parking-lot.md`](../parking-lot.md)，目前不做、不計入未完成度，也不阻塞五位分析師目前版本的 daily-operation gate；但若 S0 證實其中某類來源是滿足 checkpoint minimum floor 唯一合理且可核准的方式，必須先觸發 Stop-and-Discuss Gate，由使用者明確決定是否把該 bounded 必要 source 拉入 S1/S2；不得自行啟動整個 S3～S6 roadmap。
 
 - S3：News Research Layer。
 - S4：Supply-chain Evidence Expansion。
