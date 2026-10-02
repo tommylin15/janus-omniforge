@@ -43,6 +43,13 @@
   不核准 public redistribution，也不把 operational quote 冒充 canonical Core historical data。
 - OpenRouter 只允許 `free_only` profile；必須實際驗證 prompt/completion 都為 `$0` 的 route。
   找不到 `$0` route、free model unavailable 或 metadata 不足時 fail closed，不退到付費模型。
+  實際免費請求驗收前，`MART_OPENROUTER_FREE_ROUTE_CONFIRMED=false`（預設）使其不進
+  effective route。核對 live evidence 後才能明確設為 `true`；單憑 key 認證不能開啟。
+  Runtime 使用 [OpenRouter max_price](https://openrouter.ai/docs/guides/routing/provider-selection#max-price)
+  限定 prompt／completion 單價均為零；回應 cost 缺失／非有限／負數保持 unknown 並以
+  `free_cost_unverified` 擋下，cost >0 以 `paid_cost_detected` 擋下。兩者不 retry／fallback。
+  保存 requested／actual model；每個 execution 的 routing hash 包含 profile／參數與
+  effective providers snapshot，不能用模型 alias 冒充實際模型。
 - Gemini 在確認 key 所屬 project 的 Free Tier／billing gate 前，不發 generation request；models
   endpoint 成功不等於 free entitlement acceptance。
 - 任何新付費 API／model／subscription 仍需使用者明確授權，不能由 routing reorder 自動打開。
@@ -113,6 +120,8 @@ hash／snapshot／execution fence，使用正式 target projection及正式 prov
 今天來繞過 PIT。明確設定 execution-only `ENVIRONMENT=dev`、`MART_AI_ENABLED=true`、
 `MART_AI_MAX_SYMBOLS_PER_EXECUTION=1`、`MART_CODEX_MAX_ATTEMPTS=1`；Cloud Run execution
 仍需 `maxRetries=0`。其餘未 admission 的 target 全數保留 deferred，不能稱完整聯集已分析。
+此十次 Codex 驗收禁止 remote fallback：兩個 free-confirmed flags 均須保持 `false`；
+readback 只計入 attempt >0 的實際 Codex invocation，skipped provider metadata 不計模型呼叫。
 
 驗收讀回 target／attempt／sidecar／十份 interpretation＋validation hashes、same execution／
 Core／scope lineage，並再次執行同 execution 的 stage，證明 immutable manifest replay

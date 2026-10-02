@@ -206,6 +206,8 @@ def test_blocked_provider_persists_five_failures_and_replays_without_calls(monke
     monkeypatch.setenv("MART_AI_ENABLED", "true"); monkeypatch.setenv("MART_BUCKET", "mart-bucket")
     monkeypatch.delenv("MART_AI_FALLBACK_PROVIDER", raising=False)
     monkeypatch.delenv("MART_CODEX_AUTH_JSON", raising=False); monkeypatch.delenv("CODEX_ACCESS_TOKEN", raising=False)
+    for name in ("JANUS_MART_POSTGRES_BUNDLE", "OPENROUTER_API_KEY", "GEMINI_API_KEY"):
+        monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr("intelligence_mart.runtime._fenced_core_manifest", lambda *a: {})
     monkeypatch.setattr("intelligence_mart.storage.load_core_datasets", lambda *a, **k: {})
     monkeypatch.setattr("intelligence_mart.analysis.analyze", lambda **k: [source])
@@ -317,6 +319,7 @@ def test_acceptance_readback_rejects_wrong_bucket_and_tampered_hash():
     {"ENVIRONMENT": "prod"}, {"MART_CODEX_MAX_ATTEMPTS": "2"},
     {"MART_AI_MAX_SYMBOLS_PER_EXECUTION": "5"}, {"MART_CODEX_MODEL": "other-model"},
     {"MART_CODEX_REASONING_EFFORT": "high"},
+    {"MART_OPENROUTER_FREE_ROUTE_CONFIRMED": "true"}, {"MART_GEMINI_FREE_TIER_CONFIRMED": "true"},
 ])
 def test_acceptance_rejects_scope_and_call_budget_before_network(monkeypatch, override):
     sys.path.insert(0, str(Path(__file__).parents[1] / "scripts/gcp"))

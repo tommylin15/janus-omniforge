@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import math
 import os
 import time
 from typing import Any, Callable
@@ -205,6 +206,10 @@ class OpenRouterProvider:
             return {"status": "blocked", "reason": "paid_model_not_allowed", "provider": self.provider_id,
                     "transport": self.transport, "model": self.model, "billing_mode": "free_only",
                     "paid_api_enabled": False, "publication_authority": False}
+        if not _bool_env("MART_OPENROUTER_FREE_ROUTE_CONFIRMED", False):
+            return {"status": "blocked", "reason": "free_route_not_confirmed", "provider": self.provider_id,
+                    "transport": self.transport, "model": self.model, "billing_mode": "free_only",
+                    "paid_api_enabled": False, "publication_authority": False}
         return {"status": "ready", "reason": None, "provider": self.provider_id,
                 "transport": self.transport, "model": self.model, "billing_mode": "free_only",
                 "paid_api_enabled": False, "publication_authority": False}
@@ -226,7 +231,7 @@ class OpenRouterProvider:
                 "type": "json_schema",
                 "json_schema": {"name": f"janus_{role}_v1", "strict": True, "schema": schema},
             },
-            "provider": {"require_parameters": True},
+            "provider": {"require_parameters": True, "max_price": {"prompt": 0, "completion": 0}},
             "temperature": 0,
         }
         attempts: list[dict[str, Any]] = []
@@ -236,6 +241,7 @@ class OpenRouterProvider:
             reason = None
             usage = None
             cost = None
+            actual_model = None
             request = Request(
                 "https://openrouter.ai/api/v1/chat/completions",
                 data=json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode(),
@@ -246,16 +252,21 @@ class OpenRouterProvider:
             try:
                 with self.opener(request, timeout=self.timeout_seconds) as response:
                     document = json.load(response)
+                actual_model = document.get("model") if isinstance(document, dict) else None
                 raw_usage = document.get("usage") if isinstance(document, dict) else None
                 if isinstance(raw_usage, dict):
                     usage = {key: int(value) for key, value in raw_usage.items()
                              if key in {"prompt_tokens", "completion_tokens", "total_tokens"}
                              and type(value) is int and value >= 0} or None
                     raw_cost = raw_usage.get("cost")
-                    if type(raw_cost) in {int, float} and raw_cost >= 0:
+                    if type(raw_cost) in {int, float} and math.isfinite(raw_cost) and raw_cost >= 0:
                         cost = float(raw_cost)
-                if cost is not None and cost > 0:
+                if cost is None:
+                    reason = "free_cost_unverified"
+                elif cost > 0:
                     reason = "paid_cost_detected"
+                elif not isinstance(actual_model, str) or not actual_model:
+                    reason = "model_identity_unverified"
                 else:
                     content = document["choices"][0]["message"]["content"]
                     parsed = OUTPUT_MODELS[role].model_validate_json(content).model_dump()
@@ -266,10 +277,11 @@ class OpenRouterProvider:
             except Exception:
                 reason = "invalid_structured_output"
             attempts.append(_attempt(
-                role=role, provider=self.provider_id, transport=self.transport, model=self.model, attempt=number,
+                role=role, provider=self.provider_id, transport=self.transport,
+                model=actual_model if isinstance(actual_model, str) and actual_model else self.model, attempt=number,
                 duration_ms=round((time.monotonic() - started) * 1000),
                 status="succeeded" if parsed is not None else "failed", reason=reason, usage=usage,
-                actual_cost_usd=0.0 if parsed is not None and cost is None else cost, billing_mode="free_only",
+                actual_cost_usd=cost, billing_mode="free_only",
             ))
             if parsed is not None:
                 return ProviderResult("succeeded", parsed, tuple(attempts), None)
@@ -390,7 +402,17 @@ class ProviderRouter:
         if set(providers) != _ALLOWED_ROUTE:
             raise ValueError("provider map must contain the complete governed route")
         self.providers = providers
-        self.routing = routing
+        self.routing = json.loads(json.dumps(routing))
+        self.routing["profiles"] = {
+            name: {**provider.preflight(), "parameters": {
+                key: getattr(provider, key) for key in
+                ("cli_version", "reasoning_effort", "timeout_seconds", "max_attempts", "kill_grace_seconds")
+                if hasattr(provider, key)}}
+            for name, provider in providers.items()
+        }
+        self.routing["effective_providers"] = [name for name in self.routing["providers"]
+                                               if self.routing["profiles"][name]["status"] == "ready"]
+        self.routing["routing_hash"] = content_hash({k: v for k, v in self.routing.items() if k != "routing_hash"})
         self.model = "routed"
         self.cli_version = getattr(providers["codex_cli"], "cli_version", "unknown")
 
@@ -431,7 +453,7 @@ class ProviderRouter:
         last_meta = {"provider": "janus", "transport": "provider_router", "model": "routed"}
         for name in self.routing["providers"]:
             provider = self.providers[name]
-            preflight = provider.preflight()
+            preflight = provider.preflight() if name in self.routing["effective_providers"] else self.routing["profiles"][name]
             last_meta = {
                 "provider": str(preflight.get("provider", name)),
                 "transport": str(preflight.get("transport", name)),
@@ -449,10 +471,12 @@ class ProviderRouter:
             result = provider.invoke(role, role_input)
             attempts.extend(result.attempts)
             if result.status == "succeeded" and result.output is not None:
+                actual_model = result.attempts[-1].get("model", last_meta["model"]) if result.attempts else last_meta["model"]
                 return RoutedProviderResult(
                     "succeeded", result.output, tuple(attempts), None,
-                    last_meta["provider"], last_meta["transport"], last_meta["model"],
-                    {"route_name": name, "billing_mode": preflight.get("billing_mode"),
+                    last_meta["provider"], last_meta["transport"], actual_model,
+                    {**self.routing["profiles"][name]["parameters"],
+                     "route_name": name, "requested_model": last_meta["model"], "billing_mode": preflight.get("billing_mode"),
                      "paid_api_enabled": False}, self.routing,
                 )
             last_reason = result.reason or "provider_failed"

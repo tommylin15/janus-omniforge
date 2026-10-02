@@ -45,6 +45,8 @@ def main():
             os.environ.get("MART_CODEX_AUTH_SECRET") != "janus-mart-codex-auth" or
             os.environ.get("MART_AI_MAX_SYMBOLS_PER_EXECUTION") != "1" or
             os.environ.get("MART_CODEX_MAX_ATTEMPTS") != "1" or
+            os.environ.get("MART_OPENROUTER_FREE_ROUTE_CONFIRMED", "false") != "false" or
+            os.environ.get("MART_GEMINI_FREE_TIER_CONFIRMED", "false") != "false" or
             os.environ.get("MART_CODEX_MODEL", "gpt-6.1-sol") != "gpt-6.1-sol" or
             os.environ.get("MART_CODEX_REASONING_EFFORT", "low") != "low"):
         raise ValueError("acceptance requires explicit AI enablement, one symbol and one attempt per role")
@@ -85,8 +87,10 @@ def main():
     for item in stage["results"]:
         assert item["symbol"] in target.admitted_symbols
         for reference in item["attempts"]:
-            read_reference(store, bucket, reference)
-            calls += 1
+            attempt = read_reference(store, bucket, reference)
+            if attempt["attempt"] > 0:
+                assert attempt["transport"] == "codex_cli" and attempt["attempt"] == 1
+                calls += 1
         if item.get("sidecar"):
             sidecar = read_reference(store, bucket, item["sidecar"])
             MartAIAdditiveSidecarV1.model_validate(sidecar)

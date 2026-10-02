@@ -26,6 +26,7 @@ on:
       - 'tests/test_intelligence_mart_runtime.py'
       - 'tests/test_mart_ai_contract.py'
       - 'tests/test_mart_ai_providers.py'
+      - 'tests/test_mart_provider_routing.py'
       - 'tests/contract/test_mart_v2_compat.py'
       - 'tests/contract/test_contract_registry.py'
       - 'services/api/**'
@@ -136,6 +137,7 @@ jobs:
               - 'tests/test_intelligence_mart_runtime.py'
               - 'tests/test_mart_ai_contract.py'
               - 'tests/test_mart_ai_providers.py'
+              - 'tests/test_mart_provider_routing.py'
               - 'tests/contract/test_mart_v2_compat.py'
               - 'tests/contract/test_contract_registry.py'
             private_pipeline_runtime:
@@ -256,6 +258,7 @@ jobs:
           tests/test_intelligence_mart_runtime.py
           tests/test_mart_ai_contract.py
           tests/test_mart_ai_providers.py
+          tests/test_mart_provider_routing.py
           tests/contract/test_mart_v2_compat.py
           tests/contract/test_contract_registry.py
 
