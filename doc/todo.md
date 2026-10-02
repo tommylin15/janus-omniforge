@@ -1,10 +1,11 @@
 # Janus — TODO
 
-版本：2.1
+版本：2.2
 用途：只保留未完成工作與目前驗收條件；完成證據、已失效 planning marker 與歷史 checkpoint 移至 archive。
 
-歷史入口：
+歷史／決策入口：
 
+- [2026-10-02 Admin／User／Routing／Provider 決策總結](decision-2026-10-02-admin-user-routing-and-provider-plan.md)
 - [2026-09-26 Product Completeness reprioritization 與 TODO cleanup](archive/todo-cleanup-and-product-completeness-priority-2026-09-26.md)
 - [WBS-3 Liquid-500 rotation completed (2026-09-27)](archive/wbs-3-liquid-500-rotation-completed-2026-09-27.md)
 - [WBS-3 TWSE 500 base coverage completed (2026-09-29)](archive/wbs-3-full-market-base-coverage-completed-2026-09-29.md)
@@ -43,8 +44,8 @@ Observation window 不阻擋 correctness、data-integrity、market coverage、po
 `WBS-5-MART-AI-VALIDATION` 已完成 Gate 4，implementation／tests／deployment／bounded
 live artifact acceptance 見 [結案紀錄](archive/wbs-5-mart-ai-validation-2026-09-30.md)。
 `WBS-5-MART-V2-COMPAT` 已完成 v1 additive compatibility、CI 與既有 GCP dev pinned-report／artifact acceptance，見 [結案紀錄](archive/wbs-5-mart-v2-compat-2026-10-01.md)。
-下一項為 `WBS-5-MART-AI-PROVIDERS`；開始前重新核對 dependency 與模型 gate，
-compatibility 結案不代表五角色每日 workload 已完成。
+
+**目前 foreground 為 `WBS-5-MART-AI-PROVIDERS`，狀態 `partial`。** 2026-10-02 已開始 provider routing／credential／free-gate 接續工作，但 credential probe、router code 或 targeted tests 都不構成整體 completion；在 GCP dev 真實 provider execution、same-execution target integration、auth lifecycle、validator／artifact readback 與 bounded fallback evidence 完成前，不得切換下一個 foreground WBS。後續 Admin／User／行情 routing 等已確認 backlog 見 [2026-10-02 決策總結](decision-2026-10-02-admin-user-routing-and-provider-plan.md)，**不改變此 foreground 順序**。
 
 ## B. Dev Pilot operational observation
 
@@ -78,7 +79,7 @@ compatibility 結案不代表五角色每日 workload 已完成。
 - [ ] 【Sol】 個人化分析只在 authenticated-user 邊界內引用公開 `mart_scoped_analysis` 的 symbol scope；不把私人資料寫回公開 Mart。
 - [ ] 【Sol】 對已核准行情來源建立分 K／Tick 獨立排程、quota、retention、failure policy 與成本量測；未核准前保持 blocked。
 - [ ] 【Sol】 新聞／券商研究／目標價逐一完成來源授權與 provenance 審查後，才可建立 adapter 與 retention policy。
-- [ ] 【Sol】 未核准候選來源只保留 disabled／blocked 設定，不建立 adapter、排程或 Admin 審查 UI；取得外部授權與成本核准後另開 WBS。
+- [ ] 【Sol】 未核准候選來源只保留 disabled／blocked 設定；可在 Admin routing／health UI 顯示 blocked 狀態與核准原因，但不得建立 executable adapter／排程、不得因排序而生效。取得外部授權與成本核准後再進正式 runtime WBS。
 - [ ] 【Sol】 建立文本正規化、dedup、language、published time、entity-to-symbol 與 source authority Core tables；entity-to-symbol 保留規則／模型版本、confidence、evidence 與人工覆核狀態，sentiment、buzz、AI alert 與投資判讀只寫 versioned Mart。
 - [ ] 【Sol】 驗證關注需求變更不改寫歷史 membership；最後一位使用者取消關注後停止新的深度收集，但保留依法可保存的歷史 provenance。MVP 超過 50 個 distinct active symbols 時安全拒絕並顯示 quota。
 
@@ -87,7 +88,7 @@ compatibility 結案不代表五角色每日 workload 已完成。
 `WBS-5-MART-FACT-PACKS`／`WBS-5-MART-AI-ROLE-CONTRACT`／`WBS-5-MART-AI-VALIDATION` 已完成 Gate 2／3／4。以下項目在其 dependency 與各自 gate 完成後依序推進；既有 deterministic Mart／Gemini narrator／mart.v1 evidence 保持 current truth。
 
 使用者 2026-09-30 已指定 [Codex 五分析師研究方向](https://docs.google.com/document/d/1wPKndnPMbtVR1nkHEaUgmxTiUbt5_PkdyG-IY-l5Fo4/edit)：
-GCP 既有批次自主使用 Codex CLI 優先／必要 worker bridge，Gemini／OpenRouter 受控 fallback；
+GCP 既有批次自主使用 Codex CLI 優先／必要 worker bridge；**2026-10-02 最新 provider default route 指定為 `Codex CLI → OpenRouter → Gemini`**，只在 approved／authorized／free-or-explicitly-approved-paid profile 中形成 effective route。
 詳細邊界見 [SPEC](spec/intelligence-and-governance.md#gcp-批次-codex-分析師研究路線active-planning尚未實作)。
 Drive 原文仍是 Deferred，這次依最新指示納入 active planning，並非 CLI／worker 已實作。
 個股 AI target 已選定為 **active 關注＋有效持股 symbol 聯集，依 as-of 固定並去重**，持股
@@ -97,18 +98,34 @@ AI 有自己的 bounded batch／quota／cost gate，未處理或缺資料須明�
 Provider-neutral validator 與 mart.v1 additive compatibility 已完成；下一項驗收 GCP
 worker 真實整合。每項重新走模型閘門；不把 Gate 4／compatibility fixtures 稱為真實 AI worker success。
 
-- [ ] 【Sol】 `WBS-5-MART-AI-PROVIDERS`：GCP 既有 Mart 批次自主啟動五個獨立 Codex CLI workers（primary；必要 bridge 須具體介面驗證）、初始授權後 headless dispatch／cold-start auth／續期、role workspace 隔離、capability／參數、timeout／process-tree cancel／退出碼／bounded retry；Gemini／OpenRouter 只作 profile 核准 fallback，保存 attempt／reason／transport／model。以 GCP dev 真實五角色 artifact／validator readback 驗收，不以本機 CLI 或人工 ChatGPT 操作替代；secret redaction、quota／cost／billing gate 保留，失敗 fail closed。
+- [ ] 【Sol】 `WBS-5-MART-AI-PROVIDERS`：GCP 既有 Mart 批次自主啟動五個獨立 Codex CLI workers（primary；必要 bridge 須具體介面驗證）、初始授權後 headless dispatch／cold-start auth／續期、role workspace 隔離、capability／參數、timeout／process-tree cancel／退出碼／bounded retry；provider route 預設 **Codex CLI → OpenRouter → Gemini**，只允許 approved profile 進 effective route，保存 route version/hash、attempt／reason／transport／model。以 GCP dev 真實五角色 artifact／validator readback 驗收，不以本機 CLI 或人工 ChatGPT 操作替代；secret redaction、quota／cost／billing gate 保留，失敗 fail closed。
 - [ ] 【Sol】 同一 `WBS-5-MART-AI-PROVIDERS` 整體 acceptance：接線關注＋持股 immutable target 聯集，驗收 watch-only／held-only／重疊去重、多使用者、持股離榜、取消關注／清倉、as-of replay、quota／missing-data honesty 與 private isolation；不另開與五角色批次脫節的 implementation。
-- 2026-10-01 **partial**：GCP `gpt-6.1-sol`＋`low` 五次真實 CLI 輸出、17-object readback 與九類 DB 投影驗收通過；validator 3 validated／insufficient_data、2 blocked。五次核准額度已使用，auth 跨批次續期保存與 target/provider 同 execution 整合仍待安全／有界 quota 決策。詳見 [checkpoint](archive/wbs-5-mart-ai-providers-checkpoint-2026-10-01.md)。
+- 2026-10-01 **partial**：GCP `gpt-6.1-sol`＋`low` 五次真實 CLI 輸出、17-object readback 與九類 DB 投影驗收通過；validator 3 validated／insufficient_data、2 blocked。五次核准額度已使用；auth 跨批次續期保存與 target/provider same-execution 尚未完成。
+- 2026-10-02 **partial**：既有 Fugle／Gemini／OpenRouter credential 已做安全 live probe，三者認證均成功；Fugle `2330` quote HTTP 200、Gemini models HTTP 200、OpenRouter key HTTP 200 但 `is_free_tier=false`。Fugle 可進免費 source approval；OpenRouter 尚需 `$0`/free-only actual model request；Gemini 尚需 Free Tier／billing confirmation。Provider router／targeted tests 已有 implementation evidence，但不得取代 dev deploy／same-execution／auth lifecycle／五角色 live runtime acceptance。完整邊界見 [2026-10-02 決策總結](decision-2026-10-02-admin-user-routing-and-provider-plan.md)。
 - [ ] 【Sol】 `WBS-5-MART-CIO-SYNTHESIS`：validated roles only、CIO synthesis／validator、無 publication authority；publication 仍由 deterministic governance 決定。
 - [ ] 【Sol】 `WBS-5-MART-RERUN-CACHE`：single-role rerun、dependency invalidation、content-addressed reuse、immutable artifact lineage；prompt/model 不重算 facts、governance-only 不呼叫 LLM、reuse 有 audit。
 
 ### P1 — Admin advanced governance／AI operations
 
-- [ ] 【Sol】 `WBS-6-ADMIN-ANALYSIS-PROFILE`：Production profile versioning、direct new Production、rollback、role／CIO prompt editor、locked guardrail、model picker、per-role override、fixed 5–10 symbols、compare；dependency：Mart role/provider/validation contracts、Admin shell。
+- [ ] 【Sol】 `WBS-6-ADMIN-ANALYSIS-PROFILE`：Production profile versioning、direct new Production、rollback、role／CIO prompt editor、locked guardrail、model picker、per-role override、fixed 5–10 symbols、compare；dependency：Mart role/provider/validation contracts、Admin shell。Provider route global default 為 `Codex CLI → OpenRouter → Gemini`，Admin 可 reorder 已核准 provider；每個 execution 固定 route version/hash snapshot，舊 execution immutable。
 - 同一 Admin profile 驗收須提供 provider 授權狀態／官方重新授權入口，以及使用者可選的預設模型；模型清單從目前授權帳號取得最新可用項目，保留來源／更新時間／失敗或過期狀態，不硬編碼或 silent fallback。使用者尚未選定前，預設 `gpt-6.1-sol`＋`low`（輕），之後以使用者選擇為準。登入／MFA／OAuth consent 由本人在官方流程操作，Admin 不接收或顯示原始 token。
 - [ ] 【Luna】 `WBS-6-ADMIN-LEGACY-RETIREMENT`：只在 Flutter parity、Admin auth、browser/runtime acceptance、rollback plan 與 foreground Admin slices 全部完成後 deprecate static Admin；legacy 未達 gate 不刪除。
 - [ ] 【Sol】 `WBS-8-PILOT-MART-AI-EVALUATION`：收集 role validation pass rate、Codex CLI／worker auth／cold start／timeout／cancel／退出碼、provider failure／retry／fallback／availability、latency、可觀察 token／quota／subscription／actual API cost（不可取得者明示 unknown）、cache reuse、single-role rerun、manual intervention、rollback、usefulness、deterministic／AI divergence 與 outcome lineage；每筆 evidence 綁實際 transport／CLI revision／immutable lineage，區分 partial／failure／full success；不是 predictive tuning。
+
+### P0／P1 — 2026-10-02 Admin／User operational convergence（已確認；不改 foreground）
+
+本節吸收 [2026-10-02 決策總結](decision-2026-10-02-admin-user-routing-and-provider-plan.md)；只有與目前 `WBS-5-MART-AI-PROVIDERS` 直接相關的 provider routing／approval 可隨 foreground 執行，其餘依 dependency 於後續 WBS 推進。
+
+- [ ] 【Sol】 Admin「需要處理的事項」由被動 count 收斂為 actionable drill-down：filtered 明細、reason、last update、retryability 與安全 action；非零 card 不得只有數字。
+- [ ] 【Sol】 Admin Job Control Center：master／batch controller＋child jobs、latest state／last update／latest success、最近 3 天 timeline＋更早歷史選取、安全 manual rerun、dependency／duplicate／exclusive guard 與 audit。
+- [ ] 【Sol】 Admin Storage／Private Operations：Stage/Core/Mart/Private Mart live objects／active bytes、snapshot／manifest、report references、retention／maintenance／anomaly；Private Pipeline checkpoint／backlog／last execution／valuation lag；live bytes 與 billable storage 分開，未知顯示 unknown。
+- [ ] 【Sol】 Admin Routing：versioned reorder／audit／optimistic lock；AI default `Codex CLI → OpenRouter → Gemini`；行情 target default 盤中 `Yahoo → Fugle realtime → TWSE MIS`、盤後 `TWSE EOD → Fugle → Yahoo`；effective routing 只包含 approved／authorized entries，Yahoo 未授權前維持 blocked 並跳過。
+- [ ] 【Sol】 User performance profiling：先量測 auth、DB connect/query、Iceberg、endpoint fan-out、p50/p95；再處理 Flutter page recreation／Future-in-build、section loading、request cache／SWR、PostgreSQL pool、interactive Iceberg read model 等已證實 bottleneck。不得無 evidence 宣稱 CPU／RAM／index／bloat root cause。
+- [ ] 【Sol】 Quote Router＋persisted last quote：DB-first → async refresh → success persist；保留 source／quote_at／received_at／session／freshness；盤中 operational quote 不覆寫 canonical Core OHLCV／Private Mart EOD。
+- [ ] 【Sol】 Transaction synchronous position projection：ledger commit 後由 backend deterministic projection 立即更新 shares／average cost／cash impact；Flutter 不自算 authoritative holdings；Private Mart 保留 canonical valuation／PnL／risk／reconciliation。
+- [ ] 【Luna】 Journal／Notes 預設第一頁切到「持股」；Watchlist 與 Trade form 共用中文股票名稱＋代號 autocomplete；Stock Detail 在既有 health／AI plain-language／why-risk 架構整合研究資訊，不另開重複頁。
+- [ ] 【Sol】 「操作池」／broker profile：current cash／cash ledger strategy、fee discount multiplier、minimum broker fee、server-side fee/tax rule version；交易表單不再要求每次手填 fee/tax，歷史重現與 audit 保留。
+- [ ] 【Luna】 全 User UI typed numeric formatter：price semantics 2 decimals；amount／shares／ratio 依契約整數＋comma、negative parentheses；股票代號／日期／交易輸入不套錯誤格式。
 
 ## Pilot Feature Freeze／Deferred
 
