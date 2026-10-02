@@ -67,7 +67,7 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 - 同一 WBS 中不得在每個 dataset／內部步驟完成後自行停止或要求使用者再次確認。只有使用者明確要求暫停、既定模型切換／驗收閘門，或 §1.3 外部核准及真實成本／安全／範圍 blocker 才暫停受影響部分；其餘安全且獨立的工作繼續推進。閘門解除後接續同一 WBS，直到整體 acceptance 完成，或只剩無法自行解除的 blocker；未滿足 acceptance 時維持 partial／blocked，不宣稱 WBS 完成。
 - 一個 WBS 的授權不延伸到其他 WBS；完成當前 WBS，或完成所有可繼續部分且剩餘條件確實受阻後停止，下一個 WBS 重新走模型與授權閘門。
 - `ready` 可執行；`blocked` 只做安全盤點，不假設外部授權、付費決策或依賴已滿足。
-- ID 不在 active TODO 時不得自行從 archive 或研究規劃開工。
+- ID 不在 active TODO 時不得自行從 `parking-lot.md`、archive 或研究規劃開工。
 - 採最小合理變更；不得因此省略必要 tests、migration、deployment 或 live acceptance。
 
 ## 5. 最小文件讀取
@@ -86,14 +86,15 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 
 ## 6. 文件角色與回寫
 
-1. `todo.md`：active queue、未完成 acceptance、blocked／deferred；完成證據移入 archive。
+1. `todo.md`：**只保存使用者／專案已確定「要做」的 active queue 與未完成 acceptance**；不保存 Deferred、Candidate、Observation、Production 才可能需要或已接受缺口。完成證據移入 archive。
 2. `wbs.md`／`wbs/*.md`：責任與驗收邊界，不保存短期 runtime snapshot。
 3. `spec.md`／`spec/*.md`：目前契約；除 operations 外，不寫除錯流水帳。
 4. `ui.md`／`ui/*.md`：目前 UI 契約與狀態語意；`ui/reference/user-app-final/README.md` 是 User App 的 active Final Visual Contract，對應 PNG 是 presentation acceptance target，不是可丟棄的 mock screenshot。
 5. `spec/operations-and-testing.md`：只保存最新完整 evidence summary；舊 checkpoint 應定期移入 `archive/`，不得無限 append。
 6. `runbook-*.md`：可重跑的操作程序；容易漂移的 revision、digest、build ID 只放 operations／archive，不固定在 README 或一般 runbook。
 7. `archive/`：已完成、已取代、歷史 checkpoint；不得當 active 指令來源。
-8. 新增但未排程的構想放 `todo.md` 明確標示的 Deferred／Backlog 區，或白名單 Drive 的研究／規劃文件；不要假設存在獨立 `doc/backlog/`。
+8. `parking-lot.md`：**目前「不做」的單一收納處**。未排程構想、可能需求、自然 observation、未來 Production 工作、已接受資料缺口與研究 roadmap 可保留於此供日後翻找，但不計入專案未完成度，也不得自行開工；只有使用者明確決定「做」後才移回 `todo.md`。
+9. 白名單 Drive `janusChatGPT` 可保存正式規格、研究與規劃資料；Drive 研究內容不因存在就自動成為 TODO。
 
 ## 7. 驗證與完成判定
 
