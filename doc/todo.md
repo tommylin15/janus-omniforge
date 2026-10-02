@@ -30,6 +30,7 @@
 
 - 每次只取下列順序中的一個可執行 WBS／工作組。正式執行前，AI 先提醒建議模型與目標 WBS／工作組；使用者明確確認後開始。
 - 一旦開始，以整體 acceptance scope 結案，不在內部 dataset／adapter／單一畫面之間反覆停等。
+- **例外：`WBS-3-DATA-SUPPLEMENT-V1` 有強制 Stop-and-Discuss Gate。S0～S2 的 checkpoint minimum requirement 只要確認有一項無法自行滿足，就必須停止該 WBS，先與使用者討論 root cause、方案、授權／成本與風險；未取得明確決策前不得進下一 S 階段、下一 WBS，也不得把 `partial`／`blocked` 當成 skip permission。**
 - 新付費 API／model／subscription、新付費 GCP 資源、重大權限擴張、不可逆大量刪除、MFA／OAuth consent／付款仍需使用者明確授權。
 
 # 執行順序
@@ -48,10 +49,11 @@
 ## 2. `WBS-3-DATA-SUPPLEMENT-V1` — 【Sol】— **Planned**
 
 - [ ] **S0 Evidence Gap Inventory & Remediation Map**：把五角色 `missing_data`／`insufficient_data` 拆成 feature-level root cause，至少區分 snapshot composition、history depth、metric mapping、provenance time、semantic、true source、authorization、research enrichment、not applicable、unknown；以 `2327` checkpoint 作第一組 pinned real-data baseline。
-- [ ] **S1 Existing Required Dataset Remediation**：只針對現行五角色必要的 `financials`、`valuation`、`institutional`、`ohlcv`、`benchmark`、`market-activity`、`events` 修 confirmed blockers；第一版至少處理 60／120 日價格窗口、跨期財報 trend、ROE／debt-to-equity mapping/derived metric、event severity 與 PIT publication／availability time semantics。若 S0 證實現有 approved source 無法供應某個現行必要 feature，該 bounded source admission 可併入 S1，但仍受授權／費用 gate。
-- [ ] **S2 Official Event / Industry Expansion**：在 S0/S1 後只擴充有明確 source authorization、PIT/time semantics 與 deterministic consumer contract 的官方／已核准公司事件、月營收／營運摘要、sector／industry benchmark 或產業統計；沒有 consumer contract 的候選不建立 production ingestion。
+- [ ] **S1 Existing Required Dataset Remediation**：只針對現行五角色必要的 `financials`、`valuation`、`institutional`、`ohlcv`、`benchmark`、`market-activity`、`events` 修 confirmed blockers；第一版至少處理 60／120 日價格窗口、跨期財報 trend、ROE／debt-to-equity mapping/derived metric、event severity 與 PIT publication／availability time semantics。若 S0 證實現有 approved source 無法供應某個現行必要 feature，先觸發 Stop-and-Discuss Gate；取得使用者明確決策後才能進 source admission／S1 實作。
+- [ ] **S2 Official Event / Industry Expansion**：只有 S0／S1 沒有未決 Stop-and-Discuss blocker，或 blocker 已取得使用者明確決策後，才可進入；只擴充有明確 source authorization、PIT/time semantics 與 deterministic consumer contract 的官方／已核准公司事件、月營收／營運摘要、sector／industry benchmark 或產業統計。
+- [ ] **Stop-and-Discuss Gate**：2026-10-02 `WBS-5-MART-AI-PROVIDERS` checkpoint 是最低 acceptance floor。任一 applicable minimum requirement 確認無法自行滿足時，立即停下本 WBS，只整理決策所需證據並與使用者討論；不得先跳到下一 S 階段／下一 WBS，不得自行降級 requirement、標 accepted gap 或移入 Parking Lot。
 - [ ] 完成真實 dev Core／Fact Pack／provenance 可重建的 Gap Matrix、同／可比較 as-of replay、tests／CI／deployment／live integration evidence；不放寬 validator、不由 LLM 補 canonical facts、不以 provider fallback 隱藏資料不足。
-- [ ] S3 News、S4 Supply-chain、S5 Broker/Consensus/Target Price、S6 Social/Podcast/Alternative sources 明確留在 `parking-lot.md`，不計入本版 completion，也不阻塞目前五分析師 daily-operation gate。
+- [ ] S3 News、S4 Supply-chain、S5 Broker/Consensus/Target Price、S6 Social/Podcast/Alternative sources 明確留在 `parking-lot.md`，不計入本版 completion，也不阻塞目前五分析師 daily-operation gate；若其中某一 bounded source 被證實是 minimum floor 唯一合理方案，仍須先經 Stop-and-Discuss Gate 由使用者決定是否拉入 S1/S2。
 - 完整 scope／acceptance 見 [`wbs/wbs-3-data-supplement-v1.md`](wbs/wbs-3-data-supplement-v1.md)。
 
 ## 3. `WBS-5-MART-CIO-SYNTHESIS` — 【Sol】
