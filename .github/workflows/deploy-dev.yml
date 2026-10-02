@@ -192,7 +192,7 @@ jobs:
           python -m pip install -r requirements-dev.txt
       - name: Run ingestion targeted tests
         env:
-          PYTHONPATH: jobs/ingestion-core:.
+          PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
         run: >-
           python -m pytest -q
           tests/stage_core_tests/test_first_batch_sources.py

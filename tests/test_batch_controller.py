@@ -106,3 +106,25 @@ def test_lost_dispatch_response_is_not_automatically_retried():
         dispatch_job(session, BATCHES[0])
     assert session.post.call_count == 1
     session.get.assert_not_called()
+
+
+def test_idle_active_tick_is_recorded_without_dispatch(monkeypatch):
+    from unittest.mock import MagicMock, Mock
+    from ingestion_core import batch_controller as controller
+    monkeypatch.setenv("GCP_PROJECT_ID", PROJECT)
+    monkeypatch.setenv("BATCH_CONTROLLER_MODE", "active")
+    monkeypatch.setenv("BATCH_CONTROLLER_NOT_BEFORE", "2026-10-02T00:00:00Z")
+    monkeypatch.setenv("CLOUD_RUN_EXECUTION", "idle-execution")
+    connection = MagicMock()
+    connection.execute.return_value.fetchone.return_value = (True,)
+    connection.cursor.return_value.__enter__.return_value.fetchall.return_value = []
+    monkeypatch.setattr(controller, "due_batches", lambda _: [])
+    record = Mock()
+    monkeypatch.setattr(controller, "record", record)
+    monkeypatch.setattr(controller, "export_events", lambda *_: 1)
+    session = Mock()
+    result = controller.run(control=SimpleNamespace(connection=connection), session=session, core=Mock())
+    assert result["exported_events"] == 1
+    assert record.call_args.args[3]["execution"] == "idle-execution"
+    session.get.assert_not_called()
+    session.post.assert_not_called()
