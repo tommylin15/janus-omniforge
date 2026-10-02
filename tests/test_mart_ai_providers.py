@@ -282,7 +282,7 @@ def test_target_union_and_five_roles_share_execution_and_replay(monkeypatch):
         assert public_input["core_snapshot_id"] == execution.core_snapshot_id
         assert public_input["scope"] == source["scope"]
         assert "watchlisted" not in public_input and "held" not in public_input
-        assert _lineage(source, role, provider)["fact_pack_hash"] == public_input["fact_pack"]["fact_pack_hash"]
+        assert _lineage(source, role, provider, ProviderResult("succeeded", {}, (), None))["fact_pack_hash"] == public_input["fact_pack"]["fact_pack_hash"]
     target = json.loads(store.read(f"executions/{execution.execution_id}/ai-targets.json"))
     assert target["symbols"] == ["2330", "2603"] and target["deferred_symbols"] == ["2603"]
     artifacts = [json.loads(raw) for raw in store.objects.values()]

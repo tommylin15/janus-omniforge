@@ -171,8 +171,6 @@ class OpenRouterProvider:
     def __init__(self, *, api_key: str, model: str = "openrouter/free", timeout_seconds: int = 60,
                  max_attempts: int = 1, opener: Callable[..., Any] = urlopen,
                  sleeper: Callable[[float], None] = time.sleep) -> None:
-        if not api_key.strip():
-            raise ValueError("OPENROUTER_API_KEY is required")
         if model != "openrouter/free" and not model.endswith(":free"):
             raise ValueError("OpenRouter Mart fallback must use a free route")
         if not 5 <= timeout_seconds <= 180 or not 1 <= max_attempts <= 2:
@@ -194,6 +192,10 @@ class OpenRouterProvider:
         )
 
     def preflight(self) -> dict[str, Any]:
+        if not self.api_key:
+            return {"status": "blocked", "reason": "auth_required", "provider": self.provider_id,
+                    "transport": self.transport, "model": self.model, "billing_mode": "free_only",
+                    "paid_api_enabled": False, "publication_authority": False}
         free_only = _bool_env("MART_OPENROUTER_FREE_ONLY", True)
         if not free_only:
             return {"status": "blocked", "reason": "paid_gate_not_authorized", "provider": self.provider_id,
@@ -210,6 +212,9 @@ class OpenRouterProvider:
     def invoke(self, role: str, role_input: dict[str, Any]) -> ProviderResult:
         if role not in ROLE_WEIGHTS:
             raise ValueError("invalid AI analyst role")
+        preflight = self.preflight()
+        if preflight["status"] != "ready":
+            return ProviderResult("failed", None, (), preflight["reason"])
         schema = OUTPUT_MODELS[role].model_json_schema()
         body = {
             "model": self.model,
@@ -281,8 +286,6 @@ class GeminiRoleProvider:
     def __init__(self, *, api_key: str, model: str = "gemini-2.5-flash", timeout_seconds: int = 60,
                  max_attempts: int = 1, opener: Callable[..., Any] = urlopen,
                  sleeper: Callable[[float], None] = time.sleep) -> None:
-        if not api_key.strip():
-            raise ValueError("GEMINI_API_KEY is required")
         if not model or len(model) > 128 or "/" in model:
             raise ValueError("invalid Gemini model")
         if not 5 <= timeout_seconds <= 180 or not 1 <= max_attempts <= 2:
@@ -304,6 +307,10 @@ class GeminiRoleProvider:
         )
 
     def preflight(self) -> dict[str, Any]:
+        if not self.api_key:
+            return {"status": "blocked", "reason": "auth_required", "provider": self.provider_id,
+                    "transport": self.transport, "model": self.model, "billing_mode": "free_tier_only",
+                    "paid_api_enabled": False, "publication_authority": False}
         if not _bool_env("MART_GEMINI_FREE_TIER_CONFIRMED", False):
             return {"status": "blocked", "reason": "free_tier_not_confirmed", "provider": self.provider_id,
                     "transport": self.transport, "model": self.model, "billing_mode": "free_tier_only",
@@ -315,8 +322,9 @@ class GeminiRoleProvider:
     def invoke(self, role: str, role_input: dict[str, Any]) -> ProviderResult:
         if role not in ROLE_WEIGHTS:
             raise ValueError("invalid AI analyst role")
-        if self.preflight()["status"] != "ready":
-            return ProviderResult("failed", None, (), "free_tier_not_confirmed")
+        preflight = self.preflight()
+        if preflight["status"] != "ready":
+            return ProviderResult("failed", None, (), preflight["reason"])
         schema = OUTPUT_MODELS[role].model_json_schema()
         body = {
             "systemInstruction": {"parts": [{"text": SYSTEM_GUARDRAIL}]},

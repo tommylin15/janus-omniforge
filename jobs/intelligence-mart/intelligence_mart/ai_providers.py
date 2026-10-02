@@ -87,6 +87,8 @@ def _run_ai_provider_stage(execution: Any, publication_connection: Any, *, store
     if os.environ.get("MART_AI_ENABLED", "false").lower() not in {"1", "true", "yes"}:
         return {"ai_status": "disabled", "ai_target_count": 0, "ai_admitted_count": 0,
                 "ai_five_role_success_count": 0, "ai_artifact_uri": None}
+    if os.environ.get("MART_AI_FALLBACK_PROVIDER", "").strip():
+        raise ValueError("legacy fallback requires a separately approved provider profile; use governed provider routing")
     if store_factory is None:
         from ingestion_core.stage import GcsObjectStore
         store_factory = GcsObjectStore
@@ -163,7 +165,7 @@ def _run_ai_provider_stage(execution: Any, publication_connection: Any, *, store
                 continue
             validations, refs, attempts, failures = [], [], [], {}
             for role in ROLE_WEIGHTS:
-                provider_result = provider.invoke(role, _role_input(report, role)) if preflight["status"] == "ready" else \
+                provider_result = provider.invoke(role, _role_input(report, role)) if preflight["status"] == "ready" or isinstance(provider, ProviderRouter) else \
                     ProviderResult("failed", None, (), preflight.get("reason") or "provider_blocked")
                 for attempt in provider_result.attempts:
                     attempts.append({"role": role, **_save(store, bucket, "provider-attempts", attempt)})

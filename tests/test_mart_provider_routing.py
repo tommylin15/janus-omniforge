@@ -149,3 +149,13 @@ def test_runtime_bundle_maps_only_remote_provider_keys(monkeypatch):
     assert "CONTROL_DB_PASSWORD" not in __import__("os").environ
     assert __import__("os").environ["OPENROUTER_API_KEY"] == "or-secret"
     assert __import__("os").environ["GEMINI_API_KEY"] == "gm-secret"
+
+
+@pytest.mark.parametrize("provider_class", [OpenRouterProvider, GeminiRoleProvider])
+def test_missing_credentials_block_without_network_calls(provider_class):
+    def no_network(*args, **kwargs):
+        raise AssertionError("blocked provider must not make a request")
+    provider = provider_class(api_key="", opener=no_network)
+    assert provider.preflight()["reason"] == "auth_required"
+    result = provider.invoke("fundamental", {})
+    assert result.status == "failed" and result.reason == "auth_required" and result.attempts == ()
