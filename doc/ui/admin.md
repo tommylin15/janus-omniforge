@@ -4,9 +4,10 @@
 
 Admin 的目標是 `apps/user_app` 內的 Flutter workspace，與 User 共用 codebase 但不共用
 權限。`/api/v1/admin/*` 每次由 backend enforce Admin authorization；User token audience
-不可直接呼叫 Admin API，Flutter 隱藏控制也不是 security boundary。現有 static HTML／JS
-Admin 只在 migration 期間保留，parity、auth、browser/runtime acceptance 與 rollback
-plan 未完成前不得 deprecate。
+不可直接呼叫 Admin API，Flutter 隱藏控制也不是 security boundary。2026-10-02 使用者明確
+決定 legacy static HTML／JS Admin 直接退役，不再作為 fallback，也不再等待 Flutter parity／
+rollback gate；Flutter／PWA 是唯一 active Admin frontend。Legacy source 的可還原座標保留於
+`archive/legacy-static-admin-retired-2026-10-02.md`，但不得重新納入 runtime，除非使用者日後另行決定。
 
 主導覽固定為「總覽、批次、個股、市場資訊、AI 分析、進階管理」，平常使用中文；execution ID、
 snapshot、hash、provider、model、prompt 與 artifact 等工程欄位放在「進階／詳細資訊」。
@@ -66,22 +67,19 @@ snapshot、hash、provider、model、prompt 與 artifact 等工程欄位放在�
 
 ## 9. Admin UI
 
-### 9.1 `/admin/stocks`
+### 9.1 Flutter Admin workspace（`/app/admin`）
 
 - 頁面品牌／標題保留「資料營運中心」；若沿用左側 Admin 導覽，右側仍一次只顯示一個功能面板。
-- Legacy static Admin current surface 使用 `tablist` 提供資料營運分頁，並已有 persisted
-  「Mart 分析」index／review；Flutter target 必須保留 bounded read semantics。新 AI role、
-  CIO、Profile 與 prompt editing 在對應 Planned WBS 完成前不得顯示為可用。選取狀態寫入
-  `?tab=`，重載與分享 URL 後可還原；未選分頁不預抓大型 details。
+- Flutter Admin 保留 bounded read semantics。新 AI role、CIO、Profile 與 prompt editing 在對應 Planned
+  WBS 完成前不得顯示為可用。選取狀態需可由 URL 或等價 navigation state 還原；未選分頁不預抓大型 details。
 - Desktop 顯示水平或側邊 tabs；窄螢幕可用可捲動 tablist 或等價單選導覽，但頁面標題與目前分頁名稱必須可見。tab 支援方向鍵、Home／End、Enter／Space，並正確連結 `aria-controls`／`aria-labelledby`。
 
 「股票管理」：
 
 - 全部股票，不套 public enabled filter；代號／名稱搜尋、每頁 10 筆。
 - 新增、編輯、enabled toggle、本頁全選與跨頁保留。
-- Legacy static Admin 的 Analysis queue 只代表 persisted execution request；queued 不顯示為
-  完成，retry 仍須依 failure classification。新 AI analyst／CIO execution 依 Planned
-  WBS 5 contracts 驗證後才可啟用。
+- Analysis queue 只代表 persisted execution request；queued 不顯示為完成，retry 仍須依 failure
+  classification。新 AI analyst／CIO execution 依 Planned WBS 5 contracts 驗證後才可啟用。
 - 有 market／report／fundamental 關聯時禁止刪除並顯示數量。
 
 「股票資料狀態」：
@@ -99,8 +97,7 @@ snapshot、hash、provider、model、prompt 與 artifact 等工程欄位放在�
 
 「Mart 分析」：
 
-- Current legacy surface 只讀已持久化的 `mart_scoped_analysis`，不得以空表或無 consumer
-  的 queued execution 假裝新 AI 能力可用。
+- 現行 Mart surface 只讀已持久化的 `mart_scoped_analysis`，不得以空表或無 consumer 的 queued execution 假裝新 AI 能力可用。
 - 可依 analysis date、scope（market／industry／symbol）、industry、symbol、角色、prompt version、analysis outcome 與 publication status 篩選；明細顯示 summary、score、confidence、missing data、evidence reference、Core／Mart snapshot 與版本。
 - 歷史 prompt version 與分析 artifact 只能檢視，不可原地改寫；重新分析必須建立新的
   queued execution。System Guardrail 與 Output Schema locked；Role Methodology／CIO
