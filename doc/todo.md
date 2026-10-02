@@ -45,32 +45,41 @@
 - 2026-10-02 credential evidence：Fugle quote HTTP 200；Gemini models HTTP 200；OpenRouter key HTTP 200 但 `is_free_tier=false`。OpenRouter 尚需 `$0`/free-only actual model request；Gemini 尚需 Free Tier／billing confirmation。Fugle credential 可用，但行情 source approval／runtime 接線在後續 Quote Router 工作完成。
 - 2026-10-02 bounded runtime checkpoint：第二個 GCP cold-start execution 五角色均 `validated/insufficient_data`，19-object readback／單股 same-execution Core／target lineage 通過；effective route 僅 Codex。兩批共用完十次核准 invocation，auth version 1→1、rotation 未觀察。OpenRouter 免費請求與 Gemini billing probe 被自動審核擋下，兩者維持 blocked；WBS 仍 partial。逐角色缺資料與未完成 gate 見 [checkpoint](archive/wbs-5-mart-ai-providers-checkpoint-2026-10-02.md)。
 
-## 2. `WBS-5-MART-CIO-SYNTHESIS` — 【Sol】
+## 2. `WBS-3-DATA-SUPPLEMENT-V1` — 【Sol】— **Planned**
+
+- [ ] **S0 Evidence Gap Inventory & Remediation Map**：把五角色 `missing_data`／`insufficient_data` 拆成 feature-level root cause，至少區分 snapshot composition、history depth、metric mapping、provenance time、semantic、true source、authorization、research enrichment、not applicable、unknown；以 `2327` checkpoint 作第一組 pinned real-data baseline。
+- [ ] **S1 Existing Required Dataset Remediation**：只針對現行五角色必要的 `financials`、`valuation`、`institutional`、`ohlcv`、`benchmark`、`market-activity`、`events` 修 confirmed blockers；第一版至少處理 60／120 日價格窗口、跨期財報 trend、ROE／debt-to-equity mapping/derived metric、event severity 與 PIT publication／availability time semantics。若 S0 證實現有 approved source 無法供應某個現行必要 feature，該 bounded source admission 可併入 S1，但仍受授權／費用 gate。
+- [ ] **S2 Official Event / Industry Expansion**：在 S0/S1 後只擴充有明確 source authorization、PIT/time semantics 與 deterministic consumer contract 的官方／已核准公司事件、月營收／營運摘要、sector／industry benchmark 或產業統計；沒有 consumer contract 的候選不建立 production ingestion。
+- [ ] 完成真實 dev Core／Fact Pack／provenance 可重建的 Gap Matrix、同／可比較 as-of replay、tests／CI／deployment／live integration evidence；不放寬 validator、不由 LLM 補 canonical facts、不以 provider fallback 隱藏資料不足。
+- [ ] S3 News、S4 Supply-chain、S5 Broker/Consensus/Target Price、S6 Social/Podcast/Alternative sources 明確留在 `parking-lot.md`，不計入本版 completion，也不阻塞目前五分析師 daily-operation gate。
+- 完整 scope／acceptance 見 [`wbs/wbs-3-data-supplement-v1.md`](wbs/wbs-3-data-supplement-v1.md)。
+
+## 3. `WBS-5-MART-CIO-SYNTHESIS` — 【Sol】
 
 - [ ] CIO 只讀 validated role outputs；建立 synthesis／validator／immutable lineage。
 - [ ] CIO 無 publication authority；publication 仍由 deterministic governance 決定。
 - [ ] 任一 input／validator failure 保持 structured partial／blocked，不包裝成完整研究成功。
 
-## 3. `WBS-5-MART-RERUN-CACHE` — 【Sol】
+## 4. `WBS-5-MART-RERUN-CACHE` — 【Sol】
 
 - [ ] single-role rerun、dependency invalidation、content-addressed reuse、immutable artifact lineage。
 - [ ] prompt/model 改變不重算 deterministic facts；governance-only change 不呼叫 LLM。
 - [ ] 相同 identity reuse 可稽核，且舊 artifact immutable。
 
-## 4. `WBS-6-ADMIN-ANALYSIS-PROFILE` — 【Sol】
+## 5. `WBS-6-ADMIN-ANALYSIS-PROFILE` — 【Sol】
 
 - [ ] Production Profile versioning、direct new Production、rollback、role／CIO prompt editor、locked guardrail、model picker、per-role override、固定 test symbols 與 compare。
 - [ ] Provider global default `Codex CLI → OpenRouter → Gemini`；Admin 只可 reorder 已核准 provider，execution 固定 route version/hash snapshot。
 - [ ] 顯示 provider approval／auth／health、官方重新授權入口與最新可用 model list；Admin 不接收或顯示原始 token。
 
-## 5. Admin operational convergence — 【Sol】
+## 6. Admin operational convergence — 【Sol】
 
 - [ ] **Actionable exceptions**：首頁「需要處理的事項」由被動 count 改成可點入 filtered 明細，至少顯示哪一筆、reason、last update、retryability 與安全 action；正常 execution 不佔主要空間。
 - [ ] **Job Control Center**：master／batch controller＋child jobs、effective schedule／trigger、latest state／last update／latest success、最近 3 天 timeline＋更早歷史選取、安全 manual rerun、dependency／duplicate／exclusive guard 與 audit。
 - [ ] **Storage／Private Operations**：Stage／Core／Mart／Private Mart live objects／active bytes、snapshot／manifest、report references、retention／maintenance／anomaly；Private Pipeline checkpoint／backlog／last execution／valuation lag；live bytes 與 billable storage 分開，未知顯示 `unknown`。
 - [ ] **Routing controls**：versioned reorder／audit／optimistic lock；AI route 如上；行情 target default 盤中 `Yahoo → Fugle realtime → TWSE MIS`、盤後 `TWSE EOD → Fugle → Yahoo`。effective route 只包含 approved／authorized source；Yahoo 未授權前必須跳過。
 
-## 6. User operational convergence — 【Sol／Luna】
+## 7. User operational convergence — 【Sol／Luna】
 
 - [ ] 【Sol】 **Performance profiling + fix**：先量測 auth、DB connect/query、Iceberg、endpoint fan-out、p50/p95；再處理已證實的 Flutter page recreation／Future-in-build、section loading、request cache／SWR、PostgreSQL pool、interactive Iceberg read model。不得無 evidence 宣稱 CPU／RAM／index／bloat root cause。
 - [ ] 【Sol】 **Quote Router＋persisted last quote**：先完成免費可核准來源審查；DB-first → async refresh → success persist；保存 source／quote_at／received_at／session／freshness。盤中 operational quote 不覆寫 canonical Core OHLCV／Private Mart EOD。Fugle 走免費範圍核准；Yahoo 在未取得明確授權前不進 executable route。
@@ -79,7 +88,7 @@
 - [ ] 【Sol】 **操作池／Broker Profile**：current cash／可稽核 cash-ledger strategy、fee discount multiplier、minimum broker fee、server-side fee/tax rule version；交易表單不要求每次手填 fee/tax，歷史重現與 audit 保留。
 - [ ] 【Luna】 **Typed numeric formatter**：price semantics 2 decimals；amount／shares／ratio 依契約整數＋comma、negative parentheses；股票代號／日期／交易輸入維持原語意。
 
-## 7. `WBS-6-USER-FINAL-VISUAL-CONVERGENCE` — 【Luna／Sol】
+## 8. `WBS-6-USER-FINAL-VISUAL-CONVERGENCE` — 【Luna／Sol】
 
 - [ ] 依 `ui/user-app.md` 與 `ui/reference/user-app-final/README.md` 完成 Today／Watchlist／Ledger／Stock Detail 四頁 final presentation convergence。
 - [ ] 四張 final PNG binary、Flutter targeted／golden／screenshot regression 與 GCP dev 真實 authenticated browser acceptance 完整；sample/mock data 不得進 canonical runtime。
