@@ -14,6 +14,7 @@
 歷史／決策入口：
 
 - [2026-10-02 Admin／User／Routing／Provider 決策總結](decision-2026-10-02-admin-user-routing-and-provider-plan.md)
+- [2026-10-02 Legacy Static Admin 退役／backup 座標](archive/legacy-static-admin-retired-2026-10-02.md)
 - [Parking Lot／暫不做](parking-lot.md)
 - [2026-09-26 Product Completeness reprioritization 與 TODO cleanup](archive/todo-cleanup-and-product-completeness-priority-2026-09-26.md)
 - [WBS-3 Liquid-500 rotation completed](archive/wbs-3-liquid-500-rotation-completed-2026-09-27.md)
@@ -82,11 +83,6 @@
 - [ ] 依 `ui/user-app.md` 與 `ui/reference/user-app-final/README.md` 完成 Today／Watchlist／Ledger／Stock Detail 四頁 final presentation convergence。
 - [ ] 四張 final PNG binary、Flutter targeted／golden／screenshot regression 與 GCP dev 真實 authenticated browser acceptance 完整；sample/mock data 不得進 canonical runtime。
 - [ ] loading／empty／error／partial／stale／missing 狀態一致且不得 permanent spinner；Flutter 不自行計算 canonical PnL／研究數字。
-
-## 8. `WBS-6-ADMIN-LEGACY-RETIREMENT` — 【Luna】
-
-- [ ] 只在 Flutter Admin parity、Admin auth、browser/runtime acceptance、rollback plan 與上述 Admin committed work完成後 deprecate static Admin。
-- [ ] legacy 未達 gate 前不刪除；達 gate 後完成退役與 rollback evidence，不永久保留雙 UI。
 
 ## 完成證據
 
