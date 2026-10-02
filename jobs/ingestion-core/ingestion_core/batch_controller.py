@@ -22,11 +22,12 @@ class Batch:
     dependencies: tuple[str, ...] = ()
     env: tuple[tuple[str, str], ...] = ()
     exclusive_jobs: tuple[str, ...] = ()
+    minute: int = 30
 
 
 BATCHES = (
     Batch("ingestion", "janus-ingestion-core", (7,), env=(("QUEUE_CONSUMER", "false"), ("MART_JOB", ""), ("ICEBERG_MAINTENANCE_MODE", ""))),
-    Batch("mart", "janus-intelligence-mart", (9,), tuple(range(5)), ("ingestion",), (("MART_OPERATION", "queue"), ("MART_AI_ENABLED", "false"))),
+    Batch("mart", "janus-intelligence-mart", (9,), tuple(range(5)), ("ingestion",), (("MART_OPERATION", "queue"), ("MART_AI_ENABLED", "false")), minute=0),
     Batch("private", "janus-private-pipeline", (21,), tuple(range(5)), ("ingestion",)),
     Batch("core-cleanup", "janus-ingestion-core", (23,), dependencies=("ingestion",),
           env=(("ICEBERG_MAINTENANCE_MODE", "retention-apply"), ("QUEUE_CONSUMER", "false"), ("MART_JOB", "")),
@@ -51,16 +52,18 @@ def due_batches(now: datetime, batches=BATCHES):
             raise ValueError("invalid batch hours")
         if any(day not in range(7) for day in batch.weekdays):
             raise ValueError("invalid batch weekdays")
+        if batch.minute not in range(60):
+            raise ValueError("invalid batch minute")
         if local.weekday() not in batch.weekdays:
             continue
         for hour in sorted(batch.hours):
-            slot = local.replace(hour=hour, minute=30, second=0, microsecond=0)
+            slot = local.replace(hour=hour, minute=batch.minute, second=0, microsecond=0)
             if slot > local:
                 continue
             dependencies = []
             for name in batch.dependencies:
                 dependency = by_name[name]
-                preceding = [value for value in dependency.hours if value <= hour]
+                preceding = [value for value in dependency.hours if value < hour or (value == hour and dependency.minute <= batch.minute)]
                 if local.weekday() not in dependency.weekdays or not preceding:
                     raise ValueError("dependency has no preceding slot on this weekday")
                 dependencies.append(f"{name}/{local.date().isoformat()}/{max(preceding):02d}")
@@ -130,8 +133,11 @@ def dispatch_job(session, batch):
 
 
 def record(connection, tick, key, state, action, *, update=True):
-    event_id = str(uuid5(NAMESPACE_URL, f"janus-batch-v1/{tick}/{key}/{action}"))
-    payload = {"schema_version": "batch-event-v1", "tick": tick, "occurrence_id": key, "action": action, **state}
+    from hashlib import sha256
+    state_hash = sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
+    event_id = str(uuid5(NAMESPACE_URL, f"janus-batch-v1/{tick}/{key}/{action}/{state_hash}"))
+    payload = {"schema_version": "batch-event-v1", "tick": tick, "occurrence_id": key, "action": action,
+               "controller_execution": os.environ.get("CLOUD_RUN_EXECUTION", ""), **state}
     with connection.transaction(), connection.cursor() as cursor:
         if update:
             cursor.execute("UPDATE control.batch_occurrences SET state=%s::jsonb,updated_at=now() WHERE occurrence_id=%s", (json.dumps(state), key))
@@ -176,8 +182,13 @@ def run(*, now=None, session=None, control=None, core=None):
         raise ValueError("batch controller is restricted to the existing dev project")
     now = now or datetime.now(timezone.utc)
     mode = os.environ.get("BATCH_CONTROLLER_MODE", "observe")
-    if mode not in {"observe", "active"}:
+    if mode not in {"observe", "active", "seed"}:
         raise ValueError("unsupported controller mode")
+    not_before = None
+    if mode == "active":
+        not_before = datetime.fromisoformat(os.environ["BATCH_CONTROLLER_NOT_BEFORE"].replace("Z", "+00:00"))
+        if not_before.tzinfo is None:
+            raise ValueError("controller activation must include a timezone")
     if now.tzinfo is None:
         raise ValueError("controller clock must include a timezone")
     utc = now.astimezone(timezone.utc)
@@ -199,6 +210,26 @@ def run(*, now=None, session=None, control=None, core=None):
             record(connection, tick, "controller", {"status": "observe", "model_calls": 0}, "tick", update=False)
             core = core or _iceberg_core(PROJECT + "-dev-core")
             return {"status": "observe", "tick": tick, "exported_events": export_events(connection, core), "model_calls": 0}
+        if mode == "seed":
+            seeds = json.loads(os.environ["BATCH_CONTROLLER_SEED_EXECUTIONS"])
+            if not isinstance(seeds, list) or not 1 <= len(seeds) <= 3:
+                raise ValueError("seed requires 1..3 verified existing executions")
+            due = {batch.name: (key, batch, slot, dependencies) for key, batch, slot, dependencies in due_batches(now)
+                   if batch.name in {"ingestion", "mart", "private"}}
+            for seed in seeds:
+                key, batch, slot, dependencies = due[seed["batch"]]
+                name = _identity(seed["execution"], "execution", batch.job)
+                execution = _read(session, name)
+                created = datetime.fromisoformat(execution["createTime"].replace("Z", "+00:00"))
+                if not 0 <= (created - slot).total_seconds() <= 900:
+                    raise ValueError("seed execution does not match the scheduled slot")
+                state = poll_job(session, {"job": batch.job, "batch": batch.name, "status": "running", "execution": name,
+                                          "dependencies": dependencies, "scheduled_at": slot.isoformat(), "origin": "previous_scheduler"})
+                with connection.transaction(), connection.cursor() as cursor:
+                    cursor.execute("INSERT INTO control.batch_occurrences(occurrence_id,scheduled_at,state) VALUES (%s,%s,%s::jsonb) ON CONFLICT DO NOTHING", (key, slot, json.dumps(state)))
+                record(connection, tick, key, state, "adopt_previous_scheduler", update=False)
+            core = core or _iceberg_core(PROJECT + "-dev-core")
+            return {"status": "seeded", "exported_events": export_events(connection, core), "model_calls": 0}
         with connection.cursor() as cursor:
             cursor.execute("SELECT occurrence_id,state FROM control.batch_occurrences WHERE state->>'status' IN ('dispatching','running','ambiguous') ORDER BY scheduled_at LIMIT 101")
             active = cursor.fetchall()
@@ -212,6 +243,8 @@ def run(*, now=None, session=None, control=None, core=None):
                 # A read failure must never release the running-job fence.
                 record(connection, tick, key, state, "cloud_status_unavailable", update=False)
         for key, batch, slot, dependencies in due_batches(now):
+            if slot < not_before:
+                continue
             state = {"job": batch.job, "batch": batch.name, "status": "pending", "dependencies": dependencies,
                      "scheduled_at": slot.isoformat()}
             with connection.transaction(), connection.cursor() as cursor:

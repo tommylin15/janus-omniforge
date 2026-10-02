@@ -24,12 +24,13 @@ def controller_manifest(source):
     container["args"] = ["-m", "ingestion_core.batch_controller"]
     container["resources"] = {"limits": {"cpu": "1", "memory": "512Mi"}}
     task.update(timeoutSeconds="120", maxRetries=0, serviceAccountName=f"ingestion-core@{PROJECT}.iam.gserviceaccount.com")
-    annotations = source["spec"]["template"]["spec"]["template"].get("metadata", {}).get("annotations", {})
+    annotations = source["spec"]["template"].get("metadata", {}).get("annotations", {})
     network = {key: value for key, value in annotations.items() if key in {
-        "run.googleapis.com/network-interfaces", "run.googleapis.com/vpc-access-connector", "run.googleapis.com/vpc-access-egress"}}
+        "run.googleapis.com/network-interfaces", "run.googleapis.com/vpc-access-connector", "run.googleapis.com/vpc-access-egress",
+        "run.googleapis.com/execution-environment"}}
     return {"apiVersion": "run.googleapis.com/v1", "kind": "Job", "metadata": {"name": TARGET},
-            "spec": {"template": {"spec": {"taskCount": 1, "parallelism": 1,
-                     "template": {"metadata": {"annotations": network}, "spec": task}}}}}
+            "spec": {"template": {"metadata": {"annotations": network}, "spec": {"taskCount": 1, "parallelism": 1,
+                     "template": {"spec": task}}}}}
 
 
 if __name__ == "__main__":

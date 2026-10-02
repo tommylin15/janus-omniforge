@@ -1,5 +1,13 @@
 # Operations and testing
 
+## 正式批次與總控修復最新證據（2026-10-02，partial）
+
+- 使用者核准正式 source → Stage → Core → Mart／FactPack 修復、去重與資料清理，以及新增 dev Cloud Run 總控和限定 IAM；初期 Scheduler 每小時 :30，穩定後再改每十分鐘。五模型驗收尚未接續，不因此消耗剩餘模型呼叫。
+- Commit `297ae75`；canonical dev CI `36960012621` 的 ingestion／Mart tests、deployment／verify 全部 success。本機跨模組 targeted tests 125 passed，另新增 partial Core → Mart idempotent queue 測試通過；Mart Windows 可執行 targeted tests 54 passed／3 Linux subprocess cases deselected，後者由該次 Linux CI 通過。Core／Mart 寫入與清理共用 PostgreSQL 資料鎖；正常財報重複觀測不再追加，同值修正／回復仍保留，未知 PIT metadata 不回填；快照讀取不再靜默截斷，validator 門檻未調降。
+- Migration 037 的真實 execution `janus-ingestion-core-pjshz` succeeded。已建立 `janus-batch-controller`，1 CPU／512 MiB／120 秒／maxRetries 0，先用 observe；execution `janus-batch-controller-q7tvk` succeeded，safe summary `exported_events=1,model_calls=0`。自訂角色僅三支 dev Job 的執行／execution 查詢與 project-level `run.operations.get`，沒有取消／刪除權限。Scheduler 尚未切換。
+- 清理前獨立 GCS 完整盤點：Core live 340,333,412 bytes、含非當前版本 496,120,519；Stage live 203,074,396、含版本 203,226,851、soft deleted 3,691,045；Mart live 15,136,004、含版本 15,136,550。live 合計 558,543,812 bytes，全部版本加 soft delete 合計 718,174,965 bytes。Core 開啟 versioning／soft delete 7 日，非當前版本 lifecycle 30 日；刪除 live 不等於立即釋放計費 bytes。
+- Core／Stage 清理 dry-run 仍在執行，尚未進行本次刪除或宣稱清理完成。後續須驗證每層 report 與容量差、固定 snapshot／publication references、今日 Scheduler execution 採認與 hourly handover；歷史資料／官方來源缺值仍保持 partial，不偽造研究可用性。
+
 ## WBS-5 Mart AI Providers 最新結論（2026-10-01）
 
 `WBS-5-MART-AI-PROVIDERS` 維持 **partial**。`ec8fdce` 的 canonical dev run `36813262424`

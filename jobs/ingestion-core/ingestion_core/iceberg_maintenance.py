@@ -18,10 +18,10 @@ METADATA_HISTORY = "write.metadata.previous-versions-max"
 def _references(store: GcsObjectStore, identifier: str = TABLE) -> tuple[set[int], set[str]]:
     snapshots: set[int] = set()
     metadata: set[str] = set()
-    for name in store.list("executions/"):
-        if not name.endswith(("/core-snapshot.json", "/manifest.json")):
-            continue
-        document = json.loads(store.read(name))
+    if not hasattr(store, "_maintenance_execution_documents"):
+        store._maintenance_execution_documents = [json.loads(store.read(name)) for name in store.list("executions/")
+                                                 if name.endswith(("/core-snapshot.json", "/manifest.json"))]
+    for document in store._maintenance_execution_documents:
         reference = document.get("iceberg_tables", {}).get(identifier)
         if reference:
             snapshots.add(int(reference["snapshot_id"]))
