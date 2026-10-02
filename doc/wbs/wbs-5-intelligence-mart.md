@@ -70,26 +70,15 @@
 
 ### 5.4 LLM
 
-- Canonical Mart facts 與可選 narrator 維持原邊界；五角色 Codex CLI provider 為獨立 additive
-  stage。其整體完成狀態依 TODO／runtime evidence 判定，不由 wrapper 存在推定完成。
-  OpenRouter／Gemini／Codex 通用助理 runtime 歸 omniAgent，不是 Mart provider。
-- Active planning：依 [GCP 批次研究契約](../spec/intelligence-and-governance.md#gcp-批次-codex-分析師研究路線active-planning尚未實作)，
-  既有 GCP Mart 批次自行啟動五個獨立 Codex CLI role invocation，先採 bounded／可序列化
-  worker wrapper；必要時才評估具體 ChatGPT worker bridge。CLI 優先，Gemini／OpenRouter
-  為 profile 明列的受控 fallback；不依賴本機桌面、人工貼 prompt 或逐次登入。
-- Provider failure 不改 deterministic facts；CLI／bridge capabilities、model／parameters、
-  GCP cold-start auth／續期、timeout／process-tree cancel／退出碼、隔離與 structured failure
-  必須實測。初次 OAuth／MFA 可由使用者完成，後續正常批次須自主執行；失敗 fail closed。
-- Provider capability discovery、bounded supported parameters、429／unavailable
-  bounded retry、structured failure、usage／latency／cost lineage 與 billing gate
-  必須可測試。Codex CLI／worker 研究路線不等於 OpenAI API；不得自動切換付費 API。
-  未核准 model／fallback／paid tier 不可啟用，fallback 須保存 reason／attempt／實際 transport。
-- 前四角色禁止 Web Search；Event Risk controlled Web Search 預設關閉，只有來源／PIT／
-  provenance／evidence gate 通過才可使用研究 evidence，不直接寫 canonical Core。
-- 個股 AI target 固定為 as-of 可見的 active 關注＋有效持股 symbol 聯集，去重保存 membership
-  snapshot；持股離榜仍保留。500 檔只作資料網／deterministic screening，不把 ingestion scopes
-  自動轉成 500×5 次 AI 呼叫。AI 另受 bounded batch／quota／cost gate；不足明列 partial／blocked。
-  只傳公開 Fact Packs，不把私人持股數量／成本／user-to-symbol mapping 傳給公開 Mart／worker。
+- Canonical Mart facts 與可選 narrator 維持原邊界；五角色 AI provider stage 是獨立 additive capability。其整體完成狀態依 TODO／runtime evidence 判定，不由 wrapper、router、credential probe 或 targeted tests 的存在推定完成。OpenRouter／Gemini／Codex 通用助理 runtime 歸 omniAgent，但 **Mart 五角色 provider adapters／routing 屬本 WBS**，兩者不得混為同一產品 runtime。
+- Active planning：依 [GCP 批次研究契約](../spec/intelligence-and-governance.md#gcp-批次-codex-分析師研究路線active-planning尚未實作)，既有 GCP Mart 批次自行啟動五個獨立 Codex CLI role invocation，先採 bounded／可序列化 worker wrapper；必要時才評估具體 ChatGPT worker bridge。使用者 2026-10-02 指定 default provider route 為 **Codex CLI → OpenRouter → Gemini**；五角色預設共用這條 global route，只有已核准 profile 才能成為 executable route，不依賴本機桌面、人工貼 prompt 或逐次登入。
+- Provider routing 是 versioned governance contract。每次 execution 啟動時固定 effective route、routing config version/hash 與 provider profile snapshot；後續 Admin reorder 不得改寫舊 execution。attempt／fallback reason／實際 transport／model／parameters／latency／可觀察 usage/cost 必須進 immutable lineage。
+- Fallback 只允許明確可切換的 failure class，例如 timeout、transport error、rate limit、provider unavailable、auth/capacity unavailable；schema、validator、grounding、PIT 或 missing-data failure 不得藉由換 provider 靜默繞過。沒有 approved route 時 fail closed，不寫 placeholder。
+- Provider failure 不改 deterministic facts；CLI／bridge capabilities、model／parameters、GCP cold-start auth／續期、timeout／process-tree cancel／退出碼、隔離與 structured failure 必須實測。初次 OAuth／MFA 可由使用者完成，後續正常批次須自主執行；失敗 fail closed。
+- Provider capability discovery、bounded supported parameters、429／unavailable bounded retry、structured failure、usage／latency／cost lineage 與 billing gate必須可測試。Codex CLI／worker 研究路線不等於 OpenAI API；不得自動切換付費 API。未核准 model／fallback／paid tier 不可啟用，Admin 排序也不得替代授權。
+- 2026-10-02 credential／free-gate live probe：Fugle、Gemini、OpenRouter 既有 secret 均已驗證可認證；Gemini models endpoint HTTP 200 只代表 model discovery 可用，Free Tier／billing status 尚未證實；OpenRouter key endpoint HTTP 200 但回報 `is_free_tier=false`，因此必須以 `$0`/free-only route 做 actual model request acceptance，沒有 `$0` route 就 fail closed；這些 probe 不等於 `WBS-5-MART-AI-PROVIDERS` runtime completion。
+- 前四角色禁止 Web Search；Event Risk controlled Web Search 預設關閉，只有來源／PIT／provenance／evidence gate 通過才可使用研究 evidence，不直接寫 canonical Core。
+- 個股 AI target 固定為 as-of 可見的 active 關注＋有效持股 symbol 聯集，去重保存 membership snapshot；持股離榜仍保留。500 檔只作資料網／deterministic screening，不把 ingestion scopes 自動轉成 500×5 次 AI 呼叫。AI 另受 bounded batch／quota／cost gate；不足明列 partial／blocked。只傳公開 Fact Packs，不把私人持股數量／成本／user-to-symbol mapping 傳給公開 Mart／worker。
 - LLM 只能解釋、比較與合成經驗證 evidence；不得計算、補值、覆寫或發布 canonical deterministic numbers／facts。
 
 ### 5.4.1 Atomic WBS slices
@@ -101,7 +90,7 @@ parallel-live dev roadmap，完成後依各自 acceptance 在目前 dev 真實�
 |---|---|---|---|
 | `WBS-5-MART-FACT-PACKS` | 五份 deterministic Fact Pack、baseline compatibility、hash／version lineage、mart.v1 compatibility | 既有 Core snapshot、analysis.py、mart.v1 | facts 可 deterministic replay；LLM off 不改 facts；canonical numbers、PIT、missing data、provenance 與 evidence refs 可驗證 |
 | `WBS-5-MART-AI-ROLE-CONTRACT` | 五個 role schema、guardrail boundary、versioned role prompts、CIO output contract | FACT-PACKS | schema／prompt／lineage fixtures 通過；invalid role 不得假裝成功；old artifacts immutable |
-| `WBS-5-MART-AI-PROVIDERS` | governed GCP 五角色 Codex CLI 批次／必要 worker bridge、關注＋持股聯集 admission／去重、auth lifecycle、capability／隔離／timeout／cancel、受控 fallback、billing gate | ROLE-CONTRACT、AI-VALIDATION contract | GCP 自主五角色 execution／validator／artifact readback；watch-only／held-only／重疊／離榜／退出／as-of／quota／private isolation；cold-start auth／structured failure、unsupported model／parameters、timeout／cancel／退出碼／retry bounds、fallback audit 與 zero secret leakage；不新增未核准資源 |
+| `WBS-5-MART-AI-PROVIDERS` | governed GCP 五角色 Codex CLI 批次／必要 worker bridge、關注＋持股聯集 admission／去重、auth lifecycle、capability／隔離／timeout／cancel、versioned route `Codex CLI → OpenRouter → Gemini`、approved-only fallback、free/billing gate | ROLE-CONTRACT、AI-VALIDATION contract | GCP 自主五角色 execution／validator／artifact readback；watch-only／held-only／重疊／離榜／退出／as-of／quota／private isolation；cold-start auth／structured failure、unsupported model／parameters、timeout／cancel／退出碼／retry bounds、routing snapshot/version/hash、fallback audit、OpenRouter free-only gate、Gemini free-tier gate與 zero secret leakage；不新增未核准資源 |
 | `WBS-5-MART-AI-VALIDATION` | provider-neutral schema、evidence、numeric grounding、time fence、missing data、claim coverage validation | ROLE-CONTRACT；provider 真實整合由 AI-PROVIDERS 驗收 | fixtures／negative cases 通過，invalid output blocked；one role failure 不是 full success；provider/model/prompt/input identity 可追溯，不把 fixtures 稱為 live worker success |
 | `WBS-5-MART-CIO-SYNTHESIS` | validated roles only、CIO synthesis、synthesis validator、no publication authority | AI-VALIDATION | CIO 只讀 validated inputs；validator failure structured；publication 仍由 deterministic gate 決定 |
 | `WBS-5-MART-RERUN-CACHE` | single-role rerun、dependency invalidation、content-addressed reuse、immutable lineage | FACT-PACKS、AI-VALIDATION、CIO-SYNTHESIS | 無關 role 不重跑；prompt/model 不重算 facts；governance-only 不呼叫 LLM；相同 identity reuse 且 audit |
