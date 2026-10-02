@@ -120,6 +120,9 @@ jobs:
               - 'tests/stage_core_tests/test_data_cleaning_regressions.py'
               - 'tests/test_portfolio_deploy_contract.py'
             mart_runtime:
+              - 'jobs/ingestion-core/ingestion_core/iceberg_maintenance.py'
+              - 'jobs/ingestion-core/ingestion_core/retention.py'
+              - 'jobs/ingestion-core/ingestion_core/stage.py'
               - 'packages/postgres_lock.py'
               - 'jobs/intelligence-mart/**'
               - 'packages/contracts/**'

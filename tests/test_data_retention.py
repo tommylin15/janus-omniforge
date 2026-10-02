@@ -5,6 +5,26 @@ from ingestion_core.retention import retained_core_rows, clean_stage
 from packages.duckdb_query.iceberg import DuckDBIcebergCore
 
 
+def test_maintenance_preserves_extra_publication_references(monkeypatch):
+    from ingestion_core import iceberg_maintenance as maintenance
+    prefix = "gs://dev/warehouse/report/metadata/"
+    snapshot = SimpleNamespace(snapshot_id=1, summary={"total-records": "2"})
+    scanned = []
+    table = SimpleNamespace(properties={maintenance.METADATA_HISTORY: "10"},
+                            metadata_location=prefix + "current.metadata.json",
+                            metadata=SimpleNamespace(metadata_log=[]), current_snapshot=lambda: snapshot,
+                            scan=lambda snapshot_id, limit: SimpleNamespace(to_arrow=lambda: scanned.append(snapshot_id)))
+    core = SimpleNamespace(IDENTIFIERS=("report",), table_identifier=lambda _: "mart.report",
+                           catalog=SimpleNamespace(load_table=lambda _: table))
+    store = SimpleNamespace(bucket="dev", objects=lambda _: [])
+    monkeypatch.setattr(maintenance, "_references", lambda *_: ({1}, {prefix + "manifest.metadata.json"}))
+    monkeypatch.setattr(maintenance, "_keep_snapshots", lambda *_: {1, 2})
+    table.snapshots = lambda: [SimpleNamespace(snapshot_id=1), SimpleNamespace(snapshot_id=2)]
+    result = maintenance.maintain_financials(core=core, store=store, apply=True, identifier="mart.report",
+                                           protected_snapshot_ids={2}, protected_metadata={prefix + "published.metadata.json"})
+    assert result["referenced_snapshots"] == 2 and set(scanned) == {1, 2}
+
+
 def test_financial_retention_preserves_twelve_periods_per_symbol_and_original_metadata():
     core = SimpleNamespace(_financial_observations=DuckDBIcebergCore._financial_observations)
     def row(symbol, year):

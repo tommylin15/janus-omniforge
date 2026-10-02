@@ -94,7 +94,8 @@ def maintain_financials(*, core: Any, store: GcsObjectStore, apply: bool,
             table = core.catalog.load_table(identifier)
         if int(table.current_snapshot().summary["total-records"]) != original_rows:
             raise RuntimeError("financials row count changed during snapshot maintenance")
-        if _references(store, identifier) != (referenced_ids, referenced_metadata):
+        actual_ids, actual_metadata = _references(store, identifier)
+        if (actual_ids | set(protected_snapshot_ids or ()), actual_metadata | set(protected_metadata or ())) != (referenced_ids, referenced_metadata):
             raise RuntimeError("Core manifest references changed during maintenance")
         for snapshot_id in referenced_ids:
             table.scan(snapshot_id=snapshot_id, limit=1).to_arrow()
