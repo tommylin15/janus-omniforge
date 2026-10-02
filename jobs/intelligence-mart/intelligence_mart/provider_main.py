@@ -36,7 +36,11 @@ def main() -> None:
     started = monotonic()
     try:
         name = os.environ.get("MART_OPERATION", "").strip().lower()
-        operation = run_provider_queued_analysis if name == "queue" else provider_smoke if name == "provider-smoke" else compatibility_smoke if name == "compat-smoke" else postgres_smoke
+        if name == "retention":
+            from .retention import run
+            operation = run
+        else:
+            operation = run_provider_queued_analysis if name == "queue" else provider_smoke if name == "provider-smoke" else compatibility_smoke if name == "compat-smoke" else postgres_smoke
         result = operation(); result["duration_ms"] = round((monotonic() - started) * 1000)
         print(json.dumps(result, sort_keys=True))
     except Exception as error:

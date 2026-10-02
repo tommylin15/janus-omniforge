@@ -464,7 +464,8 @@ class PostgreSQLControlPlane:
             cur.execute("UPDATE control.executions SET status=%s,started_at=COALESCE(started_at,CASE WHEN %s IN ('running','retrying') THEN now() END),finished_at=CASE WHEN %s IN ('succeeded','partial','failed') THEN now() END,retry_count=COALESCE(%s,retry_count),error_code=%s,claimed_by=NULL,claimed_until=NULL WHERE execution_id=%s", (status.value,status.value,status.value,retry_count,error_code,execution_id))
         return self.get_execution(execution_id)
 
-    def complete_collection(self, execution_id: str, ready_event: dict[str, Any] | None = None) -> tuple[Execution, Execution | None]:
+    def complete_collection(self, execution_id: str, ready_event: dict[str, Any] | None = None, *,
+                            partial: bool = False) -> tuple[Execution, Execution | None]:
         """Atomically commit collection success and idempotently enqueue its Mart work."""
         analysis_id = uuid5(NAMESPACE_URL, f"janus:mart:{execution_id}") if ready_event else None
         with self._tx() as cur:
@@ -481,7 +482,7 @@ class PostgreSQLControlPlane:
             options = _analysis_options(ready_event) if ready_event else None
             cur.execute("SELECT analysis_execution_id,payload FROM control.core_ready_events WHERE core_execution_id=%s", (execution_id,))
             existing = cur.fetchone()
-            if status == "succeeded" and existing:
+            if status in {"succeeded", "partial"} and existing:
                 if ready_event is not None and existing[1] != ready_event:
                     raise ControlPlaneError("immutable Core ready event conflict")
                 analysis_id = existing[0]
@@ -489,8 +490,8 @@ class PostgreSQLControlPlane:
                 raise InvalidTransitionError(f"cannot complete collection from {status}")
             else:
                 cur.execute(
-                    "UPDATE control.executions SET status='succeeded',finished_at=now(),claimed_by=NULL,claimed_until=NULL WHERE execution_id=%s",
-                    (execution_id,),
+                    "UPDATE control.executions SET status=%s,finished_at=now(),claimed_by=NULL,claimed_until=NULL WHERE execution_id=%s",
+                    ("partial" if partial else "succeeded", execution_id),
                 )
                 if ready_event:
                     cur.execute("SELECT analysis_enabled FROM control.collection_configs WHERE config_id=%s", (config_id,))

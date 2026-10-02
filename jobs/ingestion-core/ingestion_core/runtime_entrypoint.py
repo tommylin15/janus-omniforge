@@ -15,11 +15,13 @@ CONTROL_MIGRATION_PRIVATE_STOCK_MASTER_READ = "030_private_stock_master_read"
 CONTROL_MIGRATION_PORTFOLIO_MARKET_COVERAGE = "031_portfolio_market_coverage"
 CONTROL_MIGRATION_LIQUID_500 = "032_liquid_500"
 CONTROL_MIGRATION_LIQUID_500_TPEX_SOURCE = "033_liquid_500_tpex_source"
+CONTROL_MIGRATION_BATCH_CONTROLLER = "037_batch_controller"
 CONTROL_MIGRATIONS = {
     CONTROL_MIGRATION_PRIVATE_STOCK_MASTER_READ,
     CONTROL_MIGRATION_PORTFOLIO_MARKET_COVERAGE,
     CONTROL_MIGRATION_LIQUID_500,
     CONTROL_MIGRATION_LIQUID_500_TPEX_SOURCE,
+    CONTROL_MIGRATION_BATCH_CONTROLLER,
 }
 ANALYSIS_REPLAY_RETRIGGER_SECONDS = 60
 
@@ -193,6 +195,12 @@ def _run_control_migration(name: str) -> dict[str, Any]:
                 _apply_portfolio_market_coverage(cursor)
             elif name == CONTROL_MIGRATION_LIQUID_500:
                 _apply_liquid_500(cursor)
+            elif name == CONTROL_MIGRATION_BATCH_CONTROLLER:
+                from pathlib import Path
+                path = Path(__file__).resolve().parents[3] / "infra/postgres/migrations/037_batch_controller.sql"
+                sql = "\n".join(line for line in path.read_text(encoding="utf-8").splitlines()
+                                if not line.startswith("\\") and line not in {"BEGIN;", "COMMIT;"})
+                cursor.execute(sql)
             else:
                 _apply_liquid_500_tpex_source(cursor)
     finally:

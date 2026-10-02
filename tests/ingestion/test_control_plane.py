@@ -123,6 +123,18 @@ class ControlPlaneTests(unittest.TestCase):
         with self.assertRaises(Exception):
             self.control.complete_collection(failed.execution_id, self.ready(failed))
 
+    def test_partial_core_snapshot_can_enqueue_mart_once_without_claiming_complete(self):
+        from ingestion_core.__main__ import _finish_collection
+        execution = self.control.enqueue_collection("twse-ohlcv", ("2330",))
+        self.control.transition_execution(execution.execution_id, ExecutionStatus.RUNNING)
+        summary = {"coverage_status": "partial", "core_created": 1, "ready_event": self.ready(execution)}
+        completed, first = _finish_collection(self.control, execution.execution_id, summary)
+        replayed, second = _finish_collection(self.control, execution.execution_id, summary)
+        self.assertEqual(completed.status, ExecutionStatus.PARTIAL)
+        self.assertEqual(replayed.status, ExecutionStatus.PARTIAL)
+        self.assertEqual(first.execution_id, second.execution_id)
+        self.assertEqual(first.status, ExecutionStatus.QUEUED)
+
     def test_expired_queue_lease_can_be_reclaimed(self):
         execution = self.control.enqueue_collection("twse-ohlcv", ("2330",))
         first = datetime(2026, 8, 1, tzinfo=timezone.utc)

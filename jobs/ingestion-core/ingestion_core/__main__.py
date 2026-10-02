@@ -198,6 +198,8 @@ def _coverage_status(items: list[dict[str, object]], active_500: bool) -> str:
 
 def _finish_collection(control: object, execution_id: str, summary: dict[str, object]):
     if summary.get("coverage_status") == "partial":
+        if summary.get("core_created", 0) or summary.get("core_reused", 0) or summary.get("core_updated", 0):
+            return control.complete_collection(execution_id, summary.get("ready_event"), partial=True)
         return control.transition_execution(execution_id, ExecutionStatus.PARTIAL), None
     return control.complete_collection(execution_id, summary.get("ready_event"))
 

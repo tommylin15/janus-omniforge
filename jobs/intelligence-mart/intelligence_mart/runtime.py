@@ -334,7 +334,7 @@ def mart_processor(execution: AnalysisExecution, publication_connection: Any, *,
             symbol for scope in configured_scopes for symbol in scope["symbols"]
         }))
         datasets = load_core_datasets(catalog, manifest, selected_symbols,
-                                     row_limit=int(os.environ.get("CORE_SNAPSHOT_ROW_LIMIT", "100000")))
+                                     row_limit=int(os.environ.get("CORE_SNAPSHOT_ROW_LIMIT", "250000")))
         reports = analyze(
             execution_id=execution.execution_id,
             analysis_as_of=str(execution.request_options["analysis_as_of"]),

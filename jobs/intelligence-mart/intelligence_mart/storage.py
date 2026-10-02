@@ -34,15 +34,19 @@ def sql_catalog_from_environment() -> Any:
     warehouse = os.environ.get("MART_ICEBERG_WAREHOUSE", f"gs://{required['MART_BUCKET']}/warehouse").strip()
     if not warehouse.startswith(f"gs://{required['MART_BUCKET']}/"):
         raise ValueError("MART_ICEBERG_WAREHOUSE must remain inside MART_BUCKET")
-    return SqlCatalog(
+    catalog = SqlCatalog(
         "janus", type="sql", uri=uri, warehouse=warehouse, init_catalog_tables="false",
         **{"py-io-impl": "pyiceberg.io.pyarrow.PyArrowFileIO", "gcs.project-id": required["GCP_PROJECT_ID"],
            "pool_size": 1, "max_overflow": 0, "pool_timeout": 5, "pool_pre_ping": "true"},
     )
+    catalog._janus_lock_settings = dict(host=required["CATALOG_DB_HOST"], dbname=required["CATALOG_DB_NAME"],
+                                       user=required["CATALOG_DB_USER"], password=required["CATALOG_DB_PASSWORD"],
+                                       sslmode=os.environ.get("CATALOG_DB_SSLMODE", "require"), connect_timeout=5)
+    return catalog
 
 
 def load_core_datasets(catalog: Any, manifest: dict[str, Any], requested_symbols: tuple[str, ...],
-                       *, row_limit: int = 100_000) -> dict[str, list[dict[str, Any]]]:
+                       *, row_limit: int = 250_000) -> dict[str, list[dict[str, Any]]]:
     """Read only snapshot IDs carried by the immutable Core manifest."""
     embedded = manifest.get("datasets")
     if embedded is not None:
@@ -70,7 +74,8 @@ def load_core_datasets(catalog: Any, manifest: dict[str, Any], requested_symbols
         table = catalog.load_table(identifier)
         field_names = {field.name for field in table.schema().fields}
         filter_ = In("symbol", set(requested_symbols)) if requested_symbols and "symbol" in field_names else None
-        scan_options: dict[str, Any] = {"snapshot_id": int(fence["snapshot_id"]), "limit": remaining}
+        # Read one extra row to detect overflow rather than silently truncate a fixed snapshot.
+        scan_options: dict[str, Any] = {"snapshot_id": int(fence["snapshot_id"]), "limit": remaining + 1}
         if filter_ is not None:
             scan_options["row_filter"] = filter_
         scan = table.scan(**scan_options)
@@ -84,6 +89,12 @@ def load_core_datasets(catalog: Any, manifest: dict[str, Any], requested_symbols
 
 class MartIcebergStore:
     """A fixed public schema with JSON payload columns for versioned data products."""
+    IDENTIFIERS = MART_TABLES
+
+    def table_identifier(self, name):
+        if name not in MART_TABLES:
+            raise ValueError("unsupported Mart table")
+        return f"{self.namespace}.{name}_v1"
 
     def __init__(self, catalog: Any, warehouse: str, namespace: str = "mart") -> None:
         if "://" in warehouse and not warehouse.startswith(("gs://", "file://")):
@@ -189,6 +200,11 @@ class MartIcebergStore:
         return products
 
     def write(self, reports: list[dict[str, Any]], narratives: dict[tuple[str, str], dict[str, Any]] | None = None) -> dict[tuple[str, str], dict[str, Any]]:
+        from packages.postgres_lock import public_data_lock
+        with public_data_lock(getattr(self.catalog, "_janus_lock_settings", None)):
+            return self._write(reports, narratives)
+
+    def _write(self, reports, narratives=None):
         import pyarrow as pa
 
         self.ensure_tables()

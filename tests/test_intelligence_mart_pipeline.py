@@ -60,6 +60,16 @@ def report(source=None, execution_id="11111111-1111-1111-1111-111111111111", **o
 
 
 class MartPipelineTests(unittest.TestCase):
+    def test_revisions_and_market_benchmark_are_selected_before_features(self):
+        source = datasets()
+        source["financials"].append({**source["financials"][0], "value": "110",
+                                     "published_at": "2026-03-11", "availability_at": "2026-03-11T00:00:00Z"})
+        source["benchmark"] += [{**item, "benchmark_id": "TPEx", "close": 400} for item in source["benchmark"]]
+        first = report(source)
+        self.assertAlmostEqual(first["features"]["fundamental"]["revenue_trend_percent"], (120 / 110 - 1) * 100, places=5)
+        self.assertEqual(first["features"]["quant"]["relative_strength_20d"], report()["features"]["quant"]["relative_strength_20d"])
+        self.assertFalse(any(item["reason"] == "conflict" for item in first.get("rejected_evidence", [])))
+
     def test_five_roles_are_deterministic_and_publishable(self):
         first, second = report(), report()
         self.assertEqual(first, second)

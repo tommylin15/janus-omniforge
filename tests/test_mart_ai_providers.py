@@ -251,7 +251,8 @@ def test_target_union_and_five_roles_share_execution_and_replay(monkeypatch):
     source, _, _ = grounded_fixture("quant")
     execution = type("Execution", (), {"execution_id": source["execution_id"],
         "core_snapshot_id": source["core_snapshot_id"],
-        "request_options": {"analysis_as_of": source["analysis_as_of"]}})()
+        "request_options": {"analysis_as_of": source["analysis_as_of"],
+                            "scopes": [{"type": "market", "id": "TWSE", "symbols": ["9999"]}]}})()
     calls = []
     class Provider(CodexCLIProvider):
         def preflight(self): return {"status": "ready", "reason": None}
@@ -267,7 +268,11 @@ def test_target_union_and_five_roles_share_execution_and_replay(monkeypatch):
     monkeypatch.delenv("MART_AI_FALLBACK_PROVIDER", raising=False)
     monkeypatch.setattr("intelligence_mart.runtime._fenced_core_manifest", lambda *a: {})
     monkeypatch.setattr("intelligence_mart.storage.load_core_datasets", lambda *a, **k: {})
-    monkeypatch.setattr("intelligence_mart.analysis.analyze", lambda **k: [source])
+    def analyze_targets(**kwargs):
+        assert kwargs["requested_symbols"] == ("2330",)
+        assert kwargs["options"]["scopes"] == [{"type": "symbol", "id": "2330", "symbols": ["2330"]}]
+        return [source]
+    monkeypatch.setattr("intelligence_mart.analysis.analyze", analyze_targets)
     connection = Connection([("2330", True, False), ("2330", False, True), ("2603", False, True)])
     result = run_ai_provider_stage(execution, connection, store_factory=lambda bucket: store,
                                   catalog_factory=object, provider_factory=lambda: provider)
@@ -439,6 +444,7 @@ def test_account_lock_busy_never_reads_auth_and_releases_on_exit(monkeypatch):
 
 
 def test_worker_persists_rotation_before_next_role_and_stops_on_save_failure(tmp_path, monkeypatch):
+    import subprocess
     from types import SimpleNamespace
     from intelligence_mart.codex_auth import SecretAuth
     monkeypatch.setenv("GCP_PROJECT_ID", "janus-dev")
@@ -455,15 +461,20 @@ def test_worker_persists_rotation_before_next_role_and_stops_on_save_failure(tmp
         saves.append(1)
         raise OSError("secret-not-logged")
     def launch(command, **kwargs):
+        assert command[-1] == "-" and kwargs["stdin"] == subprocess.PIPE
+        assert all("PUBLIC_INPUT" not in arg for arg in command)
         launches.append(1)
         Path(command[command.index("-o") + 1]).write_text(json.dumps(ROLE_OUTPUT))
         (Path(kwargs["env"]["CODEX_HOME"]) / "auth.json").write_text(rotated)
-        return SimpleNamespace(returncode=0, communicate=lambda **k: ("", ""))
+        def communicate(**kwargs):
+            assert len(kwargs["input"].encode()) > 131072
+            return "", ""
+        return SimpleNamespace(returncode=0, communicate=communicate)
     monkeypatch.setattr(auth, "_request", fail_save)
     monkeypatch.setattr("intelligence_mart.codex_worker.subprocess.Popen", launch)
     provider = CodexCLIProvider(max_attempts=1)
     provider.auth_checkpoint = auth.checkpoint
-    first = provider.invoke("fundamental", {})
+    first = provider.invoke("fundamental", {"large_input": "x" * 140000})
     second = provider.invoke("quant", {})
     assert first.output is None and first.reason == second.reason == "auth_persistence_failed"
     assert len(first.attempts) == 1 and second.attempts == ()

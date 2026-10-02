@@ -196,12 +196,12 @@ class CodexCLIProvider:
             with self._workspace(role, schema, auth_mode) as workspace_name:
                 path = Path(workspace_name); output = path / "output.json"
                 command = [self.binary, "exec", "--json", "--ephemeral", "--skip-git-repo-check",
-                           "--output-schema", str(path / "schema.json"), "-o", str(output), prompt]
+                           "--output-schema", str(path / "schema.json"), "-o", str(output), "-"]
                 started = time.monotonic(); reason = None; stdout = ""; stderr = ""; returncode = None
                 try:
                     process = subprocess.Popen(command, cwd=path, env=self._env(path, auth_mode), text=True,
-                                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
-                    stdout, stderr = process.communicate(timeout=self.timeout_seconds); returncode = process.returncode
+                                               stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+                    stdout, stderr = process.communicate(input=prompt, timeout=self.timeout_seconds); returncode = process.returncode
                 except OSError:
                     reason = "codex_cli_unavailable"
                 except subprocess.TimeoutExpired:

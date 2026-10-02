@@ -809,13 +809,14 @@ class SQLiteControlPlane:
         self.connection.commit()
         return self.get_execution(execution_id)
 
-    def complete_collection(self, execution_id: str, ready_event: dict[str, Any] | None = None) -> tuple[Execution, Execution | None]:
+    def complete_collection(self, execution_id: str, ready_event: dict[str, Any] | None = None, *,
+                            partial: bool = False) -> tuple[Execution, Execution | None]:
         """Atomically commit collection success and idempotently enqueue its Mart work."""
         current = self.get_execution(execution_id)
         existing = self.connection.execute(
             "SELECT analysis_execution_id,payload_json FROM core_ready_events WHERE core_execution_id=?", (execution_id,)
         ).fetchone()
-        if current.status is ExecutionStatus.SUCCEEDED and existing:
+        if current.status in {ExecutionStatus.SUCCEEDED, ExecutionStatus.PARTIAL} and existing:
             if ready_event is not None and json.loads(existing["payload_json"]) != ready_event:
                 raise ControlPlaneError("immutable Core ready event conflict")
             analysis = self.get_execution(existing["analysis_execution_id"]) if existing["analysis_execution_id"] else None
@@ -828,8 +829,8 @@ class SQLiteControlPlane:
         options = _analysis_options(ready_event) if ready_event else None
         with self.connection:
             self.connection.execute(
-                "UPDATE executions SET status='succeeded',finished_at=?,claimed_by=NULL,claimed_until=NULL WHERE execution_id=?",
-                (_iso(utc_now()), execution_id),
+                "UPDATE executions SET status=?,finished_at=?,claimed_by=NULL,claimed_until=NULL WHERE execution_id=?",
+                ("partial" if partial else "succeeded", _iso(utc_now()), execution_id),
             )
             if ready_event:
                 self.connection.execute(

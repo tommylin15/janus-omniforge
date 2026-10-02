@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal
+from contextlib import contextmanager
 import os
 from typing import Any, Sequence
 
@@ -107,7 +108,15 @@ class DuckDBIcebergCore:
                 "pool_timeout": 5,
             },
         )
-        return cls(catalog, warehouse, create_namespace=not read_only)
+        core = cls(catalog, warehouse, create_namespace=not read_only)
+        core._lock_settings = dict(host=host, dbname=dbname, user=user, password=password, sslmode=sslmode, connect_timeout=5)
+        return core
+
+    @contextmanager
+    def mutation_lock(self):
+        from packages.postgres_lock import public_data_lock
+        with public_data_lock(getattr(self, "_lock_settings", None)):
+            yield
 
     def close(self) -> None:
         self.engine.close()
@@ -126,6 +135,12 @@ class DuckDBIcebergCore:
 
     def write(self, *, dataset_id: str, rows: list[dict[str, Any]], execution_id: str,
               provenance_id: str, source_id: str, partition_date: date) -> IcebergCommitResult:
+        with self.mutation_lock():
+            return self._write(dataset_id=dataset_id, rows=rows, execution_id=execution_id,
+                               provenance_id=provenance_id, source_id=source_id, partition_date=partition_date)
+
+    def _write(self, *, dataset_id: str, rows: list[dict[str, Any]], execution_id: str,
+               provenance_id: str, source_id: str, partition_date: date) -> IcebergCommitResult:
         del partition_date  # Partition values come from each row, not the execution date.
         identifiers = self.IDENTIFIERS.get(dataset_id)
         if identifiers is None:
@@ -138,6 +153,21 @@ class DuckDBIcebergCore:
 
         identifier = self.table_identifier(dataset_id)
         created = not self.catalog.table_exists(identifier)
+        observation_reused = 0
+        if dataset_id == "financials" and not created:
+            table = self.catalog.load_table(identifier)
+            from pyiceberg.expressions import And, In
+            scope = And(In("symbol", {row["symbol"] for row in incoming}),
+                        In("fiscal_year", {row["fiscal_year"] for row in incoming}))
+            fields = {field.name for field in table.schema().fields}
+            columns = [name for name in ("symbol", "fiscal_year", "fiscal_quarter", "statement_type", "metric",
+                       "source_id", "value", "unit", "currency", "availability_at", "observed_at", "published_at") if name in fields]
+            prior = table.scan(row_filter=scope, selected_fields=tuple(columns)).to_arrow().to_pylist()
+            incoming, observation_reused = self._financial_observations(prior, incoming)
+            if not incoming:
+                snapshot = table.current_snapshot()
+                return IcebergCommitResult(dataset_id, 0, 0, observation_reused,
+                    int(snapshot.summary["total-records"]), identifier, table.metadata_location, snapshot.snapshot_id)
         if created:
             incoming_arrow = self._arrow_table(incoming)
             table = self.catalog.create_table(
@@ -195,12 +225,38 @@ class DuckDBIcebergCore:
             dataset_id=dataset_id,
             inserted=merged.inserted,
             updated=merged.updated,
-            reused=merged.reused,
+            reused=merged.reused + observation_reused,
             row_count=row_count,
             table_identifier=identifier,
             metadata_location=table.metadata_location,
             snapshot_id=snapshot.snapshot_id if snapshot else None,
         )
+
+    @staticmethod
+    def _financial_observations(existing: list[dict[str, Any]], incoming: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
+        """Reuse unchanged non-authoritative observations; retain actual value revisions."""
+        keys = ("symbol", "fiscal_year", "fiscal_quarter", "statement_type", "metric", "source_id")
+        identity = lambda row: tuple(str(row.get(key)) for key in keys)
+        def observed(row):
+            value = row.get("availability_at") or row.get("observed_at") or row.get("published_at")
+            if not value: return datetime.min.replace(tzinfo=timezone.utc)
+            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed.astimezone(timezone.utc)
+        latest = {}
+        for row in sorted(existing, key=observed):
+            latest[identity(row)] = row
+        retained, reused = [], 0
+        for row in sorted(incoming, key=observed):
+            prior = latest.get(identity(row))
+            same = prior is not None and all(row.get(field) is None or str(row.get(field)) == str(prior.get(field))
+                                            for field in ("value", "unit", "currency"))
+            if (row.get("publication_time_authoritative") is False and same and observed(prior) <= observed(row)
+                    and (prior.get("availability_at") or not row.get("availability_at"))):
+                reused += 1
+                continue
+            retained.append(row)
+            latest[identity(row)] = row
+        return retained, reused
 
     @staticmethod
     def _arrow_table(rows: list[dict[str, Any]], existing_schema: Any | None = None) -> Any:

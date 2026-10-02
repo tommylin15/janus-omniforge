@@ -126,7 +126,7 @@ def _evidence_id(dataset_id: str, row: dict[str, Any], core_snapshot_id: str) ->
 def evidence_from_rows(datasets: dict[str, list[dict[str, Any]]], core_snapshot_id: str) -> list[dict[str, Any]]:
     evidence: list[dict[str, Any]] = []
     for dataset_id, rows in sorted(datasets.items()):
-        for row in rows[:512]:
+        for row in rows:
             table = str(row.get("__table_identifier", f"core.{dataset_id.replace('-', '_')}_v1"))
             snapshot = str(row.get("__snapshot_id", core_snapshot_id))
             provenance = str(row.get("provenance_id", "")).strip()
@@ -243,6 +243,33 @@ def _scope_rows(datasets: dict[str, list[dict[str, Any]]], symbols: frozenset[st
         return datasets
     return {name: [row for row in rows if not row.get("symbol") or str(row["symbol"]) in symbols]
             for name, rows in datasets.items()}
+
+
+def _research_rows(datasets: dict[str, list[dict[str, Any]]], as_of: date) -> dict[str, list[dict[str, Any]]]:
+    """Select PIT financial revisions and the matching market benchmark before feature calculation."""
+    cutoff = datetime.combine(as_of, time.max, tzinfo=timezone.utc)
+    result = {name: list(rows) for name, rows in datasets.items()}
+    latest, invalid = {}, []
+    for row in result.get("financials", []):
+        available = _instant(row.get("availability_at"))
+        if available is None or available > cutoff:
+            invalid.append(row)
+            continue
+        key = tuple(str(row.get(name)) for name in ("symbol", "fiscal_year", "fiscal_quarter", "statement_type", "metric", "source_id"))
+        if key not in latest or available > _instant(latest[key]["availability_at"]):
+            latest[key] = row
+    if "financials" in result:
+        result["financials"] = sorted(latest.values(), key=lambda row: (_financial_period_time(row) or datetime.min.replace(tzinfo=timezone.utc),
+                                                                        str(row.get("metric")))) + invalid
+    markets = {str(row.get("market", "TWSE")).upper() for row in result.get("ohlcv", [])}
+    benchmark = "TPEx" if markets == {"TPEX"} else "TAIEX" if markets <= {"TWSE"} else None
+    if benchmark and "benchmark" in result:
+        result["benchmark"] = [row for row in result["benchmark"] if row.get("benchmark_id") == benchmark
+                               and row.get("index_kind", "price") == "price"]
+    symbols = {str(row["symbol"]) for rows in result.values() for row in rows if row.get("symbol")}
+    if any(len(rows) > 5000 * max(1, len(symbols)) for rows in result.values()):
+        raise ValueError("research scope exceeds bounded dataset row limit")
+    return result
 
 
 def _series(rows: Iterable[dict[str, Any]], field: str, *, total: bool = False) -> list[float]:
@@ -488,7 +515,7 @@ def analyze(*, execution_id: str, analysis_as_of: str, core_snapshot_id: str, re
         raise ValueError("daily brief sources must be published artifacts from the same analysis_as_of")
     reports = []
     for scope in scopes(options, requested_symbols):
-        selected = _scope_rows(datasets, frozenset(scope["symbols"]))
+        selected = _research_rows(_scope_rows(datasets, frozenset(scope["symbols"])), date.fromisoformat(analysis_as_of))
         evidence, rejected, blockers = validate_evidence(evidence_from_rows(selected, core_snapshot_id), date.fromisoformat(analysis_as_of))
         required_datasets = set(map(str, options.get("required_datasets", ())))
         if required_datasets - set(selected):
@@ -496,8 +523,8 @@ def analyze(*, execution_id: str, analysis_as_of: str, core_snapshot_id: str, re
         if options.get("manual_review_required") is True:
             blockers = sorted(set(blockers) | {"manual_review"})
         valid_ids = {item["evidence_id"] for item in evidence}
-        validated = {name: [row for row in rows[:512] if _evidence_id(name, row, core_snapshot_id) in valid_ids]
-                     for name, rows in selected.items() if not rows or any(_evidence_id(name, row, core_snapshot_id) in valid_ids for row in rows[:512])}
+        validated = {name: [row for row in rows if _evidence_id(name, row, core_snapshot_id) in valid_ids]
+                     for name, rows in selected.items() if not rows or any(_evidence_id(name, row, core_snapshot_id) in valid_ids for row in rows)}
         features = _features(validated)
         roles = [_role(name, features, evidence) for name in ROLE_WEIGHTS]
         fact_packs = _fact_packs(roles=roles, evidence=evidence, analysis_as_of=analysis_as_of,

@@ -110,10 +110,11 @@ def _run_ai_provider_stage(execution: Any, publication_connection: Any, *, store
     if admitted:
         manifest = _fenced_core_manifest(execution, store_factory); catalog = (catalog_factory or sql_catalog_from_environment)()
         try:
-            datasets = load_core_datasets(catalog, manifest, tuple(admitted), row_limit=int(os.environ.get("CORE_SNAPSHOT_ROW_LIMIT", "100000")))
+            datasets = load_core_datasets(catalog, manifest, tuple(admitted), row_limit=int(os.environ.get("CORE_SNAPSHOT_ROW_LIMIT", "250000")))
             prompts, prompt_hash = prompt_bundle(); reports = analyze(execution_id=execution.execution_id,
                 analysis_as_of=str(execution.request_options["analysis_as_of"]), core_snapshot_id=execution.core_snapshot_id,
-                requested_symbols=tuple(admitted), options=execution.request_options, datasets=datasets,
+                requested_symbols=tuple(admitted), options={**execution.request_options,
+                    "scopes": [{"type": "symbol", "id": symbol, "symbols": [symbol]} for symbol in admitted]}, datasets=datasets,
                 prompts=prompts, prompt_hash=prompt_hash); _validate_fact_packs(reports)
         finally:
             engine = getattr(catalog, "engine", None)

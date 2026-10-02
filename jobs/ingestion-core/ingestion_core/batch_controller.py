@@ -1,0 +1,264 @@
+"""Hourly dev controller; never wait for or cancel child jobs."""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+import json
+import os
+from uuid import NAMESPACE_URL, uuid5
+from zoneinfo import ZoneInfo
+
+PROJECT = "gen-lang-client-0593591102"
+REGION = "us-central1"
+API = "https://run.googleapis.com/v2/"
+
+
+@dataclass(frozen=True)
+class Batch:
+    name: str
+    job: str
+    hours: tuple[int, ...]
+    weekdays: tuple[int, ...] = tuple(range(7))
+    dependencies: tuple[str, ...] = ()
+    env: tuple[tuple[str, str], ...] = ()
+    exclusive_jobs: tuple[str, ...] = ()
+
+
+BATCHES = (
+    Batch("ingestion", "janus-ingestion-core", (7,), env=(("QUEUE_CONSUMER", "false"), ("MART_JOB", ""), ("ICEBERG_MAINTENANCE_MODE", ""))),
+    Batch("mart", "janus-intelligence-mart", (9,), tuple(range(5)), ("ingestion",), (("MART_OPERATION", "queue"), ("MART_AI_ENABLED", "false"))),
+    Batch("private", "janus-private-pipeline", (21,), tuple(range(5)), ("ingestion",)),
+    Batch("core-cleanup", "janus-ingestion-core", (23,), dependencies=("ingestion",),
+          env=(("ICEBERG_MAINTENANCE_MODE", "retention-apply"), ("QUEUE_CONSUMER", "false"), ("MART_JOB", "")),
+          exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline")),
+    Batch("mart-cleanup", "janus-intelligence-mart", (23,), dependencies=("core-cleanup",),
+          env=(("MART_OPERATION", "retention"), ("MART_RETENTION_MODE", "apply"), ("MART_AI_ENABLED", "false")),
+          exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline")),
+)
+
+
+def due_batches(now: datetime, batches=BATCHES):
+    """Catch up elapsed slots today. Each hour has a separate occurrence identity."""
+    if now.tzinfo is None:
+        raise ValueError("controller clock must include a timezone")
+    local = now.astimezone(ZoneInfo("Asia/Taipei"))
+    by_name = {batch.name: batch for batch in batches}
+    if len(by_name) != len(batches):
+        raise ValueError("duplicate batch names")
+    result = []
+    for batch in batches:
+        if not batch.hours or any(hour not in range(24) for hour in batch.hours) or len(set(batch.hours)) != len(batch.hours):
+            raise ValueError("invalid batch hours")
+        if any(day not in range(7) for day in batch.weekdays):
+            raise ValueError("invalid batch weekdays")
+        if local.weekday() not in batch.weekdays:
+            continue
+        for hour in sorted(batch.hours):
+            slot = local.replace(hour=hour, minute=30, second=0, microsecond=0)
+            if slot > local:
+                continue
+            dependencies = []
+            for name in batch.dependencies:
+                dependency = by_name[name]
+                preceding = [value for value in dependency.hours if value <= hour]
+                if local.weekday() not in dependency.weekdays or not preceding:
+                    raise ValueError("dependency has no preceding slot on this weekday")
+                dependencies.append(f"{name}/{local.date().isoformat()}/{max(preceding):02d}")
+            result.append((f"{batch.name}/{local.date().isoformat()}/{hour:02d}", batch, slot, dependencies))
+    return sorted(result, key=lambda item: (item[2], item[0]))
+
+
+def resource(job):
+    if job not in {batch.job for batch in BATCHES}:
+        raise ValueError("job is outside the dev allowlist")
+    return f"projects/{PROJECT}/locations/{REGION}/jobs/{job}"
+
+
+def _read(session, path):
+    response = session.get(API + path, timeout=15)
+    if response.status_code != 200:
+        raise RuntimeError("Cloud Run read failed")
+    return response.json()
+
+
+def _identity(name, kind, job=None):
+    prefixes = [f"projects/{project}/locations/{REGION}/" for project in (PROJECT, "131494961796")]
+    suffix = f"jobs/{job}/executions/" if kind == "execution" else "operations/"
+    if not isinstance(name, str) or not any(name.startswith(prefix + suffix) for prefix in prefixes):
+        raise ValueError("unexpected Cloud Run identity")
+    tail = name.split(suffix, 1)[-1]
+    if not tail or "/" in tail or "?" in tail or "#" in tail:
+        raise ValueError("invalid Cloud Run identity suffix")
+    return name
+
+
+def poll_job(session, state):
+    """Read once per tick; ambiguous dispatch requires manual reconciliation."""
+    if state["status"] == "ambiguous":
+        return state
+    if not state.get("operation") and not state.get("execution"):
+        return {**state, "status": "ambiguous", "reason": "dispatch_response_missing"}
+    if state.get("execution"):
+        execution = _read(session, _identity(state["execution"], "execution", state["job"]))
+    else:
+        operation = _read(session, _identity(state["operation"], "operation"))
+        if not operation.get("done"):
+            return {**state, "status": "running"}
+        if operation.get("error"):
+            return {**state, "status": "failed", "reason": "cloud_run_operation_failed"}
+        execution = operation.get("response", {})
+        state = {**state, "execution": _identity(execution.get("name"), "execution", state["job"])}
+    if not execution.get("completionTime"):
+        return {**state, "status": "running"}
+    succeeded = execution.get("succeededCount") == 1 and not execution.get("failedCount") and not execution.get("cancelledCount")
+    return {**state, "status": "succeeded" if succeeded else "failed", "completion_time": execution["completionTime"]}
+
+
+def job_active(session, job):
+    # ponytail: bounded listing; a full page blocks dispatch until inspected.
+    response = _read(session, resource(job) + "/executions?pageSize=100")
+    return bool(response.get("nextPageToken")) or any(not item.get("completionTime") for item in response.get("executions", []))
+
+
+def dispatch_job(session, batch):
+    """Caller must commit dispatch intent first; never automatically retry this POST."""
+    response = session.post(API + resource(batch.job) + ":run", json={"overrides": {
+        "taskCount": 1, "containerOverrides": [{"env": [{"name": name, "value": value} for name, value in batch.env]}]}}, timeout=15)
+    if response.status_code != 200:
+        raise RuntimeError("dispatch response unavailable; reconcile before retry")
+    return _identity(response.json().get("name"), "operation")
+
+
+def record(connection, tick, key, state, action, *, update=True):
+    event_id = str(uuid5(NAMESPACE_URL, f"janus-batch-v1/{tick}/{key}/{action}"))
+    payload = {"schema_version": "batch-event-v1", "tick": tick, "occurrence_id": key, "action": action, **state}
+    with connection.transaction(), connection.cursor() as cursor:
+        if update:
+            cursor.execute("UPDATE control.batch_occurrences SET state=%s::jsonb,updated_at=now() WHERE occurrence_id=%s", (json.dumps(state), key))
+        cursor.execute("INSERT INTO control.batch_event_outbox(event_id,payload) VALUES (%s,%s::jsonb) ON CONFLICT DO NOTHING", (event_id, json.dumps(payload)))
+
+
+def export_events(connection, core):
+    """Acknowledge the outbox only after an idempotent Iceberg commit and readback."""
+    import pyarrow as pa
+    from pyiceberg.schema import Schema
+    from pyiceberg.types import NestedField, StringType, TimestamptzType
+    from pyiceberg.expressions import In
+    identifier = "ops.batch_events_v1"
+    core.catalog.create_namespace_if_not_exists("ops")
+    if not core.catalog.table_exists(identifier):
+        core.catalog.create_table(identifier, schema=Schema(
+            NestedField(1, "event_id", StringType(), required=True),
+            NestedField(2, "recorded_at", TimestamptzType(), required=True),
+            NestedField(3, "payload_json", StringType(), required=True), identifier_field_ids=[1]),
+            location=core.warehouse + "/batch_events_v1")
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT event_id,created_at,payload FROM control.batch_event_outbox WHERE exported_at IS NULL ORDER BY created_at,event_id LIMIT 200")
+        pending = cursor.fetchall()
+    if not pending:
+        return 0
+    schema = pa.schema([pa.field("event_id", pa.string(), nullable=False), pa.field("recorded_at", pa.timestamp("us", tz="UTC"), nullable=False), pa.field("payload_json", pa.string(), nullable=False)])
+    rows = [{"event_id": str(key), "recorded_at": created, "payload_json": json.dumps(payload, sort_keys=True)} for key, created, payload in pending]
+    table = core.catalog.load_table(identifier)
+    table.upsert(pa.Table.from_pylist(rows, schema=schema), join_cols=["event_id"])
+    readback = table.scan(row_filter=In("event_id", [row["event_id"] for row in rows])).to_arrow().to_pylist()
+    if {row["event_id"]: row["payload_json"] for row in readback} != {row["event_id"]: row["payload_json"] for row in rows}:
+        raise RuntimeError("Iceberg batch log readback mismatch")
+    with connection.transaction(), connection.cursor() as cursor:
+        cursor.executemany("UPDATE control.batch_event_outbox SET exported_at=now() WHERE event_id=%s", [(key,) for key, _, _ in pending])
+    return len(pending)
+
+
+def run(*, now=None, session=None, control=None, core=None):
+    from datetime import timezone
+    from .__main__ import _control_plane, _iceberg_core
+    if os.environ.get("GCP_PROJECT_ID") != PROJECT:
+        raise ValueError("batch controller is restricted to the existing dev project")
+    now = now or datetime.now(timezone.utc)
+    mode = os.environ.get("BATCH_CONTROLLER_MODE", "observe")
+    if mode not in {"observe", "active"}:
+        raise ValueError("unsupported controller mode")
+    if now.tzinfo is None:
+        raise ValueError("controller clock must include a timezone")
+    utc = now.astimezone(timezone.utc)
+    tick = utc.replace(minute=utc.minute // 10 * 10, second=0, microsecond=0).isoformat()
+    owns_control, owns_core = control is None, core is None
+    control = control or _control_plane()
+    connection = control.connection
+    locked = False
+    try:
+        locked = connection.execute("SELECT pg_try_advisory_lock(1835102836,3)").fetchone()[0]
+        if not locked:
+            return {"status": "controller_busy"}
+        if session is None:
+            import google.auth
+            from google.auth.transport.requests import AuthorizedSession
+            credentials, _ = google.auth.default(scopes=("https://www.googleapis.com/auth/cloud-platform",))
+            session = AuthorizedSession(credentials)
+        if mode == "observe":
+            record(connection, tick, "controller", {"status": "observe", "model_calls": 0}, "tick", update=False)
+            core = core or _iceberg_core(PROJECT + "-dev-core")
+            return {"status": "observe", "tick": tick, "exported_events": export_events(connection, core), "model_calls": 0}
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT occurrence_id,state FROM control.batch_occurrences WHERE state->>'status' IN ('dispatching','running','ambiguous') ORDER BY scheduled_at LIMIT 101")
+            active = cursor.fetchall()
+        if len(active) > 100:
+            raise RuntimeError("active occurrence limit exceeded; dispatch blocked")
+        for key, state in active:
+            try:
+                updated = poll_job(session, state)
+                record(connection, tick, key, updated, "reconcile")
+            except Exception:
+                # A read failure must never release the running-job fence.
+                record(connection, tick, key, state, "cloud_status_unavailable", update=False)
+        for key, batch, slot, dependencies in due_batches(now):
+            state = {"job": batch.job, "batch": batch.name, "status": "pending", "dependencies": dependencies,
+                     "scheduled_at": slot.isoformat()}
+            with connection.transaction(), connection.cursor() as cursor:
+                cursor.execute("INSERT INTO control.batch_occurrences(occurrence_id,scheduled_at,state) VALUES (%s,%s,%s::jsonb) ON CONFLICT DO NOTHING", (key, slot, json.dumps(state)))
+        # Persisted pending slots survive midnight and controller restarts.
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT occurrence_id,state FROM control.batch_occurrences WHERE state->>'status'='pending' ORDER BY scheduled_at,occurrence_id LIMIT 101")
+            pending = cursor.fetchall()
+        if len(pending) > 100:
+            raise RuntimeError("pending occurrence limit exceeded; dispatch blocked")
+        batches = {batch.name: batch for batch in BATCHES}
+        for key, state in pending:
+            batch = batches[state["batch"]]
+            dependencies = state["dependencies"]
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT occurrence_id,state->>'status' FROM control.batch_occurrences WHERE occurrence_id=ANY(%s)", (dependencies,))
+                statuses = dict(cursor.fetchall())
+                cursor.execute("SELECT 1 FROM control.batch_occurrences WHERE state->>'job'=%s AND state->>'status' IN ('dispatching','running','ambiguous') LIMIT 1", (batch.job,))
+                busy = cursor.fetchone() is not None
+            if any(statuses.get(dependency) != "succeeded" for dependency in dependencies):
+                record(connection, tick, key, state, "waiting_dependency", update=False)
+                continue
+            if busy or any(job_active(session, job) for job in (batch.exclusive_jobs or (batch.job,))):
+                record(connection, tick, key, state, "job_busy", update=False)
+                continue
+            state = {**state, "status": "dispatching"}
+            record(connection, tick, key, state, "dispatch_intent")
+            try:
+                operation = dispatch_job(session, batch)
+                state = {**state, "status": "running", "operation": operation}
+            except Exception:
+                state = {**state, "status": "ambiguous", "reason": "inspect_cloud_execution_before_manual_recovery"}
+            record(connection, tick, key, state, "dispatch_result")
+        core = core or _iceberg_core(PROJECT + "-dev-core")
+        return {"status": "tick_completed", "tick": tick, "exported_events": export_events(connection, core), "model_calls": 0}
+    finally:
+        if locked:
+            connection.execute("SELECT pg_advisory_unlock(1835102836,3)")
+        if owns_core and core is not None:
+            core.close()
+        if owns_control:
+            control.close()
+
+
+if __name__ == "__main__":
+    try:
+        print(json.dumps(run(), sort_keys=True))
+    except Exception as error:
+        print(json.dumps({"status": "failed", "error_code": type(error).__name__.upper()}))
+        raise SystemExit(1) from None

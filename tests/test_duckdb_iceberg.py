@@ -15,6 +15,19 @@ from packages.web_api import CoreQueryService
 
 
 class DuckDBIcebergTests(unittest.TestCase):
+    def test_financial_daily_observations_reuse_but_revisions_are_retained(self):
+        first = {"symbol": "2327", "fiscal_year": 2026, "fiscal_quarter": 2, "statement_type": "income",
+                 "metric": "revenue", "source_id": "mops", "value": "100", "unit": "TWD_thousands", "currency": "TWD",
+                 "availability_at": "2026-09-30T01:00:00Z", "published_at": "2026-09-30",
+                 "publication_time_authoritative": False}
+        repeat = {**first, "availability_at": "2026-10-01T01:00:00Z", "published_at": "2026-10-01"}
+        self.assertEqual(self.core._financial_observations([first], [repeat]), ([], 1))
+        revised = {**repeat, "value": "110"}
+        self.assertEqual(self.core._financial_observations([first], [revised]), ([revised], 0))
+        revert = {**repeat, "availability_at": "2026-10-02T01:00:00Z"}
+        self.assertEqual(self.core._financial_observations([first, revised], [revert]), ([revert], 0))
+        self.assertEqual(self.core._financial_observations([first], [{**repeat, "value": None}]), ([], 1))
+
     def setUp(self):
         self.root = Path(".tmp") / f"iceberg-unit-{uuid4()}"
         self.root.mkdir(parents=True)

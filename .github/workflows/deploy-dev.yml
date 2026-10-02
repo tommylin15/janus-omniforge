@@ -10,6 +10,13 @@ on:
       - 'jobs/ingestion-core/Dockerfile'
       - 'jobs/ingestion-core/requirements.in'
       - 'jobs/ingestion-core/requirements.lock'
+      - 'packages/duckdb_query/**'
+      - 'packages/postgres_lock.py'
+      - 'tests/test_data_retention.py'
+      - 'tests/ingestion/test_control_plane.py'
+      - 'infra/postgres/migrations/037_batch_controller.sql'
+      - 'tests/test_batch_controller.py'
+      - 'tests/test_duckdb_iceberg.py'
       - 'tests/stage_core_tests/test_stage_core.py'
       - 'tests/stage_core_tests/test_first_batch_sources.py'
       - 'tests/stage_core_tests/test_data_cleaning_regressions.py'
@@ -89,6 +96,9 @@ jobs:
         with:
           filters: |
             ingestion_runtime:
+              - 'packages/postgres_lock.py'
+              - 'packages/duckdb_query/**'
+              - 'infra/postgres/migrations/037_batch_controller.sql'
               - 'jobs/ingestion-core/ingestion_core/**'
               - 'jobs/ingestion-core/schemas/**'
               - 'jobs/ingestion-core/Dockerfile'
@@ -101,11 +111,16 @@ jobs:
               - 'cloudbuild.yaml'
               - 'scripts/gcp/deploy-dev.sh'
             ingestion_test:
+              - 'tests/ingestion/test_control_plane.py'
+              - 'tests/test_data_retention.py'
+              - 'tests/test_batch_controller.py'
+              - 'tests/test_duckdb_iceberg.py'
               - 'tests/stage_core_tests/test_stage_core.py'
               - 'tests/stage_core_tests/test_first_batch_sources.py'
               - 'tests/stage_core_tests/test_data_cleaning_regressions.py'
               - 'tests/test_portfolio_deploy_contract.py'
             mart_runtime:
+              - 'packages/postgres_lock.py'
               - 'jobs/intelligence-mart/**'
               - 'packages/contracts/**'
               - 'packages/observability/**'
@@ -181,6 +196,10 @@ jobs:
           tests/stage_core_tests/test_stage_core.py
           tests/stage_core_tests/test_data_cleaning_regressions.py
           tests/test_portfolio_deploy_contract.py
+          tests/test_batch_controller.py
+          tests/test_duckdb_iceberg.py
+          tests/test_data_retention.py
+          tests/ingestion/test_control_plane.py
 
   deploy-ingestion:
     needs: [detect, test-ingestion]
