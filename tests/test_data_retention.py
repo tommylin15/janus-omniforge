@@ -5,6 +5,17 @@ from ingestion_core.retention import retained_core_rows, clean_stage
 from packages.duckdb_query.iceberg import DuckDBIcebergCore
 
 
+def test_mart_cleanup_delete_permission_is_bucket_scoped():
+    import json
+    from pathlib import Path
+    role = json.loads(Path("infra/gcp/dev-mart-retention-iam.json").read_text())
+    assert role["includedPermissions"] == ["storage.objects.delete"]
+    deploy = Path("scripts/gcp/deploy-dev.sh").read_text()
+    assert 'if [[ "${ALLOW_MART_RETENTION_IAM:-false}" == "true" ]]; then' in deploy
+    assert 'buckets add-iam-policy-binding "gs://${project}-dev-mart"' in deploy
+    assert '--role="projects/${project}/roles/janusDevMartRetention"' in deploy
+
+
 def test_mart_retention_migration_grants_only_public_reference_columns():
     from pathlib import Path
     sql = Path("infra/postgres/migrations/038_mart_retention_read.sql").read_text()

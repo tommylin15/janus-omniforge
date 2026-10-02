@@ -81,6 +81,17 @@ case "${component}" in
       --role=roles/run.invoker --quiet
     ;;
   intelligence-mart)
+    # Explicit approval is required before expanding this runtime's delete permission.
+    if [[ "${ALLOW_MART_RETENTION_IAM:-false}" == "true" ]]; then
+      if gcloud iam roles describe janusDevMartRetention --project="${project}" >/dev/null 2>&1; then
+        gcloud iam roles update janusDevMartRetention --project="${project}" --file=infra/gcp/dev-mart-retention-iam.json --quiet
+      else
+        gcloud iam roles create janusDevMartRetention --project="${project}" --file=infra/gcp/dev-mart-retention-iam.json --quiet
+      fi
+      gcloud storage buckets add-iam-policy-binding "gs://${project}-dev-mart" \
+        --member="serviceAccount:intelligence-mart@${project}.iam.gserviceaccount.com" \
+        --role="projects/${project}/roles/janusDevMartRetention" --quiet
+    fi
     gcloud run jobs update "${runtime_name}" --project="${project}" --region="${region}" \
       --service-account="intelligence-mart@${project}.iam.gserviceaccount.com" \
       --tasks=1 --parallelism=1 --max-retries=1 --task-timeout=30m \

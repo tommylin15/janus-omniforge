@@ -1,0 +1,6 @@
+{
+  "title": "Janus dev Mart retention",
+  "description": "Delete unreferenced objects in the existing dev Mart bucket only.",
+  "stage": "GA",
+  "includedPermissions": ["storage.objects.delete"]
+}
