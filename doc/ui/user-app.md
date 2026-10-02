@@ -40,6 +40,7 @@ Deterministic market cards 可以各自保留 source-specific `as_of`／trade da
 本頁取代原平台精選名單／探索主功能，以使用者主動關注的個股為中心；不得因搜尋或 page load 觸發 scraper、Agent 或 LLM。
 
 - 搜尋股票代號或名稱後可加入／取消關注、排序、設定目標價並新增筆記；新加入只允許當前有效的週量 500 個股，由後端檢查；停用股票不出現。既有關注離榜時保留並標明不在本週市場資訊名單。
+- 股票名稱搜尋必須與交易表單共用 canonical stock-master search contract；中文名稱與代號都可查詢，結果回 canonical name＋symbol＋admission／active state，不另用 scraper／LLM 補名稱。
 - 預設只顯示自己的 active watchlist、最近已持久化行情、持股狀態、待完成筆記與資料日期，不顯示平台推薦榜。
 - 股票主要識別優先顯示 canonical 股票名稱＋代號；名稱缺失是資料 completeness 問題，不以空白名稱當成完整狀態。
 - MVP 最多 50 個 active distinct symbols；達上限時顯示 quota 說明，不以「50 大」命名。
@@ -63,17 +64,22 @@ Deterministic market cards 可以各自保留 source-specific `as_of`／trade da
 
 K 線、deterministic Fact Pack、五角色 validated analysis、CIO、估值指標與完整 provenance 屬「進階資料」，預設收合且不得先於健康度與白話摘要。未知／停用股票顯示 404；已啟用但沒有 report 顯示「等待下一次批次」，不得啟動即時分析。AI 文案只讀 validated evidence，不可把 confidence 當獲利機率或把缺失資料補成 0。
 
+「建議／研究資訊」整合在本頁既有 health／plain-language／why-risk／evidence hierarchy，不另建重複 recommendation 頁；顯示 analysis/data as-of、status、confidence、source/evidence 與 disclaimer，不能以保證性語氣呈現投資結果。
+
 歷史分析（Planned）可切換 `analysis_as_of`、execution 與 snapshot，並檢視舊 facts、roles 與 CIO；歷史 artifact immutable。單角色重跑由 Admin 操作，完成後 User 只看到新的 immutable result 與資料日期，不把 partial success 顯示成完整分析。
 
 ### 5.4 個人記帳與筆記
 
-- 交易或更正 API 成功只代表 ledger 已持久化；UI 顯示「交易已儲存，等待投資組合批次更新」，positions／PnL／exposure／performance 仍以最新成功 Private Mart 的 valuation date 為準。
-- 本頁是 P0 User App 主功能，不依賴公開 Mart／LLM；使用 segmented control 切換「記帳／筆記」。
+- 本頁是 P0 User App 主功能，不依賴公開 Mart／LLM；使用 segmented control 切換「記帳／筆記」。進入「記帳」時預設次導航為 **持股**，不是紀錄。
+- 交易或更正 API 成功首先代表 append-only ledger 已持久化；同一次 backend 流程須更新 deterministic synchronous operational position projection，使 shares／average cost／cash impact 等可立即反映。Flutter 不自行計算 authoritative holdings。Private Mart 仍持有 canonical valuation／PnL／exposure／performance 與 reconciliation；若 Mart 尚未追上，UI 明示其 valuation date／checkpoint／pending 狀態，而不是把 operational projection 冒充最新 canonical PnL。
 - 與市場探索分頁，現行能力可顯示「目前持股」、「本年已實現損益」與「待完成筆記」摘要；正式數值不得由 Flutter 自算。
-- 持股與交易主要識別優先顯示 canonical 股票名稱＋代號；若 stock master 無法解析名稱，應顯示 bounded partial／data issue，而不是把只有代號的狀態誤認為產品完整。
-- 名稱／行情缺口優先從核准來源補進 Stage → Core → Private Mart，不以 UI fallback 代替資料修復。盤中報價需另經來源權限、雲端展示與費用審查；核准後持股市值僅在持股分頁位於前景時盤中每 30 秒及按鈕讀取後端 MIS 最新報價估值；非盤中點入時只查詢一次，標明報價時間／stale，且不得覆蓋正式盤後估值。
-- 持股盤中估值使用 TWSE MIS。後端以 10 秒受控快取批次讀取 owner 真實持股的上市／上櫃行情，以成交紀錄的價格與時間估算盤中損益，不使用五檔掛單價補成交價。缺值明示 missing、aggregate withheld；超過 120 秒／非當日報價明示 stale，依 2026-10-01 使用者最新指示保留最後成功成交價與盤中估值／損益（盤後估值契約不變）；不覆寫盤後 marts。持股頁盤中／盤後價格均只使用 MIS，尚未取得 MIS 時不顯示舊正式估值；UI 只在持股分頁、前景且目前 route 可見時更新。台北時間平日 09:00–13:30、既有 schedule.holiday_overrides／MARKET_HOLIDAYS 不列為休市且 MIS 交易日期為當日才輪詢；日曆讀取失敗則保守停用輪詢（單次 MIS 取價仍可用），非盤中點入只查一次，手動與自動共用 endpoint；更新失敗保留上次內容與提示。股價類（現價、均價、成交單價、目標價／估價）固定顯示小數二位；金額、股數、比例顯示四捨五入整數、comma 千分位，負數以括號顯示；股票代號、日期與十進位交易輸入保持原語意。
-- 交易類型：買進、賣出、現金股利、股票股利；依類型顯示日期、股票代號／名稱、股數、成交單價、股利金額、手續費、證券交易稅、幣別與備註，不顯示無關欄位。
+- 持股與交易主要識別優先顯示 canonical 股票名稱＋代號；若 stock master 無法解析名稱，應顯示 bounded partial／data issue，而不是把只有代號的狀態誤認為產品完整。交易新增表單與 Watchlist 共用中文名稱／代號 search contract。
+- 行情採 **DB-first／stale-while-revalidate**：頁面先讀 latest successful operational quote／valuation read model 與 timestamp，再依 market session refresh approved source；成功後保存 `source`、`quote_at`、`received_at`、session／freshness／status 並更新 UI，失敗時保留 last success 並顯示 stale／refresh error。Top-right refresh 與自動 refresh 共用相同 backend route／policy。
+- 行情 routing 是 backend versioned contract，不由 Flutter hard-code。使用者指定目標預設：盤中 **Yahoo → Fugle realtime → TWSE MIS**；盤後 **TWSE published/EOD → Fugle → Yahoo**。只有 source authorization／license／quota-cost／health gate 已通過的來源才進 effective route；未核准來源必須跳過並明示 blocked。Yahoo 未取得明確授權前不得成為 executable runtime source。盤中 operational quote 不覆寫 canonical Core OHLCV 或正式 Private Mart EOD valuation。
+- 既有 TWSE MIS 的 10 秒 bounded cache、交易時段／holiday guard、成交價語意、120 秒 stale 判定與 last-success preservation 可作 source-adapter 基線；擴充成 multi-source router 後，每個 adapter 仍需有 bounded timeout／retry 與 provenance。非盤中點入可只查一次；前景 polling 需 bounded，不得因單一來源失敗永久 spinner。
+- 缺值明示 missing，必要 aggregate withheld；不得用五檔掛單價、舊正式估值或 0 偽裝成交價。股價類（現價、均價、成交單價、目標價／估價）固定顯示小數二位；金額、股數、比例顯示四捨五入整數、comma 千分位，負數以括號顯示；股票代號、日期與十進位交易輸入保持原語意。
+- 交易類型：買進、賣出、現金股利、股票股利；依類型顯示日期、股票代號／名稱、股數、成交單價、股利金額、幣別與備註。手續費／證券交易稅由 backend 依 broker／instrument／event／day-trade rule 與 version 計算並持久化；前端可 preview，但不要求每次手填，也不得自行重建 canonical fee/tax。
+- 新增私人「操作池／Broker Profile」設定：current cash／cash strategy、broker fee discount multiplier（例如 `0.4` 表示標準手續費的 40%）、minimum broker fee 與必要的 rule/profile version。現金最好由可稽核 cash ledger（opening/deposit/withdrawal/trade/dividend）推導；若新增 CASH_IN／CASH_OUT／adjustment，須維持 append-only／audit，不以可任意覆寫單一 cash number 破壞歷史重現。
 - 使用十進位輸入、明確單位與即時格式驗證；不得用浮點數造成金額誤差，也不得預填虛構價格。
 - 歷史明細支援股票與年份篩選；修正既有交易時呈現「建立更正」而非無痕覆寫。
 - 年度報表顯示已實現損益、費用、交易次數與年度比較。未實現損益必須標示估值日期與缺價狀態。
@@ -91,7 +97,7 @@ K 線、deterministic Fact Pack、五角色 validated analysis、CIO、估值指
 2. 未實現損益與報酬率：與持股市值同一 canonical valuation contract 的 aggregate unrealized PnL／return。
 3. 本年已實現損益：當年度 canonical realized PnL。
 4. 估值日期與缺價／stale／partial 狀態；aggregate withheld 時顯示 affected count／symbols 或等價 bounded diagnosis。
-5. 次導航「持股／紀錄／報表」；手機不得把三者塞成同一高密度表格。
+5. 次導航「持股／紀錄／報表」；手機不得把三者塞成同一高密度表格，且進入記帳頁時預設為「持股」。
 
 「紀錄」的目標資訊架構為 `年份 → 月份 accordion → 單筆交易`。月份摘要不得把所有金流混成「收入／支出」，至少分開：
 
@@ -106,13 +112,13 @@ K 線、deterministic Fact Pack、五角色 validated analysis、CIO、估值指
 
 手機版可採明顯的 FAB「＋」作為快速新增入口；先選買進／賣出／現金股利／股票股利，再依 event type 顯示必要欄位。不得顯示不適用欄位，也不得因便利性改變 backend validation 或 ledger contract。
 
-「持股」在手機優先使用兩到三行卡片，而非橫向多欄表格；在資料可用時顯示股票名稱／代號、持有股數、現價／均價、今日漲跌、未實現損益／報酬率，點擊後進 Janus 個股詳情並銜接持股、成本、筆記與研究內容。正式估值與損益仍只讀 Private Mart。
+「持股」在手機優先使用兩到三行卡片，而非橫向多欄表格；在資料可用時顯示股票名稱／代號、持有股數、現價／均價、今日漲跌、未實現損益／報酬率，點擊後進 Janus 個股詳情並銜接持股、成本、筆記與研究內容。shares／average cost 等 operational state 可在 ledger commit 後立即更新；正式 valuation／PnL 仍只讀 Private Mart，兩者資料時間與狀態必須分開呈現。
 
 「報表」可逐步納入持股占比、現金比例、年度已實現損益、股利、費用／稅、交易次數與年度比較；產業曝險只在正式 exposure contract 就緒後顯示。圓餅圖等圖表是次要呈現，不取代可讀數值與資料日期。
 
-以下參考 App 功能**不直接採納**：
+以下參考 App 功能的最新處理：
 
-- 券商手續費折數不得取代 ledger 實際 fee；若日後提供，只能是輸入輔助。
+- 券商手續費折數現在可作為私人 Broker Profile 的 fee-rule 輸入輔助，但不得覆寫已持久化的實際 fee；每筆 trade 保存適用 rule/profile version，確保歷史重現。
 - 不提供任意切換 FIFO／移動平均等成本法；目前 canonical MVP 維持移動平均法。
 - 不提供「是否計入賣出費用」等會改變 canonical PnL 的自由 toggle。
 - 預計交易／scenario 不得直接寫入正式 ledger 或實際損益。
@@ -120,7 +126,7 @@ K 線、deterministic Fact Pack、五角色 validated analysis、CIO、估值指
 #### 5.4.2 持股完整度（Active Product Completeness contract）
 
 - 所有 active positions 必須能對應 canonical stock master 的股票名稱與代號；無法解析時標示 partial／data issue 並保留可追蹤原因。
-- Private Mart 對每檔持股提供 shares、average cost、market price／value、price date／valuation date、unrealized PnL／return 與 price status；User UI 只讀正式欄位。
+- Private Mart 對每檔持股提供 shares、average cost、market price／value、price date／valuation date、unrealized PnL／return 與 price status；User UI 只讀正式 canonical valuation 欄位。ledger commit 後的 operational position projection 可先反映 shares／average cost 等 deterministic state，但不得冒充 Private Mart PnL／valuation。
 - 同幣別 aggregate 至少包含 market value、cost basis、unrealized PnL／return。若任何 required position 因 missing／stale／不相容 valuation date 使 aggregate 不可靠，backend 必須依 canonical policy withheld 並回傳 affected count／symbols 或等價 bounded diagnosis；不得讓 UI 自行忽略缺值後加總。
 - 完成判定必須以 authenticated GCP dev 真實 owner data 驗證目前 active holdings，而不是只有 fixture 或 presentation test。
 
@@ -149,3 +155,20 @@ Janus User App 不提供 Chat／Ask Janus／provider／runtime／MCP／Skills／
 - 「個股健康檢查」在現有資訊架構納入 market regime、deterministic signal summary、research thesis 的 supporting／invalidating evidence、candidate／strategy state、可用時的 supply-chain exposure／signal、portfolio impact、provenance 與 freshness。AI summary 不得蓋過 canonical data。
 - 「個人記帳與筆記」保留 append-only／revision semantics；research state 可連結 note，但 trade ledger 與 thesis 不合併為同一模型。
 - Janus ResearchContext 由 bounded API／MCP 向外部 consumer 提供 source、as-of、freshness、provenance、owner scope 與 missing／stale state；私人部分仍需使用者明確授權，Janus UI 不新增聊天面板。
+
+### 5.9 Loading／效能契約
+
+- 主導航頁應保持 persistent state；切換「今日／關注／記帳／我的」不得因 widget recreation 無條件重建所有 Future／重送全部 API。
+- 不在 `build()` 內建立會因 rebuild 重送 request 的 `Future.wait(...)`；首次載入、refresh、route revisit 的 request lifecycle 必須明確。
+- Composite screen 採 section-level loading／partial，不讓單一慢 endpoint 造成整頁永久 spinner；已持久化資料可先顯示，再 stale-while-revalidate。
+- Backend interactive path 應量測 auth、DB connect/query、Iceberg scan、endpoint fan-out 與 p50／p95 後再優化；沒有 runtime evidence 前不得把 CPU／RAM、DB bloat 或 index 說成既定 root cause。
+- 高頻 read path 優先使用 bounded DB read model／cache／connection pool；若直接 Iceberg scan 造成可量測延遲，再以 aggregate endpoint／projection 改善。GET 不應執行可移往 batch/controller 的無關 retirement write。
+- `min-instances=0` 可作為 idle-cost 選擇並接受 cold-start trade-off；它只解釋 idle 後 first request，不應拿來解釋所有持續性 latency。
+
+### 5.10 數值顯示契約
+
+- 統一 typed formatter，避免各 widget raw interpolation。
+- 股價語意（現價、估值、平均成本、成交單價、目標價等）固定 2 位小數。
+- 金額、股數、比例依產品契約四捨五入整數、comma 千分位；負數以括號顯示。
+- 股票代號、日期、版本、hash 與十進位交易輸入保留原語意，不套會計格式。
+- targeted／golden regression 應覆蓋上述格式，避免新畫面回歸。
