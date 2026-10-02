@@ -46,6 +46,36 @@ def test_operation_and_execution_failure_and_listing_fail_closed():
         poll_job(session, {"status": "running", "job": "janus-ingestion-core", "execution": "projects/prod/locations/us-central1/jobs/other/executions/test"})
 
 
+@pytest.mark.parametrize("later_running", [False, True])
+def test_execution_listing_checks_later_pages_and_ignores_terminal_startup_failures(later_running):
+    from unittest.mock import Mock
+    first = {"nextPageToken": "next/page", "executions": [{"completionTime": "done"}]}
+    failed = {"succeededCount": 1, "conditions": [{"type": "Completed", "state": "CONDITION_FAILED"}]}
+    second = {"executions": [failed, {}] if later_running else [failed]}
+    session = Mock()
+    session.get.side_effect = [SimpleNamespace(status_code=200, json=lambda: first),
+                               SimpleNamespace(status_code=200, json=lambda: second)]
+    assert job_active(session, "janus-ingestion-core") is later_running
+    assert session.get.call_count == 2
+    assert "pageToken=next%2Fpage" in session.get.call_args.args[0]
+    path = f"projects/{PROJECT}/locations/{REGION}/jobs/janus-ingestion-core/executions/failed"
+    session.get.side_effect = None
+    session.get.return_value = SimpleNamespace(status_code=200, json=lambda: failed)
+    result = poll_job(session, {"job": "janus-ingestion-core", "status": "running", "execution": path})
+    assert result["status"] == "failed" and result["completion_time"] is None
+
+
+def test_execution_page_limit_and_unknown_conditions_fail_closed():
+    from unittest.mock import Mock
+    session = Mock()
+    session.get.side_effect = [SimpleNamespace(status_code=200, json=lambda i=i: {"nextPageToken": str(i)}) for i in range(20)]
+    assert job_active(session, "janus-ingestion-core")
+    assert session.get.call_count == 20
+    session.get.side_effect = None
+    session.get.return_value = SimpleNamespace(status_code=200, json=lambda: {"executions": [{"conditions": [{"type": "Completed", "state": "CONDITION_PENDING"}]}]})
+    assert job_active(session, "janus-ingestion-core")
+
+
 def test_iceberg_outbox_replay_is_idempotent_and_readback_precedes_ack():
     from contextlib import nullcontext
     from uuid import uuid4

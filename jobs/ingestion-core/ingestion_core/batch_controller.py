@@ -6,6 +6,7 @@ from datetime import datetime
 import json
 import os
 from uuid import NAMESPACE_URL, uuid5
+from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 PROJECT = "gen-lang-client-0593591102"
@@ -95,6 +96,12 @@ def _identity(name, kind, job=None):
     return name
 
 
+def execution_finished(execution):
+    return bool(execution.get("completionTime")) or any(
+        condition.get("type") == "Completed" and condition.get("state") in {"CONDITION_SUCCEEDED", "CONDITION_FAILED"}
+        for condition in execution.get("conditions", []))
+
+
 def poll_job(session, state):
     """Read once per tick; ambiguous dispatch requires manual reconciliation."""
     if state["status"] == "ambiguous":
@@ -111,16 +118,29 @@ def poll_job(session, state):
             return {**state, "status": "failed", "reason": "cloud_run_operation_failed"}
         execution = operation.get("response", {})
         state = {**state, "execution": _identity(execution.get("name"), "execution", state["job"])}
-    if not execution.get("completionTime"):
+    if not execution_finished(execution):
         return {**state, "status": "running"}
-    succeeded = execution.get("succeededCount") == 1 and not execution.get("failedCount") and not execution.get("cancelledCount")
-    return {**state, "status": "succeeded" if succeeded else "failed", "completion_time": execution["completionTime"]}
+    failed_condition = any(condition.get("type") == "Completed" and condition.get("state") == "CONDITION_FAILED"
+                           for condition in execution.get("conditions", []))
+    succeeded = execution.get("succeededCount") == 1 and not execution.get("failedCount") and not execution.get("cancelledCount") and not failed_condition
+    return {**state, "status": "succeeded" if succeeded else "failed", "completion_time": execution.get("completionTime")}
 
 
 def job_active(session, job):
-    # ponytail: bounded listing; a full page blocks dispatch until inspected.
-    response = _read(session, resource(job) + "/executions?pageSize=100")
-    return bool(response.get("nextPageToken")) or any(not item.get("completionTime") for item in response.get("executions", []))
+    # ponytail: inspect up to 2,000 executions; beyond this, block and review the cap.
+    query, seen = {"pageSize": 100}, set()
+    for _ in range(20):
+        response = _read(session, resource(job) + "/executions?" + urlencode(query))
+        if any(not execution_finished(item) for item in response.get("executions", [])):
+            return True
+        token = response.get("nextPageToken")
+        if not token:
+            return False
+        if token in seen:
+            return True
+        seen.add(token)
+        query["pageToken"] = token
+    return True
 
 
 def dispatch_job(session, batch):
