@@ -1,0 +1,37 @@
+name: Mart provider routing
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'jobs/intelligence-mart/intelligence_mart/provider_routing.py'
+      - 'tests/test_mart_provider_routing.py'
+      - '.github/workflows/mart-provider-routing.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements-dev.txt
+            jobs/intelligence-mart/requirements.lock
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r jobs/intelligence-mart/requirements.lock
+          python -m pip install -r requirements-dev.txt
+      - name: Run provider routing tests
+        env:
+          PYTHONPATH: jobs/intelligence-mart:.
+        run: python -m pytest -q tests/test_mart_provider_routing.py
