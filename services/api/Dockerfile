@@ -34,6 +34,7 @@ RUN set -eux; \
 FROM python:3.12.8-slim-bookworm
 
 WORKDIR /app
+# Legacy static Admin code is excluded by .dockerignore; Flutter /app/admin is the active frontend.
 COPY . .
 COPY --from=flutter /app/apps/user_app/build/web /app/apps/user_app/build/web
 RUN pip install --no-cache-dir --require-hashes -r services/api/requirements.lock
