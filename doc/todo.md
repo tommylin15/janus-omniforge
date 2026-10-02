@@ -43,6 +43,7 @@
 - [ ] 完成 GCP dev 真實五角色 execution、validator、artifact readback、auth lifecycle、structured failure 與 zero-secret-leakage acceptance；本機 router code、credential probe、CI 或 deploy 單獨不構成 completion。
 - 2026-10-01 evidence：GCP `gpt-6.1-sol`＋`low` 五次真實 CLI 輸出、17-object readback 與九類 DB 投影驗收通過；validator 3 validated／insufficient_data、2 blocked。
 - 2026-10-02 credential evidence：Fugle quote HTTP 200；Gemini models HTTP 200；OpenRouter key HTTP 200 但 `is_free_tier=false`。OpenRouter 尚需 `$0`/free-only actual model request；Gemini 尚需 Free Tier／billing confirmation。Fugle credential 可用，但行情 source approval／runtime 接線在後續 Quote Router 工作完成。
+- 2026-10-02 bounded runtime checkpoint：第二個 GCP cold-start execution 五角色均 `validated/insufficient_data`，19-object readback／單股 same-execution Core／target lineage 通過；effective route 僅 Codex。兩批共用完十次核准 invocation，auth version 1→1、rotation 未觀察。OpenRouter 免費請求與 Gemini billing probe 被自動審核擋下，兩者維持 blocked；WBS 仍 partial。逐角色缺資料與未完成 gate 見 [checkpoint](archive/wbs-5-mart-ai-providers-checkpoint-2026-10-02.md)。
 
 ## 2. `WBS-5-MART-CIO-SYNTHESIS` — 【Sol】
 

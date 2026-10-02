@@ -30,7 +30,7 @@
 7. `WBS-6-USER-FINAL-VISUAL-CONVERGENCE`。
 8. `WBS-6-ADMIN-LEGACY-RETIREMENT`。
 
-`WBS-5-MART-AI-PROVIDERS` 目前已知 evidence：2026-10-01 GCP `gpt-6.1-sol`／`low` 五角色輸出、17-object readback 與九類 DB 投影驗收通過，validator 3 validated／insufficient_data、2 blocked；2026-10-02 Fugle／Gemini／OpenRouter credential probe 均可認證，Fugle `2330` quote HTTP 200、Gemini models HTTP 200、OpenRouter key HTTP 200 但 `is_free_tier=false`。Provider default route 為 **Codex CLI → OpenRouter → Gemini**；OpenRouter 尚缺 `$0`/free-only actual model request，Gemini尚缺 Free Tier／billing confirmation，same-execution target/provider、跨批次 auth lifecycle 與完整 GCP dev 五角色 runtime acceptance 尚未完成。Router code／credential probe／targeted tests 或 deploy 成功都不得單獨視為 WBS completion。
+`WBS-5-MART-AI-PROVIDERS` 最新 evidence：2026-10-02 第二個 GCP cold-start execution 的五角色均 `validated/insufficient_data`；19-object 獨立 readback、單股 same-execution Core／target／provider lineage 與 immutable replay 通過。兩批共用完十次核准 invocation；auth version 1→1，rotation 未觀察。Canonical Linux CI 137 passed、Mart deploy／verify success。Provider default route 為 **Codex CLI → OpenRouter → Gemini**，本次 effective route 僅 Codex；OpenRouter `$0` actual request 與 Gemini Free Tier／billing probe 被自動審核擋下，兩者保持 blocked。剩餘 auth lifecycle、全 target／情境 acceptance 與持續批次額度未完成，WBS 保持 partial；詳見 [checkpoint 與 2327 缺資料明細](archive/wbs-5-mart-ai-providers-checkpoint-2026-10-02.md)。五份 validated／insufficient_data 不等於完整研究或五分析師自然每日運作已可用。
 
 ## 不再列 active TODO 的內容
 
