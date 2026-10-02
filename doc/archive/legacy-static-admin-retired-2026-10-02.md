@@ -8,30 +8,31 @@ Flutter Admin／PWA 與既有 Admin API 保持 active。這次退役只移除 le
 
 ## Backup／還原來源
 
-為避免把已退役程式碼複製到另一個 active source tree、繼續增加 build context／runtime image，本次以 Git immutable history 作為程式碼 backup，並以本文件保存可稽核還原座標。
+Legacy static Admin 原始碼已移到 Docker 不會攜帶的 `doc/archive/legacy-static-admin-2026-10-02/`：
 
-退役前 `main` commit：`c051cdde2d6b9397649ba93bafbb77b2bf20d1ae`
+- `admin.html`
+- `admin.css`
+- `admin.js`
 
-Legacy static Admin 檔案：
+archive 三個檔案直接沿用退役前相同的 immutable Git blobs，不是重新產生的近似副本：
 
-- `apps/web/static/admin.html` — blob `ebbe4459c5eead6ad65667fa3d43e50df45e6836`
-- `apps/web/static/admin.css` — blob `c201c6f9744d2b58a218c4b78c3ca360c83b5293`
-- `apps/web/static/admin.js` — blob `ee24a2cb812dcb4c494ebe5521e4d227c82dc49c`
+- HTML blob `ebbe4459c5eead6ad65667fa3d43e50df45e6836`
+- CSS blob `c201c6f9744d2b58a218c4b78c3ca360c83b5293`
+- JS blob `ee24a2cb812dcb4c494ebe5521e4d227c82dc49c`
 
-需要人工還原時，可由上述 commit 讀回，例如：
+退役前 `main` commit：`c051cdde2d6b9397649ba93bafbb77b2bf20d1ae`。需要時也可直接由該 commit 還原原路徑。
 
-```bash
-git show c051cdde2d6b9397649ba93bafbb77b2bf20d1ae:apps/web/static/admin.html
-```
+`doc/` 已由 Docker build context 排除，因此 archive 原始碼不進入 API runtime image。
 
-`doc/` 已由 Docker build context 排除，因此本退役紀錄本身不進入 API runtime image。
+## Active runtime 邊界
 
-## Runtime 邊界
+- 舊的 `apps/web/static/admin.css` 與 `admin.js` 已從 active tree 移除。
+- `apps/web/static/admin.html` 不再包含 legacy UI；只保留極小 compatibility shim，將舊 `/admin` 與 `/admin/stocks` 入口導向 Flutter `/app/admin`，不載入舊 CSS／JS。
+- `.dockerignore` 排除 `apps/web` 的 legacy Python adapter／standalone image files，以及 root static-Admin Node／Playwright／Vitest build files；`private-journal-acceptance.html` 與 `usefulness-feedback-acceptance.html` 仍保留給既有 API acceptance path。
+- Flutter Admin／PWA 與 `/api/v1/admin/*` backend API 維持 active；本次不刪除 Admin API。
 
-退役前 `services/api/app.py` 仍保留 `/admin`、`/admin/stocks`、`/assets/admin.css`、`/assets/admin.js` 的 legacy static route；API image 又以 repository root 作 build context。退役工作的目標是讓 legacy static frontend 不再有 active source artifact，也不再需要被 runtime image 攜帶。
+## 驗收狀態
 
-`private-journal-acceptance.html` 與 `usefulness-feedback-acceptance.html` 是獨立 acceptance helper，不屬於 legacy Admin，本次不以 legacy Admin 名義刪除。
+GitHub implementation 已完成 source/archive 與 runtime packaging 切割；`doc/todo.md` 已移除 `WBS-6-ADMIN-LEGACY-RETIREMENT` active gate，`ui/admin.md` 已改為 Flutter Admin 為唯一 active frontend。
 
-## 狀態
-
-本文件只保存決策與 backup provenance。實際 retirement 是否完成，仍以 GitHub implementation、CI／deployment 與 dev runtime acceptance 為準；沒有 runtime evidence 時不得只因本文件存在而宣稱完成。
+Deployment／dev runtime 是否完成仍以對應 GitHub Actions deploy／verify 與 live evidence 為準；若部署尚在執行，本項保持 implementation-complete／runtime-pending，不以文件或 commit 單獨宣稱 full completion。
