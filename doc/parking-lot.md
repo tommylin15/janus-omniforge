@@ -32,20 +32,29 @@
 - 離榜持股 future-feed 的全面 source expansion，只為消除歷史 `partial`。
 - day-trading 等已在既定 coverage 門檻內的殘餘缺值逐筆追補。
 
-既有 WBS-3 coverage acceptance 已依使用者核准門檻完成；後續五分析師遇到必要 evidence 缺失時保持 `missing_data`／`insufficient_data`，不得由五個角色各自重複抓資料或補造 canonical facts。若日後決定正式做共用 Evidence Gap Resolver／研究型補證據層，再明確移回 TODO。
+既有 WBS-3 coverage acceptance 已依使用者核准門檻完成；已接受缺口仍維持原 provenance／missing semantics，不因 `WBS-3-DATA-SUPPLEMENT-V1` 啟動就要求補到 100%。五分析師目前 contract 的必要 evidence gap、history depth、metric mapping、PIT time semantics 與 bounded official expansion 已正式移至 active [`WBS-3-DATA-SUPPLEMENT-V1`](wbs/wbs-3-data-supplement-v1.md)；超出該第一版的通用 Evidence Gap Resolver／無界歷史補齊仍留在本 Parking Lot。
 
-## 3. 深度行情／外部研究來源擴張
+## 3. 深度行情／未核准來源擴張
 
 暫不做：
 
 - 分 K／Tick 全面收集與獨立排程。
-- 新聞／券商研究／目標價資料源接線。
-- social／Podcast／alternative-source adapter。
 - 未核准來源的 executable adapter／排程。
 - Yahoo Finance 在沒有明確授權前作 executable runtime source。
 - 額外 AI role、非必要 analysis dashboard。
 
 來源候選、授權狀態與技術研究可保留在規格／決策文件，但不因存在候選就形成 active TODO。
+
+## 3A. Data Supplement 後續擴張 S3～S6
+
+`WBS-3-DATA-SUPPLEMENT-V1` 只做 S0～S2。以下 S3～S6 目前明確**不做**，不計入第一版 completion，也不阻塞五位分析師目前版本的 daily-operation gate：
+
+- **S3 — News Research Layer**：新聞來源 admission、文本正規化、dedup、entity-to-symbol、source authority、研究型摘要／事件抽取；未核准來源不得建立 executable adapter。
+- **S4 — Supply-chain Evidence Expansion**：供應鏈 ontology、公司／產品／客戶／供應商 graph、demand／orders／capacity／shipment／inventory 等外部 evidence；既有研究材料保留，但不因研究構想存在就建立 production ingestion。
+- **S5 — Broker Research／Consensus／Target Price Source Evaluation**：券商研究、consensus、目標價、revision history、license／retention／PIT contract 與 source admission；沒有明確合法來源與授權前不接線。
+- **S6 — Social／Podcast／Alternative-source Expansion**：社群、Podcast、alternative data、sentiment／buzz／AI alert 等；只有日後有可量測增益、來源合法性與成本證據時才重新評估。
+
+若日後要啟動任一項，先由使用者明確移回 `todo.md`，再建立 source authorization、PIT、retention、provenance、consumer contract 與 acceptance；不得由模型 `missing_information` 自動觸發。
 
 ## 4. 個人化／文本與深度追蹤擴張
 
@@ -70,6 +79,8 @@
 - 額外 publication-time／provenance exclusion dataset，只為 calibration 而建立。
 - weights／40-60 thresholds walk-forward。
 - 正式 governance revision proposal，只因 roadmap 項目存在而提前產出。
+
+`WBS-3-DATA-SUPPLEMENT-V1` 為了修正目前五角色 correctness 所必要的 PIT time semantics 不受本節限制；本節只指額外 calibration／productization 擴張。
 
 ## 7. 完整 device／A11y／release matrix
 
@@ -100,22 +111,22 @@
 
 ## 9. Research Context Pilot Evolution roadmap
 
-以下整組 roadmap 從 active TODO 移出；目前不做：
+以下 roadmap 仍不作 active TODO；其中原 `WBS-3-DATASET-COVERAGE-INVENTORY`／`WBS-3-RESEARCH-DATASET-GAPS` 的必要部分已被新的 active `WBS-3-DATA-SUPPLEMENT-V1` 取代，不再同時留在 Parking Lot：
 
-1. `WBS-3-DATASET-COVERAGE-INVENTORY`
-2. `WBS-6-RESEARCH-CONTEXT-CONTRACT`
-3. `WBS-4J-PRIVATE-RESEARCH-STATE-CONTRACT`
-4. `WBS-5-RESEARCH-MART-CONTRACT`
-5. `WBS-3-RESEARCH-DATASET-GAPS`
-6. `WBS-6-RESEARCH-CONTEXT-COMPOSITION`
-7. `WBS-6-RESEARCH-CONTEXT-UI`
-8. `WBS-6-CHATGPT-MCP-RESEARCH-CONTEXT`
-9. `WBS-5-SUPPLY-RESEARCH-CONTEXT`
-10. `WBS-3-NEWS-ALTERNATIVE-SOURCE-REVIEW`
+1. `WBS-6-RESEARCH-CONTEXT-CONTRACT`
+2. `WBS-4J-PRIVATE-RESEARCH-STATE-CONTRACT`
+3. `WBS-5-RESEARCH-MART-CONTRACT`
+4. `WBS-6-RESEARCH-CONTEXT-COMPOSITION`
+5. `WBS-6-RESEARCH-CONTEXT-UI`
+6. `WBS-6-CHATGPT-MCP-RESEARCH-CONTEXT`
+7. `WBS-5-SUPPLY-RESEARCH-CONTEXT`
+8. `WBS-3-NEWS-ALTERNATIVE-SOURCE-REVIEW`
+
+其中 supply-chain／news 的未執行研究方向亦受上方 S3～S6 邊界約束。
 
 ## 10. Supply-chain research planning
 
-Supply-chain ontology、Source Matrix、seed graph、signal contract、Pilot measurement／epoch planning 保留在既有 WBS／SPEC 作研究材料，但目前不作 active TODO，也不得因此建立 production ingestion、schema／migration、crawler、未核准 adapter、paid source、tick／high-frequency source、Mart implementation 或新 GCP resource。
+Supply-chain ontology、Source Matrix、seed graph、signal contract、Pilot measurement／epoch planning 保留在既有 WBS／SPEC 作研究材料，但目前屬 S4，不作 active TODO，也不得因此建立 production ingestion、schema／migration、crawler、未核准 adapter、paid source、tick／high-frequency source、Mart implementation 或新 GCP resource。
 
 ## 11. 明確不重開的範圍
 
