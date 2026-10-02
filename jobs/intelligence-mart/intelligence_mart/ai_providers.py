@@ -32,6 +32,8 @@ def _role_input(report: dict[str, Any], role: str) -> dict[str, Any]:
     return {"schema_version": "mart_ai_role_input_v1", "role": role, "execution_id": report["execution_id"],
             "analysis_as_of": report["analysis_as_of"], "core_snapshot_id": report["core_snapshot_id"],
             "scope": report["scope"], "fact_pack": pack,
+            "numeric_claim_tokens": [f"{key}={value}" for key, value in pack["facts"].items()
+                                     if isinstance(value, (int, float)) and not isinstance(value, bool)],
             "evidence": [x for x in report.get("evidence", []) if x.get("evidence_id") in allowed]}
 
 
@@ -51,6 +53,21 @@ def _lineage(report: dict[str, Any], role: str, provider: CodexCLIProvider) -> d
 def run_ai_provider_stage(execution: Any, publication_connection: Any, *, store_factory: Callable[[str], Any] | None = None,
                           catalog_factory: Callable[[], Any] | None = None,
                           provider_factory: Callable[[], CodexCLIProvider] | None = None) -> dict[str, Any]:
+    from .codex_auth import auth_session
+    kwargs = dict(store_factory=store_factory, catalog_factory=catalog_factory, provider_factory=provider_factory)
+    enabled = os.environ.get("MART_AI_ENABLED", "false").lower() in {"1", "true", "yes"}
+    if not enabled or not os.environ.get("MART_CODEX_AUTH_SECRET"):
+        return _run_ai_provider_stage(execution, publication_connection, **kwargs)
+    with auth_session() as auth:
+        provider = (provider_factory or CodexCLIProvider.from_environment)()
+        provider.auth_error, provider.auth_checkpoint = auth.reason, auth.checkpoint
+        provider.auth_metadata = auth.metadata
+        kwargs["provider_factory"] = lambda: provider
+        return _run_ai_provider_stage(execution, publication_connection, **kwargs)
+
+
+def _run_ai_provider_stage(execution: Any, publication_connection: Any, *, store_factory=None,
+                           catalog_factory=None, provider_factory=None) -> dict[str, Any]:
     if os.environ.get("MART_AI_ENABLED", "false").lower() not in {"1", "true", "yes"}:
         return {"ai_status": "disabled", "ai_target_count": 0, "ai_admitted_count": 0,
                 "ai_five_role_success_count": 0, "ai_artifact_uri": None}
@@ -138,6 +155,10 @@ def run_ai_provider_stage(execution: Any, publication_connection: Any, *, store_
         "preflight_reason": preflight.get("reason"), "provider": "openai", "transport": "codex_cli", "model": provider.model,
         "cli_version": provider.cli_version, "fallback_provider": None, "fallback_reason": "not_configured",
         "five_role_success_count": successes, "results": results, "private_fields_exposed": False, "publication_authority": False}
+    if hasattr(provider, "auth_metadata"):
+        stage["auth_lifecycle"] = provider.auth_metadata()
+        if provider.auth_error:
+            stage["auth_lifecycle"].update(status="blocked", reason=provider.auth_error, required_user_action=True)
     stage["artifact_hash"] = content_hash(stage); payload = _canonical(stage)
     if not store.create(manifest_name, payload, "application/json") and store.read(manifest_name) != payload:
         raise RuntimeError("immutable AI provider manifest conflict")
@@ -146,6 +167,8 @@ def run_ai_provider_stage(execution: Any, publication_connection: Any, *, store_
 
 
 def _load_codex_auth_from_runtime_bundle() -> None:
+    if os.environ.get("MART_CODEX_AUTH_SECRET"):
+        return  # Dedicated storage never falls back to the shared bundle.
     raw = os.environ.get("JANUS_MART_POSTGRES_BUNDLE", "").strip()
     if not raw: return
     try: bundle = json.loads(raw)
@@ -158,7 +181,18 @@ def _load_codex_auth_from_runtime_bundle() -> None:
 
 
 def provider_smoke() -> dict[str, Any]:
-    _load_codex_auth_from_runtime_bundle(); return {"component": "intelligence-mart", "operation": "provider-smoke", **CodexCLIProvider.from_environment().preflight()}
+    if os.environ.get("MART_CODEX_AUTH_SECRET"):
+        from packages.postgres_bundle import load_postgres_bundle
+        from .codex_auth import auth_session
+        load_postgres_bundle("JANUS_MART_POSTGRES_BUNDLE", {
+            "PUBLICATION_DB_PASSWORD": ("mart_publication_password", "publication_password")})
+        with auth_session() as auth:
+            provider = CodexCLIProvider.from_environment()
+            provider.auth_error = auth.reason
+            return {"component": "intelligence-mart", "operation": "provider-smoke",
+                    **provider.preflight(), "auth_lifecycle": auth.metadata()}
+    _load_codex_auth_from_runtime_bundle()
+    return {"component": "intelligence-mart", "operation": "provider-smoke", **CodexCLIProvider.from_environment().preflight()}
 
 
 def provider_mart_processor(execution: Any, publication_connection: Any) -> dict[str, Any]:

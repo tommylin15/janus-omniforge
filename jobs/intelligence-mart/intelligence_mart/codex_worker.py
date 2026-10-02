@@ -81,6 +81,8 @@ class CodexCLIProvider:
         self.binary, self.model, self.reasoning_effort = binary, model, reasoning_effort
         self.timeout_seconds, self.max_attempts, self.kill_grace_seconds = timeout_seconds, max_attempts, kill_grace_seconds
         self.cli_version = CODEX_CLI_VERSION
+        self.auth_checkpoint: Callable[[], str | None] | None = None
+        self.auth_error: str | None = None
 
     @classmethod
     def from_environment(cls) -> "CodexCLIProvider":
@@ -123,6 +125,7 @@ class CodexCLIProvider:
 
     def preflight(self) -> dict[str, Any]:
         mode, error = self._auth()
+        error = self.auth_error or error
         common = {"provider": "openai", "transport": "codex_cli", "model": self.model,
                   "cli_version": self.cli_version, "publication_authority": False}
         if error:
@@ -176,7 +179,10 @@ class CodexCLIProvider:
     def invoke(self, role: str, role_input: dict[str, Any]) -> ProviderResult:
         if role not in ROLE_WEIGHTS:
             raise ValueError("invalid AI analyst role")
+        if self.auth_checkpoint and not self.auth_error:
+            self.auth_error = self.auth_checkpoint()
         auth_mode, auth_error = self._auth()
+        auth_error = self.auth_error or auth_error
         if auth_error or auth_mode is None:
             return ProviderResult("failed", None, (), auth_error or "auth_required")
         schema = OUTPUT_MODELS[role].model_json_schema()
@@ -213,12 +219,18 @@ class CodexCLIProvider:
                     refreshed = path / "home" / ".codex" / "auth.json"
                     if refreshed.exists():
                         os.environ["MART_CODEX_AUTH_JSON"] = refreshed.read_text(encoding="utf-8")
+                    if self.auth_checkpoint:
+                        self.auth_error = self.auth_checkpoint()
+                        if self.auth_error:
+                            reason = self.auth_error
                 parsed = None
                 if reason is None and returncode == 0 and output.exists():
                     try: parsed = OUTPUT_MODELS[role].model_validate_json(output.read_text()).model_dump()
                     except Exception: reason = "invalid_structured_output"
                 elif reason is None:
                     reason = _safe_reason(stderr[-4096:] + "\n" + stdout[-4096:])
+                if reason == "auth_required":
+                    self.auth_error = reason
                 attempt = {"artifact_kind": "mart_ai_provider_attempt_v1", "schema_version": PROVIDER_STAGE_VERSION,
                            "role": role, "attempt": number, "provider": "openai", "transport": "codex_cli",
                            "model": self.model, "cli_version": self.cli_version, "exit_code": returncode,

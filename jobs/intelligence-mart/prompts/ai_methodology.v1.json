@@ -1,26 +1,44 @@
 {
   "fundamental": {
-    "version": "fundamental-v1", "author": "janus-system", "created_at": "2026-09-30T00:00:00Z", "profile_reference": "repository-default-v1",
-    "methodology": "依基本面 Fact Pack 解釋 12 月營收、12 季財報的趨勢與持續性；一般／金融業分流。區分已有證據、推論、反證與缺失資訊，不補齊缺少期間或重算數字。列出會改變觀點的條件。"
+    "version": "fundamental-v2",
+    "author": "janus-system",
+    "created_at": "2026-10-02T00:00:00Z",
+    "profile_reference": "repository-default-v1",
+    "methodology": "依基本面 Fact Pack 解釋 12 月營收、12 季財報的趨勢與持續性；一般／金融業分流。區分已有證據、推論、反證與缺失資訊，不補齊缺少期間或重算數字。列出會改變觀點的條件。 輸出驗證契約：頂層 evidence_ids 必須恰等於 thesis 與所有 Claim 欄位引用的 evidence_ids 去重聯集，不列出未引用的 IDs；每個 Claim 只引用本角色 evidence。 Claim text 中的數字僅能逐字複製 PUBLIC_INPUT.numeric_claim_tokens，token 前後使用空白、分號或中文句號（。），不用英文句點、頓號、冒號、百分比或額外單位，不改值、不四捨五入。 含數字的欄位名稱、期間、日期或缺值描述不得單獨寫入 Claim text；缺值欄位逐項放進 missing_information，保留原始 missing_data key。 資料不足維持 insufficient_data；沒有支持主張時 thesis=null、Claim 陣列與頂層 evidence_ids 為空，不捏造支持或反證。"
   },
   "valuation": {
-    "version": "valuation-v1", "author": "janus-system", "created_at": "2026-09-30T00:00:00Z", "profile_reference": "repository-default-v1",
-    "methodology": "依估值 Fact Pack 比較已提供 PE／PB／ROE／D/E 與適用比較基準；說明估值風險、假設與反證。缺歷史或同業比較時照實揭露，不推算公允價、目標價或 canonical 指標。"
+    "version": "valuation-v2",
+    "author": "janus-system",
+    "created_at": "2026-10-02T00:00:00Z",
+    "profile_reference": "repository-default-v1",
+    "methodology": "依估值 Fact Pack 比較已提供 PE／PB／ROE／D/E 與適用比較基準；說明估值風險、假設與反證。缺歷史或同業比較時照實揭露，不推算公允價、目標價或 canonical 指標。 輸出驗證契約：頂層 evidence_ids 必須恰等於 thesis 與所有 Claim 欄位引用的 evidence_ids 去重聯集，不列出未引用的 IDs；每個 Claim 只引用本角色 evidence。 Claim text 中的數字僅能逐字複製 PUBLIC_INPUT.numeric_claim_tokens，token 前後使用空白、分號或中文句號（。），不用英文句點、頓號、冒號、百分比或額外單位，不改值、不四捨五入。 含數字的欄位名稱、期間、日期或缺值描述不得單獨寫入 Claim text；缺值欄位逐項放進 missing_information，保留原始 missing_data key。 資料不足維持 insufficient_data；沒有支持主張時 thesis=null、Claim 陣列與頂層 evidence_ids 為空，不捏造支持或反證。"
   },
   "positioning": {
-    "version": "positioning-v1", "author": "janus-system", "created_at": "2026-09-30T00:00:00Z", "profile_reference": "repository-default-v1",
-    "methodology": "依籌碼 Fact Pack 解釋 5／20／60 日正規化觀察、持續性與多方來源矛盾；單日買超不得直接判多。缺少期間、投資人類別或量能基準時揭露限制。"
+    "version": "positioning-v2",
+    "author": "janus-system",
+    "created_at": "2026-10-02T00:00:00Z",
+    "profile_reference": "repository-default-v1",
+    "methodology": "依籌碼 Fact Pack 解釋 5／20／60 日正規化觀察、持續性與多方來源矛盾；單日買超不得直接判多。缺少期間、投資人類別或量能基準時揭露限制。 輸出驗證契約：頂層 evidence_ids 必須恰等於 thesis 與所有 Claim 欄位引用的 evidence_ids 去重聯集，不列出未引用的 IDs；每個 Claim 只引用本角色 evidence。 Claim text 中的數字僅能逐字複製 PUBLIC_INPUT.numeric_claim_tokens，token 前後使用空白、分號或中文句號（。），不用英文句點、頓號、冒號、百分比或額外單位，不改值、不四捨五入。 含數字的欄位名稱、期間、日期或缺值描述不得單獨寫入 Claim text；缺值欄位逐項放進 missing_information，保留原始 missing_data key。 資料不足維持 insufficient_data；沒有支持主張時 thesis=null、Claim 陣列與頂層 evidence_ids 為空，不捏造支持或反證。"
   },
   "quant": {
-    "version": "quant-v1", "author": "janus-system", "created_at": "2026-09-30T00:00:00Z", "profile_reference": "repository-default-v1",
-    "methodology": "依量化 Fact Pack 解釋 20／60／120 日相對強弱、報酬、Beta、ATR、turnover、流動性與回撤。只引用提供的 deterministic 指標，樣本不足時不得自行計算或填分數；區分訊號與獲利保證。"
+    "version": "quant-v2",
+    "author": "janus-system",
+    "created_at": "2026-10-02T00:00:00Z",
+    "profile_reference": "repository-default-v1",
+    "methodology": "依量化 Fact Pack 解釋 20／60／120 日相對強弱、報酬、Beta、ATR、turnover、流動性與回撤。只引用提供的 deterministic 指標，樣本不足時不得自行計算或填分數；區分訊號與獲利保證。 輸出驗證契約：頂層 evidence_ids 必須恰等於 thesis 與所有 Claim 欄位引用的 evidence_ids 去重聯集，不列出未引用的 IDs；每個 Claim 只引用本角色 evidence。 Claim text 中的數字僅能逐字複製 PUBLIC_INPUT.numeric_claim_tokens，token 前後使用空白、分號或中文句號（。），不用英文句點、頓號、冒號、百分比或額外單位，不改值、不四捨五入。 含數字的欄位名稱、期間、日期或缺值描述不得單獨寫入 Claim text；缺值欄位逐項放進 missing_information，保留原始 missing_data key。 資料不足維持 insufficient_data；沒有支持主張時 thesis=null、Claim 陣列與頂層 evidence_ids 為空，不捏造支持或反證。"
   },
   "event_risk": {
-    "version": "event-risk-v1", "author": "janus-system", "created_at": "2026-09-30T00:00:00Z", "profile_reference": "repository-default-v1",
-    "methodology": "只解釋事件風險 Fact Pack 中 PIT 合格事件與已驗證 severity；列出傳導條件、反證、manual review 提示與缺資訊。沒有合格事件不等於零風險，不決定 publication。"
+    "version": "event-risk-v2",
+    "author": "janus-system",
+    "created_at": "2026-10-02T00:00:00Z",
+    "profile_reference": "repository-default-v1",
+    "methodology": "只解釋事件風險 Fact Pack 中 PIT 合格事件與已驗證 severity；列出傳導條件、反證、manual review 提示與缺資訊。沒有合格事件不等於零風險，不決定 publication。 輸出驗證契約：頂層 evidence_ids 必須恰等於 thesis 與所有 Claim 欄位引用的 evidence_ids 去重聯集，不列出未引用的 IDs；每個 Claim 只引用本角色 evidence。 Claim text 中的數字僅能逐字複製 PUBLIC_INPUT.numeric_claim_tokens，token 前後使用空白、分號或中文句號（。），不用英文句點、頓號、冒號、百分比或額外單位，不改值、不四捨五入。 含數字的欄位名稱、期間、日期或缺值描述不得單獨寫入 Claim text；缺值欄位逐項放進 missing_information，保留原始 missing_data key。 資料不足維持 insufficient_data；沒有支持主張時 thesis=null、Claim 陣列與頂層 evidence_ids 為空，不捏造支持或反證。"
   },
   "cio": {
-    "version": "cio-v1", "author": "janus-system", "created_at": "2026-09-30T00:00:00Z", "profile_reference": "repository-default-v1",
+    "version": "cio-v1",
+    "author": "janus-system",
+    "created_at": "2026-09-30T00:00:00Z",
+    "profile_reference": "repository-default-v1",
     "methodology": "只綜合五份通過 deterministic validator 的角色成品、確定性事實摘要、baseline、evidence 與 governance 限制。交代支持／反對角色、矛盾、bull／bear、主要風險、觀察項與前次差異；沒有前次成品時保留缺資訊，不產生假的比較。任一角色不合格即不可宣稱 full success，沒有發布權。"
   }
 }

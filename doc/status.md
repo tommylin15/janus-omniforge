@@ -1,6 +1,6 @@
 # Janus Current Status
 
-更新：2026-10-01
+更新：2026-10-02
 
 用途：提供「現在在哪裡、下一步是什麼、哪些尚未完成」的短入口。這不是新的 source of truth；實作以 GitHub `main` 為準，完成狀態以 tests／CI／deployment／live runtime／integration evidence 為準。完整未完成工作見 [`todo.md`](todo.md)；五位分析師每日運作 gate 見 [`five-analyst-daily-operation-gate.md`](five-analyst-daily-operation-gate.md)；六個月 Pilot 新增 operational checkpoint 見 [`pilot-operational-evidence.md`](pilot-operational-evidence.md)；Janus web root routing incident evidence 見 [`janus-web-root-acceptance-2026-09-26.md`](janus-web-root-acceptance-2026-09-26.md)；deployment controller consolidation evidence 見 [`deployment-controller-consolidation-2026-09-26.md`](deployment-controller-consolidation-2026-09-26.md)；完整歷史 evidence 見 [`spec/operations-and-testing.md`](spec/operations-and-testing.md)。
 
@@ -33,6 +33,7 @@
 依 [`todo.md`](todo.md) 以整個 WBS 作為工作／驗收單位；遇到 blocker 時先推進其餘安全且獨立的條件。目前：
 
 1. **`WBS-5-MART-AI-PROVIDERS` 目前 partial。** Sol 閘門及單股五次呼叫已核准，GCP 固定 `gpt-6.1-sol`／`low` 的五角色輸出、17-object readback 與九類 DB 投影驗收通過；validator 3 validated／insufficient_data、2 blocked，未完整成功。跨批次 auth 續期保存與 target/provider 同 execution 驗收仍待安全／新增 bounded quota 決策；詳見 [checkpoint](archive/wbs-5-mart-ai-providers-checkpoint-2026-10-01.md)。前項 [v1 compatibility](archive/wbs-5-mart-v2-compat-2026-10-01.md) 已結案，自然每日 AI 批次仍未啟用。
+   2026-10-02 本機接續：已讀回定位／量化失敗成品，修正五角色 versioned prompt 的 claim coverage／numeric token／missing-key 說明，新增同 execution target＋Core＋provider 有界驗收入口。本機相關驗證 110 passed／3 deselected（Linux subprocess tests）；WSL 啟動失敗，未補成通過。此批 auth／prompt／驗收入口待 CI／dev 部署與真實驗收，尚未新增模型呼叫；使用者已核准且已建立獨立 auth Secret／最小 IAM，最多十次呼叫方案見 [provider runbook](runbook-mart-ai-providers.md#2026-10-02-接續方案已核准驗收狀態見-statuscheckpoint)；本次 auth 實作／dev 部署與驗收進行中。
 2. **`WBS-6-PORTFOLIO-INTRADAY-QUOTE` 已完成。** 2026-10-01 使用已核准 MIS 路徑完成持股盤中／盤後報價、既有 dev 部署與 authenticated UI／30 秒前景更新驗收；詳見 [MIS 結案紀錄](archive/wbs-6-portfolio-intraday-quote-2026-10-01.md)。舊 Shioaji blocker 不再代表本 WBS 狀態；休市日曆仍需維護，MIS 快取非持久化。
 
 使用者 2026-09-30 已將 Codex 五分析師研究路線納入 active planning：**GCP 既有批次自主
