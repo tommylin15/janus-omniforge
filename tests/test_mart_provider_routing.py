@@ -43,7 +43,7 @@ class _Provider:
         return self.result
 
 
-def _output(role: str = "fundamental") -> dict:
+def _output(role: str = "ceo") -> dict:
     evidence_id = "ev-0123456789abcdef01234567"
     claim = {"text": "supported", "evidence_ids": [evidence_id]}
     return {
@@ -54,13 +54,10 @@ def _output(role: str = "fundamental") -> dict:
         "missing_information": [],
         "confidence": 0.5,
         "evidence_ids": [evidence_id],
-        "key_findings": [claim],
-        "positive_evidence": [],
-        "negative_evidence": [],
-        "contradictions": [],
-        "change_drivers": [],
-        "risks": [],
-        "what_would_change_my_view": [],
+        "supporting_roles": [], "opposing_roles": [], "contradictions": [],
+        "bull_case": [], "bear_case": [], "principal_risks": [], "watch_items": [],
+        "change_since_previous_analysis": [],
+        "validated_role_artifact_hashes": ["sha256:" + str(i)*64 for i in range(5)],
     }
 
 
@@ -95,7 +92,7 @@ def test_router_falls_back_on_transport_failure_only():
         ProviderResult("succeeded", _output(), (), None),
     )
     router = ProviderRouter(providers, route_snapshot({}))
-    result = router.invoke("fundamental", {"fact_pack": {}})
+    result = router.invoke("ceo", {"fact_pack": {}})
     assert result.status == "succeeded"
     assert result.provider == "openrouter"
     assert providers["codex_cli"].calls == 1
@@ -115,7 +112,7 @@ def test_router_does_not_bypass_invalid_structured_output(reason):
         ProviderResult("succeeded", _output(), (), None),
     )
     router = ProviderRouter(providers, route_snapshot({}))
-    result = router.invoke("fundamental", {"fact_pack": {}})
+    result = router.invoke("ceo", {"fact_pack": {}})
     assert result.status == "failed"
     assert result.reason == reason
     assert providers["openrouter"].calls == 0
@@ -131,7 +128,7 @@ def test_router_stops_on_nonfallback_preflight_failure(before_snapshot):
         providers["codex_cli"].preflight = lambda: {"status": "blocked", "reason": "unsupported_cli_version"}
     router = ProviderRouter(providers, route_snapshot({}))
     providers["codex_cli"].preflight = lambda: {"status": "blocked", "reason": "unsupported_cli_version"}
-    result = router.invoke("fundamental", {})
+    result = router.invoke("ceo", {})
     assert result.reason == "unsupported_cli_version"
     assert all(provider.calls == 0 for provider in providers.values())
 
@@ -140,7 +137,7 @@ def test_gemini_free_entitlement_does_not_fabricate_observed_cost(monkeypatch):
     monkeypatch.setenv("MART_GEMINI_FREE_TIER_CONFIRMED", "true")
     response = {"candidates": [{"content": {"parts": [{"text": json.dumps(_output())}]}}]}
     provider = GeminiRoleProvider(api_key="present", opener=lambda *a, **kw: BytesIO(json.dumps(response).encode()))
-    result = provider.invoke("fundamental", {})
+    result = provider.invoke("ceo", {})
     assert result.status == "succeeded"
     assert result.attempts[0]["actual_cost_usd"] is None
     assert result.attempts[0]["cost_observability"] == "unknown"
@@ -160,7 +157,7 @@ def test_gemini_generation_is_blocked_until_free_tier_confirmed(monkeypatch):
     provider = GeminiRoleProvider(api_key="present")
     assert provider.preflight()["status"] == "blocked"
     assert provider.preflight()["reason"] == "free_tier_not_confirmed"
-    result = provider.invoke("fundamental", {"fact_pack": {}})
+    result = provider.invoke("ceo", {"fact_pack": {}})
     assert result.status == "failed"
     assert result.reason == "free_tier_not_confirmed"
     assert result.attempts == ()
@@ -178,7 +175,7 @@ def test_openrouter_enforces_zero_price_and_requires_observed_zero_cost(cost, re
         return BytesIO(json.dumps({"model": "test/model:free", "usage": {"cost": cost},
                                   "choices": [{"message": {"content": json.dumps(_output())}}]}).encode())
 
-    result = OpenRouterProvider(api_key="present", opener=respond, max_attempts=2).invoke("fundamental", {})
+    result = OpenRouterProvider(api_key="present", opener=respond, max_attempts=2).invoke("ceo", {})
     assert requests[0]["provider"] == {"require_parameters": True, "max_price": {"prompt": 0, "completion": 0}}
     assert len(requests) == 1  # A billing gate failure cannot retry or fall back.
     assert result.reason == reason
@@ -195,7 +192,7 @@ def test_router_freezes_profile_parameters_and_records_actual_model():
     route = route_snapshot({})
     router = ProviderRouter(providers, route)
     route["providers"].reverse()
-    result = router.invoke("fundamental", {})
+    result = router.invoke("ceo", {})
     assert result.model == "test/model:free"
     assert result.parameters["timeout_seconds"] == 60
     assert result.routing["providers"] == list(DEFAULT_ROUTE)
@@ -235,5 +232,5 @@ def test_missing_credentials_block_without_network_calls(provider_class):
         raise AssertionError("blocked provider must not make a request")
     provider = provider_class(api_key="", opener=no_network)
     assert provider.preflight()["reason"] == "auth_required"
-    result = provider.invoke("fundamental", {})
+    result = provider.invoke("ceo", {})
     assert result.status == "failed" and result.reason == "auth_required" and result.attempts == ()

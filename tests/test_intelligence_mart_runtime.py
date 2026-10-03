@@ -9,7 +9,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "jobs" / "intelligence-mart"))
 
-from intelligence_mart.runtime import AnalysisExecution, PostgreSQLAnalysisQueue, PostgreSQLPublicationIndex, _validate_fact_packs, _write_immutable_json, consume_queued_analysis, deterministic_processor, postgres_smoke
+from intelligence_mart.runtime import AnalysisExecution, PostgreSQLAnalysisQueue, PostgreSQLPublicationIndex, _write_immutable_json, consume_queued_analysis, deterministic_processor, postgres_smoke
 
 
 def _analysis_options():
@@ -23,18 +23,6 @@ def _analysis_options():
                      "core_snapshot_hash": f"sha256:{sha256(payload).hexdigest()}"}
 
 
-def _fact_pack_report():
-    roles = []
-    packs = []
-    for name in ("fundamental", "valuation", "positioning", "quant", "event_risk"):
-        role = {"role": name, "score": 50.0, "completeness": 1.0, "confidence": 1.0,
-                "missing_data": [], "evidence_ids": [f"ev-{name}"], "features": {"value": name}}
-        roles.append(role)
-        packs.append({"fact_pack_version": "1.0.0", "pack_type": name, "analysis_as_of": "2026-09-10",
-                      "core_snapshot_id": "snapshot-1", "facts": role["features"], "missing_data": [],
-                      "evidence_ids": role["evidence_ids"], "evidence_hash": "sha256:" + "1" * 64,
-                      "baseline": {"score": 50.0}, "fact_pack_hash": "sha256:" + "2" * 64})
-    return {"analysis_as_of": "2026-09-10", "core_snapshot_id": "snapshot-1", "roles": roles, "fact_packs": packs}
 
 
 class _Cursor:
@@ -57,41 +45,6 @@ class _Connection:
 
 
 class MartRuntimeTests(unittest.TestCase):
-    def test_outcome_query_failure_rolls_back_before_queue_retry(self):
-        from contextlib import contextmanager
-        _, options = _analysis_options()
-        execution = AnalysisExecution("execution-1", "first-batch", ("2330",), 0, options)
-        class Connection:
-            aborted = False
-            transitions = []
-            @contextmanager
-            def transaction(self):
-                if self.aborted:
-                    raise RuntimeError("transaction already aborted")
-                try:
-                    yield
-                except Exception:
-                    self.aborted = False
-                    raise
-            @contextmanager
-            def cursor(self, **kwargs):
-                yield self
-            def execute(self, query, params):
-                if "pilot_analysis_outcomes" in query:
-                    self.aborted = True
-                    raise PermissionError("outcome read denied")
-                self.transitions.append(params)
-            def fetchone(self): return (True,)
-        connection = Connection()
-        queue = PostgreSQLAnalysisQueue(connection)
-        with patch.object(queue, "claim", return_value=execution):
-            with self.assertRaisesRegex(PermissionError, "outcome read denied"):
-                consume_queued_analysis(
-                    queue, lambda _: PostgreSQLPublicationIndex(connection).pending_outcomes(["2330"]),
-                    worker_id="mart-1")
-        self.assertEqual(connection.transitions,
-                         [("execution-1", "mart-1", "retrying", 1, "PERMISSIONERROR")])
-        self.assertFalse(connection.aborted)
 
     def test_model_evaluation_and_governance_artifacts_are_create_only(self):
         class Store:
@@ -108,18 +61,7 @@ class MartRuntimeTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "immutable"):
             _write_immutable_json(store, "mart", "executions/e/artifacts/evaluation.json", {"score": 2})
 
-    def test_fact_pack_runtime_invariant_accepts_only_complete_five_pack(self):
-        report = _fact_pack_report()
-        self.assertEqual(_validate_fact_packs([report]), {"fact_pack_reports_validated": 1, "fact_pack_count": 5})
-        report["fact_packs"].pop()
-        with self.assertRaisesRegex(ValueError, "exactly five"):
-            _validate_fact_packs([report])
 
-    def test_fact_pack_runtime_invariant_rejects_lineage_or_baseline_drift(self):
-        report = _fact_pack_report()
-        report["fact_packs"][0]["core_snapshot_id"] = "other"
-        with self.assertRaisesRegex(ValueError, "lineage or baseline"):
-            _validate_fact_packs([report])
 
     def test_publication_writer_sends_metadata_only_to_bounded_function(self):
         calls = []
@@ -235,12 +177,12 @@ class MartRuntimeTests(unittest.TestCase):
             queue,
             lambda _: {"artifact_uri": "gs://mart/execution-1/report.json",
                        "core_snapshot_id": "snapshot-1", "reports": 3, "publishable": 2,
-                       "fact_pack_reports_validated": 3, "fact_pack_count": 15},
+                       "specialist_count": 15, "screening_count": 3},
             worker_id="mart-1",
         )
         self.assertEqual((result["status"], result["retry_count"], result["reports"], result["publishable"]),
                          ("succeeded", 0, 3, 2))
-        self.assertEqual((result["fact_pack_reports_validated"], result["fact_pack_count"]), (3, 15))
+        self.assertEqual((result["screening_count"], result["specialist_count"]), (3, 15))
         self.assertEqual(queue.transitions[0][0][2], "succeeded")
 
     def test_deterministic_processor_reads_fenced_core_and_writes_input_artifact(self):

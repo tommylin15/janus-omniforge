@@ -1,13 +1,6 @@
 {
-  "version": "1.0.0",
-  "developmentCompletenessGate": 0.30,
-  "roleWeights": {
-    "fundamental": 0.25,
-    "valuation": 0.20,
-    "positioning": 0.20,
-    "quant": 0.25,
-    "event_risk": 0.10
-  },
+  "version": "2.0.0",
+  "developmentCompletenessGate": 0.3,
   "blocking": {
     "manualReviewRequired": true,
     "criticalQualityFlag": true,
@@ -21,5 +14,12 @@
       "largeMovePercent": 11,
       "completenessGatePercent": 30
     }
+  },
+  "roleWeights": {
+    "fundamental": 0.25,
+    "valuation": 0.2,
+    "quant": 0.25,
+    "risk": 0.2,
+    "event": 0.1
   }
 }

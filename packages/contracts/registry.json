@@ -1,112 +1,357 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "2.2.0",
-  "sourceIds": ["twse", "tpex", "mops", "finmind", "fugle", "shioaji", "taiex", "tpex-benchmark", "taifex", "tdcc", "yahoo-finance", "google-finance", "tiingo", "cmoney", "factset", "podcast", "ptt", "dcard", "stock-buzz"],
-  "datasetIds": ["ohlcv", "valuation", "institutional", "financials", "events", "market-activity", "benchmark", "core", "mart-report"],
+  "sourceIds": [
+    "twse",
+    "tpex",
+    "mops",
+    "finmind",
+    "fugle",
+    "shioaji",
+    "taiex",
+    "tpex-benchmark",
+    "taifex",
+    "tdcc",
+    "yahoo-finance",
+    "google-finance",
+    "tiingo",
+    "cmoney",
+    "factset",
+    "podcast",
+    "ptt",
+    "dcard",
+    "stock-buzz"
+  ],
+  "datasetIds": [
+    "ohlcv",
+    "valuation",
+    "institutional",
+    "financials",
+    "events",
+    "market-activity",
+    "benchmark",
+    "core",
+    "mart-report"
+  ],
   "enums": {
-    "executionStatus": ["queued", "running", "succeeded", "partial", "failed", "retrying", "blocked"],
-    "qualityFlag": ["good", "warning", "critical", "unknown"],
-    "publicationStatus": ["draft", "blocked", "publishable", "published", "superseded"],
-    "analysisOutcome": ["complete", "invalid", "review_required", "risk_blocked", "insufficient_data"],
-    "martRole": ["fundamental", "valuation", "positioning", "quant", "event_risk"],
-    "martScope": ["market", "industry", "symbol"],
-    "dataAvailabilityStatus": ["success", "empty", "partial", "fallback", "stale", "unavailable", "schema_drift", "failed"],
-    "coverageTier": ["market_wide", "core_focus", "market_macro"],
-    "authorizationStatus": ["official", "approved_fallback", "candidate", "blocked"],
-    "collectionCadence": ["intraday", "daily", "公告頻率", "weekly", "quarterly", "on_demand"]
+    "executionStatus": [
+      "queued",
+      "running",
+      "succeeded",
+      "partial",
+      "failed",
+      "retrying",
+      "blocked"
+    ],
+    "qualityFlag": [
+      "good",
+      "warning",
+      "critical",
+      "unknown"
+    ],
+    "publicationStatus": [
+      "draft",
+      "blocked",
+      "publishable",
+      "published",
+      "superseded"
+    ],
+    "analysisOutcome": [
+      "complete",
+      "invalid",
+      "review_required",
+      "risk_blocked",
+      "insufficient_data"
+    ],
+    "martRole": [
+      "fundamental",
+      "valuation",
+      "quant",
+      "risk",
+      "event"
+    ],
+    "martScope": [
+      "market",
+      "industry",
+      "symbol"
+    ],
+    "dataAvailabilityStatus": [
+      "success",
+      "empty",
+      "partial",
+      "fallback",
+      "stale",
+      "unavailable",
+      "schema_drift",
+      "failed"
+    ],
+    "coverageTier": [
+      "market_wide",
+      "core_focus",
+      "market_macro"
+    ],
+    "authorizationStatus": [
+      "official",
+      "approved_fallback",
+      "candidate",
+      "blocked"
+    ],
+    "collectionCadence": [
+      "intraday",
+      "daily",
+      "公告頻率",
+      "weekly",
+      "quarterly",
+      "on_demand"
+    ]
   },
   "sourceCatalog": {
-    "twse": {"authorizationStatus": "official", "defaultCoverageTier": "market_wide"},
-    "tpex": {"authorizationStatus": "official", "defaultCoverageTier": "market_wide"},
-    "mops": {"authorizationStatus": "official", "defaultCoverageTier": "market_wide"},
-    "taiex": {"authorizationStatus": "official", "defaultCoverageTier": "market_macro"},
-    "tpex-benchmark": {"authorizationStatus": "official", "defaultCoverageTier": "market_macro"},
-    "taifex": {"authorizationStatus": "official", "defaultCoverageTier": "market_macro"},
-    "tdcc": {"authorizationStatus": "approved_fallback", "defaultCoverageTier": "market_wide"},
-    "finmind": {"authorizationStatus": "approved_fallback", "defaultCoverageTier": "market_wide"},
-    "fugle": {"authorizationStatus": "candidate", "defaultCoverageTier": "core_focus"},
-    "shioaji": {"authorizationStatus": "candidate", "defaultCoverageTier": "core_focus"},
-    "yahoo-finance": {"authorizationStatus": "candidate", "defaultCoverageTier": "core_focus"},
-    "google-finance": {"authorizationStatus": "candidate", "defaultCoverageTier": "market_macro"},
-    "tiingo": {"authorizationStatus": "candidate", "defaultCoverageTier": "core_focus"},
-    "cmoney": {"authorizationStatus": "candidate", "defaultCoverageTier": "core_focus"},
-    "factset": {"authorizationStatus": "candidate", "defaultCoverageTier": "core_focus"},
-    "podcast": {"authorizationStatus": "candidate", "defaultCoverageTier": "core_focus"},
-    "ptt": {"authorizationStatus": "candidate", "defaultCoverageTier": "core_focus"},
-    "dcard": {"authorizationStatus": "candidate", "defaultCoverageTier": "core_focus"},
-    "stock-buzz": {"authorizationStatus": "candidate", "defaultCoverageTier": "core_focus"}
+    "twse": {
+      "authorizationStatus": "official",
+      "defaultCoverageTier": "market_wide"
+    },
+    "tpex": {
+      "authorizationStatus": "official",
+      "defaultCoverageTier": "market_wide"
+    },
+    "mops": {
+      "authorizationStatus": "official",
+      "defaultCoverageTier": "market_wide"
+    },
+    "taiex": {
+      "authorizationStatus": "official",
+      "defaultCoverageTier": "market_macro"
+    },
+    "tpex-benchmark": {
+      "authorizationStatus": "official",
+      "defaultCoverageTier": "market_macro"
+    },
+    "taifex": {
+      "authorizationStatus": "official",
+      "defaultCoverageTier": "market_macro"
+    },
+    "tdcc": {
+      "authorizationStatus": "approved_fallback",
+      "defaultCoverageTier": "market_wide"
+    },
+    "finmind": {
+      "authorizationStatus": "approved_fallback",
+      "defaultCoverageTier": "market_wide"
+    },
+    "fugle": {
+      "authorizationStatus": "candidate",
+      "defaultCoverageTier": "core_focus"
+    },
+    "shioaji": {
+      "authorizationStatus": "candidate",
+      "defaultCoverageTier": "core_focus"
+    },
+    "yahoo-finance": {
+      "authorizationStatus": "candidate",
+      "defaultCoverageTier": "core_focus"
+    },
+    "google-finance": {
+      "authorizationStatus": "candidate",
+      "defaultCoverageTier": "market_macro"
+    },
+    "tiingo": {
+      "authorizationStatus": "candidate",
+      "defaultCoverageTier": "core_focus"
+    },
+    "cmoney": {
+      "authorizationStatus": "candidate",
+      "defaultCoverageTier": "core_focus"
+    },
+    "factset": {
+      "authorizationStatus": "candidate",
+      "defaultCoverageTier": "core_focus"
+    },
+    "podcast": {
+      "authorizationStatus": "candidate",
+      "defaultCoverageTier": "core_focus"
+    },
+    "ptt": {
+      "authorizationStatus": "candidate",
+      "defaultCoverageTier": "core_focus"
+    },
+    "dcard": {
+      "authorizationStatus": "candidate",
+      "defaultCoverageTier": "core_focus"
+    },
+    "stock-buzz": {
+      "authorizationStatus": "candidate",
+      "defaultCoverageTier": "core_focus"
+    }
   },
   "schemas": {
     "DataProvenanceV1": {
       "type": "object",
-      "required": ["sourceId", "datasetId", "observedAt", "fetchedAt", "contentHash", "qualityFlag"],
+      "required": [
+        "sourceId",
+        "datasetId",
+        "observedAt",
+        "fetchedAt",
+        "contentHash",
+        "qualityFlag"
+      ],
       "properties": {
-        "sourceId": {"type": "string"},
-        "datasetId": {"type": "string"},
-        "observedAt": {"type": "string", "format": "date-time"},
-        "publishedAt": {"type": ["string", "null"], "format": "date-time"},
-        "fetchedAt": {"type": "string", "format": "date-time"},
-        "contentHash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
-        "fallback": {"type": "boolean", "default": false},
-        "qualityFlag": {"enum": ["good", "warning", "critical", "unknown"]}
+        "sourceId": {
+          "type": "string"
+        },
+        "datasetId": {
+          "type": "string"
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "publishedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "fetchedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "contentHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "fallback": {
+          "type": "boolean",
+          "default": false
+        },
+        "qualityFlag": {
+          "enum": [
+            "good",
+            "warning",
+            "critical",
+            "unknown"
+          ]
+        }
       },
       "additionalProperties": false
     },
     "CoreDatasetReadyV1": {
       "type": "object",
-      "required": ["eventType", "executionId", "configId", "datasetId", "schemaVersion", "rowCount", "analysisAsOf", "coreSnapshotId", "coreSnapshotUri", "coreSnapshotHash"],
+      "required": [
+        "eventType",
+        "executionId",
+        "configId",
+        "datasetId",
+        "schemaVersion",
+        "rowCount",
+        "analysisAsOf",
+        "coreSnapshotId",
+        "coreSnapshotUri",
+        "coreSnapshotHash"
+      ],
       "properties": {
-        "eventType": {"const": "core.dataset.ready.v1"},
-        "executionId": {"type": "string", "minLength": 1},
-        "configId": {"type": "string", "minLength": 1},
-        "datasetId": {"const": "core"},
-        "schemaVersion": {"const": "1.0.0"},
-        "rowCount": {"type": "integer", "minimum": 0},
-        "analysisAsOf": {"type": "string", "format": "date"},
-        "coreSnapshotId": {"type": "string", "minLength": 1},
-        "coreSnapshotUri": {"type": "string", "pattern": "^gs://[^/]+/.+$"},
-        "coreSnapshotHash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
-        "martSchemaVersion": {"type": "string", "minLength": 1},
-        "featureVersion": {"type": "string", "minLength": 1},
-        "modelVersion": {"type": "string", "minLength": 1},
-        "governanceSnapshotVersion": {"type": "string", "minLength": 1},
-        "scopes": {"type": "array", "minItems": 1, "items": {"type": "object"}}
+        "eventType": {
+          "const": "core.dataset.ready.v1"
+        },
+        "executionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "configId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "datasetId": {
+          "const": "core"
+        },
+        "schemaVersion": {
+          "const": "1.0.0"
+        },
+        "rowCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "analysisAsOf": {
+          "type": "string",
+          "format": "date"
+        },
+        "coreSnapshotId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "coreSnapshotUri": {
+          "type": "string",
+          "pattern": "^gs://[^/]+/.+$"
+        },
+        "coreSnapshotHash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "martSchemaVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "featureVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "modelVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "governanceSnapshotVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scopes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object"
+          }
+        }
       },
       "additionalProperties": false
     },
     "MartReportReadyV1": {
       "type": "object",
-      "required": ["eventType", "executionId", "publicationStatus", "schemaVersion"],
+      "required": [
+        "eventType",
+        "executionId",
+        "publicationStatus",
+        "schemaVersion"
+      ],
       "properties": {
-        "eventType": {"const": "mart.report.ready.v1"},
-        "executionId": {"type": "string", "minLength": 1},
-        "publicationStatus": {"enum": ["publishable", "published"]},
-        "schemaVersion": {"const": "1.0.0"}
+        "eventType": {
+          "const": "mart.report.ready.v1"
+        },
+        "executionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "publicationStatus": {
+          "enum": [
+            "publishable",
+            "published"
+          ]
+        },
+        "schemaVersion": {
+          "const": "1.0.0"
+        }
       },
       "additionalProperties": false
     },
     "MartEvidenceV1": {
-      "$ref": "mart.v1.json#/$defs/EvidenceV1"
-    },
-    "MartAIRoleOutputV1": {"$ref": "mart_ai.v1.json#/$defs/RoleOutputV1"},
-    "MartCIOOutputV1": {"$ref": "mart_ai.v1.json#/$defs/CIOOutputV1"},
-    "MartAIInterpretationArtifactReferenceV1": {"$ref": "mart_compat.v1.json#/$defs/InterpretationArtifactReferenceV1"},
-    "MartAIValidationArtifactReferenceV1": {"$ref": "mart_compat.v1.json#/$defs/ValidationArtifactReferenceV1"},
-    "MartAIAdditiveSidecarV1": {"$ref": "mart_compat.v1.json#/schemas/MartAIAdditiveSidecarV1"},
-    "MartFactPackV1": {
-      "$ref": "mart.v1.json#/$defs/FactPackV1"
-    },
-    "MartRolePayloadV1": {
-      "$ref": "mart.v1.json#/$defs/RolePayloadV1"
+      "$ref": "mart.v2.json#/$defs/EvidenceV1"
     },
     "MartScopedAnalysisV1": {
-      "$ref": "mart.v1.json#/$defs/MartScopedAnalysisV1"
+      "$ref": "mart.v2.json#/$defs/MartScopedAnalysisV1"
     },
     "MartPublicationIndexV1": {
-      "$ref": "mart.v1.json#/$defs/MartPublicationIndexV1"
+      "$ref": "mart.v2.json#/$defs/MartPublicationIndexV1"
     },
     "MartCandidateHealthV1": {
-      "$ref": "mart.v1.json#/$defs/MartCandidateHealthV1"
+      "$ref": "mart.v2.json#/$defs/MartCandidateHealthV1"
     },
     "StockMasterV1": {
       "$ref": "control_plane.v1.json#/definitions/StockMasterV1"
@@ -119,6 +364,12 @@
     },
     "ExecutionV1": {
       "$ref": "control_plane.v1.json#/definitions/ExecutionV1"
+    },
+    "MartSpecialistV1": {
+      "$ref": "specialist.v1.json#/$defs/MartSpecialistV1"
+    },
+    "MartCEOOutputV1": {
+      "$ref": "ceo.v1.json#/$defs/CEOOutputV1"
     }
   }
 }

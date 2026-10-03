@@ -1,0 +1,175 @@
+{
+  "version": "1.0.0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "MartSpecialistV1": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_kind": {
+          "const": "mart_specialist_v1",
+          "title": "Artifact Kind",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "symbol": {
+          "maxLength": 32,
+          "minLength": 1,
+          "title": "Symbol",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "fundamental",
+            "valuation",
+            "quant",
+            "risk",
+            "event"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "analysis_as_of": {
+          "title": "Analysis As Of",
+          "type": "string"
+        },
+        "core_snapshot_id": {
+          "title": "Core Snapshot Id",
+          "type": "string"
+        },
+        "feature_version": {
+          "title": "Feature Version",
+          "type": "string"
+        },
+        "engine_version": {
+          "title": "Engine Version",
+          "type": "string"
+        },
+        "model_version": {
+          "title": "Model Version",
+          "type": "string"
+        },
+        "model_status": {
+          "enum": [
+            "oos_not_validated",
+            "oos_validated"
+          ],
+          "title": "Model Status",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "ready",
+            "partial",
+            "blocked"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "input_hash": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Input Hash",
+          "type": "string"
+        },
+        "output_hash": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Output Hash",
+          "type": "string"
+        },
+        "metrics": {
+          "additionalProperties": true,
+          "title": "Metrics",
+          "type": "object"
+        },
+        "missing_data": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Data",
+          "type": "array"
+        },
+        "rejected_evidence": {
+          "items": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "title": "Rejected Evidence",
+          "type": "array"
+        },
+        "evidence_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "provenance_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Provenance Ids",
+          "type": "array"
+        },
+        "feature_contributions": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Feature Contributions",
+          "type": "array"
+        },
+        "publication_authority": {
+          "const": false,
+          "title": "Publication Authority",
+          "type": "boolean"
+        },
+        "llm_api_tokens": {
+          "const": 0,
+          "title": "Llm Api Tokens",
+          "type": "integer"
+        },
+        "ceo_triggered": {
+          "const": false,
+          "title": "Ceo Triggered",
+          "type": "boolean"
+        },
+        "plain_language": {
+          "title": "Plain Language",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_kind",
+        "schema_version",
+        "symbol",
+        "role",
+        "analysis_as_of",
+        "core_snapshot_id",
+        "feature_version",
+        "engine_version",
+        "model_version",
+        "model_status",
+        "status",
+        "input_hash",
+        "output_hash",
+        "metrics",
+        "missing_data",
+        "rejected_evidence",
+        "evidence_ids",
+        "provenance_ids",
+        "feature_contributions",
+        "publication_authority",
+        "llm_api_tokens",
+        "ceo_triggered",
+        "plain_language"
+      ],
+      "title": "MartSpecialistV1",
+      "type": "object"
+    }
+  }
+}

@@ -336,3 +336,7 @@ symbol-level public research report 可被同一系統後續重用；不要因�
 7. 最後才看目前 code/tests/runtime evidence
 
 若舊 WBS/SPEC 段落仍寫「daily five Codex analysts」，而本文件與 active TODO 已明確改為 token-first specialist engines + on-demand CEO，**以本決策與 active TODO 為新需求；但舊實作/完成狀態仍以 GitHub/runtime evidence 如實保留，不得假裝已重構完成。**
+
+## 使用者後續指示
+
+2026-10-03 使用者明確要求刪除舊五角色，不留兼容入口，取代此前保留舊每日引擎的過渡安排。Shared CEO auth/routing 可保留；不因此延伸執行下一個 CEO WBS。Mart 配置固定 1 CPU／1 GiB，若實際跑不動先提出配置建議。

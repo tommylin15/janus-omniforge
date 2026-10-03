@@ -14,7 +14,7 @@ import tempfile
 import time
 from typing import Any, Callable
 
-from .ai_contract import OUTPUT_MODELS, ROLE_WEIGHTS, SYSTEM_GUARDRAIL, content_hash, contract_bundle
+from .ai_contract import OUTPUT_MODELS, PROVIDER_ROLES, SYSTEM_GUARDRAIL, content_hash, contract_bundle
 
 CODEX_CLI_VERSION = "0.159.2"
 PROVIDER_STAGE_VERSION = "1.0.0"
@@ -177,7 +177,7 @@ class CodexCLIProvider:
         return env
 
     def invoke(self, role: str, role_input: dict[str, Any]) -> ProviderResult:
-        if role not in ROLE_WEIGHTS:
+        if role not in PROVIDER_ROLES:
             raise ValueError("invalid AI analyst role")
         if self.auth_checkpoint and not self.auth_error:
             self.auth_error = self.auth_checkpoint()

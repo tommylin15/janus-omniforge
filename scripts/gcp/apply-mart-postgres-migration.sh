@@ -114,6 +114,7 @@ sudo docker exec --user postgres \
     psql -U postgres -d janus_control -f /opt/janus/migrations/027_pipeline_acl_repair.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/028_mcp_oauth_refresh_tokens.sql
     psql -U postgres -d janus_control -f /opt/janus/migrations/038_mart_retention_read.sql
+    psql -U postgres -d janus_control -f /opt/janus/migrations/039_specialist_market_coverage.sql
     rm -f /tmp/mart-vars.sql
     psql -U postgres -d janus_control -v ON_ERROR_STOP=1 <<"SQL"
 SELECT rolname, rolsuper, rolcreatedb, rolcreaterole, rolreplication

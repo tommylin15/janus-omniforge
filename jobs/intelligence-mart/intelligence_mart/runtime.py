@@ -10,14 +10,12 @@ import json
 import os
 from typing import Any, Callable
 from urllib.parse import urlparse
-from uuid import NAMESPACE_URL, uuid5
 
 
 _DATABASES = {
     "catalog": ("CATALOG_DB", "catalog", "catalog.iceberg_tables"),
     "publication": ("PUBLICATION_DB", "publication", None),
 }
-_FACT_PACK_TYPES = frozenset({"fundamental", "valuation", "positioning", "quant", "event_risk"})
 
 
 @dataclass(frozen=True)
@@ -80,36 +78,6 @@ class PostgreSQLPublicationIndex:
     def __init__(self, connection: Any) -> None:
         self.connection = connection
 
-    def register_baseline(self, execution: AnalysisExecution, prompt_version: str, prompt_hash: str) -> str | None:
-        git_sha = os.environ.get("JANUS_GIT_SHA", "").strip().lower()
-        image_digest = os.environ.get("JANUS_IMAGE_DIGEST", "").strip().lower()
-        if not git_sha and not image_digest:
-            return None
-        if not (7 <= len(git_sha) <= 64 and all(character in "0123456789abcdef" for character in git_sha)):
-            raise ValueError("JANUS_GIT_SHA must be a hexadecimal revision")
-        if (len(image_digest) != 71 or not image_digest.startswith("sha256:")
-                or any(character not in "0123456789abcdef" for character in image_digest[7:])):
-            raise ValueError("JANUS_IMAGE_DIGEST must be an immutable sha256 digest")
-        lineage = {
-            "git_sha": git_sha,
-            "image_digest": image_digest,
-            "governance_revision": str(execution.request_options["governance_snapshot_version"]),
-            "prompt_version": prompt_version,
-            "prompt_hash": prompt_hash,
-            "schema_revision": str(execution.request_options["schema_version"]),
-            "feature_revision": str(execution.request_options["feature_version"]),
-            "signal_revision": str(execution.request_options.get("signal_revision", "not_applicable")),
-            "model_provider": "gemini" if os.environ.get("MART_LLM_ENABLED", "false").lower() in {"1", "true", "yes"} else "deterministic",
-            "model_version": str(execution.request_options["model_version"]),
-            "source_config_revision": str(execution.request_options.get("source_config_revision", execution.config_id)),
-        }
-        digest = f"sha256:{sha256(json.dumps(lineage, sort_keys=True, separators=(',', ':')).encode()).hexdigest()}"
-        baseline_id = str(uuid5(NAMESPACE_URL, f"janus-pilot-baseline:{digest}"))
-        params = (baseline_id, "material_change", f"material-{digest[7:19]}", digest, *lineage.values())
-        with self.connection.transaction(), self.connection.cursor() as cursor:
-            cursor.execute("SELECT publication.register_pilot_baseline(" + ",".join(["%s"] * len(params)) + ")", params)
-            return str(cursor.fetchone()[0])
-
     def register(self, report: dict[str, Any], reference: dict[str, Any], artifact_hash: str, *,
                  retention_days: int, pilot_baseline_id: str | None = None) -> None:
         scope, aggregate = report["scope"], report["aggregate"]
@@ -133,57 +101,6 @@ class PostgreSQLPublicationIndex:
             if not cursor.fetchone()[0]:
                 raise RuntimeError("Mart publication registration failed")
 
-    def pending_outcomes(self, symbols: list[str], *, limit: int = 1500) -> list[dict[str, Any]]:
-        if not symbols:
-            return []
-        from psycopg.rows import dict_row
-        with self.connection.transaction(), self.connection.cursor(row_factory=dict_row) as cursor:
-            cursor.execute(
-                """SELECT report.execution_id AS analysis_execution_id,report.scope_type,report.scope_id,
-                          report.analysis_as_of,horizon.horizon_days,report.pilot_baseline_id,
-                          report.membership_snapshot_hash
-                     FROM publication.mart_report_index report
-                     CROSS JOIN (VALUES (5),(20),(60)) horizon(horizon_days)
-                     LEFT JOIN publication.pilot_analysis_outcomes outcome
-                       ON outcome.analysis_execution_id=report.execution_id
-                      AND outcome.scope_type=report.scope_type AND outcome.scope_id=report.scope_id
-                      AND outcome.horizon_days=horizon.horizon_days
-                    WHERE report.scope_type='symbol' AND report.scope_id=ANY(%s)
-                      AND report.analysis_outcome='complete'
-                      AND report.publication_status IN ('publishable','published')
-                      AND report.pilot_baseline_id IS NOT NULL
-                      AND report.membership_snapshot_hash IS NOT NULL
-                      AND (outcome.status IS NULL OR outcome.status='pending')
-                    ORDER BY report.analysis_as_of,report.execution_id,horizon.horizon_days LIMIT %s""",
-                (symbols,min(limit,1500)),
-            )
-            return [dict(row) for row in cursor.fetchall()]
-
-    def save_outcomes(self, rows: list[dict[str, Any]]) -> None:
-        if not rows:
-            return
-        sql = """INSERT INTO publication.pilot_analysis_outcomes(
-                    analysis_execution_id,scope_type,scope_id,analysis_as_of,horizon_days,
-                    pilot_baseline_id,membership_snapshot_hash,status,exclusion_reason,benchmark_id,
-                    entry_date,outcome_date,return_ratio,benchmark_return_ratio,relative_return_ratio,
-                    mfe_ratio,mae_ratio,price_snapshot_id,benchmark_snapshot_id,provenance_id)
-                 VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                 ON CONFLICT(analysis_execution_id,scope_type,scope_id,horizon_days) DO UPDATE SET
-                    status=EXCLUDED.status,exclusion_reason=EXCLUDED.exclusion_reason,
-                    entry_date=EXCLUDED.entry_date,outcome_date=EXCLUDED.outcome_date,
-                    return_ratio=EXCLUDED.return_ratio,benchmark_return_ratio=EXCLUDED.benchmark_return_ratio,
-                    relative_return_ratio=EXCLUDED.relative_return_ratio,mfe_ratio=EXCLUDED.mfe_ratio,
-                    mae_ratio=EXCLUDED.mae_ratio,price_snapshot_id=EXCLUDED.price_snapshot_id,
-                    benchmark_snapshot_id=EXCLUDED.benchmark_snapshot_id,
-                    provenance_id=EXCLUDED.provenance_id,evaluated_at=now()
-                 WHERE publication.pilot_analysis_outcomes.status='pending'"""
-        fields = ("analysis_execution_id","scope_type","scope_id","analysis_as_of","horizon_days",
-                  "pilot_baseline_id","membership_snapshot_hash","status","exclusion_reason","benchmark_id",
-                  "entry_date","outcome_date","return_ratio","benchmark_return_ratio","relative_return_ratio",
-                  "mfe_ratio","mae_ratio","price_snapshot_id","benchmark_snapshot_id","provenance_id")
-        with self.connection.transaction(), self.connection.cursor() as cursor:
-            cursor.executemany(sql, [tuple(row.get(field) for field in fields) for row in rows])
-
 
 def consume_queued_analysis(queue: PostgreSQLAnalysisQueue, processor: Callable[[AnalysisExecution], dict[str, object]],
                             *, worker_id: str, max_retries: int = 1) -> dict[str, object]:
@@ -203,8 +120,10 @@ def consume_queued_analysis(queue: PostgreSQLAnalysisQueue, processor: Callable[
                 "artifact_uri": artifact_uri,
                 "reports": int(result.get("reports", 0)),
                 "publishable": int(result.get("publishable", 0)),
-                "fact_pack_reports_validated": int(result.get("fact_pack_reports_validated", 0)),
-                "fact_pack_count": int(result.get("fact_pack_count", 0)),
+                "specialist_status": result.get("specialist_status"),
+                "screening_count": result.get("screening_count", 0),
+                "specialist_count": result.get("specialist_count", 0),
+                "llm_api_tokens": 0,
                 "outcomes_updated": int(result.get("outcomes_updated", 0)),
                 "pilot_baseline_id": result.get("pilot_baseline_id")}
     except Exception as error:
@@ -278,174 +197,9 @@ def _write_immutable_json(store: Any, bucket: str, name: str, value: object) -> 
     return {"artifact_uri": f"gs://{bucket}/{name}", "artifact_hash": f"sha256:{sha256(payload).hexdigest()}"}
 
 
-def _validate_fact_packs(reports: list[dict[str, Any]]) -> dict[str, int]:
-    """Fail closed unless every live report carries the complete replayable five-pack contract."""
-    total = 0
-    for report in reports:
-        packs = report.get("fact_packs")
-        if not isinstance(packs, list) or len(packs) != len(_FACT_PACK_TYPES):
-            raise ValueError("Mart report must contain exactly five Fact Packs")
-        if {pack.get("pack_type") for pack in packs if isinstance(pack, dict)} != _FACT_PACK_TYPES:
-            raise ValueError("Mart Fact Pack type set is incomplete")
-        roles = {role["role"]: role for role in report.get("roles", []) if isinstance(role, dict) and role.get("role")}
-        for pack in packs:
-            if not isinstance(pack, dict):
-                raise ValueError("Mart Fact Pack must be an object")
-            role = roles.get(pack.get("pack_type"))
-            digest = str(pack.get("fact_pack_hash", ""))
-            evidence_digest = str(pack.get("evidence_hash", ""))
-            if (pack.get("fact_pack_version") != "1.0.0"
-                    or pack.get("analysis_as_of") != report.get("analysis_as_of")
-                    or pack.get("core_snapshot_id") != report.get("core_snapshot_id")
-                    or pack.get("facts") != (role or {}).get("features")
-                    or pack.get("missing_data") != (role or {}).get("missing_data")
-                    or pack.get("evidence_ids") != (role or {}).get("evidence_ids")
-                    or (pack.get("baseline") or {}).get("score") != (role or {}).get("score")
-                    or not (digest.startswith("sha256:") and len(digest) == 71)
-                    or not (evidence_digest.startswith("sha256:") and len(evidence_digest) == 71)):
-                raise ValueError("Mart Fact Pack lineage or baseline invariant failed")
-        total += len(packs)
-    return {"fact_pack_reports_validated": len(reports), "fact_pack_count": total}
-
-
-def mart_processor(execution: AnalysisExecution, publication_connection: Any, *,
-                   store_factory: Callable[[str], Any] | None = None,
-                   catalog_factory: Callable[[], Any] | None = None,
-                   narrator_factory: Callable[[], Any] | None = None) -> dict[str, object]:
-    """Run the complete deterministic Mart and optional Gemini/publication stages."""
-    if store_factory is None:
-        from ingestion_core.stage import GcsObjectStore
-        store_factory = GcsObjectStore
-    from .analysis import analyze, canonical_json, prompt_bundle, scopes
-    from .storage import MartIcebergStore, load_core_datasets, sql_catalog_from_environment
-
-    manifest = _fenced_core_manifest(execution, store_factory)
-    deterministic_processor(execution, store_factory)
-    prompts, prompt_hash = prompt_bundle()
-    bucket = os.environ.get("MART_BUCKET", "").strip()
-    target_store = store_factory(bucket)
-    target_name = f"executions/{execution.execution_id}/manifest.json"
-    catalog = (catalog_factory or sql_catalog_from_environment)()
-    warehouse = os.environ.get("MART_ICEBERG_WAREHOUSE", f"gs://{os.environ.get('MART_BUCKET', '')}/warehouse")
-    mart_store = MartIcebergStore(catalog, warehouse)
-    try:
-        configured_scopes = scopes(execution.request_options, execution.requested_symbols)
-        selected_symbols = tuple(sorted(set(execution.requested_symbols) | {
-            symbol for scope in configured_scopes for symbol in scope["symbols"]
-        }))
-        datasets = load_core_datasets(catalog, manifest, selected_symbols,
-                                     row_limit=int(os.environ.get("CORE_SNAPSHOT_ROW_LIMIT", "250000")))
-        reports = analyze(
-            execution_id=execution.execution_id,
-            analysis_as_of=str(execution.request_options["analysis_as_of"]),
-            core_snapshot_id=execution.core_snapshot_id,
-            requested_symbols=execution.requested_symbols,
-            options=execution.request_options,
-            datasets=datasets,
-            prompts=prompts,
-            prompt_hash=prompt_hash,
-        )
-        fact_pack_validation = _validate_fact_packs(reports)
-        expected_hashes = {(report["scope"]["type"], report["scope"]["id"]): report["deterministic_hash"] for report in reports}
-        existing_manifest = None
-        try:
-            existing_manifest = json.loads(target_store.read(target_name))
-        except FileNotFoundError:
-            pass
-        except Exception as error:
-            from urllib.error import HTTPError
-            if not isinstance(error, HTTPError) or error.code != 404:
-                raise
-        if existing_manifest is not None:
-            indexed = existing_manifest.get("reports", [])
-            actual_hashes = {(item["scope_type"], item["scope_id"]): item["deterministic_hash"] for item in indexed}
-            if existing_manifest.get("core_snapshot_id") != execution.core_snapshot_id or actual_hashes != expected_hashes:
-                raise RuntimeError("immutable Mart execution manifest conflict")
-            narratives = {(item["scope_type"], item["scope_id"]): item for item in existing_manifest.get("llm", [])}
-        else:
-            narratives: dict[tuple[str, str], dict[str, Any]] = {}
-            if os.environ.get("MART_LLM_ENABLED", "false").lower() in {"1", "true", "yes"}:
-                if narrator_factory is None:
-                    from .gemini import GeminiNarrator
-                    narrator_factory = GeminiNarrator.from_environment
-                narrator = narrator_factory()
-                for report in reports:
-                    scope = report["scope"]
-                    narratives[(scope["type"], scope["id"])] = narrator.narrate(report, prompts)
-            references = mart_store.write(reports, narratives)
-    finally:
-        mart_store.close()
-
-    publication = PostgreSQLPublicationIndex(publication_connection)
-    stored_baseline = existing_manifest.get("pilot_baseline_id") if existing_manifest is not None else None
-    pilot_baseline_id = str(stored_baseline) if stored_baseline else publication.register_baseline(
-        execution, prompts["version"], prompt_hash)
-    if existing_manifest is None:
-        artifact_prefix = f"executions/{execution.execution_id}/artifacts"
-        governance_diff = execution.request_options.get("governance_diff", [])
-        if not isinstance(governance_diff, (dict, list)):
-            raise ValueError("governance_diff must be a JSON object or array")
-        artifacts = {
-            "model": _write_immutable_json(target_store, bucket, f"{artifact_prefix}/model.json", {
-                "artifact_kind": "model_v1", "model_version": execution.request_options["model_version"],
-                "prompt_version": reports[0]["prompt_version"] if reports else None,
-                "prompt_hash": prompt_hash, "llm": [
-                    {"scope_type": key[0], "scope_id": key[1], **value}
-                    for key, value in sorted(narratives.items())
-                ],
-            }),
-            "evaluation": _write_immutable_json(target_store, bucket, f"{artifact_prefix}/evaluation.json", {
-                "artifact_kind": "evaluation_v1", "execution_id": execution.execution_id,
-                "reports": [{
-                    "scope_type": report["scope"]["type"], "scope_id": report["scope"]["id"],
-                    "deterministic_hash": report["deterministic_hash"], **report["aggregate"],
-                } for report in reports],
-            }),
-            "governance_diff": _write_immutable_json(target_store, bucket, f"{artifact_prefix}/governance-diff.json", {
-                "artifact_kind": "governance_diff_v1",
-                "governance_snapshot_version": execution.request_options["governance_snapshot_version"],
-                "base_governance_snapshot_version": execution.request_options.get("base_governance_snapshot_version"),
-                "diff": governance_diff,
-            }),
-        }
-        from .ai_contract import contract_bundle
-        artifacts["ai_role_contract"] = _write_immutable_json(
-            target_store, bucket, f"{artifact_prefix}/ai-role-contract.json", contract_bundle())
-        indexed = []
-        for report in reports:
-            scope = report["scope"]
-            reference = references[(scope["type"], scope["id"])]
-            artifact = urlparse(reference["artifact_uri"])
-            if artifact.scheme != "gs" or not artifact.netloc or not artifact.path.strip("/"):
-                raise ValueError("Iceberg metadata location must be an immutable GCS object")
-            artifact_payload = store_factory(artifact.netloc).read(artifact.path.lstrip("/"))
-            artifact_hash = f"sha256:{sha256(artifact_payload).hexdigest()}"
-            indexed.append({"scope_type": scope["type"], "scope_id": scope["id"], **reference,
-                            "artifact_hash": artifact_hash, "deterministic_hash": report["deterministic_hash"],
-                            "analysis_outcome": report["aggregate"]["analysis_outcome"],
-                            "publication_status": report["aggregate"]["publication_status"]})
-        result_manifest = {
-            "artifact_kind": "mart_execution_v1", "execution_id": execution.execution_id,
-            "analysis_as_of": execution.request_options["analysis_as_of"], "core_snapshot_id": execution.core_snapshot_id,
-            "pilot_baseline_id": pilot_baseline_id,
-            "artifacts": artifacts, "reports": indexed,
-            "llm": [{"scope_type": key[0], "scope_id": key[1], **value} for key, value in sorted(narratives.items())],
-        }
-        payload = canonical_json(result_manifest)
-        if not target_store.create(target_name, payload, "application/json") and target_store.read(target_name) != payload:
-            raise RuntimeError("immutable Mart execution manifest conflict")
-    retention_days = int(execution.request_options.get("retention_days", 365))
-    for report, index in zip(reports, indexed, strict=True):
-        publication.register(report, index, index["artifact_hash"], retention_days=retention_days,
-                             pilot_baseline_id=pilot_baseline_id)
-    outcomes_updated = 0
-    if pilot_baseline_id:
-        from .outcomes import collect_pilot_outcomes
-        outcomes_updated = collect_pilot_outcomes(publication, datasets)
-    return {"artifact_uri": f"gs://{bucket}/{target_name}", "core_snapshot_id": execution.core_snapshot_id,
-            "reports": len(reports), "publishable": sum(item["publication_status"] in {"publishable", "published"} for item in indexed),
-            **fact_pack_validation,
-            "outcomes_updated": outcomes_updated, "pilot_baseline_id": pilot_baseline_id}
+def mart_processor(execution, publication_connection, **kwargs):
+    from .specialist_runtime import specialist_processor
+    return specialist_processor(execution, publication_connection, **kwargs)
 
 
 def run_queued_analysis() -> dict[str, object]:
@@ -455,11 +209,6 @@ def run_queued_analysis() -> dict[str, object]:
         "CATALOG_DB_PASSWORD": ("mart_catalog_password", "catalog_password"),
         "PUBLICATION_DB_PASSWORD": ("mart_publication_password", "publication_password"),
     })
-    if not os.environ.get("GEMINI_API_KEY"):
-        bundle = json.loads(os.environ.get("JANUS_MART_POSTGRES_BUNDLE", "{}"))
-        key = str(bundle.get("gemini_api_key", "")).strip()
-        if key:
-            os.environ["GEMINI_API_KEY"] = key
     settings = _settings("PUBLICATION_DB")
     import psycopg
 

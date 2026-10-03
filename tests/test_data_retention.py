@@ -100,7 +100,7 @@ def test_mart_retention_uses_psycopg_database_option(monkeypatch):
     monkeypatch.setattr(retention, "load_postgres_bundle", lambda *_: None)
     monkeypatch.setattr(retention, "_settings", lambda _: {"host": "private", "name": "janus", "user": "worker", "password": "fixture"})
     monkeypatch.setattr(retention, "sql_catalog_from_environment", lambda: None)
-    monkeypatch.setattr(retention, "MartIcebergStore", lambda *_: SimpleNamespace(close=lambda: None))
+    monkeypatch.setattr(retention, "MartMaintenanceStore", lambda *_: SimpleNamespace(close=lambda: None))
     monkeypatch.setattr(retention, "GcsObjectStore", lambda _: None)
     def connect(**kwargs):
         assert kwargs["dbname"] == "janus" and "name" not in kwargs

@@ -31,7 +31,7 @@ class AdminService:
     GOVERNANCE_KEY = "policy"
     GOVERNANCE_SETTING = "governance:policy"
     GOVERNANCE_STATUSES = frozenset({"approved", "development-default", "pending"})
-    GOVERNANCE_ROLES = frozenset({"fundamental", "valuation", "positioning", "quant", "event_risk"})
+    GOVERNANCE_ROLES = frozenset({"fundamental", "valuation", "quant", "risk", "event"})
     RETRYABLE_ERRORS = frozenset({"timeout", "rate_limited", "transient", "unavailable"})
 
     def __init__(self, control: Any, *, core: Any | None = None, schedule_sync: Any | None = None) -> None:
@@ -165,7 +165,7 @@ class AdminService:
             raise AdminValidationError("analysis_as_of must be an ISO date")
         allowed = {
             "scope_type": {"market", "industry", "symbol"},
-            "role": {"fundamental", "valuation", "positioning", "quant", "event_risk"},
+            "role": {"fundamental", "valuation", "quant", "risk", "event"},
             "analysis_outcome": {"complete", "invalid", "review_required", "risk_blocked", "insufficient_data"},
             "publication_status": {"draft", "blocked", "publishable", "published", "superseded"},
         }

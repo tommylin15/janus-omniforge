@@ -7,6 +7,9 @@ FROM python:3.12.8-slim-bookworm
 WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    OMP_NUM_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1 \
     PYTHONPATH=/app:/app/jobs/intelligence-mart:/app/jobs/ingestion-core \
     PORT=8080
 
@@ -18,6 +21,8 @@ RUN ln -sf /usr/local/lib/node_modules/@openai/codex/bin/codex.js /usr/local/bin
     && codex --version | grep -F '0.159.2'
 
 COPY jobs/intelligence-mart/requirements.lock ./requirements.lock
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
 RUN if [ -s requirements.lock ] && ! grep -q '^# No Python dependencies' requirements.lock; then \
       pip install --no-cache-dir --require-hashes -r requirements.lock; \
     fi

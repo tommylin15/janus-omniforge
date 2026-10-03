@@ -21,18 +21,14 @@ on:
       - 'tests/test_data_quality.py'
       - 'tests/test_financial_publication.py'
       - 'tests/test_source_quality_probe.py'
-      - 'tests/test_supplement_gap_matrix.py'
       - 'tests/stage_core_tests/test_stage_core.py'
       - 'tests/stage_core_tests/test_first_batch_sources.py'
       - 'tests/stage_core_tests/test_data_cleaning_regressions.py'
       - 'tests/test_portfolio_deploy_contract.py'
       - 'jobs/intelligence-mart/**'
-      - 'tests/test_intelligence_mart_pipeline.py'
       - 'tests/test_intelligence_mart_runtime.py'
-      - 'tests/test_mart_ai_contract.py'
-      - 'tests/test_mart_ai_providers.py'
+      - 'tests/test_specialist_engines.py'
       - 'tests/test_mart_provider_routing.py'
-      - 'tests/contract/test_mart_v2_compat.py'
       - 'tests/contract/test_contract_registry.py'
       - '.dockerignore'
       - 'doc/runbook-data-supplement.md'
@@ -127,7 +123,6 @@ jobs:
               - 'tests/test_data_quality.py'
               - 'tests/test_financial_publication.py'
               - 'tests/test_source_quality_probe.py'
-              - 'tests/test_supplement_gap_matrix.py'
               - 'tests/stage_core_tests/test_stage_core.py'
               - 'tests/stage_core_tests/test_first_batch_sources.py'
               - 'tests/stage_core_tests/test_data_cleaning_regressions.py'
@@ -145,12 +140,10 @@ jobs:
               - 'cloudbuild.yaml'
               - 'scripts/gcp/deploy-dev.sh'
             mart_test:
-              - 'tests/test_intelligence_mart_pipeline.py'
               - 'tests/test_intelligence_mart_runtime.py'
-              - 'tests/test_mart_ai_contract.py'
-              - 'tests/test_mart_ai_providers.py'
+              - 'tests/test_specialist_engines.py'
+
               - 'tests/test_mart_provider_routing.py'
-              - 'tests/contract/test_mart_v2_compat.py'
               - 'tests/contract/test_contract_registry.py'
             private_pipeline_runtime:
               - 'services/api/**'
@@ -222,7 +215,6 @@ jobs:
           tests/test_data_quality.py
           tests/test_financial_publication.py
           tests/test_source_quality_probe.py
-          tests/test_supplement_gap_matrix.py
           tests/test_data_retention.py
           tests/ingestion/test_control_plane.py
 
@@ -271,15 +263,12 @@ jobs:
           python -m pip install -r requirements-dev.txt
       - name: Run mart targeted tests
         env:
-          PYTHONPATH: jobs/intelligence-mart:.
+          PYTHONPATH: jobs/intelligence-mart:jobs/ingestion-core:.
         run: >-
           python -m pytest -q
-          tests/test_intelligence_mart_pipeline.py
           tests/test_intelligence_mart_runtime.py
-          tests/test_mart_ai_contract.py
-          tests/test_mart_ai_providers.py
+          tests/test_specialist_engines.py
           tests/test_mart_provider_routing.py
-          tests/contract/test_mart_v2_compat.py
           tests/contract/test_contract_registry.py
 
   deploy-mart:

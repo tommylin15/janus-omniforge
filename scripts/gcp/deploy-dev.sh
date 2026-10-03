@@ -94,6 +94,7 @@ case "${component}" in
     fi
     gcloud run jobs update "${runtime_name}" --project="${project}" --region="${region}" \
       --service-account="intelligence-mart@${project}.iam.gserviceaccount.com" \
+      --cpu=1 --memory=1Gi \
       --tasks=1 --parallelism=1 --max-retries=1 --task-timeout=30m \
       --remove-secrets="CATALOG_DB_PASSWORD,PUBLICATION_DB_PASSWORD" \
       --update-secrets="JANUS_MART_POSTGRES_BUNDLE=janus-runtime-bundle:latest" --quiet

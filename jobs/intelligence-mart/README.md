@@ -1,30 +1,10 @@
 # Intelligence Mart job
 
-This one-shot Cloud Run Job consumes a persisted analysis execution, reads only
-the exact Core Iceberg snapshots carried by its immutable manifest, computes
-deterministic features and five role payloads, validates PIT evidence, aggregates
-the result, and writes public Iceberg v2/Parquet tables.
+日常 `MART_OPERATION=queue` 只執行 PIT screening 與五分析師，正常 0 LLM API token。
+市場池依 `control.specialist_market_symbols(date)` 的 immutable liquid-500 membership；Deep Coverage 是去識別化 active watchlist ∪ effective holdings，持股離榜仍分析，清倉且取消關注才退出。
 
-The current entrypoint is a one-shot runtime smoke. It requires separate
-`CATALOG_DB_*` and `PUBLICATION_DB_*` settings, connects with TLS and bounded
-timeouts, and fails unless PostgreSQL reports a private server address and the
-Mart-specific roles have their expected schema grants. It never prints
-passwords or performs feature/evidence writes.
+成果物 create-only 保存於 `specialists/<content-hash>.json`，每次 execution 保存 membership、screening、manifest 並 readback。缺資料／OOS 尚未驗證如實顯示 partial／blocked，不產生正式健康度或 publication。
 
-`PostgreSQLAnalysisQueue` leases one persisted `analysis` execution with
-`FOR UPDATE SKIP LOCKED`. Completion requires the processor to persist a
-`gs://` artifact tied to the claimed immutable Core snapshot; claim/enqueue
-success alone cannot mark the execution succeeded.
+`MART_OPERATION=specialist-smoke` 是缺資料契約 smoke；`specialist-acceptance` 才讀指定真實 dev Core fence 與 DB membership。驗收 input URI 限既有 Mart bucket 的 `acceptance/specialists/`。`MART_OOS_EVALUATION=true` 啟用研究評估，不自動 promotion。
 
-Set `MART_OPERATION=queue`, `MART_BUCKET`, `GCP_PROJECT_ID`, and the bounded
-catalog/publication database settings to process one execution. The default
-warehouse is `gs://$MART_BUCKET/warehouse`; an override must remain in that
-bucket. Full feature, evidence, role, aggregate, and report payloads stay in
-Iceberg/GCS. PostgreSQL receives only immutable artifact metadata through
-`publication.register_mart_report`, and only complete `publishable`/`published`
-rows appear in `publication.publishable_mart_reports`.
-
-Optional public narration is enabled only with `MART_LLM_ENABLED=true` and
-`GEMINI_API_KEY`. It uses the repository prompt in `prompts/`, Gemini structured
-output, grounded evidence IDs and bounded retry. Paid Gemini remains fail-closed;
-LLM output is stored separately and cannot modify deterministic fields.
+完整契約與限制見 [SPEC](../../doc/spec/specialist-engines.md)。共用 provider 只接受手動 CEO transport，queue 不呼叫 provider；CEO command／語意驗證仍屬後續 WBS。

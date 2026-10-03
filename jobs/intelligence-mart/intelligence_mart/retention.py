@@ -4,7 +4,7 @@ import json
 import os
 from hashlib import sha256
 
-from .storage import MartIcebergStore, sql_catalog_from_environment
+from .storage import MartMaintenanceStore, sql_catalog_from_environment
 from .runtime import _settings
 from ingestion_core.stage import GcsObjectStore
 from ingestion_core.iceberg_maintenance import maintain_financials
@@ -27,7 +27,7 @@ def run():
     apply = mode == "apply"
     now = datetime.now(timezone.utc)
     catalog = sql_catalog_from_environment()
-    mart = MartIcebergStore(catalog, f"gs://{bucket}/warehouse")
+    mart = MartMaintenanceStore(catalog, f"gs://{bucket}/warehouse")
     store = GcsObjectStore(bucket)
     def capacity():
         objects = store.objects("")

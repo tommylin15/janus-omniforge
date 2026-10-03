@@ -15,7 +15,7 @@ from typing import Any, Callable
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from .ai_contract import OUTPUT_MODELS, ROLE_WEIGHTS, SYSTEM_GUARDRAIL, content_hash, contract_bundle
+from .ai_contract import OUTPUT_MODELS, PROVIDER_ROLES, SYSTEM_GUARDRAIL, content_hash, contract_bundle
 from .codex_worker import CodexCLIProvider, ProviderResult, PROVIDER_STAGE_VERSION
 
 DEFAULT_ROUTE = ("codex_cli", "openrouter", "gemini")
@@ -211,7 +211,7 @@ class OpenRouterProvider:
                 "paid_api_enabled": False, "publication_authority": False}
 
     def invoke(self, role: str, role_input: dict[str, Any]) -> ProviderResult:
-        if role not in ROLE_WEIGHTS:
+        if role not in PROVIDER_ROLES:
             raise ValueError("invalid AI analyst role")
         preflight = self.preflight()
         if preflight["status"] != "ready":
@@ -328,7 +328,7 @@ class GeminiRoleProvider:
                 "paid_api_enabled": False, "publication_authority": False}
 
     def invoke(self, role: str, role_input: dict[str, Any]) -> ProviderResult:
-        if role not in ROLE_WEIGHTS:
+        if role not in PROVIDER_ROLES:
             raise ValueError("invalid AI analyst role")
         preflight = self.preflight()
         if preflight["status"] != "ready":

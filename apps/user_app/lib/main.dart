@@ -16,9 +16,9 @@ String uiLabel(Object? value) =>
     const {
       'fundamental': '基本面',
       'valuation': '估值',
-      'positioning': '籌碼與定位',
+      'risk': '風險與市場狀態',
       'quant': '量化',
-      'event_risk': '事件風險',
+      'event': '事件與催化因素',
       'warming': '升溫',
       'cooling': '降溫',
       'available': '可用',

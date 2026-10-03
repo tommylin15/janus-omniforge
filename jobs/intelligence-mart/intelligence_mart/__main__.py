@@ -1,81 +1,48 @@
-"""One-shot Intelligence Mart Cloud Run Job entrypoint."""
-
-from __future__ import annotations
-
+"""One-shot deterministic Intelligence Mart Cloud Run Job."""
 import json
-import sys
 import os
+import sys
+import traceback
 from time import monotonic
-
-from .compat import build_compatibility_sidecar, validate_compatibility_sidecar
 from .runtime import postgres_smoke, run_queued_analysis
 
 
-def compatibility_smoke() -> dict[str, object]:
-    """Exercise the additive mart.v1 sidecar in the deployed container without writes."""
-    interpretation_hash = "sha256:" + "1" * 64
-    report = {
-        "schema_version": "1.1.0",
-        "execution_id": "compat-smoke",
-        "analysis_as_of": "2026-09-30",
-        "core_snapshot_id": "compat-smoke-core",
-        "scope": {"type": "symbol", "id": "2330"},
-        "deterministic_hash": "sha256:" + "2" * 64,
-    }
-    references = [
-        {
-            "artifact_kind": "mart_ai_interpretation_v1",
-            "role": "fundamental",
-            "artifact_hash": interpretation_hash,
-            "artifact_uri": "gs://janus-runtime-smoke/compat/interpretation.json",
-            "status": "schema_validated",
-            "output_contract_version": "1.0.0",
-        },
-        {
-            "artifact_kind": "mart_ai_validation_v1",
-            "role": "fundamental",
-            "artifact_hash": "sha256:" + "3" * 64,
-            "artifact_uri": "gs://janus-runtime-smoke/compat/validation.json",
-            "status": "validated",
-            "validator_version": "role-validator-v1",
-            "source_artifact_hash": interpretation_hash,
-            "publication_authority": False,
-        },
-    ]
-    sidecar = build_compatibility_sidecar(report, references)
-    validated = validate_compatibility_sidecar(sidecar, report)
-    return {
-        "component": "intelligence-mart",
-        "status": "ok",
-        "operation": "compat-smoke",
-        "schema_version": validated["schema_version"],
-        "base_contract": validated["base"]["contract"],
-        "base_contract_version": validated["base"]["contract_version"],
-        "artifact_count": len(validated["artifacts"]),
-        "publication_authority": validated["publication_authority"],
-    }
+def specialist_smoke():
+    from .specialists import DEPENDENCIES, analyze_specialists
+    artifacts = analyze_specialists({}, "2330", "2026-10-03", "smoke")
+    assert {a["role"] for a in artifacts} == set(DEPENDENCIES)
+    assert all(a["llm_api_tokens"] == 0 and not a["publication_authority"] for a in artifacts)
+    return {"component": "intelligence-mart", "status": "ok", "operation": "specialist-smoke",
+            "roles": sorted(DEPENDENCIES), "llm_api_tokens": 0}
 
 
-def main() -> None:
+def main():
     started = monotonic()
     try:
-        operation_name = os.environ.get("MART_OPERATION", "").strip().lower()
-        if operation_name == "queue":
+        name = os.environ.get("MART_OPERATION", "").strip().lower()
+        if name == "retention":
+            from .retention import run
+            operation = run
+        elif name == "queue":
             operation = run_queued_analysis
-        elif operation_name == "compat-smoke":
-            operation = compatibility_smoke
-        else:
+        elif name == "specialist-smoke":
+            operation = specialist_smoke
+        elif name == "specialist-acceptance":
+            from .specialist_runtime import run_acceptance
+            operation = run_acceptance
+        elif name in {"", "postgres-smoke"}:
             operation = postgres_smoke
+        else:
+            raise ValueError("unsupported Mart operation")
         result = operation()
         result["duration_ms"] = round((monotonic() - started) * 1000)
         print(json.dumps(result, sort_keys=True))
     except Exception as error:
-        print(
-            json.dumps({"component": "intelligence-mart", "status": "failed",
-                        "error_code": type(error).__name__.upper()[:64],
-                        "duration_ms": round((monotonic() - started) * 1000)}, sort_keys=True),
-            file=sys.stderr,
-        )
+        print(json.dumps({"component": "intelligence-mart", "status": "failed",
+                          "error_code": type(error).__name__.upper()[:64],
+                          "locations": [{"function": frame.name, "line": frame.lineno,
+                                         "file": os.path.basename(frame.filename)}
+                                        for frame in traceback.extract_tb(error.__traceback__)]}), file=sys.stderr)
         raise SystemExit(1) from error
 
 

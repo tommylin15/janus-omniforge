@@ -1,0 +1,140 @@
+"""Immutable specialist execution on the existing Core/GCS/control boundary."""
+from __future__ import annotations
+
+import json
+import os
+from uuid import uuid4
+from urllib.error import HTTPError
+
+from .coverage import load_or_create_target_snapshot
+from .runtime import _fenced_core_manifest, _write_immutable_json, deterministic_processor
+from .specialists import VERSION, analyze_specialists, digest, screening
+from .storage import load_core_datasets, sql_catalog_from_environment
+
+
+def load_market_membership(connection, as_of):
+    with connection.transaction(), connection.cursor() as cursor:
+        cursor.execute("SELECT symbol,membership_version FROM control.specialist_market_symbols(%s::date)", (as_of,))
+        members = cursor.fetchall()
+    if not members or len(members) > 500 or len({r[0] for r in members}) != len(members):
+        raise ValueError("missing or invalid PIT market membership")
+    return {"symbols": sorted(str(r[0]) for r in members), "membership_version": str(members[0][1]),
+            "analysis_as_of": as_of}
+
+
+def specialist_processor(execution, publication_connection, *, store_factory=None, catalog_factory=None):
+    if store_factory is None:
+        from ingestion_core.stage import GcsObjectStore
+        store_factory = GcsObjectStore
+    bucket = os.environ.get("MART_BUCKET", "").strip()
+    if not bucket or "/" in bucket:
+        raise ValueError("MART_BUCKET is required")
+    store = store_factory(bucket)
+    core = _fenced_core_manifest(execution, store_factory)
+    deterministic_processor(execution, store_factory)
+    as_of = str(execution.request_options["analysis_as_of"])
+    manifest_name = f"executions/{execution.execution_id}/specialist-manifest.json"
+    try:
+        saved = json.loads(store.read(manifest_name))
+    except (FileNotFoundError, HTTPError) as error:
+        if isinstance(error, HTTPError) and error.code != 404:
+            raise
+        saved = None
+    if saved is not None:
+        if saved["core_snapshot_id"] != execution.core_snapshot_id or saved["analysis_as_of"] != as_of \
+                or saved["execution_id"] != execution.execution_id \
+                or saved["output_hash"] != digest({k: v for k, v in saved.items() if k != "output_hash"}):
+            raise RuntimeError("immutable specialist manifest fence mismatch")
+        for ref in [saved["screening"], saved["target_snapshot"], saved["market_membership"], *saved["specialists"],
+                    *([saved["evaluation"]] if "evaluation" in saved else [])]:
+            name = ref["artifact_uri"].split(f"gs://{bucket}/", 1)[1]
+            from hashlib import sha256
+            if "sha256:" + sha256(store.read(name)).hexdigest() != ref["artifact_hash"]:
+                raise RuntimeError("specialist artifact readback hash mismatch")
+        return {"artifact_uri": f"gs://{bucket}/{manifest_name}", "core_snapshot_id": execution.core_snapshot_id,
+                "reports": saved["specialist_count"] // 5, "publishable": 0,
+                "specialist_status": saved["specialist_status"], "screening_count": saved["screening_count"],
+                "specialist_count": saved["specialist_count"]}
+    target, target_ref = load_or_create_target_snapshot(publication_connection, execution.execution_id,
+                                                       as_of, store, bucket)
+    membership = load_market_membership(publication_connection, as_of)
+    market_symbols = set(membership["symbols"])
+    market_ref = _write_immutable_json(store, bucket, f"executions/{execution.execution_id}/market-membership.json", membership)
+    symbols = tuple(sorted(market_symbols | set(target["symbols"])))
+    catalog = (catalog_factory or sql_catalog_from_environment)()
+    try:
+        datasets = load_core_datasets(catalog, core, symbols,
+                                     row_limit=int(os.environ.get("CORE_SNAPSHOT_ROW_LIMIT", "250000")))
+    finally:
+        engine = getattr(catalog, "engine", None)
+        if engine is not None:
+            engine.dispose()
+    screen = screening(datasets, market_symbols, as_of, execution.core_snapshot_id)
+    screen_ref = _write_immutable_json(store, bucket, f"executions/{execution.execution_id}/screening.json", screen)
+    references = []
+    for symbol in target["symbols"]:
+        for artifact in analyze_specialists(datasets, symbol, as_of, execution.core_snapshot_id):
+            name = f"specialists/{artifact['output_hash'][7:]}.json"
+            try:
+                existing = json.loads(store.read(name))
+            except (FileNotFoundError, HTTPError) as error:
+                if isinstance(error, HTTPError) and error.code != 404:
+                    raise
+                existing = None
+            if existing is not None and existing != artifact:
+                raise RuntimeError("immutable specialist identity conflict")
+            reference = _write_immutable_json(store, bucket, name, artifact)
+            if json.loads(store.read(name)) != artifact:
+                raise RuntimeError("specialist readback mismatch")
+            references.append({"symbol": symbol, "role": artifact["role"], "status": artifact["status"],
+                               "reused": existing is not None, **reference})
+    manifest = {"artifact_kind": "mart_specialist_execution_v1", "schema_version": "1.0.0",
+                "execution_id": execution.execution_id, "analysis_as_of": as_of,
+                "core_snapshot_id": execution.core_snapshot_id, "engine_version": VERSION,
+                "target_snapshot": target_ref, "market_membership": market_ref, "screening": screen_ref,
+                "screening_count": len(screen), "specialist_count": len(references),
+                "specialist_status": "partial" if any(r["status"] != "ready" for r in references) else "ready",
+                "specialists": references, "llm_api_tokens": 0, "ceo_triggered": False,
+                "publication_authority": False}
+    if os.environ.get("MART_OOS_EVALUATION", "false").lower() == "true":
+        from .evaluation import evaluate_core_history
+        evaluations = evaluate_core_history(datasets, market_symbols, as_of, execution.core_snapshot_id)
+        manifest["evaluation"] = _write_immutable_json(store, bucket, f"executions/{execution.execution_id}/oos-evaluation.json", evaluations)
+    manifest["output_hash"] = digest(manifest)
+    ref = _write_immutable_json(store, bucket, manifest_name, manifest)
+    return {**ref, "core_snapshot_id": execution.core_snapshot_id, "reports": len(target["symbols"]),
+            "publishable": 0, "specialist_status": manifest["specialist_status"],
+            "screening_count": len(screen), "specialist_count": len(references)}
+
+
+def run_acceptance():
+    """Real dev input only; uses existing approved identities and never invokes a provider."""
+    from urllib.parse import urlparse
+    import resource
+    import time
+    started = time.monotonic()
+    from packages.postgres_bundle import load_postgres_bundle
+    from ingestion_core.stage import GcsObjectStore
+    from .runtime import AnalysisExecution, _settings
+    import psycopg
+    load_postgres_bundle("JANUS_MART_POSTGRES_BUNDLE", {
+        "CATALOG_DB_PASSWORD": ("mart_catalog_password", "catalog_password"),
+        "PUBLICATION_DB_PASSWORD": ("mart_publication_password", "publication_password")})
+    uri = urlparse(os.environ["MART_ACCEPTANCE_INPUT_URI"])
+    if uri.scheme != "gs" or uri.netloc != os.environ["MART_BUCKET"] or not uri.path.startswith("/acceptance/specialists/"):
+        raise ValueError("acceptance input must stay inside existing Mart dev acceptance prefix")
+    event = json.loads(GcsObjectStore(uri.netloc).read(uri.path.lstrip("/")))
+    options = {"core_execution_id": event["executionId"], "analysis_as_of": event["analysisAsOf"],
+               "core_snapshot_id": event["coreSnapshotId"], "core_snapshot_uri": event["coreSnapshotUri"],
+               "core_snapshot_hash": event["coreSnapshotHash"], "schema_version": event["martSchemaVersion"],
+               "feature_version": event["featureVersion"], "model_version": event["modelVersion"],
+               "governance_snapshot_version": event["governanceSnapshotVersion"], "scopes": event["scopes"]}
+    execution = AnalysisExecution(str(uuid4()), "specialist-dev-acceptance", (), 0, options)
+    execution.validate_input()
+    settings = _settings("PUBLICATION_DB")
+    with psycopg.connect(host=settings["host"], dbname=settings["name"], user=settings["user"], password=settings["password"],
+                        sslmode=os.environ.get("PUBLICATION_DB_SSLMODE", "require"), connect_timeout=5) as connection:
+        result = specialist_processor(execution, connection)
+    return {"component": "intelligence-mart", "operation": "specialist-acceptance", "execution_id": execution.execution_id,
+            "llm_api_tokens": 0, "elapsed_seconds": round(time.monotonic() - started, 3),
+            "peak_rss_mib": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 2), **result}

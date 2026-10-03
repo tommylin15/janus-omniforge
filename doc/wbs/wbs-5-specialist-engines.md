@@ -1,7 +1,7 @@
 # Janus WBS 5 — Token-first Specialist Engines
 
 更新：2026-10-03
-狀態：Active planning / implementation pending
+狀態：Partial implementation；未完成整體 acceptance
 
 本 WBS 受 [`../decision-2026-10-03-token-first-specialist-and-on-demand-ceo.md`](../decision-2026-10-03-token-first-specialist-and-on-demand-ceo.md) 約束。若舊 WBS-5／SPEC 仍描述「每日五個 Codex/LLM 分析師」，以 active TODO 與上述決策作為新需求；舊 implementation/runtime evidence 仍照實保留，不能假裝已完成本重構。
 
@@ -15,7 +15,7 @@
 4. Risk / Regime — Riskfolio-Lib + statsmodels/ML regime model。
 5. Event / Catalyst — parser/rules + local multilingual encoder classifier。
 
-五角色輸出必須 structured、PIT、可重放、可回測、可版本化；白話說明使用 SHAP/rules/template，正常情況 0 API token。
+五分析師輸出必須 structured、PIT、可重放、可回測、可版本化；白話說明使用 SHAP/rules/template，正常情況 0 API token。
 
 ## 2. Universe
 

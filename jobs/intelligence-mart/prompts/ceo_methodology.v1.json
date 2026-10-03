@@ -1,0 +1,9 @@
+{
+  "ceo": {
+    "version": "ceo-v1",
+    "author": "janus-system",
+    "created_at": "2026-09-30T00:00:00Z",
+    "profile_reference": "repository-default-v1",
+    "methodology": "只使用已驗證的基本面、估值、量化、風險與事件成果物，說明跨角色衝突、bull/base/bear、風險、失效條件與未知資訊。"
+  }
+}

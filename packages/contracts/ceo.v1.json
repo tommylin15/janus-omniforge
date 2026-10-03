@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
+  "$defs": {
+    "Claim": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Text",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "items": {
+            "pattern": "^ev-[0-9a-f]{24}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Evidence Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "text",
+        "evidence_ids"
+      ],
+      "title": "Claim",
+      "type": "object"
+    },
+    "CEOOutputV1": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "stance": {
+          "enum": [
+            "bullish",
+            "neutral",
+            "bearish",
+            "insufficient_data"
+          ],
+          "title": "Stance",
+          "type": "string"
+        },
+        "thesis": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Claim"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "missing_information": {
+          "items": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "title": "Missing Information",
+          "type": "array"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "evidence_ids": {
+          "items": {
+            "pattern": "^ev-[0-9a-f]{24}$",
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "role": {
+          "const": "ceo",
+          "title": "Role",
+          "type": "string"
+        },
+        "supporting_roles": {
+          "items": {
+            "enum": [
+              "fundamental",
+              "valuation",
+              "quant",
+              "risk",
+              "event"
+            ],
+            "type": "string"
+          },
+          "title": "Supporting Roles",
+          "type": "array"
+        },
+        "opposing_roles": {
+          "items": {
+            "enum": [
+              "fundamental",
+              "valuation",
+              "quant",
+              "risk",
+              "event"
+            ],
+            "type": "string"
+          },
+          "title": "Opposing Roles",
+          "type": "array"
+        },
+        "contradictions": {
+          "items": {
+            "$ref": "#/$defs/Claim"
+          },
+          "title": "Contradictions",
+          "type": "array"
+        },
+        "bull_case": {
+          "items": {
+            "$ref": "#/$defs/Claim"
+          },
+          "title": "Bull Case",
+          "type": "array"
+        },
+        "bear_case": {
+          "items": {
+            "$ref": "#/$defs/Claim"
+          },
+          "title": "Bear Case",
+          "type": "array"
+        },
+        "principal_risks": {
+          "items": {
+            "$ref": "#/$defs/Claim"
+          },
+          "title": "Principal Risks",
+          "type": "array"
+        },
+        "watch_items": {
+          "items": {
+            "$ref": "#/$defs/Claim"
+          },
+          "title": "Watch Items",
+          "type": "array"
+        },
+        "change_since_previous_analysis": {
+          "items": {
+            "$ref": "#/$defs/Claim"
+          },
+          "title": "Change Since Previous Analysis",
+          "type": "array"
+        },
+        "validated_role_artifact_hashes": {
+          "items": {
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "maxItems": 5,
+          "minItems": 5,
+          "title": "Validated Role Artifact Hashes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "schema_version",
+        "stance",
+        "thesis",
+        "missing_information",
+        "confidence",
+        "evidence_ids",
+        "role",
+        "supporting_roles",
+        "opposing_roles",
+        "contradictions",
+        "bull_case",
+        "bear_case",
+        "principal_risks",
+        "watch_items",
+        "change_since_previous_analysis",
+        "validated_role_artifact_hashes"
+      ],
+      "title": "CEOOutput",
+      "type": "object"
+    }
+  },
+  "schemas": {
+    "ceo": {
+      "$ref": "#/$defs/CEOOutputV1"
+    }
+  }
+}
