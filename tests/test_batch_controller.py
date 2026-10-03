@@ -171,3 +171,37 @@ def test_supplement_daily_precedes_mart_and_saturday_quality_is_independent():
     assert any(row[1].name == "data-quality" for row in saturday)
     friday = due_batches(datetime(2026, 10, 2, 5, tzinfo=timezone.utc))
     assert not any(row[1].name == "data-quality" for row in friday)
+
+
+def test_mart_retention_precedes_core_retention_on_weekdays_and_weekends():
+    for day in (2, 3):
+        due = {batch.name: dependencies for _, batch, _, dependencies in
+               due_batches(datetime(2026, 10, day, 15, 45, tzinfo=timezone.utc))}
+        assert due["mart-cleanup"] == [f"ingestion/2026-10-{day:02d}/07"]
+        assert due["core-cleanup"] == [f"mart-cleanup/2026-10-{day:02d}/23"]
+
+
+def test_old_pending_core_cleanup_waits_for_new_mart_dependency(monkeypatch):
+    from unittest.mock import MagicMock, Mock
+    from ingestion_core import batch_controller as controller
+    monkeypatch.setenv("GCP_PROJECT_ID", PROJECT)
+    monkeypatch.setenv("BATCH_CONTROLLER_MODE", "active")
+    monkeypatch.setenv("BATCH_CONTROLLER_NOT_BEFORE", "2026-10-01T00:00:00Z")
+    key = "core-cleanup/2026-10-02/23"
+    state = {"job": "janus-ingestion-core", "batch": "core-cleanup", "status": "pending",
+             "dependencies": ["ingestion/2026-10-02/07"], "scheduled_at": "2026-10-02T23:30:00+08:00"}
+    connection = MagicMock()
+    connection.execute.return_value.fetchone.return_value = (True,)
+    cursor = connection.cursor.return_value.__enter__.return_value
+    cursor.fetchall.side_effect = [[], [(key, state)], [("mart-cleanup/2026-10-02/23", "failed")]]
+    cursor.fetchone.return_value = None
+    record = Mock()
+    monkeypatch.setattr(controller, "record", record)
+    monkeypatch.setattr(controller, "export_events", lambda *_: 0)
+    session = Mock()
+    controller.run(now=datetime(2026, 10, 2, 16, tzinfo=timezone.utc),
+                   control=SimpleNamespace(connection=connection), session=session, core=Mock())
+    updates = [call.args for call in record.call_args_list if call.args[2] == key]
+    assert [args[4] for args in updates] == ["dependency_policy_updated", "waiting_dependency"]
+    assert updates[0][3]["dependencies"] == ["mart-cleanup/2026-10-02/23"]
+    session.post.assert_not_called()

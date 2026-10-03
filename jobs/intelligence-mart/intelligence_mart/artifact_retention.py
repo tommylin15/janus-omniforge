@@ -4,7 +4,7 @@ from hashlib import sha256
 import json
 
 
-def clean_specialist_artifacts(store, *, apply, now):
+def clean_specialist_artifacts(store, *, apply, now, active_executions=frozenset()):
     objects = store.objects("")
     by_name = {item["name"]: item for item in objects}
     documents, indexes = {}, []
@@ -27,6 +27,8 @@ def clean_specialist_artifacts(store, *, apply, now):
             generations.setdefault(symbol, []).append((document["analysis_as_of"], document.get("retention_created_at", ""), execution_id))
     selected = {symbol: {execution_id for _, _, execution_id in sorted(values, reverse=True)[:3]}
                 for symbol, values in generations.items()}
+    for symbol, values in generations.items():
+        selected[symbol].update(execution_id for _, _, execution_id in values if execution_id in active_executions)
     retained, live, candidates, retired = [], set(), set(), set()
     for execution_id, document in documents.items():
         prefix = f"executions/{execution_id}/"
@@ -46,6 +48,8 @@ def clean_specialist_artifacts(store, *, apply, now):
     evaluated = sorted((doc["analysis_as_of"], doc.get("retention_created_at", ""), doc["execution_id"], doc["evaluation"]["artifact_uri"])
                        for doc in retained if "evaluation" in doc)
     for _, _, execution_id, uri in evaluated[:-1]:
+        if execution_id in active_executions:
+            continue
         name = uri.removeprefix(f"gs://{store.bucket}/")
         live.discard(name)
         candidates.add(name)
@@ -54,7 +58,8 @@ def clean_specialist_artifacts(store, *, apply, now):
         latest_evaluation = evaluated[-1][3].removeprefix(f"gs://{store.bucket}/")
         live.add(latest_evaluation)
     for document in retained:
-        if "evaluation" in document and evaluated and document["evaluation"]["artifact_uri"] != evaluated[-1][3]:
+        if "evaluation" in document and evaluated and document["evaluation"]["artifact_uri"] != evaluated[-1][3] \
+                and document["execution_id"] not in active_executions:
             document.pop("evaluation")
     for execution_id in retired:
         for name in by_name:
@@ -71,6 +76,7 @@ def clean_specialist_artifacts(store, *, apply, now):
             if referenced or datetime.fromisoformat(item["updated"].replace("Z", "+00:00")) < now - timedelta(days=7):
                 candidates.add(name)
         elif name.startswith("executions/") and name.endswith("/oos-evaluation.json") and name not in live \
+                and name.split("/")[1] not in active_executions \
                 and datetime.fromisoformat(item["updated"].replace("Z", "+00:00")) < now - timedelta(days=7):
             candidates.add(name)
     candidates.difference_update(live)
@@ -106,4 +112,5 @@ def clean_specialist_artifacts(store, *, apply, now):
             "planned_objects": len(candidates), "deleted_objects": len(candidates) if apply else 0,
             "planned_bytes": sum(int(by_name[name]["size"]) for name in candidates),
             "retained_generations": {symbol: len(values) for symbol, values in selected.items()},
+            "core_snapshot_ids": sorted({doc["core_snapshot_id"] for doc in retained}),
             "index_uri": f"gs://{store.bucket}/{index_name}" if apply else None}

@@ -36,10 +36,10 @@ BATCHES = (
           env=(("JANUS_DATA_SUPPLEMENT_MODE", "quality"), ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""),
                ("ICEBERG_MAINTENANCE_MODE", "")), exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart")),
     Batch("private", "janus-private-pipeline", (21,), tuple(range(5)), ("ingestion",)),
-    Batch("core-cleanup", "janus-ingestion-core", (23,), dependencies=("ingestion",),
+    Batch("core-cleanup", "janus-ingestion-core", (23,), dependencies=("mart-cleanup",),
           env=(("ICEBERG_MAINTENANCE_MODE", "retention-apply"), ("QUEUE_CONSUMER", "false"), ("MART_JOB", "")),
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline")),
-    Batch("mart-cleanup", "janus-intelligence-mart", (23,), dependencies=("core-cleanup",),
+    Batch("mart-cleanup", "janus-intelligence-mart", (23,), dependencies=("ingestion",),
           env=(("MART_OPERATION", "retention"), ("MART_RETENTION_MODE", "apply"), ("MART_AI_ENABLED", "false")),
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline")),
 )
@@ -284,7 +284,11 @@ def run(*, now=None, session=None, control=None, core=None):
         batches = {batch.name: batch for batch in BATCHES}
         for key, state in pending:
             batch = batches[state["batch"]]
-            dependencies = state["dependencies"]
+            # Reconcile pending slots created before a dependency-policy change.
+            dependencies = next(row[3] for row in due_batches(datetime.fromisoformat(state["scheduled_at"])) if row[0] == key)
+            if dependencies != state["dependencies"]:
+                state = {**state, "dependencies": dependencies}
+                record(connection, tick, key, state, "dependency_policy_updated")
             with connection.cursor() as cursor:
                 cursor.execute("SELECT occurrence_id,state->>'status' FROM control.batch_occurrences WHERE occurrence_id=ANY(%s)", (dependencies,))
                 statuses = dict(cursor.fetchall())

@@ -229,3 +229,37 @@ def test_three_generations_per_symbol_and_latest_oos_survive_repeated_cleanup():
     assert "executions/ex0/specialist-retired.json" in data
     again = clean_specialist_artifacts(store, apply=True, now=now)
     assert again["deleted_objects"] == 0
+
+
+def test_active_specialist_execution_protects_old_generation_and_oos():
+    import json
+    from hashlib import sha256
+    from intelligence_mart.artifact_retention import clean_specialist_artifacts
+    data = {}
+    def put(name, value):
+        data[name] = json.dumps(value).encode()
+        return {"artifact_uri": "gs://dev/" + name,
+                "artifact_hash": "sha256:" + sha256(data[name]).hexdigest()}
+    for i in range(4):
+        refs = [{"symbol": "2330", "role": role, **put(f"specialists/{role}-{i}.json", {"generation": i})}
+                for role in ("fundamental", "valuation", "quant", "risk", "event")]
+        evaluation = put(f"executions/ex{i}/oos-evaluation.json", {"generation": i})
+        put(f"executions/ex{i}/specialist-manifest.json", {
+            "artifact_kind": "mart_specialist_execution_v1", "execution_id": f"ex{i}",
+            "analysis_as_of": f"2026-09-0{i+1}", "core_snapshot_id": f"core{i}",
+            "specialists": refs, "evaluation": evaluation})
+    def create(name, payload, _):
+        if name in data:
+            return False
+        data[name] = payload
+        return True
+    store = SimpleNamespace(bucket="dev", read=lambda name: data[name], create=create,
+        objects=lambda _: [{"name": name, "updated": "2026-09-01T00:00:00Z", "size": len(value), "generation": "1"}
+                           for name, value in data.items()], delete=lambda name, generation: data.pop(name))
+    result = clean_specialist_artifacts(store, apply=True, now=datetime(2026, 10, 3, tzinfo=timezone.utc),
+                                       active_executions=frozenset({"ex0"}))
+    assert result["core_snapshot_ids"] == ["core0", "core1", "core2", "core3"]
+    assert "executions/ex0/specialist-manifest.json" in data
+    assert "executions/ex0/oos-evaluation.json" in data
+    assert "executions/ex0/specialist-retired.json" not in data
+    assert sum(name.startswith("specialists/") for name in data) == 20
