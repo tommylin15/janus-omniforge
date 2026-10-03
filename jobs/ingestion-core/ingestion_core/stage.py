@@ -172,8 +172,10 @@ class StageWriter:
             raise ValueError("payload does not match provenance content_hash")
         execution_id = self._segment(execution_id)
         extension = self._segment(extension.lower().lstrip("."))
-        if extension not in {"json", "csv"}:
-            raise ValueError("Stage raw payload must be JSON or CSV")
+        if extension not in {"json", "csv", "html"}:
+            raise ValueError("Stage raw payload must be JSON, CSV or approved financial HTML")
+        if extension == "html" and (provenance.source_id, provenance.dataset_id) != ("mops", "financials"):
+            raise ValueError("HTML Stage payload is limited to official MOPS financial reports")
         key = idempotency_key(
             provenance.source_id, provenance.dataset_id, provenance.observed_at, provenance.content_hash
         )

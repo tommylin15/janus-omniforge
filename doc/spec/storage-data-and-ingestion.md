@@ -4,7 +4,7 @@
 
 | 層 | 格式 | 責任 | 寫入者 | 讀取者 |
 |---|---|---|---|---|
-| Stage／Bronze | 原始 JSON、CSV、受控物件 | 保存來源原貌、request metadata、hash | ingestion-core | ingestion-core、治理稽核 |
+| Stage／Bronze | 原始 JSON、CSV、官方 MOPS 財報 HTML、受控物件 | 保存來源原貌、request metadata、hash | ingestion-core | ingestion-core、治理稽核 |
 | Core／Silver | Iceberg／Parquet | 正規化、去重、單位、日期、null、PIT、provenance、文本與股票代號關聯 | ingestion-core／DuckDB／PyIceberg | intelligence-mart、read-only query runtime |
 | Mart／Gold | Iceberg／Parquet | 特徵、角色輸出、聚合、研報、評估 | intelligence-mart | FastAPI、User、Admin |
 | Private control／ledger | PostgreSQL append-only events／bounded index | 使用者手動交易、修正、冪等、所有權、目前關注狀態、私人 artifact index 與 pipeline checkpoint | private API | 該使用者、private pipeline |
@@ -109,6 +109,8 @@ quality_details: object
 
 - `observed_at`、`published_at`、`fetched_at`、`effective_date` 不可互相替代。
 - 財報、事件、新聞遵守 `published_at <= analysis_as_of`。
+- `WBS-3-DATA-SUPPLEMENT-V1` 依使用者 2026-10-02「資料優先」決策，允許已核對的月營收／財報歷史數值供目前研究。權威發布時間或原始數值版次未證明時保留 unknown；真正收到的版本以 receipt availability、原始 hash、公司／期別／單位／口徑留痕。該 receipt 只證明 Janus 自此時持有此版本，不能證明歷史市場首次可得性，不能倒填取得前的 PIT 回測。這是資料用途契約，不代表現行 adapter／read path 已完成接線。
+- 財報版本 identity 使用 `version_at`，與可為 null 的 `published_at` 分開；未知發布時間時必須保留可證明且有時區的 `availability_at`。同一來源、公司、期別、statement、metric 的數值／單位／口徑未變可重用；更正值以新版本保存。同版次出現不同數值不得覆寫。舊表新增欄位與新資料寫入須保留既有快照；本次實作尚待 dev deployment／live 驗收。
 - 市場觀測以 observed_at 判斷時序；沒有獨立 published_at 不等同業務缺值。
 - raw payload、object URI、secret、完整 upstream error 不得出現在一般 API/UI。
 - 相同 source + dataset + observed time + hash 重用 provenance；內容或時間改變才新增版本。

@@ -297,7 +297,13 @@ def main() -> None:
         maintenance_mode = os.environ.get("ICEBERG_MAINTENANCE_MODE", "").strip()
         control_migration = os.environ.get("JANUS_CONTROL_MIGRATION", "").strip()
         analysis_replay = os.environ.get("JANUS_ANALYSIS_REPLAY_CONFIG", "").strip()
-        if maintenance_mode:
+        supplement_mode = os.environ.get("JANUS_DATA_SUPPLEMENT_MODE", "").strip()
+        if supplement_mode:
+            if supplement_mode != "backfill":
+                raise ValueError("unsupported data supplement mode")
+            from .data_supplement import run_backfill
+            result = run_backfill()
+        elif maintenance_mode:
             from .iceberg_maintenance import run
 
             result = run(maintenance_mode)

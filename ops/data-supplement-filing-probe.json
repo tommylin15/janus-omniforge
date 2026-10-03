@@ -1,0 +1,764 @@
+{
+  "source": "https://doc.twse.com.tw/server-java/t57sb01",
+  "scope": "all_active_targets_plus_four_pinned_baseline_symbols",
+  "numeric_revision_verified": false,
+  "filings": [
+    {
+      "symbol": "2327",
+      "fiscal_year": 2023,
+      "fiscal_quarter": 1,
+      "filename": "202301_2327_AI1.pdf",
+      "official_uploaded_at": "2023-05-12T16:55:46+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2327",
+      "fiscal_year": 2023,
+      "fiscal_quarter": 2,
+      "filename": "202302_2327_AI1.pdf",
+      "official_uploaded_at": "2023-08-14T14:49:33+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2327",
+      "fiscal_year": 2023,
+      "fiscal_quarter": 3,
+      "filename": "202303_2327_AI1.pdf",
+      "official_uploaded_at": "2023-11-14T14:35:42+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2327",
+      "fiscal_year": 2023,
+      "fiscal_quarter": 4,
+      "filename": "202304_2327_AI1.pdf",
+      "official_uploaded_at": "2024-03-27T15:12:18+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2327",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 1,
+      "filename": "202401_2327_AI1.pdf",
+      "official_uploaded_at": "2024-05-15T16:10:58+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2327",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 2,
+      "filename": "202402_2327_AI1.pdf",
+      "official_uploaded_at": "2024-08-14T13:39:53+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2327",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 3,
+      "filename": "202403_2327_AI1.pdf",
+      "official_uploaded_at": "2024-11-14T09:18:48+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2327",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 4,
+      "filename": "202404_2327_AI1.pdf",
+      "official_uploaded_at": "2025-03-28T16:54:03+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2327",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 1,
+      "filename": "202501_2327_AI1.pdf",
+      "official_uploaded_at": "2025-05-15T16:55:03+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2327",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 2,
+      "filename": "202502_2327_AI1.pdf",
+      "official_uploaded_at": "2025-08-14T15:35:05+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2327",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 3,
+      "filename": "202503_2327_AI1.pdf",
+      "official_uploaded_at": "2025-11-13T17:58:20+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2327",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 4,
+      "filename": "202504_2327_AI1.pdf",
+      "official_uploaded_at": "2026-03-31T16:54:04+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2327",
+      "fiscal_year": 2026,
+      "fiscal_quarter": 1,
+      "filename": "202601_2327_AI1.pdf",
+      "official_uploaded_at": "2026-05-15T14:25:09+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2327",
+      "fiscal_year": 2026,
+      "fiscal_quarter": 2,
+      "filename": "202602_2327_AI1.pdf",
+      "official_uploaded_at": "2026-08-14T15:04:28+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "1102",
+      "fiscal_year": 2023,
+      "fiscal_quarter": 1,
+      "filename": "202301_1102_AI1.pdf",
+      "official_uploaded_at": "2023-05-12T14:35:51+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "1102",
+      "fiscal_year": 2023,
+      "fiscal_quarter": 2,
+      "filename": "202302_1102_AI1.pdf",
+      "official_uploaded_at": "2023-08-11T17:56:45+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "1102",
+      "fiscal_year": 2023,
+      "fiscal_quarter": 3,
+      "filename": "202303_1102_AI1.pdf",
+      "official_uploaded_at": "2023-11-13T10:18:26+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "1102",
+      "fiscal_year": 2023,
+      "fiscal_quarter": 4,
+      "filename": "202304_1102_AI1.pdf",
+      "official_uploaded_at": "2024-03-15T16:54:23+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "1102",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 1,
+      "filename": "202401_1102_AI1.pdf",
+      "official_uploaded_at": "2024-05-13T14:15:47+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "1102",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 2,
+      "filename": "202402_1102_AI1.pdf",
+      "official_uploaded_at": "2024-08-13T14:15:59+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "1102",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 3,
+      "filename": "202403_1102_AI1.pdf",
+      "official_uploaded_at": "2024-11-13T16:13:26+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "1102",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 4,
+      "filename": "202404_1102_AI1.pdf",
+      "official_uploaded_at": "2025-03-17T16:24:27+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "1102",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 1,
+      "filename": "202501_1102_AI1.pdf",
+      "official_uploaded_at": "2025-05-13T15:44:02+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "1102",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 2,
+      "filename": "202502_1102_AI1.pdf",
+      "official_uploaded_at": "2025-08-13T09:51:22+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "1102",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 3,
+      "filename": "202503_1102_AI1.pdf",
+      "official_uploaded_at": "2025-11-13T15:55:35+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "1102",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 4,
+      "filename": "202504_1102_AI1.pdf",
+      "official_uploaded_at": "2026-03-16T13:15:13+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "1102",
+      "fiscal_year": 2026,
+      "fiscal_quarter": 1,
+      "filename": "202601_1102_AI1.pdf",
+      "official_uploaded_at": "2026-05-14T14:11:58+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "1102",
+      "fiscal_year": 2026,
+      "fiscal_quarter": 2,
+      "filename": "202602_1102_AI1.pdf",
+      "official_uploaded_at": "2026-08-14T09:18:23+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2330",
+      "fiscal_year": 2023,
+      "fiscal_quarter": 1,
+      "filename": "202301_2330_AI1.pdf",
+      "official_uploaded_at": "2023-05-12T13:51:34+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2330",
+      "fiscal_year": 2023,
+      "fiscal_quarter": 2,
+      "filename": "202302_2330_AI1.pdf",
+      "official_uploaded_at": "2023-08-14T14:51:09+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2330",
+      "fiscal_year": 2023,
+      "fiscal_quarter": 3,
+      "filename": "202303_2330_AI1.pdf",
+      "official_uploaded_at": "2023-11-14T17:14:21+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2330",
+      "fiscal_year": 2023,
+      "fiscal_quarter": 4,
+      "filename": "202304_2330_AI1.pdf",
+      "official_uploaded_at": "2024-02-29T16:22:02+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2330",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 1,
+      "filename": "202401_2330_AI1.pdf",
+      "official_uploaded_at": "2024-05-15T14:25:29+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2330",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 2,
+      "filename": "202402_2330_AI1.pdf",
+      "official_uploaded_at": "2024-08-14T15:09:10+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2330",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 3,
+      "filename": "202403_2330_AI1.pdf",
+      "official_uploaded_at": "2024-11-14T18:03:20+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2330",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 4,
+      "filename": "202404_2330_AI1.pdf",
+      "official_uploaded_at": "2025-02-27T14:01:14+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2330",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 1,
+      "filename": "202501_2330_AI1.pdf",
+      "official_uploaded_at": "2025-05-15T13:40:15+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2330",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 2,
+      "filename": "202502_2330_AI1.pdf",
+      "official_uploaded_at": "2025-08-14T13:36:58+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2330",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 3,
+      "filename": "202503_2330_AI1.pdf",
+      "official_uploaded_at": "2025-11-14T13:42:22+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2330",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 4,
+      "filename": "202504_2330_AI1.pdf",
+      "official_uploaded_at": "2026-02-26T17:23:30+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2330",
+      "fiscal_year": 2026,
+      "fiscal_quarter": 1,
+      "filename": "202601_2330_AI1.pdf",
+      "official_uploaded_at": "2026-05-15T14:43:02+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "2330",
+      "fiscal_year": 2026,
+      "fiscal_quarter": 2,
+      "filename": "202602_2330_AI1.pdf",
+      "official_uploaded_at": "2026-08-14T13:59:44+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "4958",
+      "fiscal_year": 2023,
+      "fiscal_quarter": 1,
+      "filename": "202301_4958_AI1.pdf",
+      "official_uploaded_at": "2023-05-10T15:22:01+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "4958",
+      "fiscal_year": 2023,
+      "fiscal_quarter": 2,
+      "filename": "202302_4958_AI1.pdf",
+      "official_uploaded_at": "2023-08-09T15:31:47+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "4958",
+      "fiscal_year": 2023,
+      "fiscal_quarter": 3,
+      "filename": "202303_4958_AI1.pdf",
+      "official_uploaded_at": "2023-11-06T17:59:48+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "4958",
+      "fiscal_year": 2023,
+      "fiscal_quarter": 4,
+      "filename": "202304_4958_AI1.pdf",
+      "official_uploaded_at": "2024-03-12T15:06:17+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "4958",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 1,
+      "filename": "202401_4958_AI1.pdf",
+      "official_uploaded_at": "2024-05-10T17:08:36+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "4958",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 2,
+      "filename": "202402_4958_AI1.pdf",
+      "official_uploaded_at": "2024-08-13T14:50:50+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "4958",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 3,
+      "filename": "202403_4958_AI1.pdf",
+      "official_uploaded_at": "2024-11-08T15:06:28+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "4958",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 4,
+      "filename": "202404_4958_AI1.pdf",
+      "official_uploaded_at": "2025-03-11T15:19:08+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "4958",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 1,
+      "filename": "202501_4958_AI1.pdf",
+      "official_uploaded_at": "2025-05-13T15:41:36+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "4958",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 2,
+      "filename": "202502_4958_AI1.pdf",
+      "official_uploaded_at": "2025-08-12T15:05:54+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "4958",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 3,
+      "filename": "202503_4958_AI1.pdf",
+      "official_uploaded_at": "2025-11-11T15:16:08+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "4958",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 4,
+      "filename": "202504_4958_AI1.pdf",
+      "official_uploaded_at": "2026-03-12T15:04:31+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "4958",
+      "fiscal_year": 2026,
+      "fiscal_quarter": 1,
+      "filename": "202601_4958_AI1.pdf",
+      "official_uploaded_at": "2026-05-12T15:05:31+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "4958",
+      "fiscal_year": 2026,
+      "fiscal_quarter": 2,
+      "filename": "202602_4958_AI1.pdf",
+      "official_uploaded_at": "2026-08-11T15:08:30+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "5876",
+      "fiscal_year": 2023,
+      "fiscal_quarter": 1,
+      "report_scope": "consolidated",
+      "filename": "202301_5876_AI1.pdf",
+      "official_uploaded_at": "2023-04-28T15:25:39+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "5876",
+      "fiscal_year": 2023,
+      "fiscal_quarter": 2,
+      "report_scope": "consolidated",
+      "filename": "202302_5876_AI1.pdf",
+      "official_uploaded_at": "2023-08-11T17:36:44+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "5876",
+      "fiscal_year": 2023,
+      "fiscal_quarter": 3,
+      "report_scope": "consolidated",
+      "filename": "202303_5876_AI1.pdf",
+      "official_uploaded_at": "2023-11-10T17:04:53+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "5876",
+      "fiscal_year": 2023,
+      "fiscal_quarter": 4,
+      "report_scope": "consolidated",
+      "filename": "202304_5876_AI1.pdf",
+      "official_uploaded_at": "2024-02-27T18:20:51+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "5876",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 1,
+      "report_scope": "consolidated",
+      "filename": "202401_5876_AI1.pdf",
+      "official_uploaded_at": "2024-04-26T15:07:41+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "5876",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 2,
+      "report_scope": "consolidated",
+      "filename": "202402_5876_AI1.pdf",
+      "official_uploaded_at": "2024-08-16T17:34:07+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "5876",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 3,
+      "report_scope": "consolidated",
+      "filename": "202403_5876_AI1.pdf",
+      "official_uploaded_at": "2024-11-08T14:45:29+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "5876",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 4,
+      "report_scope": "consolidated",
+      "filename": "202404_5876_AI1.pdf",
+      "official_uploaded_at": "2025-02-27T16:21:13+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "5876",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 1,
+      "report_scope": "consolidated",
+      "filename": "202501_5876_AI1.pdf",
+      "official_uploaded_at": "2025-05-02T17:32:33+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "5876",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 2,
+      "report_scope": "consolidated",
+      "filename": "202502_5876_AI1.pdf",
+      "official_uploaded_at": "2025-08-15T20:15:50+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "5876",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 3,
+      "report_scope": "consolidated",
+      "filename": "202503_5876_AI1.pdf",
+      "official_uploaded_at": "2025-11-06T18:07:28+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "5876",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 4,
+      "report_scope": "consolidated",
+      "filename": "202504_5876_AI1.pdf",
+      "official_uploaded_at": "2026-02-26T19:10:06+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "5876",
+      "fiscal_year": 2026,
+      "fiscal_quarter": 1,
+      "report_scope": "consolidated",
+      "filename": "202601_5876_AI1.pdf",
+      "official_uploaded_at": "2026-05-08T15:35:16+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    },
+    {
+      "symbol": "5876",
+      "fiscal_year": 2026,
+      "fiscal_quarter": 2,
+      "report_scope": "consolidated",
+      "filename": "202602_5876_AI1.pdf",
+      "official_uploaded_at": "2026-08-28T17:06:25+08:00",
+      "amendment_status": "無",
+      "numeric_revision_verified": false
+    }
+  ],
+  "pages": [
+    {
+      "symbol": "1102",
+      "year": 2023,
+      "html_sha256": "88763a09e06dcd3746ac3798778b0b0bb136ac91cf9c91787169c3c6f62592e1"
+    },
+    {
+      "symbol": "1102",
+      "year": 2024,
+      "html_sha256": "5b7ab0036483cca0ad23c75129a5f4be787162d7d10cc81b06be6ba6dfde9de0"
+    },
+    {
+      "symbol": "1102",
+      "year": 2025,
+      "html_sha256": "87237bbad5a9f50272484f06e951ad1e8a5996abc88ad32980b4a31ee6bbeee0"
+    },
+    {
+      "symbol": "1102",
+      "year": 2026,
+      "html_sha256": "98ac1bf697172f72018773b1aaaba6a12c20291d051bf892c29ad7c3798da3ef"
+    },
+    {
+      "symbol": "2327",
+      "year": 2023,
+      "html_sha256": "80e74bdeca37165fe66283077b21e0b007d9da521a4ef17e9e8a295e913593c5"
+    },
+    {
+      "symbol": "2327",
+      "year": 2024,
+      "html_sha256": "c68dd7ed4a5d14296462f79584fb37d2a57111c92d74dc793b434279f3eb949c"
+    },
+    {
+      "symbol": "2327",
+      "year": 2025,
+      "html_sha256": "e5f0eb6b242ceddb4e827ca5f494ea6e01140ce78229821c028d4b6ab932adcd"
+    },
+    {
+      "symbol": "2327",
+      "year": 2026,
+      "html_sha256": "e46f7ddf04df8c597cb23293040c2054ac3729c396737076ca62c7ff3a47df0d"
+    },
+    {
+      "symbol": "2330",
+      "year": 2023,
+      "html_sha256": "894f7f650f5dec63b03f51f494c75d397d75bb37d34c4e778cc4c03e99173d08"
+    },
+    {
+      "symbol": "2330",
+      "year": 2024,
+      "html_sha256": "6399de052b9721500326e7080893a74b818a02a6badcba2120adc677dcc3ba17"
+    },
+    {
+      "symbol": "2330",
+      "year": 2025,
+      "html_sha256": "2f44a12300bf6f5f742c4c6aed71b9c800a53bbb6425781af0f67ff4846775c9"
+    },
+    {
+      "symbol": "2330",
+      "year": 2026,
+      "html_sha256": "4f20940a7256392ce5835338a046f29a1b6170005033ef7900ed8dbbf596d449"
+    },
+    {
+      "symbol": "4958",
+      "year": 2023,
+      "html_sha256": "ff399f048e6ae5b3ca3fadaef3b9a85f311cde92b42e3ca9cc2e089e714b279d"
+    },
+    {
+      "symbol": "4958",
+      "year": 2024,
+      "html_sha256": "af110bc28512fa466a4f0fff2e703f8eaca437963e77d6636f0c60158ebac775"
+    },
+    {
+      "symbol": "4958",
+      "year": 2025,
+      "html_sha256": "91025b304b604f1fe0311c61003d57e90505089867c812afc1dd9a67fdd9e2ce"
+    },
+    {
+      "symbol": "4958",
+      "year": 2026,
+      "html_sha256": "c4b4b647a4b6211bc00e6cab272d1e684a878aadaeab9649f3e35d2cafbe4926"
+    }
+  ],
+  "active_target_symbols": [
+    "2327",
+    "2330",
+    "5876"
+  ],
+  "additional_index_evidence": [
+    {
+      "symbol": "5876",
+      "year": 2023,
+      "html_sha256": "6f344064d6a0d0a325d33e8dd475b3e632ba47b5b9e372e783c1dfaad46d1919",
+      "filings": 4
+    },
+    {
+      "symbol": "5876",
+      "year": 2024,
+      "html_sha256": "70d7b0d0232970b2fe1c6e90c84dbe534b95b4aa817fd3853720664d6dda6d0b",
+      "filings": 4
+    },
+    {
+      "symbol": "5876",
+      "year": 2025,
+      "html_sha256": "5bf4cdcbbd7edbdc889c1e0cba1e3d54b0fb9d16b670f98fa5cf179b7e777fae",
+      "filings": 4
+    },
+    {
+      "symbol": "5876",
+      "year": 2026,
+      "html_sha256": "be46eaab167b92461cb87114382ad80e5d00cba245b2f1d4b25a3ab727be9a74",
+      "filings": 2
+    }
+  ]
+}

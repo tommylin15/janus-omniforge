@@ -1,0 +1,11 @@
+{
+  "api_name": "ajax_t163sb01",
+  "queryName": "co_id",
+  "http_status": 200,
+  "characters": 2505,
+  "requires_company_code": true,
+  "has_announcement_date": false,
+  "headers": [],
+  "page_has_companyId_input": true,
+  "page_has_summary_label": false
+}

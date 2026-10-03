@@ -33,7 +33,7 @@ class DuckDBIcebergCore:
         "ohlcv": ("symbol", "market", "trade_date"),
         "valuation": ("symbol", "market", "observed_date"),
         "institutional": ("symbol", "market", "trade_date", "investor_type"),
-        "financials": ("symbol", "fiscal_year", "fiscal_quarter", "statement_type", "published_at", "metric"),
+        "financials": ("symbol", "fiscal_year", "fiscal_quarter", "statement_type", "version_at", "metric", "source_id"),
         "events": ("event_id", "published_at"),
         "market-activity": ("symbol", "market", "trade_date", "metric"),
         "benchmark": ("benchmark_id", "trade_date"),
@@ -51,7 +51,7 @@ class DuckDBIcebergCore:
         "benchmark": (("trade_date", "month"), ("benchmark_id", "bucket[16]")),
     }
     DATE_FIELDS = frozenset({"observed_date", "trade_date", "effective_date"})
-    TIMESTAMP_FIELDS = frozenset({"published_at", "observed_at"})
+    TIMESTAMP_FIELDS = frozenset({"published_at", "observed_at", "version_at"})
     UPSERT_KEY_LIMIT = 512
 
     def __init__(self, catalog: Any, warehouse: str, *, namespace: str = "core",
@@ -146,6 +146,8 @@ class DuckDBIcebergCore:
         if identifiers is None:
             raise ValueError(f"unsupported Iceberg Core dataset: {dataset_id}")
         incoming = [self._normalise(row, execution_id, provenance_id, source_id) for row in rows]
+        if dataset_id == "financials":
+            incoming = [self._financial_version(row) for row in incoming]
         if not incoming:
             raise ValueError("Iceberg Core write requires at least one row")
 
@@ -161,7 +163,7 @@ class DuckDBIcebergCore:
                         In("fiscal_year", {row["fiscal_year"] for row in incoming}))
             fields = {field.name for field in table.schema().fields}
             columns = [name for name in ("symbol", "fiscal_year", "fiscal_quarter", "statement_type", "metric",
-                       "source_id", "value", "unit", "currency", "availability_at", "observed_at", "published_at") if name in fields]
+                       "source_id", "value", "unit", "currency", "period_basis", "report_scope", "availability_at", "observed_at", "published_at") if name in fields]
             prior = table.scan(row_filter=scope, selected_fields=tuple(columns)).to_arrow().to_pylist()
             incoming, observation_reused = self._financial_observations(prior, incoming)
             if not incoming:
@@ -193,17 +195,32 @@ class DuckDBIcebergCore:
                 update.union_by_name(incoming_arrow.schema)
             del incoming_arrow
             table = self.catalog.load_table(identifier)
-            from pyiceberg.expressions import And, EqualTo, GreaterThanOrEqual, In, LessThanOrEqual
+            from pyiceberg.expressions import And, EqualTo, GreaterThanOrEqual, In, IsNull, LessThanOrEqual, Or
 
             partition_field = self.PARTITIONS[dataset_id][0][0]
             selection_field = self.PARTITIONS[dataset_id][1][0]
-            first = min(row[partition_field] for row in incoming)
-            last = max(row[partition_field] for row in incoming)
-            row_filter = EqualTo(partition_field, first) if first == last else And(
-                GreaterThanOrEqual(partition_field, first), LessThanOrEqual(partition_field, last))
+            dates = [row[partition_field] for row in incoming if row.get(partition_field) is not None]
+            if dates:
+                first, last = min(dates), max(dates)
+                row_filter = EqualTo(partition_field, first) if first == last else And(
+                    GreaterThanOrEqual(partition_field, first), LessThanOrEqual(partition_field, last))
+                if len(dates) != len(incoming):
+                    row_filter = Or(row_filter, IsNull(partition_field))
+            else:
+                row_filter = IsNull(partition_field)
             if all(row.get(selection_field) is not None for row in incoming):
                 row_filter = And(row_filter, In(selection_field, {row[selection_field] for row in incoming}))
             existing = table.scan(row_filter=row_filter).to_arrow().to_pylist()
+            if dataset_id == "financials":
+                existing = [self._financial_version(row) for row in existing]
+        if dataset_id == "financials":
+            versions = {}
+            for row in existing + incoming:
+                key = tuple(row.get(field) for field in identifiers)
+                values = tuple(row.get(field) for field in ("value", "unit", "currency"))
+                if key in versions and versions[key] != values:
+                    raise ValueError("conflicting financial values at the same version time")
+                versions[key] = values
         merged = self.engine.merge(existing, incoming, identifiers)
         if merged.changed_rows:
             properties = {"janus.execution-id": execution_id, "janus.dataset-id": dataset_id}
@@ -233,6 +250,23 @@ class DuckDBIcebergCore:
         )
 
     @staticmethod
+    def _financial_version(input_row: dict[str, Any]) -> dict[str, Any]:
+        """A version clock identifies an observation, never invents publication."""
+        row = dict(input_row)
+        value = row.get("version_at") or row.get("published_at") or row.get("availability_at")
+        if not value:
+            raise ValueError("financial version requires publication or proven availability")
+        if not row.get("published_at") and row.get("publication_time_authoritative") is not False:
+            raise ValueError("unknown financial publication must be explicitly non-authoritative")
+        if not row.get("published_at") and not row.get("availability_at"):
+            raise ValueError("unknown publication requires proven receipt availability")
+        parsed = value if isinstance(value, datetime) else datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if not row.get("published_at") and parsed.tzinfo is None:
+            raise ValueError("receipt version time must include timezone")
+        row["version_at"] = parsed.astimezone(timezone.utc) if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+        return row
+
+    @staticmethod
     def _financial_observations(existing: list[dict[str, Any]], incoming: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
         """Reuse unchanged non-authoritative observations; retain actual value revisions."""
         keys = ("symbol", "fiscal_year", "fiscal_quarter", "statement_type", "metric", "source_id")
@@ -249,7 +283,7 @@ class DuckDBIcebergCore:
         for row in sorted(incoming, key=observed):
             prior = latest.get(identity(row))
             same = prior is not None and all(row.get(field) is None or str(row.get(field)) == str(prior.get(field))
-                                            for field in ("value", "unit", "currency"))
+                                            for field in ("value", "unit", "currency", "period_basis", "report_scope"))
             if (row.get("publication_time_authoritative") is False and same and observed(prior) <= observed(row)
                     and (prior.get("availability_at") or not row.get("availability_at"))):
                 reused += 1
@@ -264,23 +298,22 @@ class DuckDBIcebergCore:
         import pyarrow as pa
 
         inferred = pa.Table.from_pylist(rows).schema
+        def concrete(field):
+            if not pa.types.is_null(field.type):
+                return field
+            kind = pa.timestamp("us", tz="UTC") if field.name in DuckDBIcebergCore.TIMESTAMP_FIELDS else pa.string()
+            return pa.field(field.name, kind, nullable=True)
         existing = {field.name: field for field in existing_schema or ()}
         incoming = {field.name: field for field in inferred}
         fields = list(existing.values())
         for name, field in incoming.items():
             if name in existing:
                 continue
-            fields.append(pa.field(name, pa.string() if pa.types.is_null(field.type) else field.type, nullable=True))
+            fields.append(concrete(field))
         schema = pa.schema(fields or [
-            pa.field(field.name, pa.string() if pa.types.is_null(field.type) else field.type, nullable=True)
+            concrete(field)
             for field in inferred
         ])
-        # No existing schema means the inferred fields have not yet been added above.
-        if not existing:
-            schema = pa.schema([
-                pa.field(field.name, pa.string() if pa.types.is_null(field.type) else field.type, nullable=True)
-                for field in inferred
-            ])
         return pa.Table.from_pylist(rows, schema=schema)
 
     @classmethod

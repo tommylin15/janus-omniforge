@@ -1,8 +1,10 @@
 # WBS-3-DATA-SUPPLEMENT-V1 — 補資料第一版
 
-狀態：Active / Planned
+狀態：Active / partial（資料優先；歷史資料正規化與 Core 接線中，尚未完成 dev 驗收）
 模型：【Sol】
 更新：2026-10-02
+
+2026-10-02 使用者指定優先執行；本次 pinned dev Core／TWSE／FinMind 試連、時間證據 blocker 與待決方案見 [S0 evidence](../data-supplement-s0-evidence.md)。
 
 ## 目的
 
@@ -23,6 +25,18 @@
 2026-10-02 `2327` 的 `WBS-5-MART-AI-PROVIDERS` bounded GCP checkpoint 是本 WBS 第一組 real-data baseline：五角色第二批均通過 validator，但研究結果均為 `insufficient_data`。該 checkpoint 已證實部分缺口屬 history／metric／semantic／provenance 問題，而不是 provider failure 或「所有資料源都不存在」。
 
 ## Stop-and-Discuss Gate
+
+### 使用者最新驗收調整：資料優先
+
+2026-10-02 使用者明確指示「驗收條件放寬點，有資料優先」，取代本文件下方較嚴格的研究完整度要求：
+
+- 先交付目前研究可用的真實資料；12 月／12 季仍為收集目標，實際缺期、缺欄位、同業比較或獨立比對未完成時如實標 `partial`／`unknown`，不再單獨阻擋本版交付。
+- 月營收、財報歷史數值可在來源、公司、期別、單位及口徑檢查後用於目前研究。歷史公告時間／原始數值版次未證明時保留 null／unknown，記錄真正取得時間與 hash，不得補造發布日期。
+- 目前研究可用不代表歷史 PIT 回測可用。未證明歷史可得性的資料不得倒填至取得前的 as-of，也不得冒充已重建歷次更正值；既有 validator 與 publication gate 不放寬。
+- 無法計算的 feature 保留 missing reason，不補零、不讓 LLM 補數值；數值衝突以官方文件核對，不能為增加 coverage 默默採用 fallback。
+- 仍須完成真實資料接線、適用測試及 dev 驗收，再做每日增量排程、週六獨立檢查、Admin UI 與操作文件。來源授權、費用、安全與 production 限制維持原規則。
+
+下方原 minimum floor、Stop-and-Discuss 與驗收條件中，以「研究窗口／歷史時間／版次／feature 完整度不足即停止」作為閘門的部分，依上述最新決策改為可交付的明示限制；新費用、授權或安全 blocker 仍須討論。本調整不代表現有程式、Core 或排程已完成。
 
 本節是 `WBS-3-DATA-SUPPLEMENT-V1` 的強制人工決策閘門，優先於一般 WBS「先完成其他可繼續部分」的慣例。
 
@@ -194,6 +208,8 @@ S2 不新增付費 API／subscription／GCP resource，除非使用者另行明�
 8. 若某項 checkpoint minimum requirement 需要新 source，只有通過 source admission／authorization 且取得必要人工決策的來源可進 executable path；未取得必要授權或決策時立即停在 Stop-and-Discuss Gate，不得降低 requirement、標成 accepted gap 或跳往後續工作。
 9. S2 只把通過 source admission 且有 deterministic consumer contract 的官方／已核准資料接入；candidate 不得文件先行寫成 available。
 10. 有相稱的 tests、CI／deployment（如有程式變更）、dev live integration evidence；文件完成本身不等於 WBS 完成。
+11. 依使用者追加要求，資料取值驗收後納入每日收集排程，並建立獨立的每週六 deterministic 資料品質檢查批次；可檢出缺期、來源失敗、數值／單位／口徑衝突與 PIT 時間證據問題。檢查不依賴 Codex 或 LLM，也不能因每日收集失敗而跳過。
+12. Admin UI 顯示最近檢查時間、結果、受影響個股／dataset／欄位、安全的失敗原因及是否需要調整每日排程，並提供檢核文件入口。操作文件須包含重跑檢查、定位每日程式／排程、修復、重建及驗收步驟；異常不自動放寬 validator 或覆寫歷史版本。依使用者最新決定，先不建立 Codex automation／通知或 Email；新增批次、UI 與文件均須以實作及 dev evidence 驗收。
 
 ## 不在本版範圍
 

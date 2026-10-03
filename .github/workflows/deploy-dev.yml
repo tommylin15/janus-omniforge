@@ -17,6 +17,10 @@ on:
       - 'infra/postgres/migrations/037_batch_controller.sql'
       - 'tests/test_batch_controller.py'
       - 'tests/test_duckdb_iceberg.py'
+      - 'tests/test_data_supplement.py'
+      - 'tests/test_financial_publication.py'
+      - 'tests/test_source_quality_probe.py'
+      - 'tests/test_supplement_gap_matrix.py'
       - 'tests/stage_core_tests/test_stage_core.py'
       - 'tests/stage_core_tests/test_first_batch_sources.py'
       - 'tests/stage_core_tests/test_data_cleaning_regressions.py'
@@ -116,6 +120,10 @@ jobs:
               - 'tests/test_data_retention.py'
               - 'tests/test_batch_controller.py'
               - 'tests/test_duckdb_iceberg.py'
+              - 'tests/test_data_supplement.py'
+              - 'tests/test_financial_publication.py'
+              - 'tests/test_source_quality_probe.py'
+              - 'tests/test_supplement_gap_matrix.py'
               - 'tests/stage_core_tests/test_stage_core.py'
               - 'tests/stage_core_tests/test_first_batch_sources.py'
               - 'tests/stage_core_tests/test_data_cleaning_regressions.py'
@@ -203,6 +211,10 @@ jobs:
           tests/test_portfolio_deploy_contract.py
           tests/test_batch_controller.py
           tests/test_duckdb_iceberg.py
+          tests/test_data_supplement.py
+          tests/test_financial_publication.py
+          tests/test_source_quality_probe.py
+          tests/test_supplement_gap_matrix.py
           tests/test_data_retention.py
           tests/ingestion/test_control_plane.py
 

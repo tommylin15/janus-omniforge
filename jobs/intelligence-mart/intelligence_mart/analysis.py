@@ -287,7 +287,56 @@ def _change(values: list[float], window: int) -> float | None:
     return round((values[-1] / values[-window - 1] - 1) * 100, 6)
 
 
-def _features(datasets: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+def _financial_features_v2(rows):
+    """Compare one statement/period/unit/scope series; keep unproven EPS basis missing."""
+    monthly = [r for r in rows if r.get("statement_type") == "monthly_revenue"]
+    quarterly = [r for r in rows if r.get("metric", "").startswith("revenue_") and r.get("is_single_quarter")]
+    legacy_revenue = [r for r in rows if str(r.get("metric", "")).lower() in {"revenue", "營業收入"}]
+    eps = [r for r in rows if r.get("metric", "").startswith("eps_") and r.get("is_single_quarter")]
+
+    def comparable(series):
+        if any(r.get("source_id") == "mops" for r in series):
+            series = [r for r in series if r.get("source_id") == "mops"]
+        identities = {(r.get("symbol"), r.get("source_id"), r.get("report_scope"), r.get("unit"), r.get("currency")) for r in series}
+        if len(identities) != 1:
+            return []
+        return sorted(series, key=lambda r: (_financial_period_time(r) or datetime.min.replace(tzinfo=timezone.utc)))
+
+    revenue = comparable(monthly or quarterly or legacy_revenue)
+    eps = comparable(eps)
+    def trend(series):
+        values = [_number(r.get("value")) for r in series]
+        return round((values[-1]/values[0]-1)*100, 6) if len(values) > 1 and None not in values and values[0] else None
+
+    eps_basis_known = bool(eps) and all(r.get("share_basis_status") == "comparable" for r in eps)
+    history = [{"period_end": str(r.get("fiscal_period_end", "")), "value": _number(r.get("value")),
+                "unit": r.get("unit"), "period_basis": r.get("period_basis"), "report_scope": r.get("report_scope")}
+               for r in comparable(monthly)[-12:]]
+    balances = {}
+    for row in rows:
+        if row.get("statement_type") == "balance" and row.get("metric") in {"total_liabilities_snapshot", "total_equity_snapshot"}:
+            key = (row.get("symbol"), str(row.get("fiscal_period_end")), row.get("source_id"),
+                   row.get("report_scope"), row.get("unit"), row.get("currency"))
+            balances.setdefault(key, {})[row["metric"]] = _number(row.get("value"))
+    matching = [(key, value) for key, value in balances.items() if key[-2:] == ("TWD", "TWD") and
+                value.get("total_liabilities_snapshot") is not None and value.get("total_equity_snapshot")]
+    latest = max(matching, key=lambda item: item[0][1])[1] if matching else None
+    debt = round(latest["total_liabilities_snapshot"]/latest["total_equity_snapshot"], 6) if latest else None
+    reasons = {}
+    if trend(revenue) is None:
+        reasons["revenue_trend_percent"] = "insufficient_comparable_revenue_series"
+    if not eps_basis_known:
+        reasons["eps_trend_percent"] = "historical_eps_share_basis_unknown"
+    roe_rows = [r for r in rows if r.get("unit") == "percent" and r.get("metric") in {"roe", "權益報酬率", "權益報酬率(%)"}]
+    roe_rows.sort(key=lambda r: _financial_period_time(r) or datetime.min.replace(tzinfo=timezone.utc))
+    return {"fundamental": {"revenue_trend_percent": trend(revenue),
+                            "revenue_trend_basis": "monthly" if monthly else "single_quarter" if quarterly else "legacy_reported",
+                            "eps_trend_percent": trend(eps) if eps_basis_known else None,
+                            "monthly_revenue_history_12": history, "missing_reasons": reasons},
+            "valuation": {"debt_to_equity": debt, "roe": _number(roe_rows[-1].get("value")) if roe_rows else None}}
+
+
+def _features(datasets: dict[str, list[dict[str, Any]]], *, feature_version="1") -> dict[str, Any]:
     ohlcv = datasets.get("ohlcv", [])
     close = _series(ohlcv, "close")
     volume = _series(ohlcv, "volume_shares")
@@ -351,7 +400,7 @@ def _features(datasets: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
             drawdowns.append((value / peak - 1) * 100)
     events = datasets.get("events", [])
     severities = [_severity(row.get("severity")) for row in events]
-    return {
+    result = {
         "screening": screening,
         "fundamental": {"revenue_trend_percent": trend(("revenue", "營業收入")), "eps_trend_percent": trend(("eps", "每股盈餘")),
                         "observations": len(financials), "history_12": {key: values[-12:] for key, values in metric_history.items()}},
@@ -374,6 +423,43 @@ def _features(datasets: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
         "event_risk": {"dataset_available": "events" in datasets, "event_count": len(events),
                        "max_severity": max((value for value in severities if value is not None), default=None)},
     }
+    if feature_version == "2":
+        for role, values in _financial_features_v2(financials).items():
+            result[role].update(values)
+        price_days = {str(r.get("trade_date")): _number(r.get("close")) for r in ohlcv}
+        bench_days = {str(r.get("trade_date")): _number(r.get("close")) for r in datasets.get("benchmark", [])}
+        def dated_returns(values):
+            ordered = sorted(values)
+            return {(first, last): values[last]/values[first]-1 for first, last in zip(ordered, ordered[1:])
+                    if values[first] and values[last] is not None}
+        stock_returns, index_returns = dated_returns(price_days), dated_returns(bench_days)
+        periods = sorted(set(stock_returns) & set(index_returns))[-120:]
+        aligned_beta = None
+        if len(periods) >= 20:
+            xs, ys = [index_returns[p] for p in periods], [stock_returns[p] for p in periods]
+            xm, ym = fmean(xs), fmean(ys)
+            variance = sum((x-xm)**2 for x in xs)
+            aligned_beta = round(sum((x-xm)*(y-ym) for x, y in zip(xs, ys))/variance, 6) if variance else None
+        result["quant"].update(beta_120d=aligned_beta, beta_aligned_intervals=len(periods))
+        nets = {}
+        for row in institutional:
+            value = _number(row.get("net_shares"))
+            if value is not None:
+                day = str(row.get("trade_date"))
+                nets[day] = nets.get(day, 0)+value
+        volumes = {str(r.get("trade_date")): _number(r.get("volume_shares")) for r in ohlcv}
+        joined = sorted(day for day in set(nets) & set(volumes) if volumes[day] is not None)
+        for window in (5, 20, 60):
+            days = joined[-window:]
+            denominator = sum(volumes[d] for d in days)
+            result["positioning"][f"net_shares_{window}d"] = round(sum(nets[d] for d in days), 2) if len(days) == window else None
+            result["positioning"][f"net_volume_ratio_{window}d"] = round(sum(nets[d] for d in days)/denominator*100, 6) if len(days) == window and denominator else None
+        previous = joined[-10:-5]
+        denominator = sum(volumes[d] for d in previous)
+        result["positioning"].update(net_shares_previous_5d=round(sum(nets[d] for d in previous), 2) if len(previous) == 5 else None,
+            net_volume_ratio_previous_5d=round(sum(nets[d] for d in previous)/denominator*100, 6) if len(previous) == 5 and denominator else None,
+            aligned_trading_days=len(joined), denominator_basis="same-date TWSE volume_shares; full requested trading-day window")
+    return result
 
 
 def _role(name: str, features: dict[str, Any], evidence: list[dict[str, Any]]) -> dict[str, Any]:
@@ -525,7 +611,7 @@ def analyze(*, execution_id: str, analysis_as_of: str, core_snapshot_id: str, re
         valid_ids = {item["evidence_id"] for item in evidence}
         validated = {name: [row for row in rows if _evidence_id(name, row, core_snapshot_id) in valid_ids]
                      for name, rows in selected.items() if not rows or any(_evidence_id(name, row, core_snapshot_id) in valid_ids for row in rows)}
-        features = _features(validated)
+        features = _features(validated, feature_version=options["feature_version"])
         roles = [_role(name, features, evidence) for name in ROLE_WEIGHTS]
         fact_packs = _fact_packs(roles=roles, evidence=evidence, analysis_as_of=analysis_as_of,
                                  core_snapshot_id=core_snapshot_id, feature_version=options["feature_version"])

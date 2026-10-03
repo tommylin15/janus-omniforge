@@ -1,0 +1,2731 @@
+{
+  "active_target_symbols": [
+    "2327",
+    "2330",
+    "5876"
+  ],
+  "analysis_as_of": "2026-10-01",
+  "core_execution_id": "f8f3b62d-6ba4-439a-b521-1899df308910",
+  "core_snapshot_id": "sha256:dbac33d5af89ba57047ee499fbe9800dd2906d08c5b2662f2080522f8f3b44e5",
+  "provider_calls": 0,
+  "publication_writes": 0,
+  "symbols": {
+    "1102": {
+      "blockers": [],
+      "datasets": {
+        "benchmark": {
+          "metrics": [],
+          "missing_availability_at": 34,
+          "missing_published_at": 34,
+          "periods": [],
+          "qualified_dates": [
+            "2026-03-17T00:00:00Z",
+            "2026-03-18T00:00:00Z",
+            "2026-03-19T00:00:00Z",
+            "2026-03-20T00:00:00Z",
+            "2026-03-23T00:00:00Z",
+            "2026-03-24T00:00:00Z",
+            "2026-03-25T00:00:00Z",
+            "2026-03-26T00:00:00Z",
+            "2026-03-27T00:00:00Z",
+            "2026-03-30T00:00:00Z",
+            "2026-03-31T00:00:00Z",
+            "2026-04-01T00:00:00Z",
+            "2026-04-02T00:00:00Z",
+            "2026-04-03T00:00:00Z",
+            "2026-08-27T00:00:00Z",
+            "2026-08-28T00:00:00Z",
+            "2026-08-31T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            "2026-09-02T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-15T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-22T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-25T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 34,
+          "raw_rows": 73,
+          "source_ids": [
+            "taiex",
+            "tpex-benchmark"
+          ],
+          "statements": {
+            "None": 73
+          }
+        },
+        "events": {
+          "metrics": [],
+          "missing_availability_at": 1,
+          "missing_published_at": 0,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-16T00:00:00Z"
+          ],
+          "qualified_rows": 1,
+          "raw_rows": 1,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 1
+          }
+        },
+        "financials": {
+          "metrics": [
+            "ComprehensiveIncomeConsolidatedNetIncomeAttributedNonControllingInterest",
+            "CostOfGoodsSold",
+            "EPS",
+            "EquityAttributableToOwnersOfParent",
+            "GrossProfit",
+            "IncomeAfterTaxes",
+            "IncomeFromContinuingOperations",
+            "NoncontrollingInterests",
+            "OperatingExpenses",
+            "OperatingIncome",
+            "OtherComprehensiveIncome",
+            "PreTaxIncome",
+            "Revenue",
+            "TAX",
+            "TotalConsolidatedProfitForThePeriod",
+            "TotalNonoperatingIncomeAndExpense",
+            "停業單位損益",
+            "其他收益及費損淨額",
+            "其他綜合損益（淨額）",
+            "原始認列生物資產及農產品之利益（損失）",
+            "合併前非屬共同控制股權損益",
+            "合併前非屬共同控制股權綜合損益淨額",
+            "基本每股盈餘（元）",
+            "已實現銷貨（損）益",
+            "所得稅費用（利益）",
+            "未實現銷貨（損）益",
+            "本期淨利（淨損）",
+            "本期綜合損益總額",
+            "淨利（淨損）歸屬於共同控制下前手權益",
+            "淨利（淨損）歸屬於母公司業主",
+            "淨利（淨損）歸屬於非控制權益",
+            "營業利益（損失）",
+            "營業外收入及支出",
+            "營業成本",
+            "營業收入",
+            "營業毛利（毛損）",
+            "營業毛利（毛損）淨額",
+            "營業費用",
+            "生物資產當期公允價值減出售成本之變動利益（損失）",
+            "稅前淨利（淨損）",
+            "綜合損益總額歸屬於共同控制下前手權益",
+            "綜合損益總額歸屬於母公司業主",
+            "綜合損益總額歸屬於非控制權益",
+            "繼續營業單位本期淨利（淨損）"
+          ],
+          "missing_availability_at": 0,
+          "missing_published_at": 28,
+          "periods": [
+            "2025Q1",
+            "2025Q2",
+            "2025Q3",
+            "2025Q4",
+            "2026Q1",
+            "2026Q2"
+          ],
+          "qualified_dates": [
+            "2026-06-30T00:00:00Z"
+          ],
+          "qualified_rows": 28,
+          "raw_rows": 768,
+          "source_ids": [
+            "finmind",
+            "mops"
+          ],
+          "statements": {
+            "financial": 96,
+            "income": 672
+          }
+        },
+        "institutional": {
+          "metrics": [],
+          "missing_availability_at": 90,
+          "missing_published_at": 90,
+          "periods": [],
+          "qualified_dates": [
+            "2026-03-17T00:00:00Z",
+            "2026-03-18T00:00:00Z",
+            "2026-03-19T00:00:00Z",
+            "2026-03-20T00:00:00Z",
+            "2026-03-23T00:00:00Z",
+            "2026-03-24T00:00:00Z",
+            "2026-03-25T00:00:00Z",
+            "2026-03-26T00:00:00Z",
+            "2026-03-27T00:00:00Z",
+            "2026-03-30T00:00:00Z",
+            "2026-03-31T00:00:00Z",
+            "2026-04-01T00:00:00Z",
+            "2026-04-02T00:00:00Z",
+            "2026-08-27T00:00:00Z",
+            "2026-08-28T00:00:00Z",
+            "2026-08-31T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-15T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 90,
+          "raw_rows": 90,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 90
+          }
+        },
+        "market-activity": {
+          "metrics": [
+            "day_trade_buy_twd",
+            "day_trade_sell_twd",
+            "day_trade_shares",
+            "margin_balance",
+            "margin_buy",
+            "margin_cash_redemption",
+            "margin_sell",
+            "margin_short_balance",
+            "margin_short_sell",
+            "sbl_short_balance",
+            "sbl_short_sell"
+          ],
+          "missing_availability_at": 125,
+          "missing_published_at": 125,
+          "periods": [],
+          "qualified_dates": [
+            "2026-03-17T00:00:00Z",
+            "2026-03-18T00:00:00Z",
+            "2026-03-19T00:00:00Z",
+            "2026-03-20T00:00:00Z",
+            "2026-03-23T00:00:00Z",
+            "2026-03-24T00:00:00Z",
+            "2026-03-25T00:00:00Z",
+            "2026-03-26T00:00:00Z",
+            "2026-03-27T00:00:00Z",
+            "2026-03-30T00:00:00Z",
+            "2026-03-31T00:00:00Z",
+            "2026-04-01T00:00:00Z",
+            "2026-04-02T00:00:00Z",
+            "2026-08-27T00:00:00Z",
+            "2026-08-28T00:00:00Z",
+            "2026-08-31T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            "2026-09-02T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-15T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 125,
+          "raw_rows": 125,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 125
+          }
+        },
+        "market-volume": {
+          "metrics": [],
+          "missing_availability_at": 7,
+          "missing_published_at": 7,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-21T00:00:00Z",
+            "2026-09-22T00:00:00Z",
+            "2026-09-23T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 7,
+          "raw_rows": 7,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 7
+          }
+        },
+        "ohlcv": {
+          "metrics": [],
+          "missing_availability_at": 16,
+          "missing_published_at": 16,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-01T00:00:00Z",
+            "2026-09-02T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-07T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-21T00:00:00Z",
+            "2026-09-22T00:00:00Z",
+            "2026-09-23T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 16,
+          "raw_rows": 21,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 21
+          }
+        },
+        "stock-profile": {
+          "metrics": [],
+          "missing_availability_at": 5,
+          "missing_published_at": 5,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-27T00:00:00Z",
+            "2026-09-28T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 5,
+          "raw_rows": 5,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 5
+          }
+        },
+        "valuation": {
+          "metrics": [],
+          "missing_availability_at": 30,
+          "missing_published_at": 30,
+          "periods": [],
+          "qualified_dates": [
+            "2026-03-17T00:00:00Z",
+            "2026-03-18T00:00:00Z",
+            "2026-03-19T00:00:00Z",
+            "2026-03-20T00:00:00Z",
+            "2026-03-23T00:00:00Z",
+            "2026-03-24T00:00:00Z",
+            "2026-03-25T00:00:00Z",
+            "2026-03-26T00:00:00Z",
+            "2026-03-27T00:00:00Z",
+            "2026-03-30T00:00:00Z",
+            "2026-03-31T00:00:00Z",
+            "2026-04-01T00:00:00Z",
+            "2026-04-02T00:00:00Z",
+            "2026-08-27T00:00:00Z",
+            "2026-08-28T00:00:00Z",
+            "2026-08-31T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-15T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 30,
+          "raw_rows": 30,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 30
+          }
+        }
+      },
+      "qualified_features": {
+        "event_risk": {
+          "dataset_available": true,
+          "event_count": 1,
+          "max_severity": null
+        },
+        "fundamental": {
+          "eps_trend_percent": null,
+          "history_12": {
+            "其他綜合損益（淨額）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 6205057
+              }
+            ],
+            "基本每股盈餘（元）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_per_share",
+                "value": 2.13
+              }
+            ],
+            "所得稅費用（利益）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 633989
+              }
+            ],
+            "本期淨利（淨損）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 7030464
+              }
+            ],
+            "本期綜合損益總額": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 13235521
+              }
+            ],
+            "淨利（淨損）歸屬於母公司業主": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 7113707
+              }
+            ],
+            "淨利（淨損）歸屬於非控制權益": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": -83243
+              }
+            ],
+            "營業利益（損失）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 2895481
+              }
+            ],
+            "營業外收入及支出": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 4768972
+              }
+            ],
+            "營業成本": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 28230836
+              }
+            ],
+            "營業收入": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 32660010
+              }
+            ],
+            "營業毛利（毛損）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 4429174
+              }
+            ],
+            "營業毛利（毛損）淨額": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 4429174
+              }
+            ],
+            "營業費用": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 1533693
+              }
+            ],
+            "稅前淨利（淨損）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 7664453
+              }
+            ],
+            "綜合損益總額歸屬於母公司業主": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 12308387
+              }
+            ],
+            "綜合損益總額歸屬於非控制權益": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 927134
+              }
+            ],
+            "繼續營業單位本期淨利（淨損）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 7030464
+              }
+            ]
+          },
+          "observations": 28,
+          "revenue_trend_percent": null
+        },
+        "positioning": {
+          "net_shares_20d": 23671917,
+          "net_shares_5d": 6378192,
+          "net_shares_60d": 3212564,
+          "net_shares_previous_5d": 5101194,
+          "net_volume_ratio_20d": 15.908045,
+          "net_volume_ratio_5d": 13.716799,
+          "net_volume_ratio_60d": 2.006702,
+          "net_volume_ratio_previous_5d": 13.999268
+        },
+        "quant": {
+          "atr_14d": 0.542857,
+          "beta_120d": -0.023443,
+          "max_drawdown_120d": -1.808067,
+          "reference_stop": 34.564286,
+          "relative_strength_20d": -22.79452,
+          "return_120d": null,
+          "return_20d": 1.422475,
+          "return_60d": null,
+          "turnover_20d": 262175427.8
+        },
+        "screening": {
+          "breakout_20d": false,
+          "liquidity_turnover_20d": 262175427.8,
+          "return_anomaly": false,
+          "volume_ratio_20d": 1.591641
+        },
+        "valuation": {
+          "debt_to_equity": null,
+          "dividend_yield_percent": 6.45,
+          "pb_ratio": 0.69,
+          "pe_ratio": 9.85,
+          "roe": null
+        }
+      },
+      "rejected": {
+        "duplicate": 5,
+        "missing_availability_time": 600
+      }
+    },
+    "2327": {
+      "blockers": [],
+      "datasets": {
+        "benchmark": {
+          "metrics": [],
+          "missing_availability_at": 34,
+          "missing_published_at": 34,
+          "periods": [],
+          "qualified_dates": [
+            "2026-03-17T00:00:00Z",
+            "2026-03-18T00:00:00Z",
+            "2026-03-19T00:00:00Z",
+            "2026-03-20T00:00:00Z",
+            "2026-03-23T00:00:00Z",
+            "2026-03-24T00:00:00Z",
+            "2026-03-25T00:00:00Z",
+            "2026-03-26T00:00:00Z",
+            "2026-03-27T00:00:00Z",
+            "2026-03-30T00:00:00Z",
+            "2026-03-31T00:00:00Z",
+            "2026-04-01T00:00:00Z",
+            "2026-04-02T00:00:00Z",
+            "2026-04-03T00:00:00Z",
+            "2026-08-27T00:00:00Z",
+            "2026-08-28T00:00:00Z",
+            "2026-08-31T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            "2026-09-02T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-15T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-22T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-25T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 34,
+          "raw_rows": 73,
+          "source_ids": [
+            "taiex",
+            "tpex-benchmark"
+          ],
+          "statements": {
+            "None": 73
+          }
+        },
+        "events": {
+          "metrics": [],
+          "missing_availability_at": 5,
+          "missing_published_at": 0,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-10T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-21T00:00:00Z",
+            "2026-09-22T00:00:00Z",
+            "2026-09-23T00:00:00Z"
+          ],
+          "qualified_rows": 5,
+          "raw_rows": 5,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 5
+          }
+        },
+        "financials": {
+          "metrics": [
+            "ComprehensiveIncomeConsolidatedNetIncomeAttributedNonControllingInterest",
+            "CostOfGoodsSold",
+            "EPS",
+            "EquityAttributableToOwnersOfParent",
+            "GrossProfit",
+            "IncomeAfterTaxes",
+            "IncomeFromContinuingOperations",
+            "NoncontrollingInterests",
+            "OperatingExpenses",
+            "OperatingIncome",
+            "OtherComprehensiveIncome",
+            "PreTaxIncome",
+            "Revenue",
+            "TAX",
+            "TotalConsolidatedProfitForThePeriod",
+            "TotalNonoperatingIncomeAndExpense",
+            "停業單位損益",
+            "其他收益及費損淨額",
+            "其他綜合損益（淨額）",
+            "原始認列生物資產及農產品之利益（損失）",
+            "合併前非屬共同控制股權損益",
+            "合併前非屬共同控制股權綜合損益淨額",
+            "基本每股盈餘（元）",
+            "已實現銷貨（損）益",
+            "所得稅費用（利益）",
+            "未實現銷貨（損）益",
+            "本期淨利（淨損）",
+            "本期綜合損益總額",
+            "淨利（淨損）歸屬於共同控制下前手權益",
+            "淨利（淨損）歸屬於母公司業主",
+            "淨利（淨損）歸屬於非控制權益",
+            "營業利益（損失）",
+            "營業外收入及支出",
+            "營業成本",
+            "營業收入",
+            "營業毛利（毛損）",
+            "營業毛利（毛損）淨額",
+            "營業費用",
+            "生物資產當期公允價值減出售成本之變動利益（損失）",
+            "稅前淨利（淨損）",
+            "綜合損益總額歸屬於共同控制下前手權益",
+            "綜合損益總額歸屬於母公司業主",
+            "綜合損益總額歸屬於非控制權益",
+            "繼續營業單位本期淨利（淨損）"
+          ],
+          "missing_availability_at": 0,
+          "missing_published_at": 28,
+          "periods": [
+            "2025Q1",
+            "2025Q2",
+            "2025Q3",
+            "2025Q4",
+            "2026Q1",
+            "2026Q2"
+          ],
+          "qualified_dates": [
+            "2026-06-30T00:00:00Z"
+          ],
+          "qualified_rows": 28,
+          "raw_rows": 796,
+          "source_ids": [
+            "finmind",
+            "mops"
+          ],
+          "statements": {
+            "financial": 96,
+            "income": 700
+          }
+        },
+        "institutional": {
+          "metrics": [],
+          "missing_availability_at": 90,
+          "missing_published_at": 90,
+          "periods": [],
+          "qualified_dates": [
+            "2026-03-17T00:00:00Z",
+            "2026-03-18T00:00:00Z",
+            "2026-03-19T00:00:00Z",
+            "2026-03-20T00:00:00Z",
+            "2026-03-23T00:00:00Z",
+            "2026-03-24T00:00:00Z",
+            "2026-03-25T00:00:00Z",
+            "2026-03-26T00:00:00Z",
+            "2026-03-27T00:00:00Z",
+            "2026-03-30T00:00:00Z",
+            "2026-03-31T00:00:00Z",
+            "2026-04-01T00:00:00Z",
+            "2026-04-02T00:00:00Z",
+            "2026-08-27T00:00:00Z",
+            "2026-08-28T00:00:00Z",
+            "2026-08-31T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-15T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 90,
+          "raw_rows": 90,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 90
+          }
+        },
+        "market-activity": {
+          "metrics": [
+            "day_trade_buy_twd",
+            "day_trade_sell_twd",
+            "day_trade_shares",
+            "margin_balance",
+            "margin_buy",
+            "margin_cash_redemption",
+            "margin_sell",
+            "margin_short_balance",
+            "margin_short_sell",
+            "sbl_short_balance",
+            "sbl_short_sell"
+          ],
+          "missing_availability_at": 125,
+          "missing_published_at": 125,
+          "periods": [],
+          "qualified_dates": [
+            "2026-03-17T00:00:00Z",
+            "2026-03-18T00:00:00Z",
+            "2026-03-19T00:00:00Z",
+            "2026-03-20T00:00:00Z",
+            "2026-03-23T00:00:00Z",
+            "2026-03-24T00:00:00Z",
+            "2026-03-25T00:00:00Z",
+            "2026-03-26T00:00:00Z",
+            "2026-03-27T00:00:00Z",
+            "2026-03-30T00:00:00Z",
+            "2026-03-31T00:00:00Z",
+            "2026-04-01T00:00:00Z",
+            "2026-04-02T00:00:00Z",
+            "2026-08-27T00:00:00Z",
+            "2026-08-28T00:00:00Z",
+            "2026-08-31T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            "2026-09-02T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-15T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 125,
+          "raw_rows": 125,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 125
+          }
+        },
+        "market-volume": {
+          "metrics": [],
+          "missing_availability_at": 7,
+          "missing_published_at": 7,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-21T00:00:00Z",
+            "2026-09-22T00:00:00Z",
+            "2026-09-23T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 7,
+          "raw_rows": 7,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 7
+          }
+        },
+        "ohlcv": {
+          "metrics": [],
+          "missing_availability_at": 21,
+          "missing_published_at": 21,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-01T00:00:00Z",
+            "2026-09-02T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-07T00:00:00Z",
+            "2026-09-08T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-15T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-18T00:00:00Z",
+            "2026-09-21T00:00:00Z",
+            "2026-09-22T00:00:00Z",
+            "2026-09-23T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 21,
+          "raw_rows": 21,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 21
+          }
+        },
+        "stock-profile": {
+          "metrics": [],
+          "missing_availability_at": 5,
+          "missing_published_at": 5,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-27T00:00:00Z",
+            "2026-09-28T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 5,
+          "raw_rows": 5,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 5
+          }
+        },
+        "valuation": {
+          "metrics": [],
+          "missing_availability_at": 30,
+          "missing_published_at": 30,
+          "periods": [],
+          "qualified_dates": [
+            "2026-03-17T00:00:00Z",
+            "2026-03-18T00:00:00Z",
+            "2026-03-19T00:00:00Z",
+            "2026-03-20T00:00:00Z",
+            "2026-03-23T00:00:00Z",
+            "2026-03-24T00:00:00Z",
+            "2026-03-25T00:00:00Z",
+            "2026-03-26T00:00:00Z",
+            "2026-03-27T00:00:00Z",
+            "2026-03-30T00:00:00Z",
+            "2026-03-31T00:00:00Z",
+            "2026-04-01T00:00:00Z",
+            "2026-04-02T00:00:00Z",
+            "2026-08-27T00:00:00Z",
+            "2026-08-28T00:00:00Z",
+            "2026-08-31T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-15T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 30,
+          "raw_rows": 30,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 30
+          }
+        }
+      },
+      "qualified_features": {
+        "event_risk": {
+          "dataset_available": true,
+          "event_count": 5,
+          "max_severity": null
+        },
+        "fundamental": {
+          "eps_trend_percent": null,
+          "history_12": {
+            "其他綜合損益（淨額）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 2611068
+              }
+            ],
+            "基本每股盈餘（元）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_per_share",
+                "value": 8.48
+              }
+            ],
+            "所得稅費用（利益）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 5053224
+              }
+            ],
+            "本期淨利（淨損）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 17493881
+              }
+            ],
+            "本期綜合損益總額": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 20104949
+              }
+            ],
+            "淨利（淨損）歸屬於母公司業主": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 17419139
+              }
+            ],
+            "淨利（淨損）歸屬於非控制權益": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 74742
+              }
+            ],
+            "營業利益（損失）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 21361624
+              }
+            ],
+            "營業外收入及支出": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 1185481
+              }
+            ],
+            "營業成本": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 50963891
+              }
+            ],
+            "營業收入": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 82621975
+              }
+            ],
+            "營業毛利（毛損）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 31658084
+              }
+            ],
+            "營業毛利（毛損）淨額": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 31658084
+              }
+            ],
+            "營業費用": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 10296460
+              }
+            ],
+            "稅前淨利（淨損）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 22547105
+              }
+            ],
+            "綜合損益總額歸屬於母公司業主": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 20027216
+              }
+            ],
+            "綜合損益總額歸屬於非控制權益": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 77733
+              }
+            ],
+            "繼續營業單位本期淨利（淨損）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 17493881
+              }
+            ]
+          },
+          "observations": 28,
+          "revenue_trend_percent": null
+        },
+        "positioning": {
+          "net_shares_20d": -17087749,
+          "net_shares_5d": 8793882,
+          "net_shares_60d": -19632495,
+          "net_shares_previous_5d": -9703427,
+          "net_volume_ratio_20d": -2.271729,
+          "net_volume_ratio_5d": 4.018662,
+          "net_volume_ratio_60d": -2.423902,
+          "net_volume_ratio_previous_5d": -6.559202
+        },
+        "quant": {
+          "atr_14d": 28.857143,
+          "beta_120d": -0.197155,
+          "max_drawdown_120d": -10.186757,
+          "reference_stop": 544.285714,
+          "relative_strength_20d": -18.23108,
+          "return_120d": null,
+          "return_20d": 5.985915,
+          "return_60d": null,
+          "turnover_20d": 21176585735.6
+        },
+        "screening": {
+          "breakout_20d": true,
+          "liquidity_turnover_20d": 21176585735.6,
+          "return_anomaly": false,
+          "volume_ratio_20d": 1.971239
+        },
+        "valuation": {
+          "debt_to_equity": null,
+          "dividend_yield_percent": 1,
+          "pb_ratio": 7,
+          "pe_ratio": 40.54,
+          "roe": null
+        }
+      },
+      "rejected": {
+        "missing_availability_time": 628
+      }
+    },
+    "2330": {
+      "blockers": [
+        "invalid_evidence"
+      ],
+      "datasets": {
+        "benchmark": {
+          "metrics": [],
+          "missing_availability_at": 34,
+          "missing_published_at": 34,
+          "periods": [],
+          "qualified_dates": [
+            "2026-03-17T00:00:00Z",
+            "2026-03-18T00:00:00Z",
+            "2026-03-19T00:00:00Z",
+            "2026-03-20T00:00:00Z",
+            "2026-03-23T00:00:00Z",
+            "2026-03-24T00:00:00Z",
+            "2026-03-25T00:00:00Z",
+            "2026-03-26T00:00:00Z",
+            "2026-03-27T00:00:00Z",
+            "2026-03-30T00:00:00Z",
+            "2026-03-31T00:00:00Z",
+            "2026-04-01T00:00:00Z",
+            "2026-04-02T00:00:00Z",
+            "2026-04-03T00:00:00Z",
+            "2026-08-27T00:00:00Z",
+            "2026-08-28T00:00:00Z",
+            "2026-08-31T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            "2026-09-02T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-15T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-22T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-25T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 34,
+          "raw_rows": 73,
+          "source_ids": [
+            "taiex",
+            "tpex-benchmark"
+          ],
+          "statements": {
+            "None": 73
+          }
+        },
+        "events": {
+          "metrics": [],
+          "missing_availability_at": 2,
+          "missing_published_at": 0,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-01T00:00:00Z",
+            "2026-09-10T00:00:00Z"
+          ],
+          "qualified_rows": 2,
+          "raw_rows": 3,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 3
+          }
+        },
+        "financials": {
+          "metrics": [
+            "ComprehensiveIncomeConsolidatedNetIncomeAttributedNonControllingInterest",
+            "CostOfGoodsSold",
+            "EPS",
+            "EquityAttributableToOwnersOfParent",
+            "GrossProfit",
+            "IncomeAfterTaxes",
+            "IncomeFromContinuingOperations",
+            "NoncontrollingInterests",
+            "OTHNOE",
+            "OperatingExpenses",
+            "OperatingIncome",
+            "OtherComprehensiveIncome",
+            "PreTaxIncome",
+            "Revenue",
+            "TAX",
+            "TotalConsolidatedProfitForThePeriod",
+            "TotalNonoperatingIncomeAndExpense",
+            "停業單位損益",
+            "其他收益及費損淨額",
+            "其他綜合損益（淨額）",
+            "原始認列生物資產及農產品之利益（損失）",
+            "合併前非屬共同控制股權損益",
+            "合併前非屬共同控制股權綜合損益淨額",
+            "基本每股盈餘（元）",
+            "已實現銷貨（損）益",
+            "所得稅費用（利益）",
+            "未實現銷貨（損）益",
+            "本期淨利（淨損）",
+            "本期綜合損益總額",
+            "淨利（淨損）歸屬於共同控制下前手權益",
+            "淨利（淨損）歸屬於母公司業主",
+            "淨利（淨損）歸屬於非控制權益",
+            "營業利益（損失）",
+            "營業外收入及支出",
+            "營業成本",
+            "營業收入",
+            "營業毛利（毛損）",
+            "營業毛利（毛損）淨額",
+            "營業費用",
+            "生物資產當期公允價值減出售成本之變動利益（損失）",
+            "稅前淨利（淨損）",
+            "綜合損益總額歸屬於共同控制下前手權益",
+            "綜合損益總額歸屬於母公司業主",
+            "綜合損益總額歸屬於非控制權益",
+            "繼續營業單位本期淨利（淨損）"
+          ],
+          "missing_availability_at": 0,
+          "missing_published_at": 28,
+          "periods": [
+            "2025Q1",
+            "2025Q2",
+            "2025Q3",
+            "2025Q4",
+            "2026Q1",
+            "2026Q2"
+          ],
+          "qualified_dates": [
+            "2026-06-30T00:00:00Z"
+          ],
+          "qualified_rows": 28,
+          "raw_rows": 774,
+          "source_ids": [
+            "finmind",
+            "mops"
+          ],
+          "statements": {
+            "financial": 102,
+            "income": 672
+          }
+        },
+        "institutional": {
+          "metrics": [],
+          "missing_availability_at": 90,
+          "missing_published_at": 90,
+          "periods": [],
+          "qualified_dates": [
+            "2026-03-17T00:00:00Z",
+            "2026-03-18T00:00:00Z",
+            "2026-03-19T00:00:00Z",
+            "2026-03-20T00:00:00Z",
+            "2026-03-23T00:00:00Z",
+            "2026-03-24T00:00:00Z",
+            "2026-03-25T00:00:00Z",
+            "2026-03-26T00:00:00Z",
+            "2026-03-27T00:00:00Z",
+            "2026-03-30T00:00:00Z",
+            "2026-03-31T00:00:00Z",
+            "2026-04-01T00:00:00Z",
+            "2026-04-02T00:00:00Z",
+            "2026-08-27T00:00:00Z",
+            "2026-08-28T00:00:00Z",
+            "2026-08-31T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-15T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 90,
+          "raw_rows": 90,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 90
+          }
+        },
+        "market-activity": {
+          "metrics": [
+            "day_trade_buy_twd",
+            "day_trade_sell_twd",
+            "day_trade_shares",
+            "margin_balance",
+            "margin_buy",
+            "margin_cash_redemption",
+            "margin_sell",
+            "margin_short_balance",
+            "margin_short_sell",
+            "sbl_short_balance",
+            "sbl_short_sell"
+          ],
+          "missing_availability_at": 125,
+          "missing_published_at": 125,
+          "periods": [],
+          "qualified_dates": [
+            "2026-03-17T00:00:00Z",
+            "2026-03-18T00:00:00Z",
+            "2026-03-19T00:00:00Z",
+            "2026-03-20T00:00:00Z",
+            "2026-03-23T00:00:00Z",
+            "2026-03-24T00:00:00Z",
+            "2026-03-25T00:00:00Z",
+            "2026-03-26T00:00:00Z",
+            "2026-03-27T00:00:00Z",
+            "2026-03-30T00:00:00Z",
+            "2026-03-31T00:00:00Z",
+            "2026-04-01T00:00:00Z",
+            "2026-04-02T00:00:00Z",
+            "2026-08-27T00:00:00Z",
+            "2026-08-28T00:00:00Z",
+            "2026-08-31T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            "2026-09-02T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-15T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 125,
+          "raw_rows": 125,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 125
+          }
+        },
+        "market-volume": {
+          "metrics": [],
+          "missing_availability_at": 7,
+          "missing_published_at": 7,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-21T00:00:00Z",
+            "2026-09-22T00:00:00Z",
+            "2026-09-23T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 7,
+          "raw_rows": 7,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 7
+          }
+        },
+        "ohlcv": {
+          "metrics": [],
+          "missing_availability_at": 17,
+          "missing_published_at": 17,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-01T00:00:00Z",
+            "2026-09-02T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-07T00:00:00Z",
+            "2026-09-08T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-21T00:00:00Z",
+            "2026-09-22T00:00:00Z",
+            "2026-09-23T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 17,
+          "raw_rows": 21,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 21
+          }
+        },
+        "stock-profile": {
+          "metrics": [],
+          "missing_availability_at": 5,
+          "missing_published_at": 5,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-27T00:00:00Z",
+            "2026-09-28T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 5,
+          "raw_rows": 5,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 5
+          }
+        },
+        "valuation": {
+          "metrics": [],
+          "missing_availability_at": 30,
+          "missing_published_at": 30,
+          "periods": [],
+          "qualified_dates": [
+            "2026-03-17T00:00:00Z",
+            "2026-03-18T00:00:00Z",
+            "2026-03-19T00:00:00Z",
+            "2026-03-20T00:00:00Z",
+            "2026-03-23T00:00:00Z",
+            "2026-03-24T00:00:00Z",
+            "2026-03-25T00:00:00Z",
+            "2026-03-26T00:00:00Z",
+            "2026-03-27T00:00:00Z",
+            "2026-03-30T00:00:00Z",
+            "2026-03-31T00:00:00Z",
+            "2026-04-01T00:00:00Z",
+            "2026-04-02T00:00:00Z",
+            "2026-08-27T00:00:00Z",
+            "2026-08-28T00:00:00Z",
+            "2026-08-31T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-15T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 30,
+          "raw_rows": 30,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 30
+          }
+        }
+      },
+      "qualified_features": {
+        "event_risk": {
+          "dataset_available": true,
+          "event_count": 2,
+          "max_severity": null
+        },
+        "fundamental": {
+          "eps_trend_percent": null,
+          "history_12": {
+            "其他收益及費損淨額": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 6950417
+              }
+            ],
+            "其他綜合損益（淨額）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 71282249
+              }
+            ],
+            "基本每股盈餘（元）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_per_share",
+                "value": 49.33
+              }
+            ],
+            "所得稅費用（利益）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 270647546
+              }
+            ],
+            "本期淨利（淨損）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 1279582227
+              }
+            ],
+            "本期綜合損益總額": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 1350864476
+              }
+            ],
+            "淨利（淨損）歸屬於母公司業主": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 1279041690
+              }
+            ],
+            "淨利（淨損）歸屬於非控制權益": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 540537
+              }
+            ],
+            "營業利益（損失）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 1425568793
+              }
+            ],
+            "營業外收入及支出": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 124660980
+              }
+            ],
+            "營業成本": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 792877574
+              }
+            ],
+            "營業收入": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 2404483690
+              }
+            ],
+            "營業毛利（毛損）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 1611606116
+              }
+            ],
+            "營業毛利（毛損）淨額": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 1611606116
+              }
+            ],
+            "營業費用": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 192987740
+              }
+            ],
+            "稅前淨利（淨損）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 1550229773
+              }
+            ],
+            "綜合損益總額歸屬於母公司業主": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 1350950974
+              }
+            ],
+            "綜合損益總額歸屬於非控制權益": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": -86498
+              }
+            ],
+            "繼續營業單位本期淨利（淨損）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 1279582227
+              }
+            ]
+          },
+          "observations": 28,
+          "revenue_trend_percent": null
+        },
+        "positioning": {
+          "net_shares_20d": -43139566,
+          "net_shares_5d": 2694626,
+          "net_shares_60d": -120482522,
+          "net_shares_previous_5d": -33489803,
+          "net_volume_ratio_20d": -9.758287,
+          "net_volume_ratio_5d": 2.260261,
+          "net_volume_ratio_60d": -25.421652,
+          "net_volume_ratio_previous_5d": -28.375085
+        },
+        "quant": {
+          "atr_14d": 35.714286,
+          "beta_120d": -0.140436,
+          "max_drawdown_120d": -3.643725,
+          "reference_stop": 2438.571428,
+          "relative_strength_20d": -21.348143,
+          "return_120d": null,
+          "return_20d": 2.868852,
+          "return_60d": null,
+          "turnover_20d": 54126519873.25
+        },
+        "screening": {
+          "breakout_20d": true,
+          "liquidity_turnover_20d": 54126519873.25,
+          "return_anomaly": false,
+          "volume_ratio_20d": 0.934945
+        },
+        "valuation": {
+          "debt_to_equity": null,
+          "dividend_yield_percent": 0.88,
+          "pb_ratio": 10.12,
+          "pe_ratio": 29.09,
+          "roe": null
+        }
+      },
+      "rejected": {
+        "duplicate": 4,
+        "future_leakage": 1,
+        "missing_availability_time": 606
+      }
+    },
+    "4958": {
+      "blockers": [],
+      "datasets": {
+        "benchmark": {
+          "metrics": [],
+          "missing_availability_at": 34,
+          "missing_published_at": 34,
+          "periods": [],
+          "qualified_dates": [
+            "2026-03-17T00:00:00Z",
+            "2026-03-18T00:00:00Z",
+            "2026-03-19T00:00:00Z",
+            "2026-03-20T00:00:00Z",
+            "2026-03-23T00:00:00Z",
+            "2026-03-24T00:00:00Z",
+            "2026-03-25T00:00:00Z",
+            "2026-03-26T00:00:00Z",
+            "2026-03-27T00:00:00Z",
+            "2026-03-30T00:00:00Z",
+            "2026-03-31T00:00:00Z",
+            "2026-04-01T00:00:00Z",
+            "2026-04-02T00:00:00Z",
+            "2026-04-03T00:00:00Z",
+            "2026-08-27T00:00:00Z",
+            "2026-08-28T00:00:00Z",
+            "2026-08-31T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            "2026-09-02T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-15T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-22T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-25T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 34,
+          "raw_rows": 73,
+          "source_ids": [
+            "taiex",
+            "tpex-benchmark"
+          ],
+          "statements": {
+            "None": 73
+          }
+        },
+        "events": {
+          "metrics": [],
+          "missing_availability_at": 16,
+          "missing_published_at": 0,
+          "periods": [],
+          "qualified_dates": [
+            "2026-08-28T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-18T00:00:00Z",
+            "2026-09-25T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 16,
+          "raw_rows": 17,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 17
+          }
+        },
+        "financials": {
+          "metrics": [
+            "ComprehensiveIncomeConsolidatedNetIncomeAttributedNonControllingInterest",
+            "CostOfGoodsSold",
+            "EPS",
+            "EquityAttributableToOwnersOfParent",
+            "GrossProfit",
+            "IncomeAfterTaxes",
+            "IncomeFromContinuingOperations",
+            "NoncontrollingInterests",
+            "OperatingExpenses",
+            "OperatingIncome",
+            "OtherComprehensiveIncome",
+            "PreTaxIncome",
+            "Revenue",
+            "TAX",
+            "TotalConsolidatedProfitForThePeriod",
+            "TotalNonoperatingIncomeAndExpense",
+            "停業單位損益",
+            "其他收益及費損淨額",
+            "其他綜合損益（淨額）",
+            "原始認列生物資產及農產品之利益（損失）",
+            "合併前非屬共同控制股權損益",
+            "合併前非屬共同控制股權綜合損益淨額",
+            "基本每股盈餘（元）",
+            "已實現銷貨（損）益",
+            "所得稅費用（利益）",
+            "未實現銷貨（損）益",
+            "本期淨利（淨損）",
+            "本期綜合損益總額",
+            "淨利（淨損）歸屬於共同控制下前手權益",
+            "淨利（淨損）歸屬於母公司業主",
+            "淨利（淨損）歸屬於非控制權益",
+            "營業利益（損失）",
+            "營業外收入及支出",
+            "營業成本",
+            "營業收入",
+            "營業毛利（毛損）",
+            "營業毛利（毛損）淨額",
+            "營業費用",
+            "生物資產當期公允價值減出售成本之變動利益（損失）",
+            "稅前淨利（淨損）",
+            "綜合損益總額歸屬於共同控制下前手權益",
+            "綜合損益總額歸屬於母公司業主",
+            "綜合損益總額歸屬於非控制權益",
+            "繼續營業單位本期淨利（淨損）"
+          ],
+          "missing_availability_at": 0,
+          "missing_published_at": 28,
+          "periods": [
+            "2025Q1",
+            "2025Q2",
+            "2025Q3",
+            "2025Q4",
+            "2026Q1",
+            "2026Q2"
+          ],
+          "qualified_dates": [
+            "2026-06-30T00:00:00Z"
+          ],
+          "qualified_rows": 28,
+          "raw_rows": 768,
+          "source_ids": [
+            "finmind",
+            "mops"
+          ],
+          "statements": {
+            "financial": 96,
+            "income": 672
+          }
+        },
+        "institutional": {
+          "metrics": [],
+          "missing_availability_at": 90,
+          "missing_published_at": 90,
+          "periods": [],
+          "qualified_dates": [
+            "2026-03-17T00:00:00Z",
+            "2026-03-18T00:00:00Z",
+            "2026-03-19T00:00:00Z",
+            "2026-03-20T00:00:00Z",
+            "2026-03-23T00:00:00Z",
+            "2026-03-24T00:00:00Z",
+            "2026-03-25T00:00:00Z",
+            "2026-03-26T00:00:00Z",
+            "2026-03-27T00:00:00Z",
+            "2026-03-30T00:00:00Z",
+            "2026-03-31T00:00:00Z",
+            "2026-04-01T00:00:00Z",
+            "2026-04-02T00:00:00Z",
+            "2026-08-27T00:00:00Z",
+            "2026-08-28T00:00:00Z",
+            "2026-08-31T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-15T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 90,
+          "raw_rows": 90,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 90
+          }
+        },
+        "market-activity": {
+          "metrics": [
+            "day_trade_buy_twd",
+            "day_trade_sell_twd",
+            "day_trade_shares",
+            "margin_balance",
+            "margin_buy",
+            "margin_cash_redemption",
+            "margin_sell",
+            "margin_short_balance",
+            "margin_short_sell",
+            "sbl_short_balance",
+            "sbl_short_sell"
+          ],
+          "missing_availability_at": 125,
+          "missing_published_at": 125,
+          "periods": [],
+          "qualified_dates": [
+            "2026-03-17T00:00:00Z",
+            "2026-03-18T00:00:00Z",
+            "2026-03-19T00:00:00Z",
+            "2026-03-20T00:00:00Z",
+            "2026-03-23T00:00:00Z",
+            "2026-03-24T00:00:00Z",
+            "2026-03-25T00:00:00Z",
+            "2026-03-26T00:00:00Z",
+            "2026-03-27T00:00:00Z",
+            "2026-03-30T00:00:00Z",
+            "2026-03-31T00:00:00Z",
+            "2026-04-01T00:00:00Z",
+            "2026-04-02T00:00:00Z",
+            "2026-08-27T00:00:00Z",
+            "2026-08-28T00:00:00Z",
+            "2026-08-31T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            "2026-09-02T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-15T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 125,
+          "raw_rows": 125,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 125
+          }
+        },
+        "market-volume": {
+          "metrics": [],
+          "missing_availability_at": 7,
+          "missing_published_at": 7,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-21T00:00:00Z",
+            "2026-09-22T00:00:00Z",
+            "2026-09-23T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 7,
+          "raw_rows": 7,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 7
+          }
+        },
+        "ohlcv": {
+          "metrics": [],
+          "missing_availability_at": 21,
+          "missing_published_at": 21,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-01T00:00:00Z",
+            "2026-09-02T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-07T00:00:00Z",
+            "2026-09-08T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-15T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-18T00:00:00Z",
+            "2026-09-21T00:00:00Z",
+            "2026-09-22T00:00:00Z",
+            "2026-09-23T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 21,
+          "raw_rows": 21,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 21
+          }
+        },
+        "stock-profile": {
+          "metrics": [],
+          "missing_availability_at": 5,
+          "missing_published_at": 5,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-27T00:00:00Z",
+            "2026-09-28T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 5,
+          "raw_rows": 5,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 5
+          }
+        },
+        "valuation": {
+          "metrics": [],
+          "missing_availability_at": 30,
+          "missing_published_at": 30,
+          "periods": [],
+          "qualified_dates": [
+            "2026-03-17T00:00:00Z",
+            "2026-03-18T00:00:00Z",
+            "2026-03-19T00:00:00Z",
+            "2026-03-20T00:00:00Z",
+            "2026-03-23T00:00:00Z",
+            "2026-03-24T00:00:00Z",
+            "2026-03-25T00:00:00Z",
+            "2026-03-26T00:00:00Z",
+            "2026-03-27T00:00:00Z",
+            "2026-03-30T00:00:00Z",
+            "2026-03-31T00:00:00Z",
+            "2026-04-01T00:00:00Z",
+            "2026-04-02T00:00:00Z",
+            "2026-08-27T00:00:00Z",
+            "2026-08-28T00:00:00Z",
+            "2026-08-31T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-15T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 30,
+          "raw_rows": 30,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 30
+          }
+        }
+      },
+      "qualified_features": {
+        "event_risk": {
+          "dataset_available": true,
+          "event_count": 16,
+          "max_severity": null
+        },
+        "fundamental": {
+          "eps_trend_percent": null,
+          "history_12": {
+            "其他綜合損益（淨額）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 9953587
+              }
+            ],
+            "基本每股盈餘（元）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_per_share",
+                "value": 3.55
+              }
+            ],
+            "所得稅費用（利益）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 1557249
+              }
+            ],
+            "本期淨利（淨損）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 5774290
+              }
+            ],
+            "本期綜合損益總額": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 15727877
+              }
+            ],
+            "淨利（淨損）歸屬於母公司業主": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 3817180
+              }
+            ],
+            "淨利（淨損）歸屬於非控制權益": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 1957110
+              }
+            ],
+            "營業利益（損失）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 6264535
+              }
+            ],
+            "營業外收入及支出": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 1067004
+              }
+            ],
+            "營業成本": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 69161054
+              }
+            ],
+            "營業收入": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 89158843
+              }
+            ],
+            "營業毛利（毛損）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 19997789
+              }
+            ],
+            "營業毛利（毛損）淨額": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 19997789
+              }
+            ],
+            "營業費用": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 13733254
+              }
+            ],
+            "稅前淨利（淨損）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 7331539
+              }
+            ],
+            "綜合損益總額歸屬於母公司業主": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 10853548
+              }
+            ],
+            "綜合損益總額歸屬於非控制權益": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 4874329
+              }
+            ],
+            "繼續營業單位本期淨利（淨損）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 5774290
+              }
+            ]
+          },
+          "observations": 28,
+          "revenue_trend_percent": null
+        },
+        "positioning": {
+          "net_shares_20d": -6908849,
+          "net_shares_5d": 468572,
+          "net_shares_60d": 23131799,
+          "net_shares_previous_5d": -1320174,
+          "net_volume_ratio_20d": -1.194358,
+          "net_volume_ratio_5d": 0.284552,
+          "net_volume_ratio_60d": 3.557509,
+          "net_volume_ratio_previous_5d": -0.881814
+        },
+        "quant": {
+          "atr_14d": 21.928571,
+          "beta_120d": -0.206819,
+          "max_drawdown_120d": -13.457944,
+          "reference_stop": 466.142858,
+          "relative_strength_20d": -28.889892,
+          "return_120d": null,
+          "return_20d": -4.672897,
+          "return_60d": null,
+          "turnover_20d": 14174253982.05
+        },
+        "screening": {
+          "breakout_20d": false,
+          "liquidity_turnover_20d": 14174253982.05,
+          "return_anomaly": false,
+          "volume_ratio_20d": 1.095833
+        },
+        "valuation": {
+          "debt_to_equity": null,
+          "dividend_yield_percent": 0.67,
+          "pb_ratio": 3.67,
+          "pe_ratio": 60.36,
+          "roe": null
+        }
+      },
+      "rejected": {
+        "duplicate": 1,
+        "missing_availability_time": 600
+      }
+    },
+    "5876": {
+      "blockers": [],
+      "datasets": {
+        "benchmark": {
+          "metrics": [],
+          "missing_availability_at": 34,
+          "missing_published_at": 34,
+          "periods": [],
+          "qualified_dates": [
+            "2026-03-17T00:00:00Z",
+            "2026-03-18T00:00:00Z",
+            "2026-03-19T00:00:00Z",
+            "2026-03-20T00:00:00Z",
+            "2026-03-23T00:00:00Z",
+            "2026-03-24T00:00:00Z",
+            "2026-03-25T00:00:00Z",
+            "2026-03-26T00:00:00Z",
+            "2026-03-27T00:00:00Z",
+            "2026-03-30T00:00:00Z",
+            "2026-03-31T00:00:00Z",
+            "2026-04-01T00:00:00Z",
+            "2026-04-02T00:00:00Z",
+            "2026-04-03T00:00:00Z",
+            "2026-08-27T00:00:00Z",
+            "2026-08-28T00:00:00Z",
+            "2026-08-31T00:00:00Z",
+            "2026-09-01T00:00:00Z",
+            "2026-09-02T00:00:00Z",
+            "2026-09-03T00:00:00Z",
+            "2026-09-04T00:00:00Z",
+            "2026-09-09T00:00:00Z",
+            "2026-09-10T00:00:00Z",
+            "2026-09-11T00:00:00Z",
+            "2026-09-14T00:00:00Z",
+            "2026-09-15T00:00:00Z",
+            "2026-09-16T00:00:00Z",
+            "2026-09-17T00:00:00Z",
+            "2026-09-22T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-25T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 34,
+          "raw_rows": 73,
+          "source_ids": [
+            "taiex",
+            "tpex-benchmark"
+          ],
+          "statements": {
+            "None": 73
+          }
+        },
+        "events": {
+          "metrics": [],
+          "missing_availability_at": 0,
+          "missing_published_at": 0,
+          "periods": [],
+          "qualified_dates": [],
+          "qualified_rows": 0,
+          "raw_rows": 0,
+          "source_ids": [],
+          "statements": {}
+        },
+        "financials": {
+          "metrics": [
+            "停業單位損益",
+            "其他綜合損益（稅後）",
+            "利息以外淨損益",
+            "利息淨收益",
+            "合併前非屬共同控制股權損益",
+            "合併前非屬共同控制股權綜合損益淨額",
+            "呆帳費用、承諾及保證責任準備提存",
+            "基本每股盈餘（元）",
+            "所得稅費用（利益）",
+            "本期淨利（淨損）",
+            "本期綜合損益總額（稅後）",
+            "淨利（損）歸屬於共同控制下前手權益",
+            "淨利（損）歸屬於母公司業主",
+            "淨利（損）歸屬於非控制權益",
+            "營業費用",
+            "綜合損益總額歸屬於共同控制下前手權益",
+            "綜合損益總額歸屬於母公司業主",
+            "綜合損益總額歸屬於非控制權益",
+            "繼續營業單位本期淨利（淨損）",
+            "繼續營業單位稅前淨利（淨損）"
+          ],
+          "missing_availability_at": 0,
+          "missing_published_at": 20,
+          "periods": [
+            "2026Q2"
+          ],
+          "qualified_dates": [
+            "2026-06-30T00:00:00Z"
+          ],
+          "qualified_rows": 20,
+          "raw_rows": 80,
+          "source_ids": [
+            "mops"
+          ],
+          "statements": {
+            "income": 80
+          }
+        },
+        "institutional": {
+          "metrics": [],
+          "missing_availability_at": 12,
+          "missing_published_at": 12,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 12,
+          "raw_rows": 12,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 12
+          }
+        },
+        "market-activity": {
+          "metrics": [
+            "day_trade_buy_twd",
+            "day_trade_sell_twd",
+            "day_trade_shares",
+            "margin_balance",
+            "margin_buy",
+            "margin_cash_redemption",
+            "margin_sell",
+            "margin_short_balance",
+            "margin_short_sell",
+            "sbl_short_balance",
+            "sbl_short_sell"
+          ],
+          "missing_availability_at": 44,
+          "missing_published_at": 44,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 44,
+          "raw_rows": 44,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 44
+          }
+        },
+        "market-volume": {
+          "metrics": [],
+          "missing_availability_at": 7,
+          "missing_published_at": 7,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-21T00:00:00Z",
+            "2026-09-22T00:00:00Z",
+            "2026-09-23T00:00:00Z",
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 7,
+          "raw_rows": 7,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 7
+          }
+        },
+        "ohlcv": {
+          "metrics": [],
+          "missing_availability_at": 4,
+          "missing_published_at": 4,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 4,
+          "raw_rows": 4,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 4
+          }
+        },
+        "stock-profile": {
+          "metrics": [],
+          "missing_availability_at": 5,
+          "missing_published_at": 5,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-27T00:00:00Z",
+            "2026-09-28T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 5,
+          "raw_rows": 5,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 5
+          }
+        },
+        "valuation": {
+          "metrics": [],
+          "missing_availability_at": 4,
+          "missing_published_at": 4,
+          "periods": [],
+          "qualified_dates": [
+            "2026-09-24T00:00:00Z",
+            "2026-09-29T00:00:00Z",
+            "2026-09-30T00:00:00Z",
+            "2026-10-01T00:00:00Z"
+          ],
+          "qualified_rows": 4,
+          "raw_rows": 4,
+          "source_ids": [
+            "twse"
+          ],
+          "statements": {
+            "None": 4
+          }
+        }
+      },
+      "qualified_features": {
+        "event_risk": {
+          "dataset_available": true,
+          "event_count": 0,
+          "max_severity": null
+        },
+        "fundamental": {
+          "eps_trend_percent": null,
+          "history_12": {
+            "其他綜合損益（稅後）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 7014982
+              }
+            ],
+            "利息以外淨損益": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 9075754
+              }
+            ],
+            "利息淨收益": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 18352870
+              }
+            ],
+            "呆帳費用、承諾及保證責任準備提存": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 2181537
+              }
+            ],
+            "基本每股盈餘（元）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_per_share",
+                "value": 2.08
+              }
+            ],
+            "所得稅費用（利益）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 2367464
+              }
+            ],
+            "本期淨利（淨損）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 12708433
+              }
+            ],
+            "本期綜合損益總額（稅後）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 19723415
+              }
+            ],
+            "淨利（損）歸屬於母公司業主": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 10165383
+              }
+            ],
+            "淨利（損）歸屬於非控制權益": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 2543050
+              }
+            ],
+            "營業費用": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 10171190
+              }
+            ],
+            "綜合損益總額歸屬於母公司業主": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 17880817
+              }
+            ],
+            "綜合損益總額歸屬於非控制權益": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 1842598
+              }
+            ],
+            "繼續營業單位本期淨利（淨損）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 12708433
+              }
+            ],
+            "繼續營業單位稅前淨利（淨損）": [
+              {
+                "fiscal_quarter": 2,
+                "fiscal_year": 2026,
+                "unit": "TWD_thousands",
+                "value": 15075897
+              }
+            ]
+          },
+          "observations": 20,
+          "revenue_trend_percent": null
+        },
+        "positioning": {
+          "net_shares_20d": 3272390,
+          "net_shares_5d": 3272390,
+          "net_shares_60d": 3272390,
+          "net_shares_previous_5d": null,
+          "net_volume_ratio_20d": 12.207181,
+          "net_volume_ratio_5d": 12.207181,
+          "net_volume_ratio_60d": 12.207181,
+          "net_volume_ratio_previous_5d": null
+        },
+        "quant": {
+          "atr_14d": 0.9,
+          "beta_120d": null,
+          "max_drawdown_120d": -1.525941,
+          "reference_stop": 46.6,
+          "relative_strength_20d": null,
+          "return_120d": null,
+          "return_20d": null,
+          "return_60d": null,
+          "turnover_20d": 326634465.75
+        },
+        "screening": {
+          "breakout_20d": false,
+          "liquidity_turnover_20d": 326634465.75,
+          "return_anomaly": false,
+          "volume_ratio_20d": 1.546523
+        },
+        "valuation": {
+          "debt_to_equity": null,
+          "dividend_yield_percent": 3.72,
+          "pb_ratio": 1.1,
+          "pe_ratio": 13.67,
+          "roe": null
+        }
+      },
+      "rejected": {}
+    }
+  }
+}

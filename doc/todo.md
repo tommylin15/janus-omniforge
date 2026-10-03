@@ -35,7 +35,20 @@
 
 # 執行順序
 
-## 1. `WBS-5-MART-AI-PROVIDERS` — 【Sol】— **目前 foreground / partial**
+## 1. `WBS-3-DATA-SUPPLEMENT-V1` — 【Sol】— **目前 foreground / partial（資料優先，Core 接線中）**
+
+2026-10-02 最新決策：**資料優先**。先供應已核對的目前研究資料；12 月／12 季缺期、feature 缺值、未證明的歷史公告時間／原始版次可明示 partial／unknown，不再單獨阻擋本版交付。歷史 PIT 回測、來源授權及安全條件維持；以下完整度停止閘門依 [WBS 最新驗收調整](wbs/wbs-3-data-supplement-v1.md#使用者最新驗收調整資料優先) 限縮。每日排程、週六檢查與 Admin UI 仍須實作及 dev 驗收。
+
+- [ ] **S0 Evidence Gap Inventory & Remediation Map**：把五角色 `missing_data`／`insufficient_data` 拆成 feature-level root cause，至少區分 snapshot composition、history depth、metric mapping、provenance time、semantic、true source、authorization、research enrichment、not applicable、unknown；以 `2327` checkpoint 作第一組 pinned real-data baseline。
+- [ ] **S1 Existing Required Dataset Remediation**：只針對現行五角色必要的 `financials`、`valuation`、`institutional`、`ohlcv`、`benchmark`、`market-activity`、`events` 修 confirmed blockers；第一版至少處理 60／120 日價格窗口、跨期財報 trend、ROE／debt-to-equity mapping/derived metric、event severity 與 PIT publication／availability time semantics。若 S0 證實現有 approved source 無法供應某個現行必要 feature，先觸發 Stop-and-Discuss Gate；取得使用者明確決策後才能進 source admission／S1 實作。
+- [ ] **S2 Official Event / Industry Expansion**：只有 S0／S1 沒有未決 Stop-and-Discuss blocker，或 blocker 已取得使用者明確決策後，才可進入；只擴充有明確 source authorization、PIT/time semantics 與 deterministic consumer contract 的官方／已核准公司事件、月營收／營運摘要、sector／industry benchmark 或產業統計。
+- [ ] **Stop-and-Discuss Gate**：2026-10-02 `WBS-5-MART-AI-PROVIDERS` checkpoint 是最低 acceptance floor。任一 applicable minimum requirement 確認無法自行滿足時，立即停下本 WBS，只整理決策所需證據並與使用者討論；不得先跳到下一 S 階段／下一 WBS，不得自行降級 requirement、標 accepted gap 或移入 Parking Lot。
+- [ ] 完成真實 dev Core／Fact Pack／provenance 可重建的 Gap Matrix、同／可比較 as-of replay、tests／CI／deployment／live integration evidence；不放寬 validator、不由 LLM 補 canonical facts、不以 provider fallback 隱藏資料不足。
+- [ ] 資料取值驗收後接入每日收集排程；建立獨立的每週六資料品質批次與可重跑檢核文件。檢查結果、受影響資料與每日排程調整需求顯示於 Admin UI。依使用者最新決定，先不建立 Codex automation／通知，也不寄 Email；此項尚未實作／部署。
+- [ ] S3 News、S4 Supply-chain、S5 Broker/Consensus/Target Price、S6 Social/Podcast/Alternative sources 明確留在 `parking-lot.md`，不計入本版 completion，也不阻塞目前五分析師 daily-operation gate；若其中某一 bounded source 被證實是 minimum floor 唯一合理方案，仍須先經 Stop-and-Discuss Gate 由使用者決定是否拉入 S1/S2。
+- 完整 scope／acceptance 見 [`wbs/wbs-3-data-supplement-v1.md`](wbs/wbs-3-data-supplement-v1.md)。
+
+## 2. `WBS-5-MART-AI-PROVIDERS` — 【Sol】— **partial；依使用者決策暫停前景執行**
 
 - [ ] GCP Mart 自主啟動五個獨立 Codex CLI workers；完成 headless dispatch、cold-start auth／續期、role workspace 隔離、capability／參數、timeout／process-tree cancel／退出碼／bounded retry。
 - [ ] Provider route 預設 **Codex CLI → OpenRouter → Gemini**；只有 approved／authorized 且符合 free-or-explicitly-approved-paid gate 的 profile 進 effective route。每個 execution 固定 route version/hash/profile snapshot，保存 attempt／fallback reason／transport／model／parameters／latency／可觀察 usage/cost。
@@ -45,16 +58,6 @@
 - 2026-10-01 evidence：GCP `gpt-6.1-sol`＋`low` 五次真實 CLI 輸出、17-object readback 與九類 DB 投影驗收通過；validator 3 validated／insufficient_data、2 blocked。
 - 2026-10-02 credential evidence：Fugle quote HTTP 200；Gemini models HTTP 200；OpenRouter key HTTP 200 但 `is_free_tier=false`。OpenRouter 尚需 `$0`/free-only actual model request；Gemini 尚需 Free Tier／billing confirmation。Fugle credential 可用，但行情 source approval／runtime 接線在後續 Quote Router 工作完成。
 - 2026-10-02 bounded runtime checkpoint：第二個 GCP cold-start execution 五角色均 `validated/insufficient_data`，19-object readback／單股 same-execution Core／target lineage 通過；effective route 僅 Codex。兩批共用完十次核准 invocation，auth version 1→1、rotation 未觀察。OpenRouter 免費請求與 Gemini billing probe 被自動審核擋下，兩者維持 blocked；WBS 仍 partial。逐角色缺資料與未完成 gate 見 [checkpoint](archive/wbs-5-mart-ai-providers-checkpoint-2026-10-02.md)。
-
-## 2. `WBS-3-DATA-SUPPLEMENT-V1` — 【Sol】— **Planned**
-
-- [ ] **S0 Evidence Gap Inventory & Remediation Map**：把五角色 `missing_data`／`insufficient_data` 拆成 feature-level root cause，至少區分 snapshot composition、history depth、metric mapping、provenance time、semantic、true source、authorization、research enrichment、not applicable、unknown；以 `2327` checkpoint 作第一組 pinned real-data baseline。
-- [ ] **S1 Existing Required Dataset Remediation**：只針對現行五角色必要的 `financials`、`valuation`、`institutional`、`ohlcv`、`benchmark`、`market-activity`、`events` 修 confirmed blockers；第一版至少處理 60／120 日價格窗口、跨期財報 trend、ROE／debt-to-equity mapping/derived metric、event severity 與 PIT publication／availability time semantics。若 S0 證實現有 approved source 無法供應某個現行必要 feature，先觸發 Stop-and-Discuss Gate；取得使用者明確決策後才能進 source admission／S1 實作。
-- [ ] **S2 Official Event / Industry Expansion**：只有 S0／S1 沒有未決 Stop-and-Discuss blocker，或 blocker 已取得使用者明確決策後，才可進入；只擴充有明確 source authorization、PIT/time semantics 與 deterministic consumer contract 的官方／已核准公司事件、月營收／營運摘要、sector／industry benchmark 或產業統計。
-- [ ] **Stop-and-Discuss Gate**：2026-10-02 `WBS-5-MART-AI-PROVIDERS` checkpoint 是最低 acceptance floor。任一 applicable minimum requirement 確認無法自行滿足時，立即停下本 WBS，只整理決策所需證據並與使用者討論；不得先跳到下一 S 階段／下一 WBS，不得自行降級 requirement、標 accepted gap 或移入 Parking Lot。
-- [ ] 完成真實 dev Core／Fact Pack／provenance 可重建的 Gap Matrix、同／可比較 as-of replay、tests／CI／deployment／live integration evidence；不放寬 validator、不由 LLM 補 canonical facts、不以 provider fallback 隱藏資料不足。
-- [ ] S3 News、S4 Supply-chain、S5 Broker/Consensus/Target Price、S6 Social/Podcast/Alternative sources 明確留在 `parking-lot.md`，不計入本版 completion，也不阻塞目前五分析師 daily-operation gate；若其中某一 bounded source 被證實是 minimum floor 唯一合理方案，仍須先經 Stop-and-Discuss Gate 由使用者決定是否拉入 S1/S2。
-- 完整 scope／acceptance 見 [`wbs/wbs-3-data-supplement-v1.md`](wbs/wbs-3-data-supplement-v1.md)。
 
 ## 3. `WBS-5-MART-CIO-SYNTHESIS` — 【Sol】
 

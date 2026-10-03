@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
@@ -184,9 +185,9 @@ class DuckDBEngine:
             result.append(item)
         return result
 
-    @staticmethod
-    def _key(row: dict[str, Any], identifiers: Sequence[str]) -> tuple[str, ...]:
-        return tuple(str(row.get(field)) for field in identifiers)
+    @classmethod
+    def _key(cls, row: dict[str, Any], identifiers: Sequence[str]) -> tuple[str, ...]:
+        return tuple(str(cls._json_value(row.get(field))) for field in identifiers)
 
     @staticmethod
     def _identifier(value: str) -> str:
@@ -196,6 +197,8 @@ class DuckDBEngine:
 
     @staticmethod
     def _json_value(value: Any) -> Any:
+        if isinstance(value, datetime) and value.tzinfo is not None:
+            return value.astimezone(timezone.utc).isoformat()
         if hasattr(value, "isoformat"):
             return value.isoformat()
         return value

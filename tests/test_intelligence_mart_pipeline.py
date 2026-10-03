@@ -60,6 +60,36 @@ def report(source=None, execution_id="11111111-1111-1111-1111-111111111111", **o
 
 
 class MartPipelineTests(unittest.TestCase):
+    def test_feature_v2_positioning_and_beta_join_actual_dates(self):
+        from intelligence_mart.analysis import _features
+        source = datasets()
+        source["ohlcv"].append(row("ohlcv", symbol="2330", trade_date="2026-09-11", close=999, volume_shares=999))
+        result = _features(source, feature_version="2")
+        self.assertEqual(result["positioning"]["net_shares_5d"], 50_000)
+        self.assertEqual(result["positioning"]["net_volume_ratio_5d"], round(50_000/sum(1_000_000+i for i in range(16,21))*100, 6))
+        self.assertIsNone(result["positioning"]["net_shares_60d"])
+        self.assertEqual(result["quant"]["beta_aligned_intervals"], 20)
+
+    def test_feature_v2_does_not_mix_monthly_cumulative_eps_or_debt_ratios(self):
+        from intelligence_mart.analysis import _features
+        common = {"symbol": "2330", "source_id": "mops", "report_scope": "consolidated", "unit": "TWD", "currency": "TWD",
+                  "fiscal_year": 2026, "fiscal_quarter": 2, "fiscal_period_end": "2026-06-30"}
+        financial = [dict(common, statement_type="monthly_revenue", metric="monthly_revenue_05", value="100", fiscal_period_end="2026-05-31"),
+                     dict(common, statement_type="monthly_revenue", metric="monthly_revenue_06", value="120"),
+                     dict(common, statement_type="income", metric="revenue_year_to_date", value="999999"),
+                     dict(common, statement_type="income", metric="eps_single_quarter", value="4.59", unit="TWD_per_share", is_single_quarter=True, share_basis_status="unknown"),
+                     dict(common, statement_type="income", metric="eps_year_to_date", value="8.48", unit="TWD_per_share"),
+                     dict(common, statement_type="balance", metric="total_liabilities_snapshot", value="200"),
+                     dict(common, statement_type="balance", metric="total_equity_snapshot", value="100"),
+                     dict(common, statement_type="balance", metric="負債比率", value="66.67", unit="percent")]
+        result = _features({"financials": financial}, feature_version="2")
+        self.assertEqual(result["fundamental"]["revenue_trend_percent"], 20)
+        self.assertEqual(result["fundamental"]["revenue_trend_basis"], "monthly")
+        self.assertIsNone(result["fundamental"]["eps_trend_percent"])
+        self.assertEqual(result["valuation"]["debt_to_equity"], 2)
+        self.assertEqual(len(result["fundamental"]["monthly_revenue_history_12"]), 2)
+        self.assertEqual(result["fundamental"]["missing_reasons"]["eps_trend_percent"], "historical_eps_share_basis_unknown")
+
     def test_revisions_and_market_benchmark_are_selected_before_features(self):
         source = datasets()
         source["financials"].append({**source["financials"][0], "value": "110",

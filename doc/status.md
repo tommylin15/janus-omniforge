@@ -16,14 +16,14 @@
 - **User product completeness 目前仍有 committed 項目。** 2026-09-29 Private Pipeline 修復後，真實 5876 持股已有正式盤後價且 aggregate valuation／unrealized PnL 恢復發布；其他持股若缺行情 coverage 或名稱解析，UI 仍須保留 missing／stale／partial 狀態，不自行補算或用 placeholder 假裝完整。既有 MIS 盤中報價能力已完成；2026-10-02 已將目標 contract 擴充為 DB-first persisted last quote＋盤中／盤後 multi-source routing、交易後 synchronous operational position projection、操作池／broker profile 與全 UI 數值格式收斂；這些新需求仍在 active TODO。
 - **Flutter Admin shell 與原 `WBS-6-ADMIN-OVERVIEW-BATCH`／`WBS-6-ADMIN-STOCK-WORKBENCH` acceptance 均已完成。** 2026-10-02 新增 operability extension 包含 actionable exception drill-down、Job Control Center、Storage／Private operations 與 routing controls；這些是新的 committed work，不反向改寫歷史 WBS 的完成範圍。
 - **五位分析師每日運作 Gate 1、Fact Packs Gate 2、AI Role Contract Gate 3、AI Validation Gate 4 已完成各自 acceptance。** 這只代表可以進入 provider／CIO chain，不代表五位分析師已每天自然運作。
-- **`WBS-3-DATA-SUPPLEMENT-V1` 已列入 active queue。** S0～S2 是補資料第一版；`WBS-5-MART-AI-PROVIDERS` 2026-10-02 checkpoint 中經 runtime evidence 判定 applicable 的資料需求是最低 acceptance floor。S0 不能只做分類；S1／S2 必須把必要 history、metric mapping、PIT time semantics、event severity、positioning breakdown/cross-check、官方／產業比較基準等補到可供五角色使用。若需新來源但尚未取得必要授權，WBS 保持 `partial`／`blocked`，不得降低 requirement 結案。S3～S6 仍在 Parking Lot。
+- **`WBS-3-DATA-SUPPLEMENT-V1` 正在執行。** 依使用者最新「資料優先」決策，先交付可核對的研究數值；未知歷史時間／版次及 coverage／feature 缺口明示限制，不再單獨阻擋本版交付。不得偽造資料、倒填歷史 PIT、跳過來源授權或將尚未接線／部署項目標成完成。資料接線與 dev 驗收仍在進行；S3～S6 留在 Parking Lot。
 
 ## 目前執行順序
 
 唯一權威排序見 [`todo.md`](todo.md)：
 
-1. `WBS-5-MART-AI-PROVIDERS` — 目前 foreground / partial。
-2. `WBS-3-DATA-SUPPLEMENT-V1` — S0～S2 補資料第一版；Provider checkpoint applicable needs 是最低 acceptance floor。
+1. `WBS-3-DATA-SUPPLEMENT-V1` — foreground / partial（資料接線中）。2026-10-02 使用者最新決定「驗收放寬、有資料優先」：已核對數值先供目前研究，歷史公告時間／版次或完整度未證明時明示限制，不再單獨阻擋交付；歷史 PIT、來源授權與安全邊界維持。接線及 dev 驗收後，再做每日排程與週六檢查／Admin UI。
+2. `WBS-5-MART-AI-PROVIDERS` — partial；暫停前景執行，未完成 acceptance 保留。
 3. `WBS-5-MART-CIO-SYNTHESIS`。
 4. `WBS-5-MART-RERUN-CACHE`。
 5. `WBS-6-ADMIN-ANALYSIS-PROFILE`。

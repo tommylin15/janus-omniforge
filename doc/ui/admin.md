@@ -19,6 +19,11 @@ snapshot、hash、provider、model、prompt 與 artifact 等工程欄位放在�
 - 首頁 issue card **不得只是被動數字**。有非零項目時，card 必須可進入對應的 filtered
   明細／批次清單，至少能辨識「哪一筆、為什麼、最後更新、可否處理」；可重試項目才顯示
   retry／rerun action。首頁不重複塞完整工程細節，而是完成「看見異常 → drill-down → 處理」閉環。
+- `WBS-3-DATA-SUPPLEMENT-V1` 追加的週六資料品質檢查結果，完成接線後顯示於總覽／批次：
+  最近檢查時間、結果、受影響個股／dataset／欄位、安全原因、是否需要調整每日排程，以及
+  檢核文件入口。尚無檢查結果時顯示「尚未檢查」，不得以 0 或正常取代 unknown；檢查本身
+  執行失敗須與資料品質不合格區分。使用者已決定先只看 Admin UI，不建立 Codex automation／
+  通知或 Email。此追加需求尚未實作／部署，不能視為現有可用功能。
 - 失敗 item 顯示 retryable／non-retryable／blocked 分類；只能重試 retryable failed
   item。重試建立新 execution，保留舊 execution 與 retry lineage；partial success 不
   顯示成 full success。

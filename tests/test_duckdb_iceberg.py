@@ -15,6 +15,45 @@ from packages.web_api import CoreQueryService
 
 
 class DuckDBIcebergTests(unittest.TestCase):
+    def test_unknown_publication_retains_receipt_versions_without_backdating(self):
+        self.engine.connection.execute("SET TimeZone = 'Asia/Taipei'")
+        common = dict(dataset_id="financials", execution_id="e1", provenance_id="p1", source_id="mops",
+                      partition_date=date(2026, 10, 2))
+        row = {"symbol": "2327", "fiscal_year": 2023, "fiscal_quarter": 3, "statement_type": "income",
+               "metric": "EPS", "value": "11.60", "unit": "TWD_per_share", "currency": "TWD",
+               "published_at": None, "publication_time_authoritative": False,
+               "availability_at": "2026-10-02T01:00:00Z"}
+        first = self.core.write(rows=[row], **common)
+        repeat = self.core.write(rows=[dict(row, availability_at="2026-10-03T01:00:00Z")], **common)
+        self.assertEqual((repeat.reused, repeat.snapshot_id), (1, first.snapshot_id))
+        revised = self.core.write(rows=[dict(row, value="11.61", availability_at="2026-10-04T01:00:00Z")], **common)
+        self.assertEqual((revised.inserted, revised.updated, revised.row_count), (1, 0, 2))
+        table = self.catalog.load_table(first.table_identifier)
+        rows = table.scan().to_arrow().to_pylist()
+        self.assertTrue(all(r["published_at"] is None for r in rows))
+        self.assertEqual({r["value"] for r in rows}, {"11.60", "11.61"})
+        self.assertTrue(all(r["version_at"].year == 2026 for r in rows))
+        with self.assertRaises(ValueError):
+            self.core.write(rows=[dict(row, availability_at=None)], **common)
+
+    def test_receipt_version_is_additive_to_legacy_financial_table(self):
+        import pyarrow as pa
+        legacy = {"symbol": "2327", "fiscal_year": 2023, "fiscal_quarter": 3, "statement_type": "income",
+                  "metric": "EPS", "value": "11.60", "unit": "TWD_per_share", "currency": "TWD",
+                  "source_id": "mops", "published_at": datetime(2023, 11, 14, tzinfo=timezone.utc)}
+        arrow = pa.Table.from_pylist([legacy])
+        table = self.catalog.create_table("core.financials_v1", arrow.schema)
+        table.append(arrow)
+        old_snapshot = table.current_snapshot().snapshot_id
+        received = {**legacy, "value": "11.61", "published_at": None,
+                    "publication_time_authoritative": False, "availability_at": "2026-10-02T01:00:00Z"}
+        result = self.core.write(dataset_id="financials", rows=[received], execution_id="e1", provenance_id="p1",
+                                 source_id="mops", partition_date=date(2026, 10, 2))
+        self.assertEqual((result.inserted, result.updated, result.row_count), (1, 0, 2))
+        table = self.catalog.load_table("core.financials_v1")
+        self.assertEqual(table.scan(snapshot_id=old_snapshot).to_arrow().to_pylist()[0]["value"], "11.60")
+        self.assertEqual(sum(r["published_at"] is None for r in table.scan().to_arrow().to_pylist()), 1)
+
     def test_financial_daily_observations_reuse_but_revisions_are_retained(self):
         first = {"symbol": "2327", "fiscal_year": 2026, "fiscal_quarter": 2, "statement_type": "income",
                  "metric": "revenue", "source_id": "mops", "value": "100", "unit": "TWD_thousands", "currency": "TWD",

@@ -1,0 +1,99 @@
+{
+  "source": "https://mops.twse.com.tw/mops/web/t56sb31_q1",
+  "market": "sii",
+  "time_precision": "date",
+  "numeric_revision_verified": false,
+  "quarters": [
+    {
+      "year": 2023,
+      "quarter": 3,
+      "html_sha256": "a33a9840b55d9058bf5b63da12856f3442ad6680c8bebb3d88213258282b8ca7",
+      "chinese_consolidated_corrections": 45,
+      "target_corrections": []
+    },
+    {
+      "year": 2023,
+      "quarter": 4,
+      "html_sha256": "5a8ff1ef0a822caf4bdbd2371502e65b530f41c70b3ece261ba92bcf02e3a234",
+      "chinese_consolidated_corrections": 93,
+      "target_corrections": []
+    },
+    {
+      "year": 2024,
+      "quarter": 1,
+      "html_sha256": "34ef2c0927430ec9c0d6d7d4cf59e05ca2124d83b015803473401477c555f774",
+      "chinese_consolidated_corrections": 39,
+      "target_corrections": []
+    },
+    {
+      "year": 2024,
+      "quarter": 2,
+      "html_sha256": "05d67168b743b8ce4be838c675655d1f130988e77db1d9a7617064dcb9c75736",
+      "chinese_consolidated_corrections": 56,
+      "target_corrections": []
+    },
+    {
+      "year": 2024,
+      "quarter": 3,
+      "html_sha256": "ab63a291a3f37a440070f7512cb1d2ae4db873964a83af9e5ac9bb92204415d6",
+      "chinese_consolidated_corrections": 38,
+      "target_corrections": []
+    },
+    {
+      "year": 2024,
+      "quarter": 4,
+      "html_sha256": "0a3d5d89e9a17eff6cd83f5bd35a376041f04b8ac3a17cfcbb59b3f13e30e047",
+      "chinese_consolidated_corrections": 78,
+      "target_corrections": []
+    },
+    {
+      "year": 2025,
+      "quarter": 1,
+      "html_sha256": "a2ce82636af5e2f3761d139acb1693803e18104b44a8981fb8583009b8019f4b",
+      "chinese_consolidated_corrections": 32,
+      "target_corrections": []
+    },
+    {
+      "year": 2025,
+      "quarter": 2,
+      "html_sha256": "fc466b6e1f1c76fb9f03c5f6ee747978b48c3aacbeed7018b0710574252eb60c",
+      "chinese_consolidated_corrections": 44,
+      "target_corrections": []
+    },
+    {
+      "year": 2025,
+      "quarter": 3,
+      "html_sha256": "21c7f184e51747900ac67c90077b637739ec8ee4b242c378319e2f5dbed15d0e",
+      "chinese_consolidated_corrections": 32,
+      "target_corrections": []
+    },
+    {
+      "year": 2025,
+      "quarter": 4,
+      "html_sha256": "464800e946edaf9e6b02292d617be9381f36483025f898ee9752ff1d0e7a4167",
+      "chinese_consolidated_corrections": 46,
+      "target_corrections": []
+    },
+    {
+      "year": 2026,
+      "quarter": 1,
+      "html_sha256": "0bb438554ccf19b8b2ea09a65388e3464c837fe663a01d5ba427a4e745383bab",
+      "chinese_consolidated_corrections": 29,
+      "target_corrections": []
+    },
+    {
+      "year": 2026,
+      "quarter": 2,
+      "html_sha256": "ed54fac6fe24c55c06812931018c3578f00177e4d85526934a767e797fd7743b",
+      "chinese_consolidated_corrections": 27,
+      "target_corrections": []
+    }
+  ],
+  "target_symbols": [
+    "1102",
+    "2327",
+    "2330",
+    "4958",
+    "5876"
+  ]
+}
