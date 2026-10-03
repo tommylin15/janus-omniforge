@@ -16,7 +16,7 @@ $sdk = 'C:/Program Files (x86)/Google/Cloud SDK/google-cloud-sdk'
 
 Windows 的 .cmd wrapper 可能把 ^|^ 參數解讀成 shell 管線，因此上例直接使用 SDK 的 Python 入口。其他環境可用 gcloud 原生入口。
 
-記下回傳 execution 名稱，查此 execution 的完成狀態，不因等待較久再啟動第二個。無指定 symbols 時，採當日去識別化分析目標；上限 50 檔，目前回補 adapter 限已核對的 TWSE 合併財報。
+記下回傳 execution 名稱，查此 execution 的完成狀態，不因等待較久再啟動第二個。無指定 symbols 時，採既有 ingestion 的 first-batch focus 與去識別化 portfolio coverage 股號聯集；上限 50 檔，目前回補 adapter 限已核對的 TWSE 合併財報。
 
 原始回應先 Stage，再驗證公司、期別、單位、報表口徑並寫入 Core。財報與月營收採實際 receipt availability；歷史 publication 與原始數值版次維持 unknown。相同觀測值重跑會 reuse，數值變動新增版次。不得覆寫舊 snapshot。
 
@@ -51,7 +51,7 @@ Windows 的 .cmd wrapper 可能把 ^|^ 參數解讀成 shell 管線，因此上�
 - `unit_mismatch`、`conflicting_version`、`invalid_numeric_value`：檢查 `financial_publication.py` 與 `normalise_monthly`；不得自動放寬 validator。必要時隔離受影響輸入，先保護其他可用資料。
 - `execution_failed`：檢查批次自身失敗，不能據此判定資料正常；只讀該 Cloud Run execution 的安全 error code，修復連線／權限／程式後重跑 quality。
 
-安全重跑：把首次回補命令中的 `JANUS_DATA_SUPPLEMENT_MODE=backfill` 改成 `daily` 或 `quality`。daily 預設使用當日去識別化目標，可省略 symbols；quality 使用當日目標並保留獨立 check。先確認該 Job 沒有 active execution，避免併行寫入；不取消或重複派送不明狀態的工作。
+安全重跑：把首次回補命令中的 `JANUS_DATA_SUPPLEMENT_MODE=backfill` 改成 `daily` 或 `quality`。daily 預設使用同一 ingestion focus／portfolio coverage 聯集，可省略 symbols；quality 使用同一聯集並保留獨立 check。先確認該 Job 沒有 active execution，避免併行寫入；不取消或重複派送不明狀態的工作。
 
 結果保存在 control 的 `data_supplement_quality` 安全 metadata，Admin 使用既有受保護 settings API；操作文件由 `/api/v1/admin/data-quality/runbook` 固定路徑提供。此處不放原始財務數值、raw HTML、owner 關係或 Secret；沒有 Email／Codex automation。
 

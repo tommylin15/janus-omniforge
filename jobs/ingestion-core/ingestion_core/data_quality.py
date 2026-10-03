@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 from uuid import uuid4
 
 from packages.provenance import Provenance
-from .data_supplement import _fetch, _rows, coverage_summary, normalise_monthly_archive
+from .data_supplement import _fetch, _rows, coverage_summary, normalise_monthly_archive, supplement_symbols
 from .financial_publication import normalise_xbrl_financials
 from .dq import ALLOWED_COLUMNS, validate_ohlcv
 from .stage import GcsObjectStore, StageWriter
@@ -64,11 +64,10 @@ def run_quality():
               "execution": os.environ.get("CLOUD_RUN_EXECUTION", "")}
     try:
         core = _iceberg_core(os.environ["CORE_BUCKET"])
+        symbols = supplement_symbols(control)
+        if not symbols or len(symbols) > 50:
+            raise ValueError("quality check requires 1..50 targets")
         with control.connection.cursor() as cursor:
-            cursor.execute("SELECT symbol FROM control.mart_ai_target_symbols(%s::date) ORDER BY symbol", (today,))
-            symbols = tuple(row[0] for row in cursor.fetchall())
-            if not symbols or len(symbols) > 50:
-                raise ValueError("quality check requires 1..50 targets")
             cursor.execute("SELECT symbol,name,market FROM control.stock_master WHERE enabled AND symbol=ANY(%s)", (list(symbols),))
             names = {row[0]: row[1] for row in cursor.fetchall() if row[2] == "TWSE"}
         if set(names) != set(symbols) or not control.source_is_approved("mops"):

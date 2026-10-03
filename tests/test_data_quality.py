@@ -16,3 +16,11 @@ def test_quality_reports_bad_units_conflicts_and_missing_history_without_exposin
     stale = [{"symbol": "2330", "trade_date": date(2020, 1, 1)+timedelta(days=n)} for n in range(121)]
     coverage, _ = assess_rows([], stale, ("2330",), date(2026, 10, 2))
     assert coverage["2330"]["price_trading_dates"] == 0
+
+
+def test_supplement_targets_reuse_ingestion_focus_and_deidentified_coverage():
+    from types import SimpleNamespace
+    from ingestion_core.data_supplement import supplement_symbols
+    control = SimpleNamespace(config_symbols=lambda config: ("2330", "2327"),
+                              portfolio_coverage_symbols=lambda: ("2330", "5876"))
+    assert supplement_symbols(control) == ("2327", "2330", "5876")

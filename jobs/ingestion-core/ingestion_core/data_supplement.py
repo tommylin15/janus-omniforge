@@ -139,6 +139,11 @@ def coverage_summary(financial_rows, price_rows, symbols, target):
                           "historical_publication_status": "unknown", "original_numeric_revision_status": "unknown"}
     return result
 
+def supplement_symbols(control):
+    """Reuse ingestion's approved focus and de-identified portfolio coverage."""
+    return tuple(sorted(set(control.config_symbols("first-batch")) | set(control.portfolio_coverage_symbols())))
+
+
 def run_backfill(*, incremental=False):
     from .__main__ import _control_plane, _core_ready_event, _iceberg_core, TAIPEI
     today = datetime.now(TAIPEI).date()
@@ -156,9 +161,7 @@ def run_backfill(*, incremental=False):
         if supplied:
             symbols = tuple(sorted(set(supplied.split(","))))
         else:
-            with control.connection.cursor() as cursor:
-                cursor.execute("SELECT symbol FROM control.mart_ai_target_symbols(%s::date) ORDER BY symbol", (today,))
-                symbols = tuple(row[0] for row in cursor.fetchall())
+            symbols = supplement_symbols(control)
         if not symbols or len(symbols) > 50 or any(not re.fullmatch(r"[1-9][0-9]{3}", s) for s in symbols):
             raise ValueError("supplement requires 1..50 bounded stock symbols")
         with control.connection.cursor() as cursor:
