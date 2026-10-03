@@ -185,6 +185,27 @@ def test_ic_decay_uses_the_same_oos_signal_across_future_horizons():
     assert metrics["ic_decay"]["120"]["time_series_by_symbol"]["2330"]["rank_ic"] is None
 
 
+def test_retraining_selects_latest_fenced_snapshot_and_rejects_stale_data():
+    from datetime import date
+    from hashlib import sha256
+    import json
+    from types import SimpleNamespace
+    from intelligence_mart.specialist_runtime import latest_training_input
+    core = {"execution_id": "latest", "analysis_as_of": "2026-10-03", "snapshot_id": "sha256:core",
+            "iceberg_tables": {"core.ohlcv_v1": {"snapshot_id": 1}}}
+    raw = json.dumps(core).encode()
+    store = SimpleNamespace(bucket="dev-core", read=lambda name: raw,
+        objects=lambda prefix: [{"name": "executions/old/core-snapshot.json", "updated": "2026-10-02"},
+                                {"name": "executions/latest/core-snapshot.json", "updated": "2026-10-03"}])
+    result = latest_training_input(store, date(2026, 10, 4))
+    assert result["coreSnapshotUri"] == "gs://dev-core/executions/latest/core-snapshot.json"
+    assert result["coreSnapshotHash"] == "sha256:" + sha256(raw).hexdigest()
+    assert result["analysisAsOf"] == "2026-10-03"
+    for today in (date(2026, 10, 2), date(2026, 10, 11)):
+        with pytest.raises(ValueError, match="stale"):
+            latest_training_input(store, today)
+
+
 def test_regime_oos_only_fits_prior_months_and_keeps_research_status():
     import numpy as np
     from datetime import date, timedelta

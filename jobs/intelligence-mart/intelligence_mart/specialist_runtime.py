@@ -136,31 +136,68 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
 def run_acceptance():
     """Real dev input only; uses existing approved identities and never invokes a provider."""
     from urllib.parse import urlparse
+    from ingestion_core.stage import GcsObjectStore
+    uri = urlparse(os.environ["MART_ACCEPTANCE_INPUT_URI"])
+    if uri.scheme != "gs" or uri.netloc != os.environ["MART_BUCKET"] or not uri.path.startswith("/acceptance/specialists/"):
+        raise ValueError("acceptance input must stay inside existing Mart dev acceptance prefix")
+    event = json.loads(GcsObjectStore(uri.netloc).read(uri.path.lstrip("/")))
+    return _run_event(event, "specialist-acceptance")
+
+
+def latest_training_input(store, today):
+    """Select the latest immutable dev snapshot, preserving its actual data date."""
+    from datetime import date
+    from hashlib import sha256
+    manifests = [item for item in store.objects("executions/") if item["name"].endswith("/core-snapshot.json")]
+    if not manifests:
+        raise ValueError("no Core snapshot for retraining")
+    item = max(manifests, key=lambda item: (item["updated"], item["name"]))
+    raw = store.read(item["name"])
+    core = json.loads(raw)
+    age = (today - date.fromisoformat(core["analysis_as_of"])).days
+    if not 0 <= age <= 7 or not core.get("iceberg_tables") or item["name"] != f"executions/{core['execution_id']}/core-snapshot.json":
+        raise ValueError("invalid or stale retraining Core snapshot")
+    return {"executionId": core["execution_id"], "analysisAsOf": core["analysis_as_of"],
+            "coreSnapshotId": core["snapshot_id"], "coreSnapshotUri": f"gs://{store.bucket}/{item['name']}",
+            "coreSnapshotHash": "sha256:" + sha256(raw).hexdigest(), "martSchemaVersion": "1",
+            "featureVersion": "2", "modelVersion": "deterministic-v1", "governanceSnapshotVersion": "gov-1", "scopes": []}
+
+
+def run_retraining():
+    """Monthly challenger fit/OOS on current data; never promotes a model."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from ingestion_core.stage import GcsObjectStore
+    if os.environ.get("GCP_PROJECT_ID") != "gen-lang-client-0593591102" or os.environ.get("MART_BUCKET") != "gen-lang-client-0593591102-dev-mart":
+        raise ValueError("retraining is restricted to existing dev resources")
+    if os.environ.get("MART_OOS_EVALUATION", "false").lower() != "true":
+        raise ValueError("retraining requires OOS evaluation")
+    store = GcsObjectStore("gen-lang-client-0593591102-dev-core")
+    event = latest_training_input(store, datetime.now(ZoneInfo("Asia/Taipei")).date())
+    return _run_event(event, "specialist-retrain")
+
+
+def _run_event(event, operation):
     import resource
     import time
     started = time.monotonic()
     from packages.postgres_bundle import load_postgres_bundle
-    from ingestion_core.stage import GcsObjectStore
     from .runtime import AnalysisExecution, _settings
     import psycopg
     load_postgres_bundle("JANUS_MART_POSTGRES_BUNDLE", {
         "CATALOG_DB_PASSWORD": ("mart_catalog_password", "catalog_password"),
         "PUBLICATION_DB_PASSWORD": ("mart_publication_password", "publication_password")})
-    uri = urlparse(os.environ["MART_ACCEPTANCE_INPUT_URI"])
-    if uri.scheme != "gs" or uri.netloc != os.environ["MART_BUCKET"] or not uri.path.startswith("/acceptance/specialists/"):
-        raise ValueError("acceptance input must stay inside existing Mart dev acceptance prefix")
-    event = json.loads(GcsObjectStore(uri.netloc).read(uri.path.lstrip("/")))
     options = {"core_execution_id": event["executionId"], "analysis_as_of": event["analysisAsOf"],
                "core_snapshot_id": event["coreSnapshotId"], "core_snapshot_uri": event["coreSnapshotUri"],
                "core_snapshot_hash": event["coreSnapshotHash"], "schema_version": event["martSchemaVersion"],
                "feature_version": event["featureVersion"], "model_version": event["modelVersion"],
                "governance_snapshot_version": event["governanceSnapshotVersion"], "scopes": event["scopes"]}
-    execution = AnalysisExecution(str(uuid4()), "specialist-dev-acceptance", (), 0, options)
+    execution = AnalysisExecution(str(uuid4()), operation, (), 0, options)
     execution.validate_input()
     settings = _settings("PUBLICATION_DB")
     with psycopg.connect(host=settings["host"], dbname=settings["name"], user=settings["user"], password=settings["password"],
                         sslmode=os.environ.get("PUBLICATION_DB_SSLMODE", "require"), connect_timeout=5) as connection:
         result = specialist_processor(execution, connection)
-    return {"component": "intelligence-mart", "operation": "specialist-acceptance", "execution_id": execution.execution_id,
+    return {"component": "intelligence-mart", "operation": operation, "execution_id": execution.execution_id,
             "llm_api_tokens": 0, "elapsed_seconds": round(time.monotonic() - started, 3),
             "peak_rss_mib": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 2), **result}

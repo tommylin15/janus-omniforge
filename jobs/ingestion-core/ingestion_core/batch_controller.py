@@ -24,6 +24,7 @@ class Batch:
     env: tuple[tuple[str, str], ...] = ()
     exclusive_jobs: tuple[str, ...] = ()
     minute: int = 30
+    month_days: tuple[int, ...] = ()
 
 
 BATCHES = (
@@ -32,6 +33,9 @@ BATCHES = (
           env=(("JANUS_DATA_SUPPLEMENT_MODE", "daily"), ("JANUS_DATA_SUPPLEMENT_SYMBOLS", ""),
                ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""), ("ICEBERG_MAINTENANCE_MODE", ""))),
     Batch("mart", "janus-intelligence-mart", (9,), tuple(range(5)), ("ingestion", "data-supplement"), (("MART_OPERATION", "queue"), ("MART_AI_ENABLED", "false")), minute=0),
+    Batch("specialist-retrain", "janus-intelligence-mart", (10,), dependencies=("ingestion", "data-supplement"),
+          env=(("MART_OPERATION", "specialist-retrain"), ("MART_OOS_EVALUATION", "true"), ("MART_AI_ENABLED", "false")),
+          exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart"), month_days=(1,)),
     Batch("data-quality", "janus-ingestion-core", (12,), (5,),
           env=(("JANUS_DATA_SUPPLEMENT_MODE", "quality"), ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""),
                ("ICEBERG_MAINTENANCE_MODE", "")), exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart")),
@@ -61,6 +65,10 @@ def due_batches(now: datetime, batches=BATCHES):
             raise ValueError("invalid batch weekdays")
         if batch.minute not in range(60):
             raise ValueError("invalid batch minute")
+        if any(day not in range(1, 32) for day in batch.month_days):
+            raise ValueError("invalid batch month day")
+        if batch.month_days and local.day not in batch.month_days:
+            continue
         if local.weekday() not in batch.weekdays:
             continue
         for hour in sorted(batch.hours):

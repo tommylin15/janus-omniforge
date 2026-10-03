@@ -14,6 +14,8 @@ Deep Coverage 使用既有去識別化資料庫函式取得 active watchlist ∪
 
 所有輸入以 Core immutable manifest / table snapshot、availability / publication / observation 時點、provenance 與 source authorization 驗證；未合格資料不進特徵。缺資料及未驗證模型明示 partial / blocked，不填假機率。
 
+使用者 2026-10-03 後續指示：歷史財報以可驗證的官方資料版本、公司／期間／口徑與來源文件 hash 為收錄優先；官方公開時間有就保留，缺少時標記 unknown，不作為歷史資料收錄的硬性阻擋。這放寬資料完整度要求，不將期間截止日或今日接收時間偽裝成歷史公開時間；嚴格 PIT OOS 仍只用當時可用性可驗證的特徵，採假設時間的研究回測須另外標示且不得當成嚴格 OOS 或 champion 驗收。
+
 ## 成果物
 
 新 `specialist.v1.json` 定義 Fundamental / Valuation / Quant / Risk / Event。財務可比值、PE/PB/殖利率、動能、波動/CVaR/回撤/對齊 beta、事件數與嚴重度採確定性計算；中文報告使用規則模板。DCF/reverse-DCF 有嚴格計算函式，但真實 Core 未提供完整每股自由現金流與核准假設時回報缺值。
@@ -29,6 +31,8 @@ Riskfolio-Lib 計算歷史 CVaR；statsmodels 二狀態 Markov variance challeng
 Fundamental/Valuation 共用既有成熟價格標籤，但每個預測日的財報／估值特徵另經 PIT 驗證；必要特徵不足時回報 `insufficient_pit_financial_features`，不把今日接收的財報回填成當年已知。Fundamental 比較營收／可比 EPS 趨勢的 LightGBM；Valuation 比較 PE/PB/殖利率的 LightGBM／CatBoost。此 bounded baseline 不代表完整財務品質特徵或 DCF 假設已齊備。
 
 Quant 增加 Qlib v0.9.7 的單一 DoubleEnsemble bounded adapter，保留 MIT license 與原始來源 SHA；不引入完整 Qlib tracking／data provider。固定三個子模型、20 rounds、seed 17、single thread，保留 sample reweighting 與 feature selection，ensemble 原生 Tree SHAP 必須重建同一預測。IC decay 以同一 OOS signal 對 5/20/60/120 日成熟結果的各股時間序列 Rank IC 評估；不足 20 筆保留 null，重疊長窗口結果不當成獨立報酬樣本。
+
+月度 challenger／OOS 使用 `specialist-retrain` operation，由既有 batch controller 每月 1 日台北 10:30 在 ingestion／data-supplement 成功後執行，沿用 1 CPU／1 GiB Mart Job。從既有 Core bucket 選最新 immutable manifest 並固定 raw-byte hash，超過 7 天或未來日期拒絕執行；手動重跑同 operation 產生新 execution。資料不足仍回報 insufficient_history，不視為模型通過；不自動 promotion。Event 依標記資料另行驗證，尚未具備的 classifier 不因共同批次而宣稱已重訓。快取／月度 reconciliation 依 active TODO 的後續 WBS 處理。
 
 尚未完成：足以訓練 Fundamental/Valuation 的可驗證歷史 PIT 財報／估值資料、台灣繁中 Event 人工標記資料與本機 encoder、歷史 membership replay 與 champion promotion。原生 SHAP、機率校準、regime OOS、Qlib 與金融特徵 evaluator 已有實作；是否已部署、具足夠真實台股資料及有效性，仍以 operations 的 dev／readback 結果判定。這些缺口使 WBS 保持 partial。
 
