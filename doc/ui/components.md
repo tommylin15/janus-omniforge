@@ -1,207 +1,175 @@
 # Janus UI — 元件契約
 
+更新：2026-10-03
+
 ## 6. 元件契約
 
-### StockHealthCard（Flutter reference）
+本文件只保存目前有效的共用 presentation contract。舊 `AnalystCard`／CIO／Gemini narrator 專屬語意不再是 active UI contract；研究元件改為 persisted specialist outputs + optional persisted On-demand CEO report。
 
-輸入欄位固定使用 `stock_id`、`stock_name`、`mart_health_score`、`chips_status`、`ai_whitepaper_analysis` 與 `analysis_as_of`。`mart_health_score` 必須是已發布 Mart 的 1–100 整數；Widget 只映射顏色與版面，不計算分數。
+## StockHealthCard
 
-```dart
-import 'package:flutter/material.dart';
+輸入只接受 backend／Mart 已發布且具狀態語意的欄位，例如：
 
-class StockHealthCard extends StatelessWidget {
-  const StockHealthCard({
-    super.key,
-    required this.stockId,
-    required this.stockName,
-    required this.martHealthScore,
-    required this.chipsStatus,
-    required this.aiWhitepaperAnalysis,
-    required this.analysisAsOf,
-  }) : assert(martHealthScore >= 1 && martHealthScore <= 100);
+- `stock_id`
+- `stock_name`
+- `mart_health_score`（如該分數已通過 active Mart／publication contract）
+- `chips_status`
+- `plain_language_analysis`
+- `analysis_as_of`
+- `data_status`
+- `confidence`
 
-  final String stockId;
-  final String stockName;
-  final int martHealthScore;
-  final String chipsStatus;
-  final String aiWhitepaperAnalysis;
-  final DateTime analysisAsOf;
+規則：
 
-  Color get scoreColor => martHealthScore >= 70
-      ? Colors.green
-      : martHealthScore >= 40
-          ? Colors.amber
-          : Colors.red;
+- Widget 不計算健康度、方向、confidence 或 fallback。
+- 健康度不是獲利機率；顯示時必須同時提供資料日期／status／risk context。
+- `partial`／`stale` 顯示狀態；`blocked`／`insufficient_data` 不以 0 分或假方向替代。
+- `plain_language_analysis` 只能來自已持久化的 deterministic template／validated report，不在 Flutter 補字或呼叫 LLM。
 
-  @override
-  Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('$stockName $stockId',
-                  style: Theme.of(context).textTheme.titleLarge),
-              Text('資料日期 ${analysisAsOf.toLocal().toString().split(' ').first}'),
-              const SizedBox(height: 20),
-              Semantics(
-                label: '股票健康度 $martHealthScore 分，滿分 100 分',
-                excludeSemantics: true,
-                child: SizedBox.square(
-                  dimension: 120,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      CircularProgressIndicator(
-                        value: martHealthScore / 100,
-                        strokeWidth: 12,
-                        strokeCap: StrokeCap.round,
-                        color: scoreColor,
-                        backgroundColor: scoreColor.withAlpha(38),
-                      ),
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('$martHealthScore',
-                              style: Theme.of(context).textTheme.displaySmall),
-                          const Text('健康度'),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Chip(label: Text(chipsStatus)),
-              ),
-              const SizedBox(height: 12),
-              Card.filled(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.psychology),
-                      const SizedBox(width: 12),
-                      Expanded(child: Text(aiWhitepaperAnalysis)),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-}
-```
+## StockHeader
 
-- 健康度不是獲利機率；卡片下方必須同時提供風險與資料日期。
-- `ai_whitepaper_analysis` 是 Gemini 對合格 evidence 的白話轉譯，不得在 Widget 中補字、截斷成不同結論或注入示例內容。
-- partial／stale 時保留卡片但顯示狀態 banner；blocked／insufficient_data 不顯示分數圓環。
+- canonical symbol、name、market。
+- persisted／approved quote 的 close、change、change percent；null 顯示資料暫缺。
+- 顯示 market data `as_of`／trade date。
+- research report `analysis_as_of` 與 market quote time 分開，不暗示 report 是即時分析。
 
-### StockHeader
+## KLineChart
 
-- symbol、真實 name、market。
-- close、change、change percent；null 顯示資料暫缺。
-- 明確顯示 `market_data.as_of` 實際交易日。
-- 顯示 report `analysis_as_of`，不可暗示即時報價。
+- 位於 Stock Detail Advanced section，預設收合。
+- D／W／M period；MA 5／10／20／60／120／240 依資料可用性。
+- OHLCV／指標 tooltip、loading／error／empty／request-race protection。
+- 必須有可讀 table／summary 替代；hover／focus／touch／Escape 可操作。
+- 不作為 canonical score／research direction 的計算器。
 
-### KLineChart
+## MetricsGrid／DeterministicSignalSummary
 
-- 僅放在個股「進階資料」，預設收合；不是 User App 首屏或健康判斷的主要視覺。
-- D／W／M period。
-- MA 5／10／20／60／120／240（依資料可用性）。
-- OHLCV、必要技術指標 tooltip。
-- loading、error、empty、request race protection。
-- Canvas 提供同步 OHLCV table／摘要。
-- tooltip 支援 hover、focus、Enter、touch、Escape，不使用 title-only。
-- 手勢不得造成錯誤頁面捲動。
+- 只呈現 Mart 已計算的 typed values、formula／revision reference 與資料狀態。
+- `null`／insufficient 不顯示 0 或方向暗示。
+- UI 不重新計算 financial、technical、valuation、portfolio values。
 
-### MetricsGrid
+## SpecialistCard
 
-- 偏多、偏空、中立、資料不足四態。
-- aggregate score=null 時不顯示 0、勝率或方向暗示。
-- 開發期 completeness 30% gate 的 insufficient 狀態需明示。
+五種 specialist：
 
-### AggregationEvidence
+- Fundamental
+- Valuation
+- Quant
+- Risk／Regime
+- Event／Catalyst
 
-- 同時顯示 bull、bear、contradictions、contributions。
-- 不隱藏反向證據。
-- 顯示 effective weight、quality effect、governance version。
+共同欄位優先為：
 
-### MarketActivityPanel
+- specialist type；
+- analysis/data as-of；
+- status／freshness；
+- structured metrics／score／probability（只有 active specialist contract 定義時）；
+- positive／negative drivers；
+- SHAP／feature contribution 或 rule contribution；
+- missing／stale／partial；
+- evidence／provenance references；
+- what changed since previous artifact（如可用）。
 
-- Mobile 兩欄、desktop 四欄。
-- 融資融券、借券、當沖、注意／處置。
-- DB 數量以股；UI 可顯示張，tooltip 保留股數。
-- healthy-empty：「目前沒有資料」。
-- source unavailable：「資料暫缺」。
+規則：
 
-### AnalystCard
+- specialist 日常 output 來自 Python／SQL／ML，不以 provider/model badge 暗示每日 LLM worker。
+- advanced detail 才顯示 engine／model／feature version、input hash、snapshot、artifact identity。
+- markdown 只允許安全 subset，不執行 HTML。
+- historical artifact immutable；切換歷史時不得借用最新 evidence 補舊結果。
 
-共通：角色、direction、nullable score、confidence、summary、missing data、evidence。
+## CEOReportCard
 
-- 安全渲染 Markdown 標題、清單、粗體，不執行 HTML。
-- Fundamental：規則集、營收／獲利、quality flags、正負因素。
-- Valuation：PE、PB、ROE、D/E、valuation score。
-- Positioning：5／20／60、crowding、smart-money divergence；crowding 不用綠色。
-- Quant：relative strength、volume Z、volatility、drawdown、Beta、ATR、turnover／liquidity。
-- Event Risk：risk score、governance flags、catalysts、risk events；manual review 不使用確定性樣式。
+只呈現 persisted On-demand CEO report，不在 page load 呼叫 provider。
 
-Evidence 欄位：metric、value、unit、source、provenance ID、observed／published／fetched time。
+至少可顯示：
 
-### CompanyEventTimeline
+- report status；
+- analysis as-of／generated-at；
+- thesis；
+- cross-specialist conflicts；
+- bull／base／bear（如 active schema 提供）；
+- key risks／invalidation conditions／unknowns；
+- specialist freshness／material delta；
+- evidence／provenance summary。
 
-- 位於五張 AnalystCard 後、Disclaimer 前。
+若使用者具 backend capability，可在卡片或相關 action 區顯示 `分析`／`重新分析`；按下後只建立 command／execution，不把 enqueue 當成功報告。in-flight、quota／cooldown、provider/profile gate 由 backend 決定。
+
+CEO report 不計算、補值或覆寫 canonical number，也沒有 publication authority。
+
+## AnalysisHistory
+
+- 依日期／execution／artifact version 切換 facts、specialist outputs、CEO reports 與 sources。
+- 舊 artifact immutable。
+- legacy field 若 null／unknown 就照實顯示，不借用最新資料。
+- Mobile 可用 bottom sheet／full-screen route；desktop 可用 dialog／side panel。
+
+## EvidenceAndSources
+
+- 只使用目前所選 artifact 的 provenance／evidence。
+- source name 可去重；fallback／source status 明示。
+- 不顯示 raw object URI、credential locator、secret、unsafe query string 或完整 upstream traceback。
+- inferred／hypothesis 不得用 confirmed 樣式。
+
+## CompanyEventTimeline
+
 - 依 `published_at DESC`。
-- 相同類型且語意近似只顯示最新版；有實質變更的更正公告保留。
-- 收合只顯示標題與發布時間。
-- 展開顯示 type、severity、effective、observed、fetched、body、source。
-- critical／high red；medium amber；low zinc；unknown「待分類」。
-- cursor 載入更多；附件不存在不顯示按鈕。
+- 相同類型且語意近似可只顯示最新版；有實質變更的更正公告保留。
+- collapsed 顯示 title／published time；expanded 顯示 type、severity、effective／observed／fetched、safe body／summary、source。
+- critical／high／medium／low／unknown 使用一致狀態語意；unknown 顯示待分類。
+- cursor 載入更多；附件不存在不顯示 action。
 
-### ReportHistoryModal
+## MarketActivityPanel
 
-- 最多五份，日期由新到舊。
-- 從角色卡開啟時只顯示該角色在所選日期的內容。
-- 日期切換同步切換 report、provenance、source references。
-- legacy 欄位 null／unknown，不借用最新資料。
-- Mobile bottom sheet；iPad／desktop modal。
+- Mobile 兩欄、desktop 可四欄。
+- financing／securities lending／day trading／attention-disposition 等只呈現 backend 值。
+- 單位轉換需明確；如 DB 是股、UI 顯示張，detail／tooltip 保留原單位。
+- healthy-empty 與 source unavailable 分開。
 
-### ReportSources
+## ComplianceDisclaimer
 
-- 只使用當前 report provenance。
-- 依 source name 去重；fallback 明示。
-- 最多顯示三則核准新聞原文。
-- 不顯示 raw object URI、query string 或不安全 URL。
+至少涵蓋：
 
-### ComplianceDisclaimer
+- analysis／data as-of；
+- status／confidence（明示非獲利機率）；
+- data quality／missing／blocking／warning；
+- governance／model or artifact version（需要時）；
+- source scope；
+- 標準研究／風險免責。
 
-- analysis as of。
-- Aggregator confidence，明示非獲利機率。
-- data quality、missing data、blocking／warning。
-- governance version。
-- risk disclosure、來源採用範圍、標準免責聲明。
+## TradingJournalForm
 
-### TradingJournalForm／PnLSummary
+- Material 3 controls；事件類型：買進、賣出、現金股利、股票股利。
+- date、canonical stock autocomplete、shares／price／dividend／currency／note 等依 event type 顯示。
+- decimal validation；不得預填虛構價格。
+- fee／tax preview 可有，但 canonical 值與 rule/profile version 由 backend 持久化。
+- mutation 成功顯示 ledger event／safe success state；若 Private Mart 尚未更新，明示 pending，不在 Flutter 假裝已重算 PnL。
+- correction 使用 reversal／replacement semantics；UI 不做無痕覆寫。
 
-- `TradingJournalForm` 使用 Material 3 dropdown／segmented control 選擇買進、賣出、現金股利或股票股利，搭配日期選擇器、股票 autocomplete 與依類型顯示的十進位欄位；送出前顯示交易摘要，成功後顯示 ledger event ID。
-- 賣出股數大於可用持股時由 API 拒絕，UI 保留輸入並顯示欄位級錯誤；前端預檢不能取代後端約束。
-- `PnLSummary` 分開顯示已實現與未實現損益，並標示估值日期、成本法與缺價筆數；null 不顯示為 0。
-- 刪除／修正需二次確認並說明會建立 reversal／replacement；成功後重新讀取已持久化 ledger／Mart，不在 Flutter 本地重算正式損益。
+## PnLSummary／PortfolioSummary
 
-### NoteEditor
+- realized／unrealized 分開。
+- 顯示 valuation date、cost method、missing/stale affected scope。
+- canonical aggregate withheld 時不由 Flutter忽略缺值自行加總。
+- operational shares／average cost 與 Private Mart valuation／PnL 的時間與權威層級需分開。
 
-- `NoteEditor` 使用平台原生 multiline text field、可選 symbol／trade 關聯與待追蹤 toggle；儲存後顯示 revision ID，不加入富文字編輯器或附件系統。
+## NoteEditor
 
-ChatRoom／DataSourcePicker／McpSkillPanel／AgentTimeline 的 generic UI contract 已移至 omniAgent；Janus 元件僅顯示自身投資資料，不提供對話或工具核准控制。
+- 原生 multiline field、optional symbol／trade link、pending follow-up toggle。
+- save 建立 revision；不需要 rich-text／attachment system 才能完成基本功能。
 
-### Research Context 元件（Planned）
+## Research Context 元件（Planned）
 
-- 擴充既有 `MarketRegimeCard`：輸入 state、`analysis_as_of`、deterministic confidence、evidence、freshness 與 missing data；`insufficient_data` 不顯示方向。
-- 新增概念元件僅限 `ResearchThesisCard`、`ResearchStateBadge`、`DataFreshnessBadge`、`MissingDataList`、`SupplyChainExposureCard` 與 `DeterministicSignalSummary`；實作時若既有元件可承載則直接重用。
-- `ResearchThesisCard` 顯示 revision／effective time、supporting／invalidating conditions 與 review status；`ResearchStateBadge` 只呈現 candidate／strategy state，不產生建議。
-- `DataFreshnessBadge`／`MissingDataList` 共用 partial、stale、fallback、insufficient-data semantics，null 不顯示為 0。`SupplyChainExposureCard` 顯示 evidence class、effective time 與 provenance，不把 inferred／hypothesis 標為 confirmed。
-- `DeterministicSignalSummary` 只顯示 Mart 已計算值與 formula／revision reference。所有 UI 元件都不計算 canonical financial、technical 或 portfolio values。
+優先重用既有元件；必要時可包含：
+
+- `MarketRegimeCard`
+- `ResearchThesisCard`
+- `ResearchStateBadge`
+- `DataFreshnessBadge`
+- `MissingDataList`
+- `SupplyChainExposureCard`
+- `DeterministicSignalSummary`
+
+所有元件只顯示 backend／Mart 已持久化內容，不計算 canonical values、不把 hypothesis 標成 confirmed，也不新增聊天／Agent／tool approval UI。
+
+## Cross-project boundary
+
+`ChatRoom`、generic `DataSourcePicker`、MCP Skill approval、Agent timeline 等對話產品元件屬 omniAgent，不是 Janus User App component contract。Janus 只呈現投資資料、研究 artifact 與 Admin operational controls。
