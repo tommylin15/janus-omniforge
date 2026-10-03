@@ -297,7 +297,7 @@ def run_backfill(*, incremental=False):
                 if incremental and (year, month) not in missing_months[symbol]:
                     summary["skipped"] += 1
                     continue
-                url = "https://www.twse.com.tw/exchangeReport/STOCK_DAY?"+urlencode({"date": f"{year}{month:02d}01", "stockNo": symbol, "response": "json"})
+                url = "https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY?"+urlencode({"date": f"{year}{month:02d}01", "stockNo": symbol, "response": "json"})
                 try:
                     raw, _ = _fetch(url)
                     provenance, _ = stage(raw, url, "twse", "ohlcv", "json", {"symbol": symbol, "year": year, "month": month})
