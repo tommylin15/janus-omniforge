@@ -60,7 +60,7 @@ AutoGluon、FinBERT、FinGPT 可作 benchmark/research challenger，不直接取
 
 ## 尚未完成的關鍵 acceptance
 
-- specialist-engine adapters/contracts、training/evaluation dataset、dirty graph、monthly retrain/reconciliation 尚未實作與 live 驗收。
+- 新五分析師確定性 adapters/contracts、覆蓋與 immutable persistence、逐月 baseline evaluator 已實作並通過 targeted tests；真實 dev／OOS、完整 ML baseline、dirty graph 與 monthly retrain/reconciliation 尚未完成整體驗收。舊每日五角色已刪除。
 - On-demand CEO private command/capability/report history 尚未實作。
 - Admin capability/model/evaluation controls 尚未實作。
 - User Stock Detail 的 manual Analyze/Re-analyze + report freshness/history 尚未實作。
