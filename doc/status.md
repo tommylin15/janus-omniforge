@@ -2,52 +2,78 @@
 
 更新：2026-10-03
 
-用途：提供「現在在哪裡、下一步是什麼、哪些尚未完成」的短入口。這不是新的 source of truth；實作以 GitHub `main` 為準，完成狀態以 tests／CI／deployment／live runtime／integration evidence 為準。**確定要做**的完整未完成工作只看 [`todo.md`](todo.md)；目前**不做**但保留供日後翻找的內容見 [`parking-lot.md`](parking-lot.md)。2026-10-02 最新 Admin／User／Routing／Provider 決策見 [`decision-2026-10-02-admin-user-routing-and-provider-plan.md`](decision-2026-10-02-admin-user-routing-and-provider-plan.md)；五位分析師每日運作 gate 見 [`five-analyst-daily-operation-gate.md`](five-analyst-daily-operation-gate.md)；六個月 Pilot 新增 operational checkpoint 見 [`pilot-operational-evidence.md`](pilot-operational-evidence.md)；完整歷史 evidence 見 [`spec/operations-and-testing.md`](spec/operations-and-testing.md)。
+用途：提供「現在在哪裡、下一步是什麼、哪些尚未完成」的短入口。實作以 GitHub `main` 為準，完成狀態以 tests／CI、deployment、live runtime、trigger／workload、integration evidence 為準。完整 active queue 只看 [`todo.md`](todo.md)。
 
-## 現在的判定
+## 目前最重要的產品決策
 
-- GCP `dev` 是 Janus 個人使用階段的真實平行上線環境，不是 demo／mock staging。
-- Janus hard split、read-only MCP／OAuth、Dev Pilot Entry 等既有 acceptance 保持有效；是否完成仍以各自 implementation／runtime evidence 判定。
-- `WBS-8-DEV-PILOT-RUN` 已進入六個 calendar months operational evidence window，目前仍是 `partial`。Checkpoint 001 已記錄自然 Scheduler failure、版本化 calendar repair 與 bounded dataset acceptance；Checkpoint 002 已記錄 deployment-controller consolidation 的 manual intervention、canonical bounded deployment acceptance 與獨立 post-acceptance verification。這條 observation 只寫 evidence，不再以 active TODO checkbox 表示，也不因沒有新事件而製造待辦。
-- **2026-09-26 dev deployment controller consolidation 已完成。** `janus-ingestion-core` 與 `janus-intelligence-mart` 的兩個 legacy `us-central1` Cloud Build triggers 已 guarded 刪除；cleanup run `36229366763` 先保存 rollback artifact，再精確刪除兩個 trigger。canonical GitHub deployment run `36229503909` 對 ingestion-core／intelligence-mart targeted tests、deploy、`verify-dev.sh` 全部成功，API jobs skipped。獨立 read-only post-acceptance run `36229702938` 再次確認兩個 regional triggers 仍 absent、兩個 Cloud Run Jobs 都 `Ready=True`。此項判定只代表 duplicate deployment-controller condition `RESOLVED` 與 deployment acceptance `PASS`，不等同 ingestion／Mart workload live-data acceptance。
-- **2026-09-26 Janus web root routing incident 已完成修復與 dev live acceptance。** 原因是 canonical Cloud Run service root `/` 沒有 FastAPI route，直接開啟會 404；修復 commit `27c8a0b7d091bcc0e86147688b5907762b32a2ba` 已部署到 revision `janus-api-g27c8a0b7d091-config`、100% traffic，image digest `sha256:002e52dbebb21dfeb231a556e3c049728e54c9aad2246f3ba834bd1eb2e73991`。Runtime inspect run `36226506571` 實際驗證 `/` 為 307、`Location: /app`，且 `/app/` Janus entrypoint 可達。此 routing 修復不代表 User／Admin product completeness 已完成。
-- **`WBS-3-FULL-MARKET-BASE-COVERAGE` 已依使用者核准的各必要資料集缺值率 <10% 門檻結案。** TWSE 上市 500 檔的官方資料缺值率為 0–3.6%；原始 inventory `partial`、逐檔 `missing`、FinMind `blocked`、離榜持股 future-feed `partial` 照實保留，但這些已接受缺口**不再列 active TODO**，也不要求為了消除 `partial` 追到 500/500。完整歷史無缺口回補仍不作為一般目標；五分析師所需第一版補強已另由 `WBS-3-DATA-SUPPLEMENT-V1` 於 2026-10-03 依資料優先驗收結案；已接受限制不再作後續工作的資料前置 blocker。
-- **正式批次修復與清理：2026-10-02 歷史 checkpoint 為 partial。** 以下是當時證據，不是新增 active 工作組；2026-10-03 每日補資料自然鏈路與固定快照 Fact Pack 重建已有新證據，但不據此推定整個自然 ingestion／Mart／private 鏈路已完成。 單一 Cloud Scheduler 每小時台北時間 :30 呼叫 Cloud Run 總控，原 Mart／private Scheduler 暫停保留供回復；總控防重複與 Iceberg 紀錄的手動真實驗收通過，自然批次依賴驗收待觀察。Core／Stage 清理已成功，去除 52,663 列重複財報觀測，固定快照引用保留；Mart 正式清理成功，額外減少 1,372,605 bytes；正式零模型來源 → FactPack 鏈路仍待驗收。五個指定 bucket 已改非當前版本保留 3 日、關閉 soft delete。空間與失敗／修復證據見 [operations](spec/operations-and-testing.md)。
-- **User product completeness 目前仍有 committed 項目。** 2026-09-29 Private Pipeline 修復後，真實 5876 持股已有正式盤後價且 aggregate valuation／unrealized PnL 恢復發布；其他持股若缺行情 coverage 或名稱解析，UI 仍須保留 missing／stale／partial 狀態，不自行補算或用 placeholder 假裝完整。既有 MIS 盤中報價能力已完成；2026-10-02 已將目標 contract 擴充為 DB-first persisted last quote＋盤中／盤後 multi-source routing、交易後 synchronous operational position projection、操作池／broker profile 與全 UI 數值格式收斂；這些新需求仍在 active TODO。
-- **Flutter Admin shell 與原 `WBS-6-ADMIN-OVERVIEW-BATCH`／`WBS-6-ADMIN-STOCK-WORKBENCH` acceptance 均已完成。** 2026-10-02 新增 operability extension 包含 actionable exception drill-down、Job Control Center、Storage／Private operations 與 routing controls；這些是新的 committed work，不反向改寫歷史 WBS 的完成範圍。
-- **五位分析師每日運作 Gate 1、Fact Packs Gate 2、AI Role Contract Gate 3、AI Validation Gate 4 已完成各自 acceptance。** 這只代表可以進入 provider／CIO chain，不代表五位分析師已每天自然運作。
-- **`WBS-3-DATA-SUPPLEMENT-V1` 已依資料優先驗收完成。** 五檔不同產業均有 12 季財報、12 月營收及至少 121 日合格行情；Core 固定快照、30 份 Fact Packs 重建、每日增量、獨立週六檢查、Admin UI 與檢核文件已通過真實 dev 驗收。目前版本資料前置已滿足，足以接續五分析師 Provider 驗收；歷史 PIT／原始版本及部分研究欄位為已接受限制，仍明示 unknown，不再阻擋開工。詳見 [結案證據](archive/wbs-3-data-supplement-v1-completed-2026-10-03.md)及 [操作文件](runbook-data-supplement.md)。
+2026-10-03 使用者已核准 **Token-first 五分析師 + On-demand CEO** 架構，詳見：
+
+- [`decision-2026-10-03-token-first-specialist-and-on-demand-ceo.md`](decision-2026-10-03-token-first-specialist-and-on-demand-ceo.md)
+- [`wbs/wbs-5-specialist-engines.md`](wbs/wbs-5-specialist-engines.md)
+
+新需求的核心是：
+
+- 五 specialist production 主路徑使用 Python／SQL／ML，不再以 5 個每日生成式 LLM workers 為目標。
+- 約 500 檔保留便宜 market screening/discovery；完整五 specialist 僅做 active watchlist + effective holdings。
+- specialist 依 input change / dirty dependency incremental update，無變化 reuse；ML retrain/calibration/reconciliation 第一版月度。
+- 五 specialist 白話文以 structured outputs + SHAP/rules/templates 產生，正常 0 API token。
+- Codex CLI／OpenRouter／Gemini 既有 provider/router/validator/auth/free-gate 成果保留，但改為 authorized user 手動 On-demand CEO / rare escalation runtime。
+- CEO report 保存成 immutable symbol-level research artifact；重新分析產生新 execution/report，不覆寫舊報告。
+- Admin 需管理 DB-backed Google user capability（例如 `ceo_analysis.request`）；User Stock Detail 只有有權限帳號可按「分析／重新分析」。
+
+**舊 `five-analyst-daily-operation-gate.md` 的「每日五 Codex workers」不再是 active completion gate，只保留歷史規劃參考。** 若舊 WBS／SPEC 尚未完全 convergence，以 active TODO + 2026-10-03 decision 作新需求；舊 implementation/runtime evidence 仍照實保留。
+
+## 目前已存在、可重用的能力
+
+- GCP `dev` 是 Janus 個人使用階段的真實 parallel-live environment。
+- WBS-3 full-market base coverage 與 `WBS-3-DATA-SUPPLEMENT-V1` 已完成；500 檔資料網、12 季/12 月/行情補強、固定 Core snapshot、Fact Packs、每日增量與週六品質檢查已有既有 evidence。
+- `WBS-5-MART-FACT-PACKS`、AI role contract、provider-neutral AI validation、mart.v1 additive compatibility 的既有完成歷史保持有效；不因新架構而回寫成未完成。
+- Codex CLI 五角色 bounded GCP execution、provider routing、OpenRouter/Gemini free/billing probes、artifact lineage/validator 等既有成果保留為 provider/runtime capability evidence；它們**不等於新 specialist-engine 或 On-demand CEO 已完成**。
+- User API 已有 Google OIDC owner boundary；Admin 有獨立 Google admin allowlist；Stock Detail 已有 persisted stock report、positions、notes、Kline/events、analysis feedback 等 read path，可作 CEO action/report integration 基礎。
+- Flutter Admin shell、Overview/Batch、Stock Workbench 的舊 acceptance 保持；2026-10-02 新增的 operational convergence 尚在 active TODO。
 
 ## 目前執行順序
 
 唯一權威排序見 [`todo.md`](todo.md)：
 
-補資料第一版已結案，資料前置已滿足；使用者已確認 Sol 並恢復 Provider WBS，追加最多 20 次有界 Codex 驗收；自然每日批次仍關閉。OpenRouter $0 probe 與 Gemini billing 停用已證實，auth lifecycle／target 情境／fallback 整合仍需驗收。
+1. `WBS-5-MART-SPECIALIST-ENGINES` — 500 screening + Deep Coverage 5 Python/ML specialist + OOS champion/challenger + 0-token plain-language reports。
+2. `WBS-5-MART-RERUN-CACHE` — dirty dependency graph、content-addressed reuse、incremental invalidation、monthly reconciliation。
+3. `WBS-5-MART-AI-PROVIDERS` — scope 已改為 On-demand CEO / rare escalation provider runtime；保留 Codex CLI → OpenRouter → Gemini。
+4. `WBS-5-MART-CIO-SYNTHESIS` — 產品語意改為 manual `CEO Analysis`，validated inputs only、immutable report、no publication authority。
+5. `WBS-6-ADMIN-ANALYSIS-PROFILE` — specialist model/evaluation + CEO route/profile + user capability/quota/cooldown。
+6. Admin operational convergence。
+7. User operational convergence — Stock Detail specialist/CEO/freshness/history/manual analyze integration，加上既有 quote/position/performance work。
+8. `WBS-6-USER-FINAL-VISUAL-CONVERGENCE`。
 
-1. `WBS-5-MART-AI-PROVIDERS` — partial；已於 2026-10-03 恢復執行，未完成 acceptance 保留。
-2. `WBS-5-MART-CIO-SYNTHESIS`。
-3. `WBS-5-MART-RERUN-CACHE`。
-4. `WBS-6-ADMIN-ANALYSIS-PROFILE`。
-5. Admin operational convergence。
-6. User operational convergence。
-7. `WBS-6-USER-FINAL-VISUAL-CONVERGENCE`。
+## 模型／framework 方向
 
-`WBS-5-MART-AI-PROVIDERS` 最新 evidence：2026-10-02 第二個 GCP cold-start execution 的五角色均 `validated/insufficient_data`；19-object 獨立 readback、單股 same-execution Core／target／provider lineage 與 immutable replay 通過。兩批共用完十次核准 invocation；auth version 1→1，rotation 未觀察。Canonical Linux CI 137 passed、Mart deploy／verify success。Provider default route 為 **Codex CLI → OpenRouter → Gemini**，本次 effective route 僅 Codex；OpenRouter `$0` actual request 與 Gemini Free Tier／billing probe 被自動審核擋下，兩者保持 blocked。剩餘 auth lifecycle、全 target／情境 acceptance 與持續批次額度未完成，WBS 保持 partial；詳見 [補資料前歷史 checkpoint 與 2327 缺資料明細](archive/wbs-5-mart-ai-providers-checkpoint-2026-10-02.md)。五份 validated／insufficient_data 不等於完整研究或五分析師自然每日運作已可用。
+目前 approved production candidates：
 
-## 不再列 active TODO 的內容
+- Fundamental：deterministic financial features + LightGBM。
+- Valuation：deterministic valuation + LightGBM/CatBoost benchmark。
+- Quant：LightGBM baseline + Microsoft Qlib DoubleEnsemble challenger。
+- Risk/Regime：Riskfolio-Lib + statsmodels/ML。
+- Event/Catalyst：parser/rules + Hugging Face Transformers multilingual local classifier。
+- Explanation：SHAP/feature contribution + deterministic templates。
 
-Pilot observation、Production go/no-go／HA／paid backup、全市場完整歷史無缺口回補、分 K／Tick、S3 News、S4 Supply-chain、S5 Broker Research／Consensus／Target Price、S6 Social／Podcast／Alternative sources、Pilot Mart AI evaluation 擴張、PIT/outcome 校準、完整 device／A11y matrix、P4 DQ roadmap、其餘 Research Context roadmap 等留在 [`parking-lot.md`](parking-lot.md)。
+AutoGluon、FinBERT、FinGPT 可作 benchmark/research challenger，不直接取得 production authority。最終 champion 必須由 Janus Taiwan PIT walk-forward OOS evidence 決定，不能用 upstream benchmark 代替。
 
-這些內容不是「偷偷延後的欠債」；目前判定就是**不做**，不計入專案未完成度。只有使用者日後明確改成「做」，才重新放回 `todo.md` 並取得順序與 acceptance。補資料 S0～S2 已結案；舊 minimum floor 不再自動拉入新 source。任何後續擴張須由使用者明確決定並加入 active TODO。
+## 尚未完成的關鍵 acceptance
+
+- specialist-engine adapters/contracts、training/evaluation dataset、dirty graph、monthly retrain/reconciliation 尚未實作與 live 驗收。
+- On-demand CEO private command/capability/report history 尚未實作。
+- Admin capability/model/evaluation controls 尚未實作。
+- User Stock Detail 的 manual Analyze/Re-analyze + report freshness/history 尚未實作。
+- 因此目前不得宣稱「五分析師已轉成 Python/ML production」、「CEO manual flow 已可用」或「新架構完成」。
 
 ## Evidence 讀取順序
 
 需要判斷「是否完成」時依序看：
 
-1. GitHub `main` 的實際 code／schema／migration／workflow／tests。
-1. 最新 tests／CI／Cloud Build／deployment／live runtime／trigger／workload／integration evidence。
-2. 本頁做快速定位。
-3. [`todo.md`](todo.md) 看確定要做的未完成 acceptance；[`parking-lot.md`](parking-lot.md) 只供翻找目前不做的內容；[`wbs/wbs-3-data-supplement-v1.md`](wbs/wbs-3-data-supplement-v1.md) 看已結案範圍、已接受限制與維運入口；[`decision-2026-10-02-admin-user-routing-and-provider-plan.md`](decision-2026-10-02-admin-user-routing-and-provider-plan.md) 看本次對話整合決策；[`pilot-operational-evidence.md`](pilot-operational-evidence.md) 看自然 observation；[`spec/operations-and-testing.md`](spec/operations-and-testing.md) 查完整歷史 evidence ledger。
-4. `archive/` 只用於歷史原因、已完成或被取代設計。
+1. GitHub `main` code/schema/migration/workflow/tests。
+2. 最新 CI/deployment/live runtime/trigger/workload/integration evidence。
+3. [`todo.md`](todo.md) 看 active acceptance。
+4. [`decision-2026-10-03-token-first-specialist-and-on-demand-ceo.md`](decision-2026-10-03-token-first-specialist-and-on-demand-ceo.md) 看新分析架構。
+5. [`spec/operations-and-testing.md`](spec/operations-and-testing.md) 與 `archive/` 查歷史 evidence。
 
-文件修改、commit、build 或單次 bounded success 本身，都不代表整體功能完成。
+文件修改、commit、build 或 upstream framework benchmark 本身都不代表功能已完成。
