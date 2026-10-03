@@ -144,6 +144,47 @@ def test_core_sample_authorization_uses_validated_source_default():
     assert result["status"] == "insufficient_history"
 
 
+def test_financial_benchmark_does_not_backdate_received_financials():
+    from intelligence_mart.evaluation import build_financial_samples
+    data = source()
+    data["valuation"] = [{"symbol": "2330", "source_id": "twse", "provenance_id": "v1",
+        "observed_date": "2026-03-01", "observed_at": "2026-03-01", "availability_at": "2026-05-01",
+        "pe_ratio": 20, "pb_ratio": 3, "dividend_yield_percent": 2}]
+    samples, exclusions = build_financial_samples(data, ["2330"], "2026-05-01", "core", 5, "valuation")
+    assert not samples and exclusions["insufficient_pit_financial_features"] > 0
+    data["valuation"][0]["availability_at"] = "2026-03-01"
+    samples, _ = build_financial_samples(data, ["2330"], "2026-05-01", "core", 5, "valuation")
+    assert samples and all(sample["pe_ratio"] == 20 for sample in samples)
+
+
+def test_qlib_challenger_replays_and_explains_selected_features():
+    import numpy as np
+    from intelligence_mart.qlib_double_ensemble.adapter import fit, predict_explained
+    rng = np.random.default_rng(17)
+    inputs = rng.normal(size=(120, 3))
+    labels = inputs[:, 0] * .01 - inputs[:, 1] * .02
+    features = ["momentum_5d", "momentum_20d", "momentum_60d"]
+    before = np.random.get_state()
+    first = predict_explained(fit(inputs, labels, features), inputs[:10], features)
+    after = np.random.get_state()
+    second = predict_explained(fit(inputs, labels, features), inputs[:10], features)
+    assert np.array_equal(before[1], after[1]) and before[2:] == after[2:]
+    assert all(np.array_equal(a, b) for a, b in zip(first, second, strict=True))
+    assert np.allclose(first[0], first[2] + first[1].sum(axis=1))
+
+
+def test_ic_decay_uses_the_same_oos_signal_across_future_horizons():
+    from intelligence_mart.evaluation import evaluate_predictions
+    rows = [{"symbol": "2330", "training_label_cutoff": "2025-01-01", "analysis_as_of": f"2025-02-{i+1:02d}",
+        "outcome_as_of": "2025-03-01", "prediction": i / 100, "excess_return": i / 1000,
+        "future_outcomes": {"5": {"outcome_as_of": "2025-03-01", "excess_return": i / 1000},
+                            "20": {"outcome_as_of": "2025-04-01", "excess_return": -i / 1000}}} for i in range(25)]
+    metrics = evaluate_predictions(rows, cost_bps=30, annual_periods=252/5)
+    assert metrics["ic_decay"]["5"]["time_series_by_symbol"]["2330"]["rank_ic"] == pytest.approx(1)
+    assert metrics["ic_decay"]["20"]["time_series_by_symbol"]["2330"]["rank_ic"] == pytest.approx(-1)
+    assert metrics["ic_decay"]["120"]["time_series_by_symbol"]["2330"]["rank_ic"] is None
+
+
 def test_regime_oos_only_fits_prior_months_and_keeps_research_status():
     import numpy as np
     from datetime import date, timedelta
@@ -158,7 +199,7 @@ def test_regime_oos_only_fits_prior_months_and_keeps_research_status():
     assert not result["promotion_eligible"]
 
 
-@pytest.mark.parametrize("model", ["linear", "lightgbm", "catboost"])
+@pytest.mark.parametrize("model", ["linear", "lightgbm", "catboost", "qlib_double_ensemble"])
 def test_real_model_walk_forward_purges_unmatured_labels(model):
     from intelligence_mart.evaluation import walk_forward
     rows = []

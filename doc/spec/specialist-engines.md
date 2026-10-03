@@ -26,7 +26,11 @@ Linear / LightGBM / CatBoost 使用逐月擴張訓練窗，訓練標籤必須已
 
 Riskfolio-Lib 計算歷史 CVaR；statsmodels 二狀態 Markov variance challenger 需至少 252 筆 benchmark returns。逐月用此前參數 forward filter（不用事後 smoothing），以 OOS log score 比較簡單 Gaussian 波動基準；至少 30 筆 OOS returns 才標示已評估，沒有自動 promotion 或正式 regime probability 權限。
 
-尚未完成：Fundamental/Valuation 可驗證歷史 PIT 訓練標籤、Qlib DoubleEnsemble、台灣繁中 Event 人工標記資料與本機 encoder、IC decay、歷史 membership replay 與 champion promotion。原生 SHAP、機率校準與 regime OOS 已有實作；是否具足夠真實台股資料及有效性，仍以 dev／readback 結果判定。這些缺口使 WBS 保持 partial。
+Fundamental/Valuation 共用既有成熟價格標籤，但每個預測日的財報／估值特徵另經 PIT 驗證；必要特徵不足時回報 `insufficient_pit_financial_features`，不把今日接收的財報回填成當年已知。Fundamental 比較營收／可比 EPS 趨勢的 LightGBM；Valuation 比較 PE/PB/殖利率的 LightGBM／CatBoost。此 bounded baseline 不代表完整財務品質特徵或 DCF 假設已齊備。
+
+Quant 增加 Qlib v0.9.7 的單一 DoubleEnsemble bounded adapter，保留 MIT license 與原始來源 SHA；不引入完整 Qlib tracking／data provider。固定三個子模型、20 rounds、seed 17、single thread，保留 sample reweighting 與 feature selection，ensemble 原生 Tree SHAP 必須重建同一預測。IC decay 以同一 OOS signal 對 5/20/60/120 日成熟結果的各股時間序列 Rank IC 評估；不足 20 筆保留 null，重疊長窗口結果不當成獨立報酬樣本。
+
+尚未完成：足以訓練 Fundamental/Valuation 的可驗證歷史 PIT 財報／估值資料、台灣繁中 Event 人工標記資料與本機 encoder、歷史 membership replay 與 champion promotion。原生 SHAP、機率校準、regime OOS、Qlib 與金融特徵 evaluator 已有實作；是否已部署、具足夠真實台股資料及有效性，仍以 operations 的 dev／readback 結果判定。這些缺口使 WBS 保持 partial。
 
 ## 依賴與資源
 

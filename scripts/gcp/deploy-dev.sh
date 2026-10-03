@@ -79,6 +79,11 @@ case "${component}" in
       --project="${project}" --region="${region}" \
       --member="serviceAccount:ingestion-core@${project}.iam.gserviceaccount.com" \
       --role=roles/run.invoker --quiet
+    # The existing controller shares this runtime; preserve its active/observe settings.
+    controller_image="$(gcloud run jobs describe "${runtime_name}" --project="${project}" --region="${region}" \
+      --format='value(spec.template.spec.template.spec.containers[0].image)')"
+    gcloud run jobs update janus-batch-controller --project="${project}" --region="${region}" \
+      --image="${controller_image}" --quiet
     ;;
   intelligence-mart)
     # Explicit approval is required before expanding this runtime's delete permission.

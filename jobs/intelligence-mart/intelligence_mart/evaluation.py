@@ -32,6 +32,11 @@ def evaluate_predictions(predictions, *, cost_bps, annual_periods):
             raise ValueError("walk-forward label leakage")
         if any(number(row.get(k)) is None for k in ("prediction", "excess_return")):
             raise ValueError("invalid OOS prediction")
+        for horizon, outcome in row.get("future_outcomes", {}).items():
+            if horizon not in {"5", "20", "60", "120"} or number(outcome.get("excess_return")) is None \
+                    or _instant(outcome.get("outcome_as_of")) is None \
+                    or _instant(outcome["outcome_as_of"]) <= _instant(row["analysis_as_of"]):
+                raise ValueError("invalid OOS decay outcome")
         groups[row["analysis_as_of"]].append(row)
     ics, spreads, pnl, turnovers = [], [], [], []
     hits = [float((r["prediction"] > 0) == (r["excess_return"] > 0)) for r in predictions]
@@ -74,6 +79,18 @@ def evaluate_predictions(predictions, *, cost_bps, annual_periods):
         time_series[symbol] = {"predictions": len(rows), "rank_ic": correlation(x, y)
             if len(rows) >= 20 and pstdev(x) and pstdev(y) else None,
             "hit_rate": fmean(float((r["prediction"] > 0) == (r["excess_return"] > 0)) for r in rows)}
+    decay = {}
+    for horizon in (5, 20, 60, 120):
+        temporal = {}
+        for symbol in time_series:
+            rows = [row for row in predictions if row["symbol"] == symbol and
+                    str(horizon) in row.get("future_outcomes", {})]
+            x = ranks([row["prediction"] for row in rows])
+            y = ranks([row["future_outcomes"][str(horizon)]["excess_return"] for row in rows])
+            temporal[symbol] = {"samples": len(rows), "rank_ic": correlation(x, y)
+                if len(rows) >= 20 and pstdev(x) and pstdev(y) else None}
+        decay[str(horizon)] = {"time_series_by_symbol": temporal,
+            "semantics": "same_oos_signal_future_horizons_overlapping_outcomes_not_independent_returns"}
     return {"rank_ic": fmean(ics) if ics else None,
             "icir": fmean(ics) / pstdev(ics) if len(ics) > 1 and pstdev(ics) else None,
             "top_decile_spread": fmean(spreads) if spreads else None,
@@ -87,7 +104,7 @@ def evaluate_predictions(predictions, *, cost_bps, annual_periods):
                 "samples": len(probabilities), "bins": bins, "expected_calibration_error":
                 sum(r["count"]*abs(r["predicted"]-r["observed"]) for r in bins)/len(probabilities)
                 if len(probabilities) >= 30 else None} if probabilities else "not_evaluated",
-            "regime_stability": "not_evaluated", "promotion_eligible": False}
+            "ic_decay": decay, "regime_stability": "not_evaluated", "promotion_eligible": False}
 
 
 def walk_forward(samples, *, model_name, features, cost_bps, horizon_days):
@@ -150,6 +167,11 @@ def walk_forward(samples, *, model_name, features, cost_bps, horizon_days):
             explained = model.get_feature_importance(Pool(xt), type="ShapValues")
             contributions, bases = explained[:, :-1], explained[:, -1]
             predict = model.predict
+        elif model_name == "qlib_double_ensemble":
+            from .qlib_double_ensemble.adapter import fit, predict_explained
+            model = fit(x, y, features)
+            pred, contributions, bases = predict_explained(model, xt, features)
+            predict = lambda values: predict_explained(model, values, features)[0]
         else:
             raise ValueError("unsupported evaluated model")
         if not np.allclose(bases + contributions.sum(axis=1), pred, rtol=1e-5, atol=1e-8):
@@ -165,13 +187,14 @@ def walk_forward(samples, *, model_name, features, cost_bps, horizon_days):
         predictions.extend({"symbol": r["symbol"], "analysis_as_of": r["analysis_as_of"],
                             "outcome_as_of": r["outcome_as_of"], "excess_return": r["excess_return"],
                             "prediction": float(p), "probability": probability, "training_label_cutoff": cutoff,
+                            "future_outcomes": r.get("future_outcomes", {}),
                             "feature_contributions": dict(zip(features, map(float, values), strict=True)),
                             "explanation_base_value": float(base),
                             "explanation_method": "linear_additive" if model_name == "linear" else "native_tree_shap"}
                            for r, p, probability, values, base in zip(test, pred, probabilities, contributions, bases, strict=True))
         folds.append({"month": month, "training_samples": len(train), "calibration_samples": len(calibration),
                       "test_samples": len(test), "label_cutoff": cutoff})
-    payload = {"artifact_kind": "mart_oos_evaluation_v1", "protocol_version": "taiwan-purged-monthly-v2",
+    payload = {"artifact_kind": "mart_oos_evaluation_v1", "protocol_version": "taiwan-purged-monthly-v3",
                "model_name": model_name, "features": features, "horizon_days": horizon_days,
                "input_hash": digest(samples), "folds": folds, "predictions": predictions,
                "status": "evaluated" if folds else "insufficient_history", "promotion_eligible": False,
@@ -212,23 +235,55 @@ def build_quant_samples(datasets, symbols, as_of, snapshot, horizon_days):
             label_rows += [r for r in current.get("benchmark", []) if str(r.get("trade_date")) == outcome]
             times = [str(r.get(k))[:10] for r in label_rows for k in ("availability_at", "published_at", "observed_at") if r.get(k)]
             available = max([outcome, *times])
+            future_outcomes = {str(window): {"outcome_as_of": days[i + window],
+                "excess_return": prices[days[i + window]] / prices[entry] - benchmark[days[i + window]] / benchmark[entry]}
+                for window in (5, 20, 60, 120) if i + window < len(days) and days[i + window] in prices}
             samples.append({"symbol": symbol, "analysis_as_of": entry, "outcome_as_of": outcome,
                             "is_oos_entry": i % horizon_days == 0,
                             "feature_available_at": entry, "label_available_at": available,
                             "excess_return": prices[outcome] / prices[entry] - benchmark[outcome] / benchmark[entry],
                             "source_authorization": "official" if all(r["source_authorization"] == "official"
                                 for r in evidence_from_rows({"labels": label_rows}, snapshot)) else "approved_fallback",
-                            "provenance_id": digest(label_rows), **features})
+                            "provenance_id": digest([label_rows, future_outcomes]), "future_outcomes": future_outcomes, **features})
         if len(prices) <= 60 + horizon_days:
             exclusions["insufficient_price_history"] += 1
     return samples, dict(exclusions)
+
+
+ROLE_FEATURES = {"fundamental": ["revenue_trend_percent", "eps_trend_percent"],
+                 "valuation": ["pe_ratio", "pb_ratio", "dividend_yield_percent"]}
+
+
+def build_financial_samples(datasets, symbols, as_of, snapshot, horizon_days, role):
+    """Financial features must actually have been available at each forecast date."""
+    from .specialists import validated_inputs
+    from .facts import _financial_features_v2
+    base, exclusions = build_quant_samples(datasets, symbols, as_of, snapshot, horizon_days)
+    exclusions = defaultdict(int, exclusions)
+    output = []
+    for sample in base:
+        inputs, evidence, _ = validated_inputs({name: datasets.get(name, []) for name in ("financials", "valuation")},
+            sample["symbol"], sample["analysis_as_of"], snapshot)
+        if role == "fundamental":
+            values = _financial_features_v2(inputs.get("financials", []))["fundamental"]
+        elif role == "valuation":
+            observations = sorted(inputs.get("valuation", []), key=lambda row: str(row.get("observed_date", row.get("observed_at", ""))))
+            values = observations[-1] if observations else {}
+        else:
+            raise ValueError("unsupported financial specialist")
+        features = {name: number(values.get(name)) for name in ROLE_FEATURES[role]}
+        if any(value is None for value in features.values()):
+            exclusions["insufficient_pit_financial_features"] += 1
+            continue
+        output.append({**sample, **features, "provenance_id": digest([sample["provenance_id"], evidence])})
+    return output, dict(exclusions)
 
 
 def evaluate_core_history(datasets, symbols, as_of, snapshot):
     results = []
     for horizon in (5, 20, 60, 120):
         samples, exclusions = build_quant_samples(datasets, symbols, as_of, snapshot, horizon)
-        for model in ("linear", "lightgbm", "catboost"):
+        for model in ("linear", "lightgbm", "catboost", "qlib_double_ensemble"):
             evaluation = walk_forward(samples, model_name=model, features=["momentum_5d", "momentum_20d", "momentum_60d"],
                                       cost_bps=30, horizon_days=horizon)
             evaluation.pop("output_hash")
@@ -236,11 +291,28 @@ def evaluate_core_history(datasets, symbols, as_of, snapshot):
                               cost_semantics="research_sensitivity_30bps_not_actual_broker_cost",
                               cohort_semantics="current_deep_coverage_research_cohort_not_historical_population",
                               missing_evaluations=["historical_membership_replay", "ic_decay", "calibration", "regime_stability", "qlib_double_ensemble"])
+            if model == "qlib_double_ensemble":
+                evaluation["upstream_version"] = "microsoft/qlib-v0.9.7-bounded-adapter"
+                evaluation["missing_evaluations"].remove("qlib_double_ensemble")
+            if any(item["rank_ic"] is not None for value in evaluation["metrics"]["ic_decay"].values()
+                   for item in value["time_series_by_symbol"].values()):
+                evaluation["missing_evaluations"].remove("ic_decay")
             calibration = evaluation["metrics"]["probability_calibration"]
             if isinstance(calibration, dict) and calibration["status"] == "evaluated":
                 evaluation["missing_evaluations"].remove("calibration")
             evaluation["output_hash"] = digest(evaluation)
             results.append(evaluation)
+        for role, models in (("fundamental", ("lightgbm",)), ("valuation", ("lightgbm", "catboost"))):
+            financial_samples, financial_exclusions = build_financial_samples(datasets, symbols, as_of, snapshot, horizon, role)
+            for model in models:
+                evaluation = walk_forward(financial_samples, model_name=model, features=ROLE_FEATURES[role],
+                                          cost_bps=30, horizon_days=horizon)
+                evaluation.pop("output_hash")
+                evaluation.update(specialist_role=role, core_snapshot_id=snapshot, analysis_as_of=as_of,
+                    exclusions=financial_exclusions, cost_semantics="research_sensitivity_30bps_not_actual_broker_cost",
+                    cohort_semantics="current_deep_coverage_research_cohort_not_historical_population")
+                evaluation["output_hash"] = digest(evaluation)
+                results.append(evaluation)
     from .specialists import validated_inputs, price_series
     benchmark_rows, _, _ = validated_inputs(datasets, sorted(symbols)[0], as_of, snapshot) if symbols else ({}, [], [])
     series = price_series(benchmark_rows.get("benchmark", []))
