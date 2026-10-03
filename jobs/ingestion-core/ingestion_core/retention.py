@@ -76,6 +76,8 @@ def clean_orphans(core: Any, store: Any, identifier: str, *, apply: bool, now: d
     for snapshot in table.snapshots():
         live.add(snapshot.manifest_list)
         for manifest in snapshot.manifests(table.io):
+            if manifest.manifest_path in live:
+                continue
             live.add(manifest.manifest_path)
             for entry in manifest.fetch_manifest_entry(table.io, discard_deleted=True):
                 live.add(entry.data_file.file_path)

@@ -110,6 +110,30 @@ def test_mart_retention_uses_psycopg_database_option(monkeypatch):
         retention.run()
 
 
+def test_orphan_cleanup_reads_shared_manifest_once_and_protects_all_snapshots(monkeypatch):
+    from ingestion_core import retention
+    calls, deleted = [], []
+    prefix = "gs://dev/warehouse/ohlcv_v1/"
+    def manifest(name, data):
+        return SimpleNamespace(manifest_path=prefix + name, fetch_manifest_entry=lambda *a, **k:
+            calls.append(name) or [SimpleNamespace(data_file=SimpleNamespace(file_path=prefix + data))])
+    shared = manifest("shared.avro", "old.parquet")
+    recent = manifest("recent.avro", "new.parquet")
+    snapshots = [SimpleNamespace(snapshot_id=1, manifest_list=prefix + "list1.avro", manifests=lambda _: [shared]),
+                 SimpleNamespace(snapshot_id=2, manifest_list=prefix + "list2.avro", manifests=lambda _: [shared, recent])]
+    table = SimpleNamespace(io=None, snapshots=lambda: snapshots, metadata_location="fixed")
+    core = SimpleNamespace(catalog=SimpleNamespace(load_table=lambda _: table))
+    store = SimpleNamespace(bucket="dev", objects=lambda _: [{"name": "warehouse/ohlcv_v1/" + name,
+        "size": "10", "updated": "2026-09-01T00:00:00Z", "generation": "1"}
+        for name in ("old.parquet", "new.parquet", "orphan.parquet")],
+        delete=lambda name, generation: deleted.append(name))
+    monkeypatch.setattr(retention, "_references", lambda *_: ({1}, set()))
+    result = retention.clean_orphans(core, store, "core.ohlcv_v1", apply=True,
+                                    now=datetime(2026, 10, 3, tzinfo=timezone.utc))
+    assert calls == ["shared.avro", "recent.avro"]
+    assert deleted == ["warehouse/ohlcv_v1/orphan.parquet"] and result["deleted_objects"] == 1
+
+
 def test_maintenance_preserves_extra_publication_references(monkeypatch):
     from ingestion_core import iceberg_maintenance as maintenance
     prefix = "gs://dev/warehouse/report/metadata/"
