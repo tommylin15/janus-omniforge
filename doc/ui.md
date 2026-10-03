@@ -1,6 +1,6 @@
 # Janus — UI Specification
 
-版本：1.10
+版本：1.11
 狀態：索引；頁面與元件契約依下列切片為準
 
 ## 目前 UI 環境定位
@@ -14,7 +14,7 @@
 - UI shell／layout／read-path acceptance 與「資料已足以形成可用產品」是不同完成條件。只證明頁面可載入、能顯示 missing／stale，不得延伸宣稱 market coverage、portfolio valuation 或整體功能完成。
 - User「今日」必須先能呈現 deterministic published market baseline；Mart／AI Daily Brief 是 enhancement。Mart unavailable 時只降級相關研究區塊，不應讓已存在的 Core 市場資料整頁不可見。
 - 個人持股主要畫面應使用 canonical 股票名稱＋代號，正式 aggregate market value／cost basis／unrealized PnL／return 只讀 Private Mart。缺價／stale 時必須指出受影響範圍並 withholding 不可靠 aggregate，不由 Flutter 補算。
-- Admin target workspace 仍須完成 Flutter shell、overview／batch 與 stock data workbench 才能宣稱不依賴 GCP／DB 的主要營運閉環；legacy static Admin 在 parity 與 rollback gate 前保留。
+- Admin Flutter shell、Overview／Batch 與 Stock Workbench 的既有 acceptance 保留；2026-10-03 operational convergence 不重做整個 Admin，保留 `個股`、`市場資訊`、`AI 分析`，原 `進階管理` 目標收斂為精簡 `資料治理`。詳細 contract 見 [Admin UI](ui/admin.md) 與 [Admin UI 範圍決策](decision-2026-10-03-admin-ui-scope-and-governance.md)。
 - Janus User App 的最終 presentation target 由 [User App Final Visual Contract](ui/reference/user-app-final/README.md) 定義；圖片中的 sample price／PnL／AI prose／logo 只屬示意，canonical data 與狀態語意仍依 active SPEC／runtime contract。
 
 ## AI 最小讀取規則
