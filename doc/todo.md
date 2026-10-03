@@ -1,124 +1,139 @@
 # Janus — TODO
 
-版本：3.2
-用途：**只保留確定要做的工作**。不確定、暫不做、純 observation、Production 才需要、已接受缺口與研究構想一律不放 active TODO；統一保存在 [`parking-lot.md`](parking-lot.md)，且不計入目前專案未完成度。
+版本：3.3
+用途：**只保留確定要做的 active work 與未完成 acceptance**。Deferred、Candidate、Observation、Production-only、已接受缺口與研究構想統一放 [`parking-lot.md`](parking-lot.md)；已完成／被取代內容放 `archive/`。
 
-## 規則：只有「做／不做」
+## 規則
 
-- 在本文件：**做**。代表 Janus 已確認最後需要完成，必須有明確 implementation／acceptance，依順序執行。
-- 不在本文件而在 [`parking-lot.md`](parking-lot.md)：**不做**。保留資料供未來翻找，但不得自行開工，也不得把它當成目前欠著沒做。
-- 已接受的 source-level missing、coverage threshold 內缺值、自然 observation 沒有新 evidence，都不建立 TODO checkbox。
-- Active WBS 可以因外部核准或 runtime evidence 暫時呈 `partial`／`blocked`；這是執行狀態，不是第三種工作分類。
-- 完成證據與歷史 checkpoint 移入 `archive/` 或 `spec/operations-and-testing.md`，不讓 TODO 永久累積歷史流水帳。
+- 在本文件：**做**。必須有 implementation／acceptance，依下列順序執行。
+- 不在本文件而在 `parking-lot.md`：目前**不做**，不得自行開工或計入未完成度。
+- active work 可因外部核准或 runtime evidence 呈 `partial`／`blocked`；partial 不等於完成。
+- 完成證據移至 `archive/` 或 `spec/operations-and-testing.md`，TODO 不保存歷史流水帳。
 
-## 2026-10-03 Token-first 架構決策
+## 現行架構決策
 
-**本次 active implementation 先讀：**
+### Token-first specialists + On-demand CEO
+
+權威文件：
 
 - [`decision-2026-10-03-token-first-specialist-and-on-demand-ceo.md`](decision-2026-10-03-token-first-specialist-and-on-demand-ceo.md)
 - [`wbs/wbs-5-specialist-engines.md`](wbs/wbs-5-specialist-engines.md)
+- [`spec/specialist-engines.md`](spec/specialist-engines.md)
 
-使用者已明確決定：
+目前產品契約：
 
-- 五 specialist production 主路徑改為 Python／SQL／ML；**不得再實作成每日 5 個生成式 LLM workers**。
-- 約 500 檔只做便宜 market screening / discovery；完整 5 specialist 僅做 `active watchlist ∪ effective holdings`。
-- Specialist inference event-driven / dirty dependency update；無 input change 就 reuse。
-- 模型 retraining / calibration / reconciliation 第一版以月度為主，不代表 specialist data 每月才更新。
-- 五 specialist 白話文預設以 structured outputs + SHAP/rules/templates 產生，正常 0 API token。
-- Codex CLI／OpenRouter／Gemini 既有成果保留，改為 **授權使用者手動 On-demand CEO / rare escalation** runtime。
-- User Stock Detail 讀保存的 CEO report；有權限帳號才可按「分析／重新分析」。重新分析建立新 immutable execution/report，不覆寫舊報告。
-- Admin 需提供 DB-backed Google user capability（例如 `ceo_analysis.request`）、specialist/model/evaluation profile、CEO provider route、quota/cooldown 與 audit。
-- 舊 `five-analyst-daily-operation-gate.md` 的「每日五 Codex workers」只作歷史規劃參考，不再是 active completion gate。
+- 五 specialist production 主路徑為 Python／SQL／ML，正常 path 不使用生成式 LLM。
+- 約 500 檔只做低成本 market screening／discovery；完整五 specialist 只做 `active watchlist ∪ effective holdings`。
+- specialist 依 dirty dependency／input change 更新；無變更 reuse。
+- retraining／calibration／reconciliation 第一版月度。
+- plain-language output 由 structured output + SHAP／rules／templates 產生，正常 0 API token。
+- Codex CLI／OpenRouter／Gemini 只用於 authorized manual On-demand CEO／approved rare escalation。
+- CEO report immutable；重新分析建立新 execution/report，不覆寫舊報告。
+- Admin 管 specialist model/evaluation、CEO provider/profile、DB-backed user capability、quota/cooldown、usage/cost/audit。
 
-若舊 WBS／SPEC 文字仍與上述決策衝突，以本 TODO＋2026-10-03 decision 作**新需求**；但舊 implementation／runtime completion evidence 仍依 GitHub／runtime 如實保留，不能因文件更新假裝已完成重構。
+### Admin UI scope
 
-## 2026-10-03 Admin UI 範圍決策
+權威文件：
 
-Admin operational convergence 依 [`decision-2026-10-03-admin-ui-scope-and-governance.md`](decision-2026-10-03-admin-ui-scope-and-governance.md) 與 [`ui/admin.md`](ui/admin.md) 執行：**不重做整個 Admin、不取消 `個股`／`市場資訊`／`AI 分析`，原 `進階管理` 目標收斂為精簡 `資料治理`。** 第一版優先使用既有 Flutter Material 元件，不要求大型 DAG、metadata catalog、lineage graph 或第二套 orchestration／governance 平台。
+- [`decision-2026-10-03-admin-ui-scope-and-governance.md`](decision-2026-10-03-admin-ui-scope-and-governance.md)
+- [`ui/admin.md`](ui/admin.md)
+
+Admin operational convergence **不重做整個 Admin**。保留 `總覽 / 批次 / 個股 / 市場資訊 / AI 分析`，原 placeholder 收斂為 `資料治理`。第一版優先使用 Flutter Material，不導入第二套 metadata／orchestration control plane，也不要求大型 DAG／lineage graph／dashboard。
 
 ## 模型確認規則
 
-- 每次只取下列順序中的一個可執行 WBS／工作組。正式執行前，AI 先提醒建議模型與目標 WBS／工作組；使用者明確確認後開始。
-- 一旦開始，以整體 acceptance scope 結案，不在內部 dataset／adapter／單一畫面之間反覆停等。
+- 每次只取下列順序中的一個可執行 WBS／工作組。
+- 正式執行前依該項標示的【Sol】／【Luna】完成模型 gate；開始後以整體 acceptance scope 結案，不在內部 dataset／adapter／單一畫面反覆停等。
 - 新付費 API／model／subscription、新付費 GCP 資源、重大權限擴張、不可逆大量刪除、MFA／OAuth consent／付款仍需使用者明確授權。
 
 # 執行順序
 
 ## 1. `WBS-5-MART-SPECIALIST-ENGINES` — 【Sol】
 
-優先插入：依使用者 2026-10-03 最新指示，先完成 [刪除治理批次](spec/retention-governance.md) 上版與 dev 驗收，再回頭繼續本 WBS。治理程式與 targeted tests 已進行；整合批次入口、Core reference fence 產生、deployment／實際清理驗收仍待完成。
+目前進度：`partial`。
 
-目前進度：partial。舊每日五角色已刪除，新確定性五分析師、去識別化覆蓋、不可變成果物與逐月 baseline evaluator 已實作；模型與真實 dev/OOS 整體驗收尚未完成。詳細限制見 [`spec/specialist-engines.md`](spec/specialist-engines.md)。使用者指定 1 CPU／1 GiB，失敗時先提出配置建議，不自行升級。500 檔缺失 ≤10% 可接受，超過先討論，不直接判失敗或建立複雜補資料。
+優先依 [`spec/retention-governance.md`](spec/retention-governance.md) 完成公開資料刪除治理批次的整合、deployment 與 dev 驗收，再繼續 specialist 整體 acceptance。既有治理程式／targeted tests 不等於 live cleanup 已完成。
 
-- [ ] 依 [`wbs/wbs-5-specialist-engines.md`](wbs/wbs-5-specialist-engines.md) 建立 500 檔低成本 market screening 與 Deep Coverage 五 specialist。
-- [ ] Fundamental：deterministic financial features + LightGBM baseline；Valuation：deterministic DCF/reverse-DCF/relative valuation + LightGBM/CatBoost benchmark。
-- [ ] Quant：Linear/LightGBM baseline + Qlib DoubleEnsemble challenger；以 Taiwan PIT walk-forward OOS 決定 champion，不照抄 upstream benchmark。
-- [ ] Risk/Regime：Riskfolio-Lib + statsmodels/ML；Event：parser/rules + local multilingual Transformers classifier。
-- [ ] 五 specialist 產出 structured artifact、SHAP/feature contribution、deterministic plain-language report；正常 path 0 LLM API token。
-- [ ] Deep Coverage 使用 `active watchlist ∪ effective holdings`；持股離 500 仍保留，清倉且不在 watchlist 才退出；500 screening 不自動升級 watchlist。
-- [ ] 完成 PIT/provenance/missing-data/public-private isolation、tests、dev deployment、live data execution、artifact persist/readback 與 OOS benchmark acceptance。
+- [ ] 完成約 500 檔低成本 market screening 與 Deep Coverage 五 specialist。
+- [ ] Fundamental：deterministic financial features + LightGBM baseline。
+- [ ] Valuation：deterministic DCF／reverse-DCF／relative valuation + LightGBM／CatBoost benchmark。
+- [ ] Quant：LightGBM baseline + Qlib DoubleEnsemble challenger；以 Taiwan PIT walk-forward OOS 決定 champion。
+- [ ] Risk／Regime：Riskfolio-Lib + statsmodels／ML。
+- [ ] Event／Catalyst：parser／rules + local multilingual Transformers classifier。
+- [ ] 五 specialist 產出 structured artifact、SHAP／feature contribution、deterministic plain-language report；正常 path 0 LLM API token。
+- [ ] Deep Coverage 使用 `active watchlist ∪ effective holdings`；持股離開 500 仍保留，清倉且不在 watchlist 才退出。
+- [ ] 完成 PIT／provenance／missing-data／public-private isolation、tests、dev deployment、live execution、artifact persist/readback 與 OOS benchmark acceptance。
+
+目前 500 檔缺失 ≤10% 為使用者接受範圍；超過先討論，不直接判整體失敗或自行擴張補資料。Mart 資源維持使用者指定 1 CPU／1 GiB；需要提高時先提出 evidence，不自行升級。
 
 ## 2. `WBS-5-MART-RERUN-CACHE` — 【Sol】
 
-- [ ] 改成 dirty dependency graph：依 Core/PIT input hash、feature/engine/model version 只 invalidate 受影響 symbol/role。
-- [ ] 新月營收／財報只更新受影響 Fundamental/Valuation；新 EOD price 更新 cheap valuation/Quant/Risk；新 event 只更新 Event；無變更直接 reuse。
-- [ ] 每月 reconciliation 檢查 missed invalidation、orphan artifact、cache identity、model version；舊 artifact immutable。
-- [ ] Specialist change 只標記 CEO report freshness/material delta，**不得自動觸發 CEO LLM**。
+- [ ] 建立 dirty dependency graph：依 Core/PIT input hash、feature/engine/model version 只 invalidate 受影響 symbol/specialist。
+- [ ] monthly revenue／financials 只更新受影響 Fundamental／Valuation；EOD price 更新 cheap Valuation／Quant／Risk；event 只更新 Event。
+- [ ] 無 input change 直接 reuse，保留可稽核 cache identity。
+- [ ] 每月 reconciliation 檢查 missed invalidation、orphan artifact、cache identity、model version。
+- [ ] specialist change 只標記 CEO report freshness／material delta，**不得自動觸發 CEO LLM**。
 
-## 3. `WBS-5-MART-AI-PROVIDERS` — 【Sol】— **scope 變更；既有成果保留**
+## 3. `WBS-5-MART-AI-PROVIDERS` — 【Sol】
 
-- [ ] 保留已完成的 Codex CLI／OpenRouter／Gemini adapter、routing、free/billing gate、auth/secret/fallback/audit 成果；停止把「每日五 Codex role workers」當 completion target。
-- [ ] 將 effective runtime 收斂為 On-demand CEO / rare escalation provider path；default approved route 仍為 `Codex CLI → OpenRouter → Gemini`，只有 approved/authorized/free-or-explicitly-approved-paid profile 可執行。
-- [ ] 完成 manual CEO request 的 headless dispatch、cold-start auth/續期、timeout/cancel/retry、route snapshot/version/hash、attempt/fallback/usage/cost audit、zero-secret-leakage。
-- [ ] 不新增未核准付費 provider/model/resource；舊 bounded provider execution evidence 保留為歷史/runtime capability evidence，不冒充新 On-demand CEO acceptance。
+有效產品範圍只有 On-demand CEO／approved rare escalation provider runtime。
 
-## 4. `WBS-5-MART-CIO-SYNTHESIS` — 【Sol】— **產品語意改為 CEO Analysis**
+- [ ] 重用既有 Codex CLI／OpenRouter／Gemini adapter、routing、auth、free/billing gate、fallback/audit 能力。
+- [ ] default approved route 為 `Codex CLI → OpenRouter → Gemini`；只有 approved／authorized／free-or-explicitly-approved-paid profile 可執行。
+- [ ] 完成 manual CEO request 的 headless dispatch、cold-start auth／續期、timeout／cancel／retry、route snapshot/version/hash、attempt/fallback、usage/cost audit、zero-secret-leakage。
+- [ ] 不新增未核准付費 provider／model／resource。
+
+## 4. `WBS-5-MART-CIO-SYNTHESIS`（legacy tracking ID）— CEO Analysis — 【Sol】
+
+產品名稱與語意一律使用 **CEO Analysis**；上述舊 ID 只為既有 WBS／artifact traceability 保留。
 
 - [ ] CEO 只讀最新 validated specialist outputs／Fact Pack／provenance；不得計算或覆寫 canonical numbers，無 publication authority。
-- [ ] 只由有權限使用者明確 request 觸發，不由 Scheduler、每日行情或 specialist dirty event 自動觸發。
-- [ ] 產出 thesis、cross-role conflict resolution、bull/base/bear、risks、invalidation conditions、unknowns；validator failure 保持 structured partial/blocked。
-- [ ] 每次分析／重新分析建立新 immutable execution/report；symbol-level report 可重用，保存 requester/trigger 作 audit metadata。
+- [ ] 只由具 capability 的使用者明確 request；Scheduler、行情或 specialist dirty event 不自動觸發。
+- [ ] 產出 thesis、cross-specialist conflict resolution、bull/base/bear、risks、invalidation conditions、unknowns；validator failure 保持 structured partial／blocked。
+- [ ] 每次分析／重新分析建立新 immutable execution/report；保存 requester／trigger audit metadata。
 
 ## 5. `WBS-6-ADMIN-ANALYSIS-PROFILE` — 【Sol】
 
-- [ ] Analysis Profile 改為 specialist champion/model/version/evaluation + CEO provider/model/profile；保留 locked guardrail、version history、rollback、audit、test symbols/compare。
+- [ ] 管 specialist champion／model／version／evaluation 與 CEO provider／model／profile；保留 immutable version history、rollback、audit、test symbols／compare。
 - [ ] 加入 DB-backed Google user capability 管理，例如 `ceo_analysis.request`；backend enforce，Flutter visibility 不可代替 authorization。
-- [ ] Admin 顯示 CEO provider approval/auth/health、latest model list、quota/cooldown、usage/cost；不得接收或顯示 raw token。
-- [ ] Provider global default `Codex CLI → OpenRouter → Gemini` 只適用 On-demand CEO/approved escalation，不再代表五 specialist daily route。
+- [ ] Admin 顯示 CEO provider approval／auth／health、model list、quota/cooldown、usage/cost；不得接收或顯示 raw token。
+- [ ] `Codex CLI → OpenRouter → Gemini` 只適用 On-demand CEO／approved escalation。
 
 ## 6. Admin operational convergence — 【Sol】
 
-本工作組只精簡強化既有 Flutter Admin，不重做 shell、不取消既有功能。目標主導覽為 `總覽 / 批次 / 個股 / 市場資訊 / AI 分析 / 資料治理`；`資料治理` 取代目前 `進階管理` placeholder。實作前以 [`ui/admin.md`](ui/admin.md) 為 UI contract。
+只精簡強化既有 Flutter Admin，不重做 shell、不取消既有功能。UI contract 見 [`ui/admin.md`](ui/admin.md)。
 
-- [ ] **總覽**：維持 actionable-exceptions-first，只補今日批次、最近 DQ、storage/retention anomaly 與需要處理項目；正常 execution 不佔主要畫面。
-- [ ] **批次**：以簡單表格／清單讀 backend effective jobs／occurrences，顯示 schedule/trigger、latest state、duration/last update、latest success；預設最近 3 天，保留更早 bounded history；只提供 `查看`、安全的 `重試`／`手動執行`，不要求大型 DAG。現行 controller 的 7 個固定批次為 `ingestion`、`data-supplement`、`mart`、`data-quality`、`private`、`core-cleanup`、`mart-cleanup`；未來 specialist／CEO job 只有 runtime 真正存在後才顯示。
-- [ ] **資料治理**：單一精簡頁顯示 Stage/Core/Mart/必要 Private 摘要、active retention contract、coverage/freshness/DQ、live objects/active bytes、最近 maintenance、protected references 與 anomaly；Public retention 依 [`spec/retention-governance.md`](spec/retention-governance.md)，Private 未有核准 contract 時顯示 `未定義/unknown`。
-- [ ] **不擴張 UI 複雜度**：第一版不要求 OpenMetadata/DataHub/Airflow/Kestra/Prefect、第二套 scheduler/control plane、metadata catalog、lineage graph、大型 chart 或新 canonical store；現有 Material 元件足以完成時不加第三方 UI framework。
-- [ ] **既有功能保留**：`個股`、`市場資訊`、`AI 分析` 繼續各自承接既有 WBS；routing controls 放在對應 AI/市場/治理的詳細設定，不另建高複雜度主頁。
-- [ ] 完成 targeted tests、Admin auth/audience negative tests、deployment、GCP dev 真實 batch/retention/storage telemetry 與 authenticated browser acceptance；文件或 Flutter build 不得單獨視為完成。
+- [ ] **總覽**：維持 actionable-exceptions-first；只補今日批次、最近 DQ、storage/retention anomaly 與需要處理項目。
+- [ ] **批次**：用簡單表格／清單讀 backend effective jobs／occurrences；顯示 schedule/trigger、latest state、duration/last update、latest success；預設最近 3 天並保留 bounded older history；只提供 `查看`、安全 `重試`／`手動執行`。
+- [ ] 現行 controller 七個固定批次為 `ingestion`、`data-supplement`、`mart`、`data-quality`、`private`、`core-cleanup`、`mart-cleanup`；未來 specialist／retrain／CEO execution 只有 runtime 真正存在後才顯示。
+- [ ] **資料治理**：單一精簡頁顯示 Stage/Core/Mart/必要 Private 摘要、active retention、coverage/freshness/DQ、live objects/active bytes、maintenance、protected references 與 anomaly；Public retention 依 [`spec/retention-governance.md`](spec/retention-governance.md)，Private 無核准 contract 時顯示 `未定義/unknown`。
+- [ ] 第一版不導入 OpenMetadata／DataHub／Airflow／Kestra／Prefect、第二套 scheduler/control plane、metadata catalog、lineage graph、大型 chart 或新 canonical store。
+- [ ] `個股`、`市場資訊`、`AI 分析` 保留；routing controls 放對應功能的進階設定，不另建高複雜度主頁。
+- [ ] 完成 targeted tests、Admin auth/audience negative tests、deployment、GCP dev 真實 batch/retention/storage telemetry 與 authenticated browser acceptance。
 
 ## 7. User operational convergence — 【Sol／Luna】
 
-- [ ] 【Sol】Stock Detail backend 增加 bounded CEO command/status/history API；authenticated user + `ceo_analysis.request` capability + symbol/profile/in-flight/quota/cooldown 檢查。
-- [ ] 【Luna】Stock Detail 顯示五 specialist persisted plain-language outputs、最新 CEO report、analysis/data as-of、報告後的新資料/dirty roles、immutable history，以及有權限帳號的「分析／重新分析」按鈕。
-- [ ] 【Sol】Performance profiling + fix、Quote Router＋persisted last quote、Transaction synchronous position projection、操作池/Broker Profile 依既有 committed contract 繼續完成。
-- [ ] 【Luna】Journal／Watchlist／Stock Detail UX 與 Typed numeric formatter 依現有 Final Visual Contract 收斂，不另建重複 recommendation 頁。
+- [ ] 【Sol】Stock Detail backend 增加 bounded CEO command/status/history API；驗證 authenticated user、`ceo_analysis.request` capability、symbol/profile、in-flight、quota/cooldown。
+- [ ] 【Luna】Stock Detail 顯示五 specialist persisted plain-language outputs、最新 CEO report、analysis/data as-of、dirty/freshness/material-change、immutable history，以及有權限帳號的 `分析／重新分析`。
+- [ ] 【Sol】完成 Performance profiling/fix、Quote Router + persisted last quote、Transaction synchronous position projection、Broker Profile 既定 contract。
+- [ ] 【Luna】Journal／Watchlist／Stock Detail UX 與 typed numeric formatter 依 Final Visual Contract 收斂，不另建重複 recommendation 頁。
 
 ## 8. `WBS-6-USER-FINAL-VISUAL-CONVERGENCE` — 【Luna／Sol】
 
 - [ ] 依 `ui/user-app.md` 與 `ui/reference/user-app-final/README.md` 完成 Today／Watchlist／Ledger／Stock Detail 四頁 final presentation convergence。
-- [ ] Stock Detail 的 specialist/CEO 能力遵守 2026-10-03 decision：persisted first、manual CEO only、permission-aware、history immutable、freshness/material-change visible。
-- [ ] 四張 final PNG binary、Flutter targeted／golden／screenshot regression 與 GCP dev 真實 authenticated browser acceptance 完整；sample/mock data 不得進 canonical runtime。
+- [ ] Stock Detail persisted-first、manual CEO only、permission-aware、history immutable、freshness/material-change visible。
+- [ ] 四張 final PNG binary、Flutter targeted／golden／screenshot regression 與 GCP dev 真實 authenticated browser acceptance 完整；sample/mock data 不進 canonical runtime。
 
 ## 完成證據
 
-每個 TODO 至少需有與範圍相稱的 implementation、tests／CI、deployment、migration（如適用）、live runtime／integration acceptance；文件勾選、commit、build、upstream GitHub benchmark 或單次 bounded success本身都不等於完成。
+每個 TODO 至少需有與範圍相稱的 implementation、tests／CI、deployment、migration（如適用）、live runtime／integration acceptance。文件勾選、commit、build、upstream benchmark 或單次 bounded success本身都不等於完成。
 
-歷史／決策入口：
+## 歷史／決策入口
 
-- [2026-10-03 Token-first 五分析師與 On-demand CEO](decision-2026-10-03-token-first-specialist-and-on-demand-ceo.md)
+- [2026-10-03 Token-first 五 specialist 與 On-demand CEO](decision-2026-10-03-token-first-specialist-and-on-demand-ceo.md)
 - [2026-10-03 Admin UI 範圍與資料治理呈現](decision-2026-10-03-admin-ui-scope-and-governance.md)
 - [WBS-3 補資料第一版完成（2026-10-03）](archive/wbs-3-data-supplement-v1-completed-2026-10-03.md)
-- [2026-10-02 Admin／User／Routing／Provider 決策總結](decision-2026-10-02-admin-user-routing-and-provider-plan.md)
+- [2026-10-02 Admin／User／Routing／Provider 歷史決策](archive/decision-2026-10-02-admin-user-routing-and-provider-plan.md)
 - [Parking Lot／暫不做](parking-lot.md)
-- 其他已完成／被取代證據保留於 `archive/`；完整 runtime／deployment evidence 見 `spec/operations-and-testing.md`。
+
+其他已完成／被取代證據保留於 `archive/`；完整 runtime／deployment evidence 見 `spec/operations-and-testing.md`。
