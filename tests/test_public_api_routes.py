@@ -125,6 +125,9 @@ def test_fastapi_admin_routes_use_admin_auth_and_service_boundary() -> None:
                                 admin_verifier=lambda _token, _audience: claims))
     headers = {"Authorization": "Bearer admin-token"}
     assert api.get("/api/v1/admin/stocks", headers=headers).json()["items"][0]["symbol"] == "2330"
+    assert api.get("/api/v1/admin/data-quality/runbook").status_code == 401
+    runbook = api.get("/api/v1/admin/data-quality/runbook", headers=headers)
+    assert runbook.status_code == 200 and "run_backfill()" in runbook.json()["content"]
     result = api.patch(
         "/api/v1/admin/mart-reports/11111111-1111-1111-1111-111111111111/symbol/2330/publication",
         headers=headers, json={"action": "block", "reason": "manual review"},

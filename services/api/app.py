@@ -808,6 +808,11 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def admin_setting(setting_key: str):
         return jsonable_encoder(admin_service.setting(setting_key))
 
+    @admin.get("/data-quality/runbook")
+    def admin_data_quality_runbook():
+        document = Path(__file__).resolve().parents[2] / "doc" / "runbook-data-supplement.md"
+        return {"title": "資料補充與週六檢核操作", "content": document.read_text(encoding="utf-8")}
+
     @admin.post("/settings/{setting_key}")
     @admin.put("/settings/{setting_key}")
     def admin_save_setting(setting_key: str, payload: dict[str, Any] = Body(...), actor: str = Depends(admin_actor)):

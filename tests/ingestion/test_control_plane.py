@@ -269,3 +269,14 @@ class PostgreSQLControlPlaneTests(unittest.TestCase):
         self.assertEqual(connection.commits, 1)
         control.close()
         self.assertTrue(connection.closed)
+
+
+def test_admin_setting_optional_version_is_typed_for_postgresql():
+    from unittest.mock import MagicMock
+    connection = MagicMock()
+    cursor = connection.cursor.return_value.__enter__.return_value
+    cursor.fetchone.return_value = (1,)
+    control = PostgreSQLControlPlane(lambda: connection)
+    assert control.put_admin_setting("data_supplement_quality", {"status": "passed"}, actor="data-quality") == 1
+    statement = next(call.args[0] for call in cursor.execute.call_args_list if "INSERT INTO control.admin_settings" in call.args[0])
+    assert "%s::integer IS NULL" in statement

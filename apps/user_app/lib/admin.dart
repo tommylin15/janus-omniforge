@@ -30,6 +30,16 @@ String _label(Object? value) =>
       'non_retryable': '不可重試',
       'collection': '資料收集',
       'analysis': '分析',
+      'passed': '檢查通過',
+      'attention_required': '需要處理',
+      'execution_failed': '檢查執行失敗',
+      'history_incomplete': '歷史資料不足',
+      'unit_mismatch': '單位或幣別不一致',
+      'invalid_numeric_value': '數值格式異常',
+      'conflicting_version': '相同版次數值衝突',
+      'missing_receipt_time': '缺少取得時間',
+      'source_value_changed': '官方數值已變動',
+      'source_check_failed': '官方來源核對失敗',
     }[value?.toString()] ??
     value?.toString() ??
     '—';
@@ -133,8 +143,7 @@ Future<bool> _showExecutionDetails(
               ),
             ),
             const Divider(),
-            Text('執行追蹤',
-                style: Theme.of(dialogContext).textTheme.titleMedium),
+            Text('執行追蹤', style: Theme.of(dialogContext).textTheme.titleMedium),
             ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text('追蹤 ID ${detail['trace_id'] ?? '—'}'),
@@ -310,6 +319,13 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
         widget.api.get('/api/v1/admin/executions?limit=50'),
         widget.api.get('/api/v1/admin/source-health?limit=200'),
         widget.api.get('/api/v1/admin/mart-reports?limit=50'),
+        widget.api
+            .get('/api/v1/admin/settings/data_supplement_quality')
+            .catchError(
+              (_) => {
+                'value': {'status': 'unavailable'}
+              },
+            ),
       ]);
 
   void _reload() => setState(() {
@@ -337,7 +353,8 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
             final attentionExecutions = executions
                 .where(_executionNeedsAttention)
                 .toList()
-              ..sort((a, b) => _executionOrder(a).compareTo(_executionOrder(b)));
+              ..sort(
+                  (a, b) => _executionOrder(a).compareTo(_executionOrder(b)));
             final attentionSources = sources
                 .where(
                   (value) =>
@@ -348,10 +365,14 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
                 .where(
                   (value) =>
                       {'blocked', 'review_required', 'invalid'}.contains(
-                            value['publication_status'],
-                          ) ||
-                      {'invalid', 'review_required', 'risk_blocked', 'insufficient_data'}
-                          .contains(value['analysis_outcome']),
+                        value['publication_status'],
+                      ) ||
+                      {
+                        'invalid',
+                        'review_required',
+                        'risk_blocked',
+                        'insufficient_data'
+                      }.contains(value['analysis_outcome']),
                 )
                 .toList();
             final total = attentionExecutions.length +
@@ -359,12 +380,16 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
                 attentionReports.length;
             return ListView(
               children: [
+                _DataQualityCard(widget.api,
+                    snapshot.data![3]['value'] as Map<String, dynamic>?),
                 Wrap(
                   spacing: 12,
                   runSpacing: 12,
                   children: [
-                    _IssueCard('Core', attentionSources.length, Icons.storage_outlined),
-                    _IssueCard('Mart', attentionReports.length, Icons.analytics_outlined),
+                    _IssueCard('Core', attentionSources.length,
+                        Icons.storage_outlined),
+                    _IssueCard('Mart', attentionReports.length,
+                        Icons.analytics_outlined),
                     const _IssueCard('AI 分析', null, Icons.psychology_outlined),
                     _IssueCard(
                       '失敗／部分完成',
@@ -449,6 +474,77 @@ class _AdminOverviewPageState extends State<AdminOverviewPage> {
               ],
             );
           },
+        ),
+      );
+}
+
+class _DataQualityCard extends StatelessWidget {
+  const _DataQualityCard(this.api, this.result);
+  final AdminApi api;
+  final Map<String, dynamic>? result;
+
+  @override
+  Widget build(BuildContext context) => Card(
+        child: ListTile(
+          leading: const Icon(Icons.fact_check_outlined),
+          title: Text(
+              '週六資料品質 · ${result == null ? '尚未檢查' : _label(result!['status'])}'),
+          subtitle: Text(result == null
+              ? '最近檢查時間尚無紀錄'
+              : '最近檢查 ${result!['checked_at'] ?? '—'}\n'
+                  '${result!['needs_daily_schedule_adjustment'] == true ? '需要檢視並調整每日補資料' : result!['status'] == 'passed' ? '目前不需調整每日補資料' : '每日補資料狀態未知'}'),
+          trailing: TextButton(
+            child: const Text('結果與檢核文件'),
+            onPressed: () => showDialog<void>(
+              context: context,
+              builder: (dialogContext) => AlertDialog(
+                title: const Text('資料品質檢核'),
+                content: SizedBox(
+                  width: 700,
+                  child: ListView(shrinkWrap: true, children: [
+                    if (result == null) const Text('尚未檢查'),
+                    for (final issue in (result?['issues'] as List? ?? []))
+                      ListTile(
+                        title: Text(
+                            '${issue['symbol'] ?? '—'} · ${issue['dataset'] ?? '—'} · ${issue['period'] ?? '—'}'),
+                        subtitle: Text(
+                            '${issue['field'] ?? '—'} · ${_label(issue['reason'])}'),
+                      ),
+                    if (result?['status'] == 'execution_failed')
+                      Text(
+                          '檢查執行失敗：${result?['error_code'] ?? '未知原因'}，不能判定資料正常。'),
+                    for (final entry
+                        in (result?['coverage'] as Map<String, dynamic>? ?? {})
+                            .entries)
+                      ListTile(
+                        title: Text(entry.key),
+                        subtitle: Text(
+                            '財報 ${entry.value['financial_quarters'] ?? '—'} 季 · '
+                            '營收 ${entry.value['revenue_months'] ?? '—'} 月 · '
+                            '行情 ${entry.value['price_trading_dates'] ?? '—'} 交易日'),
+                      ),
+                    const Text(
+                        '歷史公告時間與原始版次尚未完整證明，保留 unknown；檢查通過不代表歷史 PIT 已還原。'),
+                    const Divider(),
+                    FutureBuilder<dynamic>(
+                      future: api.get('/api/v1/admin/data-quality/runbook'),
+                      builder: (context, snapshot) => snapshot.hasError
+                          ? const Text('檢核文件暫時無法載入')
+                          : snapshot.hasData
+                              ? SelectableText(
+                                  snapshot.data['content'] as String)
+                              : const CircularProgressIndicator(),
+                    ),
+                  ]),
+                ),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text('關閉'))
+                ],
+              ),
+            ),
+          ),
         ),
       );
 }
@@ -613,7 +709,8 @@ class _AdminBatchPageState extends State<AdminBatchPage> {
             if (values.isEmpty) return const _Message('目前沒有執行紀錄');
             final attention = values.where(_executionNeedsAttention).length;
             final active = values
-                .where((value) => {'queued', 'running'}.contains(value['status']))
+                .where(
+                    (value) => {'queued', 'running'}.contains(value['status']))
                 .length;
             final completed =
                 values.where((value) => value['status'] == 'succeeded').length;
@@ -743,7 +840,8 @@ class _AdminStockWorkbenchState extends State<AdminStockWorkbench> {
   }
 
   Future<List<Map<String, dynamic>>> _repairOptions(String datasetId) async {
-    final catalog = await widget.api.get('/api/v1/admin/source-catalog?limit=200');
+    final catalog =
+        await widget.api.get('/api/v1/admin/source-catalog?limit=200');
     final options = _items(catalog)
         .where(
           (config) =>
@@ -754,9 +852,8 @@ class _AdminStockWorkbenchState extends State<AdminStockWorkbench> {
                   .contains(config['authorization_status']),
         )
         .toList()
-      ..sort((a, b) => a['config_id']
-          .toString()
-          .compareTo(b['config_id'].toString()));
+      ..sort((a, b) =>
+          a['config_id'].toString().compareTo(b['config_id'].toString()));
     return options;
   }
 
@@ -1150,7 +1247,8 @@ class _AdminMarketUniversePageState extends State<AdminMarketUniversePage> {
                 else ...[
                   Card(
                       child: ListTile(
-                    title: Text('${showUpcoming && hasUpcoming ? '即將生效' : '目前有效'} · 第 ${value['version']} 版 · ${items.length} 檔'),
+                    title: Text(
+                        '${showUpcoming && hasUpcoming ? '即將生效' : '目前有效'} · 第 ${value['version']} 版 · ${items.length} 檔'),
                     subtitle: Text(
                         '週別 ${value['week_start']} · 生效 ${value['effective_from']}'),
                   )),
@@ -1171,7 +1269,8 @@ class _AdminMarketUniversePageState extends State<AdminMarketUniversePage> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Text('手動換股',
-                                  style: Theme.of(context).textTheme.titleMedium),
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium),
                               const SizedBox(height: 8),
                               TextField(
                                   controller: remove,

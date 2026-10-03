@@ -28,7 +28,13 @@ class Batch:
 
 BATCHES = (
     Batch("ingestion", "janus-ingestion-core", (7,), env=(("QUEUE_CONSUMER", "false"), ("MART_JOB", ""), ("ICEBERG_MAINTENANCE_MODE", ""))),
-    Batch("mart", "janus-intelligence-mart", (9,), tuple(range(5)), ("ingestion",), (("MART_OPERATION", "queue"), ("MART_AI_ENABLED", "false")), minute=0),
+    Batch("data-supplement", "janus-ingestion-core", (8,), dependencies=("ingestion",),
+          env=(("JANUS_DATA_SUPPLEMENT_MODE", "daily"), ("JANUS_DATA_SUPPLEMENT_SYMBOLS", ""),
+               ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""), ("ICEBERG_MAINTENANCE_MODE", ""))),
+    Batch("mart", "janus-intelligence-mart", (9,), tuple(range(5)), ("ingestion", "data-supplement"), (("MART_OPERATION", "queue"), ("MART_AI_ENABLED", "false")), minute=0),
+    Batch("data-quality", "janus-ingestion-core", (12,), (5,),
+          env=(("JANUS_DATA_SUPPLEMENT_MODE", "quality"), ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""),
+               ("ICEBERG_MAINTENANCE_MODE", "")), exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart")),
     Batch("private", "janus-private-pipeline", (21,), tuple(range(5)), ("ingestion",)),
     Batch("core-cleanup", "janus-ingestion-core", (23,), dependencies=("ingestion",),
           env=(("ICEBERG_MAINTENANCE_MODE", "retention-apply"), ("QUEUE_CONSUMER", "false"), ("MART_JOB", "")),

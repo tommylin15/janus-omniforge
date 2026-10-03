@@ -18,6 +18,7 @@ on:
       - 'tests/test_batch_controller.py'
       - 'tests/test_duckdb_iceberg.py'
       - 'tests/test_data_supplement.py'
+      - 'tests/test_data_quality.py'
       - 'tests/test_financial_publication.py'
       - 'tests/test_source_quality_probe.py'
       - 'tests/test_supplement_gap_matrix.py'
@@ -121,6 +122,7 @@ jobs:
               - 'tests/test_batch_controller.py'
               - 'tests/test_duckdb_iceberg.py'
               - 'tests/test_data_supplement.py'
+              - 'tests/test_data_quality.py'
               - 'tests/test_financial_publication.py'
               - 'tests/test_source_quality_probe.py'
               - 'tests/test_supplement_gap_matrix.py'
@@ -212,6 +214,7 @@ jobs:
           tests/test_batch_controller.py
           tests/test_duckdb_iceberg.py
           tests/test_data_supplement.py
+          tests/test_data_quality.py
           tests/test_financial_publication.py
           tests/test_source_quality_probe.py
           tests/test_supplement_gap_matrix.py

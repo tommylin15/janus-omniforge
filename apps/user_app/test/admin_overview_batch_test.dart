@@ -4,9 +4,15 @@ import 'package:janus_user_app/admin.dart';
 
 class _OperationsApi implements AdminApi {
   final posts = <String>[];
+  Map<String, dynamic>? quality;
 
   @override
   Future<dynamic> get(String path) async {
+    if (path == '/api/v1/admin/settings/data_supplement_quality')
+      return {'value': quality};
+    if (path == '/api/v1/admin/data-quality/runbook')
+      return {'content': '資料補充操作：先檢核，再修正每日程式與排程。'};
+
     if (path == '/api/v1/admin/executions?limit=50') {
       return {
         'items': [
@@ -121,7 +127,40 @@ class _OperationsApi implements AdminApi {
 }
 
 void main() {
-  testWidgets('overview is actionable-issues-first and hides healthy execution noise',
+  testWidgets('quality issues identify schedule repairs and show the runbook',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1280, 1200));
+    final api = _OperationsApi()
+      ..quality = {
+        'status': 'attention_required',
+        'checked_at': '2026-10-03T12:30:00+08:00',
+        'needs_daily_schedule_adjustment': true,
+        'issues': [
+          {
+            'symbol': '2330',
+            'dataset': 'financials',
+            'period': '2026Q2',
+            'field': 'eps_single_quarter',
+            'reason': 'unit_mismatch'
+          }
+        ],
+      };
+    await tester
+        .pumpWidget(MaterialApp(home: Scaffold(body: AdminOverviewPage(api))));
+    await tester.pumpAndSettle();
+    expect(find.text('週六資料品質 · 需要處理'), findsOneWidget);
+    expect(find.textContaining('需要檢視並調整每日補資料'), findsOneWidget);
+    await tester.tap(find.text('結果與檢核文件'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('2330 · financials · 2026Q2'), findsOneWidget);
+    expect(find.textContaining('單位或幣別不一致'), findsOneWidget);
+    expect(find.textContaining('先檢核，再修正每日程式與排程'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'overview is actionable-issues-first and hides healthy execution noise',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(1280, 1200));
@@ -172,7 +211,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('batch classifies partial separately from succeeded and keeps details operable',
+  testWidgets(
+      'batch classifies partial separately from succeeded and keeps details operable',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(1280, 1200));

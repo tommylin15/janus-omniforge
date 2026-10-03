@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
 from unittest.mock import MagicMock, patch
-from ingestion_core.data_supplement import months_ending, normalise_monthly
+from ingestion_core.data_supplement import months_ending, normalise_monthly, normalise_monthly_archive
 
 
 class DataSupplementTests(unittest.TestCase):
@@ -26,7 +26,10 @@ class DataSupplementTests(unittest.TestCase):
         control.enqueue_collection.return_value = SimpleNamespace(execution_id="bounded-test")
         control.complete_collection.return_value = (SimpleNamespace(status=SimpleNamespace(value="partial")), None)
 
+        requests = []
+
         def upstream(url, payload=None):
+            requests.append((url, "/nas/t21/" in url))
             query = parse_qs(urlparse(url).query)
             if "t57sb01" in url:
                 year = int(query["year"][0])+1911
@@ -47,9 +50,11 @@ class DataSupplementTests(unittest.TestCase):
                 <xbrli:unitDenominator><xbrli:measure>xbrli:shares</xbrli:measure></xbrli:unitDenominator></xbrli:divide></xbrli:unit>
                 <ix:nonFraction name="ifrs-full:BasicEarningsLossPerShare" contextRef="q" unitRef="EPS" format="ixt:numdotdecimal" scale="0">1.04</ix:nonFraction>'''
                 return html.encode(), "utf-8"
-            if payload:
-                return json.dumps({"code": 200, "result": {"yymm": f"{payload['year']}{int(payload['month']):02d}",
-                    "companyAbbreviation": "上海商銀", "data": [["本月", "1,000"]]}}).encode(), "utf-8"
+            if "/nas/t21/" in url:
+                year, month = url.rsplit("/", 1)[1].split("_")[1:3]
+                cells = ["5876", "上海商銀", "1,000"]+["0"]*8
+                html = f"上市公司{year}年{month}月份 單位：千元<tr><th>公司代號</th><th>公司名稱</th><th>當月營收</th></tr><tr>"+"".join(f"<td>{v}</td>" for v in cells)+"</tr>"
+                return html.encode("cp950"), "utf-8"
             year, month = int(query["date"][0][:4]), int(query["date"][0][4:6])
             day = f"{year-1911}/{month:02d}/01"
             if "STOCK_DAY" in url:
@@ -63,21 +68,31 @@ class DataSupplementTests(unittest.TestCase):
             catalog = load_catalog("unit", type="sql", uri="sqlite:///"+str(root/"catalog.db").replace("\\", "/"), warehouse=warehouse)
             core = DuckDBIcebergCore(catalog, warehouse, engine=DuckDBEngine(temp_directory=str(root/"duckdb")))
             stores = lambda bucket: LocalObjectStore(root/bucket)
-            with patch("ingestion_core.__main__._control_plane", return_value=control), patch("ingestion_core.__main__._iceberg_core", return_value=core), \
+            with patch("ingestion_core.__main__._control_plane", return_value=control), patch("ingestion_core.__main__._iceberg_core", return_value=core) as core_factory, \
                  patch("ingestion_core.__main__.GcsObjectStore", side_effect=stores), patch("ingestion_core.data_supplement.GcsObjectStore", side_effect=stores), \
                  patch("ingestion_core.data_supplement._fetch", side_effect=upstream), patch("ingestion_core.data_supplement.datetime", FixedDatetime), \
                  patch.dict("os.environ", {"JANUS_DATA_SUPPLEMENT_SYMBOLS": "5876", "CORE_BUCKET": "core", "STAGE_BUCKET": "stage"}):
                 summary = run_backfill()
+                ready = control.complete_collection.call_args.args[1]
+                core_factory.return_value = DuckDBIcebergCore(catalog, warehouse, engine=DuckDBEngine(temp_directory=str(root/"daily-duckdb")))
+                control.get_admin_setting.return_value = None
+                requests.clear()
+                daily = run_backfill(incremental=True)
+                self.assertGreaterEqual(daily["skipped"], 15)
+                self.assertFalse(any("t164sb01" in url for url, _ in requests))
+                self.assertEqual(sum(is_monthly for _, is_monthly in requests), 1)
+                self.assertEqual(daily["core_created"], 0)
+                self.assertEqual(daily["core_updated"], 0)
+                self.assertIsNone(control.complete_collection.call_args.args[1])
             self.assertEqual(summary["failures"], [])
             self.assertEqual(summary["coverage"]["5876"]["revenue_months"], 12)
             self.assertEqual(summary["coverage"]["5876"]["financial_quarters"], 4)
             self.assertFalse(summary["coverage"]["5876"]["history_complete"])
-            ready = control.complete_collection.call_args.args[1]
             self.assertEqual(ready["featureVersion"], "2")
             manifest = json.loads(stores("core").read("executions/bounded-test/core-snapshot.json"))
             self.assertEqual(set(manifest["iceberg_tables"]), {"core.financials_v1", "core.ohlcv_v1", "core.benchmark_v1"})
             self.assertTrue(list((root/"stage").rglob("*.html")))
-            control.put_admin_setting.assert_called_once()
+            self.assertEqual(control.put_admin_setting.call_count, 2)
 
     def test_monthly_window_and_unknown_publication_preserve_period_and_units(self):
         self.assertEqual(months_ending(2026, 2, 3), [(2025, 11), (2026, 0), (2026, 1)])

@@ -582,7 +582,7 @@ class PostgreSQLControlPlane:
                    VALUES (%s,%s::jsonb,1,now(),%s)
                    ON CONFLICT(setting_key) DO UPDATE SET value_json=EXCLUDED.value_json,
                        version=control.admin_settings.version+1,updated_at=now(),updated_by=EXCLUDED.updated_by
-                   WHERE %s IS NULL OR control.admin_settings.version=%s
+                   WHERE %s::integer IS NULL OR control.admin_settings.version=%s
                    RETURNING version""",
                 (key, json.dumps(value, ensure_ascii=False), actor.strip(), expected_version, expected_version),
             )

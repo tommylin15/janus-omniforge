@@ -297,7 +297,8 @@ class DuckDBIcebergCore:
         """Infer additive fields while giving all-null columns a stable concrete type."""
         import pyarrow as pa
 
-        inferred = pa.Table.from_pylist(rows).schema
+        names = dict.fromkeys(name for row in rows for name in row)
+        inferred = pa.Table.from_pylist([{name: row.get(name) for name in names} for row in rows]).schema
         def concrete(field):
             if not pa.types.is_null(field.type):
                 return field

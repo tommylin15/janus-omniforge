@@ -15,8 +15,8 @@ from uuid import uuid4
 from packages.provenance import Provenance
 from .control import ExecutionStatus
 from .dq import validate_ohlcv
-from .financial_publication import normalise_xbrl_financials, parse_filing_index
-from .first_batch import normalise_benchmark
+from .financial_publication import FilingIndex, normalise_xbrl_financials, parse_filing_index
+from .first_batch import effective_trading_day, normalise_benchmark
 from .sources import parse_twse
 from .stage import GcsObjectStore, StageWriter
 
@@ -58,6 +58,34 @@ def normalise_monthly(document, symbol, year, month, *, received_at, expected_na
              "availability_basis": "source_response_receipt", "historical_publication_status": "unknown"}]
 
 
+class MonthlyRevenueTable(FilingIndex):
+    def __init__(self):
+        super().__init__()
+        self.entries = []
+
+    def handle_endtag(self, tag):
+        super().handle_endtag(tag)
+        if tag == "tr":
+            self.entries.append(list(self.cells))
+
+
+def normalise_monthly_archive(raw, symbol, year, month, *, received_at, expected_name):
+    html = raw.decode("cp950")
+    if f"上市公司{year-1911}年{month}月份" not in html or "單位：千元" not in html:
+        raise ValueError("monthly archive period or unit mismatch")
+    table = MonthlyRevenueTable()
+    table.feed(html)
+    if not {"公司代號", "公司名稱", "當月營收"}.issubset(table.headers):
+        raise ValueError("monthly archive headers changed")
+    entries = [row for row in table.entries if len(row) == 11 and row[0] == symbol]
+    if len(entries) != 1:
+        raise ValueError("monthly archive company missing or ambiguous")
+    row = entries[0]
+    return normalise_monthly({"code": 200, "result": {"yymm": f"{year-1911}{month:02d}",
+        "companyAbbreviation": row[1], "data": [["本月", row[2]]]}}, symbol, year, month,
+        received_at=received_at, expected_name=expected_name)
+
+
 def _fetch(url, payload=None):
     request = Request(url, data=urlencode(payload).encode() if payload is not None else None,
                       headers={"User-Agent": "Mozilla/5.0 (compatible; JanusAI-Ingestion/1.0)"})
@@ -77,7 +105,41 @@ def _fetch(url, payload=None):
     return raw, encoding
 
 
-def run_backfill():
+
+def _rows(core, dataset, symbols):
+    if not core.table_exists(dataset):
+        return []
+    from pyiceberg.expressions import In
+    table = core.catalog.load_table(core.table_identifier(dataset))
+    options = {"limit": 100001}
+    if "symbol" in {field.name for field in table.schema().fields}:
+        options["row_filter"] = In("symbol", set(symbols))
+    rows = table.scan(**options).to_arrow().to_pylist()
+    if len(rows) > 100000:
+        raise ValueError("supplement read limit exceeded")
+    return rows
+
+
+def coverage_summary(financial_rows, price_rows, symbols, target):
+    result = {}
+    today = target+timedelta(days=1)
+    latest = today.replace(day=1)-timedelta(days=1)
+    if today.day <= 10:
+        latest = latest.replace(day=1)-timedelta(days=1)
+    required_months = {(year, month+1) for year, month in months_ending(latest.year, latest.month, 12)}
+    for symbol in symbols:
+        financial = [r for r in financial_rows if r["symbol"] == symbol and r.get("availability_at") and
+                     r.get("source_id") == "mops" and r.get("source_document_sha256")]
+
+        quarters = {(r["fiscal_year"], r["fiscal_quarter"]) for r in financial if r["statement_type"] != "monthly_revenue" and r["fiscal_year"] >= today.year-3}
+        months = {(r["fiscal_year"], r.get("fiscal_month")) for r in financial if r["statement_type"] == "monthly_revenue" and (r["fiscal_year"], r.get("fiscal_month")) in required_months}
+        dates = {str(r["trade_date"]) for r in price_rows if r["symbol"] == symbol and (target-timedelta(days=365)).isoformat() <= str(r["trade_date"]) <= target.isoformat()}
+        result[symbol] = {"financial_quarters": len(quarters), "revenue_months": len(months), "price_trading_dates": len(dates),
+                          "history_complete": len(quarters) >= 12 and len(months) >= 12 and len(dates) >= 121,
+                          "historical_publication_status": "unknown", "original_numeric_revision_status": "unknown"}
+    return result
+
+def run_backfill(*, incremental=False):
     from .__main__ import _control_plane, _core_ready_event, _iceberg_core, TAIPEI
     today = datetime.now(TAIPEI).date()
     control = _control_plane()
@@ -85,8 +147,8 @@ def run_backfill():
     stage_results = []
     execution = None
     collection_finished = False
-    summary = {"operation": "data_supplement_backfill", "analysis_as_of": today.isoformat(),
-               "core_created": 0, "core_reused": 0, "failures": [], "symbols": [], "items": []}
+    summary = {"operation": "data_supplement_daily" if incremental else "data_supplement_backfill", "analysis_as_of": today.isoformat(),
+               "core_created": 0, "core_updated": 0, "core_reused": 0, "failures": [], "symbols": [], "items": [], "skipped": 0}
     try:
         core = _iceberg_core(os.environ["CORE_BUCKET"])
         writer = StageWriter(GcsObjectStore(os.environ["STAGE_BUCKET"]))
@@ -106,9 +168,13 @@ def run_backfill():
             raise ValueError("supplement currently supports verified TWSE stocks only")
         if not control.source_is_approved("mops") or not control.source_is_approved("twse"):
             raise ValueError("official supplement sources are not approved")
-        execution = control.enqueue_collection("first-batch", symbols, request_options={"operation": "data_supplement_backfill"})
+        execution = control.enqueue_collection("first-batch", symbols, request_options={"operation": summary["operation"]})
         control.transition_execution(execution.execution_id, ExecutionStatus.RUNNING)
         summary.update(execution_id=execution.execution_id, symbols=list(symbols))
+        prior = _rows(core, "financials", symbols) if incremental else []
+        quality = control.get_admin_setting("data_supplement_quality") if incremental else None
+        repairs = {(item.get("symbol"), item.get("dataset"), item.get("period"))
+                   for item in (quality[0].get("issues", []) if quality and isinstance(quality[0], dict) else [])}
 
         def stage(raw, url, source, dataset, extension, request_identity=None):
             received = datetime.now(timezone.utc)
@@ -126,6 +192,7 @@ def run_backfill():
             result = core.write(dataset_id=dataset, rows=rows, execution_id=execution.execution_id,
                                 provenance_id=provenance_id, source_id=source, partition_date=today)
             summary["core_created"] += result.inserted
+            summary["core_updated"] += result.updated
             summary["core_reused"] += result.reused
             summary["items"].append({**item, "dataset": dataset, "rows": len(rows),
                                      "inserted": result.inserted, "reused": result.reused})
@@ -134,9 +201,16 @@ def run_backfill():
             summary["failures"].append({"dataset": dataset, "symbol": symbol, "period": period,
                                         "reason": type(error).__name__})
 
+        monthly_archives = {}
         for symbol in symbols:
+            financial_batch = []
             filings = []
-            for year in range(today.year-3, today.year+1):
+            known_quarters = {(r["fiscal_year"], r["fiscal_quarter"]) for r in prior if r["symbol"] == symbol and r.get("statement_type") != "monthly_revenue" and r.get("source_document_sha256")}
+            start_year = today.year-1 if incremental and len(known_quarters) >= 12 else today.year-3
+            repair_years = [int(period[:4]) for stock, dataset, period in repairs if stock == symbol and dataset == "financials" and re.fullmatch(r"[0-9]{4}Q[1-4]", period or "")]
+            if repair_years:
+                start_year = min(start_year, min(repair_years))
+            for year in range(start_year, today.year+1):
                 url = "https://doc.twse.com.tw/server-java/t57sb01?"+urlencode({"step": "1", "colorchg": "1", "co_id": symbol, "year": str(year-1911), "mtype": "A"})
                 try:
                     raw, encoding = _fetch(url)
@@ -147,6 +221,12 @@ def run_backfill():
             unique = {(r["fiscal_year"], r["fiscal_quarter"]): r for r in sorted(filings, key=lambda r: r["official_uploaded_at"])
                       if datetime.fromisoformat(r["official_uploaded_at"]) <= datetime.now(timezone.utc)}
             for (year, quarter), filing in sorted(unique.items())[-12:]:
+                period = f"{year}Q{quarter}"
+                existing = [r for r in prior if r["symbol"] == symbol and r.get("fiscal_year") == year and
+                            r.get("fiscal_quarter") == quarter and r.get("statement_type") != "monthly_revenue"]
+                if existing and any(r.get("official_filing_uploaded_at") == filing["official_uploaded_at"] for r in existing) and (symbol, "financials", period) not in repairs:
+                    summary["skipped"] += 1
+                    continue
                 url = "https://mopsov.twse.com.tw/server-java/t164sb01?"+urlencode({"step": "1", "CO_ID": symbol, "SYEAR": year, "SSEASON": quarter, "REPORT_ID": "C"})
                 try:
                     raw, _ = _fetch(url)
@@ -154,8 +234,8 @@ def run_backfill():
                     rows = normalise_xbrl_financials(raw.decode("latin-1"), symbol, year, quarter, received_at=received)
                     for row in rows:
                         row.update(source_document_sha256=sha256(raw).hexdigest(), official_filing_uploaded_at=filing["official_uploaded_at"],
-                                   filing_filename=filing["filename"], source_id="mops")
-                    commit(rows, provenance, "mops", "financials", {"symbol": symbol, "period": f"{year}Q{quarter}"})
+                                   filing_filename=filing["filename"], source_id="mops", provenance_id=provenance)
+                    financial_batch.extend(rows)
                 except Exception as error:
                     failure("financials", symbol, f"{year}Q{quarter}", error)
             # The latest not-yet-due month is not a historical coverage failure.
@@ -164,21 +244,56 @@ def run_backfill():
                 latest = latest.replace(day=1) - timedelta(days=1)
             for year, zero_month in months_ending(latest.year, latest.month, 12):
                 month = zero_month+1
-                url = "https://mops.twse.com.tw/mops/api/t05st10_ifrs"
+                period = f"{year}-{month:02d}"
+                existing = [r for r in prior if r["symbol"] == symbol and r.get("fiscal_year") == year and r.get("fiscal_month") == month]
+                if existing and (year, month) < (latest.year, latest.month) and (symbol, "monthly-revenue", period) not in repairs:
+                    summary["skipped"] += 1
+                    continue
+                category = int("-KY" in stocks[symbol][0].upper())
+                url = f"https://mopsov.twse.com.tw/nas/t21/sii/t21sc03_{year-1911}_{month}_{category}.html"
                 try:
-                    raw, _ = _fetch(url, {"companyId": symbol, "subsidiaryCompanyId": "", "dataType": "2", "year": str(year-1911), "month": str(month)})
-                    provenance, received = stage(raw, url, "mops", "financials", "json", {"symbol": symbol, "year": year, "month": month})
-                    rows = normalise_monthly(json.loads(raw), symbol, year, month, received_at=received, expected_name=stocks[symbol][0])
+                    if (year, month, category) not in monthly_archives:
+                        raw, _ = _fetch(url)
+                        provenance, received = stage(raw, url, "mops", "financials", "html", {"year": year, "month": month, "kind": "monthly_archive"})
+                        monthly_archives[year, month, category] = raw, provenance, received
+                    raw, provenance, received = monthly_archives[year, month, category]
+                    rows = normalise_monthly_archive(raw, symbol, year, month, received_at=received, expected_name=stocks[symbol][0])
                     for row in rows:
-                        row.update(source_id="mops", source_document_sha256=sha256(raw).hexdigest())
-                    commit(rows, provenance, "mops", "financials", {"symbol": symbol, "period": f"{year}-{month:02d}"})
+                        row.update(source_id="mops", source_document_sha256=sha256(raw).hexdigest(), provenance_id=provenance)
+                    financial_batch.extend(rows)
                 except Exception as error:
                     failure("monthly-revenue", symbol, f"{year}-{month:02d}", error)
+            if financial_batch:
+                commit(financial_batch, financial_batch[0]["provenance_id"], "mops", "financials", {"symbol": symbol, "period": "history"})
+            print(json.dumps({"operation": summary["operation"], "symbol": symbol, "phase": "financials_committed",
+                              "core_created": summary["core_created"], "failures": len(summary["failures"])}), flush=True)
 
-        target = today-timedelta(days=1)
+        schedule_setting = control.get_admin_setting("schedule")
+        schedule = schedule_setting[0] if schedule_setting and isinstance(schedule_setting[0], dict) else {}
+        holidays = {date.fromisoformat(day) for day in schedule.get("holiday_overrides", ())}
+        holidays.update(date.fromisoformat(day.strip()) for day in os.environ.get("MARKET_HOLIDAYS", "").split(",") if day.strip())
+        target = effective_trading_day(today-timedelta(days=1), holidays=holidays)
         market_months = [(year, month+1) for year, month in months_ending(target.year, target.month, 8)]
+        missing_months, benchmark_months = {}, set(market_months)
+        if incremental:
+            required, day = set(), target
+            while len(required) < 121:
+                if day.weekday() < 5 and day not in holidays:
+                    required.add(day.isoformat())
+                day -= timedelta(days=1)
+            prices = _rows(core, "ohlcv", symbols)
+            for symbol in symbols:
+                available = {str(r["trade_date"]) for r in prices if r["symbol"] == symbol}
+                missing_months[symbol] = {(int(day[:4]), int(day[5:7])) for day in required-available}
+                missing_months[symbol].update((int(period[:4]), int(period[5:7])) for stock, dataset, period in repairs
+                    if stock == symbol and dataset == "ohlcv" and re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", period or ""))
+            available = {str(r["trade_date"]) for r in _rows(core, "benchmark", ())}
+            benchmark_months = {(int(day[:4]), int(day[5:7])) for day in required-available}
         for year, month in market_months:
             for symbol in symbols:
+                if incremental and (year, month) not in missing_months[symbol]:
+                    summary["skipped"] += 1
+                    continue
                 url = "https://www.twse.com.tw/exchangeReport/STOCK_DAY?"+urlencode({"date": f"{year}{month:02d}01", "stockNo": symbol, "response": "json"})
                 try:
                     raw, _ = _fetch(url)
@@ -191,6 +306,9 @@ def run_backfill():
                     commit(list(checked.accepted), provenance, "twse", "ohlcv", {"symbol": symbol, "period": f"{year}-{month:02d}"})
                 except Exception as error:
                     failure("ohlcv", symbol, f"{year}-{month:02d}", error)
+            if incremental and (year, month) not in benchmark_months:
+                summary["skipped"] += 1
+                continue
             url = "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST?"+urlencode({"date": f"{year}{month:02d}01", "response": "json"})
             try:
                 raw, _ = _fetch(url)
@@ -212,28 +330,17 @@ def run_backfill():
                     if snapshot:
                         tables[core.table_identifier(dataset)] = {"rows": int(snapshot.summary["total-records"]),
                             "snapshot_id": snapshot.snapshot_id, "metadata_location": table.metadata_location}
-        from pyiceberg.expressions import In
-        scope = In("symbol", set(symbols))
-        financial_rows = core.catalog.load_table(core.table_identifier("financials")).scan(row_filter=scope).to_arrow().to_pylist() if core.table_exists("financials") else []
-        price_rows = core.catalog.load_table(core.table_identifier("ohlcv")).scan(row_filter=scope).to_arrow().to_pylist() if core.table_exists("ohlcv") else []
-        coverage = {}
-        for symbol in symbols:
-            financial = [r for r in financial_rows if r["symbol"] == symbol and r.get("availability_at")]
-            quarters = {(r["fiscal_year"], r["fiscal_quarter"]) for r in financial if r["statement_type"] != "monthly_revenue"}
-            months = {(r["fiscal_year"], r.get("fiscal_month")) for r in financial if r["statement_type"] == "monthly_revenue"}
-            dates = {str(r["trade_date"]) for r in price_rows if r["symbol"] == symbol and str(r["trade_date"]) <= target.isoformat()}
-            coverage[symbol] = {"financial_quarters": len(quarters), "revenue_months": len(months), "price_trading_dates": len(dates),
-                                "history_complete": len(quarters) >= 12 and len(months) >= 12 and len(dates) >= 121,
-                                "historical_publication_status": "unknown", "original_numeric_revision_status": "unknown"}
+        coverage = coverage_summary(_rows(core, "financials", symbols), _rows(core, "ohlcv", symbols), symbols, target)
         summary["coverage"] = coverage
-        if not summary["core_created"] and not summary["core_reused"]:
+        if not summary["core_created"] and not summary["core_reused"] and not (incremental and tables):
             raise RuntimeError(json.dumps({"failures": [{"dataset": f["dataset"], "date": f["period"], "error": f["reason"]}
                                                          for f in summary["failures"]]}))
         ready = _core_ready_event(core_bucket=os.environ["CORE_BUCKET"], execution_id=execution.execution_id,
                                   config_id="first-batch", analysis_as_of=today.isoformat(), iceberg_tables=tables,
                                   symbols=symbols, market="TWSE")
         ready["featureVersion"] = "2"
-        completed, analysis = control.complete_collection(execution.execution_id, ready,
+        publish_ready = ready if not incremental or summary["core_created"] or summary["core_updated"] else None
+        completed, analysis = control.complete_collection(execution.execution_id, publish_ready,
             partial=bool(summary["failures"]) or not all(row["history_complete"] for row in coverage.values()))
         collection_finished = True
         if not summary["failures"]:
@@ -242,7 +349,7 @@ def run_backfill():
                        core_snapshot_id=ready["coreSnapshotId"])
         control.put_admin_setting("data_supplement_last_run", {"checked_at": datetime.now(timezone.utc).isoformat(),
             "execution_id": execution.execution_id, "status": summary["status"], "coverage": coverage,
-            "failures": summary["failures"], "core_created": summary["core_created"], "core_reused": summary["core_reused"]},
+            "failures": summary["failures"], "core_created": summary["core_created"], "core_updated": summary["core_updated"], "core_reused": summary["core_reused"], "skipped": summary["skipped"], "operation": summary["operation"]},
             actor="data-supplement", audit_resource="data_supplement")
         return summary
     except Exception:

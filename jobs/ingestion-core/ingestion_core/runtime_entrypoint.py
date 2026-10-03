@@ -299,10 +299,14 @@ def main() -> None:
         analysis_replay = os.environ.get("JANUS_ANALYSIS_REPLAY_CONFIG", "").strip()
         supplement_mode = os.environ.get("JANUS_DATA_SUPPLEMENT_MODE", "").strip()
         if supplement_mode:
-            if supplement_mode != "backfill":
+            if supplement_mode == "quality":
+                from .data_quality import run_quality
+                result = run_quality()
+            elif supplement_mode in {"backfill", "daily"}:
+                from .data_supplement import run_backfill
+                result = run_backfill(incremental=supplement_mode == "daily")
+            else:
                 raise ValueError("unsupported data supplement mode")
-            from .data_supplement import run_backfill
-            result = run_backfill()
         elif maintenance_mode:
             from .iceberg_maintenance import run
 
