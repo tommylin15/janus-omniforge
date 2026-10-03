@@ -1,66 +1,79 @@
 # Janus UI — 原則、視覺、Responsive 與 Shell
 
+更新：2026-10-03
+
 ## 1. UI 原則
 
-- UI 只呈現後端／Mart 已持久化資料，不在前端重算分數或補資料。
-- blocked report 不渲染；null 不顯示 0。
-- 明確區分 loading、error、empty、unavailable、partial、stale、fallback、blocked。
-- confidence 固定標示為「資料／分析信心度，非獲利機率」。
-- 不輸出保證獲利、確定買賣指示或無依據目標價。
-- 所有來源只取當前資源／當前日期自己的 provenance。
-- User 與 Admin 是同一 Flutter codebase 的不同 workspace；User App 不出現 Admin 導覽，
-  route guard、token audience、backend authorization、CORS 與 audit 仍分離。現有
-  static Admin 僅在 migration 期間保留，Flutter parity 與 acceptance 前不得刪除。
-- User App 使用「結論 → 原因 → 風險 → 來源」的減法層次；首屏不顯示 K 線、密集數字表格或內部 Agent 術語。
-- 個人記帳、筆記、關注股與公開市場分析的資料狀態分離；不顯示他人持倉、公開績效排名或下單按鈕。generic 對話介面由 omniAgent 持有。
+- UI 只呈現 backend／Core／Mart／Private Mart 已持久化且授權可見的資料；不在前端重算 canonical score、PnL、retention 或 fallback。
+- blocked／invalid／insufficient 資料依 publication／auth contract 隱藏或明示狀態；null 不顯示 0。
+- 明確區分 loading、error、empty、unavailable、partial、stale、fallback、blocked、unknown。
+- confidence 明示為資料／分析信心度，不是獲利機率。
+- 不輸出保證獲利、確定買賣指示或無 evidence 目標價。
+- provenance 只對應目前所選 artifact／日期，不借用最新來源補舊結果。
+- User 與 Admin 共用 Flutter codebase但 workspace、navigation、route guard、token audience、backend auth、CORS、audit 分離。
+- 2026-10-02 起 legacy static Admin 已退役；Flutter／PWA 是唯一 active Admin frontend。
+- User App 採「結論 → 原因 → 風險 → 來源」的減法層次；advanced data 放後面。
+- generic Chat／Agent UI 由 omniAgent 持有；Janus User App 不新增 Chat／Ask Janus 主入口。
 
 ## 2. 視覺系統
 
-- User App 使用 Flutter Material 3、`ColorScheme.fromSeed`、圓角 Card、清楚字階與充足留白；不引入第三方 UI kit。
-- 預設支援 light、dark 與 system theme。Admin 可繼續使用現有深色 zinc 系統，不為了視覺一致破壞密集營運表格的可讀性。
-- 價格漲跌依台股慣例：上漲 red、下跌 green；健康／風險語意固定為高健康 green、警戒 amber、低健康／blocking red。顏色旁必須有文字或 icon，不只靠紅綠。
-- amber：warning、partial、fallback、attention；不得表示安全。
-- red：blocking、critical/high、disposition、停資停券。
+- User App 使用 Flutter Material 3、`ColorScheme.fromSeed`、圓角 Card、清楚字階與充足留白；沒有明確需要時不引入第三方 UI kit。
+- 支援 light／dark／system theme。
+- Admin 以可讀、低複雜度營運介面為主；不為視覺效果增加不必要 dashboard／graph。
+- 台股價格漲跌：上漲 red、下跌 green；治理／健康語意另以文字＋icon 輔助，不能只靠顏色。
+- amber = warning／partial／fallback／attention；red = blocking／critical／failed。
 - 系統字型優先，不依賴 Google Fonts。
 - 一般文字 WCAG AA 4.5:1；大字 3:1；focus indicator 3:1。
 
-設計參考只吸收可驗證的版面語彙，不複製其資料模型或功能：
-
-- [Trace](https://github.com/trentpiercy/trace)：輕量市場探索、清楚的總覽 → 詳情層級與 theme 選擇。
-- [artha](https://github.com/wahyuatmaja3/artha)：以新復古／Neo-Brutalism 的粗體重點與直接文案作少量品牌點綴；Janus 保留圓角、低噪訊與金融產品所需的可信感，不採整頁高飽和粗框。
-- [Financial-Management-Dashboard-UI](https://github.com/Redvey/Financial-Management-Dashboard-UI) 與 [finance-web](https://github.com/feMoraes0/finance-web)：Flutter dashboard 的 card／grid 佈局參考；User App 只保留一個主指標與漸進揭露，不照搬桌面密集圖表。
+外部設計參考只可吸收 presentation pattern，不取得 Janus data model／runtime authority；Active UI contract 仍以本目錄文件為準。
 
 ## 3. Responsive Layout
 
-| 裝置 | Layout | Navigation | History |
+| 裝置 | Layout | Navigation | Detail／History |
 |---|---|---|---|
-| Mobile | 單欄，User App 優先 | Material 3 AppBar + NavigationBar | Bottom sheet |
-| iPad | 兩欄可用 | NavigationRail 或 NavigationBar | Centered dialog |
-| Desktop／Web | 最寬 1200px 的有界 grid，無水平 overflow | NavigationRail／Header | Centered dialog |
+| Mobile | 單欄，User App 優先 | Material 3 AppBar + NavigationBar | Bottom sheet／full-screen route |
+| iPad | 兩欄可用 | NavigationRail 或 NavigationBar | Centered dialog／side pane |
+| Desktop／Web | bounded grid，避免無必要 horizontal overflow | NavigationRail／Header | dialog／side pane |
 
 - 支援 safe area、`viewport-fit=cover`、`100dvh`。
-- 所有主要控制、日期、圖表 toggle、展開按鈕至少 44×44 CSS px。
+- 主要控制 target 至少 44×44 CSS px。
 - Material 3 NavigationBar 主要項目高度至少 56px。
+- 高密度表格只用於 Admin 明確需要的資料閱讀，不把 User App 變成 spreadsheet UI。
 
-## 4. 全域殼層
+## 4. User App shell
 
-### User App shell
+- `AppBar` 只放目前頁標題、必要資料日期／操作；不放 Admin 入口。
+- `NavigationBar`：今日、關注、記帳／筆記、我的。
+- 未完成 capability 顯示 bounded unavailable／disabled，不以 sample／debug output 代替。
+- 關注／個股頁只讀 persisted data；page load 不觸發 scraper、specialist recompute 或 CEO LLM。
+- Stock Detail specialist／CEO 依 `user-app.md`：persisted-first、manual CEO only、permission-aware、immutable history。
 
-- Material 3 `AppBar` 只放當前頁標題、資料日期與必要操作；不放 Admin 入口。
-- Janus `NavigationBar`：今日、關注、記帳／筆記、我的；「記帳／筆記」內切換交易與一般筆記。熱門話題與板塊輪動收在「今日」，不增加 Chat 導覽。
-- 未完成項目顯示 coming soon／disabled，不可只 `debugPrint`。safe-area bottom 不遮擋內容。
-- Janus 個股／關注詳情只讀已持久化行情與私人內容，不因 page load 啟動模型，也不提供 Ask Janus 入口。
+## 5. Admin shell
 
-### Admin shell
+唯一 active Admin frontend 是 Flutter／PWA `資料營運中心`。
 
-- Flutter Admin workspace 使用總覽、批次、個股、AI 分析、進階管理主導覽；主操作以
-  中文呈現，工程欄位收在「進階／詳細資訊」。
-- 不使用 User App 的底部導覽；依桌面營運工作流提供 responsive tabs／tables。
-- Admin backend authorization 是唯一 security boundary；Flutter 隱藏按鈕不算授權。
-- static HTML／JS Admin 是 transitional compatibility surface，只有 Flutter parity、
-  Admin auth acceptance、browser/runtime acceptance 與 rollback plan 完成後才可 deprecate。
+主導覽目標：
 
-### Global status
+- 總覽
+- 批次
+- 個股
+- 市場資訊
+- AI 分析
+- 資料治理
 
-- API unavailable 顯示可理解訊息，不呈現 upstream traceback。
-- 可選擇顯示最新資料日、更新時間與來源健康摘要。
+原 `進階管理` placeholder 的目標名稱為 `資料治理`；程式尚未完成 rename 時視為 implementation gap，不改變 contract。
+
+- Desktop 可用 `NavigationRail`；窄螢幕用 `NavigationDrawer`／等價單選 navigation。
+- 右側一次只顯示目前功能面板，不把所有管理功能堆成單頁。
+- 工程欄位、snapshot/hash/lineage/provider/model 等放 detail，不佔第一屏。
+- 批次第一版使用簡單表格／清單，不要求 DAG。
+- 資料治理第一版單頁呈現 retention／DQ／storage／maintenance anomaly，不要求 metadata catalog／lineage graph。
+- Admin backend authorization 是 security boundary；Flutter hidden button 不算授權。
+- 不導入第二套 scheduler／control plane／metadata platform 只為改善 UI。
+
+## 6. Global status
+
+- API unavailable 顯示安全、可理解文案，不呈現 upstream traceback。
+- 需要時顯示資料日期、最後更新、source health、execution state。
+- `unknown`／`未定義`／`尚未檢查` 不得顯示為 0 或正常。
+- partial success 不呈現 full success。
