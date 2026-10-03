@@ -1,6 +1,6 @@
 # Janus — TODO
 
-版本：3.1
+版本：3.2
 用途：**只保留確定要做的工作**。不確定、暫不做、純 observation、Production 才需要、已接受缺口與研究構想一律不放 active TODO；統一保存在 [`parking-lot.md`](parking-lot.md)，且不計入目前專案未完成度。
 
 ## 規則：只有「做／不做」
@@ -31,6 +31,10 @@
 - 舊 `five-analyst-daily-operation-gate.md` 的「每日五 Codex workers」只作歷史規劃參考，不再是 active completion gate。
 
 若舊 WBS／SPEC 文字仍與上述決策衝突，以本 TODO＋2026-10-03 decision 作**新需求**；但舊 implementation／runtime completion evidence 仍依 GitHub／runtime 如實保留，不能因文件更新假裝已完成重構。
+
+## 2026-10-03 Admin UI 範圍決策
+
+Admin operational convergence 依 [`decision-2026-10-03-admin-ui-scope-and-governance.md`](decision-2026-10-03-admin-ui-scope-and-governance.md) 與 [`ui/admin.md`](ui/admin.md) 執行：**不重做整個 Admin、不取消 `個股`／`市場資訊`／`AI 分析`，原 `進階管理` 目標收斂為精簡 `資料治理`。** 第一版優先使用既有 Flutter Material 元件，不要求大型 DAG、metadata catalog、lineage graph 或第二套 orchestration／governance 平台。
 
 ## 模型確認規則
 
@@ -84,10 +88,14 @@
 
 ## 6. Admin operational convergence — 【Sol】
 
-- [ ] **Actionable exceptions**：首頁「需要處理的事項」可 drill-down 至 item/reason/last update/retryability/safe action。
-- [ ] **Job Control Center**：顯示 ingestion/master controller、500 screening、dirty specialist updates、monthly retrain/reconciliation、Private Pipeline、maintenance、On-demand CEO executions；latest state/last success/近 3 天 timeline/更早歷史/manual rerun/audit。
-- [ ] **Storage／Private Operations**：Stage/Core/Mart/Private Mart live objects/active bytes、snapshot/manifest/report references、retention/maintenance/anomaly、Private Pipeline checkpoint/backlog/valuation lag；未知顯示 `unknown`。
-- [ ] **Routing controls**：versioned reorder/audit/optimistic lock；CEO AI route 如上；行情 source route 依既有 contract，僅 approved/authorized source 可進 effective route。
+本工作組只精簡強化既有 Flutter Admin，不重做 shell、不取消既有功能。目標主導覽為 `總覽 / 批次 / 個股 / 市場資訊 / AI 分析 / 資料治理`；`資料治理` 取代目前 `進階管理` placeholder。實作前以 [`ui/admin.md`](ui/admin.md) 為 UI contract。
+
+- [ ] **總覽**：維持 actionable-exceptions-first，只補今日批次、最近 DQ、storage/retention anomaly 與需要處理項目；正常 execution 不佔主要畫面。
+- [ ] **批次**：以簡單表格／清單讀 backend effective jobs／occurrences，顯示 schedule/trigger、latest state、duration/last update、latest success；預設最近 3 天，保留更早 bounded history；只提供 `查看`、安全的 `重試`／`手動執行`，不要求大型 DAG。現行 controller 的 7 個固定批次為 `ingestion`、`data-supplement`、`mart`、`data-quality`、`private`、`core-cleanup`、`mart-cleanup`；未來 specialist／CEO job 只有 runtime 真正存在後才顯示。
+- [ ] **資料治理**：單一精簡頁顯示 Stage/Core/Mart/必要 Private 摘要、active retention contract、coverage/freshness/DQ、live objects/active bytes、最近 maintenance、protected references 與 anomaly；Public retention 依 [`spec/retention-governance.md`](spec/retention-governance.md)，Private 未有核准 contract 時顯示 `未定義/unknown`。
+- [ ] **不擴張 UI 複雜度**：第一版不要求 OpenMetadata/DataHub/Airflow/Kestra/Prefect、第二套 scheduler/control plane、metadata catalog、lineage graph、大型 chart 或新 canonical store；現有 Material 元件足以完成時不加第三方 UI framework。
+- [ ] **既有功能保留**：`個股`、`市場資訊`、`AI 分析` 繼續各自承接既有 WBS；routing controls 放在對應 AI/市場/治理的詳細設定，不另建高複雜度主頁。
+- [ ] 完成 targeted tests、Admin auth/audience negative tests、deployment、GCP dev 真實 batch/retention/storage telemetry 與 authenticated browser acceptance；文件或 Flutter build 不得單獨視為完成。
 
 ## 7. User operational convergence — 【Sol／Luna】
 
@@ -109,6 +117,7 @@
 歷史／決策入口：
 
 - [2026-10-03 Token-first 五分析師與 On-demand CEO](decision-2026-10-03-token-first-specialist-and-on-demand-ceo.md)
+- [2026-10-03 Admin UI 範圍與資料治理呈現](decision-2026-10-03-admin-ui-scope-and-governance.md)
 - [WBS-3 補資料第一版完成（2026-10-03）](archive/wbs-3-data-supplement-v1-completed-2026-10-03.md)
 - [2026-10-02 Admin／User／Routing／Provider 決策總結](decision-2026-10-02-admin-user-routing-and-provider-plan.md)
 - [Parking Lot／暫不做](parking-lot.md)
