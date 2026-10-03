@@ -266,3 +266,13 @@ def test_validator_rejects_rehashed_input_contract_tampering(mutation, reason):
     result = validate_role(artifact, source)
     assert result["status"] == "blocked" and reason in result["errors"]
     assert "secret-canary" not in json.dumps(result)
+
+
+def test_v2_unmapped_event_severity_cannot_become_full_safety_score():
+    from intelligence_mart.analysis import _features, _role
+    data = {"events": [{"severity": None}, {"severity": 30}]}
+    features = _features(data, feature_version="2")
+    assert features["event_risk"]["severity_complete"] is False
+    assert _role("event_risk", features, [])["score"] is None
+    legacy = _features({"events": [{"severity": None}]})
+    assert _role("event_risk", legacy, [])["score"] == 100

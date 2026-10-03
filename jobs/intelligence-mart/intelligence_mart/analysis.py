@@ -424,6 +424,7 @@ def _features(datasets: dict[str, list[dict[str, Any]]], *, feature_version="1")
                        "max_severity": max((value for value in severities if value is not None), default=None)},
     }
     if feature_version == "2":
+        result["event_risk"]["severity_complete"] = bool(events) and all(value is not None for value in severities)
         for role, values in _financial_features_v2(financials).items():
             result[role].update(values)
         price_days = {str(r.get("trade_date")): _number(r.get("close")) for r in ohlcv}
@@ -481,6 +482,8 @@ def _role(name: str, features: dict[str, Any], evidence: list[dict[str, Any]]) -
     elif name == "quant":
         returns = [values[key] for key in ("return_20d", "return_60d", "return_120d") if values[key] is not None]
         score = round(max(0, min(100, 50 + fmean(returns))), 4) if returns else None
+    elif values.get("severity_complete") is False:
+        score = None
     else:
         score = round(100 - min(100, values["max_severity"]), 4) if values["max_severity"] is not None else (100.0 if values["dataset_available"] else None)
     refs = [item["evidence_id"] for item in evidence if item["dataset_id"] in ROLE_DATASETS[name]]
