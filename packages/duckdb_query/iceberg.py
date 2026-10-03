@@ -40,7 +40,7 @@ class DuckDBIcebergCore:
     }
     TABLE_NAMES = {dataset: f"{dataset.replace('-', '_')}_v1" for dataset in IDENTIFIERS}
     # Stock/benchmark bucket transforms created too many tiny partitions for the
-    # actual batch pattern.  New files are partitioned only by time; existing
+    # actual batch pattern. New files are partitioned only by time; existing
     # files remain readable through Iceberg partition evolution until compacted.
     PARTITIONS = {
         "stock-profile": (("observed_date", "month"),),
@@ -90,15 +90,12 @@ class DuckDBIcebergCore:
         from pyiceberg.catalog.sql import SqlCatalog
         from sqlalchemy import URL
 
-        # Fail fast at the credential/network boundary before SQLAlchemy adds
-        # catalog-specific behaviour. No password or SQL is logged here.
         with psycopg.connect(
             host=host, port=5432, dbname=dbname, user=user, password=password,
             sslmode=sslmode, connect_timeout=5,
         ) as connection:
             connection.execute("SELECT 1")
 
-        # The existing JDBC tables live in the isolated catalog schema.
         uri = URL.create(
             "postgresql+psycopg",
             username=user,
@@ -170,8 +167,9 @@ class DuckDBIcebergCore:
                     update.remove_field(name)
             changed = True
         target = str(self._target_file_size_bytes())
-        if str(table.metadata.properties.get("write.target-file-size-bytes", "")) != target:
-            table.set_properties(**{"write.target-file-size-bytes": target})
+        if str(table.properties.get("write.target-file-size-bytes", "")) != target:
+            with table.transaction() as transaction:
+                transaction.set_properties({"write.target-file-size-bytes": target})
             changed = True
         return self.catalog.load_table(self.table_identifier(dataset_id)) if changed else table
 
@@ -183,7 +181,7 @@ class DuckDBIcebergCore:
 
     def _write(self, *, dataset_id: str, rows: list[dict[str, Any]], execution_id: str,
                provenance_id: str, source_id: str, partition_date: date) -> IcebergCommitResult:
-        del partition_date  # Partition values come from each row, not the execution date.
+        del partition_date
         identifiers = self.IDENTIFIERS.get(dataset_id)
         if identifiers is None:
             raise ValueError(f"unsupported Iceberg Core dataset: {dataset_id}")
@@ -269,7 +267,6 @@ class DuckDBIcebergCore:
             properties = {"janus.execution-id": execution_id, "janus.dataset-id": dataset_id}
             schema = table.schema().as_arrow()
             if merged.updated and len(merged.changed_rows) > self.UPSERT_KEY_LIMIT:
-                # PyIceberg upsert builds one predicate branch per changed natural key.
                 replacement = pa.Table.from_pylist(list(merged.rows), schema=schema)
                 table.overwrite(replacement, overwrite_filter=row_filter, snapshot_properties=properties)
             else:
@@ -294,7 +291,6 @@ class DuckDBIcebergCore:
 
     @staticmethod
     def _financial_version(input_row: dict[str, Any]) -> dict[str, Any]:
-        """A version clock identifies an observation, never invents publication."""
         row = dict(input_row)
         value = row.get("version_at") or row.get("published_at") or row.get("availability_at")
         if not value:
@@ -311,7 +307,6 @@ class DuckDBIcebergCore:
 
     @staticmethod
     def _financial_observations(existing: list[dict[str, Any]], incoming: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
-        """Reuse unchanged non-authoritative observations; retain actual value revisions."""
         keys = ("symbol", "fiscal_year", "fiscal_quarter", "statement_type", "metric", "source_id")
         identity = lambda row: tuple(str(row.get(key)) for key in keys)
         def observed(row):
@@ -337,7 +332,6 @@ class DuckDBIcebergCore:
 
     @staticmethod
     def _arrow_table(rows: list[dict[str, Any]], existing_schema: Any | None = None) -> Any:
-        """Infer additive fields while giving all-null columns a stable concrete type."""
         import pyarrow as pa
 
         names = dict.fromkeys(name for row in rows for name in row)
@@ -354,10 +348,7 @@ class DuckDBIcebergCore:
             if name in existing:
                 continue
             fields.append(concrete(field))
-        schema = pa.schema(fields or [
-            concrete(field)
-            for field in inferred
-        ])
+        schema = pa.schema(fields or [concrete(field) for field in inferred])
         return pa.Table.from_pylist(rows, schema=schema)
 
     @classmethod
@@ -394,15 +385,9 @@ class IcebergQuery:
         self.engine = engine or DuckDBEngine()
 
     def query(self, identifier: str, sql: str, parameters: Sequence[Any] = ()) -> tuple[dict[str, Any], ...]:
-        # A dataset may have no committed partition yet. Treat that as a
-        # legitimate empty Core dataset; transport/catalog failures still
-        # propagate to the bounded API error boundary.
         if hasattr(self.catalog, "table_exists") and not self.catalog.table_exists(identifier):
             return ()
         table = self.catalog.load_table(identifier)
         table.scan().to_duckdb("core_table", connection=self.engine.connection)
-        # CoreQueryService supplies an allow-listed logical identifier.  The
-        # physical scan is registered under a private temporary name so the
-        # query runtime cannot address arbitrary catalog tables.
         safe_sql = sql.replace(identifier, "core_table")
         return self.engine.query(safe_sql, parameters)
