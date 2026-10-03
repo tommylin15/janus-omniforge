@@ -22,7 +22,7 @@ from .stage import GcsObjectStore, StageWriter
 
 
 def months_ending(year, month, count):
-    if not 1 <= month <= 12 or not 1 <= count <= 12:
+    if not 1 <= month <= 12 or not 1 <= count <= 36:
         raise ValueError("invalid bounded monthly window")
     last = year * 12 + month - 1
     return [divmod(value, 12) for value in range(last - count + 1, last + 1)]
@@ -276,7 +276,8 @@ def run_backfill(*, incremental=False):
         holidays = {date.fromisoformat(day) for day in schedule.get("holiday_overrides", ())}
         holidays.update(date.fromisoformat(day.strip()) for day in os.environ.get("MARKET_HOLIDAYS", "").split(",") if day.strip())
         target = effective_trading_day(today-timedelta(days=1), holidays=holidays)
-        market_months = [(year, month+1) for year, month in months_ending(target.year, target.month, 8)]
+        price_months = int(os.environ.get("JANUS_DATA_SUPPLEMENT_PRICE_MONTHS", "8"))
+        market_months = [(year, month+1) for year, month in months_ending(target.year, target.month, price_months)]
         missing_months, benchmark_months = {}, set(market_months)
         if incremental:
             required, day = set(), target

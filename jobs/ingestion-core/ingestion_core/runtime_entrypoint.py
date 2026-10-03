@@ -299,7 +299,10 @@ def main() -> None:
         analysis_replay = os.environ.get("JANUS_ANALYSIS_REPLAY_CONFIG", "").strip()
         supplement_mode = os.environ.get("JANUS_DATA_SUPPLEMENT_MODE", "").strip()
         if supplement_mode:
-            if supplement_mode == "quality":
+            if supplement_mode == "market-history":
+                from .market_history import run_market_history
+                result = run_market_history()
+            elif supplement_mode == "quality":
                 from .data_quality import run_quality
                 result = run_quality()
             elif supplement_mode in {"backfill", "daily"}:
