@@ -37,3 +37,5 @@ Cloud Run Job 固定 1 CPU / 1 GiB、單 task、單 parallelism。真實 accepta
 ## 本次核准的簡單補資料
 
 使用者選擇僅補最近 21 個交易日（2026-09-02 至 2026-10-02，扣除週末及官方 09-25/09-28 休市），共用既有 TWSE 全市場日期批次與既有 dev ingestion Job；不新增來源、排程或資源。市場行情中不合格列退出 OHLCV，仍記錄缺失/隔離，不使其他合格列一起失敗。Core manifest 以現有 data mutation lock 擷取所有 public Core table fence，價格更新不丟掉未改變的財報/事件 snapshot；backfill analysis_as_of 採本次接收日期，不假裝當年已接收到資料。Mart PIT 日界線統一採台北時間 EOD。
+
+篩選排名統一使用 5 日報酬的規則分數；20/60/120 日報酬另外列示，不因可用歷史長短而混用不同窗口排名。此分數是 discovery heuristic，不是預測機率；長期歷史或模型驗證不足維持缺值。
