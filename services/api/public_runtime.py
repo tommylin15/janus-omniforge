@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from threading import Lock
 from typing import Any, Sequence
@@ -48,7 +49,11 @@ def _catalog_settings() -> dict[str, str]:
 
 def build_core_service() -> CoreQueryService:
     from packages.duckdb_query import DuckDBIcebergCore, IcebergQuery
+    from packages.postgres_bundle import load_postgres_bundle
 
+    load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", {
+        "PUBLICATION_DB_PASSWORD": ("web_publication_password",),
+    })
     settings = _catalog_settings()
     iceberg = DuckDBIcebergCore.from_postgres(
         host=settings["CATALOG_DB_HOST"], dbname=settings["CATALOG_DB_NAME"],
@@ -59,10 +64,71 @@ def build_core_service() -> CoreQueryService:
     )
     reader = IcebergQuery(iceberg.catalog, engine=iceberg.engine)
     lock = Lock()
+    serving_connection: Any | None = None
 
-    # ponytail: one bounded DuckDB connection is serialized; use per-request engines if measured concurrency needs it.
+    def connect_serving():
+        import psycopg
+        publication_user = os.environ.get("PUBLICATION_DB_USER", "janus_public_api").strip()
+        if publication_user != "janus_public_api":
+            raise ValueError("public query runtime requires janus_public_api")
+        password = os.environ.get("PUBLICATION_DB_PASSWORD", "").strip()
+        if not password:
+            raise ValueError("PUBLICATION_DB_PASSWORD is required")
+        return psycopg.connect(
+            host=os.environ.get("PUBLICATION_DB_HOST", settings["CATALOG_DB_HOST"]),
+            dbname=os.environ.get("PUBLICATION_DB_NAME", settings["CATALOG_DB_NAME"]),
+            user=publication_user, password=password,
+            sslmode=os.environ.get("PUBLICATION_DB_SSLMODE", "require"), connect_timeout=5,
+            options="-c statement_timeout=2000 -c default_transaction_read_only=on", autocommit=True,
+        )
+
+    def serving_rows(identifier: str, parameters: Sequence[Any]) -> list[dict[str, Any]] | None:
+        nonlocal serving_connection
+        dataset = {
+            "core.ohlcv_v1": "ohlcv",
+            "core.valuation_v1": "valuation",
+            "core.events_v1": "events",
+        }.get(identifier)
+        if dataset is None or len(parameters) != 3:
+            return None
+        symbol, limit, offset = parameters
+        if not isinstance(limit, int) or not isinstance(offset, int):
+            return None
+        for attempt in range(2):
+            try:
+                serving_connection = serving_connection or connect_serving()
+                with serving_connection.cursor() as cursor:
+                    cursor.execute(
+                        """SELECT payload_json
+                           FROM publication.stock_serving_recent
+                           WHERE dataset_id=%s AND symbol=%s
+                           ORDER BY sort_at DESC
+                           LIMIT %s OFFSET %s""",
+                        (dataset, str(symbol).upper(), limit, offset),
+                    )
+                    rows = cursor.fetchall()
+                return [value if isinstance(value, dict) else json.loads(value) for (value,) in rows]
+            except Exception as error:
+                disconnected = bool(getattr(serving_connection, "closed", False)) or str(
+                    getattr(error, "sqlstate", "")).startswith("08")
+                if serving_connection is not None:
+                    try:
+                        serving_connection.close()
+                    except Exception:
+                        pass
+                    serving_connection = None
+                if attempt or not disconnected:
+                    return None
+        return None
+
+    # One bounded DuckDB connection is serialized.  Hot stock-detail pages first
+    # consult the rebuildable PostgreSQL projection and fall back to canonical
+    # Iceberg whenever the projection is absent, stale during rollout, or unavailable.
     def query(identifier: str, sql: str, parameters: Sequence[Any] = ()):
         with lock:
+            rows = serving_rows(identifier, parameters)
+            if rows:
+                return rows
             return reader.query(identifier, sql, parameters)
 
     return CoreQueryService(query, max_limit=int(os.environ.get("WEB_QUERY_MAX_ROWS", "200")))
