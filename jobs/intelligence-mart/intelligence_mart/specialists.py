@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timezone
+from datetime import date
 from hashlib import sha256
 from math import isfinite, sqrt
 from statistics import fmean, pstdev
 from typing import Any
 
-from .facts import (canonical_json, _change, _evidence_id, _financial_features_v2, _instant, _severity,
+from .facts import (analysis_cutoff, canonical_json, _change, _evidence_id, _financial_features_v2, _instant, _severity,
                        _research_rows, evidence_from_rows, validate_evidence)
 
 VERSION = "specialist-rules-v1"
@@ -47,7 +47,7 @@ def number(value: Any) -> float | None:
 
 def validated_inputs(datasets, symbol, as_of, snapshot):
     """Reuse source validation, with availability and every timestamp fenced before features."""
-    cutoff = datetime.combine(date.fromisoformat(as_of), time.max, timezone.utc)
+    cutoff = analysis_cutoff(date.fromisoformat(as_of))
     scoped = {name: [r for r in rows if not r.get("symbol") or r.get("symbol") == symbol]
               for name, rows in datasets.items()}
     selected = _research_rows(scoped, date.fromisoformat(as_of))
@@ -157,7 +157,8 @@ def screening(datasets, symbols, as_of, snapshot):
                        "latest_trade_date": latest_day, "latest_close": prices.get(latest_day),
                        "latest_volume_shares": number(latest.get("volume_shares")),
                        "latest_turnover_twd": number(latest.get("turnover_twd")),
-                       "screening_score": max(0, min(100, 50 + fmean(signals))) if signals else None,
+                       "screening_score": max(0, min(100, 50 + metrics["return_5d_percent"]))
+                           if metrics["return_5d_percent"] is not None else None,
                        "anomaly_flags": ["daily_return_above_11_percent"] if abs(_change(values, 1) or 0) >= 11 else [],
                        "status": "partial" if rejected or len(signals) < 4 else "ready",
                        "analysis_as_of": as_of, "core_snapshot_id": snapshot,

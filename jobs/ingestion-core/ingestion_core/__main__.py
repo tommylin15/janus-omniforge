@@ -33,6 +33,20 @@ except ZoneInfoNotFoundError:  # Minimal containers may omit the optional tzdata
 SPARSE_DATASETS = frozenset({"finmind", "twse-events"})
 
 
+def _current_core_fences(core):
+    """Fence unchanged tables too, so a price-only fill preserves financial/event inputs."""
+    tables = {}
+    with core.mutation_lock():
+        for dataset in core.IDENTIFIERS:
+            if core.table_exists(dataset):
+                table = core.catalog.load_table(core.table_identifier(dataset))
+                snapshot = table.current_snapshot()
+                if snapshot:
+                    tables[core.table_identifier(dataset)] = {"rows": int(snapshot.summary["total-records"]),
+                        "snapshot_id": snapshot.snapshot_id, "metadata_location": table.metadata_location}
+    return tables
+
+
 def _core_ready_event(*, core_bucket: str, execution_id: str, config_id: str,
                       analysis_as_of: str, iceberg_tables: dict[str, dict[str, object]],
                       symbols: tuple[str, ...], market: str,
@@ -469,7 +483,6 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                                            | {"change_percent": None}
                                            for row in response.rows if row["symbol"] in target_symbols)
                         received_prices = {row["symbol"] for row in price_rows if row.get("close") is not None}
-                        holding_prices_by_date.setdefault(as_of.isoformat(), set()).update(received_prices)
                         coverage_items.append({"date": as_of.isoformat(), "dataset": "ohlcv",
                                                "source": adapter.source_id, "market": market,
                                                "expected": sorted(expected),
@@ -481,20 +494,25 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                         price_coverage = coverage_items[-1]
                         if price_rows:
                             checked = validate_ohlcv(price_rows, analysis_as_of=as_of)
-                            if checked.quarantined:
-                                raise ValueError("selected market OHLCV failed validation")
-                            price_commit = core.write(dataset_id="ohlcv", rows=[dict(row) for row in checked.accepted],
-                                                      execution_id=execution_id, provenance_id=result.idempotency_key,
-                                                      source_id=adapter.source_id, partition_date=as_of)
-                            core_created += price_commit.inserted
-                            core_updated += price_commit.updated
-                            core_reused += price_commit.reused
-                            iceberg_tables[price_commit.table_identifier] = {
-                                "rows": price_commit.row_count,
-                                "snapshot_id": price_commit.snapshot_id,
-                                "metadata_location": price_commit.metadata_location,
-                            }
-                            price_coverage["snapshot_id"] = price_commit.snapshot_id
+                            received_prices = {row["symbol"] for row in checked.accepted}
+                            holding_prices_by_date.setdefault(as_of.isoformat(), set()).update(received_prices)
+                            price_coverage.update(received=sorted(expected & received_prices),
+                                missing=sorted(expected - received_prices),
+                                status="complete" if expected <= received_prices else "partial",
+                                quarantined_rows=len(checked.quarantined))
+                            if checked.accepted:
+                                price_commit = core.write(dataset_id="ohlcv", rows=[dict(row) for row in checked.accepted],
+                                                          execution_id=execution_id, provenance_id=result.idempotency_key,
+                                                          source_id=adapter.source_id, partition_date=as_of)
+                                core_created += price_commit.inserted
+                                core_updated += price_commit.updated
+                                core_reused += price_commit.reused
+                                iceberg_tables[price_commit.table_identifier] = {
+                                    "rows": price_commit.row_count,
+                                    "snapshot_id": price_commit.snapshot_id,
+                                    "metadata_location": price_commit.metadata_location,
+                                }
+                                price_coverage["snapshot_id"] = price_commit.snapshot_id
                     if adapter.dataset_id in {"valuation", "institutional", "financials", "benchmark", "financing", "securities_lending_short", "day_trading"} and active_500:
                         date_field = "observed_date" if adapter.dataset_id == "valuation" else "trade_date"
                         received = {str(row.get("benchmark_id" if adapter.dataset_id == "benchmark" else "symbol", ""))
@@ -656,7 +674,9 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                 industries = industry_setting[0] if industry_setting and isinstance(industry_setting[0], list) else []
                 summary["ready_event"] = _core_ready_event(
                     core_bucket=core_bucket, execution_id=execution_id, config_id=config_id,
-                    analysis_as_of=dates[-1].isoformat(), iceberg_tables=iceberg_tables if core_committed else {},
+                    analysis_as_of=(local_now.date() if options.get("start_date") or os.environ.get("BACKFILL_START_DATE")
+                                    else dates[-1]).isoformat(),
+                    iceberg_tables=_current_core_fences(core) if core_committed else {},
                     symbols=tuple(symbols), market=config.market, industries=industries,
                 )
             retention_setting = control.get_admin_setting("retention")

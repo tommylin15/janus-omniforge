@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timezone, timedelta
 from hashlib import sha256
 import json
 from math import isfinite
@@ -12,6 +12,10 @@ from urllib.parse import quote, urlparse
 
 
 APPROVED_SOURCES = frozenset({"twse", "tpex", "mops", "taiex", "tpex-benchmark", "taifex", "tdcc", "finmind"})
+
+
+def analysis_cutoff(as_of: date) -> datetime:
+    return datetime.combine(as_of, time.max, timezone(timedelta(hours=8))).astimezone(timezone.utc)
 
 
 def canonical_json(value: object) -> bytes:
@@ -137,7 +141,7 @@ def evidence_from_rows(datasets: dict[str, list[dict[str, Any]]], core_snapshot_
 
 
 def validate_evidence(items: Iterable[dict[str, Any]], analysis_as_of: date) -> tuple[list[dict[str, Any]], list[dict[str, str]], list[str]]:
-    cutoff = datetime.combine(analysis_as_of, time.max, timezone.utc)
+    cutoff = analysis_cutoff(analysis_as_of)
     rows = list(items)
     newest: dict[str, datetime] = {}
     for item in rows:
@@ -214,7 +218,7 @@ def _scope_rows(datasets: dict[str, list[dict[str, Any]]], symbols: frozenset[st
 
 def _research_rows(datasets: dict[str, list[dict[str, Any]]], as_of: date) -> dict[str, list[dict[str, Any]]]:
     """Select PIT financial revisions and the matching market benchmark before feature calculation."""
-    cutoff = datetime.combine(as_of, time.max, tzinfo=timezone.utc)
+    cutoff = analysis_cutoff(as_of)
     result = {name: list(rows) for name, rows in datasets.items()}
     latest, invalid = {}, []
     for row in result.get("financials", []):

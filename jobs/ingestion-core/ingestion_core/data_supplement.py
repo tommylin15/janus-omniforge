@@ -145,7 +145,7 @@ def supplement_symbols(control):
 
 
 def run_backfill(*, incremental=False):
-    from .__main__ import _control_plane, _core_ready_event, _iceberg_core, TAIPEI
+    from .__main__ import _control_plane, _core_ready_event, _current_core_fences, _iceberg_core, TAIPEI
     today = datetime.now(TAIPEI).date()
     control = _control_plane()
     core = None
@@ -324,15 +324,7 @@ def run_backfill(*, incremental=False):
             except Exception as error:
                 failure("benchmark", "TAIEX", f"{year}-{month:02d}", error)
 
-        tables = {}
-        with core.mutation_lock():
-            for dataset in core.IDENTIFIERS:
-                if core.table_exists(dataset):
-                    table = core.catalog.load_table(core.table_identifier(dataset))
-                    snapshot = table.current_snapshot()
-                    if snapshot:
-                        tables[core.table_identifier(dataset)] = {"rows": int(snapshot.summary["total-records"]),
-                            "snapshot_id": snapshot.snapshot_id, "metadata_location": table.metadata_location}
+        tables = _current_core_fences(core)
         coverage = coverage_summary(_rows(core, "financials", symbols), _rows(core, "ohlcv", symbols), symbols, target)
         summary["coverage"] = coverage
         if not summary["core_created"] and not summary["core_reused"] and not (incremental and tables):

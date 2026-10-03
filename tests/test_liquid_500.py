@@ -96,3 +96,21 @@ def test_admin_swap_previews_future_version_without_activating_it():
     assert options["reason"] == "調整" and options["actor"] == "operator"
     assert options["source_snapshot"]["manual_swap"] == {"removed": "0001", "added": "0600"}
     assert len(rows) == 500 and rows[0]["symbol"] == "0600" and rows[0]["manual_override"]
+
+
+def test_price_only_snapshot_keeps_unchanged_financial_fence():
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+    from ingestion_core.__main__ import _current_core_fences
+    snapshots = {"core.ohlcv_v1": (2, 500), "core.financials_v1": (1, 50)}
+    def table(name):
+        sid, count = snapshots[name]
+        return SimpleNamespace(current_snapshot=lambda: SimpleNamespace(snapshot_id=sid, summary={"total-records": count}),
+                               metadata_location=f"gs://core/{name}/{sid}.json")
+    core = SimpleNamespace(IDENTIFIERS=("ohlcv", "financials", "events"), mutation_lock=nullcontext,
+                           table_exists=lambda name: name != "events", table_identifier=lambda name: f"core.{name}_v1",
+                           catalog=SimpleNamespace(load_table=table))
+    result = _current_core_fences(core)
+    assert result["core.ohlcv_v1"]["snapshot_id"] == 2
+    assert result["core.financials_v1"]["snapshot_id"] == 1
+    assert "core.events_v1" not in result

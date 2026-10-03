@@ -54,6 +54,14 @@ def test_every_pit_timestamp_is_fenced(field):
     assert rejected
 
 
+@pytest.mark.parametrize("observed,accepted", [("2026-05-01T15:59:59Z", True), ("2026-05-01T16:00:00Z", False)])
+def test_pit_fence_uses_taipei_end_of_day(observed, accepted):
+    data = source()
+    data["ohlcv"] = [dict(data["ohlcv"][-1], observed_at=observed)]
+    rows, _, _ = validated_inputs(data, "2330", "2026-05-01", "core")
+    assert bool(rows["ohlcv"]) is accepted
+
+
 def test_event_update_does_not_change_price_role_inputs():
     before = {r["role"]: r for r in analyze_specialists(source(), "2330", "2026-05-01", "core")}
     data = source()
@@ -74,6 +82,15 @@ def test_screening_does_not_create_deep_targets_and_has_stable_rank():
     data = source()
     data["financials"] = [{"symbol": "2330", "source_id": "unapproved", "value": 999}]
     assert screening(data, ["2330", "no-data"], "2026-05-01", "core") == rows
+
+
+def test_screening_rank_compares_the_same_window_for_short_and_long_history():
+    data = source()
+    data["ohlcv"] += [dict(r, symbol="new") for r in data["ohlcv"][-21:]]
+    rows = screening(data, ["2330", "new"], "2026-05-01", "core")
+    assert rows[0]["screening_score"] == rows[1]["screening_score"]
+    assert rows[0]["metrics"]["return_120d_percent"] is not None
+    assert rows[1]["metrics"]["return_120d_percent"] is None
 
 
 def test_dcf_reverse_dcf_and_invalid_assumptions():
