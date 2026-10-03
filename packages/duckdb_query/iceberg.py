@@ -54,8 +54,15 @@ class DuckDBIcebergCore:
         "benchmark": (("trade_date", "month"),),
     }
     SELECTION_FIELDS = {
-        dataset: ("benchmark_id" if dataset == "benchmark" else "symbol")
-        for dataset in IDENTIFIERS
+        "stock-profile": "symbol",
+        "market-volume": "symbol",
+        "ohlcv": "symbol",
+        "valuation": "symbol",
+        "institutional": "symbol",
+        "financials": "symbol",
+        "events": "symbol",
+        "market-activity": "symbol",
+        "benchmark": "benchmark_id",
     }
     DATE_FIELDS = frozenset({"observed_date", "trade_date", "effective_date"})
     TIMESTAMP_FIELDS = frozenset({"published_at", "observed_at", "version_at"})
