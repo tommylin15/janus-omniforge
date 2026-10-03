@@ -147,6 +147,7 @@ void main() {
         ]
       },
       '/api/v1/admin/mart-reports?limit=50': {'items': []},
+      '/api/v1/admin/settings/data_supplement_quality': {'value': null},
     });
     await tester.pumpWidget(MaterialApp(
         home: AdminWorkspace(
