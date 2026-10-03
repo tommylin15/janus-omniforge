@@ -42,6 +42,8 @@
 
 ## 1. `WBS-5-MART-SPECIALIST-ENGINES` — 【Sol】
 
+優先插入：依使用者 2026-10-03 最新指示，先完成 [刪除治理批次](spec/retention-governance.md) 上版與 dev 驗收，再回頭繼續本 WBS。治理程式與 targeted tests 已進行；整合批次入口、Core reference fence 產生、deployment／實際清理驗收仍待完成。
+
 目前進度：partial。舊每日五角色已刪除，新確定性五分析師、去識別化覆蓋、不可變成果物與逐月 baseline evaluator 已實作；模型與真實 dev/OOS 整體驗收尚未完成。詳細限制見 [`spec/specialist-engines.md`](spec/specialist-engines.md)。使用者指定 1 CPU／1 GiB，失敗時先提出配置建議，不自行升級。500 檔缺失 ≤10% 可接受，超過先討論，不直接判失敗或建立複雜補資料。
 
 - [ ] 依 [`wbs/wbs-5-specialist-engines.md`](wbs/wbs-5-specialist-engines.md) 建立 500 檔低成本 market screening 與 Deep Coverage 五 specialist。

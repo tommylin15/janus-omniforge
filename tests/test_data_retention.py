@@ -143,7 +143,7 @@ def test_financial_retention_preserves_twelve_periods_per_symbol_and_original_me
     assert all(item["availability_at"] is None and item["publication_time_authoritative"] is None for item in kept)
 
 
-def test_stage_deletes_only_old_committed_payload_and_reports_actual_bytes():
+def test_stage_deletes_old_payload_metadata_and_quarantine_without_commit_requirement():
     import json
     prefix = "executions/test/stage/"
     items = [{"name": "executions/test/core-commit.json", "size": "10", "generation": "1", "updated": "2026-09-01T00:00:00Z"},
@@ -155,7 +155,77 @@ def test_stage_deletes_only_old_committed_payload_and_reports_actual_bytes():
                             delete=lambda name, generation: deletes.append((name, generation)))
     now = datetime(2026, 10, 2, tzinfo=timezone.utc)
     planned = clean_stage(store, apply=False, now=now)
-    assert planned["planned_bytes"] == 123 and planned["deleted_bytes"] == 0 and not deletes
+    assert planned["planned_bytes"] == 589 and planned["deleted_bytes"] == 0 and not deletes
     actual = clean_stage(store, apply=True, now=now)
-    assert actual["deleted_bytes"] == 123 and actual["held_quarantine_objects"] == 1
-    assert deletes == [(prefix + "raw/payload.json", "2")]
+    assert actual["deleted_bytes"] == 589 and actual["held_quarantine_objects"] == 0
+    assert len(deletes) == 3
+
+
+def test_stage_protects_active_execution_and_recent_unknown_payload():
+    items = [{"name": "executions/live/stage/quarantine/old.json", "size": "3", "generation": "1", "updated": "2026-09-01T00:00:00Z"},
+             {"name": "executions/unknown/stage/raw/recent.json", "size": "4", "generation": "2", "updated": "2026-10-01T00:00:00Z"},
+             {"name": "executions/unknown/stage/raw/old.json", "size": "5", "generation": "3", "updated": "2026-09-01T00:00:00Z"}]
+    deleted = []
+    store = SimpleNamespace(bucket="dev", objects=lambda _: items, delete=lambda name, generation: deleted.append(name))
+    result = clean_stage(store, apply=True, now=datetime(2026, 10, 2, tzinfo=timezone.utc), active_executions=frozenset({"live"}))
+    assert deleted == [items[2]["name"]] and result["held_active_objects"] == 1
+
+
+def test_core_manifest_cleanup_requires_fresh_fence_and_preserves_live_references():
+    import json
+    import pytest
+    from ingestion_core.retention import clean_core_manifests
+    items = [{"name": f"executions/{identity}/core-snapshot.json", "updated": "2026-01-01T00:00:00Z", "generation": "1"}
+             for identity in ("unused", "report", "active")]
+    deleted = []
+    store = SimpleNamespace(objects=lambda _: items, delete=lambda name, generation: deleted.append(name),
+        read=lambda name: json.dumps({"execution_id": name.split("/")[1], "snapshot_id": name.split("/")[1]}).encode())
+    now = datetime(2026, 10, 2, tzinfo=timezone.utc)
+    with pytest.raises(ValueError, match="one hour"):
+        clean_core_manifests(store, {"created_at": "2026-10-01T00:00:00Z", "core_snapshot_ids": []},
+                             apply=True, now=now, active_executions=frozenset())
+    result = clean_core_manifests(store, {"created_at": now.isoformat(), "core_snapshot_ids": ["report"]},
+                                 apply=True, now=now, active_executions=frozenset({"active"}))
+    assert result["deleted_objects"] == 1 and deleted == [items[0]["name"]]
+
+
+def test_three_generations_per_symbol_and_latest_oos_survive_repeated_cleanup():
+    import json
+    from hashlib import sha256
+    from intelligence_mart.artifact_retention import clean_specialist_artifacts
+    data, dates = {}, {}
+    def put(name, value, updated="2026-09-01T00:00:00Z"):
+        data[name] = json.dumps(value).encode()
+        dates[name] = updated
+        return {"artifact_uri": "gs://dev/" + name, "artifact_hash": "sha256:" + sha256(data[name]).hexdigest()}
+    for i in range(5):
+        refs = []
+        for symbol in (["2330", "2327"] if i < 2 else ["2330"]):
+            for role in ("fundamental", "valuation", "quant", "risk", "event"):
+                ref = put(f"specialists/{symbol}-{role}-{i}.json", {"symbol": symbol, "role": role, "generation": i})
+                refs.append({"symbol": symbol, "role": role, **ref})
+        evaluation = put(f"executions/ex{i}/oos-evaluation.json", {"generation": i})
+        put(f"executions/ex{i}/specialist-manifest.json", {"artifact_kind": "mart_specialist_execution_v1", "execution_id": f"ex{i}",
+            "analysis_as_of": f"2026-09-0{i+1}", "core_snapshot_id": f"core{i}", "specialists": refs, "evaluation": evaluation})
+    store = SimpleNamespace(bucket="dev", read=lambda name: data[name],
+        objects=lambda _: [{"name": name, "updated": dates[name], "size": str(len(value)), "generation": "1"} for name, value in data.items()],
+        delete=lambda name, generation: data.pop(name, None))
+    def create(name, payload, content_type):
+        if name in data:
+            return False
+        data[name], dates[name] = payload, "2026-10-02T00:00:00Z"
+        return True
+    store.create = create
+    now = datetime(2026, 10, 2, tzinfo=timezone.utc)
+    before = dict(data)
+    plan = clean_specialist_artifacts(store, apply=False, now=now)
+    assert data == before and plan["retained_generations"] == {"2330": 3, "2327": 2}
+    result = clean_specialist_artifacts(store, apply=True, now=now)
+    assert result["deleted_objects"] > 0
+    assert sum(name.startswith("specialists/2330-") for name in data) == 15
+    assert sum(name.startswith("specialists/2327-") for name in data) == 10
+    assert [name for name in data if name.endswith("/oos-evaluation.json")] == ["executions/ex4/oos-evaluation.json"]
+    assert "executions/ex0/specialist-manifest.json" not in data
+    assert "executions/ex0/specialist-retired.json" in data
+    again = clean_specialist_artifacts(store, apply=True, now=now)
+    assert again["deleted_objects"] == 0

@@ -24,9 +24,9 @@ Deep Coverage 使用既有去識別化資料庫函式取得 active watchlist ∪
 
 Linear / LightGBM / CatBoost 使用逐月擴張訓練窗，訓練標籤必須已於測試日前成熟；每 5 個市場交易日建立候選訓練樣本，5/20/60/120 日樣本外 cohort 不重疊，以 benchmark 交易日對齊起訖。至少 100 訓練樣本與三個訓練月份才能 fit。最後三個已成熟月份可獨立校準機率，不能使用當月測試資料；LightGBM/CatBoost 使用原生 Tree SHAP，Linear 使用加總式貢獻，必須重建同一預測。Rank IC/ICIR、decile spread、hit rate、after-cost Sharpe / drawdown / turnover 可計算；不足 10 檔不造出 decile 統計，另列各深度標的時間序列 IC/命中率，校準驗收需至少 30 筆 OOS 機率。30 bps 僅研究敏感度，不是實際券商成本。回測僅 current Deep Coverage，不是歷史母體重建，禁止自動 promotion。
 
-Riskfolio-Lib 計算歷史 CVaR；statsmodels 二狀態 Markov variance challenger 需至少 252 筆 benchmark returns，僅 research fit，未通過 OOS 不輸出正式 regime probability。
+Riskfolio-Lib 計算歷史 CVaR；statsmodels 二狀態 Markov variance challenger 需至少 252 筆 benchmark returns。逐月用此前參數 forward filter（不用事後 smoothing），以 OOS log score 比較簡單 Gaussian 波動基準；至少 30 筆 OOS returns 才標示已評估，沒有自動 promotion 或正式 regime probability 權限。
 
-尚未完成：Fundamental/Valuation 訓練標籤、Qlib DoubleEnsemble、台灣繁中 Event 人工標記資料與本機 encoder、SHAP 模型解釋、IC decay、機率校準、regime stability、歷史 membership replay 與 champion promotion。這些缺口使 WBS 保持 partial。
+尚未完成：Fundamental/Valuation 可驗證歷史 PIT 訓練標籤、Qlib DoubleEnsemble、台灣繁中 Event 人工標記資料與本機 encoder、IC decay、歷史 membership replay 與 champion promotion。原生 SHAP、機率校準與 regime OOS 已有實作；是否具足夠真實台股資料及有效性，仍以 dev／readback 結果判定。這些缺口使 WBS 保持 partial。
 
 ## 依賴與資源
 

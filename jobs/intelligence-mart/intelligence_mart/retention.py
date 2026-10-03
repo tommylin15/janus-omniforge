@@ -39,6 +39,8 @@ def run():
                 raise RuntimeError("public data mutation lock is busy")
             try:
                 before = capacity()
+                from .artifact_retention import clean_specialist_artifacts
+                specialist_artifacts = clean_specialist_artifacts(store, apply=apply, now=now)
                 references = connection.execute("SELECT table_identifier,iceberg_snapshot_id,artifact_uri FROM publication.mart_report_index LIMIT 100001").fetchall()
                 if len(references) > 100000:
                     raise RuntimeError("Mart retention reference limit exceeded")
@@ -65,6 +67,7 @@ def run():
                 connection.execute("SELECT pg_advisory_unlock(1835102836,2)")
         result = {"component": "mart-retention", "mode": mode, "policy_version": "public-data-retention-v1",
                   "retention_days": 90, "tables": tables, "orphans": orphans,
+                  "specialist_artifacts": specialist_artifacts,
                   "storage": {"before": before, "after": after, "active_bytes_reduced": before["bytes"] - after["bytes"]},
                   "storage_scope": "live_objects_only", "billable_bytes_reclaimed": None,
                   "historical_manifests": "protected", "model_calls": 0, "publication_writes": 0}

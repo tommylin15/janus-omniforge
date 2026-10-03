@@ -9,7 +9,7 @@ from typing import Any
 from .stage import GcsObjectStore
 from .iceberg_maintenance import maintain_financials, _references
 
-POLICY = {"stage_days": 7, "quarantine_days": 30, "mart_days": 90, "core_days": 365, "deep_price_days": 1096,
+POLICY = {"stage_days": 7, "quarantine_days": 7, "mart_days": 90, "core_days": 365, "deep_price_days": 1096,
           "financial_quarters": 12, "orphan_days": 7, "target_bytes": 1_000_000_000, "alert_bytes": 2_000_000_000}
 
 
@@ -36,37 +36,35 @@ def retained_core_rows(core: Any, dataset: str, rows: list[dict[str, Any]], now:
         deep_cutoff if dataset == "benchmark" or dataset == "ohlcv" and row.get("symbol") in deep_symbols else cutoff)]
 
 
-def clean_stage(store: Any, *, apply: bool, now: datetime) -> dict[str, Any]:
+def clean_stage(store: Any, *, apply: bool, now: datetime,
+                active_executions: frozenset[str] = frozenset()) -> dict[str, Any]:
     objects = store.objects("")
     candidates, held = [], 0
-    for marker in objects:
-        name = marker["name"]
-        if not name.startswith("executions/") or not name.endswith("/core-commit.json"):
+    active_raw = set()
+    for item in objects:
+        parts = item["name"].split("/")
+        if len(parts) >= 4 and parts[0] == "executions" and parts[1] in active_executions and parts[2] == "stage" and len(parts) == 4:
+            active_raw.add(json.loads(store.read(item["name"])).get("raw_object_name"))
+    for item in objects:
+        path = item["name"]
+        parts = path.split("/")
+        execution_id = parts[1] if len(parts) >= 3 and parts[0] == "executions" else None
+        eligible = path.startswith(("raw/", "quarantine/")) or execution_id is not None and (
+            parts[2] == "stage" or parts[2:] == ["core-commit.json"])
+        if not eligible:
             continue
-        document = json.loads(store.read(name))
-        execution_id = document["execution_id"]
-        prefix = f"executions/{execution_id}/stage/"
-        if name != f"executions/{execution_id}/core-commit.json":
-            raise ValueError("Stage commit marker identity mismatch")
-        committed = set(document.get("stage_objects", []))
-        if any(not item.startswith(prefix + "raw/") for item in committed):
-            raise ValueError("Stage commit marker escaped its execution")
-        for item in objects:
-            path = item["name"]
-            age = now - datetime.fromisoformat(item["updated"].replace("Z", "+00:00"))
-            if not path.startswith(prefix) or age < timedelta(days=POLICY["stage_days"]):
-                continue
-            # Keep provenance metadata and unresolved quarantine; only the committed payload is disposable.
-            if path in committed:
-                candidates.append(item)
-            elif "/quarantine/" in path:
-                held += 1
+        age = now - datetime.fromisoformat(item["updated"].replace("Z", "+00:00"))
+        if execution_id in active_executions or path in active_raw:
+            held += 1
+        elif age >= timedelta(days=POLICY["stage_days"]):
+            candidates.append(item)
     if apply:
         for item in candidates: store.delete(item["name"], generation=item["generation"])
     return {"bucket": store.bucket, "planned_objects": len(candidates),
             "planned_bytes": sum(int(item["size"]) for item in candidates),
             "deleted_bytes": sum(int(item["size"]) for item in candidates) if apply else 0,
-            "deleted_objects": len(candidates) if apply else 0, "held_quarantine_objects": held}
+            "deleted_objects": len(candidates) if apply else 0, "held_active_objects": held,
+            "held_quarantine_objects": 0}
 
 
 def clean_orphans(core: Any, store: Any, identifier: str, *, apply: bool, now: datetime) -> dict[str, Any]:
@@ -98,6 +96,29 @@ def clean_orphans(core: Any, store: Any, identifier: str, *, apply: bool, now: d
             "deleted_objects": len(candidates) if apply else 0}
 
 
+def clean_core_manifests(store, fence, *, apply, now, active_executions):
+    created = datetime.fromisoformat(fence["created_at"].replace("Z", "+00:00"))
+    if not timedelta(0) <= now - created <= timedelta(hours=1):
+        raise ValueError("Core retention reference fence must be less than one hour old")
+    protected = set(fence["core_snapshot_ids"])
+    candidates = []
+    for item in store.objects("executions/"):
+        name = item["name"]
+        if not name.endswith("/core-snapshot.json"):
+            continue
+        document = json.loads(store.read(name))
+        age = now - datetime.fromisoformat(item["updated"].replace("Z", "+00:00"))
+        if document["execution_id"] not in active_executions and document["snapshot_id"] not in protected and age > timedelta(days=90):
+            candidates.append(item)
+    if apply:
+        for item in candidates:
+            store.delete(item["name"], generation=item["generation"])
+        if hasattr(store, "_maintenance_execution_documents"):
+            del store._maintenance_execution_documents
+    return {"retention_days": 90, "planned_objects": len(candidates),
+            "deleted_objects": len(candidates) if apply else 0}
+
+
 def maintain_public_data(*, core: Any, apply: bool, now: datetime | None = None) -> dict[str, Any]:
     now = now or datetime.now(timezone.utc)
     store = GcsObjectStore(os.environ["CORE_BUCKET"])
@@ -109,10 +130,23 @@ def maintain_public_data(*, core: Any, apply: bool, now: datetime | None = None)
     with _control_plane() as control, control.connection.cursor() as cursor:
         cursor.execute("SELECT symbol FROM control.mart_ai_target_symbols(%s::date)", (now.astimezone(TAIPEI).date(),))
         deep_symbols = frozenset(row[0] for row in cursor.fetchall())
+        cursor.execute("SELECT execution_id FROM control.executions WHERE status IN ('queued','running','retrying')")
+        active_executions = frozenset(str(row[0]) for row in cursor.fetchall())
+        cursor.execute("SELECT request_options->>'core_snapshot_id' FROM control.executions WHERE status IN ('queued','running','retrying')")
+        active_snapshots = [row[0] for row in cursor.fetchall() if row[0]]
     def capacity(object_store):
         objects = object_store.objects("")
         return {"objects": len(objects), "bytes": sum(int(item["size"]) for item in objects)}
     before = {"core": capacity(store), "stage": capacity(stage_store)}
+    manifests = {"status": "reference_fence_required"}
+    fence_uri = os.environ.get("CORE_RETENTION_FENCE_URI", "")
+    if fence_uri:
+        prefix = f"gs://{store.bucket}/maintenance/retention-fences/"
+        if not fence_uri.startswith(prefix):
+            raise ValueError("Core retention fence must be in the existing dev Core maintenance prefix")
+        fence = json.loads(store.read(fence_uri.removeprefix(f"gs://{store.bucket}/")))
+        fence["core_snapshot_ids"].extend(active_snapshots)
+        manifests = clean_core_manifests(store, fence, apply=apply, now=now, active_executions=active_executions)
     tables, orphans = [], []
     for dataset in core.IDENTIFIERS:
         identifier = core.table_identifier(dataset)
@@ -133,7 +167,7 @@ def maintain_public_data(*, core: Any, apply: bool, now: datetime | None = None)
         result["rows_removed"] = removed if apply else 0
         tables.append(result)
         orphans.append(clean_orphans(core, store, identifier, apply=apply, now=now))
-    stage = clean_stage(stage_store, apply=apply, now=now)
+    stage = clean_stage(stage_store, apply=apply, now=now, active_executions=active_executions)
     after = {"core": capacity(store), "stage": capacity(stage_store)} if apply else before
     storage = {layer: {"before": before[layer], "after": after[layer],
                        "active_bytes_reduced": before[layer]["bytes"] - after[layer]["bytes"]}
@@ -141,9 +175,10 @@ def maintain_public_data(*, core: Any, apply: bool, now: datetime | None = None)
     result = {"component": "data-retention", "policy_version": "public-data-retention-v1",
             "mode": "apply" if apply else "dry-run", "policy": POLICY, "tables": tables, "orphans": orphans,
             "stage": stage, "model_calls": 0, "publication_writes": 0,
+            "core_manifests": manifests,
             "storage": storage, "storage_scope": "live_objects_only",
             "billable_bytes_reclaimed": None,
-            "mart_retention_status": "requires_mart_catalog_worker", "quarantine_status": "unresolved_held"}
+            "mart_retention_status": "requires_mart_catalog_worker", "quarantine_status": "expires_after_7_days"}
     from hashlib import sha256
     payload = json.dumps(result, sort_keys=True, default=str).encode()
     name = "maintenance/retention/" + now.strftime("%Y-%m-%dT%H%M%SZ") + "-" + sha256(payload).hexdigest() + ".json"

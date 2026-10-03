@@ -243,25 +243,65 @@ def evaluate_core_history(datasets, symbols, as_of, snapshot):
             results.append(evaluation)
     from .specialists import validated_inputs, price_series
     benchmark_rows, _, _ = validated_inputs(datasets, sorted(symbols)[0], as_of, snapshot) if symbols else ({}, [], [])
-    values = list(price_series(benchmark_rows.get("benchmark", [])).values())
+    series = price_series(benchmark_rows.get("benchmark", []))
+    values = list(series.values())
     returns = [b / a - 1 for a, b in zip(values, values[1:])]
     results.append({"model_name": "statsmodels_markov_regime", "core_snapshot_id": snapshot,
-                    "analysis_as_of": as_of, **fit_regime_challenger(returns)})
+                    "analysis_as_of": as_of, **fit_regime_challenger(returns, dates=list(series)[1:])})
     return results
 
 
-def fit_regime_challenger(returns):
+def fit_regime_challenger(returns, *, dates=None):
     """Monthly research fit only; filtered final-state probability has no promotion authority."""
+    if dates is not None and (len(dates) != len(returns) or dates != sorted(set(dates))):
+        raise ValueError("regime returns require unique chronological market dates")
     if len(returns) < 252 or any(number(r) is None for r in returns) or not pstdev(returns):
         return {"status": "insufficient_history", "required_returns": 252, "available_returns": len(returns),
                 "high_vol_probability": None, "promotion_eligible": False}
     import numpy as np
     from statsmodels.tsa.regime_switching.markov_regression import MarkovRegression
     model = MarkovRegression(np.asarray(returns), k_regimes=2, trend="c", switching_variance=True)
-    result = model.fit(disp=False, maxiter=100, em_iter=5, search_reps=0)
+    try:
+        result = model.fit(disp=False, maxiter=100, em_iter=5, search_reps=0)
+    except (np.linalg.LinAlgError, ValueError, FloatingPointError):
+        return {"status": "fit_numerical_error", "high_vol_probability": None, "promotion_eligible": False}
     if not result.mle_retvals.get("converged") or not np.isfinite(result.params).all():
         return {"status": "fit_not_converged", "high_vol_probability": None, "promotion_eligible": False}
     variances = [result.params[model.parameters[i, "variance"]][0] for i in range(2)]
     regime = int(np.argmax(variances))
-    return {"status": "research_fit_oos_pending", "high_vol_probability": float(result.filtered_marginal_probabilities[-1, regime]),
-            "promotion_eligible": False, "parameters": result.params.tolist(), "model_version": "statsmodels-markov-2-v1"}
+    payload = {"status": "research_fit_oos_pending", "high_vol_probability": float(result.filtered_marginal_probabilities[-1, regime]),
+               "promotion_eligible": False, "parameters": result.params.tolist(), "model_version": "statsmodels-markov-2-v2"}
+    if dates is None:
+        return payload
+    from scipy.stats import norm
+    folds, skipped = [], []
+    for month in sorted({day[:7] for day in dates}):
+        indices = [i for i, day in enumerate(dates) if day.startswith(month)]
+        first, last = indices[0], indices[-1]+1
+        history = np.asarray(returns[:first])
+        if first < 252 or not np.std(history):
+            continue
+        try:
+            trained = MarkovRegression(history, k_regimes=2, trend="c", switching_variance=True).fit(
+                disp=False, maxiter=100, em_iter=5, search_reps=0)
+        except (np.linalg.LinAlgError, ValueError, FloatingPointError):
+            skipped.append({"month": month, "reason": "fit_numerical_error"})
+            continue
+        if not trained.mle_retvals.get("converged") or not np.isfinite(trained.params).all():
+            skipped.append({"month": month, "reason": "fit_not_converged"})
+            continue
+        # Fixed pre-month parameters, forward filtering only; no smoothed probabilities.
+        filtered = MarkovRegression(np.asarray(returns[:last]), k_regimes=2, trend="c", switching_variance=True).filter(trained.params)
+        markov = filtered.llf_obs[first:last]
+        gaussian = norm.logpdf(returns[first:last], loc=float(history.mean()), scale=float(history.std()))
+        if np.isfinite(markov).all() and np.isfinite(gaussian).all():
+            folds.append({"month": month, "training_end": dates[first-1], "test_start": dates[first],
+                          "test_end": dates[last-1], "test_returns": last-first,
+                          "markov_log_score_sum": float(markov.sum()), "gaussian_log_score_sum": float(gaussian.sum())})
+        else:
+            skipped.append({"month": month, "reason": "invalid_predictive_density"})
+    count = sum(f["test_returns"] for f in folds)
+    payload.update(status="research_oos_evaluated" if count >= 30 else "research_fit_oos_pending", oos_folds=folds,
+        skipped_folds=skipped, oos_returns=count,
+        average_log_score_improvement=sum(f["markov_log_score_sum"]-f["gaussian_log_score_sum"] for f in folds)/count if count else None)
+    return payload

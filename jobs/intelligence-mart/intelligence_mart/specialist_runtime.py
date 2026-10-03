@@ -23,6 +23,17 @@ def load_market_membership(connection, as_of):
 
 
 def specialist_processor(execution, publication_connection, *, store_factory=None, catalog_factory=None):
+    if publication_connection is None:  # Local injected stores have no PostgreSQL session.
+        return _specialist_processor(execution, publication_connection, store_factory=store_factory, catalog_factory=catalog_factory)
+    if not publication_connection.execute("SELECT pg_try_advisory_lock(1835102836,2)").fetchone()[0]:
+        raise RuntimeError("public data mutation lock is busy")
+    try:
+        return _specialist_processor(execution, publication_connection, store_factory=store_factory, catalog_factory=catalog_factory)
+    finally:
+        publication_connection.execute("SELECT pg_advisory_unlock(1835102836,2)")
+
+
+def _specialist_processor(execution, publication_connection, *, store_factory=None, catalog_factory=None):
     if store_factory is None:
         from ingestion_core.stage import GcsObjectStore
         store_factory = GcsObjectStore
@@ -34,6 +45,13 @@ def specialist_processor(execution, publication_connection, *, store_factory=Non
     deterministic_processor(execution, store_factory)
     as_of = str(execution.request_options["analysis_as_of"])
     manifest_name = f"executions/{execution.execution_id}/specialist-manifest.json"
+    try:
+        store.read(f"executions/{execution.execution_id}/specialist-retired.json")
+    except (FileNotFoundError, HTTPError) as error:
+        if isinstance(error, HTTPError) and error.code != 404:
+            raise
+    else:
+        raise RuntimeError("specialist execution retired by retention; submit a new execution")
     try:
         saved = json.loads(store.read(manifest_name))
     except (FileNotFoundError, HTTPError) as error:

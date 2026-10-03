@@ -1,5 +1,11 @@
 # Operations and testing
 
+## 刪除治理上版前 checkpoint（2026-10-03，尚未 dev 驗收）
+
+- 最新決策與範圍見 [刪除治理契約](retention-governance.md)：Stage／quarantine 7 天，每個股五分析師最新 3 代，OOS 僅留最新仍使用結果；淘汰 execution 拒絕舊 replay。既有 Core／Mart 資料期限及必要快照保護保留；Core manifest 淘汰須提供新鮮有效引用清單。
+- 本機 `tests/test_data_retention.py`：13 passed，包含未提交／異常資料到期清理、active execution 保護、名單變動時各股獨立保留 3 代、OOS 淘汰、重跑清理冪等性與 Core manifest 引用保護；五分析師 immutable runtime targeted check 1 passed。此 checkpoint 不代表 dev deployment 或實際刪除已完成。
+- GCS 只讀盤點：Core warehouse live 86,442,645 bytes，Mart warehouse live 14,109,734 bytes；包含資料與快照相關檔案，不是舊快照獨立占用量，也不代表全部版本的計費容量。
+
 ## 最新：五分析師引擎與舊角色移除（2026-10-03，partial）
 
 - 舊生成式每日五角色的引擎、prompt、compatibility、provider execution 與舊契約已刪除。新五分析師採規則/數學/本機 ML evaluator 與中文模板，沒有 publication/CEO 權限；整體 WBS 尚未完成。契約與缺口見 [specialist engines](specialist-engines.md)。Shared CEO auth/routing 保留，未執行下一個 CEO WBS。

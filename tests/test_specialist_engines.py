@@ -144,6 +144,20 @@ def test_core_sample_authorization_uses_validated_source_default():
     assert result["status"] == "insufficient_history"
 
 
+def test_regime_oos_only_fits_prior_months_and_keeps_research_status():
+    import numpy as np
+    from datetime import date, timedelta
+    from intelligence_mart.evaluation import fit_regime_challenger
+    days = [(date(2024, 1, 1)+timedelta(days=i)).isoformat() for i in range(560)
+            if (date(2024, 1, 1)+timedelta(days=i)).weekday() < 5]
+    rng = np.random.default_rng(17)
+    values = rng.normal(size=len(days))*np.where(np.arange(len(days)) % 70 < 35, .005, .02)
+    result = fit_regime_challenger(values.tolist(), dates=days)
+    assert result["status"] == "research_oos_evaluated" and result["oos_returns"] >= 30
+    assert all(f["training_end"] < f["test_start"] <= f["test_end"] for f in result["oos_folds"])
+    assert not result["promotion_eligible"]
+
+
 @pytest.mark.parametrize("model", ["linear", "lightgbm", "catboost"])
 def test_real_model_walk_forward_purges_unmatured_labels(model):
     from intelligence_mart.evaluation import walk_forward
