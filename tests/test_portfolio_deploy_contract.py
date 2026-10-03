@@ -230,3 +230,10 @@ def test_fact_pack_analysis_replay_retries_same_target_after_mart_retrying():
     assert result["analysis_execution_id"] == "target-analysis"
     assert result["mart_triggers"] == 2
     assert control.closed
+
+
+def test_admin_runbook_is_in_runtime_and_retired_admin_redirect_is_verified():
+    ignored = (ROOT / ".dockerignore").read_text(encoding="utf-8")
+    assert "!doc/runbook-data-supplement.md" in ignored
+    assert "url=/app/admin" in VERIFY
+    assert "legacy static Admin rollback surface" not in VERIFY

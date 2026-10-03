@@ -117,12 +117,8 @@ verify_service() {
 
     legacy_admin="$(curl -fsS --retry 6 --retry-delay 2 \
       "${service_url}/admin/stocks?expected=${GITHUB_SHA}")"
-    if [[ "${legacy_admin}" != *"Janus 管理介面 · 資料營運"* || "${legacy_admin}" != *"/assets/admin.js"* ]]; then
-      echo "janus-api legacy static Admin rollback surface is not available" >&2
-      return 1
-    fi
-    if [[ "${legacy_admin}" == *"${expected_bootstrap}"* ]]; then
-      echo "janus-api legacy /admin/stocks unexpectedly resolves to the Flutter build" >&2
+    if [[ "${legacy_admin}" != *"url=/app/admin"* || "${legacy_admin}" != *"Legacy Admin 已退役"* ]]; then
+      echo "janus-api legacy Admin entry does not redirect to the canonical Flutter Admin" >&2
       return 1
     fi
 
@@ -185,7 +181,7 @@ if missing:
     raise SystemExit(f"Janus manifest is missing PNG install icons: {sorted(missing)}")
 PY
 
-    echo "janus-api traffic, Flutter user/Admin workspace, Admin auth boundary, legacy Admin rollback surface, web build, high-resolution PNG branding, and PWA metadata match ${GITHUB_SHA}"
+    echo "janus-api traffic, Flutter user/Admin workspace, Admin auth boundary, retired Admin redirect, web build, high-resolution PNG branding, and PWA metadata match ${GITHUB_SHA}"
   fi
 }
 

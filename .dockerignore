@@ -2,7 +2,8 @@
 .github
 .devcontainer
 .gemini
-doc
+doc/*
+!doc/runbook-data-supplement.md
 tests
 **/__pycache__
 **/.pytest_cache

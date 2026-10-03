@@ -34,6 +34,8 @@ on:
       - 'tests/test_mart_provider_routing.py'
       - 'tests/contract/test_mart_v2_compat.py'
       - 'tests/contract/test_contract_registry.py'
+      - '.dockerignore'
+      - 'doc/runbook-data-supplement.md'
       - 'services/api/**'
       - 'tests/test_public_runtime.py'
       - 'tests/test_public_api_routes.py'
@@ -160,6 +162,9 @@ jobs:
               - 'scripts/gcp/deploy-dev.sh'
               - 'scripts/gcp/verify-dev.sh'
             api_runtime:
+              - '.dockerignore'
+              - 'doc/runbook-data-supplement.md'
+              - 'scripts/gcp/verify-dev.sh'
               - 'services/api/**'
               - 'packages/admin_api/**'
               - 'packages/web_api/**'
