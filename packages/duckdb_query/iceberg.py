@@ -39,20 +39,28 @@ class DuckDBIcebergCore:
         "benchmark": ("benchmark_id", "trade_date"),
     }
     TABLE_NAMES = {dataset: f"{dataset.replace('-', '_')}_v1" for dataset in IDENTIFIERS}
+    # Stock/benchmark bucket transforms created too many tiny partitions for the
+    # actual batch pattern.  New files are partitioned only by time; existing
+    # files remain readable through Iceberg partition evolution until compacted.
     PARTITIONS = {
-        "stock-profile": (("observed_date", "month"), ("symbol", "bucket[32]")),
-        "market-volume": (("trade_date", "month"), ("symbol", "bucket[32]")),
-        "ohlcv": (("trade_date", "month"), ("symbol", "bucket[32]")),
-        "valuation": (("observed_date", "month"), ("symbol", "bucket[32]")),
-        "institutional": (("trade_date", "month"), ("symbol", "bucket[32]")),
-        "financials": (("published_at", "year"), ("symbol", "bucket[32]")),
-        "events": (("published_at", "month"), ("symbol", "bucket[32]")),
-        "market-activity": (("trade_date", "month"), ("symbol", "bucket[32]")),
-        "benchmark": (("trade_date", "month"), ("benchmark_id", "bucket[16]")),
+        "stock-profile": (("observed_date", "month"),),
+        "market-volume": (("trade_date", "month"),),
+        "ohlcv": (("trade_date", "month"),),
+        "valuation": (("observed_date", "month"),),
+        "institutional": (("trade_date", "month"),),
+        "financials": (("published_at", "year"),),
+        "events": (("published_at", "month"),),
+        "market-activity": (("trade_date", "month"),),
+        "benchmark": (("trade_date", "month"),),
+    }
+    SELECTION_FIELDS = {
+        dataset: ("benchmark_id" if dataset == "benchmark" else "symbol")
+        for dataset in IDENTIFIERS
     }
     DATE_FIELDS = frozenset({"observed_date", "trade_date", "effective_date"})
     TIMESTAMP_FIELDS = frozenset({"published_at", "observed_at", "version_at"})
     UPSERT_KEY_LIMIT = 512
+    DEFAULT_TARGET_FILE_SIZE_BYTES = 128 * 1024 * 1024
 
     def __init__(self, catalog: Any, warehouse: str, *, namespace: str = "core",
                  engine: DuckDBEngine | None = None, create_namespace: bool = True) -> None:
@@ -133,6 +141,33 @@ class DuckDBIcebergCore:
     def table_exists(self, dataset_id: str) -> bool:
         return bool(self.catalog.table_exists(self.table_identifier(dataset_id)))
 
+    def _target_file_size_bytes(self) -> int:
+        value = int(os.environ.get("ICEBERG_TARGET_FILE_SIZE_BYTES", str(self.DEFAULT_TARGET_FILE_SIZE_BYTES)))
+        if not 32 * 1024 * 1024 <= value <= 512 * 1024 * 1024:
+            raise ValueError("ICEBERG_TARGET_FILE_SIZE_BYTES must be between 32 MiB and 512 MiB")
+        return value
+
+    def _ensure_layout(self, table: Any, dataset_id: str) -> Any:
+        """Evolve old bucketed tables without rewriting historical snapshots."""
+        changed = False
+        selection_field = self.SELECTION_FIELDS[dataset_id]
+        try:
+            selection_id = table.schema().find_field(selection_field).field_id
+        except ValueError:
+            selection_id = None
+        removable = [field.name for field in table.spec().fields
+                     if selection_id is not None and field.source_id == selection_id]
+        if removable:
+            with table.update_spec() as update:
+                for name in removable:
+                    update.remove_field(name)
+            changed = True
+        target = str(self._target_file_size_bytes())
+        if str(table.metadata.properties.get("write.target-file-size-bytes", "")) != target:
+            table.set_properties(**{"write.target-file-size-bytes": target})
+            changed = True
+        return self.catalog.load_table(self.table_identifier(dataset_id)) if changed else table
+
     def write(self, *, dataset_id: str, rows: list[dict[str, Any]], execution_id: str,
               provenance_id: str, source_id: str, partition_date: date) -> IcebergCommitResult:
         with self.mutation_lock():
@@ -157,7 +192,7 @@ class DuckDBIcebergCore:
         created = not self.catalog.table_exists(identifier)
         observation_reused = 0
         if dataset_id == "financials" and not created:
-            table = self.catalog.load_table(identifier)
+            table = self._ensure_layout(self.catalog.load_table(identifier), dataset_id)
             from pyiceberg.expressions import And, In
             scope = And(In("symbol", {row["symbol"] for row in incoming}),
                         In("fiscal_year", {row["fiscal_year"] for row in incoming}))
@@ -180,6 +215,7 @@ class DuckDBIcebergCore:
                     "format-version": "2",
                     "write.delete.mode": "copy-on-write",
                     "write.update.mode": "copy-on-write",
+                    "write.target-file-size-bytes": str(self._target_file_size_bytes()),
                 },
             )
             update = table.update_spec()
@@ -189,7 +225,7 @@ class DuckDBIcebergCore:
             table = self.catalog.load_table(identifier)
             existing = []
         else:
-            table = self.catalog.load_table(identifier)
+            table = self._ensure_layout(self.catalog.load_table(identifier), dataset_id)
             incoming_arrow = self._arrow_table(incoming, existing_schema=table.schema().as_arrow())
             with table.update_schema() as update:
                 update.union_by_name(incoming_arrow.schema)
@@ -198,7 +234,7 @@ class DuckDBIcebergCore:
             from pyiceberg.expressions import And, EqualTo, GreaterThanOrEqual, In, IsNull, LessThanOrEqual, Or
 
             partition_field = self.PARTITIONS[dataset_id][0][0]
-            selection_field = self.PARTITIONS[dataset_id][1][0]
+            selection_field = self.SELECTION_FIELDS[dataset_id]
             dates = [row[partition_field] for row in incoming if row.get(partition_field) is not None]
             if dates:
                 first, last = min(dates), max(dates)
