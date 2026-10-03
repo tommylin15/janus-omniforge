@@ -1,3 +1,4 @@
+from pathlib import Path
 from uuid import UUID
 
 from fastapi.testclient import TestClient
@@ -110,6 +111,44 @@ def test_positions_fill_missing_snapshot_identity_from_stock_master():
     assert response.json()[0]["stock_name"] == "台積電"
     assert response.json()[0]["identity_status"] == "available"
     assert response.json()[0]["identity_missing_reason"] is None
+
+
+def test_positions_prefer_operational_projection_and_do_not_mix_stale_private_mart_values():
+    class OperationalRepository(Repository):
+        def positions(self, user_id):
+            return [{"user_id": user_id, "symbol": "2330", "currency": "TWD", "shares": "2",
+                     "average_cost": "110", "cost_basis": "220", "ledger_version": 8}]
+
+    repository = OperationalRepository()
+    store = Store()
+    claims = {"iss": "https://accounts.google.com", "aud": "user-client", "sub": "google-a",
+              "email": "owner@example.com", "email_verified": True, "exp": 1_900_000_000}
+    api = TestClient(create_app(repository, store, lambda _token, _audience: claims, audience="user-client"),
+                     raise_server_exceptions=False)
+
+    response = api.get("/api/v1/me/journal/positions", headers=auth())
+    assert response.status_code == 200
+    row = response.json()[0]
+    assert row["ledger_version"] == 8
+    assert row["shares"] == "2"
+    assert row["average_cost"] == "110"
+    assert row["market_price"] is None
+    assert row["market_value"] is None
+    assert row["unrealized_pnl"] is None
+    assert row["price_status"] == "pending"
+    assert row["missing_reason"] == "private_mart_pending"
+    assert store.calls == [("mart_user_portfolio_summary", USER_ID, {})]
+
+
+def test_operational_position_migration_is_transaction_deferred_and_backfills_existing_users():
+    sql = (Path(__file__).parents[1] / "infra" / "postgres" / "migrations" /
+           "041_operational_position_projection.sql").read_text(encoding="utf-8")
+    assert "CREATE TABLE IF NOT EXISTS private.current_positions" in sql
+    assert "CREATE OR REPLACE FUNCTION private.refresh_current_positions" in sql
+    assert "CREATE CONSTRAINT TRIGGER ledger_refresh_current_positions" in sql
+    assert "DEFERRABLE INITIALLY DEFERRED" in sql
+    assert "FOR target_user IN SELECT user_id FROM private.users" in sql
+    assert "GRANT SELECT ON private.current_positions TO janus_private_api, janus_private_pipeline" in sql
 
 
 def test_summary_contract_allows_withheld_aggregate_and_decodes_affected_symbols():
