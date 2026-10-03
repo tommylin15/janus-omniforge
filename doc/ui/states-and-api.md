@@ -1,31 +1,42 @@
 # Janus UI — 狀態語意與 API 契約
 
+更新：2026-10-03
+
 ## 7. UI 狀態語意
 
-| 狀態 | 使用者文案 | 視覺 |
+| 狀態 | 使用者文案 | 視覺／行為 |
 |---|---|---|
-| loading | 資料載入中 | skeleton／spinner |
+| loading | 資料載入中 | bounded skeleton／spinner |
 | empty | 目前沒有資料 | zinc |
 | unavailable | 資料來源暫時無法使用 | amber |
 | partial | 部分資料可用 | amber + 缺失清單 |
 | stale | 資料日期較舊 | amber + 實際日期 |
 | fallback | 使用備援來源 | 低調 badge + source |
-| insufficient_data | 資料完整度不足，無法評估 | zinc，不顯示方向 |
-| blocked | 報告未通過發布審查 | 公開端不回傳；Admin red |
+| insufficient_data | 資料完整度不足，無法評估 | zinc，不顯示方向／0 分 |
+| blocked | 未通過治理／權限／執行 gate | public 不假裝成功；Admin red |
+| queued | 已建立工作，等待執行 | 不顯示為成功 |
+| running | 執行中 | 顯示 started／last update |
+| succeeded | 執行成功 | 只在 workload／artifact 真正完成時使用 |
+| failed | 執行失敗 | safe reason + retryability |
 | error | 服務暫時發生問題 | 安全文案，不顯示 traceback |
-| deleting | 正在刪除 Janus 私人資料，暫時無法寫入 | amber + progress，不提供相關寫入操作 |
-| cleanup_pending | 部分雲端資料仍在清理，系統會安全重試 | amber + request ID／重試狀態，不顯示完成 |
+| deleting | 正在刪除 Janus 私人資料，暫時無法寫入 | amber，不提供相關 mutation |
+| cleanup_pending | 部分資料仍在清理 | amber + request／retry state，不顯示完成 |
+
+`unknown`／`尚未檢查`／`未定義` 不是 `0`。沒有 evidence 就顯示未知，不自行推導正常。
 
 ## 8. Janus User UI／FastAPI 契約
 
-- Janus Flutter repository 只負責 Janus 投資／Admin HTTPS、typed decoding 與 UI 狀態；不得計算正式分數、損益或 fallback 內容。generic Chat／Agent client 不屬於 Janus source，Janus User UI 不主動呼叫 omniAgent。Janus 自有 MCP／OAuth adapter 保留於 API。
-- 200 保存 response；404 依 error code 顯示不存在或等待批次；401／403 導向登入或安全拒絕；network／5xx 顯示服務錯誤。
-- Janus 投資頁一般載入不得啟動 scraper、Agent、LLM 或 Private Mart 重算。Janus source 與 canonical GCP dev revision 均不提供 Chat API／SSE。
+- Flutter 只負責 typed decoding、presentation、navigation 與 mutation command；不得計算正式 score、PnL、retention completion、fallback 或 provider route。
+- 200 保存 response；404 依 error code 顯示不存在／尚未產生；401／403 導向登入或安全拒絕；network／5xx 顯示 bounded service error。
+- 一般 page load 不啟動 scraper、Agent、CEO LLM 或 Private Mart 重算。
+- generic Chat／Agent client 不屬 Janus User App；Janus MCP／OAuth adapter 留在 API boundary。
 
-主要 public endpoints：
+### 8.0 Public endpoints
+
+主要 public endpoints 依實作／runtime 為準，現行 UI contract 包含：
 
 - `/api/v1/public/health`
-- `/api/v1/public/market-home`：無 LLM／Daily Brief 依賴；benchmark、市場活動與法人區塊各自回報 as-of、freshness、coverage、provenance、status。頂層 `as_of` 僅在所有區塊有相同資料日期時提供；彙總區塊 provenance 保留多個 source／execution／provenance ID，部分指標缺值時標記 `partial`。
+- `/api/v1/public/market-home`
 - `/api/v1/public/daily-brief?date=YYYY-MM-DD`
 - `/api/v1/public/sectors/rotation?date=YYYY-MM-DD`
 - `/api/v1/public/topics?date=YYYY-MM-DD`
@@ -35,7 +46,13 @@
 - `/api/v1/public/stocks/{symbol}/kline?period=D|W|M`
 - `/api/v1/public/stocks/{symbol}/events?cursor=...`
 
-主要 private journal endpoints：
+`market-home` 的 deterministic benchmark／market activity／institutional sections 各自保留 as-of、freshness、coverage、provenance、status；Mart research 不可成為 baseline availability prerequisite。
+
+公開 endpoint 不回 blocked private artifact、raw object URI、secret、credential locator 或 owner identifier。
+
+### 8.1 Private endpoints
+
+主要 owner-scoped endpoints：
 
 - `GET／POST /api/v1/me/journal/trades`
 - `POST /api/v1/me/journal/trades/{event_id}/corrections`
@@ -53,40 +70,92 @@
 - `DELETE /api/v1/me/private-data`
 - `GET /api/v1/me/private-data/deletions/{request_id}`
 
-### 8.1 Transaction-record presentation contract（Planned）
+身分只由 User OAuth audience 的驗證 token 決定；`user_id`／owner 不接受 query／body 指定。email 只供顯示，不作 ownership key。
 
-交易記錄 UX 2.0 可在不改變 append-only ledger 的前提下改進 presentation，但 canonical accounting semantics 必須留在 backend／Private Mart。Flutter 可以依既有 history 做年份／月份視覺 grouping；若月份摘要要顯示「已實現損益」、持股市值、未實現損益或其他正式數字，優先由既有 canonical endpoints 組合取得，或由後端新增 typed summary contract。不得由 Flutter 自行定義新的 realized PnL／fee／tax aggregation 公式。
+交易／更正成功不代表 Private Mart 已完成 valuation；UI 應分開呈現 operational projection 與 canonical valuation／PnL。
 
-若後續確認現有 endpoints 無法在 bounded request 內提供月份摘要，才規劃 additive private summary endpoint；在正式 API contract、tests 與 implementation 完成以前，`monthly summary` 只屬 planned presentation requirement，不得在文件中假裝 endpoint 已存在。
+### 8.2 Stock Detail specialist／CEO API semantics
 
-交易／更正 mutation 成功後不得同步觸發或假裝 Private Mart 已完成重算；UI 繼續顯示「交易已儲存，等待投資組合批次更新」。任何持股、成本、PnL、exposure、performance 值都必須帶最新成功 valuation date／資料狀態，partial／stale／missing 不得補 0。
+五 specialist 的 User read path 只讀 persisted／validated outputs，不提供「每日五 LLM roles」的同步執行 endpoint。
 
-Planned UX 不需要預設新增 database migration。只有當未來核准多券商／多帳戶、費率規則、scenario trade、其他成本法或新的 persisted accounting semantic 時，才重新進行 schema／migration／governance review。
+Planned／additive CEO command contract 在實作前必須至少具備：
 
-Planned Admin workspace endpoints（不代表已實作）至少需要：
+- authenticated user；
+- DB-backed capability，例如 `ceo_analysis.request`；
+- symbol／profile validation；
+- in-flight duplicate guard；
+- quota／cooldown；
+- provider/profile approval；
+- command／execution ID；
+- status／safe failure reason；
+- immutable report history。
 
-- actionable overview、batch／execution details、retry classified failed item、retry lineage。
-- symbol／中文名稱 search、dataset health、gap repair、affected-role mapping、single-role
-  rerun、historical facts／roles／CIO。
-- Analysis Profile current／history、new Production version、compare、rollback、prompt
-  versions、provider/model capability 與 fixed test symbols。
+`分析`／`重新分析` 只建立新 execution/report；不得原地覆寫舊 report，也不得因 request accepted 顯示成 analysis succeeded。
 
-上述所有 `/api/v1/admin/*` endpoint 每次都必須由 backend Admin authorization enforce；
-Flutter 隱藏控制不構成 auth。單角色 rerun 預設使用 current Production Profile，依賴
-未變更的 Fact Pack reuse；Core／Fact Pack 改變先重建 facts，prompt/model 改變不重算
-facts，CIO-only 改變不重跑 role，governance-only 改變不呼叫 LLM。
+Specialist upstream change 只標記 CEO report freshness／material delta，不自動觸發 CEO。
 
-Janus Private endpoint 只接受獨立 User OAuth audience 的 Google OIDC token；API 驗證 issuer、audience、expiry，以 Google `sub` 對應內部 UUID `user_id`，email 只供顯示。使用者身分不接受 request body 或 query string 指定 `user_id`，User token 不得存取 Admin endpoint。`DELETE /private-data` 回 `202`、request ID 與初始狀態；status endpoint 僅允許 request owner 查詢。舊 Chat／approval／Skills runtime 已自 Janus source 移除；既有資料與已套用 migrations 保留，Janus MCP/OAuth boundary 繼續維護。
+### 8.3 Admin workspace API semantics
 
-## 9. ResearchContext state／API planning
+Admin workspace 依 `admin.md`，不再定義舊五角色/CIO control surface。
 
-ResearchContext 沿用 `loading | empty | unavailable | partial | stale | fallback |
-insufficient_data | error`，不建立第二套狀態。例如 margin 缺失為 `partial`、
-financial data 超過 freshness contract 為 `stale`、缺少足以判斷的核心資料為
-`insufficient_data`；UI 不得將缺值顯示為 0，LLM 不得補值。
+至少需要 bounded read／action contract 支援：
 
-`ResearchContext` endpoint／response 目前為 **planned／proposed**，不在上方 implemented
-endpoint 清單中。未來 response 必須 typed、bounded、owner-scoped，保留同一
-`analysis_as_of`、freshness、provenance、PIT 與 explicit missing／stale／partial。
-ChatGPT MCP 使用同一 server boundary，不接受 arbitrary SQL、GCS locator 或 owner ID，
-且不提供 mutation。
+- actionable overview；
+- effective batch／occurrence list；
+- execution detail、retryability、retry lineage；
+- dataset/source health；
+- market universe；
+- Stage／Core／Mart／Private operational governance summary；
+- retention／maintenance／storage telemetry；
+- specialist model／evaluation status；
+- CEO provider/profile/capability/quota/cooldown/usage audit（對應 WBS 完成後）。
+
+manual rerun／retry 必須走 backend allowlist、authorization、idempotency／duplicate guard、dependency／exclusive guard 與 audit。Flutter 不接受任意 Cloud Run job name、checkpoint 或 storage path。
+
+### 8.4 Analysis Profile
+
+Analysis Profile 的現行產品語意：
+
+- specialist champion／model／version／evaluation；
+- CEO provider／model／profile／route；
+- immutable profile version／history；
+- compare／rollback／audit；
+- bounded test symbols／evaluation evidence。
+
+`Codex CLI → OpenRouter → Gemini` 只適用 On-demand CEO／approved escalation。五 specialist production 主路徑不使用 per-role LLM provider route。
+
+Profile 修改建立新 version，不覆寫舊 execution／artifact 的 effective config。rollback 也建立新的 audit lineage。
+
+### 8.5 Transaction-record presentation contract
+
+Flutter 可依既有 history 做 year／month grouping；canonical accounting semantics 仍在 backend／Private Mart。
+
+若月份摘要要顯示 realized PnL、market value、unrealized PnL 或其他正式數字，必須來自現有 canonical endpoint 或新增 typed backend summary；不得由 Flutter 自訂會計公式。
+
+如 current endpoints 無法 bounded 提供所需 summary，先新增 additive API contract／tests／implementation，再把 UI 標成可用；planned presentation 不可假裝 endpoint 已存在。
+
+## 9. Auth／owner boundary
+
+- User OAuth 與 Admin auth audience 分離。
+- User token 不得存取 `/api/v1/admin/*`。
+- Admin session 不因管理權限自動取得一般 user trade／position 內容。
+- Flutter hidden control 不是 security boundary。
+- private delete request 只允許 owner 查 status；`CLEANUP_PENDING` 不顯示 completed。
+
+## 10. MCP boundary
+
+Janus MCP 是 authenticated read-only boundary；不接受 arbitrary SQL、table、URI、owner selector 或 mutation。owner 由 server 驗證 principal 綁定。
+
+三個 logical tools：
+
+- `janus_sources`
+- `janus_market_context`
+- `janus_private_context`
+
+output bounded、sanitized，保留 as-of／provenance／status；不回 secret、raw payload、GCS locator、internal owner identifier。
+
+## 11. ResearchContext state／API planning
+
+ResearchContext 沿用本文件既有狀態，不建立第二套 state machine。未來 response 必須 typed、bounded、owner-scoped、同一 `analysis_as_of`，保留 freshness／provenance／PIT 與 explicit missing／stale／partial。
+
+ResearchContext 目前是 planned／proposed；在 active TODO 啟動前不得把概念 endpoint 當成已實作。ChatGPT MCP 可共用同一 server boundary，但不提供 mutation 或 arbitrary database access。
