@@ -1,31 +1,77 @@
 # Janus WBS — 建議里程碑
 
-## 建議里程碑
+更新：2026-10-03
+狀態：規劃索引；**active 執行順序只以 `../todo.md` 為準**
+
+本文件只提供高階 milestone grouping，不建立第二套 TODO，也不保存已被取代的五 LLM roles／CIO／legacy Admin migration roadmap。
+
+## 目前里程碑
 
 | 里程碑 | 範圍 | 完成定義 |
 |---|---|---|
-| M0 | WBS 0–1 | 雲端 workspace、monorepo、CI/CD、IaC 可運作 |
-| M1 | WBS 2–4 | PostgreSQL Free Tier VM → 2330 Source → Stage → DuckDB／Iceberg Core，bounded query 可冷啟動 |
-| M1.5 | WBS 3 | 5 檔 canary 連續 3 個交易日後擴全市場，Stage／Core／Admin Data Operations 閉環通過 |
-| M1.75 | WBS 4J | 個人交易、筆記、關注股、Private Core／Mart 與最小 Flutter 通過隔離及重跑驗收 |
-| M1.9 | WBS 4R | 個人多產業曝險、年度績效／XIRR、投資屬性與 deterministic 壓力測試通過驗收 |
-| M2 | WBS 5 | 市場／板塊／話題／候選健康度 Mart、30% gate 與 blocked 正確 |
-| M3 | WBS 6 | 擴充 FastAPI、公開 Flutter 與 Admin governance／reports 完整讀取 persisted Mart |
-| M4 | WBS 7–8 | UI 實機驗收後完成 DQ 強化、監控、安全、PIT、canary／rollback |
-| M4.5 | WBS 8 Dev Pilot／Production Readiness | Pilot Entry Gate 通過；既有 Dev environment 持續運作 6 calendar months；Data／Analysis／Reliability／Operations／Cost／Security evidence 可回顧；完成 Production Go／Extend／No-Go review；沒有人工 GO 前不得宣稱 production-ready 或建立 production environment |
+| M0 | 基礎雲端／monorepo／CI/CD／IaC | 已有可運作的 dev workspace、repo、build/deploy 基礎；歷史完成證據查 archive／operations |
+| M1 | Ingestion／Stage／Core／資料補強 | 約 500 market coverage、Core snapshots、12Q／12M／price history、daily incremental、Saturday DQ 與可重跑資料鏈完成對應 acceptance |
+| M2 | Token-first specialist engines | 500 screening + Deep Coverage 五 specialist、PIT/OOS、immutable artifact、plain-language 0-token path、真實 dev execution/readback 完成 |
+| M2.5 | Dirty dependency／model lifecycle | input-change invalidation、reuse、monthly retrain/calibration/reconciliation、champion promotion evidence 完成 |
+| M3 | On-demand CEO | authorized manual command、provider route/auth/fallback、immutable report、quota/cooldown、usage/cost/audit、User read/action path 完成 |
+| M3.5 | Admin operational convergence | 既有 Flutter Admin 的總覽／批次精簡強化、資料治理頁、AI Analysis Profile/capability，完成 authenticated dev browser + telemetry acceptance |
+| M4 | User operational convergence | Stock Detail specialists/CEO/freshness/history、quote/portfolio/journal/workspace 既定契約與 real-path acceptance 完成 |
+| M4.5 | User Final Visual Convergence | Today／Watchlist／Ledger／Stock Detail final visual contract、golden/screenshot、真實 dev authenticated browser acceptance 完成 |
+| M5 | 長期 evidence／optional Production planning | 持續累積 Data／Analysis／Operations／Cost／Security evidence；只有真的有多人／對外／HA／SLA 需求時才進 Production planning |
 
-Janus 舊 WBS 4C 已因 Chat／Agent hard split 退役，不再列入 Janus 里程碑；歷史規劃見[封存 WBS](../archive/wbs-4c-janus-assistant-plan-superseded-2026-09-23.md)。
+## 現行 dependency 概觀
 
-## Approved six-month Dev Pilot evolution mapping
+```text
+Retention governance live acceptance
+        ↓
+Token-first specialist engines
+        ↓
+Dirty dependency / model lifecycle
+        ↓
+On-demand CEO provider + CEO Analysis
+        ↓
+Admin Analysis Profile / capability
+        ↓
+Admin operational convergence
+        ↓
+User operational convergence
+        ↓
+User final visual convergence
+```
 
-Repository 沒有正式 `pilot_started_at`，因此只使用相對月份；不得把本表解讀為
-已開始 Pilot，也不得把 Planned 工作寫成 Completed。
+這只是對 `todo.md` 的視覺摘要；TODO 若調整順序，本圖隨之更新，不得反過來以 milestone 阻擋 active TODO。
 
-| Pilot Month | WBS | Goal | Evidence |
-|---|---|---|---|
-| Pilot M1 | `WBS-5-MART-FACT-PACKS`, `WBS-5-MART-AI-ROLE-CONTRACT`, `WBS-5-MART-AI-VALIDATION`, `WBS-5-MART-V2-COMPAT` | 建立 Fact Pack、role/CIO contract、validator、immutable lineage 與 mart.v1 additive compatibility；不取代既有 publication path | contract/schema fixtures、deterministic replay、validator negative cases、v1 compatibility tests |
-| Pilot M2 | `WBS-5-MART-AI-PROVIDERS` | GCP 自主五角色 Codex CLI 批次優先／必要 worker bridge、Gemini／OpenRouter 受控 fallback、structured failure；優先 shadow／non-authoritative | GCP headless／cold-start auth／artifact readback、capability／parameters／隔離、timeout／cancel／退出碼／retry／fallback audit；本機 CLI 不替代 live evidence |
-| Pilot M3 | `WBS-5-MART-CIO-SYNTHESIS`, `WBS-5-MART-RERUN-CACHE` | CIO、精確單角色重跑、dependency invalidation、content-addressed reuse、execution lineage | CIO validator tests、rerun call graph、cache hit／audit evidence、new Pilot baseline／epoch |
-| Pilot M4 | `WBS-6-FLUTTER-ADMIN-SHELL`, `WBS-6-ADMIN-OVERVIEW-BATCH`, `WBS-6-ADMIN-STOCK-WORKBENCH` | Flutter Admin operational migration：總覽、批次、個股、中文狀態、retry／repair；static Admin 暫留 | Flutter responsive／A11y tests、backend Admin auth acceptance、retry／repair lineage、legacy compatibility |
-| Pilot M5 | `WBS-6-ADMIN-ANALYSIS-PROFILE` | Production profile versioning、role/CIO prompt、model picker、5–10 test symbols、compare、rollback、per-role override | version history、locked guardrail、comparison diff、rollback drill、cost／latency／token evidence |
-| Pilot M6 | `WBS-8-PILOT-MART-AI-EVALUATION`, `WBS-6-ADMIN-LEGACY-RETIREMENT` | reliability、partial/failure、cost、cache、accessibility、browser/device、usefulness、rollback evidence；決定 legacy Admin 是否可退役 | evaluation report、rollback／browser acceptance、operational burden、GO／EXTEND_PILOT／NO_GO review evidence |
+## Admin 里程碑邊界
+
+Admin 不再有 legacy static migration milestone。2026-10-02 起 Flutter／PWA 是唯一 active Admin frontend。
+
+Admin operational convergence 不重做 shell：
+
+- 保留 `總覽`、`批次`、`個股`、`市場資訊`、`AI 分析`；
+- 原 `進階管理` 目標收斂為 `資料治理`；
+- 批次使用簡單表格／清單，不要求大型 DAG；
+- 資料治理單頁顯示 retention／DQ／storage／maintenance anomaly；
+- 不引入第二套 scheduler、metadata platform 或 canonical store。
+
+## AI 里程碑邊界
+
+五 specialist：Python／SQL／ML；約 500 screening，Deep Coverage 才做完整五 specialist；dirty dependency incremental update；normal prose 0 API token。
+
+On-demand CEO：只有 authorized manual request；`Codex CLI → OpenRouter → Gemini` 只屬 CEO／approved escalation route；重新分析建立新 immutable report。
+
+任何舊「每日五 LLM analyst」、「CIO daily synthesis」、「single-role LLM rerun 自動 CIO」或「Pilot M1–M6 provider rollout」均已移出 active roadmap；歷史依 archive／Git history 查閱。
+
+## Evidence window
+
+長期 evidence window 不是使用資格 gate。已通過自身 real-path acceptance 的 capability 可直接在 dev 真實使用。
+
+Evidence 至少觀察：
+
+- Data：freshness、coverage、schema drift、quarantine、source reliability；
+- Specialist：PIT/OOS、replay、model/evaluation、outcome；
+- CEO：manual availability、provider/fallback、latency、usage/cost、usefulness（完成後）；
+- Operations：batch/controller、maintenance、storage growth、failure/retry；
+- Security/Privacy：auth、owner isolation、secret、delete/cleanup；
+- Cost：Cloud Billing 與 provider/resource growth。
+
+Production 是未來可選的多人／HA／SLA 營運層級，不是 M0–M4.5 在 dev 完成的前置條件。
