@@ -105,7 +105,7 @@ def specialist_processor(execution, publication_connection, *, store_factory=Non
                 "publication_authority": False}
     if os.environ.get("MART_OOS_EVALUATION", "false").lower() == "true":
         from .evaluation import evaluate_core_history
-        evaluations = evaluate_core_history(datasets, market_symbols, as_of, execution.core_snapshot_id)
+        evaluations = evaluate_core_history(datasets, target["symbols"], as_of, execution.core_snapshot_id)
         manifest["evaluation"] = _write_immutable_json(store, bucket, f"executions/{execution.execution_id}/oos-evaluation.json", evaluations)
     manifest["output_hash"] = digest(manifest)
     ref = _write_immutable_json(store, bucket, manifest_name, manifest)

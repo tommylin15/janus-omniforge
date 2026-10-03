@@ -9,11 +9,12 @@ from typing import Any
 from .stage import GcsObjectStore
 from .iceberg_maintenance import maintain_financials, _references
 
-POLICY = {"stage_days": 7, "quarantine_days": 30, "mart_days": 90, "core_days": 365,
+POLICY = {"stage_days": 7, "quarantine_days": 30, "mart_days": 90, "core_days": 365, "deep_price_days": 1096,
           "financial_quarters": 12, "orphan_days": 7, "target_bytes": 1_000_000_000, "alert_bytes": 2_000_000_000}
 
 
-def retained_core_rows(core: Any, dataset: str, rows: list[dict[str, Any]], now: datetime) -> list[dict[str, Any]]:
+def retained_core_rows(core: Any, dataset: str, rows: list[dict[str, Any]], now: datetime,
+                       deep_symbols: frozenset[str] = frozenset()) -> list[dict[str, Any]]:
     if dataset == "financials":
         periods = {}
         for row in rows:
@@ -30,7 +31,9 @@ def retained_core_rows(core: Any, dataset: str, rows: list[dict[str, Any]], now:
         return [originals[id(row)] for row in retained]
     field = core.PARTITIONS[dataset][0][0]
     cutoff = (now - timedelta(days=POLICY["core_days"])).date()
-    return [row for row in rows if not row.get(field) or date.fromisoformat(str(row[field])[:10]) >= cutoff]
+    deep_cutoff = (now - timedelta(days=POLICY["deep_price_days"])).date()
+    return [row for row in rows if not row.get(field) or date.fromisoformat(str(row[field])[:10]) >= (
+        deep_cutoff if dataset == "benchmark" or dataset == "ohlcv" and row.get("symbol") in deep_symbols else cutoff)]
 
 
 def clean_stage(store: Any, *, apply: bool, now: datetime) -> dict[str, Any]:
@@ -102,6 +105,10 @@ def maintain_public_data(*, core: Any, apply: bool, now: datetime | None = None)
     if stage_bucket != "gen-lang-client-0593591102-dev-stage":
         raise ValueError("retention requires the existing dev Stage bucket")
     stage_store = GcsObjectStore(stage_bucket)
+    from .__main__ import _control_plane, TAIPEI
+    with _control_plane() as control, control.connection.cursor() as cursor:
+        cursor.execute("SELECT symbol FROM control.mart_ai_target_symbols(%s::date)", (now.astimezone(TAIPEI).date(),))
+        deep_symbols = frozenset(row[0] for row in cursor.fetchall())
     def capacity(object_store):
         objects = object_store.objects("")
         return {"objects": len(objects), "bytes": sum(int(item["size"]) for item in objects)}
@@ -112,7 +119,7 @@ def maintain_public_data(*, core: Any, apply: bool, now: datetime | None = None)
         if not core.catalog.table_exists(identifier): continue
         table = core.catalog.load_table(identifier)
         rows = table.scan().to_arrow().to_pylist()
-        retained = retained_core_rows(core, dataset, rows, now)
+        retained = retained_core_rows(core, dataset, rows, now, deep_symbols)
         removed = len(rows) - len(retained)
         if apply and removed:
             import pyarrow as pa

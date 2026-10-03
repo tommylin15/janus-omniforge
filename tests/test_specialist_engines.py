@@ -159,6 +159,10 @@ def test_real_model_walk_forward_purges_unmatured_labels(model):
     assert result["status"] == "evaluated"
     assert len(result["folds"]) == 5
     assert all(p["training_label_cutoff"] < p["analysis_as_of"] for p in result["predictions"])
+    assert all(p["explanation_base_value"] + sum(p["feature_contributions"].values()) == pytest.approx(p["prediction"])
+               for p in result["predictions"])
+    assert any(p["probability"] is not None for p in result["predictions"])
+    assert all(p["probability"] is None or 0 <= p["probability"] <= 1 for p in result["predictions"])
     assert not result["promotion_eligible"]
 
 

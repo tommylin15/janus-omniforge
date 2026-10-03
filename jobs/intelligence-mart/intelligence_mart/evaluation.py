@@ -33,7 +33,8 @@ def evaluate_predictions(predictions, *, cost_bps, annual_periods):
         if any(number(row.get(k)) is None for k in ("prediction", "excess_return")):
             raise ValueError("invalid OOS prediction")
         groups[row["analysis_as_of"]].append(row)
-    ics, spreads, pnl, turnovers, hits = [], [], [], [], []
+    ics, spreads, pnl, turnovers = [], [], [], []
+    hits = [float((r["prediction"] > 0) == (r["excess_return"] > 0)) for r in predictions]
     previous = set()
     for day, rows in sorted(groups.items()):
         if len({r["symbol"] for r in rows}) != len(rows):
@@ -52,7 +53,6 @@ def evaluate_predictions(predictions, *, cost_bps, annual_periods):
         top = fmean(r["excess_return"] for r in rows[:n])
         spreads.append(top - fmean(r["excess_return"] for r in rows[-n:]))
         pnl.append(top - turnover * cost_bps / 10000)
-        hits += [float((r["prediction"] > 0) == (r["excess_return"] > 0)) for r in rows]
     wealth, peak, drawdown = 1., 1., 0.
     for value in pnl:
         wealth *= 1 + value
@@ -61,6 +61,19 @@ def evaluate_predictions(predictions, *, cost_bps, annual_periods):
     probabilities = [r for r in predictions if r.get("probability") is not None]
     if any(number(r["probability"]) is None or not 0 <= r["probability"] <= 1 for r in probabilities):
         raise ValueError("invalid probability")
+    bins = []
+    for index in range(10):
+        selected = [r for r in probabilities if min(int(r["probability"]*10), 9) == index]
+        if selected:
+            bins.append({"count": len(selected), "predicted": fmean(r["probability"] for r in selected),
+                         "observed": fmean(float(r["excess_return"] > 0) for r in selected)})
+    time_series = {}
+    for symbol in sorted({r["symbol"] for r in predictions}):
+        rows = [r for r in predictions if r["symbol"] == symbol]
+        x, y = ranks([r["prediction"] for r in rows]), ranks([r["excess_return"] for r in rows])
+        time_series[symbol] = {"predictions": len(rows), "rank_ic": correlation(x, y)
+            if len(rows) >= 20 and pstdev(x) and pstdev(y) else None,
+            "hit_rate": fmean(float((r["prediction"] > 0) == (r["excess_return"] > 0)) for r in rows)}
     return {"rank_ic": fmean(ics) if ics else None,
             "icir": fmean(ics) / pstdev(ics) if len(ics) > 1 and pstdev(ics) else None,
             "top_decile_spread": fmean(spreads) if spreads else None,
@@ -69,7 +82,11 @@ def evaluate_predictions(predictions, *, cost_bps, annual_periods):
             "sharpe": fmean(pnl) / pstdev(pnl) * sqrt(annual_periods) if len(pnl) > 1 and pstdev(pnl) else None,
             "max_drawdown": drawdown if pnl else None, "turnover": fmean(turnovers) if turnovers else None,
             "after_cost_return": wealth - 1 if pnl else None, "cross_sections": len(pnl),
-            "cost_bps": cost_bps, "probability_calibration": "not_evaluated",
+            "cost_bps": cost_bps, "time_series_by_symbol": time_series,
+            "probability_calibration": {"status": "evaluated" if len(probabilities) >= 30 else "insufficient_oos_predictions",
+                "samples": len(probabilities), "bins": bins, "expected_calibration_error":
+                sum(r["count"]*abs(r["predicted"]-r["observed"]) for r in bins)/len(probabilities)
+                if len(probabilities) >= 30 else None} if probabilities else "not_evaluated",
             "regime_stability": "not_evaluated", "promotion_eligible": False}
 
 
@@ -95,32 +112,66 @@ def walk_forward(samples, *, model_name, features, cost_bps, horizon_days):
         train = [r for r in valid if r["label_available_at"] < start and r["analysis_as_of"] < start]
         if len(train) < 100 or len({r["analysis_as_of"][:7] for r in train}) < 3:
             continue
+        # Reserve matured months for calibration; never calibrate on the OOS block.
+        calibration_months = set(sorted({r["analysis_as_of"][:7] for r in train})[-3:])
+        calibration = [r for r in train if r["analysis_as_of"][:7] in calibration_months]
+        fitting = [r for r in train if r["analysis_as_of"][:7] not in calibration_months]
+        if len(fitting) >= 100 and len({r["analysis_as_of"][:7] for r in fitting}) >= 3 and len(calibration) >= 30:
+            train = fitting
+        else:
+            calibration = []
+        test = [r for r in test if r.get("is_oos_entry", True)]
+        if not test:
+            continue
         x, y = np.array([[r[k] for k in features] for r in train]), np.array([r["excess_return"] for r in train])
         xt = np.array([[r[k] for k in features] for r in test])
         if model_name == "linear":
             mean, scale = x.mean(axis=0), x.std(axis=0)
             scale[scale == 0] = 1
             coefficients = np.linalg.lstsq(np.column_stack([np.ones(len(x)), (x - mean) / scale]), y, rcond=None)[0]
-            pred = np.column_stack([np.ones(len(xt)), (xt - mean) / scale]) @ coefficients
+            contributions = (xt - mean) / scale * coefficients[1:]
+            bases = np.repeat(coefficients[0], len(xt))
+            pred = bases + contributions.sum(axis=1)
+            predict = lambda values: np.column_stack([np.ones(len(values)), (values-mean)/scale]) @ coefficients
         elif model_name == "lightgbm":
             from lightgbm import LGBMRegressor
             model = LGBMRegressor(n_estimators=50, max_depth=3, num_leaves=7, n_jobs=1, random_state=17, verbosity=-1)
             model.fit(x, y)
             pred = model.predict(xt)
+            explained = model.booster_.predict(xt, pred_contrib=True)
+            contributions, bases = explained[:, :-1], explained[:, -1]
+            predict = model.predict
         elif model_name == "catboost":
             from catboost import CatBoostRegressor
             model = CatBoostRegressor(iterations=50, depth=3, thread_count=1, random_seed=17, verbose=False, allow_writing_files=False)
             model.fit(x, y)
             pred = model.predict(xt)
+            from catboost import Pool
+            explained = model.get_feature_importance(Pool(xt), type="ShapValues")
+            contributions, bases = explained[:, :-1], explained[:, -1]
+            predict = model.predict
         else:
             raise ValueError("unsupported evaluated model")
-        cutoff = max(r["label_available_at"] for r in train)
+        if not np.allclose(bases + contributions.sum(axis=1), pred, rtol=1e-5, atol=1e-8):
+            raise ValueError("model contribution does not reconstruct its prediction")
+        probabilities = [None]*len(test)
+        if calibration and len({r["excess_return"] > 0 for r in calibration}) == 2:
+            from sklearn.linear_model import LogisticRegression
+            scores = predict(np.array([[r[k] for k in features] for r in calibration]))
+            calibrator = LogisticRegression(random_state=17).fit(np.asarray(scores).reshape(-1, 1),
+                np.array([r["excess_return"] > 0 for r in calibration]))
+            probabilities = calibrator.predict_proba(np.asarray(pred).reshape(-1, 1))[:, 1].tolist()
+        cutoff = max(r["label_available_at"] for r in train+calibration)
         predictions.extend({"symbol": r["symbol"], "analysis_as_of": r["analysis_as_of"],
                             "outcome_as_of": r["outcome_as_of"], "excess_return": r["excess_return"],
-                            "prediction": float(p), "training_label_cutoff": cutoff}
-                           for r, p in zip(test, pred, strict=True))
-        folds.append({"month": month, "training_samples": len(train), "test_samples": len(test), "label_cutoff": cutoff})
-    payload = {"artifact_kind": "mart_oos_evaluation_v1", "protocol_version": "taiwan-purged-monthly-v1",
+                            "prediction": float(p), "probability": probability, "training_label_cutoff": cutoff,
+                            "feature_contributions": dict(zip(features, map(float, values), strict=True)),
+                            "explanation_base_value": float(base),
+                            "explanation_method": "linear_additive" if model_name == "linear" else "native_tree_shap"}
+                           for r, p, probability, values, base in zip(test, pred, probabilities, contributions, bases, strict=True))
+        folds.append({"month": month, "training_samples": len(train), "calibration_samples": len(calibration),
+                      "test_samples": len(test), "label_cutoff": cutoff})
+    payload = {"artifact_kind": "mart_oos_evaluation_v1", "protocol_version": "taiwan-purged-monthly-v2",
                "model_name": model_name, "features": features, "horizon_days": horizon_days,
                "input_hash": digest(samples), "folds": folds, "predictions": predictions,
                "status": "evaluated" if folds else "insufficient_history", "promotion_eligible": False,
@@ -132,22 +183,27 @@ def walk_forward(samples, *, model_name, features, cost_bps, horizon_days):
 def build_quant_samples(datasets, symbols, as_of, snapshot, horizon_days):
     """Non-overlapping entry cohorts, exact market-day benchmark and strict row PIT fences."""
     from .specialists import validated_inputs, price_series
-    from .facts import _change, evidence_from_rows
+    from .facts import evidence_from_rows
     datasets = {name: datasets.get(name, []) for name in ("ohlcv", "benchmark")}
     samples, exclusions = [], defaultdict(int)
     for symbol in sorted(set(symbols)):
         current, _, _ = validated_inputs(datasets, symbol, as_of, snapshot)
         prices = price_series(current.get("ohlcv", []))
         benchmark = price_series(current.get("benchmark", []))
-        days = list(prices)
-        for i in range(60, len(days) - horizon_days, horizon_days):
+        days = list(benchmark)
+        # Matured overlapping training labels are allowed; only held-out entries are non-overlapping.
+        for i in range(60, len(days) - horizon_days, 5):
             entry, outcome = days[i], days[i + horizon_days]
+            if entry not in prices or outcome not in prices:
+                exclusions["missing_aligned_price_endpoint"] += 1
+                continue
             history, _, rejected = validated_inputs(datasets, symbol, entry, snapshot)
             known = price_series(history.get("ohlcv", []))
             if entry not in known or entry not in benchmark or outcome not in benchmark:
                 exclusions["missing_pit_price_or_aligned_benchmark"] += 1
                 continue
-            features = {f"momentum_{w}d": _change(list(known.values()), w) for w in (5, 20, 60)}
+            features = {f"momentum_{w}d": (known[entry]/known[days[i-w]]-1)*100
+                        if days[i-w] in known else None for w in (5, 20, 60)}
             if any(v is None for v in features.values()):
                 exclusions["insufficient_feature_history"] += 1
                 continue
@@ -157,12 +213,13 @@ def build_quant_samples(datasets, symbols, as_of, snapshot, horizon_days):
             times = [str(r.get(k))[:10] for r in label_rows for k in ("availability_at", "published_at", "observed_at") if r.get(k)]
             available = max([outcome, *times])
             samples.append({"symbol": symbol, "analysis_as_of": entry, "outcome_as_of": outcome,
+                            "is_oos_entry": i % horizon_days == 0,
                             "feature_available_at": entry, "label_available_at": available,
                             "excess_return": prices[outcome] / prices[entry] - benchmark[outcome] / benchmark[entry],
                             "source_authorization": "official" if all(r["source_authorization"] == "official"
                                 for r in evidence_from_rows({"labels": label_rows}, snapshot)) else "approved_fallback",
                             "provenance_id": digest(label_rows), **features})
-        if len(days) <= 60 + horizon_days:
+        if len(prices) <= 60 + horizon_days:
             exclusions["insufficient_price_history"] += 1
     return samples, dict(exclusions)
 
@@ -177,8 +234,11 @@ def evaluate_core_history(datasets, symbols, as_of, snapshot):
             evaluation.pop("output_hash")
             evaluation.update(core_snapshot_id=snapshot, analysis_as_of=as_of, exclusions=exclusions,
                               cost_semantics="research_sensitivity_30bps_not_actual_broker_cost",
-                              cohort_semantics="current_membership_research_cohort_not_historical_population",
+                              cohort_semantics="current_deep_coverage_research_cohort_not_historical_population",
                               missing_evaluations=["historical_membership_replay", "ic_decay", "calibration", "regime_stability", "qlib_double_ensemble"])
+            calibration = evaluation["metrics"]["probability_calibration"]
+            if isinstance(calibration, dict) and calibration["status"] == "evaluated":
+                evaluation["missing_evaluations"].remove("calibration")
             evaluation["output_hash"] = digest(evaluation)
             results.append(evaluation)
     from .specialists import validated_inputs, price_series

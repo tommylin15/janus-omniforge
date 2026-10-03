@@ -11,6 +11,18 @@ def test_history_window_includes_both_boundary_months_and_is_bounded():
         archive_months(date(2020, 1, 1), date(2026, 1, 1))
 
 
+def test_long_history_retention_is_only_for_deep_prices_and_benchmark():
+    from datetime import datetime, timezone
+    from types import SimpleNamespace
+    from ingestion_core.retention import retained_core_rows
+    core = SimpleNamespace(PARTITIONS={"ohlcv": (("trade_date", "month"),), "benchmark": (("trade_date", "month"),)})
+    rows = [{"symbol": "held", "trade_date": "2024-12-01"}, {"symbol": "screen", "trade_date": "2024-12-01"},
+            {"symbol": "held", "trade_date": "2022-12-01"}]
+    now = datetime(2026, 10, 3, tzinfo=timezone.utc)
+    assert retained_core_rows(core, "ohlcv", rows, now, frozenset({"held"})) == rows[:1]
+    assert retained_core_rows(core, "benchmark", rows, now) == rows[:2]
+
+
 @pytest.mark.parametrize("missing,expected_status", [(0, "accepted"), (51, "discussion_required")])
 def test_monthly_fill_keeps_valid_prices_and_stops_for_poor_quality(monkeypatch, missing, expected_status):
     import json
