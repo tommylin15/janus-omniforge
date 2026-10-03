@@ -133,6 +133,7 @@ def build_quant_samples(datasets, symbols, as_of, snapshot, horizon_days):
     """Non-overlapping entry cohorts, exact market-day benchmark and strict row PIT fences."""
     from .specialists import validated_inputs, price_series
     from .facts import _change, evidence_from_rows
+    datasets = {name: datasets.get(name, []) for name in ("ohlcv", "benchmark")}
     samples, exclusions = [], defaultdict(int)
     for symbol in sorted(set(symbols)):
         current, _, _ = validated_inputs(datasets, symbol, as_of, snapshot)

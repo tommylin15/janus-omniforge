@@ -8,7 +8,7 @@ from urllib.error import HTTPError
 
 from .coverage import load_or_create_target_snapshot
 from .runtime import _fenced_core_manifest, _write_immutable_json, deterministic_processor
-from .specialists import VERSION, analyze_specialists, digest, screening
+from .specialists import DEPENDENCIES, VERSION, analyze_specialists, digest, screening
 from .storage import load_core_datasets, sql_catalog_from_environment
 
 
@@ -63,7 +63,12 @@ def specialist_processor(execution, publication_connection, *, store_factory=Non
     symbols = tuple(sorted(market_symbols | set(target["symbols"])))
     catalog = (catalog_factory or sql_catalog_from_environment)()
     try:
-        datasets = load_core_datasets(catalog, core, symbols,
+        required = {name for names in DEPENDENCIES.values() for name in names}
+        inputs = dict(core, iceberg_tables={name: fence for name, fence in core.get("iceberg_tables", {}).items()
+                                           if name.split(".", 1)[1][:-3].replace("_", "-") in required})
+        if "datasets" in core:
+            inputs["datasets"] = {name: rows for name, rows in core["datasets"].items() if name in required}
+        datasets = load_core_datasets(catalog, inputs, symbols,
                                      row_limit=int(os.environ.get("CORE_SNAPSHOT_ROW_LIMIT", "250000")))
     finally:
         engine = getattr(catalog, "engine", None)

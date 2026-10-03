@@ -71,6 +71,9 @@ def test_screening_does_not_create_deep_targets_and_has_stable_rank():
     assert rows[0]["candidate_rank"] == 1
     assert rows[1]["candidate_rank"] is None
     assert all(r["llm_api_tokens"] == 0 for r in rows)
+    data = source()
+    data["financials"] = [{"symbol": "2330", "source_id": "unapproved", "value": 999}]
+    assert screening(data, ["2330", "no-data"], "2026-05-01", "core") == rows
 
 
 def test_dcf_reverse_dcf_and_invalid_assumptions():

@@ -146,7 +146,7 @@ def reverse_dcf(price, fcf_per_share, discount_rate, terminal_growth, years=5):
 def screening(datasets, symbols, as_of, snapshot):
     output = []
     for symbol in sorted(set(symbols)):
-        rows, evidence, rejected = validated_inputs(datasets, symbol, as_of, snapshot)
+        rows, evidence, rejected = validated_inputs({"ohlcv": datasets.get("ohlcv", [])}, symbol, as_of, snapshot)
         values = list(price_series(rows.get("ohlcv", [])).values())
         metrics = {f"return_{w}d_percent": _change(values, w) for w in (5, 20, 60, 120)}
         signals = [v for v in metrics.values() if v is not None]
