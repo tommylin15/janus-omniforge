@@ -491,32 +491,78 @@ def create_app(repository: Any | None = None, store: Any | None = None,
 
     @private.get("/journal/positions")
     def positions(current:AuthenticatedUser=Depends(user)):
+        operational = None
+        try:
+            reader = getattr(repository, "positions", None)
+            operational = reader(current.user_id) if reader is not None else None
+        except Exception as error:
+            LOGGER.warning("operational positions unavailable; falling back to Private Mart: %s", type(error).__name__)
+            operational = None
+
+        if operational is None:
+            summaries=store.mart("mart_user_portfolio_summary",current.user_id)
+            if not summaries: return []
+            anchors={(str(row.get("valuation_date")),int(row.get("ledger_version",0))) for row in summaries}
+            if len(anchors)!=1: return []
+            valuation_date,ledger_version=next(iter(anchors))
+            snapshot={"valuation_date":valuation_date,"ledger_version":ledger_version}
+            rows=store.mart("mart_user_positions",current.user_id,**snapshot)
+            missing_names={str(row.get("symbol")) for row in rows
+                           if row.get("symbol") and not str(row.get("stock_name") or "").strip()}
+            identities=repository.stock_identities(missing_names) if missing_names else {}
+            unrealized={(row.get("symbol"),row.get("currency")):row for row in
+                        store.mart("mart_user_unrealized_pnl",current.user_id,**snapshot)}
+            result=[]
+            for row in rows:
+                detail=unrealized.get((row.get("symbol"),row.get("currency")),{})
+                identity=identities.get(str(row.get("symbol")))
+                fallback_name,fallback_status,fallback_reason=stock_identity(identity)
+                stock_name=str(row.get("stock_name") or fallback_name or "").strip() or None
+                identity_status=(fallback_status if identity else row.get("identity_status") or fallback_status)
+                result.append({**row,"unrealized_pnl":detail.get("unrealized_pnl"),
+                    "unrealized_return":detail.get("unrealized_return"),
+                    "stock_name":stock_name,"identity_status":identity_status,
+                    "identity_missing_reason":fallback_reason if identity else row.get("identity_missing_reason") or fallback_reason,
+                    "price_status":row.get("price_status") or detail.get("price_status","missing"),
+                    "price_date":row.get("price_date") or detail.get("price_date"),
+                    "missing_reason":row.get("missing_reason") or detail.get("missing_reason")})
+            return jsonable_encoder(result)
+
+        if not operational:
+            return []
+        latest_version=max(int(row.get("ledger_version",0)) for row in operational)
+        identities=repository.stock_identities({str(row["symbol"]) for row in operational})
+        canonical_positions={}
+        canonical_unrealized={}
         summaries=store.mart("mart_user_portfolio_summary",current.user_id)
-        if not summaries: return []
         anchors={(str(row.get("valuation_date")),int(row.get("ledger_version",0))) for row in summaries}
-        if len(anchors)!=1: return []
-        valuation_date,ledger_version=next(iter(anchors))
-        snapshot={"valuation_date":valuation_date,"ledger_version":ledger_version}
-        rows=store.mart("mart_user_positions",current.user_id,**snapshot)
-        missing_names={str(row.get("symbol")) for row in rows
-                       if row.get("symbol") and not str(row.get("stock_name") or "").strip()}
-        identities=repository.stock_identities(missing_names) if missing_names else {}
-        unrealized={(row.get("symbol"),row.get("currency")):row for row in
-                    store.mart("mart_user_unrealized_pnl",current.user_id,**snapshot)}
+        if len(anchors)==1:
+            valuation_date,canonical_version=next(iter(anchors))
+            if canonical_version==latest_version:
+                snapshot={"valuation_date":valuation_date,"ledger_version":canonical_version}
+                canonical_positions={(row.get("symbol"),row.get("currency")):row for row in
+                                     store.mart("mart_user_positions",current.user_id,**snapshot)}
+                canonical_unrealized={(row.get("symbol"),row.get("currency")):row for row in
+                                      store.mart("mart_user_unrealized_pnl",current.user_id,**snapshot)}
         result=[]
-        for row in rows:
-            detail=unrealized.get((row.get("symbol"),row.get("currency")),{})
+        for row in operational:
+            key_=(row.get("symbol"),row.get("currency"))
+            priced=canonical_positions.get(key_,{})
+            detail=canonical_unrealized.get(key_,{})
             identity=identities.get(str(row.get("symbol")))
-            fallback_name,fallback_status,fallback_reason=stock_identity(identity)
-            stock_name=str(row.get("stock_name") or fallback_name or "").strip() or None
-            identity_status=(fallback_status if identity else row.get("identity_status") or fallback_status)
-            result.append({**row,"unrealized_pnl":detail.get("unrealized_pnl"),
-                "unrealized_return":detail.get("unrealized_return"),
+            stock_name,identity_status,identity_missing_reason=stock_identity(identity)
+            has_canonical=bool(priced)
+            result.append({**row,
                 "stock_name":stock_name,"identity_status":identity_status,
-                "identity_missing_reason":fallback_reason if identity else row.get("identity_missing_reason") or fallback_reason,
-                "price_status":row.get("price_status") or detail.get("price_status","missing"),
-                "price_date":row.get("price_date") or detail.get("price_date"),
-                "missing_reason":row.get("missing_reason") or detail.get("missing_reason")})
+                "identity_missing_reason":identity_missing_reason,
+                "valuation_date":priced.get("valuation_date"),
+                "market_price":priced.get("market_price"),"market_value":priced.get("market_value"),
+                "unrealized_pnl":detail.get("unrealized_pnl"),
+                "unrealized_return":detail.get("unrealized_return"),
+                "price_status":priced.get("price_status") or detail.get("price_status") or "pending",
+                "price_date":priced.get("price_date") or detail.get("price_date"),
+                "missing_reason":priced.get("missing_reason") or detail.get("missing_reason") or
+                                 (None if has_canonical else "private_mart_pending")})
         return jsonable_encoder(result)
 
     @private.get("/portfolio/quotes")
