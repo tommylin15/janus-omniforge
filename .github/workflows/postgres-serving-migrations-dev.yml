@@ -1,0 +1,86 @@
+name: Apply dev PostgreSQL serving migrations
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/postgres-serving-migrations-dev.yml'
+      - 'infra/postgres/Dockerfile'
+      - 'infra/postgres/cloudbuild.yaml'
+      - 'infra/postgres/migrations/041_operational_position_projection.sql'
+      - 'infra/postgres/migrations/042_stock_serving_projection.sql'
+      - 'scripts/gcp/cloudbuild-postgres-migration.yaml'
+      - 'scripts/gcp/apply-web-postgres-migration.sh'
+      - 'services/api/app.py'
+      - 'services/api/public_runtime.py'
+      - 'jobs/ingestion-core/ingestion_core/serving_projection.py'
+      - 'packages/duckdb_query/serving_core.py'
+      - 'packages/duckdb_query/__init__.py'
+      - 'tests/test_portfolio_api_completeness.py'
+      - 'tests/test_public_runtime.py'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: postgres-serving-migrations-dev-main
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_REGION: us-central1
+  POSTGRES_VM: janus-postgres-dev
+  POSTGRES_ZONE: us-central1-a
+
+jobs:
+  test-and-migrate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            services/api/requirements.lock
+      - name: Install bounded test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r services/api/requirements.lock
+          python -m pip install -r requirements-dev.txt
+      - name: Verify serving contracts before migration
+        env:
+          PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
+        run: |
+          python -m pytest -q \
+            tests/test_portfolio_api_completeness.py \
+            tests/test_public_runtime.py
+          python -m compileall -q \
+            jobs/ingestion-core/ingestion_core/serving_projection.py \
+            packages/duckdb_query/serving_core.py \
+            services/api/public_runtime.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Build immutable PostgreSQL image
+        run: |
+          gcloud builds submit infra/postgres \
+            --project="${GCP_PROJECT_ID}" \
+            --config=infra/postgres/cloudbuild.yaml
+          digest="$(gcloud artifacts docker images describe \
+            "us-central1-docker.pkg.dev/${GCP_PROJECT_ID}/janus-postgres/postgres:16.15" \
+            --project="${GCP_PROJECT_ID}" --format='value(image_summary.digest)')"
+          test -n "${digest}"
+          echo "POSTGRES_IMAGE=us-central1-docker.pkg.dev/${GCP_PROJECT_ID}/janus-postgres/postgres@${digest}" >> "${GITHUB_ENV}"
+      - name: Apply migrations and acceptance through canonical controller
+        run: |
+          test -n "${POSTGRES_IMAGE}"
+          gcloud builds submit . \
+            --project="${GCP_PROJECT_ID}" \
+            --config=scripts/gcp/cloudbuild-postgres-migration.yaml \
+            --substitutions="_POSTGRES_IMAGE=${POSTGRES_IMAGE},_POSTGRES_VM=${POSTGRES_VM},_POSTGRES_ZONE=${POSTGRES_ZONE}"
