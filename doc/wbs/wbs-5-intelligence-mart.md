@@ -1,190 +1,160 @@
 # Janus WBS 5 — Intelligence Mart
 
-## WBS 5 — Intelligence Mart
+更新：2026-10-03
+狀態：Active WBS index；執行順序以 `../todo.md` 為準
 
-### 5.0 Runtime 與輸入邊界
+本文件只定義 WBS-5 的責任與驗收邊界。五 specialist 的現行實作契約見 [`wbs-5-specialist-engines.md`](wbs-5-specialist-engines.md) 與 [`../spec/specialist-engines.md`](../spec/specialist-engines.md)。舊「每日五個 Codex／LLM 分析師 + CIO」方案已被 2026-10-03 Token-first + On-demand CEO 決策取代，不再是 active WBS。
 
-- 目前 GCP `dev` 是 Janus 個人使用階段的真實平行上線環境。WBS-5 capability 通過各自 data-trust、runtime、publication 與 integration acceptance 後，可直接在 dev 使用真實資料與真實服務；不需要另一套 Production 環境作為資格證。
-- 這個環境定位不放寬資料可信度：canonical data、PIT／future leakage、provenance、source authorization、publication gate、immutable lineage、missing-data honesty 與 LLM 不得修改 canonical numbers 仍是必要條件。
-- `intelligence-mart` 以 Cloud Run Job 執行，只讀 analysis-as-of 可見的
-  versioned Core snapshot；Analysis 不得即時補抓、呼叫 scraper 或改寫 Core。
-- Mart Job 使用 Direct VPC egress、專用 service account 與 workload-specific
-  PostgreSQL catalog／publication credentials；連線池、statement timeout 與 retry
-  必須有界。
-- 每次執行固定 `execution_id`、`analysis_as_of`、Core snapshot ID、schema／feature／
-  model version 與 immutable governance snapshot version，作為重跑及稽核邊界。
-- Mart 必須由 ingestion 成功完成 DQ、Core commit 並發出 `core.dataset.ready.v1` 後，
-  透過 workflow／event 觸發；事件需攜帶 execution 與 immutable Core snapshot 邊界。
-  Cloud Scheduler 不得讓 ingestion 與 Mart 在相同時間各自獨立觸發，以免 Mart
-  讀取尚未完成或不一致的 Core snapshot。
+## 5.0 Runtime 與資料邊界
 
-### 5.1 Feature pipeline
+- `intelligence-mart` 只讀 `analysis_as_of` 可見的 versioned Core snapshot；不得即時補抓、呼叫 scraper 或改寫 Core。
+- canonical data、PIT／future leakage、provenance、source authorization、missing-data honesty、immutable lineage、public/private isolation 與 publication boundary 必須維持。
+- 每次 execution 保存 `execution_id`、`analysis_as_of`、Core snapshot identity、feature／engine／model version、input/output hash 與必要 governance version。
+- PostgreSQL 只保存 catalog／control／publication／audit／bounded index；完整 feature、specialist artifact、evaluation、report 與大型 payload 存 GCS／Iceberg／Parquet。
+- Mart 的已持久化成果可在 dev 真實使用；完成判定仍需 tests／deployment／live execution／readback evidence，不由文件或單次成功推定。
 
-- 全市場 `mart_screening_signals`：突破、量能、流動性與異動候選。
-- 12 月／12 季 Fundamental features。
-- PE／PB／ROE／D/E Valuation features。
-- 5／20／60 日 Positioning features。
-- 20／60／120 日 Quant、Beta、ATR、turnover。
-- PIT Event Risk features。
-- 關注股深度追蹤層的 `mart_core_alpha`、`mart_risk_portfolio` 與經核准文本的 `mart_alternative_sentiment`。
-- 新增單一 `mart_scoped_analysis`，以 market／industry／symbol scope 保存五角色輸出、membership snapshot、evidence、missing data、analysis outcome、prompt version 與 CIO 聚合 payload。
-- 新增 `mart_market_regime_daily`、`mart_sector_rotation_daily`、`mart_topic_trends_daily`、`mart_candidate_health` 與 `mart_daily_brief`；每日摘要只組合同一 analysis-as-of 的已發布成品，不重算上游分數。
-- 公開 Mart schema 均使用 versioned Iceberg table／partition；至少保存 symbol／industry／coverage、
-  analysis date、上述 lineage、completeness、confidence、data quality、publication／
-  analysis outcome，以及 evidence／artifact reference。不得只保存無法追溯來源的最終分數。
-- `mart_scoped_analysis` 的 aggregate payload 保存 screening／risk／sentiment 摘要、aggregate score、bull／bear、contradictions、contributions、Devil's Advocate 反證、blocked／insufficient-data reason 與 CIO 結構化摘要。
+## 5.1 Coverage 與 Mart pipeline
 
-### 5.2 五角色與 Validator
+### Market Coverage
 
-- Current implementation：五個 deterministic discriminated role payload，包含 nullable
-  score、confidence、missing_data、evidence；這是既有 `mart.v1` compatibility
-  surface，不是五個 AI analyst。
-- AI role／CIO shape contract、locked guardrail、versioned methodology 與 create-only
-  interpretation lineage 已有 additive implementation；provider-neutral role validator
-  已完成，詳細複製數字／claim coverage／missing-data／PIT 邊界見 SPEC。Provider 與 CIO
-  執行仍是各自 WBS。Contract／validator acceptance 不代表五角色每日 workload 成功。
-- Planned：五個獨立、可平行執行的 evidence-grounded AI analyst stage，輸入 immutable
-  Fact Pack、validated evidence、`analysis_as_of`、Core snapshot identity、fixed
-  system guardrail、versioned methodology prompt 與 provider/model/parameters。
-- Planned role output 至少包含 stance、thesis、key findings、positive／negative
-  evidence、contradictions、change drivers、risks、missing information、
-  what-would-change-my-view、confidence 與 evidence IDs。
-- URL、時間、單位、duplicate、stale、conflict、future validation。
-- Evidence 必須引用可定位的 provenance／Core snapshot；未核准來源、缺 publication
-  time 或超過 `analysis_as_of` 的資料不得成為角色或 LLM 輸入。
-- Planned prompt boundary：System Guardrail locked；五個 Role Methodology Prompt 與
-  CIO Prompt 可由唯一 Admin 版本化編輯；Output Schema 由系統控制。所有 version、
-  content hash、author、timestamp 與 profile reference 寫入 immutable lineage。
+約 500 檔只執行低成本 screening／discovery 與必要 cross-sectional Quant inference，不做 500×5 深度分析。
 
-### 5.3 Aggregator／Publication
+至少維持：
 
-- 初始權重與 effective weight。
-- bull／bear／contradictions／contributions。
-- Devil's Advocate 反證階段與 `mart_scoped_analysis` CIO aggregate payload；兩者只使用合格 evidence。
-- 30% development gate。
-- manual review、critical、high≥75 blocking。
-- immutable governance snapshot version。
-- `insufficient_data` 是 completeness gate 的分析結果，必須與 publication lifecycle
-  狀態分欄保存；實作前須讓 spec、contracts、API 與 UI 使用同一語意。只有
-  `publishable`／`published` 可進公開 service index。
+- `mart_screening_signals`
+- `mart_market_regime_daily`
+- `mart_sector_rotation_daily`
+- `mart_topic_trends_daily`
+- `mart_candidate_health`
+- `mart_daily_brief`
 
-### 5.4 LLM
+這些資料集只能由已核准 Core／Mart inputs 產製；同一 Daily Brief 不得混用不同 `analysis_as_of` 的最新版拼裝。
 
-- Canonical Mart facts 與可選 narrator 維持原邊界；五角色 AI provider stage 是獨立 additive capability。其整體完成狀態依 TODO／runtime evidence 判定，不由 wrapper、router、credential probe 或 targeted tests 的存在推定完成。OpenRouter／Gemini／Codex 通用助理 runtime 歸 omniAgent，但 **Mart 五角色 provider adapters／routing 屬本 WBS**，兩者不得混為同一產品 runtime。
-- Active planning：依 [GCP 批次研究契約](../spec/intelligence-and-governance.md#gcp-批次-codex-分析師研究路線active-planning尚未實作)，既有 GCP Mart 批次自行啟動五個獨立 Codex CLI role invocation，先採 bounded／可序列化 worker wrapper；必要時才評估具體 ChatGPT worker bridge。使用者 2026-10-02 指定 default provider route 為 **Codex CLI → OpenRouter → Gemini**；五角色預設共用這條 global route，只有已核准 profile 才能成為 executable route，不依賴本機桌面、人工貼 prompt 或逐次登入。
-- Provider routing 是 versioned governance contract。每次 execution 啟動時固定 effective route、routing config version/hash 與 provider profile snapshot；後續 Admin reorder 不得改寫舊 execution。attempt／fallback reason／實際 transport／model／parameters／latency／可觀察 usage/cost 必須進 immutable lineage。
-- Fallback 只允許明確可切換的 failure class，例如 timeout、transport error、rate limit、provider unavailable、auth/capacity unavailable；schema、validator、grounding、PIT 或 missing-data failure 不得藉由換 provider 靜默繞過。沒有 approved route 時 fail closed，不寫 placeholder。
-- Provider failure 不改 deterministic facts；CLI／bridge capabilities、model／parameters、GCP cold-start auth／續期、timeout／process-tree cancel／退出碼、隔離與 structured failure 必須實測。初次 OAuth／MFA 可由使用者完成，後續正常批次須自主執行；失敗 fail closed。
-- Provider capability discovery、bounded supported parameters、429／unavailable bounded retry、structured failure、usage／latency／cost lineage 與 billing gate必須可測試。Codex CLI／worker 研究路線不等於 OpenAI API；不得自動切換付費 API。未核准 model／fallback／paid tier 不可啟用，Admin 排序也不得替代授權。
-- 2026-10-02 credential／free-gate live probe：Fugle、Gemini、OpenRouter 既有 secret 均已驗證可認證；Gemini models endpoint HTTP 200 只代表 model discovery 可用，Free Tier／billing status 尚未證實；OpenRouter key endpoint HTTP 200 但回報 `is_free_tier=false`，因此必須以 `$0`/free-only route 做 actual model request acceptance，沒有 `$0` route 就 fail closed；這些 probe 不等於 `WBS-5-MART-AI-PROVIDERS` runtime completion。
-- 前四角色禁止 Web Search；Event Risk controlled Web Search 預設關閉，只有來源／PIT／provenance／evidence gate 通過才可使用研究 evidence，不直接寫 canonical Core。
-- 個股 AI target 固定為 as-of 可見的 active 關注＋有效持股 symbol 聯集，去重保存 membership snapshot；持股離榜仍保留。500 檔只作資料網／deterministic screening，不把 ingestion scopes 自動轉成 500×5 次 AI 呼叫。AI 另受 bounded batch／quota／cost gate；不足明列 partial／blocked。只傳公開 Fact Packs，不把私人持股數量／成本／user-to-symbol mapping 傳給公開 Mart／worker。
-- LLM 只能解釋、比較與合成經驗證 evidence；不得計算、補值、覆寫或發布 canonical deterministic numbers／facts。
+### Deep Coverage
 
-### 5.4.1 Atomic WBS slices
+`active watchlist ∪ effective holdings` 去重後執行完整五 specialist。Watchlist 50 active distinct-symbol quota 保留；持股離開 500 仍保留 Deep Coverage，清倉且不在 watchlist 才退出後續更新。
 
-以下切片定義責任與驗收邊界，目前執行狀態依 active TODO 與 runtime evidence 判定；依 dependency 排入
-parallel-live dev roadmap，完成後依各自 acceptance 在目前 dev 真實使用並持續收集 evidence，不以六個月 Pilot 或未來 Production 作為首次使用資格：
+Deep Coverage 既有／相容 Mart surface 可包含：
 
-| WBS | 範圍 | Dependency | Acceptance |
-|---|---|---|---|
-| `WBS-5-MART-FACT-PACKS` | 五份 deterministic Fact Pack、baseline compatibility、hash／version lineage、mart.v1 compatibility | 既有 Core snapshot、analysis.py、mart.v1 | facts 可 deterministic replay；LLM off 不改 facts；canonical numbers、PIT、missing data、provenance 與 evidence refs 可驗證 |
-| `WBS-5-MART-AI-ROLE-CONTRACT` | 五個 role schema、guardrail boundary、versioned role prompts、CIO output contract | FACT-PACKS | schema／prompt／lineage fixtures 通過；invalid role 不得假裝成功；old artifacts immutable |
-| `WBS-5-MART-AI-PROVIDERS` | governed GCP 五角色 Codex CLI 批次／必要 worker bridge、關注＋持股聯集 admission／去重、auth lifecycle、capability／隔離／timeout／cancel、versioned route `Codex CLI → OpenRouter → Gemini`、approved-only fallback、free/billing gate | ROLE-CONTRACT、AI-VALIDATION contract | GCP 自主五角色 execution／validator／artifact readback；watch-only／held-only／重疊／離榜／退出／as-of／quota／private isolation；cold-start auth／structured failure、unsupported model／parameters、timeout／cancel／退出碼／retry bounds、routing snapshot/version/hash、fallback audit、OpenRouter free-only gate、Gemini free-tier gate與 zero secret leakage；不新增未核准資源 |
-| `WBS-5-MART-AI-VALIDATION` | provider-neutral schema、evidence、numeric grounding、time fence、missing data、claim coverage validation | ROLE-CONTRACT；provider 真實整合由 AI-PROVIDERS 驗收 | fixtures／negative cases 通過，invalid output blocked；one role failure 不是 full success；provider/model/prompt/input identity 可追溯，不把 fixtures 稱為 live worker success |
-| `WBS-5-MART-CIO-SYNTHESIS` | validated roles only、CIO synthesis、synthesis validator、no publication authority | AI-VALIDATION | CIO 只讀 validated inputs；validator failure structured；publication 仍由 deterministic gate 決定 |
-| `WBS-5-MART-RERUN-CACHE` | single-role rerun、dependency invalidation、content-addressed reuse、immutable lineage | FACT-PACKS、AI-VALIDATION、CIO-SYNTHESIS | 無關 role 不重跑；prompt/model 不重算 facts；governance-only 不呼叫 LLM；相同 identity reuse 且 audit |
-| `WBS-5-MART-V2-COMPAT` | mart.v1 additive compatibility、future mart.v2 migration plan | FACT-PACKS、ROLE-CONTRACT | mart.v1 fixtures／consumers 維持；新 contract additive；未完成 migration 前不破壞 v1 |
+- `mart_core_alpha`
+- `mart_risk_portfolio`
+- `mart_alternative_sentiment`
+- `mart_scoped_analysis`
 
-Leading Indicators 與 Major-wave Prediction 不屬本組 WBS；只保留 extensible contract
-space，不加入 role logic、score、CIO 或 publication。
+相容 table name 不代表沿用舊每日 LLM role semantics；schema 演進須 additive／migration-safe，舊 immutable artifacts 不原地改寫。
 
-### 5.5 Mart writer
+## 5.2 五 specialist
 
-- GCS Mart bucket 保存 Iceberg／Parquet data 與 metadata、versioned feature／role／
-  evidence／aggregation payload、model／evaluation artifact 與完整結構化 report；大型 governance diff 亦留在 GCS。
-- PostgreSQL 的市場分析邊界只保存 catalog、control、publication、audit、report metadata
-  與 bounded service index，包括 object URI、snapshot ID、hash、version 與狀態；私人
-  ledger 使用獨立 schema／role。不得保存完整 report、feature 或 evidence payload。
-- publication schema 使用 migration、唯一鍵、retention、bounded pool 與
-  workload-specific role；blocked／insufficient-data 成品不得進 publishable view。
-- 發出 `mart.report.ready.v1`。
+Production 主路徑固定為：
 
-### 5.6 驗收條件
+1. Fundamental — deterministic financial features + LightGBM baseline。
+2. Valuation — deterministic valuation + LightGBM／CatBoost benchmark。
+3. Quant — LightGBM baseline + Qlib DoubleEnsemble challenger。
+4. Risk／Regime — Riskfolio-Lib + statsmodels／ML。
+5. Event／Catalyst — parser／rules + local multilingual classifier。
 
-- Analysis 不呼叫 scraper。
-- LLM 關閉時 deterministic output 不改變。
-- blocked 不進 publishable view。
-- 同一 Core snapshot + governance version 可重現相同 deterministic 結果。
-- Contract、Iceberg schema evolution 與儲存邊界測試證明 PostgreSQL 沒有完整 Mart payload，且 publication index 可解析至正確 immutable GCS／Iceberg artifact。
-- market／industry／symbol 分析可由 Admin 解析至正確 immutable `mart_scoped_analysis` artifact；切換 repository prompt version 後只影響新 execution，舊結果仍可依 version／hash 重現。
-- 市場狀態、每日摘要、板塊輪動、熱門話題與候選健康度可由相同 analysis-as-of 重建，且 Flutter 不參與分數計算。
-- 宣稱某 Mart 能力已可在目前 dev 真實使用時，必須另有相應 live Job／data／publication／API／UI integration evidence；fixture 或 sample UI 不能單獨構成完成。
+日常 specialist inference 不使用生成式 LLM。Plain-language report 由 structured outputs + SHAP／feature contribution／rules／templates 產生，正常 path 0 API token。
 
-`WBS-5-SUPPLY-INTELLIGENCE-PLANNING` 是本次 todo 的 planning umbrella，涵蓋以下
-foundation、Source Matrix、seed graph、signal／Mart contract 四個切片；它不代表任何
-implementation unlock，Gate A–E 仍須逐一滿足。這些 Gate 是資料可信度、來源授權、schema／ingestion 與成本／資源治理 gate，不是「dev 只能 POC」的環境 gate。
+所有 specialist artifact 至少保存：
 
-### 5.7 `WBS-5-SUPPLY-FOUNDATION` — Supply-chain foundation planning
+- symbol／coverage scope；
+- `analysis_as_of`；
+- Core／input snapshot or content hash；
+- feature／engine／model version；
+- structured metrics／score／probability（僅在該 specialist contract 有正式定義時）；
+- positive／negative drivers；
+- missing／stale／partial；
+- contribution／explanation；
+- output hash、computed_at、freshness；
+- evidence／provenance references。
 
-本切片只做 documentation／planning。定義共用 ontology、node／edge／company exposure
-contract、effective-time semantics、PIT／provenance、evidence class 與 signal boundary；
-不建立 schema、migration、Iceberg table、adapter 或 Mart implementation。
+LLM 不得計算或改寫 canonical number，也不得持有 publication authority。
 
-驗收：common ontology review、relationship／exposure contract、effective time、
-`confirmed`／`reported`／`inferred`／`hypothesis`、provenance／PIT requirements 與六個
-domain scope 均可由規格判讀。
+## 5.3 Dirty dependency／reuse
 
-### 5.8 `WBS-5-SUPPLY-SOURCE-MATRIX` — 六 domain Source Matrix planning
+禁止固定每日將所有 Deep Coverage symbols × 5 全重算。
 
-同一份矩陣涵蓋 AI Server／Semiconductor、Memory、EV、Networking、Apple supply chain、
-Industrial automation。每列記錄 indicator、source candidate、official／external、lead
-metric／time、PIT、license／retention、cost、coverage、cadence、provenance 與 approval
-status；未知值使用 `Unknown`／`candidate`／`blocked`，不猜測 license、price、quota 或
-coverage，也不建立 source adapter。
+- monthly revenue／financials → Fundamental；必要時 Valuation。
+- EOD price → cheap Valuation refresh、Quant、Risk。
+- event → Event。
+- input hash／feature／engine／model version 未變 → reuse。
+- specialist artifact 更新只標記 CEO report freshness／material delta；不得自動觸發 CEO LLM。
 
-### 5.9 `WBS-5-SUPPLY-SEED-GRAPH` — 可驗證 seed graph planning
+`WBS-5-MART-RERUN-CACHE` 負責完成 dirty dependency graph、content-addressed reuse、incremental invalidation 與 monthly reconciliation。舊「單角色 LLM rerun → 自動 CIO」不再是 active dependency semantics。
 
-六個 domain 均在 scope；第一版只規劃可驗證 relationship、evidence 與 effective time。
-不得讓 AI 自動把文章轉成正式 supplier／customer fact，不建立 Graph DB、crawler 或
-完整公司清單。
+## 5.4 Model evaluation／promotion
 
-### 5.10 `WBS-5-SUPPLY-SIGNAL-MART` — Signal／Mart contract planning
+第一版 ML retrain／calibration／reconciliation 以月度為主；不代表 specialist data 每月才更新。
 
-只定義 `leading indicator → exposure → expected impact → market expectation → expectation
-gap` contract 與輸出欄位；future implementation 必須重用既有 Stage／Core、PIT、
-provenance、immutable snapshot、Mart 與 Cloud Run topology。LLM 只能解釋 evidence，不得
-計算 deterministic exposure、score 或數字。
+至少評估：
 
-### 5.11 Supply-chain implementation unlock gates
+- Rank IC／ICIR／IC decay；
+- top-decile future excess-return spread；
+- hit rate；
+- Brier／calibration；
+- Sharpe／max drawdown／turnover／after-cost performance；
+- regime stability。
 
-以下 gate 是後續 Supply-chain capability 的必要前置，未通過時只能補 planning／evidence；它們不限制與 Supply-chain 無關的既有 Janus dev 真實使用：
+任何 challenger 必須用 Janus Taiwan PIT walk-forward OOS evidence 決定 promotion；GitHub upstream benchmark、training success 或單次 dev run 都不能直接取得 champion authority。
 
-- **Gate A — Foundation／Contract Ready**：ontology、node／edge／exposure、effective
-  time、evidence、provenance／PIT、六 domain Source Matrix 第一版與 Pilot measurement／
-  epoch design 全部 review 完成。未通過不得建立 schema／ingestion implementation WBS、
-  migration、Iceberg table、adapter 或 Mart implementation。
-- **Gate B — Individual Source Approved**：每個 source 個別確認 identity、target
-  indicator、expected metric／lead time、coverage／cadence、PIT／history、license／API
-  terms、retention、citation／redistribution、quota、cost、provenance 與 fallback／failure
-  behavior。只有 `approved`、`approved_fallback` 或 `official` 可解鎖最小 ingestion WBS；
-  `candidate`／`blocked` 不得進 canonical／live ingestion 或 published analysis。
-- **Gate C — Schema／Ingestion Implementation**：Gate A 通過且至少一個 source 通過 Gate
-  B，才可排 schema／Iceberg evolution、Stage → Core normalization、DQ／provenance 與
-  deterministic signal input；優先重用 existing ingestion-core、catalog、GCS 與 Cloud
-  Run jobs／services，不自動新增 runtime。
-- **Gate D — Mart Signal Implementation**：至少一組 Supply-chain Core data 已完成
-  ingestion、PIT validation、provenance、deterministic replay 與 bounded DQ，才可實作
-  leading indicator、company exposure、signal、expectation gap 與 Mart product。
-- **Gate E — New GCP Resource**：新增任何 GCP resource、IAM binding、paid API／service
-  都要先證明既有 architecture 不足，提出 architecture reason、cheaper alternative、
-  cost、operations、IAM／security 與 rollback／exit strategy，並取得使用者明確同意；
-  不因 Gate A–D 通過而自動解鎖。
+## 5.5 On-demand CEO boundary
 
-### 5.12 `WBS-5-RESEARCH-MART-CONTRACT`（Pilot Evolution／Planned）
+Codex CLI／OpenRouter／Gemini provider/runtime 不屬五 specialist 日常 production path，只保留給 authorized manual On-demand CEO／rare escalation。
 
-- 定義 research-ready deterministic Mart：MA 5／10／20、recent high／low、ATR、RVOL、volume trend、institutional 3／5／10-day aggregation、margin change、relative strength、benchmark-relative return、price／volume state、formally defined breakout／trend state 與 existing approved chip／positioning indicators。
-- formula、window、null handling、trading-calendar、revision 與 PIT semantics 在 future implementation contract 中 deterministic 定義；本 planning 不選定公式，LLM 僅解釋。
-- 定義 bounded `Market Regime` contract；輸入僅限當時已核准且有 coverage evidence 的 benchmark、breadth、turnover、institutional、financing 與 macro inputs，其餘標 `Unknown`／`Candidate`／`Blocked`。輸出包含 state、`analysis_as_of`、deterministic confidence、evidence 與 missing data。
-- ResearchContext 的 market／company sections 必須可由同一 snapshot／revision replay。Supply-chain indicators 僅在 Gate D 後增量併入；不新建 graph platform／Mart track。
-- 本節 capability 通過自身資料與 integration acceptance 後，可直接在目前 parallel-live dev 使用真實資料；`Pilot Evolution` 是 roadmap／evidence 分類，不等於只能用 mock 或等待未來 Production。
+CEO：
+
+- 只讀最新 validated specialist outputs／Fact Pack／provenance；
+- 只由具有 backend capability 的使用者明確 request；
+- 不由 Scheduler、price、event 或 dirty update 自動觸發；
+- 每次建立新的 immutable execution／report；
+- validator failure 保持 structured partial／blocked；
+- 不覆寫 canonical numbers、不擁有 publication authority。
+
+`WBS-5-MART-AI-PROVIDERS` 目前責任是 On-demand CEO provider path 的 auth lifecycle、route snapshot、timeout／cancel／retry、fallback、usage／cost 與 zero-secret-leakage；不再驗收每日五 specialist LLM workers。
+
+`WBS-5-MART-CIO-SYNTHESIS` 的產品語意已改為 **CEO Analysis**；舊 `CIO` 名稱只可出現在歷史 artifact／schema compatibility 或 archive，不作新的 UI／API／WBS 名稱。
+
+## 5.6 Publication／governance
+
+- specialist／CEO 只能使用可定位 evidence；future data、未授權來源、缺必要 publication time 的資料不得被默認成合格 evidence。
+- `insufficient_data` 是 analysis outcome／reason，不是 publication lifecycle state。
+- blocked／review-required／invalid 不得進 publishable public index。
+- 只有 deterministic governance／publication gate 擁有發布決策權；specialist、CEO、Flutter 都不能自行發布。
+- historical artifact immutable；重新計算或重新分析建立新 artifact／execution，不原地改寫。
+
+## 5.7 Mart writer／storage
+
+- GCS／Iceberg 保存 versioned feature、specialist、evaluation、aggregation／report artifacts 與完整 structured payload。
+- PostgreSQL 保存 bounded metadata、snapshot／artifact reference、hash、version、publication／audit state。
+- retention 依 `../spec/retention-governance.md`；有效引用、目前 snapshot 與 reference fence 必須先保護再清理。
+- private holdings／cost／PnL／owner mapping 不得寫入 public Mart specialist artifacts；必要的 Deep Coverage membership 僅保存去識別化 symbol demand／effective scope。
+
+## 5.8 Active WBS slices
+
+目前執行順序只看 `../todo.md`。WBS-5 active slices 為：
+
+| WBS | 現行責任 |
+|---|---|
+| `WBS-5-MART-SPECIALIST-ENGINES` | 500 screening + Deep Coverage 五 Python／SQL／ML specialist + PIT/OOS + immutable artifacts |
+| `WBS-5-MART-RERUN-CACHE` | dirty dependency、reuse、incremental invalidation、monthly reconciliation |
+| `WBS-5-MART-AI-PROVIDERS` | On-demand CEO／rare escalation provider runtime、auth、route、fallback、usage/cost |
+| `WBS-5-MART-CIO-SYNTHESIS` | **CEO Analysis**：validated specialist inputs only、immutable report、no publication authority |
+
+舊 `WBS-5-MART-AI-ROLE-CONTRACT`、每日五 provider worker、per-role LLM prompt routing 等若只剩歷史證據，應由 archive／operations 查閱，不再作 active execution target。
+
+## 5.9 Acceptance
+
+WBS-5 的相關 capability 宣稱完成時，至少需有與範圍相稱的：
+
+- deterministic／PIT replay；
+- source authorization／provenance／missing-data negative cases；
+- public/private isolation；
+- targeted tests／CI；
+- dev deployment；
+- 真實 data execution；
+- immutable artifact persistence／readback；
+- OOS／evaluation evidence（模型相關）；
+- dirty dependency／reuse evidence（cache 相關）；
+- provider auth／fallback／usage/cost／secret-redaction evidence（CEO provider 相關）。
+
+任何 partial、單次 bounded success、credential probe、router existence 或文件完成都不得包裝成整體 WBS 完成。
