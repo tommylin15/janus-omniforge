@@ -145,3 +145,7 @@ snapshot、hash、provider、model、prompt 與 artifact 等工程欄位放在�
 - 顯示 evidence、blocking reason、governance version。
 - block／unblock／approve 需要理由、操作者與 audit trail。
 - 不可直接修改原始 evidence 或 deterministic score。
+
+## 資料補強品質檢查（已實作）
+
+Admin Overview 顯示獨立週六檢查的最近時間、通過／需處理／執行失敗、受影響資料與是否需調整每日補資料；「結果與檢核文件」可檢視安全結果及完整操作文件。結果來自 `data_supplement_quality`，文件使用 Admin 授權端點 `/api/v1/admin/data-quality/runbook`。不透過 Email 或 Codex automation 通知。

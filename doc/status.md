@@ -1,6 +1,6 @@
 # Janus Current Status
 
-更新：2026-10-02
+更新：2026-10-03
 
 用途：提供「現在在哪裡、下一步是什麼、哪些尚未完成」的短入口。這不是新的 source of truth；實作以 GitHub `main` 為準，完成狀態以 tests／CI／deployment／live runtime／integration evidence 為準。**確定要做**的完整未完成工作只看 [`todo.md`](todo.md)；目前**不做**但保留供日後翻找的內容見 [`parking-lot.md`](parking-lot.md)。2026-10-02 最新 Admin／User／Routing／Provider 決策見 [`decision-2026-10-02-admin-user-routing-and-provider-plan.md`](decision-2026-10-02-admin-user-routing-and-provider-plan.md)；五位分析師每日運作 gate 見 [`five-analyst-daily-operation-gate.md`](five-analyst-daily-operation-gate.md)；六個月 Pilot 新增 operational checkpoint 見 [`pilot-operational-evidence.md`](pilot-operational-evidence.md)；完整歷史 evidence 見 [`spec/operations-and-testing.md`](spec/operations-and-testing.md)。
 
@@ -16,20 +16,21 @@
 - **User product completeness 目前仍有 committed 項目。** 2026-09-29 Private Pipeline 修復後，真實 5876 持股已有正式盤後價且 aggregate valuation／unrealized PnL 恢復發布；其他持股若缺行情 coverage 或名稱解析，UI 仍須保留 missing／stale／partial 狀態，不自行補算或用 placeholder 假裝完整。既有 MIS 盤中報價能力已完成；2026-10-02 已將目標 contract 擴充為 DB-first persisted last quote＋盤中／盤後 multi-source routing、交易後 synchronous operational position projection、操作池／broker profile 與全 UI 數值格式收斂；這些新需求仍在 active TODO。
 - **Flutter Admin shell 與原 `WBS-6-ADMIN-OVERVIEW-BATCH`／`WBS-6-ADMIN-STOCK-WORKBENCH` acceptance 均已完成。** 2026-10-02 新增 operability extension 包含 actionable exception drill-down、Job Control Center、Storage／Private operations 與 routing controls；這些是新的 committed work，不反向改寫歷史 WBS 的完成範圍。
 - **五位分析師每日運作 Gate 1、Fact Packs Gate 2、AI Role Contract Gate 3、AI Validation Gate 4 已完成各自 acceptance。** 這只代表可以進入 provider／CIO chain，不代表五位分析師已每天自然運作。
-- **`WBS-3-DATA-SUPPLEMENT-V1` 正在執行。** 依使用者最新「資料優先」決策，先交付可核對的研究數值；未知歷史時間／版次及 coverage／feature 缺口明示限制，不再單獨阻擋本版交付。不得偽造資料、倒填歷史 PIT、跳過來源授權或將尚未接線／部署項目標成完成。資料接線與 dev 驗收仍在進行；S3～S6 留在 Parking Lot。
+- **`WBS-3-DATA-SUPPLEMENT-V1` 已依資料優先驗收完成。** 五檔不同產業均有 12 季財報、12 月營收及至少 121 日合格行情；Core 固定快照、30 份 Fact Packs 重建、每日增量、獨立週六檢查、Admin UI 與檢核文件已通過真實 dev 驗收。歷史 PIT／原始版本及部分研究欄位仍明示 unknown。詳見 [結案證據](archive/wbs-3-data-supplement-v1-completed-2026-10-03.md)及 [操作文件](runbook-data-supplement.md)。
 
 ## 目前執行順序
 
 唯一權威排序見 [`todo.md`](todo.md)：
 
-1. `WBS-3-DATA-SUPPLEMENT-V1` — foreground / partial（資料接線中）。2026-10-02 使用者最新決定「驗收放寬、有資料優先」：已核對數值先供目前研究，歷史公告時間／版次或完整度未證明時明示限制，不再單獨阻擋交付；歷史 PIT、來源授權與安全邊界維持。接線及 dev 驗收後，再做每日排程與週六檢查／Admin UI。
-2. `WBS-5-MART-AI-PROVIDERS` — partial；暫停前景執行，未完成 acceptance 保留。
-3. `WBS-5-MART-CIO-SYNTHESIS`。
-4. `WBS-5-MART-RERUN-CACHE`。
-5. `WBS-6-ADMIN-ANALYSIS-PROFILE`。
-6. Admin operational convergence。
-7. User operational convergence。
-8. `WBS-6-USER-FINAL-VISUAL-CONVERGENCE`。
+補資料第一版已結案；下一個 WBS 尚未取得新的開工指示。
+
+1. `WBS-5-MART-AI-PROVIDERS` — partial；暫停前景執行，未完成 acceptance 保留。
+2. `WBS-5-MART-CIO-SYNTHESIS`。
+3. `WBS-5-MART-RERUN-CACHE`。
+4. `WBS-6-ADMIN-ANALYSIS-PROFILE`。
+5. Admin operational convergence。
+6. User operational convergence。
+7. `WBS-6-USER-FINAL-VISUAL-CONVERGENCE`。
 
 `WBS-5-MART-AI-PROVIDERS` 最新 evidence：2026-10-02 第二個 GCP cold-start execution 的五角色均 `validated/insufficient_data`；19-object 獨立 readback、單股 same-execution Core／target／provider lineage 與 immutable replay 通過。兩批共用完十次核准 invocation；auth version 1→1，rotation 未觀察。Canonical Linux CI 137 passed、Mart deploy／verify success。Provider default route 為 **Codex CLI → OpenRouter → Gemini**，本次 effective route 僅 Codex；OpenRouter `$0` actual request 與 Gemini Free Tier／billing probe 被自動審核擋下，兩者保持 blocked。剩餘 auth lifecycle、全 target／情境 acceptance 與持續批次額度未完成，WBS 保持 partial；詳見 [checkpoint 與 2327 缺資料明細](archive/wbs-5-mart-ai-providers-checkpoint-2026-10-02.md)。五份 validated／insufficient_data 不等於完整研究或五分析師自然每日運作已可用。
 
@@ -44,9 +45,9 @@ Pilot observation、Production go/no-go／HA／paid backup、全市場完整歷�
 需要判斷「是否完成」時依序看：
 
 1. GitHub `main` 的實際 code／schema／migration／workflow／tests。
-2. 最新 tests／CI／Cloud Build／deployment／live runtime／trigger／workload／integration evidence。
-3. 本頁做快速定位。
-4. [`todo.md`](todo.md) 看確定要做的未完成 acceptance；[`parking-lot.md`](parking-lot.md) 只供翻找目前不做的內容；[`wbs/wbs-3-data-supplement-v1.md`](wbs/wbs-3-data-supplement-v1.md) 看補資料第一版與 checkpoint minimum floor；[`decision-2026-10-02-admin-user-routing-and-provider-plan.md`](decision-2026-10-02-admin-user-routing-and-provider-plan.md) 看本次對話整合決策；[`pilot-operational-evidence.md`](pilot-operational-evidence.md) 看自然 observation；[`spec/operations-and-testing.md`](spec/operations-and-testing.md) 查完整歷史 evidence ledger。
-5. `archive/` 只用於歷史原因、已完成或被取代設計。
+1. 最新 tests／CI／Cloud Build／deployment／live runtime／trigger／workload／integration evidence。
+2. 本頁做快速定位。
+3. [`todo.md`](todo.md) 看確定要做的未完成 acceptance；[`parking-lot.md`](parking-lot.md) 只供翻找目前不做的內容；[`wbs/wbs-3-data-supplement-v1.md`](wbs/wbs-3-data-supplement-v1.md) 看補資料第一版與 checkpoint minimum floor；[`decision-2026-10-02-admin-user-routing-and-provider-plan.md`](decision-2026-10-02-admin-user-routing-and-provider-plan.md) 看本次對話整合決策；[`pilot-operational-evidence.md`](pilot-operational-evidence.md) 看自然 observation；[`spec/operations-and-testing.md`](spec/operations-and-testing.md) 查完整歷史 evidence ledger。
+4. `archive/` 只用於歷史原因、已完成或被取代設計。
 
 文件修改、commit、build 或單次 bounded success 本身，都不代表整體功能完成。

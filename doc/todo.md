@@ -13,6 +13,8 @@
 
 歷史／決策入口：
 
+- [WBS-3 補資料第一版完成（2026-10-03）](archive/wbs-3-data-supplement-v1-completed-2026-10-03.md)
+
 - [2026-10-02 Admin／User／Routing／Provider 決策總結](decision-2026-10-02-admin-user-routing-and-provider-plan.md)
 - [2026-10-02 Legacy Static Admin 退役／backup 座標](archive/legacy-static-admin-retired-2026-10-02.md)
 - [Parking Lot／暫不做](parking-lot.md)
@@ -30,25 +32,11 @@
 
 - 每次只取下列順序中的一個可執行 WBS／工作組。正式執行前，AI 先提醒建議模型與目標 WBS／工作組；使用者明確確認後開始。
 - 一旦開始，以整體 acceptance scope 結案，不在內部 dataset／adapter／單一畫面之間反覆停等。
-- **例外：`WBS-3-DATA-SUPPLEMENT-V1` 有強制 Stop-and-Discuss Gate。S0～S2 的 checkpoint minimum requirement 只要確認有一項無法自行滿足，就必須停止該 WBS，先與使用者討論 root cause、方案、授權／成本與風險；未取得明確決策前不得進下一 S 階段、下一 WBS，也不得把 `partial`／`blocked` 當成 skip permission。**
 - 新付費 API／model／subscription、新付費 GCP 資源、重大權限擴張、不可逆大量刪除、MFA／OAuth consent／付款仍需使用者明確授權。
 
 # 執行順序
 
-## 1. `WBS-3-DATA-SUPPLEMENT-V1` — 【Sol】— **目前 foreground / partial（資料優先，Core 接線中）**
-
-2026-10-02 最新決策：**資料優先**。先供應已核對的目前研究資料；12 月／12 季缺期、feature 缺值、未證明的歷史公告時間／原始版次可明示 partial／unknown，不再單獨阻擋本版交付。歷史 PIT 回測、來源授權及安全條件維持；以下完整度停止閘門依 [WBS 最新驗收調整](wbs/wbs-3-data-supplement-v1.md#使用者最新驗收調整資料優先) 限縮。每日排程、週六檢查與 Admin UI 仍須實作及 dev 驗收。
-
-- [ ] **S0 Evidence Gap Inventory & Remediation Map**：把五角色 `missing_data`／`insufficient_data` 拆成 feature-level root cause，至少區分 snapshot composition、history depth、metric mapping、provenance time、semantic、true source、authorization、research enrichment、not applicable、unknown；以 `2327` checkpoint 作第一組 pinned real-data baseline。
-- [ ] **S1 Existing Required Dataset Remediation**：只針對現行五角色必要的 `financials`、`valuation`、`institutional`、`ohlcv`、`benchmark`、`market-activity`、`events` 修 confirmed blockers；第一版至少處理 60／120 日價格窗口、跨期財報 trend、ROE／debt-to-equity mapping/derived metric、event severity 與 PIT publication／availability time semantics。若 S0 證實現有 approved source 無法供應某個現行必要 feature，先觸發 Stop-and-Discuss Gate；取得使用者明確決策後才能進 source admission／S1 實作。
-- [ ] **S2 Official Event / Industry Expansion**：只有 S0／S1 沒有未決 Stop-and-Discuss blocker，或 blocker 已取得使用者明確決策後，才可進入；只擴充有明確 source authorization、PIT/time semantics 與 deterministic consumer contract 的官方／已核准公司事件、月營收／營運摘要、sector／industry benchmark 或產業統計。
-- [ ] **Stop-and-Discuss Gate**：2026-10-02 `WBS-5-MART-AI-PROVIDERS` checkpoint 是最低 acceptance floor。任一 applicable minimum requirement 確認無法自行滿足時，立即停下本 WBS，只整理決策所需證據並與使用者討論；不得先跳到下一 S 階段／下一 WBS，不得自行降級 requirement、標 accepted gap 或移入 Parking Lot。
-- [ ] 完成真實 dev Core／Fact Pack／provenance 可重建的 Gap Matrix、同／可比較 as-of replay、tests／CI／deployment／live integration evidence；不放寬 validator、不由 LLM 補 canonical facts、不以 provider fallback 隱藏資料不足。
-- [ ] 資料取值驗收後接入每日收集排程；建立獨立的每週六資料品質批次與可重跑檢核文件。檢查結果、受影響資料與每日排程調整需求顯示於 Admin UI。依使用者最新決定，先不建立 Codex automation／通知，也不寄 Email；此項尚未實作／部署。
-- [ ] S3 News、S4 Supply-chain、S5 Broker/Consensus/Target Price、S6 Social/Podcast/Alternative sources 明確留在 `parking-lot.md`，不計入本版 completion，也不阻塞目前五分析師 daily-operation gate；若其中某一 bounded source 被證實是 minimum floor 唯一合理方案，仍須先經 Stop-and-Discuss Gate 由使用者決定是否拉入 S1/S2。
-- 完整 scope／acceptance 見 [`wbs/wbs-3-data-supplement-v1.md`](wbs/wbs-3-data-supplement-v1.md)。
-
-## 2. `WBS-5-MART-AI-PROVIDERS` — 【Sol】— **partial；依使用者決策暫停前景執行**
+## 1. `WBS-5-MART-AI-PROVIDERS` — 【Sol】— **partial；依使用者決策暫停前景執行**
 
 - [ ] GCP Mart 自主啟動五個獨立 Codex CLI workers；完成 headless dispatch、cold-start auth／續期、role workspace 隔離、capability／參數、timeout／process-tree cancel／退出碼／bounded retry。
 - [ ] Provider route 預設 **Codex CLI → OpenRouter → Gemini**；只有 approved／authorized 且符合 free-or-explicitly-approved-paid gate 的 profile 進 effective route。每個 execution 固定 route version/hash/profile snapshot，保存 attempt／fallback reason／transport／model／parameters／latency／可觀察 usage/cost。
@@ -59,32 +47,32 @@
 - 2026-10-02 credential evidence：Fugle quote HTTP 200；Gemini models HTTP 200；OpenRouter key HTTP 200 但 `is_free_tier=false`。OpenRouter 尚需 `$0`/free-only actual model request；Gemini 尚需 Free Tier／billing confirmation。Fugle credential 可用，但行情 source approval／runtime 接線在後續 Quote Router 工作完成。
 - 2026-10-02 bounded runtime checkpoint：第二個 GCP cold-start execution 五角色均 `validated/insufficient_data`，19-object readback／單股 same-execution Core／target lineage 通過；effective route 僅 Codex。兩批共用完十次核准 invocation，auth version 1→1、rotation 未觀察。OpenRouter 免費請求與 Gemini billing probe 被自動審核擋下，兩者維持 blocked；WBS 仍 partial。逐角色缺資料與未完成 gate 見 [checkpoint](archive/wbs-5-mart-ai-providers-checkpoint-2026-10-02.md)。
 
-## 3. `WBS-5-MART-CIO-SYNTHESIS` — 【Sol】
+## 2. `WBS-5-MART-CIO-SYNTHESIS` — 【Sol】
 
 - [ ] CIO 只讀 validated role outputs；建立 synthesis／validator／immutable lineage。
 - [ ] CIO 無 publication authority；publication 仍由 deterministic governance 決定。
 - [ ] 任一 input／validator failure 保持 structured partial／blocked，不包裝成完整研究成功。
 
-## 4. `WBS-5-MART-RERUN-CACHE` — 【Sol】
+## 3. `WBS-5-MART-RERUN-CACHE` — 【Sol】
 
 - [ ] single-role rerun、dependency invalidation、content-addressed reuse、immutable artifact lineage。
 - [ ] prompt/model 改變不重算 deterministic facts；governance-only change 不呼叫 LLM。
 - [ ] 相同 identity reuse 可稽核，且舊 artifact immutable。
 
-## 5. `WBS-6-ADMIN-ANALYSIS-PROFILE` — 【Sol】
+## 4. `WBS-6-ADMIN-ANALYSIS-PROFILE` — 【Sol】
 
 - [ ] Production Profile versioning、direct new Production、rollback、role／CIO prompt editor、locked guardrail、model picker、per-role override、固定 test symbols 與 compare。
 - [ ] Provider global default `Codex CLI → OpenRouter → Gemini`；Admin 只可 reorder 已核准 provider，execution 固定 route version/hash snapshot。
 - [ ] 顯示 provider approval／auth／health、官方重新授權入口與最新可用 model list；Admin 不接收或顯示原始 token。
 
-## 6. Admin operational convergence — 【Sol】
+## 5. Admin operational convergence — 【Sol】
 
 - [ ] **Actionable exceptions**：首頁「需要處理的事項」由被動 count 改成可點入 filtered 明細，至少顯示哪一筆、reason、last update、retryability 與安全 action；正常 execution 不佔主要空間。
 - [ ] **Job Control Center**：master／batch controller＋child jobs、effective schedule／trigger、latest state／last update／latest success、最近 3 天 timeline＋更早歷史選取、安全 manual rerun、dependency／duplicate／exclusive guard 與 audit。
 - [ ] **Storage／Private Operations**：Stage／Core／Mart／Private Mart live objects／active bytes、snapshot／manifest、report references、retention／maintenance／anomaly；Private Pipeline checkpoint／backlog／last execution／valuation lag；live bytes 與 billable storage 分開，未知顯示 `unknown`。
 - [ ] **Routing controls**：versioned reorder／audit／optimistic lock；AI route 如上；行情 target default 盤中 `Yahoo → Fugle realtime → TWSE MIS`、盤後 `TWSE EOD → Fugle → Yahoo`。effective route 只包含 approved／authorized source；Yahoo 未授權前必須跳過。
 
-## 7. User operational convergence — 【Sol／Luna】
+## 6. User operational convergence — 【Sol／Luna】
 
 - [ ] 【Sol】 **Performance profiling + fix**：先量測 auth、DB connect/query、Iceberg、endpoint fan-out、p50/p95；再處理已證實的 Flutter page recreation／Future-in-build、section loading、request cache／SWR、PostgreSQL pool、interactive Iceberg read model。不得無 evidence 宣稱 CPU／RAM／index／bloat root cause。
 - [ ] 【Sol】 **Quote Router＋persisted last quote**：先完成免費可核准來源審查；DB-first → async refresh → success persist；保存 source／quote_at／received_at／session／freshness。盤中 operational quote 不覆寫 canonical Core OHLCV／Private Mart EOD。Fugle 走免費範圍核准；Yahoo 在未取得明確授權前不進 executable route。
@@ -93,7 +81,7 @@
 - [ ] 【Sol】 **操作池／Broker Profile**：current cash／可稽核 cash-ledger strategy、fee discount multiplier、minimum broker fee、server-side fee/tax rule version；交易表單不要求每次手填 fee/tax，歷史重現與 audit 保留。
 - [ ] 【Luna】 **Typed numeric formatter**：price semantics 2 decimals；amount／shares／ratio 依契約整數＋comma、negative parentheses；股票代號／日期／交易輸入維持原語意。
 
-## 8. `WBS-6-USER-FINAL-VISUAL-CONVERGENCE` — 【Luna／Sol】
+## 7. `WBS-6-USER-FINAL-VISUAL-CONVERGENCE` — 【Luna／Sol】
 
 - [ ] 依 `ui/user-app.md` 與 `ui/reference/user-app-final/README.md` 完成 Today／Watchlist／Ledger／Stock Detail 四頁 final presentation convergence。
 - [ ] 四張 final PNG binary、Flutter targeted／golden／screenshot regression 與 GCP dev 真實 authenticated browser acceptance 完整；sample/mock data 不得進 canonical runtime。

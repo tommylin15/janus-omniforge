@@ -32,7 +32,9 @@
 - 離榜持股 future-feed 的全面 source expansion，只為消除歷史 `partial`。
 - day-trading 等已在既定 coverage 門檻內的殘餘缺值逐筆追補。
 
-既有 WBS-3 coverage acceptance 已依使用者核准門檻完成；已接受缺口仍維持原 provenance／missing semantics，不因 `WBS-3-DATA-SUPPLEMENT-V1` 啟動就要求補到 100%。五分析師目前 contract 的必要 evidence gap、history depth、metric mapping、PIT time semantics 與 bounded official expansion 已正式移至 active [`WBS-3-DATA-SUPPLEMENT-V1`](wbs/wbs-3-data-supplement-v1.md)；超出該第一版的通用 Evidence Gap Resolver／無界歷史補齊仍留在本 Parking Lot。
+既有 WBS-3 coverage acceptance 已依使用者核准門檻完成；已接受缺口仍維持原 provenance／missing semantics，不因 `WBS-3-DATA-SUPPLEMENT-V1` 啟動就要求補到 100%。五分析師目前 contract 的必要 evidence gap、history depth、metric mapping、PIT time semantics 與 bounded official expansion 已由 [`WBS-3-DATA-SUPPLEMENT-V1`](wbs/wbs-3-data-supplement-v1.md) 依資料優先條件完成；超出該第一版的通用 Evidence Gap Resolver／無界歷史補齊仍留在本 Parking Lot。
+
+依使用者「有資料優先」接受的第一版限制：歷史首次公告與原始更正版次未證明、EPS 股本口徑與 ROE 平均權益不足、同業基準缺值、事件 severity 未映射及部分 20／60 日籌碼窗口不足。保留 unknown／missing reason，不造數值；未來若要擴充，須另行授權。排程長期自然運作觀察納入 Pilot；不新增工程 TODO。
 
 ## 3. 深度行情／未核准來源擴張
 

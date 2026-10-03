@@ -1,5 +1,9 @@
 # Operations and testing
 
+## 最新：補資料第一版完成（2026-10-03）
+
+五檔 12 季／12 月／至少 121 日行情、固定 Iceberg 快照與 30 份 Fact Packs 重建、每日增量及獨立品質檢查、authenticated Admin UI／檢核文件均完成 dev 驗收；模型呼叫為零。歷史 PIT 與部分研究欄位限制照實保留。完整測試、CI、執行識別與可重建證據見 [結案文件](../archive/wbs-3-data-supplement-v1-completed-2026-10-03.md)；維運見 [runbook](../runbook-data-supplement.md)。以下為既有歷史 checkpoint，不取代本次補資料完成判定。
+
 ## 正式批次與總控修復最新證據（2026-10-02，partial）
 
 - 使用者核准正式 source → Stage → Core → Mart／FactPack 修復、去重與資料清理，以及新增 dev Cloud Run 總控和限定 IAM；初期 Scheduler 每小時 :30，穩定後再改每十分鐘。五模型驗收尚未接續，不因此消耗剩餘模型呼叫。

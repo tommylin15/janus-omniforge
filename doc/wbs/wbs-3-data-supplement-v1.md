@@ -1,10 +1,12 @@
 # WBS-3-DATA-SUPPLEMENT-V1 — 補資料第一版
 
-狀態：Active / partial（資料優先；歷史資料正規化與 Core 接線中，尚未完成 dev 驗收）
+狀態：Completed（依使用者資料優先驗收調整）
 模型：【Sol】
-更新：2026-10-02
+更新：2026-10-03
 
 2026-10-02 使用者指定優先執行；本次 pinned dev Core／TWSE／FinMind 試連、時間證據 blocker 與待決方案見 [S0 evidence](../data-supplement-s0-evidence.md)。
+
+結案與真實 dev 驗收見 [完成證據](../archive/wbs-3-data-supplement-v1-completed-2026-10-03.md)；日常維運見 [檢核文件](../runbook-data-supplement.md)。以下原嚴格完整度條件由「使用者最新驗收調整」取代；缺值不偽造。
 
 ## 目的
 

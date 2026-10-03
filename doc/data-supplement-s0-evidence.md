@@ -1,6 +1,6 @@
 # 補資料第一版 S0 evidence／決策入口
 
-更新：2026-10-02。狀態：S0 partial／官方歷史證據查核中；使用者已採用 bounded TWSE／FinMind／MOPS 方案，S0／S1／S2 尚未完成。
+歷史 checkpoint：2026-10-02。本文保留當時 S0 查核與決策；目前完成判定見 [2026-10-03 結案證據](archive/wbs-3-data-supplement-v1-completed-2026-10-03.md)。
 
 使用者已指定優先執行 `WBS-3-DATA-SUPPLEMENT-V1`，Provider WBS 保持 partial。
 
