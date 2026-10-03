@@ -147,10 +147,16 @@ def screening(datasets, symbols, as_of, snapshot):
     output = []
     for symbol in sorted(set(symbols)):
         rows, evidence, rejected = validated_inputs({"ohlcv": datasets.get("ohlcv", [])}, symbol, as_of, snapshot)
-        values = list(price_series(rows.get("ohlcv", [])).values())
+        prices = price_series(rows.get("ohlcv", []))
+        values = list(prices.values())
+        latest_day = max(prices, default=None)
+        latest = next((r for r in reversed(rows.get("ohlcv", [])) if str(r.get("trade_date")) == latest_day), {})
         metrics = {f"return_{w}d_percent": _change(values, w) for w in (5, 20, 60, 120)}
         signals = [v for v in metrics.values() if v is not None]
         output.append({"symbol": symbol, "metrics": metrics,
+                       "latest_trade_date": latest_day, "latest_close": prices.get(latest_day),
+                       "latest_volume_shares": number(latest.get("volume_shares")),
+                       "latest_turnover_twd": number(latest.get("turnover_twd")),
                        "screening_score": max(0, min(100, 50 + fmean(signals))) if signals else None,
                        "anomaly_flags": ["daily_return_above_11_percent"] if abs(_change(values, 1) or 0) >= 11 else [],
                        "status": "partial" if rejected or len(signals) < 4 else "ready",
@@ -161,6 +167,23 @@ def screening(datasets, symbols, as_of, snapshot):
                     key=lambda r: (-r["screening_score"], r["symbol"]))
     ranks = {r["symbol"]: i for i, r in enumerate(ranked, 1)}
     return [dict(r, candidate_rank=ranks.get(r["symbol"])) for r in output]
+
+
+def screening_quality(rows):
+    """10% inclusive tolerance; poor coverage requests discussion without failing execution."""
+    total = len(rows)
+    day = max((r["latest_trade_date"] for r in rows if r["latest_trade_date"]), default=None)
+    missing = sum(r["latest_trade_date"] != day or r["latest_close"] is None
+                  or any(number(r.get(k)) is None or r[k] < 0
+                         for k in ("latest_volume_shares", "latest_turnover_twd")) for r in rows)
+    def coverage(count):
+        return {"missing_symbols": count, "total_symbols": total,
+                "missing_ratio": count / total if total else None,
+                "status": "accepted" if total and count * 10 <= total else "discussion_required"}
+    return {"tolerance": 0.1, "latest_market_date": day, "eod": coverage(missing),
+            "history": {str(w): coverage(sum(r["metrics"][f"return_{w}d_percent"] is None for r in rows))
+                        for w in (5, 20, 60, 120)},
+            "auto_fail": False, "model_validation_counted_as_missing": False}
 
 
 def analyze_specialists(datasets, symbol, as_of, snapshot):

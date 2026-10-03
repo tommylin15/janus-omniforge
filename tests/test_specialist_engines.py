@@ -85,6 +85,21 @@ def test_dcf_reverse_dcf_and_invalid_assumptions():
         discounted_cash_flow(float("nan"), .1, .02, .08)
 
 
+def test_screening_accepts_exactly_ten_percent_and_requests_discussion_above():
+    from intelligence_mart.specialists import screening_quality
+    good = {"latest_trade_date": "2026-05-01", "latest_close": 10,
+            "latest_volume_shares": 0, "latest_turnover_twd": 0,
+            "metrics": {f"return_{w}d_percent": None for w in (5, 20, 60, 120)}}
+    bad = dict(good, latest_close=None)
+    accepted = screening_quality([good] * 450 + [bad] * 50)
+    assert accepted["eod"]["status"] == "accepted"
+    assert accepted["eod"]["missing_ratio"] == .1
+    poor = screening_quality([good] * 449 + [bad] * 51)
+    assert poor["eod"]["status"] == "discussion_required"
+    assert not poor["auto_fail"]
+    assert accepted["history"]["120"]["status"] == "discussion_required"
+
+
 def test_beta_joins_same_intervals_and_short_history_is_missing():
     result = risk_metrics({"a": 100, "c": 110}, {"a": 100, "b": 105, "c": 110})
     assert result["aligned_intervals"] == 0

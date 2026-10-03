@@ -8,7 +8,7 @@ from urllib.error import HTTPError
 
 from .coverage import load_or_create_target_snapshot
 from .runtime import _fenced_core_manifest, _write_immutable_json, deterministic_processor
-from .specialists import DEPENDENCIES, VERSION, analyze_specialists, digest, screening
+from .specialists import DEPENDENCIES, VERSION, analyze_specialists, digest, screening, screening_quality
 from .storage import load_core_datasets, sql_catalog_from_environment
 
 
@@ -54,6 +54,7 @@ def specialist_processor(execution, publication_connection, *, store_factory=Non
         return {"artifact_uri": f"gs://{bucket}/{manifest_name}", "core_snapshot_id": execution.core_snapshot_id,
                 "reports": saved["specialist_count"] // 5, "publishable": 0,
                 "specialist_status": saved["specialist_status"], "screening_count": saved["screening_count"],
+                "screening_quality": saved.get("screening_quality"),
                 "specialist_count": saved["specialist_count"]}
     target, target_ref = load_or_create_target_snapshot(publication_connection, execution.execution_id,
                                                        as_of, store, bucket)
@@ -98,6 +99,7 @@ def specialist_processor(execution, publication_connection, *, store_factory=Non
                 "core_snapshot_id": execution.core_snapshot_id, "engine_version": VERSION,
                 "target_snapshot": target_ref, "market_membership": market_ref, "screening": screen_ref,
                 "screening_count": len(screen), "specialist_count": len(references),
+                "screening_quality": screening_quality(screen),
                 "specialist_status": "partial" if any(r["status"] != "ready" for r in references) else "ready",
                 "specialists": references, "llm_api_tokens": 0, "ceo_triggered": False,
                 "publication_authority": False}
@@ -109,6 +111,7 @@ def specialist_processor(execution, publication_connection, *, store_factory=Non
     ref = _write_immutable_json(store, bucket, manifest_name, manifest)
     return {**ref, "core_snapshot_id": execution.core_snapshot_id, "reports": len(target["symbols"]),
             "publishable": 0, "specialist_status": manifest["specialist_status"],
+            "screening_quality": manifest["screening_quality"],
             "screening_count": len(screen), "specialist_count": len(references)}
 
 

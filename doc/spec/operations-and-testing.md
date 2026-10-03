@@ -1,8 +1,15 @@
 # Operations and testing
 
-## 最新：補資料第一版完成（2026-10-03）
+## 最新：五分析師引擎與舊角色移除（2026-10-03，partial）
 
-五檔 12 季／12 月／至少 121 日行情、固定 Iceberg 快照與 30 份 Fact Packs 重建、每日增量及獨立品質檢查、authenticated Admin UI／檢核文件均完成 dev 驗收；模型呼叫為零。歷史 PIT 與部分研究欄位限制照實保留。完整測試、CI、執行識別與可重建證據見 [結案文件](../archive/wbs-3-data-supplement-v1-completed-2026-10-03.md)；維運見 [runbook](../runbook-data-supplement.md)。目前版本資料前置已滿足，可接續五分析師 Provider／daily-operation acceptance；已接受的未知欄位不再作整體開工 blocker。補資料後未呼叫模型，因此不宣稱新的五角色輸出或每日自然 workload 已完成。以下為既有歷史 checkpoint，不取代本次補資料完成判定。
+- 舊生成式每日五角色的引擎、prompt、compatibility、provider execution 與舊契約已刪除。新五分析師採規則/數學/本機 ML evaluator 與中文模板，沒有 publication/CEO 權限；整體 WBS 尚未完成。契約與缺口見 [specialist engines](specialist-engines.md)。Shared CEO auth/routing 保留，未執行下一個 CEO WBS。
+- 本機跨模組 tests 121 passed，Flutter widget tests 21 passed，shell syntax 與 workflow YAML 檢查通過。LightGBM/CatBoost/Linear 的 fixture fit 只驗證演算法與漏資料防護，不能當台灣 OOS evidence。免費 pip-audit 83 個鎖定依賴修正 urllib3 2.8.0 後零已知漏洞，未使用付費 Artifact Analysis。
+- Commit `289cbd8` 的 dev CI `37110616356` 全部 success，Mart immutable image `sha256:b4a9ff3760c44c43da3ec149a50de471e64ef578f1180237c0d3b467ba14616c`；後續 source-authorization/security/bounded-read 修正仍由同一 canonical dev workflow 部署。
+- 真實 Cloud Run execution `janus-intelligence-mart-6gfgn` succeeded，1 CPU / 1 GiB，程式時間 281.532 秒，peak RSS 501.34 MiB，500 screening / 3 Deep Coverage / 15 specialist / 0 LLM token。成果物 manifest `gs://gen-lang-client-0593591102-dev-mart/executions/9f1aea1f-171b-4dd3-b174-5e3030cf74cb/specialist-manifest.json` 與 15 份 artifact 讀回 SHA-256 相符；10 partial / 5 blocked，沒有升級為完整成功。
+- Core fence `sha256:cb5a66d91253699dbc66930a3fbfb6d0f496255ae3b8ef0112398afb73335e09`：500 中只有 5 檔具 5/20/60/120 日報酬歷史，其他如實缺值；254 個財報 evidence 缺 availability time，被 Fundamental/Valuation 排除；一筆 Event future leakage 被排除。既有補資料 runtime 僅支援 1..50 TWSE symbols 與 receipt-based historical availability，不能當已具 500 台股歷史 PIT 母體。
+- Migration 039 已在既有 dev PostgreSQL 真實套用，僅新增去識別化 public-market projection EXECUTE，不授予私人表讀取。Mart 固定 1 CPU / 1 GiB 並限制模型 single thread；目前實測不需增加資源。真實 OOS readback 與最終 bounded-read revision 驗收接續中。
+
+補資料前置的歷史最新摘要見 [封存](../archive/data-supplement-evidence-summary-before-specialists-2026-10-03.md)。以下 checkpoint 僅作歷史證據，不是重啟舊入口的指令。
 
 ## 正式批次與總控修復最新證據（2026-10-02，partial）
 
