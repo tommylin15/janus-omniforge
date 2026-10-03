@@ -153,8 +153,8 @@ class XbrlReport(HTMLParser):
             self.fact = None
 
 
-def parse_xbrl_report(html, symbol, fiscal_year, fiscal_quarter, *, report_scope="consolidated"):
-    """Return current-period facts. No fetched/period date becomes publication time."""
+def parse_xbrl_report(html, symbol, fiscal_year, fiscal_quarter, *, report_scope="consolidated", include_comparatives=False):
+    """Read current facts and optional same-filing comparatives without inventing publication."""
     end = {1: "03-31", 2: "06-30", 3: "09-30", 4: "12-31"}.get(fiscal_quarter)
     if end is None:
         raise ValueError("invalid financial quarter")
@@ -182,7 +182,8 @@ def parse_xbrl_report(html, symbol, fiscal_year, fiscal_quarter, *, report_scope
             raise ValueError("inline fact references missing context")
         last = context.get("instant", context.get("enddate"))
         first = context.get("startdate", last)
-        if context["dimensioned"] or last != end or not first or first[:4] != str(fiscal_year):
+        comparative_end = f"{fiscal_year-1}-{end[5:]}"
+        if context["dimensioned"] or last not in ({end, comparative_end} if include_comparatives else {end}) or not first or first[:4] != last[:4]:
             continue
         measures = parser.units.get(fact.get("unitref"))
         if measures == ["iso4217:TWD"]:
@@ -203,8 +204,8 @@ def parse_xbrl_report(html, symbol, fiscal_year, fiscal_quarter, *, report_scope
                 value = -value
         except (InvalidOperation, ValueError) as error:
             raise ValueError("invalid inline numeric fact") from error
-        quarter_start = f"{fiscal_year}-{(fiscal_quarter-1)*3+1:02d}-01"
-        basis = "snapshot" if first == last else "year_to_date" if first == f"{fiscal_year}-01-01" else "single_quarter" if first == quarter_start else None
+        quarter_start = f"{last[:4]}-{(fiscal_quarter-1)*3+1:02d}-01"
+        basis = "snapshot" if first == last else "year_to_date" if first == f"{last[:4]}-01-01" else "single_quarter" if first == quarter_start else None
         if basis is None:
             continue
         key = (fact["name"], first, last, unit)
@@ -237,9 +238,13 @@ def normalise_xbrl_financials(html, symbol, fiscal_year, fiscal_quarter, *, rece
         "CashFlowsFromUsedInOperatingActivities": ("cash_flow", "operating_cash_flow"),
         "CashFlowsFromUsedInInvestingActivities": ("cash_flow", "investing_cash_flow"),
         "CashFlowsFromUsedInFinancingActivities": ("cash_flow", "financing_cash_flow"),
+        "PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities": ("cash_flow", "ppe_capex"),
     }
     result = []
-    for fact in parse_xbrl_report(html, symbol, fiscal_year, fiscal_quarter, report_scope=report_scope):
+    facts = parse_xbrl_report(html, symbol, fiscal_year, fiscal_quarter, report_scope=report_scope, include_comparatives=True)
+    for fact in facts:
+        if fact["period_end"][:4] != str(fiscal_year):
+            continue
         if not fact["concept"].startswith("ifrs-full:") or fact["concept"].split(":")[1] not in concepts:
             continue
         statement, metric = concepts[fact["concept"].split(":")[1]]
@@ -258,4 +263,23 @@ def normalise_xbrl_financials(html, symbol, fiscal_year, fiscal_quarter, *, rece
                        "historical_publication_status": "unknown"})
     if not result:
         raise ValueError("financial report has no supported research metrics")
+    for row in result:
+        row["financial_feature_version"] = "same-filing-comparatives-v1"
+    for concept, metric in (("BasicEarningsLossPerShare", "eps"), ("ProfitLossAttributableToOwnersOfParent", "net_income_parent")):
+        candidates = [fact for fact in facts if fact["concept"] == "ifrs-full:" + concept]
+        for basis in ("single_quarter", "year_to_date"):
+            current = [fact for fact in candidates if fact["period_basis"] == basis and fact["period_end"][:4] == str(fiscal_year)]
+            previous = [fact for fact in candidates if fact["period_basis"] == basis and fact["period_end"][:4] == str(fiscal_year-1)]
+            if len(current) != 1 or len(previous) != 1 or current[0]["unit"] != previous[0]["unit"]:
+                continue
+            prior_value = Decimal(previous[0]["value"])
+            if not prior_value:
+                continue
+            template = next(row for row in result if row["concept"] == current[0]["concept"] and row["period_basis"] == basis)
+            result.append({**template, "metric": metric + "_yoy_percent_same_filing", "unit": "percent",
+                "value": str((Decimal(current[0]["value"])-prior_value)/abs(prior_value)*100),
+                "comparison_value": previous[0]["value"], "comparison_period_end": previous[0]["period_end"],
+                "context_id": current[0]["context_id"] + "|" + previous[0]["context_id"],
+                "share_basis_status": "same_filing_reported_comparison" if metric == "eps" else "not_applicable"})
+            break
     return result

@@ -66,6 +66,9 @@ class DuckDBIcebergTests(unittest.TestCase):
         revert = {**repeat, "availability_at": "2026-10-02T01:00:00Z"}
         self.assertEqual(self.core._financial_observations([first, revised], [revert]), ([revert], 0))
         self.assertEqual(self.core._financial_observations([first], [{**repeat, "value": None}]), ([], 1))
+        upgraded = {**repeat, "financial_feature_version": "same-filing-comparatives-v1"}
+        self.assertEqual(self.core._financial_observations([first], [upgraded]), ([upgraded], 0))
+        self.assertEqual(self.core._financial_observations([upgraded], [{**upgraded, "availability_at": "2026-10-02T01:00:00Z"}]), ([], 1))
 
     def setUp(self):
         self.root = Path(".tmp") / f"iceberg-unit-{uuid4()}"

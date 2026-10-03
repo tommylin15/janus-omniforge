@@ -34,6 +34,22 @@ def test_replay_is_deterministic_and_no_probabilities_are_invented():
     assert all(r["output_hash"] == digest({k: v for k, v in r.items() if k != "output_hash"}) for r in a)
 
 
+def test_same_filing_growth_is_model_feature_but_unverified_raw_eps_stays_missing():
+    from intelligence_mart.facts import _financial_features_v2
+    from intelligence_mart.evaluation import ROLE_FEATURES
+    base = {"symbol": "2330", "source_id": "mops", "statement_type": "income", "report_scope": "consolidated",
+            "currency": "TWD", "period_basis": "single_quarter", "is_single_quarter": True,
+            "fiscal_period_end": "2026-06-30", "availability_at": "2026-10-03T01:00:00Z",
+            "financial_feature_version": "same-filing-comparatives-v1"}
+    rows = [{**base, "metric": "eps_single_quarter", "unit": "TWD_per_share", "value": "27.25", "share_basis_status": "unknown"},
+            {**base, "metric": "eps_yoy_percent_same_filing", "unit": "percent", "value": "77.4"},
+            {**base, "metric": "net_income_parent_yoy_percent_same_filing", "unit": "percent", "value": "70"}]
+    facts = _financial_features_v2(rows)["fundamental"]
+    assert facts["eps_trend_percent"] is None
+    assert facts["eps_yoy_percent_same_filing"] == 77.4
+    assert set(ROLE_FEATURES["fundamental"]) == {"eps_yoy_percent_same_filing", "net_income_parent_yoy_percent_same_filing"}
+
+
 def test_legacy_daily_roles_are_not_supported_by_provider_transports():
     from intelligence_mart.ai_contract import OUTPUT_MODELS, PROVIDER_ROLES
     from intelligence_mart.codex_worker import CodexCLIProvider

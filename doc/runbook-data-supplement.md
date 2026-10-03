@@ -20,6 +20,8 @@ Windows 的 .cmd wrapper 可能把 ^|^ 參數解讀成 shell 管線，因此上�
 
 原始回應先 Stage，再驗證公司、期別、單位、報表口徑並寫入 Core。財報與月營收採實際 receipt availability；歷史 publication 與原始數值版次維持 unknown。相同觀測值重跑會 reuse，數值變動新增版次。不得覆寫舊 snapshot。
 
+五分析師模型補資料使用同一入口：`backfill` 同時補官方每日 PE/PB/殖利率；只補估值可設 `JANUS_DATA_SUPPLEMENT_MODE=valuation-history`，搭配 `JANUS_DATA_SUPPLEMENT_PRICE_MONTHS=36` 與已核准 Deep Coverage 股號，不重抓完整價量／財報。daily 自動核對最新估值月份，且既有財報缺 `same-filing-comparatives-v1` 時重新解析一次；這是來源／特徵版本更新，不把 receipt 倒填成歷史 availability。模型使用同份財報 EPS／母公司獲利同比，原始跨版本 EPS 口徑未知仍保留缺值。
+
 ## 驗收與失敗處理
 
 1. 執行成功仍須讀取 Core 的財報季數、月營收月數、價格交易日數，以及完整 Core snapshot manifest；不能只看 Cloud Run 成功。

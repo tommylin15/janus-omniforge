@@ -263,7 +263,7 @@ def _financial_features_v2(rows):
     monthly = [r for r in rows if r.get("statement_type") == "monthly_revenue"]
     quarterly = [r for r in rows if r.get("metric", "").startswith("revenue_") and r.get("is_single_quarter")]
     legacy_revenue = [r for r in rows if str(r.get("metric", "")).lower() in {"revenue", "營業收入"}]
-    eps = [r for r in rows if r.get("metric", "").startswith("eps_") and r.get("is_single_quarter")]
+    eps = [r for r in rows if r.get("metric", "").startswith("eps_") and r.get("unit") == "TWD_per_share" and r.get("is_single_quarter")]
 
     def comparable(series):
         if any(r.get("source_id") == "mops" for r in series):
@@ -300,7 +300,13 @@ def _financial_features_v2(rows):
         reasons["eps_trend_percent"] = "historical_eps_share_basis_unknown"
     roe_rows = [r for r in rows if r.get("unit") == "percent" and r.get("metric") in {"roe", "權益報酬率", "權益報酬率(%)"}]
     roe_rows.sort(key=lambda r: _financial_period_time(r) or datetime.min.replace(tzinfo=timezone.utc))
-    return {"fundamental": {"revenue_trend_percent": trend(revenue),
+    growth = {}
+    for metric in ("eps_yoy_percent_same_filing", "net_income_parent_yoy_percent_same_filing"):
+        observations = [row for row in rows if row.get("metric") == metric and row.get("unit") == "percent"
+                        and row.get("financial_feature_version") == "same-filing-comparatives-v1"]
+        observations.sort(key=lambda row: (str(row.get("fiscal_period_end", "")), str(row.get("availability_at", ""))))
+        growth[metric] = _number(observations[-1]["value"]) if observations else None
+    return {"fundamental": {**growth, "revenue_trend_percent": trend(revenue),
                             "revenue_trend_basis": "monthly" if monthly else "single_quarter" if quarterly else "legacy_reported",
                             "eps_trend_percent": trend(eps) if eps_basis_known else None,
                             "monthly_revenue_history_12": history, "missing_reasons": reasons},

@@ -32,7 +32,7 @@ def assess_rows(financial, prices, symbols, target):
         if not row.get("source_document_sha256") or row.get("source_id") != "mops":
             continue
         identity = (row["symbol"], row["fiscal_year"], row["fiscal_quarter"], row["statement_type"], row["metric"], str(row.get("version_at")))
-        expected = "TWD_per_share" if row["metric"].startswith("eps_") else "TWD"
+        expected = "percent" if row["metric"].endswith("_yoy_percent_same_filing") else "TWD_per_share" if row["metric"].startswith("eps_") else "TWD"
         reason = None
         try:
             if not Decimal(str(row.get("value"))).is_finite():

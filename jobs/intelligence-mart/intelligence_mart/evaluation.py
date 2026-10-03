@@ -250,7 +250,7 @@ def build_quant_samples(datasets, symbols, as_of, snapshot, horizon_days):
     return samples, dict(exclusions)
 
 
-ROLE_FEATURES = {"fundamental": ["revenue_trend_percent", "eps_trend_percent"],
+ROLE_FEATURES = {"fundamental": ["net_income_parent_yoy_percent_same_filing", "eps_yoy_percent_same_filing"],
                  "valuation": ["pe_ratio", "pb_ratio", "dividend_yield_percent"]}
 
 

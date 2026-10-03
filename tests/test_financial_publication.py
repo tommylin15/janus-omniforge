@@ -1,4 +1,5 @@
 import unittest
+from decimal import Decimal
 from ingestion_core.financial_publication import parse_filing_index, parse_correction_index, parse_xbrl_report, normalise_xbrl_financials
 
 
@@ -24,6 +25,17 @@ class FilingPublicationTests(unittest.TestCase):
         research = normalise_xbrl_financials(html, "5876", 2026, 2, received_at="2026-10-02T01:00:00Z")
         self.assertEqual([r["metric"] for r in research], ["eps_single_quarter", "operating_cash_flow_year_to_date"])
         self.assertTrue(all(r["published_at"] is None and r["availability_at"] == "2026-10-02T01:00:00Z" for r in research))
+        comparative = html[html.index('<xbrli:context id="q2"'):html.index('<xbrli:context id="h1"')].replace('id="q2"', 'id="prior"').replace("2026", "2025")
+        comparative += '<ix:nonFraction name="ifrs-full:BasicEarningsLossPerShare" contextRef="prior" unitRef="EPS" format="ixt:numdotdecimal" scale="0">0.52</ix:nonFraction>'
+        paired = normalise_xbrl_financials(html+comparative, "5876", 2026, 2, received_at="2026-10-02T01:00:00Z")
+        growth = next(r for r in paired if r["metric"] == "eps_yoy_percent_same_filing")
+        self.assertEqual(Decimal(growth["value"]), 100)
+        self.assertEqual((growth["unit"], growth["comparison_period_end"], growth["context_id"]), ("percent", "2025-06-30", "q2|prior"))
+        self.assertEqual(growth["share_basis_status"], "same_filing_reported_comparison")
+        self.assertTrue(all(r["published_at"] is None and r["availability_at"] == "2026-10-02T01:00:00Z" for r in paired))
+        for broken in (comparative.replace('>0.52<', '>0<'), comparative.replace('2025-04-01', '2025-02-01'), comparative.replace('unitRef="EPS"', 'unitRef="TWD"')):
+            rows = normalise_xbrl_financials(html+broken, "5876", 2026, 2, received_at="2026-10-02T01:00:00Z")
+            self.assertFalse(any(r["metric"] == "eps_yoy_percent_same_filing" for r in rows))
         with self.assertRaises(ValueError):
             normalise_xbrl_financials(html, "5876", 2026, 2, received_at="2026-10-02")
         for broken in (html.replace("5876", "2801"), html.replace("scale=\"3\"", "scale=\"9\""),

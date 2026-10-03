@@ -11,7 +11,7 @@ from typing import Any
 from .facts import (analysis_cutoff, canonical_json, _change, _evidence_id, _financial_features_v2, _instant, _severity,
                        _research_rows, evidence_from_rows, validate_evidence)
 
-VERSION = "specialist-rules-v1"
+VERSION = "specialist-rules-v2"
 DEPENDENCIES = {
     "fundamental": ("financials",),
     "valuation": ("financials", "valuation", "ohlcv"),
@@ -22,6 +22,8 @@ DEPENDENCIES = {
 TITLES = {"fundamental": "基本面", "valuation": "估值", "quant": "量化",
           "risk": "風險", "event": "事件"}
 METRIC_LABELS = {"revenue_trend_percent": "可比較營收期間變化（%）", "eps_trend_percent": "可比較每股盈餘期間變化（%）",
+                 "eps_yoy_percent_same_filing": "同份財報每股盈餘年增率（%）",
+                 "net_income_parent_yoy_percent_same_filing": "同份財報歸屬母公司獲利年增率（%）",
                  "pe_ratio": "本益比", "pb_ratio": "股價淨值比", "dividend_yield_percent": "殖利率（%）",
                  "debt_to_equity": "負債／權益", "roe": "權益報酬率（%）",
                  "volatility_annualized": "年化歷史波動（比率）", "historical_cvar_95_daily": "最差 5% 日報酬平均（比率）",
@@ -196,7 +198,8 @@ def analyze_specialists(datasets, symbol, as_of, snapshot):
     prices = price_series(rows.get("ohlcv", []))
     benchmark = price_series(rows.get("benchmark", []))
     metrics = {
-        "fundamental": {k: features["fundamental"].get(k) for k in ("revenue_trend_percent", "eps_trend_percent")},
+        "fundamental": {k: features["fundamental"].get(k) for k in ("revenue_trend_percent", "eps_trend_percent",
+            "net_income_parent_yoy_percent_same_filing", "eps_yoy_percent_same_filing")},
         "valuation": {k: features["valuation"].get(k) for k in ("pe_ratio", "pb_ratio", "dividend_yield_percent", "debt_to_equity", "roe")},
         "quant": {f"return_{w}d_percent": _change(list(prices.values()), w) for w in (5, 20, 60, 120)},
         "risk": risk_metrics(prices, benchmark),

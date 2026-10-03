@@ -10,6 +10,22 @@ from ingestion_core.data_supplement import months_ending, normalise_monthly, nor
 
 
 class DataSupplementTests(unittest.TestCase):
+    def test_official_valuation_month_identity_nullable_pe_and_bad_ratios(self):
+        from ingestion_core.data_supplement import parse_valuation_month
+        document = {"stat": "OK", "title": "113年09月 台積電 個股日本益比",
+            "fields": ["日期", "殖利率(%)", "股利年度", "本益比", "股價淨值比", "財報年/季"],
+            "data": [["113年09月02日", "1.37", "112", "-", "6.48", "113/2"]]}
+        parse = lambda value: parse_valuation_month(json.dumps(value).encode(), "2330", 2024, 9, "台積電")
+        row = parse(document)[0]
+        self.assertIsNone(row["pe_ratio"])
+        self.assertEqual((row["observed_date"], row["pb_ratio"]), ("2024-09-02", "6.48"))
+        for broken in ({**document, "title": "113年09月 國巨 個股日本益比"},
+                       {**document, "data": [document["data"][0], document["data"][0]]},
+                       {**document, "data": [["113年08月02日", "1.37", "112", "20", "6.48", "113/2"]]},
+                       {**document, "data": [["113年09月02日", "NaN", "112", "20", "6.48", "113/2"]]}):
+            with self.assertRaises(ValueError):
+                parse(broken)
+
     def test_backfill_stages_original_bytes_commits_history_and_composes_snapshot(self):
         from ingestion_core.data_supplement import run_backfill
         from ingestion_core.stage import LocalObjectStore
@@ -56,6 +72,10 @@ class DataSupplementTests(unittest.TestCase):
                 html = f"上市公司{year}年{month}月份 單位：千元<tr><th>公司代號</th><th>公司名稱</th><th>當月營收</th></tr><tr>"+"".join(f"<td>{v}</td>" for v in cells)+"</tr>"
                 return html.encode("cp950"), "utf-8"
             year, month = int(query["date"][0][:4]), int(query["date"][0][4:6])
+            if "BWIBBU" in url:
+                return json.dumps({"stat": "OK", "title": f"{year-1911}年{month:02d}月 上海商銀 個股日本益比",
+                    "fields": ["日期", "殖利率(%)", "股利年度", "本益比", "股價淨值比", "財報年/季"],
+                    "data": [[f"{year-1911}年{month:02d}月01日", "2", year-1912, "20", "3", "115/2"]]}).encode(), "utf-8"
             day = f"{year-1911}/{month:02d}/01"
             if "STOCK_DAY" in url:
                 return json.dumps({"data": [[day, "1000", "1500", "1", "2", "0.5", "1.5", "0", "0"]]}).encode(), "utf-8"
@@ -90,7 +110,7 @@ class DataSupplementTests(unittest.TestCase):
             self.assertFalse(summary["coverage"]["5876"]["history_complete"])
             self.assertEqual(ready["featureVersion"], "2")
             manifest = json.loads(stores("core").read("executions/bounded-test/core-snapshot.json"))
-            self.assertEqual(set(manifest["iceberg_tables"]), {"core.financials_v1", "core.ohlcv_v1", "core.benchmark_v1"})
+            self.assertEqual(set(manifest["iceberg_tables"]), {"core.financials_v1", "core.ohlcv_v1", "core.benchmark_v1", "core.valuation_v1"})
             self.assertTrue(list((root/"stage").rglob("*.html")))
             self.assertEqual(control.put_admin_setting.call_count, 2)
 

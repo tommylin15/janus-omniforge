@@ -5,6 +5,14 @@ from ingestion_core.retention import retained_core_rows, clean_stage
 from packages.duckdb_query.iceberg import DuckDBIcebergCore
 
 
+def test_deep_valuation_history_retained_but_other_symbols_use_one_year():
+    core = SimpleNamespace(PARTITIONS={"valuation": (("observed_date", "month"),)})
+    rows = [{"symbol": symbol, "observed_date": day} for symbol in ("2330", "other")
+            for day in ("2022-01-01", "2024-01-01", "2026-01-01")]
+    retained = retained_core_rows(core, "valuation", rows, datetime(2026, 10, 3, tzinfo=timezone.utc), frozenset({"2330"}))
+    assert [(r["symbol"], r["observed_date"]) for r in retained] == [("2330", "2024-01-01"), ("2330", "2026-01-01"), ("other", "2026-01-01")]
+
+
 def test_mart_cleanup_delete_permission_is_bucket_scoped():
     import json
     from pathlib import Path

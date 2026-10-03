@@ -16,7 +16,7 @@ from packages.provenance import Provenance
 from .control import ExecutionStatus
 from .dq import validate_ohlcv
 from .financial_publication import FilingIndex, normalise_xbrl_financials, parse_filing_index
-from .first_batch import effective_trading_day, normalise_benchmark
+from .first_batch import effective_trading_day, normalise_benchmark, normalise_valuation
 from .sources import parse_twse
 from .stage import GcsObjectStore, StageWriter
 
@@ -144,7 +144,37 @@ def supplement_symbols(control):
     return tuple(sorted(set(control.config_symbols("first-batch")) | set(control.portfolio_coverage_symbols())))
 
 
-def run_backfill(*, incremental=False):
+def parse_valuation_month(raw, symbol, year, month, expected_name):
+    """Official per-stock month, with fiscal/date/field fences and nullable PE."""
+    document = json.loads(raw)
+    fields = ["日期", "殖利率(%)", "股利年度", "本益比", "股價淨值比", "財報年/季"]
+    title = re.sub(r"[\s*]", "", document.get("title", ""))
+    if document.get("stat") != "OK" or document.get("fields") != fields or not title.startswith(
+            f"{year-1911}年{month:02d}月" + re.sub(r"[\s*]", "", expected_name)):
+        raise ValueError("valuation response identity or schema mismatch")
+    values, days = [], set()
+    for cells in document.get("data", []):
+        if len(cells) != len(fields):
+            raise ValueError("valuation row width mismatch")
+        match = re.fullmatch(r"([0-9]{3})年([0-9]{2})月([0-9]{2})日", cells[0])
+        if not match or (int(match[1])+1911, int(match[2])) != (year, month):
+            raise ValueError("valuation row outside requested month")
+        day = date(year, month, int(match[3])).isoformat()
+        if day in days:
+            raise ValueError("duplicate valuation date")
+        days.add(day)
+        row = dict(zip(fields, cells)) | {"symbol": symbol, "observed_date": day}
+        value = normalise_valuation([row])[0]
+        for key in ("pe_ratio", "pb_ratio", "dividend_yield_percent"):
+            if value[key] is not None and (not Decimal(value[key]).is_finite() or Decimal(value[key]) < 0):
+                raise ValueError("invalid official valuation ratio")
+        values.append({**value, "observed_at": day+"T00:00:00Z"})
+    if not values:
+        raise ValueError("valuation month contains no observations")
+    return values
+
+
+def run_backfill(*, incremental=False, valuation_only=False):
     from .__main__ import _control_plane, _core_ready_event, _current_core_fences, _iceberg_core, TAIPEI
     today = datetime.now(TAIPEI).date()
     control = _control_plane()
@@ -154,6 +184,8 @@ def run_backfill(*, incremental=False):
     collection_finished = False
     summary = {"operation": "data_supplement_daily" if incremental else "data_supplement_backfill", "analysis_as_of": today.isoformat(),
                "core_created": 0, "core_updated": 0, "core_reused": 0, "failures": [], "symbols": [], "items": [], "skipped": 0}
+    if valuation_only:
+        summary["operation"] = "valuation_history"
     try:
         core = _iceberg_core(os.environ["CORE_BUCKET"])
         writer = StageWriter(GcsObjectStore(os.environ["STAGE_BUCKET"]))
@@ -205,7 +237,7 @@ def run_backfill(*, incremental=False):
                                         "reason": type(error).__name__})
 
         monthly_archives = {}
-        for symbol in symbols:
+        for symbol in (() if valuation_only else symbols):
             financial_batch = []
             filings = []
             known_quarters = {(r["fiscal_year"], r["fiscal_quarter"]) for r in prior if r["symbol"] == symbol and r.get("statement_type") != "monthly_revenue" and r.get("source_document_sha256")}
@@ -227,7 +259,8 @@ def run_backfill(*, incremental=False):
                 period = f"{year}Q{quarter}"
                 existing = [r for r in prior if r["symbol"] == symbol and r.get("fiscal_year") == year and
                             r.get("fiscal_quarter") == quarter and r.get("statement_type") != "monthly_revenue"]
-                if existing and any(r.get("official_filing_uploaded_at") == filing["official_uploaded_at"] for r in existing) and (symbol, "financials", period) not in repairs:
+                if existing and any(r.get("official_filing_uploaded_at") == filing["official_uploaded_at"] and
+                    r.get("financial_feature_version") == "same-filing-comparatives-v1" for r in existing) and (symbol, "financials", period) not in repairs:
                     summary["skipped"] += 1
                     continue
                 url = "https://mopsov.twse.com.tw/server-java/t164sb01?"+urlencode({"step": "1", "CO_ID": symbol, "SYEAR": year, "SSEASON": quarter, "REPORT_ID": "C"})
@@ -278,6 +311,26 @@ def run_backfill(*, incremental=False):
         target = effective_trading_day(today-timedelta(days=1), holidays=holidays)
         price_months = int(os.environ.get("JANUS_DATA_SUPPLEMENT_PRICE_MONTHS", "8"))
         market_months = [(year, month+1) for year, month in months_ending(target.year, target.month, price_months)]
+        prior_valuation = _rows(core, "valuation", symbols)
+        for symbol in symbols:
+            valuation_batch = []
+            for year, month in ([(target.year, target.month)] if incremental else market_months):
+                known = {str(row["observed_date"]) for row in prior_valuation if row["symbol"] == symbol}
+                if incremental and target.isoformat() in known:
+                    summary["skipped"] += 1
+                    continue
+                url = "https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU?"+urlencode(
+                    {"date": f"{year}{month:02d}01", "stockNo": symbol, "response": "json"})
+                try:
+                    raw, _ = _fetch(url)
+                    provenance, _ = stage(raw, url, "twse", "valuation", "json", {"symbol": symbol, "year": year, "month": month})
+                    observations = parse_valuation_month(raw, symbol, year, month, stocks[symbol][0])
+                    valuation_batch.extend({**row, "source_id": "twse", "provenance_id": provenance}
+                        for row in observations if row["observed_date"] <= target.isoformat())
+                except Exception as error:
+                    failure("valuation", symbol, f"{year}-{month:02d}", error)
+            if valuation_batch:
+                commit(valuation_batch, valuation_batch[0]["provenance_id"], "twse", "valuation", {"symbol": symbol, "period": "history"})
         missing_months, benchmark_months = {}, set(market_months)
         if incremental:
             required, day = set(), target
@@ -293,7 +346,7 @@ def run_backfill(*, incremental=False):
                     if stock == symbol and dataset == "ohlcv" and re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", period or ""))
             available = {str(r["trade_date"]) for r in _rows(core, "benchmark", ())}
             benchmark_months = {(int(day[:4]), int(day[5:7])) for day in required-available}
-        for year, month in market_months:
+        for year, month in (() if valuation_only else market_months):
             for symbol in symbols:
                 if incremental and (year, month) not in missing_months[symbol]:
                     summary["skipped"] += 1

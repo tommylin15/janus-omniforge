@@ -28,7 +28,9 @@ Linear / LightGBM / CatBoost 使用逐月擴張訓練窗，訓練標籤必須已
 
 Riskfolio-Lib 計算歷史 CVaR；statsmodels 二狀態 Markov variance challenger 需至少 252 筆 benchmark returns。逐月用此前參數 forward filter（不用事後 smoothing），以 OOS log score 比較簡單 Gaussian 波動基準；至少 30 筆 OOS returns 才標示已評估，沒有自動 promotion 或正式 regime probability 權限。
 
-Fundamental/Valuation 共用既有成熟價格標籤，但每個預測日的財報／估值特徵另經 PIT 驗證；必要特徵不足時回報 `insufficient_pit_financial_features`，不把今日接收的財報回填成當年已知。Fundamental 比較營收／可比 EPS 趨勢的 LightGBM；Valuation 比較 PE/PB/殖利率的 LightGBM／CatBoost。此 bounded baseline 不代表完整財務品質特徵或 DCF 假設已齊備。
+Fundamental/Valuation 共用既有成熟價格標籤，但每個預測日的財報／估值特徵另經 PIT 驗證；必要特徵不足時回報 `insufficient_pit_financial_features`，不把今日接收的財報回填成當年已知。Fundamental LightGBM 使用同一份官方財報的當期／去年同期基本 EPS 與歸屬母公司獲利年增率；核對公司、合併口徑、concept、期間與單位，優先單季、其次同期間累計，前期為零則缺值。公式為 `(當期−前期)/abs(前期)×100`，負前期代表相對前期絕對值的改善／惡化。`same-filing-comparatives-v1` 保留比較期間、數值、context 與原文 hash；EPS 僅標示報表內比較，不宣稱跨報表股數可比。原始 EPS 跨版本趨勢仍在股數口徑未知時回報 null。Valuation 使用官方每日 PE/PB/殖利率的 LightGBM／CatBoost。此 bounded baseline 不代表完整財務品質特徵或 DCF 假設已齊備；PPE 支出也不冒充完整自由現金流。
+
+歷史估值沿用既有 Stage/Core ingestion，從 TWSE `BWIBBU` 個股月查詢讀取，僅補 Deep Coverage、最多 36 月；驗證月份、公司名稱、欄位、每日日期與非負有限比例，虧損造成的缺 PE 保留 null。每筆保存官方日期與 Stage provenance，日常 data-supplement 核對最新月份並重用既有資料，月度 specialist-retrain 固定 Core snapshot 後驗證。成功來源與比較特徵直接納入正式模型作法，不依賴獨立驗收腳本。
 
 Quant 增加 Qlib v0.9.7 的單一 DoubleEnsemble bounded adapter，保留 MIT license 與原始來源 SHA；不引入完整 Qlib tracking／data provider。固定三個子模型、20 rounds、seed 17、single thread，保留 sample reweighting 與 feature selection，ensemble 原生 Tree SHAP 必須重建同一預測。IC decay 以同一 OOS signal 對 5/20/60/120 日成熟結果的各股時間序列 Rank IC 評估；不足 20 筆保留 null，重疊長窗口結果不當成獨立報酬樣本。
 
@@ -50,4 +52,4 @@ Cloud Run Job 固定 1 CPU / 1 GiB、單 task、單 parallelism。真實 accepta
 
 使用者後續核准補足長期模型與回測，並再次確認 500 檔仍只補輕量資料。500 檔僅補足 60/120 日篩選窗口所需的市場價格/量/金額與 benchmark，市場補歷史上限 241 個日曆日；不做 500 檔財報/事件或五模型深度分析。多年（最多 36 月）價格、財報與模型/OOS 補足僅限 active watchlist ∪ effective holdings；沿用既有 Stage/Core/Job，缺失 >10% 保留有效資料並先討論。
 
-資料容量沿用既有清理機制：已提交 Stage payload 7 天、一般 Core 行情 365 天、財報 12 季。僅 active Deep Coverage 的 OHLCV 與大盤 benchmark 延長到 1096 天，避免多年回測資料被一般清理規則移除；退出深度覆蓋後回歸一般上限。保留政策須由既有 retention Job 執行，不代表設定後立即回收；manifest 引用的歷史 snapshot 仍受保護。
+資料容量沿用既有清理機制：已提交 Stage payload 7 天、一般 Core 行情 365 天、財報 12 季。僅 active Deep Coverage 的 OHLCV、估值與大盤 benchmark 延長到 1096 天，避免多年回測資料被一般清理規則移除；退出深度覆蓋後回歸一般上限。保留政策須由既有 retention Job 執行，不代表設定後立即回收；manifest 引用的歷史 snapshot 仍受保護。

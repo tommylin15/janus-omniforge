@@ -33,7 +33,7 @@ def retained_core_rows(core: Any, dataset: str, rows: list[dict[str, Any]], now:
     cutoff = (now - timedelta(days=POLICY["core_days"])).date()
     deep_cutoff = (now - timedelta(days=POLICY["deep_price_days"])).date()
     return [row for row in rows if not row.get(field) or date.fromisoformat(str(row[field])[:10]) >= (
-        deep_cutoff if dataset == "benchmark" or dataset == "ohlcv" and row.get("symbol") in deep_symbols else cutoff)]
+        deep_cutoff if dataset == "benchmark" or dataset in {"ohlcv", "valuation"} and row.get("symbol") in deep_symbols else cutoff)]
 
 
 def clean_stage(store: Any, *, apply: bool, now: datetime,

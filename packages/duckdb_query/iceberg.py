@@ -283,7 +283,7 @@ class DuckDBIcebergCore:
         for row in sorted(incoming, key=observed):
             prior = latest.get(identity(row))
             same = prior is not None and all(row.get(field) is None or str(row.get(field)) == str(prior.get(field))
-                                            for field in ("value", "unit", "currency", "period_basis", "report_scope"))
+                                            for field in ("value", "unit", "currency", "period_basis", "report_scope", "financial_feature_version"))
             if (row.get("publication_time_authoritative") is False and same and observed(prior) <= observed(row)
                     and (prior.get("availability_at") or not row.get("availability_at"))):
                 reused += 1
