@@ -132,7 +132,7 @@ def walk_forward(samples, *, model_name, features, cost_bps, horizon_days):
 def build_quant_samples(datasets, symbols, as_of, snapshot, horizon_days):
     """Non-overlapping entry cohorts, exact market-day benchmark and strict row PIT fences."""
     from .specialists import validated_inputs, price_series
-    from .facts import _change
+    from .facts import _change, evidence_from_rows
     samples, exclusions = [], defaultdict(int)
     for symbol in sorted(set(symbols)):
         current, _, _ = validated_inputs(datasets, symbol, as_of, snapshot)
@@ -158,7 +158,9 @@ def build_quant_samples(datasets, symbols, as_of, snapshot, horizon_days):
             samples.append({"symbol": symbol, "analysis_as_of": entry, "outcome_as_of": outcome,
                             "feature_available_at": entry, "label_available_at": available,
                             "excess_return": prices[outcome] / prices[entry] - benchmark[outcome] / benchmark[entry],
-                            "source_authorization": "official" if all(r.get("source_authorization") == "official" for r in label_rows) else "approved", "provenance_id": digest(label_rows), **features})
+                            "source_authorization": "official" if all(r["source_authorization"] == "official"
+                                for r in evidence_from_rows({"labels": label_rows}, snapshot)) else "approved_fallback",
+                            "provenance_id": digest(label_rows), **features})
         if len(days) <= 60 + horizon_days:
             exclusions["insufficient_price_history"] += 1
     return samples, dict(exclusions)

@@ -101,6 +101,14 @@ def test_evaluation_rejects_label_leakage_and_tied_ranks():
     assert not result["promotion_eligible"]
 
 
+def test_core_sample_authorization_uses_validated_source_default():
+    from intelligence_mart.evaluation import build_quant_samples, walk_forward
+    rows, _ = build_quant_samples(source(), ["2330"], "2026-05-01", "core", 5)
+    assert rows and all(r["source_authorization"] == "official" for r in rows)
+    result = walk_forward(rows, model_name="linear", features=["momentum_5d"], cost_bps=30, horizon_days=5)
+    assert result["status"] == "insufficient_history"
+
+
 @pytest.mark.parametrize("model", ["linear", "lightgbm", "catboost"])
 def test_real_model_walk_forward_purges_unmatured_labels(model):
     from intelligence_mart.evaluation import walk_forward
