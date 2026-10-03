@@ -66,6 +66,8 @@ Admin operational convergence **不重做整個 Admin**。保留 `總覽 / 批�
 
 目前 500 檔缺失 ≤10% 為使用者接受範圍；超過先討論，不直接判整體失敗或自行擴張補資料。Mart 資源維持使用者指定 1 CPU／1 GiB；需要提高時先提出 evidence，不自行升級。
 
+使用者最新核准：歷史財報有資料就做 OOS，不再要求原始數值版次／當時公開時間已證明。採最新官方數值版本、優先官方公開／上傳時間，缺少時明示期末後 90 天假設；正式模型作法及結果標示見 specialist SPEC。價格標籤成熟與來源／品質／隔離檢查保留。
+
 ## 2. `WBS-5-MART-RERUN-CACHE` — 【Sol】
 
 - [ ] 建立 dirty dependency graph：依 Core/PIT input hash、feature/engine/model version 只 invalidate 受影響 symbol/specialist。

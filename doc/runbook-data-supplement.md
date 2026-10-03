@@ -68,3 +68,5 @@ Windows 的 .cmd wrapper 可能把 ^|^ 參數解讀成 shell 管線，因此上�
 
 
 月營收使用 MOPS 官方歷史彙總 HTML（一般上市 `_0` 與 `-KY` 公司 `_1`），每個市場分類、月份下載一次並共用。採 cp950 解碼，核對公司、期別與千元單位後轉為 TWD；不把取得時間當成歷史公告時間。
+
+五分析師歷史 OOS 依使用者最新核准採資料優先：不要求原始版次／公開時間已證明。Mart 的 `financial_training_history` 只投影訓練時間，Core 實際 receipt／unknown 不變；已知公開／上傳時間優先，缺少採期末後 90 天假設，evaluation 保存政策與依據筆數。正式 daily 資料及每月 retrain 直接使用這個方法。

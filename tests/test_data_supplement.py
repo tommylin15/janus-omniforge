@@ -104,6 +104,17 @@ class DataSupplementTests(unittest.TestCase):
                 self.assertEqual(daily["core_created"], 0)
                 self.assertEqual(daily["core_updated"], 0)
                 self.assertIsNone(control.complete_collection.call_args.args[1])
+                # A legacy feature version must revisit all 12-quarter years, not just the latest two.
+                from ingestion_core.data_supplement import _rows
+                actual_rows = _rows
+                def legacy_rows(core, dataset, symbols):
+                    rows = actual_rows(core, dataset, symbols)
+                    return [{k: v for k, v in row.items() if k != "financial_feature_version"} for row in rows] if dataset == "financials" else rows
+                core_factory.return_value = DuckDBIcebergCore(catalog, warehouse, engine=DuckDBEngine(temp_directory=str(root/"upgrade-duckdb")))
+                requests.clear()
+                with patch("ingestion_core.data_supplement._rows", side_effect=legacy_rows):
+                    run_backfill(incremental=True)
+                self.assertEqual({int(parse_qs(urlparse(url).query)["SYEAR"][0]) for url, _ in requests if "t164sb01" in url}, {2023, 2024, 2025, 2026})
             self.assertEqual(summary["failures"], [])
             self.assertEqual(summary["coverage"]["5876"]["revenue_months"], 12)
             self.assertEqual(summary["coverage"]["5876"]["financial_quarters"], 4)
@@ -112,7 +123,7 @@ class DataSupplementTests(unittest.TestCase):
             manifest = json.loads(stores("core").read("executions/bounded-test/core-snapshot.json"))
             self.assertEqual(set(manifest["iceberg_tables"]), {"core.financials_v1", "core.ohlcv_v1", "core.benchmark_v1", "core.valuation_v1"})
             self.assertTrue(list((root/"stage").rglob("*.html")))
-            self.assertEqual(control.put_admin_setting.call_count, 2)
+            self.assertEqual(control.put_admin_setting.call_count, 3)
 
     def test_monthly_window_and_unknown_publication_preserve_period_and_units(self):
         self.assertEqual(months_ending(2026, 2, 3), [(2025, 11), (2026, 0), (2026, 1)])

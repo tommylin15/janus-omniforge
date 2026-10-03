@@ -8,7 +8,8 @@
 - Core apply `janus-ingestion-core-72tgd` exit 0，943.879 秒：Stage 刪除 1,056 objects／6,418,872 bytes，Core live 淨減 2,213,858 bytes，9 表均 rows_removed=0；過期 6 snapshots、刪除 8 metadata JSON、3 benchmark orphan objects。receipt `gs://gen-lang-client-0593591102-dev-core/maintenance/retention/2026-10-03T145953Z-3e508dc05b5d0b75d21787832de7cc7235689387006711c8b25353a19649e4c9.json`。清理後重新讀回 77 個保留成果物 references／raw SHA，涵蓋 15 個 Core IDs。live 減量不等於所有 GCS 計費版本即時回收。
 - Migration 040 已 transaction apply；janus_control 對去識別化 deep targets 函式 EXECUTE=true，private.watchlist／private.ledger_events SELECT 均 false。最初 Core dry-run 權限失敗已修復後重跑成功，沒有在失敗時刪資料。
 - 真實長期資料 ingestion `janus-ingestion-core-4xqf7` 與 `janus-ingestion-core-xtlvl` succeeded；500 檔僅補 241 日輕量價量，深度 2327／2330／5876 補最多 36 月價格與 12 季官方財報。Core `sha256:f959708427bb823ecc4f31d7f03d52e37b4eea9276a1c922066343c10ffdbcae` 的實際資料本機研究得到 Quant 四模型 × 5／20／60／120 日各 23／20／6／2 folds；這仍是本機研究，尚未升格為新版 dev OOS acceptance。Fundamental／Valuation 嚴格 PIT 特徵不足仍 0 folds。
-- 本次補資料／特徵版本 targeted tests 65 passed，新增版本保留與模型特徵 checks 4 passed；真實 TSMC 官方月查詢解析 20 日估值，同份 2026Q2 XBRL 解析 EPS／母公司獲利同比與 PPE 支出。這些程式修改尚待 commit、CI／deployment 與真實 dev 資料回補／模型 readback，不因此標成完成。
+- 補資料／特徵版本 targeted tests 65 passed，新增版本保留與模型特徵 checks 4 passed；`70ea105` 的 canonical dev CI `37133266103` tests／deployment 全部 success。財報 daily `janus-ingestion-core-wcsw2` succeeded，新增 243 rows、failures=0，三檔均 12 季／12 月。估值 36 月回補 `janus-ingestion-core-sv589` succeeded，新增 2,053／reuse 67 rows、failures=0，Core fence `sha256:8ea8fa2fd81ba8c86690cbc8517afcf51700ffb971800d7188a45ab2a1ea7e5e`。
+- 使用者明確取消歷史財報原始版次／公開時間 prerequisite；SPEC 與 evaluator 改為資料優先回放並明示時間依據／90 日假設，價格標籤成熟與來源驗證保留。本機本次 targeted tests 35 passed；新版資料優先 evaluator 與舊期別特徵補齊修正尚待本次 commit／CI／dev OOS readback，不提前宣稱模型有效。
 
 ## 正式批次與總控修復最新證據（2026-10-02，partial）
 

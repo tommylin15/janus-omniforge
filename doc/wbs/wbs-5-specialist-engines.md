@@ -47,6 +47,8 @@ CEO 不被 upstream change 自動觸發；只標記 report freshness／material 
 - Monthly reconciliation：檢查 missed invalidation、artifact identity、model version、orphan cache。
 - 新模型先通過 walk-forward OOS／PIT／leakage guard；training success 不代表 promotion。
 
+歷史財報依 2026-10-03 使用者最新指示採資料優先驗證：原始數值版次／公開時間未證明不再阻擋 OOS。以最新官方版本及已知公開／上傳時間回放，時間缺少則採明示期末後 90 天假設；結果標示非嚴格 PIT，報酬標籤成熟／purge 保留。此特例取代歷史財報的嚴格時間 prerequisite，其他來源、品質與隔離契約保留。
+
 ## 5. Evaluation
 
 至少：Rank IC、ICIR、IC decay、top-decile future excess-return spread、hit rate、Brier／calibration、Sharpe、max drawdown、turnover、after-cost performance、regime stability。

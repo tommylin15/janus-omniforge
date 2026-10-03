@@ -14,7 +14,7 @@ Deep Coverage 使用既有去識別化資料庫函式取得 active watchlist ∪
 
 所有輸入以 Core immutable manifest / table snapshot、availability / publication / observation 時點、provenance 與 source authorization 驗證；未合格資料不進特徵。缺資料及未驗證模型明示 partial / blocked，不填假機率。
 
-使用者 2026-10-03 後續指示：歷史財報以可驗證的官方資料版本、公司／期間／口徑與來源文件 hash 為收錄優先；官方公開時間有就保留，缺少時標記 unknown，不作為歷史資料收錄的硬性阻擋。這放寬資料完整度要求，不將期間截止日或今日接收時間偽裝成歷史公開時間；嚴格 PIT OOS 仍只用當時可用性可驗證的特徵，採假設時間的研究回測須另外標示且不得當成嚴格 OOS 或 champion 驗收。
+使用者 2026-10-03 最新指示取代歷史財報的嚴格可用時間門檻：**有官方資料就進行歷史模型驗證**，不因原始數值版次／當時公開時間未證明而禁止 Fundamental OOS。模型回放每期最新取得的官方數值版本，先用 authoritative publication，其次官方申報附件上傳時間；兩者皆缺時，以財報期末後 90 天作明示估計。Core 保留實際取得時間、unknown 與原始數值，不改寫 canonical 歷史；訓練使用有版本的時間投影。成果物保存 `financial_history_policy`、時間依據筆數與 `strict_pit=false`，明示可能包含後續修正與估計時間。這是正式採用的資料優先 OOS 方法，可用於模型比較；報酬標籤成熟／purge、來源授權、股號／期別／單位檢查與私人資料隔離繼續生效。模型是否有效依實際結果，不因放寬而自動 promotion。
 
 ## 成果物
 
@@ -28,7 +28,7 @@ Linear / LightGBM / CatBoost 使用逐月擴張訓練窗，訓練標籤必須已
 
 Riskfolio-Lib 計算歷史 CVaR；statsmodels 二狀態 Markov variance challenger 需至少 252 筆 benchmark returns。逐月用此前參數 forward filter（不用事後 smoothing），以 OOS log score 比較簡單 Gaussian 波動基準；至少 30 筆 OOS returns 才標示已評估，沒有自動 promotion 或正式 regime probability 權限。
 
-Fundamental/Valuation 共用既有成熟價格標籤，但每個預測日的財報／估值特徵另經 PIT 驗證；必要特徵不足時回報 `insufficient_pit_financial_features`，不把今日接收的財報回填成當年已知。Fundamental LightGBM 使用同一份官方財報的當期／去年同期基本 EPS 與歸屬母公司獲利年增率；核對公司、合併口徑、concept、期間與單位，優先單季、其次同期間累計，前期為零則缺值。公式為 `(當期−前期)/abs(前期)×100`，負前期代表相對前期絕對值的改善／惡化。`same-filing-comparatives-v1` 保留比較期間、數值、context 與原文 hash；EPS 僅標示報表內比較，不宣稱跨報表股數可比。原始 EPS 跨版本趨勢仍在股數口徑未知時回報 null。Valuation 使用官方每日 PE/PB/殖利率的 LightGBM／CatBoost。此 bounded baseline 不代表完整財務品質特徵或 DCF 假設已齊備；PPE 支出也不冒充完整自由現金流。
+Fundamental/Valuation 共用既有成熟價格標籤。Fundamental 依上述資料優先時間投影驗證，不再因原始版次／公開時間未知而阻擋；缺必要數值才回報 `insufficient_financial_features`。Valuation 的官方每日估值沿用日期 fence；缺數值回報 `insufficient_pit_financial_features`。Fundamental LightGBM 使用同一份官方財報的當期／去年同期基本 EPS 與歸屬母公司獲利年增率；核對公司、合併口徑、concept、期間與單位，優先單季、其次同期間累計，前期為零則缺值。公式為 `(當期−前期)/abs(前期)×100`，負前期代表相對前期絕對值的改善／惡化。`same-filing-comparatives-v1` 保留比較期間、數值、context 與原文 hash；EPS 僅標示報表內比較，不宣稱跨報表股數可比。原始 EPS 跨版本趨勢仍在股數口徑未知時回報 null。Valuation 使用官方每日 PE/PB/殖利率的 LightGBM／CatBoost。此 bounded baseline 不代表完整財務品質特徵或 DCF 假設已齊備；PPE 支出也不冒充完整自由現金流。
 
 歷史估值沿用既有 Stage/Core ingestion，從 TWSE `BWIBBU` 個股月查詢讀取，僅補 Deep Coverage、最多 36 月；驗證月份、公司名稱、欄位、每日日期與非負有限比例，虧損造成的缺 PE 保留 null。每筆保存官方日期與 Stage provenance，日常 data-supplement 核對最新月份並重用既有資料，月度 specialist-retrain 固定 Core snapshot 後驗證。成功來源與比較特徵直接納入正式模型作法，不依賴獨立驗收腳本。
 
@@ -36,7 +36,7 @@ Quant 增加 Qlib v0.9.7 的單一 DoubleEnsemble bounded adapter，保留 MIT l
 
 月度 challenger／OOS 使用 `specialist-retrain` operation，由既有 batch controller 每月 1 日台北 10:30 在 ingestion／data-supplement 成功後執行，沿用 1 CPU／1 GiB Mart Job。從既有 Core bucket 選最新 immutable manifest 並固定 raw-byte hash，超過 7 天或未來日期拒絕執行；手動重跑同 operation 產生新 execution。資料不足仍回報 insufficient_history，不視為模型通過；不自動 promotion。Event 依標記資料另行驗證，尚未具備的 classifier 不因共同批次而宣稱已重訓。快取／月度 reconciliation 依 active TODO 的後續 WBS 處理。
 
-尚未完成：足以訓練 Fundamental/Valuation 的可驗證歷史 PIT 財報／估值資料、台灣繁中 Event 人工標記資料與本機 encoder、歷史 membership replay 與 champion promotion。原生 SHAP、機率校準、regime OOS、Qlib 與金融特徵 evaluator 已有實作；是否已部署、具足夠真實台股資料及有效性，仍以 operations 的 dev／readback 結果判定。這些缺口使 WBS 保持 partial。
+尚未完成：Fundamental/Valuation 的新版資料回補、資料優先 OOS 與真實 dev readback、台灣繁中 Event 人工標記資料與本機 encoder、歷史 membership replay 與 champion promotion。原生 SHAP、機率校準、regime OOS、Qlib 與金融特徵 evaluator 已有實作；是否已部署、具足夠真實台股資料及有效性，仍以 operations 的 dev／readback 結果判定。這些缺口使 WBS 保持 partial。
 
 ## 依賴與資源
 

@@ -50,6 +50,33 @@ def test_same_filing_growth_is_model_feature_but_unverified_raw_eps_stays_missin
     assert set(ROLE_FEATURES["fundamental"]) == {"eps_yoy_percent_same_filing", "net_income_parent_yoy_percent_same_filing"}
 
 
+def test_financial_history_uses_data_without_proven_original_revision_and_labels_time_assumptions():
+    from intelligence_mart.evaluation import financial_training_history, build_financial_samples
+    base = {"symbol": "2330", "source_id": "mops", "provenance_id": "filing", "fiscal_year": 2025,
+            "fiscal_quarter": 3, "fiscal_period_end": "2025-09-30", "statement_type": "income", "unit": "percent",
+            "availability_at": "2026-10-03T01:00:00Z", "observed_at": "2026-10-03T01:00:00Z",
+            "publication_time_authoritative": False, "published_at": None, "numeric_revision_verified": False,
+            "financial_feature_version": "same-filing-comparatives-v1", "official_filing_uploaded_at": "2025-11-14T15:00:00+08:00"}
+    rows = [{**base, "metric": metric, "value": "10"} for metric in
+            ("eps_yoy_percent_same_filing", "net_income_parent_yoy_percent_same_filing")]
+    original = json.dumps(rows, sort_keys=True)
+    history = financial_training_history(rows)
+    assert history[0]["availability_at"] == "2025-11-14T07:00:00+00:00"
+    assert history[0]["financial_training_time_basis"] == "official_filing_upload_current_revision"
+    assert history[0]["original_receipt_at"] == base["availability_at"]
+    data = source() | {"financials": rows}
+    samples, _ = build_financial_samples(data, ["2330"], "2026-05-01", "core", 5, "fundamental")
+    assert samples and all(sample["eps_yoy_percent_same_filing"] == 10 for sample in samples)
+    assert json.dumps(rows, sort_keys=True) == original
+    assumed = financial_training_history([{**rows[0], "official_filing_uploaded_at": None}])[0]
+    assert assumed["financial_training_time_basis"] == "period_end_plus_90_days_assumption"
+    assert assumed["availability_at"].startswith("2025-12-29")
+    accepted, _, _ = validated_inputs({"financials": [assumed]}, "2330", "2025-12-28", "core")
+    assert not accepted["financials"]
+    blocked, _, _ = validated_inputs({"financials": [{**assumed, "source_id": "unapproved"}]}, "2330", "2026-05-01", "core")
+    assert not blocked["financials"]
+
+
 def test_legacy_daily_roles_are_not_supported_by_provider_transports():
     from intelligence_mart.ai_contract import OUTPUT_MODELS, PROVIDER_ROLES
     from intelligence_mart.codex_worker import CodexCLIProvider

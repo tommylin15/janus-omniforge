@@ -240,7 +240,8 @@ def run_backfill(*, incremental=False, valuation_only=False):
         for symbol in (() if valuation_only else symbols):
             financial_batch = []
             filings = []
-            known_quarters = {(r["fiscal_year"], r["fiscal_quarter"]) for r in prior if r["symbol"] == symbol and r.get("statement_type") != "monthly_revenue" and r.get("source_document_sha256")}
+            known_quarters = {(r["fiscal_year"], r["fiscal_quarter"]) for r in prior if r["symbol"] == symbol and r.get("statement_type") != "monthly_revenue" and r.get("source_document_sha256")
+                              and r.get("financial_feature_version") == "same-filing-comparatives-v1"}
             start_year = today.year-1 if incremental and len(known_quarters) >= 12 else today.year-3
             repair_years = [int(period[:4]) for stock, dataset, period in repairs if stock == symbol and dataset == "financials" and re.fullmatch(r"[0-9]{4}Q[1-4]", period or "")]
             if repair_years:

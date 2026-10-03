@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from datetime import timedelta
 from math import ceil, sqrt
 from statistics import correlation, fmean, pstdev
 
 from .specialists import digest, number
-from .facts import _instant
+from .facts import _instant, _financial_period_time
 
 
 def ranks(values):
@@ -194,7 +195,7 @@ def walk_forward(samples, *, model_name, features, cost_bps, horizon_days):
                            for r, p, probability, values, base in zip(test, pred, probabilities, contributions, bases, strict=True))
         folds.append({"month": month, "training_samples": len(train), "calibration_samples": len(calibration),
                       "test_samples": len(test), "label_cutoff": cutoff})
-    payload = {"artifact_kind": "mart_oos_evaluation_v1", "protocol_version": "taiwan-purged-monthly-v3",
+    payload = {"artifact_kind": "mart_oos_evaluation_v1", "protocol_version": "taiwan-purged-monthly-v4",
                "model_name": model_name, "features": features, "horizon_days": horizon_days,
                "input_hash": digest(samples), "folds": folds, "predictions": predictions,
                "status": "evaluated" if folds else "insufficient_history", "promotion_eligible": False,
@@ -253,12 +254,44 @@ def build_quant_samples(datasets, symbols, as_of, snapshot, horizon_days):
 ROLE_FEATURES = {"fundamental": ["net_income_parent_yoy_percent_same_filing", "eps_yoy_percent_same_filing"],
                  "valuation": ["pe_ratio", "pb_ratio", "dividend_yield_percent"]}
 
+FINANCIAL_HISTORY_POLICY = {"version": "current-official-revision-v1", "strict_pit": False,
+    "revision_semantics": "current_collected_official_version_may_include_later_revisions",
+    "time_preference": "authoritative_publication_then_official_filing_upload_then_period_end_plus_90_days",
+    "assumed_publication_lag_days": 90, "user_authorized": "2026-10-03"}
+
+
+def financial_training_history(rows):
+    """User-approved current-version historical replay; canonical Core rows stay intact."""
+    latest = {}
+    for row in sorted(rows, key=lambda row: str(row.get("version_at") or row.get("availability_at") or row.get("observed_at") or "")):
+        key = tuple(str(row.get(name)) for name in ("symbol", "fiscal_year", "fiscal_quarter", "statement_type", "metric", "source_id"))
+        latest[key] = row
+    output = []
+    for row in latest.values():
+        available = _instant(row.get("published_at")) if row.get("publication_time_authoritative") is True else None
+        basis = "authoritative_publication"
+        if available is None:
+            available, basis = _instant(row.get("official_filing_uploaded_at")), "official_filing_upload_current_revision"
+        if available is None:
+            period = _financial_period_time(row)
+            available, basis = period + timedelta(days=90) if period else None, "period_end_plus_90_days_assumption"
+        if available is None:
+            output.append(dict(row))
+            continue
+        clock = available.isoformat()
+        output.append({**row, "published_at": None, "publication_time_authoritative": False,
+            "availability_at": clock, "observed_at": clock, "record_at": None,
+            "financial_training_time_basis": basis, "original_receipt_at": row.get("availability_at")})
+    return output
+
 
 def build_financial_samples(datasets, symbols, as_of, snapshot, horizon_days, role):
-    """Financial features must actually have been available at each forecast date."""
+    """Replay financials using the approved reported/assumed time policy; price labels stay purged."""
     from .specialists import validated_inputs
     from .facts import _financial_features_v2
     base, exclusions = build_quant_samples(datasets, symbols, as_of, snapshot, horizon_days)
+    if role == "fundamental":
+        datasets = {**datasets, "financials": financial_training_history(datasets.get("financials", []))}
     exclusions = defaultdict(int, exclusions)
     output = []
     for sample in base:
@@ -273,7 +306,7 @@ def build_financial_samples(datasets, symbols, as_of, snapshot, horizon_days, ro
             raise ValueError("unsupported financial specialist")
         features = {name: number(values.get(name)) for name in ROLE_FEATURES[role]}
         if any(value is None for value in features.values()):
-            exclusions["insufficient_pit_financial_features"] += 1
+            exclusions["insufficient_financial_features" if role == "fundamental" else "insufficient_pit_financial_features"] += 1
             continue
         output.append({**sample, **features, "provenance_id": digest([sample["provenance_id"], evidence])})
     return output, dict(exclusions)
@@ -311,6 +344,13 @@ def evaluate_core_history(datasets, symbols, as_of, snapshot):
                 evaluation.update(specialist_role=role, core_snapshot_id=snapshot, analysis_as_of=as_of,
                     exclusions=financial_exclusions, cost_semantics="research_sensitivity_30bps_not_actual_broker_cost",
                     cohort_semantics="current_deep_coverage_research_cohort_not_historical_population")
+                if role == "fundamental":
+                    history = financial_training_history(datasets.get("financials", []))
+                    bases = defaultdict(int)
+                    for row in history:
+                        if row.get("metric") in ROLE_FEATURES[role]:
+                            bases[row.get("financial_training_time_basis", "unknown")] += 1
+                    evaluation["financial_history_policy"] = {**FINANCIAL_HISTORY_POLICY, "feature_time_basis_counts": dict(bases)}
                 evaluation["output_hash"] = digest(evaluation)
                 results.append(evaluation)
     from .specialists import validated_inputs, price_series
