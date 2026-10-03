@@ -1,6 +1,6 @@
 # Janus 文件入口
 
-更新：2026-09-28
+更新：2026-10-03
 
 本頁定義 repository 內文件的角色，避免同一件事同時在 README、SPEC、WBS、TODO、runbook 與測試紀錄各自形成不同版本。
 
@@ -25,12 +25,12 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 
 - `PROJECT_RULES.md`：治理、權限、驗證與文件維護規則。
 - `status.md`：目前狀態與下一個執行序列的短入口；不是新的 source of truth。
-- `todo.md`：完整未完成工作、planned／blocked／deferred 與現行 acceptance registry。
+- `todo.md`：只保存確定要做的 active queue 與未完成 acceptance；暫不做與已接受缺口見 `parking-lot.md`。
 - `spec.md`：SPEC 索引；正式契約在 `spec/*.md`。
 - `wbs.md`：WBS 索引；工作切片在 `wbs/*.md`。
 - `ui.md`：UI 索引；頁面／元件契約在 `ui/*.md`。
 - `ui/reference/user-app-final/README.md`：Janus User App 的 active Final Visual Contract；固定 `today.png`、`watchlist.png`、`ledger.png`、`stock-detail.png` 四個 presentation target 路徑。PNG binary 未實際 commit 前，不得宣稱 final screenshot reference 已到位。
-- `spec/operations-and-testing.md`：完整 implementation／test／deployment／runtime 歷史 evidence ledger，包含歷史 checkpoint；日常定位優先看 `status.md`，需要稽核才進本檔。
+- `spec/operations-and-testing.md`：最新完整 evidence summary 與尚待整理的歷史 checkpoint；日常定位優先看 `status.md`，舊證據逐步移至 `archive/`。
 - `pilot-operational-evidence.md`：`WBS-8-DEV-PILOT-RUN` 六個 calendar months evidence window 的新增 bounded checkpoint；保存 observed failure／recovery／manual intervention 與尚未觀察到的 evidence category，不把 checkpoint 當成 WBS 完成。
 - `runbook-data-supplement.md`：每日增量、週六品質檢查、Admin 結果與排程修復程序。
 - `runbook-dev-deploy.md`：目前 dev 部署、migration、Job 與 Secret 的操作程序。
@@ -46,7 +46,7 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 2. `status.md` 只回答「現在在哪、下一步是什麼」；SPEC 保存契約；TODO 保存所有尚未完成工作；Operations／Pilot evidence ledger 保存 observed evidence。不要互相複製全文。
 3. Runbook 保存可重複執行的程序，不混入已失效的部署 checkpoint。實際 resource name／flag 若可能漂移，執行前以目前程式與 runtime 查證。
 4. 完成項目與被取代規劃移至 `archive/`，active 文件只留下必要連結。
-5. 未排程構想放在 `todo.md` 明確標示 Planned／Blocked／Deferred，或白名單 Drive 的研究／規劃文件；不得假裝已進 active queue。
+5. 未排程構想、Deferred、Production 才需要的工作及已接受缺口統一放在 `parking-lot.md`；Drive 研究資料不自動成為 active TODO。
 6. 文件 commit 只能改變文件本身。是否「完成」仍要用 implementation、tests、CI、deployment 與 live integration evidence 判定。
 7. Final Visual Contract 的圖片屬 presentation acceptance target，不是 canonical data source；sample value 不得反向污染 API／schema／Mart／Private Mart contract。
 

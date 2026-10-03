@@ -1,6 +1,6 @@
 # Janus — Parking Lot／暫不做
 
-更新：2026-10-02
+更新：2026-10-03
 
 用途：保存目前**不做**、不計入專案未完成度、也不應阻塞 foreground／completion 的構想、未來可能需求與已接受缺口。
 
@@ -32,7 +32,7 @@
 - 離榜持股 future-feed 的全面 source expansion，只為消除歷史 `partial`。
 - day-trading 等已在既定 coverage 門檻內的殘餘缺值逐筆追補。
 
-既有 WBS-3 coverage acceptance 已依使用者核准門檻完成；已接受缺口仍維持原 provenance／missing semantics，不因 `WBS-3-DATA-SUPPLEMENT-V1` 啟動就要求補到 100%。五分析師目前 contract 的必要 evidence gap、history depth、metric mapping、PIT time semantics 與 bounded official expansion 已由 [`WBS-3-DATA-SUPPLEMENT-V1`](wbs/wbs-3-data-supplement-v1.md) 依資料優先條件完成；超出該第一版的通用 Evidence Gap Resolver／無界歷史補齊仍留在本 Parking Lot。
+既有 WBS-3 coverage acceptance 已依使用者核准門檻完成；已接受缺口仍維持原 provenance／missing semantics，不因 `WBS-3-DATA-SUPPLEMENT-V1` 結案就要求補到 100%。五分析師目前 contract 的第一版資料補強與資料用途／缺值語意已由 [`WBS-3-DATA-SUPPLEMENT-V1`](wbs/wbs-3-data-supplement-v1.md) 依資料優先條件完成；超出該第一版的通用 Evidence Gap Resolver／無界歷史補齊仍留在本 Parking Lot。
 
 依使用者「有資料優先」接受的第一版限制：歷史首次公告與原始更正版次未證明、EPS 股本口徑與 ROE 平均權益不足、同業基準缺值、事件 severity 未映射及部分 20／60 日籌碼窗口不足。保留 unknown／missing reason，不造數值；未來若要擴充，須另行授權。排程長期自然運作觀察納入 Pilot；不新增工程 TODO。
 
@@ -82,7 +82,7 @@
 - weights／40-60 thresholds walk-forward。
 - 正式 governance revision proposal，只因 roadmap 項目存在而提前產出。
 
-`WBS-3-DATA-SUPPLEMENT-V1` 為了修正目前五角色 correctness 所必要的 PIT time semantics 不受本節限制；本節只指額外 calibration／productization 擴張。
+`WBS-3-DATA-SUPPLEMENT-V1` 已完成目前研究所需的資料用途／時間語意邊界；未證明的歷史首次可得性仍為已接受限制。額外歷史 PIT 重建、calibration／productization 擴張目前不做，不因舊 minimum floor 自動重開。
 
 ## 7. 完整 device／A11y／release matrix
 
@@ -113,7 +113,7 @@
 
 ## 9. Research Context Pilot Evolution roadmap
 
-以下 roadmap 仍不作 active TODO；其中原 `WBS-3-DATASET-COVERAGE-INVENTORY`／`WBS-3-RESEARCH-DATASET-GAPS` 的必要部分已被新的 active `WBS-3-DATA-SUPPLEMENT-V1` 取代，不再同時留在 Parking Lot：
+以下 roadmap 仍不作 active TODO；其中原 `WBS-3-DATASET-COVERAGE-INVENTORY`／`WBS-3-RESEARCH-DATASET-GAPS` 的必要部分已被已結案的 `WBS-3-DATA-SUPPLEMENT-V1` 涵蓋，不再同時留在 Parking Lot：
 
 1. `WBS-6-RESEARCH-CONTEXT-CONTRACT`
 2. `WBS-4J-PRIVATE-RESEARCH-STATE-CONTRACT`

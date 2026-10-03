@@ -109,8 +109,8 @@ quality_details: object
 
 - `observed_at`、`published_at`、`fetched_at`、`effective_date` 不可互相替代。
 - 財報、事件、新聞遵守 `published_at <= analysis_as_of`。
-- `WBS-3-DATA-SUPPLEMENT-V1` 依使用者 2026-10-02「資料優先」決策，允許已核對的月營收／財報歷史數值供目前研究。權威發布時間或原始數值版次未證明時保留 unknown；真正收到的版本以 receipt availability、原始 hash、公司／期別／單位／口徑留痕。該 receipt 只證明 Janus 自此時持有此版本，不能證明歷史市場首次可得性，不能倒填取得前的 PIT 回測。這是資料用途契約，不代表現行 adapter／read path 已完成接線。
-- 財報版本 identity 使用 `version_at`，與可為 null 的 `published_at` 分開；未知發布時間時必須保留可證明且有時區的 `availability_at`。同一來源、公司、期別、statement、metric 的數值／單位／口徑未變可重用；更正值以新版本保存。同版次出現不同數值不得覆寫。舊表新增欄位與新資料寫入須保留既有快照；本次實作尚待 dev deployment／live 驗收。
+- `WBS-3-DATA-SUPPLEMENT-V1` 依使用者 2026-10-02「資料優先」決策，允許已核對的月營收／財報歷史數值供目前研究。權威發布時間或原始數值版次未證明時保留 unknown；真正收到的版本以 receipt availability、原始 hash、公司／期別／單位／口徑留痕。該 receipt 只證明 Janus 自此時持有此版本，不能證明歷史市場首次可得性，不能倒填取得前的 PIT 回測。這是資料用途契約；第一版官方資料接線與真實 dev 驗收已於 2026-10-03 完成，見 [結案證據](../archive/wbs-3-data-supplement-v1-completed-2026-10-03.md)。已接受的歷史 PIT／版次限制仍保留。
+- 財報版本 identity 使用 `version_at`，與可為 null 的 `published_at` 分開；未知發布時間時必須保留可證明且有時區的 `availability_at`。同一來源、公司、期別、statement、metric 的數值／單位／口徑未變可重用；更正值以新版本保存。同版次出現不同數值不得覆寫。舊表新增欄位與新資料寫入須保留既有快照；此第一版實作已完成 dev deployment／live 驗收；證據見上述結案文件。
 - 市場觀測以 observed_at 判斷時序；沒有獨立 published_at 不等同業務缺值。
 - raw payload、object URI、secret、完整 upstream error 不得出現在一般 API/UI。
 - 相同 source + dataset + observed time + hash 重用 provenance；內容或時間改變才新增版本。

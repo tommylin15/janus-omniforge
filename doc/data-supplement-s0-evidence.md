@@ -2,7 +2,7 @@
 
 歷史 checkpoint：2026-10-02。本文保留當時 S0 查核與決策；目前完成判定見 [2026-10-03 結案證據](archive/wbs-3-data-supplement-v1-completed-2026-10-03.md)。
 
-使用者已指定優先執行 `WBS-3-DATA-SUPPLEMENT-V1`，Provider WBS 保持 partial。
+以下「尚未接線／部署／驗收」等敘述均為 2026-10-02 當時狀態，已由結案證據取代；不得作為目前 blocker 或 active 指令。當時使用者指定優先執行補資料，Provider WBS 保持 partial。
 
 ## Pinned baseline
 

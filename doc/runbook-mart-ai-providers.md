@@ -141,3 +141,9 @@ Core／scope lineage，並再次執行同 execution 的 stage，證明 immutable
 - Deploy success ≠ same-execution target／provider／validator success。
 - OpenRouter `free_only` 與 Gemini Free Tier gate 未完成前，兩者不得在 effective route 中執行。
 - `WBS-5-MART-AI-PROVIDERS` 只有在 TODO 定義的整體 acceptance 全部具備 evidence 後才能標 completed。
+
+## 2026-10-03 有界驗收授權
+
+前次十次 Codex 額度已用完；本次使用者另核准最多 20 次 gpt-6.1-sol＋low，每角色最多一次，不使用付費 API fallback，不啟用自然每日 AI。驗收入口新增明確的 --max-symbols（1～4，預設 1），須與 execution-only MART_AI_MAX_SYMBOLS_PER_EXECUTION 相符；task/provider retry 都維持 0／1 次。
+
+使用者另授權 operator 從既有 bundle 讀取各 provider key，僅送往其官方 API，OpenRouter 限價為零、Gemini 先 discovery／key 所屬 project billing 查核。可重跑入口為 ops/mart-provider-free-probe.py；只輸出 bounded metadata，不輸出 key 或 raw error。免費資格證據仍須與實際 role／fallback 整合分開。

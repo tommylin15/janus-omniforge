@@ -27,10 +27,6 @@ _FALLBACK_REASONS = frozenset({
     "timeout",
     "transport_error",
     "codex_cli_unavailable",
-    "unsupported_model",
-    "unsupported_parameter",
-    "unsupported_cli_version",
-    "unsupported_cli_capability",
     "free_route_unavailable",
     "free_tier_not_confirmed",
 })
@@ -382,7 +378,7 @@ class GeminiRoleProvider:
                 role=role, provider=self.provider_id, transport=self.transport, model=self.model, attempt=number,
                 duration_ms=round((time.monotonic() - started) * 1000),
                 status="succeeded" if parsed is not None else "failed", reason=reason, usage=usage,
-                actual_cost_usd=0.0 if parsed is not None else None, billing_mode="free_tier_only",
+                actual_cost_usd=None, billing_mode="free_tier_only",
             ))
             if parsed is not None:
                 return ProviderResult("succeeded", parsed, tuple(attempts), None)
@@ -467,6 +463,10 @@ class ProviderRouter:
                     reason=last_reason, usage=None, actual_cost_usd=None,
                     billing_mode=str(preflight.get("billing_mode", "unknown")),
                 ))
+                if last_reason not in _FALLBACK_REASONS and last_reason not in {
+                    "free_route_not_confirmed", "paid_gate_not_authorized", "paid_model_not_allowed",
+                }:
+                    break
                 continue
             result = provider.invoke(role, role_input)
             attempts.extend(result.attempts)

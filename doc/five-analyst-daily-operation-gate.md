@@ -1,6 +1,6 @@
 # Janus — 五位分析師每日運作 Gate
 
-更新：2026-09-30
+更新：2026-10-03
 
 ## 目的
 
@@ -30,7 +30,7 @@ Mart advanced capability 不應先於目前 Product Completeness foreground。Ga
 6. `WBS-6-ADMIN-OVERVIEW-BATCH`
 7. `WBS-6-ADMIN-STOCK-WORKBENCH`
 
-**目前狀態：Gate 1 已於 2026-09-29 完成。** 七項均已有 implementation、tests、deployment／runtime 或各自 acceptance evidence；最後一項 `WBS-6-ADMIN-STOCK-WORKBENCH` 的完成紀錄見 `archive/wbs-6-admin-stock-workbench-completed-2026-09-29.md`。這個判定不包含 `WBS-6-PORTFOLIO-INTRADAY-QUOTE`；該項仍因正式行情來源授權 blocked，但不是 Gate 1 的七項之一，因此不阻擋後續安全且獨立的 Gate 2 工作。
+**目前狀態：Gate 1 已於 2026-09-29 完成。** 七項均已有 implementation、tests、deployment／runtime 或各自 acceptance evidence；最後一項 `WBS-6-ADMIN-STOCK-WORKBENCH` 的完成紀錄見 `archive/wbs-6-admin-stock-workbench-completed-2026-09-29.md`。這個判定不包含 `WBS-6-PORTFOLIO-INTRADAY-QUOTE`；既有 MIS 範圍已於 2026-10-01 完成驗收，見 [結案證據](archive/wbs-6-portfolio-intraday-quote-2026-10-01.md)。新增多來源 Quote Router 仍在 TODO，不反向改寫 Gate 1 的完成範圍。
 
 這個 gate 的目的不是要求所有未來功能先完成，而是先讓真實持股、市場 baseline、全市場基礎 coverage 與 operator 可觀測性達到足以支撐每日研究的狀態。
 
@@ -62,7 +62,7 @@ Mart advanced capability 不應先於目前 Product Completeness foreground。Ga
 **目前狀態：Gate 3 已於 2026-09-30 完成。** 五角色／CIO contract、versioned methodology、
 locked guardrail、schema／prompt／lineage fixtures、dev deployment 與 pinned 真實 snapshot
 的 create-only artifact／structured failure acceptance 均通過；詳見 [結案紀錄](archive/wbs-5-mart-ai-role-contract-2026-09-30.md)。
-Gate 4 完成狀態見下；Gate 5／6 仍未完成，沒有啟用 AI provider 或自然每日角色 workload。
+Gate 4 完成狀態見下；Gate 5 已有 bounded GCP Codex 五角色真實 execution，但整體仍 partial；Gate 6 自然每日角色 workload 尚未完成驗收。
 
 ## Gate 4 — 每位分析師輸出可被治理驗證
 
@@ -84,7 +84,15 @@ fixtures 與獨立 30-object GCS hash／lineage readback 全數通過。
 已驗證 insufficient_data 不算完整研究成功，validator 沒有 publication authority；這不是
 五個 AI worker execution。詳見 [結案紀錄](archive/wbs-5-mart-ai-validation-2026-09-30.md)。
 
+## 補資料前置 — 已滿足
+
+`WBS-3-DATA-SUPPLEMENT-V1` 已於 2026-10-03 完成五檔 12 季／12 月／至少 121 日行情、固定 Core 快照、30 份 Fact Packs、每日增量與週六品質檢查、Admin 及文件驗收。目前版本資料足以接續 Gate 5／6；原 checkpoint 缺口、歷史 PIT／版次及已接受 feature 限制不得再作整體資料前置 blocker。
+
+舊 snapshot／artifact 保持 immutable；補資料後的新五角色結果仍須真實 execution 證明。個別輸出仍依 validator／missing-data／publication 契約判定，不因資料前置完成就自動變成完整研究。
+
 ## Gate 5 — GCP 自主 Codex CLI 批次／受控 fallback 可可靠執行
+
+目前狀態：partial，2026-10-03 已依使用者決策恢復執行。兩批 bounded Codex execution 已有證據；auth lifecycle、全 target／情境、持續額度及 OpenRouter／Gemini 免費 gate 仍待完成。資料前置已滿足。
 
 完成 `WBS-5-MART-AI-PROVIDERS`：
 

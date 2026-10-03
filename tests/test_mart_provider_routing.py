@@ -105,7 +105,9 @@ def test_router_falls_back_on_transport_failure_only():
 
 
 @pytest.mark.parametrize("reason", ["invalid_structured_output", "free_cost_unverified", "paid_cost_detected",
-                                     "model_identity_unverified", "auth_persistence_failed"])
+                                     "model_identity_unverified", "auth_persistence_failed", "unsupported_model",
+                                     "unsupported_parameter", "unsupported_cli_version", "unsupported_cli_capability",
+                                     "grounding_failed", "pit_failed", "missing_data"])
 def test_router_does_not_bypass_invalid_structured_output(reason):
     providers = _providers(
         ProviderResult("failed", None, (), reason),
@@ -118,6 +120,30 @@ def test_router_does_not_bypass_invalid_structured_output(reason):
     assert result.reason == reason
     assert providers["openrouter"].calls == 0
     assert providers["gemini"].calls == 0
+
+
+@pytest.mark.parametrize("before_snapshot", [False, True])
+def test_router_stops_on_nonfallback_preflight_failure(before_snapshot):
+    providers = _providers(ProviderResult("succeeded", _output(), (), None),
+                          ProviderResult("succeeded", _output(), (), None),
+                          ProviderResult("succeeded", _output(), (), None))
+    if before_snapshot:
+        providers["codex_cli"].preflight = lambda: {"status": "blocked", "reason": "unsupported_cli_version"}
+    router = ProviderRouter(providers, route_snapshot({}))
+    providers["codex_cli"].preflight = lambda: {"status": "blocked", "reason": "unsupported_cli_version"}
+    result = router.invoke("fundamental", {})
+    assert result.reason == "unsupported_cli_version"
+    assert all(provider.calls == 0 for provider in providers.values())
+
+
+def test_gemini_free_entitlement_does_not_fabricate_observed_cost(monkeypatch):
+    monkeypatch.setenv("MART_GEMINI_FREE_TIER_CONFIRMED", "true")
+    response = {"candidates": [{"content": {"parts": [{"text": json.dumps(_output())}]}}]}
+    provider = GeminiRoleProvider(api_key="present", opener=lambda *a, **kw: BytesIO(json.dumps(response).encode()))
+    result = provider.invoke("fundamental", {})
+    assert result.status == "succeeded"
+    assert result.attempts[0]["actual_cost_usd"] is None
+    assert result.attempts[0]["cost_observability"] == "unknown"
 
 
 def test_openrouter_is_hard_limited_to_free_routes(monkeypatch):

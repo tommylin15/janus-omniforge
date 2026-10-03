@@ -1,4 +1,4 @@
-"""Bounded dev target/Core/provider acceptance; consumes up to five authorized calls."""
+"""Bounded dev target/Core/provider acceptance; one attempt per role and at most 20 calls."""
 
 import argparse
 from hashlib import sha256
@@ -37,19 +37,21 @@ def main():
     parser.add_argument("--input-uri", required=True, help="Existing immutable Mart input.json")
     parser.add_argument("--input-hash", required=True, help="Expected SHA-256 of the immutable input")
     parser.add_argument("--execution-id", required=True, type=UUID, help="New acceptance execution UUID")
+    parser.add_argument("--max-symbols", type=int, choices=range(1, 5), default=1,
+                        help="Explicit authorized bound; default one symbol (five calls)")
     args = parser.parse_args()
     bucket = os.environ["MART_BUCKET"]
     if os.environ.get("ENVIRONMENT") != "dev" or "-dev-" not in bucket:
         raise ValueError("acceptance requires the existing dev Mart bucket")
     if (os.environ.get("MART_AI_ENABLED") != "true" or
             os.environ.get("MART_CODEX_AUTH_SECRET") != "janus-mart-codex-auth" or
-            os.environ.get("MART_AI_MAX_SYMBOLS_PER_EXECUTION") != "1" or
+            os.environ.get("MART_AI_MAX_SYMBOLS_PER_EXECUTION") != str(args.max_symbols) or
             os.environ.get("MART_CODEX_MAX_ATTEMPTS") != "1" or
             os.environ.get("MART_OPENROUTER_FREE_ROUTE_CONFIRMED", "false") != "false" or
             os.environ.get("MART_GEMINI_FREE_TIER_CONFIRMED", "false") != "false" or
             os.environ.get("MART_CODEX_MODEL", "gpt-6.1-sol") != "gpt-6.1-sol" or
             os.environ.get("MART_CODEX_REASONING_EFFORT", "low") != "low"):
-        raise ValueError("acceptance requires explicit AI enablement, one symbol and one attempt per role")
+        raise ValueError("acceptance requires explicit AI enablement, matching symbol bound and one attempt per role")
     uri = urlparse(args.input_uri)
     if uri.scheme != "gs" or uri.netloc != bucket:
         raise ValueError("input must remain in the existing dev Mart bucket")
@@ -84,6 +86,7 @@ def main():
     assert stage["execution_id"] == execution.execution_id and stage["analysis_as_of"] == source["analysis_as_of"]
     assert stage["core_snapshot_id"] == execution.core_snapshot_id
     calls = 0
+    role_results = []
     for item in stage["results"]:
         assert item["symbol"] in target.admitted_symbols
         for reference in item["attempts"]:
@@ -101,10 +104,15 @@ def main():
                 assert lineage["execution_id"] == execution.execution_id
                 assert lineage["core_snapshot_id"] == execution.core_snapshot_id
                 assert lineage["scope_id"] == item["symbol"]
-    assert calls <= 5
+                if artifact.get("artifact_kind") == "mart_ai_validation_v1":
+                    role_results.append({"symbol": item["symbol"], "role": artifact["role"],
+                                         "status": artifact["status"], "errors": artifact.get("errors", [])})
+    assert calls <= 5 * args.max_symbols
     assert store.read(uri.path.lstrip("/")) == payload
     assert run_ai_provider_stage(execution, object()) == result  # Replay cannot spend another call.
     print(json.dumps({"acceptance": stage["status"], **result, "provider_calls": calls,
+                      "roles": role_results, "target_count": len(target.symbols),
+                      "admitted_symbols": target.admitted_symbols, "deferred_symbols": target.deferred_symbols,
                       "publication_writes": 0, "auth_lifecycle": stage.get("auth_lifecycle"),
                       "auth_lifecycle_verified": False}, sort_keys=True))
 

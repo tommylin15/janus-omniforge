@@ -36,16 +36,19 @@
 
 # 執行順序
 
-## 1. `WBS-5-MART-AI-PROVIDERS` — 【Sol】— **partial；依使用者決策暫停前景執行**
+## 1. `WBS-5-MART-AI-PROVIDERS` — 【Sol】— **partial；2026-10-03 已恢復執行**
 
 - [ ] GCP Mart 自主啟動五個獨立 Codex CLI workers；完成 headless dispatch、cold-start auth／續期、role workspace 隔離、capability／參數、timeout／process-tree cancel／退出碼／bounded retry。
 - [ ] Provider route 預設 **Codex CLI → OpenRouter → Gemini**；只有 approved／authorized 且符合 free-or-explicitly-approved-paid gate 的 profile 進 effective route。每個 execution 固定 route version/hash/profile snapshot，保存 attempt／fallback reason／transport／model／parameters／latency／可觀察 usage/cost。
 - [ ] Fallback 只限 timeout／transport／rate-limit／provider unavailable／auth-capacity unavailable 等核准 failure class；schema／validator／grounding／PIT／missing-data failure 不得藉由換 provider 繞過。
 - [ ] 完成 watch-only／held-only／重疊去重、多使用者、持股離榜、取消關注／清倉、as-of replay、quota／missing-data honesty 與 private isolation 的 same-execution acceptance。
 - [ ] 完成 GCP dev 真實五角色 execution、validator、artifact readback、auth lifecycle、structured failure 與 zero-secret-leakage acceptance；本機 router code、credential probe、CI 或 deploy 單獨不構成 completion。
+- 2026-10-03 使用者已確認 Sol 並恢復執行，追加最多 20 次 gpt-6.1-sol＋low 有界驗收（每角色一次、無付費 API fallback、不啟用自然每日批次）；另明確授權 OpenRouter $0 請求與 Gemini discovery／key project billing 查核。
+- 免費資格更新：OpenRouter 限價 structured probe HTTP 200、actual cost $0；Gemini key project lookup／billing HTTP 200、billingEnabled=false。免費資格已證實，尚不等於五角色 fallback 整合完成。
+- 資料前置：`WBS-3-DATA-SUPPLEMENT-V1` 已於 2026-10-03 完成，目前版本資料足以接續 Provider 驗收；已接受的未知欄位不再作開工 blocker。舊 checkpoint 不代表補資料後的角色結果，後續真實 execution 仍須驗證接線與輸出。
 - 2026-10-01 evidence：GCP `gpt-6.1-sol`＋`low` 五次真實 CLI 輸出、17-object readback 與九類 DB 投影驗收通過；validator 3 validated／insufficient_data、2 blocked。
 - 2026-10-02 credential evidence：Fugle quote HTTP 200；Gemini models HTTP 200；OpenRouter key HTTP 200 但 `is_free_tier=false`。OpenRouter 尚需 `$0`/free-only actual model request；Gemini 尚需 Free Tier／billing confirmation。Fugle credential 可用，但行情 source approval／runtime 接線在後續 Quote Router 工作完成。
-- 2026-10-02 bounded runtime checkpoint：第二個 GCP cold-start execution 五角色均 `validated/insufficient_data`，19-object readback／單股 same-execution Core／target lineage 通過；effective route 僅 Codex。兩批共用完十次核准 invocation，auth version 1→1、rotation 未觀察。OpenRouter 免費請求與 Gemini billing probe 被自動審核擋下，兩者維持 blocked；WBS 仍 partial。逐角色缺資料與未完成 gate 見 [checkpoint](archive/wbs-5-mart-ai-providers-checkpoint-2026-10-02.md)。
+- 2026-10-02 bounded runtime checkpoint：第二個 GCP cold-start execution 五角色均 `validated/insufficient_data`，19-object readback／單股 same-execution Core／target lineage 通過；effective route 僅 Codex。兩批共用完十次核准 invocation，auth version 1→1、rotation 未觀察。OpenRouter 免費請求與 Gemini billing probe 被自動審核擋下，兩者維持 blocked；WBS 仍 partial。補資料前的逐角色缺資料與當時未完成 gate 見 [歷史 checkpoint](archive/wbs-5-mart-ai-providers-checkpoint-2026-10-02.md)。
 
 ## 2. `WBS-5-MART-CIO-SYNTHESIS` — 【Sol】
 

@@ -1,5 +1,7 @@
 # 2026-10-02 Admin／User／Routing／Provider 決策總結
 
+2026-10-03 整理註記：本文保留 2026-10-02 的產品決策；第 7、16 節 runtime／completion 敘述為當時 checkpoint，不取代最新 `status.md`／`todo.md`。補資料第一版已結案，五分析師目前版本資料前置已滿足；Provider 已有 bounded dev execution，整體 auth／免費資格／額度／target 情境及每日自然鏈路驗收仍未完成。本文第 15 節是 backlog 內部依賴建議，正式跨工作組順序只以 `todo.md` 為準。
+
 本文件整理 2026-10-02 對話到目前為止已確認的產品、資料、治理與工程決策。它是 active decision／planning note，不是 implementation completion 證據；目前實作與完成狀態仍以 GitHub `main`、tests／CI、deployment、live runtime 與 integration evidence 為準。
 
 ## 1. 執行順序與 TODO 約束
