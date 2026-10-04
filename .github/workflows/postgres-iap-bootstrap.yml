@@ -25,30 +25,19 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Apply specific-VM IAP binding through Cloud Build identity
+      - name: Grant temporary IAP tunnel access to Cloud Build identity
         shell: bash
         run: |
           set -Eeuo pipefail
-          build_id="$(gcloud builds submit --no-source \
-            --project="${GCP_PROJECT_ID}" \
-            --config=scripts/gcp/cloudbuild-postgres-iap-bootstrap.yaml \
-            --async --format='value(id)')"
-          test -n "${build_id}"
-          for _ in $(seq 1 60); do
-            status="$(gcloud builds describe "${build_id}" \
-              --project="${GCP_PROJECT_ID}" --format='value(status)')"
-            case "${status}" in
-              SUCCESS)
-                echo "Bounded PostgreSQL IAP bootstrap succeeded: ${build_id}"
-                exit 0
-                ;;
-              FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED)
-                gcloud builds describe "${build_id}" --project="${GCP_PROJECT_ID}" \
-                  --format='yaml(id,status,statusDetail,failureInfo,steps.id,steps.status)' || true
-                exit 1
-                ;;
-            esac
-            sleep 5
-          done
-          echo "Timed out waiting for bounded PostgreSQL IAP bootstrap: ${build_id}" >&2
-          exit 1
+          project_number="$(gcloud projects describe "${GCP_PROJECT_ID}" --format='value(projectNumber)')"
+          principal="serviceAccount:${project_number}-compute@developer.gserviceaccount.com"
+          gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
+            --member="${principal}" \
+            --role='roles/iap.tunnelResourceAccessor' \
+            --condition=None \
+            --quiet
+          gcloud projects get-iam-policy "${GCP_PROJECT_ID}" \
+            --flatten='bindings[].members' \
+            --filter="bindings.role:roles/iap.tunnelResourceAccessor AND bindings.members:${principal}" \
+            --format='value(bindings.role,bindings.members)' | grep -q 'roles/iap.tunnelResourceAccessor'
+          echo "Temporary Cloud Build IAP tunnel access granted for the dev migration."
