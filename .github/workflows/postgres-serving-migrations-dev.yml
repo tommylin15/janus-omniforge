@@ -70,6 +70,15 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
+      - name: Verify PostgreSQL IAP path from CI identity
+        run: |
+          set -euo pipefail
+          gcloud compute ssh "${POSTGRES_VM}" \
+            --project="${GCP_PROJECT_ID}" \
+            --zone="${POSTGRES_ZONE}" \
+            --tunnel-through-iap \
+            --quiet \
+            --command='true'
       - name: Build immutable PostgreSQL image
         run: |
           set -euo pipefail
