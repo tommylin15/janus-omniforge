@@ -1,4 +1,4 @@
-name: Bootstrap bounded PostgreSQL IAP access
+name: Verify bounded PostgreSQL control-path access
 
 on:
   workflow_dispatch:
@@ -13,9 +13,10 @@ permissions:
 
 env:
   GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_ZONE: us-central1-a
 
 jobs:
-  bootstrap:
+  verify:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
@@ -25,28 +26,45 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Restore bounded IAP tunnel access for Cloud Build identity
+      - name: Verify existing direct access without IAM mutation
         shell: bash
         run: |
           set -Eeuo pipefail
-          project_number="$(gcloud projects describe "${GCP_PROJECT_ID}" --format='value(projectNumber)')"
-          principal="serviceAccount:${project_number}-compute@developer.gserviceaccount.com"
-          has_binding() {
-            gcloud projects get-iam-policy "${GCP_PROJECT_ID}" \
-              --flatten='bindings[].members' \
-              --filter="bindings.role:roles/iap.tunnelResourceAccessor AND bindings.members:${principal}" \
-              --format='value(bindings.members)' | grep -Fxq "${principal}"
-          }
+          work="$(mktemp -d)"
+          trap 'rm -rf "${work}"' EXIT
 
-          if has_binding; then
-            echo 'Bounded Cloud Build IAP tunnel access is already present.'
-          else
-            gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
-              --member="${principal}" \
-              --role='roles/iap.tunnelResourceAccessor' \
-              --condition=None \
-              --quiet >/dev/null
+          iap_ok=false
+          set +e
+          timeout 8 gcloud compute start-iap-tunnel janus-postgres-dev 22 \
+            --project="${GCP_PROJECT_ID}" \
+            --zone="${GCP_ZONE}" \
+            --local-host-port=localhost:22022 \
+            --quiet >/dev/null 2>&1
+          iap_rc=$?
+          set -e
+          if [[ "${iap_rc}" -eq 124 ]]; then
+            iap_ok=true
           fi
 
-          has_binding
-          echo 'Bounded Cloud Build IAP tunnel access is present for the dev PostgreSQL control path.'
+          secret_ok=false
+          if gcloud secrets versions access latest \
+              --secret=janus-runtime-bundle \
+              --project="${GCP_PROJECT_ID}" >"${work}/runtime-bundle.json" 2>/dev/null; then
+            if python3 - "${work}/runtime-bundle.json" <<'PY'
+          import json
+          from pathlib import Path
+          import sys
+
+          value = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+          password = value.get('publication_password') if isinstance(value, dict) else None
+          if not isinstance(password, str) or len(password) < 40:
+              raise SystemExit(1)
+          PY
+            then
+              secret_ok=true
+            fi
+          fi
+
+          echo "janus_ci_direct_iap=${iap_ok}"
+          echo "janus_ci_runtime_secret_access=${secret_ok}"
+          [[ "${iap_ok}" == true && "${secret_ok}" == true ]]
