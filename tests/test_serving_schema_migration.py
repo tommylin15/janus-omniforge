@@ -154,6 +154,8 @@ def test_stock_serving_splits_control_and_publication_owners(monkeypatch):
     assert "GRANT SELECT ON control.stock_serving_recent TO janus_publication" in control_sql
     assert "CREATE OR REPLACE VIEW publication.stock_serving_recent" in publication_sql
     assert "GRANT SELECT ON publication.stock_serving_recent, publication.stock_latest TO janus_public_api" in publication_sql
+    assert "has_table_privilege('janus_public_api','publication.stock_serving_recent','SELECT')" in publication_sql
+    assert "has_table_privilege('janus_public_api','publication.stock_serving_recent','SELECT')" not in control_sql
     assert "042_stock_serving_projection" in control_sql
     assert publication.closed is True
 
