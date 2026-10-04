@@ -37,6 +37,7 @@ def test_publication_owner_rotation_is_bounded_and_forward_repairable():
     assert "SET log_min_duration_statement = -1" in script
     assert "PGPASSFILE" in script
     assert "localhost:5432:janus_control:janus_publication" in script
+    assert "chown postgres:postgres" in script
     assert "-h 127.0.0.1" not in script
     assert "has_schema_privilege(current_user,'publication','CREATE')" in script
     assert "set -x" not in script
