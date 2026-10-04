@@ -83,6 +83,8 @@ jobs:
             case "${status}" in
               SUCCESS) break ;;
               FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED)
+                gcloud builds describe "${build_id}" --project="${GCP_PROJECT_ID}" \
+                  --format='yaml(id,status,statusDetail,failureInfo,steps.id,steps.status,steps.timing)' || true
                 echo "PostgreSQL image build ${build_id} failed with ${status}" >&2
                 exit 1
                 ;;
@@ -110,6 +112,8 @@ jobs:
             case "${status}" in
               SUCCESS) break ;;
               FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED)
+                gcloud builds describe "${build_id}" --project="${GCP_PROJECT_ID}" \
+                  --format='yaml(id,status,statusDetail,failureInfo,steps.id,steps.status,steps.timing)' || true
                 echo "PostgreSQL migration build ${build_id} failed with ${status}" >&2
                 exit 1
                 ;;
