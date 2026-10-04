@@ -110,6 +110,37 @@ def test_position_projection_revokes_temporary_create_when_private_phase_fails(m
     assert "041_operational_position_projection" not in control_sql
 
 
+def test_publication_connection_uses_publication_owner_credential(monkeypatch):
+    import psycopg
+    from packages import postgres_bundle
+
+    captured: dict[str, object] = {}
+    marker = object()
+
+    def load_bundle(env_name, fields):
+        captured["env_name"] = env_name
+        captured["fields"] = fields
+        monkeypatch.setenv("SERVING_PUBLICATION_PASSWORD", "owner-password")
+
+    def connect(**kwargs):
+        captured["connect"] = kwargs
+        return marker
+
+    monkeypatch.setattr(postgres_bundle, "load_postgres_bundle", load_bundle)
+    monkeypatch.setattr(psycopg, "connect", connect)
+    monkeypatch.setenv("CONTROL_DB_HOST", "10.0.0.2")
+    monkeypatch.setenv("CONTROL_DB_NAME", "janus_control")
+    monkeypatch.delenv("SERVING_PUBLICATION_PASSWORD", raising=False)
+
+    assert migration._publication_connection() is marker
+    assert captured["env_name"] == "JANUS_INGESTION_POSTGRES_BUNDLE"
+    assert captured["fields"] == {"SERVING_PUBLICATION_PASSWORD": "publication_password"}
+    connect_args = captured["connect"]
+    assert isinstance(connect_args, dict)
+    assert connect_args["user"] == "janus_publication"
+    assert connect_args["password"] == "owner-password"
+
+
 def test_stock_serving_splits_control_and_publication_owners(monkeypatch):
     control = FakeControl()
     publication = FakeConnection("janus_publication")

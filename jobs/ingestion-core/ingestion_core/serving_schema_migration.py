@@ -76,7 +76,7 @@ def _publication_connection() -> Any:
 
     load_postgres_bundle(
         "JANUS_INGESTION_POSTGRES_BUNDLE",
-        {"SERVING_PUBLICATION_PASSWORD": ("mart_publication_password", "publication_password")},
+        {"SERVING_PUBLICATION_PASSWORD": "publication_password"},
     )
     required = ("CONTROL_DB_HOST", "CONTROL_DB_NAME", "SERVING_PUBLICATION_PASSWORD")
     missing = [name for name in required if not os.environ.get(name, "").strip()]
