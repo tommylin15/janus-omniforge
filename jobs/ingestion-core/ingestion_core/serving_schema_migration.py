@@ -243,7 +243,9 @@ def _apply_stock_serving(control: Any) -> None:
     finally:
         publication.close()
 
-    # Record the migration only after both owner phases are committed.
+    # Record the migration only after both owner phases are committed. Publication
+    # ACL acceptance is already verified under janus_publication above, so this
+    # final janus_control phase stays within the control schema boundary.
     try:
         with control.connection.transaction(), control.connection.cursor() as cursor:
             _require_current_user(cursor, "janus_control")
@@ -255,8 +257,7 @@ def _apply_stock_serving(control: Any) -> None:
                   EXISTS (SELECT 1 FROM control.schema_migrations
                           WHERE version='042_stock_serving_projection'),
                   to_regclass('control.stock_serving_recent') IS NOT NULL,
-                  has_table_privilege('janus_publication','control.stock_serving_recent','SELECT'),
-                  has_table_privilege('janus_public_api','publication.stock_serving_recent','SELECT')"""
+                  has_table_privilege('janus_publication','control.stock_serving_recent','SELECT')"""
             )
             row = cursor.fetchone()
             if row is None or not all(bool(value) for value in row):
