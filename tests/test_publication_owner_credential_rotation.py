@@ -8,6 +8,7 @@ def test_publication_owner_rotation_is_bounded_and_forward_repairable():
     workflow = (ROOT / ".github/workflows/publication-owner-credential-rotation-dev.yml").read_text(encoding="utf-8")
     build = (ROOT / "scripts/gcp/cloudbuild-publication-owner-credential-rotation.yaml").read_text(encoding="utf-8")
     script = (ROOT / "scripts/gcp/rotate-publication-owner-credential-dev.sh").read_text(encoding="utf-8")
+    hba = (ROOT / "infra/postgres/pg_hba.conf").read_text(encoding="utf-8")
 
     assert "ops/publication-owner-credential-rotation" in workflow
     assert "gcloud builds submit" in workflow
@@ -35,8 +36,17 @@ def test_publication_owner_rotation_is_bounded_and_forward_repairable():
     assert "ALTER ROLE janus_publication PASSWORD" in script
     assert "SET log_min_duration_statement = -1" in script
     assert "PGPASSFILE" in script
+    assert "localhost:5432:janus_control:janus_publication" in script
+    assert "-h 127.0.0.1" not in script
     assert "has_schema_privilege(current_user,'publication','CREATE')" in script
     assert "set -x" not in script
+
+    hba_rules = {
+        " ".join(line.split())
+        for line in hba.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+    assert "local all all scram-sha-256" in hba_rules
 
 
 def test_rotation_does_not_reuse_other_runtime_identity_passwords():

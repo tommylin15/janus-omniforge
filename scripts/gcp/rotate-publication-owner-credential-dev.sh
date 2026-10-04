@@ -25,13 +25,16 @@ printf "SET log_min_duration_statement = -1;\nALTER ROLE janus_publication PASSW
   | sudo docker exec -i --user postgres janus-postgres \
       psql -U postgres -d janus_control -v ON_ERROR_STOP=1 >/dev/null
 
-printf '127.0.0.1:5432:janus_control:janus_publication:%s\n' "${password}" > "${pgpass_host}"
+# Verify through PostgreSQL's local Unix socket. pg_hba.conf intentionally
+# rejects TCP loopback; the local rule requires scram-sha-256, so this still
+# proves the new password authenticates without opening a network path.
+printf 'localhost:5432:janus_control:janus_publication:%s\n' "${password}" > "${pgpass_host}"
 chmod 600 "${pgpass_host}"
 sudo docker cp "${pgpass_host}" "janus-postgres:${container_pgpass}" >/dev/null
 sudo docker exec --user postgres janus-postgres chmod 600 "${container_pgpass}"
 
 identity="$(sudo docker exec --user postgres -e PGPASSFILE="${container_pgpass}" janus-postgres \
-  psql -h 127.0.0.1 -U janus_publication -d janus_control -Atqc \
+  psql -U janus_publication -d janus_control -Atqc \
   "SELECT current_user || '|' || has_schema_privilege(current_user,'publication','CREATE')::text")"
 if [[ "${identity}" != 'janus_publication|true' && "${identity}" != 'janus_publication|t' ]]; then
   echo 'publication owner credential verification failed' >&2
