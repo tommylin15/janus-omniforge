@@ -25,19 +25,28 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Grant temporary IAP tunnel access to Cloud Build identity
+      - name: Restore bounded IAP tunnel access for Cloud Build identity
         shell: bash
         run: |
           set -Eeuo pipefail
           project_number="$(gcloud projects describe "${GCP_PROJECT_ID}" --format='value(projectNumber)')"
           principal="serviceAccount:${project_number}-compute@developer.gserviceaccount.com"
-          gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
-            --member="${principal}" \
-            --role='roles/iap.tunnelResourceAccessor' \
-            --condition=None \
-            --quiet
-          gcloud projects get-iam-policy "${GCP_PROJECT_ID}" \
-            --flatten='bindings[].members' \
-            --filter="bindings.role:roles/iap.tunnelResourceAccessor AND bindings.members:${principal}" \
-            --format='value(bindings.role,bindings.members)' | grep -q 'roles/iap.tunnelResourceAccessor'
-          echo "Temporary Cloud Build IAP tunnel access granted for the dev migration."
+          has_binding() {
+            gcloud projects get-iam-policy "${GCP_PROJECT_ID}" \
+              --flatten='bindings[].members' \
+              --filter="bindings.role:roles/iap.tunnelResourceAccessor AND bindings.members:${principal}" \
+              --format='value(bindings.members)' | grep -Fxq "${principal}"
+          }
+
+          if has_binding; then
+            echo 'Bounded Cloud Build IAP tunnel access is already present.'
+          else
+            gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
+              --member="${principal}" \
+              --role='roles/iap.tunnelResourceAccessor' \
+              --condition=None \
+              --quiet >/dev/null
+          fi
+
+          has_binding
+          echo 'Bounded Cloud Build IAP tunnel access is present for the dev PostgreSQL control path.'
