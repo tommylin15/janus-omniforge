@@ -10,6 +10,20 @@ from typing import Any, Sequence
 from packages.web_api import CoreQueryService, IcebergArtifactReader, PostgreSQLPublicIndex, PublicMartService
 
 
+def _emit_core_query_source(identifier: str, source: str) -> None:
+    dataset = {
+        "core.ohlcv_v1": "ohlcv",
+        "core.valuation_v1": "valuation",
+        "core.events_v1": "events",
+    }.get(identifier, "unknown")
+    print(json.dumps({
+        "component": "janus-api",
+        "operation": "core_query_source",
+        "source": source,
+        "dataset": dataset,
+    }, sort_keys=True), flush=True)
+
+
 def _required(*names: str) -> dict[str, str]:
     values = {name: os.environ.get(name, "").strip() for name in names}
     missing = [name for name, value in values.items() if not value]
@@ -128,7 +142,9 @@ def build_core_service() -> CoreQueryService:
         with lock:
             rows = serving_rows(identifier, parameters)
             if rows:
+                _emit_core_query_source(identifier, "serving_projection")
                 return rows
+            _emit_core_query_source(identifier, "iceberg_fallback")
             return reader.query(identifier, sql, parameters)
 
     return CoreQueryService(query, max_limit=int(os.environ.get("WEB_QUERY_MAX_ROWS", "200")))
