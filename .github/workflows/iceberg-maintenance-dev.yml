@@ -73,9 +73,11 @@ jobs:
             --update-env-vars="ICEBERG_MAINTENANCE_MODE=${MODE},QUEUE_CONSUMER=false,MART_JOB=,JANUS_CONTROL_MIGRATION=,JANUS_DATA_SUPPLEMENT_MODE=" \
             --wait --format='value(metadata.name)')"
           test -n "${execution}"
+          execution_name="${execution##*/}"
           echo "maintenance_mode=${MODE}"
-          echo "execution=${execution}"
-          gcloud run jobs executions logs read "${execution##*/}" \
+          echo "execution=${execution_name}"
+          gcloud beta run jobs executions logs read "${execution_name}" \
             --project=gen-lang-client-0593591102 \
             --region=us-central1 \
-            --limit=100 || true
+            --limit=100 \
+            --order=asc
