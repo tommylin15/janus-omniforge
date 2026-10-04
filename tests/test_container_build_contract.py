@@ -6,6 +6,8 @@ API_DOCKERFILE = (ROOT / "services" / "api" / "Dockerfile").read_text(encoding="
 MART_DOCKERFILE = (ROOT / "jobs" / "intelligence-mart" / "Dockerfile").read_text(encoding="utf-8")
 CLOUDBUILD = (ROOT / "cloudbuild.yaml").read_text(encoding="utf-8")
 WORKFLOW = (ROOT / ".github" / "workflows" / "deploy-dev.yml").read_text(encoding="utf-8")
+GITIGNORE = (ROOT / ".gitignore").read_text(encoding="utf-8")
+DOCKERIGNORE = (ROOT / ".dockerignore").read_text(encoding="utf-8")
 
 
 def test_api_and_private_pipeline_share_python_base_but_not_flutter_output():
@@ -57,3 +59,14 @@ def test_shared_api_backend_changes_serialize_api_after_private_pipeline():
     assert "needs: [detect, test-api, deploy-private-pipeline]" in api_job
     assert "needs.deploy-private-pipeline.result == 'success'" in api_job
     assert "needs.deploy-private-pipeline.result == 'skipped'" in api_job
+
+
+def test_generated_and_orphaned_build_artifacts_stay_removed():
+    assert "/tmp*/" in GITIGNORE
+    assert ".flutter-plugins-dependencies" in GITIGNORE
+    assert "tmp*/" in DOCKERIGNORE
+    assert "**/.flutter-plugins-dependencies" in DOCKERIGNORE
+    assert not (ROOT / "tmp4i2lk6d7").exists()
+    assert not (ROOT / "apps" / "user_app" / ".flutter-plugins-dependencies").exists()
+    assert not (ROOT / "scripts" / "gcp" / "cloudbuild-token-savior-verify.yaml").exists()
+    assert not (ROOT / "token-savior").exists()
