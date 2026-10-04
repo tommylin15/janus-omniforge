@@ -2,6 +2,11 @@
 
 BEGIN;
 
+-- private.users is deliberately not permanently referenceable by janus_control.
+-- Mirror the bounded migration pattern from 024: grant only while the FK is created,
+-- then revoke before commit.
+GRANT REFERENCES ON private.users TO janus_control;
+
 SET ROLE janus_control;
 
 CREATE TABLE IF NOT EXISTS private.current_positions (
@@ -152,14 +157,21 @@ SECURITY DEFINER
 SET search_path = private, pg_catalog
 AS $$
 BEGIN
-    PERFORM private.refresh_current_positions(NEW.user_id);
+    IF TG_OP = 'DELETE' THEN
+        PERFORM private.refresh_current_positions(OLD.user_id);
+    ELSIF TG_OP = 'UPDATE' AND OLD.user_id IS DISTINCT FROM NEW.user_id THEN
+        PERFORM private.refresh_current_positions(OLD.user_id);
+        PERFORM private.refresh_current_positions(NEW.user_id);
+    ELSE
+        PERFORM private.refresh_current_positions(NEW.user_id);
+    END IF;
     RETURN NULL;
 END;
 $$;
 
 DROP TRIGGER IF EXISTS ledger_refresh_current_positions ON private.ledger_events;
 CREATE CONSTRAINT TRIGGER ledger_refresh_current_positions
-AFTER INSERT ON private.ledger_events
+AFTER INSERT OR UPDATE OR DELETE ON private.ledger_events
 DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW
 EXECUTE FUNCTION private.refresh_current_positions_trigger();
@@ -176,6 +188,7 @@ $$;
 
 RESET ROLE;
 
+REVOKE REFERENCES ON private.users FROM janus_control;
 REVOKE ALL ON private.current_positions FROM PUBLIC;
 REVOKE ALL ON FUNCTION private.refresh_current_positions(uuid) FROM PUBLIC;
 REVOKE ALL ON FUNCTION private.refresh_current_positions_trigger() FROM PUBLIC;
