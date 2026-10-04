@@ -1,6 +1,8 @@
-from datetime import date
+from datetime import date, datetime, timezone
 
-from ingestion_core.serving_projection import StockServingProjection
+import pytest
+
+from ingestion_core.serving_projection import StockServingProjection, backfill_recent
 from packages.duckdb_query.serving_core import ServingDuckDBIcebergCore
 
 
@@ -30,6 +32,62 @@ class Connection:
     def __exit__(self, *_args): return False
     def transaction(self): return Transaction()
     def cursor(self): return self.cursor_value
+
+
+class ArrowRows:
+    def __init__(self, rows): self.rows = rows
+    def to_pylist(self): return list(self.rows)
+
+
+class DataFile:
+    def __init__(self, size): self.file_size_in_bytes = size
+
+
+class FileTask:
+    def __init__(self, size): self.file = DataFile(size)
+
+
+class Scan:
+    def __init__(self, rows, sizes):
+        self.rows = rows
+        self.sizes = sizes
+        self.arrow_called = False
+
+    def plan_files(self):
+        return [FileTask(size) for size in self.sizes]
+
+    def to_arrow(self):
+        self.arrow_called = True
+        return ArrowRows(self.rows)
+
+
+class Snapshot:
+    def __init__(self, snapshot_id): self.snapshot_id = snapshot_id
+
+
+class Table:
+    def __init__(self, rows, sizes=(1024,), snapshot_id=77):
+        self.rows = rows
+        self.sizes = sizes
+        self.snapshot = Snapshot(snapshot_id)
+        self.last_scan = None
+
+    def current_snapshot(self): return self.snapshot
+
+    def scan(self, **_kwargs):
+        self.last_scan = Scan(self.rows, self.sizes)
+        return self.last_scan
+
+
+class Catalog:
+    def __init__(self, tables): self.tables = tables
+    def load_table(self, identifier): return self.tables[identifier]
+
+
+class Core:
+    def __init__(self, tables): self.catalog = Catalog(tables)
+    def table_identifier(self, dataset_id): return f"core.{dataset_id}_v1"
+    def table_exists(self, dataset_id): return self.table_identifier(dataset_id) in self.catalog.tables
 
 
 def test_projection_writes_bounded_recent_rows_and_strips_raw_payload():
@@ -89,3 +147,61 @@ def test_serving_core_keeps_canonical_commit_success_when_projection_fails(monke
 
     assert result.snapshot_id == 77
     assert calls[0]["dataset_id"] == "ohlcv"
+
+
+def test_backfill_preserves_canonical_provenance_and_snapshot():
+    connection = Connection()
+    projection = StockServingProjection(lambda: connection, retention_days=400)
+    core = Core({
+        "core.ohlcv_v1": Table([
+            {"symbol": "2330", "market": "TWSE", "trade_date": date(2026, 10, 2),
+             "close": "2800", "execution_id": "exec-1", "provenance_id": "sha256:prov",
+             "source_id": "twse"}
+        ], sizes=(2048,), snapshot_id=88)
+    })
+
+    report = backfill_recent(
+        core, projection,
+        as_of=datetime(2026, 10, 4, tzinfo=timezone.utc),
+        max_rows=10, max_bytes=16 * 1024 * 1024,
+    )
+
+    assert report["published_rows"] == 1
+    assert report["source_bytes"] == 2048
+    assert report["datasets"]["ohlcv"]["snapshot_id"] == 88
+    _, rows = connection.cursor_value.many[0]
+    assert rows[0][5:9] == ("twse", "sha256:prov", "exec-1", 88)
+
+
+def test_backfill_fails_closed_when_eligible_row_lacks_provenance():
+    connection = Connection()
+    projection = StockServingProjection(lambda: connection, retention_days=400)
+    core = Core({
+        "core.ohlcv_v1": Table([
+            {"symbol": "2330", "market": "TWSE", "trade_date": date(2026, 10, 2),
+             "close": "2800", "execution_id": "exec-1", "provenance_id": None, "source_id": "twse"}
+        ])
+    })
+
+    with pytest.raises(RuntimeError, match="missing canonical provenance"):
+        backfill_recent(
+            core, projection,
+            as_of=datetime(2026, 10, 4, tzinfo=timezone.utc),
+            max_rows=10, max_bytes=16 * 1024 * 1024,
+        )
+    assert connection.cursor_value.many == []
+
+
+def test_backfill_checks_planned_bytes_before_reading_parquet():
+    projection = StockServingProjection(lambda: (_ for _ in ()).throw(AssertionError("no write")))
+    table = Table([], sizes=(17 * 1024 * 1024,))
+    core = Core({"core.ohlcv_v1": table})
+
+    with pytest.raises(RuntimeError, match="byte cap exceeded before read"):
+        backfill_recent(
+            core, projection,
+            as_of=datetime(2026, 10, 4, tzinfo=timezone.utc),
+            max_rows=10, max_bytes=16 * 1024 * 1024,
+        )
+    assert table.last_scan is not None
+    assert table.last_scan.arrow_called is False
