@@ -1,3 +1,19 @@
+FROM python:3.12.8-slim-bookworm AS api-python-base
+
+WORKDIR /app
+# Shared Python runtime for the public API and owner-private pipeline.
+COPY services/api/requirements.lock ./requirements.lock
+RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+COPY . .
+
+ENV PYTHONPATH=/app:/app/jobs/ingestion-core PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PORT=8080
+
+# Keep the private pipeline independent from the Flutter build/output. Because
+# this target precedes the Flutter stage, `docker build --target=private-pipeline`
+# does not pull or execute the Flutter builder.
+FROM api-python-base AS private-pipeline
+CMD ["python", "-m", "services.api.private_pipeline_runtime"]
+
 FROM ghcr.io/cirruslabs/flutter:stable AS flutter
 
 WORKDIR /app/apps/user_app
@@ -31,14 +47,9 @@ RUN set -eux; \
     test -s build/web/build-id.txt; \
     grep -Fq "flutter_bootstrap.${build_id}.js" build/web/index.html
 
-FROM python:3.12.8-slim-bookworm
-
-WORKDIR /app
+FROM api-python-base AS api
 # Legacy static Admin code is excluded by .dockerignore; Flutter /app/admin is the active frontend.
-COPY . .
 COPY --from=flutter /app/apps/user_app/build/web /app/apps/user_app/build/web
-RUN pip install --no-cache-dir --require-hashes -r services/api/requirements.lock
 
-ENV PYTHONPATH=/app:/app/jobs/ingestion-core PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PORT=8080
 EXPOSE 8080
 CMD ["uvicorn", "services.api.app:app", "--host", "0.0.0.0", "--port", "8080"]

@@ -14,22 +14,93 @@ substitutions:
   _GOOGLE_ADMIN_CLIENT_ID: ""
 
 steps:
+  - id: plan-build
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        selected="${_IMAGE_REPOSITORY}/${_IMAGE_NAME}:${_IMAGE_TAG}"
+        # Reuse only immutable commit-scoped builds. Local/manual non-SHA tags
+        # always rebuild so stale mutable tags cannot masquerade as evidence.
+        if [[ "${_GIT_SHA}" =~ ^[0-9a-f]{7,64}$ ]] && \
+           gcloud artifacts docker images describe "${selected}" \
+             --format='value(image_summary.digest)' >/dev/null 2>&1; then
+          touch /workspace/selected-image-exists
+          echo "Reusing existing immutable image ${selected}"
+        fi
+
+        # API and private-pipeline are one image family. When the private
+        # pipeline deploy runs first for a shared backend change, prebuild the
+        # sibling API target in the same Cloud Build so its Python base is
+        # reused and the later API deploy only consumes the already-pushed tag.
+        if [[ "${_DOCKERFILE}" == "services/api/Dockerfile" && \
+              "${_IMAGE_NAME}" == "private-pipeline" && \
+              "${_GIT_SHA}" =~ ^[0-9a-f]{7,64}$ ]]; then
+          api_peer="${_IMAGE_REPOSITORY}/api:${_IMAGE_TAG}"
+          if gcloud artifacts docker images describe "${api_peer}" \
+               --format='value(image_summary.digest)' >/dev/null 2>&1; then
+            touch /workspace/api-peer-image-exists
+            echo "Reusing existing immutable image ${api_peer}"
+          fi
+        fi
+
   - id: build
     name: gcr.io/cloud-builders/docker
+    entrypoint: bash
     args:
-      - build
-      - --file=${_DOCKERFILE}
-      - --build-arg=GOOGLE_USER_CLIENT_ID=${_GOOGLE_USER_CLIENT_ID}
-      - --build-arg=GOOGLE_ADMIN_CLIENT_ID=${_GOOGLE_ADMIN_CLIENT_ID}
-      - --build-arg=JANUS_GIT_SHA=${_GIT_SHA}
-      - --tag=${_IMAGE_REPOSITORY}/${_IMAGE_NAME}:${_IMAGE_TAG}
-      - .
+      - -ceu
+      - |
+        build_image() {
+          local target="$1"
+          local image="$2"
+          args=(
+            build
+            --file="${_DOCKERFILE}"
+            --build-arg="GOOGLE_USER_CLIENT_ID=${_GOOGLE_USER_CLIENT_ID}"
+            --build-arg="GOOGLE_ADMIN_CLIENT_ID=${_GOOGLE_ADMIN_CLIENT_ID}"
+            --build-arg="JANUS_GIT_SHA=${_GIT_SHA}"
+          )
+          if [[ -n "${target}" ]]; then
+            args+=(--target="${target}")
+          fi
+          args+=(--tag="${image}" .)
+          docker "${args[@]}"
+        }
 
-  - id: push-commit
+        selected="${_IMAGE_REPOSITORY}/${_IMAGE_NAME}:${_IMAGE_TAG}"
+        if [[ ! -f /workspace/selected-image-exists ]]; then
+          target=""
+          case "${_DOCKERFILE}:${_IMAGE_NAME}" in
+            services/api/Dockerfile:api) target="api" ;;
+            services/api/Dockerfile:private-pipeline) target="private-pipeline" ;;
+            jobs/intelligence-mart/Dockerfile:*) target="mart-specialist" ;;
+          esac
+          build_image "${target}" "${selected}"
+          touch /workspace/built-selected
+        fi
+
+        if [[ "${_DOCKERFILE}" == "services/api/Dockerfile" && \
+              "${_IMAGE_NAME}" == "private-pipeline" && \
+              ! -f /workspace/api-peer-image-exists ]]; then
+          api_peer="${_IMAGE_REPOSITORY}/api:${_IMAGE_TAG}"
+          build_image "api" "${api_peer}"
+          touch /workspace/built-api-peer
+        fi
+
+  - id: push
     name: gcr.io/cloud-builders/docker
+    entrypoint: bash
     args:
-      - push
-      - ${_IMAGE_REPOSITORY}/${_IMAGE_NAME}:${_IMAGE_TAG}
+      - -ceu
+      - |
+        selected="${_IMAGE_REPOSITORY}/${_IMAGE_NAME}:${_IMAGE_TAG}"
+        if [[ -f /workspace/built-selected ]]; then
+          docker push "${selected}"
+        fi
+        if [[ -f /workspace/built-api-peer ]]; then
+          docker push "${_IMAGE_REPOSITORY}/api:${_IMAGE_TAG}"
+        fi
 
   - id: deploy-runtime
     name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
@@ -99,9 +170,6 @@ steps:
           "${_IMAGE_REPOSITORY}/${_IMAGE_NAME}" --include-tags \
           --filter='-tags:*' --format='value(version)')
         echo "Removed untagged old image versions; preserved ${current}."
-
-images:
-  - ${_IMAGE_REPOSITORY}/${_IMAGE_NAME}:${_IMAGE_TAG}
 
 options:
   logging: CLOUD_LOGGING_ONLY
