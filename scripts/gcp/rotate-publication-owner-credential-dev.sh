@@ -31,6 +31,9 @@ printf "SET log_min_duration_statement = -1;\nALTER ROLE janus_publication PASSW
 printf 'localhost:5432:janus_control:janus_publication:%s\n' "${password}" > "${pgpass_host}"
 chmod 600 "${pgpass_host}"
 sudo docker cp "${pgpass_host}" "janus-postgres:${container_pgpass}" >/dev/null
+# docker cp writes as root; psql runs as postgres and ignores/unreads a 0600
+# password file it does not own. Set both ownership and mode before validation.
+sudo docker exec --user root janus-postgres chown postgres:postgres "${container_pgpass}"
 sudo docker exec --user postgres janus-postgres chmod 600 "${container_pgpass}"
 
 identity="$(sudo docker exec --user postgres -e PGPASSFILE="${container_pgpass}" janus-postgres \
