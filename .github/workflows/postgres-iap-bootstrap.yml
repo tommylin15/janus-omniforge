@@ -1,6 +1,7 @@
 name: Bootstrap bounded PostgreSQL IAP access
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
@@ -15,6 +16,7 @@ env:
 
 jobs:
   bootstrap:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,7 +26,29 @@ jobs:
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
       - name: Apply specific-VM IAP binding through Cloud Build identity
-        run: >-
-          gcloud builds submit --no-source
-          --project="${GCP_PROJECT_ID}"
-          --config=scripts/gcp/cloudbuild-postgres-iap-bootstrap.yaml
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          build_id="$(gcloud builds submit --no-source \
+            --project="${GCP_PROJECT_ID}" \
+            --config=scripts/gcp/cloudbuild-postgres-iap-bootstrap.yaml \
+            --async --format='value(id)')"
+          test -n "${build_id}"
+          for _ in $(seq 1 60); do
+            status="$(gcloud builds describe "${build_id}" \
+              --project="${GCP_PROJECT_ID}" --format='value(status)')"
+            case "${status}" in
+              SUCCESS)
+                echo "Bounded PostgreSQL IAP bootstrap succeeded: ${build_id}"
+                exit 0
+                ;;
+              FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED)
+                gcloud builds describe "${build_id}" --project="${GCP_PROJECT_ID}" \
+                  --format='yaml(id,status,statusDetail,failureInfo,steps.id,steps.status)' || true
+                exit 1
+                ;;
+            esac
+            sleep 5
+          done
+          echo "Timed out waiting for bounded PostgreSQL IAP bootstrap: ${build_id}" >&2
+          exit 1
