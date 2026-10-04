@@ -1,4 +1,4 @@
-name: Maintain dev Iceberg financials
+name: Maintain dev Core Iceberg
 
 on:
   workflow_dispatch:
@@ -7,10 +7,19 @@ on:
         description: Maintenance mode
         required: true
         type: choice
-        default: dry-run
+        default: health
         options:
+          - health
+          - compact-dry-run
+          - compact-apply
           - dry-run
           - apply
+          - retention-dry-run
+          - retention-apply
+  push:
+    branches: [main]
+    paths:
+      - 'ops/iceberg-maintenance-mode'
 
 permissions:
   contents: read
@@ -22,31 +31,51 @@ concurrency:
 
 jobs:
   maintain:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - name: Resolve bounded maintenance mode
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == 'push' ]]; then
+            MODE="$(tr -d '[:space:]' < ops/iceberg-maintenance-mode)"
+          else
+            MODE='${{ inputs.mode }}'
+          fi
+          case "${MODE}" in
+            health|compact-dry-run|compact-apply|dry-run|apply|retention-dry-run|retention-apply) ;;
+            *) echo "Unsupported maintenance mode: ${MODE}" >&2; exit 2 ;;
+          esac
+          echo "MODE=${MODE}" >> "${GITHUB_ENV}"
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Maintain existing dev financials table
-        env:
-          MODE: ${{ inputs.mode }}
+      - name: Run bounded maintenance on existing dev Core
         shell: bash
         run: |
           set -Eeuo pipefail
-          [[ "${MODE}" == 'apply' || "${MODE}" == 'dry-run' ]] || exit 2
           executions="$(gcloud run jobs executions list \
             --job=janus-ingestion-core \
             --project=gen-lang-client-0593591102 \
             --region=us-central1 \
             --limit=20 --format=json)"
           if [[ "$(jq '[.[] | select(.status.completionTime == null)] | length' <<< "${executions}")" != '0' ]]; then
-            echo 'An ingestion execution is still running; retry maintenance later.' >&2
+            echo 'An ingestion execution is still running; retry maintenance after it completes.' >&2
             exit 1
           fi
-          gcloud run jobs execute janus-ingestion-core \
+          execution="$(gcloud run jobs execute janus-ingestion-core \
             --project=gen-lang-client-0593591102 \
             --region=us-central1 \
-            --update-env-vars="ICEBERG_MAINTENANCE_MODE=${MODE},QUEUE_CONSUMER=false,MART_JOB=,JANUS_CONTROL_MIGRATION=" \
-            --wait
+            --update-env-vars="ICEBERG_MAINTENANCE_MODE=${MODE},QUEUE_CONSUMER=false,MART_JOB=,JANUS_CONTROL_MIGRATION=,JANUS_DATA_SUPPLEMENT_MODE=" \
+            --wait --format='value(metadata.name)')"
+          test -n "${execution}"
+          echo "maintenance_mode=${MODE}"
+          echo "execution=${execution}"
+          gcloud run jobs executions logs read "${execution##*/}" \
+            --project=gen-lang-client-0593591102 \
+            --region=us-central1 \
+            --limit=100 || true
