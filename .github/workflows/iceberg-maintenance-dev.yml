@@ -70,14 +70,16 @@ jobs:
           execution="$(gcloud run jobs execute janus-ingestion-core \
             --project=gen-lang-client-0593591102 \
             --region=us-central1 \
-            --update-env-vars="ICEBERG_MAINTENANCE_MODE=${MODE},QUEUE_CONSUMER=false,MART_JOB=,JANUS_CONTROL_MIGRATION=,JANUS_DATA_SUPPLEMENT_MODE=" \
+            --update-env-vars="ICEBERG_MAINTENANCE_MODE=${MODE},QUEUE_CONSUMER=false,MART_JOB=,JANUS_CONTROL_MIGRATION=,JANUS_DATA_SUPPLEMENT_MODE=,JANUS_SERVING_SCHEMA_MIGRATION=" \
             --wait --format='value(metadata.name)')"
           test -n "${execution}"
           execution_name="${execution##*/}"
           echo "maintenance_mode=${MODE}"
           echo "execution=${execution_name}"
-          gcloud beta run jobs executions logs read "${execution_name}" \
+          gcloud logging read \
+            "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"janus-ingestion-core\" AND labels.\"run.googleapis.com/execution_name\"=\"${execution_name}\"" \
             --project=gen-lang-client-0593591102 \
-            --region=us-central1 \
+            --freshness=20m \
             --limit=100 \
-            --order=asc
+            --order=asc \
+            --format='value(textPayload)'
