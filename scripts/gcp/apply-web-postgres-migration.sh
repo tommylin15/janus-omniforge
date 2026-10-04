@@ -54,8 +54,18 @@ if [[ -z "${web_control_password}" || -z "${web_catalog_password}" || -z "${web_
   echo "All Web PostgreSQL passwords are required." >&2
   exit 1
 fi
+if [[ "${credential_source}" == secret-manager ]]; then
+  credential_file="/tmp/janus-web-credentials-$$"
+  printf '%s\n%s\n%s\n' \
+    "${web_control_password}" \
+    "${web_catalog_password}" \
+    "${web_publication_password}" > "${credential_file}"
+  chmod 600 "${credential_file}"
+fi
 echo "Validated Web migration inputs."
 if [[ "${mode}" == "check" ]]; then
+  rm -f -- "${credential_file}" >/dev/null 2>&1 || true
+  unset web_control_password web_catalog_password web_publication_password
   exit 0
 fi
 
