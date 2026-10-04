@@ -6,10 +6,12 @@ on:
     paths:
       - 'jobs/ingestion-core/ingestion_core/entrypoint.py'
       - 'jobs/ingestion-core/ingestion_core/serving_schema_migration.py'
+      - 'jobs/ingestion-core/ingestion_core/serving_projection.py'
       - 'jobs/ingestion-core/Dockerfile'
       - 'infra/postgres/migrations/041_operational_position_projection.sql'
       - 'infra/postgres/migrations/042_stock_serving_projection.sql'
       - 'tests/test_serving_schema_migration.py'
+      - 'tests/test_stock_serving_projection.py'
       - '.github/workflows/serving-schema-migration-ci.yml'
 
 permissions:
@@ -32,11 +34,14 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r jobs/ingestion-core/requirements.lock
           python -m pip install -r requirements-dev.txt
-      - name: Verify serving migration runtime
+      - name: Verify serving migration runtime and bounded backfill
         env:
           PYTHONPATH: jobs/ingestion-core:.
         run: |
-          python -m pytest -q tests/test_serving_schema_migration.py
+          python -m pytest -q \
+            tests/test_serving_schema_migration.py \
+            tests/test_stock_serving_projection.py
           python -m compileall -q \
             jobs/ingestion-core/ingestion_core/entrypoint.py \
-            jobs/ingestion-core/ingestion_core/serving_schema_migration.py
+            jobs/ingestion-core/ingestion_core/serving_schema_migration.py \
+            jobs/ingestion-core/ingestion_core/serving_projection.py
