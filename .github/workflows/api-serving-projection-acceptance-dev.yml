@@ -19,8 +19,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements-dev.txt
+            services/api/requirements.lock
+      - name: Install telemetry test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r services/api/requirements.lock
+          python -m pip install -r requirements-dev.txt
       - name: Validate telemetry contract
         shell: bash
+        env:
+          PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
         run: |
           set -Eeuo pipefail
           python -m pytest -q tests/test_public_runtime_source_telemetry.py
