@@ -1,0 +1,36 @@
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_publication_owner_rotation_is_bounded_and_forward_repairable():
+    workflow = (ROOT / ".github/workflows/publication-owner-credential-rotation-dev.yml").read_text(encoding="utf-8")
+    build = (ROOT / "scripts/gcp/cloudbuild-publication-owner-credential-rotation.yaml").read_text(encoding="utf-8")
+    script = (ROOT / "scripts/gcp/rotate-publication-owner-credential-dev.sh").read_text(encoding="utf-8")
+
+    assert "ops/publication-owner-credential-rotation" in workflow
+    assert "gcloud builds submit" in workflow
+    assert "add-iam-policy-binding" not in workflow
+    assert "add-iam-policy-binding" not in build
+
+    assert "RUNTIME_BUNDLE" in build
+    assert '"$${RUNTIME_BUNDLE}"' in build
+    assert "publication_password" in build
+    assert "gcloud secrets versions add janus-runtime-bundle" in build
+    assert "gcloud secrets versions disable" in build
+    assert "existing consumers remain usable even if the database step fails" in build
+    assert "cat \"$${work}/password\" | gcloud compute ssh" in build
+    assert "--filter='state=ENABLED'" in build
+
+    assert "ALTER ROLE janus_publication PASSWORD" in script
+    assert "SET log_min_duration_statement = -1" in script
+    assert "PGPASSFILE" in script
+    assert "has_schema_privilege(current_user,'publication','CREATE')" in script
+    assert "set -x" not in script
+
+
+def test_rotation_does_not_reuse_other_runtime_identity_passwords():
+    build = (ROOT / "scripts/gcp/cloudbuild-publication-owner-credential-rotation.yaml").read_text(encoding="utf-8")
+    for forbidden in ("mart_publication_password", "web_publication_password"):
+        assert forbidden not in build
