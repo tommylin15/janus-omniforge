@@ -10,7 +10,6 @@ on:
       - 'infra/postgres/cloudbuild.yaml'
       - 'infra/postgres/migrations/041_operational_position_projection.sql'
       - 'infra/postgres/migrations/042_stock_serving_projection.sql'
-      - 'scripts/gcp/cloudbuild-postgres-migration.yaml'
       - 'scripts/gcp/apply-web-postgres-migration.sh'
       - 'services/api/app.py'
       - 'services/api/public_runtime.py'
@@ -106,27 +105,82 @@ jobs:
             --project="${GCP_PROJECT_ID}" --format='value(image_summary.digest)')"
           test -n "${digest}"
           echo "POSTGRES_IMAGE=us-central1-docker.pkg.dev/${GCP_PROJECT_ID}/janus-postgres/postgres@${digest}" >> "${GITHUB_ENV}"
-      - name: Apply migrations and acceptance through canonical controller
+      - name: Stage migration controller on PostgreSQL VM
+        run: |
+          set -euo pipefail
+          gcloud compute scp scripts/gcp/apply-web-postgres-migration.sh \
+            "${POSTGRES_VM}:apply-web-postgres-migration.sh" \
+            --project="${GCP_PROJECT_ID}" \
+            --zone="${POSTGRES_ZONE}" \
+            --tunnel-through-iap \
+            --quiet
+      - name: Switch immutable PostgreSQL image
         run: |
           set -euo pipefail
           test -n "${POSTGRES_IMAGE}"
-          build_id="$(gcloud builds submit . \
+          gcloud compute ssh "${POSTGRES_VM}" \
             --project="${GCP_PROJECT_ID}" \
-            --config=scripts/gcp/cloudbuild-postgres-migration.yaml \
-            --substitutions="_POSTGRES_IMAGE=${POSTGRES_IMAGE},_POSTGRES_VM=${POSTGRES_VM},_POSTGRES_ZONE=${POSTGRES_ZONE}" \
-            --async --format='value(id)')"
-          test -n "${build_id}"
-          for _ in $(seq 1 180); do
-            status="$(gcloud builds describe "${build_id}" --project="${GCP_PROJECT_ID}" --format='value(status)')"
-            case "${status}" in
-              SUCCESS) break ;;
-              FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED)
-                gcloud builds describe "${build_id}" --project="${GCP_PROJECT_ID}" \
-                  --format='yaml(id,status,statusDetail,failureInfo,steps.id,steps.status,steps.timing)' || true
-                echo "PostgreSQL migration build ${build_id} failed with ${status}" >&2
-                exit 1
-                ;;
-            esac
-            sleep 5
+            --zone="${POSTGRES_ZONE}" \
+            --tunnel-through-iap \
+            --quiet \
+            --command \
+            "sudo mv apply-web-postgres-migration.sh /tmp/apply-web-postgres-migration.sh && sudo chmod 700 /tmp/apply-web-postgres-migration.sh && sudo bash /tmp/apply-web-postgres-migration.sh '${POSTGRES_IMAGE}' apply secret-manager '${GCP_PROJECT_ID}'"
+      - name: Apply serving migrations 036 039 040 041 042
+        run: |
+          set -euo pipefail
+          for migration in \
+            036_mart_ai_targets.sql \
+            039_specialist_market_coverage.sql \
+            040_core_retention_targets.sql \
+            041_operational_position_projection.sql \
+            042_stock_serving_projection.sql; do
+            gcloud compute ssh "${POSTGRES_VM}" \
+              --project="${GCP_PROJECT_ID}" \
+              --zone="${POSTGRES_ZONE}" \
+              --tunnel-through-iap \
+              --quiet \
+              --command \
+              "sudo docker exec --user postgres janus-postgres psql -U postgres -d janus_control -v ON_ERROR_STOP=1 -f /opt/janus/migrations/${migration}"
           done
-          test "${status}" = "SUCCESS"
+      - name: Verify serving schema and ACL
+        run: |
+          set -euo pipefail
+          privilege_check="$(gcloud compute ssh "${POSTGRES_VM}" \
+            --project="${GCP_PROJECT_ID}" \
+            --zone="${POSTGRES_ZONE}" \
+            --tunnel-through-iap \
+            --quiet \
+            --command \
+            "sudo docker exec --user postgres janus-postgres psql -U postgres -d janus_control -Atqc \"SELECT EXISTS (SELECT 1 FROM control.schema_migrations WHERE version='036_mart_ai_targets'),has_schema_privilege('janus_mart_publication','control','USAGE'),has_function_privilege('janus_mart_publication','control.mart_ai_target_symbols(date)','EXECUTE'),has_table_privilege('janus_mart_publication','control.mart_ai_target_history','SELECT'),has_table_privilege('janus_mart_publication','control.mart_ai_target_history_meta','SELECT'),has_table_privilege('janus_mart_publication','private.watchlist','SELECT'),has_table_privilege('janus_mart_publication','private.ledger_events','SELECT');\"")"
+          test "${privilege_check}" = "t|t|t|t|t|f|f"
+
+          serving_check="$(gcloud compute ssh "${POSTGRES_VM}" \
+            --project="${GCP_PROJECT_ID}" \
+            --zone="${POSTGRES_ZONE}" \
+            --tunnel-through-iap \
+            --quiet \
+            --command \
+            "sudo docker exec --user postgres janus-postgres psql -U postgres -d janus_control -Atqc \"SELECT EXISTS (SELECT 1 FROM control.schema_migrations WHERE version='041_operational_position_projection'),EXISTS (SELECT 1 FROM control.schema_migrations WHERE version='042_stock_serving_projection'),to_regclass('private.current_positions') IS NOT NULL,to_regclass('control.stock_serving_recent') IS NOT NULL,has_table_privilege('janus_private_api','private.current_positions','SELECT'),has_table_privilege('janus_public_api','publication.stock_serving_recent','SELECT');\"")"
+          test "${serving_check}" = "t|t|t|t|t|t"
+      - name: Verify position consistency
+        run: |
+          set -euo pipefail
+          consistency_check="$(gcloud compute ssh "${POSTGRES_VM}" \
+            --project="${GCP_PROJECT_ID}" \
+            --zone="${POSTGRES_ZONE}" \
+            --tunnel-through-iap \
+            --quiet \
+            --command \
+            "sudo docker exec --user postgres janus-postgres psql -U postgres -d janus_control -Atqc \"SELECT NOT EXISTS (SELECT 1 FROM private.current_positions p JOIN private.users u USING(user_id) WHERE p.ledger_version <> u.ledger_version) AND NOT EXISTS (SELECT 1 FROM private.current_positions WHERE shares <= 0 OR cost_basis < 0);\"")"
+          test "${consistency_check}" = "t"
+          echo "PostgreSQL dev migrations completed; operational holdings and bounded stock serving projections are ready."
+      - name: Cleanup remote migration controller
+        if: always()
+        continue-on-error: true
+        run: |
+          gcloud compute ssh "${POSTGRES_VM}" \
+            --project="${GCP_PROJECT_ID}" \
+            --zone="${POSTGRES_ZONE}" \
+            --tunnel-through-iap \
+            --quiet \
+            --command='sudo rm -f /tmp/apply-web-postgres-migration.sh apply-web-postgres-migration.sh'
