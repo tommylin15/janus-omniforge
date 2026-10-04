@@ -1,6 +1,6 @@
 # GCP Dev Secret Bundle 清單
 
-更新日期：2026-09-23
+更新日期：2026-10-04
 Project：`gen-lang-client-0593591102`  
 Region：`us-central1`
 
@@ -10,12 +10,14 @@ Region：`us-central1`
 
 | Secret | 欄位／格式（不含值） | Consumer | Version | IAM |
 |---|---|---|---|---|
-| `janus-runtime-bundle` | PostgreSQL、Web/Pipeline、OAuth、Mart／Ingestion、provider／market-data 欄位；28 個唯一欄位 | Janus API、private pipeline、ingestion-core、intelligence-mart、PostgreSQL migration build | v2 enabled；v1 disabled | 四個 Janus runtime service accounts 與 Cloud Build default identity 有直接 `secretAccessor` binding；另承接既有 project-level `omniforge-dev-runtime` accessor |
+| `janus-runtime-bundle` | PostgreSQL、Web/Pipeline、OAuth、Mart／Ingestion、provider／market-data 欄位；包含獨立 `publication_password` owner credential。欄位總數與 version number 不在文件硬編碼 | Janus API、private pipeline、ingestion-core、intelligence-mart、PostgreSQL migration／bounded credential-repair build | `latest` enabled；verified rotation 後較舊 enabled versions 會停用 | 四個 Janus runtime service accounts 與 Cloud Build default identity 有直接 `secretAccessor` binding；另承接既有 project-level `omniforge-dev-runtime` accessor。2026-10-04 temporary IAP tunnel grant 已撤除；IAP 與 Secret Manager IAM 是不同權限 |
 
 ## 欄位規則
 
 - API／Web／Pipeline、Mart／Ingestion 欄位保持既有 key 名；合併採 key union，重複的
   `mcp_owner_signing_key` 僅在來源值一致時合併，沒有衝突。
+- `publication_password` 專屬 PostgreSQL owner role `janus_publication`；不得以
+  `mart_publication_password` 或 `web_publication_password` 代替。
 - 市場資料 credentials 僅合併儲存，不代表啟用 Fugle／Shioaji／Tiingo adapters 或改變
   Source Matrix 核准狀態。
 - Janus Codex owners bundle 已在先前 cleanup 刪除，沒有 payload；本次未重建。
@@ -87,6 +89,30 @@ Historical failed executions remain in Cloud Run history.
   `janus-private-pipeline-8vxnm`；Ingestion smoke：`janus-ingestion-core-7qxbx`，均
   `Completed=True`。
 - Codex A/B auth rotate／destroy isolation 不再是 Janus 驗收項目；Janus generic Codex runtime 與 owners bundle 已移除。omniAgent auth lifecycle 由其自身 acceptance 追蹤。
+
+## 2026-10-04 publication owner credential rotation evidence
+
+`042_stock_serving_projection` rollout 發現 unified bundle 原先沒有可供
+`janus_publication` owner login 使用的 `publication_password`。該 owner identity 與
+`janus_mart_publication` runtime identity 必須分離，因此沒有改用 Mart credential 規避權限邊界。
+
+- runtime credential mapping 已改為 fail-closed 使用 `publication_password`。
+- bounded rotation workflow 透過 existing dev control path 同步 PostgreSQL
+  `janus_publication` credential，驗證 owner login 與 `publication` schema CREATE ownership；
+  只有驗證成功後才會停用較舊 enabled secret versions。
+- final successful rotation workflow run：`37195921425`。
+- successful Cloud Build：`08c0def2-0e54-4849-8e42-06f7c4f6ab0a`。
+- credential 經 stdin 傳遞，不進 argv／一般 log；DB local verification 使用 Unix socket +
+  `PGPASSFILE`，並確保 temporary pgpass file 為 `postgres` owner、mode `0600`。
+- 完成後使用者撤除 Cloud Build default identity 的 temporary
+  `roles/iap.tunnelResourceAccessor`。負向驗收 workflow run `37197421793`／Cloud Build
+  `de814609-8ec1-430d-a6c4-c821ee6938d6` 在第一個
+  `verify-publication-owner-iap-tunnel` step 即失敗，後續 Secret／DB mutation steps 均未執行。
+- temporary IAP grant 不屬於 permanent runtime／migration permission；未來若再次需要此
+  bounded repair，必須依當時 authorization 與 least-privilege 規則處理。
+
+042 的完整 migration／backfill／API hot-path evidence 見
+[`archive/stock-serving-projection-042-completed-2026-10-04.md`](archive/stock-serving-projection-042-completed-2026-10-04.md)。
 
 ## Cost note
 
