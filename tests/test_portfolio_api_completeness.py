@@ -140,18 +140,23 @@ def test_positions_prefer_operational_projection_and_do_not_mix_stale_private_ma
     assert store.calls == [("mart_user_portfolio_summary", USER_ID, {})]
 
 
-def test_operational_position_migration_is_transaction_deferred_and_backfills_existing_users():
-    sql = (Path(__file__).parents[1] / "infra" / "postgres" / "migrations" /
+def test_operational_position_migration_is_bounded_rebuildable_and_api_synchronous():
+    root = Path(__file__).parents[1]
+    sql = (root / "infra" / "postgres" / "migrations" /
            "041_operational_position_projection.sql").read_text(encoding="utf-8")
-    assert "GRANT REFERENCES ON private.users TO janus_control" in sql
+    repository = (root / "services" / "api" / "repository.py").read_text(encoding="utf-8")
+
     assert "CREATE TABLE IF NOT EXISTS private.current_positions" in sql
     assert "CREATE OR REPLACE FUNCTION private.refresh_current_positions" in sql
-    assert "CREATE CONSTRAINT TRIGGER ledger_refresh_current_positions" in sql
-    assert "AFTER INSERT OR UPDATE OR DELETE ON private.ledger_events" in sql
-    assert "DEFERRABLE INITIALLY DEFERRED" in sql
+    assert "SECURITY DEFINER" not in sql
+    assert "GRANT REFERENCES ON private.users" not in sql
+    assert "REFERENCES private.users" not in sql
     assert "FOR target_user IN SELECT user_id FROM private.users" in sql
-    assert "REVOKE REFERENCES ON private.users FROM janus_control" in sql
-    assert "GRANT SELECT ON private.current_positions TO janus_private_api, janus_private_pipeline" in sql
+    assert "GRANT CREATE ON SCHEMA private TO janus_private_api" in sql
+    assert "REVOKE CREATE ON SCHEMA private FROM janus_private_api" in sql
+    assert "GRANT SELECT, INSERT, UPDATE, DELETE ON private.current_positions TO janus_private_api" in sql
+    assert repository.count("SELECT private.refresh_current_positions(%s)") == 2
+    assert '"current_positions","ledger_events","users"' in repository
 
 
 def test_summary_contract_allows_withheld_aggregate_and_decodes_affected_symbols():
