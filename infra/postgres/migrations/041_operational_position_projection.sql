@@ -2,15 +2,15 @@
 
 BEGIN;
 
--- private.users is deliberately not permanently referenceable by janus_control.
--- Mirror the bounded migration pattern from 024: grant only while the FK is created,
--- then revoke before commit.
-GRANT REFERENCES ON private.users TO janus_control;
-
+-- PHASE: control-prepare
 SET ROLE janus_control;
 
+-- This is a rebuildable operational read model.  Do not couple it to the
+-- historical owner of private.users with a foreign key: older dev databases
+-- may have bootstrap-owned private tables.  Referential integrity is checked
+-- by migration/runtime acceptance instead.
 CREATE TABLE IF NOT EXISTS private.current_positions (
-    user_id uuid NOT NULL REFERENCES private.users(user_id) ON DELETE CASCADE,
+    user_id uuid NOT NULL,
     symbol varchar(16) NOT NULL,
     currency char(3) NOT NULL,
     shares numeric(20,8) NOT NULL CHECK (shares > 0),
@@ -24,10 +24,22 @@ CREATE TABLE IF NOT EXISTS private.current_positions (
 CREATE INDEX IF NOT EXISTS current_positions_user_idx
     ON private.current_positions(user_id, symbol);
 
+REVOKE ALL ON private.current_positions FROM PUBLIC;
+GRANT SELECT, INSERT, UPDATE, DELETE ON private.current_positions TO janus_private_api;
+GRANT SELECT, DELETE ON private.current_positions TO janus_private_pipeline;
+
+-- The API role owns the replay function because it already has bounded read
+-- access to the private ledger and user row.  CREATE is temporary and revoked
+-- in the final phase.
+GRANT CREATE ON SCHEMA private TO janus_private_api;
+RESET ROLE;
+
+-- PHASE: private-api
+SET ROLE janus_private_api;
+
 CREATE OR REPLACE FUNCTION private.refresh_current_positions(p_user_id uuid)
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER
 SET search_path = private, pg_catalog
 AS $$
 DECLARE
@@ -37,7 +49,7 @@ DECLARE
     next_cost numeric(30,10);
     latest_version bigint;
 BEGIN
-    PERFORM pg_advisory_xact_lock(hashtext(p_user_id::text));
+    PERFORM pg_advisory_xact_lock(hashtext('current-positions:' || p_user_id::text));
 
     SELECT ledger_version INTO latest_version
       FROM private.users
@@ -150,31 +162,8 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION private.refresh_current_positions_trigger()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = private, pg_catalog
-AS $$
-BEGIN
-    IF TG_OP = 'DELETE' THEN
-        PERFORM private.refresh_current_positions(OLD.user_id);
-    ELSIF TG_OP = 'UPDATE' AND OLD.user_id IS DISTINCT FROM NEW.user_id THEN
-        PERFORM private.refresh_current_positions(OLD.user_id);
-        PERFORM private.refresh_current_positions(NEW.user_id);
-    ELSE
-        PERFORM private.refresh_current_positions(NEW.user_id);
-    END IF;
-    RETURN NULL;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS ledger_refresh_current_positions ON private.ledger_events;
-CREATE CONSTRAINT TRIGGER ledger_refresh_current_positions
-AFTER INSERT OR UPDATE OR DELETE ON private.ledger_events
-DEFERRABLE INITIALLY DEFERRED
-FOR EACH ROW
-EXECUTE FUNCTION private.refresh_current_positions_trigger();
+REVOKE ALL ON FUNCTION private.refresh_current_positions(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION private.refresh_current_positions(uuid) TO janus_private_api;
 
 DO $$
 DECLARE
@@ -188,15 +177,13 @@ $$;
 
 RESET ROLE;
 
-REVOKE REFERENCES ON private.users FROM janus_control;
-REVOKE ALL ON private.current_positions FROM PUBLIC;
-REVOKE ALL ON FUNCTION private.refresh_current_positions(uuid) FROM PUBLIC;
-REVOKE ALL ON FUNCTION private.refresh_current_positions_trigger() FROM PUBLIC;
-GRANT SELECT ON private.current_positions TO janus_private_api, janus_private_pipeline;
-GRANT DELETE ON private.current_positions TO janus_private_pipeline;
+-- PHASE: control-finalize
+SET ROLE janus_control;
+REVOKE CREATE ON SCHEMA private FROM janus_private_api;
 
 INSERT INTO control.schema_migrations(version)
 VALUES ('041_operational_position_projection')
 ON CONFLICT(version) DO NOTHING;
 
+RESET ROLE;
 COMMIT;
