@@ -17,6 +17,8 @@ def test_publication_owner_rotation_is_bounded_and_forward_repairable():
     assert "add-iam-policy-binding" not in workflow
     assert "add-iam-policy-binding" not in build
 
+    assert "verify-publication-owner-iap-tunnel" in build
+    assert "start-iap-tunnel" in build
     assert "prepare-publication-owner-secret" in build
     assert "install-publication-owner-rotation-script" in build
     assert "rotate-publication-owner-database" in build
