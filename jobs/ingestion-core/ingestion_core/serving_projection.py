@@ -6,7 +6,8 @@ need to open GCS/Iceberg files.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, time, timezone
+from collections import defaultdict
+from datetime import date, datetime, time, timedelta, timezone
 from hashlib import sha256
 import json
 import os
@@ -43,6 +44,8 @@ class StockServingProjection:
         missing = [name for name, value in required.items() if not value]
         if missing:
             raise ValueError(f"missing serving projection database settings:{','.join(missing)}")
+        if required["user"] != "janus_control":
+            raise ValueError("stock serving projection requires janus_control")
         import psycopg
 
         def connect():
@@ -87,6 +90,16 @@ class StockServingProjection:
                     (dataset_id, self.retention_days),
                 )
         return len(prepared)
+
+    @classmethod
+    def eligible(cls, dataset_id: str, row: dict[str, Any]) -> bool:
+        if dataset_id not in cls.DATASETS:
+            return False
+        if not str(row.get("symbol") or "").strip():
+            return False
+        if cls._timestamp(row.get(cls.SORT_FIELDS[dataset_id])) is None:
+            return False
+        return all(row.get(field) not in (None, "") for field in cls.KEY_FIELDS[dataset_id])
 
     @classmethod
     def _row(cls, dataset_id: str, input_row: dict[str, Any], *, execution_id: str,
@@ -147,3 +160,111 @@ class StockServingProjection:
         if isinstance(value, (bytes, bytearray, memoryview)):
             return None
         return value
+
+
+def backfill_recent(core: Any, projection: StockServingProjection, *,
+                    as_of: datetime | None = None, max_rows: int | None = None,
+                    max_bytes: int | None = None, chunk_rows: int = 1000) -> dict[str, Any]:
+    """Materialize the recent Core window into PostgreSQL without inventing provenance.
+
+    File bytes are planned before Parquet is read so the operation fails closed
+    if a future Core grows beyond this bounded one-shot backfill contract.
+    """
+    max_rows = int(max_rows if max_rows is not None else os.environ.get("STOCK_SERVING_BACKFILL_MAX_ROWS", "250000"))
+    max_bytes = int(max_bytes if max_bytes is not None else os.environ.get(
+        "STOCK_SERVING_BACKFILL_MAX_BYTES", str(256 * 1024 * 1024)))
+    if not 1 <= max_rows <= 1_000_000:
+        raise ValueError("stock serving backfill row cap must be between 1 and 1000000")
+    if not 16 * 1024 * 1024 <= max_bytes <= 1024 * 1024 * 1024:
+        raise ValueError("stock serving backfill byte cap must be between 16 MiB and 1 GiB")
+    if not 1 <= int(chunk_rows) <= 5000:
+        raise ValueError("stock serving backfill chunk_rows must be between 1 and 5000")
+
+    now = as_of or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    cutoff = now.astimezone(timezone.utc) - timedelta(days=projection.retention_days)
+
+    from pyiceberg.expressions import GreaterThanOrEqual
+
+    report: dict[str, Any] = {
+        "status": "succeeded",
+        "retention_days": projection.retention_days,
+        "cutoff": cutoff.isoformat(),
+        "max_rows": max_rows,
+        "max_bytes": max_bytes,
+        "source_rows": 0,
+        "eligible_rows": 0,
+        "published_rows": 0,
+        "source_bytes": 0,
+        "datasets": {},
+    }
+    total_rows = 0
+    total_bytes = 0
+
+    for dataset_id in sorted(projection.DATASETS):
+        if not core.table_exists(dataset_id):
+            report["datasets"][dataset_id] = {"status": "missing", "source_rows": 0, "published_rows": 0}
+            continue
+        table = core.catalog.load_table(core.table_identifier(dataset_id))
+        snapshot = table.current_snapshot()
+        if snapshot is None:
+            report["datasets"][dataset_id] = {"status": "empty", "source_rows": 0, "published_rows": 0}
+            continue
+
+        sort_field = projection.SORT_FIELDS[dataset_id]
+        cutoff_value: Any = cutoff if sort_field == "published_at" else cutoff.date()
+        scan = table.scan(row_filter=GreaterThanOrEqual(sort_field, cutoff_value))
+        tasks = list(scan.plan_files())
+        dataset_bytes = sum(int(getattr(task.file, "file_size_in_bytes", 0) or 0) for task in tasks)
+        if total_bytes + dataset_bytes > max_bytes:
+            raise RuntimeError(
+                f"stock serving backfill byte cap exceeded before read: {total_bytes + dataset_bytes}>{max_bytes}"
+            )
+        rows = scan.to_arrow().to_pylist()
+        if total_rows + len(rows) > max_rows:
+            raise RuntimeError(
+                f"stock serving backfill row cap exceeded: {total_rows + len(rows)}>{max_rows}"
+            )
+
+        eligible = [row for row in rows if projection.eligible(dataset_id, row)]
+        grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
+        for row in eligible:
+            execution_id = str(row.get("execution_id") or "").strip()
+            provenance_id = str(row.get("provenance_id") or "").strip()
+            source_id = str(row.get("source_id") or "").strip()
+            if not execution_id or not provenance_id or not source_id:
+                raise RuntimeError(f"stock serving backfill missing canonical provenance in {dataset_id}")
+            grouped[(execution_id, provenance_id, source_id)].append(row)
+
+        published = 0
+        for (execution_id, provenance_id, source_id), grouped_rows in grouped.items():
+            for offset in range(0, len(grouped_rows), int(chunk_rows)):
+                published += projection.publish(
+                    dataset_id,
+                    grouped_rows[offset:offset + int(chunk_rows)],
+                    execution_id=execution_id,
+                    provenance_id=provenance_id,
+                    source_id=source_id,
+                    core_snapshot_id=snapshot.snapshot_id,
+                )
+        if published != len(eligible):
+            raise RuntimeError(f"stock serving backfill did not publish every eligible {dataset_id} row")
+
+        total_rows += len(rows)
+        total_bytes += dataset_bytes
+        report["source_rows"] += len(rows)
+        report["eligible_rows"] += len(eligible)
+        report["published_rows"] += published
+        report["source_bytes"] += dataset_bytes
+        report["datasets"][dataset_id] = {
+            "status": "succeeded",
+            "snapshot_id": snapshot.snapshot_id,
+            "source_files": len(tasks),
+            "source_bytes": dataset_bytes,
+            "source_rows": len(rows),
+            "eligible_rows": len(eligible),
+            "published_rows": published,
+        }
+
+    return report
