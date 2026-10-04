@@ -14,4 +14,4 @@ RUN if [ -s requirements.lock ] && ! grep -q '^# No Python dependencies' require
 COPY . .
 
 EXPOSE 8080
-CMD ["python", "-m", "ingestion_core.runtime_entrypoint"]
+CMD ["python", "-m", "ingestion_core.entrypoint"]
