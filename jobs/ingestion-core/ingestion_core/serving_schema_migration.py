@@ -1,6 +1,6 @@
 """Allow-listed serving-schema migrations through the existing dev PostgreSQL path.
 
-This avoids coupling database migrations to Compute Engine SSH/IAP.  Canonical
+This avoids coupling database migrations to Compute Engine SSH/IAP. Canonical
 SQL remains the source of truth, while this module executes explicit owner
 phases with the already-approved janus_control, janus_private_api, and
 janus_publication identities.
@@ -16,6 +16,17 @@ from typing import Any
 MIGRATION_POSITION = "041_operational_position_projection"
 MIGRATION_STOCK_SERVING = "042_stock_serving_projection"
 SUPPORTED = frozenset({MIGRATION_POSITION, MIGRATION_STOCK_SERVING})
+
+
+class ServingSchemaMigrationError(RuntimeError):
+    """Safe stage metadata for migration failures without exception details."""
+
+    def __init__(self, stage: str, error: Exception) -> None:
+        self.stage = stage
+        self.error_code = type(error).__name__.upper()[:64]
+        sqlstate = getattr(error, "sqlstate", None)
+        self.sqlstate = str(sqlstate)[:16] if sqlstate else None
+        super().__init__(f"serving schema migration failed at {stage}")
 
 
 def _migration_path(name: str) -> Path:
@@ -167,7 +178,7 @@ def _apply_position(control: Any) -> None:
     finally:
         private.close()
         # Never leave runtime CREATE permission behind, even if replay/backfill
-        # fails.  The table is rebuildable and no migration version is recorded
+        # fails. The table is rebuildable and no migration version is recorded
         # until all owner phases have passed.
         with control.connection.transaction(), control.connection.cursor() as cursor:
             _require_current_user(cursor, "janus_control")
@@ -200,45 +211,58 @@ def _apply_stock_serving(control: Any) -> None:
 
     # Phase 1: janus_control owns the serving table and grants bounded read access
     # to janus_publication. Commit before the publication owner creates views.
-    with control.connection.transaction(), control.connection.cursor() as cursor:
-        _require_current_user(cursor, "janus_control")
-        cursor.execute(_without_role_lines(control_part))
-
-    publication = _publication_connection()
     try:
-        with publication.transaction(), publication.cursor() as cursor:
-            _require_current_user(cursor, "janus_publication")
-            cursor.execute(_without_role_lines(view_part + "\n" + publication_acl_part))
-            cursor.execute(
-                """SELECT
-                  to_regclass('publication.stock_serving_recent') IS NOT NULL,
-                  to_regclass('publication.stock_latest') IS NOT NULL,
-                  has_table_privilege('janus_public_api','publication.stock_serving_recent','SELECT'),
-                  has_table_privilege('janus_public_api','publication.stock_latest','SELECT')"""
-            )
-            row = cursor.fetchone()
-            if row is None or not all(bool(value) for value in row):
-                raise RuntimeError("stock serving publication view acceptance failed")
+        with control.connection.transaction(), control.connection.cursor() as cursor:
+            _require_current_user(cursor, "janus_control")
+            cursor.execute(_without_role_lines(control_part))
+    except Exception as error:
+        raise ServingSchemaMigrationError("control_prepare", error) from error
+
+    try:
+        publication = _publication_connection()
+    except Exception as error:
+        raise ServingSchemaMigrationError("publication_connect", error) from error
+
+    try:
+        try:
+            with publication.transaction(), publication.cursor() as cursor:
+                _require_current_user(cursor, "janus_publication")
+                cursor.execute(_without_role_lines(view_part + "\n" + publication_acl_part))
+                cursor.execute(
+                    """SELECT
+                      to_regclass('publication.stock_serving_recent') IS NOT NULL,
+                      to_regclass('publication.stock_latest') IS NOT NULL,
+                      has_table_privilege('janus_public_api','publication.stock_serving_recent','SELECT'),
+                      has_table_privilege('janus_public_api','publication.stock_latest','SELECT')"""
+                )
+                row = cursor.fetchone()
+                if row is None or not all(bool(value) for value in row):
+                    raise RuntimeError("stock serving publication view acceptance failed")
+        except Exception as error:
+            raise ServingSchemaMigrationError("publication_apply", error) from error
     finally:
         publication.close()
 
     # Record the migration only after both owner phases are committed.
-    with control.connection.transaction(), control.connection.cursor() as cursor:
-        _require_current_user(cursor, "janus_control")
-        cursor.execute(_clean_psql_sql(
-            "INSERT INTO control.schema_migrations" + migration_record
-        ))
-        cursor.execute(
-            """SELECT
-              EXISTS (SELECT 1 FROM control.schema_migrations
-                      WHERE version='042_stock_serving_projection'),
-              to_regclass('control.stock_serving_recent') IS NOT NULL,
-              has_table_privilege('janus_publication','control.stock_serving_recent','SELECT'),
-              has_table_privilege('janus_public_api','publication.stock_serving_recent','SELECT')"""
-        )
-        row = cursor.fetchone()
-        if row is None or not all(bool(value) for value in row):
-            raise RuntimeError("stock serving projection acceptance failed")
+    try:
+        with control.connection.transaction(), control.connection.cursor() as cursor:
+            _require_current_user(cursor, "janus_control")
+            cursor.execute(_clean_psql_sql(
+                "INSERT INTO control.schema_migrations" + migration_record
+            ))
+            cursor.execute(
+                """SELECT
+                  EXISTS (SELECT 1 FROM control.schema_migrations
+                          WHERE version='042_stock_serving_projection'),
+                  to_regclass('control.stock_serving_recent') IS NOT NULL,
+                  has_table_privilege('janus_publication','control.stock_serving_recent','SELECT'),
+                  has_table_privilege('janus_public_api','publication.stock_serving_recent','SELECT')"""
+            )
+            row = cursor.fetchone()
+            if row is None or not all(bool(value) for value in row):
+                raise RuntimeError("stock serving projection acceptance failed")
+    except Exception as error:
+        raise ServingSchemaMigrationError("control_finalize", error) from error
 
 
 def run(control: Any, name: str) -> None:

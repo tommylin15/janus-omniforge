@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 
+import pytest
+
 from ingestion_core import serving_schema_migration as migration
 
 
@@ -50,6 +52,10 @@ class FakeConnection:
 class FakeControl:
     def __init__(self) -> None:
         self.connection = FakeConnection("janus_control")
+
+
+class FakeOperationalError(RuntimeError):
+    sqlstate = "08001"
 
 
 def statements(connection: FakeConnection) -> str:
@@ -119,6 +125,25 @@ def test_stock_serving_splits_control_and_publication_owners(monkeypatch):
     assert "GRANT SELECT ON publication.stock_serving_recent, publication.stock_latest TO janus_public_api" in publication_sql
     assert "042_stock_serving_projection" in control_sql
     assert publication.closed is True
+
+
+def test_stock_serving_reports_safe_publication_connection_failure(monkeypatch):
+    control = FakeControl()
+
+    def fail_publication_connection():
+        raise FakeOperationalError("sensitive connection detail")
+
+    monkeypatch.setattr(migration, "_publication_connection", fail_publication_connection)
+
+    with pytest.raises(migration.ServingSchemaMigrationError) as raised:
+        migration.run(control, migration.MIGRATION_STOCK_SERVING)
+
+    error = raised.value
+    assert error.stage == "publication_connect"
+    assert error.error_code == "FAKEOPERATIONALERROR"
+    assert error.sqlstate == "08001"
+    assert "sensitive connection detail" not in str(error)
+    assert "042_stock_serving_projection" not in statements(control.connection)
 
 
 def test_psql_cleaner_removes_meta_transaction_lines():
