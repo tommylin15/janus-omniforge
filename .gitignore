@@ -24,6 +24,7 @@ dist/
 coverage.xml
 htmlcov/
 .tmp/
+/tmp*/
 
 # Local editor overrides may contain machine-specific paths or credentials.
 .amazonq/
@@ -35,9 +36,10 @@ htmlcov/
 .vscode/settings.json
 .vscode/settings.local.json
 
-# Node dependencies and generated frontend output.
+# Node and frontend generated output.
 node_modules/
 .token-savior-cache.json
+.flutter-plugins-dependencies
 frontend/node_modules/
 frontend/.next/
 frontend/out/
