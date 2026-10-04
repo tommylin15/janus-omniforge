@@ -4,45 +4,46 @@ substitutions:
   _POSTGRES_IMAGE: ""
 
 steps:
+  - id: verify-iap-connectivity
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        gcloud compute ssh "${_POSTGRES_VM}" \
+          --project="${PROJECT_ID}" \
+          --zone="${_POSTGRES_ZONE}" \
+          --tunnel-through-iap \
+          --quiet \
+          --command 'true'
+
+  - id: copy-migration-controller
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        gcloud compute scp scripts/gcp/apply-web-postgres-migration.sh \
+          "${_POSTGRES_VM}:apply-web-postgres-migration.sh" \
+          --project="${PROJECT_ID}" \
+          --zone="${_POSTGRES_ZONE}" \
+          --tunnel-through-iap \
+          --quiet
+
   - id: switch-immutable-postgres-image
     name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
     entrypoint: bash
-    secretEnv:
-      - POSTGRES_BUNDLE
     args:
       - -ceu
       - |
         test -n "${_POSTGRES_IMAGE}"
-        python3 - <<'PY'
-        import json
-        import os
-        from pathlib import Path
-
-        bundle = json.loads(os.environ["POSTGRES_BUNDLE"])
-        fields = ("web_control_password", "web_catalog_password", "web_publication_password")
-        values = [bundle[field] for field in fields]
-        Path("/workspace/janus-web-credentials-build").write_text("\n".join(values) + "\n")
-        PY
-        chmod 600 /workspace/janus-web-credentials-build
-
-        cleanup() {
-          rm -f /workspace/janus-web-credentials-build
-          gcloud compute ssh "${_POSTGRES_VM}" --project="${PROJECT_ID}" --zone="${_POSTGRES_ZONE}" \
-            --tunnel-through-iap --quiet --command \
-            'sudo rm -f /tmp/janus-web-credentials-build /tmp/apply-web-postgres-migration.sh janus-web-credentials-build apply-web-postgres-migration.sh' >/dev/null 2>&1 || true
-        }
-        trap cleanup EXIT
-
-        gcloud compute scp scripts/gcp/apply-web-postgres-migration.sh \
-          /workspace/janus-web-credentials-build \
-          "${_POSTGRES_VM}:" --project="${PROJECT_ID}" --zone="${_POSTGRES_ZONE}" \
-          --tunnel-through-iap --quiet
-        gcloud compute ssh "${_POSTGRES_VM}" --project="${PROJECT_ID}" --zone="${_POSTGRES_ZONE}" \
-          --tunnel-through-iap --quiet --command \
-          "sudo mv apply-web-postgres-migration.sh /tmp/apply-web-postgres-migration.sh && sudo mv janus-web-credentials-build /tmp/janus-web-credentials-build && sudo chmod 700 /tmp/apply-web-postgres-migration.sh && sudo chmod 600 /tmp/janus-web-credentials-build"
-        gcloud compute ssh "${_POSTGRES_VM}" --project="${PROJECT_ID}" --zone="${_POSTGRES_ZONE}" \
-          --tunnel-through-iap --quiet --command \
-          "sudo bash /tmp/apply-web-postgres-migration.sh '${_POSTGRES_IMAGE}' apply file /tmp/janus-web-credentials-build"
+        gcloud compute ssh "${_POSTGRES_VM}" \
+          --project="${PROJECT_ID}" \
+          --zone="${_POSTGRES_ZONE}" \
+          --tunnel-through-iap \
+          --quiet \
+          --command \
+          "sudo mv apply-web-postgres-migration.sh /tmp/apply-web-postgres-migration.sh && sudo chmod 700 /tmp/apply-web-postgres-migration.sh && sudo bash /tmp/apply-web-postgres-migration.sh '${_POSTGRES_IMAGE}' apply secret-manager '${PROJECT_ID}'"
 
   - id: apply-serving-migrations
     name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
@@ -56,8 +57,12 @@ steps:
           040_core_retention_targets.sql \
           041_operational_position_projection.sql \
           042_stock_serving_projection.sql; do
-          gcloud compute ssh "${_POSTGRES_VM}" --project="${PROJECT_ID}" --zone="${_POSTGRES_ZONE}" \
-            --tunnel-through-iap --quiet --command \
+          gcloud compute ssh "${_POSTGRES_VM}" \
+            --project="${PROJECT_ID}" \
+            --zone="${_POSTGRES_ZONE}" \
+            --tunnel-through-iap \
+            --quiet \
+            --command \
             "sudo docker exec --user postgres janus-postgres psql -U postgres -d janus_control -v ON_ERROR_STOP=1 -f /opt/janus/migrations/${migration}"
         done
 
@@ -67,13 +72,21 @@ steps:
     args:
       - -ceu
       - |
-        privilege_check="$(gcloud compute ssh "${_POSTGRES_VM}" --project="${PROJECT_ID}" --zone="${_POSTGRES_ZONE}" \
-          --tunnel-through-iap --quiet --command \
+        privilege_check="$(gcloud compute ssh "${_POSTGRES_VM}" \
+          --project="${PROJECT_ID}" \
+          --zone="${_POSTGRES_ZONE}" \
+          --tunnel-through-iap \
+          --quiet \
+          --command \
           "sudo docker exec --user postgres janus-postgres psql -U postgres -d janus_control -Atqc \"SELECT EXISTS (SELECT 1 FROM control.schema_migrations WHERE version='036_mart_ai_targets'),has_schema_privilege('janus_mart_publication','control','USAGE'),has_function_privilege('janus_mart_publication','control.mart_ai_target_symbols(date)','EXECUTE'),has_table_privilege('janus_mart_publication','control.mart_ai_target_history','SELECT'),has_table_privilege('janus_mart_publication','control.mart_ai_target_history_meta','SELECT'),has_table_privilege('janus_mart_publication','private.watchlist','SELECT'),has_table_privilege('janus_mart_publication','private.ledger_events','SELECT');\"")"
         test "${privilege_check}" = "t|t|t|t|t|f|f"
 
-        serving_check="$(gcloud compute ssh "${_POSTGRES_VM}" --project="${PROJECT_ID}" --zone="${_POSTGRES_ZONE}" \
-          --tunnel-through-iap --quiet --command \
+        serving_check="$(gcloud compute ssh "${_POSTGRES_VM}" \
+          --project="${PROJECT_ID}" \
+          --zone="${_POSTGRES_ZONE}" \
+          --tunnel-through-iap \
+          --quiet \
+          --command \
           "sudo docker exec --user postgres janus-postgres psql -U postgres -d janus_control -Atqc \"SELECT EXISTS (SELECT 1 FROM control.schema_migrations WHERE version='041_operational_position_projection'),EXISTS (SELECT 1 FROM control.schema_migrations WHERE version='042_stock_serving_projection'),to_regclass('private.current_positions') IS NOT NULL,to_regclass('control.stock_serving_recent') IS NOT NULL,has_table_privilege('janus_private_api','private.current_positions','SELECT'),has_table_privilege('janus_public_api','publication.stock_serving_recent','SELECT');\"")"
         test "${serving_check}" = "t|t|t|t|t|t"
 
@@ -83,16 +96,28 @@ steps:
     args:
       - -ceu
       - |
-        consistency_check="$(gcloud compute ssh "${_POSTGRES_VM}" --project="${PROJECT_ID}" --zone="${_POSTGRES_ZONE}" \
-          --tunnel-through-iap --quiet --command \
+        consistency_check="$(gcloud compute ssh "${_POSTGRES_VM}" \
+          --project="${PROJECT_ID}" \
+          --zone="${_POSTGRES_ZONE}" \
+          --tunnel-through-iap \
+          --quiet \
+          --command \
           "sudo docker exec --user postgres janus-postgres psql -U postgres -d janus_control -Atqc \"SELECT NOT EXISTS (SELECT 1 FROM private.current_positions p JOIN private.users u USING(user_id) WHERE p.ledger_version <> u.ledger_version) AND NOT EXISTS (SELECT 1 FROM private.current_positions WHERE shares <= 0 OR cost_basis < 0);\"")"
         test "${consistency_check}" = "t"
         echo "PostgreSQL dev migrations completed; operational holdings and bounded stock serving projections are ready."
 
-availableSecrets:
-  secretManager:
-    - versionName: projects/$PROJECT_ID/secrets/janus-runtime-bundle/versions/latest
-      env: POSTGRES_BUNDLE
+  - id: cleanup-migration-controller
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        gcloud compute ssh "${_POSTGRES_VM}" \
+          --project="${PROJECT_ID}" \
+          --zone="${_POSTGRES_ZONE}" \
+          --tunnel-through-iap \
+          --quiet \
+          --command 'sudo rm -f /tmp/apply-web-postgres-migration.sh apply-web-postgres-migration.sh'
 
 options:
   logging: CLOUD_LOGGING_ONLY
