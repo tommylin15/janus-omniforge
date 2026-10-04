@@ -45,10 +45,14 @@ jobs:
             MODE='${{ inputs.mode }}'
           fi
           case "${MODE}" in
-            health|compact-dry-run|compact-apply|dry-run|apply|retention-dry-run|retention-apply) ;;
+            health) EXPECTED_COMPONENT='iceberg-health' ;;
+            compact-dry-run|compact-apply) EXPECTED_COMPONENT='iceberg-compaction' ;;
+            dry-run|apply) EXPECTED_COMPONENT='iceberg-maintenance' ;;
+            retention-dry-run|retention-apply) EXPECTED_COMPONENT='data-retention' ;;
             *) echo "Unsupported maintenance mode: ${MODE}" >&2; exit 2 ;;
           esac
           echo "MODE=${MODE}" >> "${GITHUB_ENV}"
+          echo "EXPECTED_COMPONENT=${EXPECTED_COMPONENT}" >> "${GITHUB_ENV}"
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
@@ -76,16 +80,35 @@ jobs:
           execution_name="${execution##*/}"
           echo "maintenance_mode=${MODE}"
           echo "execution=${execution_name}"
-          entries="$(gcloud logging read \
-            "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"janus-ingestion-core\" AND labels.\"run.googleapis.com/execution_name\"=\"${execution_name}\"" \
-            --project=gen-lang-client-0593591102 \
-            --freshness=20m \
-            --limit=200 \
-            --order=asc \
-            --format=json)"
-          evidence="$(jq -c '[.[] | select(.jsonPayload.component == "ingestion-core") | .jsonPayload] | last // empty' <<< "${entries}")"
+
+          evidence=''
+          entries='[]'
+          for attempt in $(seq 1 12); do
+            entries="$(gcloud logging read \
+              "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"janus-ingestion-core\" AND labels.\"run.googleapis.com/execution_name\"=\"${execution_name}\"" \
+              --project=gen-lang-client-0593591102 \
+              --freshness=20m \
+              --limit=200 \
+              --order=asc \
+              --format=json)"
+            evidence="$(jq -c --arg component "${EXPECTED_COMPONENT}" \
+              '[.[] | .jsonPayload? | select(.component == $component)] | last // empty' <<< "${entries}")"
+            if [[ -z "${evidence}" ]]; then
+              evidence="$(jq -c --arg component "${EXPECTED_COMPONENT}" \
+                '[.[] | .textPayload? | select(type == "string") | (try fromjson catch empty) | select(.component == $component)] | last // empty' \
+                <<< "${entries}")"
+            fi
+            if [[ -n "${evidence}" ]]; then
+              break
+            fi
+            if [[ "${attempt}" != '12' ]]; then
+              sleep 5
+            fi
+          done
+
           if [[ -z "${evidence}" ]]; then
-            evidence="$(jq -r '[.[] | .textPayload? | select(type == "string" and startswith("{"))] | last // empty' <<< "${entries}")"
+            echo "Expected maintenance evidence component not found: ${EXPECTED_COMPONENT}" >&2
+            jq -c '[.[] | {severity, log_name: .logName, component: (.jsonPayload.component // null)}]' <<< "${entries}" >&2
+            exit 1
           fi
-          test -n "${evidence}"
           echo "maintenance_evidence=${evidence}"
