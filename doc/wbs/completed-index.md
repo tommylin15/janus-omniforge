@@ -4,6 +4,7 @@
 
 ## 已完成／退役範圍
 
+- `042_stock_serving_projection`：2026-10-04 完成 dev migration、`78,079 / 78,079` real-data backfill、API projection-first live hot-path telemetry、publication owner credential repair 與 temporary IAP revoke verification；見 [完成證據](../archive/stock-serving-projection-042-completed-2026-10-04.md)。這是 serving infrastructure completion，不新增 active WBS queue item。
 - `WBS-3-DATA-SUPPLEMENT-V1`：2026-10-03 依資料優先驗收結案，資料前置已滿足；見 [結案證據](../archive/wbs-3-data-supplement-v1-completed-2026-10-03.md)，維運見 [runbook](../runbook-data-supplement.md)。
 
 - WBS 0、1、2、4：已完成並移至 [`../archive/wbs-completed-through-2026-08-31.md`](../archive/wbs-completed-through-2026-08-31.md)。
