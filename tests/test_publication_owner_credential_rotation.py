@@ -18,7 +18,7 @@ def test_publication_owner_rotation_is_bounded_and_forward_repairable():
     assert "add-iam-policy-binding" not in build
 
     assert "prepare-publication-owner-secret" in build
-    assert "copy-publication-owner-rotation-script" in build
+    assert "install-publication-owner-rotation-script" in build
     assert "rotate-publication-owner-database" in build
     assert "finalize-publication-owner-secret" in build
     assert "RUNTIME_BUNDLE" in build
@@ -26,6 +26,7 @@ def test_publication_owner_rotation_is_bounded_and_forward_repairable():
     assert "publication_password" in build
     assert "gcloud secrets versions add janus-runtime-bundle" in build
     assert "gcloud secrets versions disable" in build
+    assert "sudo tee /tmp/rotate-publication-owner-credential-dev.sh" in build
     assert "cat \"$${work}/password\" | gcloud compute ssh" in build
     assert "--filter='state=ENABLED'" in build
 
