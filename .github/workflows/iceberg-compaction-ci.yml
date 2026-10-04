@@ -1,0 +1,43 @@
+name: Validate Iceberg compaction
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/iceberg-compaction-ci.yml'
+      - 'jobs/ingestion-core/ingestion_core/iceberg_maintenance.py'
+      - 'packages/duckdb_query/iceberg.py'
+      - 'tests/test_iceberg_compaction.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: iceberg-compaction-ci-main
+  cancel-in-progress: false
+
+jobs:
+  test:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            jobs/ingestion-core/requirements.lock
+      - name: Install bounded test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r jobs/ingestion-core/requirements.lock
+          python -m pip install -r requirements-dev.txt
+      - name: Verify bounded compaction
+        env:
+          PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
+        run: |
+          python -m pytest -q tests/test_iceberg_compaction.py tests/test_duckdb_iceberg.py tests/test_data_retention.py
+          python -m compileall -q jobs/ingestion-core/ingestion_core/iceberg_maintenance.py packages/duckdb_query/iceberg.py
