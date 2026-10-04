@@ -1,9 +1,9 @@
 """Allow-listed serving-schema migrations through the existing dev PostgreSQL path.
 
-This avoids coupling database migrations to Compute Engine SSH/IAP.  The
-canonical SQL files remain the source of truth; this module only splits the
-multi-owner 042 migration across the existing janus_control and
-janus_publication database identities.
+This avoids coupling database migrations to Compute Engine SSH/IAP.  Canonical
+SQL remains the source of truth, while this module executes explicit owner
+phases with the already-approved janus_control, janus_private_api, and
+janus_publication identities.
 """
 
 from __future__ import annotations
@@ -32,28 +32,31 @@ def _clean_psql_sql(text: str) -> str:
     ).strip()
 
 
-def _verify_position_projection(cursor: Any) -> None:
-    cursor.execute(
-        """SELECT
-          EXISTS (SELECT 1 FROM control.schema_migrations
-                  WHERE version='041_operational_position_projection'),
-          to_regclass('private.current_positions') IS NOT NULL,
-          has_table_privilege('janus_private_api','private.current_positions','SELECT'),
-          has_table_privilege('janus_private_pipeline','private.current_positions','SELECT'),
-          NOT EXISTS (
-            SELECT 1
-            FROM private.current_positions p
-            JOIN private.users u USING(user_id)
-            WHERE p.ledger_version <> u.ledger_version
-          ),
-          NOT EXISTS (
-            SELECT 1 FROM private.current_positions
-            WHERE shares <= 0 OR cost_basis < 0 OR average_cost < 0
-          )"""
+def _without_role_lines(text: str) -> str:
+    """Connections already use the bounded owner identity for each phase."""
+    cleaned = _clean_psql_sql(text)
+    return "\n".join(
+        line for line in cleaned.splitlines()
+        if not line.strip().startswith("SET ROLE ") and line.strip() != "RESET ROLE;"
+    ).strip()
+
+
+def _private_api_connection() -> Any:
+    from packages.postgres_bundle import load_postgres_bundle
+    import psycopg
+
+    load_postgres_bundle(
+        "JANUS_INGESTION_POSTGRES_BUNDLE",
+        {"SERVING_PRIVATE_DATABASE_URL": "database_url"},
     )
-    row = cursor.fetchone()
-    if row is None or not all(bool(value) for value in row):
-        raise RuntimeError("operational position projection acceptance failed")
+    dsn = os.environ.get("SERVING_PRIVATE_DATABASE_URL", "").strip()
+    if not dsn:
+        raise ValueError("missing serving private API database URL")
+    return psycopg.connect(
+        dsn,
+        connect_timeout=5,
+        options="-c statement_timeout=60000 -c idle_in_transaction_session_timeout=15000",
+    )
 
 
 def _publication_connection() -> Any:
@@ -79,11 +82,109 @@ def _publication_connection() -> Any:
     )
 
 
+def _require_current_user(cursor: Any, expected: str) -> None:
+    cursor.execute("SELECT current_user")
+    row = cursor.fetchone()
+    if row is None or str(row[0]) != expected:
+        actual = "unknown" if row is None else str(row[0])
+        raise RuntimeError(f"serving migration expected database identity {expected}, got {actual}")
+
+
+def _verify_position_schema(cursor: Any) -> None:
+    cursor.execute(
+        """SELECT
+          EXISTS (SELECT 1 FROM control.schema_migrations
+                  WHERE version='041_operational_position_projection'),
+          to_regclass('private.current_positions') IS NOT NULL,
+          to_regprocedure('private.refresh_current_positions(uuid)') IS NOT NULL,
+          has_table_privilege('janus_private_api','private.current_positions','SELECT'),
+          has_table_privilege('janus_private_api','private.current_positions','INSERT'),
+          has_table_privilege('janus_private_api','private.current_positions','UPDATE'),
+          has_table_privilege('janus_private_api','private.current_positions','DELETE'),
+          has_table_privilege('janus_private_pipeline','private.current_positions','SELECT'),
+          has_table_privilege('janus_private_pipeline','private.current_positions','DELETE'),
+          NOT has_schema_privilege('janus_private_api','private','CREATE'),
+          COALESCE((
+            SELECT pg_get_userbyid(p.proowner)='janus_private_api'
+              FROM pg_proc p
+             WHERE p.oid=to_regprocedure('private.refresh_current_positions(uuid)')
+          ), false)"""
+    )
+    row = cursor.fetchone()
+    if row is None or not all(bool(value) for value in row):
+        raise RuntimeError("operational position projection schema acceptance failed")
+
+
+def _verify_position_data(cursor: Any) -> None:
+    cursor.execute(
+        """SELECT
+          current_user='janus_private_api',
+          NOT EXISTS (
+            SELECT 1
+              FROM private.current_positions p
+              LEFT JOIN private.users u USING(user_id)
+             WHERE u.user_id IS NULL
+          ),
+          NOT EXISTS (
+            SELECT 1
+              FROM private.current_positions p
+              JOIN private.users u USING(user_id)
+             WHERE p.ledger_version <> u.ledger_version
+          ),
+          NOT EXISTS (
+            SELECT 1 FROM private.current_positions
+             WHERE shares <= 0 OR cost_basis < 0 OR average_cost < 0
+          )"""
+    )
+    row = cursor.fetchone()
+    if row is None or not all(bool(value) for value in row):
+        raise RuntimeError("operational position projection data acceptance failed")
+
+
 def _apply_position(control: Any) -> None:
-    sql = _clean_psql_sql(_migration_path(MIGRATION_POSITION).read_text(encoding="utf-8"))
+    text = _migration_path(MIGRATION_POSITION).read_text(encoding="utf-8")
+    try:
+        _, remainder = text.split("-- PHASE: control-prepare", 1)
+        control_prepare, remainder = remainder.split("-- PHASE: private-api", 1)
+        private_part, control_finalize = remainder.split("-- PHASE: control-finalize", 1)
+    except ValueError as error:
+        raise RuntimeError("041 migration owner phases are not recognizable") from error
+
+    # Phase 1 commits the rebuildable table/ACL and a temporary CREATE grant so
+    # janus_private_api can own the ledger replay function without superuser.
     with control.connection.transaction(), control.connection.cursor() as cursor:
-        cursor.execute(sql)
-        _verify_position_projection(cursor)
+        _require_current_user(cursor, "janus_control")
+        cursor.execute(_without_role_lines(control_prepare))
+
+    private = _private_api_connection()
+    private_ok = False
+    try:
+        with private.transaction(), private.cursor() as cursor:
+            _require_current_user(cursor, "janus_private_api")
+            cursor.execute(_without_role_lines(private_part))
+            _verify_position_data(cursor)
+        private_ok = True
+    finally:
+        private.close()
+        # Never leave runtime CREATE permission behind, even if replay/backfill
+        # fails.  The table is rebuildable and no migration version is recorded
+        # until all owner phases have passed.
+        with control.connection.transaction(), control.connection.cursor() as cursor:
+            _require_current_user(cursor, "janus_control")
+            cursor.execute("REVOKE CREATE ON SCHEMA private FROM janus_private_api")
+
+    if not private_ok:
+        raise RuntimeError("operational position private phase failed")
+
+    # Phase 3 records the migration only after the private replay committed.
+    finalize_sql = _without_role_lines(control_finalize)
+    finalize_sql = finalize_sql.replace(
+        "REVOKE CREATE ON SCHEMA private FROM janus_private_api;", ""
+    ).strip()
+    with control.connection.transaction(), control.connection.cursor() as cursor:
+        _require_current_user(cursor, "janus_control")
+        cursor.execute(finalize_sql)
+        _verify_position_schema(cursor)
 
 
 def _apply_stock_serving(control: Any) -> None:
@@ -100,12 +201,14 @@ def _apply_stock_serving(control: Any) -> None:
     # Phase 1: janus_control owns the serving table and grants bounded read access
     # to janus_publication. Commit before the publication owner creates views.
     with control.connection.transaction(), control.connection.cursor() as cursor:
-        cursor.execute(_clean_psql_sql(control_part))
+        _require_current_user(cursor, "janus_control")
+        cursor.execute(_without_role_lines(control_part))
 
     publication = _publication_connection()
     try:
         with publication.transaction(), publication.cursor() as cursor:
-            cursor.execute(_clean_psql_sql(view_part + "\n" + publication_acl_part))
+            _require_current_user(cursor, "janus_publication")
+            cursor.execute(_without_role_lines(view_part + "\n" + publication_acl_part))
             cursor.execute(
                 """SELECT
                   to_regclass('publication.stock_serving_recent') IS NOT NULL,
@@ -121,6 +224,7 @@ def _apply_stock_serving(control: Any) -> None:
 
     # Record the migration only after both owner phases are committed.
     with control.connection.transaction(), control.connection.cursor() as cursor:
+        _require_current_user(cursor, "janus_control")
         cursor.execute(_clean_psql_sql(
             "INSERT INTO control.schema_migrations" + migration_record
         ))
