@@ -4,6 +4,8 @@ set -Eeuo pipefail
 # GitHub Actions is the deployment controller for dev. This script deliberately
 # does not call Terraform; Cloud Build builds/pushes the image and may stage the
 # runtime image, while this script applies the canonical runtime configuration.
+# All runtime builds submit the repository root as their Docker context, so
+# generated/transient artifacts must stay excluded by the repository .dockerignore.
 
 project="${GCP_PROJECT_ID:?GCP_PROJECT_ID is required}"
 region="${GCP_REGION:-us-central1}"
