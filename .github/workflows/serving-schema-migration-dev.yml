@@ -14,6 +14,7 @@ on:
     branches: [main]
     paths:
       - 'ops/serving-schema-migration'
+      - '.github/workflows/serving-schema-migration-dev.yml'
 
 permissions:
   contents: read
@@ -52,28 +53,57 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          executions="$(gcloud run jobs executions list \
-            --job=janus-ingestion-core \
-            --project=gen-lang-client-0593591102 \
-            --region=us-central1 \
-            --limit=20 --format=json)"
+          project='gen-lang-client-0593591102'
+          region='us-central1'
+          job='janus-ingestion-core'
+          executions="$(gcloud run jobs executions list --job="${job}" --project="${project}" --region="${region}" --limit=20 --format=json)"
           if [[ "$(jq '[.[] | select(.status.completionTime == null)] | length' <<< "${executions}")" != '0' ]]; then
             echo 'An ingestion execution is still running; retry migration after it completes.' >&2
             exit 1
           fi
-          execution="$(gcloud run jobs execute janus-ingestion-core \
-            --project=gen-lang-client-0593591102 \
-            --region=us-central1 \
+
+          execution="$(gcloud run jobs execute "${job}" \
+            --project="${project}" \
+            --region="${region}" \
             --update-env-vars="JANUS_SERVING_SCHEMA_MIGRATION=${MIGRATION},ICEBERG_MAINTENANCE_MODE=,QUEUE_CONSUMER=false,MART_JOB=,JANUS_CONTROL_MIGRATION=,JANUS_DATA_SUPPLEMENT_MODE=" \
-            --wait --format='value(metadata.name)')"
+            --async --format='value(metadata.name)')"
           test -n "${execution}"
           execution_name="${execution##*/}"
           echo "migration=${MIGRATION}"
           echo "execution=${execution_name}"
-          gcloud logging read \
-            "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"janus-ingestion-core\" AND labels.\"run.googleapis.com/execution_name\"=\"${execution_name}\"" \
-            --project=gen-lang-client-0593591102 \
-            --freshness=20m \
-            --limit=100 \
-            --order=asc \
-            --format='value(textPayload)'
+
+          completed=''
+          for _ in $(seq 1 180); do
+            description="$(gcloud run jobs executions describe "${execution_name}" \
+              --project="${project}" --region="${region}" --format=json)"
+            completed="$(jq -r '.status.completionTime // empty' <<< "${description}")"
+            if [[ -n "${completed}" ]]; then
+              break
+            fi
+            sleep 5
+          done
+          test -n "${completed}"
+
+          evidence=''
+          entries='[]'
+          for attempt in $(seq 1 12); do
+            entries="$(gcloud logging read \
+              "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"${job}\" AND labels.\"run.googleapis.com/execution_name\"=\"${execution_name}\"" \
+              --project="${project}" --freshness=20m --limit=200 --order=asc --format=json)"
+            evidence="$(jq -c --arg migration "${MIGRATION}" \
+              '[.[] | .jsonPayload? | select(.component == "ingestion-core" and .operation == "serving_schema_migration" and .migration == $migration)] | last // empty' \
+              <<< "${entries}")"
+            if [[ -z "${evidence}" ]]; then
+              evidence="$(jq -c --arg migration "${MIGRATION}" \
+                '[.[] | .textPayload? | select(type == "string") | (try fromjson catch empty) | select(.component == "ingestion-core" and .operation == "serving_schema_migration" and .migration == $migration)] | last // empty' \
+                <<< "${entries}")"
+            fi
+            if [[ -n "${evidence}" ]]; then break; fi
+            if [[ "${attempt}" != '12' ]]; then sleep 5; fi
+          done
+          if [[ -z "${evidence}" ]]; then
+            echo 'Serving migration evidence not found.' >&2
+            exit 1
+          fi
+          echo "migration_evidence=${evidence}"
+          test "$(jq -r '.status' <<< "${evidence}")" = 'succeeded'
