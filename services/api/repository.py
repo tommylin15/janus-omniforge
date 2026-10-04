@@ -117,6 +117,7 @@ class PostgresWorkspaceRepository:
                  value.price, value.cash_amount, value.fee, value.tax, value.currency, value.memo, key),
             ).fetchone()
             self._change(connection, user_id, self._next_change_version(connection,user_id), "ledger", row["event_id"], None)
+            connection.execute("SELECT private.refresh_current_positions(%s)", (user_id,))
             return dict(row)
 
     def correct_ledger(self, user_id: UUID, event_id: UUID, expected: int, value: LedgerEventIn, key: str) -> dict[str, Any]:
@@ -156,6 +157,7 @@ class PostgresWorkspaceRepository:
             ).fetchone()
             self._change(connection, user_id, self._next_change_version(connection,user_id), "ledger", reversal_id, None)
             self._change(connection, user_id, self._next_change_version(connection,user_id), "ledger", row["event_id"], None)
+            connection.execute("SELECT private.refresh_current_positions(%s)", (user_id,))
             return dict(row)
 
     def ledger_history(self, user_id: UUID, symbol: str | None, year: int | None, limit: int = 200) -> list[dict[str, Any]]:
@@ -274,7 +276,7 @@ class PostgresWorkspaceRepository:
             repeated=connection.execute("SELECT * FROM private.note_index WHERE user_id=%s AND note_id=%s",(user_id,replay["entity_id"])).fetchone() if replay else None
             if repeated: return dict(repeated)
             self._require_owned_trade(connection,user_id,value.trade_event_id)
-            row = connection.execute("SELECT * FROM private.note_index WHERE user_id=%s AND note_id=%s FOR UPDATE",(user_id,note_id)).fetchone()
+            row=connection.execute("SELECT * FROM private.note_index WHERE user_id=%s AND note_id=%s FOR UPDATE",(user_id,note_id)).fetchone()
             if not row: raise NotFoundError("note not found")
             if row["current_version"] != expected: raise ConflictError("note version changed")
             updated = connection.execute(
@@ -513,7 +515,7 @@ class PostgresWorkspaceRepository:
             connection.execute("DELETE FROM private.assistant_threads WHERE user_id=%s",(user_id,))
             connection.execute("DELETE FROM private.assistant_skill_state WHERE user_id=%s",(user_id,))
             connection.execute("DELETE FROM private.assistant_skill_revisions WHERE user_id=%s",(user_id,))
-            for table in ("analysis_feedback","change_log","mutation_keys","note_index","watchlist","mcp_servers","mcp_oauth_refresh_tokens","mcp_oauth_codes","investment_profiles","ledger_events","users"):
+            for table in ("analysis_feedback","change_log","mutation_keys","note_index","watchlist","mcp_servers","mcp_oauth_refresh_tokens","mcp_oauth_codes","investment_profiles","current_positions","ledger_events","users"):
                 connection.execute(f"DELETE FROM private.{table} WHERE user_id=%s",(user_id,))
             connection.execute("""UPDATE private.deletion_requests SET status='COMPLETED',cleanup_pending='{}',completed_at=now()
                                 WHERE request_id=%s AND user_id=%s""",(request_id,user_id))
@@ -539,7 +541,7 @@ class PostgresWorkspaceRepository:
         connection.execute("INSERT INTO private.mutation_keys(user_id,idempotency_key,kind,entity_id) VALUES(%s,%s,%s,%s)",(user_id,key,kind,str(entity)))
 
     @staticmethod
-    def _position(connection: Any,user_id: UUID,symbol: str,exclude: UUID | None=None) -> Decimal:
+    def _position(connection: Any,user_id: UUID,symbol:str,exclude: UUID | None=None) -> Decimal:
         clause=" AND event_id<>%s" if exclude else ""
         row=connection.execute(
             """SELECT COALESCE(sum(CASE WHEN event_action='REVERSAL' THEN -1 ELSE 1 END *
