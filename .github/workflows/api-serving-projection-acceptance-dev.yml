@@ -12,6 +12,7 @@ permissions:
 
 env:
   GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_REGION: us-central1
 
 jobs:
   verify:
@@ -43,6 +44,17 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
+      - name: Trigger live public stock read
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          api_url="$(gcloud run services describe janus-api \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --format='value(status.url)')"
+          test -n "${api_url}"
+          response="$(curl -fsS "${api_url}/api/v1/public/history/2330?limit=1&offset=0")"
+          jq -e '.dataset_id == "ohlcv" and .symbol == "2330" and (.rows | length) > 0' <<< "${response}" >/dev/null
+          echo 'live_public_stock_read=ok'
       - name: Verify live API projection source evidence
         shell: bash
         run: |
@@ -50,7 +62,7 @@ jobs:
           evidence=''
           for attempt in $(seq 1 12); do
             entries="$(gcloud logging read \
-              'resource.type="cloud_run_revision" AND "core_query_source"' \
+              'resource.type="cloud_run_revision" AND resource.labels.service_name="janus-api" AND (jsonPayload.operation="core_query_source" OR textPayload:"core_query_source")' \
               --project="${GCP_PROJECT_ID}" --freshness=20m --limit=100 --order=desc --format=json)"
             evidence="$(jq -c '
               [ .[] |
