@@ -72,9 +72,24 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v2
       - name: Build immutable PostgreSQL image
         run: |
-          gcloud builds submit infra/postgres \
+          set -euo pipefail
+          build_id="$(gcloud builds submit infra/postgres \
             --project="${GCP_PROJECT_ID}" \
-            --config=infra/postgres/cloudbuild.yaml
+            --config=infra/postgres/cloudbuild.yaml \
+            --async --format='value(id)')"
+          test -n "${build_id}"
+          for _ in $(seq 1 120); do
+            status="$(gcloud builds describe "${build_id}" --project="${GCP_PROJECT_ID}" --format='value(status)')"
+            case "${status}" in
+              SUCCESS) break ;;
+              FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED)
+                echo "PostgreSQL image build ${build_id} failed with ${status}" >&2
+                exit 1
+                ;;
+            esac
+            sleep 5
+          done
+          test "${status}" = "SUCCESS"
           digest="$(gcloud artifacts docker images describe \
             "us-central1-docker.pkg.dev/${GCP_PROJECT_ID}/janus-postgres/postgres:16.15" \
             --project="${GCP_PROJECT_ID}" --format='value(image_summary.digest)')"
@@ -82,8 +97,23 @@ jobs:
           echo "POSTGRES_IMAGE=us-central1-docker.pkg.dev/${GCP_PROJECT_ID}/janus-postgres/postgres@${digest}" >> "${GITHUB_ENV}"
       - name: Apply migrations and acceptance through canonical controller
         run: |
+          set -euo pipefail
           test -n "${POSTGRES_IMAGE}"
-          gcloud builds submit . \
+          build_id="$(gcloud builds submit . \
             --project="${GCP_PROJECT_ID}" \
             --config=scripts/gcp/cloudbuild-postgres-migration.yaml \
-            --substitutions="_POSTGRES_IMAGE=${POSTGRES_IMAGE},_POSTGRES_VM=${POSTGRES_VM},_POSTGRES_ZONE=${POSTGRES_ZONE}"
+            --substitutions="_POSTGRES_IMAGE=${POSTGRES_IMAGE},_POSTGRES_VM=${POSTGRES_VM},_POSTGRES_ZONE=${POSTGRES_ZONE}" \
+            --async --format='value(id)')"
+          test -n "${build_id}"
+          for _ in $(seq 1 180); do
+            status="$(gcloud builds describe "${build_id}" --project="${GCP_PROJECT_ID}" --format='value(status)')"
+            case "${status}" in
+              SUCCESS) break ;;
+              FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED)
+                echo "PostgreSQL migration build ${build_id} failed with ${status}" >&2
+                exit 1
+                ;;
+            esac
+            sleep 5
+          done
+          test "${status}" = "SUCCESS"
