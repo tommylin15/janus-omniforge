@@ -90,19 +90,22 @@ def _apply_stock_serving(control: Any) -> None:
     text = _migration_path(MIGRATION_STOCK_SERVING).read_text(encoding="utf-8")
     try:
         control_part, remainder = text.split("SET ROLE janus_publication;", 1)
-        publication_part, control_tail = remainder.split("RESET ROLE;", 1)
+        view_part, remainder = remainder.split("RESET ROLE;", 1)
+        publication_acl_part, migration_record = remainder.split(
+            "INSERT INTO control.schema_migrations", 1
+        )
     except ValueError as error:
         raise RuntimeError("042 migration owner phases are not recognizable") from error
 
     # Phase 1: janus_control owns the serving table and grants bounded read access
-    # to janus_publication.  Commit before the publication owner creates views.
+    # to janus_publication. Commit before the publication owner creates views.
     with control.connection.transaction(), control.connection.cursor() as cursor:
         cursor.execute(_clean_psql_sql(control_part))
 
     publication = _publication_connection()
     try:
         with publication.transaction(), publication.cursor() as cursor:
-            cursor.execute(_clean_psql_sql(publication_part))
+            cursor.execute(_clean_psql_sql(view_part + "\n" + publication_acl_part))
             cursor.execute(
                 """SELECT
                   to_regclass('publication.stock_serving_recent') IS NOT NULL,
@@ -118,7 +121,9 @@ def _apply_stock_serving(control: Any) -> None:
 
     # Record the migration only after both owner phases are committed.
     with control.connection.transaction(), control.connection.cursor() as cursor:
-        cursor.execute(_clean_psql_sql(control_tail))
+        cursor.execute(_clean_psql_sql(
+            "INSERT INTO control.schema_migrations" + migration_record
+        ))
         cursor.execute(
             """SELECT
               EXISTS (SELECT 1 FROM control.schema_migrations
