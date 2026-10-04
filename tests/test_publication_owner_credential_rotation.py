@@ -11,6 +11,7 @@ def test_publication_owner_rotation_is_bounded_and_forward_repairable():
 
     assert "ops/publication-owner-credential-rotation" in workflow
     assert "gcloud builds submit" in workflow
+    assert "yaml.safe_load" in workflow
     assert "add-iam-policy-binding" not in workflow
     assert "add-iam-policy-binding" not in build
 
