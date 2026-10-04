@@ -76,10 +76,16 @@ jobs:
           execution_name="${execution##*/}"
           echo "maintenance_mode=${MODE}"
           echo "execution=${execution_name}"
-          gcloud logging read \
+          entries="$(gcloud logging read \
             "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"janus-ingestion-core\" AND labels.\"run.googleapis.com/execution_name\"=\"${execution_name}\"" \
             --project=gen-lang-client-0593591102 \
             --freshness=20m \
-            --limit=100 \
+            --limit=200 \
             --order=asc \
-            --format='value(textPayload)'
+            --format=json)"
+          evidence="$(jq -c '[.[] | select(.jsonPayload.component == "ingestion-core") | .jsonPayload] | last // empty' <<< "${entries}")"
+          if [[ -z "${evidence}" ]]; then
+            evidence="$(jq -r '[.[] | .textPayload? | select(type == "string" and startswith("{"))] | last // empty' <<< "${entries}")"
+          fi
+          test -n "${evidence}"
+          echo "maintenance_evidence=${evidence}"
