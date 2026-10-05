@@ -47,13 +47,6 @@ void main() {
             'coverage': {'received_symbols': 1, 'requested_symbols': 1},
             'data': {'close': '48475.74'}
           },
-          'tpex': {
-            'status': 'stale',
-            'as_of': '2026-09-24',
-            'freshness_days': 8,
-            'coverage': {'received_symbols': 1, 'requested_symbols': 1},
-            'data': {'close': '412.99'}
-          },
           'market-activity': {
             'status': 'available',
             'as_of': '2026-10-02',
@@ -74,7 +67,7 @@ void main() {
 
     expect(find.text('今日'), findsOneWidget);
     expect(find.text('加權指數'), findsOneWidget);
-    expect(find.text('櫃買指數'), findsOneWidget);
+    expect(find.text('櫃買指數'), findsNothing);
     expect(find.text('市場活動'), findsOneWidget);
     expect(find.text('法人動向'), findsOneWidget);
     expect(find.text('研究內容尚未就緒'), findsOneWidget);
