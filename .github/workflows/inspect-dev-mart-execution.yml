@@ -1,0 +1,96 @@
+name: Inspect exact dev Mart execution
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'ops/dev-mart-execution-inspect.json'
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_REGION: us-central1
+  MART_BUCKET: gen-lang-client-0593591102-dev-mart
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Inspect exact Mart execution and read back OOS artifacts
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          file='ops/dev-mart-execution-inspect.json'
+          execution="$(jq -r '.execution // ""' "${file}")"
+          [[ "${execution}" =~ ^janus-intelligence-mart-[a-z0-9-]{1,64}$ ]] || {
+            echo 'invalid Mart execution name' >&2
+            exit 2
+          }
+
+          mkdir -p runtime-evidence
+          gcloud run jobs executions describe "${execution}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --format=json > runtime-evidence/mart-execution.json
+
+          if ! gcloud logging read \
+            "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"janus-intelligence-mart\" AND labels.\"run.googleapis.com/execution_name\"=\"${execution}\"" \
+            --project="${GCP_PROJECT_ID}" \
+            --freshness=7d \
+            --limit=300 \
+            --order=asc \
+            --format=json > runtime-evidence/mart-logs.json; then
+            printf '[]\n' > runtime-evidence/mart-logs.json
+          fi
+
+          artifact_uri="$(jq -r '[.[] | .jsonPayload? | select(.operation == "specialist-retrain") | .artifact_uri // empty] | last // empty' runtime-evidence/mart-logs.json)"
+          if [[ -n "${artifact_uri}" ]]; then
+            [[ "${artifact_uri}" =~ ^gs://${MART_BUCKET}/executions/[0-9a-f-]+/specialist-manifest\.json$ ]] || {
+              echo 'unexpected specialist retrain artifact URI' >&2
+              exit 2
+            }
+            gcloud storage cat "${artifact_uri}" > runtime-evidence/specialist-manifest.json
+
+            evaluation_uri="$(jq -r '.evaluation.artifact_uri // empty' runtime-evidence/specialist-manifest.json)"
+            evaluation_hash="$(jq -r '.evaluation.artifact_hash // empty' runtime-evidence/specialist-manifest.json)"
+            [[ "${evaluation_uri}" =~ ^gs://${MART_BUCKET}/executions/[0-9a-f-]+/oos-evaluation\.json$ ]] || {
+              echo 'missing or unexpected OOS evaluation URI' >&2
+              exit 2
+            }
+            [[ "${evaluation_hash}" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+              echo 'missing or invalid OOS evaluation hash' >&2
+              exit 2
+            }
+            gcloud storage cat "${evaluation_uri}" > runtime-evidence/oos-evaluation.json
+            actual_hash="sha256:$(sha256sum runtime-evidence/oos-evaluation.json | awk '{print $1}')"
+            [[ "${actual_hash}" == "${evaluation_hash}" ]] || {
+              echo 'OOS evaluation readback hash mismatch' >&2
+              exit 2
+            }
+          fi
+
+          jq '{metadata:{name:.metadata.name},status:{conditions:.status.conditions,completionTime:.status.completionTime,failedCount:.status.failedCount,succeededCount:.status.succeededCount},env:[.spec.template.spec.containers[0].env[]? | select(.name == "MART_OPERATION" or .name == "MART_OOS_EVALUATION" or .name == "MART_AI_ENABLED")]}' runtime-evidence/mart-execution.json
+          if [[ -f runtime-evidence/specialist-manifest.json ]]; then
+            jq '{execution_id,analysis_as_of,core_snapshot_id,engine_version,screening_count,specialist_count,specialist_status,llm_api_tokens,ceo_triggered,evaluation}' runtime-evidence/specialist-manifest.json
+          else
+            echo 'No specialist-retrain artifact URI found in bounded execution logs.'
+          fi
+      - name: Upload bounded runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mart-execution-inspect-${{ github.run_id }}
+          path: runtime-evidence/*.json
+          if-no-files-found: error
+          retention-days: 7
