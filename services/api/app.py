@@ -98,6 +98,28 @@ class _PublicUserCORSMiddleware(CORSMiddleware):
         await super().__call__(scope, receive, send)
 
 
+_FLUTTER_NO_STORE_FILES = frozenset({
+    "index.html",
+    "manifest.json",
+    "build-id.txt",
+    "flutter_service_worker.js",
+    "main.dart.js",
+})
+
+
+def _flutter_asset_headers(path: str = "") -> dict[str, str]:
+    """Keep the dev app shell fresh while allowing content-hashed bundles to cache."""
+    name = Path(path).name
+    headers = {"Cross-Origin-Opener-Policy": "unsafe-none"}
+    if not path or name in _FLUTTER_NO_STORE_FILES:
+        headers["Cache-Control"] = "no-store, max-age=0"
+    elif name.startswith("flutter_bootstrap"):
+        headers["Cache-Control"] = "no-store, max-age=0"
+    elif name.startswith("main.") and name.endswith(".dart.js"):
+        headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return headers
+
+
 class _Lazy:
     def __init__(self, factory: Callable[[], Any]) -> None:
         self.factory, self.value = factory, None
@@ -328,22 +350,26 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     static_dir = Path(__file__).resolve().parents[2] / "apps" / "web" / "static"
     flutter_dir = Path(__file__).resolve().parents[2] / "apps" / "user_app" / "build" / "web"
 
-    _coop_headers = {"Cross-Origin-Opener-Policy": "unsafe-none"}
-
     @api.get("/", include_in_schema=False)
     def web_root():
         return RedirectResponse("/app")
 
     @api.get("/app", include_in_schema=False)
     def flutter_app_root():
-        return FileResponse(flutter_dir / "index.html", headers=_coop_headers)
+        return FileResponse(
+            flutter_dir / "index.html",
+            headers=_flutter_asset_headers("index.html"),
+        )
 
     @api.get("/app/{path:path}", include_in_schema=False)
     def flutter_app(path: str):
         candidate = flutter_dir / path
         if candidate.is_file():
-            return FileResponse(candidate)
-        return FileResponse(flutter_dir / "index.html", headers=_coop_headers)
+            return FileResponse(candidate, headers=_flutter_asset_headers(path))
+        return FileResponse(
+            flutter_dir / "index.html",
+            headers=_flutter_asset_headers("index.html"),
+        )
 
     @api.get("/admin", include_in_schema=False)
     @api.get("/admin/stocks", include_in_schema=False)
