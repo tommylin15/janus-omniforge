@@ -21,6 +21,7 @@ class OAuth:
 
 
 class Repository:
+    def latest_ledger_version(self, owner_id): return 4
     def watchlist(self, owner_id): return [{"user_id":owner_id,"symbol":"2330","active":True}]
     def ledger_history(self, owner_id, symbol, year, limit=200):
         return [{"user_id":owner_id,"symbol":symbol or "2330","trade_date":f"{year or 2026}-01-02","ledger_version":4}]
@@ -139,3 +140,19 @@ def test_mcp_private_selectors_are_owner_bound_and_reject_extra_or_invalid_combi
                       {"resource":"notes"}):
         response=rpc(api,"tools/call",{"name":"janus_private_context","arguments":arguments},token="valid")
         assert response.status_code==200 and response.json()["result"]["isError"] is True
+
+
+def test_private_mart_withholds_stale_records_before_date_and_limit_filtering():
+    from services.api.context_sources import ContextSourceService
+    from services.api.models import ContextSelector
+    repository = Repository()
+    repository.latest_ledger_version = lambda owner_id: 24
+    service = ContextSourceService(repository, Store(), Core())
+    for resource in ("positions", "annual-pnl", "performance", "exposure", "stress-tests"):
+        result = service.read(OWNER, ContextSelector(source_id="janus-private-mart", resource=resource))
+        assert result["status"] == "pending"
+        assert result["records"] == []
+        assert result["as_of"] is None
+        assert result["ledger_version"] == 24
+        assert result["missing_reason"] == "private_mart_stale"
+    assert service.read(OWNER, ContextSelector(source_id="janus-private-core", resource="trades"))["records"]

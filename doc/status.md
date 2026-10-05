@@ -31,6 +31,14 @@ Cloud 接續入口：先讀本文件、PROJECT_RULES、README、TODO 的 A 組�
 
 部署與 immutable digest 證據見 [A 組部署 checkpoint](archive/group-a-deployment-checkpoint-2026-10-05.md)：Ingestion／043、Private Pipeline 與 API／Flutter PWA 已成功部署；剩餘 GCP dev 驗收與驗收發現之 implementation gap closure 仍屬 A 組未完成範圍。
 
+### 2026-10-05 Quote Router／Broker Profile 與 runtime freshness evidence
+
+- Main `2d8a7bf6c916f8901bb29779d48dfbe753a52420` 已加入 operational last successful quote、owner-scoped immutable Broker Profile revisions、API／Flutter UI、export/delete lifecycle 及正式 migration 044。Python targeted tests 146 passed；Flutter tests 48 passed。宣告現金仍是 declared snapshot，不是 canonical cash ledger；尚不含自動計費與 per-trade fee-rule snapshot。
+- Deploy run `37305142870`：API／ingestion tests、Flutter CI 與 schema validation 已成功；migration 044／API deployment 的最後結果仍需 readback，不能據此結案。
+- Authenticated Janus Dev Read-only v2 真實 owner readback：trades 最新 ledger version 24；positions／2026 annual-pnl 卻回傳 version 10、valuation date 2026-09-24，並標示 available。此證據定位至 `ContextSourceService` 的獨立 Mart 讀路徑缺少 freshness gate；不等於已驗證 Flutter Ledger 同樣行為。
+- 修正：所有 private Mart context（investment-profile 除外）先比較當前 owner ledger version，舊或缺少 version 的資料 withholding，回傳 pending／private_mart_stale、空 records 與 current ledger version，避免舊持股或零損益冒充最新。仍需部署後相同工具重驗。
+- 四頁 Final Visual Contract、390px、交易 refresh/invalidation、YTD realized P&L、效能及 Admin acceptance 仍未完成；A 組維持 partial。
+
 ## 現行產品決策
 
 Janus 採 **Token-first 五 specialist + On-demand CEO**：

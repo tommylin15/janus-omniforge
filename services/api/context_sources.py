@@ -74,7 +74,18 @@ class ContextSourceService:
         source = SOURCE_BY_ID.get(selector.source_id)
         if source is None or selector.resource not in source.resources:
             raise ContextSourceError("source or resource is not allowed")
-        rows = self._date_filter(self._load(owner_id, selector), selector)
+        loaded = self._load(owner_id, selector)
+        if selector.source_id == "janus-private-mart" and selector.resource != "investment-profile":
+            current_version = self.repository.latest_ledger_version(owner_id)
+            if any(int(row.get("ledger_version", -1)) != current_version for row in loaded):
+                return {"schema_version":"janus.mcp.v1", "status":"pending",
+                        "resource":selector.resource, "as_of":None, "records":[],
+                        "provenance":[{"context_source_id":selector.source_id}],
+                        "ledger_version":current_version, "missing_reason":"private_mart_stale",
+                        "bounds":{"limit":selector.limit,"returned":0,"truncated":False,
+                                  "max_output_bytes":MAX_CONTEXT_BYTES},
+                        "disclosure":f"{source.disclosure} Data is shared with an external AI service."}
+        rows = self._date_filter(loaded, selector)
         records = [self._sanitize(row) for row in rows[:selector.limit]]
         truncated = len(rows) > len(records)
         while records and len(json.dumps(records,default=str,separators=(",", ":")).encode()) > MAX_CONTEXT_BYTES:
