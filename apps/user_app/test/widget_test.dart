@@ -12,12 +12,18 @@ class FakeApi extends Api {
   final pendingReads = <String, Future<dynamic>>{};
   @override
   Future<dynamic> get(String path) async {
+    if (path.startsWith('/api/v1/admin/batches'))
+      return {'items': [], 'definitions': []};
     reads.add(path);
     if (pendingReads.containsKey(path)) return pendingReads[path]!;
     if (path == '/api/v1/me/portfolio/quotes') {
-      return {'positions': values['/api/v1/me/journal/positions'] ?? [],
-        'items': (values['/api/v1/me/portfolio/summary'] as Map?)?['items'] ?? [],
-        'checked_at': '2026-09-26T14:00:00+08:00', 'market_open': false};
+      return {
+        'positions': values['/api/v1/me/journal/positions'] ?? [],
+        'items':
+            (values['/api/v1/me/portfolio/summary'] as Map?)?['items'] ?? [],
+        'checked_at': '2026-09-26T14:00:00+08:00',
+        'market_open': false
+      };
     }
     return values[path] ?? const [];
   }
@@ -42,7 +48,8 @@ class FakeApi extends Api {
 }
 
 void main() {
-  final journalTradeDate = '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-01';
+  final journalTradeDate =
+      '${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-01';
   testWidgets('market baseline remains visible without a Daily Brief',
       (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -119,12 +126,19 @@ void main() {
           'entered': ['2330'],
           'exited': [],
           'items': [
-            {'rank': 1, 'symbol': '2330', 'name': '台積電', 'market': 'TWSE', 'volume_shares': 10}
+            {
+              'rank': 1,
+              'symbol': '2330',
+              'name': '台積電',
+              'market': 'TWSE',
+              'volume_shares': 10
+            }
           ],
         },
       },
     });
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: AdminMarketUniversePage(api))));
+    await tester.pumpWidget(
+        MaterialApp(home: Scaffold(body: AdminMarketUniversePage(api))));
     await tester.pumpAndSettle();
     expect(find.text('即將生效名單'), findsOneWidget);
     expect(find.textContaining('即將生效 · 第 1 版'), findsOneWidget);
@@ -153,7 +167,7 @@ void main() {
         home: AdminWorkspace(
             api: api, email: 'admin@example.com', onTheme: (_) {})));
     await tester.pumpAndSettle();
-    for (final label in ['總覽', '批次', '個股', '市場資訊', 'AI 分析', '進階管理']) {
+    for (final label in ['總覽', '批次', '個股', '市場資訊', 'AI 分析', '資料治理']) {
       expect(find.text(label), findsWidgets);
     }
     expect(find.text('今日沒有需要處理的事項'), findsOneWidget);
@@ -246,6 +260,8 @@ void main() {
     });
     await tester
         .pumpWidget(MaterialApp(home: Scaffold(body: AdminBatchPage(api))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('逐項執行'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('查看'));
     await tester.pumpAndSettle();

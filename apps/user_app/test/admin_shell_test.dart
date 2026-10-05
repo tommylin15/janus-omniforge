@@ -6,6 +6,8 @@ import 'package:janus_user_app/main.dart';
 class _ShellApi implements AdminApi {
   @override
   Future<dynamic> get(String path) async {
+    if (path.startsWith('/api/v1/admin/batches'))
+      return {'items': [], 'definitions': []};
     if (path == '/api/v1/admin/executions?limit=50') {
       return {'items': <dynamic>[]};
     }
@@ -77,14 +79,15 @@ void main() {
       '個股',
       '市場資訊',
       'AI 分析',
-      '進階管理',
+      '資料治理',
     ]) {
       expect(find.text(label), findsWidgets);
     }
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('admin shell switches to a mobile navigation drawer', (tester) async {
+  testWidgets('admin shell switches to a mobile navigation drawer',
+      (tester) async {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(390, 844));
     await tester.pumpWidget(
@@ -109,7 +112,7 @@ void main() {
     expect(find.text('個股'), findsWidgets);
     expect(find.text('市場資訊'), findsWidgets);
     expect(find.text('AI 分析'), findsWidgets);
-    expect(find.text('進階管理'), findsWidgets);
+    expect(find.text('資料治理'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 }

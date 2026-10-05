@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from hashlib import sha256
 import logging
 import os
@@ -665,6 +666,11 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def notes(symbol:str|None=None,current:AuthenticatedUser=Depends(user)):
         return jsonable_encoder(store.read_notes(current.user_id,repository.notes(current.user_id,symbol)))
 
+    @private.get("/watchlist/search")
+    def watchlist_search(q: str = Query(..., min_length=1, max_length=80),
+                         current: AuthenticatedUser = Depends(user)):
+        return jsonable_encoder({"items": repository.search_watchlist_stocks(q.strip())})
+
     @private.get("/watchlist")
     def watchlist(current:AuthenticatedUser=Depends(user)): return jsonable_encoder(repository.watchlist(current.user_id))
 
@@ -802,6 +808,16 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @admin.get("/market-universe")
     def admin_market_universe():
         return jsonable_encoder(admin_service.liquid_500_snapshot())
+
+    @admin.get("/batches")
+    def admin_batches(days: int = Query(3, ge=1, le=31),
+                      until: datetime | None = None, limit: int = Query(100, ge=1, le=100),
+                      before_id: str | None = Query(None, max_length=200)):
+        return jsonable_encoder(admin_service.batches(days=days, until=until, limit=limit, before_id=before_id))
+
+    @admin.get("/data-governance")
+    def admin_data_governance():
+        return jsonable_encoder(admin_service.data_governance())
 
     @admin.post("/market-universe/swap")
     def admin_swap_market_universe(payload: dict[str, Any] = Body(...),

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from threading import Lock
 from typing import Any, Sequence
 
@@ -265,6 +267,51 @@ def build_pipeline_service() -> PipelineService:
     return PipelineService.from_env()
 
 
+@lru_cache(maxsize=2)
+def _maintenance_evidence(minute: int) -> dict[str, Any]:
+    """Read recent persisted receipts, never enumerate a bucket on page load."""
+    from google.cloud import storage
+    now = datetime.fromtimestamp(minute * 60, timezone.utc)
+    result = {}
+    try:
+        client = storage.Client()
+    except Exception:
+        return result
+    for component, bucket_name in (("core", os.getenv("CORE_BUCKET", "")),
+                                    ("mart", os.getenv("MART_BUCKET", ""))):
+        if not bucket_name:
+            continue
+        try:
+            receipt = None
+            for age in range(7):
+                prefix = 'maintenance/retention/' + (now - timedelta(days=age)).strftime('%Y-%m-%d')
+                blobs = list(client.list_blobs(bucket_name, prefix=prefix, max_results=17))
+                if len(blobs) > 16:
+                    raise RuntimeError('maintenance receipt bound exceeded')
+                for blob in sorted(blobs, key=lambda item: item.name, reverse=True):
+                    if blob.size is None or blob.size > 1_048_576:
+                        continue
+                    document = json.loads(blob.download_as_bytes())
+                    if document.get('mode') == 'apply':
+                        receipt = document
+                        observed_at = blob.updated.isoformat() if blob.updated else None
+                        break
+                if receipt is not None:
+                    break
+            if receipt is None:
+                continue
+            storage_data = receipt.get('storage', {})
+            for layer in (('core', 'stage') if component == 'core' else ('mart',)):
+                layer_data = storage_data if layer == 'mart' else storage_data.get(layer, {})
+                after = layer_data.get('after', {})
+                result[layer.title()] = {'maintenance_at': observed_at,
+                    'live_objects': after.get('objects'), 'active_bytes': after.get('bytes')}
+        except Exception:
+            # Missing access/receipts do not imply empty storage or a successful cleanup.
+            continue
+    return result
+
+
 def build_admin_service():
     from packages.admin_api import AdminService
     from packages.postgres_bundle import load_postgres_bundle
@@ -292,4 +339,5 @@ def build_admin_service():
             sslmode=os.environ.get("CONTROL_DB_SSLMODE", "require"), connect_timeout=5,
         )
 
-    return AdminService(PostgreSQLControlPlane(connect), core=build_core_service())
+    return AdminService(PostgreSQLControlPlane(connect), core=build_core_service(),
+                        maintenance_reader=lambda: _maintenance_evidence(int(datetime.now(timezone.utc).timestamp()) // 60))

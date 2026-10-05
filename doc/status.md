@@ -1,8 +1,18 @@
 # Janus Current Status
 
-更新：2026-10-04
+更新：2026-10-05
 
 用途：只回答「現在在哪裡、下一步是什麼、哪些尚未完成」。實作以 GitHub `main` 為準，完成狀態以 tests／CI、deployment、live runtime、trigger／workload、integration evidence 為準。完整 active queue 只看 [`todo.md`](todo.md)。
+
+## 2026-10-05 Cloud 交接狀態
+
+使用者最新指示：先 commit／push 與部署目前版本，剩餘 live／視覺／效能驗收暫停，改由 Codex Cloud 接續。A 組仍為 partial；不得依部署成功勾選整組 acceptance。四張使用者提供的原始 PNG 已恢復並通過 CRC／解壓驗證，視覺來源 blocker 已解除。
+
+目前變更涵蓋個股分區載入／重試、延後 K 線、主頁狀態保留、隱藏持股頁停止輪詢、離榜關注保留與中文搜尋／行情投影、Admin 排程批次／資料治理，以及 migration 043 的既有角色唯讀權限。Broker Profile、完整 Quote Router／last-quote persistence、其餘版型／資料治理欄位、效能 profiling 與 A 組 live acceptance 尚未完成；B／C 尚未由此次變更完成。
+
+部署前本機證據：Flutter 全部 47 tests passed；`flutter analyze --no-fatal-infos lib test` exit 0（35 info）；Python 87 targeted tests passed，另 public-runtime 等前一輪 63 passed；workflow YAML 與 `git diff --check` 通過。這些不是 GCP live acceptance。
+
+Cloud 接續入口：先讀本文件、PROJECT_RULES、README、TODO 的 A 組與 codex-execution-plan；從 GitHub Actions 確認此次 main 的部署／043 migration 結果，再核對 runtime revision。剩餘驗收依使用者在 Cloud 的恢復指令執行，不從本地自動開跑，不重做 042 或已成功的 043，也不自動擴展至 B／C。
 
 ## 現行產品決策
 
@@ -56,16 +66,13 @@ Admin operational convergence 不重做整個 shell；`資料治理` 是正式�
 
 唯一權威排序見 [`todo.md`](todo.md)：
 
-1. `WBS-5-MART-SPECIALIST-ENGINES`
-2. `WBS-5-MART-RERUN-CACHE`
-3. `WBS-5-MART-AI-PROVIDERS` — On-demand CEO provider runtime
-4. `WBS-5-MART-CIO-SYNTHESIS`（legacy tracking ID）— 產品語意為 CEO Analysis
-5. `WBS-6-ADMIN-ANALYSIS-PROFILE`
-6. Admin operational convergence
-7. User operational convergence
-8. `WBS-6-USER-FINAL-VISUAL-CONVERGENCE`
+1. **A：操作體驗／效能／資料營運** — User 非 CEO 功能、Admin operational convergence、四頁非 AI 相依版型、效能／FinOps 與文件對齊。
+2. **B：specialist／增量快取** — 合併 `WBS-5-MART-SPECIALIST-ENGINES` 與 `WBS-5-MART-RERUN-CACHE`。
+3. **C：CEO／權限／最終整合** — 合併 provider、CEO synthesis（原 CIO tracking ID）、Admin profile、User AI integration 與 Final Visual 剩餘 acceptance。
 
-目前 specialist 前還有 `spec/retention-governance.md` 所列公開資料刪除治理 live acceptance 插入工作；其完成狀態只看 TODO／runtime evidence。
+執行指令見 [`codex-execution-plan.md`](codex-execution-plan.md)。同組先整合程式再集中驗收，原 WBS acceptance 不取消。預警與通知由 Parking Lot 管理，另存 [`future-market-alerts.md`](future-market-alerts.md)，目前不執行。
+
+042 serving projection 重用已有完成證據；公開資料清理依 operations 已有 apply/readback 只補剩餘項，041／compaction／retrain 核對最新證據。此次只是待辦整合，不宣稱任何未完成 capability 已完成。
 
 ## 模型／framework 方向
 

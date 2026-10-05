@@ -15,6 +15,7 @@ on:
       - 'tests/test_data_retention.py'
       - 'tests/ingestion/test_control_plane.py'
       - 'infra/postgres/migrations/037_batch_controller.sql'
+      - 'infra/postgres/migrations/043_admin_batch_read.sql'
       - 'tests/test_batch_controller.py'
       - 'tests/test_duckdb_iceberg.py'
       - 'tests/test_data_supplement.py'
@@ -86,6 +87,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
+      operations_schema: ${{ steps.filter.outputs.operations_schema }}
       ingestion_runtime: ${{ steps.filter.outputs.ingestion_runtime }}
       ingestion_test: ${{ steps.filter.outputs.ingestion_test }}
       mart_runtime: ${{ steps.filter.outputs.mart_runtime }}
@@ -101,10 +103,13 @@ jobs:
         id: filter
         with:
           filters: |
+            operations_schema:
+              - 'infra/postgres/migrations/043_admin_batch_read.sql'
             ingestion_runtime:
               - 'packages/postgres_lock.py'
               - 'packages/duckdb_query/**'
               - 'infra/postgres/migrations/037_batch_controller.sql'
+              - 'infra/postgres/migrations/043_admin_batch_read.sql'
               - 'jobs/ingestion-core/ingestion_core/**'
               - 'jobs/ingestion-core/schemas/**'
               - 'jobs/ingestion-core/Dockerfile'
@@ -328,6 +333,10 @@ jobs:
           PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
         run: >-
           python -m pytest -q
+          tests/test_admin_api.py
+          tests/test_serving_schema_migration.py
+          tests/test_watchlist_read_path.py
+          tests/test_visual_reference_integrity.py
           tests/test_public_runtime.py
           tests/test_public_api_routes.py
           tests/test_mcp_adapter.py
@@ -364,11 +373,22 @@ jobs:
         shell: bash
         run: bash scripts/gcp/verify-dev.sh private-pipeline
 
+  migrate-operations:
+    needs: [detect, deploy-ingestion]
+    if: >-
+      needs.detect.outputs.operations_schema == 'true' &&
+      needs.deploy-ingestion.result == 'success'
+    uses: ./.github/workflows/serving-schema-migration-dev.yml
+    with:
+      migration: 043_admin_batch_read
+
   deploy-api:
-    needs: [detect, test-api, deploy-private-pipeline]
+    needs: [detect, test-api, deploy-private-pipeline, migrate-operations]
     if: >-
       always() &&
       needs.test-api.result == 'success' &&
+      (needs.migrate-operations.result == 'success' ||
+      (needs.migrate-operations.result == 'skipped' && needs.detect.outputs.operations_schema != 'true')) &&
       (needs.deploy-private-pipeline.result == 'success' ||
       needs.deploy-private-pipeline.result == 'skipped') &&
       (needs.detect.outputs.api_runtime == 'true' ||

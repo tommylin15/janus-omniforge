@@ -8,6 +8,8 @@ class _OperationsApi implements AdminApi {
 
   @override
   Future<dynamic> get(String path) async {
+    if (path.startsWith('/api/v1/admin/batches'))
+      return {'items': [], 'definitions': []};
     if (path == '/api/v1/admin/settings/data_supplement_quality')
       return {'value': quality};
     if (path == '/api/v1/admin/data-quality/runbook')
@@ -222,6 +224,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('逐項執行'));
+    await tester.pumpAndSettle();
     expect(find.text('需要處理 1'), findsOneWidget);
     expect(find.text('已完成 1'), findsOneWidget);
     expect(find.textContaining('部分完成'), findsWidgets);

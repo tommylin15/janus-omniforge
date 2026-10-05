@@ -58,6 +58,31 @@ class AdminServiceTests(unittest.TestCase):
         with self.assertRaises(AdminValidationError):
             self.admin.retry_execution_item(execution["execution_id"], "missing")
 
+    def test_batches_are_bounded_redacted_and_keep_tied_cursor(self):
+        scheduled = datetime(2026, 10, 5, tzinfo=timezone.utc)
+        calls = []
+        def read(since, until, limit, *, before_id=None):
+            calls.append((since, until, limit, before_id))
+            return [{"occurrence_id": key, "scheduled_at": scheduled,
+                     "updated_at": scheduled, "state": {"batch": "ingestion",
+                     "status": "running", "private_payload": "never expose"}}
+                    for key in ("b", "a")]
+        self.control.batch_occurrences = read
+        result = self.admin.batches(until=scheduled, limit=1, before_id="c")
+        self.assertEqual(calls[0][2:], (2, "c"))
+        self.assertEqual(result["next_before_id"], "b")
+        self.assertEqual(result["next_until"], scheduled)
+        self.assertNotIn("private_payload", result["items"][0])
+        self.assertTrue(result["truncated"])
+        self.assertTrue(all(row["deployment_status"] == "unknown" for row in result["definitions"]))
+        with self.assertRaises(AdminValidationError):
+            self.admin.batches(days=32)
+        with self.assertRaises(AdminValidationError):
+            self.admin.batches(until=datetime(2026, 10, 5))
+        layers = self.admin.data_governance()["items"]
+        self.assertTrue(all(row["billable_bytes"] is None for row in layers))
+        self.assertIsNone(next(row for row in layers if row["layer"] == "Private")["retention"])
+
     def test_invalid_page_is_rejected(self):
         with self.assertRaises(AdminValidationError):
             self.admin.stocks(limit=102)

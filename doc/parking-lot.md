@@ -1,10 +1,14 @@
 # Janus — Parking Lot／暫不做
 
-更新：2026-10-03
+更新：2026-10-05
 
 用途：保存目前**不做**、不計入專案未完成度、也不應阻塞 foreground／completion 的構想、未來可能需求與已接受缺口。
 
 這不是 active backlog。只有使用者日後明確決定「要做」，項目才重新移回 [`todo.md`](todo.md) 並取得明確順序與 acceptance；不得因本文件存在就自行開工。
+
+## 0. 個股預警與通知（2026-10-05 明確暫緩）
+
+使用者指定另存 [未來增補：個股異常事件與提前預警](future-market-alerts.md)。包含預警定義、生命週期、送達／摘要／安靜時段、UI 與前瞻成效評估；目前不執行、不列 active TODO、不阻擋非預警產品收斂。本文是唯一狀態入口，獨立文件只存內容。既有 Event specialist／OOS 的 active scope 不受影響。
 
 ## 1. Pilot observation／Production 才需要的工作
 

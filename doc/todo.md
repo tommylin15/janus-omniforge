@@ -1,6 +1,6 @@
 # Janus — TODO
 
-版本：3.3
+版本：3.4（2026-10-05：非預警改善合併執行）
 用途：**只保留確定要做的 active work 與未完成 acceptance**。Deferred、Candidate、Observation、Production-only、已接受缺口與研究構想統一放 [`parking-lot.md`](parking-lot.md)；已完成／被取代內容放 `archive/`。
 
 ## 規則
@@ -46,13 +46,40 @@ Admin operational convergence **不重做整個 Admin**。保留 `總覽 / 批�
 - 正式執行前依該項標示的【Sol】／【Luna】完成模型 gate；開始後以整體 acceptance scope 結案，不在內部 dataset／adapter／單一畫面反覆停等。
 - 新付費 API／model／subscription、新付費 GCP 資源、重大權限擴張、不可逆大量刪除、MFA／OAuth consent／付款仍需使用者明確授權。
 
-# 執行順序
+# 執行順序：A → B → C
+
+依使用者 2026-10-05 指示，先完成上班族操作體驗／效能／Admin，再整合原 specialist 與 CEO 工作。執行細節與可貼給 Codex 的指令見 [Codex 執行指令](codex-execution-plan.md)。以下三組是唯一執行順序；後面的 1～8 是原 WBS acceptance 索引，不再代表先後順序，也不重複計工。
+
+| 工作組 | 範圍與原待辦對應 | 主要模型 | 集中驗收 |
+|---|---|---|---|
+| A：操作體驗／效能／資料營運 | §6 Admin；§7 非 CEO 功能；§8 非 AI 相依版型；下列新增補強 | Sol | 一組 API／Flutter／資料營運回歸與一輪 dev browser/readback |
+| B：specialist／增量快取 | §1 specialist + §2 rerun cache；Admin 對應狀態接線 | Sol | 一組引擎／cache 測試與 bounded dev 執行／reuse／OOS readback |
+| C：CEO／權限／最終整合 | §3 provider + §4 CEO + §5 Admin profile；§7 AI 整合；§8 剩餘驗收 | Sol | 一組端到端安全／UI 測試與最少已授權 provider live calls |
+
+同組先完成相關程式、migration、UI、tests、文件再集中驗收，不逐檔／逐 API／逐股票獨立部署。失敗僅補跑受影響範圍；原 acceptance、必要安全檢查及真實 dev 證據保留。A 不因尚無 CEO 而延後基本 UI；§8 整體結案仍須所有條件成立。跨組連續執行須使用者明確指定全部組，依 PROJECT_RULES 的本次例外處理。
+
+預警／推播／警訊 outcome 增補已移至 [Parking Lot](parking-lot.md) 與其獨立未來文件，不是本次 active scope；既有 Event specialist 與 OOS 照原契約。
+
+## A 組新增／明確化 acceptance
+
+- [ ] 修正個股頁 build 內建立 request future／整頁 Future.wait／無效 retry；section-first、進階按需載入；已訪問頁保留狀態，隱藏／背景停止輪詢，owner 切換清除私人 cache。
+- [ ] 關注股離榜保留並標示；GET 不 retirement write／隱藏離榜股；同步核對 DB function／trigger、quota、Deep Coverage 及所有 caller。
+- [ ] 重用已完成 042 serving projection，驗證 freshness／分頁／fallback；依 profiling 改善剩餘 Iceberg scan/filter、摘要、lock、DB connection、驗證憑證 cache 與重複 user upsert，不建立第二套 canonical store。
+- [ ] Quote Router／persisted last quote／Broker Profile 完成；041 transaction position projection 重用並補剩餘整合驗收，不重做已完成 migration／backfill。
+- [ ] 四頁 UI／formatter／中文搜尋與 partial 白話狀態收斂；修復可追溯的 PNG reference，缺原始資產時只保留受影響 visual blocker。
+- [ ] Admin 以 backend effective jobs 呈現，資料治理取代 placeholder；容量區分 live／noncurrent／soft-deleted，未知不補零；本人缺價／coverage 與 Admin 去識別化摘要分離。
+- [ ] 依既定資料容忍度顯示上市 500 範圍、缺值、時間與非嚴格 PIT 限制，保留價格／單位／身份／來源／交易正確性；現有報酬涉及 corporate action 時明示不可比，不新增完整調整價平台。
+- [ ] 完成前後效能紀錄、Job duration／peak RSS／retry／cache／storage／可取得的成本證據；暖機核心資訊 p95 ≤2 秒、已訪問頁恢復 ≤300ms 作驗收目標，記錄樣本與裝置，未達列剩餘瓶頸。
+- [ ] 檢查 cleanup 成本與回收效益、有效 GCS retention 設定；避免空轉／重複執行，不自行改 retention 時限、提高付費資源或新增 IAM／服務。
+- [ ] 對齊舊 coverage inventory、status、batch 清單與已完成／待驗證工作；沿用既有 042 完成證據，041／compaction／retrain 依最新 evidence 判定，不把程式存在當 live 完成。
+
+# 原 WBS acceptance（依上方工作組整合執行）
 
 ## 1. `WBS-5-MART-SPECIALIST-ENGINES` — 【Sol】
 
 目前進度：`partial`。
 
-優先依 [`spec/retention-governance.md`](spec/retention-governance.md) 完成公開資料刪除治理批次的整合、deployment 與 dev 驗收，再繼續 specialist 整體 acceptance。既有治理程式／targeted tests 不等於 live cleanup 已完成。
+先核對 [`spec/operations-and-testing.md`](spec/operations-and-testing.md) 已記錄的公開資料清理 apply/readback 與最新 runtime；依 [`spec/retention-governance.md`](spec/retention-governance.md) 只補尚缺的整合／排程證據，不為舊待辦重跑已完成刪除。其他治理／成本收斂併 A；不以文件過期阻擋 B。
 
 - [ ] 完成約 500 檔低成本 market screening 與 Deep Coverage 五 specialist。
 - [ ] Fundamental：deterministic financial features + LightGBM baseline。
@@ -107,7 +134,7 @@ Admin operational convergence **不重做整個 Admin**。保留 `總覽 / 批�
 
 - [ ] **總覽**：維持 actionable-exceptions-first；只補今日批次、最近 DQ、storage/retention anomaly 與需要處理項目。
 - [ ] **批次**：用簡單表格／清單讀 backend effective jobs／occurrences；顯示 schedule/trigger、latest state、duration/last update、latest success；預設最近 3 天並保留 bounded older history；只提供 `查看`、安全 `重試`／`手動執行`。
-- [ ] 現行 controller 七個固定批次為 `ingestion`、`data-supplement`、`mart`、`data-quality`、`private`、`core-cleanup`、`mart-cleanup`；未來 specialist／retrain／CEO execution 只有 runtime 真正存在後才顯示。
+- [ ] 以 backend effective batches／occurrences 呈現 ingestion、data-supplement、mart、specialist-retrain、data-quality、private、core-cleanup、mart-cleanup 等實際定義；區分 definition／deployment／observed execution，不在 Flutter 固定批次数或假造尚不存在的 CEO job。
 - [ ] **資料治理**：單一精簡頁顯示 Stage/Core/Mart/必要 Private 摘要、active retention、coverage/freshness/DQ、live objects/active bytes、maintenance、protected references 與 anomaly；Public retention 依 [`spec/retention-governance.md`](spec/retention-governance.md)，Private 無核准 contract 時顯示 `未定義/unknown`。
 - [ ] 第一版不導入 OpenMetadata／DataHub／Airflow／Kestra／Prefect、第二套 scheduler/control plane、metadata catalog、lineage graph、大型 chart 或新 canonical store。
 - [ ] `個股`、`市場資訊`、`AI 分析` 保留；routing controls 放對應功能的進階設定，不另建高複雜度主頁。
@@ -117,7 +144,7 @@ Admin operational convergence **不重做整個 Admin**。保留 `總覽 / 批�
 
 - [ ] 【Sol】Stock Detail backend 增加 bounded CEO command/status/history API；驗證 authenticated user、`ceo_analysis.request` capability、symbol/profile、in-flight、quota/cooldown。
 - [ ] 【Luna】Stock Detail 顯示五 specialist persisted plain-language outputs、最新 CEO report、analysis/data as-of、dirty/freshness/material-change、immutable history，以及有權限帳號的 `分析／重新分析`。
-- [ ] 【Sol】完成 Performance profiling/fix、Quote Router + persisted last quote、Transaction synchronous position projection、Broker Profile 既定 contract。
+- [ ] 【Sol／A 組】完成 Performance profiling/fix、Quote Router + persisted last quote、Broker Profile；重用既有 Transaction synchronous position projection，僅補未滿足的 contract／readback／UI 驗收。
 - [ ] 【Luna】Journal／Watchlist／Stock Detail UX 與 typed numeric formatter 依 Final Visual Contract 收斂，不另建重複 recommendation 頁。
 
 ## 8. `WBS-6-USER-FINAL-VISUAL-CONVERGENCE` — 【Luna／Sol】

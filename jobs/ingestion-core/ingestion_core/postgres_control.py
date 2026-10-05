@@ -571,6 +571,17 @@ class PostgreSQLControlPlane:
             cur.execute("SELECT value_json,version FROM control.admin_settings WHERE setting_key=%s", (key,)); row = cur.fetchone()
         return (row[0], row[1]) if row else None
 
+    def batch_occurrences(self, since: datetime, until: datetime, limit: int = 100, before_id: str | None = None) -> list[dict[str, Any]]:
+        with self.connection.cursor() as cur:
+            cur.execute("""SELECT occurrence_id,scheduled_at,updated_at,state
+                           FROM control.batch_occurrences
+                           WHERE scheduled_at >= %s AND (scheduled_at < %s
+                             OR (scheduled_at = %s AND occurrence_id < %s))
+                           ORDER BY scheduled_at DESC,occurrence_id DESC LIMIT %s""",
+                        (since, until, until, before_id, limit))
+            return [dict(zip(("occurrence_id", "scheduled_at", "updated_at", "state"), row))
+                    for row in cur.fetchall()]
+
     def put_admin_setting(self, key: str, value: Any, *, actor: str, expected_version: int | None = None,
                           audit_resource: str = "admin_setting", audit_detail: dict[str, Any] | None = None) -> int:
         if expected_version is not None and (isinstance(expected_version, bool) or expected_version < 0):

@@ -211,7 +211,7 @@ class _AdminWorkspaceState extends State<AdminWorkspace> {
     ),
     NavigationRailDestination(
       icon: Icon(Icons.settings_outlined),
-      label: Text('進階管理'),
+      label: Text('資料治理'),
     ),
   ];
 
@@ -223,7 +223,7 @@ class _AdminWorkspaceState extends State<AdminWorkspace> {
       AdminStockWorkbench(widget.api),
       AdminMarketUniversePage(widget.api),
       const _PendingPage(title: 'AI 分析', message: '等待 WBS-5 五角色與 CIO 契約完成後啟用。'),
-      const _PendingPage(title: '進階管理', message: '資料源、排程與治理仍由既有資料營運中心提供。'),
+      AdminGovernancePage(widget.api),
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -275,7 +275,7 @@ class _AdminWorkspaceState extends State<AdminWorkspace> {
                     ),
                     NavigationDrawerDestination(
                       icon: Icon(Icons.settings_outlined),
-                      label: Text('進階管理'),
+                      label: Text('資料治理'),
                     ),
                   ],
                 ),
@@ -588,6 +588,7 @@ class AdminBatchPage extends StatefulWidget {
 
 class _AdminBatchPageState extends State<AdminBatchPage> {
   late Future<dynamic> executions;
+  bool controller = true;
 
   @override
   void initState() {
@@ -691,79 +692,218 @@ class _AdminBatchPageState extends State<AdminBatchPage> {
           icon: const Icon(Icons.add),
           label: const Text('建立批次'),
         ),
-        child: FutureBuilder<dynamic>(
-          future: executions,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) return const _Message('執行紀錄暫時無法使用');
-            final values = _items(snapshot.data).toList()
-              ..sort((a, b) {
-                final order = _executionOrder(a).compareTo(_executionOrder(b));
-                if (order != 0) return order;
-                return (b['requested_at'] ?? '')
-                    .toString()
-                    .compareTo((a['requested_at'] ?? '').toString());
-              });
-            if (values.isEmpty) return const _Message('目前沒有執行紀錄');
-            final attention = values.where(_executionNeedsAttention).length;
-            final active = values
-                .where(
-                    (value) => {'queued', 'running'}.contains(value['status']))
-                .length;
-            final completed =
-                values.where((value) => value['status'] == 'succeeded').length;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    Chip(label: Text('需要處理 $attention')),
-                    Chip(label: Text('執行中 $active')),
-                    Chip(label: Text('已完成 $completed')),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                const Text('部分完成仍列為需要處理，不會視為成功。'),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: ListView.separated(
-                    itemCount: values.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final value = values[index];
-                      final attention = _executionNeedsAttention(value);
-                      return ListTile(
-                        leading: Icon(
-                          attention
-                              ? Icons.warning_amber_outlined
-                              : value['status'] == 'succeeded'
-                                  ? Icons.check_circle_outline
-                                  : Icons.playlist_play,
-                        ),
-                        title: Text(
-                          '${value['config_id']} · ${_label(value['trigger_type'])}',
-                        ),
-                        subtitle: Text(
-                          '${_label(value['status'])} · ${value['requested_at'] ?? '—'}',
-                        ),
-                        trailing: TextButton(
-                          onPressed: () =>
-                              _details(value['execution_id'].toString()),
-                          child: const Text('查看'),
-                        ),
-                      );
-                    },
-                  ),
-                ),
+        child: Column(children: [
+          SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: true, label: Text('排程批次')),
+                ButtonSegment(value: false, label: Text('逐項執行')),
               ],
-            );
-          },
-        ),
+              selected: {
+                controller
+              },
+              onSelectionChanged: (value) =>
+                  setState(() => controller = value.first)),
+          Expanded(
+              child: controller
+                  ? AdminEffectiveBatches(widget.api)
+                  : FutureBuilder<dynamic>(
+                      future: executions,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState != ConnectionState.done) {
+                          return const Center(
+                              child: CircularProgressIndicator());
+                        }
+                        if (snapshot.hasError)
+                          return const _Message('執行紀錄暫時無法使用');
+                        final values = _items(snapshot.data).toList()
+                          ..sort((a, b) {
+                            final order = _executionOrder(a)
+                                .compareTo(_executionOrder(b));
+                            if (order != 0) return order;
+                            return (b['requested_at'] ?? '')
+                                .toString()
+                                .compareTo(
+                                    (a['requested_at'] ?? '').toString());
+                          });
+                        if (values.isEmpty) return const _Message('目前沒有執行紀錄');
+                        final attention =
+                            values.where(_executionNeedsAttention).length;
+                        final active = values
+                            .where((value) =>
+                                {'queued', 'running'}.contains(value['status']))
+                            .length;
+                        final completed = values
+                            .where((value) => value['status'] == 'succeeded')
+                            .length;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                Chip(label: Text('需要處理 $attention')),
+                                Chip(label: Text('執行中 $active')),
+                                Chip(label: Text('已完成 $completed')),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            const Text('部分完成仍列為需要處理，不會視為成功。'),
+                            const SizedBox(height: 8),
+                            Expanded(
+                              child: ListView.separated(
+                                itemCount: values.length,
+                                separatorBuilder: (_, __) =>
+                                    const Divider(height: 1),
+                                itemBuilder: (context, index) {
+                                  final value = values[index];
+                                  final attention =
+                                      _executionNeedsAttention(value);
+                                  return ListTile(
+                                    leading: Icon(
+                                      attention
+                                          ? Icons.warning_amber_outlined
+                                          : value['status'] == 'succeeded'
+                                              ? Icons.check_circle_outline
+                                              : Icons.playlist_play,
+                                    ),
+                                    title: Text(
+                                      '${value['config_id']} · ${_label(value['trigger_type'])}',
+                                    ),
+                                    subtitle: Text(
+                                      '${_label(value['status'])} · ${value['requested_at'] ?? '—'}',
+                                    ),
+                                    trailing: TextButton(
+                                      onPressed: () => _details(
+                                          value['execution_id'].toString()),
+                                      child: const Text('查看'),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    )),
+        ]),
       );
+}
+
+class AdminEffectiveBatches extends StatefulWidget {
+  const AdminEffectiveBatches(this.api, {super.key});
+  final AdminApi api;
+  @override
+  State<AdminEffectiveBatches> createState() => _AdminEffectiveBatchesState();
+}
+
+class _AdminEffectiveBatchesState extends State<AdminEffectiveBatches> {
+  String? until;
+  String? beforeId;
+  late Future<dynamic> data = load();
+  Future<dynamic> load() =>
+      widget.api.get(Uri(path: '/api/v1/admin/batches', queryParameters: {
+        'days': '3',
+        if (until != null) 'until': until!,
+        if (beforeId != null) 'before_id': beforeId!,
+      }).toString());
+  @override
+  Widget build(BuildContext context) => FutureBuilder<dynamic>(
+      future: data,
+      builder: (context, snapshot) {
+        if (snapshot.hasError)
+          return Column(children: [
+            const Text('排程批次暫時無法使用'),
+            TextButton(
+                onPressed: () => setState(() => data = load()),
+                child: const Text('重試'))
+          ]);
+        if (!snapshot.hasData)
+          return const Center(child: CircularProgressIndicator());
+        final root = snapshot.data as Map;
+        final rows = _items(root);
+        return ListView(children: [
+          const ListTile(
+              title: Text('最近 3 天'),
+              subtitle: Text('已定義、已部署與執行成功分別判定；派送不代表完成。')),
+          for (final definition in (root['definitions'] as List? ?? []))
+            ExpansionTile(
+                title: Text('${definition['name']}'),
+                subtitle: Text(
+                    '台北時間 ${(definition['hours'] as List).map((hour) => "${hour.toString().padLeft(2, '0')}:${definition['minute'].toString().padLeft(2, '0')}").join('、')} · 部署 ${_label(definition['deployment_status'])}'),
+                children: [
+                  ListTile(
+                      title: Text(
+                          '依賴 ${(definition['dependencies'] as List).join('、')}'),
+                      subtitle: Text(
+                          '星期 ${(definition['weekdays'] as List).map((day) => day + 1).join('、')} · 月日 ${(definition['month_days'] as List).isEmpty ? '每日' : (definition['month_days'] as List).join('、')}'))
+                ]),
+          const Divider(),
+          if (rows.isEmpty) const ListTile(title: Text('此期間尚無批次紀錄')),
+          for (final row in rows)
+            ListTile(
+                title: Text('${row['batch']} · ${_label(row['status'])}'),
+                subtitle: Text(
+                    '排程 ${row['scheduled_at']}\n更新 ${row['updated_at']} · 結束 ${row['completion_time'] ?? '尚未完成'}'),
+                trailing: IconButton(
+                    icon: const Icon(Icons.info_outline),
+                    tooltip: '查看',
+                    onPressed: () => showDialog<void>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                                title: Text('${row['batch']}'),
+                                content: Text(
+                                    '批次 ${row['occurrence_id']}\n${row['reason'] ?? '沒有失敗原因'}'),
+                                actions: [
+                                  TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('關閉'))
+                                ])))),
+          TextButton(
+              onPressed: () => setState(() {
+                    beforeId = root['next_before_id']?.toString();
+                    until = root['next_until']?.toString() ??
+                        root['since']?.toString();
+                    data = load();
+                  }),
+              child: const Text('更早紀錄')),
+        ]);
+      });
+}
+
+class AdminGovernancePage extends StatefulWidget {
+  const AdminGovernancePage(this.api, {super.key});
+  final AdminApi api;
+  @override
+  State<AdminGovernancePage> createState() => _AdminGovernancePageState();
+}
+
+class _AdminGovernancePageState extends State<AdminGovernancePage> {
+  late Future<dynamic> data = widget.api.get('/api/v1/admin/data-governance');
+  @override
+  Widget build(BuildContext context) => _AdminPage(
+      title: '資料治理',
+      child: FutureBuilder<dynamic>(
+          future: data,
+          builder: (context, snapshot) {
+            if (snapshot.hasError) return const _Message('資料治理暫時無法使用');
+            if (!snapshot.hasData)
+              return const Center(child: CircularProgressIndicator());
+            return ListView(children: [
+              const ListTile(
+                  title: Text('容量與保留政策'),
+                  subtitle: Text('使用已持久化營運證據；未知不補零。Private 不套用公開清理政策。')),
+              for (final row in _items(snapshot.data))
+                Card(
+                    child: ListTile(
+                        title: Text('${row['layer']}'),
+                        subtitle: Text(
+                            '保留 ${row['retention'] ?? '未定義'}\n最後維護 ${row['maintenance_at'] ?? '未知'}\n'
+                            '有效物件 ${row['live_objects'] ?? '未知'} · 有效 bytes ${row['active_bytes'] ?? '未知'}\n'
+                            '非當前版本 bytes ${row['noncurrent_bytes'] ?? '未知'} · soft-deleted bytes ${row['soft_deleted_bytes'] ?? '未知'}\n'
+                            '計費 bytes ${row['billable_bytes'] ?? '未知'}'))),
+            ]);
+          }));
 }
 
 class AdminStockWorkbench extends StatefulWidget {

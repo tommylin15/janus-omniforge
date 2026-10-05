@@ -66,6 +66,7 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 - 使用者指定一個 WBS 後，預設以該 WBS 的整體 acceptance scope 結案；按驗收條件組織一段連續工作，不按 dataset、adapter、文件或程式改動切成多輪。合併同來源、共用整合路徑或可一起驗收的工作；dataset／adapter 等內部步驟只作進度 checkpoint，不是停等、重新授權或另開對話的邊界。
 - 同一 WBS 中不得在每個 dataset／內部步驟完成後自行停止或要求使用者再次確認。只有使用者明確要求暫停、既定模型切換／驗收閘門，或 §1.3 外部核准及真實成本／安全／範圍 blocker 才暫停受影響部分；其餘安全且獨立的工作繼續推進。閘門解除後接續同一 WBS，直到整體 acceptance 完成，或只剩無法自行解除的 blocker；未滿足 acceptance 時維持 partial／blocked，不宣稱 WBS 完成。
 - 一個 WBS 的授權不延伸到其他 WBS；完成當前 WBS，或完成所有可繼續部分且剩餘條件確實受阻後停止，下一個 WBS 重新走模型與授權閘門。
+- **2026-10-05 合併執行例外**：使用者要求本次非預警改善整合既有 TODO、先集中完成程式再合併驗收。TODO 明列的 A／B／C 工作組可各自合併所列 WBS 範圍，以整组為模型 gate／主要驗收單位，原 WBS acceptance 不取消。只有使用者明確下達「全部剩餘工作組」指令時，才可跨組連續執行；單組授權不自動延伸。流程見 `codex-execution-plan.md`。安全、migration、付費／production 與外部授權邊界不變。
 - `ready` 可執行；`blocked` 只做安全盤點，不假設外部授權、付費決策或依賴已滿足。
 - ID 不在 active TODO 時不得自行從 `parking-lot.md`、archive 或研究規劃開工。
 - 採最小合理變更；不得因此省略必要 tests、migration、deployment 或 live acceptance。
@@ -94,11 +95,13 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 6. `runbook-*.md`：可重跑的操作程序；容易漂移的 revision、digest、build ID 只放 operations／archive，不固定在 README 或一般 runbook。
 7. `archive/`：已完成、已取代、歷史 checkpoint；不得當 active 指令來源。
 8. `parking-lot.md`：**目前「不做」的單一收納處**。未排程構想、可能需求、自然 observation、未來 Production 工作、已接受資料缺口與研究 roadmap 可保留於此供日後翻找，但不計入專案未完成度，也不得自行開工；只有使用者明確決定「做」後才移回 `todo.md`。
+   - 2026-10-05 使用者指定預警另存 `future-market-alerts.md`；Parking Lot 仍是其唯一狀態入口，獨立文件只保存內容，不形成另一份 active queue。
 9. 白名單 Drive `janusChatGPT` 可保存正式規格、研究與規劃資料；Drive 研究內容不因存在就自動成為 TODO。
 
 ## 7. 驗證與完成判定
 
 - 預設跑覆蓋本次 diff 的最小驗證；不因慣例每次都重跑完整 test／lint／build。
+- TODO 合併工作組先完成相依程式／測試／文件再集中驗收；同一份有效 evidence 可覆蓋多個 WBS。必要安全／migration 前置檢查保留，失敗或實質修改才重跑受影響範圍；不得為減少次數停用必要 CI 或以舊證據代替新版本驗收。
 - 文件小改至少檢查路徑、連結、內部一致性與 diff；程式修改由執行環境跑直接相關 targeted tests。
 - 跨模組契約、migration、安全／權限、依賴、建置鏈或里程碑結案時，再評估完整測試。
 - GCP dev／live／E2E 驗收必須由真實 GCP dev runtime 或其受控 acceptance path 證明；localhost／fixture 不得冒充 live evidence。

@@ -26,6 +26,8 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `PROJECT_RULES.md`：治理、權限、驗證與文件維護規則。
 - `status.md`：目前狀態與下一個執行序列的短入口；不是新的 source of truth。
 - `todo.md`：只保存確定要做的 active queue 與未完成 acceptance；暫不做與已接受缺口見 `parking-lot.md`。
+- `codex-execution-plan.md`：TODO 的 A／B／C 合併工作組執行指令；先整合修改再集中驗收，不另維護待辦狀態。
+- `future-market-alerts.md`：使用者指定獨立保存的未來預警增補；狀態由 `parking-lot.md` 管理，不是 active scope。
 - `spec.md`：SPEC 索引；正式契約在 `spec/*.md`。
 - `wbs.md`：WBS 索引；工作切片在 `wbs/*.md`。
 - `ui.md`：UI 索引；頁面／元件契約在 `ui/*.md`。

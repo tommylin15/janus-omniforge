@@ -62,6 +62,18 @@ def statements(connection: FakeConnection) -> str:
     return "\n".join(statement for cursor in connection.cursors for statement in cursor.statements)
 
 
+def test_operations_read_acl_uses_existing_owners_and_records_only_after_acceptance(monkeypatch):
+    control = FakeControl()
+    publication = FakeConnection('janus_publication')
+    monkeypatch.setattr(migration, '_publication_connection', lambda: publication)
+    migration.run(control, migration.MIGRATION_OPERATIONS)
+    sql = statements(control.connection)
+    assert sql.index('has_table_privilege') < sql.index('INSERT INTO control.schema_migrations')
+    assert 'GRANT SELECT ON control.batch_occurrences TO janus_web_control' in sql
+    assert 'GRANT SELECT ON publication.stock_latest TO janus_private_api' in statements(publication)
+    assert publication.closed
+
+
 def test_position_projection_splits_control_and_private_api_owners(monkeypatch):
     control = FakeControl()
     private = FakeConnection("janus_private_api")

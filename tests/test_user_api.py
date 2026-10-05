@@ -342,6 +342,6 @@ def test_watchlist_demand_history_is_deidentified_append_only_and_quota_bounded(
     assert "REVOKE UPDATE, DELETE, TRUNCATE" in sql
     assert "user_id" not in sql[sql.index("CREATE TABLE IF NOT EXISTS control.deep_tracking_membership_events"):sql.index("CREATE INDEX IF NOT EXISTS deep_tracking_membership_history")]
     repository=(ROOT/"services/api/repository.py").read_text(encoding="utf-8")
-    assert repository.count("record_deep_tracking_demand") == 3
-    assert "retire_offlist_watchlist(user_id)" in repository
+    assert repository.count("record_deep_tracking_demand") == 2
+    assert "retire_offlist_watchlist" not in repository
     assert "global_count>=50" in repository

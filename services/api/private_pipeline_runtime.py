@@ -19,7 +19,6 @@ def main() -> None:
         "CORE_CATALOG_PASSWORD": "core_catalog_password",
     })
     repository = repository_from_env()
-    retired_count = repository.retire_offlist_watchlist()
     market = CorePriceReader.from_env()
     override = os.getenv("VALUATION_DATE") or None
     completed = PrivatePipeline(
@@ -29,7 +28,7 @@ def main() -> None:
         market.memberships,
         lambda: resolve_valuation_date(None, market.latest_valuation_date),
     ).run(date.fromisoformat(override) if override else None)
-    print(f"private pipeline checkpoint={completed} offlist_watchlist_retired={retired_count}")
+    print(f"private pipeline checkpoint={completed}")
 
 
 if __name__ == "__main__":

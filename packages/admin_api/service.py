@@ -34,10 +34,12 @@ class AdminService:
     GOVERNANCE_ROLES = frozenset({"fundamental", "valuation", "quant", "risk", "event"})
     RETRYABLE_ERRORS = frozenset({"timeout", "rate_limited", "transient", "unavailable"})
 
-    def __init__(self, control: Any, *, core: Any | None = None, schedule_sync: Any | None = None) -> None:
+    def __init__(self, control: Any, *, core: Any | None = None, schedule_sync: Any | None = None,
+                 maintenance_reader: Any | None = None) -> None:
         self.control = control
         self.core = core
         self.schedule_sync = schedule_sync
+        self.maintenance_reader = maintenance_reader
 
     def stocks(self, query: str = "", *, enabled: bool | None = None, limit: int = 50,
                cursor: str | None = None) -> tuple[dict[str, Any], ...]:
@@ -417,6 +419,42 @@ class AdminService:
     def liquid_500_snapshot(self) -> dict[str, Any]:
         return {"current": self.control.liquid_500_snapshot(),
                 "upcoming": self.control.liquid_500_snapshot(upcoming=True)}
+
+    def batches(self, *, days: int = 3, until: datetime | None = None, limit: int = 100, before_id: str | None = None) -> dict[str, Any]:
+        from ingestion_core.batch_controller import BATCHES
+        if not 1 <= days <= 31 or not 1 <= limit <= 100:
+            raise AdminValidationError("batch history must be bounded")
+        end = until or datetime.now(timezone.utc)
+        if end.tzinfo is None:
+            raise AdminValidationError("batch history requires timezone")
+        start = end - timedelta(days=days)
+        rows = self.control.batch_occurrences(start, end, limit + 1, before_id=before_id)
+        items = []
+        for row in rows[:limit]:
+            state = row["state"]
+            items.append({"occurrence_id": row["occurrence_id"],
+                          "scheduled_at": row["scheduled_at"], "updated_at": row["updated_at"],
+                          **{key: state.get(key) for key in (
+                              "batch", "status", "completion_time", "reason", "origin")}})
+        return {"definitions": [{"name": batch.name, "hours": batch.hours,
+                  "minute": batch.minute, "weekdays": batch.weekdays, "month_days": batch.month_days,
+                  "dependencies": batch.dependencies, "timezone": "Asia/Taipei",
+                  "deployment_status": "unknown"} for batch in BATCHES],
+                "items": items, "since": start, "until": end,
+                "truncated": len(rows) > limit,
+                "next_before_id": rows[limit - 1]["occurrence_id"] if len(rows) > limit else None,
+                "next_until": rows[limit - 1]["scheduled_at"] if len(rows) > limit else None}
+
+    def data_governance(self) -> dict[str, Any]:
+        from ingestion_core.retention import POLICY
+        policies = {"Stage": f"{POLICY['stage_days']} 天", "Core":
+                    f"一般行情 {POLICY['core_days']} 天；深度價量 {POLICY['deep_price_days']} 天；財報 {POLICY['financial_quarters']} 季",
+                    "Mart": f"{POLICY['mart_days']} 天；個股分析最新 3 代", "Private": None}
+        evidence = self.maintenance_reader() if self.maintenance_reader else {}
+        return {"items": [{"layer": layer, "retention": retention,
+                  **{key: evidence.get(layer, {}).get(key) for key in (
+                    "maintenance_at", "live_objects", "active_bytes", "noncurrent_bytes",
+                    "soft_deleted_bytes", "billable_bytes")}} for layer, retention in policies.items()]}
 
     def swap_liquid_500(self, *, remove_symbol: str, add_symbol: str, reason: str,
                         expected_version: int, actor: str) -> dict[str, Any]:

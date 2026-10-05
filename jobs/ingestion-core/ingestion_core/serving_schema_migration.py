@@ -15,7 +15,8 @@ from typing import Any
 
 MIGRATION_POSITION = "041_operational_position_projection"
 MIGRATION_STOCK_SERVING = "042_stock_serving_projection"
-SUPPORTED = frozenset({MIGRATION_POSITION, MIGRATION_STOCK_SERVING})
+MIGRATION_OPERATIONS = "043_admin_batch_read"
+SUPPORTED = frozenset({MIGRATION_POSITION, MIGRATION_STOCK_SERVING, MIGRATION_OPERATIONS})
 
 
 class ServingSchemaMigrationError(RuntimeError):
@@ -266,11 +267,40 @@ def _apply_stock_serving(control: Any) -> None:
         raise ServingSchemaMigrationError("control_finalize", error) from error
 
 
+def _apply_operations(control: Any) -> None:
+    try:
+        text = _clean_psql_sql(_migration_path(MIGRATION_OPERATIONS).read_text(encoding='utf-8'))
+        prepare, rest = text.split('-- PHASE: publication-apply', 1)
+        publication_sql, finalize = rest.split('-- PHASE: control-finalize', 1)
+        with control.connection.transaction(), control.connection.cursor() as cursor:
+            _require_current_user(cursor, 'janus_control')
+            cursor.execute(prepare)
+        publication = _publication_connection()
+        try:
+            with publication.transaction(), publication.cursor() as cursor:
+                _require_current_user(cursor, 'janus_publication')
+                cursor.execute(publication_sql)
+                cursor.execute("SELECT has_table_privilege('janus_private_api','publication.stock_latest','SELECT')")
+                if not cursor.fetchone()[0]:
+                    raise RuntimeError('watchlist projection read permission is unavailable')
+        finally:
+            publication.close()
+        with control.connection.transaction(), control.connection.cursor() as cursor:
+            _require_current_user(cursor, 'janus_control')
+            cursor.execute("SELECT has_table_privilege('janus_web_control','control.batch_occurrences','SELECT')")
+            if not cursor.fetchone()[0]:
+                raise RuntimeError('Admin batch read permission is unavailable')
+            cursor.execute(finalize)
+    except Exception as error:
+        raise ServingSchemaMigrationError("operations_apply", error) from error
+
 def run(control: Any, name: str) -> None:
     """Apply one allow-listed serving migration using existing DB identities."""
     if name == MIGRATION_POSITION:
         _apply_position(control)
     elif name == MIGRATION_STOCK_SERVING:
         _apply_stock_serving(control)
+    elif name == MIGRATION_OPERATIONS:
+        _apply_operations(control)
     else:
         raise ValueError("unsupported serving schema migration")

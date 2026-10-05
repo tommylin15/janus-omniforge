@@ -293,6 +293,22 @@ class Workspace extends StatefulWidget {
 class _WorkspaceState extends State<Workspace> {
   int page = 0;
   Map<String, dynamic>? lastTransaction;
+  final visited = <int>{0};
+  void selectPage(int value) => setState(() {
+        page = value;
+        visited.add(value);
+      });
+  @override
+  void didUpdateWidget(Workspace oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.api != widget.api) {
+      page = 0;
+      visited.clear();
+      visited.add(0);
+      lastTransaction = null;
+    }
+  }
+
   void openStock(String symbol) => Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => StockDetailPage(api: widget.api, symbol: symbol)));
 
@@ -302,6 +318,7 @@ class _WorkspaceState extends State<Workspace> {
       TodayPage(widget.api, onOpenStock: openStock),
       WatchlistPage(widget.api, onOpenStock: openStock),
       JournalNotesPage(widget.api,
+          active: page == 2,
           initialTransaction: lastTransaction,
           onTransactionSaved: (value) =>
               setState(() => lastTransaction = value),
@@ -323,8 +340,7 @@ class _WorkspaceState extends State<Workspace> {
               NavigationRail(
                   selectedIndex: page,
                   labelType: NavigationRailLabelType.all,
-                  onDestinationSelected: (value) =>
-                      setState(() => page = value),
+                  onDestinationSelected: selectPage,
                   destinations: const [
                     NavigationRailDestination(
                         icon: Icon(Icons.today_outlined), label: Text('今日')),
@@ -335,14 +351,21 @@ class _WorkspaceState extends State<Workspace> {
                     NavigationRailDestination(
                         icon: Icon(Icons.person_outline), label: Text('我的')),
                   ]),
-            Expanded(child: pages[page])
+            Expanded(
+                child: IndexedStack(index: page, children: [
+              for (var index = 0; index < pages.length; index++)
+                KeyedSubtree(
+                    key: ValueKey('${identityHashCode(widget.api)}:$index'),
+                    child: visited.contains(index)
+                        ? pages[index]
+                        : const SizedBox.shrink())
+            ]))
           ]),
           bottomNavigationBar: wide
               ? null
               : NavigationBar(
                   selectedIndex: page,
-                  onDestinationSelected: (value) =>
-                      setState(() => page = value),
+                  onDestinationSelected: selectPage,
                   destinations: destinations));
     });
   }
@@ -361,7 +384,34 @@ class _WatchlistPageState extends State<WatchlistPage> {
   void reload() =>
       setState(() => items = widget.api.get('/api/v1/me/watchlist'));
   Future<void> add() async {
-    final symbol = await textDialog(context, '加入關注（限本週市場資訊 500 檔）', '股票代號');
+    final query = await textDialog(context, '搜尋關注股票', '股票代號或中文名稱');
+    if (query == null || query.trim().isEmpty) return;
+    String? symbol;
+    try {
+      final result = await widget.api.get(Uri(
+          path: '/api/v1/me/watchlist/search',
+          queryParameters: {'q': query.trim()}).toString());
+      if (!mounted) return;
+      final matches = _asList((result as Map)['items']);
+      symbol = await showDialog<String>(
+          context: context,
+          builder: (context) =>
+              SimpleDialog(title: const Text('選擇股票（本週市場資訊 500 檔）'), children: [
+                if (matches.isEmpty)
+                  const Padding(
+                      padding: EdgeInsets.all(16), child: Text('沒有符合的股票')),
+                for (final row in matches)
+                  SimpleDialogOption(
+                      onPressed: () =>
+                          Navigator.pop(context, row['symbol'] as String),
+                      child: Text(stockDisplayName(row as Map)))
+              ]));
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('股票搜尋暫時無法使用')));
+      return;
+    }
     if (symbol == null) return;
     if (!mounted) return;
     final target = await textDialog(context, '設定目標價', '可留空');
@@ -400,24 +450,39 @@ class _WatchlistPageState extends State<WatchlistPage> {
             final rows = (snapshot.data as List? ?? []);
             if (rows.isEmpty) return const Center(child: Text('尚未關注股票'));
             return ReorderableListView(
+                header: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('關注',
+                              style:
+                                  Theme.of(context).textTheme.headlineMedium),
+                          Text('目前關注 ${rows.length} / 50 · 新增標的限本週市場資訊 500 檔'),
+                          const Text('拖曳調整順序；離榜股票仍保留關注'),
+                        ])),
                 children: [
                   for (final row in rows)
-                    ListTile(
+                    Card(
                         key: ValueKey(row['symbol']),
-                        onTap: () => widget.onOpenStock?.call(row['symbol']),
-                        title: Text(row['stock_name'] == null
-                            ? row['symbol'].toString()
-                            : '${row['stock_name']} ${row['symbol']}'),
-                        subtitle: Text(
-                            '${row['in_market_500'] == false ? '不在本週市場資訊名單 · ' : ''}'
-                            '${row['target_price'] == null ? '尚未設定目標價' : '目標價 ${accountingNumber(row['target_price'], decimals: 2)}'}'),
-                        trailing: IconButton(
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () async {
-                              await widget.api.delete(
-                                  '/api/v1/me/watchlist/${row['symbol']}');
-                              reload();
-                            }))
+                        child: ListTile(
+                            onTap: () =>
+                                widget.onOpenStock?.call(row['symbol']),
+                            title: Text(row['stock_name'] == null
+                                ? row['symbol'].toString()
+                                : '${row['stock_name']} ${row['symbol']}'),
+                            subtitle: Text(
+                                '${accountingNumber(row['market_price'], decimals: 2, missing: '行情尚未取得')} · 資料日期 ${row['price_date'] ?? '—'}\n'
+                                '${row['held'] == true ? '已持有' : '未持有'} · 待追蹤 ${row['pending_note_count'] ?? '—'}\n'
+                                '${row['in_market_500'] == false ? '不在本週市場資訊名單，仍保留關注 · ' : ''}'
+                                '${row['target_price'] == null ? '尚未設定目標價' : '目標價 ${accountingNumber(row['target_price'], decimals: 2)}'}'),
+                            trailing: IconButton(
+                                icon: const Icon(Icons.delete_outline),
+                                onPressed: () async {
+                                  await widget.api.delete(
+                                      '/api/v1/me/watchlist/${row['symbol']}');
+                                  reload();
+                                })))
                 ],
                 onReorderItem: (oldIndex, newIndex) async {
                   final reordered = List<dynamic>.from(rows);
@@ -889,101 +954,171 @@ class ScreeningPage extends StatelessWidget {
           }));
 }
 
-class StockDetailPage extends StatelessWidget {
+class StockDetailPage extends StatefulWidget {
   const StockDetailPage({required this.api, required this.symbol, super.key});
   final Api api;
   final String symbol;
   @override
-  Widget build(BuildContext context) => Scaffold(
-      appBar: AppBar(title: Text(symbol)),
-      body: FutureBuilder<List<dynamic>>(
-          future: Future.wait([
-            api.get('/api/v1/public/stock-health/$symbol'),
-            api.get('/api/v1/me/journal/positions'),
-            api.get('/api/v1/me/notes?symbol=$symbol'),
-            api.get('/api/v1/public/kline/$symbol'),
-            api.get('/api/v1/public/events/$symbol'),
-          ]),
-          builder: (context, snapshot) {
-            if (snapshot.hasError)
-              return ErrorView(snapshot.error.toString(), () {});
-            if (!snapshot.hasData)
-              return const Center(child: CircularProgressIndicator());
-            final result = snapshot.data!;
-            final report = result[0] is Map ? result[0] as Map : const {};
-            final data = report['data'] is Map
-                ? Map<String, dynamic>.from(report['data'])
-                : <String, dynamic>{};
-            data.putIfAbsent('stock_id', () => symbol);
-            data.putIfAbsent('analysis_as_of', () => report['analysis_as_of']);
-            data.putIfAbsent('data_status', () => report['data_status']);
-            final positions = _asList(result[1])
-                .where((row) => row is Map && row['symbol'] == symbol)
-                .toList();
-            final notes = _asList(result[2]);
-            final kline = result[3] is Map
-                ? _asList((result[3] as Map)['rows'])
-                : const [];
-            final events = result[4] is Map
-                ? _asList((result[4] as Map)['rows'])
-                : const [];
-            final roles = _asList(data['role_analyses']);
-            final position = positions.isNotEmpty && positions.first is Map
-                ? positions.first as Map
-                : const {};
-            final metrics =
-                data['metrics'] is Map ? data['metrics'] as Map : const {};
-            final provenance = data['provenance'] is Map
-                ? data['provenance'] as Map
-                : const {};
-            final evidence = _asList(data['evidence_refs']);
-            return ListView(padding: const EdgeInsets.all(16), children: [
-              Text('$symbol ${data['stock_name'] ?? ''}'.trim(),
-                  style: Theme.of(context).textTheme.headlineMedium),
-              ListTile(
-                  title: const Text('持股摘要'),
-                  subtitle: Text(positions.isEmpty
-                      ? '目前無持股'
-                      : '${position['shares'] ?? position['quantity'] ?? '—'} 股 · 成本 ${position['average_cost'] ?? '—'} · 損益 ${position['unrealized_pnl'] ?? '—'}')),
-              ListTile(
-                  title: const Text('我的筆記'),
-                  subtitle:
-                      Text(notes.isEmpty ? '尚無筆記' : '${notes.first['body']}')),
-              StockHealthCard(value: data),
-              if (report['execution_id'] != null)
-                AnalysisFeedbackCard(
-                    api: api,
-                    executionId: '${report['execution_id']}',
-                    scopeType: '${report['scope_type'] ?? 'symbol'}',
-                    scopeId: '${report['scope_id'] ?? symbol}'),
-              ListTile(
-                  title: const Text('為什麼'),
-                  subtitle: Text('${data['why'] ?? '尚無可發布說明'}')),
-              ListTile(
-                  title: const Text('主要風險'),
-                  subtitle: Text('${data['risks'] ?? data['risk'] ?? '—'}')),
-              ListTile(
-                  title: const Text('籌碼'),
-                  subtitle: Text('${data['chips_status'] ?? '—'}')),
-              const ListTile(title: Text('事件')),
-              if (events.isEmpty) const ListTile(title: Text('目前沒有事件')),
-              for (final event in events.take(5))
-                ListTile(
-                    title: Text(event is Map
-                        ? '${event['title'] ?? event['event_type'] ?? '事件'}'
-                        : '$event'),
-                    subtitle: event is Map
-                        ? Text(
-                            '${event['published_at'] ?? event['event_date'] ?? '—'}')
-                        : null),
-              const ListTile(title: Text('證據')),
-              if (evidence.isEmpty) const ListTile(title: Text('目前沒有可公開證據')),
-              for (final item in evidence.take(5))
-                ListTile(
-                    title: Text(item is Map
-                        ? '${item['label'] ?? item['source_id'] ?? '證據'}'
-                        : '$item')),
-              ExpansionTile(title: const Text('進階資料'), children: [
+  State<StockDetailPage> createState() => _StockDetailPageState();
+}
+
+class _StockDetailPageState extends State<StockDetailPage> {
+  final values = <String, dynamic>{};
+  final loading = <String>{};
+  final errors = <String>{};
+  int generation = 0;
+  Map<String, String> get paths => {
+        'health': '/api/v1/public/stock-health/${widget.symbol}',
+        'positions': '/api/v1/me/journal/positions',
+        'notes':
+            '/api/v1/me/notes?symbol=${Uri.encodeQueryComponent(widget.symbol)}',
+        'events': '/api/v1/public/events/${widget.symbol}',
+        'kline': '/api/v1/public/kline/${widget.symbol}',
+      };
+  @override
+  void initState() {
+    super.initState();
+    load();
+  }
+
+  @override
+  void didUpdateWidget(StockDetailPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.api != widget.api || oldWidget.symbol != widget.symbol) {
+      generation++;
+      values.clear();
+      loading.clear();
+      errors.clear();
+      load();
+    }
+  }
+
+  void load() {
+    for (final section in ['health', 'positions', 'notes', 'events']) {
+      unawaited(loadSection(section));
+    }
+  }
+
+  Future<void> loadSection(String section) async {
+    final current = generation;
+    setState(() {
+      loading.add(section);
+      errors.remove(section);
+    });
+    try {
+      final value = await widget.api
+          .get(paths[section]!)
+          .timeout(const Duration(seconds: 60));
+      if (mounted && current == generation)
+        setState(() => values[section] = value);
+    } catch (_) {
+      if (mounted && current == generation) setState(() => errors.add(section));
+    } finally {
+      if (mounted && current == generation)
+        setState(() => loading.remove(section));
+    }
+  }
+
+  Widget sectionStatus(String section) {
+    if (errors.contains(section))
+      return ListTile(
+          title: const Text('此區資料暫時無法使用'),
+          trailing: TextButton(
+              onPressed: () => loadSection(section), child: const Text('重試')));
+    if (loading.contains(section)) return const LinearProgressIndicator();
+    return const SizedBox.shrink();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final report = values['health'] is Map ? values['health'] as Map : const {};
+    final data = report['data'] is Map
+        ? Map<String, dynamic>.from(report['data'])
+        : <String, dynamic>{};
+    data.putIfAbsent('stock_id', () => widget.symbol);
+    data.putIfAbsent('analysis_as_of', () => report['analysis_as_of']);
+    data.putIfAbsent('data_status', () => report['data_status']);
+    final positions = _asList(values['positions'])
+        .where((row) => row is Map && row['symbol'] == widget.symbol)
+        .toList();
+    final notes = _asList(values['notes']);
+    final kline = values['kline'] is Map
+        ? _asList((values['kline'] as Map)['rows'])
+        : const [];
+    final events = values['events'] is Map
+        ? _asList((values['events'] as Map)['rows'])
+        : const [];
+    final roles = _asList(data['role_analyses']);
+    final position = positions.isNotEmpty && positions.first is Map
+        ? positions.first as Map
+        : const {};
+    final metrics = data['metrics'] is Map ? data['metrics'] as Map : const {};
+    final provenance =
+        data['provenance'] is Map ? data['provenance'] as Map : const {};
+    final evidence = _asList(data['evidence_refs']);
+    return Scaffold(
+        appBar: AppBar(title: Text(widget.symbol)),
+        body: ListView(padding: const EdgeInsets.all(16), children: [
+          Text('${widget.symbol} ${data['stock_name'] ?? ''}'.trim(),
+              style: Theme.of(context).textTheme.headlineMedium),
+          sectionStatus('positions'),
+          ListTile(
+              title: const Text('持股摘要'),
+              subtitle: Text(positions.isEmpty
+                  ? (values.containsKey('positions') ? '目前無持股' : '持股資料尚未取得')
+                  : '${accountingNumber(position['shares'] ?? position['quantity'])} 股 · 成本 ${accountingNumber(position['average_cost'], decimals: 2)} · 損益 ${accountingNumber(position['unrealized_pnl'])}')),
+          sectionStatus('notes'),
+          ListTile(
+              title: const Text('我的筆記'),
+              subtitle: Text(notes.isEmpty
+                  ? (values.containsKey('notes') ? '尚無筆記' : '筆記資料尚未取得')
+                  : '${notes.first['body']}')),
+          sectionStatus('health'),
+          StockHealthCard(value: data),
+          if (report['execution_id'] != null)
+            AnalysisFeedbackCard(
+                api: widget.api,
+                executionId: '${report['execution_id']}',
+                scopeType: '${report['scope_type'] ?? 'symbol'}',
+                scopeId: '${report['scope_id'] ?? widget.symbol}'),
+          ListTile(
+              title: const Text('為什麼'),
+              subtitle: Text('${data['why'] ?? '尚無可發布說明'}')),
+          ListTile(
+              title: const Text('主要風險'),
+              subtitle: Text('${data['risks'] ?? data['risk'] ?? '—'}')),
+          ListTile(
+              title: const Text('籌碼'),
+              subtitle: Text('${data['chips_status'] ?? '—'}')),
+          const ListTile(title: Text('事件')),
+          sectionStatus('events'),
+          if (values.containsKey('events') && events.isEmpty)
+            const ListTile(title: Text('目前沒有事件')),
+          for (final event in events.take(5))
+            ListTile(
+                title: Text(event is Map
+                    ? '${event['title'] ?? event['event_type'] ?? '事件'}'
+                    : '$event'),
+                subtitle: event is Map
+                    ? Text(
+                        '${event['published_at'] ?? event['event_date'] ?? '—'}')
+                    : null),
+          const ListTile(title: Text('證據')),
+          if (evidence.isEmpty) const ListTile(title: Text('目前沒有可公開證據')),
+          for (final item in evidence.take(5))
+            ListTile(
+                title: Text(item is Map
+                    ? '${item['label'] ?? item['source_id'] ?? '證據'}'
+                    : '$item')),
+          ExpansionTile(
+              title: const Text('進階資料'),
+              onExpansionChanged: (expanded) {
+                if (expanded &&
+                    !values.containsKey('kline') &&
+                    !loading.contains('kline')) loadSection('kline');
+              },
+              children: [
+                sectionStatus('kline'),
                 const ListTile(title: Text('K 線／OHLCV')),
                 if (kline.isEmpty) const ListTile(title: Text('資料等待中')),
                 for (final row in kline.take(5))
@@ -1000,8 +1135,9 @@ class StockDetailPage extends StatelessWidget {
                   ListTile(
                       title: Text('${metric.key}'),
                       trailing: Text('${metric.value ?? '—'}')),
-                const ListTile(title: Text('五角色分析')),
-                if (roles.isEmpty) const ListTile(title: Text('目前沒有角色分析')),
+                const ListTile(title: Text('五 specialist 分析')),
+                if (roles.isEmpty)
+                  const ListTile(title: Text('目前沒有 specialist 分析')),
                 for (final role in roles.take(5))
                   ListTile(
                       title: Text(role is Map
@@ -1015,20 +1151,22 @@ class StockDetailPage extends StatelessWidget {
                     subtitle: Text(
                         '來源 ${provenance['source_id'] ?? '—'} · schema ${provenance['schema_version'] ?? report['schema_version'] ?? '—'} · model ${provenance['model_version'] ?? report['model_version'] ?? '—'}')),
               ]),
-              const SizedBox(height: 12),
-              const Text('信心度不是獲利機率；本服務提供研究資訊，不構成投資建議。')
-            ]);
-          }));
+          const SizedBox(height: 12),
+          const Text('信心度不是獲利機率；本服務提供研究資訊，不構成投資建議。')
+        ]));
+  }
 }
 
 class JournalNotesPage extends StatefulWidget {
   const JournalNotesPage(this.api,
-      {this.initialTransaction,
+      {this.active = true,
+      this.initialTransaction,
       this.onTransactionSaved,
       this.onOpenStock,
       this.now = DateTime.now,
       super.key});
   final Api api;
+  final bool active;
   final Map<String, dynamic>? initialTransaction;
   final ValueChanged<Map<String, dynamic>>? onTransactionSaved;
   final ValueChanged<String>? onOpenStock;
@@ -1056,7 +1194,10 @@ class _JournalNotesPageState extends State<JournalNotesPage>
   }
 
   bool get quotesActive =>
-      section == 0 && foreground && (ModalRoute.of(context)?.isCurrent ?? true);
+      widget.active &&
+      section == 0 &&
+      foreground &&
+      (ModalRoute.of(context)?.isCurrent ?? true);
 
   bool get marketHours {
     final taipei = widget.now().toUtc().add(const Duration(hours: 8));
@@ -1066,7 +1207,7 @@ class _JournalNotesPageState extends State<JournalNotesPage>
 
   void startQuotes() {
     quoteTimer?.cancel();
-    if (marketHours) {
+    if (quotesActive && marketHours) {
       quoteTimer = Timer.periodic(const Duration(seconds: 30), (_) {
         if (!marketHours) {
           quoteTimer?.cancel();
@@ -1100,6 +1241,17 @@ class _JournalNotesPageState extends State<JournalNotesPage>
     } finally {
       if (mounted && generation == quoteGeneration)
         setState(() => quoteBusy = false);
+    }
+  }
+
+  @override
+  void didUpdateWidget(JournalNotesPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.active != widget.active) {
+      quoteGeneration++;
+      quoteBusy = false;
+      quoteTimer?.cancel();
+      if (widget.active && section == 0) startQuotes();
     }
   }
 
