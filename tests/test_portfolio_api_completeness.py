@@ -1,9 +1,11 @@
+from decimal import Decimal
 from pathlib import Path
 from uuid import UUID
 
 from fastapi.testclient import TestClient
 
 from services.api.app import create_app
+from services.api.store import PrivateIcebergStore
 
 
 USER_ID = UUID("00000000-0000-0000-0000-000000000001")
@@ -183,3 +185,94 @@ def test_summary_contract_allows_withheld_aggregate_and_decodes_affected_symbols
     assert item["unrealized_pnl"] is None
     assert item["unrealized_return"] is None
     assert item["affected_symbols"] == ["2330"]
+
+
+class OperationalFreshness:
+    def __init__(self, ledger_version, positions=None):
+        self.ledger_version = ledger_version
+        self.current_positions = positions or []
+
+    def latest_ledger_version(self, _user_id):
+        return self.ledger_version
+
+    def positions(self, _user_id):
+        return list(self.current_positions)
+
+
+def private_store_with(rows, operational):
+    store = object.__new__(PrivateIcebergStore)
+    store.operational = operational
+
+    def read(table, _user_id, limit=200, filters=None):
+        values = [dict(row) for row in rows.get(table, [])]
+        for key, value in (filters or {}).items():
+            values = [row for row in values if row.get(key) == value]
+        return values
+
+    store.rows = read
+    return store
+
+
+def test_private_store_withholds_stale_transaction_marts():
+    stale = {
+        "mart_user_annual_pnl": [{
+            "user_id": str(USER_ID), "year": 2026, "currency": "TWD", "realized_pnl": "999",
+            "fees": "1", "taxes": "2", "cash_dividends": "3", "transaction_count": 1,
+            "ledger_version": 1, "valuation_date": "2026-10-04", "cost_basis_method": "MOVING_AVERAGE",
+        }],
+        "mart_user_monthly_ledger_summary": [{
+            "user_id": str(USER_ID), "year": 2026, "month": 10, "currency": "TWD",
+            "purchase_outflow": "100", "sale_proceeds": "200", "cash_dividends": "3",
+            "realized_pnl": "999", "fees": "1", "taxes": "2", "transaction_count": 1,
+            "ledger_version": 1, "valuation_date": "2026-10-04",
+        }],
+    }
+    store = private_store_with(stale, OperationalFreshness(2))
+
+    assert store.mart("mart_user_annual_pnl", USER_ID, year=2026) == []
+    assert store.mart("mart_user_monthly_ledger_summary", USER_ID, year=2026) == []
+
+
+def test_private_store_withholds_stale_valuation_but_keeps_current_operational_cost():
+    operational = OperationalFreshness(2, [{
+        "user_id": USER_ID, "symbol": "2330", "currency": "TWD", "shares": Decimal("2"),
+        "average_cost": Decimal("110"), "cost_basis": Decimal("220"), "ledger_version": 2,
+    }])
+    store = private_store_with({
+        "mart_user_portfolio_summary": [{
+            "user_id": str(USER_ID), "currency": "TWD", "market_value": "130", "cost_basis": "100",
+            "unrealized_pnl": "30", "unrealized_return": "0.3", "aggregate_status": "available",
+            "affected_symbol_count": 0, "affected_symbols": [], "missing_price_count": 0,
+            "stale_price_count": 0, "valuation_status": "available",
+            "cash_safety_status": "insufficient_data", "cash_ratio": None, "minimum_cash_ratio": None,
+            "ledger_version": 1, "valuation_date": "2026-10-04",
+        }],
+        "mart_user_annual_performance": [{
+            "user_id": str(USER_ID), "year": 2026, "currency": "TWD", "xirr_status": "available",
+            "xirr": 0.5, "cash_flow_count": 2, "method": "xirr_actual_365_v1",
+            "ledger_version": 1, "valuation_date": "2026-10-04",
+        }],
+    }, operational)
+
+    summary = store.mart("mart_user_portfolio_summary", USER_ID)
+    performance = store.mart("mart_user_annual_performance", USER_ID, year=2026)
+
+    assert summary[0]["ledger_version"] == 2
+    assert summary[0]["aggregate_status"] == "withheld"
+    assert summary[0]["valuation_status"] == "partial"
+    assert summary[0]["market_value"] is None
+    assert summary[0]["unrealized_pnl"] is None
+    assert summary[0]["cost_basis"] == Decimal("220")
+    assert summary[0]["affected_symbols"] == ["2330"]
+    assert performance == []
+
+
+def test_private_store_returns_current_snapshot_unchanged():
+    row = {
+        "user_id": str(USER_ID), "year": 2026, "currency": "TWD", "realized_pnl": "95",
+        "fees": "2", "taxes": "3", "cash_dividends": "0", "transaction_count": 2,
+        "ledger_version": 2, "valuation_date": "2026-10-05", "cost_basis_method": "MOVING_AVERAGE",
+    }
+    store = private_store_with({"mart_user_annual_pnl": [row]}, OperationalFreshness(2))
+
+    assert store.mart("mart_user_annual_pnl", USER_ID, year=2026) == [row]
