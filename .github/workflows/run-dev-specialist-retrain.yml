@@ -1,0 +1,78 @@
+name: Guarded manual specialist retrain
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'jobs/ingestion-core/ingestion_core/batch_controller.py'
+      - 'tests/test_batch_controller_manual_retrain.py'
+      - '.github/workflows/run-dev-specialist-retrain.yml'
+      - 'ops/dev-specialist-retrain-request.json'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: dev-specialist-retrain
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_REGION: us-central1
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install controller test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r jobs/ingestion-core/requirements.lock -r requirements-dev.txt
+      - name: Run manual retrain controller tests
+        env:
+          PYTHONPATH: jobs/ingestion-core:.
+        run: python -m pytest -q tests/test_batch_controller_manual_retrain.py
+
+  execute:
+    needs: test
+    if: contains(github.event.head_commit.modified, 'ops/dev-specialist-retrain-request.json') || contains(github.event.head_commit.added, 'ops/dev-specialist-retrain-request.json')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate committed request
+        id: request
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          file='ops/dev-specialist-retrain-request.json'
+          [[ -f "${file}" ]] || { echo 'missing request file' >&2; exit 2; }
+          [[ "$(jq -r '.enabled // false' "${file}")" == 'true' ]] || { echo 'enabled=false; no execution'; exit 0; }
+          [[ "$(jq -r '.operation // ""' "${file}")" == 'specialist-retrain' ]] || { echo 'unsupported operation' >&2; exit 2; }
+          request_id="$(jq -r '.request_id // ""' "${file}")"
+          [[ "${request_id}" =~ ^[A-Za-z0-9._-]{1,80}$ ]] || { echo 'invalid request_id' >&2; exit 2; }
+          echo "request_id=${request_id}" >> "${GITHUB_OUTPUT}"
+          echo 'enabled=true' >> "${GITHUB_OUTPUT}"
+      - uses: google-github-actions/auth@v2
+        if: steps.request.outputs.enabled == 'true'
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+        if: steps.request.outputs.enabled == 'true'
+      - name: Execute through batch controller
+        if: steps.request.outputs.enabled == 'true'
+        shell: bash
+        env:
+          REQUEST_ID: ${{ steps.request.outputs.request_id }}
+        run: |
+          set -Eeuo pipefail
+          gcloud run jobs execute janus-batch-controller \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --update-env-vars="BATCH_CONTROLLER_MODE=manual,BATCH_CONTROLLER_MANUAL_REQUEST_ID=${REQUEST_ID}" \
+            --wait
