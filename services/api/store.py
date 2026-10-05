@@ -107,12 +107,13 @@ class PrivateIcebergStore:
         if rows:
             latest=max((str(row.get("valuation_date","")),row.get("ledger_version",0)) for row in rows)
             latest_rows=[row for row in rows if (str(row.get("valuation_date","")),row.get("ledger_version",0))==latest]
-        if self.operational is None:
+        operational = getattr(self, "operational", None)
+        if operational is None:
             return latest_rows
         freshness_tables = self.TRANSACTION_DERIVED_MARTS | self.VALUATION_MARTS
         if table not in freshness_tables:
             return latest_rows
-        current_version = int(self.operational.latest_ledger_version(user_id))
+        current_version = int(operational.latest_ledger_version(user_id))
         mart_version = max((int(row.get("ledger_version", 0) or 0) for row in latest_rows), default=-1)
         if mart_version == current_version:
             return latest_rows
