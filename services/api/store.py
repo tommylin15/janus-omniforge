@@ -34,8 +34,24 @@ class PrivateIcebergStore:
         "mart_user_portfolio_summary": frozenset({"unrealized_return","aggregate_status","affected_symbol_count","affected_symbols"}),
     }
 
-    def __init__(self, catalog: Any, warehouse: str, namespace: str = "private") -> None:
+    TRANSACTION_DERIVED_MARTS = frozenset({
+        "mart_user_realized_pnl",
+        "mart_user_annual_pnl",
+        "mart_user_monthly_ledger_summary",
+    })
+    VALUATION_MARTS = frozenset({
+        "mart_user_positions",
+        "mart_user_unrealized_pnl",
+        "mart_user_exposure",
+        "mart_user_annual_performance",
+        "mart_user_stress_tests",
+        "mart_user_portfolio_summary",
+    })
+
+    def __init__(self, catalog: Any, warehouse: str, namespace: str = "private",
+                 operational: Any | None = None) -> None:
         self.catalog, self.warehouse, self.namespace = catalog, warehouse.rstrip("/"), namespace
+        self.operational = operational
         catalog.create_namespace_if_not_exists(namespace)
 
     @classmethod
@@ -48,6 +64,7 @@ class PrivateIcebergStore:
         })
         from pyiceberg.catalog.sql import SqlCatalog
         from sqlalchemy import URL
+        from .repository import repository_from_env
 
         required = {name: os.getenv(name, "") for name in (
             "POSTGRES_HOST", "POSTGRES_DB", "PRIVATE_CATALOG_USER", "PRIVATE_CATALOG_PASSWORD",
@@ -62,7 +79,7 @@ class PrivateIcebergStore:
         catalog = SqlCatalog("janus-private", type="sql", uri=uri, warehouse=required["PRIVATE_ICEBERG_WAREHOUSE"],
                              init_catalog_tables="false", **{"py-io-impl":"pyiceberg.io.pyarrow.PyArrowFileIO",
                              "gcs.project-id":required["GCP_PROJECT_ID"], "pool_size":1, "max_overflow":0, "pool_timeout":5})
-        return cls(catalog, required["PRIVATE_ICEBERG_WAREHOUSE"])
+        return cls(catalog, required["PRIVATE_ICEBERG_WAREHOUSE"], operational=repository_from_env())
 
     def write_note(self, *, user_id: Any, note_id: Any, revision: int, body: str, symbol: str | None,
                    trade_event_id: str | None, needs_follow_up: bool) -> str:
@@ -79,10 +96,58 @@ class PrivateIcebergStore:
         return [{**wanted[row["artifact_ref"]], **row} for row in rows if row.get("artifact_ref") in wanted]
 
     def mart(self, table: str, user_id: Any, **filters: Any) -> list[dict[str, Any]]:
+        """Serve only marts that match the latest canonical ledger checkpoint.
+
+        ``rows`` remains the raw persisted Iceberg read. This serving method adds a
+        freshness gate so an older Private Mart snapshot is never presented as if it
+        reflected a newer operational ledger mutation.
+        """
         rows = self.rows(table, user_id, filters=filters)
-        if not rows: return []
-        latest=max((str(row.get("valuation_date","")),row.get("ledger_version",0)) for row in rows)
-        return [row for row in rows if (str(row.get("valuation_date","")),row.get("ledger_version",0))==latest]
+        latest_rows: list[dict[str, Any]] = []
+        if rows:
+            latest=max((str(row.get("valuation_date","")),row.get("ledger_version",0)) for row in rows)
+            latest_rows=[row for row in rows if (str(row.get("valuation_date","")),row.get("ledger_version",0))==latest]
+        if self.operational is None:
+            return latest_rows
+        freshness_tables = self.TRANSACTION_DERIVED_MARTS | self.VALUATION_MARTS
+        if table not in freshness_tables:
+            return latest_rows
+        current_version = int(self.operational.latest_ledger_version(user_id))
+        mart_version = max((int(row.get("ledger_version", 0) or 0) for row in latest_rows), default=-1)
+        if mart_version == current_version:
+            return latest_rows
+        if table == "mart_user_portfolio_summary" and latest_rows:
+            return self._withheld_summary(user_id, latest_rows, current_version)
+        return []
+
+    def _withheld_summary(self, user_id: Any, stale_rows: list[dict[str, Any]],
+                          current_version: int) -> list[dict[str, Any]]:
+        positions = list(self.operational.positions(user_id))
+        stale_by_currency = {str(row.get("currency") or "TWD"): row for row in stale_rows}
+        currencies = sorted(set(stale_by_currency) | {str(row.get("currency") or "TWD") for row in positions})
+        result = []
+        for currency in currencies:
+            currency_positions = [row for row in positions if str(row.get("currency") or "TWD") == currency]
+            stale = stale_by_currency.get(currency, {})
+            symbols = sorted({str(row.get("symbol")) for row in currency_positions if row.get("symbol")})
+            cost_basis = sum((Decimal(str(row.get("cost_basis") or 0)) for row in currency_positions), Decimal("0"))
+            result.append({
+                "user_id": str(user_id), "currency": currency,
+                "market_value": None, "cost_basis": cost_basis, "unrealized_pnl": None,
+                "unrealized_return": None, "aggregate_status": "withheld",
+                "affected_symbol_count": len(symbols), "affected_symbols": symbols,
+                "missing_price_count": len(symbols), "stale_price_count": 0,
+                "valuation_status": "partial", "cash_safety_status": "insufficient_data",
+                "cash_ratio": None, "minimum_cash_ratio": stale.get("minimum_cash_ratio"),
+                "ledger_version": current_version,
+                "valuation_date": stale.get("valuation_date") or self._today(),
+            })
+        return result
+
+    @staticmethod
+    def _today() -> date:
+        from .private_pipeline import TAIPEI
+        return datetime.now(TAIPEI).date()
 
     def rows(self, table: str, user_id: Any, limit: int | None = 200,
              filters: dict[str, Any] | None = None) -> list[dict[str, Any]]:
