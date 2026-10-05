@@ -99,3 +99,40 @@
 - 不停用既有必要 CI gates；先整合程式再一次送入現有流程。多服務可共用一輪驗收，migration 與部署仍遵守相依順序。
 - 每組結尾只記一次 evidence summary：code/image、tests、deployment、runtime/readback、效能／成本、剩餘 blocker。TODO 只保留剩餘工作，原 WBS 逐項引用共用證據。
 - 完成要求維持真實 dev／authenticated browser／persisted data；文件、build 或 partial 本身不算完成。沒有帳單權限不新增 IAM，成本數字維持 unknown 並列明限制。
+
+
+## 2026-10-05 最新指示：Cloud 只接續 GCP dev 真實驗收
+
+使用者在本地要求先 commit／push、完成目前版本部署，暫停剩餘驗收；Cloud 的重點為既有 GCP dev 真實測試驗證。這項指示覆蓋上方完整實作執行範本的本次使用範圍，不啟動剩餘功能或 B／C。最新部署結果由 status 連結 checkpoint。
+
+可直接貼給 Cloud：
+
+```text
+請先讀 AGENTS.md、doc/PROJECT_RULES.md、doc/README.md、doc/status.md，
+再讀 TODO 的 A 組與直接相關 SPEC／UI／Final Visual Contract。
+此次只做既有 GCP dev 真實測試驗證，依最新部署 checkpoint 接續。
+
+1. 確認 GitHub／gcloud 既有授權、User／Admin 真實登入及瀏覽器能力；
+   缺 credentials／OAuth／MFA／browser 時列 blocker，mock 不取代 live。
+2. 核對 main、GitHub Actions、API ready revision／流量與 Job digest；
+   不重跑已成功的部署或 042／043 migration。
+3. 對真實 dev API 驗證 auth／audience／owner、watchlist 搜尋／離榜保留、
+   資料日期／缺值、projection／fallback、Admin 批次／治理讀取。
+4. 用真實 authenticated browser 驗證 User 四頁／Admin 六頁、分區重試、
+   導覽保留與隱藏／背景停輪詢；保存實際截圖、比對四張正式 PNG，
+   檢查 390×844 overflow。未實作能力如實記錄，不臨時擴大功能。
+5. 需要 mutation 時只用核准的受控 acceptance 資料與可稽核更正，
+   不污染真實帳本；沒有安全資料就先完成讀取驗證。
+6. 在 GCP dev 真實鏈路量測冷／暖 API 與頁面，記錄裝置、網路、
+   樣本數、p50／p95、API 次數與可得 query／DB／Job telemetry；
+   檢核導覽恢復 ≤300ms、暖機核心資訊 p95 ≤2 秒，不能量測就標未知。
+7. 讀既有 maintenance receipt、Scheduler／Job、retention 與容量證據；
+   不重複 cleanup apply，不觸發回補／retrain／CEO 作為一般驗收。
+8. 產出通過／失敗／未實作／無法驗證清單，附 SHA、revision、時間、
+   方法與安全 evidence，回寫 status／TODO；partial 不宣稱整組完成。
+
+只有驗收發現缺陷才做最小修正、相關測試及受影響 dev 重新部署；
+commit／push 前先 /ponytail-review。不開 B／C，不用 Superpowers／平行 agents，
+不部署 production、不新增或提高付費資源、不擴大 IAM、
+不自動呼叫 CEO、不做預警／通知。
+```

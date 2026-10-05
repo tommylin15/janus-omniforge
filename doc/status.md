@@ -12,7 +12,9 @@
 
 部署前本機證據：Flutter 全部 47 tests passed；`flutter analyze --no-fatal-infos lib test` exit 0（35 info）；Python 87 targeted tests passed，另 public-runtime 等前一輪 63 passed；workflow YAML 與 `git diff --check` 通過。這些不是 GCP live acceptance。
 
-Cloud 接續入口：先讀本文件、PROJECT_RULES、README、TODO 的 A 組與 codex-execution-plan；從 GitHub Actions 確認此次 main 的部署／043 migration 結果，再核對 runtime revision。剩餘驗收依使用者在 Cloud 的恢復指令執行，不從本地自動開跑，不重做 042 或已成功的 043，也不自動擴展至 B／C。
+Cloud 接續入口：先讀本文件、PROJECT_RULES、README、TODO 的 A 組與 codex-execution-plan。使用者最新澄清：Cloud 任務以**既有 GCP dev 真實測試驗證**為主，並非啟動全部剩餘實作。核對部署／043 migration 與 runtime revision，再做真實 API／auth／owner、authenticated browser、四頁截圖與效能、既有維護 receipt／Job 證據驗收。未實作項目如實記錄；只有驗收發現缺陷才做最小修正及必要重新部署。缺 credentials／登入／瀏覽器能力時列 blocker，mock 不得冒充 live evidence。本地驗收維持暫停，不重做 042 或已成功的 043，不自動擴展至 B／C。
+
+部署與 immutable digest 證據見 [A 組部署 checkpoint](archive/group-a-deployment-checkpoint-2026-10-05.md)：Ingestion／043、Private Pipeline 與 API／Flutter PWA 已成功部署；剩餘 GCP dev 驗收暫停交接。
 
 ## 現行產品決策
 
