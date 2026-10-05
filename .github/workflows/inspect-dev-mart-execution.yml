@@ -49,12 +49,12 @@ jobs:
             --project="${GCP_PROJECT_ID}" \
             --freshness=7d \
             --limit=300 \
-            --order=asc \
+            --order=desc \
             --format=json > runtime-evidence/mart-logs.json; then
             printf '[]\n' > runtime-evidence/mart-logs.json
           fi
 
-          artifact_uri="$(jq -r '[.[] | .jsonPayload? | select(.operation == "specialist-retrain") | .artifact_uri // empty] | last // empty' runtime-evidence/mart-logs.json)"
+          artifact_uri="$(jq -r '[.[] | .jsonPayload? | select(.operation == "specialist-retrain") | .artifact_uri // empty] | first // empty' runtime-evidence/mart-logs.json)"
           if [[ -n "${artifact_uri}" ]]; then
             [[ "${artifact_uri}" =~ ^gs://${MART_BUCKET}/executions/[0-9a-f-]+/specialist-manifest\.json$ ]] || {
               echo 'unexpected specialist retrain artifact URI' >&2
