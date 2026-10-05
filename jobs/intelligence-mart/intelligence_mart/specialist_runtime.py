@@ -25,12 +25,15 @@ def load_market_membership(connection, as_of):
 def specialist_processor(execution, publication_connection, *, store_factory=None, catalog_factory=None):
     if publication_connection is None:  # Local injected stores have no PostgreSQL session.
         return _specialist_processor(execution, publication_connection, store_factory=store_factory, catalog_factory=catalog_factory)
-    if not publication_connection.execute("SELECT pg_try_advisory_lock(1835102836,2)").fetchone()[0]:
+    with publication_connection.transaction():
+        locked = publication_connection.execute("SELECT pg_try_advisory_lock(1835102836,2)").fetchone()[0]
+    if not locked:
         raise RuntimeError("public data mutation lock is busy")
     try:
         return _specialist_processor(execution, publication_connection, store_factory=store_factory, catalog_factory=catalog_factory)
     finally:
-        publication_connection.execute("SELECT pg_advisory_unlock(1835102836,2)")
+        with publication_connection.transaction():
+            publication_connection.execute("SELECT pg_advisory_unlock(1835102836,2)")
 
 
 def _specialist_processor(execution, publication_connection, *, store_factory=None, catalog_factory=None):
