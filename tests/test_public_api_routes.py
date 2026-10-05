@@ -5,7 +5,7 @@ import logging
 
 from fastapi.testclient import TestClient
 
-from services.api.app import create_app
+from services.api.app import _flutter_asset_headers, create_app
 from packages.web_api import PublicReportNotFound, PublicReportWaiting, QueryValidationError
 
 
@@ -92,6 +92,17 @@ class Admin:
 
 def client(public: Public) -> TestClient:
     return TestClient(create_app(object(), object(), public=public, query_core=Core()))
+
+
+def test_flutter_app_shell_headers_prevent_stale_dev_ui() -> None:
+    for path in ("", "index.html", "manifest.json", "build-id.txt",
+                 "flutter_service_worker.js", "flutter_bootstrap.gitsha.js", "main.dart.js"):
+        headers = _flutter_asset_headers(path)
+        assert headers["Cross-Origin-Opener-Policy"] == "unsafe-none"
+        assert headers["Cache-Control"] == "no-store, max-age=0"
+
+    hashed = _flutter_asset_headers("main.0123456789abcdef.dart.js")
+    assert hashed["Cache-Control"] == "public, max-age=31536000, immutable"
 
 
 def test_service_root_redirects_to_flutter_app() -> None:
