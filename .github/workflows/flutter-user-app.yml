@@ -53,7 +53,7 @@ jobs:
           assert 'href="/app/favicon.png"' in index
           assert 'Icon-512.webp' not in index
           PY
-      - run: flutter build web --base-href /app/
+      - run: flutter build web -t lib/final_visual.dart --base-href /app/
       - run: grep -Fq 'Janus · OmniForge' build/web/index.html
       - name: Validate built PWA assets
         run: |
