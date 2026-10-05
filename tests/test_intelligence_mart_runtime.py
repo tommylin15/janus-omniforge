@@ -208,6 +208,52 @@ class MartRuntimeTests(unittest.TestCase):
         self.assertEqual(first["artifact_uri"], "gs://mart/executions/execution-1/input.json")
         self.assertEqual(json.loads(stored)["core_snapshot_hash"], options["core_snapshot_hash"])
 
+    def test_specialist_lock_does_not_hold_open_transaction_during_compute(self):
+        from intelligence_mart.specialist_runtime import specialist_processor
+
+        events = []
+
+        class Result:
+            def fetchone(self): return (True,)
+
+        class Transaction:
+            def __init__(self, connection): self.connection = connection
+            def __enter__(self):
+                self.assert_not_nested()
+                self.connection.in_transaction = True
+                events.append("transaction-enter")
+                return self
+            def __exit__(self, *_):
+                self.connection.in_transaction = False
+                events.append("transaction-exit")
+            def assert_not_nested(self):
+                if self.connection.in_transaction:
+                    raise AssertionError("nested transaction")
+
+        class Connection:
+            def __init__(self): self.in_transaction = False
+            def transaction(self): return Transaction(self)
+            def execute(self, query):
+                if not self.in_transaction:
+                    raise AssertionError("advisory lock SQL must run inside a short transaction")
+                events.append("lock" if "pg_try_advisory_lock" in query else "unlock")
+                return Result()
+
+        connection = Connection()
+
+        def compute(_execution, observed_connection, **_kwargs):
+            self.assertIs(observed_connection, connection)
+            self.assertFalse(connection.in_transaction)
+            events.append("compute")
+            return {"status": "ok"}
+
+        with patch("intelligence_mart.specialist_runtime._specialist_processor", side_effect=compute):
+            result = specialist_processor(object(), connection)
+
+        self.assertEqual(result, {"status": "ok"})
+        self.assertEqual(events, ["transaction-enter", "lock", "transaction-exit", "compute",
+                                  "transaction-enter", "unlock", "transaction-exit"])
+
 
 if __name__ == "__main__":
     unittest.main()
