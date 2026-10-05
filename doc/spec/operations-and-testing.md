@@ -2097,3 +2097,24 @@ acceptance flag was removed. Codex managed-auth cleanup remains explicitly
   was removed; the normal deploy and contract workflows remain active.
 - No production deployment, new paid resource, or broader market collection
   was created.
+
+
+### A Quote Router／Broker Profile dev deployment checkpoint — 2026-10-05
+
+Main `2d8a7bf6c916f8901bb29779d48dfbe753a52420` and deployment run `37305142870`
+completed successfully. Migration 044 execution `janus-ingestion-core-8j8t5` succeeded;
+API revision `janus-api-g2d8a7bf6c916-config` received 100% traffic with immutable image
+`sha256:aab6616ee1d47af7fb427b8e9bacebcb58db99964134334da37916a4f8270ffe`.
+Live web build-id matched the feature commit at 2026-10-05T12:05:43Z.
+See [bounded checkpoint](../archive/group-a-quotes-broker-checkpoint-2026-10-05.md)
+for tests, the follow-up context freshness fix, the older MCP tagged-runtime readback
+boundary and remaining authenticated/browser gates. A remains partial.
+
+Follow-up code commit `5d37e5fb6c8bd05562e110a5538f673ed8ef2150` deployed successfully
+via run `37306165330`; remote API tests 147 passed. Ready revision
+`janus-api-g5d37e5fb6c8b-config` receives 100% default traffic, using image
+`sha256:ea4198ec208f049f8b314b285a3634e5d2106fe788ca7002bfab4ea410fb698b`.
+Live Flutter build-id and workspace/auth-boundary checks matched at
+2026-10-05T12:16:18Z. Ingestion, Mart and migrations were skipped in this run.
+Authenticated canonical owner reads and four-page browser acceptance remain unverified;
+the MCP connector still uses its older existing tagged revision.
