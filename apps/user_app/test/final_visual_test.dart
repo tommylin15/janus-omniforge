@@ -5,6 +5,7 @@ import 'package:janus_user_app/main.dart' as legacy;
 
 class FinalFakeApi extends legacy.Api {
   FinalFakeApi(this.values) : super('test');
+
   final Map<String, dynamic> values;
   final reads = <String>[];
 
@@ -212,19 +213,31 @@ void main() {
       ],
     });
 
-    await tester.pumpWidget(MaterialApp(
-        home: FinalStockDetailPage(api: api, symbol: '2330')));
+    await tester.pumpWidget(
+      MaterialApp(home: FinalStockDetailPage(api: api, symbol: '2330')),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('我的持股'), findsOneWidget);
-    expect(api.reads.where((path) => path == '/api/v1/public/kline/2330'), isEmpty);
+    expect(
+      api.reads.where((path) => path == '/api/v1/public/kline/2330'),
+      isEmpty,
+    );
 
-    await tester.scrollUntilVisible(find.text('進階資料'), 350,
-        scrollable: find.byType(Scrollable).last);
+    await tester.scrollUntilVisible(
+      find.text('進階資料'),
+      250,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.ensureVisible(find.text('進階資料'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('進階資料'));
     await tester.pumpAndSettle();
 
-    expect(api.reads.where((path) => path == '/api/v1/public/kline/2330').length, 1);
+    expect(
+      api.reads.where((path) => path == '/api/v1/public/kline/2330').length,
+      1,
+    );
     expect(find.text('K 線／OHLCV'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
