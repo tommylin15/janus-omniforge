@@ -1,6 +1,6 @@
 # Janus WBS 6 — API、Flutter 與 Admin
 
-更新：2026-10-03
+更新：2026-10-05
 狀態：Active responsibility／acceptance contract；執行順序以 `../todo.md` 為準
 
 本文件只保存 WBS-6 的責任與驗收邊界。API 細節依 `../spec/api-and-delivery.md`，User UI 依 `../ui/user-app.md` 與 Final Visual Contract，Admin UI 依 `../ui/admin.md`。目前實作／完成狀態以 GitHub `main`、tests／deployment／runtime evidence 為準。
@@ -63,7 +63,21 @@ Advanced section 可顯示：
 
 共同定義。
 
-完成至少要求：
+**A 組 completion gate：** Today／Watchlist／Ledger／Stock Detail 的非 AI 主體 UI 必須先在既有 GCP dev、真實登入、真實 authenticated owner、真實資料與真實 API/runtime 下明顯收斂至 Final Visual Contract。進入真實驗收不代表 implementation 已完成；真實畫面若仍明顯像 legacy UI，或與 reference 的核心資訊架構差異很大，視為 A 組 acceptance failure／implementation gap，不得降級成後續 cosmetic task。
+
+A 組至少驗證：
+
+- section order；
+- card hierarchy；
+- 資訊密度；
+- spacing 與主要色彩；
+- mobile layout 與 390px 級寬度結構；
+- loading／empty／error／partial／stale／missing 不破壞主要 hierarchy；
+- 非 AI primary information 不因 specialist／CEO 尚未就緒而保留舊 layout。
+
+AI-only 區塊尚未完成時可 bounded unavailable／hidden／partial；B／C 可負責 specialist outputs、CEO、capability/history/freshness 與最終 AI integration，但 A 組不得把基本四頁 non-AI presentation convergence 延後到 B／C。
+
+完整 Final Visual Convergence 完成至少要求：
 
 - 四張 PNG binary 在固定 repository path；
 - targeted／golden／screenshot regression 覆蓋主要 hierarchy 與 loading／empty／error／partial／stale／missing；
@@ -71,6 +85,30 @@ Advanced section 可顯示：
 - GCP dev 真實 authenticated owner／persisted data browser acceptance；
 - sample/mock data 不進 canonical runtime；
 - backend capability 未完成時顯示 bounded unavailable／hidden，不以 placeholder 冒充成功。
+
+### 6.2.3 Ledger canonical consistency／refresh
+
+Ledger 的「持股／紀錄／報表」不是三套各自成立的 holdings semantics。三個 subview 上方 holdings summary 應共享同一 canonical position／valuation state，或能清楚追溯至同一 canonical state 與不同 as-of／freshness checkpoint。
+
+一致性 acceptance 至少包含：
+
+- shares；
+- cost／average cost；
+- market value；
+- unrealized PnL；
+- realized PnL；
+- YTD realized PnL；
+- valuation date；
+- as-of／data freshness；
+- pending transaction／pending Private Mart 狀態。
+
+不得出現同一 owner、同一時間、同一資產在「持股／紀錄／報表」看到不同版本 summary，卻沒有 freshness／as-of 說明。若「持股」已取得新資料而「紀錄／報表」上方 summary 仍為舊 snapshot，直接視為 A 組 UI/data-state acceptance failure；需排查 tab-local state、provider/repository、cache invalidation、tab refresh、legacy endpoint、不同 position source 或 valuation semantics，而不是先假設「整個 batch 尚未跑」。
+
+YTD realized PnL 屬 A 組 non-AI capability。必須依 implementation/runtime evidence 查明 canonical source、交易後更新時點與 refresh chain；有已實現交易時不得長期缺值，當年度確定沒有已實現交易時才依正式 contract 顯示 `0`，資料不足／尚待更新則顯示 bounded empty／unavailable／pending，不以假 `0` 掩蓋 unknown。
+
+Reports 必須只讀 canonical backend／Private Mart aggregation，並明確呈現 valuation/as-of/freshness。需追查 report API、transaction source、position projection、aggregation table/view/materialization、可能的 Job／Scheduler／trigger、cache TTL／invalidation 與 transaction 入帳後更新鏈路，最後以 evidence 判定 `implemented`／`partial`／`missing`／`blocked`。未查明前不得用「可能等批次」作結論。
+
+交易新增、修改、同步或 position projection 更新後，acceptance 必須驗證 Holdings summary、Ledger summary、Records、Reports、YTD realized PnL 均可刷新，舊 cache 不長時間殘留，且 valuation/as-of 足以判斷 freshness。若採 batch，runtime contract／evidence 需指出 Job 名稱、Scheduler／trigger、頻率、source table、target projection、freshness SLA 與 failure 行為；非 batch 則記錄真正 refresh/invalidation chain。
 
 ## 6.3 Admin UI
 
@@ -206,5 +244,11 @@ WBS-6 任何 slice 宣稱完成時，至少需有與範圍相稱的：
 - persisted data／execution／report readback；
 - loading／empty／error／partial／stale／missing／blocked semantics；
 - zero-secret／zero-cross-owner leakage。
+
+A 組不得因 API 成功、migration 成功、auth 正常、backend deployment、Flutter/widget tests、build 或 Cloud Run revision 更新任一單項成功就標成 `done`。A 組結案需同時取得 GCP dev 真實登入／真實資料下四頁非 AI 主體 UI 的 Final Visual convergence，以及真實驗收發現之 UI/data-state/functional gaps 完成修正與同 URL 重驗的 evidence；若四頁仍明顯未收斂，A 組維持 `partial`。
+
+真實驗收失敗即為 implementation 工作輸入；acceptance closure 採「定位 → 修正 → 測試 → commit/push → dev 部署 → 同一 GCP dev URL 重驗」。
+
+> **A 組不是「部署完成後做驗收」，而是「在真實 GCP dev 驗收中持續發現並關閉 implementation gap」；Today、Watchlist、Ledger、Stock Detail 的非 AI 主體 UI 必須在真實登入與真實資料下明顯收斂至 Final Visual Contract，且 Holdings／Records／Reports 必須共用一致、可追溯且可刷新之 canonical position state，否則 A 組維持 partial。**
 
 文件 rename、widget 完成、Flutter build 或 API 200 都不能單獨宣稱 full completion。

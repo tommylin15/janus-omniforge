@@ -1,6 +1,6 @@
 # Janus — TODO
 
-版本：3.4（2026-10-05：非預警改善合併執行）
+版本：3.5（2026-10-05：A 組真實驗收與 Ledger acceptance 補強）
 用途：**只保留確定要做的 active work 與未完成 acceptance**。Deferred、Candidate、Observation、Production-only、已接受缺口與研究構想統一放 [`parking-lot.md`](parking-lot.md)；已完成／被取代內容放 `archive/`。
 
 ## 規則
@@ -62,16 +62,29 @@ Admin operational convergence **不重做整個 Admin**。保留 `總覽 / 批�
 
 ## A 組新增／明確化 acceptance
 
+A 組目前狀態定義：**部分功能已完成並進入 GCP dev 真實驗收，仍可能由真實驗收發現 implementation gap；發現後必須回到實作修正。** 進入驗收不等於 implementation 已全部完成，也不等於只剩 acceptance。
+
+- [ ] **四頁 Final Visual Contract 是 A 組正式結案 gate。** Today／Watchlist／Ledger／Stock Detail 必須在既有 GCP dev 的真實登入、真實使用者、真實資料、真實 API/runtime 下，非 AI 主體 UI 明顯收斂至 [`ui/reference/user-app-final/`](ui/reference/user-app-final/)；至少核對 section order、card hierarchy、資訊密度、spacing、主要色彩、mobile layout、390px 寬度版面，以及 loading／empty／error／partial／stale／missing 不破壞主要 layout。若真實畫面仍明顯像 legacy UI、與四張 reference 差異很大，視為 A 組 acceptance failure／implementation gap，不是後續 cosmetic polish。
+- [ ] **A 組不得把基本 UI convergence 延後到 B／C。** Specialist outputs、CEO analysis、AI-dependent content、capability/history/freshness 與最終 AI integration 可由 B／C 完成；AI-only 區塊未就緒時可 bounded unavailable／hidden／partial，但不得因此保留舊版非 AI layout。
+- [ ] **A 組完成不得由單一技術成功條件推定。** API 200、migration、auth、backend deploy、Flutter/widget tests、build 或 Cloud Run revision 更新都不能單獨使 A 組 `done`；四頁非 AI 主體 UI 尚未在真實 GCP dev 明顯收斂，狀態維持 `partial`。
+- [ ] **真實驗收失敗必須形成工程閉環。** 對 UI、data state 或功能缺陷完成「定位 → 修正 → 測試 → commit/push → dev 部署 → 使用同一 GCP dev URL 重驗」；驗收失敗是 implementation 工作輸入，不只留報告或修正建議。
 - [ ] 修正個股頁 build 內建立 request future／整頁 Future.wait／無效 retry；section-first、進階按需載入；已訪問頁保留狀態，隱藏／背景停止輪詢，owner 切換清除私人 cache。
 - [ ] 關注股離榜保留並標示；GET 不 retirement write／隱藏離榜股；同步核對 DB function／trigger、quota、Deep Coverage 及所有 caller。
 - [ ] 重用已完成 042 serving projection，驗證 freshness／分頁／fallback；依 profiling 改善剩餘 Iceberg scan/filter、摘要、lock、DB connection、驗證憑證 cache 與重複 user upsert，不建立第二套 canonical store。
 - [ ] Quote Router／persisted last quote／Broker Profile 完成；041 transaction position projection 重用並補剩餘整合驗收，不重做已完成 migration／backfill。
 - [ ] 四頁 UI／formatter／中文搜尋與 partial 白話狀態收斂；修復可追溯的 PNG reference，缺原始資產時只保留受影響 visual blocker。
+- [ ] **Ledger YTD realized P&L。** 查明是否已完整實作本年已實現損益、canonical source（transaction／position projection／DB aggregate／serving layer）、交易後更新時點與 refresh 方式；當年度確定無已實現交易時依正式 contract 顯示 `0`，資料不足／尚待刷新時用 empty／unavailable／pending 的明確語意，不得以假 `0` 補值；有已實現交易時不得長期缺值或完全不顯示。此功能不依賴 AI，若不完整即為 A 組 gap。
+- [ ] **Ledger Holdings／Records／Reports summary 同步。** 三個 subview 上方 holdings summary 必須共用同一 canonical position/holdings semantics 或可追溯至同一 canonical position state；不得因 tab 各自 state、provider/repository、cache、refresh、舊 endpoint、不同 position source 或 valuation/as-of 語意而顯示不同版本的舊 snapshot。若「持股」已有新資料而「紀錄／報表」仍舊，直接列 A 組 UI/data-state acceptance failure，不以「整個批次尚未跑」概括。
+- [ ] **Ledger Reports refresh／aggregation chain。** 明確追查 report API、transaction source、position projection、report aggregation、DB table/view/materialized projection、可能的 batch/job、scheduler/trigger、cache TTL/invalidation、valuation date/as-of 與 transaction 入帳後更新鏈路；最後依 evidence 判定 `implemented`／`partial`／`missing`／`blocked`。root cause 未查明前不得寫成「正常等待批次」。
+- [ ] **Ledger／Holdings canonical consistency。** 同一使用者、同一時間、同一資產的 shares、cost、market value、unrealized PnL、realized PnL、YTD realized PnL、valuation date、as-of/data freshness、pending transaction／pending Private Mart 必須一致或有可追溯的時間／freshness 差異說明；不得在持股／紀錄／報表出現無說明的不同版本摘要。
+- [ ] **交易異動後 refresh/invalidation acceptance。** 新增／修改／同步交易或 position projection 更新後，驗證 Holdings summary、Ledger summary、Records、Reports、YTD realized PnL 都會刷新，舊 cache 不長時間殘留，valuation/as-of 可判斷是否更新。若採 batch，文件與 runtime evidence 必須指出 Job、Scheduler/trigger、頻率、source table、target projection、freshness SLA、failure 行為；若非 batch，同樣寫清真正更新鏈路。
 - [ ] Admin 以 backend effective jobs 呈現，資料治理取代 placeholder；容量區分 live／noncurrent／soft-deleted，未知不補零；本人缺價／coverage 與 Admin 去識別化摘要分離。
 - [ ] 依既定資料容忍度顯示上市 500 範圍、缺值、時間與非嚴格 PIT 限制，保留價格／單位／身份／來源／交易正確性；現有報酬涉及 corporate action 時明示不可比，不新增完整調整價平台。
 - [ ] 完成前後效能紀錄、Job duration／peak RSS／retry／cache／storage／可取得的成本證據；暖機核心資訊 p95 ≤2 秒、已訪問頁恢復 ≤300ms 作驗收目標，記錄樣本與裝置，未達列剩餘瓶頸。
 - [ ] 檢查 cleanup 成本與回收效益、有效 GCS retention 設定；避免空轉／重複執行，不自行改 retention 時限、提高付費資源或新增 IAM／服務。
 - [ ] 對齊舊 coverage inventory、status、batch 清單與已完成／待驗證工作；沿用既有 042 完成證據，041／compaction／retrain 依最新 evidence 判定，不把程式存在當 live 完成。
+
+> **A 組不是「部署完成後做驗收」，而是「在真實 GCP dev 驗收中持續發現並關閉 implementation gap」；Today、Watchlist、Ledger、Stock Detail 的非 AI 主體 UI 必須在真實登入與真實資料下明顯收斂至 Final Visual Contract，且 Holdings／Records／Reports 必須共用一致、可追溯且可刷新之 canonical position state，否則 A 組維持 partial。**
 
 # 原 WBS acceptance（依上方工作組整合執行）
 
@@ -145,17 +158,19 @@ Admin operational convergence **不重做整個 Admin**。保留 `總覽 / 批�
 - [ ] 【Sol】Stock Detail backend 增加 bounded CEO command/status/history API；驗證 authenticated user、`ceo_analysis.request` capability、symbol/profile、in-flight、quota/cooldown。
 - [ ] 【Luna】Stock Detail 顯示五 specialist persisted plain-language outputs、最新 CEO report、analysis/data as-of、dirty/freshness/material-change、immutable history，以及有權限帳號的 `分析／重新分析`。
 - [ ] 【Sol／A 組】完成 Performance profiling/fix、Quote Router + persisted last quote、Broker Profile；重用既有 Transaction synchronous position projection，僅補未滿足的 contract／readback／UI 驗收。
+- [ ] 【Sol／A 組】Ledger 的 Holdings／Records／Reports 共用可追溯 canonical position/valuation state；完成 YTD realized P&L、report refresh/aggregation chain、transaction → position → Ledger refresh/invalidation 的 implementation 與真實 GCP dev acceptance，未查明 root cause 前維持 `unknown/partial`，不得用「等待批次」代替判定。
 - [ ] 【Luna】Journal／Watchlist／Stock Detail UX 與 typed numeric formatter 依 Final Visual Contract 收斂，不另建重複 recommendation 頁。
 
 ## 8. `WBS-6-USER-FINAL-VISUAL-CONVERGENCE` — 【Luna／Sol】
 
 - [ ] 依 `ui/user-app.md` 與 `ui/reference/user-app-final/README.md` 完成 Today／Watchlist／Ledger／Stock Detail 四頁 final presentation convergence。
+- [ ] 【A 組 gate】即使 specialist／CEO 尚未完成，四頁非 AI 主體 layout 也必須先在真實 GCP dev、authenticated owner、persisted real data 下明顯收斂；AI-only 區塊用 bounded unavailable／hidden／partial，不得保留 legacy layout。
 - [ ] Stock Detail persisted-first、manual CEO only、permission-aware、history immutable、freshness/material-change visible。
 - [ ] 四張 final PNG binary、Flutter targeted／golden／screenshot regression 與 GCP dev 真實 authenticated browser acceptance 完整；sample/mock data 不進 canonical runtime。
 
 ## 完成證據
 
-每個 TODO 至少需有與範圍相稱的 implementation、tests／CI、deployment、migration（如適用）、live runtime／integration acceptance。文件勾選、commit、build、upstream benchmark 或單次 bounded success本身都不等於完成。
+每個 TODO 至少需有與範圍相稱的 implementation、tests／CI、deployment、migration（如適用）、live runtime／integration acceptance。文件勾選、commit、build、upstream benchmark 或單次 bounded success 本身都不等於完成。
 
 ## 歷史／決策入口
 

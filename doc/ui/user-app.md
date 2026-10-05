@@ -1,6 +1,6 @@
 # Janus UI — User App 頁面
 
-更新：2026-10-03
+更新：2026-10-05
 
 ## 5. User App 頁面
 
@@ -18,6 +18,10 @@
 圖片規範資訊架構、section order、card hierarchy、手機資訊密度與視覺語言；sample price、PnL、法人金額、日期、AI prose、健康度、logo、sparkline、mock chart 只作 illustrative，不得 hard-code 或當 canonical data。
 
 資料正確性、missing／stale／partial／blocked、auth／owner isolation、PIT／provenance、source authorization、canonical number、publication 與 LLM boundary 以 active SPEC／WBS／runtime contract 為準。PNG 未 commit 或 live acceptance 未完成時不得宣稱 final visual convergence 完成。
+
+對 A 組而言，Final Visual Contract 不是後續 cosmetic polish。Today／Watchlist／Ledger／Stock Detail 的**非 AI 主體 UI**必須在既有 GCP dev、真實登入、真實 owner、真實資料與真實 API/runtime 下先明顯收斂；至少包含 section order、card hierarchy、資訊密度、spacing、主要色彩、mobile layout、390px 級版面，以及 loading／empty／error／partial／stale／missing 不破壞主要 hierarchy。若真實畫面仍明顯像 legacy UI，即為 A 組 acceptance failure／implementation gap。
+
+Specialist／CEO 等 AI-only 區塊未就緒時，可以 bounded unavailable／hidden／partial；不得因 AI 尚未完成而保留舊版非 AI layout。A 組的真實驗收發現 UI/data-state/functional gap 後，需回到 implementation 修正並重新部署／重驗，不能只留下報告。
 
 ## 5.1 今日
 
@@ -81,7 +85,7 @@ User 只讀已持久化／validated artifact；plain-language 來自 structured 
 
 - analysis/data as-of；
 - status／freshness；
--主要 metrics／drivers；
+- 主要 metrics／drivers；
 - missing／stale／partial；
 - evidence／provenance；
 - what changed（如有）。
@@ -114,7 +118,7 @@ CEO report 是 symbol-level persisted research artifact，不是 page-load narra
 
 ## 5.4 個人記帳與筆記
 
-本頁是 P0 主功能，不依賴公開 Mart／LLM。使用 segmented control 切換「記帳／筆記」；進入記帳預設次導航為 **持股**。
+本頁是 P0 主功能，不依賴公開 Mart／LLM。使用 segmented control 切換「記帳／筆記」；進入記帳預設次導航為 **持股**，Ledger 次導航至少包含 **持股／紀錄／報表**。
 
 ### 5.4.1 Ledger／operational projection
 
@@ -123,6 +127,9 @@ CEO report 是 symbol-level persisted research artifact，不是 page-load narra
 - Flutter 不計算 authoritative holdings、PnL、exposure、performance。
 - Private Mart 仍擁有 canonical valuation／PnL／exposure／performance／reconciliation；若尚未追上，UI 明示 valuation date／checkpoint／pending。
 - 正式 aggregate 若因 missing／stale／valuation-date mismatch 不可靠，backend withheld 並回 bounded diagnosis；Flutter 不忽略缺值自行加總。
+- 「持股／紀錄／報表」上方 holdings summary 必須共享同一 canonical position／valuation semantics，或能清楚追溯至同一 canonical state 與不同 as-of／freshness checkpoint。tab 切換不得因各自 state、provider/repository、cache 或舊 endpoint 而顯示不同版本的無說明 snapshot。
+
+Ledger／Holdings 一致性至少涵蓋 shares、cost／average cost、market value、unrealized PnL、realized PnL、YTD realized PnL、valuation date、as-of／data freshness、pending transaction／pending Private Mart。若不同 subview 的數值不同，UI 必須能表達其正式 freshness／as-of 差異；不能讓使用者看到無解釋的互相矛盾摘要。
 
 ### 5.4.2 持股
 
@@ -134,6 +141,12 @@ CEO report 是 symbol-level persisted research artifact，不是 page-load narra
 - valuation date／status。
 
 手機持股用可掃描 card：canonical name／symbol、shares、market price／average cost、unrealized PnL／return、price／valuation status。operational shares／cost 與 Private Mart valuation／PnL 的資料時間必須分開呈現。
+
+YTD realized PnL 必須有明確 display semantics：
+
+- 當年度確定沒有已實現交易，且 canonical aggregate 可確認零值時，顯示 `0`；
+- 資料不足、projection／Private Mart 尚待刷新、valuation/as-of 不一致時，顯示 bounded empty／unavailable／pending，而不是用假 `0` 補值；
+- 已有已實現交易且 authoritative aggregate 可用時，不得長期缺值或完全不顯示。
 
 ### 5.4.3 紀錄
 
@@ -150,13 +163,24 @@ cash flow 與 PnL 不得混為同義。單筆顯示日期、event type、canonic
 
 交易類型目前為買進、賣出、現金股利、股票股利；backend 負責 fee／tax rule 與 persisted rule/profile version。
 
-### 5.4.4 Broker Profile／cash
+切換到「紀錄」時，上方 holdings summary 仍讀共用 canonical state；Records 本身顯示 ledger transactions 與其 own as-of，但不得因 subview local state 保留過期 holdings snapshot。若 transaction mutation 已成功而 aggregate 尚未刷新，需明示 pending／checkpoint，不得默默顯示舊摘要。
+
+### 5.4.4 報表／refresh semantics
+
+- 報表／圖表只讀 canonical backend／Private Mart aggregate，不由 Flutter 從局部交易或目前畫面資料自行重算正式 PnL／performance。
+- 報表頁上方 holdings summary 與「持股／紀錄」共用同一 canonical state；不得因 tab 切換維持不同版本的舊 summary。
+- 報表需顯示可判讀的 valuation date／as-of／freshness／pending／stale 狀態。若 aggregation 尚未追上 transaction／position projection，應顯示 bounded pending，而不是把舊數值當最新。
+- 交易新增、修改、同步或 position projection 更新後，Holdings summary、Ledger summary、Records、Reports、YTD realized PnL 都必須進入一致的 refresh／invalidation 流程；舊 cache 不得長時間殘留而沒有 freshness 說明。
+- 真正更新機制以 backend/runtime contract 為準。若採 batch，正式 evidence 應能指出 Job、Scheduler／trigger、頻率、source table、target projection、freshness SLA 與 failure 行為；若非 batch，應能追溯 event-driven／synchronous／materialization 的實際鏈路。UI 不得在 root cause 未查明前把 stale report 解釋成「正常等待批次」。
+- Reports acceptance 必須追查並對齊 report API、transaction source、position projection、report aggregation source、DB table/view/materialized projection、cache TTL/invalidation 與 transaction 入帳後更新鏈路；最後以 evidence 判定 `implemented`／`partial`／`missing`／`blocked`。
+
+### 5.4.5 Broker Profile／cash
 
 私人 Broker Profile 可保存 current cash／cash strategy、fee discount multiplier、minimum fee 與 rule/profile version。現金優先由可稽核 cash ledger（opening/deposit/withdrawal/trade/dividend）推導；任何 CASH_IN／CASH_OUT／adjustment 仍須 append-only／audit。
 
 目前 canonical cost method 維持移動平均法；未核准 FIFO 前不提供任意切換。scenario／預計交易不得直接寫正式 ledger／PnL。
 
-### 5.4.5 Notes
+### 5.4.6 Notes
 
 一般筆記使用 revision model，可獨立存在或連結股票／交易；支援文字、股票、年份與 pending follow-up filter。修改保留歷史版本。
 
