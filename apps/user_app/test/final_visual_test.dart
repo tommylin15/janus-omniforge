@@ -109,7 +109,7 @@ void main() {
     expect(find.text('我的關注 1/50'), findsOneWidget);
     expect(find.text('台積電（2330）'), findsOneWidget);
     expect(find.text('已持有'), findsOneWidget);
-    expect(find.textContaining('仍保留關注'), findsOneWidget);
+    expect(find.text('已離開本週 500 · 仍保留關注'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
