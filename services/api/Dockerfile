@@ -28,7 +28,7 @@ ARG JANUS_GIT_SHA=local
 # The checked-in web/ directory is canonical; never regenerate it with flutter create during image build.
 RUN test -n "$GOOGLE_USER_CLIENT_ID" && test -n "$GOOGLE_ADMIN_CLIENT_ID" && \
     grep -Fq 'Janus · OmniForge' web/index.html && \
-    flutter build web --release --base-href /app/ \
+    flutter build web --release -t lib/final_visual.dart --base-href /app/ \
       --dart-define=GOOGLE_USER_CLIENT_ID="$GOOGLE_USER_CLIENT_ID" \
       --dart-define=GOOGLE_ADMIN_CLIENT_ID="$GOOGLE_ADMIN_CLIENT_ID"
 RUN set -eux; \
