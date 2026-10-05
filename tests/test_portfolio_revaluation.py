@@ -12,46 +12,6 @@ from services.api.repository import PostgresWorkspaceRepository
 USER = UUID("00000000-0000-0000-0000-000000000001")
 
 
-def test_offlist_retirement_preserves_history_and_records_demand():
-    class Rows:
-        def __init__(self, rows):
-            self.rows = rows
-
-        def fetchall(self):
-            return self.rows
-
-        def fetchone(self):
-            return self.rows[0]
-
-    class Connection:
-        def __init__(self):
-            self.calls = []
-
-        def execute(self, sql, values=()):
-            self.calls.append((sql, values))
-            if "UPDATE private.watchlist w" in sql:
-                assert "NOT EXISTS" in sql and "liquid_500_members" in sql
-                assert "active=false" in sql and "version=version+1" in sql
-                return Rows([{"user_id": USER, "symbol": "5876"}])
-            if "UPDATE private.users" in sql:
-                return Rows([{"change_version": 9}])
-            return Rows([])
-
-    repository = object.__new__(PostgresWorkspaceRepository)
-    connection_object = Connection()
-
-    @contextmanager
-    def connection():
-        yield connection_object
-
-    repository._connection = connection
-    assert repository.retire_offlist_watchlist(USER) == 1
-    assert any("INSERT INTO private.change_log" in sql for sql, _ in connection_object.calls)
-    assert any("record_deep_tracking_demand" in sql and values == ("5876",)
-               for sql, values in connection_object.calls)
-    assert all("ledger_events" not in sql for sql, _ in connection_object.calls)
-
-
 def _buy() -> dict:
     return {
         "event_id": uuid4(),
@@ -155,7 +115,7 @@ def test_repository_enumerates_only_bounded_users_with_ledger_history_for_schedu
     assert repository.portfolio_user_ids_for_pipeline(123) == [USER]
 
 
-def test_private_pipeline_runtime_retires_offlist_before_processing(monkeypatch, capsys):
+def test_private_pipeline_runtime_preserves_offlist_before_processing(monkeypatch, capsys):
     class MarketStub:
         memberships = object()
 
@@ -164,7 +124,7 @@ def test_private_pipeline_runtime_retires_offlist_before_processing(monkeypatch,
 
     class RepositoryStub:
         def retire_offlist_watchlist(self):
-            return 1
+            raise AssertionError("offlist watchlist must remain active")
 
     class PipelineStub:
         def __init__(self, repository, *_args):
@@ -181,7 +141,7 @@ def test_private_pipeline_runtime_retires_offlist_before_processing(monkeypatch,
 
     private_pipeline_runtime.main()
 
-    assert "checkpoint=42 offlist_watchlist_retired=1" in capsys.readouterr().out
+    assert "private pipeline checkpoint=42\n" == capsys.readouterr().out
 
 
 def test_private_pipeline_job_uses_coverage_runtime_entrypoint():

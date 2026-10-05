@@ -322,6 +322,9 @@ class PostgresWorkspaceRepository:
             ).fetchall()]
 
     def search_watchlist_stocks(self, query: str, limit: int = 20) -> list[dict[str, Any]]:
+        query = query.strip()
+        if not query:
+            return []
         with self._connection() as connection:
             return [dict(row) for row in connection.execute(
                 """SELECT s.symbol,s.name AS stock_name FROM control.stock_master s

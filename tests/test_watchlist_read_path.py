@@ -29,3 +29,7 @@ def test_watchlist_read_preserves_offlist_owner_rows_without_writing():
     assert "WHERE w.user_id=%s AND w.active\n" in sql
     assert "UPDATE" not in sql
     assert "AS in_market_500" in sql
+
+
+def test_blank_watchlist_search_does_not_read_the_universe():
+    assert PostgresWorkspaceRepository("test").search_watchlist_stocks("   ") == []
