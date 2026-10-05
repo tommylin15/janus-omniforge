@@ -108,7 +108,7 @@ _FLUTTER_NO_STORE_FILES = frozenset({
 
 
 def _flutter_asset_headers(path: str = "") -> dict[str, str]:
-    """Keep the dev app shell fresh while allowing content-hashed bundles to cache."""
+    """Revalidate the dev app shell after deploy; cache only content-hashed bundles."""
     name = Path(path).name
     headers = {"Cross-Origin-Opener-Policy": "unsafe-none"}
     if not path or name in _FLUTTER_NO_STORE_FILES:
