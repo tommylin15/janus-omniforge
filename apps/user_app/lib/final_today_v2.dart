@@ -129,8 +129,6 @@ class _FinalTodayPageState extends State<FinalTodayPage> {
         IntrinsicHeight(
           child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             _benchmark('加權指數', Icons.show_chart, sections['taiex']),
-            const SizedBox(width: 10),
-            _benchmark('櫃買指數', Icons.stacked_line_chart, sections['tpex']),
           ]),
         ),
         const SizedBox(height: 10),
