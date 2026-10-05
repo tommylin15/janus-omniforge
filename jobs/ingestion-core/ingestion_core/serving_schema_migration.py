@@ -16,7 +16,8 @@ from typing import Any
 MIGRATION_POSITION = "041_operational_position_projection"
 MIGRATION_STOCK_SERVING = "042_stock_serving_projection"
 MIGRATION_OPERATIONS = "043_admin_batch_read"
-SUPPORTED = frozenset({MIGRATION_POSITION, MIGRATION_STOCK_SERVING, MIGRATION_OPERATIONS})
+MIGRATION_QUOTES_BROKER = "044_quotes_broker_profile"
+SUPPORTED = frozenset({MIGRATION_POSITION, MIGRATION_STOCK_SERVING, MIGRATION_OPERATIONS, MIGRATION_QUOTES_BROKER})
 
 
 class ServingSchemaMigrationError(RuntimeError):
@@ -296,7 +297,22 @@ def _apply_operations(control: Any) -> None:
 
 def run(control: Any, name: str) -> None:
     """Apply one allow-listed serving migration using existing DB identities."""
-    if name == MIGRATION_POSITION:
+    if name == MIGRATION_QUOTES_BROKER:
+        try:
+            text = _without_role_lines(_migration_path(name).read_text(encoding='utf-8'))
+            prepare, acceptance = text.split('-- PHASE: acceptance', 1)
+            checks, record = acceptance.split('INSERT INTO control.schema_migrations', 1)
+            with control.connection.transaction(), control.connection.cursor() as cursor:
+                _require_current_user(cursor, 'janus_control')
+                cursor.execute(prepare)
+                cursor.execute(checks)
+                row = cursor.fetchone()
+                if row is None or not all(bool(value) for value in row):
+                    raise RuntimeError('quotes/profile schema acceptance failed')
+                cursor.execute('INSERT INTO control.schema_migrations' + record)
+        except Exception as error:
+            raise ServingSchemaMigrationError('quotes_broker_apply', error) from error
+    elif name == MIGRATION_POSITION:
         _apply_position(control)
     elif name == MIGRATION_STOCK_SERVING:
         _apply_stock_serving(control)

@@ -1236,7 +1236,7 @@ class _JournalNotesPageState extends State<JournalNotesPage>
       }
     } catch (_) {
       if (mounted && generation == quoteGeneration && quotesActive) {
-        setState(() => quoteError = 'MIS 報價暫時無法更新，保留最後資料；請查看報價時間');
+        setState(() => quoteError = '報價暫時無法更新，保留最後資料；請查看報價時間');
       }
     } finally {
       if (mounted && generation == quoteGeneration)
@@ -1428,7 +1428,7 @@ class _JournalNotesPageState extends State<JournalNotesPage>
                   title: Text(
                       '${stockDisplayName(row)} · ${row['currency'] ?? 'TWD'}'),
                   subtitle: Text(
-                      '持有 ${accountingNumber(row['shares'])} 股 · 現價 ${accountingNumber(row['market_price'], decimals: 2)} · 均價 ${accountingNumber(row['average_cost'], decimals: 2)}\n市值 ${accountingNumber(row['market_value'], missing: '缺價')} · 未實現損益 ${accountingNumber(row['unrealized_pnl'], missing: '資料不足')} · 未實現報酬 ${portfolioReturnLabel(row['unrealized_return'])}\n${row['valuation_kind'] == 'intraday' ? 'MIS 成交價估值 · 報價 ${row['quote_at'] ?? '等待成交'} · 成本批次日' : '估值日'} ${row['valuation_date'] ?? '—'} · 行情日 ${row['price_date'] ?? '—'} · ${row['price_status'] == 'missing' ? '缺價' : row['price_status'] == 'stale' ? '資料過期' : '可用'}${portfolioMissingReasonLabel(row['missing_reason']).isEmpty ? '' : ' · ${portfolioMissingReasonLabel(row['missing_reason'])}'}${row['identity_status'] == 'missing' ? ' · 名稱資料不完整：${portfolioMissingReasonLabel(row['identity_missing_reason'])}' : ''}'),
+                      '持有 ${accountingNumber(row['shares'])} 股 · 現價 ${accountingNumber(row['market_price'], decimals: 2)} · 均價 ${accountingNumber(row['average_cost'], decimals: 2)}\n市值 ${accountingNumber(row['market_value'], missing: '缺價')} · 未實現損益 ${accountingNumber(row['unrealized_pnl'], missing: '資料不足')} · 未實現報酬 ${portfolioReturnLabel(row['unrealized_return'])}\n${row['valuation_kind'] == 'intraday' ? '最後成交價估值 · 報價 ${row['quote_at'] ?? '等待成交'} · 成本批次日' : '估值日'} ${row['valuation_date'] ?? '—'} · 行情日 ${row['price_date'] ?? '—'} · ${row['price_status'] == 'missing' ? '缺價' : row['price_status'] == 'stale' ? '資料過期' : '可用'}${portfolioMissingReasonLabel(row['missing_reason']).isEmpty ? '' : ' · ${portfolioMissingReasonLabel(row['missing_reason'])}'}${row['identity_status'] == 'missing' ? ' · 名稱資料不完整：${portfolioMissingReasonLabel(row['identity_missing_reason'])}' : ''}'),
                   isThreeLine: true,
                 )))
         ]),
@@ -2017,6 +2017,7 @@ class ProfilePage extends StatelessWidget {
             title: Text(email),
             subtitle: const Text('Google 帳號')),
         PortfolioDashboard(api),
+        BrokerProfileCard(api),
         const Divider(),
         const ListTile(title: Text('外觀')),
         DropdownButtonFormField<ThemeMode>(
@@ -2057,6 +2058,164 @@ class ProfilePage extends StatelessWidget {
               }
             })
       ]);
+}
+
+class BrokerProfileCard extends StatefulWidget {
+  const BrokerProfileCard(this.api, {super.key});
+  final Api api;
+  @override
+  State<BrokerProfileCard> createState() => _BrokerProfileCardState();
+}
+
+class _BrokerProfileCardState extends State<BrokerProfileCard> {
+  late Future<dynamic> profile = widget.api.get('/api/v1/me/broker-profile');
+
+  @override
+  void didUpdateWidget(BrokerProfileCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.api != widget.api) {
+      profile = widget.api.get('/api/v1/me/broker-profile');
+    }
+  }
+
+  Future<void> edit(Map row) async {
+    var discount = '${row['fee_discount_multiplier'] ?? '1'}';
+    var minimum = '${row['minimum_fee'] ?? '20'}';
+    var cash = '${row['declared_cash'] ?? ''}';
+    var date = '${row['cash_as_of'] ?? ''}';
+    var strategy = '${row['cash_strategy'] ?? 'balanced'}';
+    String? error;
+    var saving = false;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, update) => AlertDialog(
+          title: const Text('券商與現金設定'),
+          content: SizedBox(
+            width: 320,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('現金為自行申報的 TWD 快照，不代表正式現金餘額；設定不會改寫既有交易費用。'),
+                  TextFormField(
+                    initialValue: discount,
+                    onChanged: (value) => discount = value,
+                    decoration: const InputDecoration(
+                      labelText: '手續費折扣倍率（0～1）',
+                    ),
+                  ),
+                  TextFormField(
+                    initialValue: minimum,
+                    onChanged: (value) => minimum = value,
+                    decoration: const InputDecoration(labelText: '最低手續費（TWD）'),
+                  ),
+                  DropdownButtonFormField<String>(
+                    initialValue: strategy,
+                    items: const [
+                      DropdownMenuItem(value: 'reserve', child: Text('保留現金')),
+                      DropdownMenuItem(value: 'balanced', child: Text('平衡配置')),
+                      DropdownMenuItem(value: 'invested', child: Text('優先投入')),
+                    ],
+                    onChanged: saving
+                        ? null
+                        : (value) {
+                            if (value != null) strategy = value;
+                          },
+                  ),
+                  TextFormField(
+                    initialValue: cash,
+                    onChanged: (value) => cash = value,
+                    decoration: const InputDecoration(labelText: '申報現金（可留空）'),
+                  ),
+                  TextFormField(
+                    initialValue: date,
+                    onChanged: (value) => date = value,
+                    decoration: const InputDecoration(
+                      labelText: '現金日期 YYYY-MM-DD',
+                    ),
+                  ),
+                  if (error != null) Text(error!),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: saving ? null : () => Navigator.pop(dialogContext),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      update(() {
+                        saving = true;
+                        error = null;
+                      });
+                      try {
+                        await widget.api.put('/api/v1/me/broker-profile', {
+                          'fee_discount_multiplier': discount.trim(),
+                          'minimum_fee': minimum.trim(),
+                          'cash_strategy': strategy,
+                          'declared_cash': cash.trim().isEmpty
+                              ? null
+                              : cash.trim(),
+                          'cash_as_of': date.trim().isEmpty
+                              ? null
+                              : date.trim(),
+                          'expected_version': row['version'] ?? 0,
+                        });
+                        if (dialogContext.mounted) Navigator.pop(dialogContext);
+                      } catch (_) {
+                        if (dialogContext.mounted)
+                          update(() {
+                            saving = false;
+                            error = '儲存失敗，請核對倍率、金額與日期；版本衝突請關閉後重新載入。';
+                          });
+                      }
+                    },
+              child: Text(saving ? '儲存中' : '儲存'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (mounted) {
+      setState(() { profile = widget.api.get('/api/v1/me/broker-profile'); });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<dynamic>(
+    future: profile,
+    builder: (context, snapshot) {
+      if (snapshot.hasError)
+        return ListTile(
+          title: const Text('券商設定暫時無法讀取'),
+          trailing: TextButton(
+                onPressed: () => setState(() {
+                  profile = widget.api.get('/api/v1/me/broker-profile');
+                }),
+            child: const Text('重試'),
+          ),
+        );
+      if (!snapshot.hasData) return const ListTile(title: Text('讀取券商設定…'));
+      final row = snapshot.data as Map;
+      return Card(
+        child: ListTile(
+          title: const Text('券商與現金設定'),
+          subtitle: Text(
+            '版本 ${row['version']} · 申報現金 ${accountingNumber(row['declared_cash'], missing: '未設定')} TWD · 日期 ${row['cash_as_of'] ?? '—'}',
+          ),
+          trailing: IconButton(
+            onPressed: () => edit(row),
+            icon: const Icon(Icons.edit_outlined),
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class ErrorView extends StatelessWidget {

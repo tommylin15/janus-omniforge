@@ -55,7 +55,8 @@ class MisQuotes:
                             continue
                     except (InvalidOperation, ValueError):
                         continue
-                    self.cache[symbol] = {'price': str(price), 'quote_at': at.isoformat()}
+                    self.cache[symbol] = {'price': str(price), 'quote_at': at.isoformat(),
+                                          'received_at': datetime.now(TAIPEI).isoformat()}
                 self.cache = {symbol: row for symbol, row in self.cache.items() if symbol in channels}
             return {symbol: dict(self.cache[symbol]) for symbol in channels if symbol in self.cache}
 
@@ -80,7 +81,9 @@ def value_holdings(positions, quotes, now=None):
                    unrealized_pnl=str(pnl) if pnl is not None else None,
                    unrealized_return=str(pnl/cost) if pnl is not None and cost else None,
                    price_status='available' if fresh else 'stale' if quote else 'missing',
-                   quote_at=quote.get('quote_at'), price_date=at.date().isoformat() if at else None,
+                   quote_at=quote.get('quote_at'), received_at=quote.get('received_at'),
+                   quote_session=quote.get('session'), freshness_seconds=(now-at).total_seconds() if at else None,
+                   quote_route_version=quote.get('route_version'), price_date=at.date().isoformat() if at else None,
                    missing_reason=None if fresh else 'intraday_quote_stale' if quote else 'intraday_quote_missing', price_source='twse_mis', valuation_kind='intraday')
         rows.append(row)
         total = totals.setdefault(row['currency'], {'currency': row['currency'], 'market_value': Decimal(0),

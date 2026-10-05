@@ -174,6 +174,21 @@ class WatchlistOrderIn(StrictModel):
     expected_version: Annotated[int, Field(ge=1)]
 
 
+class BrokerProfileIn(StrictModel):
+    fee_discount_multiplier: Annotated[Decimal, Field(ge=0, le=1, max_digits=5, decimal_places=4)]
+    minimum_fee: Money
+    cash_strategy: Literal["reserve", "balanced", "invested"]
+    declared_cash: Money | None = None
+    cash_as_of: date | None = None
+    expected_version: Annotated[int, Field(ge=0)]
+
+    @model_validator(mode="after")
+    def cash_snapshot(self):
+        if (self.declared_cash is None) != (self.cash_as_of is None):
+            raise ValueError("declared cash requires an as-of date")
+        return self
+
+
 class InvestmentProfileIn(StrictModel):
     risk_tolerance: Literal["conservative", "moderate", "aggressive"]
     investment_horizon: Literal["short", "medium", "long"]

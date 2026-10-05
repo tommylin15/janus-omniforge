@@ -344,6 +344,62 @@ class PostgresWorkspaceRepository:
             return dict(row) if row else {"risk_tolerance":None,"investment_horizon":None,"primary_goal":None,
                 "minimum_cash_ratio":None,"ai_context_opt_in":False,"version":0,"updated_at":None}
 
+    def last_quotes(self, identities) -> dict[str, dict[str, Any]]:
+        if not identities:
+            return {}
+        with self._connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM control.operational_last_quotes WHERE symbol=ANY(%s)",
+                (sorted(identities),)).fetchall()
+            return {row['symbol']: {**dict(row), 'price': str(row['price']),
+                    'quote_at': row['quote_at'].isoformat(),
+                    'received_at': row['received_at'].isoformat()} for row in rows}
+
+    def save_last_quotes(self, quotes) -> None:
+        with self._connection() as connection:
+            for symbol, row in sorted(quotes.items()):
+                connection.execute("""INSERT INTO control.operational_last_quotes
+                    (symbol,price,quote_at,received_at,session,source,route_version)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s)
+                    ON CONFLICT(symbol) DO UPDATE SET price=EXCLUDED.price,
+                    quote_at=EXCLUDED.quote_at,received_at=EXCLUDED.received_at,
+                    session=EXCLUDED.session,source=EXCLUDED.source,route_version=EXCLUDED.route_version
+                    WHERE EXCLUDED.quote_at >= operational_last_quotes.quote_at""",
+                    (symbol,row['price'],row['quote_at'],row['received_at'],row['session'],row['source'],row['route_version']))
+
+    def broker_profile(self, user_id: UUID) -> dict[str, Any]:
+        with self._connection() as connection:
+            row = connection.execute("""SELECT * FROM private.broker_profile_revisions
+                WHERE user_id=%s ORDER BY version DESC LIMIT 1""", (user_id,)).fetchone()
+            return dict(row) if row else {'version': 0, 'declared_cash': None,
+                'cash_as_of': None, 'currency': 'TWD', 'rule_version': 'broker-profile.v1'}
+
+    def broker_profile_history(self, user_id: UUID) -> list[dict[str, Any]]:
+        with self._connection() as connection:
+            return [dict(row) for row in connection.execute("""SELECT * FROM private.broker_profile_revisions
+                WHERE user_id=%s ORDER BY version""", (user_id,)).fetchall()]
+
+    def save_broker_profile(self, user_id: UUID, value, key: str) -> dict[str, Any]:
+        with self._connection() as connection:
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f'broker-profile:{user_id}',))
+            if not connection.execute("SELECT user_id FROM private.users WHERE user_id=%s FOR UPDATE", (user_id,)).fetchone():
+                raise NotFoundError('private user not found')
+            replay = connection.execute("""SELECT * FROM private.broker_profile_revisions
+                WHERE user_id=%s AND idempotency_key=%s""", (user_id,key)).fetchone()
+            if replay:
+                return dict(replay)
+            current = connection.execute("""SELECT COALESCE(MAX(version),0) AS version
+                FROM private.broker_profile_revisions WHERE user_id=%s""", (user_id,)).fetchone()
+            if current['version'] != value.expected_version:
+                raise ConflictError('broker profile version changed')
+            row = connection.execute("""INSERT INTO private.broker_profile_revisions
+                (user_id,version,fee_discount_multiplier,minimum_fee,cash_strategy,declared_cash,cash_as_of,idempotency_key)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
+                (user_id,value.expected_version+1,value.fee_discount_multiplier,value.minimum_fee,
+                 value.cash_strategy,value.declared_cash,value.cash_as_of,key)).fetchone()
+            self._change(connection,user_id,self._next_change_version(connection,user_id),'broker-profile',user_id,None)
+            return dict(row)
+
     def save_investment_profile(self, user_id: UUID, value: InvestmentProfileIn, key: str) -> dict[str, Any]:
         with self._connection() as connection:
             replay=self._mutation(connection,user_id,key)
@@ -508,10 +564,12 @@ class PostgresWorkspaceRepository:
 
     def complete_deletion(self, request_id: UUID, user_id: UUID) -> None:
         with self._connection() as connection:
+            # Serialize with profile creation before deleting its revisions.
+            connection.execute("SELECT user_id FROM private.users WHERE user_id=%s FOR UPDATE", (user_id,))
             connection.execute("DELETE FROM private.assistant_threads WHERE user_id=%s",(user_id,))
             connection.execute("DELETE FROM private.assistant_skill_state WHERE user_id=%s",(user_id,))
             connection.execute("DELETE FROM private.assistant_skill_revisions WHERE user_id=%s",(user_id,))
-            for table in ("analysis_feedback","change_log","mutation_keys","note_index","watchlist","mcp_servers","mcp_oauth_refresh_tokens","mcp_oauth_codes","investment_profiles","current_positions","ledger_events","users"):
+            for table in ("analysis_feedback","change_log","mutation_keys","note_index","watchlist","mcp_servers","mcp_oauth_refresh_tokens","mcp_oauth_codes","broker_profile_revisions","investment_profiles","current_positions","ledger_events","users"):
                 connection.execute(f"DELETE FROM private.{table} WHERE user_id=%s",(user_id,))
             connection.execute("""UPDATE private.deletion_requests SET status='COMPLETED',cleanup_pending='{}',completed_at=now()
                                 WHERE request_id=%s AND user_id=%s""",(request_id,user_id))

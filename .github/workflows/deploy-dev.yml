@@ -16,6 +16,7 @@ on:
       - 'tests/ingestion/test_control_plane.py'
       - 'infra/postgres/migrations/037_batch_controller.sql'
       - 'infra/postgres/migrations/043_admin_batch_read.sql'
+      - 'infra/postgres/migrations/044_quotes_broker_profile.sql'
       - 'tests/test_batch_controller.py'
       - 'tests/test_duckdb_iceberg.py'
       - 'tests/test_data_supplement.py'
@@ -43,6 +44,7 @@ on:
       - 'tests/test_user_api.py'
       - 'tests/test_portfolio_completeness.py'
       - 'tests/test_portfolio_api_completeness.py'
+      - 'tests/test_quote_router_broker.py'
       - 'tests/test_intraday_quotes.py'
       - 'tests/test_portfolio_revaluation.py'
       - 'packages/contracts/**'
@@ -87,6 +89,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
+      quotes_schema: ${{ steps.filter.outputs.quotes_schema }}
       operations_schema: ${{ steps.filter.outputs.operations_schema }}
       ingestion_runtime: ${{ steps.filter.outputs.ingestion_runtime }}
       ingestion_test: ${{ steps.filter.outputs.ingestion_test }}
@@ -103,6 +106,8 @@ jobs:
         id: filter
         with:
           filters: |
+            quotes_schema:
+              - 'infra/postgres/migrations/044_quotes_broker_profile.sql'
             operations_schema:
               - 'infra/postgres/migrations/043_admin_batch_read.sql'
             ingestion_runtime:
@@ -110,6 +115,7 @@ jobs:
               - 'packages/duckdb_query/**'
               - 'infra/postgres/migrations/037_batch_controller.sql'
               - 'infra/postgres/migrations/043_admin_batch_read.sql'
+              - 'infra/postgres/migrations/044_quotes_broker_profile.sql'
               - 'jobs/ingestion-core/ingestion_core/**'
               - 'jobs/ingestion-core/schemas/**'
               - 'jobs/ingestion-core/Dockerfile'
@@ -185,6 +191,7 @@ jobs:
               - 'tests/test_user_api.py'
               - 'tests/test_portfolio_completeness.py'
               - 'tests/test_portfolio_api_completeness.py'
+              - 'tests/test_quote_router_broker.py'
               - 'tests/test_intraday_quotes.py'
               - 'tests/test_portfolio_revaluation.py'
               - 'tests/test_container_build_contract.py'
@@ -344,15 +351,18 @@ jobs:
           tests/test_user_api.py
           tests/test_portfolio_completeness.py
           tests/test_portfolio_api_completeness.py
+          tests/test_quote_router_broker.py
           tests/test_intraday_quotes.py
           tests/test_portfolio_revaluation.py
           tests/test_container_build_contract.py
 
   deploy-private-pipeline:
-    needs: [detect, test-api]
+    needs: [detect, test-api, migrate-quotes]
     if: >-
       always() &&
       needs.test-api.result == 'success' &&
+      (needs.migrate-quotes.result == 'success' ||
+      (needs.migrate-quotes.result == 'skipped' && needs.detect.outputs.quotes_schema != 'true')) &&
       (needs.detect.outputs.private_pipeline_runtime == 'true' ||
       (github.event_name == 'workflow_dispatch' && inputs.component == 'private-pipeline'))
     runs-on: ubuntu-latest
@@ -382,11 +392,22 @@ jobs:
     with:
       migration: 043_admin_batch_read
 
+  migrate-quotes:
+    needs: [detect, deploy-ingestion]
+    if: >-
+      needs.detect.outputs.quotes_schema == 'true' &&
+      needs.deploy-ingestion.result == 'success'
+    uses: ./.github/workflows/serving-schema-migration-dev.yml
+    with:
+      migration: 044_quotes_broker_profile
+
   deploy-api:
-    needs: [detect, test-api, deploy-private-pipeline, migrate-operations]
+    needs: [detect, test-api, deploy-private-pipeline, migrate-operations, migrate-quotes]
     if: >-
       always() &&
       needs.test-api.result == 'success' &&
+      (needs.migrate-quotes.result == 'success' ||
+      (needs.migrate-quotes.result == 'skipped' && needs.detect.outputs.quotes_schema != 'true')) &&
       (needs.migrate-operations.result == 'success' ||
       (needs.migrate-operations.result == 'skipped' && needs.detect.outputs.operations_schema != 'true')) &&
       (needs.deploy-private-pipeline.result == 'success' ||

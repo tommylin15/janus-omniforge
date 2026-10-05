@@ -57,6 +57,9 @@ def test_mis_batches_exchanges_uses_trade_not_asks_and_throttles_manual_clicks(m
 def test_authenticated_quotes_read_only_owned_snapshot_and_pending_ledger_blocks():
     repository, store = Repository(), Store()
     repository.latest_ledger_version = lambda owner: 7
+    repository.positions = lambda owner: [{'symbol':'2330','currency':'TWD','shares':'1','average_cost':'100','ledger_version':7}]
+    repository.last_quotes = lambda identities: {'2330': {'price':'123.45','quote_at':datetime.now(TAIPEI).isoformat()}}
+    repository.save_last_quotes = lambda rows: None
     class Quotes:
         market_date = '20261009'
         def prices(self, identities):

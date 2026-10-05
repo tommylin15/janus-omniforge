@@ -13,7 +13,7 @@ from time import monotonic
 from typing import Any, Callable
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
-from fastapi import APIRouter, Body, Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
@@ -29,7 +29,7 @@ from .context_sources import ContextSourceError, ContextSourceService, CoreConte
 from .mcp_adapter import McpAdapter
 from .mcp_oauth import McpOAuth, OAuthSettings, RepositoryOAuthCodeStore, parse_form
 from .models import (AdminResponseOut, AnalysisFeedbackIn, CorePageOut, CoreSummaryOut, MarketHomeOut,
-                     CorrectionIn, HealthOut, InvestmentProfileIn, InvestmentProfileOut, LedgerEventIn,
+                     BrokerProfileIn, CorrectionIn, HealthOut, InvestmentProfileIn, InvestmentProfileOut, LedgerEventIn,
                      MonthlyLedgerSummaryOut,
                      NoteIn, NoteRevisionIn, PortfolioExposureOut, PortfolioPerformanceOut,
                      PortfolioStressOut, PortfolioSummaryOut,
@@ -41,6 +41,7 @@ from .private_pipeline import ledger_net_cash_flow, stock_identity
 from .public_runtime import build_admin_service, build_core_service, build_pipeline_service, build_public_service
 from .store import PrivateIcebergStore
 from .intraday_quotes import MisQuotes, value_holdings
+from .quote_router import QuoteRouter, ROUTE_VERSION
 
 
 LOGGER = logging.getLogger(__name__)
@@ -130,6 +131,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", bundle_fields)
     quotes = quotes or MisQuotes()
     repository = repository or _Lazy(repository_from_env)
+    quote_router = QuoteRouter(repository, quotes)
     store = store or _Lazy(PrivateIcebergStore.from_env)
     core = core or _Lazy(CoreContextReader.from_env)
     if query_core is None:
@@ -457,6 +459,15 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def investment_profile(current: AuthenticatedUser = Depends(user)):
         return jsonable_encoder(repository.investment_profile(current.user_id))
 
+    @private.get("/broker-profile")
+    def broker_profile(current: AuthenticatedUser = Depends(user)):
+        return jsonable_encoder(repository.broker_profile(current.user_id))
+
+    @private.put("/broker-profile")
+    def save_broker_profile(value: BrokerProfileIn, current: AuthenticatedUser = Depends(user),
+                            idempotency_key: str = Depends(key)):
+        return jsonable_encoder(repository.save_broker_profile(current.user_id,value,idempotency_key))
+
     @private.put("/investment-profile", response_model=InvestmentProfileOut)
     def update_investment_profile(value: InvestmentProfileIn, current: AuthenticatedUser = Depends(user),
                                   idempotency_key: str = Depends(key)):
@@ -567,20 +578,19 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         return jsonable_encoder(result)
 
     @private.get("/portfolio/quotes")
-    def portfolio_quotes(current: AuthenticatedUser = Depends(user)):
-        rows = positions(current)
+    def portfolio_quotes(background: BackgroundTasks, current: AuthenticatedUser = Depends(user)):
+        rows = repository.positions(current.user_id)
         latest_version = repository.latest_ledger_version(current.user_id) if rows else 0
         if rows and any(int(row.get("ledger_version", 0)) != latest_version for row in rows):
             raise HTTPException(status_code=409, detail="交易已儲存，等待投資組合批次更新")
         identities = repository.stock_identities({str(row["symbol"]) for row in rows}) if rows else {}
+        rows = [{**row, 'stock_name': stock_identity(identities.get(str(row['symbol'])))[0]} for row in rows]
         try:
-            prices = quotes.prices(identities) if rows else {}
+            prices = quote_router.read(identities)
         except Exception as error:
             LOGGER.warning("intraday quotes unavailable: %s", type(error).__name__)
-            raise HTTPException(status_code=503, detail="盤中報價暫時無法使用；保留最後資料，請查看報價時間") from error
+            raise HTTPException(status_code=503, detail="最後報價讀取暫時無法使用") from error
         result = value_holdings(rows, prices)
-        if not rows or getattr(quotes, 'market_date', None) != result['checked_at'][:10].replace('-', ''):
-            result['market_open'] = False
         if result['market_open']:
             try:
                 schedule = admin_service.setting('schedule').get('value') or {}
@@ -589,6 +599,12 @@ def create_app(repository: Any | None = None, store: Any | None = None,
             except Exception as error:
                 LOGGER.warning('quote calendar unavailable: %s', type(error).__name__)
                 result['market_open'] = False
+        authorized = os.getenv('JANUS_MIS_QUOTES_ENABLED', 'false').lower() == 'true'
+        if rows and result['market_open'] and authorized:
+            background.add_task(quote_router.refresh, identities)
+        result.update(route_version=ROUTE_VERSION, refresh_status='blocked' if not authorized else 'scheduled' if rows and result['market_open'] else 'idle',
+                      session='regular' if result['market_open'] else 'closed_or_unknown',
+                      fallback='last_success' if prices else 'missing')
         return jsonable_encoder(result)
 
     @private.get("/journal/pnl")
@@ -692,6 +708,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         return jsonable_encoder({"journal":repository.ledger_history(current.user_id,None,None),
             "notes":store.read_notes(current.user_id,indexes),"watchlist":repository.watchlist(current.user_id),
             "investment_profile":repository.investment_profile(current.user_id),
+            "broker_profile_revisions":repository.broker_profile_history(current.user_id),
             "positions":store.mart("mart_user_positions",current.user_id),
             "portfolio_summary":store.mart("mart_user_portfolio_summary",current.user_id),
             "portfolio_exposure":store.mart("mart_user_exposure",current.user_id),

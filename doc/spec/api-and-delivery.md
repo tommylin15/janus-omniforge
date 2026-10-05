@@ -47,6 +47,9 @@ Public report 只讀 publishable／published artifacts；`blocked`／`insufficie
 
 Owner-scoped surfaces 包含交易、筆記、watchlist、positions、PnL、portfolio、investment profile、private-data export／deletion 等既有 contract。
 
+Operational Quote Router 與 owner-scoped Broker Profile 的資料來源、版本、
+missing／stale／fallback 與 export／deletion 契約見 [行情與券商設定](quotes-and-broker-profile.md)。
+
 重要語意：
 
 - ledger append-only；correction 建立 reversal／replacement，不無痕覆寫。

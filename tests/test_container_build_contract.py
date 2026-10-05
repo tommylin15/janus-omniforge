@@ -56,7 +56,8 @@ def test_mart_specialist_target_stops_before_codex_and_ceo_provider_keeps_it():
 
 def test_shared_api_backend_changes_serialize_api_after_private_pipeline():
     api_job = WORKFLOW.split("  deploy-api:\n", 1)[1]
-    assert "needs: [detect, test-api, deploy-private-pipeline, migrate-operations]" in api_job
+    assert "needs: [detect, test-api, deploy-private-pipeline, migrate-operations, migrate-quotes]" in api_job
+    assert "needs.migrate-quotes.result == 'success'" in api_job
     assert "needs.migrate-operations.result == 'success'" in api_job
     assert "needs.detect.outputs.operations_schema != 'true'" in api_job
     assert "needs.deploy-private-pipeline.result == 'success'" in api_job

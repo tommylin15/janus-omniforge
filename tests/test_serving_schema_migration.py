@@ -62,6 +62,26 @@ def statements(connection: FakeConnection) -> str:
     return "\n".join(statement for cursor in connection.cursors for statement in cursor.statements)
 
 
+def test_quotes_profile_migration_records_version_after_acl_checks():
+    control = FakeControl()
+    migration.run(control, migration.MIGRATION_QUOTES_BROKER)
+    sql = statements(control.connection)
+    assert sql.index('has_table_privilege') < sql.index('INSERT INTO control.schema_migrations')
+    assert 'GRANT SELECT, INSERT ON private.broker_profile_revisions TO janus_private_api' in sql
+    assert 'GRANT SELECT, DELETE ON private.broker_profile_revisions TO janus_private_pipeline' in sql
+    assert 'CREATE ON SCHEMA' not in sql
+
+
+def test_quotes_profile_migration_failed_acceptance_does_not_record_version():
+    control = FakeControl()
+    class Cursor(FakeCursor):
+        def fetchone(self):
+            return (False,) if 'has_table_privilege' in self._last else super().fetchone()
+    control.connection.cursor = lambda: Cursor('janus_control')
+    with pytest.raises(migration.ServingSchemaMigrationError):
+        migration.run(control, migration.MIGRATION_QUOTES_BROKER)
+
+
 def test_operations_read_acl_uses_existing_owners_and_records_only_after_acceptance(monkeypatch):
     control = FakeControl()
     publication = FakeConnection('janus_publication')
