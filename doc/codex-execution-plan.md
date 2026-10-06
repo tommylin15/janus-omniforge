@@ -37,7 +37,7 @@ B 組合併：
 - 每個交易日 EOD canonical data ready 後，約 500 檔跑一次低成本 screening/cross-sectional discovery；BigQuery 通過 fidelity gate 後優先承接。
 - 完整五 specialist 只跑 active watchlist ∪ effective holdings，依 dirty dependency/input change 增量更新；無變更 reuse；禁止 500×5 全量深算。
 - specialist-retrain、calibration、OOS/evaluation、cache/dependency reconciliation 固定每月第一個週六 10:30（Asia/Taipei）。
-- 不建立另一套每週六 500×5 排程，也不保留「每月 1 日 10:30」作 active target。
+- 不建立另一套每週六 500×5 排程；月度重型批次只採第一個週六 10:30。
 - BigQuery intermediate 預設 bounded/TTL/可重建；大型 training/evaluation input 用 versioned GCS Parquet；不要為了「留一份」把 BigQuery 中間結果再寫回 canonical Iceberg。
 - 禁止 BigQuery Storage Read API、bigquery.readsessions.*、google-cloud-bigquery-storage。
 - User/Admin request-time read、Ledger/private owner path、PostgreSQL serving projection 不搬到 BigQuery。
@@ -159,4 +159,4 @@ C 組是 B 組之後的下一組，不因完成或閱讀本文件自動啟動。
 
 ## 6. 歷史文件處理
 
-A 組已 CLOSED，因此本檔不再保存 A 組開發／Cloud 驗收指令。歷史 A evidence 留在 archive／operations。舊「每日五 LLM workers」、舊 CIO 自動合成、舊「每月 1 日 10:30」若出現在歷史 evidence，只代表當時 implementation/runtime，不可當 active B target。
+A 組已 CLOSED，因此本檔不再保存 A 組開發／Cloud 驗收指令。歷史 A evidence 與過去 runtime 排程留在 archive／operations；active B target 只看本檔、TODO、SPEC 與 WBS。
