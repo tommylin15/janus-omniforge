@@ -747,7 +747,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('我的持股'), findsOneWidget);
-    expect(find.text('歷史收盤價 125.00 · 行情日 2026-10-03'), findsOneWidget);
+    expect(find.text('正式收盤價 125.00 · 行情日 2026-10-03'), findsOneWidget);
     expect(
       api.reads.where((path) => path == '/api/v1/public/kline/2330'),
       isEmpty,

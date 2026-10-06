@@ -102,7 +102,7 @@ class AdminServiceTests(unittest.TestCase):
         self.assertGreaterEqual(private_ops["valuation_lag_days"], 0)
         self.assertNotIn("user_id", private_ops)
 
-    def test_tpex_cannot_be_added_to_active_stock_master():
+    def test_tpex_cannot_be_added_to_active_stock_master(self):
         with self.assertRaises(AdminValidationError):
             self.admin.upsert_stock({
                 "symbol": "6488",

@@ -23,6 +23,16 @@ def _timestamp(value):
         return None
 
 
+def _strict_timestamp(value):
+    if value in {None, ""}:
+        return None
+    try:
+        parsed = value if isinstance(value, datetime) else datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else None
+
+
 def _day(row):
     raw = row.get("price_date")
     if raw:
@@ -117,8 +127,9 @@ class QuoteRouter:
                     continue
                 try:
                     price = Decimal(str(row["price"]))
-                    at = _timestamp(row["quote_at"])
-                    source_received = _timestamp(row.get("received_at")) or received
+                    at = _strict_timestamp(row["quote_at"])
+                    raw_received = row.get("received_at")
+                    source_received = _strict_timestamp(raw_received) if raw_received not in {None, ""} else received
                     if (
                         not price.is_finite()
                         or price <= 0

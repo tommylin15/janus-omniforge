@@ -102,11 +102,10 @@ def test_liquid_500_schema_is_in_bounded_dev_migration_runner():
     assert "janus_private_api" in LIQUID_500_MIGRATION
 
 
-def test_liquid_500_tpex_source_is_enabled_and_rerunnable():
-    assert "033_liquid_500_tpex_source" in INGESTION_ENTRYPOINT
-    assert "033_liquid_500_tpex_source" in INGESTION_WORKFLOW
-    assert "source_ids ? 'tpex'" in INGESTION_ENTRYPOINT
-    assert "jsonb_array_elements_text" in LIQUID_500_TPEX_MIGRATION
+def test_liquid_500_tpex_source_is_historical_only_and_not_rerunnable():
+    assert "033_liquid_500_tpex_source" not in INGESTION_ENTRYPOINT
+    assert "033_liquid_500_tpex_source" not in INGESTION_WORKFLOW
+    assert "_apply_liquid_500_tpex_source" not in INGESTION_ENTRYPOINT
     assert "033_liquid_500_tpex_source" in LIQUID_500_TPEX_MIGRATION
 
 
@@ -114,7 +113,9 @@ def test_full_500_collection_uses_batched_default_sources_in_dev():
     assert '--remove-env-vars="INGESTION_DATASETS"' in DEPLOY
     assert "full-market-500|" in INGESTION_WORKFLOW
     assert 'dataset_selection=""' in INGESTION_WORKFLOW
-    assert "twse-market-volume|tpex-market-volume" in INGESTION_WORKFLOW
+    assert "twse-market-volume|taiex" in INGESTION_WORKFLOW
+    assert "tpex-market-volume" not in INGESTION_WORKFLOW
+    assert "tpex-benchmark" not in INGESTION_WORKFLOW
     assert "trap cleanup_job_env EXIT" in INGESTION_WORKFLOW
     assert 'MART_JOB=janus-intelligence-mart,GCP_REGION=${GCP_REGION},MART_OPERATION=queue' in INGESTION_WORKFLOW
     assert "tests/test_portfolio_deploy_contract.py" in WORKFLOW

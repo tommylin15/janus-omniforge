@@ -154,7 +154,7 @@ class DataCleaningRegressionTests(unittest.TestCase):
             adapter = adapters[key]
             self.assertEqual(adapter.availability_field, "availability_at")
             self.assertIs(adapter.publication_time_authoritative, False)
-        self.assertEqual(adapters["tpex-benchmark"].row_date_field, "trade_date")
+        self.assertNotIn("tpex-benchmark", adapters)
 
 
 if __name__ == "__main__":

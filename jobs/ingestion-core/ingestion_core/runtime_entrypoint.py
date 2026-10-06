@@ -14,13 +14,11 @@ from .__main__ import _control_plane, _trigger_mart, consume_queued_collection, 
 CONTROL_MIGRATION_PRIVATE_STOCK_MASTER_READ = "030_private_stock_master_read"
 CONTROL_MIGRATION_PORTFOLIO_MARKET_COVERAGE = "031_portfolio_market_coverage"
 CONTROL_MIGRATION_LIQUID_500 = "032_liquid_500"
-CONTROL_MIGRATION_LIQUID_500_TPEX_SOURCE = "033_liquid_500_tpex_source"
 CONTROL_MIGRATION_BATCH_CONTROLLER = "037_batch_controller"
 CONTROL_MIGRATIONS = {
     CONTROL_MIGRATION_PRIVATE_STOCK_MASTER_READ,
     CONTROL_MIGRATION_PORTFOLIO_MARKET_COVERAGE,
     CONTROL_MIGRATION_LIQUID_500,
-    CONTROL_MIGRATION_LIQUID_500_TPEX_SOURCE,
     CONTROL_MIGRATION_BATCH_CONTROLLER,
 }
 ANALYSIS_REPLAY_RETRIGGER_SECONDS = 60
@@ -160,28 +158,6 @@ def _apply_liquid_500(cursor: Any) -> None:
         raise RuntimeError("liquid-500 schema and ACL verification failed")
 
 
-def _apply_liquid_500_tpex_source(cursor: Any) -> None:
-    cursor.execute("SET LOCAL ROLE janus_control")
-    cursor.execute(
-        """UPDATE control.collection_configs AS config
-        SET source_ids = (
-          SELECT jsonb_agg(DISTINCT source_id ORDER BY source_id)
-          FROM jsonb_array_elements_text(config.source_ids || '[\"tpex\"]'::jsonb)
-               AS sources(source_id)
-        )
-        WHERE config_id = 'first-batch'"""
-    )
-    cursor.execute(
-        "SELECT source_ids ? 'tpex' FROM control.collection_configs WHERE config_id = 'first-batch'"
-    )
-    enabled = cursor.fetchone()
-    if enabled is None or not bool(enabled[0]):
-        raise RuntimeError("TPEx market-volume source is not enabled")
-    cursor.execute(
-        "INSERT INTO control.schema_migrations(version) VALUES ('033_liquid_500_tpex_source') ON CONFLICT DO NOTHING"
-    )
-
-
 def _run_control_migration(name: str) -> dict[str, Any]:
     """Apply one allow-listed control-owner migration used by portfolio completeness."""
     if name not in CONTROL_MIGRATIONS:
@@ -201,8 +177,6 @@ def _run_control_migration(name: str) -> dict[str, Any]:
                 sql = "\n".join(line for line in path.read_text(encoding="utf-8").splitlines()
                                 if not line.startswith("\\") and line not in {"BEGIN;", "COMMIT;"})
                 cursor.execute(sql)
-            else:
-                _apply_liquid_500_tpex_source(cursor)
     finally:
         control.close()
     return {
