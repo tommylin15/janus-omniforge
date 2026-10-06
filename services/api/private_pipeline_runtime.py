@@ -30,10 +30,9 @@ def main() -> None:
     })
     repository = repository_from_env()
     try:
-        mobile = process_mobile_ledger_queue(repository)
-        print(json.dumps({"mobile_ledger": mobile}, sort_keys=True))
+        process_mobile_ledger_queue(repository)
     except (MobileLedgerQueueError, NotFoundError):
-        print(json.dumps({"mobile_ledger": {"status": "unavailable"}}, sort_keys=True))
+        pass
     market = CorePriceReader.from_env()
     override = os.getenv("VALUATION_DATE") or None
     pipeline = PrivatePipeline(
