@@ -109,7 +109,7 @@ void main() {
     expect(accountingNumber('1234.565', decimals: 2), '1,234.57');
     expect(accountingNumber('48', decimals: 2), '48.00');
     expect(accountingNumber('-0.004', decimals: 2), '0.00');
-    expect(accountingNumber('-1234.565', decimals: 2), '(1,234.57)');
+    expect(accountingNumber('-1234.565', decimals: 2), '-1,234.57');
     expect(portfolioReturnLabel('0.1234'), '12%');
   });
   testWidgets(
