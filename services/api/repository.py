@@ -43,6 +43,22 @@ class PostgresWorkspaceRepository:
             ).fetchone()
             return row["user_id"]
 
+    def user_id_for_email(self, email: str) -> UUID:
+        normalized = email.strip().lower()
+        if not normalized:
+            raise NotFoundError("user email is required")
+        with self._connection() as connection:
+            rows = connection.execute(
+                """SELECT user_id FROM private.users
+                   WHERE lower(display_email)=%s
+                   ORDER BY user_id
+                   LIMIT 2""",
+                (normalized,),
+            ).fetchall()
+        if len(rows) != 1:
+            raise NotFoundError("user email does not resolve uniquely")
+        return rows[0]["user_id"]
+
     def create_mcp_oauth_code(self, code_hash: str, value: dict[str, Any], expires_at: int) -> None:
         with self._connection() as connection:
             connection.execute(

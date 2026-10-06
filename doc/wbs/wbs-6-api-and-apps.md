@@ -221,6 +221,17 @@ ledger append 只接受既有 `LedgerEventIn` 欄位與 stable idempotency key�
 
 MCP 不提供 generic mutation、resources／prompts／subscriptions／approval runtime／conversation snapshot storage，除非未來另有 active contract。
 
+### 6.5.1 Mobile ledger ingress
+
+因目前 ChatGPT mobile 不載入自訂 MCP tool，手機一般對話改走原生 Google Drive connector + 私人 Sheet queue；不新增第二個 Chat runtime 或另一套 canonical ledger。
+
+- queue 固定為 `janusChatGPT/Janus Mobile Ledger Queue`，只接受 append-only `PENDING` request。
+- owner 不來自 row；Private Pipeline 以 Drive file owner email 查既有 Janus user，必須唯一命中。
+- `request_id` 是 stable idempotency key；交易值、fee、tax 必須明確，不猜缺值。
+- existing hourly batch controller 條件式 dispatch existing Private Pipeline；正常 21:30 Private slot 同時 consume queue，避免另建 Scheduler。
+- Google Drive／Sheets outage 只延後 mobile ingress，不阻斷原 Private Mart；domain invalid row 回寫 sanitized error code。
+- acceptance 必須包含 native mobile Drive write、兩個 workload identity 的 live queue probe、canonical ledger readback、duplicate guard 與 Private Mart refresh readback。
+
 ## 6.6 ResearchContext（Planned）
 
 ResearchContext 只在 active TODO 啟動後實作，沿用 existing `janus-api` 的 typed、bounded、owner-scoped、PIT/provenance-aware contract；概念 section 可含 market／company／supply_chain／private／quality。

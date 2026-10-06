@@ -213,6 +213,24 @@ records 最多 20 筆／32 KiB；超限只在完整 record 邊界截斷並明示
 
 現有 `/mcp` adapter 只處理必要 initialization／ping／tools/list／tools/call 與 notifications；除 allowlisted `janus_private_ledger_append` 外，不提供 generic mutation、resources、prompts、subscriptions、approval runtime 或 conversation snapshot storage。
 
+## 12.8 ChatGPT Mobile Ledger Bridge
+
+目前 ChatGPT mobile 不載入自訂 MCP tool，因此手機對話的 ledger 寫入不假裝沿用 desktop MCP。mobile path 使用已安裝的原生 Google Drive connector 作為受限 command queue：
+
+`ChatGPT mobile → janusChatGPT/Janus Mobile Ledger Queue → existing hourly batch controller → janus-private-pipeline → canonical private.ledger_events`
+
+治理契約：
+
+- queue 是私人 Google Sheet，固定名稱與固定 schema；runtime 只掃描既有 Sheet 前 1000 列（header + 最多 999 筆 request）、每輪最多處理 20 筆 `PENDING`。
+- ChatGPT 只寫使用者明確提供／可驗證的交易值；`fee`、`tax` 必須明確填值，空白不自動補 0。缺年分、費稅拆分或其他 canonical 欄位時不得 enqueue。
+- row 不接受 owner selector。Private Pipeline 由 Drive file owner email 對應既有 Janus user；找不到或不唯一時 fail closed，不建立新 user。
+- `request_id` 直接作 canonical ledger idempotency key；DB 已成功但 Sheet status 更新失敗時，下一輪 replay 不得重複交易。
+- existing hourly `janus-batch-controller` 只在 queue 有 pending row 時條件式觸發既有 `janus-private-pipeline`，不新增 Scheduler／Cloud Run resource；weekday 21:30 原 Private slot 同時是 fallback，且同 slot 不重複 dispatch。
+- queue provider unavailable 不阻斷原 Private Mart 排程；mobile request 留在 `PENDING` 等下一輪。invalid／oversell 等 domain error 回寫 bounded error code，不把 private holdings 或 provider raw error 寫入 Sheet／一般 log。
+- Private Pipeline 先 consume ledger queue，再跑既有 change-log Private Mart refresh，因此成功 write 可在同一 execution 進入 holdings/report refresh chain。
+- 此路徑仍然只是 Janus 記帳，不向券商下單、不移動資金；更正／刪除不經 mobile queue，仍走正式 correction/private-data contract。
+- Google Drive／Sheets 只作 mobile command ingress，不取代 PostgreSQL canonical ledger、Iceberg Private Mart 或 MCP read path。
+
 ## 13. GCP 開發與 CI/CD
 
 | 項目 | 現行原則 |

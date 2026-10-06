@@ -1,6 +1,6 @@
 # Janus — TODO
 
-版本：3.8（2026-10-06：B 組加入 Iceberg canonical + BigQuery analytics 優先架構）
+版本：3.9（2026-10-06：加入 ChatGPT mobile ledger ingress）
 用途：**只保留確定要做的 active work 與未完成 acceptance**。Deferred、Candidate、Observation、Production-only、已接受缺口與研究構想統一放 [`parking-lot.md`](parking-lot.md)；已完成／被取代內容放 `archive/`。
 
 ## 規則
@@ -100,7 +100,7 @@ A 組目前狀態定義：**部分功能已完成並進入 GCP dev 真實驗收�
 - [ ] **Ledger Reports refresh／aggregation chain。** 明確追查 report API、transaction source、position projection、report aggregation、DB table/view/materialized projection、可能的 batch/job、scheduler/trigger、cache TTL/invalidation、valuation date/as-of 與 transaction 入帳後更新鏈路；最後依 evidence 判定 `implemented`／`partial`／`missing`／`blocked`。root cause 未查明前不得寫成「正常等待批次」。
 - [ ] **Ledger／Holdings canonical consistency。** 同一使用者、同一時間、同一資產的 shares、cost、market value、unrealized PnL、realized PnL、YTD realized PnL、valuation date、as-of/data freshness、pending transaction／pending Private Mart 必須一致或有可追溯的時間／freshness 差異說明；不得在持股／紀錄／報表出現無說明的不同版本摘要。
 - [ ] **交易異動後 refresh/invalidation acceptance。** 新增／修改／同步交易或 position projection 更新後，驗證 Holdings summary、Ledger summary、Records、Reports、YTD realized PnL 都會刷新，舊 cache 不長時間殘留，valuation/as-of 可判斷是否更新。若採 batch，文件與 runtime evidence 必須指出 Job、Scheduler/trigger、頻率、source table、target projection、freshness SLA、failure 行為；若非 batch，同樣寫清真正更新鏈路。
-- [ ] **ChatGPT owner-scoped ledger write MCP。** Implementation／CI／dev rollout 已完成：main `d494acb43b4ed079aabb6540203f654ec64e65fe`、Deploy dev run `37410282220` success、revision `janus-api-gd494acb43b4e-config`、MCP canonical/tagged acceptance Cloud Builds success；private plugin `Janus Dev Private` 已建立。使用者 2026-10-06 已回報完成重新授權，但當前 ChatGPT conversation tool registry 尚未暴露 `janus_private_ledger_append`，因此 write acceptance 仍未執行。**剩餘 gate 是 tool registry refresh 後的 owner write acceptance**：先用既有 ledger fact + 同 stable idempotency key 做 non-mutating duplicate guard，再以使用者明確提供的真實交易 append、trades readback、owner isolation；不得自行製造測試交易。
+- [ ] **ChatGPT ledger write：desktop MCP + mobile ingress。** Desktop/web MCP implementation／CI／dev rollout 已完成：main `d494acb43b4ed079aabb6540203f654ec64e65fe`、Deploy dev run `37410282220` success、MCP tagged acceptance success；但目前 ChatGPT mobile 不載入自訂 MCP，因此手機改走 native Google Drive connector → `janusChatGPT/Janus Mobile Ledger Queue` → existing hourly batch controller → existing Private Pipeline → canonical ledger。mobile bridge 必須維持：owner 不可由 row 指定、Drive owner 唯一映射既有 Janus user、fee/tax/交易值不得猜、stable request_id idempotency、最多 20 pending／999-request bounded scan、provider outage fail-defer、domain error sanitized、不新增 Scheduler／Cloud Run resource、不影響原 21:30 Private Mart。**剩餘 gate**：CI/live workload probes、手機 native Drive enqueue、真實 owner canonical append/readback、duplicate guard、Private Mart refresh；不得自行製造測試交易。
 - [ ] Admin 以 backend effective jobs 呈現，資料治理取代 placeholder；容量區分 live／noncurrent／soft-deleted，未知不補零；本人缺價／coverage 與 Admin 去識別化摘要分離。
 - [ ] 依既定資料容忍度顯示上市 500 範圍、缺值、時間與非嚴格 PIT 限制，保留價格／單位／身份／來源／交易正確性；現有報酬涉及 corporate action 時明示不可比，不新增完整調整價平台。
 - [ ] 完成前後效能紀錄、Job duration／peak RSS／retry／cache／storage／可取得的成本證據；暖機核心資訊 p95 ≤2 秒、已訪問頁恢復 ≤300ms 作驗收目標，記錄樣本與裝置，未達列剩餘瓶頸。**量測 instrumentation 已於 `21413e56` 部署：`/app/?perf=1` 顯示 core／restore p95 與樣本數；Flutter run `37412540230`、Deploy run `37412540399` success。剩餘為真實手機樣本，不再缺量測機制。**

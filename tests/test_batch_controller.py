@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from ingestion_core.batch_controller import Batch, PROJECT, REGION, due_batches, poll_job, job_active
+from ingestion_core.batch_controller import Batch, PROJECT, REGION, due_batches, scheduled_batches, poll_job, job_active
 
 
 def test_multiple_daily_and_weekend_slots_have_distinct_identities():
@@ -235,3 +235,37 @@ def test_old_pending_core_cleanup_waits_for_new_mart_dependency(monkeypatch):
     assert [args[4] for args in updates] == ["dependency_policy_updated", "waiting_dependency"]
     assert updates[0][3]["dependencies"] == ["mart-cleanup/2026-10-02/23"]
     session.post.assert_not_called()
+
+
+def test_mobile_ledger_slot_is_current_hour_only_and_conditionally_dispatched():
+    # 12:35 Taipei: no historical mobile catch-up slots are created.
+    now = datetime(2026, 10, 6, 4, 35, tzinfo=timezone.utc)
+    mobile = [row for row in due_batches(now) if row[1].name == "mobile-ledger"]
+    assert len(mobile) == 1
+    assert mobile[0][0] == "mobile-ledger/2026-10-06/12"
+    assert mobile[0][2].hour == 12 and mobile[0][2].minute == 30
+
+    assert not [row for row in scheduled_batches(now, False) if row[1].name == "mobile-ledger"]
+    assert len([row for row in scheduled_batches(now, True) if row[1].name == "mobile-ledger"]) == 1
+
+
+def test_regular_private_slot_suppresses_same_hour_mobile_trigger():
+    # Tuesday 21:30 Taipei has the canonical Private Pipeline slot.
+    now = datetime(2026, 10, 6, 13, 30, tzinfo=timezone.utc)
+    rows = scheduled_batches(now, True)
+    assert len([row for row in rows if row[1].name == "private"]) == 1
+    assert not [row for row in rows if row[1].name == "mobile-ledger"]
+
+
+def test_mobile_probe_does_not_open_control_database(monkeypatch):
+    from unittest.mock import Mock
+    from ingestion_core import batch_controller as controller
+
+    monkeypatch.setenv("GCP_PROJECT_ID", PROJECT)
+    monkeypatch.setenv("BATCH_CONTROLLER_MODE", "mobile-probe")
+    monkeypatch.setattr(controller, "probe_mobile_ledger_queue",
+                        lambda **kwargs: {"status": "available", "pending": True, "writable": False})
+    control = Mock()
+    result = controller.run(control=control)
+    assert result == {"status": "available", "mobile_ledger_pending": True}
+    control.connection.execute.assert_not_called()

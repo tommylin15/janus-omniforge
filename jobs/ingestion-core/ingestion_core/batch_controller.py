@@ -10,6 +10,8 @@ from uuid import NAMESPACE_URL, uuid5
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
+from packages.mobile_ledger_queue import MobileLedgerQueueError, probe_mobile_ledger_queue
+
 PROJECT = "gen-lang-client-0593591102"
 REGION = "us-central1"
 API = "https://run.googleapis.com/v2/"
@@ -26,6 +28,7 @@ class Batch:
     exclusive_jobs: tuple[str, ...] = ()
     minute: int = 30
     month_days: tuple[int, ...] = ()
+    catch_up: bool = True
 
 
 BATCHES = (
@@ -41,6 +44,7 @@ BATCHES = (
           env=(("JANUS_DATA_SUPPLEMENT_MODE", "quality"), ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""),
                ("ICEBERG_MAINTENANCE_MODE", "")), exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart")),
     Batch("private", "janus-private-pipeline", (21,), tuple(range(5)), ("ingestion",)),
+    Batch("mobile-ledger", "janus-private-pipeline", tuple(range(24)), catch_up=False),
     Batch("core-cleanup", "janus-ingestion-core", (23,), dependencies=("mart-cleanup",),
           env=(("ICEBERG_MAINTENANCE_MODE", "retention-apply"), ("QUEUE_CONSUMER", "false"), ("MART_JOB", "")),
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline")),
@@ -73,6 +77,8 @@ def due_batches(now: datetime, batches=BATCHES):
         if local.weekday() not in batch.weekdays:
             continue
         for hour in sorted(batch.hours):
+            if not batch.catch_up and hour != local.hour:
+                continue
             slot = local.replace(hour=hour, minute=batch.minute, second=0, microsecond=0)
             if slot > local:
                 continue
@@ -85,6 +91,15 @@ def due_batches(now: datetime, batches=BATCHES):
                 dependencies.append(f"{name}/{local.date().isoformat()}/{max(preceding):02d}")
             result.append((f"{batch.name}/{local.date().isoformat()}/{hour:02d}", batch, slot, dependencies))
     return sorted(result, key=lambda item: (item[2], item[0]))
+
+
+def scheduled_batches(now: datetime, mobile_pending: bool) -> list[tuple[str, Batch, datetime, list[str]]]:
+    rows = due_batches(now)
+    private_slots = {slot for _, batch, slot, _ in rows if batch.name == "private"}
+    return [
+        row for row in rows
+        if row[1].name != "mobile-ledger" or (mobile_pending and row[2] not in private_slots)
+    ]
 
 
 def resource(job):
@@ -286,8 +301,11 @@ def run(*, now=None, session=None, control=None, core=None):
         raise ValueError("batch controller is restricted to the existing dev project")
     now = now or datetime.now(timezone.utc)
     mode = os.environ.get("BATCH_CONTROLLER_MODE", "observe")
-    if mode not in {"observe", "active", "seed", "manual"}:
+    if mode not in {"observe", "active", "seed", "manual", "mobile-probe"}:
         raise ValueError("unsupported controller mode")
+    if mode == "mobile-probe":
+        result = probe_mobile_ledger_queue(write=False)
+        return {"status": result["status"], "mobile_ledger_pending": bool(result["pending"])}
     manual_request_id = ""
     if mode == "manual":
         manual_request_id = os.environ.get("BATCH_CONTROLLER_MANUAL_REQUEST_ID", "")
@@ -352,10 +370,16 @@ def run(*, now=None, session=None, control=None, core=None):
                 # A read failure must never release the running-job fence.
                 record(connection, tick, key, state, "cloud_status_unavailable", update=False)
         manual_key = None
+        mobile_pending: bool | None = False
         if mode == "manual":
             manual_key = insert_manual_retrain(connection, now, manual_request_id)
         else:
-            for key, batch, slot, dependencies in due_batches(now):
+            try:
+                mobile_pending = bool(probe_mobile_ledger_queue(write=False)["pending"])
+            except MobileLedgerQueueError:
+                mobile_pending = None
+                record(connection, tick, "mobile-ledger", {"status": "unavailable"}, "mobile_queue_unavailable", update=False)
+            for key, batch, slot, dependencies in scheduled_batches(now, mobile_pending is True):
                 if slot < not_before:
                     continue
                 state = {"job": batch.job, "batch": batch.name, "status": "pending", "dependencies": dependencies,
@@ -374,6 +398,14 @@ def run(*, now=None, session=None, control=None, core=None):
         batches = {batch.name: batch for batch in BATCHES}
         for key, state in pending:
             batch = batches[state["batch"]]
+            if batch.name == "mobile-ledger":
+                if mobile_pending is None:
+                    record(connection, tick, key, state, "mobile_queue_unavailable", update=False)
+                    continue
+                if mobile_pending is False:
+                    state = {**state, "status": "skipped", "reason": "queue_empty"}
+                    record(connection, tick, key, state, "mobile_queue_empty")
+                    continue
             dependencies = state["dependencies"]
             if state.get("origin") == "manual":
                 dependencies = manual_retrain_dependencies(connection, now, batch)

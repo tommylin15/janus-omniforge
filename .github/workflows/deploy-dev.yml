@@ -12,6 +12,9 @@ on:
       - 'jobs/ingestion-core/requirements.lock'
       - 'packages/duckdb_query/**'
       - 'packages/postgres_lock.py'
+      - 'packages/mobile_ledger_queue.py'
+      - 'tests/test_mobile_ledger_queue.py'
+      - 'tests/test_mobile_ledger_consumer.py'
       - 'tests/test_data_retention.py'
       - 'tests/ingestion/test_control_plane.py'
       - 'infra/postgres/migrations/037_batch_controller.sql'
@@ -102,6 +105,7 @@ jobs:
       api_runtime: ${{ steps.filter.outputs.api_runtime }}
       api_test: ${{ steps.filter.outputs.api_test }}
       mcp_runtime: ${{ steps.filter.outputs.mcp_runtime }}
+      mobile_ledger_runtime: ${{ steps.filter.outputs.mobile_ledger_runtime }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -118,6 +122,7 @@ jobs:
               - 'infra/postgres/migrations/045_private_pipeline_operations.sql'
             ingestion_runtime:
               - 'packages/postgres_lock.py'
+              - 'packages/mobile_ledger_queue.py'
               - 'packages/duckdb_query/**'
               - 'infra/postgres/migrations/037_batch_controller.sql'
               - 'infra/postgres/migrations/043_admin_batch_read.sql'
@@ -169,6 +174,7 @@ jobs:
               - 'tests/contract/test_contract_registry.py'
             private_pipeline_runtime:
               - 'services/api/**'
+              - 'packages/mobile_ledger_queue.py'
               - 'packages/contracts/**'
               - 'packages/observability/**'
               - 'packages/provenance/**'
@@ -176,6 +182,15 @@ jobs:
               - 'cloudbuild.yaml'
               - 'scripts/gcp/deploy-dev.sh'
               - 'scripts/gcp/verify-dev.sh'
+            mobile_ledger_runtime:
+              - 'packages/mobile_ledger_queue.py'
+              - 'services/api/mobile_ledger_consumer.py'
+              - 'services/api/private_pipeline_runtime.py'
+              - 'services/api/repository.py'
+              - 'jobs/ingestion-core/ingestion_core/batch_controller.py'
+              - 'tests/test_mobile_ledger_queue.py'
+              - 'tests/test_mobile_ledger_consumer.py'
+              - 'tests/test_batch_controller.py'
             api_runtime:
               - '.dockerignore'
               - 'doc/runbook-data-supplement.md'
@@ -238,6 +253,7 @@ jobs:
           tests/stage_core_tests/test_data_cleaning_regressions.py
           tests/test_portfolio_deploy_contract.py
           tests/test_batch_controller.py
+          tests/test_mobile_ledger_queue.py
           tests/test_duckdb_iceberg.py
           tests/test_data_supplement.py
           tests/test_market_history.py
@@ -268,6 +284,16 @@ jobs:
       - name: Verify ingestion-core
         shell: bash
         run: bash scripts/gcp/verify-dev.sh ingestion-core
+      - name: Verify mobile ledger queue reader
+        if: needs.detect.outputs.mobile_ledger_runtime == 'true'
+        shell: bash
+        run: >-
+          gcloud run jobs execute janus-batch-controller
+          --project="${GCP_PROJECT_ID}"
+          --region="${GCP_REGION}"
+          --update-env-vars="BATCH_CONTROLLER_MODE=mobile-probe"
+          --task-timeout=5m
+          --wait
 
   test-mart:
     needs: detect
@@ -359,6 +385,8 @@ jobs:
           tests/test_public_api_routes.py
           tests/test_mcp_adapter.py
           tests/test_mcp_oauth.py
+          tests/test_mobile_ledger_queue.py
+          tests/test_mobile_ledger_consumer.py
           tests/test_private_pipeline.py
           tests/test_user_api.py
           tests/test_portfolio_completeness.py
@@ -396,6 +424,16 @@ jobs:
       - name: Verify private pipeline
         shell: bash
         run: bash scripts/gcp/verify-dev.sh private-pipeline
+      - name: Verify mobile ledger queue writer and owner binding
+        if: needs.detect.outputs.mobile_ledger_runtime == 'true'
+        shell: bash
+        run: >-
+          gcloud run jobs execute janus-private-pipeline
+          --project="${GCP_PROJECT_ID}"
+          --region="${GCP_REGION}"
+          --update-env-vars="MOBILE_LEDGER_PROBE_ONLY=true"
+          --task-timeout=5m
+          --wait
       - name: Seed Private Pipeline operations evidence
         if: needs.detect.outputs.private_ops_schema == 'true'
         shell: bash
