@@ -538,10 +538,12 @@ jobs:
       migration: 046_twse_only_latest_price
 
   migrate-latest-price-route:
-    needs: [detect, deploy-ingestion]
+    needs: [detect, deploy-ingestion, migrate-latest-price]
     if: >-
+      always() &&
       needs.detect.outputs.latest_price_route_schema == 'true' &&
-      needs.deploy-ingestion.result == 'success'
+      needs.deploy-ingestion.result == 'success' &&
+      (needs.migrate-latest-price.result == 'success' || needs.migrate-latest-price.result == 'skipped')
     uses: ./.github/workflows/serving-schema-migration-dev.yml
     with:
       migration: 047_latest_price_route_v2
