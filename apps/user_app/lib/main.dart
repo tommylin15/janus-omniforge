@@ -1651,7 +1651,7 @@ class _JournalNotesPageState extends State<JournalNotesPage>
               child: TextButton.icon(
                 onPressed: quoteBusy ? null : () => refreshQuotes(force: true),
                 icon: const Icon(Icons.refresh),
-                label: Text(quoteBusy ? '更新中' : '更新股價'),
+                label: Text(quoteBusy ? '更新中' : '更新持股股價'),
               )),
         if (section == 0 && quoteError != null)
           Padding(
