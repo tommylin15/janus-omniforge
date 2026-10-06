@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'final_charts.dart';
+import 'final_perf.dart';
 import 'final_visual_common.dart';
 import 'main.dart' as legacy;
 
@@ -32,17 +33,23 @@ class _FinalLedgerPageState extends State<FinalLedgerPage> {
     }
   }
 
-  Future<List<dynamic>> load() {
+  Future<List<dynamic>> load() async {
+    final stopwatch = Stopwatch()..start();
     final year = DateTime.now().year;
-    return Future.wait([
-      safe('/api/v1/me/portfolio/summary'),
-      safe('/api/v1/me/journal/pnl?year=$year'),
-      safe('/api/v1/me/journal/positions'),
-      safe('/api/v1/me/journal/history?year=$year'),
-      safe('/api/v1/me/journal/monthly-summary?year=$year'),
-      safe('/api/v1/me/portfolio/performance?year=$year'),
-      safe('/api/v1/me/notes'),
-    ]);
+    try {
+      return await Future.wait([
+        safe('/api/v1/me/portfolio/summary'),
+        safe('/api/v1/me/journal/pnl?year=$year'),
+        safe('/api/v1/me/journal/positions'),
+        safe('/api/v1/me/journal/history?year=$year'),
+        safe('/api/v1/me/journal/monthly-summary?year=$year'),
+        safe('/api/v1/me/portfolio/performance?year=$year'),
+        safe('/api/v1/me/notes'),
+      ]);
+    } finally {
+      stopwatch.stop();
+      FinalPerf.recordCore('ledger', stopwatch.elapsed);
+    }
   }
 
   void reload() => setState(() => data = load());

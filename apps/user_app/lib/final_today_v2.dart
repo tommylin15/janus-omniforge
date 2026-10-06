@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'final_perf.dart';
 import 'final_visual_common.dart';
 import 'main.dart' as legacy;
 
@@ -14,8 +15,18 @@ class FinalTodayPage extends StatefulWidget {
 }
 
 class _FinalTodayPageState extends State<FinalTodayPage> {
-  late Future<dynamic> market = _read('/api/v1/public/market-home');
+  late Future<dynamic> market = _readCoreMarket();
   late Future<dynamic> brief = _read('/api/v1/public/daily-brief');
+
+  Future<dynamic> _readCoreMarket() async {
+    final stopwatch = Stopwatch()..start();
+    try {
+      return await _read('/api/v1/public/market-home');
+    } finally {
+      stopwatch.stop();
+      FinalPerf.recordCore('today', stopwatch.elapsed);
+    }
+  }
 
   Future<dynamic> _read(String path) async {
     try {
@@ -138,7 +149,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> {
           fvPanel(child: Row(children: [
             const Expanded(child: Text('市場基礎資料暫時無法使用')),
             TextButton(
-              onPressed: () => setState(() => market = _read('/api/v1/public/market-home')),
+              onPressed: () => setState(() => market = _readCoreMarket()),
               child: const Text('重試'),
             ),
           ]))

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'admin.dart';
+import 'final_perf.dart';
 import 'final_visual_pages.dart';
 import 'main.dart' as legacy;
 import 'sign_in_button.dart'
@@ -225,10 +226,20 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
   int page = 0;
   final visited = <int>{0};
 
-  void selectPage(int value) => setState(() {
-        page = value;
-        visited.add(value);
+  void selectPage(int value) {
+    final restoring = value != page && visited.contains(value);
+    final stopwatch = restoring ? (Stopwatch()..start()) : null;
+    setState(() {
+      page = value;
+      visited.add(value);
+    });
+    if (stopwatch != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        stopwatch.stop();
+        FinalPerf.recordRestore(stopwatch.elapsed);
       });
+    }
+  }
 
   @override
   void didUpdateWidget(FinalWorkspace oldWidget) {
@@ -262,7 +273,9 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
     return LayoutBuilder(builder: (context, constraints) {
       final wide = constraints.maxWidth >= 900;
       return Scaffold(
-        body: Row(children: [
+        body: Stack(
+          children: [
+            Row(children: [
           if (wide)
             NavigationRail(
               selectedIndex: page,
@@ -288,6 +301,14 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
             ),
           ),
         ]),
+            if (FinalPerf.enabled)
+              const Positioned(
+                right: 8,
+                top: 8,
+                child: IgnorePointer(child: FinalPerfBadge()),
+              ),
+          ],
+        ),
         bottomNavigationBar: wide
             ? null
             : NavigationBar(

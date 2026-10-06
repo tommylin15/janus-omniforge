@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'final_charts.dart';
+import 'final_perf.dart';
 import 'final_visual_common.dart';
 import 'main.dart' as legacy;
 
@@ -40,23 +41,29 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> {
   }
 
   Future<void> loadPrimary() async {
+    final stopwatch = Stopwatch()..start();
     if (mounted) setState(() => loading = true);
-    await Future.wait([
-      safe(
-        'health',
-        '/api/v1/public/stock-health/${Uri.encodeComponent(widget.symbol)}',
-      ),
-      safe('positions', '/api/v1/me/journal/positions'),
-      safe(
-        'notes',
-        '/api/v1/me/notes?symbol=${Uri.encodeQueryComponent(widget.symbol)}',
-      ),
-      safe(
-        'events',
-        '/api/v1/public/events/${Uri.encodeComponent(widget.symbol)}',
-      ),
-    ]);
-    if (mounted) setState(() => loading = false);
+    try {
+      await Future.wait([
+        safe(
+          'health',
+          '/api/v1/public/stock-health/${Uri.encodeComponent(widget.symbol)}',
+        ),
+        safe('positions', '/api/v1/me/journal/positions'),
+        safe(
+          'notes',
+          '/api/v1/me/notes?symbol=${Uri.encodeQueryComponent(widget.symbol)}',
+        ),
+        safe(
+          'events',
+          '/api/v1/public/events/${Uri.encodeComponent(widget.symbol)}',
+        ),
+      ]);
+    } finally {
+      stopwatch.stop();
+      FinalPerf.recordCore('stock-detail', stopwatch.elapsed);
+      if (mounted) setState(() => loading = false);
+    }
   }
 
   Future<void> loadKline() async {

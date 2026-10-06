@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'final_perf.dart';
 import 'final_visual_common.dart';
 import 'main.dart' as legacy;
 
@@ -14,9 +15,19 @@ class FinalWatchlistPage extends StatefulWidget {
 }
 
 class _FinalWatchlistPageState extends State<FinalWatchlistPage> {
-  late Future<dynamic> data = widget.api.get('/api/v1/me/watchlist');
+  late Future<dynamic> data = _load();
 
-  void reload() => setState(() => data = widget.api.get('/api/v1/me/watchlist'));
+  Future<dynamic> _load() async {
+    final stopwatch = Stopwatch()..start();
+    try {
+      return await widget.api.get('/api/v1/me/watchlist');
+    } finally {
+      stopwatch.stop();
+      FinalPerf.recordCore('watchlist', stopwatch.elapsed);
+    }
+  }
+
+  void reload() => setState(() => data = _load());
 
   Future<void> add() async {
     final query =
