@@ -32,7 +32,7 @@
 - 每日盤後：liquid-500 低成本 screening／cross-sectional discovery。
 - 日常 Deep Coverage：只有 `active watchlist ∪ effective holdings` 的受影響 symbol／specialist 因新資料而更新；無變更 reuse。
 - 每月重型批次：`specialist-retrain`、calibration、OOS/evaluation、cache/dependency reconciliation 固定**每月第一個週六 10:30（Asia/Taipei）**。
-- 不建立每週六 500×5 全量模型排程；歷史「每月 1 日 10:30」不是 active target。
+- 不建立每週六 500×5 全量模型排程；月度排程只採上列第一個週六 10:30。
 
 ## 3. B 組優先架構：BigQuery analytics hybrid
 
