@@ -4,22 +4,16 @@ from pathlib import Path
 ROOT=Path(__file__).parents[1]
 
 
-def test_private_pipeline_scheduler_contract_is_fixed_owner_scoped_and_dev_gated():
+def test_direct_private_pipeline_scheduler_apply_is_retired_after_controller_cutover():
     script=(ROOT/"scripts/gcp/apply-private-pipeline-schedulers-dev.sh").read_text(encoding="utf-8")
-    assert script.count("janus-private-pipeline-")==4
-    for name,cron in (
-        ("0740","40 7 * * MON-FRI"),
-        ("1100","0 11 * * MON-FRI"),
-        ("1400","0 14 * * MON-FRI"),
-        ("2130","30 21 * * MON-FRI"),
-    ):
-        assert f"janus-private-pipeline-{name}|{cron}" in script
-    assert "--time-zone=Asia/Taipei" in script
-    assert "/jobs/${job}:run" in script and 'job="janus-private-pipeline"' in script
-    assert "--message-body='{}'" in script
-    assert "janus-ingestion-scheduler@${project}.iam.gserviceaccount.com" in script
-    assert "--role=roles/run.invoker" in script
-    assert "ALLOW_DEV_SCHEDULER_APPLY" in script and 'JANUS_ENVIRONMENT:-}" != "dev"' in script
+    assert "Retired: direct janus-private-pipeline Cloud Scheduler jobs" in script
+    assert "janus-batch-controller" in script
+    assert "batch_controller.py" in script
+    assert "exit 1" in script
+    assert "gcloud scheduler jobs create" not in script
+    assert "gcloud scheduler jobs update" not in script
+    assert "gcloud run jobs add-iam-policy-binding" not in script
+    assert "janus-ingestion-scheduler@" not in script
 
 
 def test_private_pipeline_deploy_removes_fixed_valuation_default():
