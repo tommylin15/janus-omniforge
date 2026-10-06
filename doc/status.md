@@ -22,9 +22,10 @@ A 組已完成 implementation、tests／CI、dev deployment、runtime readback �
 
 - Core Iceberg V2／GCS 繼續是 canonical／PIT／provenance/history；不改成 BigQuery native canonical warehouse。
 - PostgreSQL serving projection 與 User／Admin request-time read 保持現行架構。
-- BigQuery 只作 analytics compute，優先承接 liquid-500 screening、cross-sectional feature／ranking、OOS/evaluation preprocessing 與 ML training dataset preparation。
+- BigQuery 只作 analytics compute；通過 fidelity gate 後優先承接每日盤後 liquid-500 screening、cross-sectional feature／ranking、OOS/evaluation preprocessing 與 ML training dataset preparation。
 - 禁止 BigQuery Storage Read API；大量 training input 採 SQL 縮減後 export versioned GCS Parquet。
 - B 組第一優先是抽出 exact-snapshot analytics reader、保留 PyIceberg reference/fallback，再做 BigQuery fidelity/cost/performance canary；未證明固定 Core snapshot 一致前不得切 default。
+- Active cadence 已統一：每個交易日 EOD 做 500 檔低成本 screening；完整五 specialist 僅對 `active watchlist ∪ effective holdings` 依 dirty dependency 增量更新；retrain／calibration／OOS evaluation／reconciliation 的 target schedule 為每月第一個週六 10:30（Asia/Taipei）。
 - **目前只有架構與執行順序核准，沒有 evidence 顯示 BigQuery／BigLake resource 已建立或 API/IAM 已核准。** 需要新增付費 API/resource、catalog/dataset/connection 或 IAM 時仍依 PROJECT_RULES 取得明確授權。
 
 B 組架構決策不代表 specialist 已完成；A 組已於 2026-10-06 完成並結案，下一步進入 B 組。
@@ -34,9 +35,9 @@ B 組架構決策不代表 specialist 已完成；A 組已於 2026-10-06 完成�
 Janus 採 **Token-first 五 specialist + On-demand CEO**：
 
 - 五 specialist production 主路徑使用 Python／SQL／ML，不是每日五個生成式 LLM workers。
-- 約 500 檔只做低成本 market screening／discovery；完整五 specialist 只做 `active watchlist ∪ effective holdings`。
-- specialist 依 input change／dirty dependency incremental update；無變化 reuse。
-- retrain／calibration／reconciliation 第一版月度。
+- 約 500 檔每個交易日 EOD canonical data ready 後做低成本 market screening／discovery；不做 500×5 深度分析。
+- 完整五 specialist 只做 `active watchlist ∪ effective holdings`，依 input change／dirty dependency incremental update；無變化 reuse。
+- retrain／calibration／OOS evaluation／reconciliation 第一版固定每月第一個週六 10:30（Asia/Taipei）。
 - specialist 白話文由 structured output + SHAP／rules／templates 產生，正常 0 API token。
 - Codex CLI／OpenRouter／Gemini 只保留給 authorized manual On-demand CEO／approved rare escalation。
 - CEO report 是 immutable symbol-level research artifact；重新分析建立新 execution/report，不覆寫舊報告。
@@ -81,8 +82,8 @@ Admin operational convergence 不重做整個 shell；`資料治理` 是正式�
 
 唯一權威排序見 [`todo.md`](todo.md)：
 
-1. **A：操作體驗／效能／資料營運** — User 非 CEO 功能、Admin operational convergence、四頁非 AI 相依版型、效能／FinOps 與文件對齊。
-2. **B：specialist／增量快取** — 合併 `WBS-5-MART-SPECIALIST-ENGINES` 與 `WBS-5-MART-RERUN-CACHE`。
+1. **A：CLOSED** — 操作體驗／效能／資料營運已於 2026-10-06 結案。
+2. **B：ACTIVE — specialist／增量快取／BigQuery analytics** — 合併 `WBS-5-MART-SPECIALIST-ENGINES` 與 `WBS-5-MART-RERUN-CACHE`。
 3. **C：CEO／權限／最終整合** — 合併 provider、CEO synthesis（原 CIO tracking ID）、Admin profile、User AI integration 與 Final Visual 剩餘 acceptance。
 
 執行指令見 [`codex-execution-plan.md`](codex-execution-plan.md)。同組先整合程式再集中驗收，原 WBS acceptance 不取消。預警與通知由 Parking Lot 管理，另存 [`future-market-alerts.md`](future-market-alerts.md)，目前不執行。
@@ -103,14 +104,12 @@ AutoGluon、FinBERT、FinGPT 只作 benchmark／research challenger；production
 ## 尚未完成的關鍵 acceptance
 
 - A 組已完成 implementation／CI／deployment／runtime build 與使用者人工驗收，狀態 CLOSED。
-- 五 specialist 的完整真實 dev／OOS、完整 ML baseline、dirty dependency、monthly retrain／reconciliation 尚未完成整體驗收。
+- 五 specialist 的完整真實 dev／OOS、完整 ML baseline、dirty dependency、每日 500 screening 與每月第一個週六 10:30 retrain／reconciliation 尚未完成整體驗收。
 - On-demand CEO command／capability／immutable report history 尚未完成。
 - Admin specialist model/evaluation + CEO capability/profile controls 尚未完成。
 - User Stock Detail manual Analyze/Re-analyze + freshness/history 尚未完成。
 
-因此不得宣稱交易 gate 已通過、A 組所有 acceptance 全部完成、Token-first 五 specialist production 已完整完成或 manual CEO 已可用；Admin operational convergence 與 A 組非佇列範圍已完成。
-
-> **A 組不是「部署完成後做驗收」，而是「在真實 GCP dev 驗收中持續發現並關閉 implementation gap」；Today、Watchlist、Ledger、Stock Detail 的非 AI 主體 UI 必須在真實登入與真實資料下明顯收斂至 Final Visual Contract，且 Holdings／Records／Reports 必須共用一致、可追溯且可刷新之 canonical position state，否則 A 組維持 partial。**
+因此目前不得宣稱 Token-first 五 specialist production 已完整完成或 manual CEO 已可用；A 組已結案，B 組以 active TODO／SPEC／WBS 與真實 dev evidence 繼續驗收。
 
 ## Evidence 讀取順序
 
