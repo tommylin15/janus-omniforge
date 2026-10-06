@@ -97,7 +97,7 @@ void main() {
 
   test('trade save wording distinguishes persistence from portfolio refresh',
       () {
-    expect(portfolioPendingMessage, '交易已儲存，等待投資組合批次更新');
+    expect(portfolioPendingMessage, '交易已儲存，損益重新計算中');
   });
 
   test('admin workspace is selected only by an explicit route or build mode',
@@ -394,7 +394,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: JournalNotesPage(api)));
     await tester.pumpAndSettle();
     expect(find.text('買進支出：TWD 200'), findsOneWidget);
-    expect(find.textContaining('淨現金流 (200)'), findsOneWidget);
+    expect(find.textContaining('淨現金流 -200'), findsOneWidget);
     await tester.tap(find.text('持股'));
     await tester.pumpAndSettle();
     expect(find.textContaining('未實現損益 40'), findsOneWidget);
