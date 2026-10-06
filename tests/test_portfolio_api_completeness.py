@@ -175,7 +175,8 @@ def test_operational_position_migration_is_bounded_rebuildable_and_api_synchrono
     assert "GRANT CREATE ON SCHEMA private TO janus_private_api" in sql
     assert "REVOKE CREATE ON SCHEMA private FROM janus_private_api" in sql
     assert "GRANT SELECT, INSERT, UPDATE, DELETE ON private.current_positions TO janus_private_api" in sql
-    assert repository.count("SELECT private.refresh_current_positions(%s)") == 2
+    # add / correct / reversal-only delete all refresh the operational projection synchronously.
+    assert repository.count("SELECT private.refresh_current_positions(%s)") == 3
     assert '"current_positions","ledger_events","users"' in repository
 
 
