@@ -9,6 +9,7 @@ import pytest
 
 ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT / "jobs/intelligence-mart"))
+from intelligence_mart.analytics_reader import AnalyticsSnapshot, AnalyticsSnapshotReader, IcebergSnapshotReader
 from intelligence_mart.specialists import (analyze_specialists, discounted_cash_flow, reverse_dcf,
                                          screening, risk_metrics, digest, validated_inputs)
 from intelligence_mart.specialist_runtime import specialist_processor
@@ -27,11 +28,13 @@ def source():
 
 
 
-def test_exact_snapshot_loader_emits_b0_scan_telemetry():
+def test_iceberg_snapshot_reader_preserves_exact_snapshot_semantics():
     class Arrow:
         def to_pylist(self):
-            return [{"symbol": "2330", "trade_date": "2026-10-06"},
-                    {"symbol": "2317", "trade_date": "2026-10-06"}]
+            return [
+                {"symbol": "2330", "trade_date": "2026-10-06", "close": 100, "provenance_id": "p1"},
+                {"symbol": "2330", "trade_date": "2026-10-06", "close": None, "provenance_id": "p2"},
+            ]
 
     class Scan:
         def plan_files(self):
@@ -53,18 +56,33 @@ def test_exact_snapshot_loader_emits_b0_scan_telemetry():
             assert identifier == "core.ohlcv_v1"
             return Table()
 
-    telemetry = {}
-    datasets = load_core_datasets(Catalog(), {"iceberg_tables": {"core.ohlcv_v1": {"snapshot_id": 42}}},
-                                 ("2330",), row_limit=10, telemetry=telemetry)
-    assert len(datasets["ohlcv"]) == 2
-    assert telemetry["source"] == "pyiceberg"
-    assert telemetry["total_rows"] == 2
-    assert telemetry["rows_by_dataset"] == {"ohlcv": 2}
-    assert telemetry["scan_evidence"]["ohlcv"] == {
+    manifest = {
+        "snapshot_id": "sha256:core",
+        "iceberg_tables": {"core.ohlcv_v1": {"snapshot_id": 42}},
+    }
+    reader = IcebergSnapshotReader(Catalog())
+    assert isinstance(reader, AnalyticsSnapshotReader)
+    result = reader.read(manifest, ("2330",), core_snapshot_id="sha256:core", row_limit=10)
+    assert result.core_snapshot_id == "sha256:core"
+    assert len(result.datasets["ohlcv"]) == 2
+    assert result.datasets["ohlcv"][1]["close"] is None
+    assert result.datasets["ohlcv"][1]["provenance_id"] == "p2"
+    assert result.datasets["ohlcv"][1]["__snapshot_id"] == 42
+    assert result.telemetry["source"] == "pyiceberg"
+    assert result.telemetry["core_snapshot_id"] == "sha256:core"
+    assert result.telemetry["total_rows"] == 2
+    assert result.telemetry["rows_by_dataset"] == {"ohlcv": 2}
+    assert result.telemetry["scan_evidence"]["ohlcv"] == {
         "table_identifier": "core.ohlcv_v1", "snapshot_id": 42, "row_count": 2,
         "symbol_filter_applied": True, "planned_file_count": 2, "planned_scan_bytes": 200,
         "actual_gcs_read_bytes": None, "planning_error_code": None,
     }
+
+    telemetry = {}
+    assert load_core_datasets(Catalog(), manifest, ("2330",), row_limit=10, telemetry=telemetry) == result.datasets
+    assert telemetry == result.telemetry
+    with pytest.raises(ValueError, match="identity mismatch"):
+        reader.read(manifest, ("2330",), core_snapshot_id="sha256:different", row_limit=10)
 
 def test_replay_is_deterministic_and_no_probabilities_are_invented():
     a = analyze_specialists(source(), "2330", "2026-05-01", "core")
@@ -352,17 +370,49 @@ def test_runtime_watch_only_held_only_overlap_off_market_and_exit(monkeypatch):
                {"symbol": "2330", "watchlisted": False, "held": True},
                {"symbol": "off-market", "watchlisted": False, "held": True}]
     monkeypatch.setattr("intelligence_mart.coverage.load_target_rows", lambda *args: members)
-    run = lambda identity: specialist_processor(AnalysisExecution(identity, "config", ("2330",), 0, options), None,
-                                               store_factory=stores.__getitem__, catalog_factory=lambda: SimpleNamespace())
+    monkeypatch.setattr(
+        "intelligence_mart.specialist_runtime.iceberg_snapshot_reader_from_environment",
+        lambda: (_ for _ in ()).throw(AssertionError("default Iceberg reader should not be constructed")),
+    )
+
+    readers = []
+    class InjectedReader:
+        def __init__(self):
+            self.closed = False
+            readers.append(self)
+        def read(self, manifest, requested_symbols, *, core_snapshot_id, row_limit=250_000):
+            assert manifest["snapshot_id"] == core_snapshot_id == "core"
+            assert requested_symbols == ("2330", "off-market")
+            datasets = {name: [dict(row) for row in rows] for name, rows in manifest["datasets"].items()}
+            rows_by_dataset = {name: len(rows) for name, rows in sorted(datasets.items())}
+            return AnalyticsSnapshot(
+                core_snapshot_id=core_snapshot_id,
+                datasets=datasets,
+                telemetry={"source": "injected-test", "core_snapshot_id": core_snapshot_id,
+                           "rows_by_dataset": rows_by_dataset, "total_rows": sum(rows_by_dataset.values()),
+                           "scan_evidence": {}},
+            )
+        def close(self):
+            self.closed = True
+
+    run = lambda identity: specialist_processor(
+        AnalysisExecution(identity, "config", ("2330",), 0, options),
+        None,
+        store_factory=stores.__getitem__,
+        reader_factory=InjectedReader,
+    )
     first = run("ex1")
     assert first["specialist_count"] == 10
     assert first["screening_count"] == 1
     assert first["publishable"] == 0
+    assert readers and readers[-1].closed
     assert run("ex1") == {k: v for k, v in first.items() if k != "artifact_hash"}
     saved = json.loads(stores["mart"].read("executions/ex1/specialist-manifest.json"))
+    assert saved["input_telemetry"]["source"] == "injected-test"
     assert "user_id" not in json.dumps(saved)
     assert {r["symbol"] for r in saved["specialists"]} == {"2330", "off-market"}
     members.pop()
     second = run("ex2")
     assert second["specialist_count"] == 5
+    assert readers[-1].closed
     assert json.loads(stores["mart"].read("executions/ex1/specialist-manifest.json")) == saved
