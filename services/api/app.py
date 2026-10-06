@@ -813,7 +813,10 @@ def create_app(repository: Any | None = None, store: Any | None = None,
 
     @private.get("/journal/pnl")
     def pnl(year:int=Query(...,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):
-        return jsonable_encoder(store.mart("mart_user_annual_pnl",current.user_id,year=year))
+        rows=store.mart("mart_user_annual_pnl",current.user_id,year=year)
+        if rows and max(row.get("ledger_version",0) for row in rows)!=repository.latest_ledger_version(current.user_id):
+            rows=[]
+        return jsonable_encoder(rows)
 
     @private.get("/journal/monthly-summary", response_model=MonthlyLedgerSummaryOut)
     def monthly_ledger_summary(year:int=Query(...,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):

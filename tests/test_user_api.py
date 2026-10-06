@@ -299,6 +299,13 @@ def test_monthly_journal_summary_is_typed_and_owner_scoped():
     assert "user_id" not in result.json()["items"][0]
 
 
+def test_annual_pnl_waits_for_the_latest_ledger_version():
+    api,repo,_=client()
+    repo.latest_ledger_version=lambda _user_id: 2
+    result=api.get("/api/v1/me/journal/pnl?year=2026",headers=auth())
+    assert result.status_code==200 and result.json()==[]
+
+
 def test_monthly_journal_summary_waits_for_the_latest_ledger_version():
     api,repo,_=client()
     repo.latest_ledger_version=lambda _user_id: 2
