@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from ingestion_core.batch_controller import Batch, PROJECT, REGION, due_batches, scheduled_batches, poll_job, job_active
+from ingestion_core.batch_controller import Batch, PROJECT, REGION, due_batches, scheduled_batches, poll_job, job_active, occurrence_env
 
 
 def test_multiple_daily_and_weekend_slots_have_distinct_identities():
@@ -43,7 +43,31 @@ def test_private_pipeline_effective_schedule_is_controller_owned():
     private_rows = [row for row in due_batches(after) if row[1].name == "private"]
     assert len(private_rows) == 1
     assert private_rows[0][0] == "private/2026-10-02/21"
-    assert private_rows[0][3] == ["ingestion/2026-10-02/07"]
+    assert private_rows[0][3] == ["ingestion/2026-10-02/14"]
+
+
+def test_ingestion_has_same_controller_eod_slot_with_same_day_price_scope():
+    from ingestion_core.batch_controller import BATCHES
+    ingestion = next(batch for batch in BATCHES if batch.name == "ingestion")
+    assert ingestion.hours == (7, 14)
+    now = datetime(2026, 10, 6, 6, 30, tzinfo=timezone.utc)  # 14:30 Asia/Taipei
+    rows = [row for row in due_batches(now) if row[1].name == "ingestion"]
+    assert [row[0] for row in rows] == [
+        "ingestion/2026-10-06/07",
+        "ingestion/2026-10-06/14",
+    ]
+    eod = rows[-1]
+    env = dict(occurrence_env(eod[1], eod[2]))
+    assert env["INGESTION_DATE"] == "2026-10-06"
+    assert env["INGESTION_DATASETS"] == "twse-market-volume,tpex-market-volume,taiex,tpex-benchmark"
+    assert "INGESTION_DATE" not in dict(occurrence_env(rows[0][1], rows[0][2]))
+
+
+def test_private_depends_on_latest_1430_ingestion_slot():
+    rows = due_batches(datetime(2026, 10, 6, 13, 30, tzinfo=timezone.utc))  # 21:30 Asia/Taipei
+    private = [row for row in rows if row[1].name == "private"]
+    assert len(private) == 1
+    assert private[0][3] == ["ingestion/2026-10-06/14"]
 
 
 def test_dependency_uses_latest_preceding_slot_and_original_private_time():
@@ -207,7 +231,7 @@ def test_mart_retention_precedes_core_retention_on_weekdays_and_weekends():
     for day in (2, 3):
         due = {batch.name: dependencies for _, batch, _, dependencies in
                due_batches(datetime(2026, 10, day, 15, 45, tzinfo=timezone.utc))}
-        assert due["mart-cleanup"] == [f"ingestion/2026-10-{day:02d}/07"]
+        assert due["mart-cleanup"] == [f"ingestion/2026-10-{day:02d}/14"]
         assert due["core-cleanup"] == [f"mart-cleanup/2026-10-{day:02d}/23"]
 
 

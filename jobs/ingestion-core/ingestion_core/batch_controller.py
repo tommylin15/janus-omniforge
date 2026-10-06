@@ -32,7 +32,7 @@ class Batch:
 
 
 BATCHES = (
-    Batch("ingestion", "janus-ingestion-core", (7,), env=(("QUEUE_CONSUMER", "false"), ("MART_JOB", ""), ("ICEBERG_MAINTENANCE_MODE", ""))),
+    Batch("ingestion", "janus-ingestion-core", (7, 14), env=(("QUEUE_CONSUMER", "false"), ("MART_JOB", ""), ("ICEBERG_MAINTENANCE_MODE", ""))),
     Batch("data-supplement", "janus-ingestion-core", (8,), dependencies=("ingestion",),
           env=(("JANUS_DATA_SUPPLEMENT_MODE", "daily"), ("JANUS_DATA_SUPPLEMENT_SYMBOLS", ""),
                ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""), ("ICEBERG_MAINTENANCE_MODE", ""))),
@@ -173,10 +173,20 @@ def job_active(session, job):
     return True
 
 
-def dispatch_job(session, batch):
+def occurrence_env(batch, slot: datetime) -> tuple[tuple[str, str], ...]:
+    """Resolve non-secret execution overrides once and persist them with the occurrence."""
+    values = dict(batch.env)
+    if batch.name == "ingestion" and slot.hour == 14 and slot.minute == 30:
+        values["INGESTION_DATE"] = slot.date().isoformat()
+        values["INGESTION_DATASETS"] = "twse-market-volume,tpex-market-volume,taiex,tpex-benchmark"
+    return tuple(sorted(values.items()))
+
+
+def dispatch_job(session, batch, env=None):
     """Caller must commit dispatch intent first; never automatically retry this POST."""
+    overrides = tuple(env) if env is not None else batch.env
     response = session.post(API + resource(batch.job) + ":run", json={"overrides": {
-        "taskCount": 1, "containerOverrides": [{"env": [{"name": name, "value": value} for name, value in batch.env]}]}}, timeout=15)
+        "taskCount": 1, "containerOverrides": [{"env": [{"name": name, "value": value} for name, value in overrides]}]}}, timeout=15)
     if response.status_code != 200:
         raise RuntimeError("dispatch response unavailable; reconcile before retry")
     return _identity(response.json().get("name"), "operation")
@@ -387,7 +397,7 @@ def run(*, now=None, session=None, control=None, core=None):
                 if slot < not_before:
                     continue
                 state = {"job": batch.job, "batch": batch.name, "status": "pending", "dependencies": dependencies,
-                         "scheduled_at": slot.isoformat()}
+                         "scheduled_at": slot.isoformat(), "env": list(occurrence_env(batch, slot))}
                 with connection.transaction(), connection.cursor() as cursor:
                     cursor.execute("INSERT INTO control.batch_occurrences(occurrence_id,scheduled_at,state) VALUES (%s,%s,%s::jsonb) ON CONFLICT DO NOTHING", (key, slot, json.dumps(state)))
         # Persisted pending slots survive midnight and controller restarts.
@@ -418,9 +428,11 @@ def run(*, now=None, session=None, control=None, core=None):
                     record(connection, tick, key, state, "manual_dependency_updated")
             else:
                 # Reconcile scheduled pending slots created before a dependency-policy change.
-                dependencies = next(row[3] for row in due_batches(datetime.fromisoformat(state["scheduled_at"])) if row[0] == key)
-                if dependencies != state["dependencies"]:
-                    state = {**state, "dependencies": dependencies}
+                due_row = next(row for row in due_batches(datetime.fromisoformat(state["scheduled_at"])) if row[0] == key)
+                dependencies = due_row[3]
+                expected_env = list(occurrence_env(batch, due_row[2]))
+                if dependencies != state["dependencies"] or state.get("env") != expected_env:
+                    state = {**state, "dependencies": dependencies, "env": expected_env}
                     record(connection, tick, key, state, "dependency_policy_updated")
             with connection.cursor() as cursor:
                 statuses = {}
@@ -438,7 +450,7 @@ def run(*, now=None, session=None, control=None, core=None):
             state = {**state, "status": "dispatching"}
             record(connection, tick, key, state, "dispatch_intent")
             try:
-                operation = dispatch_job(session, batch)
+                operation = dispatch_job(session, batch, state.get("env"))
                 state = {**state, "status": "running", "operation": operation}
             except Exception:
                 state = {**state, "status": "ambiguous", "reason": "inspect_cloud_execution_before_manual_recovery"}
