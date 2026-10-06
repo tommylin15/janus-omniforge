@@ -682,6 +682,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @private.post("/journal/events/{event_id}/reversals", status_code=201)
     def reverse_ledger(event_id:UUID,value:LedgerReversalIn,background_tasks:BackgroundTasks,
                        current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
+        """Append a reversal-only event; the original ledger row remains immutable for audit."""
         result=repository.reverse_ledger(current.user_id,event_id,value.expected_version,idempotency_key)
         background_tasks.add_task(recalculate_private_mart_safely,current.user_id)
         return jsonable_encoder(result)
