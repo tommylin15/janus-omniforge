@@ -76,7 +76,11 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
                 "reports": saved["specialist_count"] // 5, "publishable": 0,
                 "specialist_status": saved["specialist_status"], "screening_count": saved["screening_count"],
                 "screening_quality": saved.get("screening_quality"),
-                "specialist_count": saved["specialist_count"]}
+                "specialist_count": saved["specialist_count"], "input_row_count": saved.get("input_row_count"),
+                "rows_by_dataset": saved.get("input_telemetry", {}).get("rows_by_dataset", {}),
+                "scan_evidence": saved.get("input_telemetry", {}).get("scan_evidence", {}),
+                "screening_output_hash": saved.get("screening_output_hash"),
+                "evaluation_output_hash": saved.get("evaluation_output_hash")}
     target, target_ref = load_or_create_target_snapshot(publication_connection, execution.execution_id,
                                                        as_of, store, bucket)
     membership = load_market_membership(publication_connection, as_of)
@@ -90,8 +94,10 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
                                            if name.split(".", 1)[1][:-3].replace("_", "-") in required})
         if "datasets" in core:
             inputs["datasets"] = {name: rows for name, rows in core["datasets"].items() if name in required}
+        input_telemetry = {}
         datasets = load_core_datasets(catalog, inputs, symbols,
-                                     row_limit=int(os.environ.get("CORE_SNAPSHOT_ROW_LIMIT", "250000")))
+                                     row_limit=int(os.environ.get("CORE_SNAPSHOT_ROW_LIMIT", "250000")),
+                                     telemetry=input_telemetry)
     finally:
         engine = getattr(catalog, "engine", None)
         if engine is not None:
@@ -120,6 +126,8 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
                 "core_snapshot_id": execution.core_snapshot_id, "engine_version": VERSION,
                 "target_snapshot": target_ref, "market_membership": market_ref, "screening": screen_ref,
                 "screening_count": len(screen), "specialist_count": len(references),
+                "input_row_count": input_telemetry.get("total_rows", sum(len(rows) for rows in datasets.values())),
+                "input_telemetry": input_telemetry, "screening_output_hash": screen_ref["artifact_hash"],
                 "screening_quality": screening_quality(screen),
                 "specialist_status": "partial" if any(r["status"] != "ready" for r in references) else "ready",
                 "specialists": references, "llm_api_tokens": 0, "ceo_triggered": False,
@@ -128,12 +136,18 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
         from .evaluation import evaluate_core_history
         evaluations = evaluate_core_history(datasets, target["symbols"], as_of, execution.core_snapshot_id)
         manifest["evaluation"] = _write_immutable_json(store, bucket, f"executions/{execution.execution_id}/oos-evaluation.json", evaluations)
+        manifest["evaluation_output_hash"] = manifest["evaluation"]["artifact_hash"]
     manifest["output_hash"] = digest(manifest)
     ref = _write_immutable_json(store, bucket, manifest_name, manifest)
     return {**ref, "core_snapshot_id": execution.core_snapshot_id, "reports": len(target["symbols"]),
             "publishable": 0, "specialist_status": manifest["specialist_status"],
             "screening_quality": manifest["screening_quality"],
-            "screening_count": len(screen), "specialist_count": len(references)}
+            "screening_count": len(screen), "specialist_count": len(references),
+            "input_row_count": manifest["input_row_count"],
+            "rows_by_dataset": manifest["input_telemetry"].get("rows_by_dataset", {}),
+            "scan_evidence": manifest["input_telemetry"].get("scan_evidence", {}),
+            "screening_output_hash": manifest["screening_output_hash"],
+            "evaluation_output_hash": manifest.get("evaluation_output_hash")}
 
 
 def run_acceptance():
@@ -164,6 +178,20 @@ def latest_training_input(store, today):
             "coreSnapshotId": core["snapshot_id"], "coreSnapshotUri": f"gs://{store.bucket}/{item['name']}",
             "coreSnapshotHash": "sha256:" + sha256(raw).hexdigest(), "martSchemaVersion": "1",
             "featureVersion": "2", "modelVersion": "deterministic-v1", "governanceSnapshotVersion": "gov-1", "scopes": []}
+
+
+def run_baseline():
+    """B0 read/compute baseline on the latest immutable dev Core snapshot; never promotes a model."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from ingestion_core.stage import GcsObjectStore
+    if os.environ.get("GCP_PROJECT_ID") != "gen-lang-client-0593591102" or os.environ.get("MART_BUCKET") != "gen-lang-client-0593591102-dev-mart":
+        raise ValueError("baseline is restricted to existing dev resources")
+    if os.environ.get("MART_OOS_EVALUATION", "false").lower() != "true":
+        raise ValueError("baseline requires OOS evaluation")
+    store = GcsObjectStore("gen-lang-client-0593591102-dev-core")
+    event = latest_training_input(store, datetime.now(ZoneInfo("Asia/Taipei")).date())
+    return _run_event(event, "specialist-baseline")
 
 
 def run_retraining():
@@ -202,5 +230,7 @@ def _run_event(event, operation):
                         sslmode=os.environ.get("PUBLICATION_DB_SSLMODE", "require"), connect_timeout=5) as connection:
         result = specialist_processor(execution, connection)
     return {"component": "intelligence-mart", "operation": operation, "execution_id": execution.execution_id,
-            "llm_api_tokens": 0, "elapsed_seconds": round(time.monotonic() - started, 3),
+            "analysis_as_of": options["analysis_as_of"], "core_snapshot_uri": options["core_snapshot_uri"],
+            "core_snapshot_hash": options["core_snapshot_hash"], "llm_api_tokens": 0,
+            "elapsed_seconds": round(time.monotonic() - started, 3),
             "peak_rss_mib": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024, 2), **result}

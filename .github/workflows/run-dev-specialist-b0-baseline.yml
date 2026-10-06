@@ -1,0 +1,108 @@
+name: Run dev specialist B0 baseline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/dev-specialist-b0-baseline-request.json'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: dev-specialist-b0-baseline
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_REGION: us-central1
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate committed baseline request
+        id: request
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          file='ops/dev-specialist-b0-baseline-request.json'
+          [[ -f "${file}" ]] || { echo 'missing baseline request file' >&2; exit 2; }
+          [[ "$(jq -r '.enabled // false' "${file}")" == 'true' ]] || { echo 'enabled=false; no execution'; exit 0; }
+          [[ "$(jq -r '.operation // ""' "${file}")" == 'specialist-baseline' ]] || { echo 'unsupported operation' >&2; exit 2; }
+          request_id="$(jq -r '.request_id // ""' "${file}")"
+          expected_sha="$(jq -r '.expected_git_sha // ""' "${file}")"
+          [[ "${request_id}" =~ ^[A-Za-z0-9._-]{1,80}$ ]] || { echo 'invalid request_id' >&2; exit 2; }
+          [[ "${expected_sha}" =~ ^[0-9a-f]{40}$ ]] || { echo 'invalid expected_git_sha' >&2; exit 2; }
+          echo "request_id=${request_id}" >> "${GITHUB_OUTPUT}"
+          echo "expected_sha=${expected_sha}" >> "${GITHUB_OUTPUT}"
+          echo 'enabled=true' >> "${GITHUB_OUTPUT}"
+      - uses: google-github-actions/auth@v2
+        if: steps.request.outputs.enabled == 'true'
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+        if: steps.request.outputs.enabled == 'true'
+      - name: Verify deployed Mart image matches request
+        if: steps.request.outputs.enabled == 'true'
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ steps.request.outputs.expected_sha }}
+        run: |
+          set -Eeuo pipefail
+          job_json="$(gcloud run jobs describe janus-intelligence-mart --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json)"
+          runtime_sha="$(jq -r '[.spec.template.template.containers[0].env[]? | select(.name == "JANUS_GIT_SHA") | .value] | last // ""' <<<"${job_json}")"
+          [[ "${runtime_sha}" == "${EXPECTED_SHA}" ]] || {
+            echo "Mart runtime SHA mismatch: expected ${EXPECTED_SHA}, got ${runtime_sha:-missing}" >&2
+            exit 3
+          }
+      - name: Execute fixed-snapshot B0 baseline
+        if: steps.request.outputs.enabled == 'true'
+        shell: bash
+        env:
+          REQUEST_ID: ${{ steps.request.outputs.request_id }}
+        run: |
+          set -Eeuo pipefail
+          mkdir -p runtime-evidence
+          gcloud run jobs execute janus-intelligence-mart             --project="${GCP_PROJECT_ID}"             --region="${GCP_REGION}"             --update-env-vars="MART_OPERATION=specialist-baseline,MART_OOS_EVALUATION=true,MART_AI_ENABLED=false,B0_REQUEST_ID=${REQUEST_ID}"             --tasks=1             --task-timeout=30m             --wait
+          execution="$(gcloud run jobs executions list             --job=janus-intelligence-mart --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}"             --sort-by='~metadata.creationTimestamp' --limit=1 --format='value(metadata.name)')"
+          [[ "${execution}" =~ ^janus-intelligence-mart-[a-z0-9-]{1,80}$ ]] || {
+            echo "invalid execution name: ${execution}" >&2
+            exit 4
+          }
+          printf '%s\n' "${execution}" > runtime-evidence/execution-name.txt
+          gcloud run jobs executions describe "${execution}"             --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json             > runtime-evidence/execution.json
+          gcloud logging read             "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"janus-intelligence-mart\" AND labels.\"run.googleapis.com/execution_name\"=\"${execution}\""             --project="${GCP_PROJECT_ID}" --freshness=2h --limit=300 --order=desc --format=json             > runtime-evidence/logs.json
+          jq -c '[.[] | .jsonPayload? | select(.operation == "specialist-baseline")] | first // empty'             runtime-evidence/logs.json > runtime-evidence/b0-baseline.json
+          [[ -s runtime-evidence/b0-baseline.json ]] || {
+            echo 'missing structured specialist-baseline result' >&2
+            exit 5
+          }
+          jq -e '
+            .component == "intelligence-mart" and
+            .operation == "specialist-baseline" and
+            (.core_snapshot_id | type == "string" and length > 0) and
+            (.core_snapshot_hash | test("^sha256:[0-9a-f]{64}$")) and
+            (.input_row_count | type == "number" and . > 0) and
+            (.rows_by_dataset | type == "object") and
+            (.scan_evidence | type == "object") and
+            (.screening_count | type == "number" and . > 0 and . <= 500) and
+            (.screening_output_hash | test("^sha256:[0-9a-f]{64}$")) and
+            (.evaluation_output_hash | test("^sha256:[0-9a-f]{64}$")) and
+            (.elapsed_seconds | type == "number" and . >= 0) and
+            (.peak_rss_mib | type == "number" and . > 0) and
+            .llm_api_tokens == 0
+          ' runtime-evidence/b0-baseline.json >/dev/null
+          jq '{operation,execution_id,analysis_as_of,core_snapshot_id,core_snapshot_uri,core_snapshot_hash,input_row_count,rows_by_dataset,scan_evidence,screening_count,screening_quality,screening_output_hash,evaluation_output_hash,elapsed_seconds,peak_rss_mib,llm_api_tokens}'             runtime-evidence/b0-baseline.json
+      - name: Upload bounded B0 runtime evidence
+        if: always() && steps.request.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: specialist-b0-baseline-${{ github.run_id }}
+          path: runtime-evidence/*
+          if-no-files-found: warn
+          retention-days: 14

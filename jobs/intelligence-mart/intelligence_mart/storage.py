@@ -64,7 +64,7 @@ def sql_catalog_from_environment() -> Any:
 
 
 def load_core_datasets(catalog: Any, manifest: dict[str, Any], requested_symbols: tuple[str, ...],
-                       *, row_limit: int = 250_000) -> dict[str, list[dict[str, Any]]]:
+                       *, row_limit: int = 250_000, telemetry: dict[str, Any] | None = None) -> dict[str, list[dict[str, Any]]]:
     """Read only snapshot IDs carried by the immutable Core manifest."""
     embedded = manifest.get("datasets")
     if embedded is not None:
@@ -73,13 +73,19 @@ def load_core_datasets(catalog: Any, manifest: dict[str, Any], requested_symbols
             raise ValueError("Core manifest datasets must be arrays")
         if sum(map(len, embedded.values())) > row_limit:
             raise ValueError("Core snapshot row limit exceeded")
-        return {str(name): [dict(row) for row in rows] for name, rows in embedded.items()}
+        result = {str(name): [dict(row) for row in rows] for name, rows in embedded.items()}
+        if telemetry is not None:
+            rows_by_dataset = {name: len(rows) for name, rows in sorted(result.items())}
+            telemetry.update({"source": "embedded", "rows_by_dataset": rows_by_dataset,
+                              "total_rows": sum(rows_by_dataset.values()), "scan_evidence": {}})
+        return result
     tables = manifest.get("iceberg_tables", {})
     if not isinstance(tables, dict):
         raise ValueError("Core manifest iceberg_tables must be an object")
     from pyiceberg.expressions import In
 
     datasets: dict[str, list[dict[str, Any]]] = {}
+    scan_evidence: dict[str, dict[str, Any]] = {}
     remaining = row_limit
     for identifier, fence in sorted(tables.items()):
         if remaining <= 0:
@@ -97,9 +103,32 @@ def load_core_datasets(catalog: Any, manifest: dict[str, Any], requested_symbols
         if filter_ is not None:
             scan_options["row_filter"] = filter_
         scan = table.scan(**scan_options)
+        planned_file_count = None
+        planned_scan_bytes = None
+        planning_error_code = None
+        if telemetry is not None:
+            try:
+                tasks = list(scan.plan_files())
+                planned_file_count = len(tasks)
+                task_lengths = [getattr(task, "length", None) for task in tasks]
+                if all(isinstance(length, int) and length >= 0 for length in task_lengths):
+                    planned_scan_bytes = sum(task_lengths)
+            except Exception as error:  # telemetry is best-effort and must not change the read path
+                planning_error_code = type(error).__name__.upper()[:64]
         rows = scan.to_arrow().to_pylist()
         remaining -= len(rows)
         if remaining < 0:
             raise ValueError("Core snapshot row limit exceeded")
         datasets[dataset_id] = [dict(row, __table_identifier=identifier, __snapshot_id=fence["snapshot_id"]) for row in rows]
+        if telemetry is not None:
+            scan_evidence[dataset_id] = {
+                "table_identifier": str(identifier), "snapshot_id": int(fence["snapshot_id"]),
+                "row_count": len(rows), "symbol_filter_applied": filter_ is not None,
+                "planned_file_count": planned_file_count, "planned_scan_bytes": planned_scan_bytes,
+                "actual_gcs_read_bytes": None, "planning_error_code": planning_error_code,
+            }
+    if telemetry is not None:
+        rows_by_dataset = {name: len(rows) for name, rows in sorted(datasets.items())}
+        telemetry.update({"source": "pyiceberg", "rows_by_dataset": rows_by_dataset,
+                          "total_rows": sum(rows_by_dataset.values()), "scan_evidence": scan_evidence})
     return datasets

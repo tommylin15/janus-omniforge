@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "jobs/intelligence-mart"))
 from intelligence_mart.specialists import (analyze_specialists, discounted_cash_flow, reverse_dcf,
                                          screening, risk_metrics, digest, validated_inputs)
 from intelligence_mart.specialist_runtime import specialist_processor
+from intelligence_mart.storage import load_core_datasets
 from intelligence_mart.runtime import AnalysisExecution
 
 
@@ -24,6 +25,46 @@ def source():
     return {"ohlcv": prices, "events": [], "benchmark": [dict(r, symbol=None, benchmark_id="TAIEX", close=10000 + i)
                                                             for i, r in enumerate(prices)]}
 
+
+
+def test_exact_snapshot_loader_emits_b0_scan_telemetry():
+    class Arrow:
+        def to_pylist(self):
+            return [{"symbol": "2330", "trade_date": "2026-10-06"},
+                    {"symbol": "2317", "trade_date": "2026-10-06"}]
+
+    class Scan:
+        def plan_files(self):
+            return [SimpleNamespace(length=120), SimpleNamespace(length=80)]
+        def to_arrow(self):
+            return Arrow()
+
+    class Table:
+        def schema(self):
+            return SimpleNamespace(fields=[SimpleNamespace(name="symbol"), SimpleNamespace(name="trade_date")])
+        def scan(self, **kwargs):
+            assert kwargs["snapshot_id"] == 42
+            assert kwargs["limit"] == 11
+            assert "row_filter" in kwargs
+            return Scan()
+
+    class Catalog:
+        def load_table(self, identifier):
+            assert identifier == "core.ohlcv_v1"
+            return Table()
+
+    telemetry = {}
+    datasets = load_core_datasets(Catalog(), {"iceberg_tables": {"core.ohlcv_v1": {"snapshot_id": 42}}},
+                                 ("2330",), row_limit=10, telemetry=telemetry)
+    assert len(datasets["ohlcv"]) == 2
+    assert telemetry["source"] == "pyiceberg"
+    assert telemetry["total_rows"] == 2
+    assert telemetry["rows_by_dataset"] == {"ohlcv": 2}
+    assert telemetry["scan_evidence"]["ohlcv"] == {
+        "table_identifier": "core.ohlcv_v1", "snapshot_id": 42, "row_count": 2,
+        "symbol_filter_applied": True, "planned_file_count": 2, "planned_scan_bytes": 200,
+        "actual_gcs_read_bytes": None, "planning_error_code": None,
+    }
 
 def test_replay_is_deterministic_and_no_probabilities_are_invented():
     a = analyze_specialists(source(), "2330", "2026-05-01", "core")
