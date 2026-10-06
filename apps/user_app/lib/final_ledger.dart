@@ -30,7 +30,9 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   int section = 0;
   int recordGrouping = 0;
   int yearFilter = DateTime.now().year;
-  late Future<List<dynamic>> data = load();
+  final Map<String, Future<dynamic>> requestCache = {};
+  late Future<List<dynamic>> coreData = loadCore();
+  Future<List<dynamic>>? sectionData;
   Timer? quoteTimer;
   bool quoteBusy = false;
   bool foreground = true;
@@ -141,22 +143,18 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     }
   }
 
-  Future<List<dynamic>> load() async {
+  Future<dynamic> cached(String path) =>
+      requestCache.putIfAbsent(path, () => safe(path));
+
+  Future<List<dynamic>> loadCore() async {
     final stopwatch = Stopwatch()..start();
     final currentYear = DateTime.now().year;
-    final selectedYear = yearFilter;
     try {
       return await Future.wait([
-        safe('/api/v1/me/portfolio/summary'),
-        safe('/api/v1/me/journal/pnl?year=$currentYear'),
-        safe('/api/v1/me/journal/positions'),
-        safe('/api/v1/me/journal/history?year=$selectedYear'),
-        safe('/api/v1/me/journal/monthly-summary?year=$selectedYear'),
-        safe('/api/v1/me/portfolio/performance?year=$selectedYear'),
-        safe('/api/v1/me/notes'),
-        safe('/api/v1/me/journal/symbol-summary?year=$selectedYear'),
-        safe('/api/v1/me/journal/pnl?year=$selectedYear'),
-        safe('/api/v1/me/journal/history?year=$currentYear'),
+        cached('/api/v1/me/portfolio/summary'),
+        cached('/api/v1/me/journal/pnl?year=$currentYear'),
+        cached('/api/v1/me/journal/positions'),
+        cached('/api/v1/me/journal/history?year=$currentYear'),
       ]);
     } finally {
       stopwatch.stop();
@@ -164,11 +162,31 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     }
   }
 
+  Future<List<dynamic>> loadSection(int target, int year) {
+    return switch (target) {
+      1 => Future.wait([
+          cached('/api/v1/me/journal/history?year=$year'),
+          cached('/api/v1/me/journal/monthly-summary?year=$year'),
+          cached('/api/v1/me/journal/symbol-summary?year=$year'),
+        ]),
+      2 => Future.wait([
+          cached('/api/v1/me/journal/pnl?year=$year'),
+          cached('/api/v1/me/portfolio/performance?year=$year'),
+          cached('/api/v1/me/journal/monthly-summary?year=$year'),
+          cached('/api/v1/me/journal/history?year=$year'),
+        ]),
+      3 => Future.wait([cached('/api/v1/me/notes')]),
+      _ => Future.value(const <dynamic>[]),
+    };
+  }
+
   void reload() {
     quoteGeneration++;
     quoteTimer?.cancel();
     setState(() {
-      data = load();
+      requestCache.clear();
+      coreData = loadCore();
+      sectionData = section == 0 ? null : loadSection(section, yearFilter);
       intraday = null;
       quoteError = null;
       quoteBusy = false;
@@ -184,7 +202,9 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     if (year == yearFilter) return;
     setState(() {
       yearFilter = year;
-      data = load();
+      if (section == 1 || section == 2) {
+        sectionData = loadSection(section, year);
+      }
     });
   }
 
@@ -749,26 +769,37 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
         ],
       );
 
+  Widget lazySection(
+    Future<List<dynamic>>? future,
+    String loading,
+    Widget Function(List<dynamic>) builder,
+  ) {
+    if (future == null) return fvBoundedState(loading);
+    return FutureBuilder<List<dynamic>>(
+      future: future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return fvBoundedState(loading);
+        }
+        return builder(snapshot.data ?? const <dynamic>[]);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) => ColoredBox(
         color: fvCanvas,
         child: SafeArea(
           bottom: false,
           child: FutureBuilder<List<dynamic>>(
-            future: data,
+            future: coreData,
             builder: (context, snapshot) {
-              final values = snapshot.data ??
-                  const [null, null, null, null, null, null, null, null, null, null];
+              final values =
+                  snapshot.data ?? const [null, null, null, null];
               final summary = fvRows(values[0]);
               final currentPnl = fvRows(values[1]);
               final canonicalPositions = fvRows(values[2]);
-              final history = fvRows(values[3]);
-              final monthly = fvRows(values[4]);
-              final performance = fvRows(values[5]);
-              final noteRows = fvRows(values[6]);
-              final symbolSummary = fvRows(values[7]);
-              final reportPnl = fvRows(values[8]);
-              final currentHistory = fvRows(values[9]);
+              final currentHistory = fvRows(values[3]);
               final quotePositions = section == 0 && intraday != null
                   ? fvRows(intraday!['positions'])
                   : const <dynamic>[];
@@ -785,34 +816,46 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                   : summary.isEmpty
                       ? <String, dynamic>{}
                       : fvMap(summary.first);
+              final coreLoading =
+                  snapshot.connectionState != ConnectionState.done;
               final withheld = aggregate['aggregate_status'] == 'withheld';
               final currency = fvText(aggregate['currency'], missing: 'TWD');
               final marketValue = withheld
                   ? '總額暫不發布'
                   : aggregate.isEmpty
-                      ? '資料不足'
+                      ? coreLoading
+                          ? '載入中'
+                          : '資料不足'
                       : '$currency ${legacy.accountingNumber(aggregate['market_value'], missing: '資料不足')}';
               final unrealized = withheld
                   ? '總額暫不發布'
                   : aggregate.isEmpty
-                      ? '資料不足'
+                      ? coreLoading
+                          ? '載入中'
+                          : '資料不足'
                       : '$currency ${legacy.accountingNumber(aggregate['unrealized_pnl'], missing: '資料不足')}';
               final unrealizedReturn = withheld
                   ? '總額暫不發布'
                   : aggregate.isEmpty
-                      ? '資料不足'
-                      : legacy.portfolioReturnLabel(aggregate['unrealized_return']);
+                      ? coreLoading
+                          ? '載入中'
+                          : '資料不足'
+                      : legacy.portfolioReturnLabel(
+                          aggregate['unrealized_return'],
+                        );
               final pnlUnavailable = values[1] == null;
-              final historyUnavailable = values[9] == null;
-              final ytd = pnlUnavailable || historyUnavailable
-                  ? '資料不足'
-                  : currentPnl.isNotEmpty
-                      ? currentPnl.length == 1
-                          ? '${fvText(fvMap(currentPnl.first)['currency'], missing: 'TWD')} ${legacy.accountingNumber(fvMap(currentPnl.first)['realized_pnl'])}'
-                          : '多幣別'
-                      : withheld || currentHistory.isNotEmpty
-                          ? '待更新／尚未確認'
-                          : '0';
+              final historyUnavailable = values[3] == null;
+              final ytd = coreLoading
+                  ? '載入中'
+                  : pnlUnavailable || historyUnavailable
+                      ? '資料不足'
+                      : currentPnl.isNotEmpty
+                          ? currentPnl.length == 1
+                              ? '${fvText(fvMap(currentPnl.first)['currency'], missing: 'TWD')} ${legacy.accountingNumber(fvMap(currentPnl.first)['realized_pnl'])}'
+                              : '多幣別'
+                          : withheld || currentHistory.isNotEmpty
+                              ? '待更新／尚未確認'
+                              : '0';
               final affected = fvRows(aggregate['affected_symbols']);
 
               return ListView(
@@ -862,7 +905,11 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                       quoteGeneration++;
                       quoteBusy = false;
                       quoteTimer?.cancel();
-                      setState(() => section = next);
+                      setState(() {
+                        section = next;
+                        sectionData =
+                            next == 0 ? null : loadSection(next, yearFilter);
+                      });
                       if (next == 0) {
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           if (mounted) startQuotes();
@@ -872,85 +919,116 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                     showSelectedIcon: false,
                   ),
                   const SizedBox(height: 12),
-                  if (snapshot.connectionState != ConnectionState.done)
-                    fvBoundedState('Ledger 資料載入中')
-                  else ...[
-                    if (section == 0) ...[
-                      fvSectionTitle(context, '持股'),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          OutlinedButton.icon(
-                            onPressed: quoteBusy ? null : () => refreshQuotes(force: true),
-                            icon: const Icon(Icons.refresh, size: 18),
-                            label: Text(quoteBusy ? '更新中' : '更新持股股價'),
+                  if (section == 0) ...[
+                    fvSectionTitle(context, '持股'),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: quoteBusy
+                              ? null
+                              : () => refreshQuotes(force: true),
+                          icon: const Icon(Icons.refresh, size: 18),
+                          label: Text(
+                            quoteBusy ? '更新中' : '更新持股股價',
                           ),
-                          FilledButton.icon(
-                            onPressed: addTrade,
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text('新增交易'),
-                            style: FilledButton.styleFrom(backgroundColor: fvTeal),
+                        ),
+                        FilledButton.icon(
+                          onPressed: addTrade,
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('新增交易'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: fvTeal,
                           ),
-                        ],
-                      ),
-                      if (intraday != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          '最新行情 · ${fvText(intraday!['checked_at'])} · ${intraday!['session'] == 'regular' ? '盤中' : intraday!['session'] == 'closing_pending_eod' ? '收盤待正式資料' : '正式／休市'}',
-                          style: const TextStyle(color: fvMuted, fontSize: 11),
                         ),
                       ],
-                      if (quoteError != null) ...[
-                        const SizedBox(height: 8),
-                        fvBoundedState(quoteError!),
-                      ],
+                    ),
+                    if (intraday != null) ...[
                       const SizedBox(height: 8),
+                      Text(
+                        '最新行情 · ${fvText(intraday!['checked_at'])} · ${intraday!['session'] == 'regular' ? '盤中' : intraday!['session'] == 'closing_pending_eod' ? '收盤待正式資料' : '正式／休市'}',
+                        style: const TextStyle(
+                          color: fvMuted,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                    if (quoteError != null) ...[
+                      const SizedBox(height: 8),
+                      fvBoundedState(quoteError!),
+                    ],
+                    const SizedBox(height: 8),
+                    if (coreLoading && intraday == null)
+                      fvBoundedState('持股資料載入中')
+                    else
                       holdings(positions),
-                    ],
-                    if (section == 1) ...[
-                      fvSectionTitle(
-                        context,
-                        '紀錄',
-                        trailing: '$yearFilter 年',
-                      ),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: yearSelector(),
-                      ),
-                      const SizedBox(height: 10),
-                      records(history, monthly, symbolSummary),
-                    ],
-                    if (section == 2) ...[
-                      fvSectionTitle(
-                        context,
-                        '報表',
-                        trailing: '$yearFilter 年',
-                      ),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: yearSelector(),
-                      ),
-                      const SizedBox(height: 10),
-                      reports(
+                  ],
+                  if (section == 1) ...[
+                    fvSectionTitle(
+                      context,
+                      '紀錄',
+                      trailing: '$yearFilter 年',
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: yearSelector(),
+                    ),
+                    const SizedBox(height: 10),
+                    lazySection(sectionData, '紀錄載入中', (detail) {
+                      final history =
+                          fvRows(detail.isNotEmpty ? detail[0] : null);
+                      final monthly =
+                          fvRows(detail.length > 1 ? detail[1] : null);
+                      final symbolSummary =
+                          fvRows(detail.length > 2 ? detail[2] : null);
+                      return records(history, monthly, symbolSummary);
+                    }),
+                  ],
+                  if (section == 2) ...[
+                    fvSectionTitle(
+                      context,
+                      '報表',
+                      trailing: '$yearFilter 年',
+                    ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: yearSelector(),
+                    ),
+                    const SizedBox(height: 10),
+                    lazySection(sectionData, '報表載入中', (detail) {
+                      final reportPnl =
+                          fvRows(detail.isNotEmpty ? detail[0] : null);
+                      final performance =
+                          fvRows(detail.length > 1 ? detail[1] : null);
+                      final monthly =
+                          fvRows(detail.length > 2 ? detail[2] : null);
+                      final history =
+                          fvRows(detail.length > 3 ? detail[3] : null);
+                      final selectedYtd = yearFilter == DateTime.now().year
+                          ? ytd
+                          : reportPnl.isNotEmpty
+                              ? reportPnl.length == 1
+                                  ? '${fvText(fvMap(reportPnl.first)['currency'], missing: 'TWD')} ${legacy.accountingNumber(fvMap(reportPnl.first)['realized_pnl'])}'
+                                  : '多幣別'
+                              : history.isNotEmpty
+                                  ? '待更新／尚未確認'
+                                  : '0';
+                      return reports(
                         reportPnl,
                         performance,
                         monthly: monthly,
-                        ytd: yearFilter == DateTime.now().year
-                            ? ytd
-                            : reportPnl.isNotEmpty
-                                ? reportPnl.length == 1
-                                    ? '${fvText(fvMap(reportPnl.first)['currency'], missing: 'TWD')} ${legacy.accountingNumber(fvMap(reportPnl.first)['realized_pnl'])}'
-                                    : '多幣別'
-                                : history.isNotEmpty
-                                    ? '待更新／尚未確認'
-                                    : '0',
-                      ),
-                    ],
-                    if (section == 3) ...[
-                      fvSectionTitle(context, '筆記'),
-                      notes(noteRows),
-                    ],
+                        ytd: selectedYtd,
+                      );
+                    }),
+                  ],
+                  if (section == 3) ...[
+                    fvSectionTitle(context, '筆記'),
+                    lazySection(sectionData, '筆記載入中', (detail) {
+                      final noteRows =
+                          fvRows(detail.isNotEmpty ? detail[0] : null);
+                      return notes(noteRows);
+                    }),
                   ],
                 ],
               );

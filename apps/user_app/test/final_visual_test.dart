@@ -778,4 +778,72 @@ void main() {
     expect(find.byKey(const Key('fv-kline-chart')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('Ledger initial holdings defers inactive section requests',
+      (tester) async {
+    mobileView(tester);
+    final year = DateTime.now().year;
+    final api = FinalFakeApi({
+      '/api/v1/me/portfolio/summary': {'items': const []},
+      '/api/v1/me/journal/pnl?year=$year': const [],
+      '/api/v1/me/journal/positions': const [],
+      '/api/v1/me/journal/history?year=$year': const [],
+      '/api/v1/me/portfolio/quotes': {
+        'positions': const [],
+        'items': const [],
+        'checked_at': '2026-10-06T14:00:00+08:00',
+        'market_open': false,
+      },
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FinalLedgerPage(
+            api,
+            now: () => DateTime.utc(2026, 10, 1, 6),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('更新持股股價'), findsOneWidget);
+    expect(
+      api.reads,
+      isNot(contains('/api/v1/me/journal/monthly-summary?year=$year')),
+    );
+    expect(
+      api.reads,
+      isNot(contains('/api/v1/me/journal/symbol-summary?year=$year')),
+    );
+    expect(
+      api.reads,
+      isNot(contains('/api/v1/me/portfolio/performance?year=$year')),
+    );
+    expect(api.reads, isNot(contains('/api/v1/me/notes')));
+
+    await tester.tap(find.text('紀錄'));
+    await tester.pumpAndSettle();
+
+    expect(
+      api.reads,
+      contains('/api/v1/me/journal/monthly-summary?year=$year'),
+    );
+    expect(
+      api.reads,
+      contains('/api/v1/me/journal/symbol-summary?year=$year'),
+    );
+    expect(
+      api.reads,
+      isNot(contains('/api/v1/me/portfolio/performance?year=$year')),
+    );
+    expect(api.reads, isNot(contains('/api/v1/me/notes')));
+
+    await tester.tap(find.text('筆記'));
+    await tester.pumpAndSettle();
+
+    expect(api.reads, contains('/api/v1/me/notes'));
+    expect(tester.takeException(), isNull);
+  });
+
 }
