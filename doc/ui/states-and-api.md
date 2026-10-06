@@ -1,6 +1,6 @@
 # Janus UI — 狀態語意與 API 契約
 
-更新：2026-10-03
+更新：2026-10-06
 
 ## 7. UI 狀態語意
 
@@ -41,6 +41,7 @@
 - `/api/v1/public/sectors/rotation?date=YYYY-MM-DD`
 - `/api/v1/public/topics?date=YYYY-MM-DD`
 - `/api/v1/public/candidates?date=YYYY-MM-DD`
+- `/api/v1/public/stock-header/{symbol}`
 - `/api/v1/public/stocks/{symbol}/health`
 - `/api/v1/public/stocks/{symbol}/reports`
 - `/api/v1/public/stocks/{symbol}/kline?period=D|W|M`
@@ -58,6 +59,10 @@
 - `POST /api/v1/me/journal/trades/{event_id}/corrections`
 - `GET /api/v1/me/journal/positions`
 - `GET /api/v1/me/journal/pnl?year=YYYY`
+- `GET /api/v1/me/journal/monthly-summary?year=YYYY`
+- `GET /api/v1/me/journal/symbol-summary?year=YYYY`
+- `GET /api/v1/me/portfolio/quotes`
+- `POST /api/v1/me/portfolio/quotes/refresh`
 - `POST /api/v1/me/journal/export`
 - `GET／POST /api/v1/me/notes`
 - `POST /api/v1/me/notes/{note_id}/revisions`
@@ -128,11 +133,12 @@ Profile 修改建立新 version，不覆寫舊 execution／artifact 的 effectiv
 
 ### 8.5 Transaction-record presentation contract
 
-Flutter 可依既有 history 做 year／month grouping；canonical accounting semantics 仍在 backend／Private Mart。
+Flutter 可依既有 history 做 year／month／symbol grouping；canonical accounting semantics 仍在 backend／Private Mart。
 
-若月份摘要要顯示 realized PnL、market value、unrealized PnL 或其他正式數字，必須來自現有 canonical endpoint 或新增 typed backend summary；不得由 Flutter 自訂會計公式。
-
-如 current endpoints 無法 bounded 提供所需 summary，先新增 additive API contract／tests／implementation，再把 UI 標成可用；planned presentation 不可假裝 endpoint 已存在。
+- 年度已實現損益使用 `/journal/pnl?year=YYYY`；月份與個股已實現損益分別使用 typed `monthly-summary`／`symbol-summary`。
+- 月份／個股群組預設收合，群組 summary **只呈現已實現損益**；買進支出、賣出回收、股利、交易筆數不再是群組標題必備資訊。
+- 展開後才顯示單筆交易；append-only correction action 必須仍可到達。
+- Flutter 不得自行把 history cash flow 加總成 authoritative realized PnL；typed aggregate unavailable 時顯示 pending／unavailable。
 
 ## 9. Auth／owner boundary
 

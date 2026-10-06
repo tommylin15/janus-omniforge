@@ -1,6 +1,6 @@
 # Janus — TODO
 
-版本：3.9（2026-10-06：加入 ChatGPT mobile ledger ingress）
+版本：3.10（2026-10-06：同步 latest-price／Ledger UX 與 runtime acceptance）
 用途：**只保留確定要做的 active work 與未完成 acceptance**。Deferred、Candidate、Observation、Production-only、已接受缺口與研究構想統一放 [`parking-lot.md`](parking-lot.md)；已完成／被取代內容放 `archive/`。
 
 ## 規則
@@ -80,9 +80,10 @@ Admin operational convergence **不重做整個 Admin**。保留 `總覽 / 批�
 
 ## A 組驗收交接
 
-非佇列 A 組實作、CI、dev deployment、四頁非 AI presentation、Admin 六頁／治理讀回已完成，證據移至 [結案紀錄](archive/group-a-nonqueue-live-closure-2026-10-06.md)。手機入口／效能由使用者確認完成，未提供的數值仍未知。
+非佇列 A 組主功能已完成實作、CI 與 dev runtime；既有證據見 [非佇列結案紀錄](archive/group-a-nonqueue-live-closure-2026-10-06.md)。2026-10-06 latest-price／Ledger UX 追加收斂亦已完成 implementation／CI／deployment，證據見 [latest-price／Ledger UI 驗收紀錄](archive/latest-price-ledger-ui-acceptance-2026-10-06.md)。Ledger 載入速度由使用者確認目前可接受；未提供 p95／裝置量測不補造。
 
 - [ ] **使用者另行驗收：交易佇列／真實 owner mutation／duplicate guard／transaction → Private Mart refresh。** 使用者仍在調整佇列，明確要求本對話先不驗；不得自行操作、重新 enqueue 或把其他列的已處理狀態當作此筆交易成功。Implementation 與 dev writer probe 已部署／通過，但此 live gate 不勾選。
+- [ ] **User App 最終手機畫面 readback（`c311d4b`）。** 僅確認本輪視覺結果：Stock Detail latest-price／最近收盤漲跌、個股未實現損益紅綠、Ledger 持股未實現損益紅綠、紀錄月份／個股預設收合與年度已實現損益。CI／Cloud Run 已 PASS；真實登入手機畫面尚未由使用者確認前維持 pending。
 
 ## B 組優先架構調整 acceptance
 

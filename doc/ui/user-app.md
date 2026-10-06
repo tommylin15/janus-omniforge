@@ -67,6 +67,10 @@ Primary content 固定順序：
 9. 可收合 `EvidenceAndSources`
 10. `ComplianceDisclaimer`
 
+`StockHeader` 顯示 latest-price resolver 的現價／正式收盤價與行情日；backend bounded 讀最近兩筆 canonical OHLCV，回傳 `previous_close/change/change_percent`。正值紅、負值綠、0／未知中性；Flutter 不另抓行情重算漲跌。
+
+「我的持股」價格／market value／unrealized PnL／return 優先讀 owner-scoped `/api/v1/me/portfolio/quotes` latest-price valuation；`/journal/positions` 只作 operational fallback，避免 Stock Header 已更新但持股卡仍停在舊價格。未實現損益與百分比同樣採獲利紅、虧損綠。
+
 K 線、deterministic Fact Pack、五 specialist outputs、CEO report、估值指標與完整 provenance 屬 Advanced section，預設位於 primary content 後且可收合。
 
 ### 5.3.1 五 specialist
@@ -140,7 +144,7 @@ Ledger／Holdings 一致性至少涵蓋 shares、cost／average cost、market va
 - YTD realized PnL；
 - valuation date／status。
 
-手機持股用可掃描 card：canonical name／symbol、shares、market price／average cost、unrealized PnL／return、price／valuation status。operational shares／cost 與 Private Mart valuation／PnL 的資料時間必須分開呈現。
+手機持股用可掃描 card：canonical name／symbol、shares、market price／average cost、unrealized PnL／return、price／valuation status。每檔都直接顯示未實現損益與百分比，正值紅、負值綠、0／未知中性；價格與未實現估值使用 latest-price resolver 回傳的 owner holdings valuation。operational shares／cost 與 canonical valuation／PnL 的資料時間仍須可判讀。
 
 持股分頁使用 latest-price resolver：盤中且 App 位於前景／持股分頁時每 1 分鐘 revalidate；盤後／休市進入持股分頁只讀 persistent latest state。保留可見的「更新股價」手動入口，backend 僅對 authenticated owner 的目前 TWSE 持股執行 MIS refresh；手動刷新略過 60 秒 TTL，但仍有 10 秒 hard throttle。離開持股、App 進背景或市場關閉後停止輪詢；沒有 App demand 時不執行每分鐘行情工作。更新失敗保留 PostgreSQL last-success 並明示報價狀態，不以失敗回應覆寫 canonical EOD／Private Mart。
 
@@ -152,20 +156,17 @@ YTD realized PnL 必須有明確 display semantics：
 
 ### 5.4.3 紀錄
 
-資訊架構：`年份 → 月份 → 單筆交易`。
+資訊架構：`年度 selector → 按月份／按個股 → 可收合群組 → 單筆交易`。
 
-月份摘要至少分開：
+- 年度 selector 至少涵蓋目前年度與前五年，並在同區直接顯示該年度 authoritative 已實現損益；多幣別、pending、資料不足不得硬湊單一數字。
+- 「按月份」與「按個股」的每個群組預設收合；群組標題只顯示分類名稱與 **已實現損益**，不再堆買進支出、賣出回收、股利收入、交易筆數等摘要。
+- 已清倉、目前不在持股清單中的股票仍可從歷史年度「按個股」查看。
+- 月份／個股／年度已實現損益都必須由 backend／Private Mart 使用同一 moving-average、fee／tax 與 correction semantics 產生；Flutter 不從畫面交易自行加總 authoritative PnL。
+- 展開群組後，單筆主視圖保持精簡：日期、event type、canonical name／symbol、適用時的 shares × price；完整 metadata 與 correction workflow 由 detail／「建立更正」承接。
 
-- 買進支出
-- 賣出回收
-- 股利收入
-- 已實現損益
+cash flow 與 PnL 不得混為同義。交易類型目前為買進、賣出、現金股利、股票股利；backend 負責 fee／tax rule 與 persisted rule/profile version。
 
-cash flow 與 PnL 不得混為同義。紀錄／報表必須保留年度 selector（至少涵蓋目前年度與前五年）；選定年度後，紀錄細項提供「按月份／按個股」切換，因此已清倉、目前不在持股清單中的股票仍可從歷史年度按個股查看。按個股彙總同樣分開買進支出、賣出回收、股利收入、已實現損益與交易筆數，且必須由 backend／Private Mart 使用同一 moving-average、fee／tax 與 correction semantics 產生，不由 Flutter 從目前畫面交易自行計算 authoritative aggregate。單筆顯示日期、event type、canonical name／symbol、適用時的 shares × price、net cash flow；detail 再顯示總額、fee、tax、currency、note、ledger metadata 與「建立更正」。
-
-交易類型目前為買進、賣出、現金股利、股票股利；backend 負責 fee／tax rule 與 persisted rule/profile version。
-
-切換到「紀錄」時，上方 holdings summary 仍讀共用 canonical state；Records 本身顯示 ledger transactions 與其 own as-of，但不得因 subview local state 保留過期 holdings snapshot。若 transaction mutation 已成功而 aggregate 尚未刷新，需明示 pending／checkpoint，不得默默顯示舊摘要。
+切換到「紀錄」時，上方 holdings summary 仍讀共用 canonical state；Records 本身顯示 ledger transactions 與其 own as-of。若 transaction mutation 已成功而 aggregate 尚未刷新，需明示 pending／checkpoint，不得默默顯示舊摘要。
 
 ### 5.4.4 報表／refresh semantics
 
@@ -231,6 +232,7 @@ TPEx／櫃買不再查詢、顯示或接受新 active coverage。
 - 主 navigation 頁保持 persistent state；切頁不無條件重送全部 API。
 - 不在 widget `build()` 內建立會因 rebuild 重送的 request future。
 - composite screen 使用 section-level loading／partial；已持久化資料可先顯示再 revalidate。
+- Ledger 首屏不得等待未啟用分頁：持股只載必要 core state 與 latest-price；紀錄／報表／筆記依切換 lazy load，頁內相同 GET 重用 request future，避免最慢 fan-out request 阻塞整頁。
 - backend latency root cause 必須先量測 auth、DB、Iceberg、fan-out、p50／p95；沒有 evidence 不預設 CPU／RAM／index 是原因。
 - high-frequency read 優先 bounded DB read model／cache／connection pool；GET 不做與讀取無關的 retirement write。
 

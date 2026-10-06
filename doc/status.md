@@ -4,11 +4,18 @@
 
 用途：只回答「現在在哪裡、下一步是什麼、哪些尚未完成」。實作以 GitHub `main` 為準，完成狀態以 tests／CI、deployment、live runtime、trigger／workload、integration evidence 為準。完整 active queue 只看 [`todo.md`](todo.md)。
 
-## 2026-10-06 A 組：非佇列工作完成，交易驗收交由使用者
+## 2026-10-06 A 組：非佇列主功能完成；人工 readback 仍有交接
 
-A 組非佇列範圍已完成實作、測試、GitHub 同步、既有 dev 部署與真實 authenticated 四頁／Admin 六頁讀回。最終 runtime `7a5a1f9`、Deploy `37426621108` success、Ready／100% traffic／build-id 一致；治理頁已取得公開清理 receipts。完整 [結案證據](archive/group-a-nonqueue-live-closure-2026-10-06.md)。
+A 組非佇列範圍已完成實作、測試、GitHub 同步與 dev deployment。2026-10-06 晚間追加完成 latest-price／Ledger UX 收斂：
 
-手機入口／效能依使用者明確指示結案，未提供 p95／樣本／裝置資訊不補造。使用者仍在調整交易佇列，要求本對話先不驗、由本人另行驗收；mutation／duplicate／刷新 gate 保留於 TODO，不宣稱該筆交易成功。A 整體尚有此人工驗收交接，B／C 未啟動。
+- `b360b51`：Ledger 首屏改為核心 request + 分頁 lazy load／頁內 request cache；使用者回報載入速度目前可接受。
+- `1987590`：Stock Detail 個人持股改優先讀 `/api/v1/me/portfolio/quotes` latest-price valuation；`stock-header` 新增 `previous_close/change/change_percent`；持股未實現損益／報酬與最近收盤漲跌採台股慣例「正值紅、負值綠」。
+- Ledger「紀錄」改為按月份／按個股可收合，群組摘要只顯示 authoritative 已實現損益；年度 selector 同區顯示年度已實現損益；展開後保留 append-only correction。
+- 最終功能／測試 SHA `c311d4b`；Flutter workflow `37473733955` 為 **64/64 tests PASS**，analyze／web build／PWA validation 皆成功。
+- Deploy dev workflow `37473734282` success；Cloud Run revision `janus-api-gc311d4b7242a-config` Ready、100% traffic，runtime build-id 與 `c311d4b7242afa9acd79bd9b95d44b1a7b6ebefc` 一致。
+- 本輪完整證據見 [latest-price／Ledger UI 驗收紀錄](archive/latest-price-ledger-ui-acceptance-2026-10-06.md)。
+
+上述 evidence 證明 implementation／CI／deployment／runtime build 一致，**不等於替使用者完成此版手機畫面的人工視覺確認**。A 組目前仍保留：既有交易佇列／真實 owner mutation／duplicate／交易後刷新人工驗收，以及 `c311d4b` User App 最終手機畫面 readback。未驗證項維持 pending。
 
 ## 2026-10-06 B 組優先架構決策（尚未實作完成）
 
@@ -96,7 +103,7 @@ AutoGluon、FinBERT、FinGPT 只作 benchmark／research challenger；production
 
 ## 尚未完成的關鍵 acceptance
 
-- A 組僅保留由使用者另行驗收的交易佇列／真實 mutation／duplicate／交易後刷新；非佇列四頁、Ledger read consistency、YTD 與 Admin live 驗證已完成。
+- A 組僅保留由使用者另行驗收的交易佇列／真實 mutation／duplicate／交易後刷新，以及 `c311d4b` User App 手機畫面 readback；implementation／CI／deployment／runtime build 已完成。
 - 五 specialist 的完整真實 dev／OOS、完整 ML baseline、dirty dependency、monthly retrain／reconciliation 尚未完成整體驗收。
 - On-demand CEO command／capability／immutable report history 尚未完成。
 - Admin specialist model/evaluation + CEO capability/profile controls 尚未完成。

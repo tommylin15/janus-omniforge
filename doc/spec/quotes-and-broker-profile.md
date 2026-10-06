@@ -43,6 +43,16 @@ Resolver states:
 Source, `quote_at`, `received_at`, `price_date`, route version, state and final/non-final semantics
 remain explicit. A failed MIS request never clears the last successful persisted value.
 
+### Stock Header／持股估值語意
+
+`GET /api/v1/public/stock-header/{symbol}` 先讀 bounded canonical OHLCV，再套 latest-price resolver。為顯示最近一次漲跌，backend 最多讀最近兩筆正式 OHLCV，回傳 `previous_close`、`change`、`change_percent`。
+
+- 若 resolver 已切到同日 `eod_final`，previous close 使用前一交易日。
+- 若盤中 MIS 價格日期晚於最新正式 EOD，previous close 使用最新正式 EOD。
+- 缺 reference close 時欄位保持 null，不補 0。
+
+Owner 持股畫面與 Stock Detail「我的持股」使用 `GET /api/v1/me/portfolio/quotes` latest-price valuation（market price／market value／unrealized PnL／return）。`/journal/positions` 仍提供 operational shares／average cost fallback，但不得讓已取得 latest-price 的持股卡顯示較舊現價。
+
 ### Demand-driven MIS refresh
 
 There is **no one-minute market quote Scheduler**. When the App is unused, MIS request volume is zero.
@@ -92,9 +102,11 @@ cash_strategy（reserve／balanced／invested）、declared_cash／cash_as_of（
 共享 public quote 不屬私人資料，刪除 owner 不刪除它。UI 顯示申報現金／日期與版本，
 讀取／儲存失敗可重試；不得把申報值呈現為正式餘額。
 
-## 交付 gate
+## Migration／交付 lineage
 
-新增 migration 044；沿用既有 ingestion runtime 與 janus_control，無新 IAM／資源。
-先部署 ingestion，再執行 044，API／Private Pipeline 部署依賴 migration success。
-041／042／043 不因本切片重跑。
-本文件與本機 tests 不構成 GCP migration／runtime／browser acceptance evidence。
+- `044_quotes_broker_profile.sql`：quotes／broker-profile 基礎能力。
+- `046_twse_only_latest_price.sql`：收斂 active scope 為 TWSE latest-price。
+- `047_latest_price_route_v2.sql`：latest-price route v2。
+- migrations 只在需要時由既有 dev workflow 執行；已成功 migration 不因文件更新重跑。
+- migration／CI／Cloud Run／runtime acceptance 必須另有 evidence；規格文件本身不構成成功證據。2026-10-06 本輪 live evidence 見 [latest-price／Ledger UI 驗收紀錄](../archive/latest-price-ledger-ui-acceptance-2026-10-06.md)。
+
