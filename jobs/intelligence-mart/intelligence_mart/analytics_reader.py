@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
 
+__all__ = ("AnalyticsSnapshot", "AnalyticsSnapshotReader", "IcebergSnapshotReader")
+
+
 @dataclass(frozen=True)
 class AnalyticsSnapshot:
     """One bounded analytics read tied to an explicit immutable Core snapshot."""
