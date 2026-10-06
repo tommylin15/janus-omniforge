@@ -218,6 +218,8 @@ def calculate_marts(events: Iterable[dict[str, Any]], prices: dict[str, Decimal 
     annual:dict[tuple[str,int,str],dict[str,Any]]=defaultdict(lambda:{"realized_pnl":ZERO,"fees":ZERO,"taxes":ZERO,"cash_dividends":ZERO,"transaction_count":0})
     monthly:dict[tuple[str,int,int,str],dict[str,Any]]=defaultdict(lambda:{"purchase_outflow":ZERO,"sale_proceeds":ZERO,
         "cash_dividends":ZERO,"realized_pnl":ZERO,"fees":ZERO,"taxes":ZERO,"transaction_count":0})
+    by_symbol:dict[tuple[str,int,str,str],dict[str,Any]]=defaultdict(lambda:{"purchase_outflow":ZERO,"sale_proceeds":ZERO,
+        "cash_dividends":ZERO,"realized_pnl":ZERO,"fees":ZERO,"taxes":ZERO,"transaction_count":0})
     realized_rows=[]
     ledger_version=max((int(row["ledger_version"]) for row in rows),default=0)
     for row in sorted(active,key=lambda item:(item["trade_date"],item["ledger_version"])):
@@ -229,19 +231,26 @@ def calculate_marts(events: Iterable[dict[str, Any]], prices: dict[str, Decimal 
         bucket["fees"]+=fee; bucket["taxes"]+=tax; bucket["transaction_count"]+=1
         month=monthly[(user_id,row["trade_date"].year,row["trade_date"].month,currency)]
         month["fees"]+=fee; month["taxes"]+=tax; month["transaction_count"]+=1
+        symbol_bucket=by_symbol[(user_id,row["trade_date"].year,symbol,currency)]
+        symbol_bucket["fees"]+=fee; symbol_bucket["taxes"]+=tax; symbol_bucket["transaction_count"]+=1
         if row["event_type"]=="BUY":
             state["shares"]+=shares; state["cost"]+=shares*price+fee+tax
-            month["purchase_outflow"]-=ledger_net_cash_flow(row) or ZERO
+            outflow=-(ledger_net_cash_flow(row) or ZERO)
+            month["purchase_outflow"]+=outflow; symbol_bucket["purchase_outflow"]+=outflow
         elif row["event_type"]=="SELL":
             average=state["cost"]/state["shares"] if state["shares"] else ZERO
             realized=shares*price-fee-tax-shares*average
             state["shares"]-=shares; state["cost"]-=shares*average; state["realized"]+=realized; bucket["realized_pnl"]+=realized
-            month["sale_proceeds"]+=ledger_net_cash_flow(row) or ZERO; month["realized_pnl"]+=realized
+            proceeds=ledger_net_cash_flow(row) or ZERO
+            month["sale_proceeds"]+=proceeds; month["realized_pnl"]+=realized
+            symbol_bucket["sale_proceeds"]+=proceeds; symbol_bucket["realized_pnl"]+=realized
             realized_rows.append({"user_id":user_id,"symbol":symbol,"currency":currency,"event_id":str(row["event_id"]),"realized_pnl":realized})
         elif row["event_type"]=="STOCK_DIV": state["shares"]+=shares
         elif row["event_type"]=="CASH_DIV":
             cash=Decimal(str(row.get("cash_amount") or 0)); state["realized"]+=cash-fee-tax; bucket["cash_dividends"]+=cash; bucket["realized_pnl"]+=cash-fee-tax
-            month["cash_dividends"]+=cash; month["realized_pnl"]+=ledger_net_cash_flow(row) or ZERO
+            dividend_pnl=ledger_net_cash_flow(row) or ZERO
+            month["cash_dividends"]+=cash; month["realized_pnl"]+=dividend_pnl
+            symbol_bucket["cash_dividends"]+=cash; symbol_bucket["realized_pnl"]+=dividend_pnl
     common={"ledger_version":ledger_version,"valuation_date":valuation_date.isoformat(),"cost_basis_method":"MOVING_AVERAGE"}
     positions=[]; unrealized=[]
     for (user_id,symbol,currency),state in states.items():
@@ -275,9 +284,17 @@ def calculate_marts(events: Iterable[dict[str, Any]], prices: dict[str, Decimal 
     monthly_rows=[{"user_id":user,"year":year,"month":month,"currency":currency,**values,**common,
                    "lineage":f"ledger-version:{ledger_version}"}
                   for (user,year,month,currency),values in monthly.items()]
+    symbol_rows=[]
+    for (user,year,symbol,currency),values in by_symbol.items():
+        stock_name,identity_status,identity_missing_reason=stock_identity(identities.get(symbol))
+        symbol_rows.append({"user_id":user,"year":year,"symbol":symbol,"currency":currency,
+                            "stock_name":stock_name,"identity_status":identity_status,
+                            "identity_missing_reason":identity_missing_reason,**values,**common,
+                            "lineage":f"ledger-version:{ledger_version}"})
     return {"mart_user_positions":positions,"mart_user_realized_pnl":realized,
             "mart_user_unrealized_pnl":unrealized,"mart_user_annual_pnl":annual_rows,
-            "mart_user_monthly_ledger_summary":monthly_rows}
+            "mart_user_monthly_ledger_summary":monthly_rows,
+            "mart_user_symbol_ledger_summary":symbol_rows}
 
 
 class PrivatePipeline:

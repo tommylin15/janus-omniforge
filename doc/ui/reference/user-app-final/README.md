@@ -103,7 +103,8 @@ Final Visual Contract 的權威範圍是 presentation：資訊架構、section o
 - 第一屏資料可用時優先 aggregate market value、unrealized PnL／return、YTD realized PnL、valuation date／status。
 - aggregate withheld 時顯示 bounded diagnosis，不由 Flutter 忽略缺值自行加總。
 - 次 navigation 至少有「持股／紀錄／報表」；手機持股使用 card hierarchy。
-- 紀錄遵守 `年份 → 月份 → 單筆交易`；買進支出、賣出回收、股利收入、已實現損益分開。
+- 紀錄以年度為範圍，細項可切換「按月份／按個股」；兩種彙總都分開買進支出、賣出回收、股利收入、已實現損益，並可下鑽單筆交易；正式彙總由 backend／Private Mart 產生。
+- 持股頁保留 MIS 行情更新：盤中前景／持股分頁每 30 秒 revalidate，盤後／休市進頁取一次，並提供「更新即時報價」手動入口；離頁／背景停止輪詢。
 - ledger mutation 成功只表示交易已保存；Private Mart 尚未更新時明示 pending。
 - 報表／圖表只讀 canonical backend／Private Mart。
 

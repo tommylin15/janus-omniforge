@@ -156,7 +156,7 @@ void main() {
       '/api/v1/me/notes': const [],
     });
 
-    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(api)));
+    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(api, now: () => DateTime.utc(2026, 10, 1, 6))));
     await tester.pumpAndSettle();
 
     expect(find.text('記帳／筆記'), findsOneWidget);
@@ -198,7 +198,7 @@ void main() {
       '/api/v1/me/notes': const [],
     });
 
-    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(api)));
+    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(api, now: () => DateTime.utc(2026, 10, 1, 6))));
     await tester.pumpAndSettle();
 
     expect(find.text('本年已實現損益'), findsOneWidget);
@@ -225,7 +225,7 @@ void main() {
       '/api/v1/me/notes': const [],
     });
 
-    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(api)));
+    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(api, now: () => DateTime.utc(2026, 10, 1, 6))));
     await tester.pumpAndSettle();
 
     expect(find.text('年度損益目前無法確認'), findsOneWidget);
@@ -288,7 +288,7 @@ void main() {
     });
 
     await tester.pumpWidget(
-      MaterialApp(home: Scaffold(body: FinalLedgerPage(api))),
+      MaterialApp(home: Scaffold(body: FinalLedgerPage(api, now: () => DateTime.utc(2026, 10, 1, 6)))),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('紀錄'));
@@ -307,6 +307,172 @@ void main() {
       contains('/api/v1/me/journal/events/event-1/corrections'),
     );
     expect(find.text(legacy.portfolioPendingMessage), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Ledger Records switches annual detail between month and stock aggregates',
+      (tester) async {
+    mobileView(tester);
+    final year = DateTime.now().year;
+    final api = FinalFakeApi({
+      '/api/v1/me/portfolio/summary': {'items': const []},
+      '/api/v1/me/journal/pnl?year=$year': const [],
+      '/api/v1/me/journal/positions': const [],
+      '/api/v1/me/journal/history?year=$year': [
+        {
+          'event_id': 'event-1',
+          'record_version': 1,
+          'event_action': 'ORIGINAL',
+          'event_type': 'BUY',
+          'trade_date': '2026-10-05',
+          'symbol': '2330',
+          'stock_name': '台積電',
+          'shares': '10',
+          'price': '100',
+          'currency': 'TWD',
+          'net_cash_flow': '-1000'
+        }
+      ],
+      '/api/v1/me/journal/monthly-summary?year=$year': {
+        'items': [
+          {
+            'month': 10,
+            'currency': 'TWD',
+            'purchase_outflow': '1000',
+            'sale_proceeds': '600',
+            'cash_dividends': '50',
+            'realized_pnl': '150',
+            'transaction_count': 3,
+            'valuation_date': '2026-10-06'
+          }
+        ]
+      },
+      '/api/v1/me/journal/symbol-summary?year=$year': {
+        'items': [
+          {
+            'symbol': '2330',
+            'stock_name': '台積電',
+            'currency': 'TWD',
+            'purchase_outflow': '1000',
+            'sale_proceeds': '600',
+            'cash_dividends': '50',
+            'realized_pnl': '150',
+            'transaction_count': 3,
+            'valuation_date': '2026-10-06'
+          }
+        ]
+      },
+      '/api/v1/me/portfolio/performance?year=$year': {'items': const []},
+      '/api/v1/me/notes': const [],
+      '/api/v1/me/portfolio/quotes': {
+        'positions': const [],
+        'items': const [],
+        'checked_at': '2026-10-06T14:00:00+08:00',
+        'market_open': false,
+      },
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FinalLedgerPage(
+            api,
+            now: () => DateTime.utc(2026, 10, 1, 6),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('紀錄'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('按月份'), findsOneWidget);
+    expect(find.text('按個股'), findsOneWidget);
+    expect(find.text('2026 年 10 月'), findsOneWidget);
+
+    await tester.tap(find.text('按個股'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('台積電（2330）'), findsOneWidget);
+    expect(find.text('買進支出 TWD 1,000'), findsOneWidget);
+    expect(find.text('已實現損益 TWD 150'), findsOneWidget);
+    expect(find.text('交易 3 筆'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Final Ledger restores manual MIS refresh on holdings',
+      (tester) async {
+    mobileView(tester);
+    final year = DateTime.now().year;
+    final api = FinalFakeApi({
+      '/api/v1/me/portfolio/summary': {'items': const []},
+      '/api/v1/me/journal/pnl?year=$year': const [],
+      '/api/v1/me/journal/positions': const [],
+      '/api/v1/me/journal/history?year=$year': const [],
+      '/api/v1/me/journal/monthly-summary?year=$year': {'items': const []},
+      '/api/v1/me/journal/symbol-summary?year=$year': {'items': const []},
+      '/api/v1/me/portfolio/performance?year=$year': {'items': const []},
+      '/api/v1/me/notes': const [],
+      '/api/v1/me/portfolio/quotes': {
+        'positions': [
+          {
+            'symbol': '2330',
+            'stock_name': '台積電',
+            'currency': 'TWD',
+            'shares': '1',
+            'average_cost': '100',
+            'market_price': '101.35',
+            'market_value': '101.35',
+            'unrealized_pnl': '1.35',
+            'unrealized_return': '0.0135',
+            'quote_at': '2026-10-06T13:30:00+08:00',
+            'valuation_date': '2026-10-05',
+            'price_status': 'available',
+            'valuation_kind': 'intraday'
+          }
+        ],
+        'items': [
+          {
+            'currency': 'TWD',
+            'market_value': '101.35',
+            'unrealized_pnl': '1.35',
+            'unrealized_return': '0.0135',
+            'aggregate_status': 'available',
+            'valuation_date': '2026-10-05'
+          }
+        ],
+        'checked_at': '2026-10-06T14:00:00+08:00',
+        'market_open': false,
+      },
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FinalLedgerPage(
+            api,
+            now: () => DateTime.utc(2026, 10, 1, 6),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('更新即時報價'), findsOneWidget);
+    expect(find.textContaining('盤後／休市'), findsOneWidget);
+    expect(
+      api.reads.where((path) => path == '/api/v1/me/portfolio/quotes').length,
+      1,
+    );
+
+    await tester.tap(find.text('更新即時報價'));
+    await tester.pumpAndSettle();
+
+    expect(
+      api.reads.where((path) => path == '/api/v1/me/portfolio/quotes').length,
+      2,
+    );
+    expect(find.textContaining('現價 101.35 · 均價 100.00'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -360,7 +526,7 @@ void main() {
     });
 
     await tester.pumpWidget(
-      MaterialApp(home: Scaffold(body: FinalLedgerPage(api))),
+      MaterialApp(home: Scaffold(body: FinalLedgerPage(api, now: () => DateTime.utc(2026, 10, 1, 6)))),
     );
     await tester.pumpAndSettle();
     await tester.tap(find.text('報表'));

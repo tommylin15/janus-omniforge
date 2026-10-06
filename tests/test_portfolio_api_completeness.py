@@ -21,6 +21,9 @@ class Repository:
     def stock_identities(self, symbols):
         return {"2330": {"symbol": "2330", "name": "台積電", "market": "TWSE", "enabled": True}}
 
+    def latest_ledger_version(self, user_id):
+        return 7
+
 
 class Store:
     def __init__(self):
@@ -53,6 +56,11 @@ class Store:
                      "symbol": "2330", "currency": "TWD", "unrealized_pnl": "21",
                      "unrealized_return": "0.21", "price_status": "available", "price_date": "2026-09-06",
                      "missing_reason": None}]
+        if table == "mart_user_symbol_ledger_summary":
+            return [{**anchor, "year": 2026, "symbol": "2330", "stock_name": "台積電",
+                     "identity_status": "available", "identity_missing_reason": None, "currency": "TWD",
+                     "purchase_outflow": "1000", "sale_proceeds": "600", "cash_dividends": "50",
+                     "realized_pnl": "150", "fees": "0", "taxes": "0", "transaction_count": 3}]
         return []
 
 
@@ -76,6 +84,16 @@ def test_history_enriches_canonical_stock_name_server_side():
     assert response.json()[0]["symbol"] == "2330"
     assert response.json()[0]["stock_name"] == "台積電"
     assert response.json()[0]["identity_status"] == "available"
+
+
+def test_symbol_summary_is_owner_scoped_and_served_from_current_private_mart():
+    api, _, store = make_client()
+    response = api.get("/api/v1/me/journal/symbol-summary?year=2026", headers=auth())
+    assert response.status_code == 200
+    assert response.json()["items"][0]["symbol"] == "2330"
+    assert response.json()["items"][0]["stock_name"] == "台積電"
+    assert response.json()["items"][0]["realized_pnl"] == "150"
+    assert store.calls[-1] == ("mart_user_symbol_ledger_summary", USER_ID, {"year": 2026})
 
 
 def test_positions_are_joined_from_one_summary_anchored_snapshot():
@@ -226,11 +244,18 @@ def test_private_store_withholds_stale_transaction_marts():
             "realized_pnl": "999", "fees": "1", "taxes": "2", "transaction_count": 1,
             "ledger_version": 1, "valuation_date": "2026-10-04",
         }],
+        "mart_user_symbol_ledger_summary": [{
+            "user_id": str(USER_ID), "year": 2026, "symbol": "2330", "currency": "TWD",
+            "purchase_outflow": "100", "sale_proceeds": "200", "cash_dividends": "3",
+            "realized_pnl": "999", "fees": "1", "taxes": "2", "transaction_count": 1,
+            "ledger_version": 1, "valuation_date": "2026-10-04",
+        }],
     }
     store = private_store_with(stale, OperationalFreshness(2))
 
     assert store.mart("mart_user_annual_pnl", USER_ID, year=2026) == []
     assert store.mart("mart_user_monthly_ledger_summary", USER_ID, year=2026) == []
+    assert store.mart("mart_user_symbol_ledger_summary", USER_ID, year=2026) == []
 
 
 def test_private_store_withholds_stale_valuation_but_keeps_current_operational_cost():

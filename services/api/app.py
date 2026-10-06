@@ -677,6 +677,13 @@ def create_app(repository: Any | None = None, store: Any | None = None,
             rows=[]
         return {"items":jsonable_encoder(rows)}
 
+    @private.get("/journal/symbol-summary")
+    def symbol_ledger_summary(year:int=Query(...,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):
+        rows=store.mart("mart_user_symbol_ledger_summary",current.user_id,year=year)
+        if rows and max(row.get("ledger_version",0) for row in rows)!=repository.latest_ledger_version(current.user_id):
+            rows=[]
+        return {"items":jsonable_encoder(rows)}
+
     def portfolio_mart(table: str, current: AuthenticatedUser, **filters: Any) -> dict[str, Any]:
         rows=jsonable_encoder(store.mart(table,current.user_id,**filters))
         if table=="mart_user_exposure":

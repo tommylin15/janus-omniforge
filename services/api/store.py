@@ -24,6 +24,7 @@ class PrivateIcebergStore:
         "mart_user_unrealized_pnl": ("user_id", "symbol", "currency", "ledger_version", "valuation_date"),
         "mart_user_annual_pnl": ("user_id", "year", "currency", "ledger_version", "valuation_date"),
         "mart_user_monthly_ledger_summary": ("user_id", "year", "month", "currency", "ledger_version", "valuation_date"),
+        "mart_user_symbol_ledger_summary": ("user_id", "year", "symbol", "currency", "ledger_version", "valuation_date"),
         "mart_user_exposure": ("user_id", "industry", "currency", "ledger_version", "valuation_date"),
         "mart_user_annual_performance": ("user_id", "year", "currency", "ledger_version", "valuation_date"),
         "mart_user_stress_tests": ("user_id", "scenario_id", "currency", "ledger_version", "valuation_date"),
@@ -40,6 +41,7 @@ class PrivateIcebergStore:
         "mart_user_realized_pnl",
         "mart_user_annual_pnl",
         "mart_user_monthly_ledger_summary",
+        "mart_user_symbol_ledger_summary",
     })
     VALUATION_MARTS = frozenset({
         "mart_user_positions",

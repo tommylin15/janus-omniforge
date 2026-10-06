@@ -56,6 +56,35 @@ def test_monthly_ledger_summary_uses_canonical_moving_average_and_net_cash_flows
     assert summary["transaction_count"]==3
 
 
+def test_symbol_ledger_summary_groups_current_year_cash_flow_and_realized_pnl_by_stock():
+    buy_2330=event(1,"BUY",date(2026,1,2),Decimal("10"),Decimal("100"))
+    sell_2330=event(2,"SELL",date(2026,2,2),Decimal("5"),Decimal("120"))
+    dividend_2330=event(3,"CASH_DIV",date(2026,3,2),cash=Decimal("50"))
+    buy_2317=event(4,"BUY",date(2026,1,3),Decimal("4"),Decimal("80")); buy_2317["symbol"]="2317"
+    sell_2317=event(5,"SELL",date(2026,4,3),Decimal("1"),Decimal("100")); sell_2317["symbol"]="2317"
+    identities={
+        "2330":{"symbol":"2330","name":"台積電","market":"TWSE","enabled":True},
+        "2317":{"symbol":"2317","name":"鴻海","market":"TWSE","enabled":True},
+    }
+    rows=calculate_marts(
+        [buy_2330,sell_2330,dividend_2330,buy_2317,sell_2317],
+        {"2330":Decimal("130"),"2317":Decimal("90")},
+        date(2026,10,6),
+        identities,
+    )["mart_user_symbol_ledger_summary"]
+    by_symbol={row["symbol"]:row for row in rows}
+    assert by_symbol["2330"]["stock_name"]=="台積電"
+    assert by_symbol["2330"]["purchase_outflow"]==Decimal("1000")
+    assert by_symbol["2330"]["sale_proceeds"]==Decimal("600")
+    assert by_symbol["2330"]["cash_dividends"]==Decimal("50")
+    assert by_symbol["2330"]["realized_pnl"]==Decimal("150")
+    assert by_symbol["2330"]["transaction_count"]==3
+    assert by_symbol["2317"]["purchase_outflow"]==Decimal("320")
+    assert by_symbol["2317"]["sale_proceeds"]==Decimal("100")
+    assert by_symbol["2317"]["realized_pnl"]==Decimal("20")
+    assert by_symbol["2317"]["transaction_count"]==2
+
+
 def test_price_dates_drive_stale_status_and_withhold_aggregate_unrealized_pnl():
     buy=event(1,"BUY",date(2026,9,1),Decimal("2"),Decimal("100"))
     marts=calculate_marts([buy],{"2330":(Decimal("120"),date(2026,9,3))},date(2026,9,4))
@@ -93,6 +122,7 @@ def test_checkpoint_advances_only_after_all_private_writes():
     assert repo.advanced==[8]
     assert "mart_user_positions" in store.tables
     assert "mart_user_monthly_ledger_summary" in store.tables
+    assert "mart_user_symbol_ledger_summary" in store.tables
     failed_repo=Repository()
     with pytest.raises(RuntimeError): PrivatePipeline(failed_repo,Store(True),lambda symbols,when:{}).run(date(2026,9,4))
     assert failed_repo.advanced==[]
