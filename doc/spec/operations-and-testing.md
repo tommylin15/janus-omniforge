@@ -2171,3 +2171,17 @@ the MCP connector still uses its older existing tagged revision.
 - 2026-10-07 使用者完成真人手機人工 UI 驗收，確認本輪 User 可見行為可接受，並明確要求「回寫文件後結案」。此 human acceptance 覆蓋先前唯一剩餘的手機 UI gate；CI／runtime evidence 仍以本節前述 run、revision、digest 為準，不以人工確認替代其技術證據。
 - 本輪狀態：**CLOSED / PASS**。workflow 中因條件 skipped 的 private-pipeline live acceptance／mobile queue writer seed 仍按原 evidence 記錄為 skipped，但不再是本輪 UI／PnL 補強的剩餘 gate；不得反向改寫成已執行。
 
+## 2026-10-07 — B0 specialist baseline dev acceptance
+
+- Runtime implementation `4dcb0309d9a8db525d8599e0c51d6b65bd856f45` 已由 Deploy dev run `37488522467` 部署至既有 `janus-intelligence-mart`，Mart tests／deploy／既有 smoke 成功。
+- 第一次 B0 workflow run `37490232648` 在執行 workload 前因 Cloud Run Job env JSON path 讀取錯誤而 fail closed；沒有 baseline execution。commit `8b7fa5465f1516c00b63b2dad913f19d72a0dc18` 修正 readback path。
+- 第二次 run `37490477263`／job `112361575980` **SUCCESS**；Cloud Run execution `janus-intelligence-mart-9bwkq` **successfully completed**，且 deployed `JANUS_GIT_SHA` 與 requested `4dcb030...` 一致。
+- 固定 Core snapshot：`sha256:1eb49a2d139411245bda3c9d2eb77e451c5f462bb1865406fd8b55a151df61ab`；manifest raw-byte hash `sha256:8eda0eaead65dcb2cdf33191337b2d6aae120ca2adfbe77cc511cf8c28d3e0a8`；analysis_as_of `2026-10-06`。
+- 輸入共 **92,653 rows**：benchmark 752、events 329、financials 15,756、ohlcv 70,863、valuation 4,953。planned files 分別為 43／4／77／94／99；可取得 scan planning evidence，但 `planned_scan_bytes`、`actual_gcs_read_bytes` 均為 `null`，不得解讀為 0。
+- screening **500 symbols**；EOD missing 1/500（0.2%），5/20/60/120D history 各 missing 39/500（7.8%），全部 accepted，`auto_fail=false`。
+- screening artifact hash `sha256:39b25796ac9d8e13b9bd2925e06a4fe916ba25664cb51cf7b49f5806b904ecc9`；evaluation artifact hash `sha256:7f35ef1206256c00ad8735d92b9c3202031db0737a8235ca8d5f163810a7829c`。
+- elapsed **725.726 s**、peak RSS **694.7 MiB**、LLM API tokens **0**。
+- B0 只建立 baseline／telemetry／bounded evidence workflow；沒有建立 BigQuery／BigLake resource、沒有啟用新付費 API、沒有擴 IAM，也沒有重做 A 組 migration/backfill/serving/UI。
+- B0 狀態：**CLOSED / PASS**。下一個工程步驟是 B1 exact-snapshot reader；B0 數值作後續 PyIceberg／BigQuery fidelity、cost、performance canary 的比較基準。
+
+完整明細：[B0 baseline 結案證據](../archive/group-b-b0-baseline-closure-2026-10-07.md)。

@@ -1,6 +1,6 @@
 # Janus — Codex 執行指令
 
-更新：2026-10-06  
+更新：2026-10-07  
 用途：提供可直接交給 Codex／ChatGPT Work 的 active 工程指令。**目前 A 組已 CLOSED；B 組 ACTIVE；C 組不得因閱讀本檔而自動啟動。**
 
 權威順序：`AGENTS.md` → `PROJECT_RULES.md` → `todo.md` → 本檔 → 對應 WBS／SPEC → GitHub `main` implementation／runtime evidence。歷史 checkpoint、archive 與 `spec/operations-and-testing.md` 可證明過去做過什麼，但不覆蓋目前 active contract。
@@ -45,7 +45,8 @@ B 組合併：
 
 依下列順序完成可執行工作，不在每個內部步驟停下要求確認：
 
-B0. Baseline
+B0. Baseline — CLOSED（2026-10-07）
+- 完成證據：[B0 baseline 結案證據](archive/group-b-b0-baseline-closure-2026-10-07.md)；成功 live run `37490477263`。除非 B1/B2 回歸診斷需要，不重跑 B0。
 - 讀 specialist_runtime.py、storage.py、packages/duckdb_query/iceberg.py、Core manifest/snapshot contract 與相關 tests。
 - 固定一份既有真實 dev Core snapshot/cohort。
 - 記錄 PyIceberg row count、output hash、screening/evaluation result、elapsed、peak RSS、可取得 GCS/scan evidence。

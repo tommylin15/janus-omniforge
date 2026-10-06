@@ -31,6 +31,19 @@ A 組已完成 implementation、tests／CI、dev deployment、runtime readback �
 
 B 組架構決策不代表 specialist 已完成；A 組已於 2026-10-06 完成並結案，下一步進入 B 組。
 
+### B0 Baseline — CLOSED（2026-10-07）
+
+B0 已完成 implementation、deployment readback 與固定真實 dev Core snapshot 的 bounded baseline：
+
+- baseline runtime code：`4dcb0309d9a8db525d8599e0c51d6b65bd856f45`；Deploy dev run `37488522467` 的 Mart tests／deploy／既有 smoke 成功。
+- 第一次 baseline run `37490232648` 因 workflow 讀錯 Cloud Run Job env JSON path 而 fail closed；baseline workload 未執行。修正 commit `8b7fa5465f1516c00b63b2dad913f19d72a0dc18` 後再跑。
+- 成功 baseline run `37490477263`、job `112361575980`、Cloud Run execution `janus-intelligence-mart-9bwkq`：固定 Core snapshot、輸入 **92,653 rows**、screening **500 symbols**、elapsed **725.726 s**、peak RSS **694.7 MiB**、LLM API tokens **0**。
+- screening quality：EOD missing **1/500 = 0.2%**；5/20/60/120D history 均 missing **39/500 = 7.8%**，皆 accepted，`auto_fail=false`。
+- `planned_scan_bytes` 與 `actual_gcs_read_bytes` 無可用量測，正式記為 `null`，不補成 0。
+- B0 沒有建立／啟用 BigQuery／BigLake resource 或 API、沒有擴 IAM、沒有重做 A 組 migration／serving／UI。
+
+完整證據見 [B0 baseline 結案證據](archive/group-b-b0-baseline-closure-2026-10-07.md)。**下一個工程步驟是 B1 exact-snapshot reader；B0 不需再重跑。**
+
 ## 現行產品決策
 
 Janus 採 **Token-first 五 specialist + On-demand CEO**：

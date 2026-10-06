@@ -1,5 +1,5 @@
 {
-  "enabled": true,
+  "enabled": false,
   "operation": "specialist-baseline",
   "request_id": "b0-20261006-4dcb030-r2",
   "expected_git_sha": "4dcb0309d9a8db525d8599e0c51d6b65bd856f45"

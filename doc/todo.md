@@ -1,6 +1,6 @@
 # Janus — TODO
 
-版本：3.12（2026-10-06：統一 B 組每日／月度 cadence 與 BigQuery 資料角色）
+版本：3.13（2026-10-07：B0 baseline 結案，下一步 B1）
 用途：**只保留確定要做的 active work 與未完成 acceptance**。Deferred、Candidate、Observation、Production-only、已接受缺口與研究構想統一放 [`parking-lot.md`](parking-lot.md)；已完成／被取代內容放 `archive/`。
 
 ## 規則
@@ -88,6 +88,8 @@ A 組 implementation／CI／dev runtime 與兩項人工 gate 已於 2026-10-06 �
 
 A 組不再列 active TODO；下一個 active work 為 B 組。
 ## B 組優先架構調整 acceptance
+
+> **B0 Baseline 已於 2026-10-07 CLOSED。** 固定真實 dev Core snapshot baseline 已完成並留存 runtime evidence；詳見 [B0 baseline 結案證據](archive/group-b-b0-baseline-closure-2026-10-07.md)。B0 完成不代表下列 B1 reader／BigQuery／specialist acceptance 已完成，因此第一個 checkbox 仍保持未勾選，下一步從 B1 開始。
 
 B 組開始五 specialist／cache 收斂前，先完成 [BigQuery analytics 架構決策](decision-2026-10-06-bigquery-analytics-over-iceberg.md) 的資料讀取邊界；此優先序不代表 BigQuery resource 已建立或啟用。
 
