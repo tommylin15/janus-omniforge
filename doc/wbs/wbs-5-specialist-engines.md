@@ -21,11 +21,18 @@
 
 ### Market Coverage
 
-約 500 檔保留低成本 screening 與必要 cross-sectional Quant inference，目的為 discovery，不作 500×5 深度分析。
+約 500 檔保留低成本 screening 與必要 cross-sectional Quant inference，目的為 discovery，不作 500×5 深度分析。每個交易日 EOD canonical data ready 後執行一次；BigQuery 通過 fidelity gate 後優先承接。
 
 ### Deep Coverage
 
-`active watchlist ∪ effective holdings`，去重後執行完整 specialist engines。Watchlist 50 active distinct-symbol quota 保留；持股離開 500 仍在 Deep Coverage，清倉且不在 watchlist 才退出後續更新。
+`active watchlist ∪ effective holdings`，去重後執行完整 specialist engines。Watchlist 50 active distinct-symbol quota 保留；持股離開 500 仍在 Deep Coverage，清倉且不在 watchlist 才退出後續更新。五 specialist 依 dirty dependency／input change 增量執行，不固定每日全重算。
+
+### 執行節奏
+
+- 每日盤後：liquid-500 低成本 screening／cross-sectional discovery。
+- 日常 Deep Coverage：只有 `active watchlist ∪ effective holdings` 的受影響 symbol／specialist 因新資料而更新；無變更 reuse。
+- 每月重型批次：`specialist-retrain`、calibration、OOS/evaluation、cache/dependency reconciliation 固定**每月第一個週六 10:30（Asia/Taipei）**。
+- 不建立每週六 500×5 全量模型排程；歷史「每月 1 日 10:30」不是 active target。
 
 ## 3. B 組優先架構：BigQuery analytics hybrid
 
@@ -39,7 +46,7 @@
 
 BigQuery 只作 analytics compute：
 
-- liquid-500 screening；
+- 每日盤後 liquid-500 screening；
 - cross-sectional rank/window/join；
 - specialist feature aggregation；
 - OOS/evaluation preprocessing；
@@ -57,7 +64,7 @@ BigQuery 只作 analytics compute：
 
 - Core Iceberg/GCS 空間預期維持，不以 BigQuery 導入宣稱 storage bytes 自動下降。
 - 不建立未經證據支持的 full-Core BigQuery duplicate warehouse。
-- Derived table 預設 bounded／TTL／可重建；永久保存限 PIT/training/evaluation/publication 有需要的 artifact。
+- Derived table 預設 bounded／TTL／可重建；BigQuery intermediate 不要求回寫 canonical Iceberg。大型 training/evaluation dataset 以 versioned GCS Parquet 固定；永久保存限 PIT/training/evaluation/publication 有需要的 artifact。
 - Query 必須 column/date/symbol/partition bounded；記錄 processed/billed bytes、elapsed、Cloud Run peak RSS、GCS I/O evidence（可得時）、export bytes 與 fallback。
 - BigQuery failure 必須可 audit fallback PyIceberg，不得影響 ingestion/canonical write 或 PostgreSQL serving。
 
@@ -77,8 +84,8 @@ CEO 不被 upstream change 自動觸發；只標記 report freshness／material 
 ## 5. Model cadence
 
 - Specialist inference：有 input change 才跑。
-- ML retraining／challenger：第一版月度；Event classifier 依新 labeled data 或 drift 才 retrain。
-- Monthly reconciliation：檢查 missed invalidation、artifact identity、model version、orphan cache。
+- ML retraining／challenger：第一版固定每月第一個週六 10:30（Asia/Taipei）；Event classifier 依新 labeled data 或 drift 才 retrain。
+- 同一月度批次完成 calibration／OOS evaluation／reconciliation，檢查 missed invalidation、artifact identity、model version、orphan cache。
 - 新模型先通過 walk-forward OOS／PIT／leakage guard；training success 不代表 promotion。
 
 歷史財報依 2026-10-03 使用者最新指示採資料優先驗證：原始數值版次／公開時間未證明不再阻擋 OOS。以最新官方版本及已知公開／上傳時間回放，時間缺少則採明示期末後 90 天假設；結果標示非嚴格 PIT，報酬標籤成熟／purge 保留。此特例取代歷史財報的嚴格時間 prerequisite，其他來源、品質與隔離契約保留。
@@ -129,11 +136,11 @@ Benchmark／challenger：
 - BigQuery 失效可安全 fallback，且 PostgreSQL serving／A 組 API/UI 不受影響；
 - 未經授權沒有建立 full-Core duplicate、啟用新付費 API、擴大 IAM 或遷移 canonical catalog；
 
-- 500 screening 不產生 LLM calls；
+- 每日盤後 500 screening 有真實 dev execution/readback，不產生 LLM calls，也不擴成 500×5 深度 specialist；
 - Deep Coverage watch-only／held-only／overlap／held-off-market／exit 語意正確；
 - 五 specialist production baseline 在真實 dev PIT data 執行並持久化；
 - dirty dependency graph 只重算受影響 specialist；no-change 可 audit reuse；
-- 月度 retrain／reconciliation 可重跑；champion promotion 有 OOS evidence；
+- 每月第一個週六 10:30 的 retrain／calibration／OOS evaluation／reconciliation effective schedule 已在實際 Scheduler／controller readback，且可安全重跑；champion promotion 有 OOS evidence；
 - specialist plain-language output 不依賴 LLM API；
 - canonical number、PIT、provenance、missing-data honesty、public/private isolation 保持；
 - tests、deployment、live dev execution、artifact persist／readback evidence 齊全。
