@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'final_charts.dart';
 import 'final_visual_common.dart';
 import 'main.dart' as legacy;
 
@@ -283,42 +284,9 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> {
             if (dimensions.isEmpty && health['mart_health_score'] == null)
               fvBoundedState('五面向健康度尚未就緒')
             else
-              fvPanel(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (health['mart_health_score'] != null)
-                      Text(
-                        '整體健康度 ${legacy.accountingNumber(health['mart_health_score'])}',
-                        style: const TextStyle(
-                          color: fvInk,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    for (final entry in dimensions.entries)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                legacy.uiLabel(entry.key),
-                                style: const TextStyle(color: fvInk),
-                              ),
-                            ),
-                            Text(
-                              fvText(entry.value),
-                              style: const TextStyle(
-                                color: fvTeal,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
+              FvHealthBars(
+                dimensions: dimensions,
+                overall: health['mart_health_score'],
               ),
             fvSectionTitle(context, '白話摘要'),
             summary == null
@@ -448,34 +416,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> {
                 else if (klineRequested && fvRows(values['kline']).isEmpty)
                   fvBoundedState('K 線資料尚未就緒')
                 else if (klineRequested)
-                  fvPanel(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'K 線／OHLCV',
-                          style: TextStyle(
-                            color: fvInk,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        for (final item in fvRows(values['kline']).take(5))
-                          Builder(builder: (context) {
-                            final row = fvMap(item);
-                            return ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(
-                                fvText(row['trade_date'] ?? row['date']),
-                              ),
-                              subtitle: Text(
-                                'O ${fvText(row['open'])} · H ${fvText(row['high'])} · L ${fvText(row['low'])} · C ${fvText(row['close'])}',
-                              ),
-                            );
-                          }),
-                      ],
-                    ),
-                  ),
+                  FvKlineChart(rows: fvRows(values['kline'])),
                 fvBoundedState(
                   'Fact Pack、五 specialist 與 On-demand CEO 僅在 persisted artifact 可用時顯示。',
                 ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'final_charts.dart';
 import 'final_visual_common.dart';
 import 'main.dart' as legacy;
 
@@ -366,6 +367,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage> {
   Widget reports(
     List<dynamic> pnl,
     List<dynamic> performance, {
+    required List<dynamic> monthly,
     required String ytd,
   }) {
     final emptyPnlMessage = switch (ytd) {
@@ -378,6 +380,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage> {
     }
     return Column(
       children: [
+        FvMonthlyPnlChart(rows: monthly),
         if (pnl.isEmpty) fvBoundedState(emptyPnlMessage),
         for (final item in pnl)
           Builder(builder: (context) {
@@ -608,7 +611,12 @@ class _FinalLedgerPageState extends State<FinalLedgerPage> {
                     ],
                     if (section == 2) ...[
                       fvSectionTitle(context, '報表'),
-                      reports(pnl, performance, ytd: ytd),
+                      reports(
+                        pnl,
+                        performance,
+                        monthly: monthly,
+                        ytd: ytd,
+                      ),
                     ],
                     if (section == 3) ...[
                       fvSectionTitle(context, '筆記'),

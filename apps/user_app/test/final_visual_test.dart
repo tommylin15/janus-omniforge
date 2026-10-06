@@ -284,7 +284,9 @@ void main() {
       '/api/v1/me/notes': const [],
     });
 
-    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(api)));
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: FinalLedgerPage(api))),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('紀錄'));
     await tester.pumpAndSettle();
@@ -302,6 +304,67 @@ void main() {
       contains('/api/v1/me/journal/events/event-1/corrections'),
     );
     expect(find.text(legacy.portfolioPendingMessage), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Ledger Reports visualizes canonical monthly realized PnL',
+      (tester) async {
+    mobileView(tester);
+    final year = DateTime.now().year;
+    final api = FinalFakeApi({
+      '/api/v1/me/portfolio/summary': {
+        'items': [
+          {
+            'currency': 'TWD',
+            'market_value': '300',
+            'cost_basis': '250',
+            'unrealized_pnl': '50',
+            'unrealized_return': '0.2',
+            'aggregate_status': 'available',
+            'valuation_status': 'available',
+            'ledger_version': 3,
+            'valuation_date': '2026-10-05'
+          }
+        ]
+      },
+      '/api/v1/me/journal/pnl?year=$year': [
+        {
+          'currency': 'TWD',
+          'realized_pnl': '80',
+          'valuation_date': '2026-10-05'
+        }
+      ],
+      '/api/v1/me/journal/positions': const [],
+      '/api/v1/me/journal/history?year=$year': [
+        {
+          'event_id': 'event-2',
+          'record_version': 1,
+          'event_action': 'ORIGINAL',
+          'event_type': 'SELL',
+          'trade_date': '2026-10-01',
+          'symbol': '2330',
+          'currency': 'TWD'
+        }
+      ],
+      '/api/v1/me/journal/monthly-summary?year=$year': {
+        'items': [
+          {'month': 9, 'realized_pnl': '100', 'valuation_date': '2026-09-30'},
+          {'month': 10, 'realized_pnl': '-20', 'valuation_date': '2026-10-05'}
+        ]
+      },
+      '/api/v1/me/portfolio/performance?year=$year': {'items': const []},
+      '/api/v1/me/notes': const [],
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: FinalLedgerPage(api))),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('報表'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('月度已實現損益'), findsOneWidget);
+    expect(find.byKey(const Key('fv-monthly-pnl-chart')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -345,7 +408,16 @@ void main() {
           'open': '100',
           'high': '121',
           'low': '99',
-          'close': '120'
+          'close': '120',
+          'volume_shares': 100000
+        },
+        {
+          'trade_date': '2026-10-03',
+          'open': '120',
+          'high': '123',
+          'low': '116',
+          'close': '118',
+          'volume_shares': 120000
         }
       ],
     });
@@ -376,6 +448,8 @@ void main() {
       1,
     );
     expect(find.text('K 線／OHLCV'), findsOneWidget);
+    expect(find.byKey(const Key('fv-kline-chart')), findsOneWidget);
+    expect(find.byKey(const Key('fv-health-bars')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
