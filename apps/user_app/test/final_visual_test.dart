@@ -300,6 +300,9 @@ void main() {
     await tester.tap(find.text('紀錄'));
     await tester.pumpAndSettle();
 
+    expect(find.byTooltip('建立更正'), findsNothing);
+    await tester.tap(find.text('$year 年 10 月'));
+    await tester.pumpAndSettle();
     expect(find.byTooltip('建立更正'), findsOneWidget);
     await tester.tap(find.byTooltip('建立更正'));
     await tester.pumpAndSettle();
@@ -405,7 +408,7 @@ void main() {
     expect(find.text('已實現損益 TWD 150'), findsOneWidget);
     expect(find.textContaining('BUY · 台積電'), findsNothing);
 
-    await tester.tap(find.byKey(const Key('ledger-month-10')));
+    await tester.tap(find.text('2026 年 10 月'));
     await tester.pumpAndSettle();
     expect(find.textContaining('BUY · 台積電'), findsOneWidget);
 
