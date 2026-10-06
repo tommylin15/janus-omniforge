@@ -43,7 +43,7 @@ B 組只保留一套 active cadence，避免把「日常 inference」與「模�
 1. **每日盤後 Market Coverage**：每個交易日 EOD canonical data ready 後，對 liquid-500 做一次低成本 screening／cross-sectional ranking。BigQuery 在通過 exact-snapshot fidelity gate 後優先承接；若 input identity 未變則 reuse。這不是 500×5 深度 specialist。
 2. **Deep Coverage 增量更新**：完整五 specialist 僅處理 `active watchlist ∪ effective holdings`。新 EOD price、月營收／財報或 event 到達時，只 invalidate 受影響 symbol／specialist；無變化不重算。
 3. **每月重型批次**：`specialist-retrain`、calibration、OOS/evaluation 與 cache/dependency reconciliation 固定 **每月第一個週六 10:30（Asia/Taipei）** 執行，並在必要 ingestion／data-supplement 成功後才進入模型工作。Event classifier 仍只在有足夠新 labeled data 或 drift 時 retrain。
-4. **沒有另一套週六全量模型**：不建立「每週六 500 檔跑五模型」排程，也不再使用「每月 1 日 10:30」作 target contract。歷史 runtime evidence 可保留於 operations；B 組 implementation 必須把實際 Scheduler／controller 收斂到本節並做 runtime readback。
+4. **沒有另一套週六全量模型**：不建立「每週六 500 檔跑五模型」排程。歷史 runtime evidence 保留於 operations；B 組 implementation 必須把實際 Scheduler／controller 收斂到本節的每月第一個週六 10:30，並做 runtime readback。
 5. **資料保存角色**：Iceberg/GCS 保存 canonical／PIT／provenance／history；BigQuery intermediate／destination table 預設 bounded、TTL、可重建；大型 training/evaluation input 以 versioned GCS Parquet 保存；specialist/model/evaluation 成果依 Mart retention 保存。BigQuery 中間結果不需為了「留一份」再寫回 canonical Iceberg。
 
 ## 3. 硬性 guardrails
