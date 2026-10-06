@@ -223,7 +223,7 @@ class _AdminWorkspaceState extends State<AdminWorkspace> {
       AdminBatchPage(widget.api),
       AdminStockWorkbench(widget.api),
       AdminMarketUniversePage(widget.api),
-      const _PendingPage(title: 'AI 分析', message: '等待 WBS-5 五角色與 CIO 契約完成後啟用。'),
+      const _PendingPage(title: 'AI 分析', message: 'Specialist 與 CEO 分析完成後啟用。'),
       AdminGovernancePage(widget.api),
     ];
     return LayoutBuilder(
@@ -1170,9 +1170,9 @@ class _AdminStockWorkbenchState extends State<AdminStockWorkbench> {
                                 Card(
                                   child: ListTile(
                                     leading: const Icon(Icons.lock_outline),
-                                    title: const Text('AI 五角色／CIO 尚未啟用'),
+                                    title: const Text('Specialist／CEO 分析尚未啟用'),
                                     subtitle: const Text(
-                                      'Fact Pack、AI role 與 CIO contracts 完成前，個股工作台不提供 role rerun 或歷史角色操作。',
+                                      '分析功能完成前，個股工作台不提供重新分析或歷史分析操作。',
                                     ),
                                   ),
                                 ),
@@ -1244,7 +1244,7 @@ class _AdminStockWorkbenchState extends State<AdminStockWorkbench> {
                                       Theme.of(context).textTheme.titleMedium,
                                 ),
                                 const Text(
-                                  '僅顯示既有 persisted Mart 紀錄；不代表五角色、CIO 或 role rerun 已可用。',
+                                  '僅顯示已保存的分析紀錄；不代表 Specialist、CEO 或重新分析功能已可用。',
                                 ),
                                 if (reports.isEmpty) const Text('目前沒有已持久化分析'),
                                 ...reports.map(

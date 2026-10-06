@@ -143,7 +143,7 @@ void main() {
     expect(find.text('資料健康'), findsOneWidget);
     expect(find.textContaining('覆蓋 0/1 · 缺口 1'), findsOneWidget);
     expect(find.text('重新分析'), findsNothing);
-    expect(find.text('AI 五角色／CIO 尚未啟用'), findsOneWidget);
+    expect(find.text('Specialist／CEO 分析尚未啟用'), findsOneWidget);
 
     final repair = find.widgetWithText(FilledButton, '修復');
     expect(repair, findsOneWidget);
