@@ -92,7 +92,7 @@ class FvHealthBars extends StatelessWidget {
               borderRadius: BorderRadius.circular(999),
               child: LinearProgressIndicator(
                 minHeight: 9,
-                value: (row.value / 100).clamp(0.0, 1.0),
+                value: (row.value / 100).clamp(0.0, 1.0).toDouble(),
                 backgroundColor: fvSoft,
                 valueColor: AlwaysStoppedAnimation(_scoreColor(row.value)),
               ),
@@ -299,10 +299,10 @@ class _MonthlyPnlPainter extends CustomPainter {
     const right = 8.0;
     const top = 10.0;
     const bottom = 28.0;
-    final chartHeight = math.max(1.0, size.height - top - bottom);
+    final chartHeight = math.max(1.0, size.height - top - bottom).toDouble();
     final values = points.map((item) => item.value).toList();
-    var minValue = math.min(0.0, values.reduce(math.min));
-    var maxValue = math.max(0.0, values.reduce(math.max));
+    var minValue = math.min(0.0, values.reduce((a, b) => a < b ? a : b)).toDouble();
+    var maxValue = math.max(0.0, values.reduce((a, b) => a > b ? a : b)).toDouble();
     if ((maxValue - minValue).abs() < 0.000001) {
       maxValue += 1;
       minValue -= 1;
@@ -327,18 +327,18 @@ class _MonthlyPnlPainter extends CustomPainter {
       axisPaint,
     );
 
-    final width = math.max(1.0, size.width - left - right);
+    final width = math.max(1.0, size.width - left - right).toDouble();
     final step = width / points.length;
-    final barWidth = math.min(22.0, step * .56);
+    final barWidth = math.min(22.0, step * .56).toDouble();
     for (var index = 0; index < points.length; index++) {
       final point = points[index];
       final x = left + step * (index + .5);
       final py = y(point.value);
       final rect = Rect.fromLTRB(
         x - barWidth / 2,
-        math.min(py, baseline),
+        py < baseline ? py : baseline,
         x + barWidth / 2,
-        math.max(py, baseline) + (point.value == 0 ? 1 : 0),
+        (py > baseline ? py : baseline) + (point.value == 0 ? 1 : 0),
       );
       canvas.drawRRect(
         RRect.fromRectAndRadius(rect, const Radius.circular(4)),
@@ -388,11 +388,11 @@ class _CandlestickPainter extends CustomPainter {
     const top = 12.0;
     final volumeHeight = hasVolume ? 42.0 : 0.0;
     final bottom = hasVolume ? 64.0 : 30.0;
-    final priceHeight = math.max(1.0, size.height - top - bottom);
+    final priceHeight = math.max(1.0, size.height - top - bottom).toDouble();
     final lows = candles.map((item) => item.low).toList();
     final highs = candles.map((item) => item.high).toList();
-    var minPrice = lows.reduce(math.min);
-    var maxPrice = highs.reduce(math.max);
+    var minPrice = lows.reduce((a, b) => a < b ? a : b);
+    var maxPrice = highs.reduce((a, b) => a > b ? a : b);
     if ((maxPrice - minPrice).abs() < 0.000001) {
       maxPrice += 1;
       minPrice -= 1;
@@ -411,11 +411,11 @@ class _CandlestickPainter extends CustomPainter {
 
     final width = math.max(1.0, size.width - left - right);
     final step = width / candles.length;
-    final bodyWidth = math.min(9.0, math.max(3.0, step * .55));
+    final bodyWidth = math.min(9.0, math.max(3.0, step * .55)).toDouble();
     final maxVolume = hasVolume
         ? candles
             .map((item) => item.volume ?? 0)
-            .fold<double>(0, math.max)
+            .fold<double>(0, (a, b) => a > b ? a : b)
         : 0.0;
     final volumeTop = top + priceHeight + 16;
 
@@ -433,13 +433,13 @@ class _CandlestickPainter extends CustomPainter {
       );
       final openY = priceY(candle.open);
       final closeY = priceY(candle.close);
-      final bodyTop = math.min(openY, closeY);
-      final bodyBottom = math.max(openY, closeY);
+      final bodyTop = openY < closeY ? openY : closeY;
+      final bodyBottom = openY > closeY ? openY : closeY;
       final rect = Rect.fromLTRB(
         x - bodyWidth / 2,
         bodyTop,
         x + bodyWidth / 2,
-        math.max(bodyTop + 1.5, bodyBottom),
+        bodyTop + 1.5 > bodyBottom ? bodyTop + 1.5 : bodyBottom,
       );
       canvas.drawRect(rect, Paint()..color = color);
 
