@@ -1,0 +1,17 @@
+{
+  "name": "Janus OmniForge Admin",
+  "short_name": "Janus Admin",
+  "id": "/app/admin",
+  "start_url": "/app/admin",
+  "scope": "/app/",
+  "display": "standalone",
+  "background_color": "#082D75",
+  "theme_color": "#0B4FD6",
+  "description": "Janus 投資研究系統管理與資料營運中心。",
+  "orientation": "portrait-primary",
+  "icons": [
+    {"src": "/app/icons/Icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/app/icons/Icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "/app/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

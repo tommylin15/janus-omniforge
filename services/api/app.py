@@ -100,7 +100,9 @@ class _PublicUserCORSMiddleware(CORSMiddleware):
 
 _FLUTTER_NO_STORE_FILES = frozenset({
     "index.html",
+    "admin-index.html",
     "manifest.json",
+    "admin-manifest.json",
     "build-id.txt",
     "flutter_service_worker.js",
     "main.dart.js",
@@ -361,14 +363,23 @@ def create_app(repository: Any | None = None, store: Any | None = None,
             headers=_flutter_asset_headers("index.html"),
         )
 
+    @api.get("/app/admin", include_in_schema=False)
+    @api.get("/app/admin/", include_in_schema=False)
+    def flutter_admin_root():
+        return FileResponse(
+            flutter_dir / "admin-index.html",
+            headers=_flutter_asset_headers("admin-index.html"),
+        )
+
     @api.get("/app/{path:path}", include_in_schema=False)
     def flutter_app(path: str):
         candidate = flutter_dir / path
         if candidate.is_file():
             return FileResponse(candidate, headers=_flutter_asset_headers(path))
+        shell = "admin-index.html" if path.startswith("admin/") else "index.html"
         return FileResponse(
-            flutter_dir / "index.html",
-            headers=_flutter_asset_headers("index.html"),
+            flutter_dir / shell,
+            headers=_flutter_asset_headers(shell),
         )
 
     @api.get("/admin", include_in_schema=False)

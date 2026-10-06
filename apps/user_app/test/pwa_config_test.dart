@@ -41,6 +41,19 @@ void main() {
     );
   });
 
+  test('admin manifest has a distinct install identity and reopens Admin', () {
+    final manifest =
+        jsonDecode(File('web/admin-manifest.json').readAsStringSync())
+            as Map<String, dynamic>;
+
+    expect(manifest['id'], '/app/admin');
+    expect(manifest['start_url'], '/app/admin');
+    expect(manifest['scope'], '/app/');
+    expect(manifest['display'], 'standalone');
+    expect(manifest['name'], 'Janus OmniForge Admin');
+    expect(manifest['short_name'], 'Janus Admin');
+  });
+
   test('web entrypoint advertises dedicated install icons', () {
     final html = File('web/index.html').readAsStringSync();
     expect(html, contains('href="/app/manifest.json"'));

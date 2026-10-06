@@ -27,6 +27,16 @@ def test_api_and_private_pipeline_share_python_base_but_not_flutter_output():
     assert "COPY --from=flutter /app/apps/user_app/build/web /app/apps/user_app/build/web" in api_block
 
 
+def test_api_build_produces_distinct_admin_pwa_shell_without_second_user_app():
+    assert "cp web/admin-manifest.json build/web/admin-manifest.json" in API_DOCKERFILE
+    assert "cp build/web/index.html build/web/admin-index.html" in API_DOCKERFILE
+    assert 'href="/app/admin-manifest.json"' in API_DOCKERFILE
+    assert '\"id\": \"/app/admin\"' in API_DOCKERFILE
+    assert '\"start_url\": \"/app/admin\"' in API_DOCKERFILE
+    assert "flutter build web --release -t lib/final_visual.dart --base-href /app/" in API_DOCKERFILE
+    assert API_DOCKERFILE.count("flutter build web") == 1
+
+
 def test_cloud_build_uses_api_family_cache_and_targeted_images():
     assert "selected-image-exists" in CLOUDBUILD
     assert "api-peer-image-exists" in CLOUDBUILD

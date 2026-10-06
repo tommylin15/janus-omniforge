@@ -123,12 +123,19 @@ def test_private_pipeline_runtime_preserves_offlist_before_processing(monkeypatc
             return day
 
     class RepositoryStub:
+        def __init__(self):
+            self.status = []
+
         def retire_offlist_watchlist(self):
             raise AssertionError("offlist watchlist must remain active")
+
+        def record_pipeline_status(self, **value):
+            self.status.append(value)
 
     class PipelineStub:
         def __init__(self, repository, *_args):
             assert isinstance(repository, RepositoryStub)
+            self.last_valuation_date = None
 
         def run(self, *_args):
             return 42

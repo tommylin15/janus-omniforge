@@ -1,5 +1,6 @@
 \set ON_ERROR_STOP on
 BEGIN;
+-- Retry-safe: CREATE/GRANT/INSERT are idempotent; a blocked dev attempt may be rerun after ingestion is idle.
 SET ROLE janus_control;
 
 -- One row of deidentified operational evidence. No owner, symbol, trade, or

@@ -95,8 +95,9 @@ def client(public: Public) -> TestClient:
 
 
 def test_flutter_app_shell_headers_prevent_stale_dev_ui() -> None:
-    for path in ("", "index.html", "manifest.json", "build-id.txt",
-                 "flutter_service_worker.js", "flutter_bootstrap.gitsha.js", "main.dart.js"):
+    for path in ("", "index.html", "admin-index.html", "manifest.json",
+                 "admin-manifest.json", "build-id.txt", "flutter_service_worker.js",
+                 "flutter_bootstrap.gitsha.js", "main.dart.js"):
         headers = _flutter_asset_headers(path)
         assert headers["Cross-Origin-Opener-Policy"] == "unsafe-none"
         assert headers["Cache-Control"] == "no-store, max-age=0"

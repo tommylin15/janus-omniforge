@@ -44,8 +44,18 @@ RUN set -eux; \
     cp build/web/flutter_bootstrap.js "build/web/flutter_bootstrap.${build_id}.js"; \
     sed -i "s#flutter_bootstrap.js#flutter_bootstrap.${build_id}.js#g" build/web/index.html; \
     printf '%s\n' "$build_id" > build/web/build-id.txt; \
+    cp web/admin-manifest.json build/web/admin-manifest.json; \
+    cp build/web/index.html build/web/admin-index.html; \
+    sed -i 's#href="/app/manifest.json"#href="/app/admin-manifest.json"#' build/web/admin-index.html; \
+    sed -i 's#content="Janus"#content="Janus Admin"#' build/web/admin-index.html; \
+    sed -i 's#<title>Janus · OmniForge</title>#<title>Janus Admin · OmniForge</title>#' build/web/admin-index.html; \
     test -s build/web/build-id.txt; \
-    grep -Fq "flutter_bootstrap.${build_id}.js" build/web/index.html
+    test -s build/web/admin-manifest.json; \
+    grep -Fq '"id": "/app/admin"' build/web/admin-manifest.json; \
+    grep -Fq '"start_url": "/app/admin"' build/web/admin-manifest.json; \
+    grep -Fq 'href="/app/admin-manifest.json"' build/web/admin-index.html; \
+    grep -Fq "flutter_bootstrap.${build_id}.js" build/web/index.html; \
+    grep -Fq "flutter_bootstrap.${build_id}.js" build/web/admin-index.html
 
 FROM api-python-base AS api
 # Legacy static Admin code is excluded by .dockerignore; Flutter /app/admin is the active frontend.
