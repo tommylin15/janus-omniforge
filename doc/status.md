@@ -1,6 +1,6 @@
 # Janus Current Status
 
-更新：2026-10-06
+更新：2026-10-07
 
 用途：只回答「現在在哪裡、下一步是什麼、哪些尚未完成」。實作以 GitHub `main` 為準，完成狀態以 tests／CI、deployment、live runtime、trigger／workload、integration evidence 為準。完整 active queue 只看 [`todo.md`](todo.md)。
 
@@ -14,8 +14,9 @@ A 組已完成 implementation、tests／CI、dev deployment、runtime readback �
 - 最終功能／測試 SHA `c311d4b`；Flutter workflow `37473733955` 為 **64/64 tests PASS**；Deploy dev workflow `37473734282` success；Cloud Run revision `janus-api-gc311d4b7242a-config` Ready 且 100% traffic。
 - 2026-10-06 使用者明確確認兩項人工 gate 均驗收無誤：①交易佇列／真實 owner mutation／duplicate guard／transaction refresh；②`c311d4b` User App 手機畫面 readback。
 - 完整證據見 [latest-price／Ledger UI 驗收紀錄](archive/latest-price-ledger-ui-acceptance-2026-10-06.md)。
+- 2026-10-07 結案後補強亦完成：交易異動後 immediate owner-scoped PnL recalculation、pending 時才顯示手動「重新計算損益」、關注搜尋按鈕語意、13:30／14:30 latest-price handoff、User PnL 紅綠與負號格式，以及 annual PnL latest-ledger-version stale fence。Flutter run `37542658237` 為 **66/66 PASS**；Portfolio contract `37542950801` 與 Deploy dev `37542951194` 均 success，API revision `janus-api-gafa3e8214bb1-config` 100% traffic。使用者已完成手機人工 UI 驗收並明確要求回寫後結案。
 
-**A 組正式結案；下一個 active group 為 B。**
+**A 組及本次結案後 UI／PnL 補強均正式 CLOSED；下一個 active group 為 B。**
 ## 2026-10-06 B 組優先架構決策（尚未實作完成）
 
 使用者已核准 [Iceberg canonical + BigQuery analytics hybrid](decision-2026-10-06-bigquery-analytics-over-iceberg.md) 作為 B 組 specialist／cache 的優先資料運算架構：
