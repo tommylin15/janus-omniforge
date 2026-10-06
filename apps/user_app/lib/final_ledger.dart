@@ -35,8 +35,11 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   Future<List<dynamic>>? sectionData;
   Timer? quoteTimer;
   bool quoteBusy = false;
+  bool pnlRecalcBusy = false;
   bool foreground = true;
   int quoteGeneration = 0;
+  DateTime? offSessionQuoteDate;
+  DateTime? post1430QuoteDate;
   Map<String, dynamic>? intraday;
   String? quoteError;
 
@@ -57,24 +60,66 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       foreground &&
       (ModalRoute.of(context)?.isCurrent ?? true);
 
-  bool get marketHours {
-    final taipei = widget.now().toUtc().add(const Duration(hours: 8));
+  DateTime get taipeiNow =>
+      widget.now().toUtc().add(const Duration(hours: 8));
+
+  bool _sameTaipeiDay(DateTime? left, DateTime right) =>
+      left != null &&
+      left.year == right.year &&
+      left.month == right.month &&
+      left.day == right.day;
+
+  bool _marketHoursAt(DateTime taipei) {
     final minutes = taipei.hour * 60 + taipei.minute;
     return taipei.weekday <= 5 && minutes >= 540 && minutes < 810;
   }
 
+  bool get marketHours => _marketHoursAt(taipeiNow);
+
+  bool _after1430(DateTime taipei) {
+    final minutes = taipei.hour * 60 + taipei.minute;
+    return taipei.weekday <= 5 && minutes >= 870;
+  }
+
+  bool _closingPending(DateTime taipei) {
+    final minutes = taipei.hour * 60 + taipei.minute;
+    return taipei.weekday <= 5 && minutes >= 810 && minutes < 870;
+  }
+
   void startQuotes() {
     quoteTimer?.cancel();
-    if (quotesActive && marketHours) {
+    if (!quotesActive) return;
+    final now = taipeiNow;
+    if (_marketHoursAt(now)) {
       quoteTimer = Timer.periodic(const Duration(minutes: 1), (_) {
         if (!marketHours) {
           quoteTimer?.cancel();
+          startQuotes();
         } else if (quotesActive) {
           unawaited(refreshQuotes());
         }
       });
+      unawaited(refreshQuotes());
+      return;
     }
-    if (quotesActive) unawaited(refreshQuotes());
+    if (_after1430(now)) {
+      if (!_sameTaipeiDay(post1430QuoteDate, now)) {
+        unawaited(refreshQuotes());
+      }
+      return;
+    }
+    if (!_sameTaipeiDay(offSessionQuoteDate, now)) {
+      unawaited(refreshQuotes());
+    }
+    if (_closingPending(now)) {
+      final handoff = DateTime(now.year, now.month, now.day, 14, 30);
+      final delay = handoff.difference(now);
+      if (!delay.isNegative) {
+        quoteTimer = Timer(delay, () {
+          if (quotesActive) unawaited(refreshQuotes());
+        });
+      }
+    }
   }
 
   Future<void> refreshQuotes({bool force = false}) async {
@@ -87,11 +132,18 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
               : widget.api.get('/api/v1/me/portfolio/quotes'))
           .timeout(const Duration(seconds: 60));
       if (mounted && generation == quoteGeneration && quotesActive) {
+        final local = taipeiNow;
         setState(() {
           intraday = Map<String, dynamic>.from(result as Map);
           quoteError = null;
+          if (!_marketHoursAt(local)) {
+            offSessionQuoteDate = local;
+            if (_after1430(local)) post1430QuoteDate = local;
+          }
         });
-        if (intraday!['market_open'] == false) quoteTimer?.cancel();
+        if (intraday!['market_open'] == false && !_closingPending(local)) {
+          quoteTimer?.cancel();
+        }
       }
     } catch (_) {
       if (mounted && generation == quoteGeneration && quotesActive) {
@@ -191,6 +243,8 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       intraday = null;
       quoteError = null;
       quoteBusy = false;
+      offSessionQuoteDate = null;
+      post1430QuoteDate = null;
     });
     if (section == 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -277,6 +331,27 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     }
   }
 
+  Future<void> recalculatePnl() async {
+    if (pnlRecalcBusy) return;
+    setState(() => pnlRecalcBusy = true);
+    try {
+      await widget.api.post('/api/v1/me/journal/recalculate', const {});
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('損益已重新計算')),
+      );
+      reload();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('損益重新計算失敗，請稍後重試')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => pnlRecalcBusy = false);
+    }
+  }
+
   Future<void> addNote() async {
     final body = await legacy.textDialog(context, '新增筆記', '筆記內容');
     if (body == null || body.trim().isEmpty) return;
@@ -297,6 +372,9 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     required String unrealized,
     required String unrealizedReturn,
     required String ytd,
+    required Object? unrealizedAmount,
+    required Object? unrealizedReturnAmount,
+    required Object? ytdAmount,
     required Map<String, dynamic> aggregate,
     required bool withheld,
   }) => Column(
@@ -317,6 +395,9 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                   '未實現損益',
                   unrealized,
                   detail: '報酬 $unrealizedReturn',
+                  valueColor: withheld ? null : fvSignedColor(unrealizedAmount),
+                  detailColor:
+                      withheld ? null : fvSignedColor(unrealizedReturnAmount),
                 ),
               ),
             ],
@@ -336,6 +417,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                           : ytd == '0'
                               ? '本年度確認無交易'
                               : '正式年度損益',
+                  valueColor: fvSignedColor(ytdAmount),
                 ),
               ),
               const SizedBox(width: 10),
@@ -502,6 +584,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     required Key key,
     required String title,
     required String realized,
+    required Object? realizedAmount,
     required List<Map<String, dynamic>> events,
   }) =>
       fvPanel(
@@ -521,8 +604,10 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
           ),
           subtitle: Text(
             realized,
-            style: const TextStyle(
-              color: fvMuted,
+            style: TextStyle(
+              color: realizedAmount == null
+                  ? fvMuted
+                  : fvSignedColor(realizedAmount),
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -603,6 +688,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
               key: Key('ledger-month-$month'),
               title: '$yearFilter 年 $month 月',
               realized: realizedPnlLabel(summaries[month]),
+              realizedAmount: summaries[month]?['realized_pnl'],
               events: effective.where((item) {
                 final row = fvMap(item);
                 final day =
@@ -627,6 +713,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                 key: Key('ledger-symbol-$symbol'),
                 title: legacy.stockDisplayName(display),
                 realized: realizedPnlLabel(summary),
+                realizedAmount: summary?['realized_pnl'],
                 events: symbolEvents,
               );
             }),
@@ -667,7 +754,13 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text('已實現損益 ${legacy.accountingNumber(row['realized_pnl'])}'),
+                  Text(
+                    '已實現損益 ${legacy.accountingNumber(row['realized_pnl'])}',
+                    style: TextStyle(
+                      color: fvSignedColor(row['realized_pnl']),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   Text('股利收入 ${legacy.accountingNumber(row['cash_dividends'])}'),
                   Text(
                     '手續費 ${legacy.accountingNumber(row['fees'])} · 稅 ${legacy.accountingNumber(row['taxes'])}',
@@ -701,6 +794,12 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                     status == 'available' && row['xirr'] != null
                         ? 'XIRR ${legacy.portfolioReturnLabel(row['xirr'])}'
                         : 'XIRR ${legacy.uiLabel(status ?? 'insufficient_data')}',
+                    style: status == 'available' && row['xirr'] != null
+                        ? TextStyle(
+                            color: fvSignedColor(row['xirr']),
+                            fontWeight: FontWeight.w700,
+                          )
+                        : null,
                   ),
                   Text(
                     '資料日期 ${fvText(row['valuation_date'])}',
@@ -841,9 +940,12 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                           ? currentPnl.length == 1
                               ? '${fvText(fvMap(currentPnl.first)['currency'], missing: 'TWD')} ${legacy.accountingNumber(fvMap(currentPnl.first)['realized_pnl'])}'
                               : '多幣別'
-                          : withheld || currentHistory.isNotEmpty
+                          : currentHistory.isNotEmpty
                               ? '待更新／尚未確認'
                               : '0';
+              final ytdAmount = currentPnl.length == 1
+                  ? fvMap(currentPnl.first)['realized_pnl']
+                  : null;
               final affected = fvRows(aggregate['affected_symbols']);
 
               return ListView(
@@ -872,9 +974,24 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                     unrealized: unrealized,
                     unrealizedReturn: unrealizedReturn,
                     ytd: ytd,
+                    unrealizedAmount: aggregate['unrealized_pnl'],
+                    unrealizedReturnAmount: aggregate['unrealized_return'],
+                    ytdAmount: ytdAmount,
                     aggregate: aggregate,
                     withheld: withheld,
                   ),
+                  if (ytd == '待更新／尚未確認')
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        key: const Key('recalculate-pnl'),
+                        onPressed: pnlRecalcBusy ? null : recalculatePnl,
+                        icon: const Icon(Icons.calculate_outlined, size: 18),
+                        label: Text(
+                          pnlRecalcBusy ? '重新計算中' : '重新計算損益',
+                        ),
+                      ),
+                    ),
                   if (withheld)
                     fvBoundedState(
                       '正式總額暫不發布${affected.isEmpty ? '' : ' · 受影響 ${affected.join('、')}'}；持股 operational shares／cost 仍可顯示。',
@@ -975,7 +1092,14 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               yearSelector(),
-                              fvTag(annualRealizedPnlLabel(annualPnl, history)),
+                              fvTag(
+                                annualRealizedPnlLabel(annualPnl, history),
+                                color: fvRows(annualPnl).length == 1
+                                    ? fvSignedColor(
+                                        fvMap(fvRows(annualPnl).first)['realized_pnl'],
+                                      )
+                                    : null,
+                              ),
                             ],
                           ),
                           const SizedBox(height: 10),

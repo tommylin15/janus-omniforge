@@ -118,6 +118,15 @@ void main() {
     expect(find.text('已持有'), findsOneWidget);
     expect(find.text('已離開本週 500 · 仍保留關注'), findsOneWidget);
     expect(find.byIcon(Icons.drag_handle), findsNothing);
+
+    await tester.tap(find.text('搜尋股票代號或中文名稱'));
+    await tester.pumpAndSettle();
+    expect(find.text('搜尋關注股票'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '搜尋'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '儲存'), findsNothing);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
@@ -156,7 +165,20 @@ void main() {
           'price_status': 'missing'
         }
       ],
-      '/api/v1/me/journal/history?year=$year': const [],
+      '/api/v1/me/journal/history?year=$year': [
+        {
+          'event_id': 'pending-event',
+          'ledger_version': 24,
+          'record_version': 1,
+          'event_action': 'ORIGINAL',
+          'event_type': 'BUY',
+          'trade_date': '2026-10-01',
+          'symbol': '2330',
+          'shares': '2',
+          'price': '100',
+          'currency': 'TWD',
+        }
+      ],
       '/api/v1/me/journal/monthly-summary?year=$year': {'items': const []},
       '/api/v1/me/portfolio/performance?year=$year': {'items': const []},
       '/api/v1/me/notes': const [],
@@ -169,6 +191,8 @@ void main() {
     expect(find.text('持股市值'), findsOneWidget);
     expect(find.text('本年已實現損益'), findsOneWidget);
     expect(find.text('待更新／尚未確認'), findsOneWidget);
+    expect(find.byKey(const Key('recalculate-pnl')), findsOneWidget);
+    expect(find.text('重新計算損益'), findsOneWidget);
     expect(find.text('總額暫不發布'), findsWidgets);
     expect(find.text('持股'), findsWidgets);
     expect(find.text('紀錄'), findsOneWidget);
@@ -210,6 +234,7 @@ void main() {
     expect(find.text('本年已實現損益'), findsOneWidget);
     expect(find.text('本年度確認無交易'), findsOneWidget);
     expect(find.text('待更新／尚未確認'), findsNothing);
+    expect(find.byKey(const Key('recalculate-pnl')), findsNothing);
 
     await tester.tap(find.text('報表'));
     await tester.pumpAndSettle();
@@ -240,6 +265,62 @@ void main() {
     await tester.tap(find.text('報表'));
     await tester.pumpAndSettle();
     expect(find.text('本年已實現損益目前無法確認'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Ledger uses minus signs and Taiwan red-green colors for aggregate PnL',
+      (tester) async {
+    mobileView(tester);
+    final year = DateTime.now().year;
+    final api = FinalFakeApi({
+      '/api/v1/me/portfolio/summary': {
+        'items': [
+          {
+            'currency': 'TWD',
+            'market_value': '950',
+            'cost_basis': '1000',
+            'unrealized_pnl': '-50',
+            'unrealized_return': '-0.05',
+            'aggregate_status': 'available',
+            'valuation_status': 'available',
+            'ledger_version': 2,
+            'valuation_date': '2026-10-06'
+          }
+        ]
+      },
+      '/api/v1/me/journal/pnl?year=$year': [
+        {
+          'currency': 'TWD',
+          'realized_pnl': '-20',
+          'valuation_date': '2026-10-06',
+          'ledger_version': 2,
+        }
+      ],
+      '/api/v1/me/journal/positions': const [],
+      '/api/v1/me/journal/history?year=$year': const [],
+      '/api/v1/me/journal/monthly-summary?year=$year': {'items': const []},
+      '/api/v1/me/portfolio/performance?year=$year': {'items': const []},
+      '/api/v1/me/notes': const [],
+    });
+
+    await tester.pumpWidget(MaterialApp(
+      home: FinalLedgerPage(
+        api,
+        active: false,
+        now: () => DateTime.utc(2026, 10, 6, 7),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(legacy.accountingNumber('-1234'), '-1,234');
+    final unrealized = tester.widget<Text>(find.text('TWD -50'));
+    final realized = tester.widget<Text>(find.text('TWD -20'));
+    final unrealizedReturn = tester.widget<Text>(find.text('報酬 -5%'));
+    expect(unrealized.style?.color, fvLoss);
+    expect(realized.style?.color, fvLoss);
+    expect(unrealizedReturn.style?.color, fvLoss);
+    expect(find.textContaining('(50)'), findsNothing);
+    expect(find.textContaining('(20)'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -503,6 +584,54 @@ void main() {
         tester.widget<Text>(find.byKey(const Key('holding-return-2330')));
     expect(holdingPnl.style?.color, fvGain);
     expect(holdingReturn.style?.color, fvGain);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Ledger after 14:30 reads latest price once across tab re-entry',
+      (tester) async {
+    mobileView(tester);
+    final year = DateTime.now().year;
+    final api = FinalFakeApi({
+      '/api/v1/me/portfolio/summary': {'items': const []},
+      '/api/v1/me/journal/pnl?year=$year': const [],
+      '/api/v1/me/journal/positions': const [],
+      '/api/v1/me/journal/history?year=$year': const [],
+      '/api/v1/me/portfolio/quotes': {
+        'positions': const [],
+        'items': const [],
+        'checked_at': '2026-10-06T15:00:00+08:00',
+        'market_open': false,
+        'session': 'closed',
+      },
+    });
+    var active = true;
+    late StateSetter updateHost;
+
+    await tester.pumpWidget(MaterialApp(
+      home: StatefulBuilder(builder: (context, setState) {
+        updateHost = setState;
+        return FinalLedgerPage(
+          api,
+          active: active,
+          now: () => DateTime.utc(2026, 10, 6, 7),
+        );
+      }),
+    ));
+    await tester.pumpAndSettle();
+    expect(
+      api.reads.where((path) => path == '/api/v1/me/portfolio/quotes').length,
+      1,
+    );
+
+    updateHost(() => active = false);
+    await tester.pump();
+    updateHost(() => active = true);
+    await tester.pumpAndSettle();
+
+    expect(
+      api.reads.where((path) => path == '/api/v1/me/portfolio/quotes').length,
+      1,
+    );
     expect(tester.takeException(), isNull);
   });
 

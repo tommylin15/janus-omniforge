@@ -45,7 +45,7 @@ Deterministic market cards 可保留 source-specific `as_of`／trade date；首�
 
 以 authenticated owner 的 active watchlist 為中心，不顯示平台推薦榜，也不因搜尋／page load 觸發 scraper、Agent 或 LLM。
 
-- 搜尋支援股票代號與中文名稱，使用 canonical stock-master search contract。
+- 搜尋支援股票代號與中文名稱，使用 canonical stock-master search contract；第一層輸入 dialog 的主要動作明確標示「搜尋」，選定股票後才在設定／確認步驟使用「儲存」。
 - 新加入受目前有效約 500 market universe 與最多 50 active distinct symbols guard 約束。
 - 既有關注離開 500 時保留並標明狀態，不因 universe 變更自動刪除。
 - 顯示 canonical name＋symbol、latest-price resolver 的 price／date／source／state、held state、target price、pending note／follow-up、bounded missing／stale。盤中只有此頁可見且 App 在前景時才每分鐘 revalidate；沒有 App demand 時不呼叫 MIS。
@@ -146,13 +146,15 @@ Ledger／Holdings 一致性至少涵蓋 shares、cost／average cost、market va
 
 手機持股用可掃描 card：canonical name／symbol、shares、market price／average cost、unrealized PnL／return、price／valuation status。每檔都直接顯示未實現損益與百分比，正值紅、負值綠、0／未知中性；價格與未實現估值使用 latest-price resolver 回傳的 owner holdings valuation。operational shares／cost 與 canonical valuation／PnL 的資料時間仍須可判讀。
 
-持股分頁使用 latest-price resolver：盤中且 App 位於前景／持股分頁時每 1 分鐘 revalidate；盤後／休市進入持股分頁只讀 persistent latest state。保留可見的「更新股價」手動入口，backend 僅對 authenticated owner 的目前 TWSE 持股執行 MIS refresh；手動刷新略過 60 秒 TTL，但仍有 10 秒 hard throttle。離開持股、App 進背景或市場關閉後停止輪詢；沒有 App demand 時不執行每分鐘行情工作。更新失敗保留 PostgreSQL last-success 並明示報價狀態，不以失敗回應覆寫 canonical EOD／Private Mart。
+持股分頁使用 latest-price resolver：盤中且 App 位於前景／持股分頁時每 1 分鐘 revalidate；13:30 後停止每分鐘輪詢，14:30 EOD handoff 時間到後只需成功讀取一次 persistent latest state，同一頁面生命週期內的 tab re-entry 不得重複自動抓取。13:30–14:30 若頁面已開啟，可保留最後 persistent state，並在 14:30 安排一次 handoff read；使用者明確按 refresh／交易異動後的必要同步不受此「tab re-entry 不重抓」限制。保留可見的「更新股價」手動入口，backend 僅對 authenticated owner 的目前 TWSE 持股執行 MIS refresh；手動刷新略過 60 秒 TTL，但仍有 10 秒 hard throttle。離開持股、App 進背景或市場關閉後停止輪詢；沒有 App demand 時不執行每分鐘行情工作。更新失敗保留 PostgreSQL last-success 並明示報價狀態，不以失敗回應覆寫 canonical EOD／Private Mart。
 
 YTD realized PnL 必須有明確 display semantics：
 
 - 當年度確定沒有已實現交易，且 canonical aggregate 可確認零值時，顯示 `0`；
 - 資料不足、projection／Private Mart 尚待刷新、valuation/as-of 不一致時，顯示 bounded empty／unavailable／pending，而不是用假 `0` 補值；
 - 已有已實現交易且 authoritative aggregate 可用時，不得長期缺值或完全不顯示。
+- 只有 YTD/Private Mart 確認為 pending／stale、確實需要重算時才顯示「重新計算損益」；正常可用、確認為 0 或單純 API unavailable 時不顯示。手動重算呼叫 owner-scoped backend，Flutter 不在本機重算 canonical PnL。
+- User UI 的 realized／unrealized PnL 與其報酬百分比統一採台股語意：獲利紅、虧損綠、0／未知中性；負值以減號顯示，不使用會計括號。
 
 ### 5.4.3 紀錄
 
@@ -174,6 +176,7 @@ cash flow 與 PnL 不得混為同義。交易類型目前為買進、賣出、�
 - 報表頁上方 holdings summary 與「持股／紀錄」共用同一 canonical state；不得因 tab 切換維持不同版本的舊 summary。
 - 報表需顯示可判讀的 valuation date／as-of／freshness／pending／stale 狀態。若 aggregation 尚未追上 transaction／position projection，應顯示 bounded pending，而不是把舊數值當最新。
 - 交易新增、修改、同步或 position projection 更新後，Holdings summary、Ledger summary、Records、Reports、YTD realized PnL 都必須進入一致的 refresh／invalidation 流程；舊 cache 不得長時間殘留而沒有 freshness 說明。
+- Ledger mutation commit 後先由 ledger version mismatch 自動形成 stale/pending fence，API 立即排一輪 owner-scoped Private Mart 重算；此 immediate recalculation 是低延遲主路徑，既有 scheduled private pipeline 仍保留為 durability／reconciliation fallback，且重跑必須 idempotent。若 immediate path 失敗，交易本身不得被回滾或假裝 aggregate 已更新，UI 保留 pending 與手動「重新計算損益」。
 - 真正更新機制以 backend/runtime contract 為準。若採 batch，正式 evidence 應能指出 Job、Scheduler／trigger、頻率、source table、target projection、freshness SLA 與 failure 行為；若非 batch，應能追溯 event-driven／synchronous／materialization 的實際鏈路。UI 不得在 root cause 未查明前把 stale report 解釋成「正常等待批次」。
 - Reports acceptance 必須追查並對齊 report API、transaction source、position projection、report aggregation source、DB table/view/materialized projection、cache TTL/invalidation 與 transaction 入帳後更新鏈路；最後以 evidence 判定 `implemented`／`partial`／`missing`／`blocked`。
 

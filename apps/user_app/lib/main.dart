@@ -10,7 +10,7 @@ import 'sign_in_button.dart'
     if (dart.library.js_util) 'sign_in_button_web.dart';
 import 'admin.dart';
 
-const portfolioPendingMessage = '交易已儲存，等待投資組合批次更新';
+const portfolioPendingMessage = '交易已儲存，損益重新計算中';
 
 String uiLabel(Object? value) =>
     const {
@@ -77,7 +77,13 @@ String accountingNumber(Object? value,
   final formatted = decimals == 0
       ? grouped
       : '$grouped.${digits.substring(digits.length - decimals)}';
-  return match[1] == '-' && units != BigInt.zero ? '($formatted)' : formatted;
+  return match[1] == '-' && units != BigInt.zero ? '-$formatted' : formatted;
+}
+
+Color profitLossColor(Object? value, {Color neutral = const Color(0xFF5D7180)}) {
+  final number = double.tryParse('${value ?? ''}');
+  if (number == null || !number.isFinite || number == 0) return neutral;
+  return number > 0 ? const Color(0xFFC62828) : const Color(0xFF16814F);
 }
 
 String portfolioReturnLabel(Object? value) {
@@ -1987,9 +1993,27 @@ class _PortfolioDashboardState extends State<PortfolioDashboard> {
                   for (final row in summary.cast<Map<String, dynamic>>())
                     ListTile(
                         title: Text('${row['currency']} 投資組合'),
-                        subtitle: Text(row['aggregate_status'] == 'withheld'
-                            ? '總額暫不發布・受影響 ${row['affected_symbol_count'] ?? _asList(row['affected_symbols']).length} 檔${_asList(row['affected_symbols']).isEmpty ? '' : '：${_asList(row['affected_symbols']).join('、')}'}'
-                            : '市值 ${money(row['market_value'])}・未實現 ${money(row['unrealized_pnl'])}・未實現報酬 ${portfolioReturnLabel(row['unrealized_return'])}'),
+                        subtitle: row['aggregate_status'] == 'withheld'
+                            ? Text(
+                                '總額暫不發布・受影響 ${row['affected_symbol_count'] ?? _asList(row['affected_symbols']).length} 檔${_asList(row['affected_symbols']).isEmpty ? '' : '：${_asList(row['affected_symbols']).join('、')}'}')
+                            : Text.rich(TextSpan(children: [
+                                TextSpan(text: '市值 ${money(row['market_value'])}・未實現 '),
+                                TextSpan(
+                                  text: money(row['unrealized_pnl']),
+                                  style: TextStyle(
+                                    color: profitLossColor(row['unrealized_pnl']),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const TextSpan(text: '・未實現報酬 '),
+                                TextSpan(
+                                  text: portfolioReturnLabel(row['unrealized_return']),
+                                  style: TextStyle(
+                                    color: profitLossColor(row['unrealized_return']),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ])),
                         trailing: Text(
                             row['cash_safety_status'] == 'insufficient_data'
                                 ? '現金資料不足'
@@ -2005,9 +2029,17 @@ class _PortfolioDashboardState extends State<PortfolioDashboard> {
                     for (final row in performance.cast<Map<String, dynamic>>())
                       ListTile(
                           title: Text('${row['year']} ${row['currency']}'),
-                          trailing: Text(row['xirr_status'] == 'available'
-                              ? '${(double.parse('${row['xirr']}') * 100).toStringAsFixed(2)}%'
-                              : '資料不足'))
+                          trailing: Text(
+                            row['xirr_status'] == 'available'
+                                ? portfolioReturnLabel(row['xirr'])
+                                : '資料不足',
+                            style: row['xirr_status'] == 'available'
+                                ? TextStyle(
+                                    color: profitLossColor(row['xirr']),
+                                    fontWeight: FontWeight.w700,
+                                  )
+                                : null,
+                          ))
                   ]),
                   ExpansionTile(title: const Text('壓力測試'), children: [
                     for (final row in stress.cast<Map<String, dynamic>>())
@@ -2252,7 +2284,7 @@ class ErrorView extends StatelessWidget {
 }
 
 Future<String?> textDialog(BuildContext context, String title, String label,
-    {String initial = ''}) {
+    {String initial = '', String confirmLabel = '儲存'}) {
   final controller = TextEditingController(text: initial);
   return showDialog<String>(
       context: context,
@@ -2269,7 +2301,7 @@ Future<String?> textDialog(BuildContext context, String title, String label,
                 FilledButton(
                     onPressed: () =>
                         Navigator.pop(context, controller.text.trim()),
-                    child: const Text('儲存'))
+                    child: Text(confirmLabel))
               ]));
 }
 

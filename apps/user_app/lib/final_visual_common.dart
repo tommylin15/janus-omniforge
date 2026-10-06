@@ -12,11 +12,8 @@ const fvLoss = Color(0xFF16814F);
 
 double? fvNumber(Object? value) => double.tryParse('${value ?? ''}');
 
-Color fvSignedColor(Object? value) {
-  final number = fvNumber(value);
-  if (number == null || number == 0) return fvMuted;
-  return number > 0 ? fvGain : fvLoss;
-}
+Color fvSignedColor(Object? value) =>
+    legacy.profitLossColor(value, neutral: fvMuted);
 
 String fvSignedPercent(Object? value, {int decimals = 2}) {
   final ratio = fvNumber(value);
@@ -142,7 +139,7 @@ Widget fvStatusPill(Object? value) {
   );
 }
 
-Widget fvTag(String text, {bool warning = false}) => Container(
+Widget fvTag(String text, {bool warning = false, Color? color}) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
         color: warning ? const Color(0xFFFFF2E2) : fvSoft,
@@ -151,14 +148,20 @@ Widget fvTag(String text, {bool warning = false}) => Container(
       child: Text(
         text,
         style: TextStyle(
-          color: warning ? const Color(0xFF9A5A10) : fvTeal,
+          color: color ?? (warning ? const Color(0xFF9A5A10) : fvTeal),
           fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
       ),
     );
 
-Widget fvMetricTile(String label, String value, {String? detail}) => Container(
+Widget fvMetricTile(
+  String label,
+  String value, {
+  String? detail,
+  Color? valueColor,
+  Color? detailColor,
+}) => Container(
       height: 116,
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
@@ -184,8 +187,8 @@ Widget fvMetricTile(String label, String value, {String? detail}) => Container(
             value,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: fvInk,
+            style: TextStyle(
+              color: valueColor ?? fvInk,
               fontSize: 17,
               fontWeight: FontWeight.w800,
               height: 1.15,
@@ -197,7 +200,10 @@ Widget fvMetricTile(String label, String value, {String? detail}) => Container(
               detail,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: fvMuted, fontSize: 10.5),
+              style: TextStyle(
+                color: detailColor ?? fvMuted,
+                fontSize: 10.5,
+              ),
             ),
           ],
         ],

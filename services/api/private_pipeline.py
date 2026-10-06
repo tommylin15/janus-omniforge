@@ -308,6 +308,38 @@ class PrivatePipeline:
         self.valuation_date_resolver=valuation_date_resolver
         self.last_valuation_date: date | None = None
 
+    def _resolve_valuation_date(self, valuation_date: date | None) -> date:
+        if valuation_date is not None:
+            return valuation_date
+        if self.valuation_date_resolver is None:
+            raise ValueError("valuation date is unavailable")
+        return self.valuation_date_resolver()
+
+    def _write_user(self, user_id: Any, valuation_date: date) -> None:
+        ledger=self.repository.ledger_for_pipeline(user_id)
+        watchlist=self.repository.watchlist_for_pipeline(user_id)
+        profile=self.repository.investment_profile_for_pipeline(user_id)
+        self.store.upsert("ledger_events",ledger)
+        self.store.upsert("watchlist_events",[{**row,"change_version":row["version"]} for row in watchlist])
+        if profile: self.store.upsert("investment_profile_revisions",[profile])
+        symbols={row["symbol"] for row in ledger}
+        identity_reader=getattr(self.repository,"stock_identities",None)
+        identities=identity_reader(symbols) if identity_reader else {}
+        marts=calculate_marts(ledger,self.prices(symbols,valuation_date),valuation_date,identities)
+        for table,rows in marts.items():
+            self.store.upsert(table,rows)
+        for table,rows in calculate_risk_marts(
+            ledger,marts["mart_user_positions"],profile,
+            self.memberships(symbols,valuation_date),valuation_date,
+        ).items():
+            self.store.upsert(table,rows)
+
+    def run_user(self, user_id: Any, valuation_date: date | None = None) -> dict[str, str]:
+        resolved=self._resolve_valuation_date(valuation_date)
+        self.last_valuation_date=resolved
+        self._write_user(user_id,resolved)
+        return {"status":"updated","valuation_date":resolved.isoformat()}
+
     def run(self, valuation_date: date | None = None, limit: int = 500) -> int:
         checkpoint=self.repository.pipeline_checkpoint(); changes=self.repository.pipeline_batch(checkpoint,limit)
         completed=checkpoint
@@ -316,26 +348,10 @@ class PrivatePipeline:
         revaluation_user_ids=set(revaluation_reader(limit)) if revaluation_reader else set()
         user_ids=changed_user_ids | revaluation_user_ids
         if user_ids:
-            if valuation_date is None:
-                if self.valuation_date_resolver is None: raise ValueError("valuation date is unavailable")
-                valuation_date=self.valuation_date_resolver()
+            valuation_date=self._resolve_valuation_date(valuation_date)
             self.last_valuation_date=valuation_date
             for user_id in user_ids:
-                ledger=self.repository.ledger_for_pipeline(user_id)
-                watchlist=self.repository.watchlist_for_pipeline(user_id)
-                profile=self.repository.investment_profile_for_pipeline(user_id)
-                self.store.upsert("ledger_events",ledger)
-                self.store.upsert("watchlist_events",[{**row,"change_version":row["version"]} for row in watchlist])
-                if profile: self.store.upsert("investment_profile_revisions",[profile])
-                symbols={row["symbol"] for row in ledger}
-                identity_reader=getattr(self.repository,"stock_identities",None)
-                identities=identity_reader(symbols) if identity_reader else {}
-                marts=calculate_marts(ledger,self.prices(symbols,valuation_date),valuation_date,identities)
-                for table,rows in marts.items():
-                    self.store.upsert(table,rows)
-                for table,rows in calculate_risk_marts(ledger,marts["mart_user_positions"],profile,
-                                                       self.memberships(symbols,valuation_date),valuation_date).items():
-                    self.store.upsert(table,rows)
+                self._write_user(user_id,valuation_date)
         if changes:
             completed=changes[-1]["change_id"]
             self.repository.advance_pipeline_checkpoint(completed)

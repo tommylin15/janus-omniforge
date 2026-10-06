@@ -101,8 +101,12 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
   void reload() => setState(() => data = _load());
 
   Future<void> add() async {
-    final query =
-        await legacy.textDialog(context, '搜尋關注股票', '股票代號或中文名稱');
+    final query = await legacy.textDialog(
+      context,
+      '搜尋關注股票',
+      '股票代號或中文名稱',
+      confirmLabel: '搜尋',
+    );
     if (query == null || query.trim().isEmpty) return;
     try {
       final result = await widget.api.get(Uri(

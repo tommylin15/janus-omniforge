@@ -79,9 +79,14 @@ is created:
   `INGESTION_DATASETS=twse-market-volume,taiex`.
 
 From 13:30 until the same-day EOD projection is available, UI may continue to show the final MIS value
-as `closing_pending_eod`. When same-day EOD is persisted, the resolver switches to `eod_final`
-without a frontend API/source switch. If 14:30 EOD is delayed or fails, last MIS remains visible with
-non-final/pending semantics rather than falling back silently to yesterday.
+as `closing_pending_eod`. Holdings stops one-minute polling at 13:30; after the 14:30 handoff time it
+needs only one successful persistent resolver read per page lifecycle to pick up `eod_final`, and tab
+re-entry must not repeatedly refetch after that successful read. An explicit user refresh or a ledger
+mutation that invalidates the displayed holdings may request another read.
+
+When same-day EOD is persisted, the resolver switches to `eod_final` without a frontend API/source
+switch. If 14:30 EOD is delayed or fails, last MIS remains visible with non-final/pending semantics
+rather than falling back silently to yesterday.
 
 ## Broker Profile
 

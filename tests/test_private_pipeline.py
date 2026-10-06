@@ -128,6 +128,18 @@ def test_checkpoint_advances_only_after_all_private_writes():
     assert failed_repo.advanced==[]
 
 
+def test_run_user_rebuilds_one_owner_without_advancing_global_checkpoint():
+    repo,store=Repository(),Store()
+    pipeline=PrivatePipeline(repo,store,lambda symbols,when:{"2330":Decimal("12")})
+    result=pipeline.run_user(USER,date(2026,9,4))
+    assert result=={"status":"updated","valuation_date":"2026-09-04"}
+    assert pipeline.last_valuation_date==date(2026,9,4)
+    assert repo.advanced==[]
+    assert "mart_user_annual_pnl" in store.tables
+    assert "mart_user_monthly_ledger_summary" in store.tables
+    assert "mart_user_symbol_ledger_summary" in store.tables
+
+
 def test_empty_queue_does_not_resolve_valuation_rewrite_marts_or_advance_checkpoint():
     class EmptyRepository:
         def pipeline_checkpoint(self): return 7

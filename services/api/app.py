@@ -39,7 +39,7 @@ from .models import (AdminResponseOut, AnalysisFeedbackIn, CorePageOut, CoreSumm
                      WatchlistIn, WatchlistOrderIn,
                      GovernanceDiffIn, GovernanceEditIn, MembershipEditIn)
 from .repository import ConflictError, NotFoundError, OversellError, repository_from_env
-from .private_pipeline import ledger_net_cash_flow, stock_identity
+from .private_pipeline import CorePriceReader, PrivatePipeline, ledger_net_cash_flow, resolve_valuation_date, stock_identity
 from .public_runtime import build_admin_service, build_core_service, build_pipeline_service, build_public_service
 from .store import PrivateIcebergStore
 from .intraday_quotes import MisQuotes, TAIPEI, market_phase, value_holdings
@@ -143,7 +143,8 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                pipeline_service: Any | None = None,
                public: Any | None = None,
                oauth_facade: Any | None = None,
-               quotes: Any | None = None) -> FastAPI:
+               quotes: Any | None = None,
+               private_recalculator: Any | None = None) -> FastAPI:
     from packages.postgres_bundle import load_postgres_bundle
     bundle_fields: dict[str, str | tuple[str, ...]] = {
         "GOOGLE_USER_CLIENT_ID": "google_user_client_id",
@@ -159,6 +160,20 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     repository = repository or _Lazy(repository_from_env)
     quote_router = QuoteRouter(repository, quotes)
     store = store or _Lazy(PrivateIcebergStore.from_env)
+    if private_recalculator is None:
+        def build_private_recalculator() -> PrivatePipeline:
+            load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", {
+                "CORE_CATALOG_PASSWORD": "core_catalog_password",
+            })
+            market = CorePriceReader.from_env()
+            return PrivatePipeline(
+                repository,
+                store,
+                market,
+                market.memberships,
+                lambda: resolve_valuation_date(None, market.latest_valuation_date),
+            )
+        private_recalculator = _Lazy(build_private_recalculator)
     core = core or _Lazy(CoreContextReader.from_env)
     if query_core is None:
         def unavailable_core() -> Any:
@@ -232,6 +247,18 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                 LOGGER.warning("quote calendar unavailable: %s", type(error).__name__)
                 phase = "closed"
         return current, phase
+
+    def recalculate_private_mart(user_id: UUID) -> dict[str, Any]:
+        return dict(private_recalculator.run_user(user_id))
+
+    def recalculate_private_mart_safely(user_id: UUID) -> None:
+        try:
+            recalculate_private_mart(user_id)
+        except Exception as error:
+            LOGGER.warning(
+                "immediate private mart recalculation failed; scheduled pipeline remains fallback: %s",
+                type(error).__name__,
+            )
 
     def resolve_prices(identities: dict[str, dict[str, Any]], *, force: bool = False):
         scoped = {
@@ -639,12 +666,30 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         return {"items":contexts.sources()}
 
     @private.post("/journal/events", status_code=201)
-    def add_ledger(value: LedgerEventIn, current: AuthenticatedUser = Depends(user), idempotency_key: str = Depends(key)):
-        return jsonable_encoder(repository.add_ledger(current.user_id,value,idempotency_key))
+    def add_ledger(value: LedgerEventIn, background_tasks: BackgroundTasks,
+                   current: AuthenticatedUser = Depends(user), idempotency_key: str = Depends(key)):
+        result = repository.add_ledger(current.user_id,value,idempotency_key)
+        background_tasks.add_task(recalculate_private_mart_safely,current.user_id)
+        return jsonable_encoder(result)
 
     @private.post("/journal/events/{event_id}/corrections", status_code=201)
-    def correct_ledger(event_id: UUID,value:CorrectionIn,current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
-        return jsonable_encoder(repository.correct_ledger(current.user_id,event_id,value.expected_version,value.replacement,idempotency_key))
+    def correct_ledger(event_id: UUID,value:CorrectionIn,background_tasks:BackgroundTasks,
+                       current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
+        result=repository.correct_ledger(current.user_id,event_id,value.expected_version,value.replacement,idempotency_key)
+        background_tasks.add_task(recalculate_private_mart_safely,current.user_id)
+        return jsonable_encoder(result)
+
+    @private.post("/journal/recalculate")
+    def recalculate_ledger(current: AuthenticatedUser = Depends(user)):
+        try:
+            result=recalculate_private_mart(current.user_id)
+        except Exception as error:
+            LOGGER.warning("manual private mart recalculation failed: %s",type(error).__name__)
+            raise HTTPException(status_code=503,detail="損益重新計算暫時無法使用") from error
+        return jsonable_encoder({
+            **result,
+            "ledger_version":repository.latest_ledger_version(current.user_id),
+        })
 
     @private.get("/journal/history")
     def history(symbol: str|None=None,year:int|None=Query(None,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):

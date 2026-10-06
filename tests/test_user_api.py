@@ -82,6 +82,18 @@ class Store:
             "price_status":"available","valuation_date":"2026-09-05"},
         }
         return [rows.get(table,{**common,"table":table,"artifact_ref":"private/hidden",**filters})]
+class Recalculator:
+    def __init__(self, fail=False):
+        self.calls=[]
+        self.fail=fail
+
+    def run_user(self,user_id):
+        self.calls.append(user_id)
+        if self.fail:
+            raise RuntimeError("recalculation failed")
+        return {"status":"updated","valuation_date":"2026-09-05"}
+
+
 class Core:
     def page(self,dataset,symbol,limit):
         return [{"symbol":symbol,"trade_date":"2026-09-05","close":"100","source_id":"twse",
@@ -113,8 +125,9 @@ class QueryCore:
                                  "limit": limit, "offset": offset})()
 
 
-def client(claims=None,public=None,query_core=None,raise_server_exceptions=True):
+def client(claims=None,public=None,query_core=None,raise_server_exceptions=True,private_recalculator=None):
     repo,store=Repository(),Store()
+    private_recalculator=private_recalculator or Recalculator()
     values=claims or {"iss":"https://accounts.google.com","aud":"user-client","sub":"google-a","email":"old@example.com","email_verified":True,"exp":1_900_000_000}
     admin_claims={"iss":"https://accounts.google.com","aud":"admin-client","sub":"admin-1",
                   "email":"admin@example.com","email_verified":True,"exp":1_900_000_000}
@@ -126,7 +139,7 @@ def client(claims=None,public=None,query_core=None,raise_server_exceptions=True)
                    query_core=query_core,
                    admin_verifier=verify_admin,admin_audience="admin-client",
                    admin_emails=frozenset({"admin@example.com"}),
-                   public=public)
+                   public=public,private_recalculator=private_recalculator)
     return TestClient(app, raise_server_exceptions=raise_server_exceptions),repo,store
 
 
@@ -227,6 +240,34 @@ def test_identity_cannot_be_supplied_by_client_and_routes_scope_to_authenticated
     response=api.post("/api/v1/me/journal/events",headers={**auth(),"Idempotency-Key":"request-1"},json=payload)
     assert response.status_code==201
     assert repo.calls[0][0]==USER_ID
+
+
+def test_ledger_mutation_triggers_immediate_recalculation_and_manual_retry_is_owner_scoped():
+    recalculator=Recalculator()
+    api,repo,_=client(private_recalculator=recalculator)
+    payload={"event_type":"BUY","trade_date":"2026-09-04","symbol":"2330","shares":"10","price":"100"}
+    created=api.post("/api/v1/me/journal/events",headers={**auth(),"Idempotency-Key":"recalc-auto-1"},json=payload)
+    assert created.status_code==201
+    assert recalculator.calls==[USER_ID]
+
+    recalculated=api.post("/api/v1/me/journal/recalculate",headers=auth())
+    assert recalculated.status_code==200
+    assert recalculated.json()=={"status":"updated","valuation_date":"2026-09-05","ledger_version":1}
+    assert recalculator.calls==[USER_ID,USER_ID]
+    assert repo.latest_ledger_version(USER_ID)==1
+
+
+def test_ledger_mutation_survives_immediate_recalculation_failure_and_manual_retry_reports_unavailable():
+    recalculator=Recalculator(fail=True)
+    api,_,_=client(private_recalculator=recalculator)
+    payload={"event_type":"BUY","trade_date":"2026-09-04","symbol":"2330","shares":"10","price":"100"}
+    created=api.post("/api/v1/me/journal/events",headers={**auth(),"Idempotency-Key":"recalc-failure-1"},json=payload)
+    assert created.status_code==201
+    assert recalculator.calls==[USER_ID]
+
+    failed=api.post("/api/v1/me/journal/recalculate",headers=auth())
+    assert failed.status_code==503
+    assert failed.json()=={"detail":"損益重新計算暫時無法使用"}
 
 
 def test_investment_profile_and_portfolio_routes_are_typed_and_owner_scoped():
