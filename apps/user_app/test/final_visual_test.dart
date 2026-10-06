@@ -434,6 +434,13 @@ void main() {
     );
 
     await tester.scrollUntilVisible(
+      find.byKey(const Key('fv-health-bars')),
+      180,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.byKey(const Key('fv-health-bars')), findsOneWidget);
+
+    await tester.scrollUntilVisible(
       find.text('進階資料'),
       250,
       scrollable: find.byType(Scrollable).last,
@@ -449,7 +456,6 @@ void main() {
     );
     expect(find.text('K 線／OHLCV'), findsOneWidget);
     expect(find.byKey(const Key('fv-kline-chart')), findsOneWidget);
-    expect(find.byKey(const Key('fv-health-bars')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
