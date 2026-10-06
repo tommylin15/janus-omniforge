@@ -34,6 +34,7 @@ jobs:
           component="$(jq -r '.component // "janus-ingestion-core"' "${file}")"
           case "${component}" in
             janus-api)
+              mkdir -p runtime-evidence
               gcloud run services describe janus-api \
                 --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
                 --format='json(metadata.name,status.latestCreatedRevisionName,status.latestReadyRevisionName,status.traffic,spec.template.spec.containers[0].image)'
@@ -46,11 +47,192 @@ jobs:
               rm -f "${root_headers}"
               [[ "${root_status}" == "307" ]] || { echo "janus-api root status ${root_status}, expected 307" >&2; exit 2; }
               [[ "${root_location}" == "/app" ]] || { echo "janus-api root location ${root_location}, expected /app" >&2; exit 2; }
-              curl -fsS "${service_url}/app/" | grep -Fq 'Janus · OmniForge' || {
+
+              user_shell="$(mktemp)"
+              admin_shell="$(mktemp)"
+              user_manifest="$(mktemp)"
+              admin_manifest="$(mktemp)"
+              user_manifest_headers="$(mktemp)"
+              admin_manifest_headers="$(mktemp)"
+              curl -fsS "${service_url}/app/" -o "${user_shell}"
+              curl -fsS "${service_url}/app/admin" -o "${admin_shell}"
+              curl -fsS -D "${user_manifest_headers}" "${service_url}/app/manifest.json" -o "${user_manifest}"
+              curl -fsS -D "${admin_manifest_headers}" "${service_url}/app/admin-manifest.json" -o "${admin_manifest}"
+
+              grep -Fq 'Janus · OmniForge' "${user_shell}" || {
                 echo 'janus-api /app entrypoint is missing Janus branding' >&2
                 exit 2
               }
-              echo "janus-api root redirects to /app and live entrypoint is reachable"
+              grep -Fq 'href="/app/manifest.json"' "${user_shell}" || {
+                echo 'janus-api User shell is not bound to the User manifest' >&2
+                exit 2
+              }
+              grep -Fq 'Janus Admin · OmniForge' "${admin_shell}" || {
+                echo 'janus-api /app/admin is not serving the Admin shell' >&2
+                exit 2
+              }
+              grep -Fq 'href="/app/admin-manifest.json"' "${admin_shell}" || {
+                echo 'janus-api Admin shell is not bound to the Admin manifest' >&2
+                exit 2
+              }
+              jq -e '.id == "/app/" and .start_url == "/app/" and .scope == "/app/"' "${user_manifest}" >/dev/null
+              jq -e '.id == "/app/admin" and .start_url == "/app/admin" and .scope == "/app/"' "${admin_manifest}" >/dev/null
+              grep -Eiq '^cache-control:.*no-store' "${user_manifest_headers}" || {
+                echo 'User manifest is missing no-store cache policy' >&2
+                exit 2
+              }
+              grep -Eiq '^cache-control:.*no-store' "${admin_manifest_headers}" || {
+                echo 'Admin manifest is missing no-store cache policy' >&2
+                exit 2
+              }
+
+              user_private_status="$(curl -sS -o /dev/null -w '%{http_code}' "${service_url}/api/v1/me/profile")"
+              admin_private_status="$(curl -sS -o /dev/null -w '%{http_code}' "${service_url}/api/v1/admin/data-governance")"
+              [[ "${user_private_status}" == "401" || "${user_private_status}" == "403" ]] || {
+                echo "unauthenticated User private endpoint returned ${user_private_status}" >&2
+                exit 2
+              }
+              [[ "${admin_private_status}" == "401" || "${admin_private_status}" == "403" ]] || {
+                echo "unauthenticated Admin endpoint returned ${admin_private_status}" >&2
+                exit 2
+              }
+
+              build_id="$(curl -fsS "${service_url}/app/build-id.txt")"
+              jq -n \
+                --arg service_url "${service_url}" \
+                --arg build_id "${build_id}" \
+                --arg root_status "${root_status}" \
+                --arg root_location "${root_location}" \
+                --arg user_private_status "${user_private_status}" \
+                --arg admin_private_status "${admin_private_status}" \
+                --slurpfile user_manifest "${user_manifest}" \
+                --slurpfile admin_manifest "${admin_manifest}" \
+                '{
+                  service_url:$service_url,
+                  build_id:$build_id,
+                  root:{status:$root_status,location:$root_location},
+                  unauthenticated:{user_private_status:$user_private_status,admin_private_status:$admin_private_status},
+                  user_manifest:$user_manifest[0],
+                  admin_manifest:$admin_manifest[0]
+                }' > runtime-evidence/janus-api-live.json
+              cat runtime-evidence/janus-api-live.json
+              rm -f "${user_shell}" "${admin_shell}" "${user_manifest}" "${admin_manifest}" \
+                "${user_manifest_headers}" "${admin_manifest_headers}"
+              echo "janus-api live User/Admin PWA identity and unauthenticated boundaries passed"
+              ;;
+            private-schedulers)
+              mkdir -p runtime-evidence
+              identity="janus-ingestion-scheduler@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+              target="https://run.googleapis.com/v2/projects/${GCP_PROJECT_ID}/locations/${GCP_REGION}/jobs/janus-private-pipeline:run"
+              : > runtime-evidence/private-schedulers.ndjson
+              while IFS='|' read -r name expected_schedule; do
+                scheduler="$(gcloud scheduler jobs describe "${name}" \
+                  --project="${GCP_PROJECT_ID}" --location="${GCP_REGION}" --format=json)"
+                jq -e \
+                  --arg expected_schedule "${expected_schedule}" \
+                  --arg target "${target}" \
+                  --arg identity "${identity}" \
+                  '.state == "ENABLED"
+                   and .schedule == $expected_schedule
+                   and .timeZone == "Asia/Taipei"
+                   and .httpTarget.uri == $target
+                   and .httpTarget.httpMethod == "POST"
+                   and .httpTarget.oauthToken.serviceAccountEmail == $identity
+                   and ((.retryConfig.retryCount // 0) | tonumber) == 3' <<< "${scheduler}" >/dev/null
+                jq -c '{
+                  name:(.name|split("/")[-1]),
+                  state,schedule,timeZone,attemptDeadline,
+                  retryConfig:{
+                    retryCount:.retryConfig.retryCount,
+                    minBackoffDuration:.retryConfig.minBackoffDuration,
+                    maxBackoffDuration:.retryConfig.maxBackoffDuration,
+                    maxDoublings:.retryConfig.maxDoublings
+                  },
+                  target:.httpTarget.uri,
+                  serviceAccountEmail:.httpTarget.oauthToken.serviceAccountEmail
+                }' <<< "${scheduler}" | tee -a runtime-evidence/private-schedulers.ndjson
+              done <<'SCHEDULES'
+              janus-private-pipeline-0740|40 7 * * MON-FRI
+              janus-private-pipeline-1100|0 11 * * MON-FRI
+              janus-private-pipeline-1400|0 14 * * MON-FRI
+              janus-private-pipeline-2130|30 21 * * MON-FRI
+              SCHEDULES
+
+              gcloud run jobs executions list \
+                --job=janus-private-pipeline \
+                --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+                --limit=12 --format=json \
+                | jq '[.[] | {
+                    name:(.metadata.name|split("/")[-1]),
+                    creationTimestamp:.metadata.creationTimestamp,
+                    startTime:.status.startTime,
+                    completionTime:.status.completionTime,
+                    succeededCount:(.status.succeededCount // 0),
+                    failedCount:(.status.failedCount // 0)
+                  }]' | tee runtime-evidence/private-pipeline-executions.json
+
+              if gcloud logging read \
+                'resource.type="cloud_scheduler_job" AND resource.labels.job_id=~"janus-private-pipeline-.*"' \
+                --project="${GCP_PROJECT_ID}" --freshness=7d --limit=100 --order=desc --format=json \
+                > runtime-evidence/private-scheduler-logs.json; then
+                jq '[.[] | {
+                  timestamp,severity,
+                  job_id:.resource.labels.job_id,
+                  status:(.httpRequest.status // .jsonPayload.status // null)
+                }]' runtime-evidence/private-scheduler-logs.json
+              else
+                printf '[]\n' > runtime-evidence/private-scheduler-logs.json
+                echo 'scheduler logs unavailable; scheduler definitions and Cloud Run executions were still verified'
+              fi
+              echo "Private Pipeline scheduler definitions and bounded execution history passed"
+              ;;
+            storage-governance)
+              mkdir -p runtime-evidence
+              bucket_list="$(gcloud storage buckets list --project="${GCP_PROJECT_ID}" --format=json)"
+              jq --arg prefix "${GCP_PROJECT_ID}-dev-" \
+                '[.[] | select(.name | startswith($prefix)) | {
+                  name,location,storageClass,
+                  versioning:(.versioning // {}),
+                  lifecycle:(.lifecycle // {}),
+                  softDeletePolicy:(.softDeletePolicy // {}),
+                  retentionPolicy:(.retentionPolicy // {})
+                }]' <<< "${bucket_list}" | tee runtime-evidence/dev-bucket-governance.json
+
+              for suffix in stage core mart; do
+                bucket="${GCP_PROJECT_ID}-dev-${suffix}"
+                gcloud storage buckets describe "gs://${bucket}" --format=json \
+                  | jq '{
+                      name,location,storageClass,
+                      versioning:(.versioning // {}),
+                      lifecycle:(.lifecycle // {}),
+                      softDeletePolicy:(.softDeletePolicy // {}),
+                      retentionPolicy:(.retentionPolicy // {})
+                    }' > "runtime-evidence/${suffix}-bucket.json"
+                cat "runtime-evidence/${suffix}-bucket.json"
+              done
+
+              for suffix in core mart; do
+                bucket="${GCP_PROJECT_ID}-dev-${suffix}"
+                latest="$(gcloud storage ls "gs://${bucket}/maintenance/retention/*.json" 2>/dev/null | sort | tail -1 || true)"
+                if [[ -n "${latest}" ]]; then
+                  echo "${latest}" > "runtime-evidence/${suffix}-retention-uri.txt"
+                  gcloud storage cat "${latest}" \
+                    | jq '{
+                        component,mode,policy_version,retention_days,
+                        stage:(.stage // null),
+                        storage:(.storage // null),
+                        storage_scope,
+                        billable_bytes_reclaimed,
+                        specialist_artifacts:(.specialist_artifacts // null),
+                        core_manifests:(.core_manifests // null),
+                        artifact_uri:(.artifact_uri // null)
+                      }' > "runtime-evidence/${suffix}-retention-latest.json"
+                  cat "runtime-evidence/${suffix}-retention-latest.json"
+                else
+                  echo "no retention receipt found for ${bucket}" >&2
+                fi
+              done
+              echo "Storage governance configuration and latest bounded retention receipts inspected"
               ;;
             janus-web)
               if ! gcloud run services describe janus-web \
