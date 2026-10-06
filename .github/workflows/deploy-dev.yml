@@ -222,23 +222,6 @@ jobs:
               - 'tests/test_portfolio_revaluation.py'
               - 'tests/test_container_build_contract.py'
 
-  prepare-mobile-ledger:
-    needs: detect
-    if: needs.detect.outputs.mobile_ledger_runtime == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
-      - uses: google-github-actions/setup-gcloud@v2
-      - name: Ensure Google Drive and Sheets APIs
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          gcloud services enable drive.googleapis.com sheets.googleapis.com \
-            --project="${GCP_PROJECT_ID}" --quiet
-
   test-ingestion:
     needs: detect
     if: >-
@@ -281,12 +264,10 @@ jobs:
           tests/ingestion/test_control_plane.py
 
   deploy-ingestion:
-    needs: [detect, test-ingestion, prepare-mobile-ledger]
+    needs: [detect, test-ingestion]
     if: >-
       always() &&
       needs.test-ingestion.result == 'success' &&
-      (needs.prepare-mobile-ledger.result == 'success' ||
-      needs.prepare-mobile-ledger.result == 'skipped') &&
       (needs.detect.outputs.ingestion_runtime == 'true' ||
       (github.event_name == 'workflow_dispatch' && inputs.component == 'ingestion-core'))
     runs-on: ubuntu-latest
@@ -432,12 +413,10 @@ jobs:
           tests/test_container_build_contract.py
 
   deploy-private-pipeline:
-    needs: [detect, test-api, migrate-quotes, migrate-private-operations, prepare-mobile-ledger]
+    needs: [detect, test-api, migrate-quotes, migrate-private-operations]
     if: >-
       always() &&
       needs.test-api.result == 'success' &&
-      (needs.prepare-mobile-ledger.result == 'success' ||
-      needs.prepare-mobile-ledger.result == 'skipped') &&
       (needs.migrate-quotes.result == 'success' ||
       (needs.migrate-quotes.result == 'skipped' && needs.detect.outputs.quotes_schema != 'true')) &&
       (needs.migrate-private-operations.result == 'success' ||
