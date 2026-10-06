@@ -476,6 +476,148 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Ledger year selector reveals cleared 2025 KGI fund trades by stock',
+      (tester) async {
+    mobileView(tester);
+    final currentYear = DateTime.now().year;
+    final api = FinalFakeApi({
+      '/api/v1/me/portfolio/summary': {'items': const []},
+      '/api/v1/me/journal/pnl?year=$currentYear': const [],
+      '/api/v1/me/journal/history?year=$currentYear': const [],
+      '/api/v1/me/journal/positions': const [],
+      '/api/v1/me/journal/monthly-summary?year=$currentYear': {'items': const []},
+      '/api/v1/me/journal/symbol-summary?year=$currentYear': {'items': const []},
+      '/api/v1/me/portfolio/performance?year=$currentYear': {'items': const []},
+      '/api/v1/me/notes': const [],
+      '/api/v1/me/journal/history?year=2025': [
+        {
+          'event_id': 'kgi-buy-1',
+          'record_version': 1,
+          'event_action': 'ORIGINAL',
+          'event_type': 'BUY',
+          'trade_date': '2025-09-11',
+          'symbol': '2883',
+          'stock_name': '凱基金',
+          'shares': '20000',
+          'price': '15.05',
+          'currency': 'TWD',
+          'net_cash_flow': '-301171'
+        },
+        {
+          'event_id': 'kgi-buy-2',
+          'record_version': 1,
+          'event_action': 'ORIGINAL',
+          'event_type': 'BUY',
+          'trade_date': '2025-09-24',
+          'symbol': '2883',
+          'stock_name': '凱基金',
+          'shares': '30000',
+          'price': '15.05',
+          'currency': 'TWD',
+          'net_cash_flow': '-451757'
+        },
+        {
+          'event_id': 'kgi-sell',
+          'record_version': 1,
+          'event_action': 'ORIGINAL',
+          'event_type': 'SELL',
+          'trade_date': '2025-10-22',
+          'symbol': '2883',
+          'stock_name': '凱基金',
+          'shares': '50000',
+          'price': '16.1',
+          'currency': 'TWD',
+          'net_cash_flow': '802127'
+        }
+      ],
+      '/api/v1/me/journal/monthly-summary?year=2025': {
+        'items': [
+          {
+            'month': 9,
+            'currency': 'TWD',
+            'purchase_outflow': '752928',
+            'sale_proceeds': '0',
+            'cash_dividends': '0',
+            'realized_pnl': '0',
+            'transaction_count': 2,
+            'valuation_date': '2026-10-06'
+          },
+          {
+            'month': 10,
+            'currency': 'TWD',
+            'purchase_outflow': '0',
+            'sale_proceeds': '802127',
+            'cash_dividends': '0',
+            'realized_pnl': '49199',
+            'transaction_count': 1,
+            'valuation_date': '2026-10-06'
+          }
+        ]
+      },
+      '/api/v1/me/journal/symbol-summary?year=2025': {
+        'items': [
+          {
+            'symbol': '2883',
+            'stock_name': '凱基金',
+            'currency': 'TWD',
+            'purchase_outflow': '752928',
+            'sale_proceeds': '802127',
+            'cash_dividends': '0',
+            'realized_pnl': '49199',
+            'transaction_count': 3,
+            'valuation_date': '2026-10-06'
+          }
+        ]
+      },
+      '/api/v1/me/journal/pnl?year=2025': [
+        {
+          'currency': 'TWD',
+          'realized_pnl': '49199',
+          'valuation_date': '2026-10-06'
+        }
+      ],
+      '/api/v1/me/portfolio/performance?year=2025': {'items': const []},
+      '/api/v1/me/portfolio/quotes': {
+        'positions': const [],
+        'items': const [],
+        'checked_at': '2026-10-06T14:00:00+08:00',
+        'market_open': false,
+      },
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FinalLedgerPage(
+            api,
+            now: () => DateTime.utc(2026, 10, 1, 6),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('紀錄'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('年度：$currentYear'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('2025 年').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      api.reads,
+      contains('/api/v1/me/journal/symbol-summary?year=2025'),
+    );
+    expect(find.text('2025 年 10 月'), findsOneWidget);
+
+    await tester.tap(find.text('按個股'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('凱基金（2883）'), findsOneWidget);
+    expect(find.text('交易 3 筆'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Ledger Reports visualizes canonical monthly realized PnL',
       (tester) async {
     mobileView(tester);

@@ -161,7 +161,7 @@ YTD realized PnL 必須有明確 display semantics：
 - 股利收入
 - 已實現損益
 
-cash flow 與 PnL 不得混為同義。年度紀錄細項提供「按月份／按個股」切換；按個股彙總同樣分開買進支出、賣出回收、股利收入、已實現損益與交易筆數，且必須由 backend／Private Mart 使用同一 moving-average、fee／tax 與 correction semantics 產生，不由 Flutter 從目前畫面交易自行計算 authoritative aggregate。單筆顯示日期、event type、canonical name／symbol、適用時的 shares × price、net cash flow；detail 再顯示總額、fee、tax、currency、note、ledger metadata 與「建立更正」。
+cash flow 與 PnL 不得混為同義。紀錄／報表必須保留年度 selector（至少涵蓋目前年度與前五年）；選定年度後，紀錄細項提供「按月份／按個股」切換，因此已清倉、目前不在持股清單中的股票仍可從歷史年度按個股查看。按個股彙總同樣分開買進支出、賣出回收、股利收入、已實現損益與交易筆數，且必須由 backend／Private Mart 使用同一 moving-average、fee／tax 與 correction semantics 產生，不由 Flutter 從目前畫面交易自行計算 authoritative aggregate。單筆顯示日期、event type、canonical name／symbol、適用時的 shares × price、net cash flow；detail 再顯示總額、fee、tax、currency、note、ledger metadata 與「建立更正」。
 
 交易類型目前為買進、賣出、現金股利、股票股利；backend 負責 fee／tax rule 與 persisted rule/profile version。
 
