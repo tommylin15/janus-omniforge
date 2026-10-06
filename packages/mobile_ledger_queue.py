@@ -7,6 +7,7 @@ from typing import Any
 from urllib.parse import urlencode
 
 
+# This Sheet is a transport queue only; PostgreSQL remains the canonical ledger.
 QUEUE_FILE_NAME = "Janus Mobile Ledger Queue"
 QUEUE_SHEET_NAME = "Queue"
 QUEUE_HEADERS = (
