@@ -44,7 +44,8 @@ class FinalPerf {
   static int? _p95(List<int> source) {
     if (source.isEmpty) return null;
     final values = List<int>.from(source)..sort();
-    final index = ((values.length * .95).ceil() - 1).clamp(0, values.length - 1);
+    final index =
+        ((values.length * .95).ceil() - 1).clamp(0, values.length - 1).toInt();
     return values[index];
   }
 
