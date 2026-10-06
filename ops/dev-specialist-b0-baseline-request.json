@@ -1,6 +1,6 @@
 {
-  "enabled": false,
+  "enabled": true,
   "operation": "specialist-baseline",
-  "request_id": "b0-20261006-4dcb030-r2",
-  "expected_git_sha": "4dcb0309d9a8db525d8599e0c51d6b65bd856f45"
+  "request_id": "b1-exact-reader-20261007-50b2422",
+  "expected_git_sha": "50b2422f684c7a9cd74013b521ff7cc1b2fd3d4c"
 }
