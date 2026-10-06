@@ -58,6 +58,8 @@ def _apply_portfolio_market_coverage(cursor: Any) -> None:
             JOIN control.collection_configs AS cc
               ON cc.market = sm.market
             WHERE sm.enabled
+              AND sm.market = 'TWSE'
+              AND cc.market = 'TWSE'
               AND cc.enabled
               AND cc.collection_enabled
               AND cc.dataset_id = 'ohlcv'
