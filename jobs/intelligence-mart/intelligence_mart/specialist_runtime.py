@@ -8,8 +8,9 @@ from urllib.error import HTTPError
 
 from .coverage import load_or_create_target_snapshot
 from .runtime import _fenced_core_manifest, _write_immutable_json, deterministic_processor
+from .analytics_reader import IcebergSnapshotReader
 from .specialists import DEPENDENCIES, VERSION, analyze_specialists, digest, screening, screening_quality
-from .storage import load_core_datasets, sql_catalog_from_environment
+from .storage import iceberg_snapshot_reader_from_environment
 
 
 def load_market_membership(connection, as_of):
@@ -22,21 +23,27 @@ def load_market_membership(connection, as_of):
             "analysis_as_of": as_of}
 
 
-def specialist_processor(execution, publication_connection, *, store_factory=None, catalog_factory=None):
+def specialist_processor(execution, publication_connection, *, store_factory=None, reader_factory=None, catalog_factory=None):
     if publication_connection is None:  # Local injected stores have no PostgreSQL session.
-        return _specialist_processor(execution, publication_connection, store_factory=store_factory, catalog_factory=catalog_factory)
+        return _specialist_processor(
+            execution, publication_connection, store_factory=store_factory,
+            reader_factory=reader_factory, catalog_factory=catalog_factory,
+        )
     with publication_connection.transaction():
         locked = publication_connection.execute("SELECT pg_try_advisory_lock(1835102836,2)").fetchone()[0]
     if not locked:
         raise RuntimeError("public data mutation lock is busy")
     try:
-        return _specialist_processor(execution, publication_connection, store_factory=store_factory, catalog_factory=catalog_factory)
+        return _specialist_processor(
+            execution, publication_connection, store_factory=store_factory,
+            reader_factory=reader_factory, catalog_factory=catalog_factory,
+        )
     finally:
         with publication_connection.transaction():
             publication_connection.execute("SELECT pg_advisory_unlock(1835102836,2)")
 
 
-def _specialist_processor(execution, publication_connection, *, store_factory=None, catalog_factory=None):
+def _specialist_processor(execution, publication_connection, *, store_factory=None, reader_factory=None, catalog_factory=None):
     if store_factory is None:
         from ingestion_core.stage import GcsObjectStore
         store_factory = GcsObjectStore
@@ -87,21 +94,32 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
     market_symbols = set(membership["symbols"])
     market_ref = _write_immutable_json(store, bucket, f"executions/{execution.execution_id}/market-membership.json", membership)
     symbols = tuple(sorted(market_symbols | set(target["symbols"])))
-    catalog = (catalog_factory or sql_catalog_from_environment)()
+    if reader_factory is not None and catalog_factory is not None:
+        raise ValueError("reader_factory and catalog_factory are mutually exclusive")
+    if reader_factory is not None:
+        reader = reader_factory()
+    elif catalog_factory is not None:
+        reader = IcebergSnapshotReader(catalog_factory())
+    else:
+        reader = iceberg_snapshot_reader_from_environment()
     try:
         required = {name for names in DEPENDENCIES.values() for name in names}
         inputs = dict(core, iceberg_tables={name: fence for name, fence in core.get("iceberg_tables", {}).items()
                                            if name.split(".", 1)[1][:-3].replace("_", "-") in required})
         if "datasets" in core:
             inputs["datasets"] = {name: rows for name, rows in core["datasets"].items() if name in required}
-        input_telemetry = {}
-        datasets = load_core_datasets(catalog, inputs, symbols,
-                                     row_limit=int(os.environ.get("CORE_SNAPSHOT_ROW_LIMIT", "250000")),
-                                     telemetry=input_telemetry)
+        snapshot_read = reader.read(
+            inputs,
+            symbols,
+            core_snapshot_id=execution.core_snapshot_id,
+            row_limit=int(os.environ.get("CORE_SNAPSHOT_ROW_LIMIT", "250000")),
+        )
     finally:
-        engine = getattr(catalog, "engine", None)
-        if engine is not None:
-            engine.dispose()
+        reader.close()
+    if snapshot_read.core_snapshot_id != execution.core_snapshot_id:
+        raise RuntimeError("analytics reader returned a different Core snapshot")
+    datasets = snapshot_read.datasets
+    input_telemetry = snapshot_read.telemetry
     screen = screening(datasets, market_symbols, as_of, execution.core_snapshot_id)
     screen_ref = _write_immutable_json(store, bucket, f"executions/{execution.execution_id}/screening.json", screen)
     references = []
