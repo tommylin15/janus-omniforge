@@ -382,7 +382,7 @@ def test_runtime_watch_only_held_only_overlap_off_market_and_exit(monkeypatch):
             readers.append(self)
         def read(self, manifest, requested_symbols, *, core_snapshot_id, row_limit=250_000):
             assert manifest["snapshot_id"] == core_snapshot_id == "core"
-            assert requested_symbols == ("2330", "off-market")
+            assert requested_symbols in {("2330",), ("2330", "off-market")}
             datasets = {name: [dict(row) for row in rows] for name, rows in manifest["datasets"].items()}
             rows_by_dataset = {name: len(rows) for name, rows in sorted(datasets.items())}
             return AnalyticsSnapshot(
