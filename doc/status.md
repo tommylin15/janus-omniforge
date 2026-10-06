@@ -4,6 +4,25 @@
 
 用途：只回答「現在在哪裡、下一步是什麼、哪些尚未完成」。實作以 GitHub `main` 為準，完成狀態以 tests／CI、deployment、live runtime、trigger／workload、integration evidence 為準。完整 active queue 只看 [`todo.md`](todo.md)。
 
+## 2026-10-06 A 組 live-auto acceptance checkpoint
+
+A 組目前仍為 `partial`，但**所有本對話可自動完成且不需使用者本人登入／手機操作／真實 ledger mutation 的 live acceptance 已完成**。剩餘 blocker 已縮成裝置／互動式 authenticated acceptance，不再有已知可直接修的 non-live 或 read-only runtime gap。
+
+- **PWA／安全負向：PASS。** Inspect run `37407568046` 直接讀 canonical Cloud Run URL：build-id `3e29701ffae1dfe3aa9d32deb50ded03f8145c18`；User manifest `id/start_url=/app/`，Admin manifest `id/start_url=/app/admin`；未登入 `/api/v1/me/profile` 與 `/api/v1/admin/data-governance` 都回 401。
+- **Private canonical read consistency：PASS。** Janus Dev Read-only v2 最新 owner readback：trades、positions、2026 annual-pnl、performance 均對齊 `ledger_version=24`；derived private Mart valuation date 對齊 `2026-10-05`。先前 stale Mart 狀態已消失。
+- **Batch／Private Pipeline runtime：PASS（read-only evidence）。** Inspect run `37407726176` 證明 `janus-batch-controller` 為 `BATCH_CONTROLLER_MODE=active`；`janus-ingestion-daily` 每小時 :30 觸發 controller 且近期 HTTP 200。有效 `private` batch contract 為平日 21:30 Asia/Taipei、依賴 ingestion。`janus-private-pipeline-n45c6` 於 2026-10-05 21:33 台北時間建立、21:36 完成且 succeeded；舊 direct `janus-private-pipeline-2130` Scheduler 在 bounded 7-day logs 的最後活動停在 2026-10-01。
+- **重複 trigger 防護：PASS。** commit `db570130` 將舊 `apply-private-pipeline-schedulers-dev.sh` 改為 retired hard-stop；commit `0df2e728` 校正有效 controller slot 為 21:30。Deploy run `37408320316` targeted ingestion 137 passed，所有 deploy/migration jobs skipped，未造成 runtime mutation。
+- **Storage retention／cleanup：PASS（billable reclaimed unknown）。** Inspect run `37407331976` 讀回最新 apply receipts：Stage deleted 110 objects / 32,275,833 live bytes；Core active bytes reduced 5,928,635；Mart active bytes reduced 5,932,252，specialist artifacts deleted 68。receipts 的 `billable_bytes_reclaimed=null`，因此成本回收量維持 unknown，不補 0。bucket-level lifecycle/retention fields 為空；目前正式 retention spec 是由 retention jobs + reference fences 執行，不把空 bucket lifecycle 假裝成已設定。
+
+目前剩餘 A 組只含：
+
+1. Android 實際安裝 User/Admin 後由兩個 icon 重開，確認裝置端不再把 Admin 導回 User。
+2. authenticated User/Admin 真實瀏覽器四頁約 390px visual acceptance，及 Admin live UI readback。
+3. 真實 owner 新增／建立更正交易後的 pending → Private Mart refreshed → Holdings／Records／Reports／YTD 一致性；本對話不自行寫入使用者真實投資 ledger。
+4. 真實裝置 warm core p95 ≤2 秒、visited restore ≤300ms。
+
+因此目前不是工程卡住，而是 `blocked-on-interactive-live-acceptance`；在上述證據完成前不得標 A 組 done。
+
 ## 2026-10-06 A 組 non-live closure checkpoint
 
 A 組仍判定為 `partial`，但邊界已收斂：**目前已知且可在非登入／非實機條件下直接修正的 A 組 implementation gap 已關閉；剩餘項目是需要真實 authenticated User／Admin、實際手機/PWA、真實 owner mutation、效能與儲存證據才能完成的 live acceptance。** 不得把這句解讀成 A 組已完成。

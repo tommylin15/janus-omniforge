@@ -2118,3 +2118,16 @@ Live Flutter build-id and workspace/auth-boundary checks matched at
 2026-10-05T12:16:18Z. Ingestion, Mart and migrations were skipped in this run.
 Authenticated canonical owner reads and four-page browser acceptance remain unverified;
 the MCP connector still uses its older existing tagged revision.
+
+## A 組 live-auto runtime checkpoint（2026-10-06）
+
+> 本節是目前有效 runtime evidence。2026-09-18 的四個 direct Private Pipeline Scheduler 記錄保留為歷史證據，但已被 2026-10-02 起的 batch-controller cutover 取代，不再是目前 trigger source of truth。
+
+- Inspect run `37407568046`：canonical `janus-api` live build-id 為 `3e29701ffae1dfe3aa9d32deb50ded03f8145c18`。User manifest `id/start_url=/app/`；Admin manifest `id/start_url=/app/admin`；未登入 User profile 與 Admin data-governance 均 HTTP 401。
+- Janus Dev Read-only v2 current-owner readback：trades／positions／2026 annual-pnl／performance 全部對齊 `ledger_version=24`；Private Mart derived valuation date 為 `2026-10-05`。這只證明 read-side current consistency，不替代 transaction mutation acceptance。
+- Inspect run `37407726176`：`janus-batch-controller` image digest `sha256:29cdc279b01a8c237b593c6fa69f79dcaa5649269e4aadb2690ed143f99448bc`，`BATCH_CONTROLLER_MODE=active`，`BATCH_CONTROLLER_NOT_BEFORE=2026-10-02T04:05:00Z`。`janus-ingestion-daily` bounded 7-day logs 顯示持續每小時 :30 呼叫 `janus-batch-controller:run`，近期完成紀錄為 HTTP 200。
+- 目前 `BATCHES` 中 Private 定義為 `janus-private-pipeline`、weekday 21:30 Asia/Taipei、dependency=`ingestion`。`janus-private-pipeline-n45c6` 於 `2026-10-05T13:33:05Z` 建立，`13:36:44Z` 完成，`succeededCount=1`；creator/runtime logs 歸屬 controller path。舊 direct `janus-private-pipeline-2130` scheduler 的 bounded logs 最後一筆為 2026-10-01；10/2 cutover 後未再觀察到 direct-private scheduler invocation。
+- 過去 direct/controller Private executions 曾因 `watchlist` table permission 失敗；10/5 controller-owned execution與 10/6 seed execution均已成功，形成 failure→recovery runtime evidence。舊 direct apply script 自 commit `db570130` 起 hard-stop retired；commit `0df2e728` 的 run `37408320316` targeted ingestion **137 passed**，且沒有 deploy/migration 被重跑。
+- Inspect run `37407331976` 最新 retention apply receipts：Stage `deleted_objects=110`、`deleted_bytes=32,275,833`；Core `active_bytes_reduced=5,928,635`；Mart `active_bytes_reduced=5,932,252`，specialist artifacts `deleted_objects=68`。`billable_bytes_reclaimed=null`，所以 billable/cost reclaimed 維持 `unknown`。bucket-level lifecycle/retention 欄位目前為空；正式 cleanup 依 retention jobs／reference fence contract 執行。
+
+仍未由本節證明：Android installed-PWA reopen、authenticated 四頁/Admin UI、real-owner transaction mutation chain、real-device p95/visited-restore。這些不能用 workflow／widget test／read-only connector 代替。
