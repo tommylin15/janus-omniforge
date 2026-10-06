@@ -94,6 +94,18 @@ def test_operations_read_acl_uses_existing_owners_and_records_only_after_accepta
     assert publication.closed
 
 
+def test_private_operations_migration_exposes_only_aggregate_status():
+    control = FakeControl()
+    migration.run(control, migration.MIGRATION_PRIVATE_OPERATIONS)
+    sql = statements(control.connection)
+    assert "CREATE TABLE IF NOT EXISTS control.private_pipeline_status" in sql
+    assert "GRANT SELECT ON control.private_pipeline_status TO janus_web_control" in sql
+    assert "GRANT SELECT, INSERT, UPDATE ON control.private_pipeline_status TO janus_private_pipeline" in sql
+    assert "user_id" not in sql
+    assert sql.index("has_table_privilege") < sql.index("INSERT INTO control.schema_migrations")
+    assert "045_private_pipeline_operations" in sql
+
+
 def test_position_projection_splits_control_and_private_api_owners(monkeypatch):
     control = FakeControl()
     private = FakeConnection("janus_private_api")

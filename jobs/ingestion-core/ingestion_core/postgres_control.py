@@ -582,6 +582,25 @@ class PostgreSQLControlPlane:
             return [dict(zip(("occurrence_id", "scheduled_at", "updated_at", "state"), row))
                     for row in cur.fetchall()]
 
+    def private_pipeline_status(self) -> dict[str, Any] | None:
+        with self.connection.cursor() as cur:
+            cur.execute(
+                """SELECT pipeline_name,checkpoint_change_id,latest_change_id,pending_changes,
+                          latest_ledger_version,valuation_date,last_result,execution_name,updated_at
+                   FROM control.private_pipeline_status
+                   WHERE pipeline_name='private-core'"""
+            )
+            row = cur.fetchone()
+        if not row:
+            return None
+        return dict(zip(
+            (
+                "pipeline_name", "checkpoint_change_id", "latest_change_id", "pending_changes",
+                "latest_ledger_version", "valuation_date", "last_result", "execution_name", "updated_at",
+            ),
+            row,
+        ))
+
     def put_admin_setting(self, key: str, value: Any, *, actor: str, expected_version: int | None = None,
                           audit_resource: str = "admin_setting", audit_detail: dict[str, Any] | None = None) -> int:
         if expected_version is not None and (isinstance(expected_version, bool) or expected_version < 0):

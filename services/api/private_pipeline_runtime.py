@@ -21,13 +21,31 @@ def main() -> None:
     repository = repository_from_env()
     market = CorePriceReader.from_env()
     override = os.getenv("VALUATION_DATE") or None
-    completed = PrivatePipeline(
+    pipeline = PrivatePipeline(
         repository,
         PrivateIcebergStore.from_env(),
         market,
         market.memberships,
         lambda: resolve_valuation_date(None, market.latest_valuation_date),
-    ).run(date.fromisoformat(override) if override else None)
+    )
+    execution_name = os.getenv("CLOUD_RUN_EXECUTION") or None
+    try:
+        completed = pipeline.run(date.fromisoformat(override) if override else None)
+    except Exception:
+        try:
+            repository.record_pipeline_status(
+                valuation_date=pipeline.last_valuation_date,
+                result="failed",
+                execution_name=execution_name,
+            )
+        except Exception:
+            print("private pipeline aggregate status write failed")
+        raise
+    repository.record_pipeline_status(
+        valuation_date=pipeline.last_valuation_date,
+        result="succeeded",
+        execution_name=execution_name,
+    )
     print(f"private pipeline checkpoint={completed}")
 
 

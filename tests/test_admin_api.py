@@ -82,6 +82,25 @@ class AdminServiceTests(unittest.TestCase):
         layers = self.admin.data_governance()["items"]
         self.assertTrue(all(row["billable_bytes"] is None for row in layers))
         self.assertIsNone(next(row for row in layers if row["layer"] == "Private")["retention"])
+        self.control.private_pipeline_status = lambda: {
+            "pipeline_name": "private-core",
+            "checkpoint_change_id": 120,
+            "latest_change_id": 123,
+            "pending_changes": 3,
+            "latest_ledger_version": 9,
+            "valuation_date": "2026-10-05",
+            "last_result": "succeeded",
+            "execution_name": "projects/dev/locations/us-central1/jobs/janus-private-pipeline/executions/run-1",
+            "updated_at": scheduled,
+        }
+        private_ops = self.admin.data_governance()["private_operations"]
+        self.assertEqual(private_ops["status"], "available")
+        self.assertEqual(private_ops["checkpoint_change_id"], 120)
+        self.assertEqual(private_ops["pending_changes"], 3)
+        self.assertEqual(private_ops["latest_ledger_version"], 9)
+        self.assertEqual(private_ops["valuation_date"].isoformat(), "2026-10-05")
+        self.assertGreaterEqual(private_ops["valuation_lag_days"], 0)
+        self.assertNotIn("user_id", private_ops)
 
     def test_invalid_page_is_rejected(self):
         with self.assertRaises(AdminValidationError):

@@ -87,7 +87,9 @@ class Store:
 
 def test_checkpoint_advances_only_after_all_private_writes():
     repo,store=Repository(),Store()
-    assert PrivatePipeline(repo,store,lambda symbols,when:{"2330":Decimal("12")}).run(date(2026,9,4))==8
+    pipeline=PrivatePipeline(repo,store,lambda symbols,when:{"2330":Decimal("12")})
+    assert pipeline.run(date(2026,9,4))==8
+    assert pipeline.last_valuation_date==date(2026,9,4)
     assert repo.advanced==[8]
     assert "mart_user_positions" in store.tables
     assert "mart_user_monthly_ledger_summary" in store.tables
@@ -106,6 +108,7 @@ def test_empty_queue_does_not_resolve_valuation_rewrite_marts_or_advance_checkpo
     pipeline=PrivatePipeline(EmptyRepository(),store,lambda *_: {},
         valuation_date_resolver=lambda: (_ for _ in ()).throw(AssertionError("valuation resolved")))
     assert pipeline.run()==7
+    assert pipeline.last_valuation_date is None
     assert store.tables==[]
 
 

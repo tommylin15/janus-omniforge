@@ -14,6 +14,35 @@ class _OperationsApi implements AdminApi {
       return {'value': quality};
     if (path == '/api/v1/admin/data-quality/runbook')
       return {'content': '資料補充操作：先檢核，再修正每日程式與排程。'};
+    if (path == '/api/v1/admin/data-governance') {
+      return {
+        'private_operations': {
+          'status': 'available',
+          'pipeline_name': 'private-core',
+          'checkpoint_change_id': 120,
+          'latest_change_id': 123,
+          'pending_changes': 3,
+          'latest_ledger_version': 9,
+          'valuation_date': '2026-10-05',
+          'valuation_lag_days': 1,
+          'last_result': 'succeeded',
+          'execution_name': 'janus-private-pipeline-run-1',
+          'updated_at': '2026-10-06T08:00:00+08:00',
+        },
+        'items': [
+          {
+            'layer': 'Private',
+            'retention': null,
+            'maintenance_at': null,
+            'live_objects': null,
+            'active_bytes': null,
+            'noncurrent_bytes': null,
+            'soft_deleted_bytes': null,
+            'billable_bytes': null,
+          }
+        ],
+      };
+    }
 
     if (path == '/api/v1/admin/executions?limit=50') {
       return {
@@ -210,6 +239,23 @@ void main() {
         '/api/v1/admin/executions/failed-1/items/ohlcv%3ATWSE%3A2330/retry',
       ),
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('governance shows deidentified Private Pipeline operations',
+      (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1280, 1200));
+    final api = _OperationsApi();
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: AdminGovernancePage(api))),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Private Pipeline · 成功'), findsOneWidget);
+    expect(find.textContaining('checkpoint 120 · 最新 change 123 · 待處理 3'), findsOneWidget);
+    expect(find.textContaining('最新 ledger version 9 · 估值日 2026-10-05 · lag 1 天'), findsOneWidget);
+    expect(find.textContaining('不顯示交易、持股或 user-to-symbol 關係'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

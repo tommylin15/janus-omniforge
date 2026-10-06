@@ -33,6 +33,7 @@ String _label(Object? value) =>
       'passed': '檢查通過',
       'attention_required': '需要處理',
       'execution_failed': '檢查執行失敗',
+      'unknown': '未知',
       'history_incomplete': '歷史資料不足',
       'unit_mismatch': '單位或幣別不一致',
       'invalid_numeric_value': '數值格式異常',
@@ -889,7 +890,23 @@ class _AdminGovernancePageState extends State<AdminGovernancePage> {
             if (snapshot.hasError) return const _Message('資料治理暫時無法使用');
             if (!snapshot.hasData)
               return const Center(child: CircularProgressIndicator());
+            final root = snapshot.data as Map<String, dynamic>;
+            final privateOperations =
+                (root['private_operations'] as Map?)?.cast<String, dynamic>() ??
+                    const <String, dynamic>{};
             return ListView(children: [
+              const ListTile(
+                  title: Text('Private Pipeline'),
+                  subtitle: Text('僅顯示去識別化營運摘要，不顯示交易、持股或 user-to-symbol 關係。')),
+              Card(
+                  child: ListTile(
+                      title: Text(
+                          'Private Pipeline · ${_label(privateOperations['last_result'] ?? 'unknown')}'),
+                      subtitle: Text(
+                          'checkpoint ${privateOperations['checkpoint_change_id'] ?? '未知'} · 最新 change ${privateOperations['latest_change_id'] ?? '未知'} · 待處理 ${privateOperations['pending_changes'] ?? '未知'}\n'
+                          '最新 ledger version ${privateOperations['latest_ledger_version'] ?? '未知'} · 估值日 ${privateOperations['valuation_date'] ?? '未知'} · lag ${privateOperations['valuation_lag_days'] ?? '未知'} 天\n'
+                          '最後更新 ${privateOperations['updated_at'] ?? '未知'}\n'
+                          'execution ${privateOperations['execution_name'] ?? '未知'}'))),
               const ListTile(
                   title: Text('容量與保留政策'),
                   subtitle: Text('使用已持久化營運證據；未知不補零。Private 不套用公開清理政策。')),

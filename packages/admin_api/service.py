@@ -15,6 +15,7 @@ from typing import Any
 from urllib.parse import urlsplit
 from urllib.parse import quote
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 
 class AdminValidationError(ValueError):
@@ -451,10 +452,55 @@ class AdminService:
                     f"一般行情 {POLICY['core_days']} 天；深度價量 {POLICY['deep_price_days']} 天；財報 {POLICY['financial_quarters']} 季",
                     "Mart": f"{POLICY['mart_days']} 天；個股分析最新 3 代", "Private": None}
         evidence = self.maintenance_reader() if self.maintenance_reader else {}
-        return {"items": [{"layer": layer, "retention": retention,
-                  **{key: evidence.get(layer, {}).get(key) for key in (
-                    "maintenance_at", "live_objects", "active_bytes", "noncurrent_bytes",
-                    "soft_deleted_bytes", "billable_bytes")}} for layer, retention in policies.items()]}
+        private_status = None
+        reader = getattr(self.control, "private_pipeline_status", None)
+        if callable(reader):
+            try:
+                private_status = reader()
+            except Exception:
+                # Missing migration/read permission is unknown, never an invented healthy zero.
+                private_status = None
+        private_operations = {
+            "status": "unknown",
+            "pipeline_name": "private-core",
+            "checkpoint_change_id": None,
+            "latest_change_id": None,
+            "pending_changes": None,
+            "latest_ledger_version": None,
+            "valuation_date": None,
+            "valuation_lag_days": None,
+            "last_result": None,
+            "execution_name": None,
+            "updated_at": None,
+        }
+        if private_status:
+            valuation = private_status.get("valuation_date")
+            if isinstance(valuation, str):
+                try:
+                    valuation = date.fromisoformat(valuation)
+                except ValueError:
+                    valuation = None
+            lag = None
+            if isinstance(valuation, date):
+                lag = max(0, (datetime.now(ZoneInfo("Asia/Taipei")).date() - valuation).days)
+            private_operations.update({
+                "status": "available",
+                **{key: private_status.get(key) for key in (
+                    "pipeline_name", "checkpoint_change_id", "latest_change_id",
+                    "pending_changes", "latest_ledger_version", "last_result",
+                    "execution_name", "updated_at",
+                )},
+                "valuation_date": valuation,
+                "valuation_lag_days": lag,
+            })
+        return {
+            "items": [{"layer": layer, "retention": retention,
+                       **{key: evidence.get(layer, {}).get(key) for key in (
+                           "maintenance_at", "live_objects", "active_bytes", "noncurrent_bytes",
+                           "soft_deleted_bytes", "billable_bytes")}}
+                      for layer, retention in policies.items()],
+            "private_operations": private_operations,
+        }
 
     def swap_liquid_500(self, *, remove_symbol: str, add_symbol: str, reason: str,
                         expected_version: int, actor: str) -> dict[str, Any]:

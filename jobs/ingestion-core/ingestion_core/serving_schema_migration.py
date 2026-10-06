@@ -17,7 +17,14 @@ MIGRATION_POSITION = "041_operational_position_projection"
 MIGRATION_STOCK_SERVING = "042_stock_serving_projection"
 MIGRATION_OPERATIONS = "043_admin_batch_read"
 MIGRATION_QUOTES_BROKER = "044_quotes_broker_profile"
-SUPPORTED = frozenset({MIGRATION_POSITION, MIGRATION_STOCK_SERVING, MIGRATION_OPERATIONS, MIGRATION_QUOTES_BROKER})
+MIGRATION_PRIVATE_OPERATIONS = "045_private_pipeline_operations"
+SUPPORTED = frozenset({
+    MIGRATION_POSITION,
+    MIGRATION_STOCK_SERVING,
+    MIGRATION_OPERATIONS,
+    MIGRATION_QUOTES_BROKER,
+    MIGRATION_PRIVATE_OPERATIONS,
+})
 
 
 class ServingSchemaMigrationError(RuntimeError):
@@ -318,5 +325,20 @@ def run(control: Any, name: str) -> None:
         _apply_stock_serving(control)
     elif name == MIGRATION_OPERATIONS:
         _apply_operations(control)
+    elif name == MIGRATION_PRIVATE_OPERATIONS:
+        try:
+            text = _without_role_lines(_migration_path(name).read_text(encoding="utf-8"))
+            prepare, acceptance = text.split("-- PHASE: acceptance", 1)
+            checks, record = acceptance.split("INSERT INTO control.schema_migrations", 1)
+            with control.connection.transaction(), control.connection.cursor() as cursor:
+                _require_current_user(cursor, "janus_control")
+                cursor.execute(prepare)
+                cursor.execute(checks)
+                row = cursor.fetchone()
+                if row is None or not all(bool(value) for value in row):
+                    raise RuntimeError("private operations aggregate schema acceptance failed")
+                cursor.execute("INSERT INTO control.schema_migrations" + record)
+        except Exception as error:
+            raise ServingSchemaMigrationError("private_operations_apply", error) from error
     else:
         raise ValueError("unsupported serving schema migration")

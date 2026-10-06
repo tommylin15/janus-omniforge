@@ -288,6 +288,7 @@ class PrivatePipeline:
         self.repository,self.store,self.prices=repository,store,prices
         self.memberships=memberships or (lambda _symbols,_when:{})
         self.valuation_date_resolver=valuation_date_resolver
+        self.last_valuation_date: date | None = None
 
     def run(self, valuation_date: date | None = None, limit: int = 500) -> int:
         checkpoint=self.repository.pipeline_checkpoint(); changes=self.repository.pipeline_batch(checkpoint,limit)
@@ -300,6 +301,7 @@ class PrivatePipeline:
             if valuation_date is None:
                 if self.valuation_date_resolver is None: raise ValueError("valuation date is unavailable")
                 valuation_date=self.valuation_date_resolver()
+            self.last_valuation_date=valuation_date
             for user_id in user_ids:
                 ledger=self.repository.ledger_for_pipeline(user_id)
                 watchlist=self.repository.watchlist_for_pipeline(user_id)

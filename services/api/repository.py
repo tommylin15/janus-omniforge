@@ -508,6 +508,72 @@ class PostgresWorkspaceRepository:
                 (name,change_id),
             )
 
+    def record_pipeline_status(
+        self,
+        *,
+        valuation_date: date | None,
+        result: str,
+        execution_name: str | None = None,
+        name: str = "private-core",
+    ) -> dict[str, Any]:
+        if result not in {"running", "succeeded", "failed"}:
+            raise ValueError("private pipeline result is invalid")
+        execution = (execution_name or "").strip() or None
+        if execution is not None:
+            execution = execution[:300]
+        with self._connection() as connection:
+            metrics = connection.execute(
+                """WITH checkpoint AS (
+                       SELECT COALESCE((
+                           SELECT change_id FROM private.pipeline_checkpoints
+                           WHERE pipeline_name=%s
+                       ), 0) AS value
+                   )
+                   SELECT
+                     checkpoint.value AS checkpoint_change_id,
+                     GREATEST(
+                       checkpoint.value,
+                       COALESCE((SELECT MAX(change_id) FROM private.change_log), 0)
+                     ) AS latest_change_id,
+                     (SELECT COUNT(*) FROM private.change_log
+                       WHERE change_id > checkpoint.value) AS pending_changes,
+                     COALESCE((SELECT MAX(ledger_version) FROM private.ledger_events), 0)
+                       AS latest_ledger_version
+                   FROM checkpoint""",
+                (name,),
+            ).fetchone()
+            row = connection.execute(
+                """INSERT INTO control.private_pipeline_status(
+                       pipeline_name,checkpoint_change_id,latest_change_id,pending_changes,
+                       latest_ledger_version,valuation_date,last_result,execution_name,updated_at
+                   ) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,now())
+                   ON CONFLICT(pipeline_name) DO UPDATE SET
+                       checkpoint_change_id=EXCLUDED.checkpoint_change_id,
+                       latest_change_id=EXCLUDED.latest_change_id,
+                       pending_changes=EXCLUDED.pending_changes,
+                       latest_ledger_version=EXCLUDED.latest_ledger_version,
+                       valuation_date=COALESCE(
+                           EXCLUDED.valuation_date,
+                           control.private_pipeline_status.valuation_date
+                       ),
+                       last_result=EXCLUDED.last_result,
+                       execution_name=EXCLUDED.execution_name,
+                       updated_at=now()
+                   RETURNING pipeline_name,checkpoint_change_id,latest_change_id,pending_changes,
+                             latest_ledger_version,valuation_date,last_result,execution_name,updated_at""",
+                (
+                    name,
+                    metrics["checkpoint_change_id"],
+                    metrics["latest_change_id"],
+                    metrics["pending_changes"],
+                    metrics["latest_ledger_version"],
+                    valuation_date,
+                    result,
+                    execution,
+                ),
+            ).fetchone()
+            return dict(row)
+
     def portfolio_user_ids_for_pipeline(self, limit: int = 500) -> list[UUID]:
         bounded_limit = min(max(int(limit), 1), 500)
         with self._connection() as connection:
