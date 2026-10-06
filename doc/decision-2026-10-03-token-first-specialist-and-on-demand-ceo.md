@@ -1,6 +1,6 @@
 # Janus 決策 — Token-first 五分析師與 On-demand CEO
 
-更新：2026-10-03
+更新：2026-10-06（B 組 cadence／BigQuery 邊界對齊）
 狀態：**Active / Approved**
 
 ## 1. 決策摘要
@@ -62,7 +62,7 @@ User opens Stock Detail
 
 500 檔仍保留，目的是發現新機會，不是做 500×5 深度分析。
 
-每日／有新資料時維護低成本 screening：
+每個交易日 EOD canonical data ready 後維護低成本 screening；若 input identity 未變則 reuse：
 
 - return 5/20/60/120D
 - volume / turnover / RVOL / volatility
@@ -72,9 +72,9 @@ User opens Stock Detail
 - event metadata / material-event flag
 - full-universe Quant inference / cross-sectional rank（在成本可忽略時）
 
-輸出至少包含 `screening_score`、`candidate_rank`、`anomaly_flags`、freshness、input identity。
+輸出至少包含 `screening_score`、`candidate_rank`、`anomaly_flags`、freshness、input identity。B 組 BigQuery path 通過 exact-snapshot fidelity gate 後，優先承接這條全市場 cross-sectional compute。
 
-500 檔 **不得** 自動觸發 500×5 LLM role invocations，也不得因 screening candidate 自動加入使用者 watchlist。
+500 檔 **不得** 自動觸發 500×5 深度 specialist 或 500×5 LLM role invocations，也不得因 screening candidate 自動加入使用者 watchlist。
 
 ### 3.2 Deep Coverage
 
@@ -190,13 +190,13 @@ CEO 報告不因任何 upstream change 自動重跑；只標記「報告後已�
 
 ## 7. Model retraining cadence
 
-「每月」主要指 model retraining / calibration / reconciliation，不是所有 specialist outputs 每月才更新。
+「每月」主要指 model retraining / calibration / OOS evaluation / reconciliation，不是所有 specialist outputs 每月才更新。第一版固定 **每月第一個週六 10:30（Asia/Taipei）**；不使用「每月 1 日」或「每週六跑 500×5」作 active target。
 
 第一版：
 
 - Quant / Risk-regime / 有 ML 部分的 Fundamental/Valuation：每月建立 challenger/retrain。
 - Event classifier：有足夠新 labeled data 或 drift/performance degradation 才 retrain，不硬性每月重訓。
-- 每月做 cache/dependency reconciliation：確認 expected input identity、cached identity、model version、orphan/missed invalidation。
+- 同一月度批次做 calibration／OOS evaluation／cache dependency reconciliation：確認 expected input identity、cached identity、model version、orphan/missed invalidation。
 - 如 feature drift、Rank IC、calibration、Brier、top-decile spread 等惡化超門檻，可提前訓練 challenger。
 
 任何新模型都必須先 walk-forward OOS + PIT/future-leakage guard；**training 成功不等於自動 promotion**。
@@ -288,7 +288,7 @@ symbol-level public research report 可被同一系統後續重用；不要因�
    - PIT/OOS benchmark、champion/challenger
 
 2. `WBS-5-MART-RERUN-CACHE`
-   - 升級成 dirty dependency graph / content-addressed reuse / incremental invalidation / monthly reconciliation。
+   - 升級成 dirty dependency graph / content-addressed reuse / incremental invalidation；月度 retrain／calibration／OOS evaluation／reconciliation 固定每月第一個週六 10:30（Asia/Taipei）。
 
 3. `WBS-5-MART-AI-PROVIDERS`
    - 保留現有成果，但 scope 改為 On-demand CEO / rare escalation provider runtime；**不得再把 completion 定義成每日五 Codex role workers。**
