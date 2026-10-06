@@ -49,7 +49,7 @@ Fundamental/Valuation 共用既有成熟價格標籤。Fundamental 依上述資�
 
 Quant 增加 Qlib v0.9.7 的單一 DoubleEnsemble bounded adapter，保留 MIT license 與原始來源 SHA；不引入完整 Qlib tracking／data provider。固定三個子模型、20 rounds、seed 17、single thread，保留 sample reweighting 與 feature selection，ensemble 原生 Tree SHAP 必須重建同一預測。IC decay 以同一 OOS signal 對 5/20/60/120 日成熟結果的各股時間序列 Rank IC 評估；不足 20 筆保留 null，重疊長窗口結果不當成獨立報酬樣本。
 
-月度 challenger／OOS 使用 `specialist-retrain` operation；B 組 target schedule 固定為**每月第一個週六台北 10:30**，在 ingestion／data-supplement 成功後執行，沿用 1 CPU／1 GiB Mart Job。B 組實作需同步修改實際 Scheduler／controller definition 並以 runtime readback 驗證；歷史 operations 中的「每月 1 日 10:30」只保留為舊 runtime evidence，不再是 active contract。從既有 Core bucket 選最新 immutable manifest 並固定 raw-byte hash，超過 7 天或未來日期拒絕執行；手動重跑同 operation 產生新 execution。資料不足仍回報 insufficient_history，不視為模型通過；不自動 promotion。Event 依標記資料另行驗證，尚未具備的 classifier 不因共同批次而宣稱已重訓。快取／月度 reconciliation 依 active TODO 的後續 WBS 處理。
+月度 challenger／OOS 使用 `specialist-retrain` operation；B 組 target schedule 固定為**每月第一個週六台北 10:30**，在 ingestion／data-supplement 成功後執行，沿用 1 CPU／1 GiB Mart Job。B 組實作需同步修改實際 Scheduler／controller definition 並以 runtime readback 驗證；歷史 runtime 只由 operations 保存，不在 active SPEC 重述舊排程。從既有 Core bucket 選最新 immutable manifest 並固定 raw-byte hash，超過 7 天或未來日期拒絕執行；手動重跑同 operation 產生新 execution。資料不足仍回報 insufficient_history，不視為模型通過；不自動 promotion。Event 依標記資料另行驗證，尚未具備的 classifier 不因共同批次而宣稱已重訓。快取／月度 reconciliation 依 active TODO 的後續 WBS 處理。
 
 尚未完成：Fundamental/Valuation 的新版資料回補、資料優先 OOS 與真實 dev readback、台灣繁中 Event 人工標記資料與本機 encoder、歷史 membership replay 與 champion promotion。原生 SHAP、機率校準、regime OOS、Qlib 與金融特徵 evaluator 已有實作；是否已部署、具足夠真實台股資料及有效性，仍以 operations 的 dev／readback 結果判定。這些缺口使 WBS 保持 partial。
 
