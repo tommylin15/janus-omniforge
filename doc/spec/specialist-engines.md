@@ -1,16 +1,16 @@
 # 五分析師引擎目前契約
 
-每日 Mart 使用 `specialist_runtime`，不使用生成式 LLM。舊五角色引擎、prompt、compatibility 與 provider daily entry 已刪除；歷史資料僅保留作稽核。後續 On-demand CEO 不在本次驗收範圍。
+日常 Mart 使用 `specialist_runtime`，不使用生成式 LLM；但「日常」不等於每天把五 specialist 全量重算。Market Coverage 在每個交易日 EOD canonical data ready 後跑低成本 screening，Deep Coverage 則依 dirty dependency／input change 增量更新。舊五角色引擎、prompt、compatibility 與 provider daily entry 已刪除；歷史資料僅保留作稽核。後續 On-demand CEO 不在本次驗收範圍。
 
 ## 覆蓋與資料
 
-Market Coverage 由 `control.specialist_market_symbols(date)` 取得具 PIT 日期的 liquid-500 membership，最多 500 檔。篩選回報最新價/量/金額、5/20/60/120 日報酬、規則分數、排序與異常旗標，不自動加入自選股。
+Market Coverage 由 `control.specialist_market_symbols(date)` 取得具 PIT 日期的 liquid-500 membership，最多 500 檔。每個交易日 EOD canonical data ready 後執行一次低成本 screening；篩選回報最新價/量/金額、5/20/60/120 日報酬、規則分數、排序與異常旗標，不自動加入自選股。BigQuery 通過 exact-snapshot fidelity gate 後優先承接這條全市場 cross-sectional compute。
 
 使用者 2026-10-03 指示：500 檔缺失比例 ≤10%（含恰好 50/500）可接受；超過時標記 `discussion_required`，不中止或直接判整批失敗。每檔最新交易日、價格、成交量及成交金額必須合格且對齊，否則算該檔 EOD 缺失；各歷史窗口另外列缺失比例，模型未訓練不算行情缺失。缺失仍保留 null，PIT/來源不合格資料先排除後計入缺失。
 
 補資料共用既有交易所全市場日期批次，不建立新 fallback 或調度系統。正式 liquid-500 目前為 TWSE-listed-only，依實際 membership 選市場，不自行擴成上市櫃混合池。先使用已有資料與短批次，品質過差先討論，不為了填滿每欄展開複雜歷史補資料。
 
-Deep Coverage 使用既有去識別化資料庫函式取得 active watchlist ∪ effective holdings，去重、離榜持股保留、清倉且不在 watchlist 才退出。成果物不包含 owner、持股數量、成本或損益。
+Deep Coverage 使用既有去識別化資料庫函式取得 active watchlist ∪ effective holdings，去重、離榜持股保留、清倉且不在 watchlist 才退出。完整五 specialist 只對 Deep Coverage 執行，並依 input change／dirty dependency 增量更新，不因每日 screening 而把 500 檔全部深算。成果物不包含 owner、持股數量、成本或損益。
 
 所有輸入以 Core immutable manifest / table snapshot、availability / publication / observation 時點、provenance 與 source authorization 驗證；未合格資料不進特徵。缺資料及未驗證模型明示 partial / blocked，不填假機率。
 
@@ -23,9 +23,9 @@ Deep Coverage 使用既有去識別化資料庫函式取得 active watchlist ∪
 - Core Apache Iceberg V2／GCS 維持 canonical／PIT／provenance/history；既有 PostgreSQL-backed PyIceberg `SqlCatalog` 不因文件決策自動遷移。
 - PostgreSQL serving projection 維持 User／Admin request-time hot path；BigQuery 不作 Flutter page-load database。
 - Specialist data access 必須先抽象成 exact-snapshot reader；PyIceberg reader 是 reference／fallback，BigQuery adapter 只有在同一 immutable Core snapshot fidelity 可證明後才可逐 workload 切換。
-- BigQuery 優先只處理 liquid-500 screening、cross-sectional ranking/window/join、OOS/evaluation preprocessing 與 ML training dataset preparation；不預設複製完整 Core warehouse。
+- BigQuery 優先處理**每日盤後** liquid-500 screening、cross-sectional ranking/window/join、OOS/evaluation preprocessing 與 ML training dataset preparation；不預設複製完整 Core warehouse。
 - **禁止 BigQuery Storage Read API**：不依賴 `bigquery.readsessions.*`／`google-cloud-bigquery-storage`。小型結果使用一般 query/result API；大型 training input 先在 BigQuery SQL 縮減，再輸出 versioned GCS Parquet artifact 供 Python/ML Job 使用。
-- BigQuery intermediate／destination table 預設 bounded／TTL／可重建且屬 derived/research；只有已有 publication／retention contract 的成果才永久保存。
+- BigQuery intermediate／destination table 預設 bounded／TTL／可重建且屬 derived/research；不要求把每個中間結果再寫回 canonical Iceberg。大型 training/evaluation dataset 以 versioned GCS Parquet 固定，只有已有 publication／retention contract 的成果才永久保存。
 - 每個 BigQuery-derived artifact 必須保留可追溯的 Core snapshot identity、analysis_as_of、schema/feature/model version、hash/provenance；不能只保存「latest」語意。
 - Query 必須 column/date/symbol/partition bounded，並記錄可取得的 processed/billed bytes、elapsed、fallback 與輸出規模。未知成本不補 0。
 - 目前 Google legacy Iceberg external table metadata-URI 路徑不作預設正式解；BigQuery compatibility spike 應優先驗證 Google-supported shared Iceberg/Lakehouse path或其他可證明 exact snapshot 的方案。任何 catalog migration、API enablement、新計費資源或 IAM 擴張仍需人工授權。
@@ -49,7 +49,7 @@ Fundamental/Valuation 共用既有成熟價格標籤。Fundamental 依上述資�
 
 Quant 增加 Qlib v0.9.7 的單一 DoubleEnsemble bounded adapter，保留 MIT license 與原始來源 SHA；不引入完整 Qlib tracking／data provider。固定三個子模型、20 rounds、seed 17、single thread，保留 sample reweighting 與 feature selection，ensemble 原生 Tree SHAP 必須重建同一預測。IC decay 以同一 OOS signal 對 5/20/60/120 日成熟結果的各股時間序列 Rank IC 評估；不足 20 筆保留 null，重疊長窗口結果不當成獨立報酬樣本。
 
-月度 challenger／OOS 使用 `specialist-retrain` operation，由既有 batch controller 每月 1 日台北 10:30 在 ingestion／data-supplement 成功後執行，沿用 1 CPU／1 GiB Mart Job。從既有 Core bucket 選最新 immutable manifest 並固定 raw-byte hash，超過 7 天或未來日期拒絕執行；手動重跑同 operation 產生新 execution。資料不足仍回報 insufficient_history，不視為模型通過；不自動 promotion。Event 依標記資料另行驗證，尚未具備的 classifier 不因共同批次而宣稱已重訓。快取／月度 reconciliation 依 active TODO 的後續 WBS 處理。
+月度 challenger／OOS 使用 `specialist-retrain` operation；B 組 target schedule 固定為**每月第一個週六台北 10:30**，在 ingestion／data-supplement 成功後執行，沿用 1 CPU／1 GiB Mart Job。B 組實作需同步修改實際 Scheduler／controller definition 並以 runtime readback 驗證；歷史 operations 中的「每月 1 日 10:30」只保留為舊 runtime evidence，不再是 active contract。從既有 Core bucket 選最新 immutable manifest 並固定 raw-byte hash，超過 7 天或未來日期拒絕執行；手動重跑同 operation 產生新 execution。資料不足仍回報 insufficient_history，不視為模型通過；不自動 promotion。Event 依標記資料另行驗證，尚未具備的 classifier 不因共同批次而宣稱已重訓。快取／月度 reconciliation 依 active TODO 的後續 WBS 處理。
 
 尚未完成：Fundamental/Valuation 的新版資料回補、資料優先 OOS 與真實 dev readback、台灣繁中 Event 人工標記資料與本機 encoder、歷史 membership replay 與 champion promotion。原生 SHAP、機率校準、regime OOS、Qlib 與金融特徵 evaluator 已有實作；是否已部署、具足夠真實台股資料及有效性，仍以 operations 的 dev／readback 結果判定。這些缺口使 WBS 保持 partial。
 
