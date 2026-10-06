@@ -406,11 +406,11 @@ void main() {
     expect(find.text('按個股'), findsOneWidget);
     expect(find.text('2026 年 10 月'), findsOneWidget);
     expect(find.text('已實現損益 TWD 150'), findsOneWidget);
-    expect(find.textContaining('BUY · 台積電'), findsNothing);
+    expect(find.textContaining('買進 · 台積電（2330）'), findsNothing);
 
     await tester.tap(find.text('2026 年 10 月'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('BUY · 台積電'), findsOneWidget);
+    expect(find.textContaining('買進 · 台積電（2330）'), findsOneWidget);
 
     await tester.tap(find.text('按個股'));
     await tester.pumpAndSettle();
