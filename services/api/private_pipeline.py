@@ -285,7 +285,7 @@ def calculate_marts(events: Iterable[dict[str, Any]], prices: dict[str, Decimal 
                    "lineage":f"ledger-version:{ledger_version}"}
                   for (user,year,month,currency),values in monthly.items()]
     # Canonical yearly per-symbol totals back the ledger "按個股" UI; Flutter must not recalculate these totals.
-    symbol_rows=[]
+    symbol_rows: list[dict[str, Any]]=[]
     for (user,year,symbol,currency),values in by_symbol.items():
         stock_name,identity_status,identity_missing_reason=stock_identity(identities.get(symbol))
         symbol_rows.append({"user_id":user,"year":year,"symbol":symbol,"currency":currency,

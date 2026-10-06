@@ -102,6 +102,7 @@ jobs:
       mart_runtime: ${{ steps.filter.outputs.mart_runtime }}
       mart_test: ${{ steps.filter.outputs.mart_test }}
       private_pipeline_runtime: ${{ steps.filter.outputs.private_pipeline_runtime }}
+      private_pipeline_live_acceptance: ${{ steps.filter.outputs.private_pipeline_live_acceptance }}
       api_runtime: ${{ steps.filter.outputs.api_runtime }}
       api_test: ${{ steps.filter.outputs.api_test }}
       mcp_runtime: ${{ steps.filter.outputs.mcp_runtime }}
@@ -182,6 +183,9 @@ jobs:
               - 'cloudbuild.yaml'
               - 'scripts/gcp/deploy-dev.sh'
               - 'scripts/gcp/verify-dev.sh'
+            private_pipeline_live_acceptance:
+              - 'services/api/private_pipeline.py'
+              - 'services/api/store.py'
             mobile_ledger_runtime:
               - 'packages/mobile_ledger_queue.py'
               - 'services/api/mobile_ledger_consumer.py'
@@ -440,6 +444,16 @@ jobs:
       - name: Verify private pipeline
         shell: bash
         run: bash scripts/gcp/verify-dev.sh private-pipeline
+      - name: Run private pipeline live acceptance
+        if: needs.detect.outputs.private_pipeline_live_acceptance == 'true'
+        shell: bash
+        run: >-
+          gcloud run jobs execute janus-private-pipeline
+          --project="${GCP_PROJECT_ID}"
+          --region="${GCP_REGION}"
+          --tasks=1
+          --task-timeout=30m
+          --wait
       - name: Verify mobile ledger queue writer and owner binding
         if: needs.detect.outputs.mobile_ledger_runtime == 'true'
         shell: bash
