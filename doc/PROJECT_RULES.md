@@ -41,6 +41,7 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 - **Janus／OmniForge 專案不使用 Superpowers plugin／skill。** 處理本專案的分析、規劃、實作、debug、testing、review、verification 或 completion 判定時，不得主動 invoke `using-superpowers`、`brainstorming`、`writing-plans`、`systematic-debugging`、`test-driven-development`、`verification-before-completion` 或其他 Superpowers skills。
 - Superpowers 即使安裝在 ChatGPT／Codex 執行環境，也不是 Janus 的權威來源、工作方法、WBS prerequisite、acceptance gate 或完成判定依據；不得因其存在而改變本文件、active `todo.md`、WBS／SPEC、GitHub `main` 或 runtime evidence 所定義的流程。
 - 本專案的工程工作直接依本文件、active TODO／WBS／SPEC、repository implementation、tests／CI 與真實 runtime evidence 執行。除非使用者日後在 Janus 專案內明確修改本規則，否則不得以通用 workflow skill 覆蓋或包裝 Janus 專案流程。
+- **ChatGPT 對話模式不得因非系統強制的 skill 不可用、未安裝或無法呼叫而停等。** 若 repository 規則、runbook、tests／CI 與 runtime evidence 足以安全執行，直接完成修改、測試、commit、push、deployment 與 acceptance 閉環；僅系統硬性限制、§1.3 所列人工授權事項或真實 blocker 可中止受影響工作。
 
 ## 2. Dev 平行上線環境政策
 
