@@ -118,31 +118,21 @@ class FinalPerfBadge extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 3),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'core p95 ${_value(core, 2000)}',
-                        style: TextStyle(
-                          color: _color(core, 2000),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      Text(' · n=${FinalPerf.coreSamples}'),
-                    ],
+                  Text(
+                    'core p95 ${_value(core, 2000)} · n=${FinalPerf.coreSamples}',
+                    softWrap: true,
+                    style: TextStyle(
+                      color: _color(core, 2000),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'restore p95 ${_value(restore, 300)}',
-                        style: TextStyle(
-                          color: _color(restore, 300),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      Text(' · n=${FinalPerf.restoreSamples}'),
-                    ],
+                  Text(
+                    'restore p95 ${_value(restore, 300)} · n=${FinalPerf.restoreSamples}',
+                    softWrap: true,
+                    style: TextStyle(
+                      color: _color(restore, 300),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   if (detail.isNotEmpty) ...[
                     const SizedBox(height: 2),
