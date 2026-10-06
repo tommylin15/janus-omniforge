@@ -26,13 +26,15 @@ A 組目前仍為 `partial`，但**所有本對話可自動完成且不需使用
 - **Batch／Private Pipeline runtime：PASS（read-only evidence）。** Inspect run `37407726176` 證明 `janus-batch-controller` 為 `BATCH_CONTROLLER_MODE=active`；`janus-ingestion-daily` 每小時 :30 觸發 controller 且近期 HTTP 200。有效 `private` batch contract 為平日 21:30 Asia/Taipei、依賴 ingestion。`janus-private-pipeline-n45c6` 於 2026-10-05 21:33 台北時間建立、21:36 完成且 succeeded；舊 direct `janus-private-pipeline-2130` Scheduler 在 bounded 7-day logs 的最後活動停在 2026-10-01。
 - **重複 trigger 防護：PASS。** commit `db570130` 將舊 `apply-private-pipeline-schedulers-dev.sh` 改為 retired hard-stop；commit `0df2e728` 校正有效 controller slot 為 21:30。Deploy run `37408320316` targeted ingestion 137 passed，所有 deploy/migration jobs skipped，未造成 runtime mutation。
 - **Storage retention／cleanup：PASS（billable reclaimed unknown）。** Inspect run `37407331976` 讀回最新 apply receipts：Stage deleted 110 objects / 32,275,833 live bytes；Core active bytes reduced 5,928,635；Mart active bytes reduced 5,932,252，specialist artifacts deleted 68。receipts 的 `billable_bytes_reclaimed=null`，因此成本回收量維持 unknown，不補 0。bucket-level lifecycle/retention fields 為空；目前正式 retention spec 是由 retention jobs + reference fences 執行，不把空 bucket lifecycle 假裝成已設定。
+- **真機效能量測能力：implementation/deploy PASS，實機樣本待驗。** Main `21413e5634fb68a89e3ca503fe1a7f1192862d4e` 新增 `?perf=1` 診斷層，量測 Today／Watchlist／Ledger／Stock Detail 核心資料完成時間與已訪問 tab restore frame；只記毫秒與 page label，不記 owner／symbol／token／payload。Flutter run `37412540230` analyze、60 tests、PWA、production web build 全部成功；Deploy run `37412540399` success，revision `janus-api-g21413e5634fb-config` Ready／100% traffic，image digest `sha256:e02b923ce63db76a5105450a46d312f704b23af3f5b3360af09202974aca8731`，verify match `21413e56`。
+- **MCP write：backend/runtime PASS，ChatGPT session tool registration 仍 partial。** `mcp-adapter`／`mcp-oauth` tags 正確保留在 write-capable `d494acb4` revision；使用者已回報完成授權，但本對話當下 tool registry 仍未暴露 `janus_private_ledger_append`。因此沒有用 read-only connector 冒充 write acceptance，也沒有建立測試交易；需在 ChatGPT registry refresh 後再做 duplicate-guard/readback 與一筆使用者明確提供的真實 ledger fact。
 
 目前剩餘 A 組只含：
 
 1. Android 實際安裝 User/Admin 後由兩個 icon 重開，確認裝置端不再把 Admin 導回 User。
 2. authenticated User/Admin 真實瀏覽器四頁約 390px visual acceptance，及 Admin live UI readback。
-3. 真實 owner 新增／建立更正交易後的 pending → Private Mart refreshed → Holdings／Records／Reports／YTD 一致性；本對話不自行寫入使用者真實投資 ledger。
-4. 真實裝置 warm core p95 ≤2 秒、visited restore ≤300ms。
+3. 真實 owner 新增／建立更正交易後的 pending → Private Mart refreshed → Holdings／Records／Reports／YTD 一致性；MCP write acceptance 併入此 gate，缺真實交易欄位不得自行造假。
+4. 真實裝置以 `/app/?perf=1` 取得 warm core p95 ≤2 秒、visited restore ≤300ms 的樣本與裝置證據；量測 instrumentation 已部署，僅剩實機 data。
 
 因此目前不是工程卡住，而是 `blocked-on-interactive-live-acceptance`；在上述證據完成前不得標 A 組 done。
 

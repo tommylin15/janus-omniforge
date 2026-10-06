@@ -2141,3 +2141,15 @@ the MCP connector still uses its older existing tagged revision.
 - Runtime contract 驗證包含四個 tools、`janus.private.write` scope、write tool `readOnlyHint=false`、未授權 write challenge；驗證流程刻意不執行真實 mutation，因此沒有以 acceptance probe 建立假交易。
 - ChatGPT private plugin `Janus Dev Private` 已建立，指向既有 `mcp-adapter` endpoint；建立 plugin 本身不等於 OAuth 已重新授權，也不等於真實 owner write 已完成。
 - 目前剩餘 acceptance：使用者在 ChatGPT 對新 plugin 完成 Google OAuth／`janus.private.write` consent，之後用本人已知交易做真實 append、相同 idempotency key 重試、`janus_private_context(resource=trades)` readback 與 owner isolation 驗證。完成前狀態維持 **partial**。
+
+
+## A 組真機效能量測 instrumentation checkpoint（2026-10-06）
+
+- Main `21413e5634fb68a89e3ca503fe1a7f1192862d4e` 新增 production-safe、opt-in 的 `final_perf.dart`；只有 URL query `perf=1` 才顯示 badge。
+- Core samples：Today 以 `market-home` 完成時間、Watchlist 以 owner watchlist 完成時間、Ledger 以首次 UI 所等待的 summary/PnL/positions/history/monthly/performance/notes bundle 完成時間、Stock Detail 以 primary health/positions/notes/events bundle 完成時間記錄。
+- Restore samples：只對已訪問的底部導覽／NavigationRail tab，從切換要求到下一個 post-frame callback 記錄；第一次建立頁面不冒充 restore。
+- 診斷只保存在 Flutter process memory，最多保留 bounded samples；只記 page label 與 elapsed milliseconds，不記 symbol、owner、email、token、request body 或 response payload。
+- Badge 顯示 `core p95 / ≤2000ms`、`restore p95 / ≤300ms`、樣本數與各核心頁最新耗時；一般 `/app/` 不顯示。
+- Flutter User App run `37412540230` **SUCCESS**：analyze、60 tests、PWA metadata、production `flutter build web -t lib/final_visual.dart --base-href /app/` 全部成功。
+- Deploy dev run `37412540399` **SUCCESS**；latest Ready revision `janus-api-g21413e5634fb-config`、100% traffic、image digest `sha256:e02b923ce63db76a5105450a46d312f704b23af3f5b3360af09202974aca8731`；verify 確認 User/Admin workspace、distinct manifests、web build/PWA metadata match `21413e5634fb68a89e3ca503fe1a7f1192862d4e`。
+- 本 checkpoint **只證明 measurement capability 已部署**，不證明目標已達成。最終 A acceptance 仍需真實手機／真實登入收集足夠樣本，記錄裝置與 p95；未達標時回到 profiling/fix。

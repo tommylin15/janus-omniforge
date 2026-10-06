@@ -43,3 +43,12 @@
 4. 真實手機 warm core p95 ≤2s、visited restore ≤300ms。
 
 Owner isolation 有既有 2026-09-24 Owner A/B acceptance 與持續 API tests；本輪 Janus connector schema 不接受 owner override，因此沒有冒充成新的 arbitrary-owner live request。
+
+
+## 追加：performance measurement 與 MCP session boundary
+
+- `21413e56` 已部署 opt-in `?perf=1` real-device diagnostics；CI run `37412540230` 與 deploy run `37412540399` success，Cloud Run `janus-api-g21413e5634fb-config` Ready／100% traffic。
+- performance gate 現在不再缺測量工具；剩餘是 authenticated real-device samples，不能用 widget timing 代替。
+- MCP write backend/tagged runtime 仍固定在 `d494acb4`，因 `21413e56` 只改 Flutter/perf，沒有必要重 promote MCP tags。
+- 使用者已回報完成 ChatGPT OAuth 授權；但當前 conversation runtime 尚未暴露 `janus_private_ledger_append`。此狀態維持 `partial`，不能把「plugin 已建立／授權頁已完成」包裝成真實 write acceptance。
+- tool registry refresh 後，第一個 write-scope probe 應使用既有 owner ledger fact 與原 stable idempotency key驗證 duplicate guard，確認 ledger version 不增加；真正新增事件只接受使用者明確提供／確認的真實交易資料。
