@@ -1,6 +1,6 @@
 # Janus — TODO
 
-版本：3.10（2026-10-06：同步 latest-price／Ledger UX 與 runtime acceptance）
+版本：3.11（2026-10-06：A 組人工驗收完成並結案）
 用途：**只保留確定要做的 active work 與未完成 acceptance**。Deferred、Candidate、Observation、Production-only、已接受缺口與研究構想統一放 [`parking-lot.md`](parking-lot.md)；已完成／被取代內容放 `archive/`。
 
 ## 規則
@@ -64,7 +64,7 @@ Admin operational convergence **不重做整個 Admin**。保留 `總覽 / 批�
 - 正式執行前依該項標示的【Sol】／【Luna】完成模型 gate；開始後以整體 acceptance scope 結案，不在內部 dataset／adapter／單一畫面反覆停等。
 - 新付費 API／model／subscription、新付費 GCP 資源、重大權限擴張、不可逆大量刪除、MFA／OAuth consent／付款仍需使用者明確授權。
 
-# 執行順序：A → B → C
+# 執行順序：A（CLOSED）→ B → C
 
 依使用者 2026-10-05 指示，先完成上班族操作體驗／效能／Admin，再整合原 specialist 與 CEO 工作。執行細節與可貼給 Codex 的指令見 [Codex 執行指令](codex-execution-plan.md)。以下三組是唯一執行順序；後面的 1～8 是原 WBS acceptance 索引，不再代表先後順序，也不重複計工。
 
@@ -78,13 +78,14 @@ Admin operational convergence **不重做整個 Admin**。保留 `總覽 / 批�
 
 預警／推播／警訊 outcome 增補已移至 [Parking Lot](parking-lot.md) 與其獨立未來文件，不是本次 active scope；既有 Event specialist 與 OOS 照原契約。
 
-## A 組驗收交接
+## A 組結案
 
-非佇列 A 組主功能已完成實作、CI 與 dev runtime；既有證據見 [非佇列結案紀錄](archive/group-a-nonqueue-live-closure-2026-10-06.md)。2026-10-06 latest-price／Ledger UX 追加收斂亦已完成 implementation／CI／deployment，證據見 [latest-price／Ledger UI 驗收紀錄](archive/latest-price-ledger-ui-acceptance-2026-10-06.md)。Ledger 載入速度由使用者確認目前可接受；未提供 p95／裝置量測不補造。
+A 組 implementation／CI／dev runtime 與兩項人工 gate 已於 2026-10-06 全部驗收完成。完成證據已移至：
 
-- [ ] **使用者另行驗收：交易佇列／真實 owner mutation／duplicate guard／transaction → Private Mart refresh。** 使用者仍在調整佇列，明確要求本對話先不驗；不得自行操作、重新 enqueue 或把其他列的已處理狀態當作此筆交易成功。Implementation 與 dev writer probe 已部署／通過，但此 live gate 不勾選。
-- [ ] **User App 最終手機畫面 readback（`c311d4b`）。** 僅確認本輪視覺結果：Stock Detail latest-price／最近收盤漲跌、個股未實現損益紅綠、Ledger 持股未實現損益紅綠、紀錄月份／個股預設收合與年度已實現損益。CI／Cloud Run 已 PASS；真實登入手機畫面尚未由使用者確認前維持 pending。
+- [非佇列結案紀錄](archive/group-a-nonqueue-live-closure-2026-10-06.md)
+- [latest-price／Ledger UI 驗收紀錄](archive/latest-price-ledger-ui-acceptance-2026-10-06.md)
 
+A 組不再列 active TODO；下一個 active work 為 B 組。
 ## B 組優先架構調整 acceptance
 
 B 組開始五 specialist／cache 收斂前，先完成 [BigQuery analytics 架構決策](decision-2026-10-06-bigquery-analytics-over-iceberg.md) 的資料讀取邊界；此優先序不代表 BigQuery resource 已建立或啟用。

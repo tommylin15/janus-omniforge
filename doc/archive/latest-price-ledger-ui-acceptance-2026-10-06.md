@@ -1,6 +1,6 @@
 # 2026-10-06 Latest-price／Ledger UI 收斂驗收紀錄
 
-狀態：**implementation / CI / dev deployment / runtime build PASS；手機人工視覺 readback pending**
+狀態：**CLOSED / PASS — implementation、CI、dev deployment、runtime build、交易人工 gate、手機 UI readback 全部驗收完成**
 
 ## 範圍
 
@@ -39,12 +39,16 @@
 - latest created／ready revision：皆為 `janus-api-gc311d4b7242a-config`。
 - runtime verify：Flutter User／Admin workspace 與 web build-id 匹配 `c311d4b7242afa9acd79bd9b95d44b1a7b6ebefc`。
 
-## 尚未宣稱的 acceptance
+## 使用者人工驗收
 
-真實手機人工視覺 readback 尚未由使用者確認，因此不宣稱此版 full UI acceptance。需確認：Stock Detail latest-price 持股現價、最近收盤漲跌紅綠、Stock Detail／Ledger 未實現損益紅綠、紀錄群組預設收合／展開、年度已實現損益與選定年度一致。
+2026-10-06 使用者明確確認以下兩項均「驗收無誤，結案」：
 
-另有既存 A 組交易佇列／真實 owner mutation／duplicate guard／transaction → Private Mart refresh 人工驗收，依 `todo.md` 維持 pending。
+1. 交易佇列／真實 owner mutation／duplicate guard／transaction → Private Mart refresh。
+2. `c311d4b` User App 最終手機畫面 readback，包括 Stock Detail latest-price 持股現價、最近收盤漲跌紅綠、Stock Detail／Ledger 未實現損益紅綠、紀錄月份／個股收合與年度已實現損益。
 
+此項屬 human acceptance evidence；不改寫既有 CI／runtime evidence，也不把未重新量測的 p95 等數值補造。
+
+**本輪 latest-price／Ledger UI 工作正式 CLOSED。**
 ## Drive 邊界
 
 Drive 的「Janus 交易記錄 UX 參考評估（已吸收／研究來源）— 2026-09-24」保留為歷史研究來源，不改寫成 current implementation source of truth。Drive `JANUS_PROJECT_CONTROL.md` 明定 routine implementation status 應留在 repository，因此本輪 current state 統一回寫 GitHub active docs／archive。

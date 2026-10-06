@@ -4,19 +4,18 @@
 
 用途：只回答「現在在哪裡、下一步是什麼、哪些尚未完成」。實作以 GitHub `main` 為準，完成狀態以 tests／CI、deployment、live runtime、trigger／workload、integration evidence 為準。完整 active queue 只看 [`todo.md`](todo.md)。
 
-## 2026-10-06 A 組：非佇列主功能完成；人工 readback 仍有交接
+## 2026-10-06 A 組：CLOSED
 
-A 組非佇列範圍已完成實作、測試、GitHub 同步與 dev deployment。2026-10-06 晚間追加完成 latest-price／Ledger UX 收斂：
+A 組已完成 implementation、tests／CI、dev deployment、runtime readback 與使用者人工驗收。
 
-- `b360b51`：Ledger 首屏改為核心 request + 分頁 lazy load／頁內 request cache；使用者回報載入速度目前可接受。
-- `1987590`：Stock Detail 個人持股改優先讀 `/api/v1/me/portfolio/quotes` latest-price valuation；`stock-header` 新增 `previous_close/change/change_percent`；持股未實現損益／報酬與最近收盤漲跌採台股慣例「正值紅、負值綠」。
-- Ledger「紀錄」改為按月份／按個股可收合，群組摘要只顯示 authoritative 已實現損益；年度 selector 同區顯示年度已實現損益；展開後保留 append-only correction。
-- 最終功能／測試 SHA `c311d4b`；Flutter workflow `37473733955` 為 **64/64 tests PASS**，analyze／web build／PWA validation 皆成功。
-- Deploy dev workflow `37473734282` success；Cloud Run revision `janus-api-gc311d4b7242a-config` Ready、100% traffic，runtime build-id 與 `c311d4b7242afa9acd79bd9b95d44b1a7b6ebefc` 一致。
-- 本輪完整證據見 [latest-price／Ledger UI 驗收紀錄](archive/latest-price-ledger-ui-acceptance-2026-10-06.md)。
+- `b360b51`：Ledger 首屏改為核心 request + 分頁 lazy load／頁內 request cache；使用者確認載入速度可接受。
+- `1987590`：Stock Detail 個人持股改讀 latest-price valuation；`stock-header` 提供 `previous_close/change/change_percent`；未實現損益／報酬與最近收盤漲跌採台股正值紅、負值綠。
+- Ledger「紀錄」按月份／按個股可收合，群組摘要只顯示 authoritative 已實現損益；年度 selector 同區顯示年度已實現損益；append-only correction 保留。
+- 最終功能／測試 SHA `c311d4b`；Flutter workflow `37473733955` 為 **64/64 tests PASS**；Deploy dev workflow `37473734282` success；Cloud Run revision `janus-api-gc311d4b7242a-config` Ready 且 100% traffic。
+- 2026-10-06 使用者明確確認兩項人工 gate 均驗收無誤：①交易佇列／真實 owner mutation／duplicate guard／transaction refresh；②`c311d4b` User App 手機畫面 readback。
+- 完整證據見 [latest-price／Ledger UI 驗收紀錄](archive/latest-price-ledger-ui-acceptance-2026-10-06.md)。
 
-上述 evidence 證明 implementation／CI／deployment／runtime build 一致，**不等於替使用者完成此版手機畫面的人工視覺確認**。A 組目前仍保留：既有交易佇列／真實 owner mutation／duplicate／交易後刷新人工驗收，以及 `c311d4b` User App 最終手機畫面 readback。未驗證項維持 pending。
-
+**A 組正式結案；下一個 active group 為 B。**
 ## 2026-10-06 B 組優先架構決策（尚未實作完成）
 
 使用者已核准 [Iceberg canonical + BigQuery analytics hybrid](decision-2026-10-06-bigquery-analytics-over-iceberg.md) 作為 B 組 specialist／cache 的優先資料運算架構：
@@ -28,7 +27,7 @@ A 組非佇列範圍已完成實作、測試、GitHub 同步與 dev deployment�
 - B 組第一優先是抽出 exact-snapshot analytics reader、保留 PyIceberg reference/fallback，再做 BigQuery fidelity/cost/performance canary；未證明固定 Core snapshot 一致前不得切 default。
 - **目前只有架構與執行順序核准，沒有 evidence 顯示 BigQuery／BigLake resource 已建立或 API/IAM 已核准。** 需要新增付費 API/resource、catalog/dataset/connection 或 IAM 時仍依 PROJECT_RULES 取得明確授權。
 
-B 組架構決策不代表 specialist 已完成；A 組目前僅保留上述使用者交易驗收交接。
+B 組架構決策不代表 specialist 已完成；A 組已於 2026-10-06 完成並結案，下一步進入 B 組。
 
 ## 現行產品決策
 
@@ -103,7 +102,7 @@ AutoGluon、FinBERT、FinGPT 只作 benchmark／research challenger；production
 
 ## 尚未完成的關鍵 acceptance
 
-- A 組僅保留由使用者另行驗收的交易佇列／真實 mutation／duplicate／交易後刷新，以及 `c311d4b` User App 手機畫面 readback；implementation／CI／deployment／runtime build 已完成。
+- A 組已完成 implementation／CI／deployment／runtime build 與使用者人工驗收，狀態 CLOSED。
 - 五 specialist 的完整真實 dev／OOS、完整 ML baseline、dirty dependency、monthly retrain／reconciliation 尚未完成整體驗收。
 - On-demand CEO command／capability／immutable report history 尚未完成。
 - Admin specialist model/evaluation + CEO capability/profile controls 尚未完成。
