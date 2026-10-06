@@ -19,6 +19,7 @@ MIGRATION_OPERATIONS = "043_admin_batch_read"
 MIGRATION_QUOTES_BROKER = "044_quotes_broker_profile"
 MIGRATION_PRIVATE_OPERATIONS = "045_private_pipeline_operations"
 MIGRATION_TWSE_LATEST_PRICE = "046_twse_only_latest_price"
+MIGRATION_LATEST_PRICE_ROUTE_V2 = "047_latest_price_route_v2"
 SUPPORTED = frozenset({
     MIGRATION_POSITION,
     MIGRATION_STOCK_SERVING,
@@ -26,6 +27,7 @@ SUPPORTED = frozenset({
     MIGRATION_QUOTES_BROKER,
     MIGRATION_PRIVATE_OPERATIONS,
     MIGRATION_TWSE_LATEST_PRICE,
+    MIGRATION_LATEST_PRICE_ROUTE_V2,
 })
 
 
@@ -357,5 +359,20 @@ def run(control: Any, name: str) -> None:
                 cursor.execute("INSERT INTO control.schema_migrations" + record)
         except Exception as error:
             raise ServingSchemaMigrationError("twse_latest_price_apply", error) from error
+    elif name == MIGRATION_LATEST_PRICE_ROUTE_V2:
+        try:
+            text = _without_role_lines(_migration_path(name).read_text(encoding="utf-8"))
+            prepare, acceptance = text.split("-- PHASE: acceptance", 1)
+            checks, record = acceptance.split("INSERT INTO control.schema_migrations", 1)
+            with control.connection.transaction(), control.connection.cursor() as cursor:
+                _require_current_user(cursor, "janus_control")
+                cursor.execute(prepare)
+                cursor.execute(checks)
+                row = cursor.fetchone()
+                if row is None or not all(bool(value) for value in row):
+                    raise RuntimeError("latest-price route-v2 schema acceptance failed")
+                cursor.execute("INSERT INTO control.schema_migrations" + record)
+        except Exception as error:
+            raise ServingSchemaMigrationError("latest_price_route_v2_apply", error) from error
     else:
         raise ValueError("unsupported serving schema migration")

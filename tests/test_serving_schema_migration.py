@@ -114,11 +114,19 @@ def test_twse_only_latest_price_migration_retires_tpex_without_deleting_history(
     assert "SET enabled=false, collection_enabled=false, analysis_enabled=false" in sql
     assert "UPDATE control.stock_master" in sql
     assert "WHERE market='TPEX' AND enabled" in sql
-    assert "operational_last_quotes_route_version_check" in sql
-    assert "'latest-price.v2'" in sql
     assert "DELETE FROM" not in sql
     assert sql.index("has_table_privilege") < sql.index("INSERT INTO control.schema_migrations")
     assert "046_twse_only_latest_price" in sql
+
+
+def test_latest_price_route_v2_migration_extends_operational_quote_constraint():
+    control = FakeControl()
+    migration.run(control, migration.MIGRATION_LATEST_PRICE_ROUTE_V2)
+    sql = statements(control.connection)
+    assert "operational_last_quotes_route_version_check" in sql
+    assert "'quote-router.v1','latest-price.v2'" in sql
+    assert "047_latest_price_route_v2" in sql
+    assert sql.index("pg_get_constraintdef") < sql.index("INSERT INTO control.schema_migrations")
 
 
 def test_position_projection_splits_control_and_private_api_owners(monkeypatch):
