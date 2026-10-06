@@ -1,6 +1,6 @@
 # Janus — TODO
 
-版本：3.5（2026-10-05：A 組真實驗收與 Ledger acceptance 補強）
+版本：3.6（2026-10-06：A 組 non-live implementation closure；live acceptance 待完成）
 用途：**只保留確定要做的 active work 與未完成 acceptance**。Deferred、Candidate、Observation、Production-only、已接受缺口與研究構想統一放 [`parking-lot.md`](parking-lot.md)；已完成／被取代內容放 `archive/`。
 
 ## 規則
@@ -63,6 +63,8 @@ Admin operational convergence **不重做整個 Admin**。保留 `總覽 / 批�
 ## A 組新增／明確化 acceptance
 
 A 組目前狀態定義：**部分功能已完成並進入 GCP dev 真實驗收，仍可能由真實驗收發現 implementation gap；發現後必須回到實作修正。** 進入驗收不等於 implementation 已全部完成，也不等於只剩 acceptance。
+
+> 2026-10-06 non-live closure：已知可直接由 code／tests／migration／deployment 關閉的 A 組缺口（Final Visual production path、Admin PWA identity、YTD 三態、Ledger correction/refresh、Admin Private operations、canonical-data charts）已完成並部署。下列 checkbox 仍不勾選，因其 acceptance 包含 authenticated browser／real owner mutation／performance／scheduler/storage live evidence。證據見 [`archive/group-a-nonlive-closure-2026-10-06.md`](archive/group-a-nonlive-closure-2026-10-06.md)。
 
 - [ ] **四頁 Final Visual Contract 是 A 組正式結案 gate。** Today／Watchlist／Ledger／Stock Detail 必須在既有 GCP dev 的真實登入、真實使用者、真實資料、真實 API/runtime 下，非 AI 主體 UI 明顯收斂至 [`ui/reference/user-app-final/`](ui/reference/user-app-final/)；至少核對 section order、card hierarchy、資訊密度、spacing、主要色彩、mobile layout、390px 寬度版面，以及 loading／empty／error／partial／stale／missing 不破壞主要 layout。若真實畫面仍明顯像 legacy UI、與四張 reference 差異很大，視為 A 組 acceptance failure／implementation gap，不是後續 cosmetic polish。
 - [ ] **A 組不得把基本 UI convergence 延後到 B／C。** Specialist outputs、CEO analysis、AI-dependent content、capability/history/freshness 與最終 AI integration 可由 B／C 完成；AI-only 區塊未就緒時可 bounded unavailable／hidden／partial，但不得因此保留舊版非 AI layout。

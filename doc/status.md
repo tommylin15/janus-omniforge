@@ -1,8 +1,38 @@
 # Janus Current Status
 
-更新：2026-10-05
+更新：2026-10-06
 
 用途：只回答「現在在哪裡、下一步是什麼、哪些尚未完成」。實作以 GitHub `main` 為準，完成狀態以 tests／CI、deployment、live runtime、trigger／workload、integration evidence 為準。完整 active queue 只看 [`todo.md`](todo.md)。
+
+## 2026-10-06 A 組 non-live closure checkpoint
+
+A 組仍判定為 `partial`，但邊界已收斂：**目前已知且可在非登入／非實機條件下直接修正的 A 組 implementation gap 已關閉；剩餘項目是需要真實 authenticated User／Admin、實際手機/PWA、真實 owner mutation、效能與儲存證據才能完成的 live acceptance。** 不得把這句解讀成 A 組已完成。
+
+已關閉的 non-live implementation：
+
+- Final Visual production path 已使用 `lib/final_visual.dart`；Today／Watchlist／Ledger／Stock Detail 均為新版 presentation layer。Today 已移除「櫃買指數」。
+- User／Admin 仍共用一套 Flutter build，但有不同 PWA identity：User `id/start_url=/app/`；Admin `id/start_url=/app/admin`，`/app/admin` 回傳獨立 Admin shell／manifest，不再因安裝 manifest 導回 User。
+- Ledger YTD realized P&L 已區分 authoritative value／confirmed zero／pending／unavailable；新增與 append-only correction 都會顯示 pending 並 reload 全 Ledger data future，Holdings／Records／Reports 不再各持一套 summary state。
+- Ledger Records 已恢復「建立更正」流程；Reports 直接使用 canonical annual/monthly aggregates。
+- Admin 資料治理已加入去識別化 Private Pipeline operational aggregate；migration `045_private_pipeline_operations` 已成功，Private Pipeline seed execution 成功，不暴露 user／symbol／trade／holdings body。
+- Final Visual 已加入 canonical-data visualization：Stock Detail K 線＋成交量、五面向健康度 bars、Ledger 月度已實現損益圖；圖表只視覺化 backend 欄位，不在 Flutter 重算 canonical holdings／PnL／exposure。
+
+最新 CI／runtime evidence：
+
+- Flutter run `37405203811`：analyze、58 tests、PWA metadata、`flutter build web -t lib/final_visual.dart --base-href /app/` 全部成功。
+- Deploy run `37405204175`：成功；Cloud Run latest Ready revision `janus-api-g3e29701ffae1-config`，100% traffic，image digest `sha256:801e157899e99c38f2ca3d059a6b246d8391d9299a84b6018c26612465296f68`；verify 確認 Flutter User/Admin workspace、distinct PWA manifests 與 web build 都對應 `3e29701ffae1dfe3aa9d32deb50ded03f8145c18`。
+- migration 045／Private Pipeline operational seed 與 Admin PWA rollout 的前置 deploy run `37398213942` 已在 retry attempt 2 完整成功；先前 429 為 verify transient，未重跑已成功 migration。
+
+剩餘 **live-only** A acceptance：
+
+- Android／Chrome 真實安裝後分別從 User 與 Admin icon 重開，確認 Admin 不再落回 User。
+- 真實 Google User／Admin 登入、owner isolation／未登入拒絕與四頁約 390px 實機 Final Visual 對照。
+- 真實 owner 新增／建立更正交易後，驗證 operational positions 即時、Private Mart pending → refreshed、Holdings／Records／Reports／YTD canonical consistency。
+- 實機暖機核心資訊 p95 ≤2 秒、已訪問頁恢復 ≤300ms 的樣本與裝置證據。
+- Scheduler／Private Pipeline 真實時序、failure/retry receipt，以及 GCS lifecycle／cleanup／billable/reclaimed-cost evidence。
+- Admin 真實登入後確認 effective batches、資料治理與 Private Pipeline aggregate 的 live readback。
+
+完整 checkpoint 見 [`archive/group-a-nonlive-closure-2026-10-06.md`](archive/group-a-nonlive-closure-2026-10-06.md)。
 
 ## 2026-10-05 Cloud 交接狀態
 
