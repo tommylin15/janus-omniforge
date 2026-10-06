@@ -2159,3 +2159,14 @@ the MCP connector still uses its older existing tagged revision.
 - Flutter User App run `37412540230` **SUCCESS**：analyze、60 tests、PWA metadata、production `flutter build web -t lib/final_visual.dart --base-href /app/` 全部成功。
 - Deploy dev run `37412540399` **SUCCESS**；latest Ready revision `janus-api-g21413e5634fb-config`、100% traffic、image digest `sha256:e02b923ce63db76a5105450a46d312f704b23af3f5b3360af09202974aca8731`；verify 確認 User/Admin workspace、distinct manifests、web build/PWA metadata match `21413e5634fb68a89e3ca503fe1a7f1192862d4e`。
 - 本 checkpoint **只證明 measurement capability 已部署**，不證明目標已達成。最終 A acceptance 仍需真實手機／真實登入收集足夠樣本，記錄裝置與 p95；未達標時回到 profiling/fix。
+
+## User 損益重算／行情更新 UI dev checkpoint（2026-10-07）
+
+- 功能主體 commit `bbc4151fed2799dabc348f8145cd3f9b28a97d81`：交易新增／更正成功後立即排 owner-scoped Private Mart 重算；scheduled Private Pipeline 保留作 durability／reconciliation fallback；User UI 只有在年度損益確實 pending 時顯示「重新計算損益」。關注股票第一層動作改為「搜尋」，選定股票後才進入儲存。
+- 持股 latest-price 行為改為盤中可見頁面每分鐘 revalidate；13:30 後停止分鐘輪詢，14:30 handoff 後同一頁面生命週期只自動讀一次 persistent latest state，明確手動 refresh 不受此限制。
+- User UI 的 realized／unrealized PnL 與百分比統一採台股語意：獲利紅、虧損綠、0／未知中性；負值顯示減號，不使用會計括號。Flutter 契約修正 commits `14cd38c`、`56ac94d`；Flutter User App run `37542658237` **SUCCESS**，analyze、**66 tests**、PWA metadata 與 production `flutter build web -t lib/final_visual.dart --base-href /app/` 全部通過。
+- `afa3e8214bb19fc7dc67ebae482edbf464cb9305` 補上 `/api/v1/me/journal/pnl` 的 latest-ledger-version fence：交易已提交但 annual PnL Mart 尚未追上時，不再回傳舊年度損益，讓 UI 正確維持 pending／手動重算狀態。Portfolio Completeness Contract run `37542950801` **SUCCESS**；Deploy dev run `37542951194` **SUCCESS**，API targeted suite **185 passed**。
+- 同一 deployment chain 的 Private Pipeline Cloud Build `ef6abbfc-c06d-444e-91bf-136401d2b4b1` **SUCCESS**，既有 `janus-private-pipeline` Job readback 為 `Ready=True`。本 run 的 private-pipeline live acceptance／mobile queue writer seed steps因 workflow 條件 **skipped**，不得包裝成真實 mutation acceptance。
+- API 已部署 revision `janus-api-gafa3e8214bb1-config`，default traffic **100%**，immutable image digest `sha256:1d19df5ab7480bcedb6e897584f7ab59e792241e7c1d2e7ba9337fbb6b641aa1`。deploy verify 確認 API traffic、Flutter User/Admin workspace、User/Admin PWA manifests、Admin auth boundary、web build 與 PWA metadata 均對齊 `afa3e8214bb19fc7dc67ebae482edbf464cb9305`。
+- 本 checkpoint 有 GitHub／CI／Cloud Run runtime evidence，但本對話沒有可用的真人 Google User browser session，因此「手機上實際看到按鈕條件、紅綠色與盤後 tab re-entry 行為」仍屬人工 UI acceptance；不得以 widget／deployment verify 取代。
+
