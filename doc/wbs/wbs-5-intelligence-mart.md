@@ -1,6 +1,6 @@
 # Janus WBS 5 — Intelligence Mart
 
-更新：2026-10-03
+更新：2026-10-06
 狀態：Active WBS index；執行順序以 `../todo.md` 為準
 
 本文件只定義 WBS-5 的責任與驗收邊界。五 specialist 的現行實作契約見 [`wbs-5-specialist-engines.md`](wbs-5-specialist-engines.md) 與 [`../spec/specialist-engines.md`](../spec/specialist-engines.md)。舊「每日五個 Codex／LLM 分析師 + CIO」方案已被 2026-10-03 Token-first + On-demand CEO 決策取代，不再是 active WBS。
@@ -10,14 +10,14 @@
 - `intelligence-mart` 只讀 `analysis_as_of` 可見的 versioned Core snapshot；不得即時補抓、呼叫 scraper 或改寫 Core。
 - canonical data、PIT／future leakage、provenance、source authorization、missing-data honesty、immutable lineage、public/private isolation 與 publication boundary 必須維持。
 - 每次 execution 保存 `execution_id`、`analysis_as_of`、Core snapshot identity、feature／engine／model version、input/output hash 與必要 governance version。
-- PostgreSQL 只保存 catalog／control／publication／audit／bounded index；完整 feature、specialist artifact、evaluation、report 與大型 payload 存 GCS／Iceberg／Parquet。
+- PostgreSQL 只保存 catalog／control／publication／audit／bounded index；Core canonical／PIT/history 保持 Iceberg/GCS。BigQuery 只作 B 組 analytics compute；可重建 intermediate 不升格 canonical，大型 training/evaluation dataset 以 versioned GCS Parquet 固定，specialist/model/evaluation artifact 依 Mart contract 保存。
 - Mart 的已持久化成果可在 dev 真實使用；完成判定仍需 tests／deployment／live execution／readback evidence，不由文件或單次成功推定。
 
 ## 5.1 Coverage 與 Mart pipeline
 
 ### Market Coverage
 
-約 500 檔只執行低成本 screening／discovery 與必要 cross-sectional Quant inference，不做 500×5 深度分析。
+約 500 檔在每個交易日 EOD canonical data ready 後執行低成本 screening／discovery 與必要 cross-sectional Quant inference，不做 500×5 深度分析。BigQuery 通過 exact-snapshot fidelity gate 後優先承接這條全市場 compute。
 
 至少維持：
 
@@ -84,7 +84,7 @@ LLM 不得計算或改寫 canonical number，也不得持有 publication authori
 
 ## 5.4 Model evaluation／promotion
 
-第一版 ML retrain／calibration／reconciliation 以月度為主；不代表 specialist data 每月才更新。
+第一版 ML retrain／calibration／OOS evaluation／reconciliation 固定每月第一個週六 10:30（Asia/Taipei）；不代表 specialist data 每月才更新，也不建立每週六 500×5 全量模型排程。
 
 至少評估：
 
@@ -124,7 +124,7 @@ CEO：
 
 ## 5.7 Mart writer／storage
 
-- GCS／Iceberg 保存 versioned feature、specialist、evaluation、aggregation／report artifacts 與完整 structured payload。
+- Core canonical data 由 Iceberg/GCS 保存；BigQuery intermediate 預設 bounded／TTL／可重建，不因「留一份」而回寫 canonical Iceberg。Versioned feature／training/evaluation／specialist／aggregation／report artifacts 依其 retention contract 保存於 GCS／Parquet／Mart。
 - PostgreSQL 保存 bounded metadata、snapshot／artifact reference、hash、version、publication／audit state。
 - retention 依 `../spec/retention-governance.md`；有效引用、目前 snapshot 與 reference fence 必須先保護再清理。
 - private holdings／cost／PnL／owner mapping 不得寫入 public Mart specialist artifacts；必要的 Deep Coverage membership 僅保存去識別化 symbol demand／effective scope。
