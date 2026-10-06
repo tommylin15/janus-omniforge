@@ -4,6 +4,19 @@
 
 用途：只回答「現在在哪裡、下一步是什麼、哪些尚未完成」。實作以 GitHub `main` 為準，完成狀態以 tests／CI、deployment、live runtime、trigger／workload、integration evidence 為準。完整 active queue 只看 [`todo.md`](todo.md)。
 
+## 2026-10-06 B 組優先架構決策（尚未實作完成）
+
+使用者已核准 [Iceberg canonical + BigQuery analytics hybrid](decision-2026-10-06-bigquery-analytics-over-iceberg.md) 作為 B 組 specialist／cache 的優先資料運算架構：
+
+- Core Iceberg V2／GCS 繼續是 canonical／PIT／provenance/history；不改成 BigQuery native canonical warehouse。
+- PostgreSQL serving projection 與 User／Admin request-time read 保持現行架構。
+- BigQuery 只作 analytics compute，優先承接 liquid-500 screening、cross-sectional feature／ranking、OOS/evaluation preprocessing 與 ML training dataset preparation。
+- 禁止 BigQuery Storage Read API；大量 training input 採 SQL 縮減後 export versioned GCS Parquet。
+- B 組第一優先是抽出 exact-snapshot analytics reader、保留 PyIceberg reference/fallback，再做 BigQuery fidelity/cost/performance canary；未證明固定 Core snapshot 一致前不得切 default。
+- **目前只有架構與執行順序核准，沒有 evidence 顯示 BigQuery／BigLake resource 已建立或 API/IAM 已核准。** 需要新增付費 API/resource、catalog/dataset/connection 或 IAM 時仍依 PROJECT_RULES 取得明確授權。
+
+此決策不改變 A 組目前 `partial / blocked-on-interactive-live-acceptance` 狀態，也不得拿來宣稱 B 組 specialist 已完成。
+
 ## 2026-10-06 A 組 live-auto acceptance checkpoint
 
 A 組目前仍為 `partial`，但**所有本對話可自動完成且不需使用者本人登入／手機操作／真實 ledger mutation 的 live acceptance 已完成**。剩餘 blocker 已縮成裝置／互動式 authenticated acceptance，不再有已知可直接修的 non-live 或 read-only runtime gap。

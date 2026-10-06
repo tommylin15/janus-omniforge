@@ -1,6 +1,6 @@
 # Codex 執行指令：操作體驗、效能與低成本營運收斂
 
-更新：2026-10-05
+更新：2026-10-06
 
 本文件是 [TODO](todo.md) 工作組的執行方式，不是第二份待辦或完成紀錄。需求／安全依 [PROJECT_RULES](PROJECT_RULES.md)，各原 WBS 的 acceptance 保留；checkbox 與剩餘工作只在 TODO 維護。2026-10-05 使用者要求預警暫緩，其餘盤點改善整合既有工作，相關程式盡量一次寫完再集中驗收。本次建立文件不代表已執行下列工作。
 
@@ -11,6 +11,7 @@
 依 doc/todo.md 的工作組順序與 doc/codex-execution-plan.md 執行全部剩餘工作組，保留原 WBS 的驗收追蹤。
 先核對最新程式、CI、runtime evidence，重用已完成成果，不重做 migration 042、已完成回補或憑證輪替。
 本次目標是完成非預警的 UI、讀取效能、Admin、資料治理、成本控制與既有 specialist／CEO 待辦。
+B 組優先採 doc/decision-2026-10-06-bigquery-analytics-over-iceberg.md：Iceberg 保持 canonical，BigQuery 只作 analytics compute，禁止 Storage Read API，PostgreSQL serving 不動。
 同一工作組先完成所有相依程式、migration、UI、測試與文件修改，再集中跑適用測試與一次整合 dev 驗收。
 不要每個檔案、API、畫面、股票各自 commit、build、deploy、驗收或要求確認；失敗只重跑受影響範圍。
 完成一組後接續下一組；外部授權或資料不足只阻擋相依部分，其他已授權工作繼續。
@@ -67,18 +68,72 @@
 
 效能目標：已訪問頁主要內容恢復 ≤300ms；暖機核心資訊可見 p95 ≤2 秒。記錄裝置／網路、樣本數與測量方法，建議同條件前後各 20 次 bounded 主流程；冷啟動／登入／外部行情另列，不把 20 次當生產 SLO 證明。未達需記錄瓶頸及剩餘 acceptance，不任意提高資源或宣稱通過。同一輪確認 projection source telemetry、fallback、390×844 無 overflow、分區錯誤不拖垮首屏、離頁停止輪詢。新 AI 未完成區塊可 bounded unavailable；不得因此宣稱整個 specialist／CEO 或 Final Visual WBS 完成。
 
-## 3. 工作組 B：specialist 與 cache 合併完成
+## 3. 工作組 B：specialist／cache／BigQuery analytics 合併完成
 
-來源：`WBS-5-MART-SPECIALIST-ENGINES` + `WBS-5-MART-RERUN-CACHE`；主要模型【Sol】。
+來源：`WBS-5-MART-SPECIALIST-ENGINES` + `WBS-5-MART-RERUN-CACHE` + [BigQuery analytics 架構決策](decision-2026-10-06-bigquery-analytics-over-iceberg.md)；主要模型【Sol】。
 
-- 依最新 specialist SPEC 完成原 TODO 五引擎與資料優先 OOS 範圍，不重新引入被取代的每日五 LLM。
-- 先檢查最近 retrain／idle transaction 修復與真實 execution 終態；已有重訓仍在執行時不重複 dispatch。不把 inspector commit 或 Job succeeded 當成模型有效。
-- dirty dependency、input／feature／engine／model identity、no-change reuse、monthly reconciliation 一起實作；不是產出後比 hash 才算省下計算。
-- 500 檔只做既定輕量 screening；Deep Coverage 承接 A 的 watchlist／holdings 語意。無變更不重算，事件不變不重跑 classifier；不擴張已接受資料缺口或模型研究範圍。
-- 重用月度 controller／guarded retrain。訓練與推論 sequential bounded、記錄 peak RSS／elapsed／輸入規模；保持既定 1 CPU／1 GiB。資料、標記或模型驗證不足明示，不能造 probability 或自動 promotion。
-- CEO freshness 可更新但不自動執行 CEO。Admin 只讀真實模型／evaluation／reuse 狀態，不能展示假成功。
+### B 組 AI 作業指示
 
-先合併修改引擎、cache、controller、artifact／retention 相依與 tests，再集中跑相關 targeted tests。合併一次 dev deployment 與 bounded real-data execution/readback；一次 no-change replay 驗 reuse，必要的單一輸入變更驗 selective invalidation。OOS 重用同份固定 snapshot／cohort；相同輸入版本且有效證據不重跑。保留各原 WBS 完成判定，資料不足不得以規則 fallback 假裝 ML acceptance 完成。
+以下步驟按順序執行。除非遇到 PROJECT_RULES 的付費／IAM／不可逆／OAuth 人工 gate，不在每個內部步驟停下要求確認；可自行完成的 code/tests/dry-run 繼續做。任何未取得 live evidence 的項目保持 partial/blocked。
+
+1. **建立 baseline，不先改 runtime。**
+   - 讀 `specialist_runtime.py`、`storage.py`、`packages/duckdb_query/iceberg.py`、Core manifest／snapshot contract 與直接相關 tests。
+   - 固定一份既有真實 dev Core snapshot／cohort，記錄 current PyIceberg row count、output hash、screening/evaluation result、elapsed、peak RSS、可取得的 GCS/scan evidence。
+   - 不重做 A 組 migration、backfill、serving projection 或 UI。
+
+2. **抽出 exact-snapshot analytics reader。**
+   - 先把目前 PyIceberg path 包成 `IcebergSnapshotReader`（名稱可依 repository convention 調整），reference 行為不可改變。
+   - 建立最小 `AnalyticsSnapshotReader` contract，只暴露 specialist 所需的 bounded dataset/features + snapshot identity/provenance，不把 BigQuery client object 傳進 engine。
+   - 原 targeted tests 必須先在 abstraction 後維持 green，再加新 adapter tests。
+
+3. **加入 BigQuery adapter，但先不切 default。**
+   - 使用一般 BigQuery query/jobs client；可新增並 pin `google-cloud-bigquery`，**不得加入 `google-cloud-bigquery-storage`**。
+   - 不使用 `.to_dataframe()` 的 Storage Read 加速路徑；小結果用 row iterator／一般 query result API。
+   - adapter 必須接受 immutable Core execution/snapshot fence，沒有可證明的 exact-snapshot mapping 就 fail closed，不偷偷改讀 latest。
+
+4. **做 BigQuery／Iceberg compatibility probe。**
+   - 只用 bounded 真實 dev table/snapshot；核對 region、GCS location、schema evolution、decimal、timestamp/date、null、partition pruning、source/provenance。
+   - Google legacy metadata-URI Iceberg external table 不作預設 final architecture；優先評估可共享 Iceberg metadata 的 Google-supported Lakehouse／Iceberg REST path或其他 exact-snapshot 方案。
+   - **若下一步需要啟用 BigQuery/BigLake API、建立 dataset/catalog/connection/cache、增加 IAM 或產生新付費資源，而沒有本次以外的明確授權證據：不要 mutation。** 將該步標 blocked，保留 code/test/dry-run 成果並繼續不相依工作。
+
+5. **先搬最適合 BigQuery 的 workload。**
+   - 第一個候選：liquid-500 screening。
+   - 第二個：cross-sectional rank/window/join 與 feature aggregation。
+   - 第三個：OOS/evaluation preprocessing。
+   - 不搬 User/Admin request-time read、Ledger/private owner path；不建立 full-Core BigQuery duplicate warehouse。
+   - Query 強制 selected columns、date/symbol/partition predicate、bounded cohort；可用時先 dry-run/bytes estimate，設定合理 maximum-bytes fail-closed guard。
+
+6. **建立 ML 大資料出口，不用 Storage Read API。**
+   - 流程固定為 `Iceberg → BigQuery SQL reduction → bounded destination result（必要時）→ EXPORT DATA/versioned GCS Parquet → ML Job`。
+   - Export artifact 保存 Core snapshot identity、analysis_as_of、schema/feature version、content hash/provenance、retention。
+   - Temporary destination table 預設 TTL／可重建；不要把 intermediate 當 canonical。
+
+7. **再整合 dirty dependency／rerun cache。**
+   - input／feature／engine／model identity 與 BigQuery-derived artifact identity 一起納入 invalidation。
+   - no-change 在昂貴 query 前判定 reuse；不是 BigQuery 算完後才比較 output hash。
+   - monthly reconciliation 能檢查 snapshot mapping、artifact identity、fallback 與 orphan temporary output。
+
+8. **做 deterministic canary 與 fallback。**
+   - 同一固定 Core snapshot 對 PyIceberg／BigQuery 跑代表性 screening／feature／evaluation。
+   - 比對 row set、null/missing、排序、aggregate、output hash/允許誤差與 provenance。
+   - BigQuery timeout/quota/config/fidelity failure 必須安全 fallback PyIceberg 並可 audit；不能破壞 canonical write／PostgreSQL serving。
+   - 只有通過的 workload 才切 BigQuery default，其他維持 reference path。
+
+9. **FinOps／效能驗收後才決定擴大。**
+   - before/after 記錄 BigQuery processed/billed bytes、query elapsed、Cloud Run elapsed/peak RSS、GCS I/O evidence（可得時）、export bytes、artifact growth、fallback/reuse rate。
+   - 不宣稱 BigQuery 會讓 Core GCS storage bytes 自動下降；驗證重點是 Cloud Run data movement、Python/Arrow memory、重複 intermediate artifact 與 scan control。
+   - 如果成本／效能沒有實質收益，保留 hybrid adapter 但不擴大 workload。
+
+10. **完成既有五 specialist／cache acceptance。**
+    - 依最新 specialist SPEC 完成 Fundamental／Valuation／Quant／Risk／Event、資料優先 OOS、dirty dependency、monthly retrain/reconciliation。
+    - 500 檔只做低成本 screening；Deep Coverage 承接 A 的 watchlist／holdings 語意。
+    - CEO freshness 可更新但不自動執行 CEO；Admin 只讀真實 evaluation/reuse/runtime 狀態。
+
+### B 組集中驗收
+
+先合併 reader abstraction、BigQuery adapter、query guards、export path、dirty cache、controller、artifact/retention 與 tests，再集中跑 targeted tests。若既有 GCP dev 已有相應已授權 BigQuery/Lakehouse 資源，可做 bounded real-data compatibility/canary；否則把 resource-dependent acceptance 標 blocked，不自行啟用或建立。
+
+完成可執行的程式後，用同一固定 snapshot 做 PyIceberg vs BigQuery compare、no-change replay、必要的 selective invalidation、OOS readback與 failure fallback。保留既有 1 CPU／1 GiB specialist runtime限制；資料、模型、BigQuery fidelity、成本或授權不足都不得包裝成 full success。
 
 ## 4. 工作組 C：CEO、權限、Admin profile 與 User 整合
 

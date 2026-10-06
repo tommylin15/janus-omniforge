@@ -1,6 +1,6 @@
 # Janus — TODO
 
-版本：3.7（2026-10-06：新增 owner-scoped MCP ledger write；live acceptance 待完成）
+版本：3.8（2026-10-06：B 組加入 Iceberg canonical + BigQuery analytics 優先架構）
 用途：**只保留確定要做的 active work 與未完成 acceptance**。Deferred、Candidate、Observation、Production-only、已接受缺口與研究構想統一放 [`parking-lot.md`](parking-lot.md)；已完成／被取代內容放 `archive/`。
 
 ## 規則
@@ -31,6 +31,24 @@
 - CEO report immutable；重新分析建立新 execution/report，不覆寫舊報告。
 - Admin 管 specialist model/evaluation、CEO provider/profile、DB-backed user capability、quota/cooldown、usage/cost/audit。
 
+### Iceberg canonical + BigQuery analytics hybrid
+
+權威文件：
+
+- [`decision-2026-10-06-bigquery-analytics-over-iceberg.md`](decision-2026-10-06-bigquery-analytics-over-iceberg.md)
+- [`spec/specialist-engines.md`](spec/specialist-engines.md)
+- [`wbs/wbs-5-specialist-engines.md`](wbs/wbs-5-specialist-engines.md)
+
+目前 B 組資料／運算契約：
+
+- Core Iceberg V2／GCS 繼續是 canonical／PIT／provenance/history；BigQuery 不取代 canonical store。
+- PostgreSQL serving projection 與 User／Admin request-time hot path 保持不變。
+- BigQuery 只作 B 組 analytics compute，優先承接 liquid-500 screening、cross-sectional features、OOS/evaluation 前處理與 ML training dataset preparation。
+- 禁止 BigQuery Storage Read API；小結果走一般 query/result API，大型 training data 走 versioned GCS Parquet export artifact。
+- 不預設複製整套 Core 到 BigQuery native storage；temporary/TTL derived data 可用但不可升格 canonical。
+- 先抽出 exact-snapshot analytics reader，再做 BigQuery compatibility/canary；無法證明與固定 Core snapshot 一致時保留 PyIceberg path。
+- 本架構方向已核准；若 implementation 需啟用新付費 API／建立 BigLake/Lakehouse/BigQuery 計費資源或擴大 IAM，仍需另有明確授權。
+
 ### Admin UI scope
 
 權威文件：
@@ -53,7 +71,7 @@ Admin operational convergence **不重做整個 Admin**。保留 `總覽 / 批�
 | 工作組 | 範圍與原待辦對應 | 主要模型 | 集中驗收 |
 |---|---|---|---|
 | A：操作體驗／效能／資料營運 | §6 Admin；§7 非 CEO 功能；§8 非 AI 相依版型；下列新增補強 | Sol | 一組 API／Flutter／資料營運回歸與一輪 dev browser/readback |
-| B：specialist／增量快取 | §1 specialist + §2 rerun cache；Admin 對應狀態接線 | Sol | 一組引擎／cache 測試與 bounded dev 執行／reuse／OOS readback |
+| B：specialist／增量快取／BigQuery analytics | §1 specialist + §2 rerun cache；BigQuery analytics hybrid；Admin 對應狀態接線 | Sol | 一組 reader/fidelity／引擎／cache 測試與 bounded dev 執行／reuse／OOS／FinOps readback |
 | C：CEO／權限／最終整合 | §3 provider + §4 CEO + §5 Admin profile；§7 AI 整合；§8 剩餘驗收 | Sol | 一組端到端安全／UI 測試與最少已授權 provider live calls |
 
 同組先完成相關程式、migration、UI、tests、文件再集中驗收，不逐檔／逐 API／逐股票獨立部署。失敗僅補跑受影響範圍；原 acceptance、必要安全檢查及真實 dev 證據保留。A 不因尚無 CEO 而延後基本 UI；§8 整體結案仍須所有條件成立。跨組連續執行須使用者明確指定全部組，依 PROJECT_RULES 的本次例外處理。
@@ -90,6 +108,19 @@ A 組目前狀態定義：**部分功能已完成並進入 GCP dev 真實驗收�
 - [ ] 對齊舊 coverage inventory、status、batch 清單與已完成／待驗證工作；沿用既有 042 完成證據，041／compaction／retrain 依最新 evidence 判定，不把程式存在當 live 完成。
 
 > **A 組不是「部署完成後做驗收」，而是「在真實 GCP dev 驗收中持續發現並關閉 implementation gap」；Today、Watchlist、Ledger、Stock Detail 的非 AI 主體 UI 必須在真實登入與真實資料下明顯收斂至 Final Visual Contract，且 Holdings／Records／Reports 必須共用一致、可追溯且可刷新之 canonical position state，否則 A 組維持 partial。**
+
+## B 組優先架構調整 acceptance
+
+B 組開始五 specialist／cache 收斂前，先完成 [BigQuery analytics 架構決策](decision-2026-10-06-bigquery-analytics-over-iceberg.md) 的資料讀取邊界；此優先序不代表 BigQuery resource 已建立或啟用。
+
+- [ ] 抽出 exact-snapshot analytics reader；既有 PyIceberg path 先包成 reference／fallback，不改 canonical write path。
+- [ ] 建立 BigQuery analytics adapter／compatibility probe，證明固定 Core snapshot 的資料／schema／null／時間／provenance fidelity；未通過前不得成為唯一 reader。
+- [ ] 禁止 Storage Read API 與 `bigquery.readsessions.*` 需求；不得加入 `google-cloud-bigquery-storage`。大量 ML input 以 SQL 縮減後 export versioned GCS Parquet。
+- [ ] 優先把 liquid-500 screening／cross-sectional ranking／OOS preprocessing 移到 BigQuery compute；不把 User API、Ledger、private owner path 或整套 Core full copy 搬入 BigQuery。
+- [ ] 加入 bounded query／column／partition guards、processed bytes／elapsed／peak RSS／GCS I/O／artifact growth telemetry，未知成本不補 0。
+- [ ] 同 snapshot 對 PyIceberg／BigQuery 做 deterministic canary compare；只對通過 fidelity、cost、performance、failure/fallback acceptance 的 workload 切換 default。
+- [ ] PostgreSQL serving projection 與 A 組既有 read path 不回歸；BigQuery failure 必須可 audit fallback，不影響 canonical ingestion/write。
+- [ ] 若需啟用新付費 API、建立 BigLake/Lakehouse/BigQuery 資源或擴大 IAM，依 PROJECT_RULES 取得明確授權；未授權部分標 blocked，不以文件決策冒充 resource approval。
 
 # 原 WBS acceptance（依上方工作組整合執行）
 

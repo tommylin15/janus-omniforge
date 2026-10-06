@@ -1,9 +1,9 @@
 # Janus WBS 5 — Token-first Specialist Engines
 
-更新：2026-10-03
+更新：2026-10-06
 狀態：Partial implementation；未完成整體 acceptance
 
-本 WBS 依 [`../decision-2026-10-03-token-first-specialist-and-on-demand-ceo.md`](../decision-2026-10-03-token-first-specialist-and-on-demand-ceo.md)、active TODO 與 [`../spec/specialist-engines.md`](../spec/specialist-engines.md) 執行。歷史 implementation／runtime evidence 只作追溯，不改變本 WBS 的現行目標。
+本 WBS 依 [`../decision-2026-10-03-token-first-specialist-and-on-demand-ceo.md`](../decision-2026-10-03-token-first-specialist-and-on-demand-ceo.md)、[`../decision-2026-10-06-bigquery-analytics-over-iceberg.md`](../decision-2026-10-06-bigquery-analytics-over-iceberg.md)、active TODO 與 [`../spec/specialist-engines.md`](../spec/specialist-engines.md) 執行。歷史 implementation／runtime evidence 只作追溯，不改變本 WBS 的現行目標。
 
 ## 1. 目標
 
@@ -27,7 +27,41 @@
 
 `active watchlist ∪ effective holdings`，去重後執行完整 specialist engines。Watchlist 50 active distinct-symbol quota 保留；持股離開 500 仍在 Deep Coverage，清倉且不在 watchlist 才退出後續更新。
 
-## 3. Incremental execution
+## 3. B 組優先架構：BigQuery analytics hybrid
+
+本段先於五引擎 production acceptance 與 rerun-cache 收斂執行，但不得把「架構已核准」誤寫成「BigQuery resource 已建立」。
+
+### 3.1 Data-access boundary
+
+先把目前 `load_core_datasets()`／PyIceberg exact-snapshot read 包成可替換 reader。Reference path 必須維持現有固定 `snapshot_id`、row limit、symbol filter、schema/null/PIT/provenance 語意；BigQuery adapter 不得滲入 specialist engine 的 canonical number 計算介面。
+
+### 3.2 BigQuery adapter
+
+BigQuery 只作 analytics compute：
+
+- liquid-500 screening；
+- cross-sectional rank/window/join；
+- specialist feature aggregation；
+- OOS/evaluation preprocessing；
+- ML training dataset preparation。
+
+禁止 Storage Read API、`bigquery.readsessions.*` 與 `google-cloud-bigquery-storage`。小型結果使用一般 query/result API；大型 ML input 由 SQL 縮減後輸出 versioned GCS Parquet artifact。
+
+### 3.3 Snapshot fidelity gate
+
+目前 Core catalog 為 PostgreSQL-backed PyIceberg `SqlCatalog`。BigQuery path 成為 default 前必須對同一 immutable Core manifest/snapshot 做 canary compare，證明指定 snapshot、schema evolution、date/timestamp、decimal、null、missing、provenance 與 source authorization 一致。
+
+不得把會隨 latest metadata pointer 漂移的 external table 當成 immutable execution fence。Google-supported Lakehouse/Iceberg REST catalog 可作候選，但不得在無明確授權下啟用 API、建立 catalog／connection／dataset、遷移 catalog 或擴大 IAM。
+
+### 3.4 Cost／I/O／storage policy
+
+- Core Iceberg/GCS 空間預期維持，不以 BigQuery 導入宣稱 storage bytes 自動下降。
+- 不建立未經證據支持的 full-Core BigQuery duplicate warehouse。
+- Derived table 預設 bounded／TTL／可重建；永久保存限 PIT/training/evaluation/publication 有需要的 artifact。
+- Query 必須 column/date/symbol/partition bounded；記錄 processed/billed bytes、elapsed、Cloud Run peak RSS、GCS I/O evidence（可得時）、export bytes 與 fallback。
+- BigQuery failure 必須可 audit fallback PyIceberg，不得影響 ingestion/canonical write 或 PostgreSQL serving。
+
+## 4. Incremental execution
 
 禁止固定每日把所有 Deep Coverage symbols × 5 全重算。
 
@@ -40,7 +74,7 @@
 
 CEO 不被 upstream change 自動觸發；只標記 report freshness／material delta。
 
-## 4. Model cadence
+## 5. Model cadence
 
 - Specialist inference：有 input change 才跑。
 - ML retraining／challenger：第一版月度；Event classifier 依新 labeled data 或 drift 才 retrain。
@@ -49,13 +83,13 @@ CEO 不被 upstream change 自動觸發；只標記 report freshness／material 
 
 歷史財報依 2026-10-03 使用者最新指示採資料優先驗證：原始數值版次／公開時間未證明不再阻擋 OOS。以最新官方版本及已知公開／上傳時間回放，時間缺少則採明示期末後 90 天假設；結果標示非嚴格 PIT，報酬標籤成熟／purge 保留。此特例取代歷史財報的嚴格時間 prerequisite，其他來源、品質與隔離契約保留。
 
-## 5. Evaluation
+## 6. Evaluation
 
 至少：Rank IC、ICIR、IC decay、top-decile future excess-return spread、hit rate、Brier／calibration、Sharpe、max drawdown、turnover、after-cost performance、regime stability。
 
 GitHub framework benchmark 不等於台股 production evidence；champion 由 Janus Taiwan PIT OOS 結果決定。
 
-## 6. 白話報告
+## 7. 白話報告
 
 五 specialist 產出 deterministic plain-language report：
 
@@ -67,7 +101,7 @@ GitHub framework benchmark 不等於台股 production evidence；champion 由 Ja
 
 LLM 不參與 canonical number 計算。只有使用者明確要求 On-demand CEO，或日後另行核准的 rare escalation，才進 approved LLM runtime。
 
-## 7. GitHub framework policy
+## 8. GitHub framework policy
 
 Production candidates：
 
@@ -84,9 +118,16 @@ Benchmark／challenger：
 
 引入前必須 pin version／license、走 dependency／security review；不直接 fork 整套產品架構進 Janus。
 
-## 8. Acceptance
+## 9. Acceptance
 
 完成至少證明：
+
+- B 組 analytics reader abstraction 已落地，PyIceberg reference/fallback 與 BigQuery adapter 邊界清楚；
+- 至少一個 liquid-500／cross-sectional workload 在同一固定 Core snapshot 完成 PyIceberg vs BigQuery deterministic compare；
+- BigQuery path 不使用 Storage Read API，且大型 ML dataset 經 versioned export artifact 交給 training runtime；
+- processed/billed bytes、elapsed、peak RSS、GCS I/O／export evidence（可得時）有 before/after，成本未知處保持 unknown；
+- BigQuery 失效可安全 fallback，且 PostgreSQL serving／A 組 API/UI 不受影響；
+- 未經授權沒有建立 full-Core duplicate、啟用新付費 API、擴大 IAM 或遷移 canonical catalog；
 
 - 500 screening 不產生 LLM calls；
 - Deep Coverage watch-only／held-only／overlap／held-off-market／exit 語意正確；

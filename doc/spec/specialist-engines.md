@@ -16,6 +16,21 @@ Deep Coverage 使用既有去識別化資料庫函式取得 active watchlist ∪
 
 使用者 2026-10-03 最新指示取代歷史財報的嚴格可用時間門檻：**有官方資料就進行歷史模型驗證**，不因原始數值版次／當時公開時間未證明而禁止 Fundamental OOS。模型回放每期最新取得的官方數值版本，先用 authoritative publication，其次官方申報附件上傳時間；兩者皆缺時，以財報期末後 90 天作明示估計。Core 保留實際取得時間、unknown 與原始數值，不改寫 canonical 歷史；訓練使用有版本的時間投影。成果物保存 `financial_history_policy`、時間依據筆數與 `strict_pit=false`，明示可能包含後續修正與估計時間。這是正式採用的資料優先 OOS 方法，可用於模型比較；報酬標籤成熟／purge、來源授權、股號／期別／單位檢查與私人資料隔離繼續生效。模型是否有效依實際結果，不因放寬而自動 promotion。
 
+## Analytics compute boundary
+
+2026-10-06 起，B 組採 [Iceberg canonical + BigQuery analytics hybrid](../decision-2026-10-06-bigquery-analytics-over-iceberg.md) 作為優先架構。這是 target contract；目前 implementation 是否已切換仍以 `main` code／runtime evidence 判定。
+
+- Core Apache Iceberg V2／GCS 維持 canonical／PIT／provenance/history；既有 PostgreSQL-backed PyIceberg `SqlCatalog` 不因文件決策自動遷移。
+- PostgreSQL serving projection 維持 User／Admin request-time hot path；BigQuery 不作 Flutter page-load database。
+- Specialist data access 必須先抽象成 exact-snapshot reader；PyIceberg reader 是 reference／fallback，BigQuery adapter 只有在同一 immutable Core snapshot fidelity 可證明後才可逐 workload 切換。
+- BigQuery 優先只處理 liquid-500 screening、cross-sectional ranking/window/join、OOS/evaluation preprocessing 與 ML training dataset preparation；不預設複製完整 Core warehouse。
+- **禁止 BigQuery Storage Read API**：不依賴 `bigquery.readsessions.*`／`google-cloud-bigquery-storage`。小型結果使用一般 query/result API；大型 training input 先在 BigQuery SQL 縮減，再輸出 versioned GCS Parquet artifact 供 Python/ML Job 使用。
+- BigQuery intermediate／destination table 預設 bounded／TTL／可重建且屬 derived/research；只有已有 publication／retention contract 的成果才永久保存。
+- 每個 BigQuery-derived artifact 必須保留可追溯的 Core snapshot identity、analysis_as_of、schema/feature/model version、hash/provenance；不能只保存「latest」語意。
+- Query 必須 column/date/symbol/partition bounded，並記錄可取得的 processed/billed bytes、elapsed、fallback 與輸出規模。未知成本不補 0。
+- 目前 Google legacy Iceberg external table metadata-URI 路徑不作預設正式解；BigQuery compatibility spike 應優先驗證 Google-supported shared Iceberg/Lakehouse path或其他可證明 exact snapshot 的方案。任何 catalog migration、API enablement、新計費資源或 IAM 擴張仍需人工授權。
+- 若 BigQuery 不能保持 exact-snapshot／PIT／provenance contract，該 workload 必須留在 PyIceberg；效能理由不得覆蓋 canonical correctness。
+
 ## 成果物
 
 新 `specialist.v1.json` 定義 Fundamental / Valuation / Quant / Risk / Event。財務可比值、PE/PB/殖利率、動能、波動/CVaR/回撤/對齊 beta、事件數與嚴重度採確定性計算；中文報告使用規則模板。DCF/reverse-DCF 有嚴格計算函式，但真實 Core 未提供完整每股自由現金流與核准假設時回報缺值。
