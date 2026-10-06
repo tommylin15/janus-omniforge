@@ -65,6 +65,7 @@ fi
 gcloud builds submit . \
   --project="${project}" \
   --config=cloudbuild.yaml \
+  --gcs-source-staging-dir="gs://${project}-cloudbuild-regional/source" \
   --substitutions="_DOCKERFILE=${dockerfile},_IMAGE_NAME=${image_name},_IMAGE_TAG=${tag},_DEPLOY_TARGET=${deploy_target},_RUNTIME_NAME=${runtime_name},_REGION=${region},_GIT_SHA=${git_sha},_NO_TRAFFIC=${no_traffic},_TRAFFIC_TAG=${traffic_tag},_REVISION_SUFFIX=${revision_suffix},_GOOGLE_USER_CLIENT_ID=${GOOGLE_USER_CLIENT_ID:-},_GOOGLE_ADMIN_CLIENT_ID=${GOOGLE_ADMIN_CLIENT_ID:-}"
 
 # Keep job configurations aligned with their immutable image and current Secret bundle.

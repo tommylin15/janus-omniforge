@@ -159,6 +159,7 @@ restore_build() {
   object="${prefix}/daily/${backup_id}.dump"
   gcloud builds submit "${repo_root}" --project="${project}" \
     --config="${repo_root}/scripts/gcp/cloudbuild-ledger-restore.yaml" \
+    --gcs-source-staging-dir="gs://${project}-cloudbuild-regional/source" \
     --substitutions="_BUCKET=${bucket},_OBJECT=${object}" --quiet
 }
 
