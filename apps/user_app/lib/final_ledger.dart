@@ -168,6 +168,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
           cached('/api/v1/me/journal/history?year=$year'),
           cached('/api/v1/me/journal/monthly-summary?year=$year'),
           cached('/api/v1/me/journal/symbol-summary?year=$year'),
+          cached('/api/v1/me/journal/pnl?year=$year'),
         ]),
       2 => Future.wait([
           cached('/api/v1/me/journal/pnl?year=$year'),
@@ -412,13 +413,11 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text(
-                                  legacy.accountingNumber(
-                                    row['unrealized_pnl'],
-                                    missing: '資料不足',
-                                  ),
+                                  '未實現 ${legacy.accountingNumber(row['unrealized_pnl'], missing: '資料不足')}',
+                                  key: Key('holding-pnl-$symbol'),
                                   textAlign: TextAlign.end,
-                                  style: const TextStyle(
-                                    color: fvInk,
+                                  style: TextStyle(
+                                    color: fvSignedColor(row['unrealized_pnl']),
                                     fontSize: 16,
                                     fontWeight: FontWeight.w800,
                                   ),
@@ -427,8 +426,9 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                                   legacy.portfolioReturnLabel(
                                     row['unrealized_return'],
                                   ),
-                                  style: const TextStyle(
-                                    color: fvTeal,
+                                  key: Key('holding-return-$symbol'),
+                                  style: TextStyle(
+                                    color: fvSignedColor(row['unrealized_return']),
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -461,25 +461,25 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     );
   }
 
-  // Aggregate totals are canonical backend/Private Mart values; the UI only groups and renders them.
-  Widget recordSummaryValues(Map<String, dynamic> row) {
+  String realizedPnlLabel(Map<String, dynamic>? row) {
+    if (row == null) return '已實現損益 待更新';
     final currency = fvText(row['currency'], missing: 'TWD');
-    return Wrap(
-      spacing: 12,
-      runSpacing: 6,
-      children: [
-        Text('買進支出 $currency ${legacy.accountingNumber(row['purchase_outflow'])}'),
-        Text('賣出回收 $currency ${legacy.accountingNumber(row['sale_proceeds'])}'),
-        Text('股利收入 $currency ${legacy.accountingNumber(row['cash_dividends'])}'),
-        Text('已實現損益 $currency ${legacy.accountingNumber(row['realized_pnl'])}'),
-        Text('交易 ${legacy.accountingNumber(row['transaction_count'])} 筆'),
-      ],
-    );
+    return '已實現損益 $currency ${legacy.accountingNumber(row['realized_pnl'], missing: '資料不足')}';
+  }
+
+  String annualRealizedPnlLabel(dynamic raw, List<dynamic> history) {
+    if (raw == null) return '年度已實現損益 資料不足';
+    final rows = fvRows(raw);
+    if (rows.isEmpty) {
+      return history.isEmpty ? '年度已實現損益 0' : '年度已實現損益 待更新';
+    }
+    if (rows.length > 1) return '年度已實現損益 多幣別';
+    return '年度${realizedPnlLabel(fvMap(rows.first))}';
   }
 
   Widget recordTile(Map<String, dynamic> row) {
     final quantity = row['shares'] != null && row['price'] != null
-        ? '${legacy.accountingNumber(row['shares'])} 股 × ${legacy.accountingNumber(row['price'], decimals: 2)} · '
+        ? ' · ${legacy.accountingNumber(row['shares'])} 股 × ${legacy.accountingNumber(row['price'], decimals: 2)}'
         : '';
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -487,9 +487,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       title: Text(
         '${legacy.uiLabel(row['event_type'])} · ${legacy.stockDisplayName(row)}',
       ),
-      subtitle: Text(
-        '${fvText(row['trade_date'])} · $quantity淨現金流 ${legacy.accountingNumber(row['net_cash_flow'], missing: '資料不足')} ${fvText(row['currency'], missing: '')}',
-      ),
+      subtitle: Text('${fvText(row['trade_date'])}$quantity'),
       trailing: row['event_id'] != null && row['record_version'] != null
           ? IconButton(
               tooltip: '建立更正',
@@ -499,6 +497,52 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
           : null,
     );
   }
+
+  Widget recordGroup({
+    required Key key,
+    required String title,
+    required String realized,
+    required List<Map<String, dynamic>> events,
+  }) =>
+      fvPanel(
+        padding: EdgeInsets.zero,
+        child: ExpansionTile(
+          key: key,
+          initiallyExpanded: false,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          title: Text(
+            title,
+            style: const TextStyle(
+              color: fvInk,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          subtitle: Text(
+            realized,
+            style: const TextStyle(
+              color: fvMuted,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          children: [
+            if (events.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 10),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '目前沒有可顯示的交易明細',
+                    style: TextStyle(color: fvMuted, fontSize: 12),
+                  ),
+                ),
+              )
+            else
+              for (final row in events) recordTile(row),
+          ],
+        ),
+      );
 
   Widget records(
     List<dynamic> history,
@@ -555,44 +599,16 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
         const SizedBox(height: 12),
         if (recordGrouping == 0)
           for (final month in orderedMonths)
-            fvPanel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '$yearFilter 年 $month 月',
-                    style: const TextStyle(
-                      color: fvInk,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  if (summaries[month] != null) ...[
-                    const SizedBox(height: 10),
-                    recordSummaryValues(summaries[month]!),
-                    const SizedBox(height: 6),
-                    Text(
-                      '資料日期 ${fvText(summaries[month]!['valuation_date'])}',
-                      style: const TextStyle(color: fvMuted, fontSize: 11),
-                    ),
-                  ] else ...[
-                    const SizedBox(height: 8),
-                    const Text(
-                      '摘要等待 Private Mart 更新',
-                      style: TextStyle(color: fvMuted, fontSize: 11),
-                    ),
-                  ],
-                  const Divider(height: 22),
-                  for (final item in effective.where((item) {
-                    final row = fvMap(item);
-                    final day = DateTime.tryParse(
-                      fvText(row['trade_date'], missing: ''),
-                    );
-                    return day?.month == month;
-                  }))
-                    recordTile(fvMap(item)),
-                ],
-              ),
+            recordGroup(
+              key: Key('ledger-month-$month'),
+              title: '$yearFilter 年 $month 月',
+              realized: realizedPnlLabel(summaries[month]),
+              events: effective.where((item) {
+                final row = fvMap(item);
+                final day =
+                    DateTime.tryParse(fvText(row['trade_date'], missing: ''));
+                return day?.month == month;
+              }).map(fvMap).toList(),
             ),
         if (recordGrouping == 1)
           for (final symbol in orderedSymbols)
@@ -607,39 +623,11 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                   (symbolEvents.isEmpty
                       ? <String, dynamic>{'symbol': symbol}
                       : symbolEvents.first);
-              return fvPanel(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      legacy.stockDisplayName(display),
-                      style: const TextStyle(
-                        color: fvInk,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    if (summary != null) ...[
-                      const SizedBox(height: 10),
-                      recordSummaryValues(summary),
-                      const SizedBox(height: 6),
-                      Text(
-                        '資料日期 ${fvText(summary['valuation_date'])}',
-                        style: const TextStyle(color: fvMuted, fontSize: 11),
-                      ),
-                    ] else ...[
-                      const SizedBox(height: 8),
-                      const Text(
-                        '個股彙總等待 Private Mart 更新',
-                        style: TextStyle(color: fvMuted, fontSize: 11),
-                      ),
-                    ],
-                    if (symbolEvents.isNotEmpty) ...[
-                      const Divider(height: 22),
-                      for (final row in symbolEvents) recordTile(row),
-                    ],
-                  ],
-                ),
+              return recordGroup(
+                key: Key('ledger-symbol-$symbol'),
+                title: legacy.stockDisplayName(display),
+                realized: realizedPnlLabel(summary),
+                events: symbolEvents,
               );
             }),
       ],
@@ -970,11 +958,6 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                       '紀錄',
                       trailing: '$yearFilter 年',
                     ),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: yearSelector(),
-                    ),
-                    const SizedBox(height: 10),
                     lazySection(sectionData, '紀錄載入中', (detail) {
                       final history =
                           fvRows(detail.isNotEmpty ? detail[0] : null);
@@ -982,7 +965,23 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                           fvRows(detail.length > 1 ? detail[1] : null);
                       final symbolSummary =
                           fvRows(detail.length > 2 ? detail[2] : null);
-                      return records(history, monthly, symbolSummary);
+                      final annualPnl = detail.length > 3 ? detail[3] : null;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 8,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              yearSelector(),
+                              fvTag(annualRealizedPnlLabel(annualPnl, history)),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          records(history, monthly, symbolSummary),
+                        ],
+                      );
                     }),
                   ],
                   if (section == 2) ...[

@@ -65,6 +65,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> with Widget
           quoteTimer?.cancel();
         } else {
           safe('header', '/api/v1/public/stock-header/${Uri.encodeComponent(widget.symbol)}');
+          safe('quotes', '/api/v1/me/portfolio/quotes');
         }
       });
     }
@@ -75,6 +76,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> with Widget
     foreground = state == AppLifecycleState.resumed;
     if (foreground) {
       safe('header', '/api/v1/public/stock-header/${Uri.encodeComponent(widget.symbol)}');
+      safe('quotes', '/api/v1/me/portfolio/quotes');
       _startQuoteTimer();
     } else {
       quoteTimer?.cancel();
@@ -99,6 +101,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> with Widget
           '/api/v1/public/stock-health/${Uri.encodeComponent(widget.symbol)}',
         ),
         safe('positions', '/api/v1/me/journal/positions'),
+        safe('quotes', '/api/v1/me/portfolio/quotes'),
         safe(
           'notes',
           '/api/v1/me/notes?symbol=${Uri.encodeQueryComponent(widget.symbol)}',
@@ -128,9 +131,16 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> with Widget
     if (mounted) setState(() => klineLoading = false);
   }
 
-  List<dynamic> get positions => fvRows(values['positions'])
-      .where((item) => fvText(fvMap(item)['symbol'], missing: '') == widget.symbol)
-      .toList();
+  List<dynamic> get positions {
+    final quotePayload = fvMap(values['quotes']);
+    final source = quotePayload['positions'] is List
+        ? quotePayload['positions'] as List
+        : fvRows(values['positions']);
+    return source
+        .where((item) =>
+            fvText(fvMap(item)['symbol'], missing: '') == widget.symbol)
+        .toList();
+  }
 
   Widget reasonColumn(String title, List<dynamic> items, IconData icon) =>
       fvPanel(
@@ -248,9 +258,25 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> with Widget
                   const SizedBox(height: 3),
                   Text(widget.symbol, style: const TextStyle(color: fvMuted)),
                   const SizedBox(height: 8),
-                  Text(
-                    '${header['price_source'] == 'twse_mis' ? '盤中最新價' : '正式收盤價'} ${legacy.accountingNumber(header['close'], decimals: 2, missing: '尚未取得')} · 行情日 ${fvText(header['trade_date'])}',
-                    style: const TextStyle(color: fvInk),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        '${header['price_source'] == 'twse_mis' ? '盤中最新價' : '正式收盤價'} ${legacy.accountingNumber(header['close'], decimals: 2, missing: '尚未取得')} · 行情日 ${fvText(header['trade_date'])}',
+                        style: const TextStyle(color: fvInk),
+                      ),
+                      if (header['change'] != null)
+                        Text(
+                          '${fvNumber(header['change']) != null && fvNumber(header['change'])! > 0 ? '▲ +' : fvNumber(header['change']) != null && fvNumber(header['change'])! < 0 ? '▼ ' : ''}${legacy.accountingNumber(header['change'], decimals: 2)} (${fvSignedPercent(header['change_percent'])})',
+                          key: const Key('stock-price-change'),
+                          style: TextStyle(
+                            color: fvSignedColor(header['change']),
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                    ],
                   ),
                   if (report['analysis_as_of'] != null ||
                       health['analysis_as_of'] != null) ...[
@@ -288,7 +314,11 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> with Widget
                     ),
                     Text(
                       '未實現損益 ${legacy.accountingNumber(position['unrealized_pnl'], missing: '資料不足')} · ${legacy.portfolioReturnLabel(position['unrealized_return'])}',
-                      style: const TextStyle(color: fvInk),
+                      key: const Key('stock-unrealized-pnl'),
+                      style: TextStyle(
+                        color: fvSignedColor(position['unrealized_pnl']),
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                     const SizedBox(height: 7),
                     Text(

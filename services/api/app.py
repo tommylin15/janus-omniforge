@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from hashlib import sha256
 import logging
 import os
@@ -510,11 +511,14 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         identity = repository.stock_identities({symbol}).get(symbol)
         name, identity_status, _ = stock_identity(identity)
         result = {"symbol": symbol, "stock_name": name, "identity_status": identity_status,
-                  "close": None, "trade_date": None, "price_status": "missing"}
+                  "close": None, "trade_date": None, "price_status": "missing",
+                  "previous_close": None, "change": None, "change_percent": None}
+        persisted_rows = []
         try:
-            page = query_core.page("ohlcv", symbol, limit=1, offset=0)
-            if page.rows:
-                row = page.rows[0]
+            page = query_core.page("ohlcv", symbol, limit=2, offset=0)
+            persisted_rows = list(page.rows)
+            if persisted_rows:
+                row = persisted_rows[0]
                 result.update(close=row.get("close"), trade_date=row.get("trade_date"),
                               price_status="persisted" if row.get("close") is not None else "missing")
         except (QueryValidationError, RuntimeError):
@@ -536,6 +540,26 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                     session=phase,
                     checked_at=current.isoformat(),
                 )
+        if persisted_rows and result.get("close") is not None:
+            current_date = str(result.get("trade_date") or "")
+            latest_date = str(persisted_rows[0].get("trade_date") or "")
+            reference = (
+                persisted_rows[1].get("close")
+                if current_date and current_date == latest_date and len(persisted_rows) > 1
+                else persisted_rows[0].get("close")
+            )
+            try:
+                current_close = Decimal(str(result["close"]))
+                previous_close = Decimal(str(reference))
+                if current_close.is_finite() and previous_close.is_finite() and previous_close != 0:
+                    change = current_close - previous_close
+                    result.update(
+                        previous_close=str(previous_close),
+                        change=str(change),
+                        change_percent=str(change / previous_close),
+                    )
+            except (InvalidOperation, TypeError, ValueError):
+                pass
         return jsonable_encoder(result)
 
     def public_dataset(symbol: str, dataset_id: str, limit: int, offset: int) -> dict[str, Any]:

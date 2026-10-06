@@ -102,15 +102,19 @@ def test_stock_header_uses_current_identity_and_bounded_price_without_report():
 
     class HeaderCore(Core):
         def page(self, dataset_id, symbol, *, limit, offset):
-            assert (dataset_id, symbol, limit, offset) == ("ohlcv", "2330", 1, 0)
-            return SimpleNamespace(rows=[{"close": "2575", "trade_date": "2026-10-05", "secret": "hidden"}])
+            assert (dataset_id, symbol, limit, offset) == ("ohlcv", "2330", 2, 0)
+            return SimpleNamespace(rows=[
+                {"close": "2575", "trade_date": "2026-10-05", "secret": "hidden"},
+                {"close": "2500", "trade_date": "2026-10-02", "secret": "hidden"},
+            ])
 
     public = WaitingPublic()
     api = TestClient(create_app(Repository(), object(), public=public, query_core=HeaderCore()))
     response = api.get("/api/v1/public/stock-header/2330")
     assert response.status_code == 200
     assert response.json() == {"symbol": "2330", "stock_name": "台積電", "identity_status": "available",
-                               "close": "2575", "trade_date": "2026-10-05", "price_status": "persisted"}
+                               "close": "2575", "trade_date": "2026-10-05", "price_status": "persisted",
+                               "previous_close": "2500", "change": "75", "change_percent": "0.03"}
     assert public.calls == []
     assert api.get("/api/v1/public/stock-header/9999").status_code == 404
 

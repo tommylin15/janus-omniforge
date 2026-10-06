@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:janus_user_app/final_visual_pages.dart';
+import 'package:janus_user_app/final_visual_common.dart';
 import 'package:janus_user_app/main.dart' as legacy;
 
 class FinalFakeApi extends legacy.Api {
@@ -321,7 +322,13 @@ void main() {
     final year = DateTime.now().year;
     final api = FinalFakeApi({
       '/api/v1/me/portfolio/summary': {'items': const []},
-      '/api/v1/me/journal/pnl?year=$year': const [],
+      '/api/v1/me/journal/pnl?year=$year': [
+        {
+          'currency': 'TWD',
+          'realized_pnl': '150',
+          'valuation_date': '2026-10-06'
+        }
+      ],
       '/api/v1/me/journal/positions': const [],
       '/api/v1/me/journal/history?year=$year': [
         {
@@ -391,17 +398,24 @@ void main() {
     await tester.tap(find.text('紀錄'));
     await tester.pumpAndSettle();
 
+    expect(find.text('年度已實現損益 TWD 150'), findsOneWidget);
     expect(find.text('按月份'), findsOneWidget);
     expect(find.text('按個股'), findsOneWidget);
     expect(find.text('2026 年 10 月'), findsOneWidget);
+    expect(find.text('已實現損益 TWD 150'), findsOneWidget);
+    expect(find.textContaining('BUY · 台積電'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('ledger-month-10')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('BUY · 台積電'), findsOneWidget);
 
     await tester.tap(find.text('按個股'));
     await tester.pumpAndSettle();
 
     expect(find.text('台積電（2330）'), findsOneWidget);
-    expect(find.text('買進支出 TWD 1,000'), findsOneWidget);
     expect(find.text('已實現損益 TWD 150'), findsOneWidget);
-    expect(find.text('交易 3 筆'), findsOneWidget);
+    expect(find.text('買進支出 TWD 1,000'), findsNothing);
+    expect(find.text('交易 3 筆'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -478,6 +492,14 @@ void main() {
       1,
     );
     expect(find.textContaining('現價 101.35 · 均價 100.00'), findsOneWidget);
+    expect(find.text('未實現 1'), findsOneWidget);
+    expect(find.text('1%'), findsOneWidget);
+    final holdingPnl =
+        tester.widget<Text>(find.byKey(const Key('holding-pnl-2330')));
+    final holdingReturn =
+        tester.widget<Text>(find.byKey(const Key('holding-return-2330')));
+    expect(holdingPnl.style?.color, fvGain);
+    expect(holdingReturn.style?.color, fvGain);
     expect(tester.takeException(), isNull);
   });
 
@@ -618,8 +640,10 @@ void main() {
     await tester.tap(find.text('按個股'));
     await tester.pumpAndSettle();
 
+    expect(find.text('年度已實現損益 TWD 49,199'), findsOneWidget);
     expect(find.text('凱基金（2883）'), findsOneWidget);
-    expect(find.text('交易 3 筆'), findsOneWidget);
+    expect(find.text('已實現損益 TWD 49,199'), findsOneWidget);
+    expect(find.text('交易 3 筆'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -701,7 +725,12 @@ void main() {
         }
       },
       '/api/v1/public/stock-header/2330': {
-        'stock_name': '台積電', 'close': '125', 'trade_date': '2026-10-03',
+        'stock_name': '台積電',
+        'close': '125',
+        'trade_date': '2026-10-03',
+        'previous_close': '120',
+        'change': '5',
+        'change_percent': '0.0416666667',
       },
       '/api/v1/me/journal/positions': [
         {
@@ -715,6 +744,23 @@ void main() {
           'price_date': '2026-10-02'
         }
       ],
+      '/api/v1/me/portfolio/quotes': {
+        'positions': [
+          {
+            'symbol': '2330',
+            'shares': '2',
+            'average_cost': '100',
+            'market_price': '125',
+            'unrealized_pnl': '50',
+            'unrealized_return': '0.25',
+            'valuation_date': '2026-10-03',
+            'price_date': '2026-10-03',
+            'price_status': 'available'
+          }
+        ],
+        'items': const [],
+        'market_open': false
+      },
       '/api/v1/me/notes?symbol=2330': [
         {'body': '追蹤先進製程', 'needs_follow_up': true}
       ],
@@ -748,6 +794,13 @@ void main() {
 
     expect(find.text('我的持股'), findsOneWidget);
     expect(find.text('正式收盤價 125.00 · 行情日 2026-10-03'), findsOneWidget);
+    expect(find.text('▲ +5.00 (+4.17%)'), findsOneWidget);
+    expect(find.textContaining('平均成本 100.00 · 現價 125.00'), findsOneWidget);
+    expect(find.text('未實現損益 50 · 25%'), findsOneWidget);
+    final priceChange = tester.widget<Text>(find.byKey(const Key('stock-price-change')));
+    final unrealized = tester.widget<Text>(find.byKey(const Key('stock-unrealized-pnl')));
+    expect(priceChange.style?.color, fvGain);
+    expect(unrealized.style?.color, fvGain);
     expect(
       api.reads.where((path) => path == '/api/v1/public/kline/2330'),
       isEmpty,

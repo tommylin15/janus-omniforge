@@ -7,6 +7,24 @@ const fvMuted = Color(0xFF5D7180);
 const fvTeal = Color(0xFF177F88);
 const fvCanvas = Color(0xFFF1F6F8);
 const fvSoft = Color(0xFFE6F1F3);
+const fvGain = Color(0xFFC62828);
+const fvLoss = Color(0xFF16814F);
+
+double? fvNumber(Object? value) => double.tryParse('${value ?? ''}');
+
+Color fvSignedColor(Object? value) {
+  final number = fvNumber(value);
+  if (number == null || number == 0) return fvMuted;
+  return number > 0 ? fvGain : fvLoss;
+}
+
+String fvSignedPercent(Object? value, {int decimals = 2}) {
+  final ratio = fvNumber(value);
+  if (ratio == null) return '—';
+  final percent = ratio * 100;
+  final sign = percent > 0 ? '+' : '';
+  return '$sign${percent.toStringAsFixed(decimals)}%';
+}
 
 List<dynamic> fvRows(dynamic value) {
   if (value is List) return value;
