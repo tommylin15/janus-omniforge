@@ -67,14 +67,18 @@ jobs:
                 echo 'janus-api User shell is not bound to the User manifest' >&2
                 exit 2
               }
-              grep -Fq 'Janus Admin · OmniForge' "${admin_shell}" || {
-                echo 'janus-api /app/admin is not serving the Admin shell' >&2
+              grep -Fq 'Janus · OmniForge' "${admin_shell}" || {
+                echo 'janus-api /app/admin is not serving the current Flutter workspace shell' >&2
                 exit 2
               }
               grep -Fq 'href="/app/admin-manifest.json"' "${admin_shell}" || {
                 echo 'janus-api Admin shell is not bound to the Admin manifest' >&2
                 exit 2
               }
+              if grep -Fq 'href="/app/manifest.json"' "${admin_shell}"; then
+                echo 'janus-api Admin shell still advertises the User manifest' >&2
+                exit 2
+              fi
               jq -e '.id == "/app/" and .start_url == "/app/" and .scope == "/app/"' "${user_manifest}" >/dev/null
               jq -e '.id == "/app/admin" and .start_url == "/app/admin" and .scope == "/app/"' "${admin_manifest}" >/dev/null
               grep -Eiq '^cache-control:.*no-store' "${user_manifest_headers}" || {
