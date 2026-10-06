@@ -8,7 +8,7 @@
 
 A 組仍為 `partial`。本次已取得 Chrome 真實 User／Admin 登入，不再以 browser 不可用為 blocker；真實畫面發現法人欄位、科學記號零值、個股基本資料依賴研究報告與 Admin GCS SDK 缺漏，已修正並進入既有 dev release。先前「沒有已知可直接修的 runtime gap」僅為當時 checkpoint，不代表此次驗收結果。
 
-Mobile ledger writer／owner binding probe `janus-private-pipeline-d67xx` 成功；原 rollout `37416087045` retry success。剩餘包含修正版部署後重驗、Android icon 重開／手機效能、真實交易 mutation 與 mobile enqueue/duplicate/readback；缺真實交易欄位不得造假。詳見 [本次 checkpoint](archive/group-a-authenticated-defect-closure-2026-10-06.md)。
+Mobile ledger writer／owner binding probe `janus-private-pipeline-d67xx` 成功；原 rollout `37416087045` retry success。使用者回報手機可進入且顯示效能數據，並明確要求直接視為完成；Android icon 重開／手機效能依此列為使用者驗收完成，未提供的 p95、樣本與裝置仍為未知。剩餘包含修正版部署後重驗、真實交易 mutation 與 mobile enqueue/duplicate/readback；缺真實交易欄位不得造假。詳見 [本次 checkpoint](archive/group-a-authenticated-defect-closure-2026-10-06.md)。
 
 ## 2026-10-06 B 組優先架構決策（尚未實作完成）
 

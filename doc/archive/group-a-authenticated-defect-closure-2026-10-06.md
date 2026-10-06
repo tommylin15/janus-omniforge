@@ -2,6 +2,8 @@
 
 狀態：partial；本文件保存本次 bounded evidence，並非 A 組完成宣告。
 
+2026-10-06 使用者完成手機操作，回報「有進去，也有效能數據」，並明確指示「這個直接當作完成」。依最新指示，Android 入口／icon 重開與手機效能 acceptance 視為使用者驗收完成；未提供裝置、網路、樣本數或 p95，因此不宣稱已量測達到數值門檻。
+
 ## 已觀察的真實 evidence
 
 - 同步 GitHub main `9454323a32a4a5b1ed4d6fa3d840624996046741`；保留本機未追蹤 `token-savior/`。
@@ -31,9 +33,9 @@
 ## 剩餘 acceptance
 
 - 修正版 CI／dev deployment／immutable image 及同 URL live revalidation。
-- Android 真實安裝後 User/Admin icon 重開。
+- Android 安裝／icon 重開：使用者驗收完成，見上述例外。
 - 真實交易／更正、mobile native enqueue、duplicate guard 與 canonical append → pending → Private Mart refreshed。缺真實交易欄位不得自行造假。
-- 真實手機 warm core p95 ≤2 秒、visited restore ≤300ms，記錄裝置／網路／樣本數。Desktop baseline 不替代此 gate。
+- 手機效能：使用者驗收完成；數值達標仍未知，Desktop baseline 不替代手機量測。
 - Admin 六頁／資料治理修正版讀回與四頁完整 visual evidence；失敗繼續最小修正，不擴展 B／C。
 
 成本依據：[Google Sheets API usage limits](https://developers.google.com/workspace/sheets/api/limits)；標準配額內無額外費用，未申請增額。
