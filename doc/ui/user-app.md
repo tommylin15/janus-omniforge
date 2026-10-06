@@ -37,7 +37,7 @@ Specialist／CEO 等 AI-only 區塊未就緒時，可以 bounded unavailable／h
 6. `SectorRotationList`／`HotTopicList`／`CandidateHealthList`（各自 persisted data 可用時）
 7. 各區塊自己的日期、freshness、coverage、partial／stale／fallback／missing 與 disclaimer
 
-Deterministic market cards 可保留 source-specific `as_of`／trade date；Mart 子產品必須使用同一 `analysis_as_of`，不得把不同日期的最新版拼成「今日分析」。
+Deterministic market cards 可保留 source-specific `as_of`／trade date；首頁指數只保留 TAIEX，TPEx／櫃買不再是 active product scope。盤中 TAIEX 可由 latest-price resolver 顯示 MIS，14:30 EOD 成功後切回正式 benchmark。Mart 子產品必須使用同一 `analysis_as_of`，不得把不同日期的最新版拼成「今日分析」。
 
 單一 dependency timeout／error 不得造成永久 spinner；`mart_daily_brief` 未就緒只退化研究區塊，不讓 deterministic baseline 整頁不可用。
 
@@ -48,7 +48,7 @@ Deterministic market cards 可保留 source-specific `as_of`／trade date；Mart
 - 搜尋支援股票代號與中文名稱，使用 canonical stock-master search contract。
 - 新加入受目前有效約 500 market universe 與最多 50 active distinct symbols guard 約束。
 - 既有關注離開 500 時保留並標明狀態，不因 universe 變更自動刪除。
-- 顯示 canonical name＋symbol、recent persisted price／date、held state、target price、pending note／follow-up、bounded missing／stale。
+- 顯示 canonical name＋symbol、latest-price resolver 的 price／date／source／state、held state、target price、pending note／follow-up、bounded missing／stale。盤中只有此頁可見且 App 在前景時才每分鐘 revalidate；沒有 App demand 時不呼叫 MIS。
 - add／remove／reorder、target price／note 都走 backend contract；Flutter 不自行建立 owner mapping 或 admission 規則。
 - 點擊股票進 Stock Detail。
 
@@ -56,7 +56,7 @@ Deterministic market cards 可保留 source-specific `as_of`／trade date；Mart
 
 Primary content 固定順序：
 
-1. `StockHeader`
+1. `StockHeader`（盤中 latest-price resolver；同日 EOD 完成後自動切 `eod_final`）
 2. 個人持股、成本與估值日期
 3. 個人筆記與待追蹤事項
 4. `StockHealthCard`
@@ -142,7 +142,7 @@ Ledger／Holdings 一致性至少涵蓋 shares、cost／average cost、market va
 
 手機持股用可掃描 card：canonical name／symbol、shares、market price／average cost、unrealized PnL／return、price／valuation status。operational shares／cost 與 Private Mart valuation／PnL 的資料時間必須分開呈現。
 
-持股分頁保留既有 MIS 行情更新：盤中且 App 位於前景／持股分頁時每 30 秒 revalidate；盤後／休市進入持股分頁只取一次，並保留可見的「更新即時報價」手動入口。離開持股、App 進背景或市場關閉後停止輪詢；更新失敗保留最後成功資料並明示報價狀態，不以失敗回應覆寫 canonical EOD／Private Mart。
+持股分頁使用 latest-price resolver：盤中且 App 位於前景／持股分頁時每 1 分鐘 revalidate；盤後／休市進入持股分頁只讀 persistent latest state。保留可見的「更新股價」手動入口，backend 僅對 authenticated owner 的目前 TWSE 持股執行 MIS refresh；手動刷新略過 60 秒 TTL，但仍有 10 秒 hard throttle。離開持股、App 進背景或市場關閉後停止輪詢；沒有 App demand 時不執行每分鐘行情工作。更新失敗保留 PostgreSQL last-success 並明示報價狀態，不以失敗回應覆寫 canonical EOD／Private Mart。
 
 YTD realized PnL 必須有明確 display semantics：
 
@@ -188,11 +188,16 @@ cash flow 與 PnL 不得混為同義。紀錄／報表必須保留年度 selecto
 
 ## 5.5 行情 read path
 
-行情採 DB-first／stale-while-revalidate：先顯示 latest successful operational quote／valuation read model，再由 backend 依 market session／approved routing refresh。
+行情採 persistent DB-first latest-price resolver。Active market scope 為 **TWSE + TAIEX**；
+TPEx／櫃買不再查詢、顯示或接受新 active coverage。
 
-routing 是 backend versioned contract，不由 Flutter hard-code。未核准 source 必須跳過／blocked；source、quote_at、received_at、session、freshness、status 需可追溯。盤中 operational quote 不覆寫 canonical Core OHLCV 或 Private Mart EOD valuation。
-
-缺值明示 missing；不得用掛單價、舊正式估值或 0 偽裝成交價。
+- regular session（09:00–13:30 Asia/Taipei）：可見的 Today／Watchlist／Holdings／Stock Detail 每分鐘最多 revalidate；backend 只有 persistent quote 超過 60 秒 TTL 才打 MIS。
+- 13:30 後若同日正式 EOD 尚未到位：保留最後 MIS，狀態 `closing_pending_eod`。
+- 14:30 EOD ingestion 成功並更新 serving projection：同日 `core_ohlcv`／TAIEX EOD 優先，狀態 `eod_final`。
+- App 未使用、頁面不可見或 App 在背景：不因「每分鐘」規則產生 MIS request。
+- Holdings 手動「更新股價」只刷新 owner 當前 TWSE 持股；不接受 caller 指定 owner，且有 10 秒 hard throttle。
+- MIS 只寫 long-lived operational PostgreSQL last-success；正式 EOD serving 由 canonical Core projection 重建。MIS 絕不寫 canonical Core OHLCV。
+- source、quote time、receive time、price date、state、final flag 必須可判讀；missing／stale 不補 0、不拿掛單價冒充成交。
 
 ## 5.6 資產與風險
 

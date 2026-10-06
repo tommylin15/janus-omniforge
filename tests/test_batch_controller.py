@@ -59,7 +59,7 @@ def test_ingestion_has_same_controller_eod_slot_with_same_day_price_scope():
     eod = rows[-1]
     env = dict(occurrence_env(eod[1], eod[2]))
     assert env["INGESTION_DATE"] == "2026-10-06"
-    assert env["INGESTION_DATASETS"] == "twse-market-volume,tpex-market-volume,taiex,tpex-benchmark"
+    assert env["INGESTION_DATASETS"] == "twse-market-volume,taiex"
     assert "INGESTION_DATE" not in dict(occurrence_env(rows[0][1], rows[0][2]))
 
 

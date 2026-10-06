@@ -614,7 +614,6 @@ class _TodayPageState extends State<TodayPage> {
                 leading: const Icon(Icons.insights_outlined),
                 title: Text(const {
                       'taiex': '加權指數',
-                      'tpex': '櫃買指數',
                       'market-activity': '市場活動',
                       'institutional': '法人資料'
                     }[entry.key] ??
@@ -1228,7 +1227,7 @@ class _JournalNotesPageState extends State<JournalNotesPage>
   void startQuotes() {
     quoteTimer?.cancel();
     if (quotesActive && marketHours) {
-      quoteTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      quoteTimer = Timer.periodic(const Duration(minutes: 1), (_) {
         if (!marketHours) {
           quoteTimer?.cancel();
         } else if (quotesActive) {
@@ -1239,13 +1238,14 @@ class _JournalNotesPageState extends State<JournalNotesPage>
     if (quotesActive) unawaited(refreshQuotes());
   }
 
-  Future<void> refreshQuotes() async {
+  Future<void> refreshQuotes({bool force = false}) async {
     if (!quotesActive || quoteBusy) return;
     final generation = quoteGeneration;
     setState(() => quoteBusy = true);
     try {
-      final result = await widget.api
-          .get('/api/v1/me/portfolio/quotes')
+      final result = await (force
+              ? widget.api.post('/api/v1/me/portfolio/quotes/refresh', const {})
+              : widget.api.get('/api/v1/me/portfolio/quotes'))
           .timeout(const Duration(seconds: 60));
       if (mounted && generation == quoteGeneration && quotesActive) {
         setState(() {
@@ -1649,9 +1649,9 @@ class _JournalNotesPageState extends State<JournalNotesPage>
           Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
-                onPressed: quoteBusy ? null : refreshQuotes,
+                onPressed: quoteBusy ? null : () => refreshQuotes(force: true),
                 icon: const Icon(Icons.refresh),
-                label: Text(quoteBusy ? '更新中' : '更新即時報價'),
+                label: Text(quoteBusy ? '更新中' : '更新股價'),
               )),
         if (section == 0 && quoteError != null)
           Padding(

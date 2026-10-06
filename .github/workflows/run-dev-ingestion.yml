@@ -45,7 +45,7 @@ jobs:
             control-migration)
               migration="$(jq -r '.migration // ""' "${file}")"
               case "${migration}" in
-                030_private_stock_master_read|031_portfolio_market_coverage|032_liquid_500|033_liquid_500_tpex_source) ;;
+                030_private_stock_master_read|031_portfolio_market_coverage|032_liquid_500) ;;
                 *) echo "Unsupported control migration: ${migration}" >&2; exit 2 ;;
               esac
               {
@@ -85,7 +85,7 @@ jobs:
 
           dataset="$(jq -r '.dataset // ""' "${file}")"
           case "${dataset}" in
-            full-market-500|twse-ohlcv|tpex-ohlcv|twse-market-volume|tpex-market-volume|taiex|tpex-benchmark|twse-valuation|tpex-valuation|twse-institutional|tpex-institutional|mops|finmind|twse-events|twse-market-activity|twse-financing|twse-securities-lending-short) ;;
+            full-market-500|twse-ohlcv|twse-market-volume|taiex|twse-valuation|twse-institutional|mops|finmind|twse-events|twse-market-activity|twse-financing|twse-securities-lending-short) ;;
             *) echo "Unsupported ingestion dataset: ${dataset}" >&2; exit 2 ;;
           esac
 

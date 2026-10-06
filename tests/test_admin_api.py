@@ -102,6 +102,15 @@ class AdminServiceTests(unittest.TestCase):
         self.assertGreaterEqual(private_ops["valuation_lag_days"], 0)
         self.assertNotIn("user_id", private_ops)
 
+    def test_tpex_cannot_be_added_to_active_stock_master():
+        with self.assertRaises(AdminValidationError):
+            self.admin.upsert_stock({
+                "symbol": "6488",
+                "name": "環球晶",
+                "market": "TPEX",
+                "enabled": True,
+            })
+
     def test_invalid_page_is_rejected(self):
         with self.assertRaises(AdminValidationError):
             self.admin.stocks(limit=102)

@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from datetime import date
 from decimal import Decimal
+import json
 import os
 from typing import Any, Iterator
 from uuid import UUID, uuid4
@@ -370,6 +371,37 @@ class PostgresWorkspaceRepository:
             return {row['symbol']: {**dict(row), 'price': str(row['price']),
                     'quote_at': row['quote_at'].isoformat(),
                     'received_at': row['received_at'].isoformat()} for row in rows}
+
+    def eod_quotes(self, identities) -> dict[str, dict[str, Any]]:
+        if not identities:
+            return {}
+        with self._connection() as connection:
+            rows = connection.execute(
+                """SELECT symbol,sort_at,payload_json
+                   FROM publication.stock_latest
+                   WHERE dataset_id='ohlcv' AND symbol=ANY(%s)""",
+                (sorted(identities),),
+            ).fetchall()
+        result = {}
+        for row in rows:
+            payload = row["payload_json"]
+            if isinstance(payload, str):
+                payload = json.loads(payload)
+            close = payload.get("close") if isinstance(payload, dict) else None
+            trade_date = payload.get("trade_date") if isinstance(payload, dict) else None
+            if close in (None, "") or trade_date in (None, ""):
+                continue
+            result[str(row["symbol"])] = {
+                "price": str(close),
+                "price_date": str(trade_date)[:10],
+                "quote_at": None,
+                "received_at": row["sort_at"].isoformat() if row.get("sort_at") else None,
+                "session": "eod",
+                "source": "core_ohlcv",
+                "route_version": "latest-price.v2",
+                "is_final": True,
+            }
+        return result
 
     def save_last_quotes(self, quotes) -> None:
         with self._connection() as connection:

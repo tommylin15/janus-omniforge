@@ -22,7 +22,12 @@ class FinalFakeApi extends legacy.Api {
   @override
   Future<dynamic> post(String path, Map<String, dynamic> body) async {
     posts.add(path);
-    return body;
+    final value = values[path] ??
+        (path == '/api/v1/me/portfolio/quotes/refresh'
+            ? values['/api/v1/me/portfolio/quotes']
+            : null);
+    if (value is Exception) throw value;
+    return value ?? body;
   }
 
   @override
@@ -458,19 +463,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('更新即時報價'), findsOneWidget);
-    expect(find.textContaining('盤後／休市'), findsOneWidget);
+    expect(find.text('更新股價'), findsOneWidget);
+    expect(find.textContaining('正式／休市'), findsOneWidget);
     expect(
       api.reads.where((path) => path == '/api/v1/me/portfolio/quotes').length,
       1,
     );
 
-    await tester.tap(find.text('更新即時報價'));
+    await tester.tap(find.text('更新股價'));
     await tester.pumpAndSettle();
 
     expect(
-      api.reads.where((path) => path == '/api/v1/me/portfolio/quotes').length,
-      2,
+      api.posts.where((path) => path == '/api/v1/me/portfolio/quotes/refresh').length,
+      1,
     );
     expect(find.textContaining('現價 101.35 · 均價 100.00'), findsOneWidget);
     expect(tester.takeException(), isNull);

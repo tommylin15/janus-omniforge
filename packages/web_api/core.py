@@ -106,14 +106,14 @@ class CoreQueryService:
         try:
             rows = self._query(benchmark_table, (
                 f"WITH latest AS (SELECT upper(benchmark_id) AS benchmark_id, max(trade_date) AS trade_date "
-                f"FROM {benchmark_table} WHERE upper(benchmark_id) IN (?, ?) GROUP BY upper(benchmark_id)) "
+                f"FROM {benchmark_table} WHERE upper(benchmark_id) = ? GROUP BY upper(benchmark_id)) "
                 f"SELECT b.* FROM {benchmark_table} b JOIN latest l "
                 "ON upper(b.benchmark_id) = l.benchmark_id AND b.trade_date = l.trade_date"
-            ), ("TAIEX", "TPEX"))
+            ), ("TAIEX",))
             benchmarks = {str(row.get("benchmark_id", "")).upper(): row for row in rows}
         except Exception:
             benchmarks = None
-        for benchmark_id in ("TAIEX", "TPEX"):
+        for benchmark_id in ("TAIEX",):
             row = benchmarks.get(benchmark_id) if benchmarks is not None else None
             sections[benchmark_id.lower()] = self._market_section(
                 row, today, 1 if row else 0,

@@ -56,10 +56,8 @@ class AuthorizationStatus(StrEnum):
 
 SOURCE_AUTHORIZATION: dict[str, AuthorizationStatus] = {
     "twse": AuthorizationStatus.OFFICIAL,
-    "tpex": AuthorizationStatus.OFFICIAL,
     "mops": AuthorizationStatus.OFFICIAL,
     "taiex": AuthorizationStatus.OFFICIAL,
-    "tpex-benchmark": AuthorizationStatus.OFFICIAL,
     "taifex": AuthorizationStatus.OFFICIAL,
     "tdcc": AuthorizationStatus.APPROVED_FALLBACK,
     "finmind": AuthorizationStatus.APPROVED_FALLBACK,
@@ -462,18 +460,25 @@ class SQLiteControlPlane:
         rows = self.connection.execute(
             """SELECT DISTINCT cs.symbol FROM collection_symbols cs
                JOIN collection_configs cc USING(config_id)
+               JOIN stock_master sm ON sm.symbol=cs.symbol
                WHERE cc.dataset_id='ohlcv' AND cc.batch_scope='symbol' AND cc.enabled=1
+                 AND sm.enabled=1 AND sm.market='TWSE'
                ORDER BY cs.symbol""").fetchall()
         return tuple(row[0] for row in rows)
 
     def enabled_stock_symbols(self) -> tuple[str, ...]:
-        rows = self.connection.execute("SELECT symbol FROM stock_master WHERE enabled=1 ORDER BY symbol").fetchall()
+        rows = self.connection.execute(
+            "SELECT symbol FROM stock_master WHERE enabled=1 AND market='TWSE' ORDER BY symbol"
+        ).fetchall()
         return tuple(row[0] for row in rows)
 
     def set_stock_enabled(self, symbol: str, enabled: bool) -> None:
-        cursor = self.connection.execute("UPDATE stock_master SET enabled=?, updated_at=? WHERE symbol=?", (int(enabled), _iso(utc_now()), _symbol(symbol)))
+        cursor = self.connection.execute(
+            "UPDATE stock_master SET enabled=?, updated_at=? WHERE symbol=? AND (?=0 OR market='TWSE')",
+            (int(enabled), _iso(utc_now()), _symbol(symbol), int(enabled)),
+        )
         if cursor.rowcount != 1:
-            raise KeyError("stock not found")
+            raise KeyError("stock not found or outside active TWSE scope")
         self.connection.commit()
 
     def stock_references(self, symbol: str) -> dict[str, int]:

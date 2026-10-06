@@ -312,10 +312,8 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
         raise ValueError("control database returned no enabled ingestion symbols")
     universe, market_symbols = _market_universe(control, symbols)
     active_500 = universe["status"] == "available"
-    if active_500:
-        selected = tuple(key for key in selected if configured[key].source_id not in {"tpex", "tpex-benchmark"})
-        if not selected:
-            raise ValueError("no TWSE sources selected for listed-only liquid 500")
+    if active_500 and not selected:
+        raise ValueError("no TWSE sources selected for listed-only liquid 500")
     members_by_market = {
         market: {item["symbol"] for item in universe["items"] if item["market"] == market}
         for market in ("TWSE",)
@@ -374,13 +372,12 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
             request_symbols = tuple((symbol,) for symbol in scoped_symbols) if key == "finmind" or getattr(adapter, "batch_scope", "market") == "symbol" else (scoped_symbols,)
             for requested_symbols in request_symbols:
                 price_coverage: dict[str, object] | None = None
-                market = ("ALL" if adapter.source_id == "mops" else
-                          "TPEX" if adapter.source_id in {"tpex", "tpex-benchmark"} else "TWSE")
-                expected = (members_by_market[market] if active_500 and adapter.source_id in {"twse", "tpex"}
+                market = "ALL" if adapter.source_id == "mops" else "TWSE"
+                expected = (members_by_market[market] if active_500 and adapter.source_id == "twse"
                             else set(market_symbols) if active_500 and adapter.source_id == "mops"
                             else set(requested_symbols))
                 if adapter.dataset_id == "benchmark":
-                    expected = {"TPEx" if market == "TPEX" else "TAIEX"}
+                    expected = {"TAIEX"}
                 item_scope = "market" if len(requested_symbols) > 50 else ",".join(requested_symbols)
                 item_key = f"{key}:{as_of.isoformat()}:{item_scope}"
                 should_collect, reason = _should_collect(
@@ -584,8 +581,8 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
         for as_of in dates:
             outside_holdings = holding_symbols - set(market_symbols)
             received = holding_prices_by_date.get(as_of.isoformat(), set()) & outside_holdings
-            holdings_cached = any(item["date"] == as_of.isoformat() and item["dataset"] in
-                                  {"twse-market-volume", "tpex-market-volume"} for item in skipped_items)
+            holdings_cached = any(item["date"] == as_of.isoformat() and item["dataset"] == "twse-market-volume"
+                                  for item in skipped_items)
             coverage_items.append({"date": as_of.isoformat(), "dataset": "outside_500_registered_portfolio_ohlcv",
                                    "expected": sorted(outside_holdings), "received": sorted(received),
                                    "missing": None if holdings_cached else sorted(outside_holdings - received),
@@ -606,8 +603,7 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                        and item.get("market") == market for item in coverage_items):
                     continue
                 missing_scope = (set(market_symbols) if market == "ALL" else
-                                 {"TAIEX" if market == "TWSE" else "TPEx"} if dataset_id == "benchmark" else
-                                 members_by_market[market])
+                                 {"TAIEX"} if dataset_id == "benchmark" else members_by_market[market])
                 coverage_items.append({"date": as_of.isoformat(), "dataset": dataset_id,
                                        "source": source_id, "market": market,
                                        "expected": sorted(missing_scope), "received": [],

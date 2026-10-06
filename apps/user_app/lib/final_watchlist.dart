@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'final_perf.dart';
@@ -5,17 +7,86 @@ import 'final_visual_common.dart';
 import 'main.dart' as legacy;
 
 class FinalWatchlistPage extends StatefulWidget {
-  const FinalWatchlistPage(this.api, {this.onOpenStock, super.key});
+  const FinalWatchlistPage(this.api, {this.onOpenStock, this.active = true, super.key});
 
   final legacy.Api api;
   final ValueChanged<String>? onOpenStock;
+  final bool active;
 
   @override
   State<FinalWatchlistPage> createState() => _FinalWatchlistPageState();
 }
 
-class _FinalWatchlistPageState extends State<FinalWatchlistPage> {
+class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBindingObserver {
   late Future<dynamic> data = _load();
+  Timer? quoteTimer;
+  bool foreground = true;
+
+  bool get marketHours {
+    final taipei = DateTime.now().toUtc().add(const Duration(hours: 8));
+    final minutes = taipei.hour * 60 + taipei.minute;
+    return taipei.weekday <= 5 && minutes >= 540 && minutes < 810;
+  }
+
+  bool get quotesActive =>
+      widget.active && foreground && (ModalRoute.of(context)?.isCurrent ?? true);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    foreground = WidgetsBinding.instance.lifecycleState == null ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _startQuoteTimer();
+    });
+  }
+
+  void _startQuoteTimer() {
+    quoteTimer?.cancel();
+    if (quotesActive && marketHours) {
+      quoteTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+        if (!quotesActive || !marketHours) {
+          quoteTimer?.cancel();
+        } else {
+          reload();
+        }
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(FinalWatchlistPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.active != widget.active) {
+      if (widget.active) {
+        reload();
+        _startQuoteTimer();
+      } else {
+        quoteTimer?.cancel();
+      }
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    foreground = state == AppLifecycleState.resumed;
+    if (foreground) {
+      if (widget.active) {
+        reload();
+        _startQuoteTimer();
+      }
+    } else {
+      quoteTimer?.cancel();
+    }
+  }
+
+  @override
+  void dispose() {
+    quoteTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   Future<dynamic> _load() async {
     final stopwatch = Stopwatch()..start();

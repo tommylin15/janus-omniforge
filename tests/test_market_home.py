@@ -33,7 +33,7 @@ def test_market_home_keeps_core_sections_when_brief_is_missing():
             return [{"benchmark_id": "TAIEX", "trade_date": today, "close": "25000", "source_id": "taiex"}]
         if identifier == "core.market_activity_v1":
             return [{"trade_date": today, "row_count": 10, "covered_symbols": 4,
-                     "day_trade_shares": 1200, "source_ids": ["twse", "tpex"],
+                     "day_trade_shares": 1200, "source_ids": ["twse"],
                      "provenance_ids": ["p1", "p2"], "execution_ids": ["e1"]}]
         return []
 
@@ -47,7 +47,7 @@ def test_market_home_keeps_core_sections_when_brief_is_missing():
     assert body["sections"]["market-activity"]["coverage"]["received_symbols"] == 4
     assert body["sections"]["market-activity"]["data"]["day_trade_shares"] == 1200
     assert body["sections"]["market-activity"]["status"] == "partial"
-    assert body["sections"]["market-activity"]["provenance"]["source_ids"] == ["twse", "tpex"]
+    assert body["sections"]["market-activity"]["provenance"]["source_ids"] == ["twse"]
     assert body["sections"]["institutional"]["status"] == "missing"
     assert body["as_of"] is None
     assert "secret" not in str(body)

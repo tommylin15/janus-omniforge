@@ -41,7 +41,7 @@ from .repository import ConflictError, NotFoundError, OversellError, repository_
 from .private_pipeline import ledger_net_cash_flow, stock_identity
 from .public_runtime import build_admin_service, build_core_service, build_pipeline_service, build_public_service
 from .store import PrivateIcebergStore
-from .intraday_quotes import MisQuotes, value_holdings
+from .intraday_quotes import MisQuotes, TAIPEI, market_phase, value_holdings
 from .quote_router import QuoteRouter, ROUTE_VERSION
 
 
@@ -215,6 +215,38 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         except ValueError as error:
             LOGGER.warning("MCP OAuth configuration unavailable: %s", error)
             raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "MCP OAuth is unavailable") from error
+
+    def quote_session(now: datetime | None = None) -> tuple[datetime, str]:
+        current = now or datetime.now(TAIPEI)
+        phase = market_phase(current)
+        if phase in {"regular", "closing_pending_eod"}:
+            try:
+                schedule = admin_service.setting("schedule").get("value") or {}
+                holidays = set(schedule.get("holiday_overrides", [])) | {
+                    value for value in os.getenv("MARKET_HOLIDAYS", "").split(",") if value
+                }
+                if current.astimezone(TAIPEI).date().isoformat() in holidays:
+                    phase = "closed"
+            except Exception as error:
+                LOGGER.warning("quote calendar unavailable: %s", type(error).__name__)
+                phase = "closed"
+        return current, phase
+
+    def resolve_prices(identities: dict[str, dict[str, Any]], *, force: bool = False):
+        scoped = {
+            symbol: identity for symbol, identity in identities.items()
+            if identity.get("enabled", True) is not False
+            and str(identity.get("market", "")).upper() in {"TWSE", "TWSE_INDEX"}
+        }
+        current, phase = quote_session()
+        authorized = os.getenv("JANUS_MIS_QUOTES_ENABLED", "false").lower() == "true"
+        prices, refresh = quote_router.resolve(
+            scoped,
+            refresh=bool(scoped) and authorized and phase == "regular",
+            force=force,
+            now=current,
+        )
+        return prices, refresh, current, phase, authorized
 
     api = FastAPI(title="Janus User API", version="0.1.0", docs_url=None, redoc_url=None)
     limiter = _RateLimiter({
@@ -419,7 +451,34 @@ def create_app(repository: Any | None = None, store: Any | None = None,
 
     @lru_cache(maxsize=1)
     def market_home_snapshot(minute: int):
-        return query_core.market_home()
+        result = query_core.market_home()
+        prices, refresh, current, phase, authorized = resolve_prices({
+            "TAIEX": {"market": "TWSE_INDEX", "enabled": True},
+        })
+        quote = prices.get("TAIEX")
+        section = (result.get("sections") or {}).get("taiex")
+        if quote and isinstance(section, dict):
+            quote_date = str(quote.get("price_date") or "")
+            eod_date = str(section.get("as_of") or "")
+            if quote_date and (not eod_date or quote_date > eod_date):
+                section.update({
+                    "status": "available" if quote.get("state") == "intraday" else "partial",
+                    "as_of": quote_date,
+                    "freshness_days": 0,
+                    "row_count": 1,
+                    "coverage": {"requested_symbols": 1, "received_symbols": 1},
+                    "provenance": {"source": "twse_mis", "route_version": ROUTE_VERSION},
+                    "data": {"benchmark_id": "TAIEX", "close": quote.get("price")},
+                    "quote_state": quote.get("state"),
+                    "is_final": False,
+                })
+        result["latest_price"] = {
+            "route_version": ROUTE_VERSION,
+            "session": phase,
+            "refresh_status": "blocked" if not authorized else refresh.get("status", "idle"),
+            "checked_at": current.isoformat(),
+        }
+        return result
 
     @public_router.get("/market-home", response_model=MarketHomeOut)
     def market_home():
@@ -460,6 +519,23 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                               price_status="persisted" if row.get("close") is not None else "missing")
         except (QueryValidationError, RuntimeError):
             pass
+        if identity:
+            prices, refresh, current, phase, authorized = resolve_prices({symbol: identity})
+            quote = prices.get(symbol)
+            if quote:
+                result.update(
+                    close=quote.get("price"),
+                    trade_date=quote.get("price_date"),
+                    price_status="stale" if quote.get("state") == "stale" else "available",
+                    price_source=quote.get("source"),
+                    quote_state=quote.get("state"),
+                    quote_at=quote.get("quote_at"),
+                    is_final=bool(quote.get("is_final")),
+                    route_version=ROUTE_VERSION,
+                    refresh_status="blocked" if not authorized else refresh.get("status", "idle"),
+                    session=phase,
+                    checked_at=current.isoformat(),
+                )
         return jsonable_encoder(result)
 
     def public_dataset(symbol: str, dataset_id: str, limit: int, offset: int) -> dict[str, Any]:
@@ -636,35 +712,35 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                                  (None if has_canonical else "private_mart_pending")})
         return jsonable_encoder(result)
 
-    @private.get("/portfolio/quotes")
-    def portfolio_quotes(background: BackgroundTasks, current: AuthenticatedUser = Depends(user)):
+    def resolved_portfolio_quotes(current: AuthenticatedUser, *, force: bool = False):
         rows = repository.positions(current.user_id)
         latest_version = repository.latest_ledger_version(current.user_id) if rows else 0
         if rows and any(int(row.get("ledger_version", 0)) != latest_version for row in rows):
             raise HTTPException(status_code=409, detail="交易已儲存，等待投資組合批次更新")
         identities = repository.stock_identities({str(row["symbol"]) for row in rows}) if rows else {}
-        rows = [{**row, 'stock_name': stock_identity(identities.get(str(row['symbol'])))[0]} for row in rows]
+        rows = [{**row, "stock_name": stock_identity(identities.get(str(row["symbol"])))[0]} for row in rows]
         try:
-            prices = quote_router.read(identities)
+            prices, refresh, current_time, phase, authorized = resolve_prices(identities, force=force)
         except Exception as error:
-            LOGGER.warning("intraday quotes unavailable: %s", type(error).__name__)
-            raise HTTPException(status_code=503, detail="最後報價讀取暫時無法使用") from error
-        result = value_holdings(rows, prices)
-        if result['market_open']:
-            try:
-                schedule = admin_service.setting('schedule').get('value') or {}
-                holidays = set(schedule.get('holiday_overrides', [])) | set(os.getenv('MARKET_HOLIDAYS', '').split(','))
-                result['market_open'] = result['checked_at'][:10] not in holidays
-            except Exception as error:
-                LOGGER.warning('quote calendar unavailable: %s', type(error).__name__)
-                result['market_open'] = False
-        authorized = os.getenv('JANUS_MIS_QUOTES_ENABLED', 'false').lower() == 'true'
-        if rows and result['market_open'] and authorized:
-            background.add_task(quote_router.refresh, identities)
-        result.update(route_version=ROUTE_VERSION, refresh_status='blocked' if not authorized else 'scheduled' if rows and result['market_open'] else 'idle',
-                      session='regular' if result['market_open'] else 'closed_or_unknown',
-                      fallback='last_success' if prices else 'missing')
+            LOGGER.warning("latest price resolver unavailable: %s", type(error).__name__)
+            raise HTTPException(status_code=503, detail="最後行情讀取暫時無法使用") from error
+        result = value_holdings(rows, prices, current_time)
+        result["market_open"] = phase == "regular"
+        result.update(
+            route_version=ROUTE_VERSION,
+            refresh_status="blocked" if not authorized else refresh.get("status", "idle"),
+            session=phase,
+            fallback="persistent_last_success" if prices else "missing",
+        )
         return jsonable_encoder(result)
+
+    @private.get("/portfolio/quotes")
+    def portfolio_quotes(current: AuthenticatedUser = Depends(user)):
+        return resolved_portfolio_quotes(current)
+
+    @private.post("/portfolio/quotes/refresh")
+    def refresh_portfolio_quotes(current: AuthenticatedUser = Depends(user)):
+        return resolved_portfolio_quotes(current, force=True)
 
     @private.get("/journal/pnl")
     def pnl(year:int=Query(...,ge=1900,le=9999),current:AuthenticatedUser=Depends(user)):
@@ -754,7 +830,25 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         return jsonable_encoder({"items": repository.search_watchlist_stocks(q.strip())})
 
     @private.get("/watchlist")
-    def watchlist(current:AuthenticatedUser=Depends(user)): return jsonable_encoder(repository.watchlist(current.user_id))
+    def watchlist(current:AuthenticatedUser=Depends(user)):
+        rows = repository.watchlist(current.user_id)
+        identities = repository.stock_identities({str(row["symbol"]) for row in rows}) if rows else {}
+        prices, _, _, _, _ = resolve_prices(identities)
+        result = []
+        for row in rows:
+            quote = prices.get(str(row["symbol"]))
+            if quote:
+                row = {**row,
+                       "market_price": quote.get("price"),
+                       "price_date": quote.get("price_date"),
+                       "price_status": "stale" if quote.get("state") == "stale" else "available",
+                       "price_source": quote.get("source"),
+                       "quote_state": quote.get("state"),
+                       "quote_at": quote.get("quote_at"),
+                       "is_final": bool(quote.get("is_final")),
+                       "route_version": ROUTE_VERSION}
+            result.append(row)
+        return jsonable_encoder(result)
 
     @private.post("/watchlist",status_code=201)
     def follow(value:WatchlistIn,current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):

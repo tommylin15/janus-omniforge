@@ -17,8 +17,7 @@ from uuid import uuid4
 from .adapters import CollectionRequest, SourceResponse, validate_source_url
 from .control import CacheMetadata, DataState
 from .sources import (CompanyProfileAdapter, ExchangeOhlcvAdapter, MarketVolumeAdapter,
-                      tpex_ohlcv_adapter, twse_ohlcv_adapter, tpex_market_volume_adapter,
-                      twse_market_volume_adapter, tpex_company_profile_adapter, twse_company_profile_adapter)
+                      twse_ohlcv_adapter, twse_market_volume_adapter, twse_company_profile_adapter)
 from .stage import StageResult, StageWriter
 from packages.provenance import Provenance, content_hash
 
@@ -493,17 +492,11 @@ def dataset_adapters(transport: Callable[[str], bytes] | None = None) -> dict[st
 
     return {
         "twse-stock-profile": twse_company_profile_adapter(transport),
-        "tpex-stock-profile": tpex_company_profile_adapter(transport),
         "twse-market-volume": twse_market_volume_adapter(transport),
-        "tpex-market-volume": tpex_market_volume_adapter(transport),
         "twse-ohlcv": twse_ohlcv_adapter(transport),
-        "tpex-ohlcv": tpex_ohlcv_adapter(transport),
         "taiex": JsonDatasetAdapter("taiex", "benchmark", "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST", lambda rows: normalise_benchmark(rows, "TAIEX"), transport, dated("https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST", response="json")),
-        "tpex-benchmark": JsonDatasetAdapter("tpex-benchmark", "benchmark", "https://www.tpex.org.tw/openapi/v1/tpex_index", lambda rows: normalise_benchmark(rows, "TPEx"), transport, row_date_field="trade_date"),
         "twse-valuation": JsonDatasetAdapter("twse", "valuation", "https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d", normalise_valuation, transport, dated("https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d", selectType="ALL", response="json")),
-        "tpex-valuation": JsonDatasetAdapter("tpex", "valuation", "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_peratio_analysis", lambda rows: normalise_valuation(rows, market="TPEX"), transport, row_date_field="observed_date"),
         "twse-institutional": JsonDatasetAdapter("twse", "institutional", "https://www.twse.com.tw/rwd/zh/fund/T86", normalise_institutional, transport, dated("https://www.twse.com.tw/rwd/zh/fund/T86", selectType="ALL", response="json")),
-        "tpex-institutional": JsonDatasetAdapter("tpex", "institutional", "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading", normalise_tpex_institutional, transport, row_date_field="trade_date"),
         "mops": JsonDatasetAdapter("mops", "financials", "https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci", normalise_financials, transport,
                                    observation_mode="fetch_time", max_replay_age_days=7,
                                    availability_field="availability_at", publication_time_authoritative=False,

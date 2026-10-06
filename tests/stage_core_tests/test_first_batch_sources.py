@@ -42,45 +42,11 @@ class FirstBatchSourceTests(unittest.TestCase):
         self.assertEqual(response.rows[0]["source_id"], "taiex")
         self.assertEqual(response.rows[0]["observed_at"], "2026-08-25T00:00:00Z")
 
-    def test_tpex_valuation_uses_official_batch_fields_and_roc_date(self):
-        raw = json.dumps([{"Date": "1150924", "SecuritiesCompanyCode": "1240",
-                           "PriceEarningRatio": "18.5", "PriceBookRatio": "2.1", "YieldRatio": "3.2"}]).encode()
-        urls = []
-        adapter = dataset_adapters(lambda url: urls.append(url) or raw)["tpex-valuation"]
-        request = CollectionRequest("e1", "t1", "tpex", "valuation", "TPEX", ("1240",), None, date(2026, 9, 24), 5)
-        row = adapter.fetch(request).rows[0]
-        self.assertEqual(urls, ["https://www.tpex.org.tw/openapi/v1/tpex_mainboard_peratio_analysis"])
-        self.assertEqual((row["symbol"], row["market"], row["observed_date"]), ("1240", "TPEX", "2026-09-24"))
-        self.assertEqual((row["pe_ratio"], row["pb_ratio"], row["dividend_yield_percent"]), ("18.5", "2.1", "3.2"))
-
-    def test_tpex_institutional_uses_official_columns_and_excludes_foreign_dealers(self):
-        source_row = {
-            "Date": "1150924", "SecuritiesCompanyCode": "5483",
-            "Foreign Investors include Mainland Area Investors (Foreign Dealers excluded)-Total Buy": "10679689",
-            " Foreign Investors include Mainland Area Investors (Foreign Dealers excluded)-Total Sell": "8178100",
-            "Foreign Investors include Mainland Area Investors (Foreign Dealers excluded)-Difference": "2501589",
-            "ForeignInvestorsIncludeMainlandAreaInvestors-TotalBuy": "10679689",
-            "ForeignInvestorsIncludeMainlandAreaInvestors-TotalSell": "8178100",
-            "ForeignInvestorsInclude MainlandAreaInvestors-Difference": "2501589",
-            "SecuritiesInvestmentTrustCompanies-TotalBuy": "0",
-            "SecuritiesInvestmentTrustCompanies-TotalSell": "24000",
-            "SecuritiesInvestmentTrustCompanies-Difference": "-24000",
-            "Dealers-TotalBuy": "421928", "Dealers-TotalSell": "304679",
-            "Dealers-Difference": "117249", "Dealers -TotalSell": "129679",
-        }
-        raw = json.dumps([source_row]).encode()
-        urls = []
-        adapter = dataset_adapters(lambda url: urls.append(url) or raw)["tpex-institutional"]
-        request = CollectionRequest("e1", "t1", "tpex", "institutional", "TPEX", ("5483",), None, date(2026, 9, 24), 5)
-        rows = adapter.fetch(request).rows
-        self.assertEqual(urls, ["https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading"])
-        self.assertEqual([(row["investor_type"], row["buy_shares"], row["sell_shares"], row["net_shares"])
-                          for row in rows], [
-            ("foreign", "10679689", "8178100", "2501589"),
-            ("investment_trust", "0", "24000", "-24000"),
-            ("dealer", "421928", "304679", "117249"),
-        ])
-        self.assertTrue(all((row["symbol"], row["market"], row["trade_date"]) == ("5483", "TPEX", "2026-09-24") for row in rows))
+    def test_tpex_sources_are_retired_from_active_adapter_registry(self):
+        adapters = dataset_adapters(lambda _: b'[]')
+        self.assertFalse(any(key.startswith("tpex") for key in adapters))
+        self.assertFalse(any(getattr(adapter, "source_id", "") in {"tpex", "tpex-benchmark"}
+                             for adapter in adapters.values()))
 
     def test_market_batch_activity_sources_keep_metrics_and_provenance(self):
         twse_margin = ["2330", "台積電", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24"]
@@ -150,7 +116,7 @@ class FirstBatchSourceTests(unittest.TestCase):
         response = adapters["twse-ohlcv"].fetch(self.request("ohlcv"))
         self.assertEqual((response.rows[0]["volume_shares"], response.rows[0]["change_percent"]), (1234, None))
         self.assertEqual((adapters["twse-ohlcv"].dataset_id, adapters["twse-ohlcv"].batch_scope), ("ohlcv", "symbol"))
-        self.assertIn("tpex-ohlcv", adapters)
+        self.assertNotIn("tpex-ohlcv", adapters)
         self.assertEqual(DuckDBIcebergCore.IDENTIFIERS["ohlcv"], ("symbol", "market", "trade_date"))
 
     def test_benchmark_updates_independently_of_stock_rows_and_calendar_looks_back(self):
@@ -172,7 +138,6 @@ class FirstBatchSourceTests(unittest.TestCase):
 
     def test_official_provider_shapes_are_parsed(self):
         payloads = {
-            "tpex_index": [{"Date": "20260825", "Close": "362.89", "Change": "15.04"}],
             "BWIBBU_d": [{"Date": "1150825", "Code": "2330", "PEratio": "20", "PBratio": "5", "DividendYield": "2"}],
             "T86": {"date": "20260825", "fields": ["證券代號", "外陸資買進股數(不含外資自營商)", "外陸資賣出股數(不含外資自營商)", "外陸資買賣超股數(不含外資自營商)", "投信買進股數", "投信賣出股數", "投信買賣超股數", "自營商買進股數(自行買賣)", "自營商賣出股數(自行買賣)", "自營商買賣超股數"], "data": [["2330", "10", "2", "8", "3", "1", "2", "4", "1", "3"]]},
             "t187ap06": [{"出表日期": "1150826", "年度": "115", "季別": "2", "公司代號": "2330", "營業收入": "100"}],
@@ -186,7 +151,6 @@ class FirstBatchSourceTests(unittest.TestCase):
         fixture_now = datetime(2026, 8, 26, 8, 0, tzinfo=timezone.utc)
         for key in ("mops", "finmind", "twse-events"):
             adapters[key].clock = lambda now=fixture_now: now
-        self.assertEqual(adapters["tpex-benchmark"].fetch(self.request()).rows[0]["trade_date"], "2026-08-25")
         self.assertEqual(adapters["twse-valuation"].fetch(self.request("valuation")).rows[0]["symbol"], "2330")
         self.assertEqual(len(adapters["twse-institutional"].fetch(self.request("institutional")).rows), 3)
         self.assertEqual(adapters["mops"].fetch(self.request("financials")).rows[0]["metric"], "營業收入")

@@ -29,7 +29,6 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     with WidgetsBindingObserver {
   int section = 0;
   int recordGrouping = 0;
-  int yearFilter = DateTime.now().year;
   late Future<List<dynamic>> data = load();
   Timer? quoteTimer;
   bool quoteBusy = false;
@@ -64,7 +63,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   void startQuotes() {
     quoteTimer?.cancel();
     if (quotesActive && marketHours) {
-      quoteTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      quoteTimer = Timer.periodic(const Duration(minutes: 1), (_) {
         if (!marketHours) {
           quoteTimer?.cancel();
         } else if (quotesActive) {
@@ -75,13 +74,14 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     if (quotesActive) unawaited(refreshQuotes());
   }
 
-  Future<void> refreshQuotes() async {
+  Future<void> refreshQuotes({bool force = false}) async {
     if (!quotesActive || quoteBusy) return;
     final generation = quoteGeneration;
     setState(() => quoteBusy = true);
     try {
-      final result = await widget.api
-          .get('/api/v1/me/portfolio/quotes')
+      final result = await (force
+              ? widget.api.post('/api/v1/me/portfolio/quotes/refresh', const {})
+              : widget.api.get('/api/v1/me/portfolio/quotes'))
           .timeout(const Duration(seconds: 60));
       if (mounted && generation == quoteGeneration && quotesActive) {
         setState(() {
@@ -142,20 +142,17 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
 
   Future<List<dynamic>> load() async {
     final stopwatch = Stopwatch()..start();
-    final currentYear = DateTime.now().year;
-    final selectedYear = yearFilter;
+    final year = DateTime.now().year;
     try {
       return await Future.wait([
         safe('/api/v1/me/portfolio/summary'),
-        safe('/api/v1/me/journal/pnl?year=$currentYear'),
+        safe('/api/v1/me/journal/pnl?year=$year'),
         safe('/api/v1/me/journal/positions'),
-        safe('/api/v1/me/journal/history?year=$selectedYear'),
-        safe('/api/v1/me/journal/monthly-summary?year=$selectedYear'),
-        safe('/api/v1/me/portfolio/performance?year=$selectedYear'),
+        safe('/api/v1/me/journal/history?year=$year'),
+        safe('/api/v1/me/journal/monthly-summary?year=$year'),
+        safe('/api/v1/me/portfolio/performance?year=$year'),
         safe('/api/v1/me/notes'),
-        safe('/api/v1/me/journal/symbol-summary?year=$selectedYear'),
-        safe('/api/v1/me/journal/pnl?year=$selectedYear'),
-        safe('/api/v1/me/journal/history?year=$currentYear'),
+        safe('/api/v1/me/journal/symbol-summary?year=$year'),
       ]);
     } finally {
       stopwatch.stop();
@@ -177,34 +174,6 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
         if (mounted) startQuotes();
       });
     }
-  }
-
-  void selectYear(int year) {
-    if (year == yearFilter) return;
-    setState(() {
-      yearFilter = year;
-      data = load();
-    });
-  }
-
-  Widget yearSelector() {
-    final currentYear = DateTime.now().year;
-    return MenuAnchor(
-      builder: (context, controller, child) => OutlinedButton.icon(
-        key: const Key('ledger-year-selector'),
-        onPressed: () =>
-            controller.isOpen ? controller.close() : controller.open(),
-        icon: const Icon(Icons.calendar_month, size: 18),
-        label: Text('年度：$yearFilter'),
-      ),
-      menuChildren: [
-        for (var year = currentYear; year >= currentYear - 5; year--)
-          MenuItemButton(
-            onPressed: () => selectYear(year),
-            child: Text('$year 年'),
-          ),
-      ],
-    );
   }
 
   Future<void> addTrade() async {
@@ -418,9 +387,9 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        row['valuation_kind'] == 'intraday'
-                            ? '最後成交價估值 · 報價 ${fvText(row['quote_at'])} · 成本批次日 ${fvText(row['valuation_date'])} · ${row['price_status'] == null ? '狀態未知' : legacy.uiLabel(row['price_status'])}'
-                            : '估值日 ${fvText(row['valuation_date'])} · 行情日 ${fvText(row['price_date'])} · ${row['price_status'] == null ? '狀態未知' : legacy.uiLabel(row['price_status'])}',
+                        row['price_source'] == 'twse_mis'
+                            ? 'MIS 最新成交 · 報價 ${fvText(row['quote_at'])} · ${fvText(row['quote_state'])}'
+                            : '正式行情 · 行情日 ${fvText(row['price_date'])} · ${row['price_status'] == null ? '狀態未知' : legacy.uiLabel(row['price_status'])}',
                         style: const TextStyle(color: fvMuted, fontSize: 11),
                       ),
                       if (reason.isNotEmpty) ...[
@@ -539,7 +508,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '$yearFilter 年 $month 月',
+                    '${DateTime.now().year} 年 $month 月',
                     style: const TextStyle(
                       color: fvInk,
                       fontSize: 16,
@@ -757,17 +726,15 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
             future: data,
             builder: (context, snapshot) {
               final values = snapshot.data ??
-                  const [null, null, null, null, null, null, null, null, null, null];
+                  const [null, null, null, null, null, null, null, null];
               final summary = fvRows(values[0]);
-              final currentPnl = fvRows(values[1]);
+              final pnl = fvRows(values[1]);
               final canonicalPositions = fvRows(values[2]);
               final history = fvRows(values[3]);
               final monthly = fvRows(values[4]);
               final performance = fvRows(values[5]);
               final noteRows = fvRows(values[6]);
               final symbolSummary = fvRows(values[7]);
-              final reportPnl = fvRows(values[8]);
-              final currentHistory = fvRows(values[9]);
               final quotePositions = section == 0 && intraday != null
                   ? fvRows(intraday!['positions'])
                   : const <dynamic>[];
@@ -802,14 +769,14 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                       ? '資料不足'
                       : legacy.portfolioReturnLabel(aggregate['unrealized_return']);
               final pnlUnavailable = values[1] == null;
-              final historyUnavailable = values[9] == null;
+              final historyUnavailable = values[3] == null;
               final ytd = pnlUnavailable || historyUnavailable
                   ? '資料不足'
-                  : currentPnl.isNotEmpty
-                      ? currentPnl.length == 1
-                          ? '${fvText(fvMap(currentPnl.first)['currency'], missing: 'TWD')} ${legacy.accountingNumber(fvMap(currentPnl.first)['realized_pnl'])}'
+                  : pnl.isNotEmpty
+                      ? pnl.length == 1
+                          ? '${fvText(fvMap(pnl.first)['currency'], missing: 'TWD')} ${legacy.accountingNumber(fvMap(pnl.first)['realized_pnl'])}'
                           : '多幣別'
-                      : withheld || currentHistory.isNotEmpty
+                      : withheld || history.isNotEmpty
                           ? '待更新／尚未確認'
                           : '0';
               final affected = fvRows(aggregate['affected_symbols']);
@@ -881,9 +848,9 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                         runSpacing: 8,
                         children: [
                           OutlinedButton.icon(
-                            onPressed: quoteBusy ? null : refreshQuotes,
+                            onPressed: quoteBusy ? null : () => refreshQuotes(force: true),
                             icon: const Icon(Icons.refresh, size: 18),
-                            label: Text(quoteBusy ? '更新中' : '更新即時報價'),
+                            label: Text(quoteBusy ? '更新中' : '更新股價'),
                           ),
                           FilledButton.icon(
                             onPressed: addTrade,
@@ -896,7 +863,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                       if (intraday != null) ...[
                         const SizedBox(height: 8),
                         Text(
-                          'MIS 成交價估值 · ${fvText(intraday!['checked_at'])} · ${intraday!['market_open'] == true ? '盤中' : '盤後／休市'}',
+                          '最新行情 · ${fvText(intraday!['checked_at'])} · ${intraday!['session'] == 'regular' ? '盤中' : intraday!['session'] == 'closing_pending_eod' ? '收盤待正式資料' : '正式／休市'}',
                           style: const TextStyle(color: fvMuted, fontSize: 11),
                         ),
                       ],
@@ -911,39 +878,17 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                       fvSectionTitle(
                         context,
                         '紀錄',
-                        trailing: '$yearFilter 年',
+                        trailing: '${DateTime.now().year} 年',
                       ),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: yearSelector(),
-                      ),
-                      const SizedBox(height: 10),
                       records(history, monthly, symbolSummary),
                     ],
                     if (section == 2) ...[
-                      fvSectionTitle(
-                        context,
-                        '報表',
-                        trailing: '$yearFilter 年',
-                      ),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: yearSelector(),
-                      ),
-                      const SizedBox(height: 10),
+                      fvSectionTitle(context, '報表'),
                       reports(
-                        reportPnl,
+                        pnl,
                         performance,
                         monthly: monthly,
-                        ytd: yearFilter == DateTime.now().year
-                            ? ytd
-                            : reportPnl.isNotEmpty
-                                ? reportPnl.length == 1
-                                    ? '${fvText(fvMap(reportPnl.first)['currency'], missing: 'TWD')} ${legacy.accountingNumber(fvMap(reportPnl.first)['realized_pnl'])}'
-                                    : '多幣別'
-                                : history.isNotEmpty
-                                    ? '待更新／尚未確認'
-                                    : '0',
+                        ytd: ytd,
                       ),
                     ],
                     if (section == 3) ...[

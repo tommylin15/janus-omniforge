@@ -259,8 +259,8 @@ class _FinalWorkspaceState extends State<FinalWorkspace> {
   @override
   Widget build(BuildContext context) {
     final pages = <Widget>[
-      FinalTodayPage(widget.api, onOpenStock: openStock),
-      FinalWatchlistPage(widget.api, onOpenStock: openStock),
+      FinalTodayPage(widget.api, active: page == 0, onOpenStock: openStock),
+      FinalWatchlistPage(widget.api, active: page == 1, onOpenStock: openStock),
       FinalLedgerPage(widget.api, active: page == 2, onOpenStock: openStock),
       legacy.ProfilePage(api: widget.api, email: widget.email, onTheme: widget.onTheme),
     ];

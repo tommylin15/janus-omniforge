@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'final_perf.dart';
@@ -5,18 +7,89 @@ import 'final_visual_common.dart';
 import 'main.dart' as legacy;
 
 class FinalTodayPage extends StatefulWidget {
-  const FinalTodayPage(this.api, {this.onOpenStock, super.key});
+  const FinalTodayPage(this.api, {this.onOpenStock, this.active = true, super.key});
 
   final legacy.Api api;
   final ValueChanged<String>? onOpenStock;
+  final bool active;
 
   @override
   State<FinalTodayPage> createState() => _FinalTodayPageState();
 }
 
-class _FinalTodayPageState extends State<FinalTodayPage> {
+class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObserver {
   late Future<dynamic> market = _readCoreMarket();
   late Future<dynamic> brief = _read('/api/v1/public/daily-brief');
+  Timer? marketTimer;
+  bool foreground = true;
+
+  bool get marketHours {
+    final taipei = DateTime.now().toUtc().add(const Duration(hours: 8));
+    final minutes = taipei.hour * 60 + taipei.minute;
+    return taipei.weekday <= 5 && minutes >= 540 && minutes < 810;
+  }
+
+  bool get marketActive =>
+      widget.active && foreground && (ModalRoute.of(context)?.isCurrent ?? true);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    foreground = WidgetsBinding.instance.lifecycleState == null ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _startMarketTimer();
+    });
+  }
+
+  void _startMarketTimer() {
+    marketTimer?.cancel();
+    if (marketActive && marketHours) {
+      marketTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+        if (!marketActive || !marketHours) {
+          marketTimer?.cancel();
+        } else {
+          setState(() => market = _loadMarketWithoutPerf());
+        }
+      });
+    }
+  }
+
+  Future<dynamic> _loadMarketWithoutPerf() => _read('/api/v1/public/market-home');
+
+  @override
+  void didUpdateWidget(FinalTodayPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.active != widget.active) {
+      if (widget.active) {
+        setState(() => market = _loadMarketWithoutPerf());
+        _startMarketTimer();
+      } else {
+        marketTimer?.cancel();
+      }
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    foreground = state == AppLifecycleState.resumed;
+    if (foreground) {
+      if (widget.active) {
+        setState(() => market = _loadMarketWithoutPerf());
+        _startMarketTimer();
+      }
+    } else {
+      marketTimer?.cancel();
+    }
+  }
+
+  @override
+  void dispose() {
+    marketTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   Future<dynamic> _readCoreMarket() async {
     final stopwatch = Stopwatch()..start();

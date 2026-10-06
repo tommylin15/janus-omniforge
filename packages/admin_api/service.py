@@ -62,8 +62,8 @@ class AdminService:
         market = payload.get("market", "TWSE")
         if not isinstance(symbol, str) or not isinstance(name, str):
             raise AdminValidationError("symbol and name are required")
-        if market not in {"TWSE", "TPEX"}:
-            raise AdminValidationError("market is invalid")
+        if market != "TWSE":
+            raise AdminValidationError("only TWSE is in the active Janus market scope")
         if not isinstance(payload.get("enabled", True), bool):
             raise AdminValidationError("enabled must be a boolean")
         listing_status = payload.get("listing_status", "unknown")

@@ -18,12 +18,14 @@ MIGRATION_STOCK_SERVING = "042_stock_serving_projection"
 MIGRATION_OPERATIONS = "043_admin_batch_read"
 MIGRATION_QUOTES_BROKER = "044_quotes_broker_profile"
 MIGRATION_PRIVATE_OPERATIONS = "045_private_pipeline_operations"
+MIGRATION_TWSE_LATEST_PRICE = "046_twse_only_latest_price"
 SUPPORTED = frozenset({
     MIGRATION_POSITION,
     MIGRATION_STOCK_SERVING,
     MIGRATION_OPERATIONS,
     MIGRATION_QUOTES_BROKER,
     MIGRATION_PRIVATE_OPERATIONS,
+    MIGRATION_TWSE_LATEST_PRICE,
 })
 
 
@@ -340,5 +342,20 @@ def run(control: Any, name: str) -> None:
                 cursor.execute("INSERT INTO control.schema_migrations" + record)
         except Exception as error:
             raise ServingSchemaMigrationError("private_operations_apply", error) from error
+    elif name == MIGRATION_TWSE_LATEST_PRICE:
+        try:
+            text = _without_role_lines(_migration_path(name).read_text(encoding="utf-8"))
+            prepare, acceptance = text.split("-- PHASE: acceptance", 1)
+            checks, record = acceptance.split("INSERT INTO control.schema_migrations", 1)
+            with control.connection.transaction(), control.connection.cursor() as cursor:
+                _require_current_user(cursor, "janus_control")
+                cursor.execute(prepare)
+                cursor.execute(checks)
+                row = cursor.fetchone()
+                if row is None or not all(bool(value) for value in row):
+                    raise RuntimeError("TWSE-only latest-price scope acceptance failed")
+                cursor.execute("INSERT INTO control.schema_migrations" + record)
+        except Exception as error:
+            raise ServingSchemaMigrationError("twse_latest_price_apply", error) from error
     else:
         raise ValueError("unsupported serving schema migration")

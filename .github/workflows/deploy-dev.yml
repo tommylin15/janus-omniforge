@@ -21,6 +21,7 @@ on:
       - 'infra/postgres/migrations/043_admin_batch_read.sql'
       - 'infra/postgres/migrations/044_quotes_broker_profile.sql'
       - 'infra/postgres/migrations/045_private_pipeline_operations.sql'
+      - 'infra/postgres/migrations/046_twse_only_latest_price.sql'
       - 'tests/test_batch_controller.py'
       - 'tests/test_duckdb_iceberg.py'
       - 'tests/test_data_supplement.py'
@@ -97,6 +98,7 @@ jobs:
       quotes_schema: ${{ steps.filter.outputs.quotes_schema }}
       operations_schema: ${{ steps.filter.outputs.operations_schema }}
       private_ops_schema: ${{ steps.filter.outputs.private_ops_schema }}
+      latest_price_schema: ${{ steps.filter.outputs.latest_price_schema }}
       ingestion_runtime: ${{ steps.filter.outputs.ingestion_runtime }}
       ingestion_test: ${{ steps.filter.outputs.ingestion_test }}
       mart_runtime: ${{ steps.filter.outputs.mart_runtime }}
@@ -121,6 +123,8 @@ jobs:
               - 'infra/postgres/migrations/043_admin_batch_read.sql'
             private_ops_schema:
               - 'infra/postgres/migrations/045_private_pipeline_operations.sql'
+            latest_price_schema:
+              - 'infra/postgres/migrations/046_twse_only_latest_price.sql'
             ingestion_runtime:
               - 'packages/postgres_lock.py'
               - 'packages/mobile_ledger_queue.py'
@@ -129,6 +133,7 @@ jobs:
               - 'infra/postgres/migrations/043_admin_batch_read.sql'
               - 'infra/postgres/migrations/044_quotes_broker_profile.sql'
               - 'infra/postgres/migrations/045_private_pipeline_operations.sql'
+              - 'infra/postgres/migrations/046_twse_only_latest_price.sql'
               - 'jobs/ingestion-core/ingestion_core/**'
               - 'jobs/ingestion-core/schemas/**'
               - 'jobs/ingestion-core/Dockerfile'
@@ -518,8 +523,17 @@ jobs:
     with:
       migration: 045_private_pipeline_operations
 
+  migrate-latest-price:
+    needs: [detect, deploy-ingestion]
+    if: >-
+      needs.detect.outputs.latest_price_schema == 'true' &&
+      needs.deploy-ingestion.result == 'success'
+    uses: ./.github/workflows/serving-schema-migration-dev.yml
+    with:
+      migration: 046_twse_only_latest_price
+
   deploy-api:
-    needs: [detect, test-api, deploy-private-pipeline, migrate-operations, migrate-quotes, migrate-private-operations]
+    needs: [detect, test-api, deploy-private-pipeline, migrate-operations, migrate-quotes, migrate-private-operations, migrate-latest-price]
     if: >-
       always() &&
       needs.test-api.result == 'success' &&
@@ -529,6 +543,8 @@ jobs:
       (needs.migrate-operations.result == 'skipped' && needs.detect.outputs.operations_schema != 'true')) &&
       (needs.migrate-private-operations.result == 'success' ||
       (needs.migrate-private-operations.result == 'skipped' && needs.detect.outputs.private_ops_schema != 'true')) &&
+      (needs.migrate-latest-price.result == 'success' ||
+      (needs.migrate-latest-price.result == 'skipped' && needs.detect.outputs.latest_price_schema != 'true')) &&
       (needs.deploy-private-pipeline.result == 'success' ||
       needs.deploy-private-pipeline.result == 'skipped') &&
       (needs.detect.outputs.api_runtime == 'true' ||

@@ -17,6 +17,7 @@ from tests.test_portfolio_api_completeness import Repository, Store, auth, USER_
 class QuoteRepository(Repository):
     def __init__(self):
         self.saved = {}
+        self.eod = {}
 
     def positions(self, owner):
         assert owner == USER_ID
@@ -27,6 +28,9 @@ class QuoteRepository(Repository):
 
     def save_last_quotes(self, quotes):
         self.saved.update(quotes)
+
+    def eod_quotes(self, identities):
+        return {s: dict(r) for s, r in self.eod.items() if s in identities}
 
 
 def test_last_success_survives_source_failure_and_new_router_instance():
@@ -47,7 +51,7 @@ def test_last_success_survives_source_failure_and_new_router_instance():
     router.refresh(identities)
     saved = router.read(identities)
     assert saved['2330']['received_at']
-    assert saved['2330']['route_version'] == 'quote-router.v1'
+    assert saved['2330']['route_version'] == 'latest-price.v2'
     source.fail = True
     router.refresh(identities)
     assert QuoteRouter(repository, source).read(identities) == saved
@@ -79,6 +83,58 @@ def test_router_rejects_invalid_trade_without_overwriting_last_success(price, at
         def prices(self, _): return {'2330': {'price': price, 'quote_at': at}}
     QuoteRouter(repository, Source()).refresh({'2330': {'market':'TWSE'}})
     assert repository.saved['2330']['price'] == '99'
+
+
+def test_resolver_prefers_same_day_eod_and_uses_persistent_sixty_second_ttl():
+    repository = QuoteRepository()
+    now = datetime(2026, 10, 6, 10, 0, tzinfo=TAIPEI)
+    calls = []
+    class Source:
+        def prices(self, identities):
+            calls.append(tuple(sorted(identities)))
+            return {'2330': {'price':'101', 'quote_at':now.isoformat(),
+                             'received_at':now.isoformat()}}
+
+    router = QuoteRouter(repository, Source())
+    identities = {'2330': {'market':'TWSE', 'enabled':True}}
+    prices, refresh = router.resolve(identities, refresh=True, now=now)
+    assert refresh == {'status':'updated', 'requested':1, 'updated':1}
+    assert prices['2330']['state'] == 'intraday'
+    assert prices['2330']['price'] == '101'
+
+    # Under 60 seconds the persisted DB receipt suppresses an upstream fetch.
+    prices, refresh = router.resolve(
+        identities, refresh=True, now=now + timedelta(seconds=59))
+    assert refresh['requested'] == 0
+    assert len(calls) == 1
+
+    # A manual refresh has a 10-second hard throttle, not the normal 60-second TTL.
+    _, refresh = router.resolve(
+        identities, refresh=True, force=True, now=now + timedelta(seconds=11))
+    assert refresh['requested'] == 1
+    assert len(calls) == 2
+
+    repository.eod['2330'] = {
+        'price':'102', 'price_date':'2026-10-06',
+        'received_at':'2026-10-06T14:30:00+08:00',
+        'source':'core_ohlcv', 'is_final':True,
+    }
+    final = router.read(identities, now=datetime(2026, 10, 6, 14, 31, tzinfo=TAIPEI))
+    assert final['2330']['price'] == '102'
+    assert final['2330']['state'] == 'eod_final'
+    assert final['2330']['is_final'] is True
+
+
+def test_router_never_requests_tpex_symbols():
+    repository = QuoteRepository()
+    class Source:
+        def prices(self, identities):
+            raise AssertionError('TPEx must never reach MIS')
+    result = QuoteRouter(repository, Source()).refresh(
+        {'6488': {'market':'TPEX', 'enabled':True}},
+        now=datetime(2026, 10, 6, 10, 0, tzinfo=TAIPEI),
+    )
+    assert result == {'status':'fresh', 'requested':0, 'updated':0}
 
 
 def test_profile_validation_forbids_owner_override_and_incomplete_cash():

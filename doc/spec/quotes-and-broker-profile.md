@@ -2,26 +2,76 @@
 
 ## 行情契約
 
-`GET /api/v1/me/portfolio/quotes` 只依 authenticated owner 的
-`private.current_positions` 取持股；不掃描 Private Mart，亦不接受 caller 指定 owner。
-先讀 `control.operational_last_quotes`，再由 response background task 有界刷新。
-最後成功值為可重建 operational model，與 Core OHLCV／EOD valuation 分離。
+### Active market scope
 
-目前 `quote-router.v1` 只有既有 MIS route；沿用 `JANUS_MIS_QUOTES_ENABLED`
-授權 gate，不啟用新來源或付費服務。未核准時 `refresh_status=blocked`。
-regular session 依台北週一至週五 09:00–13:30 與既有 holiday overrides 判定；
-calendar 無法讀取時 `closed_or_unknown`，不猜測開市。
+Janus active market scope is **TWSE only**. TPEx／櫃買 is retired from active collection,
+search/admission, MIS routing, market-home display and future publication. Historical Core rows,
+migration history and audit evidence are retained; retirement must not rewrite or delete history.
 
-- `quote_at`：成交時間；`received_at`：最後成功接收時間，非最新讀取時間。
-- `source`／`route_version`：來源與版本；`checked_at`：本次讀取時間。
-- 同日且成交距今 ≤120 秒為 available；其餘最後成功值為 stale。
-- 尚無成功報價：missing；市場價格為 null，受影響 aggregate withheld，不補 0。
-- 上游失敗、無成交、非法價格／時間不覆寫最後成功值；冷啟動仍從 DB 讀回。
-- 舊成交不得覆寫較新成交。共享表不含 owner、持股數、成本或 user-symbol mapping。
-- 沒有 persisted quote 時不把 EOD valuation 偽裝成盤中成交價；fallback 明示 missing。
-- Background task 不承諾 durable delivery；失敗由下次 active page read 再嘗試。
+Latest-price serving scope is:
 
-正式 Private Mart valuation／PnL 不受此 operational 顯示影響。
+- current TWSE Liquid 500;
+- TWSE holdings that remain valid owner positions even when outside the current 500;
+- active TWSE watchlist symbols;
+- a currently opened TWSE stock detail;
+- TAIEX for the Today market snapshot.
+
+### Persistent latest-price resolver
+
+User-visible latest price is resolved server-side. Flutter never decides whether to read MIS or EOD.
+The resolver combines two persistent PostgreSQL read models:
+
+1. `control.operational_last_quotes`: last successful authorized TWSE MIS quote;
+2. `publication.stock_latest` (`ohlcv`): latest persisted EOD serving projection rebuilt from canonical Core.
+
+The small in-process `MisQuotes.cache` is only a 10-second anti-burst optimization. It is not the
+authoritative cache and may disappear on Cloud Run restart. Last-success continuity and the normal
+refresh TTL are based on PostgreSQL, so the serving state survives process restarts and scale-to-zero.
+
+Core Iceberg OHLCV remains canonical history. Operational/MIS values never write or rewrite canonical
+OHLCV, Private Mart or publication history. Same-day EOD data takes precedence over same-day MIS once
+the 14:30 ingestion has committed its serving projection.
+
+Resolver states:
+
+- `intraday`: current trading-day MIS quote during 09:00–13:30 Asia/Taipei;
+- `closing_pending_eod`: last current-day MIS quote after 13:30 while same-day EOD is not yet available;
+- `eod_final`: persisted canonical EOD serving value for that date;
+- `stale`: only an older successful value is available;
+- `missing`: no usable persisted value.
+
+Source, `quote_at`, `received_at`, `price_date`, route version, state and final/non-final semantics
+remain explicit. A failed MIS request never clears the last successful persisted value.
+
+### Demand-driven MIS refresh
+
+There is **no one-minute market quote Scheduler**. When the App is unused, MIS request volume is zero.
+
+During a regular TWSE session, visible Today／Watchlist／Holdings／Stock Detail pages may revalidate
+once per minute. The backend applies a persistent 60-second TTL before calling MIS, so multiple reads
+inside the TTL use the same PostgreSQL last-success value. Leaving the page, backgrounding the App or
+leaving regular market hours stops UI polling.
+
+Holdings also provides an explicit **「更新股價」** action. It resolves the authenticated owner's
+current holdings and refreshes only those TWSE symbols. Manual refresh bypasses the normal 60-second
+TTL but retains a 10-second hard throttle. Caller-supplied owner/symbol lists are not accepted.
+
+TAIEX follows the same demand-driven pattern for Today. No TPEx index is queried or displayed.
+
+### EOD handoff
+
+The existing `janus-batch-controller` owns both ingestion slots; no second Scheduler or Cloud Run Job
+is created:
+
+- 07:30 Asia/Taipei: normal daily ingestion contract;
+- 14:30 Asia/Taipei: same-day TWSE price/index close using the existing `janus-ingestion-core`,
+  execution-level `INGESTION_DATE=<same Taipei date>` and
+  `INGESTION_DATASETS=twse-market-volume,taiex`.
+
+From 13:30 until the same-day EOD projection is available, UI may continue to show the final MIS value
+as `closing_pending_eod`. When same-day EOD is persisted, the resolver switches to `eod_final`
+without a frontend API/source switch. If 14:30 EOD is delayed or fails, last MIS remains visible with
+non-final/pending semantics rather than falling back silently to yesterday.
 
 ## Broker Profile
 

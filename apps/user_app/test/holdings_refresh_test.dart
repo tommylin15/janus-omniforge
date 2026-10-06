@@ -9,6 +9,14 @@ class QuotesApi extends Api {
   bool stale = false;
   bool marketOpen = true;
   @override
+  Future<dynamic> post(String path, Map<String, dynamic> body) async {
+    if (path == '/api/v1/me/portfolio/quotes/refresh') {
+      return get('/api/v1/me/portfolio/quotes');
+    }
+    return body;
+  }
+
+  @override
   Future<dynamic> get(String path) async {
     if (path == '/api/v1/me/portfolio/quotes') {
       calls++;
@@ -69,7 +77,7 @@ void main() {
     expect(api.calls, 1);
     await tester.pump(const Duration(minutes: 2));
     expect(api.calls, 1);
-    await tester.tap(find.text('更新即時報價'));
+    await tester.tap(find.text('更新股價'));
     await tester.pumpAndSettle();
     expect(api.calls, 2);
     await tester.pumpWidget(const SizedBox());
@@ -122,10 +130,13 @@ void main() {
     expect(find.textContaining('市值 125,066'), findsOneWidget);
     expect(find.textContaining('現價 101.35 · 均價 100.25'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    await tester.pump(const Duration(seconds: 30));
+    await tester.pump(const Duration(seconds: 59));
+    await tester.pumpAndSettle();
+    expect(api.calls, 1);
+    await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
     expect(api.calls, 2);
-    await tester.tap(find.text('更新即時報價'));
+    await tester.tap(find.text('更新股價'));
     await tester.pumpAndSettle();
     expect(api.calls, 3);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
@@ -135,12 +146,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.calls, 4);
     api.stale = true;
-    await tester.pump(const Duration(seconds: 30));
+    await tester.pump(const Duration(minutes: 1));
     await tester.pumpAndSettle();
     expect(find.textContaining('保留最後成功報價估值'), findsOneWidget);
     expect(find.textContaining('市值 125,066'), findsOneWidget);
     api.fail = true;
-    await tester.pump(const Duration(seconds: 30));
+    await tester.pump(const Duration(minutes: 1));
     await tester.pumpAndSettle();
     expect(find.textContaining('保留最後資料'), findsOneWidget);
     expect(find.textContaining('持有 1,234 股'), findsOneWidget);

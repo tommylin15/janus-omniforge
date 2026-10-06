@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'final_charts.dart';
@@ -15,8 +17,10 @@ class FinalStockDetailPage extends StatefulWidget {
   State<FinalStockDetailPage> createState() => _FinalStockDetailPageState();
 }
 
-class _FinalStockDetailPageState extends State<FinalStockDetailPage> {
+class _FinalStockDetailPageState extends State<FinalStockDetailPage> with WidgetsBindingObserver {
   final values = <String, dynamic>{};
+  Timer? quoteTimer;
+  bool foreground = true;
   final errors = <String>{};
   bool loading = true;
   bool klineLoading = false;
@@ -35,10 +39,53 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> {
     }
   }
 
+  bool get marketHours {
+    final taipei = DateTime.now().toUtc().add(const Duration(hours: 8));
+    final minutes = taipei.hour * 60 + taipei.minute;
+    return taipei.weekday <= 5 && minutes >= 540 && minutes < 810;
+  }
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    foreground = WidgetsBinding.instance.lifecycleState == null ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     loadPrimary();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _startQuoteTimer();
+    });
+  }
+
+  void _startQuoteTimer() {
+    quoteTimer?.cancel();
+    if (foreground && marketHours && (ModalRoute.of(context)?.isCurrent ?? true)) {
+      quoteTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+        if (!foreground || !marketHours || !(ModalRoute.of(context)?.isCurrent ?? true)) {
+          quoteTimer?.cancel();
+        } else {
+          safe('header', '/api/v1/public/stock-header/${Uri.encodeComponent(widget.symbol)}');
+        }
+      });
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    foreground = state == AppLifecycleState.resumed;
+    if (foreground) {
+      safe('header', '/api/v1/public/stock-header/${Uri.encodeComponent(widget.symbol)}');
+      _startQuoteTimer();
+    } else {
+      quoteTimer?.cancel();
+    }
+  }
+
+  @override
+  void dispose() {
+    quoteTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   Future<void> loadPrimary() async {
@@ -202,7 +249,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> {
                   Text(widget.symbol, style: const TextStyle(color: fvMuted)),
                   const SizedBox(height: 8),
                   Text(
-                    '歷史收盤價 ${legacy.accountingNumber(header['close'], decimals: 2, missing: '尚未取得')} · 行情日 ${fvText(header['trade_date'])}',
+                    '${header['price_source'] == 'twse_mis' ? '盤中最新價' : '正式收盤價'} ${legacy.accountingNumber(header['close'], decimals: 2, missing: '尚未取得')} · 行情日 ${fvText(header['trade_date'])}',
                     style: const TextStyle(color: fvInk),
                   ),
                   if (report['analysis_as_of'] != null ||

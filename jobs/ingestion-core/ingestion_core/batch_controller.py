@@ -178,7 +178,7 @@ def occurrence_env(batch, slot: datetime) -> tuple[tuple[str, str], ...]:
     values = dict(batch.env)
     if batch.name == "ingestion" and slot.hour == 14 and slot.minute == 30:
         values["INGESTION_DATE"] = slot.date().isoformat()
-        values["INGESTION_DATASETS"] = "twse-market-volume,tpex-market-volume,taiex,tpex-benchmark"
+        values["INGESTION_DATASETS"] = "twse-market-volume,taiex"
     return tuple(sorted(values.items()))
 
 

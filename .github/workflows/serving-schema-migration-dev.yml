@@ -18,6 +18,7 @@ on:
           - 043_admin_batch_read
           - 044_quotes_broker_profile
           - 045_private_pipeline_operations
+          - 046_twse_only_latest_price
   push:
     branches: [main]
     paths:
@@ -49,7 +50,7 @@ jobs:
             MIGRATION='${{ inputs.migration }}'
           fi
           case "${MIGRATION}" in
-            041_operational_position_projection|042_stock_serving_projection|043_admin_batch_read|044_quotes_broker_profile|045_private_pipeline_operations) ;;
+            041_operational_position_projection|042_stock_serving_projection|043_admin_batch_read|044_quotes_broker_profile|045_private_pipeline_operations|046_twse_only_latest_price) ;;
             *) echo "Unsupported serving schema migration: ${MIGRATION}" >&2; exit 2 ;;
           esac
           echo "MIGRATION=${MIGRATION}" >> "${GITHUB_ENV}"

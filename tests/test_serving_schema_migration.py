@@ -106,6 +106,19 @@ def test_private_operations_migration_exposes_only_aggregate_status():
     assert "045_private_pipeline_operations" in sql
 
 
+def test_twse_only_latest_price_migration_retires_tpex_without_deleting_history():
+    control = FakeControl()
+    migration.run(control, migration.MIGRATION_TWSE_LATEST_PRICE)
+    sql = statements(control.connection)
+    assert "source_ids - 'tpex' - 'tpex-benchmark'" in sql
+    assert "SET enabled=false, collection_enabled=false, analysis_enabled=false" in sql
+    assert "UPDATE control.stock_master" in sql
+    assert "WHERE market='TPEX' AND enabled" in sql
+    assert "DELETE FROM" not in sql
+    assert sql.index("has_table_privilege") < sql.index("INSERT INTO control.schema_migrations")
+    assert "046_twse_only_latest_price" in sql
+
+
 def test_position_projection_splits_control_and_private_api_owners(monkeypatch):
     control = FakeControl()
     private = FakeConnection("janus_private_api")
