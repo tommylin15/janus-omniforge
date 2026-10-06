@@ -74,7 +74,7 @@ case "${component}" in
     gcloud run jobs update "${runtime_name}" --project="${project}" --region="${region}" \
       --service-account="ingestion-core@${project}.iam.gserviceaccount.com" \
       --tasks=1 --parallelism=1 --max-retries=1 --task-timeout=30m --memory=2Gi \
-      --update-env-vars="MART_JOB=janus-intelligence-mart,GCP_REGION=${region},MART_OPERATION=queue" \
+      --update-env-vars="MART_JOB=janus-intelligence-mart,GCP_REGION=${region},MART_OPERATION=queue,STOCK_SERVING_PROJECTION_ENABLED=true" \
       --remove-env-vars="INGESTION_DATASETS" \
       --remove-secrets="CONTROL_DB_PASSWORD,CATALOG_DB_PASSWORD" \
       --update-secrets="JANUS_INGESTION_POSTGRES_BUNDLE=janus-runtime-bundle:latest" --quiet

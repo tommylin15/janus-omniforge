@@ -21,6 +21,12 @@ UPDATE control.stock_master
 SET enabled=false, updated_at=now()
 WHERE market='TPEX' AND enabled;
 
+ALTER TABLE control.operational_last_quotes
+  DROP CONSTRAINT IF EXISTS operational_last_quotes_route_version_check;
+ALTER TABLE control.operational_last_quotes
+  ADD CONSTRAINT operational_last_quotes_route_version_check
+  CHECK (route_version IN ('quote-router.v1','latest-price.v2'));
+
 CREATE OR REPLACE FUNCTION control.request_portfolio_market_coverage(requested_symbols text[])
 RETURNS TABLE(symbol text)
 LANGUAGE sql

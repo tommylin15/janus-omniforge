@@ -346,6 +346,11 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
     dq_items: list[dict[str, object]] = []
     coverage_items: list[dict[str, object]] = []
     holding_prices_by_date: dict[str, set[str]] = {}
+    serving_projection = None
+    serving_published = 0
+    if os.environ.get("STOCK_SERVING_PROJECTION_ENABLED", "false").lower() in {"1", "true", "yes"}:
+        from .serving_projection import StockServingProjection
+        serving_projection = StockServingProjection.from_env()
     execution_scoped = os.environ.get("STAGE_EXECUTION_SCOPED", "true").lower() in {"1", "true", "yes"}
     force_refresh = os.environ.get("FORCE_REFRESH", "false").lower() in {"1", "true", "yes"}
 
@@ -458,10 +463,20 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                     response = replace(response, raw_payload=None)
                     if not response.rows:
                         raise ValueError("OHLCV DQ rejected all rows")
-                    committed = core.write(dataset_id=getattr(adapter, "core_dataset_id", None) or adapter.dataset_id,
+                    core_dataset_id = getattr(adapter, "core_dataset_id", None) or adapter.dataset_id
+                    committed = core.write(dataset_id=core_dataset_id,
                                            rows=list(response.rows),
                                            execution_id=execution_id, provenance_id=result.idempotency_key,
                                            source_id=adapter.source_id, partition_date=as_of)
+                    if serving_projection is not None and core_dataset_id in serving_projection.DATASETS:
+                        serving_published += serving_projection.publish(
+                            core_dataset_id,
+                            [dict(row) for row in response.rows],
+                            execution_id=execution_id,
+                            provenance_id=result.idempotency_key,
+                            source_id=adapter.source_id,
+                            core_snapshot_id=committed.snapshot_id,
+                        )
                     if adapter.dataset_id == "stock-profile":
                         control.refresh_official_stock_profiles(tuple(dict(row) for row in response.rows))
                     core_created += committed.inserted
@@ -498,9 +513,19 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                                 status="complete" if expected <= received_prices else "partial",
                                 quarantined_rows=len(checked.quarantined))
                             if checked.accepted:
-                                price_commit = core.write(dataset_id="ohlcv", rows=[dict(row) for row in checked.accepted],
+                                price_rows_to_publish = [dict(row) for row in checked.accepted]
+                                price_commit = core.write(dataset_id="ohlcv", rows=price_rows_to_publish,
                                                           execution_id=execution_id, provenance_id=result.idempotency_key,
                                                           source_id=adapter.source_id, partition_date=as_of)
+                                if serving_projection is not None:
+                                    serving_published += serving_projection.publish(
+                                        "ohlcv",
+                                        price_rows_to_publish,
+                                        execution_id=execution_id,
+                                        provenance_id=result.idempotency_key,
+                                        source_id=adapter.source_id,
+                                        core_snapshot_id=price_commit.snapshot_id,
+                                    )
                                 core_created += price_commit.inserted
                                 core_updated += price_commit.updated
                                 core_reused += price_commit.reused
@@ -653,6 +678,7 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
         "core_created": core_created,
         "core_updated": core_updated,
         "core_reused": core_reused,
+        "serving_published": serving_published,
         "iceberg_tables": iceberg_tables,
         "coverage_inventory_uri": f"gs://{core_bucket}/{inventory_name}",
         "coverage_inventory_hash": f"sha256:{sha256(inventory_payload).hexdigest()}",

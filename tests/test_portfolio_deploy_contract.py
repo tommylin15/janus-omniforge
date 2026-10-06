@@ -15,6 +15,7 @@ COVERAGE_MIGRATION = (ROOT / "infra" / "postgres" / "migrations" / "031_portfoli
 LIQUID_500_MIGRATION = (ROOT / "infra" / "postgres" / "migrations" / "032_liquid_500.sql").read_text(encoding="utf-8")
 LIQUID_500_TPEX_MIGRATION = (ROOT / "infra" / "postgres" / "migrations" / "033_liquid_500_tpex_source.sql").read_text(encoding="utf-8")
 INGESTION_ENTRYPOINT = (ROOT / "jobs" / "ingestion-core" / "ingestion_core" / "runtime_entrypoint.py").read_text(encoding="utf-8")
+INGESTION_MAIN = (ROOT / "jobs" / "ingestion-core" / "ingestion_core" / "__main__.py").read_text(encoding="utf-8")
 CLOUDBUILD = (ROOT / "cloudbuild.yaml").read_text(encoding="utf-8")
 DEPLOY = (ROOT / "scripts" / "gcp" / "deploy-dev.sh").read_text(encoding="utf-8")
 
@@ -107,6 +108,13 @@ def test_liquid_500_tpex_source_is_historical_only_and_not_rerunnable():
     assert "033_liquid_500_tpex_source" not in INGESTION_WORKFLOW
     assert "_apply_liquid_500_tpex_source" not in INGESTION_ENTRYPOINT
     assert "033_liquid_500_tpex_source" in LIQUID_500_TPEX_MIGRATION
+
+
+def test_ingestion_publishes_rebuildable_stock_serving_projection():
+    assert "STOCK_SERVING_PROJECTION_ENABLED=true" in DEPLOY
+    assert "StockServingProjection.from_env()" in INGESTION_MAIN
+    assert 'serving_projection.publish(' in INGESTION_MAIN
+    assert '"serving_published": serving_published' in INGESTION_MAIN
 
 
 def test_full_500_collection_uses_batched_default_sources_in_dev():
