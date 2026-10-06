@@ -2131,3 +2131,13 @@ the MCP connector still uses its older existing tagged revision.
 - Inspect run `37407331976` 最新 retention apply receipts：Stage `deleted_objects=110`、`deleted_bytes=32,275,833`；Core `active_bytes_reduced=5,928,635`；Mart `active_bytes_reduced=5,932,252`，specialist artifacts `deleted_objects=68`。`billable_bytes_reclaimed=null`，所以 billable/cost reclaimed 維持 `unknown`。bucket-level lifecycle/retention 欄位目前為空；正式 cleanup 依 retention jobs／reference fence contract 執行。
 
 仍未由本節證明：Android installed-PWA reopen、authenticated 四頁/Admin UI、real-owner transaction mutation chain、real-device p95/visited-restore。這些不能用 workflow／widget test／read-only connector 代替。
+
+## Janus MCP owner-scoped ledger write rollout checkpoint（2026-10-06）
+
+- Main `d494acb43b4ed079aabb6540203f654ec64e65fe` 新增 `janus_private_ledger_append` 與獨立 OAuth scope `janus.private.write`；owner 只取自 server-side OAuth binding，client schema 不接受 `owner_id`／`user_id`。
+- GitHub Actions `Deploy dev with GitHub` run `37410282220` **success**；API targeted tests（含 MCP adapter／OAuth）通過。獨立 `Portfolio Completeness Contract` run `37410281460` 亦 **success**。
+- Cloud Run `janus-api` 已部署 revision `janus-api-gd494acb43b4e-config`，default traffic 100%；immutable API image digest 為 `sha256:30b3da176731d3a2e9eec9f0410c34430eaf0c2d860e1c88f7ed26549ff3e84d`。
+- 部署後 MCP acceptance Cloud Build `f6ea3f77-844a-4af2-b2f7-cb7a5d0bffe4`、tagged adapter 驗證 `6545d5d1-f12f-463e-a0a4-3296dab4e0a9`、tagged OAuth 驗證 `b5278ae2-af86-46d7-8630-4d06cb448b66` 均 **SUCCESS**。既有 `mcp-adapter`／`mcp-oauth` tags 已 promote 到最新 ready revision。
+- Runtime contract 驗證包含四個 tools、`janus.private.write` scope、write tool `readOnlyHint=false`、未授權 write challenge；驗證流程刻意不執行真實 mutation，因此沒有以 acceptance probe 建立假交易。
+- ChatGPT private plugin `Janus Dev Private` 已建立，指向既有 `mcp-adapter` endpoint；建立 plugin 本身不等於 OAuth 已重新授權，也不等於真實 owner write 已完成。
+- 目前剩餘 acceptance：使用者在 ChatGPT 對新 plugin 完成 Google OAuth／`janus.private.write` consent，之後用本人已知交易做真實 append、相同 idempotency key 重試、`janus_private_context(resource=trades)` readback 與 owner isolation 驗證。完成前狀態維持 **partial**。
