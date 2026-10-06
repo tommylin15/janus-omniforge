@@ -1,0 +1,61 @@
+name: Drain mobile ledger queue once
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/mobile-ledger-drain-once.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: mobile-ledger-drain-dev
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_REGION: us-central1
+
+jobs:
+  drain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Drain bounded mobile ledger queue
+        shell: bash
+        run: |
+          set -u -o pipefail
+          failures=0
+          for index in 1 2 3 4 5 6; do
+            echo "=== private pipeline drain execution ${index}/6 ==="
+            if ! gcloud run jobs execute janus-private-pipeline \
+              --project="${GCP_PROJECT_ID}" \
+              --region="${GCP_REGION}" \
+              --wait; then
+              failures=$((failures + 1))
+            fi
+            execution="$(gcloud run jobs executions list \
+              --job=janus-private-pipeline \
+              --project="${GCP_PROJECT_ID}" \
+              --region="${GCP_REGION}" \
+              --limit=1 \
+              --format='value(metadata.name)')"
+            if [[ -n "${execution}" ]]; then
+              gcloud run jobs executions describe "${execution}" \
+                --project="${GCP_PROJECT_ID}" \
+                --region="${GCP_REGION}" \
+                --format='yaml(metadata.name,status.completionTime,status.succeededCount,status.failedCount)' || true
+            fi
+          done
+          if [[ "${failures}" -ne 0 ]]; then
+            echo "${failures} private pipeline execution(s) returned non-zero; inspect queue and execution evidence before completion." >&2
+            exit 1
+          fi
