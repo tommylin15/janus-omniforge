@@ -125,7 +125,12 @@ jobs:
               identity="janus-ingestion-scheduler@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
               target="https://run.googleapis.com/v2/projects/${GCP_PROJECT_ID}/locations/${GCP_REGION}/jobs/janus-private-pipeline:run"
               : > runtime-evidence/private-schedulers.ndjson
-              while IFS='|' read -r name expected_schedule; do
+              for scheduler_spec in \
+                'janus-private-pipeline-0740|40 7 * * MON-FRI' \
+                'janus-private-pipeline-1100|0 11 * * MON-FRI' \
+                'janus-private-pipeline-1400|0 14 * * MON-FRI' \
+                'janus-private-pipeline-2130|30 21 * * MON-FRI'; do
+                IFS='|' read -r name expected_schedule <<< "${scheduler_spec}"
                 scheduler="$(gcloud scheduler jobs describe "${name}" \
                   --project="${GCP_PROJECT_ID}" --location="${GCP_REGION}" --format=json)"
                 jq -e \
@@ -151,12 +156,7 @@ jobs:
                   target:.httpTarget.uri,
                   serviceAccountEmail:.httpTarget.oauthToken.serviceAccountEmail
                 }' <<< "${scheduler}" | tee -a runtime-evidence/private-schedulers.ndjson
-              done <<'SCHEDULES'
-              janus-private-pipeline-0740|40 7 * * MON-FRI
-              janus-private-pipeline-1100|0 11 * * MON-FRI
-              janus-private-pipeline-1400|0 14 * * MON-FRI
-              janus-private-pipeline-2130|30 21 * * MON-FRI
-              SCHEDULES
+              done
 
               gcloud run jobs executions list \
                 --job=janus-private-pipeline \
