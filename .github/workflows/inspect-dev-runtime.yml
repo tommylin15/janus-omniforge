@@ -190,6 +190,70 @@ jobs:
               fi
               echo "Private Pipeline scheduler definitions and bounded execution history passed"
               ;;
+            batch-runtime)
+              mkdir -p runtime-evidence
+              gcloud run jobs describe janus-batch-controller \
+                --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json \
+                | jq '{
+                    name:.metadata.name,
+                    image:.spec.template.spec.template.spec.containers[0].image,
+                    serviceAccount:.spec.template.spec.template.spec.serviceAccountName,
+                    env:[
+                      .spec.template.spec.template.spec.containers[0].env[]?
+                      | select(.name | startswith("BATCH_CONTROLLER_"))
+                      | {name,value:(.value // null),hasValueFrom:(.valueFrom != null)}
+                    ]
+                  }' | tee runtime-evidence/batch-controller-job.json
+
+              for job in janus-batch-controller janus-private-pipeline; do
+                gcloud run jobs executions list \
+                  --job="${job}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+                  --limit=40 --format=json \
+                  | jq '[.[] | {
+                      name:(.metadata.name|split("/")[-1]),
+                      creationTimestamp:.metadata.creationTimestamp,
+                      startTime:.status.startTime,
+                      completionTime:.status.completionTime,
+                      succeededCount:(.status.succeededCount // 0),
+                      failedCount:(.status.failedCount // 0)
+                    }]' | tee "runtime-evidence/${job}-history.json"
+                gcloud logging read \
+                  "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"${job}\"" \
+                  --project="${GCP_PROJECT_ID}" --freshness=7d --limit=300 --order=desc --format=json \
+                  > "runtime-evidence/${job}-logs.json" || printf '[]\n' > "runtime-evidence/${job}-logs.json"
+              done
+
+              gcloud logging read \
+                'resource.type="cloud_scheduler_job" AND resource.labels.job_id="janus-ingestion-daily"' \
+                --project="${GCP_PROJECT_ID}" --freshness=7d --limit=100 --order=desc --format=json \
+                > runtime-evidence/controller-scheduler-logs.json || printf '[]\n' > runtime-evidence/controller-scheduler-logs.json
+              gcloud logging read \
+                'resource.type="cloud_scheduler_job" AND resource.labels.job_id=~"janus-private-pipeline-.*"' \
+                --project="${GCP_PROJECT_ID}" --freshness=7d --limit=200 --order=desc --format=json \
+                > runtime-evidence/direct-private-scheduler-logs.json || printf '[]\n' > runtime-evidence/direct-private-scheduler-logs.json
+
+              jq '{
+                controller_scheduler_log_count:length,
+                recent:[
+                  .[:12][] | {
+                    timestamp,severity,
+                    job_id:.resource.labels.job_id,
+                    status:(.httpRequest.status // .jsonPayload.status // null)
+                  }
+                ]
+              }' runtime-evidence/controller-scheduler-logs.json
+              jq '{
+                direct_private_scheduler_log_count:length,
+                recent:[
+                  .[:12][] | {
+                    timestamp,severity,
+                    job_id:.resource.labels.job_id,
+                    status:(.httpRequest.status // .jsonPayload.status // null)
+                  }
+                ]
+              }' runtime-evidence/direct-private-scheduler-logs.json
+              echo "Batch controller and Private Pipeline runtime history inspected without Scheduler IAM expansion"
+              ;;
             storage-governance)
               mkdir -p runtime-evidence
               bucket_list="$(gcloud storage buckets list --project="${GCP_PROJECT_ID}" --format=json)"
