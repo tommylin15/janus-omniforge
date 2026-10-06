@@ -4,6 +4,12 @@
 
 用途：只回答「現在在哪裡、下一步是什麼、哪些尚未完成」。實作以 GitHub `main` 為準，完成狀態以 tests／CI、deployment、live runtime、trigger／workload、integration evidence 為準。完整 active queue 只看 [`todo.md`](todo.md)。
 
+## 2026-10-06 A 組桌面 authenticated 驗收與缺陷修正
+
+A 組仍為 `partial`。本次已取得 Chrome 真實 User／Admin 登入，不再以 browser 不可用為 blocker；真實畫面發現法人欄位、科學記號零值、個股基本資料依賴研究報告與 Admin GCS SDK 缺漏，已修正並進入既有 dev release。先前「沒有已知可直接修的 runtime gap」僅為當時 checkpoint，不代表此次驗收結果。
+
+Mobile ledger writer／owner binding probe `janus-private-pipeline-d67xx` 成功；原 rollout `37416087045` retry success。剩餘包含修正版部署後重驗、Android icon 重開／手機效能、真實交易 mutation 與 mobile enqueue/duplicate/readback；缺真實交易欄位不得造假。詳見 [本次 checkpoint](archive/group-a-authenticated-defect-closure-2026-10-06.md)。
+
 ## 2026-10-06 B 組優先架構決策（尚未實作完成）
 
 使用者已核准 [Iceberg canonical + BigQuery analytics hybrid](decision-2026-10-06-bigquery-analytics-over-iceberg.md) 作為 B 組 specialist／cache 的優先資料運算架構：

@@ -160,9 +160,9 @@ class _FinalTodayPageState extends State<FinalTodayPage> {
             'day_trade_sell_twd': '當沖賣出',
           }),
           _marketCard('法人動向', Icons.groups_2_outlined, sections['institutional'], const {
-            'foreign': '外資',
-            'investment_trust': '投信',
-            'dealer': '自營商',
+            'foreign_net_shares': '外資買賣超股數',
+            'investment_trust_net_shares': '投信買賣超股數',
+            'dealer_net_shares': '自營商買賣超股數',
           }),
         ],
       ]);

@@ -61,7 +61,7 @@ void main() {
           'institutional': {
             'status': 'available',
             'as_of': '2026-10-02',
-            'data': {'foreign': '225187325'}
+            'data': {'foreign_net_shares': '225187325'}
           },
         }
       },
@@ -76,6 +76,7 @@ void main() {
     expect(find.text('櫃買指數'), findsNothing);
     expect(find.text('市場活動'), findsOneWidget);
     expect(find.text('法人動向'), findsOneWidget);
+    expect(find.text('外資買賣超股數 225,187,325'), findsOneWidget);
     expect(find.text('研究內容尚未就緒'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -384,6 +385,9 @@ void main() {
           'dimensions': {'fundamental': 80, 'valuation': 70},
         }
       },
+      '/api/v1/public/stock-header/2330': {
+        'stock_name': '台積電', 'close': '125', 'trade_date': '2026-10-03',
+      },
       '/api/v1/me/journal/positions': [
         {
           'symbol': '2330',
@@ -428,6 +432,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('我的持股'), findsOneWidget);
+    expect(find.text('歷史收盤價 125.00 · 行情日 2026-10-03'), findsOneWidget);
     expect(
       api.reads.where((path) => path == '/api/v1/public/kline/2330'),
       isEmpty,

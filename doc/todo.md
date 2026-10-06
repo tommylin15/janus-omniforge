@@ -80,6 +80,8 @@ Admin operational convergence **不重做整個 Admin**。保留 `總覽 / 批�
 
 ## A 組新增／明確化 acceptance
 
+> 2026-10-06 desktop authenticated checkpoint：已可使用 Chrome 真實 User／Admin。本次畫面驗收發現並修正法人欄位、科學記號零值、個股 baseline 與治理 SDK 缺漏；修正版部署後證據仍待取得，A 維持 partial。Mobile queue writer／owner binding probe 成功；Android、真實 mutation/mobile enqueue、手機效能 gate 保留。見 [`archive/group-a-authenticated-defect-closure-2026-10-06.md`](archive/group-a-authenticated-defect-closure-2026-10-06.md)。
+
 A 組目前狀態定義：**部分功能已完成並進入 GCP dev 真實驗收，仍可能由真實驗收發現 implementation gap；發現後必須回到實作修正。** 進入驗收不等於 implementation 已全部完成，也不等於只剩 acceptance。
 
 > 2026-10-06 non-live closure：已知可直接由 code／tests／migration／deployment 關閉的 A 組缺口（Final Visual production path、Admin PWA identity、YTD 三態、Ledger correction/refresh、Admin Private operations、canonical-data charts）已完成並部署。下列 checkbox 仍不勾選，因其 acceptance 包含 authenticated browser／real owner mutation／performance／scheduler/storage live evidence。證據見 [`archive/group-a-nonlive-closure-2026-10-06.md`](archive/group-a-nonlive-closure-2026-10-06.md)。

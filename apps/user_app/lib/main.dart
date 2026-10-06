@@ -22,6 +22,11 @@ String uiLabel(Object? value) =>
       'warming': '升溫',
       'cooling': '降溫',
       'available': '可用',
+      'persisted': '已保存行情',
+      'publishable': '可發布',
+      'published': '已發布',
+      'waiting': '尚未就緒',
+      'missing': '資料缺少',
       'partial': '部分可用',
       'stale': '資料過期',
       'fallback': '備援',
@@ -45,7 +50,22 @@ String stockDisplayName(Map row) {
 String accountingNumber(Object? value,
     {String missing = '—', int decimals = 0}) {
   if (value == null) return missing;
-  final match = RegExp(r'^([+-]?)(\d+)(?:\.(\d+))?$').firstMatch('$value');
+  var input = '$value';
+  final scientific = RegExp(r'^([+-]?)(\d+)(?:\.(\d+))?[eE]([+-]?\d+)$')
+      .firstMatch(input);
+  if (scientific != null) {
+    final exponent = int.tryParse(scientific[4]!);
+    if (exponent == null || exponent.abs() > 100) return missing;
+    final digits = '${scientific[2]}${scientific[3] ?? ''}';
+    final point = scientific[2]!.length + exponent;
+    final expanded = point <= 0
+        ? '0.${''.padRight(-point, '0')}$digits'
+        : point >= digits.length
+            ? digits.padRight(point, '0')
+            : '${digits.substring(0, point)}.${digits.substring(point)}';
+    input = '${scientific[1]}$expanded';
+  }
+  final match = RegExp(r'^([+-]?)(\d+)(?:\.(\d+))?$').firstMatch(input);
   if (match == null) return missing;
   final fraction = (match[3] ?? '').padRight(decimals + 1, '0');
   var units = BigInt.parse('${match[2]}${fraction.substring(0, decimals)}');

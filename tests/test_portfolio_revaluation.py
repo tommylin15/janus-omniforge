@@ -142,6 +142,7 @@ def test_private_pipeline_runtime_preserves_offlist_before_processing(monkeypatc
 
     monkeypatch.setattr(private_pipeline_runtime, "load_postgres_bundle", lambda *_args: None)
     monkeypatch.setattr(private_pipeline_runtime, "repository_from_env", RepositoryStub)
+    monkeypatch.setattr(private_pipeline_runtime, "process_mobile_ledger_queue", lambda *_args: {})
     monkeypatch.setattr(private_pipeline_runtime.CorePriceReader, "from_env", classmethod(lambda _cls: MarketStub()))
     monkeypatch.setattr(private_pipeline_runtime.PrivateIcebergStore, "from_env", classmethod(lambda _cls: object()))
     monkeypatch.setattr(private_pipeline_runtime, "PrivatePipeline", PipelineStub)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 import os
 import time
 from typing import Any, Callable, Mapping, Protocol
@@ -12,6 +13,15 @@ from fastapi import HTTPException, Request, status
 
 
 GOOGLE_ISSUERS = frozenset({"accounts.google.com", "https://accounts.google.com"})
+
+
+@lru_cache(maxsize=1)
+def _google_certificate_request():
+    import cachecontrol
+    import requests
+    from google.auth.transport.requests import Request
+
+    return Request(session=cachecontrol.CacheControl(requests.Session()))
 
 
 class UserResolver(Protocol):
@@ -74,10 +84,9 @@ class GoogleUserAuthenticator:
 
     @staticmethod
     def _verify_google_token(token: str, audience: str) -> Mapping[str, Any]:
-        from google.auth.transport import requests
         from google.oauth2 import id_token
 
-        return id_token.verify_oauth2_token(token, requests.Request(), audience)
+        return id_token.verify_oauth2_token(token, _google_certificate_request(), audience)
 
 
 class GoogleAdminAuthenticator:

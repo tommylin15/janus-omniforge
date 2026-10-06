@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from datetime import datetime
 from hashlib import sha256
 import logging
@@ -416,9 +417,13 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def daily_brief(scope_id: str = Query("market", max_length=80), analysis_as_of: str = Query("", max_length=10)):
         return public_report_list("market", scope_id, analysis_as_of)
 
+    @lru_cache(maxsize=1)
+    def market_home_snapshot(minute: int):
+        return query_core.market_home()
+
     @public_router.get("/market-home", response_model=MarketHomeOut)
     def market_home():
-        return jsonable_encoder(query_core.market_home())
+        return jsonable_encoder(market_home_snapshot(int(monotonic()) // 60))
 
     @public_router.get("/sector-rotation", response_model=PublicReportListOut)
     def sector_rotation(scope_id: str = Query(..., min_length=1, max_length=80), analysis_as_of: str = Query("", max_length=10)):
@@ -439,6 +444,23 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         except PublicReportWaiting:
             return {"analysis_as_of": analysis_as_of, "scope_type": "symbol", "scope_id": symbol.upper(),
                     "data_status": "waiting", "data": {}}
+
+    @public_router.get("/stock-header/{symbol}")
+    def stock_header(symbol: str):
+        symbol = public.require_enabled_symbol(symbol)
+        identity = repository.stock_identities({symbol}).get(symbol)
+        name, identity_status, _ = stock_identity(identity)
+        result = {"symbol": symbol, "stock_name": name, "identity_status": identity_status,
+                  "close": None, "trade_date": None, "price_status": "missing"}
+        try:
+            page = query_core.page("ohlcv", symbol, limit=1, offset=0)
+            if page.rows:
+                row = page.rows[0]
+                result.update(close=row.get("close"), trade_date=row.get("trade_date"),
+                              price_status="persisted" if row.get("close") is not None else "missing")
+        except (QueryValidationError, RuntimeError):
+            pass
+        return jsonable_encoder(result)
 
     def public_dataset(symbol: str, dataset_id: str, limit: int, offset: int) -> dict[str, Any]:
         symbol = public.require_enabled_symbol(symbol)

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
+from copy import deepcopy
+from functools import lru_cache
 from decimal import Decimal
 from enum import Enum
 import json
@@ -154,11 +156,25 @@ class PrivateIcebergStore:
              filters: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         identifier = f"{self.namespace}.{table}"
         if not self.catalog.table_exists(identifier): return []
+        if table in self.TRANSACTION_DERIVED_MARTS | self.VALUATION_MARTS and limit is not None:
+            snapshot = self.catalog.load_table(identifier).current_snapshot()
+            if snapshot is None: return []
+            return deepcopy(self._snapshot_rows(identifier, snapshot.snapshot_id, str(user_id),
+                                                min(limit, 200), tuple(sorted((filters or {}).items()))))
+        return self._scan_rows(identifier, user_id, limit, filters or {})
+
+    @lru_cache(maxsize=32)
+    def _snapshot_rows(self, identifier: str, snapshot_id: int, user_id: str,
+                       limit: int, filters: tuple) -> list[dict[str, Any]]:
+        return self._scan_rows(identifier, user_id, limit, dict(filters), snapshot_id=snapshot_id)
+
+    def _scan_rows(self, identifier: str, user_id: Any, limit: int | None,
+                   filters: dict[str, Any], *, snapshot_id: int | None = None) -> list[dict[str, Any]]:
         from pyiceberg.expressions import And, EqualTo
         row_filter=EqualTo("user_id",str(user_id))
         for key,value in (filters or {}).items():
             row_filter=And(row_filter,EqualTo(key,value))
-        scan_kwargs={"row_filter":row_filter}
+        scan_kwargs={"row_filter":row_filter, "snapshot_id":snapshot_id}
         if limit is not None: scan_kwargs["limit"]=min(limit,200)
         scan=self.catalog.load_table(identifier).scan(**scan_kwargs)
         return scan.to_arrow().to_pylist()

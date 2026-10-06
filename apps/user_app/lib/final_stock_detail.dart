@@ -27,6 +27,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> {
       final value = await widget.api.get(path);
       values[key] = value;
       errors.remove(key);
+      if (mounted) setState(() {});
       return value;
     } catch (_) {
       errors.add(key);
@@ -45,6 +46,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> {
     if (mounted) setState(() => loading = true);
     try {
       await Future.wait([
+        safe('header', '/api/v1/public/stock-header/${Uri.encodeComponent(widget.symbol)}'),
         safe(
           'health',
           '/api/v1/public/stock-health/${Uri.encodeComponent(widget.symbol)}',
@@ -130,8 +132,9 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> {
     final report = fvMap(values['health']);
     final reportData = fvMap(report['data']);
     final health = reportData.isNotEmpty ? reportData : report;
+    final header = fvMap(values['header']);
     final name = fvText(
-      health['stock_name'] ?? health['name'],
+      header['stock_name'] ?? health['stock_name'] ?? health['name'],
       missing: widget.symbol,
     );
     final notes = fvRows(values['notes']);
@@ -197,6 +200,11 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> {
                   ),
                   const SizedBox(height: 3),
                   Text(widget.symbol, style: const TextStyle(color: fvMuted)),
+                  const SizedBox(height: 8),
+                  Text(
+                    '歷史收盤價 ${legacy.accountingNumber(header['close'], decimals: 2, missing: '尚未取得')} · 行情日 ${fvText(header['trade_date'])}',
+                    style: const TextStyle(color: fvInk),
+                  ),
                   if (report['analysis_as_of'] != null ||
                       health['analysis_as_of'] != null) ...[
                     const SizedBox(height: 8),

@@ -16,6 +16,22 @@ from services.api.app import create_app
 USER_ID=UUID("00000000-0000-0000-0000-000000000001")
 
 
+def test_google_verification_reuses_public_certificate_transport_but_verifies_each_token(monkeypatch):
+    from google.oauth2 import id_token
+    from services.api.auth import GoogleUserAuthenticator, _google_certificate_request
+
+    _google_certificate_request.cache_clear()
+    calls = []
+    monkeypatch.setattr(id_token, "verify_oauth2_token", lambda token, request, audience:
+                        calls.append((token, request, audience)) or {})
+    GoogleUserAuthenticator._verify_google_token("first", "user-client")
+    GoogleUserAuthenticator._verify_google_token("second", "admin-client")
+    assert [call[0] for call in calls] == ["first", "second"]
+    assert calls[0][1] is calls[1][1]
+    assert [call[2] for call in calls] == ["user-client", "admin-client"]
+    _google_certificate_request.cache_clear()
+
+
 class Repository:
     def __init__(self): self.calls=[]; self.emails=[]; self.feedback=None; self.profile={"risk_tolerance":None,"investment_horizon":None,"primary_goal":None,"minimum_cash_ratio":None,"ai_context_opt_in":False,"version":0,"updated_at":None}
     def resolve_user(self,sub,email): self.emails.append((sub,email)); return USER_ID

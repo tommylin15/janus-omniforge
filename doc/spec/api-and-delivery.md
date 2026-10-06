@@ -30,6 +30,7 @@ FastAPI 為共用 HTTP boundary：
 
 - `/api/v1/public/health`
 - `/api/v1/public/market-home`
+- `/api/v1/public/stock-header/{symbol}`：enabled symbol 的正式主檔名稱與最新持久化 OHLCV 收盤價／交易日；最多讀一列，缺價明示 missing，不依賴 specialist／CEO report。顯示為歷史收盤價，不冒充即時報價或今天行情。
 - `/api/v1/public/daily-brief?date=YYYY-MM-DD`
 - `/api/v1/public/sectors/rotation?date=YYYY-MM-DD`
 - `/api/v1/public/topics?date=YYYY-MM-DD`
@@ -41,11 +42,15 @@ FastAPI 為共用 HTTP boundary：
 
 `market-home` 的 deterministic benchmark／market activity／institutional sections 可有各自 data date／freshness／coverage／provenance；Mart／Daily Brief 未就緒不得讓 baseline 不可用。
 
+`market-home` 在單一 API instance 內使用最多 60 秒、一筆公開摘要的有界快取，保留原資料日／freshness；不快取私人資料或認證結果，不建立第二個 canonical store。Instance 冷啟動／cache miss 的 Core 查詢時間另列，不宣稱為暖機命中效能。
+
 Public report 只讀 publishable／published artifacts；`blocked`／`insufficient_data` 不進公開 service index。
 
 ### 12.2 Private User API
 
 Owner-scoped surfaces 包含交易、筆記、watchlist、positions、PnL、portfolio、investment profile、private-data export／deletion 等既有 contract。
+
+Private Mart 的有界讀取可在 instance 內重用最多 32 組 exact-snapshot scan；key 包含 table、snapshot ID、owner、filter 與 limit，每次仍讀 current snapshot pointer 並執行 current ledger version freshness gate。新 snapshot／owner／ledger mutation 不得命中另一個身份或以舊資料冒充最新；notes／無界 pipeline scan 不快取，回傳資料與 cache 分離，避免呼叫者修改污染後續讀取。
 
 Operational Quote Router 與 owner-scoped Broker Profile 的資料來源、版本、
 missing／stale／fallback 與 export／deletion 契約見 [行情與券商設定](quotes-and-broker-profile.md)。

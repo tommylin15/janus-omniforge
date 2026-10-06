@@ -204,6 +204,41 @@ def test_current_mart_prefers_latest_valuation_over_historical_replay():
         {"valuation_date":"2026-09-18","ledger_version":5,"value":"corrected"}]
 
 
+def test_private_mart_scan_cache_fences_snapshot_owner_and_ledger_version():
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from pyiceberg.expressions import EqualTo
+
+    snapshot_id, version = [1], [1]
+    scans = []
+
+    class Table:
+        def current_snapshot(self): return SimpleNamespace(snapshot_id=snapshot_id[0])
+        def scan(self, **kwargs):
+            scans.append(kwargs)
+            rows = [{"ledger_version": snapshot_id[0], "valuation_date": "2026-10-05", "value": "original"}]
+            return SimpleNamespace(to_arrow=lambda: SimpleNamespace(to_pylist=lambda: rows))
+
+    store = object.__new__(PrivateIcebergStore)
+    store.namespace = "private"
+    store.catalog = SimpleNamespace(table_exists=lambda _: True, load_table=lambda _: Table())
+    store.operational = SimpleNamespace(latest_ledger_version=lambda _: version[0])
+    first = store.mart("mart_user_positions", USER)
+    first[0]["value"] = "modified"
+    assert store.mart("mart_user_positions", USER)[0]["value"] == "original"
+    assert len(scans) == 1 and scans[0]["snapshot_id"] == 1
+    other = uuid4()
+    store.mart("mart_user_positions", other)
+    assert len(scans) == 2
+    assert scans[0]["row_filter"] == EqualTo("user_id", str(USER))
+    assert scans[1]["row_filter"] == EqualTo("user_id", str(other))
+    version[0] = 2
+    assert store.mart("mart_user_positions", USER) == []
+    snapshot_id[0] = 2
+    assert store.mart("mart_user_positions", USER)[0]["ledger_version"] == 2
+    assert len(scans) == 3 and scans[-1]["snapshot_id"] == 2
+
+
 def test_xirr_reports_unique_missing_and_multiple_roots_without_filling_zero():
     unique=xirr([(date(2025,1,1),Decimal("-100")),(date(2026,1,1),Decimal("110"))])
     assert unique["status"]=="available" and abs(unique["value"]-.1)<1e-6

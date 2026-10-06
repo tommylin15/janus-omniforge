@@ -160,7 +160,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage> {
                           ? '年度損益目前無法確認'
                           : ytd == '0'
                               ? '本年度確認無交易'
-                              : 'canonical aggregate',
+                              : '正式年度損益',
                 ),
               ),
               const SizedBox(width: 10),

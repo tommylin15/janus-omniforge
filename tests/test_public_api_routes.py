@@ -94,6 +94,35 @@ def client(public: Public) -> TestClient:
     return TestClient(create_app(object(), object(), public=public, query_core=Core()))
 
 
+def test_stock_header_uses_current_identity_and_bounded_price_without_report():
+    class Repository:
+        def stock_identities(self, symbols):
+            assert symbols == {"2330"}
+            return {"2330": {"name": "台積電", "market": "TWSE", "enabled": True}}
+
+    class HeaderCore(Core):
+        def page(self, dataset_id, symbol, *, limit, offset):
+            assert (dataset_id, symbol, limit, offset) == ("ohlcv", "2330", 1, 0)
+            return SimpleNamespace(rows=[{"close": "2575", "trade_date": "2026-10-05", "secret": "hidden"}])
+
+    public = WaitingPublic()
+    api = TestClient(create_app(Repository(), object(), public=public, query_core=HeaderCore()))
+    response = api.get("/api/v1/public/stock-header/2330")
+    assert response.status_code == 200
+    assert response.json() == {"symbol": "2330", "stock_name": "台積電", "identity_status": "available",
+                               "close": "2575", "trade_date": "2026-10-05", "price_status": "persisted"}
+    assert public.calls == []
+    assert api.get("/api/v1/public/stock-header/9999").status_code == 404
+
+
+def test_stock_header_withholds_price_when_core_is_unavailable():
+    repository = SimpleNamespace(stock_identities=lambda _symbols: {})
+    api = TestClient(create_app(repository, object(), public=Public(), query_core=MissingDatasetCore()))
+    value = api.get("/api/v1/public/stock-header/2330").json()
+    assert value["stock_name"] is None and value["identity_status"] == "missing"
+    assert value["close"] is None and value["trade_date"] is None and value["price_status"] == "missing"
+
+
 def test_flutter_app_shell_headers_prevent_stale_dev_ui() -> None:
     for path in ("", "index.html", "admin-index.html", "manifest.json",
                  "admin-manifest.json", "build-id.txt", "flutter_service_worker.js",

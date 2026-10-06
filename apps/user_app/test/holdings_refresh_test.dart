@@ -93,6 +93,11 @@ void main() {
     expect(accountingNumber('9007199254740993.1'), '9,007,199,254,740,993');
     expect(accountingNumber(null), '—');
     expect(accountingNumber('NaN'), '—');
+    expect(accountingNumber('0E-10'), '0');
+    expect(accountingNumber('-1.235E3', decimals: 2), '(1,235.00)');
+    expect(accountingNumber('9.0071992547409931E15'), '9,007,199,254,740,993');
+    expect(accountingNumber('1E-3', decimals: 2), '0.00');
+    expect(accountingNumber('1E1000'), '—');
     expect(accountingNumber('1234.565', decimals: 2), '1,234.57');
     expect(accountingNumber('48', decimals: 2), '48.00');
     expect(accountingNumber('-0.004', decimals: 2), '0.00');

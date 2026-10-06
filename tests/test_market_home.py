@@ -7,6 +7,25 @@ from packages.web_api import CoreQueryService
 from services.api.app import create_app
 
 
+def test_public_market_home_cache_expires_without_changing_dates(monkeypatch):
+    import services.api.app as app_module
+
+    clock = [0.0]
+    monkeypatch.setattr(app_module, "monotonic", lambda: clock[0])
+    calls = []
+    core = CoreQueryService(lambda *args: calls.append(args) or [])
+    api = TestClient(create_app(object(), object(), query_core=core))
+    first = api.get("/api/v1/public/market-home").json()
+    count = len(calls)
+    assert count == 3
+    clock[0] = 59
+    assert api.get("/api/v1/public/market-home").json() == first
+    assert len(calls) == count
+    clock[0] = 60
+    assert api.get("/api/v1/public/market-home").status_code == 200
+    assert len(calls) == 2 * count
+
+
 def test_market_home_keeps_core_sections_when_brief_is_missing():
     today = datetime.now(ZoneInfo("Asia/Taipei")).date()
     def query(identifier, sql, parameters):
