@@ -190,7 +190,7 @@ CEO 報告不因任何 upstream change 自動重跑；只標記「報告後已�
 
 ## 7. Model retraining cadence
 
-「每月」主要指 model retraining / calibration / OOS evaluation / reconciliation，不是所有 specialist outputs 每月才更新。第一版固定 **每月第一個週六 10:30（Asia/Taipei）**；不使用「每月 1 日」或「每週六跑 500×5」作 active target。
+「每月」主要指 model retraining / calibration / OOS evaluation / reconciliation，不是所有 specialist outputs 每月才更新。第一版固定 **每月第一個週六 10:30（Asia/Taipei）**；不另設每週六 500×5 全量模型排程。
 
 第一版：
 
