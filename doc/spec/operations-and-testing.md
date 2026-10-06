@@ -1,5 +1,11 @@
 # Operations and testing
 
+## 最新：A 組非佇列 dev 結案（2026-10-06）
+
+- 最終 runtime main `7a5a1f931e7907ed9423684d432863e725bc0b04`；Deploy `37426621108` success，API／ingestion／Mart tests／deploy／verify success。Ready `janus-api-g7a5a1f931e79-config`、100% traffic、build-id 一致；image `sha256:4099bbf336666fb2b8c1f1957677dac02b1220f1653b30df9dc9b9b7bfbdf426`。
+- 四頁真實 authenticated 390px PNG／Admin 六頁讀回完成；治理頁取得既有 Stage／Core／Mart persisted receipts，未知 billing bytes 不補零。Python 67 passed、affected 8 passed，Flutter final visual 8 passed；CI 與完整 bounded runtime 證據見 [結案紀錄](../archive/group-a-nonqueue-live-closure-2026-10-06.md)。
+- 手機入口／效能依使用者指示視為完成，未提供數值不宣稱 SLO。交易佇列／mutation／duplicate／交易後更新驗收由使用者另行完成，本對話停止該範圍，不宣稱交易入帳或整體 A gate 全通過。
+
 ## 最新：五分析師治理與長期資料（2026-10-03，partial）
 
 - WBS 整體仍 partial；最新模型作法見 [specialist engines](specialist-engines.md)，舊短期行情／0 folds checkpoint 見 [封存](../archive/wbs-5-specialists-before-long-history-2026-10-03.md)。沒有自動 champion promotion 或 LLM API 呼叫。

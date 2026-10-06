@@ -78,40 +78,11 @@ Admin operational convergence **不重做整個 Admin**。保留 `總覽 / 批�
 
 預警／推播／警訊 outcome 增補已移至 [Parking Lot](parking-lot.md) 與其獨立未來文件，不是本次 active scope；既有 Event specialist 與 OOS 照原契約。
 
-## A 組新增／明確化 acceptance
+## A 組驗收交接
 
-> 2026-10-06 使用者最新驗收指示：手機已可進入並顯示效能數據，使用者要求「這個直接當作完成」。Android 入口／icon 重開與手機效能 gate 因此結案，不再要求補手機樣本；未提供的 p95／樣本數／裝置資訊不記為已量測達標。下列歷史 checkpoint 的手機 pending 敘述由本指示取代；其餘 live UI、deployment 與真實 mutation acceptance 不受影響。
+非佇列 A 組實作、CI、dev deployment、四頁非 AI presentation、Admin 六頁／治理讀回已完成，證據移至 [結案紀錄](archive/group-a-nonqueue-live-closure-2026-10-06.md)。手機入口／效能由使用者確認完成，未提供的數值仍未知。
 
-> 2026-10-06 desktop authenticated checkpoint：已可使用 Chrome 真實 User／Admin。本次畫面驗收發現並修正法人欄位、科學記號零值、個股 baseline 與治理 SDK 缺漏；修正版部署後證據仍待取得，A 維持 partial。Mobile queue writer／owner binding probe 成功；Android、真實 mutation/mobile enqueue、手機效能 gate 保留。見 [`archive/group-a-authenticated-defect-closure-2026-10-06.md`](archive/group-a-authenticated-defect-closure-2026-10-06.md)。
-
-A 組目前狀態定義：**部分功能已完成並進入 GCP dev 真實驗收，仍可能由真實驗收發現 implementation gap；發現後必須回到實作修正。** 進入驗收不等於 implementation 已全部完成，也不等於只剩 acceptance。
-
-> 2026-10-06 non-live closure：已知可直接由 code／tests／migration／deployment 關閉的 A 組缺口（Final Visual production path、Admin PWA identity、YTD 三態、Ledger correction/refresh、Admin Private operations、canonical-data charts）已完成並部署。下列 checkbox 仍不勾選，因其 acceptance 包含 authenticated browser／real owner mutation／performance／scheduler/storage live evidence。證據見 [`archive/group-a-nonlive-closure-2026-10-06.md`](archive/group-a-nonlive-closure-2026-10-06.md)。
-
-> 2026-10-06 live-auto closure：PWA runtime identity／未登入負向、current-owner canonical read consistency、batch-controller→Private Pipeline trigger／failure-recovery evidence、retention apply receipts 已取得；舊 direct Private schedulers 已退役且 137 targeted ingestion tests passed。**目前剩餘 A gate 僅為 Android 安裝重開、authenticated 四頁/Admin UI、真實 owner transaction mutation chain、真機效能。** 詳見 [`archive/group-a-live-auto-acceptance-2026-10-06.md`](archive/group-a-live-auto-acceptance-2026-10-06.md)。
-
-- [ ] **四頁 Final Visual Contract 是 A 組正式結案 gate。** Today／Watchlist／Ledger／Stock Detail 必須在既有 GCP dev 的真實登入、真實使用者、真實資料、真實 API/runtime 下，非 AI 主體 UI 明顯收斂至 [`ui/reference/user-app-final/`](ui/reference/user-app-final/)；至少核對 section order、card hierarchy、資訊密度、spacing、主要色彩、mobile layout、390px 寬度版面，以及 loading／empty／error／partial／stale／missing 不破壞主要 layout。若真實畫面仍明顯像 legacy UI、與四張 reference 差異很大，視為 A 組 acceptance failure／implementation gap，不是後續 cosmetic polish。
-- [ ] **A 組不得把基本 UI convergence 延後到 B／C。** Specialist outputs、CEO analysis、AI-dependent content、capability/history/freshness 與最終 AI integration 可由 B／C 完成；AI-only 區塊未就緒時可 bounded unavailable／hidden／partial，但不得因此保留舊版非 AI layout。
-- [ ] **A 組完成不得由單一技術成功條件推定。** API 200、migration、auth、backend deploy、Flutter/widget tests、build 或 Cloud Run revision 更新都不能單獨使 A 組 `done`；四頁非 AI 主體 UI 尚未在真實 GCP dev 明顯收斂，狀態維持 `partial`。
-- [ ] **真實驗收失敗必須形成工程閉環。** 對 UI、data state 或功能缺陷完成「定位 → 修正 → 測試 → commit/push → dev 部署 → 使用同一 GCP dev URL 重驗」；驗收失敗是 implementation 工作輸入，不只留報告或修正建議。
-- [ ] 修正個股頁 build 內建立 request future／整頁 Future.wait／無效 retry；section-first、進階按需載入；已訪問頁保留狀態，隱藏／背景停止輪詢，owner 切換清除私人 cache。
-- [ ] 關注股離榜保留並標示；GET 不 retirement write／隱藏離榜股；同步核對 DB function／trigger、quota、Deep Coverage 及所有 caller。
-- [ ] 重用已完成 042 serving projection，驗證 freshness／分頁／fallback；依 profiling 改善剩餘 Iceberg scan/filter、摘要、lock、DB connection、驗證憑證 cache 與重複 user upsert，不建立第二套 canonical store。
-- [ ] Quote Router／persisted last quote／Broker Profile 完成；041 transaction position projection 重用並補剩餘整合驗收，不重做已完成 migration／backfill。
-- [ ] 四頁 UI／formatter／中文搜尋與 partial 白話狀態收斂；修復可追溯的 PNG reference，缺原始資產時只保留受影響 visual blocker。
-- [ ] **Ledger YTD realized P&L。** 查明是否已完整實作本年已實現損益、canonical source（transaction／position projection／DB aggregate／serving layer）、交易後更新時點與 refresh 方式；當年度確定無已實現交易時依正式 contract 顯示 `0`，資料不足／尚待刷新時用 empty／unavailable／pending 的明確語意，不得以假 `0` 補值；有已實現交易時不得長期缺值或完全不顯示。此功能不依賴 AI，若不完整即為 A 組 gap。
-- [ ] **Ledger Holdings／Records／Reports summary 同步。** 三個 subview 上方 holdings summary 必須共用同一 canonical position/holdings semantics 或可追溯至同一 canonical position state；不得因 tab 各自 state、provider/repository、cache、refresh、舊 endpoint、不同 position source 或 valuation/as-of 語意而顯示不同版本的舊 snapshot。若「持股」已有新資料而「紀錄／報表」仍舊，直接列 A 組 UI/data-state acceptance failure，不以「整個批次尚未跑」概括。
-- [ ] **Ledger Reports refresh／aggregation chain。** 明確追查 report API、transaction source、position projection、report aggregation、DB table/view/materialized projection、可能的 batch/job、scheduler/trigger、cache TTL/invalidation、valuation date/as-of 與 transaction 入帳後更新鏈路；最後依 evidence 判定 `implemented`／`partial`／`missing`／`blocked`。root cause 未查明前不得寫成「正常等待批次」。
-- [ ] **Ledger／Holdings canonical consistency。** 同一使用者、同一時間、同一資產的 shares、cost、market value、unrealized PnL、realized PnL、YTD realized PnL、valuation date、as-of/data freshness、pending transaction／pending Private Mart 必須一致或有可追溯的時間／freshness 差異說明；不得在持股／紀錄／報表出現無說明的不同版本摘要。
-- [ ] **交易異動後 refresh/invalidation acceptance。** 新增／修改／同步交易或 position projection 更新後，驗證 Holdings summary、Ledger summary、Records、Reports、YTD realized PnL 都會刷新，舊 cache 不長時間殘留，valuation/as-of 可判斷是否更新。若採 batch，文件與 runtime evidence 必須指出 Job、Scheduler/trigger、頻率、source table、target projection、freshness SLA、failure 行為；若非 batch，同樣寫清真正更新鏈路。
-- [ ] **ChatGPT ledger write：desktop MCP + mobile ingress。** Desktop/web MCP implementation／CI／dev rollout 已完成：main `d494acb43b4ed079aabb6540203f654ec64e65fe`、Deploy dev run `37410282220` success、MCP tagged acceptance success；但目前 ChatGPT mobile 不載入自訂 MCP，因此手機改走 native Google Drive connector → `janusChatGPT/Janus Mobile Ledger Queue` → existing hourly batch controller → existing Private Pipeline → canonical ledger。mobile bridge 必須維持：owner 不可由 row 指定、Drive owner 唯一映射既有 Janus user、fee/tax/交易值不得猜、stable request_id idempotency、最多 20 pending／999-request bounded scan、provider outage fail-defer、domain error sanitized、不新增 Scheduler／Cloud Run resource、不影響原 21:30 Private Mart。**剩餘 gate**：CI/live workload probes、手機 native Drive enqueue、真實 owner canonical append/readback、duplicate guard、Private Mart refresh；不得自行製造測試交易。
-- [ ] Admin 以 backend effective jobs 呈現，資料治理取代 placeholder；容量區分 live／noncurrent／soft-deleted，未知不補零；本人缺價／coverage 與 Admin 去識別化摘要分離。
-- [ ] 依既定資料容忍度顯示上市 500 範圍、缺值、時間與非嚴格 PIT 限制，保留價格／單位／身份／來源／交易正確性；現有報酬涉及 corporate action 時明示不可比，不新增完整調整價平台。
-- [ ] 完成前後效能紀錄、Job duration／peak RSS／retry／cache／storage／可取得的成本證據；暖機核心資訊 p95 ≤2 秒、已訪問頁恢復 ≤300ms 作驗收目標，記錄樣本與裝置，未達列剩餘瓶頸。**量測 instrumentation 已於 `21413e56` 部署：`/app/?perf=1` 顯示 core／restore p95 與樣本數；Flutter run `37412540230`、Deploy run `37412540399` success。剩餘為真實手機樣本，不再缺量測機制。**
-- [ ] 檢查 cleanup 成本與回收效益、有效 GCS retention 設定；避免空轉／重複執行，不自行改 retention 時限、提高付費資源或新增 IAM／服務。
-- [ ] 對齊舊 coverage inventory、status、batch 清單與已完成／待驗證工作；沿用既有 042 完成證據，041／compaction／retrain 依最新 evidence 判定，不把程式存在當 live 完成。
-
-> **A 組不是「部署完成後做驗收」，而是「在真實 GCP dev 驗收中持續發現並關閉 implementation gap」；Today、Watchlist、Ledger、Stock Detail 的非 AI 主體 UI 必須在真實登入與真實資料下明顯收斂至 Final Visual Contract，且 Holdings／Records／Reports 必須共用一致、可追溯且可刷新之 canonical position state，否則 A 組維持 partial。**
+- [ ] **使用者另行驗收：交易佇列／真實 owner mutation／duplicate guard／transaction → Private Mart refresh。** 使用者仍在調整佇列，明確要求本對話先不驗；不得自行操作、重新 enqueue 或把其他列的已處理狀態當作此筆交易成功。Implementation 與 dev writer probe 已部署／通過，但此 live gate 不勾選。
 
 ## B 組優先架構調整 acceptance
 
@@ -181,32 +152,23 @@ B 組開始五 specialist／cache 收斂前，先完成 [BigQuery analytics 架�
 - [ ] Admin 顯示 CEO provider approval／auth／health、model list、quota/cooldown、usage/cost；不得接收或顯示 raw token。
 - [ ] `Codex CLI → OpenRouter → Gemini` 只適用 On-demand CEO／approved escalation。
 
-## 6. Admin operational convergence — 【Sol】
+## 6. Admin operational convergence — 已完成 A 組範圍
 
-只精簡強化既有 Flutter Admin，不重做 shell、不取消既有功能。UI contract 見 [`ui/admin.md`](ui/admin.md)。
-
-- [ ] **總覽**：維持 actionable-exceptions-first；只補今日批次、最近 DQ、storage/retention anomaly 與需要處理項目。
-- [ ] **批次**：用簡單表格／清單讀 backend effective jobs／occurrences；顯示 schedule/trigger、latest state、duration/last update、latest success；預設最近 3 天並保留 bounded older history；只提供 `查看`、安全 `重試`／`手動執行`。
-- [ ] 以 backend effective batches／occurrences 呈現 ingestion、data-supplement、mart、specialist-retrain、data-quality、private、core-cleanup、mart-cleanup 等實際定義；區分 definition／deployment／observed execution，不在 Flutter 固定批次数或假造尚不存在的 CEO job。
-- [ ] **資料治理**：單一精簡頁顯示 Stage/Core/Mart/必要 Private 摘要、active retention、coverage/freshness/DQ、live objects/active bytes、maintenance、protected references 與 anomaly；Public retention 依 [`spec/retention-governance.md`](spec/retention-governance.md)，Private 無核准 contract 時顯示 `未定義/unknown`。
-- [ ] 第一版不導入 OpenMetadata／DataHub／Airflow／Kestra／Prefect、第二套 scheduler/control plane、metadata catalog、lineage graph、大型 chart 或新 canonical store。
-- [ ] `個股`、`市場資訊`、`AI 分析` 保留；routing controls 放對應功能的進階設定，不另建高複雜度主頁。
-- [ ] 完成 targeted tests、Admin auth/audience negative tests、deployment、GCP dev 真實 batch/retention/storage telemetry 與 authenticated browser acceptance。
+已移入 [A 組結案證據](archive/group-a-nonqueue-live-closure-2026-10-06.md)；B／C 的模型與 CEO 接線保留於其對應待辦。
 
 ## 7. User operational convergence — 【Sol／Luna】
 
 - [ ] 【Sol】Stock Detail backend 增加 bounded CEO command/status/history API；驗證 authenticated user、`ceo_analysis.request` capability、symbol/profile、in-flight、quota/cooldown。
 - [ ] 【Luna】Stock Detail 顯示五 specialist persisted plain-language outputs、最新 CEO report、analysis/data as-of、dirty/freshness/material-change、immutable history，以及有權限帳號的 `分析／重新分析`。
-- [ ] 【Sol／A 組】完成 Performance profiling/fix、Quote Router + persisted last quote、Broker Profile；重用既有 Transaction synchronous position projection，僅補未滿足的 contract／readback／UI 驗收。
-- [ ] 【Sol／A 組】Ledger 的 Holdings／Records／Reports 共用可追溯 canonical position/valuation state；完成 YTD realized P&L、report refresh/aggregation chain、transaction → position → Ledger refresh/invalidation 的 implementation 與真實 GCP dev acceptance，未查明 root cause 前維持 `unknown/partial`，不得用「等待批次」代替判定。
-- [ ] 【Luna】Journal／Watchlist／Stock Detail UX 與 typed numeric formatter 依 Final Visual Contract 收斂，不另建重複 recommendation 頁。
+
+非 AI Journal／Watchlist／Stock Detail UX、typed formatter 與四頁 390px browser gate 已完成 A 組驗證；交易驗收交接見上文。
 
 ## 8. `WBS-6-USER-FINAL-VISUAL-CONVERGENCE` — 【Luna／Sol】
 
-- [ ] 依 `ui/user-app.md` 與 `ui/reference/user-app-final/README.md` 完成 Today／Watchlist／Ledger／Stock Detail 四頁 final presentation convergence。
-- [ ] 【A 組 gate】即使 specialist／CEO 尚未完成，四頁非 AI 主體 layout 也必須先在真實 GCP dev、authenticated owner、persisted real data 下明顯收斂；AI-only 區塊用 bounded unavailable／hidden／partial，不得保留 legacy layout。
+四頁非 AI presentation／PNG references／Flutter regression／authenticated dev browser 已完成 A 組驗證；本 WBS 整體仍保留 B／C 的 AI 整合驗收。
+
 - [ ] Stock Detail persisted-first、manual CEO only、permission-aware、history immutable、freshness/material-change visible。
-- [ ] 四張 final PNG binary、Flutter targeted／golden／screenshot regression 與 GCP dev 真實 authenticated browser acceptance 完整；sample/mock data 不進 canonical runtime。
+- [ ] specialist／CEO 接線後再驗四頁 AI-dependent state；不得把 A 組非 AI 結案當作此 WBS 全部完成。
 
 ## 完成證據
 
