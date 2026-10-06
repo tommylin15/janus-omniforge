@@ -196,8 +196,11 @@ void main() {
 
     expect(find.text('本年已實現損益'), findsOneWidget);
     expect(find.text('本年度確認無交易'), findsOneWidget);
-    expect(find.text('本年度確認無交易；已實現損益 0'), findsOneWidget);
     expect(find.text('待更新／尚未確認'), findsNothing);
+
+    await tester.tap(find.text('報表'));
+    await tester.pumpAndSettle();
+    expect(find.text('本年度確認無交易；已實現損益 0'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -219,8 +222,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('年度損益目前無法確認'), findsOneWidget);
-    expect(find.text('本年已實現損益目前無法確認'), findsOneWidget);
     expect(find.text('本年度確認無交易'), findsNothing);
+
+    await tester.tap(find.text('報表'));
+    await tester.pumpAndSettle();
+    expect(find.text('本年已實現損益目前無法確認'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
