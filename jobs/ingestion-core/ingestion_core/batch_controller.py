@@ -304,7 +304,11 @@ def run(*, now=None, session=None, control=None, core=None):
     if mode not in {"observe", "active", "seed", "manual", "mobile-probe"}:
         raise ValueError("unsupported controller mode")
     if mode == "mobile-probe":
-        result = probe_mobile_ledger_queue(write=False)
+        try:
+            result = probe_mobile_ledger_queue(write=False)
+        except MobileLedgerQueueError as error:
+            print(json.dumps({"mobile_ledger_probe": "failed", "error_code": str(error)}, sort_keys=True))
+            raise
         return {"status": result["status"], "mobile_ledger_pending": bool(result["pending"])}
     manual_request_id = ""
     if mode == "manual":

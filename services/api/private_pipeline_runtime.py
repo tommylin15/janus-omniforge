@@ -20,7 +20,15 @@ def main() -> None:
             "PRIVATE_DATABASE_URL": ("pipeline_database_url", "database_url"),
         })
         repository = repository_from_env()
-        print(json.dumps(probe_mobile_ledger_consumer(repository), sort_keys=True))
+        try:
+            result = probe_mobile_ledger_consumer(repository)
+        except MobileLedgerQueueError as error:
+            print(json.dumps({"mobile_ledger_probe": "failed", "error_code": str(error)}, sort_keys=True))
+            raise
+        except NotFoundError:
+            print(json.dumps({"mobile_ledger_probe": "failed", "error_code": "OWNER_BINDING"}, sort_keys=True))
+            raise
+        print(json.dumps(result, sort_keys=True))
         return
 
     load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", {

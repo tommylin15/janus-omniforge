@@ -80,6 +80,7 @@ def test_queue_rejects_header_drift_and_provider_errors_without_leaking_body():
 
     with pytest.raises(MobileLedgerQueueError) as error:
         MobileLedgerQueue(Session(status=403)).locate()
+    assert str(error.value) == "drive_metadata_http_403"
     assert "secret provider detail" not in str(error.value)
 
 

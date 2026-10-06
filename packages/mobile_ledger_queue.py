@@ -70,18 +70,18 @@ class MobileLedgerQueue:
         except Exception as error:
             raise MobileLedgerQueueError("mobile ledger queue credential unavailable") from error
 
-    def _json(self, method: str, url: str, **kwargs: Any) -> dict[str, Any]:
+    def _json(self, method: str, url: str, *, stage: str, **kwargs: Any) -> dict[str, Any]:
         try:
             response = self.session.request(method, url, timeout=15, **kwargs)
             if response.status_code != 200:
-                raise MobileLedgerQueueError("mobile ledger queue provider unavailable")
+                raise MobileLedgerQueueError(f"{stage}_http_{response.status_code}")
             value = response.json()
         except MobileLedgerQueueError:
             raise
         except Exception as error:
-            raise MobileLedgerQueueError("mobile ledger queue provider unavailable") from error
+            raise MobileLedgerQueueError(f"{stage}_transport") from error
         if not isinstance(value, dict):
-            raise MobileLedgerQueueError("mobile ledger queue returned an invalid response")
+            raise MobileLedgerQueueError(f"{stage}_invalid_response")
         return value
 
     def locate(self) -> MobileLedgerQueueFile:
@@ -95,7 +95,7 @@ class MobileLedgerQueue:
             "supportsAllDrives": "true",
             "includeItemsFromAllDrives": "true",
         })
-        files = self._json("GET", f"{self.DRIVE_FILES}?{params}").get("files", [])
+        files = self._json("GET", f"{self.DRIVE_FILES}?{params}", stage="drive_metadata").get("files", [])
         if not isinstance(files, list) or len(files) != 1:
             raise MobileLedgerQueueError("mobile ledger queue must resolve to exactly one shared spreadsheet")
         value = files[0]
@@ -116,6 +116,7 @@ class MobileLedgerQueue:
         values = self._json(
             "GET",
             f"{self.SHEETS}/{queue_file.file_id}/values/{QUEUE_SHEET_NAME}!A1:R{_MAX_SCAN_ROWS + 1}",
+            stage="sheet_read",
         ).get("values", [])
         if not values or tuple(str(value).strip() for value in values[0]) != QUEUE_HEADERS:
             raise MobileLedgerQueueError("mobile ledger queue header contract mismatch")
@@ -160,6 +161,7 @@ class MobileLedgerQueue:
         self._json(
             "PUT",
             f"{self.SHEETS}/{queue_file.file_id}/values/{QUEUE_SHEET_NAME}!N{row_number}:R{row_number}?valueInputOption=RAW",
+            stage="sheet_write",
             json={"range": f"{QUEUE_SHEET_NAME}!N{row_number}:R{row_number}", "majorDimension": "ROWS", "values": values},
         )
 
