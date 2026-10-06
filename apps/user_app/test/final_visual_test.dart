@@ -12,7 +12,9 @@ class FinalFakeApi extends legacy.Api {
   @override
   Future<dynamic> get(String path) async {
     reads.add(path);
-    return values[path] ?? const [];
+    final value = values[path];
+    if (value is Exception) throw value;
+    return value ?? const [];
   }
 
   @override
@@ -158,6 +160,67 @@ void main() {
     expect(find.text('持股'), findsWidgets);
     expect(find.text('紀錄'), findsOneWidget);
     expect(find.text('報表'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Ledger confirms zero only when current-year history is confirmed empty',
+      (tester) async {
+    mobileView(tester);
+    final year = DateTime.now().year;
+    final api = FinalFakeApi({
+      '/api/v1/me/portfolio/summary': {
+        'items': [
+          {
+            'currency': 'TWD',
+            'market_value': '0',
+            'cost_basis': '0',
+            'unrealized_pnl': '0',
+            'unrealized_return': '0',
+            'aggregate_status': 'available',
+            'valuation_status': 'available',
+            'ledger_version': 0,
+            'valuation_date': '2026-10-05'
+          }
+        ]
+      },
+      '/api/v1/me/journal/pnl?year=$year': const [],
+      '/api/v1/me/journal/positions': const [],
+      '/api/v1/me/journal/history?year=$year': const [],
+      '/api/v1/me/journal/monthly-summary?year=$year': {'items': const []},
+      '/api/v1/me/portfolio/performance?year=$year': {'items': const []},
+      '/api/v1/me/notes': const [],
+    });
+
+    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('本年已實現損益'), findsOneWidget);
+    expect(find.text('本年度確認無交易'), findsOneWidget);
+    expect(find.text('本年度確認無交易；已實現損益 0'), findsOneWidget);
+    expect(find.text('待更新／尚未確認'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Ledger keeps YTD unavailable distinct from confirmed zero',
+      (tester) async {
+    mobileView(tester);
+    final year = DateTime.now().year;
+    final api = FinalFakeApi({
+      '/api/v1/me/portfolio/summary': {'items': const []},
+      '/api/v1/me/journal/pnl?year=$year': Exception('pnl unavailable'),
+      '/api/v1/me/journal/positions': const [],
+      '/api/v1/me/journal/history?year=$year': const [],
+      '/api/v1/me/journal/monthly-summary?year=$year': {'items': const []},
+      '/api/v1/me/portfolio/performance?year=$year': {'items': const []},
+      '/api/v1/me/notes': const [],
+    });
+
+    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('年度損益目前無法確認'), findsOneWidget);
+    expect(find.text('本年已實現損益目前無法確認'), findsOneWidget);
+    expect(find.text('本年度確認無交易'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

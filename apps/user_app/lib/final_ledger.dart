@@ -119,7 +119,11 @@ class _FinalLedgerPageState extends State<FinalLedgerPage> {
                   ytd,
                   detail: ytd == '待更新／尚未確認'
                       ? 'Private Mart 尚未確認時不補 0'
-                      : 'canonical aggregate',
+                      : ytd == '資料不足'
+                          ? '年度損益目前無法確認'
+                          : ytd == '0'
+                              ? '本年度確認無交易'
+                              : 'canonical aggregate',
                 ),
               ),
               const SizedBox(width: 10),
@@ -322,12 +326,22 @@ class _FinalLedgerPageState extends State<FinalLedgerPage> {
     );
   }
 
-  Widget reports(List<dynamic> pnl, List<dynamic> performance) {
+  Widget reports(
+    List<dynamic> pnl,
+    List<dynamic> performance, {
+    required String ytd,
+  }) {
+    final emptyPnlMessage = switch (ytd) {
+      '0' => '本年度確認無交易；已實現損益 0',
+      '待更新／尚未確認' => '本年已實現損益仍待 Private Mart 更新',
+      _ => '本年已實現損益目前無法確認',
+    };
     if (pnl.isEmpty && performance.isEmpty) {
-      return fvBoundedState('報表聚合尚未就緒或仍待 Private Mart 更新');
+      return fvBoundedState(emptyPnlMessage);
     }
     return Column(
       children: [
+        if (pnl.isEmpty) fvBoundedState(emptyPnlMessage),
         for (final item in pnl)
           Builder(builder: (context) {
             final row = fvMap(item);
@@ -470,11 +484,17 @@ class _FinalLedgerPageState extends State<FinalLedgerPage> {
                   : aggregate.isEmpty
                       ? '資料不足'
                       : legacy.portfolioReturnLabel(aggregate['unrealized_return']);
-              final ytd = pnl.isEmpty
-                  ? '待更新／尚未確認'
-                  : pnl.length == 1
-                      ? '${fvText(fvMap(pnl.first)['currency'], missing: 'TWD')} ${legacy.accountingNumber(fvMap(pnl.first)['realized_pnl'])}'
-                      : '多幣別';
+              final pnlUnavailable = values[1] == null;
+              final historyUnavailable = values[3] == null;
+              final ytd = pnlUnavailable || historyUnavailable
+                  ? '資料不足'
+                  : pnl.isNotEmpty
+                      ? pnl.length == 1
+                          ? '${fvText(fvMap(pnl.first)['currency'], missing: 'TWD')} ${legacy.accountingNumber(fvMap(pnl.first)['realized_pnl'])}'
+                          : '多幣別'
+                      : withheld || history.isNotEmpty
+                          ? '待更新／尚未確認'
+                          : '0';
               final affected = fvRows(aggregate['affected_symbols']);
 
               return ListView(
@@ -551,7 +571,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage> {
                     ],
                     if (section == 2) ...[
                       fvSectionTitle(context, '報表'),
-                      reports(pnl, performance),
+                      reports(pnl, performance, ytd: ytd),
                     ],
                     if (section == 3) ...[
                       fvSectionTitle(context, '筆記'),
