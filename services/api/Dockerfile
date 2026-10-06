@@ -48,7 +48,6 @@ RUN set -eux; \
     cp build/web/index.html build/web/admin-index.html; \
     sed -i 's#href="/app/manifest.json"#href="/app/admin-manifest.json"#' build/web/admin-index.html; \
     sed -i 's#content="Janus"#content="Janus Admin"#' build/web/admin-index.html; \
-    sed -i 's#<title>Janus · OmniForge</title>#<title>Janus Admin · OmniForge</title>#' build/web/admin-index.html; \
     test -s build/web/build-id.txt; \
     test -s build/web/admin-manifest.json; \
     grep -Fq '"id": "/app/admin"' build/web/admin-manifest.json; \

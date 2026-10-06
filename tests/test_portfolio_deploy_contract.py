@@ -41,6 +41,18 @@ def test_api_source_changes_deploy_and_verify_private_pipeline():
     assert "verify_job janus-private-pipeline" in VERIFY
 
 
+def test_private_operations_rollout_seeds_runtime_evidence_once_and_verifies_admin_manifest():
+    private_job = WORKFLOW.split("  deploy-private-pipeline:\n", 1)[1].split("\n  migrate-operations:", 1)[0]
+    assert "Seed Private Pipeline operations evidence" in private_job
+    assert "needs.detect.outputs.private_ops_schema == 'true'" in private_job
+    assert "gcloud run jobs execute janus-private-pipeline" in private_job
+    assert "--wait" in private_job
+    assert "/app/admin-manifest.json" in VERIFY
+    assert 'manifest.get("id") != "/app/admin"' in VERIFY
+    assert 'manifest.get("start_url") != "/app/admin"' in VERIFY
+    assert 'href="/app/admin-manifest.json"' in VERIFY
+
+
 def test_private_pipeline_runtime_configuration_is_applied_by_cloud_build_identity():
     assert 'if [[ "${_RUNTIME_NAME}" == "janus-private-pipeline" ]]' in CLOUDBUILD
     for flag in (

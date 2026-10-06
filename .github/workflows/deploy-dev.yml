@@ -389,6 +389,16 @@ jobs:
       - name: Verify private pipeline
         shell: bash
         run: bash scripts/gcp/verify-dev.sh private-pipeline
+      - name: Seed Private Pipeline operations evidence
+        if: needs.detect.outputs.private_ops_schema == 'true'
+        shell: bash
+        run: >-
+          gcloud run jobs execute janus-private-pipeline
+          --project="${GCP_PROJECT_ID}"
+          --region="${GCP_REGION}"
+          --tasks=1
+          --task-timeout=30m
+          --wait
 
   migrate-operations:
     needs: [detect, deploy-ingestion]

@@ -76,7 +76,7 @@ verify_service() {
   fi
 
   if [[ "${service}" == "janus-api" && "${GITHUB_SHA:-}" =~ ^[0-9a-f]{7,64}$ ]]; then
-    local service_url build_id index_html expected_bootstrap admin_index legacy_admin admin_status brand_image app_icon pwa_icon pwa_icon_512 maskable_icon manifest_json
+    local service_url build_id index_html expected_bootstrap admin_index legacy_admin admin_status brand_image app_icon pwa_icon pwa_icon_512 maskable_icon manifest_json admin_manifest_json
     service_url="$(gcloud run services describe "${service}" \
       --project="${project}" --region="${region}" --format='value(status.url)')"
     build_id="$(curl -fsS --retry 6 --retry-delay 2 \
@@ -107,6 +107,25 @@ verify_service() {
       echo "janus-api /app/admin is not served by the current Flutter workspace build" >&2
       return 1
     fi
+    if [[ "${admin_index}" != *'href="/app/admin-manifest.json"'* || "${admin_index}" == *'href="/app/manifest.json"'* ]]; then
+      echo "janus-api /app/admin does not advertise the dedicated Admin PWA manifest" >&2
+      return 1
+    fi
+
+    admin_manifest_json="$(curl -fsS --retry 6 --retry-delay 2       "${service_url}/app/admin-manifest.json?expected=${GITHUB_SHA}")"
+    python - "${admin_manifest_json}" <<'PY'
+import json
+import sys
+manifest = json.loads(sys.argv[1])
+if manifest.get("id") != "/app/admin":
+    raise SystemExit("Janus Admin manifest id is not /app/admin")
+if manifest.get("start_url") != "/app/admin":
+    raise SystemExit("Janus Admin manifest start_url is not /app/admin")
+if manifest.get("scope") != "/app/":
+    raise SystemExit("Janus Admin manifest scope is not /app/")
+if manifest.get("display") != "standalone":
+    raise SystemExit("Janus Admin manifest display is not standalone")
+PY
 
     admin_status="$(curl -sS -o /dev/null -w '%{http_code}' --retry 3 --retry-delay 1 \
       "${service_url}/api/v1/admin/source-health?limit=1")"
@@ -181,7 +200,7 @@ if missing:
     raise SystemExit(f"Janus manifest is missing PNG install icons: {sorted(missing)}")
 PY
 
-    echo "janus-api traffic, Flutter user/Admin workspace, Admin auth boundary, retired Admin redirect, web build, high-resolution PNG branding, and PWA metadata match ${GITHUB_SHA}"
+    echo "janus-api traffic, Flutter user/Admin workspace, distinct User/Admin PWA manifests, Admin auth boundary, retired Admin redirect, web build, high-resolution PNG branding, and PWA metadata match ${GITHUB_SHA}"
   fi
 }
 
