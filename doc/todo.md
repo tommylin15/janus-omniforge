@@ -1,6 +1,6 @@
 # Janus — TODO
 
-版本：3.6（2026-10-06：A 組 non-live implementation closure；live acceptance 待完成）
+版本：3.7（2026-10-06：新增 owner-scoped MCP ledger write；live acceptance 待完成）
 用途：**只保留確定要做的 active work 與未完成 acceptance**。Deferred、Candidate、Observation、Production-only、已接受缺口與研究構想統一放 [`parking-lot.md`](parking-lot.md)；已完成／被取代內容放 `archive/`。
 
 ## 規則
@@ -82,6 +82,7 @@ A 組目前狀態定義：**部分功能已完成並進入 GCP dev 真實驗收�
 - [ ] **Ledger Reports refresh／aggregation chain。** 明確追查 report API、transaction source、position projection、report aggregation、DB table/view/materialized projection、可能的 batch/job、scheduler/trigger、cache TTL/invalidation、valuation date/as-of 與 transaction 入帳後更新鏈路；最後依 evidence 判定 `implemented`／`partial`／`missing`／`blocked`。root cause 未查明前不得寫成「正常等待批次」。
 - [ ] **Ledger／Holdings canonical consistency。** 同一使用者、同一時間、同一資產的 shares、cost、market value、unrealized PnL、realized PnL、YTD realized PnL、valuation date、as-of/data freshness、pending transaction／pending Private Mart 必須一致或有可追溯的時間／freshness 差異說明；不得在持股／紀錄／報表出現無說明的不同版本摘要。
 - [ ] **交易異動後 refresh/invalidation acceptance。** 新增／修改／同步交易或 position projection 更新後，驗證 Holdings summary、Ledger summary、Records、Reports、YTD realized PnL 都會刷新，舊 cache 不長時間殘留，valuation/as-of 可判斷是否更新。若採 batch，文件與 runtime evidence 必須指出 Job、Scheduler/trigger、頻率、source table、target projection、freshness SLA、failure 行為；若非 batch，同樣寫清真正更新鏈路。
+- [ ] **ChatGPT owner-scoped ledger write MCP。** 在 existing `janus-api /mcp` 新增 `janus_private_ledger_append`／`janus.private.write`，只允許 append-only `BUY/SELL/CASH_DIV/STOCK_DIV` 記帳；owner 不可由 client 指定，stable idempotency key 必填，沿用 oversell／decimal validation，不提供 generic update/delete/SQL，且明示不會向券商下單或移動資金。完成 targeted tests、OAuth scope／consent、CI、既有 `mcp-adapter`／`mcp-oauth` tag dev rollout；最後需由真實 ChatGPT OAuth 重新授權後，以本人帳號新增一筆可逆／已知交易並 readback 驗證 owner isolation、persisted ledger 與無 duplicate。
 - [ ] Admin 以 backend effective jobs 呈現，資料治理取代 placeholder；容量區分 live／noncurrent／soft-deleted，未知不補零；本人缺價／coverage 與 Admin 去識別化摘要分離。
 - [ ] 依既定資料容忍度顯示上市 500 範圍、缺值、時間與非嚴格 PIT 限制，保留價格／單位／身份／來源／交易正確性；現有報酬涉及 corporate action 時明示不可比，不新增完整調整價平台。
 - [ ] 完成前後效能紀錄、Job duration／peak RSS／retry／cache／storage／可取得的成本證據；暖機核心資訊 p95 ≤2 秒、已訪問頁恢復 ≤300ms 作驗收目標，記錄樣本與裝置，未達列剩餘瓶頸。

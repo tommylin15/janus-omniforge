@@ -41,6 +41,7 @@ on:
       - 'tests/test_public_runtime.py'
       - 'tests/test_public_api_routes.py'
       - 'tests/test_mcp_adapter.py'
+      - 'tests/test_mcp_oauth.py'
       - 'tests/test_private_pipeline.py'
       - 'tests/test_user_api.py'
       - 'tests/test_portfolio_completeness.py'
@@ -100,6 +101,7 @@ jobs:
       private_pipeline_runtime: ${{ steps.filter.outputs.private_pipeline_runtime }}
       api_runtime: ${{ steps.filter.outputs.api_runtime }}
       api_test: ${{ steps.filter.outputs.api_test }}
+      mcp_runtime: ${{ steps.filter.outputs.mcp_runtime }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -188,10 +190,14 @@ jobs:
               - 'packages/governance/**'
               - 'cloudbuild.yaml'
               - 'scripts/gcp/deploy-dev.sh'
+            mcp_runtime:
+              - 'services/api/mcp_adapter.py'
+              - 'services/api/mcp_oauth.py'
             api_test:
               - 'tests/test_public_runtime.py'
               - 'tests/test_public_api_routes.py'
               - 'tests/test_mcp_adapter.py'
+              - 'tests/test_mcp_oauth.py'
               - 'tests/test_private_pipeline.py'
               - 'tests/test_user_api.py'
               - 'tests/test_portfolio_completeness.py'
@@ -352,6 +358,7 @@ jobs:
           tests/test_public_runtime.py
           tests/test_public_api_routes.py
           tests/test_mcp_adapter.py
+          tests/test_mcp_oauth.py
           tests/test_private_pipeline.py
           tests/test_user_api.py
           tests/test_portfolio_completeness.py
@@ -459,3 +466,44 @@ jobs:
       - name: Verify api
         shell: bash
         run: bash scripts/gcp/verify-dev.sh api
+      - name: Verify and promote MCP tagged endpoints
+        if: needs.detect.outputs.mcp_runtime == 'true'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          service_json="$(gcloud run services describe janus-api \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json)"
+          service_url="$(jq -r '.status.url' <<<"${service_json}")"
+          latest_revision="$(jq -r '.status.latestReadyRevisionName' <<<"${service_json}")"
+          env_value() {
+            local name="$1"
+            jq -r --arg name "${name}" \
+              '.spec.template.spec.containers[0].env[] | select(.name == $name) | .value // empty' \
+              <<<"${service_json}" | tail -1
+          }
+          mcp_enabled="$(env_value MCP_OAUTH_ENABLED)"
+          mcp_issuer="$(env_value MCP_OAUTH_ISSUER)"
+          mcp_resource="$(env_value MCP_RESOURCE_URL)"
+          [[ "${mcp_enabled}" == true ]]
+          [[ "${mcp_issuer}" == https://mcp-oauth---*.a.run.app ]]
+          [[ "${mcp_resource}" == https://mcp-adapter---*.a.run.app/mcp ]]
+          test -n "${service_url}" && test -n "${latest_revision}"
+
+          gcloud builds submit --no-source \
+            --project="${GCP_PROJECT_ID}" \
+            --config=scripts/gcp/cloudbuild-mcp-oauth-verify.yaml \
+            --substitutions="_SERVICE_URL=${service_url},_EXPECTED_ISSUER=${mcp_issuer},_EXPECTED_RESOURCE=${mcp_resource}" \
+            --quiet
+
+          gcloud run services update-traffic janus-api \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --update-tags="mcp-adapter=${latest_revision},mcp-oauth=${latest_revision}" --quiet
+
+          adapter_url="${mcp_resource%/mcp}"
+          for tagged_url in "${adapter_url}" "${mcp_issuer}"; do
+            gcloud builds submit --no-source \
+              --project="${GCP_PROJECT_ID}" \
+              --config=scripts/gcp/cloudbuild-mcp-oauth-verify.yaml \
+              --substitutions="_SERVICE_URL=${tagged_url},_EXPECTED_ISSUER=${mcp_issuer},_EXPECTED_RESOURCE=${mcp_resource}" \
+              --quiet
+          done

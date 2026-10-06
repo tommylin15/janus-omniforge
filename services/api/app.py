@@ -311,7 +311,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         except (UnicodeDecodeError, json.JSONDecodeError):
             return JSONResponse({"jsonrpc":"2.0","id":None,
                                  "error":{"code":-32700,"message":"Parse error"}}, status_code=400)
-        response, response_status, headers = McpAdapter(contexts, oauth_service()).handle(
+        response, response_status, headers = McpAdapter(contexts, oauth_service(), repository).handle(
             value, request.headers.get("authorization", ""))
         if response is None: return Response(status_code=response_status, headers=headers)
         return JSONResponse(jsonable_encoder(response), status_code=response_status, headers=headers)

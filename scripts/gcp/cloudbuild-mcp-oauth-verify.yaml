@@ -21,7 +21,7 @@ steps:
         protected = json.load(open('/tmp/protected.json'))
         assert protected['resource'] == os.environ['EXPECTED_RESOURCE']
         assert protected['authorization_servers'] == [os.environ['EXPECTED_ISSUER']]
-        assert set(protected['scopes_supported']) == {'janus.sources.read','janus.market.read','janus.private.read','offline_access'}
+        assert set(protected['scopes_supported']) == {'janus.sources.read','janus.market.read','janus.private.read','janus.private.write','offline_access'}
         PY
         authorization_status="$(curl --silent --show-error --output /tmp/authorization.json --write-out '%{http_code}' --max-time 30 "${_SERVICE_URL}/.well-known/oauth-authorization-server")"
         echo "authorization_status=${authorization_status}"
@@ -84,9 +84,16 @@ steps:
         status, _, listed = rpc('tools/list')
         assert status == 200
         tools = listed['result']['tools']
-        assert {tool['name'] for tool in tools} == {
-            'janus_sources', 'janus_market_context', 'janus_private_context'}
-        assert all(tool['annotations']['readOnlyHint'] for tool in tools)
+        by_name = {tool['name']: tool for tool in tools}
+        assert set(by_name) == {
+            'janus_sources', 'janus_market_context', 'janus_private_context',
+            'janus_private_ledger_append'}
+        assert all(by_name[name]['annotations']['readOnlyHint']
+                   for name in ('janus_sources','janus_market_context','janus_private_context'))
+        assert by_name['janus_private_ledger_append']['annotations'] == {
+            'readOnlyHint': False, 'destructiveHint': False, 'openWorldHint': False}
+        assert by_name['janus_private_ledger_append']['securitySchemes'][0]['scopes'] == [
+            'janus.private.write', 'offline_access']
         assert all('offline_access' in tool['securitySchemes'][0]['scopes'] for tool in tools)
 
         status, headers, denied = rpc('tools/call', {
@@ -95,7 +102,16 @@ steps:
         assert status == 401
         assert 'resource_metadata=' in headers.get('WWW-Authenticate', '')
         assert 'mcp/www_authenticate' in denied['result']['_meta']
-        print('MCP initialize, tools/list and unauthenticated tools/call passed')
+
+        status, headers, denied = rpc('tools/call', {
+            'name': 'janus_private_ledger_append',
+            'arguments': {
+                'event_type':'BUY','trade_date':'2026-01-01','symbol':'1101',
+                'shares':'1','price':'1','idempotency_key':'acceptance-no-write'}})
+        assert status == 401
+        assert 'janus.private.write' in headers.get('WWW-Authenticate', '')
+        assert 'mcp/www_authenticate' in denied['result']['_meta']
+        print('MCP initialize, tools/list and unauthenticated read/write challenges passed')
         PY
         echo 'MCP OAuth metadata and negative guards passed.'
 

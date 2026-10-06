@@ -15,18 +15,41 @@ class OAuth:
     settings = SimpleNamespace(issuer="https://janus.example")
 
     def verify_access_token(self, token, scope):
-        if token != "valid" or scope not in {"janus.sources.read","janus.market.read","janus.private.read"}:
+        if token != "valid" or scope not in {"janus.sources.read","janus.market.read","janus.private.read","janus.private.write"}:
             raise HTTPException(401, "invalid token")
         return {"sub":str(OWNER),"scope":scope}
 
 
 class Repository:
+    def __init__(self):
+        self.added = []
+
     def latest_ledger_version(self, owner_id): return 4
     def watchlist(self, owner_id): return [{"user_id":owner_id,"symbol":"2330","active":True}]
     def ledger_history(self, owner_id, symbol, year, limit=200):
         return [{"user_id":owner_id,"symbol":symbol or "2330","trade_date":f"{year or 2026}-01-02","ledger_version":4}]
     def investment_profile(self, owner_id):
         return {"user_id":owner_id,"risk_tolerance":"moderate","ai_context_opt_in":True,"version":2}
+    def add_ledger(self, owner_id, value, key):
+        self.added.append((owner_id, value, key))
+        return {
+            "event_id":"11111111-1111-1111-1111-111111111111",
+            "user_id":owner_id,
+            "ledger_version":5,
+            "event_action":"ORIGINAL",
+            "event_type":value.event_type,
+            "trade_date":value.trade_date,
+            "symbol":value.symbol,
+            "shares":value.shares,
+            "price":value.price,
+            "cash_amount":value.cash_amount,
+            "fee":value.fee,
+            "tax":value.tax,
+            "currency":value.currency,
+            "memo":value.memo,
+            "record_version":1,
+            "idempotency_key":key,
+        }
 
 
 class Store:
@@ -60,8 +83,8 @@ def test_core_context_reader_uses_public_query_runtime(monkeypatch):
     assert CoreContextReader.from_env().page("ohlcv","2330",200)==expected
 
 
-def client():
-    return TestClient(create_app(repository=Repository(), store=Store(), core=Core(), oauth_facade=OAuth()))
+def client(repository=None):
+    return TestClient(create_app(repository=repository or Repository(), store=Store(), core=Core(), oauth_facade=OAuth()))
 
 
 def rpc(api, method, params=None, *, token=None, request_id=1):
@@ -71,15 +94,21 @@ def rpc(api, method, params=None, *, token=None, request_id=1):
     return api.post("/mcp",headers=headers,json=body)
 
 
-def test_mcp_initialization_and_tool_contract_are_read_only_and_explicitly_secured():
+def test_mcp_initialization_and_tool_contract_are_explicitly_secured():
     api=client()
     initialized=rpc(api,"initialize",{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1"}})
     assert initialized.status_code==200
     assert initialized.json()["result"]["protocolVersion"]=="2025-06-18"
     tools=rpc(api,"tools/list").json()["result"]["tools"]
-    assert {tool["name"] for tool in tools}=={"janus_sources","janus_market_context","janus_private_context"}
+    by_name={tool["name"]:tool for tool in tools}
+    assert set(by_name)=={"janus_sources","janus_market_context","janus_private_context","janus_private_ledger_append"}
     assert all(tool["inputSchema"]["additionalProperties"] is False for tool in tools)
-    assert all(tool["annotations"]=={"readOnlyHint":True,"destructiveHint":False,"openWorldHint":False} for tool in tools)
+    for name in ("janus_sources","janus_market_context","janus_private_context"):
+        assert by_name[name]["annotations"]=={"readOnlyHint":True,"destructiveHint":False,"openWorldHint":False}
+    assert by_name["janus_private_ledger_append"]["annotations"]=={
+        "readOnlyHint":False,"destructiveHint":False,"openWorldHint":False}
+    assert by_name["janus_private_ledger_append"]["securitySchemes"][0]["scopes"]==[
+        "janus.private.write","offline_access"]
     assert all(tool["securitySchemes"][0]["type"]=="oauth2" and
                "offline_access" in tool["securitySchemes"][0]["scopes"] for tool in tools)
 
@@ -100,6 +129,36 @@ def test_mcp_tool_calls_require_oauth_and_return_bounded_sanitized_records():
     assert result["records"]==[{"symbol":"2330","trade_date":"2026-09-17","close":"100",
                                 "source_id":"twse","provenance_id":"prov-1"}]
     assert "gcs_uri" not in str(result) and str(OWNER) not in str(result)
+
+
+def test_mcp_ledger_append_is_owner_bound_and_non_broker():
+    repository=Repository()
+    api=client(repository)
+    arguments={
+        "event_type":"BUY","trade_date":"2026-01-01","symbol":"1101",
+        "shares":"30000","price":"31.5","fee":"538","tax":"0","currency":"TWD",
+        "memo":"補登交易","idempotency_key":"backfill-1101-20260101-buy",
+    }
+    denied=rpc(api,"tools/call",{"name":"janus_private_ledger_append","arguments":arguments})
+    assert denied.status_code==401
+    assert "janus.private.write" in denied.headers["www-authenticate"]
+
+    response=rpc(api,"tools/call",{"name":"janus_private_ledger_append","arguments":arguments},token="valid")
+    assert response.status_code==200
+    result=response.json()["result"]["structuredContent"]
+    assert result["status"]=="persisted" and result["resource"]=="trades"
+    assert result["record"]["symbol"]=="1101"
+    assert float(result["record"]["shares"])==30000
+    assert result["effects"]=={"broker_order_placed":False,"funds_moved":False}
+    assert str(OWNER) not in str(result) and "idempotency_key" not in str(result)
+    assert len(repository.added)==1
+    owner,event,key=repository.added[0]
+    assert owner==OWNER and event.symbol=="1101" and key=="backfill-1101-20260101-buy"
+
+    invalid=rpc(api,"tools/call",{"name":"janus_private_ledger_append","arguments":{
+        **arguments,"owner_id":str(OWNER)}},token="valid")
+    assert invalid.status_code==200 and invalid.json()["result"]["isError"] is True
+    assert len(repository.added)==1
 
 
 def test_mcp_financial_context_uses_availability_fence_for_date_bounds_and_as_of():

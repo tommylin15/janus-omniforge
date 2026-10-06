@@ -208,17 +208,18 @@ Admin 後續管理：
 
 ## 6.5 Janus ChatGPT MCP
 
-Janus ChatGPT connector 是 external authenticated read-only consumer，首選 existing `janus-api` `/mcp` boundary，不新增另一個 Chat runtime。
+Janus ChatGPT connector 是 external authenticated consumer，首選 existing `janus-api` `/mcp` boundary，不新增另一個 Chat runtime。2026-10-06 使用者明確核准新增 owner-scoped ledger write，取代先前「完全 read-only」限制，但只開放窄化的 append-only 記帳能力。
 
-第一版 logical tools：
+logical tools：
 
-- `janus_sources`
-- `janus_market_context`
-- `janus_private_context`
+- `janus_sources` — read-only，scope `janus.sources.read`
+- `janus_market_context` — read-only，scope `janus.market.read`
+- `janus_private_context` — read-only，scope `janus.private.read`
+- `janus_private_ledger_append` — non-destructive write，scope `janus.private.write`
 
-不得接受 arbitrary SQL、table、GCS URI、object path、client-selected owner 或 mutation。owner 由 OAuth token 的 server-side binding 決定；private output 需遵守 owner scope、bounds、sanitization、provenance 與 disclosure。
+ledger append 只接受既有 `LedgerEventIn` 欄位與 stable idempotency key，owner 一律由 OAuth token server-side binding 決定；不得接受 arbitrary SQL、table、GCS URI、object path、client-selected owner、任意 update／delete。此工具只寫 Janus 個人 ledger，不向券商下單或移動資金；缺值不得猜補。private output 維持 owner scope、bounds、sanitization、provenance 與 disclosure。
 
-MCP 不提供 resources／prompts／subscriptions／write confirmation／conversation snapshot storage，除非未來另有 active contract。
+MCP 不提供 generic mutation、resources／prompts／subscriptions／approval runtime／conversation snapshot storage，除非未來另有 active contract。
 
 ## 6.6 ResearchContext（Planned）
 

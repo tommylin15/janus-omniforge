@@ -1,4 +1,4 @@
-"""Stateless, read-only MCP surface for ChatGPT."""
+"""Stateless MCP surface for bounded Janus reads and explicit owner-scoped ledger writes."""
 
 from __future__ import annotations
 
@@ -10,14 +10,18 @@ from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from .context_sources import ContextSourceError, ContextSourceService, MAX_CONTEXT_BYTES
-from .models import ContextSelector
+from .models import ContextSelector, LedgerEventIn
 
 
 PROTOCOL_VERSION = "2025-06-18"
 MARKET_RESOURCES = ("ohlcv", "valuation", "institutional", "financials", "events", "market-activity", "benchmark")
 PRIVATE_RESOURCES = ("positions", "annual-pnl", "exposure", "performance", "stress-tests", "investment-profile", "watchlist", "trades")
-TOOL_SCOPES = {"janus_sources":"janus.sources.read", "janus_market_context":"janus.market.read",
-               "janus_private_context":"janus.private.read"}
+TOOL_SCOPES = {
+    "janus_sources":"janus.sources.read",
+    "janus_market_context":"janus.market.read",
+    "janus_private_context":"janus.private.read",
+    "janus_private_ledger_append":"janus.private.write",
+}
 
 
 class _Args(BaseModel):
@@ -62,10 +66,15 @@ class PrivateArgs(_Args):
         return self
 
 
-def _tool(name: str, title: str, description: str, model: type[BaseModel]) -> dict[str, Any]:
+class LedgerAppendArgs(LedgerEventIn):
+    idempotency_key: str = Field(min_length=8, max_length=128)
+
+
+def _tool(name: str, title: str, description: str, model: type[BaseModel],
+          *, read_only: bool = True) -> dict[str, Any]:
     return {"name":name, "title":title, "description":description,
             "inputSchema":model.model_json_schema(),
-            "annotations":{"readOnlyHint":True,"destructiveHint":False,"openWorldHint":False},
+            "annotations":{"readOnlyHint":read_only,"destructiveHint":False,"openWorldHint":False},
             "securitySchemes":[{"type":"oauth2","scopes":[TOOL_SCOPES[name],"offline_access"]}]}
 
 
@@ -76,12 +85,15 @@ TOOLS = (
           "Read bounded published Janus market records for one allowlisted symbol and resource.", MarketArgs),
     _tool("janus_private_context", "Read private Janus context",
           "Read bounded owner-scoped Janus portfolio or ledger records after explicit OAuth authorization.", PrivateArgs),
+    _tool("janus_private_ledger_append", "Record private Janus ledger event",
+          "Append one owner-scoped Janus BUY, SELL, cash-dividend, or stock-dividend ledger fact after explicit OAuth authorization. This records Janus data only; it never places a broker order or moves funds. Use exact user-provided values and a stable idempotency_key; do not infer missing transaction values.",
+          LedgerAppendArgs, read_only=False),
 )
 
 
 class McpAdapter:
-    def __init__(self, contexts: ContextSourceService, oauth: Any) -> None:
-        self.contexts, self.oauth = contexts, oauth
+    def __init__(self, contexts: ContextSourceService, oauth: Any, repository: Any | None = None) -> None:
+        self.contexts, self.oauth, self.repository = contexts, oauth, repository
 
     def handle(self, value: Any, authorization: str = "") -> tuple[dict[str, Any] | None, int, dict[str, str]]:
         if not isinstance(value, Mapping) or value.get("jsonrpc") != "2.0" or isinstance(value.get("id"), bool):
@@ -96,8 +108,8 @@ class McpAdapter:
         if method == "initialize":
             return self._result(request_id, {"protocolVersion":PROTOCOL_VERSION,
                 "capabilities":{"tools":{"listChanged":False}},
-                "serverInfo":{"name":"janus-read-only","version":"1.0.0"},
-                "instructions":"Read-only bounded Janus market and owner-scoped private context."}), 200, {}
+                "serverInfo":{"name":"janus-private","version":"1.1.0"},
+                "instructions":"Bounded Janus market/private reads plus explicit owner-scoped ledger recording. Ledger writes never place broker orders or move funds."}), 200, {}
         if method == "ping": return self._result(request_id, {}), 200, {}
         if method == "tools/list": return self._result(request_id, {"tools":list(TOOLS)}), 200, {}
         if method != "tools/call": return self._error(request_id, -32601, "Method not found"), 200, {}
@@ -113,9 +125,17 @@ class McpAdapter:
         try:
             result = self._call(name, arguments, UUID(str(claims["sub"])))
         except (ValidationError, ValueError, ContextSourceError):
-            return self._result(request_id, {"isError":True,"content":[{"type":"text","text":"The bounded selector is invalid or unavailable."}]}), 200, {}
-        text = "Listed Janus source metadata." if name == "janus_sources" else (
-            f"Returned {result['bounds']['returned']} bounded {result['resource']} record(s); status={result['status']}.")
+            message = ("The ledger event is invalid, conflicts with current holdings, or is unavailable."
+                       if name == "janus_private_ledger_append"
+                       else "The bounded selector is invalid or unavailable.")
+            return self._result(request_id, {"isError":True,"content":[{"type":"text","text":message}]}), 200, {}
+        if name == "janus_sources":
+            text = "Listed Janus source metadata."
+        elif name == "janus_private_ledger_append":
+            text = ("Persisted the owner-scoped Janus ledger event. This records Janus data only; "
+                    "no broker order was placed and no funds were moved.")
+        else:
+            text = f"Returned {result['bounds']['returned']} bounded {result['resource']} record(s); status={result['status']}."
         return self._result(request_id, {"structuredContent":result,"content":[{"type":"text","text":text}]}), 200, {}
 
     def _call(self, name: str, arguments: Mapping[str, Any], owner_id: UUID) -> dict[str, Any]:
@@ -132,6 +152,13 @@ class McpAdapter:
                  "freshness":"latest completed valuation","status":"available","bounds":self._bounds(),
                  "disclosure":"Private owner calculations shared with an external AI service."},
             ]}
+        if name == "janus_private_ledger_append":
+            if self.repository is None:
+                raise ValueError("repository unavailable")
+            args = LedgerAppendArgs.model_validate(arguments)
+            event = LedgerEventIn.model_validate(args.model_dump(exclude={"idempotency_key"}))
+            row = self.repository.add_ledger(owner_id, event, args.idempotency_key)
+            return self._ledger_write_result(row)
         if name == "janus_market_context":
             args = MarketArgs.model_validate(arguments)
             selector = ContextSelector(source_id="janus-core", **args.model_dump())
@@ -140,6 +167,19 @@ class McpAdapter:
             source_id = "janus-private-core" if args.resource in {"watchlist","trades"} else "janus-private-mart"
             selector = ContextSelector(source_id=source_id, **args.model_dump())
         return self.contexts.read(owner_id, selector)
+
+    @staticmethod
+    def _ledger_write_result(row: Mapping[str, Any]) -> dict[str, Any]:
+        fields = ("event_id","ledger_version","event_action","event_type","trade_date","symbol",
+                  "shares","price","cash_amount","fee","tax","currency","memo","record_version")
+        return {
+            "schema_version":"janus.mcp.v1",
+            "status":"persisted",
+            "resource":"trades",
+            "record":{key:row[key] for key in fields if key in row},
+            "effects":{"broker_order_placed":False,"funds_moved":False},
+            "disclosure":"This tool records an owner-scoped Janus ledger fact only; it does not place orders or move funds.",
+        }
 
     def _authenticate(self, authorization: str, scope: str) -> Mapping[str, Any] | None:
         if not authorization.lower().startswith("bearer ") or not authorization[7:].strip(): return None
