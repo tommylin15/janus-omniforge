@@ -8,6 +8,7 @@ class FinalFakeApi extends legacy.Api {
 
   final Map<String, dynamic> values;
   final reads = <String>[];
+  final posts = <String>[];
 
   @override
   Future<dynamic> get(String path) async {
@@ -18,7 +19,10 @@ class FinalFakeApi extends legacy.Api {
   }
 
   @override
-  Future<dynamic> post(String path, Map<String, dynamic> body) async => body;
+  Future<dynamic> post(String path, Map<String, dynamic> body) async {
+    posts.add(path);
+    return body;
+  }
 
   @override
   Future<dynamic> put(String path, Map<String, dynamic> body) async => body;
@@ -227,6 +231,77 @@ void main() {
     await tester.tap(find.text('報表'));
     await tester.pumpAndSettle();
     expect(find.text('本年已實現損益目前無法確認'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Ledger Records preserves append-only correction workflow',
+      (tester) async {
+    mobileView(tester);
+    final year = DateTime.now().year;
+    final api = FinalFakeApi({
+      '/api/v1/me/portfolio/summary': {
+        'items': [
+          {
+            'currency': 'TWD',
+            'market_value': '100',
+            'cost_basis': '100',
+            'unrealized_pnl': '0',
+            'unrealized_return': '0',
+            'aggregate_status': 'available',
+            'valuation_status': 'available',
+            'ledger_version': 1,
+            'valuation_date': '2026-10-05'
+          }
+        ]
+      },
+      '/api/v1/me/journal/pnl?year=$year': [
+        {
+          'currency': 'TWD',
+          'realized_pnl': '0',
+          'valuation_date': '2026-10-05'
+        }
+      ],
+      '/api/v1/me/journal/positions': const [],
+      '/api/v1/me/journal/history?year=$year': [
+        {
+          'event_id': 'event-1',
+          'record_version': 1,
+          'event_action': 'ORIGINAL',
+          'event_type': 'BUY',
+          'trade_date': '2026-10-05',
+          'symbol': '2330',
+          'stock_name': '台積電',
+          'shares': '1',
+          'price': '100',
+          'fee': '0',
+          'tax': '0',
+          'currency': 'TWD',
+          'net_cash_flow': '-100'
+        }
+      ],
+      '/api/v1/me/journal/monthly-summary?year=$year': {'items': const []},
+      '/api/v1/me/portfolio/performance?year=$year': {'items': const []},
+      '/api/v1/me/notes': const [],
+    });
+
+    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('紀錄'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('建立更正'), findsOneWidget);
+    await tester.tap(find.byTooltip('建立更正'));
+    await tester.pumpAndSettle();
+    expect(find.text('建立更正'), findsOneWidget);
+
+    await tester.tap(find.text('儲存'));
+    await tester.pumpAndSettle();
+
+    expect(
+      api.posts,
+      contains('/api/v1/me/journal/events/event-1/corrections'),
+    );
+    expect(find.text(legacy.portfolioPendingMessage), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

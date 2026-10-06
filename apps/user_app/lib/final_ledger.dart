@@ -65,6 +65,35 @@ class _FinalLedgerPageState extends State<FinalLedgerPage> {
     }
   }
 
+  Future<void> correctTrade(Map<String, dynamic> row) async {
+    final replacement = await legacy.transactionDialog(
+      context,
+      initial: row,
+      title: '建立更正',
+    );
+    if (replacement == null || !mounted) return;
+    try {
+      await widget.api.post(
+        '/api/v1/me/journal/events/${row['event_id']}/corrections',
+        {
+          'expected_version': row['record_version'],
+          'replacement': replacement,
+        },
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(legacy.portfolioPendingMessage)),
+      );
+      reload();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('交易更正尚未儲存')),
+        );
+      }
+    }
+  }
+
   Future<void> addNote() async {
     final body = await legacy.textDialog(context, '新增筆記', '筆記內容');
     if (body == null || body.trim().isEmpty) return;
@@ -317,6 +346,14 @@ class _FinalLedgerPageState extends State<FinalLedgerPage> {
                       subtitle: Text(
                         '${fvText(row['trade_date'])} · 淨現金流 ${legacy.accountingNumber(row['net_cash_flow'], missing: '資料不足')} ${fvText(row['currency'], missing: '')}',
                       ),
+                      trailing: row['event_id'] != null &&
+                              row['record_version'] != null
+                          ? IconButton(
+                              tooltip: '建立更正',
+                              icon: const Icon(Icons.edit_note),
+                              onPressed: () => correctTrade(row),
+                            )
+                          : null,
                     );
                   }),
               ],
