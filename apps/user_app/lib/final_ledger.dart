@@ -408,6 +408,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     );
   }
 
+  // Aggregate totals are canonical backend/Private Mart values; the UI only groups and renders them.
   Widget recordSummaryValues(Map<String, dynamic> row) {
     final currency = fvText(row['currency'], missing: 'TWD');
     return Wrap(
