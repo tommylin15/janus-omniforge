@@ -289,8 +289,13 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> {
                 header: header(context, rows.length),
                 footer: const SizedBox(height: 8),
                 itemCount: rows.length,
+                buildDefaultDragHandles: false,
                 onReorder: (oldIndex, newIndex) => reorder(rows, oldIndex, newIndex),
-                itemBuilder: (context, index) => card(fvMap(rows[index])),
+                itemBuilder: (context, index) => ReorderableDelayedDragStartListener(
+                  key: ValueKey('watch-${fvMap(rows[index])['symbol']}'),
+                  index: index,
+                  child: card(fvMap(rows[index])),
+                ),
               );
             },
           ),

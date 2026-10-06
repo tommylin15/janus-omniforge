@@ -10,7 +10,7 @@ from packages.postgres_bundle import load_postgres_bundle
 
 from .mobile_ledger_consumer import MobileLedgerQueueError, probe_mobile_ledger_consumer, process_mobile_ledger_queue
 from .private_pipeline import CorePriceReader, PrivatePipeline, resolve_valuation_date
-from .repository import NotFoundError, repository_from_env
+from .repository import NotFoundError, PostgresWorkspaceRepository, repository_from_env
 from .store import PrivateIcebergStore
 
 
@@ -33,12 +33,13 @@ def main() -> None:
 
     load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", {
         "PRIVATE_DATABASE_URL": ("pipeline_database_url", "database_url"),
+        "MOBILE_LEDGER_DATABASE_URL": "database_url",
         "PRIVATE_CATALOG_PASSWORD": ("pipeline_catalog_password", "catalog_password"),
         "CORE_CATALOG_PASSWORD": "core_catalog_password",
     })
     repository = repository_from_env()
     try:
-        process_mobile_ledger_queue(repository)
+        process_mobile_ledger_queue(PostgresWorkspaceRepository(os.environ["MOBILE_LEDGER_DATABASE_URL"]))
     except (MobileLedgerQueueError, NotFoundError):
         pass
     market = CorePriceReader.from_env()

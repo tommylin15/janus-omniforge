@@ -140,9 +140,17 @@ def test_private_pipeline_runtime_preserves_offlist_before_processing(monkeypatc
         def run(self, *_args):
             return 42
 
-    monkeypatch.setattr(private_pipeline_runtime, "load_postgres_bundle", lambda *_args: None)
+    def load_bundle(_name, fields):
+        assert fields["PRIVATE_DATABASE_URL"] == ("pipeline_database_url", "database_url")
+        assert fields["MOBILE_LEDGER_DATABASE_URL"] == "database_url"
+        monkeypatch.setenv("MOBILE_LEDGER_DATABASE_URL", "existing-api-writer")
+
+    def consume(repository):
+        assert repository.dsn == "existing-api-writer"
+
+    monkeypatch.setattr(private_pipeline_runtime, "load_postgres_bundle", load_bundle)
     monkeypatch.setattr(private_pipeline_runtime, "repository_from_env", RepositoryStub)
-    monkeypatch.setattr(private_pipeline_runtime, "process_mobile_ledger_queue", lambda *_args: {})
+    monkeypatch.setattr(private_pipeline_runtime, "process_mobile_ledger_queue", consume)
     monkeypatch.setattr(private_pipeline_runtime.CorePriceReader, "from_env", classmethod(lambda _cls: MarketStub()))
     monkeypatch.setattr(private_pipeline_runtime.PrivateIcebergStore, "from_env", classmethod(lambda _cls: object()))
     monkeypatch.setattr(private_pipeline_runtime, "PrivatePipeline", PipelineStub)

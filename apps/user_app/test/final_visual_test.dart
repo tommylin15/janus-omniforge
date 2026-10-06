@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:janus_user_app/final_visual_pages.dart';
@@ -110,8 +111,9 @@ void main() {
     expect(find.text('台積電（2330）'), findsOneWidget);
     expect(find.text('已持有'), findsOneWidget);
     expect(find.text('已離開本週 500 · 仍保留關注'), findsOneWidget);
+    expect(find.byIcon(Icons.drag_handle), findsNothing);
     expect(tester.takeException(), isNull);
-  });
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
   testWidgets('390px Ledger puts canonical aggregate first and never invents YTD zero',
       (tester) async {
