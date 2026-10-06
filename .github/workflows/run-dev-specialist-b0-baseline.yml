@@ -55,7 +55,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           job_json="$(gcloud run jobs describe janus-intelligence-mart --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json)"
-          runtime_sha="$(jq -r '[.spec.template.template.containers[0].env[]? | select(.name == "JANUS_GIT_SHA") | .value] | last // ""' <<<"${job_json}")"
+          runtime_sha="$(jq -r '[.spec.template.spec.template.spec.containers[0].env[]? | select(.name == "JANUS_GIT_SHA") | .value] | last // ""' <<<"${job_json}")"
           [[ "${runtime_sha}" == "${EXPECTED_SHA}" ]] || {
             echo "Mart runtime SHA mismatch: expected ${EXPECTED_SHA}, got ${runtime_sha:-missing}" >&2
             exit 3
