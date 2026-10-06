@@ -1,6 +1,6 @@
 # Janus — TODO
 
-版本：3.11（2026-10-06：A 組人工驗收完成並結案）
+版本：3.12（2026-10-06：統一 B 組每日／月度 cadence 與 BigQuery 資料角色）
 用途：**只保留確定要做的 active work 與未完成 acceptance**。Deferred、Candidate、Observation、Production-only、已接受缺口與研究構想統一放 [`parking-lot.md`](parking-lot.md)；已完成／被取代內容放 `archive/`。
 
 ## 規則
@@ -23,9 +23,9 @@
 目前產品契約：
 
 - 五 specialist production 主路徑為 Python／SQL／ML，正常 path 不使用生成式 LLM。
-- 約 500 檔只做低成本 market screening／discovery；完整五 specialist 只做 `active watchlist ∪ effective holdings`。
-- specialist 依 dirty dependency／input change 更新；無變更 reuse。
-- retraining／calibration／reconciliation 第一版月度。
+- 約 500 檔在每個交易日 EOD canonical data ready 後做低成本 market screening／cross-sectional discovery；BigQuery 通過 fidelity gate 後優先承接這條全市場計算，不做 500×5 深度 specialist。
+- 完整五 specialist 只做 `active watchlist ∪ effective holdings`，依 dirty dependency／input change 更新；無變更 reuse，不固定每日全重算。
+- retraining／calibration／OOS evaluation／cache reconciliation 第一版固定 **每月第一個週六 10:30（Asia/Taipei）** 執行；不使用「每月 1 日」或「每週六跑 500×5」兩套排程。
 - plain-language output 由 structured output + SHAP／rules／templates 產生，正常 0 API token。
 - Codex CLI／OpenRouter／Gemini 只用於 authorized manual On-demand CEO／approved rare escalation。
 - CEO report immutable；重新分析建立新 execution/report，不覆寫舊報告。
@@ -43,9 +43,10 @@
 
 - Core Iceberg V2／GCS 繼續是 canonical／PIT／provenance/history；BigQuery 不取代 canonical store。
 - PostgreSQL serving projection 與 User／Admin request-time hot path 保持不變。
-- BigQuery 只作 B 組 analytics compute，優先承接 liquid-500 screening、cross-sectional features、OOS/evaluation 前處理與 ML training dataset preparation。
+- BigQuery 只作 B 組 analytics compute；通過 cutover gate 後，優先承接 **每日盤後 liquid-500 screening**、cross-sectional features、OOS/evaluation 前處理與 ML training dataset preparation。
 - 禁止 BigQuery Storage Read API；小結果走一般 query/result API，大型 training data 走 versioned GCS Parquet export artifact。
 - 不預設複製整套 Core 到 BigQuery native storage；temporary/TTL derived data 可用但不可升格 canonical。
+- 資料角色固定：Iceberg/GCS 保存 canonical/PIT/history；BigQuery intermediate 是可重建 compute；大型 training/evaluation dataset 以 versioned GCS Parquet 保存；model/evaluation/specialist 成果依 Mart contract 保存。BigQuery 中間結果不要求再回寫一份 Iceberg。
 - 先抽出 exact-snapshot analytics reader，再做 BigQuery compatibility/canary；無法證明與固定 Core snapshot 一致時保留 PyIceberg path。
 - 本架構方向已核准；若 implementation 需啟用新付費 API／建立 BigLake/Lakehouse/BigQuery 計費資源或擴大 IAM，仍需另有明確授權。
 
@@ -93,10 +94,11 @@ B 組開始五 specialist／cache 收斂前，先完成 [BigQuery analytics 架�
 - [ ] 抽出 exact-snapshot analytics reader；既有 PyIceberg path 先包成 reference／fallback，不改 canonical write path。
 - [ ] 建立 BigQuery analytics adapter／compatibility probe，證明固定 Core snapshot 的資料／schema／null／時間／provenance fidelity；未通過前不得成為唯一 reader。
 - [ ] 禁止 Storage Read API 與 `bigquery.readsessions.*` 需求；不得加入 `google-cloud-bigquery-storage`。大量 ML input 以 SQL 縮減後 export versioned GCS Parquet。
-- [ ] 優先把 liquid-500 screening／cross-sectional ranking／OOS preprocessing 移到 BigQuery compute；不把 User API、Ledger、private owner path 或整套 Core full copy 搬入 BigQuery。
+- [ ] 建立每日盤後 liquid-500 screening：EOD canonical data ready 後對約 500 檔做低成本 screening／cross-sectional ranking；BigQuery 通過 fidelity gate 後承接這條 compute。不得擴成 500×5 深度 specialist，也不把 User API、Ledger、private owner path 或整套 Core full copy 搬入 BigQuery。
 - [ ] 加入 bounded query／column／partition guards、processed bytes／elapsed／peak RSS／GCS I/O／artifact growth telemetry，未知成本不補 0。
 - [ ] 同 snapshot 對 PyIceberg／BigQuery 做 deterministic canary compare；只對通過 fidelity、cost、performance、failure/fallback acceptance 的 workload 切換 default。
 - [ ] PostgreSQL serving projection 與 A 組既有 read path 不回歸；BigQuery failure 必須可 audit fallback，不影響 canonical ingestion/write。
+- [ ] 將 `specialist-retrain`／calibration／OOS evaluation／cache reconciliation 的 effective schedule 統一為 **每月第一個週六 10:30（Asia/Taipei）**；實作時需修改實際 Scheduler／controller definition 並以 runtime readback 驗證，文件本身不算完成。
 - [ ] 若需啟用新付費 API、建立 BigLake/Lakehouse/BigQuery 資源或擴大 IAM，依 PROJECT_RULES 取得明確授權；未授權部分標 blocked，不以文件決策冒充 resource approval。
 
 # 原 WBS acceptance（依上方工作組整合執行）
@@ -107,7 +109,7 @@ B 組開始五 specialist／cache 收斂前，先完成 [BigQuery analytics 架�
 
 先核對 [`spec/operations-and-testing.md`](spec/operations-and-testing.md) 已記錄的公開資料清理 apply/readback 與最新 runtime；依 [`spec/retention-governance.md`](spec/retention-governance.md) 只補尚缺的整合／排程證據，不為舊待辦重跑已完成刪除。其他治理／成本收斂併 A；不以文件過期阻擋 B。
 
-- [ ] 完成約 500 檔低成本 market screening 與 Deep Coverage 五 specialist。
+- [ ] 完成約 500 檔**每日盤後**低成本 market screening，以及 `active watchlist ∪ effective holdings` 的 Deep Coverage 五 specialist；兩者不得混成 500×5 全量深算。
 - [ ] Fundamental：deterministic financial features + LightGBM baseline。
 - [ ] Valuation：deterministic DCF／reverse-DCF／relative valuation + LightGBM／CatBoost benchmark。
 - [ ] Quant：LightGBM baseline + Qlib DoubleEnsemble challenger；以 Taiwan PIT walk-forward OOS 決定 champion。
@@ -126,7 +128,7 @@ B 組開始五 specialist／cache 收斂前，先完成 [BigQuery analytics 架�
 - [ ] 建立 dirty dependency graph：依 Core/PIT input hash、feature/engine/model version 只 invalidate 受影響 symbol/specialist。
 - [ ] monthly revenue／financials 只更新受影響 Fundamental／Valuation；EOD price 更新 cheap Valuation／Quant／Risk；event 只更新 Event。
 - [ ] 無 input change 直接 reuse，保留可稽核 cache identity。
-- [ ] 每月 reconciliation 檢查 missed invalidation、orphan artifact、cache identity、model version。
+- [ ] 每月第一個週六 10:30（Asia/Taipei）執行 retrain／calibration／OOS evaluation／reconciliation，檢查 missed invalidation、orphan artifact、cache identity、model version。
 - [ ] specialist change 只標記 CEO report freshness／material delta，**不得自動觸發 CEO LLM**。
 
 ## 3. `WBS-5-MART-AI-PROVIDERS` — 【Sol】
