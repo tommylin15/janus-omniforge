@@ -25,7 +25,7 @@
 - 五 specialist production 主路徑為 Python／SQL／ML，正常 path 不使用生成式 LLM。
 - 約 500 檔在每個交易日 EOD canonical data ready 後做低成本 market screening／cross-sectional discovery；BigQuery 通過 fidelity gate 後優先承接這條全市場計算，不做 500×5 深度 specialist。
 - 完整五 specialist 只做 `active watchlist ∪ effective holdings`，依 dirty dependency／input change 更新；無變更 reuse，不固定每日全重算。
-- retraining／calibration／OOS evaluation／cache reconciliation 第一版固定 **每月第一個週六 10:30（Asia/Taipei）** 執行；不使用「每月 1 日」或「每週六跑 500×5」兩套排程。
+- retraining／calibration／OOS evaluation／cache reconciliation 第一版固定 **每月第一個週六 10:30（Asia/Taipei）** 執行；不另設每週六 500×5 全量深算排程。
 - plain-language output 由 structured output + SHAP／rules／templates 產生，正常 0 API token。
 - Codex CLI／OpenRouter／Gemini 只用於 authorized manual On-demand CEO／approved rare escalation。
 - CEO report immutable；重新分析建立新 execution/report，不覆寫舊報告。
