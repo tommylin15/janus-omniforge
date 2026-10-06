@@ -68,8 +68,7 @@ SELECT
   NOT EXISTS (
     SELECT 1 FROM control.collection_configs
     WHERE jsonb_array_length(source_ids)=0
-  ),
-  has_table_privilege('janus_private_api','publication.stock_latest','SELECT');
+  );
 
 INSERT INTO control.schema_migrations(version)
 VALUES ('046_twse_only_latest_price')
