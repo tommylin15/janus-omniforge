@@ -128,7 +128,7 @@ case "${component}" in
     service_flags+=(--revision-suffix="${service_revision_suffix}-config")
 
     # MIS personal/cloud display permission confirmed by the owner on 2026-10-01.
-    api_env="JANUS_MIS_QUOTES_ENABLED=true${MCP_OAUTH_ENABLED:+,MCP_OAUTH_ENABLED=${MCP_OAUTH_ENABLED}}"
+    api_env="JANUS_MIS_QUOTES_ENABLED=true,CORE_BUCKET=${project}-dev-core,MART_BUCKET=${project}-dev-mart${MCP_OAUTH_ENABLED:+,MCP_OAUTH_ENABLED=${MCP_OAUTH_ENABLED}}"
     if [[ -n "${GOOGLE_ADMIN_ALLOWED_EMAILS:-}" ]]; then
       api_env="${api_env:+${api_env},}GOOGLE_ADMIN_ALLOWED_EMAILS=${GOOGLE_ADMIN_ALLOWED_EMAILS}"
     fi
