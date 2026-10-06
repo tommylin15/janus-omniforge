@@ -34,6 +34,20 @@ def test_moving_average_cross_year_reversal_and_missing_price_are_deterministic(
     assert annual[2026]["realized_pnl"]==Decimal("100")
 
 
+def test_reversal_only_voids_transaction_without_replacement():
+    buy=event(1,"BUY",date(2026,1,2),Decimal("10"),Decimal("100"))
+    reversal=event(
+        2,"BUY",date(2026,1,2),Decimal("10"),Decimal("100"),
+        action="REVERSAL",reverses=buy["event_id"],
+    )
+    marts=calculate_marts([buy,reversal],{"2330":Decimal("120")},date(2026,10,7))
+    assert marts["mart_user_positions"]==[]
+    assert marts["mart_user_realized_pnl"]==[]
+    assert marts["mart_user_annual_pnl"]==[]
+    assert marts["mart_user_monthly_ledger_summary"]==[]
+    assert marts["mart_user_symbol_ledger_summary"]==[]
+
+
 def test_fees_and_taxes_are_included_in_moving_average_realized_pnl():
     buy=event(1,"BUY",date(2026,1,1),Decimal("10"),Decimal("100"));buy["fee"]=Decimal("10")
     sell=event(2,"SELL",date(2026,2,1),Decimal("5"),Decimal("120"));sell["fee"]=Decimal("2");sell["tax"]=Decimal("3")

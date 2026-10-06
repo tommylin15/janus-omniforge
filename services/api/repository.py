@@ -177,6 +177,73 @@ class PostgresWorkspaceRepository:
             connection.execute("SELECT private.refresh_current_positions(%s)", (user_id,))
             return dict(row)
 
+    def reverse_ledger(self, user_id: UUID, event_id: UUID, expected: int, key: str) -> dict[str, Any]:
+        """Void one effective ledger event by appending a reversal-only event."""
+        with self._connection() as connection:
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))",(str(event_id),))
+            repeated=connection.execute(
+                "SELECT * FROM private.ledger_events WHERE user_id=%s AND idempotency_key=%s",
+                (user_id,key),
+            ).fetchone()
+            if repeated:
+                if repeated["event_action"]=="REVERSAL" and repeated["reverses_event_id"]==event_id:
+                    return dict(repeated)
+                raise ConflictError("ledger reversal idempotency key was reused")
+            original=connection.execute(
+                "SELECT * FROM private.ledger_events WHERE user_id=%s AND event_id=%s",
+                (user_id,event_id),
+            ).fetchone()
+            if not original:
+                raise NotFoundError("ledger event not found")
+            if original["event_action"]=="REVERSAL":
+                raise ConflictError("ledger reversal cannot be reversed")
+            if original["record_version"]!=expected:
+                raise ConflictError("ledger event version changed")
+            if connection.execute(
+                "SELECT 1 FROM private.ledger_events WHERE user_id=%s AND reverses_event_id=%s",
+                (user_id,event_id),
+            ).fetchone():
+                raise ConflictError("ledger event was already reversed")
+
+            if original["event_type"] in (LedgerType.BUY,LedgerType.STOCK_DIV):
+                active=connection.execute(
+                    """SELECT e.event_type,e.shares
+                       FROM private.ledger_events e
+                       WHERE e.user_id=%s AND e.symbol=%s AND e.event_id<>%s
+                         AND e.event_action<>'REVERSAL'
+                         AND NOT EXISTS (
+                           SELECT 1 FROM private.ledger_events r
+                           WHERE r.user_id=e.user_id
+                             AND r.event_action='REVERSAL'
+                             AND r.reverses_event_id=e.event_id
+                         )
+                       ORDER BY e.trade_date,e.ledger_version""",
+                    (user_id,original["symbol"],event_id),
+                ).fetchall()
+                running=Decimal("0")
+                for row in active:
+                    if row["event_type"] in (LedgerType.BUY,LedgerType.STOCK_DIV):
+                        running+=Decimal(str(row["shares"] or 0))
+                    elif row["event_type"]==LedgerType.SELL:
+                        running-=Decimal(str(row["shares"] or 0))
+                    if running<0:
+                        raise OversellError("reversal would leave a sell without enough shares")
+
+            reversal_version=self._next_version(connection,user_id)
+            reversal_id=uuid4()
+            row=connection.execute(
+                """INSERT INTO private.ledger_events
+                   (event_id,user_id,ledger_version,event_action,event_type,trade_date,symbol,shares,price,cash_amount,fee,tax,currency,memo,idempotency_key,reverses_event_id)
+                   VALUES (%s,%s,%s,'REVERSAL',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                   RETURNING *""",
+                (reversal_id,user_id,reversal_version,original["event_type"],original["trade_date"],original["symbol"],
+                 original["shares"],original["price"],original["cash_amount"],original["fee"],original["tax"],
+                 original["currency"],original["memo"],key,event_id),
+            ).fetchone()
+            self._change(connection,user_id,self._next_change_version(connection,user_id),"ledger",reversal_id,None)
+            connection.execute("SELECT private.refresh_current_positions(%s)",(user_id,))
+            return dict(row)
+
     def ledger_history(self, user_id: UUID, symbol: str | None, year: int | None, limit: int = 200) -> list[dict[str, Any]]:
         clauses, values = ["user_id=%s"], [user_id]
         if symbol:

@@ -37,6 +37,10 @@ class Repository:
     def resolve_user(self,sub,email): self.emails.append((sub,email)); return USER_ID
     def require_owned_trade(self,user_id,event_id): self.calls.append(("ownership",user_id,event_id))
     def add_ledger(self,user_id,value,key): self.calls.append((user_id,value,key)); return {"user_id":user_id,"event_type":value.event_type,"ledger_version":1}
+    def reverse_ledger(self,user_id,event_id,expected,key):
+        self.calls.append(("reverse",user_id,event_id,expected,key))
+        return {"user_id":user_id,"event_id":str(uuid4()),"event_action":"REVERSAL",
+                "reverses_event_id":event_id,"record_version":1,"ledger_version":2}
     def ledger_history(self,user_id,symbol,year): return [{"user_id":user_id,"symbol":symbol or "2330"}]
     def latest_ledger_version(self,user_id): return 1
     def watchlist(self,user_id): return [{"user_id":user_id,"symbol":"2330"}]
@@ -240,6 +244,22 @@ def test_identity_cannot_be_supplied_by_client_and_routes_scope_to_authenticated
     response=api.post("/api/v1/me/journal/events",headers={**auth(),"Idempotency-Key":"request-1"},json=payload)
     assert response.status_code==201
     assert repo.calls[0][0]==USER_ID
+
+
+def test_ledger_reversal_is_owner_scoped_append_only_and_triggers_recalculation():
+    recalculator=Recalculator()
+    api,repo,_=client(private_recalculator=recalculator)
+    event_id=UUID("11111111-1111-1111-1111-111111111111")
+    response=api.post(
+        f"/api/v1/me/journal/events/{event_id}/reversals",
+        headers={**auth(),"Idempotency-Key":"reversal-1"},
+        json={"expected_version":1},
+    )
+    assert response.status_code==201
+    assert response.json()["event_action"]=="REVERSAL"
+    assert response.json()["reverses_event_id"]==str(event_id)
+    assert repo.calls[-1]==("reverse",USER_ID,event_id,1,"reversal-1")
+    assert recalculator.calls==[USER_ID]
 
 
 def test_ledger_mutation_triggers_immediate_recalculation_and_manual_retry_is_owner_scoped():

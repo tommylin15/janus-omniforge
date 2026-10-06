@@ -331,6 +331,54 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     }
   }
 
+  Future<void> deleteTrade(Map<String, dynamic> row) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('刪除這筆交易？'),
+        content: const Text(
+          '系統會用作廢（REVERSAL）取消這筆交易，不會物理刪除原始紀錄。'
+          '持股與損益會重新計算，原始資料仍保留供稽核。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+              foregroundColor: Theme.of(dialogContext).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('確認刪除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await widget.api.post(
+        '/api/v1/me/journal/events/${row['event_id']}/reversals',
+        {'expected_version': row['record_version']},
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('交易已作廢，持股與損益重新計算中')),
+      );
+      reload();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('無法刪除這筆交易；若已有後續賣出或更正，請先處理相依交易'),
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> recalculatePnl() async {
     if (pnlRecalcBusy) return;
     setState(() => pnlRecalcBusy = true);
@@ -571,10 +619,23 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       ),
       subtitle: Text('${fvText(row['trade_date'])}$quantity'),
       trailing: row['event_id'] != null && row['record_version'] != null
-          ? IconButton(
-              tooltip: '建立更正',
-              icon: const Icon(Icons.edit_note),
-              onPressed: () => correctTrade(row),
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: '建立更正',
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.edit_note),
+                  onPressed: () => correctTrade(row),
+                ),
+                IconButton(
+                  tooltip: '刪除交易',
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.delete_outline),
+                  color: Theme.of(context).colorScheme.error,
+                  onPressed: () => deleteTrade(row),
+                ),
+              ],
             )
           : null,
     );

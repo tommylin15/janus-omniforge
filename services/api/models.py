@@ -153,6 +153,10 @@ class CorrectionIn(StrictModel):
     replacement: LedgerEventIn
 
 
+class LedgerReversalIn(StrictModel):
+    expected_version: Annotated[int, Field(ge=1)]
+
+
 class NoteIn(StrictModel):
     body: Annotated[str, Field(min_length=1, max_length=50_000)]
     symbol: Annotated[str | None, Field(pattern=r"^[0-9A-Z.-]{1,16}$")] = None

@@ -400,6 +400,76 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Ledger Records deletes by append-only reversal after confirmation',
+      (tester) async {
+    mobileView(tester);
+    final year = DateTime.now().year;
+    final api = FinalFakeApi({
+      '/api/v1/me/portfolio/summary': {'items': const []},
+      '/api/v1/me/journal/pnl?year=$year': const [],
+      '/api/v1/me/journal/positions': const [],
+      '/api/v1/me/journal/history?year=$year': [
+        {
+          'event_id': 'event-delete-1',
+          'record_version': 1,
+          'event_action': 'ORIGINAL',
+          'event_type': 'BUY',
+          'trade_date': '2026-10-05',
+          'symbol': '2330',
+          'stock_name': '台積電',
+          'shares': '1',
+          'price': '100',
+          'fee': '0',
+          'tax': '0',
+          'currency': 'TWD',
+          'net_cash_flow': '-100'
+        }
+      ],
+      '/api/v1/me/journal/monthly-summary?year=$year': {'items': const []},
+      '/api/v1/me/journal/symbol-summary?year=$year': {'items': const []},
+      '/api/v1/me/portfolio/performance?year=$year': {'items': const []},
+      '/api/v1/me/notes': const [],
+      '/api/v1/me/portfolio/quotes': {
+        'positions': const [],
+        'items': const [],
+        'checked_at': '2026-10-07T07:00:00+08:00',
+        'market_open': false,
+      },
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FinalLedgerPage(
+            api,
+            now: () => DateTime.utc(2026, 10, 6, 23),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('紀錄'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('$year 年 10 月'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('刪除交易'), findsOneWidget);
+    await tester.tap(find.byTooltip('刪除交易'));
+    await tester.pumpAndSettle();
+    expect(find.text('刪除這筆交易？'), findsOneWidget);
+    expect(find.textContaining('REVERSAL'), findsOneWidget);
+
+    await tester.tap(find.text('確認刪除'));
+    await tester.pumpAndSettle();
+
+    expect(
+      api.posts,
+      contains('/api/v1/me/journal/events/event-delete-1/reversals'),
+    );
+    expect(find.text('交易已作廢，持股與損益重新計算中'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Ledger Records switches annual detail between month and stock aggregates',
       (tester) async {
     mobileView(tester);

@@ -32,7 +32,7 @@ from .mcp_adapter import McpAdapter
 from .mcp_oauth import McpOAuth, OAuthSettings, RepositoryOAuthCodeStore, parse_form
 from .models import (AdminResponseOut, AnalysisFeedbackIn, CorePageOut, CoreSummaryOut, MarketHomeOut,
                      BrokerProfileIn, CorrectionIn, HealthOut, InvestmentProfileIn, InvestmentProfileOut, LedgerEventIn,
-                     MonthlyLedgerSummaryOut,
+                     LedgerReversalIn, MonthlyLedgerSummaryOut,
                      NoteIn, NoteRevisionIn, PortfolioExposureOut, PortfolioPerformanceOut,
                      PortfolioStressOut, PortfolioSummaryOut,
                      PrivateResponseOut, PublicDatasetOut, PublicReportListOut, PublicReportOut, PublicWaitingOut,
@@ -676,6 +676,13 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def correct_ledger(event_id: UUID,value:CorrectionIn,background_tasks:BackgroundTasks,
                        current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
         result=repository.correct_ledger(current.user_id,event_id,value.expected_version,value.replacement,idempotency_key)
+        background_tasks.add_task(recalculate_private_mart_safely,current.user_id)
+        return jsonable_encoder(result)
+
+    @private.post("/journal/events/{event_id}/reversals", status_code=201)
+    def reverse_ledger(event_id:UUID,value:LedgerReversalIn,background_tasks:BackgroundTasks,
+                       current:AuthenticatedUser=Depends(user),idempotency_key:str=Depends(key)):
+        result=repository.reverse_ledger(current.user_id,event_id,value.expected_version,idempotency_key)
         background_tasks.add_task(recalculate_private_mart_safely,current.user_id)
         return jsonable_encoder(result)
 

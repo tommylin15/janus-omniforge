@@ -164,7 +164,7 @@ YTD realized PnL 必須有明確 display semantics：
 - 「按月份」與「按個股」的每個群組預設收合；群組標題只顯示分類名稱與 **已實現損益**，不再堆買進支出、賣出回收、股利收入、交易筆數等摘要。
 - 已清倉、目前不在持股清單中的股票仍可從歷史年度「按個股」查看。
 - 月份／個股／年度已實現損益都必須由 backend／Private Mart 使用同一 moving-average、fee／tax 與 correction semantics 產生；Flutter 不從畫面交易自行加總 authoritative PnL。
-- 展開群組後，單筆主視圖保持精簡：日期、event type、canonical name／symbol、適用時的 shares × price；完整 metadata 與 correction workflow 由 detail／「建立更正」承接。
+- 展開群組後，單筆主視圖保持精簡：日期、event type、canonical name／symbol、適用時的 shares × price；完整 metadata 與 correction workflow 由 detail／「建立更正」承接，並提供「刪除交易」。刪除採 append-only reversal-only semantics：原始事件不做 SQL DELETE，新增 REVERSAL 後立即刷新 operational positions，並觸發 Private Mart 重算；若作廢買進／股票股利會使任一後續賣出失去足夠股數，backend 必須拒絕。
 
 cash flow 與 PnL 不得混為同義。交易類型目前為買進、賣出、現金股利、股票股利；backend 負責 fee／tax rule 與 persisted rule/profile version。
 

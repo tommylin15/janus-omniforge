@@ -57,6 +57,7 @@
 
 - `GET／POST /api/v1/me/journal/trades`
 - `POST /api/v1/me/journal/trades/{event_id}/corrections`
+- `POST /api/v1/me/journal/events/{event_id}/reversals` — 作廢單筆交易；append-only，不物理刪除原始 ledger
 - `GET /api/v1/me/journal/positions`
 - `GET /api/v1/me/journal/pnl?year=YYYY`
 - `GET /api/v1/me/journal/monthly-summary?year=YYYY`
@@ -137,7 +138,7 @@ Flutter 可依既有 history 做 year／month／symbol grouping；canonical acco
 
 - 年度已實現損益使用 `/journal/pnl?year=YYYY`；月份與個股已實現損益分別使用 typed `monthly-summary`／`symbol-summary`。
 - 月份／個股群組預設收合，群組 summary **只呈現已實現損益**；買進支出、賣出回收、股利、交易筆數不再是群組標題必備資訊。
-- 展開後才顯示單筆交易；append-only correction action 必須仍可到達。
+- 展開後才顯示單筆交易；append-only correction 與「刪除交易」都必須可到達。刪除實際建立 reversal-only event，需二次確認，且不得物理刪除原始 ledger。
 - Flutter 不得自行把 history cash flow 加總成 authoritative realized PnL；typed aggregate unavailable 時顯示 pending／unavailable。
 
 ## 9. Auth／owner boundary
