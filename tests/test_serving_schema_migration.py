@@ -115,7 +115,7 @@ def test_twse_only_latest_price_migration_retires_tpex_without_deleting_history(
     assert "UPDATE control.stock_master" in sql
     assert "WHERE market='TPEX' AND enabled" in sql
     assert "DELETE FROM" not in sql
-    assert sql.index("has_table_privilege") < sql.index("INSERT INTO control.schema_migrations")
+    assert sql.index("NOT EXISTS") < sql.index("INSERT INTO control.schema_migrations")
     assert "046_twse_only_latest_price" in sql
 
 

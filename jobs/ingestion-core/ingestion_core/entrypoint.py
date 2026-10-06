@@ -8,6 +8,9 @@ import sys
 from time import monotonic
 
 
+MIGRATION_RUNNER_VERSION = "2026-10-06.latest-price-v2"
+
+
 def main() -> None:
     migration = os.environ.get("JANUS_SERVING_SCHEMA_MIGRATION", "").strip()
     if not migration:
@@ -52,6 +55,7 @@ def main() -> None:
             "status": "succeeded",
             "operation": "serving_schema_migration",
             "migration": migration,
+            "runner_version": MIGRATION_RUNNER_VERSION,
             "duration_ms": round((monotonic() - started) * 1000),
         }
         if backfill is not None:
@@ -67,6 +71,7 @@ def main() -> None:
             "status": "failed",
             "operation": "serving_schema_migration",
             "migration": migration,
+            "runner_version": MIGRATION_RUNNER_VERSION,
             "stage": failure_stage,
             "error_code": error_code,
             "duration_ms": round((monotonic() - started) * 1000),

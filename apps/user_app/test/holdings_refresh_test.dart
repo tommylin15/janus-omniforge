@@ -77,7 +77,7 @@ void main() {
     expect(api.calls, 1);
     await tester.pump(const Duration(minutes: 2));
     expect(api.calls, 1);
-    await tester.tap(find.text('更新股價'));
+    await tester.tap(find.text('更新持股股價'));
     await tester.pumpAndSettle();
     expect(api.calls, 2);
     await tester.pumpWidget(const SizedBox());
@@ -136,7 +136,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
     expect(api.calls, 2);
-    await tester.tap(find.text('更新股價'));
+    await tester.tap(find.text('更新持股股價'));
     await tester.pumpAndSettle();
     expect(api.calls, 3);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);

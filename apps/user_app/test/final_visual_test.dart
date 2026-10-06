@@ -463,14 +463,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('更新股價'), findsOneWidget);
+    expect(find.text('更新持股股價'), findsOneWidget);
     expect(find.textContaining('正式／休市'), findsOneWidget);
     expect(
       api.reads.where((path) => path == '/api/v1/me/portfolio/quotes').length,
       1,
     );
 
-    await tester.tap(find.text('更新股價'));
+    await tester.tap(find.text('更新持股股價'));
     await tester.pumpAndSettle();
 
     expect(

@@ -884,7 +884,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                           OutlinedButton.icon(
                             onPressed: quoteBusy ? null : () => refreshQuotes(force: true),
                             icon: const Icon(Icons.refresh, size: 18),
-                            label: Text(quoteBusy ? '更新中' : '更新股價'),
+                            label: Text(quoteBusy ? '更新中' : '更新持股股價'),
                           ),
                           FilledButton.icon(
                             onPressed: addTrade,
