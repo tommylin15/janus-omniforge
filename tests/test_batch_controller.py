@@ -33,12 +33,12 @@ def test_private_pipeline_effective_schedule_is_controller_owned():
     private = next(batch for batch in BATCHES if batch.name == "private")
     assert private.job == "janus-private-pipeline"
     assert private.hours == (21,)
-    assert private.minute == 0
+    assert private.minute == 30
     assert private.weekdays == tuple(range(5))
     assert private.dependencies == ("ingestion",)
 
-    before = datetime(2026, 10, 2, 12, 59, tzinfo=timezone.utc)  # 20:59 Asia/Taipei
-    after = datetime(2026, 10, 2, 13, 0, tzinfo=timezone.utc)    # 21:00 Asia/Taipei
+    before = datetime(2026, 10, 2, 13, 29, tzinfo=timezone.utc)  # 21:29 Asia/Taipei
+    after = datetime(2026, 10, 2, 13, 30, tzinfo=timezone.utc)   # 21:30 Asia/Taipei
     assert not any(row[1].name == "private" for row in due_batches(before))
     private_rows = [row for row in due_batches(after) if row[1].name == "private"]
     assert len(private_rows) == 1
