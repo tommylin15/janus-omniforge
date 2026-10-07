@@ -1,5 +1,7 @@
 {
-  "canary": null,
+  "canary": {
+    "unparsed": "{\n  \"status\": \"failed\",\n  \"error\": \"Traceback (most recent call last):\\n  File \\\"/home/runner/work/janus-omniforge/janus-omniforge/scripts/gcp/b2-lakehouse-acceptance.py\\\", line 76, in api_json\\n    with urllib.request.urlopen(request, timeout=timeout) as response:\\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/urllib/request.py\\\", line 215, in urlopen\\n    return opener.open(url, data, timeout)\\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/urllib/request.py\\\", line 521, in open\\n    response = meth(req, response)\\n               ^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/urllib/request.py\\\", line 630, in http_response\\n    response = self.parent.error(\\n               ^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/urllib/request.py\\\", line 559, in error\\n    return self._call_chain(*args)\\n           ^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/urllib/request.py\\\", line 492, in _call_chain\\n    result = func(*args)\\n             ^^^^^^^^^^^\\n  File \\\"/opt/hostedtoolcache/Python/3.12.14/x64/lib/python3.12/urllib/request.py\\\", line 639, in http_error_default\\n    raise HTTPError(req.full_url, code, msg, hdrs, fp)\\nurllib.error.HTTPError: HTTP Error 403: Forbidden\\n\\nThe above exception was the direct cause of the following exception:\\n\\nTraceback (most recent call last):\\n  File \\\"/home/runner/work/janus-omniforge/janus-omniforge/scripts/gcp/b3-screening-canary.py\\\", line 188, in <module>\\n    main()\\n  File \\\"/home/runner/work/janus-omniforge/janus-omniforge/scripts/gcp/b3-screening-canary.py\\\", line 119, in main\\n    candidate = reader.probe(\\n                ^^^^^^^^^^^^^\\n  File \\\"/home/runner/work/janus-omniforge/janus-omniforge/jobs/intelligence-mart/intelligence_mart/bigquery_reader.py\\\", line 90, in probe\\n    if table_id.count(\\\".\\\") != 3 or self.shared_metadata_loader(table_id) != uri:\\n                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/runner/work/janus-omniforge/janus-omniforge/scripts/gcp/b3-screening-canary.py\\\", line 106, in pointer\\n    return b2[\\\"metadata_location\\\"](b2[\\\"load_table\\\"](table, namespace))\\n                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/runner/work/janus-omniforge/janus-omniforge/scripts/gcp/b2-lakehouse-acceptance.py\\\", line 130, in load_table\\n    return api_json(\\\"GET\\\", url)\\n           ^^^^^^^^^^^^^^^^^^^^\\n  File \\\"/home/runner/work/janus-omniforge/janus-omniforge/scripts/gcp/b2-lakehouse-acceptance.py\\\", line 80, in api_json\\n    raise RuntimeError(f\\\"{method} {url} -> HTTP {exc.code}: {detail}\\\") from exc\\nRuntimeError: GET https://biglake.googleapis.com/iceberg/v1/restcatalog/v1/projects/gen-lang-client-0593591102/catalogs/janus_core_dev/namespaces/b2_core_fixed_20261007/tables/benchmark_v1 -> HTTP 403: {\\n  \\\"error\\\": {\\n    \\\"code\\\": 403,\\n    \\\"message\\\": \\\"Not authorized to make this request. Permission 'biglake.tables.get' denied on table 'b2_core_fixed_20261007.benchmark_v1' (or it may not exist).\\\",\\n    \\\"status\\\": \\\"PERMISSION_DENIED\\\"\\n  }\\n}\\n\\n\"\n}\\n"
+  },
   "constraints": {
     "bigquery_execution_budget_bytes": 1073741824,
     "bigquery_query_timeout_seconds": 60,
@@ -20,17 +22,17 @@
         "run.googleapis.com/client-version": "568.0.0",
         "run.googleapis.com/creator": "tommylin15@gmail.com",
         "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
-        "run.googleapis.com/operation-id": "f3382797-e1e1-412c-82c6-6498af9eea41"
+        "run.googleapis.com/operation-id": "7613d567-b761-4b2c-a0e9-79755944d9c9"
       },
       "creationTimestamp": "2026-10-02T03:32:20.977352Z",
-      "generation": 49,
+      "generation": 50,
       "labels": {
         "cloud.googleapis.com/location": "us-central1",
-        "run.googleapis.com/lastUpdatedTime": "2026-10-07T10:09:04.395622Z"
+        "run.googleapis.com/lastUpdatedTime": "2026-10-07T10:27:29.370240Z"
       },
       "name": "janus-batch-controller",
       "namespace": "131494961796",
-      "resourceVersion": "AAZdPU4VhAs",
+      "resourceVersion": "AAZdPadXjfs",
       "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/jobs/janus-batch-controller",
       "uid": "c0918163-0449-43bd-a919-6c5f13ad2859"
     },
@@ -45,7 +47,7 @@
             "run.googleapis.com/vpc-access-egress": "private-ranges-only"
           },
           "labels": {
-            "client.knative.dev/nonce": "zog_lif_jun"
+            "client.knative.dev/nonce": "veb_qom_buz"
           }
         },
         "spec": {
@@ -121,7 +123,7 @@
                       "value": "2026-10-02T04:05:00Z"
                     }
                   ],
-                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/ingestion-core@sha256:173c45881cd4eb9224a15ce7883575dd91fe5d65556086105782d3adbe7e1dc4",
+                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/ingestion-core@sha256:a2ab0d3943e859347c7b241e168d8f33ca2c643866931f8cad06ef0107175a48",
                   "resources": {
                     "limits": {
                       "cpu": "1",
@@ -145,18 +147,196 @@
           "type": "Ready"
         }
       ],
-      "executionCount": 155,
+      "executionCount": 156,
       "latestCreatedExecution": {
         "completionStatus": "EXECUTION_SUCCEEDED",
-        "completionTimestamp": "2026-10-07T09:37:34.137925Z",
-        "creationTimestamp": "2026-10-07T09:35:40.757466Z",
-        "name": "janus-batch-controller-l5nkf"
+        "completionTimestamp": "2026-10-07T10:33:55.917047Z",
+        "creationTimestamp": "2026-10-07T10:30:10.108926Z",
+        "name": "janus-batch-controller-wdldl"
       },
-      "observedGeneration": 49
+      "observedGeneration": 50
     }
   },
   "fixed_snapshot_run_1": {
-    "cloud_run": null,
+    "cloud_run": {
+      "apiVersion": "run.googleapis.com/v1",
+      "kind": "Execution",
+      "metadata": {
+        "annotations": {
+          "run.googleapis.com/client-name": "gcloud",
+          "run.googleapis.com/client-version": "568.0.0",
+          "run.googleapis.com/creator": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
+          "run.googleapis.com/execution-environment": "gen2",
+          "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
+          "run.googleapis.com/network-interfaces": "[{\"network\": \"janusai-lake-poc\", \"subnetwork\": \"janusai-lake-poc-uscentral1\", \"tags\": [\"janus-intelligence-mart\"]}]",
+          "run.googleapis.com/operation-id": "f5bd40ea-f57b-427a-877c-42050ee281a9",
+          "run.googleapis.com/vpc-access-egress": "private-ranges-only"
+        },
+        "creationTimestamp": "2026-10-07T10:36:18.175969Z",
+        "generation": 1,
+        "labels": {
+          "client.knative.dev/nonce": "zaj_lur_cop",
+          "cloud.googleapis.com/location": "us-central1",
+          "run.googleapis.com/job": "janus-intelligence-mart",
+          "run.googleapis.com/jobGeneration": "208",
+          "run.googleapis.com/jobResourceVersion": "1791369346981753",
+          "run.googleapis.com/jobUid": "bb34dcf0-83ff-4cb0-8a6e-06d71132d70f"
+        },
+        "name": "janus-intelligence-mart-76n9f",
+        "namespace": "131494961796",
+        "ownerReferences": [
+          {
+            "apiVersion": "serving.knative.dev/v1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "Job",
+            "name": "janus-intelligence-mart",
+            "uid": "bb34dcf0-83ff-4cb0-8a6e-06d71132d70f"
+          }
+        ],
+        "resourceVersion": "AAZdPbozXy4",
+        "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/executions/janus-intelligence-mart-76n9f",
+        "uid": "c8d24287-190b-40e6-8d30-c026427d5c1d"
+      },
+      "spec": {
+        "parallelism": 1,
+        "taskCount": 1,
+        "template": {
+          "spec": {
+            "containers": [
+              {
+                "env": [
+                  {
+                    "name": "CATALOG_DB_HOST",
+                    "value": "10.42.0.5"
+                  },
+                  {
+                    "name": "CATALOG_DB_NAME",
+                    "value": "janus_control"
+                  },
+                  {
+                    "name": "CATALOG_DB_USER",
+                    "value": "janus_mart_catalog"
+                  },
+                  {
+                    "name": "CATALOG_DB_SSLMODE",
+                    "value": "require"
+                  },
+                  {
+                    "name": "PUBLICATION_DB_HOST",
+                    "value": "10.42.0.5"
+                  },
+                  {
+                    "name": "PUBLICATION_DB_NAME",
+                    "value": "janus_control"
+                  },
+                  {
+                    "name": "PUBLICATION_DB_USER",
+                    "value": "janus_mart_publication"
+                  },
+                  {
+                    "name": "PUBLICATION_DB_SSLMODE",
+                    "value": "require"
+                  },
+                  {
+                    "name": "JANUS_MART_POSTGRES_BUNDLE",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "latest",
+                        "name": "janus-runtime-bundle"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MART_OPERATION",
+                    "value": "market-screening-acceptance"
+                  },
+                  {
+                    "name": "MART_BUCKET",
+                    "value": "gen-lang-client-0593591102-dev-mart"
+                  },
+                  {
+                    "name": "QUEUE_WORKER_ID",
+                    "value": "wbs5-acceptance-20260911"
+                  },
+                  {
+                    "name": "GCP_PROJECT_ID",
+                    "value": "gen-lang-client-0593591102"
+                  },
+                  {
+                    "name": "JANUS_GIT_SHA",
+                    "value": "88efe121cad5ba1eb33daa58ca5609f054c818ea"
+                  },
+                  {
+                    "name": "JANUS_IMAGE_DIGEST",
+                    "value": "sha256:6c0238cabe50b45ad3cee0f4b330b78e07cd8f08d9bf4a621d0ab5469d61e322"
+                  },
+                  {
+                    "name": "MART_CODEX_AUTH_SECRET",
+                    "value": "janus-mart-codex-auth"
+                  },
+                  {
+                    "name": "MART_AI_ENABLED",
+                    "value": "false"
+                  },
+                  {
+                    "name": "MART_ACCEPTANCE_INPUT_URI",
+                    "value": "gs://gen-lang-client-0593591102-dev-mart/acceptance/specialists/b1-fixed-snapshot-20261007.json"
+                  },
+                  {
+                    "name": "MART_OOS_EVALUATION",
+                    "value": "false"
+                  }
+                ],
+                "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:6c0238cabe50b45ad3cee0f4b330b78e07cd8f08d9bf4a621d0ab5469d61e322",
+                "resources": {
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "1Gi"
+                  }
+                }
+              }
+            ],
+            "maxRetries": 1,
+            "serviceAccountName": "intelligence-mart@gen-lang-client-0593591102.iam.gserviceaccount.com",
+            "timeoutSeconds": "1800"
+          }
+        }
+      },
+      "status": {
+        "completionTime": "2026-10-07T10:39:14.559354Z",
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-07T10:39:14.559354Z",
+            "message": "Execution completed successfully in 2m42.45s.",
+            "status": "True",
+            "type": "Completed"
+          },
+          {
+            "lastTransitionTime": "2026-10-07T10:36:19.356316Z",
+            "message": "Provisioned imported containers.",
+            "status": "True",
+            "type": "ResourcesAvailable"
+          },
+          {
+            "lastTransitionTime": "2026-10-07T10:39:05.113235Z",
+            "message": "Started deployed execution in 2m45.75s.",
+            "status": "True",
+            "type": "Started"
+          },
+          {
+            "lastTransitionTime": "2026-10-07T10:36:19.042336Z",
+            "message": "Imported container image.",
+            "status": "True",
+            "type": "ContainerReady"
+          }
+        ],
+        "logUri": "https://console.cloud.google.com/logs/viewer?project=gen-lang-client-0593591102&advancedFilter=resource.type%3D%22cloud_run_job%22%0Aresource.labels.job_name%3D%22janus-intelligence-mart%22%0Aresource.labels.location%3D%22us-central1%22%0Alabels.%22run.googleapis.com/execution_name%22%3D%22janus-intelligence-mart-76n9f%22",
+        "observedGeneration": 1,
+        "startTime": "2026-10-07T10:36:32.102268Z",
+        "succeededCount": 1
+      }
+    },
     "receipt": null,
     "result": null
   },
@@ -165,8 +345,8 @@
     "receipt": null,
     "result": null
   },
-  "generated_at": "2026-10-07T10:16:46.447054+00:00",
-  "git_sha": "65d08802bed01ca523e054982adc3bdb2ecc558d",
+  "generated_at": "2026-10-07T10:39:31.309420+00:00",
+  "git_sha": "88efe121cad5ba1eb33daa58ca5609f054c818ea",
   "markers": {
     "canary": false,
     "controller": false,
@@ -183,17 +363,17 @@
         "run.googleapis.com/client-version": "568.0.0",
         "run.googleapis.com/creator": "tommylin15@gmail.com",
         "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
-        "run.googleapis.com/operation-id": "1cf93bea-a89d-44a5-89dc-125f7d33f34f"
+        "run.googleapis.com/operation-id": "e0c91cc7-81f3-4aa2-a630-48084c58bd68"
       },
       "creationTimestamp": "2026-08-31T05:46:45.673533Z",
-      "generation": 206,
+      "generation": 208,
       "labels": {
         "cloud.googleapis.com/location": "us-central1",
-        "run.googleapis.com/lastUpdatedTime": "2026-10-07T10:12:48.387345Z"
+        "run.googleapis.com/lastUpdatedTime": "2026-10-07T10:32:34.007045Z"
       },
       "name": "janus-intelligence-mart",
       "namespace": "131494961796",
-      "resourceVersion": "AAZdPWaFEjY",
+      "resourceVersion": "AAZdPa2Wn3k",
       "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/jobs/janus-intelligence-mart",
       "uid": "bb34dcf0-83ff-4cb0-8a6e-06d71132d70f"
     },
@@ -208,7 +388,7 @@
             "run.googleapis.com/vpc-access-egress": "private-ranges-only"
           },
           "labels": {
-            "client.knative.dev/nonce": "ham_yiy_hax"
+            "client.knative.dev/nonce": "zaj_lur_cop"
           }
         },
         "spec": {
@@ -278,11 +458,11 @@
                     },
                     {
                       "name": "JANUS_GIT_SHA",
-                      "value": "65d08802bed01ca523e054982adc3bdb2ecc558d"
+                      "value": "88efe121cad5ba1eb33daa58ca5609f054c818ea"
                     },
                     {
                       "name": "JANUS_IMAGE_DIGEST",
-                      "value": "sha256:0d4b9dfb475c6ad9754d1ed6fbbbbf2287b8d107bc6a86481d9a08506121521e"
+                      "value": "sha256:6c0238cabe50b45ad3cee0f4b330b78e07cd8f08d9bf4a621d0ab5469d61e322"
                     },
                     {
                       "name": "MART_CODEX_AUTH_SECRET",
@@ -293,7 +473,7 @@
                       "value": "false"
                     }
                   ],
-                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:0d4b9dfb475c6ad9754d1ed6fbbbbf2287b8d107bc6a86481d9a08506121521e",
+                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:6c0238cabe50b45ad3cee0f4b330b78e07cd8f08d9bf4a621d0ab5469d61e322",
                   "resources": {
                     "limits": {
                       "cpu": "1",
@@ -317,14 +497,14 @@
           "type": "Ready"
         }
       ],
-      "executionCount": 176,
+      "executionCount": 177,
       "latestCreatedExecution": {
         "completionStatus": "EXECUTION_SUCCEEDED",
-        "completionTimestamp": "2026-10-07T10:15:53.071155Z",
-        "creationTimestamp": "2026-10-07T10:12:53.005152Z",
-        "name": "janus-intelligence-mart-fcqzk"
+        "completionTimestamp": "2026-10-07T10:35:46.296384Z",
+        "creationTimestamp": "2026-10-07T10:32:37.627888Z",
+        "name": "janus-intelligence-mart-jk2rs"
       },
-      "observedGeneration": 206
+      "observedGeneration": 208
     }
   },
   "scheduled_occurrence": null,
