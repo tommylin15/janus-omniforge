@@ -25,13 +25,15 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Dry-run active controller with rollback
+      - name: Classify dry-run exception
         shell: bash
         run: |
           set -Eeuo pipefail
           cat > /tmp/batch_diag.py <<'PY'
           import os
           import sys
+          import psycopg
+          import requests
           from ingestion_core import batch_controller as controller
           from ingestion_core.__main__ import _control_plane
 
@@ -49,17 +51,33 @@ jobs:
               try:
                   result = controller.run(control=control, core=object())
                   if result.get("status") == "controller_busy":
-                      sys.exit(46)
+                      sys.exit(66)
+              except psycopg.Error:
+                  sys.exit(51)
+              except TypeError:
+                  sys.exit(52)
+              except AttributeError:
+                  sys.exit(53)
+              except IndexError:
+                  sys.exit(54)
+              except AssertionError:
+                  sys.exit(55)
+              except requests.RequestException:
+                  sys.exit(56)
               except KeyError:
-                  sys.exit(41)
+                  sys.exit(57)
               except StopIteration:
-                  sys.exit(42)
+                  sys.exit(58)
               except ValueError:
-                  sys.exit(43)
+                  sys.exit(59)
               except RuntimeError:
-                  sys.exit(44)
+                  sys.exit(60)
+              except OSError:
+                  sys.exit(61)
+              except LookupError:
+                  sys.exit(62)
               except Exception:
-                  sys.exit(45)
+                  sys.exit(65)
               finally:
                   connection.rollback()
               sys.exit(0)
@@ -70,22 +88,12 @@ jobs:
           wrapper='import base64;import os;exec(base64.b64decode(os.environ["BATCH_DIAG_CODE"]))'
           set +e
           gcloud run jobs execute "${JOB_NAME}" \
-            --project="${GCP_PROJECT_ID}" \
-            --region="${GCP_REGION}" \
-            --args="-c,${wrapper}" \
-            --update-env-vars="BATCH_DIAG_CODE=${BATCH_DIAG_CODE}" \
-            --task-timeout=5m \
-            --wait
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --args="-c,${wrapper}" --update-env-vars="BATCH_DIAG_CODE=${BATCH_DIAG_CODE}" \
+            --task-timeout=5m --wait
           execute_code=$?
           set -e
-          execution="$(gcloud run jobs executions list \
-            --job="${JOB_NAME}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
-            --limit=1 --format='value(metadata.name)')"
+          execution="$(gcloud run jobs executions list --job="${JOB_NAME}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --limit=1 --format='value(metadata.name)')"
           echo "diagnostic_execution=${execution} gcloud_exit=${execute_code}"
-          gcloud run jobs executions describe "${execution}" \
-            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+          gcloud run jobs executions describe "${execution}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
             --format='yaml(metadata.name,status.startTime,status.completionTime,status.succeededCount,status.failedCount,status.conditions)'
-          gcloud logging read \
-            "resource.type=cloud_run_job AND resource.labels.job_name=${JOB_NAME} AND labels.\"run.googleapis.com/execution_name\"=\"${execution}\"" \
-            --project="${GCP_PROJECT_ID}" --limit=50 --order=asc \
-            --format='value(timestamp,severity,textPayload,jsonPayload.message)' || true
