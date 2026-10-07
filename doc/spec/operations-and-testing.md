@@ -1,5 +1,13 @@
 # Operations and testing
 
+## 最新：Batch controller skipped-status incident（2026-10-07，closed）
+
+- `janus-batch-controller` 曾連續 active exit 1；Job resource 本身 Ready。`mobile-probe` `janus-batch-controller-9s25t` 與 `observe` `janus-batch-controller-fgvsp` 成功。
+- 精準 rollback probe `janus-batch-controller-fcmdw` 在 queue-empty 的 `pending -> skipped` 更新命中 PostgreSQL `CheckViolation`（exit 73）。根因為 migration 037 的 `control.batch_occurrences` status CHECK 未包含 controller 已使用的 `skipped`。
+- migration `049_batch_occurrence_skipped_status` 已套用。Deploy dev `37600433659` success；`test-api`、`test-ingestion` 與 migration job `112725144699` success。
+- 修復後 Scheduler execution `janus-batch-controller-cmdfr` succeeded；bounded active acceptance workflow `37601633532` success，execution `janus-batch-controller-l5nkf` succeededCount=1／failedCount=0。
+- 沒有新增資源、IAM 擴張或 canonical data deletion。完整紀錄見 [修復 evidence](../archive/batch-controller-skipped-status-repair-2026-10-07.md)。
+
 ## 最新：A 組非佇列 dev 結案（2026-10-06）
 
 - 最終 runtime main `7a5a1f931e7907ed9423684d432863e725bc0b04`；Deploy `37426621108` success，API／ingestion／Mart tests／deploy／verify success。Ready `janus-api-g7a5a1f931e79-config`、100% traffic、build-id 一致；image `sha256:4099bbf336666fb2b8c1f1957677dac02b1220f1653b30df9dc9b9b7bfbdf426`。
