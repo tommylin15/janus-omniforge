@@ -13,7 +13,7 @@ steps:
           *) echo 'unexpected Cloud Build identity' >&2; exit 70 ;;
         esac
 
-        gcloud biglake iceberg catalogs get-iam-policy "${catalog}" \
+        gcloud alpha biglake iceberg catalogs get-iam-policy "${catalog}" \
           --project="${project}" --format=json >/tmp/policy-before.json
 
         preexisting=false
@@ -36,7 +36,7 @@ steps:
         b['members']=sorted(set(b['members']))
         json.dump(p,open(dst,'w'),separators=(',',':'))
         PY
-          gcloud biglake iceberg catalogs set-iam-policy "${catalog}" /tmp/policy-grant.json \
+          gcloud alpha biglake iceberg catalogs set-iam-policy "${catalog}" /tmp/policy-grant.json \
             --project="${project}" --quiet >/dev/null
         fi
 
@@ -44,7 +44,7 @@ steps:
         gcloud biglake iceberg namespaces list --catalog="${catalog}" --project="${project}" --format=json >/dev/null
 
         if [[ "${preexisting}" != true ]]; then
-          gcloud biglake iceberg catalogs get-iam-policy "${catalog}" \
+          gcloud alpha biglake iceberg catalogs get-iam-policy "${catalog}" \
             --project="${project}" --format=json >/tmp/policy-current.json
           python3 - "${member}" <<'PY'
         import json,sys
@@ -58,7 +58,7 @@ steps:
         p['bindings']=out
         json.dump(p,open(dst,'w'),separators=(',',':'))
         PY
-          gcloud biglake iceberg catalogs set-iam-policy "${catalog}" /tmp/policy-revoke.json \
+          gcloud alpha biglake iceberg catalogs set-iam-policy "${catalog}" /tmp/policy-revoke.json \
             --project="${project}" --quiet >/dev/null
         fi
 
