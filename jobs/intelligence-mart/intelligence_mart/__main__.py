@@ -33,6 +33,9 @@ def main():
         elif name == "specialist-baseline":
             from .specialist_runtime import run_baseline
             operation = run_baseline
+        elif name == "deep-coverage":
+            from .specialist_runtime import run_deep_coverage
+            operation = run_deep_coverage
         elif name == "specialist-retrain":
             from .specialist_runtime import run_retraining
             operation = run_retraining
