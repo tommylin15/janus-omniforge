@@ -1,0 +1,33 @@
+{
+  "build_id": "a15be6f2-58d2-42f9-808e-5898dceeda7d",
+  "messages": [
+    "starting build \"a15be6f2-58d2-42f9-808e-5898dceeda7d\"\n",
+    "FETCHSOURCE",
+    "BUILD",
+    "Pulling image: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim",
+    "slim: Pulling from google.com/cloudsdktool/google-cloud-cli",
+    "ecc510c1e359: Pulling fs layer",
+    "a04797841876: Pulling fs layer",
+    "e68d1f7d6ada: Pulling fs layer",
+    "3c6d21e51873: Pulling fs layer",
+    "a04797841876: Verifying Checksum",
+    "a04797841876: Download complete",
+    "3c6d21e51873: Verifying Checksum",
+    "3c6d21e51873: Download complete",
+    "ecc510c1e359: Verifying Checksum",
+    "ecc510c1e359: Download complete",
+    "ecc510c1e359: Pull complete",
+    "a04797841876: Pull complete",
+    "e68d1f7d6ada: Verifying Checksum",
+    "e68d1f7d6ada: Download complete",
+    "e68d1f7d6ada: Pull complete",
+    "3c6d21e51873: Pull complete",
+    "Digest: sha256:cde9dbd556000c21c08449d8e5828904ef91e690bec95207f71fa6a6685922c9",
+    "Status: Downloaded newer image for gcr.io/google.com/cloudsdktool/google-cloud-cli:slim",
+    "gcr.io/google.com/cloudsdktool/google-cloud-cli:slim",
+    "ERROR: (gcloud.alpha.biglake.iceberg.catalogs.set-iam-policy) PERMISSION_DENIED: Not authorized to make this request. Permission 'biglake.catalogs.setIamPolicy' denied on catalog 'projects/gen-lang-client-0593591102/catalogs/janus_core_dev' (or it may not exist). This command is authenticated as 131494961796-compute@developer.gserviceaccount.com which is the active account specified by the [core/account] property.",
+    "ERROR",
+    "ERROR: build step 0 \"gcr.io/google.com/cloudsdktool/google-cloud-cli:slim\" failed: step exited with non-zero status: 1"
+  ],
+  "mutations_performed": false
+}
