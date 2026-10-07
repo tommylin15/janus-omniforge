@@ -1,0 +1,42 @@
+name: Batch controller fix acceptance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/batch-controller-fix-acceptance.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  accept:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GCP_PROJECT_ID: gen-lang-client-0593591102
+      GCP_REGION: us-central1
+      JOB_NAME: janus-batch-controller
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Execute active controller
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud run jobs execute "${JOB_NAME}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --update-env-vars="BATCH_CONTROLLER_MODE=active,BATCH_CONTROLLER_NOT_BEFORE=2026-10-02T04:05:00Z" \
+            --task-timeout=5m \
+            --wait
+          gcloud run jobs executions list \
+            --job="${JOB_NAME}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --limit=5 \
+            --format='table(metadata.name,status.startTime,status.completionTime,status.succeededCount,status.failedCount,status.conditions[0].message)'
