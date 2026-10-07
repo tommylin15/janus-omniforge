@@ -1,0 +1,198 @@
+name: Run dev specialist B4 acceptance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/dev-specialist-b4-acceptance-request.json'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: dev-specialist-b4-acceptance
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_REGION: us-central1
+  MART_BUCKET: gen-lang-client-0593591102-dev-mart
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate committed B4 request
+        id: request
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          file='ops/dev-specialist-b4-acceptance-request.json'
+          [[ -f "${file}" ]] || { echo 'missing B4 acceptance request' >&2; exit 2; }
+          [[ "$(jq -r '.enabled // false' "${file}")" == 'true' ]] || { echo 'enabled=false; no execution'; exit 0; }
+          [[ "$(jq -r '.operation // ""' "${file}")" == 'deep-coverage' ]] || { echo 'unsupported B4 operation' >&2; exit 2; }
+          request_id="$(jq -r '.request_id // ""' "${file}")"
+          expected_sha="$(jq -r '.expected_git_sha // ""' "${file}")"
+          [[ "${request_id}" =~ ^[A-Za-z0-9._-]{1,80}$ ]] || { echo 'invalid request_id' >&2; exit 2; }
+          [[ "${expected_sha}" =~ ^[0-9a-f]{40}$ ]] || { echo 'invalid expected_git_sha' >&2; exit 2; }
+          echo "request_id=${request_id}" >> "${GITHUB_OUTPUT}"
+          echo "expected_sha=${expected_sha}" >> "${GITHUB_OUTPUT}"
+          echo 'enabled=true' >> "${GITHUB_OUTPUT}"
+
+      - uses: google-github-actions/auth@v2
+        if: steps.request.outputs.enabled == 'true'
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+        if: steps.request.outputs.enabled == 'true'
+
+      - name: Verify deployed Mart image matches B4 code
+        if: steps.request.outputs.enabled == 'true'
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ steps.request.outputs.expected_sha }}
+        run: |
+          set -Eeuo pipefail
+          job_json="$(gcloud run jobs describe janus-intelligence-mart             --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json)"
+          runtime_sha="$(jq -r '[.spec.template.spec.template.spec.containers[0].env[]? |
+            select(.name == "JANUS_GIT_SHA") | .value] | last // ""' <<<"${job_json}")"
+          [[ "${runtime_sha}" == "${EXPECTED_SHA}" ]] || {
+            echo "Mart runtime SHA mismatch: expected ${EXPECTED_SHA}, got ${runtime_sha:-missing}" >&2
+            exit 3
+          }
+
+      - name: Execute B4 twice and verify no-change reuse
+        if: steps.request.outputs.enabled == 'true'
+        shell: bash
+        env:
+          REQUEST_ID: ${{ steps.request.outputs.request_id }}
+        run: |
+          set -Eeuo pipefail
+          mkdir -p runtime-evidence
+
+          capture_result() {
+            local execution="$1"
+            local output="$2"
+            local logs="$3"
+            local found=''
+            for attempt in $(seq 1 30); do
+              gcloud logging read                 "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"janus-intelligence-mart\" AND labels.\"run.googleapis.com/execution_name\"=\"${execution}\""                 --project="${GCP_PROJECT_ID}" --freshness=2h --limit=300 --order=desc --format=json > "${logs}"
+              found="$(jq -c '[.[] | .jsonPayload? | select(.operation == "deep-coverage")] | first // empty' "${logs}")"
+              if [[ -n "${found}" ]]; then
+                printf '%s\n' "${found}" > "${output}"
+                return 0
+              fi
+              sleep 2
+            done
+            echo "missing structured deep-coverage result for ${execution}" >&2
+            return 5
+          }
+
+          run_once() {
+            local label="$1"
+            local execution
+            execution="$(gcloud run jobs execute janus-intelligence-mart               --project="${GCP_PROJECT_ID}"               --region="${GCP_REGION}"               --update-env-vars="MART_OPERATION=deep-coverage,MART_OOS_EVALUATION=false,MART_AI_ENABLED=false,B4_REQUEST_ID=${REQUEST_ID}"               --tasks=1               --task-timeout=30m               --wait               --format='value(metadata.name)')"
+            [[ "${execution}" =~ ^janus-intelligence-mart-[a-z0-9-]{1,80}$ ]] || {
+              echo "invalid execution name: ${execution}" >&2
+              return 4
+            }
+            printf '%s\n' "${execution}" > "runtime-evidence/${label}-execution-name.txt"
+            gcloud run jobs executions describe "${execution}"               --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json               > "runtime-evidence/${label}-execution.json"
+            capture_result "${execution}" "runtime-evidence/${label}-result.json" "runtime-evidence/${label}-logs.json"
+          }
+
+          run_once first
+          run_once second
+
+          for result in runtime-evidence/first-result.json runtime-evidence/second-result.json; do
+            jq -e '
+              .component == "intelligence-mart" and
+              .operation == "deep-coverage" and
+              (.core_snapshot_hash | test("^sha256:[0-9a-f]{64}$")) and
+              (.artifact_uri | startswith("gs://gen-lang-client-0593591102-dev-mart/executions/")) and
+              .screening_count == 0 and
+              (.specialist_count | type == "number" and . > 0 and . % 5 == 0) and
+              (.specialist_computed_count | type == "number" and . >= 0) and
+              (.specialist_reused_count | type == "number" and . >= 0) and
+              .specialist_computed_count + .specialist_reused_count == .specialist_count and
+              .llm_api_tokens == 0 and
+              (.elapsed_seconds | type == "number" and . >= 0) and
+              (.peak_rss_mib | type == "number" and . > 0)
+            ' "${result}" >/dev/null
+          done
+
+          first_core="$(jq -r '.core_snapshot_hash' runtime-evidence/first-result.json)"
+          second_core="$(jq -r '.core_snapshot_hash' runtime-evidence/second-result.json)"
+          [[ "${first_core}" == "${second_core}" ]] || {
+            echo 'Core snapshot changed between B4 reuse runs; rerun acceptance on one fixed snapshot' >&2
+            exit 6
+          }
+          jq -e '.specialist_computed_count == 0 and
+                 .specialist_reused_count == .specialist_count and
+                 (.dirty_specialists | length == 0)'             runtime-evidence/second-result.json >/dev/null
+
+          for label in first second; do
+            uri="$(jq -r '.artifact_uri' "runtime-evidence/${label}-result.json")"
+            gcloud storage cat "${uri}" > "runtime-evidence/${label}-manifest.json"
+            jq -e '
+              .artifact_kind == "mart_specialist_execution_v1" and
+              .market_membership == null and
+              .screening == null and
+              .screening_count == 0 and
+              .llm_api_tokens == 0 and
+              .ceo_triggered == false and
+              .publication_authority == false and
+              (.specialists | length == .specialist_count) and
+              ([.specialists[].role] | all(. == "fundamental" or . == "valuation" or
+                                           . == "quant" or . == "risk" or . == "event"))
+            ' "runtime-evidence/${label}-manifest.json" >/dev/null
+            target_uri="$(jq -r '.target_snapshot.artifact_uri' "runtime-evidence/${label}-manifest.json")"
+            gcloud storage cat "${target_uri}" > "runtime-evidence/${label}-targets.json"
+            jq -e '
+              .artifact_kind == "mart_specialist_coverage_v1" and
+              .private_fields_exposed == false and
+              (.symbols | type == "array" and length > 0) and
+              ((keys | sort) == (["analysis_as_of","artifact_kind","execution_id","membership_hash",
+                                  "private_fields_exposed","schema_version","snapshot_hash","source_function","symbols"] | sort))
+            ' "runtime-evidence/${label}-targets.json" >/dev/null
+          done
+
+          jq -n             --arg request_id "${REQUEST_ID}"             --slurpfile first runtime-evidence/first-result.json             --slurpfile second runtime-evidence/second-result.json             '{
+              status: "pass",
+              request_id: $request_id,
+              core_snapshot_hash: $first[0].core_snapshot_hash,
+              first: {
+                execution_id: $first[0].execution_id,
+                specialist_count: $first[0].specialist_count,
+                computed: $first[0].specialist_computed_count,
+                reused: $first[0].specialist_reused_count,
+                elapsed_seconds: $first[0].elapsed_seconds,
+                peak_rss_mib: $first[0].peak_rss_mib
+              },
+              second: {
+                execution_id: $second[0].execution_id,
+                specialist_count: $second[0].specialist_count,
+                computed: $second[0].specialist_computed_count,
+                reused: $second[0].specialist_reused_count,
+                elapsed_seconds: $second[0].elapsed_seconds,
+                peak_rss_mib: $second[0].peak_rss_mib
+              },
+              screening_count: $second[0].screening_count,
+              llm_api_tokens: $second[0].llm_api_tokens
+            }' > runtime-evidence/b4-acceptance-summary.json
+          cat runtime-evidence/b4-acceptance-summary.json
+
+      - name: Upload bounded B4 runtime evidence
+        if: always() && steps.request.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: specialist-b4-acceptance-${{ github.run_id }}
+          path: runtime-evidence/*
+          if-no-files-found: warn
+          retention-days: 14
