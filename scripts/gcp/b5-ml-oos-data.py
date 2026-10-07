@@ -130,6 +130,7 @@ SELECT
   '{core_snapshot_id}' AS core_snapshot_id,
   '{end.isoformat()}' AS analysis_as_of,
   '{DATASET_SCHEMA_VERSION}' AS dataset_schema_version,
+  '{QUERY_CONTRACT_VERSION}' AS query_contract_version,
   '{FEATURE_VERSION}' AS feature_version,
   '{MODEL_VERSION}' AS model_version
 FROM reduced
