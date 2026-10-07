@@ -1,0 +1,265 @@
+name: B5 live acceptance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b5-live-acceptance.yml'
+      - 'jobs/intelligence-mart/intelligence_mart/ml_oos_data.py'
+      - 'jobs/intelligence-mart/intelligence_mart/artifact_retention.py'
+      - 'jobs/intelligence-mart/intelligence_mart/__main__.py'
+      - 'scripts/gcp/b5-ml-oos-data.py'
+      - 'scripts/gcp/b2-lakehouse-acceptance.py'
+      - 'tests/test_b5_ml_oos_data.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: b5-live-acceptance
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_REGION: us-central1
+  MART_JOB: janus-intelligence-mart
+  EVIDENCE_FILE: doc/archive/group-b-b5-live-acceptance-2026-10-07.json
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install B5 acceptance dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --require-hashes -r jobs/intelligence-mart/requirements.lock
+          python -m pip install --require-hashes -r jobs/intelligence-mart/requirements-bigquery-probe.lock
+          python -m pip install -r requirements-dev.txt
+
+      - name: Run targeted B5 contracts
+        env:
+          PYTHONPATH: jobs/intelligence-mart:jobs/ingestion-core:.
+        run: |
+          python -m pytest -q tests/test_b5_ml_oos_data.py
+          python -m py_compile jobs/intelligence-mart/intelligence_mart/ml_oos_data.py scripts/gcp/b5-ml-oos-data.py
+          touch /tmp/tests.ok
+
+      - name: Wait for standard Mart deployment of this SHA
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for attempt in $(seq 1 40); do
+            if gcloud run jobs describe "${MART_JOB}" \
+              --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+              --format=json > /tmp/mart-job.json 2>/tmp/mart-job.err; then
+              deployed_sha="$(python - <<'PY'
+          import json
+          data=json.load(open('/tmp/mart-job.json'))
+          def walk(value):
+              if isinstance(value, dict):
+                  if value.get('name') == 'JANUS_GIT_SHA':
+                      return value.get('value', '')
+                  for child in value.values():
+                      found=walk(child)
+                      if found:
+                          return found
+              elif isinstance(value, list):
+                  for child in value:
+                      found=walk(child)
+                      if found:
+                          return found
+              return ''
+          print(walk(data))
+          PY
+              )"
+              echo "B5 deploy heartbeat attempt=${attempt} deployed_sha=${deployed_sha:-missing} target=${GITHUB_SHA}"
+              if [[ "${deployed_sha}" == "${GITHUB_SHA}" ]]; then
+                touch /tmp/deploy.ok
+                break
+              fi
+            fi
+            sleep 30
+          done
+          test -f /tmp/deploy.ok
+
+      - name: Export bounded versioned ML/OOS Parquet via Cloud Build
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mart_image="$(gcloud run jobs describe "${MART_JOB}" \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --format='value(spec.template.spec.template.spec.containers[0].image)')"
+          test -n "${mart_image}"
+          output_uri="gs://${GCP_PROJECT_ID}-dev-mart/acceptance/b5-build/github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
+
+          cat > /tmp/b5-export-cloudbuild.yaml <<'YAML'
+          steps:
+            - name: '${_MART_IMAGE}'
+              entrypoint: bash
+              env:
+                - 'PYTHONPATH=/workspace/jobs/intelligence-mart:/workspace/jobs/ingestion-core:/workspace'
+              args:
+                - -ceu
+                - |
+                  cd /workspace
+                  python -m pip install --no-cache-dir --require-hashes \
+                    -r jobs/intelligence-mart/requirements-bigquery-probe.lock
+                  python scripts/gcp/b5-ml-oos-data.py --output /workspace/b5-export.json
+            - name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+              args:
+                - storage
+                - cp
+                - /workspace/b5-export.json
+                - '${_OUTPUT_URI}'
+          options:
+            logging: CLOUD_LOGGING_ONLY
+          YAML
+
+          gcloud builds submit . \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --config=/tmp/b5-export-cloudbuild.yaml \
+            --gcs-source-staging-dir="gs://${GCP_PROJECT_ID}-cloudbuild-regional/source" \
+            --substitutions="_MART_IMAGE=${mart_image},_OUTPUT_URI=${output_uri}" \
+            --format='value(id)' > /tmp/b5-build-id
+
+          build_id="$(tr -d '\r\n' < /tmp/b5-build-id)"
+          test -n "${build_id}"
+          gcloud builds describe "${build_id}" \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --format=json > /tmp/b5-build.json
+          gcloud storage cp "${output_uri}" /tmp/b5-export.json
+          python - <<'PY'
+          import json
+          data=json.load(open('/tmp/b5-export.json'))
+          assert data['status']=='pass'
+          assert data['row_count'] > 0
+          assert data['export_bytes'] > 0
+          assert data['total_billed_bytes'] <= 1073741824
+          assert data['storage_read_api_used'] is False
+          assert data['manifest_uri'].startswith('gs://gen-lang-client-0593591102-dev-mart/ml-oos-data/v1/')
+          PY
+          touch /tmp/export.ok
+
+      - name: Read exported dataset in deployed Mart Job
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          manifest_uri="$(python -c "import json; print(json.load(open('/tmp/b5-export.json'))['manifest_uri'])")"
+          result_uri="gs://${GCP_PROJECT_ID}-dev-mart/acceptance/b5-live/github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
+          gcloud run jobs execute "${MART_JOB}" \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --update-env-vars="MART_OPERATION=ml-oos-data-acceptance,MART_ML_OOS_MANIFEST_URI=${manifest_uri},MART_ML_OOS_RESULT_URI=${result_uri},MART_AI_ENABLED=false,MART_OOS_EVALUATION=false" \
+            --tasks=1 --task-timeout=10m --wait --format=json > /tmp/b5-mart-exec.json
+
+          for attempt in $(seq 1 6); do
+            if gcloud storage cat "${result_uri}" > /tmp/b5-mart-result.json; then
+              break
+            fi
+            sleep 5
+          done
+          test -s /tmp/b5-mart-result.json
+          python - <<'PY'
+          import json
+          export=json.load(open('/tmp/b5-export.json'))
+          result=json.load(open('/tmp/b5-mart-result.json'))
+          assert result['status']=='pass'
+          assert result['operation']=='ml-oos-data-acceptance'
+          assert result['core_snapshot_id']==export['core_snapshot_id']
+          assert result['dataset_content_hash']==export['dataset_content_hash']
+          assert result['row_count']==export['row_count']
+          assert result['export_bytes']==export['export_bytes']
+          assert result['storage_read_api_used'] is False
+          assert result['llm_api_tokens']==0
+          assert result['ceo_triggered'] is False
+          PY
+          touch /tmp/live.ok
+
+      - name: Assemble B5 evidence
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          def load(path):
+              p=Path(path)
+              if not p.exists():
+                  return None
+              try:
+                  return json.loads(p.read_text())
+              except Exception:
+                  return {"unparsed": p.read_text(errors='replace')[-4000:]}
+
+          markers={name: Path('/tmp/'+name+'.ok').exists() for name in ('tests','deploy','export','live')}
+          evidence={
+              "schema_version":"b5-live-acceptance-v1",
+              "generated_at":datetime.now(timezone.utc).isoformat(),
+              "git_sha":os.environ.get("GITHUB_SHA"),
+              "status":"pass" if all(markers.values()) else "failed",
+              "markers":markers,
+              "constraints":{
+                  "project":"gen-lang-client-0593591102",
+                  "region":"us-central1",
+                  "bigquery_location":"US",
+                  "bigquery_execution_budget_bytes":1073741824,
+                  "bigquery_query_timeout_seconds":60,
+                  "storage_read_api":False,
+                  "canonical_write":False,
+                  "dataset_prefix":"gs://gen-lang-client-0593591102-dev-mart/ml-oos-data/v1/",
+              },
+              "export":load('/tmp/b5-export.json'),
+              "cloud_build":load('/tmp/b5-build.json'),
+              "mart_execution":load('/tmp/b5-mart-exec.json'),
+              "mart_result":load('/tmp/b5-mart-result.json'),
+              "mart_job":load('/tmp/mart-job.json'),
+          }
+          Path(os.environ['EVIDENCE_FILE']).write_text(
+              json.dumps(evidence, indent=2, sort_keys=True, default=str)+"\n"
+          )
+          PY
+
+      - name: Commit B5 evidence
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "janus-ci"
+          git config user.email "janus-ci@users.noreply.github.com"
+          git add "${EVIDENCE_FILE}"
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "docs: record B5 live acceptance evidence [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Require complete B5 acceptance
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os
+          data=json.load(open(os.environ['EVIDENCE_FILE']))
+          if data['status'] != 'pass':
+              raise SystemExit('B5 acceptance incomplete; inspect committed evidence')
+          PY
