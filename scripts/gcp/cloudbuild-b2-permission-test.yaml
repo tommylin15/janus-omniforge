@@ -1,0 +1,67 @@
+substitutions:
+  _MODE: permission-test
+
+steps:
+  - id: b2-permission-test
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        token="$(gcloud auth print-access-token)"
+        project='gen-lang-client-0593591102'
+        bucket='gen-lang-client-0593591102-dev-core'
+        python3 - "${token}" "${project}" "${bucket}" <<'PY'
+        import json, sys, urllib.parse, urllib.request
+        token, project, bucket = sys.argv[1:4]
+
+        def post(url, body):
+            req=urllib.request.Request(
+                url,
+                data=json.dumps(body).encode(),
+                headers={'Authorization':f'Bearer {token}','Content-Type':'application/json'},
+                method='POST',
+            )
+            with urllib.request.urlopen(req, timeout=30) as r:
+                return json.load(r)
+
+        def get(url):
+            req=urllib.request.Request(url,headers={'Authorization':f'Bearer {token}'})
+            with urllib.request.urlopen(req,timeout=30) as r:
+                return json.load(r)
+
+        project_perms=[
+          'resourcemanager.projects.getIamPolicy',
+          'resourcemanager.projects.setIamPolicy',
+          'biglake.catalogs.create',
+          'biglake.catalogs.get',
+          'biglake.catalogs.list',
+          'biglake.tables.register',
+        ]
+        p=post(
+          f'https://cloudresourcemanager.googleapis.com/v1/projects/{project}:testIamPermissions',
+          {'permissions':project_perms}
+        )
+        bucket_perms=[
+          'storage.buckets.getIamPolicy',
+          'storage.buckets.setIamPolicy',
+          'storage.objects.get',
+          'storage.objects.list',
+          'storage.objects.create',
+          'storage.objects.delete',
+        ]
+        qs=urllib.parse.urlencode([('permissions',x) for x in bucket_perms])
+        b=get(f'https://storage.googleapis.com/storage/v1/b/{bucket}/iam/testPermissions?{qs}')
+        evidence={
+          'project_granted_permissions': sorted(p.get('permissions',[])),
+          'bucket_granted_permissions': sorted(b.get('permissions',[])),
+          'mutations_performed': False,
+        }
+        import base64
+        raw=json.dumps(evidence,sort_keys=True,separators=(',',':')).encode()
+        print('B2_PERMISSION_EVIDENCE='+base64.b64encode(raw).decode())
+        PY
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 180s
