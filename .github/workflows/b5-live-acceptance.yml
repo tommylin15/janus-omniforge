@@ -71,15 +71,15 @@ jobs:
           } 2>&1 | tee /tmp/b5-tests.log
           touch /tmp/tests.ok
 
-      - name: Wait for standard Mart deployment of this SHA
+      - name: Confirm or recover Mart deployment for this SHA
         shell: bash
         run: |
           set -Eeuo pipefail
-          for attempt in $(seq 1 40); do
-            if gcloud run jobs describe "${MART_JOB}" \
+          read_sha() {
+            gcloud run jobs describe "${MART_JOB}" \
               --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
-              --format=json > /tmp/mart-job.json 2>/tmp/mart-job.err; then
-              deployed_sha="$(python - <<'PY'
+              --format=json > /tmp/mart-job.json
+            python - <<'PY'
           import json
           data=json.load(open('/tmp/mart-job.json'))
           def walk(value):
@@ -98,16 +98,26 @@ jobs:
               return ''
           print(walk(data))
           PY
-              )"
-              echo "B5 deploy heartbeat attempt=${attempt} deployed_sha=${deployed_sha:-missing} target=${GITHUB_SHA}"
-              if [[ "${deployed_sha}" == "${GITHUB_SHA}" ]]; then
-                touch /tmp/deploy.ok
-                break
-              fi
+          }
+
+          for attempt in $(seq 1 6); do
+            deployed_sha="$(read_sha || true)"
+            echo "B5 deploy heartbeat attempt=${attempt} deployed_sha=${deployed_sha:-missing} target=${GITHUB_SHA}"
+            if [[ "${deployed_sha}" == "${GITHUB_SHA}" ]]; then
+              touch /tmp/deploy.ok
+              break
             fi
             sleep 30
           done
-          test -f /tmp/deploy.ok
+
+          if [[ ! -f /tmp/deploy.ok ]]; then
+            echo "B5 standard deploy did not converge; running bounded Mart deploy recovery"
+            bash scripts/gcp/deploy-dev.sh intelligence-mart
+            bash scripts/gcp/verify-dev.sh intelligence-mart
+            deployed_sha="$(read_sha)"
+            test "${deployed_sha}" = "${GITHUB_SHA}"
+            touch /tmp/deploy.ok
+          fi
 
       - name: Export bounded versioned ML/OOS Parquet via Cloud Build
         shell: bash
