@@ -1,0 +1,66 @@
+name: B2 IAM set-policy fast gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b2-iam-setpolicy-fast-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Probe Cloud Build IAM policy capability
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          probe() {
+            local perm="$1"
+            set +e
+            gcloud builds submit --no-source --project=gen-lang-client-0593591102 --region=us-central1 \
+              --config=scripts/gcp/cloudbuild-b2-permission-test.yaml \
+              --substitutions="_RESOURCE=project,_PERMISSION=${perm}" --quiet >/dev/null 2>&1
+            local rc=$?
+            set -e
+            printf '%s' "${rc}"
+          }
+          get_rc="$(probe resourcemanager.projects.getIamPolicy)"
+          set_rc="$(probe resourcemanager.projects.setIamPolicy)"
+          python3 - "${get_rc}" "${set_rc}" <<'PY'
+          import json,sys
+          from pathlib import Path
+          e={
+            'cloud_build_project_get_iam_policy':int(sys.argv[1])==0,
+            'cloud_build_project_set_iam_policy':int(sys.argv[2])==0,
+            'mutations_performed':False,
+          }
+          e['can_temporary_iam_bootstrap']=e['cloud_build_project_get_iam_policy'] and e['cloud_build_project_set_iam_policy']
+          e['status']='pass' if e['can_temporary_iam_bootstrap'] else 'blocked'
+          Path('doc/archive/group-b-b2-iam-setpolicy-fast-gate-2026-10-07.json').write_text(json.dumps(e,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(e,sort_keys=True))
+          PY
+      - name: Commit evidence
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add doc/archive/group-b-b2-iam-setpolicy-fast-gate-2026-10-07.json
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: record B2 IAM fast gate [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
