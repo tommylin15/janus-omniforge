@@ -1,5 +1,6 @@
 substitutions:
-  _MODE: permission-test
+  _RESOURCE: project
+  _PERMISSION: biglake.catalogs.list
 
 steps:
   - id: b2-permission-test
@@ -11,55 +12,26 @@ steps:
         token="$(gcloud auth print-access-token)"
         project='gen-lang-client-0593591102'
         bucket='gen-lang-client-0593591102-dev-core'
-        python3 - "${token}" "${project}" "${bucket}" <<'PY'
+        python3 - "${token}" "${project}" "${bucket}" "${_RESOURCE}" "${_PERMISSION}" <<'PY'
         import json, sys, urllib.parse, urllib.request
-        token, project, bucket = sys.argv[1:4]
-
-        def post(url, body):
+        token, project, bucket, resource, permission = sys.argv[1:6]
+        if resource == 'project':
+            url=f'https://cloudresourcemanager.googleapis.com/v1/projects/{project}:testIamPermissions'
             req=urllib.request.Request(
                 url,
-                data=json.dumps(body).encode(),
+                data=json.dumps({'permissions':[permission]}).encode(),
                 headers={'Authorization':f'Bearer {token}','Content-Type':'application/json'},
                 method='POST',
             )
-            with urllib.request.urlopen(req, timeout=30) as r:
-                return json.load(r)
-
-        def get(url):
+        elif resource == 'bucket':
+            qs=urllib.parse.urlencode([('permissions',permission)])
+            url=f'https://storage.googleapis.com/storage/v1/b/{bucket}/iam/testPermissions?{qs}'
             req=urllib.request.Request(url,headers={'Authorization':f'Bearer {token}'})
-            with urllib.request.urlopen(req,timeout=30) as r:
-                return json.load(r)
-
-        project_perms=[
-          'resourcemanager.projects.getIamPolicy',
-          'resourcemanager.projects.setIamPolicy',
-          'biglake.catalogs.create',
-          'biglake.catalogs.get',
-          'biglake.catalogs.list',
-          'biglake.tables.register',
-        ]
-        p=post(
-          f'https://cloudresourcemanager.googleapis.com/v1/projects/{project}:testIamPermissions',
-          {'permissions':project_perms}
-        )
-        bucket_perms=[
-          'storage.buckets.getIamPolicy',
-          'storage.buckets.setIamPolicy',
-          'storage.objects.get',
-          'storage.objects.list',
-          'storage.objects.create',
-          'storage.objects.delete',
-        ]
-        qs=urllib.parse.urlencode([('permissions',x) for x in bucket_perms])
-        b=get(f'https://storage.googleapis.com/storage/v1/b/{bucket}/iam/testPermissions?{qs}')
-        evidence={
-          'project_granted_permissions': sorted(p.get('permissions',[])),
-          'bucket_granted_permissions': sorted(b.get('permissions',[])),
-          'mutations_performed': False,
-        }
-        import base64
-        raw=json.dumps(evidence,sort_keys=True,separators=(',',':')).encode()
-        print('B2_PERMISSION_EVIDENCE='+base64.b64encode(raw).decode())
+        else:
+            raise SystemExit(64)
+        with urllib.request.urlopen(req,timeout=30) as resp:
+            payload=json.load(resp)
+        raise SystemExit(0 if permission in payload.get('permissions',[]) else 3)
         PY
 
 options:
