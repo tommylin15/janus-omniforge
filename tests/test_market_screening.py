@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "jobs/intelligence-mart"))
+sys.path.insert(0, str(Path(__file__).parents[1] / "jobs/ingestion-core"))
 from intelligence_mart.market_screening import market_features, screening_processor
 from intelligence_mart.analytics_reader import AnalyticsSnapshot
 from intelligence_mart.runtime import AnalysisExecution
@@ -111,3 +112,58 @@ def test_screening_retention_is_bounded_to_90_days():
         {"name": "executions/new/screening-manifest.json", "updated": "2026-05-01T00:00:00Z", "size": 50, "generation": 1}]
     store.read = lambda _: json.dumps({"screening": {"artifact_uri": "gs://mart/screening/old.json"}}).encode()
     assert clean_specialist_artifacts(store, apply=False, now=datetime(2026, 5, 2, tzinfo=timezone.utc))["planned_objects"] == 0
+
+def test_b3_fixed_membership_uses_json_api_listing_without_gcloud():
+    import runpy
+    script = runpy.run_path(str(Path(__file__).parents[1] / "scripts/gcp/b3-screening-canary.py"))
+    membership = {
+        "symbols": [str(i) for i in range(500)],
+        "membership_version": "fixed-v1",
+        "analysis_as_of": "2026-10-06",
+    }
+    seen = []
+    b2 = {
+        "MART_BUCKET": "mart",
+        "gcs_list_objects": lambda bucket, prefix: [
+            {"name": "executions/x/not-relevant.json"},
+            {"name": "executions/a/market-membership.json"},
+        ],
+        "gcs_json": lambda uri: (seen.append(uri) or membership, "abc123"),
+    }
+    resolved, uri, digest_value = script["fixed_membership"](b2, {"analysis_as_of": "2026-10-06"})
+    assert resolved == membership
+    assert uri == "gs://mart/executions/a/market-membership.json"
+    assert digest_value == "abc123"
+    assert seen == [uri]
+
+
+def test_b3_acceptance_result_is_persisted_to_bounded_prefix(monkeypatch):
+    from unittest.mock import patch
+    from intelligence_mart.market_screening import run_acceptance
+
+    objects = {}
+    class Store:
+        def __init__(self, bucket): self.bucket = bucket
+        def create(self, name, payload, _content_type):
+            key = (self.bucket, name)
+            if key in objects:
+                return False
+            objects[key] = payload
+            return True
+        def read(self, name):
+            return objects[(self.bucket, name)]
+
+    result = {
+        "component": "intelligence-mart",
+        "operation": "market-screening-acceptance",
+        "execution_id": "exec-1",
+        "analysis_as_of": "2026-10-06",
+        "llm_api_tokens": 0,
+    }
+    monkeypatch.setenv("MART_BUCKET", "mart")
+    monkeypatch.setenv("MART_ACCEPTANCE_RESULT_URI", "gs://mart/acceptance/b3-live/run-1.json")
+    with patch("intelligence_mart.specialist_runtime.run_acceptance", return_value=result), \
+         patch("ingestion_core.stage.GcsObjectStore", Store):
+        assert run_acceptance() == result
+    assert json.loads(objects[("mart", "acceptance/b3-live/run-1.json")]) == result
+

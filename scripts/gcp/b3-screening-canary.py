@@ -20,15 +20,13 @@ def fixed_membership(b2, core):
     specialist execution ID in this canary. All surviving memberships for the
     same as-of date must agree exactly or the canary fails closed.
     """
-    pattern = f"gs://{b2['MART_BUCKET']}/executions/*/market-membership.json"
-    listed = b2["run"]("gcloud", "storage", "ls", pattern, check=False)
-    if listed.returncode:
-        raise RuntimeError(
-            "unable to enumerate immutable market-membership artifacts: "
-            + (listed.stderr[-2000:] if listed.stderr else "")
-        )
     candidates = []
-    for uri in sorted(line.strip() for line in listed.stdout.splitlines() if line.strip()):
+    objects = b2["gcs_list_objects"](b2["MART_BUCKET"], "executions/")
+    for item in sorted(objects, key=lambda value: value["name"]):
+        name = str(item["name"])
+        if not name.endswith("/market-membership.json"):
+            continue
+        uri = f"gs://{b2['MART_BUCKET']}/{name}"
         membership, membership_hash = b2["gcs_json"](uri)
         if membership.get("analysis_as_of") != core["analysis_as_of"]:
             continue

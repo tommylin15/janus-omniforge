@@ -121,6 +121,33 @@ def gcs_json(uri: str) -> tuple[dict[str, Any], str]:
     return json.loads(raw), hashlib.sha256(raw).hexdigest()
 
 
+def gcs_list_objects(bucket: str, prefix: str) -> list[dict[str, Any]]:
+    """List GCS object metadata through the JSON API; no gcloud binary required."""
+    if not bucket or "/" in bucket or prefix.startswith("/"):
+        raise ValueError("invalid GCS bucket or prefix")
+    access_token = token()
+    items: list[dict[str, Any]] = []
+    page_token = ""
+    while True:
+        params = {
+            "prefix": prefix,
+            "maxResults": "1000",
+            "fields": "items(name,updated,size,generation),nextPageToken",
+        }
+        if page_token:
+            params["pageToken"] = page_token
+        url = (
+            "https://storage.googleapis.com/storage/v1/b/"
+            f"{urllib.parse.quote(bucket, safe='')}/o?"
+            f"{urllib.parse.urlencode(params)}"
+        )
+        payload = api_json("GET", url, access_token=access_token)
+        items.extend(item for item in payload.get("items", []) if item.get("name"))
+        page_token = str(payload.get("nextPageToken") or "")
+        if not page_token:
+            return items
+
+
 def ensure_catalog() -> dict[str, Any]:
     # The billable dev catalog is created by the separately-audited bootstrap.
     # Live acceptance must never silently create or replace it.

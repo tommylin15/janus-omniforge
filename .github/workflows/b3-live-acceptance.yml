@@ -175,9 +175,10 @@ jobs:
 
           run_one() {
             local idx="$1"
+            local result_uri="gs://${GCP_PROJECT_ID}-dev-mart/acceptance/b3-live/github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${idx}.json"
             gcloud run jobs execute "${MART_JOB}" \
               --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
-              --update-env-vars="MART_OPERATION=market-screening-acceptance,MART_ACCEPTANCE_INPUT_URI=${FIXED_INPUT},MART_AI_ENABLED=false,MART_OOS_EVALUATION=false" \
+              --update-env-vars="MART_OPERATION=market-screening-acceptance,MART_ACCEPTANCE_INPUT_URI=${FIXED_INPUT},MART_ACCEPTANCE_RESULT_URI=${result_uri},MART_AI_ENABLED=false,MART_OOS_EVALUATION=false" \
               --tasks=1 --task-timeout=30m --wait --format=json > "/tmp/mart-exec-${idx}.json"
             python - "/tmp/mart-exec-${idx}.json" "/tmp/mart-exec-${idx}.name" <<'PY'
           import json,sys
@@ -187,46 +188,11 @@ jobs:
               raise SystemExit('missing Cloud Run execution name')
           open(sys.argv[2],'w').write(name)
           PY
-          }
-
-          capture_result() {
-            local idx="$1"
-            local exec_name
-            exec_name="$(cat "/tmp/mart-exec-${idx}.name")"
-            rm -f "/tmp/mart-result-${idx}.json"
-            for attempt in $(seq 1 15); do
-              gcloud logging read \
-                "resource.type=cloud_run_job AND resource.labels.job_name=\"${MART_JOB}\" AND labels.\"run.googleapis.com/execution_name\"=\"${exec_name}\"" \
-                --project="${GCP_PROJECT_ID}" --freshness=60m --limit=300 --order=asc --format=json > "/tmp/mart-logs-${idx}.json"
-              if python - "/tmp/mart-logs-${idx}.json" "/tmp/mart-result-${idx}.json" <<'PY'
-          import json,sys
-          entries=json.load(open(sys.argv[1]))
-          found=[]
-          for entry in entries:
-              candidates=[]
-              if isinstance(entry.get('textPayload'), str):
-                  candidates.append(entry['textPayload'])
-              jp=entry.get('jsonPayload')
-              if isinstance(jp, dict) and isinstance(jp.get('message'), str):
-                  candidates.append(jp['message'])
-              for raw in candidates:
-                  raw=raw.strip()
-                  if not raw.startswith('{'):
-                      continue
-                  try:
-                      obj=json.loads(raw)
-                  except Exception:
-                      continue
-                  if obj.get('operation') == 'market-screening-acceptance' and obj.get('execution_id'):
-                      found.append(obj)
-          if not found:
-              raise SystemExit(1)
-          json.dump(found[-1], open(sys.argv[2],'w'), indent=2, sort_keys=True)
-          PY
-              then
+            for attempt in $(seq 1 6); do
+              if gcloud storage cat "${result_uri}" > "/tmp/mart-result-${idx}.json"; then
                 break
               fi
-              sleep 10
+              sleep 5
             done
             test -s "/tmp/mart-result-${idx}.json"
             local logical_id
@@ -241,9 +207,7 @@ jobs:
           }
 
           run_one 1
-          capture_result 1
           run_one 2
-          capture_result 2
 
           python - <<'PY'
           import json

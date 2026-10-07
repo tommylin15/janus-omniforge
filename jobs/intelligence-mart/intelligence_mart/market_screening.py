@@ -194,5 +194,22 @@ def run_daily():
 
 
 def run_acceptance():
+    from urllib.parse import urlparse
+    from ingestion_core.stage import GcsObjectStore
     from .specialist_runtime import run_acceptance as run
-    return run(processor=screening_processor, operation="market-screening-acceptance")
+    result = run(processor=screening_processor, operation="market-screening-acceptance")
+    target = os.environ.get("MART_ACCEPTANCE_RESULT_URI", "").strip()
+    if not target:
+        return result
+    uri = urlparse(target)
+    bucket = os.environ.get("MART_BUCKET", "").strip()
+    if uri.scheme != "gs" or uri.netloc != bucket or not uri.path.startswith("/acceptance/b3-live/"):
+        raise ValueError("B3 acceptance result must stay inside existing Mart dev acceptance prefix")
+    name = uri.path.lstrip("/")
+    if not name.endswith(".json") or ".." in name.split("/"):
+        raise ValueError("invalid B3 acceptance result object")
+    store = GcsObjectStore(bucket)
+    _write_immutable_json(store, bucket, name, result)
+    if json.loads(store.read(name)) != result:
+        raise RuntimeError("B3 acceptance result readback mismatch")
+    return result
