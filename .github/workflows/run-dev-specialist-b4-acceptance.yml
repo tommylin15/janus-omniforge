@@ -148,7 +148,7 @@ jobs:
               .llm_api_tokens == 0 and
               .ceo_triggered == false and
               .publication_authority == false and
-              (.specialists | length == .specialist_count) and
+              ((.specialists | length) == .specialist_count) and
               ([.specialists[].role] | all(. == "fundamental" or . == "valuation" or
                                            . == "quant" or . == "risk" or . == "event"))
             ' "runtime-evidence/${label}-manifest.json" >/dev/null
