@@ -641,6 +641,7 @@ jobs:
 
           gcloud builds submit --no-source \
             --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
             --config=scripts/gcp/cloudbuild-mcp-oauth-verify.yaml \
             --substitutions="_SERVICE_URL=${service_url},_EXPECTED_ISSUER=${mcp_issuer},_EXPECTED_RESOURCE=${mcp_resource}" \
             --quiet
@@ -653,6 +654,7 @@ jobs:
           for tagged_url in "${adapter_url}" "${mcp_issuer}"; do
             gcloud builds submit --no-source \
               --project="${GCP_PROJECT_ID}" \
+              --region="${GCP_REGION}" \
               --config=scripts/gcp/cloudbuild-mcp-oauth-verify.yaml \
               --substitutions="_SERVICE_URL=${tagged_url},_EXPECTED_ISSUER=${mcp_issuer},_EXPECTED_RESOURCE=${mcp_resource}" \
               --quiet

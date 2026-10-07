@@ -130,11 +130,11 @@ jobs:
         run: |
           set -Eeuo pipefail
           image_tag="${IMAGE_REPO}:prospective-extend-${GITHUB_SHA}-${GITHUB_RUN_ID}"
-          build_id="$(gcloud builds submit research/cloud-cohort-500 --project="${GCP_PROJECT_ID}" --tag="${image_tag}" --async --format='value(id)')"
+          build_id="$(gcloud builds submit research/cloud-cohort-500 --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --gcs-source-staging-dir="gs://${GCP_PROJECT_ID}-cloudbuild-regional/source" --tag="${image_tag}" --async --format='value(id)')"
           test -n "${build_id}"
           echo "research Cloud Build id=${build_id}"
           while true; do
-            status="$(gcloud builds describe "${build_id}" --project="${GCP_PROJECT_ID}" --format='value(status)')"
+            status="$(gcloud builds describe "${build_id}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format='value(status)')"
             case "${status}" in
               SUCCESS) break ;;
               FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED) echo "research Cloud Build failed: ${status}" >&2; exit 1 ;;

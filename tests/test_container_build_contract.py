@@ -87,3 +87,53 @@ def test_generated_and_orphaned_build_artifacts_stay_removed():
     assert not (ROOT / "apps" / "user_app" / ".flutter-plugins-dependencies").exists()
     assert not (ROOT / "scripts" / "gcp" / "cloudbuild-token-savior-verify.yaml").exists()
     assert not (ROOT / "token-savior").exists()
+
+
+def _cloud_build_submit_segments(text: str):
+    marker = "gcloud builds submit"
+    start = 0
+    while True:
+        index = text.find(marker, start)
+        if index < 0:
+            return
+        next_gcloud = text.find("gcloud ", index + len(marker))
+        yield text[index : next_gcloud if next_gcloud >= 0 else len(text)]
+        start = index + len(marker)
+
+
+def test_source_cloud_build_submits_are_regional_and_use_existing_staging_bucket():
+    roots = (
+        ROOT / ".github" / "workflows",
+        ROOT / "scripts" / "gcp",
+    )
+    inspected = []
+    for root in roots:
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix not in {".yml", ".yaml", ".sh"}:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for segment in _cloud_build_submit_segments(text):
+                inspected.append((path, segment))
+                if "--no-source" in segment:
+                    continue
+                assert "--region=" in segment, f"{path} submits a source build without an explicit region"
+                assert "--gcs-source-staging-dir=" in segment, (
+                    f"{path} submits source without the existing regional staging bucket"
+                )
+                assert "-cloudbuild-regional/source" in segment, (
+                    f"{path} must stage source in the approved regional Cloud Build bucket"
+                )
+
+    assert inspected, "expected at least one Cloud Build submission in workflow/scripts"
+
+
+def test_research_cloud_build_polling_uses_the_same_region_as_submit():
+    for path in (ROOT / ".github" / "workflows").glob("research-cloud-cohort-500*.yml"):
+        text = path.read_text(encoding="utf-8")
+        if "gcloud builds submit research/cloud-cohort-500" not in text:
+            continue
+        assert '--region="${GCP_REGION}"' in text
+        assert (
+            'gcloud builds describe "${build_id}" --project="${GCP_PROJECT_ID}" '
+            '--region="${GCP_REGION}"'
+        ) in text

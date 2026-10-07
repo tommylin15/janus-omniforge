@@ -158,6 +158,7 @@ restore_build() {
   [[ "${backup_id}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || fail 'backup ID must be YYYY-MM-DD'
   object="${prefix}/daily/${backup_id}.dump"
   gcloud builds submit "${repo_root}" --project="${project}" \
+    --region="${region}" \
     --config="${repo_root}/scripts/gcp/cloudbuild-ledger-restore.yaml" \
     --gcs-source-staging-dir="gs://${project}-cloudbuild-regional/source" \
     --substitutions="_BUCKET=${bucket},_OBJECT=${object}" --quiet
