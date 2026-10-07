@@ -42,6 +42,9 @@ def main():
         elif name == "market-screening":
             from .market_screening import run_daily
             operation = run_daily
+        elif name == "ml-oos-data-acceptance":
+            from .ml_oos_data import run_acceptance
+            operation = run_acceptance
         elif name == "market-screening-acceptance":
             from .market_screening import run_acceptance
             operation = run_acceptance
