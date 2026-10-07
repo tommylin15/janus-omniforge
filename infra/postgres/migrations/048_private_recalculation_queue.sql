@@ -1,3 +1,4 @@
+-- Requires ingestion runtime with 048 allow-list support.
 \set ON_ERROR_STOP on
 BEGIN;
 SET ROLE janus_control;

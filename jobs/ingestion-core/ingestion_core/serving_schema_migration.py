@@ -1,5 +1,7 @@
 """Allow-listed serving-schema migrations through the existing dev PostgreSQL path.
 
+Migration 048 is carried by this runtime so the controller deploy must precede applying it.
+
 This avoids coupling database migrations to Compute Engine SSH/IAP. Canonical
 SQL remains the source of truth, while this module executes explicit owner
 phases with the already-approved janus_control, janus_private_api, and
