@@ -1,6 +1,6 @@
 substitutions:
   _RESOURCE: project
-  _PERMISSION: biglake.catalogs.list
+  _PERMISSION: storage.buckets.list
 
 steps:
   - id: b2-permission-test
@@ -12,7 +12,7 @@ steps:
         token="$(gcloud auth print-access-token)"
         project='gen-lang-client-0593591102'
         bucket='gen-lang-client-0593591102-dev-core'
-        python3 - "${token}" "${project}" "${bucket}" "${_RESOURCE}" "${_PERMISSION}" <<'PY'
+        python3 - "$token" "$project" "$bucket" "${_RESOURCE}" "${_PERMISSION}" <<'PY'
         import json, sys, urllib.parse, urllib.request
         token, project, bucket, resource, permission = sys.argv[1:6]
         if resource == 'project':
