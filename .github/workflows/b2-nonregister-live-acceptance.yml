@@ -1,0 +1,94 @@
+name: B2 non-register live acceptance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b2-nonregister-live-acceptance.yml'
+      - 'scripts/gcp/cloudbuild-b2-nonregister-live-acceptance.yaml'
+      - 'scripts/gcp/b2-lakehouse-acceptance.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: b2-nonregister-live-acceptance
+  cancel-in-progress: false
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Stage immutable acceptance script
+        id: stage
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sha="$(sha256sum scripts/gcp/b2-lakehouse-acceptance.py | awk '{print $1}')"
+          uri="gs://gen-lang-client-0593591102-dev-mart/acceptance/b2-lakehouse/scripts/b2-lakehouse-acceptance-${sha}.py"
+          if gcloud storage ls "${uri}" >/dev/null 2>&1; then
+            tmp="$(mktemp)"
+            gcloud storage cp "${uri}" "${tmp}" >/dev/null
+            [[ "$(sha256sum "${tmp}" | awk '{print $1}')" == "${sha}" ]]
+            rm -f "${tmp}"
+          else
+            gcloud storage cp --if-generation-match=0 scripts/gcp/b2-lakehouse-acceptance.py "${uri}" >/dev/null
+          fi
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+          echo "uri=${uri}" >> "$GITHUB_OUTPUT"
+      - name: Run bounded Lakehouse acceptance in Cloud Build
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          evidence_uri="gs://gen-lang-client-0593591102-dev-mart/acceptance/b2-lakehouse/evidence/nonregister-${GITHUB_RUN_ID}.json"
+          gcloud builds submit --no-source \
+            --project=gen-lang-client-0593591102 \
+            --region=us-central1 \
+            --config=scripts/gcp/cloudbuild-b2-nonregister-live-acceptance.yaml \
+            --substitutions="_SCRIPT_URI=${{ steps.stage.outputs.uri }},_SCRIPT_SHA256=${{ steps.stage.outputs.sha }},_EVIDENCE_URI=${evidence_uri}" \
+            --quiet
+          gcloud storage cp "${evidence_uri}" /tmp/b2-nonregister-evidence.json >/dev/null
+          python3 - <<'PY'
+          import json
+          e=json.load(open('/tmp/b2-nonregister-evidence.json'))
+          assert e['status']=='nonregister-pass', e.get('status')
+          assert e['schema_evolution_native_decimal']['pass'] is True
+          assert e['partition_pruning']['pass'] is True
+          assert e['total_billed_bytes'] <= 1073741824
+          assert e['query_timeout_seconds'] <= 60
+          assert e['pyiceberg_default_unchanged'] is True
+          assert e['storage_read_api_used'] is False
+          print(json.dumps({
+            'status':e['status'],
+            'total_billed_bytes':e['total_billed_bytes'],
+            'partition_pruning':e['partition_pruning'],
+            'schema_evolution_native_decimal':{
+              'decimal_type_after':e['schema_evolution_native_decimal']['decimal_type_after'],
+              'before_schema_id':e['schema_evolution_native_decimal']['before_schema_id'],
+              'after_schema_id':e['schema_evolution_native_decimal']['after_schema_id'],
+            }
+          },sort_keys=True))
+          PY
+          cp /tmp/b2-nonregister-evidence.json doc/archive/group-b-b2-nonregister-live-acceptance-2026-10-07.json
+      - name: Commit acceptance evidence
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add doc/archive/group-b-b2-nonregister-live-acceptance-2026-10-07.json
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: record B2 non-register live acceptance [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
