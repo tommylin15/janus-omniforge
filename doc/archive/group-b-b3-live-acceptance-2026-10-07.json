@@ -1,7 +1,7 @@
 {
   "canary": {
     "actual_gcs_read_bytes": null,
-    "bigquery_hybrid_elapsed_seconds": 48.930098692,
+    "bigquery_hybrid_elapsed_seconds": 44.15389480900001,
     "bigquery_telemetry": {
       "core_snapshot_id": "sha256:1eb49a2d139411245bda3c9d2eb77e451c5f462bb1865406fd8b55a151df61ab",
       "dry_run": false,
@@ -15,7 +15,7 @@
           "actual_gcs_read_bytes": null,
           "billed_bytes": 10485760,
           "dry_run_lower_bound_bytes": 0,
-          "elapsed_seconds": 2.475620077000002,
+          "elapsed_seconds": 2.2456389129999934,
           "estimated_bytes": null,
           "metadata_location": "gs://gen-lang-client-0593591102-dev-core/warehouse/benchmark_v1/metadata/00258-05228454-a4a1-420a-855f-2605c56636ad.metadata.json",
           "partition_pruning": "unknown",
@@ -38,7 +38,7 @@
           "actual_gcs_read_bytes": null,
           "billed_bytes": 10485760,
           "dry_run_lower_bound_bytes": 0,
-          "elapsed_seconds": 11.421950302999988,
+          "elapsed_seconds": 12.210821369999962,
           "estimated_bytes": null,
           "metadata_location": "gs://gen-lang-client-0593591102-dev-core/warehouse/ohlcv_v1/metadata/00204-30d733f0-9e46-4b3a-bc65-1b2211eb48a8.metadata.json",
           "partition_pruning": "unknown",
@@ -595,7 +595,7 @@
     "membership_source_uri": "gs://gen-lang-client-0593591102-dev-mart/executions/f58c3812-2dee-47c8-afc6-c818057183b1/market-membership.json",
     "output_equal": true,
     "output_hash": "sha256:57587eb665c1c5a3d199b4c6cc09bd6ee86a387090184080529736ed1d62e48b",
-    "pyiceberg_elapsed_seconds": 38.398949265,
+    "pyiceberg_elapsed_seconds": 35.18075983,
     "pyiceberg_telemetry": {
       "core_snapshot_id": "sha256:1eb49a2d139411245bda3c9d2eb77e451c5f462bb1865406fd8b55a151df61ab",
       "rows_by_dataset": {
@@ -683,11 +683,11 @@
     "valuation_read_time_excluded_from_candidate": true
   },
   "canary_cloud_build": {
-    "createTime": "2026-10-07T12:40:34.867750244Z",
-    "finishTime": "2026-10-07T12:43:50.181573Z",
-    "id": "d93a9658-9fcb-47a4-bfef-92b22d512e8e",
-    "logUrl": "https://console.cloud.google.com/cloud-build/builds;region=us-central1/d93a9658-9fcb-47a4-bfef-92b22d512e8e?project=131494961796",
-    "name": "projects/131494961796/locations/us-central1/builds/d93a9658-9fcb-47a4-bfef-92b22d512e8e",
+    "createTime": "2026-10-07T13:08:16.107840356Z",
+    "finishTime": "2026-10-07T13:11:32.698382Z",
+    "id": "1134d9e2-ced3-4b81-910c-d9ad88140a8c",
+    "logUrl": "https://console.cloud.google.com/cloud-build/builds;region=us-central1/1134d9e2-ced3-4b81-910c-d9ad88140a8c?project=131494961796",
+    "name": "projects/131494961796/locations/us-central1/builds/1134d9e2-ced3-4b81-910c-d9ad88140a8c",
     "options": {
       "logging": "CLOUD_LOGGING_ONLY",
       "pool": {}
@@ -696,7 +696,7 @@
     "queueTtl": "3600s",
     "results": {
       "buildStepImages": [
-        "sha256:7e18a38497e189c14270da936c096765196ad432edf0d99ff39d5d9688e30943",
+        "sha256:a8c938c67b43b5b44bcba24f0bb786a5a762c1d8c92dcc8ab249dc27eca47d0a",
         "sha256:cde9dbd556000c21c08449d8e5828904ef91e690bec95207f71fa6a6685922c9"
       ],
       "buildStepOutputs": [
@@ -708,32 +708,32 @@
     "source": {
       "storageSource": {
         "bucket": "gen-lang-client-0593591102-cloudbuild-regional",
-        "generation": "1791376834486212",
-        "object": "source/1791376832.812493-9cb18847b0e44601bc00b6fff32275ea.tgz"
+        "generation": "1791378495741549",
+        "object": "source/1791378493.877539-23afe968928d4a0da32b14b812fd9d70.tgz"
       }
     },
     "sourceProvenance": {
       "fileHashes": {
-        "gs://gen-lang-client-0593591102-cloudbuild-regional/source/1791376832.812493-9cb18847b0e44601bc00b6fff32275ea.tgz#1791376834486212": {
+        "gs://gen-lang-client-0593591102-cloudbuild-regional/source/1791378493.877539-23afe968928d4a0da32b14b812fd9d70.tgz#1791378495741549": {
           "fileHash": [
             {
               "type": "MD5",
-              "value": "6NK8r2Zc1XQu11OssyXiWg=="
+              "value": "hpDYAnAA51qh4IeyUL4mHQ=="
             },
             {
               "type": "SHA256",
-              "value": "uzIfyKs0i2P2Od2m93RWjRLYyWc9jzgyfvZwRmh6lUE="
+              "value": "_desDhDD25yC_Qyd_09qRJxyeWKXC-9Y1LlZhBAPy6g="
             }
           ]
         }
       },
       "resolvedStorageSource": {
         "bucket": "gen-lang-client-0593591102-cloudbuild-regional",
-        "generation": "1791376834486212",
-        "object": "source/1791376832.812493-9cb18847b0e44601bc00b6fff32275ea.tgz"
+        "generation": "1791378495741549",
+        "object": "source/1791378493.877539-23afe968928d4a0da32b14b812fd9d70.tgz"
       }
     },
-    "startTime": "2026-10-07T12:40:35.593098909Z",
+    "startTime": "2026-10-07T13:08:16.955379993Z",
     "status": "SUCCESS",
     "steps": [
       {
@@ -745,54 +745,54 @@
         "env": [
           "PYTHONPATH=/workspace/jobs/intelligence-mart:/workspace/jobs/ingestion-core:/workspace"
         ],
-        "name": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:7e18a38497e189c14270da936c096765196ad432edf0d99ff39d5d9688e30943",
+        "name": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:a8c938c67b43b5b44bcba24f0bb786a5a762c1d8c92dcc8ab249dc27eca47d0a",
         "pullTiming": {
-          "endTime": "2026-10-07T12:41:20.074287841Z",
-          "startTime": "2026-10-07T12:40:40.521004117Z"
+          "endTime": "2026-10-07T13:08:58.968979935Z",
+          "startTime": "2026-10-07T13:08:21.276895295Z"
         },
         "status": "SUCCESS",
         "timing": {
-          "endTime": "2026-10-07T12:43:06.577221720Z",
-          "startTime": "2026-10-07T12:40:40.521004117Z"
+          "endTime": "2026-10-07T13:10:36.164249482Z",
+          "startTime": "2026-10-07T13:08:21.276895295Z"
         }
       },
       {
         "args": [
           "-ceu",
-          "gcloud storage cp /workspace/b3-canary.json 'gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37621348869-1.json'\ngcloud storage cp /workspace/b3-canary.log 'gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37621348869-1.log'\ngcloud storage cp /workspace/b3-canary.rc 'gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37621348869-1.rc'\n"
+          "gcloud storage cp /workspace/b3-canary.json 'gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37624466867-1.json'\ngcloud storage cp /workspace/b3-canary.log 'gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37624466867-1.log'\ngcloud storage cp /workspace/b3-canary.rc 'gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37624466867-1.rc'\n"
         ],
         "entrypoint": "bash",
         "name": "gcr.io/google.com/cloudsdktool/google-cloud-cli:slim",
         "pullTiming": {
-          "endTime": "2026-10-07T12:43:41.678419841Z",
-          "startTime": "2026-10-07T12:43:06.577484320Z"
+          "endTime": "2026-10-07T13:11:24.937410004Z",
+          "startTime": "2026-10-07T13:10:36.164520274Z"
         },
         "status": "SUCCESS",
         "timing": {
-          "endTime": "2026-10-07T12:43:49.584836162Z",
-          "startTime": "2026-10-07T12:43:06.577484320Z"
+          "endTime": "2026-10-07T13:11:32.364051182Z",
+          "startTime": "2026-10-07T13:10:36.164520274Z"
         }
       }
     ],
     "substitutions": {
-      "_LOG_URI": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37621348869-1.log",
-      "_MART_IMAGE": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:7e18a38497e189c14270da936c096765196ad432edf0d99ff39d5d9688e30943",
-      "_OUTPUT_URI": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37621348869-1.json",
-      "_RC_URI": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37621348869-1.rc"
+      "_LOG_URI": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37624466867-1.log",
+      "_MART_IMAGE": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:a8c938c67b43b5b44bcba24f0bb786a5a762c1d8c92dcc8ab249dc27eca47d0a",
+      "_OUTPUT_URI": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37624466867-1.json",
+      "_RC_URI": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37624466867-1.rc"
     },
     "timeout": "3600s",
     "timing": {
       "BUILD": {
-        "endTime": "2026-10-07T12:43:49.585108115Z",
-        "startTime": "2026-10-07T12:40:39.807413225Z"
+        "endTime": "2026-10-07T13:11:32.364261714Z",
+        "startTime": "2026-10-07T13:08:20.602867167Z"
       },
       "FETCHSOURCE": {
-        "endTime": "2026-10-07T12:40:39.807141531Z",
-        "startTime": "2026-10-07T12:40:35.878793058Z"
+        "endTime": "2026-10-07T13:08:20.602322644Z",
+        "startTime": "2026-10-07T13:08:17.166314987Z"
       },
       "STORAGE_SOURCE": {
-        "endTime": "2026-10-07T12:40:39.807141531Z",
-        "startTime": "2026-10-07T12:40:35.878793058Z"
+        "endTime": "2026-10-07T13:08:20.602322644Z",
+        "startTime": "2026-10-07T13:08:17.166314987Z"
       }
     }
   },
@@ -816,17 +816,17 @@
         "run.googleapis.com/client-version": "568.0.0",
         "run.googleapis.com/creator": "tommylin15@gmail.com",
         "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
-        "run.googleapis.com/operation-id": "dbc0512e-7d96-4f1d-a4e5-381efdfb2b87"
+        "run.googleapis.com/operation-id": "ed885ee4-c73e-4e94-bf14-e95e6376469d"
       },
       "creationTimestamp": "2026-10-02T03:32:20.977352Z",
-      "generation": 53,
+      "generation": 54,
       "labels": {
         "cloud.googleapis.com/location": "us-central1",
-        "run.googleapis.com/lastUpdatedTime": "2026-10-07T12:33:02.000086Z"
+        "run.googleapis.com/lastUpdatedTime": "2026-10-07T12:58:26.637887Z"
       },
       "name": "janus-batch-controller",
       "namespace": "131494961796",
-      "resourceVersion": "AAZdP1hSCJc",
+      "resourceVersion": "AAZdP6vNQUc",
       "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/jobs/janus-batch-controller",
       "uid": "c0918163-0449-43bd-a919-6c5f13ad2859"
     },
@@ -841,7 +841,7 @@
             "run.googleapis.com/vpc-access-egress": "private-ranges-only"
           },
           "labels": {
-            "client.knative.dev/nonce": "hud_yen_jir"
+            "client.knative.dev/nonce": "qev_jel_viw"
           }
         },
         "spec": {
@@ -917,7 +917,7 @@
                       "value": "2026-10-02T04:05:00Z"
                     }
                   ],
-                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/ingestion-core@sha256:9632ccc1c2566c599b08d1540b2af270e06605b87690c1f31e6de859031d0ede",
+                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/ingestion-core@sha256:c98ddb225b94abe0b5b52174588909651aa79beab254c2bda7169569dbbd1be4",
                   "resources": {
                     "limits": {
                       "cpu": "1",
@@ -941,14 +941,14 @@
           "type": "Ready"
         }
       ],
-      "executionCount": 158,
+      "executionCount": 160,
       "latestCreatedExecution": {
         "completionStatus": "EXECUTION_SUCCEEDED",
-        "completionTimestamp": "2026-10-07T12:35:04.086569Z",
-        "creationTimestamp": "2026-10-07T12:30:06.628357Z",
-        "name": "janus-batch-controller-7qgqr"
+        "completionTimestamp": "2026-10-07T12:52:54.577568Z",
+        "creationTimestamp": "2026-10-07T12:51:27.337451Z",
+        "name": "janus-batch-controller-lqjrz"
       },
-      "observedGeneration": 53
+      "observedGeneration": 54
     }
   },
   "fixed_snapshot_run_1": {
@@ -963,20 +963,20 @@
           "run.googleapis.com/execution-environment": "gen2",
           "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
           "run.googleapis.com/network-interfaces": "[{\"network\": \"janusai-lake-poc\", \"subnetwork\": \"janusai-lake-poc-uscentral1\", \"tags\": [\"janus-intelligence-mart\"]}]",
-          "run.googleapis.com/operation-id": "573ebf71-6f7c-40fb-9c29-02b4c86f8716",
+          "run.googleapis.com/operation-id": "fce682d5-3318-4349-8021-00bcefd79e87",
           "run.googleapis.com/vpc-access-egress": "private-ranges-only"
         },
-        "creationTimestamp": "2026-10-07T12:43:58.604887Z",
+        "creationTimestamp": "2026-10-07T13:11:41.689605Z",
         "generation": 1,
         "labels": {
-          "client.knative.dev/nonce": "suw_gas_qen",
+          "client.knative.dev/nonce": "wuz_ziv_duk",
           "cloud.googleapis.com/location": "us-central1",
           "run.googleapis.com/job": "janus-intelligence-mart",
-          "run.googleapis.com/jobGeneration": "216",
-          "run.googleapis.com/jobResourceVersion": "1791376827964787",
+          "run.googleapis.com/jobGeneration": "218",
+          "run.googleapis.com/jobResourceVersion": "1791378488905114",
           "run.googleapis.com/jobUid": "bb34dcf0-83ff-4cb0-8a6e-06d71132d70f"
         },
-        "name": "janus-intelligence-mart-rf7g2",
+        "name": "janus-intelligence-mart-5hdc6",
         "namespace": "131494961796",
         "ownerReferences": [
           {
@@ -988,9 +988,9 @@
             "uid": "bb34dcf0-83ff-4cb0-8a6e-06d71132d70f"
           }
         ],
-        "resourceVersion": "AAZdP4DkBnY",
-        "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/executions/janus-intelligence-mart-rf7g2",
-        "uid": "620faa2f-c49e-4f69-bbfa-31f708e33c5d"
+        "resourceVersion": "AAZdP+brvUE",
+        "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/executions/janus-intelligence-mart-5hdc6",
+        "uid": "d7de07d0-6257-4703-ab78-51c45b3721cf"
       },
       "spec": {
         "parallelism": 1,
@@ -1059,11 +1059,11 @@
                   },
                   {
                     "name": "JANUS_GIT_SHA",
-                    "value": "a350239388ee0937166659023692c08d77977c63"
+                    "value": "cb72ae00d9d93706a3281411b6dda425c65752c5"
                   },
                   {
                     "name": "JANUS_IMAGE_DIGEST",
-                    "value": "sha256:7e18a38497e189c14270da936c096765196ad432edf0d99ff39d5d9688e30943"
+                    "value": "sha256:a8c938c67b43b5b44bcba24f0bb786a5a762c1d8c92dcc8ab249dc27eca47d0a"
                   },
                   {
                     "name": "MART_CODEX_AUTH_SECRET",
@@ -1079,14 +1079,14 @@
                   },
                   {
                     "name": "MART_ACCEPTANCE_RESULT_URI",
-                    "value": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-live/github-37621348869-1-1.json"
+                    "value": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-live/github-37624466867-1-1.json"
                   },
                   {
                     "name": "MART_OOS_EVALUATION",
                     "value": "false"
                   }
                 ],
-                "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:7e18a38497e189c14270da936c096765196ad432edf0d99ff39d5d9688e30943",
+                "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:a8c938c67b43b5b44bcba24f0bb786a5a762c1d8c92dcc8ab249dc27eca47d0a",
                 "resources": {
                   "limits": {
                     "cpu": "1",
@@ -1102,36 +1102,36 @@
         }
       },
       "status": {
-        "completionTime": "2026-10-07T12:46:25.197562Z",
+        "completionTime": "2026-10-07T13:14:54.019221Z",
         "conditions": [
           {
-            "lastTransitionTime": "2026-10-07T12:46:25.197562Z",
-            "message": "Execution completed successfully in 2m16.99s.",
+            "lastTransitionTime": "2026-10-07T13:14:54.019221Z",
+            "message": "Execution completed successfully in 2m51.79s.",
             "status": "True",
             "type": "Completed"
           },
           {
-            "lastTransitionTime": "2026-10-07T12:43:59.897499Z",
+            "lastTransitionTime": "2026-10-07T13:11:43.020536Z",
             "message": "Provisioned imported containers.",
             "status": "True",
             "type": "ResourcesAvailable"
           },
           {
-            "lastTransitionTime": "2026-10-07T12:46:15.144369Z",
-            "message": "Started deployed execution in 2m15.24s.",
+            "lastTransitionTime": "2026-10-07T13:14:41.716689Z",
+            "message": "Started deployed execution in 2m58.69s.",
             "status": "True",
             "type": "Started"
           },
           {
-            "lastTransitionTime": "2026-10-07T12:43:59.520728Z",
+            "lastTransitionTime": "2026-10-07T13:11:42.571833Z",
             "message": "Imported container image.",
             "status": "True",
             "type": "ContainerReady"
           }
         ],
-        "logUri": "https://console.cloud.google.com/logs/viewer?project=gen-lang-client-0593591102&advancedFilter=resource.type%3D%22cloud_run_job%22%0Aresource.labels.job_name%3D%22janus-intelligence-mart%22%0Aresource.labels.location%3D%22us-central1%22%0Alabels.%22run.googleapis.com/execution_name%22%3D%22janus-intelligence-mart-rf7g2%22",
+        "logUri": "https://console.cloud.google.com/logs/viewer?project=gen-lang-client-0593591102&advancedFilter=resource.type%3D%22cloud_run_job%22%0Aresource.labels.job_name%3D%22janus-intelligence-mart%22%0Aresource.labels.location%3D%22us-central1%22%0Alabels.%22run.googleapis.com/execution_name%22%3D%22janus-intelligence-mart-5hdc6%22",
         "observedGeneration": 1,
-        "startTime": "2026-10-07T12:44:08.206527Z",
+        "startTime": "2026-10-07T13:12:02.226392Z",
         "succeededCount": 1
       }
     },
@@ -1143,10 +1143,10 @@
         "default": "pyiceberg"
       },
       "ceo_triggered": false,
-      "execution_id": "4aefa90a-b974-4cec-a834-8d7e8b50bc0a",
+      "execution_id": "fea2cccd-1d41-48d5-bc1e-3edc6cce8414",
       "identity_hash": "sha256:4a3ecf3f22275a6074dbb7e945e4b5001700e2b46d14071b799b4b80c5f03f9d",
       "llm_api_tokens": 0,
-      "output_hash": "sha256:0778f379e04785e97d3eecd5264da58b98ef15cf322a0376a0c55ef09ce21458",
+      "output_hash": "sha256:9861f7dc912dd6be4937ebdc4f13500be3c85d1aee249ae7966ef5dc627088c4",
       "quality": {
         "auto_fail": false,
         "eod": {
@@ -1197,8 +1197,8 @@
     "result": {
       "analysis_as_of": "2026-10-06",
       "artifact_growth_bytes": 0,
-      "artifact_hash": "sha256:93b4864f21bec5e294931962a943c83f8acf3a278930fb591c779d79c608d49c",
-      "artifact_uri": "gs://gen-lang-client-0593591102-dev-mart/executions/4aefa90a-b974-4cec-a834-8d7e8b50bc0a/screening-manifest.json",
+      "artifact_hash": "sha256:eb9895d11362ca842defd93d13ab8ff8436bbf6162ff64ccfb93b7c4cdb527ea",
+      "artifact_uri": "gs://gen-lang-client-0593591102-dev-mart/executions/fea2cccd-1d41-48d5-bc1e-3edc6cce8414/screening-manifest.json",
       "canary": {
         "backend": "pyiceberg",
         "candidate": "not_requested",
@@ -1208,13 +1208,13 @@
       "component": "intelligence-mart",
       "core_snapshot_hash": "sha256:8eda0eaead65dcb2cdf33191337b2d6aae120ca2adfbe77cc511cf8c28d3e0a8",
       "core_snapshot_uri": "gs://gen-lang-client-0593591102-dev-core/executions/17b091be-c454-4fea-b5de-b16c0a9c8c6c/core-snapshot.json",
-      "elapsed_seconds": 1.34,
-      "execution_id": "4aefa90a-b974-4cec-a834-8d7e8b50bc0a",
+      "elapsed_seconds": 1.012,
+      "execution_id": "fea2cccd-1d41-48d5-bc1e-3edc6cce8414",
       "identity_hash": "sha256:4a3ecf3f22275a6074dbb7e945e4b5001700e2b46d14071b799b4b80c5f03f9d",
       "llm_api_tokens": 0,
       "operation": "market-screening-acceptance",
-      "output_hash": "sha256:0778f379e04785e97d3eecd5264da58b98ef15cf322a0376a0c55ef09ce21458",
-      "peak_rss_mib": 53.74,
+      "output_hash": "sha256:9861f7dc912dd6be4937ebdc4f13500be3c85d1aee249ae7966ef5dc627088c4",
+      "peak_rss_mib": 53.56,
       "quality": {
         "auto_fail": false,
         "eod": {
@@ -1275,20 +1275,20 @@
           "run.googleapis.com/execution-environment": "gen2",
           "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
           "run.googleapis.com/network-interfaces": "[{\"network\": \"janusai-lake-poc\", \"subnetwork\": \"janusai-lake-poc-uscentral1\", \"tags\": [\"janus-intelligence-mart\"]}]",
-          "run.googleapis.com/operation-id": "543c383a-948f-40c7-81f2-f553b1bb97e5",
+          "run.googleapis.com/operation-id": "4e8edcd4-d8f7-45f5-9911-cff29897bab3",
           "run.googleapis.com/vpc-access-egress": "private-ranges-only"
         },
-        "creationTimestamp": "2026-10-07T12:46:30.823088Z",
+        "creationTimestamp": "2026-10-07T13:15:02.880295Z",
         "generation": 1,
         "labels": {
-          "client.knative.dev/nonce": "suw_gas_qen",
+          "client.knative.dev/nonce": "wuz_ziv_duk",
           "cloud.googleapis.com/location": "us-central1",
           "run.googleapis.com/job": "janus-intelligence-mart",
-          "run.googleapis.com/jobGeneration": "216",
-          "run.googleapis.com/jobResourceVersion": "1791377187003815",
+          "run.googleapis.com/jobGeneration": "218",
+          "run.googleapis.com/jobResourceVersion": "1791378898785248",
           "run.googleapis.com/jobUid": "bb34dcf0-83ff-4cb0-8a6e-06d71132d70f"
         },
-        "name": "janus-intelligence-mart-k4p49",
+        "name": "janus-intelligence-mart-fkcht",
         "namespace": "131494961796",
         "ownerReferences": [
           {
@@ -1300,9 +1300,9 @@
             "uid": "bb34dcf0-83ff-4cb0-8a6e-06d71132d70f"
           }
         ],
-        "resourceVersion": "AAZdP4o/vgg",
-        "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/executions/janus-intelligence-mart-k4p49",
-        "uid": "a2d849f1-3b9d-497c-a9d2-3b304931aadd"
+        "resourceVersion": "AAZdP+61vGo",
+        "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/executions/janus-intelligence-mart-fkcht",
+        "uid": "abbf5d97-c6ba-4dcc-a0fa-eb16c7aba897"
       },
       "spec": {
         "parallelism": 1,
@@ -1371,11 +1371,11 @@
                   },
                   {
                     "name": "JANUS_GIT_SHA",
-                    "value": "a350239388ee0937166659023692c08d77977c63"
+                    "value": "cb72ae00d9d93706a3281411b6dda425c65752c5"
                   },
                   {
                     "name": "JANUS_IMAGE_DIGEST",
-                    "value": "sha256:7e18a38497e189c14270da936c096765196ad432edf0d99ff39d5d9688e30943"
+                    "value": "sha256:a8c938c67b43b5b44bcba24f0bb786a5a762c1d8c92dcc8ab249dc27eca47d0a"
                   },
                   {
                     "name": "MART_CODEX_AUTH_SECRET",
@@ -1391,14 +1391,14 @@
                   },
                   {
                     "name": "MART_ACCEPTANCE_RESULT_URI",
-                    "value": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-live/github-37621348869-1-2.json"
+                    "value": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-live/github-37624466867-1-2.json"
                   },
                   {
                     "name": "MART_OOS_EVALUATION",
                     "value": "false"
                   }
                 ],
-                "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:7e18a38497e189c14270da936c096765196ad432edf0d99ff39d5d9688e30943",
+                "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:a8c938c67b43b5b44bcba24f0bb786a5a762c1d8c92dcc8ab249dc27eca47d0a",
                 "resources": {
                   "limits": {
                     "cpu": "1",
@@ -1414,36 +1414,36 @@
         }
       },
       "status": {
-        "completionTime": "2026-10-07T12:49:01.147922Z",
+        "completionTime": "2026-10-07T13:17:08.960415Z",
         "conditions": [
           {
-            "lastTransitionTime": "2026-10-07T12:49:01.147922Z",
-            "message": "Execution completed successfully in 2m18.94s.",
+            "lastTransitionTime": "2026-10-07T13:17:08.960415Z",
+            "message": "Execution completed successfully in 1m50.68s.",
             "status": "True",
             "type": "Completed"
           },
           {
-            "lastTransitionTime": "2026-10-07T12:46:32.441619Z",
+            "lastTransitionTime": "2026-10-07T13:15:04.079935Z",
             "message": "Provisioned imported containers.",
             "status": "True",
             "type": "ResourcesAvailable"
           },
           {
-            "lastTransitionTime": "2026-10-07T12:48:50.511132Z",
-            "message": "Started deployed execution in 2m18.06s.",
+            "lastTransitionTime": "2026-10-07T13:16:59.095823Z",
+            "message": "Started deployed execution in 1m55.01s.",
             "status": "True",
             "type": "Started"
           },
           {
-            "lastTransitionTime": "2026-10-07T12:46:32.082067Z",
-            "message": "Imported container image in 1.26s.",
+            "lastTransitionTime": "2026-10-07T13:15:03.678683Z",
+            "message": "Imported container image.",
             "status": "True",
             "type": "ContainerReady"
           }
         ],
-        "logUri": "https://console.cloud.google.com/logs/viewer?project=gen-lang-client-0593591102&advancedFilter=resource.type%3D%22cloud_run_job%22%0Aresource.labels.job_name%3D%22janus-intelligence-mart%22%0Aresource.labels.location%3D%22us-central1%22%0Alabels.%22run.googleapis.com/execution_name%22%3D%22janus-intelligence-mart-k4p49%22",
+        "logUri": "https://console.cloud.google.com/logs/viewer?project=gen-lang-client-0593591102&advancedFilter=resource.type%3D%22cloud_run_job%22%0Aresource.labels.job_name%3D%22janus-intelligence-mart%22%0Aresource.labels.location%3D%22us-central1%22%0Alabels.%22run.googleapis.com/execution_name%22%3D%22janus-intelligence-mart-fkcht%22",
         "observedGeneration": 1,
-        "startTime": "2026-10-07T12:46:42.205700Z",
+        "startTime": "2026-10-07T13:15:18.277916Z",
         "succeededCount": 1
       }
     },
@@ -1455,10 +1455,10 @@
         "default": "pyiceberg"
       },
       "ceo_triggered": false,
-      "execution_id": "1ecd5da6-d354-4b0d-84a4-557f6043af8c",
+      "execution_id": "3ca42061-d3d0-462b-91c0-b1ab88062a96",
       "identity_hash": "sha256:4a3ecf3f22275a6074dbb7e945e4b5001700e2b46d14071b799b4b80c5f03f9d",
       "llm_api_tokens": 0,
-      "output_hash": "sha256:d63bc477045566fdff9afdbb3734acb559004e1a51f1cf11f1046f624b2ff054",
+      "output_hash": "sha256:18999346002e298e93c4e3c967d974166524a9be3bc655d52a6c96125dcd511a",
       "quality": {
         "auto_fail": false,
         "eod": {
@@ -1509,8 +1509,8 @@
     "result": {
       "analysis_as_of": "2026-10-06",
       "artifact_growth_bytes": 0,
-      "artifact_hash": "sha256:0a0da030dd6deafa244b17b655f8444633dc906424b4d86f72375c8ba01cd3ee",
-      "artifact_uri": "gs://gen-lang-client-0593591102-dev-mart/executions/1ecd5da6-d354-4b0d-84a4-557f6043af8c/screening-manifest.json",
+      "artifact_hash": "sha256:3812438a54e2cfd0ca89d9153dabe43228e2043a2faec0747783f65c91f5caf1",
+      "artifact_uri": "gs://gen-lang-client-0593591102-dev-mart/executions/3ca42061-d3d0-462b-91c0-b1ab88062a96/screening-manifest.json",
       "canary": {
         "backend": "pyiceberg",
         "candidate": "not_requested",
@@ -1520,13 +1520,13 @@
       "component": "intelligence-mart",
       "core_snapshot_hash": "sha256:8eda0eaead65dcb2cdf33191337b2d6aae120ca2adfbe77cc511cf8c28d3e0a8",
       "core_snapshot_uri": "gs://gen-lang-client-0593591102-dev-core/executions/17b091be-c454-4fea-b5de-b16c0a9c8c6c/core-snapshot.json",
-      "elapsed_seconds": 1.111,
-      "execution_id": "1ecd5da6-d354-4b0d-84a4-557f6043af8c",
+      "elapsed_seconds": 1.231,
+      "execution_id": "3ca42061-d3d0-462b-91c0-b1ab88062a96",
       "identity_hash": "sha256:4a3ecf3f22275a6074dbb7e945e4b5001700e2b46d14071b799b4b80c5f03f9d",
       "llm_api_tokens": 0,
       "operation": "market-screening-acceptance",
-      "output_hash": "sha256:d63bc477045566fdff9afdbb3734acb559004e1a51f1cf11f1046f624b2ff054",
-      "peak_rss_mib": 53.94,
+      "output_hash": "sha256:18999346002e298e93c4e3c967d974166524a9be3bc655d52a6c96125dcd511a",
+      "peak_rss_mib": 53.79,
       "quality": {
         "auto_fail": false,
         "eod": {
@@ -1575,8 +1575,8 @@
       "specialist_count": 0
     }
   },
-  "generated_at": "2026-10-07T12:53:03.889132+00:00",
-  "git_sha": "a350239388ee0937166659023692c08d77977c63",
+  "generated_at": "2026-10-07T13:22:10.930664+00:00",
+  "git_sha": "cb72ae00d9d93706a3281411b6dda425c65752c5",
   "markers": {
     "canary": true,
     "controller": false,
@@ -1593,17 +1593,17 @@
         "run.googleapis.com/client-version": "568.0.0",
         "run.googleapis.com/creator": "tommylin15@gmail.com",
         "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
-        "run.googleapis.com/operation-id": "86ab9584-609a-4ff9-8268-78fdfb78f916"
+        "run.googleapis.com/operation-id": "bb3367a9-0ffd-4ac7-8f65-1216710220b6"
       },
       "creationTimestamp": "2026-08-31T05:46:45.673533Z",
-      "generation": 216,
+      "generation": 218,
       "labels": {
         "cloud.googleapis.com/location": "us-central1",
-        "run.googleapis.com/lastUpdatedTime": "2026-10-07T12:36:50.772630Z"
+        "run.googleapis.com/lastUpdatedTime": "2026-10-07T13:03:50.246168Z"
       },
       "name": "janus-intelligence-mart",
       "namespace": "131494961796",
-      "resourceVersion": "AAZdP2t9XXM",
+      "resourceVersion": "AAZdP859TZo",
       "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/jobs/janus-intelligence-mart",
       "uid": "bb34dcf0-83ff-4cb0-8a6e-06d71132d70f"
     },
@@ -1618,7 +1618,7 @@
             "run.googleapis.com/vpc-access-egress": "private-ranges-only"
           },
           "labels": {
-            "client.knative.dev/nonce": "suw_gas_qen"
+            "client.knative.dev/nonce": "wuz_ziv_duk"
           }
         },
         "spec": {
@@ -1688,11 +1688,11 @@
                     },
                     {
                       "name": "JANUS_GIT_SHA",
-                      "value": "a350239388ee0937166659023692c08d77977c63"
+                      "value": "cb72ae00d9d93706a3281411b6dda425c65752c5"
                     },
                     {
                       "name": "JANUS_IMAGE_DIGEST",
-                      "value": "sha256:7e18a38497e189c14270da936c096765196ad432edf0d99ff39d5d9688e30943"
+                      "value": "sha256:a8c938c67b43b5b44bcba24f0bb786a5a762c1d8c92dcc8ab249dc27eca47d0a"
                     },
                     {
                       "name": "MART_CODEX_AUTH_SECRET",
@@ -1703,7 +1703,7 @@
                       "value": "false"
                     }
                   ],
-                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:7e18a38497e189c14270da936c096765196ad432edf0d99ff39d5d9688e30943",
+                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:a8c938c67b43b5b44bcba24f0bb786a5a762c1d8c92dcc8ab249dc27eca47d0a",
                   "resources": {
                     "limits": {
                       "cpu": "1",
@@ -1727,17 +1727,19 @@
           "type": "Ready"
         }
       ],
-      "executionCount": 185,
+      "executionCount": 189,
       "latestCreatedExecution": {
         "completionStatus": "EXECUTION_SUCCEEDED",
-        "completionTimestamp": "2026-10-07T12:40:24.378836Z",
-        "creationTimestamp": "2026-10-07T12:36:55.258704Z",
-        "name": "janus-intelligence-mart-zq7f6"
+        "completionTimestamp": "2026-10-07T13:08:07.646496Z",
+        "creationTimestamp": "2026-10-07T13:03:55.354518Z",
+        "name": "janus-intelligence-mart-cz8s6"
       },
-      "observedGeneration": 216
+      "observedGeneration": 218
     }
   },
-  "scheduled_occurrence": null,
+  "scheduled_occurrence": {
+    "unparsed": ""
+  },
   "schema_version": "b3-live-acceptance-v1",
   "status": "failed"
 }
