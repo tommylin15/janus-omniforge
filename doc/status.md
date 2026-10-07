@@ -17,7 +17,7 @@ A 組已完成 implementation、tests／CI、dev deployment、runtime readback �
 - 2026-10-07 結案後補強亦完成：交易異動後 immediate owner-scoped PnL recalculation、pending 時才顯示手動「重新計算損益」、關注搜尋按鈕語意、13:30／14:30 latest-price handoff、User PnL 紅綠與負號格式，以及 annual PnL latest-ledger-version stale fence。Flutter run `37542658237` 為 **66/66 PASS**；Portfolio contract `37542950801` 與 Deploy dev `37542951194` 均 success，API revision `janus-api-gafa3e8214bb1-config` 100% traffic。使用者已完成手機人工 UI 驗收並明確要求回寫後結案。
 
 **A 組及本次結案後 UI／PnL 補強均正式 CLOSED；下一個 active group 為 B。**
-## 2026-10-07 Owner-scoped parallel Private Mart 重算：ENGINEERING CLOSED / AUTHENTICATED ADMIN UI GATE PENDING
+## 2026-10-07 Owner-scoped parallel Private Mart 重算：CLOSED
 
 交易新增／更正／REVERSAL 後的即時損益重算已從 User API request thread 移出，改為 PostgreSQL owner queue + 既有 `janus-private-pipeline` Cloud Run Job 的 queue mode：
 
@@ -35,7 +35,7 @@ A 組已完成 implementation、tests／CI、dev deployment、runtime readback �
 
 權威設計與 acceptance contract：[`decision-2026-10-07-owner-scoped-parallel-private-recalculation.md`](decision-2026-10-07-owner-scoped-parallel-private-recalculation.md)。
 
-**本項 implementation／CI／migration／deployment／2-task live runtime 已完成；唯一尚未取得的 mandatory evidence 是使用真實 Admin Google 登入後的 UI readback。因目前工具沒有該 OAuth session／互動式瀏覽器，狀態維持 PARTIAL，不以 mock 或 DB readback 代替。B 組 active 排序不變。**
+**2026-10-07 使用者已用真實 Admin Google 登入完成 Admin「資料治理」UI 人工 readback 並明確確認「通過」。因此 implementation／tests／CI／migration／deployment／2-task live runtime／authenticated Admin UI acceptance 均已有 evidence，本項正式 CLOSED。B 組 active 排序不變。**
 
 ## 2026-10-06 B 組優先架構決策（尚未實作完成）
 
