@@ -1,0 +1,64 @@
+name: B2 janus-ci permission readback
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b2-janus-ci-permissions.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Test required project permissions
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          token="$(gcloud auth print-access-token)"
+          python3 - "${token}" <<'PY'
+          import json,sys,urllib.request
+          from pathlib import Path
+          token=sys.argv[1]
+          perms=[
+            'bigquery.jobs.create',
+            'biglake.catalogs.list',
+            'biglake.tables.register',
+          ]
+          req=urllib.request.Request(
+            'https://cloudresourcemanager.googleapis.com/v1/projects/gen-lang-client-0593591102:testIamPermissions',
+            data=json.dumps({'permissions':perms}).encode(),
+            headers={'Authorization':f'Bearer {token}','Content-Type':'application/json'},
+            method='POST'
+          )
+          with urllib.request.urlopen(req,timeout=30) as r: payload=json.load(r)
+          granted=set(payload.get('permissions',[]))
+          e={'identity':'janus-ci','mutations_performed':False,'permissions':{p:p in granted for p in perms}}
+          e['status']='pass'
+          Path('doc/archive/group-b-b2-janus-ci-permissions-2026-10-07.json').write_text(json.dumps(e,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(e,sort_keys=True))
+          PY
+      - name: Commit evidence
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add doc/archive/group-b-b2-janus-ci-permissions-2026-10-07.json
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: record B2 janus-ci permissions [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
