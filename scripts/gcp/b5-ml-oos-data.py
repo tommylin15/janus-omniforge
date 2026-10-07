@@ -265,7 +265,7 @@ def main() -> None:
 
     client = bigquery.Client(project=PROJECT, location=LOCATION)
     budget = QueryBudget(client)
-    fq = f"\`{PROJECT}.{b2['CATALOG']}.{b2['CORE_NAMESPACE']}.ohlcv_v1\`"
+    fq = f"`{PROJECT}.{b2['CATALOG']}.{b2['CORE_NAMESPACE']}.ohlcv_v1`"
     select_sql = reduction_select(
         fq, start=start, end=analysis_as_of, core_snapshot_id=core["snapshot_id"]
     )
