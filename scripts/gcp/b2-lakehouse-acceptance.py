@@ -94,14 +94,15 @@ def ensure_catalog() -> dict[str, Any]:
     )
     created = False
     if desc.returncode:
+        # Keep the catalog metadata-only. Namespace locations bind dev-core and
+        # dev-mart explicitly, avoiding project-wide Storage Admin just to set a
+        # catalog default warehouse.
         run(
             "gcloud", "biglake", "iceberg", "catalogs", "create", CATALOG,
             f"--project={PROJECT}",
             "--catalog-type=biglake",
-            f"--default-location=gs://{CORE_BUCKET}",
             "--credential-mode=end-user",
             f"--primary-location={LOCATION}",
-            f"--restricted-locations={LOCATION}",
             "--quiet",
         )
         created = True
@@ -111,8 +112,10 @@ def ensure_catalog() -> dict[str, Any]:
         )
     payload = json.loads(desc.stdout)
     serialized = json.dumps(payload, sort_keys=True).lower()
-    if CORE_BUCKET not in serialized or LOCATION not in serialized:
-        raise RuntimeError("catalog readback does not prove expected dev location")
+    if LOCATION not in serialized:
+        raise RuntimeError("catalog readback does not prove expected primary location")
+    if "end-user" not in serialized and "end_user" not in serialized:
+        raise RuntimeError("catalog readback does not prove end-user credential mode")
     return {"created": created, "readback": payload}
 
 
