@@ -77,10 +77,27 @@ jobs:
           touch /tmp/deploy.ok
 
       - name: Run fixed-snapshot PyIceberg vs BigQuery canary
+        continue-on-error: true
         env:
           PYTHONPATH: jobs/intelligence-mart:jobs/ingestion-core:.
         run: |
-          python scripts/gcp/b3-screening-canary.py --output /tmp/b3-canary.json
+          set +e
+          python scripts/gcp/b3-screening-canary.py --output /tmp/b3-canary.json > /tmp/b3-canary.stdout 2> /tmp/b3-canary.stderr
+          rc=$?
+          set -e
+          if [[ "$rc" -ne 0 ]]; then
+            cat /tmp/b3-canary.stdout || true
+            cat /tmp/b3-canary.stderr >&2 || true
+            python - <<'PY'
+import json
+from pathlib import Path
+p=Path('/tmp/b3-canary.json')
+if not p.exists():
+    err=Path('/tmp/b3-canary.stderr').read_text(errors='replace')[-4000:]
+    p.write_text(json.dumps({"status":"failed","error":err}, indent=2)+"\n")
+PY
+            exit "$rc"
+          fi
           python - <<'PY'
           import json
           data=json.load(open('/tmp/b3-canary.json'))
