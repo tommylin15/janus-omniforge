@@ -25,62 +25,50 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Classify dry-run exception
+      - name: Verify skipped-state constraint hypothesis
         shell: bash
         run: |
           set -Eeuo pipefail
           cat > /tmp/batch_diag.py <<'PY'
-          import os
+          import json
           import sys
           import psycopg
-          import requests
-          from ingestion_core import batch_controller as controller
           from ingestion_core.__main__ import _control_plane
-
-          os.environ["GCP_PROJECT_ID"] = "gen-lang-client-0593591102"
-          os.environ["BATCH_CONTROLLER_MODE"] = "active"
-          os.environ["BATCH_CONTROLLER_NOT_BEFORE"] = "2026-10-02T04:05:00Z"
-          os.environ["CLOUD_RUN_EXECUTION"] = "batch-controller-dry-run"
+          from packages.mobile_ledger_queue import probe_mobile_ledger_queue
 
           control = _control_plane()
           connection = control.connection
-          controller.dispatch_job = lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("diagnostic dispatch blocked"))
-          controller.export_events = lambda *args, **kwargs: 0
           try:
-              connection.execute("BEGIN")
+              with connection.cursor() as cursor:
+                  cursor.execute("""
+                      SELECT occurrence_id,state
+                        FROM control.batch_occurrences
+                       WHERE state->>'status'='pending'
+                         AND state->>'batch'='mobile-ledger'
+                       ORDER BY scheduled_at
+                       LIMIT 1
+                  """)
+                  row = cursor.fetchone()
+              queue_pending = bool(probe_mobile_ledger_queue(write=False)["pending"])
+              if row is None:
+                  sys.exit(71)
+              if queue_pending:
+                  sys.exit(72)
+              occurrence_id, state = row
+              skipped = {**state, "status": "skipped", "reason": "queue_empty"}
               try:
-                  result = controller.run(control=control, core=object())
-                  if result.get("status") == "controller_busy":
-                      sys.exit(66)
-              except psycopg.Error:
-                  sys.exit(51)
-              except TypeError:
-                  sys.exit(52)
-              except AttributeError:
-                  sys.exit(53)
-              except IndexError:
-                  sys.exit(54)
-              except AssertionError:
-                  sys.exit(55)
-              except requests.RequestException:
-                  sys.exit(56)
-              except KeyError:
-                  sys.exit(57)
-              except StopIteration:
-                  sys.exit(58)
-              except ValueError:
-                  sys.exit(59)
+                  with connection.transaction():
+                      connection.execute(
+                          "UPDATE control.batch_occurrences SET state=%s::jsonb WHERE occurrence_id=%s",
+                          (json.dumps(skipped), occurrence_id),
+                      )
+                      raise RuntimeError("force rollback")
+              except psycopg.errors.CheckViolation:
+                  sys.exit(73)
               except RuntimeError:
-                  sys.exit(60)
-              except OSError:
-                  sys.exit(61)
-              except LookupError:
-                  sys.exit(62)
-              except Exception:
-                  sys.exit(65)
-              finally:
-                  connection.rollback()
-              sys.exit(0)
+                  sys.exit(74)
+              except psycopg.Error:
+                  sys.exit(75)
           finally:
               control.close()
           PY
