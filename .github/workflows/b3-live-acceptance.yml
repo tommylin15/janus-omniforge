@@ -5,6 +5,12 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/b3-live-acceptance.yml'
+      - 'scripts/gcp/b3-screening-canary.py'
+      - 'jobs/intelligence-mart/intelligence_mart/market_screening.py'
+      - 'jobs/intelligence-mart/intelligence_mart/bigquery_reader.py'
+      - 'jobs/ingestion-core/ingestion_core/batch_controller.py'
+      - 'tests/test_market_screening.py'
+      - 'tests/test_bigquery_reader.py'
   workflow_dispatch:
 
 permissions:
