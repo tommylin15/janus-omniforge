@@ -238,52 +238,56 @@ jobs:
 
           cat > /tmp/b3_state_probe.py <<'PY'
           import json, os
+          from urllib.parse import urlparse
           from ingestion_core.__main__ import _control_plane
+          from ingestion_core.stage import GcsObjectStore
+
           occurrence=os.environ['B3_OCCURRENCE_ID']
+          target=urlparse(os.environ['B3_PROBE_RESULT_URI'])
+          expected_bucket=f"{os.environ['GCP_PROJECT_ID']}-dev-core"
+          if target.scheme != 'gs' or target.netloc != expected_bucket or not target.path.startswith('/acceptance/b3-controller/'):
+              raise ValueError('B3 controller probe result must stay inside existing dev-core acceptance prefix')
+          name=target.path.lstrip('/')
+
           control=_control_plane()
           try:
               with control.connection.cursor() as cursor:
                   cursor.execute("SELECT occurrence_id,scheduled_at,state FROM control.batch_occurrences WHERE occurrence_id=%s", (occurrence,))
                   row=cursor.fetchone()
               if row is None:
-                  print(json.dumps({"found": False, "occurrence_id": occurrence}, sort_keys=True))
+                  result={"found": False, "occurrence_id": occurrence}
               else:
-                  print(json.dumps({"found": True, "occurrence_id": row[0], "scheduled_at": row[1].isoformat(), "state": row[2]}, sort_keys=True))
+                  result={"found": True, "occurrence_id": row[0], "scheduled_at": row[1].isoformat(), "state": row[2]}
           finally:
               control.close()
+
+          payload=(json.dumps(result, sort_keys=True, separators=(',', ':'))+'\n').encode()
+          store=GcsObjectStore(expected_bucket)
+          created=store.create(name, payload, 'application/json')
+          if not created and store.read(name) != payload:
+              raise RuntimeError('immutable B3 controller probe result conflict')
+          if store.read(name) != payload:
+              raise RuntimeError('B3 controller probe readback mismatch')
+          print(json.dumps(result, sort_keys=True))
           PY
           export B3_PROBE_CODE="$(base64 -w0 /tmp/b3_state_probe.py)"
           wrapper='import base64,os;exec(base64.b64decode(os.environ["B3_PROBE_CODE"]))'
 
           probe_state() {
+            local idx="$1"
+            local result_uri="gs://${GCP_PROJECT_ID}-dev-core/acceptance/b3-controller/github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${idx}.json"
             gcloud run jobs execute "${CONTROLLER_JOB}" \
               --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
               --args="-c,${wrapper}" \
-              --update-env-vars="B3_PROBE_CODE=${B3_PROBE_CODE},B3_OCCURRENCE_ID=${occurrence}" \
+              --update-env-vars="B3_PROBE_CODE=${B3_PROBE_CODE},B3_OCCURRENCE_ID=${occurrence},B3_PROBE_RESULT_URI=${result_uri},GCP_PROJECT_ID=${GCP_PROJECT_ID}" \
               --task-timeout=5m --wait --format=json > /tmp/b3-probe-exec.json
-            local probe_name
-            probe_name="$(python -c "import json; d=json.load(open('/tmp/b3-probe-exec.json')); print(((d.get('metadata') or {}).get('name') or d.get('name')).split('/')[-1])")"
-            gcloud logging read \
-              "resource.type=cloud_run_job AND resource.labels.job_name=\"${CONTROLLER_JOB}\" AND labels.\"run.googleapis.com/execution_name\"=\"${probe_name}\"" \
-              --project="${GCP_PROJECT_ID}" --freshness=30m --limit=100 --order=asc --format=json > /tmp/b3-probe-logs.json
-            python - /tmp/b3-probe-logs.json /tmp/b3-occurrence.json <<'PY'
-          import json,sys
-          entries=json.load(open(sys.argv[1]))
-          found=[]
-          for entry in entries:
-              vals=[]
-              if isinstance(entry.get('textPayload'),str): vals.append(entry['textPayload'])
-              jp=entry.get('jsonPayload')
-              if isinstance(jp,dict) and isinstance(jp.get('message'),str): vals.append(jp['message'])
-              for raw in vals:
-                  raw=raw.strip()
-                  if not raw.startswith('{'): continue
-                  try: obj=json.loads(raw)
-                  except Exception: continue
-                  if 'occurrence_id' in obj and 'found' in obj: found.append(obj)
-          if not found: raise SystemExit('B3 occurrence probe output not found')
-          json.dump(found[-1], open(sys.argv[2],'w'), indent=2, sort_keys=True)
-          PY
+            for read_attempt in $(seq 1 6); do
+              if gcloud storage cat "${result_uri}" > /tmp/b3-occurrence.json; then
+                break
+              fi
+              sleep 5
+            done
+            test -s /tmp/b3-occurrence.json
           }
 
           for attempt in $(seq 1 12); do
@@ -291,7 +295,7 @@ jobs:
               --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
               --update-env-vars="BATCH_CONTROLLER_MODE=active" \
               --task-timeout=5m --wait >/tmp/b3-controller-tick.txt
-            probe_state
+            probe_state "${attempt}"
             status="$(python -c "import json; d=json.load(open('/tmp/b3-occurrence.json')); print((d.get('state') or {}).get('status','missing'))")"
             if [[ "${status}" == "succeeded" ]]; then
               touch /tmp/controller.ok
