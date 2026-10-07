@@ -1,0 +1,161 @@
+substitutions:
+  _POSTGRES_VM: janus-postgres-dev
+  _POSTGRES_ZONE: us-central1-a
+  _REGION: us-central1
+  _JOB: janus-private-pipeline
+
+steps:
+  - id: owner-queue-canary
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        set -Eeuo pipefail
+        remote_sql() {
+          local sql="$1" encoded
+          encoded="$(printf '%s' "${sql}" | base64 -w0)"
+          gcloud compute ssh "${_POSTGRES_VM}" \
+            --project="${PROJECT_ID}" \
+            --zone="${_POSTGRES_ZONE}" \
+            --tunnel-through-iap \
+            --quiet \
+            --command "printf '%s' '${encoded}' | base64 -d | sudo docker exec -i --user postgres janus-postgres psql -U postgres -d janus_control -v ON_ERROR_STOP=1 -At"
+        }
+
+        request_id="$(cat /proc/sys/kernel/random/uuid)"
+        duplicate_id="$(cat /proc/sys/kernel/random/uuid)"
+        execution_name=""
+
+        fail_request() {
+          local status=$?
+          trap - ERR
+          if [[ -n "${request_id:-}" ]]; then
+            remote_sql "UPDATE private.recalculation_requests
+                        SET status='FAILED',error_code='LIVE_ACCEPTANCE_FAILED',
+                            safe_message='系統驗收失敗，未影響交易資料，可重新嘗試',
+                            finished_at=now(),updated_at=now()
+                        WHERE request_id='${request_id}'::uuid
+                          AND status IN ('QUEUED','RUNNING','CANCEL_REQUESTED');
+                        UPDATE private.recalculation_dispatch
+                        SET active=false,updated_at=now()
+                        WHERE singleton=true
+                          AND NOT EXISTS (
+                            SELECT 1 FROM private.recalculation_requests
+                            WHERE status IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
+                          );" >/dev/null 2>&1 || true
+          fi
+          exit "${status}"
+        }
+        trap fail_request ERR
+
+        test "$(remote_sql "SELECT EXISTS (
+          SELECT 1 FROM control.schema_migrations
+          WHERE version='048_private_recalculation_queue'
+        );")" = "t"
+        test "$(remote_sql "SELECT count(*) FROM private.recalculation_requests
+          WHERE status IN ('QUEUED','RUNNING','CANCEL_REQUESTED');")" = "0"
+
+        workers="$(remote_sql "SELECT value_json->>'workers'
+          FROM control.admin_settings WHERE setting_key='private_recalc_workers';")"
+        test -n "${workers}"
+        test "${workers}" -ge 2
+        test "${workers}" -le 8
+
+        remote_sql "INSERT INTO private.recalculation_requests(
+                      request_id,user_id,requested_ledger_version,status,trigger_source
+                    )
+                    SELECT '${request_id}'::uuid,user_id,ledger_version,'QUEUED','manual'
+                    FROM private.users
+                    ORDER BY ledger_version DESC,user_id
+                    LIMIT 1;
+                    UPDATE private.recalculation_dispatch
+                    SET active=true,generation=generation+1,updated_at=now()
+                    WHERE singleton=true;" >/dev/null
+
+        test "$(remote_sql "SELECT count(*) FROM private.recalculation_requests
+          WHERE request_id='${request_id}'::uuid AND status='QUEUED';")" = "1"
+
+        set +e
+        duplicate_output="$(remote_sql "INSERT INTO private.recalculation_requests(
+                             request_id,user_id,requested_ledger_version,status,trigger_source
+                           )
+                           SELECT '${duplicate_id}'::uuid,user_id,requested_ledger_version,'QUEUED','manual'
+                           FROM private.recalculation_requests
+                           WHERE request_id='${request_id}'::uuid;" 2>&1)"
+        duplicate_status=$?
+        set -e
+        unset duplicate_output
+        test "${duplicate_status}" -ne 0
+
+        execution="$(gcloud run jobs execute "${_JOB}" \
+          --project="${PROJECT_ID}" \
+          --region="${_REGION}" \
+          --tasks=2 \
+          --task-timeout=30m \
+          --update-env-vars="PRIVATE_RECALC_QUEUE_MODE=true" \
+          --wait \
+          --format='value(metadata.name)')"
+        test -n "${execution}"
+        execution_name="${execution##*/}"
+
+        execution_tasks="$(gcloud run jobs executions describe "${execution_name}" \
+          --project="${PROJECT_ID}" --region="${_REGION}" \
+          --format='value(spec.taskCount)')"
+        test "${execution_tasks}" = "2"
+
+        row="$(remote_sql "SELECT status||'|'||attempt_count||'|'||
+                    COALESCE(worker_task_index::text,'')||'|'||
+                    COALESCE(worker_execution,'')||'|'||requested_ledger_version
+                  FROM private.recalculation_requests
+                  WHERE request_id='${request_id}'::uuid;")"
+        IFS='|' read -r state attempts task_index worker_execution requested_version <<< "${row}"
+        test "${state}" = "SUCCEEDED"
+        test "${attempts}" = "1"
+        [[ "${task_index}" == "0" || "${task_index}" == "1" ]]
+        test "${worker_execution}" = "${execution_name}"
+        test -n "${requested_version}"
+
+        test "$(remote_sql "SELECT requested_ledger_version = (
+                    SELECT ledger_version FROM private.users
+                    WHERE user_id=private.recalculation_requests.user_id
+                  )
+                  FROM private.recalculation_requests
+                  WHERE request_id='${request_id}'::uuid;")" = "t"
+        test "$(remote_sql "SELECT count(*) FROM private.recalculation_requests
+          WHERE status IN ('QUEUED','RUNNING','CANCEL_REQUESTED');")" = "0"
+        test "$(remote_sql "SELECT NOT active FROM private.recalculation_dispatch
+          WHERE singleton=true;")" = "t"
+
+        job_shape="$(gcloud run jobs describe "${_JOB}" \
+          --project="${PROJECT_ID}" --region="${_REGION}" \
+          --format='value(spec.template.spec.taskCount,spec.template.spec.parallelism)')"
+        IFS=$'\t ' read -r default_tasks max_parallelism <<< "${job_shape}"
+        test "${default_tasks}" = "1"
+        test "${max_parallelism}" = "8"
+
+        if gcloud run jobs describe "${_JOB}" \
+          --project="${PROJECT_ID}" --region="${_REGION}" --format=json |
+          grep -q '"PRIVATE_RECALC_QUEUE_MODE"'; then
+          echo 'Queue mode leaked into the persistent job configuration.' >&2
+          exit 1
+        fi
+
+        invoker="$(gcloud run jobs get-iam-policy "${_JOB}" \
+          --project="${PROJECT_ID}" --region="${_REGION}" \
+          --flatten='bindings[].members' \
+          --filter="bindings.role:roles/run.invoker AND bindings.members:serviceAccount:janus-user-api@${PROJECT_ID}.iam.gserviceaccount.com" \
+          --format='value(bindings.members)')"
+        grep -Fx "serviceAccount:janus-user-api@${PROJECT_ID}.iam.gserviceaccount.com" <<< "${invoker}" >/dev/null
+
+        echo "PRIVATE_RECALC_LIVE_ACCEPTANCE=PASS"
+        echo "workers=${workers}"
+        echo "execution=${execution_name}"
+        echo "execution_tasks=${execution_tasks}"
+        echo "request_status=${state}"
+        echo "attempts=${attempts}"
+        echo "worker_task_index=${task_index}"
+        echo "requested_ledger_version=${requested_version}"
+        trap - ERR
+options:
+  logging: CLOUD_LOGGING_ONLY
