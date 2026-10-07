@@ -68,6 +68,28 @@ def test_probe_defaults_to_dry_run_and_preserves_native_values_on_explicit_read(
     assert result.telemetry["scan_evidence"]["ohlcv"]["billed_bytes"] == 100
 
 
+def test_shared_catalog_mapping_is_verified_before_and_after_every_read():
+    reader, manifest, _, _, calls = setup_reader()
+    reader.table_ids = {"core.ohlcv_v1": "dev.catalog.fixed.ohlcv"}
+    checked = []
+    reader.shared_metadata_loader = lambda table: checked.append(table) or URI
+    result = reader.read(manifest, ("2330",), core_snapshot_id="core-fixed")
+    assert len(checked) == 3 and not result.telemetry["transition_only"]
+    reader.shared_metadata_loader = lambda _: "gs://drift"
+    count = len(calls)
+    with pytest.raises(ValueError, match="mapping mismatch"):
+        reader.read(manifest, ("2330",), core_snapshot_id="core-fixed")
+    assert len(calls) == count
+
+
+def test_column_selection_cannot_remove_filter_columns():
+    reader, manifest, _, _, calls = setup_reader()
+    reader.selected_fields = {"core.ohlcv_v1": ("amount",)}
+    with pytest.raises(ValueError, match="preserve date and symbol"):
+        reader.read(manifest, ("2330",), core_snapshot_id="core-fixed")
+    assert not calls
+
+
 @pytest.mark.parametrize("failure", ["identity", "snapshot", "uri", "region", "schema", "mapping", "bounds", "private"])
 def test_invalid_fences_never_submit_jobs(failure):
     reader, manifest, metadata, external, calls = setup_reader()

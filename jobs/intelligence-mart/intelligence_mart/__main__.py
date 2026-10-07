@@ -36,6 +36,12 @@ def main():
         elif name == "specialist-retrain":
             from .specialist_runtime import run_retraining
             operation = run_retraining
+        elif name == "market-screening":
+            from .market_screening import run_daily
+            operation = run_daily
+        elif name == "market-screening-acceptance":
+            from .market_screening import run_acceptance
+            operation = run_acceptance
         elif name in {"", "postgres-smoke"}:
             operation = postgres_smoke
         else:

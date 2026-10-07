@@ -40,6 +40,7 @@ on:
       - 'jobs/intelligence-mart/**'
       - 'tests/test_intelligence_mart_runtime.py'
       - 'tests/test_specialist_engines.py'
+      - 'tests/test_market_screening.py'
       - 'tests/test_mart_provider_routing.py'
       - 'tests/contract/test_contract_registry.py'
       - '.dockerignore'
@@ -190,6 +191,7 @@ jobs:
             mart_test:
               - 'tests/test_intelligence_mart_runtime.py'
               - 'tests/test_specialist_engines.py'
+              - 'tests/test_market_screening.py'
               - 'tests/test_container_build_contract.py'
 
               - 'tests/test_mart_provider_routing.py'
@@ -371,6 +373,7 @@ jobs:
           python -m pytest -q
           tests/test_intelligence_mart_runtime.py
           tests/test_specialist_engines.py
+          tests/test_market_screening.py
           tests/test_container_build_contract.py
           tests/test_data_retention.py
           tests/test_mart_provider_routing.py

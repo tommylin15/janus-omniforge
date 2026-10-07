@@ -6,6 +6,8 @@
 
 Market Coverage 由 `control.specialist_market_symbols(date)` 取得具 PIT 日期的 liquid-500 membership，最多 500 檔。每個交易日 EOD canonical data ready 後執行一次低成本 screening；篩選回報最新價/量/金額、5/20/60/120 日報酬、規則分數、排序與異常旗標，不自動加入自選股。BigQuery 通過 exact-snapshot fidelity gate 後優先承接這條全市場 cross-sectional compute。
 
+B3 新增獨立 `market-screening` operation：既有 controller 交易日台北 16:30、等待 ingestion／data-supplement、沿用休市日曆；同日 Core date fence 不成立則拒絕。新增 20D 平均成交金額／年化波動、5/20/60/120D 相對 benchmark 強弱、可用官方估值與 cross-sectional ranks。輸入列順序不影響結果／provenance hash。相同 Core manifest hash／snapshot／membership／feature version／date bounds 在昂貴 read 前 reuse，成果與 receipt immutable、90 日 derived retention；不呼叫完整五 specialist／training／CEO。操作與切換限制見 [screening runbook](../runbook-market-screening.md)，完成狀態仍以 runtime evidence 為準。
+
 使用者 2026-10-03 指示：500 檔缺失比例 ≤10%（含恰好 50/500）可接受；超過時標記 `discussion_required`，不中止或直接判整批失敗。每檔最新交易日、價格、成交量及成交金額必須合格且對齊，否則算該檔 EOD 缺失；各歷史窗口另外列缺失比例，模型未訓練不算行情缺失。缺失仍保留 null，PIT/來源不合格資料先排除後計入缺失。
 
 補資料共用既有交易所全市場日期批次，不建立新 fallback 或調度系統。正式 liquid-500 目前為 TWSE-listed-only，依實際 membership 選市場，不自行擴成上市櫃混合池。先使用已有資料與短批次，品質過差先討論，不為了填滿每欄展開複雜歷史補資料。

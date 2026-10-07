@@ -37,6 +37,9 @@ BATCHES = (
           env=(("JANUS_DATA_SUPPLEMENT_MODE", "daily"), ("JANUS_DATA_SUPPLEMENT_SYMBOLS", ""),
                ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""), ("ICEBERG_MAINTENANCE_MODE", ""))),
     Batch("mart", "janus-intelligence-mart", (9,), tuple(range(5)), ("ingestion", "data-supplement"), (("MART_OPERATION", "queue"), ("MART_AI_ENABLED", "false")), minute=0),
+    Batch("market-screening", "janus-intelligence-mart", (16,), tuple(range(5)), ("ingestion", "data-supplement"),
+          (("MART_OPERATION", "market-screening"), ("MART_OOS_EVALUATION", "false"), ("MART_AI_ENABLED", "false")),
+          exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart")),
     Batch("specialist-retrain", "janus-intelligence-mart", (10,), dependencies=("ingestion", "data-supplement"),
           env=(("MART_OPERATION", "specialist-retrain"), ("MART_OOS_EVALUATION", "true"), ("MART_AI_ENABLED", "false")),
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart"), month_days=(1,)),
@@ -176,6 +179,8 @@ def job_active(session, job):
 def occurrence_env(batch, slot: datetime) -> tuple[tuple[str, str], ...]:
     """Resolve non-secret execution overrides once and persist them with the occurrence."""
     values = dict(batch.env)
+    if batch.name == "market-screening":
+        values["SCREENING_DATE"] = slot.date().isoformat()
     if batch.name == "ingestion" and slot.hour == 14 and slot.minute == 30:
         values["INGESTION_DATE"] = slot.date().isoformat()
         values["INGESTION_DATASETS"] = "twse-market-volume,taiex"
@@ -412,6 +417,15 @@ def run(*, now=None, session=None, control=None, core=None):
         batches = {batch.name: batch for batch in BATCHES}
         for key, state in pending:
             batch = batches[state["batch"]]
+            if batch.name == "market-screening":
+                setting = control.get_admin_setting("schedule")
+                if not setting or not isinstance(setting[0], dict):
+                    record(connection, tick, key, state, "market_calendar_unavailable", update=False)
+                    continue
+                day = datetime.fromisoformat(state["scheduled_at"]).date().isoformat()
+                if day in setting[0].get("holiday_overrides", ()):
+                    record(connection, tick, key, {**state, "status": "skipped", "reason": "market_holiday"}, "market_holiday")
+                    continue
             if batch.name == "mobile-ledger":
                 if mobile_pending is None:
                     record(connection, tick, key, state, "mobile_queue_unavailable", update=False)

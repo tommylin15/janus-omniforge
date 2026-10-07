@@ -30,6 +30,15 @@ def clean_specialist_artifacts(store, *, apply, now, active_executions=frozenset
     for symbol, values in generations.items():
         selected[symbol].update(execution_id for _, _, execution_id in values if execution_id in active_executions)
     retained, live, candidates, retired = [], set(), set(), set()
+    for item in objects:
+        name = item["name"]
+        if name.startswith("executions/") and name.endswith("/screening-manifest.json") \
+                and (name.split("/")[1] in active_executions or
+                     datetime.fromisoformat(item["updated"].replace("Z", "+00:00")) >= now - timedelta(days=90)):
+            reference = json.loads(store.read(name))["screening"]["artifact_uri"]
+            if not reference.startswith(f"gs://{store.bucket}/screening/"):
+                raise ValueError("screening retention reference escaped public Mart prefix")
+            live.add(reference.removeprefix(f"gs://{store.bucket}/"))
     for execution_id, document in documents.items():
         prefix = f"executions/{execution_id}/"
         references = [ref for ref in document["specialists"] if execution_id in selected[ref["symbol"]]]
@@ -69,6 +78,10 @@ def clean_specialist_artifacts(store, *, apply, now, active_executions=frozenset
                 candidates.add(name)
     for item in objects:
         name = item["name"]
+        if (name.startswith("screening/") or (name.startswith("executions/") and name.endswith("/screening-manifest.json"))) \
+                and datetime.fromisoformat(item["updated"].replace("Z", "+00:00")) < now - timedelta(days=90):
+            if not name.startswith("executions/") or name.split("/")[1] not in active_executions:
+                candidates.add(name)
         if name.startswith("specialists/") and name not in live:
             # Completed superseded outputs can be removed immediately; unfinished outputs get seven days.
             referenced = any(ref["artifact_uri"] == f"gs://{store.bucket}/{name}"

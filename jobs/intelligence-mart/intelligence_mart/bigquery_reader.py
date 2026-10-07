@@ -1,8 +1,4 @@
-"""Opt-in bounded compatibility probe; never selected by specialist runtime.
-
-Only existing legacy Iceberg external tables pinned to a manifest metadata file
-are supported here. This is transition evidence, not a shared-catalog cutover.
-"""
+"""Opt-in bounded legacy/shared-catalog reads; no automatic default cutover."""
 
 from __future__ import annotations
 
@@ -20,15 +16,24 @@ class BigQueryAnalyticsReader:
 
     def __init__(self, client: Any, catalog: Any, table_ids: dict[str, str], *,
                  location: str, maximum_bytes_billed: int = 1_073_741_824,
-                 date_bounds: dict[str, tuple[str, str, str]], timeout: float = 60):
+                 date_bounds: dict[str, tuple[str, str, str]], timeout: float = 60,
+                 selected_fields=None, shared_metadata_loader=None):
         if not location or not 0 < maximum_bytes_billed <= 1_073_741_824 or not 0 < timeout <= 60:
             raise ValueError("location, execution byte budget <=1 GiB and timeout <=60s required")
         self.client, self.catalog, self.table_ids = client, catalog, dict(table_ids)
         self.location, self.maximum_bytes_billed, self.timeout = location, maximum_bytes_billed, timeout
         self.date_bounds = dict(date_bounds)
+        self.selected_fields = selected_fields or {}
+        self.shared_metadata_loader = shared_metadata_loader
 
     def close(self) -> None:
         self.client.close()
+
+    def _mapping_unchanged(self, identifier, fence, external):
+        table_id = self.table_ids[identifier]
+        if self.shared_metadata_loader is not None:
+            return self.shared_metadata_loader(table_id) == fence["metadata_location"]
+        return self.client.get_table(table_id).etag == external.etag
 
     def read(self, manifest: dict[str, Any], requested_symbols: tuple[str, ...], *,
              core_snapshot_id: str, row_limit: int = 250_000) -> AnalyticsSnapshot:
@@ -58,7 +63,7 @@ class BigQueryAnalyticsReader:
             table_id = self.table_ids[identifier]
             if not re.fullmatch(r"core\.[a-z][a-z0-9_]*_v1", identifier):
                 raise ValueError("non-Core table")
-            if not re.fullmatch(r"[a-z][a-z0-9-]*\.[A-Za-z0-9_]+\.[A-Za-z0-9_]+", table_id):
+            if not re.fullmatch(r"[a-z][a-z0-9-]*(?:\.[A-Za-z0-9_]+){2,3}", table_id):
                 raise ValueError("invalid BigQuery table ID")
             uri = fence.get("metadata_location", "") if isinstance(fence, dict) else ""
             if not re.fullmatch(r"gs://[^/]+/.*/[0-9]+-[0-9a-f-]{36}\.metadata\.json", uri):
@@ -81,14 +86,27 @@ class BigQueryAnalyticsReader:
             start, end = date.fromisoformat(bound[1]), date.fromisoformat(bound[2])
             if start > end:
                 raise ValueError("invalid date interval")
-            external = self.client.get_table(table_id)
-            config = external.external_data_configuration
-            if (external.location.lower() != self.location.lower() or config is None
-                    or config.source_format != "ICEBERG" or config.source_uris != [uri]
-                    or not external.etag):
-                raise ValueError("BigQuery region or exact metadata mapping mismatch")
-            if [f.name for f in external.schema] != columns:
-                raise ValueError("BigQuery schema evolution mismatch")
+            if self.shared_metadata_loader is not None:
+                if table_id.count(".") != 3 or self.shared_metadata_loader(table_id) != uri:
+                    raise ValueError("shared catalog exact metadata mapping mismatch")
+                external = None
+            else:
+                if table_id.count(".") != 2:
+                    raise ValueError("shared catalog mapping validator required")
+                external = self.client.get_table(table_id)
+                config = external.external_data_configuration
+                if (external.location.lower() != self.location.lower() or config is None
+                        or config.source_format != "ICEBERG" or config.source_uris != [uri]
+                        or not external.etag):
+                    raise ValueError("BigQuery region or exact metadata mapping mismatch")
+                if [f.name for f in external.schema] != columns:
+                    raise ValueError("BigQuery schema evolution mismatch")
+            selected = self.selected_fields.get(identifier, columns)
+            if not selected or not set(selected) <= set(columns):
+                raise ValueError("selected columns missing from pinned schema")
+            if bound[0] not in selected or ("symbol" in columns and "symbol" not in selected):
+                raise ValueError("selected columns must preserve date and symbol predicates")
+            columns = list(selected)
             plans.append((identifier, fence, columns, external))
 
         from google.cloud import bigquery
@@ -119,7 +137,7 @@ class BigQueryAnalyticsReader:
                     "estimated_bytes": estimated if known_estimate else None,
                     "dry_run_lower_bound_bytes": estimated, "processed_bytes": None, "billed_bytes": None,
                     "elapsed_seconds": None, "actual_gcs_read_bytes": None,
-                    "partition_pruning": "unknown", "schema": [f.to_api_repr() for f in external.schema]}
+                    "partition_pruning": "unknown", "selected_columns": columns}
             evidence[dataset] = item
             queries.append((identifier, fence, external, sql, params, dataset, item))
         remaining, billed_total = row_limit, 0
@@ -138,7 +156,7 @@ class BigQueryAnalyticsReader:
                 except Exception:
                     pass  # Preserve the read failure if cancellation also fails.
                 raise
-            if self.client.get_table(self.table_ids[identifier]).etag != external.etag:
+            if not self._mapping_unchanged(identifier, fence, external):
                 raise ValueError("BigQuery metadata mapping changed during probe")
             remaining -= len(rows)
             if remaining < 0:
@@ -152,9 +170,13 @@ class BigQueryAnalyticsReader:
                                  for row in rows]
             item.update(processed_bytes=job.total_bytes_processed, billed_bytes=job.total_bytes_billed,
                         elapsed_seconds=monotonic() - started, row_count=len(rows))
+        if not dry_run:
+            for identifier, fence, _, external in plans:
+                if not self._mapping_unchanged(identifier, fence, external):
+                    raise ValueError("BigQuery metadata mapping changed before snapshot completion")
         return AnalyticsSnapshot(core_snapshot_id, datasets, {
             "source": self.backend, "core_snapshot_id": core_snapshot_id, "dry_run": dry_run,
-            "transition_only": True, "scan_evidence": evidence,
+            "transition_only": self.shared_metadata_loader is None, "scan_evidence": evidence,
             "unknown_estimate_policy": "bounded-execution",
             "execution_byte_budget": self.maximum_bytes_billed,
             "table_scope": sorted(fences),

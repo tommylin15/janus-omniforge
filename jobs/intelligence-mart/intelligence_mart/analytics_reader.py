@@ -41,8 +41,10 @@ class IcebergSnapshotReader:
 
     backend = "pyiceberg"
 
-    def __init__(self, catalog: Any):
+    def __init__(self, catalog: Any, *, date_bounds=None, selected_fields=None):
         self.catalog = catalog
+        self.date_bounds = date_bounds or {}
+        self.selected_fields = selected_fields or {}
 
     def read(
         self,
@@ -101,7 +103,7 @@ class IcebergSnapshotReader:
         if not isinstance(tables, dict):
             raise ValueError("Core manifest iceberg_tables must be an object")
 
-        from pyiceberg.expressions import In
+        from pyiceberg.expressions import And, In, GreaterThanOrEqual, LessThanOrEqual
 
         datasets: dict[str, list[dict[str, Any]]] = {}
         scan_evidence: dict[str, dict[str, Any]] = {}
@@ -117,10 +119,22 @@ class IcebergSnapshotReader:
             table = self.catalog.load_table(identifier)
             field_names = {field.name for field in table.schema().fields}
             filter_ = In("symbol", set(requested_symbols)) if requested_symbols and "symbol" in field_names else None
+            if identifier in self.date_bounds:
+                column, start, end = self.date_bounds[identifier]
+                from datetime import date
+                if column not in field_names or date.fromisoformat(start) > date.fromisoformat(end):
+                    raise ValueError("invalid analytics date bounds")
+                date_filter = And(GreaterThanOrEqual(column, start), LessThanOrEqual(column, end))
+                filter_ = And(filter_, date_filter) if filter_ is not None else date_filter
             # Read one extra row to detect overflow rather than silently truncate a fixed snapshot.
             scan_options: dict[str, Any] = {"snapshot_id": int(fence["snapshot_id"]), "limit": remaining + 1}
             if filter_ is not None:
                 scan_options["row_filter"] = filter_
+            if identifier in self.selected_fields:
+                selected = tuple(c for c in self.selected_fields[identifier] if c in field_names)
+                if not selected:
+                    raise ValueError("empty analytics column selection")
+                scan_options["selected_fields"] = selected
             scan = table.scan(**scan_options)
             planned_file_count = None
             planned_scan_bytes = None

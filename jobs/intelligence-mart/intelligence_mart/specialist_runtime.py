@@ -168,7 +168,7 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
             "evaluation_output_hash": manifest.get("evaluation_output_hash")}
 
 
-def run_acceptance():
+def run_acceptance(*, processor=None, operation="specialist-acceptance"):
     """Real dev input only; uses existing approved identities and never invokes a provider."""
     from urllib.parse import urlparse
     from ingestion_core.stage import GcsObjectStore
@@ -176,7 +176,7 @@ def run_acceptance():
     if uri.scheme != "gs" or uri.netloc != os.environ["MART_BUCKET"] or not uri.path.startswith("/acceptance/specialists/"):
         raise ValueError("acceptance input must stay inside existing Mart dev acceptance prefix")
     event = json.loads(GcsObjectStore(uri.netloc).read(uri.path.lstrip("/")))
-    return _run_event(event, "specialist-acceptance")
+    return _run_event(event, operation, processor=processor)
 
 
 def latest_training_input(store, today):
@@ -226,7 +226,7 @@ def run_retraining():
     return _run_event(event, "specialist-retrain")
 
 
-def _run_event(event, operation):
+def _run_event(event, operation, *, processor=None):
     import resource
     import time
     started = time.monotonic()
@@ -246,7 +246,12 @@ def _run_event(event, operation):
     settings = _settings("PUBLICATION_DB")
     with psycopg.connect(host=settings["host"], dbname=settings["name"], user=settings["user"], password=settings["password"],
                         sslmode=os.environ.get("PUBLICATION_DB_SSLMODE", "require"), connect_timeout=5) as connection:
-        result = specialist_processor(execution, connection)
+        if processor is not None:
+            with connection.transaction():
+                if not connection.execute("SELECT pg_try_advisory_lock(1835102836,2)").fetchone()[0]:
+                    raise RuntimeError("public data mutation lock is busy")
+            # Session close releases this shared ingestion/retention read fence on every exit.
+        result = (processor or specialist_processor)(execution, connection)
     return {"component": "intelligence-mart", "operation": operation, "execution_id": execution.execution_id,
             "analysis_as_of": options["analysis_as_of"], "core_snapshot_uri": options["core_snapshot_uri"],
             "core_snapshot_hash": options["core_snapshot_hash"], "llm_api_tokens": 0,
