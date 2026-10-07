@@ -1,6 +1,6 @@
 # B3 每日盤後 liquid-500 screening
 
-狀態：implementation 已新增；deployment／live acceptance 仍需實際 evidence，BigQuery 未切 default。
+狀態：**CLOSED / PASS（2026-10-07）**。Implementation、deployment、fixed-snapshot canary、兩次 reuse live acceptance 與 controller occurrence readback 均已有真實 dev evidence；BigQuery 未切 default，PyIceberg 維持預設 reader。
 
 ## 日常路徑
 
@@ -32,3 +32,12 @@ MART_OOS_EVALUATION=false
 ```
 
 保存確切 execution name，查該 execution 的 bounded logs，再讀回 `screening-manifest.json` 與 referenced artifact/hash。第二次同 input 必須 `reused=true`、artifact 相同、growth=0；`specialist_count=0`、`llm_api_tokens=0`、`ceo_triggered=false`。Controller definition/runtime image/occurrence readback 與上述 live evidence 都成立後才結案 B3。
+
+## 2026-10-07 結案 evidence
+
+- B3 base live acceptance 已證明 `tests / deploy / canary / live` 四個 marker PASS；第二次 fixed-snapshot execution 為 `reused=true`、`artifact_growth_bytes=0`、500 symbols、0 specialist、0 LLM token、CEO 未觸發。
+- controller-only recovery workflow `37628720592` SUCCESS；真實 occurrence `market-screening/2026-10-07/16` 為 `succeeded`，Mart execution `janus-intelligence-mart-7f8jl`，dependencies 為同日 14:30 ingestion 與 08:30 data-supplement。
+- final controller env readback：`MART_OPERATION=market-screening`、`MART_AI_ENABLED=false`、`MART_OOS_EVALUATION=false`、`SCREENING_DATE=2026-10-07`。
+- 完整結案證據見 [B3 結案](archive/group-b-b3-closure-2026-10-07.md) 與 [controller recovery JSON](archive/group-b-b3-controller-recovery-2026-10-07.json)。舊 failed／partial acceptance JSON 保留為歷史，不再代表目前 B3 狀態。
+
+**B3 不再重跑；下一步為 B4 Deep Coverage specialists。**
