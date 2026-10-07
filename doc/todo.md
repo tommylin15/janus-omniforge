@@ -1,6 +1,6 @@
 # Janus — TODO
 
-版本：3.15（2026-10-07：B2 compatibility 結案，下一步 B3）
+版本：3.16（2026-10-07：B3 liquid-500 screening 結案，下一步 B4）
 用途：**只保留確定要做的 active work 與未完成 acceptance**。Deferred、Candidate、Observation、Production-only、已接受缺口與研究構想統一放 [`parking-lot.md`](parking-lot.md)；已完成／被取代內容放 `archive/`。
 
 ## 規則
@@ -89,16 +89,16 @@ A 組 implementation／CI／dev runtime 與兩項人工 gate 已於 2026-10-06 �
 A 組不再列 active TODO；下一個 active work 為 B 組。
 ## B 組優先架構調整 acceptance
 
-> **B0 Baseline 與 B1 exact-snapshot reader 已於 2026-10-07 CLOSED。** 證據見 [B0 baseline](archive/group-b-b0-baseline-closure-2026-10-07.md) 與 [B1 reader](archive/group-b-b1-reader-acceptance-2026-10-07.md)。B2 compatibility 亦已 CLOSED，證據見 [B2 結案](archive/group-b-b2-closure-2026-10-07.md)；下一步 B3 liquid-500 screening。其餘 workload／specialist acceptance 未完成。
+> **B0／B1／B2／B3 均已於 2026-10-07 CLOSED。** B3 完整證據見 [B3 結案](archive/group-b-b3-closure-2026-10-07.md)；下一步 B4 Deep Coverage specialists。其餘五 specialist／dirty dependency／OOS／monthly retrain acceptance 未完成。
 
 B 組開始五 specialist／cache 收斂前，先完成 [BigQuery analytics 架構決策](decision-2026-10-06-bigquery-analytics-over-iceberg.md) 的資料讀取邊界；此優先序不代表 BigQuery resource 已建立或啟用。
 
 - [x] 抽出 exact-snapshot analytics reader；既有 PyIceberg path 先包成 reference／fallback，不改 canonical write path。完成證據見 [B1 reader](archive/group-b-b1-reader-acceptance-2026-10-07.md)。
 - [x] 建立 BigQuery analytics adapter／compatibility probe，證明固定 Core snapshot 的資料／schema／null／時間／provenance fidelity。B2 CLOSED：沿用 20 contract tests、106 Mart regression、320-row fidelity；本次 shared catalog exact-snapshot mapping、native DECIMAL(20,4)/schema evolution、真實 ohlcv partition pruning 全 PASS，9 jobs 共 60 MiB billed bytes，immutable GCS evidence readback PASS。本輪無 IAM/canonical mutation，PyIceberg 仍為 default；workload canary/cutover 屬後續範圍。見 [B2 結案](archive/group-b-b2-closure-2026-10-07.md)。
-- [ ] 禁止 Storage Read API 與 `bigquery.readsessions.*` 需求；不得加入 `google-cloud-bigquery-storage`。大量 ML input 以 SQL 縮減後 export versioned GCS Parquet。
-- [ ] 建立每日盤後 liquid-500 screening：EOD canonical data ready 後對約 500 檔做低成本 screening／cross-sectional ranking；BigQuery 通過 fidelity gate 後承接這條 compute。不得擴成 500×5 深度 specialist，也不把 User API、Ledger、private owner path 或整套 Core full copy 搬入 BigQuery。
-- [ ] 加入 bounded query／column／partition guards、processed bytes／elapsed／peak RSS／GCS I/O／artifact growth telemetry，未知成本不補 0。
-- [ ] 同 snapshot 對 PyIceberg／BigQuery 做 deterministic canary compare；只對通過 fidelity、cost、performance、failure/fallback acceptance 的 workload 切換 default。
+- [x] B3 canary 禁止 Storage Read API 與 `bigquery.readsessions.*` 需求；未加入 `google-cloud-bigquery-storage`。大型 ML input 的 versioned GCS Parquet export 仍屬後續 training scope。
+- [x] 建立每日盤後 liquid-500 screening：B3 已以真實 controller occurrence `market-screening/2026-10-07/16` 與 Mart execution `janus-intelligence-mart-7f8jl` 驗收；500 檔低成本 screening／cross-sectional ranking 完成，未擴成 500×5 深度 specialist。
+- [x] B3 已加入 bounded query／column／partition guards 與 processed bytes／elapsed／peak RSS／artifact growth telemetry；未知 GCS I/O 維持 null，不補 0。
+- [x] 同 fixed snapshot 已完成 PyIceberg／BigQuery deterministic canary compare；fidelity／budget PASS。未完成 default cutover gate，因此 **PyIceberg 維持 default**，不把 B3 PASS 誤寫成 BigQuery cutover。
 - [ ] PostgreSQL serving projection 與 A 組既有 read path 不回歸；BigQuery failure 必須可 audit fallback，不影響 canonical ingestion/write。
 - [ ] 將 `specialist-retrain`／calibration／OOS evaluation／cache reconciliation 的 effective schedule 統一為 **每月第一個週六 10:30（Asia/Taipei）**；實作時需修改實際 Scheduler／controller definition 並以 runtime readback 驗證，文件本身不算完成。
 - [ ] 若需啟用新付費 API、建立 BigLake/Lakehouse/BigQuery 資源或擴大 IAM，依 PROJECT_RULES 取得明確授權；未授權部分標 blocked，不以文件決策冒充 resource approval。
@@ -111,7 +111,7 @@ B 組開始五 specialist／cache 收斂前，先完成 [BigQuery analytics 架�
 
 先核對 [`spec/operations-and-testing.md`](spec/operations-and-testing.md) 已記錄的公開資料清理 apply/readback 與最新 runtime；依 [`spec/retention-governance.md`](spec/retention-governance.md) 只補尚缺的整合／排程證據，不為舊待辦重跑已完成刪除。其他治理／成本收斂併 A；不以文件過期阻擋 B。
 
-- [ ] 完成約 500 檔**每日盤後**低成本 market screening，以及 `active watchlist ∪ effective holdings` 的 Deep Coverage 五 specialist；兩者不得混成 500×5 全量深算。
+- [ ] 約 500 檔**每日盤後**低成本 market screening 已由 B3 CLOSED；下一步完成 `active watchlist ∪ effective holdings` 的 Deep Coverage 五 specialist。兩者不得混成 500×5 全量深算。
 - [ ] Fundamental：deterministic financial features + LightGBM baseline。
 - [ ] Valuation：deterministic DCF／reverse-DCF／relative valuation + LightGBM／CatBoost benchmark。
 - [ ] Quant：LightGBM baseline + Qlib DoubleEnsemble challenger；以 Taiwan PIT walk-forward OOS 決定 champion。
