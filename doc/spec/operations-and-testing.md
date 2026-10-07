@@ -1,5 +1,15 @@
 # Operations and testing
 
+## 最新：B3 daily liquid-500 screening（2026-10-07，CLOSED / PASS）
+
+- B3 implementation、targeted tests、dev deployment、fixed-snapshot PyIceberg／BigQuery canary 與兩次 Cloud Run reuse acceptance 已完成；base evidence 的 `tests / deploy / canary / live` 四個 marker 均 PASS。
+- 第二次 fixed-snapshot acceptance：`reused=true`、`artifact_growth_bytes=0`、`screening_count=500`、`specialist_count=0`、`llm_api_tokens=0`、`ceo_triggered=false`。
+- BigQuery canary 使用 normal query/result API；沒有 Storage Read API。整輪維持 1 GiB execution budget、每 query 60 秒 timeout。BigQuery 未切 default，PyIceberg 維持預設 reader。
+- controller-only recovery workflow `37628720592` SUCCESS；真實 occurrence `market-screening/2026-10-07/16` state=`succeeded`，Mart execution `janus-intelligence-mart-7f8jl`；controller tick `janus-batch-controller-d7kfq` 與 probe `janus-batch-controller-6zjgr` 均成功。
+- occurrence env：`MART_OPERATION=market-screening`、`MART_AI_ENABLED=false`、`MART_OOS_EVALUATION=false`、`SCREENING_DATE=2026-10-07`；dependencies 對齊同日 14:30 ingestion 與 08:30 data-supplement。
+- 舊 controller evidence failure 為 acceptance harness 的 Cloud Logging indexing／gcloud list-arg parsing 問題，不是 screening workload 失敗；commit `84f2c1b` 修正後以 GCS immutable readback 收斂。
+- 完整結案：[B3 結案](../archive/group-b-b3-closure-2026-10-07.md)。下一步 B4 Deep Coverage specialists；B3 不再重跑。
+
 ## 最新：Batch controller skipped-status incident（2026-10-07，closed）
 
 - `janus-batch-controller` 曾連續 active exit 1；Job resource 本身 Ready。`mobile-probe` `janus-batch-controller-9s25t` 與 `observe` `janus-batch-controller-fgvsp` 成功。
