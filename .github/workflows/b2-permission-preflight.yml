@@ -1,0 +1,94 @@
+name: B2 permission preflight
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b2-permission-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: b2-permission-preflight
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Probe Cloud Build permissions
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          probe() {
+            local resource="$1"
+            local permission="$2"
+            set +e
+            gcloud builds submit --no-source \
+              --project=gen-lang-client-0593591102 \
+              --region=us-central1 \
+              --config=scripts/gcp/cloudbuild-b2-permission-test.yaml \
+              --substitutions="_RESOURCE=${resource},_PERMISSION=${permission}" \
+              --quiet >/dev/null 2>&1
+            local rc=$?
+            set -e
+            printf '%s' "${rc}"
+          }
+          p_get_policy="$(probe project resourcemanager.projects.getIamPolicy)"
+          p_set_policy="$(probe project resourcemanager.projects.setIamPolicy)"
+          p_catalog_create="$(probe project biglake.catalogs.create)"
+          p_catalog_list="$(probe project biglake.catalogs.list)"
+          p_table_register="$(probe project biglake.tables.register)"
+          b_get_policy="$(probe bucket storage.buckets.getIamPolicy)"
+          b_set_policy="$(probe bucket storage.buckets.setIamPolicy)"
+          b_obj_get="$(probe bucket storage.objects.get)"
+          b_obj_list="$(probe bucket storage.objects.list)"
+
+          python3 - \
+            "${p_get_policy}" "${p_set_policy}" "${p_catalog_create}" "${p_catalog_list}" "${p_table_register}" \
+            "${b_get_policy}" "${b_set_policy}" "${b_obj_get}" "${b_obj_list}" <<'PY'
+          import json, sys
+          from pathlib import Path
+          keys=[
+            'project_getIamPolicy','project_setIamPolicy','biglake_catalogs_create','biglake_catalogs_list','biglake_tables_register',
+            'bucket_getIamPolicy','bucket_setIamPolicy','storage_objects_get','storage_objects_list'
+          ]
+          values={k:(int(v)==0) for k,v in zip(keys,sys.argv[1:])}
+          evidence={
+            'identity':'cloud-build-default',
+            'mutations_performed':False,
+            'permissions':values,
+            'can_bootstrap_project_iam':values['project_getIamPolicy'] and values['project_setIamPolicy'],
+            'can_bootstrap_bucket_iam':values['bucket_getIamPolicy'] and values['bucket_setIamPolicy'],
+            'can_create_catalog_now':values['biglake_catalogs_create'],
+            'can_register_now':values['biglake_tables_register'],
+          }
+          evidence['status']='pass'
+          Path('doc/archive/group-b-b2-permission-preflight-2026-10-07.json').write_text(
+            json.dumps(evidence,indent=2,sort_keys=True)+'\n'
+          )
+          print(json.dumps(evidence,sort_keys=True))
+          PY
+      - name: Commit evidence
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add doc/archive/group-b-b2-permission-preflight-2026-10-07.json
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: record B2 permission preflight [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
