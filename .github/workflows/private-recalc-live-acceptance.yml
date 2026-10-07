@@ -7,7 +7,6 @@ on:
       - main
     paths:
       - '.github/workflows/private-recalc-live-acceptance.yml'
-      - 'scripts/gcp/cloudbuild-private-recalc-live-acceptance.yaml'
 
 permissions:
   contents: read
@@ -16,6 +15,10 @@ permissions:
 concurrency:
   group: private-recalc-live-acceptance
   cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_REGION: us-central1
 
 jobs:
   acceptance:
@@ -28,39 +31,127 @@ jobs:
           workload_identity_provider: projects/131494961796/locations/global/workloadIdentityPools/github-actions/providers/github
           service_account: janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Run bounded owner queue canary
+
+      - name: Run bounded owner queue canary through existing runtimes
+        shell: bash
         run: |
           set -Eeuo pipefail
-          project=gen-lang-client-0593591102
-          build_id="$(gcloud builds submit --no-source --async \
-            --project="${project}" \
-            --config=scripts/gcp/cloudbuild-private-recalc-live-acceptance.yaml \
-            --format='value(id)')"
-          test -n "${build_id}"
-          echo "build_id=${build_id}"
 
-          terminal=''
-          for _ in $(seq 1 240); do
-            terminal="$(gcloud builds describe "${build_id}" \
-              --project="${project}" --format='value(status)')"
-            case "${terminal}" in
-              SUCCESS) break ;;
-              FAILURE|CANCELLED|TIMEOUT|INTERNAL_ERROR|EXPIRED) break ;;
-            esac
-            sleep 5
-          done
+          request_id="$(python -c 'import uuid; print(uuid.uuid4())')"
+          seed_execution=''
+          queue_execution=''
+          verify_execution=''
 
-          echo "build_status=${terminal}"
-          logs='[]'
-          for attempt in $(seq 1 12); do
-            logs="$(gcloud logging read \
-              "resource.type=\"build\" AND resource.labels.build_id=\"${build_id}\"" \
-              --project="${project}" --order=asc --limit=300 --format=json || true)"
-            if [[ "${logs}" != '[]' ]]; then break; fi
-            if [[ "${attempt}" != '12' ]]; then sleep 5; fi
-          done
-          log_text="$(python -c 'import json,sys; rows=json.load(sys.stdin); print("\\n".join(str(row.get("textPayload") or (row.get("jsonPayload") or {}).get("message") or "") for row in rows))' <<< "${logs}")"
-          printf '%s\n' "${log_text}"
+          cleanup() {
+            status=$?
+            trap - EXIT
+            if [[ -n "${request_id:-}" ]]; then
+              set +e
+              gcloud run jobs execute janus-ingestion-core \
+                --project="${GCP_PROJECT_ID}" \
+                --region="${GCP_REGION}" \
+                --tasks=1 \
+                --task-timeout=5m \
+                --update-env-vars="JANUS_PRIVATE_RECALC_ACCEPTANCE_MODE=cleanup,JANUS_PRIVATE_RECALC_ACCEPTANCE_REQUEST_ID=${request_id}" \
+                --wait >/dev/null 2>&1
+              set -e
+            fi
+            exit "${status}"
+          }
+          trap cleanup EXIT
 
-          test "${terminal}" = "SUCCESS"
-          grep -q 'PRIVATE_RECALC_LIVE_ACCEPTANCE=PASS' <<< "${log_text}"
+          ingress_ready="$(gcloud run jobs describe janus-ingestion-core \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --format='value(status.conditions[0].status)')"
+          private_ready="$(gcloud run jobs describe janus-private-pipeline \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --format='value(status.conditions[0].status)')"
+          test "${ingress_ready}" = "True"
+          test "${private_ready}" = "True"
+
+          job_shape="$(gcloud run jobs describe janus-private-pipeline \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --format='value(spec.template.spec.taskCount,spec.template.spec.parallelism)')"
+          IFS=$'\t ' read -r default_tasks max_parallelism <<< "${job_shape}"
+          test "${default_tasks}" = "1"
+          test "${max_parallelism}" = "8"
+
+          invoker="$(gcloud run jobs get-iam-policy janus-private-pipeline \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --flatten='bindings[].members' \
+            --filter="bindings.role:roles/run.invoker AND bindings.members:serviceAccount:janus-user-api@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+            --format='value(bindings.members)')"
+          grep -Fx "serviceAccount:janus-user-api@${GCP_PROJECT_ID}.iam.gserviceaccount.com" <<< "${invoker}" >/dev/null
+
+          seed_execution="$(gcloud run jobs execute janus-ingestion-core \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --tasks=1 \
+            --task-timeout=5m \
+            --update-env-vars="JANUS_PRIVATE_RECALC_ACCEPTANCE_MODE=seed,JANUS_PRIVATE_RECALC_ACCEPTANCE_REQUEST_ID=${request_id}" \
+            --wait \
+            --format='value(metadata.name)')"
+          seed_execution="${seed_execution##*/}"
+          test -n "${seed_execution}"
+
+          queue_execution="$(gcloud run jobs execute janus-private-pipeline \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --tasks=2 \
+            --task-timeout=30m \
+            --update-env-vars="PRIVATE_RECALC_QUEUE_MODE=true" \
+            --wait \
+            --format='value(metadata.name)')"
+          queue_execution="${queue_execution##*/}"
+          test -n "${queue_execution}"
+
+          execution_tasks="$(gcloud run jobs executions describe "${queue_execution}" \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --format='value(spec.taskCount)')"
+          test "${execution_tasks}" = "2"
+
+          verify_execution="$(gcloud run jobs execute janus-ingestion-core \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --tasks=1 \
+            --task-timeout=5m \
+            --update-env-vars="JANUS_PRIVATE_RECALC_ACCEPTANCE_MODE=verify,JANUS_PRIVATE_RECALC_ACCEPTANCE_REQUEST_ID=${request_id},JANUS_PRIVATE_RECALC_ACCEPTANCE_EXECUTION=${queue_execution}" \
+            --wait \
+            --format='value(metadata.name)')"
+          verify_execution="${verify_execution##*/}"
+          test -n "${verify_execution}"
+
+          verify_log="$(gcloud logging read \
+            "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"janus-ingestion-core\" AND labels.\"run.googleapis.com/execution_name\"=\"${verify_execution}\"" \
+            --project="${GCP_PROJECT_ID}" --freshness=30m --limit=80 \
+            --format='value(textPayload,jsonPayload.message)' || true)"
+          printf '%s\n' "${verify_log}"
+          grep -q '"operation": "private_recalc_acceptance_verify"' <<< "${verify_log}"
+          grep -q '"status": "succeeded"' <<< "${verify_log}"
+
+          queue_log="$(gcloud logging read \
+            "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"janus-private-pipeline\" AND labels.\"run.googleapis.com/execution_name\"=\"${queue_execution}\"" \
+            --project="${GCP_PROJECT_ID}" --freshness=30m --limit=120 \
+            --format='value(textPayload,jsonPayload.message)' || true)"
+          printf '%s\n' "${queue_log}"
+          grep -q '"private_recalc_queue"' <<< "${queue_log}"
+          grep -q '"succeeded": 1' <<< "${queue_log}"
+
+          if gcloud run jobs describe janus-private-pipeline \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json |
+            grep -q '"PRIVATE_RECALC_QUEUE_MODE"'; then
+            echo 'queue mode leaked into persistent private-pipeline job configuration' >&2
+            exit 1
+          fi
+          if gcloud run jobs describe janus-ingestion-core \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json |
+            grep -q '"JANUS_PRIVATE_RECALC_ACCEPTANCE_MODE"'; then
+            echo 'acceptance mode leaked into persistent ingestion job configuration' >&2
+            exit 1
+          fi
+
+          echo "PRIVATE_RECALC_LIVE_ACCEPTANCE=PASS"
+          echo "queue_execution=${queue_execution}"
+          echo "execution_tasks=${execution_tasks}"
+          echo "default_tasks=${default_tasks}"
+          echo "max_parallelism=${max_parallelism}"
