@@ -2200,6 +2200,7 @@ the MCP connector still uses its older existing tagged revision.
 ## 2026-10-07 — B2 compatibility CLOSED / PASS
 
 - 沿用 adapter CI 20 PASS、Mart regression 106 PASS、deployment/smoke、legacy fixed-snapshot 320-row fidelity；本次 targeted acceptance checks 3 PASS。
+- 本次修改 commit `3f5406a` 的 [CI 37595108822](https://github.com/tommylin15/janus-omniforge/actions/runs/37595108822) SUCCESS：20 adapter tests、3 acceptance script checks、probe compile 均 PASS。
 - 三張 fixed B0 Core shared-catalog mapping、DECIMAL(20,4)/schema evolution/null、真實 ohlcv partition pruning 全 PASS。窄日期 42,678 processed bytes；寬日期 1,602,600 bytes。Snapshot/metadata pointers 保持精確相等。
 - 本輪 9 jobs 共 62,914,560 billed bytes（60 MiB），整輪 ≤1 GiB、每 query ≤60 秒；unknown estimate 不補 0，跨重試 job 帳本保留。
 - 既有 catalog live readback 顯示 create-time 2026-10-07 15:02（Asia/Taipei），修正舊暫停文件的未建立說法。復用 US catalog、us-central1 storage；本機既有 principal 可 register，本輪無 IAM 或 canonical mutation。

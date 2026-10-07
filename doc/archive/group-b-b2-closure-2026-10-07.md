@@ -10,7 +10,9 @@
 
 ## 驗收
 
-沿用先前有效 evidence：adapter CI 20 PASS、Mart regression 106 PASS、deployment／specialist smoke、三張 legacy fixed-snapshot table 320 rows 與 PyIceberg 相等。本次不重跑這些已通過驗收。
+沿用先前有效 evidence：Mart regression 106 PASS、deployment／specialist smoke、三張 legacy fixed-snapshot table 320 rows 與 PyIceberg 相等；本次不重跑這些已通過的 runtime 驗收。
+
+腳本／workflow 修改後，commit `3f5406a` 的 [GitHub CI 37595108822](https://github.com/tommylin15/janus-omniforge/actions/runs/37595108822) **SUCCESS**：adapter 20 PASS、acceptance script checks 3 PASS、兩支 probe script compile PASS；沒有重跑 106 Mart regression 或既有 320-row live compare。
 
 本次真實 GCP dev evidence：
 
