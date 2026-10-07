@@ -1,0 +1,13 @@
+{
+  "catalog_exists": null,
+  "catalog_list_authorized": false,
+  "identity": "cloud-build-default",
+  "legacy_table_metadata_read_authorized": false,
+  "mutations_performed": false,
+  "returncodes": {
+    "bq_metadata": 1,
+    "catalog_nonempty": 99,
+    "catalog_permission": 1
+  },
+  "status": "partial"
+}
