@@ -74,13 +74,12 @@ B3. 每日盤後 500 screening
 - input identity 未變直接 reuse。
 - 不做 500×5 Fundamental/Valuation/Quant/Risk/Event 深度分析。
 
-B4. Deep Coverage 五 specialist
+B4. Deep Coverage 五 specialist — CLOSED（2026-10-07）
+- 完成證據：[B4 結案](archive/group-b-b4-deep-coverage-closure-2026-10-07.md)。
 - universe = active watchlist ∪ effective holdings；離榜持股保留，清倉且不在 watchlist 才退出。
-- Fundamental/Valuation/Quant/Risk/Event 只依受影響 input dirty 更新。
-- monthly revenue/financials → Fundamental，必要時 Valuation。
-- EOD price → cheap Valuation refresh、Quant、Risk。
-- event → Event。
-- 只有某 specialist dirty，不重跑其他四個。
+- accepted/rejected PIT dependency state + feature/engine/model version 決定 dirty；只有受影響 specialist 重算。
+- live acceptance：5 symbols × 5 roles；第一輪 25 computed，第二輪同 Core snapshot 0 computed / 25 reused；screening=0、LLM tokens=0。
+- 不重做 B4；下一步直接 B5。
 
 B5. ML / OOS data path
 - 大型輸入固定：Iceberg → BigQuery SQL reduction → 必要 bounded destination → EXPORT DATA/versioned GCS Parquet → ML Job。
