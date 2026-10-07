@@ -2196,3 +2196,16 @@ the MCP connector still uses its older existing tagged revision.
 - 驗後 persistent Job 仍為 queue、1 CPU／1 GiB，未保存 acceptance override；未建立 BigQuery resource/API/IAM。下一步 B2；五 specialist 整體仍未結案。
 
 完整明細：[B1 reader 驗收證據](../archive/group-b-b1-reader-acceptance-2026-10-07.md)。
+
+## 2026-10-07 — B2 compatibility / shared-catalog 暫停 checkpoint
+
+- B2 adapter contract tests **20 PASS**；Mart targeted regression **106 PASS**；既有 deployment／specialist smoke 成功。PyIceberg 維持 default reader，BigQuery compatibility path 仍未 cutover。
+- 三張 fixed-snapshot legacy external table bounded live compare 共 **320 rows** 與 PyIceberg 逐列 multiset 相等；既有歷史 probe billed bytes 31,457,280。BigQuery guard 維持整次 execution ≤ **1 GiB**、單 query timeout ≤ **60 秒**。
+- fixed Core fence readback workflow `37583598067` **SUCCESS**；Core identity／manifest SHA 與 B0 不變。GCS evidence path workflow `37583433091` **SUCCESS**：`janus-ci` 可讀 fixed Core manifest，也可對既有 dev-mart acceptance prefix 做 generation=0 immutable write/readback。
+- 使用者已明確授權建立可計費 Lakehouse runtime catalog；截至本 checkpoint **尚未建立 catalog、尚未修改 IAM**。
+- Cloud Build permission preflight `37583053053` **SUCCESS**：`biglake.catalogs.create/list=true`、`biglake.tables.register=false`、project `getIamPolicy=true`／`setIamPolicy=false`、bucket `getIamPolicy/setIamPolicy=true`、storage object get/list=true。IAM fast gate `37583755729` **SUCCESS**，但結論為 `can_temporary_iam_bootstrap=false`。
+- 因此 automation identity 可建立／列出 catalog，卻不能 register table，也不能自行補 project-level IAM；未取得可執行 least-privilege register principal 前不得用廣泛永久 admin 權限繞過。
+- 尚缺三個 live gate：① shared catalog exact-snapshot mapping；② native decimal／schema evolution；③ partition pruning。既有 legacy row-fidelity success 不取代這三項。
+- 2026-10-07 15:51（Asia/Taipei）使用者要求**暫停 B2**、先回寫進度。狀態為 **PARTIAL / PAUSED**，不是 CLOSED；恢復時不重跑已通過的 20／106 tests、320-row fidelity、Core fence readback 或 GCS evidence path。
+
+完整接續點：[B2 paused checkpoint](../archive/group-b-b2-paused-checkpoint-2026-10-07.md)。
