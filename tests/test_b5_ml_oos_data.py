@@ -62,6 +62,7 @@ def manifest_for(raw, **changes):
         "core_manifest_sha256": "sha256:manifest",
         "analysis_as_of": "2026-10-06",
         "dataset_schema_version": DATASET_SCHEMA_VERSION,
+        "query_contract_version": QUERY_CONTRACT_VERSION,
         "feature_version": "2",
         "model_version": "deterministic-v1",
         "source_tables": {
