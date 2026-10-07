@@ -191,11 +191,30 @@ def screening_quality(rows):
             "auto_fail": False, "model_validation_counted_as_missing": False}
 
 
+def _role_dependency_state(rows, rejected, datasets, symbol, snapshot, role):
+    dependencies = DEPENDENCIES[role]
+    rejected_ids = {item["evidence_id"] for item in rejected}
+    dependency_ids = {
+        _evidence_id(dataset, row, snapshot)
+        for dataset in dependencies
+        for row in datasets.get(dataset, [])
+        if not row.get("symbol") or row.get("symbol") == symbol
+    }
+    errors = [item for item in rejected if item["evidence_id"] in dependency_ids & rejected_ids]
+    input_hash = digest({
+        "accepted": {dataset: rows.get(dataset) for dataset in dependencies},
+        "rejected": errors,
+    })
+    return errors, input_hash
+
+
 def specialist_input_hashes(datasets, symbol, as_of, snapshot):
-    """Hash only the PIT-valid dependency rows that can change each specialist."""
-    rows, _, _ = validated_inputs(datasets, symbol, as_of, snapshot)
-    return {role: digest({dataset: rows.get(dataset) for dataset in dependencies})
-            for role, dependencies in DEPENDENCIES.items()}
+    """Hash every output-affecting accepted/rejected dependency for each specialist."""
+    rows, _, rejected = validated_inputs(datasets, symbol, as_of, snapshot)
+    return {
+        role: _role_dependency_state(rows, rejected, datasets, symbol, snapshot, role)[1]
+        for role in DEPENDENCIES
+    }
 
 
 def analyze_specialists(datasets, symbol, as_of, snapshot, *, roles=None):
@@ -245,10 +264,7 @@ def analyze_specialists(datasets, symbol, as_of, snapshot, *, roles=None):
     for role in selected_roles:
         dependencies = DEPENDENCIES[role]
         role_evidence = [e for e in evidence if e["dataset_id"] in dependencies]
-        rejected_ids = {r["evidence_id"] for r in rejected}
-        dependency_ids = {_evidence_id(d, r, snapshot) for d in dependencies for r in datasets.get(d, [])
-                          if not r.get("symbol") or r.get("symbol") == symbol}
-        errors = [r for r in rejected if r["evidence_id"] in dependency_ids & rejected_ids]
+        errors, input_hash = _role_dependency_state(rows, rejected, datasets, symbol, snapshot, role)
         missing = sorted(k for k, v in metrics[role].items() if v is None)
         contributions = [{"feature": k, "value": v, "method": "observed_metric_not_shap"}
                          for k, v in metrics[role].items() if v is not None]
@@ -256,7 +272,7 @@ def analyze_specialists(datasets, symbol, as_of, snapshot, *, roles=None):
                    "symbol": symbol, "role": role, "analysis_as_of": as_of, "core_snapshot_id": snapshot,
                    "feature_version": FEATURE_VERSION, "engine_version": VERSION, "model_version": MODEL_VERSION,
                    "model_status": "oos_not_validated", "status": "blocked" if errors else "partial" if missing else "ready",
-                   "input_hash": digest({d: rows.get(d) for d in dependencies}), "metrics": metrics[role],
+                   "input_hash": input_hash, "metrics": metrics[role],
                    "missing_data": missing, "rejected_evidence": errors,
                    "evidence_ids": sorted(e["evidence_id"] for e in role_evidence),
                    "provenance_ids": sorted({e["provenance_id"] for e in role_evidence}),
