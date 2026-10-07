@@ -29,7 +29,7 @@ class Store:
         return self.data[name]
 
 
-def source(*, event=False):
+def source(*, event=False, event_date="2026-05-01"):
     start = date(2026, 1, 1)
     prices = [
         {
@@ -50,8 +50,8 @@ def source(*, event=False):
             "symbol": "2330",
             "source_id": "mops",
             "provenance_id": "event-1",
-            "published_at": "2026-05-01",
-            "observed_at": "2026-05-01",
+            "published_at": event_date,
+            "observed_at": event_date,
             "event_type": "earnings",
             "severity": "high",
         })
@@ -107,6 +107,15 @@ def test_dependency_hash_changes_only_affected_event_role():
     before = specialist_input_hashes(source(event=False), "2330", "2026-05-01", "core")
     after = specialist_input_hashes(source(event=True), "2330", "2026-05-01", "core")
     changed = {role for role in before if before[role] != after[role]}
+    assert changed == {"event"}
+
+
+def test_dependency_hash_includes_rejected_role_evidence():
+    before = specialist_input_hashes(source(event=False), "2330", "2026-05-01", "core")
+    rejected = specialist_input_hashes(
+        source(event=True, event_date="2026-05-02"), "2330", "2026-05-01", "core"
+    )
+    changed = {role for role in before if before[role] != rejected[role]}
     assert changed == {"event"}
 
 
