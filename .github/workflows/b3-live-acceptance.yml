@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/b3-live-acceptance.yml'
       - 'scripts/gcp/b3-screening-canary.py'
+      - 'scripts/gcp/b2-lakehouse-acceptance.py'
       - 'jobs/intelligence-mart/intelligence_mart/market_screening.py'
       - 'jobs/intelligence-mart/intelligence_mart/bigquery_reader.py'
       - 'jobs/ingestion-core/ingestion_core/batch_controller.py'
@@ -47,70 +48,6 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
-      - name: Ensure catalog-scoped BigLake metadata read for B3
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          resource="projects/${GCP_PROJECT_ID}/catalogs/janus_core_dev"
-          member="serviceAccount:janus-ci@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
-          role="roles/biglake.metadataViewer"
-          base="https://biglake.googleapis.com/v1/${resource}"
-          token="$(gcloud auth print-access-token)"
-
-          curl -fsS \
-            -H "Authorization: Bearer ${token}" \
-            "${base}:getIamPolicy" > /tmp/b3-catalog-iam-before.json
-
-          python - <<'PY'
-          import json
-          from pathlib import Path
-
-          before = json.loads(Path("/tmp/b3-catalog-iam-before.json").read_text())
-          member = "serviceAccount:janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com"
-          role = "roles/biglake.metadataViewer"
-          bindings = before.setdefault("bindings", [])
-          binding = next((item for item in bindings if item.get("role") == role), None)
-          changed = False
-          if binding is None:
-              binding = {"role": role, "members": []}
-              bindings.append(binding)
-              changed = True
-          members = binding.setdefault("members", [])
-          if member not in members:
-              members.append(member)
-              members.sort()
-              changed = True
-          bindings.sort(key=lambda item: item.get("role", ""))
-          request = {"policy": before, "updateMask": "bindings,etag"}
-          Path("/tmp/b3-catalog-iam-request.json").write_text(
-              json.dumps(request, separators=(",", ":"), sort_keys=True)
-          )
-          Path("/tmp/b3-catalog-iam-change").write_text("1" if changed else "0")
-          PY
-
-          if [[ "$(cat /tmp/b3-catalog-iam-change)" == "1" ]]; then
-            curl -fsS -X POST \
-              -H "Authorization: Bearer ${token}" \
-              -H "Content-Type: application/json" \
-              --data-binary @/tmp/b3-catalog-iam-request.json \
-              "${base}:setIamPolicy" > /tmp/b3-catalog-iam-after.json
-          else
-            cp /tmp/b3-catalog-iam-before.json /tmp/b3-catalog-iam-after.json
-          fi
-
-          curl -fsS -X POST \
-            -H "Authorization: Bearer ${token}" \
-            -H "Content-Type: application/json" \
-            --data '{"permissions":["biglake.tables.get"]}' \
-            "${base}:testIamPermissions" > /tmp/b3-catalog-iam-test.json
-
-          python - <<'PY'
-          import json
-          result = json.load(open("/tmp/b3-catalog-iam-test.json"))
-          assert "biglake.tables.get" in result.get("permissions", []), result
-          PY
-          touch /tmp/iam.ok
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -140,21 +77,79 @@ jobs:
           gcloud run jobs describe "${CONTROLLER_JOB}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json > /tmp/controller-job.json
           touch /tmp/deploy.ok
 
-      - name: Run fixed-snapshot PyIceberg vs BigQuery canary
+      - name: Run fixed-snapshot PyIceberg vs BigQuery canary via Cloud Build
         continue-on-error: true
-        env:
-          PYTHONPATH: jobs/intelligence-mart:jobs/ingestion-core:.
+        shell: bash
         run: |
+          set -Eeuo pipefail
+          mart_image="$(gcloud run jobs describe "${MART_JOB}" \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --format='value(spec.template.spec.template.spec.containers[0].image)')"
+          test -n "${mart_image}"
+          output_uri="gs://${GCP_PROJECT_ID}-dev-mart/acceptance/b3-canary/github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
+
+          cat > /tmp/b3-canary-cloudbuild.yaml <<'YAML'
+          steps:
+            - name: '${_MART_IMAGE}'
+              entrypoint: bash
+              env:
+                - 'PYTHONPATH=/workspace/jobs/intelligence-mart:/workspace/jobs/ingestion-core:/workspace'
+              args:
+                - -ceu
+                - |
+                  cd /workspace
+                  python -m pip install --no-cache-dir --require-hashes \
+                    -r jobs/intelligence-mart/requirements-bigquery-probe.lock
+                  python scripts/gcp/b3-screening-canary.py --output /workspace/b3-canary.json
+            - name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+              args:
+                - storage
+                - cp
+                - /workspace/b3-canary.json
+                - '${_OUTPUT_URI}'
+          options:
+            logging: CLOUD_LOGGING_ONLY
+          YAML
+
           set +e
-          python scripts/gcp/b3-screening-canary.py --output /tmp/b3-canary.json > /tmp/b3-canary.stdout 2> /tmp/b3-canary.stderr
+          gcloud builds submit . \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --config=/tmp/b3-canary-cloudbuild.yaml \
+            --gcs-source-staging-dir="gs://${GCP_PROJECT_ID}-cloudbuild-regional/source" \
+            --substitutions="_MART_IMAGE=${mart_image},_OUTPUT_URI=${output_uri}" \
+            --format='value(id)' > /tmp/b3-canary-build-id 2> /tmp/b3-canary-build.stderr
           rc=$?
           set -e
-          if [[ "$rc" -ne 0 ]]; then
-            cat /tmp/b3-canary.stdout || true
-            cat /tmp/b3-canary.stderr >&2 || true
-            python -c 'import json; from pathlib import Path; p=Path("/tmp/b3-canary.json"); err=Path("/tmp/b3-canary.stderr").read_text(errors="replace")[-4000:]; (p.exists() or p.write_text(json.dumps({"status":"failed","error":err}, indent=2)+"\\n"))'
-            exit "$rc"
+
+          build_id="$(tr -d '\r\n' < /tmp/b3-canary-build-id)"
+          if [[ -n "${build_id}" ]]; then
+            gcloud builds describe "${build_id}" \
+              --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+              --format=json > /tmp/b3-canary-build.json || true
           fi
+
+          if [[ "${rc}" -ne 0 ]]; then
+            if [[ -n "${build_id}" ]]; then
+              gcloud builds log "${build_id}" \
+                --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+                > /tmp/b3-canary-build.log 2>&1 || true
+            fi
+            python - <<'PY'
+          import json
+          from pathlib import Path
+          err = Path("/tmp/b3-canary-build.stderr").read_text(errors="replace")[-4000:]
+          log = Path("/tmp/b3-canary-build.log")
+          if log.exists():
+              err += "\n" + log.read_text(errors="replace")[-4000:]
+          Path("/tmp/b3-canary.json").write_text(
+              json.dumps({"status":"failed","error":err}, indent=2) + "\n"
+          )
+          PY
+            exit "${rc}"
+          fi
+
+          gcloud storage cp "${output_uri}" /tmp/b3-canary.json
           python - <<'PY'
           import json
           data=json.load(open('/tmp/b3-canary.json'))
@@ -167,6 +162,7 @@ jobs:
           assert tele['total_rows'] <= 150000
           billed=sum((v.get('billed_bytes') or 0) for v in tele['scan_evidence'].values())
           assert billed <= 1073741824
+          assert all((v.get('elapsed_seconds') or 0) <= 60 for v in tele['scan_evidence'].values())
           PY
           touch /tmp/canary.ok
 
@@ -381,6 +377,7 @@ jobs:
                   "cutover":False,
               },
               "canary":load('/tmp/b3-canary.json'),
+              "canary_cloud_build":load('/tmp/b3-canary-build.json'),
               "fixed_snapshot_run_1":{
                   "cloud_run":load('/tmp/mart-exec-1.json'),
                   "result":load('/tmp/mart-result-1.json'),
