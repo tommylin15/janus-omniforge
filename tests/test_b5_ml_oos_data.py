@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "jobs/intelligence-mart"))
 
 from intelligence_mart.ml_oos_data import (
     DATASET_SCHEMA_VERSION,
+    QUERY_CONTRACT_VERSION,
     dataset_content_hash,
     inspect_dataset,
 )
@@ -45,6 +46,7 @@ def parquet_bytes(**overrides):
         "core_snapshot_id": "sha256:core",
         "analysis_as_of": "2026-10-06",
         "dataset_schema_version": DATASET_SCHEMA_VERSION,
+        "query_contract_version": QUERY_CONTRACT_VERSION,
         "feature_version": "2",
         "model_version": "deterministic-v1",
     }
