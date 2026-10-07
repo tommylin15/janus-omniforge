@@ -83,6 +83,7 @@ def manifest_for(raw, **changes):
         "artifact_kind": "mart_ml_oos_dataset_v1",
         "schema_version": "1.0.0",
         "dataset_schema_version": DATASET_SCHEMA_VERSION,
+        "query_contract_version": QUERY_CONTRACT_VERSION,
         "dataset_prefix": "gs://mart/ml-oos-data/v1/abc/",
         "core_snapshot_id": identity["core_snapshot_id"],
         "analysis_as_of": identity["analysis_as_of"],
