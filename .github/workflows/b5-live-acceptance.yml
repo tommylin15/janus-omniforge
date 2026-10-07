@@ -31,7 +31,7 @@ env:
 jobs:
   acceptance:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with:
@@ -152,21 +152,73 @@ jobs:
                 - '${_OUTPUT_URI}'
           options:
             logging: CLOUD_LOGGING_ONLY
+          timeout: 900s
           YAML
 
+          set +e
           gcloud builds submit . \
+            --async \
             --project="${GCP_PROJECT_ID}" \
             --region="${GCP_REGION}" \
             --config=/tmp/b5-export-cloudbuild.yaml \
             --gcs-source-staging-dir="gs://${GCP_PROJECT_ID}-cloudbuild-regional/source" \
             --substitutions="_MART_IMAGE=${mart_image},_OUTPUT_URI=${output_uri}" \
-            --format='value(id)' > /tmp/b5-build-id
+            --format='value(id)' > /tmp/b5-build-id 2> /tmp/b5-submit.stderr
+          submit_rc=$?
+          set -e
+          if [[ "${submit_rc}" -ne 0 ]]; then
+            cat /tmp/b5-submit.stderr >&2 || true
+            exit "${submit_rc}"
+          fi
 
-          build_id="$(tr -d '\r\n' < /tmp/b5-build-id)"
+          build_id="$(tr -d '\r\n ' < /tmp/b5-build-id)"
           test -n "${build_id}"
-          gcloud builds describe "${build_id}" \
-            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
-            --format=json > /tmp/b5-build.json
+          succeeded=0
+          for attempt in $(seq 1 22); do
+            gcloud builds describe "${build_id}" \
+              --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+              --format=json > /tmp/b5-build.json
+            status="$(python -c "import json; print(json.load(open('/tmp/b5-build.json')).get('status','UNKNOWN'))")"
+            echo "B5 export build heartbeat attempt=${attempt}/22 build=${build_id} status=${status}"
+            case "${status}" in
+              SUCCESS)
+                succeeded=1
+                break
+                ;;
+              FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED)
+                gcloud logging read \
+                  "resource.type=build AND resource.labels.build_id=${build_id}" \
+                  --project="${GCP_PROJECT_ID}" --freshness=30m --limit=200 \
+                  --format='value(timestamp,severity,textPayload,jsonPayload.message)' \
+                  > /tmp/b5-build.log 2>&1 || true
+                cat /tmp/b5-build.log >&2 || true
+                exit 1
+                ;;
+            esac
+            sleep 30
+          done
+
+          if [[ "${succeeded}" -ne 1 ]]; then
+            echo "B5 export Cloud Build exceeded 660s hard bound; cancelling ${build_id}" >&2
+            gcloud builds cancel "${build_id}" \
+              --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --quiet || true
+            gcloud builds describe "${build_id}" \
+              --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+              --format=json > /tmp/b5-build.json || true
+            gcloud logging read \
+              "resource.type=build AND resource.labels.build_id=${build_id}" \
+              --project="${GCP_PROJECT_ID}" --freshness=30m --limit=200 \
+              --format='value(timestamp,severity,textPayload,jsonPayload.message)' \
+              > /tmp/b5-build.log 2>&1 || true
+            cat /tmp/b5-build.log >&2 || true
+            exit 1
+          fi
+
+          gcloud logging read \
+            "resource.type=build AND resource.labels.build_id=${build_id}" \
+            --project="${GCP_PROJECT_ID}" --freshness=30m --limit=200 \
+            --format='value(timestamp,severity,textPayload,jsonPayload.message)' \
+            > /tmp/b5-build.log 2>&1 || true
           gcloud storage cp "${output_uri}" /tmp/b5-export.json
           python - <<'PY'
           import json
@@ -245,6 +297,8 @@ jobs:
               "install_log_tail":tail('/tmp/b5-install.log'),
               "tests_log_tail":tail('/tmp/b5-tests.log'),
               "deploy_log_tail":tail('/tmp/b5-deploy.log'),
+              "cloud_build_log_tail":tail('/tmp/b5-build.log'),
+              "cloud_build_submit_stderr":tail('/tmp/b5-submit.stderr'),
               "constraints":{
                   "project":"gen-lang-client-0593591102",
                   "region":"us-central1",
