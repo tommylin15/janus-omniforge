@@ -1,0 +1,53 @@
+name: B2 BigQuery job permission
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b2-bigquery-job-permission.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Probe Cloud Build BigQuery job permission
+        shell: bash
+        run: |
+          set +e
+          gcloud builds submit --no-source --project=gen-lang-client-0593591102 --region=us-central1 \
+            --config=scripts/gcp/cloudbuild-b2-permission-test.yaml \
+            --substitutions='_RESOURCE=project,_PERMISSION=bigquery.jobs.create' --quiet >/dev/null 2>&1
+          rc=$?
+          set -e
+          python3 - "${rc}" <<'PY'
+          import json,sys
+          from pathlib import Path
+          ok=int(sys.argv[1])==0
+          e={'identity':'cloud-build-default','bigquery_jobs_create':ok,'mutations_performed':False,'status':'pass' if ok else 'blocked'}
+          Path('doc/archive/group-b-b2-bigquery-job-permission-2026-10-07.json').write_text(json.dumps(e,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Commit evidence
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add doc/archive/group-b-b2-bigquery-job-permission-2026-10-07.json
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: record B2 BigQuery job permission [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
