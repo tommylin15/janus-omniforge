@@ -243,6 +243,7 @@ jobs:
               - 'services/api/mcp_adapter.py'
               - 'services/api/mcp_oauth.py'
             api_test:
+              - 'infra/postgres/migrations/049_batch_occurrence_skipped_status.sql'
               - 'tests/test_public_runtime.py'
               - 'tests/test_public_api_routes.py'
               - 'tests/test_mcp_adapter.py'
