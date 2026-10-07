@@ -314,6 +314,7 @@ def main() -> None:
         "artifact_kind": "mart_ml_oos_dataset_v1",
         "schema_version": "1.0.0",
         "dataset_schema_version": DATASET_SCHEMA_VERSION,
+        "query_contract_version": QUERY_CONTRACT_VERSION,
         "dataset_prefix": f"gs://{MART_BUCKET}/{prefix}",
         "core_snapshot_id": core["snapshot_id"],
         "analysis_as_of": core["analysis_as_of"],
