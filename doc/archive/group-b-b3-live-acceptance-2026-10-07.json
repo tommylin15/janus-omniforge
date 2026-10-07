@@ -1,9 +1,122 @@
 {
   "canary": {
-    "error": "Creating temporary archive of 652 file(s) totalling 11.1 MiB before compression.\nUploading tarball of [.] to [gs://gen-lang-client-0593591102-cloudbuild-regional/source/1791373534.22533-0cdab268ea4c4ab4868059d10f0c6a45.tgz]\nCreated [https://cloudbuild.googleapis.com/v1/projects/gen-lang-client-0593591102/locations/us-central1/builds/12f87248-3c88-45e8-a451-277c1d5c7c49].\nLogs are available at [ https://console.cloud.google.com/cloud-build/builds;region=us-central1/12f87248-3c88-45e8-a451-277c1d5c7c49?project=131494961796 ].\n\ngcloud builds submit only displays logs from Cloud Storage. To view logs from Cloud Logging, run:\ngcloud beta builds submit\n\nWaiting for build to complete. Polling interval: 1 second(s).\n\nBUILD FAILURE: Build step failure: build step 0 \"us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:a0f3ba8baa6ee4634b155a848bfb6c6eee3944b15b1c405b9dfd9570c6bf8e72\" failed: step exited with non-zero status: 1\nERROR: (gcloud.builds.submit) build 12f87248-3c88-45e8-a451-277c1d5c7c49 completed with status \"FAILURE\"\n",
+    "error": "Requirement already satisfied: certifi==2026.7.22 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 3)) (2026.7.22)\nRequirement already satisfied: cffi==2.1.1 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 7)) (2.1.1)\nCollecting charset-normalizer==3.5.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 109))\n  Downloading charset_normalizer-3.5.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (257 kB)\nCollecting cryptography==50.0.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 283))\n  Downloading cryptography-50.0.2-cp311-abi3-manylinux_2_34_x86_64.whl (4.8 MB)\n     \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 4.8/4.8 MB 6.4 MB/s eta 0:00:00\nCollecting google-api-core==2.41.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 344))\n  Downloading google_api_core-2.41.0-py3-none-any.whl (215 kB)\nCollecting google-auth==2.60.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 350))\n  Downloading google_auth-2.60.0-py3-none-any.whl (264 kB)\nCollecting google-cloud-bigquery==3.46.1 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 357))\n  Downloading google_cloud_bigquery-3.46.1-py3-none-any.whl (268 kB)\nCollecting google-cloud-core==2.8.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 361))\n  Downloading google_cloud_core-2.8.0-py3-none-any.whl (31 kB)\nCollecting google-crc32c==1.9.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 365))\n  Downloading google_crc32c-1.9.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (36 kB)\nCollecting google-resumable-media==2.11.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 398))\n  Downloading google_resumable_media-2.11.0-py3-none-any.whl (81 kB)\nCollecting googleapis-common-protos==1.75.5 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 402))\n  Downloading googleapis_common_protos-1.75.5-py3-none-any.whl (307 kB)\nCollecting grpcio==1.84.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 408))\n  Downloading grpcio-1.84.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (7.2 MB)\n     \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 7.2/7.2 MB 10.8 MB/s eta 0:00:00\nCollecting grpcio-status==1.84.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 473))\n  Downloading grpcio_status-1.84.0-py3-none-any.whl (14 kB)\nCollecting idna==3.20 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 477))\n  Downloading idna-3.20-py3-none-any.whl (69 kB)\nCollecting opentelemetry-api==1.45.1 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 481))\n  Downloading opentelemetry_api-1.45.1-py3-none-any.whl (60 kB)\nRequirement already satisfied: packaging==26.3 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 485)) (26.3)\nCollecting proto-plus==1.29.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 489))\n  Downloading proto_plus-1.29.0-py3-none-any.whl (50 kB)\nCollecting protobuf==7.36.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 493))\n  Downloading protobuf-7.36.2-cp310-abi3-manylinux2014_x86_64.whl (343 kB)\nRequirement already satisfied: pyasn1==0.6.4 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 507)) (0.6.4)\nRequirement already satisfied: pyasn1-modules==0.4.2 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 511)) (0.4.2)\nRequirement already satisfied: pycparser==3.0 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 515)) (3.0)\nRequirement already satisfied: python-dateutil==2.9.0.post0 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 519)) (2.9.0.post0)\nRequirement already satisfied: requests==2.34.2 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 523)) (2.34.2)\nRequirement already satisfied: six==1.17.0 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 529)) (1.17.0)\nRequirement already satisfied: typing-extensions==4.16.0 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 533)) (4.16.0)\nRequirement already satisfied: urllib3==2.8.0 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 539)) (2.8.0)\nInstalling collected packages: protobuf, opentelemetry-api, idna, grpcio, google-crc32c, charset-normalizer, proto-plus, googleapis-common-protos, google-resumable-media, cryptography, grpcio-status, google-auth, google-api-core, google-cloud-core, google-cloud-bigquery\n  Attempting uninstall: idna\n    Found existing installation: idna 3.19\n    Uninstalling idna-3.19:\n      Successfully uninstalled idna-3.19\n  Attempting uninstall: charset-normalizer\n    Found existing installation: charset-normalizer 3.5.1\n    Uninstalling charset-normalizer-3.5.1:\n      Successfully uninstalled charset-normalizer-3.5.1\n  Attempting uninstall: cryptography\n    Found existing installation: cryptography 50.0.1\n    Uninstalling cryptography-50.0.1:\n      Successfully uninstalled cryptography-50.0.1\n  Attempting uninstall: google-auth\n    Found existing installation: google-auth 2.57.0\n    Uninstalling google-auth-2.57.0:\n      Successfully uninstalled google-auth-2.57.0\nSuccessfully installed charset-normalizer-3.5.2 cryptography-50.0.2 google-api-core-2.41.0 google-auth-2.60.0 google-cloud-bigquery-3.46.1 google-cloud-core-2.8.0 google-crc32c-1.9.0 google-resumable-media-2.11.0 googleapis-common-protos-1.75.5 grpcio-1.84.0 grpcio-status-1.84.0 idna-3.20 opentelemetry-api-1.45.1 proto-plus-1.29.0 protobuf-7.36.2\nWARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable.It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.\n\n[notice] A new release of pip is available: 24.3.1 -> 26.2.1\n[notice] To update, run: pip install --upgrade pip\nTraceback (most recent call last):\n  File \"/workspace/scripts/gcp/b3-screening-canary.py\", line 188, in <module>\n    main()\n  File \"/workspace/scripts/gcp/b3-screening-canary.py\", line 68, in main\n    membership, membership_uri, membership_hash = fixed_membership(b2, core)\n                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/workspace/scripts/gcp/b3-screening-canary.py\", line 24, in fixed_membership\n    listed = b2[\"run\"](\"gcloud\", \"storage\", \"ls\", pattern, check=False)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/workspace/scripts/gcp/b2-lakehouse-acceptance.py\", line 50, in run\n    proc = subprocess.run(\n           ^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/subprocess.py\", line 548, in run\n    with Popen(*popenargs, **kwargs) as process:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/subprocess.py\", line 1026, in __init__\n    self._execute_child(args, executable, preexec_fn, close_fds,\n  File \"/usr/local/lib/python3.12/subprocess.py\", line 1955, in _execute_child\n    raise child_exception_type(errno_num, err_msg, err_filename)\nFileNotFoundError: [Errno 2] No such file or directory: 'gcloud'\n",
     "status": "failed"
   },
-  "canary_cloud_build": null,
+  "canary_cloud_build": {
+    "createTime": "2026-10-07T12:05:45.072710462Z",
+    "finishTime": "2026-10-07T12:07:26.640453Z",
+    "id": "b6bbde65-ee36-4ffb-9344-bd21e0f23f20",
+    "logUrl": "https://console.cloud.google.com/cloud-build/builds;region=us-central1/b6bbde65-ee36-4ffb-9344-bd21e0f23f20?project=131494961796",
+    "name": "projects/131494961796/locations/us-central1/builds/b6bbde65-ee36-4ffb-9344-bd21e0f23f20",
+    "options": {
+      "logging": "CLOUD_LOGGING_ONLY",
+      "pool": {}
+    },
+    "projectId": "gen-lang-client-0593591102",
+    "queueTtl": "3600s",
+    "results": {
+      "buildStepImages": [
+        "sha256:ebab04cd2e6dd96f9a45fd97132240b704933f7d0e77392389bb79712fcf8f88",
+        "sha256:cde9dbd556000c21c08449d8e5828904ef91e690bec95207f71fa6a6685922c9"
+      ],
+      "buildStepOutputs": [
+        "",
+        ""
+      ]
+    },
+    "serviceAccount": "projects/gen-lang-client-0593591102/serviceAccounts/131494961796-compute@developer.gserviceaccount.com",
+    "source": {
+      "storageSource": {
+        "bucket": "gen-lang-client-0593591102-cloudbuild-regional",
+        "generation": "1791374744813141",
+        "object": "source/1791374743.361787-25a60028844842c9b88c37fbcf083306.tgz"
+      }
+    },
+    "sourceProvenance": {
+      "fileHashes": {
+        "gs://gen-lang-client-0593591102-cloudbuild-regional/source/1791374743.361787-25a60028844842c9b88c37fbcf083306.tgz#1791374744813141": {
+          "fileHash": [
+            {
+              "type": "MD5",
+              "value": "LmTOBw7Q-chDSFNXCLSoEA=="
+            },
+            {
+              "type": "SHA256",
+              "value": "omSKUCiOyHHPexfnO8vntJOZpe6CFzojbA7GgstdNy8="
+            }
+          ]
+        }
+      },
+      "resolvedStorageSource": {
+        "bucket": "gen-lang-client-0593591102-cloudbuild-regional",
+        "generation": "1791374744813141",
+        "object": "source/1791374743.361787-25a60028844842c9b88c37fbcf083306.tgz"
+      }
+    },
+    "startTime": "2026-10-07T12:05:47.045960091Z",
+    "status": "SUCCESS",
+    "steps": [
+      {
+        "args": [
+          "-ceu",
+          "cd /workspace\nset +e\npython -m pip install --no-cache-dir --require-hashes \\\n  -r jobs/intelligence-mart/requirements-bigquery-probe.lock \\\n  > /workspace/b3-canary.log 2>&1\nrc=$?\nif [[ \"${rc}\" -eq 0 ]]; then\n  python scripts/gcp/b3-screening-canary.py --output /workspace/b3-canary.json \\\n    >> /workspace/b3-canary.log 2>&1\n  rc=$?\nfi\necho \"${rc}\" > /workspace/b3-canary.rc\nif [[ ! -s /workspace/b3-canary.json ]]; then\n  python - <<'PY'\nimport json\nfrom pathlib import Path\nlog = Path(\"/workspace/b3-canary.log\").read_text(errors=\"replace\")[-12000:]\nPath(\"/workspace/b3-canary.json\").write_text(\n    json.dumps({\"status\":\"failed\",\"error\":log}, indent=2) + \"\\n\"\n)\nPY\nfi\nexit 0\n"
+        ],
+        "entrypoint": "bash",
+        "env": [
+          "PYTHONPATH=/workspace/jobs/intelligence-mart:/workspace/jobs/ingestion-core:/workspace"
+        ],
+        "name": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:ebab04cd2e6dd96f9a45fd97132240b704933f7d0e77392389bb79712fcf8f88",
+        "pullTiming": {
+          "endTime": "2026-10-07T12:06:27.607288123Z",
+          "startTime": "2026-10-07T12:05:51.246835791Z"
+        },
+        "status": "SUCCESS",
+        "timing": {
+          "endTime": "2026-10-07T12:06:43.853971884Z",
+          "startTime": "2026-10-07T12:05:51.246835791Z"
+        }
+      },
+      {
+        "args": [
+          "-ceu",
+          "gcloud storage cp /workspace/b3-canary.json 'gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37617098948-1.json'\ngcloud storage cp /workspace/b3-canary.log 'gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37617098948-1.log'\ngcloud storage cp /workspace/b3-canary.rc 'gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37617098948-1.rc'\n"
+        ],
+        "entrypoint": "bash",
+        "name": "gcr.io/google.com/cloudsdktool/google-cloud-cli:slim",
+        "pullTiming": {
+          "endTime": "2026-10-07T12:07:18.068923748Z",
+          "startTime": "2026-10-07T12:06:43.854217947Z"
+        },
+        "status": "SUCCESS",
+        "timing": {
+          "endTime": "2026-10-07T12:07:25.651852192Z",
+          "startTime": "2026-10-07T12:06:43.854217947Z"
+        }
+      }
+    ],
+    "substitutions": {
+      "_LOG_URI": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37617098948-1.log",
+      "_MART_IMAGE": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:ebab04cd2e6dd96f9a45fd97132240b704933f7d0e77392389bb79712fcf8f88",
+      "_OUTPUT_URI": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37617098948-1.json",
+      "_RC_URI": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37617098948-1.rc"
+    },
+    "timeout": "3600s",
+    "timing": {
+      "BUILD": {
+        "endTime": "2026-10-07T12:07:25.652006325Z",
+        "startTime": "2026-10-07T12:05:50.616762614Z"
+      },
+      "FETCHSOURCE": {
+        "endTime": "2026-10-07T12:05:50.616475541Z",
+        "startTime": "2026-10-07T12:05:47.301235988Z"
+      },
+      "STORAGE_SOURCE": {
+        "endTime": "2026-10-07T12:05:50.616475541Z",
+        "startTime": "2026-10-07T12:05:47.301235988Z"
+      }
+    }
+  },
   "constraints": {
     "bigquery_execution_budget_bytes": 1073741824,
     "bigquery_query_timeout_seconds": 60,
@@ -24,17 +137,17 @@
         "run.googleapis.com/client-version": "568.0.0",
         "run.googleapis.com/creator": "tommylin15@gmail.com",
         "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
-        "run.googleapis.com/operation-id": "04e17057-21d1-414f-aaf4-2af5f11f2a44"
+        "run.googleapis.com/operation-id": "7bc61ad0-f351-4a0d-8a8a-09391fdb3e4a"
       },
       "creationTimestamp": "2026-10-02T03:32:20.977352Z",
-      "generation": 51,
+      "generation": 52,
       "labels": {
         "cloud.googleapis.com/location": "us-central1",
-        "run.googleapis.com/lastUpdatedTime": "2026-10-07T11:38:50.396556Z"
+        "run.googleapis.com/lastUpdatedTime": "2026-10-07T11:56:59.957030Z"
       },
       "name": "janus-batch-controller",
       "namespace": "131494961796",
-      "resourceVersion": "AAZdPo8dTIM",
+      "resourceVersion": "AAZdPtAacVc",
       "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/jobs/janus-batch-controller",
       "uid": "c0918163-0449-43bd-a919-6c5f13ad2859"
     },
@@ -49,7 +162,7 @@
             "run.googleapis.com/vpc-access-egress": "private-ranges-only"
           },
           "labels": {
-            "client.knative.dev/nonce": "dak_vus_muc"
+            "client.knative.dev/nonce": "cal_wev_mig"
           }
         },
         "spec": {
@@ -125,7 +238,7 @@
                       "value": "2026-10-02T04:05:00Z"
                     }
                   ],
-                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/ingestion-core@sha256:745e0b73b361cbfcd785576ad16e6793819c1a5770a3dcb4c49fd425258a6382",
+                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/ingestion-core@sha256:c137f1e48a8c1ece115a278f95f71c67484e583b36f11f33d9ba630c0a6b7e7a",
                   "resources": {
                     "limits": {
                       "cpu": "1",
@@ -156,7 +269,7 @@
         "creationTimestamp": "2026-10-07T11:30:01.651088Z",
         "name": "janus-batch-controller-f2ds6"
       },
-      "observedGeneration": 51
+      "observedGeneration": 52
     }
   },
   "fixed_snapshot_run_1": {
@@ -171,20 +284,20 @@
           "run.googleapis.com/execution-environment": "gen2",
           "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
           "run.googleapis.com/network-interfaces": "[{\"network\": \"janusai-lake-poc\", \"subnetwork\": \"janusai-lake-poc-uscentral1\", \"tags\": [\"janus-intelligence-mart\"]}]",
-          "run.googleapis.com/operation-id": "4c1b9c63-c00f-4f16-814a-6354723cf450",
+          "run.googleapis.com/operation-id": "fbbc7742-d43a-4b5a-830b-3bd232e34b33",
           "run.googleapis.com/vpc-access-egress": "private-ranges-only"
         },
-        "creationTimestamp": "2026-10-07T11:46:32.614862Z",
+        "creationTimestamp": "2026-10-07T12:07:35.528249Z",
         "generation": 1,
         "labels": {
-          "client.knative.dev/nonce": "lov_gov_ved",
+          "client.knative.dev/nonce": "hev_jar_wox",
           "cloud.googleapis.com/location": "us-central1",
           "run.googleapis.com/job": "janus-intelligence-mart",
-          "run.googleapis.com/jobGeneration": "210",
-          "run.googleapis.com/jobResourceVersion": "1791373529828739",
+          "run.googleapis.com/jobGeneration": "212",
+          "run.googleapis.com/jobResourceVersion": "1791374738790576",
           "run.googleapis.com/jobUid": "bb34dcf0-83ff-4cb0-8a6e-06d71132d70f"
         },
-        "name": "janus-intelligence-mart-mgl28",
+        "name": "janus-intelligence-mart-km748",
         "namespace": "131494961796",
         "ownerReferences": [
           {
@@ -196,9 +309,9 @@
             "uid": "bb34dcf0-83ff-4cb0-8a6e-06d71132d70f"
           }
         ],
-        "resourceVersion": "AAZdPrhtnQs",
-        "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/executions/janus-intelligence-mart-mgl28",
-        "uid": "c3284231-781e-4afa-a3cd-656ba8622fcb"
+        "resourceVersion": "AAZdPv6PNvw",
+        "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/executions/janus-intelligence-mart-km748",
+        "uid": "e2e80266-eb7d-4ba3-96d0-f0be9f6b18bc"
       },
       "spec": {
         "parallelism": 1,
@@ -267,11 +380,11 @@
                   },
                   {
                     "name": "JANUS_GIT_SHA",
-                    "value": "eed844719516520584c1dd09eba6698d7c7d5f29"
+                    "value": "78d65c7574f0d385f64759960af524b2f1d9e3e9"
                   },
                   {
                     "name": "JANUS_IMAGE_DIGEST",
-                    "value": "sha256:a0f3ba8baa6ee4634b155a848bfb6c6eee3944b15b1c405b9dfd9570c6bf8e72"
+                    "value": "sha256:ebab04cd2e6dd96f9a45fd97132240b704933f7d0e77392389bb79712fcf8f88"
                   },
                   {
                     "name": "MART_CODEX_AUTH_SECRET",
@@ -290,7 +403,7 @@
                     "value": "false"
                   }
                 ],
-                "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:a0f3ba8baa6ee4634b155a848bfb6c6eee3944b15b1c405b9dfd9570c6bf8e72",
+                "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:ebab04cd2e6dd96f9a45fd97132240b704933f7d0e77392389bb79712fcf8f88",
                 "resources": {
                   "limits": {
                     "cpu": "1",
@@ -306,36 +419,36 @@
         }
       },
       "status": {
-        "completionTime": "2026-10-07T11:50:21.851008Z",
+        "completionTime": "2026-10-07T12:09:59.993814Z",
         "conditions": [
           {
-            "lastTransitionTime": "2026-10-07T11:50:21.851008Z",
-            "message": "Execution completed successfully in 3m29.68s.",
+            "lastTransitionTime": "2026-10-07T12:09:59.993814Z",
+            "message": "Execution completed successfully in 2m13.82s.",
             "status": "True",
             "type": "Completed"
           },
           {
-            "lastTransitionTime": "2026-10-07T11:46:33.766229Z",
+            "lastTransitionTime": "2026-10-07T12:07:37.327195Z",
             "message": "Provisioned imported containers.",
             "status": "True",
             "type": "ResourcesAvailable"
           },
           {
-            "lastTransitionTime": "2026-10-07T11:50:11.404662Z",
-            "message": "Started deployed execution in 3m37.63s.",
+            "lastTransitionTime": "2026-10-07T12:09:50.654275Z",
+            "message": "Started deployed execution in 2m13.32s.",
             "status": "True",
             "type": "Started"
           },
           {
-            "lastTransitionTime": "2026-10-07T11:46:33.427719Z",
-            "message": "Imported container image.",
+            "lastTransitionTime": "2026-10-07T12:07:36.983867Z",
+            "message": "Imported container image in 1.45s.",
             "status": "True",
             "type": "ContainerReady"
           }
         ],
-        "logUri": "https://console.cloud.google.com/logs/viewer?project=gen-lang-client-0593591102&advancedFilter=resource.type%3D%22cloud_run_job%22%0Aresource.labels.job_name%3D%22janus-intelligence-mart%22%0Aresource.labels.location%3D%22us-central1%22%0Alabels.%22run.googleapis.com/execution_name%22%3D%22janus-intelligence-mart-mgl28%22",
+        "logUri": "https://console.cloud.google.com/logs/viewer?project=gen-lang-client-0593591102&advancedFilter=resource.type%3D%22cloud_run_job%22%0Aresource.labels.job_name%3D%22janus-intelligence-mart%22%0Aresource.labels.location%3D%22us-central1%22%0Alabels.%22run.googleapis.com/execution_name%22%3D%22janus-intelligence-mart-km748%22",
         "observedGeneration": 1,
-        "startTime": "2026-10-07T11:46:52.168524Z",
+        "startTime": "2026-10-07T12:07:46.167396Z",
         "succeededCount": 1
       }
     },
@@ -347,8 +460,8 @@
     "receipt": null,
     "result": null
   },
-  "generated_at": "2026-10-07T11:50:40.171809+00:00",
-  "git_sha": "eed844719516520584c1dd09eba6698d7c7d5f29",
+  "generated_at": "2026-10-07T12:14:51.076324+00:00",
+  "git_sha": "78d65c7574f0d385f64759960af524b2f1d9e3e9",
   "markers": {
     "canary": false,
     "controller": false,
@@ -365,17 +478,17 @@
         "run.googleapis.com/client-version": "568.0.0",
         "run.googleapis.com/creator": "tommylin15@gmail.com",
         "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
-        "run.googleapis.com/operation-id": "302693a1-a3f7-4b34-9cc1-0c262b46cec9"
+        "run.googleapis.com/operation-id": "31155bfd-f089-4266-864c-d10b53dfc457"
       },
       "creationTimestamp": "2026-08-31T05:46:45.673533Z",
-      "generation": 210,
+      "generation": 212,
       "labels": {
         "cloud.googleapis.com/location": "us-central1",
-        "run.googleapis.com/lastUpdatedTime": "2026-10-07T11:42:38.418130Z"
+        "run.googleapis.com/lastUpdatedTime": "2026-10-07T12:01:57.105844Z"
       },
       "name": "janus-intelligence-mart",
       "namespace": "131494961796",
-      "resourceVersion": "AAZdPqbnzYM",
+      "resourceVersion": "AAZdPu73GLA",
       "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/jobs/janus-intelligence-mart",
       "uid": "bb34dcf0-83ff-4cb0-8a6e-06d71132d70f"
     },
@@ -390,7 +503,7 @@
             "run.googleapis.com/vpc-access-egress": "private-ranges-only"
           },
           "labels": {
-            "client.knative.dev/nonce": "lov_gov_ved"
+            "client.knative.dev/nonce": "hev_jar_wox"
           }
         },
         "spec": {
@@ -460,11 +573,11 @@
                     },
                     {
                       "name": "JANUS_GIT_SHA",
-                      "value": "eed844719516520584c1dd09eba6698d7c7d5f29"
+                      "value": "78d65c7574f0d385f64759960af524b2f1d9e3e9"
                     },
                     {
                       "name": "JANUS_IMAGE_DIGEST",
-                      "value": "sha256:a0f3ba8baa6ee4634b155a848bfb6c6eee3944b15b1c405b9dfd9570c6bf8e72"
+                      "value": "sha256:ebab04cd2e6dd96f9a45fd97132240b704933f7d0e77392389bb79712fcf8f88"
                     },
                     {
                       "name": "MART_CODEX_AUTH_SECRET",
@@ -475,7 +588,7 @@
                       "value": "false"
                     }
                   ],
-                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:a0f3ba8baa6ee4634b155a848bfb6c6eee3944b15b1c405b9dfd9570c6bf8e72",
+                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:ebab04cd2e6dd96f9a45fd97132240b704933f7d0e77392389bb79712fcf8f88",
                   "resources": {
                     "limits": {
                       "cpu": "1",
@@ -499,14 +612,14 @@
           "type": "Ready"
         }
       ],
-      "executionCount": 180,
+      "executionCount": 182,
       "latestCreatedExecution": {
         "completionStatus": "EXECUTION_SUCCEEDED",
-        "completionTimestamp": "2026-10-07T11:45:28.659749Z",
-        "creationTimestamp": "2026-10-07T11:42:42.494720Z",
-        "name": "janus-intelligence-mart-mmhfn"
+        "completionTimestamp": "2026-10-07T12:05:36.004574Z",
+        "creationTimestamp": "2026-10-07T12:02:01.996423Z",
+        "name": "janus-intelligence-mart-z9t27"
       },
-      "observedGeneration": 210
+      "observedGeneration": 212
     }
   },
   "scheduled_occurrence": null,
