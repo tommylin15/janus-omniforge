@@ -1,0 +1,54 @@
+substitutions:
+  _SCRIPT_URI: ''
+  _SCRIPT_SHA256: ''
+  _EVIDENCE_URI: ''
+
+steps:
+  - id: b2-nonregister-live-acceptance
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        project='gen-lang-client-0593591102'
+        bucket='gen-lang-client-0593591102-dev-mart'
+        account="$(gcloud auth list --filter=status:ACTIVE --format='value(account)' | head -1)"
+        member="serviceAccount:${account}"
+
+        added_storage_admin=false
+        if ! gcloud storage buckets get-iam-policy "gs://${bucket}" --format=json | \
+          python3 -c 'import json,sys; p=json.load(sys.stdin); m=sys.argv[1]; raise SystemExit(0 if any(b.get("role")=="roles/storage.admin" and m in b.get("members",[]) for b in p.get("bindings",[])) else 1)' "${member}"; then
+          gcloud storage buckets add-iam-policy-binding "gs://${bucket}" \
+            --member="${member}" --role=roles/storage.admin --quiet >/dev/null
+          added_storage_admin=true
+        fi
+
+        cleanup() {
+          if [[ "${added_storage_admin}" == true ]]; then
+            gcloud storage buckets remove-iam-policy-binding "gs://${bucket}" \
+              --member="${member}" --role=roles/storage.admin --quiet >/dev/null || true
+          fi
+        }
+        trap cleanup EXIT
+
+        gcloud storage cp "${_SCRIPT_URI}" /workspace/b2-lakehouse-acceptance.py >/dev/null
+        actual="$(sha256sum /workspace/b2-lakehouse-acceptance.py | awk '{print $1}')"
+        [[ "${actual}" == "${_SCRIPT_SHA256}" ]]
+
+        set +e
+        python3 /workspace/b2-lakehouse-acceptance.py \
+          --output /workspace/b2-nonregister-evidence.json \
+          --skip-shared-mapping
+        rc=$?
+        set -e
+        if [[ "${rc}" -ne 0 ]]; then
+          echo "B2 nonregister live acceptance failed rc=${rc}" >&2
+          exit "${rc}"
+        fi
+
+        gcloud storage cp --if-generation-match=0 \
+          /workspace/b2-nonregister-evidence.json "${_EVIDENCE_URI}" >/dev/null
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 600s
