@@ -1,0 +1,10 @@
+{
+  "automatic_table_management_enabled": false,
+  "catalog": "janus_core_dev",
+  "catalog_type": "biglake",
+  "credential_mode": "end-user",
+  "default_location": null,
+  "primary_location": "us-central1",
+  "project_storage_admin_granted": false,
+  "status": "pass"
+}
