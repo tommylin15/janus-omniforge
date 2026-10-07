@@ -270,7 +270,7 @@ jobs:
           print(raw.decode().strip())
           PY
           export B3_PROBE_CODE="$(base64 -w0 /tmp/b3_state_probe.py)"
-          wrapper='import base64,os;exec(base64.b64decode(os.environ["B3_PROBE_CODE"]))'
+          wrapper='exec(__import__("base64").b64decode(__import__("os").environ["B3_PROBE_CODE"]))'
 
           probe_state() {
             local idx="$1"
