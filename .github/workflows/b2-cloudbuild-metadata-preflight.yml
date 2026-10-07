@@ -28,25 +28,57 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Run read-only preflight through existing Cloud Build identity
+      - name: Run deterministic read-only probes through existing Cloud Build identity
         shell: bash
         run: |
           set -Eeuo pipefail
-          log="$(mktemp)"
-          gcloud builds submit --no-source \
-            --project=gen-lang-client-0593591102 \
-            --config=scripts/gcp/cloudbuild-b2-lakehouse-preflight.yaml \
-            --quiet 2>&1 | tee "${log}"
-          marker="$(grep -o 'B2_CLOUD_BUILD_PREFLIGHT=[A-Za-z0-9+/=]*' "${log}" | tail -1)"
-          [[ -n "${marker}" ]]
-          encoded="${marker#B2_CLOUD_BUILD_PREFLIGHT=}"
-          python3 - "${encoded}" <<'PY'
-          import base64, json, sys
+          run_probe() {
+            local mode="$1"
+            set +e
+            gcloud builds submit --no-source \
+              --project=gen-lang-client-0593591102 \
+              --region=us-central1 \
+              --config=scripts/gcp/cloudbuild-b2-lakehouse-preflight.yaml \
+              --substitutions="_MODE=${mode}" \
+              --quiet >/dev/null 2>&1
+            local rc=$?
+            set -e
+            printf '%s' "${rc}"
+          }
+
+          catalog_permission_rc="$(run_probe catalog-permission)"
+          catalog_nonempty_rc=99
+          if [[ "${catalog_permission_rc}" == 0 ]]; then
+            catalog_nonempty_rc="$(run_probe catalog-nonempty)"
+          fi
+          bq_metadata_rc="$(run_probe bq-metadata)"
+
+          python3 - "${catalog_permission_rc}" "${catalog_nonempty_rc}" "${bq_metadata_rc}" <<'PY'
+          import json, sys
           from pathlib import Path
-          payload=json.loads(base64.b64decode(sys.argv[1]).decode())
-          Path("doc/archive/group-b-b2-cloudbuild-metadata-preflight-2026-10-07.json").write_text(
-              json.dumps(payload, indent=2, sort_keys=True) + "\n"
+          catalog_permission_rc=int(sys.argv[1])
+          catalog_nonempty_rc=int(sys.argv[2])
+          bq_metadata_rc=int(sys.argv[3])
+          evidence={
+              'identity':'cloud-build-default',
+              'mutations_performed':False,
+              'catalog_list_authorized':catalog_permission_rc==0,
+              'catalog_exists':(
+                  None if catalog_permission_rc != 0
+                  else catalog_nonempty_rc == 0
+              ),
+              'legacy_table_metadata_read_authorized':bq_metadata_rc==0,
+              'returncodes':{
+                  'catalog_permission':catalog_permission_rc,
+                  'catalog_nonempty':catalog_nonempty_rc,
+                  'bq_metadata':bq_metadata_rc,
+              },
+          }
+          evidence['status']='pass' if catalog_permission_rc==0 and bq_metadata_rc==0 else 'partial'
+          Path('doc/archive/group-b-b2-cloudbuild-metadata-preflight-2026-10-07.json').write_text(
+              json.dumps(evidence,indent=2,sort_keys=True)+'\n'
           )
+          print(json.dumps(evidence,sort_keys=True))
           PY
       - name: Commit evidence
         shell: bash
