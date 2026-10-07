@@ -59,10 +59,10 @@ def test_private_pipeline_runtime_configuration_is_applied_by_cloud_build_identi
     for flag in (
         '--service-account="janus-private-pipeline@${PROJECT_ID}.iam.gserviceaccount.com"',
         '--tasks=1',
-        '--parallelism=1',
+        '--parallelism=8',
         '--max-retries=1',
         '--task-timeout=30m',
-        '--remove-env-vars="VALUATION_DATE"',
+        '--remove-env-vars="VALUATION_DATE,PRIVATE_RECALC_QUEUE_MODE"',
         '--update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-runtime-bundle:latest"',
     ):
         assert flag in CLOUDBUILD

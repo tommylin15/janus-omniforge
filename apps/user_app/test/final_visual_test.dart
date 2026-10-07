@@ -333,10 +333,12 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: FinalLedgerPage(
-          api,
-          active: false,
-          now: () => DateTime.utc(2026, 10, 6, 23),
+        home: Scaffold(
+          body: FinalLedgerPage(
+            api,
+            active: false,
+            now: () => DateTime.utc(2026, 10, 6, 23),
+          ),
         ),
       ),
     );

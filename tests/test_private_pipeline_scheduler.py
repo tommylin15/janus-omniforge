@@ -39,5 +39,5 @@ def test_janus_deploy_and_database_migration_use_one_secret_bundle():
 
     migration=(ROOT/"scripts/gcp/cloudbuild-postgres-migration.yaml").read_text(encoding="utf-8")
     vm_migration=(ROOT/"scripts/gcp/apply-web-postgres-migration.sh").read_text(encoding="utf-8")
-    assert "secrets/janus-runtime-bundle/versions/latest" in migration
+    assert "apply secret-manager '${PROJECT_ID}'" in migration
     assert "secrets/janus-runtime-bundle/versions/latest:access" in vm_migration
