@@ -24,6 +24,7 @@ on:
       - 'infra/postgres/migrations/046_twse_only_latest_price.sql'
       - 'infra/postgres/migrations/047_latest_price_route_v2.sql'
       - 'infra/postgres/migrations/048_private_recalculation_queue.sql'
+      - 'infra/postgres/migrations/049_batch_occurrence_skipped_status.sql'
       - 'tests/test_batch_controller.py'
       - 'tests/test_duckdb_iceberg.py'
       - 'tests/test_data_supplement.py'
@@ -109,6 +110,7 @@ jobs:
       latest_price_schema: ${{ steps.filter.outputs.latest_price_schema }}
       latest_price_route_schema: ${{ steps.filter.outputs.latest_price_route_schema }}
       private_recalc_schema: ${{ steps.filter.outputs.private_recalc_schema }}
+      batch_occurrence_status_schema: ${{ steps.filter.outputs.batch_occurrence_status_schema }}
       ingestion_runtime: ${{ steps.filter.outputs.ingestion_runtime }}
       ingestion_test: ${{ steps.filter.outputs.ingestion_test }}
       mart_runtime: ${{ steps.filter.outputs.mart_runtime }}
@@ -139,6 +141,8 @@ jobs:
               - 'infra/postgres/migrations/047_latest_price_route_v2.sql'
             private_recalc_schema:
               - 'infra/postgres/migrations/048_private_recalculation_queue.sql'
+            batch_occurrence_status_schema:
+              - 'infra/postgres/migrations/049_batch_occurrence_skipped_status.sql'
             ingestion_runtime:
               - 'packages/postgres_lock.py'
               - 'packages/mobile_ledger_queue.py'
@@ -150,6 +154,7 @@ jobs:
               - 'infra/postgres/migrations/046_twse_only_latest_price.sql'
               - 'infra/postgres/migrations/047_latest_price_route_v2.sql'
               - 'infra/postgres/migrations/048_private_recalculation_queue.sql'
+              - 'infra/postgres/migrations/049_batch_occurrence_skipped_status.sql'
               - 'jobs/ingestion-core/ingestion_core/**'
               - 'jobs/ingestion-core/schemas/**'
               - 'jobs/ingestion-core/Dockerfile'
@@ -569,6 +574,15 @@ jobs:
     uses: ./.github/workflows/serving-schema-migration-dev.yml
     with:
       migration: 048_private_recalculation_queue
+
+  migrate-batch-occurrence-status:
+    needs: [detect, deploy-ingestion]
+    if: >-
+      needs.detect.outputs.batch_occurrence_status_schema == 'true' &&
+      needs.deploy-ingestion.result == 'success'
+    uses: ./.github/workflows/serving-schema-migration-dev.yml
+    with:
+      migration: 049_batch_occurrence_skipped_status
 
   migrate-latest-price-route:
     needs: [detect, deploy-ingestion, migrate-latest-price]
