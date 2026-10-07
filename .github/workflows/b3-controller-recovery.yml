@@ -1,0 +1,201 @@
+name: B3 controller recovery acceptance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b3-controller-recovery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: b3-controller-recovery
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_REGION: us-central1
+  CONTROLLER_JOB: janus-batch-controller
+  BASE_EVIDENCE: doc/archive/group-b-b3-live-acceptance-2026-10-07.json
+  RECOVERY_EVIDENCE: doc/archive/group-b-b3-controller-recovery-2026-10-07.json
+
+jobs:
+  controller-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify reusable B3 gates
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import json, os
+          d=json.load(open(os.environ['BASE_EVIDENCE']))
+          for name in ('tests','deploy','canary','live'):
+              assert d['markers'][name] is True, (name,d['markers'])
+          assert d['constraints']['default_reader']=='pyiceberg'
+          assert d['constraints']['cutover'] is False
+          r2=d['fixed_snapshot_run_2']['receipt']
+          assert r2['reused'] is True and r2['artifact_growth_bytes']==0
+          assert r2['screening_count']==500 and r2['specialist_count']==0
+          assert r2['llm_api_tokens']==0 and r2['ceo_triggered'] is False
+          PY
+
+      - name: Exercise controller and persist occurrence evidence
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          screening_date="$(TZ=Asia/Taipei date +%F)"
+          occurrence="market-screening/${screening_date}/16"
+          result_uri="gs://${GCP_PROJECT_ID}-dev-core/acceptance/b3-controller-recovery/github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
+
+          gcloud run jobs describe "${CONTROLLER_JOB}" \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json > /tmp/controller-job.json
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/controller-job.json'))
+          c=d['spec']['template']['spec']['template']['spec']['containers'][0]
+          assert c.get('command') == ['python'], c.get('command')
+          assert c.get('args') == ['-m','ingestion_core.batch_controller'], c.get('args')
+          PY
+
+          cat > /tmp/b3_state_probe.py <<'PY'
+          import json, os
+          from urllib.parse import urlparse
+          from ingestion_core.__main__ import _control_plane
+          from ingestion_core.stage import GcsObjectStore
+
+          occurrence=os.environ['B3_OCCURRENCE_ID']
+          control=_control_plane()
+          try:
+              with control.connection.cursor() as cursor:
+                  cursor.execute(
+                      "SELECT occurrence_id,scheduled_at,state FROM control.batch_occurrences WHERE occurrence_id=%s",
+                      (occurrence,),
+                  )
+                  row=cursor.fetchone()
+              if row is None:
+                  payload={"found": False, "occurrence_id": occurrence}
+              else:
+                  payload={
+                      "found": True,
+                      "occurrence_id": row[0],
+                      "scheduled_at": row[1].isoformat(),
+                      "state": row[2],
+                  }
+          finally:
+              control.close()
+
+          target=urlparse(os.environ['B3_PROBE_RESULT_URI'])
+          bucket=os.environ.get('CORE_BUCKET','').strip()
+          if target.scheme != 'gs' or target.netloc != bucket or not target.path.startswith('/acceptance/b3-controller-recovery/'):
+              raise ValueError('B3 controller recovery result must stay inside existing dev-core acceptance prefix')
+          name=target.path.lstrip('/')
+          raw=(json.dumps(payload, sort_keys=True)+'\n').encode()
+          store=GcsObjectStore(bucket)
+          created=store.create(name, raw, 'application/json')
+          if not created and store.read(name) != raw:
+              raise RuntimeError('immutable B3 controller recovery result conflict')
+          if store.read(name) != raw:
+              raise RuntimeError('B3 controller recovery result readback mismatch')
+          print(raw.decode().strip())
+          PY
+          export B3_PROBE_CODE="$(base64 -w0 /tmp/b3_state_probe.py)"
+          wrapper='exec(__import__("base64").b64decode(__import__("os").environ["B3_PROBE_CODE"]))'
+
+          probe_state() {
+            gcloud run jobs execute "${CONTROLLER_JOB}" \
+              --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+              --args="-c,${wrapper}" \
+              --update-env-vars="B3_PROBE_CODE=${B3_PROBE_CODE},B3_OCCURRENCE_ID=${occurrence},B3_PROBE_RESULT_URI=${result_uri}" \
+              --task-timeout=5m --wait --format=json > /tmp/probe-execution.json
+            for read_attempt in $(seq 1 6); do
+              if gcloud storage cat "${result_uri}" > /tmp/occurrence.json; then
+                break
+              fi
+              sleep 5
+            done
+            test -s /tmp/occurrence.json
+          }
+
+          for attempt in $(seq 1 6); do
+            gcloud run jobs execute "${CONTROLLER_JOB}" \
+              --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+              --update-env-vars="BATCH_CONTROLLER_MODE=active" \
+              --task-timeout=5m --wait --format=json > /tmp/tick-execution.json
+            probe_state
+            status="$(python -c "import json;d=json.load(open('/tmp/occurrence.json'));print((d.get('state') or {}).get('status','missing'))")"
+            if [[ "${status}" == "succeeded" ]]; then
+              break
+            fi
+            if [[ "${status}" == "failed" || "${status}" == "skipped" || "${status}" == "ambiguous" ]]; then
+              echo "B3 occurrence terminal status: ${status}" >&2
+              exit 1
+            fi
+            rm -f /tmp/occurrence.json
+            sleep 20
+          done
+
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/occurrence.json'))
+          assert d['found'] is True, d
+          s=d['state']
+          assert s['batch']=='market-screening', s
+          assert s['job']=='janus-intelligence-mart', s
+          assert s['status']=='succeeded', s
+          env=dict(s.get('env') or [])
+          assert env['MART_OPERATION']=='market-screening', env
+          assert env['MART_OOS_EVALUATION']=='false', env
+          assert env['MART_AI_ENABLED']=='false', env
+          assert env['SCREENING_DATE']==d['scheduled_at'][:10], (env,d)
+          PY
+
+      - name: Assemble recovery evidence
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+          from pathlib import Path
+          base=json.load(open(os.environ['BASE_EVIDENCE']))
+          evidence={
+              'schema_version':'b3-controller-recovery-v1',
+              'generated_at':datetime.now(timezone.utc).isoformat(),
+              'git_sha':os.environ['GITHUB_SHA'],
+              'base_acceptance_git_sha':base['git_sha'],
+              'base_markers':base['markers'],
+              'status':'pass',
+              'controller_job':json.load(open('/tmp/controller-job.json')),
+              'tick_execution':json.load(open('/tmp/tick-execution.json')),
+              'probe_execution':json.load(open('/tmp/probe-execution.json')),
+              'scheduled_occurrence':json.load(open('/tmp/occurrence.json')),
+          }
+          Path(os.environ['RECOVERY_EVIDENCE']).write_text(
+              json.dumps(evidence, indent=2, sort_keys=True, default=str)+'\n'
+          )
+          PY
+
+      - name: Commit recovery evidence
+        shell: bash
+        run: |
+          git config user.name "janus-ci"
+          git config user.email "janus-ci@users.noreply.github.com"
+          git add "${RECOVERY_EVIDENCE}"
+          git commit -m "docs: record B3 controller recovery evidence [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
