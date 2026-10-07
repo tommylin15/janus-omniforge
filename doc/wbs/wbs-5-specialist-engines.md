@@ -70,6 +70,8 @@ BigQuery 只作 analytics compute：
 
 ## 4. Incremental execution
 
+> B4 已於 2026-10-07 CLOSED / PASS。真實 dev acceptance 對 5 個 Deep Coverage symbols 產出 25 specialist artifacts；同一 Core snapshot 第二輪為 0 computed / 25 reused，且 event-only regression 驗證只有 Event dirty。完整 evidence 見 [B4 結案](../archive/group-b-b4-deep-coverage-closure-2026-10-07.md)。本段完成不代表 B5 ML/OOS、月度 reconciliation 或模型 promotion 已完成。
+
 禁止固定每日把所有 Deep Coverage symbols × 5 全重算。
 
 每個 artifact 保存 input snapshot／content hash、feature／engine／model version、output hash、computed_at、freshness。Core／PIT data 更新後只 invalidate 受影響 dependency：
