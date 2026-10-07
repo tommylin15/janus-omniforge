@@ -1,7 +1,8 @@
 """Owner-scoped Private Mart recalculation queue and Cloud Run dispatcher.
 
 Runtime contract: PostgreSQL migration 048_private_recalculation_queue must be
-applied before this worker mode is activated.
+applied before this worker mode is activated; queue executions are owner-scoped
+and must never fall back to the full-reconciliation path.
 """
 
 from __future__ import annotations

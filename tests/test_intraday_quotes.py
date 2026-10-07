@@ -93,8 +93,12 @@ def test_authenticated_quotes_read_only_owned_snapshot_and_pending_ledger_blocks
     assert response.status_code == 200
     assert response.json()['positions'][0]['unrealized_pnl'] == '23.45'
     assert all(owner == USER_ID for _,owner,_ in store.calls)
-    with patch('services.api.app.value_holdings', side_effect=lambda rows, prices, _now:
-               value_holdings(rows, prices, datetime(2026, 10, 9, 10, tzinfo=TAIPEI))):
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 10, 9, 10, tzinfo=tz or TAIPEI)
+
+    with patch('services.api.app.datetime', FixedDateTime):
         holiday = api.get('/api/v1/me/portfolio/quotes', headers=auth())
         assert holiday.status_code == 200
         assert holiday.json()['market_open'] is False
