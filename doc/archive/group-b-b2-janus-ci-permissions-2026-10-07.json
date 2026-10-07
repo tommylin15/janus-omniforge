@@ -1,0 +1,10 @@
+{
+  "identity": "janus-ci",
+  "mutations_performed": false,
+  "permissions": {
+    "biglake.catalogs.list": false,
+    "biglake.tables.register": false,
+    "bigquery.jobs.create": false
+  },
+  "status": "pass"
+}
