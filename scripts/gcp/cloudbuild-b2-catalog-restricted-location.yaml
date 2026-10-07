@@ -1,0 +1,46 @@
+steps:
+  - id: allow-b2-dev-mart-acceptance
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        project='gen-lang-client-0593591102'
+        catalog='janus_core_dev'
+        bucket='gen-lang-client-0593591102-dev-mart'
+        restricted='gs://gen-lang-client-0593591102-dev-mart/acceptance/b2-lakehouse'
+        account="$(gcloud auth list --filter=status:ACTIVE --format='value(account)' | head -1)"
+        member="serviceAccount:${account}"
+
+        added_storage_admin=false
+        if ! gcloud storage buckets get-iam-policy "gs://${bucket}" --format=json | \
+          python3 -c 'import json,sys; p=json.load(sys.stdin); m=sys.argv[1]; raise SystemExit(0 if any(b.get("role")=="roles/storage.admin" and m in b.get("members",[]) for b in p.get("bindings",[])) else 1)' "${member}"; then
+          gcloud storage buckets add-iam-policy-binding "gs://${bucket}" \
+            --member="${member}" --role=roles/storage.admin --quiet >/dev/null
+          added_storage_admin=true
+        fi
+        cleanup() {
+          if [[ "${added_storage_admin}" == true ]]; then
+            gcloud storage buckets remove-iam-policy-binding "gs://${bucket}" \
+              --member="${member}" --role=roles/storage.admin --quiet >/dev/null || true
+          fi
+        }
+        trap cleanup EXIT
+
+        gcloud beta biglake iceberg catalogs update "${catalog}" \
+          --project="${project}" \
+          --restricted-locations="${restricted}" \
+          --quiet
+        gcloud biglake iceberg catalogs describe "${catalog}" --project="${project}" --format=json >/tmp/catalog.json
+        python3 - "${restricted}" <<'PY'
+        import json,sys
+        p=json.load(open('/tmp/catalog.json')); want=sys.argv[1]
+        s=json.dumps(p,sort_keys=True)
+        if want not in s:
+            raise SystemExit('restricted location readback mismatch')
+        print('B2 restricted location PASS')
+        PY
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 300s
