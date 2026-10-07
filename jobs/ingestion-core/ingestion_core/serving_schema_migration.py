@@ -20,6 +20,7 @@ MIGRATION_QUOTES_BROKER = "044_quotes_broker_profile"
 MIGRATION_PRIVATE_OPERATIONS = "045_private_pipeline_operations"
 MIGRATION_TWSE_LATEST_PRICE = "046_twse_only_latest_price"
 MIGRATION_LATEST_PRICE_ROUTE_V2 = "047_latest_price_route_v2"
+MIGRATION_PRIVATE_RECALC = "048_private_recalculation_queue"
 SUPPORTED = frozenset({
     MIGRATION_POSITION,
     MIGRATION_STOCK_SERVING,
@@ -28,6 +29,7 @@ SUPPORTED = frozenset({
     MIGRATION_PRIVATE_OPERATIONS,
     MIGRATION_TWSE_LATEST_PRICE,
     MIGRATION_LATEST_PRICE_ROUTE_V2,
+    MIGRATION_PRIVATE_RECALC,
 })
 
 
@@ -359,6 +361,21 @@ def run(control: Any, name: str) -> None:
                 cursor.execute("INSERT INTO control.schema_migrations" + record)
         except Exception as error:
             raise ServingSchemaMigrationError("twse_latest_price_apply", error) from error
+    elif name == MIGRATION_PRIVATE_RECALC:
+        try:
+            text = _without_role_lines(_migration_path(name).read_text(encoding="utf-8"))
+            prepare, acceptance = text.split("-- PHASE: acceptance", 1)
+            checks, record = acceptance.split("INSERT INTO control.schema_migrations", 1)
+            with control.connection.transaction(), control.connection.cursor() as cursor:
+                _require_current_user(cursor, "janus_control")
+                cursor.execute(prepare)
+                cursor.execute(checks)
+                row = cursor.fetchone()
+                if row is None or not all(bool(value) for value in row):
+                    raise RuntimeError("private recalculation queue schema acceptance failed")
+                cursor.execute("INSERT INTO control.schema_migrations" + record)
+        except Exception as error:
+            raise ServingSchemaMigrationError("private_recalculation_queue_apply", error) from error
     elif name == MIGRATION_LATEST_PRICE_ROUTE_V2:
         try:
             text = _without_role_lines(_migration_path(name).read_text(encoding="utf-8"))

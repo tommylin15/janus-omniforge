@@ -56,14 +56,17 @@ configure() {
     --service-account="janus-user-api@${project}.iam.gserviceaccount.com" \
     --min-instances=0 --max-instances=2 --concurrency=20 --timeout=60 --quiet
   for definition in \
-    'janus-ingestion-core ingestion-core' \
-    'janus-intelligence-mart intelligence-mart' \
-    'janus-private-pipeline janus-private-pipeline'; do
-    read -r job account <<<"${definition}"
+    'janus-ingestion-core ingestion-core 1' \
+    'janus-intelligence-mart intelligence-mart 1' \
+    'janus-private-pipeline janus-private-pipeline 8'; do
+    read -r job account parallelism <<<"${definition}"
     gcloud run jobs update "${job}" --project="${project}" --region="${region}" \
       --service-account="${account}@${project}.iam.gserviceaccount.com" \
-      --tasks=1 --parallelism=1 --max-retries=1 --task-timeout=30m --quiet
+      --tasks=1 --parallelism="${parallelism}" --max-retries=1 --task-timeout=30m --quiet
   done
+  gcloud run jobs add-iam-policy-binding janus-private-pipeline --project="${project}" --region="${region}" \
+    --member="serviceAccount:janus-user-api@${project}.iam.gserviceaccount.com" \
+    --role=roles/run.invoker --quiet >/dev/null
 
   gcloud services enable billingbudgets.googleapis.com --project="${project}" --quiet
   budget="$(gcloud billing budgets list --billing-account="${billing_account}" \
@@ -110,7 +113,9 @@ if os.environ["RUNTIME_KIND"] == "services":
     assert minimum == 0 and 0 < maximum <= expected_max, f"{os.environ['RUNTIME_NAME']} scaling drift"
 else:
     numeric = lambda key, default: int(next((item for item in values.get(key, []) if str(item).isdigit()), default))
-    assert numeric("taskCount", 1) == 1 and numeric("parallelism", 1) == 1, "job fan-out drift"
+    expected_parallelism = 8 if os.environ["RUNTIME_NAME"] == "janus-private-pipeline" else 1
+    assert numeric("taskCount", 1) == 1, "job default task count drift"
+    assert numeric("parallelism", 1) == expected_parallelism, "job parallelism drift"
     assert numeric("maxRetries", 0) <= 1, "job retry drift"
 PY
 }
@@ -140,6 +145,12 @@ verify() {
   check_runtime jobs janus-ingestion-core ingestion-core
   check_runtime jobs janus-intelligence-mart intelligence-mart
   check_runtime jobs janus-private-pipeline janus-private-pipeline
+  gcloud run jobs get-iam-policy janus-private-pipeline --project="${project}" --region="${region}" \
+    --flatten='bindings[].members' \
+    --filter="bindings.role:roles/run.invoker AND bindings.members:serviceAccount:janus-user-api@${project}.iam.gserviceaccount.com" \
+    --format='value(bindings.members)' | grep -Fx \
+      "serviceAccount:janus-user-api@${project}.iam.gserviceaccount.com" >/dev/null || \
+    fail 'janus-user-api cannot invoke janus-private-pipeline'
   if gcloud run services list --project="${project}" --region="${region}" \
       --filter='metadata.name=janus-web' --format='value(metadata.name)' | grep -Fx janus-web >/dev/null; then
     fail 'legacy janus-web runtime still exists'

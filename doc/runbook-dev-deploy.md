@@ -159,3 +159,21 @@ Secret 值不得出現在 command argv、shell trace、process listing、Cloud B
 ## 8. 歷史資料
 
 2026-09-23 Janus／omniAgent hard split、舊 Phase 5 deployment、舊 Agent Gateway／fixture、舊 Secret bundle 遷移等內容都是歷史 checkpoint，不再作為目前操作步驟。入口見 [`omniagent-split-status.md`](omniagent-split-status.md) 與 `archive/`。
+
+
+## Owner-scoped Private Mart recalculation queue
+
+Canonical design: `doc/decision-2026-10-07-owner-scoped-parallel-private-recalculation.md`.
+
+- schema migration: `048_private_recalculation_queue`
+- User API mutation/manual recalc only enqueue authenticated owner.
+- normal scheduled `janus-private-pipeline` remains `taskCount=1`; job parallelism ceiling is 8.
+- owner queue execution overrides `taskCount` from Admin setting `private_recalc_workers` (2–8, default 2).
+- do not put owner UUID/symbols/trades into Cloud Run execution overrides.
+- worker claims use PostgreSQL `FOR UPDATE SKIP LOCKED`; same owner has one active request.
+- calculation may run concurrently, but shared Private Iceberg commit uses advisory lock `(1835102836,3)`.
+- User-visible terminal failure must be persisted before the worker exits。QUEUED 在 dispatch active 但 5 分鐘無任何 worker claim 時轉為 `DISPATCH_TIMEOUT`；RUNNING/CANCEL_REQUESTED 超過 35 分鐘無 heartbeat 由 reaper 轉為 FAILED/CANCELLED；不得讓 UI indefinitely pending.
+- Admin cancel is owner-scoped cooperative cancellation. Do not kill the whole shared execution for a single owner.
+- Admin force-fail immediately writes a terminal FAILED state and User-visible safe reason; stale worker completion must not overwrite it.
+
+Dev acceptance must verify migration 048, job default/task parallelism, API → job `roles/run.invoker`, one live owner request transition, duplicate-active suppression, and final Private Mart ledger-version catch-up.

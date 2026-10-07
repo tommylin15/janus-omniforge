@@ -119,6 +119,21 @@ def test_twse_only_latest_price_migration_retires_tpex_without_deleting_history(
     assert "046_twse_only_latest_price" in sql
 
 
+def test_private_recalculation_queue_migration_is_bounded_and_owner_scoped():
+    control = FakeControl()
+    migration.run(control, migration.MIGRATION_PRIVATE_RECALC)
+    sql = statements(control.connection)
+    assert "CREATE TABLE IF NOT EXISTS private.recalculation_requests" in sql
+    assert "recalculation_one_active_owner_idx" in sql
+    assert "CANCEL_REQUESTED" in sql
+    assert "private_recalc_workers" in sql
+    assert "BETWEEN 2 AND 8" in sql
+    assert "GRANT SELECT, INSERT, UPDATE ON private.recalculation_requests TO janus_private_api" in sql
+    assert "GRANT SELECT, UPDATE ON private.recalculation_requests TO janus_private_pipeline" in sql
+    assert sql.index("has_table_privilege") < sql.index("INSERT INTO control.schema_migrations")
+    assert "048_private_recalculation_queue" in sql
+
+
 def test_latest_price_route_v2_migration_extends_operational_quote_constraint():
     control = FakeControl()
     migration.run(control, migration.MIGRATION_LATEST_PRICE_ROUTE_V2)

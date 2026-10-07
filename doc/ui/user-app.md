@@ -153,7 +153,7 @@ YTD realized PnL 必須有明確 display semantics：
 - 當年度確定沒有已實現交易，且 canonical aggregate 可確認零值時，顯示 `0`；
 - 資料不足、projection／Private Mart 尚待刷新、valuation/as-of 不一致時，顯示 bounded empty／unavailable／pending，而不是用假 `0` 補值；
 - 已有已實現交易且 authoritative aggregate 可用時，不得長期缺值或完全不顯示。
-- 只有 YTD/Private Mart 確認為 pending／stale、確實需要重算時才顯示「重新計算損益」；正常可用、確認為 0 或單純 API unavailable 時不顯示。手動重算呼叫 owner-scoped backend，Flutter 不在本機重算 canonical PnL。
+- 只有 YTD/Private Mart 確認為 pending／stale、確實需要重算時才顯示「重新計算損益」；正常可用、確認為 0 或單純 API unavailable 時不顯示。手動重算只建立 authenticated owner 的 queue request，Flutter 與 User API request thread 都不直接寫 canonical Private Mart。同 owner 在 `QUEUED/RUNNING/CANCEL_REQUESTED` 期間按鈕 disabled；終態為 `FAILED/CANCELLED` 時顯示 safe reason 與「重新嘗試」，不得讓使用者無限空等。
 - User UI 的 realized／unrealized PnL 與其報酬百分比統一採台股語意：獲利紅、虧損綠、0／未知中性；負值以減號顯示，不使用會計括號。
 
 ### 5.4.3 紀錄
@@ -176,7 +176,7 @@ cash flow 與 PnL 不得混為同義。交易類型目前為買進、賣出、�
 - 報表頁上方 holdings summary 與「持股／紀錄」共用同一 canonical state；不得因 tab 切換維持不同版本的舊 summary。
 - 報表需顯示可判讀的 valuation date／as-of／freshness／pending／stale 狀態。若 aggregation 尚未追上 transaction／position projection，應顯示 bounded pending，而不是把舊數值當最新。
 - 交易新增、修改、同步或 position projection 更新後，Holdings summary、Ledger summary、Records、Reports、YTD realized PnL 都必須進入一致的 refresh／invalidation 流程；舊 cache 不得長時間殘留而沒有 freshness 說明。
-- Ledger mutation commit 後先由 ledger version mismatch 自動形成 stale/pending fence，API 立即排一輪 owner-scoped Private Mart 重算；此 immediate recalculation 是低延遲主路徑，既有 scheduled private pipeline 仍保留為 durability／reconciliation fallback，且重跑必須 idempotent。若 immediate path 失敗，交易本身不得被回滾或假裝 aggregate 已更新，UI 保留 pending 與手動「重新計算損益」。
+- Ledger mutation commit 後先由 ledger version mismatch 自動形成 stale/pending fence，API 只 enqueue authenticated owner，並由既有 `janus-private-pipeline` Cloud Run Job 的 owner-queue mode 處理；不呼叫會 revalue 全體 owner 的 `PrivatePipeline.run()`。不同 owner 可由 2–8 個 Cloud Run task 平行計算，同 owner concurrency 固定 1；shared Iceberg write 先用 advisory lock 序列化。scheduled full pipeline 保留為 durability／reconciliation fallback。
 - 真正更新機制以 backend/runtime contract 為準。若採 batch，正式 evidence 應能指出 Job、Scheduler／trigger、頻率、source table、target projection、freshness SLA 與 failure 行為；若非 batch，應能追溯 event-driven／synchronous／materialization 的實際鏈路。UI 不得在 root cause 未查明前把 stale report 解釋成「正常等待批次」。
 - Reports acceptance 必須追查並對齊 report API、transaction source、position projection、report aggregation source、DB table/view/materialized projection、cache TTL/invalidation 與 transaction 入帳後更新鏈路；最後以 evidence 判定 `implemented`／`partial`／`missing`／`blocked`。
 

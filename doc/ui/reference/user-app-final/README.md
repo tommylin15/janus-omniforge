@@ -157,3 +157,11 @@ widget、圖片、golden test 或 build 單獨成功都不構成 Final Visual Co
 6. 直接相關 Flutter／API／test／runtime evidence
 
 不得重新發明另一套 User App 資訊架構；implementation 與 target 不同時視為 convergence gap，除非使用者明確修改 active contract。
+
+
+### Owner-scoped 損益重算狀態
+
+- Private Mart pending 時才顯示「重新計算損益」。
+- 同 owner `QUEUED/RUNNING/CANCEL_REQUESTED` 時按鈕 disabled，畫面需明示「已排隊／重算中／正在中止」。
+- `FAILED/CANCELLED` 必須顯示 backend safe reason 並提供「重新嘗試」；不可只讓使用者空等。
+- User App 不傳 `user_id`，也不在 Flutter／API request thread 計算 canonical PnL。

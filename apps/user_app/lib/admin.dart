@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 abstract class AdminApi {
@@ -15,6 +17,8 @@ String _label(Object? value) =>
     const {
       'queued': '排隊中',
       'running': '執行中',
+      'cancel_requested': '正在中止',
+      'cancelled': '已中止',
       'retrying': '重試中',
       'succeeded': '成功',
       'partial': '部分完成',
@@ -880,47 +884,285 @@ class AdminGovernancePage extends StatefulWidget {
 }
 
 class _AdminGovernancePageState extends State<AdminGovernancePage> {
-  late Future<dynamic> data = widget.api.get('/api/v1/admin/data-governance');
+  late Future<List<dynamic>> data = _load();
+  Timer? refreshTimer;
+  int? selectedWorkers;
+
+  Future<List<dynamic>> _load() => Future.wait([
+        widget.api.get('/api/v1/admin/data-governance'),
+        widget.api.get('/api/v1/admin/private-recalculations?limit=50'),
+        widget.api.get('/api/v1/admin/settings/private_recalc_workers'),
+      ]);
+
+  @override
+  void initState() {
+    super.initState();
+    refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted) _reload();
+    });
+  }
+
+  @override
+  void dispose() {
+    refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _reload() => setState(() => data = _load());
+
+  Future<void> _saveWorkers(int currentVersion) async {
+    final workers = selectedWorkers;
+    if (workers == null) return;
+    try {
+      await widget.api.put(
+        '/api/v1/admin/settings/private_recalc_workers',
+        {'value': {'workers': workers}, 'expected_version': currentVersion},
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('重算並行 worker 已調整為 $workers；下一次 execution 生效')),
+      );
+      _reload();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('無法更新重算並行數，請重新整理後再試')),
+        );
+      }
+    }
+  }
+
+  Future<void> _cancel(String requestId) async {
+    try {
+      await widget.api.post(
+        '/api/v1/admin/private-recalculations/${Uri.encodeComponent(requestId)}/cancel',
+        const {'reason': '管理員從 Admin UI 要求中止'},
+      );
+      if (!mounted) return;
+      _reload();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('無法中止此重算工作')),
+        );
+      }
+    }
+  }
+
+  Future<void> _forceFail(String requestId) async {
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('強制標記失敗'),
+        content: TextField(
+          controller: controller,
+          maxLength: 300,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'User 可見原因',
+            hintText: '例如：Private Mart 寫入失敗，已由管理員終止',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isNotEmpty) Navigator.pop(dialogContext, value);
+            },
+            child: const Text('回寫失敗'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (reason == null || !mounted) return;
+    try {
+      await widget.api.post(
+        '/api/v1/admin/private-recalculations/${Uri.encodeComponent(requestId)}/fail',
+        {'reason': reason},
+      );
+      if (!mounted) return;
+      _reload();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('無法回寫失敗狀態')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) => _AdminPage(
-      title: '資料治理',
-      child: FutureBuilder<dynamic>(
+        title: '資料治理',
+        action: IconButton(
+          tooltip: '重新整理',
+          onPressed: _reload,
+          icon: const Icon(Icons.refresh),
+        ),
+        child: FutureBuilder<List<dynamic>>(
           future: data,
           builder: (context, snapshot) {
             if (snapshot.hasError) return const _Message('資料治理暫時無法使用');
-            if (!snapshot.hasData)
+            if (!snapshot.hasData) {
               return const Center(child: CircularProgressIndicator());
-            final root = snapshot.data as Map<String, dynamic>;
+            }
+            final root = snapshot.data![0] as Map<String, dynamic>;
+            final queue = snapshot.data![1] as Map<String, dynamic>;
+            final setting = snapshot.data![2] as Map<String, dynamic>;
             final privateOperations =
                 (root['private_operations'] as Map?)?.cast<String, dynamic>() ??
                     const <String, dynamic>{};
+            final settingValue =
+                (setting['value'] as Map?)?.cast<String, dynamic>() ??
+                    const <String, dynamic>{};
+            final configuredWorkers =
+                (settingValue['workers'] as int?) ?? (queue['workers'] as int?) ?? 2;
+            final workerChoice = selectedWorkers ?? configuredWorkers;
+            final active = _items(queue)
+                .where((row) => {
+                      'QUEUED',
+                      'RUNNING',
+                      'CANCEL_REQUESTED'
+                    }.contains(row['status']))
+                .toList();
+            final history = _items(queue)
+                .where((row) => !active.contains(row))
+                .take(10)
+                .toList();
+
             return ListView(children: [
               const ListTile(
-                  title: Text('Private Pipeline'),
-                  subtitle: Text('僅顯示去識別化營運摘要，不顯示交易、持股或 user-to-symbol 關係。')),
+                title: Text('Private Pipeline'),
+                subtitle: Text('全體 reconciliation 與個人重算分離；個人 queue 不會帶其他 owner 一起重算。僅顯示去識別化 owner ref，不顯示交易、持股或 user-to-symbol 關係。'),
+              ),
               Card(
+                child: ListTile(
+                  title: Text(
+                    'Private Pipeline · ${_label(privateOperations['last_result'] ?? 'unknown')}',
+                  ),
+                  subtitle: Text(
+                    'checkpoint ${privateOperations['checkpoint_change_id'] ?? '未知'} · 最新 change ${privateOperations['latest_change_id'] ?? '未知'} · 待處理 ${privateOperations['pending_changes'] ?? '未知'}\n'
+                    '最新 ledger version ${privateOperations['latest_ledger_version'] ?? '未知'} · 估值日 ${privateOperations['valuation_date'] ?? '未知'} · lag ${privateOperations['valuation_lag_days'] ?? '未知'} 天\n'
+                    '最後更新 ${privateOperations['updated_at'] ?? '未知'}\n'
+                    'execution ${privateOperations['execution_name'] ?? '未知'}',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text('個人損益重算 workers',
+                  style: Theme.of(context).textTheme.titleMedium),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 10,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text('執行中 ${queue['running'] ?? 0} · 排隊 ${queue['queued'] ?? 0}'),
+                      DropdownButton<int>(
+                        key: const Key('private-recalc-workers'),
+                        value: workerChoice,
+                        items: [
+                          for (var value = 2; value <= 8; value++)
+                            DropdownMenuItem(
+                              value: value,
+                              child: Text('$value workers'),
+                            ),
+                        ],
+                        onChanged: (value) =>
+                            setState(() => selectedWorkers = value),
+                      ),
+                      FilledButton.tonal(
+                        onPressed: workerChoice == configuredWorkers
+                            ? null
+                            : () => _saveWorkers(setting['version'] as int? ?? 0),
+                        child: const Text('套用並行數'),
+                      ),
+                      const Text('2–8；只影響下一次 queue execution，Iceberg commit 仍序列化。'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text('目前 queue / workers',
+                  style: Theme.of(context).textTheme.titleMedium),
+              if (active.isEmpty)
+                const Card(
                   child: ListTile(
-                      title: Text(
-                          'Private Pipeline · ${_label(privateOperations['last_result'] ?? 'unknown')}'),
-                      subtitle: Text(
-                          'checkpoint ${privateOperations['checkpoint_change_id'] ?? '未知'} · 最新 change ${privateOperations['latest_change_id'] ?? '未知'} · 待處理 ${privateOperations['pending_changes'] ?? '未知'}\n'
-                          '最新 ledger version ${privateOperations['latest_ledger_version'] ?? '未知'} · 估值日 ${privateOperations['valuation_date'] ?? '未知'} · lag ${privateOperations['valuation_lag_days'] ?? '未知'} 天\n'
-                          '最後更新 ${privateOperations['updated_at'] ?? '未知'}\n'
-                          'execution ${privateOperations['execution_name'] ?? '未知'}'))),
-              const ListTile(
-                  title: Text('容量與保留政策'),
-                  subtitle: Text('使用已持久化營運證據；未知不補零。Private 不套用公開清理政策。')),
-              for (final row in _items(snapshot.data))
+                    title: Text('目前沒有個人重算工作'),
+                    subtitle: Text('同一 owner 在完成或失敗前不會接受第二筆 active request。'),
+                  ),
+                ),
+              for (final row in active)
                 Card(
-                    child: ListTile(
-                        title: Text('${row['layer']}'),
-                        subtitle: Text(
-                            '保留 ${row['retention'] ?? '未定義'}\n最後維護 ${row['maintenance_at'] ?? '未知'}\n'
-                            '有效物件 ${row['live_objects'] ?? '未知'} · 有效 bytes ${row['active_bytes'] ?? '未知'}\n'
-                            '非當前版本 bytes ${row['noncurrent_bytes'] ?? '未知'} · soft-deleted bytes ${row['soft_deleted_bytes'] ?? '未知'}\n'
-                            '計費 bytes ${row['billable_bytes'] ?? '未知'}'))),
+                  child: ListTile(
+                    leading: const Icon(Icons.memory_outlined),
+                    title: Text(
+                      'owner ${row['owner_ref']} · ${_label(row['status'].toString().toLowerCase())}',
+                    ),
+                    subtitle: Text(
+                      'ledger v${row['requested_ledger_version']} · request ${row['request_id']}\n'
+                      'execution ${row['worker_execution'] ?? '尚未啟動'} · worker ${row['worker_task_index'] ?? '—'}\n'
+                      '${row['safe_message'] ?? '沒有錯誤訊息'}',
+                    ),
+                    trailing: Wrap(
+                      spacing: 6,
+                      children: [
+                        TextButton(
+                          onPressed: row['status'] == 'CANCEL_REQUESTED'
+                              ? null
+                              : () => _cancel(row['request_id'].toString()),
+                          child: const Text('中止'),
+                        ),
+                        FilledButton.tonal(
+                          onPressed: () =>
+                              _forceFail(row['request_id'].toString()),
+                          child: const Text('回寫失敗'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              Text('最近終態', style: Theme.of(context).textTheme.titleMedium),
+              for (final row in history)
+                ListTile(
+                  title: Text(
+                    'owner ${row['owner_ref']} · ${_label(row['status'].toString().toLowerCase())}',
+                  ),
+                  subtitle: Text(
+                    '${row['finished_at'] ?? row['updated_at'] ?? '—'} · '
+                    '${row['safe_message'] ?? row['error_code'] ?? '完成'}',
+                  ),
+                ),
+              const Divider(),
+              const ListTile(
+                title: Text('容量與保留政策'),
+                subtitle: Text('使用已持久化營運證據；未知不補零。Private 不套用公開清理政策。'),
+              ),
+              for (final row in _items(root))
+                Card(
+                  child: ListTile(
+                    title: Text('${row['layer']}'),
+                    subtitle: Text(
+                      '保留 ${row['retention'] ?? '未定義'}\n最後維護 ${row['maintenance_at'] ?? '未知'}\n'
+                      '有效物件 ${row['live_objects'] ?? '未知'} · 有效 bytes ${row['active_bytes'] ?? '未知'}\n'
+                      '非當前版本 bytes ${row['noncurrent_bytes'] ?? '未知'} · soft-deleted bytes ${row['soft_deleted_bytes'] ?? '未知'}\n'
+                      '計費 bytes ${row['billable_bytes'] ?? '未知'}',
+                    ),
+                  ),
+                ),
             ]);
-          }));
+          },
+        ),
+      );
 }
 
 class AdminStockWorkbench extends StatefulWidget {

@@ -384,6 +384,15 @@ class AdminService:
             raise AdminValidationError("retention requires cleanup_enabled and days between 1 and 3650")
         if key == "source_config" and not isinstance(value, dict):
             raise AdminValidationError("source_config must be an object")
+        if key == "private_recalc_workers":
+            if (
+                not isinstance(value, dict)
+                or set(value) != {"workers"}
+                or isinstance(value.get("workers"), bool)
+                or not isinstance(value.get("workers"), int)
+                or not 2 <= value["workers"] <= 8
+            ):
+                raise AdminValidationError("private_recalc_workers requires workers between 2 and 8")
         current = self.control.get_admin_setting(key)
         scheduler = None
         if key == "schedule":

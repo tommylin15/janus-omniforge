@@ -200,6 +200,164 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Ledger disables duplicate recalc while owner request is active',
+      (tester) async {
+    mobileView(tester);
+    final year = DateTime.now().year;
+    final api = FinalFakeApi({
+      '/api/v1/me/portfolio/summary': {
+        'items': [
+          {
+            'currency': 'TWD',
+            'market_value': null,
+            'cost_basis': '100',
+            'unrealized_pnl': null,
+            'unrealized_return': null,
+            'aggregate_status': 'withheld',
+            'valuation_status': 'partial',
+            'ledger_version': 162,
+            'valuation_date': '2026-10-06'
+          }
+        ]
+      },
+      '/api/v1/me/journal/pnl?year=$year': const [],
+      '/api/v1/me/journal/positions': const [],
+      '/api/v1/me/journal/history?year=$year': [
+        {
+          'event_id': 'pending-163',
+          'ledger_version': 163,
+          'record_version': 1,
+          'event_action': 'ORIGINAL',
+          'event_type': 'BUY',
+          'trade_date': '2026-10-07',
+          'symbol': '2330',
+          'shares': '1',
+          'price': '100',
+          'currency': 'TWD',
+        }
+      ],
+      '/api/v1/me/journal/recalculation-status': {
+        'request_id': 'recalc-1',
+        'requested_ledger_version': 163,
+        'status': 'QUEUED',
+        'trigger_source': 'manual',
+        'can_retry': false,
+      },
+      '/api/v1/me/portfolio/quotes': {
+        'positions': const [],
+        'items': const [],
+        'checked_at': '2026-10-07T07:00:00+08:00',
+        'market_open': false,
+      },
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FinalLedgerPage(
+          api,
+          active: false,
+          now: () => DateTime.utc(2026, 10, 6, 23),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final button =
+        tester.widget<OutlinedButton>(find.byKey(const Key('recalculate-pnl')));
+    expect(button.onPressed, isNull);
+    expect(find.text('重算進行中'), findsOneWidget);
+    expect(find.text('已排隊，等待重算'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
+  testWidgets('Ledger surfaces failed recalc reason and permits retry',
+      (tester) async {
+    mobileView(tester);
+    final year = DateTime.now().year;
+    final api = FinalFakeApi({
+      '/api/v1/me/portfolio/summary': {
+        'items': [
+          {
+            'currency': 'TWD',
+            'market_value': null,
+            'cost_basis': '100',
+            'unrealized_pnl': null,
+            'unrealized_return': null,
+            'aggregate_status': 'withheld',
+            'valuation_status': 'partial',
+            'ledger_version': 162,
+            'valuation_date': '2026-10-06'
+          }
+        ]
+      },
+      '/api/v1/me/journal/pnl?year=$year': const [],
+      '/api/v1/me/journal/positions': const [],
+      '/api/v1/me/journal/history?year=$year': [
+        {
+          'event_id': 'pending-163',
+          'ledger_version': 163,
+          'record_version': 1,
+          'event_action': 'ORIGINAL',
+          'event_type': 'BUY',
+          'trade_date': '2026-10-07',
+          'symbol': '2330',
+          'shares': '1',
+          'price': '100',
+          'currency': 'TWD',
+        }
+      ],
+      '/api/v1/me/journal/recalculation-status': {
+        'request_id': 'recalc-1',
+        'requested_ledger_version': 163,
+        'status': 'FAILED',
+        'error_code': 'ICEBERG_ERROR',
+        'message': 'Private Mart 寫入失敗，已停止本次工作',
+        'can_retry': true,
+      },
+      '/api/v1/me/journal/recalculate': {
+        'request_id': 'recalc-2',
+        'requested_ledger_version': 163,
+        'status': 'QUEUED',
+        'already_active': false,
+      },
+      '/api/v1/me/portfolio/quotes': {
+        'positions': const [],
+        'items': const [],
+        'checked_at': '2026-10-07T07:00:00+08:00',
+        'market_open': false,
+      },
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FinalLedgerPage(
+          api,
+          active: false,
+          now: () => DateTime.utc(2026, 10, 6, 23),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('重新嘗試'), findsOneWidget);
+    expect(
+      find.text('重算失敗：Private Mart 寫入失敗，已停止本次工作'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('重新嘗試'));
+    await tester.pumpAndSettle();
+    expect(api.posts, contains('/api/v1/me/journal/recalculate'));
+    expect(find.text('損益已排入重新計算'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
   testWidgets('Ledger confirms zero only when current-year history is confirmed empty',
       (tester) async {
     mobileView(tester);

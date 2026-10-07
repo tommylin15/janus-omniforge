@@ -34,8 +34,10 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   late Future<List<dynamic>> coreData = loadCore();
   Future<List<dynamic>>? sectionData;
   Timer? quoteTimer;
+  Timer? recalcTimer;
   bool quoteBusy = false;
   bool pnlRecalcBusy = false;
+  Map<String, dynamic>? recalcStatus;
   bool foreground = true;
   int quoteGeneration = 0;
   DateTime? offSessionQuoteDate;
@@ -183,6 +185,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   void dispose() {
     quoteGeneration++;
     quoteTimer?.cancel();
+    recalcTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -207,6 +210,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
         cached('/api/v1/me/journal/pnl?year=$currentYear'),
         cached('/api/v1/me/journal/positions'),
         cached('/api/v1/me/journal/history?year=$currentYear'),
+        cached('/api/v1/me/journal/recalculation-status'),
       ]);
     } finally {
       stopwatch.stop();
@@ -379,20 +383,62 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     }
   }
 
+  bool recalcActive(Map<String, dynamic>? value) =>
+      {'QUEUED', 'RUNNING', 'CANCEL_REQUESTED'}.contains(value?['status']);
+
+  String recalcLabel(Map<String, dynamic>? value) {
+    return switch (value?['status']) {
+      'QUEUED' => '已排隊，等待重算',
+      'RUNNING' => '損益重算中…',
+      'CANCEL_REQUESTED' => '正在中止重算…',
+      'FAILED' => '重算失敗：${fvText(value?['message'], missing: '可重新嘗試')}',
+      'CANCELLED' => '本次重算已中止：${fvText(value?['message'], missing: '可重新嘗試')}',
+      _ => '',
+    };
+  }
+
+  void startRecalcPolling() {
+    if (!recalcActive(recalcStatus) || recalcTimer?.isActive == true) return;
+    recalcTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      unawaited(refreshRecalcStatus());
+    });
+  }
+
+  Future<void> refreshRecalcStatus() async {
+    try {
+      final result =
+          await widget.api.get('/api/v1/me/journal/recalculation-status');
+      if (!mounted) return;
+      final next = Map<String, dynamic>.from(result as Map);
+      final wasActive = recalcActive(recalcStatus);
+      setState(() => recalcStatus = next);
+      if (recalcActive(next)) {
+        startRecalcPolling();
+      } else {
+        recalcTimer?.cancel();
+        if (wasActive) reload();
+      }
+    } catch (_) {
+      // Keep the last visible state; user can manually refresh the page.
+    }
+  }
+
   Future<void> recalculatePnl() async {
-    if (pnlRecalcBusy) return;
+    if (pnlRecalcBusy || recalcActive(recalcStatus)) return;
     setState(() => pnlRecalcBusy = true);
     try {
-      await widget.api.post('/api/v1/me/journal/recalculate', const {});
+      final result =
+          await widget.api.post('/api/v1/me/journal/recalculate', const {});
       if (!mounted) return;
+      setState(() => recalcStatus = Map<String, dynamic>.from(result as Map));
+      startRecalcPolling();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('損益已重新計算')),
+        const SnackBar(content: Text('損益已排入重新計算')),
       );
-      reload();
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('損益重新計算失敗，請稍後重試')),
+          const SnackBar(content: Text('損益重新計算無法排入，請稍後重試')),
         );
       }
     } finally {
@@ -943,11 +989,22 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
             future: coreData,
             builder: (context, snapshot) {
               final values =
-                  snapshot.data ?? const [null, null, null, null];
+                  snapshot.data ?? const [null, null, null, null, null];
               final summary = fvRows(values[0]);
               final currentPnl = fvRows(values[1]);
               final canonicalPositions = fvRows(values[2]);
               final currentHistory = fvRows(values[3]);
+              final loadedRecalcStatus = values.length > 4 && values[4] is Map
+                  ? Map<String, dynamic>.from(values[4] as Map)
+                  : <String, dynamic>{'status': 'IDLE', 'can_retry': true};
+              final effectiveRecalcStatus = recalcStatus ?? loadedRecalcStatus;
+              if (recalcStatus == null && recalcActive(loadedRecalcStatus)) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted || recalcStatus != null) return;
+                  setState(() => recalcStatus = loadedRecalcStatus);
+                  startRecalcPolling();
+                });
+              }
               final quotePositions = section == 0 && intraday != null
                   ? fvRows(intraday!['positions'])
                   : const <dynamic>[];
@@ -1041,18 +1098,44 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                     aggregate: aggregate,
                     withheld: withheld,
                   ),
-                  if (ytd == '待更新／尚未確認')
+                  if (ytd == '待更新／尚未確認') ...[
                     Align(
                       alignment: Alignment.centerLeft,
                       child: OutlinedButton.icon(
                         key: const Key('recalculate-pnl'),
-                        onPressed: pnlRecalcBusy ? null : recalculatePnl,
+                        onPressed: pnlRecalcBusy ||
+                                recalcActive(effectiveRecalcStatus)
+                            ? null
+                            : recalculatePnl,
                         icon: const Icon(Icons.calculate_outlined, size: 18),
                         label: Text(
-                          pnlRecalcBusy ? '重新計算中' : '重新計算損益',
+                          pnlRecalcBusy
+                              ? '排入中'
+                              : recalcActive(effectiveRecalcStatus)
+                                  ? '重算進行中'
+                                  : effectiveRecalcStatus['status'] == 'FAILED' ||
+                                          effectiveRecalcStatus['status'] ==
+                                              'CANCELLED'
+                                      ? '重新嘗試'
+                                      : '重新計算損益',
                         ),
                       ),
                     ),
+                    if (recalcLabel(effectiveRecalcStatus).isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          recalcLabel(effectiveRecalcStatus),
+                          key: const Key('recalculate-pnl-status'),
+                          style: TextStyle(
+                            color: effectiveRecalcStatus['status'] == 'FAILED'
+                                ? Theme.of(context).colorScheme.error
+                                : fvMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                  ],
                   if (withheld)
                     fvBoundedState(
                       '正式總額暫不發布${affected.isEmpty ? '' : ' · 受影響 ${affected.join('、')}'}；持股 operational shares／cost 仍可顯示。',

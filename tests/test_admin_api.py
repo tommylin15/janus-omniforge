@@ -163,6 +163,20 @@ class AdminServiceTests(unittest.TestCase):
             self.admin.save_setting("schedule", {"time": "09:00", "enabled": True}, actor="operator", expected_version=0)
         self.assertEqual(self.admin.audit()[0]["resource_key"], "schedule")
 
+    def test_private_recalc_worker_setting_is_bounded_2_to_8_and_audited(self):
+        saved = self.admin.save_setting(
+            "private_recalc_workers", {"workers": 4}, actor="operator"
+        )
+        self.assertEqual(saved["value"]["workers"], 4)
+        self.assertEqual(self.admin.setting("private_recalc_workers")["value"]["workers"], 4)
+        for invalid in (1, 9, True, "4"):
+            with self.assertRaises(AdminValidationError):
+                self.admin.save_setting(
+                    "private_recalc_workers", {"workers": invalid}, actor="operator"
+                )
+        self.assertEqual(self.admin.audit()[0]["resource_key"], "private_recalc_workers")
+
+
     def test_governance_is_typed_diffed_historic_and_optimistically_locked(self):
         current = self.admin.governance()
         self.assertEqual((current["status"], current["version"]), ("development-default", 0))

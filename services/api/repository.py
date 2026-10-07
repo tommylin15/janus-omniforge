@@ -604,6 +604,368 @@ class PostgresWorkspaceRepository:
             self._record_mutation(connection,user_id,key,"watchlist-order",str(uuid4()))
         return self.watchlist(user_id)
 
+    @staticmethod
+    def _reap_stale_recalculations(connection: Any) -> None:
+        connection.execute(
+            """UPDATE private.recalculation_requests
+               SET status=CASE WHEN status='CANCEL_REQUESTED' THEN 'CANCELLED' ELSE 'FAILED' END,
+                   error_code=CASE WHEN status='CANCEL_REQUESTED' THEN 'ADMIN_CANCELLED' ELSE 'WORKER_TIMEOUT' END,
+                   safe_message=CASE
+                     WHEN status='CANCEL_REQUESTED' THEN COALESCE(safe_message,'管理員已中止本次重算')
+                     ELSE '損益重算 worker 中斷或逾時，已停止等待，可重新嘗試'
+                   END,
+                   finished_at=now(),updated_at=now()
+               WHERE status IN ('RUNNING','CANCEL_REQUESTED')
+                 AND updated_at < now() - interval '35 minutes'"""
+        )
+        dispatch = connection.execute(
+            "SELECT active,updated_at FROM private.recalculation_dispatch WHERE singleton=true FOR UPDATE"
+        ).fetchone()
+        if dispatch and dispatch["active"]:
+            running = connection.execute(
+                """SELECT 1 FROM private.recalculation_requests
+                   WHERE status IN ('RUNNING','CANCEL_REQUESTED') LIMIT 1"""
+            ).fetchone()
+            connection.execute(
+                """UPDATE private.recalculation_requests
+                   SET status='FAILED',error_code='DISPATCH_TIMEOUT',
+                       safe_message='損益重算 worker 未能啟動，已停止等待，可重新嘗試',
+                       finished_at=now(),updated_at=now()
+                   WHERE status='QUEUED'
+                     AND %s < now() - interval '5 minutes'
+                     AND %s = false""",
+                (dispatch["updated_at"], bool(running)),
+            )
+        connection.execute(
+            """UPDATE private.recalculation_dispatch
+               SET active=false,updated_at=now()
+               WHERE singleton=true
+                 AND NOT EXISTS (
+                   SELECT 1 FROM private.recalculation_requests
+                   WHERE status IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
+                 )"""
+        )
+
+    def enqueue_recalculation(self, user_id: UUID, trigger_source: str) -> dict[str, Any]:
+        if trigger_source not in {"mutation", "manual"}:
+            raise ValueError("recalculation trigger source is invalid")
+        with self._connection() as connection:
+            self._reap_stale_recalculations(connection)
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"private-recalc:{user_id}",))
+            latest = connection.execute(
+                "SELECT ledger_version FROM private.users WHERE user_id=%s",
+                (user_id,),
+            ).fetchone()
+            if not latest:
+                raise NotFoundError("user not found")
+            active = connection.execute(
+                """SELECT * FROM private.recalculation_requests
+                   WHERE user_id=%s AND status IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
+                   ORDER BY requested_at DESC LIMIT 1""",
+                (user_id,),
+            ).fetchone()
+            if active:
+                refreshed = connection.execute(
+                    """UPDATE private.recalculation_requests
+                       SET requested_ledger_version=GREATEST(requested_ledger_version,%s),updated_at=now()
+                       WHERE request_id=%s RETURNING *""",
+                    (int(latest["ledger_version"]), active["request_id"]),
+                ).fetchone()
+                result = dict(refreshed)
+                result["should_dispatch"] = False
+                result["already_active"] = True
+                return result
+            request_id = uuid4()
+            row = connection.execute(
+                """INSERT INTO private.recalculation_requests(
+                       request_id,user_id,requested_ledger_version,status,trigger_source
+                   ) VALUES(%s,%s,%s,'QUEUED',%s)
+                   RETURNING *""",
+                (request_id, user_id, int(latest["ledger_version"]), trigger_source),
+            ).fetchone()
+            dispatch = connection.execute(
+                "SELECT active,generation FROM private.recalculation_dispatch WHERE singleton=true FOR UPDATE"
+            ).fetchone()
+            if not dispatch:
+                raise RuntimeError("recalculation dispatch state is unavailable")
+            should_dispatch = not bool(dispatch["active"])
+            if should_dispatch:
+                connection.execute(
+                    """UPDATE private.recalculation_dispatch
+                       SET active=true,generation=generation+1,updated_at=now()
+                       WHERE singleton=true"""
+                )
+            result = dict(row)
+            result["should_dispatch"] = should_dispatch
+            result["already_active"] = False
+            return result
+
+    def recalculation_status(self, user_id: UUID) -> dict[str, Any] | None:
+        with self._connection() as connection:
+            self._reap_stale_recalculations(connection)
+            row = connection.execute(
+                """SELECT request_id,requested_ledger_version,status,trigger_source,error_code,safe_message,
+                          requested_at,started_at,finished_at,updated_at
+                   FROM private.recalculation_requests
+                   WHERE user_id=%s
+                   ORDER BY requested_at DESC LIMIT 1""",
+                (user_id,),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def fail_recalculation_dispatch(self, request_id: UUID, code: str, message: str) -> None:
+        safe_code = str(code or "TRIGGER_FAILED")[:80]
+        safe_message = str(message or "重算服務啟動失敗")[:300]
+        with self._connection() as connection:
+            connection.execute(
+                """UPDATE private.recalculation_requests
+                   SET status='FAILED',error_code=%s,safe_message=%s,finished_at=now(),updated_at=now()
+                   WHERE request_id=%s AND status='QUEUED'""",
+                (safe_code, safe_message, request_id),
+            )
+            connection.execute(
+                """UPDATE private.recalculation_dispatch d
+                   SET active=false,updated_at=now()
+                   WHERE d.singleton=true
+                     AND NOT EXISTS (
+                       SELECT 1 FROM private.recalculation_requests
+                       WHERE status IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
+                     )"""
+            )
+
+    def claim_recalculation(self, execution_name: str | None, task_index: int) -> dict[str, Any] | None:
+        if task_index < 0:
+            raise ValueError("worker task index is invalid")
+        with self._connection() as connection:
+            self._reap_stale_recalculations(connection)
+            row = connection.execute(
+                """SELECT * FROM private.recalculation_requests
+                   WHERE status='QUEUED'
+                   ORDER BY requested_at,request_id
+                   FOR UPDATE SKIP LOCKED
+                   LIMIT 1"""
+            ).fetchone()
+            if not row:
+                return None
+            lease = uuid4()
+            claimed = connection.execute(
+                """UPDATE private.recalculation_requests
+                   SET status='RUNNING',lease_token=%s,worker_execution=%s,worker_task_index=%s,
+                       attempt_count=attempt_count+1,started_at=COALESCE(started_at,now()),updated_at=now(),
+                       error_code=NULL,safe_message=NULL
+                   WHERE request_id=%s
+                   RETURNING *""",
+                (lease, (execution_name or "")[:300] or None, task_index, row["request_id"]),
+            ).fetchone()
+            connection.execute(
+                "UPDATE private.recalculation_dispatch SET updated_at=now() WHERE singleton=true AND active"
+            )
+            return dict(claimed)
+
+    def heartbeat_recalculation(self, request_id: UUID, lease_token: UUID) -> None:
+        with self._connection() as connection:
+            connection.execute(
+                """UPDATE private.recalculation_requests
+                   SET updated_at=now()
+                   WHERE request_id=%s AND lease_token=%s AND status='RUNNING'""",
+                (request_id, lease_token),
+            )
+            connection.execute(
+                "UPDATE private.recalculation_dispatch SET updated_at=now() WHERE singleton=true AND active"
+            )
+
+    def recalculation_should_stop(self, request_id: UUID, lease_token: UUID) -> bool:
+        with self._connection() as connection:
+            row = connection.execute(
+                """SELECT status,lease_token FROM private.recalculation_requests
+                   WHERE request_id=%s""",
+                (request_id,),
+            ).fetchone()
+            return (
+                not row
+                or row["lease_token"] != lease_token
+                or row["status"] != "RUNNING"
+            )
+
+    def finish_recalculation(
+        self,
+        request_id: UUID,
+        lease_token: UUID,
+        *,
+        succeeded: bool,
+        processed_ledger_version: int | None = None,
+        error_code: str | None = None,
+        safe_message: str | None = None,
+    ) -> dict[str, Any] | None:
+        with self._connection() as connection:
+            current = connection.execute(
+                """SELECT status FROM private.recalculation_requests
+                   WHERE request_id=%s AND lease_token=%s FOR UPDATE""",
+                (request_id, lease_token),
+            ).fetchone()
+            if not current:
+                return None
+            if current["status"] == "CANCEL_REQUESTED":
+                status_value, code, message = "CANCELLED", "ADMIN_CANCELLED", safe_message or "管理員已中止本次重算"
+            elif current["status"] != "RUNNING":
+                return None
+            elif succeeded:
+                if processed_ledger_version is None:
+                    raise ValueError("processed ledger version is required for success")
+                version = connection.execute(
+                    """SELECT requested_ledger_version FROM private.recalculation_requests
+                       WHERE request_id=%s AND lease_token=%s""",
+                    (request_id, lease_token),
+                ).fetchone()
+                if version and int(version["requested_ledger_version"]) > int(processed_ledger_version):
+                    row = connection.execute(
+                        """UPDATE private.recalculation_requests
+                           SET status='QUEUED',lease_token=NULL,worker_execution=NULL,worker_task_index=NULL,
+                               error_code=NULL,safe_message='交易版本已更新，重新排隊計算',updated_at=now()
+                           WHERE request_id=%s AND lease_token=%s
+                           RETURNING *""",
+                        (request_id, lease_token),
+                    ).fetchone()
+                    return dict(row) if row else None
+                status_value, code, message = "SUCCEEDED", None, None
+            else:
+                status_value = "FAILED"
+                code = str(error_code or "RECALCULATION_FAILED")[:80]
+                message = str(safe_message or "損益重算失敗，可重新嘗試")[:300]
+            row = connection.execute(
+                """UPDATE private.recalculation_requests
+                   SET status=%s,error_code=%s,safe_message=%s,finished_at=now(),updated_at=now()
+                   WHERE request_id=%s AND lease_token=%s
+                   RETURNING *""",
+                (status_value, code, message, request_id, lease_token),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def release_recalculation_dispatch_if_idle(self) -> bool:
+        with self._connection() as connection:
+            dispatch = connection.execute(
+                "SELECT active FROM private.recalculation_dispatch WHERE singleton=true FOR UPDATE"
+            ).fetchone()
+            if not dispatch:
+                return False
+            active = connection.execute(
+                """SELECT 1 FROM private.recalculation_requests
+                   WHERE status IN ('QUEUED','RUNNING','CANCEL_REQUESTED') LIMIT 1"""
+            ).fetchone()
+            if active:
+                return False
+            connection.execute(
+                "UPDATE private.recalculation_dispatch SET active=false,updated_at=now() WHERE singleton=true"
+            )
+            return True
+
+    @contextmanager
+    def private_mart_write_lock(self) -> Iterator[None]:
+        import psycopg
+        with psycopg.connect(self.dsn, connect_timeout=5, sslmode="require", autocommit=True) as connection:
+            connection.execute("SELECT pg_advisory_lock(1835102836,3)")
+            try:
+                yield
+            finally:
+                connection.execute("SELECT pg_advisory_unlock(1835102836,3)")
+
+    def admin_recalculations(self, limit: int = 50) -> list[dict[str, Any]]:
+        bounded = min(max(int(limit), 1), 100)
+        with self._connection() as connection:
+            self._reap_stale_recalculations(connection)
+            return [dict(row) for row in connection.execute(
+                """SELECT request_id,left(user_id::text,8) AS owner_ref,requested_ledger_version,
+                          status,trigger_source,worker_execution,worker_task_index,attempt_count,
+                          error_code,safe_message,requested_at,started_at,finished_at,updated_at
+                   FROM private.recalculation_requests
+                   ORDER BY requested_at DESC LIMIT %s""",
+                (bounded,),
+            ).fetchall()]
+
+    def admin_cancel_recalculation(self, request_id: UUID, message: str, actor: str) -> dict[str, Any]:
+        safe_message = str(message or "管理員要求中止")[:300]
+        safe_actor = str(actor or "").strip()[:254]
+        if not safe_actor:
+            raise ValueError("admin actor is required")
+        with self._connection() as connection:
+            row = connection.execute(
+                """SELECT status FROM private.recalculation_requests
+                   WHERE request_id=%s FOR UPDATE""",
+                (request_id,),
+            ).fetchone()
+            if not row:
+                raise NotFoundError("recalculation request not found")
+            if row["status"] == "QUEUED":
+                status_value = "CANCELLED"
+                finished = True
+            elif row["status"] == "RUNNING":
+                status_value = "CANCEL_REQUESTED"
+                finished = False
+            elif row["status"] == "CANCEL_REQUESTED":
+                status_value = "CANCEL_REQUESTED"
+                finished = False
+            else:
+                return dict(connection.execute(
+                    "SELECT * FROM private.recalculation_requests WHERE request_id=%s",
+                    (request_id,),
+                ).fetchone())
+            updated = connection.execute(
+                """UPDATE private.recalculation_requests
+                   SET status=%s,error_code='ADMIN_CANCELLED',safe_message=%s,
+                       admin_actor=%s,admin_action='cancel',
+                       finished_at=CASE WHEN %s THEN now() ELSE finished_at END,updated_at=now()
+                   WHERE request_id=%s RETURNING *""",
+                (status_value, safe_message, safe_actor, finished, request_id),
+            ).fetchone()
+            connection.execute(
+                """UPDATE private.recalculation_dispatch
+                   SET active=false,updated_at=now()
+                   WHERE singleton=true
+                     AND NOT EXISTS (
+                       SELECT 1 FROM private.recalculation_requests
+                       WHERE status IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
+                     )"""
+            )
+            return dict(updated)
+
+    def admin_fail_recalculation(self, request_id: UUID, message: str, actor: str) -> dict[str, Any]:
+        safe_message = str(message or "").strip()
+        safe_actor = str(actor or "").strip()[:254]
+        if not safe_actor:
+            raise ValueError("admin actor is required")
+        if not safe_message:
+            raise ValueError("failure reason is required")
+        if len(safe_message) > 300:
+            raise ValueError("failure reason is too long")
+        with self._connection() as connection:
+            row = connection.execute(
+                """UPDATE private.recalculation_requests
+                   SET status='FAILED',error_code='ADMIN_FORCED_FAILED',safe_message=%s,
+                       admin_actor=%s,admin_action='force_failed',
+                       finished_at=now(),updated_at=now()
+                   WHERE request_id=%s AND status IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
+                   RETURNING *""",
+                (safe_message, safe_actor, request_id),
+            ).fetchone()
+            if row:
+                connection.execute(
+                    """UPDATE private.recalculation_dispatch
+                       SET active=false,updated_at=now()
+                       WHERE singleton=true
+                         AND NOT EXISTS (
+                           SELECT 1 FROM private.recalculation_requests
+                           WHERE status IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
+                         )"""
+                )
+                return dict(row)
+            existing = connection.execute(
+                "SELECT * FROM private.recalculation_requests WHERE request_id=%s",
+                (request_id,),
+            ).fetchone()
+            if not existing:
+                raise NotFoundError("recalculation request not found")
+            return dict(existing)
+
     def pipeline_batch(self, checkpoint: int, limit: int = 500) -> list[dict[str, Any]]:
         with self._connection() as connection:
             return [dict(row) for row in connection.execute(

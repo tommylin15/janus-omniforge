@@ -39,7 +39,8 @@ from .models import (AdminResponseOut, AnalysisFeedbackIn, CorePageOut, CoreSumm
                      WatchlistIn, WatchlistOrderIn,
                      GovernanceDiffIn, GovernanceEditIn, MembershipEditIn)
 from .repository import ConflictError, NotFoundError, OversellError, repository_from_env
-from .private_pipeline import CorePriceReader, PrivatePipeline, ledger_net_cash_flow, resolve_valuation_date, stock_identity
+from .private_pipeline import ledger_net_cash_flow, stock_identity
+from .private_recalc_queue import CloudRunPrivateRecalcTrigger, QueuedPrivateRecalculator
 from .public_runtime import build_admin_service, build_core_service, build_pipeline_service, build_public_service
 from .store import PrivateIcebergStore
 from .intraday_quotes import MisQuotes, TAIPEI, market_phase, value_holdings
@@ -160,20 +161,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     repository = repository or _Lazy(repository_from_env)
     quote_router = QuoteRouter(repository, quotes)
     store = store or _Lazy(PrivateIcebergStore.from_env)
-    if private_recalculator is None:
-        def build_private_recalculator() -> PrivatePipeline:
-            load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", {
-                "CORE_CATALOG_PASSWORD": "core_catalog_password",
-            })
-            market = CorePriceReader.from_env()
-            return PrivatePipeline(
-                repository,
-                store,
-                market,
-                market.memberships,
-                lambda: resolve_valuation_date(None, market.latest_valuation_date),
-            )
-        private_recalculator = _Lazy(build_private_recalculator)
+    queued_recalculator = private_recalculator is None
     core = core or _Lazy(CoreContextReader.from_env)
     if query_core is None:
         def unavailable_core() -> Any:
@@ -210,6 +198,21 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                 LOGGER.warning("pipeline service unavailable: %s", type(error).__name__)
                 raise HTTPException(status_code=503, detail="pipeline service unavailable") from error
         pipeline_service = _Lazy(unavailable_pipeline)
+
+    if queued_recalculator:
+        def private_recalc_worker_count() -> int:
+            setting = admin_service.setting("private_recalc_workers").get("value") or {"workers": 2}
+            workers = int(setting.get("workers", 2)) if isinstance(setting, dict) else 2
+            if not 2 <= workers <= 8:
+                raise RuntimeError("private recalculation worker setting is invalid")
+            return workers
+
+        private_recalculator = _Lazy(lambda: QueuedPrivateRecalculator(
+            repository,
+            private_recalc_worker_count,
+            CloudRunPrivateRecalcTrigger.from_env(),
+        ))
+
     contexts = ContextSourceService(repository,store,core)
     auth = GoogleUserAuthenticator(audience or os.getenv("GOOGLE_USER_CLIENT_ID", ""), repository,
                                    allowed_emails=allowed_user_emails(), verifier=verifier)
@@ -248,15 +251,17 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                 phase = "closed"
         return current, phase
 
-    def recalculate_private_mart(user_id: UUID) -> dict[str, Any]:
+    def recalculate_private_mart(user_id: UUID, trigger_source: str) -> dict[str, Any]:
+        if queued_recalculator:
+            return dict(private_recalculator.run_user(user_id, trigger_source))
         return dict(private_recalculator.run_user(user_id))
 
     def recalculate_private_mart_safely(user_id: UUID) -> None:
         try:
-            recalculate_private_mart(user_id)
+            recalculate_private_mart(user_id, "mutation")
         except Exception as error:
             LOGGER.warning(
-                "immediate private mart recalculation failed; scheduled pipeline remains fallback: %s",
+                "immediate private recalculation enqueue/dispatch failed; scheduled pipeline remains fallback: %s",
                 type(error).__name__,
             )
 
@@ -687,16 +692,34 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         background_tasks.add_task(recalculate_private_mart_safely,current.user_id)
         return jsonable_encoder(result)
 
-    @private.post("/journal/recalculate")
+    @private.post("/journal/recalculate", status_code=202)
     def recalculate_ledger(current: AuthenticatedUser = Depends(user)):
         try:
-            result=recalculate_private_mart(current.user_id)
+            result=recalculate_private_mart(current.user_id, "manual")
         except Exception as error:
-            LOGGER.warning("manual private mart recalculation failed: %s",type(error).__name__)
+            LOGGER.warning("manual private recalculation enqueue/dispatch failed: %s",type(error).__name__)
             raise HTTPException(status_code=503,detail="損益重新計算暫時無法使用") from error
         return jsonable_encoder({
             **result,
             "ledger_version":repository.latest_ledger_version(current.user_id),
+        })
+
+    @private.get("/journal/recalculation-status")
+    def recalculation_status(current: AuthenticatedUser = Depends(user)):
+        value = repository.recalculation_status(current.user_id)
+        if not value:
+            return {"status": "IDLE", "can_retry": True}
+        return jsonable_encoder({
+            "request_id": value["request_id"],
+            "requested_ledger_version": value["requested_ledger_version"],
+            "status": value["status"],
+            "trigger_source": value["trigger_source"],
+            "error_code": value.get("error_code"),
+            "message": value.get("safe_message"),
+            "requested_at": value.get("requested_at"),
+            "started_at": value.get("started_at"),
+            "finished_at": value.get("finished_at"),
+            "can_retry": value["status"] in {"SUCCEEDED","FAILED","CANCELLED"},
         })
 
     @private.get("/journal/history")
@@ -1122,6 +1145,38 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         return jsonable_encoder(admin_service.save_source_review(
             adapter_id, payload.get("value"), actor=actor, expected_version=expected,
         ))
+
+    @admin.get("/private-recalculations")
+    def admin_private_recalculations(limit: int = Query(50, ge=1, le=100)):
+        rows = repository.admin_recalculations(limit)
+        configured = admin_service.setting("private_recalc_workers").get("value") or {"workers": 2}
+        workers = int(configured.get("workers", 2)) if isinstance(configured, dict) else 2
+        return jsonable_encoder({
+            "workers": workers,
+            "running": sum(1 for row in rows if row["status"] in {"RUNNING","CANCEL_REQUESTED"}),
+            "queued": sum(1 for row in rows if row["status"] == "QUEUED"),
+            "items": rows,
+        })
+
+    @admin.post("/private-recalculations/{request_id}/cancel")
+    def admin_cancel_private_recalculation(
+        request_id: UUID,
+        payload: dict[str, Any] = Body(default={}),
+        actor: str = Depends(admin_actor),
+    ):
+        message = str(payload.get("reason") or "管理員要求中止")
+        return jsonable_encoder(repository.admin_cancel_recalculation(request_id, message, actor))
+
+    @admin.post("/private-recalculations/{request_id}/fail")
+    def admin_fail_private_recalculation(
+        request_id: UUID,
+        payload: dict[str, Any] = Body(...),
+        actor: str = Depends(admin_actor),
+    ):
+        reason = str(payload.get("reason") or "").strip()
+        if not reason:
+            raise HTTPException(status_code=422, detail="失敗原因不可為空白")
+        return jsonable_encoder(repository.admin_fail_recalculation(request_id, reason, actor))
 
     @admin.get("/settings/{setting_key}")
     def admin_setting(setting_key: str):

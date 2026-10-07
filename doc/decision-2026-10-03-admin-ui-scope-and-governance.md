@@ -99,3 +99,15 @@ UI 應優先顯示異常，例如 retention overdue、Stage/quarantine 未按 co
 ## 完成判定
 
 本文件是產品／UI scope 決策，不是完成證據。實作完成仍需依 `PROJECT_RULES.md` 綜合 GitHub `main` implementation、targeted tests、deployment、真實 Admin auth、GCP dev runtime、batch／retention telemetry 與 browser acceptance 判定；partial 不得包裝成 full success。
+
+
+## 2026-10-07：個人損益重算控制面
+
+Admin「資料治理」新增 owner-scoped Private Mart recalculation 控制面。它是 operational control，不是使用者投資內容瀏覽器：
+
+- 顯示 configured workers（2–8）、running／queued、Cloud Run execution、worker task index、attempt 與 safe state。
+- owner 只顯示 truncated ref；不得顯示交易、持股、symbol relation。
+- workers 設定使用既有 versioned `control.admin_settings` 與 audit；變更只影響下一次 queue execution。
+- 可對單一 request 要求中止；RUNNING 先進 `CANCEL_REQUESTED`，worker cooperative stop 後進 `CANCELLED`。
+- 可強制回寫 `FAILED`，但必須輸入 User 可見原因；這不等於刪除 ledger 或 kill shared execution。
+- 不允許因單一 owner 操作而停止同 execution 內其他 owners。

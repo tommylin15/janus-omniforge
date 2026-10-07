@@ -19,7 +19,9 @@ def test_direct_private_pipeline_scheduler_apply_is_retired_after_controller_cut
 def test_private_pipeline_deploy_removes_fixed_valuation_default():
     build=(ROOT/"cloudbuild.yaml").read_text(encoding="utf-8")
     private=build.split('if [[ "${_RUNTIME_NAME}" == "janus-private-pipeline" ]]; then',1)[1].split("\n        fi",1)[0]
-    assert '--remove-env-vars="VALUATION_DATE"' in private
+    assert '--remove-env-vars="VALUATION_DATE,PRIVATE_RECALC_QUEUE_MODE"' in private
+    assert "--tasks=1" in private
+    assert "--parallelism=8" in private
     assert '--remove-secrets="CORE_CATALOG_PASSWORD,PRIVATE_DATABASE_URL,PRIVATE_CATALOG_PASSWORD,JANUS_PIPELINE_POSTGRES_BUNDLE"' in private
     assert 'JANUS_API_POSTGRES_BUNDLE=janus-runtime-bundle:latest' in private
 

@@ -113,6 +113,9 @@ gcloud projects add-iam-policy-binding "${project}" \
 gcloud run jobs add-iam-policy-binding janus-intelligence-mart --region="${region}" \
   --member="serviceAccount:ingestion-core@${project}.iam.gserviceaccount.com" \
   --role=roles/run.invoker --quiet
+gcloud run jobs add-iam-policy-binding janus-private-pipeline --region="${region}" \
+  --member="serviceAccount:janus-user-api@${project}.iam.gserviceaccount.com" \
+  --role=roles/run.invoker --quiet
 
 # Existing Free Tier PostgreSQL is intentionally not auto-created here. Fail
 # closed if the fixed, private topology is absent or has drifted.

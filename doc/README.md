@@ -56,3 +56,8 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 ## 4. Operations ledger 的處理方式
 
 `spec/operations-and-testing.md` 已累積大量歷史 checkpoint。GitHub connector 在不遺失原文的前提下無法安全做 server-side blob 搬移或小範圍 patch，因此目前**保留原檔完整 evidence，不做高風險整檔重寫**。六個月 `WBS-8-DEV-PILOT-RUN` 的新增 bounded checkpoint 先追加至 `pilot-operational-evidence.md`，並由 `status.md` 連結目前判定；等有可驗證的完整搬移／patch 流程時，再考慮整併至 operations ledger 或將舊 checkpoint 分期移入 `archive/`。
+
+
+## Owner-scoped Private Mart recalculation
+
+- [設計與驗收契約](decision-2026-10-07-owner-scoped-parallel-private-recalculation.md)

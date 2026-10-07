@@ -126,12 +126,12 @@ steps:
           runtime_flags+=(
             --service-account="janus-private-pipeline@${PROJECT_ID}.iam.gserviceaccount.com"
             --tasks=1
-            --parallelism=1
+            --parallelism=8
             --max-retries=1
             --task-timeout=30m
             --command="python"
             --args="-m,services.api.private_pipeline_runtime"
-            --remove-env-vars="VALUATION_DATE"
+            --remove-env-vars="VALUATION_DATE,PRIVATE_RECALC_QUEUE_MODE"
             --remove-secrets="CORE_CATALOG_PASSWORD,PRIVATE_DATABASE_URL,PRIVATE_CATALOG_PASSWORD,JANUS_PIPELINE_POSTGRES_BUNDLE"
             --update-secrets="JANUS_API_POSTGRES_BUNDLE=janus-runtime-bundle:latest"
           )

@@ -4,6 +4,7 @@ import 'package:janus_user_app/admin.dart';
 
 class _OperationsApi implements AdminApi {
   final posts = <String>[];
+  final puts = <String>[];
   Map<String, dynamic>? quality;
 
   @override
@@ -41,6 +42,36 @@ class _OperationsApi implements AdminApi {
             'billable_bytes': null,
           }
         ],
+      };
+    }
+
+    if (path == '/api/v1/admin/private-recalculations?limit=50') {
+      return {
+        'workers': 2,
+        'running': 1,
+        'queued': 0,
+        'items': [
+          {
+            'request_id': '22222222-2222-2222-2222-222222222222',
+            'owner_ref': '00000000',
+            'requested_ledger_version': 163,
+            'status': 'RUNNING',
+            'trigger_source': 'manual',
+            'worker_execution': 'janus-private-pipeline-run-2',
+            'worker_task_index': 1,
+            'attempt_count': 1,
+            'safe_message': null,
+            'requested_at': '2026-10-07T00:00:00Z',
+            'started_at': '2026-10-07T00:00:01Z',
+          }
+        ],
+      };
+    }
+    if (path == '/api/v1/admin/settings/private_recalc_workers') {
+      return {
+        'key': 'private_recalc_workers',
+        'value': {'workers': 2},
+        'version': 1,
       };
     }
 
@@ -154,7 +185,10 @@ class _OperationsApi implements AdminApi {
   Future<dynamic> patch(String path, Map<String, dynamic> body) async => body;
 
   @override
-  Future<dynamic> put(String path, Map<String, dynamic> body) async => body;
+  Future<dynamic> put(String path, Map<String, dynamic> body) async {
+    puts.add(path);
+    return body;
+  }
 }
 
 void main() {
@@ -256,7 +290,31 @@ void main() {
     expect(find.textContaining('checkpoint 120 · 最新 change 123 · 待處理 3'), findsOneWidget);
     expect(find.textContaining('最新 ledger version 9 · 估值日 2026-10-05 · lag 1 天'), findsOneWidget);
     expect(find.textContaining('不顯示交易、持股或 user-to-symbol 關係'), findsOneWidget);
+    expect(find.text('執行中 1 · 排隊 0'), findsOneWidget);
+    expect(find.textContaining('owner 00000000 · 執行中'), findsOneWidget);
+    expect(find.textContaining('worker 1'), findsOneWidget);
+    expect(find.byKey(const Key('private-recalc-workers')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('private-recalc-workers')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('4 workers').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('套用並行數'));
+    await tester.pumpAndSettle();
+    expect(api.puts, contains('/api/v1/admin/settings/private_recalc_workers'));
+
+    await tester.tap(find.text('中止'));
+    await tester.pumpAndSettle();
+    expect(
+      api.posts,
+      contains(
+        '/api/v1/admin/private-recalculations/22222222-2222-2222-2222-222222222222/cancel',
+      ),
+    );
+
     expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
   });
 
   testWidgets(

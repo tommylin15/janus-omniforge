@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from services.api.private_pipeline import PrivatePipeline, calculate_marts, calculate_risk_marts, resolve_valuation_date, xirr
+from services.api.private_pipeline import PrivatePipeline, RecalculationCancelled, calculate_marts, calculate_risk_marts, resolve_valuation_date, xirr
 from services.api.store import PrivateIcebergStore
 
 
@@ -142,11 +142,19 @@ def test_checkpoint_advances_only_after_all_private_writes():
     assert failed_repo.advanced==[]
 
 
+def test_run_user_cancellation_stops_before_private_mart_write():
+    repo,store=Repository(),Store()
+    pipeline=PrivatePipeline(repo,store,lambda symbols,when:{"2330":Decimal("12")})
+    with pytest.raises(RecalculationCancelled):
+        pipeline.run_user(USER,date(2026,9,4),stop=lambda:True)
+    assert store.tables==[]
+
+
 def test_run_user_rebuilds_one_owner_without_advancing_global_checkpoint():
     repo,store=Repository(),Store()
     pipeline=PrivatePipeline(repo,store,lambda symbols,when:{"2330":Decimal("12")})
     result=pipeline.run_user(USER,date(2026,9,4))
-    assert result=={"status":"updated","valuation_date":"2026-09-04"}
+    assert result=={"status":"updated","valuation_date":"2026-09-04","ledger_version":1}
     assert pipeline.last_valuation_date==date(2026,9,4)
     assert repo.advanced==[]
     assert "mart_user_annual_pnl" in store.tables

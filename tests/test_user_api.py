@@ -33,7 +33,7 @@ def test_google_verification_reuses_public_certificate_transport_but_verifies_ea
 
 
 class Repository:
-    def __init__(self): self.calls=[]; self.emails=[]; self.feedback=None; self.profile={"risk_tolerance":None,"investment_horizon":None,"primary_goal":None,"minimum_cash_ratio":None,"ai_context_opt_in":False,"version":0,"updated_at":None}
+    def __init__(self): self.calls=[]; self.emails=[]; self.feedback=None; self.recalc_status=None; self.profile={"risk_tolerance":None,"investment_horizon":None,"primary_goal":None,"minimum_cash_ratio":None,"ai_context_opt_in":False,"version":0,"updated_at":None}
     def resolve_user(self,sub,email): self.emails.append((sub,email)); return USER_ID
     def require_owned_trade(self,user_id,event_id): self.calls.append(("ownership",user_id,event_id))
     def add_ledger(self,user_id,value,key): self.calls.append((user_id,value,key)); return {"user_id":user_id,"event_type":value.event_type,"ledger_version":1}
@@ -43,6 +43,7 @@ class Repository:
                 "reverses_event_id":event_id,"record_version":1,"ledger_version":2}
     def ledger_history(self,user_id,symbol,year): return [{"user_id":user_id,"symbol":symbol or "2330"}]
     def latest_ledger_version(self,user_id): return 1
+    def recalculation_status(self,user_id): return self.recalc_status
     def watchlist(self,user_id): return [{"user_id":user_id,"symbol":"2330"}]
     def follow(self,user_id,value,key): self.calls.append((user_id,value,key)); return {"user_id":user_id,"symbol":value.symbol}
     def unfollow(self,user_id,symbol,key): self.calls.append((user_id,symbol,key))
@@ -271,7 +272,7 @@ def test_ledger_mutation_triggers_immediate_recalculation_and_manual_retry_is_ow
     assert recalculator.calls==[USER_ID]
 
     recalculated=api.post("/api/v1/me/journal/recalculate",headers=auth())
-    assert recalculated.status_code==200
+    assert recalculated.status_code==202
     assert recalculated.json()=={"status":"updated","valuation_date":"2026-09-05","ledger_version":1}
     assert recalculator.calls==[USER_ID,USER_ID]
     assert repo.latest_ledger_version(USER_ID)==1
@@ -288,6 +289,27 @@ def test_ledger_mutation_survives_immediate_recalculation_failure_and_manual_ret
     failed=api.post("/api/v1/me/journal/recalculate",headers=auth())
     assert failed.status_code==503
     assert failed.json()=={"detail":"損益重新計算暫時無法使用"}
+
+
+def test_recalculation_status_is_owner_scoped_and_exposes_safe_failure_only():
+    api,repo,_=client()
+    repo.recalc_status={
+        "request_id":UUID("22222222-2222-2222-2222-222222222222"),
+        "requested_ledger_version":9,
+        "status":"FAILED",
+        "trigger_source":"manual",
+        "error_code":"ICEBERG_ERROR",
+        "safe_message":"損益重算執行失敗；已停止本次工作，可重新嘗試",
+        "requested_at":"2026-10-07T00:00:00Z",
+        "started_at":"2026-10-07T00:00:01Z",
+        "finished_at":"2026-10-07T00:00:03Z",
+    }
+    response=api.get("/api/v1/me/journal/recalculation-status",headers=auth())
+    assert response.status_code==200
+    assert response.json()["status"]=="FAILED"
+    assert response.json()["can_retry"] is True
+    assert "損益重算執行失敗" in response.json()["message"]
+    assert "user_id" not in response.json()
 
 
 def test_investment_profile_and_portfolio_routes_are_typed_and_owner_scoped():
