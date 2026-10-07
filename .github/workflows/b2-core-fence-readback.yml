@@ -1,0 +1,65 @@
+name: B2 Core fence readback
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b2-core-fence-readback.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read fixed B0 manifest fences
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "${tmp}"' EXIT
+          uri='gs://gen-lang-client-0593591102-dev-core/executions/17b091be-c454-4fea-b5de-b16c0a9c8c6c/core-snapshot.json'
+          gcloud storage cp "${uri}" "${tmp}/core.json" >/dev/null
+          python3 - "${tmp}/core.json" <<'PY'
+          import hashlib,json,sys
+          from pathlib import Path
+          p=Path(sys.argv[1]); raw=p.read_bytes(); m=json.loads(raw)
+          wanted=['core.benchmark_v1','core.ohlcv_v1','core.financials_v1']
+          fences={}
+          for name in wanted:
+              f=m['iceberg_tables'][name]
+              fences[name]={
+                  'snapshot_id':f.get('snapshot_id'),
+                  'metadata_location':f.get('metadata_location'),
+              }
+          out={
+              'core_snapshot_id':m.get('snapshot_id'),
+              'manifest_sha256':hashlib.sha256(raw).hexdigest(),
+              'fences':fences,
+          }
+          Path('doc/archive/group-b-b2-core-fence-readback-2026-10-07.json').write_text(json.dumps(out,indent=2,sort_keys=True)+'\n')
+          print(json.dumps({'manifest_sha256':out['manifest_sha256'],'tables':sorted(fences)}))
+          PY
+      - name: Commit evidence
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add doc/archive/group-b-b2-core-fence-readback-2026-10-07.json
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: record B2 Core fences [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
