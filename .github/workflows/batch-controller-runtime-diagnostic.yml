@@ -25,86 +25,38 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Read controller runtime evidence
+      - name: Read recent controller executions
         shell: bash
         run: |
           set -Eeuo pipefail
-          echo '=== job ==='
           gcloud run jobs describe "${JOB_NAME}" \
-            --project="${GCP_PROJECT_ID}" \
-            --region="${GCP_REGION}" \
-            --format='yaml(metadata.name,metadata.generation,spec.template.spec.template.spec.timeoutSeconds,spec.template.spec.template.spec.maxRetries,spec.template.spec.template.spec.containers[0].image,spec.template.spec.template.spec.containers[0].command,spec.template.spec.template.spec.containers[0].args,status.conditions)'
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --format='yaml(metadata.name,metadata.generation,spec.template.spec.template.spec.containers[0].image,status.conditions)'
 
-          echo '=== recent executions ==='
           gcloud run jobs executions list \
-            --job="${JOB_NAME}" \
-            --project="${GCP_PROJECT_ID}" \
-            --region="${GCP_REGION}" \
-            --limit=12 \
-            --format=json > /tmp/executions.json
+            --job="${JOB_NAME}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --limit=20 --format=json > /tmp/executions.json
+
           jq -r '.[] | [
-              .metadata.name,
-              (.status.startTime // ""),
-              (.status.completionTime // ""),
-              (.status.succeededCount // 0),
-              (.status.failedCount // 0),
-              (.status.cancelledCount // 0),
-              (.status.conditions[0].message // "")
-            ] | @tsv' /tmp/executions.json
+            .metadata.name,
+            ([.. | objects | select(has("name") and .name=="BATCH_CONTROLLER_MODE") | .value][0] // "default"),
+            (.status.startTime // ""),
+            (.status.completionTime // ""),
+            (.status.succeededCount // 0),
+            (.status.failedCount // 0),
+            (.status.cancelledCount // 0),
+            (.status.conditions[0].message // "")
+          ] | @tsv' /tmp/executions.json
 
-          failed="$(jq -r '[.[] | select((.status.failedCount // 0) > 0)][0].metadata.name // empty' /tmp/executions.json)"
-          test -n "${failed}"
-          echo "=== failed execution: ${failed} ==="
-          gcloud run jobs executions describe "${failed}" \
-            --project="${GCP_PROJECT_ID}" \
-            --region="${GCP_REGION}" \
-            --format=json > /tmp/failed-execution.json
-
-          jq '{
-            name: .metadata.name,
-            startTime: .status.startTime,
-            completionTime: .status.completionTime,
-            failedCount: .status.failedCount,
-            conditions: .status.conditions,
-            controller_env: [
-              .. | objects | select(has("name") and (.name | test("^BATCH_CONTROLLER_(MODE|NOT_BEFORE|MANUAL_REQUEST_ID)$"))) | {name, value}
-            ]
-          }' /tmp/failed-execution.json
-
-          echo '=== failed execution logs ==='
-          gcloud logging read \
-            "resource.type=cloud_run_job AND resource.labels.job_name=${JOB_NAME} AND labels.\"run.googleapis.com/execution_name\"=\"${failed}\"" \
-            --project="${GCP_PROJECT_ID}" \
-            --limit=200 \
-            --order=asc \
-            --format=json > /tmp/controller-log.json
-          jq -c '
-            .[]
-            | {
-                timestamp,
-                severity,
-                log: ((.logName // "") | split("/") | last),
-                message: (.textPayload // .jsonPayload.message // .protoPayload.status.message // "")
-              }
-            | select(.message != "")
-            | select((.message | ascii_downcase | contains("authorization:")) | not)
-            | select((.message | ascii_downcase | contains("access_token")) | not)
-            | select((.message | ascii_downcase | contains("id_token")) | not)
-            | select((.message | ascii_downcase | contains("private_key")) | not)
-          ' /tmp/controller-log.json
-
-          echo '=== safe mobile-probe ==='
-          gcloud run jobs execute "${JOB_NAME}" \
-            --project="${GCP_PROJECT_ID}" \
-            --region="${GCP_REGION}" \
-            --update-env-vars="BATCH_CONTROLLER_MODE=mobile-probe" \
-            --task-timeout=5m \
-            --wait
-
-          echo '=== safe observe probe ==='
-          gcloud run jobs execute "${JOB_NAME}" \
-            --project="${GCP_PROJECT_ID}" \
-            --region="${GCP_REGION}" \
-            --update-env-vars="BATCH_CONTROLLER_MODE=observe" \
-            --task-timeout=5m \
-            --wait
+          echo '=== non-active probe details ==='
+          jq -r '.[] | select(([.. | objects | select(has("name") and .name=="BATCH_CONTROLLER_MODE") | .value][0] // "active") != "active") | .metadata.name' /tmp/executions.json |
+          while read -r execution; do
+            [ -z "${execution}" ] && continue
+            gcloud run jobs executions describe "${execution}" \
+              --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+              --format='yaml(metadata.name,status.startTime,status.completionTime,status.succeededCount,status.failedCount,status.cancelledCount,status.conditions)'
+            gcloud logging read \
+              "resource.type=cloud_run_job AND resource.labels.job_name=${JOB_NAME} AND labels.\"run.googleapis.com/execution_name\"=\"${execution}\"" \
+              --project="${GCP_PROJECT_ID}" --limit=50 --order=asc \
+              --format='value(timestamp,severity,textPayload,jsonPayload.message)' || true
+          done
