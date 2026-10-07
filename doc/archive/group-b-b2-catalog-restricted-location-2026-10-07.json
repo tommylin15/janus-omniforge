@@ -1,0 +1,7 @@
+{
+  "catalog": "janus_core_dev",
+  "project_storage_admin_granted": false,
+  "restricted_location": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b2-lakehouse",
+  "status": "pass",
+  "temporary_storage_admin_bucket": "gen-lang-client-0593591102-dev-mart"
+}
