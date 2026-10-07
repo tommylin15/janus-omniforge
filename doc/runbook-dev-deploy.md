@@ -177,3 +177,14 @@ Canonical design: `doc/decision-2026-10-07-owner-scoped-parallel-private-recalcu
 - Admin force-fail immediately writes a terminal FAILED state and User-visible safe reason; stale worker completion must not overwrite it.
 
 Dev acceptance must verify migration 048, job default/task parallelism, API → job `roles/run.invoker`, one live owner request transition, duplicate-active suppression, and final Private Mart ledger-version catch-up.
+
+### 2026-10-07 live acceptance 固化
+
+正式 owner-queue live gate 為 `.github/workflows/private-recalc-live-acceptance.yml`。它必須走既有 runtime network path：
+
+1. `janus-ingestion-core` acceptance mode seed 一筆 bounded owner request並驗 same-owner active unique fence。
+2. `janus-private-pipeline` 用 `--tasks=2 --update-env-vars=PRIVATE_RECALC_QUEUE_MODE=true` 執行 queue mode。
+3. `janus-ingestion-core` acceptance mode verify DB 終態與 worker binding。
+4. workflow 最後驗 persistent Job 仍為 `taskCount=1 / parallelism=8`，且 acceptance env 沒有寫回 Job persistent config。
+
+不要改回 Cloud Build → IAP → PostgreSQL VM 的 canary；`janus-ci` 沒有 IAP tunnel 權限，而且這個驗收不需要為此擴 IAM。若 live gate 失敗，先看 seed / queue / verify 哪個 Cloud Run execution 失敗，再處理；不得以 workflow success 取代 DB verify。

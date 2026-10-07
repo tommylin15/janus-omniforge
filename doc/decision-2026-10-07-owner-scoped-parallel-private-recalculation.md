@@ -1,7 +1,7 @@
 # Owner-scoped parallel Private Mart 重算控制器
 
 日期：2026-10-07  
-狀態：Active implementation / acceptance pending
+狀態：CLOSED / dev live acceptance PASS
 
 ## 1. 目的
 
@@ -129,3 +129,24 @@ Admin「資料治理」顯示：
 6. API revision Ready 且 dev traffic 100%。
 7. 真實 owner 手動重算：第二次 request 不建立另一 active request；Private Mart 最終追上 requested ledger version，或若失敗，User status 必須轉 FAILED 並顯示 safe reason。
 8. Admin live readback 能看到 execution/task 與 queue state；不得暴露完整 owner identity／symbol relation。
+
+## 12. 2026-10-07 Dev live acceptance evidence
+
+本設計已完成，不再是 pending 規劃。完成證據如下：
+
+- migration 048：Deploy dev run `37556657369`，job `112585424355`，**success**。
+- Flutter / Admin UI contract：run `37553539023`，**69/69 PASS**；Portfolio Completeness `37553538956` success。
+- API / Private Pipeline：Deploy dev run `37557807555` success；API revision `janus-api-ga4e9660efbe7-config` Ready / 100% traffic；image `sha256:1cfa56a6b4aad5b695f17341820e9542ad4eef4cc2349892d0ff6a221734f507`。
+- ingestion acceptance runtime：Deploy dev run `37561186852` success。
+- owner queue live canary：workflow `37568678701` success。
+  - seed：`janus-ingestion-core-ht6tf`
+  - owner queue：`janus-private-pipeline-6ktlc`
+  - DB verify：`janus-ingestion-core-hkq7x`
+  - `execution_tasks=2`
+  - persistent `default_tasks=1`
+  - `max_parallelism=8`
+  - DB verify 強制檢查：same-owner active unique fence、request `SUCCEEDED`、attempt=1、worker task index ∈ {0,1}、execution match、requested ledger version=current ledger version、queue 無 active request、dispatch inactive。
+- live private readback：trade 最新 ledger v164；positions 與 2026 annual PnL 亦為 ledger v164，valuation date `2026-10-06`。
+- canary 使用既有 Cloud Run runtimes 與既有資料庫連線路徑，不新增 GCP resource，不擴 IAP 權限；acceptance helper 不輸出 owner UUID／symbol／trade／holding。
+
+Acceptance criteria 1–8 均已有對應 evidence；本項狀態為 **CLOSED**。

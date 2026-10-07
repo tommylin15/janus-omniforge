@@ -17,6 +17,26 @@ A 組已完成 implementation、tests／CI、dev deployment、runtime readback �
 - 2026-10-07 結案後補強亦完成：交易異動後 immediate owner-scoped PnL recalculation、pending 時才顯示手動「重新計算損益」、關注搜尋按鈕語意、13:30／14:30 latest-price handoff、User PnL 紅綠與負號格式，以及 annual PnL latest-ledger-version stale fence。Flutter run `37542658237` 為 **66/66 PASS**；Portfolio contract `37542950801` 與 Deploy dev `37542951194` 均 success，API revision `janus-api-gafa3e8214bb1-config` 100% traffic。使用者已完成手機人工 UI 驗收並明確要求回寫後結案。
 
 **A 組及本次結案後 UI／PnL 補強均正式 CLOSED；下一個 active group 為 B。**
+## 2026-10-07 Owner-scoped parallel Private Mart 重算：CLOSED
+
+交易新增／更正／REVERSAL 後的即時損益重算已從 User API request thread 移出，改為 PostgreSQL owner queue + 既有 `janus-private-pipeline` Cloud Run Job 的 queue mode：
+
+- migration `048_private_recalculation_queue` 已在 dev 成功套用；Deploy dev run `37556657369` 的 `migrate-private-recalc / migrate` job `112585424355` 為 **success**。
+- 同 owner 只允許一筆 `QUEUED/RUNNING/CANCEL_REQUESTED`；active 期間 ledger version 前進時只提升同一 request 的 requested version，舊版本算完會重新排隊直到追上最新 ledger。
+- 不同 owner 可由 2–8 個 Cloud Run task worker 平行計算；Admin setting `private_recalc_workers` 預設 2、硬限制 2–8。既有 `janus-private-pipeline` Job resource 保持 default `taskCount=1`、`parallelism=8`，只有 owner queue execution 用 task override。
+- shared Private Iceberg commit 以 advisory lock 序列化；full scheduled reconciliation 與 owner queue 共用同一 write fence，避免 shared-table commit 競態。
+- User App 在 active 狀態 disable「重新計算損益」，顯示 queued/running/cancelled/failed；FAILED/CANCELLED 顯示 safe reason 並可重試。Flutter run `37553539023` 為 **69/69 PASS**，含 User duplicate-disable／failure-retry 與 Admin worker/control UI。
+- Admin「資料治理」可看去識別化 owner ref、request、execution、worker task、attempt、running／queued；可調 2–8 workers、owner-scoped cooperative cancel、強制回寫 FAILED + User-visible reason。不得因此 kill shared execution 或暴露交易／持股／symbol relation。
+- API / Private Pipeline deploy：run `37557807555` success；Cloud Run API revision `janus-api-ga4e9660efbe7-config` Ready 且 **100% traffic**，immutable image `sha256:1cfa56a6b4aad5b695f17341820e9542ad4eef4cc2349892d0ff6a221734f507`；User/Admin Flutter workspace / PWA build readback 亦與該 SHA 一致。
+- bounded live canary：workflow `Private recalculation live acceptance #37568678701` **PASS**。seed execution `janus-ingestion-core-ht6tf`、2-task queue execution `janus-private-pipeline-6ktlc`、DB verify execution `janus-ingestion-core-hkq7x` 均成功；驗證 `execution_tasks=2`、persistent `default_tasks=1`、`max_parallelism=8`、same-owner active unique fence、request `SUCCEEDED`、attempt=1、worker task/execution binding、requested ledger version catch-up、queue idle 與 dispatch release。
+- 真實 private readback：最新 trade ledger version = **164**；positions 與 2026 annual PnL 皆已追到 **ledger_version 164**，valuation date = `2026-10-06`。
+- failure watchdog：dispatch 5 分鐘未 claim → `DISPATCH_TIMEOUT/FAILED`；worker 35 分鐘無 heartbeat → `FAILED/CANCELLED`。User 不再無期限停在「待更新」。
+- 沒有新增 GCP resource；只為既有 `janus-user-api` 增加既有 `janus-private-pipeline` 的 resource-scoped `roles/run.invoker`，符合本次已核准功能範圍。
+
+權威設計與 acceptance contract：[`decision-2026-10-07-owner-scoped-parallel-private-recalculation.md`](decision-2026-10-07-owner-scoped-parallel-private-recalculation.md)。
+
+**本項正式 CLOSED；B 組 active 排序不變。**
+
 ## 2026-10-06 B 組優先架構決策（尚未實作完成）
 
 使用者已核准 [Iceberg canonical + BigQuery analytics hybrid](decision-2026-10-06-bigquery-analytics-over-iceberg.md) 作為 B 組 specialist／cache 的優先資料運算架構：
