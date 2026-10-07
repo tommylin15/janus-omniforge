@@ -25,54 +25,60 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Read active control-plane occurrences
+      - name: Classify active-mode failure
         shell: bash
         run: |
           set -Eeuo pipefail
           cat > /tmp/batch_diag.py <<'PY'
-          import json
+          import sys
           from datetime import datetime
+          import google.auth
+          from google.auth.transport.requests import AuthorizedSession
           from ingestion_core.__main__ import _control_plane
-          from ingestion_core.batch_controller import due_batches
+          from ingestion_core.batch_controller import BATCHES, due_batches, job_active
 
           control = _control_plane()
           connection = control.connection
           try:
               with connection.cursor() as cursor:
-                  cursor.execute("""
-                      SELECT occurrence_id, scheduled_at, state
-                        FROM control.batch_occurrences
-                       WHERE state->>'status' IN ('pending','dispatching','running','ambiguous')
-                       ORDER BY scheduled_at, occurrence_id
-                       LIMIT 100
-                  """)
-                  rows = cursor.fetchall()
-              evidence = []
-              for occurrence_id, scheduled_at, state in rows:
+                  cursor.execute("SELECT count(*) FROM control.batch_occurrences WHERE state->>'status' IN ('dispatching','running','ambiguous')")
+                  if cursor.fetchone()[0] > 100:
+                      sys.exit(31)
+                  cursor.execute("SELECT occurrence_id,state FROM control.batch_occurrences WHERE state->>'status'='pending' ORDER BY scheduled_at,occurrence_id")
+                  pending = cursor.fetchall()
+              if len(pending) > 100:
+                  sys.exit(32)
+              batches = {batch.name: batch for batch in BATCHES}
+              for occurrence_id, state in pending:
+                  batch_name = state.get("batch")
+                  if batch_name not in batches:
+                      sys.exit(33)
+                  if state.get("origin") == "manual":
+                      continue
                   scheduled_text = state.get("scheduled_at")
-                  policy_match = None
-                  policy_error = None
-                  if state.get("status") == "pending" and scheduled_text:
-                      try:
-                          policy_keys = {row[0] for row in due_batches(datetime.fromisoformat(scheduled_text))}
-                          policy_match = occurrence_id in policy_keys
-                      except Exception as error:
-                          policy_error = type(error).__name__
-                  evidence.append({
-                      "occurrence_id": occurrence_id,
-                      "scheduled_at": scheduled_at.isoformat() if hasattr(scheduled_at, "isoformat") else str(scheduled_at),
-                      "batch": state.get("batch"),
-                      "status": state.get("status"),
-                      "state_scheduled_at": scheduled_text,
-                      "policy_match": policy_match,
-                      "policy_error": policy_error,
-                  })
-              print(json.dumps({"active_count": len(evidence), "rows": evidence}, sort_keys=True))
+                  if not scheduled_text:
+                      sys.exit(34)
+                  try:
+                      due_row = next((row for row in due_batches(datetime.fromisoformat(scheduled_text)) if row[0] == occurrence_id), None)
+                  except Exception:
+                      sys.exit(34)
+                  if due_row is None:
+                      sys.exit(34)
+              credentials, _ = google.auth.default(scopes=("https://www.googleapis.com/auth/cloud-platform",))
+              session = AuthorizedSession(credentials)
+              jobs = sorted({job for batch in BATCHES for job in (batch.exclusive_jobs or (batch.job,))})
+              try:
+                  for job in jobs:
+                      job_active(session, job)
+              except Exception:
+                  sys.exit(35)
+              sys.exit(0)
           finally:
               control.close()
           PY
           export BATCH_DIAG_CODE="$(base64 -w0 /tmp/batch_diag.py)"
           wrapper='import base64;import os;exec(base64.b64decode(os.environ["BATCH_DIAG_CODE"]))'
+          set +e
           gcloud run jobs execute "${JOB_NAME}" \
             --project="${GCP_PROJECT_ID}" \
             --region="${GCP_REGION}" \
@@ -80,13 +86,16 @@ jobs:
             --update-env-vars="BATCH_DIAG_CODE=${BATCH_DIAG_CODE}" \
             --task-timeout=5m \
             --wait
+          execute_code=$?
+          set -e
           execution="$(gcloud run jobs executions list \
             --job="${JOB_NAME}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
             --limit=1 --format='value(metadata.name)')"
+          echo "diagnostic_execution=${execution} gcloud_exit=${execute_code}"
           gcloud run jobs executions describe "${execution}" \
             --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
             --format='yaml(metadata.name,status.startTime,status.completionTime,status.succeededCount,status.failedCount,status.conditions)'
           gcloud logging read \
             "resource.type=cloud_run_job AND resource.labels.job_name=${JOB_NAME} AND labels.\"run.googleapis.com/execution_name\"=\"${execution}\"" \
-            --project="${GCP_PROJECT_ID}" --limit=100 --order=asc --format=json > /tmp/logs.json
-          jq -r '.[] | (.textPayload // .jsonPayload.message // "") | select(. != "")' /tmp/logs.json
+            --project="${GCP_PROJECT_ID}" --limit=50 --order=asc \
+            --format='value(timestamp,severity,textPayload,jsonPayload.message)' || true
