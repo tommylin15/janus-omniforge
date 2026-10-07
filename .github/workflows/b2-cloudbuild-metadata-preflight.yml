@@ -1,0 +1,61 @@
+name: B2 Cloud Build metadata preflight
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b2-cloudbuild-metadata-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: b2-cloudbuild-metadata-preflight
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Run read-only preflight through existing Cloud Build identity
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          log="$(mktemp)"
+          gcloud builds submit --no-source \
+            --project=gen-lang-client-0593591102 \
+            --config=scripts/gcp/cloudbuild-b2-lakehouse-preflight.yaml \
+            --quiet 2>&1 | tee "${log}"
+          marker="$(grep -o 'B2_CLOUD_BUILD_PREFLIGHT=[A-Za-z0-9+/=]*' "${log}" | tail -1)"
+          [[ -n "${marker}" ]]
+          encoded="${marker#B2_CLOUD_BUILD_PREFLIGHT=}"
+          python3 - "${encoded}" <<'PY'
+          import base64, json, sys
+          from pathlib import Path
+          payload=json.loads(base64.b64decode(sys.argv[1]).decode())
+          Path("doc/archive/group-b-b2-cloudbuild-metadata-preflight-2026-10-07.json").write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + "\n"
+          )
+          PY
+      - name: Commit evidence
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add doc/archive/group-b-b2-cloudbuild-metadata-preflight-2026-10-07.json
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: record B2 Cloud Build metadata preflight [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
