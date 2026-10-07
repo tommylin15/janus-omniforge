@@ -165,7 +165,7 @@ def test_b5_bigquery_reduction_is_column_date_and_label_bounded():
     import runpy
     script = runpy.run_path(str(ROOT / "scripts/gcp/b5-ml-oos-data.py"))
     sql = script["reduction_select"](
-        "\`project.catalog.ns.ohlcv_v1\`",
+        "`project.catalog.ns.ohlcv_v1`",
         start=date(2026, 2, 7),
         end=date(2026, 10, 6),
         core_snapshot_id="sha256:core",
