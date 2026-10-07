@@ -60,6 +60,15 @@ workflow 使用 GitHub OIDC／Workload Identity，最後呼叫 `scripts/gcp/depl
 
 `workflow_dispatch` 保留作為指定 component 的人工重跑／修復入口；一般 main code change 不需要人工按 deploy。
 
+Cloud Build source staging 固定使用 **regional build + 既有 regional staging bucket**：
+
+- 任何會上傳 source 的 `gcloud builds submit` 都必須顯式指定 `--region=us-central1`（腳本可用目前 `GCP_REGION`／`region` 變數）；
+- 同一命令必須指定 `--gcs-source-staging-dir=gs://gen-lang-client-0593591102-cloudbuild-regional/source`，不得回退到 `gs://gen-lang-client-0593591102_cloudbuild/source`；
+- `tests/test_container_build_contract.py` 會掃描 `.github/workflows` 與 `scripts/gcp`，任何新的 source build 少了 region 或 approved staging bucket 都必須讓 CI fail；
+- `--no-source` build 不會建立 source staging object；若 build config 使用 `CLOUD_LOGGING_ONLY`，不需要為了 source-bucket policy 強制改變既有 execution location。不要把 no-source runtime／IAP 問題誤判成 staging bucket regression。
+
+2026-10-07 live acceptance 證據見 `archive/cloud-build-regional-staging-acceptance-2026-10-07.md`。
+
 ### 3.2 本機／受控執行入口
 
 底層 deployment entrypoint 為：
