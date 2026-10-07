@@ -108,6 +108,15 @@ jobs:
               touch /tmp/deploy.ok
               break
             fi
+            if [[ -n "${deployed_sha}" ]] \
+              && git cat-file -e "${deployed_sha}^{commit}" 2>/dev/null \
+              && git merge-base --is-ancestor "${deployed_sha}" "${GITHUB_SHA}" \
+              && git diff --quiet "${deployed_sha}..${GITHUB_SHA}" -- \
+                   jobs/intelligence-mart jobs/ingestion-core; then
+              echo "B5 Mart runtime unchanged since deployed SHA ${deployed_sha}; reusing verified image"
+              touch /tmp/deploy.ok
+              break
+            fi
             sleep 30
           done
 
@@ -125,15 +134,11 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          mart_image="$(gcloud run jobs describe "${MART_JOB}" \
-            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
-            --format='value(spec.template.spec.template.spec.containers[0].image)')"
-          test -n "${mart_image}"
           output_uri="gs://${GCP_PROJECT_ID}-dev-mart/acceptance/b5-build/github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
 
           cat > /tmp/b5-export-cloudbuild.yaml <<'YAML'
           steps:
-            - name: '${_MART_IMAGE}'
+            - name: python:3.12-slim
               entrypoint: bash
               env:
                 - 'PYTHONPATH=/workspace/jobs/intelligence-mart:/workspace/jobs/ingestion-core:/workspace'
@@ -162,7 +167,7 @@ jobs:
             --region="${GCP_REGION}" \
             --config=/tmp/b5-export-cloudbuild.yaml \
             --gcs-source-staging-dir="gs://${GCP_PROJECT_ID}-cloudbuild-regional/source" \
-            --substitutions="_MART_IMAGE=${mart_image},_OUTPUT_URI=${output_uri}" \
+            --substitutions="_OUTPUT_URI=${output_uri}" \
             --format='value(id)' > /tmp/b5-build-id 2> /tmp/b5-submit.stderr
           submit_rc=$?
           set -e
