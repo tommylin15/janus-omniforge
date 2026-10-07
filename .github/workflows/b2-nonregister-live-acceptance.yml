@@ -1,12 +1,6 @@
 name: B2 non-register live acceptance
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/b2-nonregister-live-acceptance.yml'
-      - 'scripts/gcp/cloudbuild-b2-nonregister-live-acceptance.yaml'
-      - 'scripts/gcp/b2-lakehouse-acceptance.py'
   workflow_dispatch:
 
 permissions:

@@ -1,6 +1,6 @@
 # Janus — TODO
 
-版本：3.14（2026-10-07：B1 reader 結案，下一步 B2）
+版本：3.15（2026-10-07：B2 compatibility 結案，下一步 B3）
 用途：**只保留確定要做的 active work 與未完成 acceptance**。Deferred、Candidate、Observation、Production-only、已接受缺口與研究構想統一放 [`parking-lot.md`](parking-lot.md)；已完成／被取代內容放 `archive/`。
 
 ## 規則
@@ -89,12 +89,12 @@ A 組 implementation／CI／dev runtime 與兩項人工 gate 已於 2026-10-06 �
 A 組不再列 active TODO；下一個 active work 為 B 組。
 ## B 組優先架構調整 acceptance
 
-> **B0 Baseline 與 B1 exact-snapshot reader 已於 2026-10-07 CLOSED。** 證據見 [B0 baseline](archive/group-b-b0-baseline-closure-2026-10-07.md) 與 [B1 reader](archive/group-b-b1-reader-acceptance-2026-10-07.md)。下一步 B2 BigQuery adapter／compatibility；其餘 BigQuery／specialist acceptance 不因 B1 結案而完成。
+> **B0 Baseline 與 B1 exact-snapshot reader 已於 2026-10-07 CLOSED。** 證據見 [B0 baseline](archive/group-b-b0-baseline-closure-2026-10-07.md) 與 [B1 reader](archive/group-b-b1-reader-acceptance-2026-10-07.md)。B2 compatibility 亦已 CLOSED，證據見 [B2 結案](archive/group-b-b2-closure-2026-10-07.md)；下一步 B3 liquid-500 screening。其餘 workload／specialist acceptance 未完成。
 
 B 組開始五 specialist／cache 收斂前，先完成 [BigQuery analytics 架構決策](decision-2026-10-06-bigquery-analytics-over-iceberg.md) 的資料讀取邊界；此優先序不代表 BigQuery resource 已建立或啟用。
 
 - [x] 抽出 exact-snapshot analytics reader；既有 PyIceberg path 先包成 reference／fallback，不改 canonical write path。完成證據見 [B1 reader](archive/group-b-b1-reader-acceptance-2026-10-07.md)。
-- [ ] 建立 BigQuery analytics adapter／compatibility probe，證明固定 Core snapshot 的資料／schema／null／時間／provenance fidelity；未通過前不得成為唯一 reader。B2 adapter／20 contract tests、106 Mart regression、已授權 us-central1 資源與三張 fixed-snapshot bounded live row compare（320 rows）已通過；PyIceberg 保持 default。使用者已授權建立可計費 Lakehouse runtime catalog，但 2026-10-07 15:51 要求暫停；目前尚未建立 catalog／修改 IAM。Latest permission evidence：Cloud Build 可 catalog create/list、不可 table register，且無 project setIamPolicy；因此 shared catalog exact-snapshot mapping、native decimal/schema evolution、partition pruning 仍未完成。本項維持 **PARTIAL / PAUSED**，接續點見 [B2 paused checkpoint](archive/group-b-b2-paused-checkpoint-2026-10-07.md) 與 [B2 runbook](runbook-bigquery-compatibility.md)。
+- [x] 建立 BigQuery analytics adapter／compatibility probe，證明固定 Core snapshot 的資料／schema／null／時間／provenance fidelity。B2 CLOSED：沿用 20 contract tests、106 Mart regression、320-row fidelity；本次 shared catalog exact-snapshot mapping、native DECIMAL(20,4)/schema evolution、真實 ohlcv partition pruning 全 PASS，9 jobs 共 60 MiB billed bytes，immutable GCS evidence readback PASS。本輪無 IAM/canonical mutation，PyIceberg 仍為 default；workload canary/cutover 屬後續範圍。見 [B2 結案](archive/group-b-b2-closure-2026-10-07.md)。
 - [ ] 禁止 Storage Read API 與 `bigquery.readsessions.*` 需求；不得加入 `google-cloud-bigquery-storage`。大量 ML input 以 SQL 縮減後 export versioned GCS Parquet。
 - [ ] 建立每日盤後 liquid-500 screening：EOD canonical data ready 後對約 500 檔做低成本 screening／cross-sectional ranking；BigQuery 通過 fidelity gate 後承接這條 compute。不得擴成 500×5 深度 specialist，也不把 User API、Ledger、private owner path 或整套 Core full copy 搬入 BigQuery。
 - [ ] 加入 bounded query／column／partition guards、processed bytes／elapsed／peak RSS／GCS I/O／artifact growth telemetry，未知成本不補 0。

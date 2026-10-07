@@ -36,6 +36,8 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 
 費用、安全性、不可逆大量刪除、擴大權限、production／新付費資源等決定必須取得使用者明確授權。需要人工輸入帳密、MFA、OAuth consent 或其他資訊時，不得自行猜測。
 
+**免費額度內的操作不視為費用變更。** 在已授權任務範圍內，若可確認帳戶符合免費額度資格、剩餘額度足夠且本次用量受限，可直接執行 query、dev 資源操作與雲端資料變更，不因服務本身可計費而重複要求費用授權。不得只因服務提供 Free Tier 就假定本次免費；超出或無法確認免費額度且未有既有費用授權時，仍需取得授權。此例外不解除安全性、權限擴張、production、不可逆資料操作或其他明列禁令。
+
 ### 1.4 專案 Skill 使用邊界
 
 - **Janus／OmniForge 專案不使用 Superpowers plugin／skill。** 處理本專案的分析、規劃、實作、debug、testing、review、verification 或 completion 判定時，不得主動 invoke `using-superpowers`、`brainstorming`、`writing-plans`、`systematic-debugging`、`test-driven-development`、`verification-before-completion` 或其他 Superpowers skills。
@@ -58,7 +60,7 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 - repository 目前只維持 `main`；ChatGPT 預設直接 commit 到 `main`，不主動建立 branch／PR，除非使用者特別要求。
 - ChatGPT 可直接修改、建立、刪除並 commit 文件、Python、TypeScript／JavaScript、Dart、SQL migration、shell／PowerShell、Dockerfile、Cloud Build、GitHub Actions、Terraform／IaC、runtime／deployment config、tests、application source 與其他專案內容。
 - ChatGPT 可對既有 dev 環境執行或觸發 tests、CI、build、migration、Cloud Run deployment／Job／Scheduler 與既有 workload，並完成「分析 → 修改 → 測試 → commit → deploy → runtime 驗收 → 修正」閉環；直接驗收失敗時可在既有授權範圍內繼續修正與重新部署。
-- 新增或提高付費 GCP／第三方資源、啟用新的付費 API／模型／subscription、production 首次建立或重大權限擴張、大量且不可逆的真實資料刪除、沒有可靠 rollback／backup／rebuild 路徑的破壞性操作，以及 MFA／OAuth consent／付款／帳號管理，仍需使用者明確授權或本人操作。
+- 新增或提高付費 GCP／第三方資源、啟用新的付費 API／模型／subscription、production 首次建立或重大權限擴張、大量且不可逆的真實資料刪除、沒有可靠 rollback／backup／rebuild 路徑的破壞性操作，以及 MFA／OAuth consent／付款／帳號管理，仍需使用者明確授權或本人操作；費用認定適用 §1.3 的免費額度例外。
 - 任何回寫都不得偽造 implementation status。未實作、未測試、未部署、未觸發或未連上真實依賴的項目不得因文件或程式已更新而標成完成。
 
 ## 4. WBS 執行方式

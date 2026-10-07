@@ -44,6 +44,8 @@ TABLES = {
 
 
 def run(*args: str, check: bool = True, capture: bool = True) -> subprocess.CompletedProcess[str]:
+    if os.name == "nt" and args[0] == "gcloud":
+        args = ("gcloud.cmd", *args[1:])
     proc = subprocess.run(
         list(args),
         text=True,
@@ -151,9 +153,12 @@ def field_type(schema: dict[str, Any], name: str) -> Any:
 
 
 class BigQueryBudget:
-    def __init__(self) -> None:
-        self.billed = 0
-        self.jobs: list[dict[str, Any]] = []
+    def __init__(self, journal: Path) -> None:
+        self.journal = journal
+        self.jobs = json.loads(journal.read_text()) if journal.exists() else []
+        if any(job.get("billed_bytes") is None for job in self.jobs):
+            raise RuntimeError("prior query billed bytes unknown; read back job before resuming")
+        self.billed = sum(job["billed_bytes"] for job in self.jobs)
 
     @property
     def remaining(self) -> int:
@@ -183,6 +188,8 @@ class BigQueryBudget:
         job_id = ref.get("jobId")
         if not job_id:
             raise RuntimeError("BigQuery query did not return a job reference")
+        self.jobs.append({"label": label, "job_id": job_id, "billed_bytes": None})
+        self.journal.write_text(json.dumps(self.jobs, indent=2) + "\n", newline="\n")
         while not response.get("jobComplete"):
             if time.monotonic() - started >= QUERY_TIMEOUT_SECONDS:
                 cancel_url = (
@@ -205,8 +212,6 @@ class BigQueryBudget:
         )
         job = api_json("GET", job_url, access_token=access_token)
         status = job.get("status") or {}
-        if status.get("errorResult"):
-            raise RuntimeError(f"BigQuery job failed: {status['errorResult']}")
         query_stats = (job.get("statistics") or {}).get("query") or {}
         billed_raw = query_stats.get("totalBytesBilled")
         if billed_raw is None:
@@ -226,7 +231,10 @@ class BigQueryBudget:
             "cumulative_billed_bytes": self.billed,
             "remaining_budget_bytes": self.remaining,
         }
-        self.jobs.append(evidence)
+        self.jobs[-1] = evidence
+        self.journal.write_text(json.dumps(self.jobs, indent=2) + "\n", newline="\n")
+        if status.get("errorResult"):
+            raise RuntimeError(f"BigQuery job failed: {status['errorResult']}")
         return {"response": response, "job": job, "evidence": evidence}
 
 
@@ -235,11 +243,63 @@ def row_values(response: dict[str, Any]) -> list[list[Any]]:
     return [[cell.get("v") for cell in row.get("f", [])] for row in rows]
 
 
+def prove_core_pruning(evidence: dict[str, Any], budget: BigQueryBudget) -> None:
+    fence = evidence["shared_catalog_mapping"]["core.ohlcv_v1"]
+    expected_uri = fence["metadata_location"]
+    def check_pointer() -> None:
+        if metadata_location(load_table("ohlcv_v1", CORE_NAMESPACE)) != expected_uri:
+            raise RuntimeError("Core catalog pointer changed during pruning probe")
+    check_pointer()
+    fq = f"`{PROJECT}.{CATALOG}.{CORE_NAMESPACE}.ohlcv_v1`"
+    results = []
+    for label, start in (("core_partition_narrow", "2026-10-01"),
+                         ("core_partition_wide", "2026-01-01")):
+        results.append(budget.query(
+            f"SELECT COUNT(*), SUM(LENGTH(close)) FROM {fq} "
+            f"WHERE symbol = '2330' AND trade_date BETWEEN DATE '{start}' AND DATE '2026-10-06'",
+            label,
+        ))
+    check_pointer()
+    narrow, wide = [r["evidence"]["processed_bytes"] for r in results]
+    passed = isinstance(narrow, int) and isinstance(wide, int) and 0 < narrow < wide
+    evidence["core_partition_pruning"] = {
+        "table": "core.ohlcv_v1", "snapshot_id": fence["snapshot_id"],
+        "metadata_location": expected_uri, "symbol": "2330",
+        "narrow_date_bounds": ["2026-10-01", "2026-10-06"],
+        "wide_date_bounds": ["2026-01-01", "2026-10-06"],
+        "narrow_processed_bytes": narrow, "wide_processed_bytes": wide,
+        "narrow_result": row_values(results[0]["response"]),
+        "wide_result": row_values(results[1]["response"]), "pass": passed,
+    }
+    evidence["bigquery_jobs"] = budget.jobs
+    evidence["total_billed_bytes"] = budget.billed
+    evidence["remaining_budget_bytes"] = budget.remaining
+    if not passed:
+        raise RuntimeError(f"Core partition pruning not proven: {narrow}, {wide}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--skip-shared-mapping", action="store_true")
+    parser.add_argument("--core-pruning-only", action="store_true")
     args = parser.parse_args()
+
+    if args.core_pruning_only:
+        evidence = json.loads(args.output.read_text())
+        if evidence.get("core_snapshot_id") != CORE_SNAPSHOT_ID or evidence.get("manifest_sha256") != CORE_MANIFEST_SHA256:
+            raise RuntimeError("prior acceptance evidence has a different Core fence")
+        if not evidence.get("schema_evolution_native_decimal", {}).get("pass") or set(evidence["shared_catalog_mapping"]) != set(TABLES):
+            raise RuntimeError("Core-only resume requires completed mapping and decimal gates")
+        budget = BigQueryBudget(args.output.with_suffix(".jobs.json"))
+        evidence["status"] = "partial"
+        try:
+            prove_core_pruning(evidence, budget)
+            evidence["status"] = "pass"
+        finally:
+            args.output.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n", newline="\n")
+        print(json.dumps(evidence["core_partition_pruning"]))
+        return
 
     manifest, manifest_hash = gcs_json(CORE_MANIFEST_URI)
     if manifest_hash != CORE_MANIFEST_SHA256:
@@ -277,11 +337,17 @@ def main() -> None:
             fence = manifest["iceberg_tables"][identifier]
             uri = fence["metadata_location"]
             snapshot_id = fence["snapshot_id"]
-            run(
-                "gcloud", "biglake", "iceberg", "tables", "register", table_name,
-                f"--project={PROJECT}", f"--catalog={CATALOG}", f"--namespace={CORE_NAMESPACE}",
-                f"--metadata-location={uri}", "--overwrite", "--quiet",
+            existing = run(
+                "gcloud", "biglake", "iceberg", "tables", "describe", table_name,
+                f"--project={PROJECT}", f"--catalog={CATALOG}",
+                f"--namespace={CORE_NAMESPACE}", "--format=json", check=False,
             )
+            if existing.returncode:
+                run(
+                    "gcloud", "biglake", "iceberg", "tables", "register", table_name,
+                    f"--project={PROJECT}", f"--catalog={CATALOG}", f"--namespace={CORE_NAMESPACE}",
+                    f"--metadata-location={uri}", "--quiet",
+                )
             loaded = load_table(table_name, CORE_NAMESPACE)
             catalog_uri = metadata_location(loaded)
             metadata, metadata_hash = gcs_json(uri)
@@ -300,7 +366,8 @@ def main() -> None:
                 "format_version": metadata.get("format-version"),
             }
 
-    budget = BigQueryBudget()
+    args.output.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n", newline="\n")
+    budget = BigQueryBudget(args.output.with_suffix(".jobs.json"))
 
     # Create a tiny research/acceptance Iceberg table in dev-mart only.
     suffix = uuid.uuid4().hex[:10]
@@ -320,10 +387,10 @@ def main() -> None:
             "spec-id": 0,
             "fields": [
                 {
-                    "name": "trade_date",
-                    "transform": "identity",
+                    "name": "trade_date_day",
+                    "transform": "day",
                     "source-id": 3,
-                    "partition-id": 1000,
+                    "field-id": 1000,
                 }
             ],
         },
@@ -457,10 +524,15 @@ def main() -> None:
     evidence["bigquery_jobs"] = budget.jobs
     evidence["total_billed_bytes"] = budget.billed
     evidence["remaining_budget_bytes"] = budget.remaining
-    evidence["status"] = "nonregister-pass" if args.skip_shared_mapping else "pass"
-    args.output.write_text(json.dumps(evidence, indent=2, sort_keys=True, default=str) + "\n")
+    evidence["status"] = "nonregister-pass" if args.skip_shared_mapping else "partial"
+    try:
+        if not args.skip_shared_mapping:
+            prove_core_pruning(evidence, budget)
+            evidence["status"] = "pass"
+    finally:
+        args.output.write_text(json.dumps(evidence, indent=2, sort_keys=True, default=str) + "\n", newline="\n")
     print(json.dumps({
-        "status": "pass",
+        "status": evidence["status"],
         "catalog": CATALOG,
         "shared_tables": sorted(evidence["shared_catalog_mapping"]),
         "test_table": test_table,

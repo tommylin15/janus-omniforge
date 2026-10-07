@@ -1,0 +1,237 @@
+{
+  "bigquery_jobs": [
+    {
+      "billed_bytes": 0,
+      "cumulative_billed_bytes": 0,
+      "elapsed_seconds": 6.7039999999979045,
+      "job_id": "job_RvP4dIamk9tqFeasAA4aeN4J2VaK",
+      "label": "decimal_insert_initial",
+      "processed_bytes": 0,
+      "remaining_budget_bytes": 1073741824
+    },
+    {
+      "billed_bytes": 10485760,
+      "cumulative_billed_bytes": 10485760,
+      "elapsed_seconds": 2.2039999999979045,
+      "job_id": "job_BhUHyW0-bxKMH7kRJMGM5eWaUqqt",
+      "label": "decimal_read_initial",
+      "processed_bytes": 128,
+      "remaining_budget_bytes": 1063256064
+    },
+    {
+      "billed_bytes": 0,
+      "cumulative_billed_bytes": 10485760,
+      "elapsed_seconds": 2.7189999999827705,
+      "job_id": "job_z1IbAfMVEoRzweKhjHMGEzDmltpo",
+      "label": "schema_add_column",
+      "processed_bytes": 0,
+      "remaining_budget_bytes": 1063256064
+    },
+    {
+      "billed_bytes": 0,
+      "cumulative_billed_bytes": 10485760,
+      "elapsed_seconds": 4.937000000005355,
+      "job_id": "job_XPOQf87CMWbjs7t3TnbMvtPCO8Nl",
+      "label": "decimal_insert_evolved",
+      "processed_bytes": 0,
+      "remaining_budget_bytes": 1063256064
+    },
+    {
+      "billed_bytes": 10485760,
+      "cumulative_billed_bytes": 20971520,
+      "elapsed_seconds": 2.2190000000118744,
+      "job_id": "job_QD4UZ8HESeNk6QdK5NV8Rad_-odK",
+      "label": "decimal_read_evolved",
+      "processed_bytes": 210,
+      "remaining_budget_bytes": 1052770304
+    },
+    {
+      "billed_bytes": 10485760,
+      "cumulative_billed_bytes": 31457280,
+      "elapsed_seconds": 2.125,
+      "job_id": "job_uaMc__9jNK-_TOmEAfYLmKXYzoW2",
+      "label": "partition_narrow",
+      "processed_bytes": 32,
+      "remaining_budget_bytes": 1042284544
+    },
+    {
+      "billed_bytes": 10485760,
+      "cumulative_billed_bytes": 41943040,
+      "elapsed_seconds": 1.7339999999967404,
+      "job_id": "job_kIBfYMM_vxOJv_cq44dFO7zBLAbN",
+      "label": "partition_wide",
+      "processed_bytes": 96,
+      "remaining_budget_bytes": 1031798784
+    },
+    {
+      "billed_bytes": 10485760,
+      "cumulative_billed_bytes": 52428800,
+      "elapsed_seconds": 2.3289999999979045,
+      "job_id": "job_-O4owE9aubUc7TEvuYoIL15BdyLp",
+      "label": "core_partition_narrow",
+      "processed_bytes": 42678,
+      "remaining_budget_bytes": 1021313024
+    },
+    {
+      "billed_bytes": 10485760,
+      "cumulative_billed_bytes": 62914560,
+      "elapsed_seconds": 2.1719999999913853,
+      "job_id": "job_V6ObxWBu8D6L1mcEMdzGKDAzVRnS",
+      "label": "core_partition_wide",
+      "processed_bytes": 1602600,
+      "remaining_budget_bytes": 1010827264
+    }
+  ],
+  "catalog": "janus_core_dev",
+  "catalog_primary_location": "US",
+  "catalog_readback": {
+    "created": false,
+    "readback": {
+      "catalog-type": "CATALOG_TYPE_BIGLAKE",
+      "create-time": "2026-10-07T07:02:26.277Z",
+      "credential-mode": "CREDENTIAL_MODE_END_USER",
+      "default-location": "gs://gen-lang-client-0593591102-dev-core",
+      "federated-catalog-options": {},
+      "name": "projects/gen-lang-client-0593591102/catalogs/janus_core_dev",
+      "replicas": [
+        {
+          "region": "US"
+        }
+      ],
+      "restricted-locations-config": {
+        "restricted-locations": [
+          "gs://gen-lang-client-0593591102-dev-mart/acceptance/b2-lakehouse"
+        ]
+      },
+      "storage-regions": [
+        "us-central1"
+      ],
+      "update-time": "2026-10-07T07:11:49.028Z"
+    }
+  },
+  "core_partition_pruning": {
+    "metadata_location": "gs://gen-lang-client-0593591102-dev-core/warehouse/ohlcv_v1/metadata/00204-30d733f0-9e46-4b3a-bc65-1b2211eb48a8.metadata.json",
+    "narrow_date_bounds": [
+      "2026-10-01",
+      "2026-10-06"
+    ],
+    "narrow_processed_bytes": 42678,
+    "narrow_result": [
+      [
+        "4",
+        "28"
+      ]
+    ],
+    "pass": true,
+    "snapshot_id": 8549832172546885809,
+    "symbol": "2330",
+    "table": "core.ohlcv_v1",
+    "wide_date_bounds": [
+      "2026-01-01",
+      "2026-10-06"
+    ],
+    "wide_processed_bytes": 1602600,
+    "wide_result": [
+      [
+        "183",
+        "1281"
+      ]
+    ]
+  },
+  "core_snapshot_id": "sha256:1eb49a2d139411245bda3c9d2eb77e451c5f462bb1865406fd8b55a151df61ab",
+  "execution_byte_budget": 1073741824,
+  "location": "US",
+  "manifest_sha256": "8eda0eaead65dcb2cdf33191337b2d6aae120ca2adfbe77cc511cf8c28d3e0a8",
+  "partition_pruning": {
+    "narrow_processed_bytes": 32,
+    "partition_field": "trade_date",
+    "pass": true,
+    "table": "decimal_evolution_4c30da3745",
+    "wide_processed_bytes": 96
+  },
+  "project": "gen-lang-client-0593591102",
+  "pyiceberg_default_unchanged": true,
+  "query_timeout_seconds": 60,
+  "remaining_budget_bytes": 1010827264,
+  "schema_evolution_native_decimal": {
+    "after_metadata_location": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b2-lakehouse/decimal_evolution_4c30da3745/wselosggpxgzirqh/metadata/00003-6ac601ec-0000-215e-8a47-14c14ef35818.metadata.json",
+    "after_schema_id": 1,
+    "before_metadata_location": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b2-lakehouse/decimal_evolution_4c30da3745/wselosggpxgzirqh/metadata/00001-6ac601d2-0000-2248-987e-34c7e944c0a7.metadata.json",
+    "before_schema_id": 0,
+    "created_metadata_location": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b2-lakehouse/decimal_evolution_4c30da3745/wselosggpxgzirqh/metadata/00000-6ac8b032-0000-2e3d-801a-d43a2cd617b7.metadata.json",
+    "decimal_type_after": "decimal(20,4)",
+    "evolved_rows": [
+      [
+        "1",
+        "1234567890123456.7890",
+        "2026-10-01",
+        null
+      ],
+      [
+        "2",
+        "-0.0100",
+        "2026-10-06",
+        null
+      ],
+      [
+        "3",
+        "9999999999999999.9999",
+        "2026-10-06",
+        "evolved"
+      ]
+    ],
+    "initial_rows": [
+      [
+        "1",
+        "1234567890123456.7890",
+        "2026-10-01"
+      ],
+      [
+        "2",
+        "-0.0100",
+        "2026-10-06"
+      ]
+    ],
+    "namespace": "b2_acceptance",
+    "note_type_after": "string",
+    "pass": true,
+    "table": "decimal_evolution_4c30da3745",
+    "table_management_enabled": false
+  },
+  "shared_catalog_mapping": {
+    "core.benchmark_v1": {
+      "catalog_metadata_location": "gs://gen-lang-client-0593591102-dev-core/warehouse/benchmark_v1/metadata/00258-05228454-a4a1-420a-855f-2605c56636ad.metadata.json",
+      "catalog_pointer_exact": true,
+      "format_version": 2,
+      "metadata_location": "gs://gen-lang-client-0593591102-dev-core/warehouse/benchmark_v1/metadata/00258-05228454-a4a1-420a-855f-2605c56636ad.metadata.json",
+      "metadata_sha256": "eee6423255890a092f301822171ed545ec72692ff9aea3a75b252b2de1cf806e",
+      "snapshot_exact": true,
+      "snapshot_id": 5084459386493044934,
+      "table": "benchmark_v1"
+    },
+    "core.financials_v1": {
+      "catalog_metadata_location": "gs://gen-lang-client-0593591102-dev-core/warehouse/financials_v1/metadata/00771-9c7b4a42-b680-49a1-8b14-f6cbe1ab9f23.metadata.json",
+      "catalog_pointer_exact": true,
+      "format_version": 2,
+      "metadata_location": "gs://gen-lang-client-0593591102-dev-core/warehouse/financials_v1/metadata/00771-9c7b4a42-b680-49a1-8b14-f6cbe1ab9f23.metadata.json",
+      "metadata_sha256": "36278451172fb8667d2889f532071e38775e464048fc4636553f4ea7183c32e5",
+      "snapshot_exact": true,
+      "snapshot_id": 801346769573568770,
+      "table": "financials_v1"
+    },
+    "core.ohlcv_v1": {
+      "catalog_metadata_location": "gs://gen-lang-client-0593591102-dev-core/warehouse/ohlcv_v1/metadata/00204-30d733f0-9e46-4b3a-bc65-1b2211eb48a8.metadata.json",
+      "catalog_pointer_exact": true,
+      "format_version": 2,
+      "metadata_location": "gs://gen-lang-client-0593591102-dev-core/warehouse/ohlcv_v1/metadata/00204-30d733f0-9e46-4b3a-bc65-1b2211eb48a8.metadata.json",
+      "metadata_sha256": "c27d783215f2041f39ab7bf20c1ec8fd9d18126b0d248baa7be0a6b8b4011b3d",
+      "snapshot_exact": true,
+      "snapshot_id": 8549832172546885809,
+      "table": "ohlcv_v1"
+    }
+  },
+  "status": "pass",
+  "storage_bucket_region": "us-central1",
+  "storage_read_api_used": false,
+  "total_billed_bytes": 62914560
+}

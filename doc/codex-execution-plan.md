@@ -60,6 +60,7 @@ B1. Exact-snapshot reader — CLOSED（2026-10-07）
 - abstraction 後既有 targeted tests 先維持 green。
 
 B2. BigQuery adapter / compatibility
+- 2026-10-07 CLOSED：shared-catalog exact mapping、native decimal/schema evolution、Core pruning 全 PASS；見 [B2 結案](archive/group-b-b2-closure-2026-10-07.md)。不重跑已通過驗收；下一步 B3，PyIceberg 仍為 default。
 - 使用一般 google-cloud-bigquery query/jobs client；不要加 google-cloud-bigquery-storage。
 - adapter 接 immutable Core execution/snapshot fence；不能證明 exact snapshot 就 fail closed，不偷讀 latest。
 - bounded probe 驗 region、GCS location、schema evolution、decimal、timestamp/date、null、partition pruning、source/provenance、processed bytes/latency。

@@ -1,6 +1,6 @@
 # B2 BigQuery compatibility probe
 
-狀態：partial；adapter／20 項 contract tests 與三張 fixed-snapshot bounded live row fidelity 已通過；正式 shared catalog／partition scan／全 workload cutover 尚未驗收。
+狀態：B2 compatibility CLOSED / PASS；shared catalog mapping、native decimal/schema evolution、真實 Core partition pruning 已通過。Workload canary/default cutover 仍待後續驗收；PyIceberg 維持預設。
 
 ## 既有 dev 資源
 
@@ -10,30 +10,37 @@
 
 24 小時是可重建中間 table 的預設 TTL，不是 dataset／canonical GCS 到期。固定 Core external table 定義必須個別取消 expiration；training／evaluation artifacts 依既有 retention，不受此 dataset default 管理。
 
-## 2026-10-07 暫停 checkpoint
+## 2026-10-07 B2 結案
 
-使用者已明確授權建立可計費 Lakehouse runtime catalog，但於 2026-10-07 15:51（Asia/Taipei）要求暫停 B2、先回寫進度。**目前尚未建立 catalog，也尚未修改 IAM。**
+本機既有 principal 完成 register，復用 `janus_core_dev`（primary location US、storage region us-central1、end-user credentials），本輪沒有修改 IAM。Live readback 修正舊暫停文件的 catalog 未建立說法。
 
-Latest live preflight：
+三張固定 B0 metadata URI 在 `b2_core_fixed_20261007` 的 catalog mapping 精確相等；dev-mart acceptance table 的 native DECIMAL(20,4)/add-column/null 通過；真實 ohlcv 窄／寬日期 processed bytes 為 42,678/1,602,600，query 前後 pointer 相同。9 jobs 共 60 MiB billed bytes，immutable GCS evidence readback PASS。完整 evidence 見 [B2 結案](archive/group-b-b2-closure-2026-10-07.md)。
 
-- Cloud Build default identity：`biglake.catalogs.create=true`、`biglake.catalogs.list=true`、`biglake.tables.register=false`。
-- project IAM：可 `getIamPolicy`，不可 `setIamPolicy`；因此不能由同一 automation identity 自動補 project-level register permission。
-- dev-core bucket IAM：可 `getIamPolicy`／`setIamPolicy`；object get/list 可用，本輪尚未做 bucket IAM mutation。
-- 固定 B0 Core fences 已重新 readback；manifest SHA256 仍為 `8eda0eaead65dcb2cdf33191337b2d6aae120ca2adfbe77cc511cf8c28d3e0a8`。
-- GCS acceptance evidence path PASS：`janus-ci` 可讀 fixed Core manifest，也可對既有 dev-mart acceptance prefix 做 generation=0 immutable write/readback。
-- B2 仍 **PARTIAL / PAUSED**；shared-catalog exact-snapshot mapping、native decimal/schema evolution、partition pruning 三項尚未完成。
+可重跑完整驗收（既有 dev 授權與 credentials；本機 Windows 使用 gcloud.cmd）：
 
-暫停與下次接續入口見 [B2 paused checkpoint](archive/group-b-b2-paused-checkpoint-2026-10-07.md)。再次繼續時，不重跑已通過的 20 contract tests、106 Mart regression、320-row fidelity、Core fence readback 或 GCS evidence path。
+```text
+python scripts/gcp/b2-lakehouse-acceptance.py --output b2-evidence.json
+```
+
+僅接續 Core pruning 時，使用相同 output 與其已保存的 `.jobs.json`：
+
+```text
+python scripts/gcp/b2-lakehouse-acceptance.py --output b2-evidence.json --core-pruning-only
+```
+
+帳本保留已消耗 bytes，整輪上限 1 GiB；pending/unknown billed bytes 必須先 readback job 才能繼續。Mapping 已存在時精確驗證，禁止 overwrite；測試 table 使用 `field-id`、`day` transform、`trade_date_day` 名稱，automatic table management=false，DML 僅在 acceptance table 啟用。
+
+BigQuery contract CI 在 push 時維持執行，包含本次 3 項 acceptance script checks。一次性 non-register live workflow 改為 workflow_dispatch，避免腳本 push 再建立測試 table 或暫時修改 bucket IAM；需要重跑時依當次 dev／IAM 授權執行。
 
 ## Probe 邊界
 
 - `BigQueryAnalyticsReader` 實作 B1 protocol，但未接入預設 specialist runtime；PyIceberg 保持預設。
 - 只使用一般 `google-cloud-bigquery` query／job result API；不安裝 Storage Read client、不使用 dataframe／Arrow download。
 - 當前 probe 僅支援既有 legacy external table：manifest metadata URI 必須是 versioned UUID metadata JSON，直接讀該檔證明 Iceberg V2 current snapshot 與 fence 一致；external source URI／region／欄位名稱須吻合，查詢後再驗 etag。不能證明則拒絕結果。
-- 此路徑只作 bounded transition evidence，不是最終 shared catalog 架構；尚未實作 shared Lakehouse／REST catalog snapshot mapping，也沒有 catalog migration。
+- 此路徑只作 bounded transition evidence，不是最終 shared catalog 架構；shared Lakehouse／REST catalog exact mapping 已由獨立 live acceptance script 證明；此 adapter 尚未接入 shared catalog，沒有 canonical catalog migration。
 - 每張 table 必須指定 date／partition 欄位與日期範圍；symbol cohort ≤500、selected columns、累計 row bound、dry-run 與整批 bytes budget。所有 dry-run 通過後才執行實際查詢。
 - 外部來源 dry-run bytes 可能只是下限；未知／0 estimate 正式記為 null，依最新授權採 execution budget 控制，不宣稱 LIMIT 可控制掃描費用。maximum_bytes_billed 套用剩餘 budget；此參數不涵蓋全部 GCS 成本，timeout／cancel 也不代表零費用。
-- schema evolution 的欄位差異會拒絕；decimal／timestamp/date／null 保留 SDK native values。小 cohort 的資料／null／日期時間／source/provenance 相等已證明；native decimal precision/scale、完整 schema evolution、partition pruning 與正式 shared catalog 仍未驗收，不可宣稱 B2 CLOSED 或切 default。
+- schema evolution 的欄位差異會拒絕；decimal／timestamp/date／null 保留 SDK native values。小 cohort 的資料／null／日期時間／source/provenance 相等已證明；native decimal precision/scale、add-column evolution/null、Core partition pruning 與 shared catalog mapping 已由獨立 live script 驗收；不得因此切 default 或宣稱所有 workload 已完成。
 - timeout cancel job；overflow／mapping drift／unknown billed bytes 不回傳 partial snapshot。adapter exception 交回呼叫者；B8 audit fallback 尚未實作。
 
 ## 可重跑命令
@@ -69,8 +76,8 @@ python scripts/gcp/bigquery-compatibility.py --manifest fixed-core-manifest.json
 
 Probe 保留原始完整 immutable manifest／snapshot identity，另外用 `table_scope` 明確指定此次子集；mapping 必須完全覆蓋 scope。Reader `read()` 不接受省略 manifest table 的 mapping，防止 partial probe 被當成完整 runtime input。
 
-## 未完成驗收
+## 後續驗收
 
-connection／bucket-scoped IAM／三張 external table 與 bounded Core row compare 已依本次使用者明確授權完成。尚需正式 shared catalog exact-snapshot mapping、完整 schema evolution／native decimal coverage、partition pruning 與全 workload canary／failure/audit fallback／FinOps acceptance；這些 gate 不由小 cohort success 取代。Adapter 未成為 specialist default；TODO 保持未勾選。
+B2 compatibility spike 已結案。Shared catalog adapter/workload 接線、全 workload canary／failure/audit fallback／FinOps acceptance 留待 B3 及後續項目；不得以 bounded compatibility success 取代。Adapter 未成為 specialist default。
 
 官方依據：[Iceberg external tables 與型別映射](https://docs.cloud.google.com/bigquery/docs/iceberg-external-tables)、[query 權限；Storage Read permission 僅適用該 API](https://docs.cloud.google.com/bigquery/docs/query-iceberg-data)。

@@ -2197,15 +2197,12 @@ the MCP connector still uses its older existing tagged revision.
 
 完整明細：[B1 reader 驗收證據](../archive/group-b-b1-reader-acceptance-2026-10-07.md)。
 
-## 2026-10-07 — B2 compatibility / shared-catalog 暫停 checkpoint
+## 2026-10-07 — B2 compatibility CLOSED / PASS
 
-- B2 adapter contract tests **20 PASS**；Mart targeted regression **106 PASS**；既有 deployment／specialist smoke 成功。PyIceberg 維持 default reader，BigQuery compatibility path 仍未 cutover。
-- 三張 fixed-snapshot legacy external table bounded live compare 共 **320 rows** 與 PyIceberg 逐列 multiset 相等；既有歷史 probe billed bytes 31,457,280。BigQuery guard 維持整次 execution ≤ **1 GiB**、單 query timeout ≤ **60 秒**。
-- fixed Core fence readback workflow `37583598067` **SUCCESS**；Core identity／manifest SHA 與 B0 不變。GCS evidence path workflow `37583433091` **SUCCESS**：`janus-ci` 可讀 fixed Core manifest，也可對既有 dev-mart acceptance prefix 做 generation=0 immutable write/readback。
-- 使用者已明確授權建立可計費 Lakehouse runtime catalog；截至本 checkpoint **尚未建立 catalog、尚未修改 IAM**。
-- Cloud Build permission preflight `37583053053` **SUCCESS**：`biglake.catalogs.create/list=true`、`biglake.tables.register=false`、project `getIamPolicy=true`／`setIamPolicy=false`、bucket `getIamPolicy/setIamPolicy=true`、storage object get/list=true。IAM fast gate `37583755729` **SUCCESS**，但結論為 `can_temporary_iam_bootstrap=false`。
-- 因此 automation identity 可建立／列出 catalog，卻不能 register table，也不能自行補 project-level IAM；未取得可執行 least-privilege register principal 前不得用廣泛永久 admin 權限繞過。
-- 尚缺三個 live gate：① shared catalog exact-snapshot mapping；② native decimal／schema evolution；③ partition pruning。既有 legacy row-fidelity success 不取代這三項。
-- 2026-10-07 15:51（Asia/Taipei）使用者要求**暫停 B2**、先回寫進度。狀態為 **PARTIAL / PAUSED**，不是 CLOSED；恢復時不重跑已通過的 20／106 tests、320-row fidelity、Core fence readback 或 GCS evidence path。
+- 沿用 adapter CI 20 PASS、Mart regression 106 PASS、deployment/smoke、legacy fixed-snapshot 320-row fidelity；本次 targeted acceptance checks 3 PASS。
+- 三張 fixed B0 Core shared-catalog mapping、DECIMAL(20,4)/schema evolution/null、真實 ohlcv partition pruning 全 PASS。窄日期 42,678 processed bytes；寬日期 1,602,600 bytes。Snapshot/metadata pointers 保持精確相等。
+- 本輪 9 jobs 共 62,914,560 billed bytes（60 MiB），整輪 ≤1 GiB、每 query ≤60 秒；unknown estimate 不補 0，跨重試 job 帳本保留。
+- 既有 catalog live readback 顯示 create-time 2026-10-07 15:02（Asia/Taipei），修正舊暫停文件的未建立說法。復用 US catalog、us-central1 storage；本機既有 principal 可 register，本輪無 IAM 或 canonical mutation。
+- Immutable dev-mart acceptance evidence generation=0 write/readback SHA256 PASS。PyIceberg 維持 default；B2 compatibility 結案不代表 B 組／workload canary／default cutover 完成，下一步 B3。
 
-完整接續點：[B2 paused checkpoint](../archive/group-b-b2-paused-checkpoint-2026-10-07.md)。
+完整證據：[B2 結案](../archive/group-b-b2-closure-2026-10-07.md)。舊暫停紀錄仍保留於 [歷史 checkpoint](../archive/group-b-b2-paused-checkpoint-2026-10-07.md)。
