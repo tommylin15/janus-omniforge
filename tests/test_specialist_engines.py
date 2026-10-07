@@ -84,6 +84,29 @@ def test_iceberg_snapshot_reader_preserves_exact_snapshot_semantics():
     with pytest.raises(ValueError, match="identity mismatch"):
         reader.read(manifest, ("2330",), core_snapshot_id="sha256:different", row_limit=10)
 
+
+@pytest.mark.parametrize("manifest,identity,limit,message", [
+    ({"snapshot_id": "core"}, "", 10, "core_snapshot_id is required"),
+    ({}, "core", 10, "missing immutable snapshot identity"),
+    ({"snapshot_id": "core"}, "core", 0, "row_limit must be positive"),
+    ({"snapshot_id": "core", "iceberg_tables": {"core.ohlcv_v1": {}}}, "core", 10, "immutable snapshot ID"),
+    ({"snapshot_id": "core", "iceberg_tables": {"private.ohlcv_v1": {"snapshot_id": 1}}}, "core", 10, "non-Core table"),
+    ({"snapshot_id": "core", "datasets": {"ohlcv": [{}, {}]}}, "core", 1, "row limit exceeded"),
+])
+def test_snapshot_reader_rejects_invalid_fences_before_catalog_access(manifest, identity, limit, message):
+    class Catalog:
+        def load_table(self, identifier):
+            raise AssertionError("invalid read must not access the catalog")
+    with pytest.raises(ValueError, match=message):
+        IcebergSnapshotReader(Catalog()).read(manifest, ("2330",), core_snapshot_id=identity, row_limit=limit)
+
+
+def test_snapshot_reader_closes_catalog_engine():
+    disposed = []
+    reader = IcebergSnapshotReader(SimpleNamespace(engine=SimpleNamespace(dispose=lambda: disposed.append(True))))
+    reader.close()
+    assert disposed == [True]
+
 def test_replay_is_deterministic_and_no_probabilities_are_invented():
     a = analyze_specialists(source(), "2330", "2026-05-01", "core")
     assert a == analyze_specialists(source(), "2330", "2026-05-01", "core")
