@@ -1,0 +1,57 @@
+steps:
+  - id: create-b2-catalog
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        project='gen-lang-client-0593591102'
+        bucket='gen-lang-client-0593591102-dev-core'
+        catalog='janus_core_dev'
+        account="$(gcloud config get-value account 2>/dev/null)"
+        case "${account}" in
+          *@*.gserviceaccount.com) member="serviceAccount:${account}" ;;
+          *) echo "unexpected Cloud Build identity" >&2; exit 70 ;;
+        esac
+
+        added_storage_admin=false
+        if ! gcloud storage buckets get-iam-policy "gs://${bucket}" --format=json | \
+          python3 -c 'import json,sys; p=json.load(sys.stdin); m=sys.argv[1]; raise SystemExit(0 if any(b.get("role")=="roles/storage.admin" and m in b.get("members",[]) for b in p.get("bindings",[])) else 1)' "${member}"; then
+          gcloud storage buckets add-iam-policy-binding "gs://${bucket}" \
+            --member="${member}" --role=roles/storage.admin --quiet >/dev/null
+          added_storage_admin=true
+        fi
+
+        cleanup() {
+          if [[ "${added_storage_admin}" == true ]]; then
+            gcloud storage buckets remove-iam-policy-binding "gs://${bucket}" \
+              --member="${member}" --role=roles/storage.admin --quiet >/dev/null || true
+          fi
+        }
+        trap cleanup EXIT
+
+        if ! gcloud biglake iceberg catalogs describe "${catalog}" --project="${project}" --format=json >/tmp/catalog.json 2>/dev/null; then
+          gcloud biglake iceberg catalogs create "${catalog}" \
+            --project="${project}" \
+            --catalog-type=biglake \
+            --default-location="gs://${bucket}" \
+            --credential-mode=end-user \
+            --primary-location=us-central1 \
+            --restricted-locations=us-central1 \
+            --quiet
+          gcloud biglake iceberg catalogs describe "${catalog}" --project="${project}" --format=json >/tmp/catalog.json
+        fi
+
+        python3 - <<'PY'
+        import json
+        p=json.load(open('/tmp/catalog.json'))
+        s=json.dumps(p,sort_keys=True).lower()
+        assert 'gen-lang-client-0593591102-dev-core' in s
+        assert 'us-central1' in s
+        assert 'end-user' in s or 'end_user' in s
+        print('B2 catalog readback PASS')
+        PY
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 300s
