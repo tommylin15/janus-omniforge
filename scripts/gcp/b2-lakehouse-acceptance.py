@@ -88,35 +88,23 @@ def gcs_json(uri: str) -> tuple[dict[str, Any], str]:
 
 
 def ensure_catalog() -> dict[str, Any]:
+    # The billable dev catalog is created by the separately-audited bootstrap.
+    # Live acceptance must never silently create or replace it.
     desc = run(
         "gcloud", "biglake", "iceberg", "catalogs", "describe", CATALOG,
         f"--project={PROJECT}", "--format=json", check=False,
     )
-    created = False
     if desc.returncode:
-        # Keep the catalog metadata-only. Namespace locations bind dev-core and
-        # dev-mart explicitly, avoiding project-wide Storage Admin just to set a
-        # catalog default warehouse.
-        run(
-            "gcloud", "biglake", "iceberg", "catalogs", "create", CATALOG,
-            f"--project={PROJECT}",
-            "--catalog-type=biglake",
-            "--credential-mode=end-user",
-            f"--primary-location={LOCATION}",
-            "--quiet",
-        )
-        created = True
-        desc = run(
-            "gcloud", "biglake", "iceberg", "catalogs", "describe", CATALOG,
-            f"--project={PROJECT}", "--format=json",
-        )
+        raise RuntimeError("authorized Lakehouse catalog is missing or unreadable")
     payload = json.loads(desc.stdout)
     serialized = json.dumps(payload, sort_keys=True).lower()
-    if LOCATION not in serialized:
-        raise RuntimeError("catalog readback does not prove expected primary location")
+    if CORE_BUCKET not in serialized:
+        raise RuntimeError("catalog readback does not prove dev-core default location")
+    if '"us"' not in serialized and ': "us"' not in serialized:
+        raise RuntimeError("catalog readback does not prove US primary location")
     if "end-user" not in serialized and "end_user" not in serialized:
         raise RuntimeError("catalog readback does not prove end-user credential mode")
-    return {"created": created, "readback": payload}
+    return {"created": False, "readback": payload}
 
 
 def ensure_namespace(name: str, location: str) -> None:
