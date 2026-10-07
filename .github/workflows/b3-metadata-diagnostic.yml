@@ -37,4 +37,16 @@ jobs:
           echo "=== bq ls catalog namespace ==="
           bq ls --format=prettyjson --project_id="$project" janus_core_dev.b2_core_fixed_20261007
           echo "rc=$?"
+          echo "=== existing project IAM for Mart / ingestion / CI ==="
+          gcloud projects get-iam-policy "$project" --format=json > /tmp/project-iam.json
+          python - <<'PY'
+import json
+p=json.load(open('/tmp/project-iam.json'))
+targets=('intelligence-mart@','ingestion-core@','janus-ci@')
+for b in p.get('bindings',[]):
+    members=[m for m in b.get('members',[]) if any(t in m for t in targets)]
+    if members:
+        print(json.dumps({"role":b.get("role"),"members":members}, sort_keys=True))
+PY
+          echo "rc=$?"
           exit 0
