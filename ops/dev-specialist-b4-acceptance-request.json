@@ -1,0 +1,6 @@
+{
+  "enabled": true,
+  "operation": "deep-coverage",
+  "request_id": "b4-deep-coverage-20261007-01",
+  "expected_git_sha": "752e551110cc67e18403b2ce2f00774f5b2a0c7f"
+}
