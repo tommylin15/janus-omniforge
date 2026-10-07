@@ -144,6 +144,16 @@ def test_latest_price_route_v2_migration_extends_operational_quote_constraint():
     assert sql.index("pg_get_constraintdef") < sql.index("INSERT INTO control.schema_migrations")
 
 
+def test_batch_occurrence_skipped_status_migration_expands_constraint():
+    control = FakeControl()
+    migration.run(control, migration.MIGRATION_BATCH_OCCURRENCE_SKIPPED)
+    sql = statements(control.connection)
+    assert "batch_occurrences_status_check" in sql
+    assert "'skipped'" in sql
+    assert "049_batch_occurrence_skipped_status" in sql
+    assert sql.index("pg_get_constraintdef") < sql.index("INSERT INTO control.schema_migrations")
+
+
 def test_position_projection_splits_control_and_private_api_owners(monkeypatch):
     control = FakeControl()
     private = FakeConnection("janus_private_api")
