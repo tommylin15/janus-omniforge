@@ -64,4 +64,11 @@ Follow-up commit `dd7e436e532cec10afab9ba7c9e5fc1bae4dda09` 僅將該 no-source 
 
 本項「防止 `gen-lang-client-0593591102_cloudbuild` 因 repository source build 再生」的 implementation、contract test、CI、deployment 與 live Cloud Build evidence 均已完成。
 
-注意：這不等同於已刪除目前 GCS 內既有的 legacy bucket；實體 bucket cleanup 必須另外確認 bucket 內容／依賴後再做，不能把 root-cause fix 與不可逆 storage cleanup 混成同一件事。
+後續 cleanup：使用者已於 2026-10-07 手動刪除 legacy bucket `gen-lang-client-0593591102_cloudbuild`。此刪除動作依使用者回報記錄；目前正式預期狀態為 legacy bucket 不存在、`gen-lang-client-0593591102-cloudbuild-regional` 保留。若 legacy bucket 再次出現，即視為 regression，需追查 repo 外手動命令、外部 workflow 或其他 tooling 建立來源，不得把它重新納入 canonical deployment。
+
+
+## Cleanup 後不可回退規則
+
+- `gen-lang-client-0593591102_cloudbuild` 已列為 retired resource name；active build path 不得再引用。
+- `tests/test_container_build_contract.py` 新增 hard guard 禁止 active workflow、`scripts/gcp` 與 `cloudbuild.yaml` 再出現該 legacy bucket 名稱。
+- 未來若 GCP inventory 再看到該 bucket，狀態應標記為 regression／unknown creator，先追查來源，不得自行修改 runbook 說它是正常資源。

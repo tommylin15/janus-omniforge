@@ -8,6 +8,7 @@ CLOUDBUILD = (ROOT / "cloudbuild.yaml").read_text(encoding="utf-8")
 WORKFLOW = (ROOT / ".github" / "workflows" / "deploy-dev.yml").read_text(encoding="utf-8")
 GITIGNORE = (ROOT / ".gitignore").read_text(encoding="utf-8")
 DOCKERIGNORE = (ROOT / ".dockerignore").read_text(encoding="utf-8")
+LEGACY_CLOUDBUILD_BUCKET = "gen-lang-client-0593591102_cloudbuild"
 
 
 def test_api_and_private_pipeline_share_python_base_but_not_flutter_output():
@@ -137,3 +138,21 @@ def test_research_cloud_build_polling_uses_the_same_region_as_submit():
             'gcloud builds describe "${build_id}" --project="${GCP_PROJECT_ID}" '
             '--region="${GCP_REGION}"'
         ) in text
+
+
+def test_legacy_cloud_build_bucket_is_not_reintroduced_in_active_build_paths():
+    active_paths = [ROOT / "cloudbuild.yaml"]
+    for root in (ROOT / ".github" / "workflows", ROOT / "scripts" / "gcp"):
+        active_paths.extend(path for path in root.rglob("*") if path.is_file())
+    offenders = []
+    for path in active_paths:
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        if LEGACY_CLOUDBUILD_BUCKET in text:
+            offenders.append(str(path.relative_to(ROOT)))
+    assert not offenders, (
+        "legacy Cloud Build bucket must stay deleted and must not be referenced by active build paths: "
+        + ", ".join(offenders)
+    )

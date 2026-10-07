@@ -69,6 +69,8 @@ Cloud Build source staging 固定使用 **regional build + 既有 regional stagi
 
 2026-10-07 live acceptance 證據見 `archive/cloud-build-regional-staging-acceptance-2026-10-07.md`。
 
+2026-10-07 cleanup 狀態：legacy bucket `gen-lang-client-0593591102_cloudbuild` 已由使用者手動刪除；目前正式預期狀態是 **legacy bucket 不存在**、`gen-lang-client-0593591102-cloudbuild-regional` 保留。若 legacy bucket 重新出現，視為 deployment／tooling regression，必須追查建立來源，不得把它當成正常 Cloud Build resource 保留或重新納入依賴。`tests/test_container_build_contract.py` 另以 hard guard 禁止 active workflow／script／cloudbuild config 再引用 legacy bucket 名稱。
+
 ### 3.2 本機／受控執行入口
 
 底層 deployment entrypoint 為：
