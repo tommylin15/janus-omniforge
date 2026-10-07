@@ -82,7 +82,15 @@ B0 已完成 implementation、deployment readback 與固定真實 dev Core snaps
 
 完整證據見 [B1 reader 驗收](archive/group-b-b1-reader-acceptance-2026-10-07.md)。**B2 compatibility 已 CLOSED / PASS**；沿用 adapter CI 20 PASS、Mart regression 106 PASS、deployment/smoke 與 320-row fidelity。本次三張 shared catalog exact-snapshot mapping、native DECIMAL(20,4)/schema evolution、真實 ohlcv partition pruning 全 PASS：窄日期 42,678 bytes，寬日期 1,602,600 bytes；整輪 9 jobs 共 60 MiB billed bytes，immutable GCS evidence SHA256 readback PASS。本輪沒有修改 IAM 或 canonical data。
 
-Live readback 修正舊暫停文件：`janus_core_dev` 已於 2026-10-07 15:02（Asia/Taipei）建立，本輪復用；catalog primary location 為 US，storage region 為 us-central1。使用本機既有 principal 的 register 權限，無需提升 automation identity。PyIceberg 保持 default，shared catalog adapter/workload canary、fallback、FinOps 與 default cutover 留在後續 scope。下一步 **B3 liquid-500 screening**。見 [B2 結案](archive/group-b-b2-closure-2026-10-07.md) 與 [runbook](runbook-bigquery-compatibility.md)。
+Live readback 修正舊暫停文件：`janus_core_dev` 已於 2026-10-07 15:02（Asia/Taipei）建立，本輪復用；catalog primary location 為 US，storage region 為 us-central1。使用本機既有 principal 的 register 權限，無需提升 automation identity。PyIceberg 保持 default，shared catalog adapter/workload canary、fallback、FinOps 與 default cutover 留在後續 scope。見 [B2 結案](archive/group-b-b2-closure-2026-10-07.md) 與 [runbook](runbook-bigquery-compatibility.md)。
+
+### B3 Daily liquid-500 screening — CLOSED / PASS（2026-10-07）
+
+B3 已完成 targeted tests、dev deployment、fixed-snapshot PyIceberg／BigQuery deterministic canary、兩次 Cloud Run reuse acceptance 與 batch-controller 真實 occurrence readback。第二次 fixed-snapshot execution 為 `reused=true`、`artifact_growth_bytes=0`、500 symbols、0 specialist、0 LLM token、CEO 未觸發；BigQuery 不切 default，PyIceberg 維持預設 reader。
+
+Controller recovery workflow `37628720592` **SUCCESS**；真實 occurrence `market-screening/2026-10-07/16` 為 `succeeded`，實際 Mart execution `janus-intelligence-mart-7f8jl`，dependencies 為 `ingestion/2026-10-07/14` 與 `data-supplement/2026-10-07/08`。完整 evidence 見 [B3 結案](archive/group-b-b3-closure-2026-10-07.md)。
+
+**B3 正式 CLOSED；B 組下一個 active work 為 B4：Deep Coverage specialists（active watchlist ∪ effective holdings）。**
 
 ## 現行產品決策
 
@@ -158,7 +166,7 @@ AutoGluon、FinBERT、FinGPT 只作 benchmark／research challenger；production
 ## 尚未完成的關鍵 acceptance
 
 - A 組已完成 implementation／CI／deployment／runtime build 與使用者人工驗收，狀態 CLOSED。
-- 五 specialist 的完整真實 dev／OOS、完整 ML baseline、dirty dependency、每日 500 screening 與每月第一個週六 10:30 retrain／reconciliation 尚未完成整體驗收。
+- B3 每日 500 screening 已 CLOSED；尚未完成的是五 specialist Deep Coverage 的完整真實 dev／OOS、完整 ML baseline、dirty dependency，以及每月第一個週六 10:30 retrain／reconciliation。
 - On-demand CEO command／capability／immutable report history 尚未完成。
 - Admin specialist model/evaluation + CEO capability/profile controls 尚未完成。
 - User Stock Detail manual Analyze/Re-analyze + freshness/history 尚未完成。
