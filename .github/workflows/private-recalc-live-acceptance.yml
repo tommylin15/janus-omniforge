@@ -121,21 +121,13 @@ jobs:
           verify_execution="${verify_execution##*/}"
           test -n "${verify_execution}"
 
-          verify_log="$(gcloud logging read \
-            "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"janus-ingestion-core\" AND labels.\"run.googleapis.com/execution_name\"=\"${verify_execution}\"" \
-            --project="${GCP_PROJECT_ID}" --freshness=30m --limit=80 \
-            --format='value(textPayload,jsonPayload.message)' || true)"
-          printf '%s\n' "${verify_log}"
-          grep -q '"operation": "private_recalc_acceptance_verify"' <<< "${verify_log}"
-          grep -q '"status": "succeeded"' <<< "${verify_log}"
-
-          queue_log="$(gcloud logging read \
-            "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"janus-private-pipeline\" AND labels.\"run.googleapis.com/execution_name\"=\"${queue_execution}\"" \
-            --project="${GCP_PROJECT_ID}" --freshness=30m --limit=120 \
-            --format='value(textPayload,jsonPayload.message)' || true)"
-          printf '%s\n' "${queue_log}"
-          grep -q '"private_recalc_queue"' <<< "${queue_log}"
-          grep -q '"succeeded": 1' <<< "${queue_log}"
+          # The verify ingestion execution is the canonical live assertion:
+          # it reads PostgreSQL and fails unless the request is SUCCEEDED,
+          # attempt_count=1, worker task is 0/1, execution name matches,
+          # requested ledger version caught up, queue is idle, and dispatch is released.
+          echo "seed_execution=${seed_execution}"
+          echo "queue_execution=${queue_execution}"
+          echo "verify_execution=${verify_execution}"
 
           if gcloud run jobs describe janus-private-pipeline \
             --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json |
