@@ -1,0 +1,6 @@
+{
+  "bigquery_jobs_create": true,
+  "identity": "cloud-build-default",
+  "mutations_performed": false,
+  "status": "pass"
+}
