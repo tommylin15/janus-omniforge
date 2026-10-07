@@ -10,6 +10,14 @@
 
 24 小時是可重建中間 table 的預設 TTL，不是 dataset／canonical GCS 到期。固定 Core external table 定義必須個別取消 expiration；training／evaluation artifacts 依既有 retention，不受此 dataset default 管理。
 
+## 2026-10-07 shared catalog preflight blocker
+
+- 兩個 bucket 均已唯讀確認在 `US-CENTRAL1`，且 `biglake.googleapis.com`／`bigquery.googleapis.com` 已啟用。
+- GitHub WIF `janus-ci` 缺 `biglake.catalogs.list`、`bigquery.tables.get`、project `getIamPolicy` 與 dataset metadata/IAM read；不得讓 CI 自行提權。
+- 既有 Cloud Build identity 亦無 catalog list／三張 legacy external table metadata read；因此目前無可用 automation principal 可證明 existing shared catalog，亦不可安全自行 grant admin role。
+- Lakehouse runtime catalog 是可計費 resource（雖有 metadata／operation 免費額度）；依 PROJECT_RULES，新增 catalog 前仍需對「新增可計費 resource」取得明確授權。未授權前不得建立 catalog，也不得為方便驗收直接給 `roles/biglake.admin`／`roles/storage.admin`。
+- 以上 preflight 全部 `mutations_performed=false`。在 catalog／IAM gate 解除前，shared-catalog exact-snapshot、native decimal live schema evolution、partition pruning live acceptance 維持 blocked/unknown；既有 legacy fixed-snapshot row fidelity 不因此失效。
+
 ## Probe 邊界
 
 - `BigQueryAnalyticsReader` 實作 B1 protocol，但未接入預設 specialist runtime；PyIceberg 保持預設。
