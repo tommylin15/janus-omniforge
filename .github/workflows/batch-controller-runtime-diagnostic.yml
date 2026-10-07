@@ -1,0 +1,73 @@
+name: Batch controller runtime diagnostic
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/batch-controller-runtime-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GCP_PROJECT_ID: gen-lang-client-0593591102
+      GCP_REGION: us-central1
+      JOB_NAME: janus-batch-controller
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read controller runtime evidence
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo '=== job ==='
+          gcloud run jobs describe "${JOB_NAME}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --format='yaml(metadata.name,metadata.generation,spec.template.spec.template.spec.timeoutSeconds,spec.template.spec.template.spec.maxRetries,spec.template.spec.template.spec.containers[0].image,status.conditions)'
+
+          echo '=== recent executions ==='
+          gcloud run jobs executions list \
+            --job="${JOB_NAME}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --limit=8 \
+            --format='table(metadata.name,status.startTime,status.completionTime,status.succeededCount,status.failedCount,status.cancelledCount,status.conditions[0].state,status.conditions[0].message)'
+
+          latest="$(gcloud run jobs executions list \
+            --job="${JOB_NAME}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --limit=1 \
+            --format='value(metadata.name)')"
+          test -n "${latest}"
+
+          echo "=== latest execution: ${latest} ==="
+          gcloud run jobs executions describe "${latest}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --format='yaml(metadata.name,status.startTime,status.completionTime,status.succeededCount,status.failedCount,status.cancelledCount,status.conditions,status.logUri)'
+
+          echo '=== latest execution logs ==='
+          gcloud logging read \
+            "resource.type=cloud_run_job AND resource.labels.job_name=${JOB_NAME} AND labels.\"run.googleapis.com/execution_name\"=\"${latest}\"" \
+            --project="${GCP_PROJECT_ID}" \
+            --limit=120 \
+            --order=asc \
+            --format='value(timestamp,severity,textPayload,jsonPayload.message)'
+
+          echo '=== scheduler candidates ==='
+          gcloud scheduler jobs list \
+            --location="${GCP_REGION}" \
+            --project="${GCP_PROJECT_ID}" \
+            --filter='name:janus' \
+            --format='table(name,schedule,timeZone,state,status.code,status.message,lastAttemptTime)' || true
