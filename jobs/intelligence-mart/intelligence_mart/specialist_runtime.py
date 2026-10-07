@@ -9,7 +9,8 @@ from urllib.error import HTTPError
 from .coverage import load_or_create_target_snapshot
 from .runtime import _fenced_core_manifest, _write_immutable_json, deterministic_processor
 from .analytics_reader import IcebergSnapshotReader
-from .specialists import DEPENDENCIES, VERSION, analyze_specialists, digest, screening, screening_quality
+from .specialists import (DEPENDENCIES, FEATURE_VERSION, MODEL_VERSION, VERSION, analyze_specialists, digest,
+                          screening, screening_quality, specialist_input_hashes)
 from .storage import iceberg_snapshot_reader_from_environment
 
 
@@ -21,6 +22,58 @@ def load_market_membership(connection, as_of):
         raise ValueError("missing or invalid PIT market membership")
     return {"symbols": sorted(str(r[0]) for r in members), "membership_version": str(members[0][1]),
             "analysis_as_of": as_of}
+
+
+_CACHE_VERSION = "deep-coverage-cache-v1"
+
+
+def _cache_identity(symbol, role, input_hash):
+    return digest({"cache_version": _CACHE_VERSION, "symbol": symbol, "role": role, "input_hash": input_hash,
+                   "feature_version": FEATURE_VERSION, "engine_version": VERSION, "model_version": MODEL_VERSION})
+
+
+def _cached_specialist_reference(store, bucket, symbol, role, input_hash):
+    from hashlib import sha256
+    identity = _cache_identity(symbol, role, input_hash)
+    name = f"specialist-cache/v1/{symbol}/{role}/{identity[7:]}.json"
+    try:
+        pointer = json.loads(store.read(name))
+    except (FileNotFoundError, HTTPError) as error:
+        if isinstance(error, HTTPError) and error.code != 404:
+            raise
+        return None, identity, name
+    expected = {"artifact_kind": "mart_specialist_cache_v1", "schema_version": "1.0.0",
+                "cache_identity": identity, "symbol": symbol, "role": role, "input_hash": input_hash,
+                "feature_version": FEATURE_VERSION, "engine_version": VERSION, "model_version": MODEL_VERSION}
+    if any(pointer.get(key) != value for key, value in expected.items()):
+        raise RuntimeError("specialist cache identity mismatch")
+    uri = str(pointer.get("artifact_uri", ""))
+    prefix = f"gs://{bucket}/specialists/"
+    artifact_hash = str(pointer.get("artifact_hash", ""))
+    if not uri.startswith(prefix) or len(artifact_hash) != 71 or not artifact_hash.startswith("sha256:"):
+        raise RuntimeError("invalid specialist cache artifact reference")
+    raw = store.read(uri[len(f"gs://{bucket}/"):])
+    if "sha256:" + sha256(raw).hexdigest() != artifact_hash:
+        raise RuntimeError("specialist cache artifact hash mismatch")
+    artifact = json.loads(raw)
+    if artifact.get("symbol") != symbol or artifact.get("role") != role or artifact.get("input_hash") != input_hash \
+            or artifact.get("feature_version") != FEATURE_VERSION or artifact.get("engine_version") != VERSION \
+            or artifact.get("model_version") != MODEL_VERSION \
+            or artifact.get("output_hash") != digest({k: v for k, v in artifact.items() if k != "output_hash"}):
+        raise RuntimeError("specialist cache artifact contract mismatch")
+    return ({"symbol": symbol, "role": role, "status": artifact["status"], "reused": True,
+             "cache_identity": identity, "input_hash": input_hash,
+             "source_core_snapshot_id": artifact["core_snapshot_id"],
+             "artifact_uri": uri, "artifact_hash": artifact_hash}, identity, name)
+
+
+def _write_specialist_cache(store, bucket, artifact, reference, identity, name):
+    pointer = {"artifact_kind": "mart_specialist_cache_v1", "schema_version": "1.0.0",
+               "cache_identity": identity, "symbol": artifact["symbol"], "role": artifact["role"],
+               "input_hash": artifact["input_hash"], "feature_version": FEATURE_VERSION,
+               "engine_version": VERSION, "model_version": MODEL_VERSION,
+               "source_core_snapshot_id": artifact["core_snapshot_id"], **reference}
+    _write_immutable_json(store, bucket, name, pointer)
 
 
 def specialist_processor(execution, publication_connection, *, store_factory=None, reader_factory=None, catalog_factory=None):
@@ -73,8 +126,10 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
                 or saved["execution_id"] != execution.execution_id \
                 or saved["output_hash"] != digest({k: v for k, v in saved.items() if k != "output_hash"}):
             raise RuntimeError("immutable specialist manifest fence mismatch")
-        for ref in [saved["screening"], saved["target_snapshot"], saved["market_membership"], *saved["specialists"],
-                    *([saved["evaluation"]] if "evaluation" in saved else [])]:
+        refs = [saved["target_snapshot"], *saved["specialists"],
+                *([saved["evaluation"]] if "evaluation" in saved else [])]
+        refs.extend(saved[key] for key in ("screening", "market_membership") if saved.get(key))
+        for ref in refs:
             name = ref["artifact_uri"].split(f"gs://{bucket}/", 1)[1]
             from hashlib import sha256
             if "sha256:" + sha256(store.read(name)).hexdigest() != ref["artifact_hash"]:
@@ -83,17 +138,29 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
                 "reports": saved["specialist_count"] // 5, "publishable": 0,
                 "specialist_status": saved["specialist_status"], "screening_count": saved["screening_count"],
                 "screening_quality": saved.get("screening_quality"),
-                "specialist_count": saved["specialist_count"], "input_row_count": saved.get("input_row_count"),
+                "specialist_count": saved["specialist_count"],
+                "specialist_computed_count": saved.get("specialist_computed_count", saved["specialist_count"]),
+                "specialist_reused_count": saved.get("specialist_reused_count", 0),
+                "dirty_specialists": saved.get("dirty_specialists", []),
+                "input_row_count": saved.get("input_row_count"),
                 "rows_by_dataset": saved.get("input_telemetry", {}).get("rows_by_dataset", {}),
                 "scan_evidence": saved.get("input_telemetry", {}).get("scan_evidence", {}),
                 "screening_output_hash": saved.get("screening_output_hash"),
                 "evaluation_output_hash": saved.get("evaluation_output_hash")}
     target, target_ref = load_or_create_target_snapshot(publication_connection, execution.execution_id,
                                                        as_of, store, bucket)
-    membership = load_market_membership(publication_connection, as_of)
-    market_symbols = set(membership["symbols"])
-    market_ref = _write_immutable_json(store, bucket, f"executions/{execution.execution_id}/market-membership.json", membership)
-    symbols = tuple(sorted(market_symbols | set(target["symbols"])))
+    deep_coverage = execution.config_id == "deep-coverage"
+    if deep_coverage:
+        membership = None
+        market_symbols = set()
+        market_ref = None
+        symbols = tuple(target["symbols"])
+    else:
+        membership = load_market_membership(publication_connection, as_of)
+        market_symbols = set(membership["symbols"])
+        market_ref = _write_immutable_json(
+            store, bucket, f"executions/{execution.execution_id}/market-membership.json", membership)
+        symbols = tuple(sorted(market_symbols | set(target["symbols"])))
     if reader_factory is not None and catalog_factory is not None:
         raise ValueError("reader_factory and catalog_factory are mutually exclusive")
     if reader_factory is not None:
@@ -120,11 +187,35 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
         raise RuntimeError("analytics reader returned a different Core snapshot")
     datasets = snapshot_read.datasets
     input_telemetry = snapshot_read.telemetry
-    screen = screening(datasets, market_symbols, as_of, execution.core_snapshot_id)
-    screen_ref = _write_immutable_json(store, bucket, f"executions/{execution.execution_id}/screening.json", screen)
+    if deep_coverage:
+        screen = []
+        screen_ref = None
+    else:
+        screen = screening(datasets, market_symbols, as_of, execution.core_snapshot_id)
+        screen_ref = _write_immutable_json(
+            store, bucket, f"executions/{execution.execution_id}/screening.json", screen)
+
     references = []
+    computed_specialists = 0
+    reused_specialists = 0
+    dirty_specialists = []
     for symbol in target["symbols"]:
-        for artifact in analyze_specialists(datasets, symbol, as_of, execution.core_snapshot_id):
+        input_hashes = specialist_input_hashes(datasets, symbol, as_of, execution.core_snapshot_id)
+        dirty_roles = []
+        cache_meta = {}
+        for role in DEPENDENCIES:
+            cached, identity, cache_name = _cached_specialist_reference(
+                store, bucket, symbol, role, input_hashes[role])
+            cache_meta[role] = (identity, cache_name)
+            if cached is None:
+                dirty_roles.append(role)
+                dirty_specialists.append({"symbol": symbol, "role": role, "input_hash": input_hashes[role]})
+            else:
+                references.append(cached)
+                reused_specialists += 1
+        artifacts = analyze_specialists(
+            datasets, symbol, as_of, execution.core_snapshot_id, roles=dirty_roles) if dirty_roles else ()
+        for artifact in artifacts:
             name = f"specialists/{artifact['output_hash'][7:]}.json"
             try:
                 existing = json.loads(store.read(name))
@@ -137,16 +228,24 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
             reference = _write_immutable_json(store, bucket, name, artifact)
             if json.loads(store.read(name)) != artifact:
                 raise RuntimeError("specialist readback mismatch")
+            identity, cache_name = cache_meta[artifact["role"]]
+            _write_specialist_cache(store, bucket, artifact, reference, identity, cache_name)
             references.append({"symbol": symbol, "role": artifact["role"], "status": artifact["status"],
-                               "reused": existing is not None, **reference})
+                               "reused": False, "cache_identity": identity, "input_hash": artifact["input_hash"],
+                               "source_core_snapshot_id": artifact["core_snapshot_id"], **reference})
+            computed_specialists += 1
+    references.sort(key=lambda item: (item["symbol"], item["role"]))
     manifest = {"artifact_kind": "mart_specialist_execution_v1", "schema_version": "1.0.0",
                 "execution_id": execution.execution_id, "analysis_as_of": as_of,
                 "core_snapshot_id": execution.core_snapshot_id, "engine_version": VERSION,
                 "target_snapshot": target_ref, "market_membership": market_ref, "screening": screen_ref,
                 "screening_count": len(screen), "specialist_count": len(references),
+                "specialist_computed_count": computed_specialists, "specialist_reused_count": reused_specialists,
+                "dirty_specialists": dirty_specialists,
                 "input_row_count": input_telemetry.get("total_rows", sum(len(rows) for rows in datasets.values())),
-                "input_telemetry": input_telemetry, "screening_output_hash": screen_ref["artifact_hash"],
-                "screening_quality": screening_quality(screen),
+                "input_telemetry": input_telemetry,
+                "screening_output_hash": screen_ref["artifact_hash"] if screen_ref else None,
+                "screening_quality": screening_quality(screen) if screen else None,
                 "specialist_status": "partial" if any(r["status"] != "ready" for r in references) else "ready",
                 "specialists": references, "llm_api_tokens": 0, "ceo_triggered": False,
                 "publication_authority": False}
@@ -161,6 +260,9 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
             "publishable": 0, "specialist_status": manifest["specialist_status"],
             "screening_quality": manifest["screening_quality"],
             "screening_count": len(screen), "specialist_count": len(references),
+            "specialist_computed_count": manifest["specialist_computed_count"],
+            "specialist_reused_count": manifest["specialist_reused_count"],
+            "dirty_specialists": manifest["dirty_specialists"],
             "input_row_count": manifest["input_row_count"],
             "rows_by_dataset": manifest["input_telemetry"].get("rows_by_dataset", {}),
             "scan_evidence": manifest["input_telemetry"].get("scan_evidence", {}),
@@ -196,6 +298,21 @@ def latest_training_input(store, today):
             "coreSnapshotId": core["snapshot_id"], "coreSnapshotUri": f"gs://{store.bucket}/{item['name']}",
             "coreSnapshotHash": "sha256:" + sha256(raw).hexdigest(), "martSchemaVersion": "1",
             "featureVersion": "2", "modelVersion": "deterministic-v1", "governanceSnapshotVersion": "gov-1", "scopes": []}
+
+
+def run_deep_coverage():
+    """Run current Deep Coverage only; no liquid-500 screening, OOS retraining, or LLM calls."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from ingestion_core.stage import GcsObjectStore
+    if os.environ.get("GCP_PROJECT_ID") != "gen-lang-client-0593591102" \
+            or os.environ.get("MART_BUCKET") != "gen-lang-client-0593591102-dev-mart":
+        raise ValueError("deep coverage is restricted to existing dev resources")
+    if os.environ.get("MART_OOS_EVALUATION", "false").lower() == "true":
+        raise ValueError("deep coverage must not run OOS evaluation")
+    store = GcsObjectStore("gen-lang-client-0593591102-dev-core")
+    event = latest_training_input(store, datetime.now(ZoneInfo("Asia/Taipei")).date())
+    return _run_event(event, "deep-coverage")
 
 
 def run_baseline():
