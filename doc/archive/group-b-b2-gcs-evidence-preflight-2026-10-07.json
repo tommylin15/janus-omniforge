@@ -1,0 +1,9 @@
+{
+  "core_manifest_read": true,
+  "dev_mart_immutable_write": true,
+  "dev_mart_readback": true,
+  "mutations_performed": [
+    "one immutable acceptance probe object"
+  ],
+  "status": "pass"
+}
