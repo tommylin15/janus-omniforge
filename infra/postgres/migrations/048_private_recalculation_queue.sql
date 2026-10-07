@@ -5,7 +5,10 @@ SET ROLE janus_control;
 
 CREATE TABLE IF NOT EXISTS private.recalculation_requests (
     request_id uuid PRIMARY KEY,
-    user_id uuid NOT NULL REFERENCES private.users(user_id),
+    -- Keep this operational queue decoupled from the historical owner of
+    -- private.users. Older dev databases may have bootstrap-owned private
+    -- tables; enqueue validates user existence before inserting.
+    user_id uuid NOT NULL,
     requested_ledger_version bigint NOT NULL CHECK (requested_ledger_version >= 0),
     status varchar(24) NOT NULL CHECK (status IN (
         'QUEUED','RUNNING','CANCEL_REQUESTED','SUCCEEDED','FAILED','CANCELLED'
