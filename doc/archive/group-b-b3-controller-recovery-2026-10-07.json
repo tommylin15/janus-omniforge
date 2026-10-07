@@ -1,0 +1,530 @@
+{
+  "base_acceptance_git_sha": "cb72ae00d9d93706a3281411b6dda425c65752c5",
+  "base_markers": {
+    "canary": true,
+    "controller": false,
+    "deploy": true,
+    "live": true,
+    "tests": true
+  },
+  "controller_job": {
+    "apiVersion": "run.googleapis.com/v1",
+    "kind": "Job",
+    "metadata": {
+      "annotations": {
+        "run.googleapis.com/client-name": "gcloud",
+        "run.googleapis.com/client-version": "568.0.0",
+        "run.googleapis.com/creator": "tommylin15@gmail.com",
+        "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
+        "run.googleapis.com/operation-id": "fec1b0db-bc2c-4a66-84a4-6574092d17f9"
+      },
+      "creationTimestamp": "2026-10-02T03:32:20.977352Z",
+      "generation": 55,
+      "labels": {
+        "cloud.googleapis.com/location": "us-central1",
+        "run.googleapis.com/lastUpdatedTime": "2026-10-07T13:25:55.236537Z"
+      },
+      "name": "janus-batch-controller",
+      "namespace": "131494961796",
+      "resourceVersion": "AAZdQA4Q3gI",
+      "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/jobs/janus-batch-controller",
+      "uid": "c0918163-0449-43bd-a919-6c5f13ad2859"
+    },
+    "spec": {
+      "template": {
+        "metadata": {
+          "annotations": {
+            "run.googleapis.com/client-name": "gcloud",
+            "run.googleapis.com/client-version": "568.0.0",
+            "run.googleapis.com/execution-environment": "gen2",
+            "run.googleapis.com/network-interfaces": "[{\"network\":\"projects/gen-lang-client-0593591102/global/networks/janusai-lake-poc\",\"subnetwork\":\"janusai-lake-poc-uscentral1\",\"tags\":[\"janus-ingestion-core\"]}]",
+            "run.googleapis.com/vpc-access-egress": "private-ranges-only"
+          },
+          "labels": {
+            "client.knative.dev/nonce": "pic_hip_buf"
+          }
+        },
+        "spec": {
+          "parallelism": 1,
+          "taskCount": 1,
+          "template": {
+            "spec": {
+              "containers": [
+                {
+                  "args": [
+                    "-m",
+                    "ingestion_core.batch_controller"
+                  ],
+                  "command": [
+                    "python"
+                  ],
+                  "env": [
+                    {
+                      "name": "CATALOG_DB_NAME",
+                      "value": "janus_control"
+                    },
+                    {
+                      "name": "JANUS_INGESTION_POSTGRES_BUNDLE",
+                      "valueFrom": {
+                        "secretKeyRef": {
+                          "key": "latest",
+                          "name": "janus-runtime-bundle"
+                        }
+                      }
+                    },
+                    {
+                      "name": "CONTROL_DB_NAME",
+                      "value": "janus_control"
+                    },
+                    {
+                      "name": "ICEBERG_WAREHOUSE",
+                      "value": "gs://gen-lang-client-0593591102-dev-core/warehouse"
+                    },
+                    {
+                      "name": "CATALOG_DB_USER",
+                      "value": "janus_catalog"
+                    },
+                    {
+                      "name": "CONTROL_DB_USER",
+                      "value": "janus_control"
+                    },
+                    {
+                      "name": "STAGE_BUCKET",
+                      "value": "gen-lang-client-0593591102-dev-stage"
+                    },
+                    {
+                      "name": "CONTROL_DB_HOST",
+                      "value": "10.42.0.5"
+                    },
+                    {
+                      "name": "GCP_PROJECT_ID",
+                      "value": "gen-lang-client-0593591102"
+                    },
+                    {
+                      "name": "CORE_BUCKET",
+                      "value": "gen-lang-client-0593591102-dev-core"
+                    },
+                    {
+                      "name": "CATALOG_DB_HOST",
+                      "value": "10.42.0.5"
+                    },
+                    {
+                      "name": "BATCH_CONTROLLER_MODE",
+                      "value": "active"
+                    },
+                    {
+                      "name": "BATCH_CONTROLLER_NOT_BEFORE",
+                      "value": "2026-10-02T04:05:00Z"
+                    }
+                  ],
+                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/ingestion-core@sha256:63bcf93401fc5a1dd74e7e74b7e4a77f8c36c92c06393a53fcd4bb8fe4181d3f",
+                  "resources": {
+                    "limits": {
+                      "cpu": "1",
+                      "memory": "512Mi"
+                    }
+                  }
+                }
+              ],
+              "maxRetries": 0,
+              "serviceAccountName": "ingestion-core@gen-lang-client-0593591102.iam.gserviceaccount.com",
+              "timeoutSeconds": "120"
+            }
+          }
+        }
+      }
+    },
+    "status": {
+      "conditions": [
+        {
+          "status": "True",
+          "type": "Ready"
+        }
+      ],
+      "executionCount": 162,
+      "latestCreatedExecution": {
+        "completionStatus": "EXECUTION_SUCCEEDED",
+        "completionTimestamp": "2026-10-07T13:21:32.648636Z",
+        "creationTimestamp": "2026-10-07T13:19:25.389573Z",
+        "name": "janus-batch-controller-t6m57"
+      },
+      "observedGeneration": 55
+    }
+  },
+  "generated_at": "2026-10-07T13:35:18.886712+00:00",
+  "git_sha": "336e178b46a251b3b643feaf4d038171966bdcd1",
+  "probe_execution": {
+    "apiVersion": "run.googleapis.com/v1",
+    "kind": "Execution",
+    "metadata": {
+      "annotations": {
+        "run.googleapis.com/client-name": "gcloud",
+        "run.googleapis.com/client-version": "568.0.0",
+        "run.googleapis.com/creator": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
+        "run.googleapis.com/execution-environment": "gen2",
+        "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
+        "run.googleapis.com/network-interfaces": "[{\"network\":\"projects/gen-lang-client-0593591102/global/networks/janusai-lake-poc\",\"subnetwork\":\"janusai-lake-poc-uscentral1\",\"tags\":[\"janus-ingestion-core\"]}]",
+        "run.googleapis.com/operation-id": "8d6d15e3-c688-46f7-890f-c04e30f3a883",
+        "run.googleapis.com/vpc-access-egress": "private-ranges-only"
+      },
+      "creationTimestamp": "2026-10-07T13:31:10.121225Z",
+      "generation": 1,
+      "labels": {
+        "client.knative.dev/nonce": "pic_hip_buf",
+        "cloud.googleapis.com/location": "us-central1",
+        "run.googleapis.com/job": "janus-batch-controller",
+        "run.googleapis.com/jobGeneration": "55",
+        "run.googleapis.com/jobResourceVersion": "1791379817355069",
+        "run.googleapis.com/jobUid": "c0918163-0449-43bd-a919-6c5f13ad2859"
+      },
+      "name": "janus-batch-controller-6zjgr",
+      "namespace": "131494961796",
+      "ownerReferences": [
+        {
+          "apiVersion": "serving.knative.dev/v1",
+          "blockOwnerDeletion": true,
+          "controller": true,
+          "kind": "Job",
+          "name": "janus-batch-controller",
+          "uid": "c0918163-0449-43bd-a919-6c5f13ad2859"
+        }
+      ],
+      "resourceVersion": "AAZdQC95gl8",
+      "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/executions/janus-batch-controller-6zjgr",
+      "uid": "abf46a17-901a-4095-bfe8-35a20bb276e1"
+    },
+    "spec": {
+      "parallelism": 1,
+      "taskCount": 1,
+      "template": {
+        "spec": {
+          "containers": [
+            {
+              "args": [
+                "-c",
+                "exec(__import__(\"base64\").b64decode(__import__(\"os\").environ[\"B3_PROBE_CODE\"]))"
+              ],
+              "command": [
+                "python"
+              ],
+              "env": [
+                {
+                  "name": "CATALOG_DB_NAME",
+                  "value": "janus_control"
+                },
+                {
+                  "name": "JANUS_INGESTION_POSTGRES_BUNDLE",
+                  "valueFrom": {
+                    "secretKeyRef": {
+                      "key": "latest",
+                      "name": "janus-runtime-bundle"
+                    }
+                  }
+                },
+                {
+                  "name": "CONTROL_DB_NAME",
+                  "value": "janus_control"
+                },
+                {
+                  "name": "ICEBERG_WAREHOUSE",
+                  "value": "gs://gen-lang-client-0593591102-dev-core/warehouse"
+                },
+                {
+                  "name": "CATALOG_DB_USER",
+                  "value": "janus_catalog"
+                },
+                {
+                  "name": "CONTROL_DB_USER",
+                  "value": "janus_control"
+                },
+                {
+                  "name": "STAGE_BUCKET",
+                  "value": "gen-lang-client-0593591102-dev-stage"
+                },
+                {
+                  "name": "CONTROL_DB_HOST",
+                  "value": "10.42.0.5"
+                },
+                {
+                  "name": "GCP_PROJECT_ID",
+                  "value": "gen-lang-client-0593591102"
+                },
+                {
+                  "name": "CORE_BUCKET",
+                  "value": "gen-lang-client-0593591102-dev-core"
+                },
+                {
+                  "name": "CATALOG_DB_HOST",
+                  "value": "10.42.0.5"
+                },
+                {
+                  "name": "BATCH_CONTROLLER_MODE",
+                  "value": "active"
+                },
+                {
+                  "name": "BATCH_CONTROLLER_NOT_BEFORE",
+                  "value": "2026-10-02T04:05:00Z"
+                },
+                {
+                  "name": "B3_PROBE_CODE",
+                  "value": "aW1wb3J0IGpzb24sIG9zCmZyb20gdXJsbGliLnBhcnNlIGltcG9ydCB1cmxwYXJzZQpmcm9tIGluZ2VzdGlvbl9jb3JlLl9fbWFpbl9fIGltcG9ydCBfY29udHJvbF9wbGFuZQpmcm9tIGluZ2VzdGlvbl9jb3JlLnN0YWdlIGltcG9ydCBHY3NPYmplY3RTdG9yZQoKb2NjdXJyZW5jZT1vcy5lbnZpcm9uWydCM19PQ0NVUlJFTkNFX0lEJ10KY29udHJvbD1fY29udHJvbF9wbGFuZSgpCnRyeToKICAgIHdpdGggY29udHJvbC5jb25uZWN0aW9uLmN1cnNvcigpIGFzIGN1cnNvcjoKICAgICAgICBjdXJzb3IuZXhlY3V0ZSgKICAgICAgICAgICAgIlNFTEVDVCBvY2N1cnJlbmNlX2lkLHNjaGVkdWxlZF9hdCxzdGF0ZSBGUk9NIGNvbnRyb2wuYmF0Y2hfb2NjdXJyZW5jZXMgV0hFUkUgb2NjdXJyZW5jZV9pZD0lcyIsCiAgICAgICAgICAgIChvY2N1cnJlbmNlLCksCiAgICAgICAgKQogICAgICAgIHJvdz1jdXJzb3IuZmV0Y2hvbmUoKQogICAgaWYgcm93IGlzIE5vbmU6CiAgICAgICAgcGF5bG9hZD17ImZvdW5kIjogRmFsc2UsICJvY2N1cnJlbmNlX2lkIjogb2NjdXJyZW5jZX0KICAgIGVsc2U6CiAgICAgICAgcGF5bG9hZD17CiAgICAgICAgICAgICJmb3VuZCI6IFRydWUsCiAgICAgICAgICAgICJvY2N1cnJlbmNlX2lkIjogcm93WzBdLAogICAgICAgICAgICAic2NoZWR1bGVkX2F0Ijogcm93WzFdLmlzb2Zvcm1hdCgpLAogICAgICAgICAgICAic3RhdGUiOiByb3dbMl0sCiAgICAgICAgfQpmaW5hbGx5OgogICAgY29udHJvbC5jbG9zZSgpCgp0YXJnZXQ9dXJscGFyc2Uob3MuZW52aXJvblsnQjNfUFJPQkVfUkVTVUxUX1VSSSddKQpidWNrZXQ9b3MuZW52aXJvbi5nZXQoJ0NPUkVfQlVDS0VUJywnJykuc3RyaXAoKQppZiB0YXJnZXQuc2NoZW1lICE9ICdncycgb3IgdGFyZ2V0Lm5ldGxvYyAhPSBidWNrZXQgb3Igbm90IHRhcmdldC5wYXRoLnN0YXJ0c3dpdGgoJy9hY2NlcHRhbmNlL2IzLWNvbnRyb2xsZXItcmVjb3ZlcnkvJyk6CiAgICByYWlzZSBWYWx1ZUVycm9yKCdCMyBjb250cm9sbGVyIHJlY292ZXJ5IHJlc3VsdCBtdXN0IHN0YXkgaW5zaWRlIGV4aXN0aW5nIGRldi1jb3JlIGFjY2VwdGFuY2UgcHJlZml4JykKbmFtZT10YXJnZXQucGF0aC5sc3RyaXAoJy8nKQpyYXc9KGpzb24uZHVtcHMocGF5bG9hZCwgc29ydF9rZXlzPVRydWUpKydcbicpLmVuY29kZSgpCnN0b3JlPUdjc09iamVjdFN0b3JlKGJ1Y2tldCkKY3JlYXRlZD1zdG9yZS5jcmVhdGUobmFtZSwgcmF3LCAnYXBwbGljYXRpb24vanNvbicpCmlmIG5vdCBjcmVhdGVkIGFuZCBzdG9yZS5yZWFkKG5hbWUpICE9IHJhdzoKICAgIHJhaXNlIFJ1bnRpbWVFcnJvcignaW1tdXRhYmxlIEIzIGNvbnRyb2xsZXIgcmVjb3ZlcnkgcmVzdWx0IGNvbmZsaWN0JykKaWYgc3RvcmUucmVhZChuYW1lKSAhPSByYXc6CiAgICByYWlzZSBSdW50aW1lRXJyb3IoJ0IzIGNvbnRyb2xsZXIgcmVjb3ZlcnkgcmVzdWx0IHJlYWRiYWNrIG1pc21hdGNoJykKcHJpbnQocmF3LmRlY29kZSgpLnN0cmlwKCkpCg=="
+                },
+                {
+                  "name": "B3_OCCURRENCE_ID",
+                  "value": "market-screening/2026-10-07/16"
+                },
+                {
+                  "name": "B3_PROBE_RESULT_URI",
+                  "value": "gs://gen-lang-client-0593591102-dev-core/acceptance/b3-controller-recovery/github-37628720592-1.json"
+                }
+              ],
+              "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/ingestion-core@sha256:63bcf93401fc5a1dd74e7e74b7e4a77f8c36c92c06393a53fcd4bb8fe4181d3f",
+              "resources": {
+                "limits": {
+                  "cpu": "1",
+                  "memory": "512Mi"
+                }
+              }
+            }
+          ],
+          "maxRetries": 0,
+          "serviceAccountName": "ingestion-core@gen-lang-client-0593591102.iam.gserviceaccount.com",
+          "timeoutSeconds": "300"
+        }
+      }
+    },
+    "status": {
+      "completionTime": "2026-10-07T13:35:12.677173Z",
+      "conditions": [
+        {
+          "lastTransitionTime": "2026-10-07T13:35:12.677173Z",
+          "message": "Execution completed successfully in 3m44.4s.",
+          "status": "True",
+          "type": "Completed"
+        },
+        {
+          "lastTransitionTime": "2026-10-07T13:31:11.365286Z",
+          "message": "Provisioned imported containers.",
+          "status": "True",
+          "type": "ResourcesAvailable"
+        },
+        {
+          "lastTransitionTime": "2026-10-07T13:35:00.898627Z",
+          "message": "Started deployed execution in 3m49.53s.",
+          "status": "True",
+          "type": "Started"
+        },
+        {
+          "lastTransitionTime": "2026-10-07T13:31:11.054318Z",
+          "message": "Imported container image.",
+          "status": "True",
+          "type": "ContainerReady"
+        }
+      ],
+      "logUri": "https://console.cloud.google.com/logs/viewer?project=gen-lang-client-0593591102&advancedFilter=resource.type%3D%22cloud_run_job%22%0Aresource.labels.job_name%3D%22janus-batch-controller%22%0Aresource.labels.location%3D%22us-central1%22%0Alabels.%22run.googleapis.com/execution_name%22%3D%22janus-batch-controller-6zjgr%22",
+      "observedGeneration": 1,
+      "startTime": "2026-10-07T13:31:28.271283Z",
+      "succeededCount": 1
+    }
+  },
+  "scheduled_occurrence": {
+    "found": true,
+    "occurrence_id": "market-screening/2026-10-07/16",
+    "scheduled_at": "2026-10-07T08:30:00+00:00",
+    "state": {
+      "batch": "market-screening",
+      "completion_time": "2026-10-07T12:53:38.004362Z",
+      "dependencies": [
+        "ingestion/2026-10-07/14",
+        "data-supplement/2026-10-07/08"
+      ],
+      "env": [
+        [
+          "MART_AI_ENABLED",
+          "false"
+        ],
+        [
+          "MART_OOS_EVALUATION",
+          "false"
+        ],
+        [
+          "MART_OPERATION",
+          "market-screening"
+        ],
+        [
+          "SCREENING_DATE",
+          "2026-10-07"
+        ]
+      ],
+      "execution": "projects/gen-lang-client-0593591102/locations/us-central1/jobs/janus-intelligence-mart/executions/janus-intelligence-mart-7f8jl",
+      "job": "janus-intelligence-mart",
+      "operation": "projects/gen-lang-client-0593591102/locations/us-central1/operations/e5cd651c-75ed-460d-a2e3-f2f55e66de28",
+      "scheduled_at": "2026-10-07T16:30:00+08:00",
+      "status": "succeeded"
+    }
+  },
+  "schema_version": "b3-controller-recovery-v1",
+  "status": "pass",
+  "tick_execution": {
+    "apiVersion": "run.googleapis.com/v1",
+    "kind": "Execution",
+    "metadata": {
+      "annotations": {
+        "run.googleapis.com/client-name": "gcloud",
+        "run.googleapis.com/client-version": "568.0.0",
+        "run.googleapis.com/creator": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
+        "run.googleapis.com/execution-environment": "gen2",
+        "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
+        "run.googleapis.com/network-interfaces": "[{\"network\":\"projects/gen-lang-client-0593591102/global/networks/janusai-lake-poc\",\"subnetwork\":\"janusai-lake-poc-uscentral1\",\"tags\":[\"janus-ingestion-core\"]}]",
+        "run.googleapis.com/operation-id": "0ba45a3a-8b62-44b9-b108-f8d7d8d6564e",
+        "run.googleapis.com/vpc-access-egress": "private-ranges-only"
+      },
+      "creationTimestamp": "2026-10-07T13:28:44.514606Z",
+      "generation": 1,
+      "labels": {
+        "client.knative.dev/nonce": "pic_hip_buf",
+        "cloud.googleapis.com/location": "us-central1",
+        "run.googleapis.com/job": "janus-batch-controller",
+        "run.googleapis.com/jobGeneration": "55",
+        "run.googleapis.com/jobResourceVersion": "1791379555540482",
+        "run.googleapis.com/jobUid": "c0918163-0449-43bd-a919-6c5f13ad2859"
+      },
+      "name": "janus-batch-controller-d7kfq",
+      "namespace": "131494961796",
+      "ownerReferences": [
+        {
+          "apiVersion": "serving.knative.dev/v1",
+          "blockOwnerDeletion": true,
+          "controller": true,
+          "kind": "Job",
+          "name": "janus-batch-controller",
+          "uid": "c0918163-0449-43bd-a919-6c5f13ad2859"
+        }
+      ],
+      "resourceVersion": "AAZdQCC0Juc",
+      "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/executions/janus-batch-controller-d7kfq",
+      "uid": "b17dad47-a5f4-4af8-9ec9-7d56f1182d96"
+    },
+    "spec": {
+      "parallelism": 1,
+      "taskCount": 1,
+      "template": {
+        "spec": {
+          "containers": [
+            {
+              "args": [
+                "-m",
+                "ingestion_core.batch_controller"
+              ],
+              "command": [
+                "python"
+              ],
+              "env": [
+                {
+                  "name": "CATALOG_DB_NAME",
+                  "value": "janus_control"
+                },
+                {
+                  "name": "JANUS_INGESTION_POSTGRES_BUNDLE",
+                  "valueFrom": {
+                    "secretKeyRef": {
+                      "key": "latest",
+                      "name": "janus-runtime-bundle"
+                    }
+                  }
+                },
+                {
+                  "name": "CONTROL_DB_NAME",
+                  "value": "janus_control"
+                },
+                {
+                  "name": "ICEBERG_WAREHOUSE",
+                  "value": "gs://gen-lang-client-0593591102-dev-core/warehouse"
+                },
+                {
+                  "name": "CATALOG_DB_USER",
+                  "value": "janus_catalog"
+                },
+                {
+                  "name": "CONTROL_DB_USER",
+                  "value": "janus_control"
+                },
+                {
+                  "name": "STAGE_BUCKET",
+                  "value": "gen-lang-client-0593591102-dev-stage"
+                },
+                {
+                  "name": "CONTROL_DB_HOST",
+                  "value": "10.42.0.5"
+                },
+                {
+                  "name": "GCP_PROJECT_ID",
+                  "value": "gen-lang-client-0593591102"
+                },
+                {
+                  "name": "CORE_BUCKET",
+                  "value": "gen-lang-client-0593591102-dev-core"
+                },
+                {
+                  "name": "CATALOG_DB_HOST",
+                  "value": "10.42.0.5"
+                },
+                {
+                  "name": "BATCH_CONTROLLER_MODE",
+                  "value": "active"
+                },
+                {
+                  "name": "BATCH_CONTROLLER_NOT_BEFORE",
+                  "value": "2026-10-02T04:05:00Z"
+                }
+              ],
+              "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/ingestion-core@sha256:63bcf93401fc5a1dd74e7e74b7e4a77f8c36c92c06393a53fcd4bb8fe4181d3f",
+              "resources": {
+                "limits": {
+                  "cpu": "1",
+                  "memory": "512Mi"
+                }
+              }
+            }
+          ],
+          "maxRetries": 0,
+          "serviceAccountName": "ingestion-core@gen-lang-client-0593591102.iam.gserviceaccount.com",
+          "timeoutSeconds": "300"
+        }
+      }
+    },
+    "status": {
+      "completionTime": "2026-10-07T13:30:28.949656Z",
+      "conditions": [
+        {
+          "lastTransitionTime": "2026-10-07T13:30:28.949656Z",
+          "message": "Execution completed successfully in 1m22.7s.",
+          "status": "True",
+          "type": "Completed"
+        },
+        {
+          "lastTransitionTime": "2026-10-07T13:28:56.938530Z",
+          "message": "Provisioned imported containers.",
+          "status": "True",
+          "type": "ResourcesAvailable"
+        },
+        {
+          "lastTransitionTime": "2026-10-07T13:29:56.725288Z",
+          "message": "Started deployed execution in 59.78s.",
+          "status": "True",
+          "type": "Started"
+        },
+        {
+          "lastTransitionTime": "2026-10-07T13:28:56.665882Z",
+          "message": "Imported container image in 12.15s.",
+          "status": "True",
+          "type": "ContainerReady"
+        }
+      ],
+      "logUri": "https://console.cloud.google.com/logs/viewer?project=gen-lang-client-0593591102&advancedFilter=resource.type%3D%22cloud_run_job%22%0Aresource.labels.job_name%3D%22janus-batch-controller%22%0Aresource.labels.location%3D%22us-central1%22%0Alabels.%22run.googleapis.com/execution_name%22%3D%22janus-batch-controller-d7kfq%22",
+      "observedGeneration": 1,
+      "startTime": "2026-10-07T13:29:06.242970Z",
+      "succeededCount": 1
+    }
+  }
+}
