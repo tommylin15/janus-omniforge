@@ -4,6 +4,16 @@
 
 用途：只回答「現在在哪裡、下一步是什麼、哪些尚未完成」。實作以 GitHub `main` 為準，完成狀態以 tests／CI、deployment、live runtime、trigger／workload、integration evidence 為準。完整 active queue 只看 [`todo.md`](todo.md)。
 
+## 2026-10-07 `janus-batch-controller` Error：CLOSED
+
+- 根因是 controller 合法寫入 `status=skipped`（mobile queue empty／market holiday），但 migration 037 的 `control.batch_occurrences` CHECK constraint 未允許 `skipped`，active execution 因 PostgreSQL `CheckViolation` 連續失敗。
+- migration `049_batch_occurrence_skipped_status` 已將 status contract 擴充為 `pending / dispatching / running / ambiguous / succeeded / failed / skipped`；未新增 GCP resource、未擴 IAM、未刪 canonical data。
+- Deploy dev `37600433659` success；`test-api`、`test-ingestion`、`migrate-batch-occurrence-status / migrate` job `112725144699` 均 success。
+- Scheduler execution `janus-batch-controller-cmdfr` 與手動 bounded active execution `janus-batch-controller-l5nkf` 均 succeeded；active acceptance workflow `37601633532` success。
+- 完整根因與 runtime evidence 見 [batch controller skipped-status repair](archive/batch-controller-skipped-status-repair-2026-10-07.md)。
+
+**本次 controller Error 已修復並有 scheduler + active runtime evidence；B 組進度不因本次 incident 改變。**
+
 ## 2026-10-06 A 組：CLOSED
 
 A 組已完成 implementation、tests／CI、dev deployment、runtime readback 與使用者人工驗收。
