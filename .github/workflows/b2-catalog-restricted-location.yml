@@ -1,0 +1,59 @@
+name: B2 catalog restricted location
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b2-catalog-restricted-location.yml'
+      - 'scripts/gcp/cloudbuild-b2-catalog-restricted-location.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Add dev-mart acceptance location
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud builds submit --no-source \
+            --project=gen-lang-client-0593591102 \
+            --region=us-central1 \
+            --config=scripts/gcp/cloudbuild-b2-catalog-restricted-location.yaml \
+            --quiet
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          e={
+            'catalog':'janus_core_dev',
+            'restricted_location':'gs://gen-lang-client-0593591102-dev-mart/acceptance/b2-lakehouse',
+            'temporary_storage_admin_bucket':'gen-lang-client-0593591102-dev-mart',
+            'project_storage_admin_granted':False,
+            'status':'pass',
+          }
+          Path('doc/archive/group-b-b2-catalog-restricted-location-2026-10-07.json').write_text(json.dumps(e,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Commit evidence
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add doc/archive/group-b-b2-catalog-restricted-location-2026-10-07.json
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: record B2 catalog restricted location [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
