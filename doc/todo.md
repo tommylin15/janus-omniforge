@@ -1,6 +1,6 @@
 # Janus — TODO
 
-版本：3.16（2026-10-07：B3 liquid-500 screening 結案，下一步 B4）
+版本：3.17（2026-10-07：B4 Deep Coverage 結案，下一步 B5）
 用途：**只保留確定要做的 active work 與未完成 acceptance**。Deferred、Candidate、Observation、Production-only、已接受缺口與研究構想統一放 [`parking-lot.md`](parking-lot.md)；已完成／被取代內容放 `archive/`。
 
 ## 規則
@@ -89,7 +89,7 @@ A 組 implementation／CI／dev runtime 與兩項人工 gate 已於 2026-10-06 �
 A 組不再列 active TODO；下一個 active work 為 B 組。
 ## B 組優先架構調整 acceptance
 
-> **B0／B1／B2／B3 均已於 2026-10-07 CLOSED。** B3 完整證據見 [B3 結案](archive/group-b-b3-closure-2026-10-07.md)；下一步 B4 Deep Coverage specialists。其餘五 specialist／dirty dependency／OOS／monthly retrain acceptance 未完成。
+> **B0／B1／B2／B3／B4 均已於 2026-10-07 CLOSED。** B4 完整證據見 [B4 結案](archive/group-b-b4-deep-coverage-closure-2026-10-07.md)；下一步 B5 ML / OOS data path。完整 ML/OOS 品質、monthly retrain/reconciliation 與後續 fallback/FinOps acceptance 仍未完成。
 
 B 組開始五 specialist／cache 收斂前，先完成 [BigQuery analytics 架構決策](decision-2026-10-06-bigquery-analytics-over-iceberg.md) 的資料讀取邊界；此優先序不代表 BigQuery resource 已建立或啟用。
 
@@ -111,14 +111,14 @@ B 組開始五 specialist／cache 收斂前，先完成 [BigQuery analytics 架�
 
 先核對 [`spec/operations-and-testing.md`](spec/operations-and-testing.md) 已記錄的公開資料清理 apply/readback 與最新 runtime；依 [`spec/retention-governance.md`](spec/retention-governance.md) 只補尚缺的整合／排程證據，不為舊待辦重跑已完成刪除。其他治理／成本收斂併 A；不以文件過期阻擋 B。
 
-- [ ] 約 500 檔**每日盤後**低成本 market screening 已由 B3 CLOSED；下一步完成 `active watchlist ∪ effective holdings` 的 Deep Coverage 五 specialist。兩者不得混成 500×5 全量深算。
+- [x] 約 500 檔**每日盤後**低成本 market screening 已由 B3 CLOSED；Deep Coverage universe／selective execution／no-change reuse 已由 B4 CLOSED。兩者未混成 500×5 全量深算。
 - [ ] Fundamental：deterministic financial features + LightGBM baseline。
 - [ ] Valuation：deterministic DCF／reverse-DCF／relative valuation + LightGBM／CatBoost benchmark。
 - [ ] Quant：LightGBM baseline + Qlib DoubleEnsemble challenger；以 Taiwan PIT walk-forward OOS 決定 champion。
 - [ ] Risk／Regime：Riskfolio-Lib + statsmodels／ML。
 - [ ] Event／Catalyst：parser／rules + local multilingual Transformers classifier。
 - [ ] 五 specialist 產出 structured artifact、SHAP／feature contribution、deterministic plain-language report；正常 path 0 LLM API token。
-- [ ] Deep Coverage 使用 `active watchlist ∪ effective holdings`；持股離開 500 仍保留，清倉且不在 watchlist 才退出。
+- [x] Deep Coverage 使用 `active watchlist ∪ effective holdings`；持股離開 500 仍保留，清倉且不在 watchlist 才退出。B4 live acceptance 已驗 5 symbols × 5 roles。
 - [ ] 完成 PIT／provenance／missing-data／public-private isolation、tests、dev deployment、live execution、artifact persist/readback 與 OOS benchmark acceptance。
 
 目前 500 檔缺失 ≤10% 為使用者接受範圍；超過先討論，不直接判整體失敗或自行擴張補資料。Mart 資源維持使用者指定 1 CPU／1 GiB；需要提高時先提出 evidence，不自行升級。
@@ -127,9 +127,9 @@ B 組開始五 specialist／cache 收斂前，先完成 [BigQuery analytics 架�
 
 ## 2. `WBS-5-MART-RERUN-CACHE` — 【Sol】
 
-- [ ] 建立 dirty dependency graph：依 Core/PIT input hash、feature/engine/model version 只 invalidate 受影響 symbol/specialist。
-- [ ] monthly revenue／financials 只更新受影響 Fundamental／Valuation；EOD price 更新 cheap Valuation／Quant／Risk；event 只更新 Event。
-- [ ] 無 input change 直接 reuse，保留可稽核 cache identity。
+- [x] 建立 dirty dependency graph：依 accepted/rejected PIT dependency state、feature/engine/model version 只 invalidate 受影響 symbol/specialist；B4 已有 regression + live evidence。
+- [x] monthly revenue／financials、EOD price、event 依 specialist dependency mapping 選擇性 invalidation；event-only regression 已驗 1 computed / 4 reused。
+- [x] 無 input change 直接 reuse，保留可稽核 cache identity；B4 live 第二輪 0 computed / 25 reused。
 - [ ] 每月第一個週六 10:30（Asia/Taipei）執行 retrain／calibration／OOS evaluation／reconciliation，檢查 missed invalidation、orphan artifact、cache identity、model version。
 - [ ] specialist change 只標記 CEO report freshness／material delta，**不得自動觸發 CEO LLM**。
 
