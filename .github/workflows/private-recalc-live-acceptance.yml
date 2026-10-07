@@ -59,24 +59,8 @@ jobs:
             if [[ "${logs}" != '[]' ]]; then break; fi
             if [[ "${attempt}" != '12' ]]; then sleep 5; fi
           done
-          python - <<'PY' <<< "${logs}"
-          import json,sys
-          rows=json.load(sys.stdin)
-          for row in rows:
-              message=row.get("textPayload")
-              if not message and isinstance(row.get("jsonPayload"),dict):
-                  message=row["jsonPayload"].get("message")
-              if message:
-                  print(message.rstrip())
-          PY
+          log_text="$(python -c 'import json,sys; rows=json.load(sys.stdin); print("\\n".join(str(row.get("textPayload") or (row.get("jsonPayload") or {}).get("message") or "") for row in rows))' <<< "${logs}")"
+          printf '%s\n' "${log_text}"
 
           test "${terminal}" = "SUCCESS"
-          grep -q 'PRIVATE_RECALC_LIVE_ACCEPTANCE=PASS' <<< "$(python - <<'PY' <<< "${logs}"
-          import json,sys
-          rows=json.load(sys.stdin)
-          print("\n".join(
-              str(row.get("textPayload") or (row.get("jsonPayload") or {}).get("message") or "")
-              for row in rows
-          ))
-          PY
-          )"
+          grep -q 'PRIVATE_RECALC_LIVE_ACCEPTANCE=PASS' <<< "${log_text}"
