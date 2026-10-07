@@ -1,0 +1,66 @@
+name: B2 Cloud Build error diagnostic
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b2-cloudbuild-error-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read failed Cloud Build log
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud logging read \
+            'resource.type="build" AND resource.labels.build_id="a15be6f2-58d2-42f9-808e-5898dceeda7d"' \
+            --project=gen-lang-client-0593591102 \
+            --limit=200 \
+            --order=asc \
+            --format=json > /tmp/build-log.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          rows=json.load(open('/tmp/build-log.json'))
+          messages=[]
+          for r in rows:
+              msg=r.get('textPayload')
+              if not msg:
+                  jp=r.get('jsonPayload') or {}
+                  msg=jp.get('message') or jp.get('status') or jp.get('build')
+              if msg:
+                  s=str(msg)
+                  if 'Authorization:' in s or 'token' in s.lower():
+                      continue
+                  messages.append(s[:4000])
+          e={'build_id':'a15be6f2-58d2-42f9-808e-5898dceeda7d','mutations_performed':False,'messages':messages[-80:]}
+          Path('doc/archive/group-b-b2-catalog-acl-failure-2026-10-07.json').write_text(json.dumps(e,indent=2,sort_keys=True)+'\n')
+          print(json.dumps({'messages':messages[-10:]},ensure_ascii=False))
+          PY
+      - name: Commit evidence
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add doc/archive/group-b-b2-catalog-acl-failure-2026-10-07.json
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: record B2 catalog ACL failure [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
