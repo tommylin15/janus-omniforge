@@ -31,6 +31,12 @@ Deep Coverage 使用既有去識別化資料庫函式取得 active watchlist ∪
 - 目前 Google legacy Iceberg external table metadata-URI 路徑不作預設正式解；BigQuery compatibility spike 應優先驗證 Google-supported shared Iceberg/Lakehouse path或其他可證明 exact snapshot 的方案。任何 catalog migration、API enablement、新計費資源或 IAM 擴張仍需人工授權。
 - 若 BigQuery 不能保持 exact-snapshot／PIT／provenance contract，該 workload 必須留在 PyIceberg；效能理由不得覆蓋 canonical correctness。
 
+### Exact-snapshot reader contract
+
+`AnalyticsSnapshotReader.read(manifest, requested_symbols, core_snapshot_id=..., row_limit=...)` 回傳 `AnalyticsSnapshot`，包含明確的 Core snapshot identity、datasets 與 read telemetry；`close()` 釋放 reader 持有的 catalog connection。Specialist runtime 透過 `reader_factory` 注入 reader，預設使用 `IcebergSnapshotReader`；`load_core_datasets()` 保留為相容入口。
+
+PyIceberg reference reader 必須先比對 manifest 與要求的 Core identity，再依各 table 的固定 `snapshot_id` 讀取，不改讀 latest。保留 symbol filter、null、原始欄位型別與 `__table_identifier`／`__snapshot_id` provenance；超過總 row limit 必須拒絕，不能悄悄截斷。PIT／source authorization 仍由既有 specialist validation 處理。Runtime 在成功或失敗後都關閉 reader，且拒絕 reader 回傳不同 Core identity。未知 GCS bytes 保持 null；此契約不代表 BigQuery adapter 或自動 fallback 已完成。
+
 ## 成果物
 
 新 `specialist.v1.json` 定義 Fundamental / Valuation / Quant / Risk / Event。財務可比值、PE/PB/殖利率、動能、波動/CVaR/回撤/對齊 beta、事件數與嚴重度採確定性計算；中文報告使用規則模板。DCF/reverse-DCF 有嚴格計算函式，但真實 Core 未提供完整每股自由現金流與核准假設時回報缺值。

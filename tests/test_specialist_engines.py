@@ -439,3 +439,9 @@ def test_runtime_watch_only_held_only_overlap_off_market_and_exit(monkeypatch):
     assert second["specialist_count"] == 5
     assert readers[-1].closed
     assert json.loads(stores["mart"].read("executions/ex1/specialist-manifest.json")) == saved
+
+    monkeypatch.setattr(InjectedReader, "read", lambda *args, **kwargs: AnalyticsSnapshot("different", {}, {}))
+    with pytest.raises(RuntimeError, match="different Core snapshot"):
+        run("ex3")
+    assert readers[-1].closed
+    assert "executions/ex3/specialist-manifest.json" not in stores["mart"].data
