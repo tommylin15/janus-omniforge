@@ -243,32 +243,31 @@ jobs:
           from ingestion_core.stage import GcsObjectStore
 
           occurrence=os.environ['B3_OCCURRENCE_ID']
-          target=urlparse(os.environ['B3_PROBE_RESULT_URI'])
-          expected_bucket=f"{os.environ['GCP_PROJECT_ID']}-dev-core"
-          if target.scheme != 'gs' or target.netloc != expected_bucket or not target.path.startswith('/acceptance/b3-controller/'):
-              raise ValueError('B3 controller probe result must stay inside existing dev-core acceptance prefix')
-          name=target.path.lstrip('/')
-
           control=_control_plane()
           try:
               with control.connection.cursor() as cursor:
                   cursor.execute("SELECT occurrence_id,scheduled_at,state FROM control.batch_occurrences WHERE occurrence_id=%s", (occurrence,))
                   row=cursor.fetchone()
               if row is None:
-                  result={"found": False, "occurrence_id": occurrence}
+                  payload={"found": False, "occurrence_id": occurrence}
               else:
-                  result={"found": True, "occurrence_id": row[0], "scheduled_at": row[1].isoformat(), "state": row[2]}
+                  payload={"found": True, "occurrence_id": row[0], "scheduled_at": row[1].isoformat(), "state": row[2]}
           finally:
               control.close()
 
-          payload=(json.dumps(result, sort_keys=True, separators=(',', ':'))+'\n').encode()
-          store=GcsObjectStore(expected_bucket)
-          created=store.create(name, payload, 'application/json')
-          if not created and store.read(name) != payload:
-              raise RuntimeError('immutable B3 controller probe result conflict')
-          if store.read(name) != payload:
-              raise RuntimeError('B3 controller probe readback mismatch')
-          print(json.dumps(result, sort_keys=True))
+          target=urlparse(os.environ['B3_PROBE_RESULT_URI'])
+          bucket=os.environ.get('CORE_BUCKET','').strip()
+          if target.scheme != 'gs' or target.netloc != bucket or not target.path.startswith('/acceptance/b3-controller/'):
+              raise ValueError('B3 controller probe result must stay inside existing dev-core acceptance prefix')
+          name=target.path.lstrip('/')
+          raw=(json.dumps(payload, sort_keys=True)+'\n').encode()
+          store=GcsObjectStore(bucket)
+          created=store.create(name, raw, 'application/json')
+          if not created and store.read(name) != raw:
+              raise RuntimeError('B3 controller probe immutable result conflict')
+          if store.read(name) != raw:
+              raise RuntimeError('B3 controller probe result readback mismatch')
+          print(raw.decode().strip())
           PY
           export B3_PROBE_CODE="$(base64 -w0 /tmp/b3_state_probe.py)"
           wrapper='import base64,os;exec(base64.b64decode(os.environ["B3_PROBE_CODE"]))'
@@ -279,7 +278,7 @@ jobs:
             gcloud run jobs execute "${CONTROLLER_JOB}" \
               --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
               --args="-c,${wrapper}" \
-              --update-env-vars="B3_PROBE_CODE=${B3_PROBE_CODE},B3_OCCURRENCE_ID=${occurrence},B3_PROBE_RESULT_URI=${result_uri},GCP_PROJECT_ID=${GCP_PROJECT_ID}" \
+              --update-env-vars="B3_PROBE_CODE=${B3_PROBE_CODE},B3_OCCURRENCE_ID=${occurrence},B3_PROBE_RESULT_URI=${result_uri}" \
               --task-timeout=5m --wait --format=json > /tmp/b3-probe-exec.json
             for read_attempt in $(seq 1 6); do
               if gcloud storage cat "${result_uri}" > /tmp/b3-occurrence.json; then
