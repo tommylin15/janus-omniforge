@@ -48,18 +48,27 @@ jobs:
           python-version: '3.12'
 
       - name: Install B5 acceptance dependencies
+        shell: bash
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install --require-hashes -r jobs/intelligence-mart/requirements.lock
-          python -m pip install --require-hashes -r jobs/intelligence-mart/requirements-bigquery-probe.lock
-          python -m pip install -r requirements-dev.txt
+          set -o pipefail
+          {
+            python -m pip install --upgrade pip
+            python -m pip install --require-hashes -r jobs/intelligence-mart/requirements.lock
+            python -m pip install --require-hashes -r jobs/intelligence-mart/requirements-bigquery-probe.lock
+            python -m pip install -r requirements-dev.txt
+          } 2>&1 | tee /tmp/b5-install.log
+          touch /tmp/install.ok
 
       - name: Run targeted B5 contracts
         env:
           PYTHONPATH: jobs/intelligence-mart:jobs/ingestion-core:.
+        shell: bash
         run: |
-          python -m pytest -q tests/test_b5_ml_oos_data.py
-          python -m py_compile jobs/intelligence-mart/intelligence_mart/ml_oos_data.py scripts/gcp/b5-ml-oos-data.py
+          set -o pipefail
+          {
+            python -m pytest -q tests/test_b5_ml_oos_data.py
+            python -m py_compile jobs/intelligence-mart/intelligence_mart/ml_oos_data.py scripts/gcp/b5-ml-oos-data.py
+          } 2>&1 | tee /tmp/b5-tests.log
           touch /tmp/tests.ok
 
       - name: Wait for standard Mart deployment of this SHA
@@ -211,13 +220,18 @@ jobs:
               except Exception:
                   return {"unparsed": p.read_text(errors='replace')[-4000:]}
 
-          markers={name: Path('/tmp/'+name+'.ok').exists() for name in ('tests','deploy','export','live')}
+          markers={name: Path('/tmp/'+name+'.ok').exists() for name in ('install','tests','deploy','export','live')}
+          def tail(path):
+              p=Path(path)
+              return p.read_text(errors='replace')[-12000:] if p.exists() else None
           evidence={
               "schema_version":"b5-live-acceptance-v1",
               "generated_at":datetime.now(timezone.utc).isoformat(),
               "git_sha":os.environ.get("GITHUB_SHA"),
               "status":"pass" if all(markers.values()) else "failed",
               "markers":markers,
+              "install_log_tail":tail('/tmp/b5-install.log'),
+              "tests_log_tail":tail('/tmp/b5-tests.log'),
               "constraints":{
                   "project":"gen-lang-client-0593591102",
                   "region":"us-central1",
