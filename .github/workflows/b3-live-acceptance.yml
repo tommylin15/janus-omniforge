@@ -47,6 +47,70 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
+      - name: Ensure catalog-scoped BigLake metadata read for B3
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          resource="projects/${GCP_PROJECT_ID}/catalogs/janus_core_dev"
+          member="serviceAccount:janus-ci@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+          role="roles/biglake.metadataViewer"
+          base="https://biglake.googleapis.com/v1/${resource}"
+          token="$(gcloud auth print-access-token)"
+
+          curl -fsS \
+            -H "Authorization: Bearer ${token}" \
+            "${base}:getIamPolicy" > /tmp/b3-catalog-iam-before.json
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          before = json.loads(Path("/tmp/b3-catalog-iam-before.json").read_text())
+          member = "serviceAccount:janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com"
+          role = "roles/biglake.metadataViewer"
+          bindings = before.setdefault("bindings", [])
+          binding = next((item for item in bindings if item.get("role") == role), None)
+          changed = False
+          if binding is None:
+              binding = {"role": role, "members": []}
+              bindings.append(binding)
+              changed = True
+          members = binding.setdefault("members", [])
+          if member not in members:
+              members.append(member)
+              members.sort()
+              changed = True
+          bindings.sort(key=lambda item: item.get("role", ""))
+          request = {"policy": before, "updateMask": "bindings,etag"}
+          Path("/tmp/b3-catalog-iam-request.json").write_text(
+              json.dumps(request, separators=(",", ":"), sort_keys=True)
+          )
+          Path("/tmp/b3-catalog-iam-change").write_text("1" if changed else "0")
+          PY
+
+          if [[ "$(cat /tmp/b3-catalog-iam-change)" == "1" ]]; then
+            curl -fsS -X POST \
+              -H "Authorization: Bearer ${token}" \
+              -H "Content-Type: application/json" \
+              --data-binary @/tmp/b3-catalog-iam-request.json \
+              "${base}:setIamPolicy" > /tmp/b3-catalog-iam-after.json
+          else
+            cp /tmp/b3-catalog-iam-before.json /tmp/b3-catalog-iam-after.json
+          fi
+
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${token}" \
+            -H "Content-Type: application/json" \
+            --data '{"permissions":["biglake.tables.get"]}' \
+            "${base}:testIamPermissions" > /tmp/b3-catalog-iam-test.json
+
+          python - <<'PY'
+          import json
+          result = json.load(open("/tmp/b3-catalog-iam-test.json"))
+          assert "biglake.tables.get" in result.get("permissions", []), result
+          PY
+          touch /tmp/iam.ok
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
