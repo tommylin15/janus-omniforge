@@ -86,6 +86,8 @@ def inspect_dataset(manifest: dict, store) -> dict:
         raise ValueError("ML/OOS dataset identity is incomplete")
     if identity["dataset_schema_version"] != DATASET_SCHEMA_VERSION:
         raise ValueError("ML/OOS identity schema mismatch")
+    if identity["query_contract_version"] != QUERY_CONTRACT_VERSION:
+        raise ValueError("unsupported ML/OOS query contract")
     if manifest.get("core_snapshot_id") != identity["core_snapshot_id"] \
             or manifest.get("analysis_as_of") != identity["analysis_as_of"] \
             or manifest.get("query_contract_version") != identity["query_contract_version"] \
