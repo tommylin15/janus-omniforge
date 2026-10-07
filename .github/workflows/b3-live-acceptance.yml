@@ -1,0 +1,344 @@
+name: B3 live acceptance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b3-live-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: b3-live-acceptance
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: gen-lang-client-0593591102
+  GCP_REGION: us-central1
+  GCP_ZONE: us-central1-a
+  ALLOW_DEV_DEPLOY: true
+  MART_JOB: janus-intelligence-mart
+  CONTROLLER_JOB: janus-batch-controller
+  FIXED_INPUT: gs://gen-lang-client-0593591102-dev-mart/acceptance/specialists/b1-fixed-snapshot-20261007.json
+  EVIDENCE_FILE: doc/archive/group-b-b3-live-acceptance-2026-10-07.json
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install B3 acceptance dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --require-hashes -r jobs/intelligence-mart/requirements.lock
+          python -m pip install --require-hashes -r jobs/intelligence-mart/requirements-bigquery-probe.lock
+          python -m pip install -r requirements-dev.txt
+
+      - name: Run targeted B3 contracts
+        env:
+          PYTHONPATH: jobs/intelligence-mart:jobs/ingestion-core:.
+        run: |
+          python -m pytest -q tests/test_market_screening.py tests/test_bigquery_reader.py
+          python -m py_compile scripts/gcp/b3-screening-canary.py
+          touch /tmp/tests.ok
+
+      - name: Deploy B3 controller and Mart runtime
+        run: |
+          bash scripts/gcp/deploy-dev.sh ingestion-core
+          bash scripts/gcp/verify-dev.sh ingestion-core
+          bash scripts/gcp/deploy-dev.sh intelligence-mart
+          bash scripts/gcp/verify-dev.sh intelligence-mart
+          gcloud run jobs describe "${MART_JOB}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json > /tmp/mart-job.json
+          gcloud run jobs describe "${CONTROLLER_JOB}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json > /tmp/controller-job.json
+          touch /tmp/deploy.ok
+
+      - name: Run fixed-snapshot PyIceberg vs BigQuery canary
+        env:
+          PYTHONPATH: jobs/intelligence-mart:jobs/ingestion-core:.
+        run: |
+          python scripts/gcp/b3-screening-canary.py --output /tmp/b3-canary.json
+          python - <<'PY'
+          import json
+          data=json.load(open('/tmp/b3-canary.json'))
+          assert data['status']=='pass'
+          assert data['screening_count']==500
+          assert data['output_equal'] is True
+          assert data['default']=='pyiceberg' and data['cutover'] is False
+          tele=data['bigquery_telemetry']
+          assert tele['execution_byte_budget'] == 1073741824
+          assert tele['total_rows'] <= 150000
+          billed=sum((v.get('billed_bytes') or 0) for v in tele['scan_evidence'].values())
+          assert billed <= 1073741824
+          PY
+          touch /tmp/canary.ok
+
+      - name: Run fixed-snapshot Cloud Run acceptance twice
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          run_one() {
+            local idx="$1"
+            gcloud run jobs execute "${MART_JOB}" \
+              --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+              --update-env-vars="MART_OPERATION=market-screening-acceptance,MART_ACCEPTANCE_INPUT_URI=${FIXED_INPUT},MART_AI_ENABLED=false,MART_OOS_EVALUATION=false" \
+              --tasks=1 --task-timeout=30m --wait --format=json > "/tmp/mart-exec-${idx}.json"
+            python - "/tmp/mart-exec-${idx}.json" "/tmp/mart-exec-${idx}.name" <<'PY'
+          import json,sys
+          data=json.load(open(sys.argv[1]))
+          name=((data.get('metadata') or {}).get('name') or data.get('name') or '').split('/')[-1]
+          if not name:
+              raise SystemExit('missing Cloud Run execution name')
+          open(sys.argv[2],'w').write(name)
+          PY
+          }
+
+          capture_result() {
+            local idx="$1"
+            local exec_name
+            exec_name="$(cat "/tmp/mart-exec-${idx}.name")"
+            gcloud logging read \
+              "resource.type=cloud_run_job AND resource.labels.job_name=\"${MART_JOB}\" AND labels.\"run.googleapis.com/execution_name\"=\"${exec_name}\"" \
+              --project="${GCP_PROJECT_ID}" --freshness=60m --limit=300 --order=asc --format=json > "/tmp/mart-logs-${idx}.json"
+            python - "/tmp/mart-logs-${idx}.json" "/tmp/mart-result-${idx}.json" <<'PY'
+          import json,sys
+          entries=json.load(open(sys.argv[1]))
+          found=[]
+          for entry in entries:
+              candidates=[]
+              if isinstance(entry.get('textPayload'), str):
+                  candidates.append(entry['textPayload'])
+              jp=entry.get('jsonPayload')
+              if isinstance(jp, dict) and isinstance(jp.get('message'), str):
+                  candidates.append(jp['message'])
+              for raw in candidates:
+                  raw=raw.strip()
+                  if not raw.startswith('{'):
+                      continue
+                  try:
+                      obj=json.loads(raw)
+                  except Exception:
+                      continue
+                  if obj.get('operation') == 'market-screening-acceptance' and obj.get('execution_id'):
+                      found.append(obj)
+          if not found:
+              raise SystemExit('market-screening acceptance result log not found')
+          json.dump(found[-1], open(sys.argv[2],'w'), indent=2, sort_keys=True)
+          PY
+            local logical_id
+            logical_id="$(python -c "import json; print(json.load(open('/tmp/mart-result-${idx}.json'))['execution_id'])")"
+            gcloud storage cat "gs://gen-lang-client-0593591102-dev-mart/executions/${logical_id}/screening-manifest.json" > "/tmp/screening-receipt-${idx}.json"
+          }
+
+          run_one 1
+          capture_result 1
+          run_one 2
+          capture_result 2
+
+          python - <<'PY'
+          import json
+          r1=json.load(open('/tmp/screening-receipt-1.json'))
+          r2=json.load(open('/tmp/screening-receipt-2.json'))
+          j1=json.load(open('/tmp/mart-result-1.json'))
+          j2=json.load(open('/tmp/mart-result-2.json'))
+          for r,j in ((r1,j1),(r2,j2)):
+              assert r['screening_count']==500
+              assert r['specialist_count']==0
+              assert r['llm_api_tokens']==0
+              assert r['ceo_triggered'] is False
+              assert j['analysis_as_of']=='2026-10-06'
+              assert j['llm_api_tokens']==0
+          assert r2['reused'] is True
+          assert r2['artifact_growth_bytes']==0
+          assert r1['identity_hash']==r2['identity_hash']
+          assert r1['screening']==r2['screening']
+          PY
+          touch /tmp/live.ok
+
+      - name: Exercise controller catch-up and read occurrence state
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          screening_date="$(TZ=Asia/Taipei date +%F)"
+          occurrence="market-screening/${screening_date}/16"
+
+          cat > /tmp/b3_state_probe.py <<'PY'
+          import json, os
+          from ingestion_core.__main__ import _control_plane
+          occurrence=os.environ['B3_OCCURRENCE_ID']
+          control=_control_plane()
+          try:
+              with control.connection.cursor() as cursor:
+                  cursor.execute("SELECT occurrence_id,scheduled_at,state FROM control.batch_occurrences WHERE occurrence_id=%s", (occurrence,))
+                  row=cursor.fetchone()
+              if row is None:
+                  print(json.dumps({"found": False, "occurrence_id": occurrence}, sort_keys=True))
+              else:
+                  print(json.dumps({"found": True, "occurrence_id": row[0], "scheduled_at": row[1].isoformat(), "state": row[2]}, sort_keys=True))
+          finally:
+              control.close()
+          PY
+          export B3_PROBE_CODE="$(base64 -w0 /tmp/b3_state_probe.py)"
+          wrapper='import base64,os;exec(base64.b64decode(os.environ["B3_PROBE_CODE"]))'
+
+          probe_state() {
+            gcloud run jobs execute "${CONTROLLER_JOB}" \
+              --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+              --args="-c,${wrapper}" \
+              --update-env-vars="B3_PROBE_CODE=${B3_PROBE_CODE},B3_OCCURRENCE_ID=${occurrence}" \
+              --task-timeout=5m --wait --format=json > /tmp/b3-probe-exec.json
+            local probe_name
+            probe_name="$(python -c "import json; d=json.load(open('/tmp/b3-probe-exec.json')); print(((d.get('metadata') or {}).get('name') or d.get('name')).split('/')[-1])")"
+            gcloud logging read \
+              "resource.type=cloud_run_job AND resource.labels.job_name=\"${CONTROLLER_JOB}\" AND labels.\"run.googleapis.com/execution_name\"=\"${probe_name}\"" \
+              --project="${GCP_PROJECT_ID}" --freshness=30m --limit=100 --order=asc --format=json > /tmp/b3-probe-logs.json
+            python - /tmp/b3-probe-logs.json /tmp/b3-occurrence.json <<'PY'
+          import json,sys
+          entries=json.load(open(sys.argv[1]))
+          found=[]
+          for entry in entries:
+              vals=[]
+              if isinstance(entry.get('textPayload'),str): vals.append(entry['textPayload'])
+              jp=entry.get('jsonPayload')
+              if isinstance(jp,dict) and isinstance(jp.get('message'),str): vals.append(jp['message'])
+              for raw in vals:
+                  raw=raw.strip()
+                  if not raw.startswith('{'): continue
+                  try: obj=json.loads(raw)
+                  except Exception: continue
+                  if 'occurrence_id' in obj and 'found' in obj: found.append(obj)
+          if not found: raise SystemExit('B3 occurrence probe output not found')
+          json.dump(found[-1], open(sys.argv[2],'w'), indent=2, sort_keys=True)
+          PY
+          }
+
+          for attempt in $(seq 1 12); do
+            gcloud run jobs execute "${CONTROLLER_JOB}" \
+              --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+              --update-env-vars="BATCH_CONTROLLER_MODE=active" \
+              --task-timeout=5m --wait >/tmp/b3-controller-tick.txt
+            probe_state
+            status="$(python -c "import json; d=json.load(open('/tmp/b3-occurrence.json')); print((d.get('state') or {}).get('status','missing'))")"
+            if [[ "${status}" == "succeeded" ]]; then
+              touch /tmp/controller.ok
+              break
+            fi
+            if [[ "${status}" == "failed" || "${status}" == "skipped" || "${status}" == "ambiguous" ]]; then
+              echo "B3 occurrence ended in ${status}" >&2
+              exit 1
+            fi
+            sleep 30
+          done
+
+          test -f /tmp/controller.ok
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/b3-occurrence.json'))
+          assert d['found'] is True
+          s=d['state']
+          assert s['batch']=='market-screening'
+          assert s['job']=='janus-intelligence-mart'
+          assert s['status']=='succeeded'
+          env=dict(s.get('env') or [])
+          assert env['MART_OPERATION']=='market-screening'
+          assert env['MART_OOS_EVALUATION']=='false'
+          assert env['MART_AI_ENABLED']=='false'
+          assert env['SCREENING_DATE']==d['scheduled_at'][:10]
+          PY
+
+      - name: Assemble immutable B3 evidence
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          def load(path):
+              p=Path(path)
+              if not p.exists():
+                  return None
+              try:
+                  return json.loads(p.read_text())
+              except Exception:
+                  return {"unparsed": p.read_text(errors='replace')[-4000:]}
+
+          markers={name: Path('/tmp/'+name+'.ok').exists() for name in ('tests','deploy','canary','live','controller')}
+          evidence={
+              "schema_version":"b3-live-acceptance-v1",
+              "generated_at":datetime.now(timezone.utc).isoformat(),
+              "git_sha":os.environ.get("GITHUB_SHA"),
+              "status":"pass" if all(markers.values()) else "failed",
+              "markers":markers,
+              "constraints":{
+                  "project":"gen-lang-client-0593591102",
+                  "region":"us-central1",
+                  "mart_cpu":1,
+                  "mart_memory":"1Gi",
+                  "bigquery_execution_budget_bytes":1073741824,
+                  "bigquery_query_timeout_seconds":60,
+                  "storage_read_api":False,
+                  "default_reader":"pyiceberg",
+                  "cutover":False,
+              },
+              "canary":load('/tmp/b3-canary.json'),
+              "fixed_snapshot_run_1":{
+                  "cloud_run":load('/tmp/mart-exec-1.json'),
+                  "result":load('/tmp/mart-result-1.json'),
+                  "receipt":load('/tmp/screening-receipt-1.json'),
+              },
+              "fixed_snapshot_run_2":{
+                  "cloud_run":load('/tmp/mart-exec-2.json'),
+                  "result":load('/tmp/mart-result-2.json'),
+                  "receipt":load('/tmp/screening-receipt-2.json'),
+              },
+              "scheduled_occurrence":load('/tmp/b3-occurrence.json'),
+              "mart_job":load('/tmp/mart-job.json'),
+              "controller_job":load('/tmp/controller-job.json'),
+          }
+          Path(os.environ['EVIDENCE_FILE']).write_text(json.dumps(evidence, indent=2, sort_keys=True, default=str)+"\n")
+          PY
+
+      - name: Commit B3 evidence
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "janus-ci"
+          git config user.email "janus-ci@users.noreply.github.com"
+          git add "${EVIDENCE_FILE}"
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "docs: record B3 live acceptance evidence [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Require complete B3 acceptance
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json, os
+          data=json.load(open(os.environ['EVIDENCE_FILE']))
+          if data['status'] != 'pass':
+              raise SystemExit('B3 acceptance incomplete; inspect committed evidence')
+          PY
