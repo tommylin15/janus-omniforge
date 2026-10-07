@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
@@ -16,19 +16,55 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Probe existing IAM visibility only
+      - name: Record existing IAM visibility only
         shell: bash
         run: |
-          set +e
-          echo "project_policy_read"
-          gcloud projects get-iam-policy gen-lang-client-0593591102             --flatten='bindings[].members'             --filter='bindings.members:serviceAccount:janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com'             --format='table(bindings.role)' 2>&1
-          echo "project_policy_rc=$?"
-          echo "dataset_policy_read"
-          bq get-iam-policy gen-lang-client-0593591102:janus_analytics_dev 2>&1
-          echo "dataset_policy_rc=$?"
-          exit 0
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+
+          def run(args):
+              p=subprocess.run(args,capture_output=True,text=True)
+              return {
+                  "returncode":p.returncode,
+                  "stdout":p.stdout.strip()[:12000],
+                  "stderr":p.stderr.strip()[:4000],
+              }
+
+          project=run([
+              "gcloud","projects","get-iam-policy","gen-lang-client-0593591102",
+              "--flatten=bindings[].members",
+              "--filter=bindings.members:serviceAccount:janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
+              "--format=json(bindings.role,bindings.members)",
+          ])
+          dataset=run([
+              "bq","get-iam-policy","gen-lang-client-0593591102:janus_analytics_dev"
+          ])
+          evidence={
+              "status":"pass" if project["returncode"]==0 else "partial",
+              "mutations_performed":False,
+              "project_policy_read":project,
+              "dataset_policy_read":dataset,
+          }
+          Path("doc/archive/group-b-b2-iam-capability-preflight-2026-10-07.json").write_text(
+              json.dumps(evidence,indent=2,sort_keys=True)+"\n"
+          )
+          print(json.dumps({"project_policy_rc":project["returncode"],"dataset_policy_rc":dataset["returncode"]}))
+          PY
+      - name: Commit evidence
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add doc/archive/group-b-b2-iam-capability-preflight-2026-10-07.json
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: record B2 IAM capability preflight [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
