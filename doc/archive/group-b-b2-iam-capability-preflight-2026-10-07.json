@@ -1,0 +1,14 @@
+{
+  "dataset_policy_read": {
+    "returncode": 1,
+    "stderr": "",
+    "stdout": "WARNING: `--scopes` flag may not work as expected and will be ignored for account type external_account.\nBigQuery error in get-iam-policy operation: Access Denied: Dataset gen-lang-\nclient-0593591102:janus_analytics_dev: Permission bigquery.datasets.get denied\non dataset gen-lang-client-0593591102:janus_analytics_dev (or it may not exist)."
+  },
+  "mutations_performed": false,
+  "project_policy_read": {
+    "returncode": 1,
+    "stderr": "ERROR: (gcloud.projects.get-iam-policy) [janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com] does not have permission to access projects instance [gen-lang-client-0593591102:getIamPolicy] (or it may not exist): The caller does not have permission. This command is authenticated as janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com using the credentials in /home/runner/work/janus-omniforge/janus-omniforge/gha-creds-56fbba6bb111c58f.json, specified by the [auth/credential_file_override] property",
+    "stdout": ""
+  },
+  "status": "partial"
+}
