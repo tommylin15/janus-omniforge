@@ -2,6 +2,8 @@
 BEGIN;
 SET LOCAL ROLE janus_control;
 
+-- Controller no-work terminal states (queue empty / market holiday) use `skipped`.
+
 DO $$
 DECLARE
     constraint_name text;
