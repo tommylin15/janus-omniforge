@@ -1,14 +1,693 @@
 {
   "canary": {
-    "error": "Requirement already satisfied: certifi==2026.7.22 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 3)) (2026.7.22)\nRequirement already satisfied: cffi==2.1.1 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 7)) (2.1.1)\nCollecting charset-normalizer==3.5.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 109))\n  Downloading charset_normalizer-3.5.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (257 kB)\nCollecting cryptography==50.0.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 283))\n  Downloading cryptography-50.0.2-cp311-abi3-manylinux_2_34_x86_64.whl (4.8 MB)\n     \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 4.8/4.8 MB 6.4 MB/s eta 0:00:00\nCollecting google-api-core==2.41.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 344))\n  Downloading google_api_core-2.41.0-py3-none-any.whl (215 kB)\nCollecting google-auth==2.60.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 350))\n  Downloading google_auth-2.60.0-py3-none-any.whl (264 kB)\nCollecting google-cloud-bigquery==3.46.1 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 357))\n  Downloading google_cloud_bigquery-3.46.1-py3-none-any.whl (268 kB)\nCollecting google-cloud-core==2.8.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 361))\n  Downloading google_cloud_core-2.8.0-py3-none-any.whl (31 kB)\nCollecting google-crc32c==1.9.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 365))\n  Downloading google_crc32c-1.9.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (36 kB)\nCollecting google-resumable-media==2.11.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 398))\n  Downloading google_resumable_media-2.11.0-py3-none-any.whl (81 kB)\nCollecting googleapis-common-protos==1.75.5 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 402))\n  Downloading googleapis_common_protos-1.75.5-py3-none-any.whl (307 kB)\nCollecting grpcio==1.84.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 408))\n  Downloading grpcio-1.84.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (7.2 MB)\n     \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 7.2/7.2 MB 10.8 MB/s eta 0:00:00\nCollecting grpcio-status==1.84.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 473))\n  Downloading grpcio_status-1.84.0-py3-none-any.whl (14 kB)\nCollecting idna==3.20 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 477))\n  Downloading idna-3.20-py3-none-any.whl (69 kB)\nCollecting opentelemetry-api==1.45.1 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 481))\n  Downloading opentelemetry_api-1.45.1-py3-none-any.whl (60 kB)\nRequirement already satisfied: packaging==26.3 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 485)) (26.3)\nCollecting proto-plus==1.29.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 489))\n  Downloading proto_plus-1.29.0-py3-none-any.whl (50 kB)\nCollecting protobuf==7.36.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 493))\n  Downloading protobuf-7.36.2-cp310-abi3-manylinux2014_x86_64.whl (343 kB)\nRequirement already satisfied: pyasn1==0.6.4 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 507)) (0.6.4)\nRequirement already satisfied: pyasn1-modules==0.4.2 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 511)) (0.4.2)\nRequirement already satisfied: pycparser==3.0 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 515)) (3.0)\nRequirement already satisfied: python-dateutil==2.9.0.post0 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 519)) (2.9.0.post0)\nRequirement already satisfied: requests==2.34.2 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 523)) (2.34.2)\nRequirement already satisfied: six==1.17.0 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 529)) (1.17.0)\nRequirement already satisfied: typing-extensions==4.16.0 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 533)) (4.16.0)\nRequirement already satisfied: urllib3==2.8.0 in /usr/local/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 539)) (2.8.0)\nInstalling collected packages: protobuf, opentelemetry-api, idna, grpcio, google-crc32c, charset-normalizer, proto-plus, googleapis-common-protos, google-resumable-media, cryptography, grpcio-status, google-auth, google-api-core, google-cloud-core, google-cloud-bigquery\n  Attempting uninstall: idna\n    Found existing installation: idna 3.19\n    Uninstalling idna-3.19:\n      Successfully uninstalled idna-3.19\n  Attempting uninstall: charset-normalizer\n    Found existing installation: charset-normalizer 3.5.1\n    Uninstalling charset-normalizer-3.5.1:\n      Successfully uninstalled charset-normalizer-3.5.1\n  Attempting uninstall: cryptography\n    Found existing installation: cryptography 50.0.1\n    Uninstalling cryptography-50.0.1:\n      Successfully uninstalled cryptography-50.0.1\n  Attempting uninstall: google-auth\n    Found existing installation: google-auth 2.57.0\n    Uninstalling google-auth-2.57.0:\n      Successfully uninstalled google-auth-2.57.0\nSuccessfully installed charset-normalizer-3.5.2 cryptography-50.0.2 google-api-core-2.41.0 google-auth-2.60.0 google-cloud-bigquery-3.46.1 google-cloud-core-2.8.0 google-crc32c-1.9.0 google-resumable-media-2.11.0 googleapis-common-protos-1.75.5 grpcio-1.84.0 grpcio-status-1.84.0 idna-3.20 opentelemetry-api-1.45.1 proto-plus-1.29.0 protobuf-7.36.2\nWARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable.It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.\n\n[notice] A new release of pip is available: 24.3.1 -> 26.2.1\n[notice] To update, run: pip install --upgrade pip\nTraceback (most recent call last):\n  File \"/workspace/scripts/gcp/b3-screening-canary.py\", line 188, in <module>\n    main()\n  File \"/workspace/scripts/gcp/b3-screening-canary.py\", line 68, in main\n    membership, membership_uri, membership_hash = fixed_membership(b2, core)\n                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/workspace/scripts/gcp/b3-screening-canary.py\", line 24, in fixed_membership\n    listed = b2[\"run\"](\"gcloud\", \"storage\", \"ls\", pattern, check=False)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/workspace/scripts/gcp/b2-lakehouse-acceptance.py\", line 50, in run\n    proc = subprocess.run(\n           ^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/subprocess.py\", line 548, in run\n    with Popen(*popenargs, **kwargs) as process:\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.12/subprocess.py\", line 1026, in __init__\n    self._execute_child(args, executable, preexec_fn, close_fds,\n  File \"/usr/local/lib/python3.12/subprocess.py\", line 1955, in _execute_child\n    raise child_exception_type(errno_num, err_msg, err_filename)\nFileNotFoundError: [Errno 2] No such file or directory: 'gcloud'\n",
-    "status": "failed"
+    "actual_gcs_read_bytes": null,
+    "bigquery_hybrid_elapsed_seconds": 48.930098692,
+    "bigquery_telemetry": {
+      "core_snapshot_id": "sha256:1eb49a2d139411245bda3c9d2eb77e451c5f462bb1865406fd8b55a151df61ab",
+      "dry_run": false,
+      "execution_byte_budget": 1073741824,
+      "rows_by_dataset": {
+        "benchmark": 198,
+        "ohlcv": 69208
+      },
+      "scan_evidence": {
+        "benchmark": {
+          "actual_gcs_read_bytes": null,
+          "billed_bytes": 10485760,
+          "dry_run_lower_bound_bytes": 0,
+          "elapsed_seconds": 2.475620077000002,
+          "estimated_bytes": null,
+          "metadata_location": "gs://gen-lang-client-0593591102-dev-core/warehouse/benchmark_v1/metadata/00258-05228454-a4a1-420a-855f-2605c56636ad.metadata.json",
+          "partition_pruning": "unknown",
+          "processed_bytes": 23173,
+          "region": "US",
+          "row_count": 198,
+          "selected_columns": [
+            "source_id",
+            "provenance_id",
+            "observed_at",
+            "trade_date",
+            "benchmark_id",
+            "index_kind",
+            "close"
+          ],
+          "snapshot_id": 5084459386493044934,
+          "table_identifier": "core.benchmark_v1"
+        },
+        "ohlcv": {
+          "actual_gcs_read_bytes": null,
+          "billed_bytes": 10485760,
+          "dry_run_lower_bound_bytes": 0,
+          "elapsed_seconds": 11.421950302999988,
+          "estimated_bytes": null,
+          "metadata_location": "gs://gen-lang-client-0593591102-dev-core/warehouse/ohlcv_v1/metadata/00204-30d733f0-9e46-4b3a-bc65-1b2211eb48a8.metadata.json",
+          "partition_pruning": "unknown",
+          "processed_bytes": 9547594,
+          "region": "US",
+          "row_count": 69208,
+          "selected_columns": [
+            "symbol",
+            "source_id",
+            "provenance_id",
+            "observed_at",
+            "trade_date",
+            "market",
+            "close",
+            "volume_shares",
+            "turnover_twd"
+          ],
+          "snapshot_id": 8549832172546885809,
+          "table_identifier": "core.ohlcv_v1"
+        }
+      },
+      "source": "bigquery-compatibility",
+      "table_scope": [
+        "core.benchmark_v1",
+        "core.ohlcv_v1"
+      ],
+      "total_rows": 69406,
+      "transition_only": false,
+      "unknown_estimate_policy": "bounded-execution"
+    },
+    "comparison": {
+      "benchmark": {
+        "row_multiset_equal": true,
+        "rows": 198
+      },
+      "ohlcv": {
+        "row_multiset_equal": true,
+        "rows": 69208
+      }
+    },
+    "core_snapshot_id": "sha256:1eb49a2d139411245bda3c9d2eb77e451c5f462bb1865406fd8b55a151df61ab",
+    "cutover": false,
+    "default": "pyiceberg",
+    "host_peak_rss_mib": null,
+    "llm_api_tokens": 0,
+    "manifest_sha256": "8eda0eaead65dcb2cdf33191337b2d6aae120ca2adfbe77cc511cf8c28d3e0a8",
+    "membership": {
+      "analysis_as_of": "2026-10-06",
+      "membership_version": "7",
+      "symbols": [
+        "1101",
+        "1102",
+        "1201",
+        "1210",
+        "1216",
+        "1227",
+        "1229",
+        "1301",
+        "1303",
+        "1304",
+        "1305",
+        "1307",
+        "1308",
+        "1309",
+        "1310",
+        "1312",
+        "1313",
+        "1314",
+        "1316",
+        "1319",
+        "1326",
+        "1402",
+        "1409",
+        "1434",
+        "1440",
+        "1442",
+        "1444",
+        "1447",
+        "1455",
+        "1467",
+        "1476",
+        "1477",
+        "1503",
+        "1504",
+        "1513",
+        "1514",
+        "1519",
+        "1528",
+        "1529",
+        "1560",
+        "1590",
+        "1597",
+        "1605",
+        "1608",
+        "1609",
+        "1612",
+        "1617",
+        "1708",
+        "1709",
+        "1710",
+        "1711",
+        "1714",
+        "1717",
+        "1718",
+        "1721",
+        "1722",
+        "1727",
+        "1773",
+        "1795",
+        "1802",
+        "1808",
+        "1809",
+        "1810",
+        "1904",
+        "1905",
+        "1907",
+        "1909",
+        "2002",
+        "2006",
+        "2009",
+        "2010",
+        "2014",
+        "2020",
+        "2023",
+        "2025",
+        "2027",
+        "2029",
+        "2030",
+        "2031",
+        "2032",
+        "2033",
+        "2034",
+        "2038",
+        "2049",
+        "2069",
+        "2101",
+        "2103",
+        "2104",
+        "2105",
+        "2201",
+        "2208",
+        "2211",
+        "2236",
+        "2241",
+        "2254",
+        "2258",
+        "2301",
+        "2302",
+        "2303",
+        "2305",
+        "2308",
+        "2312",
+        "2313",
+        "2316",
+        "2317",
+        "2323",
+        "2324",
+        "2327",
+        "2328",
+        "2329",
+        "2330",
+        "2331",
+        "2332",
+        "2337",
+        "2338",
+        "2340",
+        "2342",
+        "2344",
+        "2345",
+        "2347",
+        "2349",
+        "2351",
+        "2352",
+        "2353",
+        "2354",
+        "2355",
+        "2356",
+        "2357",
+        "2359",
+        "2360",
+        "2363",
+        "2365",
+        "2367",
+        "2368",
+        "2369",
+        "2371",
+        "2374",
+        "2375",
+        "2376",
+        "2377",
+        "2379",
+        "2382",
+        "2383",
+        "2385",
+        "2388",
+        "2392",
+        "2393",
+        "2395",
+        "2399",
+        "2401",
+        "2402",
+        "2404",
+        "2405",
+        "2406",
+        "2408",
+        "2409",
+        "2412",
+        "2413",
+        "2419",
+        "2420",
+        "2421",
+        "2426",
+        "2428",
+        "2436",
+        "2439",
+        "2441",
+        "2444",
+        "2449",
+        "2451",
+        "2454",
+        "2455",
+        "2457",
+        "2458",
+        "2464",
+        "2465",
+        "2466",
+        "2467",
+        "2468",
+        "2472",
+        "2474",
+        "2476",
+        "2478",
+        "2481",
+        "2483",
+        "2484",
+        "2485",
+        "2486",
+        "2489",
+        "2491",
+        "2492",
+        "2493",
+        "2495",
+        "2498",
+        "2501",
+        "2504",
+        "2515",
+        "2520",
+        "2527",
+        "2536",
+        "2537",
+        "2539",
+        "2542",
+        "2543",
+        "2547",
+        "2548",
+        "2603",
+        "2605",
+        "2606",
+        "2609",
+        "2610",
+        "2614",
+        "2615",
+        "2617",
+        "2618",
+        "2630",
+        "2633",
+        "2634",
+        "2637",
+        "2645",
+        "2646",
+        "2801",
+        "2812",
+        "2820",
+        "2834",
+        "2836",
+        "2838",
+        "2845",
+        "2850",
+        "2851",
+        "2855",
+        "2880",
+        "2881",
+        "2882",
+        "2883",
+        "2884",
+        "2885",
+        "2886",
+        "2887",
+        "2889",
+        "2890",
+        "2891",
+        "2892",
+        "2897",
+        "2903",
+        "2905",
+        "2912",
+        "2913",
+        "2915",
+        "3005",
+        "3006",
+        "3008",
+        "3013",
+        "3014",
+        "3016",
+        "3017",
+        "3019",
+        "3021",
+        "3022",
+        "3023",
+        "3024",
+        "3026",
+        "3028",
+        "3029",
+        "3030",
+        "3031",
+        "3033",
+        "3034",
+        "3035",
+        "3036",
+        "3037",
+        "3041",
+        "3042",
+        "3044",
+        "3045",
+        "3048",
+        "3049",
+        "3050",
+        "3051",
+        "3055",
+        "3059",
+        "3060",
+        "3062",
+        "3090",
+        "3092",
+        "3094",
+        "3149",
+        "3167",
+        "3189",
+        "3209",
+        "3229",
+        "3231",
+        "3305",
+        "3311",
+        "3312",
+        "3376",
+        "3380",
+        "3406",
+        "3413",
+        "3437",
+        "3443",
+        "3450",
+        "3481",
+        "3504",
+        "3518",
+        "3532",
+        "3533",
+        "3535",
+        "3543",
+        "3545",
+        "3550",
+        "3563",
+        "3576",
+        "3583",
+        "3588",
+        "3591",
+        "3592",
+        "3605",
+        "3645",
+        "3653",
+        "3661",
+        "3665",
+        "3673",
+        "3701",
+        "3702",
+        "3703",
+        "3704",
+        "3706",
+        "3711",
+        "3714",
+        "3715",
+        "3717",
+        "4142",
+        "4306",
+        "4526",
+        "4540",
+        "4545",
+        "4551",
+        "4566",
+        "4576",
+        "4720",
+        "4722",
+        "4739",
+        "4746",
+        "4763",
+        "4764",
+        "4770",
+        "4904",
+        "4906",
+        "4912",
+        "4915",
+        "4916",
+        "4919",
+        "4927",
+        "4938",
+        "4956",
+        "4958",
+        "4960",
+        "4961",
+        "4967",
+        "4968",
+        "4976",
+        "4977",
+        "4989",
+        "5234",
+        "5243",
+        "5285",
+        "5388",
+        "5434",
+        "5469",
+        "5471",
+        "5521",
+        "5534",
+        "5608",
+        "5871",
+        "5876",
+        "5880",
+        "6005",
+        "6108",
+        "6112",
+        "6116",
+        "6120",
+        "6133",
+        "6139",
+        "6141",
+        "6142",
+        "6152",
+        "6153",
+        "6155",
+        "6165",
+        "6166",
+        "6168",
+        "6176",
+        "6177",
+        "6191",
+        "6196",
+        "6197",
+        "6202",
+        "6205",
+        "6206",
+        "6209",
+        "6213",
+        "6214",
+        "6224",
+        "6226",
+        "6239",
+        "6257",
+        "6269",
+        "6271",
+        "6278",
+        "6282",
+        "6285",
+        "6405",
+        "6414",
+        "6415",
+        "6416",
+        "6426",
+        "6438",
+        "6442",
+        "6443",
+        "6446",
+        "6449",
+        "6451",
+        "6456",
+        "6477",
+        "6505",
+        "6525",
+        "6526",
+        "6531",
+        "6533",
+        "6550",
+        "6589",
+        "6592",
+        "6668",
+        "6669",
+        "6672",
+        "6691",
+        "6695",
+        "6706",
+        "6715",
+        "6742",
+        "6743",
+        "6770",
+        "6789",
+        "6805",
+        "6830",
+        "6831",
+        "6834",
+        "6861",
+        "6885",
+        "6901",
+        "6919",
+        "6933",
+        "6937",
+        "6949",
+        "6957",
+        "6962",
+        "6994",
+        "7610",
+        "7711",
+        "7769",
+        "7780",
+        "7788",
+        "7795",
+        "7799",
+        "8021",
+        "8028",
+        "8033",
+        "8039",
+        "8046",
+        "8070",
+        "8103",
+        "8105",
+        "8110",
+        "8112",
+        "8131",
+        "8150",
+        "8163",
+        "8201",
+        "8210",
+        "8213",
+        "8215",
+        "8261",
+        "8271",
+        "8422",
+        "8438",
+        "8926",
+        "8996",
+        "9105",
+        "9904",
+        "9907",
+        "9910",
+        "9914",
+        "9921",
+        "9927",
+        "9929",
+        "9933",
+        "9939",
+        "9941",
+        "9945",
+        "9958"
+      ]
+    },
+    "membership_sha256": "fa6cb46717dfc48dcaf2f36d3c2ad5914ab087ee49ba0dc5cb96c7fb0a8eaf15",
+    "membership_source_uri": "gs://gen-lang-client-0593591102-dev-mart/executions/f58c3812-2dee-47c8-afc6-c818057183b1/market-membership.json",
+    "output_equal": true,
+    "output_hash": "sha256:57587eb665c1c5a3d199b4c6cc09bd6ee86a387090184080529736ed1d62e48b",
+    "pyiceberg_elapsed_seconds": 38.398949265,
+    "pyiceberg_telemetry": {
+      "core_snapshot_id": "sha256:1eb49a2d139411245bda3c9d2eb77e451c5f462bb1865406fd8b55a151df61ab",
+      "rows_by_dataset": {
+        "benchmark": 198,
+        "ohlcv": 69208,
+        "valuation": 3298
+      },
+      "scan_evidence": {
+        "benchmark": {
+          "actual_gcs_read_bytes": null,
+          "planned_file_count": 16,
+          "planned_scan_bytes": null,
+          "planning_error_code": null,
+          "row_count": 198,
+          "snapshot_id": 5084459386493044934,
+          "symbol_filter_applied": true,
+          "table_identifier": "core.benchmark_v1"
+        },
+        "ohlcv": {
+          "actual_gcs_read_bytes": null,
+          "planned_file_count": 13,
+          "planned_scan_bytes": null,
+          "planning_error_code": null,
+          "row_count": 69208,
+          "snapshot_id": 8549832172546885809,
+          "symbol_filter_applied": true,
+          "table_identifier": "core.ohlcv_v1"
+        },
+        "valuation": {
+          "actual_gcs_read_bytes": null,
+          "planned_file_count": 18,
+          "planned_scan_bytes": null,
+          "planning_error_code": null,
+          "row_count": 3298,
+          "snapshot_id": 5246596079791492742,
+          "symbol_filter_applied": true,
+          "table_identifier": "core.valuation_v1"
+        }
+      },
+      "source": "pyiceberg",
+      "total_rows": 72704
+    },
+    "quality": {
+      "auto_fail": false,
+      "eod": {
+        "missing_ratio": 0.002,
+        "missing_symbols": 1,
+        "status": "accepted",
+        "total_symbols": 500
+      },
+      "history": {
+        "120": {
+          "missing_ratio": 0.078,
+          "missing_symbols": 39,
+          "status": "accepted",
+          "total_symbols": 500
+        },
+        "20": {
+          "missing_ratio": 0.078,
+          "missing_symbols": 39,
+          "status": "accepted",
+          "total_symbols": 500
+        },
+        "5": {
+          "missing_ratio": 0.078,
+          "missing_symbols": 39,
+          "status": "accepted",
+          "total_symbols": 500
+        },
+        "60": {
+          "missing_ratio": 0.078,
+          "missing_symbols": 39,
+          "status": "accepted",
+          "total_symbols": 500
+        }
+      },
+      "latest_market_date": "2026-10-06",
+      "model_validation_counted_as_missing": false,
+      "tolerance": 0.1
+    },
+    "screening_count": 500,
+    "specialist_count": 0,
+    "status": "pass",
+    "valuation_backend": "pyiceberg_shared_bounded_read",
+    "valuation_read_time_excluded_from_candidate": true
   },
   "canary_cloud_build": {
-    "createTime": "2026-10-07T12:05:45.072710462Z",
-    "finishTime": "2026-10-07T12:07:26.640453Z",
-    "id": "b6bbde65-ee36-4ffb-9344-bd21e0f23f20",
-    "logUrl": "https://console.cloud.google.com/cloud-build/builds;region=us-central1/b6bbde65-ee36-4ffb-9344-bd21e0f23f20?project=131494961796",
-    "name": "projects/131494961796/locations/us-central1/builds/b6bbde65-ee36-4ffb-9344-bd21e0f23f20",
+    "createTime": "2026-10-07T12:40:34.867750244Z",
+    "finishTime": "2026-10-07T12:43:50.181573Z",
+    "id": "d93a9658-9fcb-47a4-bfef-92b22d512e8e",
+    "logUrl": "https://console.cloud.google.com/cloud-build/builds;region=us-central1/d93a9658-9fcb-47a4-bfef-92b22d512e8e?project=131494961796",
+    "name": "projects/131494961796/locations/us-central1/builds/d93a9658-9fcb-47a4-bfef-92b22d512e8e",
     "options": {
       "logging": "CLOUD_LOGGING_ONLY",
       "pool": {}
@@ -17,7 +696,7 @@
     "queueTtl": "3600s",
     "results": {
       "buildStepImages": [
-        "sha256:ebab04cd2e6dd96f9a45fd97132240b704933f7d0e77392389bb79712fcf8f88",
+        "sha256:7e18a38497e189c14270da936c096765196ad432edf0d99ff39d5d9688e30943",
         "sha256:cde9dbd556000c21c08449d8e5828904ef91e690bec95207f71fa6a6685922c9"
       ],
       "buildStepOutputs": [
@@ -29,32 +708,32 @@
     "source": {
       "storageSource": {
         "bucket": "gen-lang-client-0593591102-cloudbuild-regional",
-        "generation": "1791374744813141",
-        "object": "source/1791374743.361787-25a60028844842c9b88c37fbcf083306.tgz"
+        "generation": "1791376834486212",
+        "object": "source/1791376832.812493-9cb18847b0e44601bc00b6fff32275ea.tgz"
       }
     },
     "sourceProvenance": {
       "fileHashes": {
-        "gs://gen-lang-client-0593591102-cloudbuild-regional/source/1791374743.361787-25a60028844842c9b88c37fbcf083306.tgz#1791374744813141": {
+        "gs://gen-lang-client-0593591102-cloudbuild-regional/source/1791376832.812493-9cb18847b0e44601bc00b6fff32275ea.tgz#1791376834486212": {
           "fileHash": [
             {
               "type": "MD5",
-              "value": "LmTOBw7Q-chDSFNXCLSoEA=="
+              "value": "6NK8r2Zc1XQu11OssyXiWg=="
             },
             {
               "type": "SHA256",
-              "value": "omSKUCiOyHHPexfnO8vntJOZpe6CFzojbA7GgstdNy8="
+              "value": "uzIfyKs0i2P2Od2m93RWjRLYyWc9jzgyfvZwRmh6lUE="
             }
           ]
         }
       },
       "resolvedStorageSource": {
         "bucket": "gen-lang-client-0593591102-cloudbuild-regional",
-        "generation": "1791374744813141",
-        "object": "source/1791374743.361787-25a60028844842c9b88c37fbcf083306.tgz"
+        "generation": "1791376834486212",
+        "object": "source/1791376832.812493-9cb18847b0e44601bc00b6fff32275ea.tgz"
       }
     },
-    "startTime": "2026-10-07T12:05:47.045960091Z",
+    "startTime": "2026-10-07T12:40:35.593098909Z",
     "status": "SUCCESS",
     "steps": [
       {
@@ -66,54 +745,54 @@
         "env": [
           "PYTHONPATH=/workspace/jobs/intelligence-mart:/workspace/jobs/ingestion-core:/workspace"
         ],
-        "name": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:ebab04cd2e6dd96f9a45fd97132240b704933f7d0e77392389bb79712fcf8f88",
+        "name": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:7e18a38497e189c14270da936c096765196ad432edf0d99ff39d5d9688e30943",
         "pullTiming": {
-          "endTime": "2026-10-07T12:06:27.607288123Z",
-          "startTime": "2026-10-07T12:05:51.246835791Z"
+          "endTime": "2026-10-07T12:41:20.074287841Z",
+          "startTime": "2026-10-07T12:40:40.521004117Z"
         },
         "status": "SUCCESS",
         "timing": {
-          "endTime": "2026-10-07T12:06:43.853971884Z",
-          "startTime": "2026-10-07T12:05:51.246835791Z"
+          "endTime": "2026-10-07T12:43:06.577221720Z",
+          "startTime": "2026-10-07T12:40:40.521004117Z"
         }
       },
       {
         "args": [
           "-ceu",
-          "gcloud storage cp /workspace/b3-canary.json 'gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37617098948-1.json'\ngcloud storage cp /workspace/b3-canary.log 'gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37617098948-1.log'\ngcloud storage cp /workspace/b3-canary.rc 'gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37617098948-1.rc'\n"
+          "gcloud storage cp /workspace/b3-canary.json 'gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37621348869-1.json'\ngcloud storage cp /workspace/b3-canary.log 'gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37621348869-1.log'\ngcloud storage cp /workspace/b3-canary.rc 'gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37621348869-1.rc'\n"
         ],
         "entrypoint": "bash",
         "name": "gcr.io/google.com/cloudsdktool/google-cloud-cli:slim",
         "pullTiming": {
-          "endTime": "2026-10-07T12:07:18.068923748Z",
-          "startTime": "2026-10-07T12:06:43.854217947Z"
+          "endTime": "2026-10-07T12:43:41.678419841Z",
+          "startTime": "2026-10-07T12:43:06.577484320Z"
         },
         "status": "SUCCESS",
         "timing": {
-          "endTime": "2026-10-07T12:07:25.651852192Z",
-          "startTime": "2026-10-07T12:06:43.854217947Z"
+          "endTime": "2026-10-07T12:43:49.584836162Z",
+          "startTime": "2026-10-07T12:43:06.577484320Z"
         }
       }
     ],
     "substitutions": {
-      "_LOG_URI": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37617098948-1.log",
-      "_MART_IMAGE": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:ebab04cd2e6dd96f9a45fd97132240b704933f7d0e77392389bb79712fcf8f88",
-      "_OUTPUT_URI": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37617098948-1.json",
-      "_RC_URI": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37617098948-1.rc"
+      "_LOG_URI": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37621348869-1.log",
+      "_MART_IMAGE": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:7e18a38497e189c14270da936c096765196ad432edf0d99ff39d5d9688e30943",
+      "_OUTPUT_URI": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37621348869-1.json",
+      "_RC_URI": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-canary/github-37621348869-1.rc"
     },
     "timeout": "3600s",
     "timing": {
       "BUILD": {
-        "endTime": "2026-10-07T12:07:25.652006325Z",
-        "startTime": "2026-10-07T12:05:50.616762614Z"
+        "endTime": "2026-10-07T12:43:49.585108115Z",
+        "startTime": "2026-10-07T12:40:39.807413225Z"
       },
       "FETCHSOURCE": {
-        "endTime": "2026-10-07T12:05:50.616475541Z",
-        "startTime": "2026-10-07T12:05:47.301235988Z"
+        "endTime": "2026-10-07T12:40:39.807141531Z",
+        "startTime": "2026-10-07T12:40:35.878793058Z"
       },
       "STORAGE_SOURCE": {
-        "endTime": "2026-10-07T12:05:50.616475541Z",
-        "startTime": "2026-10-07T12:05:47.301235988Z"
+        "endTime": "2026-10-07T12:40:39.807141531Z",
+        "startTime": "2026-10-07T12:40:35.878793058Z"
       }
     }
   },
@@ -137,17 +816,17 @@
         "run.googleapis.com/client-version": "568.0.0",
         "run.googleapis.com/creator": "tommylin15@gmail.com",
         "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
-        "run.googleapis.com/operation-id": "7bc61ad0-f351-4a0d-8a8a-09391fdb3e4a"
+        "run.googleapis.com/operation-id": "dbc0512e-7d96-4f1d-a4e5-381efdfb2b87"
       },
       "creationTimestamp": "2026-10-02T03:32:20.977352Z",
-      "generation": 52,
+      "generation": 53,
       "labels": {
         "cloud.googleapis.com/location": "us-central1",
-        "run.googleapis.com/lastUpdatedTime": "2026-10-07T11:56:59.957030Z"
+        "run.googleapis.com/lastUpdatedTime": "2026-10-07T12:33:02.000086Z"
       },
       "name": "janus-batch-controller",
       "namespace": "131494961796",
-      "resourceVersion": "AAZdPtAacVc",
+      "resourceVersion": "AAZdP1hSCJc",
       "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/jobs/janus-batch-controller",
       "uid": "c0918163-0449-43bd-a919-6c5f13ad2859"
     },
@@ -162,7 +841,7 @@
             "run.googleapis.com/vpc-access-egress": "private-ranges-only"
           },
           "labels": {
-            "client.knative.dev/nonce": "cal_wev_mig"
+            "client.knative.dev/nonce": "hud_yen_jir"
           }
         },
         "spec": {
@@ -238,7 +917,7 @@
                       "value": "2026-10-02T04:05:00Z"
                     }
                   ],
-                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/ingestion-core@sha256:c137f1e48a8c1ece115a278f95f71c67484e583b36f11f33d9ba630c0a6b7e7a",
+                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/ingestion-core@sha256:9632ccc1c2566c599b08d1540b2af270e06605b87690c1f31e6de859031d0ede",
                   "resources": {
                     "limits": {
                       "cpu": "1",
@@ -262,14 +941,14 @@
           "type": "Ready"
         }
       ],
-      "executionCount": 157,
+      "executionCount": 158,
       "latestCreatedExecution": {
         "completionStatus": "EXECUTION_SUCCEEDED",
-        "completionTimestamp": "2026-10-07T11:33:57.847776Z",
-        "creationTimestamp": "2026-10-07T11:30:01.651088Z",
-        "name": "janus-batch-controller-f2ds6"
+        "completionTimestamp": "2026-10-07T12:35:04.086569Z",
+        "creationTimestamp": "2026-10-07T12:30:06.628357Z",
+        "name": "janus-batch-controller-7qgqr"
       },
-      "observedGeneration": 52
+      "observedGeneration": 53
     }
   },
   "fixed_snapshot_run_1": {
@@ -284,20 +963,20 @@
           "run.googleapis.com/execution-environment": "gen2",
           "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
           "run.googleapis.com/network-interfaces": "[{\"network\": \"janusai-lake-poc\", \"subnetwork\": \"janusai-lake-poc-uscentral1\", \"tags\": [\"janus-intelligence-mart\"]}]",
-          "run.googleapis.com/operation-id": "fbbc7742-d43a-4b5a-830b-3bd232e34b33",
+          "run.googleapis.com/operation-id": "573ebf71-6f7c-40fb-9c29-02b4c86f8716",
           "run.googleapis.com/vpc-access-egress": "private-ranges-only"
         },
-        "creationTimestamp": "2026-10-07T12:07:35.528249Z",
+        "creationTimestamp": "2026-10-07T12:43:58.604887Z",
         "generation": 1,
         "labels": {
-          "client.knative.dev/nonce": "hev_jar_wox",
+          "client.knative.dev/nonce": "suw_gas_qen",
           "cloud.googleapis.com/location": "us-central1",
           "run.googleapis.com/job": "janus-intelligence-mart",
-          "run.googleapis.com/jobGeneration": "212",
-          "run.googleapis.com/jobResourceVersion": "1791374738790576",
+          "run.googleapis.com/jobGeneration": "216",
+          "run.googleapis.com/jobResourceVersion": "1791376827964787",
           "run.googleapis.com/jobUid": "bb34dcf0-83ff-4cb0-8a6e-06d71132d70f"
         },
-        "name": "janus-intelligence-mart-km748",
+        "name": "janus-intelligence-mart-rf7g2",
         "namespace": "131494961796",
         "ownerReferences": [
           {
@@ -309,9 +988,9 @@
             "uid": "bb34dcf0-83ff-4cb0-8a6e-06d71132d70f"
           }
         ],
-        "resourceVersion": "AAZdPv6PNvw",
-        "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/executions/janus-intelligence-mart-km748",
-        "uid": "e2e80266-eb7d-4ba3-96d0-f0be9f6b18bc"
+        "resourceVersion": "AAZdP4DkBnY",
+        "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/executions/janus-intelligence-mart-rf7g2",
+        "uid": "620faa2f-c49e-4f69-bbfa-31f708e33c5d"
       },
       "spec": {
         "parallelism": 1,
@@ -380,11 +1059,11 @@
                   },
                   {
                     "name": "JANUS_GIT_SHA",
-                    "value": "78d65c7574f0d385f64759960af524b2f1d9e3e9"
+                    "value": "a350239388ee0937166659023692c08d77977c63"
                   },
                   {
                     "name": "JANUS_IMAGE_DIGEST",
-                    "value": "sha256:ebab04cd2e6dd96f9a45fd97132240b704933f7d0e77392389bb79712fcf8f88"
+                    "value": "sha256:7e18a38497e189c14270da936c096765196ad432edf0d99ff39d5d9688e30943"
                   },
                   {
                     "name": "MART_CODEX_AUTH_SECRET",
@@ -399,11 +1078,15 @@
                     "value": "gs://gen-lang-client-0593591102-dev-mart/acceptance/specialists/b1-fixed-snapshot-20261007.json"
                   },
                   {
+                    "name": "MART_ACCEPTANCE_RESULT_URI",
+                    "value": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-live/github-37621348869-1-1.json"
+                  },
+                  {
                     "name": "MART_OOS_EVALUATION",
                     "value": "false"
                   }
                 ],
-                "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:ebab04cd2e6dd96f9a45fd97132240b704933f7d0e77392389bb79712fcf8f88",
+                "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:7e18a38497e189c14270da936c096765196ad432edf0d99ff39d5d9688e30943",
                 "resources": {
                   "limits": {
                     "cpu": "1",
@@ -419,54 +1102,486 @@
         }
       },
       "status": {
-        "completionTime": "2026-10-07T12:09:59.993814Z",
+        "completionTime": "2026-10-07T12:46:25.197562Z",
         "conditions": [
           {
-            "lastTransitionTime": "2026-10-07T12:09:59.993814Z",
-            "message": "Execution completed successfully in 2m13.82s.",
+            "lastTransitionTime": "2026-10-07T12:46:25.197562Z",
+            "message": "Execution completed successfully in 2m16.99s.",
             "status": "True",
             "type": "Completed"
           },
           {
-            "lastTransitionTime": "2026-10-07T12:07:37.327195Z",
+            "lastTransitionTime": "2026-10-07T12:43:59.897499Z",
             "message": "Provisioned imported containers.",
             "status": "True",
             "type": "ResourcesAvailable"
           },
           {
-            "lastTransitionTime": "2026-10-07T12:09:50.654275Z",
-            "message": "Started deployed execution in 2m13.32s.",
+            "lastTransitionTime": "2026-10-07T12:46:15.144369Z",
+            "message": "Started deployed execution in 2m15.24s.",
             "status": "True",
             "type": "Started"
           },
           {
-            "lastTransitionTime": "2026-10-07T12:07:36.983867Z",
-            "message": "Imported container image in 1.45s.",
+            "lastTransitionTime": "2026-10-07T12:43:59.520728Z",
+            "message": "Imported container image.",
             "status": "True",
             "type": "ContainerReady"
           }
         ],
-        "logUri": "https://console.cloud.google.com/logs/viewer?project=gen-lang-client-0593591102&advancedFilter=resource.type%3D%22cloud_run_job%22%0Aresource.labels.job_name%3D%22janus-intelligence-mart%22%0Aresource.labels.location%3D%22us-central1%22%0Alabels.%22run.googleapis.com/execution_name%22%3D%22janus-intelligence-mart-km748%22",
+        "logUri": "https://console.cloud.google.com/logs/viewer?project=gen-lang-client-0593591102&advancedFilter=resource.type%3D%22cloud_run_job%22%0Aresource.labels.job_name%3D%22janus-intelligence-mart%22%0Aresource.labels.location%3D%22us-central1%22%0Alabels.%22run.googleapis.com/execution_name%22%3D%22janus-intelligence-mart-rf7g2%22",
         "observedGeneration": 1,
-        "startTime": "2026-10-07T12:07:46.167396Z",
+        "startTime": "2026-10-07T12:44:08.206527Z",
         "succeededCount": 1
       }
     },
-    "receipt": null,
-    "result": null
+    "receipt": {
+      "artifact_growth_bytes": 0,
+      "canary": {
+        "backend": "pyiceberg",
+        "candidate": "not_requested",
+        "default": "pyiceberg"
+      },
+      "ceo_triggered": false,
+      "execution_id": "4aefa90a-b974-4cec-a834-8d7e8b50bc0a",
+      "identity_hash": "sha256:4a3ecf3f22275a6074dbb7e945e4b5001700e2b46d14071b799b4b80c5f03f9d",
+      "llm_api_tokens": 0,
+      "output_hash": "sha256:0778f379e04785e97d3eecd5264da58b98ef15cf322a0376a0c55ef09ce21458",
+      "quality": {
+        "auto_fail": false,
+        "eod": {
+          "missing_ratio": 0.002,
+          "missing_symbols": 1,
+          "status": "accepted",
+          "total_symbols": 500
+        },
+        "history": {
+          "120": {
+            "missing_ratio": 0.078,
+            "missing_symbols": 39,
+            "status": "accepted",
+            "total_symbols": 500
+          },
+          "20": {
+            "missing_ratio": 0.078,
+            "missing_symbols": 39,
+            "status": "accepted",
+            "total_symbols": 500
+          },
+          "5": {
+            "missing_ratio": 0.078,
+            "missing_symbols": 39,
+            "status": "accepted",
+            "total_symbols": 500
+          },
+          "60": {
+            "missing_ratio": 0.078,
+            "missing_symbols": 39,
+            "status": "accepted",
+            "total_symbols": 500
+          }
+        },
+        "latest_market_date": "2026-10-06",
+        "model_validation_counted_as_missing": false,
+        "tolerance": 0.1
+      },
+      "retention_days": 90,
+      "reused": true,
+      "screening": {
+        "artifact_hash": "sha256:d1f33459428ed5748d3566b213c2800470c6449c738ca1f6c47da5e9c39073c6",
+        "artifact_uri": "gs://gen-lang-client-0593591102-dev-mart/screening/4a3ecf3f22275a6074dbb7e945e4b5001700e2b46d14071b799b4b80c5f03f9d.json"
+      },
+      "screening_count": 500,
+      "specialist_count": 0
+    },
+    "result": {
+      "analysis_as_of": "2026-10-06",
+      "artifact_growth_bytes": 0,
+      "artifact_hash": "sha256:93b4864f21bec5e294931962a943c83f8acf3a278930fb591c779d79c608d49c",
+      "artifact_uri": "gs://gen-lang-client-0593591102-dev-mart/executions/4aefa90a-b974-4cec-a834-8d7e8b50bc0a/screening-manifest.json",
+      "canary": {
+        "backend": "pyiceberg",
+        "candidate": "not_requested",
+        "default": "pyiceberg"
+      },
+      "ceo_triggered": false,
+      "component": "intelligence-mart",
+      "core_snapshot_hash": "sha256:8eda0eaead65dcb2cdf33191337b2d6aae120ca2adfbe77cc511cf8c28d3e0a8",
+      "core_snapshot_uri": "gs://gen-lang-client-0593591102-dev-core/executions/17b091be-c454-4fea-b5de-b16c0a9c8c6c/core-snapshot.json",
+      "elapsed_seconds": 1.34,
+      "execution_id": "4aefa90a-b974-4cec-a834-8d7e8b50bc0a",
+      "identity_hash": "sha256:4a3ecf3f22275a6074dbb7e945e4b5001700e2b46d14071b799b4b80c5f03f9d",
+      "llm_api_tokens": 0,
+      "operation": "market-screening-acceptance",
+      "output_hash": "sha256:0778f379e04785e97d3eecd5264da58b98ef15cf322a0376a0c55ef09ce21458",
+      "peak_rss_mib": 53.74,
+      "quality": {
+        "auto_fail": false,
+        "eod": {
+          "missing_ratio": 0.002,
+          "missing_symbols": 1,
+          "status": "accepted",
+          "total_symbols": 500
+        },
+        "history": {
+          "120": {
+            "missing_ratio": 0.078,
+            "missing_symbols": 39,
+            "status": "accepted",
+            "total_symbols": 500
+          },
+          "20": {
+            "missing_ratio": 0.078,
+            "missing_symbols": 39,
+            "status": "accepted",
+            "total_symbols": 500
+          },
+          "5": {
+            "missing_ratio": 0.078,
+            "missing_symbols": 39,
+            "status": "accepted",
+            "total_symbols": 500
+          },
+          "60": {
+            "missing_ratio": 0.078,
+            "missing_symbols": 39,
+            "status": "accepted",
+            "total_symbols": 500
+          }
+        },
+        "latest_market_date": "2026-10-06",
+        "model_validation_counted_as_missing": false,
+        "tolerance": 0.1
+      },
+      "retention_days": 90,
+      "reused": true,
+      "screening": {
+        "artifact_hash": "sha256:d1f33459428ed5748d3566b213c2800470c6449c738ca1f6c47da5e9c39073c6",
+        "artifact_uri": "gs://gen-lang-client-0593591102-dev-mart/screening/4a3ecf3f22275a6074dbb7e945e4b5001700e2b46d14071b799b4b80c5f03f9d.json"
+      },
+      "screening_count": 500,
+      "specialist_count": 0
+    }
   },
   "fixed_snapshot_run_2": {
-    "cloud_run": null,
-    "receipt": null,
-    "result": null
+    "cloud_run": {
+      "apiVersion": "run.googleapis.com/v1",
+      "kind": "Execution",
+      "metadata": {
+        "annotations": {
+          "run.googleapis.com/client-name": "gcloud",
+          "run.googleapis.com/client-version": "568.0.0",
+          "run.googleapis.com/creator": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
+          "run.googleapis.com/execution-environment": "gen2",
+          "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
+          "run.googleapis.com/network-interfaces": "[{\"network\": \"janusai-lake-poc\", \"subnetwork\": \"janusai-lake-poc-uscentral1\", \"tags\": [\"janus-intelligence-mart\"]}]",
+          "run.googleapis.com/operation-id": "543c383a-948f-40c7-81f2-f553b1bb97e5",
+          "run.googleapis.com/vpc-access-egress": "private-ranges-only"
+        },
+        "creationTimestamp": "2026-10-07T12:46:30.823088Z",
+        "generation": 1,
+        "labels": {
+          "client.knative.dev/nonce": "suw_gas_qen",
+          "cloud.googleapis.com/location": "us-central1",
+          "run.googleapis.com/job": "janus-intelligence-mart",
+          "run.googleapis.com/jobGeneration": "216",
+          "run.googleapis.com/jobResourceVersion": "1791377187003815",
+          "run.googleapis.com/jobUid": "bb34dcf0-83ff-4cb0-8a6e-06d71132d70f"
+        },
+        "name": "janus-intelligence-mart-k4p49",
+        "namespace": "131494961796",
+        "ownerReferences": [
+          {
+            "apiVersion": "serving.knative.dev/v1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "Job",
+            "name": "janus-intelligence-mart",
+            "uid": "bb34dcf0-83ff-4cb0-8a6e-06d71132d70f"
+          }
+        ],
+        "resourceVersion": "AAZdP4o/vgg",
+        "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/executions/janus-intelligence-mart-k4p49",
+        "uid": "a2d849f1-3b9d-497c-a9d2-3b304931aadd"
+      },
+      "spec": {
+        "parallelism": 1,
+        "taskCount": 1,
+        "template": {
+          "spec": {
+            "containers": [
+              {
+                "env": [
+                  {
+                    "name": "CATALOG_DB_HOST",
+                    "value": "10.42.0.5"
+                  },
+                  {
+                    "name": "CATALOG_DB_NAME",
+                    "value": "janus_control"
+                  },
+                  {
+                    "name": "CATALOG_DB_USER",
+                    "value": "janus_mart_catalog"
+                  },
+                  {
+                    "name": "CATALOG_DB_SSLMODE",
+                    "value": "require"
+                  },
+                  {
+                    "name": "PUBLICATION_DB_HOST",
+                    "value": "10.42.0.5"
+                  },
+                  {
+                    "name": "PUBLICATION_DB_NAME",
+                    "value": "janus_control"
+                  },
+                  {
+                    "name": "PUBLICATION_DB_USER",
+                    "value": "janus_mart_publication"
+                  },
+                  {
+                    "name": "PUBLICATION_DB_SSLMODE",
+                    "value": "require"
+                  },
+                  {
+                    "name": "JANUS_MART_POSTGRES_BUNDLE",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "latest",
+                        "name": "janus-runtime-bundle"
+                      }
+                    }
+                  },
+                  {
+                    "name": "MART_OPERATION",
+                    "value": "market-screening-acceptance"
+                  },
+                  {
+                    "name": "MART_BUCKET",
+                    "value": "gen-lang-client-0593591102-dev-mart"
+                  },
+                  {
+                    "name": "QUEUE_WORKER_ID",
+                    "value": "wbs5-acceptance-20260911"
+                  },
+                  {
+                    "name": "GCP_PROJECT_ID",
+                    "value": "gen-lang-client-0593591102"
+                  },
+                  {
+                    "name": "JANUS_GIT_SHA",
+                    "value": "a350239388ee0937166659023692c08d77977c63"
+                  },
+                  {
+                    "name": "JANUS_IMAGE_DIGEST",
+                    "value": "sha256:7e18a38497e189c14270da936c096765196ad432edf0d99ff39d5d9688e30943"
+                  },
+                  {
+                    "name": "MART_CODEX_AUTH_SECRET",
+                    "value": "janus-mart-codex-auth"
+                  },
+                  {
+                    "name": "MART_AI_ENABLED",
+                    "value": "false"
+                  },
+                  {
+                    "name": "MART_ACCEPTANCE_INPUT_URI",
+                    "value": "gs://gen-lang-client-0593591102-dev-mart/acceptance/specialists/b1-fixed-snapshot-20261007.json"
+                  },
+                  {
+                    "name": "MART_ACCEPTANCE_RESULT_URI",
+                    "value": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b3-live/github-37621348869-1-2.json"
+                  },
+                  {
+                    "name": "MART_OOS_EVALUATION",
+                    "value": "false"
+                  }
+                ],
+                "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:7e18a38497e189c14270da936c096765196ad432edf0d99ff39d5d9688e30943",
+                "resources": {
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "1Gi"
+                  }
+                }
+              }
+            ],
+            "maxRetries": 1,
+            "serviceAccountName": "intelligence-mart@gen-lang-client-0593591102.iam.gserviceaccount.com",
+            "timeoutSeconds": "1800"
+          }
+        }
+      },
+      "status": {
+        "completionTime": "2026-10-07T12:49:01.147922Z",
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-10-07T12:49:01.147922Z",
+            "message": "Execution completed successfully in 2m18.94s.",
+            "status": "True",
+            "type": "Completed"
+          },
+          {
+            "lastTransitionTime": "2026-10-07T12:46:32.441619Z",
+            "message": "Provisioned imported containers.",
+            "status": "True",
+            "type": "ResourcesAvailable"
+          },
+          {
+            "lastTransitionTime": "2026-10-07T12:48:50.511132Z",
+            "message": "Started deployed execution in 2m18.06s.",
+            "status": "True",
+            "type": "Started"
+          },
+          {
+            "lastTransitionTime": "2026-10-07T12:46:32.082067Z",
+            "message": "Imported container image in 1.26s.",
+            "status": "True",
+            "type": "ContainerReady"
+          }
+        ],
+        "logUri": "https://console.cloud.google.com/logs/viewer?project=gen-lang-client-0593591102&advancedFilter=resource.type%3D%22cloud_run_job%22%0Aresource.labels.job_name%3D%22janus-intelligence-mart%22%0Aresource.labels.location%3D%22us-central1%22%0Alabels.%22run.googleapis.com/execution_name%22%3D%22janus-intelligence-mart-k4p49%22",
+        "observedGeneration": 1,
+        "startTime": "2026-10-07T12:46:42.205700Z",
+        "succeededCount": 1
+      }
+    },
+    "receipt": {
+      "artifact_growth_bytes": 0,
+      "canary": {
+        "backend": "pyiceberg",
+        "candidate": "not_requested",
+        "default": "pyiceberg"
+      },
+      "ceo_triggered": false,
+      "execution_id": "1ecd5da6-d354-4b0d-84a4-557f6043af8c",
+      "identity_hash": "sha256:4a3ecf3f22275a6074dbb7e945e4b5001700e2b46d14071b799b4b80c5f03f9d",
+      "llm_api_tokens": 0,
+      "output_hash": "sha256:d63bc477045566fdff9afdbb3734acb559004e1a51f1cf11f1046f624b2ff054",
+      "quality": {
+        "auto_fail": false,
+        "eod": {
+          "missing_ratio": 0.002,
+          "missing_symbols": 1,
+          "status": "accepted",
+          "total_symbols": 500
+        },
+        "history": {
+          "120": {
+            "missing_ratio": 0.078,
+            "missing_symbols": 39,
+            "status": "accepted",
+            "total_symbols": 500
+          },
+          "20": {
+            "missing_ratio": 0.078,
+            "missing_symbols": 39,
+            "status": "accepted",
+            "total_symbols": 500
+          },
+          "5": {
+            "missing_ratio": 0.078,
+            "missing_symbols": 39,
+            "status": "accepted",
+            "total_symbols": 500
+          },
+          "60": {
+            "missing_ratio": 0.078,
+            "missing_symbols": 39,
+            "status": "accepted",
+            "total_symbols": 500
+          }
+        },
+        "latest_market_date": "2026-10-06",
+        "model_validation_counted_as_missing": false,
+        "tolerance": 0.1
+      },
+      "retention_days": 90,
+      "reused": true,
+      "screening": {
+        "artifact_hash": "sha256:d1f33459428ed5748d3566b213c2800470c6449c738ca1f6c47da5e9c39073c6",
+        "artifact_uri": "gs://gen-lang-client-0593591102-dev-mart/screening/4a3ecf3f22275a6074dbb7e945e4b5001700e2b46d14071b799b4b80c5f03f9d.json"
+      },
+      "screening_count": 500,
+      "specialist_count": 0
+    },
+    "result": {
+      "analysis_as_of": "2026-10-06",
+      "artifact_growth_bytes": 0,
+      "artifact_hash": "sha256:0a0da030dd6deafa244b17b655f8444633dc906424b4d86f72375c8ba01cd3ee",
+      "artifact_uri": "gs://gen-lang-client-0593591102-dev-mart/executions/1ecd5da6-d354-4b0d-84a4-557f6043af8c/screening-manifest.json",
+      "canary": {
+        "backend": "pyiceberg",
+        "candidate": "not_requested",
+        "default": "pyiceberg"
+      },
+      "ceo_triggered": false,
+      "component": "intelligence-mart",
+      "core_snapshot_hash": "sha256:8eda0eaead65dcb2cdf33191337b2d6aae120ca2adfbe77cc511cf8c28d3e0a8",
+      "core_snapshot_uri": "gs://gen-lang-client-0593591102-dev-core/executions/17b091be-c454-4fea-b5de-b16c0a9c8c6c/core-snapshot.json",
+      "elapsed_seconds": 1.111,
+      "execution_id": "1ecd5da6-d354-4b0d-84a4-557f6043af8c",
+      "identity_hash": "sha256:4a3ecf3f22275a6074dbb7e945e4b5001700e2b46d14071b799b4b80c5f03f9d",
+      "llm_api_tokens": 0,
+      "operation": "market-screening-acceptance",
+      "output_hash": "sha256:d63bc477045566fdff9afdbb3734acb559004e1a51f1cf11f1046f624b2ff054",
+      "peak_rss_mib": 53.94,
+      "quality": {
+        "auto_fail": false,
+        "eod": {
+          "missing_ratio": 0.002,
+          "missing_symbols": 1,
+          "status": "accepted",
+          "total_symbols": 500
+        },
+        "history": {
+          "120": {
+            "missing_ratio": 0.078,
+            "missing_symbols": 39,
+            "status": "accepted",
+            "total_symbols": 500
+          },
+          "20": {
+            "missing_ratio": 0.078,
+            "missing_symbols": 39,
+            "status": "accepted",
+            "total_symbols": 500
+          },
+          "5": {
+            "missing_ratio": 0.078,
+            "missing_symbols": 39,
+            "status": "accepted",
+            "total_symbols": 500
+          },
+          "60": {
+            "missing_ratio": 0.078,
+            "missing_symbols": 39,
+            "status": "accepted",
+            "total_symbols": 500
+          }
+        },
+        "latest_market_date": "2026-10-06",
+        "model_validation_counted_as_missing": false,
+        "tolerance": 0.1
+      },
+      "retention_days": 90,
+      "reused": true,
+      "screening": {
+        "artifact_hash": "sha256:d1f33459428ed5748d3566b213c2800470c6449c738ca1f6c47da5e9c39073c6",
+        "artifact_uri": "gs://gen-lang-client-0593591102-dev-mart/screening/4a3ecf3f22275a6074dbb7e945e4b5001700e2b46d14071b799b4b80c5f03f9d.json"
+      },
+      "screening_count": 500,
+      "specialist_count": 0
+    }
   },
-  "generated_at": "2026-10-07T12:14:51.076324+00:00",
-  "git_sha": "78d65c7574f0d385f64759960af524b2f1d9e3e9",
+  "generated_at": "2026-10-07T12:53:03.889132+00:00",
+  "git_sha": "a350239388ee0937166659023692c08d77977c63",
   "markers": {
-    "canary": false,
+    "canary": true,
     "controller": false,
     "deploy": true,
-    "live": false,
+    "live": true,
     "tests": true
   },
   "mart_job": {
@@ -478,17 +1593,17 @@
         "run.googleapis.com/client-version": "568.0.0",
         "run.googleapis.com/creator": "tommylin15@gmail.com",
         "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
-        "run.googleapis.com/operation-id": "31155bfd-f089-4266-864c-d10b53dfc457"
+        "run.googleapis.com/operation-id": "86ab9584-609a-4ff9-8268-78fdfb78f916"
       },
       "creationTimestamp": "2026-08-31T05:46:45.673533Z",
-      "generation": 212,
+      "generation": 216,
       "labels": {
         "cloud.googleapis.com/location": "us-central1",
-        "run.googleapis.com/lastUpdatedTime": "2026-10-07T12:01:57.105844Z"
+        "run.googleapis.com/lastUpdatedTime": "2026-10-07T12:36:50.772630Z"
       },
       "name": "janus-intelligence-mart",
       "namespace": "131494961796",
-      "resourceVersion": "AAZdPu73GLA",
+      "resourceVersion": "AAZdP2t9XXM",
       "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/jobs/janus-intelligence-mart",
       "uid": "bb34dcf0-83ff-4cb0-8a6e-06d71132d70f"
     },
@@ -503,7 +1618,7 @@
             "run.googleapis.com/vpc-access-egress": "private-ranges-only"
           },
           "labels": {
-            "client.knative.dev/nonce": "hev_jar_wox"
+            "client.knative.dev/nonce": "suw_gas_qen"
           }
         },
         "spec": {
@@ -573,11 +1688,11 @@
                     },
                     {
                       "name": "JANUS_GIT_SHA",
-                      "value": "78d65c7574f0d385f64759960af524b2f1d9e3e9"
+                      "value": "a350239388ee0937166659023692c08d77977c63"
                     },
                     {
                       "name": "JANUS_IMAGE_DIGEST",
-                      "value": "sha256:ebab04cd2e6dd96f9a45fd97132240b704933f7d0e77392389bb79712fcf8f88"
+                      "value": "sha256:7e18a38497e189c14270da936c096765196ad432edf0d99ff39d5d9688e30943"
                     },
                     {
                       "name": "MART_CODEX_AUTH_SECRET",
@@ -588,7 +1703,7 @@
                       "value": "false"
                     }
                   ],
-                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:ebab04cd2e6dd96f9a45fd97132240b704933f7d0e77392389bb79712fcf8f88",
+                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:7e18a38497e189c14270da936c096765196ad432edf0d99ff39d5d9688e30943",
                   "resources": {
                     "limits": {
                       "cpu": "1",
@@ -612,14 +1727,14 @@
           "type": "Ready"
         }
       ],
-      "executionCount": 182,
+      "executionCount": 185,
       "latestCreatedExecution": {
         "completionStatus": "EXECUTION_SUCCEEDED",
-        "completionTimestamp": "2026-10-07T12:05:36.004574Z",
-        "creationTimestamp": "2026-10-07T12:02:01.996423Z",
-        "name": "janus-intelligence-mart-z9t27"
+        "completionTimestamp": "2026-10-07T12:40:24.378836Z",
+        "creationTimestamp": "2026-10-07T12:36:55.258704Z",
+        "name": "janus-intelligence-mart-zq7f6"
       },
-      "observedGeneration": 212
+      "observedGeneration": 216
     }
   },
   "scheduled_occurrence": null,
