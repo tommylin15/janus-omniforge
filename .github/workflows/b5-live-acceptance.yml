@@ -18,7 +18,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: b5-live-acceptance
+  group: b5-live-acceptance-recovery-v2
   cancel-in-progress: false
 
 env:
