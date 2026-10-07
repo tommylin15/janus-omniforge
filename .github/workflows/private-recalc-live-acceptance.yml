@@ -31,6 +31,52 @@ jobs:
       - name: Run bounded owner queue canary
         run: |
           set -Eeuo pipefail
-          gcloud builds submit --no-source \
-            --project=gen-lang-client-0593591102 \
-            --config=scripts/gcp/cloudbuild-private-recalc-live-acceptance.yaml
+          project=gen-lang-client-0593591102
+          build_id="$(gcloud builds submit --no-source --async \
+            --project="${project}" \
+            --config=scripts/gcp/cloudbuild-private-recalc-live-acceptance.yaml \
+            --format='value(id)')"
+          test -n "${build_id}"
+          echo "build_id=${build_id}"
+
+          terminal=''
+          for _ in $(seq 1 240); do
+            terminal="$(gcloud builds describe "${build_id}" \
+              --project="${project}" --format='value(status)')"
+            case "${terminal}" in
+              SUCCESS) break ;;
+              FAILURE|CANCELLED|TIMEOUT|INTERNAL_ERROR|EXPIRED) break ;;
+            esac
+            sleep 5
+          done
+
+          echo "build_status=${terminal}"
+          logs='[]'
+          for attempt in $(seq 1 12); do
+            logs="$(gcloud logging read \
+              "resource.type=\"build\" AND resource.labels.build_id=\"${build_id}\"" \
+              --project="${project}" --order=asc --limit=300 --format=json || true)"
+            if [[ "${logs}" != '[]' ]]; then break; fi
+            if [[ "${attempt}" != '12' ]]; then sleep 5; fi
+          done
+          python - <<'PY' <<< "${logs}"
+          import json,sys
+          rows=json.load(sys.stdin)
+          for row in rows:
+              message=row.get("textPayload")
+              if not message and isinstance(row.get("jsonPayload"),dict):
+                  message=row["jsonPayload"].get("message")
+              if message:
+                  print(message.rstrip())
+          PY
+
+          test "${terminal}" = "SUCCESS"
+          grep -q 'PRIVATE_RECALC_LIVE_ACCEPTANCE=PASS' <<< "$(python - <<'PY' <<< "${logs}"
+          import json,sys
+          rows=json.load(sys.stdin)
+          print("\n".join(
+              str(row.get("textPayload") or (row.get("jsonPayload") or {}).get("message") or "")
+              for row in rows
+          ))
+          PY
+          )"
