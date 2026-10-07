@@ -7,7 +7,7 @@ steps:
       - |
         project='gen-lang-client-0593591102'
         catalog='janus_core_dev'
-        account="$(gcloud config get-value account 2>/dev/null)"
+        account="$(gcloud auth list --filter=status:ACTIVE --format='value(account)' | head -1)"
         case "${account}" in
           *@*.gserviceaccount.com) member="serviceAccount:${account}" ;;
           *) echo 'unexpected Cloud Build identity' >&2; exit 70 ;;
