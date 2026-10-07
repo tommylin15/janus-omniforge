@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import time
@@ -61,7 +62,22 @@ def run(*args: str, check: bool = True, capture: bool = True) -> subprocess.Comp
 
 
 def token() -> str:
-    return run("gcloud", "auth", "print-access-token").stdout.strip()
+    """Return a Cloud Platform access token without logging credential material."""
+    if shutil.which("gcloud"):
+        proc = run("gcloud", "auth", "print-access-token", check=False)
+        value = (proc.stdout or "").strip()
+        if proc.returncode == 0 and value:
+            return value
+    import google.auth
+    from google.auth.transport.requests import Request
+    credentials, _ = google.auth.default(
+        scopes=("https://www.googleapis.com/auth/cloud-platform",)
+    )
+    credentials.refresh(Request())
+    value = str(credentials.token or "").strip()
+    if not value:
+        raise RuntimeError("unable to obtain Google Cloud access token")
+    return value
 
 
 def api_json(method: str, url: str, *, body: dict[str, Any] | None = None,
@@ -82,10 +98,26 @@ def api_json(method: str, url: str, *, body: dict[str, Any] | None = None,
 
 
 def gcs_json(uri: str) -> tuple[dict[str, Any], str]:
-    with tempfile.TemporaryDirectory() as td:
-        path = Path(td) / "object.json"
-        run("gcloud", "storage", "cp", uri, str(path))
-        raw = path.read_bytes()
+    parsed = urllib.parse.urlparse(uri)
+    if parsed.scheme != "gs" or not parsed.netloc or not parsed.path.startswith("/"):
+        raise ValueError("expected gs:// object URI")
+    object_name = parsed.path.lstrip("/")
+    url = (
+        "https://storage.googleapis.com/download/storage/v1/b/"
+        f"{urllib.parse.quote(parsed.netloc, safe='')}/o/"
+        f"{urllib.parse.quote(object_name, safe='')}?alt=media"
+    )
+    request = urllib.request.Request(
+        url,
+        headers={"Authorization": f"Bearer {token()}"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=65) as response:
+            raw = response.read()
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")[:8000]
+        raise RuntimeError(f"GET {uri} -> HTTP {exc.code}: {detail}") from exc
     return json.loads(raw), hashlib.sha256(raw).hexdigest()
 
 
