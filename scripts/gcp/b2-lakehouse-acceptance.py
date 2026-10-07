@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 PROJECT = "gen-lang-client-0593591102"
-LOCATION = "us-central1"
+LOCATION = "US"
 CATALOG = "janus_core_dev"
 CORE_NAMESPACE = "b2_core_fixed_20261007"
 ACCEPT_NAMESPACE = "b2_acceptance"
@@ -262,6 +262,8 @@ def main() -> None:
         "status": "running",
         "project": PROJECT,
         "location": LOCATION,
+        "catalog_primary_location": LOCATION,
+        "storage_bucket_region": "us-central1",
         "catalog": CATALOG,
         "pyiceberg_default_unchanged": True,
         "storage_read_api_used": False,
