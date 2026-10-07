@@ -88,6 +88,8 @@ jobs:
           test -n "${mart_image}"
           output_uri="gs://${GCP_PROJECT_ID}-dev-mart/acceptance/b3-canary/github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.json"
 
+          log_uri="${output_uri%.json}.log"
+          rc_uri="${output_uri%.json}.rc"
           cat > /tmp/b3-canary-cloudbuild.yaml <<'YAML'
           steps:
             - name: '${_MART_IMAGE}'
@@ -98,58 +100,58 @@ jobs:
                 - -ceu
                 - |
                   cd /workspace
+                  set +e
                   python -m pip install --no-cache-dir --require-hashes \
-                    -r jobs/intelligence-mart/requirements-bigquery-probe.lock
-                  python scripts/gcp/b3-screening-canary.py --output /workspace/b3-canary.json
+                    -r jobs/intelligence-mart/requirements-bigquery-probe.lock \
+                    > /workspace/b3-canary.log 2>&1
+                  rc=$?
+                  if [[ "${rc}" -eq 0 ]]; then
+                    python scripts/gcp/b3-screening-canary.py --output /workspace/b3-canary.json \
+                      >> /workspace/b3-canary.log 2>&1
+                    rc=$?
+                  fi
+                  echo "${rc}" > /workspace/b3-canary.rc
+                  if [[ ! -s /workspace/b3-canary.json ]]; then
+                    python - <<'PY'
+                  import json
+                  from pathlib import Path
+                  log = Path("/workspace/b3-canary.log").read_text(errors="replace")[-12000:]
+                  Path("/workspace/b3-canary.json").write_text(
+                      json.dumps({"status":"failed","error":log}, indent=2) + "\n"
+                  )
+                  PY
+                  fi
+                  exit 0
             - name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+              entrypoint: bash
               args:
-                - storage
-                - cp
-                - /workspace/b3-canary.json
-                - '${_OUTPUT_URI}'
+                - -ceu
+                - |
+                  gcloud storage cp /workspace/b3-canary.json '${_OUTPUT_URI}'
+                  gcloud storage cp /workspace/b3-canary.log '${_LOG_URI}'
+                  gcloud storage cp /workspace/b3-canary.rc '${_RC_URI}'
           options:
             logging: CLOUD_LOGGING_ONLY
           YAML
 
-          set +e
           gcloud builds submit . \
             --project="${GCP_PROJECT_ID}" \
             --region="${GCP_REGION}" \
             --config=/tmp/b3-canary-cloudbuild.yaml \
             --gcs-source-staging-dir="gs://${GCP_PROJECT_ID}-cloudbuild-regional/source" \
-            --substitutions="_MART_IMAGE=${mart_image},_OUTPUT_URI=${output_uri}" \
-            --format='value(id)' > /tmp/b3-canary-build-id 2> /tmp/b3-canary-build.stderr
-          rc=$?
-          set -e
+            --substitutions="_MART_IMAGE=${mart_image},_OUTPUT_URI=${output_uri},_LOG_URI=${log_uri},_RC_URI=${rc_uri}" \
+            --format='value(id)' > /tmp/b3-canary-build-id
 
           build_id="$(tr -d '\r\n' < /tmp/b3-canary-build-id)"
-          if [[ -n "${build_id}" ]]; then
-            gcloud builds describe "${build_id}" \
-              --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
-              --format=json > /tmp/b3-canary-build.json || true
-          fi
-
-          if [[ "${rc}" -ne 0 ]]; then
-            if [[ -n "${build_id}" ]]; then
-              gcloud builds log "${build_id}" \
-                --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
-                > /tmp/b3-canary-build.log 2>&1 || true
-            fi
-            python - <<'PY'
-          import json
-          from pathlib import Path
-          err = Path("/tmp/b3-canary-build.stderr").read_text(errors="replace")[-4000:]
-          log = Path("/tmp/b3-canary-build.log")
-          if log.exists():
-              err += "\n" + log.read_text(errors="replace")[-4000:]
-          Path("/tmp/b3-canary.json").write_text(
-              json.dumps({"status":"failed","error":err}, indent=2) + "\n"
-          )
-          PY
-            exit "${rc}"
-          fi
+          test -n "${build_id}"
+          gcloud builds describe "${build_id}" \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --format=json > /tmp/b3-canary-build.json
 
           gcloud storage cp "${output_uri}" /tmp/b3-canary.json
+          gcloud storage cp "${log_uri}" /tmp/b3-canary.log
+          gcloud storage cp "${rc_uri}" /tmp/b3-canary.rc
+          test "$(tr -d '\r\n ' < /tmp/b3-canary.rc)" = "0"
           python - <<'PY'
           import json
           data=json.load(open('/tmp/b3-canary.json'))
@@ -191,10 +193,12 @@ jobs:
             local idx="$1"
             local exec_name
             exec_name="$(cat "/tmp/mart-exec-${idx}.name")"
-            gcloud logging read \
-              "resource.type=cloud_run_job AND resource.labels.job_name=\"${MART_JOB}\" AND labels.\"run.googleapis.com/execution_name\"=\"${exec_name}\"" \
-              --project="${GCP_PROJECT_ID}" --freshness=60m --limit=300 --order=asc --format=json > "/tmp/mart-logs-${idx}.json"
-            python - "/tmp/mart-logs-${idx}.json" "/tmp/mart-result-${idx}.json" <<'PY'
+            rm -f "/tmp/mart-result-${idx}.json"
+            for attempt in $(seq 1 15); do
+              gcloud logging read \
+                "resource.type=cloud_run_job AND resource.labels.job_name=\"${MART_JOB}\" AND labels.\"run.googleapis.com/execution_name\"=\"${exec_name}\"" \
+                --project="${GCP_PROJECT_ID}" --freshness=60m --limit=300 --order=asc --format=json > "/tmp/mart-logs-${idx}.json"
+              if python - "/tmp/mart-logs-${idx}.json" "/tmp/mart-result-${idx}.json" <<'PY'
           import json,sys
           entries=json.load(open(sys.argv[1]))
           found=[]
@@ -216,12 +220,24 @@ jobs:
                   if obj.get('operation') == 'market-screening-acceptance' and obj.get('execution_id'):
                       found.append(obj)
           if not found:
-              raise SystemExit('market-screening acceptance result log not found')
+              raise SystemExit(1)
           json.dump(found[-1], open(sys.argv[2],'w'), indent=2, sort_keys=True)
           PY
+              then
+                break
+              fi
+              sleep 10
+            done
+            test -s "/tmp/mart-result-${idx}.json"
             local logical_id
             logical_id="$(python -c "import json; print(json.load(open('/tmp/mart-result-${idx}.json'))['execution_id'])")"
-            gcloud storage cat "gs://gen-lang-client-0593591102-dev-mart/executions/${logical_id}/screening-manifest.json" > "/tmp/screening-receipt-${idx}.json"
+            for attempt in $(seq 1 6); do
+              if gcloud storage cat "gs://gen-lang-client-0593591102-dev-mart/executions/${logical_id}/screening-manifest.json" > "/tmp/screening-receipt-${idx}.json"; then
+                break
+              fi
+              sleep 5
+            done
+            test -s "/tmp/screening-receipt-${idx}.json"
           }
 
           run_one 1
