@@ -1,0 +1,18 @@
+{
+  "core_snapshot_id": "sha256:1eb49a2d139411245bda3c9d2eb77e451c5f462bb1865406fd8b55a151df61ab",
+  "fences": {
+    "core.benchmark_v1": {
+      "metadata_location": "gs://gen-lang-client-0593591102-dev-core/warehouse/benchmark_v1/metadata/00258-05228454-a4a1-420a-855f-2605c56636ad.metadata.json",
+      "snapshot_id": 5084459386493044934
+    },
+    "core.financials_v1": {
+      "metadata_location": "gs://gen-lang-client-0593591102-dev-core/warehouse/financials_v1/metadata/00771-9c7b4a42-b680-49a1-8b14-f6cbe1ab9f23.metadata.json",
+      "snapshot_id": 801346769573568770
+    },
+    "core.ohlcv_v1": {
+      "metadata_location": "gs://gen-lang-client-0593591102-dev-core/warehouse/ohlcv_v1/metadata/00204-30d733f0-9e46-4b3a-bc65-1b2211eb48a8.metadata.json",
+      "snapshot_id": 8549832172546885809
+    }
+  },
+  "manifest_sha256": "8eda0eaead65dcb2cdf33191337b2d6aae120ca2adfbe77cc511cf8c28d3e0a8"
+}
