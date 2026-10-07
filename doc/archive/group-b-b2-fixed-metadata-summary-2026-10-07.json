@@ -1,0 +1,449 @@
+{
+  "core.benchmark_v1": {
+    "current_schema_id": 0,
+    "current_snapshot_id": 5084459386493044934,
+    "default_spec_id": 2,
+    "format_version": 2,
+    "partition_spec": {
+      "fields": [
+        {
+          "field-id": 1000,
+          "name": "trade_date_month",
+          "source-id": 2,
+          "transform": "month"
+        }
+      ],
+      "spec-id": 2
+    },
+    "schema_fields": [
+      {
+        "id": 1,
+        "name": "benchmark_id",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 2,
+        "name": "trade_date",
+        "required": false,
+        "type": "date"
+      },
+      {
+        "id": 3,
+        "name": "close",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 4,
+        "name": "return_percent",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 5,
+        "name": "index_kind",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 6,
+        "name": "source_id",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 7,
+        "name": "observed_at",
+        "required": false,
+        "type": "timestamptz"
+      },
+      {
+        "id": 8,
+        "name": "execution_id",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 9,
+        "name": "provenance_id",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 10,
+        "name": "content_hash",
+        "required": false,
+        "type": "string"
+      }
+    ]
+  },
+  "core.financials_v1": {
+    "current_schema_id": 4,
+    "current_snapshot_id": 801346769573568770,
+    "default_spec_id": 2,
+    "format_version": 2,
+    "partition_spec": {
+      "fields": [
+        {
+          "field-id": 1000,
+          "name": "published_at_year",
+          "source-id": 5,
+          "transform": "year"
+        }
+      ],
+      "spec-id": 2
+    },
+    "schema_fields": [
+      {
+        "id": 1,
+        "name": "symbol",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 2,
+        "name": "fiscal_year",
+        "required": false,
+        "type": "long"
+      },
+      {
+        "id": 3,
+        "name": "fiscal_quarter",
+        "required": false,
+        "type": "long"
+      },
+      {
+        "id": 4,
+        "name": "statement_type",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 5,
+        "name": "published_at",
+        "required": false,
+        "type": "timestamptz"
+      },
+      {
+        "id": 6,
+        "name": "metric",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 7,
+        "name": "value",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 8,
+        "name": "unit",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 9,
+        "name": "currency",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 10,
+        "name": "source_id",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 11,
+        "name": "observed_at",
+        "required": false,
+        "type": "timestamptz"
+      },
+      {
+        "id": 12,
+        "name": "execution_id",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 13,
+        "name": "provenance_id",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 14,
+        "name": "content_hash",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 15,
+        "name": "source_report_date",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 16,
+        "name": "availability_at",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 17,
+        "name": "publication_time_authoritative",
+        "required": false,
+        "type": "boolean"
+      },
+      {
+        "id": 18,
+        "name": "concept",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 19,
+        "name": "context_id",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 20,
+        "name": "period_start",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 21,
+        "name": "period_end",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 22,
+        "name": "period_basis",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 23,
+        "name": "is_single_quarter",
+        "required": false,
+        "type": "boolean"
+      },
+      {
+        "id": 24,
+        "name": "report_scope",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 25,
+        "name": "industry_sector",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 26,
+        "name": "report_type",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 27,
+        "name": "numeric_revision_verified",
+        "required": false,
+        "type": "boolean"
+      },
+      {
+        "id": 28,
+        "name": "fiscal_period_end",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 29,
+        "name": "availability_basis",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 30,
+        "name": "share_basis_status",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 31,
+        "name": "historical_publication_status",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 32,
+        "name": "source_document_sha256",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 33,
+        "name": "official_filing_uploaded_at",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 34,
+        "name": "filing_filename",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 35,
+        "name": "version_at",
+        "required": false,
+        "type": "timestamptz"
+      },
+      {
+        "id": 36,
+        "name": "fiscal_month",
+        "required": false,
+        "type": "long"
+      },
+      {
+        "id": 37,
+        "name": "source_unit",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 38,
+        "name": "financial_feature_version",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 39,
+        "name": "comparison_value",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 40,
+        "name": "comparison_period_end",
+        "required": false,
+        "type": "string"
+      }
+    ]
+  },
+  "core.ohlcv_v1": {
+    "current_schema_id": 0,
+    "current_snapshot_id": 8549832172546885809,
+    "default_spec_id": 2,
+    "format_version": 2,
+    "partition_spec": {
+      "fields": [
+        {
+          "field-id": 1000,
+          "name": "trade_date_month",
+          "source-id": 3,
+          "transform": "month"
+        }
+      ],
+      "spec-id": 2
+    },
+    "schema_fields": [
+      {
+        "id": 1,
+        "name": "symbol",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 2,
+        "name": "market",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 3,
+        "name": "trade_date",
+        "required": false,
+        "type": "date"
+      },
+      {
+        "id": 4,
+        "name": "open",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 5,
+        "name": "high",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 6,
+        "name": "low",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 7,
+        "name": "close",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 8,
+        "name": "volume_shares",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 9,
+        "name": "turnover_twd",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 10,
+        "name": "change_percent",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 11,
+        "name": "source_id",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 12,
+        "name": "observed_at",
+        "required": false,
+        "type": "timestamptz"
+      },
+      {
+        "id": 13,
+        "name": "execution_id",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 14,
+        "name": "provenance_id",
+        "required": false,
+        "type": "string"
+      },
+      {
+        "id": 15,
+        "name": "content_hash",
+        "required": false,
+        "type": "string"
+      }
+    ]
+  }
+}
