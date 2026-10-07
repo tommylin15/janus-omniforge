@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/b2-catalog-bootstrap.yml'
+      - 'scripts/gcp/cloudbuild-b2-catalog-bootstrap.yaml'
   workflow_dispatch:
 
 permissions:
@@ -28,11 +29,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          gcloud builds submit --no-source \
-            --project=gen-lang-client-0593591102 \
-            --region=us-central1 \
-            --config=scripts/gcp/cloudbuild-b2-catalog-bootstrap.yaml \
-            --quiet
+          gcloud builds submit --no-source             --project=gen-lang-client-0593591102             --region=us-central1             --config=scripts/gcp/cloudbuild-b2-catalog-bootstrap.yaml             --quiet
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -40,10 +37,10 @@ jobs:
             'catalog':'janus_core_dev',
             'catalog_type':'biglake',
             'credential_mode':'end-user',
-            'default_location':'gs://gen-lang-client-0593591102-dev-core',
+            'default_location':None,
             'primary_location':'us-central1',
             'automatic_table_management_enabled':False,
-            'bootstrap_storage_admin_scope':'dev-core bucket only, temporary within Cloud Build',
+            'project_storage_admin_granted':False,
             'status':'pass',
           }
           Path('doc/archive/group-b-b2-catalog-bootstrap-2026-10-07.json').write_text(json.dumps(e,indent=2,sort_keys=True)+'\n')
