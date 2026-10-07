@@ -1,0 +1,67 @@
+name: B2 GCS evidence path preflight
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b2-gcs-evidence-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Probe existing GCS evidence path
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "${tmp}"' EXIT
+          core_uri='gs://gen-lang-client-0593591102-dev-core/executions/17b091be-c454-4fea-b5de-b16c0a9c8c6c/core-snapshot.json'
+          probe_uri='gs://gen-lang-client-0593591102-dev-mart/acceptance/specialists/b2-gcs-evidence-preflight.json'
+
+          core_read=false
+          mart_write=false
+          mart_read=false
+          if gcloud storage cp "${core_uri}" "${tmp}/core.json" >/dev/null 2>&1; then core_read=true; fi
+          printf '%s\n' '{"probe":"b2-gcs-evidence","safe":true}' > "${tmp}/probe.json"
+          if gcloud storage cp --if-generation-match=0 "${tmp}/probe.json" "${probe_uri}" >/dev/null 2>&1; then mart_write=true; fi
+          if gcloud storage cp "${probe_uri}" "${tmp}/readback.json" >/dev/null 2>&1 && cmp -s "${tmp}/probe.json" "${tmp}/readback.json"; then mart_read=true; fi
+
+          python3 - "${core_read}" "${mart_write}" "${mart_read}" <<'PY'
+          import json,sys
+          from pathlib import Path
+          evidence={
+            'core_manifest_read':sys.argv[1]=='true',
+            'dev_mart_immutable_write':sys.argv[2]=='true',
+            'dev_mart_readback':sys.argv[3]=='true',
+            'mutations_performed':['one immutable acceptance probe object'],
+          }
+          evidence['status']='pass' if all([evidence['core_manifest_read'],evidence['dev_mart_immutable_write'],evidence['dev_mart_readback']]) else 'partial'
+          Path('doc/archive/group-b-b2-gcs-evidence-preflight-2026-10-07.json').write_text(json.dumps(evidence,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(evidence,sort_keys=True))
+          PY
+      - name: Commit evidence
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add doc/archive/group-b-b2-gcs-evidence-preflight-2026-10-07.json
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: record B2 GCS evidence preflight [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
