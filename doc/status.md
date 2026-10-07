@@ -90,7 +90,23 @@ B3 已完成 targeted tests、dev deployment、fixed-snapshot PyIceberg／BigQue
 
 Controller recovery workflow `37628720592` **SUCCESS**；真實 occurrence `market-screening/2026-10-07/16` 為 `succeeded`，實際 Mart execution `janus-intelligence-mart-7f8jl`，dependencies 為 `ingestion/2026-10-07/14` 與 `data-supplement/2026-10-07/08`。完整 evidence 見 [B3 結案](archive/group-b-b3-closure-2026-10-07.md)。
 
-**B3 正式 CLOSED；B 組下一個 active work 為 B4：Deep Coverage specialists（active watchlist ∪ effective holdings）。**
+**B3 正式 CLOSED。**
+
+### B4 Deep Coverage specialists — CLOSED / PASS（2026-10-07）
+
+B4 已完成 Deep Coverage universe、dependency-selective execution、immutable cache/reuse、targeted tests、Mart deployment/verify 與真實 Cloud Run acceptance。
+
+- universe 僅為 `active watchlist ∪ effective holdings`；不把 B3 liquid-500 screening 混入。
+- cache identity 納入 symbol/role、accepted + rejected PIT dependency state、feature/engine/model version；只有 dirty specialist 重算，其他 role reuse immutable artifact。
+- 修正版 Deploy dev workflow `37634230788`：Mart targeted tests **116 PASS**，`deploy-mart` 與 `Verify intelligence-mart` 均 success。
+- live acceptance workflow `37636276994` **SUCCESS**，確認 deployed runtime SHA `752e551110cc67e18403b2ce2f00774f5b2a0c7f`。
+- 同一 Core snapshot hash `sha256:c81b476dfa9a2bade3e82c806f2f9bdfb04c5f97947265c08b0b44807955aac9` 連跑兩次：第一次 25 specialist = 25 computed / 0 reused；第二次 = **0 computed / 25 reused**。
+- 第一次 elapsed 92.954 s、peak RSS 413.53 MiB；第二次 56.506 s、269.33 MiB；兩次皆 `screening_count=0`、`llm_api_tokens=0`。
+- target artifact `private_fields_exposed=false`，manifest/target immutable readback PASS；rejected future/quality evidence 也會造成相應 role invalidation，不會誤 reuse。
+
+完整 evidence 見 [B4 結案](archive/group-b-b4-deep-coverage-closure-2026-10-07.md)。
+
+**B4 正式 CLOSED；B 組下一個 active work 為 B5：ML / OOS data path。**
 
 ## 現行產品決策
 
@@ -166,7 +182,7 @@ AutoGluon、FinBERT、FinGPT 只作 benchmark／research challenger；production
 ## 尚未完成的關鍵 acceptance
 
 - A 組已完成 implementation／CI／deployment／runtime build 與使用者人工驗收，狀態 CLOSED。
-- B3 每日 500 screening 已 CLOSED；尚未完成的是五 specialist Deep Coverage 的完整真實 dev／OOS、完整 ML baseline、dirty dependency，以及每月第一個週六 10:30 retrain／reconciliation。
+- B3 每日 500 screening、B4 Deep Coverage universe／dirty dependency／no-change reuse 已 CLOSED；尚未完成的是 B5 ML/OOS data path、各 specialist 完整 ML/OOS 品質、以及每月第一個週六 10:30 retrain／reconciliation。
 - On-demand CEO command／capability／immutable report history 尚未完成。
 - Admin specialist model/evaluation + CEO capability/profile controls 尚未完成。
 - User Stock Detail manual Analyze/Re-analyze + freshness/history 尚未完成。
