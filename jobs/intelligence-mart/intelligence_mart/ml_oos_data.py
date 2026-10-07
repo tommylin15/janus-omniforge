@@ -26,6 +26,7 @@ REQUIRED_COLUMNS = {
     "core_snapshot_id",
     "analysis_as_of",
     "dataset_schema_version",
+    "query_contract_version",
     "feature_version",
     "model_version",
 }
@@ -137,6 +138,7 @@ def inspect_dataset(manifest: dict, store) -> dict:
                 if str(row["core_snapshot_id"]) != str(identity["core_snapshot_id"]) \
                         or str(row["analysis_as_of"]) != str(identity["analysis_as_of"]) \
                         or str(row["dataset_schema_version"]) != DATASET_SCHEMA_VERSION \
+                        or str(row["query_contract_version"]) != str(identity["query_contract_version"]) \
                         or str(row["feature_version"]) != str(identity["feature_version"]) \
                         or str(row["model_version"]) != str(identity["model_version"]):
                     raise RuntimeError("ML/OOS row lineage mismatch")
