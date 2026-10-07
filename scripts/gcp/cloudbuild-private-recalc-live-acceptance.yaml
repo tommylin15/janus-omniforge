@@ -157,5 +157,3 @@ steps:
         echo "worker_task_index=${task_index}"
         echo "requested_ledger_version=${requested_version}"
         trap - ERR
-options:
-  logging: CLOUD_LOGGING_ONLY

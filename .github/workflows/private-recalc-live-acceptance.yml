@@ -31,6 +31,6 @@ jobs:
       - name: Run bounded owner queue canary
         run: |
           set -Eeuo pipefail
-          gcloud beta --quiet builds submit --no-source \
+          gcloud builds submit --no-source \
             --project=gen-lang-client-0593591102 \
             --config=scripts/gcp/cloudbuild-private-recalc-live-acceptance.yaml
