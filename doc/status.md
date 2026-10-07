@@ -74,6 +74,8 @@ B0 已完成 implementation、deployment readback 與固定真實 dev Core snaps
 
 `c97aa88` 已 push；BigQuery CI **20 PASS**，dev workflow Mart 回歸 **106 PASS**、deployment／specialist smoke 成功，Cloud Run readback SHA 相符且維持 1 CPU／1 GiB。完整 bounded evidence 見 [B2 checkpoint](archive/group-b-b2-bounded-compatibility-evidence-2026-10-07.md)；此 checkpoint 不代表五 specialist 模型或 BigQuery default cutover 完成。
 
+2026-10-07 B2 shared-catalog preflight：GitHub WIF `janus-ci` 對 Lakehouse catalog list、BigQuery table metadata 與 project/dataset IAM policy read 均被拒絕；既有 Cloud Build identity 的唯讀 binary probe亦無 BigLake catalog list 與三張 legacy external table metadata read 權限。兩輪均 `mutations_performed=false`；dev-core／dev-mart bucket 已 readback 為 `US-CENTRAL1`，BigLake／BigQuery API 已啟用。Lakehouse runtime catalog 為可計費 resource（有免費額度），依 PROJECT_RULES 與本輪既有授權邊界，在取得新增可計費 catalog 的明確授權且有可執行 IAM principal 前，不建立 catalog、不擴 admin/storage 權限；因此 B2 仍 **PARTIAL/BLOCKED**，不得標 CLOSED。Preflight evidence：[`group-b-b2-lakehouse-preflight-2026-10-07.json`](archive/group-b-b2-lakehouse-preflight-2026-10-07.json)、[`group-b-b2-iam-capability-preflight-2026-10-07.json`](archive/group-b-b2-iam-capability-preflight-2026-10-07.json)、[`group-b-b2-cloudbuild-metadata-preflight-2026-10-07.json`](archive/group-b-b2-cloudbuild-metadata-preflight-2026-10-07.json)。
+
 ## 現行產品決策
 
 Janus 採 **Token-first 五 specialist + On-demand CEO**：
