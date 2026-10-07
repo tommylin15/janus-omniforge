@@ -17,7 +17,7 @@ import urllib.request
 ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT), str(ROOT / "jobs/intelligence-mart")]
 
-from intelligence_mart.ml_oos_data import DATASET_SCHEMA_VERSION, dataset_content_hash
+from intelligence_mart.ml_oos_data import DATASET_SCHEMA_VERSION, QUERY_CONTRACT_VERSION, dataset_content_hash
 
 PROJECT = "gen-lang-client-0593591102"
 LOCATION = "US"
@@ -221,6 +221,7 @@ def main() -> None:
         "core_manifest_sha256": "sha256:" + manifest_hash,
         "analysis_as_of": core["analysis_as_of"],
         "dataset_schema_version": DATASET_SCHEMA_VERSION,
+        "query_contract_version": QUERY_CONTRACT_VERSION,
         "feature_version": FEATURE_VERSION,
         "model_version": MODEL_VERSION,
         "source_tables": {
