@@ -92,3 +92,19 @@ jobs:
             | select((.message | ascii_downcase | contains("id_token")) | not)
             | select((.message | ascii_downcase | contains("private_key")) | not)
           ' /tmp/controller-log.json
+
+          echo '=== safe mobile-probe ==='
+          gcloud run jobs execute "${JOB_NAME}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --update-env-vars="BATCH_CONTROLLER_MODE=mobile-probe" \
+            --task-timeout=5m \
+            --wait
+
+          echo '=== safe observe probe ==='
+          gcloud run jobs execute "${JOB_NAME}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --update-env-vars="BATCH_CONTROLLER_MODE=observe" \
+            --task-timeout=5m \
+            --wait
