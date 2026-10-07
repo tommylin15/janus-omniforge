@@ -12,6 +12,8 @@ from .facts import (analysis_cutoff, canonical_json, _change, _evidence_id, _fin
                        _research_rows, evidence_from_rows, validate_evidence)
 
 VERSION = "specialist-rules-v2"
+FEATURE_VERSION = "2"
+MODEL_VERSION = "deterministic-unpromoted-v1"
 DEPENDENCIES = {
     "fundamental": ("financials",),
     "valuation": ("financials", "valuation", "ohlcv"),
@@ -189,32 +191,61 @@ def screening_quality(rows):
             "auto_fail": False, "model_validation_counted_as_missing": False}
 
 
-def analyze_specialists(datasets, symbol, as_of, snapshot):
+def specialist_input_hashes(datasets, symbol, as_of, snapshot):
+    """Hash only the PIT-valid dependency rows that can change each specialist."""
+    rows, _, _ = validated_inputs(datasets, symbol, as_of, snapshot)
+    return {role: digest({dataset: rows.get(dataset) for dataset in dependencies})
+            for role, dependencies in DEPENDENCIES.items()}
+
+
+def analyze_specialists(datasets, symbol, as_of, snapshot, *, roles=None):
+    selected_roles = tuple(DEPENDENCIES) if roles is None else tuple(dict.fromkeys(roles))
+    unknown = sorted(set(selected_roles) - set(DEPENDENCIES))
+    if unknown:
+        raise ValueError(f"unknown specialist roles: {','.join(unknown)}")
     rows, evidence, rejected = validated_inputs(datasets, symbol, as_of, snapshot)
-    features = _financial_features_v2(rows.get("financials", []))
-    valuations = sorted(rows.get("valuation", []), key=lambda r: str(r.get("observed_date", r.get("observed_at", ""))))
-    latest = valuations[-1] if valuations else {}
-    features["valuation"].update({k: number(latest.get(k)) for k in ("pe_ratio", "pb_ratio", "dividend_yield_percent")})
-    prices = price_series(rows.get("ohlcv", []))
-    benchmark = price_series(rows.get("benchmark", []))
-    metrics = {
-        "fundamental": {k: features["fundamental"].get(k) for k in ("revenue_trend_percent", "eps_trend_percent",
-            "net_income_parent_yoy_percent_same_filing", "eps_yoy_percent_same_filing")},
-        "valuation": {k: features["valuation"].get(k) for k in ("pe_ratio", "pb_ratio", "dividend_yield_percent", "debt_to_equity", "roe")},
-        "quant": {f"return_{w}d_percent": _change(list(prices.values()), w) for w in (5, 20, 60, 120)},
-        "risk": risk_metrics(prices, benchmark),
-        "event": {"event_count": len(rows["events"]) if "events" in rows else None,
-                  "max_severity": max((_severity(r.get("severity")) for r in rows.get("events", []) if _severity(r.get("severity")) is not None), default=None)},
-    }
-    metrics["valuation"].update(dcf_value_per_share=None, reverse_dcf_growth=None)
-    metrics["quant"].update(expected_excess_return=None, outperform_probability=None)
-    metrics["risk"]["regime_probability"] = None
-    metrics["event"]["classifier_probability"] = None
+    metrics = {}
+    selected = set(selected_roles)
+
+    if {"fundamental", "valuation"} & selected:
+        features = _financial_features_v2(rows.get("financials", []))
+    if "fundamental" in selected:
+        metrics["fundamental"] = {k: features["fundamental"].get(k) for k in (
+            "revenue_trend_percent", "eps_trend_percent",
+            "net_income_parent_yoy_percent_same_filing", "eps_yoy_percent_same_filing")}
+    if "valuation" in selected:
+        valuations = sorted(rows.get("valuation", []),
+                            key=lambda r: str(r.get("observed_date", r.get("observed_at", ""))))
+        latest = valuations[-1] if valuations else {}
+        features["valuation"].update(
+            {k: number(latest.get(k)) for k in ("pe_ratio", "pb_ratio", "dividend_yield_percent")})
+        metrics["valuation"] = {k: features["valuation"].get(k) for k in (
+            "pe_ratio", "pb_ratio", "dividend_yield_percent", "debt_to_equity", "roe")}
+        metrics["valuation"].update(dcf_value_per_share=None, reverse_dcf_growth=None)
+
+    if {"quant", "risk"} & selected:
+        prices = price_series(rows.get("ohlcv", []))
+    if "quant" in selected:
+        metrics["quant"] = {f"return_{w}d_percent": _change(list(prices.values()), w)
+                            for w in (5, 20, 60, 120)}
+        metrics["quant"].update(expected_excess_return=None, outperform_probability=None)
+    if "risk" in selected:
+        benchmark = price_series(rows.get("benchmark", []))
+        metrics["risk"] = risk_metrics(prices, benchmark)
+        metrics["risk"]["regime_probability"] = None
+    if "event" in selected:
+        metrics["event"] = {
+            "event_count": len(rows["events"]) if "events" in rows else None,
+            "max_severity": max((_severity(r.get("severity")) for r in rows.get("events", [])
+                                 if _severity(r.get("severity")) is not None), default=None),
+            "classifier_probability": None,
+        }
+
     artifacts = []
-    for role, dependencies in DEPENDENCIES.items():
+    for role in selected_roles:
+        dependencies = DEPENDENCIES[role]
         role_evidence = [e for e in evidence if e["dataset_id"] in dependencies]
         rejected_ids = {r["evidence_id"] for r in rejected}
-        # Filter rejections by role, so a new event does not invalidate price-only roles.
         dependency_ids = {_evidence_id(d, r, snapshot) for d in dependencies for r in datasets.get(d, [])
                           if not r.get("symbol") or r.get("symbol") == symbol}
         errors = [r for r in rejected if r["evidence_id"] in dependency_ids & rejected_ids]
@@ -223,15 +254,19 @@ def analyze_specialists(datasets, symbol, as_of, snapshot):
                          for k, v in metrics[role].items() if v is not None]
         payload = {"artifact_kind": "mart_specialist_v1", "schema_version": "1.0.0",
                    "symbol": symbol, "role": role, "analysis_as_of": as_of, "core_snapshot_id": snapshot,
-                   "feature_version": "2", "engine_version": VERSION, "model_version": "deterministic-unpromoted-v1",
+                   "feature_version": FEATURE_VERSION, "engine_version": VERSION, "model_version": MODEL_VERSION,
                    "model_status": "oos_not_validated", "status": "blocked" if errors else "partial" if missing else "ready",
-                   "input_hash": digest({d: rows.get(d) for d in dependencies}), "metrics": metrics[role], "missing_data": missing,
-                   "rejected_evidence": errors, "evidence_ids": sorted(e["evidence_id"] for e in role_evidence),
+                   "input_hash": digest({d: rows.get(d) for d in dependencies}), "metrics": metrics[role],
+                   "missing_data": missing, "rejected_evidence": errors,
+                   "evidence_ids": sorted(e["evidence_id"] for e in role_evidence),
                    "provenance_ids": sorted({e["provenance_id"] for e in role_evidence}),
                    "feature_contributions": contributions, "publication_authority": False,
                    "llm_api_tokens": 0, "ceo_triggered": False,
-                   "plain_language": f"{TITLES[role]}：" + ("；".join(f"{METRIC_LABELS.get(k, k)} {v:.4g}" for k, v in metrics[role].items() if v is not None) or "目前沒有可用的合格數值")
-                       + ("。資料或模型尚未齊備：" + "、".join(METRIC_LABELS.get(k, k) for k in missing) if missing else "")
+                   "plain_language": f"{TITLES[role]}：" + ("；".join(
+                       f"{METRIC_LABELS.get(k, k)} {v:.4g}" for k, v in metrics[role].items() if v is not None)
+                       or "目前沒有可用的合格數值")
+                       + ("。資料或模型尚未齊備：" + "、".join(
+                           METRIC_LABELS.get(k, k) for k in missing) if missing else "")
                        + "。此為確定性基準，尚未通過台灣樣本外模型驗證。"}
         payload["output_hash"] = digest(payload)
         from .specialist_contract import MartSpecialistV1
