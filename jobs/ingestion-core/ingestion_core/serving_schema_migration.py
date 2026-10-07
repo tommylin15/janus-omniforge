@@ -23,6 +23,7 @@ MIGRATION_PRIVATE_OPERATIONS = "045_private_pipeline_operations"
 MIGRATION_TWSE_LATEST_PRICE = "046_twse_only_latest_price"
 MIGRATION_LATEST_PRICE_ROUTE_V2 = "047_latest_price_route_v2"
 MIGRATION_PRIVATE_RECALC = "048_private_recalculation_queue"
+MIGRATION_BATCH_OCCURRENCE_SKIPPED = "049_batch_occurrence_skipped_status"
 SUPPORTED = frozenset({
     MIGRATION_POSITION,
     MIGRATION_STOCK_SERVING,
@@ -32,6 +33,7 @@ SUPPORTED = frozenset({
     MIGRATION_TWSE_LATEST_PRICE,
     MIGRATION_LATEST_PRICE_ROUTE_V2,
     MIGRATION_PRIVATE_RECALC,
+    MIGRATION_BATCH_OCCURRENCE_SKIPPED,
 })
 
 
@@ -393,5 +395,20 @@ def run(control: Any, name: str) -> None:
                 cursor.execute("INSERT INTO control.schema_migrations" + record)
         except Exception as error:
             raise ServingSchemaMigrationError("latest_price_route_v2_apply", error) from error
+    elif name == MIGRATION_BATCH_OCCURRENCE_SKIPPED:
+        try:
+            text = _without_role_lines(_migration_path(name).read_text(encoding="utf-8"))
+            prepare, acceptance = text.split("-- PHASE: acceptance", 1)
+            checks, record = acceptance.split("INSERT INTO control.schema_migrations", 1)
+            with control.connection.transaction(), control.connection.cursor() as cursor:
+                _require_current_user(cursor, "janus_control")
+                cursor.execute(prepare)
+                cursor.execute(checks)
+                row = cursor.fetchone()
+                if row is None or not all(bool(value) for value in row):
+                    raise RuntimeError("batch occurrence skipped-status schema acceptance failed")
+                cursor.execute("INSERT INTO control.schema_migrations" + record)
+        except Exception as error:
+            raise ServingSchemaMigrationError("batch_occurrence_status_apply", error) from error
     else:
         raise ValueError("unsupported serving schema migration")
