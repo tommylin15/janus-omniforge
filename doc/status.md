@@ -72,6 +72,8 @@ B0 已完成 implementation、deployment readback 與固定真實 dev Core snaps
 
 完整證據見 [B1 reader 驗收](archive/group-b-b1-reader-acceptance-2026-10-07.md)。**目前 B2 partial**：使用者已核准並建立 `us-central1` 的 `janus_analytics_dev` dataset、`janus_core_probe` connection、dev-core bucket-scoped objectViewer 與三張固定 B0 snapshot external tables（無到期期限）；來源仍留在 Iceberg/GCS。Adapter／20 項 contract tests 通過，PyIceberg 保持預設。三張 fixed-snapshot bounded live query 共 320 列與 PyIceberg 逐列相等，計費 31,457,280 bytes；未知 estimate 保留 null。依使用者最新確認，unknown estimate 改採整次 execution ≤1 GiB（1,024 MiB）／每 query ≤60 秒策略。正式 shared catalog／partition scan／完整 workload acceptance 尚未完成。程序與限制見 [B2 runbook](runbook-bigquery-compatibility.md)。
 
+`c97aa88` 已 push；BigQuery CI **20 PASS**，dev workflow Mart 回歸 **106 PASS**、deployment／specialist smoke 成功，Cloud Run readback SHA 相符且維持 1 CPU／1 GiB。完整 bounded evidence 見 [B2 checkpoint](archive/group-b-b2-bounded-compatibility-evidence-2026-10-07.md)；此 checkpoint 不代表五 specialist 模型或 BigQuery default cutover 完成。
+
 ## 現行產品決策
 
 Janus 採 **Token-first 五 specialist + On-demand CEO**：
