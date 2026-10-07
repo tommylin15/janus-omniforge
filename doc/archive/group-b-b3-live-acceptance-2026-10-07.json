@@ -1,0 +1,333 @@
+{
+  "canary": null,
+  "constraints": {
+    "bigquery_execution_budget_bytes": 1073741824,
+    "bigquery_query_timeout_seconds": 60,
+    "cutover": false,
+    "default_reader": "pyiceberg",
+    "mart_cpu": 1,
+    "mart_memory": "1Gi",
+    "project": "gen-lang-client-0593591102",
+    "region": "us-central1",
+    "storage_read_api": false
+  },
+  "controller_job": {
+    "apiVersion": "run.googleapis.com/v1",
+    "kind": "Job",
+    "metadata": {
+      "annotations": {
+        "run.googleapis.com/client-name": "gcloud",
+        "run.googleapis.com/client-version": "568.0.0",
+        "run.googleapis.com/creator": "tommylin15@gmail.com",
+        "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
+        "run.googleapis.com/operation-id": "204f3279-0032-49f7-bbf1-274eb3c40ae6"
+      },
+      "creationTimestamp": "2026-10-02T03:32:20.977352Z",
+      "generation": 48,
+      "labels": {
+        "cloud.googleapis.com/location": "us-central1",
+        "run.googleapis.com/lastUpdatedTime": "2026-10-07T09:53:23.409726Z"
+      },
+      "name": "janus-batch-controller",
+      "namespace": "131494961796",
+      "resourceVersion": "AAZdPRYAYLE",
+      "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/jobs/janus-batch-controller",
+      "uid": "c0918163-0449-43bd-a919-6c5f13ad2859"
+    },
+    "spec": {
+      "template": {
+        "metadata": {
+          "annotations": {
+            "run.googleapis.com/client-name": "gcloud",
+            "run.googleapis.com/client-version": "568.0.0",
+            "run.googleapis.com/execution-environment": "gen2",
+            "run.googleapis.com/network-interfaces": "[{\"network\":\"projects/gen-lang-client-0593591102/global/networks/janusai-lake-poc\",\"subnetwork\":\"janusai-lake-poc-uscentral1\",\"tags\":[\"janus-ingestion-core\"]}]",
+            "run.googleapis.com/vpc-access-egress": "private-ranges-only"
+          },
+          "labels": {
+            "client.knative.dev/nonce": "mec_tex_kax"
+          }
+        },
+        "spec": {
+          "parallelism": 1,
+          "taskCount": 1,
+          "template": {
+            "spec": {
+              "containers": [
+                {
+                  "args": [
+                    "-m",
+                    "ingestion_core.batch_controller"
+                  ],
+                  "command": [
+                    "python"
+                  ],
+                  "env": [
+                    {
+                      "name": "CATALOG_DB_NAME",
+                      "value": "janus_control"
+                    },
+                    {
+                      "name": "JANUS_INGESTION_POSTGRES_BUNDLE",
+                      "valueFrom": {
+                        "secretKeyRef": {
+                          "key": "latest",
+                          "name": "janus-runtime-bundle"
+                        }
+                      }
+                    },
+                    {
+                      "name": "CONTROL_DB_NAME",
+                      "value": "janus_control"
+                    },
+                    {
+                      "name": "ICEBERG_WAREHOUSE",
+                      "value": "gs://gen-lang-client-0593591102-dev-core/warehouse"
+                    },
+                    {
+                      "name": "CATALOG_DB_USER",
+                      "value": "janus_catalog"
+                    },
+                    {
+                      "name": "CONTROL_DB_USER",
+                      "value": "janus_control"
+                    },
+                    {
+                      "name": "STAGE_BUCKET",
+                      "value": "gen-lang-client-0593591102-dev-stage"
+                    },
+                    {
+                      "name": "CONTROL_DB_HOST",
+                      "value": "10.42.0.5"
+                    },
+                    {
+                      "name": "GCP_PROJECT_ID",
+                      "value": "gen-lang-client-0593591102"
+                    },
+                    {
+                      "name": "CORE_BUCKET",
+                      "value": "gen-lang-client-0593591102-dev-core"
+                    },
+                    {
+                      "name": "CATALOG_DB_HOST",
+                      "value": "10.42.0.5"
+                    },
+                    {
+                      "name": "BATCH_CONTROLLER_MODE",
+                      "value": "active"
+                    },
+                    {
+                      "name": "BATCH_CONTROLLER_NOT_BEFORE",
+                      "value": "2026-10-02T04:05:00Z"
+                    }
+                  ],
+                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/ingestion-core@sha256:08d161938d1e8527727b4100275e7435bd2c9c513d7911b256d742f21306777c",
+                  "resources": {
+                    "limits": {
+                      "cpu": "1",
+                      "memory": "512Mi"
+                    }
+                  }
+                }
+              ],
+              "maxRetries": 0,
+              "serviceAccountName": "ingestion-core@gen-lang-client-0593591102.iam.gserviceaccount.com",
+              "timeoutSeconds": "120"
+            }
+          }
+        }
+      }
+    },
+    "status": {
+      "conditions": [
+        {
+          "status": "True",
+          "type": "Ready"
+        }
+      ],
+      "executionCount": 155,
+      "latestCreatedExecution": {
+        "completionStatus": "EXECUTION_SUCCEEDED",
+        "completionTimestamp": "2026-10-07T09:37:34.137925Z",
+        "creationTimestamp": "2026-10-07T09:35:40.757466Z",
+        "name": "janus-batch-controller-l5nkf"
+      },
+      "observedGeneration": 48
+    }
+  },
+  "fixed_snapshot_run_1": {
+    "cloud_run": null,
+    "receipt": null,
+    "result": null
+  },
+  "fixed_snapshot_run_2": {
+    "cloud_run": null,
+    "receipt": null,
+    "result": null
+  },
+  "generated_at": "2026-10-07T10:01:45.682134+00:00",
+  "git_sha": "d42197d6d9236198c88e66d5c98c65c4d8b80c67",
+  "markers": {
+    "canary": false,
+    "controller": false,
+    "deploy": true,
+    "live": false,
+    "tests": true
+  },
+  "mart_job": {
+    "apiVersion": "run.googleapis.com/v1",
+    "kind": "Job",
+    "metadata": {
+      "annotations": {
+        "run.googleapis.com/client-name": "gcloud",
+        "run.googleapis.com/client-version": "568.0.0",
+        "run.googleapis.com/creator": "tommylin15@gmail.com",
+        "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
+        "run.googleapis.com/operation-id": "df34d87a-37f9-4f31-a0a3-f0405792e6fa"
+      },
+      "creationTimestamp": "2026-08-31T05:46:45.673533Z",
+      "generation": 204,
+      "labels": {
+        "cloud.googleapis.com/location": "us-central1",
+        "run.googleapis.com/lastUpdatedTime": "2026-10-07T09:56:41.457140Z"
+      },
+      "name": "janus-intelligence-mart",
+      "namespace": "131494961796",
+      "resourceVersion": "AAZdPTOiMQk",
+      "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/jobs/janus-intelligence-mart",
+      "uid": "bb34dcf0-83ff-4cb0-8a6e-06d71132d70f"
+    },
+    "spec": {
+      "template": {
+        "metadata": {
+          "annotations": {
+            "run.googleapis.com/client-name": "gcloud",
+            "run.googleapis.com/client-version": "568.0.0",
+            "run.googleapis.com/execution-environment": "gen2",
+            "run.googleapis.com/network-interfaces": "[{\"network\": \"janusai-lake-poc\", \"subnetwork\": \"janusai-lake-poc-uscentral1\", \"tags\": [\"janus-intelligence-mart\"]}]",
+            "run.googleapis.com/vpc-access-egress": "private-ranges-only"
+          },
+          "labels": {
+            "client.knative.dev/nonce": "goc_ged_yet"
+          }
+        },
+        "spec": {
+          "parallelism": 1,
+          "taskCount": 1,
+          "template": {
+            "spec": {
+              "containers": [
+                {
+                  "env": [
+                    {
+                      "name": "CATALOG_DB_HOST",
+                      "value": "10.42.0.5"
+                    },
+                    {
+                      "name": "CATALOG_DB_NAME",
+                      "value": "janus_control"
+                    },
+                    {
+                      "name": "CATALOG_DB_USER",
+                      "value": "janus_mart_catalog"
+                    },
+                    {
+                      "name": "CATALOG_DB_SSLMODE",
+                      "value": "require"
+                    },
+                    {
+                      "name": "PUBLICATION_DB_HOST",
+                      "value": "10.42.0.5"
+                    },
+                    {
+                      "name": "PUBLICATION_DB_NAME",
+                      "value": "janus_control"
+                    },
+                    {
+                      "name": "PUBLICATION_DB_USER",
+                      "value": "janus_mart_publication"
+                    },
+                    {
+                      "name": "PUBLICATION_DB_SSLMODE",
+                      "value": "require"
+                    },
+                    {
+                      "name": "JANUS_MART_POSTGRES_BUNDLE",
+                      "valueFrom": {
+                        "secretKeyRef": {
+                          "key": "latest",
+                          "name": "janus-runtime-bundle"
+                        }
+                      }
+                    },
+                    {
+                      "name": "MART_OPERATION",
+                      "value": "queue"
+                    },
+                    {
+                      "name": "MART_BUCKET",
+                      "value": "gen-lang-client-0593591102-dev-mart"
+                    },
+                    {
+                      "name": "QUEUE_WORKER_ID",
+                      "value": "wbs5-acceptance-20260911"
+                    },
+                    {
+                      "name": "GCP_PROJECT_ID",
+                      "value": "gen-lang-client-0593591102"
+                    },
+                    {
+                      "name": "JANUS_GIT_SHA",
+                      "value": "d42197d6d9236198c88e66d5c98c65c4d8b80c67"
+                    },
+                    {
+                      "name": "JANUS_IMAGE_DIGEST",
+                      "value": "sha256:5814c2f6709598d2cbab7be89a4467d7e05234b5a4269c7fc87961d20dcd1355"
+                    },
+                    {
+                      "name": "MART_CODEX_AUTH_SECRET",
+                      "value": "janus-mart-codex-auth"
+                    },
+                    {
+                      "name": "MART_AI_ENABLED",
+                      "value": "false"
+                    }
+                  ],
+                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:5814c2f6709598d2cbab7be89a4467d7e05234b5a4269c7fc87961d20dcd1355",
+                  "resources": {
+                    "limits": {
+                      "cpu": "1",
+                      "memory": "1Gi"
+                    }
+                  }
+                }
+              ],
+              "maxRetries": 1,
+              "serviceAccountName": "intelligence-mart@gen-lang-client-0593591102.iam.gserviceaccount.com",
+              "timeoutSeconds": "1800"
+            }
+          }
+        }
+      }
+    },
+    "status": {
+      "conditions": [
+        {
+          "status": "True",
+          "type": "Ready"
+        }
+      ],
+      "executionCount": 175,
+      "latestCreatedExecution": {
+        "completionStatus": "EXECUTION_SUCCEEDED",
+        "completionTimestamp": "2026-10-07T10:01:39.445604Z",
+        "creationTimestamp": "2026-10-07T09:56:44.746324Z",
+        "name": "janus-intelligence-mart-hqqlg"
+      },
+      "observedGeneration": 204
+    }
+  },
+  "scheduled_occurrence": null,
+  "schema_version": "b3-live-acceptance-v1",
+  "status": "failed"
+}
