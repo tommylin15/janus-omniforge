@@ -274,7 +274,13 @@ def main() -> None:
         control_migration = os.environ.get("JANUS_CONTROL_MIGRATION", "").strip()
         analysis_replay = os.environ.get("JANUS_ANALYSIS_REPLAY_CONFIG", "").strip()
         supplement_mode = os.environ.get("JANUS_DATA_SUPPLEMENT_MODE", "").strip()
-        if supplement_mode:
+        private_recalc_acceptance = os.environ.get(
+            "JANUS_PRIVATE_RECALC_ACCEPTANCE_MODE", ""
+        ).strip()
+        if private_recalc_acceptance:
+            from .private_recalc_acceptance import run_from_env
+            result = run_from_env()
+        elif supplement_mode:
             if supplement_mode == "market-history":
                 from .market_history import run_market_history
                 result = run_market_history()

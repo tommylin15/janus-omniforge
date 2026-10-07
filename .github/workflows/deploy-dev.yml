@@ -35,6 +35,7 @@ on:
       - 'tests/stage_core_tests/test_first_batch_sources.py'
       - 'tests/stage_core_tests/test_data_cleaning_regressions.py'
       - 'tests/test_portfolio_deploy_contract.py'
+      - 'tests/test_private_recalc_acceptance.py'
       - 'tests/test_container_build_contract.py'
       - 'jobs/intelligence-mart/**'
       - 'tests/test_intelligence_mart_runtime.py'
@@ -173,6 +174,7 @@ jobs:
               - 'tests/stage_core_tests/test_first_batch_sources.py'
               - 'tests/stage_core_tests/test_data_cleaning_regressions.py'
               - 'tests/test_portfolio_deploy_contract.py'
+              - 'tests/test_private_recalc_acceptance.py'
             mart_runtime:
               - 'jobs/ingestion-core/ingestion_core/iceberg_maintenance.py'
               - 'jobs/ingestion-core/ingestion_core/retention.py'
@@ -281,6 +283,7 @@ jobs:
           tests/stage_core_tests/test_stage_core.py
           tests/stage_core_tests/test_data_cleaning_regressions.py
           tests/test_portfolio_deploy_contract.py
+          tests/test_private_recalc_acceptance.py
           tests/test_batch_controller.py
           tests/test_mobile_ledger_queue.py
           tests/test_duckdb_iceberg.py
