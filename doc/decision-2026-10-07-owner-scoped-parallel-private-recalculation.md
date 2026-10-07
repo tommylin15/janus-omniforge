@@ -1,7 +1,7 @@
 # Owner-scoped parallel Private Mart 重算控制器
 
 日期：2026-10-07  
-狀態：CLOSED / dev live acceptance PASS
+狀態：PARTIAL — engineering/runtime PASS；authenticated Admin UI readback pending
 
 ## 1. 目的
 
@@ -149,4 +149,4 @@ Admin「資料治理」顯示：
 - live private readback：trade 最新 ledger v164；positions 與 2026 annual PnL 亦為 ledger v164，valuation date `2026-10-06`。
 - canary 使用既有 Cloud Run runtimes 與既有資料庫連線路徑，不新增 GCP resource，不擴 IAP 權限；acceptance helper 不輸出 owner UUID／symbol／trade／holding。
 
-Acceptance criteria 1–8 均已有對應 evidence；本項狀態為 **CLOSED**。
+Acceptance criteria 1–7 已有對應 evidence。Criterion 8 的 backend state、deidentified payload contract、Flutter Admin UI test 與 deployed build 已驗證，但**尚未用真實 Admin Google 登入 session 對 dev Admin UI 做 authenticated readback**；目前工具沒有該 OAuth session／互動式瀏覽器，因此此 gate 維持 pending，不以 mock、DB canary 或匿名 HTTP 代替。整體狀態為 **PARTIAL**。
