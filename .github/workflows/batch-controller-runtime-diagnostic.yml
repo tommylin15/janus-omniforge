@@ -33,7 +33,7 @@ jobs:
           gcloud run jobs describe "${JOB_NAME}" \
             --project="${GCP_PROJECT_ID}" \
             --region="${GCP_REGION}" \
-            --format='yaml(metadata.name,metadata.generation,spec.template.spec.template.spec.timeoutSeconds,spec.template.spec.template.spec.maxRetries,spec.template.spec.template.spec.containers[0].image,status.conditions)'
+            --format='yaml(metadata.name,metadata.generation,spec.template.spec.template.spec.timeoutSeconds,spec.template.spec.template.spec.maxRetries,spec.template.spec.template.spec.containers[0].image,spec.template.spec.template.spec.containers[0].command,spec.template.spec.template.spec.containers[0].args,status.conditions)'
 
           echo '=== recent executions ==='
           gcloud run jobs executions list \
@@ -57,13 +57,32 @@ jobs:
             --region="${GCP_REGION}" \
             --format='yaml(metadata.name,status.startTime,status.completionTime,status.succeededCount,status.failedCount,status.cancelledCount,status.conditions,status.logUri)'
 
-          echo '=== latest execution logs ==='
-          gcloud logging read \
-            "resource.type=cloud_run_job AND resource.labels.job_name=${JOB_NAME} AND labels.\"run.googleapis.com/execution_name\"=\"${latest}\"" \
+          start="$(gcloud run jobs executions describe "${latest}" \
             --project="${GCP_PROJECT_ID}" \
-            --limit=120 \
+            --region="${GCP_REGION}" \
+            --format='value(status.startTime)')"
+          echo '=== latest execution raw log payloads ==='
+          gcloud logging read \
+            "resource.type=cloud_run_job AND resource.labels.job_name=${JOB_NAME} AND timestamp>=\"${start}\"" \
+            --project="${GCP_PROJECT_ID}" \
+            --limit=200 \
             --order=asc \
-            --format='value(timestamp,severity,textPayload,jsonPayload.message)'
+            --format=json > /tmp/controller-log.json
+          jq -c --arg latest "${latest}" '
+            .[]
+            | select((.labels["run.googleapis.com/execution_name"] // "") == "" or .labels["run.googleapis.com/execution_name"] == $latest)
+            | {
+                timestamp,
+                severity,
+                log: ((.logName // "") | split("/") | last),
+                message: (.textPayload // .jsonPayload.message // .protoPayload.status.message // "")
+              }
+            | select(.message != "")
+            | select((.message | ascii_downcase | contains("authorization:")) | not)
+            | select((.message | ascii_downcase | contains("access_token")) | not)
+            | select((.message | ascii_downcase | contains("id_token")) | not)
+            | select((.message | ascii_downcase | contains("private_key")) | not)
+          ' /tmp/controller-log.json
 
           echo '=== scheduler candidates ==='
           gcloud scheduler jobs list \
