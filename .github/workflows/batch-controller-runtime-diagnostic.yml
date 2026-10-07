@@ -14,7 +14,7 @@ permissions:
 jobs:
   diagnose:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     env:
       GCP_PROJECT_ID: gen-lang-client-0593591102
       GCP_REGION: us-central1
@@ -25,38 +25,68 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Read recent controller executions
+      - name: Read active control-plane occurrences
         shell: bash
         run: |
           set -Eeuo pipefail
-          gcloud run jobs describe "${JOB_NAME}" \
-            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
-            --format='yaml(metadata.name,metadata.generation,spec.template.spec.template.spec.containers[0].image,status.conditions)'
+          cat > /tmp/batch_diag.py <<'PY'
+          import json
+          from datetime import datetime
+          from ingestion_core.__main__ import _control_plane
+          from ingestion_core.batch_controller import due_batches
 
-          gcloud run jobs executions list \
+          control = _control_plane()
+          connection = control.connection
+          try:
+              with connection.cursor() as cursor:
+                  cursor.execute("""
+                      SELECT occurrence_id, scheduled_at, state
+                        FROM control.batch_occurrences
+                       WHERE state->>'status' IN ('pending','dispatching','running','ambiguous')
+                       ORDER BY scheduled_at, occurrence_id
+                       LIMIT 100
+                  """)
+                  rows = cursor.fetchall()
+              evidence = []
+              for occurrence_id, scheduled_at, state in rows:
+                  scheduled_text = state.get("scheduled_at")
+                  policy_match = None
+                  policy_error = None
+                  if state.get("status") == "pending" and scheduled_text:
+                      try:
+                          policy_keys = {row[0] for row in due_batches(datetime.fromisoformat(scheduled_text))}
+                          policy_match = occurrence_id in policy_keys
+                      except Exception as error:
+                          policy_error = type(error).__name__
+                  evidence.append({
+                      "occurrence_id": occurrence_id,
+                      "scheduled_at": scheduled_at.isoformat() if hasattr(scheduled_at, "isoformat") else str(scheduled_at),
+                      "batch": state.get("batch"),
+                      "status": state.get("status"),
+                      "state_scheduled_at": scheduled_text,
+                      "policy_match": policy_match,
+                      "policy_error": policy_error,
+                  })
+              print(json.dumps({"active_count": len(evidence), "rows": evidence}, sort_keys=True))
+          finally:
+              control.close()
+          PY
+          export BATCH_DIAG_CODE="$(base64 -w0 /tmp/batch_diag.py)"
+          wrapper='import base64;import os;exec(base64.b64decode(os.environ["BATCH_DIAG_CODE"]))'
+          gcloud run jobs execute "${JOB_NAME}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --args="-c,${wrapper}" \
+            --update-env-vars="BATCH_DIAG_CODE=${BATCH_DIAG_CODE}" \
+            --task-timeout=5m \
+            --wait
+          execution="$(gcloud run jobs executions list \
             --job="${JOB_NAME}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
-            --limit=20 --format=json > /tmp/executions.json
-
-          jq -r '.[] | [
-            .metadata.name,
-            ([.. | objects | select(has("name") and .name=="BATCH_CONTROLLER_MODE") | .value][0] // "default"),
-            (.status.startTime // ""),
-            (.status.completionTime // ""),
-            (.status.succeededCount // 0),
-            (.status.failedCount // 0),
-            (.status.cancelledCount // 0),
-            (.status.conditions[0].message // "")
-          ] | @tsv' /tmp/executions.json
-
-          echo '=== non-active probe details ==='
-          jq -r '.[] | select(([.. | objects | select(has("name") and .name=="BATCH_CONTROLLER_MODE") | .value][0] // "active") != "active") | .metadata.name' /tmp/executions.json |
-          while read -r execution; do
-            [ -z "${execution}" ] && continue
-            gcloud run jobs executions describe "${execution}" \
-              --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
-              --format='yaml(metadata.name,status.startTime,status.completionTime,status.succeededCount,status.failedCount,status.cancelledCount,status.conditions)'
-            gcloud logging read \
-              "resource.type=cloud_run_job AND resource.labels.job_name=${JOB_NAME} AND labels.\"run.googleapis.com/execution_name\"=\"${execution}\"" \
-              --project="${GCP_PROJECT_ID}" --limit=50 --order=asc \
-              --format='value(timestamp,severity,textPayload,jsonPayload.message)' || true
-          done
+            --limit=1 --format='value(metadata.name)')"
+          gcloud run jobs executions describe "${execution}" \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --format='yaml(metadata.name,status.startTime,status.completionTime,status.succeededCount,status.failedCount,status.conditions)'
+          gcloud logging read \
+            "resource.type=cloud_run_job AND resource.labels.job_name=${JOB_NAME} AND labels.\"run.googleapis.com/execution_name\"=\"${execution}\"" \
+            --project="${GCP_PROJECT_ID}" --limit=100 --order=asc --format=json > /tmp/logs.json
+          jq -r '.[] | (.textPayload // .jsonPayload.message // "") | select(. != "")' /tmp/logs.json
