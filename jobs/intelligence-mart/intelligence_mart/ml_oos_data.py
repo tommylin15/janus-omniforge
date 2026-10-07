@@ -87,6 +87,7 @@ def inspect_dataset(manifest: dict, store) -> dict:
         raise ValueError("ML/OOS identity schema mismatch")
     if manifest.get("core_snapshot_id") != identity["core_snapshot_id"] \
             or manifest.get("analysis_as_of") != identity["analysis_as_of"] \
+            or manifest.get("query_contract_version") != identity["query_contract_version"] \
             or manifest.get("feature_version") != identity["feature_version"] \
             or manifest.get("model_version") != identity["model_version"]:
         raise ValueError("ML/OOS manifest lineage mismatch")
