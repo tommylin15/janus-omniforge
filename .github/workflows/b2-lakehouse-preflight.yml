@@ -1,0 +1,155 @@
+name: B2 Lakehouse read-only preflight
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b2-lakehouse-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: b2-lakehouse-preflight
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Collect read-only Lakehouse evidence
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          PROJECT = "gen-lang-client-0593591102"
+          TABLES = [
+              "benchmark_v1_b2_5084459386493044934",
+              "ohlcv_v1_b2_8549832172546885809",
+              "financials_v1_b2_801346769573568770",
+          ]
+
+          def run(args):
+              proc = subprocess.run(args, capture_output=True, text=True)
+              return {
+                  "returncode": proc.returncode,
+                  "stdout": proc.stdout.strip(),
+                  "stderr": proc.stderr.strip()[:4000],
+              }
+
+          evidence = {
+              "status": "preflight",
+              "project": PROJECT,
+              "mutations_performed": False,
+          }
+
+          services = run([
+              "gcloud", "services", "list", "--enabled", f"--project={PROJECT}",
+              "--filter=config.name:(biglake.googleapis.com OR bigquery.googleapis.com OR storage.googleapis.com)",
+              "--format=json",
+          ])
+          evidence["services"] = services
+
+          catalogs = run([
+              "gcloud", "biglake", "iceberg", "catalogs", "list",
+              f"--project={PROJECT}", "--format=json",
+          ])
+          if catalogs["returncode"] == 0:
+              try:
+                  catalogs["parsed"] = json.loads(catalogs["stdout"] or "[]")
+                  catalogs["stdout"] = ""
+              except json.JSONDecodeError:
+                  pass
+          evidence["catalogs"] = catalogs
+
+          buckets = {}
+          for bucket in (
+              "gen-lang-client-0593591102-dev-core",
+              "gen-lang-client-0593591102-dev-mart",
+          ):
+              result = run([
+                  "gcloud", "storage", "buckets", "describe", f"gs://{bucket}",
+                  "--format=json",
+              ])
+              if result["returncode"] == 0:
+                  try:
+                      payload = json.loads(result["stdout"])
+                      result["parsed"] = {
+                          "name": payload.get("name"),
+                          "location": payload.get("location"),
+                          "storageClass": payload.get("storageClass"),
+                      }
+                      result["stdout"] = ""
+                  except json.JSONDecodeError:
+                      pass
+              buckets[bucket] = result
+          evidence["buckets"] = buckets
+
+          tables = {}
+          for table in TABLES:
+              result = run([
+                  "bq", "show", "--format=prettyjson",
+                  f"{PROJECT}:janus_analytics_dev.{table}",
+              ])
+              if result["returncode"] == 0:
+                  try:
+                      payload = json.loads(result["stdout"])
+                      external = payload.get("externalDataConfiguration") or {}
+                      tables[table] = {
+                          "returncode": 0,
+                          "location": payload.get("location"),
+                          "type": payload.get("type"),
+                          "sourceFormat": external.get("sourceFormat"),
+                          "sourceUris": external.get("sourceUris"),
+                      }
+                      continue
+                  except json.JSONDecodeError:
+                      pass
+              tables[table] = result
+          evidence["legacy_external_tables"] = tables
+
+          errors = []
+          if catalogs["returncode"] != 0:
+              errors.append("catalog-list-failed")
+          for bucket, result in buckets.items():
+              if result["returncode"] != 0:
+                  errors.append(f"bucket-read-failed:{bucket}")
+          for table, result in tables.items():
+              if result.get("returncode") != 0:
+                  errors.append(f"table-read-failed:{table}")
+          evidence["status"] = "pass" if not errors else "partial"
+          evidence["errors"] = errors
+
+          path = Path("doc/archive/group-b-b2-lakehouse-preflight-2026-10-07.json")
+          path.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n")
+          print(json.dumps({"status": evidence["status"], "errors": errors}))
+          PY
+
+      - name: Commit preflight evidence
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add doc/archive/group-b-b2-lakehouse-preflight-2026-10-07.json
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: record B2 Lakehouse preflight [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
