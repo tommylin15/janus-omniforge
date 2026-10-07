@@ -52,7 +52,8 @@ B0. Baseline — CLOSED（2026-10-07）
 - 記錄 PyIceberg row count、output hash、screening/evaluation result、elapsed、peak RSS、可取得 GCS/scan evidence。
 - 不重做 A 組 migration/backfill/serving/UI。
 
-B1. Exact-snapshot reader
+B1. Exact-snapshot reader — CLOSED（2026-10-07）
+- 完成證據：[B1 reader 驗收](archive/group-b-b1-reader-acceptance-2026-10-07.md)；CI 105 PASS、固定 B0 snapshot dev 回歸／artifact readback PASS。下一步 B2，不重做已完成 reader。
 - 抽出 AnalyticsSnapshotReader contract。
 - 現有 PyIceberg 包成 IcebergSnapshotReader reference/fallback，保持 snapshot_id/filter/null/PIT/provenance 行為。
 - engine 不直接依賴 BigQuery client object。

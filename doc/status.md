@@ -62,7 +62,15 @@ B0 已完成 implementation、deployment readback 與固定真實 dev Core snaps
 - `planned_scan_bytes` 與 `actual_gcs_read_bytes` 無可用量測，正式記為 `null`，不補成 0。
 - B0 沒有建立／啟用 BigQuery／BigLake resource 或 API、沒有擴 IAM、沒有重做 A 組 migration／serving／UI。
 
-完整證據見 [B0 baseline 結案證據](archive/group-b-b0-baseline-closure-2026-10-07.md)。**下一個工程步驟是 B1 exact-snapshot reader；B0 不需再重跑。**
+完整證據見 [B0 baseline 結案證據](archive/group-b-b0-baseline-closure-2026-10-07.md)。B0 不需再重跑。
+
+### B1 Exact-snapshot reader — CLOSED（2026-10-07）
+
+`AnalyticsSnapshotReader`／`IcebergSnapshotReader` 已接入 specialist runtime；保留 PyIceberg reference 與相容入口，沒有修改 canonical write path。最新 targeted CI `37572291941` **105 PASS**；既有 dev Mart deployment／smoke 通過。
+
+固定 B0 Core snapshot 的真實 dev execution `janus-intelligence-mart-9krkb` success：92,653 rows、500 screening 與 25 specialist artifact hashes 均與 B0 一致。OOS raw hash 不同，逐欄比對僅有最大 `2.84e-14` 的浮點尾差，全部 input hashes 與非數值內容一致。Elapsed 800.966 s、peak RSS 688.98 MiB、LLM tokens 0；不宣稱效能提升或五 specialist 整體完成。
+
+完整證據見 [B1 reader 驗收](archive/group-b-b1-reader-acceptance-2026-10-07.md)。**下一步 B2 BigQuery adapter／compatibility；尚未建立或核准新的付費 API/resource/IAM。**
 
 ## 現行產品決策
 

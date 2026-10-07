@@ -2185,3 +2185,14 @@ the MCP connector still uses its older existing tagged revision.
 - B0 狀態：**CLOSED / PASS**。下一個工程步驟是 B1 exact-snapshot reader；B0 數值作後續 PyIceberg／BigQuery fidelity、cost、performance canary 的比較基準。
 
 完整明細：[B0 baseline 結案證據](../archive/group-b-b0-baseline-closure-2026-10-07.md)。
+
+## 2026-10-07 — B1 exact-snapshot reader dev acceptance
+
+- **B1 CLOSED / PASS**：`AnalyticsSnapshotReader`／`IcebergSnapshotReader` 已接入 specialist runtime，保留 exact table snapshot、symbol filter、null/PIT/provenance、row limit 與連線 cleanup；canonical write path 沒有修改。
+- 最新測試 commit `a05db3e6f16beffb4999e4d8f02251d120a8d160`，CI `37572291941` **105 PASS**；dev deployment run `37570672091` 的 Mart deploy／smoke success，runtime SHA `c49dc7398edac3926de8fecb248fbf06d556fa7d` 的 Mart Python source 與 B1 `50b2422` 一致。
+- 固定 B0 同一 Core snapshot 的 execution `janus-intelligence-mart-9krkb` success；92,653 rows、500 screening hash、25 specialist artifact hashes 與原 baseline 一致，GCS manifest／screening／evaluation readback PASS。
+- OOS raw hash 不同；逐欄比較所有 input hashes 與非數值內容相同，最大數值絕對差 `2.842170943040401e-14`，全部低於 `1e-12`。保留原始數值與 hashes，不宣稱 bitwise identical。
+- Elapsed 800.966 s、peak RSS 688.98 MiB、LLM tokens 0；GCS bytes 保持 null，不宣稱效能改善。Specialist status 仍為 partial、publishable 0。
+- 驗後 persistent Job 仍為 queue、1 CPU／1 GiB，未保存 acceptance override；未建立 BigQuery resource/API/IAM。下一步 B2；五 specialist 整體仍未結案。
+
+完整明細：[B1 reader 驗收證據](../archive/group-b-b1-reader-acceptance-2026-10-07.md)。
