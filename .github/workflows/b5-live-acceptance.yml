@@ -18,14 +18,15 @@ permissions:
   id-token: write
 
 concurrency:
-  group: b5-live-acceptance-recovery-v3
+  group: b5-live-acceptance-recovery-v4
   cancel-in-progress: false
 
 env:
   GCP_PROJECT_ID: gen-lang-client-0593591102
   GCP_REGION: us-central1
+  ALLOW_DEV_DEPLOY: true
   MART_JOB: janus-intelligence-mart
-  EVIDENCE_FILE: doc/archive/group-b-b5-live-acceptance-recovery-v3-2026-10-07.json
+  EVIDENCE_FILE: doc/archive/group-b-b5-live-acceptance-recovery-v4-2026-10-07.json
 
 jobs:
   acceptance:
@@ -112,8 +113,9 @@ jobs:
 
           if [[ ! -f /tmp/deploy.ok ]]; then
             echo "B5 standard deploy did not converge; running bounded Mart deploy recovery"
-            bash scripts/gcp/deploy-dev.sh intelligence-mart
-            bash scripts/gcp/verify-dev.sh intelligence-mart
+            set -o pipefail
+            bash scripts/gcp/deploy-dev.sh intelligence-mart 2>&1 | tee /tmp/b5-deploy.log
+            bash scripts/gcp/verify-dev.sh intelligence-mart 2>&1 | tee -a /tmp/b5-deploy.log
             deployed_sha="$(read_sha)"
             test "${deployed_sha}" = "${GITHUB_SHA}"
             touch /tmp/deploy.ok
@@ -242,6 +244,7 @@ jobs:
               "markers":markers,
               "install_log_tail":tail('/tmp/b5-install.log'),
               "tests_log_tail":tail('/tmp/b5-tests.log'),
+              "deploy_log_tail":tail('/tmp/b5-deploy.log'),
               "constraints":{
                   "project":"gen-lang-client-0593591102",
                   "region":"us-central1",
