@@ -238,6 +238,7 @@ def row_values(response: dict[str, Any]) -> list[list[Any]]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--skip-shared-mapping", action="store_true")
     args = parser.parse_args()
 
     manifest, manifest_hash = gcs_json(CORE_MANIFEST_URI)
@@ -263,38 +264,41 @@ def main() -> None:
     }
 
     evidence["catalog_readback"] = ensure_catalog()
-    ensure_namespace(CORE_NAMESPACE, f"gs://{CORE_BUCKET}")
     ensure_namespace(ACCEPT_NAMESPACE, f"gs://{MART_BUCKET}/acceptance/b2-lakehouse")
 
-    # Shared catalog exact-snapshot mapping: register exactly the three immutable
-    # B0 metadata files and then independently prove the catalog pointer and the
-    # metadata's current-snapshot-id.
-    for identifier, table_name in TABLES.items():
-        fence = manifest["iceberg_tables"][identifier]
-        uri = fence["metadata_location"]
-        snapshot_id = fence["snapshot_id"]
-        run(
-            "gcloud", "biglake", "iceberg", "tables", "register", table_name,
-            f"--project={PROJECT}", f"--catalog={CATALOG}", f"--namespace={CORE_NAMESPACE}",
-            f"--metadata-location={uri}", "--overwrite", "--quiet",
-        )
-        loaded = load_table(table_name, CORE_NAMESPACE)
-        catalog_uri = metadata_location(loaded)
-        metadata, metadata_hash = gcs_json(uri)
-        catalog_match = catalog_uri == uri
-        snapshot_match = metadata.get("current-snapshot-id") == snapshot_id
-        if not catalog_match or not snapshot_match or metadata.get("format-version") != 2:
-            raise RuntimeError(f"shared catalog exact-snapshot mapping failed: {identifier}")
-        evidence["shared_catalog_mapping"][identifier] = {
-            "table": table_name,
-            "metadata_location": uri,
-            "catalog_metadata_location": catalog_uri,
-            "metadata_sha256": metadata_hash,
-            "snapshot_id": snapshot_id,
-            "catalog_pointer_exact": catalog_match,
-            "snapshot_exact": snapshot_match,
-            "format_version": metadata.get("format-version"),
-        }
+    if args.skip_shared_mapping:
+        evidence["shared_catalog_mapping_skipped"] = True
+    else:
+        ensure_namespace(CORE_NAMESPACE, f"gs://{CORE_BUCKET}")
+        # Shared catalog exact-snapshot mapping: register exactly the three immutable
+        # B0 metadata files and then independently prove the catalog pointer and the
+        # metadata's current-snapshot-id.
+        for identifier, table_name in TABLES.items():
+            fence = manifest["iceberg_tables"][identifier]
+            uri = fence["metadata_location"]
+            snapshot_id = fence["snapshot_id"]
+            run(
+                "gcloud", "biglake", "iceberg", "tables", "register", table_name,
+                f"--project={PROJECT}", f"--catalog={CATALOG}", f"--namespace={CORE_NAMESPACE}",
+                f"--metadata-location={uri}", "--overwrite", "--quiet",
+            )
+            loaded = load_table(table_name, CORE_NAMESPACE)
+            catalog_uri = metadata_location(loaded)
+            metadata, metadata_hash = gcs_json(uri)
+            catalog_match = catalog_uri == uri
+            snapshot_match = metadata.get("current-snapshot-id") == snapshot_id
+            if not catalog_match or not snapshot_match or metadata.get("format-version") != 2:
+                raise RuntimeError(f"shared catalog exact-snapshot mapping failed: {identifier}")
+            evidence["shared_catalog_mapping"][identifier] = {
+                "table": table_name,
+                "metadata_location": uri,
+                "catalog_metadata_location": catalog_uri,
+                "metadata_sha256": metadata_hash,
+                "snapshot_id": snapshot_id,
+                "catalog_pointer_exact": catalog_match,
+                "snapshot_exact": snapshot_match,
+                "format_version": metadata.get("format-version"),
+            }
 
     budget = BigQueryBudget()
 
@@ -453,7 +457,7 @@ def main() -> None:
     evidence["bigquery_jobs"] = budget.jobs
     evidence["total_billed_bytes"] = budget.billed
     evidence["remaining_budget_bytes"] = budget.remaining
-    evidence["status"] = "pass"
+    evidence["status"] = "nonregister-pass" if args.skip_shared_mapping else "pass"
     args.output.write_text(json.dumps(evidence, indent=2, sort_keys=True, default=str) + "\n")
     print(json.dumps({
         "status": "pass",
