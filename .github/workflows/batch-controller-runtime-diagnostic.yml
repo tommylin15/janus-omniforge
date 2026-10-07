@@ -25,53 +25,43 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Classify active-mode failure
+      - name: Dry-run active controller with rollback
         shell: bash
         run: |
           set -Eeuo pipefail
           cat > /tmp/batch_diag.py <<'PY'
+          import os
           import sys
-          from datetime import datetime
-          import google.auth
-          from google.auth.transport.requests import AuthorizedSession
+          from ingestion_core import batch_controller as controller
           from ingestion_core.__main__ import _control_plane
-          from ingestion_core.batch_controller import BATCHES, due_batches, job_active
+
+          os.environ["GCP_PROJECT_ID"] = "gen-lang-client-0593591102"
+          os.environ["BATCH_CONTROLLER_MODE"] = "active"
+          os.environ["BATCH_CONTROLLER_NOT_BEFORE"] = "2026-10-02T04:05:00Z"
+          os.environ["CLOUD_RUN_EXECUTION"] = "batch-controller-dry-run"
 
           control = _control_plane()
           connection = control.connection
+          controller.dispatch_job = lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("diagnostic dispatch blocked"))
+          controller.export_events = lambda *args, **kwargs: 0
           try:
-              with connection.cursor() as cursor:
-                  cursor.execute("SELECT count(*) FROM control.batch_occurrences WHERE state->>'status' IN ('dispatching','running','ambiguous')")
-                  if cursor.fetchone()[0] > 100:
-                      sys.exit(31)
-                  cursor.execute("SELECT occurrence_id,state FROM control.batch_occurrences WHERE state->>'status'='pending' ORDER BY scheduled_at,occurrence_id")
-                  pending = cursor.fetchall()
-              if len(pending) > 100:
-                  sys.exit(32)
-              batches = {batch.name: batch for batch in BATCHES}
-              for occurrence_id, state in pending:
-                  batch_name = state.get("batch")
-                  if batch_name not in batches:
-                      sys.exit(33)
-                  if state.get("origin") == "manual":
-                      continue
-                  scheduled_text = state.get("scheduled_at")
-                  if not scheduled_text:
-                      sys.exit(34)
-                  try:
-                      due_row = next((row for row in due_batches(datetime.fromisoformat(scheduled_text)) if row[0] == occurrence_id), None)
-                  except Exception:
-                      sys.exit(34)
-                  if due_row is None:
-                      sys.exit(34)
-              credentials, _ = google.auth.default(scopes=("https://www.googleapis.com/auth/cloud-platform",))
-              session = AuthorizedSession(credentials)
-              jobs = sorted({job for batch in BATCHES for job in (batch.exclusive_jobs or (batch.job,))})
+              connection.execute("BEGIN")
               try:
-                  for job in jobs:
-                      job_active(session, job)
+                  result = controller.run(control=control, core=object())
+                  if result.get("status") == "controller_busy":
+                      sys.exit(46)
+              except KeyError:
+                  sys.exit(41)
+              except StopIteration:
+                  sys.exit(42)
+              except ValueError:
+                  sys.exit(43)
+              except RuntimeError:
+                  sys.exit(44)
               except Exception:
-                  sys.exit(35)
+                  sys.exit(45)
+              finally:
+                  connection.rollback()
               sys.exit(0)
           finally:
               control.close()
