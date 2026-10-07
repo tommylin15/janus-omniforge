@@ -1,0 +1,72 @@
+name: B2 Iceberg metadata summary
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b2-iceberg-metadata-summary.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  summarize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Summarize fixed Iceberg metadata
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "${tmp}"' EXIT
+          python3 - <<'PY' > "${tmp}/uris.json"
+          import json
+          d=json.load(open('doc/archive/group-b-b2-core-fence-readback-2026-10-07.json'))
+          print(json.dumps({k:v['metadata_location'] for k,v in d['fences'].items()}))
+          PY
+          python3 - "${tmp}" <<'PY'
+          import json,subprocess,sys
+          from pathlib import Path
+          tmp=Path(sys.argv[1])
+          fences=json.load(open('doc/archive/group-b-b2-core-fence-readback-2026-10-07.json'))['fences']
+          out={}
+          for name,f in fences.items():
+              p=tmp/(name.replace('.','_')+'.json')
+              subprocess.run(['gcloud','storage','cp',f['metadata_location'],str(p)],check=True,stdout=subprocess.DEVNULL)
+              m=json.loads(p.read_text())
+              sid=m['current-schema-id']
+              schema=next(s for s in m['schemas'] if s['schema-id']==sid)
+              spec_id=m.get('default-spec-id')
+              spec=next((s for s in m.get('partition-specs',[]) if s.get('spec-id')==spec_id),None)
+              out[name]={
+                'format_version':m.get('format-version'),
+                'current_snapshot_id':m.get('current-snapshot-id'),
+                'current_schema_id':sid,
+                'schema_fields':[{k:fld.get(k) for k in ('id','name','required','type')} for fld in schema.get('fields',[])],
+                'default_spec_id':spec_id,
+                'partition_spec':spec,
+              }
+          Path('doc/archive/group-b-b2-fixed-metadata-summary-2026-10-07.json').write_text(json.dumps(out,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Commit evidence
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add doc/archive/group-b-b2-fixed-metadata-summary-2026-10-07.json
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: record B2 fixed metadata summary [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
