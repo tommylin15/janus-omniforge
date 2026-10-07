@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 
 ARTIFACT_KIND = "mart_ml_oos_dataset_v1"
 DATASET_SCHEMA_VERSION = "b5-ml-oos-v1"
+QUERY_CONTRACT_VERSION = "b5-sql-reduction-v1"
 REQUIRED_COLUMNS = {
     "symbol",
     "trade_date",
@@ -76,7 +77,7 @@ def inspect_dataset(manifest: dict, store) -> dict:
         raise ValueError("ML/OOS dataset identity and bounded shards are required")
     required_identity = {
         "core_snapshot_id", "core_manifest_sha256", "analysis_as_of",
-        "dataset_schema_version", "feature_version", "model_version",
+        "dataset_schema_version", "query_contract_version", "feature_version", "model_version",
         "source_tables", "date_bounds", "label_horizon_trading_days",
         "cohort_stride_trading_days",
     }
