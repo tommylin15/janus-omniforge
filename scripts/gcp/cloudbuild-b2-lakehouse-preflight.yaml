@@ -10,15 +10,14 @@ steps:
       - |
         case "${_MODE}" in
           catalog-permission)
-            gcloud biglake iceberg catalogs list \
-              --project="${PROJECT_ID}" \
-              --format='value(name)' >/dev/null
+            gcloud biglake iceberg catalogs list               --project="${PROJECT_ID}"               --format='value(name)' >/dev/null
             ;;
           catalog-nonempty)
-            first="$(gcloud biglake iceberg catalogs list \
-              --project="${PROJECT_ID}" \
-              --format='value(name)' | head -1)"
+            first="$(gcloud biglake iceberg catalogs list               --project="${PROJECT_ID}"               --format='value(name)' | head -1)"
             test -n "${first}"
+            ;;
+          catalog-specific)
+            gcloud biglake iceberg catalogs describe janus_core_dev               --project="${PROJECT_ID}"               --format=json >/dev/null
             ;;
           bq-metadata)
             python3 - <<'PY'
