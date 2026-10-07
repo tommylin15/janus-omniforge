@@ -1,0 +1,20 @@
+{
+  "can_bootstrap_bucket_iam": true,
+  "can_bootstrap_project_iam": false,
+  "can_create_catalog_now": true,
+  "can_register_now": false,
+  "identity": "cloud-build-default",
+  "mutations_performed": false,
+  "permissions": {
+    "biglake_catalogs_create": true,
+    "biglake_catalogs_list": true,
+    "biglake_tables_register": false,
+    "bucket_getIamPolicy": true,
+    "bucket_setIamPolicy": true,
+    "project_getIamPolicy": true,
+    "project_setIamPolicy": false,
+    "storage_objects_get": true,
+    "storage_objects_list": true
+  },
+  "status": "pass"
+}
