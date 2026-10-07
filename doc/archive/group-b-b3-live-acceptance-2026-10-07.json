@@ -20,17 +20,17 @@
         "run.googleapis.com/client-version": "568.0.0",
         "run.googleapis.com/creator": "tommylin15@gmail.com",
         "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
-        "run.googleapis.com/operation-id": "204f3279-0032-49f7-bbf1-274eb3c40ae6"
+        "run.googleapis.com/operation-id": "f3382797-e1e1-412c-82c6-6498af9eea41"
       },
       "creationTimestamp": "2026-10-02T03:32:20.977352Z",
-      "generation": 48,
+      "generation": 49,
       "labels": {
         "cloud.googleapis.com/location": "us-central1",
-        "run.googleapis.com/lastUpdatedTime": "2026-10-07T09:53:23.409726Z"
+        "run.googleapis.com/lastUpdatedTime": "2026-10-07T10:09:04.395622Z"
       },
       "name": "janus-batch-controller",
       "namespace": "131494961796",
-      "resourceVersion": "AAZdPRYAYLE",
+      "resourceVersion": "AAZdPU4VhAs",
       "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/jobs/janus-batch-controller",
       "uid": "c0918163-0449-43bd-a919-6c5f13ad2859"
     },
@@ -45,7 +45,7 @@
             "run.googleapis.com/vpc-access-egress": "private-ranges-only"
           },
           "labels": {
-            "client.knative.dev/nonce": "mec_tex_kax"
+            "client.knative.dev/nonce": "zog_lif_jun"
           }
         },
         "spec": {
@@ -121,7 +121,7 @@
                       "value": "2026-10-02T04:05:00Z"
                     }
                   ],
-                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/ingestion-core@sha256:08d161938d1e8527727b4100275e7435bd2c9c513d7911b256d742f21306777c",
+                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/ingestion-core@sha256:173c45881cd4eb9224a15ce7883575dd91fe5d65556086105782d3adbe7e1dc4",
                   "resources": {
                     "limits": {
                       "cpu": "1",
@@ -152,7 +152,7 @@
         "creationTimestamp": "2026-10-07T09:35:40.757466Z",
         "name": "janus-batch-controller-l5nkf"
       },
-      "observedGeneration": 48
+      "observedGeneration": 49
     }
   },
   "fixed_snapshot_run_1": {
@@ -165,8 +165,8 @@
     "receipt": null,
     "result": null
   },
-  "generated_at": "2026-10-07T10:01:45.682134+00:00",
-  "git_sha": "d42197d6d9236198c88e66d5c98c65c4d8b80c67",
+  "generated_at": "2026-10-07T10:16:46.447054+00:00",
+  "git_sha": "65d08802bed01ca523e054982adc3bdb2ecc558d",
   "markers": {
     "canary": false,
     "controller": false,
@@ -183,17 +183,17 @@
         "run.googleapis.com/client-version": "568.0.0",
         "run.googleapis.com/creator": "tommylin15@gmail.com",
         "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
-        "run.googleapis.com/operation-id": "df34d87a-37f9-4f31-a0a3-f0405792e6fa"
+        "run.googleapis.com/operation-id": "1cf93bea-a89d-44a5-89dc-125f7d33f34f"
       },
       "creationTimestamp": "2026-08-31T05:46:45.673533Z",
-      "generation": 204,
+      "generation": 206,
       "labels": {
         "cloud.googleapis.com/location": "us-central1",
-        "run.googleapis.com/lastUpdatedTime": "2026-10-07T09:56:41.457140Z"
+        "run.googleapis.com/lastUpdatedTime": "2026-10-07T10:12:48.387345Z"
       },
       "name": "janus-intelligence-mart",
       "namespace": "131494961796",
-      "resourceVersion": "AAZdPTOiMQk",
+      "resourceVersion": "AAZdPWaFEjY",
       "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/jobs/janus-intelligence-mart",
       "uid": "bb34dcf0-83ff-4cb0-8a6e-06d71132d70f"
     },
@@ -208,7 +208,7 @@
             "run.googleapis.com/vpc-access-egress": "private-ranges-only"
           },
           "labels": {
-            "client.knative.dev/nonce": "goc_ged_yet"
+            "client.knative.dev/nonce": "ham_yiy_hax"
           }
         },
         "spec": {
@@ -278,11 +278,11 @@
                     },
                     {
                       "name": "JANUS_GIT_SHA",
-                      "value": "d42197d6d9236198c88e66d5c98c65c4d8b80c67"
+                      "value": "65d08802bed01ca523e054982adc3bdb2ecc558d"
                     },
                     {
                       "name": "JANUS_IMAGE_DIGEST",
-                      "value": "sha256:5814c2f6709598d2cbab7be89a4467d7e05234b5a4269c7fc87961d20dcd1355"
+                      "value": "sha256:0d4b9dfb475c6ad9754d1ed6fbbbbf2287b8d107bc6a86481d9a08506121521e"
                     },
                     {
                       "name": "MART_CODEX_AUTH_SECRET",
@@ -293,7 +293,7 @@
                       "value": "false"
                     }
                   ],
-                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:5814c2f6709598d2cbab7be89a4467d7e05234b5a4269c7fc87961d20dcd1355",
+                  "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:0d4b9dfb475c6ad9754d1ed6fbbbbf2287b8d107bc6a86481d9a08506121521e",
                   "resources": {
                     "limits": {
                       "cpu": "1",
@@ -317,14 +317,14 @@
           "type": "Ready"
         }
       ],
-      "executionCount": 175,
+      "executionCount": 176,
       "latestCreatedExecution": {
         "completionStatus": "EXECUTION_SUCCEEDED",
-        "completionTimestamp": "2026-10-07T10:01:39.445604Z",
-        "creationTimestamp": "2026-10-07T09:56:44.746324Z",
-        "name": "janus-intelligence-mart-hqqlg"
+        "completionTimestamp": "2026-10-07T10:15:53.071155Z",
+        "creationTimestamp": "2026-10-07T10:12:53.005152Z",
+        "name": "janus-intelligence-mart-fcqzk"
       },
-      "observedGeneration": 204
+      "observedGeneration": 206
     }
   },
   "scheduled_occurrence": null,
