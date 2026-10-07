@@ -4,6 +4,48 @@ from hashlib import sha256
 import json
 
 
+def _ml_oos_retention(objects, store, now):
+    """Keep the newest complete ML/OOS dataset; expire older/unmanifested research data after seven days."""
+    manifests = []
+    for item in objects:
+        name = item["name"]
+        if not (name.startswith("ml-oos-data/v1/") and name.endswith("/manifest.json")):
+            continue
+        document = json.loads(store.read(name))
+        if document.get("artifact_kind") != "mart_ml_oos_dataset_v1":
+            raise ValueError("unknown ML/OOS dataset contract")
+        prefix = name.rsplit("/", 1)[0] + "/"
+        refs = {name}
+        for shard in document.get("parquet_shards", []):
+            uri = str(shard.get("uri", ""))
+            expected = f"gs://{store.bucket}/{prefix}"
+            if not uri.startswith(expected) or not uri.endswith(".parquet"):
+                raise ValueError("ML/OOS retention reference escaped versioned Mart prefix")
+            refs.add(uri.removeprefix(f"gs://{store.bucket}/"))
+        manifests.append((
+            str(document.get("analysis_as_of", "")),
+            item["updated"],
+            name,
+            document,
+            refs,
+        ))
+    live = set()
+    retained = []
+    if manifests:
+        latest = max(manifests, key=lambda value: (value[0], value[1], value[2]))
+        live.update(latest[4])
+        retained.append((latest[2], latest[3]))
+    cutoff = now - timedelta(days=7)
+    candidates = set()
+    for item in objects:
+        name = item["name"]
+        if not name.startswith("ml-oos-data/v1/") or name in live:
+            continue
+        if datetime.fromisoformat(item["updated"].replace("Z", "+00:00")) < cutoff:
+            candidates.add(name)
+    return live, candidates, retained
+
+
 def clean_specialist_artifacts(store, *, apply, now, active_executions=frozenset()):
     objects = store.objects("")
     by_name = {item["name"]: item for item in objects}
@@ -30,6 +72,9 @@ def clean_specialist_artifacts(store, *, apply, now, active_executions=frozenset
     for symbol, values in generations.items():
         selected[symbol].update(execution_id for _, _, execution_id in values if execution_id in active_executions)
     retained, live, candidates, retired = [], set(), set(), set()
+    ml_live, ml_candidates, retained_ml_oos = _ml_oos_retention(objects, store, now)
+    live.update(ml_live)
+    candidates.update(ml_candidates)
     for item in objects:
         name = item["name"]
         if name.startswith("executions/") and name.endswith("/screening-manifest.json") \
@@ -99,6 +144,14 @@ def clean_specialist_artifacts(store, *, apply, now, active_executions=frozenset
     payload = json.dumps(index, sort_keys=True, separators=(",", ":")).encode()
     index_name = "maintenance/specialists/retained-" + sha256(payload).hexdigest() + ".json"
     if apply:
+        for _, document in retained_ml_oos:
+            prefix = str(document["dataset_prefix"]).removeprefix(f"gs://{store.bucket}/")
+            for shard in document.get("parquet_shards", []):
+                name = str(shard["uri"]).removeprefix(f"gs://{store.bucket}/")
+                if not name.startswith(prefix):
+                    raise ValueError("retained ML/OOS shard escaped dataset prefix")
+                if "sha256:" + sha256(store.read(name)).hexdigest() != shard["sha256"]:
+                    raise RuntimeError("retained ML/OOS shard hash mismatch")
         for document in retained:
             for ref in [*document["specialists"], *([document["evaluation"]] if "evaluation" in document else [])]:
                 name = ref["artifact_uri"].removeprefix(f"gs://{store.bucket}/")
@@ -122,6 +175,7 @@ def clean_specialist_artifacts(store, *, apply, now, active_executions=frozenset
             if name.startswith("specialists/"):
                 store.read(name)
     return {"policy": index["policy"], "generations_per_symbol": 3,
+            "retained_ml_oos_datasets": len(retained_ml_oos),
             "planned_objects": len(candidates), "deleted_objects": len(candidates) if apply else 0,
             "planned_bytes": sum(int(by_name[name]["size"]) for name in candidates),
             "retained_generations": {symbol: len(values) for symbol, values in selected.items()},
