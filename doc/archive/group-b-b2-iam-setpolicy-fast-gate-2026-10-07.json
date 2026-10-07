@@ -1,0 +1,7 @@
+{
+  "can_temporary_iam_bootstrap": false,
+  "cloud_build_project_get_iam_policy": true,
+  "cloud_build_project_set_iam_policy": false,
+  "mutations_performed": false,
+  "status": "blocked"
+}
