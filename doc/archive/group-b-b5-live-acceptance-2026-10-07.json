@@ -1,0 +1,27 @@
+{
+  "cloud_build": null,
+  "constraints": {
+    "bigquery_execution_budget_bytes": 1073741824,
+    "bigquery_location": "US",
+    "bigquery_query_timeout_seconds": 60,
+    "canonical_write": false,
+    "dataset_prefix": "gs://gen-lang-client-0593591102-dev-mart/ml-oos-data/v1/",
+    "project": "gen-lang-client-0593591102",
+    "region": "us-central1",
+    "storage_read_api": false
+  },
+  "export": null,
+  "generated_at": "2026-10-07T15:42:44.063598+00:00",
+  "git_sha": "b4ce1b0b3e78e5e068416d83078c996cca375c7a",
+  "markers": {
+    "deploy": false,
+    "export": false,
+    "live": false,
+    "tests": false
+  },
+  "mart_execution": null,
+  "mart_job": null,
+  "mart_result": null,
+  "schema_version": "b5-live-acceptance-v1",
+  "status": "failed"
+}
