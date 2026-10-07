@@ -1,0 +1,67 @@
+steps:
+  - id: catalog-acl-cycle
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        project='gen-lang-client-0593591102'
+        catalog='janus_core_dev'
+        account="$(gcloud config get-value account 2>/dev/null)"
+        case "${account}" in
+          *@*.gserviceaccount.com) member="serviceAccount:${account}" ;;
+          *) echo 'unexpected Cloud Build identity' >&2; exit 70 ;;
+        esac
+
+        gcloud biglake iceberg catalogs get-iam-policy "${catalog}" \
+          --project="${project}" --format=json >/tmp/policy-before.json
+
+        preexisting=false
+        if python3 - "${member}" <<'PY'
+        import json,sys
+        p=json.load(open('/tmp/policy-before.json')); m=sys.argv[1]
+        raise SystemExit(0 if any(b.get('role')=='roles/biglake.admin' and m in b.get('members',[]) for b in p.get('bindings',[])) else 1)
+        PY
+        then preexisting=true; fi
+
+        if [[ "${preexisting}" != true ]]; then
+          python3 - "${member}" <<'PY'
+        import json,sys
+        src='/tmp/policy-before.json'; dst='/tmp/policy-grant.json'; m=sys.argv[1]
+        p=json.load(open(src)); bindings=p.setdefault('bindings',[])
+        b=next((x for x in bindings if x.get('role')=='roles/biglake.admin'),None)
+        if b is None:
+            b={'role':'roles/biglake.admin','members':[]}; bindings.append(b)
+        if m not in b['members']: b['members'].append(m)
+        b['members']=sorted(set(b['members']))
+        json.dump(p,open(dst,'w'),separators=(',',':'))
+        PY
+          gcloud biglake iceberg catalogs set-iam-policy "${catalog}" /tmp/policy-grant.json \
+            --project="${project}" --quiet >/dev/null
+        fi
+
+        # A catalog-scoped BigLake Admin grant must unlock namespace administration.
+        gcloud biglake iceberg namespaces list --catalog="${catalog}" --project="${project}" --format=json >/dev/null
+
+        if [[ "${preexisting}" != true ]]; then
+          gcloud biglake iceberg catalogs get-iam-policy "${catalog}" \
+            --project="${project}" --format=json >/tmp/policy-current.json
+          python3 - "${member}" <<'PY'
+        import json,sys
+        src='/tmp/policy-current.json'; dst='/tmp/policy-revoke.json'; m=sys.argv[1]
+        p=json.load(open(src)); out=[]
+        for b in p.get('bindings',[]):
+            if b.get('role')=='roles/biglake.admin':
+                b=dict(b); b['members']=[x for x in b.get('members',[]) if x!=m]
+                if not b['members']: continue
+            out.append(b)
+        p['bindings']=out
+        json.dump(p,open(dst,'w'),separators=(',',':'))
+        PY
+          gcloud biglake iceberg catalogs set-iam-policy "${catalog}" /tmp/policy-revoke.json \
+            --project="${project}" --quiet >/dev/null
+        fi
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 180s
