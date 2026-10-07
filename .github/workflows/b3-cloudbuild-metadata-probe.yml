@@ -1,0 +1,51 @@
+name: B3 Cloud Build metadata probe
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b3-cloudbuild-metadata-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GCP_PROJECT_ID: gen-lang-client-0593591102
+      GCP_REGION: us-central1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Submit read-only Cloud Build metadata probe
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat > /tmp/b3-metadata-probe.yaml <<'YAML'
+          steps:
+            - name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+              entrypoint: bash
+              args:
+                - -ceu
+                - |
+                  url="https://biglake.googleapis.com/iceberg/v1/restcatalog/v1/projects/gen-lang-client-0593591102/catalogs/janus_core_dev/namespaces/b2_core_fixed_20261007/tables/benchmark_v1"
+                  token="$(gcloud auth print-access-token)"
+                  code="$(curl -sS -o /workspace/table.json -w '%{http_code}' -H "Authorization: Bearer ${token}" "${url}")"
+                  echo "biglake_table_get_http=${code}"
+                  test "${code}" = "200"
+          options:
+            logging: CLOUD_LOGGING_ONLY
+          YAML
+          gcloud builds submit --no-source \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --config=/tmp/b3-metadata-probe.yaml \
+            --format='value(id)'
