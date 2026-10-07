@@ -1,0 +1,49 @@
+name: Batch controller state probe
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/batch-controller-state-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GCP_PROJECT_ID: gen-lang-client-0593591102
+      GCP_REGION: us-central1
+      JOB_NAME: janus-batch-controller
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read persisted controller state
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          before="$(gcloud run jobs executions list --job="${JOB_NAME}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --limit=1 --format='value(metadata.name)')"
+          gcloud run jobs execute "${JOB_NAME}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --command=python \
+            --args="^@^-c@import base64;exec(base64.b64decode('aW1wb3J0IGpzb24KZnJvbSBpbmdlc3Rpb25fY29yZS5fX21haW5fXyBpbXBvcnQgX2NvbnRyb2xfcGxhbmUKYz1fY29udHJvbF9wbGFuZSgpCnRyeToKICAgIHdpdGggYy5jb25uZWN0aW9uLmN1cnNvcigpIGFzIGN1cjoKICAgICAgICBjdXIuZXhlY3V0ZSgiIiJTRUxFQ1Qgb2NjdXJyZW5jZV9pZCwgc2NoZWR1bGVkX2F0LCBzdGF0ZQogICAgICAgICAgICAgICAgICAgICAgIEZST00gY29udHJvbC5iYXRjaF9vY2N1cnJlbmNlcwogICAgICAgICAgICAgICAgICAgICAgIFdIRVJFIHN0YXRlLT4+J3N0YXR1cycgSU4gKCdwZW5kaW5nJywnZGlzcGF0Y2hpbmcnLCdydW5uaW5nJywnYW1iaWd1b3VzJywnZmFpbGVkJykKICAgICAgICAgICAgICAgICAgICAgICBPUkRFUiBCWSBzY2hlZHVsZWRfYXQsIG9jY3VycmVuY2VfaWQKICAgICAgICAgICAgICAgICAgICAgICBMSU1JVCAyMDAiIiIpCiAgICAgICAgcm93cz1jdXIuZmV0Y2hhbGwoKQogICAgb3V0PVtdCiAgICBmb3Igb2lkLCBzY2hlZHVsZWRfYXQsIHN0YXRlIGluIHJvd3M6CiAgICAgICAgb3V0LmFwcGVuZCh7CiAgICAgICAgICAgICJvY2N1cnJlbmNlX2lkIjogb2lkLAogICAgICAgICAgICAic2NoZWR1bGVkX2F0Ijogc2NoZWR1bGVkX2F0Lmlzb2Zvcm1hdCgpIGlmIHNjaGVkdWxlZF9hdCBlbHNlIE5vbmUsCiAgICAgICAgICAgICJiYXRjaCI6IHN0YXRlLmdldCgiYmF0Y2giKSwKICAgICAgICAgICAgImpvYiI6IHN0YXRlLmdldCgiam9iIiksCiAgICAgICAgICAgICJzdGF0dXMiOiBzdGF0ZS5nZXQoInN0YXR1cyIpLAogICAgICAgICAgICAiZGVwZW5kZW5jaWVzIjogc3RhdGUuZ2V0KCJkZXBlbmRlbmNpZXMiKSwKICAgICAgICAgICAgImVudl9uYW1lcyI6IHNvcnRlZChbaXRlbVswXSBmb3IgaXRlbSBpbiAoc3RhdGUuZ2V0KCJlbnYiKSBvciBbXSkgaWYgaXNpbnN0YW5jZShpdGVtLChsaXN0LHR1cGxlKSkgYW5kIGl0ZW1dKSwKICAgICAgICAgICAgInJlYXNvbiI6IHN0YXRlLmdldCgicmVhc29uIiksCiAgICAgICAgfSkKICAgIHByaW50KGpzb24uZHVtcHMob3V0LCBzb3J0X2tleXM9VHJ1ZSkpCmZpbmFsbHk6CiAgICBjLmNsb3NlKCk='))" \
+            --task-timeout=5m \
+            --wait
+          execution="$(gcloud run jobs executions list --job="${JOB_NAME}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --limit=1 --format='value(metadata.name)')"
+          test -n "${execution}"
+          test "${execution}" != "${before}"
+          echo "probe_execution=${execution}"
+          gcloud logging read \
+            "resource.type=cloud_run_job AND resource.labels.job_name=${JOB_NAME} AND labels.\"run.googleapis.com/execution_name\"=\"${execution}\"" \
+            --project="${GCP_PROJECT_ID}" \
+            --limit=100 \
+            --order=asc \
+            --format='value(timestamp,severity,textPayload,jsonPayload.message)'
