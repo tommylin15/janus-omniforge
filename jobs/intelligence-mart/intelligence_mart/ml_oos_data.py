@@ -88,6 +88,10 @@ def inspect_dataset(manifest: dict, store) -> dict:
         raise ValueError("ML/OOS identity schema mismatch")
     if identity["query_contract_version"] != QUERY_CONTRACT_VERSION:
         raise ValueError("unsupported ML/OOS query contract")
+    bounds = identity["date_bounds"]
+    if not isinstance(bounds, list) or len(bounds) != 2 or str(bounds[0]) > str(bounds[1]) \
+            or str(bounds[1]) != str(identity["analysis_as_of"]):
+        raise ValueError("invalid ML/OOS date bounds")
     if manifest.get("core_snapshot_id") != identity["core_snapshot_id"] \
             or manifest.get("analysis_as_of") != identity["analysis_as_of"] \
             or manifest.get("query_contract_version") != identity["query_contract_version"] \
