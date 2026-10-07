@@ -94,7 +94,7 @@ A 組不再列 active TODO；下一個 active work 為 B 組。
 B 組開始五 specialist／cache 收斂前，先完成 [BigQuery analytics 架構決策](decision-2026-10-06-bigquery-analytics-over-iceberg.md) 的資料讀取邊界；此優先序不代表 BigQuery resource 已建立或啟用。
 
 - [x] 抽出 exact-snapshot analytics reader；既有 PyIceberg path 先包成 reference／fallback，不改 canonical write path。完成證據見 [B1 reader](archive/group-b-b1-reader-acceptance-2026-10-07.md)。
-- [ ] 建立 BigQuery analytics adapter／compatibility probe，證明固定 Core snapshot 的資料／schema／null／時間／provenance fidelity；未通過前不得成為唯一 reader。
+- [ ] 建立 BigQuery analytics adapter／compatibility probe，證明固定 Core snapshot 的資料／schema／null／時間／provenance fidelity；未通過前不得成為唯一 reader。B2 adapter／contract tests、已授權 us-central1 資源與三張 fixed-snapshot bounded live row compare 已通過；正式 shared catalog／完整 schema evolution／partition scan acceptance 尚未完成，見 [B2 runbook](runbook-bigquery-compatibility.md)。
 - [ ] 禁止 Storage Read API 與 `bigquery.readsessions.*` 需求；不得加入 `google-cloud-bigquery-storage`。大量 ML input 以 SQL 縮減後 export versioned GCS Parquet。
 - [ ] 建立每日盤後 liquid-500 screening：EOD canonical data ready 後對約 500 檔做低成本 screening／cross-sectional ranking；BigQuery 通過 fidelity gate 後承接這條 compute。不得擴成 500×5 深度 specialist，也不把 User API、Ledger、private owner path 或整套 Core full copy 搬入 BigQuery。
 - [ ] 加入 bounded query／column／partition guards、processed bytes／elapsed／peak RSS／GCS I/O／artifact growth telemetry，未知成本不補 0。

@@ -47,7 +47,7 @@ A 組已完成 implementation、tests／CI、dev deployment、runtime readback �
 - 禁止 BigQuery Storage Read API；大量 training input 採 SQL 縮減後 export versioned GCS Parquet。
 - B 組第一優先是抽出 exact-snapshot analytics reader、保留 PyIceberg reference/fallback，再做 BigQuery fidelity/cost/performance canary；未證明固定 Core snapshot 一致前不得切 default。
 - Active cadence 已統一：每個交易日 EOD 做 500 檔低成本 screening；完整五 specialist 僅對 `active watchlist ∪ effective holdings` 依 dirty dependency 增量更新；retrain／calibration／OOS evaluation／reconciliation 的 target schedule 為每月第一個週六 10:30（Asia/Taipei）。
-- **目前只有架構與執行順序核准，沒有 evidence 顯示 BigQuery／BigLake resource 已建立或 API/IAM 已核准。** 需要新增付費 API/resource、catalog/dataset/connection 或 IAM 時仍依 PROJECT_RULES 取得明確授權。
+- **架構決策本身不代表 resource／IAM 授權。** B2 本輪的 dataset／connection／bucket-scoped IAM／固定 external tables 已另取得使用者明確授權並建立，詳見下方 B2 checkpoint；其他新增資源或權限仍依 PROJECT_RULES。
 
 B 組架構決策不代表 specialist 已完成；A 組已於 2026-10-06 完成並結案，下一步進入 B 組。
 
@@ -70,7 +70,7 @@ B0 已完成 implementation、deployment readback 與固定真實 dev Core snaps
 
 固定 B0 Core snapshot 的真實 dev execution `janus-intelligence-mart-9krkb` success：92,653 rows、500 screening 與 25 specialist artifact hashes 均與 B0 一致。OOS raw hash 不同，逐欄比對僅有最大 `2.84e-14` 的浮點尾差，全部 input hashes 與非數值內容一致。Elapsed 800.966 s、peak RSS 688.98 MiB、LLM tokens 0；不宣稱效能提升或五 specialist 整體完成。
 
-完整證據見 [B1 reader 驗收](archive/group-b-b1-reader-acceptance-2026-10-07.md)。**下一步 B2 BigQuery adapter／compatibility；尚未建立或核准新的付費 API/resource/IAM。**
+完整證據見 [B1 reader 驗收](archive/group-b-b1-reader-acceptance-2026-10-07.md)。**目前 B2 partial**：使用者已核准並建立 `us-central1` 的 `janus_analytics_dev` dataset、`janus_core_probe` connection、dev-core bucket-scoped objectViewer 與三張固定 B0 snapshot external tables（無到期期限）；來源仍留在 Iceberg/GCS。Adapter／20 項 contract tests 通過，PyIceberg 保持預設。三張 fixed-snapshot bounded live query 共 320 列與 PyIceberg 逐列相等，計費 31,457,280 bytes；未知 estimate 保留 null。依使用者最新確認，unknown estimate 改採整次 execution ≤1 GiB（1,024 MiB）／每 query ≤60 秒策略。正式 shared catalog／partition scan／完整 workload acceptance 尚未完成。程序與限制見 [B2 runbook](runbook-bigquery-compatibility.md)。
 
 ## 現行產品決策
 

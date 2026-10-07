@@ -1,0 +1,2 @@
+# Opt-in B2 compatibility environment; not installed in the serving/Mart image.
+google-cloud-bigquery==3.46.1
