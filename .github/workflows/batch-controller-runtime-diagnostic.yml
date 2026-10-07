@@ -40,37 +40,46 @@ jobs:
             --job="${JOB_NAME}" \
             --project="${GCP_PROJECT_ID}" \
             --region="${GCP_REGION}" \
-            --limit=8 \
-            --format='table(metadata.name,status.startTime,status.completionTime,status.succeededCount,status.failedCount,status.cancelledCount,status.conditions[0].state,status.conditions[0].message)'
+            --limit=12 \
+            --format=json > /tmp/executions.json
+          jq -r '.[] | [
+              .metadata.name,
+              (.status.startTime // ""),
+              (.status.completionTime // ""),
+              (.status.succeededCount // 0),
+              (.status.failedCount // 0),
+              (.status.cancelledCount // 0),
+              (.status.conditions[0].message // "")
+            ] | @tsv' /tmp/executions.json
 
-          latest="$(gcloud run jobs executions list \
-            --job="${JOB_NAME}" \
+          failed="$(jq -r '[.[] | select((.status.failedCount // 0) > 0)][0].metadata.name // empty' /tmp/executions.json)"
+          test -n "${failed}"
+          echo "=== failed execution: ${failed} ==="
+          gcloud run jobs executions describe "${failed}" \
             --project="${GCP_PROJECT_ID}" \
             --region="${GCP_REGION}" \
-            --limit=1 \
-            --format='value(metadata.name)')"
-          test -n "${latest}"
+            --format=json > /tmp/failed-execution.json
 
-          echo "=== latest execution: ${latest} ==="
-          gcloud run jobs executions describe "${latest}" \
-            --project="${GCP_PROJECT_ID}" \
-            --region="${GCP_REGION}" \
-            --format='yaml(metadata.name,status.startTime,status.completionTime,status.succeededCount,status.failedCount,status.cancelledCount,status.conditions,status.logUri)'
+          jq '{
+            name: .metadata.name,
+            startTime: .status.startTime,
+            completionTime: .status.completionTime,
+            failedCount: .status.failedCount,
+            conditions: .status.conditions,
+            controller_env: [
+              .. | objects | select(has("name") and (.name | test("^BATCH_CONTROLLER_(MODE|NOT_BEFORE|MANUAL_REQUEST_ID)$"))) | {name, value}
+            ]
+          }' /tmp/failed-execution.json
 
-          start="$(gcloud run jobs executions describe "${latest}" \
-            --project="${GCP_PROJECT_ID}" \
-            --region="${GCP_REGION}" \
-            --format='value(status.startTime)')"
-          echo '=== latest execution raw log payloads ==='
+          echo '=== failed execution logs ==='
           gcloud logging read \
-            "resource.type=cloud_run_job AND resource.labels.job_name=${JOB_NAME} AND timestamp>=\"${start}\"" \
+            "resource.type=cloud_run_job AND resource.labels.job_name=${JOB_NAME} AND labels.\"run.googleapis.com/execution_name\"=\"${failed}\"" \
             --project="${GCP_PROJECT_ID}" \
             --limit=200 \
             --order=asc \
             --format=json > /tmp/controller-log.json
-          jq -c --arg latest "${latest}" '
+          jq -c '
             .[]
-            | select((.labels["run.googleapis.com/execution_name"] // "") == "" or .labels["run.googleapis.com/execution_name"] == $latest)
             | {
                 timestamp,
                 severity,
@@ -83,10 +92,3 @@ jobs:
             | select((.message | ascii_downcase | contains("id_token")) | not)
             | select((.message | ascii_downcase | contains("private_key")) | not)
           ' /tmp/controller-log.json
-
-          echo '=== scheduler candidates ==='
-          gcloud scheduler jobs list \
-            --location="${GCP_REGION}" \
-            --project="${GCP_PROJECT_ID}" \
-            --filter='name:janus' \
-            --format='table(name,schedule,timeZone,state,status.code,status.message,lastAttemptTime)' || true
