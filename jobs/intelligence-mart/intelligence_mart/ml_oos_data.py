@@ -12,6 +12,8 @@ from urllib.parse import urlparse
 ARTIFACT_KIND = "mart_ml_oos_dataset_v1"
 DATASET_SCHEMA_VERSION = "b5-ml-oos-v1"
 QUERY_CONTRACT_VERSION = "b5-sql-reduction-v1"
+LABEL_HORIZON_TRADING_DAYS = 20
+COHORT_STRIDE_TRADING_DAYS = 5
 REQUIRED_COLUMNS = {
     "symbol",
     "trade_date",
@@ -92,6 +94,9 @@ def inspect_dataset(manifest: dict, store) -> dict:
     if not isinstance(bounds, list) or len(bounds) != 2 or str(bounds[0]) > str(bounds[1]) \
             or str(bounds[1]) != str(identity["analysis_as_of"]):
         raise ValueError("invalid ML/OOS date bounds")
+    if int(identity["label_horizon_trading_days"]) != LABEL_HORIZON_TRADING_DAYS \
+            or int(identity["cohort_stride_trading_days"]) != COHORT_STRIDE_TRADING_DAYS:
+        raise ValueError("unsupported ML/OOS horizon/stride contract")
     if manifest.get("core_snapshot_id") != identity["core_snapshot_id"] \
             or manifest.get("analysis_as_of") != identity["analysis_as_of"] \
             or manifest.get("query_contract_version") != identity["query_contract_version"] \
