@@ -1,7 +1,7 @@
 {
   "intent": "read-only-cutover-guard",
-  "sha": "0b93d99d42aaff662a3408d749d70aa9d04b1042",
-  "purpose": "Read-only GHCR Job image plan and reversible pinned AR rollback mappings; never apply",
+  "sha": "8f6e7891e280cd021e25e1f036acedc28e3dbcec",
+  "purpose": "Read-only fresh full-test GHCR Jobs gate after global lease-fenced API and Scheduler drill; no apply",
   "apply": false,
-  "attempt": 5
+  "attempt": 6
 }
