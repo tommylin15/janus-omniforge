@@ -1,0 +1,6 @@
+{
+  "intent": "preflight-ghcr-jobs",
+  "sha": "0b93d99d42aaff662a3408d749d70aa9d04b1042",
+  "scope": "readonly",
+  "purpose": "Confirm four public GHCR digests, live Job images, execution and Scheduler fencing before migration"
+}
