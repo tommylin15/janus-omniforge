@@ -36,6 +36,7 @@ def classify(execution: str, data: object) -> dict:
         "task_count": None,
         "condition_states": [],
         "terminal_confirmed": False,
+        "terminal_outcome": "UNKNOWN",
     }
     if not EXECUTION_RE.fullmatch(execution) or not isinstance(data, dict):
         return result
@@ -73,7 +74,31 @@ def classify(execution: str, data: object) -> dict:
             return result
         if not re.fullmatch(r"[a-zA-Z_]{1,40}", kind) or not re.fullmatch(r"[A-Z_]{1,40}", state):
             return result
-        conds.append({"type": kind, "state": state})
+        reason = cond.get("executionReason")
+        if reason is not None and (
+            not isinstance(reason, str) or not re.fullmatch(r"[A-Z_]{1,64}", reason)
+        ):
+            return result
+        conds.append({"type": kind, "state": state, "execution_reason": reason})
+    # Official Cloud Run v2 Condition.State defines CONDITION_FAILED as a
+    # *terminal reconciliation failure*. An execution can fail before any
+    # tasks are instantiated and have no completionTime; such a terminal
+    # failure must never be presented as success or as an active task.
+    completed = [c for c in conds if c["type"] == "Completed"]
+    bad_reasons = {"JOB_STATUS_SERVICE_POLLING_ERROR", "CANCELLING",
+                   "DELAYED_START_PENDING"}
+    terminal_failed = (
+        not reconciling and len(completed) == 1
+        and completed[0]["state"] == "CONDITION_FAILED"
+        and completed[0]["execution_reason"] not in bad_reasons
+        and counters["runningCount"] in (None, 0)
+    )
+    terminal_succeeded = (
+        not reconciling and bool(data.get("completionTime"))
+        and len(completed) == 1
+        and completed[0]["state"] == "CONDITION_SUCCEEDED"
+        and counters["runningCount"] in (None, 0)
+    )
     result.update(
         v2_readback="READABLE",
         readback_reason="NONE",
@@ -83,10 +108,12 @@ def classify(execution: str, data: object) -> dict:
         running_count=counters["runningCount"],
         task_count=counters["taskCount"],
         condition_states=conds[:10],
-        terminal_confirmed=bool(data.get("completionTime")) and not reconciling,
+        terminal_confirmed=terminal_failed or terminal_succeeded,
+        terminal_outcome=("FAILED_TERMINAL_CONDITION" if terminal_failed else
+                          "SUCCEEDED_TERMINAL_CONDITION" if terminal_succeeded else "UNKNOWN"),
     )
-    # A completion timestamp is evidence of termination, not evidence of
-    # successful execution or permission to retry/cancel/modify the Job.
+    # Terminal failed reconciliation is not a successful Job, and never
+    # authorizes retry/cancel/delete/image mutation without a separate fence.
     return result
 
 
