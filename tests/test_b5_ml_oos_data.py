@@ -258,3 +258,11 @@ def test_b5_bigquery_timeout_and_byte_budget_guards():
     assert 'f"bigquery-{label}-result"' in source
     assert 'f"bigquery-{label}-cancel"' in source
     assert "maximum_bytes_billed=self.remaining" in source
+
+
+def test_b5_non_idempotent_export_does_not_automatically_retry_failed_jobs():
+    source = (ROOT / "scripts/gcp/b5-ml-oos-data.py").read_text()
+    assert "job_retry=None,  # Never blindly resubmit" in source
+    assert "job.result(timeout=remaining, job_retry=None)" in source
+    assert "B5_QUERY event=failed" in source
+    assert "job_id={job.job_id}" in source

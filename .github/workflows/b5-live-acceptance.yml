@@ -293,6 +293,13 @@ jobs:
           def tail(path):
               p=Path(path)
               return p.read_text(errors='replace')[-12000:] if p.exists() else None
+          def stage_trace():
+              p=Path('/tmp/b5-build.log')
+              if not p.exists():
+                  return []
+              # Cloud Logging returns newest records first; retain stages separately.
+              return [line for line in p.read_text(errors='replace').splitlines()
+                      if 'B5_STAGE ' in line or 'B5_QUERY ' in line][:200]
           evidence={
               "schema_version":"b5-live-acceptance-v1",
               "generated_at":datetime.now(timezone.utc).isoformat(),
@@ -303,6 +310,7 @@ jobs:
               "tests_log_tail":tail('/tmp/b5-tests.log'),
               "deploy_log_tail":tail('/tmp/b5-deploy.log'),
               "cloud_build_log_tail":tail('/tmp/b5-build.log'),
+              "cloud_build_stage_trace":stage_trace(),
               "cloud_build_submit_stderr":tail('/tmp/b5-submit.stderr'),
               "constraints":{
                   "project":"gen-lang-client-0593591102",

@@ -235,15 +235,23 @@ class QueryBudget:
                     labels={"janus_gate": "b5", "janus_workload": label[:63].replace("_", "-")},
                 ),
                 timeout=18,
+                job_retry=None,  # Never blindly resubmit an immutable EXPORT DATA job.
             ),
         )
+        print(f"B5_QUERY event=submitted label={label} job_id={job.job_id}", flush=True)
         try:
             remaining = QUERY_TIMEOUT_SECONDS - (time.monotonic() - started)
             rows = stage_call(
                 f"bigquery-{label}-result", remaining,
-                lambda: list(job.result(timeout=remaining)),
+                lambda: list(job.result(timeout=remaining, job_retry=None)),
             )
-        except Exception:
+        except Exception as exc:
+            error_result = job.error_result or {}
+            print(
+                f"B5_QUERY event=failed label={label} job_id={job.job_id} "
+                f"error_type={type(exc).__name__} bq_reason={error_result.get('reason', 'unknown')}",
+                flush=True,
+            )
             try:
                 stage_call(f"bigquery-{label}-cancel", 10, lambda: job.cancel(timeout=8))
             except Exception:
