@@ -149,3 +149,13 @@ def test_unverified_pretask_failures_still_block_job_release():
     assert report["status"] == "BLOCKED"
     assert "execution_janus-private-pipeline_unfenced" in report["blockers"]
     assert report["historical_failed_pretask_terminal_count"] == 0
+
+
+
+def test_jobs_live_gate_never_accepts_an_apply_request():
+    text=(ROOT/".github/workflows/ghcr-jobs-cutover-gate.yml").read_text()
+    assert '.intent=="read-only-cutover-guard" and .apply==false' in text
+    assert 'historical_failed_pretask_terminal_count' not in text or "ghcr_execution_v2_readback.py" in text
+    assert "gcloud run jobs update" not in text
+    assert "gcloud scheduler jobs pause" not in text
+    assert "gcloud run jobs execute" not in text
