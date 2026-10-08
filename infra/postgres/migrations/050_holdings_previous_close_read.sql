@@ -3,6 +3,7 @@ BEGIN;
 -- PHASE: publication-apply
 -- Publication schema belongs to janus_publication. Reuse published public
 -- OHLCV only; never grant the public role access to owner positions.
+-- The migration change also schedules API deployment after the ACL gate.
 SET ROLE janus_publication;
 GRANT USAGE ON SCHEMA publication TO janus_private_api;
 GRANT SELECT ON publication.stock_serving_recent TO janus_private_api;

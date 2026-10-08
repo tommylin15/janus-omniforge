@@ -238,6 +238,7 @@ jobs:
               - 'tests/test_mobile_ledger_consumer.py'
               - 'tests/test_batch_controller.py'
             api_runtime:
+              - 'infra/postgres/migrations/050_holdings_previous_close_read.sql'
               - '.dockerignore'
               - 'doc/runbook-data-supplement.md'
               - 'scripts/gcp/verify-dev.sh'
