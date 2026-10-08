@@ -53,7 +53,7 @@ jobs:
           checks = [
               ("gcloud_version", ["gcloud", "version", "--format=json"]),
               ("project", ["gcloud", "projects", "describe", project, "--format=json"]),
-              ("service_usage", ["gcloud", "services", "describe", "cloudscheduler.googleapis.com",
+              ("service_usage", ["gcloud", "services", "list", "--enabled",
                                   f"--project={project}", "--format=json"]),
               ("scheduler_locations", ["gcloud", "scheduler", "locations", "list",
                                        f"--project={project}", "--format=json"]),
@@ -93,7 +93,7 @@ jobs:
                           record["scheduler_permissions_mentioned"] = permissions[:8]
                   elif name == "service_usage":
                       data = json.loads(done.stdout)
-                      record["api_state"] = data.get("state", "UNKNOWN")
+                      record["api_state"] = "ENABLED" if any("cloudscheduler.googleapis.com" in (item.get("config", {}).get("name", "") or item.get("name", "")) for item in data) else "NOT_IN_ENABLED_LIST"
                   elif name == "scheduler_locations":
                       data = json.loads(done.stdout)
                       record["us_central1_listed"] = any(
