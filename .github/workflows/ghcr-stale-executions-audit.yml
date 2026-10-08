@@ -105,6 +105,12 @@ jobs:
             > /tmp/ghcr-executions/v2-readback.json
           jq -e '.resource_writes==0 and .cancel_executions==false and
                  .authorize_job_promotion==false' /tmp/ghcr-executions/v2-readback.json >/dev/null
+          echo 'Cloud Run v2 execution state (sanitized read-only status):'
+          jq -c '{scope,expected_count,all_readable,all_terminal_confirmed,
+                  records:[.records[] | {execution,v2_readback,reconciling,
+                    start_observed,completion_observed,running_count,task_count,
+                    condition_states,terminal_confirmed}]}' \
+            /tmp/ghcr-executions/v2-readback.json
 
           jq -s --arg job "$JOB" --argjson total "$(jq length /tmp/ghcr-executions/list.json)" \
             --argjson candidates "$count" \
