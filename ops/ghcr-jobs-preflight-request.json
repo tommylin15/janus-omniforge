@@ -2,6 +2,6 @@
   "intent": "preflight-ghcr-jobs",
   "sha": "0b93d99d42aaff662a3408d749d70aa9d04b1042",
   "scope": "readonly",
-  "purpose": "Read-only fallback for explicitly known Scheduler names, not proof of complete enumeration",
-  "attempt": 2
+  "purpose": "Post-IAM-grant GHCR Jobs and regional Scheduler readback (read-only); verify actual live target and schedule",
+  "attempt": 3
 }
