@@ -126,3 +126,13 @@ def test_candidate_same_sha_retry_requires_immutable_revision_and_skips_deploy()
     assert 'gcloud run deploy "$SERVICE"' in workflow
     assert 'ghcr_candidate_lease_guard.py' in workflow
     assert workflow.index('ghcr_release_lease.py assert') < workflow.index('gcloud run deploy "$SERVICE"')
+
+
+def test_revision_reuse_allows_only_exact_ghcr_or_observed_cloud_run_cache_mirror():
+    workflow = (ROOT / ".github/workflows/ghcr-candidate-dev.yml").read_text()
+    assert 'cache.us-docker.pkg.dev/' in workflow
+    assert '(.spec.containers[0].image == $image)' in workflow
+    assert '(.spec.containers[0].image == ("cache.us-docker.pkg.dev/" + $image))' in workflow
+    assert '(.status.conditions | any(.type=="Ready" and .status=="True"))' in workflow
+    assert 'gcloud artifacts docker' not in workflow
+    assert 'us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc' not in workflow
