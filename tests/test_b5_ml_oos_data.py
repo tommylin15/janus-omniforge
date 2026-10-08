@@ -311,6 +311,8 @@ def test_b6_dirty_parameter_selective_invalidation(field, value):
     identity = manifest_for(parquet_bytes())["identity"]
     changed = deepcopy(identity)
     changed[field] = value
+    if field == "analysis_as_of":
+        changed["date_bounds"][-1] = value
     if field == "cohort_stride_trading_days":
         with pytest.raises(ValueError, match="horizon/stride"):
             script["b6_dependency_key"](changed)
