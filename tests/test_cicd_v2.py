@@ -176,3 +176,114 @@ def test_document_only_push_emits_exact_sha_ci_without_code_tests():
     assert "    branches: [main]" in workflow
     assert "paths-ignore:" not in workflow
     assert v2.ci_matrix(["doc/status.md", "README.md"])["include"] == []
+
+def _revision_cleanup():
+    spec = importlib.util.spec_from_file_location(
+        "revision_cleanup", ROOT / "scripts/gcp/cloud_run_revision_cleanup.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _revision_fixture(*names, active=None, rollback=None, tags=()):
+    current = active or names[-1]
+    service = {
+        "status": {
+            "conditions": [{"type": "Ready", "status": "True"}],
+            "latestCreatedRevisionName": current,
+            "latestReadyRevisionName": current,
+            "traffic": [{"revisionName": current, "percent": 100}]
+            + [{"revisionName": tag, "percent": 0, "tag": "candidate"} for tag in tags],
+        },
+        "spec": {"traffic": [{"revisionName": current, "percent": 100}]},
+    }
+    revisions = [
+        {"metadata": {"name": name,
+                      "creationTimestamp": f"2026-10-08T00:{index:02}:00Z",
+                      "labels": {"serving.knative.dev/service": "janus-api"}}}
+        for index, name in enumerate(names)
+    ]
+    return service, revisions
+
+
+def test_revision_retention_keeps_recent_ten_and_previous_successful():
+    cleanup = _revision_cleanup()
+    names = [f"r{i}" for i in range(1, 14)]
+    service, revisions = _revision_fixture(*names)
+    result = cleanup.plan(service, revisions, "janus-api", "r13", "r12")
+    assert result["retained"] == sorted(names[-10:])
+    assert result["delete"] == ["r1", "r2", "r3"]
+    assert result["retention_count"] == 10
+    assert result["total"] == 13
+
+
+def test_revision_retention_protects_tagged_candidate_above_ten():
+    cleanup = _revision_cleanup()
+    names = [f"r{i}" for i in range(1, 13)]
+    service, revisions = _revision_fixture(*names, tags=("r2",))
+    result = cleanup.plan(service, revisions, "janus-api", "r12", "r11")
+    assert result["delete"] == ["r1"]
+    assert "r2" in result["retained"]
+    assert result["extra_protected"] == ["r2"]
+    assert len(result["retained"]) == 11
+
+
+@pytest.mark.parametrize("violation", [
+    "partial_traffic", "unverified_current", "missing_rollback",
+    "wrong_service", "dynamic_traffic", "not_ready",
+])
+def test_revision_retention_fail_closed(violation):
+    cleanup = _revision_cleanup()
+    service, revisions = _revision_fixture("r1", "r2", "r3")
+    current, rollback = "r3", "r2"
+    if violation == "partial_traffic":
+        service["status"]["traffic"] = [
+            {"revisionName": "r3", "percent": 70}, {"revisionName": "r2", "percent": 30}]
+    elif violation == "unverified_current":
+        service["status"]["latestCreatedRevisionName"] = "r4"
+    elif violation == "missing_rollback":
+        rollback = "missing"
+    elif violation == "wrong_service":
+        revisions[0]["metadata"]["labels"]["serving.knative.dev/service"] = "other-service"
+    elif violation == "dynamic_traffic":
+        service["spec"]["traffic"] = [{"latestRevision": True, "percent": 100}]
+    elif violation == "not_ready":
+        service["status"]["conditions"] = []
+    with pytest.raises(cleanup.CleanupBlocked):
+        cleanup.plan(service, revisions, "janus-api", current, rollback)
+
+
+def test_revision_retention_no_delete_with_ten_or_fewer_versions():
+    cleanup = _revision_cleanup()
+    for n in (2, 4, 10):
+        names = [f"r{i}" for i in range(1, n + 1)]
+        service, revisions = _revision_fixture(*names)
+        assert cleanup.plan(service, revisions, "janus-api", names[-1], names[-2])["delete"] == []
+
+
+def test_revision_retention_old_rollback_is_protected_even_outside_latest_ten():
+    cleanup = _revision_cleanup()
+    names = [f"r{i}" for i in range(1, 14)]
+    service, revisions = _revision_fixture(*names)
+    result = cleanup.plan(service, revisions, "janus-api", "r13", "r2")
+    assert result["retained"] == sorted([*names[-10:], "r2"])
+    assert result["delete"] == ["r1", "r3"]
+
+
+def test_revision_retention_apply_requires_acceptance_and_mutex(monkeypatch):
+    cleanup = _revision_cleanup()
+    for key in ("JANUS_RELEASE_ACCEPTANCE", "JANUS_DEPLOYMENT_MUTEX_HELD",
+                "JANUS_ROLLBACK_DIGEST_VERIFIED"):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setattr(cleanup, "_inventory", lambda *args: pytest.fail("must not query on missing apply gates"))
+    result = cleanup.main(["--project", "dev", "--region", "us-central1",
+                           "--service", "janus-api", "--current-revision", "r3",
+                           "--rollback-revision", "r2", "--apply"])
+    assert result == 2
+
+
+def test_revision_cleanup_never_calls_cloud_build_or_registries():
+    source = (ROOT / "scripts/gcp/cloud_run_revision_cleanup.py").read_text()
+    assert "builds submit" not in source
+    assert "artifacts docker images delete" not in source
+    assert '"run", "revisions", "delete"' in source

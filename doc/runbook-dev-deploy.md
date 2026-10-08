@@ -71,6 +71,33 @@ WIF 診斷身分具備指定 project 的 `cloudbuild.builds.get`／必要時 `cl
 
 舊 image inventory／cleanup 僅按仍存在的歷史 Artifact Registry／runtime 引用稽核，**不屬於新 release 的必經步驟**；未確認所有有效 revision／Job／復原引用前，不進行 delete-all 或 aggressive cleanup。既有 dev 業務 data path 的 GCS／Iceberg 保留，不受「新部署管線不寫 GCS」誤傷。
 
+### 3.4 成功 Release 後保留最新 10 個 Cloud Run Service Revision（待串接）
+
+此階段僅對**既有 Cloud Run Service** 執行，不作用於 Job、Job executions、GHCR images、GCS 或 Artifact Registry。只有 full Release tests／authenticated candidate acceptance／100% production traffic promotion／rollback receipt readback 全部 PASS，且已持有同一個跨 run deployment mutex 時才可執行。
+
+1. 從**本次 release outputs** 取得 `PROMOTED_REVISION`，從**上一個成功發布 receipt** 取得 `LAST_SUCCESSFUL_REVISION` 與對應 digest／可重建設定；不得依檔名排序猜成功版。
+2. 先以唯讀 inventory／dry-run 確認 current 是 Ready／latestCreated／latestReady、100% 流量指向已驗證的 current；任何 traffic/tag/候選引用都保護。缺欄位、權限或依賴時停止。
+3. 上游才可設置 env gates，並透過 WIF 且最小化的 `run.revisions.delete` 權限執行：
+
+   ```bash
+   python scripts/gcp/cloud_run_revision_cleanup.py \
+     --project "$GCP_PROJECT_ID" --region "$GCP_REGION" \
+     --service "$SERVICE_NAME" --current-revision "$PROMOTED_REVISION" \
+     --rollback-revision "$LAST_SUCCESSFUL_REVISION"
+   # 僅在 acceptance、digest、mutex 真實證據已確認後：
+   export JANUS_RELEASE_ACCEPTANCE=PASS
+   export JANUS_DEPLOYMENT_MUTEX_HELD=true
+   export JANUS_ROLLBACK_DIGEST_VERIFIED=true
+   python scripts/gcp/cloud_run_revision_cleanup.py \
+     --project "$GCP_PROJECT_ID" --region "$GCP_REGION" \
+     --service "$SERVICE_NAME" --current-revision "$PROMOTED_REVISION" \
+     --rollback-revision "$LAST_SUCCESSFUL_REVISION" --apply
+   ```
+
+4. 對每個刪除候選再次 readback，保護所有流量／tag／最新／回滾引用；刪除後記錄 GitHub Actions 的非敏感摘要與 immediate readback。保留建立時間最新 10 個與所有流量／tag／候選／上次成功版保護引用；如保護集合超過 10 個，全部保留；cleanup fail／partial 不得掩飾已完成 release 的結果。
+
+**目前這段只定義下一版 Release 最後的可呼叫步驟，尚未接到新的 GitHub Actions GHCR release，因此沒有 live Revision 被自動刪除。** Cloud Run [官方限制](https://docs.cloud.google.com/run/docs/managing/revisions)：最新、唯一及仍可接受流量的 Revision 不可刪；刪除不可復原，無請求且無最低執行個體的舊版通常不產生執行費用；revision-level min instances 與 tag 可能令舊版持續計費。
+
 ## 4. PostgreSQL migration
 
 Migration 必須使用 repository 內版本化 SQL／migration tooling，不直接在正式資料表手改 schema。

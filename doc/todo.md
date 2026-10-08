@@ -5,6 +5,7 @@
 - [ ] 驗證 GHCR package public／匿名 pull／SHA→digest provenance，使用 `ghcr.io/...@sha256:...` 直接部署既有 Cloud Run。
 - [ ] 完成 WIF 最小 IAM、Cloud Run 0% candidate + tag URL、authenticated owner／OAuth／PnL／MCP acceptance、明確流量 promotion／rollback。
 - [ ] Cloud Run Jobs 的執行／Scheduler fence、image snapshot、canary、promotion／回滾，跨 run mutex、published SHA baseline 與 idempotency。
+- [ ] 成功 Release 的最後階段，Cloud Run Service Revision 保留建立時間最近 10 個，加上現役、上一成功版及流量／候選保護引用；tag、流量、候選與未知依賴不得強制刪除。需將 cleanup helper 接入新 Actions GHCR 發布、驗證 mutex／live dry-run→apply／readback 後才能關閉此項。
 - [ ] 可選 Cloud Build **唯讀** status／failed steps／遮罩錯誤摘要 → GitHub Actions Logs → ChatGPT readback；不得觸發 Cloud Build。
 - [ ] 確認新 release 不觸發 Cloud Build／不主動寫入 GCS／Artifact Registry、不新增常駐 VM；完成新路徑 live dev acceptance，盤點舊路徑依賴後才停用舊發布入口（不刪業務資料／復原映像）。
 

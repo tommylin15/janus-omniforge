@@ -3,6 +3,7 @@
 使用者已核准將發布路徑轉為 **ChatGPT → GitHub → GitHub Actions → GCP API → GitHub Actions Logs → ChatGPT**：Actions 必須完成 full Release tests、公開 GHCR 映像發布及固定 digest；Cloud Run Service 0% candidate → authenticated dev acceptance → 明確 promotion／rollback；既有 Cloud Build 僅可 WIF 唯讀診斷並輸出遮罩摘要。新發布管線不呼叫 Cloud Build、不主動寫入 GCS／Artifact Registry、不新增常駐 Compute Engine。契約詳見 [CI/CD V2](spec/cicd-v2.md)；操作語意見 [dev runbook](runbook-dev-deploy.md)。
 
 **目前實作差距：** `ci-v2.yml` 仍是 selective CI；`cloudbuild-v2.yaml`／regional Trigger／Artifact Registry／GCS receipts 仍屬目前 `main`／dev 舊管線，尚無已驗證的 Actions full-test GHCR Release、WIF 新路徑／GHCR direct pull、0% candidate promotion／rollback 或四元件 live acceptance。因此新流程 **PARTIAL／未上線**。先前 V2 selective CI 的 PASS／shadow Build 的 SUCCESS 僅是舊流程 evidence，不代表新設計已完成。本輪只改文件；未更動 CI/CD workflow 或 GCP runtime。
+**2026-10-08 Revision retention 補充：**已定義成功 Release 後 Service Revision 保留最近 10 個、必要回滾及其他引用版本（可超過 10 個）的條件式清理規則，並新增 helper／單元測試。正式 GHCR Release workflow 尚未實作，也未啟用自動清理或刪除任何 live Revision；這仍是 PARTIAL，不能把刪除工具存在當作已完成 pipeline integration。
 
 
 # Janus Current Status

@@ -34,6 +34,13 @@
 4. 全部必需 gate PASS 才切換到該**明確 revision**（不得使用無驗證 `LATEST`），readback traffic、digest 與使用者可見功能。出錯則恢復先前 traffic／revision 並確認回滾讀回。
 5. **Cloud Run Jobs 沒有 0% traffic revision**。四元件中的 ingestion／Mart／private Job 需另設 digest pinning、active execution／Scheduler fence、快照、受控 canary、必要 migration、rollback；不能在 API 0% candidate 階段更新現役 Job image，也不能因單一 API PASS 提前宣稱四元件 Release 完成。
 6. 在新版本驗收完成前保留前一版已驗證 image／config 與必要 evidence；失敗／timeout 以 bounded readback、有限重試及復原為準，不重送未知狀態的 Job。跨 run／runtime deployment mutex 與 published baseline 的無 GCS 儲存方案**尚待實作與驗證**，不能僅用 Actions concurrency 宣稱安全。
+7. **每次成功 Release 最後做 Service Revision retention = 10。** 必須保留建立時間最近 10 個 Revision、已驗證 100% 流量的 current、上一成功版 rollback 與其他 traffic/tag/候選引用；更舊且不在保護集合的 Revision 才列 dry-run，之後 bounded apply。刪除前逐筆 readback，若 split traffic、仍有 candidate、找不到可信 rollback／mutex／digest 或保護集合超過 10 個時仍保留全部，絕不強制刪到只剩 10 個。Cloud Run Jobs 不適用 Service revision 清理。
+
+### 3.1 Revision cleanup helper 與啟用條件
+
+- `scripts/gcp/cloud_run_revision_cleanup.py` 提供唯讀 dry-run（預設）與受保護 `--apply`，使用 Cloud Run Service／Revision GCP API，不使用 Cloud Build、Artifact Registry 或 GCS。需最小化 IAM `run.revisions.delete` 權限。
+- 上游 Release workflow 必須真正驗證 full-test／authenticated acceptance、100% promotion／rollback digest readback 與跨 run mutex，才能設定 `JANUS_RELEASE_ACCEPTANCE=PASS`、`JANUS_DEPLOYMENT_MUTEX_HELD=true`、`JANUS_ROLLBACK_DIGEST_VERIFIED=true` 呼叫 `--apply`。這些 env gates 不是 receipt 簽章或 mutex 的替代品。
+- **目前尚無正式 GHCR Release Actions workflow，故 helper 不是已啟動的自動刪除；禁止串入 legacy Cloud Build／手動 recovery。** 新 release pipeline 驗收完成後再將它接在成功 promotion 與 readback 的最後階段。
 
 ## 4. WIF / IAM 與唯讀 Cloud Build 診斷
 
