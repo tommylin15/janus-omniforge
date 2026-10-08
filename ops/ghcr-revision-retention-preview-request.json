@@ -1,0 +1,9 @@
+{
+  "intent": "read-only-revision-retention-preview",
+  "service": "janus-api",
+  "project": "gen-lang-client-0593591102",
+  "region": "us-central1",
+  "allow_delete": false,
+  "allow_promotion": false,
+  "purpose": "Count protected GHCR API Cloud Run revisions before full acceptance; no deletion"
+}
