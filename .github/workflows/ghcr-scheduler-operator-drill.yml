@@ -73,22 +73,32 @@ jobs:
           # A lightweight Git tag is an atomic, durable lease visible to an
           # independent recovery workflow; never overwrite someone else's tag.
           lock_acquired=0
+          global_lock_acquired=0
           cleanup() {
             local previous="$?"
             trap - EXIT
-            if [[ "$lock_acquired" == 1 ]]; then
+            if [[ "$lock_acquired" == 1 || "$global_lock_acquired" == 1 ]]; then
               state="$(gcloud scheduler jobs describe "$JOB" --project="$PROJECT" --location="$REGION" --format='value(state)' 2>/dev/null || true)"
               if [[ "$state" == "PAUSED" ]]; then
                 gcloud scheduler jobs resume "$JOB" --project="$PROJECT" --location="$REGION" --quiet >/dev/null || true
               fi
               state="$(gcloud scheduler jobs describe "$JOB" --project="$PROJECT" --location="$REGION" --format='value(state)' 2>/dev/null || true)"
               if [[ "$state" == "ENABLED" ]]; then
-                gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$LOCK" >/dev/null || {
-                  echo "RECOVERY WARNING: enabled but lease cleanup failed" >&2
-                  exit 1
-                }
+                if [[ "$lock_acquired" == 1 ]]; then
+                  gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$LOCK" >/dev/null || {
+                    echo "RECOVERY WARNING: Scheduler enabled but drill tag cleanup failed" >&2
+                    exit 1
+                  }
+                fi
+                if [[ "$global_lock_acquired" == 1 ]]; then
+                  # Safe only after Scheduler ENABLED readback and prior drill-tag cleanup.
+                  python scripts/gcp/ghcr_release_lease.py release --safe-to-release || {
+                    echo "RECOVERY WARNING: global release lock retained" >&2
+                    exit 1
+                  }
+                fi
               else
-                echo "CRITICAL: Scheduler NOT verified ENABLED. Independent recovery workflow required." >&2
+                echo "CRITICAL: Scheduler NOT verified ENABLED. Both leases remain for recovery." >&2
                 exit 1
               fi
             fi
@@ -96,6 +106,10 @@ jobs:
           }
           trap cleanup EXIT
 
+          # Same atomic cross-run lease as GHCR API candidate; never use only
+          # Actions concurrency or a Scheduler-local tag to permit mutation.
+          python scripts/gcp/ghcr_release_lease.py acquire
+          global_lock_acquired=1
           gh api "repos/$GITHUB_REPOSITORY/git/refs" \
             -f ref="refs/tags/$LOCK" -f sha="$GITHUB_SHA" >/dev/null
           lock_acquired=1
@@ -123,27 +137,47 @@ jobs:
       LOCK: janus-ghcr-scheduler-drill-lease
       GH_TOKEN: ${{ github.token }}
     steps:
+      - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Independently restore a leftover drill lease
+      - name: Independently verify and recover only this run's global and drill lease
         shell: bash
         run: |
           set -Eeuo pipefail
-          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$LOCK" >/tmp/lock.json 2>/dev/null; then
+          global_state="$(python scripts/gcp/ghcr_release_lease.py inspect | jq -r .status)"
+          if [[ "$global_state" == "PRESENT" ]]; then
+            # Ownership is tied to this exact workflow run + attempt + SHA.
+            python scripts/gcp/ghcr_release_lease.py assert
+            # If the local tag is missing or unreadable, retain global lease:
+            # an unknown Scheduler operation must never be auto-unlocked.
+            gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$LOCK" > /tmp/lock.json || {
+              echo "BLOCKED: local drill lease missing or unreadable; global lease retained." >&2
+              exit 78
+            }
+            test "$(jq -r '.object.sha // empty' /tmp/lock.json)" = "$GITHUB_SHA" || exit 78
             before="$(gcloud scheduler jobs describe "$JOB" --project="$PROJECT" --location="$REGION" --format='value(state)')"
             if [[ "$before" == "PAUSED" ]]; then
               gcloud scheduler jobs resume "$JOB" --project="$PROJECT" --location="$REGION" --quiet >/dev/null
             elif [[ "$before" != "ENABLED" ]]; then
-              echo "BLOCKED: unknown state, keep lease for human recovery." >&2
+              echo "BLOCKED: unknown Scheduler state, keep both leases." >&2
               exit 78
             fi
             after="$(gcloud scheduler jobs describe "$JOB" --project="$PROJECT" --location="$REGION" --format='value(state)')"
             [[ "$after" == "ENABLED" ]] || exit 78
             gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$LOCK" >/dev/null
-            echo "Independent recovery PASS: Scheduler ENABLED, lease cleared."
+            python scripts/gcp/ghcr_release_lease.py release --safe-to-release
+            echo "Independent Scheduler recovery PASS: ENABLED, both owned leases cleared."
+          elif [[ "$global_state" == "ABSENT" ]]; then
+            # No shared lease can authorize touching a surviving local tag.
+            if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$LOCK" >/dev/null 2>&1; then
+              echo "BLOCKED: drill tag exists but global lease absent; do not remove." >&2
+              exit 78
+            fi
+            echo "No global lease; local drill-tag existence not proven. No Scheduler mutation."
           else
-            echo "No drill lease: no mutation. Original workflow likely cleaned up successfully."
+            echo "BLOCKED: unknown GitHub lease state." >&2
+            exit 78
           fi
