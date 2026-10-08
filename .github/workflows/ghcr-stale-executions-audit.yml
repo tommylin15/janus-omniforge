@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - ops/ghcr-stale-executions-audit-request.json
+      - .github/workflows/ghcr-stale-executions-audit.yml
   workflow_dispatch:
 permissions:
   contents: read
@@ -69,13 +70,14 @@ jobs:
             fi
           done < /tmp/ghcr-executions/unknown.txt
 
-          jq -ns --arg job "$JOB" --argjson total "$(jq length /tmp/ghcr-executions/list.json)" \
+          jq -s --arg job "$JOB" --argjson total "$(jq length /tmp/ghcr-executions/list.json)" \
             --argjson candidates "$count" \
             '{job:$job,total_listed:$total,unknown_candidate_count:$candidates,
               scanned_full_page:($total < 500),
               records:.,resource_writes:0,
               state:"INSPECTED_NOT_TERMINAL_CONFIRMED"}' \
             /tmp/ghcr-executions/detail.ndjson > evidence/stale-executions.json
+          jq -e '(.records | type) == "array" and .resource_writes == 0' evidence/stale-executions.json >/dev/null
           jq -c '{job,total_listed,unknown_candidate_count,scanned_full_page,
                   details:[.records[]|{execution,describe_status,start_time,completion_time,
                   running_count,conditions}]}' evidence/stale-executions.json
