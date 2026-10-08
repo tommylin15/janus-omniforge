@@ -308,6 +308,70 @@ class QueryBudget:
         return rows, item
 
 
+
+# B6 is a cache of B5-derived ML/OOS datasets, NOT the B4 specialist cache.
+_B6_FIELDS=("analysis_as_of","dataset_schema_version","query_contract_version",
+            "feature_version","model_version","source_tables","date_bounds",
+            "label_horizon_trading_days","cohort_stride_trading_days")
+
+def b6_dependency_key(identity):
+    """Exclude unrelated global Core updates, but never hide changed SQL sources."""
+    if not isinstance(identity,dict) or any(k not in identity for k in _B6_FIELDS):
+        raise ValueError("B6 incomplete dependency identity")
+    sources=identity["source_tables"]
+    if not isinstance(sources,dict) or set(sources)!={"core.ohlcv_v1"}:
+        raise ValueError("B6 unapproved source table dependency")
+    source=sources["core.ohlcv_v1"]
+    if not source.get("snapshot_id") or not str(source.get("metadata_location","")).startswith("gs://"):
+        raise ValueError("B6 missing source snapshot fence")
+    if identity["dataset_schema_version"]!=DATASET_SCHEMA_VERSION or identity["query_contract_version"]!=QUERY_CONTRACT_VERSION:
+        raise ValueError("B6 unsupported dataset/query version")
+    if identity["label_horizon_trading_days"]!=20 or identity["cohort_stride_trading_days"]!=5:
+        raise ValueError("B6 invalid horizon/stride")
+    bounds=identity["date_bounds"]
+    if not isinstance(bounds,list) or len(bounds)!=2 or bounds[0]>bounds[1] or bounds[1]!=identity["analysis_as_of"]:
+        raise ValueError("B6 invalid date bounds")
+    projection={"cache_contract":"b6-ml-oos-dirty-v1",**{k:identity[k] for k in _B6_FIELDS}}
+    return "sha256:"+sha256(json.dumps(projection,sort_keys=True,separators=(",",":")).encode()).hexdigest()
+
+def b6_validate_hit(manifest,uri,bucket,read):
+    """Strict immutable byte readback before reporting billed=0 cache reuse."""
+    from intelligence_mart.ml_oos_data import ARTIFACT_KIND
+    identity=manifest["identity"]
+    b6_dependency_key(identity)
+    if manifest.get("artifact_kind")!=ARTIFACT_KIND or manifest.get("storage_read_api_used") is not False or manifest.get("canonical_write") is not False:
+        raise ValueError("B6 cached artifact contract mismatch")
+    for field in ("core_snapshot_id","analysis_as_of","query_contract_version","feature_version","model_version"):
+        if manifest.get(field)!=identity.get(field):
+            raise ValueError("B6 original Core/feature lineage mismatch")
+    if not str(identity.get("core_snapshot_id","")).startswith("sha256:") or not str(identity.get("core_manifest_sha256","")).startswith("sha256:"):
+        raise ValueError("B6 missing immutable Core lineage")
+    prefix=manifest.get("dataset_prefix","")
+    if not prefix.startswith(f"gs://{bucket}/ml-oos-data/v1/") or not prefix.endswith("/") or uri!=prefix+"manifest.json":
+        raise ValueError("B6 cached manifest URI out of Mart scope")
+    retention=manifest.get("retention") or {}
+    if retention.get("policy")!="latest-referenced-oos-or-7d-unreferenced" or retention.get("reference_protected") is not True:
+        raise ValueError("B6 cache lost retention protection")
+    shards=manifest.get("parquet_shards")
+    if not isinstance(shards,list) or not 0<len(shards)<=64:
+        raise ValueError("B6 cached shards out of bound")
+    if manifest.get("dataset_content_hash")!=dataset_content_hash(identity,shards):
+        raise RuntimeError("B6 manifest content hash invalid")
+    total=0;used=set()
+    for shard in shards:
+        name=shard["uri"];size=shard["size_bytes"]
+        if not name.startswith(prefix) or not name.endswith(".parquet") or name in used or not isinstance(size,int) or size<=0:
+            raise ValueError("B6 cached shard reference invalid")
+        used.add(name);total+=size
+        if total>512*1024*1024:
+            raise ValueError("B6 cached data exceeds byte bound")
+        payload=read(name)
+        if len(payload)!=size or "sha256:"+sha256(payload).hexdigest()!=shard["sha256"]:
+            raise RuntimeError("B6 cached Parquet hash/size mismatch")
+    if total!=manifest.get("export_bytes") or not 0<int(manifest.get("row_count",0))<=500000:
+        raise ValueError("B6 cached rows/bytes mismatch")
+    return total
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
@@ -345,29 +409,57 @@ def main() -> None:
     prefix = f"ml-oos-data/v1/{identity_hash}/"
     manifest_uri = f"gs://{MART_BUCKET}/{prefix}manifest.json"
 
-    existing = stage_call("gcs-existing-list", 45, lambda: b2["gcs_list_objects"](MART_BUCKET, prefix))
+    # B6 pre-query lookup, bounded to existing immutable Mart artifacts.
+    dependency_key=b6_dependency_key(identity)
+    existing=stage_call("gcs-existing-list",45,lambda:b2["gcs_list_objects"](MART_BUCKET,prefix))
+    if existing and prefix+"manifest.json" not in {o["name"] for o in existing}:
+        raise RuntimeError("B6 partial immutable cache dataset")
     if existing:
-        names = {item["name"] for item in existing}
-        if prefix + "manifest.json" not in names:
-            raise RuntimeError("partial immutable B5 dataset exists without manifest")
-        manifest, _ = stage_call("gcs-existing-manifest", 45, lambda: b2["gcs_json"](manifest_uri))
-        if manifest.get("identity") != identity:
-            raise RuntimeError("existing B5 manifest identity conflict")
-        args.output.write_text(json.dumps({
-            "status": "pass",
-            "reused": True,
-            "manifest_uri": manifest_uri,
-            "dataset_content_hash": manifest["dataset_content_hash"],
-            "row_count": manifest["row_count"],
-            "export_bytes": manifest["export_bytes"],
-            "bigquery_jobs": [],
-            "total_billed_bytes": 0,
-            "storage_read_api_used": False,
-            "core_snapshot_id": core["snapshot_id"],
-            "analysis_as_of": core["analysis_as_of"],
-        }, indent=2, sort_keys=True) + "\n")
+        candidates=[prefix+"manifest.json"]
+    else:
+        inventory=stage_call("gcs-cache-list",45,lambda:b2["gcs_list_objects"](MART_BUCKET,"ml-oos-data/v1/"))
+        candidates=sorted({o["name"] for o in inventory if o["name"].startswith("ml-oos-data/v1/")
+                           and o["name"].endswith("/manifest.json")},reverse=True)
+    if len(candidates)>128:
+        raise RuntimeError("B6 immutable cache inventory bound exceeded")
+    check_start=time.monotonic()
+    for name in candidates:
+        candidate_uri=f"gs://{MART_BUCKET}/{name}"
+        manifest,manifest_sha=stage_call("gcs-cache-manifest",45,lambda u=candidate_uri:b2["gcs_json"](u))
+        if name==prefix+"manifest.json" and manifest.get("identity")!=identity:
+            raise RuntimeError("B6 exact identity collision")
+        try:
+            matches=manifest.get("artifact_kind")=="mart_ml_oos_dataset_v1" and b6_dependency_key(manifest["identity"])==dependency_key
+        except (ValueError,TypeError,KeyError):
+            matches=False
+        if not matches:
+            continue
+        def read_cached(uri):
+            remaining=240-(time.monotonic()-check_start)
+            if remaining<=0:
+                raise TimeoutError("B6 cache integrity deadline exceeded")
+            return stage_call("gcs-cache-shard",min(remaining,65),lambda:gcs_bytes(b2,uri))
+        verified_bytes=b6_validate_hit(manifest,candidate_uri,MART_BUCKET,read_cached)
+        if stage_call("catalog-pointer-post-cache",45,lambda:table_pointer(b2,"ohlcv_v1"))!=fence["metadata_location"]:
+            raise RuntimeError("B6 catalog changed during reuse")
+        reason="exact-identity" if manifest["identity"]==identity else "source-only-unchanged"
+        evidence={"status":"pass","reused":True,"cache_hit_verified":True,
+                  "cache_contract_version":"b6-ml-oos-dirty-v1",
+                  "dependency_cache_key":dependency_key,"reuse_reason":reason,
+                  "manifest_uri":candidate_uri,"manifest_sha256":"sha256:"+manifest_sha,
+                  "dataset_content_hash":manifest["dataset_content_hash"],
+                  "row_count":manifest["row_count"],"export_bytes":verified_bytes,
+                  "core_snapshot_id":manifest["identity"]["core_snapshot_id"],
+                  "artifact_core_snapshot_id":manifest["identity"]["core_snapshot_id"],
+                  "requested_core_snapshot_id":core["snapshot_id"],
+                  "analysis_as_of":core["analysis_as_of"],
+                  "bigquery_jobs":[],"total_billed_bytes":0,
+                  "storage_read_api_used":False}
+        print(f"B6_CACHE event=hit reason={reason} dependency={dependency_key}",flush=True)
+        args.output.write_text(json.dumps(evidence,indent=2,sort_keys=True)+"\n")
         print(args.output.read_text())
         return
+    print(f"B6_CACHE event=miss dependency={dependency_key} candidates={len(candidates)}",flush=True)
 
     from google.cloud import bigquery
 
@@ -439,6 +531,9 @@ def main() -> None:
         "row_count": row_count,
         "export_bytes": export_bytes,
         "dataset_content_hash": dataset_content_hash(identity, shards),
+        "derived_cache":{"contract_version":"b6-ml-oos-dirty-v1",
+                         "dependency_cache_key":dependency_key,
+                         "source_dependencies":["core.ohlcv_v1"]},
         "query": {
             "backend": "bigquery-shared-catalog",
             "dry_run_estimated_bytes": estimate,
@@ -470,6 +565,10 @@ def main() -> None:
     evidence = {
         "status": "pass",
         "reused": False,
+        "cache_contract_version":"b6-ml-oos-dirty-v1",
+        "dependency_cache_key":dependency_key,
+        "cache_hit_verified":False,
+        "reuse_reason":"cache-miss-materialized",
         "manifest_uri": manifest_uri,
         "manifest_sha256": "sha256:" + sha256(payload).hexdigest(),
         "dataset_content_hash": manifest["dataset_content_hash"],
@@ -483,6 +582,8 @@ def main() -> None:
         "dry_run_estimated_bytes": estimate,
         "storage_read_api_used": False,
         "core_snapshot_id": core["snapshot_id"],
+        "artifact_core_snapshot_id": core["snapshot_id"],
+        "requested_core_snapshot_id": core["snapshot_id"],
         "analysis_as_of": core["analysis_as_of"],
     }
     args.output.write_text(json.dumps(evidence, indent=2, sort_keys=True, default=str) + "\n")
@@ -490,4 +591,16 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as error:
+        # Do not label failed or incomplete BigQuery executions as 0 billed bytes.
+        parser=argparse.ArgumentParser(add_help=False)
+        parser.add_argument("--output",type=Path)
+        options,_=parser.parse_known_args()
+        if options.output:
+            options.output.write_text(json.dumps({
+                "status":"failed","cache_contract_version":"b6-ml-oos-dirty-v1",
+                "failure_code":type(error).__name__,
+                "total_billed_bytes":None,"storage_read_api_used":False})+"\n")
+        raise

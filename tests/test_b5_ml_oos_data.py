@@ -287,3 +287,66 @@ def test_b5_cloud_build_evidence_copy_uses_gcloud_entrypoint():
         "              args:\n"
         "                - storage"
     ) in workflow
+
+
+def test_b6_unrelated_global_core_snapshot_change_only_reuses_pinned_ohlcv():
+    import runpy
+    from copy import deepcopy
+    script = runpy.run_path(str(ROOT / "scripts/gcp/b5-ml-oos-data.py"))
+    identity = manifest_for(parquet_bytes())["identity"]
+    request = deepcopy(identity)
+    request["core_snapshot_id"] = "sha256:global-new"
+    request["core_manifest_sha256"] = "sha256:manifest-new"
+    assert script["b6_dependency_key"](identity) == script["b6_dependency_key"](request)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("feature_version", "3"), ("model_version", "next"),
+    ("analysis_as_of", "2026-10-07"), ("cohort_stride_trading_days", 6),
+])
+def test_b6_dirty_parameter_selective_invalidation(field, value):
+    import runpy
+    from copy import deepcopy
+    script = runpy.run_path(str(ROOT / "scripts/gcp/b5-ml-oos-data.py"))
+    identity = manifest_for(parquet_bytes())["identity"]
+    changed = deepcopy(identity)
+    changed[field] = value
+    if field == "cohort_stride_trading_days":
+        with pytest.raises(ValueError, match="horizon/stride"):
+            script["b6_dependency_key"](changed)
+    else:
+        assert script["b6_dependency_key"](identity) != script["b6_dependency_key"](changed)
+
+
+def test_b6_ohlcv_pointer_change_invalidates_derived_artifact():
+    import runpy
+    from copy import deepcopy
+    script = runpy.run_path(str(ROOT / "scripts/gcp/b5-ml-oos-data.py"))
+    original = manifest_for(parquet_bytes())["identity"]
+    changed = deepcopy(original)
+    changed["source_tables"]["core.ohlcv_v1"]["snapshot_id"] = 50
+    assert script["b6_dependency_key"](original) != script["b6_dependency_key"](changed)
+
+
+def test_b6_immutable_shard_readback_rejects_corruption_and_old_provenance_remains():
+    import runpy
+    script = runpy.run_path(str(ROOT / "scripts/gcp/b5-ml-oos-data.py"))
+    raw = parquet_bytes()
+    manifest = manifest_for(raw)
+    manifest["canonical_write"] = False
+    uri = manifest["dataset_prefix"] + "manifest.json"
+    assert script["b6_validate_hit"](manifest, uri, "mart", lambda _: raw) == len(raw)
+    with pytest.raises(RuntimeError, match="hash/size"):
+        script["b6_validate_hit"](manifest, uri, "mart", lambda _: raw + b"x")
+    manifest["retention"]["reference_protected"] = False
+    with pytest.raises(ValueError, match="retention"):
+        script["b6_validate_hit"](manifest, uri, "mart", lambda _: raw)
+
+
+def test_b6_rejects_new_unlisted_source_table():
+    import runpy
+    script = runpy.run_path(str(ROOT / "scripts/gcp/b5-ml-oos-data.py"))
+    identity = manifest_for(parquet_bytes())["identity"]
+    identity["source_tables"]["core.events_v1"] = {"snapshot_id": 42}
+    with pytest.raises(ValueError, match="unapproved"):
+        script["b6_dependency_key"](identity)
