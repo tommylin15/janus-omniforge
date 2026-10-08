@@ -1,0 +1,92 @@
+name: Janus GHCR Cloud Run 0-percent candidate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/ghcr-candidate-request.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: janus-service-candidate
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    environment: dev
+    env:
+      PROJECT: gen-lang-client-0593591102
+      REGION: us-central1
+      SERVICE: janus-api
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Inspect public GHCR digest and source-commit request
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test -f ops/ghcr-candidate-request.json
+          test "${GITHUB_REF}" = refs/heads/main
+          jq -e '.intent == "dev-api-zero-traffic" and (.sha|test("^[0-9a-f]{40}$")) and (.digest|test("^sha256:[0-9a-f]{64}$"))' ops/ghcr-candidate-request.json > /dev/null
+          sha="$(jq -r .sha ops/ghcr-candidate-request.json)"
+          digest="$(jq -r .digest ops/ghcr-candidate-request.json)"
+          git merge-base --is-ancestor "$sha" HEAD
+          image="ghcr.io/tommylin15/janus-api@${digest}"
+          # Verify without registry credentials; private or absent packages cannot deploy.
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends skopeo
+          skopeo inspect --no-creds "docker://${image}" > /tmp/ghcr-identity.json
+          test "$(jq -r .Digest /tmp/ghcr-identity.json)" = "$digest"
+          test "$(jq -r '.Labels["org.opencontainers.image.revision"]' /tmp/ghcr-identity.json)" = "$sha"
+          test "$(jq -r '.Labels["org.opencontainers.image.source"]' /tmp/ghcr-identity.json)" = "https://github.com/tommylin15/janus-omniforge"
+          echo "GHCR_PUBLIC_IMAGE=${image}" >> "$GITHUB_ENV"
+          echo "GHCR_EXACT_SHA=${sha}" >> "$GITHUB_ENV"
+      - name: Preflight dev API identity, traffic and minimum instances
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud run services describe "$SERVICE" --project="$PROJECT" --region="$REGION" --format=json > /tmp/service-before.json
+          jq -e '.status.conditions | any(.type=="Ready" and .status=="True")' /tmp/service-before.json >/dev/null
+          jq -e '[.status.traffic[]? | select((.percent // 0)>0)] | length == 1 and .[0].percent == 100' /tmp/service-before.json >/dev/null
+          # Revision-level minScale plus candidate tag could incur ongoing costs.
+          jq -e '((.spec.template.metadata.annotations["autoscaling.knative.dev/minScale"] // "0") | tonumber) == 0' /tmp/service-before.json > /dev/null
+          jq '{service:.metadata.name,active:[.status.traffic[]?|select((.percent//0)>0)|{revisionName,percent}],latestReady:.status.latestReadyRevisionName}' /tmp/service-before.json > /tmp/metadata-before.json
+          cat /tmp/metadata-before.json
+      - name: Create fixed-digest candidate without switching traffic
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          tag="ghcr-${GHCR_EXACT_SHA:0:12}"
+          gcloud run deploy "$SERVICE" --project="$PROJECT" --region="$REGION" --image="$GHCR_PUBLIC_IMAGE" --no-traffic --tag="$tag" --quiet > /dev/null
+          gcloud run services describe "$SERVICE" --project="$PROJECT" --region="$REGION" --format=json > /tmp/service-candidate.json
+          jq -e --arg tag "$tag" '[.status.traffic[]? | select(.tag==$tag)] | length == 1 and (.[0].percent // 0) == 0' /tmp/service-candidate.json >/dev/null
+          before="$(jq -r '.active[0].revisionName' /tmp/metadata-before.json)"
+          jq -e --arg old "$before" '[.status.traffic[]?|select((.percent//0)>0)] | length == 1 and .[0].revisionName == $old and .[0].percent == 100' /tmp/service-candidate.json >/dev/null
+          url="$(jq -r --arg tag "$tag" '.status.traffic[]|select(.tag==$tag)|.url' /tmp/service-candidate.json)"
+          [[ "$url" == https://* ]] || exit 2
+          for path in /health /api/v1/public/health; do
+            test "$(curl -sS --max-time 30 -o /dev/null -w '%{http_code}' "$url$path")" = 200
+          done
+          test "$(curl -sS --max-time 30 -o /dev/null -w '%{http_code}' "$url/api/v1/me/profile")" = 401
+          test "$(curl -fsS --max-time 30 "$url/app/build-id.txt")" = "$GHCR_EXACT_SHA"
+          {
+            echo "### Janus GHCR API candidate"
+            echo "Exact source SHA: $GHCR_EXACT_SHA"
+            echo "Immutable image: $GHCR_PUBLIC_IMAGE"
+            echo "Candidate tagged URL: $url"
+            echo "0% normal traffic; old 100% active revision: $before"
+            echo "Health and unauthenticated guard PASS; **authenticated owner/OAuth/MCP and four-Jobs acceptance not yet performed**."
+            echo "Promotion is deliberately NOT performed by this workflow."
+          } >> "$GITHUB_STEP_SUMMARY"
