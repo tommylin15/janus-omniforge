@@ -4,6 +4,13 @@
 
 用途：只回答「現在在哪裡、下一步是什麼、哪些尚未完成」。實作以 GitHub `main` 為準，完成狀態以 tests／CI、deployment、live runtime、trigger／workload、integration evidence 為準。完整 active queue 只看 [`todo.md`](todo.md)。
 
+## 2026-10-08 持股頁體驗與速度：ACTIVE
+
+- 新需求：官方漲跌金額／幅度、持股每日價格變動、較大紅綠資訊、頁首次導覽、摘要只留持股，正確性優先。
+- backend `53d655c`（官方昨收 batch read／日漲跌）、Flutter `11ee66f`（次導覽、較大卡片、非必要資料延後）、migration CI `6a5569c` 已提交。仍需 Flutter／API CI、050 dev migration、deployed revision 與真實 UI／Owner evidence。
+- 使用既有 PostgreSQL operational/current quote projections 與 Private Mart，不增加另一份沒有明確失效規則的正式快照表。此次不影響 B7 進度，原 A 組保留 CLOSED。
+- 完整追蹤見 [todo.md](todo.md)。
+
 ## 2026-10-08 B7 月度批次：ACTIVE（驗收中）
 
 - 真實手動 acceptance 使用 request ID `b7-monthly-live-20261008-v1`，在 controller dispatch 之前必須驗證 Mart dev image 指向 `fb07979a...`（嚴格 SHA）；未命中則 bounded wait 後 **fail-closed**，不得用舊 Mart 映像結案。

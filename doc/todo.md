@@ -87,6 +87,13 @@ A 組 implementation／CI／dev runtime 與兩項人工 gate 已於 2026-10-06 �
 - [latest-price／Ledger UI 驗收紀錄](archive/latest-price-ledger-ui-acceptance-2026-10-06.md)
 
 A 組不再列 active TODO；下一個 active work 為 B 組。
+## 2026-10-08 持股頁 UX／首屏加速（獨立於已結案 A 組及進行中的 B7）
+
+- [ ] 「持股／紀錄／報表／筆記」固定頁首、四格只顯示持股、字體放大，台股漲紅跌綠。
+- [ ] 官方昨收／當日每股漲跌／幅度與現持股價格變動有缺值、stale／日期與 owner-scoped guard；migration 050 真實驗收。
+- [ ] 首屏不等待年度交易歷史、PnL、重算狀態；版本、報價日期與狀態一致；量測 API latency P50／P95。
+- [ ] Flutter／Python targeted CI、dev deployment/migration、真實 User UI／Owner 一致性驗收。未通過維持 ACTIVE，不更動原 A 組 CLOSED 判定。
+
 ## B 組優先架構調整 acceptance
 
 > **B0～B6 均已 CLOSED / PASS。** B5 [data path](archive/group-b-b5-ml-oos-data-closure-2026-10-08.md) 與 B6 [derived cache](archive/group-b-b6-ml-oos-cache-closure-2026-10-08.md) 各有獨立 live evidence。**恢復原訂 B7 → B8 → B9**：B7 月度 retrain/calibration/OOS/reconciliation 已啟動（未驗收完）；B8 再集中比較 BigQuery/PyIceberg 的效能／成本與 fallback；B9 模型品質及整體驗收。不重做 B4 cache，不因文件回寫把 B7 標為完成。
