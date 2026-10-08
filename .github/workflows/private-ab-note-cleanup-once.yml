@@ -65,7 +65,7 @@ jobs:
               created:(.metadata.creationTimestamp // .createTime // null),
               conditions:[.status.conditions[]? | {type,status}]
           }]' <<< "${executions}"
-          jq -e '[.[] | select(.status.completionTime == null)] | length == 0' <<< "${executions}" >/dev/null
+          jq -e '[.[] | select(.status.completionTime == null and (([.status.conditions[]? | select(.type == "Completed" and (.status == "True" or .status == "False"))] | length) == 0))] | length == 0' <<< "${executions}" >/dev/null
           echo 'bounded_preflight=PASS'
       - name: Delete only the four identified note revisions via existing Job
         shell: bash
