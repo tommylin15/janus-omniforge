@@ -45,9 +45,12 @@ def classify(execution: str, data: object) -> dict:
     if data.get("job") not in (None, JOB, f"projects/{PROJECT}/locations/{REGION}/jobs/{JOB}"):
         result["readback_reason"] = "JOB_SCOPE_MISMATCH"
         return result
-    if not isinstance(data.get("reconciling"), bool):
-        result["readback_reason"] = "RECONCILING_FIELD_ABSENT_OR_BAD"
+    # Cloud Run v2 uses protobuf JSON: an omitted bool is its default False,
+    # not an unknown schema. Explicit null/string still fail closed.
+    if "reconciling" in data and not isinstance(data["reconciling"], bool):
+        result["readback_reason"] = "RECONCILING_FIELD_BAD"
         return result
+    reconciling = data.get("reconciling", False)
     if not isinstance(data.get("conditions"), list):
         result["readback_reason"] = "CONDITIONS_FIELD_ABSENT_OR_BAD"
         return result
@@ -74,13 +77,13 @@ def classify(execution: str, data: object) -> dict:
     result.update(
         v2_readback="READABLE",
         readback_reason="NONE",
-        reconciling=data["reconciling"],
+        reconciling=reconciling,
         start_observed=bool(data.get("startTime")),
         completion_observed=bool(data.get("completionTime")),
         running_count=counters["runningCount"],
         task_count=counters["taskCount"],
         condition_states=conds[:10],
-        terminal_confirmed=bool(data.get("completionTime")) and not data["reconciling"],
+        terminal_confirmed=bool(data.get("completionTime")) and not reconciling,
     )
     # A completion timestamp is evidence of termination, not evidence of
     # successful execution or permission to retry/cancel/modify the Job.
