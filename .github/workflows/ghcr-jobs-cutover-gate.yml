@@ -114,15 +114,29 @@ jobs:
                 }
               ][:20]' /tmp/ghcr-readback/executions.json > /tmp/ghcr-readback/ambiguous-private-executions.json
             fi
-            jq -cn --arg j "$job" \
+            rollback_ref="$(jq -r '.spec.template.spec.template.spec.containers[0].image // ""' /tmp/ghcr-readback/job.json)"
+            rollback_readable=false
+            if [[ "$rollback_ref" =~ @sha256:[0-9a-f]{64}$ ]]; then
+              rollback_digest="${rollback_ref##*@}"
+              if gcloud artifacts docker images describe "$rollback_ref" \
+                 --project="$PROJECT" --format=json \
+                 > /tmp/ghcr-readback/rollback-description.json 2>/dev/null; then
+                if jq -e --arg d "$rollback_digest" \
+                  '[.. | strings | select(contains($d))] | length > 0' \
+                  /tmp/ghcr-readback/rollback-description.json >/dev/null; then
+                  rollback_readable=true
+                fi
+              fi
+            fi
+            jq -cn --arg j "$job" --argjson rollback "$rollback_readable" \
               --slurpfile x /tmp/ghcr-readback/job.json \
               --slurpfile e /tmp/ghcr-readback/executions.json '{
                  key:$j,
                  value:{
                    image:($x[0].spec.template.spec.template.spec.containers[0].image // ""),
-                   # Pinned origin digest readback is necessary, but direct registry
-                   # pull/restore has not yet been proven. Never self-attest.
-                   rollback_image_readable:false,
+                   # AR digest existence is an independently checked rollback baseline,
+                   # not proof of a successful runtime rollback rehearsal.
+                   rollback_image_readable:$rollback,
                    execution_list_complete:($e[0]|length < 500),
                    potentially_active:([$e[0][] | select(
                      ((.status.completionTime // "") == "") and
