@@ -23,7 +23,7 @@ jobs:
       - name: Verify historical task inspection fail-closed contracts
         run: |
           python -m pip install pytest==8.4.2
-          python -m pytest -q tests/test_ghcr_stale_tasks_summary.py
+          python -m pytest -q tests/test_ghcr_stale_tasks_summary.py tests/test_ghcr_execution_v2_readback.py
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
@@ -98,12 +98,22 @@ jobs:
             fi
           done < /tmp/ghcr-executions/unknown.txt
 
+          # V2 control-plane GET, independent of the legacy gcloud v1 status.
+          # Never print access token or raw response (template/env may be private).
+          python3 scripts/gcp/ghcr_execution_v2_readback.py \
+            --executions-file /tmp/ghcr-executions/unknown.txt \
+            > /tmp/ghcr-executions/v2-readback.json
+          jq -e '.resource_writes==0 and .cancel_executions==false and
+                 .authorize_job_promotion==false' /tmp/ghcr-executions/v2-readback.json >/dev/null
+
           jq -s --arg job "$JOB" --argjson total "$(jq length /tmp/ghcr-executions/list.json)" \
             --argjson candidates "$count" \
             --slurpfile task_details /tmp/ghcr-executions/task-inspections.ndjson \
+            --slurpfile v2 /tmp/ghcr-executions/v2-readback.json \
             '{job:$job,total_listed:$total,unknown_candidate_count:$candidates,
               scanned_full_page:($total < 500),
               records:.,task_inspections:$task_details,
+              v2_control_plane_readback:$v2[0],
               task_readback_all_bounded:(($task_details|length)==$candidates and
                 ([$task_details[]|select(.task_readback=="READABLE_BOUNDED")]|length)==$candidates),
               tasks_terminal_confirmed:false,
@@ -123,7 +133,7 @@ jobs:
                 resource_writes,state,
                 details:[.records[]|{execution,describe_status,start_time,
                 completion_time,running_count,conditions}],task_inspections,
-                task_readback_all_bounded,tasks_terminal_confirmed}' evidence/stale-executions.json
+                task_readback_all_bounded,v2_control_plane_readback,tasks_terminal_confirmed}' evidence/stale-executions.json
             echo '~~~'
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
