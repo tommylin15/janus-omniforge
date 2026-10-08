@@ -96,6 +96,24 @@ jobs:
                   [.status.conditions[]? | select(.type=="Completed" and .status=="True")] | length>0
                 )]|length)
               }' >> /tmp/ghcr-readback/execution-summary.ndjson
+            if [[ "$job" == "janus-private-pipeline" ]]; then
+              jq '[
+                .[] | select(
+                  ((.status.completionTime // "") == "") and
+                  (([.status.conditions[]? | select(.type=="Completed" and .status=="True")]|length)==0)
+                ) | {
+                  execution:(.metadata.name // .name // "" | split("/")[-1]),
+                  created:(.metadata.creationTimestamp // .createTime // null),
+                  started:(.status.startTime // null),
+                  completed:(.status.completionTime // null),
+                  runningCount:(.status.runningCount // 0),
+                  succeededCount:(.status.succeededCount // 0),
+                  failedCount:(.status.failedCount // 0),
+                  cancelledCount:(.status.cancelledCount // 0),
+                  conditions:[.status.conditions[]? | {type,status,reason}]
+                }
+              ][:20]' /tmp/ghcr-readback/executions.json > /tmp/ghcr-readback/ambiguous-private-executions.json
+            fi
             jq -cn --arg j "$job" \
               --slurpfile x /tmp/ghcr-readback/job.json \
               --slurpfile e /tmp/ghcr-readback/executions.json '{
@@ -147,6 +165,10 @@ jobs:
           cat /tmp/ghcr-readback/report.json
           echo 'Sanitized execution-state aggregates:'
           cat /tmp/ghcr-readback/execution-summary.ndjson
+          if [[ -f /tmp/ghcr-readback/ambiguous-private-executions.json ]]; then
+            echo 'Private Pipeline ambiguous terminal-state metadata (no payloads):'
+            cat /tmp/ghcr-readback/ambiguous-private-executions.json
+          fi
           {
             echo '## Janus GHCR Jobs — actual cutover gate'
             echo 'Live metadata readback only. No Scheduler, Cloud Run Job, GCS,'
