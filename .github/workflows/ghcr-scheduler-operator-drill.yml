@@ -1,0 +1,139 @@
+name: Janus Scheduler operator safe pause-resume drill
+
+on:
+  push:
+    branches: [main]
+    paths: [ops/ghcr-scheduler-drill-request.json]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: janus-dev-scheduler-operator-drill
+  cancel-in-progress: false
+
+jobs:
+  drill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      PROJECT: gen-lang-client-0593591102
+      REGION: us-central1
+      JOB: janus-ingestion-daily
+      LOCK: janus-ghcr-scheduler-drill-lease
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Readback and reversible 3-second IAM operator drill
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="verify-existing-janus-scheduler-operator" and .project=="gen-lang-client-0593591102" and .region=="us-central1" and .job=="janus-ingestion-daily" and .allow_pause_resume==true and .allow_job_execution==false and .allow_image_change==false' \
+            ops/ghcr-scheduler-drill-request.json >/dev/null
+
+          # No side effects before all state, cadence, and overlap fences pass.
+          gcloud scheduler jobs list --project="$PROJECT" --location="$REGION" --format=json > /tmp/schedules.json
+          jq -e 'length==1 and .[0].state=="ENABLED" and .[0].schedule=="30 * * * *" and
+                  .[0].timeZone=="Asia/Taipei" and
+                  .[0].httpTarget.httpMethod=="POST" and
+                  (.[0].httpTarget.uri|endswith("/jobs/janus-batch-controller:run")) and
+                  (.[0].name|endswith("/janus-ingestion-daily"))' /tmp/schedules.json >/dev/null
+          minute="$(TZ=Asia/Taipei date +%M)"
+          until_next_tick="$(( (30 - 10#$minute + 60) % 60 ))"
+          if (( until_next_tick < 15 )); then
+            echo "BLOCKED: within 15 minutes of hourly :30 tick; no mutation."
+            exit 78
+          fi
+          gcloud run jobs executions list --job=janus-batch-controller \
+             --project="$PROJECT" --region="$REGION" --limit=25 --format=json > /tmp/controller-executions.json
+          jq -e '[.[] | select(
+             ((.status.runningCount // 0)>0) or
+             (((.status.completionTime // "")=="") and
+             (([.status.conditions[]?|select(.type=="Completed" and (.status=="True" or .status=="False"))]|length)==0)
+             and ((.status.startTime // "")!=""))
+          )]|length==0' /tmp/controller-executions.json >/dev/null
+
+          # A lightweight Git tag is an atomic, durable lease visible to an
+          # independent recovery workflow; never overwrite someone else's tag.
+          lock_acquired=0
+          cleanup() {
+            local previous="$?"
+            trap - EXIT
+            if [[ "$lock_acquired" == 1 ]]; then
+              state="$(gcloud scheduler jobs describe "$JOB" --project="$PROJECT" --location="$REGION" --format='value(state)' 2>/dev/null || true)"
+              if [[ "$state" == "PAUSED" ]]; then
+                gcloud scheduler jobs resume "$JOB" --project="$PROJECT" --location="$REGION" --quiet >/dev/null || true
+              fi
+              state="$(gcloud scheduler jobs describe "$JOB" --project="$PROJECT" --location="$REGION" --format='value(state)' 2>/dev/null || true)"
+              if [[ "$state" == "ENABLED" ]]; then
+                gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$LOCK" >/dev/null || {
+                  echo "RECOVERY WARNING: enabled but lease cleanup failed" >&2
+                  exit 1
+                }
+              else
+                echo "CRITICAL: Scheduler NOT verified ENABLED. Independent recovery workflow required." >&2
+                exit 1
+              fi
+            fi
+            exit "$previous"
+          }
+          trap cleanup EXIT
+
+          gh api "repos/$GITHUB_REPOSITORY/git/refs" \
+            -f ref="refs/tags/$LOCK" -f sha="$GITHUB_SHA" >/dev/null
+          lock_acquired=1
+
+          gcloud scheduler jobs pause "$JOB" --project="$PROJECT" --location="$REGION" --quiet >/dev/null
+          state="$(gcloud scheduler jobs describe "$JOB" --project="$PROJECT" --location="$REGION" --format='value(state)')"
+          [[ "$state" == "PAUSED" ]] || { echo "PAUSED readback failed" >&2; exit 1; }
+          sleep 3
+          gcloud scheduler jobs resume "$JOB" --project="$PROJECT" --location="$REGION" --quiet >/dev/null
+          after="$(gcloud scheduler jobs describe "$JOB" --project="$PROJECT" --location="$REGION" --format=json)"
+          jq -e '.state=="ENABLED" and .schedule=="30 * * * *" and
+                  .timeZone=="Asia/Taipei" and
+                  (.httpTarget.uri|endswith("/jobs/janus-batch-controller:run"))' <<< "$after" >/dev/null
+          echo "PASS: WIF pause/PAUSED readback/resume/ENABLED readback; no jobs executed or images updated"
+          echo "Scheduler operation drill PASS: pause → PAUSED → resume → ENABLED." >> "$GITHUB_STEP_SUMMARY"
+  independent-recovery:
+    needs: drill
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      PROJECT: gen-lang-client-0593591102
+      REGION: us-central1
+      JOB: janus-ingestion-daily
+      LOCK: janus-ghcr-scheduler-drill-lease
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Independently restore a leftover drill lease
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$LOCK" >/tmp/lock.json 2>/dev/null; then
+            before="$(gcloud scheduler jobs describe "$JOB" --project="$PROJECT" --location="$REGION" --format='value(state)')"
+            if [[ "$before" == "PAUSED" ]]; then
+              gcloud scheduler jobs resume "$JOB" --project="$PROJECT" --location="$REGION" --quiet >/dev/null
+            elif [[ "$before" != "ENABLED" ]]; then
+              echo "BLOCKED: unknown state, keep lease for human recovery." >&2
+              exit 78
+            fi
+            after="$(gcloud scheduler jobs describe "$JOB" --project="$PROJECT" --location="$REGION" --format='value(state)')"
+            [[ "$after" == "ENABLED" ]] || exit 78
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$LOCK" >/dev/null
+            echo "Independent recovery PASS: Scheduler ENABLED, lease cleared."
+          else
+            echo "No drill lease: no mutation. Original workflow likely cleaned up successfully."
+          fi
