@@ -1,0 +1,74 @@
+name: Janus GHCR prepromotion revision retention preview (read-only)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ghcr-revision-retention-preview.yml'
+      - 'ops/ghcr-revision-retention-preview-request.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: janus-ghcr-revision-preview
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PROJECT: gen-lang-client-0593591102
+      REGION: us-central1
+      SERVICE: janus-api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify fail-closed read-only preview contracts
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_ghcr_revision_retention_preview.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read only existing Janus API revisions and protected routes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="read-only-revision-retention-preview" and
+                 .service=="janus-api" and
+                 .project=="gen-lang-client-0593591102" and
+                 .region=="us-central1" and
+                 .allow_delete==false and .allow_promotion==false' \
+            ops/ghcr-revision-retention-preview-request.json >/dev/null
+          gcloud run services describe "$SERVICE" --project="$PROJECT" \
+            --region="$REGION" --format=json > /tmp/janus-api-service.json
+          gcloud run revisions list --service="$SERVICE" --project="$PROJECT" \
+            --region="$REGION" --format=json > /tmp/janus-api-revisions.json
+          python3 scripts/gcp/ghcr_revision_retention_preview.py \
+            --service-json /tmp/janus-api-service.json \
+            --revisions-json /tmp/janus-api-revisions.json \
+            > /tmp/revision-preview-safe.json
+          jq -e '.status=="PREPROMOTION_PREVIEW_ONLY" and
+                 .apply_authorized==false and .revisions_to_delete_now==0 and
+                 .resource_writes==0 and .latest_ten_count==10' \
+            /tmp/revision-preview-safe.json >/dev/null
+          cat /tmp/revision-preview-safe.json
+          {
+            echo '## Janus API revision retention — PREPROMOTION PREVIEW ONLY'
+            echo 'Live Cloud Run metadata readback: no service, revision, image,'
+            echo 'Scheduler, Job, GCS, registry or Cloud Build mutations.'
+            echo '~~~json'
+            cat /tmp/revision-preview-safe.json
+            echo '~~~'
+            echo '**Do not delete any revision before owner acceptance,'
+            echo '100% promotion readback, verified rollback and common mutex.**'
+          } >> "$GITHUB_STEP_SUMMARY"
