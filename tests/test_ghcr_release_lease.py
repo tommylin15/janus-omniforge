@@ -153,3 +153,17 @@ def test_live_drill_has_no_gcp_and_contender_rejected():
     assert 'if python scripts/gcp/ghcr_release_lease.py release' in workflow
     assert "gcloud " not in workflow
     assert "--force" not in workflow
+
+
+def test_inspect_permission_denied_does_not_look_absent():
+    api = FakeApi()
+    assert lease.get_ref(api, O1) is None
+    api.fail_get = True
+    with pytest.raises(lease.LeaseBlocked, match="lease_ref_readback_failed"):
+        lease.get_ref(api, O1)
+
+
+def test_independent_recovery_inspects_before_reporting_absent():
+    workflow = (MODULE.parents[2] / ".github/workflows/ghcr-release-lease-drill.yml").read_text()
+    assert 'python scripts/gcp/ghcr_release_lease.py inspect | jq -r .status' in workflow
+    assert 'if [[ "$state" != "ABSENT" ]]' in workflow
