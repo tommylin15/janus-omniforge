@@ -150,6 +150,7 @@ jobs:
                     -r jobs/intelligence-mart/requirements-bigquery-probe.lock
                   PYTHONUNBUFFERED=1 python -u scripts/gcp/b5-ml-oos-data.py --output /workspace/b5-export.json
             - name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+              entrypoint: gcloud
               args:
                 - storage
                 - cp

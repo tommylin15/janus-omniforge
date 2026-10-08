@@ -277,3 +277,13 @@ def test_b5_external_iceberg_export_requires_bounded_native_temp_materialization
     assert '"bigquery-export-child-readback"' in source
     assert "maximum_bytes_billed=self.remaining" in source
     assert "storage_read_api_used" in source
+
+
+def test_b5_cloud_build_evidence_copy_uses_gcloud_entrypoint():
+    workflow = (ROOT / ".github/workflows/b5-live-acceptance.yml").read_text()
+    assert (
+        "- name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim\n"
+        "              entrypoint: gcloud\n"
+        "              args:\n"
+        "                - storage"
+    ) in workflow
