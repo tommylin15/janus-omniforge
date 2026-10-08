@@ -1,7 +1,7 @@
 {
   "intent": "read-only-cutover-guard",
   "sha": "8f6e7891e280cd021e25e1f036acedc28e3dbcec",
-  "purpose": "Read-only fresh full-test GHCR Jobs gate after global lease-fenced API and Scheduler drill; no apply",
+  "purpose": "Re-derive old nine terminal failed pre-task executions via same-run V1 tasks and Cloud Run V2; dry-run only",
   "apply": false,
-  "attempt": 6
+  "attempt": 7
 }
