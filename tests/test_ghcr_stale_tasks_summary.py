@@ -52,6 +52,7 @@ def test_workflow_is_bounded_read_only_and_never_changes_execution():
     assert "gcloud run jobs executions tasks list" in content
     assert '--execution="$execution"' in content
     assert "--limit=100" in content
+    assert "--succeeded" in content  # gcloud must include succeeded tasks too
     assert "ghcr_stale_tasks_summary.py" in content
     assert "task_inspections:" in content
     assert "tasks_terminal_confirmed:false" in content
