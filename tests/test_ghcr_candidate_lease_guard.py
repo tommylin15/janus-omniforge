@@ -80,7 +80,7 @@ def test_workflow_has_acquisition_before_deploy_and_always_on_recovery():
     assert "if: always()" in text
     assert "ghcr_release_lease.py release --safe-to-release" in text
     assert text.index("ghcr_release_lease.py acquire") < text.index("gcloud run deploy")
-    assert text.index("ghcr_candidate_lease_guard.py") > text.index("gcloud run deploy")
+    assert text.index("python scripts/gcp/ghcr_candidate_lease_guard.py") > text.index("gcloud run deploy")
     assert "GH_TOKEN: @@{{ github.token }}" in text.replace("$", "@@")
     assert "--no-traffic" in text
     assert "gcloud builds submit" not in text
