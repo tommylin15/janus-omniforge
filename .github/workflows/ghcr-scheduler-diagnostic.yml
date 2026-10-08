@@ -1,3 +1,4 @@
+# Manual IAM readback recheck following Cloud Shell viewer-role binding; no mutations.
 name: Janus Scheduler WIF diagnostics (read-only)
 on:
   push:
