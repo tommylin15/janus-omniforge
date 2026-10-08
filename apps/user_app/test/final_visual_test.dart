@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -36,6 +38,20 @@ class FinalFakeApi extends legacy.Api {
 
   @override
   Future<dynamic> patch(String path, Map<String, dynamic> body) async => body;
+}
+
+class DeferredLedgerApi extends FinalFakeApi {
+  DeferredLedgerApi(super.values);
+  final history = Completer<dynamic>();
+
+  @override
+  Future<dynamic> get(String path) {
+    if (path.startsWith('/api/v1/me/journal/history')) {
+      reads.add(path);
+      return history.future;
+    }
+    return super.get(path);
+  }
 }
 
 void mobileView(WidgetTester tester) {
@@ -806,8 +822,8 @@ void main() {
       1,
     );
     expect(find.textContaining('現價 101.35 · 均價 100.00'), findsOneWidget);
-    expect(find.text('未實現 1'), findsOneWidget);
-    expect(find.text('1%'), findsOneWidget);
+    expect(find.byKey(const Key('holding-pnl-2330')), findsOneWidget);
+    expect(find.byKey(const Key('holding-return-2330')), findsOneWidget);
     final holdingPnl =
         tester.widget<Text>(find.byKey(const Key('holding-pnl-2330')));
     final holdingReturn =
@@ -1258,6 +1274,67 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(api.reads, contains('/api/v1/me/notes'));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('holdings paints before slow history, shows official daily move, and hides four metrics off holdings',
+      (tester) async {
+    mobileView(tester);
+    final year = DateTime.now().year;
+    final api = DeferredLedgerApi({
+      '/api/v1/me/portfolio/summary': {
+        'items': [{
+          'currency': 'TWD', 'market_value': '1622500',
+          'unrealized_pnl': '-65000', 'unrealized_return': '-0.0385',
+          'aggregate_status': 'available', 'valuation_date': '2026-10-08',
+        }]
+      },
+      '/api/v1/me/journal/positions': [{
+        'symbol': '2382', 'stock_name': '廣達', 'shares': '5000',
+        'currency': 'TWD', 'average_cost': '337.5', 'market_price': '324.5',
+        'unrealized_pnl': '-65000', 'unrealized_return': '-0.0385',
+        'price_status': 'available',
+      }],
+      '/api/v1/me/journal/pnl?year=$year': const [],
+      '/api/v1/me/journal/recalculation-status': {'status': 'IDLE'},
+      '/api/v1/me/portfolio/quotes': {
+        'positions': [{
+          'symbol': '2382', 'stock_name': '廣達', 'shares': '5000',
+          'currency': 'TWD', 'average_cost': '337.5',
+          'market_price': '324.5', 'unrealized_pnl': '-65000',
+          'unrealized_return': '-0.0385', 'price_status': 'available',
+          'change': '-10.5', 'change_percent': '-0.03134328358',
+          'day_change_amount': '-52500', 'previous_close': '335',
+          'previous_close_date': '2026-10-07',
+          'price_date': '2026-10-08', 'price_source': 'core_ohlcv',
+        }],
+        'items': [{
+          'currency': 'TWD', 'market_value': '1622500',
+          'unrealized_pnl': '-65000', 'unrealized_return': '-0.0385',
+          'aggregate_status': 'available', 'valuation_date': '2026-10-08',
+        }],
+        'checked_at': '2026-10-08T14:40:00+08:00',
+        'market_open': false, 'session': 'closed',
+      },
+    });
+    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(
+        api, now: () => DateTime.utc(2026, 10, 8, 7))));
+    await tester.pumpAndSettle();
+    expect(api.history.isCompleted, false);
+    final day = tester.widget<Text>(find.byKey(const Key('holding-day-amount-2382')));
+    expect(day.data, '-52,500');
+    final price = tester.widget<Text>(find.byKey(const Key('holding-latest-price-2382')));
+    expect(price.style?.color, fvLoss);
+    expect(find.text('持股市值'), findsOneWidget);
+    await tester.tap(find.text('紀錄'));
+    await tester.pump();
+    expect(find.text('持股市值'), findsNothing);
+    await tester.tap(find.text('報表'));
+    await tester.pump();
+    expect(find.text('持股市值'), findsNothing);
+    await tester.tap(find.text('筆記'));
+    await tester.pump();
+    expect(find.text('持股市值'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
