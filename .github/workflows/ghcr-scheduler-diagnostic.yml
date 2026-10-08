@@ -1,0 +1,126 @@
+name: Janus Scheduler WIF diagnostics (read-only)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ghcr-scheduler-diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: janus-scheduler-diag
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      PROJECT: gen-lang-client-0593591102
+      REGION: us-central1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Diagnose Cloud Scheduler API and IAM without mutations or raw error leakage
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p diag
+          python3 - <<'PY'
+          import json, re, subprocess
+          from pathlib import Path
+
+          project = "gen-lang-client-0593591102"
+          region = "us-central1"
+          checks = [
+              ("gcloud_version", ["gcloud", "version", "--format=json"]),
+              ("project", ["gcloud", "projects", "describe", project, "--format=json"]),
+              ("service_usage", ["gcloud", "services", "describe", "cloudscheduler.googleapis.com",
+                                  f"--project={project}", "--format=json"]),
+              ("scheduler_locations", ["gcloud", "scheduler", "locations", "list",
+                                       f"--project={project}", "--format=json"]),
+              ("scheduler_list", ["gcloud", "scheduler", "jobs", "list",
+                                   f"--project={project}", f"--location={region}", "--format=json"]),
+              ("scheduler_known", ["gcloud", "scheduler", "jobs", "describe", "janus-ingestion-daily",
+                                    f"--project={project}", f"--location={region}", "--format=json"]),
+              ("project_iam_read", ["gcloud", "projects", "get-iam-policy", project, "--format=json"]),
+          ]
+
+          def classify(stderr):
+              patterns = (
+                  ("IAM_DENIED", r"PERMISSION_DENIED|permission.*denied|does not have.*permission|not authorized|forbidden"),
+                  ("API_DISABLED", r"SERVICE_DISABLED|has not been used|API.*disabled|enable.*API"),
+                  ("UNKNOWN_COMMAND", r"Invalid choice|unrecognized arguments|not a gcloud command|Unknown command"),
+                  ("NOT_FOUND", r"NOT_FOUND|was not found|does not exist|404"),
+                  ("INVALID_ARGUMENT", r"INVALID_ARGUMENT|400 Bad Request"),
+                  ("AUTH_FAILURE", r"UNAUTHENTICATED|unauthenticated|Login Required"),
+              )
+              for label, regex in patterns:
+                  if re.search(regex, stderr, re.I):
+                      return label
+              return "OTHER_ERROR" if stderr else "UNKNOWN_ERROR"
+
+          result = {}
+          for name, cmd in checks:
+              try:
+                  done = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                  record = {"status": "PASS" if done.returncode == 0 else "BLOCKED",
+                            "exit_code": done.returncode}
+                  if done.returncode:
+                      record["error_class"] = classify(done.stderr)
+                      # Only recognized GCP permission names from command errors;
+                      # no raw stderr (may contain service metadata).
+                      permissions = sorted(set(re.findall(r"cloudscheduler\\.[A-Za-z0-9_.]+", done.stderr)))
+                      if permissions:
+                          record["scheduler_permissions_mentioned"] = permissions[:8]
+                  elif name == "service_usage":
+                      data = json.loads(done.stdout)
+                      record["api_state"] = data.get("state", "UNKNOWN")
+                  elif name == "scheduler_locations":
+                      data = json.loads(done.stdout)
+                      record["us_central1_listed"] = any(
+                          item.get("locationId") == region or item.get("name", "").endswith("/"+region)
+                          for item in data)
+                  elif name == "scheduler_list":
+                      data = json.loads(done.stdout)
+                      record["jobs_visible"] = len(data)
+                      record["janus_names_only"] = sorted(
+                          item["name"].rsplit("/", 1)[-1] for item in data
+                          if "janus" in item.get("name", "").lower())[:35]
+                  elif name == "scheduler_known":
+                      data = json.loads(done.stdout)
+                      record["job_exists"] = bool(data.get("name"))
+                      record["state"] = data.get("state", "UNKNOWN")
+                  elif name == "project_iam_read":
+                      data = json.loads(done.stdout)
+                      member = "serviceAccount:janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com"
+                      record["matching_project_roles"] = sorted({
+                          binding.get("role", "") for binding in data.get("bindings", [])
+                          if member in binding.get("members", [])})[:40]
+                  result[name] = record
+              except (subprocess.TimeoutExpired, ValueError, json.JSONDecodeError):
+                  result[name] = {"status": "UNKNOWN_OR_TIMEOUT"}
+
+          Path("diag/scheduler.json").write_text(json.dumps(result, indent=2, sort_keys=True)+"\n")
+          print(json.dumps(result, sort_keys=True))
+          PY
+          {
+            echo '## Scheduler WIF diagnostics — readonly'
+            echo 'No Scheduler, IAM, Cloud Run, GCS, AR or Cloud Build mutation.'
+            echo '~~~json'
+            cat diag/scheduler.json
+            echo '~~~'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: scheduler-diagnostic
+          path: diag/scheduler.json
+          retention-days: 7
