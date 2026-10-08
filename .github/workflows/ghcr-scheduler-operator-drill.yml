@@ -147,37 +147,48 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          # GitHub readback errors other than a confirmed 404 MUST remain blocked.
+          check_local_ref() {
+            if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$LOCK" \
+                 > /tmp/local-drill-lock.json 2>/tmp/local-drill-lock.error; then
+              echo PRESENT
+            elif grep -q 'HTTP 404' /tmp/local-drill-lock.error; then
+              echo ABSENT
+            else
+              echo "BLOCKED: local drill tag unreadable (not confirmed 404)." >&2
+              return 78
+            fi
+          }
           global_state="$(python scripts/gcp/ghcr_release_lease.py inspect | jq -r .status)"
+          local_state="$(check_local_ref)"
           if [[ "$global_state" == "PRESENT" ]]; then
             # Ownership is tied to this exact workflow run + attempt + SHA.
             python scripts/gcp/ghcr_release_lease.py assert
-            # If the local tag is missing or unreadable, retain global lease:
-            # an unknown Scheduler operation must never be auto-unlocked.
-            gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$LOCK" > /tmp/lock.json || {
-              echo "BLOCKED: local drill lease missing or unreadable; global lease retained." >&2
-              exit 78
-            }
-            test "$(jq -r '.object.sha // empty' /tmp/lock.json)" = "$GITHUB_SHA" || exit 78
+            if [[ "$local_state" == "PRESENT" ]]; then
+              test "$(jq -r '.object.sha // empty' /tmp/local-drill-lock.json)" = "$GITHUB_SHA" || exit 78
+            fi
             before="$(gcloud scheduler jobs describe "$JOB" --project="$PROJECT" --location="$REGION" --format='value(state)')"
             if [[ "$before" == "PAUSED" ]]; then
+              # Paused without the original drill tag is ambiguous: fail closed.
+              if [[ "$local_state" != "PRESENT" ]]; then
+                echo "BLOCKED: paused Scheduler but local drill tag is missing." >&2
+                exit 78
+              fi
               gcloud scheduler jobs resume "$JOB" --project="$PROJECT" --location="$REGION" --quiet >/dev/null
             elif [[ "$before" != "ENABLED" ]]; then
-              echo "BLOCKED: unknown Scheduler state, keep both leases." >&2
+              echo "BLOCKED: unknown Scheduler state, keep global lease." >&2
               exit 78
             fi
-            after="$(gcloud scheduler jobs describe "$JOB" --project="$PROJECT" --location="$REGION" --format='value(state)')"
-            [[ "$after" == "ENABLED" ]] || exit 78
-            gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$LOCK" >/dev/null
+            after="$(gcloud scheduler jobs describe "$JOB" --project="$PROJECT" --location="$REGION" --format=json)"
+            jq -e '.state=="ENABLED" and .schedule=="30 * * * *" and .timeZone=="Asia/Taipei" and (.httpTarget.uri|endswith("/jobs/janus-batch-controller:run"))' <<< "$after" >/dev/null
+            if [[ "$local_state" == "PRESENT" ]]; then
+              gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$LOCK" >/dev/null
+            fi
             python scripts/gcp/ghcr_release_lease.py release --safe-to-release
-            echo "Independent Scheduler recovery PASS: ENABLED, both owned leases cleared."
-          elif [[ "$global_state" == "ABSENT" ]]; then
-            # No shared lease can authorize touching a surviving local tag.
-            if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$LOCK" >/dev/null 2>&1; then
-              echo "BLOCKED: drill tag exists but global lease absent; do not remove." >&2
-              exit 78
-            fi
-            echo "No global lease; local drill-tag existence not proven. No Scheduler mutation."
+            echo "Independent Scheduler recovery PASS: ENABLED, own global lease cleared."
+          elif [[ "$global_state" == "ABSENT" && "$local_state" == "ABSENT" ]]; then
+            echo "No global or local Scheduler drill lease: no Scheduler mutation."
           else
-            echo "BLOCKED: unknown GitHub lease state." >&2
+            echo "BLOCKED: residual Scheduler lease lacks matching owned global lease." >&2
             exit 78
           fi
