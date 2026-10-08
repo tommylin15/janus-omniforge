@@ -93,10 +93,10 @@ jobs:
           else
             # No own lease may mean released, never acquired, or another owner.
             # Fail closed on another owner instead of assuming it is safe.
-            if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/janus-ghcr-deploy-global-v1" \
-                 >/dev/null 2>&1; then
-              echo 'BLOCKED: lease exists but does not belong to this run; do not touch.' >&2
+            state="$(python scripts/gcp/ghcr_release_lease.py inspect | jq -r .status)"
+            if [[ "$state" != "ABSENT" ]]; then
+              echo 'BLOCKED: deployment lease exists but does not belong to this run.' >&2
               exit 78
             fi
-            echo 'No drill lease present; no mutation.' >> "$GITHUB_STEP_SUMMARY"
+            echo 'No drill lease present; verified Git ref absence; no mutation.' >> "$GITHUB_STEP_SUMMARY"
           fi
