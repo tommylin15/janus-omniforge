@@ -1,0 +1,104 @@
+name: Janus GHCR Jobs and candidate preflight
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ops/ghcr-jobs-preflight-request.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PROJECT: gen-lang-client-0593591102
+      REGION: us-central1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Resolve four public GHCR digests and inspect existing Jobs without mutation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="preflight-ghcr-jobs" and (.sha|test("^[0-9a-f]{40}$"))' ops/ghcr-jobs-preflight-request.json >/dev/null
+          sha="$(jq -r .sha ops/ghcr-jobs-preflight-request.json)"
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends skopeo jq
+          mkdir -p evidence
+          : > evidence/ghcr-images.ndjson
+          for component in api ingestion-core intelligence-mart private-pipeline; do
+            ref="ghcr.io/tommylin15/janus-${component}:sha-${sha}"
+            skopeo inspect --no-creds "docker://${ref}" > /tmp/manifest.json
+            digest="$(jq -r .Digest /tmp/manifest.json)"
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || exit 2
+            test "$(jq -r '.Labels["org.opencontainers.image.revision"]' /tmp/manifest.json)" = "$sha"
+            skopeo inspect --no-creds "docker://ghcr.io/tommylin15/janus-${component}@${digest}" >/dev/null
+            jq -n --arg component "$component" --arg digest "$digest" --arg sha "$sha"               '{component:$component,sha:$sha,public:true,digest:$digest}' >> evidence/ghcr-images.ndjson
+          done
+
+          : > evidence/jobs.ndjson
+          for entry in 'janus-ingestion-core:ingestion-core' 'janus-batch-controller:ingestion-core'                        'janus-intelligence-mart:intelligence-mart' 'janus-private-pipeline:private-pipeline'                        'janus-research-big-move-500:research'; do
+            job="${entry%%:*}"
+            component="${entry#*:}"
+            gcloud run jobs describe "$job" --project="$PROJECT" --region="$REGION" --format=json > /tmp/job.json
+            gcloud run jobs executions list --job="$job" --project="$PROJECT" --region="$REGION"               --limit=20 --format=json > /tmp/executions.json
+            jq -n --arg job "$job" --arg component "$component"               --slurpfile j /tmp/job.json --slurpfile e /tmp/executions.json '
+              {job:$job,component:$component,
+               image:($j[0].spec.template.spec.template.spec.containers[0].image // null),
+               serviceAccountPresent:(($j[0].spec.template.spec.template.spec.serviceAccountName // "")|length>0),
+               recentExecutions:($e[0]|length),
+               potentiallyActive:([$e[0][]|select(((.status.runningCount//0)>0) or
+                  (((.status.completionTime//"")=="") and
+                   (([.status.conditions[]?|select(.type=="Completed" and (.status=="True" or .status=="False"))]|length)==0)))]|length)}'                >> evidence/jobs.ndjson
+          done
+          gcloud run services describe janus-api --project="$PROJECT" --region="$REGION" --format=json             | jq '{latestReady:.status.latestReadyRevisionName,traffic:[.status.traffic[]?|{revisionName,percent,tag}]}'             > evidence/service.json
+
+          # Scheduler may be shared; any list failure stays UNKNOWN and blocks mutation.
+          if gcloud scheduler jobs list --project="$PROJECT" --location="$REGION" --format=json              >/tmp/schedulers.json 2>/dev/null; then
+            jq '[.[] | {name:(.name|split("/")[-1]),state,schedule,
+                 target:((.httpTarget.uri//"")|split("/")|.[-1])}]' /tmp/schedulers.json                  > evidence/schedulers.json
+          else
+            echo '{"status":"UNKNOWN_OR_BLOCKED"}' > evidence/schedulers.json
+          fi
+          {
+            echo '## GHCR Jobs cutover readiness — read-only'
+            echo "Source SHA: ${sha}"
+            echo '### Public immutable registry digests'
+            echo '~~~json'
+            jq -s . evidence/ghcr-images.ndjson
+            echo '~~~'
+            echo '### Existing Jobs and active execution fence'
+            echo '~~~json'
+            jq -s . evidence/jobs.ndjson
+            echo '~~~'
+            echo '### Existing Service traffic'
+            echo '~~~json'
+            cat evidence/service.json
+            echo
+            echo '~~~'
+            echo '### Scheduler readback'
+            echo '~~~json'
+            cat evidence/schedulers.json
+            echo
+            echo '~~~'
+            echo '**No Cloud Run Jobs updated/executed, no Cloud Build invoked, no GCS or Artifact Registry changes.**'
+          } >> "$GITHUB_STEP_SUMMARY"
+          jq -s -c . evidence/ghcr-images.ndjson
+          jq -s -c . evidence/jobs.ndjson
+          jq -c . evidence/service.json
+          jq -c . evidence/schedulers.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: janus-ghcr-jobs-preflight
+          path: evidence/*
+          retention-days: 14
