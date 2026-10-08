@@ -1,4 +1,5 @@
 {
-  "request_id": "group-a-batch-runtime-live-20261006",
-  "component": "batch-runtime"
+  "request_id": "ghcr-cutover-controller-scheduler-readback-20261008-v1",
+  "component": "private-schedulers",
+  "purpose": "Verify consolidated controller, absence of retired private direct schedulers, and bounded execution metadata; read-only"
 }
