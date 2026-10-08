@@ -470,6 +470,37 @@ class PostgresWorkspaceRepository:
             }
         return result
 
+    def official_previous_closes(self, price_dates: dict[str, str]) -> dict[str, dict[str, str]]:
+        """Batch prior closes from the published PostgreSQL serving read model.
+
+        Use each quote's effective trading day, never the server wall-clock day.
+        Missing reference means unavailable, not an invented zero.
+        """
+        if not price_dates:
+            return {}
+        symbols = sorted(price_dates)
+        with self._connection() as connection:
+            rows = connection.execute(
+                """SELECT target.symbol, prior.payload_json->>'close' AS previous_close,
+                          prior.payload_json->>'trade_date' AS previous_close_date
+                   FROM unnest(%s::text[], %s::date[]) AS target(symbol, quote_date)
+                   LEFT JOIN LATERAL (
+                       SELECT payload_json FROM publication.stock_serving_recent
+                       WHERE dataset_id='ohlcv' AND symbol=target.symbol
+                         AND payload_json->>'trade_date' < to_char(target.quote_date, 'YYYY-MM-DD')
+                       ORDER BY sort_at DESC LIMIT 1
+                   ) prior ON TRUE""",
+                (symbols, [price_dates[symbol] for symbol in symbols]),
+            ).fetchall()
+        return {
+            str(row["symbol"]): {
+                "previous_close": str(row["previous_close"]),
+                "previous_close_date": str(row["previous_close_date"]),
+            }
+            for row in rows if row["previous_close"] is not None
+            and row["previous_close_date"] is not None
+        }
+
     def save_last_quotes(self, quotes) -> None:
         with self._connection() as connection:
             for symbol, row in sorted(quotes.items()):

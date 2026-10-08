@@ -824,7 +824,23 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         except Exception as error:
             LOGGER.warning("latest price resolver unavailable: %s", type(error).__name__)
             raise HTTPException(status_code=503, detail="最後行情讀取暫時無法使用") from error
-        result = value_holdings(rows, prices, current_time)
+        # One bounded PostgreSQL query across the owner's eligible holdings;
+        # never issue a Core/Iceberg reader request per symbol on page load.
+        price_dates = {
+            symbol: str(quote.get("price_date") or "")[:10]
+            for symbol, quote in prices.items()
+            if quote.get("state") in {"intraday", "closing_pending_eod", "eod_final"}
+            and str(quote.get("price_date") or "")[:10].count("-") == 2
+        }
+        previous = {}
+        if price_dates:
+            try:
+                reader = getattr(repository, "official_previous_closes", None)
+                if reader is not None:
+                    previous = reader(price_dates)
+            except Exception as error:
+                LOGGER.warning("official previous close unavailable: %s", type(error).__name__)
+        result = value_holdings(rows, prices, current_time, previous_closes=previous)
         result["market_open"] = phase == "regular"
         result.update(
             route_version=ROUTE_VERSION,

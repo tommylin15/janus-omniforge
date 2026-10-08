@@ -109,10 +109,11 @@ class MisQuotes:
             return {symbol: dict(self.cache[symbol]) for symbol in channels if symbol in self.cache}
 
 
-def value_holdings(positions, quotes, now=None):
+def value_holdings(positions, quotes, now=None, *, previous_closes=None):
     now = now or datetime.now(TAIPEI)
     phase = market_phase(now)
     rows, totals = [], {}
+    previous_closes = previous_closes or {}
     for position in positions:
         row = dict(position)
         quote = quotes.get(str(row["symbol"]), {}) if row.get("currency") == "TWD" else {}
@@ -133,6 +134,18 @@ def value_holdings(positions, quotes, now=None):
         pnl = value - cost if value is not None else None
         source = quote.get("source")
         price_date = quote.get("price_date") or (at.date().isoformat() if at else None)
+        prior = previous_closes.get(str(row["symbol"]), {}) if usable else {}
+        reference = None
+        try:
+            if prior.get("previous_close_date") and price_date and (
+                str(prior["previous_close_date"]) < str(price_date)
+            ):
+                reference = Decimal(str(prior["previous_close"]))
+                if not reference.is_finite() or reference <= 0:
+                    reference = None
+        except (InvalidOperation, ValueError, TypeError):
+            reference = None
+        change = price - reference if reference is not None and price is not None else None
         row.update(
             market_price=str(price) if price is not None else None,
             market_value=str(value) if value is not None else None,
@@ -150,6 +163,11 @@ def value_holdings(positions, quotes, now=None):
             price_source=source,
             is_final=bool(quote.get("is_final")),
             valuation_kind="eod" if source == "core_ohlcv" else "intraday",
+            previous_close=str(reference) if reference is not None else None,
+            previous_close_date=prior.get("previous_close_date") if reference is not None else None,
+            change=str(change) if change is not None else None,
+            change_percent=str(change / reference) if change is not None else None,
+            day_change_amount=str(change * shares) if change is not None else None,
         )
         rows.append(row)
         total = totals.setdefault(
