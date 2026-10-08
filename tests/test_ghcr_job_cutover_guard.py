@@ -119,3 +119,33 @@ def test_bool_is_not_a_valid_active_execution_count():
     d = evidence()
     d["job_snapshots"]["janus-private-pipeline"]["potentially_active"] = False
     assert "execution_janus-private-pipeline_unfenced" in assess(d)["blockers"]
+
+
+
+def test_proven_legacy_pretask_failure_is_terminal_not_a_successful_workload():
+    historical = runpy.run_path(str(ROOT / "tests/test_ghcr_private_historical_fence.py"))
+    v1, tasks, v2 = historical["snapshot"]()
+    d = evidence()
+    d["job_snapshots"]["janus-private-pipeline"]["potentially_active"] = 9
+    d["private_historical_failure_readback"] = {
+        "v1_records": v1, "task_records": tasks, "v2_readback": v2,
+    }
+    report = assess(d)
+    assert report["status"] == "READY_FOR_CONTROLLED_JOB_ROLLOUT"
+    assert report["historical_failed_pretask_terminal_count"] == 9
+    assert report["historical_success_claimed"] is False
+
+
+def test_unverified_pretask_failures_still_block_job_release():
+    historical = runpy.run_path(str(ROOT / "tests/test_ghcr_private_historical_fence.py"))
+    v1, tasks, v2 = historical["snapshot"]()
+    d = evidence()
+    d["job_snapshots"]["janus-private-pipeline"]["potentially_active"] = 9
+    d["private_historical_failure_readback"] = {
+        "v1_records": v1, "task_records": tasks, "v2_readback": v2,
+    }
+    v2["records"][0]["condition_states"][0]["state"] = "CONDITION_RECONCILING"
+    report = assess(d)
+    assert report["status"] == "BLOCKED"
+    assert "execution_janus-private-pipeline_unfenced" in report["blockers"]
+    assert report["historical_failed_pretask_terminal_count"] == 0
