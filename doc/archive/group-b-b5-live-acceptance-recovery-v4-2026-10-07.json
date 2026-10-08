@@ -1,14 +1,10 @@
 {
   "cloud_build": {
-    "createTime": "2026-10-08T00:11:01.532232608Z",
-    "failureInfo": {
-      "detail": "Build step failure: build step 1 \"gcr.io/google.com/cloudsdktool/google-cloud-cli:slim\" failed: starting step container failed: Error response from daemon: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: exec: \"storage\": executable file not found in $PATH: unknown",
-      "type": "USER_BUILD_STEP"
-    },
-    "finishTime": "2026-10-08T00:12:04.420503Z",
-    "id": "798256a8-c4aa-494a-b1b7-c3664ae9fd5a",
-    "logUrl": "https://console.cloud.google.com/cloud-build/builds;region=us-central1/798256a8-c4aa-494a-b1b7-c3664ae9fd5a?project=131494961796",
-    "name": "projects/131494961796/locations/us-central1/builds/798256a8-c4aa-494a-b1b7-c3664ae9fd5a",
+    "createTime": "2026-10-08T00:14:26.057980223Z",
+    "finishTime": "2026-10-08T00:15:23.573378Z",
+    "id": "a178b778-998e-437c-82d6-7674ea0d4b04",
+    "logUrl": "https://console.cloud.google.com/cloud-build/builds;region=us-central1/a178b778-998e-437c-82d6-7674ea0d4b04?project=131494961796",
+    "name": "projects/131494961796/locations/us-central1/builds/a178b778-998e-437c-82d6-7674ea0d4b04",
     "options": {
       "logging": "CLOUD_LOGGING_ONLY",
       "pool": {}
@@ -29,33 +25,33 @@
     "source": {
       "storageSource": {
         "bucket": "gen-lang-client-0593591102-cloudbuild-regional",
-        "generation": "1791418261331161",
-        "object": "source/1791418259.809994-8350311a39fc4384b27187a14fe3e726.tgz"
+        "generation": "1791418465914914",
+        "object": "source/1791418464.48139-ea1c78e8524d4eb0ad501db89acd46cf.tgz"
       }
     },
     "sourceProvenance": {
       "fileHashes": {
-        "gs://gen-lang-client-0593591102-cloudbuild-regional/source/1791418259.809994-8350311a39fc4384b27187a14fe3e726.tgz#1791418261331161": {
+        "gs://gen-lang-client-0593591102-cloudbuild-regional/source/1791418464.48139-ea1c78e8524d4eb0ad501db89acd46cf.tgz#1791418465914914": {
           "fileHash": [
             {
               "type": "MD5",
-              "value": "c_CKt2Khif2lWDSs7CmuaA=="
+              "value": "jcZw8FEXANMzOieVfs6xTA=="
             },
             {
               "type": "SHA256",
-              "value": "hXGbulnTK439s3JzSYiM-gNSFnhN_8Xz8rw7Kwv0JCY="
+              "value": "8v11XBBAwMZ2BKtJiYKUeL4ur3Y8ZjFIb3P7jFxWovA="
             }
           ]
         }
       },
       "resolvedStorageSource": {
         "bucket": "gen-lang-client-0593591102-cloudbuild-regional",
-        "generation": "1791418261331161",
-        "object": "source/1791418259.809994-8350311a39fc4384b27187a14fe3e726.tgz"
+        "generation": "1791418465914914",
+        "object": "source/1791418464.48139-ea1c78e8524d4eb0ad501db89acd46cf.tgz"
       }
     },
-    "startTime": "2026-10-08T00:11:02.203058506Z",
-    "status": "FAILURE",
+    "startTime": "2026-10-08T00:14:26.606072173Z",
+    "status": "SUCCESS",
     "steps": [
       {
         "args": [
@@ -68,13 +64,13 @@
         ],
         "name": "python:3.12-slim",
         "pullTiming": {
-          "endTime": "2026-10-08T00:11:09.273344733Z",
-          "startTime": "2026-10-08T00:11:05.304984048Z"
+          "endTime": "2026-10-08T00:14:34.815414431Z",
+          "startTime": "2026-10-08T00:14:29.827647285Z"
         },
         "status": "SUCCESS",
         "timing": {
-          "endTime": "2026-10-08T00:11:28.808225337Z",
-          "startTime": "2026-10-08T00:11:05.304984048Z"
+          "endTime": "2026-10-08T00:14:47.119392027Z",
+          "startTime": "2026-10-08T00:14:29.827647285Z"
         }
       },
       {
@@ -82,84 +78,54 @@
           "storage",
           "cp",
           "/workspace/b5-export.json",
-          "gs://gen-lang-client-0593591102-dev-mart/acceptance/b5-build/github-37706238312-1.json"
+          "gs://gen-lang-client-0593591102-dev-mart/acceptance/b5-build/github-37706568819-1.json"
         ],
-        "exitCode": 1,
+        "entrypoint": "gcloud",
         "name": "gcr.io/google.com/cloudsdktool/google-cloud-cli:slim",
         "pullTiming": {
-          "endTime": "2026-10-08T00:11:53.745825329Z",
-          "startTime": "2026-10-08T00:11:28.808384564Z"
+          "endTime": "2026-10-08T00:15:19.346327330Z",
+          "startTime": "2026-10-08T00:14:47.119638945Z"
         },
-        "status": "FAILURE",
+        "status": "SUCCESS",
         "timing": {
-          "endTime": "2026-10-08T00:11:54.233941981Z",
-          "startTime": "2026-10-08T00:11:28.808384564Z"
+          "endTime": "2026-10-08T00:15:22.405868795Z",
+          "startTime": "2026-10-08T00:14:47.119638945Z"
         }
       }
     ],
     "substitutions": {
-      "_OUTPUT_URI": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b5-build/github-37706238312-1.json"
+      "_OUTPUT_URI": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b5-build/github-37706568819-1.json"
     },
     "timeout": "900s",
     "timing": {
       "BUILD": {
-        "endTime": "2026-10-08T00:11:54.234116397Z",
-        "startTime": "2026-10-08T00:11:04.782472794Z"
+        "endTime": "2026-10-08T00:15:22.406042042Z",
+        "startTime": "2026-10-08T00:14:29.208806834Z"
       },
       "FETCHSOURCE": {
-        "endTime": "2026-10-08T00:11:04.782278697Z",
-        "startTime": "2026-10-08T00:11:02.406739343Z"
+        "endTime": "2026-10-08T00:14:29.208557225Z",
+        "startTime": "2026-10-08T00:14:25.941114153Z"
       },
       "STORAGE_SOURCE": {
-        "endTime": "2026-10-08T00:11:04.782278697Z",
-        "startTime": "2026-10-08T00:11:02.406739343Z"
+        "endTime": "2026-10-08T00:14:29.208557225Z",
+        "startTime": "2026-10-08T00:14:25.941114153Z"
       }
     }
   },
-  "cloud_build_log_tail": "Step #0: B5_STAGE event=complete stage=gcs-core-manifest elapsed_seconds=0.3\t\n2026-10-08T00:11:16.865009395Z\tINFO\tStep #0: B5_STAGE event=start stage=gcs-core-manifest timeout_seconds=45.0\t\n2026-10-08T00:11:16.864869607Z\tINFO\tStep #0: B5_STAGE event=complete stage=load-b2-contract elapsed_seconds=0.0\t\n2026-10-08T00:11:16.852192039Z\tINFO\tStep #0: B5_STAGE event=start stage=load-b2-contract timeout_seconds=10.0\t\n2026-10-08T00:11:16.594923756Z\tINFO\tStep #0: [notice] To update, run: pip install --upgrade pip\t\n2026-10-08T00:11:16.594922717Z\tINFO\tStep #0: [notice] A new release of pip is available: 25.0.1 -> 26.2.1\t\n2026-10-08T00:11:16.594911787Z\tINFO\tStep #0: \t\n2026-10-08T00:11:16.475578Z\tINFO\tStep #0: WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.\t\n2026-10-08T00:11:16.475169856Z\tINFO\tStep #0: Successfully installed certifi-2026.7.22 cffi-2.1.1 charset-normalizer-3.5.2 cryptography-50.0.2 google-api-core-2.41.0 google-auth-2.60.0 google-cloud-bigquery-3.46.1 google-cloud-core-2.8.0 google-crc32c-1.9.0 google-resumable-media-2.11.0 googleapis-common-protos-1.75.5 grpcio-1.84.0 grpcio-status-1.84.0 idna-3.20 opentelemetry-api-1.45.1 packaging-26.3 proto-plus-1.29.0 protobuf-7.36.2 pyasn1-0.6.4 pyasn1-modules-0.4.2 pycparser-3.0 python-dateutil-2.9.0.post0 requests-2.34.2 six-1.17.0 typing-extensions-4.16.0 urllib3-2.8.0\t\n2026-10-08T00:11:14.548784695Z\tINFO\tStep #0: Installing collected packages: urllib3, typing-extensions, six, pycparser, pyasn1, protobuf, packaging, idna, google-crc32c, charset-normalizer, certifi, requests, python-dateutil, pyasn1-modules, proto-plus, opentelemetry-api, grpcio, googleapis-common-protos, google-resumable-media, cffi, grpcio-status, cryptography, google-auth, google-api-core, google-cloud-core, google-cloud-bigquery\t\n2026-10-08T00:11:14.277281978Z\tINFO\tStep #0:   Downloading urllib3-2.8.0-py3-none-any.whl (135 kB)\t\n2026-10-08T00:11:14.250977655Z\tINFO\tStep #0: Collecting urllib3==2.8.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 539))\t\n2026-10-08T00:11:14.207266836Z\tINFO\tStep #0:   Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)\t\n2026-10-08T00:11:14.180865265Z\tINFO\tStep #0: Collecting typing-extensions==4.16.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 533))\t\n2026-10-08T00:11:14.113723879Z\tINFO\tStep #0:   Downloading six-1.17.0-py2.py3-none-any.whl (11 kB)\t\n2026-10-08T00:11:14.086499111Z\tINFO\tStep #0: Collecting six==1.17.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 529))\t\n2026-10-08T00:11:14.049240444Z\tINFO\tStep #0:   Downloading requests-2.34.2-py3-none-any.whl (73 kB)\t\n2026-10-08T00:11:14.021303746Z\tINFO\tStep #0: Collecting requests==2.34.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 523))\t\n2026-10-08T00:11:13.970564183Z\tINFO\tStep #0:   Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)\t\n2026-10-08T00:11:13.941792768Z\tINFO\tStep #0: Collecting python-dateutil==2.9.0.post0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 519))\t\n2026-10-08T00:11:13.907046293Z\tINFO\tStep #0:   Downloading pycparser-3.0-py3-none-any.whl (48 kB)\t\n2026-10-08T00:11:13.879771525Z\tINFO\tStep #0: Collecting pycparser==3.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 515))\t\n2026-10-08T00:11:13.846657575Z\tINFO\tStep #0:   Downloading pyasn1_modules-0.4.2-py3-none-any.whl (181 kB)\t\n2026-10-08T00:11:13.819072272Z\tINFO\tStep #0: Collecting pyasn1-modules==0.4.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 511))\t\n2026-10-08T00:11:13.778641383Z\tINFO\tStep #0:   Downloading pyasn1-0.6.4-py3-none-any.whl (84 kB)\t\n2026-10-08T00:11:13.752138373Z\tINFO\tStep #0: Collecting pyasn1==0.6.4 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 507))\t\n2026-10-08T00:11:13.707920072Z\tINFO\tStep #0:   Downloading protobuf-7.36.2-cp310-abi3-manylinux2014_x86_64.whl (343 kB)\t\n2026-10-08T00:11:13.679095757Z\tINFO\tStep #0: Collecting protobuf==7.36.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 493))\t\n2026-10-08T00:11:13.516220008Z\tINFO\tStep #0:   Downloading proto_plus-1.29.0-py3-none-any.whl (50 kB)\t\n2026-10-08T00:11:13.489185707Z\tINFO\tStep #0: Collecting proto-plus==1.29.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 489))\t\n2026-10-08T00:11:13.448078838Z\tINFO\tStep #0:   Downloading packaging-26.3-py3-none-any.whl (129 kB)\t\n2026-10-08T00:11:13.420905939Z\tINFO\tStep #0: Collecting packaging==26.3 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 485))\t\n2026-10-08T00:11:13.380663247Z\tINFO\tStep #0:   Downloading opentelemetry_api-1.45.1-py3-none-any.whl (60 kB)\t\n2026-10-08T00:11:13.353983960Z\tINFO\tStep #0: Collecting opentelemetry-api==1.45.1 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 481))\t\n2026-10-08T00:11:13.310299140Z\tINFO\tStep #0:   Downloading idna-3.20-py3-none-any.whl (69 kB)\t\n2026-10-08T00:11:13.283784801Z\tINFO\tStep #0: Collecting idna==3.20 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 477))\t\n2026-10-08T00:11:13.246436705Z\tINFO\tStep #0:   Downloading grpcio_status-1.84.0-py3-none-any.whl (14 kB)\t\n2026-10-08T00:11:13.218546716Z\tINFO\tStep #0: Collecting grpcio-status==1.84.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 473))\t\n2026-10-08T00:11:13.155098255Z\tINFO\tStep #0:      \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 7.2/7.2 MB 151.3 MB/s eta 0:00:00\t\n2026-10-08T00:11:13.105500465Z\tINFO\tStep #0:   Downloading grpcio-1.84.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (7.2 MB)\t\n2026-10-08T00:11:13.077992050Z\tINFO\tStep #0: Collecting grpcio==1.84.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 408))\t\n2026-10-08T00:11:12.566582088Z\tINFO\tStep #0:   Downloading googleapis_common_protos-1.75.5-py3-none-any.whl (307 kB)\t\n2026-10-08T00:11:12.538521522Z\tINFO\tStep #0: Collecting googleapis-common-protos==1.75.5 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 402))\t\n2026-10-08T00:11:12.497189677Z\tINFO\tStep #0:   Downloading google_resumable_media-2.11.0-py3-none-any.whl (81 kB)\t\n2026-10-08T00:11:12.470010277Z\tINFO\tStep #0: Collecting google-resumable-media==2.11.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 398))\t\n2026-10-08T00:11:12.428498065Z\tINFO\tStep #0:   Downloading google_crc32c-1.9.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (36 kB)\t\n2026-10-08T00:11:12.400222562Z\tINFO\tStep #0: Collecting google-crc32c==1.9.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 365))\t\n2026-10-08T00:11:12.333723857Z\tINFO\tStep #0:   Downloading google_cloud_core-2.8.0-py3-none-any.whl (31 kB)\t\n2026-10-08T00:11:12.306740325Z\tINFO\tStep #0: Collecting google-cloud-core==2.8.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 361))\t\n2026-10-08T00:11:12.259544378Z\tINFO\tStep #0:   Downloading google_cloud_bigquery-3.46.1-py3-none-any.whl (268 kB)\t\n2026-10-08T00:11:12.231139757Z\tINFO\tStep #0: Collecting google-cloud-bigquery==3.46.1 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 357))\t\n2026-10-08T00:11:12.153757816Z\tINFO\tStep #0:   Downloading google_auth-2.60.0-py3-none-any.whl (264 kB)\t\n2026-10-08T00:11:12.125935747Z\tINFO\tStep #0: Collecting google-auth==2.60.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 350))\t\n2026-10-08T00:11:12.058233300Z\tINFO\tStep #0:   Downloading google_api_core-2.41.0-py3-none-any.whl (215 kB)\t\n2026-10-08T00:11:12.030239043Z\tINFO\tStep #0: Collecting google-api-core==2.41.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 344))\t\n2026-10-08T00:11:11.968753562Z\tINFO\tStep #0:      \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 4.8/4.8 MB 132.5 MB/s eta 0:00:00\t\n2026-10-08T00:11:11.930324003Z\tINFO\tStep #0:   Downloading cryptography-50.0.2-cp311-abi3-manylinux_2_34_x86_64.whl (4.8 MB)\t\n2026-10-08T00:11:11.902204968Z\tINFO\tStep #0: Collecting cryptography==50.0.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 283))\t\n2026-10-08T00:11:11.692233721Z\tINFO\tStep #0:   Downloading charset_normalizer-3.5.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (257 kB)\t\n2026-10-08T00:11:11.663654242Z\tINFO\tStep #0: Collecting charset-normalizer==3.5.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 109))\t\n2026-10-08T00:11:11.490924463Z\tINFO\tStep #0:   Downloading cffi-2.1.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (221 kB)\t\n2026-10-08T00:11:11.462547442Z\tINFO\tStep #0: Collecting cffi==2.1.1 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 7))\t\n2026-10-08T00:11:11.287358028Z\tINFO\tStep #0:   Downloading certifi-2026.7.22-py3-none-any.whl (136 kB)\t\n2026-10-08T00:11:11.212978633Z\tINFO\tStep #0: Collecting certifi==2026.7.22 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 3))\t\n2026-10-08T00:11:08.599227559Z\tINFO\tStep #0: docker.io/library/python:3.12-slim\t\n2026-10-08T00:11:08.595778411Z\tINFO\tStep #0: Status: Downloaded newer image for python:3.12-slim\t\n2026-10-08T00:11:08.589394688Z\tINFO\tStep #0: Digest: sha256:05cda9777409a9c3ffddd94a4c476b79f0769a0b4857f0c7ed9226b6800b0d6f\t\n2026-10-08T00:11:08.575806403Z\tINFO\tStep #0: bbc5a1223747: Pull complete\t\n2026-10-08T00:11:08.522864363Z\tINFO\tStep #0: 6912e23eb445: Pull complete\t\n2026-10-08T00:11:07.908792862Z\tINFO\tStep #0: 6912e23eb445: Download complete\t\n2026-10-08T00:11:07.908776743Z\tINFO\tStep #0: 6912e23eb445: Verifying Checksum\t\n2026-10-08T00:11:07.826723292Z\tINFO\tStep #0: 75b6a36c64a1: Pull complete\t\n2026-10-08T00:11:07.660700301Z\tINFO\tStep #0: ecc510c1e359: Pull complete\t\n2026-10-08T00:11:06.490134200Z\tINFO\tStep #0: ecc510c1e359: Download complete\t\n2026-10-08T00:11:06.490124200Z\tINFO\tStep #0: ecc510c1e359: Verifying Checksum\t\n2026-10-08T00:11:06.262872384Z\tINFO\tStep #0: 75b6a36c64a1: Download complete\t\n2026-10-08T00:11:06.262860724Z\tINFO\tStep #0: 75b6a36c64a1: Verifying Checksum\t\n2026-10-08T00:11:06.225940412Z\tINFO\tStep #0: bbc5a1223747: Download complete\t\n2026-10-08T00:11:06.225930882Z\tINFO\tStep #0: bbc5a1223747: Verifying Checksum\t\n2026-10-08T00:11:06.128162040Z\tINFO\tStep #0: bbc5a1223747: Pulling fs layer\t\n2026-10-08T00:11:06.128161569Z\tINFO\tStep #0: 6912e23eb445: Pulling fs layer\t\n2026-10-08T00:11:06.128160589Z\tINFO\tStep #0: 75b6a36c64a1: Pulling fs layer\t\n2026-10-08T00:11:06.128150969Z\tINFO\tStep #0: ecc510c1e359: Pulling fs layer\t\n2026-10-08T00:11:06.032364617Z\tINFO\tStep #0: 3.12-slim: Pulling from library/python\t\n2026-10-08T00:11:05.307606719Z\tINFO\tStep #0: Pulling image: python:3.12-slim\t\n2026-10-08T00:11:05.305096506Z\tINFO\tStarting Step #0\t\n2026-10-08T00:11:04.782461014Z\tINFO\tBUILD\t\n2026-10-08T00:11:03.644473990Z\tINFO\tOperation completed over 1 objects/7.1 MiB.                                      \t\n2026-10-08T00:11:03.644422711Z\tINFO\t/ [0 files][    0.0 B/  7.1 MiB]                                                \n/ [1 files][  7.1 MiB/  7.1 MiB]                                                \n\t\n2026-10-08T00:11:03.482575187Z\tINFO\tCopying gs://gen-lang-client-0593591102-cloudbuild-regional/source/1791418259.809994-8350311a39fc4384b27187a14fe3e726.tgz#1791418261331161...\t\n2026-10-08T00:11:02.406786483Z\tINFO\tFetching storage object: gs://gen-lang-client-0593591102-cloudbuild-regional/source/1791418259.809994-8350311a39fc4384b27187a14fe3e726.tgz#1791418261331161\t\n2026-10-08T00:11:02.405855427Z\tINFO\tFETCHSOURCE\t\n2026-10-08T00:11:02.405817267Z\tINFO\tstarting build \"798256a8-c4aa-494a-b1b7-c3664ae9fd5a\"\n\t\n2026-10-08T00:11:01.492529Z\tNOTICE\t\t\n",
+  "cloud_build_log_tail": "tep #0: B5_STAGE event=complete stage=gcs-core-manifest elapsed_seconds=0.5\t\n2026-10-08T00:14:45.228091149Z\tINFO\tStep #0: B5_STAGE event=start stage=gcs-core-manifest timeout_seconds=45.0\t\n2026-10-08T00:14:45.227935050Z\tINFO\tStep #0: B5_STAGE event=complete stage=load-b2-contract elapsed_seconds=0.0\t\n2026-10-08T00:14:45.209860948Z\tINFO\tStep #0: B5_STAGE event=start stage=load-b2-contract timeout_seconds=10.0\t\n2026-10-08T00:14:44.867047853Z\tINFO\tStep #0: [notice] To update, run: pip install --upgrade pip\t\n2026-10-08T00:14:44.867046542Z\tINFO\tStep #0: [notice] A new release of pip is available: 25.0.1 -> 26.2.1\t\n2026-10-08T00:14:44.867027168Z\tINFO\tStep #0: \t\n2026-10-08T00:14:44.706635648Z\tINFO\tStep #0: WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.\t\n2026-10-08T00:14:44.706025461Z\tINFO\tStep #0: Successfully installed certifi-2026.7.22 cffi-2.1.1 charset-normalizer-3.5.2 cryptography-50.0.2 google-api-core-2.41.0 google-auth-2.60.0 google-cloud-bigquery-3.46.1 google-cloud-core-2.8.0 google-crc32c-1.9.0 google-resumable-media-2.11.0 googleapis-common-protos-1.75.5 grpcio-1.84.0 grpcio-status-1.84.0 idna-3.20 opentelemetry-api-1.45.1 packaging-26.3 proto-plus-1.29.0 protobuf-7.36.2 pyasn1-0.6.4 pyasn1-modules-0.4.2 pycparser-3.0 python-dateutil-2.9.0.post0 requests-2.34.2 six-1.17.0 typing-extensions-4.16.0 urllib3-2.8.0\t\n2026-10-08T00:14:41.924094346Z\tINFO\tStep #0: Installing collected packages: urllib3, typing-extensions, six, pycparser, pyasn1, protobuf, packaging, idna, google-crc32c, charset-normalizer, certifi, requests, python-dateutil, pyasn1-modules, proto-plus, opentelemetry-api, grpcio, googleapis-common-protos, google-resumable-media, cffi, grpcio-status, cryptography, google-auth, google-api-core, google-cloud-core, google-cloud-bigquery\t\n2026-10-08T00:14:41.516986745Z\tINFO\tStep #0:   Downloading urllib3-2.8.0-py3-none-any.whl (135 kB)\t\n2026-10-08T00:14:41.483900068Z\tINFO\tStep #0: Collecting urllib3==2.8.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 539))\t\n2026-10-08T00:14:41.425122740Z\tINFO\tStep #0:   Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)\t\n2026-10-08T00:14:41.391927492Z\tINFO\tStep #0: Collecting typing-extensions==4.16.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 533))\t\n2026-10-08T00:14:41.343704055Z\tINFO\tStep #0:   Downloading six-1.17.0-py2.py3-none-any.whl (11 kB)\t\n2026-10-08T00:14:41.310054945Z\tINFO\tStep #0: Collecting six==1.17.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 529))\t\n2026-10-08T00:14:41.264348606Z\tINFO\tStep #0:   Downloading requests-2.34.2-py3-none-any.whl (73 kB)\t\n2026-10-08T00:14:41.229714899Z\tINFO\tStep #0: Collecting requests==2.34.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 523))\t\n2026-10-08T00:14:41.165604147Z\tINFO\tStep #0:   Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)\t\n2026-10-08T00:14:41.131329653Z\tINFO\tStep #0: Collecting python-dateutil==2.9.0.post0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 519))\t\n2026-10-08T00:14:41.085512204Z\tINFO\tStep #0:   Downloading pycparser-3.0-py3-none-any.whl (48 kB)\t\n2026-10-08T00:14:41.052293057Z\tINFO\tStep #0: Collecting pycparser==3.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 515))\t\n2026-10-08T00:14:41.009184469Z\tINFO\tStep #0:   Downloading pyasn1_modules-0.4.2-py3-none-any.whl (181 kB)\t\n2026-10-08T00:14:40.975625106Z\tINFO\tStep #0: Collecting pyasn1-modules==0.4.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 511))\t\n2026-10-08T00:14:40.922305482Z\tINFO\tStep #0:   Downloading pyasn1-0.6.4-py3-none-any.whl (84 kB)\t\n2026-10-08T00:14:40.888868404Z\tINFO\tStep #0: Collecting pyasn1==0.6.4 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 507))\t\n2026-10-08T00:14:40.833372578Z\tINFO\tStep #0:   Downloading protobuf-7.36.2-cp310-abi3-manylinux2014_x86_64.whl (343 kB)\t\n2026-10-08T00:14:40.798877167Z\tINFO\tStep #0: Collecting protobuf==7.36.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 493))\t\n2026-10-08T00:14:40.570457940Z\tINFO\tStep #0:   Downloading proto_plus-1.29.0-py3-none-any.whl (50 kB)\t\n2026-10-08T00:14:40.536447701Z\tINFO\tStep #0: Collecting proto-plus==1.29.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 489))\t\n2026-10-08T00:14:40.482627365Z\tINFO\tStep #0:   Downloading packaging-26.3-py3-none-any.whl (129 kB)\t\n2026-10-08T00:14:40.450032163Z\tINFO\tStep #0: Collecting packaging==26.3 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 485))\t\n2026-10-08T00:14:40.399410454Z\tINFO\tStep #0:   Downloading opentelemetry_api-1.45.1-py3-none-any.whl (60 kB)\t\n2026-10-08T00:14:40.365320138Z\tINFO\tStep #0: Collecting opentelemetry-api==1.45.1 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 481))\t\n2026-10-08T00:14:40.309405159Z\tINFO\tStep #0:   Downloading idna-3.20-py3-none-any.whl (69 kB)\t\n2026-10-08T00:14:40.275949960Z\tINFO\tStep #0: Collecting idna==3.20 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 477))\t\n2026-10-08T00:14:40.227791517Z\tINFO\tStep #0:   Downloading grpcio_status-1.84.0-py3-none-any.whl (14 kB)\t\n2026-10-08T00:14:40.193238724Z\tINFO\tStep #0: Collecting grpcio-status==1.84.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 473))\t\n2026-10-08T00:14:40.099286135Z\tINFO\tStep #0:      \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 7.2/7.2 MB 225.4 MB/s eta 0:00:00\t\n2026-10-08T00:14:40.063554621Z\tINFO\tStep #0:   Downloading grpcio-1.84.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (7.2 MB)\t\n2026-10-08T00:14:40.029192278Z\tINFO\tStep #0: Collecting grpcio==1.84.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 408))\t\n2026-10-08T00:14:39.340706489Z\tINFO\tStep #0:   Downloading googleapis_common_protos-1.75.5-py3-none-any.whl (307 kB)\t\n2026-10-08T00:14:39.306280895Z\tINFO\tStep #0: Collecting googleapis-common-protos==1.75.5 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 402))\t\n2026-10-08T00:14:39.254407506Z\tINFO\tStep #0:   Downloading google_resumable_media-2.11.0-py3-none-any.whl (81 kB)\t\n2026-10-08T00:14:39.217394442Z\tINFO\tStep #0: Collecting google-resumable-media==2.11.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 398))\t\n2026-10-08T00:14:39.166372404Z\tINFO\tStep #0:   Downloading google_crc32c-1.9.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (36 kB)\t\n2026-10-08T00:14:39.131488183Z\tINFO\tStep #0: Collecting google-crc32c==1.9.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 365))\t\n2026-10-08T00:14:39.045859008Z\tINFO\tStep #0:   Downloading google_cloud_core-2.8.0-py3-none-any.whl (31 kB)\t\n2026-10-08T00:14:39.012479768Z\tINFO\tStep #0: Collecting google-cloud-core==2.8.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 361))\t\n2026-10-08T00:14:38.953442741Z\tINFO\tStep #0:   Downloading google_cloud_bigquery-3.46.1-py3-none-any.whl (268 kB)\t\n2026-10-08T00:14:38.916009418Z\tINFO\tStep #0: Collecting google-cloud-bigquery==3.46.1 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 357))\t\n2026-10-08T00:14:38.826670256Z\tINFO\tStep #0:   Downloading google_auth-2.60.0-py3-none-any.whl (264 kB)\t\n2026-10-08T00:14:38.793308345Z\tINFO\tStep #0: Collecting google-auth==2.60.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 350))\t\n2026-10-08T00:14:38.709659050Z\tINFO\tStep #0:   Downloading google_api_core-2.41.0-py3-none-any.whl (215 kB)\t\n2026-10-08T00:14:38.676837656Z\tINFO\tStep #0: Collecting google-api-core==2.41.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 344))\t\n2026-10-08T00:14:38.589021295Z\tINFO\tStep #0:      \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 4.8/4.8 MB 136.4 MB/s eta 0:00:00\t\n2026-10-08T00:14:38.551217983Z\tINFO\tStep #0:   Downloading cryptography-50.0.2-cp311-abi3-manylinux_2_34_x86_64.whl (4.8 MB)\t\n2026-10-08T00:14:38.517902665Z\tINFO\tStep #0: Collecting cryptography==50.0.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 283))\t\n2026-10-08T00:14:38.251167657Z\tINFO\tStep #0:   Downloading charset_normalizer-3.5.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (257 kB)\t\n2026-10-08T00:14:38.220548602Z\tINFO\tStep #0: Collecting charset-normalizer==3.5.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 109))\t\n2026-10-08T00:14:37.993111481Z\tINFO\tStep #0:   Downloading cffi-2.1.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (221 kB)\t\n2026-10-08T00:14:37.960103042Z\tINFO\tStep #0: Collecting cffi==2.1.1 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 7))\t\n2026-10-08T00:14:37.748978098Z\tINFO\tStep #0:   Downloading certifi-2026.7.22-py3-none-any.whl (136 kB)\t\n2026-10-08T00:14:37.670555150Z\tINFO\tStep #0: Collecting certifi==2026.7.22 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 3))\t\n2026-10-08T00:14:34.122630610Z\tINFO\tStep #0: docker.io/library/python:3.12-slim\t\n2026-10-08T00:14:34.118049757Z\tINFO\tStep #0: Status: Downloaded newer image for python:3.12-slim\t\n2026-10-08T00:14:34.113891695Z\tINFO\tStep #0: Digest: sha256:05cda9777409a9c3ffddd94a4c476b79f0769a0b4857f0c7ed9226b6800b0d6f\t\n2026-10-08T00:14:34.090925318Z\tINFO\tStep #0: bbc5a1223747: Pull complete\t\n2026-10-08T00:14:34.013275484Z\tINFO\tStep #0: 6912e23eb445: Pull complete\t\n2026-10-08T00:14:33.134875556Z\tINFO\tStep #0: 75b6a36c64a1: Pull complete\t\n2026-10-08T00:14:32.930498902Z\tINFO\tStep #0: ecc510c1e359: Pull complete\t\n2026-10-08T00:14:31.258247222Z\tINFO\tStep #0: ecc510c1e359: Download complete\t\n2026-10-08T00:14:31.258235475Z\tINFO\tStep #0: ecc510c1e359: Verifying Checksum\t\n2026-10-08T00:14:31.067035274Z\tINFO\tStep #0: 6912e23eb445: Download complete\t\n2026-10-08T00:14:31.067017611Z\tINFO\tStep #0: 6912e23eb445: Verifying Checksum\t\n2026-10-08T00:14:30.938789916Z\tINFO\tStep #0: 75b6a36c64a1: Download complete\t\n2026-10-08T00:14:30.938760124Z\tINFO\tStep #0: 75b6a36c64a1: Verifying Checksum\t\n2026-10-08T00:14:30.877435088Z\tINFO\tStep #0: bbc5a1223747: Download complete\t\n2026-10-08T00:14:30.877349398Z\tINFO\tStep #0: bbc5a1223747: Verifying Checksum\t\n2026-10-08T00:14:30.765886586Z\tINFO\tStep #0: bbc5a1223747: Pulling fs layer\t\n2026-10-08T00:14:30.765886036Z\tINFO\tStep #0: 6912e23eb445: Pulling fs layer\t\n2026-10-08T00:14:30.765885033Z\tINFO\tStep #0: 75b6a36c64a1: Pulling fs layer\t\n2026-10-08T00:14:30.765873854Z\tINFO\tStep #0: ecc510c1e359: Pulling fs layer\t\n2026-10-08T00:14:30.677855229Z\tINFO\tStep #0: 3.12-slim: Pulling from library/python\t\n2026-10-08T00:14:29.828695641Z\tINFO\tStep #0: Pulling image: python:3.12-slim\t\n2026-10-08T00:14:29.827761428Z\tINFO\tStarting Step #0\t\n2026-10-08T00:14:29.208793236Z\tINFO\tBUILD\t\n2026-10-08T00:14:27.700986187Z\tINFO\tOperation completed over 1 objects/7.1 MiB.                                      \t\n2026-10-08T00:14:27.700848082Z\tINFO\t/ [0 files][    0.0 B/  7.1 MiB]                                                \n/ [1 files][  7.1 MiB/  7.1 MiB]                                                \n\t\n2026-10-08T00:14:27.551054433Z\tINFO\tCopying gs://gen-lang-client-0593591102-cloudbuild-regional/source/1791418464.48139-ea1c78e8524d4eb0ad501db89acd46cf.tgz#1791418465914914...\t\n2026-10-08T00:14:26.026328Z\tNOTICE\t\t\n2026-10-08T00:14:25.941194034Z\tINFO\tFetching storage object: gs://gen-lang-client-0593591102-cloudbuild-regional/source/1791418464.48139-ea1c78e8524d4eb0ad501db89acd46cf.tgz#1791418465914914\t\n2026-10-08T00:14:25.940335563Z\tINFO\tFETCHSOURCE\t\n2026-10-08T00:14:25.940267652Z\tINFO\tstarting build \"a178b778-998e-437c-82d6-7674ea0d4b04\"\n\t\n",
   "cloud_build_stage_trace": [
-    "2026-10-08T00:11:28.152630713Z\tINFO\tStep #0: B5_STAGE event=complete stage=gcs-manifest-readback elapsed_seconds=0.1\t",
-    "2026-10-08T00:11:28.034942612Z\tINFO\tStep #0: B5_STAGE event=start stage=gcs-manifest-readback timeout_seconds=65.0\t",
-    "2026-10-08T00:11:28.034797414Z\tINFO\tStep #0: B5_STAGE event=complete stage=gcs-manifest-create elapsed_seconds=0.2\t",
-    "2026-10-08T00:11:27.877733148Z\tINFO\tStep #0: B5_STAGE event=start stage=gcs-manifest-create timeout_seconds=65.0\t",
-    "2026-10-08T00:11:27.876876971Z\tINFO\tStep #0: B5_STAGE event=complete stage=gcs-parquet-readback elapsed_seconds=0.2\t",
-    "2026-10-08T00:11:27.675667832Z\tINFO\tStep #0: B5_STAGE event=start stage=gcs-parquet-readback timeout_seconds=65.0\t",
-    "2026-10-08T00:11:27.675338246Z\tINFO\tStep #0: B5_STAGE event=complete stage=gcs-export-list elapsed_seconds=0.1\t",
-    "2026-10-08T00:11:27.568382822Z\tINFO\tStep #0: B5_STAGE event=start stage=gcs-export-list timeout_seconds=45.0\t",
-    "2026-10-08T00:11:27.568276534Z\tINFO\tStep #0: B5_STAGE event=complete stage=catalog-pointer-post-export elapsed_seconds=0.4\t",
-    "2026-10-08T00:11:27.211485735Z\tINFO\tStep #0: B5_STAGE event=start stage=catalog-pointer-post-export timeout_seconds=45.0\t",
-    "2026-10-08T00:11:27.211341298Z\tINFO\tStep #0: B5_STAGE event=complete stage=bigquery-export-child-readback elapsed_seconds=0.1\t",
-    "2026-10-08T00:11:27.069928615Z\tINFO\tStep #0: B5_STAGE event=start stage=bigquery-export-child-readback timeout_seconds=15.0\t",
-    "2026-10-08T00:11:27.069722238Z\tINFO\tStep #0: B5_STAGE event=complete stage=bigquery-export-child-readback elapsed_seconds=0.1\t",
-    "2026-10-08T00:11:26.976478267Z\tINFO\tStep #0: B5_STAGE event=start stage=bigquery-export-child-readback timeout_seconds=15.0\t",
-    "2026-10-08T00:11:26.976309850Z\tINFO\tStep #0: B5_STAGE event=complete stage=bigquery-export-child-readback elapsed_seconds=0.2\t",
-    "2026-10-08T00:11:26.816487194Z\tINFO\tStep #0: B5_STAGE event=start stage=bigquery-export-child-readback timeout_seconds=15.0\t",
-    "2026-10-08T00:11:26.816473944Z\tINFO\tStep #0: B5_STAGE event=complete stage=bigquery-export-child-list elapsed_seconds=0.3\t",
-    "2026-10-08T00:11:26.486859214Z\tINFO\tStep #0: B5_STAGE event=start stage=bigquery-export-child-list timeout_seconds=20.0\t",
-    "2026-10-08T00:11:26.486846085Z\tINFO\tStep #0: B5_STAGE event=complete stage=bigquery-export-parquet-result elapsed_seconds=5.7\t",
-    "2026-10-08T00:11:20.832986265Z\tINFO\tStep #0: B5_STAGE event=start stage=bigquery-export-parquet-result timeout_seconds=59.8\t",
-    "2026-10-08T00:11:20.832981295Z\tINFO\tStep #0: B5_QUERY event=submitted label=export-parquet job_id=a796bc62-d78a-42e7-86c7-6e49eccdef13\t",
-    "2026-10-08T00:11:20.832683050Z\tINFO\tStep #0: B5_STAGE event=complete stage=bigquery-export-parquet-submit elapsed_seconds=0.2\t",
-    "2026-10-08T00:11:20.648093519Z\tINFO\tStep #0: B5_STAGE event=start stage=bigquery-export-parquet-submit timeout_seconds=20.0\t",
-    "2026-10-08T00:11:20.648075020Z\tINFO\tStep #0: B5_STAGE event=complete stage=bigquery-count-reduced-result elapsed_seconds=0.3\t",
-    "2026-10-08T00:11:20.355603337Z\tINFO\tStep #0: B5_STAGE event=start stage=bigquery-count-reduced-result timeout_seconds=58.3\t",
-    "2026-10-08T00:11:20.355595467Z\tINFO\tStep #0: B5_QUERY event=submitted label=count-reduced job_id=b53e3d7a-b33d-4b29-8788-7defe49e2171\t",
-    "2026-10-08T00:11:20.355205213Z\tINFO\tStep #0: B5_STAGE event=complete stage=bigquery-count-reduced-submit elapsed_seconds=1.7\t",
-    "2026-10-08T00:11:18.701566263Z\tINFO\tStep #0: B5_STAGE event=start stage=bigquery-count-reduced-submit timeout_seconds=20.0\t",
-    "2026-10-08T00:11:18.701325697Z\tINFO\tStep #0: B5_STAGE event=complete stage=bigquery-dry-run elapsed_seconds=0.8\t",
-    "2026-10-08T00:11:17.881053822Z\tINFO\tStep #0: B5_STAGE event=start stage=bigquery-dry-run timeout_seconds=40.0\t",
-    "2026-10-08T00:11:17.880862015Z\tINFO\tStep #0: B5_STAGE event=complete stage=bigquery-client-init elapsed_seconds=0.0\t",
-    "2026-10-08T00:11:17.832185470Z\tINFO\tStep #0: B5_STAGE event=start stage=bigquery-client-init timeout_seconds=20.0\t",
-    "2026-10-08T00:11:17.715754920Z\tINFO\tStep #0: B5_STAGE event=complete stage=gcs-existing-list elapsed_seconds=0.1\t",
-    "2026-10-08T00:11:17.590820477Z\tINFO\tStep #0: B5_STAGE event=start stage=gcs-existing-list timeout_seconds=45.0\t",
-    "2026-10-08T00:11:17.590362054Z\tINFO\tStep #0: B5_STAGE event=complete stage=catalog-pointer-initial elapsed_seconds=0.4\t",
-    "2026-10-08T00:11:17.195930724Z\tINFO\tStep #0: B5_STAGE event=start stage=catalog-pointer-initial timeout_seconds=45.0\t",
-    "2026-10-08T00:11:17.195717108Z\tINFO\tStep #0: B5_STAGE event=complete stage=gcs-core-manifest elapsed_seconds=0.3\t",
-    "2026-10-08T00:11:16.865009395Z\tINFO\tStep #0: B5_STAGE event=start stage=gcs-core-manifest timeout_seconds=45.0\t",
-    "2026-10-08T00:11:16.864869607Z\tINFO\tStep #0: B5_STAGE event=complete stage=load-b2-contract elapsed_seconds=0.0\t",
-    "2026-10-08T00:11:16.852192039Z\tINFO\tStep #0: B5_STAGE event=start stage=load-b2-contract timeout_seconds=10.0\t"
+    "2026-10-08T00:14:46.531503835Z\tINFO\tStep #0: B5_STAGE event=complete stage=gcs-existing-manifest elapsed_seconds=0.2\t",
+    "2026-10-08T00:14:46.318177110Z\tINFO\tStep #0: B5_STAGE event=start stage=gcs-existing-manifest timeout_seconds=45.0\t",
+    "2026-10-08T00:14:46.317843325Z\tINFO\tStep #0: B5_STAGE event=complete stage=gcs-existing-list elapsed_seconds=0.1\t",
+    "2026-10-08T00:14:46.180999422Z\tINFO\tStep #0: B5_STAGE event=start stage=gcs-existing-list timeout_seconds=45.0\t",
+    "2026-10-08T00:14:46.180572312Z\tINFO\tStep #0: B5_STAGE event=complete stage=catalog-pointer-initial elapsed_seconds=0.5\t",
+    "2026-10-08T00:14:45.699795246Z\tINFO\tStep #0: B5_STAGE event=start stage=catalog-pointer-initial timeout_seconds=45.0\t",
+    "2026-10-08T00:14:45.699593885Z\tINFO\tStep #0: B5_STAGE event=complete stage=gcs-core-manifest elapsed_seconds=0.5\t",
+    "2026-10-08T00:14:45.228091149Z\tINFO\tStep #0: B5_STAGE event=start stage=gcs-core-manifest timeout_seconds=45.0\t",
+    "2026-10-08T00:14:45.227935050Z\tINFO\tStep #0: B5_STAGE event=complete stage=load-b2-contract elapsed_seconds=0.0\t",
+    "2026-10-08T00:14:45.209860948Z\tINFO\tStep #0: B5_STAGE event=start stage=load-b2-contract timeout_seconds=10.0\t"
   ],
-  "cloud_build_submit_stderr": "Creating temporary archive of 666 file(s) totalling 11.4 MiB before compression.\nUploading tarball of [.] to [gs://gen-lang-client-0593591102-cloudbuild-regional/source/1791418259.809994-8350311a39fc4384b27187a14fe3e726.tgz]\nCreated [https://cloudbuild.googleapis.com/v1/projects/gen-lang-client-0593591102/locations/us-central1/builds/798256a8-c4aa-494a-b1b7-c3664ae9fd5a].\nLogs are available at [ https://console.cloud.google.com/cloud-build/builds;region=us-central1/798256a8-c4aa-494a-b1b7-c3664ae9fd5a?project=131494961796 ].\n",
+  "cloud_build_submit_stderr": "Creating temporary archive of 666 file(s) totalling 11.4 MiB before compression.\nUploading tarball of [.] to [gs://gen-lang-client-0593591102-cloudbuild-regional/source/1791418464.48139-ea1c78e8524d4eb0ad501db89acd46cf.tgz]\nCreated [https://cloudbuild.googleapis.com/v1/projects/gen-lang-client-0593591102/locations/us-central1/builds/a178b778-998e-437c-82d6-7674ea0d4b04].\nLogs are available at [ https://console.cloud.google.com/cloud-build/builds;region=us-central1/a178b778-998e-437c-82d6-7674ea0d4b04?project=131494961796 ].\n",
   "constraints": {
     "bigquery_execution_budget_bytes": 1073741824,
     "bigquery_location": "US",
@@ -171,18 +137,212 @@
     "storage_read_api": false
   },
   "deploy_log_tail": null,
-  "export": null,
-  "generated_at": "2026-10-08T00:12:06.590890+00:00",
-  "git_sha": "c411fc0ff44a682ae16f63cec1cb1362db31e7a2",
-  "install_log_tail": "ading typing_inspection-0.4.4-py3-none-any.whl (14 kB)\nCollecting tzdata==2026.3 (from -r jobs/intelligence-mart/requirements.lock (line 2588))\n  Downloading tzdata-2026.3-py2.py3-none-any.whl (348 kB)\nCollecting urllib3==2.8.0 (from -r jobs/intelligence-mart/requirements.lock (line 2594))\n  Downloading urllib3-2.8.0-py3-none-any.whl (135 kB)\nCollecting xlsxwriter==3.2.9 (from -r jobs/intelligence-mart/requirements.lock (line 2600))\n  Downloading xlsxwriter-3.2.9-py3-none-any.whl (175 kB)\nCollecting zstandard==0.25.0 (from -r jobs/intelligence-mart/requirements.lock (line 2604))\n  Downloading zstandard-0.25.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (5.5 MB)\n     \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 5.5/5.5 MB 355.8 MB/s  0:00:00\nInstalling collected packages: pytz, pyroaring, zstandard, xlsxwriter, urllib3, tzdata, typing-extensions, threadpoolctl, tenacity, six, setuptools, pyyaml, pyparsing, pyiceberg-core, pygments, pycparser, pybind11, pyasn1, pyarrow, psycopg2-binary, psycopg-binary, pillow, packaging, numpy, networkx, narwhals, mmh3, mdurl, markupsafe, kiwisolver, idna, greenlet, graphviz, fsspec, fonttools, duckdb, cycler, colorama, cloudpickle, click, charset-normalizer, certifi, cachetools, astropy-iers-data, annotated-types, typing-inspection, sqlalchemy, sparsediffpy, scipy, requests, python-dateutil, pyerfa, pydantic-core, pyasn1-modules, psycopg, plotly, patsy, markdown-it-py, joblib, jinja2, highspy, contourpy, cffi, strictyaml, scs, scikit-learn, rich, qdldl, pydantic, pandas, osqp, matplotlib, lightgbm, cryptography, clarabel, astropy, statsmodels, pyiceberg, google-auth, cvxpy, catboost, arch, riskfolio-lib\n\nSuccessfully installed annotated-types-0.8.0 arch-8.0.0 astropy-8.0.1 astropy-iers-data-0.2026.9.28.0.59.37 cachetools-5.5.2 catboost-1.2.8 certifi-2026.7.22 cffi-2.1.1 charset-normalizer-3.5.1 clarabel-0.11.1 click-8.4.2 cloudpickle-3.1.2 colorama-0.4.6 contourpy-1.4.0 cryptography-50.0.1 cvxpy-1.9.3 cycler-0.12.1 duckdb-1.5.5 fonttools-4.66.1 fsspec-2026.7.0 google-auth-2.57.0 graphviz-0.21 greenlet-3.5.5 highspy-1.15.1 idna-3.19 jinja2-3.1.6 joblib-1.6.0 kiwisolver-1.5.1 lightgbm-4.6.0 markdown-it-py-4.2.0 markupsafe-3.0.4 matplotlib-3.11.2 mdurl-0.1.2 mmh3-5.3.0 narwhals-2.26.0 networkx-3.7 numpy-2.2.6 osqp-1.1.3 packaging-26.3 pandas-2.3.3 patsy-1.0.3 pillow-12.3.0 plotly-7.1.0 psycopg-3.2.10 psycopg-binary-3.2.10 psycopg2-binary-2.9.12 pyarrow-25.0.1 pyasn1-0.6.4 pyasn1-modules-0.4.2 pybind11-3.1.0 pycparser-3.0 pydantic-2.13.4 pydantic-core-2.46.4 pyerfa-2.0.1.5 pygments-2.21.0 pyiceberg-0.11.1 pyiceberg-core-0.8.0 pyparsing-3.3.2 pyroaring-1.1.0 python-dateutil-2.9.0.post0 pytz-2025.2 pyyaml-6.0.3 qdldl-0.1.9.post1 requests-2.34.2 rich-14.3.4 riskfolio-lib-7.0.1 scikit-learn-1.7.2 scipy-1.18.1 scs-3.3.1 setuptools-84.0.0 six-1.17.0 sparsediffpy-0.6.1 sqlalchemy-2.0.52 statsmodels-0.14.5 strictyaml-1.7.3 tenacity-9.1.4 threadpoolctl-3.7.0 typing-extensions-4.16.0 typing-inspection-0.4.4 tzdata-2026.3 urllib3-2.8.0 xlsxwriter-3.2.9 zstandard-0.25.0\nRequirement already satisfied: certifi==2026.7.22 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 3)) (2026.7.22)\nRequirement already satisfied: cffi==2.1.1 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 7)) (2.1.1)\nCollecting charset-normalizer==3.5.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 109))\n  Downloading charset_normalizer-3.5.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (257 kB)\nCollecting cryptography==50.0.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 283))\n  Downloading cryptography-50.0.2-cp311-abi3-manylinux_2_34_x86_64.whl (4.8 MB)\n     \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 4.8/4.8 MB 230.0 MB/s  0:00:00\nCollecting google-api-core==2.41.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 344))\n  Downloading google_api_core-2.41.0-py3-none-any.whl (215 kB)\nCollecting google-auth==2.60.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 350))\n  Downloading google_auth-2.60.0-py3-none-any.whl (264 kB)\nCollecting google-cloud-bigquery==3.46.1 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 357))\n  Downloading google_cloud_bigquery-3.46.1-py3-none-any.whl (268 kB)\nCollecting google-cloud-core==2.8.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 361))\n  Downloading google_cloud_core-2.8.0-py3-none-any.whl (31 kB)\nCollecting google-crc32c==1.9.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 365))\n  Downloading google_crc32c-1.9.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (36 kB)\nCollecting google-resumable-media==2.11.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 398))\n  Downloading google_resumable_media-2.11.0-py3-none-any.whl (81 kB)\nCollecting googleapis-common-protos==1.75.5 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 402))\n  Downloading googleapis_common_protos-1.75.5-py3-none-any.whl (307 kB)\nCollecting grpcio==1.84.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 408))\n  Downloading grpcio-1.84.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (7.2 MB)\n     \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 7.2/7.2 MB 252.8 MB/s  0:00:00\nCollecting grpcio-status==1.84.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 473))\n  Downloading grpcio_status-1.84.0-py3-none-any.whl (14 kB)\nCollecting idna==3.20 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 477))\n  Downloading idna-3.20-py3-none-any.whl (69 kB)\nCollecting opentelemetry-api==1.45.1 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 481))\n  Downloading opentelemetry_api-1.45.1-py3-none-any.whl (60 kB)\nRequirement already satisfied: packaging==26.3 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 485)) (26.3)\nCollecting proto-plus==1.29.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 489))\n  Downloading proto_plus-1.29.0-py3-none-any.whl (50 kB)\nCollecting protobuf==7.36.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 493))\n  Downloading protobuf-7.36.2-cp310-abi3-manylinux2014_x86_64.whl (343 kB)\nRequirement already satisfied: pyasn1==0.6.4 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 507)) (0.6.4)\nRequirement already satisfied: pyasn1-modules==0.4.2 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 511)) (0.4.2)\nRequirement already satisfied: pycparser==3.0 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 515)) (3.0)\nRequirement already satisfied: python-dateutil==2.9.0.post0 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 519)) (2.9.0.post0)\nRequirement already satisfied: requests==2.34.2 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 523)) (2.34.2)\nRequirement already satisfied: six==1.17.0 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 529)) (1.17.0)\nRequirement already satisfied: typing-extensions==4.16.0 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 533)) (4.16.0)\nRequirement already satisfied: urllib3==2.8.0 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 539)) (2.8.0)\nInstalling collected packages: protobuf, opentelemetry-api, idna, grpcio, google-crc32c, charset-normalizer, proto-plus, googleapis-common-protos, google-resumable-media, cryptography, grpcio-status, google-auth, google-api-core, google-cloud-core, google-cloud-bigquery\n  Attempting uninstall: idna\n    Found existing installation: idna 3.19\n    Uninstalling idna-3.19:\n      Successfully uninstalled idna-3.19\n  Attempting uninstall: charset-normalizer\n    Found existing installation: charset-normalizer 3.5.1\n    Uninstalling charset-normalizer-3.5.1:\n      Successfully uninstalled charset-normalizer-3.5.1\n  Attempting uninstall: cryptography\n    Found existing installation: cryptography 50.0.1\n    Uninstalling cryptography-50.0.1:\n      Successfully uninstalled cryptography-50.0.1\n  Attempting uninstall: google-auth\n    Found existing installation: google-auth 2.57.0\n    Uninstalling google-auth-2.57.0:\n      Successfully uninstalled google-auth-2.57.0\n\nSuccessfully installed charset-normalizer-3.5.2 cryptography-50.0.2 google-api-core-2.41.0 google-auth-2.60.0 google-cloud-bigquery-3.46.1 google-cloud-core-2.8.0 google-crc32c-1.9.0 google-resumable-media-2.11.0 googleapis-common-protos-1.75.5 grpcio-1.84.0 grpcio-status-1.84.0 idna-3.20 opentelemetry-api-1.45.1 proto-plus-1.29.0 protobuf-7.36.2\nCollecting pytest==8.4.1 (from -r requirements-dev.txt (line 1))\n  Downloading pytest-8.4.1-py3-none-any.whl.metadata (7.7 kB)\nCollecting httpx==0.28.1 (from -r requirements-dev.txt (line 2))\n  Downloading httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)\nCollecting iniconfig>=1 (from pytest==8.4.1->-r requirements-dev.txt (line 1))\n  Downloading iniconfig-2.3.1-py3-none-any.whl.metadata (2.8 kB)\nRequirement already satisfied: packaging>=20 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from pytest==8.4.1->-r requirements-dev.txt (line 1)) (26.3)\nCollecting pluggy<2,>=1.5 (from pytest==8.4.1->-r requirements-dev.txt (line 1))\n  Downloading pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)\nRequirement already satisfied: pygments>=2.7.2 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from pytest==8.4.1->-r requirements-dev.txt (line 1)) (2.21.0)\nCollecting anyio (from httpx==0.28.1->-r requirements-dev.txt (line 2))\n  Downloading anyio-4.15.1-py3-none-any.whl.metadata (4.7 kB)\nRequirement already satisfied: certifi in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from httpx==0.28.1->-r requirements-dev.txt (line 2)) (2026.7.22)\nCollecting httpcore==1.* (from httpx==0.28.1->-r requirements-dev.txt (line 2))\n  Downloading httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)\nRequirement already satisfied: idna in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from httpx==0.28.1->-r requirements-dev.txt (line 2)) (3.20)\nCollecting h11>=0.16 (from httpcore==1.*->httpx==0.28.1->-r requirements-dev.txt (line 2))\n  Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)\nRequirement already satisfied: typing_extensions>=4.16.0 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from anyio->httpx==0.28.1->-r requirements-dev.txt (line 2)) (4.16.0)\nDownloading pytest-8.4.1-py3-none-any.whl (365 kB)\nDownloading httpx-0.28.1-py3-none-any.whl (73 kB)\nDownloading httpcore-1.0.9-py3-none-any.whl (78 kB)\nDownloading pluggy-1.6.0-py3-none-any.whl (20 kB)\nDownloading h11-0.16.0-py3-none-any.whl (37 kB)\nDownloading iniconfig-2.3.1-py3-none-any.whl (7.6 kB)\nDownloading anyio-4.15.1-py3-none-any.whl (132 kB)\nInstalling collected packages: pluggy, iniconfig, h11, anyio, pytest, httpcore, httpx\n\nSuccessfully installed anyio-4.15.1 h11-0.16.0 httpcore-1.0.9 httpx-0.28.1 iniconfig-2.3.1 pluggy-1.6.0 pytest-8.4.1\n",
+  "export": {
+    "analysis_as_of": "2026-10-06",
+    "bigquery_jobs": [],
+    "core_snapshot_id": "sha256:1eb49a2d139411245bda3c9d2eb77e451c5f462bb1865406fd8b55a151df61ab",
+    "dataset_content_hash": "sha256:16100c1ee0403e4846ef866c59299e4b58f85aa88d7fe4e5647c418112452799",
+    "export_bytes": 533945,
+    "manifest_uri": "gs://gen-lang-client-0593591102-dev-mart/ml-oos-data/v1/70e0dc3b7d4a6ab3a0437bd0c633de56986bc72b6d8b14e5d85861f0771164a6/manifest.json",
+    "reused": true,
+    "row_count": 10978,
+    "status": "pass",
+    "storage_read_api_used": false,
+    "total_billed_bytes": 0
+  },
+  "generated_at": "2026-10-08T00:17:44.535754+00:00",
+  "git_sha": "051591ef2f5601c947f0a54eb16d145f21978dee",
+  "install_log_tail": "ading typing_inspection-0.4.4-py3-none-any.whl (14 kB)\nCollecting tzdata==2026.3 (from -r jobs/intelligence-mart/requirements.lock (line 2588))\n  Downloading tzdata-2026.3-py2.py3-none-any.whl (348 kB)\nCollecting urllib3==2.8.0 (from -r jobs/intelligence-mart/requirements.lock (line 2594))\n  Downloading urllib3-2.8.0-py3-none-any.whl (135 kB)\nCollecting xlsxwriter==3.2.9 (from -r jobs/intelligence-mart/requirements.lock (line 2600))\n  Downloading xlsxwriter-3.2.9-py3-none-any.whl (175 kB)\nCollecting zstandard==0.25.0 (from -r jobs/intelligence-mart/requirements.lock (line 2604))\n  Downloading zstandard-0.25.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (5.5 MB)\n     \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 5.5/5.5 MB 150.2 MB/s  0:00:00\nInstalling collected packages: pytz, pyroaring, zstandard, xlsxwriter, urllib3, tzdata, typing-extensions, threadpoolctl, tenacity, six, setuptools, pyyaml, pyparsing, pyiceberg-core, pygments, pycparser, pybind11, pyasn1, pyarrow, psycopg2-binary, psycopg-binary, pillow, packaging, numpy, networkx, narwhals, mmh3, mdurl, markupsafe, kiwisolver, idna, greenlet, graphviz, fsspec, fonttools, duckdb, cycler, colorama, cloudpickle, click, charset-normalizer, certifi, cachetools, astropy-iers-data, annotated-types, typing-inspection, sqlalchemy, sparsediffpy, scipy, requests, python-dateutil, pyerfa, pydantic-core, pyasn1-modules, psycopg, plotly, patsy, markdown-it-py, joblib, jinja2, highspy, contourpy, cffi, strictyaml, scs, scikit-learn, rich, qdldl, pydantic, pandas, osqp, matplotlib, lightgbm, cryptography, clarabel, astropy, statsmodels, pyiceberg, google-auth, cvxpy, catboost, arch, riskfolio-lib\n\nSuccessfully installed annotated-types-0.8.0 arch-8.0.0 astropy-8.0.1 astropy-iers-data-0.2026.9.28.0.59.37 cachetools-5.5.2 catboost-1.2.8 certifi-2026.7.22 cffi-2.1.1 charset-normalizer-3.5.1 clarabel-0.11.1 click-8.4.2 cloudpickle-3.1.2 colorama-0.4.6 contourpy-1.4.0 cryptography-50.0.1 cvxpy-1.9.3 cycler-0.12.1 duckdb-1.5.5 fonttools-4.66.1 fsspec-2026.7.0 google-auth-2.57.0 graphviz-0.21 greenlet-3.5.5 highspy-1.15.1 idna-3.19 jinja2-3.1.6 joblib-1.6.0 kiwisolver-1.5.1 lightgbm-4.6.0 markdown-it-py-4.2.0 markupsafe-3.0.4 matplotlib-3.11.2 mdurl-0.1.2 mmh3-5.3.0 narwhals-2.26.0 networkx-3.7 numpy-2.2.6 osqp-1.1.3 packaging-26.3 pandas-2.3.3 patsy-1.0.3 pillow-12.3.0 plotly-7.1.0 psycopg-3.2.10 psycopg-binary-3.2.10 psycopg2-binary-2.9.12 pyarrow-25.0.1 pyasn1-0.6.4 pyasn1-modules-0.4.2 pybind11-3.1.0 pycparser-3.0 pydantic-2.13.4 pydantic-core-2.46.4 pyerfa-2.0.1.5 pygments-2.21.0 pyiceberg-0.11.1 pyiceberg-core-0.8.0 pyparsing-3.3.2 pyroaring-1.1.0 python-dateutil-2.9.0.post0 pytz-2025.2 pyyaml-6.0.3 qdldl-0.1.9.post1 requests-2.34.2 rich-14.3.4 riskfolio-lib-7.0.1 scikit-learn-1.7.2 scipy-1.18.1 scs-3.3.1 setuptools-84.0.0 six-1.17.0 sparsediffpy-0.6.1 sqlalchemy-2.0.52 statsmodels-0.14.5 strictyaml-1.7.3 tenacity-9.1.4 threadpoolctl-3.7.0 typing-extensions-4.16.0 typing-inspection-0.4.4 tzdata-2026.3 urllib3-2.8.0 xlsxwriter-3.2.9 zstandard-0.25.0\nRequirement already satisfied: certifi==2026.7.22 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 3)) (2026.7.22)\nRequirement already satisfied: cffi==2.1.1 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 7)) (2.1.1)\nCollecting charset-normalizer==3.5.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 109))\n  Downloading charset_normalizer-3.5.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (257 kB)\nCollecting cryptography==50.0.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 283))\n  Downloading cryptography-50.0.2-cp311-abi3-manylinux_2_34_x86_64.whl (4.8 MB)\n     \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 4.8/4.8 MB 260.6 MB/s  0:00:00\nCollecting google-api-core==2.41.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 344))\n  Downloading google_api_core-2.41.0-py3-none-any.whl (215 kB)\nCollecting google-auth==2.60.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 350))\n  Downloading google_auth-2.60.0-py3-none-any.whl (264 kB)\nCollecting google-cloud-bigquery==3.46.1 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 357))\n  Downloading google_cloud_bigquery-3.46.1-py3-none-any.whl (268 kB)\nCollecting google-cloud-core==2.8.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 361))\n  Downloading google_cloud_core-2.8.0-py3-none-any.whl (31 kB)\nCollecting google-crc32c==1.9.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 365))\n  Downloading google_crc32c-1.9.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (36 kB)\nCollecting google-resumable-media==2.11.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 398))\n  Downloading google_resumable_media-2.11.0-py3-none-any.whl (81 kB)\nCollecting googleapis-common-protos==1.75.5 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 402))\n  Downloading googleapis_common_protos-1.75.5-py3-none-any.whl (307 kB)\nCollecting grpcio==1.84.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 408))\n  Downloading grpcio-1.84.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (7.2 MB)\n     \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 7.2/7.2 MB 351.7 MB/s  0:00:00\nCollecting grpcio-status==1.84.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 473))\n  Downloading grpcio_status-1.84.0-py3-none-any.whl (14 kB)\nCollecting idna==3.20 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 477))\n  Downloading idna-3.20-py3-none-any.whl (69 kB)\nCollecting opentelemetry-api==1.45.1 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 481))\n  Downloading opentelemetry_api-1.45.1-py3-none-any.whl (60 kB)\nRequirement already satisfied: packaging==26.3 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 485)) (26.3)\nCollecting proto-plus==1.29.0 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 489))\n  Downloading proto_plus-1.29.0-py3-none-any.whl (50 kB)\nCollecting protobuf==7.36.2 (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 493))\n  Downloading protobuf-7.36.2-cp310-abi3-manylinux2014_x86_64.whl (343 kB)\nRequirement already satisfied: pyasn1==0.6.4 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 507)) (0.6.4)\nRequirement already satisfied: pyasn1-modules==0.4.2 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 511)) (0.4.2)\nRequirement already satisfied: pycparser==3.0 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 515)) (3.0)\nRequirement already satisfied: python-dateutil==2.9.0.post0 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 519)) (2.9.0.post0)\nRequirement already satisfied: requests==2.34.2 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 523)) (2.34.2)\nRequirement already satisfied: six==1.17.0 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 529)) (1.17.0)\nRequirement already satisfied: typing-extensions==4.16.0 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 533)) (4.16.0)\nRequirement already satisfied: urllib3==2.8.0 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from -r jobs/intelligence-mart/requirements-bigquery-probe.lock (line 539)) (2.8.0)\nInstalling collected packages: protobuf, opentelemetry-api, idna, grpcio, google-crc32c, charset-normalizer, proto-plus, googleapis-common-protos, google-resumable-media, cryptography, grpcio-status, google-auth, google-api-core, google-cloud-core, google-cloud-bigquery\n  Attempting uninstall: idna\n    Found existing installation: idna 3.19\n    Uninstalling idna-3.19:\n      Successfully uninstalled idna-3.19\n  Attempting uninstall: charset-normalizer\n    Found existing installation: charset-normalizer 3.5.1\n    Uninstalling charset-normalizer-3.5.1:\n      Successfully uninstalled charset-normalizer-3.5.1\n  Attempting uninstall: cryptography\n    Found existing installation: cryptography 50.0.1\n    Uninstalling cryptography-50.0.1:\n      Successfully uninstalled cryptography-50.0.1\n  Attempting uninstall: google-auth\n    Found existing installation: google-auth 2.57.0\n    Uninstalling google-auth-2.57.0:\n      Successfully uninstalled google-auth-2.57.0\n\nSuccessfully installed charset-normalizer-3.5.2 cryptography-50.0.2 google-api-core-2.41.0 google-auth-2.60.0 google-cloud-bigquery-3.46.1 google-cloud-core-2.8.0 google-crc32c-1.9.0 google-resumable-media-2.11.0 googleapis-common-protos-1.75.5 grpcio-1.84.0 grpcio-status-1.84.0 idna-3.20 opentelemetry-api-1.45.1 proto-plus-1.29.0 protobuf-7.36.2\nCollecting pytest==8.4.1 (from -r requirements-dev.txt (line 1))\n  Downloading pytest-8.4.1-py3-none-any.whl.metadata (7.7 kB)\nCollecting httpx==0.28.1 (from -r requirements-dev.txt (line 2))\n  Downloading httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)\nCollecting iniconfig>=1 (from pytest==8.4.1->-r requirements-dev.txt (line 1))\n  Downloading iniconfig-2.3.1-py3-none-any.whl.metadata (2.8 kB)\nRequirement already satisfied: packaging>=20 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from pytest==8.4.1->-r requirements-dev.txt (line 1)) (26.3)\nCollecting pluggy<2,>=1.5 (from pytest==8.4.1->-r requirements-dev.txt (line 1))\n  Downloading pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)\nRequirement already satisfied: pygments>=2.7.2 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from pytest==8.4.1->-r requirements-dev.txt (line 1)) (2.21.0)\nCollecting anyio (from httpx==0.28.1->-r requirements-dev.txt (line 2))\n  Downloading anyio-4.15.1-py3-none-any.whl.metadata (4.7 kB)\nRequirement already satisfied: certifi in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from httpx==0.28.1->-r requirements-dev.txt (line 2)) (2026.7.22)\nCollecting httpcore==1.* (from httpx==0.28.1->-r requirements-dev.txt (line 2))\n  Downloading httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)\nRequirement already satisfied: idna in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from httpx==0.28.1->-r requirements-dev.txt (line 2)) (3.20)\nCollecting h11>=0.16 (from httpcore==1.*->httpx==0.28.1->-r requirements-dev.txt (line 2))\n  Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)\nRequirement already satisfied: typing_extensions>=4.16.0 in /opt/hostedtoolcache/Python/3.12.15/x64/lib/python3.12/site-packages (from anyio->httpx==0.28.1->-r requirements-dev.txt (line 2)) (4.16.0)\nDownloading pytest-8.4.1-py3-none-any.whl (365 kB)\nDownloading httpx-0.28.1-py3-none-any.whl (73 kB)\nDownloading httpcore-1.0.9-py3-none-any.whl (78 kB)\nDownloading pluggy-1.6.0-py3-none-any.whl (20 kB)\nDownloading h11-0.16.0-py3-none-any.whl (37 kB)\nDownloading iniconfig-2.3.1-py3-none-any.whl (7.6 kB)\nDownloading anyio-4.15.1-py3-none-any.whl (132 kB)\nInstalling collected packages: pluggy, iniconfig, h11, anyio, pytest, httpcore, httpx\n\nSuccessfully installed anyio-4.15.1 h11-0.16.0 httpcore-1.0.9 httpx-0.28.1 iniconfig-2.3.1 pluggy-1.6.0 pytest-8.4.1\n",
   "markers": {
     "deploy": true,
-    "export": false,
+    "export": true,
     "install": true,
-    "live": false,
+    "live": true,
     "tests": true
   },
-  "mart_execution": null,
+  "mart_execution": {
+    "apiVersion": "run.googleapis.com/v1",
+    "kind": "Execution",
+    "metadata": {
+      "annotations": {
+        "run.googleapis.com/client-name": "gcloud",
+        "run.googleapis.com/client-version": "568.0.0",
+        "run.googleapis.com/creator": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
+        "run.googleapis.com/execution-environment": "gen2",
+        "run.googleapis.com/lastModifier": "janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com",
+        "run.googleapis.com/network-interfaces": "[{\"network\": \"janusai-lake-poc\", \"subnetwork\": \"janusai-lake-poc-uscentral1\", \"tags\": [\"janus-intelligence-mart\"]}]",
+        "run.googleapis.com/operation-id": "153fe6b0-223e-4552-aefc-e9461031134d",
+        "run.googleapis.com/vpc-access-egress": "private-ranges-only"
+      },
+      "creationTimestamp": "2026-10-08T00:15:33.496249Z",
+      "generation": 1,
+      "labels": {
+        "client.knative.dev/nonce": "jij_dax_ray",
+        "cloud.googleapis.com/location": "us-central1",
+        "run.googleapis.com/job": "janus-intelligence-mart",
+        "run.googleapis.com/jobGeneration": "234",
+        "run.googleapis.com/jobResourceVersion": "1791414676862502",
+        "run.googleapis.com/jobUid": "bb34dcf0-83ff-4cb0-8a6e-06d71132d70f"
+      },
+      "name": "janus-intelligence-mart-bb25f",
+      "namespace": "131494961796",
+      "ownerReferences": [
+        {
+          "apiVersion": "serving.knative.dev/v1",
+          "blockOwnerDeletion": true,
+          "controller": true,
+          "kind": "Job",
+          "name": "janus-intelligence-mart",
+          "uid": "bb34dcf0-83ff-4cb0-8a6e-06d71132d70f"
+        }
+      ],
+      "resourceVersion": "AAZdSSkLGEc",
+      "selfLink": "/apis/run.googleapis.com/v1/namespaces/131494961796/executions/janus-intelligence-mart-bb25f",
+      "uid": "ff028c8a-5b33-45a8-9dd6-9531df580a05"
+    },
+    "spec": {
+      "parallelism": 1,
+      "taskCount": 1,
+      "template": {
+        "spec": {
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "CATALOG_DB_HOST",
+                  "value": "10.42.0.5"
+                },
+                {
+                  "name": "CATALOG_DB_NAME",
+                  "value": "janus_control"
+                },
+                {
+                  "name": "CATALOG_DB_USER",
+                  "value": "janus_mart_catalog"
+                },
+                {
+                  "name": "CATALOG_DB_SSLMODE",
+                  "value": "require"
+                },
+                {
+                  "name": "PUBLICATION_DB_HOST",
+                  "value": "10.42.0.5"
+                },
+                {
+                  "name": "PUBLICATION_DB_NAME",
+                  "value": "janus_control"
+                },
+                {
+                  "name": "PUBLICATION_DB_USER",
+                  "value": "janus_mart_publication"
+                },
+                {
+                  "name": "PUBLICATION_DB_SSLMODE",
+                  "value": "require"
+                },
+                {
+                  "name": "JANUS_MART_POSTGRES_BUNDLE",
+                  "valueFrom": {
+                    "secretKeyRef": {
+                      "key": "latest",
+                      "name": "janus-runtime-bundle"
+                    }
+                  }
+                },
+                {
+                  "name": "MART_OPERATION",
+                  "value": "ml-oos-data-acceptance"
+                },
+                {
+                  "name": "MART_BUCKET",
+                  "value": "gen-lang-client-0593591102-dev-mart"
+                },
+                {
+                  "name": "QUEUE_WORKER_ID",
+                  "value": "wbs5-acceptance-20260911"
+                },
+                {
+                  "name": "GCP_PROJECT_ID",
+                  "value": "gen-lang-client-0593591102"
+                },
+                {
+                  "name": "JANUS_GIT_SHA",
+                  "value": "cdfa61c7e85fe1323594fdaced5b68c0161f6913"
+                },
+                {
+                  "name": "JANUS_IMAGE_DIGEST",
+                  "value": "sha256:c4e2fc42f19114aa9cc74641dbc9a73c158095bd8f8ce339978f8e03859f8b20"
+                },
+                {
+                  "name": "MART_CODEX_AUTH_SECRET",
+                  "value": "janus-mart-codex-auth"
+                },
+                {
+                  "name": "MART_AI_ENABLED",
+                  "value": "false"
+                },
+                {
+                  "name": "MART_ML_OOS_MANIFEST_URI",
+                  "value": "gs://gen-lang-client-0593591102-dev-mart/ml-oos-data/v1/70e0dc3b7d4a6ab3a0437bd0c633de56986bc72b6d8b14e5d85861f0771164a6/manifest.json"
+                },
+                {
+                  "name": "MART_ML_OOS_RESULT_URI",
+                  "value": "gs://gen-lang-client-0593591102-dev-mart/acceptance/b5-live/github-37706568819-1.json"
+                },
+                {
+                  "name": "MART_OOS_EVALUATION",
+                  "value": "false"
+                }
+              ],
+              "image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/intelligence-mart@sha256:c4e2fc42f19114aa9cc74641dbc9a73c158095bd8f8ce339978f8e03859f8b20",
+              "resources": {
+                "limits": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              }
+            }
+          ],
+          "maxRetries": 1,
+          "serviceAccountName": "intelligence-mart@gen-lang-client-0593591102.iam.gserviceaccount.com",
+          "timeoutSeconds": "600"
+        }
+      }
+    },
+    "status": {
+      "completionTime": "2026-10-08T00:17:39.701240Z",
+      "conditions": [
+        {
+          "lastTransitionTime": "2026-10-08T00:17:39.701240Z",
+          "message": "Execution completed successfully in 1m50.76s.",
+          "status": "True",
+          "type": "Completed"
+        },
+        {
+          "lastTransitionTime": "2026-10-08T00:15:34.635314Z",
+          "message": "Provisioned imported containers.",
+          "status": "True",
+          "type": "ResourcesAvailable"
+        },
+        {
+          "lastTransitionTime": "2026-10-08T00:17:31.407591Z",
+          "message": "Started deployed execution in 1m56.77s.",
+          "status": "True",
+          "type": "Started"
+        },
+        {
+          "lastTransitionTime": "2026-10-08T00:15:34.351659Z",
+          "message": "Imported container image.",
+          "status": "True",
+          "type": "ContainerReady"
+        }
+      ],
+      "logUri": "https://console.cloud.google.com/logs/viewer?project=gen-lang-client-0593591102&advancedFilter=resource.type%3D%22cloud_run_job%22%0Aresource.labels.job_name%3D%22janus-intelligence-mart%22%0Aresource.labels.location%3D%22us-central1%22%0Alabels.%22run.googleapis.com/execution_name%22%3D%22janus-intelligence-mart-bb25f%22",
+      "observedGeneration": 1,
+      "startTime": "2026-10-08T00:15:48.932396Z",
+      "succeededCount": 1
+    }
+  },
   "mart_job": {
     "apiVersion": "run.googleapis.com/v1",
     "kind": "Job",
@@ -336,8 +496,26 @@
       "observedGeneration": 234
     }
   },
-  "mart_result": null,
+  "mart_result": {
+    "analysis_as_of": "2026-10-06",
+    "ceo_triggered": false,
+    "component": "intelligence-mart",
+    "core_snapshot_id": "sha256:1eb49a2d139411245bda3c9d2eb77e451c5f462bb1865406fd8b55a151df61ab",
+    "dataset_content_hash": "sha256:16100c1ee0403e4846ef866c59299e4b58f85aa88d7fe4e5647c418112452799",
+    "export_bytes": 533945,
+    "first_trade_date": "2026-03-19",
+    "last_trade_date": "2026-09-03",
+    "llm_api_tokens": 0,
+    "manifest_sha256": "sha256:e4828cc907ed5e76e40ad114fd55ddf4161509a61ea18daebc48f4499411f7e9",
+    "manifest_uri": "gs://gen-lang-client-0593591102-dev-mart/ml-oos-data/v1/70e0dc3b7d4a6ab3a0437bd0c633de56986bc72b6d8b14e5d85861f0771164a6/manifest.json",
+    "operation": "ml-oos-data-acceptance",
+    "row_count": 10978,
+    "shard_count": 1,
+    "status": "pass",
+    "storage_read_api_used": false,
+    "symbol_count": 499
+  },
   "schema_version": "b5-live-acceptance-v1",
-  "status": "failed",
-  "tests_log_tail": "............                                                             [100%]\n12 passed in 0.75s\n"
+  "status": "pass",
+  "tests_log_tail": ".............                                                            [100%]\n13 passed in 0.52s\n"
 }
