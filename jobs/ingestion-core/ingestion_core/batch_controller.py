@@ -42,7 +42,7 @@ BATCHES = (
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart")),
     Batch("specialist-retrain", "janus-intelligence-mart", (10,), dependencies=("ingestion", "data-supplement"),
           env=(("MART_OPERATION", "specialist-retrain"), ("MART_OOS_EVALUATION", "true"), ("MART_AI_ENABLED", "false")),
-          exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart"), month_days=(1,)),
+          exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart"), weekdays=(5,), month_days=tuple(range(1, 8))),
     Batch("data-quality", "janus-ingestion-core", (12,), (5,),
           env=(("JANUS_DATA_SUPPLEMENT_MODE", "quality"), ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""),
                ("ICEBERG_MAINTENANCE_MODE", "")), exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart")),
@@ -442,7 +442,11 @@ def run(*, now=None, session=None, control=None, core=None):
                     record(connection, tick, key, state, "manual_dependency_updated")
             else:
                 # Reconcile scheduled pending slots created before a dependency-policy change.
-                due_row = next(row for row in due_batches(datetime.fromisoformat(state["scheduled_at"])) if row[0] == key)
+                due_row = next((row for row in due_batches(datetime.fromisoformat(state["scheduled_at"])) if row[0] == key), None)
+                if due_row is None:
+                    record(connection, tick, key, {**state, "status": "skipped", "reason": "schedule_superseded"},
+                           "schedule_superseded")
+                    continue
                 dependencies = due_row[3]
                 expected_env = list(occurrence_env(batch, due_row[2]))
                 if dependencies != state["dependencies"] or state.get("env") != expected_env:

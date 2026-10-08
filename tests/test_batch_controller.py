@@ -16,16 +16,31 @@ def test_multiple_daily_and_weekend_slots_have_distinct_identities():
         due_batches(datetime(2026, 10, 3), batches)
 
 
-def test_monthly_retraining_runs_once_on_first_day_after_ingestion():
-    first = datetime(2026, 11, 1, 4, tzinfo=timezone.utc)  # Sunday; no daily Mart slot.
-    rows = [row for row in due_batches(first) if row[1].name == "specialist-retrain"]
-    assert len(rows) == 1
-    assert rows[0][3] == ["ingestion/2026-11-01/07", "data-supplement/2026-11-01/08"]
-    assert dict(rows[0][1].env)["MART_OOS_EVALUATION"] == "true"
-    assert not any(row[1].name == "specialist-retrain" for row in due_batches(first.replace(day=2)))
-    assert not any(row[1].name == "specialist-retrain" for row in due_batches(first.replace(hour=1)))
+def test_monthly_retraining_only_first_saturday_at_taipei_1030_with_dependencies():
+    # Oct starts on Thursday, November on Sunday, December on Tuesday.
+    for day in (3, 7, 5):
+        month = {3: 10, 7: 11, 5: 12}[day]
+        local_before = datetime(2026, month, day, 2, 29, tzinfo=timezone.utc)  # 10:29 Taipei
+        local_due = local_before.replace(minute=30)
+        assert not [row for row in due_batches(local_before) if row[1].name == "specialist-retrain"]
+        rows = [row for row in due_batches(local_due) if row[1].name == "specialist-retrain"]
+        assert len(rows) == 1
+        assert rows[0][0] == f"specialist-retrain/2026-{month:02d}-{day:02d}/10"
+        assert rows[0][3] == [f"ingestion/2026-{month:02d}-{day:02d}/07",
+                              f"data-supplement/2026-{month:02d}-{day:02d}/08"]
+        assert dict(rows[0][1].env) == {
+            "MART_OPERATION": "specialist-retrain",
+            "MART_OOS_EVALUATION": "true",
+            "MART_AI_ENABLED": "false",
+        }
+        assert not [row for row in due_batches(local_due.replace(day=day + 7))
+                    if row[1].name == "specialist-retrain"]
+    # Historical day-one schedule must never create a new monthly occurrence.
+    assert not [row for row in due_batches(datetime(2026, 11, 1, 4, tzinfo=timezone.utc))
+                if row[1].name == "specialist-retrain"]
     with pytest.raises(ValueError):
-        due_batches(first, (Batch("invalid", "unused", (10,), month_days=(0,)),))
+        due_batches(datetime(2026, 11, 7, tzinfo=timezone.utc),
+                    (Batch("invalid", "unused", (10,), month_days=(0,)),))
 
 
 def test_private_pipeline_effective_schedule_is_controller_owned():

@@ -127,7 +127,8 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
                 or saved["output_hash"] != digest({k: v for k, v in saved.items() if k != "output_hash"}):
             raise RuntimeError("immutable specialist manifest fence mismatch")
         refs = [saved["target_snapshot"], *saved["specialists"],
-                *([saved["evaluation"]] if "evaluation" in saved else [])]
+                *([saved["evaluation"]] if "evaluation" in saved else []),
+                *([saved["reconciliation"]] if "reconciliation" in saved else [])]
         refs.extend(saved[key] for key in ("screening", "market_membership") if saved.get(key))
         for ref in refs:
             name = ref["artifact_uri"].split(f"gs://{bucket}/", 1)[1]
@@ -146,7 +147,8 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
                 "rows_by_dataset": saved.get("input_telemetry", {}).get("rows_by_dataset", {}),
                 "scan_evidence": saved.get("input_telemetry", {}).get("scan_evidence", {}),
                 "screening_output_hash": saved.get("screening_output_hash"),
-                "evaluation_output_hash": saved.get("evaluation_output_hash")}
+                "evaluation_output_hash": saved.get("evaluation_output_hash"),
+                "reconciliation_status": saved.get("reconciliation_status")}
     target, target_ref = load_or_create_target_snapshot(publication_connection, execution.execution_id,
                                                        as_of, store, bucket)
     deep_coverage = execution.config_id == "deep-coverage"
@@ -254,6 +256,12 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
         evaluations = evaluate_core_history(datasets, target["symbols"], as_of, execution.core_snapshot_id)
         manifest["evaluation"] = _write_immutable_json(store, bucket, f"executions/{execution.execution_id}/oos-evaluation.json", evaluations)
         manifest["evaluation_output_hash"] = manifest["evaluation"]["artifact_hash"]
+    if execution.config_id == "specialist-retrain":
+        from .monthly_reconciliation import reconcile_monthly_cache
+        monthly = reconcile_monthly_cache(store, bucket, target["symbols"], references, execution.core_snapshot_id)
+        manifest["reconciliation"] = _write_immutable_json(
+            store, bucket, f"executions/{execution.execution_id}/monthly-reconciliation.json", monthly)
+        manifest["reconciliation_status"] = monthly["status"]
     manifest["output_hash"] = digest(manifest)
     ref = _write_immutable_json(store, bucket, manifest_name, manifest)
     return {**ref, "core_snapshot_id": execution.core_snapshot_id, "reports": len(target["symbols"]),
@@ -267,7 +275,8 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
             "rows_by_dataset": manifest["input_telemetry"].get("rows_by_dataset", {}),
             "scan_evidence": manifest["input_telemetry"].get("scan_evidence", {}),
             "screening_output_hash": manifest["screening_output_hash"],
-            "evaluation_output_hash": manifest.get("evaluation_output_hash")}
+            "evaluation_output_hash": manifest.get("evaluation_output_hash"),
+            "reconciliation_status": manifest.get("reconciliation_status")}
 
 
 def run_acceptance(*, processor=None, operation="specialist-acceptance"):
