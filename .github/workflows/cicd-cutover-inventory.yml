@@ -1,0 +1,108 @@
+name: CI/CD cutover inventory (read-only)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cicd-cutover-inventory.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: janus-cicd-inventory
+  cancel-in-progress: true
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Inventory dev release dependencies without mutation
+        shell: bash
+        env:
+          PROJECT: gen-lang-client-0593591102
+          REGION: us-central1
+        run: |
+          set -Eeuo pipefail
+          mkdir -p inventory
+          # Never print raw gcloud output, env values, or permission-denied details.
+          read_gcp() {
+            local key="$1"; shift
+            local rc=0
+            timeout 90s "$@" --format=json > "inventory/${key}.raw.json" 2>/dev/null || rc=$?
+            if [[ "$rc" != 0 ]] || ! jq empty "inventory/${key}.raw.json" 2>/dev/null; then
+              printf '{"status":"UNKNOWN_OR_BLOCKED","exit_code":%s}\n' "$rc" > "inventory/${key}.json"
+              rm -f "inventory/${key}.raw.json"
+              return 0
+            fi
+            case "$key" in
+              services)
+                jq '[.[] | {name:(.metadata.name // .name),image:(.spec.template.spec.containers[0].image // null),latest_ready:(.status.latestReadyRevisionName // null),traffic:(.status.traffic // [])}]' "inventory/${key}.raw.json" > "inventory/${key}.json" ;;
+              jobs)
+                jq '[.[] | {name:(.metadata.name // .name),image:(.spec.template.spec.template.spec.containers[0].image // null)}]' "inventory/${key}.raw.json" > "inventory/${key}.json" ;;
+              regional_triggers|global_triggers)
+                jq '[.[] | {name:(.name // null),id:(.id // null),disabled:(.disabled // false),region:(.region // null)}]' "inventory/${key}.raw.json" > "inventory/${key}.json" ;;
+              repositories)
+                jq '[.[] | {name:(.name // null),format:(.format // null),location:(.name | split("/") | .[-3] // null)}]' "inventory/${key}.raw.json" > "inventory/${key}.json" ;;
+              buckets)
+                jq '[.[] | {name:(.name // null),location:(.location // null),storageClass:(.storageClass // null)}]' "inventory/${key}.raw.json" > "inventory/${key}.json" ;;
+              revisions)
+                jq '[.[] | {name:(.metadata.name // .name),created:(.metadata.creationTimestamp // null),service:(.metadata.labels["serving.knative.dev/service"] // null)}]' "inventory/${key}.raw.json" > "inventory/${key}.json" ;;
+            esac
+            rm -f "inventory/${key}.raw.json"
+          }
+          read_gcp services gcloud run services list --project="$PROJECT" --region="$REGION"
+          read_gcp jobs gcloud run jobs list --project="$PROJECT" --region="$REGION"
+          read_gcp regional_triggers gcloud builds triggers list --project="$PROJECT" --region="$REGION"
+          read_gcp global_triggers gcloud builds triggers list --project="$PROJECT" --region=global
+          read_gcp repositories gcloud artifacts repositories list --project="$PROJECT" --location=all
+          read_gcp buckets gcloud storage buckets list --project="$PROJECT"
+          read_gcp revisions gcloud run revisions list --project="$PROJECT" --region="$REGION" --service=janus-api
+          # Only the legacy CI/CD-specific GCS prefix may be inspected.
+          result=0
+          timeout 60s gcloud storage ls "gs://${PROJECT}-cloudbuild-regional/v2/" > inventory/legacy-prefix.raw.txt 2>/dev/null || result=$?
+          if [[ "$result" != 0 ]]; then
+            printf '{"status":"UNKNOWN_OR_BLOCKED","exit_code":%s}\n' "$result" > inventory/legacy-prefix.json
+          else
+            python3 - <<'PY'
+          import json
+          from pathlib import Path
+          lines=Path("inventory/legacy-prefix.raw.txt").read_text().splitlines()
+          names=sorted({line.rstrip("/").split("/")[-1] for line in lines if line.strip()})
+          Path("inventory/legacy-prefix.json").write_text(json.dumps({"status":"READ_ONLY","top_level_prefixes":names},ensure_ascii=False))
+          PY
+          fi
+          rm -f inventory/legacy-prefix.raw.txt
+          {
+            echo '## CI/CD cutover read-only inventory'
+            echo 'No Cloud Build, Cloud Run, registry, GCS, or IAM mutations executed.'
+            echo '### Sanitized results'
+            for f in inventory/*.json; do
+              echo "#### $(basename "$f")"
+              echo '~~~json'
+              cat "$f"
+              echo
+              echo '~~~'
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+          for f in inventory/*.json; do
+            printf '%s ' "$(basename "$f")"
+            tr -d '\n' < "$f"
+            printf '\n'
+          done
+      - name: Upload bounded evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cicd-cutover-inventory
+          path: inventory/*.json
+          retention-days: 7
