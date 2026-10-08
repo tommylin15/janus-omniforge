@@ -1,6 +1,6 @@
 # CI/CD V2接續（2026-10-08）
 
-使用者追加政策已拆分main Push CI與明確Release。四元件shadow build SUCCESS、050 migration交易成功；manual regional Trigger已轉換。最新selective CI／authenticated live acceptance／promotion／安全cleanup仍待完成，V2 **PARTIAL**。
+已拆分 main Push selective CI 與明確 regional Release。四元件 shadow build SUCCESS、050 migration 已在 dev 成功；manual regional Trigger 已轉換。main `9e42420` 的 [selective CI 37737358620](https://github.com/tommylin15/janus-omniforge/actions/runs/37737358620) **PASS**（plan／controller）；修補 Release published generation CAS 失敗時必須保留 rollback Job 與 API 流量的路徑。後續將文件-only Push 也產生 exact-SHA plan receipt（不跑程式測試），避免明確 Release 被 doc-only HEAD 擋下。真實 authenticated acceptance／promotion／安全 cleanup 仍待完成，V2 **PARTIAL**。
 
 # Janus Current Status
 

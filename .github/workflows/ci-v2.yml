@@ -3,7 +3,8 @@ name: Janus V2 selective CI
 on:
   push:
     branches: [main]
-    paths-ignore: ['doc/**', '**/*.md']
+    # Include documentation-only pushes for an exact-SHA CI receipt;
+    # the planner skips all code tests when only docs changed.
   workflow_dispatch:
 
 permissions:

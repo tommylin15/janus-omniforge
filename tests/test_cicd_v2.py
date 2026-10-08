@@ -168,3 +168,11 @@ def test_failed_published_cas_restores_runtime_before_scheduler_resume():
     assert "updated.clear()" not in source
     assert '"failure_classification": "PUBLISHED_CAS_FAILED"' in finally_block
     assert '"status": "FAILED_RECOVERY"' in finally_block
+
+
+def test_document_only_push_emits_exact_sha_ci_without_code_tests():
+    workflow = (ROOT / ".github/workflows/ci-v2.yml").read_text()
+    assert "  push:" in workflow
+    assert "    branches: [main]" in workflow
+    assert "paths-ignore:" not in workflow
+    assert v2.ci_matrix(["doc/status.md", "README.md"])["include"] == []
