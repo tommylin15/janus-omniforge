@@ -43,7 +43,7 @@ PyIceberg reference reader 必須先比對 manifest 與要求的 Core identity�
 
 新 `specialist.v1.json` 定義 Fundamental / Valuation / Quant / Risk / Event。財務可比值、PE/PB/殖利率、動能、波動/CVaR/回撤/對齊 beta、事件數與嚴重度採確定性計算；中文報告使用規則模板。DCF/reverse-DCF 有嚴格計算函式，但真實 Core 未提供完整每股自由現金流與核准假設時回報缺值。
 
-`specialists/<output_hash>.json` 與 execution manifest 不可變、寫入後讀回驗證；相同 execution replay 只驗證並 reuse。B4 已完成 cross-execution dependency cache：cache identity 納入 symbol/role、accepted + rejected PIT dependency state、feature/engine/model version；只有 dirty specialist 重算，clean role reuse immutable artifact，並保留 source Core snapshot identity。2026-10-07 真實 dev acceptance 在同一 Core snapshot 第二輪達成 0 computed / 25 reused。月度 reconciliation、B5 ML/OOS data path 與後續模型品質驗收仍未完成。
+`specialists/<output_hash>.json` 與 execution manifest 不可變、寫入後讀回驗證；相同 execution replay 只驗證並 reuse。B4 已完成 cross-execution dependency cache：cache identity 納入 symbol/role、accepted + rejected PIT dependency state、feature/engine/model version；只有 dirty specialist 重算，clean role reuse immutable artifact，並保留 source Core snapshot identity。2026-10-07 真實 dev acceptance 在同一 Core snapshot 第二輪達成 0 computed / 25 reused。2026-10-08 B5 ML/OOS data path 已由 BigQuery TEMP staging → versioned Parquet + Cloud Run Mart 真實驗收結案（10,978 rows／499 symbols／immutable hash 相等，見 [B5 結案](../archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)）；月度 reconciliation、B6 derived artifact cache 與後續模型品質驗收仍未完成。
 
 ## 歷史模型
 

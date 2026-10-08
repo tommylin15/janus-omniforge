@@ -106,7 +106,14 @@ B4 已完成 Deep Coverage universe、dependency-selective execution、immutable
 
 完整 evidence 見 [B4 結案](archive/group-b-b4-deep-coverage-closure-2026-10-07.md)。
 
-**B4 正式 CLOSED；B 組下一個 active work 為 B5：ML / OOS data path。**
+**B4、B5 均已 CLOSED / PASS；B 組下一個 active work 為 B6：ML-derived artifact cache / dirty dependency。**
+
+### B5 ML / OOS data path — CLOSED（2026-10-08）
+
+- GitHub `main`：`c411fc0` 使用受控 BigQuery TEMP table 將 fixed Core snapshot 的 reduced SQL 結果匯出版本化 GCS Parquet，避開 shared Iceberg external table 直接 `EXPORT DATA` 的 HTTP 500；`051591e` 修正 Cloud Build `gcloud storage cp` entrypoint。
+- [live acceptance #37706568819](https://github.com/tommylin15/janus-omniforge/actions/runs/37706568819) **SUCCESS**；B5 targeted 13 PASS、Mart regression 129 PASS（7 warnings）；Cloud Build export artifact 與 Cloud Run Mart execution `janus-intelligence-mart-bb25f` 真實讀回 PASS。
+- Fixed Core snapshot `sha256:1eb49a2d...`；**10,978 rows / 499 symbols / 1 Parquet shard / 533,945 bytes**，row/content hash、source identity、manifest SHA256 驗收一致；Storage Read API false、LLM tokens 0、CEO 未觸發。最初 materialization BigQuery billed **30 MiB**；最終 immutable reuse run billed **0**。
+- [B5 結案及 authoritative evidence](archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)。**僅 data path 結案**，B6～B9、monthly scheduler、ML/OOS model quality 仍未完成；PyIceberg 維持 default。
 
 ## 現行產品決策
 
@@ -182,7 +189,7 @@ AutoGluon、FinBERT、FinGPT 只作 benchmark／research challenger；production
 ## 尚未完成的關鍵 acceptance
 
 - A 組已完成 implementation／CI／deployment／runtime build 與使用者人工驗收，狀態 CLOSED。
-- B3 每日 500 screening、B4 Deep Coverage universe／dirty dependency／no-change reuse 已 CLOSED；尚未完成的是 B5 ML/OOS data path、各 specialist 完整 ML/OOS 品質、以及每月第一個週六 10:30 retrain／reconciliation。
+- B3 每日 500 screening、B4 Deep Coverage universe／dirty dependency／no-change reuse、B5 bounded ML/OOS data path 均已 CLOSED；尚未完成的是 B6～B9 的 derived-artifact cache／monthly retrain/reconciliation／full model OOS 品質與 FinOps gates。
 - On-demand CEO command／capability／immutable report history 尚未完成。
 - Admin specialist model/evaluation + CEO capability/profile controls 尚未完成。
 - User Stock Detail manual Analyze/Re-analyze + freshness/history 尚未完成。

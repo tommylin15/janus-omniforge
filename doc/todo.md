@@ -1,6 +1,6 @@
 # Janus — TODO
 
-版本：3.17（2026-10-07：B4 Deep Coverage 結案，下一步 B5）
+版本：3.18（2026-10-08：B5 ML/OOS data path 結案，下一步 B6）
 用途：**只保留確定要做的 active work 與未完成 acceptance**。Deferred、Candidate、Observation、Production-only、已接受缺口與研究構想統一放 [`parking-lot.md`](parking-lot.md)；已完成／被取代內容放 `archive/`。
 
 ## 規則
@@ -89,7 +89,7 @@ A 組 implementation／CI／dev runtime 與兩項人工 gate 已於 2026-10-06 �
 A 組不再列 active TODO；下一個 active work 為 B 組。
 ## B 組優先架構調整 acceptance
 
-> **B0／B1／B2／B3／B4 均已於 2026-10-07 CLOSED。** B4 完整證據見 [B4 結案](archive/group-b-b4-deep-coverage-closure-2026-10-07.md)；下一步 B5 ML / OOS data path。完整 ML/OOS 品質、monthly retrain/reconciliation 與後續 fallback/FinOps acceptance 仍未完成。
+> **B0～B4 已於 2026-10-07 CLOSED，B5 已於 2026-10-08 CLOSED / PASS。** [B5 結案](archive/group-b-b5-ml-oos-data-closure-2026-10-08.md) 的 bounded GCS Parquet + Cloud Run Mart live readback 為完整成功證據；**下一步 B6**：BigQuery-derived artifact identity／pre-query no-change reuse／selective invalidation。B4 的五 specialist dirty/reuse 已完成，不重做。完整 ML/OOS model 品質、monthly retrain/reconciliation、fallback/FinOps acceptance 仍未完成。
 
 B 組開始五 specialist／cache 收斂前，先完成 [BigQuery analytics 架構決策](decision-2026-10-06-bigquery-analytics-over-iceberg.md) 的資料讀取邊界；此優先序不代表 BigQuery resource 已建立或啟用。
 
@@ -99,6 +99,8 @@ B 組開始五 specialist／cache 收斂前，先完成 [BigQuery analytics 架�
 - [x] 建立每日盤後 liquid-500 screening：B3 已以真實 controller occurrence `market-screening/2026-10-07/16` 與 Mart execution `janus-intelligence-mart-7f8jl` 驗收；500 檔低成本 screening／cross-sectional ranking 完成，未擴成 500×5 深度 specialist。
 - [x] B3 已加入 bounded query／column／partition guards 與 processed bytes／elapsed／peak RSS／artifact growth telemetry；未知 GCS I/O 維持 null，不補 0。
 - [x] 同 fixed snapshot 已完成 PyIceberg／BigQuery deterministic canary compare；fidelity／budget PASS。未完成 default cutover gate，因此 **PyIceberg 維持 default**，不把 B3 PASS 誤寫成 BigQuery cutover。
+- [x] B5 ML/OOS data path：shared catalog 的 bounded SQL reduction → BigQuery TEMP table → versioned immutable GCS Parquet，Mart live readback。驗收 [#37706568819](https://github.com/tommylin15/janus-omniforge/actions/runs/37706568819) SUCCESS；10,978 rows／499 symbols／533,945 bytes；首次 BigQuery billed 30 MiB，最終 immutable reuse billed 0；storage_read_api=false、CEO=false、LLM tokens=0。詳見 [B5 結案](archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)。
+- [ ] B6：僅補 BigQuery-derived ML artifact identity 與 pre-query reuse/failure audit/selective invalidation；不重做 B4 五 specialist dirty cache。
 - [ ] PostgreSQL serving projection 與 A 組既有 read path 不回歸；BigQuery failure 必須可 audit fallback，不影響 canonical ingestion/write。
 - [ ] 將 `specialist-retrain`／calibration／OOS evaluation／cache reconciliation 的 effective schedule 統一為 **每月第一個週六 10:30（Asia/Taipei）**；實作時需修改實際 Scheduler／controller definition 並以 runtime readback 驗證，文件本身不算完成。
 - [ ] 若需啟用新付費 API、建立 BigLake/Lakehouse/BigQuery 資源或擴大 IAM，依 PROJECT_RULES 取得明確授權；未授權部分標 blocked，不以文件決策冒充 resource approval。
