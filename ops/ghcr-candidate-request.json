@@ -7,6 +7,6 @@
   "lease_validation": "fresh-source-ghcr-live-readback-v2",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "retry_verification": "same-sha-immutable-candidate-reuse",
-  "same_sha_retry_attempt": 1
+  "retry_verification": "same-sha-cache-normalized-immutable-candidate-reuse",
+  "same_sha_retry_attempt": 2
 }
