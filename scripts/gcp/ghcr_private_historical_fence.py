@@ -65,7 +65,7 @@ def verified_failed_count(
     for name in KNOWN_FAILED_PRETASK:
         v1, task, v2 = a[name], b[name], c[name]
         created = v1.get("created")
-        if (v1.get("describe_status") != "READABLE"
+        if (v1.get("describe_status") not in ("READABLE", "LIST_READABLE")
                 or not isinstance(created, str)
                 or not ("2026-09-01" <= created[:10] < "2026-10-01")
                 or v1.get("started") is not None
