@@ -104,7 +104,18 @@ jobs:
           set -Eeuo pipefail
           python scripts/gcp/ghcr_release_lease.py assert
           tag="ghcr-${GHCR_EXACT_SHA:0:12}"
-          gcloud run deploy "$SERVICE" --project="$PROJECT" --region="$REGION" --image="$GHCR_PUBLIC_IMAGE" --no-traffic --tag="$tag" --quiet > /dev/null
+          # Same immutable SHA+digest retry reuses its verified 0% candidate,
+          # instead of creating unbounded extra revisions.
+          existing_revision="$(jq -r --arg tag "$tag" '.status.traffic[]? | select(.tag == $tag) | .revisionName // empty' /tmp/service-before-locked.json)"
+          if [[ -n "$existing_revision" ]]; then
+            jq -e --arg tag "$tag" '[.status.traffic[]? | select(.tag == $tag)] | length == 1 and ((.[0].percent // 0) == 0)' /tmp/service-before-locked.json >/dev/null
+            test "$(jq -r '.spec.template.spec.containers[0].image // empty' /tmp/service-before-locked.json)" = "$GHCR_PUBLIC_IMAGE"
+            gcloud run revisions describe "$existing_revision" --project="$PROJECT" --region="$REGION" --format=json > /tmp/reused-revision.json
+            jq -e --arg image "$GHCR_PUBLIC_IMAGE" '(.spec.containers[0].image == $image) and (.status.conditions | any(.type=="Ready" and .status=="True"))' /tmp/reused-revision.json >/dev/null
+            echo "Reused existing 0% GHCR digest candidate: $existing_revision" >> "$GITHUB_STEP_SUMMARY"
+          else
+            gcloud run deploy "$SERVICE" --project="$PROJECT" --region="$REGION" --image="$GHCR_PUBLIC_IMAGE" --no-traffic --tag="$tag" --quiet > /dev/null
+          fi
           gcloud run services describe "$SERVICE" --project="$PROJECT" --region="$REGION" --format=json > /tmp/service-candidate.json
           jq -e --arg tag "$tag" '[.status.traffic[]? | select(.tag==$tag)] | length == 1 and (.[0].percent // 0) == 0' /tmp/service-candidate.json >/dev/null
           before="$(jq -r '.active[0].revisionName' /tmp/metadata-before.json)"
