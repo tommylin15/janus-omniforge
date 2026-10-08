@@ -81,6 +81,21 @@ jobs:
             gcloud run jobs executions list --job="$job" --project="$PROJECT" \
               --region="$REGION" --limit=500 --format=json \
               > /tmp/ghcr-readback/executions.json
+            # Only aggregate execution state, never output task logs or payloads.
+            jq -cn --arg job "$job" \
+              --slurpfile e /tmp/ghcr-readback/executions.json '{
+                job:$job,
+                scanned:($e[0]|length),
+                possibly_active:([$e[0][] | select(
+                  ((.status.completionTime // "") == "") and
+                  (([.status.conditions[]? | select(.type=="Completed" and .status=="True")]|length)==0)
+                )]|length),
+                running_count_total:([$e[0][] | (.status.runningCount // 0)]|add // 0),
+                with_completion_time:([$e[0][] | select((.status.completionTime // "") != "")]|length),
+                with_completed_true:([$e[0][] | select(
+                  [.status.conditions[]? | select(.type=="Completed" and .status=="True")] | length>0
+                )]|length)
+              }' >> /tmp/ghcr-readback/execution-summary.ndjson
             jq -cn --arg j "$job" \
               --slurpfile x /tmp/ghcr-readback/job.json \
               --slurpfile e /tmp/ghcr-readback/executions.json '{
@@ -130,6 +145,8 @@ jobs:
             --input /tmp/ghcr-readback/evidence.json \
             --output /tmp/ghcr-readback/report.json
           cat /tmp/ghcr-readback/report.json
+          echo 'Sanitized execution-state aggregates:'
+          cat /tmp/ghcr-readback/execution-summary.ndjson
           {
             echo '## Janus GHCR Jobs — actual cutover gate'
             echo 'Live metadata readback only. No Scheduler, Cloud Run Job, GCS,'
