@@ -24,7 +24,7 @@ jobs:
       - name: Verify safe cutover guard and consolidated Scheduler contracts
         run: |
           python -m pip install pytest==8.4.2
-          python -m pytest -q tests/test_ghcr_job_cutover_guard.py tests/test_private_pipeline_scheduler.py tests/test_ghcr_job_cutover_plan.py
+          python -m pytest -q tests/test_ghcr_job_cutover_guard.py tests/test_private_pipeline_scheduler.py tests/test_ghcr_job_cutover_plan.py tests/test_ghcr_private_historical_fence.py tests/test_ghcr_execution_v2_readback.py tests/test_ghcr_stale_tasks_summary.py
   live-readback:
     needs: guard-tests
     runs-on: ubuntu-latest
@@ -146,11 +146,62 @@ jobs:
                }' >> /tmp/ghcr-readback/jobs.ndjson
           done
 
+          # Cross-check only historical UNKNOWN private executions in THIS run.
+          # Do not treat Completed=False/zero tasks alone as terminal. V2
+          # Completed=CONDITION_FAILED is terminal reconciliation failure,
+          # never evidence of successfully processed private data.
+          jq -r '.[].execution' /tmp/ghcr-readback/ambiguous-private-executions.json \
+            > /tmp/ghcr-readback/private-unknown-names.txt
+          unknown_count="$(wc -l < /tmp/ghcr-readback/private-unknown-names.txt)"
+          (( unknown_count <= 20 )) || {
+            echo "BLOCKED: more than 20 unknown private executions" >&2
+            exit 78
+          }
+          echo '{}' > /tmp/ghcr-readback/private-failure-proof.json
+          if (( unknown_count > 0 )); then
+            : > /tmp/ghcr-readback/private-task-states.ndjson
+            while IFS= read -r execution; do
+              [[ "$execution" =~ ^janus-private-pipeline-[a-z0-9-]+$ ]] || exit 78
+              if timeout 40s gcloud run jobs executions tasks list \
+                   --execution="$execution" --project="$PROJECT" --region="$REGION" \
+                   --succeeded --limit=100 --format=json \
+                   > /tmp/ghcr-readback/private-tasks.json 2>/dev/null; then
+                # An incomplete or failed readback produces an explicitly
+                # UNVERIFIABLE row; it will never authorize a Job image.
+                python3 scripts/gcp/ghcr_stale_tasks_summary.py \
+                  --execution "$execution" \
+                  --tasks-json /tmp/ghcr-readback/private-tasks.json \
+                  >> /tmp/ghcr-readback/private-task-states.ndjson || true
+              else
+                jq -nc --arg execution "$execution" \
+                  '{execution:$execution,task_readback:"UNKNOWN_OR_BLOCKED",
+                    tasks_scanned:null,tasks_started:null,tasks_completed:null,
+                    terminal_confirmed:false}' \
+                    >> /tmp/ghcr-readback/private-task-states.ndjson
+              fi
+            done < /tmp/ghcr-readback/private-unknown-names.txt
+            python3 scripts/gcp/ghcr_execution_v2_readback.py \
+              --executions-file /tmp/ghcr-readback/private-unknown-names.txt \
+              > /tmp/ghcr-readback/private-v2.json || {
+                echo "BLOCKED: v2 readback command could not complete." >&2
+                exit 78
+              }
+            jq -e '.resource_writes==0 and .cancel_executions==false and
+                   .authorize_job_promotion==false' \
+              /tmp/ghcr-readback/private-v2.json >/dev/null
+            jq -n --slurpfile v1 /tmp/ghcr-readback/ambiguous-private-executions.json \
+              --slurpfile t /tmp/ghcr-readback/private-task-states.ndjson \
+              --slurpfile v2 /tmp/ghcr-readback/private-v2.json \
+              '{v1_records:$v1[0],task_records:$t,v2_readback:$v2[0]}' \
+              > /tmp/ghcr-readback/private-failure-proof.json
+          fi
+
           jq -n --arg project "$PROJECT" --arg region "$REGION" \
             --arg sha "$source_sha" \
             --slurpfile images /tmp/ghcr-readback/images.ndjson \
             --slurpfile sched /tmp/ghcr-readback/schedulers.json \
             --slurpfile snaps /tmp/ghcr-readback/jobs.ndjson \
+            --slurpfile historical /tmp/ghcr-readback/private-failure-proof.json \
             --argjson full "$(cat /tmp/ghcr-readback/scheduler-readable)" '{
               project:$project,region:$region,source_sha:$sha,
               ghcr_images:($images|map({(.key):.value})|add // {}),
@@ -167,6 +218,7 @@ jobs:
                 }]
               },
               job_snapshots:($snaps|map({(.key):.value})|add // {}),
+              private_historical_failure_readback:($historical[0] // {}),
               # All three are NOT YET VERIFIED, never derived from the request.
               durable_deployment_mutex_verified:false,
               owner_oauth_and_data_acceptance_verified:false,
@@ -183,6 +235,9 @@ jobs:
           jq '{status,change_count:(.updates|length),blockers,automatic_apply,resource_writes}' \
              /tmp/ghcr-readback/plan.json
           cat /tmp/ghcr-readback/report.json
+          echo 'Historical pre-task failure classification is diagnostic only;'
+          echo 'it is NOT successful processing and never bypasses Scheduler,'
+          echo 'owner OAuth or actual rollback readiness.'
           echo 'Sanitized execution-state aggregates:'
           cat /tmp/ghcr-readback/execution-summary.ndjson
           if [[ -f /tmp/ghcr-readback/ambiguous-private-executions.json ]]; then
