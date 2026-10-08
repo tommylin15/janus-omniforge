@@ -111,7 +111,7 @@ jobs:
             jq -e --arg tag "$tag" '[.status.traffic[]? | select(.tag == $tag)] | length == 1 and ((.[0].percent // 0) == 0)' /tmp/service-before-locked.json >/dev/null
             test "$(jq -r '.spec.template.spec.containers[0].image // empty' /tmp/service-before-locked.json)" = "$GHCR_PUBLIC_IMAGE"
             gcloud run revisions describe "$existing_revision" --project="$PROJECT" --region="$REGION" --format=json > /tmp/reused-revision.json
-            jq -e --arg image "$GHCR_PUBLIC_IMAGE" '(.spec.containers[0].image == $image) and (.status.conditions | any(.type=="Ready" and .status=="True"))' /tmp/reused-revision.json >/dev/null
+            jq -e --arg image "$GHCR_PUBLIC_IMAGE" '((.spec.containers[0].image == $image) or (.spec.containers[0].image == ("cache.us-docker.pkg.dev/" + $image))) and (.status.conditions | any(.type=="Ready" and .status=="True"))' /tmp/reused-revision.json >/dev/null
             echo "Reused existing 0% GHCR digest candidate: $existing_revision" >> "$GITHUB_STEP_SUMMARY"
           else
             gcloud run deploy "$SERVICE" --project="$PROJECT" --region="$REGION" --image="$GHCR_PUBLIC_IMAGE" --no-traffic --tag="$tag" --quiet > /dev/null
