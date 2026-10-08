@@ -6,5 +6,7 @@
   "allow_pause_resume": true,
   "allow_job_execution": false,
   "allow_image_change": false,
-  "purpose": "Time-fenced 3-second Scheduler PAUSED and ENABLED readback with guarded independent recovery; no application deployment"
+  "purpose": "Time-fenced 3-second Scheduler PAUSED and ENABLED readback with guarded independent recovery; no application deployment",
+  "global_lease_drill": "GHCR-global-owner-fenced-3s-pause-resume",
+  "independent_recovery": "verify-both-leases-and-ENABLED"
 }
