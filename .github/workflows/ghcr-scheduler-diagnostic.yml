@@ -28,6 +28,17 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
+      - name: Verify actual WIF service-account principal
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          account="$(gcloud auth list --filter='status:ACTIVE' --format='value(account)')"
+          [[ "$account" =~ ^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\\.iam\\.gserviceaccount\\.com$ ]] || {
+            echo "No recognizable active GCP service-account principal" >&2
+            exit 2
+          }
+          echo "Authenticated WIF service account: $account"
+          echo "Authenticated WIF service account: $account" >> "$GITHUB_STEP_SUMMARY"
       - name: Diagnose Cloud Scheduler API and IAM without mutations or raw error leakage
         shell: bash
         run: |
