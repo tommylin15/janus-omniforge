@@ -56,6 +56,19 @@ def test_unsafe_change_blocks_release(mutate, reason):
     assert reason in report["reasons"]
 
 
+def test_cloud_run_explicit_null_zero_traffic_fields_are_safe():
+    old, new = pair()
+    new["status"]["traffic"][1]["percent"] = None
+    assert validate(old, new, IMAGE, TAG)["status"] == "SAFE_TO_RELEASE"
+
+
+def test_cloud_run_old_zero_percent_tag_null_safe():
+    old, new = pair()
+    old["status"]["traffic"].append({"revisionName": "old-tag", "tag": "legacy", "percent": None})
+    new["status"]["traffic"].append({"revisionName": "old-tag", "tag": "legacy", "percent": None})
+    assert validate(old, new, IMAGE, TAG)["status"] == "SAFE_TO_RELEASE"
+
+
 def test_previous_tag_mutation_blocks_release():
     old, new = pair()
     existing = {"revisionName": "tag-old", "percent": 0, "tag": "oauth"}
