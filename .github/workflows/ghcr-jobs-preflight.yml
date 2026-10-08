@@ -62,12 +62,23 @@ jobs:
           done
           gcloud run services describe janus-api --project="$PROJECT" --region="$REGION" --format=json             | jq '{latestReady:.status.latestReadyRevisionName,traffic:[.status.traffic[]?|{revisionName,percent,tag}]}'             > evidence/service.json
 
-          # Scheduler may be shared; any list failure stays UNKNOWN and blocks mutation.
+          # Fall back to explicitly known jobs if broad Scheduler enumeration is denied.
+          # This proves those names only, never that the project has no other schedules.
           if gcloud scheduler jobs list --project="$PROJECT" --location="$REGION" --format=json              >/tmp/schedulers.json 2>/dev/null; then
-            jq '[.[] | {name:(.name|split("/")[-1]),state,schedule,
-                 target:((.httpTarget.uri//"")|split("/")|.[-1])}]' /tmp/schedulers.json                  > evidence/schedulers.json
+            jq '{fullEnumeration:true,jobs:[.[] |
+              {name:(.name|split("/")[-1]),state,schedule,
+               target:((.httpTarget.uri//"")|split("/")|.[-1])}]}' /tmp/schedulers.json               > evidence/schedulers.json
           else
-            echo '{"status":"UNKNOWN_OR_BLOCKED"}' > evidence/schedulers.json
+            : > /tmp/known-schedulers.ndjson
+            for scheduler in janus-ingestion-daily janus-private-pipeline-0740                              janus-private-pipeline-1100 janus-private-pipeline-1400                              janus-private-pipeline-2130; do
+              if gcloud scheduler jobs describe "$scheduler" --project="$PROJECT"                  --location="$REGION" --format=json >/tmp/scheduler.json 2>/dev/null; then
+                jq -c '{name:(.name|split("/")[-1]),state,schedule,
+                  target:((.httpTarget.uri//"")|split("/")|.[-1]),status:"READABLE"}'                   /tmp/scheduler.json >> /tmp/known-schedulers.ndjson
+              else
+                jq -n -c --arg name "$scheduler"                   '{name:$name,status:"UNKNOWN_OR_BLOCKED"}' >> /tmp/known-schedulers.ndjson
+              fi
+            done
+            jq -s '{fullEnumeration:false,knownJobs:.}' /tmp/known-schedulers.ndjson               > evidence/schedulers.json
           fi
           {
             echo '## GHCR Jobs cutover readiness — read-only'
