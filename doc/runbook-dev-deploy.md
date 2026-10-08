@@ -214,3 +214,10 @@ Dev acceptance must verify migration 048, job default/task parallelism, API → 
 4. workflow 最後驗 persistent Job 仍為 `taskCount=1 / parallelism=8`，且 acceptance env 沒有寫回 Job persistent config。
 
 不要改回 Cloud Build → IAP → PostgreSQL VM 的 canary；`janus-ci` 沒有 IAP tunnel 權限，而且這個驗收不需要為此擴 IAM。若 live gate 失敗，先看 seed / queue / verify 哪個 Cloud Run execution 失敗，再處理；不得以 workflow success 取代 DB verify。
+
+## 9. PostgreSQL dev 備份保留（2026-10-08）
+
+- PostgreSQL VM `janus-postgres-dev` 透過 `/var/lib/janus/ledger-durability vm-backup` 產生完整 `pg_dump`，暫存檔在程序結束後清除；永久備份位於既有 `gs://gen-lang-client-0593591102-dev-private/pilot-ledger-backups/`，**不放在 VM 永久磁碟**。
+- `daily/` **只保留最新 3 代**；`monthly/` 暫維持原有最多 6 代設定。Repo 的 `scripts/gcp/ledger-durability-dev.sh` 已將 daily prune 調整為 3，但 VM 已安裝的腳本不會因 Git commit 自動同步。
+- 目前有效的每日保留執行端是 GitHub Actions `.github/workflows/private-ledger-backup-retention.yml`，每天 **19:00 UTC**（VM 原定備份約 18:00 UTC）依日期排列，只以 GCS 物件 `generation` 前置條件刪除舊 daily，之後重新列舉確保恰好 3 份。workflow 若失敗不得宣稱保留政策已達成；不可因此擴大 IAM 或改動其他 prefix。
+- 備份可能包含過去已清除的測試資料；備份屬受保護恢復點，不把刪除現行資料表等同於刪除舊備份內歷史紀錄。GCS soft-delete／非當前版本依 bucket 既有政策另行驗證。
