@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write # owner-fenced release lease
   id-token: write
 
 concurrency:
@@ -69,10 +69,33 @@ jobs:
           jq -e '((.spec.template.metadata.annotations["autoscaling.knative.dev/minScale"] // "0") | tonumber) == 0' /tmp/service-before.json > /dev/null
           jq '{service:.metadata.name,active:[.status.traffic[]?|select((.percent//0)>0)|{revisionName,percent}],latestReady:.status.latestReadyRevisionName}' /tmp/service-before.json > /tmp/metadata-before.json
           cat /tmp/metadata-before.json
-      - name: Create fixed-digest candidate without switching traffic
+      - name: Acquire atomic global deployment lease
+        id: lease
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py acquire
+          echo "held=true" >> "$GITHUB_OUTPUT"
+      - name: Read back immutable baseline under lease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py assert
+          gcloud run services describe "$SERVICE" --project="$PROJECT" --region="$REGION" --format=json > /tmp/service-before-locked.json
+          jq -e '.metadata.name == "janus-api" and (.status.conditions | any(.type=="Ready" and .status=="True"))' /tmp/service-before-locked.json >/dev/null
+          jq -e '[.status.traffic[]? | select((.percent // 0)>0)] | length == 1 and .[0].percent == 100' /tmp/service-before-locked.json >/dev/null
+          jq -e '((.spec.template.metadata.annotations["autoscaling.knative.dev/minScale"] // "0") | tonumber) == 0' /tmp/service-before-locked.json > /dev/null
+      - name: Create fixed-digest candidate without switching traffic
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py assert
           tag="ghcr-${GHCR_EXACT_SHA:0:12}"
           gcloud run deploy "$SERVICE" --project="$PROJECT" --region="$REGION" --image="$GHCR_PUBLIC_IMAGE" --no-traffic --tag="$tag" --quiet > /dev/null
           gcloud run services describe "$SERVICE" --project="$PROJECT" --region="$REGION" --format=json > /tmp/service-candidate.json
@@ -95,3 +118,34 @@ jobs:
             echo "Health and unauthenticated guard PASS; **authenticated owner/OAuth/MCP and four-Jobs acceptance not yet performed**."
             echo "Promotion is deliberately NOT performed by this workflow."
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify safe candidate baseline and release owned lease
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          if ! python scripts/gcp/ghcr_release_lease.py assert >/dev/null 2>&1; then
+            state="$(python scripts/gcp/ghcr_release_lease.py inspect | jq -r .status)"
+            if [[ "$state" == "ABSENT" && "${{ steps.lease.outputs.held }}" != "true" ]]; then
+              echo 'No lease acquired; no deployment cleanup needed.' >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo 'BLOCKED: lease owner/readback uncertain. Do not release or promote.' >&2
+            exit 78
+          fi
+          # Never clear after an ambiguous deployment without a verified
+          # fully reconciled live Service and unchanged 100% baseline.
+          test -s /tmp/service-before-locked.json
+          [[ "${GHCR_PUBLIC_IMAGE:-}" == ghcr.io/tommylin15/janus-api@sha256:* ]]
+          [[ "${GHCR_EXACT_SHA:-}" =~ ^[0-9a-f]{40}$ ]]
+          tag="ghcr-${GHCR_EXACT_SHA:0:12}"
+          gcloud run services describe "$SERVICE" --project="$PROJECT" --region="$REGION" --format=json > /tmp/service-after-locked.json
+          python scripts/gcp/ghcr_candidate_lease_guard.py \
+            --before /tmp/service-before-locked.json \
+            --after /tmp/service-after-locked.json \
+            --image "$GHCR_PUBLIC_IMAGE" --tag "$tag"
+          python scripts/gcp/ghcr_release_lease.py assert
+          python scripts/gcp/ghcr_release_lease.py release --safe-to-release
+          echo 'Global lease released after live baseline and candidate 0% readback. Owner OAuth/MCP/PnL still pending; promotion not authorized.' >> "$GITHUB_STEP_SUMMARY"
