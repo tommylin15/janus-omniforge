@@ -43,13 +43,13 @@ PyIceberg reference reader 必須先比對 manifest 與要求的 Core identity�
 
 新 `specialist.v1.json` 定義 Fundamental / Valuation / Quant / Risk / Event。財務可比值、PE/PB/殖利率、動能、波動/CVaR/回撤/對齊 beta、事件數與嚴重度採確定性計算；中文報告使用規則模板。DCF/reverse-DCF 有嚴格計算函式，但真實 Core 未提供完整每股自由現金流與核准假設時回報缺值。
 
-`specialists/<output_hash>.json` 與 execution manifest 不可變、寫入後讀回驗證；相同 execution replay 只驗證並 reuse。B4 已完成 cross-execution dependency cache：cache identity 納入 symbol/role、accepted + rejected PIT dependency state、feature/engine/model version；只有 dirty specialist 重算，clean role reuse immutable artifact，並保留 source Core snapshot identity。2026-10-07 真實 dev acceptance 在同一 Core snapshot 第二輪達成 0 computed / 25 reused。2026-10-08 B5 ML/OOS data path 已由 BigQuery TEMP staging → versioned Parquet + Cloud Run Mart 真實驗收結案（10,978 rows／499 symbols／immutable hash 相等，見 [B5 結案](../archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)）；月度 reconciliation、B6 derived artifact cache 與後續模型品質驗收仍未完成。
+`specialists/<output_hash>.json` 與 execution manifest 不可變、寫入後讀回驗證；相同 execution replay 只驗證並 reuse。B4 已完成 cross-execution dependency cache：cache identity 納入 symbol/role、accepted + rejected PIT dependency state、feature/engine/model version；只有 dirty specialist 重算，clean role reuse immutable artifact，並保留 source Core snapshot identity。2026-10-07 真實 dev acceptance 在同一 Core snapshot 第二輪達成 0 computed / 25 reused。2026-10-08 B5 ML/OOS data path 已由 BigQuery TEMP staging → versioned Parquet + Cloud Run Mart 真實驗收結案（10,978 rows／499 symbols／immutable hash 相等，見 [B5 結案](../archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)）；月度 reconciliation 與後續模型品質仍未完成；B6 derived artifact cache 已 CLOSED（見 [B6 結案](../archive/group-b-b6-ml-oos-cache-closure-2026-10-08.md)）。
 
 ### B6 ML/OOS derived cache
 
 僅對 B5 SQL reduction 的 `core.ohlcv_v1` snapshot/pointer、analysis_as_of、日期邊界、schema/query/feature/model version、label horizon、cohort stride 計算 `b6-ml-oos-dirty-v1` identity；新增來源必須更新 dependency contract，不可默默重用。global Core snapshot 若因非依賴資料表改變，可重用相同 source snapshot 的 immutable Parquet，但一定保留原始 artifact Core identity，另列 requested identity。
 
-快取命中前必須驗證實際 GCS shard SHA256、bytes、manifest、retention 保護與 catalog pointer；掃描上限 128 manifest、驗證 240 秒上限，fail closed。命中才可記本輪 BigQuery billed=0；cache miss 維持原有 1 GiB execution budget／每 query 60 秒；失敗未知 billed bytes 為 null。B4 五 specialist cache 不改變。此 implementation 仍待 CI／dev Cloud Run 真實驗收，不能單憑文件結案。
+快取命中前必須驗證實際 GCS shard SHA256、bytes、manifest、retention 保護與 catalog pointer；掃描上限 128 manifest、驗證 240 秒上限，fail closed。命中才可記本輪 BigQuery billed=0；cache miss 維持原有 1 GiB execution budget／每 query 60 秒；失敗未知 billed bytes 為 null。B4 五 specialist cache 不改變。已由 CI #37708769385（137 PASS）與 live #37708769182（GCS immutable hit verified、BigQuery jobs 0／billed 0、Cloud Run Mart hash readback PASS）驗收 B6 scope。無關 Core 更新和相依資料 dirty invalidation 由 targeted tests 驗證；B7/B8/B9 仍未完成。
 
 ## 歷史模型
 

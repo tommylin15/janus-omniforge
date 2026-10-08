@@ -106,20 +106,20 @@ B4 已完成 Deep Coverage universe、dependency-selective execution、immutable
 
 完整 evidence 見 [B4 結案](archive/group-b-b4-deep-coverage-closure-2026-10-07.md)。
 
-**B4、B5 均已 CLOSED / PASS；B 組下一個 active work 為 B6：ML-derived artifact cache / dirty dependency。**
+**B4～B6 均已 CLOSED / PASS；下一個 active work 是 B7 月度批次。**
 
-### B6 ML/OOS derived cache — ACTIVE（2026-10-08）
+### B6 ML/OOS derived cache — CLOSED / PASS（2026-10-08）
 
-- 首次程式 commit [`8ba064c`](https://github.com/tommylin15/janus-omniforge/commit/8ba064c30184b7bff4225cd155f915373f4b5d8d)：B5 BigQuery 查詢前先尋找 dependency-equivalent Parquet，SHA256/size、retention、catalog readback 成功才重用。B4 specialist cache 未修改。
-- source 僅取 `core.ohlcv_v1` snapshot/pointer、日期、schema/query/feature/model/label 版本；global Core manifest 只因其他資料表變更可重用，但保留原 `artifact_core_snapshot_id`，不得冒充 requested snapshot。
-- 已新增 5 個 B6 targeted tests；新 CI、Cloud Build export 與 GCP Mart live readback 仍需實際 evidence 才能結案。**B6 ACTIVE，不宣稱 CLOSED**。
+- [B6 結案與 runtime evidence](archive/group-b-b6-ml-oos-cache-closure-2026-10-08.md)：BigQuery-derived ML/OOS source-only identity、pre-query immutable verified reuse、dirty dependency selective invalidation，不修改 B4 五 specialist cache。
+- [CI #37708769385](https://github.com/tommylin15/janus-omniforge/actions/runs/37708769385) **137 PASS / 7 warnings**；[live #37708769182](https://github.com/tommylin15/janus-omniforge/actions/runs/37708769182) **SUCCESS**，重用 10,978 rows／533,945 bytes，verified hash／0 BigQuery jobs／billed 0；Cloud Run Mart `janus-intelligence-mart-p8wjs` readback PASS。
+- live 是同一 global Core 的 cache hit；無關 Core 修改及源資料／版本變更時 selective invalidation 由 targeted tests 驗證，未改 live canonical Core；B7～B9 未完成。
 
 ### B5 ML / OOS data path — CLOSED（2026-10-08）
 
 - GitHub `main`：`c411fc0` 使用受控 BigQuery TEMP table 將 fixed Core snapshot 的 reduced SQL 結果匯出版本化 GCS Parquet，避開 shared Iceberg external table 直接 `EXPORT DATA` 的 HTTP 500；`051591e` 修正 Cloud Build `gcloud storage cp` entrypoint。
 - [live acceptance #37706568819](https://github.com/tommylin15/janus-omniforge/actions/runs/37706568819) **SUCCESS**；B5 targeted 13 PASS、Mart regression 129 PASS（7 warnings）；Cloud Build export artifact 與 Cloud Run Mart execution `janus-intelligence-mart-bb25f` 真實讀回 PASS。
 - Fixed Core snapshot `sha256:1eb49a2d...`；**10,978 rows / 499 symbols / 1 Parquet shard / 533,945 bytes**，row/content hash、source identity、manifest SHA256 驗收一致；Storage Read API false、LLM tokens 0、CEO 未觸發。最初 materialization BigQuery billed **30 MiB**；最終 immutable reuse run billed **0**。
-- [B5 結案及 authoritative evidence](archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)。**僅 data path 結案**，B6～B9、monthly scheduler、ML/OOS model quality 仍未完成；PyIceberg 維持 default。
+- [B5 結案及 authoritative evidence](archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)。**B5 僅 data path 結案**，B6 已另行 CLOSED；B7～B9、monthly scheduler、ML/OOS model quality 仍未完成；PyIceberg 維持 default。
 
 ## 現行產品決策
 
@@ -195,7 +195,7 @@ AutoGluon、FinBERT、FinGPT 只作 benchmark／research challenger；production
 ## 尚未完成的關鍵 acceptance
 
 - A 組已完成 implementation／CI／deployment／runtime build 與使用者人工驗收，狀態 CLOSED。
-- B3 每日 500 screening、B4 Deep Coverage universe／dirty dependency／no-change reuse、B5 bounded ML/OOS data path 均已 CLOSED；尚未完成的是 B6～B9 的 derived-artifact cache／monthly retrain/reconciliation／full model OOS 品質與 FinOps gates。
+- B3 每日 500 screening、B4 Deep Coverage、B5 ML/OOS data path、B6 derived cache 均已 CLOSED；尚未完成 B7～B9 的月度 retrain/reconciliation、BigQuery fallback/FinOps、完整模型 OOS 品質。
 - On-demand CEO command／capability／immutable report history 尚未完成。
 - Admin specialist model/evaluation + CEO capability/profile controls 尚未完成。
 - User Stock Detail manual Analyze/Re-analyze + freshness/history 尚未完成。

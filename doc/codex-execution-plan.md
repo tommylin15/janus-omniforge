@@ -79,18 +79,17 @@ B4. Deep Coverage 五 specialist — CLOSED（2026-10-07）
 - universe = active watchlist ∪ effective holdings；離榜持股保留，清倉且不在 watchlist 才退出。
 - accepted/rejected PIT dependency state + feature/engine/model version 決定 dirty；只有受影響 specialist 重算。
 - live acceptance：5 symbols × 5 roles；第一輪 25 computed，第二輪同 Core snapshot 0 computed / 25 reused；screening=0、LLM tokens=0。
-- 不重做 B4，也不重做 B5 data path；下一步直接 B6。
+- 不重做 B4，也不重做 B5 data path；B6 已 CLOSED，下一步 B7。
 
 B5. ML / OOS data path — CLOSED / PASS（2026-10-08）
 - [B5 結案](archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)；live acceptance #37706568819 SUCCESS。10,978 rows／499 symbols／1 Parquet shard／533,945 bytes；Mart 真實讀回 content hash、Core snapshot、row count、export bytes 全相等。
 - Shared Iceberg external `EXPORT DATA` 曾回報 BigQuery internalError；現採 frozen Core SQL reduction → native TEMP table → `EXPORT DATA` versioned GCS Parquet → DROP TEMP → deployed Mart。BQ 30 MiB billed（原始產出），最終 immutable reuse 0 billed；不使用 Storage Read API、不中斷 PyIceberg default。
 - 保存 immutable Core snapshot identity、analysis_as_of、schema/feature/model version、content hash、source provenance、retention。B5 完成不代表模型 OOS 或 monthly scheduling 完成；不重複掃描 warehouse。
 
-B6. Dirty dependency / cache — NEXT
-- B4 的 watchlist ∪ holdings、五 specialist dirty dependency/cache/reuse 已驗收，不重做。B6 僅增補 BigQuery-derived ML/OOS artifact identity 與 pre-query reuse，cache identity 包含 Core snapshot/input、feature、engine、model 與 BigQuery-derived artifact identity。
-- no-change 必須在昂貴 BigQuery query/ML inference 之前 reuse。
-- selective invalidation 可 audit；old artifact immutable。
-- specialist change 只更新 CEO freshness/material delta，不自動呼叫 CEO。
+B6. Dirty dependency / cache — CLOSED / PASS（2026-10-08）
+- [B6 結案](archive/group-b-b6-ml-oos-cache-closure-2026-10-08.md)：BigQuery-derived ML/OOS pre-query source-only cache；B4 五 specialist cache 未重做；保留舊 immutable artifact 原始 Core lineage。
+- CI #37708769385 137 PASS；live #37708769182 immutable hash verified，10,978 rows／533,945 bytes／BigQuery jobs 0／billed 0／Mart readback PASS。
+- dirty source/model/date 與無關 global Core change 為 targeted tests，未更動 live canonical；CEO 未觸發。
 
 B7. 月度批次
 - 將 effective scheduler/controller 定義收斂為每月第一個週六 10:30（Asia/Taipei）。

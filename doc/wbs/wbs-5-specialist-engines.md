@@ -70,7 +70,7 @@ BigQuery 只作 analytics compute：
 
 ## 4. Incremental execution
 
-> B4 已於 2026-10-07 CLOSED / PASS。真實 dev acceptance 對 5 個 Deep Coverage symbols 產出 25 specialist artifacts；同一 Core snapshot 第二輪為 0 computed / 25 reused，且 event-only regression 驗證只有 Event dirty。完整 evidence 見 [B4 結案](../archive/group-b-b4-deep-coverage-closure-2026-10-07.md)。B5 ML/OOS data path 亦已於 2026-10-08 CLOSED / PASS：固定 Core snapshot 產出 10,978 rows、499 symbols、1 Parquet shard 的 immutable training/evaluation input；Cloud Run Mart 真實 readback PASS。見 [B5 結案](../archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)。B6 derived artifact cache、月度 reconciliation、模型 OOS 品質及 promotion 仍未完成。
+> B4 已於 2026-10-07 CLOSED / PASS。真實 dev acceptance 對 5 個 Deep Coverage symbols 產出 25 specialist artifacts；同一 Core snapshot 第二輪為 0 computed / 25 reused，且 event-only regression 驗證只有 Event dirty。完整 evidence 見 [B4 結案](../archive/group-b-b4-deep-coverage-closure-2026-10-07.md)。B5 ML/OOS data path 亦已於 2026-10-08 CLOSED / PASS：固定 Core snapshot 產出 10,978 rows、499 symbols、1 Parquet shard 的 immutable training/evaluation input；Cloud Run Mart 真實 readback PASS。見 [B5 結案](../archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)。B6 derived artifact cache 已 CLOSED（見 [B6 結案](../archive/group-b-b6-ml-oos-cache-closure-2026-10-08.md)）；B7 月度 reconciliation、B8 fallback/FinOps、B9 模型 OOS 品質及 promotion 仍未完成。
 
 禁止固定每日把所有 Deep Coverage symbols × 5 全重算。
 
