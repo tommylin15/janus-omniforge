@@ -33,6 +33,15 @@ def snapshot():
     return v1,tasks,v2
 
 
+def test_exact_v1_list_readback_requires_independent_v2_and_task_proof():
+    v1,tasks,v2=snapshot()
+    for row in v1:
+        row["describe_status"]="LIST_READABLE"
+    assert verified_failed_count(v1,tasks,v2,9)==9
+    v2["records"][0]["terminal_confirmed"]=False
+    assert verified_failed_count(v1,tasks,v2,9)==0
+
+
 def test_exact_nine_failed_control_plane_and_zero_task_evidence_fence():
     v1,tasks,v2=snapshot()
     assert verified_failed_count(v1,tasks,v2,9)==9
