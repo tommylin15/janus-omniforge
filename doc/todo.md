@@ -1,22 +1,21 @@
-# 本次明確指令：CI/CD 正式流程文件先行（設計已核准；實作 PARTIAL）
+# 本次明確指令：CI/CD 新發布與清理（implementation PARTIAL）
 
-- [x] 2026-10-08 決定改用 GitHub Actions 完整 Release tests + GHCR 公開 immutable image + Cloud Run 0% candidate／驗收／回滾；先更新政策、契約、runbook 與狀態文件。
-- [ ] GitHub Actions 明確 Release workflow 執行完整 Python／Flutter／security／schema／migration／container tests，PASS 才 build + push GHCR；一般 Push selective CI 不等於 Release gate。
-- [ ] 驗證 GHCR package public／匿名 pull／SHA→digest provenance，使用 `ghcr.io/...@sha256:...` 直接部署既有 Cloud Run。
-- [ ] 完成 WIF 最小 IAM、Cloud Run 0% candidate + tag URL、authenticated owner／OAuth／PnL／MCP acceptance、明確流量 promotion／rollback。
-- [ ] Cloud Run Jobs 的執行／Scheduler fence、image snapshot、canary、promotion／回滾，跨 run mutex、published SHA baseline 與 idempotency。
-- [ ] 成功 Release 的最後階段，Cloud Run Service Revision 保留建立時間最近 10 個，加上現役、上一成功版及流量／候選保護引用；tag、流量、候選與未知依賴不得強制刪除。需將 cleanup helper 接入新 Actions GHCR 發布、驗證 mutex／live dry-run→apply／readback 後才能關閉此項。
-- [ ] 可選 Cloud Build **唯讀** status／failed steps／遮罩錯誤摘要 → GitHub Actions Logs → ChatGPT readback；不得觸發 Cloud Build。
-- [ ] 確認新 release 不觸發 Cloud Build／不主動寫入 GCS／Artifact Registry、不新增常駐 VM；完成新路徑 live dev acceptance，盤點舊路徑依賴後才停用舊發布入口（不刪業務資料／復原映像）。
+- [x] GitHub Actions full Python／Flutter gate：[#37769572546](https://github.com/tommylin15/janus-omniforge/actions/runs/37769572546) **623 PASS／2 deselected**，另明確忽略五個 orphaned Web module tests。
+- [x] 四個 Docker build／GHCR push／公開 anonymous pull／immutable digest：相同 workflow PASS，源 SHA `0b93d99d42aaff662a3408d749d70aa9d04b1042`。
+- [x] GitHub Actions OIDC／WIF → Cloud Run API 固定 digest 0% 候選：[#37771247779](https://github.com/tommylin15/janus-omniforge/actions/runs/37771247779) PASS，`janus-api-00446-luq`，正式流量原版 100% 保持不變，僅 health／401 負向／Flutter identity gate。
+- [x] Jobs 現役 images／最近執行／GHCR digests 唯讀盤點：[#37771560144](https://github.com/tommylin15/janus-omniforge/actions/runs/37771560144) PASS。
+- [ ] Scheduler fence：[#37771833335](https://github.com/tommylin15/janus-omniforge/actions/runs/37771833335) 的 list／五個具名 describe 全部 `UNKNOWN_OR_BLOCKED`，先補最小唯讀可見性並驗證範圍，再接管現役 Jobs。
+- [ ] 候選環境用真實授權 owner 執行 Google OAuth、PnL、MCP、Private API／資料隔離；沒有 token／授權證據不能以 401 替代。
+- [ ] 四元件完整 Jobs config snapshot／Scheduler／active execution fence／GHCR digest update／canary／rollback，與 live E2E acceptance。
+- [ ] Service 新 revision 100% promotion、active service readback／rollback drill、上次成功 digest／mutex／idempotency 驗收。
+- [ ] 新發布全驗收之後，停用僅限 Janus `janus-dev-v2` 舊 Cloud Build Trigger，不動 OmniAgent／life-assistant。
+- [ ] GCS 舊 CI/CD file：逐 generation/reference fence 後 bounded cleanup；GCS 舊專用 Bucket：非共用、無備份／業務資料才刪。
+- [ ] AR images/tags/digests：全部 Cloud Run Service Revisions、Job executions／研究／其他系統及 rollback 不再引用才刪；AR Repository 全部為空且無依賴才能刪。
+- [ ] Cloud Run 每個 Service 在 live 100% success＋rollback acceptance 後保留最新 10 Revisions，另保護 traffic／tag／candidate／上一成功版。驗證 dry-run/apply/readback 後才可標 CLOSED。
+- [ ] Cloud Build 的可選唯讀 status／failed-step 遮罩摘要不得觸發任何新 Build。
+- [ ] 所有變更追溯同一 SHA／run／image digest／revision／acceptance；不碰 GCS／PostgreSQL 備份與 Iceberg、交易、筆記／其他應用資料。
 
-- [ ] GCS 舊 CI/CD 檔案：object/prefix/generation／所有 reader-writer 與回滾引用確認不再需要後 bounded 刪除並讀回；所有備份／業務資料排除。
-- [ ] GCS 舊專用 Bucket：證實非共用、無備份、無其他服務依賴才可刪整桶；其他系統的 Cloud Build／Run source staging Bucket 保留。
-- [ ] AR Images／Tags／Digests：全 Service revisions／Jobs／executions／research／其他系統無引用後逐項刪除。
-- [ ] AR Repository：所有 image 已無引用且非 DB／其他系統使用，才可刪整庫。
-- [ ] Cloud Run Services 各保留最近 10 Revision，額外保護正式流量／候選 tag／上次成功版，live readback 後才 apply。
-
-[CI/CD 正式目標契約](spec/cicd-v2.md)與[2026-10-08 切換清理盤點](archive/cicd-cutover-cleanup-inventory-2026-10-08.md)。目前僅完成 WIF 唯讀盤點與 GHCR 發布 workflow 原始碼；尚未通過發布／切流／rollback／清理驗收，不得標成 CLOSED。
-
+詳細：[CI/CD 契約](spec/cicd-v2.md)、[GHCR live acceptance evidence](archive/cicd-ghcr-acceptance-2026-10-08.md)、[舊資產盤點](archive/cicd-cutover-cleanup-inventory-2026-10-08.md)。
 
 # Janus — TODO
 

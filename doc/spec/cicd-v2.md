@@ -40,7 +40,7 @@
 
 - `scripts/gcp/cloud_run_revision_cleanup.py` 提供唯讀 dry-run（預設）與受保護 `--apply`，使用 Cloud Run Service／Revision GCP API，不使用 Cloud Build、Artifact Registry 或 GCS。需最小化 IAM `run.revisions.delete` 權限。
 - 上游 Release workflow 必須真正驗證 full-test／authenticated acceptance、100% promotion／rollback digest readback 與跨 run mutex，才能設定 `JANUS_RELEASE_ACCEPTANCE=PASS`、`JANUS_DEPLOYMENT_MUTEX_HELD=true`、`JANUS_ROLLBACK_DIGEST_VERIFIED=true` 呼叫 `--apply`。這些 env gates 不是 receipt 簽章或 mutex 的替代品。
-- **目前尚無正式 GHCR Release Actions workflow，故 helper 不是已啟動的自動刪除；禁止串入 legacy Cloud Build／手動 recovery。** 新 release pipeline 驗收完成後再將它接在成功 promotion 與 readback 的最後階段。
+- **GHCR build/publish workflow 與 API 0% candidate workflow 已成功執行，但尚不是完整可 promotion／rollback 的四元件 Release。** 自動 Revision cleanup 尚未啟用，禁止串入 legacy Cloud Build／手動 recovery；必須等 authenticated acceptance、Jobs fence、release mutex 及 rollback 全部通過才可接入。 新 release pipeline 驗收完成後再將它接在成功 promotion 與 readback 的最後階段。
 
 ## 4. WIF / IAM 與唯讀 Cloud Build 診斷
 
@@ -53,10 +53,10 @@
 
 | 項目 | `main` 已可見 | 正式目標 / 未驗證 |
 |---|---|---|
-| Push CI | `.github/workflows/ci-v2.yml` 為 selective Python tests；doc-only skip code tests | Release full suites 尚未成為新 gate |
-| Build / image | `cloudbuild-v2.yaml` 與 `janus-dev-v2` regional Trigger 使用 Cloud Build／Artifact Registry | GitHub Actions Docker + GHCR publish 尚未實作／驗證 |
+| Push CI | `.github/workflows/ci-v2.yml` 仍是 selective CI；另有 `ghcr-publish-dev.yml` 完整 Python＋Flutter gate 已在 #37769572546 PASS | 已排除五個 orphaned legacy tests 與兩個過時 Pilot assertions；不宣稱它們 PASS |
+| Build / image | 舊 `cloudbuild-v2.yaml`／`janus-dev-v2` 仍在；新 GHCR 四元件 Docker build/push、anonymous pull、immutable digest 已由 #37769572546 PASS | 新 GHCR 尚未替代現役 Job／100% Service，因此不能刪 AR |
 | Release state | 現行 controller 使用 GCS published marker、receipt／mutex | 無 GCS 的 durable state／mutex／rollback 機制未設計驗收 |
-| Candidate | 舊 Cloud Build controller 實作 API no-traffic candidate 與 legacy receipt | 由 Actions + GHCR digest 建立 0% candidate 尚未實測 |
+| Candidate | Actions #37771247779 對 `janus-api` 建立 GHCR digest 0% candidate `janus-api-00446-luq`，健康／負向 auth／Flutter identity PASS | 真正 authenticated owner／OAuth／MCP/PnL gate 與 promotion、rollback 尚未通過 |
 | Jobs / traffic | 舊 controller 對四元件執行 shadow／candidate／release 部分保護，驗收尚未完成 | 新 Actions 版本的 Job gate、owner/OAuth、回滾未驗證 |
 | Cloud Build logs | 現有診斷 workflow 有 Cloud Build read-only 查詢範例 | 通用 Build ID、最小 IAM、完整 redaction gate 未驗證 |
 
@@ -86,4 +86,4 @@ PostgreSQL／GCS DB 備份、Core／Stage／Mart／Private／Research、交易�
 - [ ] 無 GCS／Artifact Registry 的 release state、mutex、receipts 與容量／成本觀測策略；同 SHA idempotency／舊 SHA fence，失敗復原 live 驗收。
 - [ ] 稽核舊 workflow／Trigger 相依性，驗證新路徑可獨立運作後才停止舊發布，並保存歷史證據。
 
-**本輪僅更新文件；沒有變更 GitHub Actions、Cloud Run、WIF、Cloud Build 或 GHCR runtime。**
+**更新 2026-10-08：Actions GHCR 發布與 0% API candidate 已經 live PASS；非正式流量 promotion，Jobs 尚未改 GHCR。Scheduler list 與五個已知 Scheduler describe 都為 UNKNOWN_OR_BLOCKED，不能將 workflow SUCCESS 誤報為 schedule fence PASS。** 參見 [驗收紀錄](../archive/cicd-ghcr-acceptance-2026-10-08.md)。

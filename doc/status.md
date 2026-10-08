@@ -1,18 +1,12 @@
-# 2026-10-08 CI/CD 唯讀盤點與 GHCR 發布入口（PARTIAL）
+# Janus CI/CD GHCR cutover — 2026-10-08 進度（PARTIAL）
 
-- [GitHub Actions cutover inventory #37767712869](https://github.com/tommylin15/janus-omniforge/actions/runs/37767712869) 成功透過 WIF 讀取 GCP 狀態；無資源變更。證據：[五類清理盤點](archive/cicd-cutover-cleanup-inventory-2026-10-08.md)。
-- 新增 [GHCR 全測試與映像發布 workflow](https://github.com/tommylin15/janus-omniforge/blob/main/.github/workflows/ghcr-publish-dev.yml)，使用明確發布 request 或 workflow_dispatch；**尚未執行 full-test/build/push 或 public package readback**，也未部署任何 Cloud Run 候選版。
-- Janus 的 `janus-dev-v2` Cloud Build Trigger **仍啟用**；另外四個 Trigger 為 OmniAgent／life-assistant，不動。AR `janusai-poc` 仍被 Janus API、batch-controller、ingestion、Mart、private 與研究 Job 直接引用，**整庫不能刪**。
-- `janus-api` 有 **410 revisions**；100% 流量在 `janus-api-g53d655ccb108-config`，latest Ready 是另一個 0% 候選版；17 個 tag 存在。10-Revision retention 只可在新 release/rollback 驗收成功後按引用安全清理。
-- GCS 候選：`gen-lang-client-0593591102-cloudbuild-regional` 的 `v2/builds`／`v2/evidence`；legacy multi-region `_cloudbuild` 與 `run-sources-` 桶可能共用，未證明獨立。**尚未刪任何 GCS／AR／Revision／Trigger，不觸碰備份及業務資料。**
+- **Actions／GHCR 發布 PASS：** [#37769572546](https://github.com/tommylin15/janus-omniforge/actions/runs/37769572546)，來源 SHA `0b93d99d42aaff662a3408d749d70aa9d04b1042`，Python **623 PASS / 2 deselected**、Flutter analyze／test／Web build PASS；四個 image build／push＋GHCR 匿名 digest readback PASS。另有五個已刪除的 legacy Web module 測試明確 ignore，不將它們包裝成 PASS。
+- **Cloud Run API 0% 候選 PASS：** [#37771247779](https://github.com/tommylin15/janus-omniforge/actions/runs/37771247779)。現有 `janus-api` 新 Revision `janus-api-00446-luq` 已由 GitHub Actions 的固定 GHCR digest 部署，0% 正式流量；health、unauthenticated guard、Flutter SHA identity PASS。原 100% 仍為 `janus-api-g53d655ccb108-config`，尚未 promote。
+- **Jobs GHCR 相依盤點 PASS／排程 BLOCKED：** [#37771560144](https://github.com/tommylin15/janus-omniforge/actions/runs/37771560144) 與 [#37771833335](https://github.com/tommylin15/janus-omniforge/actions/runs/37771833335)：四個 GHCR digest verified public；五個相關 Job 最近 20 筆 execution 檢查 `potentiallyActive=0`，但 Scheduler 全域 list 與五個已知名稱 describe 都 `UNKNOWN_OR_BLOCKED`。所有現役 Jobs image 仍為 AR；不得以此視為 Scheduler fence PASS。
+- **未完成：**真正的 owner Google OAuth／MCP／PnL authenticated candidate acceptance、Jobs／Scheduler fence 與配置 rollback、Service 100% traffic promotion／rollback E2E、release mutex／state durability、10 Revision live retention、舊 Trigger 停用與 GCS／AR 清理。以上尚未執行，不得視為 CLOSED。
+- **仍保留：**Janus `janus-dev-v2` Cloud Build Trigger、所有現役 AR digests、所有 GCS Buckets、PostgreSQL／GCS 備份、Iceberg 與應用資料。詳細 [GHCR acceptance evidence](archive/cicd-ghcr-acceptance-2026-10-08.md)／[五類清理 inventory](archive/cicd-cutover-cleanup-inventory-2026-10-08.md)。
 
-# CI/CD 正式流程文件定版（2026-10-08；implementation PARTIAL）
-
-使用者已核准將發布路徑轉為 **ChatGPT → GitHub → GitHub Actions → GCP API → GitHub Actions Logs → ChatGPT**：Actions 必須完成 full Release tests、公開 GHCR 映像發布及固定 digest；Cloud Run Service 0% candidate → authenticated dev acceptance → 明確 promotion／rollback；既有 Cloud Build 僅可 WIF 唯讀診斷並輸出遮罩摘要。新發布管線不呼叫 Cloud Build、不主動寫入 GCS／Artifact Registry、不新增常駐 Compute Engine。契約詳見 [CI/CD V2](spec/cicd-v2.md)；操作語意見 [dev runbook](runbook-dev-deploy.md)。
-
-**目前實作差距：** `ci-v2.yml` 仍是 selective CI；`cloudbuild-v2.yaml`／regional Trigger／Artifact Registry／GCS receipts 仍屬目前 `main`／dev 舊管線，尚無已驗證的 Actions full-test GHCR Release、WIF 新路徑／GHCR direct pull、0% candidate promotion／rollback 或四元件 live acceptance。因此新流程 **PARTIAL／未上線**。先前 V2 selective CI 的 PASS／shadow Build 的 SUCCESS 僅是舊流程 evidence，不代表新設計已完成。本輪只改文件；未更動 CI/CD workflow 或 GCP runtime。
-**2026-10-08 Revision retention 補充：**已定義成功 Release 後 Service Revision 保留最近 10 個、必要回滾及其他引用版本（可超過 10 個）的條件式清理規則，並新增 helper／單元測試。正式 GHCR Release workflow 尚未實作，也未啟用自動清理或刪除任何 live Revision；這仍是 PARTIAL，不能把刪除工具存在當作已完成 pipeline integration。
-
+---
 
 # Janus Current Status
 
