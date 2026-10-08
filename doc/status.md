@@ -6,6 +6,8 @@
 
 ## 2026-10-08 B7 月度批次：ACTIVE（驗收中）
 
+- [獨立 Scheduler/Job readback #37711998105](https://github.com/tommylin15/janus-omniforge/actions/runs/37711998105)：第一次 execution **FAIL / blocked**，原因是既有 GitHub `janus-ci` 無 `cloudscheduler.jobs.get`，不能直接驗證 scheduler 設定。未擴張 IAM；後續 readback 需顯示 `unknown` 而非假裝 PASS，並繼續利用現有 Cloud Run job inspect 權限驗證部署。
+
 - [實作 `6a2e76c`](https://github.com/tommylin15/janus-omniforge/commit/6a2e76c2916e72366c39abc27ff345508e283a11)：controller 從錯誤的每月 1 日改為每月第一個週六台北 10:30。沿用既有每小時 :30 Scheduler；當日 07:30 ingestion／08:30 data-supplement 成功才派送。
 - 舊排程 pending 以 `schedule_superseded/skipped` 安全處理；manual 重跑仍建立獨立 occurrence。
 - Mart 月度 reconciliation immutable receipt 驗證全 Deep Coverage 五 role cache pointer／source hash／model identity、盤點 B6 ML/OOS Parquet；歷史 candidate 不直接視為 orphan，缺少或舊 Core 證據維持 `partial`，不刪除、不 promotion、不觸發 CEO。

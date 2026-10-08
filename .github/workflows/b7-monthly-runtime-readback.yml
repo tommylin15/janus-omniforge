@@ -28,9 +28,12 @@ jobs:
           GCP_REGION: us-central1
         run: |
           set -Eeuo pipefail
-          gcloud scheduler jobs describe janus-ingestion-daily \
+          if ! gcloud scheduler jobs describe janus-ingestion-daily \
             --project="${GCP_PROJECT_ID}" --location="${GCP_REGION}" \
-            --format='json(schedule,timeZone,state)' > scheduler.json
+            --format='json(schedule,timeZone,state)' > scheduler.json 2>scheduler-error.txt; then
+            echo 'B7 scheduler readback BLOCKED/UNKNOWN; CI lacks cloudscheduler.jobs.get or resource inaccessible'
+            printf '{}' > scheduler.json
+          fi
           gcloud run jobs describe janus-batch-controller \
             --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
             --format='value(spec.template.spec.template.spec.containers[0].image)' > controller-image.txt
