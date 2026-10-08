@@ -125,70 +125,66 @@ jobs:
               echo "janus-api live User/Admin PWA identity and unauthenticated boundaries passed"
               ;;
             private-schedulers)
+              # Historical alias retained for callers. Direct private schedulers
+              # were retired at the 2026-10-02 controller consolidation.
               mkdir -p runtime-evidence
               identity="janus-ingestion-scheduler@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
-              target="https://run.googleapis.com/v2/projects/${GCP_PROJECT_ID}/locations/${GCP_REGION}/jobs/janus-private-pipeline:run"
-              : > runtime-evidence/private-schedulers.ndjson
-              for scheduler_spec in \
-                'janus-private-pipeline-0740|40 7 * * MON-FRI' \
-                'janus-private-pipeline-1100|0 11 * * MON-FRI' \
-                'janus-private-pipeline-1400|0 14 * * MON-FRI' \
-                'janus-private-pipeline-2130|30 21 * * MON-FRI'; do
-                IFS='|' read -r name expected_schedule <<< "${scheduler_spec}"
-                scheduler="$(gcloud scheduler jobs describe "${name}" \
-                  --project="${GCP_PROJECT_ID}" --location="${GCP_REGION}" --format=json)"
-                jq -e \
-                  --arg expected_schedule "${expected_schedule}" \
-                  --arg target "${target}" \
-                  --arg identity "${identity}" \
-                  '.state == "ENABLED"
-                   and .schedule == $expected_schedule
-                   and .timeZone == "Asia/Taipei"
-                   and .httpTarget.uri == $target
-                   and .httpTarget.httpMethod == "POST"
-                   and .httpTarget.oauthToken.serviceAccountEmail == $identity
-                   and ((.retryConfig.retryCount // 0) | tonumber) == 3' <<< "${scheduler}" >/dev/null
-                jq -c '{
-                  name:(.name|split("/")[-1]),
-                  state,schedule,timeZone,attemptDeadline,
-                  retryConfig:{
-                    retryCount:.retryConfig.retryCount,
-                    minBackoffDuration:.retryConfig.minBackoffDuration,
-                    maxBackoffDuration:.retryConfig.maxBackoffDuration,
-                    maxDoublings:.retryConfig.maxDoublings
-                  },
-                  target:.httpTarget.uri,
-                  serviceAccountEmail:.httpTarget.oauthToken.serviceAccountEmail
-                }' <<< "${scheduler}" | tee -a runtime-evidence/private-schedulers.ndjson
+              target="https://run.googleapis.com/v2/projects/${GCP_PROJECT_ID}/locations/${GCP_REGION}/jobs/janus-batch-controller:run"
+              gcloud scheduler jobs list \
+                --project="${GCP_PROJECT_ID}" --location="${GCP_REGION}" --format=json \
+                > runtime-evidence/controller-schedulers.json
+              jq -e \
+                --arg target "${target}" \
+                --arg identity "${identity}" '
+                ([.[] | select(.name|endswith("/janus-ingestion-daily"))] | length) == 1
+                and ([.[] | select((.name|split("/")[-1])|startswith("janus-private-pipeline-"))] | length) == 0
+                and ([.[] | select(.name|endswith("/janus-ingestion-daily"))][0] |
+                  .state == "ENABLED"
+                  and .schedule == "30 * * * *"
+                  and .timeZone == "Asia/Taipei"
+                  and .httpTarget.uri == $target
+                  and .httpTarget.httpMethod == "POST"
+                  and .httpTarget.oauthToken.serviceAccountEmail == $identity
+                  and ((.retryConfig.retryCount // 0) | tonumber) == 1)
+              ' runtime-evidence/controller-schedulers.json >/dev/null
+              jq -c '[.[] | select((.name|split("/")[-1])|startswith("janus-")) | {
+                name:(.name|split("/")[-1]),
+                state,schedule,timeZone,
+                target:.httpTarget.uri,
+                identity:.httpTarget.oauthToken.serviceAccountEmail,
+                retryCount:(.retryConfig.retryCount // 0)
+              }]' runtime-evidence/controller-schedulers.json \
+                | tee runtime-evidence/controller-schedulers-verified.json
+
+              gcloud run jobs describe janus-batch-controller \
+                --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json \
+                > /tmp/controller-current.json
+              jq -e '
+                [.spec.template.spec.template.spec.containers[]? | select(.image | contains("@sha256:"))] |
+                length == 1
+              ' /tmp/controller-current.json >/dev/null
+              jq '{name:.metadata.name,
+                   image:.spec.template.spec.template.spec.containers[0].image,
+                   tasks:.spec.template.spec.taskCount,
+                   parallelism:.spec.template.spec.parallelism}' /tmp/controller-current.json \
+                   | tee runtime-evidence/batch-controller-readback.json
+
+              for job in janus-batch-controller janus-private-pipeline; do
+                gcloud run jobs executions list \
+                  --job="${job}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+                  --limit=12 --format=json \
+                  | jq --arg job "${job}" '{
+                    job:$job,
+                    executions:[.[] | {
+                      name:(.metadata.name // .name // "" | split("/")[-1]),
+                      created:(.metadata.creationTimestamp // .createTime // null),
+                      completionTime:(.status.completionTime // null),
+                      succeededCount:(.status.succeededCount // 0),
+                      failedCount:(.status.failedCount // 0)
+                    }]
+                  }' > "runtime-evidence/${job}-executions.json"
               done
-
-              gcloud run jobs executions list \
-                --job=janus-private-pipeline \
-                --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
-                --limit=12 --format=json \
-                | jq '[.[] | {
-                    name:(.metadata.name|split("/")[-1]),
-                    creationTimestamp:.metadata.creationTimestamp,
-                    startTime:.status.startTime,
-                    completionTime:.status.completionTime,
-                    succeededCount:(.status.succeededCount // 0),
-                    failedCount:(.status.failedCount // 0)
-                  }]' | tee runtime-evidence/private-pipeline-executions.json
-
-              if gcloud logging read \
-                'resource.type="cloud_scheduler_job" AND resource.labels.job_id=~"janus-private-pipeline-.*"' \
-                --project="${GCP_PROJECT_ID}" --freshness=7d --limit=100 --order=desc --format=json \
-                > runtime-evidence/private-scheduler-logs.json; then
-                jq '[.[] | {
-                  timestamp,severity,
-                  job_id:.resource.labels.job_id,
-                  status:(.httpRequest.status // .jsonPayload.status // null)
-                }]' runtime-evidence/private-scheduler-logs.json
-              else
-                printf '[]\n' > runtime-evidence/private-scheduler-logs.json
-                echo 'scheduler logs unavailable; scheduler definitions and Cloud Run executions were still verified'
-              fi
-              echo "Private Pipeline scheduler definitions and bounded execution history passed"
+              echo "Consolidated hourly controller Scheduler and retired direct-private path readback PASS"
               ;;
             batch-runtime)
               mkdir -p runtime-evidence
