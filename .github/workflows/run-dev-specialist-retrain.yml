@@ -89,6 +89,35 @@ jobs:
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
         if: steps.request.outputs.enabled == 'true'
+      - name: B7 dev scheduler and controller image readback
+        if: steps.request.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud scheduler jobs describe janus-ingestion-daily \
+            --project="${GCP_PROJECT_ID}" --location="${GCP_REGION}" \
+            --format='json(schedule,timeZone,state)' > /tmp/janus-b7-scheduler.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("/tmp/janus-b7-scheduler.json").read_text())
+          print("B7 scheduler:", {k: data.get(k) for k in ("schedule", "timeZone", "state")})
+          assert data.get("schedule") == "30 * * * *", "unexpected controller tick cadence"
+          assert data.get("timeZone") == "Asia/Taipei", "controller scheduler timezone mismatch"
+          assert data.get("state") == "ENABLED", "controller scheduler is not active"
+          PY
+          controller_image="$(gcloud run jobs describe janus-batch-controller \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --format='value(spec.template.spec.template.spec.containers[0].image)')"
+          ingestion_image="$(gcloud run jobs describe janus-ingestion-core \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --format='value(spec.template.spec.template.spec.containers[0].image)')"
+          [[ -n "${controller_image}" && "${controller_image}" == "${ingestion_image}" ]] || {
+            echo 'B7 live controller image differs from ingestion deployed image' >&2
+            exit 2
+          }
+          echo "B7 controller image alignment PASS"
+
       - name: Execute through batch controller
         if: steps.request.outputs.enabled == 'true'
         shell: bash
@@ -101,3 +130,16 @@ jobs:
             --region="${GCP_REGION}" \
             --update-env-vars="BATCH_CONTROLLER_MODE=manual,BATCH_CONTROLLER_MANUAL_REQUEST_ID=${REQUEST_ID}" \
             --wait
+      - name: B7 dev controller and Mart recent execution readback
+        if: steps.request.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo "B7 controller latest executions:"
+          gcloud run jobs executions list --job=janus-batch-controller \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --limit=3 --format='table(metadata.name,status.succeededCount,status.failedCount)'
+          echo "B7 Mart latest executions (control dispatch may still be pending dependencies):"
+          gcloud run jobs executions list --job=janus-intelligence-mart \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --limit=5 --format='table(metadata.name,status.succeededCount,status.failedCount)'

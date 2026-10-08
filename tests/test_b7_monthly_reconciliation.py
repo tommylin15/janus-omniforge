@@ -84,3 +84,15 @@ def test_historical_unreferenced_pointer_not_misreported_as_confirmed_orphan():
     result = reconcile_monthly_cache(store, store.bucket, ["2330"], refs, "core-a")
     assert result["pointer_inventory"]["unreferenced_candidates"] == 1
     assert result["orphan_classification"] == "unverified_retention_candidates_no_deletion"
+
+
+def test_monthly_reconciliation_bounded_inventory_never_claims_full_pass():
+    store = MemoryStore()
+    refs = build_refs(store)
+    for index in range(4097):
+        store.data[f"specialist-cache/v1/legacy/{index:05}.json"] = b"{}"
+    receipt = reconcile_monthly_cache(store, store.bucket, ["2330"], refs, "core-a")
+    assert receipt["status"] == "partial"
+    assert receipt["pointer_inventory"]["status"] == "bounded_incomplete"
+    assert receipt["pointer_inventory"]["unreferenced_candidates"] is None
+    assert receipt["missed_invalidation_detected"] is False
