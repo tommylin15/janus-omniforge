@@ -132,7 +132,7 @@ jobs:
               target="https://run.googleapis.com/v2/projects/${GCP_PROJECT_ID}/locations/${GCP_REGION}/jobs/janus-batch-controller:run"
               gcloud scheduler jobs list \
                 --project="${GCP_PROJECT_ID}" --location="${GCP_REGION}" --format=json \
-                > runtime-evidence/controller-schedulers.json
+                > /tmp/controller-schedulers.json
               jq -e \
                 --arg target "${target}" \
                 --arg identity "${identity}" '
@@ -146,14 +146,14 @@ jobs:
                   and .httpTarget.httpMethod == "POST"
                   and .httpTarget.oauthToken.serviceAccountEmail == $identity
                   and ((.retryConfig.retryCount // 0) | tonumber) == 1)
-              ' runtime-evidence/controller-schedulers.json >/dev/null
+              ' /tmp/controller-schedulers.json >/dev/null
               jq -c '[.[] | select((.name|split("/")[-1])|startswith("janus-")) | {
                 name:(.name|split("/")[-1]),
                 state,schedule,timeZone,
                 target:.httpTarget.uri,
                 identity:.httpTarget.oauthToken.serviceAccountEmail,
                 retryCount:(.retryConfig.retryCount // 0)
-              }]' runtime-evidence/controller-schedulers.json \
+              }]' /tmp/controller-schedulers.json \
                 | tee runtime-evidence/controller-schedulers-verified.json
 
               gcloud run jobs describe janus-batch-controller \
