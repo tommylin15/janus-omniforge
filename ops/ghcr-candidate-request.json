@@ -3,5 +3,8 @@
   "sha": "0b93d99d42aaff662a3408d749d70aa9d04b1042",
   "purpose": "Validate fixed digest GHCR on existing Cloud Run janus-api at zero production traffic",
   "promotion": false,
-  "scope": "janus-api-only"
+  "scope": "janus-api-only",
+  "lease_validation": "github-ref-live-readback-v1",
+  "allow_service_traffic_promotion": false,
+  "allow_job_image_update": false
 }
