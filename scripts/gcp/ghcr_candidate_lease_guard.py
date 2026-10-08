@@ -29,7 +29,9 @@ def positive_traffic(data: Mapping[str, Any]) -> list[tuple[str, int]]:
     for v in _array(_mapping(data.get("status")).get("traffic")):
         if not isinstance(v, dict):
             return []
-        percent = v.get("percent", 0)
+        percent = v.get("percent")
+        if percent is None:
+            percent = 0
         if isinstance(percent, bool) or not isinstance(percent, int):
             return []
         if percent > 0:
@@ -81,7 +83,7 @@ def validate(before: Any, after: Any, expected_image: str, candidate_tag: str) -
         errors.append("candidate_tag_duplicated")
     if tagged:
         candidate = tagged[0]
-        if candidate.get("percent", 0) != 0 or not candidate.get("revisionName"):
+        if candidate.get("percent") not in (None, 0) or not candidate.get("revisionName"):
             errors.append("candidate_tag_unsafe")
         if target != expected_image:
             errors.append("candidate_digest_mismatch")
