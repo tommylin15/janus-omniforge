@@ -41,3 +41,23 @@ def test_janus_deploy_and_database_migration_use_one_secret_bundle():
     vm_migration=(ROOT/"scripts/gcp/apply-web-postgres-migration.sh").read_text(encoding="utf-8")
     assert "apply secret-manager '${PROJECT_ID}'" in migration
     assert "secrets/janus-runtime-bundle/versions/latest:access" in vm_migration
+
+
+def test_runtime_inspection_checks_active_controller_not_retired_direct_private_schedulers():
+    workflow=(ROOT/".github/workflows/inspect-dev-runtime.yml").read_text(encoding="utf-8")
+    region=workflow.split("            private-schedulers)\n",1)[1].split("            batch-runtime)\n",1)[0]
+    assert "gcloud scheduler jobs list" in region
+    assert "janus-ingestion-daily" in region
+    assert "janus-batch-controller:run" in region
+    assert '"30 * * * *"' in region
+    assert '"Asia/Taipei"' in region
+    assert 'startswith("janus-private-pipeline-")' in region
+    assert "length) == 0" in region
+    assert "janus-batch-controller" in region
+    assert "gcloud scheduler jobs create" not in region
+    assert "gcloud scheduler jobs update" not in region
+    assert "gcloud scheduler jobs describe \"janus-private-pipeline" not in region
+    assert 'runtime-evidence/controller-schedulers.json' not in region
+    assert '/tmp/controller-schedulers.json' in region
+    assert 'runtime-evidence/controller-schedulers-verified.json' in region
+
