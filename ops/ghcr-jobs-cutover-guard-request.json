@@ -1,7 +1,7 @@
 {
   "intent": "read-only-cutover-guard",
   "sha": "0b93d99d42aaff662a3408d749d70aa9d04b1042",
-  "purpose": "Bounded WIF Artifact Registry immutable rollback digest accessibility checks; no changes",
+  "purpose": "Read-only GHCR Job image plan and reversible pinned AR rollback mappings; never apply",
   "apply": false,
-  "attempt": 4
+  "attempt": 5
 }
