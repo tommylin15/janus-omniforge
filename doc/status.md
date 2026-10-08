@@ -106,14 +106,14 @@ B4 已完成 Deep Coverage universe、dependency-selective execution、immutable
 
 完整 evidence 見 [B4 結案](archive/group-b-b4-deep-coverage-closure-2026-10-07.md)。
 
-**B4～B6 均已 CLOSED / PASS；但跨 PyIceberg/BigQuery 的效能及成本決策仍為 PARTIAL。下一步先補 B8 的同工作量比較 checkpoint，再進 B7 月度批次；目前不切換 PyIceberg default。**
+**B4～B6 均已 CLOSED / PASS；恢復原訂 B7 → B8 → B9 執行順序。下一步是 B7 月度批次（尚未開始；待下一個對話執行）。BigQuery/PyIceberg 效能及成本決策保留在 B8，狀態 PARTIAL；目前不切換 PyIceberg default。**
 
-### B 組 BigQuery vs PyIceberg 效能決策 — PARTIAL（2026-10-08）
+### B8 待辦：BigQuery vs PyIceberg 效能決策 — PARTIAL（B7 完成後執行）
 
-- 依使用者 2026-10-08 提醒：B5 data path 與 B6 zero-query reuse 已 CLOSED，但**不等於** BigQuery 在相同 workload 比 PyIceberg 有效益，需在 B7 前補 B8 效能決策 checkpoint。
+- B5 data path 與 B6 zero-query reuse 已 CLOSED，但**不等於** BigQuery 在相同 workload 比 PyIceberg 有效益。2026-10-08 使用者確定維持 **B7 → B8 → B9**，B8 一次集中完成效能比較、成本／FinOps 與 fallback 驗收；B7 不以比較提前完成為前置條件。
 - [B3 fixed-snapshot canary evidence](archive/group-b-b3-live-acceptance-2026-10-07.json)：B3 固定 snapshot 同一 screening 結果 `output_equal=true`；PyIceberg **30.2256 s**、BigQuery hybrid **36.0608 s**（慢約 **19.3%**）。此 canary 為單次觀測，BigQuery 只承接 benchmark/ohlcv、valuation 使用預先載入 PyIceberg rows（其讀取時間未計入 hybrid），未涵蓋公平的端到端相同負載與 RSS/GCS bytes。
 - B3 BigQuery 兩個查詢合計 **20 MiB billed**（10 MiB 各一）；PyIceberg GCS read bytes 仍為 `null`，不能宣稱誰比較便宜。B5 首次 materialize 共 **30 MiB billed**，其中 export SQL script **5.84 s**；這是單段 SQL 執行時間，**不可與 B0/B1 的完整 Mart elapsed（725.726 / 800.966 s）相比**，也沒有相同 ML/OOS reduction 的 PyIceberg reference baseline。
-- 必補可重跑 **同 fixed Core snapshot、同 symbol/date/feature/query/PIT/output** 的兩種 read + reduction/export 對照，區分 cold compute、warm cache、GCS payload readback；量測 elapsed、peak RSS、processed/billed bytes、Cloud Run/GCS bytes（可取得時），財務不明填 `null`。守住既有 1 GiB BQ execution budget／60 秒 query timeout／禁用 Storage Read API／不新增計費資源或權限。評估後才能做 workload-specific cutover 決策；B8 fallback/FinOps 最終驗收仍另外保留。
+- B8 必補可重跑 **同 fixed Core snapshot、同 symbol/date/feature/query/PIT/output** 的兩種 read + reduction/export 對照，區分 cold compute、warm cache、GCS payload readback；量測 elapsed、peak RSS、processed/billed bytes、Cloud Run/GCS bytes（可取得時），未知填 `null`。B8 同時驗證可稽核 fallback／FinOps，守住既有 1 GiB BQ execution budget／60 秒 query timeout／禁用 Storage Read API／不新增計費資源或權限。未完成比較前不做 BigQuery default cutover。
 
 ### B6 ML/OOS derived cache — CLOSED / PASS（2026-10-08）
 
