@@ -155,7 +155,7 @@ def release(api: Callable, owner: Owner) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("operation", choices=("acquire", "assert", "release"))
+    parser.add_argument("operation", choices=("acquire", "assert", "inspect", "release"))
     parser.add_argument("--repo", default=os.getenv("GITHUB_REPOSITORY", ""))
     parser.add_argument("--run-id", type=int, default=int(os.getenv("GITHUB_RUN_ID", "0")))
     parser.add_argument("--run-attempt", type=int, default=int(os.getenv("GITHUB_RUN_ATTEMPT", "0")))
@@ -174,6 +174,8 @@ def main() -> int:
         elif args.operation == "assert":
             _validated_lease(api, owner)
             state = "OWNED"
+        elif args.operation == "inspect":
+            state = "ABSENT" if get_ref(api, owner) is None else "PRESENT"
         else:
             release(api, owner)
             state = "RELEASED"
