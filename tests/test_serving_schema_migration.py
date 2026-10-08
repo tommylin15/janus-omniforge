@@ -293,5 +293,47 @@ def test_holdings_reference_migration_uses_publication_owner_and_validates_acl(m
     assert "GRANT SELECT ON publication.stock_serving_recent TO janus_private_api" in publication_sql
     assert "GRANT USAGE ON SCHEMA publication TO janus_private_api" not in control_sql
     assert "NOT has_table_privilege('janus_public_api','private.current_positions','SELECT')" in control_sql
-    assert control_sql.index("has_schema_privilege") < control_sql.index("INSERT INTO control.schema_migrations")
+    assert "has_schema_privilege('janus_private_api','publication','USAGE')" in publication_sql
+    assert "has_schema_privilege('janus_private_api','publication','USAGE')" not in control_sql
+    assert control_sql.index("has_table_privilege") < control_sql.index("INSERT INTO control.schema_migrations")
     assert publication.closed is True
+
+
+def test_cicd_readiness_skips_completed_and_applies_only_missing_in_order(monkeypatch):
+    monkeypatch.setattr(migration, '_publication_connection', lambda: FakeConnection('janus_publication'))
+    markers = set(migration.SUPPORTED) - {migration.MIGRATION_HOLDINGS_PREVIOUS_CLOSE}
+    applied = []
+    class Cursor(FakeCursor):
+        def fetchall(self):
+            return [(name,) for name in sorted(markers)]
+    control = FakeControl()
+    control.connection.cursor = lambda: Cursor('janus_control')
+    def apply(control, name):
+        applied.append(name)
+        markers.add(name)
+    monkeypatch.setattr(migration, 'run', apply)
+    with pytest.raises(RuntimeError, match='markers missing'):
+        migration.cicd_readiness(control)
+    assert not applied
+    result = migration.cicd_readiness(control, apply_missing=True)
+    assert applied == [migration.MIGRATION_HOLDINGS_PREVIOUS_CLOSE]
+    assert result['applied'] == applied
+    assert migration.MIGRATION_HOLDINGS_PREVIOUS_CLOSE not in result['skipped']
+    assert migration.cicd_readiness(control)['applied'] == []
+
+
+def test_cicd_migration_failure_stops_next_migration(monkeypatch):
+    missing = sorted(migration.SUPPORTED)[-2:]
+    class Cursor(FakeCursor):
+        def fetchall(self):
+            return [(name,) for name in migration.SUPPORTED if name not in missing]
+    control = FakeControl()
+    control.connection.cursor = lambda: Cursor('janus_control')
+    attempts = []
+    def fail(control, name):
+        attempts.append(name)
+        raise RuntimeError('migration failed')
+    monkeypatch.setattr(migration, 'run', fail)
+    with pytest.raises(RuntimeError, match='migration failed'):
+        migration.cicd_readiness(control, apply_missing=True)
+    assert attempts == missing[:1]

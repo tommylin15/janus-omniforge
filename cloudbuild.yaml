@@ -151,25 +151,7 @@ steps:
         fi
         echo "Deployed ${image} to ${_RUNTIME_NAME}"
 
-  - id: cleanup-untagged-images
-    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
-    entrypoint: bash
-    args:
-      - -ceu
-      - |
-        if [[ ! -s /workspace/deployed-digest ]]; then
-          echo "No runtime deployment completed; skipping image cleanup."
-          exit 0
-        fi
-        current="$(cat /workspace/deployed-digest)"
-        while IFS= read -r version; do
-          [[ -z "${version}" || "${version}" == "${current}" ]] && continue
-          gcloud artifacts docker images delete \
-            "${_IMAGE_REPOSITORY}/${_IMAGE_NAME}@${version}" --quiet
-        done < <(gcloud artifacts docker images list \
-          "${_IMAGE_REPOSITORY}/${_IMAGE_NAME}" --include-tags \
-          --filter='-tags:*' --format='value(version)')
-        echo "Removed untagged old image versions; preserved ${current}."
+  # Cleanup is a separate digest-reference-fenced operation after acceptance.
 
 options:
   logging: CLOUD_LOGGING_ONLY

@@ -1,0 +1,23 @@
+{
+  "substitutions": {
+    "_VALIDATE_CANDIDATES": "false",
+    "_BASE_SHA": "6ab59bf0e24b52bcf557172348e59271db5d1414",
+    "_GOOGLE_ADMIN_CLIENT_ID": "131494961796-samjcgtts8kkprjs5nv7kh2qts92su0k.apps.googleusercontent.com",
+    "_GOOGLE_USER_CLIENT_ID": "131494961796-q066ts6ufuoch6t5uqod0nkqdb5nttjh.apps.googleusercontent.com"
+  },
+  "ignoredFiles": [
+    "doc/**",
+    "**/*.md"
+  ],
+  "serviceAccount": "projects/gen-lang-client-0593591102/serviceAccounts/131494961796-compute@developer.gserviceaccount.com",
+  "repositoryEventConfig": {
+    "repository": "projects/gen-lang-client-0593591102/locations/us-central1/connections/tommy-github/repositories/tommylin15-janus-omniforge",
+    "push": {
+      "branch": "^main$"
+    }
+  },
+  "name": "janus-dev-v2",
+  "filename": "cloudbuild-v2.yaml",
+  "description": "Janus CI/CD V2 shadow validation; disabled until full live cutover",
+  "disabled": true
+}

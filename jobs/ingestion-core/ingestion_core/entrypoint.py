@@ -12,6 +12,23 @@ MIGRATION_RUNNER_VERSION = "2026-10-06.latest-price-v2"
 
 
 def main() -> None:
+    readiness = os.environ.get("JANUS_CICD_READINESS", "").strip()
+    if readiness:
+        if readiness not in {"check", "apply-missing"}:
+            raise SystemExit("unsupported CI/CD readiness mode")
+        from .__main__ import _control_plane
+        from .serving_schema_migration import cicd_readiness
+        control = _control_plane()
+        try:
+            result = cicd_readiness(control, apply_missing=readiness == "apply-missing")
+            print(json.dumps(result, sort_keys=True))
+        except Exception as error:
+            print(json.dumps({"status": "failed", "operation": "cicd_readiness",
+                              "error_code": type(error).__name__.upper()}), file=sys.stderr)
+            raise SystemExit(1) from None
+        finally:
+            control.close()
+        return
     migration = os.environ.get("JANUS_SERVING_SCHEMA_MIGRATION", "").strip()
     if not migration:
         from .runtime_entrypoint import main as runtime_main

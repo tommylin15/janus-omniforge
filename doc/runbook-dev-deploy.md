@@ -42,6 +42,18 @@ $env:ALLOW_DEV_PROVISION = "true"
 
 ## 3. Dev deployment
 
+### 3.0 CI/CD V2 轉換期（PARTIAL）
+
+使用者已指定四元件 V2 改造，契約見 [`spec/cicd-v2.md`](spec/cicd-v2.md)。目前舊 GitHub controller 保留，V2 Trigger 先停用；不得在未完成四元件 candidate／authenticated acceptance 時升流量或退役舊流程。
+
+新入口 `cloudbuild-v2.yaml` 預設 shadow-only。以 Repository Trigger 的完整 SHA 取源；人工指定 `_SHA` 與 `_COMPONENTS`，必須以 immutable commit 為準。`_BASE_SHA` 是明確的完整比較 baseline，缺少時 fail-safe 建四元件，不能把它當成 document-only 最佳化。正式 cutover 前須完成已發布 baseline 持久化。
+
+只有受控候選驗收才設 `_VALIDATE_CANDIDATES=true`。此模式暫停／恢復既有 enabled Janus Scheduler，拒絕 active Job execution，API 維持 no-traffic，三 Job 驗後回復原 image；receipt 的 PARTIAL 不能當成 promotion PASS。050 migration 只補缺 marker並分 owner 驗 ACL。
+
+`scripts/gcp/cicd-v2.py cleanup-plan --output=...` 只產生 digest 引用 dry-run，不能刪 image。禁止恢復原「無 tag 即刪」cleanup。
+
+Mutex 在既有 regional bucket `v2/deployment-lock.json`。若 build 被取消／timeout 而 lock 尚存，先讀 lock 的 Build ID，再讀同區 Build 與該 execution 終態、核對 Job rollback／Scheduler restore；只在確認無部署執行中後，由 operator 用該 object generation precondition解除。不得按時間猜 stale lock、無限重試或重送 unknown execution。
+
 ### 3.1 GitHub Actions 自動部署
 
 `.github/workflows/deploy-dev.yml` 是 dev 的主要 deployment controller。

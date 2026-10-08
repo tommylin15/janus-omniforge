@@ -1,3 +1,7 @@
+# CI/CD V2 latest checkpoint（2026-10-08）
+
+V2 **PARTIAL**，尚無新版本 build／deployment／live acceptance；40 local contracts PASS、050 owner-phase 修復後31 PASS，shell PASS。Connection COMPLETE，regional Trigger 已建但 disabled；既有 API／Jobs 未因本次改造切換。legacy US bucket由同專案另一部署器建立，未刪除。完整 bounded 盤點見 [checkpoint](../archive/cicd-v2-inventory-2026-10-08.md)，現行轉換契約見 [CI/CD V2](cicd-v2.md)。
+
 # Operations and testing
 
 ## 最新：B3 daily liquid-500 screening（2026-10-07，CLOSED / PASS）

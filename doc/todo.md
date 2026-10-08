@@ -1,3 +1,12 @@
+# 本次明確指令：CI/CD V2（PARTIAL）
+
+- [ ] 四元件 Repository Trigger → tests/security/migration → immutable build → candidate → authenticated live acceptance → promotion → readback → digest-fenced cleanup 完整閉環。
+- [ ] 最新版本真實 main push 全鏈 PASS；確認只剩一個 canonical controller後退役舊自動入口。
+- [ ] 持久化 published SHA baseline／same-SHA idempotency、舊 SHA fence、promotion／rollback與安全人工重跑。
+- [ ] 追蹤 legacy bucket 跨系統再建立來源；不刪其他系統 source／Janus 業務資料；cleanup dry-run／apply／容量讀回。
+
+已完成與未完成邊界見 [CI/CD V2 契約](spec/cicd-v2.md)。本次指令不授權變更 B7／B8／B9 功能範圍。
+
 # Janus — TODO
 
 版本：3.22（2026-10-08：B7 ACTIVE，待 live acceptance；B8/B9 順序不變）

@@ -1,3 +1,7 @@
+# CI/CD V2 接續（2026-10-08）
+
+使用者本次指定 CI/CD V2 四元件工程閉環，目前 **PARTIAL**。已同步 GitHub main、完成連線／停用 regional Trigger、shadow build／candidate controller 實作與 local targeted tests；尚未完成新版本 build／live acceptance／promotion／舊 controller 退役。既有 B7～B9 範圍不改。詳見 [契約](spec/cicd-v2.md) 與 [盤點](archive/cicd-v2-inventory-2026-10-08.md)。
+
 # Janus Current Status
 
 更新：2026-10-08

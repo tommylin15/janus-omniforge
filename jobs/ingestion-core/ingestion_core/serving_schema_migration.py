@@ -326,11 +326,6 @@ def _apply_holdings_previous_close(control: Any) -> None:
             with publication.transaction(), publication.cursor() as cursor:
                 _require_current_user(cursor, "janus_publication")
                 cursor.execute(_without_role_lines(publication_sql))
-                cursor.execute(
-                    "SELECT has_schema_privilege('janus_private_api','publication','USAGE'),"
-                    "has_table_privilege('janus_private_api',"
-                    "'publication.stock_serving_recent','SELECT')"
-                )
                 row = cursor.fetchone()
                 if row is None or not all(bool(value) for value in row):
                     raise RuntimeError("holdings reference view permission unavailable")
@@ -346,6 +341,49 @@ def _apply_holdings_previous_close(control: Any) -> None:
             cursor.execute("INSERT INTO control.schema_migrations" + _without_role_lines(record))
     except Exception as error:
         raise ServingSchemaMigrationError("holdings_reference_apply", error) from error
+
+
+def cicd_readiness(control: Any, *, apply_missing: bool = False) -> dict[str, object]:
+    """V2 marker/readiness gate, using existing identities and migration order."""
+    with control.connection.cursor() as cursor:
+        _require_current_user(cursor, "janus_control")
+        cursor.execute("SELECT version FROM control.schema_migrations ORDER BY version")
+        markers = {str(row[0]) for row in cursor.fetchall()}
+    missing = sorted(SUPPORTED - markers)
+    if missing and not apply_missing:
+        raise RuntimeError("serving migration markers missing")
+    applied = []
+    for name in missing:
+        run(control, name)
+        applied.append(name)
+    with control.connection.cursor() as cursor:
+        cursor.execute("SELECT version FROM control.schema_migrations ORDER BY version")
+        final = {str(row[0]) for row in cursor.fetchall()}
+        if not SUPPORTED <= final:
+            raise RuntimeError("migration marker readback failed")
+        cursor.execute("""SELECT
+          to_regclass('private.current_positions') IS NOT NULL,
+          to_regclass('private.recalculation_requests') IS NOT NULL,
+          to_regclass('control.batch_occurrences') IS NOT NULL,
+          NOT has_table_privilege('janus_public_api','private.current_positions','SELECT'),
+          NOT has_schema_privilege('janus_private_api','private','CREATE')""")
+        row = cursor.fetchone()
+        if row is None or not all(bool(value) for value in row):
+            raise RuntimeError("CI/CD schema or ACL readiness failed")
+    publication = _publication_connection()
+    try:
+        with publication.cursor() as cursor:
+            _require_current_user(cursor, "janus_publication")
+            cursor.execute("SELECT has_schema_privilege('janus_private_api','publication','USAGE'),"
+                           "has_table_privilege('janus_private_api','publication.stock_serving_recent','SELECT')")
+            row = cursor.fetchone()
+            if row is None or not all(bool(value) for value in row):
+                raise RuntimeError("CI/CD publication ACL readiness failed")
+    finally:
+        publication.close()
+    return {"status": "succeeded", "operation": "cicd_readiness",
+            "applied": applied, "skipped": sorted(SUPPORTED & markers),
+            "markers": sorted(final), "schema_acl": "PASS"}
 
 
 def run(control: Any, name: str) -> None:
