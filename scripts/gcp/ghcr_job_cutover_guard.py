@@ -98,11 +98,13 @@ def assess(evidence: Mapping[str, Any]) -> dict[str, Any]:
     private_count = _dict(snapshots.get("janus-private-pipeline")).get("potentially_active")
     # Reject all guessed counts and pre-recorded green flags: derive from the
     # same run's exact v1 execution, task and v2 terminal-failure evidence.
+    historical_diagnostics: list[str] = []
     historical_terminal_failed = verify_historical_failures(
         private_proof.get("v1_records"),
         private_proof.get("task_records"),
         private_proof.get("v2_readback"),
         private_count,
+        historical_diagnostics,
     )
     for name in REQUIRED_JOBS:
         snapshot = _dict(snapshots.get(name))
@@ -137,6 +139,7 @@ def assess(evidence: Mapping[str, Any]) -> dict[str, Any]:
         "source_sha": source_sha if isinstance(source_sha, str) and re.fullmatch(r"[0-9a-f]{40}", source_sha) else "UNKNOWN",
         "blockers": blockers,
         "historical_failed_pretask_terminal_count": historical_terminal_failed,
+        "historical_fence_diagnostics": historical_diagnostics,
         "historical_success_claimed": False,
         "resource_writes": 0,
     }
