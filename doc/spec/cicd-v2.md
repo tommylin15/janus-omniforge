@@ -23,3 +23,10 @@
 4. 所有有效 revision、跨區 runtime、execution及候選 evidence引用集合的清理與容量讀回。
 
 完整 checkpoint見 [V2盤點](../archive/cicd-v2-inventory-2026-10-08.md)。Build SUCCESS或migration成功不等於V2 CLOSED。
+
+
+## 2026-10-08 本輪控制器修復證據
+
+- `9e42420`：published state CAS 失敗後繼續 rollback Job image／API traffic，Scheduler 恢復順序後移；GitHub [selective CI 37737358620](https://github.com/tommylin15/janus-omniforge/actions/runs/37737358620) PASS（plan／controller）。
+- `0f890da`：doc-only Push 不再被 workflow 排除，保留 exact-SHA plan 結果但無受影響 code 時不跑程式 suite；GitHub [selective CI 37737524971](https://github.com/tommylin15/janus-omniforge/actions/runs/37737524971) PASS（plan／controller）。
+- 上述是 code/CI 證據，不代表 GCP 的 candidate／Release／authenticated owner／OAuth／PnL／MCP acceptance、published marker 與 digest cleanup 已 PASS。沒有新的 GCP live acceptance readback。
