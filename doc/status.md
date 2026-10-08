@@ -6,6 +6,8 @@
 
 ## 2026-10-08 B7 月度批次：ACTIVE（驗收中）
 
+- 真實手動 acceptance 使用 request ID `b7-monthly-live-20261008-v1`，在 controller dispatch 之前必須驗證 Mart dev image 指向 `fb07979a...`（嚴格 SHA）；未命中則 bounded wait 後 **fail-closed**，不得用舊 Mart 映像結案。
+
 - [獨立 Scheduler/Job readback #37711998105](https://github.com/tommylin15/janus-omniforge/actions/runs/37711998105)：第一次 execution **FAIL / blocked**，原因是既有 GitHub `janus-ci` 無 `cloudscheduler.jobs.get`，不能直接驗證 scheduler 設定。未擴張 IAM；後續 readback 需顯示 `unknown` 而非假裝 PASS，並繼續利用現有 Cloud Run job inspect 權限驗證部署。
 
 - [實作 `6a2e76c`](https://github.com/tommylin15/janus-omniforge/commit/6a2e76c2916e72366c39abc27ff345508e283a11)：controller 從錯誤的每月 1 日改為每月第一個週六台北 10:30。沿用既有每小時 :30 Scheduler；當日 07:30 ingestion／08:30 data-supplement 成功才派送。

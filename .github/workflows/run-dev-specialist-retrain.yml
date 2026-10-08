@@ -80,7 +80,10 @@ jobs:
           [[ "$(jq -r '.operation // ""' "${file}")" == 'specialist-retrain' ]] || { echo 'unsupported operation' >&2; exit 2; }
           request_id="$(jq -r '.request_id // ""' "${file}")"
           [[ "${request_id}" =~ ^[A-Za-z0-9._-]{1,80}$ ]] || { echo 'invalid request_id' >&2; exit 2; }
+          expected_mart_sha="$(jq -r '.expected_mart_deploy_sha // ""' "${file}")"
+          [[ "${expected_mart_sha}" =~ ^[0-9a-f]{40}$ ]] || { echo 'missing/invalid expected_mart_deploy_sha' >&2; exit 2; }
           echo "request_id=${request_id}" >> "${GITHUB_OUTPUT}"
+          echo "expected_mart_sha=${expected_mart_sha}" >> "${GITHUB_OUTPUT}"
           echo 'enabled=true' >> "${GITHUB_OUTPUT}"
       - uses: google-github-actions/auth@v2
         if: steps.request.outputs.enabled == 'true'
@@ -125,6 +128,27 @@ jobs:
             exit 2
           }
           echo "B7 controller image alignment PASS"
+
+      - name: B7 require exact Mart deployment image before triggering retrain
+        if: steps.request.outputs.enabled == 'true'
+        shell: bash
+        env:
+          EXPECTED_MART_SHA: ${{ steps.request.outputs.expected_mart_sha }}
+        run: |
+          set -Eeuo pipefail
+          for attempt in $(seq 1 16); do
+            mart_image="$(gcloud run jobs describe janus-intelligence-mart \
+              --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+              --format='value(spec.template.spec.template.spec.containers[0].image)')"
+            if [[ "${mart_image}" == *":dev-${EXPECTED_MART_SHA}" ]]; then
+              echo 'B7 exact Mart deployment image verified'
+              exit 0
+            fi
+            echo "B7 Mart image not deployed yet (attempt ${attempt}/16); no controller execution issued"
+            sleep 30
+          done
+          echo 'B7 aborted: expected Mart image not yet present; manual request not executed' >&2
+          exit 2
 
       - name: Execute through batch controller
         if: steps.request.outputs.enabled == 'true'

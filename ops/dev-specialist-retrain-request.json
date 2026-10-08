@@ -1,5 +1,6 @@
 {
   "enabled": true,
   "operation": "specialist-retrain",
-  "request_id": "wbs5-specialist-retrain-20261005-v3"
+  "request_id": "b7-monthly-live-20261008-v1",
+  "expected_mart_deploy_sha": "fb07979ab270055e2d3029457d797004c026f356"
 }
