@@ -15,6 +15,16 @@ def row(**kwargs):
     return {"name":NAME,**{"reconciling":False,"conditions":[{"type":"Completed","state":"CONDITION_FAILED"}]},**kwargs}
 
 
+def test_proto_json_omitted_default_false_is_readable_but_not_terminal():
+    # Cloud Run REST v2 omits false boolean properties in JSON by default.
+    payload=row()
+    del payload["reconciling"]
+    result=classify(EXEC,payload)
+    assert result["v2_readback"]=="READABLE"
+    assert result["reconciling"] is False
+    assert result["terminal_confirmed"] is False
+
+
 def test_v2_missing_completion_is_not_terminal_regardless_of_no_tasks():
     r=classify(EXEC,row(runningCount=0,taskCount=1))
     assert r["v2_readback"]=="READABLE"
