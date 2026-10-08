@@ -8,6 +8,7 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 3,
-  "reason": "Complete non-legacy tests with BigQuery dependency and Pilot contract deselection"
+  "attempt": 4,
+  "reason": "Refresh all four public GHCR images after verified owner-fenced API candidate deploy; no traffic or Jobs promotion",
+  "expected_runtime_changes": false
 }
