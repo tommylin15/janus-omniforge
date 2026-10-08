@@ -15,18 +15,20 @@ def row(**kwargs):
     return {"name":NAME,**{"reconciling":False,"conditions":[{"type":"Completed","state":"CONDITION_FAILED"}]},**kwargs}
 
 
-def test_proto_json_omitted_default_false_is_readable_but_not_terminal():
+def test_proto_json_omitted_default_false_preserves_terminal_failed_condition():
     # Cloud Run REST v2 omits false boolean properties in JSON by default.
     payload=row()
     del payload["reconciling"]
     result=classify(EXEC,payload)
     assert result["v2_readback"]=="READABLE"
     assert result["reconciling"] is False
-    assert result["terminal_confirmed"] is False
+    assert result["terminal_confirmed"] is True
+    assert result["terminal_outcome"] == "FAILED_TERMINAL_CONDITION"
 
 
 def test_v2_missing_completion_is_not_terminal_regardless_of_no_tasks():
-    r=classify(EXEC,row(runningCount=0,taskCount=1))
+    r=classify(EXEC,row(runningCount=0,taskCount=1,
+        conditions=[{"type":"Completed","state":"CONDITION_PENDING"}]))
     assert r["v2_readback"]=="READABLE"
     assert r["start_observed"] is False
     assert r["completion_observed"] is False
@@ -37,8 +39,32 @@ def test_v2_missing_completion_is_not_terminal_regardless_of_no_tasks():
 def test_v2_completed_failed_execution_is_terminal_but_not_called_success():
     r=classify(EXEC,row(completionTime="2026-09-25T00:00:00Z",runningCount=0))
     assert r["terminal_confirmed"] is True
-    assert r["condition_states"]==[{"type":"Completed","state":"CONDITION_FAILED"}]
+    assert r["condition_states"]==[{"type":"Completed","state":"CONDITION_FAILED","execution_reason":None}]
     assert "successful" not in r
+
+
+def test_v2_terminal_failed_no_tasks_no_completion_time_is_not_success():
+    r=classify(EXEC,row(runningCount=0,taskCount=1))
+    assert r["v2_readback"]=="READABLE"
+    assert r["completion_observed"] is False
+    assert r["terminal_confirmed"] is True
+    assert r["terminal_outcome"] == "FAILED_TERMINAL_CONDITION"
+
+
+@pytest.mark.parametrize("reason",[
+    "JOB_STATUS_SERVICE_POLLING_ERROR","CANCELLING","DELAYED_START_PENDING"])
+def test_transient_error_condition_does_not_unfence(reason):
+    r=classify(EXEC,row(conditions=[{
+        "type":"Completed","state":"CONDITION_FAILED","executionReason":reason
+    }]))
+    assert r["terminal_confirmed"] is False
+
+
+def test_ambiguous_duplicate_completed_conditions_block():
+    r=classify(EXEC,row(conditions=[
+        {"type":"Completed","state":"CONDITION_FAILED"},
+        {"type":"Completed","state":"CONDITION_RECONCILING"}]))
+    assert r["terminal_confirmed"] is False
 
 
 def test_v2_completion_while_reconciling_cannot_be_accepted():
