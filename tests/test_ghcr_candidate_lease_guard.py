@@ -103,3 +103,13 @@ def test_workflow_has_acquisition_before_deploy_and_always_on_recovery():
 def test_gcp_recovery_cannot_claim_full_owner_acceptance():
     text = (ROOT / ".github/workflows/ghcr-candidate-dev.yml").read_text()
     assert "Owner OAuth/MCP/PnL still pending" in text
+
+
+def test_legacy_manual_and_candidate_share_actions_serialization_group():
+    ghcr = (ROOT / ".github/workflows/ghcr-candidate-dev.yml").read_text()
+    legacy = (ROOT / ".github/workflows/deploy-dev.yml").read_text()
+    group = "group: janus-dev-runtime-writers"
+    assert group in ghcr and group in legacy
+    assert "cancel-in-progress: false" in ghcr
+    assert "cancel-in-progress: false" in legacy
+    # This defense covers GitHub runs, not an independent Cloud Build trigger.
