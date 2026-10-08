@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          account="$(gcloud auth list --filter='status:ACTIVE' --format='value(account)')"
+          account="${{ vars.GCP_CI_SERVICE_ACCOUNT }}"
           [[ "$account" == *".iam.gserviceaccount.com" ]] && [[ "$account" =~ ^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+$ ]] || {
             echo "No recognizable active GCP service-account principal" >&2
             exit 2
