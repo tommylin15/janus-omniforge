@@ -128,3 +128,27 @@ def test_active_delete_all_retention_policy_blocks_build_and_cleanup(monkeypatch
         v2.retention_gate()
     monkeypatch.setattr(v2, "gcloud", lambda *args: {"cleanupPolicyDryRun": True, "cleanupPolicies": {"delete-all": {"action": "DELETE"}}})
     v2.retention_gate()
+
+
+def test_job_config_ignores_only_platform_nonce_and_cli_version():
+    import copy
+    spec = importlib.util.spec_from_file_location("candidate", ROOT / "scripts/gcp/cicd-v2-candidate.py")
+    candidate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(candidate)
+    before = {"spec": {"template": {"metadata": {
+        "annotations": {"run.googleapis.com/client-version": "568.0.0", "run.googleapis.com/vpc-access-egress": "private-ranges-only"},
+        "labels": {"client.knative.dev/nonce": "old"}},
+        "spec": {"template": {"spec": {"containers": [{"image": "old", "env": [{"name": "MODE", "value": "safe"}]}], "serviceAccountName": "approved"}}}}}}
+    after = copy.deepcopy(before)
+    after["spec"]["template"]["metadata"]["annotations"]["run.googleapis.com/client-version"] = "588.0.0"
+    after["spec"]["template"]["metadata"]["labels"]["client.knative.dev/nonce"] = "new"
+    assert candidate.job_config(before) == candidate.job_config(after)
+    after["spec"]["template"]["spec"]["template"]["spec"]["serviceAccountName"] = "different"
+    assert candidate.job_config(before) != candidate.job_config(after)
+
+
+def test_owner_isolation_harness_cannot_delete_private_data():
+    for path in ("apps/web/static/private-journal-acceptance.html", "scripts/gcp/user-ab-acceptance.html"):
+        source = (ROOT / path).read_text()
+        assert "private-data" not in source
+        assert "Queue A private-data deletion" not in source

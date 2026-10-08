@@ -40,3 +40,8 @@
 - 真實read-only migration preflight execution `janus-ingestion-core-jkm9f` PASS；existing image來源為`dev-1e5b6ba52a6ce9db5c233c70f6153ab7e0e8b12a`，沒有apply已完成migration。
 - 發現existing AR native `delete-all` ANY + KEEP1，與本次rollback保留政策衝突；原政策原地切dry-run，`cleanupPolicyDryRun=true`讀回。沒有image deletion／資源擴張。現役API舊digest `7528bdf24045169f45bcd976f44f969360939a4b100ab90441bbecef610b93a5`仍可describe。
 - 本機兩個既有DuckDB金融timestamp測試因缺lock內`pytz==2025.2`失敗；補齊至workspace暫存dependency target，不改business code或global Python，必要驗證重跑79 PASS。
+
+- `212787d5844d547e8cb8ce221b645da522ea163c` main selective CI `37733387309` 與 migration validation `37733387310` SUCCESS；本機補強後 targeted 81 PASS。
+- 集中 Release Build `a5ede351-b088-432e-981e-416f8ab7c4b5` 四元件 build／digest PASS；API no-traffic public／negative／Flutter gate PASS。第一個 Job 更新後 config fence 因 gcloud `client-version` 與自動 `nonce` 改變而停止，Job smoke 未執行；rollback receipt PASS，現役 ingestion image／Ready 真實讀回一致。僅排除上述兩個平台欄位，env／權限／資源設定仍嚴格比較。
+- `a8596ca` 候選 User／Admin OAuth 本人登入及 A/B isolation 完成：request log 的跨 owner correction／note 404、oversell 409；bounded PostgreSQL readback 的原事件 idempotence、存在的跨 owner target、筆記 version 2 均 true。此 evidence 不冒充新版 digest 的 authenticated acceptance。
+- A/B 頁的一鍵全私人資料刪除曾被本人誤按，請求仍 QUEUED。依本人明確要求先保存不可覆寫 preimage／withdrawal evidence，再 transaction 精準撤回該筆請求；user／ledger／note／position 筆數前後一致，未刪業務資料。controller 排程暫停後已恢復 ENABLED；移除 A/B 頁不屬 isolation 範圍的 destructive button。Evidence：regional bucket `v2/evidence/a5ede351-b088-432e-981e-416f8ab7c4b5/mistaken-deletion-{before,withdrawn}.json`，含必要 owner metadata，Git 不公開原始資料。

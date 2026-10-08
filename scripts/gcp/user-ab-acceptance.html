@@ -8,7 +8,6 @@
 <button data-slot="B">Next sign-in is B</button>
 <div id="signin"></div>
 <button id="run" disabled>Run A/B isolation</button>
-<button id="delete" disabled>Queue A private-data deletion</button>
 <pre id="result">Waiting for Google Identity Services…</pre>
 <script>
 const query = new URLSearchParams(location.search);
@@ -85,10 +84,9 @@ async function run() {
     aNotes.some(row=>row.note_id===note.note_id && row.current_version===2 && row.body==='acceptance revision 2');
   accepted={a_user_id:aProfile.user_id,b_user_id:bProfile.user_id,symbol,buy_event_id:buy.event_id,
     replacement_event_id:replacement.event_id,note_id:note.note_id};
-  document.querySelector('#delete').disabled=!passed;
   result.textContent=JSON.stringify({passed,...accepted,idempotent_replay:true,oversell_status:oversell.status,
     b_history_rows:bHistory.length,b_note_rows:bNotes.length,b_correction_status:bCorrection.status,
-    b_revision_status:bRevision.status,next_step:'Run PrivatePipeline, verify artifacts/marts, then click deletion.'},null,2);
+    b_revision_status:bRevision.status,next_step:'Verify owner-scoped canonical artifacts; keep the original data.'},null,2);
 }
 
 window.onload = () => {
@@ -99,14 +97,6 @@ window.onload = () => {
   google.accounts.id.renderButton(document.querySelector('#signin'), {type:'standard', text:'signin_with'});
   result.textContent = 'Choose A, sign in; then choose B and sign in with another account.';
   document.querySelector('#run').onclick = () => run().catch(error => result.textContent = error.message);
-  document.querySelector('#delete').onclick = async () => {
-    try {
-      const deletion=await json(tokens.A,'/api/v1/me/private-data',
-        {method:'DELETE',headers:{'Idempotency-Key':`accept-delete-${crypto.randomUUID()}`}},202);
-      document.querySelector('#delete').disabled=true;
-      result.textContent=JSON.stringify({deletion_queued:true,request_id:deletion.request_id,user_id:accepted.a_user_id,
-        next_step:'Run PrivatePipeline and verify PostgreSQL plus every Private Iceberg table contain no A rows.'},null,2);
-    } catch (error) { result.textContent=error.message; }
-  };
+
 };
 </script>

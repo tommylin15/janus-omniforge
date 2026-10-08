@@ -31,6 +31,9 @@ def ready(resource):
 
 def job_config(resource):
     config = json.loads(json.dumps(resource["spec"]))
+    metadata = config["template"].get("metadata", {})
+    metadata.get("annotations", {}).pop("run.googleapis.com/client-version", None)
+    metadata.get("labels", {}).pop("client.knative.dev/nonce", None)
     template = config["template"]["spec"]["template"]["spec"]
     for container in template["containers"]:
         container.pop("image", None)
