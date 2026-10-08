@@ -12,7 +12,7 @@ NAME=f"projects/gen-lang-client-0593591102/locations/us-central1/jobs/janus-priv
 
 
 def row(**kwargs):
-    return {"name":NAME,"reconciling":False,"conditions":[{"type":"Completed","state":"CONDITION_FAILED"}],**kwargs}
+    return {"name":NAME,**{"reconciling":False,"conditions":[{"type":"Completed","state":"CONDITION_FAILED"}]},**kwargs}
 
 
 def test_v2_missing_completion_is_not_terminal_regardless_of_no_tasks():
