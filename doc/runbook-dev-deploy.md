@@ -71,6 +71,13 @@ WIF 診斷身分具備指定 project 的 `cloudbuild.builds.get`／必要時 `cl
 
 舊 image inventory／cleanup 僅按仍存在的歷史 Artifact Registry／runtime 引用稽核，**不屬於新 release 的必經步驟**；未確認所有有效 revision／Job／復原引用前，不進行 delete-all 或 aggressive cleanup。既有 dev 業務 data path 的 GCS／Iceberg 保留，不受「新部署管線不寫 GCS」誤傷。
 
+### 3.3.1 GitHub Git-ref 跨 run release lease（已驗證 primitive，尚未完成跨系統接入）
+
+- 目前 `scripts/gcp/ghcr_release_lease.py` 以固定 annotated Git tag ref `refs/tags/janus-ghcr-deploy-global-v1` 作為 GitHub 原子 create-only lease。lease payload 只含 owner `GITHUB_RUN_ID`、`GITHUB_RUN_ATTEMPT`、完整 SHA。所有取得、驗證、釋放都讀 GitHub API；其他 owner 不可透過 helper 釋放，GitHub 查詢權限錯誤不當成 404。此 Git ref 不是 GCP runtime 鎖，也不能防止沒有接入的 Cloud Build／舊手動部署 writer。
+- 對**未觸及 GCP**的安全演練，設定 Actions `GH_TOKEN`（受限 GitHub token）、`contents: write` 後，執行 `python scripts/gcp/ghcr_release_lease.py acquire`、`assert`、`inspect`、最後明確 `release --safe-to-release`；實際發版在 release 前必須另行驗證 service traffic／Job config／Scheduler／baseline 已成功恢復或新版本完整驗收。不可把單一 CLI flag 當真正的成功或 rollback receipt。
+- lock 已存在／無權限讀取／owner 不符／失敗後未知的 GCP 狀態一律 BLOCKED；不可用時間到期、覆寫 tag、強制解鎖來搶佔。worker crash 時應從 GitHub owner run 及 GCP readback 獨立核對，先修復真實 runtime 才由原 owner 身分釋放；若無法安全驗證，保留 lease 及封鎖。這不是一般 release workflow 自動清理的許可。
+- 唯讀 GitHub-only drill [#37796079169](https://github.com/tommylin15/janus-omniforge/actions/runs/37796079169) 實際驗證 12 tests、atomic claim／不同 run identity contention denial／owner release／independent recovery，最後 Git ref 404、GCP writes 0。**尚未**全面導入 `deploy-dev.yml`、GHCR candidate、Cloud Build trigger 或 Jobs promotion，故跨流程 mutual exclusion 與真實 rollback acceptance 仍未完成，不能將上游部署 gates 改成 PASS。
+
 ### 3.4 成功 Release 後保留最新 10 個 Cloud Run Service Revision（待串接）
 
 此階段僅對**既有 Cloud Run Service** 執行，不作用於 Job、Job executions、GHCR images、GCS 或 Artifact Registry。只有 full Release tests／authenticated candidate acceptance／100% production traffic promotion／rollback receipt readback 全部 PASS，且已持有同一個跨 run deployment mutex 時才可執行。
