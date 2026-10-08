@@ -96,3 +96,34 @@ def test_monthly_reconciliation_bounded_inventory_never_claims_full_pass():
     assert receipt["pointer_inventory"]["status"] == "bounded_incomplete"
     assert receipt["pointer_inventory"]["unreferenced_candidates"] is None
     assert receipt["missed_invalidation_detected"] is False
+
+
+def test_ml_dataset_model_version_is_not_specialist_model_version(monkeypatch):
+    store = MemoryStore()
+    refs = build_refs(store)
+    manifest = {
+        "identity": {
+            "core_snapshot_id": "core-a", "analysis_as_of": "2026-10-06",
+            "source_tables": {"core.ohlcv_v1": {
+                "snapshot_id": 555, "metadata_location": "gs://dev-core/metadata/00055.json"}},
+        },
+        "model_version": "deterministic-v1",  # B5 uses a different lineage from specialists.
+        "feature_version": FEATURE_VERSION,
+    }
+    store.data["ml-oos-data/v1/fixture/manifest.json"] = json.dumps(manifest).encode()
+    monkeypatch.setattr("intelligence_mart.ml_oos_data.inspect_dataset",
+                        lambda value, _: {"core_snapshot_id": value["identity"]["core_snapshot_id"],
+                                          "row_count": 15, "dataset_content_hash": "sha256:fixture"})
+    pinned = {"analysis_as_of": "2026-10-06",
+              "iceberg_tables": {"core.ohlcv_v1": {
+                  "snapshot_id": 555, "metadata_location": "gs://dev-core/metadata/00055.json"}}}
+    report = reconcile_monthly_cache(store, store.bucket, ["2330"], refs, "core-b", core_manifest=pinned)
+    assert report["status"] == "pass"
+    assert report["ml_oos_derived_cache"]["core_identity_relation"] == "source-only-unchanged"
+    assert report["ml_oos_derived_cache"]["model_version"] == "deterministic-v1"
+    assert report["model_version"] == MODEL_VERSION
+
+    pinned["iceberg_tables"]["core.ohlcv_v1"]["snapshot_id"] = 556
+    changed = reconcile_monthly_cache(store, store.bucket, ["2330"], refs, "core-b", core_manifest=pinned)
+    assert changed["status"] == "partial"
+    assert changed["ml_oos_derived_cache"]["core_identity_relation"] == "unmatched"

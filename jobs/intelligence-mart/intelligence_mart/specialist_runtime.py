@@ -258,7 +258,8 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
         manifest["evaluation_output_hash"] = manifest["evaluation"]["artifact_hash"]
     if execution.config_id == "specialist-retrain":
         from .monthly_reconciliation import reconcile_monthly_cache
-        monthly = reconcile_monthly_cache(store, bucket, target["symbols"], references, execution.core_snapshot_id)
+        monthly = reconcile_monthly_cache(store, bucket, target["symbols"], references, execution.core_snapshot_id,
+                                         core_manifest=core)
         manifest["reconciliation"] = _write_immutable_json(
             store, bucket, f"executions/{execution.execution_id}/monthly-reconciliation.json", monthly)
         manifest["reconciliation_status"] = monthly["status"]

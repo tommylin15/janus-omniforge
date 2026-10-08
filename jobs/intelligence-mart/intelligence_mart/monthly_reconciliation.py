@@ -11,7 +11,7 @@ import json
 from .specialists import DEPENDENCIES, FEATURE_VERSION, MODEL_VERSION, VERSION
 
 
-def reconcile_monthly_cache(store, bucket: str, target_symbols, references, core_snapshot_id: str) -> dict:
+def reconcile_monthly_cache(store, bucket: str, target_symbols, references, core_snapshot_id: str, *, core_manifest=None) -> dict:
     from .specialist_runtime import _cached_specialist_reference
 
     expected = {(str(symbol), role) for symbol in target_symbols for role in DEPENDENCIES}
@@ -57,9 +57,24 @@ def reconcile_monthly_cache(store, bucket: str, target_symbols, references, core
         raw = store.read(item["name"])
         manifest = json.loads(raw)
         checked = inspect_dataset(manifest, store)
-        expected_model = str(MODEL_VERSION)
-        ml = {"status": "current" if checked["core_snapshot_id"] == core_snapshot_id
-              and str(manifest.get("model_version")) == expected_model else "historical",
+        identity = manifest.get("identity", {})
+        if not isinstance(identity, dict):
+            raise RuntimeError("monthly ML/OOS cache identity is invalid")
+        same_core = checked["core_snapshot_id"] == core_snapshot_id
+        current_source = (core_manifest or {}).get("iceberg_tables", {}).get("core.ohlcv_v1", {})
+        artifact_source = identity.get("source_tables", {}).get("core.ohlcv_v1", {})
+        # A new global Core ID can reuse a B6 artifact when its actual OHLCV
+        # source fence, date and feature version are unchanged. Never compare
+        # B5's dataset model_version to the unrelated specialist model_version.
+        same_source = bool(core_manifest and current_source and artifact_source
+                           and current_source.get("snapshot_id") == artifact_source.get("snapshot_id")
+                           and current_source.get("metadata_location") == artifact_source.get("metadata_location")
+                           and str(core_manifest.get("analysis_as_of")) == str(identity.get("analysis_as_of")))
+        feature_compatible = str(manifest.get("feature_version")) == str(FEATURE_VERSION)
+        relation = ("exact-core" if same_core else "source-only-unchanged" if same_source else "unmatched")
+        ml = {"status": "current" if (same_core or same_source) and feature_compatible else "historical",
+              "core_identity_relation": relation, "source_fence_matched": same_source,
+              "feature_compatible": feature_compatible,
               "manifest_count": len(manifest_items),
               "manifest_uri": f"gs://{bucket}/{item['name']}",
               "manifest_sha256": "sha256:" + sha256(raw).hexdigest(),
