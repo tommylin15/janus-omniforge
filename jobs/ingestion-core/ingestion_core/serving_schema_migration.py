@@ -24,6 +24,7 @@ MIGRATION_TWSE_LATEST_PRICE = "046_twse_only_latest_price"
 MIGRATION_LATEST_PRICE_ROUTE_V2 = "047_latest_price_route_v2"
 MIGRATION_PRIVATE_RECALC = "048_private_recalculation_queue"
 MIGRATION_BATCH_OCCURRENCE_SKIPPED = "049_batch_occurrence_skipped_status"
+MIGRATION_HOLDINGS_PREVIOUS_CLOSE = "050_holdings_previous_close_read"
 SUPPORTED = frozenset({
     MIGRATION_POSITION,
     MIGRATION_STOCK_SERVING,
@@ -34,6 +35,7 @@ SUPPORTED = frozenset({
     MIGRATION_LATEST_PRICE_ROUTE_V2,
     MIGRATION_PRIVATE_RECALC,
     MIGRATION_BATCH_OCCURRENCE_SKIPPED,
+    MIGRATION_HOLDINGS_PREVIOUS_CLOSE,
 })
 
 
@@ -312,6 +314,42 @@ def _apply_operations(control: Any) -> None:
     except Exception as error:
         raise ServingSchemaMigrationError("operations_apply", error) from error
 
+def _apply_holdings_previous_close(control: Any) -> None:
+    """Grant market-reference SELECT via publication owner; no owner position exposure."""
+    text = _migration_path(MIGRATION_HOLDINGS_PREVIOUS_CLOSE).read_text(encoding="utf-8")
+    try:
+        prepare, rest = text.split("-- PHASE: publication-apply", 1)
+        publication_sql, finalize = rest.split("-- PHASE: control-finalize", 1)
+        checks, record = finalize.split("INSERT INTO control.schema_migrations", 1)
+        with control.connection.transaction(), control.connection.cursor() as cursor:
+            _require_current_user(cursor, "janus_control")
+            cursor.execute(_without_role_lines(prepare))
+
+        publication = _publication_connection()
+        try:
+            with publication.transaction(), publication.cursor() as cursor:
+                _require_current_user(cursor, "janus_publication")
+                cursor.execute(_without_role_lines(publication_sql))
+                cursor.execute(
+                    "SELECT has_table_privilege('janus_private_api',"
+                    "'publication.stock_serving_recent','SELECT')"
+                )
+                if not cursor.fetchone()[0]:
+                    raise RuntimeError("holdings reference view read access unavailable")
+        finally:
+            publication.close()
+
+        with control.connection.transaction(), control.connection.cursor() as cursor:
+            _require_current_user(cursor, "janus_control")
+            cursor.execute(_without_role_lines(checks))
+            row = cursor.fetchone()
+            if row is None or not all(bool(value) for value in row):
+                raise RuntimeError("holdings reference permission acceptance failed")
+            cursor.execute("INSERT INTO control.schema_migrations" + _without_role_lines(record))
+    except Exception as error:
+        raise ServingSchemaMigrationError("holdings_reference_apply", error) from error
+
+
 def run(control: Any, name: str) -> None:
     """Apply one allow-listed serving migration using existing DB identities."""
     if name == MIGRATION_QUOTES_BROKER:
@@ -329,6 +367,8 @@ def run(control: Any, name: str) -> None:
                 cursor.execute('INSERT INTO control.schema_migrations' + record)
         except Exception as error:
             raise ServingSchemaMigrationError('quotes_broker_apply', error) from error
+    elif name == MIGRATION_HOLDINGS_PREVIOUS_CLOSE:
+        _apply_holdings_previous_close(control)
     elif name == MIGRATION_POSITION:
         _apply_position(control)
     elif name == MIGRATION_STOCK_SERVING:

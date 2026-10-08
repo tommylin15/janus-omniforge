@@ -11,6 +11,7 @@ on:
       - 'infra/postgres/migrations/041_operational_position_projection.sql'
       - 'infra/postgres/migrations/042_stock_serving_projection.sql'
       - 'infra/postgres/migrations/044_quotes_broker_profile.sql'
+      - 'infra/postgres/migrations/050_holdings_previous_close_read.sql'
       - 'tests/test_serving_schema_migration.py'
       - 'tests/test_stock_serving_projection.py'
       - '.github/workflows/serving-schema-migration-ci.yml'

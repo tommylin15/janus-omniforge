@@ -279,3 +279,18 @@ def test_psql_cleaner_removes_meta_transaction_lines():
 def test_role_cleaner_removes_set_and_reset_role_lines():
     cleaned = migration._without_role_lines("SET ROLE janus_control;\nSELECT 1;\nRESET ROLE;")
     assert cleaned == "SELECT 1;"
+
+
+
+def test_holdings_reference_migration_uses_publication_owner_and_validates_acl(monkeypatch):
+    control = FakeControl()
+    publication = FakeConnection("janus_publication")
+    monkeypatch.setattr(migration, "_publication_connection", lambda: publication)
+    migration.run(control, migration.MIGRATION_HOLDINGS_PREVIOUS_CLOSE)
+    control_sql = statements(control.connection)
+    publication_sql = statements(publication)
+    assert "GRANT USAGE ON SCHEMA publication TO janus_private_api" in control_sql
+    assert "GRANT SELECT ON publication.stock_serving_recent TO janus_private_api" in publication_sql
+    assert "NOT has_table_privilege('janus_public_api','private.current_positions','SELECT')" in control_sql
+    assert control_sql.index("has_schema_privilege") < control_sql.index("INSERT INTO control.schema_migrations")
+    assert publication.closed is True

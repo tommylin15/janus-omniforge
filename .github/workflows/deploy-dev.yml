@@ -25,6 +25,8 @@ on:
       - 'infra/postgres/migrations/047_latest_price_route_v2.sql'
       - 'infra/postgres/migrations/048_private_recalculation_queue.sql'
       - 'infra/postgres/migrations/049_batch_occurrence_skipped_status.sql'
+      - 'infra/postgres/migrations/050_holdings_previous_close_read.sql'
+      - 'tests/test_holdings_daily_change.py'
       - 'tests/test_batch_controller.py'
       - 'tests/test_duckdb_iceberg.py'
       - 'tests/test_data_supplement.py'
@@ -114,6 +116,7 @@ jobs:
       latest_price_route_schema: ${{ steps.filter.outputs.latest_price_route_schema }}
       private_recalc_schema: ${{ steps.filter.outputs.private_recalc_schema }}
       batch_occurrence_status_schema: ${{ steps.filter.outputs.batch_occurrence_status_schema }}
+      holdings_reference_schema: ${{ steps.filter.outputs.holdings_reference_schema }}
       ingestion_runtime: ${{ steps.filter.outputs.ingestion_runtime }}
       ingestion_test: ${{ steps.filter.outputs.ingestion_test }}
       mart_runtime: ${{ steps.filter.outputs.mart_runtime }}
@@ -146,6 +149,8 @@ jobs:
               - 'infra/postgres/migrations/048_private_recalculation_queue.sql'
             batch_occurrence_status_schema:
               - 'infra/postgres/migrations/049_batch_occurrence_skipped_status.sql'
+            holdings_reference_schema:
+              - 'infra/postgres/migrations/050_holdings_previous_close_read.sql'
             ingestion_runtime:
               - 'packages/postgres_lock.py'
               - 'packages/mobile_ledger_queue.py'
@@ -158,6 +163,7 @@ jobs:
               - 'infra/postgres/migrations/047_latest_price_route_v2.sql'
               - 'infra/postgres/migrations/048_private_recalculation_queue.sql'
               - 'infra/postgres/migrations/049_batch_occurrence_skipped_status.sql'
+              - 'infra/postgres/migrations/050_holdings_previous_close_read.sql'
               - 'jobs/ingestion-core/ingestion_core/**'
               - 'jobs/ingestion-core/schemas/**'
               - 'jobs/ingestion-core/Dockerfile'
@@ -250,6 +256,8 @@ jobs:
               - 'services/api/mcp_oauth.py'
             api_test:
               - 'infra/postgres/migrations/049_batch_occurrence_skipped_status.sql'
+              - 'infra/postgres/migrations/050_holdings_previous_close_read.sql'
+              - 'tests/test_holdings_daily_change.py'
               - 'tests/test_public_runtime.py'
               - 'tests/test_public_api_routes.py'
               - 'tests/test_mcp_adapter.py'
@@ -445,6 +453,7 @@ jobs:
           python -m pytest -q
           tests/test_admin_api.py
           tests/test_serving_schema_migration.py
+          tests/test_holdings_daily_change.py
           tests/test_watchlist_read_path.py
           tests/test_visual_reference_integrity.py
           tests/test_public_runtime.py
@@ -585,6 +594,15 @@ jobs:
     with:
       migration: 048_private_recalculation_queue
 
+  migrate-holdings-reference:
+    needs: [detect, deploy-ingestion]
+    if: >-
+      needs.detect.outputs.holdings_reference_schema == 'true' &&
+      needs.deploy-ingestion.result == 'success'
+    uses: ./.github/workflows/serving-schema-migration-dev.yml
+    with:
+      migration: 050_holdings_previous_close_read
+
   migrate-batch-occurrence-status:
     needs: [detect, deploy-ingestion]
     if: >-
@@ -606,7 +624,7 @@ jobs:
       migration: 047_latest_price_route_v2
 
   deploy-api:
-    needs: [detect, test-api, deploy-private-pipeline, migrate-operations, migrate-quotes, migrate-private-operations, migrate-private-recalc, migrate-latest-price, migrate-latest-price-route]
+    needs: [detect, test-api, deploy-private-pipeline, migrate-operations, migrate-quotes, migrate-private-operations, migrate-private-recalc, migrate-latest-price, migrate-latest-price-route, migrate-holdings-reference]
     if: >-
       always() &&
       needs.test-api.result == 'success' &&
@@ -622,6 +640,8 @@ jobs:
       (needs.migrate-latest-price.result == 'skipped' && needs.detect.outputs.latest_price_schema != 'true')) &&
       (needs.migrate-latest-price-route.result == 'success' ||
       (needs.migrate-latest-price-route.result == 'skipped' && needs.detect.outputs.latest_price_route_schema != 'true')) &&
+      (needs.migrate-holdings-reference.result == 'success' ||
+      (needs.migrate-holdings-reference.result == 'skipped' && needs.detect.outputs.holdings_reference_schema != 'true')) &&
       (needs.deploy-private-pipeline.result == 'success' ||
       needs.deploy-private-pipeline.result == 'skipped') &&
       (needs.detect.outputs.api_runtime == 'true' ||
