@@ -10,6 +10,8 @@
 - [ ] Scheduler／Jobs 真正執行防護、跨 run durable mutex、rollback drill、snapshot、隔離 canary、pause/resume：須控制 :30 觸發窗口，現 `roles/cloudscheduler.viewer` 只能讀。另釐清 `janus-private-pipeline` 9 筆 9/18～9/24 舊未終態且從未 started 的 executions（runningCount=0；不是完成也不是正在執行的證明）；未知狀態不自動取消或略過。
 - [ ] 候選環境用真實授權 owner 執行 Google OAuth、PnL、MCP、Private API／資料隔離；沒有 token／授權證據不能以 401 替代。
 - [ ] 四元件完整 Jobs config snapshot／Scheduler／active execution fence／GHCR digest update／canary／rollback，與 live E2E acceptance。
+- [x] 新增 `ghcr_job_cutover_plan.py` 可逆 image-only 更新／回滾 dry-run：4 個 runtime Job pinned digest mapping、Research Job 不動；[28 tests PASS、live gate BLOCKED #37778770806](https://github.com/tommylin15/janus-omniforge/actions/runs/37778770806)。
+- [ ] 以既有 `projects/gen-lang-client-0593591102/roles/janusWebSchedulerOperator` 對 `janus-ci` 完成 IAM binding／權限驗收；不新增角色／Admin。Scheduler 操作僅在 rollout 柵欄與可靠恢復步驟完善後進行。
 - [ ] Service 新 revision 100% promotion、active service readback／rollback drill、上次成功 digest／mutex／idempotency 驗收。
 - [ ] 新發布全驗收之後，停用僅限 Janus `janus-dev-v2` 舊 Cloud Build Trigger，不動 OmniAgent／life-assistant。
 - [ ] GCS 舊 CI/CD file：逐 generation/reference fence 後 bounded cleanup；GCS 舊專用 Bucket：非共用、無備份／業務資料才刪。
