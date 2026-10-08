@@ -1,0 +1,169 @@
+name: Janus GHCR full-test image publication
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/ghcr-release-request.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: janus-ghcr-release
+  cancel-in-progress: false
+
+jobs:
+  request:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.verify.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: verify
+        name: Verify explicitly requested SHA and public repository
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test -f ops/ghcr-release-request.json
+          jq -e '.intent == "publish-ghcr-dev" and .approved == true' ops/ghcr-release-request.json >/dev/null
+          test "${#GITHUB_SHA}" -eq 40
+          echo "sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "Full-test GHCR publication request for commit ${GITHUB_SHA}" >> "$GITHUB_STEP_SUMMARY"
+
+  python-tests:
+    needs: request
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            jobs/ingestion-core/requirements.lock
+            jobs/intelligence-mart/requirements.lock
+            services/api/requirements.lock
+      - name: Install full test dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libgomp1
+          python -m pip install -r requirements-dev.txt
+          python -m pip install -r jobs/ingestion-core/requirements.lock
+          python -m pip install -r jobs/intelligence-mart/requirements.lock
+          python -m pip install -r services/api/requirements.lock
+      - name: Run complete Python suite (not selective push CI)
+        env:
+          PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
+        run: python -m pytest -q tests
+
+  flutter-tests:
+    needs: request
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: apps/user_app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Generate branding and test Flutter
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pil
+          python3 tool/generate_brand_assets.py
+          flutter pub get
+          flutter analyze --no-fatal-infos lib test
+          flutter test
+          flutter build web --release -t lib/final_visual.dart --base-href /app/
+          test -s build/web/index.html
+
+  publish:
+    needs: [request, python-tests, flutter-tests]
+    if: needs.python-tests.result == 'success' && needs.flutter-tests.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [ingestion-core, intelligence-mart, private-pipeline, api]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Login GHCR with limited GitHub token
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and publish exact-SHA container
+        shell: bash
+        env:
+          COMPONENT: ${{ matrix.component }}
+          GOOGLE_USER_CLIENT_ID: ${{ vars.GOOGLE_USER_CLIENT_ID }}
+          GOOGLE_ADMIN_CLIENT_ID: ${{ vars.GOOGLE_ADMIN_CLIENT_ID }}
+        run: |
+          set -Eeuo pipefail
+          image="ghcr.io/tommylin15/janus-${COMPONENT}:sha-${GITHUB_SHA}"
+          args=(--platform linux/amd64 --provenance=false --push
+                --label "org.opencontainers.image.source=https://github.com/tommylin15/janus-omniforge"
+                --label "org.opencontainers.image.revision=${GITHUB_SHA}"
+                --build-arg "JANUS_GIT_SHA=${GITHUB_SHA}" -t "${image}")
+          case "${COMPONENT}" in
+            ingestion-core)
+              dockerfile="jobs/ingestion-core/Dockerfile" ;;
+            intelligence-mart)
+              dockerfile="jobs/intelligence-mart/Dockerfile"
+              args+=(--target mart-specialist) ;;
+            private-pipeline)
+              dockerfile="services/api/Dockerfile"
+              args+=(--target private-pipeline) ;;
+            api)
+              dockerfile="services/api/Dockerfile"
+              if [[ -z "${GOOGLE_USER_CLIENT_ID}" || -z "${GOOGLE_ADMIN_CLIENT_ID}" ]]; then
+                echo "Public OAuth client IDs missing from repository variables" >&2
+                exit 2
+              fi
+              args+=(--target api
+                --build-arg "GOOGLE_USER_CLIENT_ID=${GOOGLE_USER_CLIENT_ID}"
+                --build-arg "GOOGLE_ADMIN_CLIENT_ID=${GOOGLE_ADMIN_CLIENT_ID}") ;;
+            *) exit 2 ;;
+          esac
+          docker buildx build -f "${dockerfile}" "${args[@]}" .
+          echo "${COMPONENT} pushed for exact commit ${GITHUB_SHA}" >> "$GITHUB_STEP_SUMMARY"
+
+  public-pull-gate:
+    needs: [request, publish]
+    if: needs.publish.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Verify anonymous pull and immutable registry digests for all four images
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends skopeo jq
+          mkdir -p receipts
+          for component in ingestion-core intelligence-mart private-pipeline api; do
+            ref="ghcr.io/tommylin15/janus-${component}:sha-${GITHUB_SHA}"
+            # --no-creds: a package in its default private state MUST block release.
+            skopeo inspect --no-creds "docker://${ref}" > "receipts/${component}.json"
+            digest="$(jq -r '.Digest // empty' "receipts/${component}.json")"
+            [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]] || exit 2
+            echo "- ${component}: public anonymous pull PASS, ${digest}" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo "GHCR image publication and anonymous pull PASS. No GCP deployment happened in this workflow." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ghcr-digest-readback
+          path: receipts/*.json
+          retention-days: 14
