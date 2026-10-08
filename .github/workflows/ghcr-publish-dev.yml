@@ -60,7 +60,15 @@ jobs:
       - name: Run complete Python suite (not selective push CI)
         env:
           PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
-        run: python -m pytest -q tests
+        # Legacy tests refer to apps.web.{server,scheduler,auth,runtime}, all removed
+        # from the active repository. The remaining full test collection is gated.
+        run: >-
+          python -m pytest -q tests
+          --ignore=tests/stage_core_tests/test_2330_closed_loop.py
+          --ignore=tests/test_scheduler.py
+          --ignore=tests/test_web_auth.py
+          --ignore=tests/test_web_runtime.py
+          --ignore=tests/test_web_server.py
 
   flutter-tests:
     needs: request
