@@ -109,6 +109,7 @@ def test_ml_dataset_model_version_is_not_specialist_model_version(monkeypatch):
         },
         "model_version": "deterministic-v1",  # B5 uses a different lineage from specialists.
         "feature_version": FEATURE_VERSION,
+        "retention": {"reference_protected": True},
     }
     store.data["ml-oos-data/v1/fixture/manifest.json"] = json.dumps(manifest).encode()
     monkeypatch.setattr("intelligence_mart.ml_oos_data.inspect_dataset",
@@ -127,3 +128,17 @@ def test_ml_dataset_model_version_is_not_specialist_model_version(monkeypatch):
     changed = reconcile_monthly_cache(store, store.bucket, ["2330"], refs, "core-b", core_manifest=pinned)
     assert changed["status"] == "partial"
     assert changed["ml_oos_derived_cache"]["core_identity_relation"] == "unmatched"
+
+
+def test_b6_unprotected_artifact_never_counts_as_current(monkeypatch):
+    store = MemoryStore()
+    refs = build_refs(store)
+    store.data["ml-oos-data/v1/fixture/manifest.json"] = json.dumps({
+        "identity": {"core_snapshot_id": "core-a"}, "model_version": "deterministic-v1",
+        "feature_version": FEATURE_VERSION, "retention": {"reference_protected": False}}).encode()
+    monkeypatch.setattr("intelligence_mart.ml_oos_data.inspect_dataset",
+                        lambda value, _: {"core_snapshot_id": "core-a",
+                                          "row_count": 15, "dataset_content_hash": "sha256:fixture"})
+    report = reconcile_monthly_cache(store, store.bucket, ["2330"], refs, "core-a")
+    assert report["status"] == "partial"
+    assert report["ml_oos_derived_cache"]["retention_protected"] is False

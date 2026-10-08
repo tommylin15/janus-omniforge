@@ -71,10 +71,14 @@ def reconcile_monthly_cache(store, bucket: str, target_symbols, references, core
                            and current_source.get("metadata_location") == artifact_source.get("metadata_location")
                            and str(core_manifest.get("analysis_as_of")) == str(identity.get("analysis_as_of")))
         feature_compatible = str(manifest.get("feature_version")) == str(FEATURE_VERSION)
-        relation = ("exact-core" if same_core else "source-only-unchanged" if same_source else "unmatched")
-        ml = {"status": "current" if (same_core or same_source) and feature_compatible else "historical",
+        source_eligible = same_source if core_manifest is not None else same_core
+        relation = ("exact-core" if same_core and source_eligible else
+                    "source-only-unchanged" if same_source else "unmatched")
+        retention = manifest.get("retention", {})
+        reference_protected = isinstance(retention, dict) and retention.get("reference_protected") is True
+        ml = {"status": "current" if source_eligible and feature_compatible and reference_protected else "historical",
               "core_identity_relation": relation, "source_fence_matched": same_source,
-              "feature_compatible": feature_compatible,
+              "feature_compatible": feature_compatible, "retention_protected": reference_protected,
               "manifest_count": len(manifest_items),
               "manifest_uri": f"gs://{bucket}/{item['name']}",
               "manifest_sha256": "sha256:" + sha256(raw).hexdigest(),
