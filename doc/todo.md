@@ -9,7 +9,13 @@
 - [ ] 可選 Cloud Build **唯讀** status／failed steps／遮罩錯誤摘要 → GitHub Actions Logs → ChatGPT readback；不得觸發 Cloud Build。
 - [ ] 確認新 release 不觸發 Cloud Build／不主動寫入 GCS／Artifact Registry、不新增常駐 VM；完成新路徑 live dev acceptance，盤點舊路徑依賴後才停用舊發布入口（不刪業務資料／復原映像）。
 
-[CI/CD 正式目標契約與現況差異](spec/cicd-v2.md)；本階段僅文件變更，不得將 runtime 標成 CLOSED。
+- [ ] GCS 舊 CI/CD 檔案：object/prefix/generation／所有 reader-writer 與回滾引用確認不再需要後 bounded 刪除並讀回；所有備份／業務資料排除。
+- [ ] GCS 舊專用 Bucket：證實非共用、無備份、無其他服務依賴才可刪整桶；其他系統的 Cloud Build／Run source staging Bucket 保留。
+- [ ] AR Images／Tags／Digests：全 Service revisions／Jobs／executions／research／其他系統無引用後逐項刪除。
+- [ ] AR Repository：所有 image 已無引用且非 DB／其他系統使用，才可刪整庫。
+- [ ] Cloud Run Services 各保留最近 10 Revision，額外保護正式流量／候選 tag／上次成功版，live readback 後才 apply。
+
+[CI/CD 正式目標契約](spec/cicd-v2.md)與[2026-10-08 切換清理盤點](archive/cicd-cutover-cleanup-inventory-2026-10-08.md)。目前僅完成 WIF 唯讀盤點與 GHCR 發布 workflow 原始碼；尚未通過發布／切流／rollback／清理驗收，不得標成 CLOSED。
 
 
 # Janus — TODO

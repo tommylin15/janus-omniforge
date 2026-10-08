@@ -1,3 +1,11 @@
+# 2026-10-08 CI/CD 唯讀盤點與 GHCR 發布入口（PARTIAL）
+
+- [GitHub Actions cutover inventory #37767712869](https://github.com/tommylin15/janus-omniforge/actions/runs/37767712869) 成功透過 WIF 讀取 GCP 狀態；無資源變更。證據：[五類清理盤點](archive/cicd-cutover-cleanup-inventory-2026-10-08.md)。
+- 新增 [GHCR 全測試與映像發布 workflow](https://github.com/tommylin15/janus-omniforge/blob/main/.github/workflows/ghcr-publish-dev.yml)，使用明確發布 request 或 workflow_dispatch；**尚未執行 full-test/build/push 或 public package readback**，也未部署任何 Cloud Run 候選版。
+- Janus 的 `janus-dev-v2` Cloud Build Trigger **仍啟用**；另外四個 Trigger 為 OmniAgent／life-assistant，不動。AR `janusai-poc` 仍被 Janus API、batch-controller、ingestion、Mart、private 與研究 Job 直接引用，**整庫不能刪**。
+- `janus-api` 有 **410 revisions**；100% 流量在 `janus-api-g53d655ccb108-config`，latest Ready 是另一個 0% 候選版；17 個 tag 存在。10-Revision retention 只可在新 release/rollback 驗收成功後按引用安全清理。
+- GCS 候選：`gen-lang-client-0593591102-cloudbuild-regional` 的 `v2/builds`／`v2/evidence`；legacy multi-region `_cloudbuild` 與 `run-sources-` 桶可能共用，未證明獨立。**尚未刪任何 GCS／AR／Revision／Trigger，不觸碰備份及業務資料。**
+
 # CI/CD 正式流程文件定版（2026-10-08；implementation PARTIAL）
 
 使用者已核准將發布路徑轉為 **ChatGPT → GitHub → GitHub Actions → GCP API → GitHub Actions Logs → ChatGPT**：Actions 必須完成 full Release tests、公開 GHCR 映像發布及固定 digest；Cloud Run Service 0% candidate → authenticated dev acceptance → 明確 promotion／rollback；既有 Cloud Build 僅可 WIF 唯讀診斷並輸出遮罩摘要。新發布管線不呼叫 Cloud Build、不主動寫入 GCS／Artifact Registry、不新增常駐 Compute Engine。契約詳見 [CI/CD V2](spec/cicd-v2.md)；操作語意見 [dev runbook](runbook-dev-deploy.md)。

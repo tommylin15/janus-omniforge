@@ -62,7 +62,21 @@
 
 **以上不是宣稱舊流程已停用。** 尚需盤點所有仍會觸發 deployment／Cloud Build／GCS／Artifact Registry 的入口，避免與新 release 並行；遷移期不能盲目停 Scheduler、刪 image、bucket 或歷史證據。現行程式／workflow／runtime 若與本目標衝突，描述為「待遷移」，不自行改寫成已完成。既有 CI/CD V2 checkpoint 請查 [2026-10-08 V2 歷史盤點](../archive/cicd-v2-inventory-2026-10-08.md) 及 [operations ledger](operations-and-testing.md)。
 
-## 6. 尚未完成的驗收條件
+## 6. 已核准的 cutover 後清理清單
+
+清理順序不可顛倒：**GitHub Actions 全測試＋公開 GHCR 四元件固定 digest 發布 → Cloud Run Service/Jobs 真實 dev 驗收、100% 流量與 rollback readback → 停用 Janus 舊 Trigger → GCS／AR 依完整引用清單 bounded 清理**。前段未過關只能盤點，不執行刪除。
+
+| 類別 | 刪除條件 |
+|---|---|
+| GCS 舊 CI/CD 檔案 | 精確列出 prefix、object generation、讀寫者及 recovery 引用，確定不再需要後只刪此範圍 |
+| GCS 舊專用 Bucket | 證明非其他服務共用、無備份與業務資料、沒有讀寫者且整桶可安全回復後才刪 |
+| Artifact Registry Images／Tags／Digests | 全部 Service Revisions、Jobs、executions、Scheduler、research／其他系統與 rollback digest fence PASS 才刪無引用的映像 |
+| Artifact Registry Repository | 每一 image 都無有效引用，且非 DB／其他系統共用後才可刪整庫 |
+| Cloud Run Revisions | 各 Service 留最近 10 版，另保護正式流量、候選 tag、上一成功版及其他引用；不能硬刪到恰好 10 |
+
+PostgreSQL／GCS DB 備份、Core／Stage／Mart／Private／Research、交易／筆記與其他應用資料全部排除；OmniAgent／life-assistant 的 Cloud Build Trigger／AR／GCS 不得被 Janus 清理連帶變更。實際 [2026-10-08 盤點證據](../archive/cicd-cutover-cleanup-inventory-2026-10-08.md) 表明尚無可直接刪除的資產。
+
+## 7. 尚未完成的驗收條件
 
 - [ ] Release Actions workflow：完整受影響功能的 Python／Flutter／security／schema／migration／container tests，fail closed。
 - [ ] GHCR build／push／公開可拉取／SHA 對 digest provenance、Cloud Run 支援性 live probe。
