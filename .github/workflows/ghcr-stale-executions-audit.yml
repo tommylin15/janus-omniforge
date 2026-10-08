@@ -98,7 +98,8 @@ jobs:
             fi
           done < /tmp/ghcr-executions/unknown.txt
 
-          # V2 control-plane GET, independent of the legacy gcloud v1 status.
+          # V2 GET is independent of legacy gcloud status; protobuf JSON may
+          # omit false reconciling, but never infer terminal without completionTime.
           # Never print access token or raw response (template/env may be private).
           python3 scripts/gcp/ghcr_execution_v2_readback.py \
             --executions-file /tmp/ghcr-executions/unknown.txt \
