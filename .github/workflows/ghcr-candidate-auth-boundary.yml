@@ -23,10 +23,28 @@ jobs:
       PROJECT: gen-lang-client-0593591102
       REGION: us-central1
       SERVICE: janus-api
-      EXPECTED_SHA: 0b93d99d42aaff662a3408d749d70aa9d04b1042
-      CANDIDATE_TAG: ghcr-0b93d99d42aa
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify boundary-only current candidate SHA contract
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_ghcr_candidate_auth_boundary_contract.py
+      - name: Resolve explicitly requested full SHA without runtime mutation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent == "dev-api-zero-traffic" and
+                 (.sha|test("^[0-9a-f]{40}$")) and
+                 .promotion == false and .scope == "janus-api-only" and
+                 .allow_service_traffic_promotion == false and
+                 .allow_job_image_update == false' ops/ghcr-candidate-request.json >/dev/null
+          EXPECTED_SHA="$(jq -r .sha ops/ghcr-candidate-request.json)"
+          CANDIDATE_TAG="ghcr-${EXPECTED_SHA:0:12}"
+          git merge-base --is-ancestor "$EXPECTED_SHA" HEAD
+          echo "EXPECTED_SHA=$EXPECTED_SHA" >> "$GITHUB_ENV"
+          echo "CANDIDATE_TAG=$CANDIDATE_TAG" >> "$GITHUB_ENV"
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
