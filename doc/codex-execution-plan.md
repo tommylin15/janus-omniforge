@@ -79,7 +79,7 @@ B4. Deep Coverage 五 specialist — CLOSED（2026-10-07）
 - universe = active watchlist ∪ effective holdings；離榜持股保留，清倉且不在 watchlist 才退出。
 - accepted/rejected PIT dependency state + feature/engine/model version 決定 dirty；只有受影響 specialist 重算。
 - live acceptance：5 symbols × 5 roles；第一輪 25 computed，第二輪同 Core snapshot 0 computed / 25 reused；screening=0、LLM tokens=0。
-- 不重做 B4/B5/B6 已完成範圍。依使用者 2026-10-08 最新決策，執行順序恢復 **B7 → B8 → B9**；B7 尚未啟動，待下一個對話直接接續。
+- 不重做 B4/B5/B6 已完成範圍。依使用者 2026-10-08 最新決策，執行順序恢復 **B7 → B8 → B9**；B7 已啟動，尚未 CLOSED。
 
 B5. ML / OOS data path — CLOSED / PASS（2026-10-08）
 - [B5 結案](archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)；live acceptance #37706568819 SUCCESS。10,978 rows／499 symbols／1 Parquet shard／533,945 bytes；Mart 真實讀回 content hash、Core snapshot、row count、export bytes 全相等。
@@ -91,7 +91,7 @@ B6. Dirty dependency / cache — CLOSED / PASS（2026-10-08）
 - CI #37708769385 137 PASS；live #37708769182 immutable hash verified，10,978 rows／533,945 bytes／BigQuery jobs 0／billed 0／Mart readback PASS。
 - dirty source/model/date 與無關 global Core change 為 targeted tests，未更動 live canonical；CEO 未觸發。
 
-B7. 月度批次 — NEXT / 尚未開始（待下一個對話）
+B7. 月度批次 — ACTIVE / 等待 live acceptance
 - 將 effective scheduler/controller 定義收斂為每月第一個週六 10:30（Asia/Taipei）。
 - 同批次執行 retrain/challenger、calibration、OOS/evaluation、cache/dependency reconciliation。
 - Event classifier 只有新 labeled data 足夠或 drift/performance degradation 時才 retrain。

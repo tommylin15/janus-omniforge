@@ -51,6 +51,14 @@ PyIceberg reference reader 必須先比對 manifest 與要求的 Core identity�
 
 快取命中前必須驗證實際 GCS shard SHA256、bytes、manifest、retention 保護與 catalog pointer；掃描上限 128 manifest、驗證 240 秒上限，fail closed。命中才可記本輪 BigQuery billed=0；cache miss 維持原有 1 GiB execution budget／每 query 60 秒；失敗未知 billed bytes 為 null。B4 五 specialist cache 不改變。已由 CI #37708769385（137 PASS）與 live #37708769182（GCS immutable hit verified、BigQuery jobs 0／billed 0、Cloud Run Mart hash readback PASS）驗收 B6 scope。無關 Core 更新和相依資料 dirty invalidation 由 targeted tests 驗證；B7/B8/B9 仍未完成。
 
+### B7 月度排程／reconciliation 契約（實作中）
+
+既有 `janus-ingestion-daily` 以台北每小時 `:30` 執行總控；唯一 monthly `specialist-retrain` slot 為**第一個週六 10:30 Asia/Taipei**（每月 1–7 日且星期六）。同日 07:30 ingestion 與 08:30 data-supplement 都必須 succeeded；舊 1 日未派送 pending 在改版後記 `schedule_superseded/skipped`，不誤派。
+
+固定 Core snapshot byte hash 下執行既有 challenger fit／OOS／calibration；`mart_monthly_cache_reconciliation_v1` immutable receipt 驗證目前 Deep Coverage 五個角色的 cache identity、source artifact SHA256、model version，並只讀盤點 B6 最新 ML/OOS dataset 的 immutable lineage。歷史 unreferenced pointer **只能標記 retention candidates**，缺跨 execution reference evidence 不得當 orphan 刪除；B6 缺失、舊 Core 或 bounded inventory 不完整都維持 `partial`，不得冒充 PASS。Event classifier 未符合 labeled-data／drift gate 時不自動重訓；訓練成功亦不自動 champion promotion，也不觸發 CEO。
+
+B7 已於 2026-10-08 推實作 `6a2e76c`；需有 CI、dev image、Scheduler/controller runtime、真實 retrain artifact readback 才能 CLOSED。2026-11-07 是下一個自然首週六；人工驗收不得冒充自然執行。B8 的 BigQuery/PyIceberg 比較不提前納入 B7。
+
 ## 歷史模型
 
 Linear / LightGBM / CatBoost 使用逐月擴張訓練窗，訓練標籤必須已於測試日前成熟；每 5 個市場交易日建立候選訓練樣本，5/20/60/120 日樣本外 cohort 不重疊，以 benchmark 交易日對齊起訖。至少 100 訓練樣本與三個訓練月份才能 fit。最後三個已成熟月份可獨立校準機率，不能使用當月測試資料；LightGBM/CatBoost 使用原生 Tree SHAP，Linear 使用加總式貢獻，必須重建同一預測。Rank IC/ICIR、decile spread、hit rate、after-cost Sharpe / drawdown / turnover 可計算；不足 10 檔不造出 decile 統計，另列各深度標的時間序列 IC/命中率，校準驗收需至少 30 筆 OOS 機率。30 bps 僅研究敏感度，不是實際券商成本。回測僅 current Deep Coverage，不是歷史母體重建，禁止自動 promotion。

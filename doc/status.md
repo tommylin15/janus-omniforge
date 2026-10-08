@@ -1,8 +1,15 @@
 # Janus Current Status
 
-更新：2026-10-07
+更新：2026-10-08
 
 用途：只回答「現在在哪裡、下一步是什麼、哪些尚未完成」。實作以 GitHub `main` 為準，完成狀態以 tests／CI、deployment、live runtime、trigger／workload、integration evidence 為準。完整 active queue 只看 [`todo.md`](todo.md)。
+
+## 2026-10-08 B7 月度批次：ACTIVE（驗收中）
+
+- [實作 `6a2e76c`](https://github.com/tommylin15/janus-omniforge/commit/6a2e76c2916e72366c39abc27ff345508e283a11)：controller 從錯誤的每月 1 日改為每月第一個週六台北 10:30。沿用既有每小時 :30 Scheduler；當日 07:30 ingestion／08:30 data-supplement 成功才派送。
+- 舊排程 pending 以 `schedule_superseded/skipped` 安全處理；manual 重跑仍建立獨立 occurrence。
+- Mart 月度 reconciliation immutable receipt 驗證全 Deep Coverage 五 role cache pointer／source hash／model identity、盤點 B6 ML/OOS Parquet；歷史 candidate 不直接視為 orphan，缺少或舊 Core 證據維持 `partial`，不刪除、不 promotion、不觸發 CEO。
+- 仍需新 SHA CI、dev deployed image、Scheduler/controller readback、真實 retrain + OOS/calibration/reconciliation immutable artifact readback。自然下一個首週六為 **2026-11-07 10:30（Asia/Taipei）**，人工執行不可冒充已觀察自然排程。
 
 ## 2026-10-07 `janus-batch-controller` Error：CLOSED
 
@@ -106,7 +113,7 @@ B4 已完成 Deep Coverage universe、dependency-selective execution、immutable
 
 完整 evidence 見 [B4 結案](archive/group-b-b4-deep-coverage-closure-2026-10-07.md)。
 
-**B4～B6 均已 CLOSED / PASS；恢復原訂 B7 → B8 → B9 執行順序。下一步是 B7 月度批次（尚未開始；待下一個對話執行）。BigQuery/PyIceberg 效能及成本決策保留在 B8，狀態 PARTIAL；目前不切換 PyIceberg default。**
+**B4～B6 CLOSED / PASS；B7 已啟動、驗收中，未 CLOSED。B8 效能／成本／fallback 與 B9 模型 OOS 品質依序後續執行；PyIceberg 維持 default。**
 
 ### B8 待辦：BigQuery vs PyIceberg 效能決策 — PARTIAL（B7 完成後執行）
 
