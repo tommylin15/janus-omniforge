@@ -1,7 +1,13 @@
 {
   "intent": "publish-ghcr-dev",
   "approved": true,
-  "scope": ["ingestion-core", "intelligence-mart", "private-pipeline", "api"],
+  "scope": [
+    "ingestion-core",
+    "intelligence-mart",
+    "private-pipeline",
+    "api"
+  ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "reason": "2026-10-08 Janus cutover validation"
+  "attempt": 2,
+  "reason": "2026-10-08 Janus cutover complete active runtime tests"
 }
