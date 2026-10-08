@@ -11,7 +11,8 @@
 - [ ] 候選環境用真實授權 owner 執行 Google OAuth、PnL、MCP、Private API／資料隔離；沒有 token／授權證據不能以 401 替代。
 - [ ] 四元件完整 Jobs config snapshot／Scheduler／active execution fence／GHCR digest update／canary／rollback，與 live E2E acceptance。
 - [x] 新增 `ghcr_job_cutover_plan.py` 可逆 image-only 更新／回滾 dry-run：4 個 runtime Job pinned digest mapping、Research Job 不動；[28 tests PASS、live gate BLOCKED #37778770806](https://github.com/tommylin15/janus-omniforge/actions/runs/37778770806)。
-- [ ] 以既有 `projects/gen-lang-client-0593591102/roles/janusWebSchedulerOperator` 對 `janus-ci` 完成 IAM binding／權限驗收；不新增角色／Admin。Scheduler 操作僅在 rollout 柵欄與可靠恢復步驟完善後進行。
+- [x] 既有 `janusWebSchedulerOperator` 已由使用者綁定 `janus-ci`，實際暫停／恢復 3 秒及獨立 Job／後驗收 [#37780249969](https://github.com/tommylin15/janus-omniforge/actions/runs/37780249969)、[#37780525220](https://github.com/tommylin15/janus-omniforge/actions/runs/37780525220) PASS（含 26 guard tests）；未建立／刪除／執行 Scheduler 工作。
+- [ ] Jobs 真正的長時間發布與可靠 recovery／cross-system durable mutex、9 筆歷史未終態執行處理、GHCR candidate 真實 owner authenticated acceptance 仍待完成；不要用短時間 Scheduler drill 冒充 rollout PASS。
 - [ ] Service 新 revision 100% promotion、active service readback／rollback drill、上次成功 digest／mutex／idempotency 驗收。
 - [ ] 新發布全驗收之後，停用僅限 Janus `janus-dev-v2` 舊 Cloud Build Trigger，不動 OmniAgent／life-assistant。
 - [ ] GCS 舊 CI/CD file：逐 generation/reference fence 後 bounded cleanup；GCS 舊專用 Bucket：非共用、無備份／業務資料才刪。
