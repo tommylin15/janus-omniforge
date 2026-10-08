@@ -1,0 +1,145 @@
+name: Private A/B note revisions cleanup (bounded)
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/private-ab-note-cleanup-once.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: janus-private-test-note-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PROJECT: gen-lang-client-0593591102
+      REGION: us-central1
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Guard existing backup and private job command
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          uri="gs://${PROJECT}-dev-private/pilot-ledger-backups/daily/2026-10-08.dump"
+          generation="$(gcloud storage objects describe "${uri}" --format='value(generation)')"
+          size="$(gcloud storage objects describe "${uri}" --format='value(size)')"
+          [[ "${generation}" == '1791452161965962' && "${size}" == '10178323' ]] || {
+            echo 'Required recovery point missing' >&2
+            exit 1
+          }
+          gcloud run jobs describe janus-private-pipeline \
+            --project="${PROJECT}" --region="${REGION}" --format=json > /tmp/private-job.json
+          python3 - <<'PY'
+          import json
+          obj=json.load(open('/tmp/private-job.json'))
+          def containers(x):
+              if isinstance(x,dict):
+                  if isinstance(x.get('containers'),list):
+                      yield from x['containers']
+                  for key,val in x.items():
+                      if key!='containers': yield from containers(val)
+              elif isinstance(x,list):
+                  for val in x: yield from containers(val)
+          shape=[c for c in containers(obj) if c.get('command')==['python']
+                 and c.get('args')==['-m','services.api.private_pipeline_runtime']]
+          if len(shape)!=1: raise SystemExit('Job command differs from approved runtime')
+          print('job_entrypoint_guard=PASS')
+          PY
+          executions="$(gcloud run jobs executions list \
+            --job=janus-private-pipeline --project="${PROJECT}" \
+            --region="${REGION}" --limit=30 --format=json)"
+          jq -e '[.[] | select(.status.completionTime == null)] | length == 0' <<< "${executions}" >/dev/null
+          echo 'bounded_preflight=PASS'
+      - name: Delete only the four identified note revisions via existing Job
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          script="$(base64 -w0 <<'PY'
+          from collections import Counter
+          from functools import reduce
+          from pyiceberg.expressions import And, EqualTo, Or
+          from packages.postgres_bundle import load_postgres_bundle
+          load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", {
+              "PRIVATE_DATABASE_URL": ("pipeline_database_url", "database_url"),
+              "PRIVATE_CATALOG_PASSWORD": ("pipeline_catalog_password", "catalog_password"),
+              "CORE_CATALOG_PASSWORD": "core_catalog_password",
+          })
+          from services.api.repository import repository_from_env
+          from services.api.store import PrivateIcebergStore
+
+          symbols=("AMUZ46T9F","AMUZ46ZME")
+          filt=Or(EqualTo("symbol",symbols[0]),EqualTo("symbol",symbols[1]))
+          repo=repository_from_env()
+          store=PrivateIcebergStore.from_env()
+          def find(table):
+              return table.scan(row_filter=filt).to_arrow().to_pylist()
+          def validate(rows):
+              assert len(rows)==4, "Unexpected note revision count"
+              assert Counter(str(r["symbol"]) for r in rows)=={s:2 for s in symbols}, "Unexpected symbol rows"
+              refs=set()
+              for symbol in symbols:
+                  group=[r for r in rows if r["symbol"]==symbol]
+                  note_ids={(str(r["user_id"]),str(r["note_id"])) for r in group}
+                  assert len(note_ids)==1, "Unexpected note ownership"
+                  assert {int(r["revision"]) for r in group}=={1,2}, "Unexpected revisions"
+                  assert {str(r["body"]) for r in group}=={
+                      "acceptance revision 1","acceptance revision 2"
+                  }, "Content does not match exact acceptance notes"
+                  refs.update(note_ids)
+              assert len(refs)==2, "Not exactly two distinct notes"
+              return sorted(refs)
+
+          with repo._connection() as conn:
+              for symbol in symbols:
+                  n=conn.execute("SELECT COUNT(*) FROM private.note_index WHERE symbol=%s",(symbol,)).fetchone()
+                  e=conn.execute("SELECT COUNT(*) FROM private.ledger_events WHERE symbol=%s",(symbol,)).fetchone()
+                  assert int(n["count"])==0 and int(e["count"])==0, "PostgreSQL residues still exist"
+
+          with repo.private_mart_write_lock():
+              table=store.catalog.load_table("private.note_revisions")
+              rows=find(table)
+              if not rows:
+                  print("PRIVATE_NOTE_CLEANUP_SUCCESS already_clean=1")
+              else:
+                  refs=validate(rows)
+                  predicate=reduce(Or,(
+                      And(EqualTo("user_id",uid),EqualTo("note_id",note_id))
+                      for uid,note_id in refs
+                  ))
+                  table.delete(delete_filter=predicate)
+                  assert len(find(store.catalog.load_table("private.note_revisions")))==0, "Deletion readback failed"
+                  print("PRIVATE_NOTE_CLEANUP_SUCCESS removed_notes=2 removed_revisions=4")
+          PY
+          )"
+          arg="exec(__import__('base64').b64decode('${script}'))"
+          execution="$(gcloud run jobs execute janus-private-pipeline \
+            --project="${PROJECT}" --region="${REGION}" \
+            --tasks=1 --task-timeout=10m --args="-c,${arg}" \
+            --wait --format='value(metadata.name)')"
+          name="${execution##*/}"
+          [[ -n "${name}" ]] || { echo 'Execution ID not returned' >&2; exit 1; }
+          echo "execution=${name}"
+          matched=0
+          for attempt in 1 2 3 4 5 6 7 8; do
+            logs="$(gcloud logging read \
+              "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"janus-private-pipeline\" AND labels.\"run.googleapis.com/execution_name\"=\"${name}\"" \
+              --project="${PROJECT}" --freshness=30m --limit=100 --format=json || printf '[]')"
+            if jq -e '[.[] | (.textPayload // .jsonPayload.message // "") | strings | contains("PRIVATE_NOTE_CLEANUP_SUCCESS")] | any' <<< "${logs}" >/dev/null; then
+              matched=1
+              break
+            fi
+            sleep 5
+          done
+          [[ "${matched}" == 1 ]] || { echo 'Cloud Run cleanup receipt unavailable' >&2; exit 1; }
+          echo 'ICEBERG_TEST_NOTE_CLEANUP=PASS'
