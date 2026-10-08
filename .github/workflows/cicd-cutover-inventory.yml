@@ -1,5 +1,5 @@
 name: CI/CD cutover inventory (read-only)
-# Refresh after live GHCR lease-fenced 0% candidate; inventory only, no deletion.
+# Read-only retry-failure diagnosis: inspect service template, 0% candidate tag and traffic; no deletion.
 
 on:
   push:
