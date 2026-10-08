@@ -24,7 +24,7 @@ jobs:
       - name: Verify safe cutover guard and consolidated Scheduler contracts
         run: |
           python -m pip install pytest==8.4.2
-          python -m pytest -q tests/test_ghcr_job_cutover_guard.py tests/test_private_pipeline_scheduler.py
+          python -m pytest -q tests/test_ghcr_job_cutover_guard.py tests/test_private_pipeline_scheduler.py tests/test_ghcr_job_cutover_plan.py
   live-readback:
     needs: guard-tests
     runs-on: ubuntu-latest
@@ -176,6 +176,12 @@ jobs:
           python3 scripts/gcp/ghcr_job_cutover_guard.py \
             --input /tmp/ghcr-readback/evidence.json \
             --output /tmp/ghcr-readback/report.json
+          python3 scripts/gcp/ghcr_job_cutover_plan.py \
+            --input /tmp/ghcr-readback/evidence.json \
+            --output /tmp/ghcr-readback/plan.json
+          # Only report summary counts; image-only plan is in sanitized artifact.
+          jq '{status,change_count:(.updates|length),blockers,automatic_apply,resource_writes}' \
+             /tmp/ghcr-readback/plan.json
           cat /tmp/ghcr-readback/report.json
           echo 'Sanitized execution-state aggregates:'
           cat /tmp/ghcr-readback/execution-summary.ndjson
@@ -201,6 +207,8 @@ jobs:
         if: always()
         with:
           name: janus-ghcr-job-gate-summary
-          path: /tmp/ghcr-readback/report.json
+          path: |
+            /tmp/ghcr-readback/report.json
+            /tmp/ghcr-readback/plan.json
           if-no-files-found: ignore
           retention-days: 14
