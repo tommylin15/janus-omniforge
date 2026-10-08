@@ -99,13 +99,15 @@ def assess(evidence: Mapping[str, Any]) -> dict[str, Any]:
     # Reject all guessed counts and pre-recorded green flags: derive from the
     # same run's exact v1 execution, task and v2 terminal-failure evidence.
     historical_diagnostics: list[str] = []
-    historical_terminal_failed = verify_historical_failures(
-        private_proof.get("v1_records"),
-        private_proof.get("task_records"),
-        private_proof.get("v2_readback"),
-        private_count,
-        historical_diagnostics,
-    )
+    historical_terminal_failed = 0
+    if private_count != 0:
+        historical_terminal_failed = verify_historical_failures(
+            private_proof.get("v1_records"),
+            private_proof.get("task_records"),
+            private_proof.get("v2_readback"),
+            private_count,
+            historical_diagnostics,
+        )
     for name in REQUIRED_JOBS:
         snapshot = _dict(snapshots.get(name))
         if (
