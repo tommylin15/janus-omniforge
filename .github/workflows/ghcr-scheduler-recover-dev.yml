@@ -1,0 +1,58 @@
+name: Janus dev Scheduler independent recovery
+
+on:
+  push:
+    branches: [main]
+    paths: [ops/ghcr-scheduler-recovery-request.json]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: janus-dev-scheduler-recovery
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      PROJECT: gen-lang-client-0593591102
+      REGION: us-central1
+      JOB: janus-ingestion-daily
+      LOCK: janus-ghcr-scheduler-drill-lease
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Recover only the explicit preexisting Scheduler drill lease
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent == "resume-existing-janus-drill" and .project == "gen-lang-client-0593591102" and .region == "us-central1" and .job == "janus-ingestion-daily"' \
+            ops/ghcr-scheduler-recovery-request.json >/dev/null
+          # NEVER resume an unrelated intentionally paused schedule.
+          gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$LOCK" > /tmp/existing-lease.json || {
+            echo "BLOCKED: no bounded drill lease exists. No Scheduler changes."
+            exit 78
+          }
+          current="$(gcloud scheduler jobs describe "$JOB" --project="$PROJECT" --location="$REGION" --format=json)"
+          jq -e '.name|endswith("/janus-ingestion-daily")' <<< "$current" >/dev/null
+          state="$(jq -r '.state' <<< "$current")"
+          if [[ "$state" == "PAUSED" ]]; then
+            gcloud scheduler jobs resume "$JOB" --project="$PROJECT" --location="$REGION" --quiet >/dev/null
+          elif [[ "$state" != "ENABLED" ]]; then
+            echo "BLOCKED: state is neither PAUSED nor ENABLED; review manually."
+            exit 78
+          fi
+          readback="$(gcloud scheduler jobs describe "$JOB" --project="$PROJECT" --location="$REGION" --format=json)"
+          jq -e '.state=="ENABLED" and .schedule=="30 * * * *" and .timeZone=="Asia/Taipei" and (.httpTarget.uri|endswith("/jobs/janus-batch-controller:run"))' <<< "$readback" >/dev/null
+          gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$LOCK" >/dev/null
+          echo "RECOVERED: existing controller schedule ENABLED; drill lease cleared; no workloads run."
+          echo "Recovery readback PASS: janus-ingestion-daily ENABLED; no Job image changes." >> "$GITHUB_STEP_SUMMARY"
