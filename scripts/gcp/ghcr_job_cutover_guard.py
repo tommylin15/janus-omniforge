@@ -114,7 +114,7 @@ def assess(evidence: Mapping[str, Any]) -> dict[str, Any]:
 
     # Safe to show in GitHub summary. Never echo original JSON or private env.
     return {
-        "status": "READY_FOR_SEPARATE_EXPLICIT_APPROVAL" if not blockers else "BLOCKED",
+        "status": "READY_FOR_CONTROLLED_JOB_ROLLOUT" if not blockers else "BLOCKED",
         "project": PROJECT,
         "region": REGION,
         "source_sha": source_sha if isinstance(source_sha, str) and re.fullmatch(r"[0-9a-f]{40}", source_sha) else "UNKNOWN",
