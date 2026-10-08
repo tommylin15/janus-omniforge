@@ -1,0 +1,10 @@
+{
+  "intent": "verify-existing-janus-scheduler-operator",
+  "project": "gen-lang-client-0593591102",
+  "region": "us-central1",
+  "job": "janus-ingestion-daily",
+  "allow_pause_resume": true,
+  "allow_job_execution": false,
+  "allow_image_change": false,
+  "purpose": "Time-fenced 3-second Scheduler PAUSED and ENABLED readback with guarded independent recovery; no application deployment"
+}
