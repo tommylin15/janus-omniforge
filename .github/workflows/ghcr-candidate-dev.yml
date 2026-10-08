@@ -12,7 +12,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: janus-service-candidate
+  group: janus-dev-runtime-writers
   cancel-in-progress: false
 
 jobs:
