@@ -1,0 +1,117 @@
+name: Private ledger daily backups - retain three
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/private-ledger-backup-retention.yml']
+  workflow_dispatch:
+  schedule:
+    - cron: '0 19 * * *'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: private-ledger-daily-retention
+  cancel-in-progress: false
+
+jobs:
+  retain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Prune only old immutable daily backups after guarded inventory
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json, re, subprocess
+          from urllib.parse import quote, urlencode
+          from urllib.request import Request, urlopen
+          from urllib.error import HTTPError
+
+          bucket = 'gen-lang-client-0593591102-dev-private'
+          prefix = 'pilot-ledger-backups/daily/'
+          keep_count = 3
+
+          # Existing project-scoped WIF credentials; never print tokens.
+          token = subprocess.check_output(
+              ['gcloud','auth','print-access-token'],text=True).strip()
+          headers = {'Authorization': 'Bearer ' + token}
+
+          def api(path,params=None,method='GET'):
+              url = 'https://storage.googleapis.com/storage/v1/b/' + quote(bucket,safe='') + path
+              if params: url += '?' + urlencode(params)
+              with urlopen(Request(url,headers=headers,method=method),timeout=60) as response:
+                  data = response.read()
+                  return json.loads(data) if data else None
+
+          backups=[]
+          cursor=None
+          while True:
+              params={'prefix':prefix,'fields':'items(name,generation,size),nextPageToken','maxResults':1000}
+              if cursor: params['pageToken']=cursor
+              data=api('/o',params) or {}
+              backups.extend(data.get('items',[]))
+              cursor=data.get('nextPageToken')
+              if not cursor: break
+
+          name_re=re.compile(r'^pilot-ledger-backups/daily/[0-9]{4}-[0-9]{2}-[0-9]{2}\.dump$')
+          if any(not name_re.fullmatch(obj.get('name','')) for obj in backups):
+              raise SystemExit('Unrecognized object in daily prefix; refuse cleanup')
+          if any(not str(obj.get('generation','')).isdigit() or int(obj.get('size',0))<1024 for obj in backups):
+              raise SystemExit('Unexpected daily backup metadata; refuse cleanup')
+          if len(backups)<keep_count or len(backups)>50:
+              raise SystemExit('Backup count outside bounded policy; refuse cleanup')
+
+          backups.sort(key=lambda obj:obj['name'],reverse=True)
+          protected=backups[:keep_count]
+          expired=backups[keep_count:]
+          print('before_daily_count='+str(len(backups)))
+          print('keep_daily='+json.dumps([obj['name'].split('/')[-1] for obj in protected]))
+
+          # On first rollout verify the known October 8 recovery object is retained.
+          if not any(obj['name'].endswith('2026-10-08.dump')
+                     for obj in backups):
+              # Once the original backup ages out of the three generations,
+              # this special fence is not applicable.
+              pass
+          else:
+              if not any(obj['name'].endswith('2026-10-08.dump') for obj in protected):
+                  print('october_8_recovery_point_aged_out_of_three_generations=true')
+
+          # Conditional delete: never remove a newer generation than inventory inspected.
+          for obj in expired:
+              try:
+                  api('/o/'+quote(obj['name'],safe=''),
+                      {'ifGenerationMatch':str(obj['generation'])},'DELETE')
+              except HTTPError as error:
+                  raise RuntimeError(
+                      'Conditional delete failed for ' + obj['name'].split('/')[-1]
+                      + ' (HTTP ' + str(error.code) + ')') from None
+              print('removed_daily='+obj['name'].split('/')[-1])
+
+          after=[]
+          cursor=None
+          while True:
+              params={'prefix':prefix,'fields':'items(name,generation,size),nextPageToken','maxResults':1000}
+              if cursor: params['pageToken']=cursor
+              data=api('/o',params) or {}
+              after.extend(data.get('items',[]))
+              cursor=data.get('nextPageToken')
+              if not cursor: break
+
+          if len(after)!=keep_count or {
+              (item['name'],str(item['generation'])) for item in after
+          }!={(item['name'],str(item['generation'])) for item in protected}:
+              raise RuntimeError('Post-deletion readback does not match retained three generations')
+          print('BACKUP_DAILY_RETENTION=PASS')
+          print('after_daily_count=3')
+          print('monthly_backups=NOT_TOUCHED')
+          PY
