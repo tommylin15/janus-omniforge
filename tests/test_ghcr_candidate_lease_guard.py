@@ -113,3 +113,16 @@ def test_legacy_manual_and_candidate_share_actions_serialization_group():
     assert "cancel-in-progress: false" in ghcr
     assert "cancel-in-progress: false" in legacy
     # This defense covers GitHub runs, not an independent Cloud Build trigger.
+
+
+def test_candidate_same_sha_retry_requires_immutable_revision_and_skips_deploy():
+    workflow = (ROOT / ".github/workflows/ghcr-candidate-dev.yml").read_text()
+    assert 'existing_revision=' in workflow
+    assert 'gcloud run revisions describe "$existing_revision"' in workflow
+    assert '"$GHCR_PUBLIC_IMAGE"' in workflow
+    assert 'Reused existing 0% GHCR digest candidate' in workflow
+    assert 'if [[ -n "$existing_revision" ]]' in workflow
+    assert 'else\n            gcloud run deploy' in workflow
+    assert 'gcloud run deploy "$SERVICE"' in workflow
+    assert 'ghcr_candidate_lease_guard.py' in workflow
+    assert workflow.index('ghcr_release_lease.py assert') < workflow.index('gcloud run deploy "$SERVICE"')
