@@ -7,7 +7,7 @@
 ## 2026-10-08 持股頁體驗與速度：ACTIVE
 
 - 新需求：官方漲跌金額／幅度、持股每日價格變動、較大紅綠資訊、頁首次導覽、摘要只留持股，正確性優先。
-- backend `53d655c`（官方昨收 batch read／日漲跌）、Flutter `11ee66f`（次導覽、較大卡片、非必要資料延後）、migration CI `6a5569c` 已提交。仍需 Flutter／API CI、050 dev migration、deployed revision 與真實 UI／Owner evidence。
+- backend `53d655c`（正式昨收批次讀取／日漲跌）、Flutter `11ee66f`（頁首次導覽／卡片與非必要資料延後）、ACL migration wiring `6a5569c`、PostgreSQL DB-only 首屏快照 `b1f95ac` 均已提交。Flutter CI [#37713531543](https://github.com/tommylin15/janus-omniforge/actions/runs/37713531543) **SUCCESS**，Portfolio contract CI [#37713531544](https://github.com/tommylin15/janus-omniforge/actions/runs/37713531544) **SUCCESS**，migration CI [#37713115868](https://github.com/tommylin15/janus-omniforge/actions/runs/37713115868) **SUCCESS**（靜態／fixture，不代表 live）。完整 API targeted、migration 050 dev、最新 SHA deployment／runtime／User 手機驗收仍 **pending／unknown**，不得宣稱已可人工驗收。
 - 使用既有 PostgreSQL operational/current quote projections 與 Private Mart，不增加另一份沒有明確失效規則的正式快照表。此次不影響 B7 進度，原 A 組保留 CLOSED。
 - 完整追蹤見 [todo.md](todo.md)。
 
