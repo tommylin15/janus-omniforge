@@ -297,7 +297,6 @@ def main():
             output = state / "published.json"
             output.write_text(json.dumps(published, indent=2) + "\n")
             receipt.update(published)
-            updated.clear()
         else:
             receipt.update({"candidates": candidates, "status": "PARTIAL",
                         "promotion": "NOT_RUN", "blocker": "authenticated API acceptance and canonical cutover pending"})
@@ -309,19 +308,24 @@ def main():
                         "promotion": "NOT_COMPLETE"})
         raise
     finally:
-        # Candidate validation rolls jobs back until all four gates pass.
-        # Existing executions are immutable; never cancel or redispatch them.
+        # Commit the authoritative baseline before releasing the Scheduler fence.
+        # A failed generation CAS is a failed Release: restore the prior runtime,
+        # rather than leaving newer images/traffic live without a published SHA.
         rollback_failed = False
-        for job in reversed(updated):
+        if release and receipt.get("status") == "PASS":
+            try:
+                v2.run("gcloud", "storage", "cp", str(state / "published.json"), BUCKET + "/published.json",
+                       "--if-generation-match=" + (state / "baseline-generation").read_text().strip(), "--quiet")
+            except Exception:
+                receipt.update({"status": "FAILED_BASELINE_COMMIT", "promotion": "NOT_COMPLETE",
+                                "failure_classification": "PUBLISHED_CAS_FAILED"})
+        # Retain 'updated' until the baseline CAS has succeeded. On any failure
+        # (including CAS failure), restore every Job image and version flag.
+        for job in reversed(updated) if receipt.get("status") != "PASS" else []:
             old_image = previous[job]["spec"]["template"]["spec"]["template"]["spec"]["containers"][0]["image"]
             try:
                 ensure_idle(job)
                 command("run", "jobs", "update", job, f"--image={old_image}", *restore_version_flags(previous[job]))
-            except Exception:
-                rollback_failed = True
-        for name in paused if not rollback_failed else []:
-            try:
-                v2.run("gcloud", "scheduler", "jobs", "resume", name, f"--project={PROJECT}", f"--location={REGION}", "--quiet")
             except Exception:
                 rollback_failed = True
         if release and receipt.get("status") != "PASS" and "api_before" in locals():
@@ -333,13 +337,13 @@ def main():
                     command("run", "services", "update-traffic", "janus-api", f"--update-tags={tags}")
             except Exception:
                 rollback_failed = True
-        if release and receipt.get("status") == "PASS" and not rollback_failed:
+        # Restore Scheduler last, once the runtime has either committed or
+        # reverted. If restore fails, keep the mutex for manual readback.
+        for name in paused if not rollback_failed else []:
             try:
-                v2.run("gcloud", "storage", "cp", str(state / "published.json"), BUCKET + "/published.json",
-                       "--if-generation-match=" + (state / "baseline-generation").read_text().strip(), "--quiet")
+                v2.run("gcloud", "scheduler", "jobs", "resume", name, f"--project={PROJECT}", f"--location={REGION}", "--quiet")
             except Exception:
                 rollback_failed = True
-                receipt["status"] = "FAILED_BASELINE_COMMIT"
         journal = state / "executions.jsonl"
         if journal.exists():
             receipt["executions"] = [json.loads(line) for line in journal.read_text().splitlines()]

@@ -152,3 +152,19 @@ def test_owner_isolation_harness_cannot_delete_private_data():
         source = (ROOT / path).read_text()
         assert "private-data" not in source
         assert "Queue A private-data deletion" not in source
+
+
+
+def test_failed_published_cas_restores_runtime_before_scheduler_resume():
+    # Regression: committing the published marker after clearing updated jobs
+    # stranded new images and API traffic whenever generation CAS failed.
+    source = (ROOT / "scripts/gcp/cicd-v2-candidate.py").read_text()
+    finally_block = source.rsplit("    finally:\n", 1)[1]
+    commit = finally_block.index('if release and receipt.get("status") == "PASS":')
+    restore_jobs = finally_block.index('for job in reversed(updated) if receipt.get("status") != "PASS" else []:')
+    restore_api = finally_block.index('if release and receipt.get("status") != "PASS" and "api_before" in locals():')
+    resume = finally_block.index('for name in paused if not rollback_failed else []:')
+    assert commit < restore_jobs < restore_api < resume
+    assert "updated.clear()" not in source
+    assert '"failure_classification": "PUBLISHED_CAS_FAILED"' in finally_block
+    assert '"status": "FAILED_RECOVERY"' in finally_block
