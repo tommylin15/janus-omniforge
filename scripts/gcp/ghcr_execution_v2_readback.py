@@ -28,6 +28,7 @@ def classify(execution: str, data: object) -> dict:
     result = {
         "execution": execution,
         "v2_readback": "UNKNOWN_OR_BLOCKED",
+        "readback_reason": "INVALID_EXECUTION_OR_PAYLOAD",
         "reconciling": None,
         "start_observed": None,
         "completion_observed": None,
@@ -39,12 +40,16 @@ def classify(execution: str, data: object) -> dict:
     if not EXECUTION_RE.fullmatch(execution) or not isinstance(data, dict):
         return result
     if data.get("name") != f"projects/{PROJECT}/locations/{REGION}/jobs/{JOB}/executions/{execution}":
+        result["readback_reason"] = "RESOURCE_NAME_MISMATCH"
         return result
     if data.get("job") not in (None, JOB, f"projects/{PROJECT}/locations/{REGION}/jobs/{JOB}"):
+        result["readback_reason"] = "JOB_SCOPE_MISMATCH"
         return result
     if not isinstance(data.get("reconciling"), bool):
+        result["readback_reason"] = "RECONCILING_FIELD_ABSENT_OR_BAD"
         return result
     if not isinstance(data.get("conditions"), list):
+        result["readback_reason"] = "CONDITIONS_FIELD_ABSENT_OR_BAD"
         return result
     if data.get("startTime") is not None and not isinstance(data["startTime"], str):
         return result
@@ -68,6 +73,7 @@ def classify(execution: str, data: object) -> dict:
         conds.append({"type": kind, "state": state})
     result.update(
         v2_readback="READABLE",
+        readback_reason="NONE",
         reconciling=data["reconciling"],
         start_observed=bool(data.get("startTime")),
         completion_observed=bool(data.get("completionTime")),
@@ -95,8 +101,14 @@ def read_only_v2(execution: str, access_token: str) -> dict:
             # Do not log the raw response, which may include labels or template env.
             data = json.loads(response.read(524288))
             return classify(execution, data)
+    except urllib.error.HTTPError as exc:
+        result = classify(execution, None)
+        result["readback_reason"] = f"HTTP_{exc.code}" if 400 <= exc.code <= 599 else "HTTP_UNKNOWN"
+        return result
     except (urllib.error.URLError, TimeoutError, ValueError, OSError):
-        return classify(execution, None)
+        result = classify(execution, None)
+        result["readback_reason"] = "TRANSPORT_OR_BODY_UNREADABLE"
+        return result
 
 
 def main() -> int:
