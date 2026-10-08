@@ -33,7 +33,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           account="$(gcloud auth list --filter='status:ACTIVE' --format='value(account)')"
-          [[ "$account" =~ ^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\\.iam\\.gserviceaccount\\.com$ ]] || {
+          [[ "$account" == *".iam.gserviceaccount.com" ]] && [[ "$account" =~ ^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+$ ]] || {
             echo "No recognizable active GCP service-account principal" >&2
             exit 2
           }
