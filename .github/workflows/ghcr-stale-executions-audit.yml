@@ -81,7 +81,7 @@ jobs:
             [[ "$execution" =~ ^janus-private-pipeline-[a-z0-9-]+$ ]] || exit 78
             if timeout 40s gcloud run jobs executions tasks list \
                  --execution="$execution" --project="$PROJECT" --region="$REGION" \
-                 --limit=100 --format=json \
+                 --succeeded --limit=100 --format=json \
                  > /tmp/ghcr-executions/tasks.json 2>/dev/null; then
               # A truncated or schema-invalid list remains UNVERIFIABLE.
               if ! python3 scripts/gcp/ghcr_stale_tasks_summary.py \
