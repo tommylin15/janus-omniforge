@@ -1,7 +1,7 @@
 {
   "intent": "read-only-cutover-guard",
   "sha": "8f6e7891e280cd021e25e1f036acedc28e3dbcec",
-  "purpose": "Diagnose strict same-run nine historical terminal failure checks without GCP writes",
+  "purpose": "Live verify v1 list-readback plus zero-task plus v2 terminal failed exact nine proof; no workload or image writes",
   "apply": false,
-  "attempt": 8
+  "attempt": 9
 }
