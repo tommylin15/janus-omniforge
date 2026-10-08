@@ -1,0 +1,127 @@
+name: GHCR candidate OAuth and private-boundary probe
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ghcr-candidate-auth-boundary.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: janus-ghcr-candidate-boundary
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    env:
+      PROJECT: gen-lang-client-0593591102
+      REGION: us-central1
+      SERVICE: janus-api
+      EXPECTED_SHA: 0b93d99d42aaff662a3408d749d70aa9d04b1042
+      CANDIDATE_TAG: ghcr-0b93d99d42aa
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Confirm zero-traffic fixed-digest candidate is still tagged
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud run services describe "$SERVICE" --project="$PROJECT" --region="$REGION" --format=json > /tmp/current-service.json
+          jq -e --arg tag "$CANDIDATE_TAG" '
+            [.status.traffic[]? | select(.tag == $tag)] |
+            length == 1 and (.[0].percent // 0) == 0' /tmp/current-service.json >/dev/null
+          jq -e '[.status.traffic[]? | select((.percent // 0)>0)] |
+              length == 1 and .[0].percent == 100 and
+              .[0].revisionName == "janus-api-g53d655ccb108-config"' /tmp/current-service.json >/dev/null
+          candidate="$(jq -r --arg tag "$CANDIDATE_TAG" '.status.traffic[]? | select(.tag==$tag) | .url' /tmp/current-service.json)"
+          [[ "$candidate" == https://* ]] || exit 2
+          echo "JANUS_CANDIDATE_URL=$candidate" >> "$GITHUB_ENV"
+      - name: Probe OAuth metadata, private read boundaries and MCP auth challenge
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json, os, urllib.error, urllib.request
+          from urllib.parse import urlparse
+
+          base = os.environ["JANUS_CANDIDATE_URL"].rstrip("/")
+          results = {}
+
+          def request(path, payload=None):
+              data = json.dumps(payload).encode() if payload is not None else None
+              headers = {"Accept":"application/json"}
+              if data is not None:
+                  headers["Content-Type"] = "application/json"
+              req = urllib.request.Request(base+path, data=data, headers=headers, method="POST" if data is not None else "GET")
+              try:
+                  with urllib.request.urlopen(req, timeout=25) as response:
+                      return response.status, response.headers, response.read(96_000)
+              except urllib.error.HTTPError as error:
+                  return error.code, error.headers, error.read(96_000)
+
+          def assert_private(path):
+              code, _, _ = request(path)
+              results[path] = {"status_code":code,"unauthenticated_rejected":code in (401,403)}
+              assert code in (401,403), path
+
+          for path in (
+              "/api/v1/me/profile",
+              "/api/v1/me/journal/positions",
+              "/api/v1/me/journal/pnl",
+              "/api/v1/me/portfolio/summary",
+              "/api/v1/me/portfolio/performance",
+              "/api/v1/admin/data-governance",
+          ):
+              assert_private(path)
+
+          for path in ("/.well-known/oauth-protected-resource",
+                       "/.well-known/oauth-authorization-server"):
+              status, _, raw = request(path)
+              data = json.loads(raw) if status == 200 else {}
+              results[path] = {"status_code":status,"metadata_nonempty":bool(data)}
+              assert status == 200 and isinstance(data,dict), path
+              if path.endswith("oauth-protected-resource"):
+                  assert data.get("resource","").startswith("https://")
+                  assert all(v.startswith("https://") for v in data.get("authorization_servers", []))
+                  assert data.get("authorization_servers")
+              else:
+                  assert data.get("issuer", "").startswith("https://")
+                  assert data.get("token_endpoint", "").startswith(data["issuer"])
+                  assert "S256" in data.get("code_challenge_methods_supported", [])
+                  assert "refresh_token" in data.get("grant_types_supported", [])
+              results[path]["contract_pass"] = True
+
+          payload={"jsonrpc":"2.0","id":1,"method":"tools/call",
+                   "params":{"name":"janus_private_context","arguments":{"resource":"positions","limit":1}}}
+          status,headers,raw=request("/mcp",payload)
+          response=json.loads(raw) if raw else {}
+          auth_header=headers.get("WWW-Authenticate","")
+          results["/mcp-private-tools-call"]={
+              "status_code":status,
+              "challenge_present":auth_header.startswith("Bearer "),
+              "is_error":bool(response.get("result",{}).get("isError"))}
+          assert status == 401 and auth_header.startswith("Bearer "), "MCP unauthenticated failure"
+          assert response.get("result",{}).get("isError") is True
+
+          status,_,raw=request("/app/build-id.txt")
+          assert status==200 and raw.decode().strip()==os.environ["EXPECTED_SHA"]
+          results["build_identity"]={"sha_verified":True}
+          print(json.dumps({"scope":"unauthenticated_negative_and_metadata_only","result":"PASS",
+                            "checks":results},sort_keys=True))
+          PY
+          {
+            echo "## GHCR API candidate — unauthenticated boundary probe"
+            echo "Candidate still at 0% canonical traffic; prior revision retained 100%."
+            echo "OAuth metadata and negative owner/Admin/MCP boundaries: PASS."
+            echo "**Not verified:** a real logged-in owner, OAuth callback, PnL correctness, refresh token, or owner isolation."
+          } >> "$GITHUB_STEP_SUMMARY"
