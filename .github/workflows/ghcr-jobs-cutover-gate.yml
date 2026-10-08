@@ -44,7 +44,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           request='ops/ghcr-jobs-cutover-guard-request.json'
-          jq -e '.intent=="read-only-cutover-guard" and (.sha|test("^[0-9a-f]{40}$"))' "$request" >/dev/null
+          jq -e '.intent=="read-only-cutover-guard" and .apply==false and (.sha|test("^[0-9a-f]{40}$"))' "$request" >/dev/null
           source_sha="$(jq -r .sha "$request")"
           mkdir -p /tmp/ghcr-readback
           sudo apt-get update -qq
