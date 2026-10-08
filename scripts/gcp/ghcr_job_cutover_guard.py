@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import runpy
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -31,6 +32,10 @@ REQUIRED_JOBS = (
 EXPECTED_COMPONENTS = ("ingestion-core", "intelligence-mart", "private-pipeline")
 DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 PINNED_IMAGE_RE = re.compile(r"^[-a-z0-9./]+@sha256:[0-9a-f]{64}$")
+
+verify_historical_failures = runpy.run_path(
+    str(Path(__file__).with_name("ghcr_private_historical_fence.py"))
+)["verified_failed_count"]
 
 
 def _list(value: Any) -> list[Any]:
@@ -89,6 +94,16 @@ def assess(evidence: Mapping[str, Any]) -> dict[str, Any]:
             blockers.append("scheduler_still_enabled")
 
     snapshots = _dict(evidence.get("job_snapshots"))
+    private_proof = _dict(evidence.get("private_historical_failure_readback"))
+    private_count = _dict(snapshots.get("janus-private-pipeline")).get("potentially_active")
+    # Reject all guessed counts and pre-recorded green flags: derive from the
+    # same run's exact v1 execution, task and v2 terminal-failure evidence.
+    historical_terminal_failed = verify_historical_failures(
+        private_proof.get("v1_records"),
+        private_proof.get("task_records"),
+        private_proof.get("v2_readback"),
+        private_count,
+    )
     for name in REQUIRED_JOBS:
         snapshot = _dict(snapshots.get(name))
         if (
@@ -101,7 +116,9 @@ def assess(evidence: Mapping[str, Any]) -> dict[str, Any]:
             snapshot.get("execution_list_complete") is not True
             or not isinstance(snapshot.get("potentially_active"), int)
             or isinstance(snapshot.get("potentially_active"), bool)
-            or snapshot.get("potentially_active") != 0
+            or snapshot.get("potentially_active") != (
+                historical_terminal_failed if name == "janus-private-pipeline" else 0
+            )
         ):
             blockers.append(f"execution_{name}_unfenced")
 
@@ -119,6 +136,8 @@ def assess(evidence: Mapping[str, Any]) -> dict[str, Any]:
         "region": REGION,
         "source_sha": source_sha if isinstance(source_sha, str) and re.fullmatch(r"[0-9a-f]{40}", source_sha) else "UNKNOWN",
         "blockers": blockers,
+        "historical_failed_pretask_terminal_count": historical_terminal_failed,
+        "historical_success_claimed": False,
         "resource_writes": 0,
     }
 
