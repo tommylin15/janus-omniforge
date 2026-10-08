@@ -42,58 +42,37 @@ $env:ALLOW_DEV_PROVISION = "true"
 
 ## 3. Dev deployment
 
-### 3.0 CI/CD V2 轉換期（PARTIAL）
+### 3.1 CI 與明確 Release
 
-使用者已指定四元件 V2 改造，契約見 [`spec/cicd-v2.md`](spec/cicd-v2.md)。目前舊 GitHub controller 保留，V2 Trigger 先停用；不得在未完成四元件 candidate／authenticated acceptance 時升流量或退役舊流程。
+政策見 [PROJECT_RULES §12](PROJECT_RULES.md#12-cirelease-分離2026-10-08-使用者追加政策)。main Push只執行`ci-v2.yml`；查GitHub run的exact SHA及成功結果。
 
-新入口 `cloudbuild-v2.yaml` 預設 shadow-only。以 Repository Trigger 的完整 SHA 取源；人工指定 `_SHA` 與 `_COMPONENTS`，必須以 immutable commit 為準。`_BASE_SHA` 是明確的完整比較 baseline，缺少時 fail-safe 建四元件，不能把它當成 document-only 最佳化。正式 cutover 前須完成已發布 baseline 持久化。
+先以完整SHA執行同一regional Trigger的shadow build：
 
-只有受控候選驗收才設 `_VALIDATE_CANDIDATES=true`。此模式暫停／恢復既有 enabled Janus Scheduler，拒絕 active Job execution，API 維持 no-traffic，三 Job 驗後回復原 image；receipt 的 PARTIAL 不能當成 promotion PASS。050 migration 只補缺 marker並分 owner 驗 ACL。
-
-`scripts/gcp/cicd-v2.py cleanup-plan --output=...` 只產生 digest 引用 dry-run，不能刪 image。禁止恢復原「無 tag 即刪」cleanup。
-
-Mutex 在既有 regional bucket `v2/deployment-lock.json`。若 build 被取消／timeout 而 lock 尚存，先讀 lock 的 Build ID，再讀同區 Build 與該 execution 終態、核對 Job rollback／Scheduler restore；只在確認無部署執行中後，由 operator 用該 object generation precondition解除。不得按時間猜 stale lock、無限重試或重送 unknown execution。
-
-### 3.1 GitHub Actions 自動部署
-
-`.github/workflows/deploy-dev.yml` 是 dev 的主要 deployment controller。
-
-對 `main` 的 push 若修改到對應 runtime source、shared packages、`cloudbuild.yaml` 或 `scripts/gcp/**`，workflow 會以 path detection 自動判斷需要部署的 component：
-
-- `ingestion-core`
-- `intelligence-mart`
-- `api`
-
-純文件變更不觸發 application deployment。workflow 自身變更可以觸發 `detect` 驗證，但若沒有 runtime path 命中，deployment jobs 必須保持 skipped。
-
-同一時間只允許一條 `deploy-dev-main` deployment chain 執行，既有 deployment 不因後續 push 被取消，以避免 runtime 落在不明中間狀態。
-
-workflow 使用 GitHub OIDC／Workload Identity，最後呼叫 `scripts/gcp/deploy-dev.sh` 與 `scripts/gcp/verify-dev.sh`。使用前仍須確認 repository Variables／OAuth public client IDs 符合目前 workflow 定義。
-
-`workflow_dispatch` 保留作為指定 component 的人工重跑／修復入口；一般 main code change 不需要人工按 deploy。
-
-Cloud Build source staging 固定使用 **regional build + 既有 regional staging bucket**：
-
-- 任何會上傳 source 的 `gcloud builds submit` 都必須顯式指定 `--region=us-central1`（腳本可用目前 `GCP_REGION`／`region` 變數）；
-- 同一命令必須指定 `--gcs-source-staging-dir=gs://gen-lang-client-0593591102-cloudbuild-regional/source`，不得回退到 `gs://gen-lang-client-0593591102_cloudbuild/source`；
-- `tests/test_container_build_contract.py` 會掃描 `.github/workflows` 與 `scripts/gcp`，任何新的 source build 少了 region 或 approved staging bucket 都必須讓 CI fail；
-- `--no-source` build 不會建立 source staging object；若 build config 使用 `CLOUD_LOGGING_ONLY`，不需要為了 source-bucket policy 強制改變既有 execution location。不要把 no-source runtime／IAP 問題誤判成 staging bucket regression。
-
-2026-10-07 live acceptance 證據見 `archive/cloud-build-regional-staging-acceptance-2026-10-07.md`。
-
-2026-10-07 cleanup 狀態：legacy bucket `gen-lang-client-0593591102_cloudbuild` 已由使用者手動刪除；目前正式預期狀態是 **legacy bucket 不存在**、`gen-lang-client-0593591102-cloudbuild-regional` 保留。若 legacy bucket 重新出現，視為 deployment／tooling regression，必須追查建立來源，不得把它當成正常 Cloud Build resource 保留或重新納入依賴。`tests/test_container_build_contract.py` 另以 hard guard 禁止 active workflow／script／cloudbuild config 再引用 legacy bucket 名稱。
-
-### 3.2 本機／受控執行入口
-
-底層 deployment entrypoint 為：
-
-```bash
-bash scripts/gcp/deploy-dev.sh <component>
+```powershell
+& $gcloud builds triggers run janus-dev-v2 --sha=$sha --region=$region --project=$project --substitutions="_MODE=shadow" --format="value(metadata.build.id)"
 ```
 
-必須以目前腳本實際支援的 component 與 guard 為準，不從歷史 runbook 複製舊 substitution／resource 名稱。
+記錄Build ID，bounded查同一Build到終態；成功receipt位於既有regional bucket `v2/evidence/<Build ID>/build-receipt.json`。它包含四元件或受影響元件的完整digest，不代表live PASS。
 
-API 需要候選驗收時，沿用目前 script 支援的 no-traffic／revision tag 流程；只有候選 health、public API、User／Admin、MCP／OAuth 等本次受影響路徑通過後，才切換 canonical traffic。不得因 image build 成功就宣稱 live acceptance 成功。
+候選使用`_MODE=candidate`。讀回`candidate-receipt.json`、API candidate URL、revision／digest與原流量；Job image不得因此改變。必要authenticated驗收使用該候選URL，token僅在記憶體，不放substitution／argv／log。
+
+工作包Ready且同SHA／digest完整live evidence齊備後：
+
+```powershell
+& $gcloud builds triggers run janus-dev-v2 --sha=$sha --region=$region --project=$project --substitutions="_MODE=release,_WBS_ID=$wbs,_RELEASE_READY=true,_ACCEPTANCE_URI=$acceptanceUri" --format="value(metadata.build.id)"
+```
+
+從receipt查migration、Job execution、revision與digest，再讀`v2/published.json`及runtime狀態。未成功發布的SHA不可當成下一次成功baseline。`deploy-dev.yml`的manual recovery只用於明確故障修復，不是普通發布入口。
+
+### 3.2 Mutex 與故障恢復
+
+讀既有regional bucket `v2/deployment-lock.json`的Build ID，查同區Build與receipt。每次command最長120秒，Job execution最長900秒，每10秒heartbeat；unknown execution不可重送。
+
+若timeout／取消後mutex尚存，先查原Build及execution終態、Job snapshot rollback與Scheduler restore。active execution尚未終止時不重試部署、不解除mutex。確認無衝突且復原完成後，operator以object generation precondition解除；不按物件年齡猜測安全。
+
+### 3.3 Image盤點
+
+執行`scripts/gcp/cicd-v2.py cleanup-plan --output=<path>`取得digest引用dry-run。盤點失敗、mutable reference或缺欄位時停止；目前沒有delete入口。新版完整PASS後才補齊跨區／候選／恢復引用集合及bounded清理。
 
 ## 4. PostgreSQL migration
 
@@ -115,7 +94,7 @@ Migration 必須使用 repository 內版本化 SQL／migration tooling，不直�
 
 目前主要 Janus Jobs 包括 ingestion、intelligence mart 與 private pipeline；實際存在的 Job、image、env、Secret reference 與 Scheduler 必須在執行前唯讀確認。
 
-部署既有 workflow 支援的 Job 時，優先走 `scripts/gcp/deploy-dev.sh`；部署後至少確認：
+經 V2 Release 更新既有 Job 後，至少確認：
 
 - Job `Ready=True`；
 - runtime image 解析到預期 immutable digest；

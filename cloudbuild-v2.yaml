@@ -1,12 +1,14 @@
-# Shadow validation first. This configuration never promotes runtime traffic.
-# Enable the canonical trigger only after four-component live acceptance.
+# Explicitly invoked regional release. Shadow/candidate defaults cannot promote.
 substitutions:
   _SHA: ""
   _BASE_SHA: ""
   _COMPONENTS: "all"
   _GOOGLE_USER_CLIENT_ID: ""
   _GOOGLE_ADMIN_CLIENT_ID: ""
-  _VALIDATE_CANDIDATES: "false"
+  _MODE: "shadow"
+  _WBS_ID: ""
+  _RELEASE_READY: "false"
+  _ACCEPTANCE_URI: ""
 steps:
   - id: immutable-source-and-plan
     name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
@@ -17,6 +19,10 @@ steps:
       - 'JANUS_BASE_SHA=${_BASE_SHA}'
       - 'JANUS_COMPONENTS=${_COMPONENTS}'
       - 'JANUS_BUILD_ID=$BUILD_ID'
+      - 'JANUS_MODE=${_MODE}'
+      - 'JANUS_WBS_ID=${_WBS_ID}'
+      - 'JANUS_RELEASE_READY=${_RELEASE_READY}'
+      - 'JANUS_ACCEPTANCE_URI=${_ACCEPTANCE_URI}'
     args: ['-ceu', 'bash scripts/gcp/cicd-v2-build.sh prepare']
   - id: tests-and-security
     name: python:3.12-slim
@@ -26,30 +32,30 @@ steps:
     name: gcr.io/cloud-builders/docker
     entrypoint: bash
     env:
+      - 'JANUS_BUILD_ID=$BUILD_ID'
       - 'GOOGLE_USER_CLIENT_ID=${_GOOGLE_USER_CLIENT_ID}'
       - 'GOOGLE_ADMIN_CLIENT_ID=${_GOOGLE_ADMIN_CLIENT_ID}'
     args: ['-ceu', 'cd /workspace/v2-source && bash scripts/gcp/cicd-v2-build.sh build']
   - id: digest-readback
     name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
     entrypoint: bash
-    env: ['JANUS_BUILD_ID=$BUILD_ID']
+    env: ['JANUS_BUILD_ID=$BUILD_ID', 'JANUS_WBS_ID=${_WBS_ID}', 'JANUS_MODE=${_MODE}']
     args: ['-ceu', 'cd /workspace/v2-source && bash scripts/gcp/cicd-v2-build.sh receipt']
   - id: controlled-candidate-validation
     name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
     entrypoint: bash
     env:
       - 'JANUS_BUILD_ID=$BUILD_ID'
-      - 'JANUS_VALIDATE_CANDIDATES=${_VALIDATE_CANDIDATES}'
+      - 'JANUS_MODE=${_MODE}'
+      - 'JANUS_WBS_ID=${_WBS_ID}'
+      - 'JANUS_RELEASE_READY=${_RELEASE_READY}'
+      - 'JANUS_ACCEPTANCE_URI=${_ACCEPTANCE_URI}'
     args:
       - -ceu
       - |
-        if [[ "$${JANUS_VALIDATE_CANDIDATES}" == true ]]; then
-          cd /workspace/v2-source
-          python3 scripts/gcp/cicd-v2-candidate.py
-        else
-          [[ "$${JANUS_VALIDATE_CANDIDATES}" == false ]]
-          echo 'Shadow build only; candidate validation not requested.'
-        fi
+        cd /workspace/v2-source
+        python3 scripts/gcp/cicd-v2-candidate.py
+
 options:
   logging: CLOUD_LOGGING_ONLY
 timeout: 3600s

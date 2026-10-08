@@ -1,0 +1,65 @@
+name: Janus V2 selective CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['doc/**', '**/*.md']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: janus-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      needed: ${{ steps.plan.outputs.needed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - id: plan
+        env:
+          CI_BASE: ${{ github.event.before }}
+        run: python scripts/gcp/cicd-v2.py ci-plan --sha "$GITHUB_SHA" --base "$CI_BASE" --output ci-plan.json
+
+  tests:
+    needs: plan
+    if: needs.plan.outputs.needed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            jobs/ingestion-core/requirements.lock
+            jobs/intelligence-mart/requirements.lock
+            services/api/requirements.lock
+      - name: Install selected dependencies and run selected tests
+        env:
+          CI_TARGET: ${{ toJSON(matrix) }}
+          PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
+        run: |
+          python - <<'PY'
+          import json, os, subprocess, sys
+          target = json.loads(os.environ['CI_TARGET'])
+          for requirement in ['requirements-dev.txt', *target['requirements']]:
+              subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', requirement], check=True)
+          subprocess.run([sys.executable, '-m', 'pytest', '-q', *target['tests']], check=True)
+          PY

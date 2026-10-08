@@ -17,3 +17,17 @@
 - 資源／費用：新增停用 Trigger；使用者完成 GitHub connection 授權；沒有新增 VM／Job／bucket、提高 CPU/memory、IAM grant、production、掃描 API 或資料刪除。Cloud Build 實際 usage／帳單尚待實際 build 後讀回，未知不填零。
 - 首輪 Repository Trigger 手動 SHA build `c9a8ab87-d1f7-46a9-813e-a2e194a344f9`，sourceProvenance 為 Git SHA `1e5b6ba52a6ce9db5c233c70f6153ab7e0e8b12a`，無 GCS source staging。Tests 485 PASS／3 FAIL，原因為 test image 缺 `libgomp.so.1`；Docker build/push/deploy 未執行，證明 tests failure gate 生效。後續修復僅安裝 test container 的 libgomp1。
 - 清理前 Artifact Registry 盤點：15 versions、4,290,979,269 image bytes，missing-size=0。這是 registry metadata aggregate，不是帳單容量；尚未執行刪除。
+
+## CI／Release追加政策checkpoint
+
+- GitHub Connection：`tommy-github` COMPLETE；Janus repository source已連接。
+- Trigger同一ID `15f3d1cb-fbb2-447b-8f1a-cfd3173e321d`原地轉manual `sourceToBuild`，移除`repositoryEventConfig`，沒有新增trigger。
+- V2 shadow Build `29f80814-c0f2-471c-ab0c-aa2b17426a2c` SUCCESS；SHA `dfec48479e1641a7f7429023b07e9df9cd98cd72`。
+- 四元件digest：ingestion `a7a1352a3612bbc966acdfa3f5160b9ae70aed13f028c052294fab85b659f8a3`；Mart `53be0a226c4823d790f73f5a4a1af9d0b4ef733b6dac4555c9aafd1ccbd96477`；private `3c500bb683132e78ab2ed4e4b0c1dcfcf93e5c4acaea0b91faba2ea0cdb3425a`；API `251cbc9a6864214fe7b16a308d01cae9e14bb9f4016aff7202383e4142c535ed`，均為`sha256:`。
+- `v2/evidence/29f80814-c0f2-471c-ab0c-aa2b17426a2c/build-receipt.json`保存完整registry URI、tests PASS、runtime NOT_RUN。
+- 050版本化SQL经IAP在existing dev PostgreSQL執行：BEGIN／GRANT／publication schema+view ACL true／control private isolation true／INSERT marker／COMMIT；沒有新增resource或擴大IAM。
+- 原Push policy已被使用者追加政策取代；新的main Push只測試，正常runtime發布只能明確Release。四元件仍同一輪acceptance，不逐元件重新核准。
+
+- API no-traffic候選 `janus-api-v2-dfec48479e1641a7f742`：health、public health、未登入User／Admin 401、Flutter完整SHA／User+Admin bootstrap PASS；原positive traffic未變，Job images沒有更新。
+- 第一次候選在API mutation前因既有active Job停止；修正為candidate只讀Job，第二次有限嘗試完成。兩次receipt分別保存`candidate-receipt.json`及`candidate-2-receipt.json`，沒有覆寫失敗證據。
+- 真實browser候選登入顯示GSI origin不允許；已請使用者為既有User／Admin OAuth client加入固定`v2-candidate` origin。authenticated gates仍NOT_RUN，不偽造PASS、不升流量。

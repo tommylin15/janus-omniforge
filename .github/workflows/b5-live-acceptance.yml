@@ -1,16 +1,6 @@
 name: B5 live acceptance
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/b5-live-acceptance.yml'
-      - 'jobs/intelligence-mart/intelligence_mart/ml_oos_data.py'
-      - 'jobs/intelligence-mart/intelligence_mart/artifact_retention.py'
-      - 'jobs/intelligence-mart/intelligence_mart/__main__.py'
-      - 'scripts/gcp/b5-ml-oos-data.py'
-      - 'scripts/gcp/b2-lakehouse-acceptance.py'
-      - 'tests/test_b5_ml_oos_data.py'
   workflow_dispatch:
 
 permissions:
@@ -121,13 +111,8 @@ jobs:
           done
 
           if [[ ! -f /tmp/deploy.ok ]]; then
-            echo "B5 standard deploy did not converge; running bounded Mart deploy recovery"
-            set -o pipefail
-            bash scripts/gcp/deploy-dev.sh intelligence-mart 2>&1 | tee /tmp/b5-deploy.log
-            bash scripts/gcp/verify-dev.sh intelligence-mart 2>&1 | tee -a /tmp/b5-deploy.log
-            deployed_sha="$(read_sha)"
-            test "${deployed_sha}" = "${GITHUB_SHA}"
-            touch /tmp/deploy.ok
+            echo "B5 runtime differs; complete V2 Release before acceptance" >&2
+            exit 2
           fi
 
       - name: Export bounded versioned ML/OOS Parquet via Cloud Build

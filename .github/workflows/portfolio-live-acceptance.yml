@@ -1,11 +1,7 @@
 name: Portfolio Completeness Live Acceptance
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/portfolio-live-acceptance.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -31,12 +27,8 @@ jobs:
         run: >-
           gcloud builds submit --no-source
           --project="${GCP_PROJECT_ID}"
+          --region="${GCP_REGION}"
           --config=scripts/gcp/cloudbuild-private-stock-master-acl.yaml
-      - name: Deploy current private pipeline
-        env:
-          GOOGLE_USER_CLIENT_ID: ${{ vars.GOOGLE_USER_CLIENT_ID }}
-          GOOGLE_ADMIN_CLIENT_ID: ${{ vars.GOOGLE_ADMIN_CLIENT_ID }}
-        run: bash scripts/gcp/deploy-dev.sh private-pipeline
       - name: Verify current private pipeline
         run: bash scripts/gcp/verify-dev.sh private-pipeline
       - name: Execute private pipeline against real dev data
@@ -45,10 +37,5 @@ jobs:
           --project="${GCP_PROJECT_ID}"
           --region="${GCP_REGION}"
           --wait
-      - name: Deploy current API and User UI
-        env:
-          GOOGLE_USER_CLIENT_ID: ${{ vars.GOOGLE_USER_CLIENT_ID }}
-          GOOGLE_ADMIN_CLIENT_ID: ${{ vars.GOOGLE_ADMIN_CLIENT_ID }}
-        run: bash scripts/gcp/deploy-dev.sh api
       - name: Verify current API and User UI
         run: bash scripts/gcp/verify-dev.sh api

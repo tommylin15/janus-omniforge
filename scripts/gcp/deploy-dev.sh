@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# GitHub Actions is the deployment controller for dev. This script deliberately
+# Push is CI only. Explicit manual recovery remains available during transition.
+if [[ "${GITHUB_EVENT_NAME:-}" == push ]]; then
+  echo "Runtime deployment requires an explicit V2 Release, not a Push." >&2
+  exit 2
+fi
+
+# Manual recovery only; normal releases use the V2 regional trigger. This script
 # does not call Terraform; Cloud Build builds/pushes the image and may stage the
 # runtime image, while this script applies the canonical runtime configuration.
 # All runtime builds submit the repository root as their Docker context, so
@@ -61,6 +67,25 @@ if [[ "${ALLOW_DEV_DEPLOY:-false}" != "true" ]]; then
   echo "Refusing deployment: set ALLOW_DEV_DEPLOY=true explicitly." >&2
   exit 1
 fi
+
+# Manual recovery shares the V2 project mutex; failure retains it for inspection.
+lock_uri="gs://${project}-cloudbuild-regional/v2/deployment-lock.json"
+lock_file="$(mktemp)"
+printf '{"sha":"%s","github_run_id":"%s","mode":"legacy-recovery"}\n' "${git_sha}" "${GITHUB_RUN_ID:-local}" > "${lock_file}"
+gcloud storage cp "${lock_file}" "${lock_uri}" --if-generation-match=0 --quiet
+lock_generation="$(gcloud storage objects describe "${lock_uri}" --format='value(generation)')"
+recovery_exit() {
+  status=$?
+  trap - EXIT
+  rm -f "${lock_file}"
+  if [[ "${status}" == 0 ]]; then
+    gcloud storage rm "${lock_uri}" --if-generation-match="${lock_generation}" --quiet
+  else
+    echo 'Recovery failed; project mutex retained. Inspect original run before retry.' >&2
+  fi
+  exit "${status}"
+}
+trap recovery_exit EXIT
 
 gcloud builds submit . \
   --project="${project}" \

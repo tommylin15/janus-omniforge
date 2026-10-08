@@ -337,3 +337,15 @@ def test_cicd_migration_failure_stops_next_migration(monkeypatch):
     with pytest.raises(RuntimeError, match='migration failed'):
         migration.cicd_readiness(control, apply_missing=True)
     assert attempts == missing[:1]
+
+
+def test_holdings_acl_fetches_select_result_in_separate_statement(monkeypatch):
+    class Cursor(FakeCursor):
+        def fetchone(self):
+            if not self._last.lstrip().startswith('SELECT'):
+                raise RuntimeError('first result has no rows')
+            return super().fetchone()
+    publication = FakeConnection('janus_publication')
+    publication.cursor = lambda: Cursor('janus_publication')
+    monkeypatch.setattr(migration, '_publication_connection', lambda: publication)
+    migration.run(FakeControl(), migration.MIGRATION_HOLDINGS_PREVIOUS_CLOSE)

@@ -143,3 +143,18 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 - Active SPEC／WBS／TODO／UI 與使用者可見文案以繁體中文為主。
 - API path、schema 欄位、程式識別字、WBS ID、provider／model／product 名稱保留原文。
 - 歷史紀錄與測試證據可保留原始語言，只要不被誤認為目前使用者契約。
+
+## 12. CI／Release 分離（2026-10-08 使用者追加政策）
+
+- GitHub `main` Push 只自動執行依路徑與相依性選擇的必要輕量 CI；文件可略過不必要程式測試，不預設中間 commit 使用 `[skip ci]`。一般 Push 不部署 Cloud Run Service／Job。
+- Runtime 發布只由明確啟動的 regional Cloud Build Release Trigger 進行。每個 WBS／使用者指定工作包原則上是一個發布單位；工程 agent 在工作包 Ready 後主動觸發既有 dev Release，不需逐元件或逐次重新授權。
+- Ready gate：程式與必要文件完成、review／必要 CI PASS、migration／權限／依賴 preflight PASS、runtime 選擇明確、無衝突 deployment，才啟動集中 Release；部署後真實 GCP dev acceptance 全 PASS 才 CLOSED。純研究／資料作業／不變更 runtime 的工作包不強制 Docker Build。
+- Release 使用完整 Git SHA、WBS／工作包 ID及上次成功發布 SHA；範圍由上次成功發布版本到目標版本計算，不能只看最後一個中間 commit。已成功 marker 的 migration 不重跑。
+- 開發測試仍允許已授權真實 GCS／Iceberg、bounded BigQuery probe、API no-traffic Candidate、受控 Job execution、migration preflight、API／MCP／PostgreSQL 整合。測試通道不得切現役 API 流量或更新既有排程使用的 Job image；Job image 更新屬 Release。
+- 專案及必要的共用 runtime 採 deployment mutex；相同 SHA 重試保持冪等，過期 SHA 不得覆蓋新版。更新 Job 前核對 active execution／Scheduler；不取消、重送或重複啟動既有 Batch Controller／月度模型／Private Recalculation。PIT／canonical／provenance／owner isolation 保留。
+- 新版本 live acceptance 完成前保留上一可用 image／設定／evidence；失敗須可回復，不清除 recovery 所需 image。新版 PASS 後才依完整 digest 引用／candidate 保留集合做 dry-run、bounded 清理、容量 readback；不依 tag 猜測可刪 image。
+- Cloud Build／Trigger 固定 `us-central1`，logs `CLOUD_LOGGING_ONLY`；Repository Source 優先，必要 staging／evidence／mutex 只使用既有核准 regional bucket。禁止重建／引用 legacy Multi-region bucket，不新增未授權付費資源、掃描 API、權限或 production。
+- 每次 Release 記錄 WBS、SHA、baseline、Build、digest、migration、deployment、runtime、acceptance 與 failure classification。等待必須有 bounded timeout／heartbeat／有限重試；unknown execution 不重送、timeout 不當 PASS。若專案有 recovering-stuck-ci-deploys 規則則遵守，否則使用本 repository 的 bounded recovery runbook。
+- `AGENTS.md` 只引用本權威文件；Runbook 記實際操作，不另維護第二套政策。
+- 任何 commit／push 前必須先執行 `/ponytail-review`；完成工作前檢查規則、適用 tests／lint／驗證，說明修改、真實證據與未決事項。
+- 存取既有 GCP／gcloud credentials 或執行 GCP dev acceptance 的指令使用 `sandbox_permissions=require_escalated`；僅限既有 dev 範圍。WSL 可執行 dev migration／Linux shell 驗證／GCP dev acceptance，不可用於 production 或擴大付費資源。

@@ -1,17 +1,6 @@
 name: B3 live acceptance
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/b3-live-acceptance.yml'
-      - 'scripts/gcp/b3-screening-canary.py'
-      - 'scripts/gcp/b2-lakehouse-acceptance.py'
-      - 'jobs/intelligence-mart/intelligence_mart/market_screening.py'
-      - 'jobs/intelligence-mart/intelligence_mart/bigquery_reader.py'
-      - 'jobs/ingestion-core/ingestion_core/batch_controller.py'
-      - 'tests/test_market_screening.py'
-      - 'tests/test_bigquery_reader.py'
   workflow_dispatch:
 
 permissions:
@@ -67,11 +56,9 @@ jobs:
           python -m py_compile scripts/gcp/b3-screening-canary.py
           touch /tmp/tests.ok
 
-      - name: Deploy B3 controller and Mart runtime
+      - name: Verify released B3 controller and Mart runtime
         run: |
-          bash scripts/gcp/deploy-dev.sh ingestion-core
           bash scripts/gcp/verify-dev.sh ingestion-core
-          bash scripts/gcp/deploy-dev.sh intelligence-mart
           bash scripts/gcp/verify-dev.sh intelligence-mart
           gcloud run jobs describe "${MART_JOB}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json > /tmp/mart-job.json
           gcloud run jobs describe "${CONTROLLER_JOB}" --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" --format=json > /tmp/controller-job.json

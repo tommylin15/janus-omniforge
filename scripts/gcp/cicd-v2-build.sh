@@ -20,13 +20,23 @@ case "${1:-}" in
     git -C /workspace/v2-source checkout -q --detach FETCH_HEAD
     cd /workspace/v2-source
     [[ "$(git rev-parse HEAD)" == "${sha}" ]]
+    python3 scripts/gcp/cicd-v2.py release-context --sha "${sha}" --output "${state}/context.json"
+    published_base="$(python3 -c 'import json; print(json.load(open("/workspace/v2-state/context.json"))["base"] or "")')"
+    if [[ -n "${published_base}" ]]; then
+      [[ -z "${JANUS_BASE_SHA:-}" || "${JANUS_BASE_SHA}" == "${published_base}" ]]
+      JANUS_BASE_SHA="${published_base}"
+    elif [[ "${JANUS_MODE:-shadow}" == release ]]; then
+      # First release is an explicit all-runtime bootstrap; no invented success SHA.
+      JANUS_BASE_SHA=""
+      JANUS_COMPONENTS=all
+    fi
     flags=(--sha "${sha}" --output "${state}/plan.json")
     if [[ -n "${JANUS_BASE_SHA:-}" ]]; then
       [[ "${JANUS_BASE_SHA}" =~ ^[0-9a-f]{40}$ ]]
       git fetch -q --depth=1 origin "${JANUS_BASE_SHA}"
       flags+=(--base "${JANUS_BASE_SHA}")
     fi
-    if [[ "${JANUS_COMPONENTS:-all}" != all ]]; then
+    if [[ "${JANUS_COMPONENTS:-all}" != all && "${JANUS_MODE:-shadow}" != release ]]; then
       IFS=, read -ra components <<< "${JANUS_COMPONENTS}"
       for component in "${components[@]}"; do flags+=(--component "${component}"); done
     fi
@@ -38,6 +48,11 @@ plan = json.loads((state / 'plan.json').read_text())
 (state / 'components').write_text('\n'.join(plan['components']) + '\n')
 (state / 'sha').write_text(plan['sha'])
 PY
+    # Reuse only an existing successful SHA receipt, never a mutable tag.
+    index="gs://${project}-cloudbuild-regional/v2/builds/${sha}.json"
+    if [[ -n "$(gcloud storage objects list "gs://${project}-cloudbuild-regional/v2/**" --filter="name:v2/builds/${sha}.json" --format='value(name)')" ]]; then
+      gcloud storage cp "${index}" "${state}/reuse.json" --quiet
+    fi
     ;;
   test)
     [[ -s "${state}/plan.json" ]]
@@ -69,6 +84,15 @@ PY
     [[ -f "${state}/tests-pass" ]]
     while IFS= read -r component; do
       [[ -n "${component}" ]] || continue
+      if [[ -f "${state}/reuse.json" ]]; then
+        python - "${state}/reuse.json" "${sha}" "${component}" <<'PY'
+import json, sys
+receipt = json.load(open(sys.argv[1]))
+assert receipt['sha'] == sys.argv[2] and receipt['tests'] == 'PASS'
+assert sys.argv[3] in receipt['images']
+PY
+        continue
+      fi
       flags=()
       case "${component}" in
         ingestion-core) dockerfile=jobs/ingestion-core/Dockerfile ;;
@@ -85,7 +109,7 @@ PY
         *) echo 'Unsupported component' >&2; exit 2 ;;
       esac
       # The two API targets share the same Docker daemon/base cache.
-      image="${repository}/${component}:v2-${sha}"
+      image="${repository}/${component}:v2-${sha}-${JANUS_BUILD_ID}"
       docker build --file="${dockerfile}" "${flags[@]}" --build-arg="JANUS_GIT_SHA=${sha}" --tag="${image}" .
       docker push "${image}"
     done < "${state}/components"
@@ -97,14 +121,20 @@ state, repository, project = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
 plan = json.loads((state / 'plan.json').read_text())
 images = {}
 for component in plan['components']:
-    result = subprocess.run(['gcloud', 'artifacts', 'docker', 'images', 'describe',
-        f"{repository}/{component}:v2-{plan['sha']}", f'--project={project}',
+    if (state / 'reuse.json').exists():
+        images[component] = json.loads((state / 'reuse.json').read_text())['images'][component]
+        subprocess.run(['gcloud', 'artifacts', 'docker', 'images', 'describe', images[component],
+                        f'--project={project}', '--format=value(image_summary.digest)'], check=True, timeout=60)
+        continue
+    result = subprocess.run(['gcloud', 'artifacts' , 'docker', 'images', 'describe',
+        f"{repository}/{component}:v2-{plan['sha']}-{os.environ['JANUS_BUILD_ID']}", f'--project={project}',
         '--format=value(image_summary.digest)'], capture_output=True, text=True, check=True, timeout=60)
     digest = result.stdout.strip()
     assert re.fullmatch(r'sha256:[0-9a-f]{64}', digest)
     images[component] = f'{repository}/{component}@{digest}'
 receipt = {**plan, 'build_id': os.environ['JANUS_BUILD_ID'], 'images': images,
            'tests': 'PASS' if images else 'controller-contracts-only',
+           'wbs_id': os.environ.get('JANUS_WBS_ID', ''), 'mode': os.environ.get('JANUS_MODE', 'shadow'),
            'runtime_acceptance': 'NOT_RUN', 'promotion': 'NOT_RUN', 'status': 'SHADOW_BUILD_ONLY'}
 (state / 'build-receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
 print(json.dumps(receipt))
@@ -113,6 +143,11 @@ PY
     gcloud storage cp "${state}/build-receipt.json" \
       "gs://${project}-cloudbuild-regional/v2/evidence/${JANUS_BUILD_ID}/build-receipt.json" \
       --if-generation-match=0 --quiet
+    if [[ ! -f "${state}/reuse.json" && -n "$(tr -d '[:space:]' < "${state}/components")" ]]; then
+      gcloud storage cp "${state}/build-receipt.json" \
+        "gs://${project}-cloudbuild-regional/v2/builds/$(cat "${state}/sha").json" \
+        --if-generation-match=0 --quiet
+    fi
     ;;
   *) echo 'Usage: cicd-v2-build.sh prepare|test|build|receipt' >&2; exit 2 ;;
 esac

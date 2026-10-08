@@ -1,26 +1,25 @@
-# Janus CI/CD V2 — 轉換期契約
+# Janus CI/CD V2 — 實作與驗收狀態
 
-本次使用者明確指定四元件改造；不改 B7／B8／B9 業務範圍。目前是 **PARTIAL**，GitHub Actions 仍是已啟用的 canonical controller。V2 Trigger 在四元件 live gate 與切換完成前保持停用。
+政策權威為 [PROJECT_RULES §12](../PROJECT_RULES.md#12-cirelease-分離2026-10-08-使用者追加政策)。本工作接續既有四元件改造，目前 **PARTIAL**。
 
-## 已實作邊界
+## 目前實作
 
-- `cloudbuild-v2.yaml`：固定 SHA 取源 → tests/security → 四元件 target build/push → digest receipt；預設 shadow-only，不更新 runtime。
-- `scripts/gcp/cicd-v2.py`：變更選擇、共用依賴展開、legacy bucket inventory、image digest 引用 dry-run。文件不選 runtime。
-- `scripts/gcp/cicd-v2-candidate.py`：既有 regional bucket generation-precondition mutex；拒絕舊 main SHA；短暫暫停既有 enabled Janus Scheduler，確認 Job／Controller 無 active execution；API no-traffic 候選；Job 受控 image 更新與 bounded smoke；Job 回復原 image、Scheduler 恢復原狀態。
-- API 候選 gate 驗 health、未登入 User/Admin 拒絕、Flutter User/Admin SHA。**尚未驗 authenticated OAuth／A-B owner isolation／真實持股損益，不得升流量。**
-- Ingestion `JANUS_CICD_READINESS=check|apply-missing` 使用既有 DB identities，按 041～050 支援順序只補缺少 marker，讀回 schema／ACL；050 的 publication ACL 在 publication owner connection 下驗，不授予 control identity 額外權限。
-- Mart smoke 使用既有 `specialist-smoke`；Private smoke 只讀 mobile queue availability／owner binding，不觸發大量重算。
-- `cloudbuild.yaml` 原 tag-based 自動刪 image 已移除。dry-run 保護所有盤點到的 revision／Job／execution／明確候選 digest；permission、mutable reference、欄位缺失都 fail-closed。跨區引用與完整 acceptance receipt 尚未補齊前，不允許 delete。
+- `ci-v2.yml` 在 main Push 選擇必要 Python suites／相依 lock，文件略過；沒有 GCP credential 或 runtime deployment。
+- `janus-dev-v2` 是同一個 `us-central1` manual Repository Source Trigger，沒有 Push event。`cloudbuild-v2.yaml` 預設 shadow；候選與 Release 必須明確指定 mode。
+- Release planner 讀既有 regional bucket `v2/published.json` 的成功 SHA，從完整 baseline 計算變更。首次發布建四元件；指定 component 不能縮減正式 Release 範圍。
+- Release 必須提供工作包 ID、Ready flag及 exact-SHA CI success。SHA image index 只重用已成功 build receipt，image 以 digest部署；build tag包含 Build ID，避免覆蓋同 SHA 的另一個 build。
+- Candidate 只更新 API no-traffic revision；Job及Scheduler只讀。HTTP health、未登入 User／Admin拒絕及Flutter SHA gate不代表 authenticated acceptance。
+- Release controller使用 regional object generation mutex、main SHA fence、Job idle fence、設定 snapshot／rollback、Scheduler pause／restore，以及 published state generation CAS。Job更新僅存在 Release分支。
+- Release升流量前必須取得同 SHA／完整 digest集合的真實驗收 evidence，包含 migration、權限／依賴、ingestion、Mart、private queue、owner isolation、OAuth、canonical PnL與MCP。缺少任何 gate均 fail-closed；不得手寫 PASS 代替驗收。
+- 050 migration分 publication／control owner檢查，psycopg SELECT與GRANT分開執行；readiness只查／補缺marker。
+- 舊 Push deployment與B3／B5／Portfolio驗收中的部署fallback已移除；舊`deploy-dev.yml`只保留明確人工 recovery。
+- Image cleanup目前只有 digest-fenced dry-run；尚未完成全引用盤點與新版 live PASS，沒有刪 image。
 
-## 尚待驗收／實作
+## 未完成的必要 evidence
 
-1. Repository Trigger 新版本 build、四元件 candidate 與 authenticated live acceptance。
-2. canonical promotion、各元件已發布 SHA 的持久化 baseline、same-SHA 冪等 readback、每次 promotion 前 SHA fence、失敗 rollback 與人工指定 SHA/component 重跑。
-3. legacy GitHub controller 切換／退役與真實 main push V2 全鏈驗收。
-4. 跨區引用盤點、candidate receipt 保留集合、可審核 dry-run → bounded image delete → 容量 readback。
+1. 最新分離版本 main Push selective CI與明確 Release完整鏈。
+2. 四元件 target image的完整真實 dev acceptance，包含 authenticated owner／OAuth／PnL／MCP。
+3. canonical promotion／same-SHA重試／baseline readback與failure recovery真實驗收。
+4. 所有有效 revision、跨區 runtime、execution及候選 evidence引用集合的清理與容量讀回。
 
-上述未完成之前不得標記 V2 CLOSED。既有 owner queue、Secret／IAM／資源規格／Scheduler 契約與資料治理不變。Cloud Build logs 使用 `CLOUD_LOGGING_ONLY`，所有 build／trigger 固定 `us-central1`；只使用既有 regional bucket 保存小型 evidence／mutex，不新增 staging／logs bucket，不啟用 Artifact Analysis。
-
-## 證據
-
-目前 checkpoint 見 [V2 盤點](../archive/cicd-v2-inventory-2026-10-08.md)。Runbook 只記可重跑操作，不固定 SHA／Build ID。
+完整 checkpoint見 [V2盤點](../archive/cicd-v2-inventory-2026-10-08.md)。Build SUCCESS或migration成功不等於V2 CLOSED。

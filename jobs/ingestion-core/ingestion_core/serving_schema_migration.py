@@ -320,12 +320,14 @@ def _apply_holdings_previous_close(control: Any) -> None:
     try:
         publication_sql, finalize = text.split("-- PHASE: control-finalize", 1)
         checks, record = finalize.split("INSERT INTO control.schema_migrations", 1)
+        publication_prepare, publication_checks = publication_sql.split("SELECT has_schema_privilege", 1)
 
         publication = _publication_connection()
         try:
             with publication.transaction(), publication.cursor() as cursor:
                 _require_current_user(cursor, "janus_publication")
-                cursor.execute(_without_role_lines(publication_sql))
+                cursor.execute(_without_role_lines(publication_prepare))
+                cursor.execute(_without_role_lines("SELECT has_schema_privilege" + publication_checks))
                 row = cursor.fetchone()
                 if row is None or not all(bool(value) for value in row):
                     raise RuntimeError("holdings reference view permission unavailable")

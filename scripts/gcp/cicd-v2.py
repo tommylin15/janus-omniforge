@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
+import shutil
 from pathlib import Path
 
 PROJECT = "gen-lang-client-0593591102"
@@ -12,6 +14,44 @@ REGION = "us-central1"
 COMPONENTS = ("ingestion-core", "intelligence-mart", "private-pipeline", "api")
 SHA = re.compile(r"[0-9a-f]{40}")
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_suites() -> dict[str, list[str]]:
+    workflow = (ROOT / ".github/workflows/deploy-dev.yml").read_text(encoding="utf-8")
+    suites = {}
+    for group in ("ingestion", "mart", "api"):
+        block = workflow.split(f"  test-{group}:\n", 1)[1]
+        block = re.split(r"\n  [a-z][a-z-]+:\n", block, maxsplit=1)[0]
+        suites[group] = sorted(set(re.findall(r"tests/[a-zA-Z0-9_/]+\.py", block)))
+    suites["controller"] = ["tests/test_cicd_v2.py", "tests/test_container_build_contract.py",
+                            "tests/test_serving_schema_migration.py", "tests/test_portfolio_deploy_contract.py"]
+    return suites
+
+
+def ci_matrix(paths: list[str]) -> dict:
+    suites = test_suites()
+    groups: dict[str, set[str]] = {}
+    requirements = {"ingestion": ["jobs/ingestion-core/requirements.lock"],
+                    "mart": ["jobs/intelligence-mart/requirements.lock"],
+                    "api": ["services/api/requirements.lock"], "controller": ["requirements-ci.txt"]}
+    component_group = {"ingestion-core": "ingestion", "intelligence-mart": "mart",
+                       "private-pipeline": "api", "api": "api"}
+    for path in paths:
+        if path.endswith('.md') or path.startswith('doc/'):
+            continue
+        if path.startswith(("scripts/gcp/cicd-v2", "scripts/gcp/deploy-dev", "scripts/gcp/verify-dev", ".github/workflows/", "infra/postgres/", "infra/gcp/")) or path.startswith('cloudbuild') or path == 'requirements-ci.txt':
+            groups.setdefault("controller", set()).update(suites["controller"])
+        elif path.startswith("tests/") and path.endswith('.py'):
+            matching = ["controller"] if path in suites["controller"] else [group for group, tests in suites.items() if path in tests]
+            for group in matching or ["api"]:
+                groups.setdefault(group, set()).add(path)
+        else:
+            for component in select_components([path]):
+                group = component_group[component]
+                groups.setdefault(group, set()).update(suites[group])
+    return {"include": [{"group": group, "requirements": requirements[group], "tests": sorted(tests)}
+                        for group, tests in sorted(groups.items())]}
 
 
 def select_components(paths: list[str]) -> list[str]:
@@ -39,6 +79,8 @@ def select_components(paths: list[str]) -> list[str]:
 def run(*args: str) -> str:
     # Never print argv or subprocess output on failure: future commands may
     # contain sensitive metadata. gcloud commands here only query safe fields.
+    if args[0] == "gcloud":
+        args = (shutil.which("gcloud.cmd" if os.name == "nt" else "gcloud") or "gcloud", *args[1:])
     result = subprocess.run(args, capture_output=True, text=True, timeout=120)
     if result.returncode:
         raise RuntimeError(f"command failed: {args[0]}")
@@ -122,20 +164,46 @@ def cleanup_plan(candidate_images: list[str]) -> dict:
             "delete_allowed": False, "reason": "cross-region and candidate receipts required"}
 
 
+def release_context(state: Path, sha: str, mode: str) -> str | None:
+    if mode not in {"shadow", "candidate", "release"}:
+        raise ValueError("invalid mode")
+    uri = f"gs://{PROJECT}-cloudbuild-regional/v2/published.json"
+    objects = gcloud("storage", "objects", "list", f"gs://{PROJECT}-cloudbuild-regional/v2/**", "--filter=name:v2/published.json")
+    baseline = None
+    generation = "0"
+    if objects:
+        published = json.loads(run("gcloud", "storage", "cat", uri))
+        if published.get("status") != "PASS" or not SHA.fullmatch(published.get("sha", "")):
+            raise ValueError("invalid published baseline")
+        baseline = published["sha"]
+        generation = run("gcloud", "storage", "objects", "describe", uri, "--format=value(generation)")
+    (state / "baseline-generation").write_text(generation)
+    if mode == "release":
+        if os.environ.get("JANUS_RELEASE_READY") != "true" or not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", os.environ.get("JANUS_WBS_ID", "")):
+            raise ValueError("Release Ready and work package ID required")
+        from urllib.request import urlopen
+        runs = json.loads(urlopen(f"https://api.github.com/repos/tommylin15/janus-omniforge/actions/workflows/ci-v2.yml/runs?head_sha={sha}&per_page=10", timeout=30).read())["workflow_runs"]
+        if not any(r.get("head_sha") == sha and r.get("conclusion") == "success" for r in runs):
+            raise RuntimeError("exact SHA selective CI has not passed")
+    return baseline
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("plan", "inventory", "cleanup-plan"))
+    parser.add_argument("action", choices=("plan", "ci-plan", "release-context", "inventory", "cleanup-plan"))
     parser.add_argument("--sha")
     parser.add_argument("--base")
     parser.add_argument("--component", action="append", choices=COMPONENTS)
     parser.add_argument("--candidate", action="append", default=[])
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
-    if args.action == "plan":
+    if args.action in {"plan", "ci-plan"}:
         if not args.sha or not SHA.fullmatch(args.sha):
             parser.error("full immutable commit SHA required")
         if run("git", "rev-parse", "HEAD") != args.sha:
             raise ValueError("checkout SHA mismatch")
+        if args.base == "0" * 40:
+            args.base = None
         if args.base and not SHA.fullmatch(args.base):
             parser.error("full immutable base SHA required")
         # Explicit components are the bounded manual repair interface; an
@@ -144,6 +212,14 @@ def main():
         result = {"sha": args.sha, "base": args.base,
                   "components": args.component or (select_components(paths) if args.base else list(COMPONENTS)),
                   "changed_paths": paths}
+        if args.action == "ci-plan":
+            result = ci_matrix(paths) if args.base else ci_matrix(["packages/"])
+            if os.environ.get("GITHUB_OUTPUT"):
+                with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+                    output.write("matrix=" + json.dumps(result, separators=(",", ":")) + "\n")
+                    output.write("needed=" + str(bool(result["include"])).lower() + "\n")
+    elif args.action == "release-context":
+        result = {"base": release_context(Path(args.output).parent, args.sha, os.environ.get("JANUS_MODE", "shadow"))}
     elif args.action == "inventory":
         result = inventory()
     else:

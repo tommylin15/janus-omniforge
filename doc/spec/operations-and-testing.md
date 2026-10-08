@@ -1,6 +1,6 @@
-# CI/CD V2 latest checkpoint（2026-10-08）
+# CI/CD V2接續（2026-10-08）
 
-V2 **PARTIAL**，尚無新版本 build／deployment／live acceptance；40 local contracts PASS、050 owner-phase 修復後31 PASS，shell PASS。Connection COMPLETE，regional Trigger 已建但 disabled；既有 API／Jobs 未因本次改造切換。legacy US bucket由同專案另一部署器建立，未刪除。完整 bounded 盤點見 [checkpoint](../archive/cicd-v2-inventory-2026-10-08.md)，現行轉換契約見 [CI/CD V2](cicd-v2.md)。
+V2 **PARTIAL**。60 targeted contracts PASS；shadow Build `29f80814-c0f2-471c-ab0c-aa2b17426a2c` SUCCESS，exact SHA `dfec48479e1641a7f7429023b07e9df9cd98cd72`，四元件digest receipt已保存regional bucket。首輪Build `c9a8ab87-d1f7-46a9-813e-a2e194a344f9`因OpenMP相依失敗，未進Docker build；修正後成功。050已在existing dev PostgreSQL完成transaction，publication schema/view ACL為true、public role private isolation為true。Trigger `15f3d1cb-fbb2-447b-8f1a-cfd3173e321d`已原地改為manual Repository Source；最新CI、live acceptance／promotion／cleanup尚未PASS。legacy US bucket仍由另一系統使用，未刪。
 
 # Operations and testing
 

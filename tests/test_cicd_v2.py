@@ -66,9 +66,45 @@ def test_shadow_pipeline_is_fail_closed_and_logs_regional_only():
     build = (ROOT / 'cloudbuild-v2.yaml').read_text()
     script = (ROOT / 'scripts/gcp/cicd-v2-build.sh').read_text()
     assert build.index('tests-and-security') < build.index('build-and-push-candidates')
-    assert '_VALIDATE_CANDIDATES: "false"' in build
+    assert '_MODE: "shadow"' in build
     assert 'CLOUD_LOGGING_ONLY' in build
     assert 'gcloud builds submit' not in script
     assert '--if-generation-match=0' in script
     assert 'tests-pass' in script
     assert 'apt-get install -y --no-install-recommends libgomp1' in script
+
+
+def test_ci_selects_only_affected_tests_and_controller_dependencies():
+    assert v2.ci_matrix(["doc/status.md"])["include"] == []
+    matrix = v2.ci_matrix(["jobs/intelligence-mart/intelligence_mart/specialists.py"])
+    assert [row["group"] for row in matrix["include"]] == ["mart"]
+    controller = v2.ci_matrix(["cloudbuild-v2.yaml"])["include"][0]
+    assert controller["requirements"] == ["requirements-ci.txt"]
+    assert v2.ci_matrix(["tests/test_cicd_v2.py"])["include"][0]["tests"] == ["tests/test_cicd_v2.py"]
+
+
+def test_push_has_no_canonical_runtime_deployment():
+    for name in ("deploy-dev.yml", "b3-live-acceptance.yml", "b5-live-acceptance.yml", "portfolio-live-acceptance.yml"):
+        workflow = (ROOT / ".github/workflows" / name).read_text()
+        assert "  push:" not in workflow
+    for name in ("b3-live-acceptance.yml", "b5-live-acceptance.yml", "portfolio-live-acceptance.yml"):
+        assert "bash scripts/gcp/deploy-dev.sh" not in (ROOT / ".github/workflows" / name).read_text()
+    assert "  push:" in (ROOT / ".github/workflows/ci-v2.yml").read_text()
+
+
+def test_manual_release_and_acceptance_fail_closed():
+    import json
+    trigger = json.loads((ROOT / "infra/gcp/cicd-v2-trigger.json").read_text())
+    assert "repositoryEventConfig" not in trigger
+    assert trigger["sourceToBuild"]["repository"].endswith("tommylin15-janus-omniforge")
+    candidate_spec = importlib.util.spec_from_file_location("candidate", ROOT / "scripts/gcp/cicd-v2-candidate.py")
+    candidate = importlib.util.module_from_spec(candidate_spec)
+    candidate_spec.loader.exec_module(candidate)
+    receipt = {"sha": "a" * 40, "images": {"api": "image@sha256:" + "b" * 64}}
+    with pytest.raises(ValueError):
+        candidate.validate_acceptance({"sha": "c" * 40}, receipt)
+    with pytest.raises(RuntimeError):
+        candidate.validate_acceptance({**receipt, "gates": {}}, receipt)
+    source = (ROOT / "scripts/gcp/cicd-v2-candidate.py").read_text()
+    assert "for component in v2.COMPONENTS[:-1] if release else []" in source
+    assert "for schedule in schedules if release else []" in source

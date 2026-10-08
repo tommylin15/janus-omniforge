@@ -1,7 +1,7 @@
 # 本次明確指令：CI/CD V2（PARTIAL）
 
 - [ ] 四元件 Repository Trigger → tests/security/migration → immutable build → candidate → authenticated live acceptance → promotion → readback → digest-fenced cleanup 完整閉環。
-- [ ] 最新版本真實 main push 全鏈 PASS；確認只剩一個 canonical controller後退役舊自動入口。
+- [ ] 最新版本 main Push selective CI PASS；明確 Release 四元件 dev acceptance／promotion PASS，確認只有一個正常 runtime發布入口。
 - [ ] 持久化 published SHA baseline／same-SHA idempotency、舊 SHA fence、promotion／rollback與安全人工重跑。
 - [ ] 追蹤 legacy bucket 跨系統再建立來源；不刪其他系統 source／Janus 業務資料；cleanup dry-run／apply／容量讀回。
 
