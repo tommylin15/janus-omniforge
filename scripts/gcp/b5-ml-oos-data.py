@@ -9,7 +9,9 @@ from hashlib import sha256
 import json
 from pathlib import Path
 import runpy
+import signal
 import sys
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -29,6 +31,58 @@ MODEL_VERSION = "deterministic-v1"
 LABEL_HORIZON = 20
 COHORT_STRIDE = 5
 LOOKBACK_CALENDAR_DAYS = 241
+STAGE_HEARTBEAT_SECONDS = 10
+
+
+def stage_call(label: str, timeout_seconds: float, action):
+    """Bound external calls by wall time and emit safe stage heartbeats."""
+    if timeout_seconds <= 0:
+        raise TimeoutError(f"B5 stage deadline exhausted: {label}")
+    if threading.current_thread() is not threading.main_thread():
+        raise RuntimeError("B5 stage deadline must run on the main thread")
+    started = time.monotonic()
+    stop = threading.Event()
+
+    def expired(_signum, _frame):
+        raise TimeoutError(f"B5 stage timeout: {label} ({timeout_seconds:.1f}s)")
+
+    def heartbeat():
+        while not stop.wait(STAGE_HEARTBEAT_SECONDS):
+            print(
+                f"B5_STAGE event=heartbeat stage={label} "
+                f"elapsed_seconds={time.monotonic() - started:.1f}",
+                flush=True,
+            )
+
+    print(f"B5_STAGE event=start stage={label} timeout_seconds={timeout_seconds:.1f}", flush=True)
+    previous = signal.getsignal(signal.SIGALRM)
+    signal.signal(signal.SIGALRM, expired)
+    signal.setitimer(signal.ITIMER_REAL, timeout_seconds)
+    watcher = threading.Thread(target=heartbeat, daemon=True)
+    watcher.start()
+    try:
+        result = action()
+    except BaseException as exc:
+        print(
+            f"B5_STAGE event=failed stage={label} "
+            f"elapsed_seconds={time.monotonic() - started:.1f} error_type={type(exc).__name__}",
+            flush=True,
+        )
+        raise
+    else:
+        print(
+            f"B5_STAGE event=complete stage={label} "
+            f"elapsed_seconds={time.monotonic() - started:.1f}",
+            flush=True,
+        )
+        return result
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous)
+        stop.set()
+        watcher.join(timeout=0.2)
+
+
 
 
 def gcs_bytes(b2, uri: str) -> bytes:
@@ -150,10 +204,14 @@ class QueryBudget:
 
     def dry_run(self, sql: str) -> int | None:
         from google.cloud import bigquery
-        job = self.client.query(
-            sql,
-            location=LOCATION,
-            job_config=bigquery.QueryJobConfig(dry_run=True, use_query_cache=False),
+        job = stage_call(
+            "bigquery-dry-run", 40,
+            lambda: self.client.query(
+                sql,
+                location=LOCATION,
+                job_config=bigquery.QueryJobConfig(dry_run=True, use_query_cache=False),
+                timeout=35,
+            ),
         )
         value = job.total_bytes_processed
         if value is not None and value > BUDGET:
@@ -165,20 +223,29 @@ class QueryBudget:
         if self.remaining <= 0:
             raise RuntimeError("B5 BigQuery execution budget exhausted")
         started = time.monotonic()
-        job = self.client.query(
-            sql,
-            location=LOCATION,
-            job_config=bigquery.QueryJobConfig(
-                use_query_cache=False,
-                maximum_bytes_billed=self.remaining,
-                labels={"janus_gate": "b5", "janus_workload": label[:63].replace("_", "-")},
+        job = stage_call(
+            f"bigquery-{label}-submit", 20,
+            lambda: self.client.query(
+                sql,
+                location=LOCATION,
+                job_config=bigquery.QueryJobConfig(
+                    use_query_cache=False,
+                    maximum_bytes_billed=self.remaining,
+                    job_timeout_ms=QUERY_TIMEOUT_SECONDS * 1000,
+                    labels={"janus_gate": "b5", "janus_workload": label[:63].replace("_", "-")},
+                ),
+                timeout=18,
             ),
         )
         try:
-            rows = list(job.result(timeout=QUERY_TIMEOUT_SECONDS))
+            remaining = QUERY_TIMEOUT_SECONDS - (time.monotonic() - started)
+            rows = stage_call(
+                f"bigquery-{label}-result", remaining,
+                lambda: list(job.result(timeout=remaining)),
+            )
         except Exception:
             try:
-                job.cancel()
+                stage_call(f"bigquery-{label}-cancel", 10, lambda: job.cancel(timeout=8))
             except Exception:
                 pass
             raise
@@ -207,12 +274,12 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
-    b2 = runpy.run_path(str(ROOT / "scripts/gcp/b2-lakehouse-acceptance.py"))
-    core, manifest_hash = b2["gcs_json"](b2["CORE_MANIFEST_URI"])
+    b2 = stage_call("load-b2-contract", 10, lambda: runpy.run_path(str(ROOT / "scripts/gcp/b2-lakehouse-acceptance.py")))
+    core, manifest_hash = stage_call("gcs-core-manifest", 45, lambda: b2["gcs_json"](b2["CORE_MANIFEST_URI"]))
     if manifest_hash != b2["CORE_MANIFEST_SHA256"] or core.get("snapshot_id") != b2["CORE_SNAPSHOT_ID"]:
         raise RuntimeError("B5 fixed Core manifest fence mismatch")
     fence = core["iceberg_tables"]["core.ohlcv_v1"]
-    if table_pointer(b2, "ohlcv_v1") != fence["metadata_location"]:
+    if stage_call("catalog-pointer-initial", 45, lambda: table_pointer(b2, "ohlcv_v1")) != fence["metadata_location"]:
         raise RuntimeError("B5 shared catalog pointer does not match fixed Core snapshot")
 
     analysis_as_of = date.fromisoformat(core["analysis_as_of"])
@@ -239,12 +306,12 @@ def main() -> None:
     prefix = f"ml-oos-data/v1/{identity_hash}/"
     manifest_uri = f"gs://{MART_BUCKET}/{prefix}manifest.json"
 
-    existing = b2["gcs_list_objects"](MART_BUCKET, prefix)
+    existing = stage_call("gcs-existing-list", 45, lambda: b2["gcs_list_objects"](MART_BUCKET, prefix))
     if existing:
         names = {item["name"] for item in existing}
         if prefix + "manifest.json" not in names:
             raise RuntimeError("partial immutable B5 dataset exists without manifest")
-        manifest, _ = b2["gcs_json"](manifest_uri)
+        manifest, _ = stage_call("gcs-existing-manifest", 45, lambda: b2["gcs_json"](manifest_uri))
         if manifest.get("identity") != identity:
             raise RuntimeError("existing B5 manifest identity conflict")
         args.output.write_text(json.dumps({
@@ -265,7 +332,7 @@ def main() -> None:
 
     from google.cloud import bigquery
 
-    client = bigquery.Client(project=PROJECT, location=LOCATION)
+    client = stage_call("bigquery-client-init", 20, lambda: bigquery.Client(project=PROJECT, location=LOCATION))
     budget = QueryBudget(client)
     fq = f"`{PROJECT}.{b2['CATALOG']}.{b2['CORE_NAMESPACE']}.ohlcv_v1`"
     select_sql = reduction_select(
@@ -284,11 +351,11 @@ def main() -> None:
         f") AS {select_sql}"
     )
     budget.query(export_sql, "export-parquet")
-    if table_pointer(b2, "ohlcv_v1") != fence["metadata_location"]:
+    if stage_call("catalog-pointer-post-export", 45, lambda: table_pointer(b2, "ohlcv_v1")) != fence["metadata_location"]:
         raise RuntimeError("B5 shared catalog pointer changed during export")
 
     objects = [
-        item for item in b2["gcs_list_objects"](MART_BUCKET, prefix)
+        item for item in stage_call("gcs-export-list", 45, lambda: b2["gcs_list_objects"](MART_BUCKET, prefix))
         if item["name"].endswith(".parquet")
     ]
     if not objects or len(objects) > 64:
@@ -297,7 +364,7 @@ def main() -> None:
     export_bytes = 0
     for item in sorted(objects, key=lambda value: value["name"]):
         uri = f"gs://{MART_BUCKET}/{item['name']}"
-        raw = gcs_bytes(b2, uri)
+        raw = stage_call("gcs-parquet-readback", 65, lambda: gcs_bytes(b2, uri))
         size = len(raw)
         if size != int(item["size"]):
             raise RuntimeError("B5 GCS object size changed during readback")
@@ -349,8 +416,8 @@ def main() -> None:
         },
     }
     payload = (json.dumps(manifest, indent=2, sort_keys=True, default=str) + "\n").encode()
-    gcs_create(b2, manifest_uri, payload, "application/json")
-    readback = gcs_bytes(b2, manifest_uri)
+    stage_call("gcs-manifest-create", 65, lambda: gcs_create(b2, manifest_uri, payload, "application/json"))
+    readback = stage_call("gcs-manifest-readback", 65, lambda: gcs_bytes(b2, manifest_uri))
     if readback != payload:
         raise RuntimeError("B5 immutable manifest readback mismatch")
 

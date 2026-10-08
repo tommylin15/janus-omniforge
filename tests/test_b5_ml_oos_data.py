@@ -234,3 +234,27 @@ def test_b5_retention_keeps_latest_dataset_and_expires_old_unreferenced():
     )
     assert result["retained_ml_oos_datasets"] == 1
     assert result["planned_objects"] == 3
+
+
+def test_b5_stage_call_hard_timeout_and_safe_events(capsys):
+    import runpy
+    import time
+    script = runpy.run_path(str(ROOT / "scripts/gcp/b5-ml-oos-data.py"))
+    started = time.monotonic()
+    with pytest.raises(TimeoutError, match="B5 stage timeout: test-block"):
+        script["stage_call"]("test-block", 0.05, lambda: time.sleep(1))
+    assert time.monotonic() - started < 0.5
+    output = capsys.readouterr().out
+    assert "event=start stage=test-block" in output
+    assert "event=failed stage=test-block" in output
+    assert "error_type=TimeoutError" in output
+    assert script["stage_call"]("quick-complete", 1, lambda: "ok") == "ok"
+
+
+def test_b5_bigquery_timeout_and_byte_budget_guards():
+    source = (ROOT / "scripts/gcp/b5-ml-oos-data.py").read_text()
+    assert "job_timeout_ms=QUERY_TIMEOUT_SECONDS * 1000" in source
+    assert 'f"bigquery-{label}-submit"' in source
+    assert 'f"bigquery-{label}-result"' in source
+    assert 'f"bigquery-{label}-cancel"' in source
+    assert "maximum_bytes_billed=self.remaining" in source
