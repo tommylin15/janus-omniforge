@@ -1,0 +1,6 @@
+{
+  "intent": "github-only-global-lease-drill",
+  "allow_gcp_mutation": false,
+  "allow_runtime_promotion": false,
+  "allow_forced_unlock": false
+}
