@@ -1,0 +1,92 @@
+name: Private cleanup forensic readback
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/private-cleanup-forensics.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Bounded read-only backup and Private Iceberg inventory
+        env:
+          PROJECT: gen-lang-client-0593591102
+          REGION: us-central1
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo '=== BACKUP INVENTORY (read-only) ==='
+          for tier in daily monthly; do
+            uri="gs://${PROJECT}-dev-private/pilot-ledger-backups/${tier}/"
+            if listing="$(gcloud storage ls "${uri}" 2>&1)"; then
+              printf 'backup_%s_count=%s\n' "${tier}" "$(printf '%s\n' "${listing}" | grep -c '\.dump$' || true)"
+              printf '%s\n' "${listing}" | grep '\.dump$' | tail -n 20 || true
+            else
+              echo "backup_${tier}_read=DENIED_OR_UNAVAILABLE"
+              printf '%s\n' "${listing}" | sed -E 's/(token|password|secret|authorization)[^ ]*/[redacted]/Ig' | head -n 4
+            fi
+          done
+          echo '=== OCTOBER 8 BOUNDED RESTORE POINT ==='
+          if gcloud storage objects describe "gs://${PROJECT}-dev-private/pilot-ledger-backups/daily/2026-10-08.dump"             --format='json(name,size,generation)' 2>/dev/null; then
+            echo 'restore_point_metadata=READABLE'
+          else
+            echo 'restore_point_metadata=DENIED_OR_UNAVAILABLE'
+          fi
+          echo '=== PRIVATE RUNTIME CONFIG READ ==='
+          if gcloud run jobs describe janus-private-pipeline             --project="${PROJECT}" --region="${REGION}" --format=json > /tmp/private-job.json 2>/dev/null; then
+            python3 - <<'PY'
+          import json
+          cfg=json.load(open('/tmp/private-job.json'))
+          def entries(x):
+              if isinstance(x,dict):
+                  if x.get('name')=='PRIVATE_ICEBERG_WAREHOUSE':
+                      val=x.get('value')
+                      if isinstance(val,str) and val.startswith('gs://'):
+                          yield val
+                  for val in x.values(): yield from entries(val)
+              elif isinstance(x,list):
+                  for val in x: yield from entries(val)
+          warehouses=list(entries(cfg))
+          # Log only allowlisted gs:// paths, never secrets or entire job spec.
+          with open('/tmp/private-warehouse','w') as out:
+              if warehouses: out.write(warehouses[0].rstrip('/'))
+          print('private_job_read=OK')
+          print('private_warehouse_literal=' + ('YES' if warehouses else 'NOT_IN_JOB_ENV'))
+          PY
+          else
+            echo 'private_job_read=DENIED_OR_UNAVAILABLE'
+          fi
+          echo '=== PRIVATE BUCKET TOP-LEVEL (read-only) ==='
+          if gcloud storage ls "gs://${PROJECT}-dev-private/" 2>/dev/null | head -n 30; then
+            echo 'private_bucket_listing=ATTEMPTED'
+          else
+            echo 'private_bucket_listing=DENIED_OR_UNAVAILABLE'
+          fi
+          echo '=== PRIVATE ICEBERG NOTE TABLE (read-only) ==='
+          if [[ -s /tmp/private-warehouse ]]; then
+            root="$(cat /tmp/private-warehouse)"
+            for rel in 'note_revisions/' 'private/note_revisions/'; do
+              uri="${root}/${rel}"
+              if listing="$(gcloud storage ls "${uri}" 2>/dev/null)"; then
+                echo "note_table_path=${uri}"
+                printf '%s\n' "${listing}" | head -n 30
+              else
+                echo "note_table_prefix_not_readable=${rel}"
+              fi
+            done
+          else
+            echo 'note_table_location=UNRESOLVED'
+          fi
+          echo '=== INSPECTION FINISHED; NO WRITES OR DELETIONS ==='
