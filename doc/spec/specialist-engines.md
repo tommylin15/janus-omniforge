@@ -45,6 +45,12 @@ PyIceberg reference reader 必須先比對 manifest 與要求的 Core identity�
 
 `specialists/<output_hash>.json` 與 execution manifest 不可變、寫入後讀回驗證；相同 execution replay 只驗證並 reuse。B4 已完成 cross-execution dependency cache：cache identity 納入 symbol/role、accepted + rejected PIT dependency state、feature/engine/model version；只有 dirty specialist 重算，clean role reuse immutable artifact，並保留 source Core snapshot identity。2026-10-07 真實 dev acceptance 在同一 Core snapshot 第二輪達成 0 computed / 25 reused。2026-10-08 B5 ML/OOS data path 已由 BigQuery TEMP staging → versioned Parquet + Cloud Run Mart 真實驗收結案（10,978 rows／499 symbols／immutable hash 相等，見 [B5 結案](../archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)）；月度 reconciliation、B6 derived artifact cache 與後續模型品質驗收仍未完成。
 
+### B6 ML/OOS derived cache
+
+僅對 B5 SQL reduction 的 `core.ohlcv_v1` snapshot/pointer、analysis_as_of、日期邊界、schema/query/feature/model version、label horizon、cohort stride 計算 `b6-ml-oos-dirty-v1` identity；新增來源必須更新 dependency contract，不可默默重用。global Core snapshot 若因非依賴資料表改變，可重用相同 source snapshot 的 immutable Parquet，但一定保留原始 artifact Core identity，另列 requested identity。
+
+快取命中前必須驗證實際 GCS shard SHA256、bytes、manifest、retention 保護與 catalog pointer；掃描上限 128 manifest、驗證 240 秒上限，fail closed。命中才可記本輪 BigQuery billed=0；cache miss 維持原有 1 GiB execution budget／每 query 60 秒；失敗未知 billed bytes 為 null。B4 五 specialist cache 不改變。此 implementation 仍待 CI／dev Cloud Run 真實驗收，不能單憑文件結案。
+
 ## 歷史模型
 
 Linear / LightGBM / CatBoost 使用逐月擴張訓練窗，訓練標籤必須已於測試日前成熟；每 5 個市場交易日建立候選訓練樣本，5/20/60/120 日樣本外 cohort 不重疊，以 benchmark 交易日對齊起訖。至少 100 訓練樣本與三個訓練月份才能 fit。最後三個已成熟月份可獨立校準機率，不能使用當月測試資料；LightGBM/CatBoost 使用原生 Tree SHAP，Linear 使用加總式貢獻，必須重建同一預測。Rank IC/ICIR、decile spread、hit rate、after-cost Sharpe / drawdown / turnover 可計算；不足 10 檔不造出 decile 統計，另列各深度標的時間序列 IC/命中率，校準驗收需至少 30 筆 OOS 機率。30 bps 僅研究敏感度，不是實際券商成本。回測僅 current Deep Coverage，不是歷史母體重建，禁止自動 promotion。

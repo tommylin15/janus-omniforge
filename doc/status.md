@@ -108,6 +108,12 @@ B4 已完成 Deep Coverage universe、dependency-selective execution、immutable
 
 **B4、B5 均已 CLOSED / PASS；B 組下一個 active work 為 B6：ML-derived artifact cache / dirty dependency。**
 
+### B6 ML/OOS derived cache — ACTIVE（2026-10-08）
+
+- 首次程式 commit [`8ba064c`](https://github.com/tommylin15/janus-omniforge/commit/8ba064c30184b7bff4225cd155f915373f4b5d8d)：B5 BigQuery 查詢前先尋找 dependency-equivalent Parquet，SHA256/size、retention、catalog readback 成功才重用。B4 specialist cache 未修改。
+- source 僅取 `core.ohlcv_v1` snapshot/pointer、日期、schema/query/feature/model/label 版本；global Core manifest 只因其他資料表變更可重用，但保留原 `artifact_core_snapshot_id`，不得冒充 requested snapshot。
+- 已新增 5 個 B6 targeted tests；新 CI、Cloud Build export 與 GCP Mart live readback 仍需實際 evidence 才能結案。**B6 ACTIVE，不宣稱 CLOSED**。
+
 ### B5 ML / OOS data path — CLOSED（2026-10-08）
 
 - GitHub `main`：`c411fc0` 使用受控 BigQuery TEMP table 將 fixed Core snapshot 的 reduced SQL 結果匯出版本化 GCS Parquet，避開 shared Iceberg external table 直接 `EXPORT DATA` 的 HTTP 500；`051591e` 修正 Cloud Build `gcloud storage cp` entrypoint。
