@@ -1,0 +1,6 @@
+{
+  "intent": "read-only-cutover-guard",
+  "sha": "0b93d99d42aaff662a3408d749d70aa9d04b1042",
+  "purpose": "Fail-closed live Job scheduling, rollback and execution metadata gate; do not mutate resources",
+  "apply": false
+}
