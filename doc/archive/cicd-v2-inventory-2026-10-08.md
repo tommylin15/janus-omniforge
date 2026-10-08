@@ -15,3 +15,5 @@
 - DB 查證 publication schema／stock_serving_recent view 均由 `janus_publication` 擁有，private 由 `janus_control` 擁有。050 授權已存在，失敗來自 control 階段跨 publication namespace 驗 ACL；最小修復將該檢查留在 publication owner，不擴角色。
 - Local targeted tests：修復前 CI/CD/container/migration 40 PASS；050 owner-phase 修復後 CI/CD/migration 31 PASS。Linux `bash -n` 在修正 heredoc／CRLF 後 PASS。新版本 CI、Build、deployment／runtime acceptance 尚未執行，不以 local tests 冒充 live。
 - 資源／費用：新增停用 Trigger；使用者完成 GitHub connection 授權；沒有新增 VM／Job／bucket、提高 CPU/memory、IAM grant、production、掃描 API 或資料刪除。Cloud Build 實際 usage／帳單尚待實際 build 後讀回，未知不填零。
+- 首輪 Repository Trigger 手動 SHA build `c9a8ab87-d1f7-46a9-813e-a2e194a344f9`，sourceProvenance 為 Git SHA `1e5b6ba52a6ce9db5c233c70f6153ab7e0e8b12a`，無 GCS source staging。Tests 485 PASS／3 FAIL，原因為 test image 缺 `libgomp.so.1`；Docker build/push/deploy 未執行，證明 tests failure gate 生效。後續修復僅安裝 test container 的 libgomp1。
+- 清理前 Artifact Registry 盤點：15 versions、4,290,979,269 image bytes，missing-size=0。這是 registry metadata aggregate，不是帳單容量；尚未執行刪除。

@@ -45,6 +45,9 @@ PY
     python -m pip install -r requirements-dev.txt
     python -m pytest -q tests/test_cicd_v2.py
     if [[ -z "$(tr -d '[:space:]' < "${state}/components")" ]]; then exit 0; fi
+    # GitHub's Ubuntu runner already had OpenMP; the slim test image does not.
+    apt-get update -qq
+    apt-get install -y --no-install-recommends libgomp1
     # Reuse the existing dependency locks and targeted suites; no new test framework.
     python -m pip install -r jobs/ingestion-core/requirements.lock
     python -m pip install -r jobs/intelligence-mart/requirements.lock

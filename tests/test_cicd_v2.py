@@ -71,3 +71,4 @@ def test_shadow_pipeline_is_fail_closed_and_logs_regional_only():
     assert 'gcloud builds submit' not in script
     assert '--if-generation-match=0' in script
     assert 'tests-pass' in script
+    assert 'apt-get install -y --no-install-recommends libgomp1' in script
