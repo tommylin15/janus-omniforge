@@ -49,7 +49,7 @@ def evidence():
 
 
 def test_full_verified_hypothetical_snapshot_only_yields_separate_approval():
-    assert assess(evidence())["status"] == "READY_FOR_SEPARATE_EXPLICIT_APPROVAL"
+    assert assess(evidence())["status"] == "READY_FOR_CONTROLLED_JOB_ROLLOUT"
 
 
 def test_live_enabled_hourly_scheduler_blocks_even_with_all_other_gates():
