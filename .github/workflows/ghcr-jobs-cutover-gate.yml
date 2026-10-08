@@ -102,6 +102,7 @@ jobs:
                   ((.status.completionTime // "") == "") and
                   (([.status.conditions[]? | select(.type=="Completed" and .status=="True")]|length)==0)
                 ) | {
+                  describe_status:"LIST_READABLE",
                   execution:(.metadata.name // .name // "" | split("/")[-1]),
                   created:(.metadata.creationTimestamp // .createTime // null),
                   started:(.status.startTime // null),
