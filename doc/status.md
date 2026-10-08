@@ -11,7 +11,9 @@
 - [實作 `6a2e76c`](https://github.com/tommylin15/janus-omniforge/commit/6a2e76c2916e72366c39abc27ff345508e283a11)：controller 從錯誤的每月 1 日改為每月第一個週六台北 10:30。沿用既有每小時 :30 Scheduler；當日 07:30 ingestion／08:30 data-supplement 成功才派送。
 - 舊排程 pending 以 `schedule_superseded/skipped` 安全處理；manual 重跑仍建立獨立 occurrence。
 - Mart 月度 reconciliation immutable receipt 驗證全 Deep Coverage 五 role cache pointer／source hash／model identity、盤點 B6 ML/OOS Parquet；歷史 candidate 不直接視為 orphan，缺少或舊 Core 證據維持 `partial`，不刪除、不 promotion、不觸發 CEO。
-- 仍需新 SHA CI、dev deployed image、Scheduler/controller readback、真實 retrain + OOS/calibration/reconciliation immutable artifact readback。自然下一個首週六為 **2026-11-07 10:30（Asia/Taipei）**，人工執行不可冒充已觀察自然排程。
+- CI：初版 [#37711002505](https://github.com/tommylin15/janus-omniforge/actions/runs/37711002505) SUCCESS，151 ingestion / 137 Mart PASS，ingestion/controller 與 Mart dev deploy + smoke PASS；修正版 [#37711737194](https://github.com/tommylin15/janus-omniforge/actions/runs/37711737194) 143 Mart tests PASS，最新 Mart deployment 尚需結案證據。
+- [readback #37712126960](https://github.com/tommylin15/janus-omniforge/actions/runs/37712126960) 記錄 controller image=ingestion image TRUE、Mart Ready TRUE；Scheduler schedule/timeZone/state NULL (IAM blocked)，不算 runtime_config full PASS。
+- 仍需最新 Mart image/live、真實 retrain + OOS/calibration/reconciliation immutable artifact readback；Scheduler 直接 readback 需受權 `cloudscheduler.jobs.get` 或其它可稽核替代證據。自然下一個首週六為 **2026-11-07 10:30（Asia/Taipei）**，人工執行不可冒充已觀察自然排程。
 
 ## 2026-10-07 `janus-batch-controller` Error：CLOSED
 
