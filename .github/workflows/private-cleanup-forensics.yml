@@ -20,6 +20,227 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
+      - name: Check latest Iceberg note snapshot references (read-only)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m pip install --quiet 'duckdb==1.4.1' 'fastavro==1.12.1'
+          python3 - <<'PY'
+          import json
+          import re
+          import subprocess
+          import tempfile
+          from pathlib import Path
+          import duckdb
+          from fastavro import reader as avro_reader
+
+          base='gs://gen-lang-client-0593591102-dev-private/warehouse/note_revisions'
+          symbols=('AMUZ46T9F','AMUZ46ZME')
+
+          def gcs_list(prefix):
+              r=subprocess.run(['gcloud','storage','ls','--recursive',prefix],
+                               text=True,capture_output=True,timeout=120)
+              if r.returncode:
+                  raise RuntimeError('GCS_LIST_FAILED')
+              return [x.strip() for x in r.stdout.splitlines() if x.strip().startswith('gs://')]
+
+          def download(uri,dst):
+              r=subprocess.run(['gcloud','storage','cp',uri,str(dst)],capture_output=True,
+                               text=True,timeout=120)
+              if r.returncode:
+                  raise RuntimeError('GCS_GET_FAILED')
+
+          try:
+              uris=[u for u in gcs_list(base+'/metadata/') if u.endswith('.metadata.json')]
+              if not uris:
+                  raise RuntimeError('NO_METADATA_JSON')
+              def version(uri):
+                  m=re.search(r'/(\\d+)[^-]*-.*\\.metadata\\.json
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m pip install --quiet 'duckdb==1.4.1'
+          python3 - <<'PY'
+          import json
+          import subprocess
+          import tempfile
+          from pathlib import Path
+          import duckdb
+
+          bucket='gs://gen-lang-client-0593591102-dev-private/warehouse'
+          symbols=('AMUZ46T9F','AMUZ46ZME')
+
+          for table in ('note_revisions','ledger_events'):
+              prefix=f'{bucket}/{table}/data/'
+              listing=subprocess.run(
+                  ['gcloud','storage','ls','--recursive',prefix],
+                  capture_output=True,text=True,timeout=90)
+              if listing.returncode:
+                  print(json.dumps({'table':table,'scan':'UNAVAILABLE','reason':'GCS_LIST_DENIED_OR_MISSING'}))
+                  continue
+              files=sorted(set(s.strip() for s in listing.stdout.splitlines()
+                               if s.strip().startswith('gs://') and s.strip().endswith('.parquet')))
+              if len(files)>120:
+                  print(json.dumps({'table':table,'scan':'TRUNCATED','parquet_files':len(files)}))
+                  continue
+              rows=0
+              scanned=0
+              failures=0
+              with tempfile.TemporaryDirectory() as tmp:
+                  db=duckdb.connect(database=':memory:')
+                  for idx,url in enumerate(files):
+                      target=Path(tmp)/f'{idx}.parquet'
+                      copy=subprocess.run(['gcloud','storage','cp',url,str(target)],
+                                          capture_output=True,text=True,timeout=90)
+                      if copy.returncode:
+                          failures+=1
+                          continue
+                      try:
+                          rows+=int(db.execute(
+                              'SELECT COUNT(*) FROM read_parquet(?) WHERE symbol IN (?, ?)',
+                              (str(target),*symbols)
+                          ).fetchone()[0])
+                          scanned+=1
+                      except Exception:
+                          failures+=1
+                      finally:
+                          target.unlink(missing_ok=True)
+                  db.close()
+              print(json.dumps({'table':table,
+                                'scan':'COMPLETE' if not failures else 'PARTIAL',
+                                'parquet_files':len(files),'readable_files':scanned,
+                                'unreadable_files':failures,
+                                'physical_ab_symbol_rows':rows}))
+          PY
+      - name: Bounded read-only backup and Private Iceberg inventory
+        env:
+          PROJECT: gen-lang-client-0593591102
+          REGION: us-central1
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          echo '=== BACKUP INVENTORY (read-only) ==='
+          for tier in daily monthly; do
+            uri="gs://${PROJECT}-dev-private/pilot-ledger-backups/${tier}/"
+            if listing="$(gcloud storage ls "${uri}" 2>&1)"; then
+              printf 'backup_%s_count=%s\n' "${tier}" "$(printf '%s\n' "${listing}" | grep -c '\.dump$' || true)"
+              printf '%s\n' "${listing}" | grep '\.dump$' | tail -n 20 || true
+            else
+              echo "backup_${tier}_read=DENIED_OR_UNAVAILABLE"
+              printf '%s\n' "${listing}" | sed -E 's/(token|password|secret|authorization)[^ ]*/[redacted]/Ig' | head -n 4
+            fi
+          done
+          echo '=== OCTOBER 8 BOUNDED RESTORE POINT ==='
+          if gcloud storage objects describe "gs://${PROJECT}-dev-private/pilot-ledger-backups/daily/2026-10-08.dump"             --format='json(name,size,generation)' 2>/dev/null; then
+            echo 'restore_point_metadata=READABLE'
+          else
+            echo 'restore_point_metadata=DENIED_OR_UNAVAILABLE'
+          fi
+          echo '=== PRIVATE RUNTIME CONFIG READ ==='
+          if gcloud run jobs describe janus-private-pipeline             --project="${PROJECT}" --region="${REGION}" --format=json > /tmp/private-job.json 2>/dev/null; then
+            python3 - <<'PY'
+          import json
+          cfg=json.load(open('/tmp/private-job.json'))
+          def entries(x):
+              if isinstance(x,dict):
+                  if x.get('name')=='PRIVATE_ICEBERG_WAREHOUSE':
+                      val=x.get('value')
+                      if isinstance(val,str) and val.startswith('gs://'):
+                          yield val
+                  for val in x.values(): yield from entries(val)
+              elif isinstance(x,list):
+                  for val in x: yield from entries(val)
+          warehouses=list(entries(cfg))
+          # Log only allowlisted gs:// paths, never secrets or entire job spec.
+          with open('/tmp/private-warehouse','w') as out:
+              if warehouses: out.write(warehouses[0].rstrip('/'))
+          print('private_job_read=OK')
+          print('private_warehouse_literal=' + ('YES' if warehouses else 'NOT_IN_JOB_ENV'))
+          PY
+          else
+            echo 'private_job_read=DENIED_OR_UNAVAILABLE'
+          fi
+          echo '=== PRIVATE BUCKET TOP-LEVEL (read-only) ==='
+          if gcloud storage ls "gs://${PROJECT}-dev-private/" 2>/dev/null | head -n 30; then
+            echo 'private_bucket_listing=ATTEMPTED'
+          else
+            echo 'private_bucket_listing=DENIED_OR_UNAVAILABLE'
+          fi
+          echo '=== PRIVATE ICEBERG NOTE TABLE (read-only) ==='
+          if [[ -s /tmp/private-warehouse ]]; then
+            root="$(cat /tmp/private-warehouse)"
+            for rel in 'note_revisions/' 'private/note_revisions/'; do
+              uri="${root}/${rel}"
+              if listing="$(gcloud storage ls "${uri}" 2>/dev/null)"; then
+                echo "note_table_path=${uri}"
+                printf '%s\n' "${listing}" | head -n 30
+              else
+                echo "note_table_prefix_not_readable=${rel}"
+              fi
+            done
+          else
+            echo 'note_table_location=UNRESOLVED'
+          fi
+          echo '=== INSPECTION FINISHED; NO WRITES OR DELETIONS ==='
+,uri)
+                  return int(m.group(1)) if m else -1
+              # Filename ordering only: catalog's PostgreSQL metadata pointer is not checked.
+              metadata_uri=max(uris,key=lambda u:(version(u),u))
+              with tempfile.TemporaryDirectory() as td:
+                  root=Path(td)
+                  jfile=root/'table.json'
+                  download(metadata_uri,jfile)
+                  meta=json.loads(jfile.read_text())
+                  snapshot_id=meta.get('current-snapshot-id')
+                  current=next((x for x in meta.get('snapshots',[]) if x.get('snapshot-id')==snapshot_id),None)
+                  if not current:
+                      raise RuntimeError('NO_CURRENT_SNAPSHOT')
+                  manifest_list=current.get('manifest-list')
+                  if not manifest_list:
+                      raise RuntimeError('NO_MANIFEST_LIST')
+                  ml=root/'manifest-list.avro'
+                  download(manifest_list,ml)
+                  with ml.open('rb') as src:
+                      manifests=[row['manifest_path'] for row in avro_reader(src)
+                                 if int(row.get('content',0)) == 0]
+                  if len(manifests)>120:
+                      raise RuntimeError('TOO_MANY_MANIFESTS')
+                  active_files=set()
+                  for idx,uri in enumerate(manifests):
+                      target=root/f'manifest-{idx}.avro'
+                      download(uri,target)
+                      with target.open('rb') as src:
+                          for entry in avro_reader(src):
+                              data=entry.get('data_file') or {}
+                              path=data.get('file_path')
+                              if int(entry.get('status',2))!=2 and path and path.endswith('.parquet'):
+                                  active_files.add(path)
+                  if len(active_files)>120:
+                      raise RuntimeError('TOO_MANY_ACTIVE_DATA_FILES')
+                  db=duckdb.connect(':memory:')
+                  matches=0
+                  for idx,uri in enumerate(sorted(active_files)):
+                      target=root/f'data-{idx}.parquet'
+                      download(uri,target)
+                      matches+=int(db.execute(
+                          'SELECT COUNT(*) FROM read_parquet(?) WHERE symbol IN (?, ?)',
+                          (str(target),*symbols)).fetchone()[0])
+                      target.unlink(missing_ok=True)
+                  db.close()
+                  print(json.dumps({
+                      'scan':'COMPLETE_LATEST_METADATA_CANDIDATE',
+                      'metadata_candidates':len(uris),
+                      'latest_metadata_version':version(metadata_uri),
+                      'current_snapshot_id':snapshot_id,
+                      'current_data_manifests':len(manifests),
+                      'current_data_files':len(active_files),
+                      'ab_note_revision_rows_referenced_by_snapshot':matches,
+                      'catalog_pointer_verified':False
+                  }))
+          except Exception as error:
+              print(json.dumps({'scan':'UNAVAILABLE','reason':str(error)[:100],
+                                'catalog_pointer_verified':False}))
+          PY
       - name: Bounded physical Parquet scan for two A/B test symbols
         shell: bash
         run: |
