@@ -812,7 +812,8 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                                  (None if has_canonical else "private_mart_pending")})
         return jsonable_encoder(result)
 
-    def resolved_portfolio_quotes(current: AuthenticatedUser, *, force: bool = False):
+    def resolved_portfolio_quotes(current: AuthenticatedUser, *, force: bool = False,
+                                  persisted_only: bool = False):
         rows = repository.positions(current.user_id)
         latest_version = repository.latest_ledger_version(current.user_id) if rows else 0
         if rows and any(int(row.get("ledger_version", 0)) != latest_version for row in rows):
@@ -820,7 +821,13 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         identities = repository.stock_identities({str(row["symbol"]) for row in rows}) if rows else {}
         rows = [{**row, "stock_name": stock_identity(identities.get(str(row["symbol"])))[0]} for row in rows]
         try:
-            prices, refresh, current_time, phase, authorized = resolve_prices(identities, force=force)
+            if persisted_only:
+                current_time, phase = quote_session()
+                authorized = os.getenv("JANUS_MIS_QUOTES_ENABLED", "false").lower() == "true"
+                prices = quote_router.read(identities, now=current_time)
+                refresh = {"status": "cache_only", "requested": 0, "updated": 0}
+            else:
+                prices, refresh, current_time, phase, authorized = resolve_prices(identities, force=force)
         except Exception as error:
             LOGGER.warning("latest price resolver unavailable: %s", type(error).__name__)
             raise HTTPException(status_code=503, detail="最後行情讀取暫時無法使用") from error
@@ -843,12 +850,19 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         result = value_holdings(rows, prices, current_time, previous_closes=previous)
         result["market_open"] = phase == "regular"
         result.update(
+            ledger_version=latest_version,
+            snapshot_kind="persisted_last_success" if persisted_only else "latest_price",
             route_version=ROUTE_VERSION,
             refresh_status="blocked" if not authorized else refresh.get("status", "idle"),
             session=phase,
             fallback="persistent_last_success" if prices else "missing",
         )
         return jsonable_encoder(result)
+
+    @private.get("/portfolio/snapshot")
+    def portfolio_snapshot(current: AuthenticatedUser = Depends(user)):
+        """DB-only, owner-checked first paint. Never calls a market network source."""
+        return resolved_portfolio_quotes(current, persisted_only=True)
 
     @private.get("/portfolio/quotes")
     def portfolio_quotes(current: AuthenticatedUser = Depends(user)):

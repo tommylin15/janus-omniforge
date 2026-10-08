@@ -209,6 +209,13 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   Future<List<dynamic>> loadCore() async {
     final stopwatch = Stopwatch()..start();
     try {
+      final snapshot = await cached('/api/v1/me/portfolio/snapshot');
+      if (snapshot is Map &&
+          snapshot['items'] is List &&
+          snapshot['positions'] is List) {
+        return [snapshot['items'], snapshot['positions']];
+      }
+      // Compatibility fallback for previous revisions and bounded failure.
       return await Future.wait([
         cached('/api/v1/me/portfolio/summary'),
         cached('/api/v1/me/journal/positions'),
@@ -540,6 +547,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                       ? '暫不發布'
                       : legacy.uiLabel(
                           aggregate['valuation_status'] ??
+                              aggregate['aggregate_status'] ??
                               (aggregate.isEmpty ? 'partial' : 'available'),
                         ),
                   detail:

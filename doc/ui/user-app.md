@@ -146,7 +146,7 @@ Ledger／Holdings 一致性至少涵蓋 shares、cost／average cost、market va
 
 手機持股用較大字、紅漲綠跌的可掃描 card：canonical name／symbol、shares、market price／average cost、前一交易日官方收盤價、當日每股漲跌／百分比／以現持股數估算的價格變動額、unrealized PnL／return、price／valuation status。每檔都直接顯示未實現損益與百分比，正值紅、負值綠、0／未知中性；價格與未實現估值使用 latest-price resolver 回傳的 owner holdings valuation。operational shares／cost 與 canonical valuation／PnL 的資料時間仍須可判讀。
 
-首屏只等待必要的正式持股清單與摘要；年度 PnL、交易歷史及重算狀態於首屏後另外載入。昨收以 PostgreSQL 已發布 OHLCV serving projection 批次讀取，不每檔逐一查 Iceberg。無有效昨收、報價 stale、參考日不合法或 checkpoint 不一致時，當日漲跌維持缺值；持股價格變動額不代表包含交易、費稅及除權息的實際當日交易損益。
+首屏優先呼叫 owner-scoped `/api/v1/me/portfolio/snapshot`：只從既有 PostgreSQL current_positions、latest-price resolver 的 last-success persistent state 及官方已發布 OHLCV serving projection 讀取，禁止 request-time MIS network／Private Mart 掃描；舊 API 僅供相容性／明確失敗備援。年度 PnL、交易歷史及重算狀態於首屏後另外載入。昨收以 PostgreSQL 已發布 OHLCV serving projection 批次讀取，不每檔逐一查 Iceberg。無有效昨收、報價 stale、參考日不合法或 checkpoint 不一致時，當日漲跌維持缺值；持股價格變動額不代表包含交易、費稅及除權息的實際當日交易損益。
 
 持股分頁使用 latest-price resolver：盤中且 App 位於前景／持股分頁時每 1 分鐘 revalidate；13:30 後停止每分鐘輪詢，14:30 EOD handoff 時間到後只需成功讀取一次 persistent latest state，同一頁面生命週期內的 tab re-entry 不得重複自動抓取。13:30–14:30 若頁面已開啟，可保留最後 persistent state，並在 14:30 安排一次 handoff read；使用者明確按 refresh／交易異動後的必要同步不受此「tab re-entry 不重抓」限制。保留可見的「更新股價」手動入口，backend 僅對 authenticated owner 的目前 TWSE 持股執行 MIS refresh；手動刷新略過 60 秒 TTL，但仍有 10 秒 hard throttle。離開持股、App 進背景或市場關閉後停止輪詢；沒有 App demand 時不執行每分鐘行情工作。更新失敗保留 PostgreSQL last-success 並明示報價狀態，不以失敗回應覆寫 canonical EOD／Private Mart。
 

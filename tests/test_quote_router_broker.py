@@ -244,3 +244,46 @@ def test_owner_deletion_clears_profile_before_user_and_keeps_shared_quotes():
     assert sql.index('DELETE FROM private.broker_profile_revisions WHERE user_id=%s') < sql.index('DELETE FROM private.users WHERE user_id=%s')
     assert all(params[0] == USER_ID for _,params in statements[:-1])
     assert not any('operational_last_quotes' in s for s in sql)
+
+
+def test_persisted_snapshot_never_fetches_mis_or_private_mart_and_is_owner_scoped(monkeypatch):
+    repo = QuoteRepository()
+    repo.saved["2330"] = {
+        "price": "101.25",
+        "quote_at": "2026-10-08T09:59:00+08:00",
+        "received_at": "2026-10-08T09:59:00+08:00",
+    }
+    calls = []
+    class ForbiddenSource:
+        def prices(self, identities):
+            calls.append(identities)
+            raise AssertionError("snapshot endpoint must not call MIS")
+    class NoMart:
+        def mart(self, *_args, **_kwargs):
+            raise AssertionError("snapshot endpoint must not query Private Mart")
+    class Calendar:
+        def setting(self, _):
+            return {"value": {}}
+    claims = {'iss':'https://accounts.google.com','aud':'user-client','sub':'a',
+              'email':'owner@example.com','email_verified':True,'exp':1900000000}
+    monkeypatch.setenv('JANUS_MIS_QUOTES_ENABLED', 'true')
+    api = TestClient(create_app(repo,NoMart(),lambda *_:claims,audience='user-client',
+                                quotes=ForbiddenSource(),admin_service=Calendar()))
+    response = api.get('/api/v1/me/portfolio/snapshot',headers=auth())
+    assert response.status_code == 200
+    result = response.json()
+    assert result['snapshot_kind'] == 'persisted_last_success'
+    assert result['ledger_version'] == 7
+    assert result['refresh_status'] == 'cache_only'
+    assert result['positions'][0]['symbol'] == '2330'
+    assert not calls
+    assert api.get('/api/v1/me/portfolio/snapshot').status_code == 401
+
+
+def test_persisted_snapshot_refuses_stale_ledger_version():
+    repo = QuoteRepository()
+    repo.latest_ledger_version = lambda _: 8
+    claims = {'iss':'https://accounts.google.com','aud':'user-client','sub':'a',
+              'email':'owner@example.com','email_verified':True,'exp':1900000000}
+    api = TestClient(create_app(repo,Store(),lambda *_:claims,audience='user-client'))
+    assert api.get('/api/v1/me/portfolio/snapshot',headers=auth()).status_code == 409
