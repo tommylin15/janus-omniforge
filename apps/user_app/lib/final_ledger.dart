@@ -32,6 +32,8 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   int yearFilter = DateTime.now().year;
   final Map<String, Future<dynamic>> requestCache = {};
   late Future<List<dynamic>> coreData = loadCore();
+  List<dynamic>? deferredCore;
+  int deferredGeneration = 0;
   Future<List<dynamic>>? sectionData;
   Timer? quoteTimer;
   Timer? recalcTimer;
@@ -49,6 +51,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    loadDeferredCore();
     foreground = WidgetsBinding.instance.lifecycleState == null ||
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -184,6 +187,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   @override
   void dispose() {
     quoteGeneration++;
+    deferredGeneration++;
     quoteTimer?.cancel();
     recalcTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
@@ -201,21 +205,33 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   Future<dynamic> cached(String path) =>
       requestCache.putIfAbsent(path, () => safe(path));
 
+  // The first holdings frame must not wait for history, annual PnL, or queue.
   Future<List<dynamic>> loadCore() async {
     final stopwatch = Stopwatch()..start();
-    final currentYear = DateTime.now().year;
     try {
       return await Future.wait([
         cached('/api/v1/me/portfolio/summary'),
-        cached('/api/v1/me/journal/pnl?year=$currentYear'),
         cached('/api/v1/me/journal/positions'),
-        cached('/api/v1/me/journal/history?year=$currentYear'),
-        cached('/api/v1/me/journal/recalculation-status'),
       ]);
     } finally {
       stopwatch.stop();
       FinalPerf.recordCore('ledger', stopwatch.elapsed);
     }
+  }
+
+  void loadDeferredCore() {
+    final generation = ++deferredGeneration;
+    final currentYear = DateTime.now().year;
+    coreData.then((_) async {
+      final result = await Future.wait([
+        cached('/api/v1/me/journal/pnl?year=$currentYear'),
+        cached('/api/v1/me/journal/history?year=$currentYear'),
+        cached('/api/v1/me/journal/recalculation-status'),
+      ]);
+      if (mounted && generation == deferredGeneration) {
+        setState(() => deferredCore = result);
+      }
+    });
   }
 
   Future<List<dynamic>> loadSection(int target, int year) {
@@ -242,6 +258,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     quoteTimer?.cancel();
     setState(() {
       requestCache.clear();
+      deferredCore = null;
       coreData = loadCore();
       sectionData = section == 0 ? null : loadSection(section, yearFilter);
       intraday = null;
@@ -250,6 +267,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       offSessionQuoteDate = null;
       post1430QuoteDate = null;
     });
+    loadDeferredCore();
     if (section == 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) startQuotes();
@@ -535,106 +553,120 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
 
   Widget holdings(List<dynamic> positions) {
     if (positions.isEmpty) return fvBoundedState('目前無持股或持股資料尚未取得');
-    return Column(
-      children: [
-        for (final item in positions)
-          Builder(builder: (context) {
-            final row = fvMap(item);
-            final symbol = fvText(row['symbol']);
-            final reason = legacy.portfolioMissingReasonLabel(row['missing_reason']);
-            return fvPanel(
-              padding: EdgeInsets.zero,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: () => widget.onOpenStock?.call(symbol),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  legacy.stockDisplayName(row),
-                                  style: const TextStyle(
-                                    color: fvInk,
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  '持有 ${legacy.accountingNumber(row['shares'])} 股',
-                                  style: const TextStyle(color: fvInk),
-                                ),
-                                Text(
-                                  '現價 ${legacy.accountingNumber(row['market_price'], decimals: 2, missing: '缺價')} · 均價 ${legacy.accountingNumber(row['average_cost'], decimals: 2)}',
-                                  style: const TextStyle(
-                                    color: fvMuted,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 118),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  '未實現 ${legacy.accountingNumber(row['unrealized_pnl'], missing: '資料不足')}',
-                                  key: Key('holding-pnl-$symbol'),
-                                  textAlign: TextAlign.end,
-                                  style: TextStyle(
-                                    color: fvSignedColor(row['unrealized_pnl']),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                Text(
-                                  legacy.portfolioReturnLabel(
-                                    row['unrealized_return'],
-                                  ),
-                                  key: Key('holding-return-$symbol'),
-                                  style: TextStyle(
-                                    color: fvSignedColor(row['unrealized_return']),
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        row['price_source'] == 'twse_mis'
-                            ? 'MIS 最新成交 · 報價 ${fvText(row['quote_at'])} · ${fvText(row['quote_state'])}'
-                            : '正式行情 · 行情日 ${fvText(row['price_date'])} · ${row['price_status'] == null ? '狀態未知' : legacy.uiLabel(row['price_status'])}',
-                        style: const TextStyle(color: fvMuted, fontSize: 11),
-                      ),
-                      if (reason.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          reason,
-                          style: const TextStyle(color: fvMuted, fontSize: 11),
-                        ),
+    return Column(children: [
+      for (final item in positions)
+        Builder(builder: (context) {
+          final row = fvMap(item);
+          final symbol = fvText(row['symbol']);
+          final reason = legacy.portfolioMissingReasonLabel(row['missing_reason']);
+          final valid = row['price_status'] == 'available' &&
+              row['change'] != null && row['change_percent'] != null &&
+              row['day_change_amount'] != null;
+          final dailyChange = valid ? row['change'] : null;
+          final dailyAmount = valid ? row['day_change_amount'] : null;
+          final lastPrice = legacy.accountingNumber(
+              row['market_price'], decimals: 2, missing: '缺價');
+          final stale = row['price_status'] == 'stale' || row['quote_state'] == 'stale';
+          return fvPanel(
+            padding: EdgeInsets.zero,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => widget.onOpenStock?.call(symbol),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(legacy.stockDisplayName(row),
+                            style: const TextStyle(color: fvInk, fontSize: 19,
+                                fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 5),
+                        Text('持有 ${legacy.accountingNumber(row['shares'])} 股',
+                            style: const TextStyle(color: fvInk, fontSize: 16)),
                       ],
-                    ],
+                    )),
+                    const SizedBox(width: 8),
+                    Flexible(child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(lastPrice,
+                            key: Key('holding-latest-price-$symbol'),
+                            textAlign: TextAlign.end,
+                            style: TextStyle(
+                                color: valid ? fvSignedColor(dailyChange) : fvInk,
+                                fontSize: 23, fontWeight: FontWeight.w800)),
+                        Text(
+                          valid
+                              ? '${legacy.accountingNumber(dailyChange, decimals: 2)} · ${fvSignedPercent(row['change_percent'])}'
+                              : '漲跌資料不足',
+                          key: Key('holding-daily-change-$symbol'),
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                              color: valid ? fvSignedColor(dailyChange) : fvMuted,
+                              fontSize: 15, fontWeight: FontWeight.w700)),
+                      ],
+                    )),
+                  ]),
+                  const SizedBox(height: 6),
+                  Text('現價 $lastPrice · 均價 ${legacy.accountingNumber(row['average_cost'], decimals: 2)}',
+                      style: const TextStyle(color: fvMuted, fontSize: 14)),
+                  const Divider(height: 24),
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('當日持股價格變動',
+                          style: TextStyle(color: fvMuted, fontSize: 12)),
+                      const SizedBox(height: 4),
+                      Text(valid ? legacy.accountingNumber(dailyAmount) : '資料不足',
+                          key: Key('holding-day-amount-$symbol'),
+                          style: TextStyle(
+                              color: valid ? fvSignedColor(dailyAmount) : fvMuted,
+                              fontSize: 19, fontWeight: FontWeight.w800)),
+                    ])),
+                    const SizedBox(width: 10),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      const Text('未實現損益',
+                          style: TextStyle(color: fvMuted, fontSize: 12)),
+                      const SizedBox(height: 4),
+                      Text(legacy.accountingNumber(row['unrealized_pnl'], missing: '資料不足'),
+                          key: Key('holding-pnl-$symbol'),
+                          textAlign: TextAlign.end,
+                          style: TextStyle(color: fvSignedColor(row['unrealized_pnl']),
+                              fontSize: 19, fontWeight: FontWeight.w800)),
+                      Text(legacy.portfolioReturnLabel(row['unrealized_return']),
+                          key: Key('holding-return-$symbol'),
+                          textAlign: TextAlign.end,
+                          style: TextStyle(color: fvSignedColor(row['unrealized_return']),
+                              fontSize: 15, fontWeight: FontWeight.w700)),
+                    ])),
+                  ]),
+                  const SizedBox(height: 10),
+                  Text(
+                    row['price_source'] == 'twse_mis'
+                        ? 'MIS 最後成交 · 報價 ${fvText(row['quote_at'])} · ${fvText(row['quote_state'])}'
+                        : '正式行情 · 行情日 ${fvText(row['price_date'])} · ${row['price_status'] == null ? '狀態未知' : legacy.uiLabel(row['price_status'])}',
+                    style: const TextStyle(color: fvMuted, fontSize: 11),
                   ),
-                ),
+                  if (valid)
+                    Text('前一交易日 ${fvText(row['previous_close_date'])} · 昨收 ${legacy.accountingNumber(row['previous_close'], decimals: 2)}',
+                        style: const TextStyle(color: fvMuted, fontSize: 11)),
+                  if (stale)
+                    const Text('報價過期：保留最後成功報價估值，不代表最新市價',
+                        style: TextStyle(color: fvMuted, fontSize: 12)),
+                  if (reason.isNotEmpty)
+                    Text(reason, style: const TextStyle(color: fvMuted, fontSize: 11)),
+                ]),
               ),
-            );
-          }),
-      ],
-    );
+            ),
+          );
+        }),
+      const Padding(
+        padding: EdgeInsets.only(top: 6),
+        child: Text('當日價格變動＝目前持有股數 ×（現價－前一交易日收盤價），並非今日實際交易損益。',
+            style: TextStyle(color: fvMuted, fontSize: 11)),
+      ),
+    ]);
   }
 
   String realizedPnlLabel(Map<String, dynamic>? row) {
@@ -988,15 +1020,14 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
           child: FutureBuilder<List<dynamic>>(
             future: coreData,
             builder: (context, snapshot) {
-              final values =
-                  snapshot.data ?? const [null, null, null, null, null];
+              final values = snapshot.data ?? const [null, null];
               final summary = fvRows(values[0]);
-              final currentPnl = fvRows(values[1]);
-              final canonicalPositions = fvRows(values[2]);
-              final currentHistory = fvRows(values[3]);
-              final loadedRecalcStatus = values.length > 4 && values[4] is Map
-                  ? Map<String, dynamic>.from(values[4] as Map)
-                  : <String, dynamic>{'status': 'IDLE', 'can_retry': true};
+              final canonicalPositions = fvRows(values[1]);
+              final currentPnl = fvRows(deferredCore == null ? null : deferredCore![0]);
+              final currentHistory = fvRows(deferredCore == null ? null : deferredCore![1]);
+              final loadedRecalcStatus = deferredCore != null && deferredCore![2] is Map
+                  ? Map<String, dynamic>.from(deferredCore![2] as Map)
+                  : <String, dynamic>{'status': 'IDLE', 'can_retry': false};
               final effectiveRecalcStatus = recalcStatus ?? loadedRecalcStatus;
               if (recalcStatus == null && recalcActive(loadedRecalcStatus)) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1048,9 +1079,9 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                       : legacy.portfolioReturnLabel(
                           aggregate['unrealized_return'],
                         );
-              final pnlUnavailable = values[1] == null;
-              final historyUnavailable = values[3] == null;
-              final ytd = coreLoading
+              final pnlUnavailable = deferredCore == null || deferredCore![0] == null;
+              final historyUnavailable = deferredCore == null || deferredCore![1] == null;
+              final ytd = deferredCore == null
                   ? '載入中'
                   : pnlUnavailable || historyUnavailable
                       ? '資料不足'
@@ -1070,6 +1101,33 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                 key: const Key('final-ledger-scroll'),
                 padding: const EdgeInsets.fromLTRB(18, 18, 18, 110),
                 children: [
+                  SegmentedButton<int>(
+                    segments: const [
+                      ButtonSegment(value: 0, label: Text('持股')),
+                      ButtonSegment(value: 1, label: Text('紀錄')),
+                      ButtonSegment(value: 2, label: Text('報表')),
+                      ButtonSegment(value: 3, label: Text('筆記')),
+                    ],
+                    selected: {section},
+                    onSelectionChanged: (value) {
+                      final next = value.first;
+                      quoteGeneration++;
+                      quoteBusy = false;
+                      quoteTimer?.cancel();
+                      setState(() {
+                        section = next;
+                        sectionData =
+                            next == 0 ? null : loadSection(next, yearFilter);
+                      });
+                      if (next == 0) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) startQuotes();
+                        });
+                      }
+                    },
+                    showSelectedIcon: false,
+                  ),
+                  const SizedBox(height: 12),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1087,7 +1145,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                       ),
                     ],
                   ),
-                  metricGrid(
+                  if (section == 0) metricGrid(
                     marketValue: marketValue,
                     unrealized: unrealized,
                     unrealizedReturn: unrealizedReturn,
@@ -1098,7 +1156,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                     aggregate: aggregate,
                     withheld: withheld,
                   ),
-                  if (ytd == '待更新／尚未確認') ...[
+                  if (section == 0 && ytd == '待更新／尚未確認') ...[
                     Align(
                       alignment: Alignment.centerLeft,
                       child: OutlinedButton.icon(
@@ -1136,37 +1194,11 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                         ),
                       ),
                   ],
-                  if (withheld)
+                  if (section == 0 && withheld)
                     fvBoundedState(
                       '正式總額暫不發布${affected.isEmpty ? '' : ' · 受影響 ${affected.join('、')}'}；持股 operational shares／cost 仍可顯示。',
                     ),
                   const SizedBox(height: 12),
-                  SegmentedButton<int>(
-                    segments: const [
-                      ButtonSegment(value: 0, label: Text('持股')),
-                      ButtonSegment(value: 1, label: Text('紀錄')),
-                      ButtonSegment(value: 2, label: Text('報表')),
-                      ButtonSegment(value: 3, label: Text('筆記')),
-                    ],
-                    selected: {section},
-                    onSelectionChanged: (value) {
-                      final next = value.first;
-                      quoteGeneration++;
-                      quoteBusy = false;
-                      quoteTimer?.cancel();
-                      setState(() {
-                        section = next;
-                        sectionData =
-                            next == 0 ? null : loadSection(next, yearFilter);
-                      });
-                      if (next == 0) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) startQuotes();
-                        });
-                      }
-                    },
-                    showSelectedIcon: false,
-                  ),
                   const SizedBox(height: 12),
                   if (section == 0) ...[
                     fvSectionTitle(context, '持股'),
