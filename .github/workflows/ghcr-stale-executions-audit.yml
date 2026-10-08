@@ -110,7 +110,7 @@ jobs:
           jq -c '{scope,expected_count,all_readable,all_terminal_confirmed,
                   records:[.records[] | {execution,v2_readback,readback_reason,reconciling,
                     start_observed,completion_observed,running_count,task_count,
-                    condition_states,terminal_confirmed}]}' \
+                    condition_states,terminal_confirmed,terminal_outcome}]}' \
             /tmp/ghcr-executions/v2-readback.json
 
           jq -s --arg job "$JOB" --argjson total "$(jq length /tmp/ghcr-executions/list.json)" \
