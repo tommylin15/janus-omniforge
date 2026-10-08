@@ -1,7 +1,7 @@
 {
   "intent": "read-only-cutover-guard",
   "sha": "8f6e7891e280cd021e25e1f036acedc28e3dbcec",
-  "purpose": "Live verify v1 list-readback plus zero-task plus v2 terminal failed exact nine proof; no workload or image writes",
+  "purpose": "Final same-run live confirmation that 9 old failed pre-task executions are fenced, request apply=false enforced; no GCP writes",
   "apply": false,
-  "attempt": 9
+  "attempt": 10
 }
