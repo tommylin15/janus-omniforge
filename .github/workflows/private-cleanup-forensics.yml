@@ -20,6 +20,63 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
+      - name: Bounded physical Parquet scan for two A/B test symbols
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -m pip install --quiet 'duckdb==1.4.1'
+          python3 - <<'PY'
+          import json
+          import subprocess
+          import tempfile
+          from pathlib import Path
+          import duckdb
+
+          bucket='gs://gen-lang-client-0593591102-dev-private/warehouse'
+          symbols=('AMUZ46T9F','AMUZ46ZME')
+
+          for table in ('note_revisions','ledger_events'):
+              prefix=f'{bucket}/{table}/data/'
+              listing=subprocess.run(
+                  ['gcloud','storage','ls','--recursive',prefix],
+                  capture_output=True,text=True,timeout=90)
+              if listing.returncode:
+                  print(json.dumps({'table':table,'scan':'UNAVAILABLE','reason':'GCS_LIST_DENIED_OR_MISSING'}))
+                  continue
+              files=sorted(set(s.strip() for s in listing.stdout.splitlines()
+                               if s.strip().startswith('gs://') and s.strip().endswith('.parquet')))
+              if len(files)>120:
+                  print(json.dumps({'table':table,'scan':'TRUNCATED','parquet_files':len(files)}))
+                  continue
+              rows=0
+              scanned=0
+              failures=0
+              with tempfile.TemporaryDirectory() as tmp:
+                  db=duckdb.connect(database=':memory:')
+                  for idx,url in enumerate(files):
+                      target=Path(tmp)/f'{idx}.parquet'
+                      copy=subprocess.run(['gcloud','storage','cp',url,str(target)],
+                                          capture_output=True,text=True,timeout=90)
+                      if copy.returncode:
+                          failures+=1
+                          continue
+                      try:
+                          rows+=int(db.execute(
+                              'SELECT COUNT(*) FROM read_parquet(?) WHERE symbol IN (?, ?)',
+                              (str(target),*symbols)
+                          ).fetchone()[0])
+                          scanned+=1
+                      except Exception:
+                          failures+=1
+                      finally:
+                          target.unlink(missing_ok=True)
+                  db.close()
+              print(json.dumps({'table':table,
+                                'scan':'COMPLETE' if not failures else 'PARTIAL',
+                                'parquet_files':len(files),'readable_files':scanned,
+                                'unreadable_files':failures,
+                                'physical_ab_symbol_rows':rows}))
+          PY
       - name: Bounded read-only backup and Private Iceberg inventory
         env:
           PROJECT: gen-lang-client-0593591102
