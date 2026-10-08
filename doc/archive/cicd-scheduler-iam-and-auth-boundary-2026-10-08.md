@@ -10,7 +10,7 @@
 - `gcloud projects describe` PASS，GCP WIF 可以讀到專案。
 - `gcloud scheduler jobs list --location=us-central1`、單一已知 `janus-ingestion-daily` 的 `describe`、`scheduler locations list` 全部 **IAM_DENIED**。因此不能判斷排程內容、計時區或是否有其他 writer；不是零個排程。
 - `gcloud projects get-iam-policy` **IAM_DENIED**。現有 ChatGPT GCP IAM connector 只提供 deny policies／custom roles API，沒有一般專案 allow IAM binding 寫入能力；此次未授權或嘗試高權限自我賦權。
-- `gcloud services describe` 失敗標記 `UNKNOWN_COMMAND`，此檢查不能推論 Cloud Scheduler API 是啟用或關閉。需要另外確認 API 狀態。
+- **Cloud Scheduler API 已確認 ENABLED**：修正 service usage 查詢方式後，[#37773536154](https://github.com/tommylin15/janus-omniforge/actions/runs/37773536154) 使用 `gcloud services list --enabled` 成功讀回 `cloudscheduler.googleapis.com`。同次查詢 Scheduler locations／jobs list／known job describe 仍 **IAM_DENIED**；問題已明確限縮至權限。
 - 建議的最小讀取權限：在 GCP 專案 `gen-lang-client-0593591102` 對上述 `janus-ci` 服務帳號授予 Google 預定義 `roles/cloudscheduler.viewer`；包含 `cloudscheduler.jobs.get`、`cloudscheduler.jobs.list`、`cloudscheduler.locations.*`。**不需要 Scheduler Admin／Owner**。
 - 權限新增後，必須重新執行 GitHub Actions Scheduler diagnosis、Jobs preflight；全域清單與具名排程都應有實際 readback，才能允許後續 Jobs image 變更。
 
