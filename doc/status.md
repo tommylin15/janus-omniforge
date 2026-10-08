@@ -1,6 +1,9 @@
-# CI/CD V2接續（2026-10-08）
+# CI/CD 正式流程文件定版（2026-10-08；implementation PARTIAL）
 
-已拆分 main Push selective CI 與明確 regional Release。四元件 shadow build SUCCESS、050 migration 已在 dev 成功；manual regional Trigger 已轉換。main `9e42420` 的 [selective CI 37737358620](https://github.com/tommylin15/janus-omniforge/actions/runs/37737358620) **PASS**（plan／controller）；修補 Release published generation CAS 失敗時必須保留 rollback Job 與 API 流量的路徑。文件-only Push 已調整為可產生 exact-SHA plan receipt（無受影響程式時略過程式測試），避免明確 Release 被 doc-only HEAD 擋下；變更版 [CI 37737524971](https://github.com/tommylin15/janus-omniforge/actions/runs/37737524971) **PASS**。真實 authenticated acceptance／promotion／安全 cleanup 仍待完成，V2 **PARTIAL**。
+使用者已核准將發布路徑轉為 **ChatGPT → GitHub → GitHub Actions → GCP API → GitHub Actions Logs → ChatGPT**：Actions 必須完成 full Release tests、公開 GHCR 映像發布及固定 digest；Cloud Run Service 0% candidate → authenticated dev acceptance → 明確 promotion／rollback；既有 Cloud Build 僅可 WIF 唯讀診斷並輸出遮罩摘要。新發布管線不呼叫 Cloud Build、不主動寫入 GCS／Artifact Registry、不新增常駐 Compute Engine。契約詳見 [CI/CD V2](spec/cicd-v2.md)；操作語意見 [dev runbook](runbook-dev-deploy.md)。
+
+**目前實作差距：** `ci-v2.yml` 仍是 selective CI；`cloudbuild-v2.yaml`／regional Trigger／Artifact Registry／GCS receipts 仍屬目前 `main`／dev 舊管線，尚無已驗證的 Actions full-test GHCR Release、WIF 新路徑／GHCR direct pull、0% candidate promotion／rollback 或四元件 live acceptance。因此新流程 **PARTIAL／未上線**。先前 V2 selective CI 的 PASS／shadow Build 的 SUCCESS 僅是舊流程 evidence，不代表新設計已完成。本輪只改文件；未更動 CI/CD workflow 或 GCP runtime。
+
 
 # Janus Current Status
 

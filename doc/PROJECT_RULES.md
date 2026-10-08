@@ -144,18 +144,31 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 - API path、schema 欄位、程式識別字、WBS ID、provider／model／product 名稱保留原文。
 - 歷史紀錄與測試證據可保留原始語言，只要不被誤認為目前使用者契約。
 
-## 12. CI／Release 分離（2026-10-08 使用者追加政策）
+## 12. CI／Release 分離（2026-10-08 正式目標政策；實作遷移中）
 
-- GitHub `main` Push 只自動執行依路徑與相依性選擇的必要輕量 CI；文件可略過不必要程式測試，不預設中間 commit 使用 `[skip ci]`。一般 Push 不部署 Cloud Run Service／Job。
-- Runtime 發布只由明確啟動的 regional Cloud Build Release Trigger 進行。每個 WBS／使用者指定工作包原則上是一個發布單位；工程 agent 在工作包 Ready 後主動觸發既有 dev Release，不需逐元件或逐次重新授權。
-- Ready gate：程式與必要文件完成、review／必要 CI PASS、migration／權限／依賴 preflight PASS、runtime 選擇明確、無衝突 deployment，才啟動集中 Release；部署後真實 GCP dev acceptance 全 PASS 才 CLOSED。純研究／資料作業／不變更 runtime 的工作包不強制 Docker Build。
-- Release 使用完整 Git SHA、WBS／工作包 ID及上次成功發布 SHA；範圍由上次成功發布版本到目標版本計算，不能只看最後一個中間 commit。已成功 marker 的 migration 不重跑。
-- 開發測試仍允許已授權真實 GCS／Iceberg、bounded BigQuery probe、API no-traffic Candidate、受控 Job execution、migration preflight、API／MCP／PostgreSQL 整合。測試通道不得切現役 API 流量或更新既有排程使用的 Job image；Job image 更新屬 Release。
-- 專案及必要的共用 runtime 採 deployment mutex；相同 SHA 重試保持冪等，過期 SHA 不得覆蓋新版。更新 Job 前核對 active execution／Scheduler；不取消、重送或重複啟動既有 Batch Controller／月度模型／Private Recalculation。PIT／canonical／provenance／owner isolation 保留。
-- Artifact Registry不能使用未查runtime引用的delete-all／只留最新版自動政策；V2轉換與未完成引用fence期間保持原生cleanup dry-run，build／cleanup preflight檢查此設定。
-- 新版本 live acceptance 完成前保留上一可用 image／設定／evidence；失敗須可回復，不清除 recovery 所需 image。新版 PASS 後才依完整 digest 引用／candidate 保留集合做 dry-run、bounded 清理、容量 readback；不依 tag 猜測可刪 image。
-- Cloud Build／Trigger 固定 `us-central1`，logs `CLOUD_LOGGING_ONLY`；Repository Source 優先，必要 staging／evidence／mutex 只使用既有核准 regional bucket。禁止重建／引用 legacy Multi-region bucket，不新增未授權付費資源、掃描 API、權限或 production。
-- 每次 Release 記錄 WBS、SHA、baseline、Build、digest、migration、deployment、runtime、acceptance 與 failure classification。等待必須有 bounded timeout／heartbeat／有限重試；unknown execution 不重送、timeout 不當 PASS。若專案有 recovering-stuck-ci-deploys 規則則遵守，否則使用本 repository 的 bounded recovery runbook。
-- `AGENTS.md` 只引用本權威文件；Runbook 記實際操作，不另維護第二套政策。
-- 任何 commit／push 前必須先執行 `/ponytail-review`；完成工作前檢查規則、適用 tests／lint／驗證，說明修改、真實證據與未決事項。
-- 存取既有 GCP／gcloud credentials 或執行 GCP dev acceptance 的指令使用 `sandbox_permissions=require_escalated`；僅限既有 dev 範圍。WSL 可執行 dev migration／Linux shell 驗證／GCP dev acceptance，不可用於 production 或擴大付費資源。
+### 12.1 正式路徑與邊界
+
+- 正式目標流程固定：**ChatGPT → GitHub → GitHub Actions → GCP API → GitHub Actions Logs → ChatGPT**。本節是使用者已核准的**目標契約**，不是已完成部署聲明；目前實作、驗收與未完成項見 [CI/CD 規格](spec/cicd-v2.md) 及 [status](status.md)。
+- GitHub `main` Push 可以保留輕量／selective CI 作快速回饋，但**任何 Release 必須在 GitHub Actions 對目標完整 Git SHA 執行所需全部測試、安全／schema／migration／建置檢查，全部 PASS 後才能建置並發布 GHCR 映像**。文件-only 變更可略過無關測試，但不得把選擇性 CI 冒充完整 Release gate。
+- GitHub Actions 建立 container image、推送至 **GHCR（`ghcr.io`）**、記錄不可變 `sha256` digest；以完整 Git SHA／工作包 ID／workflow run ID 連結測試、build 與 release evidence。不得以 mutable tag 作 Cloud Run deployment identity。
+- **新 CI/CD 流程不觸發 Cloud Build／Trigger，不主動寫入 GCS、Artifact Registry，不把這兩者當新的 image、receipt、mutex 或 release state store；不新增常駐 Compute Engine 作 Docker host。** 此限制不取消既有 Janus 業務資料流對已授權 GCS／Iceberg 的合法讀寫，亦不代表既有 Cloud Build／Artifact Registry／GCS 資產已停用或刪除。
+
+### 12.2 Cloud Run 候選、驗收、正式切換與回滾
+
+- **使用公開 GHCR package** 才可走 Cloud Run 直接部署；發布後必須驗證匿名可拉取與 digest 可解析。私人 GHCR package 需要 Artifact Registry remote repository 等額外路徑，**不符合目前「新流程不使用 Artifact Registry」目標，必須 fail closed**。GHCR visibility、外部 registry availability、rate／size 等限制與現有 Cloud Run 服務實際相容性須在 dev 驗證。
+- GitHub Actions 使用固定 `ghcr.io/...@sha256:...` 呼叫 GCP API，對**既有 Cloud Run Service** 建立 `--no-traffic`、帶專屬 tag 的 0% 正式流量候選 revision；候選 tag URL 可供受控測試，並非完全無請求。記錄先前 traffic、revision、digest 與設定，再做 health／authenticated owner／OAuth／PnL／MCP 等適用的真實 dev acceptance。所有必需 gate PASS 才明確移轉流量；失敗時將流量恢復至先前已驗證 revision，並 readback。
+- Cloud Run **Job 無 Service 的 0% traffic revision 語意**。Job image 更新必須另有 mutex、active execution／Scheduler fence、固定 digest／設定 snapshot、必要的隔離 canary 與可回復步驟；不得把 API 候選 PASS 直接當成 Jobs 發布成功，也不得未經 gate 更新排程使用的 Job image。
+- Release 使用完整 Git SHA、上一次成功發布 SHA、相同 SHA 冪等與舊 SHA 防覆蓋規則；保留上一可用 image／revision／Job 設定與回滾證據，直到新版本 live PASS。正常 Push 不得自動切換 Cloud Run traffic 或 Job。部分成功、timeout、未知執行均不視為 PASS，也不盲目重送任何 Job。
+- Release receipts／diagnostics 以 GitHub Actions logs、job summary 與必要的保護性 workflow artifacts 保留；只輸出非敏感欄位（SHA、digest、revision、workflow/run、gate 結果、baseline、rollback 與 UTC）。不在 log／artifact／argv 印出 Secret、token、owner 個資或敏感 payload。部署互斥、state 持久性及可回復路徑必須在正式啟用前實際驗證，不能假定 Actions concurrency 就等於跨 run／跨 runtime 的完整鎖。
+
+### 12.3 GCP 身分及既有 Cloud Build 唯讀診斷
+
+- GitHub Actions 使用 GCP Workload Identity Federation（WIF）與最小 IAM；GHCR publish 的 GitHub token 僅給需要的 `packages: write`。部署身分只擁有受限既有 dev Cloud Run 的必要更新／readback 權限，不能以「診斷」名義授予 Cloud Build 建置權；不得把 credentials 寫入 repo 或 logs。任何重大權限擴張與新付費資源仍依 §1.3 取得明確授權。
+- 既有 Cloud Build 只允許**可選的唯讀查詢**，不得成為新發布依賴：在 WIF 具必要查詢權限時，讀指定 build 的 `SUCCESS`／`FAILURE`／其他真實狀態、失敗 step ID／status／exit code（存在時）與經 allowlist 篩選／遮罩的簡短錯誤摘要，寫到 GitHub Actions Logs／summary，再由 ChatGPT 讀取 workflow run。建議將 `cloudbuild.builds.get`、必要時 `cloudbuild.builds.list` 與 `logging.logEntries.list` 限縮於唯讀診斷身分／範圍；取得這些欄位並非需要啟動 Build。
+- 若 WIF、IAM、Logging 查詢或 redaction 無法驗證，診斷顯示 `unknown / blocked`，不把未觀測到的 log 當成功，也不公開原始無遮罩的 Cloud Build logs。舊 `cloudbuild*.yaml`／Trigger 在核對其餘依賴與停用方案前不得自稱已移除。
+
+### 12.4 實作與證據分離
+
+- 舊 regional Cloud Build Release、Artifact Registry image、GCS receipts／mutex、`ci-v2.yml` selective CI 與部分 `deploy-dev.yml` 操作仍可能存在於 `main`／dev；**目前狀態以 workflow／runtime readback 為準**。文件更新不代表新 Actions full test + GHCR + Cloud Run release 已上線。
+- 對本次或後續工作要求的 evidence，至少涵蓋完整 SHA、完整測試 gate、GHCR public pull／digest、WIF 權限、0% candidate、authenticated acceptance、traffic／Job readback、rollback；確認切換新路徑後才有條件停止舊發布入口，不進行無法復原的清理。
+- `AGENTS.md` 只引用本權威文件；實際命令與轉換時序記在 [runbook](runbook-dev-deploy.md)，不另建立互相矛盾的政策。任何 commit／push 前必須先執行 `/ponytail-review`；完成工作前檢查規則、適用 tests／lint／驗證，說明修改、真實證據與未決事項。

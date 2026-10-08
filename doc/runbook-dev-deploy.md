@@ -42,37 +42,34 @@ $env:ALLOW_DEV_PROVISION = "true"
 
 ## 3. Dev deployment
 
-### 3.1 CI 與明確 Release
+### 3.1 正式目標：GitHub Actions + 公開 GHCR + Cloud Run
 
-政策見 [PROJECT_RULES §12](PROJECT_RULES.md#12-cirelease-分離2026-10-08-使用者追加政策)。main Push只執行`ci-v2.yml`；查GitHub run的exact SHA及成功結果。
+政策見 [PROJECT_RULES §12](PROJECT_RULES.md#12-cirelease-分離2026-10-08-正式目標政策實作遷移中)，完整 acceptance 依 [CI/CD 契約](spec/cicd-v2.md)。**以下是遷移後的操作順序與語意，不是宣稱現有 `main` 已具備此 Release workflow。**
 
-先以完整SHA執行同一regional Trigger的shadow build：
+1. 核對 `main` exact SHA／工作包 ID／上次成功發布 SHA、目前 service traffic／Job images 與 active executions。main Push selective CI 僅作回饋；在 Actions 的明確 Release run 跑**完整**適用測試（Python、Flutter、schema／migration、安全／Docker）。
+2. 測試全 PASS 後由 Actions 在 GitHub runner build／publish 到 GHCR，讀回 `ghcr.io/...@sha256:...`；驗證 package **public**、匿名 pull 與 digest。任何私有 package、registry 不可達或 fallback 到 Artifact Registry 的需求一律 fail closed，不偷偷改用 Cloud Build、GCS、Artifact Registry。
+3. 使用 GitHub Actions OIDC／GCP WIF 最小權限，部署既有 Cloud Run Service 的 **0% 正常流量 candidate**，指定 digest 與候選 tag URL，記錄部署前流量／revision／Job 設定。PowerShell 形式的 **概念範例，勿在 Release workflow 實作並完成前直接當發布指令使用**：
 
-```powershell
-& $gcloud builds triggers run janus-dev-v2 --sha=$sha --region=$region --project=$project --substitutions="_MODE=shadow" --format="value(metadata.build.id)"
-```
+   ```powershell
+   $imageRef = "ghcr.io/OWNER/IMAGE@sha256:IMMUTABLE_DIGEST"
+   & $gcloud run deploy SERVICE_NAME --project=$project --region=$region --image=$imageRef --no-traffic --tag=CANDIDATE_TAG
+   ```
 
-記錄Build ID，bounded查同一Build到終態；成功receipt位於既有regional bucket `v2/evidence/<Build ID>/build-receipt.json`。它包含四元件或受影響元件的完整digest，不代表live PASS。
+4. 先 readback 0%／revision／digest／Ready；對 candidate tag URL 做 health、未登入拒絕、authenticated owner／OAuth／PnL／MCP 與本次必要真實驗收。成功才指定**已驗證 revision**切流量（不使用未知 `LATEST`），再次 readback。失敗恢復先前 revision／traffic，保留 rollback evidence。
+5. **Jobs 不具備 no-traffic candidate**：ingestion／Mart／private pipeline 分別檢查 active execution、Scheduler、image／env／Secret refs snapshot、必要 migration、安全 canary，再以固定 digest 更新既有 Job。不可在 API candidate 階段預先修改排程使用的 Job image；rollback 必須可恢復原設定。無可靠跨 run mutex／durable state 時 Release 不可正式啟用。
+6. GitHub Actions run／step logs、job summary 及必要的保護性 artifacts 保存 SHA、full-test gates、GHCR digest、candidate revision／URL（不含 token）、驗收、baseline、流量切換、Job readback 與回滾。**新流程不觸發 Cloud Build、也不主動寫入 GCS／Artifact Registry；不新增常駐 VM。**
 
-候選使用`_MODE=candidate`。讀回`candidate-receipt.json`、API candidate URL、revision／digest與原流量；Job image不得因此改變。必要authenticated驗收使用該候選URL，token僅在記憶體，不放substitution／argv／log。
+### 3.2 既有 Cloud Build：限唯讀診斷，不是新發布步驟
 
-工作包Ready且同SHA／digest完整live evidence齊備後：
+WIF 診斷身分具備指定 project 的 `cloudbuild.builds.get`／必要時 `cloudbuild.builds.list` 與 `logging.logEntries.list` 唯讀權限時，Actions 可按 **Build ID** 查 `SUCCESS`、`FAILURE`、失敗 steps／exit code（如有）及 bounded／mask 後的錯誤摘要。只把經 allowlist 與遮罩的結果寫進 Actions log／summary，再由 ChatGPT 讀相同 run；permission denied、缺 logs 時一律 `UNKNOWN`，不得把未讀到的 log 當 PASS。
 
-```powershell
-& $gcloud builds triggers run janus-dev-v2 --sha=$sha --region=$region --project=$project --substitutions="_MODE=release,_WBS_ID=$wbs,_RELEASE_READY=true,_ACCEPTANCE_URI=$acceptanceUri" --format="value(metadata.build.id)"
-```
+**此查詢不允許呼叫 `gcloud builds submit`、`gcloud builds triggers run`、修改 Trigger 或寫入 GCS／Artifact Registry。** 舊 `cloudbuild-v2.yaml`、`janus-dev-v2`、GCS receipts／mutex 與舊 `deploy-dev.yml` recovery 目前仍屬**待遷移的實際 implementation**；僅盤點／保留，不得因新文件就視為停用。不要用先前 `_MODE=shadow/candidate/release` Trigger 命令作為新的正式發布程序。
 
-從receipt查migration、Job execution、revision與digest，再讀`v2/published.json`及runtime狀態。未成功發布的SHA不可當成下一次成功baseline。`deploy-dev.yml`的manual recovery只用於明確故障修復，不是普通發布入口。
+### 3.3 故障恢復與 digest 引用
 
-### 3.2 Mutex 與故障恢復
+每個 Release 使用 SHA/digest fence、bounded timeout／retry、唯一部署 lease、服務／Job baseline snapshot；遇到 API candidate FAIL／Job ambiguous execution／Scheduler readback 缺失時停止 promotion，按原 revision／traffic／Job 設定恢復後 readback。若原 run 未終止或未確認 execution 結果，不能重送 Job，也不能搶鎖。
 
-讀既有regional bucket `v2/deployment-lock.json`的Build ID，查同區Build與receipt。每次command最長120秒，Job execution最長900秒，每10秒heartbeat；unknown execution不可重送。
-
-若timeout／取消後mutex尚存，先查原Build及execution終態、Job snapshot rollback與Scheduler restore。active execution尚未終止時不重試部署、不解除mutex。確認無衝突且復原完成後，operator以object generation precondition解除；不按物件年齡猜測安全。
-
-### 3.3 Image盤點
-
-執行`scripts/gcp/cicd-v2.py cleanup-plan --output=<path>`取得digest引用dry-run。盤點失敗、mutable reference或缺欄位時停止；目前沒有delete入口。新版完整PASS後才補齊跨區／候選／恢復引用集合及bounded清理。
+舊 image inventory／cleanup 僅按仍存在的歷史 Artifact Registry／runtime 引用稽核，**不屬於新 release 的必經步驟**；未確認所有有效 revision／Job／復原引用前，不進行 delete-all 或 aggressive cleanup。既有 dev 業務 data path 的 GCS／Iceberg 保留，不受「新部署管線不寫 GCS」誤傷。
 
 ## 4. PostgreSQL migration
 
@@ -148,8 +145,8 @@ Secret 值不得出現在 command argv、shell trace、process listing、Cloud B
 每次 deployment／migration／Job／Secret 變更，依本次工作只保存必要 evidence：
 
 - Git commit SHA；
-- Cloud Build／workflow run ID（若適用）；
-- immutable image digest；
+- GitHub Actions workflow/run ID（必要時含唯讀 Cloud Build 歷史 Build ID）；
+- GHCR 公開映像確認與 immutable image digest；
 - Cloud Run revision 或 Job execution；
 - UTC 驗收時間；
 - targeted tests／acceptance 實際結果；

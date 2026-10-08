@@ -1,6 +1,6 @@
 # Janus 文件入口
 
-更新：2026-10-06
+更新：2026-10-08
 
 本頁定義 repository 內文件的角色，避免同一件事同時在 README、SPEC、WBS、TODO、runbook 與測試紀錄各自形成不同版本。
 
@@ -36,7 +36,8 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `spec/operations-and-testing.md`：最新完整 evidence summary 與尚待整理的歷史 checkpoint；日常定位優先看 `status.md`，舊證據逐步移至 `archive/`。
 - `pilot-operational-evidence.md`：`WBS-8-DEV-PILOT-RUN` 六個 calendar months evidence window 的新增 bounded checkpoint；保存 observed failure／recovery／manual intervention 與尚未觀察到的 evidence category，不把 checkpoint 當成 WBS 完成。
 - `runbook-data-supplement.md`：每日增量、週六品質檢查、Admin 結果與排程修復程序。
-- `runbook-dev-deploy.md`：目前 dev 部署、migration、Job 與 Secret 的操作程序。
+- `spec/cicd-v2.md`：2026-10-08 核准的 Actions + 公開 GHCR + Cloud Run 0% 候選正式目標契約、與舊 Cloud Build / GCS / Artifact Registry 實作的差距；文件完成不等於流程已上線。
+- `runbook-dev-deploy.md`：dev 部署、migration、Job 與 Secret 的操作程序；CI/CD 節區分新目標流程與目前 legacy 實作。
 - `runbook-pilot-calendar-repair.md`：Dev Pilot TWSE 交易日曆修復、operator IAP migration 與 bounded ingestion 驗收程序。
 - `runbook-user-oauth-dev.md`：User／MCP OAuth 的專用操作與 A/B owner isolation 驗收程序。
 - `runbook-parallel-live-dev.md`：dev 作為個人真實平行上線環境的操作語意。

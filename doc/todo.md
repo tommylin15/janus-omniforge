@@ -1,11 +1,15 @@
-# 本次明確指令：CI/CD V2（PARTIAL）
+# 本次明確指令：CI/CD 正式流程文件先行（設計已核准；實作 PARTIAL）
 
-- [ ] 四元件 Repository Trigger → tests/security/migration → immutable build → candidate → authenticated live acceptance → promotion → readback → digest-fenced cleanup 完整閉環。
-- [ ] 最新版本 main Push selective CI PASS；明確 Release 四元件 dev acceptance／promotion PASS，確認只有一個正常 runtime發布入口。
-- [ ] 持久化 published SHA baseline／same-SHA idempotency、舊 SHA fence、promotion／rollback與安全人工重跑。
-- [ ] 追蹤 legacy bucket 跨系統再建立來源；不刪其他系統 source／Janus 業務資料；cleanup dry-run／apply／容量讀回。
+- [x] 2026-10-08 決定改用 GitHub Actions 完整 Release tests + GHCR 公開 immutable image + Cloud Run 0% candidate／驗收／回滾；先更新政策、契約、runbook 與狀態文件。
+- [ ] GitHub Actions 明確 Release workflow 執行完整 Python／Flutter／security／schema／migration／container tests，PASS 才 build + push GHCR；一般 Push selective CI 不等於 Release gate。
+- [ ] 驗證 GHCR package public／匿名 pull／SHA→digest provenance，使用 `ghcr.io/...@sha256:...` 直接部署既有 Cloud Run。
+- [ ] 完成 WIF 最小 IAM、Cloud Run 0% candidate + tag URL、authenticated owner／OAuth／PnL／MCP acceptance、明確流量 promotion／rollback。
+- [ ] Cloud Run Jobs 的執行／Scheduler fence、image snapshot、canary、promotion／回滾，跨 run mutex、published SHA baseline 與 idempotency。
+- [ ] 可選 Cloud Build **唯讀** status／failed steps／遮罩錯誤摘要 → GitHub Actions Logs → ChatGPT readback；不得觸發 Cloud Build。
+- [ ] 確認新 release 不觸發 Cloud Build／不主動寫入 GCS／Artifact Registry、不新增常駐 VM；完成新路徑 live dev acceptance，盤點舊路徑依賴後才停用舊發布入口（不刪業務資料／復原映像）。
 
-已完成與未完成邊界見 [CI/CD V2 契約](spec/cicd-v2.md)。本次指令不授權變更 B7／B8／B9 功能範圍。
+[CI/CD 正式目標契約與現況差異](spec/cicd-v2.md)；本階段僅文件變更，不得將 runtime 標成 CLOSED。
+
 
 # Janus — TODO
 
