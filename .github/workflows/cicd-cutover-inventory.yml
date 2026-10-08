@@ -68,6 +68,15 @@ jobs:
           read_gcp repositories gcloud artifacts repositories list --project="$PROJECT" --location=all
           read_gcp buckets gcloud storage buckets list --project="$PROJECT"
           read_gcp revisions gcloud run revisions list --project="$PROJECT" --region="$REGION" --service=janus-api
+          # One bounded GHCR candidate revision probe, no env/secrets exposed.
+          if gcloud run revisions describe janus-api-00448-vir --project="$PROJECT" --region="$REGION" --format=json \
+               > inventory/candidate.raw.json 2>/dev/null; then
+            jq '{name:(.metadata.name // null),image:(.spec.containers[0].image // null),conditions:([.status.conditions[]? | {type,status}])}' \
+              inventory/candidate.raw.json > inventory/candidate.json
+          else
+            echo '{"status":"UNKNOWN_OR_BLOCKED"}' > inventory/candidate.json
+          fi
+          rm -f inventory/candidate.raw.json
           # Only the legacy CI/CD-specific GCS prefix may be inspected.
           result=0
           timeout 60s gcloud storage ls "gs://${PROJECT}-cloudbuild-regional/v2/" > inventory/legacy-prefix.raw.txt 2>/dev/null || result=$?
