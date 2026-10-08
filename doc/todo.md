@@ -4,7 +4,8 @@
 - [x] 四個 Docker build／GHCR push／公開 anonymous pull／immutable digest：相同 workflow PASS，源 SHA `0b93d99d42aaff662a3408d749d70aa9d04b1042`。
 - [x] GitHub Actions OIDC／WIF → Cloud Run API 固定 digest 0% 候選：[#37771247779](https://github.com/tommylin15/janus-omniforge/actions/runs/37771247779) PASS，`janus-api-00446-luq`，正式流量原版 100% 保持不變，僅 health／401 負向／Flutter identity gate。
 - [x] Jobs 現役 images／最近執行／GHCR digests 唯讀盤點：[#37771560144](https://github.com/tommylin15/janus-omniforge/actions/runs/37771560144) PASS。
-- [ ] Scheduler fence：[#37771833335](https://github.com/tommylin15/janus-omniforge/actions/runs/37771833335) 的 list／五個具名 describe 全部 `UNKNOWN_OR_BLOCKED`，先補最小唯讀可見性並驗證範圍，再接管現役 Jobs。
+- [x] Scheduler viewer IAM＋`us-central1` 排程唯讀驗證：[#37774488086](https://github.com/tommylin15/janus-omniforge/actions/runs/37774488086)、[#37774702422](https://github.com/tommylin15/janus-omniforge/actions/runs/37774702422) PASS；唯一 `ENABLED` Scheduler `janus-ingestion-daily` 每小時 :30（Asia/Taipei）觸發 `janus-batch-controller`。
+- [ ] Scheduler／Jobs 真正執行防護、跨 run mutex、snapshot、隔離 canary、pause/resume/rollback：須控制 :30 觸發窗口，現 viewer 僅可讀不能暫停。釐清舊 `inspect-dev-runtime.yml` 所預期四個 `janus-private-pipeline-*` 排程在此 region 不存在的落差，不可直接新建。
 - [ ] 候選環境用真實授權 owner 執行 Google OAuth、PnL、MCP、Private API／資料隔離；沒有 token／授權證據不能以 401 替代。
 - [ ] 四元件完整 Jobs config snapshot／Scheduler／active execution fence／GHCR digest update／canary／rollback，與 live E2E acceptance。
 - [ ] Service 新 revision 100% promotion、active service readback／rollback drill、上次成功 digest／mutex／idempotency 驗收。
