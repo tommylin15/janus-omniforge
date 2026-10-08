@@ -31,3 +31,12 @@
 - API no-traffic候選 `janus-api-v2-dfec48479e1641a7f742`：health、public health、未登入User／Admin 401、Flutter完整SHA／User+Admin bootstrap PASS；原positive traffic未變，Job images沒有更新。
 - 第一次候選在API mutation前因既有active Job停止；修正為candidate只讀Job，第二次有限嘗試完成。兩次receipt分別保存`candidate-receipt.json`及`candidate-2-receipt.json`，沒有覆寫失敗證據。
 - 真實browser候選登入顯示GSI origin不允許；已請使用者為既有User／Admin OAuth client加入固定`v2-candidate` origin。authenticated gates仍NOT_RUN，不偽造PASS、不升流量。
+
+- CI／Release分離版本 `a8596ca233c77f595771624ecad1bc840b99ef52` main Push：selective CI [37730258698](https://github.com/tommylin15/janus-omniforge/actions/runs/37730258698) SUCCESS，只跑controller／ingestion；migration validation及Portfolio contract皆SUCCESS。沒有舊Deploy workflow。
+- 明確manual候選Build `6e20016d-5309-4984-91a1-42e8dde15872` Repository Source／resolvedGitSource完整SHA一致；prepare、tests/security與四元件Docker SUCCESS（完成狀態見下列receipt）。
+- Job idle fence修正：九月private image-not-found execution的Completed=False已是terminal，不能只以缺completionTime判active。新版helper真實讀回四Job均IDLE，沒有cancel／redispatch。
+
+- Build `6e20016d-5309-4984-91a1-42e8dde15872` SUCCESS；API revision `janus-api-v2-a8596ca233c77f595771`公開／negative／Flutter gate PASS，Job images及positive API traffic未變，receipt仍PARTIAL。
+- 真實read-only migration preflight execution `janus-ingestion-core-jkm9f` PASS；existing image來源為`dev-1e5b6ba52a6ce9db5c233c70f6153ab7e0e8b12a`，沒有apply已完成migration。
+- 發現existing AR native `delete-all` ANY + KEEP1，與本次rollback保留政策衝突；原政策原地切dry-run，`cleanupPolicyDryRun=true`讀回。沒有image deletion／資源擴張。現役API舊digest `7528bdf24045169f45bcd976f44f969360939a4b100ab90441bbecef610b93a5`仍可describe。
+- 本機兩個既有DuckDB金融timestamp測試因缺lock內`pytz==2025.2`失敗；補齊至workspace暫存dependency target，不改business code或global Python，必要驗證重跑79 PASS。

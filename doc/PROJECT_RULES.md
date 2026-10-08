@@ -152,6 +152,7 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 - Release 使用完整 Git SHA、WBS／工作包 ID及上次成功發布 SHA；範圍由上次成功發布版本到目標版本計算，不能只看最後一個中間 commit。已成功 marker 的 migration 不重跑。
 - 開發測試仍允許已授權真實 GCS／Iceberg、bounded BigQuery probe、API no-traffic Candidate、受控 Job execution、migration preflight、API／MCP／PostgreSQL 整合。測試通道不得切現役 API 流量或更新既有排程使用的 Job image；Job image 更新屬 Release。
 - 專案及必要的共用 runtime 採 deployment mutex；相同 SHA 重試保持冪等，過期 SHA 不得覆蓋新版。更新 Job 前核對 active execution／Scheduler；不取消、重送或重複啟動既有 Batch Controller／月度模型／Private Recalculation。PIT／canonical／provenance／owner isolation 保留。
+- Artifact Registry不能使用未查runtime引用的delete-all／只留最新版自動政策；V2轉換與未完成引用fence期間保持原生cleanup dry-run，build／cleanup preflight檢查此設定。
 - 新版本 live acceptance 完成前保留上一可用 image／設定／evidence；失敗須可回復，不清除 recovery 所需 image。新版 PASS 後才依完整 digest 引用／candidate 保留集合做 dry-run、bounded 清理、容量 readback；不依 tag 猜測可刪 image。
 - Cloud Build／Trigger 固定 `us-central1`，logs `CLOUD_LOGGING_ONLY`；Repository Source 優先，必要 staging／evidence／mutex 只使用既有核准 regional bucket。禁止重建／引用 legacy Multi-region bucket，不新增未授權付費資源、掃描 API、權限或 production。
 - 每次 Release 記錄 WBS、SHA、baseline、Build、digest、migration、deployment、runtime、acceptance 與 failure classification。等待必須有 bounded timeout／heartbeat／有限重試；unknown execution 不重送、timeout 不當 PASS。若專案有 recovering-stuck-ci-deploys 規則則遵守，否則使用本 repository 的 bounded recovery runbook。

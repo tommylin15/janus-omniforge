@@ -1,6 +1,6 @@
 # CI/CD V2接續（2026-10-08）
 
-V2 **PARTIAL**。60 targeted contracts PASS；shadow Build `29f80814-c0f2-471c-ab0c-aa2b17426a2c` SUCCESS，exact SHA `dfec48479e1641a7f7429023b07e9df9cd98cd72`，四元件digest receipt已保存regional bucket。首輪Build `c9a8ab87-d1f7-46a9-813e-a2e194a344f9`因OpenMP相依失敗，未進Docker build；修正後成功。050已在existing dev PostgreSQL完成transaction，publication schema/view ACL為true、public role private isolation為true。Trigger `15f3d1cb-fbb2-447b-8f1a-cfd3173e321d`已原地改為manual Repository Source；最新CI、live acceptance／promotion／cleanup尚未PASS。legacy US bucket仍由另一系統使用，未刪。
+V2 **PARTIAL**。79 targeted tests PASS。最新 main `a8596ca233c77f595771624ecad1bc840b99ef52` 的 selective CI `37730258698` SUCCESS；manual candidate Build `6e20016d-5309-4984-91a1-42e8dde15872` SUCCESS，四元件 immutable digest receipt 已保存 regional bucket。API no-traffic revision `janus-api-v2-a8596ca233c77f595771` 的 health、unauthenticated 401、User/Admin Flutter SHA PASS；現役流量及排程 Job image 未由 candidate 更新。050 migration／publication ACL／public owner isolation preflight PASS；existing Job execution `janus-ingestion-core-jkm9f` readiness PASS。Trigger 已原地改為 manual Repository Source；一般 Push 不正式部署。Artifact Registry 原生 cleanup dry-run 已讀回 true，未刪 Image。外部 Chrome 已開啟，candidate 的 Google origin 尚待本人設定與登入；authenticated owner／OAuth／canonical PnL／MCP、集中 Release／promotion／bounded cleanup 尚未全 PASS，因此不 CLOSED。legacy US bucket由另一系統使用，保留其 source evidence。
 
 # Operations and testing
 

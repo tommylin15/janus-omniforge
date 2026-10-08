@@ -10,7 +10,7 @@
 - Release 必須提供工作包 ID、Ready flag及 exact-SHA CI success。SHA image index 只重用已成功 build receipt，image 以 digest部署；build tag包含 Build ID，避免覆蓋同 SHA 的另一個 build。
 - Candidate 只更新 API no-traffic revision；Job及Scheduler只讀。HTTP health、未登入 User／Admin拒絕及Flutter SHA gate不代表 authenticated acceptance。
 - Release controller使用 regional object generation mutex、main SHA fence、Job idle fence、設定 snapshot／rollback、Scheduler pause／restore，以及 published state generation CAS。Job更新僅存在 Release分支。
-- Release升流量前必須取得同 SHA／完整 digest集合的真實驗收 evidence，包含 migration、權限／依賴、ingestion、Mart、private queue、owner isolation、OAuth、canonical PnL與MCP。缺少任何 gate均 fail-closed；不得手寫 PASS 代替驗收。
+- Release先執行controlled runtime驗收：ingestion讀schema／ACL與固定snapshot的一列Core Parquet；Mart重用固定GCS input驗證五分析師；Private使用既有2-task owner queue canary。升流量前合併同SHA／digest的authenticated owner／OAuth／canonical PnL／MCP evidence；任何必要gate缺失均rollback，保留execution evidence。不得手寫PASS代替驗收。
 - 050 migration分 publication／control owner檢查，psycopg SELECT與GRANT分開執行；readiness只查／補缺marker。
 - 舊 Push deployment與B3／B5／Portfolio驗收中的部署fallback已移除；舊`deploy-dev.yml`只保留明確人工 recovery。
 - Image cleanup目前只有 digest-fenced dry-run；尚未完成全引用盤點與新版 live PASS，沒有刪 image。

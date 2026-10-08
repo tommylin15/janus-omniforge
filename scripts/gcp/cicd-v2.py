@@ -112,6 +112,12 @@ def image_references(value) -> set[str]:
     return found
 
 
+def retention_gate():
+    repository = gcloud("artifacts", "repositories", "describe", "janusai-poc", f"--location={REGION}")
+    if any(p.get("action") == "DELETE" for p in repository.get("cleanupPolicies", {}).values()) and not repository.get("cleanupPolicyDryRun"):
+        raise RuntimeError("active automatic cleanup cannot guarantee runtime recovery images")
+
+
 def inventory() -> dict:
     buckets = gcloud("storage", "buckets", "list")
     legacy = PROJECT + "_" + "cloudbuild"
@@ -134,6 +140,7 @@ def cleanup_plan(candidate_images: list[str]) -> dict:
     fails closed. Regional repository images may be used by other workloads.
     Cross-region references must be ruled out separately before any deletion.
     """
+    retention_gate()
     protected = image_references([{"image": image} for image in candidate_images])
     for resource in ("services", "revisions", "jobs"):
         resources = gcloud("run", resource, "list", f"--region={REGION}")
@@ -167,6 +174,7 @@ def cleanup_plan(candidate_images: list[str]) -> dict:
 def release_context(state: Path, sha: str, mode: str) -> str | None:
     if mode not in {"shadow", "candidate", "release"}:
         raise ValueError("invalid mode")
+    retention_gate()
     uri = f"gs://{PROJECT}-cloudbuild-regional/v2/published.json"
     objects = gcloud("storage", "objects", "list", f"gs://{PROJECT}-cloudbuild-regional/v2/**", "--filter=name:v2/published.json")
     baseline = None
@@ -175,6 +183,7 @@ def release_context(state: Path, sha: str, mode: str) -> str | None:
         published = json.loads(run("gcloud", "storage", "cat", uri))
         if published.get("status") != "PASS" or not SHA.fullmatch(published.get("sha", "")):
             raise ValueError("invalid published baseline")
+        (state / "previous-published.json").write_text(json.dumps(published))
         baseline = published["sha"]
         generation = run("gcloud", "storage", "objects", "describe", uri, "--format=value(generation)")
     (state / "baseline-generation").write_text(generation)

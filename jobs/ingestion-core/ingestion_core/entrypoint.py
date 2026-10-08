@@ -11,6 +11,24 @@ from time import monotonic
 MIGRATION_RUNNER_VERSION = "2026-10-06.latest-price-v2"
 
 
+def _core_readiness():
+    from .__main__ import _iceberg_core
+    core = _iceberg_core(os.environ["CORE_BUCKET"], read_only=True)
+    try:
+        identifier = core.table_identifier("ohlcv")
+        table = core.catalog.load_table(identifier)
+        snapshot = table.current_snapshot()
+        if snapshot is None:
+            raise RuntimeError("Core snapshot missing")
+        rows = table.scan(snapshot_id=snapshot.snapshot_id, selected_fields=("close",), limit=1).to_arrow()
+        if rows.num_rows != 1 or core.catalog.load_table(identifier).metadata_location != table.metadata_location:
+            raise RuntimeError("Core bounded Parquet read or snapshot fence failed")
+        return {"snapshot_id": snapshot.snapshot_id, "metadata_location": table.metadata_location,
+                "parquet_rows": rows.num_rows, "read_only": True, "status": "PASS"}
+    finally:
+        core.close()
+
+
 def main() -> None:
     readiness = os.environ.get("JANUS_CICD_READINESS", "").strip()
     if readiness:
@@ -21,6 +39,7 @@ def main() -> None:
         control = _control_plane()
         try:
             result = cicd_readiness(control, apply_missing=readiness == "apply-missing")
+            result["core_iceberg"] = _core_readiness()
             print(json.dumps(result, sort_keys=True))
         except Exception as error:
             print(json.dumps({"status": "failed", "operation": "cicd_readiness",

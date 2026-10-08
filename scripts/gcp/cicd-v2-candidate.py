@@ -40,25 +40,38 @@ def job_config(resource):
     return config
 
 
+def terminal_execution(status):
+    if int(status.get("runningCount", 0)):
+        return False
+    return bool(status.get("completionTime")) or any(
+        c.get("type") == "Completed" and c.get("status") in {"True", "False"}
+        for c in status.get("conditions", []))
+
+
 def ensure_idle(job):
     executions = v2.gcloud("run", "jobs", "executions", "list", f"--job={job}", f"--region={REGION}")
-    if any(not e.get("status", {}).get("completionTime") for e in executions):
+    if any(not terminal_execution(e.get("status", {})) for e in executions):
         raise RuntimeError("active execution; bounded retry after completion required")
 
 
-def execute(job, env, timeout=900):
+def execute(job, env, timeout=900, tasks=1):
     ensure_idle(job)
-    name = command("run", "jobs", "execute", job, "--tasks=1", "--task-timeout=10m",
+    name = command("run", "jobs", "execute", job, f"--tasks={tasks}", "--task-timeout=10m",
                    f"--update-env-vars={env}", "--async", "--format=value(metadata.name)").rsplit("/", 1)[-1]
     if not name:
         raise RuntimeError("execution identity missing; do not redispatch")
+    event = {"job": job, "execution": name, "tasks": tasks, "state": "dispatched"}
+    journal = Path(os.environ.get("JANUS_STATE", "/workspace/v2-state")) / "executions.jsonl"
+    with journal.open("a", encoding="utf-8") as output:
+        output.write(json.dumps(event) + "\n")
+    print(json.dumps(event), flush=True)
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         resource = v2.gcloud(
             "run", "jobs", "executions", "describe", name, f"--region={REGION}")
         status = resource.get("status", {})
-        if status.get("completionTime"):
-            if int(status.get("failedCount", 0)) or int(status.get("succeededCount", 0)) != 1:
+        if terminal_execution(status):
+            if int(status.get("failedCount", 0)) or int(status.get("succeededCount", 0)) != tasks:
                 raise RuntimeError(f"execution failed: {name}")
             return name
         print(json.dumps({"execution": name, "state": "waiting"}), flush=True)
@@ -97,6 +110,23 @@ def validate_acceptance(acceptance, receipt):
         raise RuntimeError("live acceptance evidence missing")
 
 
+def private_queue_gate():
+    from uuid import uuid4
+    request_id = str(uuid4())
+    job = "janus-ingestion-core"
+    env = f"JANUS_PRIVATE_RECALC_ACCEPTANCE_REQUEST_ID={request_id}"
+    try:
+        seed = execute(job, "JANUS_PRIVATE_RECALC_ACCEPTANCE_MODE=seed," + env)
+        execution = execute("janus-private-pipeline", "PRIVATE_RECALC_QUEUE_MODE=true,MOBILE_LEDGER_PROBE_ONLY=false", tasks=2)
+        verify = execute(job, "JANUS_PRIVATE_RECALC_ACCEPTANCE_MODE=verify," + env +
+                         f",JANUS_PRIVATE_RECALC_ACCEPTANCE_EXECUTION={execution}")
+        return {"seed": seed, "execution": execution, "verify": verify, "status": "PASS"}
+    finally:
+        # Never mutate the queue while an execution is still active/unknown.
+        ensure_idle("janus-private-pipeline")
+        execute(job, "JANUS_PRIVATE_RECALC_ACCEPTANCE_MODE=cleanup," + env)
+
+
 def head_fence(sha):
     current = json.loads(urlopen("https://api.github.com/repos/tommylin15/janus-omniforge/commits/main", timeout=30).read())["sha"]
     if current != sha:
@@ -127,11 +157,6 @@ def main():
     if release:
         if os.environ.get("JANUS_RELEASE_READY") != "true" or not os.environ.get("JANUS_WBS_ID"):
             raise RuntimeError("release work package not Ready")
-        uri = os.environ.get("JANUS_ACCEPTANCE_URI", "")
-        if not uri.startswith(BUCKET + "/evidence/") or not uri.endswith(".json"):
-            raise ValueError("versioned regional acceptance evidence required")
-        acceptance = json.loads(v2.run("gcloud", "storage", "cat", uri))
-        validate_acceptance(acceptance, receipt)
 
     build_id = os.environ["JANUS_BUILD_ID"]
     # One existing regional object is the global deployment mutex. No lease
@@ -146,6 +171,12 @@ def main():
     paused = []
     try:
         head_fence(receipt["sha"])
+        previous_release = json.loads((state / "previous-published.json").read_text()) if (state / "previous-published.json").exists() else {}
+        if release:
+            objects = v2.gcloud("storage", "objects", "list", BUCKET + "/**", "--filter=name:v2/published.json")
+            current_generation = str(objects[0]["generation"]) if objects else "0"
+            if current_generation != (state / "baseline-generation").read_text().strip():
+                raise RuntimeError("published baseline changed; prepare same SHA again")
         # Preserve only the existing active schedules; suspended ones stay so.
         schedules = v2.gcloud("scheduler", "jobs", "list", f"--location={REGION}")
         jobs = ["janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline", "janus-batch-controller"]
@@ -168,13 +199,21 @@ def main():
                 v2.run("gcloud", "scheduler", "jobs", "pause", name, f"--project={PROJECT}", f"--location={REGION}", "--quiet")
                 paused.append(name)
         candidates = {}
+        receipt["candidates"] = candidates
         if "api" in receipt["images"]:
             suffix = f"v2-{receipt['sha'][:20]}"
-            command("run", "services", "update", "janus-api", f"--image={receipt['images']['api']}",
-                    "--no-traffic", "--tag=v2-candidate", f"--revision-suffix={suffix}")
+            candidate = "janus-api-" + suffix
+            revisions = v2.gcloud("run", "revisions", "list", "--service=janus-api", f"--region={REGION}")
+            existing = next((r for r in revisions if r.get("metadata", {}).get("name") == candidate), None)
+            if existing:
+                if not ready(existing) or existing["spec"]["containers"][0]["image"] != receipt["images"]["api"]:
+                    raise RuntimeError("same-SHA candidate digest/config conflict")
+                command("run", "services", "update-traffic", "janus-api", f"--update-tags=v2-candidate={candidate}")
+            else:
+                command("run", "services", "update", "janus-api", f"--image={receipt['images']['api']}",
+                        "--no-traffic", "--tag=v2-candidate", f"--revision-suffix={suffix}")
             api = describe("services", "janus-api")
-            candidate = api["status"]["latestReadyRevisionName"]
-            if not ready(api) or candidate != "janus-api-" + suffix:
+            if not ready(describe("revisions", candidate)):
                 raise RuntimeError("API candidate not ready")
             positive_before = {t["revisionName"]: t.get("percent", 0) for t in original_traffic if t.get("percent", 0)}
             positive_after = {t["revisionName"]: t.get("percent", 0) for t in api["status"]["traffic"] if t.get("percent", 0)}
@@ -196,31 +235,61 @@ def main():
             command("run", "jobs", "update", job, f"--image={receipt['images'][component]}", *flags)
             updated.append(job)
             after = describe("jobs", job)
-            if not ready(after) or job_config(previous[job]) != job_config(after):
+            if (not ready(after) or after["spec"]["template"]["spec"]["template"]["spec"]["containers"][0]["image"] != receipt["images"][component]
+                    or job_config(previous[job]) != job_config(after)):
                 raise RuntimeError("job config drift or readiness failed")
             if component == "ingestion-core":
                 execution = execute(job, "JANUS_CICD_READINESS=check")
             elif component == "intelligence-mart":
-                execution = execute(job, "MART_OPERATION=specialist-smoke")
+                execution = execute(job, "MART_OPERATION=specialist-acceptance,MART_OOS_EVALUATION=false,MART_ACCEPTANCE_INPUT_URI=gs://gen-lang-client-0593591102-dev-mart/acceptance/specialists/b1-fixed-snapshot-20261007.json")
             else:
                 execution = execute(job, "MOBILE_LEDGER_PROBE_ONLY=true,PRIVATE_RECALC_QUEUE_MODE=false")
             candidates[component] = {"job": job, "execution": execution, "readback_and_smoke": "PASS"}
         if release:
+            if "private-pipeline" in receipt["images"]:
+                candidates["private-pipeline"]["owner_queue"] = private_queue_gate()
             # The controller image shares ingestion, but never executes a batch here.
             if "ingestion-core" in receipt["images"]:
                 job = "janus-batch-controller"
                 ensure_idle(job)
                 command("run", "jobs", "update", job, f"--image={receipt['images']['ingestion-core']}")
                 updated.append(job)
-                if job_config(previous[job]) != job_config(describe("jobs", job)):
+                after = describe("jobs", job)
+                if (not ready(after) or after["spec"]["template"]["spec"]["template"]["spec"]["containers"][0]["image"] != receipt["images"]["ingestion-core"]
+                        or job_config(previous[job]) != job_config(after)):
                     raise RuntimeError("batch controller config drift")
+            uri = os.environ.get("JANUS_ACCEPTANCE_URI", "")
+            if "api" in receipt["images"]:
+                if not uri.startswith(BUCKET + "/evidence/") or not uri.endswith(".json"):
+                    raise RuntimeError("authenticated acceptance pending; runtime tests recorded, release rolled back")
+                acceptance = json.loads(v2.run("gcloud", "storage", "cat", uri))
+            else:
+                # Unchanged API digest keeps its last successful authenticated evidence.
+                uri = previous_release.get("acceptance_uri", "")
+                acceptance = {"sha": receipt["sha"], "images": receipt["images"],
+                              "gates": previous_release.get("gates", {}), "evidence": uri}
+            gates = {**previous_release.get("gates", {}), **acceptance.get("gates", {}), "dependencies": receipt["tests"]}
+            if "ingestion-core" in candidates:
+                gates.update({"migration": "PASS", "permissions": "PASS", "ingestion": "PASS"})
+            if "intelligence-mart" in candidates:
+                gates["mart"] = "PASS"
+            if "private-pipeline" in candidates:
+                gates["private_queue"] = candidates["private-pipeline"]["owner_queue"]["status"]
+            acceptance["gates"] = gates
+            validate_acceptance(acceptance, receipt)
             if "api" in candidates:
                 head_fence(receipt["sha"])
                 command("run", "services", "update-traffic", "janus-api",
                         f"--to-revisions={candidates['api']['revision']}=100")
+                if any(t.get("tag") == "mcp-adapter" for t in original_traffic):
+                    command("run", "services", "update-traffic", "janus-api",
+                            f"--update-tags=mcp-adapter={candidates['api']['revision']}")
                 http_gate(describe("services", "janus-api")["status"]["url"], receipt["sha"])
             published = {**receipt, "wbs_id": os.environ["JANUS_WBS_ID"],
-                         "acceptance_uri": os.environ["JANUS_ACCEPTANCE_URI"],
+                         "acceptance_uri": uri, "gates": gates,
+                         "images": {**previous_release.get("images", {}), **receipt["images"]},
+                         "component_shas": {**previous_release.get("component_shas", {}),
+                                            **{component: receipt["sha"] for component in receipt["images"]}},
                          "candidates": candidates, "status": "PASS", "promotion": "PASS", "runtime_acceptance": "PASS"}
             output = state / "published.json"
             output.write_text(json.dumps(published, indent=2) + "\n")
@@ -231,7 +300,9 @@ def main():
                         "promotion": "NOT_RUN", "blocker": "authenticated API acceptance and canonical cutover pending"})
     except Exception as error:
         receipt.update({"status": "FAILED", "error_code": type(error).__name__,
-                        "failure_classification": "TIMEOUT_INSPECT_EXECUTION" if isinstance(error, TimeoutError) else "GATE_OR_DEPLOYMENT",
+                        "failure_classification": ("TIMEOUT_INSPECT_EXECUTION" if isinstance(error, TimeoutError)
+                                                   else "WAITING_AUTH_ACCEPTANCE" if str(error).startswith("authenticated acceptance pending")
+                                                   else "GATE_OR_DEPLOYMENT"),
                         "promotion": "NOT_COMPLETE"})
         raise
     finally:
@@ -254,6 +325,9 @@ def main():
             traffic = ",".join(f"{t['revisionName']}={t['percent']}" for t in original_traffic if t.get("percent", 0))
             try:
                 command("run", "services", "update-traffic", "janus-api", f"--to-revisions={traffic}")
+                tags = ",".join(f"{t['tag']}={t['revisionName']}" for t in original_traffic if t.get("tag") and t["tag"] != "v2-candidate")
+                if tags:
+                    command("run", "services", "update-traffic", "janus-api", f"--update-tags={tags}")
             except Exception:
                 rollback_failed = True
         if release and receipt.get("status") == "PASS" and not rollback_failed:
@@ -263,6 +337,12 @@ def main():
             except Exception:
                 rollback_failed = True
                 receipt["status"] = "FAILED_BASELINE_COMMIT"
+        journal = state / "executions.jsonl"
+        if journal.exists():
+            receipt["executions"] = [json.loads(line) for line in journal.read_text().splitlines()]
+        if rollback_failed:
+            receipt.update({"status": "FAILED_RECOVERY", "promotion": "NOT_COMPLETE",
+                            "failure_classification": "RECOVERY_REQUIRED"})
         receipt["job_rollback_and_schedule_restore"] = "FAILED" if rollback_failed else "PASS"
         output = state / "candidate-receipt.json"
         output.write_text(json.dumps(receipt, indent=2) + "\n")

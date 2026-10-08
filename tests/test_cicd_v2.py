@@ -42,6 +42,8 @@ def test_cleanup_preserves_candidates_and_job_execution_images(monkeypatch):
     prefix = f"{v2.REGION}-docker.pkg.dev/{v2.PROJECT}/janusai-poc/api"
     images = [prefix + "@sha256:" + char * 64 for char in "abc"]
     def inventory(*args):
+        if args[:2] == ("artifacts", "repositories"):
+            return {"cleanupPolicyDryRun": True}
         if args[:3] == ("run", "jobs", "executions"):
             return [{"containers": [{"image": images[1]}]}]
         if args[:2] == ("run", "jobs"):
@@ -108,3 +110,21 @@ def test_manual_release_and_acceptance_fail_closed():
     source = (ROOT / "scripts/gcp/cicd-v2-candidate.py").read_text()
     assert "for component in v2.COMPONENTS[:-1] if release else []" in source
     assert "for schedule in schedules if release else []" in source
+
+
+def test_terminal_failure_without_completion_time_is_not_active():
+    candidate_spec = importlib.util.spec_from_file_location("candidate", ROOT / "scripts/gcp/cicd-v2-candidate.py")
+    candidate = importlib.util.module_from_spec(candidate_spec)
+    candidate_spec.loader.exec_module(candidate)
+    assert candidate.terminal_execution({"conditions": [{"type": "Completed", "status": "False"}]})
+    assert candidate.terminal_execution({"completionTime": "2026-10-08T00:00:00Z"})
+    assert not candidate.terminal_execution({"conditions": [{"type": "Completed", "status": "Unknown"}]})
+    assert not candidate.terminal_execution({"runningCount": 1, "completionTime": "2026-10-08T00:00:00Z"})
+
+
+def test_active_delete_all_retention_policy_blocks_build_and_cleanup(monkeypatch):
+    monkeypatch.setattr(v2, "gcloud", lambda *args: {"cleanupPolicies": {"delete-all": {"action": "DELETE"}}})
+    with pytest.raises(RuntimeError, match="recovery images"):
+        v2.retention_gate()
+    monkeypatch.setattr(v2, "gcloud", lambda *args: {"cleanupPolicyDryRun": True, "cleanupPolicies": {"delete-all": {"action": "DELETE"}}})
+    v2.retention_gate()

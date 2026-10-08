@@ -141,7 +141,7 @@ def _control_plane() -> PostgreSQLControlPlane:
     return PostgreSQLControlPlane(connect)
 
 
-def _iceberg_core(core_bucket: str) -> DuckDBIcebergCore:
+def _iceberg_core(core_bucket: str, *, read_only: bool = False) -> DuckDBIcebergCore:
     from packages.postgres_bundle import load_postgres_bundle
     load_postgres_bundle("JANUS_INGESTION_POSTGRES_BUNDLE", {
         "CONTROL_DB_PASSWORD": ("ingestion_control_password", "control_password"),
@@ -163,6 +163,7 @@ def _iceberg_core(core_bucket: str) -> DuckDBIcebergCore:
         warehouse=warehouse,
         project_id=os.environ["GCP_PROJECT_ID"],
         sslmode=os.environ.get("CATALOG_DB_SSLMODE", "require"),
+        read_only=read_only,
     )
 
 

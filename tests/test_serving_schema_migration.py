@@ -349,3 +349,32 @@ def test_holdings_acl_fetches_select_result_in_separate_statement(monkeypatch):
     publication.cursor = lambda: Cursor('janus_publication')
     monkeypatch.setattr(migration, '_publication_connection', lambda: publication)
     migration.run(FakeControl(), migration.MIGRATION_HOLDINGS_PREVIOUS_CLOSE)
+
+
+def test_core_readiness_fences_snapshot_and_uses_read_only_catalog(monkeypatch):
+    from types import SimpleNamespace
+    from ingestion_core import entrypoint, __main__ as runtime
+    calls = []
+    class Table:
+        metadata_location = "gs://existing-core/metadata.json"
+        def current_snapshot(self): return SimpleNamespace(snapshot_id=17)
+        def scan(self, **kwargs):
+            assert kwargs == {"snapshot_id": 17, "selected_fields": ("close",), "limit": 1}
+            return self
+        def to_arrow(self): return SimpleNamespace(num_rows=1)
+    table = Table()
+    core = SimpleNamespace(catalog=SimpleNamespace(load_table=lambda name: table),
+                           table_identifier=lambda dataset: "core.ohlcv_v1", close=lambda: calls.append("closed"))
+    def connect(bucket, **options):
+        assert bucket == "existing-core" and options == {"read_only": True}
+        return core
+    monkeypatch.setenv("CORE_BUCKET", "existing-core")
+    monkeypatch.setattr(runtime, "_iceberg_core", connect)
+    assert entrypoint._core_readiness()["snapshot_id"] == 17
+    assert calls == ["closed"]
+    core.catalog.load_table = lambda name: table if len(calls) == 1 else SimpleNamespace(metadata_location="changed")
+    table.to_arrow = lambda: (calls.append("pointer-moved") or SimpleNamespace(num_rows=1))
+    import pytest
+    with pytest.raises(RuntimeError, match="snapshot fence"):
+        entrypoint._core_readiness()
+    assert calls[-1] == "closed"
