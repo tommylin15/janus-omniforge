@@ -15,7 +15,13 @@ def test_operator_drill_is_exact_job_only_and_has_fail_safe_controls():
     assert "lock_acquired=1" in text
     assert "independent-recovery:" in text
     assert "if: always()" in text
-    assert '[[ "$after" == "ENABLED" ]]' in text
+    assert "jq -e '.state==\"ENABLED\"" in text
+    assert "python scripts/gcp/ghcr_release_lease.py acquire" in text
+    assert "python scripts/gcp/ghcr_release_lease.py release --safe-to-release" in text
+    assert "global_lock_acquired=1" in text
+    assert text.index("ghcr_release_lease.py acquire") < text.index('gcloud scheduler jobs pause "$JOB"')
+    assert "check_local_ref()" in text
+    assert "grep -q 'HTTP 404'" in text
     assert "gcloud scheduler jobs run" not in text
     assert "gcloud run jobs update" not in text
     assert "gcloud run jobs execute" not in text
@@ -32,3 +38,22 @@ def test_emergency_recovery_requires_lease_and_exact_whitelist():
     assert 'gcloud run jobs execute' not in text
     assert 'gcloud scheduler jobs create' not in text
     assert 'gcloud scheduler jobs run' not in text
+
+
+def test_scheduler_drill_global_lease_and_owner_recovery_fail_closed():
+    text=(ROOT/".github/workflows/ghcr-scheduler-operator-drill.yml").read_text()
+    assert 'global_lock_acquired=0' in text
+    assert 'global_lock_acquired=1' in text
+    assert 'ghcr_release_lease.py acquire' in text
+    assert 'ghcr_release_lease.py assert' in text
+    assert 'ghcr_release_lease.py release --safe-to-release' in text
+    assert text.index('ghcr_release_lease.py acquire') < text.index('gcloud scheduler jobs pause "$JOB"')
+    assert '[[ "$state" == "ENABLED" ]]' in text
+    assert 'global_state="$(python scripts/gcp/ghcr_release_lease.py inspect | jq -r .status)"' in text
+    assert 'local_state="$(check_local_ref)"' in text
+    assert 'grep -q \x27HTTP 404\x27' in text
+    assert 'Paused without the original drill tag is ambiguous' in text
+    assert 'global_state" == "ABSENT" && "$local_state" == "ABSENT"' in text
+    assert 'if: always()' in text
+    assert 'gcloud run jobs execute' not in text
+    assert 'gcloud builds submit' not in text
