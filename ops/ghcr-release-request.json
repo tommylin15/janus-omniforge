@@ -8,6 +8,6 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 2,
-  "reason": "2026-10-08 Janus cutover complete active runtime tests"
+  "attempt": 3,
+  "reason": "Complete non-legacy tests with BigQuery dependency and Pilot contract deselection"
 }
