@@ -1,0 +1,98 @@
+name: Janus GHCR stale executions audit (read only)
+on:
+  push:
+    branches: [main]
+    paths:
+      - ops/ghcr-stale-executions-audit-request.json
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PROJECT: gen-lang-client-0593591102
+      REGION: us-central1
+      JOB: janus-private-pipeline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Describe historical nonterminal executions without mutations
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="readonly-nine-historical-private-executions" and .allow_cancel==false and .allow_execute==false and .allow_mutation==false' ops/ghcr-stale-executions-audit-request.json >/dev/null
+          mkdir -p /tmp/ghcr-executions evidence
+          gcloud run jobs executions list --job="$JOB" \
+            --project="$PROJECT" --region="$REGION" --limit=500 --format=json \
+            > /tmp/ghcr-executions/list.json
+          jq -r '
+            [.[] | select(
+               ((.status.completionTime // "")=="") and
+               (([.status.conditions[]? | select(.type=="Completed" and .status=="True")]|length)==0)
+            ) | (.metadata.name // .name // "" | split("/")[-1])]
+            | .[]' /tmp/ghcr-executions/list.json > /tmp/ghcr-executions/unknown.txt
+
+          count="$(wc -l < /tmp/ghcr-executions/unknown.txt)"
+          ((count <= 20)) || { echo "BLOCKED: more than 20 unknown execution states"; exit 78; }
+          : > /tmp/ghcr-executions/detail.ndjson
+          while IFS= read -r execution; do
+            [[ "$execution" =~ ^janus-private-pipeline-[a-z0-9-]+$ ]] || exit 78
+            if gcloud run jobs executions describe "$execution" \
+              --project="$PROJECT" --region="$REGION" --format=json \
+              > /tmp/ghcr-executions/one.json 2>/dev/null; then
+              jq -nc --arg execution "$execution" --slurpfile d /tmp/ghcr-executions/one.json '{
+                execution:$execution,describe_status:"READABLE",
+                created:($d[0].metadata.creationTimestamp // $d[0].createTime // null),
+                start_time:($d[0].status.startTime // $d[0].startTime // null),
+                completion_time:($d[0].status.completionTime // $d[0].completionTime // null),
+                running_count:($d[0].status.runningCount // $d[0].runningCount // 0),
+                task_count:($d[0].spec.taskCount // $d[0].taskCount // null),
+                succeeded_count:($d[0].status.succeededCount // $d[0].succeededCount // 0),
+                failed_count:($d[0].status.failedCount // $d[0].failedCount // 0),
+                cancelled_count:($d[0].status.cancelledCount // $d[0].cancelledCount // 0),
+                conditions:([$d[0].status.conditions[]?, $d[0].conditions[]?] |
+                    map(select(.type=="Completed" or .type=="Started" or .type=="Ready") |
+                      {type,status,reason:(.reason // null)}))
+              }' >> /tmp/ghcr-executions/detail.ndjson
+            else
+              jq -nc --arg execution "$execution" \
+                '{execution:$execution,describe_status:"UNKNOWN_OR_BLOCKED"}' \
+                >> /tmp/ghcr-executions/detail.ndjson
+            fi
+          done < /tmp/ghcr-executions/unknown.txt
+
+          jq -ns --arg job "$JOB" --argjson total "$(jq length /tmp/ghcr-executions/list.json)" \
+            --argjson candidates "$count" \
+            '{job:$job,total_listed:$total,unknown_candidate_count:$candidates,
+              scanned_full_page:($total < 500),
+              records:.,resource_writes:0,
+              state:"INSPECTED_NOT_TERMINAL_CONFIRMED"}' \
+            /tmp/ghcr-executions/detail.ndjson > evidence/stale-executions.json
+          jq -c '{job,total_listed,unknown_candidate_count,scanned_full_page,
+                  details:[.records[]|{execution,describe_status,start_time,completion_time,
+                  running_count,conditions}]}' evidence/stale-executions.json
+          {
+            echo '## Janus historical execution read-only classification'
+            echo 'No job executed, deleted, or cancelled.'
+            echo '~~~json'
+            jq '{job,total_listed,unknown_candidate_count,scanned_full_page,
+                resource_writes,state,
+                details:[.records[]|{execution,describe_status,start_time,
+                completion_time,running_count,conditions}]}' evidence/stale-executions.json
+            echo '~~~'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: janus-ghcr-stale-executions-audit
+          path: evidence/stale-executions.json
+          if-no-files-found: ignore
+          retention-days: 7
