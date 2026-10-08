@@ -142,10 +142,10 @@ vm_backup() {
   ledger_events="$(docker exec --user postgres janus-postgres psql -At -d janus_control -c 'SELECT count(*) FROM private.ledger_events')"
   gcs_object upload "${prefix}/daily/${day}.dump" "${temporary}/ledger.dump"
   gcs_object upload "${prefix}/monthly/${month}.dump" "${temporary}/ledger.dump"
-  gcs_object prune "${prefix}/daily/" '' 14
+  gcs_object prune "${prefix}/daily/" '' 3
   gcs_object prune "${prefix}/monthly/" '' 6
   printf '{"backup_id":"%s","owners":%s,"ledger_events":%s,"bytes":%s,"sha256":"sha256:%s","projected_retention_bytes":%s}\n' \
-    "${day}" "${owners}" "${ledger_events}" "${bytes}" "${digest}" "$((bytes * 20))"
+    "${day}" "${owners}" "${ledger_events}" "${bytes}" "${digest}" "$((bytes * 9))"
 }
 
 restore_build() {
