@@ -1,0 +1,83 @@
+name: B7 monthly runtime readback
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b7-monthly-runtime-readback.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read dev scheduler and controller configuration
+        shell: bash
+        env:
+          GCP_PROJECT_ID: gen-lang-client-0593591102
+          GCP_REGION: us-central1
+        run: |
+          set -Eeuo pipefail
+          gcloud scheduler jobs describe janus-ingestion-daily \
+            --project="${GCP_PROJECT_ID}" --location="${GCP_REGION}" \
+            --format='json(schedule,timeZone,state)' > scheduler.json
+          gcloud run jobs describe janus-batch-controller \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --format='value(spec.template.spec.template.spec.containers[0].image)' > controller-image.txt
+          gcloud run jobs describe janus-ingestion-core \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --format='value(spec.template.spec.template.spec.containers[0].image)' > ingestion-image.txt
+          gcloud run jobs describe janus-intelligence-mart \
+            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+            --format='value(status.conditions[0].status)' > mart-ready.txt
+          python - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+          scheduler = json.loads(Path("scheduler.json").read_text())
+          controller = Path("controller-image.txt").read_text().strip()
+          ingestion = Path("ingestion-image.txt").read_text().strip()
+          mart_ready = Path("mart-ready.txt").read_text().strip()
+          evidence = {
+              "schema_version": "b7-monthly-dev-runtime-readback-v1",
+              "recorded_at": datetime.now(timezone.utc).isoformat(),
+              "scheduler_name": "janus-ingestion-daily",
+              "scheduler_schedule": scheduler.get("schedule"),
+              "scheduler_timezone": scheduler.get("timeZone"),
+              "scheduler_state": scheduler.get("state"),
+              "controller_image_matches_ingestion": bool(controller and controller == ingestion),
+              "mart_ready": mart_ready == "True",
+              "scheduled_first_saturday_slot": "10:30 Asia/Taipei (controller code gate)",
+              "monthly_due_rule_verified_by_unit_tests": False,
+              "natural_monthly_execution_observed": False,
+              "live_retrain_observed": False,
+          }
+          evidence["runtime_config_pass"] = all((
+              evidence["scheduler_schedule"] == "30 * * * *",
+              evidence["scheduler_timezone"] == "Asia/Taipei",
+              evidence["scheduler_state"] == "ENABLED",
+              evidence["controller_image_matches_ingestion"],
+              evidence["mart_ready"],
+          ))
+          Path("b7-runtime-readback.json").write_text(json.dumps(evidence, indent=2, sort_keys=True))
+          print(json.dumps(evidence, sort_keys=True))
+          if not evidence["runtime_config_pass"]:
+              raise SystemExit("B7 live runtime configuration gate not met")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b7-runtime-readback
+          path: b7-runtime-readback.json
+          if-no-files-found: ignore
+          retention-days: 7
