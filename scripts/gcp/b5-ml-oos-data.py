@@ -258,9 +258,39 @@ class QueryBudget:
                 pass
             raise
         elapsed = time.monotonic() - started
+        child_jobs = []
+        if label == "export-parquet":
+            # A SCRIPT parent can summarize child usage. Read individual jobs to
+            # audit CREATE TEMP / EXPORT / DROP without double-counting the parent.
+            listed = stage_call(
+                "bigquery-export-child-list", 20,
+                lambda: list(self.client.list_jobs(parent_job=job.job_id, max_results=10)),
+            )
+            if len(listed) != 3:
+                raise RuntimeError("B5 export script child job count unexpected")
+            for child in listed:
+                detail = stage_call(
+                    "bigquery-export-child-readback", 15,
+                    lambda child_id=child.job_id: self.client.get_job(
+                        child_id, location=LOCATION, timeout=12,
+                    ),
+                )
+                if detail.state != "DONE" or detail.error_result:
+                    raise RuntimeError("B5 export child job did not complete successfully")
+                child_jobs.append({
+                    "job_id": detail.job_id,
+                    "statement_type": detail.statement_type,
+                    "processed_bytes": int(detail.total_bytes_processed)
+                    if detail.total_bytes_processed is not None else None,
+                    "billed_bytes": int(detail.total_bytes_billed)
+                    if detail.total_bytes_billed is not None else None,
+                })
         if job.total_bytes_billed is None:
-            raise RuntimeError("B5 BigQuery billed bytes unknown")
-        billed = int(job.total_bytes_billed)
+            if label != "export-parquet" or any(x["billed_bytes"] is None for x in child_jobs):
+                raise RuntimeError("B5 BigQuery billed bytes unknown")
+            billed = sum(x["billed_bytes"] for x in child_jobs)
+        else:
+            billed = int(job.total_bytes_billed)
         self.billed += billed
         if self.billed > BUDGET:
             raise RuntimeError("B5 BigQuery cumulative billed bytes exceeded 1 GiB")
@@ -272,6 +302,7 @@ class QueryBudget:
             "elapsed_seconds": elapsed,
             "cumulative_billed_bytes": self.billed,
             "remaining_budget_bytes": self.remaining,
+            "child_jobs": child_jobs,
         }
         self.jobs.append(item)
         return rows, item
@@ -353,10 +384,17 @@ def main() -> None:
         raise RuntimeError(f"B5 reduced row count outside bound: {row_count}")
 
     export_uri = f"gs://{MART_BUCKET}/{prefix}part-*.parquet"
+    # BigQuery cannot export directly from a shared Iceberg/external catalog table.
+    # First materialize only the already bounded/reduced columns into a native
+    # session-temporary table; export that derived table, then drop it explicitly.
+    # No permanent dataset/table, Core mutation, or Storage Read API.
     export_sql = (
+        "CREATE TEMP TABLE b5_export_reduced AS\n"
+        f"{select_sql};\n"
         "EXPORT DATA OPTIONS("
         f"uri='{export_uri}', format='PARQUET', overwrite=false"
-        f") AS {select_sql}"
+        ") AS SELECT * FROM _SESSION.b5_export_reduced;\n"
+        "DROP TABLE _SESSION.b5_export_reduced;"
     )
     budget.query(export_sql, "export-parquet")
     if stage_call("catalog-pointer-post-export", 45, lambda: table_pointer(b2, "ohlcv_v1")) != fence["metadata_location"]:

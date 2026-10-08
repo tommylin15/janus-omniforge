@@ -81,3 +81,12 @@ Probe 保留原始完整 immutable manifest／snapshot identity，另外用 `tab
 B2 compatibility spike 已結案。Shared catalog adapter/workload 接線、全 workload canary／failure/audit fallback／FinOps acceptance 留待 B3 及後續項目；不得以 bounded compatibility success 取代。Adapter 未成為 specialist default。
 
 官方依據：[Iceberg external tables 與型別映射](https://docs.cloud.google.com/bigquery/docs/iceberg-external-tables)、[query 權限；Storage Read permission 僅適用該 API](https://docs.cloud.google.com/bigquery/docs/query-iceberg-data)。
+
+
+## B5 ML/OOS direct export 500 與 staged workaround（2026-10-08）
+
+- 2026-10-08 B5 live diagnostics 確認 Core manifest、shared catalog pointer、GCS listing、BigQuery dry-run 與 reduced count 全部成功；直接 `EXPORT DATA ... AS SELECT ... FROM shared Iceberg catalog` 的 query job 回傳 `internalError / HTTP 500`。單純延長等待或 SDK 隱式 job retry 都不構成修復。
+- Google BigQuery 官方 external-table 限制指出不可直接對 external table 執行 export job，應先儲存 reduced query results 再 export。B5 改採 **同一 bounded BigQuery SQL script**：`CREATE TEMP TABLE b5_export_reduced AS <bounded select>` → 從 `_SESSION.b5_export_reduced` 執行 `EXPORT DATA` → `DROP TABLE`。僅使用 BigQuery 自管臨時衍生資料，不建立永久 dataset/table、不變更 Iceberg canonical、default PyIceberg 或 PostgreSQL serving，不使用 Storage Read API。
+- GCS 仍輸出 `ml-oos-data/v1/<identity-hash>/part-*.parquet` 與 immutable manifest；Core pointer 必須先後一致。BigQuery 所有 BigQuery query job 維持單 job 60 秒、整次 execution 1 GiB billed bytes 上限（unknown fails closed），腳本子工作 readback 與 stage heartbeat 必須保留；如 script 失敗，清查臨時表／部分 Parquet、billed bytes 與不可變 prefix，禁止將 partial 當成 full success。
+- **BigQuery TEMP TABLE 可能產生暫時儲存費用**；本路徑不建常駐計費資源，script 正常時明確 DROP，失敗由 BigQuery 自動在 24h 內移除。任何增大資源、提高預算或 IAM 權限均另需授權。實際 live export/readback 必須由 CI/runtime evidence 確認，文件與程式修補不能自動標 B5 CLOSED。
+- 官方資料：[external tables limitations](https://docs.cloud.google.com/bigquery/docs/external-tables)、[multi-statement TEMP TABLE 與儲存計費](https://docs.cloud.google.com/bigquery/docs/multi-statement-queries)。

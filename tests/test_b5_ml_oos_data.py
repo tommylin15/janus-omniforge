@@ -266,3 +266,14 @@ def test_b5_non_idempotent_export_does_not_automatically_retry_failed_jobs():
     assert "job.result(timeout=remaining, job_retry=None)" in source
     assert "B5_QUERY event=failed" in source
     assert "job_id={job.job_id}" in source
+
+
+def test_b5_external_iceberg_export_requires_bounded_native_temp_materialization():
+    source = (ROOT / "scripts/gcp/b5-ml-oos-data.py").read_text()
+    assert '"CREATE TEMP TABLE b5_export_reduced AS' in source
+    assert '") AS SELECT * FROM _SESSION.b5_export_reduced;' in source
+    assert '"DROP TABLE _SESSION.b5_export_reduced;' in source
+    assert "list_jobs(parent_job=job.job_id, max_results=10)" in source
+    assert '"bigquery-export-child-readback"' in source
+    assert "maximum_bytes_billed=self.remaining" in source
+    assert "storage_read_api_used" in source
