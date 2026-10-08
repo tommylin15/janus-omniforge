@@ -1,0 +1,6 @@
+{
+  "intent": "readonly-nine-historical-private-executions",
+  "allow_cancel": false,
+  "allow_execute": false,
+  "allow_mutation": false
+}
