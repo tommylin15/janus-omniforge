@@ -315,15 +315,11 @@ def _apply_operations(control: Any) -> None:
         raise ServingSchemaMigrationError("operations_apply", error) from error
 
 def _apply_holdings_previous_close(control: Any) -> None:
-    """Grant market-reference SELECT via publication owner; no owner position exposure."""
+    """Grant public-market reference read via its schema owner, then verify ACL."""
     text = _migration_path(MIGRATION_HOLDINGS_PREVIOUS_CLOSE).read_text(encoding="utf-8")
     try:
-        prepare, rest = text.split("-- PHASE: publication-apply", 1)
-        publication_sql, finalize = rest.split("-- PHASE: control-finalize", 1)
+        publication_sql, finalize = text.split("-- PHASE: control-finalize", 1)
         checks, record = finalize.split("INSERT INTO control.schema_migrations", 1)
-        with control.connection.transaction(), control.connection.cursor() as cursor:
-            _require_current_user(cursor, "janus_control")
-            cursor.execute(_without_role_lines(prepare))
 
         publication = _publication_connection()
         try:
@@ -331,11 +327,13 @@ def _apply_holdings_previous_close(control: Any) -> None:
                 _require_current_user(cursor, "janus_publication")
                 cursor.execute(_without_role_lines(publication_sql))
                 cursor.execute(
-                    "SELECT has_table_privilege('janus_private_api',"
+                    "SELECT has_schema_privilege('janus_private_api','publication','USAGE'),"
+                    "has_table_privilege('janus_private_api',"
                     "'publication.stock_serving_recent','SELECT')"
                 )
-                if not cursor.fetchone()[0]:
-                    raise RuntimeError("holdings reference view read access unavailable")
+                row = cursor.fetchone()
+                if row is None or not all(bool(value) for value in row):
+                    raise RuntimeError("holdings reference view permission unavailable")
         finally:
             publication.close()
 

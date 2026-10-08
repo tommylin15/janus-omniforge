@@ -289,8 +289,9 @@ def test_holdings_reference_migration_uses_publication_owner_and_validates_acl(m
     migration.run(control, migration.MIGRATION_HOLDINGS_PREVIOUS_CLOSE)
     control_sql = statements(control.connection)
     publication_sql = statements(publication)
-    assert "GRANT USAGE ON SCHEMA publication TO janus_private_api" in control_sql
+    assert "GRANT USAGE ON SCHEMA publication TO janus_private_api" in publication_sql
     assert "GRANT SELECT ON publication.stock_serving_recent TO janus_private_api" in publication_sql
+    assert "GRANT USAGE ON SCHEMA publication TO janus_private_api" not in control_sql
     assert "NOT has_table_privilege('janus_public_api','private.current_positions','SELECT')" in control_sql
     assert control_sql.index("has_schema_privilege") < control_sql.index("INSERT INTO control.schema_migrations")
     assert publication.closed is True

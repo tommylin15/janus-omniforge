@@ -1,12 +1,10 @@
 \set ON_ERROR_STOP on
 BEGIN;
--- PHASE: control-prepare
-SET ROLE janus_control;
-GRANT USAGE ON SCHEMA publication TO janus_private_api;
-RESET ROLE;
-
 -- PHASE: publication-apply
+-- Publication schema belongs to janus_publication. Reuse published public
+-- OHLCV only; never grant the public role access to owner positions.
 SET ROLE janus_publication;
+GRANT USAGE ON SCHEMA publication TO janus_private_api;
 GRANT SELECT ON publication.stock_serving_recent TO janus_private_api;
 RESET ROLE;
 
