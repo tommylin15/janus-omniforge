@@ -79,7 +79,7 @@ B4. Deep Coverage 五 specialist — CLOSED（2026-10-07）
 - universe = active watchlist ∪ effective holdings；離榜持股保留，清倉且不在 watchlist 才退出。
 - accepted/rejected PIT dependency state + feature/engine/model version 決定 dirty；只有受影響 specialist 重算。
 - live acceptance：5 symbols × 5 roles；第一輪 25 computed，第二輪同 Core snapshot 0 computed / 25 reused；screening=0、LLM tokens=0。
-- 不重做 B4，也不重做 B5 data path；B6 已 CLOSED，下一步 B7。
+- 不重做 B4，也不重做 B5 data path；B6 已 CLOSED。依 2026-10-08 使用者要求，先執行下方 B8 performance comparison checkpoint，之後才是 B7，B8 其他 fallback/FinOps gate 仍維持待辦。
 
 B5. ML / OOS data path — CLOSED / PASS（2026-10-08）
 - [B5 結案](archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)；live acceptance #37706568819 SUCCESS。10,978 rows／499 symbols／1 Parquet shard／533,945 bytes；Mart 真實讀回 content hash、Core snapshot、row count、export bytes 全相等。
@@ -90,6 +90,12 @@ B6. Dirty dependency / cache — CLOSED / PASS（2026-10-08）
 - [B6 結案](archive/group-b-b6-ml-oos-cache-closure-2026-10-08.md)：BigQuery-derived ML/OOS pre-query source-only cache；B4 五 specialist cache 未重做；保留舊 immutable artifact 原始 Core lineage。
 - CI #37708769385 137 PASS；live #37708769182 immutable hash verified，10,978 rows／533,945 bytes／BigQuery jobs 0／billed 0／Mart readback PASS。
 - dirty source/model/date 與無關 global Core change 為 targeted tests，未更動 live canonical；CEO 未觸發。
+
+B8 performance checkpoint — B7 前優先（PARTIAL；不代表 B8 CLOSED）
+- [B3 真實 canary](archive/group-b-b3-live-acceptance-2026-10-07.json)：PyIceberg 30.2256s vs BigQuery hybrid 36.0608s，output hash 相同；BigQuery 慢約 19.3%，且 valuation 從 PyIceberg 預先載入、不計入 hybrid 耗時。僅一輪、不以此單獨宣稱整體較慢。
+- B5 immutable ML/OOS Parquet 10,978 rows／533,945 bytes，首次 BQ billed 30 MiB；SQL export script 5.84s 不是全鏈路。缺相同 fixed Core snapshot 的 PyIceberg reduction/export 端到端對照，不得與 B0/B1 的完整 725.726/800.966s 不同 workload 相比。
+- 先補 B3 screening 与 B5 ML/OOS 的同工作量 real-path A/B，包括 cold/warm compute、cache hit、output fidelity、end-to-end elapsed、CPU/RSS、GCS bytes（未知 null）、BigQuery processed/billed bytes 和 query/Cloud Build 開銷，保存 immutable evidence；仍需 1 GiB 整次预算、單查詢 60s、禁止 Storage Read API，無 IAM/新付費資源升級。
+- 本 checkpoint 只形成 workload-specific keep-PyIceberg / choose-BQ / inconclusive 的決策。B8 fallback/error-path/完整 FinOps 尚待後續完成，不因這輪 benchmark 關閉 B8。無顯著優勢就保留 PyIceberg default。
 
 B7. 月度批次
 - 將 effective scheduler/controller 定義收斂為每月第一個週六 10:30（Asia/Taipei）。
