@@ -59,6 +59,12 @@ jobs:
           executions="$(gcloud run jobs executions list \
             --job=janus-private-pipeline --project="${PROJECT}" \
             --region="${REGION}" --limit=30 --format=json)"
+          echo 'incomplete_execution_summary='
+          jq -c '[.[] | select(.status.completionTime == null) | {
+              name:(.metadata.name // .name // "unknown"),
+              created:(.metadata.creationTimestamp // .createTime // null),
+              conditions:[.status.conditions[]? | {type,status}]
+          }]' <<< "${executions}"
           jq -e '[.[] | select(.status.completionTime == null)] | length == 0' <<< "${executions}" >/dev/null
           echo 'bounded_preflight=PASS'
       - name: Delete only the four identified note revisions via existing Job
