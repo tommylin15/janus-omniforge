@@ -1,0 +1,153 @@
+name: Janus GHCR Jobs fail-closed cutover gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/ghcr-jobs-cutover-guard-request.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: janus-ghcr-jobs-guard
+  cancel-in-progress: false
+
+jobs:
+  guard-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify safe cutover guard and consolidated Scheduler contracts
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_ghcr_job_cutover_guard.py tests/test_private_pipeline_scheduler.py
+  live-readback:
+    needs: guard-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      PROJECT: gen-lang-client-0593591102
+      REGION: us-central1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Capture sanitized live Scheduler, Job and GHCR evidence (read-only)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          request='ops/ghcr-jobs-cutover-guard-request.json'
+          jq -e '.intent=="read-only-cutover-guard" and (.sha|test("^[0-9a-f]{40}$"))' "$request" >/dev/null
+          source_sha="$(jq -r .sha "$request")"
+          mkdir -p /tmp/ghcr-readback
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends skopeo jq
+          : > /tmp/ghcr-readback/images.ndjson
+          for component in ingestion-core intelligence-mart private-pipeline; do
+            if skopeo inspect --no-creds \
+               "docker://ghcr.io/tommylin15/janus-${component}:sha-${source_sha}" \
+               > /tmp/ghcr-readback/manifest.json 2>/dev/null; then
+              digest="$(jq -r '.Digest // ""' /tmp/ghcr-readback/manifest.json)"
+              revision="$(jq -r '.Labels["org.opencontainers.image.revision"] // ""' /tmp/ghcr-readback/manifest.json)"
+              if [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ && "$revision" == "$source_sha" ]]; then
+                jq -cn --arg c "$component" --arg d "$digest" --arg s "$source_sha" \
+                  '{key:$c,value:{digest:$d,source_sha:$s,anonymous_pull_verified:true}}' \
+                  >> /tmp/ghcr-readback/images.ndjson
+              fi
+            fi
+          done
+
+          if gcloud scheduler jobs list --project="$PROJECT" --location="$REGION" \
+             --format=json > /tmp/ghcr-readback/schedulers.json 2>/dev/null; then
+            echo true > /tmp/ghcr-readback/scheduler-readable
+          else
+            echo false > /tmp/ghcr-readback/scheduler-readable
+            echo '[]' > /tmp/ghcr-readback/schedulers.json
+          fi
+
+          : > /tmp/ghcr-readback/jobs.ndjson
+          for job in janus-batch-controller janus-ingestion-core janus-intelligence-mart \
+                     janus-private-pipeline janus-research-big-move-500; do
+            # Never export env vars or private resource attributes into the artifact.
+            gcloud run jobs describe "$job" --project="$PROJECT" --region="$REGION" \
+              --format=json > /tmp/ghcr-readback/job.json
+            gcloud run jobs executions list --job="$job" --project="$PROJECT" \
+              --region="$REGION" --limit=500 --format=json \
+              > /tmp/ghcr-readback/executions.json
+            jq -cn --arg j "$job" \
+              --slurpfile x /tmp/ghcr-readback/job.json \
+              --slurpfile e /tmp/ghcr-readback/executions.json '{
+                 key:$j,
+                 value:{
+                   image:($x[0].spec.template.spec.template.spec.containers[0].image // ""),
+                   # Pinned origin digest readback is necessary, but direct registry
+                   # pull/restore has not yet been proven. Never self-attest.
+                   rollback_image_readable:false,
+                   execution_list_complete:($e[0]|length < 500),
+                   potentially_active:([$e[0][] | select(
+                     ((.status.completionTime // "") == "") and
+                     (([.status.conditions[]? | select(.type=="Completed" and .status=="True")]|length)==0)
+                   )]|length)
+                 }
+               }' >> /tmp/ghcr-readback/jobs.ndjson
+          done
+
+          jq -n --arg project "$PROJECT" --arg region "$REGION" \
+            --arg sha "$source_sha" \
+            --slurpfile images /tmp/ghcr-readback/images.ndjson \
+            --slurpfile sched /tmp/ghcr-readback/schedulers.json \
+            --slurpfile snaps /tmp/ghcr-readback/jobs.ndjson \
+            --argjson full "$(cat /tmp/ghcr-readback/scheduler-readable)" '{
+              project:$project,region:$region,source_sha:$sha,
+              ghcr_images:($images|map({(.key):.value})|add // {}),
+              scheduler:{
+                full_region_enumeration:$full,
+                jobs:[$sched[0][] | {
+                  name:(.name|split("/")[-1]),
+                  state,
+                  schedule,
+                  time_zone:(.timeZone // null),
+                  target:(.httpTarget.uri // null),
+                  identity:(.httpTarget.oauthToken.serviceAccountEmail // null),
+                  retry_count:(.retryConfig.retryCount // 0)
+                }]
+              },
+              job_snapshots:($snaps|map({(.key):.value})|add // {}),
+              # All three are NOT YET VERIFIED, never derived from the request.
+              durable_deployment_mutex_verified:false,
+              owner_oauth_and_data_acceptance_verified:false,
+              rollback_procedure_verified:false
+            }' > /tmp/ghcr-readback/evidence.json
+
+          python3 scripts/gcp/ghcr_job_cutover_guard.py \
+            --input /tmp/ghcr-readback/evidence.json \
+            --output /tmp/ghcr-readback/report.json
+          cat /tmp/ghcr-readback/report.json
+          {
+            echo '## Janus GHCR Jobs — actual cutover gate'
+            echo 'Live metadata readback only. No Scheduler, Cloud Run Job, GCS,'
+            echo 'Artifact Registry, Cloud Build or service traffic changes.'
+            echo '~~~json'
+            cat /tmp/ghcr-readback/report.json
+            echo '~~~'
+            echo 'A green code-test step does NOT authorize promotion.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$(jq -r .status /tmp/ghcr-readback/report.json)" == "BLOCKED" ]]; then
+            echo 'BLOCKED: genuine dev workload gates not met. No mutations performed.' >&2
+            exit 78
+          fi
+      - name: Upload sanitized readiness report only
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: janus-ghcr-job-gate-summary
+          path: /tmp/ghcr-readback/report.json
+          if-no-files-found: ignore
+          retention-days: 14
