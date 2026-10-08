@@ -1,0 +1,31 @@
+name: Janus GHCR candidate deployment lease contract CI
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ghcr-candidate-dev.yml'
+      - '.github/workflows/ghcr-candidate-lease-contract.yml'
+      - 'scripts/gcp/ghcr_release_lease.py'
+      - 'scripts/gcp/ghcr_candidate_lease_guard.py'
+      - 'tests/test_ghcr_release_lease.py'
+      - 'tests/test_ghcr_candidate_lease_guard.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check candidate lease and fail-closed release contracts
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_ghcr_release_lease.py tests/test_ghcr_candidate_lease_guard.py
+      - name: Check syntax without touching runtime
+        run: |
+          python -m py_compile scripts/gcp/ghcr_release_lease.py scripts/gcp/ghcr_candidate_lease_guard.py
+          echo 'No GCP API write, service promotion, Cloud Build or Job execution performed.' >> "$GITHUB_STEP_SUMMARY"
