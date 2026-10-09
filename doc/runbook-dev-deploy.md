@@ -44,7 +44,7 @@ $env:ALLOW_DEV_PROVISION = "true"
 
 ### 3.1 正式目標：GitHub Actions + 公開 GHCR + Cloud Run
 
-政策見 [PROJECT_RULES §12](PROJECT_RULES.md#12-cirelease-分離2026-10-08-正式目標政策實作遷移中)，完整 acceptance 依 [CI/CD 契約](spec/cicd-v2.md)。**以下是遷移後的操作順序與語意，不是宣稱現有 `main` 已具備此 Release workflow。**
+政策見 [PROJECT_RULES §12](PROJECT_RULES.md#12-cirelease-分離2026-10-08-正式目標政策實作遷移中)，完整 acceptance 依 [CI/CD 契約](spec/cicd-v2.md)。**以下列出目標操作順序；目前 `main` 已存在 GHCR 完整發佈、0% candidate、MCP routing 與 API promotion 的部分 workflow，但不可因此宣稱整體 Release、固定 preview 或 live acceptance 全部完成。**
 
 1. 核對 `main` exact SHA／工作包 ID／上次成功發布 SHA、目前 service traffic／Job images 與 active executions。main Push selective CI 僅作回饋；在 Actions 的明確 Release run 跑**完整**適用測試（Python、Flutter、schema／migration、安全／Docker）。
 2. 測試全 PASS 後由 Actions 在 GitHub runner build／publish 到 GHCR，讀回 `ghcr.io/...@sha256:...`；驗證 package **public**、匿名 pull 與 digest。任何私有 package、registry 不可達或 fallback 到 Artifact Registry 的需求一律 fail closed，不偷偷改用 Cloud Build、GCS、Artifact Registry。
@@ -58,6 +58,35 @@ $env:ALLOW_DEV_PROVISION = "true"
 4. 先 readback 0%／revision／digest／Ready；對 candidate tag URL 做 health、未登入拒絕、authenticated owner／OAuth／PnL／MCP 與本次必要真實驗收。成功才指定**已驗證 revision**切流量（不使用未知 `LATEST`），再次 readback。失敗恢復先前 revision／traffic，保留 rollback evidence。
 5. **Jobs 不具備 no-traffic candidate**：ingestion／Mart／private pipeline 分別檢查 active execution、Scheduler、image／env／Secret refs snapshot、必要 migration、安全 canary，再以固定 digest 更新既有 Job。不可在 API candidate 階段預先修改排程使用的 Job image；rollback 必須可恢復原設定。無可靠跨 run mutex／durable state 時 Release 不可正式啟用。
 6. GitHub Actions run／step logs、job summary 及必要的保護性 artifacts 保存 SHA、full-test gates、GHCR digest、candidate revision／URL（不含 token）、驗收、baseline、流量切換、Job readback 與回滾。**新流程不觸發 Cloud Build、也不主動寫入 GCS／Artifact Registry；不新增常駐 VM。**
+
+### 3.1.1 固定 App preview 網址與發佈規則（已核准規則；自動化尚有缺口）
+
+Janus `dev` 既有 `janus-api` Cloud Run Service（`gen-lang-client-0593591102`／`us-central1`）的兩個**不同用途**入口：
+
+- **正式 App：** <https://janus-api-2oo7qbkd5q-uc.a.run.app/app/>。由既有 canonical 100% traffic 與正式驗收控制；preview 流程**不得**更動正式流量。
+- **固定 preview App：** <https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/>。預計透過**同一 Cloud Run Service 的固定 traffic tag `preview`** 指向最新**已驗證** revision；它不是有期限的預覽網址，也不是每次產生不同 SHA 的候選 tag。固定網址本身不證明 tag 已存在、已更新或目前可連線；以 live readback／HTTP 為準。
+
+**每次候選發布的目標順序（不是宣稱現有 workflow 全部完成）：**
+
+1. 從本次已通過完整 Release gates 的**完整 40 字元 Git SHA** 與 GHCR immutable digest，建立或重用既有 `ghcr-<SHA 前 12 字元>` 的 0% candidate。透過 `.github/workflows/ghcr-candidate-dev.yml` 已有的 WIF、SHA／digest provenance、Ready／健康度、未登入 401、既有 canonical traffic 不變及候選 `/app/build-id.txt` **完全等於本次完整 SHA** 的檢查；此外完成該候選本次適用的既有驗收（包含 `ghcr-candidate-auth-boundary.yml` 所覆蓋的 OAuth metadata／private boundary，但不能以此冒充 authenticated owner）。
+2. 在**更新固定 `preview` tag 之前**，確認本次候選與其所需驗收皆為 PASS；讀回候選 revision、不可變 digest、source SHA 與 tag URL。任一 gate 為 FAIL／UNKNOWN／缺收據時**不得更新固定 preview**，保留上一個已驗證 revision。
+3. 更新必須在現有 `janus-dev-runtime-writers` Actions concurrency 與 `scripts/gcp/ghcr_release_lease.py` 所管的共用、owner-fenced Git-ref lease `refs/tags/janus-ghcr-deploy-global-v1` **雙重防護**內進行；先確認無其他 writer 競跑與原有 tag／traffic baseline，鎖內 assert、鎖內讀回、成功或復原確認後才由合法 owner 釋放。**不得**為 preview 另外建立平行 deploy／lock／release state 路徑，也不得覆寫或強制解鎖。
+4. 僅將 `preview` 這**一個 traffic tag 的 revision 指向**已驗證候選；其他 tags（含 `mcp-oauth`、`mcp-adapter`、`ghcr-<SHA>`）保持原指向，正式 traffic 的 revision 與百分比維持原值。**不得**更動正式 traffic、服務的 image／env／Secret references／scaling／其他 configuration，或以 `--set-tags` 等可能取代全體 tags 的操作繞過；不得在 preview 作業部署新 revision、更新 Job／Scheduler，亦不可觸發 API 正式 promotion。
+5. 更新後從固定 preview URL 重新確認 `/app/build-id.txt` 等於本次完整 SHA、`/app/` 可達且本次既有候選健康／負向 auth／相關功能探測通過；Cloud Run live readback 再核對 `preview` 指向的 revision、candidate digest、canonical traffic／其他 tags／service runtime config 未變。更新前須保存**上一個已驗證 preview revision／原本無 tag 的狀態**作為復原基準。
+6. 更新前驗證失敗，**不動原 tag**；更新後任何驗證失敗，必須在**同一 lease** 內將 `preview` 恢復至原本已驗證 revision（若原本不存在則移除本次新增 tag），並且再次核對固定 URL 的原版 build SHA、tag／traffic／其他設定。若復原結果無法證明成功，明列 `RECOVERY_FAILED`／`BLOCKED`、保存非敏感診斷，**保留 lease，不把部分成功當 PASS**。
+7. 每次發布都寫**執行紀錄**（GitHub Actions log／summary／保護性 artifact，必要時 operations evidence）：完整 source SHA、GHCR digest、候選 revision、preview 原／新 revision、固定 preview URL、各項驗證結果、時間與 run ID、是否恢復及恢復讀回。**本 runbook 的規則僅在流程改變時更新**；不要因每次新 SHA／revision 改寫本節。
+8. preview gate **不能取代**正式升流量所需的 authenticated Google OAuth／owner isolation、MCP、PnL／其他功能、Jobs／rollback 等適用的既有 acceptance。正式上線要另走原本的 traffic-promotion gate，不能因 preview PASS 就自動將 canonical 切成 100%。
+
+**依目前 `main` 程式與 workflows 的實作／缺口（本次僅更新文件）：**
+
+| 事項 | 已觀察到的實作 | 尚未完成，不能宣稱 PASS |
+|---|---|---|
+| GHCR release → 0% candidate | `ghcr-publish-dev.yml` 與 `ghcr-candidate-dev.yml`；候選檢查完整 SHA、digest、Ready、health、未授權 401、`/app/build-id.txt` | 候選的完整 authenticated acceptance 仍需依該次發版確認 |
+| 候選 OAuth 負向與 metadata 驗證 | `ghcr-candidate-auth-boundary.yml`；`ghcr-mcp-route-dev.yml` 對既有兩個 MCP tags 有獨立 lease、tag readback 與失敗恢復程式 | 不等於 preview tag 管理，也不取代真實登入／callback／MCP 工具驗收 |
+| 共用部署互斥 | Candidate／MCP／API promotion 已使用 `janus-dev-runtime-writers` 與 `ghcr_release_lease.py` | `preview` 更新尚無接入這些互斥措施的專用已驗證 step |
+| 固定 `preview` 發布 | **目前未見**驗證候選後更新／驗證／回復固定 `preview` tag 的 Janus workflow／script | 尚缺單一 tag 原子範圍驗證、失敗回復演練、固定 URL live 驗收與每次 preview 收據 |
+
+注意：`.github/workflows/ghcr-revision-retention-preview.yml` 的「preview」是**唯讀 Revision 保留清單預覽**，不是固定 `preview` App tag 的發布入口。固定 preview 的現有**實際路由狀態**未在本次文件工作中透過 GCP live readback 驗證，故 `current tag revision / URL health = NOT VERIFIED`；以上是**所需流程契約與差距記錄**，不得當成已完成部署。OAuth 固定來源與 callback 設定另見 [User／MCP OAuth runbook](runbook-user-oauth-dev.md#固定-preview-與-oauth-來源callback-契約)。
 
 ### 3.2 既有 Cloud Build：限唯讀診斷，不是新發布步驟
 
