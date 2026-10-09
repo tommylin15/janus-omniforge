@@ -36,7 +36,7 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `spec/operations-and-testing.md`：最新完整 evidence summary 與尚待整理的歷史 checkpoint；日常定位優先看 `status.md`，舊證據逐步移至 `archive/`。
 - `pilot-operational-evidence.md`：`WBS-8-DEV-PILOT-RUN` 六個 calendar months evidence window 的新增 bounded checkpoint；保存 observed failure／recovery／manual intervention 與尚未觀察到的 evidence category，不把 checkpoint 當成 WBS 完成。
 - `runbook-data-supplement.md`：每日增量、週六品質檢查、Admin 結果與排程修復程序。
-- `spec/cicd-v2.md`：2026-10-08 核准的 Actions + 公開 GHCR + Cloud Run 0% 候選正式目標契約、與舊 Cloud Build / GCS / Artifact Registry 實作的差距；文件完成不等於流程已上線。
+- `spec/cicd-v2.md`：2026-10-08 核准的 Actions + 公開 GHCR + Cloud Run 發布／回滾契約；現行階段性驗收見 `status.md` 與 [第二輪 GHCR／固定 Preview live evidence](archive/cicd-ghcr-next-release-preview-2026-10-09.md)。完整 GHCR Release、Preview 已實測通過，但新版正式切流／真人 Owner OAuth／Jobs rollback 尚待驗收，不把文件或單項成功當整體 CLOSED。
 - `runbook-dev-deploy.md`：dev 部署、migration、Job 與 Secret 的操作程序；CI/CD 節區分新目標流程與目前 legacy 實作。
 - `runbook-pilot-calendar-repair.md`：Dev Pilot TWSE 交易日曆修復、operator IAP migration 與 bounded ingestion 驗收程序。
 - `runbook-user-oauth-dev.md`：User／MCP OAuth 的專用操作與 A/B owner isolation 驗收程序。
