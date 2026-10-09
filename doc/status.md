@@ -1,3 +1,9 @@
+## 2026-10-09 16:13（Asia/Taipei）— private-pipeline IAM 授權已核准、部署身分沒有 IAM policy editor（BLOCKED）
+
+- 使用者明確授權：僅對現有 `janus-private-pipeline` 的 runtime service account，給既有 GitHub Actions CI 身分 `janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com` 加入 `roles/iam.serviceAccountUser`（單一 service-account resource；不允許整個 project）。
+- `0d7e7a3` 建立 guarded 服務帳戶 scope grant script／workflow／7 contract tests，selective CI [#37903385740](https://github.com/tommylin15/janus-omniforge/actions/runs/37903385740) SUCCESS；正式授權 request `fb8527a` 觸發 [#37903557633](https://github.com/tommylin15/janus-omniforge/actions/runs/37903557633)，workflow **FAIL／exit 78**。artifact `private-pipeline-iam-grant-receipt`：`result=BLOCKED`、`reason=policy_editor_permission_missing`、`gcp_policy_write=false`。證據明確：現有 CI WIF service account 沒有該 runtime SA 的 `iam.serviceAccounts.getIamPolicy`＋`setIamPolicy` 完整授權，**不能靠 CI 身分自我授權**；此輪沒有修改 IAM policy、Jobs、Scheduler、API 或資料。
+- 下一步：須由**已具有 service account IAM policy 修改權限的管理身分**，在這個 runtime SA resource 執行單一 `roles/iam.serviceAccountUser` binding（非 project），而非提供 CI project-wide policy-editor 權限。授權後重觸發 WIF read-only `four_runtime_identities_actas`，只有 PASS 後才能重啟受控 forward-only GHCR Jobs rollout；未完成維持 BLOCKED／PARTIAL。
+
 ## 2026-10-09 15:15（Asia/Taipei）— 授權 forward-only Jobs GHCR 切換、IAM 阻塞（BLOCKED）
 
 - **使用者明確核准例外**：本次四個現有 Cloud Run Jobs 直接以先前完整測試且公開可拉取的 `fbcc5f58` GHCR 固定 digest 替換現役 AR image，不必驗證舊 AR image 能否回滾。這項授權只豁免「舊 image 必須可回復」，**不等於授權擴大部署身分 IAM**。現行 `ghcr_jobs_rollout.py` 會核對明確 `rollback_mode=user_authorized_forward_only` 與 `accept_no_old_image_rollback=true`，保留 lease、Scheduler fence、五 Jobs 終態讀回及每個目標兩次真實 canary；失敗採前向鎖定，不能包裝 full PASS。
