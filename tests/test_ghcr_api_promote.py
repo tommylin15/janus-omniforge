@@ -76,3 +76,52 @@ def test_api_promotion_workflow_is_explicit_and_requires_jobs_proof():
     assert "gh run download" in text and "ghcr-jobs-rollout-receipt" in text
     assert "--release-run" in text and "--jobs-run" in text
     assert "id-token: write" in text and "environment: dev" in text
+
+
+def test_promotion_requires_public_retrievable_old_ghcr_baseline():
+    from json import dumps
+    old_sha = "a" * 40
+    old_revision = "janus-api-good-old"
+    current = "ghcr.io/tommylin15/janus-api@sha256:" + "b" * 64
+    service = {"status": {"traffic": [{"revisionName":old_revision, "percent":100}]}}
+    revision = {"spec": {"containers": [{"image": current}]},
+                "status": {"conditions": [{"type":"Ready", "status":"True"}]}}
+    manifest = {"Digest":"sha256:"+"b"*64,
+                "Labels":{"org.opencontainers.image.revision":old_sha}}
+    with patch.object(promote, "command", side_effect=[dumps(revision),dumps(manifest)]) as call:
+        assert promote.verify_previous_ghcr_rollback(service,old_sha) == current
+    assert call.call_count == 2
+    assert "--no-creds" in call.call_args.args[0]
+
+    wrong_revision = deepcopy(revision)
+    wrong_revision["spec"]["containers"][0]["image"] = "us-docker.pkg.dev/old-image"
+    with patch.object(promote,"command",return_value=dumps(wrong_revision)) as call:
+        with pytest.raises(ValueError,match="previous_ghcr_rollback_image_required"):
+            promote.verify_previous_ghcr_rollback(service,old_sha)
+    call.assert_called_once()
+
+
+def test_promotion_rejects_old_ghcr_digest_or_source_mismatch():
+    from json import dumps
+    sha="a"*40
+    ref="ghcr.io/tommylin15/janus-api@sha256:"+"b"*64
+    service={"status":{"traffic":[{"revisionName":"old","percent":100}]}}
+    revision={"spec":{"containers":[{"image":ref}]},
+              "status":{"conditions":[{"type":"Ready","status":"True"}]}}
+    with patch.object(promote,"command",side_effect=[dumps(revision),dumps({
+            "Digest":"sha256:"+"b"*64,
+            "Labels":{"org.opencontainers.image.revision":"c"*40}})]):
+        with pytest.raises(ValueError,match="previous_ghcr_registry_source_unverified"):
+            promote.verify_previous_ghcr_rollback(service,sha)
+
+
+def test_previous_revision_not_ready_blocks_before_registry_probe():
+    from json import dumps
+    ref="ghcr.io/tommylin15/janus-api@sha256:"+"b"*64
+    service={"status":{"traffic":[{"revisionName":"old","percent":100}]}}
+    revision={"spec":{"containers":[{"image":ref}]},
+              "status":{"conditions":[{"type":"Ready","status":"False"}]}}
+    with patch.object(promote,"command",return_value=dumps(revision)) as cmd:
+        with pytest.raises(ValueError,match="previous_ghcr_revision_not_ready"):
+            promote.verify_previous_ghcr_rollback(service,"a"*40)
+    cmd.assert_called_once()
