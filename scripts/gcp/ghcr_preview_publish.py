@@ -55,8 +55,20 @@ def provenance(req):
                 or metadata.get("conclusion")!="success"
                 or metadata.get("workflowName")!=expected):
             raise ValueError("preview_provenance_workflow_incomplete")
-        if name=="release_run" and metadata.get("headSha")!=req["source_sha"]:
-            raise ValueError("preview_source_not_full_release")
+        head=metadata.get("headSha")
+        if not isinstance(head,str) or not SHA.fullmatch(head):
+            raise ValueError("preview_provenance_head_invalid")
+        if name=="release_run":
+            if head!=req["source_sha"]:
+                raise ValueError("preview_source_not_full_release")
+        else:
+            # Workflow success on an unrelated request commit must never
+            # authorize a new source; read the exact request at that run SHA.
+            key=("ops/ghcr-candidate-request.json" if name=="candidate_run"
+                 else "ops/ghcr-candidate-boundary-request.json")
+            recorded=json.loads(command(["git","show",head+":"+key]))
+            if recorded.get("sha")!=req["source_sha"]:
+                raise ValueError("preview_workflow_source_identity_mismatch")
     command(["git","merge-base","--is-ancestor",req["source_sha"],"HEAD"])
 
 
@@ -95,7 +107,13 @@ def assert_routes(before,after,target,restored=False):
         expected["preview"]=target
     if new_tags!=expected:
         raise ValueError("preview_other_tags_changed")
-    if before.get("spec",{}).get("template")!=after.get("spec",{}).get("template"):
+    before_spec=dict(before.get("spec",{}))
+    after_spec=dict(after.get("spec",{}))
+    # spec.traffic legitimately changes only to reroute the single preview
+    # tag; every nontraffic service setting must remain identical.
+    before_spec.pop("traffic",None)
+    after_spec.pop("traffic",None)
+    if before_spec!=after_spec:
         raise ValueError("preview_service_runtime_config_changed")
     if not ready(after):
         raise ValueError("preview_service_not_ready")
@@ -129,6 +147,13 @@ def read_preview_build_sha():
     if status!=200 or not SHA.fullmatch(sha):
         raise ValueError("previous_preview_identity_unknown")
     return sha
+
+
+def verify_preview_web(sha):
+    status, _, body=request(EXPECTED_URL+"/app/")
+    if status!=200 or not body:
+        raise ValueError("preview_app_page_unavailable")
+    probe(EXPECTED_URL,sha)
 
 
 def update_preview(target=None,remove=False):
@@ -178,17 +203,24 @@ def apply(receipt):
                         before_preview=previous_tag, before_preview_sha=previous_sha)
         save()
         command(LEASE+["assert"])
-        evidence["phase"]="UPDATE_PREVIEW_TAG"
-        evidence["preview_tag_mutation_attempted"]=True
-        save()
-        mutated=True
-        update_preview(candidate)
-        reconciled(before,candidate)
-        probe(EXPECTED_URL,req["source_sha"])
+        if previous_tag==candidate:
+            # An already validated identical preview is a read-only retry,
+            # not a second unnecessary Cloud Run traffic mutation.
+            reconciled(before,candidate)
+            verify_preview_web(req["source_sha"])
+            evidence.update(status="PASS",phase="VERIFIED_FIXED_PREVIEW_IDEMPOTENT",
+                            preview_revision=candidate)
+        else:
+            evidence["phase"]="UPDATE_PREVIEW_TAG"
+            evidence["preview_tag_mutation_attempted"]=True
+            save()
+            mutated=True
+            update_preview(candidate)
+            reconciled(before,candidate)
+            verify_preview_web(req["source_sha"])
+            evidence.update(status="PASS",phase="VERIFIED_FIXED_PREVIEW",
+                            preview_revision=candidate)
         command(LEASE+["assert"])
-        evidence["status"]="PASS"
-        evidence["phase"]="VERIFIED_FIXED_PREVIEW"
-        evidence["preview_revision"]=candidate
         save()
         command(LEASE+["release","--safe-to-release"])
         evidence["lease_released"]=True
