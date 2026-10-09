@@ -29,3 +29,13 @@ def test_boundary_is_read_only_no_owner_tokens_or_release_claim():
         "secrets.GOOGLE", "secrets.OWNER",
     ):
         assert dangerous not in text
+
+
+def test_boundary_runs_after_explicit_readonly_request_and_accepts_prior_ghcr_traffic():
+    text = (ROOT / ".github/workflows/ghcr-candidate-auth-boundary.yml").read_text()
+    assert "ops/ghcr-candidate-boundary-request.json" in text
+    assert "janus-dev-runtime-writers" in text
+    assert 'test "$EXPECTED_SHA" = "$(jq -r .sha ops/ghcr-candidate-boundary-request.json)"' in text
+    assert '"janus-api-g53d655ccb108-config"' not in text
+    assert '.no_gcp_mutation == true' in text
+    assert "update-traffic" not in text
