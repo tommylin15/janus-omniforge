@@ -1,0 +1,42 @@
+name: Janus GHCR Jobs read-only live preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/ghcr-jobs-preflight-request.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test fail-closed read-only live probe
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_ghcr_jobs_readonly_preflight.py tests/test_ghcr_jobs_rollout.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read dev Jobs, Scheduler, IAM and competing build state without mutation
+        run: python scripts/gcp/ghcr_jobs_readonly_preflight.py --output /tmp/ghcr-jobs-readonly-preflight.json
+      - name: Retain sanitized preflight receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghcr-jobs-readonly-preflight
+          path: /tmp/ghcr-jobs-readonly-preflight.json
+          if-no-files-found: ignore
+          retention-days: 14
