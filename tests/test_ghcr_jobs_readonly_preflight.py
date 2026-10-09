@@ -17,6 +17,7 @@ def test_no_mutations_and_all_live_gates_present():
          patch.object(preflight.rollout, "job_update_permissions") as iam, \
          patch.object(preflight, "rollback_images_readable") as rollback_images, \
          patch.object(preflight, "runtime_identity_permissions") as identities, \
+         patch.object(preflight, "diagnose_private_config_fingerprint", return_value=None), \
          patch.object(preflight.rollout, "set_scheduler") as set_sched, \
          patch.object(preflight.rollout, "update") as update:
         evidence = preflight.scan()
