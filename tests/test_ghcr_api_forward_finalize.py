@@ -65,3 +65,29 @@ def test_finalize_workflow_single_request_gated_not_retrying_traffic():
     assert "janus-dev-runtime-writers" in yml
     assert "ghcr_api_forward_finalize.py" in yml
     assert "ghcr-jobs-forward-recovery" in yml
+
+
+def test_bounded_wait_succeeds_after_running_scheduled_execution_finishes():
+    with (patch.object(finalize.jobs, "fence", side_effect=[
+            ValueError("execution_not_terminal"), None]) as fence,
+          patch.object(finalize.time, "sleep") as sleep):
+        finalize.wait_for_terminal_executions(timeout_seconds=60, poll_seconds=1)
+    assert fence.call_count == 2
+    sleep.assert_called_once_with(1)
+
+
+def test_bounded_wait_never_cancels_or_retries_running_job():
+    with (patch.object(finalize.jobs, "fence",
+                       side_effect=ValueError("execution_not_terminal")) as fence,
+          patch.object(finalize.time, "sleep") as sleep,
+          patch.object(finalize.time, "monotonic", side_effect=[0, 1]) as clock):
+        with pytest.raises(ValueError, match="execution_still_active_after_bounded_wait"):
+            finalize.wait_for_terminal_executions(timeout_seconds=0, poll_seconds=1)
+    fence.assert_called_once()
+    sleep.assert_not_called()
+
+
+def test_bounded_wait_does_not_hide_other_errors():
+    with patch.object(finalize.jobs, "fence", side_effect=RuntimeError("cloud_control_http_403")):
+        with pytest.raises(RuntimeError, match="cloud_control_http_403"):
+            finalize.wait_for_terminal_executions()
