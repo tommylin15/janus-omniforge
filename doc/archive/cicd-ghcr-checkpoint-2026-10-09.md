@@ -52,3 +52,9 @@
 - [MCP route repair #37873731034](https://github.com/tommylin15/janus-omniforge/actions/runs/37873731034) SUCCESS：鎖內確認 Trigger disabled、無 ongoing builds、候選 Ready／minScale=0、build identity／metadata、Codex pre-login 302、非法 loopback 400、未登入私人 MCP 401；兩個既有 tag `mcp-oauth`／`mcp-adapter` 已指向 `janus-api-00449-dij`。獨立 gcloud readback 一致，canonical `janus-api-g53d655ccb108-config` 仍 100%，其他 routes 不變；lease 已安全釋放。
 - 使用者重新完成 Owner A 的 Janus Dev Private 登入後，同連線 authenticated `annual-pnl`（year=2026、limit=1）回 available／1 record；positions（limit=5）回 available／4 records。只記錄狀態與筆數，不保存 owner 個資、token 或金額；目前 MCP 登入阻塞已解除，仍待 B 的同 MCP owner isolation。
 - 先前 Read-only v2 `INVALID_ARGUMENT` 是 annual-pnl 缺少必要 year 參數，不是登入失敗的證據；補 year=2026 後回 available／1 record。先前無 year 的結果不作 OAuth 失敗判定。
+
+## Read-only v2 同連線 A → B 隔離實測
+
+- A 狀態的 Read-only v2 positions 回 available／4 records；symbol、shares、average_cost 在記憶體內比對，與先前 Private MCP 已驗證 A 的持股一致，未輸出內容。year=2026 的 annual-pnl 回 available／1 record。
+- 使用者確認同一 Read-only v2 連線已重新登入 B 後：positions（limit=5）、annual-pnl（year=2026、limit=1）均正常回 missing／0 records、isError=false；以先前 A 持股的一個 symbol 作 bounded positions 查詢也回 missing／0 records。Missing 保留為資料缺漏，不偽造零損益或回傳 A 的資料。
+- 此為真實 authenticated MCP 的 owner-scoped bounded read isolation evidence。Symbol 是公開股票識別，這項探測不是以 A owner UUID／私人 record ID 做 API 越權測試；後者不因本輪結果而標 PASS。當前 Read-only v2 連線仍為 B，A 的回切尚待使用者操作。

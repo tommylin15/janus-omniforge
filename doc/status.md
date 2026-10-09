@@ -4,7 +4,7 @@
 
 **完成度：PARTIAL，正式切流／Jobs GHCR 切換均未完成；舊資產清理依使用者最新指示排除。** 以下是已驗證的最新狀態，舊段落中「9 筆未終態」及「5 個 blocker」是當時 V1 證據，不再代表目前判定。
 
-**本輪 MCP 修復最新結果：**[完整 GHCR Release #37872497498](https://github.com/tommylin15/janus-omniforge/actions/runs/37872497498) SUCCESS（Python 759 PASS／2 deselected、Flutter、四映像 publish／匿名 pull PASS）；source `92349c509181590b8977b0ade355d7497bb62a8b` 的 [candidate #37873561843](https://github.com/tommylin15/janus-omniforge/actions/runs/37873561843)／[MCP tag repair #37873731034](https://github.com/tommylin15/janus-omniforge/actions/runs/37873731034) SUCCESS。`mcp-oauth`／`mcp-adapter` 已指向修正版 `janus-api-00449-dij`，canonical 原版仍 100%；A 重新登入後 Private MCP annual-pnl available／1 record、positions available／4 records。尚待 B MCP 隔離與其他整體 Release gates；下表舊候選資料為本輪修復前快照。
+**本輪 MCP 修復最新結果：**[完整 GHCR Release #37872497498](https://github.com/tommylin15/janus-omniforge/actions/runs/37872497498) SUCCESS（Python 759 PASS／2 deselected、Flutter、四映像 publish／匿名 pull PASS）；source `92349c509181590b8977b0ade355d7497bb62a8b` 的 [candidate #37873561843](https://github.com/tommylin15/janus-omniforge/actions/runs/37873561843)／[MCP tag repair #37873731034](https://github.com/tommylin15/janus-omniforge/actions/runs/37873731034) SUCCESS。`mcp-oauth`／`mcp-adapter` 已指向修正版 `janus-api-00449-dij`，canonical 原版仍 100%；A 重新登入後 Private MCP annual-pnl available／1 record、positions available／4 records。Read-only v2 同連線 A → B 實測：A 持股 4 筆／年度損益 1 筆，B 兩者及指定 A 持股 symbol 的查詢均 missing／0 筆，bounded read 隔離通過。其他整體 Release gates 仍未完成；下表舊候選資料為本輪修復前快照。
 
 | 驗收項目 | 最新可追溯證據 | 結果 |
 | --- | --- | --- |
@@ -17,13 +17,13 @@
 | 公開 GHCR 四映像 | [Full GHCR #37800085219](https://github.com/tommylin15/janus-omniforge/actions/runs/37800085219)，部署來源 SHA `8f6e7891e280cd021e25e1f036acedc28e3dbcec` | Build／匿名 digest gate PASS；**不等於後續 main 的所有程式已重新部署** |
 | Revisions／AR／GCS 清理 | [Revision 預覽 #37808487569](https://github.com/tommylin15/janus-omniforge/actions/runs/37808487569) | 當時 413 版、19 個引用保護、388 暫估未引用；`revisions_to_delete_now=0`，**尚未清理** |
 
-**仍需完成的四個 Jobs 發布安全閘門（最近 Jobs live readback）：** `scheduler_still_enabled`、`durable_deployment_mutex_unverified`、`authenticated_acceptance_unverified`、`rollback_procedure_unverified`。Scheduler 短暫 pause/resume 與 GitHub global lease／MCP tag repair 的演練雖通過，**不等於 Jobs 長時間 rollout 與完整回滾已驗收**。本輪 A authenticated MCP 已通，B 的同 MCP 隔離與新候選完整 owner acceptance 仍待完成。
+**仍需完成的四個 Jobs 發布安全閘門（最近 Jobs live readback）：** `scheduler_still_enabled`、`durable_deployment_mutex_unverified`、`authenticated_acceptance_unverified`、`rollback_procedure_unverified`。Scheduler 短暫 pause/resume 與 GitHub global lease／MCP tag repair 的演練雖通過，**不等於 Jobs 長時間 rollout 與完整回滾已驗收**。本輪 A authenticated MCP 與 Read-only v2 同連線 A → B bounded read 隔離已通，known A owner／record ID 的 API negative probe 與新候選完整 owner acceptance 仍待完成。
 
 **後續順序：** owner authenticated candidate acceptance → Jobs release mutex／scheduler PAUSED fence／rollback drill → 四 Jobs GHCR 部署及 live readback → API 100% 切流／回滾驗收 ；發布前重新確認所有 writer 不競跑。舊 Revision／映像／資產清理不列本次待辦。Cloud Build Trigger 停用狀態須重新讀取，不以歷史盤點或人工敘述推定；不得碰 PostgreSQL 備份、Iceberg、應用程式資料或其他系統資源。
 
 2026-10-09 本輪唯讀 GCP readback：`janus-dev-v2` Trigger `disabled=true`，us-central1 ongoing Cloud Builds=0；GHCR candidate `janus-api-00448-vir` 0%，原 `janus-api-g53d655ccb108-config` 100%。這是當時快照，不等於發布鎖內 preflight 或 owner acceptance PASS。
 
-[本輪 checkpoint](archive/cicd-ghcr-checkpoint-2026-10-09.md)：前候選負向邊界 [#37868708360](https://github.com/tommylin15/janus-omniforge/actions/runs/37868708360) SUCCESS；writer 序列化／lease guard 與 Codex OAuth 修正已 review、commit／push，相關 63 tests PASS。前候選真實 A → B → A 登入／私人 API 隔離已有 observed evidence；現役 A User API 年度 PnL、89 筆交易歷史與重算狀態和前候選完全一致。最新 GHCR 修正版 A MCP authorized tool 已通；B 同 MCP 隔離、已知 A identifier 的 B negative probe、Jobs rollout／rollback 與 API promotion 仍未完成。
+[本輪 checkpoint](archive/cicd-ghcr-checkpoint-2026-10-09.md)：前候選負向邊界 [#37868708360](https://github.com/tommylin15/janus-omniforge/actions/runs/37868708360) SUCCESS；writer 序列化／lease guard 與 Codex OAuth 修正已 review、commit／push，相關 63 tests PASS。前候選真實 A → B → A 登入／私人 API 隔離已有 observed evidence；現役 A User API 年度 PnL、89 筆交易歷史與重算狀態和前候選完全一致。最新 GHCR 修正版 A MCP authorized tool 與 Read-only v2 同連線 A → B bounded read 隔離已通；已知 A owner／record ID 的 API negative probe、Jobs rollout／rollback 與 API promotion 仍未完成。
 
 ## 歷次 CI/CD 驗收紀錄（以下為發生當時的快照）
 
