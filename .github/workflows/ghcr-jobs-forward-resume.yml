@@ -1,0 +1,43 @@
+name: Janus fenced forward-only GHCR Jobs recovery
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/ghcr-jobs-forward-resume-request.json'
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  recover-forward:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify bounded single-use lease recovery contract
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_ghcr_jobs_forward_resume.py tests/test_ghcr_jobs_rollout.py tests/test_ghcr_release_lease.py
+      - name: Install public registry reader
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Continue four GHCR Jobs using held owner lease and isolated canaries
+        run: python scripts/gcp/ghcr_jobs_forward_resume.py --receipt /tmp/ghcr-jobs-forward-recovery.json
+      - name: Preserve bounded sanitized recovery receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghcr-jobs-forward-recovery
+          path: /tmp/ghcr-jobs-forward-recovery.json
+          if-no-files-found: ignore
+          retention-days: 14
