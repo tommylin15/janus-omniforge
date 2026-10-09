@@ -44,7 +44,7 @@ class McpOAuthTests(unittest.TestCase):
         self.assertEqual(metadata["token_endpoint_auth_methods_supported"], ["none"])
         self.assertEqual(metadata["grant_types_supported"], ["authorization_code", "refresh_token"])
         self.assertIn("offline_access", metadata["scopes_supported"])
-        self.assertIn("janus.private.write", metadata["scopes_supported"])
+        self.assertNotIn("janus.private.write", metadata["scopes_supported"])
         self.assertEqual(metadata["revocation_endpoint"], "https://api.example.test/oauth/revoke")
         self.assertEqual(metadata["revocation_endpoint_auth_methods_supported"], ["none"])
         self.assertEqual(self.settings.refresh_ttl, 90 * 24 * 60 * 60)
@@ -87,27 +87,14 @@ class McpOAuthTests(unittest.TestCase):
                 "resource": self.settings.resource, "code": query["code"][0], "code_verifier": verifier,
             })
 
-    def test_write_scope_is_issued_and_isolated(self):
-        verifier = "write-scope-verifier"
-        response = self.oauth.begin_authorization({
-            "response_type": "code", "client_id": MCP_CLIENT_ID, "redirect_uri": MCP_REDIRECT_URI,
-            "resource": self.settings.resource, "scope": "janus.private.write",
-            "code_challenge": self.oauth._pkce(verifier), "code_challenge_method": "S256", "state": "state",
-        })
-        google_state = parse_qs(urlsplit(response.headers["location"]).query)["state"][0]
-        consent = self.oauth.google_callback({"state": google_state, "code": "google-code"})
-        token = re.search(r"name='token' value='([^']+)'", consent.body.decode()).group(1)
-        redirect = self.oauth.complete_authorization(token, True)
-        code = parse_qs(urlsplit(redirect.headers["location"]).query)["code"][0]
-        access = self.oauth.exchange_token({
-            "grant_type": "authorization_code", "client_id": MCP_CLIENT_ID,
-            "redirect_uri": MCP_REDIRECT_URI, "resource": self.settings.resource,
-            "code": code, "code_verifier": verifier,
-        })
-        claims = self.oauth.verify_access_token(access["access_token"], "janus.private.write")
-        self.assertEqual(claims["sub"], "owner-uuid")
-        with self.assertRaises(HTTPException):
-            self.oauth.verify_access_token(access["access_token"], "janus.private.read")
+    def test_retired_write_scope_is_rejected(self):
+        with self.assertRaises(HTTPException) as denied:
+            self.oauth.begin_authorization({
+                "response_type": "code", "client_id": MCP_CLIENT_ID, "redirect_uri": MCP_REDIRECT_URI,
+                "resource": self.settings.resource, "scope": "janus.private.write",
+                "code_challenge": self.oauth._pkce("verifier"), "code_challenge_method": "S256", "state": "state",
+            })
+        self.assertEqual(denied.exception.status_code, 400)
 
     def test_codex_loopback_authorization_and_exchange(self):
         for port in (59164, 61235):
@@ -257,8 +244,8 @@ class McpOAuthTests(unittest.TestCase):
         self.assertIn("style-src 'unsafe-inline'", csp)
         self.assertIn("base-uri 'none'", csp)
         self.assertIn(b"action='/oauth/authorize/complete'", consent.body)
-        self.assertIn("janus.private.write".encode(), consent.body)
-        self.assertIn("不會向券商下單或移動資金".encode(), consent.body)
+        self.assertNotIn(b"janus.private.write", consent.body)
+        self.assertIn("MCP 不提供新增交易或股息紀錄功能".encode(), consent.body)
         self.assertIn("閒置 90 天後失效".encode(), consent.body)
 
 

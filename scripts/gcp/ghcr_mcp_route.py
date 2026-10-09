@@ -86,6 +86,8 @@ def probe(base, sha):
     resource = "https://mcp-adapter---" + urlsplit(BASE).netloc + "/mcp"
     if code != 200 or metadata.get("issuer") != issuer or "S256" not in metadata.get("code_challenge_methods_supported", []):
         raise ValueError("oauth_metadata_mismatch")
+    if "janus.private.write" in metadata.get("scopes_supported", []):
+        raise ValueError("retired_write_scope_advertised")
     code, _, body = request(base + "/.well-known/oauth-protected-resource")
     if code != 200 or json.loads(body).get("resource") != resource:
         raise ValueError("resource_metadata_mismatch")
@@ -106,6 +108,16 @@ def probe(base, sha):
         "params": {"name": "janus_private_context", "arguments": {"resource": "positions", "limit": 1}}})
     if code != 401:
         raise ValueError("private_auth_boundary_failed")
+    code, _, body = request(base + "/mcp", {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
+    tools = json.loads(body).get("result", {}).get("tools", [])
+    if (code != 200 or len(tools) != 3
+            or {tool["name"] for tool in tools} != {"janus_sources", "janus_market_context", "janus_private_context"}
+            or not all(tool.get("annotations", {}).get("readOnlyHint") is True for tool in tools)):
+        raise ValueError("mcp_not_read_only")
+    code, _, body = request(base + "/mcp", {"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+        "params": {"name": "janus_private_ledger_append", "arguments": {}}})
+    if code != 200 or json.loads(body).get("error") != {"code": -32602, "message": "Unknown tool"}:
+        raise ValueError("retired_write_not_rejected")
 
 
 def main():

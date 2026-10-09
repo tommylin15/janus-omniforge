@@ -140,23 +140,23 @@ Profile mutation 建立新 immutable version；不能覆寫舊 execution 的 eff
 
 ## 12.6 Janus／omniAgent runtime ownership
 
-Janus 負責投資 User／Admin、domain API、bounded context、authenticated MCP／OAuth；MCP 預設讀取，並只額外開放下述 owner-scoped ledger append。Generic Chat UI、provider dispatch、Agent Gateway、Skills、approval、Chat persistence 由 omniAgent 負責。
+Janus 負責投資 User／Admin、domain API、bounded context、authenticated MCP／OAuth；MCP 只提供 bounded read，不提供個人交易／股息寫入。Generic Chat UI、provider dispatch、Agent Gateway、Skills、approval、Chat persistence 由 omniAgent 負責。
 
 歷史 Janus Chat writer/runtime 已移除；既有 migration／historical private data 的存在不代表仍有 active Chat API。任何歷史資料清理仍需依 private-data／retention contract，不能因 runtime 退役自動大量刪除。
 
 ## 12.7 Janus ChatGPT MCP Connector
 
-ChatGPT MCP 是 external authenticated client／consumer，不是 Janus 第四個 AI runtime、MCP Host、Skill runtime 或 Chat thread；不加入 CEO provider loop，也不保存 ChatGPT conversation snapshot 到 Janus Private Iceberg。除三個 bounded read tools 外，只允許一個明確、owner-scoped、append-only 的 ledger 記錄工具。
+ChatGPT MCP 是 external authenticated client／consumer，不是 Janus 第四個 AI runtime、MCP Host、Skill runtime 或 Chat thread；不加入 CEO provider loop，也不保存 ChatGPT conversation snapshot 到 Janus Private Iceberg。只允許三個 bounded read tools。
 
 首選路徑：
 
-`ChatGPT → remote MCP → existing janus-api → shared bounded query／ledger boundary`
+`ChatGPT → remote MCP → existing janus-api → shared bounded query boundary`
 
 不新增 `janus-mcp` Cloud Run service。
 
 ### 12.7.1 Tool surface
 
-四個 logical tools；前三個 read-only，第四個是 non-destructive ledger append：
+三個 logical tools，全部 read-only：
 
 - `janus_sources`
   - input：空 object。
@@ -173,12 +173,6 @@ ChatGPT MCP 是 external authenticated client／consumer，不是 Janus 第四�
   - `resource`：`positions`、`annual-pnl`、`exposure`、`performance`、`stress-tests`、`investment-profile`、`watchlist`、`trades`。
   - optional `symbol` 只適用 positions／watchlist／trades；`year` 依 resource contract；`limit` 1–20，default 10。
   - `investment-profile` 只有既有 AI context opt-in 時回傳；第一版不暴露 free-form notes。
-- `janus_private_ledger_append`
-  - scope：`janus.private.write`。
-  - 只新增一筆 authenticated owner 的 `BUY`／`SELL`／`CASH_DIV`／`STOCK_DIV` ledger fact；沿用 `LedgerEventIn` 的 type／decimal validation。
-  - 必填 stable `idempotency_key`；重試不得產生重複交易。
-  - 不接受 `user_id`／`owner_id`，不提供任意 update／delete／SQL／table mutation；更正仍走既有 reversal／replacement domain contract，不由本工具偷改舊 row。
-  - 只記錄 Janus ledger；**不向券商下單、不移動資金**。交易數值必須來自使用者明確提供或可驗證來源，不得猜補缺值。
 
 三個 read tools 共用 envelope：
 
@@ -202,8 +196,6 @@ ChatGPT MCP 是 external authenticated client／consumer，不是 Janus 第四�
 
 records 最多 20 筆／32 KiB；超限只在完整 record 邊界截斷並明示 `truncated=true`。provenance 只回非 locator metadata，例如 `source_id`、`provenance_id`、`snapshot_id`、`ledger_version`、`valuation_date`。
 
-`janus_private_ledger_append` 回傳 sanitized persisted record 與 `broker_order_placed=false`、`funds_moved=false`；不回 internal owner ID 或 idempotency key。ledger mutation 成功不等於 Private Mart valuation／PnL 已刷新。
-
 ### 12.7.2 MCP auth／owner boundary
 
 - 所有 tools 都要求 authentication，包括 public market tool。
@@ -213,10 +205,9 @@ records 最多 20 筆／32 KiB；超限只在完整 record 邊界截斷並明示
 - canonical MCP resource 由 trusted deployment config 固定，不從 request `Host` 推導。
 - output 不回 GCS URI、object path、raw payload、credential、password、secret、token、private artifact locator、internal owner ID。
 - private data 送 external AI 必須有清楚 disclosure；不預先替外部平台宣稱 retention／training policy。
-- `janus.private.write` 與 read scopes 分離；未取得 write scope 的 token 不得呼叫 ledger append。
-- ledger append 仍受既有 oversell、append-only、idempotency、owner isolation 與 audit boundary 約束；MCP 不得升格成 broker execution surface。
+- 2026-10-09 使用者撤除 MCP ledger write：不列出或執行 `janus_private_ledger_append`，不再接受新 OAuth `janus.private.write` 授權；舊 token／外掛快取也不得恢復寫入。User App 的既有記帳 API 不受影響。
 
-現有 `/mcp` adapter 只處理必要 initialization／ping／tools/list／tools/call 與 notifications；除 allowlisted `janus_private_ledger_append` 外，不提供 generic mutation、resources、prompts、subscriptions、approval runtime 或 conversation snapshot storage。
+現有 `/mcp` adapter 只處理必要 initialization／ping／tools/list／tools/call 與 notifications；不提供 ledger write、generic mutation、resources、prompts、subscriptions、approval runtime 或 conversation snapshot storage。
 
 ## 12.8 ChatGPT Mobile Ledger Bridge
 

@@ -86,14 +86,9 @@ steps:
         tools = listed['result']['tools']
         by_name = {tool['name']: tool for tool in tools}
         assert set(by_name) == {
-            'janus_sources', 'janus_market_context', 'janus_private_context',
-            'janus_private_ledger_append'}
+            'janus_sources', 'janus_market_context', 'janus_private_context'}
         assert all(by_name[name]['annotations']['readOnlyHint']
                    for name in ('janus_sources','janus_market_context','janus_private_context'))
-        assert by_name['janus_private_ledger_append']['annotations'] == {
-            'readOnlyHint': False, 'destructiveHint': False, 'openWorldHint': False}
-        assert by_name['janus_private_ledger_append']['securitySchemes'][0]['scopes'] == [
-            'janus.private.write', 'offline_access']
         assert all('offline_access' in tool['securitySchemes'][0]['scopes'] for tool in tools)
 
         status, headers, denied = rpc('tools/call', {
@@ -108,10 +103,9 @@ steps:
             'arguments': {
                 'event_type':'BUY','trade_date':'2026-01-01','symbol':'1101',
                 'shares':'1','price':'1','idempotency_key':'acceptance-no-write'}})
-        assert status == 401
-        assert 'janus.private.write' in headers.get('WWW-Authenticate', '')
-        assert 'mcp/www_authenticate' in denied['result']['_meta']
-        print('MCP initialize, tools/list and unauthenticated read/write challenges passed')
+        assert status == 200
+        assert denied['error'] == {'code': -32602, 'message': 'Unknown tool'}
+        print('MCP initialize, read-only tools/list, read auth and retired write rejection passed')
         PY
         echo 'MCP OAuth metadata and negative guards passed.'
 

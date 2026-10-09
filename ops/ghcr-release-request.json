@@ -8,7 +8,7 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 4,
-  "reason": "Refresh all four public GHCR images after verified owner-fenced API candidate deploy; no traffic or Jobs promotion",
+  "attempt": 5,
+  "reason": "Retire MCP personal trade and dividend writes; retain authenticated reads and User App ledger APIs",
   "expected_runtime_changes": false
 }

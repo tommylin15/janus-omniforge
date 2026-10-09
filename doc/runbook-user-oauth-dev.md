@@ -4,6 +4,12 @@
 
 最新 OAuth／MCP acceptance 狀態見 [`todo.md`](todo.md) 與 [`spec/operations-and-testing.md`](spec/operations-and-testing.md)。歷史 migration／舊 Secret 名稱／舊 revision 不在本文件保存。
 
+## MCP 外掛功能與平台邊界
+
+Janus Dev Private 與 Janus Dev Read-only v2 共用 Cloud Run MCP／OAuth tags。2026-10-09 使用者要求撤除 MCP 個人交易／股息寫入：server tools/list 只列三個 read tools，舊 `janus_private_ledger_append` 呼叫必須回 Unknown tool，新 `janus.private.write` 授權必須拒絕。外掛舊描述或 ledger-recording skill 不構成使用授權；需由原外掛來源更新／重新載入，不能只修改安裝 cache。
+
+Cloud Run endpoint 是遠端服務；Codex 的本機外掛安裝不會自動讓 ChatGPT 網頁／手機 App 取得相同外掛。ChatGPT 網頁版應使用已設定的遠端 Read-only v2 連線。依 [OpenAI 官方平台限制](https://help.openai.com/en/articles/12584461-developer-mode-and-mcp-apps-in-chatgpt)，自訂 MCP apps 目前只支援網頁，不支援 ChatGPT 手機 App；手機瀏覽器的網頁操作仍需實機驗收。
+
 ## 1. 安全邊界
 
 - User 與 Admin OAuth audience 必須分離；不得拿 Admin token 當 User token。

@@ -26,7 +26,7 @@ MCP_CLIENT_ID = "https://chatgpt.com/oauth/client.json"
 CODEX_CLIENT_ID = "https://chatgpt.com/oauth/codex/client.json"
 MCP_REDIRECT_URI = "https://chatgpt.com/connector_platform_oauth_redirect"
 MCP_SCOPES = frozenset({"janus.sources.read", "janus.market.read", "janus.private.read",
-                        "janus.private.write", "offline_access"})
+                        "offline_access"})
 _GOOGLE_AUTHORIZE = "https://accounts.google.com/o/oauth2/v2/auth"
 _GOOGLE_TOKEN = "https://oauth2.googleapis.com/token"
 
@@ -320,7 +320,7 @@ class McpOAuth:
 
     def _consent_page(self, token: str) -> str:
         safe = html.escape(token, quote=True)
-        return f"<!doctype html><meta charset='utf-8'><title>Janus MCP authorization</title><main><h1>Janus MCP authorization</h1><p>允許 ChatGPT 讀取已核准的 Janus 市場與私人資料；若本次要求 janus.private.write，也可新增你的 Janus 個人交易紀錄。此寫入只記錄 Janus ledger，不會向券商下單或移動資金。短效存取憑證可自動續期；授權閒置 90 天後失效，你可隨時在 ChatGPT 解除連結或撤銷。</p><form method='post' action='/oauth/authorize/complete'><input type='hidden' name='token' value='{safe}'><button name='approved' value='true'>允許</button><button name='approved' value='false'>拒絕</button></form></main>"
+        return f"<!doctype html><meta charset='utf-8'><title>Janus MCP authorization</title><main><h1>Janus MCP authorization</h1><p>允許 ChatGPT 唯讀查詢已核准的 Janus 市場與私人資料；MCP 不提供新增交易或股息紀錄功能。短效存取憑證可自動續期；授權閒置 90 天後失效，你可隨時在 ChatGPT 解除連結或撤銷。</p><form method='post' action='/oauth/authorize/complete'><input type='hidden' name='token' value='{safe}'><button name='approved' value='true'>允許</button><button name='approved' value='false'>拒絕</button></form></main>"
 
     def _sign(self, payload: Mapping[str, Any]) -> str:
         encoded = self._b64(json.dumps(dict(payload), separators=(",", ":"), sort_keys=True).encode())

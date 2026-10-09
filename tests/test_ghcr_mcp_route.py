@@ -64,12 +64,26 @@ def test_prelogin_probe_verifies_google_callback_and_negative_private_boundary()
                  (200, {}, route.json.dumps({"issuer": issuer, "code_challenge_methods_supported": ["S256"]}).encode()),
                  (200, {}, route.json.dumps({"resource": resource}).encode()),
                  (302, {"Location": "https://accounts.google.com/o/oauth2/v2/auth?" + route.urlencode({"redirect_uri": issuer + "/oauth/google/callback"})}, b""),
-                 (400, {}, b""), (401, {}, b"")]
+                 (400, {}, b""), (401, {}, b""),
+                 (200, {}, route.json.dumps({"result": {"tools": [
+                     {"name": name, "annotations": {"readOnlyHint": True}}
+                     for name in ("janus_sources", "janus_market_context", "janus_private_context")
+                 ]}}).encode()),
+                 (200, {}, route.json.dumps({"error": {"code": -32602, "message": "Unknown tool"}}).encode())]
     with patch.object(route, "request", side_effect=responses) as request:
         route.probe("https://candidate.test", sha)
     query = route.parse_qs(route.urlsplit(request.call_args_list[3].args[0]).query)
     assert query["client_id"] == [route.CODEX]
     assert query["redirect_uri"] == ["http://127.0.0.1:59164/callback"]
+
+
+def test_route_probe_rejects_candidate_advertising_retired_write_scope():
+    metadata={"issuer": "https://mcp-oauth---janus-api-2oo7qbkd5q-uc.a.run.app",
+              "code_challenge_methods_supported": ["S256"], "scopes_supported": ["janus.private.write"]}
+    with patch.object(route, "request", side_effect=[
+            (200, {}, b"sha"), (200, {}, route.json.dumps(metadata).encode())]):
+        with pytest.raises(ValueError, match="retired_write_scope_advertised"):
+            route.probe("https://candidate.test", "sha")
 
 
 def test_workflow_is_manual_and_shared_lease_fences_tag_mutation():

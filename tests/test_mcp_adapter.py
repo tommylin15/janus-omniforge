@@ -101,14 +101,10 @@ def test_mcp_initialization_and_tool_contract_are_explicitly_secured():
     assert initialized.json()["result"]["protocolVersion"]=="2025-06-18"
     tools=rpc(api,"tools/list").json()["result"]["tools"]
     by_name={tool["name"]:tool for tool in tools}
-    assert set(by_name)=={"janus_sources","janus_market_context","janus_private_context","janus_private_ledger_append"}
+    assert set(by_name)=={"janus_sources","janus_market_context","janus_private_context"}
     assert all(tool["inputSchema"]["additionalProperties"] is False for tool in tools)
     for name in ("janus_sources","janus_market_context","janus_private_context"):
         assert by_name[name]["annotations"]=={"readOnlyHint":True,"destructiveHint":False,"openWorldHint":False}
-    assert by_name["janus_private_ledger_append"]["annotations"]=={
-        "readOnlyHint":False,"destructiveHint":False,"openWorldHint":False}
-    assert by_name["janus_private_ledger_append"]["securitySchemes"][0]["scopes"]==[
-        "janus.private.write","offline_access"]
     assert all(tool["securitySchemes"][0]["type"]=="oauth2" and
                "offline_access" in tool["securitySchemes"][0]["scopes"] for tool in tools)
 
@@ -131,34 +127,18 @@ def test_mcp_tool_calls_require_oauth_and_return_bounded_sanitized_records():
     assert "gcs_uri" not in str(result) and str(OWNER) not in str(result)
 
 
-def test_mcp_ledger_append_is_owner_bound_and_non_broker():
+def test_retired_mcp_ledger_write_is_rejected_even_with_existing_write_authorization():
     repository=Repository()
     api=client(repository)
-    arguments={
-        "event_type":"BUY","trade_date":"2026-01-01","symbol":"1101",
-        "shares":"30000","price":"31.5","fee":"538","tax":"0","currency":"TWD",
-        "memo":"補登交易","idempotency_key":"backfill-1101-20260101-buy",
-    }
-    denied=rpc(api,"tools/call",{"name":"janus_private_ledger_append","arguments":arguments})
-    assert denied.status_code==401
-    assert "janus.private.write" in denied.headers["www-authenticate"]
-
-    response=rpc(api,"tools/call",{"name":"janus_private_ledger_append","arguments":arguments},token="valid")
-    assert response.status_code==200
-    result=response.json()["result"]["structuredContent"]
-    assert result["status"]=="persisted" and result["resource"]=="trades"
-    assert result["record"]["symbol"]=="1101"
-    assert float(result["record"]["shares"])==30000
-    assert result["effects"]=={"broker_order_placed":False,"funds_moved":False}
-    assert str(OWNER) not in str(result) and "idempotency_key" not in str(result)
-    assert len(repository.added)==1
-    owner,event,key=repository.added[0]
-    assert owner==OWNER and event.symbol=="1101" and key=="backfill-1101-20260101-buy"
-
-    invalid=rpc(api,"tools/call",{"name":"janus_private_ledger_append","arguments":{
-        **arguments,"owner_id":str(OWNER)}},token="valid")
-    assert invalid.status_code==200 and invalid.json()["result"]["isError"] is True
-    assert len(repository.added)==1
+    for event_type in ("BUY", "SELL", "CASH_DIV", "STOCK_DIV"):
+        for token in (None, "valid"):
+            response=rpc(api,"tools/call",{"name":"janus_private_ledger_append","arguments":{
+                "event_type":event_type,"trade_date":"2026-01-01","symbol":"1101",
+                "shares":"1","price":"1","idempotency_key":"retired-write-test",
+            }},token=token)
+            assert response.status_code==200
+            assert response.json()["error"]=={"code":-32602,"message":"Unknown tool"}
+    assert repository.added==[]
 
 
 def test_mcp_financial_context_uses_availability_fence_for_date_bounds_and_as_of():
