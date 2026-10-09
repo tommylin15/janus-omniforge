@@ -1,0 +1,53 @@
+name: Janus GHCR existing MCP route repair
+on:
+  workflow_dispatch:
+    inputs:
+      release_run:
+        description: Successful full-test GHCR publication run for the requested candidate SHA
+        required: true
+        type: string
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify bounded route and lease contracts
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_ghcr_mcp_route.py tests/test_ghcr_release_lease.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Repair the two existing MCP routes with fail-closed readback
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_RUN: ${{ inputs.release_run }}
+          BASELINE: ${{ runner.temp }}/mcp-route-baseline.json
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          python scripts/gcp/ghcr_mcp_route.py --release-run "$RELEASE_RUN" --baseline "$BASELINE" | tee /tmp/mcp-route-result.json
+          cat /tmp/mcp-route-result.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mcp-route-bounded-recovery
+          path: ${{ runner.temp }}/mcp-route-baseline.json
+          retention-days: 1
+          if-no-files-found: ignore

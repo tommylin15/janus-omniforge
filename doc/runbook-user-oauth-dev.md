@@ -24,6 +24,8 @@ Codex OAuth client 為 `https://chatgpt.com/oauth/codex/client.json`；本機 ca
 
 這個 loopback URL 是 Janus → Codex 回呼，**不加入 Google OAuth 的 redirect URIs**。Google → Janus 的 callback 仍為目前 issuer 加 `/oauth/google/callback`。發布前必須核准此 client callback allowlist 擴充；本機 tests 通過不代表 live 已支援。Consent CSP 只對這個已驗證的 Codex callback 加入該次精確 loopback origin，保留其他 CSP 限制。
 
+MCP tag 修復使用 `.github/workflows/ghcr-mcp-route-dev.yml`，人工 dispatch 的 `release_run` 必須是候選 request 指定 SHA 的成功完整 GHCR publication run。此流程只將既有 `mcp-oauth`／`mcp-adapter` tag 指向既有 0% GHCR candidate，保留 canonical traffic 與其他 tag；透過共享 Actions concurrency 與 Git-ref lease 互斥，鎖內核對 Trigger disabled／無 ongoing builds、digest、Ready、min instances=0、build identity、Codex pre-login 302／非法 loopback 400／未授權 MCP 401。失敗時讀回原路由，回復不明則保留 lease；人工 recovery 使用該 run 的非敏感 routing artifact，禁止強制解鎖。這個 pre-login gate 不等於 owner consent／token exchange／private tool live PASS。
+
 ## 3. 目前 Secret 模型
 
 目前 `scripts/gcp/deploy-dev.sh` 對 `janus-api` 使用整合後的 `janus-runtime-bundle`，以 `JANUS_API_POSTGRES_BUNDLE` 注入 runtime；Jobs 也使用同一 bundle 的對應 runtime env。不要再依照舊文件建立 `google-user-client-secret`、`private-database-url`、`postgres-private-api-password` 等分散 Secret 作為新的 canonical path。

@@ -38,3 +38,10 @@
 - OAuth targeted tests 11 PASS（含兩個不同 port 的授權／交換、其他 client 與非精確 URL 拒絕、錯誤 port／PKCE 拒絕）。擴大含 User API 的測試在 OAuth 11 項後停滯且無新輸出，已中止，不能認作 PASS。
 - 重跑 OAuth 與本輪發布防護直接相關範圍合計 63 tests PASS。重新執行 `/ponytail-review`，檢查所有 redirect helper callers、授權／Google callback／consent／token exchange、原始 code binding、workflow guard 與文件差異，未發現須修正項；此為本機 review，不代替完整 release CI 或 live OAuth 驗收。
 - 仍是未發布的 working tree；此 callback allowlist 擴充須依 PROJECT_RULES §1.3 明確核准，commit／push 亦仍待先前自動審核要求的明確確認。未宣稱 live MCP 登入恢復。
+
+## 授權後發布進度（優先於上述本機快照）
+
+- 使用者已明確授權 commit／push、既有 dev 發布與 Codex callback allowlist 修正，並要求修正兩個既有 MCP tag 的 revision。OAuth／writer 修正已 commit／push `92349c509181590b8977b0ade355d7497bb62a8b`。
+- [完整 GHCR Release #37872497498](https://github.com/tommylin15/janus-omniforge/actions/runs/37872497498) SUCCESS：Python 759 passed、2 deselected（workflow 明列已移除 legacy modules），Flutter gate SUCCESS、四個映像 publish SUCCESS、匿名 pull／digest gate SUCCESS。尚未因此宣稱 MCP live 登入成功。
+- 新增人工執行的 bounded MCP tag repair workflow／helper：僅既有兩個 tag、0% candidate、canonical 100% 不變；shared concurrency／lease、鎖內 Trigger／Build fence、pre-login gate、fail-closed rollback/readback，routing snapshot artifact 留 1 日供操作失敗 recovery，不新增舊路由入口。
+- Route＋lease 23 tests PASS；首次 pytest tmp_path 遇 sandbox temp 權限錯誤，改 fresh workspace `.tmp` test directory 重跑通過。workflow YAML parse、Git Bash `bash -n` PASS。`/ponytail-review` 核對 helper calls、gate、switch／recovery、測試與文件，未发现須修正項。仍待 candidate deploy／MCP route repair 的真實 Actions evidence。

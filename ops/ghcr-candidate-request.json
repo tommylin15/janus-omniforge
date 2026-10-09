@@ -1,7 +1,7 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "8f6e7891e280cd021e25e1f036acedc28e3dbcec",
-  "purpose": "Promote refreshed full-tested GHCR source SHA only into 0% tagged API candidate with global lease and baseline readback",
+  "sha": "92349c509181590b8977b0ade355d7497bb62a8b",
+  "purpose": "Deploy full-tested Codex loopback OAuth fix as a 0% GHCR candidate before explicitly authorized MCP tag repair",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "fresh-source-ghcr-live-readback-v2",
