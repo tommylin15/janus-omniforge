@@ -88,9 +88,11 @@ def test_job_rollout_preflight_requires_update_and_run_with_overrides_on_every_j
 
 def test_missing_canary_override_permission_blocks_before_mutation():
     no_override = {"permissions": ["run.jobs.get", "run.jobs.update", "run.jobs.run"]}
-    with patch.object(rollout, "cloud", return_value=no_override), \\
-         patch.object(rollout, "set_scheduler") as scheduler, \\
-         patch.object(rollout, "update") as update:
+    with (
+        patch.object(rollout, "cloud", return_value=no_override),
+        patch.object(rollout, "set_scheduler") as scheduler,
+        patch.object(rollout, "update") as update,
+    ):
         with pytest.raises(ValueError, match="job_rollout_iam_missing"):
             rollout.job_update_permissions()
     scheduler.assert_not_called()
