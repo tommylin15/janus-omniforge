@@ -1,20 +1,22 @@
-# Janus 新版 CI/CD — 2026-10-09 最新 active acceptance（PARTIAL）
+# Janus 新版 CI/CD — 2026-10-10 最新 active acceptance（PARTIAL）
 
-本節優先於已封存的 [舊 CI/CD TODO 快照](archive/cicd-todo-prior-checkpoints-2026-10-09.md)；只處理新版 GitHub Actions → GHCR → Cloud Run。舊 Revision／AR／GCS 清理 **不列 active queue**，DB、backup、Iceberg、真實交易／筆記一律不動。當次來源為 `fbcc5f58a2fa31f2f36dc4c82702fb62910c7361`，後續 `main` 程式修改不等於已重新發布容器。
+本節優先於 [歷史 CI/CD TODO](archive/cicd-todo-prior-checkpoints-2026-10-09.md)。目前現役真實 dev 專案仍是 `gen-lang-client-0593591102` 的 GHCR parallel-live，**本次僅完成第二輪 full GHCR 發布、0% 候選、固定 Preview、安全基準與負向 OAuth 驗收；新版 100% 與四 Jobs 新版尚未切流**。舊 AR／GCS 清理不列本次待辦，不動 DB、backups、Iceberg、個人交易或筆記。
 
-- [x] GHCR full-test Release／四個公開固定 digest：[run #37876247130](https://github.com/tommylin15/janus-omniforge/actions/runs/37876247130) PASS。
-- [x] 0% API candidate、Google A → B → A 真實登入與 bounded Owner API/PnL isolation：見 [owner acceptance](archive/cicd-owner-browser-acceptance-2026-10-09.md)；不冒充 mutation 越權測試。
-- [x] 四個 Jobs pinned GHCR digest、8 次獨立 canary、Scheduler 恢復 `ENABLED`：[forward recovery #37915584159](https://github.com/tommylin15/janus-omniforge/actions/runs/37915584159) PASS；Research Job 未更新。IAM `four_runtime_identities_actas` 已重新 readback PASS，**先前 IAM 未授權 blocker 已解除**。
-- [x] API `janus-api-00451-cuw` 100% 正式流量、Service template GHCR、revision Ready、Service `Ready/RoutesReady=True`、health／SHA／OAuth/MCP 負向 gate；[同 Revision routing repair #37943709614](https://github.com/tommylin15/janus-omniforge/actions/runs/37943709614) SUCCESS，沒有建新 Revision 或改其他 tags。
-- [x] 原始 owner 共用 Git-ref lease 已安全釋放、receipt `lease_released=true`，GitHub ref 後驗證 404；不採 force-unlock。
-- [ ] **Private Pipeline config parity**：`original_private_full_config_verified=false`／`NOT_VERIFIED`；只有舊 AR image rollback 的 user-approved forward-only waiver，**沒有核准把 config parity 當 PASS**。釐清可證明的現役 GHCR Job settings／owner boundary；缺舊版可靠 snapshot 時明列 unknown，不重新製造歷史證據。
-- [ ] **可重複正式發版／可恢復驗收**：本次同 Revision 緊急 repair 是一次性受控入口，尚需確認一般 Release 不需人工補救時，可在完整 SHA full gates 後安全處理 candidate、Jobs／Scheduler fence、service routing／lease、失敗恢復／新 GHCR baseline rollback 並留下 receipts。使用者只豁免本次已失效的舊 AR 回滾，不得寫成 rollback rehearsal PASS。不要為此隨意重跑真實 scheduled Jobs。
-- [ ] **正式 Release 結案**：依 `spec/cicd-v2.md` 核對上述剩餘必要 safety/integration 以及未驗證差異；只有所有已核准 acceptance 都有 implementation、CI 與 live evidence 時才轉 CLOSED，否則維持 PARTIAL。
+- [x] **上一版現役 GHCR 基準**：`fbcc5f58a2fa31f2f36dc4c82702fb62910c7361` 來源的四 Job pinned digests／八次 live canary、API `janus-api-00451-cuw` 正式 100% 流量，Scheduler `ENABLED`；[forward Jobs #37915584159](https://github.com/tommylin15/janus-omniforge/actions/runs/37915584159)、[API Ready route recovery #37943709614](https://github.com/tommylin15/janus-omniforge/actions/runs/37943709614) PASS。原始 Git-ref lease 已安全釋放，無本次強制解鎖。
+- [x] **可用作下一次新版 rollback baseline**：[GHCR read-only real dev #37954237695](https://github.com/tommylin15/janus-omniforge/actions/runs/37954237695) PASS，四個舊版公開 immutable digests、四 Job config fingerprints、正式 API Ready、Scheduler／executions／writer／lease 都由 GCP readback 證實；`ops/ghcr-active-baseline.json` 只保存已觀察非敏感 identity。未來 rollout 要求 `reversible_ghcr`、上一版 digests/fingerprints 與 Registry readback，2026-10-09 舊 AR forward-only waiver 僅適用指定歷史 SHA，不可用於新版。
+- [x] **第二輪新來源 full-test GHCR**：source `038498c70e12488f345c3ca0fbe821846ddee4cc` 的 Python／Flutter 完整 gate、四映像 GHCR build/push、匿名 registry/public digests [#37953986962](https://github.com/tommylin15/janus-omniforge/actions/runs/37953986962) 全 PASS。
+- [x] **新版 API 0% candidate**：[run #37954588954](https://github.com/tommylin15/janus-omniforge/actions/runs/37954588954) PASS，`janus-api-00457-wed`／`ghcr-038498c70e12` tag、digest／build SHA／health／401、正式舊版 100% 保護與原 lease cleanup PASS。
+- [x] **新來源 OAuth/MCP 未登入邊界**：[run #37955226220](https://github.com/tommylin15/janus-omniforge/actions/runs/37955226220) PASS；修正原 workflow 把舊 AR 正式 Revision 名寫死的失效假設。**這僅是 401/403、OAuth metadata、MCP challenge，不是新 SHA 真人 authenticated Owner/PnL PASS**。
+- [x] **固定 Preview 正向發布已 live PASS**：[run #37956325838](https://github.com/tommylin15/janus-omniforge/actions/runs/37956325838)、receipt #11628296737，固定 `preview` tag 指向新候選 `janus-api-00457-wed`，固定 <https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/> 的新來源完整 SHA／負向探測 PASS；原 preview `janus-api-00451-cuw` 與 SHA 留存，正式流量／其他 tags／service runtime config／Jobs／Scheduler 未改，owner lease `released=true`，獨立 ref readback 404。新流程是 `ghcr-preview-publish-dev.yml` + `ghcr_preview_publish.py`；失敗恢復已有 targeted tests，**尚無刻意引發失敗的 live restore 演練**。
+- [x] **GHCR 新映像／Jobs 唯讀盤點**：[run #37955302314](https://github.com/tommylin15/janus-omniforge/actions/runs/37955302314) SUCCESS，四個新 image 的匿名 digest/source label PASS、舊版正式 traffic 維持；[#37955302241](https://github.com/tommylin15/janus-omniforge/actions/runs/37955302241) workflow SUCCESS **不代表所有 preflight PASS**：其 receipt `status=BLOCKED`，因受保護 Research Job `janus-research-big-move-500` 的舊 AR image 不可讀。此 Job 不屬四 Job GHCR 更新目標、尚未異動；應獨立標未知/阻塞而非忽略。
+- [ ] **新來源真人 A→B→A**（人工 OAuth gate）：使用者在固定 Preview 以 Google 帳號 A 登入、核對 Portfolio／Positions／History／年度 PnL，B 測試隔離／拒絕讀取 A 資料，再回 A 確認一致；證據必須綁定完整 SHA `038498...` 及 Revision `janus-api-00457-wed`。未完成前不可改寫 `ops/ghcr-owner-acceptance.json` 或切 Jobs／API 正式版本，僅 401/metadata 測試不能替代。
+- [ ] **新版四 Jobs GHCR→GHCR 實際可逆發布**：真人 owner acceptance PASS 後，在原有共用 writer mutex／owner lease、Scheduler PAUSED／execution terminal fence 下，使用明確 `reversible_ghcr` request、上一版四 images＋config fingerprint 基準，更新四 Job 到新 digest、兩次獨立 canary／Job，測試失敗回復及真實 rollback 演練後恢復 Scheduler。不得把目前舊版八 canary 當新版八 canary。
+- [ ] **新版 API 正式 100% promotion／rollback live**：以新來源 SHA owner acceptance＋GHCR Jobs 終態 PASS＋舊版可回復 digest／source 為必要 gate，明確 100% traffic／rollback rehearsal／Ready／健康／PnL／MCP／其他 tags 和 lease readback；不使用舊 AR 失效映像或一次性 release 修復 workflow 冒充通用 Release。
+- [ ] **固定 Preview failure restore live drill**：正常發布和原 preview SHA 保存已成功；測試有 fail-closed／恢復保護，但尚未對實際 Cloud Run 刻意觸發更新後失敗／restore（避免干擾使用者）；保持 `NOT VERIFIED`，不得改勾。
+- [ ] **Private Pipeline 歷史完整設定 parity**：前次 AR→GHCR 非 image runtime config 曾遭更新，無可靠舊版完整 snapshot 可重建，故 `NOT_VERIFIED`；本輪的新 GHCR baseline hash 只表示**現役配置**已固定，不能倒推舊 AR 原設定。
+- [ ] **受保護 Research Job 的舊 AR registry 引用**：本次 readonly receipt `BLOCKED`，需獨立盤點可靠可重建/恢復證據；Research 不在本次更新範圍，無核准前不得為解決 preflight 而更改其 image 或刪除資料。
 
-**固定 preview 補充（不自動擴增本次 scope）：**固定 `preview` URL、候選 SHA、lease、單 tag、失敗恢復與 OAuth 規則已寫入 [部署 runbook](runbook-dev-deploy.md)／[OAuth runbook](runbook-user-oauth-dev.md)；目前沒有完整自動發布／失敗回復的 live acceptance。之前的需求是**回寫文件**，不是授權把 preview 自動化冒充已實作或已驗收；如後續確定要開發，再納入 active 項目。
-
-詳細 [2026-10-09 真實收尾證據](archive/cicd-ghcr-live-route-finalization-2026-10-09.md)；已取代的狀態／歷史驗收留 [archive](archive/cicd-status-pre-forward-repair-2026-10-09.md)。
-
+詳細歷史/最新證據：[第二輪 full GHCR／Preview](archive/cicd-ghcr-next-release-preview-2026-10-09.md) · [可回復 GHCR 基準](archive/cicd-ghcr-reversible-baseline-2026-10-09.md) · [舊版路由修復](archive/cicd-ghcr-live-route-finalization-2026-10-09.md)。只在必要真實 E2E gate 完成後才可將整體 CI/CD 設為 CLOSED。
 ---
 
 # Janus — TODO
