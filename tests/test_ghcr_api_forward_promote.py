@@ -121,3 +121,14 @@ def test_workflow_is_explicit_single_request_only():
     assert "cancel-in-progress: false" in yml
     assert "ghcr-jobs-forward-recovery" in yml
     assert "--forward-recovery" in yml
+
+
+def test_gcloud_revision_image_readback_is_bounded_and_normalized():
+    pinned = "ghcr.io/tommylin15/janus-api@sha256:" + "a"*64
+    response = {"spec": {"containers": [{"image": "cache.us-docker.pkg.dev/" + pinned}]}}
+    assert promoter.revision_image(response) == pinned
+    for bad in ({}, {"spec": {}},
+                {"spec": {"containers": []}},
+                {"spec": {"containers": [{"name": "api"}]}}):
+        with pytest.raises(ValueError, match="candidate_revision"):
+            promoter.revision_image(bad)
