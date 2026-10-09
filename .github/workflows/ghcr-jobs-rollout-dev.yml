@@ -58,7 +58,7 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v2
       - name: Apply user-authorized forward-only GHCR Jobs with two real canaries each
         run: python scripts/gcp/ghcr_jobs_rollout.py --release-run "$RELEASE_RUN" --receipt /tmp/ghcr-jobs-rollout.json
-      - name: Recover original images and Scheduler after failure
+      - name: Verify forward-only recovery or retain deployment fence after failure
         if: ${{ failure() || cancelled() }}
         run: |
           if test -f /tmp/ghcr-jobs-rollout.json; then
