@@ -15,6 +15,12 @@
   "no_gcp_mutation": true,
   "prior_private_config_parity": "NOT_VERIFIED",
   "old_ar_rollback_exercised": false,
-  "attempt": 2,
-  "safety": "Read-only rerun after guard regex correction and CI #37953491979 PASS; exact four public GHCR previous images, service Ready, live owner/read-only auth and lease ABSENT; no GCP writes, no canaries."
+  "attempt": 3,
+  "safety": "Revalidate exact previously observed four-job nonsecret config fingerprints under public GHCR image baseline; no GCP mutation; original Private Pipeline historical parity still NOT_VERIFIED.",
+  "job_config_hashes": {
+    "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
+    "janus-ingestion-core": "ebd88ff9aabca00b8f248473ea2b3f16a908be4a463333e3e1535a2c66ad8863",
+    "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
+    "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
+  }
 }
