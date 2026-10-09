@@ -307,6 +307,9 @@ def _reversible_request(sha="b" * 40, prior="a" * 40):
         "rollback_mode": "reversible_ghcr",
         "accept_no_old_image_rollback": False,
         "baseline_source_sha": prior,
+        "rollback_config_hashes": {
+            name: rollout.fingerprint(sample()) for name, _ in rollout.JOB_COMPONENT
+        },
         "rollback_images": {
             name: f"ghcr.io/tommylin15/janus-{component}@sha256:" + "c" * 64
             for name, component in rollout.JOB_COMPONENT
@@ -325,6 +328,10 @@ def test_reversible_ghcr_baseline_accepts_only_explicit_four_immutable_refs():
     ):
         with pytest.raises(ValueError):
             rollout.release_rollback_mode({**request, **patch_data}, "b" * 40)
+    without_hash = deepcopy(request)
+    without_hash.pop("rollback_config_hashes")
+    with pytest.raises(ValueError, match="reversible_ghcr_config_fingerprints_missing"):
+        rollout.release_rollback_mode(without_hash, "b" * 40)
     missing = deepcopy(request)
     missing["rollback_images"].pop(next(iter(missing["rollback_images"])))
     with pytest.raises(ValueError):
@@ -378,3 +385,17 @@ def test_missing_public_rollback_digest_never_satisfies_gate():
     with patch.object(rollout, "command", return_value='{"Digest": "sha256:wrong", "Labels": {}}'):
         with pytest.raises(ValueError, match="rollback_baseline_registry_unverified"):
             rollout.verify_reversible_baseline(request, previous)
+
+
+def test_reversible_ghcr_config_drift_blocks_even_when_registry_digest_matches():
+    request = _reversible_request()
+    previous = {}
+    for name, ref in request["rollback_images"].items():
+        old = sample()
+        old["template"]["template"]["containers"][0]["image"] = ref
+        previous[name] = old
+    previous["janus-private-pipeline"]["template"]["template"]["containers"][0]["env"][0]["value"] = "drift"
+    with patch.object(rollout, "command") as cmd:
+        with pytest.raises(ValueError, match="rollback_baseline_config_drift"):
+            rollout.verify_reversible_baseline(request, previous)
+    cmd.assert_not_called()
