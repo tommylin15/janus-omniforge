@@ -131,3 +131,20 @@ def test_live_readback_accepts_explicit_service_ready():
     revision = {"status": {"conditions": [{"type": "Ready", "status": "True"}]}}
     finalize.assert_ready_readback(service, revision)
 
+
+def test_bounded_readiness_evidence_never_exposes_messages_or_service_config():
+    service = {"metadata": {"generation": "12", "secret": "should-not-appear"},
+               "status": {"observedGeneration": 12,
+                          "latestReadyRevisionName": finalize.CANDIDATE,
+                          "conditions": [{"type": "Ready", "status": "False",
+                                          "reason": "RouteNotReady",
+                                          "message": "secret-personal-payload"}]}}
+    revision = {"status": {"conditions": [{"type": "Ready", "status": "True"}]}}
+    got = finalize.bounded_readiness_evidence(service, revision)
+    assert got["service_generation_reconciled"] is True
+    assert got["latest_ready_is_candidate"] is True
+    assert got["service_conditions"][0] == {
+        "type": "Ready", "status": "False", "reason": "RouteNotReady"}
+    assert "secret" not in json.dumps(got)
+    assert "message" not in json.dumps(got)
+
