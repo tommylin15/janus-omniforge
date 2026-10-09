@@ -339,6 +339,47 @@ def run(release_run, receipt):
 def recover(journal, save):
     command(LEASE + ["assert"])
     fence()
+    if journal.get("rollback_mode") == "user_authorized_forward_only":
+        # Never try to restore an explicitly waived and unavailable AR image.
+        originals = journal.get("snapshots", {})
+        targets = journal.get("targets", {})
+        if not all(name in originals and name in targets for name, _ in JOB_COMPONENT):
+            raise ValueError("forward_only_snapshots_incomplete")
+        actual = {name: job(name) for name in REQUIRED_JOBS}
+        unchanged = all(
+            image(actual[name]) == originals[name]["image"]
+            and fingerprint(actual[name]) == originals[name]["configuration_hash"]
+            for name in REQUIRED_JOBS
+        )
+        schedule = scheduler()
+        if scheduler_fingerprint(schedule) != journal.get("scheduler_hash"):
+            raise ValueError("scheduler_configuration_drift")
+        if unchanged:
+            if schedule["state"] == "PAUSED":
+                set_scheduler("resume", "ENABLED")
+            elif schedule["state"] != "ENABLED":
+                raise ValueError("scheduler_state_unknown")
+            journal["phase"] = "RESTORED_NO_MUTATION"
+            save()
+            return
+        # Once any Job was changed, only all four GHCR targets + two
+        # successful real canaries per target justify unpausing automation.
+        for name, _ in JOB_COMPONENT:
+            checked_image(name, targets[name], originals[name]["configuration_hash"])
+        if image(actual["janus-research-big-move-500"]) != originals["janus-research-big-move-500"]["image"]:
+            raise ValueError("protected_research_job_drift")
+        passed = [c for c in journal.get("canaries", []) if c.get("result") == "PASS"]
+        if len(passed) != 2 * len(JOB_COMPONENT) or any(
+            sum(c.get("job") == name for c in passed) != 2 for name, _ in JOB_COMPONENT
+        ):
+            raise ValueError("forward_only_canaries_incomplete_fence_retained")
+        if schedule["state"] != "PAUSED":
+            raise ValueError("scheduler_not_paused")
+        set_scheduler("resume", "ENABLED")
+        journal["phase"] = "RESTORED_FORWARD_ONLY"
+        journal["old_image_rollback_exercised"] = False
+        save()
+        return
     for name, _ in reversed(JOB_COMPONENT):
         snap = journal["snapshots"].get(name)
         if snap and image(job(name)) != snap["image"]:
@@ -365,7 +406,7 @@ def main():
             raise ValueError("invalid_release_run")
         if args.recover:
             journal = json.loads(args.receipt.read_text())
-            if journal["phase"] not in {"PASS", "RESTORED", "PREFLIGHT_BLOCKED_NO_MUTATION"}:
+            if journal["phase"] not in {"PASS", "RESTORED", "RESTORED_NO_MUTATION", "RESTORED_FORWARD_ONLY", "PREFLIGHT_BLOCKED_NO_MUTATION"}:
                 recover(journal, lambda: args.receipt.write_text(json.dumps(journal)))
                 command(LEASE + ["release", "--safe-to-release"])
         else:
