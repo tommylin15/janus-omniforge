@@ -74,3 +74,11 @@ def test_preview_workflow_is_explicit_global_lease_without_traffic_promotion():
     assert "ghcr_preview_publish.py" in text
     assert "workflow_dispatch:" not in text
     assert "gcloud run deploy" not in text
+
+
+def test_previous_preview_build_identity_must_be_known_for_recovery():
+    with patch.object(preview,"request",return_value=(200,{},b"a"*40)):
+        assert preview.read_preview_build_sha()=="a"*40
+    with patch.object(preview,"request",return_value=(404,{},b"not-found")):
+        with pytest.raises(ValueError,match="previous_preview_identity_unknown"):
+            preview.read_preview_build_sha()
