@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
     paths:
-      - '.github/workflows/ghcr-candidate-auth-boundary.yml'
       - 'ops/ghcr-candidate-boundary-request.json'
   workflow_dispatch:
 
