@@ -6,8 +6,16 @@ import argparse
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import subprocess
 
 import ghcr_jobs_rollout as rollout
+
+
+class RollbackImageBlocked(RuntimeError):
+    def __init__(self, reason_code, job):
+        self.reason_code = reason_code
+        self.job = job
+        super().__init__(reason_code)
 
 
 def check(label, action, findings):
@@ -16,6 +24,9 @@ def check(label, action, findings):
     except (Exception, SystemExit) as error:
         # Never emit an HTTP body, credential, command, env var or private payload.
         findings[label] = {"status": "BLOCKED", "error_type": type(error).__name__}
+        if isinstance(error, RollbackImageBlocked):
+            findings[label]["reason_code"] = error.reason_code
+            findings[label]["job"] = error.job
     else:
         findings[label] = {"status": "PASS"}
 
@@ -31,6 +42,32 @@ def jobs_ready_readback():
         rollout.job(name)
 
 
+def rollback_images_readable():
+    """Check all existing immutable rollback refs without updating or pulling Jobs."""
+    for name in rollout.REQUIRED_JOBS:
+        target = rollout.image(rollout.job(name))
+        if not rollout.PIN.fullmatch(target):
+            raise RollbackImageBlocked("ROLLBACK_IMAGE_NOT_PINNED", name)
+        if target.startswith("ghcr.io/"):
+            cmd = ["skopeo", "inspect", "--no-creds", "docker://" + target]
+        else:
+            cmd = ["gcloud", "artifacts", "docker", "images", "describe", target,
+                   "--format=value(image_summary.digest)"]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=45, check=False)
+        if result.returncode:
+            # Classify the failure; never disclose registry response bodies or URLs.
+            low = result.stderr.lower()
+            if "permission_denied" in low or "permission denied" in low or "403" in low:
+                code = "ROLLBACK_IMAGE_READ_IAM"
+            elif "not found" in low or "not_found" in low or "404" in low:
+                code = "ROLLBACK_IMAGE_NOT_FOUND"
+            else:
+                code = "ROLLBACK_IMAGE_READ_UNKNOWN"
+            raise RollbackImageBlocked(code, name)
+        if not result.stdout.strip():
+            raise RollbackImageBlocked("ROLLBACK_IMAGE_NO_DIGEST_READBACK", name)
+
+
 def scan():
     findings = {}
     check("legacy_cloud_build_not_competing", rollout.legacy_writers, findings)
@@ -38,6 +75,7 @@ def scan():
     check("five_jobs_readable_and_ready", jobs_ready_readback, findings)
     check("five_jobs_executions_terminal", rollout.fence, findings)
     check("jobs_update_and_canary_iam", rollout.job_update_permissions, findings)
+    check("five_rollback_images_registry_readable", rollback_images_readable, findings)
     return {
         "mode": "read_only",
         "project": rollout.PROJECT,

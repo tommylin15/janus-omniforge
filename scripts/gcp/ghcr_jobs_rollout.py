@@ -312,9 +312,13 @@ def run(release_run, receipt):
         if paused:
             recover(journal, save)
         else:
+            # Preflight never changed a Job or Scheduler. Prove the baseline
+            # is still intact and mark this state to prevent duplicate recovery.
             fence()
             if scheduler()["state"] != "ENABLED":
                 raise RuntimeError("preflight_state_unknown_lease_retained") from None
+            journal["phase"] = "PREFLIGHT_BLOCKED_NO_MUTATION"
+            save()
         safe = True
         raise
     finally:
@@ -351,7 +355,7 @@ def main():
             raise ValueError("invalid_release_run")
         if args.recover:
             journal = json.loads(args.receipt.read_text())
-            if journal["phase"] not in {"PASS", "RESTORED"}:
+            if journal["phase"] not in {"PASS", "RESTORED", "PREFLIGHT_BLOCKED_NO_MUTATION"}:
                 recover(journal, lambda: args.receipt.write_text(json.dumps(journal)))
                 command(LEASE + ["release", "--safe-to-release"])
         else:

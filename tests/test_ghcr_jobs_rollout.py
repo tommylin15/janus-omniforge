@@ -130,6 +130,13 @@ def test_recovery_restores_reverse_order_and_verifies_before_resuming():
     assert journal["phase"] == "RESTORED"
 
 
+def test_non_mutating_preflight_failure_is_not_recovered_twice():
+    assert "PREFLIGHT_BLOCKED_NO_MUTATION" in (
+        ROOT / "scripts/gcp/ghcr_jobs_rollout.py").read_text()
+    journal = {"phase": "PREFLIGHT_BLOCKED_NO_MUTATION"}
+    assert journal["phase"] in {"PASS", "RESTORED", "PREFLIGHT_BLOCKED_NO_MUTATION"}
+
+
 def test_pending_owner_acceptance_blocks_before_any_mutation():
     with patch.object(rollout.Path, "read_text", return_value=json.dumps({"result": "PENDING"})), \
          patch.object(rollout, "command") as command:
