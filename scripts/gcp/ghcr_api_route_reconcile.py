@@ -94,12 +94,12 @@ def run(receipt: Path) -> int:
         before, summary = preflight()
         evidence["before"] = summary
         evidence["phase"] = "SAME_REVISION_ROUTE_REASSERTION"
+        evidence["traffic_reassertion_attempted"] = True
         save()
         # Never change the selected revision. Existing tagged routes are not edited.
         command(["gcloud", "run", "services", "update-traffic", SERVICE,
                  f"--project={PROJECT}", f"--region={REGION}",
                  f"--to-revisions={final.CANDIDATE}=100", "--quiet"])
-        evidence["traffic_reassertion_attempted"] = True
         evidence["phase"] = "POST_ROUTE_READBACK"
         save()
         after = describe()
