@@ -107,6 +107,21 @@ WIF 診斷身分具備指定 project 的 `cloudbuild.builds.get`／必要時 `cl
 - lock 已存在／無權限讀取／owner 不符／失敗後未知的 GCP 狀態一律 BLOCKED；不可用時間到期、覆寫 tag、強制解鎖來搶佔。worker crash 時應從 GitHub owner run 及 GCP readback 獨立核對，先修復真實 runtime 才由原 owner 身分釋放；若無法安全驗證，保留 lease 及封鎖。這不是一般 release workflow 自動清理的許可。
 - 唯讀 GitHub-only drill [#37796079169](https://github.com/tommylin15/janus-omniforge/actions/runs/37796079169) 實際驗證 12 tests、atomic claim／不同 run identity contention denial／owner release／independent recovery，最後 Git ref 404、GCP writes 0。**尚未**全面導入 `deploy-dev.yml`、GHCR candidate、Cloud Build trigger 或 Jobs promotion，故跨流程 mutual exclusion 與真實 rollback acceptance 仍未完成，不能將上游部署 gates 改成 PASS。
 
+### 3.3.2 未來 GHCR → GHCR 可逆發布（2026-10-09）
+
+原始 `fbcc5f58` 已由使用者單次授權採用 **forward-only**，不得將這個舊 AR 回滾豁免直接套到任何較新的來源 SHA。此版本已建立經真實 Cloud Run／GHCR 讀回的**新 GHCR rollback baseline**；證據見 [GHCR baseline 與驗收](archive/cicd-ghcr-reversible-baseline-2026-10-09.md)。這是「上一版 image/config 可用」的證據，不表示舊 AR restore 或 Private Pipeline 切換前 config parity 已驗。
+
+未來每次新版 Release 遵循：
+
+1. `ghcr-publish-dev.yml` 必須用本次完整 SHA 執行 Python／Flutter 完整 gate、四映像 build／public anonymous digest checks；僅 CI selective PASS 不可發布。
+2. `ghcr-candidate-dev.yml` 以本次固定 digest 建立既有 API Service 的 `--no-traffic` candidate，不能以正常 Push 自動切流；認證 owner／OAuth／PnL／MCP 必須有**這次候選**有效的獨立證據，缺少時維持阻擋，不重用其他 SHA 的人工 A→B→A 證據。
+3. Jobs request 僅在 `rollback_mode=reversible_ghcr`、`accept_no_old_image_rollback=false` 下允許下一版。指定前一版 **完整 source SHA**、四個 Job 對應的 `rollback_images` 固定 GHCR digest 與 `rollback_config_hashes`（每個 64 字元 SHA-256），由同一受控 runtime baseline 證據產生；所有 key 對應 `JOB_COMPONENT`。發布鎖內先檢查目前 Job image、完整非 image runtime 指紋、匿名 manifest digest／來源 label，任一不一致即在暫停 Scheduler 前 fail closed。不要從 log 複製 Secret、env value 或完整 Job config。
+4. 原 Jobs rollout 使用既有 `janus-dev-runtime-writers` concurrency 與原子 Git-ref lease，確認舊 Cloud Build writer 停用、所有 execution terminal、Scheduler `PAUSED` 才更新，逐 Job 兩次獨立 canary；失敗採反序 GHCR image rollback／readback，未知狀態**保留 fence/lease**，絕不盲目重送真實 execution。Research Job 不更新。新 GHCR 映像如無合法回復基準，不能改用舊 forward-only waiver。
+5. 一般 API traffic promotion `ghcr-api-promote-dev.yml` 在任何切流之前須驗**目前活躍 revision** 是 Ready 的 GHCR pinned image，並可由匿名 registry 以當前 source SHA 拉取，且原服務 build ID 與該 SHA 一致。再檢查新候選、Jobs 收據、auth gate，執行回滾演練及最終升流量；檢查 Service `Ready`／`RoutesReady`、immutable digest、100% traffic、tags 不變與正式健康。原 AR 不可拉取時不得為了湊 PASS 嘗試不可恢復的回滾。
+6. 將版本 SHA、Run ID、image digest、五 Jobs readback、Scheduler、traffic、baseline config fingerprints、成功／失敗與 rollback 終態寫入非敏感 workflow artifact；只有真的完成 live rehearsal 才標 `rollback=PASS`。原 `preview` 固定 tag 自動化仍為獨立未完成工作；不得把 candidate URL、修復一次性 workflow 或基準可用冒充固定 preview 發布驗收。
+
+目前已證實的部分是**前一版 rollback baseline 真實可用**、GHCR 公開 digest 與 Service/Jobs 基準 readback；下一次新版 Job 更新、實際反序 rollback drill、同 SHA authenticated acceptance 與 API traffic promotion 要以各自 Actions 收據判定，不因本 runbook 更新而宣告 CLOSED。
+
 ### 3.4 本次驗收範圍
 
 依 2026-10-09 使用者最新指示，只驗收 GitHub Actions → GHCR → Cloud Run 發布與回滾。舊 Revision／映像／其他 CI/CD 資產清理不列待辦，不接入 Release；保留上一成功版與回滾證據。
