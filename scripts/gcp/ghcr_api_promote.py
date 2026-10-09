@@ -22,6 +22,18 @@ def active(data):
     return rows[0][0]
 
 
+def revision_image(revision):
+    """Fail closed on an unexpected gcloud Revision JSON shape, no raw config in logs."""
+    spec = revision.get("spec") if isinstance(revision, dict) else None
+    containers = spec.get("containers") if isinstance(spec, dict) else None
+    if not isinstance(containers, list) or len(containers) != 1:
+        raise ValueError("candidate_revision_container_unknown")
+    container = containers[0]
+    if not isinstance(container, dict) or not isinstance(container.get("image"), str):
+        raise ValueError("candidate_revision_image_unknown")
+    return container["image"].removeprefix("cache.us-docker.pkg.dev/")
+
+
 def tags(data):
     return {row["tag"]: row["revisionName"] for row in data["status"]["traffic"] if row.get("tag")}
 
@@ -160,17 +172,25 @@ def promote(release_run, jobs_run, receipt, forward_recovery=False):
     baseline, old_sha, safe, mutated = None, None, False, False
     journal = {"source_sha": sha, "phase": "PREFLIGHT", "stage": "service_preflight"}
     try:
+        journal["stage"] = "service_baseline_readback"
+        receipt.write_text(json.dumps(journal))
         baseline = describe()
+        journal["stage"] = "candidate_tag_lookup"
+        receipt.write_text(json.dumps(journal))
         candidate_tag = "ghcr-" + sha[:12]
         candidate = tags(baseline)[candidate_tag]
         previous_revision = active(baseline)
+        journal["stage"] = "previous_service_build_id"
+        receipt.write_text(json.dumps(journal))
         status, _, body = request(BASE + "/app/build-id.txt")
         old_sha = body.decode().strip()
         if status != 200 or not re.fullmatch(r"[0-9a-f]{40}", old_sha):
             raise ValueError("previous_sha_unknown")
+        journal["stage"] = "candidate_revision_image"
+        receipt.write_text(json.dumps(journal))
         revision = json.loads(command(["gcloud", "run", "revisions", "describe", candidate,
-            f"--project={PROJECT}", f"--region={REGION}", "--format=json(spec.containers.image,status.conditions)"]))
-        image = revision["spec"]["containers"][0]["image"].removeprefix("cache.us-docker.pkg.dev/")
+            f"--project={PROJECT}", f"--region={REGION}", "--format=json"]))
+        image = revision_image(revision)
         if not re.fullmatch(r"ghcr\.io/tommylin15/janus-api@sha256:[0-9a-f]{64}", image):
             raise ValueError("candidate_digest_unknown")
         journal.update(previous_revision=previous_revision, previous_sha=old_sha, candidate=candidate, image=image,
