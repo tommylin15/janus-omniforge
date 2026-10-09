@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/ghcr-candidate-auth-boundary.yml'
+      - 'ops/ghcr-candidate-boundary-request.json'
   workflow_dispatch:
 
 permissions:
@@ -12,7 +13,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: janus-ghcr-candidate-boundary
+  group: janus-dev-runtime-writers
   cancel-in-progress: false
 
 jobs:
@@ -40,7 +41,14 @@ jobs:
                  .promotion == false and .scope == "janus-api-only" and
                  .allow_service_traffic_promotion == false and
                  .allow_job_image_update == false' ops/ghcr-candidate-request.json >/dev/null
+          # Independent probe request keeps this read-only validation ordered
+          # *after* candidate deployment; a candidate-request push alone must
+          # not race its own 0% deployment.
+          jq -e '.intent == "verify-ghcr-candidate-boundary" and
+                 .scope == "read-only" and .no_gcp_mutation == true and
+                 (.sha|test("^[0-9a-f]{40}$"))' ops/ghcr-candidate-boundary-request.json >/dev/null
           EXPECTED_SHA="$(jq -r .sha ops/ghcr-candidate-request.json)"
+          test "$EXPECTED_SHA" = "$(jq -r .sha ops/ghcr-candidate-boundary-request.json)"
           CANDIDATE_TAG="ghcr-${EXPECTED_SHA:0:12}"
           git merge-base --is-ancestor "$EXPECTED_SHA" HEAD
           echo "EXPECTED_SHA=$EXPECTED_SHA" >> "$GITHUB_ENV"
@@ -58,9 +66,14 @@ jobs:
           jq -e --arg tag "$CANDIDATE_TAG" '
             [.status.traffic[]? | select(.tag == $tag)] |
             length == 1 and (.[0].percent // 0) == 0' /tmp/current-service.json >/dev/null
-          jq -e '[.status.traffic[]? | select((.percent // 0)>0)] |
-              length == 1 and .[0].percent == 100 and
-              .[0].revisionName == "janus-api-g53d655ccb108-config"' /tmp/current-service.json >/dev/null
+          # Previous serving baseline may already be GHCR. Do not embed an
+          # obsolete AR revision name in the next candidate's read-only gate.
+          jq -e --arg tag "$CANDIDATE_TAG" '
+            ([.status.traffic[]? | select((.percent // 0)>0)] |
+             length == 1 and .[0].percent == 100) and
+            ([.status.traffic[]? | select(.tag == $tag)] |
+             length == 1 and (.[0].percent // 0) == 0)' /tmp/current-service.json >/dev/null
+          jq -e '.status.conditions | any(.type == "Ready" and .status == "True")' /tmp/current-service.json >/dev/null
           candidate="$(jq -r --arg tag "$CANDIDATE_TAG" '.status.traffic[]? | select(.tag==$tag) | .url' /tmp/current-service.json)"
           [[ "$candidate" == https://* ]] || exit 2
           echo "JANUS_CANDIDATE_URL=$candidate" >> "$GITHUB_ENV"
