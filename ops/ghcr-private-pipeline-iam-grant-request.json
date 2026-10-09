@@ -1,0 +1,11 @@
+{
+  "intent": "grant-existing-private-pipeline-runtime-actas",
+  "approved": true,
+  "project": "gen-lang-client-0593591102",
+  "job": "janus-private-pipeline",
+  "scope": "runtime-service-account-only",
+  "role": "roles/iam.serviceAccountUser",
+  "principal": "existing GHCR GitHub Actions dev deployment service account from vars.GCP_CI_SERVICE_ACCOUNT",
+  "authorization": "User explicitly authorized scoped actAs grant on 2026-10-09",
+  "allow_project_wide_iam": false
+}
