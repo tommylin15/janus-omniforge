@@ -1,0 +1,10 @@
+{
+  "intent": "approved-dev-ghcr-jobs-rollout",
+  "approved": true,
+  "scope": "existing-dev-four-jobs",
+  "sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
+  "release_run": "37876247130",
+  "authorization": "User explicitly requested ChatGPT execute the next Janus GHCR Jobs rollout",
+  "safety": "Fail closed on live IAM/lease/Scheduler/active executions; keep prior pinned images and recover on failure",
+  "request_date": "2026-10-09"
+}
