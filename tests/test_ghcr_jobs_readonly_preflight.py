@@ -16,6 +16,7 @@ def test_no_mutations_and_all_live_gates_present():
          patch.object(preflight.rollout, "fence") as fence, \
          patch.object(preflight.rollout, "job_update_permissions") as iam, \
          patch.object(preflight, "rollback_images_readable") as rollback_images, \
+         patch.object(preflight, "runtime_identity_permissions") as identities, \
          patch.object(preflight.rollout, "set_scheduler") as set_sched, \
          patch.object(preflight.rollout, "update") as update:
         evidence = preflight.scan()
@@ -27,6 +28,7 @@ def test_no_mutations_and_all_live_gates_present():
     fence.assert_called_once()
     iam.assert_called_once()
     rollback_images.assert_called_once()
+    identities.assert_called_once()
     set_sched.assert_not_called()
     update.assert_not_called()
 
@@ -37,7 +39,8 @@ def test_unknown_cloud_run_or_iam_is_blocked_not_misreported_pass():
          patch.object(preflight.rollout, "job"), \
          patch.object(preflight.rollout, "fence"), \
          patch.object(preflight.rollout, "job_update_permissions", side_effect=ValueError("missing")), \
-         patch.object(preflight, "rollback_images_readable"):
+         patch.object(preflight, "rollback_images_readable"), \
+         patch.object(preflight, "runtime_identity_permissions"):
         evidence = preflight.scan()
     assert evidence["status"] == "BLOCKED"
     assert evidence["gates"]["legacy_cloud_build_not_competing"]["status"] == "BLOCKED"
@@ -52,7 +55,8 @@ def test_unexpected_scheduler_state_blocks_readonly_preflight():
          patch.object(preflight.rollout, "job"), \
          patch.object(preflight.rollout, "fence"), \
          patch.object(preflight.rollout, "job_update_permissions"), \
-         patch.object(preflight, "rollback_images_readable"):
+         patch.object(preflight, "rollback_images_readable"), \
+         patch.object(preflight, "runtime_identity_permissions"):
         evidence = preflight.scan()
     assert evidence["status"] == "BLOCKED"
     assert evidence["gates"]["scheduler_expected_enabled_baseline"]["status"] == "BLOCKED"
@@ -93,3 +97,22 @@ def test_all_rollback_images_require_nonempty_registry_digest_readback():
              returncode=0, stdout="", stderr="")):
         with pytest.raises(preflight.RollbackImageBlocked, match="ROLLBACK_IMAGE_NO_DIGEST_READBACK"):
             preflight.rollback_images_readable()
+
+
+def test_runtime_identity_actas_probe_reports_only_job_names_not_identity_or_token():
+    from types import SimpleNamespace
+    import io
+    one = preflight.rollout.JOB_COMPONENT[:1]
+    job = {"template": {"template": {"serviceAccount": "some-identity@a.iam.gserviceaccount.com"}}}
+    class FakeResponse:
+        def __enter__(self): return io.BytesIO(b'{"permissions":[]}')
+        def __exit__(self, *_): return False
+    with patch.object(preflight.rollout, "JOB_COMPONENT", one), \
+         patch.object(preflight.rollout, "job", return_value=job), \
+         patch.object(preflight.rollout, "command", return_value="secret-token"), \
+         patch.object(preflight, "urlopen", return_value=FakeResponse()):
+        outcome = {}
+        preflight.check("identities", preflight.runtime_identity_permissions, outcome)
+    assert outcome["identities"]["reason_code"] == "runtime_identity_actas_missing_or_unknown"
+    assert outcome["identities"]["jobs"] == [one[0][0]]
+    assert "some-identity" not in str(outcome) and "secret-token" not in str(outcome)
