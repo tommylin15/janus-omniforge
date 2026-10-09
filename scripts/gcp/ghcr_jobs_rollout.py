@@ -293,8 +293,14 @@ def run(release_run, receipt):
         save()
         # Mark intent before calling pause: an uncertain pause must be recovered.
         paused = True
+        journal["stage"] = "scheduler_pause"
+        save()
         set_scheduler("pause", "PAUSED")
+        journal["stage"] = "post_pause_writer_fence"
+        save()
         writers()
+        journal["stage"] = "post_pause_execution_fence"
+        save()
         fence()
         # Two independent bounded real canaries per target, without trying
         # to restore the unavailable legacy AR images in between.
@@ -302,13 +308,21 @@ def run(release_run, receipt):
         save()
         for name, _ in JOB_COMPONENT:
             snap = journal["snapshots"][name]
+            journal["stage"] = "update_" + name
+            save()
             update(name, targets[name], snap["configuration_hash"])
+            journal["stage"] = "first_canary_" + name
+            save()
             canary(name, targets[name], snap["configuration_hash"], journal, save)
         journal["phase"] = "FORWARD_ONLY_SECOND_CANARY"
         save()
         for name, _ in JOB_COMPONENT:
             snap = journal["snapshots"][name]
+            journal["stage"] = "second_canary_" + name
+            save()
             canary(name, targets[name], snap["configuration_hash"], journal, save)
+        journal["stage"] = "final_jobs_readback"
+        save()
         for name in REQUIRED_JOBS:
             snap = journal["snapshots"][name]
             checked_image(name, targets.get(name, snap["image"]), snap["configuration_hash"])
@@ -321,6 +335,7 @@ def run(release_run, receipt):
         save()
         safe = True
     except Exception:
+        journal["failed_stage"] = journal.get("stage", "preflight")
         journal["phase"] = "RECOVERY_REQUIRED"
         save()
         if paused:
