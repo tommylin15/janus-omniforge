@@ -78,32 +78,9 @@ WIF 診斷身分具備指定 project 的 `cloudbuild.builds.get`／必要時 `cl
 - lock 已存在／無權限讀取／owner 不符／失敗後未知的 GCP 狀態一律 BLOCKED；不可用時間到期、覆寫 tag、強制解鎖來搶佔。worker crash 時應從 GitHub owner run 及 GCP readback 獨立核對，先修復真實 runtime 才由原 owner 身分釋放；若無法安全驗證，保留 lease 及封鎖。這不是一般 release workflow 自動清理的許可。
 - 唯讀 GitHub-only drill [#37796079169](https://github.com/tommylin15/janus-omniforge/actions/runs/37796079169) 實際驗證 12 tests、atomic claim／不同 run identity contention denial／owner release／independent recovery，最後 Git ref 404、GCP writes 0。**尚未**全面導入 `deploy-dev.yml`、GHCR candidate、Cloud Build trigger 或 Jobs promotion，故跨流程 mutual exclusion 與真實 rollback acceptance 仍未完成，不能將上游部署 gates 改成 PASS。
 
-### 3.4 成功 Release 後保留最新 10 個 Cloud Run Service Revision（待串接）
+### 3.4 本次驗收範圍
 
-此階段僅對**既有 Cloud Run Service** 執行，不作用於 Job、Job executions、GHCR images、GCS 或 Artifact Registry。只有 full Release tests／authenticated candidate acceptance／100% production traffic promotion／rollback receipt readback 全部 PASS，且已持有同一個跨 run deployment mutex 時才可執行。
-
-1. 從**本次 release outputs** 取得 `PROMOTED_REVISION`，從**上一個成功發布 receipt** 取得 `LAST_SUCCESSFUL_REVISION` 與對應 digest／可重建設定；不得依檔名排序猜成功版。
-2. 先以唯讀 inventory／dry-run 確認 current 是 Ready／latestCreated／latestReady、100% 流量指向已驗證的 current；任何 traffic/tag/候選引用都保護。缺欄位、權限或依賴時停止。
-3. 上游才可設置 env gates，並透過 WIF 且最小化的 `run.revisions.delete` 權限執行：
-
-   ```bash
-   python scripts/gcp/cloud_run_revision_cleanup.py \
-     --project "$GCP_PROJECT_ID" --region "$GCP_REGION" \
-     --service "$SERVICE_NAME" --current-revision "$PROMOTED_REVISION" \
-     --rollback-revision "$LAST_SUCCESSFUL_REVISION"
-   # 僅在 acceptance、digest、mutex 真實證據已確認後：
-   export JANUS_RELEASE_ACCEPTANCE=PASS
-   export JANUS_DEPLOYMENT_MUTEX_HELD=true
-   export JANUS_ROLLBACK_DIGEST_VERIFIED=true
-   python scripts/gcp/cloud_run_revision_cleanup.py \
-     --project "$GCP_PROJECT_ID" --region "$GCP_REGION" \
-     --service "$SERVICE_NAME" --current-revision "$PROMOTED_REVISION" \
-     --rollback-revision "$LAST_SUCCESSFUL_REVISION" --apply
-   ```
-
-4. 對每個刪除候選再次 readback，保護所有流量／tag／最新／回滾引用；刪除後記錄 GitHub Actions 的非敏感摘要與 immediate readback。保留建立時間最新 10 個與所有流量／tag／候選／上次成功版保護引用；如保護集合超過 10 個，全部保留；cleanup fail／partial 不得掩飾已完成 release 的結果。
-
-**目前這段只定義下一版 Release 最後的可呼叫步驟，尚未接到新的 GitHub Actions GHCR release，因此沒有 live Revision 被自動刪除。** Cloud Run [官方限制](https://docs.cloud.google.com/run/docs/managing/revisions)：最新、唯一及仍可接受流量的 Revision 不可刪；刪除不可復原，無請求且無最低執行個體的舊版通常不產生執行費用；revision-level min instances 與 tag 可能令舊版持續計費。
+依 2026-10-09 使用者最新指示，只驗收 GitHub Actions → GHCR → Cloud Run 發布與回滾。舊 Revision／映像／其他 CI/CD 資產清理不列待辦，不接入 Release；保留上一成功版與回滾證據。
 
 ## 4. PostgreSQL migration
 

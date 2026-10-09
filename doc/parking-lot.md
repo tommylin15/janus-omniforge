@@ -8,6 +8,8 @@
 
 ## 0. 個股預警與通知（2026-10-05 明確暫緩）
 
+2026-10-09：舊 CI/CD Revision／映像／GCS／AR 資產清理目前不做，不計入新版 GitHub Actions → GHCR → Cloud Run 驗收；既有工具與歷史盤點只供日後參考。發布互斥、登入驗收與回滾仍屬 active scope。
+
 使用者指定另存 [未來增補：個股異常事件與提前預警](future-market-alerts.md)。包含預警定義、生命週期、送達／摘要／安靜時段、UI 與前瞻成效評估；目前不執行、不列 active TODO、不阻擋非預警產品收斂。本文是唯一狀態入口，獨立文件只存內容。既有 Event specialist／OOS 的 active scope 不受影響。
 
 ## 1. Pilot observation／Production 才需要的工作

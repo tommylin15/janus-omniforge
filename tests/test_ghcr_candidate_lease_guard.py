@@ -115,6 +115,20 @@ def test_legacy_manual_and_candidate_share_actions_serialization_group():
     # This defense covers GitHub runs, not an independent Cloud Build trigger.
 
 
+def test_all_shared_runtime_writers_serialize_and_legacy_rejects_held_lease():
+    for name in ("ghcr-candidate-dev.yml", "deploy-dev.yml",
+                 "run-dev-ingestion.yml", "ghcr-scheduler-operator-drill.yml"):
+        text = (ROOT / ".github/workflows" / name).read_text()
+        assert "group: janus-dev-runtime-writers" in text
+        assert "cancel-in-progress: false" in text
+    for name, first_write in (("deploy-dev.yml", "bash scripts/gcp/deploy-dev.sh"),
+                              ("run-dev-ingestion.yml", "gcloud run jobs update")):
+        text = (ROOT / ".github/workflows" / name).read_text()
+        assert text.index("ghcr_release_lease.py inspect") < text.index(first_write)
+        assert "jq -e '.status == \"ABSENT\"'" in text
+        assert "GH_TOKEN: ${{ github.token }}" in text
+
+
 def test_candidate_same_sha_retry_requires_immutable_revision_and_skips_deploy():
     workflow = (ROOT / ".github/workflows/ghcr-candidate-dev.yml").read_text()
     assert 'existing_revision=' in workflow

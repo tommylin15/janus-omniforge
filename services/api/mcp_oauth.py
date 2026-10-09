@@ -9,6 +9,7 @@ import hmac
 import html
 import json
 import os
+import re
 import secrets
 import time
 from datetime import datetime, timezone
@@ -22,6 +23,7 @@ from .auth import GOOGLE_ISSUERS
 
 
 MCP_CLIENT_ID = "https://chatgpt.com/oauth/client.json"
+CODEX_CLIENT_ID = "https://chatgpt.com/oauth/codex/client.json"
 MCP_REDIRECT_URI = "https://chatgpt.com/connector_platform_oauth_redirect"
 MCP_SCOPES = frozenset({"janus.sources.read", "janus.market.read", "janus.private.read",
                         "janus.private.write", "offline_access"})
@@ -180,7 +182,7 @@ class McpOAuth:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "response_type must be code")
         if not params.get("state"):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "state is required")
-        if not self._valid_client(client_id) or not self._valid_redirect(redirect_uri):
+        if not self._valid_client(client_id) or not self._valid_redirect(redirect_uri, client_id):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "OAuth client or redirect URI is not allowed")
         if params.get("resource") != self.settings.resource:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "resource is required")
@@ -222,9 +224,15 @@ class McpOAuth:
             state["user_id"] = str(self.resolve_user(subject, email))
             state["email"] = email
             state["exp"] = self._now() + self.settings.authorization_ttl
+            form_origins = "'self' https://chatgpt.com"
+            # Browsers can enforce form-action on the POST's redirect to Codex.
+            if state["client_id"] == CODEX_CLIENT_ID and self._valid_redirect(state["redirect_uri"], CODEX_CLIENT_ID):
+                redirect = urlsplit(state["redirect_uri"])
+                if redirect.scheme == "http":
+                    form_origins += f" http://{redirect.netloc}"
             return Response(content=self._consent_page(self._sign(state)), media_type="text/html", headers={
                 "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
-                "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https://chatgpt.com; base-uri 'none'",
+                "Content-Security-Policy": f"default-src 'none'; style-src 'unsafe-inline'; form-action {form_origins}; base-uri 'none'",
             })
         except Exception:
             return self._client_error(state, "access_denied")
@@ -247,7 +255,7 @@ class McpOAuth:
         if not self._valid_client(form.get("client_id", "")):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "OAuth client is not allowed")
         grant_type = form.get("grant_type")
-        if grant_type == "authorization_code" and not self._valid_redirect(form.get("redirect_uri", "")):
+        if grant_type == "authorization_code" and not self._valid_redirect(form.get("redirect_uri", ""), form.get("client_id", "")):
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "OAuth redirect URI is not allowed")
         if form.get("resource") != self.settings.resource:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "resource is required")
@@ -358,8 +366,12 @@ class McpOAuth:
         return value == MCP_CLIENT_ID or (value.startswith("https://chatgpt.com/oauth/") and value.endswith("/client.json"))
 
     @staticmethod
-    def _valid_redirect(value: str) -> bool:
-        return value == MCP_REDIRECT_URI or (value.startswith("https://chatgpt.com/connector/oauth/") and "?" not in value and "#" not in value)
+    def _valid_redirect(value: str, client_id: str) -> bool:
+        if value == MCP_REDIRECT_URI or (value.startswith("https://chatgpt.com/connector/oauth/") and "?" not in value and "#" not in value):
+            return True
+        # Codex listens on an OS-selected port; never allow arbitrary localhost URLs.
+        callback = re.fullmatch(r"http://127\.0\.0\.1:([1-9][0-9]{0,4})/callback", value)
+        return client_id == CODEX_CLIENT_ID and callback is not None and int(callback.group(1)) <= 65535
 
     @staticmethod
     def _valid_challenge(value: str) -> bool:

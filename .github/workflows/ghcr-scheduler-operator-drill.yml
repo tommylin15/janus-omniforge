@@ -11,7 +11,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: janus-dev-scheduler-operator-drill
+  group: janus-dev-runtime-writers
   cancel-in-progress: false
 
 jobs:

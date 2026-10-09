@@ -2,7 +2,7 @@
 
 ## 2026-10-09 最新驗收檢查點（優先於下方歷史快照）
 
-**完成度：PARTIAL，正式切流／Jobs GHCR 切換／舊資產清理均未完成。** 以下是已驗證的最新狀態，舊段落中「9 筆未終態」及「5 個 blocker」是當時 V1 證據，不再代表目前判定。
+**完成度：PARTIAL，正式切流／Jobs GHCR 切換均未完成；舊資產清理依使用者最新指示排除。** 以下是已驗證的最新狀態，舊段落中「9 筆未終態」及「5 個 blocker」是當時 V1 證據，不再代表目前判定。
 
 | 驗收項目 | 最新可追溯證據 | 結果 |
 | --- | --- | --- |
@@ -17,7 +17,11 @@
 
 **仍需完成的四個 Jobs 發布安全閘門（本次 live readback）：** `scheduler_still_enabled`、`durable_deployment_mutex_unverified`、`authenticated_acceptance_unverified`、`rollback_procedure_unverified`。Scheduler 短暫 pause/resume 與 GitHub global lease 的個別演練雖通過，**不等於 Jobs 長時間 rollout 與跨 legacy Cloud Build writer 互斥已驗收**。真實 owner Google OAuth callback／MCP／PnL parity／隔離也未以登入身分驗收。
 
-**後續順序：** owner authenticated candidate acceptance → Jobs release mutex／scheduler PAUSED fence／rollback drill → 四 Jobs GHCR 部署及 live readback → API 100% 切流／回滾驗收 → 確認 Janus 舊 Trigger 已停用 → 重新盤點 AR／GCS／Revisions 並只清理確定無依賴的 CI/CD 資產。Cloud Build Trigger 停用狀態須重新讀取，不以歷史盤點或人工敘述推定；不得碰 PostgreSQL 備份、Iceberg、應用程式資料或其他系統資源。
+**後續順序：** owner authenticated candidate acceptance → Jobs release mutex／scheduler PAUSED fence／rollback drill → 四 Jobs GHCR 部署及 live readback → API 100% 切流／回滾驗收 ；發布前重新確認所有 writer 不競跑。舊 Revision／映像／資產清理不列本次待辦。Cloud Build Trigger 停用狀態須重新讀取，不以歷史盤點或人工敘述推定；不得碰 PostgreSQL 備份、Iceberg、應用程式資料或其他系統資源。
+
+2026-10-09 本輪唯讀 GCP readback：`janus-dev-v2` Trigger `disabled=true`，us-central1 ongoing Cloud Builds=0；GHCR candidate `janus-api-00448-vir` 0%，原 `janus-api-g53d655ccb108-config` 100%。這是當時快照，不等於發布鎖內 preflight 或 owner acceptance PASS。
+
+[本輪 checkpoint](archive/cicd-ghcr-checkpoint-2026-10-09.md)：候選負向邊界 [#37868708360](https://github.com/tommylin15/janus-omniforge/actions/runs/37868708360) SUCCESS；本機 writer 序列化／lease guard 修改 52 tests PASS，commit／push 尚待明確確認。真實 A → B → A 登入／私人 API 隔離已有 observed evidence；現役 A 登入恢復後，User API 年度 PnL、89 筆交易歷史與重算狀態和候選完全一致，報價資料共有欄位一致。MCP authorized tool、已知 A identifier 的 B negative probe、Jobs rollout／rollback 與 API promotion 仍未完成。
 
 ## 歷次 CI/CD 驗收紀錄（以下為發生當時的快照）
 

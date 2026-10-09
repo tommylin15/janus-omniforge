@@ -5,6 +5,7 @@ from urllib.parse import parse_qs, urlsplit
 from fastapi import HTTPException
 
 from services.api.mcp_oauth import (
+    CODEX_CLIENT_ID,
     MCP_CLIENT_ID,
     MCP_REDIRECT_URI,
     InMemoryOAuthCodeStore,
@@ -107,6 +108,75 @@ class McpOAuthTests(unittest.TestCase):
         self.assertEqual(claims["sub"], "owner-uuid")
         with self.assertRaises(HTTPException):
             self.oauth.verify_access_token(access["access_token"], "janus.private.read")
+
+    def test_codex_loopback_authorization_and_exchange(self):
+        for port in (59164, 61235):
+            with self.subTest(port=port):
+                callback = f"http://127.0.0.1:{port}/callback"
+                verifier = "codex-verifier" * 5
+                response = self.oauth.begin_authorization({
+                    "response_type": "code", "client_id": CODEX_CLIENT_ID, "redirect_uri": callback,
+                    "resource": self.settings.resource, "scope": "janus.private.read",
+                    "code_challenge": self.oauth._pkce(verifier), "code_challenge_method": "S256", "state": "codex-state",
+                })
+                google_query = parse_qs(urlsplit(response.headers["location"]).query)
+                self.assertEqual(google_query["redirect_uri"], [f"{self.settings.issuer}/oauth/google/callback"])
+                consent = self.oauth.google_callback({"state": google_query["state"][0], "code": "google-code"})
+                self.assertIn(f"form-action 'self' https://chatgpt.com http://127.0.0.1:{port};", consent.headers["Content-Security-Policy"])
+                token = re.search(r"name='token' value='([^']+)'", consent.body.decode()).group(1)
+                redirect = self.oauth.complete_authorization(token, True)
+                self.assertTrue(redirect.headers["location"].startswith(callback + "?"))
+                query = parse_qs(urlsplit(redirect.headers["location"]).query)
+                self.assertEqual(query["state"], ["codex-state"])
+                self.assertEqual(query["iss"], [self.settings.issuer])
+                access = self.oauth.exchange_token({
+                    "grant_type": "authorization_code", "client_id": CODEX_CLIENT_ID, "redirect_uri": callback,
+                    "resource": self.settings.resource, "code": query["code"][0], "code_verifier": verifier,
+                })
+                self.assertEqual(self.oauth.verify_access_token(access["access_token"], "janus.private.read")["sub"], "owner-uuid")
+
+    def test_loopback_rejects_other_clients_and_nonexact_urls(self):
+        callbacks = (
+            "http://localhost:59164/callback", "http://127.0.0.2:59164/callback",
+            "http://127.0.0.1.evil.test:59164/callback", "https://127.0.0.1:59164/callback",
+            "http://user@127.0.0.1:59164/callback", "http://127.0.0.1:59164/other",
+            "http://127.0.0.1:59164/callback/", "http://127.0.0.1:59164/callback?next=evil",
+            "http://127.0.0.1:59164/callback#fragment", "http://127.0.0.1:0/callback",
+            "http://127.0.0.1:65536/callback", "http://127.0.0.1/callback",
+            "http://127.0.0.1:59164/call%62ack", "http://127.0.0.1:59164/callback\n",
+        )
+        pairs = [(CODEX_CLIENT_ID, callback) for callback in callbacks]
+        pairs += [(client, "http://127.0.0.1:59164/callback") for client in
+                  (MCP_CLIENT_ID, "https://chatgpt.com/oauth/other/client.json", "https://evil.test/client.json")]
+        for client, callback in pairs:
+            with self.subTest(client=client, callback=callback):
+                with self.assertRaises(HTTPException):
+                    self.oauth.begin_authorization({
+                        "response_type": "code", "client_id": client, "redirect_uri": callback,
+                        "resource": self.settings.resource, "scope": "janus.private.read",
+                        "code_challenge": "x" * 43, "code_challenge_method": "S256", "state": "state",
+                    })
+                with self.assertRaises(HTTPException):
+                    self.oauth.exchange_token({
+                        "grant_type": "authorization_code", "client_id": client, "redirect_uri": callback,
+                        "resource": self.settings.resource, "code": "unused", "code_verifier": "v" * 64,
+                    })
+
+    def test_codex_code_remains_bound_to_port_and_pkce(self):
+        verifier = "v" * 64
+        for callback, supplied_verifier in (("http://127.0.0.1:59165/callback", verifier),
+                                            ("http://127.0.0.1:59164/callback", "wrong-verifier")):
+            with self.subTest(callback=callback, verifier=supplied_verifier):
+                self.oauth.code_store.create(self.oauth._hash("codex-code"), {
+                    "user_id": "owner-uuid", "client_id": CODEX_CLIENT_ID,
+                    "redirect_uri": "http://127.0.0.1:59164/callback", "resource": self.settings.resource,
+                    "scope": "janus.private.read", "challenge": self.oauth._pkce(verifier),
+                }, self.now + 600)
+                with self.assertRaises(HTTPException):
+                    self.oauth.exchange_token({
+                        "grant_type": "authorization_code", "client_id": CODEX_CLIENT_ID, "redirect_uri": callback,
+                        "resource": self.settings.resource, "code": "codex-code", "code_verifier": supplied_verifier,
+                    })
 
 
     def test_offline_access_refresh_rotates_once_and_revokes(self):

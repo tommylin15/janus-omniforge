@@ -34,13 +34,7 @@
 4. 全部必需 gate PASS 才切換到該**明確 revision**（不得使用無驗證 `LATEST`），readback traffic、digest 與使用者可見功能。出錯則恢復先前 traffic／revision 並確認回滾讀回。
 5. **Cloud Run Jobs 沒有 0% traffic revision**。四元件中的 ingestion／Mart／private Job 需另設 digest pinning、active execution／Scheduler fence、快照、受控 canary、必要 migration、rollback；不能在 API 0% candidate 階段更新現役 Job image，也不能因單一 API PASS 提前宣稱四元件 Release 完成。
 6. 在新版本驗收完成前保留前一版已驗證 image／config 與必要 evidence；失敗／timeout 以 bounded readback、有限重試及復原為準，不重送未知狀態的 Job。跨 run／runtime deployment mutex 與 published baseline 的無 GCS 儲存方案**尚待實作與驗證**，不能僅用 Actions concurrency 宣稱安全。
-7. **每次成功 Release 最後做 Service Revision retention = 10。** 必須保留建立時間最近 10 個 Revision、已驗證 100% 流量的 current、上一成功版 rollback 與其他 traffic/tag/候選引用；更舊且不在保護集合的 Revision 才列 dry-run，之後 bounded apply。刪除前逐筆 readback，若 split traffic、仍有 candidate、找不到可信 rollback／mutex／digest 或保護集合超過 10 個時仍保留全部，絕不強制刪到只剩 10 個。Cloud Run Jobs 不適用 Service revision 清理。
-
-### 3.1 Revision cleanup helper 與啟用條件
-
-- `scripts/gcp/cloud_run_revision_cleanup.py` 提供唯讀 dry-run（預設）與受保護 `--apply`，使用 Cloud Run Service／Revision GCP API，不使用 Cloud Build、Artifact Registry 或 GCS。需最小化 IAM `run.revisions.delete` 權限。
-- 上游 Release workflow 必須真正驗證 full-test／authenticated acceptance、100% promotion／rollback digest readback 與跨 run mutex，才能設定 `JANUS_RELEASE_ACCEPTANCE=PASS`、`JANUS_DEPLOYMENT_MUTEX_HELD=true`、`JANUS_ROLLBACK_DIGEST_VERIFIED=true` 呼叫 `--apply`。這些 env gates 不是 receipt 簽章或 mutex 的替代品。
-- **GHCR build/publish workflow 與 API 0% candidate workflow 已成功執行，但尚不是完整可 promotion／rollback 的四元件 Release。** 自動 Revision cleanup 尚未啟用，禁止串入 legacy Cloud Build／手動 recovery；必須等 authenticated acceptance、Jobs fence、release mutex 及 rollback 全部通過才可接入。 新 release pipeline 驗收完成後再將它接在成功 promotion 與 readback 的最後階段。
+7. 2026-10-09 使用者收斂範圍：舊 Revision／映像與其他舊 CI/CD 資產清理不屬於本次驗收或結案條件。上一成功版本、digest、設定與回滾證據仍須保留。
 
 ## 4. WIF / IAM 與唯讀 Cloud Build 診斷
 
@@ -62,19 +56,9 @@
 
 **以上不是宣稱舊流程已停用。** 尚需盤點所有仍會觸發 deployment／Cloud Build／GCS／Artifact Registry 的入口，避免與新 release 並行；遷移期不能盲目停 Scheduler、刪 image、bucket 或歷史證據。現行程式／workflow／runtime 若與本目標衝突，描述為「待遷移」，不自行改寫成已完成。既有 CI/CD V2 checkpoint 請查 [2026-10-08 V2 歷史盤點](../archive/cicd-v2-inventory-2026-10-08.md) 及 [operations ledger](operations-and-testing.md)。
 
-## 6. 已核准的 cutover 後清理清單
+## 6. 本次排除範圍
 
-清理順序不可顛倒：**GitHub Actions 全測試＋公開 GHCR 四元件固定 digest 發布 → Cloud Run Service/Jobs 真實 dev 驗收、100% 流量與 rollback readback → 停用 Janus 舊 Trigger → GCS／AR 依完整引用清單 bounded 清理**。前段未過關只能盤點，不執行刪除。
-
-| 類別 | 刪除條件 |
-|---|---|
-| GCS 舊 CI/CD 檔案 | 精確列出 prefix、object generation、讀寫者及 recovery 引用，確定不再需要後只刪此範圍 |
-| GCS 舊專用 Bucket | 證明非其他服務共用、無備份與業務資料、沒有讀寫者且整桶可安全回復後才刪 |
-| Artifact Registry Images／Tags／Digests | 全部 Service Revisions、Jobs、executions、Scheduler、research／其他系統與 rollback digest fence PASS 才刪無引用的映像 |
-| Artifact Registry Repository | 每一 image 都無有效引用，且非 DB／其他系統共用後才可刪整庫 |
-| Cloud Run Revisions | 各 Service 留最近 10 版，另保護正式流量、候選 tag、上一成功版及其他引用；不能硬刪到恰好 10 |
-
-PostgreSQL／GCS DB 備份、Core／Stage／Mart／Private／Research、交易／筆記與其他應用資料全部排除；OmniAgent／life-assistant 的 Cloud Build Trigger／AR／GCS 不得被 Janus 清理連帶變更。實際 [2026-10-08 盤點證據](../archive/cicd-cutover-cleanup-inventory-2026-10-08.md) 表明尚無可直接刪除的資產。
+舊 Cloud Run Revisions、GHCR／Artifact Registry 映像、GCS CI/CD 資產清理不列 active TODO，也不作為新版流程結案條件。既有清理工具不接入新版 Release；歷史盤點只保存證據。發布前仍須證明舊入口不能競跑，並保留回滾所需資產。
 
 ## 7. 尚未完成的驗收條件
 

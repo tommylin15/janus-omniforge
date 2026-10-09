@@ -159,7 +159,7 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 - GitHub Actions 使用固定 `ghcr.io/...@sha256:...` 呼叫 GCP API，對**既有 Cloud Run Service** 建立 `--no-traffic`、帶專屬 tag 的 0% 正式流量候選 revision；候選 tag URL 可供受控測試，並非完全無請求。記錄先前 traffic、revision、digest 與設定，再做 health／authenticated owner／OAuth／PnL／MCP 等適用的真實 dev acceptance。所有必需 gate PASS 才明確移轉流量；失敗時將流量恢復至先前已驗證 revision，並 readback。
 - Cloud Run **Job 無 Service 的 0% traffic revision 語意**。Job image 更新必須另有 mutex、active execution／Scheduler fence、固定 digest／設定 snapshot、必要的隔離 canary 與可回復步驟；不得把 API 候選 PASS 直接當成 Jobs 發布成功，也不得未經 gate 更新排程使用的 Job image。
 - Release 使用完整 Git SHA、上一次成功發布 SHA、相同 SHA 冪等與舊 SHA 防覆蓋規則；保留上一可用 image／revision／Job 設定與回滾證據，直到新版本 live PASS。正常 Push 不得自動切換 Cloud Run traffic 或 Job。部分成功、timeout、未知執行均不視為 PASS，也不盲目重送任何 Job。
-- **成功 Release 的最後階段，Cloud Run Service Revision 依建立時間保留最近 10 個，並額外保護已驗證現役成功版、上一個成功版及所有 traffic／tag／候選引用。** 只有在完整 acceptance PASS、100% promotion readback、上次成功 digest／rollback 設定可重建、跨 run deployment mutex 保持有效時，才能列出並刪除更舊、未分配流量且沒有 tag／候選／其他保護引用的 Service Revision；缺資料 fail closed，任一必要保護版本位於最近 10 個之外時可超過 10 個，不強制刪到恰好 10 個。Revision 刪除不可復原，不能連帶刪 GHCR image／Cloud Run Job／GCS canonical 資料；未處理請求的 Revision 在無保溫 instance 時通常不耗執行資源／不計費；revision-level min instances 或 tag 等設定可能使其持續計費，清理不等於保證省錢。
+- 2026-10-09 使用者最新指示：本次只驗收 GitHub Actions → GHCR → Cloud Run 新流程。舊 Revision／映像／GCS／AR 資產清理不列 active TODO，也不作為 Release 結案條件；保留回滾所需版本與證據。
 - Release receipts／diagnostics 以 GitHub Actions logs、job summary 與必要的保護性 workflow artifacts 保留；只輸出非敏感欄位（SHA、digest、revision、workflow/run、gate 結果、baseline、rollback 與 UTC）。不在 log／artifact／argv 印出 Secret、token、owner 個資或敏感 payload。部署互斥、state 持久性及可回復路徑必須在正式啟用前實際驗證，不能假定 Actions concurrency 就等於跨 run／跨 runtime 的完整鎖。
 
 ### 12.3 GCP 身分及既有 Cloud Build 唯讀診斷

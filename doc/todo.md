@@ -1,6 +1,8 @@
-# 本次明確指令：CI/CD 新發布與清理（implementation PARTIAL）
+# 本次明確指令：新版 GitHub Actions → GHCR → Cloud Run 驗收（PARTIAL）
 
 ## 2026-10-09 當前執行清單（優先以本節判定）
+
+使用者最新範圍：只驗收新版發布流程；舊 Revision／映像與 GCS／AR 清理不列待辦或結案條件。歷次清理預覽只保留為歷史事實，不再接續執行。
 
 - [x] **最新 GitHub CI：**[Selective CI #37861956147](https://github.com/tommylin15/janus-omniforge/actions/runs/37861956147) SUCCESS（被驗證 SHA `84eba9ad09a4090c1f91f3ff598554764e97fefc`）；[Jobs guard #37861956130](https://github.com/tommylin15/janus-omniforge/actions/runs/37861956130) **86 tests PASS**。
 - [x] **9 筆 Private Pipeline 歷史 execution「可能仍在執行」的 blocker 已排除：**同輪 V1 list＋task list（包含 succeeded）＋Cloud Run v2 讀回一致，`Completed=CONDITION_FAILED`／`reconciling=false`／每筆 0 tasks，`historical_failed_pretask_terminal_count=9`、`historical_success_claimed=false`、diagnostics 空；仍保留失敗紀錄，**未取消／重送／刪除，絕不認作成功執行**。證據：[稽核 #37860818817](https://github.com/tommylin15/janus-omniforge/actions/runs/37860818817)、[最新 Jobs gate #37861956130](https://github.com/tommylin15/janus-omniforge/actions/runs/37861956130)。
@@ -9,7 +11,7 @@
 - [ ] **Jobs 全域發布 mutex＋Scheduler fence：**先證明所有現役 writer（包含 legacy Cloud Build）不可競跑，再安全取得 lease、將唯一 `janus-ingestion-daily` 暫停並確認 `PAUSED`、同輪重新檢查所有 execution（含新到的）且具自動恢復／失敗回復；單獨 3 秒演練不算完成。
 - [ ] **Jobs 完整 rollback 與 GHCR rollout：**完整 config／pinned digest snapshot、實際 rollback rehearsal、依 GHCR digest 更新四個目標 Job、canary／真實資料與 migration 安全驗收，最後恢復 Scheduler `ENABLED` 並讀回；Research Job 不改。
 - [ ] **API 100% 切流／回滾：**上次已驗證現役 AR Revision 100%、GHCR 候選 0%；先通過 owner live acceptance，再完成固定 digest 正式流量／回滾 E2E 與來源 SHA 驗證，未完成前不得宣稱新 CI/CD 已全面接管。
-- [ ] **舊部署入口及清理：**核實僅 Janus `janus-dev-v2` Cloud Build Trigger 的最新狀態並停止舊發布；重新讀回 AR／GCS 引用，清理只限無依賴 CI/CD 資產（不動 OmniAgent、life-assistant、DB／GCS PostgreSQL 備份、Iceberg 或應用資料）；Revision 保留最新 10＋流量／tag／candidate／上一成功版，重新驗證前暫估 388 個**不是**刪除授權。
+- [ ] **發布入口安全：**只確認舊 writer 不與新版競跑；2026-10-09 本機唯讀 GCP readback：`janus-dev-v2` disabled=true、regional ongoing builds=0。完整 mutex／Jobs rollback 驗收仍未完成。
 
 **實際剩餘四個 Jobs 阻塞：**`authenticated_acceptance_unverified`、`durable_deployment_mutex_unverified`、`rollback_procedure_unverified`、`scheduler_still_enabled`。請勿再將已釐清的 9 筆歷史失敗列為第五個阻塞。**整體 PARTIAL。**
 
@@ -40,10 +42,7 @@
 - [x] 既有 `janusWebSchedulerOperator` 已由使用者綁定 `janus-ci`，實際暫停／恢復 3 秒及獨立 Job／後驗收 [#37780249969](https://github.com/tommylin15/janus-omniforge/actions/runs/37780249969)、[#37780525220](https://github.com/tommylin15/janus-omniforge/actions/runs/37780525220) PASS（含 26 guard tests）；未建立／刪除／執行 Scheduler 工作。
 - [ ] Jobs 真正的長時間發布與可靠 recovery／cross-system durable mutex、GHCR candidate 真實 owner authenticated acceptance、controlled Scheduler PAUSED fence 與 rollback drill 仍待完成；歷史 9 筆已確認 terminal FAILED 且 execution fence 已消除假性 active blocker（#37861586747），仍不能把失敗等同資料成功；不要用短時間 Scheduler drill 冒充 rollout PASS。
 - [ ] Service 新 revision 100% promotion、active service readback／rollback drill、上次成功 digest／mutex／idempotency 驗收。
-- [ ] 新發布全驗收之後，停用僅限 Janus `janus-dev-v2` 舊 Cloud Build Trigger，不動 OmniAgent／life-assistant。
-- [ ] GCS 舊 CI/CD file：逐 generation/reference fence 後 bounded cleanup；GCS 舊專用 Bucket：非共用、無備份／業務資料才刪。
-- [ ] AR images/tags/digests：全部 Cloud Run Service Revisions、Job executions／研究／其他系統及 rollback 不再引用才刪；AR Repository 全部為空且無依賴才能刪。
-- [ ] Cloud Run 每個 Service 在 live 100% success＋rollback acceptance 後保留最新 10 Revisions，另保護 traffic／tag／candidate／上一成功版。驗證 dry-run/apply/readback 後才可標 CLOSED。
+- [ ] 發布鎖內重新確認 Janus 舊 Trigger 不會競跑；不以本次 disabled 快照取代發布時讀回。
 - [ ] Cloud Build 的可選唯讀 status／failed-step 遮罩摘要不得觸發任何新 Build。
 - [ ] 所有變更追溯同一 SHA／run／image digest／revision／acceptance；不碰 GCS／PostgreSQL 備份與 Iceberg、交易、筆記／其他應用資料。
 

@@ -6,7 +6,7 @@ ROOT=Path(__file__).parents[1]
 def test_operator_drill_is_exact_job_only_and_has_fail_safe_controls():
     text=(ROOT/".github/workflows/ghcr-scheduler-operator-drill.yml").read_text()
     assert 'JOB: janus-ingestion-daily' in text
-    assert 'group: janus-dev-scheduler-operator-drill' in text
+    assert 'group: janus-dev-runtime-writers' in text
     assert "until_next_tick < 15" in text
     assert 'gcloud run jobs executions list --job=janus-batch-controller' in text
     assert 'gcloud scheduler jobs pause "$JOB"' in text

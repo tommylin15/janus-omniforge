@@ -12,7 +12,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: dev-ingestion-operation
+  group: janus-dev-runtime-writers
   cancel-in-progress: false
 
 env:
@@ -24,6 +24,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Refuse writes while a release lease needs recovery
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py inspect > /tmp/release-lease.json
+          jq -e '.status == "ABSENT"' /tmp/release-lease.json >/dev/null
 
       - name: Validate request
         id: request
