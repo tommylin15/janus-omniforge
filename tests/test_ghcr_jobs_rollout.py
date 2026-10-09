@@ -300,3 +300,81 @@ def test_workflow_is_manual_shared_lease_and_has_failure_recovery():
     assert "--recover" in source and "failure() || cancelled()" in source
     assert "/tmp/ghcr-jobs-rollout.json" in source
     assert "ghcr-full-job-snapshots" not in source
+
+
+def _reversible_request(sha="b" * 40, prior="a" * 40):
+    return {
+        "rollback_mode": "reversible_ghcr",
+        "accept_no_old_image_rollback": False,
+        "baseline_source_sha": prior,
+        "rollback_images": {
+            name: f"ghcr.io/tommylin15/janus-{component}@sha256:" + "c" * 64
+            for name, component in rollout.JOB_COMPONENT
+        },
+    }
+
+
+def test_reversible_ghcr_baseline_accepts_only_explicit_four_immutable_refs():
+    request = _reversible_request()
+    assert rollout.release_rollback_mode(request, "b" * 40) == "reversible_ghcr"
+    for patch_data in (
+        {"accept_no_old_image_rollback": True},
+        {"baseline_source_sha": "bad"},
+        {"baseline_source_sha": "b" * 40},
+        {"rollback_mode": "auto"},
+    ):
+        with pytest.raises(ValueError):
+            rollout.release_rollback_mode({**request, **patch_data}, "b" * 40)
+    missing = deepcopy(request)
+    missing["rollback_images"].pop(next(iter(missing["rollback_images"])))
+    with pytest.raises(ValueError):
+        rollout.release_rollback_mode(missing, "b" * 40)
+    wrong_component = deepcopy(request)
+    name = next(iter(wrong_component["rollback_images"]))
+    wrong_component["rollback_images"][name] = "ghcr.io/other/image@sha256:" + "c" * 64
+    with pytest.raises(ValueError):
+        rollout.release_rollback_mode(wrong_component, "b" * 40)
+
+
+def test_old_forward_only_waiver_cannot_be_reused_for_new_release():
+    request = {"rollback_mode": "user_authorized_forward_only",
+               "accept_no_old_image_rollback": True}
+    previous = "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361"
+    assert rollout.release_rollback_mode(request, previous) == "user_authorized_forward_only"
+    with pytest.raises(ValueError, match="forward_only_waiver_not_valid_for_new_source"):
+        rollout.release_rollback_mode(request, "b" * 40)
+
+
+def test_reversible_baseline_checks_actual_current_images_and_registry():
+    request = _reversible_request()
+    previous = {}
+    for name, ref in request["rollback_images"].items():
+        old = sample()
+        old["template"]["template"]["containers"][0]["image"] = ref
+        previous[name] = old
+    responses = [
+        json.dumps({"Digest": ref.rsplit("@", 1)[-1],
+                    "Labels": {"org.opencontainers.image.revision": request["baseline_source_sha"]}})
+        for ref in request["rollback_images"].values()
+    ]
+    with patch.object(rollout, "command", side_effect=responses) as command:
+        rollout.verify_reversible_baseline(request, previous)
+    assert command.call_count == len(rollout.JOB_COMPONENT)
+    assert all("--no-creds" in call.args[0] for call in command.call_args_list)
+    previous["janus-private-pipeline"]["template"]["template"]["containers"][0]["image"] = "wrong"
+    with patch.object(rollout, "command") as command:
+        with pytest.raises(ValueError, match="rollback_baseline_runtime_drift"):
+            rollout.verify_reversible_baseline(request, previous)
+    command.assert_not_called()
+
+
+def test_missing_public_rollback_digest_never_satisfies_gate():
+    request = _reversible_request()
+    previous = {}
+    for name, ref in request["rollback_images"].items():
+        old = sample()
+        old["template"]["template"]["containers"][0]["image"] = ref
+        previous[name] = old
+    with patch.object(rollout, "command", return_value='{"Digest": "sha256:wrong", "Labels": {}}'):
+        with pytest.raises(ValueError, match="rollback_baseline_registry_unverified"):
+            rollout.verify_reversible_baseline(request, previous)
