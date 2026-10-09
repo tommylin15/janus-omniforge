@@ -122,9 +122,16 @@ def verify_forward_runtime(data):
 
 def promote(release_run, jobs_run, receipt, forward_recovery=False):
     sha = json.loads(Path("ops/ghcr-candidate-request.json").read_text())["sha"]
+    def checkpoint(name):
+        receipt.write_text(json.dumps({
+            "source_sha": sha, "phase": "PREFLIGHT", "stage": name,
+            "gcp_traffic_write": False}))
+    checkpoint("owner_acceptance")
     acceptance(sha)
+    checkpoint("bounded_request")
     if forward_recovery:
         forward_request = check_forward_promotion_request(release_run, jobs_run, sha)
+    checkpoint("run_provenance")
     for run, expected in ((release_run, "Janus GHCR full-test image publication"),
                           (jobs_run, ("Janus fenced forward-only GHCR Jobs recovery"
                                       if forward_recovery else "Janus GHCR controlled Jobs rollout"))):
@@ -133,21 +140,25 @@ def promote(release_run, jobs_run, receipt, forward_recovery=False):
             raise ValueError("release_or_jobs_gate_incomplete")
         if run == release_run and metadata.get("headSha") != sha:
             raise ValueError("release_sha_mismatch")
+    checkpoint("jobs_receipt")
     jobs_receipt = json.loads(Path("/tmp/ghcr-jobs-proof/ghcr-jobs-rollout.json").read_text())
     check_jobs_receipt(jobs_receipt, sha)
     if forward_recovery:
         if jobs_receipt.get("phase") != "FORWARD_ONLY_PASS_WITH_PRIVATE_CONFIG_UNVERIFIED":
             raise ValueError("wrong_forward_jobs_receipt")
+        checkpoint("live_jobs_scheduler_fence")
         verify_forward_runtime(forward_request)
     elif jobs_receipt.get("phase") != "PASS":
         raise ValueError("wrong_regular_jobs_receipt")
+    checkpoint("previous_release_ancestry")
     if Path("ops/ghcr-last-success.json").exists():
         previous = json.loads(Path("ops/ghcr-last-success.json").read_text())
         if previous.get("result") == "PASS":
             command(["git", "merge-base", "--is-ancestor", previous["source_sha"], sha])
+    checkpoint("lease_acquire")
     command(LEASE + ["acquire"])
     baseline, old_sha, safe, mutated = None, None, False, False
-    journal = {"source_sha": sha, "phase": "PREFLIGHT"}
+    journal = {"source_sha": sha, "phase": "PREFLIGHT", "stage": "service_preflight"}
     try:
         baseline = describe()
         candidate_tag = "ghcr-" + sha[:12]
@@ -165,24 +176,33 @@ def promote(release_run, jobs_run, receipt, forward_recovery=False):
         journal.update(previous_revision=previous_revision, previous_sha=old_sha, candidate=candidate, image=image,
                        tags=tags(baseline), phase="PREPARED")
         receipt.write_text(json.dumps(journal))
+        journal["stage"] = "candidate_probe"
+        receipt.write_text(json.dumps(journal))
         probe("https://" + candidate_tag + "---" + BASE.removeprefix("https://"), sha)
         if previous_revision == candidate:
             health(sha)
             journal["phase"] = "PASS_IDEMPOTENT"
         else:
+            journal["stage"] = "switch_candidate_first"
+            receipt.write_text(json.dumps(journal))
             mutated = True
             switch(candidate, baseline)
             health(sha)
+            journal["stage"] = "switch_back_to_previous"
+            receipt.write_text(json.dumps(journal))
             switch(previous_revision, baseline)
             health(old_sha)
             journal["rollback_rehearsal"] = "PASS"
+            journal["stage"] = "promote_candidate_final"
             receipt.write_text(json.dumps(journal))
             switch(candidate, baseline)
             health(sha)
             journal["phase"] = "PASS"
         receipt.write_text(json.dumps(journal))
         safe = True
-    except Exception:
+    except Exception as error:
+        journal["error_type"] = type(error).__name__
+        receipt.write_text(json.dumps(journal))
         if mutated and baseline is not None:
             switch(active(baseline), baseline)
             health(old_sha)
