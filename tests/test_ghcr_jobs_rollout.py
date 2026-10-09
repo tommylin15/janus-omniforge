@@ -70,19 +70,23 @@ def test_pending_legacy_cloud_build_blocks_jobs_rollout():
 
 
 def test_job_rollout_preflight_requires_update_and_run_with_overrides_on_every_job():
-    required = {"run.jobs.get", "run.jobs.update", "run.jobs.runWithOverrides"}
+    targets = {name for name, _ in rollout.JOB_COMPONENT}
     seen = []
 
     def check_permissions(path, body=None, method=None):
         seen.append((path, body, method))
-        return {"permissions": sorted(required)}
+        return {"permissions": body["permissions"]}
 
     with patch.object(rollout, "cloud", side_effect=check_permissions):
         rollout.job_update_permissions()
     assert len(seen) == len(rollout.REQUIRED_JOBS)
     for path, body, method in seen:
         assert path.endswith(":testIamPermissions")
-        assert set(body["permissions"]) == required
+        name = path.rsplit("/", 1)[-1].removesuffix(":testIamPermissions")
+        expected = {"run.jobs.get"}
+        if name in targets:
+            expected |= {"run.jobs.update", "run.jobs.run", "run.jobs.runWithOverrides"}
+        assert set(body["permissions"]) == expected
         assert method == "POST"
 
 

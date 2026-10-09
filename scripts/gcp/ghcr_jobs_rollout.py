@@ -105,8 +105,12 @@ def job_update_permissions():
     Canary executions use the v2 jobs.run overrides contract and require
     run.jobs.runWithOverrides, not merely run.jobs.run.
     """
-    required = {"run.jobs.get", "run.jobs.update", "run.jobs.runWithOverrides"}
+    targets = {name for name, _ in JOB_COMPONENT}
     for name in REQUIRED_JOBS:
+        # Research is read-only and MUST NOT receive update/execute privileges.
+        required = {"run.jobs.get"}
+        if name in targets:
+            required |= {"run.jobs.update", "run.jobs.run", "run.jobs.runWithOverrides"}
         result = cloud(f"{ROOT}/jobs/{name}:testIamPermissions",
                        {"permissions": sorted(required)}, "POST")
         granted = result.get("permissions", [])
