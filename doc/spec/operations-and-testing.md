@@ -1,3 +1,11 @@
+## 2026-10-09 最新：GHCR Jobs live 只讀 preflight 五項 PASS（非 rollout）
+
+[新 read-only GitHub Actions #37892332681](https://github.com/tommylin15/janus-omniforge/actions/runs/37892332681) 在既有 dev WIF 驗證五個 gate 全 PASS：legacy Cloud Build writer 未競跑、唯一 Scheduler 原始狀態 ENABLED／拓樸吻合、五個 Jobs Ready、execution 全頁終態、既有 IAM 對四個目標 Job 更新及 `run.jobs.runWithOverrides` 等權限。20 tests PASS，`gcp_writes=0`，run UTC 約 06:13:20。
+
+[既有 GHCR jobs preflight #37892332669](https://github.com/tommylin15/janus-omniforge/actions/runs/37892332669) 另以相同 `fbcc5f58` 確認四個公開 GHCR digest、五 Job AR image 未切換、唯一 Scheduler `ENABLED`／每小時 `:30` Asia/Taipei、Service 舊 AR revision `janus-api-g53d655ccb108-config` 100%、GHCR 0% 候選 `janus-api-00451-cuw`。本輪沒有更新 Job、啟停 Scheduler、執行 canary 或切換 API 流量。
+
+**PARTIAL**：preflight PASS 不是真實跨 writer mutex／PAUSED fence／八次 Job canary／rollback rehearsal／100% API promotion。必須在實際鎖內同輪再驗；沒有新的 write acceptance evidence 不得標 CLOSED。
+
 ## 2026-10-09 最新：候選 Owner 人工登入驗收完成
 
 來源 `fbcc5f58a2fa31f2f36dc4c82702fb62910c7361`、候選 `janus-api-00451-cuw`。外部 Chrome 真實 Google A → B → A 完成；A 持股／紀錄／報表年度損益一致，B history 0 筆且指定已知 A 識別仍為空，切回 A 的原 89 筆事件集合一致。query identity 參數不能指定 owner；未做 mutation 越權測試。Read-only v2 已有 authenticated evidence；Janus Dev Private BYPASSED。需要使用者操作的登入步驟完成。

@@ -1,3 +1,10 @@
+## 2026-10-09 14:13（Asia/Taipei）— Jobs live 唯讀前置驗收（PARTIAL）
+
+- 最新程式 `3707349` 加入 GHCR Jobs 只讀 preflight；`b1392d7` 先確認四個目標 Job 所需 `run.jobs.update`／`run.jobs.runWithOverrides`／`run.jobs.run`、第五個 Research Job 只需讀取權限。精準迴歸測試已由 [Selective CI #37892217219](https://github.com/tommylin15/janus-omniforge/actions/runs/37892217219) **SUCCESS**。
+- [真實 GCP 唯讀 preflight #37892332681](https://github.com/tommylin15/janus-omniforge/actions/runs/37892332681) **SUCCESS、20 targeted tests PASS**；同輪 live receipt 五項皆 `PASS`：舊 Cloud Build writer 無競跑、唯一 Scheduler 符合 `ENABLED` 原始拓樸、五個 Jobs Ready／可讀、五個 Jobs 全頁 executions terminal、目標更新／overrides IAM 可用；`gcp_writes=0`。這些證據不涵蓋長時間 pause／mutex 競跑壓力、Job canary、rollback 實際演練、API promotion。
+- [GHCR／Jobs／Service／Scheduler 平行唯讀盤點 #37892332669](https://github.com/tommylin15/janus-omniforge/actions/runs/37892332669) **SUCCESS**：來源 `fbcc5f58` 的 API／ingestion-core／intelligence-mart／private-pipeline 四個 GHCR digest 匿名 pull／label 一致；四個目標 Job 及 Research Job 仍為 AR pinned image，最近各 20 筆無可觀察 active execution；唯一 `janus-ingestion-daily` 為 `ENABLED`，Asia/Taipei 每小時 `:30`；`janus-api-g53d655ccb108-config` 100%，`janus-api-00451-cuw` GHCR 0%。觀察時點不是鎖內發布期 snapshot。
+- 仍需在**受控手動 rollout** 執行前重新檢查 writer／lease、PAUSED Scheduler 及 executions；完成四 Job 真實 GHCR canary＋rollback rehearsal＋Scheduler 恢復，然後才可執行 API 100% promotion／rollback。完整 Release 來源 `fbcc5f58` [#37876247130](https://github.com/tommylin15/janus-omniforge/actions/runs/37876247130) SUCCESS，但最新版 rollout 程式的 selective CI 不可冒充新的 full GHCR Release。**整體 PARTIAL**，無本輪 GCP runtime 寫入。
+
 ## 2026-10-09 12:08（Asia/Taipei）— 新版 CI/CD 最新實作檢查點（PARTIAL）
 
 - **最新 `main` 程式 SHA**：`07ee9da3ee7597f24638e8c26021f437bdeff968`。本次 `f850b754` 意外加入的 `token-savior`／`.cicd-v2-work` Gitlink，已在 `62db585` 移除，`39fb44e` 加入防回歸測試；[Selective CI #37881952331](https://github.com/tommylin15/janus-omniforge/actions/runs/37881952331) **SUCCESS、9 PASS**。
