@@ -1,0 +1,17 @@
+{
+  "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
+  "approved": true,
+  "scope": "janus-api-preview-tag-only",
+  "source_sha": "038498c70e12488f345c3ca0fbe821846ddee4cc",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:9babe654a6088b5f252aeee2574b77d511b16717c50b9314bd325f3c2e162a11",
+  "release_run": "37953986962",
+  "candidate_run": "37954588954",
+  "boundary_run": "37955226220",
+  "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
+  "canonical_traffic_mutation": false,
+  "jobs_or_scheduler_mutation": false,
+  "other_tags_mutation": false,
+  "reason": "Make fixed Janus preview point to newest full-tested SHA candidate after health/negative auth gates; don't promote canonical traffic.",
+  "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
+  "attempt": 1
+}
