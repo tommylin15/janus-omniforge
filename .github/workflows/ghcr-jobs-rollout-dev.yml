@@ -56,7 +56,7 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Rehearse rollback and deploy existing Jobs with real read-only canaries
+      - name: Apply user-authorized forward-only GHCR Jobs with two real canaries each
         run: python scripts/gcp/ghcr_jobs_rollout.py --release-run "$RELEASE_RUN" --receipt /tmp/ghcr-jobs-rollout.json
       - name: Recover original images and Scheduler after failure
         if: ${{ failure() || cancelled() }}
