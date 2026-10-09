@@ -249,6 +249,50 @@ def acceptance(sha):
         raise ValueError("owner_acceptance_stale")
 
 
+
+def release_rollback_mode(request, source_sha):
+    """The old AR waiver applied to one already completed source only.
+
+    Future releases must have a public immutable GHCR rollback baseline.
+    Never fall back to forward-only for a new source or silently waive rollback.
+    """
+    mode = request.get("rollback_mode")
+    if mode == "user_authorized_forward_only":
+        if (source_sha != "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361"
+                or request.get("accept_no_old_image_rollback") is not True):
+            raise ValueError("forward_only_waiver_not_valid_for_new_source")
+        return mode
+    if mode != "reversible_ghcr" or request.get("accept_no_old_image_rollback") is not False:
+        raise ValueError("reversible_ghcr_baseline_required")
+    baseline_sha = request.get("baseline_source_sha")
+    expected = request.get("rollback_images")
+    if (not isinstance(baseline_sha, str)
+            or not re.fullmatch(r"[0-9a-f]{40}", baseline_sha)
+            or baseline_sha == source_sha
+            or not isinstance(expected, dict)
+            or set(expected) != {name for name, _ in JOB_COMPONENT}):
+        raise ValueError("reversible_ghcr_baseline_invalid")
+    for name, component in JOB_COMPONENT:
+        image_ref = expected[name]
+        if (not isinstance(image_ref, str)
+                or not re.fullmatch(rf"ghcr\\.io/tommylin15/janus-{component}@sha256:[0-9a-f]{{64}}", image_ref)):
+            raise ValueError("reversible_ghcr_image_identity_invalid")
+    return mode
+
+
+def verify_reversible_baseline(request, before):
+    """Validate a truly retrievable, previously-serving pinned GHCR baseline."""
+    source_sha = request["baseline_source_sha"]
+    for name, _ in JOB_COMPONENT:
+        expected = request["rollback_images"][name]
+        if image(before[name]) != expected:
+            raise ValueError("rollback_baseline_runtime_drift")
+        manifest = json.loads(command(["skopeo", "inspect", "--no-creds", "docker://" + expected]))
+        if (manifest.get("Digest") != expected.rsplit("@", 1)[-1]
+                or manifest.get("Labels", {}).get("org.opencontainers.image.revision") != source_sha):
+            raise ValueError("rollback_baseline_registry_unverified")
+
+
 def run(release_run, receipt):
     sha = json.loads(Path("ops/ghcr-candidate-request.json").read_text())["sha"]
     request = json.loads(Path("ops/ghcr-jobs-rollout-request.json").read_text())
@@ -256,10 +300,9 @@ def run(release_run, receipt):
             or request.get("approved") is not True
             or request.get("scope") != "existing-dev-four-jobs"
             or request.get("sha") != sha
-            or request.get("release_run") != release_run
-            or request.get("rollback_mode") != "user_authorized_forward_only"
-            or request.get("accept_no_old_image_rollback") is not True):
-        raise ValueError("forward_only_user_authorization_missing")
+            or request.get("release_run") != release_run):
+        raise ValueError("rollout_request_not_approved")
+    rollback_mode = release_rollback_mode(request, sha)
     acceptance(sha)
     release = json.loads(command(["gh", "run", "view", release_run, "--json", "headSha,status,conclusion,workflowName"]))
     if (release.get("headSha") != sha or release.get("status") != "completed"
@@ -276,7 +319,7 @@ def run(release_run, receipt):
     job_update_permissions()
     command(LEASE + ["acquire"])
     journal = {"source_sha": sha, "phase": "PREFLIGHT",
-               "rollback_mode": "user_authorized_forward_only",
+               "rollback_mode": rollback_mode,
                "targets": targets, "snapshots": {}, "operations": [], "canaries": []}
     def save():
         receipt.write_text(json.dumps(journal, sort_keys=True))
@@ -303,6 +346,13 @@ def run(release_run, receipt):
             # user approval authorizes skipping its registry availability.
             # We do not attempt to restore this unreachable legacy image.
             journal["snapshots"][name] = {"image": previous, "configuration_hash": fingerprint(data)}
+        # Verify the *previous* pinned GHCR digest is still anonymously
+        # pullable before pausing Scheduler or changing any real Job.
+        if rollback_mode == "reversible_ghcr":
+            verify_reversible_baseline(request, full_snapshots)
+            journal["rollback_baseline_verified"] = True
+            journal["rollback_baseline_sha"] = request["baseline_source_sha"]
+            save()
         # Full configs stay on the runner with restrictive permissions; only
         # immutable images and hashes enter the uploaded recovery receipt.
         full_path = receipt.with_name("ghcr-full-job-snapshots.json")
@@ -350,6 +400,7 @@ def run(release_run, receipt):
         set_scheduler("resume", "ENABLED")
         journal["phase"] = "PASS"
         journal["old_image_rollback_exercised"] = False
+        journal["rollback_available"] = rollback_mode == "reversible_ghcr"
         save()
         safe = True
     except Exception:
