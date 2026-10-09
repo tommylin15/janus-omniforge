@@ -2,8 +2,8 @@
   "intent": "preflight-ghcr-jobs",
   "sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
   "scope": "readonly",
-  "purpose": "Post-recovery independent GCP verification of four GHCR Jobs, unchanged Research, Scheduler ENABLED, zero active executions, API canonical/candidate traffic",
-  "attempt": 13,
+  "purpose": "Read-only prove canonical API traffic stayed on previous 100% revision following failed forward promotion; verify four GHCR Jobs and ENABLED scheduler",
+  "attempt": 14,
   "investigate_ghcr_config_drift": false,
   "private_pipeline_preupdate_hash": "4ebd16deaaff29c6c6aa6688ce0ffedeefbdc4afeb08dc9ef4ff02caebe953f7"
 }
