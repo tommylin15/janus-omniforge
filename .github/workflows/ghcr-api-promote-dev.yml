@@ -39,6 +39,8 @@ jobs:
           mkdir -p /tmp/ghcr-jobs-proof
           gh run download "$JOBS_RUN" -n ghcr-jobs-rollout-receipt -D /tmp/ghcr-jobs-proof
           test -s /tmp/ghcr-jobs-proof/ghcr-jobs-rollout.json
+      - name: Install anonymous GHCR inspector for previous revision rollback gate
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
