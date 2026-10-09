@@ -125,7 +125,7 @@ def writers():
     triggers = json.loads(command(["gcloud", "builds", "triggers", "list", f"--project={PROJECT}",
                                    f"--region={REGION}", "--filter=name=janus-dev-v2", "--format=json(id,disabled)"]))
     builds = json.loads(command(["gcloud", "builds", "list", f"--project={PROJECT}", f"--region={REGION}",
-                                 "--filter=status=QUEUED OR status=WORKING", "--limit=1", "--format=json(id)"]))
+                                 "--filter=status=QUEUED OR status=WORKING OR status=PENDING", "--limit=1", "--format=json(id)"]))
     if len(triggers) != 1 or triggers[0].get("disabled") is not True or builds:
         raise ValueError("legacy_writer_unfenced")
     command(LEASE + ["assert"])

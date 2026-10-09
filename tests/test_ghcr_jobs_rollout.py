@@ -52,6 +52,23 @@ def test_fence_checks_every_page_and_all_jobs():
     assert "pageToken=next" in cloud.call_args.args[0]
 
 
+def test_pending_legacy_cloud_build_blocks_jobs_rollout():
+    commands = []
+
+    def fake_command(args):
+        commands.append(args)
+        if args[:3] == ["gcloud", "builds", "triggers"]:
+            return '[{"disabled": true}]'
+        if args[:3] == ["gcloud", "builds", "list"]:
+            return '[{"id": "queued-or-pending-build"}]'
+        raise AssertionError("Unexpected command after a blocked writer")
+
+    with patch.object(rollout, "command", side_effect=fake_command):
+        with pytest.raises(ValueError, match="legacy_writer_unfenced"):
+            rollout.writers()
+    assert "--filter=status=QUEUED OR status=WORKING OR status=PENDING" in commands[1]
+
+
 def test_unknown_canary_keeps_scheduler_paused_and_images_fenced():
     journal = {"snapshots": {}, "phase": "RECOVERY_REQUIRED"}
     with patch.object(rollout, "command"), patch.object(rollout, "fence", side_effect=ValueError("unknown")), \
