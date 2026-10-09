@@ -1,0 +1,21 @@
+# Janus GHCR 第二輪 Release 與固定 Preview 驗收 — 2026-10-09（Asia/Taipei）
+
+## 結論與嚴格範圍
+
+**第二輪完整 GHCR 發布、0% API 候選、OAuth/MCP 未授權負向驗收，以及固定 Preview tag 更新已 live PASS；新 SHA 的 owner authenticated A→B→A、四 Jobs 可逆實際 rollout/rollback 和 API 新版 100% promotion 尚未完成，整體 CI/CD PARTIAL。**
+
+- 舊版 canonical active source：`fbcc5f58a2fa31f2f36dc4c82702fb62910c7361`，現役 100% Revision `janus-api-00451-cuw`。四個 Cloud Run Jobs 仍使用這個來源的 GHCR digests；唯一 Scheduler `janus-ingestion-daily` 維持 `ENABLED`。
+- 新候選來源 SHA：`038498c70e12488f345c3ca0fbe821846ddee4cc`，其容器由 [GitHub Actions 完整 GHCR Release #37953986962](https://github.com/tommylin15/janus-omniforge/actions/runs/37953986962) build／push。該次 Python 完整測試、Flutter 測試、四個 GHCR image publish、公開 digest/anonymous pull 全部 SUCCESS。相對於前次 source，GitHub compare 顯示 110 commits、48 paths；沒有修改 `services/api/`、`apps/user_app/`、`jobs/ingestion-core/` 或 `jobs/intelligence-mart/` 目錄。仍不能因此把舊 SHA 的 owner 人工驗收直接升級成新 SHA PASS。
+- [API 0% candidate #37954588954](https://github.com/tommylin15/janus-omniforge/actions/runs/37954588954) SUCCESS，候選 `janus-api-00457-wed`，`ghcr-038498c70e12` tag、health、401、候選 `/app/build-id.txt` 完整來源 SHA、正式 traffic 不變及 deployment lease cleanup 均 PASS。
+- [Candidate OAuth/private boundary #37955226220](https://github.com/tommylin15/janus-omniforge/actions/runs/37955226220) SUCCESS：OAuth metadata、私人 User/Admin 401/403 與 MCP 未授權 challenge，**非真實 owner A→B→A**。其 workflow 原本寫死舊 AR 100% revision；已移除該失效假設，改以共享 concurrency、獨立 `ops/ghcr-candidate-boundary-request.json` 受控觸發。
+- [GHCR Jobs/image inventory #37955302314](https://github.com/tommylin15/janus-omniforge/actions/runs/37955302314) SUCCESS，四個新 GHCR digests 均公開可拉取／來源 label PASS，現役四個 Jobs 尚未更新；[Jobs live readonly preflight #37955302241](https://github.com/tommylin15/janus-omniforge/actions/runs/37955302241) workflow SUCCESS，但 **artifact status=BLOCKED**，因受保護、未更新的 Research Job `janus-research-big-move-500` 仍引用失效的舊 AR digest，不能把工作流程 SUCCESS 說成該 gate 全部 PASS。其他 Scheduler、IAM、active executions、writers 安全 gate 有獨立 PASS evidence。既有 GHCR 四 Jobs 的真實可回復基準見 [#37954237695](https://github.com/tommylin15/janus-omniforge/actions/runs/37954237695)，其 result PASS 不涵蓋 Research 舊 AR image restore。
+- **[固定 preview live #37956325838](https://github.com/tommylin15/janus-omniforge/actions/runs/37956325838) SUCCESS**，receipt artifact #11628296737：`status=PASS`、`phase=VERIFIED_FIXED_PREVIEW`、`source_sha=038498c70e12488f345c3ca0fbe821846ddee4cc`、`candidate=janus-api-00457-wed`、`preview_revision=janus-api-00457-wed`、`before_preview=janus-api-00451-cuw`、`before_preview_sha=fbcc5f58a2fa31f2f36dc4c82702fb62910c7361`、`canonical_traffic_write=false`、`jobs_or_scheduler_write=false`、`lease_released=true`、`restored_previous_preview=false`。固定 URL 為 <https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/>。成功代表更新及後驗證完成，**不代表真實更新後故障／恢復演練已做**。
+- 本次 [最後 selective CI #37956325899](https://github.com/tommylin15/janus-omniforge/actions/runs/37956325899) SUCCESS。原子 Git-ref owner deployment lease 已由本次 owner 安全釋放，獨立 GitHub `refs/tags/janus-ghcr-deploy-global-v1` 唯讀回查 404。沒有修改正式 Service 100% 流量、部署新 Job、建立付費資源或刪除 legacy image／GCS／AR 資料。
+
+## 下一步已知阻塞與前置
+
+1. **新候選真實 authenticated A→B→A**：由使用者在固定 Preview 完成 Google 登入，核對 A positions／history／PnL，切 B 驗資料隔離，回 A 恢復相同事件集合；驗收證據綁定 `038498...` source 和候選 Revision。不能以本次 401/OAuth metadata PASS 冒充。
+2. **四 Jobs 新版 GHCR rollout／reverse-order rollback**：更新 `ops/ghcr-jobs-rollout-request.json` 使用 `reversible_ghcr`、新版 source、完整 Release run、前次已驗證 API+四 Jobs baseline 的 immutable digests 與四組 config fingerprints；保留 Scheduler pause/execution fence/lease，需有新 SHA owner acceptance，執行後才可宣稱 canary／回滾 PASS。Research Job 不屬本次更新目標；其既有 AR 引用恢復風險仍未解，單獨列 UNKNOWN/BLOCKED，不擅自更新。
+3. **新 API 正式流量**：新 SHA owner acceptance、Jobs live receipts 和先前可拉取 GHCR baseline 都 PASS 後，執行受控 API promotion＋實際 GHCR→GHCR rollback rehearsal。不得跳過繫結 Release SHA 的 owner gate。
+4. **Preview 恢復演練**：現有程式與 targeted tests 實作失敗回復、先前 preview SHA 驗證、其他 tag／canonical traffic unchanged 與 lease 保留；但未刻意對真實系統引發失敗，本項 `failure-restoration-live` **NOT VERIFIED**。現役 Preview 成功不等於此失敗情境 PASS。
+5. **歷史 Private Pipeline**：在原 AR→GHCR 切換前的完整 config parity 不可重建，仍 `NOT_VERIFIED`，不得用新的現役 GHCR 指紋補作歷史證據。使用者當時僅同意免除無法取回的舊 AR image rollback，不等於無限制豁免新 GHCR 的回滾安全。
