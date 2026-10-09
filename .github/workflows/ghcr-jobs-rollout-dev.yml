@@ -6,6 +6,10 @@ on:
         description: Successful full GHCR publication run for the accepted candidate SHA
         required: true
         type: string
+  push:
+    branches: [main]
+    paths:
+      - 'ops/ghcr-jobs-rollout-request.json'
 permissions:
   contents: write
   actions: read
@@ -20,11 +24,27 @@ jobs:
     environment: dev
     env:
       GH_TOKEN: ${{ github.token }}
-      RELEASE_RUN: ${{ inputs.release_run }}
+      RELEASE_RUN: ${{ inputs.release_run || '' }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Verify bounded release request and provenance
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "${GITHUB_REF}" = 'refs/heads/main'
+          if [[ "${GITHUB_EVENT_NAME}" == 'push' ]]; then
+            file=ops/ghcr-jobs-rollout-request.json
+            jq -e --arg sha "$(jq -r '.sha' ops/ghcr-candidate-request.json)" \\
+              '.intent == "approved-dev-ghcr-jobs-rollout" and .approved == true and
+               .scope == "existing-dev-four-jobs" and .sha == \$sha and
+               (.release_run | type == "string" and test("^[0-9]+$"))' "${file}" > /dev/null
+            echo "RELEASE_RUN=$(jq -r '.release_run' "${file}")" >> "${GITHUB_ENV}"
+          else
+            [[ "${RELEASE_RUN}" =~ ^[0-9]+$ ]]
+          fi
+          echo "Gated Jobs rollout request on main. No ordinary push triggers deployment." >> "${GITHUB_STEP_SUMMARY}"
       - name: Verify rollout and recovery contracts
         run: |
           python -m pip install pytest==8.4.2
