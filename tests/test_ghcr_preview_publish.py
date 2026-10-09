@@ -82,3 +82,80 @@ def test_previous_preview_build_identity_must_be_known_for_recovery():
     with patch.object(preview,"request",return_value=(404,{},b"not-found")):
         with pytest.raises(ValueError,match="previous_preview_identity_unknown"):
             preview.read_preview_build_sha()
+
+
+def test_preview_provenance_checks_exact_request_sha_at_each_successful_run():
+    source="a"*40
+    runs=[
+        {"headSha":source,"status":"completed","conclusion":"success",
+         "workflowName":"Janus GHCR full-test image publication"},
+        {"headSha":"b"*40,"status":"completed","conclusion":"success",
+         "workflowName":"Janus GHCR Cloud Run 0-percent candidate"},
+        {"headSha":"c"*40,"status":"completed","conclusion":"success",
+         "workflowName":"GHCR candidate OAuth and private-boundary probe"}]
+    req={"source_sha":source,"release_run":"1","candidate_run":"2","boundary_run":"3"}
+    def cmd(args):
+        if args[:3]==["gh","run","view"]:
+            return json.dumps(runs[int(args[3])-1])
+        if args[:2]==["git","show"]:
+            return json.dumps({"sha":source})
+        assert args[:3]==["git","merge-base","--is-ancestor"]
+        return ""
+    with patch.object(preview,"command",side_effect=cmd):
+        preview.provenance(req)
+    def incorrect(args):
+        if args[:3]==["gh","run","view"]:
+            return json.dumps(runs[int(args[3])-1])
+        if args[:2]==["git","show"]:
+            return json.dumps({"sha":"d"*40})
+        return ""
+    with patch.object(preview,"command",side_effect=incorrect):
+        with pytest.raises(ValueError,match="preview_workflow_source_identity_mismatch"):
+            preview.provenance(req)
+
+
+def test_preview_app_html_and_sha_both_required():
+    source="a"*40
+    with patch.object(preview,"request",return_value=(200,{},b"<html>OK</html>")) as req, \
+         patch.object(preview,"probe") as probe:
+        preview.verify_preview_web(source)
+    req.assert_called_once_with(preview.EXPECTED_URL+"/app/")
+    probe.assert_called_once_with(preview.EXPECTED_URL,source)
+    with patch.object(preview,"request",return_value=(404,{},b"")):
+        with pytest.raises(ValueError,match="preview_app_page_unavailable"):
+            preview.verify_preview_web(source)
+
+
+def test_nontraffic_service_setting_cannot_change_while_preview_updates():
+    before=snapshot()
+    after=snapshot(preview_rev="new")
+    after["spec"]["other-setting"]="drift"
+    with pytest.raises(ValueError,match="preview_service_runtime_config_changed"):
+        preview.assert_routes(before,after,"new")
+
+
+def test_same_verified_sha_is_read_only_idempotent_retry(tmp_path):
+    receipt=tmp_path/"result.json"
+    source="a"*40
+    req={"source_sha":source}
+    before=snapshot(preview_rev="new")
+    with (patch.object(preview,"authorized",return_value=req),
+          patch.object(preview,"provenance"),
+          patch.object(preview.jobs,"legacy_writers"),
+          patch.object(preview,"command") as cmd,
+          patch.object(preview,"describe",return_value=before),
+          patch.object(preview,"check_candidate",return_value="new"),
+          patch.object(preview,"read_preview_build_sha",return_value=source),
+          patch.object(preview,"reconciled") as reconciled,
+          patch.object(preview,"verify_preview_web") as web,
+          patch.object(preview,"update_preview") as update):
+        assert preview.apply(receipt)==0
+    update.assert_not_called()
+    reconciled.assert_called_once()
+    web.assert_called_once_with(source)
+    result=json.loads(receipt.read_text())
+    assert result["status"]=="PASS"
+    assert result["phase"]=="VERIFIED_FIXED_PREVIEW_IDEMPOTENT"
+    assert result["preview_tag_mutation_attempted"] is False
+    assert result["lease_released"] is True
+    assert cmd.call_count==3
