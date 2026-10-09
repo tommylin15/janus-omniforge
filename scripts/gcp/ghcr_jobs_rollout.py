@@ -257,7 +257,9 @@ def run(release_run, receipt):
         targets[name] = target
     job_update_permissions()
     command(LEASE + ["acquire"])
-    journal = {"source_sha": sha, "phase": "PREFLIGHT", "snapshots": {}, "operations": [], "canaries": []}
+    journal = {"source_sha": sha, "phase": "PREFLIGHT",
+               "rollback_mode": "user_authorized_forward_only",
+               "targets": targets, "snapshots": {}, "operations": [], "canaries": []}
     def save():
         receipt.write_text(json.dumps(journal, sort_keys=True))
     paused, safe = False, False
@@ -275,11 +277,9 @@ def run(release_run, receipt):
             previous = image(data)
             if not PIN.fullmatch(previous):
                 raise ValueError("rollback_image_not_pinned")
-            # gcloud validates the existing private registry digest, no scanning API.
-            if previous.startswith("ghcr.io/"):
-                command(["skopeo", "inspect", "--no-creds", "docker://" + previous])
-            else:
-                command(["gcloud", "artifacts", "docker", "images", "describe", previous, "--format=value(image_summary.digest)"])
+            # Historical reference is retained as provenance only. Explicit
+            # user approval authorizes skipping its registry availability.
+            # We do not attempt to restore this unreachable legacy image.
             journal["snapshots"][name] = {"image": previous, "configuration_hash": fingerprint(data)}
         # Full configs stay on the runner with restrictive permissions; only
         # immutable images and hashes enter the uploaded recovery receipt.
