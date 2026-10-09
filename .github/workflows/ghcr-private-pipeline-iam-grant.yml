@@ -1,0 +1,44 @@
+name: Janus narrowly scoped private-pipeline actAs authorization
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/ghcr-private-pipeline-iam-grant-request.json'
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  scoped-iam:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: dev
+    env:
+      GCP_CI_SERVICE_ACCOUNT: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check scoped IAM change contracts
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_ghcr_private_pipeline_iam_grant.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Bind only on live private-pipeline runtime service account and verify
+        run: |
+          python scripts/gcp/ghcr_private_pipeline_iam_grant.py --receipt /tmp/private-pipeline-iam-receipt.json
+      - name: Preserve sanitized IAM authorization receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: private-pipeline-iam-grant-receipt
+          path: /tmp/private-pipeline-iam-receipt.json
+          if-no-files-found: ignore
+          retention-days: 14
