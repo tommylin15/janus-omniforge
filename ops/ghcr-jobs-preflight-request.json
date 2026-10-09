@@ -2,8 +2,8 @@
   "intent": "preflight-ghcr-jobs",
   "sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
   "scope": "readonly",
-  "purpose": "Observe live GHCR Job image migration and paused Scheduler concurrently with fenced original-run recovery; read only",
-  "attempt": 12,
+  "purpose": "Post-recovery independent GCP verification of four GHCR Jobs, unchanged Research, Scheduler ENABLED, zero active executions, API canonical/candidate traffic",
+  "attempt": 13,
   "investigate_ghcr_config_drift": false,
   "private_pipeline_preupdate_hash": "4ebd16deaaff29c6c6aa6688ce0ffedeefbdc4afeb08dc9ef4ff02caebe953f7"
 }
