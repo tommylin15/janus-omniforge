@@ -1,0 +1,43 @@
+name: Janus fixed preview GHCR publication
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/ghcr-preview-request.json'
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  publish-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify fixed preview release and owner-lease safety contracts
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_ghcr_preview_publish.py tests/test_ghcr_release_lease.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Update only verified candidate preview tag with rollback protection
+        run: python scripts/gcp/ghcr_preview_publish.py --receipt /tmp/ghcr-preview-publish.json
+      - name: Retain sanitized success or recovery receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghcr-preview-publish-receipt
+          path: /tmp/ghcr-preview-publish.json
+          retention-days: 14
+          if-no-files-found: ignore
