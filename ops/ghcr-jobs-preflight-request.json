@@ -1,9 +1,9 @@
 {
   "intent": "preflight-ghcr-jobs",
-  "sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
+  "sha": "038498c70e12488f345c3ca0fbe821846ddee4cc",
   "scope": "readonly",
-  "purpose": "Emergency live readback after API GHCR traffic promotion rollback rehearsal failed at switch_back_to_previous; inspect actual 100% serving revision and scheduler; NO mutations",
-  "attempt": 15,
+  "purpose": "Verify the new full-test public GHCR four images against the still-serving old GHCR Job/Scheduler/API baseline, readiness and IAM; no mutations. Candidate source 038498 from Release #37953986962, deployment #37954588954.",
+  "attempt": 16,
   "investigate_ghcr_config_drift": false,
   "private_pipeline_preupdate_hash": "4ebd16deaaff29c6c6aa6688ce0ffedeefbdc4afeb08dc9ef4ff02caebe953f7"
 }
