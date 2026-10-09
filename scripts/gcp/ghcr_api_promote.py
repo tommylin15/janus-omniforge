@@ -38,6 +38,30 @@ def tags(data):
     return {row["tag"]: row["revisionName"] for row in data["status"]["traffic"] if row.get("tag")}
 
 
+
+def verify_previous_ghcr_rollback(baseline, previous_source_sha):
+    """Require an actual public GHCR previous image before any traffic write.
+
+    A historical AR reference is insufficient. The previous revision must be
+    Ready and the digest and source SHA must match an anonymous registry read.
+    """
+    old_revision = active(baseline)
+    revision = json.loads(command(["gcloud", "run", "revisions", "describe",
+                    old_revision, f"--project={PROJECT}", f"--region={REGION}",
+                    "--format=json"]))
+    current_image = revision_image(revision)
+    if not re.fullmatch(r"ghcr\.io/tommylin15/janus-api@sha256:[0-9a-f]{64}", current_image):
+        raise ValueError("previous_ghcr_rollback_image_required")
+    conditions = revision.get("status", {}).get("conditions", [])
+    if not any(c.get("type") == "Ready" and c.get("status") == "True" for c in conditions):
+        raise ValueError("previous_ghcr_revision_not_ready")
+    manifest = json.loads(command(["skopeo", "inspect", "--no-creds", "docker://" + current_image]))
+    if (manifest.get("Digest") != current_image.rsplit("@", 1)[-1]
+            or manifest.get("Labels", {}).get("org.opencontainers.image.revision") != previous_source_sha):
+        raise ValueError("previous_ghcr_registry_source_unverified")
+    return current_image
+
+
 def switch(revision, baseline):
     command(LEASE + ["assert"])
     command(["gcloud", "run", "services", "update-traffic", SERVICE, f"--project={PROJECT}",
@@ -186,6 +210,11 @@ def promote(release_run, jobs_run, receipt, forward_recovery=False):
         old_sha = body.decode().strip()
         if status != 200 or not re.fullmatch(r"[0-9a-f]{40}", old_sha):
             raise ValueError("previous_sha_unknown")
+        if not forward_recovery:
+            journal["stage"] = "verified_public_previous_ghcr_rollback"
+            receipt.write_text(json.dumps(journal))
+            journal["previous_ghcr_image"] = verify_previous_ghcr_rollback(baseline, old_sha)
+            health(old_sha)
         journal["stage"] = "candidate_revision_image"
         receipt.write_text(json.dumps(journal))
         revision = json.loads(command(["gcloud", "run", "revisions", "describe", candidate,
