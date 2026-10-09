@@ -1,0 +1,11 @@
+{
+  "intent": "verify-ghcr-candidate-boundary",
+  "scope": "read-only",
+  "no_gcp_mutation": true,
+  "sha": "038498c70e12488f345c3ca0fbe821846ddee4cc",
+  "candidate_release_run": "37953986962",
+  "candidate_deployment_run": "37954588954",
+  "purpose": "Validate current candidate OAuth metadata, unauthorized owner/Admin 401/403, MCP challenge and exact build SHA without user token or dev traffic mutation.",
+  "requires_human_owner_acceptance_before_promotion": true,
+  "attempt": 1
+}
