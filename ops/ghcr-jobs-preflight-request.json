@@ -2,6 +2,6 @@
   "intent": "preflight-ghcr-jobs",
   "sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
   "scope": "readonly",
-  "purpose": "Post-user-admin service-account-scoped actAs binding: verify four existing runtime identities via WIF; do not update Jobs; old AR rollback explicitly waived",
-  "attempt": 8
+  "purpose": "Emergency read-only readback after forward-only GHCR Jobs partial mutation and recovery failure; inspect Scheduler state, all Jobs images/readiness/executions, exact provenance; do not mutate",
+  "attempt": 9
 }
