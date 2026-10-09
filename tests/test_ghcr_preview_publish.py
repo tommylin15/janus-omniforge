@@ -27,7 +27,7 @@ def test_only_preview_tag_can_change_and_canonical_100_stays_fixed():
     preview.assert_routes(old,after,"new")
     wrong=snapshot(preview_rev="new")
     wrong["status"]["traffic"][0]["percent"]=90
-    with pytest.raises(ValueError,match="preview_canonical_traffic_drift"):
+    with pytest.raises(ValueError,match="preview_baseline_split_traffic"):
         preview.assert_routes(old,wrong,"new")
     wrong2=snapshot(preview_rev="new")
     wrong2["status"]["traffic"][2]["revisionName"]="wrong"
