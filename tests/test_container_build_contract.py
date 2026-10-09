@@ -95,6 +95,7 @@ def test_generated_and_orphaned_build_artifacts_stay_removed():
     assert not (ROOT / "apps" / "user_app" / ".flutter-plugins-dependencies").exists()
     assert not (ROOT / "scripts" / "gcp" / "cloudbuild-token-savior-verify.yaml").exists()
     assert not (ROOT / "token-savior").exists()
+    assert not (ROOT / ".cicd-v2-work").exists()
 
 
 def _cloud_build_submit_segments(text: str):
