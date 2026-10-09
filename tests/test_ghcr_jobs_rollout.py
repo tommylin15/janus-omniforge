@@ -137,6 +137,110 @@ def test_non_mutating_preflight_failure_is_not_recovered_twice():
     assert journal["phase"] in {"PASS", "RESTORED", "PREFLIGHT_BLOCKED_NO_MUTATION"}
 
 
+def test_forward_only_authorization_must_be_explicit_before_release_commands():
+    sha = "a" * 40
+    request = {"intent": "approved-dev-ghcr-jobs-rollout", "approved": True,
+               "scope": "existing-dev-four-jobs", "sha": sha, "release_run": "123",
+               "rollback_mode": "user_authorized_forward_only",
+               "accept_no_old_image_rollback": False}
+
+    def load(path, *args, **kwargs):
+        if str(path).endswith("ghcr-candidate-request.json"):
+            return json.dumps({"sha": sha})
+        return json.dumps(request)
+
+    with patch.object(rollout.Path, "read_text", load), patch.object(rollout, "command") as command:
+        with pytest.raises(ValueError, match="forward_only_user_authorization_missing"):
+            rollout.run("123", Path("/tmp/test-rollout-receipt.json"))
+    command.assert_not_called()
+
+
+def test_forward_only_preflight_no_mutation_restores_scheduler_without_old_image_read():
+    old = "us-central1-docker.pkg.dev/test/image@sha256:" + "b" * 64
+    names = rollout.REQUIRED_JOBS
+    snapshots = {name: {"image": old, "configuration_hash": rollout.fingerprint(sample())}
+                 for name in names}
+    original = sample()
+    original["template"]["template"]["containers"][0]["image"] = old
+    snapshots = {name: {"image": old, "configuration_hash": rollout.fingerprint(original)}
+                 for name in names}
+    journal = {"rollback_mode": "user_authorized_forward_only", "scheduler_hash": "f",
+               "snapshots": snapshots,
+               "targets": {name: "ghcr.io/tommylin15/latest@sha256:" + "c" * 64
+                           for name, _ in rollout.JOB_COMPONENT}, "canaries": []}
+    with patch.object(rollout, "command"), patch.object(rollout, "fence"), \
+         patch.object(rollout, "job", return_value=original), \
+         patch.object(rollout, "scheduler", return_value={"state": "PAUSED"}), \
+         patch.object(rollout, "scheduler_fingerprint", return_value="f"), \
+         patch.object(rollout, "set_scheduler") as resume, \
+         patch.object(rollout, "update") as update:
+        rollout.recover(journal, lambda: None)
+    assert journal["phase"] == "RESTORED_NO_MUTATION"
+    resume.assert_called_once_with("resume", "ENABLED")
+    update.assert_not_called()
+
+
+def test_partial_forward_only_change_keeps_scheduler_fenced():
+    names = [name for name, _ in rollout.JOB_COMPONENT]
+    old = "us-central1-docker.pkg.dev/test/image@sha256:" + "a" * 64
+    new = "ghcr.io/tommylin15/new@sha256:" + "b" * 64
+    original = sample()
+    original["template"]["template"]["containers"][0]["image"] = old
+    changed = deepcopy(original)
+    changed["template"]["template"]["containers"][0]["image"] = new
+    current = {name: deepcopy(original) for name in rollout.REQUIRED_JOBS}
+    current[names[0]] = changed
+    journal = {"rollback_mode": "user_authorized_forward_only", "scheduler_hash": "f",
+               "snapshots": {name: {"image": old, "configuration_hash": rollout.fingerprint(original)}
+                             for name in rollout.REQUIRED_JOBS},
+               "targets": {name: new for name in names}, "canaries": []}
+    def check(name, ref, h):
+        if rollout.image(current[name]) != ref:
+            raise ValueError("image_or_configuration_drift")
+
+    with patch.object(rollout, "command"), patch.object(rollout, "fence"), \
+         patch.object(rollout, "job", side_effect=lambda name: current[name]), \
+         patch.object(rollout, "scheduler", return_value={"state": "PAUSED"}), \
+         patch.object(rollout, "scheduler_fingerprint", return_value="f"), \
+         patch.object(rollout, "checked_image", side_effect=check), \
+         patch.object(rollout, "set_scheduler") as resume, \
+         patch.object(rollout, "update") as update:
+        with pytest.raises(ValueError, match="image_or_configuration_drift"):
+            rollout.recover(journal, lambda: None)
+    resume.assert_not_called()
+    update.assert_not_called()
+
+
+def test_forward_only_recovers_only_after_eight_real_canaries():
+    names = [name for name, _ in rollout.JOB_COMPONENT]
+    old = "us-central1-docker.pkg.dev/test/image@sha256:" + "a" * 64
+    new = "ghcr.io/tommylin15/new@sha256:" + "b" * 64
+    original = sample()
+    original["template"]["template"]["containers"][0]["image"] = old
+    updated = deepcopy(original)
+    updated["template"]["template"]["containers"][0]["image"] = new
+    current = {name: updated for name in names}
+    current["janus-research-big-move-500"] = original
+    journal = {"rollback_mode": "user_authorized_forward_only", "scheduler_hash": "f",
+               "snapshots": {name: {"image": old, "configuration_hash": rollout.fingerprint(original)}
+                             for name in rollout.REQUIRED_JOBS},
+               "targets": {name: new for name in names},
+               "canaries": [{"job": name, "result": "PASS", "execution": name + str(i)}
+                            for name in names for i in range(2)]}
+    with patch.object(rollout, "command"), patch.object(rollout, "fence"), \
+         patch.object(rollout, "job", side_effect=lambda name: current[name]), \
+         patch.object(rollout, "checked_image") as checked, \
+         patch.object(rollout, "scheduler", return_value={"state": "PAUSED"}), \
+         patch.object(rollout, "scheduler_fingerprint", return_value="f"), \
+         patch.object(rollout, "set_scheduler") as resume, \
+         patch.object(rollout, "update") as update:
+        rollout.recover(journal, lambda: None)
+    assert checked.call_count == 4
+    assert journal["phase"] == "RESTORED_FORWARD_ONLY"
+    resume.assert_called_once_with("resume", "ENABLED")
+    update.assert_not_called()
+
+
 def test_pending_owner_acceptance_blocks_before_any_mutation():
     with patch.object(rollout.Path, "read_text", return_value=json.dumps({"result": "PENDING"})), \
          patch.object(rollout, "command") as command:
