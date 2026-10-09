@@ -24,6 +24,21 @@ User Web client 必須使用 Janus User audience，並包含目前實際 UI／ca
 
 公開 client ID 可作為 Flutter Web build-time configuration；client secret、MCP signing material、database credentials 必須走目前 Secret bundle，不寫入 source、README 或一般 config。
 
+### 固定 preview 與 OAuth 來源／callback 契約
+
+目前 Janus `dev` 對使用者公開的**固定 App 入口**為：
+
+- 正式 App：<https://janus-api-2oo7qbkd5q-uc.a.run.app/app/>
+- 固定 preview App：<https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/>
+
+固定 preview 是現有 `janus-api` Service 的 `preview` traffic tag URL，**不是**會隨每次 SHA 改變的 `ghcr-<SHA>` 候選 URL，也不是 MCP OAuth issuer／resource 的替代來源。上述 URL 是**固定預定入口契約**，不代表本次已驗證 live tag 存在或可用。正式與 preview 的 Web OAuth **origin** 分別為對應 HTTPS host 的 `scheme://host`（不帶 `/app/`）；Google 允許的 authorized origins／redirect URIs 須以目前 OAuth client、登入實際使用的 redirect callback 與 Cloud Run runtime 設定核對，**不得把 App URL 路徑誤當 callback**。
+
+**OAuth 設定一次、路由版本可反覆更新：**當上述固定來源及實際登入所需的 callback 路徑已依 Google Auth Platform／Janus OAuth client 正式設定且驗證通過後，後續僅把 `preview` tag 從一個已驗證的 revision 移到另一個，**不得因此重設 OAuth client、重新建立同一組 redirect URI、修改既有 Secret／issuer、MCP resource URL 或要求使用者重新 consent**。若本次版本真的**變更 callback contract／OAuth client／issuer／scope**，應列為獨立授權與相容性驗收，不是假借例行 preview 發布直接改 OAuth。
+
+MCP Google callback 繼續依既有固定 issuer 的 `/oauth/google/callback` 路徑（目前 issuer 由 `mcp-oauth` tagged endpoint 表示），MCP resource 由既有 `mcp-adapter` tag 指向；既有 Codex Desktop loopback `http://127.0.0.1:<port>/callback` 只用於 Janus → Codex，不應寫入 Google OAuth redirect allowlist。更新 `preview` **不得**改動 `mcp-oauth`／`mcp-adapter` 標籤或這些固定 callback／issuer 來源。
+
+每次 preview 更新的驗收，先在原 0% candidate 驗證 `/app/build-id.txt` **完全等於本次 40 字元來源 SHA**，完成候選適用的 OAuth metadata／redirect、未登入拒絕等既有 gates，才可更新 tag；更新後對固定 preview URL 再次確認 SHA、登入流程所需 metadata／授權邊界，並核對 canonical traffic 及其他 tag 未變。**僅負向 auth／metadata PASS 不等於真實 Google 登入、owner A/B isolation、MCP／PnL 或正式發布驗收 PASS。**失敗保留上一個已驗證 preview；更新後失敗須恢復上一個 revision 並 readback，恢復不明標明 BLOCKED。完整流程、lease／receipt 與目前未實作的固定 preview tag gate 見 [部署 runbook](runbook-dev-deploy.md#311-固定-app-preview-網址與發佈規則已核准規則自動化尚有缺口)。
+
 ### Codex Desktop 的本機 MCP callback
 
 Codex OAuth client 為 `https://chatgpt.com/oauth/codex/client.json`；本機 callback 為 `http://127.0.0.1:<port>/callback`，未固定設定時 port 由 OS 選擇。Janus 修正限定此精確 client 才可使用 IPv4 loopback callback，要求合法明確 port 與精確 `/callback`，拒絕其他 hostname、userinfo、query、fragment 與路徑。Authorization 與 token exchange 使用同一檢查，authorization code 仍綁定原始 callback／client／resource 與 S256 PKCE。
