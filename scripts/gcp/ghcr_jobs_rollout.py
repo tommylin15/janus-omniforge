@@ -272,11 +272,17 @@ def release_rollback_mode(request, source_sha):
             or not isinstance(expected, dict)
             or set(expected) != {name for name, _ in JOB_COMPONENT}):
         raise ValueError("reversible_ghcr_baseline_invalid")
+    hashes = request.get("rollback_config_hashes")
+    if not isinstance(hashes, dict) or set(hashes) != set(expected):
+        raise ValueError("reversible_ghcr_config_fingerprints_missing")
     for name, component in JOB_COMPONENT:
         image_ref = expected[name]
         if (not isinstance(image_ref, str)
                 or not re.fullmatch(rf"ghcr\.io/tommylin15/janus-{component}@sha256:[0-9a-f]{{64}}", image_ref)):
             raise ValueError("reversible_ghcr_image_identity_invalid")
+        if (not isinstance(hashes[name], str)
+                or not re.fullmatch(r"[0-9a-f]{64}", hashes[name])):
+            raise ValueError("reversible_ghcr_config_fingerprint_invalid")
     return mode
 
 
@@ -287,6 +293,8 @@ def verify_reversible_baseline(request, before):
         expected = request["rollback_images"][name]
         if image(before[name]) != expected:
             raise ValueError("rollback_baseline_runtime_drift")
+        if fingerprint(before[name]) != request["rollback_config_hashes"][name]:
+            raise ValueError("rollback_baseline_config_drift")
         manifest = json.loads(command(["skopeo", "inspect", "--no-creds", "docker://" + expected]))
         if (manifest.get("Digest") != expected.rsplit("@", 1)[-1]
                 or manifest.get("Labels", {}).get("org.opencontainers.image.revision") != source_sha):
