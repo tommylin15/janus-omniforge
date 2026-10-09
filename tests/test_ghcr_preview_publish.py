@@ -158,4 +158,5 @@ def test_same_verified_sha_is_read_only_idempotent_retry(tmp_path):
     assert result["phase"]=="VERIFIED_FIXED_PREVIEW_IDEMPOTENT"
     assert result["preview_tag_mutation_attempted"] is False
     assert result["lease_released"] is True
-    assert cmd.call_count==3
+    assert cmd.call_count==4  # acquire, assert (before), assert (after), release
+    assert all("update-traffic" not in " ".join(call.args[0]) for call in cmd.call_args_list)
