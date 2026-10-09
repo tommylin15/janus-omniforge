@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 import re
 import sys
+import time
 
 import ghcr_api_promote as api
 import ghcr_jobs_rollout as jobs
@@ -56,6 +57,22 @@ def assert_original_lease():
     return owned
 
 
+
+def wait_for_terminal_executions(timeout_seconds=720, poll_seconds=25):
+    """Never cancel/retry a real Job; bound waiting for a scheduled execution."""
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        try:
+            jobs.fence()
+            return
+        except ValueError as error:
+            if str(error) != "execution_not_terminal":
+                raise
+            if time.monotonic() >= deadline:
+                raise ValueError("execution_still_active_after_bounded_wait") from None
+            time.sleep(poll_seconds)
+
+
 def verify_current():
     api.acceptance(SHA)
     approved = api.check_forward_promotion_request(RELEASE, JOBS_RUN, SHA)
@@ -63,7 +80,16 @@ def verify_current():
     api.check_jobs_receipt(receipt, SHA)
     if receipt.get("phase") != "FORWARD_ONLY_PASS_WITH_PRIVATE_CONFIG_UNVERIFIED":
         raise ValueError("jobs_forward_receipt_not_matching")
-    api.verify_forward_runtime(approved)
+    # The live :30 scheduler can start a legitimate execution while the
+    # release lease is held. Do not cancel or re-run it. Verify all other
+    # runtime invariants again after the bounded wait.
+    try:
+        api.verify_forward_runtime(approved)
+    except ValueError as error:
+        if str(error) != "execution_not_terminal":
+            raise
+        wait_for_terminal_executions()
+        api.verify_forward_runtime(approved)
     current = describe()
     if api.active(current) != CANDIDATE:
         raise ValueError("api_ghcr_not_at_100_percent")
