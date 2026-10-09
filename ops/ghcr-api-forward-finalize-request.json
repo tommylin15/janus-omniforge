@@ -8,6 +8,6 @@
   "no_old_ar_revision_rollback": true,
   "private_job_config_parity": "NOT_VERIFIED",
   "authorization": "User previously explicitly directed to proceed with newest GHCR version and skip unusable legacy rollback; no broad IAM and no new paid resources",
-  "safety": "Previous finalize #37937458162 blocked without mutation due to live scheduled execution_not_terminal; bounded read-only wait and verification, no cancel/re-run, no old rollback; release only exact original owner lease after PASS",
-  "attempt": 2
+  "safety": "After CI #37941740454 PASS, retry original-owner-only locked readback with reconciled service Ready variant; explicit NotReady and stale generation fail closed; no traffic write, Job rerun, cancellation, forced lease release, or legacy rollback.",
+  "attempt": 3
 }
