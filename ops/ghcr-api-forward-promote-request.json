@@ -1,0 +1,19 @@
+{
+  "intent": "promote-existing-dev-ghcr-api-after-forward-jobs",
+  "approved": true,
+  "scope": "existing-dev-janus-api-only",
+  "source_sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
+  "release_run": "37876247130",
+  "jobs_run": "37915584159",
+  "private_config_parity": "NOT_VERIFIED",
+  "authorization": "User requested continuing current dev GHCR CI/CD rollout after direct evidence of 8 PASS Jobs canaries and 2026-10-09 GCP readback",
+  "safety": "Exact immutable GHCR digest readback for four Jobs; Research unchanged; scheduler enabled; accepted API candidate; explicit traffic rollback rehearsal; no project-wide IAM or old AR Job-image rollback",
+  "job_images": {
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:fb29125f8f2645a4e2243aefd10f7044b95e275790845468c6d0f898d672ac7a",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:36d0fdd5e28cdc1ed4471d338473f16687a74af288d0a2d7b713d67708650521",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:5f384ae139c085f345ecf6e65ae541bc2b037e3b48a6e6d2ac5c742d9d4dadd0",
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:5f384ae139c085f345ecf6e65ae541bc2b037e3b48a6e6d2ac5c742d9d4dadd0"
+  },
+  "research_image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/research-cloud-cohort-500@sha256:7320443730ff487315211710612216e044cd453388622fc852d3cdd081201f59",
+  "attempt": 1
+}
