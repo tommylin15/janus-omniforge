@@ -137,6 +137,28 @@ def test_non_mutating_preflight_failure_is_not_recovered_twice():
     assert journal["phase"] in {"PASS", "RESTORED", "PREFLIGHT_BLOCKED_NO_MUTATION"}
 
 
+@pytest.mark.parametrize("message,code", [
+    ("PERMISSION_DENIED: blocked", "job_update_permission_denied"),
+    ("Not Found in registry", "job_update_image_or_job_not_found"),
+    ("Failed to import image manifest", "job_update_registry_import_failed"),
+    ("Invalid container configuration", "job_update_invalid_configuration"),
+    ("opaque failure", "job_update_unknown_rejection"),
+])
+def test_job_update_failure_is_classified_without_gcloud_sensitive_output(message, code):
+    from types import SimpleNamespace
+    data = sample()
+    target = "ghcr.io/tommylin15/new@sha256:" + "b" * 64
+    with patch.object(rollout, "writers"), patch.object(rollout, "scheduler", return_value={"state": "PAUSED"}), \
+         patch.object(rollout, "fence"), patch.object(rollout, "job", return_value=data), \
+         patch.object(rollout, "subprocess") as sub, \
+         patch.object(rollout, "checked_image") as readback:
+        sub.run.return_value = SimpleNamespace(returncode=1, stderr=message+" private=secret", stdout="")
+        with pytest.raises(RuntimeError, match=code) as exc:
+            rollout.update("janus-private-pipeline", target, rollout.fingerprint(data))
+    assert "private=secret" not in str(exc.value)
+    readback.assert_not_called()
+
+
 def test_forward_only_authorization_must_be_explicit_before_release_commands():
     sha = "a" * 40
     request = {"intent": "approved-dev-ghcr-jobs-rollout", "approved": True,
