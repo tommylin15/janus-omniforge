@@ -172,7 +172,7 @@ def test_forward_only_authorization_must_be_explicit_before_release_commands():
         return json.dumps(request)
 
     with patch.object(rollout.Path, "read_text", load), patch.object(rollout, "command") as command:
-        with pytest.raises(ValueError, match="forward_only_user_authorization_missing"):
+        with pytest.raises(ValueError, match="forward_only_waiver_not_valid_for_new_source"):
             rollout.run("123", Path("/tmp/test-rollout-receipt.json"))
     command.assert_not_called()
 
