@@ -125,3 +125,24 @@ def test_previous_revision_not_ready_blocks_before_registry_probe():
         with pytest.raises(ValueError,match="previous_ghcr_revision_not_ready"):
             promote.verify_previous_ghcr_rollback(service,"a"*40)
     cmd.assert_called_once()
+
+
+def test_previous_baseline_is_versioned_and_ancestor_checked():
+    import json
+    baseline={"status":"VERIFIED_PUBLIC_GHCR_ROLLBACK_BASELINE",
+              "source_sha":"a"*40,
+              "api_image":"ghcr.io/tommylin15/janus-api@sha256:"+"b"*64,
+              "private_historical_config_parity":"NOT_VERIFIED",
+              "old_ar_rollback_exercised":False}
+    with patch.object(promote.Path,"read_text",return_value=json.dumps(baseline)), \
+         patch.object(promote,"command") as cmd:
+        assert promote.approved_previous_baseline("c"*40) == baseline
+    cmd.assert_called_once_with(["git","merge-base","--is-ancestor","a"*40,"c"*40])
+    for change in ({"status":"PASS"}, {"source_sha":"c"*40},
+                   {"api_image":"us-docker.pkg.dev/old"}, {"old_ar_rollback_exercised":True}):
+        bad={**baseline,**change}
+        with patch.object(promote.Path,"read_text",return_value=json.dumps(bad)), \
+             patch.object(promote,"command") as cmd:
+            with pytest.raises(ValueError,match="approved_ghcr_baseline_missing"):
+                promote.approved_previous_baseline("c"*40)
+        cmd.assert_not_called()
