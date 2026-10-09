@@ -292,18 +292,18 @@ def run(release_run, receipt):
         set_scheduler("pause", "PAUSED")
         writers()
         fence()
-        for name, _ in JOB_COMPONENT:
-            snap = journal["snapshots"][name]
-            journal["phase"] = "REHEARSAL"
-            save()
-            update(name, targets[name], snap["configuration_hash"])
-            canary(name, targets[name], snap["configuration_hash"], journal, save)
-            update(name, snap["image"], snap["configuration_hash"])
-        journal["phase"] = "ROLLBACK_REHEARSAL_PASS"
+        # Two independent bounded real canaries per target, without trying
+        # to restore the unavailable legacy AR images in between.
+        journal["phase"] = "FORWARD_ONLY_FIRST_CANARY"
         save()
         for name, _ in JOB_COMPONENT:
             snap = journal["snapshots"][name]
             update(name, targets[name], snap["configuration_hash"])
+            canary(name, targets[name], snap["configuration_hash"], journal, save)
+        journal["phase"] = "FORWARD_ONLY_SECOND_CANARY"
+        save()
+        for name, _ in JOB_COMPONENT:
+            snap = journal["snapshots"][name]
             canary(name, targets[name], snap["configuration_hash"], journal, save)
         for name in REQUIRED_JOBS:
             snap = journal["snapshots"][name]
@@ -313,6 +313,7 @@ def run(release_run, receipt):
             raise ValueError("scheduler_configuration_drift")
         set_scheduler("resume", "ENABLED")
         journal["phase"] = "PASS"
+        journal["old_image_rollback_exercised"] = False
         save()
         safe = True
     except Exception:
