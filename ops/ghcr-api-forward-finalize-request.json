@@ -1,0 +1,13 @@
+{
+  "intent": "finalize-serving-ghcr-api-forward-only",
+  "approved": true,
+  "scope": "existing-dev-janus-api-only",
+  "source_sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
+  "failed_promotion_run": "37936648808",
+  "failed_promotion_head": "4d6bb78d888e1a04fab1ad4d7492c30d5c61e05b",
+  "no_old_ar_revision_rollback": true,
+  "private_job_config_parity": "NOT_VERIFIED",
+  "authorization": "User previously explicitly directed to proceed with newest GHCR version and skip unusable legacy rollback; no broad IAM and no new paid resources",
+  "safety": "Release only the original failed owner Git tag after independently verifying serving GHCR immutable digest, authenticated boundary, ready/health, eight canary proof, Scheduler ENABLED and all Jobs; no Cloud Run traffic updates",
+  "attempt": 1
+}
