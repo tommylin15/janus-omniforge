@@ -8,6 +8,6 @@
   "no_old_ar_revision_rollback": true,
   "private_job_config_parity": "NOT_VERIFIED",
   "authorization": "User previously explicitly directed to proceed with newest GHCR version and skip unusable legacy rollback; no broad IAM and no new paid resources",
-  "safety": "Diagnostic retry after selective CI #37942254327 PASS; collect only allowlisted Ready/status/reason enums, no payload; original owner lease must be valid; fail closed and retain lease when not ready; no traffic/Job/Scheduler writes.",
-  "attempt": 4
+  "safety": "Safe read-only recheck after #37942753264 PASS to distinguish legacy AR service template from GHCR; retain original owner lease when service Ready=False; no traffic mutation, no job rerun.",
+  "attempt": 5
 }
