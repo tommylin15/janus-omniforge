@@ -1,0 +1,21 @@
+{
+  "intent": "resume-stalled-forward-only-ghcr-jobs",
+  "approved": true,
+  "source_sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
+  "project": "gen-lang-client-0593591102",
+  "region": "us-central1",
+  "failed_run": "37913564122",
+  "failed_run_sha": "2b4607481e41e2789a6c05aee0e085272e244a5e",
+  "failed_attempt": 1,
+  "scope": "four-existing-dev-jobs-only",
+  "authorization": "User expressly approved deploying latest GHCR Jobs without old AR rollback and later approved single-service-account IAM grant",
+  "keep_scheduler_paused_on_partial": true,
+  "original_job_hashes": {
+    "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
+    "janus-ingestion-core": "d088fa1e5afaf150f1b89e24a409401aec6a19988ea8adda90eb5f0925e963f4",
+    "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
+    "janus-private-pipeline": "4ebd16deaaff29c6c6aa6688ce0ffedeefbdc4afeb08dc9ef4ff02caebe953f7",
+    "janus-research-big-move-500": "9dd3b083c6cf01faceb3766c14f3173e746e7dce4a88b2590c4b74095db585cf"
+  },
+  "scheduler_hash": "830859868274a5761bd934492ede934e3b4d3cda07355fcd13449d213ada8299"
+}
