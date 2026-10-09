@@ -8,6 +8,6 @@
   "no_old_ar_revision_rollback": true,
   "private_job_config_parity": "NOT_VERIFIED",
   "authorization": "User previously explicitly directed to proceed with newest GHCR version and skip unusable legacy rollback; no broad IAM and no new paid resources",
-  "safety": "Release only the original failed owner Git tag after independently verifying serving GHCR immutable digest, authenticated boundary, ready/health, eight canary proof, Scheduler ENABLED and all Jobs; no Cloud Run traffic updates",
-  "attempt": 1
+  "safety": "Previous finalize #37937458162 blocked without mutation due to live scheduled execution_not_terminal; bounded read-only wait and verification, no cancel/re-run, no old rollback; release only exact original owner lease after PASS",
+  "attempt": 2
 }
