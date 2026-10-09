@@ -116,3 +116,32 @@ def test_runtime_identity_actas_probe_reports_only_job_names_not_identity_or_tok
     assert outcome["identities"]["reason_code"] == "runtime_identity_actas_missing_or_unknown"
     assert outcome["identities"]["jobs"] == [one[0][0]]
     assert "some-identity" not in str(outcome) and "secret-token" not in str(outcome)
+
+def test_private_config_drift_detects_platform_annotation_without_private_values():
+    import json
+    from copy import deepcopy
+    before = {"template": {"template": {"containers": [
+        {"image": "ghcr.io/example@sha256:" + "a" * 64,
+         "env": [{"name": "SECRET", "value": "do-not-disclose"}]}]}},
+        "labels": {}, "annotations": {}}
+    old = preflight.rollout.fingerprint(before)
+    after = deepcopy(before)
+    after["template"]["template"]["annotations"] = {
+        "run.googleapis.com/client-source": "gcloud"}
+    req = {"investigate_ghcr_config_drift": True,
+           "private_pipeline_preupdate_hash": old}
+    with patch.object(preflight.Path, "read_text", return_value=json.dumps(req)), \
+         patch.object(preflight.rollout, "job", return_value=after):
+        evidence = preflight.diagnose_private_config_fingerprint()
+    assert evidence["image_source"] == "ghcr"
+    assert evidence["original_fingerprint_matches"] is False
+    assert "platform_metadata" in evidence["single_field_deletion_categories_matching_baseline"]
+    assert evidence["gcp_writes"] == 0
+    assert "do-not-disclose" not in json.dumps(evidence)
+
+
+def test_private_config_drift_is_skipped_without_explicit_request():
+    with patch.object(preflight.Path, "read_text", return_value='{"attempt": 8}'), \
+         patch.object(preflight.rollout, "job") as job:
+        assert preflight.diagnose_private_config_fingerprint() is None
+    job.assert_not_called()
