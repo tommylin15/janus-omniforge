@@ -1,0 +1,64 @@
+name: Janus GHCR controlled forward-only API promotion
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/ghcr-api-forward-promote-request.json'
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_RUN: '37876247130'
+      JOBS_RUN: '37915584159'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact bounded approved dev request and promotion contracts
+        run: |
+          set -Eeuo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          jq -e --arg release "${RELEASE_RUN}" --arg jobs "${JOBS_RUN}" \
+            '.intent=="promote-existing-dev-ghcr-api-after-forward-jobs" and
+             .approved==true and .scope=="existing-dev-janus-api-only" and
+             .release_run==$release and .jobs_run==$jobs and
+             .private_config_parity=="NOT_VERIFIED"' \
+            ops/ghcr-api-forward-promote-request.json >/dev/null
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_ghcr_api_promote.py \
+            tests/test_ghcr_api_forward_promote.py tests/test_ghcr_jobs_rollout.py tests/test_ghcr_release_lease.py
+      - name: Load exact forward-only GHCR Jobs success receipt
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/ghcr-jobs-proof
+          gh run download "${JOBS_RUN}" -n ghcr-jobs-forward-recovery -D /tmp/ghcr-jobs-proof
+          test -s /tmp/ghcr-jobs-proof/ghcr-jobs-forward-recovery.json
+          mv /tmp/ghcr-jobs-proof/ghcr-jobs-forward-recovery.json /tmp/ghcr-jobs-proof/ghcr-jobs-rollout.json
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Rehearse revision rollback and promote exact GHCR API candidate
+        run: |
+          python scripts/gcp/ghcr_api_promote.py \
+            --release-run "${RELEASE_RUN}" --jobs-run "${JOBS_RUN}" \
+            --forward-recovery --receipt /tmp/ghcr-api-forward-promote.json
+      - name: Preserve sanitized actual traffic and rollback receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghcr-api-forward-promotion-receipt
+          path: /tmp/ghcr-api-forward-promote.json
+          if-no-files-found: ignore
+          retention-days: 14
