@@ -70,9 +70,9 @@ def test_workflow_is_explicit_preflight_and_has_no_mutating_release_step():
 def test_rollback_image_diagnostics_never_expose_registry_error_or_secret():
     from types import SimpleNamespace
     original = preflight.rollout.REQUIRED_JOBS
-    with patch.object(preflight.rollout, "REQUIRED_JOBS", original[:1]), \\
+    with patch.object(preflight.rollout, "REQUIRED_JOBS", original[:1]), \
          patch.object(preflight.rollout, "job", return_value={"template": {"template": {"containers": [
-             {"image": "us-central1-docker.pkg.dev/example/repo/image@sha256:" + "a" * 64}]}}}), \\
+             {"image": "us-central1-docker.pkg.dev/example/repo/image@sha256:" + "a" * 64}]}}}), \
          patch.object(preflight.subprocess, "run", return_value=SimpleNamespace(
              returncode=1, stdout="", stderr="PERMISSION_DENIED token=do-not-disclose")) as cli:
         outcome = {}
@@ -86,9 +86,9 @@ def test_rollback_image_diagnostics_never_expose_registry_error_or_secret():
 def test_all_rollback_images_require_nonempty_registry_digest_readback():
     from types import SimpleNamespace
     only = preflight.rollout.REQUIRED_JOBS[:1]
-    with patch.object(preflight.rollout, "REQUIRED_JOBS", only), \\
+    with patch.object(preflight.rollout, "REQUIRED_JOBS", only), \
          patch.object(preflight.rollout, "job", return_value={"template": {"template": {"containers": [
-             {"image": "ghcr.io/test/image@sha256:" + "a" * 64}]}}}), \\
+             {"image": "ghcr.io/test/image@sha256:" + "a" * 64}]}}}), \
          patch.object(preflight.subprocess, "run", return_value=SimpleNamespace(
              returncode=0, stdout="", stderr="")):
         with pytest.raises(preflight.RollbackImageBlocked, match="ROLLBACK_IMAGE_NO_DIGEST_READBACK"):
