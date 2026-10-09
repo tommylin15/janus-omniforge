@@ -1,4 +1,25 @@
-# Janus CI/CD GHCR cutover — 2026-10-08 進度（PARTIAL）
+# Janus CI/CD GHCR cutover — 2026-10-09 最新進度（PARTIAL）
+
+## 2026-10-09 最新驗收檢查點（優先於下方歷史快照）
+
+**完成度：PARTIAL，正式切流／Jobs GHCR 切換／舊資產清理均未完成。** 以下是已驗證的最新狀態，舊段落中「9 筆未終態」及「5 個 blocker」是當時 V1 證據，不再代表目前判定。
+
+| 驗收項目 | 最新可追溯證據 | 結果 |
+| --- | --- | --- |
+| 最新 CI 修正回歸 | [Selective CI #37861956147](https://github.com/tommylin15/janus-omniforge/actions/runs/37861956147)，原始碼 SHA `84eba9ad09a4090c1f91f3ff598554764e97fefc` | **SUCCESS** |
+| GHCR Jobs 合約與安全測試 | [Gate #37861956130](https://github.com/tommylin15/janus-omniforge/actions/runs/37861956130) 的 `guard-tests` | **86 PASS** |
+| GHCR Jobs 真實唯讀閘門 | 同一 run 的 `live-readback` | **BLOCKED / exit 78（預期）**；`automatic_apply=false`、`resource_writes=0` |
+| 9 筆 Private Pipeline 歷史 execution | [Cloud Run v2 #37860818817](https://github.com/tommylin15/janus-omniforge/actions/runs/37860818817)＋[#37861956130](https://github.com/tommylin15/janus-omniforge/actions/runs/37861956130) 同輪 V1／tasks／V2 再驗 | **9/9 已證明是 terminal FAILED，0 tasks**；`historical_failed_pretask_terminal_count=9`，**絕非 9 筆成功處理**；原 `execution_janus-private-pipeline_unfenced` 已解除 |
+| 四個 Jobs image-only GHCR 替換／倒序 rollback | 同一 Jobs gate 計畫 | **`change_count=4`，僅 dry-run；未更新 Job images** |
+| API GHCR 0% 候選與正式流量 | [候選 #37800990316](https://github.com/tommylin15/janus-omniforge/actions/runs/37800990316)＋[同 SHA 冪等重試 #37803140112](https://github.com/tommylin15/janus-omniforge/actions/runs/37803140112)；[Revision 唯讀快照 #37808487569](https://github.com/tommylin15/janus-omniforge/actions/runs/37808487569) | 候選 `janus-api-00448-vir` 0%，上次驗證原 AR `janus-api-g53d655ccb108-config` 100%；**未執行正式切流／回滾** |
+| 公開 GHCR 四映像 | [Full GHCR #37800085219](https://github.com/tommylin15/janus-omniforge/actions/runs/37800085219)，部署來源 SHA `8f6e7891e280cd021e25e1f036acedc28e3dbcec` | Build／匿名 digest gate PASS；**不等於後續 main 的所有程式已重新部署** |
+| Revisions／AR／GCS 清理 | [Revision 預覽 #37808487569](https://github.com/tommylin15/janus-omniforge/actions/runs/37808487569) | 當時 413 版、19 個引用保護、388 暫估未引用；`revisions_to_delete_now=0`，**尚未清理** |
+
+**仍需完成的四個 Jobs 發布安全閘門（本次 live readback）：** `scheduler_still_enabled`、`durable_deployment_mutex_unverified`、`authenticated_acceptance_unverified`、`rollback_procedure_unverified`。Scheduler 短暫 pause/resume 與 GitHub global lease 的個別演練雖通過，**不等於 Jobs 長時間 rollout 與跨 legacy Cloud Build writer 互斥已驗收**。真實 owner Google OAuth callback／MCP／PnL parity／隔離也未以登入身分驗收。
+
+**後續順序：** owner authenticated candidate acceptance → Jobs release mutex／scheduler PAUSED fence／rollback drill → 四 Jobs GHCR 部署及 live readback → API 100% 切流／回滾驗收 → 確認 Janus 舊 Trigger 已停用 → 重新盤點 AR／GCS／Revisions 並只清理確定無依賴的 CI/CD 資產。Cloud Build Trigger 停用狀態須重新讀取，不以歷史盤點或人工敘述推定；不得碰 PostgreSQL 備份、Iceberg、應用程式資料或其他系統資源。
+
+## 歷次 CI/CD 驗收紀錄（以下為發生當時的快照）
 
 - **Actions／GHCR 發布 PASS：** [#37769572546](https://github.com/tommylin15/janus-omniforge/actions/runs/37769572546)，來源 SHA `0b93d99d42aaff662a3408d749d70aa9d04b1042`，Python **623 PASS / 2 deselected**、Flutter analyze／test／Web build PASS；四個 image build／push＋GHCR 匿名 digest readback PASS。另有五個已刪除的 legacy Web module 測試明確 ignore，不將它們包裝成 PASS。
 - **Cloud Run API 0% 候選 PASS：** [#37771247779](https://github.com/tommylin15/janus-omniforge/actions/runs/37771247779)。現有 `janus-api` 新 Revision `janus-api-00446-luq` 已由 GitHub Actions 的固定 GHCR digest 部署，0% 正式流量；health、unauthenticated guard、Flutter SHA identity PASS。原 100% 仍為 `janus-api-g53d655ccb108-config`，尚未 promote。
