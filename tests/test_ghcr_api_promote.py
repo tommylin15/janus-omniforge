@@ -63,7 +63,6 @@ def test_switch_checks_traffic_and_preserves_all_tags():
                                        {"revisionName": "candidate", "tag": "ghcr-accepted", "percent": 0}]}}
     changed = deepcopy(baseline)
     changed["status"]["traffic"][0].update(revisionName="candidate")
-    changed["status"]["traffic"][1].update(revisionName="old")
     changed["status"]["conditions"] = [{"type": "Ready", "status": "True"}]
     with patch.object(promote, "command") as cmd, patch.object(promote, "describe", return_value=changed):
         promote.switch("candidate", baseline)
