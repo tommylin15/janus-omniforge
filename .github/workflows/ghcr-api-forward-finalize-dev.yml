@@ -1,0 +1,47 @@
+name: Janus GHCR API forward-only live finalize
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/ghcr-api-forward-finalize-request.json'
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test owner-only lease recovery and readback guard
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_ghcr_api_forward_finalize.py tests/test_ghcr_api_forward_promote.py tests/test_ghcr_release_lease.py
+      - name: Download exact forward-only Jobs receipt
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/ghcr-jobs-proof
+          gh run download 37915584159 -n ghcr-jobs-forward-recovery -D /tmp/ghcr-jobs-proof
+          test -s /tmp/ghcr-jobs-proof/ghcr-jobs-forward-recovery.json
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Verify actual GHCR 100 percent health, Jobs, owner fence and release original lease
+        run: python scripts/gcp/ghcr_api_forward_finalize.py --receipt /tmp/ghcr-api-forward-finalize.json
+      - name: Retain sanitized finalization evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghcr-api-forward-finalize-receipt
+          path: /tmp/ghcr-api-forward-finalize.json
+          if-no-files-found: ignore
+          retention-days: 14
