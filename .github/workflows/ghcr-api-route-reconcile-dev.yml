@@ -1,0 +1,47 @@
+name: Janus GHCR API same-revision routing repair
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/ghcr-api-route-reconcile-request.json'
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify same-revision route repair safety tests
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_ghcr_api_route_reconcile.py tests/test_ghcr_api_forward_finalize.py tests/test_ghcr_api_forward_promote.py tests/test_ghcr_release_lease.py
+      - name: Download exact successful GHCR Jobs recovery proof
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/ghcr-jobs-proof
+          gh run download 37915584159 -n ghcr-jobs-forward-recovery -D /tmp/ghcr-jobs-proof
+          test -s /tmp/ghcr-jobs-proof/ghcr-jobs-forward-recovery.json
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Reassert exact serving GHCR revision after owner lease validation
+        run: python scripts/gcp/ghcr_api_route_reconcile.py --receipt /tmp/ghcr-api-route-reconcile.json
+      - name: Keep non-sensitive repair evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghcr-api-route-reconcile-receipt
+          path: /tmp/ghcr-api-route-reconcile.json
+          if-no-files-found: ignore
+          retention-days: 14
