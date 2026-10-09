@@ -9,6 +9,7 @@ import re
 
 from collections import Counter
 
+import ghcr_jobs_rollout as jobs
 from ghcr_jobs_rollout import acceptance, JOB_COMPONENT, REQUIRED_JOBS
 from ghcr_mcp_route import BASE, PROJECT, REGION, SERVICE, LEASE, command, describe, request, probe
 
@@ -48,14 +49,24 @@ def health(sha):
 
 
 def check_jobs_receipt(proof, source_sha):
-    if proof.get("source_sha") != source_sha or proof.get("phase") != "PASS":
+    if proof.get("source_sha") != source_sha:
         raise ValueError("jobs_receipt_not_matching_release")
-    snapshots = proof.get("snapshots")
-    if not isinstance(snapshots, dict) or set(snapshots) != set(REQUIRED_JOBS):
-        raise ValueError("jobs_snapshot_coverage_incomplete")
-    for snapshot in snapshots.values():
-        if not isinstance(snapshot, dict) or not snapshot.get("image") or not snapshot.get("configuration_hash"):
-            raise ValueError("jobs_snapshot_incomplete")
+    if proof.get("phase") == "PASS":
+        snapshots = proof.get("snapshots")
+        if not isinstance(snapshots, dict) or set(snapshots) != set(REQUIRED_JOBS):
+            raise ValueError("jobs_snapshot_coverage_incomplete")
+        for snapshot in snapshots.values():
+            if not isinstance(snapshot, dict) or not snapshot.get("image") or not snapshot.get("configuration_hash"):
+                raise ValueError("jobs_snapshot_incomplete")
+    elif proof.get("phase") == "FORWARD_ONLY_PASS_WITH_PRIVATE_CONFIG_UNVERIFIED":
+        if (proof.get("mode") != "user_authorized_forward_only_owner_recovery"
+                or proof.get("scheduler_resumed") is not True
+                or proof.get("original_private_full_config_verified") is not False
+                or proof.get("old_ar_image_rollback_exercised") is not False
+                or proof.get("job_images") != {name: "GHCR" for name, _ in JOB_COMPONENT}):
+            raise ValueError("forward_jobs_receipt_not_accepted")
+    else:
+        raise ValueError("jobs_receipt_not_matching_release")
     rows = proof.get("canaries")
     expected = Counter({name: 2 for name, _ in JOB_COMPONENT})
     if not isinstance(rows, list) or len(rows) != sum(expected.values()):
@@ -69,11 +80,54 @@ def check_jobs_receipt(proof, source_sha):
         raise ValueError("jobs_canary_execution_duplicated")
 
 
-def promote(release_run, jobs_run, receipt):
+def check_forward_promotion_request(release_run, jobs_run, sha):
+    """Explicit, bounded forward-only Jobs acceptance: never claim private config parity."""
+    data = json.loads(Path("ops/ghcr-api-forward-promote-request.json").read_text())
+    if (data.get("intent") != "promote-existing-dev-ghcr-api-after-forward-jobs"
+            or data.get("approved") is not True
+            or data.get("scope") != "existing-dev-janus-api-only"
+            or data.get("source_sha") != sha
+            or data.get("release_run") != release_run
+            or data.get("jobs_run") != jobs_run
+            or data.get("private_config_parity") != "NOT_VERIFIED"):
+        raise ValueError("forward_api_request_unapproved")
+    images = data.get("job_images")
+    if not isinstance(images, dict) or set(images) != {name for name, _ in JOB_COMPONENT}:
+        raise ValueError("forward_job_images_missing")
+    for name, component in JOB_COMPONENT:
+        expected = images[name]
+        if not isinstance(expected, str) or not re.fullmatch(
+                rf"ghcr\.io/tommylin15/janus-{component}@sha256:[0-9a-f]{{64}}", expected):
+            raise ValueError("forward_job_image_invalid")
+    if data.get("research_image") != (
+            "us-central1-docker.pkg.dev/gen-lang-client-0593591102/"
+            "janusai-poc/research-cloud-cohort-500@sha256:"
+            "7320443730ff487315211710612216e044cd453388622fc852d3cdd081201f59"):
+        raise ValueError("research_baseline_changed")
+    return data
+
+
+def verify_forward_runtime(data):
+    """API traffic cannot change when current GHCR jobs/scheduled ingestion are unsafe."""
+    jobs.legacy_writers()
+    if jobs.scheduler()["state"] != "ENABLED":
+        raise ValueError("scheduler_not_enabled_for_api_promotion")
+    jobs.fence()
+    for name, image in data["job_images"].items():
+        if jobs.image(jobs.job(name)) != image:
+            raise ValueError("forward_job_digest_live_mismatch")
+    if jobs.image(jobs.job("janus-research-big-move-500")) != data["research_image"]:
+        raise ValueError("protected_research_job_drift")
+
+
+def promote(release_run, jobs_run, receipt, forward_recovery=False):
     sha = json.loads(Path("ops/ghcr-candidate-request.json").read_text())["sha"]
     acceptance(sha)
+    if forward_recovery:
+        forward_request = check_forward_promotion_request(release_run, jobs_run, sha)
     for run, expected in ((release_run, "Janus GHCR full-test image publication"),
-                          (jobs_run, "Janus GHCR controlled Jobs rollout")):
+                          (jobs_run, ("Janus fenced forward-only GHCR Jobs recovery"
+                                      if forward_recovery else "Janus GHCR controlled Jobs rollout"))):
         metadata = json.loads(command(["gh", "run", "view", run, "--json", "headSha,conclusion,status,workflowName"]))
         if metadata.get("status") != "completed" or metadata.get("conclusion") != "success" or metadata.get("workflowName") != expected:
             raise ValueError("release_or_jobs_gate_incomplete")
@@ -81,6 +135,12 @@ def promote(release_run, jobs_run, receipt):
             raise ValueError("release_sha_mismatch")
     jobs_receipt = json.loads(Path("/tmp/ghcr-jobs-proof/ghcr-jobs-rollout.json").read_text())
     check_jobs_receipt(jobs_receipt, sha)
+    if forward_recovery:
+        if jobs_receipt.get("phase") != "FORWARD_ONLY_PASS_WITH_PRIVATE_CONFIG_UNVERIFIED":
+            raise ValueError("wrong_forward_jobs_receipt")
+        verify_forward_runtime(forward_request)
+    elif jobs_receipt.get("phase") != "PASS":
+        raise ValueError("wrong_regular_jobs_receipt")
     if Path("ops/ghcr-last-success.json").exists():
         previous = json.loads(Path("ops/ghcr-last-success.json").read_text())
         if previous.get("result") == "PASS":
@@ -142,11 +202,12 @@ def main():
     parser.add_argument("--release-run", required=True)
     parser.add_argument("--jobs-run", required=True)
     parser.add_argument("--receipt", required=True, type=Path)
+    parser.add_argument("--forward-recovery", action="store_true")
     args = parser.parse_args()
     try:
         if not all(re.fullmatch(r"[0-9]+", run) for run in (args.release_run, args.jobs_run)):
             raise ValueError("invalid_run_identity")
-        promote(args.release_run, args.jobs_run, args.receipt)
+        promote(args.release_run, args.jobs_run, args.receipt, forward_recovery=args.forward_recovery)
         print(json.dumps({"result": "PASS"}))
         return 0
     except Exception as error:
