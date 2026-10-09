@@ -5,9 +5,9 @@
   "sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
   "release_run": "37876247130",
   "authorization": "User explicitly authorized deploying latest accepted GHCR Jobs even when legacy AR images cannot be recovered (2026-10-09)",
-  "safety": "Approved forward-only immutable GHCR cutover; retain Scheduler, lease, execution, IAM and two-canary fences; now with sanitized failure stage diagnosis",
+  "safety": "Forward-only approved; Cloud Run Job update stderr classified to sanitized reason; no old AR image rollback",
   "request_date": "2026-10-09",
   "rollback_mode": "user_authorized_forward_only",
   "accept_no_old_image_rollback": true,
-  "request_attempt": 3
+  "request_attempt": 4
 }
