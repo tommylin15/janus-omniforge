@@ -1,3 +1,11 @@
+## 2026-10-09 14:44 — 首輪 GHCR Jobs 控制發布失敗，回滾參考 registry 404
+
+[受控 rollout #37894368278](https://github.com/tommylin15/janus-omniforge/actions/runs/37894368278) 真正啟動了動態 lease 及 GCP live preflight，但在建立 rollback snapshot 時回報 `bounded_command_failed`。原始 sanitized receipt：`phase=RECOVERY_REQUIRED`、`snapshots={}`、`operations=[]`、`canaries=[]`，未執行 Job 更新、Scheduler pause、canary 或 API 切流。無 mutation 二次 recovery 造成獨立 step FAIL；修正程式 `d1bafec` 後，在修復前置條件前不重試 rollout。
+
+[後續 readback #37894638429](https://github.com/tommylin15/janus-omniforge/actions/runs/37894638429)、[#37894638468](https://github.com/tommylin15/janus-omniforge/actions/runs/37894638468) 證明五 Jobs 原 image 不變、Scheduler ENABLED、API 舊版 100%、所有可觀測 execution 終態、沒有競跑 Cloud Build。部署 lease 已釋放。
+
+[受控唯讀 registry 診斷 #37895003093](https://github.com/tommylin15/janus-omniforge/actions/runs/37895003093)：`five_rollback_images_registry_readable=BLOCKED`，`job=janus-batch-controller`，`reason_code=ROLLBACK_IMAGE_NOT_FOUND`。其他五 gate PASS。此為單一第一失敗 image 的讀回，並不代表全體 image 皆 NOT_FOUND；反而證明目前不能保證覆寫後可回復最初的 AR digest。不得假裝 Docs 或 test PASS 可以取代真實可讀 rollback。
+
 ## 2026-10-09 最新：GHCR Jobs live 只讀 preflight 五項 PASS（非 rollout）
 
 [新 read-only GitHub Actions #37892332681](https://github.com/tommylin15/janus-omniforge/actions/runs/37892332681) 在既有 dev WIF 驗證五個 gate 全 PASS：legacy Cloud Build writer 未競跑、唯一 Scheduler 原始狀態 ENABLED／拓樸吻合、五個 Jobs Ready、execution 全頁終態、既有 IAM 對四個目標 Job 更新及 `run.jobs.runWithOverrides` 等權限。20 tests PASS，`gcp_writes=0`，run UTC 約 06:13:20。
