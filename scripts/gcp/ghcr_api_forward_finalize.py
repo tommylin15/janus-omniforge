@@ -73,6 +73,40 @@ def wait_for_terminal_executions(timeout_seconds=720, poll_seconds=25):
             time.sleep(poll_seconds)
 
 
+
+def assert_ready_readback(service, revision):
+    """Fail closed on explicit NotReady, but support gcloud service JSON without
+    a Ready condition using reconciled generation, latestReady and live probes.
+    """
+    status = service.get("status")
+    meta = service.get("metadata")
+    rev_status = revision.get("status")
+    if not isinstance(status, dict) or not isinstance(meta, dict) or not isinstance(rev_status, dict):
+        raise ValueError("live_api_readiness_shape_unknown")
+    generation = meta.get("generation")
+    observed = status.get("observedGeneration")
+    if (not str(generation).isdigit() or not str(observed).isdigit()
+            or int(generation) != int(observed)):
+        raise ValueError("live_api_generation_unreconciled")
+    if status.get("latestReadyRevisionName") != CANDIDATE:
+        raise ValueError("live_api_latest_ready_revision_mismatch")
+
+    def ready_conditions(rows):
+        if not isinstance(rows, list):
+            raise ValueError("live_api_conditions_shape_unknown")
+        if any(not isinstance(row, dict) for row in rows):
+            raise ValueError("live_api_conditions_shape_unknown")
+        return [row.get("status") for row in rows if row.get("type") == "Ready"]
+
+    service_ready = ready_conditions(status.get("conditions", []))
+    if service_ready and service_ready != ["True"]:
+        raise ValueError("live_api_not_ready")
+    revision_ready = ready_conditions(rev_status.get("conditions", []))
+    if revision_ready and revision_ready != ["True"]:
+        raise ValueError("live_api_revision_not_ready")
+    # Absent Ready is not treated as PASS by itself. verify_current still checks
+    # exact image digest, live health, SHA, 401 boundary and candidate OAuth/MCP.
+
 def verify_current():
     api.acceptance(SHA)
     approved = api.check_forward_promotion_request(RELEASE, JOBS_RUN, SHA)
@@ -95,12 +129,10 @@ def verify_current():
         raise ValueError("api_ghcr_not_at_100_percent")
     if api.tags(current).get("ghcr-" + SHA[:12]) != CANDIDATE:
         raise ValueError("candidate_tag_drift")
-    if not any(c.get("type") == "Ready" and c.get("status") == "True"
-               for c in current.get("status", {}).get("conditions", [])):
-        raise ValueError("live_api_not_ready")
     revision = json.loads(command(["gcloud", "run", "revisions", "describe",
                                    CANDIDATE, f"--project={PROJECT}",
                                    f"--region={REGION}", "--format=json"]))
+    assert_ready_readback(current, revision)
     if api.revision_image(revision) != EXPECTED_IMAGE:
         raise ValueError("live_api_digest_drift")
     api.health(SHA)
