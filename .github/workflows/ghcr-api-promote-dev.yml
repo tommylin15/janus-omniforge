@@ -1,0 +1,56 @@
+name: Janus GHCR controlled API promotion
+on:
+  workflow_dispatch:
+    inputs:
+      release_run:
+        description: Successful full GHCR publication run of accepted candidate
+        required: true
+        type: string
+      jobs_run:
+        description: Successful controlled GHCR Jobs rollout run with verified recovery receipt
+        required: true
+        type: string
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_RUN: ${{ inputs.release_run }}
+      JOBS_RUN: ${{ inputs.jobs_run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify controlled promotion and recovery contracts
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_ghcr_api_promote.py tests/test_ghcr_jobs_rollout.py tests/test_ghcr_release_lease.py
+      - name: Load bounded Jobs rollout evidence from the exact successful run
+        run: |
+          mkdir -p /tmp/ghcr-jobs-proof
+          gh run download "$JOBS_RUN" -n ghcr-jobs-rollout-receipt -D /tmp/ghcr-jobs-proof
+          test -s /tmp/ghcr-jobs-proof/ghcr-jobs-rollout.json
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Rehearse rollback before immutable candidate promotion
+        run: python scripts/gcp/ghcr_api_promote.py --release-run "$RELEASE_RUN" --jobs-run "$JOBS_RUN" --receipt /tmp/ghcr-api-promote.json
+      - name: Preserve sanitized traffic and rollback receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghcr-api-promotion-receipt
+          path: /tmp/ghcr-api-promote.json
+          if-no-files-found: ignore
+          retention-days: 14

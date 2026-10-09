@@ -7,7 +7,9 @@ import json
 from pathlib import Path
 import re
 
-from ghcr_jobs_rollout import acceptance
+from collections import Counter
+
+from ghcr_jobs_rollout import acceptance, JOB_COMPONENT, REQUIRED_JOBS
 from ghcr_mcp_route import BASE, PROJECT, REGION, SERVICE, LEASE, command, describe, request, probe
 
 
@@ -45,6 +47,28 @@ def health(sha):
         raise ValueError("active_auth_boundary_failed")
 
 
+def check_jobs_receipt(proof, source_sha):
+    if proof.get("source_sha") != source_sha or proof.get("phase") != "PASS":
+        raise ValueError("jobs_receipt_not_matching_release")
+    snapshots = proof.get("snapshots")
+    if not isinstance(snapshots, dict) or set(snapshots) != set(REQUIRED_JOBS):
+        raise ValueError("jobs_snapshot_coverage_incomplete")
+    for snapshot in snapshots.values():
+        if not isinstance(snapshot, dict) or not snapshot.get("image") or not snapshot.get("configuration_hash"):
+            raise ValueError("jobs_snapshot_incomplete")
+    rows = proof.get("canaries")
+    expected = Counter({name: 2 for name, _ in JOB_COMPONENT})
+    if not isinstance(rows, list) or len(rows) != sum(expected.values()):
+        raise ValueError("jobs_canary_coverage_incomplete")
+    if any(not isinstance(row, dict) or row.get("result") != "PASS"
+           or not isinstance(row.get("execution"), str) or not row["execution"] for row in rows):
+        raise ValueError("jobs_canary_evidence_invalid")
+    if Counter(row["job"] for row in rows) != expected:
+        raise ValueError("jobs_canary_coverage_incomplete")
+    if len({row["execution"] for row in rows}) != len(rows):
+        raise ValueError("jobs_canary_execution_duplicated")
+
+
 def promote(release_run, jobs_run, receipt):
     sha = json.loads(Path("ops/ghcr-candidate-request.json").read_text())["sha"]
     acceptance(sha)
@@ -56,8 +80,7 @@ def promote(release_run, jobs_run, receipt):
         if run == release_run and metadata.get("headSha") != sha:
             raise ValueError("release_sha_mismatch")
     jobs_receipt = json.loads(Path("/tmp/ghcr-jobs-proof/ghcr-jobs-rollout.json").read_text())
-    if jobs_receipt.get("source_sha") != sha or jobs_receipt.get("phase") != "PASS" or len(jobs_receipt.get("canaries", [])) != 8:
-        raise ValueError("jobs_receipt_not_matching_release")
+    check_jobs_receipt(jobs_receipt, sha)
     if Path("ops/ghcr-last-success.json").exists():
         previous = json.loads(Path("ops/ghcr-last-success.json").read_text())
         if previous.get("result") == "PASS":
