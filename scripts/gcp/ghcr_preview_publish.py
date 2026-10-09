@@ -14,7 +14,7 @@ import time
 
 import ghcr_api_promote as api
 import ghcr_jobs_rollout as jobs
-from ghcr_mcp_route import BASE, LEASE, PROJECT, REGION, SERVICE, command, describe, probe
+from ghcr_mcp_route import BASE, LEASE, PROJECT, REGION, SERVICE, command, describe, probe, request
 
 REQUEST=Path("ops/ghcr-preview-request.json")
 EXPECTED_URL="https://preview---janus-api-2oo7qbkd5q-uc.a.run.app"
@@ -122,6 +122,15 @@ def check_candidate(before,req):
     return candidate
 
 
+
+def read_preview_build_sha():
+    status, _, body=request(EXPECTED_URL+"/app/build-id.txt")
+    sha=body.decode(errors="replace").strip()
+    if status!=200 or not SHA.fullmatch(sha):
+        raise ValueError("previous_preview_identity_unknown")
+    return sha
+
+
 def update_preview(target=None,remove=False):
     if remove:
         cmd=["gcloud","run","services","update-traffic",SERVICE,
@@ -163,8 +172,10 @@ def apply(receipt):
         command(LEASE+["acquire"])
         before=describe()
         candidate=check_candidate(before,req)
+        previous_tag=routes(before)[1].get("preview")
+        previous_sha=read_preview_build_sha() if previous_tag is not None else None
         evidence.update(source_sha=req["source_sha"],candidate=candidate,
-                        before_preview=routes(before)[1].get("preview"))
+                        before_preview=previous_tag, before_preview_sha=previous_sha)
         save()
         command(LEASE+["assert"])
         evidence["phase"]="UPDATE_PREVIEW_TAG"
@@ -196,6 +207,9 @@ def apply(receipt):
                 old=routes(before)[1].get("preview")
                 update_preview(old,remove=old is None)
             reconciled(before,"",restored=True)
+            if routes(before)[1].get("preview") is not None:
+                if read_preview_build_sha()!=evidence.get("before_preview_sha"):
+                    raise ValueError("previous_preview_sha_restore_mismatch")
             evidence["restored_previous_preview"]=True
             evidence["phase"]="RESTORED_PREVIEW_OR_NO_MUTATION"
             save()
