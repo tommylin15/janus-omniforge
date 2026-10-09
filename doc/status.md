@@ -1,3 +1,9 @@
+## 2026-10-09 最新：候選 Owner 人工登入驗收完成
+
+來源 `fbcc5f58a2fa31f2f36dc4c82702fb62910c7361`、候選 `janus-api-00451-cuw`。外部 Chrome 真實 Google A → B → A 完成；A 持股／紀錄／報表年度損益一致，B history 0 筆且指定已知 A 識別仍為空，切回 A 的原 89 筆事件集合一致。query identity 參數不能指定 owner；未做 mutation 越權測試。Read-only v2 已有 authenticated evidence；Janus Dev Private BYPASSED。需要使用者操作的登入步驟完成。
+
+Jobs mutex／Scheduler fence／rollout／rollback 與 API 100% promotion／rollback 仍未完成，整體 PARTIAL；舊 revision／映像清理排除。下方 CI/CD 段落為較早快照，owner pending 判定由本節取代。詳細：[唯讀登入驗收](archive/cicd-owner-browser-acceptance-2026-10-09.md)。
+
 # Janus CI/CD GHCR cutover — 2026-10-09 最新進度（PARTIAL）
 
 ## 2026-10-09 最新驗收檢查點（優先於下方歷史快照）

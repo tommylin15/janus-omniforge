@@ -10,13 +10,13 @@
 - [x] **最新 GitHub CI：**[Selective CI #37861956147](https://github.com/tommylin15/janus-omniforge/actions/runs/37861956147) SUCCESS（被驗證 SHA `84eba9ad09a4090c1f91f3ff598554764e97fefc`）；[Jobs guard #37861956130](https://github.com/tommylin15/janus-omniforge/actions/runs/37861956130) **86 tests PASS**。
 - [x] **9 筆 Private Pipeline 歷史 execution「可能仍在執行」的 blocker 已排除：**同輪 V1 list＋task list（包含 succeeded）＋Cloud Run v2 讀回一致，`Completed=CONDITION_FAILED`／`reconciling=false`／每筆 0 tasks，`historical_failed_pretask_terminal_count=9`、`historical_success_claimed=false`、diagnostics 空；仍保留失敗紀錄，**未取消／重送／刪除，絕不認作成功執行**。證據：[稽核 #37860818817](https://github.com/tommylin15/janus-omniforge/actions/runs/37860818817)、[最新 Jobs gate #37861956130](https://github.com/tommylin15/janus-omniforge/actions/runs/37861956130)。
 - [x] **Jobs 切換唯讀保護維持生效：**`apply=false` 強制檢查，`change_count=4` image-only dry-run，live **exit 78 / BLOCKED**，`automatic_apply=false`、`resource_writes=0`；未改 Jobs、正式 traffic 或 Scheduler。
-- [ ] **真實 owner authenticated acceptance：**在指定 GHCR 0% API candidate 完成 Google OAuth callback、MCP tool、PnL parity、Private API／跨 owner 隔離驗收，保留 sanitized live 證據；僅 OAuth metadata／未登入 401 PASS 不得代替。
+- [x] **真實 owner authenticated acceptance：**`fbcc5f58…` 候選已完成外部 Chrome 真實 Google A → B → A、私人 API／年度損益一致性及唯讀 owner 隔離。B 帶入已知 A symbol／owner／event 仍為空；這些 query 參數不是 identity selector，未做 mutation 越權測試。切回 A 的 89 筆紀錄識別集合一致。Read-only v2 證據保留，Janus Dev Private BYPASSED。見 [登入驗收](archive/cicd-owner-browser-acceptance-2026-10-09.md)。
 - [ ] **Jobs 全域發布 mutex＋Scheduler fence：**先證明所有現役 writer（包含 legacy Cloud Build）不可競跑，再安全取得 lease、將唯一 `janus-ingestion-daily` 暫停並確認 `PAUSED`、同輪重新檢查所有 execution（含新到的）且具自動恢復／失敗回復；單獨 3 秒演練不算完成。
 - [ ] **Jobs 完整 rollback 與 GHCR rollout：**完整 config／pinned digest snapshot、實際 rollback rehearsal、依 GHCR digest 更新四個目標 Job、canary／真實資料與 migration 安全驗收，最後恢復 Scheduler `ENABLED` 並讀回；Research Job 不改。
 - [ ] **API 100% 切流／回滾：**上次已驗證現役 AR Revision 100%、GHCR 候選 0%；先通過 owner live acceptance，再完成固定 digest 正式流量／回滾 E2E 與來源 SHA 驗證，未完成前不得宣稱新 CI/CD 已全面接管。
 - [ ] **發布入口安全：**只確認舊 writer 不與新版競跑；2026-10-09 本機唯讀 GCP readback：`janus-dev-v2` disabled=true、regional ongoing builds=0。完整 mutex／Jobs rollback 驗收仍未完成。
 
-**實際剩餘四個 Jobs 阻塞：**`authenticated_acceptance_unverified`、`durable_deployment_mutex_unverified`、`rollback_procedure_unverified`、`scheduler_still_enabled`。請勿再將已釐清的 9 筆歷史失敗列為第五個阻塞。**整體 PARTIAL。**
+**Owner 人工登入驗收已完成；剩餘 Jobs 閘門：**`durable_deployment_mutex_unverified`、`rollback_procedure_unverified`、`scheduler_still_enabled`。既有唯讀 workflow 的旗標尚未更新，不把舊 run 的四項 blocker 當新驗收結果。請勿再將已釐清的 9 筆歷史失敗列為第五個阻塞。**整體 PARTIAL。**
 
 ## 歷次 CI/CD 實作與驗收紀錄（依發生時的快照，最新判定見上方）
 

@@ -1,3 +1,9 @@
+## 2026-10-09 最新：候選 Owner 人工登入驗收完成
+
+來源 `fbcc5f58a2fa31f2f36dc4c82702fb62910c7361`、候選 `janus-api-00451-cuw`。外部 Chrome 真實 Google A → B → A 完成；A 持股／紀錄／報表年度損益一致，B history 0 筆且指定已知 A 識別仍為空，切回 A 的原 89 筆事件集合一致。query identity 參數不能指定 owner；未做 mutation 越權測試。Read-only v2 已有 authenticated evidence；Janus Dev Private BYPASSED。需要使用者操作的登入步驟完成。
+
+Jobs mutex／Scheduler fence／rollout／rollback 與 API 100% promotion／rollback 仍未完成，整體 PARTIAL；舊 revision／映像清理排除。下方 CI/CD 段落為較早快照，owner pending 判定由本節取代。詳細：[唯讀登入驗收](../archive/cicd-owner-browser-acceptance-2026-10-09.md)。
+
 # CI/CD V2接續（2026-10-08）
 
 V2 **PARTIAL**。最新已推送 `212787d5844d547e8cb8ce221b645da522ea163c`，selective CI `37733387309`、migration validation `37733387310` SUCCESS。集中 Release `a5ede351-b088-432e-981e-416f8ab7c4b5` 的四 image／digest 與 API no-traffic public／negative／Flutter gates PASS；Job config fence 因 CLI version／平台 nonce 停止，尚未執行本輪 Job smoke，rollback receipt及現役 ingestion digest／Ready讀回 PASS。針對上述 false drift 修正與 isolation harness 刪除防護，本機81 targeted tests PASS。舊候選 a859 的真實 User／Admin OAuth與A/B isolation PASS；不能當作新版全部 acceptance。誤按 private-data deletion 已依本人要求精準撤回，資料筆數不變、audit保存regional evidence，原controller排程恢復 ENABLED。Native AR cleanup dry-run=true，未刪 image；legacy US bucket保留另一系統source evidence。050／read-only migration preflight PASS；完整 runtime／canonical PnL／MCP、新版 promotion／bounded cleanup仍未全PASS，不 CLOSED。完整診斷與 receipts 見 [V2 evidence](../archive/cicd-v2-inventory-2026-10-08.md)。

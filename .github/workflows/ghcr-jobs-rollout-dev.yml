@@ -1,0 +1,54 @@
+name: Janus GHCR controlled Jobs rollout
+on:
+  workflow_dispatch:
+    inputs:
+      release_run:
+        description: Successful full GHCR publication run for the accepted candidate SHA
+        required: true
+        type: string
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  rollout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_RUN: ${{ inputs.release_run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify rollout and recovery contracts
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_ghcr_jobs_rollout.py tests/test_ghcr_release_lease.py
+      - name: Install public registry reader
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Rehearse rollback and deploy existing Jobs with real read-only canaries
+        run: python scripts/gcp/ghcr_jobs_rollout.py --release-run "$RELEASE_RUN" --receipt /tmp/ghcr-jobs-rollout.json
+      - name: Recover original images and Scheduler after failure
+        if: ${{ failure() || cancelled() }}
+        run: |
+          if test -f /tmp/ghcr-jobs-rollout.json; then
+            python scripts/gcp/ghcr_jobs_rollout.py --recover --release-run "$RELEASE_RUN" --receipt /tmp/ghcr-jobs-rollout.json
+          fi
+      - name: Preserve sanitized recovery metadata only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghcr-jobs-rollout-receipt
+          path: /tmp/ghcr-jobs-rollout.json
+          if-no-files-found: ignore
+          retention-days: 14

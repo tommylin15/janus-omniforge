@@ -1,0 +1,17 @@
+{
+  "source_sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
+  "candidate_revision": "janus-api-00451-cuw",
+  "result": "PASS",
+  "janus_dev_private": "BYPASSED",
+  "gates": {
+    "google_oauth": true,
+    "owner_a_read": true,
+    "owner_b_isolation": true,
+    "known_a_record_rejected": true,
+    "pnl_parity": true,
+    "readonly_mcp": true
+  },
+  "evidence": "doc/archive/cicd-owner-browser-acceptance-2026-10-09.md",
+  "observed_at": "2026-10-09T03:35:09Z",
+  "known_identifier_probe": "B authenticated history with A symbol/owner/event parameters returned empty; identity parameters cannot select owner. No mutation probe."
+}
