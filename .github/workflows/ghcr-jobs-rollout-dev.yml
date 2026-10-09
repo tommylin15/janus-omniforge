@@ -36,9 +36,9 @@ jobs:
           test "${GITHUB_REF}" = 'refs/heads/main'
           if [[ "${GITHUB_EVENT_NAME}" == 'push' ]]; then
             file=ops/ghcr-jobs-rollout-request.json
-            jq -e --arg sha "$(jq -r '.sha' ops/ghcr-candidate-request.json)" \\
+            jq -e --arg sha "$(jq -r '.sha' ops/ghcr-candidate-request.json)" \
               '.intent == "approved-dev-ghcr-jobs-rollout" and .approved == true and
-               .scope == "existing-dev-four-jobs" and .sha == \$sha and
+               .scope == "existing-dev-four-jobs" and .sha == $sha and
                (.release_run | type == "string" and test("^[0-9]+$"))' "${file}" > /dev/null
             echo "RELEASE_RUN=$(jq -r '.release_run' "${file}")" >> "${GITHUB_ENV}"
           else
