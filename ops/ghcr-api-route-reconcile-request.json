@@ -1,0 +1,13 @@
+{
+  "intent": "reassert-existing-ghcr-api-route-under-owner-lease",
+  "approved": true,
+  "scope": "existing-dev-janus-api-only",
+  "source_sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
+  "original_owner_run": "37936648808",
+  "route_target": "janus-api-00451-cuw",
+  "allow_only_same_100_percent": true,
+  "allow_no_old_ar_rollback": true,
+  "acknowledgement": "Follow-up to user-authorized dev GHCR cutover; must retain existing 100% target and all tags, no new resources, no old-image rollback, original lease owner only.",
+  "safety": "Service template and serving revision verified GHCR; service RoutesReady False ContainerImageImportFailed. Reassert exact current traffic under held original-owner lease; verify health/digest/tags/Ready. On failure retain lease, preserve receipt and do not retry workloads.",
+  "ci_run": "37943491894"
+}
