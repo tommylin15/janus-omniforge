@@ -1,0 +1,19 @@
+{
+  "intent": "verify-existing-ghcr-release-baseline",
+  "scope": "existing-dev-read-only",
+  "source_sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
+  "release_run": "37876247130",
+  "api_revision": "janus-api-00451-cuw",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:a2c263b3ed8729e6677a47fc1084b51a1833721872045b4d4b78035e778f43cf",
+  "job_images": {
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:fb29125f8f2645a4e2243aefd10f7044b95e275790845468c6d0f898d672ac7a",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:36d0fdd5e28cdc1ed4471d338473f16687a74af288d0a2d7b713d67708650521",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:5f384ae139c085f345ecf6e65ae541bc2b037e3b48a6e6d2ac5c742d9d4dadd0",
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:5f384ae139c085f345ecf6e65ae541bc2b037e3b48a6e6d2ac5c742d9d4dadd0"
+  },
+  "research_image": "us-central1-docker.pkg.dev/gen-lang-client-0593591102/janusai-poc/research-cloud-cohort-500@sha256:7320443730ff487315211710612216e044cd453388622fc852d3cdd081201f59",
+  "no_gcp_mutation": true,
+  "prior_private_config_parity": "NOT_VERIFIED",
+  "old_ar_rollback_exercised": false,
+  "attempt": 1
+}
