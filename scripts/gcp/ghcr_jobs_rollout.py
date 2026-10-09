@@ -163,8 +163,26 @@ def update(name, target, expected_hash):
     fence()
     if fingerprint(job(name)) != expected_hash:
         raise ValueError("preupdate_configuration_drift")
-    command(["gcloud", "run", "jobs", "update", name, f"--project={PROJECT}", f"--region={REGION}",
-             "--image=" + target, "--quiet"])
+    args = ["gcloud", "run", "jobs", "update", name, f"--project={PROJECT}",
+            f"--region={REGION}", "--image=" + target, "--quiet"]
+    result = subprocess.run(args, capture_output=True, text=True,
+                            check=False, timeout=300)
+    if result.returncode != 0:
+        # No raw gcloud output, image URL, runtime config, or credentials in logs.
+        error = (result.stderr + "\n" + result.stdout).lower()
+        if "permission_denied" in error or "permission denied" in error or "403" in error:
+            code = "job_update_permission_denied"
+        elif "not found" in error or "not_found" in error or "404" in error:
+            code = "job_update_image_or_job_not_found"
+        elif "image" in error and ("import" in error or "registry" in error or "manifest" in error):
+            code = "job_update_registry_import_failed"
+        elif "invalid" in error or "unrecognized arguments" in error:
+            code = "job_update_invalid_configuration"
+        elif "service account" in error:
+            code = "job_update_service_identity_blocked"
+        else:
+            code = "job_update_unknown_rejection"
+        raise RuntimeError(code)
     checked_image(name, target, expected_hash)
 
 
