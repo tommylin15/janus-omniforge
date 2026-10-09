@@ -1,3 +1,11 @@
+## 2026-10-09 12:08（Asia/Taipei）— 新版 CI/CD 最新實作檢查點（PARTIAL）
+
+- **最新 `main` 程式 SHA**：`07ee9da3ee7597f24638e8c26021f437bdeff968`。本次 `f850b754` 意外加入的 `token-savior`／`.cicd-v2-work` Gitlink，已在 `62db585` 移除，`39fb44e` 加入防回歸測試；[Selective CI #37881952331](https://github.com/tommylin15/janus-omniforge/actions/runs/37881952331) **SUCCESS、9 PASS**。
+- **Jobs 發布安全預檢補強**：`1f12615` 新增舊 Cloud Build `PENDING` 檢查與測試；[Selective CI #37882151297](https://github.com/tommylin15/janus-omniforge/actions/runs/37882151297) **SUCCESS**（controller／API／Mart 三組選擇性測試通過）。這是 implementation/test，**不是**跨所有 writer／真實 Jobs rollout fence 的 live PASS。
+- **API 受控發布入口已建置，未執行**：`a731580` 建立 `ghcr-api-promote-dev.yml`（僅 `workflow_dispatch`）、`ghcr_api_promote.py` 的各目標 Job 各兩次獨立 canary、完整 snapshots 與來源 SHA 收據檢查；`07ee9da` 修正測試資料，最新 [Selective CI #37882399062](https://github.com/tommylin15/janus-omniforge/actions/runs/37882399062) **SUCCESS，10 tests PASS**。前一輪 [#37882327264](https://github.com/tommylin15/janus-omniforge/actions/runs/37882327264) 的 API 測試失敗是 tag mock 配置錯誤，並非真實 GCP 切流失敗。
+- **Live 狀態仍 PARTIAL**：本輪僅執行 GitHub 程式、CI 與文件更新；未啟動受控 Jobs rollout、未更新 Jobs、未改 Scheduler，也未執行 API 100% promotion／rollback。先前 `fbcc5f58` 的 GHCR 發布與 `janus-api-00451-cuw` 0% 候選／Owner A→B→A 真實登入 PASS 仍有效作歷史證據；不代表 `07ee9da` 已完成完整 GHCR Release／Jobs／API live acceptance。正式切流前仍須同輪驗證全部部署 writer、安全 lease、Scheduler PAUSED、active execution、可回復 config/image 與 readback。
+- **範圍限制**：依最新指示不處理舊 Revision／AR／GCS 清理；沒有刪除 canonical、備份或應用程式資料。
+
 ## 2026-10-09 最新：候選 Owner 人工登入驗收完成
 
 來源 `fbcc5f58a2fa31f2f36dc4c82702fb62910c7361`、候選 `janus-api-00451-cuw`。外部 Chrome 真實 Google A → B → A 完成；A 持股／紀錄／報表年度損益一致，B history 0 筆且指定已知 A 識別仍為空，切回 A 的原 89 筆事件集合一致。query identity 參數不能指定 owner；未做 mutation 越權測試。Read-only v2 已有 authenticated evidence；Janus Dev Private BYPASSED。需要使用者操作的登入步驟完成。
