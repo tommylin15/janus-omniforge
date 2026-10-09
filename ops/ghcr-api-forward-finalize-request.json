@@ -8,6 +8,6 @@
   "no_old_ar_revision_rollback": true,
   "private_job_config_parity": "NOT_VERIFIED",
   "authorization": "User previously explicitly directed to proceed with newest GHCR version and skip unusable legacy rollback; no broad IAM and no new paid resources",
-  "safety": "After CI #37941740454 PASS, retry original-owner-only locked readback with reconciled service Ready variant; explicit NotReady and stale generation fail closed; no traffic write, Job rerun, cancellation, forced lease release, or legacy rollback.",
-  "attempt": 3
+  "safety": "Diagnostic retry after selective CI #37942254327 PASS; collect only allowlisted Ready/status/reason enums, no payload; original owner lease must be valid; fail closed and retain lease when not ready; no traffic/Job/Scheduler writes.",
+  "attempt": 4
 }
