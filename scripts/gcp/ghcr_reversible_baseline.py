@@ -36,7 +36,8 @@ def validated_request():
         "rollback_mode": "reversible_ghcr",
         "accept_no_old_image_rollback": False,
         "baseline_source_sha": data["source_sha"],
-        "rollback_images": data.get("job_images")}, "a" * 40)
+        "rollback_images": data.get("job_images"),
+        "rollback_config_hashes": data.get("job_config_hashes")}, "a" * 40)
     return data
 
 
@@ -101,7 +102,9 @@ def inspect(receipt: Path):
             raise ValueError("baseline_public_api_image_unverified")
         live = {name: jobs.job(name) for name in jobs.REQUIRED_JOBS}
         jobs.verify_reversible_baseline({
-            "baseline_source_sha": sha, "rollback_images": req["job_images"]}, live)
+            "baseline_source_sha": sha,
+            "rollback_images": req["job_images"],
+            "rollback_config_hashes": req["job_config_hashes"]}, live)
         if jobs.image(live["janus-research-big-move-500"]) != req["research_image"]:
             raise ValueError("baseline_research_job_drift")
         api.health(sha)
