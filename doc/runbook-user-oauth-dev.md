@@ -18,7 +18,7 @@ User Web client 必須使用 Janus User audience，並包含目前實際 UI／ca
 
 公開 client ID 可作為 Flutter Web build-time configuration；client secret、MCP signing material、database credentials 必須走目前 Secret bundle，不寫入 source、README 或一般 config。
 
-### Codex Desktop 的本機 MCP callback（修正待發布）
+### Codex Desktop 的本機 MCP callback
 
 Codex OAuth client 為 `https://chatgpt.com/oauth/codex/client.json`；本機 callback 為 `http://127.0.0.1:<port>/callback`，未固定設定時 port 由 OS 選擇。Janus 修正限定此精確 client 才可使用 IPv4 loopback callback，要求合法明確 port 與精確 `/callback`，拒絕其他 hostname、userinfo、query、fragment 與路徑。Authorization 與 token exchange 使用同一檢查，authorization code 仍綁定原始 callback／client／resource 與 S256 PKCE。
 

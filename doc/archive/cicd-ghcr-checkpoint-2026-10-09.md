@@ -45,3 +45,10 @@
 - [完整 GHCR Release #37872497498](https://github.com/tommylin15/janus-omniforge/actions/runs/37872497498) SUCCESS：Python 759 passed、2 deselected（workflow 明列已移除 legacy modules），Flutter gate SUCCESS、四個映像 publish SUCCESS、匿名 pull／digest gate SUCCESS。尚未因此宣稱 MCP live 登入成功。
 - 新增人工執行的 bounded MCP tag repair workflow／helper：僅既有兩個 tag、0% candidate、canonical 100% 不變；shared concurrency／lease、鎖內 Trigger／Build fence、pre-login gate、fail-closed rollback/readback，routing snapshot artifact 留 1 日供操作失敗 recovery，不新增舊路由入口。
 - Route＋lease 23 tests PASS；首次 pytest tmp_path 遇 sandbox temp 權限錯誤，改 fresh workspace `.tmp` test directory 重跑通過。workflow YAML parse、Git Bash `bash -n` PASS。`/ponytail-review` 核對 helper calls、gate、switch／recovery、測試與文件，未发现須修正項。仍待 candidate deploy／MCP route repair 的真實 Actions evidence。
+
+## MCP 路由與 Owner A 登入修復結果
+
+- 路由工具／workflow 已 commit／push `6c98eb5`；[candidate #37873561843](https://github.com/tommylin15/janus-omniforge/actions/runs/37873561843) SUCCESS，source `92349c509181590b8977b0ade355d7497bb62a8b` 部署至 `janus-api-00449-dij`，固定 GHCR digest `sha256:9b907374c6aa717a43608d879f6a2432bd47c290cd7681562dc64841d285fd35`。
+- [MCP route repair #37873731034](https://github.com/tommylin15/janus-omniforge/actions/runs/37873731034) SUCCESS：鎖內確認 Trigger disabled、無 ongoing builds、候選 Ready／minScale=0、build identity／metadata、Codex pre-login 302、非法 loopback 400、未登入私人 MCP 401；兩個既有 tag `mcp-oauth`／`mcp-adapter` 已指向 `janus-api-00449-dij`。獨立 gcloud readback 一致，canonical `janus-api-g53d655ccb108-config` 仍 100%，其他 routes 不變；lease 已安全釋放。
+- 使用者重新完成 Owner A 的 Janus Dev Private 登入後，同連線 authenticated `annual-pnl`（year=2026、limit=1）回 available／1 record；positions（limit=5）回 available／4 records。只記錄狀態與筆數，不保存 owner 個資、token 或金額；目前 MCP 登入阻塞已解除，仍待 B 的同 MCP owner isolation。
+- 先前 Read-only v2 `INVALID_ARGUMENT` 是 annual-pnl 缺少必要 year 參數，不是登入失敗的證據；補 year=2026 後回 available／1 record。先前無 year 的結果不作 OAuth 失敗判定。
