@@ -39,6 +39,23 @@ def tags(data):
 
 
 
+
+def approved_previous_baseline(candidate_sha):
+    data = json.loads(Path("ops/ghcr-active-baseline.json").read_text())
+    sha = data.get("source_sha")
+    if (data.get("status") != "VERIFIED_PUBLIC_GHCR_ROLLBACK_BASELINE"
+            or not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{40}", sha)
+            or sha == candidate_sha
+            or not isinstance(data.get("api_image"), str)
+            or not re.fullmatch(r"ghcr\.io/tommylin15/janus-api@sha256:[0-9a-f]{64}",
+                                data["api_image"])
+            or data.get("private_historical_config_parity") != "NOT_VERIFIED"
+            or data.get("old_ar_rollback_exercised") is not False):
+        raise ValueError("approved_ghcr_baseline_missing")
+    command(["git", "merge-base", "--is-ancestor", sha, candidate_sha])
+    return data
+
+
 def verify_previous_ghcr_rollback(baseline, previous_source_sha):
     """Require an actual public GHCR previous image before any traffic write.
 
@@ -167,6 +184,8 @@ def promote(release_run, jobs_run, receipt, forward_recovery=False):
     checkpoint("bounded_request")
     if forward_recovery:
         forward_request = check_forward_promotion_request(release_run, jobs_run, sha)
+    else:
+        approved_baseline = approved_previous_baseline(sha)
     checkpoint("run_provenance")
     for run, expected in ((release_run, "Janus GHCR full-test image publication"),
                           (jobs_run, ("Janus fenced forward-only GHCR Jobs recovery"
@@ -210,10 +229,15 @@ def promote(release_run, jobs_run, receipt, forward_recovery=False):
         old_sha = body.decode().strip()
         if status != 200 or not re.fullmatch(r"[0-9a-f]{40}", old_sha):
             raise ValueError("previous_sha_unknown")
-        if not forward_recovery:
+        if not forward_recovery and previous_revision != candidate:
             journal["stage"] = "verified_public_previous_ghcr_rollback"
             receipt.write_text(json.dumps(journal))
-            journal["previous_ghcr_image"] = verify_previous_ghcr_rollback(baseline, old_sha)
+            if old_sha != approved_baseline["source_sha"]:
+                raise ValueError("previous_release_source_not_approved_baseline")
+            old_image = verify_previous_ghcr_rollback(baseline, old_sha)
+            if old_image != approved_baseline["api_image"]:
+                raise ValueError("previous_release_digest_not_approved_baseline")
+            journal["previous_ghcr_image"] = old_image
             health(old_sha)
         journal["stage"] = "candidate_revision_image"
         receipt.write_text(json.dumps(journal))
