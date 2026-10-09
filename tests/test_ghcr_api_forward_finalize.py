@@ -91,3 +91,43 @@ def test_bounded_wait_does_not_hide_other_errors():
     with patch.object(finalize.jobs, "fence", side_effect=RuntimeError("cloud_control_http_403")):
         with pytest.raises(RuntimeError, match="cloud_control_http_403"):
             finalize.wait_for_terminal_executions()
+
+def test_live_readback_accepts_reconciled_latest_ready_without_service_condition():
+    service = {"metadata": {"generation": "28"}, "status": {
+        "observedGeneration": 28, "latestReadyRevisionName": finalize.CANDIDATE}}
+    revision = {"status": {"conditions": [{"type": "Ready", "status": "True"}]}}
+    finalize.assert_ready_readback(service, revision)
+
+
+@pytest.mark.parametrize("edit,reason", [
+    (lambda s, r: s["status"].update(observedGeneration=27),
+     "live_api_generation_unreconciled"),
+    (lambda s, r: s["status"].update(latestReadyRevisionName="janus-api-old"),
+     "live_api_latest_ready_revision_mismatch"),
+    (lambda s, r: s["status"].update(conditions=[{"type": "Ready", "status": "False"}]),
+     "live_api_not_ready"),
+    (lambda s, r: s["status"].update(conditions=[{"type": "Ready", "status": "Unknown"}]),
+     "live_api_not_ready"),
+    (lambda s, r: r["status"].update(conditions=[{"type": "Ready", "status": "False"}]),
+     "live_api_revision_not_ready"),
+    (lambda s, r: s["metadata"].pop("generation"),
+     "live_api_generation_unreconciled"),
+    (lambda s, r: s["status"].update(conditions="not-a-list"),
+     "live_api_conditions_shape_unknown"),
+])
+def test_live_readback_fails_closed_on_stale_or_explicit_unready(edit, reason):
+    service = {"metadata": {"generation": "28"}, "status": {
+        "observedGeneration": 28, "latestReadyRevisionName": finalize.CANDIDATE}}
+    revision = {"status": {"conditions": [{"type": "Ready", "status": "True"}]}}
+    edit(service, revision)
+    with pytest.raises(ValueError, match=reason):
+        finalize.assert_ready_readback(service, revision)
+
+
+def test_live_readback_accepts_explicit_service_ready():
+    service = {"metadata": {"generation": 28}, "status": {
+        "observedGeneration": "28", "latestReadyRevisionName": finalize.CANDIDATE,
+        "conditions": [{"type": "Ready", "status": "True"}]}}
+    revision = {"status": {"conditions": [{"type": "Ready", "status": "True"}]}}
+    finalize.assert_ready_readback(service, revision)
+
