@@ -132,12 +132,25 @@ def bounded_readiness_evidence(service, revision):
     status = service.get("status", {}) if isinstance(service, dict) else {}
     generation = meta.get("generation") if isinstance(meta, dict) else None
     observed = status.get("observedGeneration") if isinstance(status, dict) else None
+    spec = service.get("spec", {}) if isinstance(service, dict) else {}
+    template = spec.get("template", {}) if isinstance(spec, dict) else {}
+    template_spec = template.get("spec", {}) if isinstance(template, dict) else {}
+    containers = template_spec.get("containers", []) if isinstance(template_spec, dict) else []
+    template_image = (containers[0].get("image", "") if isinstance(containers, list)
+                      and len(containers) == 1 and isinstance(containers[0], dict) else "")
+    normalized = template_image.removeprefix("cache.us-docker.pkg.dev/")
+    registry = ("GHCR" if normalized.startswith("ghcr.io/") else
+                "AR" if ".pkg.dev/" in normalized else "UNKNOWN")
     return {
         "service_generation_reconciled": bool(
             str(generation).isdigit() and str(observed).isdigit()
             and int(generation) == int(observed)),
         "latest_ready_is_candidate": (
             isinstance(status, dict) and status.get("latestReadyRevisionName") == CANDIDATE),
+        "latest_created_is_candidate": (
+            isinstance(status, dict) and status.get("latestCreatedRevisionName") == CANDIDATE),
+        "template_registry": registry,
+        "template_image_is_expected": normalized == EXPECTED_IMAGE,
         "service_conditions": conditions(service),
         "revision_conditions": conditions(revision)
     }
