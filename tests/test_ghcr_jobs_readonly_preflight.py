@@ -122,7 +122,7 @@ def test_private_config_drift_detects_platform_annotation_without_private_values
     from copy import deepcopy
     before = {"template": {"template": {"containers": [
         {"image": "ghcr.io/example@sha256:" + "a" * 64,
-         "env": [{"name": "SECRET", "value": "do-not-disclose"}]}]}},
+         "env": [{"name": "SECRET", "value": "do-not-disclose"}]}], "annotations": {}}},
         "labels": {}, "annotations": {}}
     old = preflight.rollout.fingerprint(before)
     after = deepcopy(before)
