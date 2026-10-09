@@ -8,7 +8,7 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 5,
-  "reason": "Retire MCP personal trade and dividend writes; retain authenticated reads and User App ledger APIs",
+  "attempt": 6,
+  "reason": "New reusable CI/CD reversible GHCR baseline and safe promotion gates; verify full Python/Flutter/container/public-pull on complete main SHA; do not deploy until separate candidate and live acceptance.",
   "expected_runtime_changes": false
 }
