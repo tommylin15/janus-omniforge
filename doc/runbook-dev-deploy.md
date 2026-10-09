@@ -59,14 +59,14 @@ $env:ALLOW_DEV_PROVISION = "true"
 5. **Jobs 不具備 no-traffic candidate**：ingestion／Mart／private pipeline 分別檢查 active execution、Scheduler、image／env／Secret refs snapshot、必要 migration、安全 canary，再以固定 digest 更新既有 Job。不可在 API candidate 階段預先修改排程使用的 Job image；rollback 必須可恢復原設定。無可靠跨 run mutex／durable state 時 Release 不可正式啟用。
 6. GitHub Actions run／step logs、job summary 及必要的保護性 artifacts 保存 SHA、full-test gates、GHCR digest、candidate revision／URL（不含 token）、驗收、baseline、流量切換、Job readback 與回滾。**新流程不觸發 Cloud Build、也不主動寫入 GCS／Artifact Registry；不新增常駐 VM。**
 
-### 3.1.1 固定 App preview 網址與發佈規則（已核准規則；自動化尚有缺口）
+### 3.1.1 固定 App preview 網址與發佈規則（實際發布 PASS；失敗恢復僅合約測試）
 
 Janus `dev` 既有 `janus-api` Cloud Run Service（`gen-lang-client-0593591102`／`us-central1`）的兩個**不同用途**入口：
 
 - **正式 App：** <https://janus-api-2oo7qbkd5q-uc.a.run.app/app/>。由既有 canonical 100% traffic 與正式驗收控制；preview 流程**不得**更動正式流量。
-- **固定 preview App：** <https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/>。預計透過**同一 Cloud Run Service 的固定 traffic tag `preview`** 指向最新**已驗證** revision；它不是有期限的預覽網址，也不是每次產生不同 SHA 的候選 tag。固定網址本身不證明 tag 已存在、已更新或目前可連線；以 live readback／HTTP 為準。
+- **固定 preview App：** <https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/>。使用**同一 Cloud Run Service 的固定 traffic tag `preview`** 指向最新經驗證的候選 revision；不是有期限的預覽網址。首次實際更新已由 [#37956325838](https://github.com/tommylin15/janus-omniforge/actions/runs/37956325838) 完成並驗證；不能用這一次 PASS 取代未來每次新的 SHA 及網頁驗收。當前 revision／SHA 的易變狀態放 [evidence](archive/cicd-ghcr-next-release-preview-2026-10-09.md)，不固定在 runbook。
 
-**每次候選發布的目標順序（不是宣稱現有 workflow 全部完成）：**
+**每次候選發布的正式執行順序（已存在實作，需逐次依 live receipt 判定）：**
 
 1. 從本次已通過完整 Release gates 的**完整 40 字元 Git SHA** 與 GHCR immutable digest，建立或重用既有 `ghcr-<SHA 前 12 字元>` 的 0% candidate。透過 `.github/workflows/ghcr-candidate-dev.yml` 已有的 WIF、SHA／digest provenance、Ready／健康度、未登入 401、既有 canonical traffic 不變及候選 `/app/build-id.txt` **完全等於本次完整 SHA** 的檢查；此外完成該候選本次適用的既有驗收（包含 `ghcr-candidate-auth-boundary.yml` 所覆蓋的 OAuth metadata／private boundary，但不能以此冒充 authenticated owner）。
 2. 在**更新固定 `preview` tag 之前**，確認本次候選與其所需驗收皆為 PASS；讀回候選 revision、不可變 digest、source SHA 與 tag URL。任一 gate 為 FAIL／UNKNOWN／缺收據時**不得更新固定 preview**，保留上一個已驗證 revision。
@@ -77,16 +77,16 @@ Janus `dev` 既有 `janus-api` Cloud Run Service（`gen-lang-client-0593591102`�
 7. 每次發布都寫**執行紀錄**（GitHub Actions log／summary／保護性 artifact，必要時 operations evidence）：完整 source SHA、GHCR digest、候選 revision、preview 原／新 revision、固定 preview URL、各項驗證結果、時間與 run ID、是否恢復及恢復讀回。**本 runbook 的規則僅在流程改變時更新**；不要因每次新 SHA／revision 改寫本節。
 8. preview gate **不能取代**正式升流量所需的 authenticated Google OAuth／owner isolation、MCP、PnL／其他功能、Jobs／rollback 等適用的既有 acceptance。正式上線要另走原本的 traffic-promotion gate，不能因 preview PASS 就自動將 canonical 切成 100%。
 
-**依目前 `main` 程式與 workflows 的實作／缺口（本次僅更新文件）：**
+**目前 `main` 的發布入口與仍須保留的驗收邊界：**
 
 | 事項 | 已觀察到的實作 | 尚未完成，不能宣稱 PASS |
 |---|---|---|
 | GHCR release → 0% candidate | `ghcr-publish-dev.yml` 與 `ghcr-candidate-dev.yml`；候選檢查完整 SHA、digest、Ready、health、未授權 401、`/app/build-id.txt` | 候選的完整 authenticated acceptance 仍需依該次發版確認 |
 | 候選 OAuth 負向與 metadata 驗證 | `ghcr-candidate-auth-boundary.yml`；`ghcr-mcp-route-dev.yml` 對既有兩個 MCP tags 有獨立 lease、tag readback 與失敗恢復程式 | 不等於 preview tag 管理，也不取代真實登入／callback／MCP 工具驗收 |
-| 共用部署互斥 | Candidate／MCP／API promotion 已使用 `janus-dev-runtime-writers` 與 `ghcr_release_lease.py` | `preview` 更新尚無接入這些互斥措施的專用已驗證 step |
-| 固定 `preview` 發布 | **目前未見**驗證候選後更新／驗證／回復固定 `preview` tag 的 Janus workflow／script | 尚缺單一 tag 原子範圍驗證、失敗回復演練、固定 URL live 驗收與每次 preview 收據 |
+| 共用部署互斥 | Candidate／MCP／API promotion／固定 Preview 共用 `janus-dev-runtime-writers` 與 `ghcr_release_lease.py`；Preview #37956325838 原 owner release readback PASS | 未來新發版必須再次驗證持鎖及釋放證據；不得另建平行部署途徑 |
+| 固定 `preview` 發布 | `.github/workflows/ghcr-preview-publish-dev.yml`、`scripts/gcp/ghcr_preview_publish.py` 在通過 Release／0% 候選／OAuth 未登入負向驗收後更新單一 `preview` tag；[#37956325838](https://github.com/tommylin15/janus-omniforge/actions/runs/37956325838) live PASS、固定 URL build SHA 驗收 PASS、原 preview SHA 保存且 canonical/其他 tags 不變 | **刻意製造更新後失敗、在 live 環境恢復舊 preview 的演練尚未進行**；目前只驗證正向發布及失敗恢復測試契約；Google A→B→A 真人登入需分開驗證 |
 
-注意：`.github/workflows/ghcr-revision-retention-preview.yml` 的「preview」是**唯讀 Revision 保留清單預覽**，不是固定 `preview` App tag 的發布入口。固定 preview 的現有**實際路由狀態**未在本次文件工作中透過 GCP live readback 驗證，故 `current tag revision / URL health = NOT VERIFIED`；以上是**所需流程契約與差距記錄**，不得當成已完成部署。OAuth 固定來源與 callback 設定另見 [User／MCP OAuth runbook](runbook-user-oauth-dev.md#固定-preview-與-oauth-來源callback-契約)。
+注意：`.github/workflows/ghcr-revision-retention-preview.yml` 的「preview」是**唯讀 Revision 保留清單預覽**，不是固定 Preview App 的發布入口。**實際固定 Preview 發布入口是 `ghcr-preview-publish-dev.yml`**；每次依獨立 `ops/ghcr-preview-request.json` 受控觸發、沿用既有共用 Actions concurrency 與 Git-ref lease。首次實際發布結果與候選 source、舊 preview restore baseline 見 [2026-10-09 live evidence](archive/cicd-ghcr-next-release-preview-2026-10-09.md)。OAuth 固定來源與 callback 設定另見 [User／MCP OAuth runbook](runbook-user-oauth-dev.md#固定-preview-與-oauth-來源callback-契約)。
 
 ### 3.2 既有 Cloud Build：限唯讀診斷，不是新發布步驟
 
