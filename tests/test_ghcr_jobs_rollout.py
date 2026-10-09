@@ -69,6 +69,34 @@ def test_pending_legacy_cloud_build_blocks_jobs_rollout():
     assert "--filter=status=QUEUED OR status=WORKING OR status=PENDING" in commands[1]
 
 
+def test_job_rollout_preflight_requires_update_and_run_with_overrides_on_every_job():
+    required = {"run.jobs.get", "run.jobs.update", "run.jobs.runWithOverrides"}
+    seen = []
+
+    def check_permissions(path, body=None, method=None):
+        seen.append((path, body, method))
+        return {"permissions": sorted(required)}
+
+    with patch.object(rollout, "cloud", side_effect=check_permissions):
+        rollout.job_update_permissions()
+    assert len(seen) == len(rollout.REQUIRED_JOBS)
+    for path, body, method in seen:
+        assert path.endswith(":testIamPermissions")
+        assert set(body["permissions"]) == required
+        assert method == "POST"
+
+
+def test_missing_canary_override_permission_blocks_before_mutation():
+    no_override = {"permissions": ["run.jobs.get", "run.jobs.update", "run.jobs.run"]}
+    with patch.object(rollout, "cloud", return_value=no_override), \\
+         patch.object(rollout, "set_scheduler") as scheduler, \\
+         patch.object(rollout, "update") as update:
+        with pytest.raises(ValueError, match="job_rollout_iam_missing"):
+            rollout.job_update_permissions()
+    scheduler.assert_not_called()
+    update.assert_not_called()
+
+
 def test_unknown_canary_keeps_scheduler_paused_and_images_fenced():
     journal = {"snapshots": {}, "phase": "RECOVERY_REQUIRED"}
     with patch.object(rollout, "command"), patch.object(rollout, "fence", side_effect=ValueError("unknown")), \

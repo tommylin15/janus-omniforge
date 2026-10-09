@@ -99,6 +99,21 @@ def fence():
                 path = None
 
 
+def job_update_permissions():
+    """Fail closed before pausing Scheduler or modifying any Cloud Run Job.
+
+    Canary executions use the v2 jobs.run overrides contract and require
+    run.jobs.runWithOverrides, not merely run.jobs.run.
+    """
+    required = {"run.jobs.get", "run.jobs.update", "run.jobs.runWithOverrides"}
+    for name in REQUIRED_JOBS:
+        result = cloud(f"{ROOT}/jobs/{name}:testIamPermissions",
+                       {"permissions": sorted(required)}, "POST")
+        granted = result.get("permissions", [])
+        if not isinstance(granted, list) or not required.issubset(set(granted)):
+            raise ValueError("job_rollout_iam_missing")
+
+
 def scheduler():
     rows = json.loads(command(["gcloud", "scheduler", "jobs", "list", f"--project={PROJECT}",
                                f"--location={REGION}", "--format=json"]))
@@ -223,6 +238,7 @@ def run(release_run, receipt):
             raise ValueError("public_image_identity_mismatch")
         command(["skopeo", "inspect", "--no-creds", "docker://" + target])
         targets[name] = target
+    job_update_permissions()
     command(LEASE + ["acquire"])
     journal = {"source_sha": sha, "phase": "PREFLIGHT", "snapshots": {}, "operations": [], "canaries": []}
     def save():
