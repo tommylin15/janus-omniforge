@@ -107,7 +107,43 @@ def assert_ready_readback(service, revision):
     # Absent Ready is not treated as PASS by itself. verify_current still checks
     # exact image digest, live health, SHA, 401 boundary and candidate OAuth/MCP.
 
-def verify_current():
+def bounded_readiness_evidence(service, revision):
+    """Persist only allowlisted status enums; never emit raw Cloud Run config."""
+    def conditions(obj):
+        status = obj.get("status", {}) if isinstance(obj, dict) else {}
+        rows = status.get("conditions", []) if isinstance(status, dict) else []
+        if not isinstance(rows, list):
+            return [{"type": "UNKNOWN", "status": "UNKNOWN"}]
+        out = []
+        for row in rows[:12]:
+            if not isinstance(row, dict):
+                continue
+            kind = str(row.get("type", "UNKNOWN"))
+            state = str(row.get("status", "UNKNOWN"))
+            reason = str(row.get("reason", ""))
+            out.append({
+                "type": kind if re.fullmatch(r"[A-Za-z0-9_]{1,48}", kind) else "UNKNOWN",
+                "status": state if state in ("True", "False", "Unknown") else "UNKNOWN",
+                "reason": reason if re.fullmatch(r"[A-Za-z0-9_]{1,64}", reason) else "UNKNOWN"
+            })
+        return out
+
+    meta = service.get("metadata", {}) if isinstance(service, dict) else {}
+    status = service.get("status", {}) if isinstance(service, dict) else {}
+    generation = meta.get("generation") if isinstance(meta, dict) else None
+    observed = status.get("observedGeneration") if isinstance(status, dict) else None
+    return {
+        "service_generation_reconciled": bool(
+            str(generation).isdigit() and str(observed).isdigit()
+            and int(generation) == int(observed)),
+        "latest_ready_is_candidate": (
+            isinstance(status, dict) and status.get("latestReadyRevisionName") == CANDIDATE),
+        "service_conditions": conditions(service),
+        "revision_conditions": conditions(revision)
+    }
+
+
+def verify_current(evidence=None):
     api.acceptance(SHA)
     approved = api.check_forward_promotion_request(RELEASE, JOBS_RUN, SHA)
     receipt = json.loads(PROOF.read_text())
@@ -132,6 +168,8 @@ def verify_current():
     revision = json.loads(command(["gcloud", "run", "revisions", "describe",
                                    CANDIDATE, f"--project={PROJECT}",
                                    f"--region={REGION}", "--format=json"]))
+    if evidence is not None:
+        evidence["ready_diagnostic"] = bounded_readiness_evidence(current, revision)
     assert_ready_readback(current, revision)
     if api.revision_image(revision) != EXPECTED_IMAGE:
         raise ValueError("live_api_digest_drift")
@@ -155,7 +193,7 @@ def run(receipt):
         owned = assert_original_lease()
         evidence["phase"] = "LIVE_RUNTIME_VERIFICATION"
         save()
-        verify_current()
+        verify_current(evidence)
         evidence["phase"] = "LIVE_VERIFIED"
         evidence["active_revision"] = CANDIDATE
         evidence["traffic_percent"] = 100
