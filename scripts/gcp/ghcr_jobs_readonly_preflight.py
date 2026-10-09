@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timezone
+from copy import deepcopy
+import hashlib
+import re
 import json
 from pathlib import Path
 import subprocess
@@ -106,6 +109,70 @@ def runtime_identity_permissions():
         raise RuntimeIdentityPermissionsBlocked(denied)
 
 
+def diagnose_private_config_fingerprint():
+    """Read-only hash comparison against the pre-update receipt.
+
+    Never disclose env values, service-account names or private config. This
+    isolates whether a post-update fingerprint delta is a new default field.
+    """
+    request = json.loads(Path("ops/ghcr-jobs-preflight-request.json").read_text())
+    if request.get("investigate_ghcr_config_drift") is not True:
+        return None
+    expected = request.get("private_pipeline_preupdate_hash", "")
+    if not re.fullmatch(r"[0-9a-f]{64}", expected):
+        raise ValueError("invalid_diagnostic_baseline_hash")
+    data = rollout.job("janus-private-pipeline")
+    config = {key: deepcopy(data.get(key, {}))
+              for key in ("template", "labels", "annotations")}
+    config["template"]["template"]["containers"][0].pop("image", None)
+    for key in ("run.googleapis.com/client-name", "run.googleapis.com/client-version"):
+        config["annotations"].pop(key, None)
+
+    def hashed(value):
+        return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
+
+    def walk(value, prefix=()):
+        if isinstance(value, dict):
+            for key, child in value.items():
+                path = prefix + (key,)
+                yield path
+                yield from walk(child, path)
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                yield from walk(child, prefix + (index,))
+
+    def remove_path(value, path):
+        node = value
+        for part in path[:-1]:
+            node = node[part]
+        if isinstance(node, dict):
+            node.pop(path[-1], None)
+
+    hits = []
+    paths = [p for p in walk(config) if isinstance(p[-1], str)]
+    for path in paths:
+        trial = deepcopy(config)
+        remove_path(trial, path)
+        if hashed(trial) == expected:
+            # Report only harmless platform-managed fields, not user config.
+            leaf = path[-1]
+            platform_metadata = any(p == "annotations" for p in path[:-1]) and (
+                leaf.startswith("run.googleapis.com/") or leaf.startswith("client"))
+            hits.append("platform_metadata" if platform_metadata else "nonplatform_field")
+            if len(hits) >= 5:
+                break
+    return {
+        "job": "janus-private-pipeline",
+        "image_source": "ghcr" if rollout.image(data).startswith("ghcr.io/") else "other",
+        "original_fingerprint_matches": hashed(config) == expected,
+        "single_field_deletion_categories_matching_baseline": hits,
+        "path_count_examined": len(paths),
+        "baseline_hash_prefix": expected[:12],
+        "current_hash_prefix": hashed(config)[:12],
+        "gcp_writes": 0,
+    }
+
+
 def scan():
     findings = {}
     check("legacy_cloud_build_not_competing", rollout.legacy_writers, findings)
@@ -115,7 +182,13 @@ def scan():
     check("jobs_update_and_canary_iam", rollout.job_update_permissions, findings)
     check("four_runtime_identities_actas", runtime_identity_permissions, findings)
     check("five_rollback_images_registry_readable", rollback_images_readable, findings)
+    drift = None
+    try:
+        drift = diagnose_private_config_fingerprint()
+    except (Exception, SystemExit) as error:
+        drift = {"status": "DIAGNOSTIC_BLOCKED", "error_type": type(error).__name__, "gcp_writes": 0}
     return {
+        "diagnostics": {"private_config_drift": drift},
         "mode": "read_only",
         "project": rollout.PROJECT,
         "region": rollout.REGION,
