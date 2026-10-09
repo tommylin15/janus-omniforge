@@ -59,3 +59,12 @@
 - 使用者確認同一 Read-only v2 連線已重新登入 B 後：positions（limit=5）、annual-pnl（year=2026、limit=1）均正常回 missing／0 records、isError=false；以先前 A 持股的一個 symbol 作 bounded positions 查詢也回 missing／0 records。Missing 保留為資料缺漏，不偽造零損益或回傳 A 的資料。
 - 此為真實 authenticated MCP 的 owner-scoped bounded read isolation evidence。Symbol 是公開股票識別，這項探測不是以 A owner UUID／私人 record ID 做 API 越權測試；後者不因本輪結果而標 PASS。當前 Read-only v2 連線仍為 B，A 的回切尚待使用者操作。
 - 使用者隨後切回 A，Read-only v2 positions 恢復 available／4 records、annual-pnl（2026）恢復 available／1 record；兩個完整 records 集合在記憶體內遞迴排序 object keys 後，都與切 B 前 A 的回應完全一致，沒有保存或輸出金額。A → B → A MCP bounded read isolation round trip 完成；目前連線已回 A。
+
+
+## MCP ledger write 撤除與外掛唯讀更新
+
+- 使用者最新要求取代原 MCP write 核准：移除個人交易／股息記錄功能，保留市場／私人讀取與既有 User App 記帳。source `fbcc5f58a2fa31f2f36dc4c82702fb62910c7361` 刪除 MCP write tool／dispatcher／repository dependency／OAuth write scope，PROJECT_RULES §1.5 禁止舊工具與 ledger-recording skill 誤用。
+- 本機 API／MCP／OAuth 47 PASS，route／lease 24 PASS。首次 sandbox TestClient 停滯、pytest tmp_path 權限錯誤與本機缺少已鎖定 cachecontrol 依賴均不作 PASS；使用升級權限完成本機 API tests、補齊既有鎖定依賴、fresh workspace basetemp 後通過。YAML parse、diff check PASS；commit／push 前完成 ponytail-review，無需修正項。
+- [完整 Release #37876247130](https://github.com/tommylin15/janus-omniforge/actions/runs/37876247130) SUCCESS：771 Python passed／2 deselected、Flutter、四映像及公開匿名 pull gate PASS。[candidate #37876689092](https://github.com/tommylin15/janus-omniforge/actions/runs/37876689092)／[MCP route #37876919512](https://github.com/tommylin15/janus-omniforge/actions/runs/37876919512) SUCCESS；revision `janus-api-00451-cuw`，digest `sha256:a2c263b3ed8729e6677a47fc1084b51a1833721872045b4d4b78035e778f43cf`。既有兩個 MCP tag 的前後 live probe 驗證只列三個 read tools、無 write scope、舊工具 Unknown tool、未授權 private read 401，canonical traffic 與其他 tags 不變，lease 安全釋放。未宣稱封鎖所有歷史 revision URL。
+- 新版路由上 Read-only v2 已登入 A 的 positions limit=1 回 partial／1 record，isError=false；此 partial 為 bounded 截斷語意，不虛報完整持股。annual-pnl（2026、limit=1）回 available／1 record，isError=false；既有 A/B/A evidence 保留，沒有重做新版 B 驗收。
+- 本機安裝紀錄確認原外掛 ID `plugins_6ac4730a6e808191a8e9164e70264e42`；Plugin Creator 更新 [Janus Dev Private](https://chatgpt.com/plugins/plugins_6ac4730a6e808191a8e9164e70264e42) 為 0.1.1，release `pluginrel_6ac85649b4188191887ec05d65b88403`。讀回完整 inventory 確認 ledger-recording skill 已刪除、兩個 manifests 均唯讀描述／提示，MCP endpoint 與私人 audience 保留；沒有修改兩個同名但未安裝的其他外掛。當前桌面 cache／registry reload 與 ChatGPT 網頁／手機瀏覽器尚未實機驗收；官方仍明列自訂 MCP apps 不支援 ChatGPT 手機 App。
