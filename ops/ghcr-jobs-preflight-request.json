@@ -2,6 +2,6 @@
   "intent": "preflight-ghcr-jobs",
   "sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
   "scope": "readonly",
-  "purpose": "Investigate first controlled rollout rollback-image read failure with sanitized IAM/not-found classification; GCP writes zero",
-  "attempt": 6
+  "purpose": "Read-only identify which current Cloud Run Job runtime identities lack deployer iam.serviceAccounts.actAs; no IAM mutations",
+  "attempt": 7
 }
