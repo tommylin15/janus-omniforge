@@ -2,8 +2,8 @@
   "intent": "preflight-ghcr-jobs",
   "sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
   "scope": "readonly",
-  "purpose": "Read-only private Job image-only gcloud update drift diagnosis against original preupdate fingerprint; do not modify Scheduler, Job or lease",
-  "attempt": 10,
+  "purpose": "Retry isolated fingerprint diagnostics after test fixture fix; read only; protect paused Scheduler and lease",
+  "attempt": 11,
   "investigate_ghcr_config_drift": true,
   "private_pipeline_preupdate_hash": "4ebd16deaaff29c6c6aa6688ce0ffedeefbdc4afeb08dc9ef4ff02caebe953f7"
 }
