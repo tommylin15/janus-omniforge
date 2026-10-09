@@ -275,7 +275,7 @@ def release_rollback_mode(request, source_sha):
     for name, component in JOB_COMPONENT:
         image_ref = expected[name]
         if (not isinstance(image_ref, str)
-                or not re.fullmatch(rf"ghcr\\.io/tommylin15/janus-{component}@sha256:[0-9a-f]{{64}}", image_ref)):
+                or not re.fullmatch(rf"ghcr\.io/tommylin15/janus-{component}@sha256:[0-9a-f]{{64}}", image_ref)):
             raise ValueError("reversible_ghcr_image_identity_invalid")
     return mode
 
