@@ -2,6 +2,6 @@
   "intent": "preflight-ghcr-jobs",
   "sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
   "scope": "readonly",
-  "purpose": "Post-failed-preflight GCP readback: confirm Scheduler ENABLED, existing AR job images unchanged and zero active executions",
-  "attempt": 5
+  "purpose": "Investigate first controlled rollout rollback-image read failure with sanitized IAM/not-found classification; GCP writes zero",
+  "attempt": 6
 }
