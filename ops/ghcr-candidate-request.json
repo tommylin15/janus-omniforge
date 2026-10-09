@@ -1,12 +1,12 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "92349c509181590b8977b0ade355d7497bb62a8b",
-  "purpose": "Deploy full-tested Codex loopback OAuth fix as a 0% GHCR candidate before explicitly authorized MCP tag repair",
+  "sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
+  "purpose": "Deploy read-only MCP retirement as a full-tested 0% GHCR candidate before existing MCP tag cutover",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "fresh-source-ghcr-live-readback-v2",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
   "retry_verification": "same-sha-cache-normalized-immutable-candidate-reuse",
-  "same_sha_retry_attempt": 2
+  "same_sha_retry_attempt": 0
 }
