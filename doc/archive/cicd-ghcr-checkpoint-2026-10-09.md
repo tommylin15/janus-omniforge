@@ -58,3 +58,4 @@
 - A 狀態的 Read-only v2 positions 回 available／4 records；symbol、shares、average_cost 在記憶體內比對，與先前 Private MCP 已驗證 A 的持股一致，未輸出內容。year=2026 的 annual-pnl 回 available／1 record。
 - 使用者確認同一 Read-only v2 連線已重新登入 B 後：positions（limit=5）、annual-pnl（year=2026、limit=1）均正常回 missing／0 records、isError=false；以先前 A 持股的一個 symbol 作 bounded positions 查詢也回 missing／0 records。Missing 保留為資料缺漏，不偽造零損益或回傳 A 的資料。
 - 此為真實 authenticated MCP 的 owner-scoped bounded read isolation evidence。Symbol 是公開股票識別，這項探測不是以 A owner UUID／私人 record ID 做 API 越權測試；後者不因本輪結果而標 PASS。當前 Read-only v2 連線仍為 B，A 的回切尚待使用者操作。
+- 使用者隨後切回 A，Read-only v2 positions 恢復 available／4 records、annual-pnl（2026）恢復 available／1 record；兩個完整 records 集合在記憶體內遞迴排序 object keys 後，都與切 B 前 A 的回應完全一致，沒有保存或輸出金額。A → B → A MCP bounded read isolation round trip 完成；目前連線已回 A。
