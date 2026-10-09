@@ -1,7 +1,7 @@
 {
   "intent": "preflight-ghcr-jobs",
-  "sha": "0b93d99d42aaff662a3408d749d70aa9d04b1042",
+  "sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
   "scope": "readonly",
-  "purpose": "Post-IAM-grant GHCR Jobs and regional Scheduler readback (read-only); verify actual live target and schedule",
-  "attempt": 3
+  "purpose": "Bounded dev Jobs release preflight: Cloud Build writer, Scheduler, Jobs execution terminal and runWithOverrides IAM; no GCP writes",
+  "attempt": 4
 }
