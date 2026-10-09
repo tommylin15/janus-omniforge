@@ -1,3 +1,11 @@
+## 2026-10-09 15:15 — 四 Jobs forward-only 使用者授權及部署權限阻塞
+
+使用者明確同意不再驗證舊 AR 映像可否回滾，直接以 `fbcc5f58` 完整測試 GHCR digest 做四個 Job forward-only 部署。已以 `ops/ghcr-jobs-rollout-request.json` 宣告 `rollback_mode=user_authorized_forward_only`／`accept_no_old_image_rollback=true`。此例外不代表擴大 IAM 授權；保留原子 release lease、Scheduler fence、五個 Jobs execution 終態、最終 digest readback、每個目標兩次真實 canary 的 fail-closed 契約。
+
+實際 rollout [#37896385754](https://github.com/tommylin15/janus-omniforge/actions/runs/37896385754)、[#37896782041](https://github.com/tommylin15/janus-omniforge/actions/runs/37896782041)、[#37897307534](https://github.com/tommylin15/janus-omniforge/actions/runs/37897307534) 均 FAIL，且經獨立 recovery 後為 no mutation。最後一次的 gcloud error 經 mask 分類為 `job_update_permission_denied`、job `janus-private-pipeline`。唯讀權限診斷 [#37897812453](https://github.com/tommylin15/janus-omniforge/actions/runs/37897812453) 的 `four_runtime_identities_actas` 只對 private pipeline 顯示 `runtime_identity_actas_missing_or_unknown`，其餘三個 Job 身分為 PASS，既有 Job `run.jobs.update` 等 preflight PASS。沒有未授權 IAM policy mutation。
+
+失敗後 readback [#37897812277](https://github.com/tommylin15/janus-omniforge/actions/runs/37897812277) 五個 Jobs 的 AR pinned images 未變、Scheduler `ENABLED`、API 仍舊版 100%／候選 0%，最近 execution 無 active；下次重試需先解決狹義部署者對 private runtime service identity 的 `iam.serviceAccounts.actAs` 權限，並重新完成真實 GCP 驗收。**BLOCKED／PARTIAL**。
+
 ## 2026-10-09 14:44 — 首輪 GHCR Jobs 控制發布失敗，回滾參考 registry 404
 
 [受控 rollout #37894368278](https://github.com/tommylin15/janus-omniforge/actions/runs/37894368278) 真正啟動了動態 lease 及 GCP live preflight，但在建立 rollback snapshot 時回報 `bounded_command_failed`。原始 sanitized receipt：`phase=RECOVERY_REQUIRED`、`snapshots={}`、`operations=[]`、`canaries=[]`，未執行 Job 更新、Scheduler pause、canary 或 API 切流。無 mutation 二次 recovery 造成獨立 step FAIL；修正程式 `d1bafec` 後，在修復前置條件前不重試 rollout。
