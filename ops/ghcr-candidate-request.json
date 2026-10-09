@@ -1,10 +1,10 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
-  "purpose": "Deploy read-only MCP retirement as a full-tested 0% GHCR candidate before existing MCP tag cutover",
+  "sha": "038498c70e12488f345c3ca0fbe821846ddee4cc",
+  "purpose": "Validate new SHA after successful full GHCR release #37953986962; 0% candidate only, no traffic promotion and no Jobs update; prior GHCR rollback baseline #37954237695 PASS",
   "promotion": false,
   "scope": "janus-api-only",
-  "lease_validation": "fresh-source-ghcr-live-readback-v2",
+  "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
   "retry_verification": "same-sha-cache-normalized-immutable-candidate-reuse",
