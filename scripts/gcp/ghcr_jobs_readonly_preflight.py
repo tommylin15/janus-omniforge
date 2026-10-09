@@ -7,6 +7,9 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import subprocess
+from urllib.error import HTTPError
+from urllib.parse import quote
+from urllib.request import Request, urlopen
 
 import ghcr_jobs_rollout as rollout
 
@@ -27,6 +30,9 @@ def check(label, action, findings):
         if isinstance(error, RollbackImageBlocked):
             findings[label]["reason_code"] = error.reason_code
             findings[label]["job"] = error.job
+        if isinstance(error, RuntimeIdentityPermissionsBlocked):
+            findings[label]["reason_code"] = "runtime_identity_actas_missing_or_unknown"
+            findings[label]["jobs"] = error.jobs
     else:
         findings[label] = {"status": "PASS"}
 
@@ -68,6 +74,38 @@ def rollback_images_readable():
             raise RollbackImageBlocked("ROLLBACK_IMAGE_NO_DIGEST_READBACK", name)
 
 
+class RuntimeIdentityPermissionsBlocked(RuntimeError):
+    def __init__(self, jobs):
+        self.jobs = sorted(jobs)
+        super().__init__("runtime_identity_actas_missing_or_unknown")
+
+
+def runtime_identity_permissions():
+    """Read-only IAM self-test; print no identity addresses or HTTP responses."""
+    names = [name for name, _ in rollout.JOB_COMPONENT]
+    denied = []
+    token = rollout.command(["gcloud", "auth", "print-access-token"]).strip()
+    for name in names:
+        data = rollout.job(name)
+        account = data.get("template", {}).get("template", {}).get("serviceAccount")
+        if not isinstance(account, str) or not account.endswith(".iam.gserviceaccount.com"):
+            denied.append(name)
+            continue
+        uri = "https://iam.googleapis.com/v1/projects/-/serviceAccounts/" + quote(account, safe="@.-") + ":testIamPermissions"
+        request = Request(uri, method="POST", data=b'{"permissions":["iam.serviceAccounts.actAs"]}',
+                          headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"})
+        try:
+            with urlopen(request, timeout=35) as response:
+                permitted = json.load(response).get("permissions", [])
+        except (HTTPError, OSError, ValueError):
+            denied.append(name)
+            continue
+        if "iam.serviceAccounts.actAs" not in permitted:
+            denied.append(name)
+    if denied:
+        raise RuntimeIdentityPermissionsBlocked(denied)
+
+
 def scan():
     findings = {}
     check("legacy_cloud_build_not_competing", rollout.legacy_writers, findings)
@@ -75,6 +113,7 @@ def scan():
     check("five_jobs_readable_and_ready", jobs_ready_readback, findings)
     check("five_jobs_executions_terminal", rollout.fence, findings)
     check("jobs_update_and_canary_iam", rollout.job_update_permissions, findings)
+    check("four_runtime_identities_actas", runtime_identity_permissions, findings)
     check("five_rollback_images_registry_readable", rollback_images_readable, findings)
     return {
         "mode": "read_only",
