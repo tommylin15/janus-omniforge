@@ -233,6 +233,15 @@ def acceptance(sha):
 
 def run(release_run, receipt):
     sha = json.loads(Path("ops/ghcr-candidate-request.json").read_text())["sha"]
+    request = json.loads(Path("ops/ghcr-jobs-rollout-request.json").read_text())
+    if (request.get("intent") != "approved-dev-ghcr-jobs-rollout"
+            or request.get("approved") is not True
+            or request.get("scope") != "existing-dev-four-jobs"
+            or request.get("sha") != sha
+            or request.get("release_run") != release_run
+            or request.get("rollback_mode") != "user_authorized_forward_only"
+            or request.get("accept_no_old_image_rollback") is not True):
+        raise ValueError("forward_only_user_authorization_missing")
     acceptance(sha)
     release = json.loads(command(["gh", "run", "view", release_run, "--json", "headSha,status,conclusion,workflowName"]))
     if (release.get("headSha") != sha or release.get("status") != "completed"
