@@ -274,6 +274,10 @@ def run(release_run, receipt):
         for name in REQUIRED_JOBS:
             data = job(name)
             full_snapshots[name] = data
+            if name in {target_name for target_name, _ in JOB_COMPONENT}:
+                container = data["template"]["template"]["containers"]
+                if len(container) != 1 or container[0].get("command") not in (None, [], ["python"]):
+                    raise ValueError("canary_entrypoint_unknown")
             previous = image(data)
             if not PIN.fullmatch(previous):
                 raise ValueError("rollback_image_not_pinned")
