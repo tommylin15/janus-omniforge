@@ -1,0 +1,13 @@
+{
+  "intent": "promote-authenticated-reversible-ghcr-dev",
+  "approved": true,
+  "scope": "existing-dev-janus-api-only",
+  "source_sha": "038498c70e12488f345c3ca0fbe821846ddee4cc",
+  "release_run": "37953986962",
+  "jobs_run": "38012746734",
+  "rollback_mode": "reversible_ghcr",
+  "baseline_source_sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
+  "owner_acceptance_source_sha": "038498c70e12488f345c3ca0fbe821846ddee4cc",
+  "allow_legacy_forward_only": false,
+  "gate": "OWNER_ATTESTED same SHA in ops/ghcr-owner-acceptance.json; reversible GHCR Jobs PASS with eight distinct live canaries in run 38012746734 and verified older GHCR baseline; controlled API 100%-rollback-100% only via existing lease."
+}
