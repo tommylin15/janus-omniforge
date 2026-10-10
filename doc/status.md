@@ -4,6 +4,12 @@
 
 權威順序：GitHub `main` implementation → tests／CI → GCP live runtime → [驗收證據](archive/cicd-ghcr-live-route-finalization-2026-10-09.md) → 本短入口。歷史完整狀態已原文保存於 [archive](archive/cicd-status-pre-forward-repair-2026-10-09.md)，不應以舊快照覆蓋最新判定。
 
+## 2026-10-10 新版 A→B→A 人工關卡：USER_ATTESTED PASS；發布仍 PARTIAL
+
+- 使用者於本次對話明確確認固定 Preview 新候選 `038498c70e12488f345c3ca0fbe821846ddee4cc` 的兩帳號 A→B→A、B 對 A 之私人資料隔離、已知 A 記錄存取拒絕與回 A PnL 一致。正式記錄 `ops/ghcr-owner-acceptance.json`，以 `USER_ATTESTED_NOT_MACHINE_REPLAYED` 區分人工作業與機器證據；見 [新 SHA 人工驗收](archive/cicd-owner-browser-acceptance-2026-10-10-new-ghcr.md)。
+- 獨立 MCP 正向讀取僅為已連線的 Janus Dev Read-only v2 受限 `positions limit=1`，該 bounded 回應為 `status=partial`；新候選 OAuth/MCP 未登入邊界 [#37955226220](https://github.com/tommylin15/janus-omniforge/actions/runs/37955226220) PASS。**未冒充新 SHA 下使用兩個 MCP owner 憑證完整重跑**。
+- GitHub 新版四 Jobs 發布 request `ops/ghcr-jobs-rollout-request.json` 截至本次回讀**仍是舊 SHA `fbcc5f58…` 的歷史 forward-only request**。本次嘗試將它改為新 SHA reversible_ghcr 時被執行環境安全檢查封鎖；GitHub 原檔與工作流程皆未切換，新版 Jobs／API 100% 及 rollback 實測均未執行。前述 A/B 確認不能當部署 PASS。禁止直接重用舊版 forward-only request。
+
 ## 2026-10-10 無需真人的 CI/CD 安全／驗收工作：已完成
 
 - 固定 Preview 重複發布只讀回、不更新 GCP tag：[Live #38009514370](https://github.com/tommylin15/janus-omniforge/actions/runs/38009514370)，receipt `VERIFIED_FIXED_PREVIEW_IDEMPOTENT`、`preview_tag_mutation_attempted=false`、`lease_released=true`；完整 source SHA `038498c70e12488f345c3ca0fbe821846ddee4cc`。此前固定 Preview 真實首次發布 #37956325838 PASS。
