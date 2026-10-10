@@ -1,0 +1,78 @@
+name: B8 ML/OOS fixed-Core fidelity (read-only)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b8-ml-oos-readback.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: b8-ml-oos-fidelity-dev
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PYTHONPATH: jobs/intelligence-mart:jobs/ingestion-core:.
+      B8_B5_MANIFEST_URI: gs://gen-lang-client-0593591102-dev-mart/ml-oos-data/v1/70e0dc3b7d4a6ab3a0437bd0c633de56986bc72b6d8b14e5d85861f0771164a6/manifest.json
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install locked read-only dependencies
+        run: |
+          python -m pip install --require-hashes -r jobs/intelligence-mart/requirements.lock
+          python -m pip install --require-hashes -r jobs/intelligence-mart/requirements-bigquery-probe.lock
+          python -m pip install -r requirements-dev.txt
+
+      - name: Test independent B5 reduction and comparison
+        run: |
+          python -m py_compile scripts/gcp/b8-matched-ml-oos.py
+          python -m pytest -q tests/test_b8_matched_ml_oos.py tests/test_b5_ml_oos_data.py
+
+      - name: Compare frozen Core B5 export to PyIceberg independent reduction
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/b8-matched-ml-oos.py \
+            --manifest-uri "${B8_B5_MANIFEST_URI}" \
+            --output b8-ml-oos-fidelity.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result=json.loads(Path("b8-ml-oos-fidelity.json").read_text())
+          assert result["status"] == "pass"
+          assert result["comparison"]["equal"] is True
+          assert result["core_snapshot_id"].startswith("sha256:")
+          assert result["export_bytes_verified"] > 0
+          assert result["equal_run_performance"] == "not_verified"
+          assert result["default"] == "pyiceberg" and result["cutover"] is False
+          assert result["canonical_write"] is False
+          assert result["storage_read_api_used"] is False
+          assert result["ml_retraining_triggered"] is False
+          PY
+
+      - name: Save immutable-source B8 fidelity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: b8-ml-oos-readback-${{ github.run_id }}
+          path: b8-ml-oos-fidelity.json
+          if-no-files-found: ignore
+          retention-days: 14
