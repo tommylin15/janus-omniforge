@@ -1,7 +1,9 @@
 {
-  "source_sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
-  "candidate_revision": "janus-api-00451-cuw",
+  "source_sha": "038498c70e12488f345c3ca0fbe821846ddee4cc",
+  "candidate_revision": "janus-api-00457-wed",
   "result": "PASS",
+  "acceptance_provenance": "USER_ATTESTED_A_B_A_PLUS_INDEPENDENT_READONLY_MCP_BOUNDARY",
+  "owner_browser_execution": "USER_ATTESTED_NOT_MACHINE_REPLAYED",
   "janus_dev_private": "BYPASSED",
   "gates": {
     "google_oauth": true,
@@ -11,7 +13,16 @@
     "pnl_parity": true,
     "readonly_mcp": true
   },
-  "evidence": "doc/archive/cicd-owner-browser-acceptance-2026-10-09.md",
-  "observed_at": "2026-10-09T03:35:09Z",
-  "known_identifier_probe": "B authenticated history with A symbol/owner/event parameters returned empty; identity parameters cannot select owner. No mutation probe."
+  "gate_sources": {
+    "google_oauth": "User personally confirmed new fixed-preview A→B→A Google login on 2026-10-10",
+    "owner_a_read": "User attested candidate A private positions/history and return-to-A parity",
+    "owner_b_isolation": "User attested candidate B isolation from A private data",
+    "known_a_record_rejected": "User confirmed all above A→B→A checklist, including B cannot use A record identifier",
+    "pnl_parity": "User attested PnL parity on both visits to A",
+    "readonly_mcp": "Independent read-only connected Janus Dev Read-only v2 sources + bounded private positions read; newer candidate OAuth/MCP negative challenge #37955226220 PASS; NOT a second B-credential MCP reproduction"
+  },
+  "evidence": "doc/archive/cicd-owner-browser-acceptance-2026-10-10-new-ghcr.md",
+  "observed_at": "2026-10-10T01:03:59Z",
+  "prior_source_acceptance": "doc/archive/cicd-owner-browser-acceptance-2026-10-09.md",
+  "remaining_live_gates": "Jobs GHCR-to-GHCR rollout with independent real canaries, rollback; new API actual reversible traffic promotion"
 }
