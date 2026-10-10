@@ -122,13 +122,17 @@ WIF 診斷身分具備指定 project 的 `cloudbuild.builds.get`／必要時 `cl
 
 目前已證實的部分是**前一版 rollback baseline 真實可用**（新 0% candidate 已存在時的 [GCP 唯讀回驗 #38010139996](https://github.com/tommylin15/janus-omniforge/actions/runs/38010139996) PASS）、GHCR 公開 digest、固定 Preview 正向／冪等 live 與 Service/Jobs 回復基準。下一次新版 Job 更新、實際反序 rollback drill、同 SHA authenticated acceptance 與 API traffic promotion 要以各自 Actions 收據判定，不因 runbook、模擬失敗測試或某次 workflow SUCCESS 而宣告 CLOSED。
 
-### 3.3.3 已備妥的無人工執行交接（僅 A→B→A 需使用者本人）
+### 3.3.3 已驗證的 GHCR→GHCR 可逆發布程序
 
-1. **真人 gate 尚未完成時**，新來源 `038498c70e12488f345c3ca0fbe821846ddee4cc` 只保留 0% candidate／固定 Preview；**不得**啟動新四 Jobs 更新或 API 新版正式 100%。兩份安全範本 [Jobs](../ops/ghcr-jobs-rollout-request.template.json) 與 [API](../ops/ghcr-api-promote-request.template.json) 均 `approved=false`，其副檔名為 `.template.json`，**不是** GitHub Actions 的發布入口。
-2. 使用者於固定 Preview <https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/> 用 Google A 登入核對持股、紀錄及 PnL；再用 B 登入確認不能看到 A 的資料；切回 A 確認原資料仍一致。合格 owner proof 必須與本次完整 source SHA、候選 Revision `janus-api-00457-wed` 及驗收時間相符；`ops/ghcr-owner-acceptance.json` 的舊 SHA 不得複製冒充新來源。
-3. 上述真人 owner proof 成立後，將 Jobs 已禁用的模板填成正式 `ops/ghcr-jobs-rollout-request.json`，`approved=true`、本次 source SHA/Release Run 正確、`rollback_mode=reversible_ghcr`；這個**唯一 request path** 的 commit 才觸發既有 `ghcr-jobs-rollout-dev.yml`。Jobs 在原共用 Actions mutex + owner Git-ref lease 下，先驗舊 image/fingerprint、Scheduler／executions fence，再執行四 Job 新映像和各兩次 canary、異常反序恢復；Research Job 不在更新範圍。必須取得真正的 Jobs PASS receipt，不能把模板當證據。
-4. Jobs PASS 且真人 owner proof 仍有效後，將 API 已禁用模板填成正式 `ops/ghcr-api-promote-request.json`，填真實 `jobs_run`、`approved=true`、本次 SHA 與上一版 GHCR baseline。僅這個 request path push 會觸發 `ghcr-api-promote-dev.yml`；該 workflow 仍需再次通過完整 Release／Jobs proof、registry/source identity、`Ready/RoutesReady`／generation、traffic/其他 tags、健康及 rollback rehearsal。即使手動使用 `workflow_dispatch`，Python 也需相同明確批准 request。
-5. 對故障路徑採**已測試的模擬 fault-injection**（[CI #38009586797](https://github.com/tommylin15/janus-omniforge/actions/runs/38009586797)）以避免蓄意干擾真實 dev 使用者：Preview 變更後健康失敗須恢復原 preview SHA，恢復失敗須留鎖；mock PASS **不等於**刻意 live failure drill PASS。標準 API 的回滾演練必須等 owner gate 過後，在可恢復 GHCR 版本之間真實執行。明細見 [2026-10-10 驗收證據](archive/cicd-ghcr-unattended-hardening-2026-10-10.md)。
+每次新的完整來源 SHA 必須重新執行以下鏈路；2026-10-10 首次真實完成的新來源、8 次 Jobs canary、API 新→舊→新 100% traffic rehearsal 與收據見 [live evidence](archive/cicd-ghcr-api-promotion-2026-10-10.md)，**不得把當次已通過證據套用到下一個 SHA**。
+
+1. 先有完整 GHCR publish PASS、0% candidate 已驗證、同一 source SHA 的 Owner／OAuth／PnL acceptance。缺少本次必要證據時不得寫入四 Jobs 或 API 正式流量；`ops/*.template.json` 只是 `approved=false` 範本，**不觸發發佈**。不得用舊 SHA owner proof 或負向 401 替代真人 owner 隔離。
+2. 以新版完整 SHA、正確 release run、`rollback_mode=reversible_ghcr`、`accept_no_old_image_rollback=false` 與前一成功版本四 Job image digest＋設定 fingerprint 建立 `ops/ghcr-jobs-rollout-request.json`。只有正式 request commit／明確受控 dispatch 才執行 `ghcr-jobs-rollout-dev.yml`。原有共享 concurrency + Git-ref owner lease、Scheduler／executions fence、各 Job 兩次獨立 canary、異常反序恢復不可省略。Research Job 不屬四目標。
+3. **先讀取真正 Jobs artifact**：必須 `phase=PASS`、同 SHA、`rollback_baseline_verified=true`、`rollback_available=true`、8 次不同 execution canary 完整；若 `old_image_rollback_exercised=false`，只可說「回復基準可用」，不可說「Job 真實回滾已完成」。
+4. Jobs receipt PASS 後才建立 `ops/ghcr-api-promote-request.json`（`approved=true`、同 SHA owner proof、release_run、jobs_run、上一版 `baseline_source_sha`、`allow_legacy_forward_only=false`），透過 `ghcr-api-promote-dev.yml` 執行。手動 `workflow_dispatch` 仍必須通過 Python 內部同一 request guard。
+5. 正式 API promotion 須先證實上一版 Ready／可匿名讀取的 pinned GHCR image 與 source identity，再進行候選 100% → 前版 100% → 候選 100% 真實 traffic rehearsal；每一段 readback Route/Service Ready、generation、單一 100%、未改其他 tags／非 traffic 設定、health／build SHA／未登入 401。若未知或不能恢復，必須保留既有 lease 並回報 BLOCKED；僅以 workflow SUCCESS 不算 live PASS。
+6. 每次發布前更新 rollback baseline 到**實際目前已驗證的上一次成功版**。歷史 `fbcc5f58...` 是 2026-10-10 發布的**前一版**，不可在以後不同來源的 Release 未重新 live readback 就沿用。新來源發佈後仍保留前版映像與 revision 至新基準驗證完成。
+7. 固定 Preview 更新後健康失敗恢復的 fault-injection 測試 [#38009586797](https://github.com/tommylin15/janus-omniforge/actions/runs/38009586797) 已 PASS；**並非刻意 GCP live 故障演練**。API 真實 traffic rollback 與 Jobs image rollback 是不同 acceptance，分開記錄。
 
 ### 3.4 本次驗收範圍
 
