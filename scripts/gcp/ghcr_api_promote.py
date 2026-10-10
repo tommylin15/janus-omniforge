@@ -105,6 +105,14 @@ def check_jobs_receipt(proof, source_sha):
     if proof.get("source_sha") != source_sha:
         raise ValueError("jobs_receipt_not_matching_release")
     if proof.get("phase") == "PASS":
+        # The legacy AR forward-only waiver was source-specific. A regular
+        # GHCR→GHCR promotion requires an explicitly verified previous image
+        # baseline, its intact config hash, and a recoverable new Jobs state.
+        if (proof.get("rollback_mode") != "reversible_ghcr"
+                or proof.get("rollback_baseline_verified") is not True
+                or proof.get("rollback_available") is not True
+                or proof.get("old_image_rollback_exercised") is not False):
+            raise ValueError("regular_jobs_reversible_baseline_unverified")
         snapshots = proof.get("snapshots")
         if not isinstance(snapshots, dict) or set(snapshots) != set(REQUIRED_JOBS):
             raise ValueError("jobs_snapshot_coverage_incomplete")
@@ -203,8 +211,15 @@ def promote(release_run, jobs_run, receipt, forward_recovery=False):
             raise ValueError("wrong_forward_jobs_receipt")
         checkpoint("live_jobs_scheduler_fence")
         verify_forward_runtime(forward_request)
-    elif jobs_receipt.get("phase") != "PASS":
-        raise ValueError("wrong_regular_jobs_receipt")
+    else:
+        if jobs_receipt.get("phase") != "PASS":
+            raise ValueError("wrong_regular_jobs_receipt")
+        # The exact release run and immutable job images must agree even if
+        # a stale or incorrectly named artifact was downloaded.
+        if jobs_receipt.get("rollback_baseline_sha") != approved_baseline["source_sha"]:
+            raise ValueError("rollback_source_baseline_drift")
+        if jobs_receipt.get("rollback_mode") != "reversible_ghcr":
+            raise ValueError("nonreversible_regular_jobs_receipt")
     checkpoint("previous_release_ancestry")
     if Path("ops/ghcr-last-success.json").exists():
         previous = json.loads(Path("ops/ghcr-last-success.json").read_text())
