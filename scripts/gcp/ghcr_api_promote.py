@@ -6,6 +6,7 @@ import argparse
 import json
 from pathlib import Path
 import re
+import time
 
 from collections import Counter
 
@@ -79,15 +80,47 @@ def verify_previous_ghcr_rollback(baseline, previous_source_sha):
     return current_image
 
 
+def traffic_route_reconciled(state, revision, baseline):
+    """Only a fully reconciled 100% route with healthy Ready gates can pass.
+
+    Cloud Run can return a temporarily unreconciled service after a traffic
+    write; no single transient observation is treated as acceptance.
+    """
+    if active(state) != revision or tags(state) != tags(baseline):
+        return False
+    before_spec = dict(baseline.get("spec", {}))
+    after_spec = dict(state.get("spec", {}))
+    before_spec.pop("traffic", None)
+    after_spec.pop("traffic", None)
+    if before_spec != after_spec:
+        raise ValueError("service_nontraffic_config_drift")
+    meta = state.get("metadata", {})
+    status = state.get("status", {})
+    generation, observed = meta.get("generation"), status.get("observedGeneration")
+    if (not str(generation).isdigit() or not str(observed).isdigit()
+            or int(generation) != int(observed)):
+        return False
+    conditions = status.get("conditions", [])
+    if not isinstance(conditions, list):
+        return False
+    ready = [x.get("status") for x in conditions if x.get("type") == "Ready"]
+    routes_ready = [x.get("status") for x in conditions if x.get("type") == "RoutesReady"]
+    return ready == ["True"] and (not routes_ready or routes_ready == ["True"])
+
+
 def switch(revision, baseline):
     command(LEASE + ["assert"])
     command(["gcloud", "run", "services", "update-traffic", SERVICE, f"--project={PROJECT}",
              f"--region={REGION}", f"--to-revisions={revision}=100", "--quiet"])
-    current = describe()
-    if active(current) != revision or tags(current) != tags(baseline):
-        raise ValueError("traffic_readback_mismatch")
-    if not any(c.get("type") == "Ready" and c.get("status") == "True" for c in current["status"]["conditions"]):
-        raise ValueError("service_not_ready")
+    # Poll until the control plane reconciles. Fail closed if condition remains
+    # False / stale, while retaining the owner lease for recovery.
+    for attempt in range(12):
+        current = describe()
+        if traffic_route_reconciled(current, revision, baseline):
+            return
+        if attempt != 11:
+            time.sleep(5)
+    raise ValueError("traffic_route_not_reconciled")
 
 
 def health(sha):
