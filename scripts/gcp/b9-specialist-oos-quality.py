@@ -103,6 +103,8 @@ def summarize(manifest, evaluations, artifacts, *, expected_core):
     _require(isinstance(evaluations, list) and evaluations, "missing persisted OOS evaluations")
     by_role = defaultdict(list)
     evaluated = 0
+    lineage_present = 0
+    lineage_legacy_missing = 0
     for item in evaluations:
         role = _role_for_evaluation(item)
         _require(role in ROLES and item.get("core_snapshot_id") == expected_core,
@@ -120,6 +122,29 @@ def summarize(manifest, evaluations, artifacts, *, expected_core):
             for row in preds:
                 _require(row.get("training_label_cutoff", "~") < row.get("analysis_as_of", "") <
                          row.get("outcome_as_of", ""), "OOS training/label leakage in persisted predictions")
+                lineage_keys = ("sample_source_authorization", "sample_provenance_id",
+                                "feature_available_at", "label_available_at")
+                present = [key in row for key in lineage_keys]
+                if not any(present):
+                    lineage_legacy_missing += 1
+                else:
+                    _require(all(present), "partially persisted OOS provenance/authorization")
+                    _require(row["sample_source_authorization"] in {"official", "approved_fallback"} and
+                             isinstance(row["sample_provenance_id"], str) and
+                             bool(row["sample_provenance_id"].strip()),
+                             "invalid OOS sample authorization/provenance")
+                    try:
+                        feature_day = datetime.fromisoformat(
+                            str(row["feature_available_at"]).replace("Z", "+00:00")).date()
+                        label_day = datetime.fromisoformat(
+                            str(row["label_available_at"]).replace("Z", "+00:00")).date()
+                        entry_day = datetime.fromisoformat(str(row["analysis_as_of"])).date()
+                        outcome_day = datetime.fromisoformat(str(row["outcome_as_of"])).date()
+                    except (ValueError, TypeError) as error:
+                        raise AuditError("invalid persisted OOS lineage availability date") from error
+                    _require(feature_day <= entry_day and label_day >= outcome_day,
+                             "OOS persisted lineage PIT/label availability violation")
+                    lineage_present += 1
             status = item.get("status")
             sample_count = len(preds)
         _require(isinstance(sample_count, int) and sample_count >= 0,
@@ -160,7 +185,12 @@ def summarize(manifest, evaluations, artifacts, *, expected_core):
         "specialist_artifacts_verified": len(refs),
         "evaluation_records_verified": len(evaluations),
         "oos_evaluations_with_samples": evaluated,
-        "per_prediction_source_authorization_and_provenance": "not_independently_in_persisted_predictions",
+        "per_prediction_source_authorization_and_provenance":
+            ("fields_present_and_temporally_valid_source_readback_not_verified"
+             if lineage_present and not lineage_legacy_missing
+             else "not_independently_in_persisted_predictions"),
+        "prediction_lineage_present": lineage_present,
+        "prediction_lineage_legacy_missing": lineage_legacy_missing,
         "historical_membership_replay": "not_verified",
         "champion_promotion": False,
         "model_quality": "not_verified",
