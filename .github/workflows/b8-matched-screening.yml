@@ -1,0 +1,78 @@
+name: B8 matched screening (read-only)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b8-matched-screening.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: b8-matched-screening-dev
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PYTHONPATH: jobs/intelligence-mart:jobs/ingestion-core:.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install locked Mart / BigQuery probe dependencies
+        run: |
+          python -m pip install --require-hashes -r jobs/intelligence-mart/requirements.lock
+          python -m pip install --require-hashes -r jobs/intelligence-mart/requirements-bigquery-probe.lock
+          python -m pip install -r requirements-dev.txt
+
+      - name: B8 targeted safety and fidelity tests
+        run: |
+          python -m py_compile scripts/gcp/b8-matched-screening.py
+          python -m pytest -q tests/test_b8_matched_screening.py tests/test_bigquery_reader.py tests/test_market_screening.py
+
+      - name: Real pinned-Core B8 cold/warm comparison
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/b8-matched-screening.py --output b8-matched-screening.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          row=json.loads(Path("b8-matched-screening.json").read_text())
+          assert row["status"]=="pass"
+          assert row["core_snapshot_id"].startswith("sha256:")
+          assert row["cohort_size"]==500
+          assert [s["path"] for s in row["samples"]] == [
+              "pyiceberg", "bigquery-hybrid", "bigquery-hybrid", "pyiceberg"
+          ]
+          assert row["total_billed_bytes"] is not None
+          assert row["total_billed_bytes"]<=1073741824
+          assert row["performance_decision"]=="inconclusive"
+          assert row["default"]=="pyiceberg" and row["cutover"] is False
+          assert row["storage_read_api_used"] is False
+          assert row["canonical_write"] is False
+          PY
+
+      - name: Save B8 evidence (PASS or partial)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: b8-matched-screening-${{ github.run_id }}
+          path: b8-matched-screening.json
+          if-no-files-found: ignore
+          retention-days: 14
