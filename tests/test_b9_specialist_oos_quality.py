@@ -90,6 +90,30 @@ class B9QualityTests(unittest.TestCase):
             with self.assertRaisesRegex(b9.AuditError, "bytes hash mismatch"):
                 b9.audit(manifest_uri, CORE)
 
+    def test_v5_prediction_lineage_is_present_but_not_automatically_promoted(self):
+        manifest, evaluation, artifacts = fixture()
+        prediction = evaluation[0]["predictions"][0]
+        prediction.update(sample_source_authorization="official",
+                          sample_provenance_id="sha256:input-evidence",
+                          feature_available_at="2026-08-01",
+                          label_available_at="2026-08-08")
+        r = b9.summarize(manifest, evaluation, artifacts, expected_core=CORE)
+        self.assertEqual(r["prediction_lineage_present"], 1)
+        self.assertEqual(r["prediction_lineage_legacy_missing"], 0)
+        self.assertEqual(r["per_prediction_source_authorization_and_provenance"],
+                         "fields_present_and_temporally_valid_source_readback_not_verified")
+        self.assertFalse(r["champion_promotion"])
+        self.assertEqual(r["model_quality"], "not_verified")
+        prediction["feature_available_at"] = "2026-08-02"
+        with self.assertRaisesRegex(b9.AuditError, "PIT/label availability"):
+            b9.summarize(manifest, evaluation, artifacts, expected_core=CORE)
+
+    def test_partial_prediction_lineage_fails_closed(self):
+        manifest, evaluation, artifacts = fixture()
+        evaluation[0]["predictions"][0]["sample_source_authorization"] = "official"
+        with self.assertRaisesRegex(b9.AuditError, "partially persisted OOS"):
+            b9.summarize(manifest, evaluation, artifacts, expected_core=CORE)
+
     def test_rejects_stale_or_mismatched_core(self):
         manifest, evaluation, artifacts = fixture()
         with self.assertRaisesRegex(b9.AuditError, "Core differs"):
