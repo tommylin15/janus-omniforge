@@ -36,7 +36,7 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `spec/operations-and-testing.md`：最新完整 evidence summary 與尚待整理的歷史 checkpoint；日常定位優先看 `status.md`，舊證據逐步移至 `archive/`。
 - `pilot-operational-evidence.md`：`WBS-8-DEV-PILOT-RUN` 六個 calendar months evidence window 的新增 bounded checkpoint；保存 observed failure／recovery／manual intervention 與尚未觀察到的 evidence category，不把 checkpoint 當成 WBS 完成。
 - `runbook-data-supplement.md`：每日增量、週六品質檢查、Admin 結果與排程修復程序。
-- `spec/cicd-v2.md`：2026-10-08 核准的 Actions + 公開 GHCR + Cloud Run 發布／回滾契約；現行階段性驗收見 `status.md` 與 [第二輪 GHCR／固定 Preview live evidence](archive/cicd-ghcr-next-release-preview-2026-10-09.md)。完整 GHCR Release、固定 Preview、同 SHA Owner 人工驗收、四 Jobs 新版 8/8 canary 與 API 100% 切流／真實 traffic rollback 已 PASS；Jobs 舊映像實際 rollback 等獨立缺口仍在 TODO，不宣稱 CI/CD 整體 CLOSED。
+- `spec/cicd-v2.md`：2026-10-08 核准的 Actions + 公開 GHCR + Cloud Run 發布／回滾契約；現行階段性驗收見 `status.md` 與 [第二輪 GHCR／固定 Preview live evidence](archive/cicd-ghcr-next-release-preview-2026-10-09.md)。完整 GHCR Release、固定 Preview、同 SHA Owner 人工驗收、四 Jobs 新版 8/8 canary 與 API 正式 100% 切流／真實 traffic rollback 均 PASS；使用者 2026-10-10 豁免四項額外演練／舊 AR 歷史問題，**目前 dev CI/CD scope 已結案 PASS**，未實測項保留原始標記於 [Parking Lot](parking-lot.md)，不列 TODO。
 - `runbook-dev-deploy.md`：dev 部署、migration、Job 與 Secret 的操作程序；CI/CD 節記錄已上線 GHCR/固定 Preview、共用 lease 和新人員 OAuth gate 後的可逆 rollout／promotion 步驟。最新切流結果見 [2026-10-10 API live rollback evidence](archive/cicd-ghcr-api-promotion-2026-10-10.md)；其他 Research/Private 歷史差異見 [先前盤點](archive/cicd-ghcr-unattended-hardening-2026-10-10.md)，不可混淆 API traffic 與 Jobs image rollback。
 - `runbook-pilot-calendar-repair.md`：Dev Pilot TWSE 交易日曆修復、operator IAP migration 與 bounded ingestion 驗收程序。
 - `runbook-user-oauth-dev.md`：User／MCP OAuth 的專用操作與 A/B owner isolation 驗收程序。
