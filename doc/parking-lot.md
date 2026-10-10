@@ -6,6 +6,17 @@
 
 這不是 active backlog。只有使用者日後明確決定「要做」，項目才重新移回 [`todo.md`](todo.md) 並取得明確順序與 acceptance；不得因本文件存在就自行開工。
 
+## 2026-10-10｜CI/CD 已接受的加強驗收豁免（不列待辦）
+
+使用者決定目前個人使用的 Janus dev 不必追加四項加強／歷史相容性驗收，均記為 **`WAIVED_BY_OWNER`（範圍決策 PASS、實測未執行）**，不影響本次已實測通過的 GitHub Actions → GHCR → Cloud Run 新版 CI/CD 結案，也不得未經重新排程自行執行：
+
+- Jobs 舊映像真實 rollback drill：`NOT_VERIFIED`（已驗證可回復基準、8/8 canary，沒有真的切回舊 image）。
+- 固定 Preview 更新後故障的 GCP live restore drill：`NOT_VERIFIED`（正向／冪等 live 與 mock fault-injection PASS）。
+- Private Pipeline 舊 AR 時期完整 config parity：`NOT_VERIFIED`（現行 baseline 有驗證，但無舊版完整快照）。
+- 受保護 Research Job 舊 AR image 可恢復性：`BLOCKED`（不屬目前四 Job GHCR rollout target）。
+
+以上是「**不用做且不阻擋本階段 CI/CD PASS**」，不是把 `NOT_VERIFIED`／`BLOCKED` 改寫為實測 `PASS`。既有 release mutex／lease、image digest、fail-closed、可回復基準、Secret 和資料保護繼續維持；歷史 evidence 見 [2026-10-10 GHCR API 驗收](archive/cicd-ghcr-api-promotion-2026-10-10.md)。
+
 ## 0. 個股預警與通知（2026-10-05 明確暫緩）
 
 2026-10-09：舊 CI/CD Revision／映像／GCS／AR 資產清理目前不做，不計入新版 GitHub Actions → GHCR → Cloud Run 驗收；既有工具與歷史盤點只供日後參考。發布互斥、登入驗收與回滾仍屬 active scope。
