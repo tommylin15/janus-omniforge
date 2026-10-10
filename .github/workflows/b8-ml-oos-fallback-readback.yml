@@ -1,0 +1,86 @@
+name: B8 ML/OOS BigQuery opt-in failover readback
+
+# Read-only dev acceptance; deliberately injected operational error, real Core fallback.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b8-ml-oos-fallback-readback.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: b8-ml-oos-fallback-dev
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 32
+    env:
+      PYTHONPATH: jobs/intelligence-mart:jobs/ingestion-core:.
+      B8_B5_MANIFEST_URI: gs://gen-lang-client-0593591102-dev-mart/ml-oos-data/v1/70e0dc3b7d4a6ab3a0437bd0c633de56986bc72b6d8b14e5d85861f0771164a6/manifest.json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install locked Mart-only read dependencies
+        run: |
+          python -m pip install --require-hashes -r jobs/intelligence-mart/requirements.lock
+          python -m pip install --require-hashes -r jobs/intelligence-mart/requirements-bigquery-probe.lock
+          python -m pip install -r requirements-dev.txt
+      - name: Offline B8 fail-closed routing and PIT tests
+        run: |
+          python -m py_compile jobs/intelligence-mart/intelligence_mart/ml_oos_backend_policy.py scripts/gcp/b8-ml-oos-fallback-acceptance.py
+          python -m pytest -q tests/test_ml_oos_backend_policy.py tests/test_b8_matched_ml_oos.py
+      - name: Read fixed Core using default PyIceberg
+        run: |
+          python scripts/gcp/b8-ml-oos-fallback-acceptance.py \
+            --manifest-uri "$B8_B5_MANIFEST_URI" \
+            --output b8-default-pyiceberg.json
+      - name: BQ opt-in injected outage must safely read real Core via PyIceberg
+        run: |
+          python scripts/gcp/b8-ml-oos-fallback-acceptance.py \
+            --manifest-uri "$B8_B5_MANIFEST_URI" \
+            --backend bigquery --inject-bq-unavailable \
+            --output b8-fallback-pyiceberg.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("b8-default-pyiceberg.json").read_text())
+          e=json.loads(Path("b8-fallback-pyiceberg.json").read_text())
+          assert d["status"] == e["status"] == "pass"
+          assert d["audit"]["effective_backend"] == "pyiceberg"
+          assert d["audit"]["fallback_triggered"] is False
+          assert e["audit"]["fallback_status"] == "validated"
+          assert e["audit"]["effective_backend"] == "pyiceberg"
+          assert e["audit"]["operational_failure_code"] == "unavailable"
+          assert e["real_data_fallback_read"] is True
+          assert e["comparison"]["equal"] is True and e["row_count"] == 10978
+          assert e["source_core_snapshot_id"] == d["source_core_snapshot_id"]
+          assert e["fault_is_synthetic"] is True
+          assert e["bigquery_jobs_submitted"] == 0 and e["bigquery_billed_bytes"] == 0
+          for r in (d,e):
+              assert r["cutover"] is False and r["default"] == "pyiceberg"
+              assert r["canonical_write"] is False and r["cache_write"] is False
+              assert r["storage_read_api_used"] is False and r["ml_retraining_triggered"] is False
+          PY
+      - name: Preserve GCP readback and typed injected fault evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: b8-ml-oos-fallback-${{ github.run_id }}
+          path: |
+            b8-default-pyiceberg.json
+            b8-fallback-pyiceberg.json
+          if-no-files-found: warn
+          retention-days: 14
