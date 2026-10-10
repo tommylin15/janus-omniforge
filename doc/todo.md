@@ -87,7 +87,7 @@ A 組 implementation／CI／dev runtime 與兩項人工 gate 已於 2026-10-06 �
 - [latest-price／Ledger UI 驗收紀錄](archive/latest-price-ledger-ui-acceptance-2026-10-06.md)
 
 A 組不再列 active TODO；下一個 active work 為 B 組。
-## 2026-10-08 持股頁 UX／首屏加速（獨立於已結案 A 組及進行中的 B7）
+## 2026-10-08 持股頁 UX／首屏加速（獨立於已結案 A 組及已完成的 B7）
 
 - [ ] 「持股／紀錄／報表／筆記」固定頁首、四格只顯示持股、字體放大，台股漲紅跌綠。
 - [ ] 官方昨收／當日每股漲跌／幅度與現持股價格變動有缺值、stale／日期與 owner-scoped guard；migration 050 真實驗收。
