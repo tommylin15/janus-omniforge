@@ -20,7 +20,7 @@ concurrency:
 jobs:
   rollout:
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 95
     environment: dev
     env:
       GH_TOKEN: ${{ github.token }}
@@ -56,9 +56,9 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Apply user-authorized forward-only GHCR Jobs with two real canaries each
+      - name: Apply owner-accepted reversible GHCR Jobs with two real canaries each
         run: python scripts/gcp/ghcr_jobs_rollout.py --release-run "$RELEASE_RUN" --receipt /tmp/ghcr-jobs-rollout.json
-      - name: Verify forward-only recovery or retain deployment fence after failure
+      - name: Verify GHCR recovery or retain deployment fence after failure
         if: ${{ failure() || cancelled() }}
         run: |
           if test -f /tmp/ghcr-jobs-rollout.json; then
