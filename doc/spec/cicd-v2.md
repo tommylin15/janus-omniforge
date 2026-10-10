@@ -1,16 +1,18 @@
 # Janus CI/CD — GitHub Actions + GHCR + Cloud Run 正式目標契約
 
-## 2026-10-10 實作／真實 dev 驗收現況（下方第 5、7 節為歷史快照）
+## 2026-10-10 已完成目前 dev CI/CD 發布範圍：PASS
 
-本文件第 1～4、6 節為每次 Release 必須遵守的安全契約；目前完整實作及待辦以 [status](../status.md)、[TODO](../todo.md) 為準，歷史 checkpoint 不覆蓋新證據。
+GitHub Actions → 公開 GHCR → Cloud Run 的本輪 dev 發布及 API 真實 rollback 依 [實際 evidence](../archive/cicd-ghcr-api-promotion-2026-10-10.md) 已 PASS：
 
-- 新來源 `038498c70e12488f345c3ca0fbe821846ddee4cc`：Python／Flutter full release [#37953986962](https://github.com/tommylin15/janus-omniforge/actions/runs/37953986962)、0% API candidate、固定 Preview、未登入 OAuth/MCP 負向驗收與相同 SHA 使用者 A→B→A／PnL attestation 已 PASS。人工收據不代表機器雙帳號重新登入。
-- [四 Jobs #38012746734](https://github.com/tommylin15/janus-omniforge/actions/runs/38012746734) 真實 rollout receipt `phase=PASS`，8/8 不同 canary、`reversible_ghcr` baseline verified、rollback available。舊版 Jobs image **實際回滾演練 NOT VERIFIED**。
-- [API #38020693214](https://github.com/tommylin15/janus-omniforge/actions/runs/38020693214) 實際 100% 新→舊→新 traffic rehearsal：`phase=PASS`、`rollback_rehearsal=PASS`；最終新版 `janus-api-00457-wed`，健康、40 字元 build-id、未登入 401、Ready／RoutesReady／generation、其他 tags 與非 traffic config readback PASS。
-- 其餘獨立缺口：固定 Preview 更新後故障的 GCP live restore 未刻意演練；舊 AR Private Pipeline config parity `NOT_VERIFIED`；受保護 Research Job 舊 AR image 可恢復性 `BLOCKED`。舊 AR／GCS 清理不列本輪結案條件。
-- 完整非敏感執行證據：[2026-10-10 Jobs／API 切流與回滾](../archive/cicd-ghcr-api-promotion-2026-10-10.md)。**API traffic release 與回滾關卡 PASS，整體 CI/CD 仍 PARTIAL**，不得互相冒充。
+- 來源 `038498c70e12488f345c3ca0fbe821846ddee4cc` 全套 Python／Flutter tests、四 GHCR digests [#37953986962](https://github.com/tommylin15/janus-omniforge/actions/runs/37953986962)、0% candidate、固定 Preview、負向 auth/MCP，以及 same-SHA 使用者 A→B→A／PnL attestation PASS。
+- 四 Jobs 新版 rollout [#38012746734](https://github.com/tommylin15/janus-omniforge/actions/runs/38012746734)：真實 8/8 canary、可用 GHCR rollback baseline，receipt `phase=PASS`。
+- API 正式新版 100% → 舊版 100% → 新版 100% [#38020693214](https://github.com/tommylin15/janus-omniforge/actions/runs/38020693214)：`phase=PASS`、`rollback_rehearsal=PASS`；健康／SHA／401／Ready／route／tags 驗收 PASS。
+- **2026-10-10 使用者重新界定此階段驗收**：Jobs 舊映像真實 rollback、固定 Preview 故障後 GCP live restore、Private Pipeline 歷史設定 parity、Research Job 舊 AR image restore 四項改為 `WAIVED_BY_OWNER`，不再阻擋 CI/CD 結案、也不列 active TODO。各項原始技術證據 `NOT_VERIFIED`／`BLOCKED` **保留，不偽稱測試 PASS**；詳見 [Parking Lot](../parking-lot.md)。
+- 本決定只豁免上述**額外演練／舊 AR 歷史復原**，不改動未來版本必要的 release SHA、完整測試、owner boundary、mutex／lease、immutable digest、readback、基本復原路徑與 fail-closed gate。
 
-> 使用者 2026-10-08 核准。**本文件描述已核准的目標設計與現行差距；implementation / CI / deployment / live acceptance 目前仍為 PARTIAL，不能因文件更新改成 CLOSED。** 政策權威為 [PROJECT_RULES §12](../PROJECT_RULES.md#12-cirelease-分離2026-10-08-正式目標政策實作遷移中)。
+下方第 1～4、6 節仍是可重複發布的技術契約；第 5、7 節的 2026-10-08 未完成盤點屬歷史，不應覆蓋此輪已驗收結果。
+
+> 使用者 2026-10-08 核准本流程，2026-10-10 縮減四項非必要加強驗收。**本輪 dev Release scope 結案為 PASS；個別豁免項並非實測 PASS。下方舊盤點僅作歷史對照。** 政策權威為 [PROJECT_RULES §12](../PROJECT_RULES.md#12-cirelease-分離2026-10-08-正式目標政策實作遷移中)。
 
 ## 1. 唯一正式發布鏈
 
