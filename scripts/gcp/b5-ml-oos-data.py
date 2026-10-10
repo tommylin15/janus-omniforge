@@ -722,7 +722,7 @@ def main() -> None:
         "export_bytes": export_bytes,
         "parquet_shards": len(shards),
         "bigquery_jobs": budget.jobs if budget else [],
-        "total_billed_bytes": budget.billed if budget else 0,
+        "total_billed_bytes": None if choice.audit["fallback_triggered"] else (budget.billed if budget else 0),
         "routing_audit": choice.audit,
         "effective_backend": outcome["backend"],
         "billed_bytes_complete": not choice.audit["fallback_triggered"],
