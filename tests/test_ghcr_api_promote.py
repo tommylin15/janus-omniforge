@@ -68,7 +68,10 @@ def test_switch_checks_traffic_and_preserves_all_tags():
                                        {"revisionName": "candidate", "tag": "ghcr-accepted", "percent": 0}]}}
     changed = deepcopy(baseline)
     changed["status"]["traffic"][0].update(revisionName="candidate")
-    changed["status"]["conditions"] = [{"type": "Ready", "status": "True"}]
+    changed["metadata"] = {"generation": 17}
+    changed["status"]["observedGeneration"] = 17
+    changed["status"]["conditions"] = [{"type": "Ready", "status": "True"},
+                                       {"type": "RoutesReady", "status": "True"}]
     with patch.object(promote, "command") as cmd, patch.object(promote, "describe", return_value=changed):
         promote.switch("candidate", baseline)
     assert any("--to-revisions=candidate=100" in v for v in cmd.call_args_list[-1].args[0])
@@ -164,3 +167,56 @@ def test_regular_traffic_promotion_rejects_unverified_jobs_reversibility(change)
     change(proof)
     with pytest.raises(ValueError,match="regular_jobs_reversible_baseline_unverified"):
         promote.check_jobs_receipt(proof,"a"*40)
+
+
+def test_api_switch_waits_for_reconciled_ready_without_changing_other_tags():
+    import copy
+    baseline={"status":{"traffic":[{"revisionName":"old","percent":100,"tag":"active"},
+                                  {"revisionName":"new","tag":"ghcr-candidate","percent":0}]},
+              "spec":{"template":{"containers":[{"image":"unchanged"}]},
+                      "traffic":[{"revisionName":"old","percent":100}]}}
+    expected=copy.deepcopy(baseline)
+    expected["status"]["traffic"][0]["revisionName"]="new"
+    expected["spec"]["traffic"]=[{"revisionName":"new","percent":100}]
+    expected["metadata"]={"generation":"9"}
+    expected["status"]["observedGeneration"]="9"
+    expected["status"]["conditions"]=[{"type":"Ready","status":"True"},
+                                      {"type":"RoutesReady","status":"True"}]
+    pending=copy.deepcopy(expected)
+    pending["status"]["observedGeneration"]=8
+    with (patch.object(promote,"command") as cmd,
+          patch.object(promote,"describe",side_effect=[pending,expected]) as read,
+          patch.object(promote.time,"sleep") as sleep):
+        promote.switch("new",baseline)
+    assert read.call_count==2
+    sleep.assert_called_once_with(5)
+    assert any("--to-revisions=new=100" in value for value in cmd.call_args_list[1].args[0])
+
+
+def test_api_switch_rejects_route_not_ready_even_at_full_target_traffic():
+    import copy
+    baseline={"status":{"traffic":[{"revisionName":"old","percent":100}]}}
+    broken={"metadata":{"generation":3},
+            "status":{"observedGeneration":3,
+                      "traffic":[{"revisionName":"new","percent":100}],
+                      "conditions":[{"type":"Ready","status":"True"},
+                                    {"type":"RoutesReady","status":"False"}]}}
+    with (patch.object(promote,"command"),
+          patch.object(promote,"describe",return_value=broken),
+          patch.object(promote.time,"sleep",return_value=None)):
+        with pytest.raises(ValueError,match="traffic_route_not_reconciled"):
+            promote.switch("new",baseline)
+
+
+def test_api_switch_rejects_nontraffic_service_configuration_change():
+    baseline={"status":{"traffic":[{"revisionName":"old","percent":100}]},
+              "spec":{"template":{"image":"old"}}}
+    altered={"metadata":{"generation":3},
+             "status":{"observedGeneration":3,
+                       "traffic":[{"revisionName":"new","percent":100}],
+                       "conditions":[{"type":"Ready","status":"True"}]},
+             "spec":{"template":{"image":"changed"}}}
+    with (patch.object(promote,"command"),
+          patch.object(promote,"describe",return_value=altered)):
+        with pytest.raises(ValueError,match="service_nontraffic_config_drift"):
+            promote.switch("new",baseline)
