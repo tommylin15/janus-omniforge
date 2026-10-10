@@ -1,6 +1,6 @@
 # Janus — TODO
 
-版本：3.22（2026-10-08：B7 ACTIVE，待 live acceptance；B8/B9 順序不變）
+版本：3.23（2026-10-10：CI/CD 結案；B7 ACTIVE，B8／B9 待執行）
 用途：**只保留確定要做的 active work 與未完成 acceptance**。Deferred、Candidate、Observation、Production-only、已接受缺口與研究構想統一放 [`parking-lot.md`](parking-lot.md)；已完成／被取代內容放 `archive/`。
 
 ## 規則
@@ -94,24 +94,14 @@ A 組不再列 active TODO；下一個 active work 為 B 組。
 - [ ] 首屏不等待年度交易歷史、PnL、重算狀態；版本、報價日期與狀態一致；量測 API latency P50／P95。
 - [ ] Flutter／Python targeted CI、dev deployment/migration、真實 User UI／Owner 一致性驗收。未通過維持 ACTIVE，不更動原 A 組 CLOSED 判定。
 
-## B 組優先架構調整 acceptance
+## B 組：下一個執行入口（B7 → B8 → B9）
 
-> **B0～B6 均已 CLOSED / PASS。** B5 [data path](archive/group-b-b5-ml-oos-data-closure-2026-10-08.md) 與 B6 [derived cache](archive/group-b-b6-ml-oos-cache-closure-2026-10-08.md) 各有獨立 live evidence。**恢復原訂 B7 → B8 → B9**：B7 月度 retrain/calibration/OOS/reconciliation 已啟動（未驗收完）；B8 再集中比較 BigQuery/PyIceberg 的效能／成本與 fallback；B9 模型品質及整體驗收。不重做 B4 cache，不因文件回寫把 B7 標為完成。
+**B0～B6 CLOSED／PASS，不重跑。** 歷史驗收只留 [B0](archive/group-b-b0-baseline-closure-2026-10-07.md)、[B1](archive/group-b-b1-reader-acceptance-2026-10-07.md)、[B2](archive/group-b-b2-closure-2026-10-07.md)、[B3](archive/group-b-b3-closure-2026-10-07.md)、[B4](archive/group-b-b4-deep-coverage-closure-2026-10-07.md)、[B5](archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)、[B6](archive/group-b-b6-ml-oos-cache-closure-2026-10-08.md)。B7～B9 是下一階段，未達 live acceptance 不標完成。執行方法見 [B 組指令](codex-execution-plan.md)。
 
-B 組開始五 specialist／cache 收斂前，先完成 [BigQuery analytics 架構決策](decision-2026-10-06-bigquery-analytics-over-iceberg.md) 的資料讀取邊界；此優先序不代表 BigQuery resource 已建立或啟用。
-
-- [x] 抽出 exact-snapshot analytics reader；既有 PyIceberg path 先包成 reference／fallback，不改 canonical write path。完成證據見 [B1 reader](archive/group-b-b1-reader-acceptance-2026-10-07.md)。
-- [x] 建立 BigQuery analytics adapter／compatibility probe，證明固定 Core snapshot 的資料／schema／null／時間／provenance fidelity。B2 CLOSED：沿用 20 contract tests、106 Mart regression、320-row fidelity；本次 shared catalog exact-snapshot mapping、native DECIMAL(20,4)/schema evolution、真實 ohlcv partition pruning 全 PASS，9 jobs 共 60 MiB billed bytes，immutable GCS evidence readback PASS。本輪無 IAM/canonical mutation，PyIceberg 仍為 default；workload canary/cutover 屬後續範圍。見 [B2 結案](archive/group-b-b2-closure-2026-10-07.md)。
-- [x] B3 canary 禁止 Storage Read API 與 `bigquery.readsessions.*` 需求；未加入 `google-cloud-bigquery-storage`。大型 ML input 的 versioned GCS Parquet export 仍屬後續 training scope。
-- [x] 建立每日盤後 liquid-500 screening：B3 已以真實 controller occurrence `market-screening/2026-10-07/16` 與 Mart execution `janus-intelligence-mart-7f8jl` 驗收；500 檔低成本 screening／cross-sectional ranking 完成，未擴成 500×5 深度 specialist。
-- [x] B3 已加入 bounded query／column／partition guards 與 processed bytes／elapsed／peak RSS／artifact growth telemetry；未知 GCS I/O 維持 null，不補 0。
-- [x] 同 fixed snapshot 已完成 PyIceberg／BigQuery deterministic canary compare；fidelity／budget PASS。未完成 default cutover gate，因此 **PyIceberg 維持 default**，不把 B3 PASS 誤寫成 BigQuery cutover。
-- [x] B5 ML/OOS data path：shared catalog 的 bounded SQL reduction → BigQuery TEMP table → versioned immutable GCS Parquet，Mart live readback。驗收 [#37706568819](https://github.com/tommylin15/janus-omniforge/actions/runs/37706568819) SUCCESS；10,978 rows／499 symbols／533,945 bytes；首次 BigQuery billed 30 MiB，最終 immutable reuse billed 0；storage_read_api=false、CEO=false、LLM tokens=0。詳見 [B5 結案](archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)。
-- [x] B6：BigQuery-derived ML/OOS artifact dependency key／pre-query immutable verified reuse／selective invalidation／failure audit 已 CLOSED。CI #37708769385 137 PASS，live #37708769182 0 BigQuery jobs／billed 0、Mart readback PASS，來源異動 scenario 以 targeted tests 證實；見 [B6 結案](archive/group-b-b6-ml-oos-cache-closure-2026-10-08.md)。
-- [ ] **B7 月度批次（ACTIVE；已推 main，等待 CI／dev runtime 與 artifact readback）**：將 `specialist-retrain`／calibration／OOS evaluation／cache reconciliation 的 effective schedule 統一為 **每月第一個週六 10:30（Asia/Taipei）**；實作時需修改實際 Scheduler／controller definition、協調依賴與工作流，並以 live runtime readback 驗證；文件本身不算完成。
-- [ ] **B8 效能／成本／fallback 集中驗收（B7 後）**：B3 一次真實 canary 已記錄 PyIceberg 30.2256s / BigQuery hybrid 36.0608s（BigQuery 慢約 19.3%，valuation 部分未計入 BigQuery hybrid read）；B5 同 workload PyIceberg ML/OOS baseline 仍欠缺。於 B8 補相同 fixed snapshot、同 symbol/date/feature/output/PIT 的 PyIceberg vs BigQuery real-path，量測 cold/warm elapsed、RSS、BQ processed/billed bytes、GCS bytes（未知 null），並驗證安全 fallback 及 FinOps。不可拿 B5 SQL script 5.84s 與 B0/B1 完整 Mart 725.726/800.966s 直接比較；無證據不切換 BigQuery default。
-- [ ] PostgreSQL serving projection 與 A 組既有 read path 不回歸；BigQuery failure 必須可 audit fallback，不影響 canonical ingestion/write。
-- [ ] 若需啟用新付費 API、建立 BigLake/Lakehouse/BigQuery 資源或擴大 IAM，依 PROJECT_RULES 取得明確授權；未授權部分標 blocked，不以文件決策冒充 resource approval。
+- [ ] **B7（ACTIVE）月度模型與快取核對**：先核對 `main` 的 retrain／calibration／OOS／reconciliation 實作與最新 CI、真實 Scheduler／controller 設定。目標 effective cadence 為**每月第一個週六 10:30 Asia/Taipei**；Scheduler 可以是現役 hourly controller trigger，但必須證明 controller 的 monthly due gate、依賴 fence、一次性／可重跑 semantics、Job execution、immutable model/evaluation artifacts 與 cache reconcile **真實**成立。只看到 workflow SUCCESS、code gate 或 Scheduler 字串不算 B7 PASS；缺實際月度 execution 時標 `NOT_VERIFIED`，不捏造。只補必要的 deployment／readback。
+- [ ] **B8（B7 後）同等工作量 performance／FinOps／fallback**：同 fixed Core snapshot、同 symbol/date/feature/PIT/output，分別比較 B3 500 screening 與 B5 ML/OOS prep 的 PyIceberg／BigQuery real path；保留 cold/warm elapsed、peak RSS、BQ processed/billed bytes、GCS/export bytes（未知維持 null）、fidelity、cache hit 與 failure fallback audit。**PyIceberg 目前是 default**；先前單次 B3 hybrid 較慢且範圍不完全相同，沒有完整同等基準前不得宣布 BigQuery 優勝或切預設路徑。
+- [ ] **B9（B8 後）五 Specialist／OOS 整合驗收**：完成 Fundamental／Valuation／Quant／Risk-Regime／Event 的 deterministic／ML、Taiwan PIT walk-forward OOS、calibration／champion evidence、structured + plain-language artifacts、incremental reuse／provenance／source authorization／public-private isolation；正常 path 不呼叫生成式 LLM，不以模型訓練成功代替 live publication gate。
+- [ ] **B 組跨階段安全底線**：PostgreSQL serving 與 A 組已驗證 read path 不回歸；BigQuery failure audit/fallback 不修改 canonical Iceberg；不使用 BigQuery Storage Read API；不自動呼叫 CEO；維持現有 1 CPU／1 GiB Mart 限制。新付費 API／資源、IAM 擴權或 catalog migration 需另取得授權，未授權部分單獨 `BLOCKED`，其餘可行項繼續。
 
 # 原 WBS acceptance（依上方工作組整合執行）
 
