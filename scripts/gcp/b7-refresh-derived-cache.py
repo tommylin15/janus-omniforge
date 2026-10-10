@@ -15,6 +15,8 @@ import json
 from pathlib import Path
 import runpy
 import sys
+import urllib.parse
+import urllib.request
 from time import time
 from zoneinfo import ZoneInfo
 
@@ -99,6 +101,34 @@ def load_monthly_evidence(b2, pinned):
         require(bool(target.get("symbols")), "B7 monthly target empty")
         return value, target["symbols"], uri
     raise RuntimeError("B7 monthly specialist evidence for current Core missing; do not retrain")
+
+
+def gcs_create_b7_receipt(b2, uri: str, payload: bytes) -> None:
+    """Create-only acceptance receipt with its own narrow write allowlist.
+
+    Do not relax B5's ml-oos-data/v1 writer or permit arbitrary GCS writes.
+    """
+    parsed = urllib.parse.urlparse(uri)
+    name = parsed.path.lstrip("/")
+    suffix = name.removeprefix(B7_RECEIPT_PREFIX)
+    require(parsed.scheme == "gs" and parsed.netloc == MART_BUCKET
+            and name.startswith(B7_RECEIPT_PREFIX)
+            and len(suffix) == 69 and suffix.endswith(".json")
+            and all(ch in "0123456789abcdef" for ch in suffix[:-5]),
+            "B7 receipt URI outside immutable acceptance prefix")
+    endpoint = (
+        "https://storage.googleapis.com/upload/storage/v1/b/"
+        f"{urllib.parse.quote(MART_BUCKET, safe='')}/o?uploadType=media"
+        "&ifGenerationMatch=0&name="
+        f"{urllib.parse.quote(name, safe='')}"
+    )
+    request = urllib.request.Request(
+        endpoint, data=payload, method="POST",
+        headers={"Authorization": f"Bearer {b2['token']()}",
+                 "Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(request, timeout=65):
+        pass
 
 
 class ExistingGcsStore:
@@ -270,7 +300,7 @@ def refresh(b2, b5, *, output: Path):
         require(b5["gcs_bytes"](b2, receipt["receipt_uri"]) == payload,
                 "B7 prior immutable receipt conflict")
     else:
-        b5["gcs_create"](b2, receipt["receipt_uri"], payload, "application/json")
+        gcs_create_b7_receipt(b2, receipt["receipt_uri"], payload)
     require(b5["gcs_bytes"](b2, receipt["receipt_uri"]) == payload,
             "B7 immutable acceptance receipt readback mismatch")
     unchanged_source(b2, pinned)
