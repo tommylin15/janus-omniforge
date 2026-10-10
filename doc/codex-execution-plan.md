@@ -58,7 +58,7 @@ B7. 月度執行機制 — PASS；derived cache freshness — PARTIAL
 - 手動重跑建立新 execution；training success 不等於 champion promotion。
 - 驗證實際 Scheduler/controller readback；只改文件不算完成。
 
-B8. Canary / fallback / FinOps — ACTIVE；不重跑 B7 模型重訓
+B8. Canary / fallback / FinOps — ACTIVE／PARTIAL；ML/OOS fixed-Core 10,978 rows fidelity PASS（workflow #38029439580），screening fixed BigLake catalog preflight HTTP 403 BLOCKED（workflow #38029803051）；不重跑 B7 模型重訓，禁止為追求 PASS 未授權擴 IAM。詳見 archive/group-b-b8-partial-checkpoint-2026-10-10.md
 - [B3 真實 canary](archive/group-b-b3-live-acceptance-2026-10-07.json)：PyIceberg 30.2256s vs BigQuery hybrid 36.0608s，output hash 相同；BigQuery 慢約 19.3%，valuation 仍從 PyIceberg 預先載入，讀取耗時未計入 hybrid。單輪 canary 不能代表所有 workload。
 - B5 immutable ML/OOS Parquet 10,978 rows／533,945 bytes，首次 BigQuery billed 30 MiB；SQL export script 5.84s 不是全鏈路，缺相同 fixed Core snapshot 的 PyIceberg reduction/export 對照，不得與 B0/B1 不同 workload 的完整 725.726/800.966s 相比。
 - 於 B8 補 B3 screening 與 B5 ML/OOS 同工作量、同 fixed snapshot 的 PyIceberg vs BigQuery real-path A/B：cold/warm compute、cache hit、fidelity、PIT/provenance、end-to-end elapsed、peak RSS、GCS I/O（未知 null）、BigQuery processed/billed bytes、query/Cloud Build 開銷；證據需可重跑、可稽核。
