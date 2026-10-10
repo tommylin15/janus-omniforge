@@ -68,13 +68,13 @@ BigQuery 只作 analytics compute：
 - Query 必須 column/date/symbol/partition bounded；記錄 processed/billed bytes、elapsed、Cloud Run peak RSS、GCS I/O evidence（可得時）、export bytes 與 fallback。
 - BigQuery failure 必須可 audit fallback PyIceberg，不得影響 ingestion/canonical write 或 PostgreSQL serving。
 
-### B7 每月首週六 retrain / OOS / cache reconciliation — ACTIVE
+### B7 每月首週六 retrain / OOS / cache reconciliation — 月度執行 PASS／derived cache freshness PARTIAL
 
 - 實際 controller `Batch("specialist-retrain")` 已從「每月 1 日 10:30」修為「每月第一個週六 10:30 Asia/Taipei」；依賴當日 ingestion / data-supplement 成功，舊 pending 以 `schedule_superseded/skipped` 安全終結，不覆寫 immutable history。
 - 既有 Mart retrain 的同一次執行跑 challenger / OOS / calibration；`monthly-reconciliation.json` 驗證 B4 active role input hash 與 artifact，盤點 B6 fixed-source ML/OOS Parquet 的 lineage、版本和 reference protection；跨 Core reuse 只在 fixed source snapshot/pointer + date 相符時成立。留存 historical orphan candidates，不自動刪除/提升 champion/喚醒 CEO。
 - 證據：`6a2e76c`、`2285b64`、`fb07979`；initial CI #37711002505 ingestion 151 / Mart 137 PASS + existing dev Job deployment SUCCESS；最新 B7 Mart 143 tests PASS（CI #37711737194），此輪部署/live work item 仍須確認。
 - [runtime readback #37712126960](https://github.com/tommylin15/janus-omniforge/actions/runs/37712126960)：controller image=ingestion image，Mart Job Ready=true；但 GitHub CI `janus-ci` 缺 `cloudscheduler.jobs.get`，故 scheduler cron/timeZone/state 實際值 **unknown**。未擴權，不能以 repo cron 或測試代替 live scheduler configuration evidence。
-- 尚待獨立手動月度 retrain 真實執行與 OOS/reconciliation immutable GCS hash readback；下次自然首週六是 2026-11-07，尚未發生。**B7 仍 ACTIVE，不得標 CLOSED。** B8/B9 原訂順序不變。
+- 2026-10-10 已完成新版手動月度 retrain、Mart Completed、OOS／reconciliation immutable GCS SHA-256 readback（詳見 [status](../status.md)），月度執行機制 **PASS**；B6 ML/OOS derived cache 仍對應舊 Core，freshness **PARTIAL**。不重訓，只在 B8/B9 銜接按本次 Core source fence 更新衍生快取；下次自然首週六 2026-11-07 尚未觀測。B8 同等工作量驗收已啟動，不自動切換 BigQuery default。
 
 ## 4. Incremental execution
 
