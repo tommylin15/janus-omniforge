@@ -12,7 +12,10 @@ import ghcr_reversible_baseline as baseline
 def _service(ready="True", observed=5):
     return {"metadata": {"generation": 5}, "status": {
         "observedGeneration": observed,
-        "latestReadyRevisionName": "janus-api-00451-cuw",
+        "latestReadyRevisionName": "janus-api-00457-wed",
+        "traffic": [{"revisionName": "janus-api-00451-cuw", "percent": 100},
+                    {"revisionName": "janus-api-00457-wed", "percent": 0,
+                     "tag": "ghcr-038498c70e12"}],
         "conditions": [{"type": "Ready", "status": ready},
                        {"type": "RoutesReady", "status": ready}]}}
 
@@ -48,3 +51,18 @@ def test_readonly_workflow_never_has_deploy_write_or_scheduler_ops():
     for forbidden in ("gcloud run deploy", "gcloud run jobs update",
                       "scheduler jobs pause", "scheduler jobs resume"):
         assert forbidden not in text
+
+
+def test_100_percent_rollback_baseline_must_not_follow_new_zero_percent_candidate():
+    from copy import deepcopy
+    rev={"status":{"conditions":[{"type":"Ready","status":"True"}]}}
+    state=_service()
+    baseline.ready(state,rev,"janus-api-00451-cuw")
+    wrong=deepcopy(state)
+    wrong["status"]["traffic"][0]["revisionName"]="janus-api-00457-wed"
+    with pytest.raises(ValueError,match="baseline_serving_revision_drift"):
+        baseline.ready(wrong,rev,"janus-api-00451-cuw")
+    split=deepcopy(state)
+    split["status"]["traffic"][0]["percent"]=90
+    with pytest.raises(ValueError,match="single_active_revision_required"):
+        baseline.ready(split,rev,"janus-api-00451-cuw")
