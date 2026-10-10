@@ -1,0 +1,70 @@
+name: B9 five specialist OOS quality readback (no retrain)
+
+# Independent read-only quality audit, not B7 cache freshness or model promotion.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b9-specialist-oos-quality.yml'
+      - 'scripts/gcp/b9-specialist-oos-quality.py'
+      - 'tests/test_b9_specialist_oos_quality.py'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: janus-b9-quality-read-only
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      B9_MANIFEST_URI: gs://gen-lang-client-0593591102-dev-mart/executions/2378a44b-9f96-40ba-aaf1-911f84cc911c/specialist-manifest.json
+      B9_FIXED_CORE: sha256:687fae3ea802ef255bd33ecf5e21a6d25801c467f8836181dae9fc3ef97a344e
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test B9 independent quality gates
+        run: |
+          python -m py_compile scripts/gcp/b9-specialist-oos-quality.py tests/test_b9_specialist_oos_quality.py
+          python -m unittest discover -s tests -p 'test_b9_specialist_oos_quality.py' -v
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read immutable Mart specialist and OOS artifacts
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/b9-specialist-oos-quality.py \
+            --manifest-uri "${B9_MANIFEST_URI}" \
+            --expected-core "${B9_FIXED_CORE}" \
+            --output b9-model-quality-evidence.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r = json.loads(Path("b9-model-quality-evidence.json").read_text())
+          assert r["artifact_integrity"] == "pass"
+          assert r["specialist_artifacts_verified"] == 25
+          assert set(r["roles"]) == {"fundamental", "valuation", "quant", "risk", "event"}
+          assert r["model_quality"] == "not_verified" and r["b9_status"] == "partial"
+          assert r["monthly_retraining_triggered"] is False
+          assert r["champion_promotion"] is False and r["llm_api_tokens"] == 0
+          assert r["canonical_write"] is False
+          print("B9 artifact/readback audit PASS; B9 model quality remains NOT VERIFIED")
+          PY
+      - name: Upload summary (no raw predictions or owner data)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: b9-model-quality-readback-${{ github.run_id }}
+          path: b9-model-quality-evidence.json
+          if-no-files-found: warn
+          retention-days: 14
