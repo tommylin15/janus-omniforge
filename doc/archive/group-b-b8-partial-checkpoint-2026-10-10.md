@@ -19,3 +19,11 @@
 - B9 model quality **NOT VERIFIED**：須使用與當次 Core source fence、PIT/data-priority、source authorization 相容的 OOS 資料，不用 B8 舊 fixed Core fidelity 代替。
 
 相關程式：scripts/gcp/b8-matched-screening.py、scripts/gcp/b8-matched-ml-oos.py；tests/test_b8_matched_screening.py、tests/test_b8_matched_ml_oos.py；.github/workflows/b8-matched-screening.yml、.github/workflows/b8-ml-oos-readback.yml。
+
+
+## 既有 dev BigLake 執行身分 readback（2026-10-10）
+- [Read-only identity workflow #38030454991](https://github.com/tommylin15/janus-omniforge/actions/runs/38030454991)：**預期 FAIL / B8 screening BLOCKED**；offline safety unittest **4/4 PASS**、同 SHA [selective CI #38030455095](https://github.com/tommylin15/janus-omniforge/actions/runs/38030455095) SUCCESS。run SHA `85ca8b109bb4e8af3b464e120703f498c18b7b52`；詳細唯讀 JSON 在該 workflow artifact `b8-existing-identity-38030454991`。
+- 固定 B2 Core manifest raw hash `8eda0eae...` 與 `core_snapshot_id=sha256:1eb49a2d...` 驗證 PASS。讀回既有四個 runtime 資源、三個不同 service account：Mart=`intelligence-mart@gen-lang-client-0593591102.iam.gserviceaccount.com`；Ingestion 與 controller=`ingestion-core@gen-lang-client-0593591102.iam.gserviceaccount.com`；API=`janus-user-api@gen-lang-client-0593591102.iam.gserviceaccount.com`。
+- 直接透過既有 GitHub WIF/CI 身分 GET BigLake Iceberg REST catalog frozen `ohlcv_v1` pointer：`HTTP_403`，因此未繼續 `benchmark_v1`／BigQuery query。
+- CI 試圖**只沿用既有代理授權**取得上述三個 runtime SA 的唯讀 probe token：全部 `DENIED_OR_UNAVAILABLE`、`catalog=NOT_TESTED`。這**不能證明** runtime SA 自身無 BigLake 讀權；只能證明**目前 CI 沒有已驗證且可重現的既有執行路徑**。歷史 B2 `janus-ci` project IAM policy GET 亦 denied；無法由目前 CI 推定各 runtime SA 實際有效權限。
+- 沒有更新 IAM、沒有新建/執行 Cloud Run Job 或 Cloud Build、沒有新 BigQuery query/billed job、沒有重訓、沒有讀寫 canonical。**B8 screening 維持 BLOCKED；PyIceberg default／cutover=false**。要解除 blocker，需透過既有**已授權且可受控實際執行**的身分讀取同一 frozen Core 的 catalog pointers，或另外取得使用者明確授權的 IAM 決策；不得將此診斷 FAIL 改標 B8 PASS。
