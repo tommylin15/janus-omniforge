@@ -48,6 +48,36 @@ jobs:
           python -m py_compile scripts/gcp/b8-matched-screening.py
           python -m pytest -q tests/test_b8_matched_screening.py tests/test_bigquery_reader.py tests/test_market_screening.py
 
+      - name: Read-only frozen BigLake catalog permission and pointer preflight
+        run: |
+          python - <<'PY'
+          import runpy
+          import re
+          b2=runpy.run_path("scripts/gcp/b2-lakehouse-acceptance.py")
+          try:
+              manifest, actual_hash = b2["gcs_json"](b2["CORE_MANIFEST_URI"])
+              if actual_hash != b2["CORE_MANIFEST_SHA256"]:
+                  raise ValueError("fixed Core raw-byte hash mismatch")
+              for table in ("ohlcv_v1", "benchmark_v1"):
+                  actual=b2["metadata_location"](b2["load_table"](table,b2["CORE_NAMESPACE"]))
+                  expected=manifest["iceberg_tables"][f"core.{table}"]["metadata_location"]
+                  if actual != expected:
+                      raise ValueError("exact Core catalog metadata pointer mismatch")
+          except Exception as exc:
+              detail=str(exc).lower()
+              if re.search(r"http\s*403",detail) or "permissiondenied" in detail:
+                  code="IAM_403"
+              elif re.search(r"http\s*404",detail):
+                  code="RESOURCE_404"
+              elif "pointer mismatch" in detail:
+                  code="SNAPSHOT_DRIFT"
+              else:
+                  code="UNKNOWN"
+              print(f"B8_CATALOG_PREFLIGHT=FAIL reason_code={code} exception_type={type(exc).__name__}",flush=True)
+              raise SystemExit(1) from None
+          print("B8_CATALOG_PREFLIGHT=PASS fixed_existing_core",flush=True)
+          PY
+
       - name: Real pinned-Core B8 cold/warm comparison
         run: |
           set -Eeuo pipefail
