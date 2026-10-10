@@ -1,9 +1,11 @@
 """B8 matching/fidelity gates must fail closed before any default cutover."""
 import runpy
 from pathlib import Path
+import sys
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'jobs/intelligence-mart'))
 NAMESPACE = runpy.run_path(str(ROOT / "scripts/gcp/b8-matched-screening.py"))
 compare = NAMESPACE["compare_snapshots"]
 
