@@ -2,8 +2,7 @@
   "intent": "preflight-ghcr-jobs",
   "sha": "038498c70e12488f345c3ca0fbe821846ddee4cc",
   "scope": "readonly",
-  "purpose": "Read-only classify Janus Private Pipeline historical config fingerprint drift after prior AR→GHCR rollout, without reading private env values into receipt. Compare against recorded preupdate hash and report only platform-metadata/nonplatform classification; do not mutate any Job, Scheduler or traffic.",
-  "attempt": 17,
-  "investigate_ghcr_config_drift": true,
-  "private_pipeline_preupdate_hash": "4ebd16deaaff29c6c6aa6688ce0ffedeefbdc4afeb08dc9ef4ff02caebe953f7"
+  "purpose": "B7 latest GHCR deployed image/controller/Scheduler readback only. No retrain request, execution, Job update, Scheduler mutation, or traffic changes.",
+  "attempt": 18,
+  "investigate_ghcr_config_drift": false
 }
