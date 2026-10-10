@@ -185,6 +185,8 @@ def walk_forward(samples, *, model_name, features, cost_bps, horizon_days):
                 np.array([r["excess_return"] > 0 for r in calibration]))
             probabilities = calibrator.predict_proba(np.asarray(pred).reshape(-1, 1))[:, 1].tolist()
         cutoff = max(r["label_available_at"] for r in train+calibration)
+        # v5 persists already-fenced source and PIT times for future independent
+        # evidence audits; prior immutable v4 evaluation artifacts stay unchanged.
         predictions.extend({"symbol": r["symbol"], "analysis_as_of": r["analysis_as_of"],
                             "outcome_as_of": r["outcome_as_of"], "excess_return": r["excess_return"],
                             "prediction": float(p), "probability": probability, "training_label_cutoff": cutoff,
