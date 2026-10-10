@@ -1,7 +1,7 @@
 # Janus — Codex 執行指令
 
 更新：2026-10-10  
-用途：B 組下階段工程交接。**A 組及 GHCR CI/CD 均已按目前核准範圍結案；B7 ACTIVE，B8／B9 接續；C 不自動啟動。**
+用途：B 組下階段工程交接。**A 組及 GHCR CI/CD 均已按目前核准範圍結案；B7 月度執行 PASS／cache freshness PARTIAL；B8 ACTIVE，B9 接續；C 不自動啟動。**
 
 權威順序：`AGENTS.md` → `PROJECT_RULES.md` → `todo.md` → 本檔 → 對應 WBS／SPEC → GitHub `main` implementation／runtime evidence。歷史 checkpoint、archive 與 `spec/operations-and-testing.md` 可證明過去做過什麼，但不覆蓋目前 active contract。
 
@@ -50,7 +50,7 @@ B0～B6. CLOSED / PASS；不重做已驗收成果。
 - 完成證據統一由 doc/todo.md 的 B0～B6 archive links 查閱；現階段未有新回歸證據時，不重新部署或重跑已完成步驟。
 - 現役 PyIceberg default；BigQuery 實際 cutover 必須等 B8 同 workload gate。
 
-B7. 月度批次 — ACTIVE / 等待 live acceptance
+B7. 月度執行機制 — PASS；derived cache freshness — PARTIAL
 - 將 effective scheduler/controller 定義收斂為每月第一個週六 10:30（Asia/Taipei）。
 - 同批次執行 retrain/challenger、calibration、OOS/evaluation、cache/dependency reconciliation。
 - Event classifier 只有新 labeled data 足夠或 drift/performance degradation 時才 retrain。
@@ -58,11 +58,12 @@ B7. 月度批次 — ACTIVE / 等待 live acceptance
 - 手動重跑建立新 execution；training success 不等於 champion promotion。
 - 驗證實際 Scheduler/controller readback；只改文件不算完成。
 
-B8. Canary / fallback / FinOps — B7 後集中驗收
+B8. Canary / fallback / FinOps — ACTIVE；不重跑 B7 模型重訓
 - [B3 真實 canary](archive/group-b-b3-live-acceptance-2026-10-07.json)：PyIceberg 30.2256s vs BigQuery hybrid 36.0608s，output hash 相同；BigQuery 慢約 19.3%，valuation 仍從 PyIceberg 預先載入，讀取耗時未計入 hybrid。單輪 canary 不能代表所有 workload。
 - B5 immutable ML/OOS Parquet 10,978 rows／533,945 bytes，首次 BigQuery billed 30 MiB；SQL export script 5.84s 不是全鏈路，缺相同 fixed Core snapshot 的 PyIceberg reduction/export 對照，不得與 B0/B1 不同 workload 的完整 725.726/800.966s 相比。
 - 於 B8 補 B3 screening 與 B5 ML/OOS 同工作量、同 fixed snapshot 的 PyIceberg vs BigQuery real-path A/B：cold/warm compute、cache hit、fidelity、PIT/provenance、end-to-end elapsed、peak RSS、GCS I/O（未知 null）、BigQuery processed/billed bytes、query/Cloud Build 開銷；證據需可重跑、可稽核。
 - 保留整次 BigQuery 1 GiB billed budget、單查詢 60 秒 timeout、禁止 Storage Read API，不自行新增 IAM／付費資源。依證據逐 workload 決定保留 PyIceberg、採用 BigQuery 或維持 inconclusive；無顯著優勢不切 default。
+- B8／B9 銜接只刷新符合本次 Core source fence 的 derived cache；B9 模型品質不得消費不符合當次來源條件的 historical 衍生資料。
 - 同一 fixed snapshot 跑 PyIceberg vs BigQuery，compare row set、null/missing、排序、aggregate、output hash/允許誤差與 provenance。
 - BigQuery timeout/quota/config/fidelity failure 安全 fallback PyIceberg，留下 audit，不影響 canonical write/PostgreSQL serving。
 - before/after 記 processed/billed bytes、query elapsed、Cloud Run elapsed/peak RSS、GCS I/O evidence（可得時）、export bytes、artifact growth、reuse/fallback rate。
