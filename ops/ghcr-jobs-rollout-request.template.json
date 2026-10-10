@@ -1,0 +1,25 @@
+{
+  "intent": "approved-dev-ghcr-jobs-rollout",
+  "approved": false,
+  "scope": "existing-dev-four-jobs",
+  "sha": "038498c70e12488f345c3ca0fbe821846ddee4cc",
+  "release_run": "37953986962",
+  "rollback_mode": "reversible_ghcr",
+  "accept_no_old_image_rollback": false,
+  "baseline_source_sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
+  "rollback_images": {
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:5f384ae139c085f345ecf6e65ae541bc2b037e3b48a6e6d2ac5c742d9d4dadd0",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:5f384ae139c085f345ecf6e65ae541bc2b037e3b48a6e6d2ac5c742d9d4dadd0",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:36d0fdd5e28cdc1ed4471d338473f16687a74af288d0a2d7b713d67708650521",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:fb29125f8f2645a4e2243aefd10f7044b95e275790845468c6d0f898d672ac7a"
+  },
+  "rollback_config_hashes": {
+    "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
+    "janus-ingestion-core": "ebd88ff9aabca00b8f248473ea2b3f16a908be4a463333e3e1535a2c66ad8863",
+    "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
+    "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
+  },
+  "request_attempt": 0,
+  "owner_acceptance_requirement": "MUST be a new same-source-sha A→B→A Google OAuth and PnL proof in ops/ghcr-owner-acceptance.json; no development runtime writes before it exists; template is not authorization.",
+  "safety": "Existing dev Jobs only; Scheduler/execution fence, original cross-writer lease, two independent canaries per target, restore old GHCR images with exact config hashes on failure; research job left untouched."
+}
