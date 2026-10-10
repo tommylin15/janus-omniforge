@@ -575,6 +575,7 @@ def main() -> None:
             select_sql = reduction_select(
                 fq, start=start, end=analysis_as_of, core_snapshot_id=core["snapshot_id"]
             )
+            export_attempted = False
             try:
                 estimate = budget.dry_run(select_sql)
                 count_rows, _ = budget.query(
@@ -591,13 +592,16 @@ def main() -> None:
                     ") AS SELECT * FROM _SESSION.b5_export_reduced;\n"
                     "DROP TABLE _SESSION.b5_export_reduced;"
                 )
+                export_attempted = True
                 budget.query(export_sql, "export-parquet")
             except Exception as error:
                 # If export produced even one shard, quarantine and FAIL CLOSED:
                 # do not mix partial BigQuery bytes with a Python fallback.
                 existing_parts = b2["gcs_list_objects"](MART_BUCKET, prefix)
-                if existing_parts:
-                    raise RuntimeError("B5 BigQuery partially wrote immutable export") from error
+                if existing_parts or export_attempted:
+                    # An asynchronous/cancelled EXPORT may still write shards after
+                    # this check. Never race PyIceberg against the same target prefix.
+                    raise RuntimeError("B5 BigQuery export started or partially wrote immutable output; fail closed") from error
                 from google.api_core import exceptions as gexc
                 if isinstance(error, (TimeoutError, gexc.DeadlineExceeded)):
                     raise BigQueryOperationalError("timeout") from error
