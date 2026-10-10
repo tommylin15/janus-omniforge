@@ -14,7 +14,7 @@
 ## 其他 active work
 
 - **持股頁 UX／首屏加速**：ACTIVE；固定頁首、價格漲跌語意、migration 050／API latency／Flutter 真實 Owner UI acceptance 仍在 [TODO](todo.md)。
-- **B 組**：見上方 B7 → B8 → B9 active 入口，不從 CI/CD 已結案項目重新開工。
+- **B 組**：B7 derived cache freshness 與 B9 是接續入口；B8 已結案歸檔，不重做 B8 screening／benchmark 或 B7 重訓。
 - **C 組**：B 組結案後再啟動 On-demand CEO provider/runtime、capability/quota、Admin profile、User 分析／重新分析、final AI-dependent visual acceptance；不得把 A 組 CLOSED 當成 C 組完成。
 - **Dev Pilot 長期 evidence**：依 [bounded pilot ledger](pilot-operational-evidence.md) 持續觀察；不得將單次 successful workload 視為整個觀察視窗完成。
 
