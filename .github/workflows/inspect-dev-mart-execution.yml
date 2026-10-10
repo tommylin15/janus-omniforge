@@ -19,7 +19,7 @@ env:
 jobs:
   inspect:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
@@ -40,10 +40,31 @@ jobs:
           }
 
           mkdir -p runtime-evidence
-          gcloud run jobs executions describe "${execution}" \
-            --project="${GCP_PROJECT_ID}" \
-            --region="${GCP_REGION}" \
-            --format=json > runtime-evidence/mart-execution.json
+          if [[ "${expect_monthly}" == 'true' ]]; then
+            # A GHCR image import and 1 GiB Mart start may take minutes.
+            # Poll the SAME immutable execution, never dispatch a second Job.
+            for attempt in $(seq 1 24); do
+              gcloud run jobs executions describe "${execution}" \
+                --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+                --format=json > runtime-evidence/mart-execution.json
+              if jq -e 'any(.status.conditions[]?; .type == "Completed" and .status == "True")' runtime-evidence/mart-execution.json >/dev/null; then
+                break
+              fi
+              if jq -e 'any(.status.conditions[]?; .type == "Completed" and .status == "False")' runtime-evidence/mart-execution.json >/dev/null; then
+                echo 'B7 Mart execution terminal failure; no rerun' >&2
+                exit 2
+              fi
+              sleep 20
+            done
+            jq -e 'any(.status.conditions[]?; .type == "Completed" and .status == "True")' runtime-evidence/mart-execution.json >/dev/null || {
+              echo 'B7 Mart execution not terminal in bounded readback window (NOT VERIFIED)' >&2
+              exit 2
+            }
+          else
+            gcloud run jobs executions describe "${execution}" \
+              --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
+              --format=json > runtime-evidence/mart-execution.json
+          fi
 
           if ! gcloud logging read \
             "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"janus-intelligence-mart\" AND labels.\"run.googleapis.com/execution_name\"=\"${execution}\"" \
