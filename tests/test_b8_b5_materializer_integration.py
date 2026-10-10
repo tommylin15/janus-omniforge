@@ -119,5 +119,7 @@ def test_b5_explicit_bigquery_without_opt_in_rejected_before_io(monkeypatch, tmp
     assert 'selected_backend = backend_for("ml-oos", args.backend' in source
     assert 'check_fixed_core(identity)' in source
     assert source.index('selected_backend = backend_for') < source.index('# B6 pre-query lookup')
-    assert "partially wrote immutable export" in source
+    assert "export started or partially wrote immutable output; fail closed" in source
+    assert "if existing_parts or export_attempted:" in source
+    assert "export_attempted = True" in source
     assert "choice = execute_ml_oos(" in source
