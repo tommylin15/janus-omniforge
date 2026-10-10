@@ -67,17 +67,17 @@ BigQuery 僅在明確 opt-in 的 ML/OOS batch analytics 使用：
 - Query 必須 column/date/symbol/partition bounded；記錄 processed/billed bytes、elapsed、Cloud Run peak RSS、GCS I/O evidence（可得時）、export bytes 與 fallback。
 - BigQuery failure 必須可 audit fallback PyIceberg，不得影響 ingestion/canonical write 或 PostgreSQL serving。
 
-### B7 每月首週六 retrain / OOS / cache reconciliation — 月度執行 PASS／derived cache freshness PARTIAL
+### B7 每月首週六 retrain / OOS / cache reconciliation — 月度執行與 derived cache freshness PASS
 
 - 實際 controller `Batch("specialist-retrain")` 已從「每月 1 日 10:30」修為「每月第一個週六 10:30 Asia/Taipei」；依賴當日 ingestion / data-supplement 成功，舊 pending 以 `schedule_superseded/skipped` 安全終結，不覆寫 immutable history。
 - 既有 Mart retrain 的同一次執行跑 challenger / OOS / calibration；`monthly-reconciliation.json` 驗證 B4 active role input hash 與 artifact，盤點 B6 fixed-source ML/OOS Parquet 的 lineage、版本和 reference protection；跨 Core reuse 只在 fixed source snapshot/pointer + date 相符時成立。留存 historical orphan candidates，不自動刪除/提升 champion/喚醒 CEO。
 - 證據：`6a2e76c`、`2285b64`、`fb07979`；initial CI #37711002505 ingestion 151 / Mart 137 PASS + existing dev Job deployment SUCCESS；最新 B7 Mart 143 tests PASS（CI #37711737194），此輪部署/live work item 仍須確認。
 - [runtime readback #37712126960](https://github.com/tommylin15/janus-omniforge/actions/runs/37712126960)：controller image=ingestion image，Mart Job Ready=true；但 GitHub CI `janus-ci` 缺 `cloudscheduler.jobs.get`，故 scheduler cron/timeZone/state 實際值 **unknown**。未擴權，不能以 repo cron 或測試代替 live scheduler configuration evidence。
-- 2026-10-10 已完成新版手動月度 retrain、Mart Completed、OOS／reconciliation immutable GCS SHA-256 readback（詳見 [status](../status.md)），月度執行機制 **PASS**；B6 ML/OOS derived cache 仍對應舊 Core，freshness **PARTIAL**。不重訓，只在 B8/B9 銜接按本次 Core source fence 更新衍生快取；下次自然首週六 2026-11-07 尚未觀測。B8 同源／成本／選路／受控故障已 [CLOSED／PASS](../archive/group-b-b8-closure-2026-10-10.md)，不切換 BigQuery default；B7 本次新 Core derived-cache freshness 仍 PARTIAL。
+- 2026-10-10 已完成新版手動月度 retrain、Mart Completed、OOS／reconciliation immutable GCS SHA-256 readback（詳見 [status](../status.md)），月度執行機制 **PASS**；舊 B6 derived cache 的歷史 source fence 其後以**不重訓**的獨立 PyIceberg refresh 收斂；[#38056677635](https://github.com/tommylin15/janus-omniforge/actions/runs/38056677635) **34 tests、11,432 rows、新 reconciliation pass/current/exact-core 與 GCS receipt readback PASS**。月度及 derived freshness 均已 [CLOSED／PASS](../archive/group-b-b7-derived-cache-freshness-closure-2026-10-10.md)；下次自然首週六 2026-11-07 尚未觀測，不能以本次手動 evidence 冒充自然觸發。B8 已 [CLOSED／PASS](../archive/group-b-b8-closure-2026-10-10.md)，不切換 BigQuery default；B9 模型品質仍待驗收。
 
 ## 4. Incremental execution
 
-> B4 已於 2026-10-07 CLOSED / PASS。真實 dev acceptance 對 5 個 Deep Coverage symbols 產出 25 specialist artifacts；同一 Core snapshot 第二輪為 0 computed / 25 reused，且 event-only regression 驗證只有 Event dirty。完整 evidence 見 [B4 結案](../archive/group-b-b4-deep-coverage-closure-2026-10-07.md)。B5 ML/OOS data path 亦已於 2026-10-08 CLOSED / PASS：固定 Core snapshot 產出 10,978 rows、499 symbols、1 Parquet shard 的 immutable training/evaluation input；Cloud Run Mart 真實 readback PASS。見 [B5 結案](../archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)。B6 derived artifact cache 已 CLOSED（見 [B6 結案](../archive/group-b-b6-ml-oos-cache-closure-2026-10-08.md)）；B7 月度執行已 PASS、derived-cache freshness 仍 PARTIAL；B8 已 [CLOSED／PASS](../archive/group-b-b8-closure-2026-10-10.md)；B9 模型 OOS 品質及 promotion 尚未完成。
+> B4 已於 2026-10-07 CLOSED / PASS。真實 dev acceptance 對 5 個 Deep Coverage symbols 產出 25 specialist artifacts；同一 Core snapshot 第二輪為 0 computed / 25 reused，且 event-only regression 驗證只有 Event dirty。完整 evidence 見 [B4 結案](../archive/group-b-b4-deep-coverage-closure-2026-10-07.md)。B5 ML/OOS data path 亦已於 2026-10-08 CLOSED / PASS：固定 Core snapshot 產出 10,978 rows、499 symbols、1 Parquet shard 的 immutable training/evaluation input；Cloud Run Mart 真實 readback PASS。見 [B5 結案](../archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)。B6 derived artifact cache 已 CLOSED（見 [B6 結案](../archive/group-b-b6-ml-oos-cache-closure-2026-10-08.md)）；B7 月度執行與 derived-cache freshness 均 PASS；B8 已 [CLOSED／PASS](../archive/group-b-b8-closure-2026-10-10.md)；B9 模型 OOS 品質及 promotion 尚未完成。
 
 禁止固定每日把所有 Deep Coverage symbols × 5 全重算。
 
