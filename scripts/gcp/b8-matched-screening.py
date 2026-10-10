@@ -190,17 +190,18 @@ def main() -> None:
                 # Diagnostic uses only a strict allowlist; never print GCP error payloads.
                 msg = str(exc).lower()
                 safe_reasons = (
-                    ("budget", "budget"),
+                    ("http 403", "permission-denied"),
+                    ("http 404", "missing-resource"),
+                    ("permissiondenied", "permission-denied"),
+                    ("access denied", "permission-denied"),
                     ("quota", "quota"),
+                    ("timeout", "timeout"),
+                    ("budget", "budget"),
+                    ("billed bytes", "billed-unknown"),
+                    ("row limit", "row-bound"),
                     ("snapshot", "snapshot-fence"),
                     ("metadata", "metadata-fence"),
                     ("catalog", "catalog"),
-                    ("billed bytes", "billed-unknown"),
-                    ("row limit", "row-bound"),
-                    ("403", "permission-denied"),
-                    ("404", "missing-resource"),
-                    ("permission", "permission-denied"),
-                    ("timeout", "timeout"),
                 )
                 reason = next((value for pattern, value in safe_reasons if pattern in msg), "unknown")
                 evidence["fallback_audit"] = {
