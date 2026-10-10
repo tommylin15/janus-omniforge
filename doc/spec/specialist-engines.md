@@ -4,7 +4,7 @@
 
 ## 覆蓋與資料
 
-Market Coverage 由 `control.specialist_market_symbols(date)` 取得具 PIT 日期的 liquid-500 membership，最多 500 檔。每個交易日 EOD canonical data ready 後執行一次低成本 screening；篩選回報最新價/量/金額、5/20/60/120 日報酬、規則分數、排序與異常旗標，不自動加入自選股。BigQuery 通過 exact-snapshot fidelity gate 後優先承接這條全市場 cross-sectional compute。
+Market Coverage 由 `control.specialist_market_symbols(date)` 取得具 PIT 日期的 liquid-500 membership，最多 500 檔。每個交易日 EOD canonical data ready 後執行一次低成本 screening；篩選回報最新價/量/金額、5/20/60/120 日報酬、規則分數、排序與異常旗標，不自動加入自選股。**2026-10-10 使用者最新決策：500 Screening 繼續由 PyIceberg 擔任正式預設；不得因通過 BigQuery fidelity gate 自動切換。** BigQuery 僅保留為 ML/OOS 大型 SQL／Window／Parquet 產製的明確 opt-in 批次路徑。
 
 B3 新增獨立 `market-screening` operation：既有 controller 交易日台北 16:30、等待 ingestion／data-supplement、沿用休市日曆；同日 Core date fence 不成立則拒絕。新增 20D 平均成交金額／年化波動、5/20/60/120D 相對 benchmark 強弱、可用官方估值與 cross-sectional ranks。輸入列順序不影響結果／provenance hash。相同 Core manifest hash／snapshot／membership／feature version／date bounds 在昂貴 read 前 reuse，成果與 receipt immutable、90 日 derived retention；不呼叫完整五 specialist／training／CEO。操作與切換限制見 [screening runbook](../runbook-market-screening.md)，完成狀態仍以 runtime evidence 為準。
 
@@ -25,7 +25,7 @@ Deep Coverage 使用既有去識別化資料庫函式取得 active watchlist ∪
 - Core Apache Iceberg V2／GCS 維持 canonical／PIT／provenance/history；既有 PostgreSQL-backed PyIceberg `SqlCatalog` 不因文件決策自動遷移。
 - PostgreSQL serving projection 維持 User／Admin request-time hot path；BigQuery 不作 Flutter page-load database。
 - Specialist data access 必須先抽象成 exact-snapshot reader；PyIceberg reader 是 reference／fallback，BigQuery adapter 只有在同一 immutable Core snapshot fidelity 可證明後才可逐 workload 切換。
-- BigQuery 優先處理**每日盤後** liquid-500 screening、cross-sectional ranking/window/join、OOS/evaluation preprocessing 與 ML training dataset preparation；不預設複製完整 Core warehouse。
+- **現在採用的路由規則**：每日 liquid-500 screening／日常 specialist ／incremental 和一般處理預設 PyIceberg；BigQuery 不作全市場 screening 的預設或自動 cutover。BigQuery 僅在**明確選用**的 ML/OOS SQL window/aggregation/reduction 與 Parquet export 使用，並保留 Core exact snapshot、PIT/provenance/來源授權 fence；不預設複製完整 Core warehouse。
 - **禁止 BigQuery Storage Read API**：不依賴 `bigquery.readsessions.*`／`google-cloud-bigquery-storage`。小型結果使用一般 query/result API；大型 training input 先在 BigQuery SQL 縮減，再輸出 versioned GCS Parquet artifact 供 Python/ML Job 使用。
 - BigQuery intermediate／destination table 預設 bounded／TTL／可重建且屬 derived/research；不要求把每個中間結果再寫回 canonical Iceberg。大型 training/evaluation dataset 以 versioned GCS Parquet 固定，只有已有 publication／retention contract 的成果才永久保存。
 - 每個 BigQuery-derived artifact 必須保留可追溯的 Core snapshot identity、analysis_as_of、schema/feature/model version、hash/provenance；不能只保存「latest」語意。
@@ -38,6 +38,13 @@ Deep Coverage 使用既有去識別化資料庫函式取得 active watchlist ∪
 `AnalyticsSnapshotReader.read(manifest, requested_symbols, core_snapshot_id=..., row_limit=...)` 回傳 `AnalyticsSnapshot`，包含明確的 Core snapshot identity、datasets 與 read telemetry；`close()` 釋放 reader 持有的 catalog connection。Specialist runtime 透過 `reader_factory` 注入 reader，預設使用 `IcebergSnapshotReader`；`load_core_datasets()` 保留為相容入口。
 
 PyIceberg reference reader 必須先比對 manifest 與要求的 Core identity，再依各 table 的固定 `snapshot_id` 讀取，不改讀 latest。保留 symbol filter、null、原始欄位型別與 `__table_identifier`／`__snapshot_id` provenance；超過總 row limit 必須拒絕，不能悄悄截斷。PIT／source authorization 仍由既有 specialist validation 處理。Runtime 在成功或失敗後都關閉 reader，且拒絕 reader 回傳不同 Core identity。未知 GCS bytes 保持 null；此契約不代表 BigQuery adapter 或自動 fallback 已完成。
+
+### B8 經驗證的 ML/OOS 選路與故障回退政策（2026-10-10）
+
+- `intelligence_mart.ml_oos_backend_policy` 提供**預設 PyIceberg**、ML/OOS 專用且明確 `bigquery_opt_in` 的選路政策；非 ML/OOS workload（含 Screening）不能選用 BigQuery。保留 `cutover=false`、不允許 canonical write、cache promotion 或 Storage Read API。
+- BigQuery opt-in 出現**已分類的運作性故障**（timeout／unavailable／permission denied／quota）時，只允許在相同 immutable Core snapshot／date bounds／版本／PIT source fence 下執行一次 PyIceberg 後備；成功輸出必須再通過相同 reference parity。BigQuery 資料不一致、Core metadata drift、PIT、schema 或 provenance 錯誤 **fail closed，不用 fallback 掩蓋**。不盲目重送失敗 BigQuery job；局部研究 export 不 promote 為 cache。
+- [B8 回退驗證 workflow](https://github.com/tommylin15/janus-omniforge/actions/runs/38036167787) 在現有 dev WIF 真實讀固定 Core，故障採**注入的 BigQuery unavailable**（不是真的 BigQuery outage），PyIceberg 重新讀回 74,999 筆來源→10,978 筆 ML/OOS，與 B5 immutable dataset 0 diff；證明獨立受控 acceptance 的 typed fault path，不代表目前部署中的 B5 產製工具已改成自動 fallback。後者仍是獨立 legacy BigQuery materialization script，尚未接入本 module／未重發 Mart image；不得宣稱整條 runtime 已切換或 B8 全部正式結案。
+
 
 ## 成果物
 
