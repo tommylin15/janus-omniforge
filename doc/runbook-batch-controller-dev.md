@@ -26,4 +26,13 @@ GitHub 的 bounded 入口 `.github/workflows/run-dev-specialist-retrain.yml` 只
 - `run-dev-specialist-retrain.yml` PASS 最多證明 workflow 與 controller 指令成功；若 dependency 未滿足，可能僅建立 pending occurrence。必須另外鎖定**新** `janus-intelligence-mart-...` execution，檢查 `Completed=True`、`MART_OPERATION=specialist-retrain` 與同次 execution 的 `specialist-manifest.json`／`oos-evaluation.json`／`monthly-reconciliation.json`。以 `ops/dev-mart-execution-inspect.json` 的 `execution` 與 `expect_monthly=true` 觸發 `inspect-dev-mart-execution.yml`，逐一核對 GCS bytes SHA-256、Core identity、cache reconciliation `pass/partial` 與零 CEO／promotion。缺任何證據維持 `NOT VERIFIED` 或 `PARTIAL`，不得將單純 Job success 標成 B7 完成。
 
 
+### B7 衍生快取新鮮度獨立刷新（不重新訓練）
+
+B7 月度 retrain／OOS／原始 reconciliation 已完成時，若 B6 ML/OOS derived cache 仍對舊 Core 顯示 `historical`，只執行 [B7 derived-cache workflow](../.github/workflows/b7-derived-cache-freshness.yml) 所定義的 standalone PyIceberg 路徑，不派送 `specialist-retrain`、不重用舊 10/08 request，也不重開 B8 benchmark。對應 script 為 `scripts/gcp/b7-refresh-derived-cache.py`，只使用現有 dev buckets／GitHub WIF、已鎖定依賴及既有 B5/B6 schema。
+
+1. 選最近七天的**最新 immutable Core snapshot**，驗證 `core-snapshot.json` 原始 bytes SHA-256、`core.ohlcv_v1` Iceberg metadata snapshot/pointer 與分析日期；月度原始 `specialist-manifest.json` 必須是**同一 Core identity**，否則 fail closed，不重訓補缺。
+2. 以當次 pinned Core、版本、日期界線和 source authorization 產出 B5 格式 ML/OOS Parquet；相同 immutable cache 命中先核對 bytes/hash 才 reuse，cache miss 才以 PyIceberg 建立 `ml-oos-data/v1/<identity>/` 的 create-only shard／manifest。驗證前後 latest Core source 未改變。無 BigQuery／Storage Read API、無 canonical 寫入、無 CEO、無 champion promotion。
+3. 從**原本已完成的月度** specialist manifest 讀取 active target 與 25 個 references，重新執行**唯讀** `reconcile_monthly_cache`。僅在 `status=pass`、derived cache `status=current`、`exact-core`、無 missed invalidation 且 independent Parquet bytes readback 通過時，才以 create-only 寫入 `acceptance/b7-cache-freshness/<hash>.json`；不能覆寫原來 `monthly-reconciliation.json`（可保留 `partial` 歷史）。
+4. 以 GitHub Actions tests、dev GCS immutable readback 和 workflow receipt 判斷 B7 衍生快取的當次 source freshness；若 Core 已更新、metadata drift、月度 references 不匹配、GCS 權限被拒、寫入一半或驗收收據缺失，維持 `PARTIAL`／`BLOCKED`，只補修受影響範圍、不盲目重送月度 Job。
+
 清理 worker 的啟用與完成狀態以目前 runtime／operations evidence 為準。清理報告必須保存 Core／Stage／Mart 各層刪除物件數與 bytes、前後 live 容量、受保護空間及非當前版本／soft delete 狀態。live bytes 減少不等於可計費空間立即釋放，未核對者標記 unknown。
