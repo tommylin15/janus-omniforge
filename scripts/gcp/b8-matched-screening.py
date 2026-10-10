@@ -103,7 +103,10 @@ def main() -> None:
         rows = market_features(snapshot.datasets, symbols, core["analysis_as_of"], core["snapshot_id"])
         return snapshot, rows, monotonic() - started
 
+    stage = {"name": "init"}
+
     def run_bigquery():
+        stage["name"] = "bq-client"
         # The valuation leg is part of the candidate wall clock, not reused from
         # an earlier PyIceberg measurement as in the historical B3 spike.
         client = bigquery.Client(
@@ -118,6 +121,7 @@ def main() -> None:
         )
         started = monotonic()
         try:
+            stage["name"] = "bq-probe"
             snapshot = reader.probe(
                 inputs, symbols, core_snapshot_id=core["snapshot_id"],
                 table_scope=SCOPE, row_limit=150_000, dry_run=False,
@@ -126,6 +130,7 @@ def main() -> None:
             reader.close()
         combined = dict(snapshot.datasets)
         if VALUATION in bounds:
+            stage["name"] = "valuation-read"
             valuation_input = dict(inputs, iceberg_tables={VALUATION: inputs["iceberg_tables"][VALUATION]})
             valuation = IcebergSnapshotReader(
                 catalog, date_bounds={VALUATION: bounds[VALUATION]},
@@ -134,7 +139,9 @@ def main() -> None:
             combined.update(valuation.datasets)
         from intelligence_mart.analytics_reader import AnalyticsSnapshot
         full_snapshot = AnalyticsSnapshot(core["snapshot_id"], combined, snapshot.telemetry)
+        stage["name"] = "screening-features"
         rows = market_features(combined, symbols, core["analysis_as_of"], core["snapshot_id"])
+        stage["name"] = "complete"
         return full_snapshot, rows, monotonic() - started
 
     evidence = {
@@ -180,8 +187,25 @@ def main() -> None:
                 candidate, candidate_rows, elapsed = run_bigquery()
             except Exception as exc:
                 # Keep reference runnable, audit only the safe error class; never log raw payloads.
+                # Diagnostic uses only a strict allowlist; never print GCP error payloads.
+                msg = str(exc).lower()
+                safe_reasons = (
+                    ("budget", "budget"),
+                    ("quota", "quota"),
+                    ("snapshot", "snapshot-fence"),
+                    ("metadata", "metadata-fence"),
+                    ("catalog", "catalog"),
+                    ("billed bytes", "billed-unknown"),
+                    ("row limit", "row-bound"),
+                    ("403", "permission-denied"),
+                    ("404", "missing-resource"),
+                    ("permission", "permission-denied"),
+                    ("timeout", "timeout"),
+                )
+                reason = next((value for pattern, value in safe_reasons if pattern in msg), "unknown")
                 evidence["fallback_audit"] = {
                     "triggered": True, "error_code": type(exc).__name__.upper()[:64],
+                    "failed_stage": stage["name"], "reason_code": reason,
                     "reference_preserved": True,
                     "canonical_write": False, "default": "pyiceberg",
                 }
