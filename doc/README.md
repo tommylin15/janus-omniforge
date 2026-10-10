@@ -1,8 +1,10 @@
 # Janus 文件入口
 
-更新：2026-10-08
+更新：2026-10-10
 
 本頁定義 repository 內文件的角色，避免同一件事同時在 README、SPEC、WBS、TODO、runbook 與測試紀錄各自形成不同版本。
+
+**目前工程入口：**[最新狀態](status.md) → [B7～B9 active TODO](todo.md) → [B 組執行指令](codex-execution-plan.md) → [WBS 5](wbs/wbs-5-specialist-engines.md)／[Specialist SPEC](spec/specialist-engines.md)。CI/CD 已在目前核准的 dev 範圍 PASS 結案，[完整證據在 archive](archive/cicd-ghcr-api-promotion-2026-10-10.md)，四項額外豁免在 [Parking Lot](parking-lot.md)，不占用 B 組 TODO。
 
 ## 1. 先判斷你要回答哪一種問題
 
@@ -36,13 +38,14 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `spec/operations-and-testing.md`：最新完整 evidence summary 與尚待整理的歷史 checkpoint；日常定位優先看 `status.md`，舊證據逐步移至 `archive/`。
 - `pilot-operational-evidence.md`：`WBS-8-DEV-PILOT-RUN` 六個 calendar months evidence window 的新增 bounded checkpoint；保存 observed failure／recovery／manual intervention 與尚未觀察到的 evidence category，不把 checkpoint 當成 WBS 完成。
 - `runbook-data-supplement.md`：每日增量、週六品質檢查、Admin 結果與排程修復程序。
-- `spec/cicd-v2.md`：2026-10-08 核准的 Actions + 公開 GHCR + Cloud Run 發布／回滾契約；現行階段性驗收見 `status.md` 與 [第二輪 GHCR／固定 Preview live evidence](archive/cicd-ghcr-next-release-preview-2026-10-09.md)。完整 GHCR Release、固定 Preview、同 SHA Owner 人工驗收、四 Jobs 新版 8/8 canary 與 API 正式 100% 切流／真實 traffic rollback 均 PASS；使用者 2026-10-10 豁免四項額外演練／舊 AR 歷史問題，**目前 dev CI/CD scope 已結案 PASS**，未實測項保留原始標記於 [Parking Lot](parking-lot.md)，不列 TODO。
-- `runbook-dev-deploy.md`：dev 部署、migration、Job 與 Secret 的操作程序；CI/CD 節記錄已上線 GHCR/固定 Preview、共用 lease 和新人員 OAuth gate 後的可逆 rollout／promotion 步驟。最新切流結果見 [2026-10-10 API live rollback evidence](archive/cicd-ghcr-api-promotion-2026-10-10.md)；其他 Research/Private 歷史差異見 [先前盤點](archive/cicd-ghcr-unattended-hardening-2026-10-10.md)，不可混淆 API traffic 與 Jobs image rollback。
+- `spec/cicd-v2.md`：GHCR → Cloud Run Release／回滾契約；本輪 dev 發布已 PASS，歷史收據在 [archive](archive/cicd-ghcr-api-promotion-2026-10-10.md)，不重複寫在索引。
+- `runbook-dev-deploy.md`：dev API／Jobs 發布、共用鎖／lease、固定 Preview、回滾及 migration 的可重跑程序。
 - `runbook-pilot-calendar-repair.md`：Dev Pilot TWSE 交易日曆修復、operator IAP migration 與 bounded ingestion 驗收程序。
 - `runbook-user-oauth-dev.md`：User／MCP OAuth 的專用操作與 A/B owner isolation 驗收程序。
 - `runbook-parallel-live-dev.md`：dev 作為個人真實平行上線環境的操作語意。
 - `secret_list.md`：Secret inventory 與相關 evidence；不得包含 secret payload。
-- `omniagent-split-status.md`：只保留 Janus／omniAgent 拆分的歷史入口，不再是 Janus active gate。
+- `omniagent-split-status.md`：Janus／omniAgent 分離的歷史入口，不是 active gate。
+- `decision-2026-10-07-owner-scoped-parallel-private-recalculation.md`：Private Mart owner-scoped 重新計算的契約，不是 B 組排程入口。
 
 ## 3. 文件維護原則
 
@@ -58,7 +61,3 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 
 `spec/operations-and-testing.md` 已累積大量歷史 checkpoint。GitHub connector 在不遺失原文的前提下無法安全做 server-side blob 搬移或小範圍 patch，因此目前**保留原檔完整 evidence，不做高風險整檔重寫**。六個月 `WBS-8-DEV-PILOT-RUN` 的新增 bounded checkpoint 先追加至 `pilot-operational-evidence.md`，並由 `status.md` 連結目前判定；等有可驗證的完整搬移／patch 流程時，再考慮整併至 operations ledger 或將舊 checkpoint 分期移入 `archive/`。
 
-
-## Owner-scoped Private Mart recalculation
-
-- [設計與驗收契約](decision-2026-10-07-owner-scoped-parallel-private-recalculation.md)
