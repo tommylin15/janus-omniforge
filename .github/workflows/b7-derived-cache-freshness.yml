@@ -1,6 +1,7 @@
 name: B7 current Core derived cache freshness
 
 # One bounded business-data refresh; NOT monthly retrain, B8 rerun or GHCR release.
+# Run after B7 create-only receipt path fix; existing validated Parquet is reused.
 on:
   workflow_dispatch:
   push:
