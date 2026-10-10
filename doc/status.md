@@ -1,8 +1,19 @@
 # Janus Current Status
 
-更新：2026-10-10 00:05（Asia/Taipei；依 2026-10-09 晚間 GitHub Actions live 收據）
+更新：2026-10-10（Asia/Taipei，依最新 main／CI／GCP live receipts）
 
 權威順序：GitHub `main` implementation → tests／CI → GCP live runtime → [驗收證據](archive/cicd-ghcr-live-route-finalization-2026-10-09.md) → 本短入口。歷史完整狀態已原文保存於 [archive](archive/cicd-status-pre-forward-repair-2026-10-09.md)，不應以舊快照覆蓋最新判定。
+
+## 2026-10-10 無需真人的 CI/CD 安全／驗收工作：已完成
+
+- 固定 Preview 重複發布只讀回、不更新 GCP tag：[Live #38009514370](https://github.com/tommylin15/janus-omniforge/actions/runs/38009514370)，receipt `VERIFIED_FIXED_PREVIEW_IDEMPOTENT`、`preview_tag_mutation_attempted=false`、`lease_released=true`；完整 source SHA `038498c70e12488f345c3ca0fbe821846ddee4cc`。此前固定 Preview 真實首次發布 #37956325838 PASS。
+- Preview 更新後故障的**模擬**恢復原版本及恢復失敗保留 lease 的測試 [CI #38009586797](https://github.com/tommylin15/janus-omniforge/actions/runs/38009586797) PASS；未假裝已刻意在真實 dev 製造故障。
+- 標準 API promotion 新增不可跳過的 `reversible_ghcr` Jobs receipt、可回復基準 source SHA／明確同源 owner 授權 request；切流後要求真正單一 100% 目標、Ready／RoutesReady、generation reconciliation、tag/config 不漂移。新 Jobs／API 的正式 request 模板均 `approved=false`，**沒有在真人 gate 前執行正式更新**。[CI #38010078101](https://github.com/tommylin15/janus-omniforge/actions/runs/38010078101) PASS。
+- 0% candidate 最新 Ready 不等於既有正式 100% source；修正原唯讀 baseline 誤判後，[GCP 實際讀回 #38010139996](https://github.com/tommylin15/janus-omniforge/actions/runs/38010139996) PASS，artifact `VERIFIED_PUBLIC_GHCR_ROLLBACK_BASELINE`、`gcp_writes=0`；API 及四個 Jobs image/config 可作**未來 GHCR 可逆發布的基準**，並非已經演練新來源 traffic／Jobs rollback。
+- [Private Pipeline／Research readonly #38010200797](https://github.com/tommylin15/janus-omniforge/actions/runs/38010200797)：workflow SUCCESS 但收據 `BLOCKED`，Research legacy AR image missing，原 Private preupdate hash `4ebd16...` 與現役 `23e644...` 不一致且不能從單欄位刪除恢復；舊版完整 config parity **NOT_VERIFIED**。**不能用 workflow SUCCESS 代替這項 gate PASS**；Research 非四個 GHCR rollout target，本次沒有修改。
+- **現階段阻塞：新版固定 Preview 真人 Google A→B→A／PnL／owner isolation**，其 SHA 綁定驗收仍未提供。這個 gate 通過後，可由已備妥的 request-triggered Jobs rollout → API promotion 路徑在共用 lock／lease 保護下執行新的真實 canary／rollback。未完成前整體 CI/CD 繼續 `PARTIAL`，不動正式流量。
+
+完整 [10/10 非人工收尾證據](archive/cicd-ghcr-unattended-hardening-2026-10-10.md)。
 
 ## 新版 GitHub Actions → GHCR → Cloud Run：PARTIAL（新完整 Release／固定 Preview PASS）
 
