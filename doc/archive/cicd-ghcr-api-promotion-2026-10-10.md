@@ -31,3 +31,7 @@
 - 本輪未重跑雙 owner MCP credential 正向 E2E；已使用前述 bounded 只讀／負向 metadata 與人工作業證據，**不得冒充重新驗證**。
 
 CI/CD 的本次 API 正式切流與 traffic rollback gate **PASS**；包含其他獨立缺口的整體 CI/CD 仍 **PARTIAL**。未清理舊 Revision、AR、GCS 或資料庫資產。
+
+## 後續使用者驗收範圍決策（同日；不改寫以上原始收據）
+
+使用者明確決定四項額外／舊 AR 歷史復原驗收不作目前個人 dev 發布結案條件：Jobs 舊映像 live rollback、Preview 故障後 live restore、Private Pipeline 歷史 config parity、Research Job 舊 AR image 可恢復性。這四項為 `WAIVED_BY_OWNER`，**不是**實際測試 `PASS`，其原始 `NOT_VERIFIED`／`BLOCKED` 原封保留。因此上方 `PARTIAL` 是**豁免前的原始 checkpoint**；後續正式判定為「目前核准的 dev CI/CD scope PASS／CLOSED」。active 狀態以 [status](../status.md)、[parking-lot](../parking-lot.md) 為準；B7 → B8 → B9 是下一階段，無需再次處理此段歷史。
