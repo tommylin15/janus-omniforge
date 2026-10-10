@@ -100,12 +100,12 @@ WIF 診斷身分具備指定 project 的 `cloudbuild.builds.get`／必要時 `cl
 
 舊 image inventory／cleanup 僅按仍存在的歷史 Artifact Registry／runtime 引用稽核，**不屬於新 release 的必經步驟**；未確認所有有效 revision／Job／復原引用前，不進行 delete-all 或 aggressive cleanup。既有 dev 業務 data path 的 GCS／Iceberg 保留，不受「新部署管線不寫 GCS」誤傷。
 
-### 3.3.1 GitHub Git-ref 跨 run release lease（已驗證 primitive，尚未完成跨系統接入）
+### 3.3.1 GitHub Git-ref 跨 run release lease（新版 GHCR 發布流程已 live 驗證；舊部署路徑除外）
 
 - 目前 `scripts/gcp/ghcr_release_lease.py` 以固定 annotated Git tag ref `refs/tags/janus-ghcr-deploy-global-v1` 作為 GitHub 原子 create-only lease。lease payload 只含 owner `GITHUB_RUN_ID`、`GITHUB_RUN_ATTEMPT`、完整 SHA。所有取得、驗證、釋放都讀 GitHub API；其他 owner 不可透過 helper 釋放，GitHub 查詢權限錯誤不當成 404。此 Git ref 不是 GCP runtime 鎖，也不能防止沒有接入的 Cloud Build／舊手動部署 writer。
 - 對**未觸及 GCP**的安全演練，設定 Actions `GH_TOKEN`（受限 GitHub token）、`contents: write` 後，執行 `python scripts/gcp/ghcr_release_lease.py acquire`、`assert`、`inspect`、最後明確 `release --safe-to-release`；實際發版在 release 前必須另行驗證 service traffic／Job config／Scheduler／baseline 已成功恢復或新版本完整驗收。不可把單一 CLI flag 當真正的成功或 rollback receipt。
 - lock 已存在／無權限讀取／owner 不符／失敗後未知的 GCP 狀態一律 BLOCKED；不可用時間到期、覆寫 tag、強制解鎖來搶佔。worker crash 時應從 GitHub owner run 及 GCP readback 獨立核對，先修復真實 runtime 才由原 owner 身分釋放；若無法安全驗證，保留 lease 及封鎖。這不是一般 release workflow 自動清理的許可。
-- 唯讀 GitHub-only drill [#37796079169](https://github.com/tommylin15/janus-omniforge/actions/runs/37796079169) 實際驗證 12 tests、atomic claim／不同 run identity contention denial／owner release／independent recovery，最後 Git ref 404、GCP writes 0。**尚未**全面導入 `deploy-dev.yml`、GHCR candidate、Cloud Build trigger 或 Jobs promotion，故跨流程 mutual exclusion 與真實 rollback acceptance 仍未完成，不能將上游部署 gates 改成 PASS。
+- 唯讀 GitHub-only drill [#37796079169](https://github.com/tommylin15/janus-omniforge/actions/runs/37796079169) 驗證 12 tests、atomic claim／不同 run identity contention denial／owner release／independent recovery。此後 GHCR candidate、固定 Preview、Jobs rollout、API traffic 也統一採用 `janus-dev-runtime-writers` concurrency 與 owner-fenced Git-ref lease；例如 Preview 正向 [#37956325838](https://github.com/tommylin15/janus-omniforge/actions/runs/37956325838) 與同 SHA idempotent [#38009514370](https://github.com/tommylin15/janus-omniforge/actions/runs/38009514370) live 確認 release 後 ref 404。**舊 `deploy-dev.yml`／Cloud Build 手動路徑不在此共用鎖範圍**，須維持停用／不參與新版 Release，不得假裝能防範未受控外部手動 writer；新版 API／Jobs 真正 traffic/rollback 演練仍待同 SHA owner gate。
 
 ### 3.3.2 未來 GHCR → GHCR 可逆發布（2026-10-09）
 
@@ -118,9 +118,17 @@ WIF 診斷身分具備指定 project 的 `cloudbuild.builds.get`／必要時 `cl
 3. Jobs request 僅在 `rollback_mode=reversible_ghcr`、`accept_no_old_image_rollback=false` 下允許下一版。指定前一版 **完整 source SHA**、四個 Job 對應的 `rollback_images` 固定 GHCR digest 與 `rollback_config_hashes`（每個 64 字元 SHA-256），由同一受控 runtime baseline 證據產生；所有 key 對應 `JOB_COMPONENT`。發布鎖內先檢查目前 Job image、完整非 image runtime 指紋、匿名 manifest digest／來源 label，任一不一致即在暫停 Scheduler 前 fail closed。不要從 log 複製 Secret、env value 或完整 Job config。
 4. 原 Jobs rollout 使用既有 `janus-dev-runtime-writers` concurrency 與原子 Git-ref lease，確認舊 Cloud Build writer 停用、所有 execution terminal、Scheduler `PAUSED` 才更新，逐 Job 兩次獨立 canary；失敗採反序 GHCR image rollback／readback，未知狀態**保留 fence/lease**，絕不盲目重送真實 execution。Research Job 不更新。新 GHCR 映像如無合法回復基準，不能改用舊 forward-only waiver。
 5. 一般 API traffic promotion `ghcr-api-promote-dev.yml` 在任何切流之前須驗**目前活躍 revision** 是 Ready 的 GHCR pinned image，並可由匿名 registry 以當前 source SHA 拉取，且原服務 build ID 與該 SHA 一致。再檢查新候選、Jobs 收據、auth gate，執行回滾演練及最終升流量；檢查 Service `Ready`／`RoutesReady`、immutable digest、100% traffic、tags 不變與正式健康。原 AR 不可拉取時不得為了湊 PASS 嘗試不可恢復的回滾。
-6. 將版本 SHA、Run ID、image digest、五 Jobs readback、Scheduler、traffic、baseline config fingerprints、成功／失敗與 rollback 終態寫入非敏感 workflow artifact；只有真的完成 live rehearsal 才標 `rollback=PASS`。原 `preview` 固定 tag 自動化仍為獨立未完成工作；不得把 candidate URL、修復一次性 workflow 或基準可用冒充固定 preview 發布驗收。
+6. 將版本 SHA、Run ID、image digest、五 Jobs readback、Scheduler、traffic、baseline config fingerprints、成功／失敗與 rollback 終態寫入非敏感 workflow artifact；只有真的完成 live rehearsal 才標 `rollback=PASS`。固定 `preview` 的**正向發布** #37956325838、**同 SHA 無寫入重複驗證** #38009514370 均已 live PASS；更新後故障恢復的**合成失敗測試** #38009586797 PASS，但不得冒充真人 OAuth、Jobs 或正式 API traffic rollback 的 live PASS。
 
-目前已證實的部分是**前一版 rollback baseline 真實可用**、GHCR 公開 digest 與 Service/Jobs 基準 readback；下一次新版 Job 更新、實際反序 rollback drill、同 SHA authenticated acceptance 與 API traffic promotion 要以各自 Actions 收據判定，不因本 runbook 更新而宣告 CLOSED。
+目前已證實的部分是**前一版 rollback baseline 真實可用**（新 0% candidate 已存在時的 [GCP 唯讀回驗 #38010139996](https://github.com/tommylin15/janus-omniforge/actions/runs/38010139996) PASS）、GHCR 公開 digest、固定 Preview 正向／冪等 live 與 Service/Jobs 回復基準。下一次新版 Job 更新、實際反序 rollback drill、同 SHA authenticated acceptance 與 API traffic promotion 要以各自 Actions 收據判定，不因 runbook、模擬失敗測試或某次 workflow SUCCESS 而宣告 CLOSED。
+
+### 3.3.3 已備妥的無人工執行交接（僅 A→B→A 需使用者本人）
+
+1. **真人 gate 尚未完成時**，新來源 `038498c70e12488f345c3ca0fbe821846ddee4cc` 只保留 0% candidate／固定 Preview；**不得**啟動新四 Jobs 更新或 API 新版正式 100%。兩份安全範本 [Jobs](../ops/ghcr-jobs-rollout-request.template.json) 與 [API](../ops/ghcr-api-promote-request.template.json) 均 `approved=false`，其副檔名為 `.template.json`，**不是** GitHub Actions 的發布入口。
+2. 使用者於固定 Preview <https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/> 用 Google A 登入核對持股、紀錄及 PnL；再用 B 登入確認不能看到 A 的資料；切回 A 確認原資料仍一致。合格 owner proof 必須與本次完整 source SHA、候選 Revision `janus-api-00457-wed` 及驗收時間相符；`ops/ghcr-owner-acceptance.json` 的舊 SHA 不得複製冒充新來源。
+3. 上述真人 owner proof 成立後，將 Jobs 已禁用的模板填成正式 `ops/ghcr-jobs-rollout-request.json`，`approved=true`、本次 source SHA/Release Run 正確、`rollback_mode=reversible_ghcr`；這個**唯一 request path** 的 commit 才觸發既有 `ghcr-jobs-rollout-dev.yml`。Jobs 在原共用 Actions mutex + owner Git-ref lease 下，先驗舊 image/fingerprint、Scheduler／executions fence，再執行四 Job 新映像和各兩次 canary、異常反序恢復；Research Job 不在更新範圍。必須取得真正的 Jobs PASS receipt，不能把模板當證據。
+4. Jobs PASS 且真人 owner proof 仍有效後，將 API 已禁用模板填成正式 `ops/ghcr-api-promote-request.json`，填真實 `jobs_run`、`approved=true`、本次 SHA 與上一版 GHCR baseline。僅這個 request path push 會觸發 `ghcr-api-promote-dev.yml`；該 workflow 仍需再次通過完整 Release／Jobs proof、registry/source identity、`Ready/RoutesReady`／generation、traffic/其他 tags、健康及 rollback rehearsal。即使手動使用 `workflow_dispatch`，Python 也需相同明確批准 request。
+5. 對故障路徑採**已測試的模擬 fault-injection**（[CI #38009586797](https://github.com/tommylin15/janus-omniforge/actions/runs/38009586797)）以避免蓄意干擾真實 dev 使用者：Preview 變更後健康失敗須恢復原 preview SHA，恢復失敗須留鎖；mock PASS **不等於**刻意 live failure drill PASS。標準 API 的回滾演練必須等 owner gate 過後，在可恢復 GHCR 版本之間真實執行。明細見 [2026-10-10 驗收證據](archive/cicd-ghcr-unattended-hardening-2026-10-10.md)。
 
 ### 3.4 本次驗收範圍
 
