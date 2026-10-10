@@ -78,13 +78,47 @@ jobs:
               echo 'OOS evaluation readback hash mismatch' >&2
               exit 2
             }
+
+            # B7: same execution must persist an independently verifiable
+            # monthly cache reconciliation receipt; never rewrite or promote.
+            reconciliation_uri="$(jq -r '.reconciliation.artifact_uri // empty' runtime-evidence/specialist-manifest.json)"
+            reconciliation_hash="$(jq -r '.reconciliation.artifact_hash // empty' runtime-evidence/specialist-manifest.json)"
+            [[ "${reconciliation_uri}" =~ ^gs://${MART_BUCKET}/executions/[0-9a-f-]+/monthly-reconciliation\.json$ ]] || {
+              echo 'B7 monthly reconciliation URI missing or invalid' >&2
+              exit 2
+            }
+            [[ "${reconciliation_hash}" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+              echo 'B7 monthly reconciliation hash missing or invalid' >&2
+              exit 2
+            }
+            gcloud storage cat "${reconciliation_uri}" > runtime-evidence/monthly-reconciliation.json
+            actual_reconciliation_hash="sha256:$(sha256sum runtime-evidence/monthly-reconciliation.json | awk '{print $1}')"
+            [[ "${actual_reconciliation_hash}" == "${reconciliation_hash}" ]] || {
+              echo 'B7 monthly reconciliation immutable hash mismatch' >&2
+              exit 2
+            }
+            jq -e --arg core "$(jq -r .core_snapshot_id runtime-evidence/specialist-manifest.json)" '
+              .artifact_kind == "mart_monthly_cache_reconciliation_v1" and
+              .core_snapshot_id == $core and
+              .missed_invalidation_detected == false and
+              .champion_promotion == false and
+              .llm_api_tokens == 0 and .ceo_triggered == false and
+              (.status == "pass" or .status == "partial")
+            ' runtime-evidence/monthly-reconciliation.json >/dev/null || {
+              echo 'B7 monthly reconciliation contract mismatch' >&2
+              exit 2
+            }
+            echo 'B7 OOS and monthly reconciliation immutable GCS hash readback PASS'
           fi
 
           jq '{metadata:{name:.metadata.name},status:{conditions:.status.conditions,completionTime:.status.completionTime,failedCount:.status.failedCount,succeededCount:.status.succeededCount},env:[.spec.template.spec.containers[0].env[]? | select(.name == "MART_OPERATION" or .name == "MART_OOS_EVALUATION" or .name == "MART_AI_ENABLED")]}' runtime-evidence/mart-execution.json
           if [[ -f runtime-evidence/specialist-manifest.json ]]; then
             jq '{execution_id,analysis_as_of,core_snapshot_id,engine_version,screening_count,specialist_count,specialist_status,llm_api_tokens,ceo_triggered,evaluation}' runtime-evidence/specialist-manifest.json
           else
-            echo 'No specialist-retrain artifact URI found in bounded execution logs.'
+            echo 'No specialist-retrain artifact URI found in bounded execution logs (NOT VERIFIED).'
+          fi
+          if [[ -f runtime-evidence/monthly-reconciliation.json ]]; then
+            jq '{status,core_snapshot_id,active_specialist_refs_verified,reused_specialist_refs_verified,pointer_inventory,ml_oos_derived_cache,missed_invalidation_detected,champion_promotion,llm_api_tokens,ceo_triggered}' runtime-evidence/monthly-reconciliation.json
           fi
       - name: Upload bounded runtime evidence
         if: always()
