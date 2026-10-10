@@ -1,5 +1,7 @@
 name: B8 matched screening (read-only)
 
+# Explicit workflow-file push or manual dispatch only; avoid recurring billable probes.
+# Fallback audit records a safe failure stage and category, never raw API payloads.
 on:
   workflow_dispatch:
   push:
