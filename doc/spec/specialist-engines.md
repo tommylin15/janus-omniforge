@@ -51,13 +51,13 @@ PyIceberg reference reader 必須先比對 manifest 與要求的 Core identity�
 
 快取命中前必須驗證實際 GCS shard SHA256、bytes、manifest、retention 保護與 catalog pointer；掃描上限 128 manifest、驗證 240 秒上限，fail closed。命中才可記本輪 BigQuery billed=0；cache miss 維持原有 1 GiB execution budget／每 query 60 秒；失敗未知 billed bytes 為 null。B4 五 specialist cache 不改變。已由 CI #37708769385（137 PASS）與 live #37708769182（GCS immutable hit verified、BigQuery jobs 0／billed 0、Cloud Run Mart hash readback PASS）驗收 B6 scope。無關 Core 更新和相依資料 dirty invalidation 由 targeted tests 驗證；B7/B8/B9 仍未完成。
 
-### B7 月度排程／reconciliation 契約（實作中）
+### B7 月度排程／reconciliation 契約（執行機制 PASS／derived cache freshness PARTIAL）
 
 既有 `janus-ingestion-daily` 以台北每小時 `:30` 執行總控；唯一 monthly `specialist-retrain` slot 為**第一個週六 10:30 Asia/Taipei**（每月 1–7 日且星期六）。同日 07:30 ingestion 與 08:30 data-supplement 都必須 succeeded；舊 1 日未派送 pending 在改版後記 `schedule_superseded/skipped`，不誤派。
 
 固定 Core snapshot byte hash 下執行既有 challenger fit／OOS／calibration；月度 ML/OOS dataset model version 與 specialist model version 各自保留 lineage，不互比；Global Core ID 不同時僅在 OHLCV exact snapshot/pointer、資料日期與特徵版本都相同才視為 B6 source-only reuse；`mart_monthly_cache_reconciliation_v1` immutable receipt 驗證目前 Deep Coverage 五個角色的 cache identity、source artifact SHA256、model version，並只讀盤點 B6 最新 ML/OOS dataset 的 immutable lineage。歷史 unreferenced pointer **只能標記 retention candidates**，缺跨 execution reference evidence 不得當 orphan 刪除；B6 缺失、舊 Core 或 bounded inventory 不完整都維持 `partial`，不得冒充 PASS。Event classifier 未符合 labeled-data／drift gate 時不自動重訓；訓練成功亦不自動 champion promotion，也不觸發 CEO。
 
-B7 已於 2026-10-08 推實作 `6a2e76c`；需有 CI、dev image、Scheduler/controller runtime、真實 retrain artifact readback 才能 CLOSED。2026-11-07 是下一個自然首週六；人工驗收不得冒充自然執行。B8 的 BigQuery/PyIceberg 比較不提前納入 B7。
+2026-10-10 已取得新版 GHCR/Scheduler/controller、Mart retrain、OOS/reconciliation immutable readback 證據，B7 **月度執行機制 PASS**；舊 B6 derived cache 對當次 Core snapshot 為 historical，freshness **PARTIAL**。B8/B9 銜接時只刷新符合當次來源條件的 derived cache，不為此重做模型重訓。2026-11-07 自然首週六尚未發生；手動 execution 不冒充自然觸發。B8 同 fixed Core snapshot 比較不構成 B9 模型品質或 cutover PASS。
 
 ## 歷史模型
 
