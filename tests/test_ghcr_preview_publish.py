@@ -160,3 +160,94 @@ def test_same_verified_sha_is_read_only_idempotent_retry(tmp_path):
     assert result["lease_released"] is True
     assert cmd.call_count==4  # acquire, assert (before), assert (after), release
     assert all("update-traffic" not in " ".join(call.args[0]) for call in cmd.call_args_list)
+
+
+def test_fault_injection_after_preview_update_restores_previous_revision_and_sha(tmp_path):
+    """Exercise the real apply/recovery choreography without touching live routing."""
+    from copy import deepcopy
+    receipt=tmp_path/"preview.json"
+    previous="previous"
+    source="a"*40
+    previous_sha="b"*40
+    current=deepcopy(snapshot(preview_rev=previous))
+    updates=[]
+    lease=[]
+    web_checks=[]
+
+    def update(target=None,remove=False):
+        assert remove is False
+        updates.append(target)
+        for route in current["status"]["traffic"]:
+            if route.get("tag")=="preview":
+                route["revisionName"]=target
+
+    def serve_sha():
+        assert current["status"]["traffic"][-1]["revisionName"] == previous or updates
+        return previous_sha if len(updates)==0 or current["status"]["traffic"][-1]["revisionName"]==previous else source
+
+    def verify_web(_):
+        web_checks.append("injected_failure")
+        raise ValueError("preview_post_update_health_failed")
+
+    def command(args):
+        if "update-traffic" in " ".join(args):
+            raise AssertionError("All GCP updates must use the mock tag updater")
+        lease.append(args)
+        return ""
+
+    with (patch.object(preview,"authorized",return_value={"source_sha":source}),
+          patch.object(preview,"provenance"),
+          patch.object(preview.jobs,"legacy_writers"),
+          patch.object(preview,"command",side_effect=command),
+          patch.object(preview,"describe",side_effect=lambda:deepcopy(current)),
+          patch.object(preview,"check_candidate",return_value="new"),
+          patch.object(preview,"read_preview_build_sha",side_effect=serve_sha),
+          patch.object(preview,"verify_preview_web",side_effect=verify_web),
+          patch.object(preview,"update_preview",side_effect=update),
+          patch.object(preview.time,"sleep",return_value=None)):
+        assert preview.apply(receipt)==78
+    data=json.loads(receipt.read_text())
+    assert updates==["new",previous]
+    assert data["phase"]=="RESTORED_PREVIEW_OR_NO_MUTATION"
+    assert data["restored_previous_preview"] is True
+    assert data["lease_released"] is True
+    assert data["canonical_traffic_write"] is False
+    assert data["error_type"]=="ValueError"
+    assert len(web_checks)==1
+    assert current["status"]["traffic"][0]["revisionName"]=="live"
+    assert current["status"]["traffic"][0]["percent"]==100
+    assert [r for r in current["status"]["traffic"] if r.get("tag")=="preview"][0]["revisionName"]==previous
+    assert lease[0]==preview.LEASE+["acquire"]
+    assert lease[-1]==preview.LEASE+["release","--safe-to-release"]
+
+
+def test_fault_injection_restore_failure_keeps_owner_lease_and_blocked_receipt(tmp_path):
+    from copy import deepcopy
+    receipt=tmp_path/"preview.json"
+    source="a"*40
+    current=deepcopy(snapshot(preview_rev="previous"))
+    count=[0]
+    def fail_rollback(target=None,remove=False):
+        count[0]+=1
+        if count[0]==1:
+            current["status"]["traffic"][-1]["revisionName"]="new"
+        else:
+            raise ValueError("injected_preview_restore_failure")
+
+    seen=[]
+    with (patch.object(preview,"authorized",return_value={"source_sha":source}),
+          patch.object(preview,"provenance"),
+          patch.object(preview.jobs,"legacy_writers"),
+          patch.object(preview,"command",side_effect=lambda args:seen.append(args) or ""),
+          patch.object(preview,"describe",side_effect=lambda:deepcopy(current)),
+          patch.object(preview,"check_candidate",return_value="new"),
+          patch.object(preview,"read_preview_build_sha",return_value="b"*40),
+          patch.object(preview,"verify_preview_web",side_effect=ValueError("preview_post_update_health_failed")),
+          patch.object(preview,"update_preview",side_effect=fail_rollback)):
+        assert preview.apply(receipt)==78
+    data=json.loads(receipt.read_text())
+    assert count[0]==2
+    assert data["phase"]=="RECOVERY_BLOCKED_LEASE_RETAINED"
+    assert data["lease_released"] is False
+    assert data["restored_previous_preview"] is False
+    assert all(args!=preview.LEASE+["release","--safe-to-release"] for args in seen)
