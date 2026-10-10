@@ -41,7 +41,7 @@ jobs:
       - name: Offline B8 fail-closed routing and PIT tests
         run: |
           python -m py_compile jobs/intelligence-mart/intelligence_mart/ml_oos_backend_policy.py scripts/gcp/b8-ml-oos-fallback-acceptance.py
-          python -m pytest -q tests/test_ml_oos_backend_policy.py tests/test_b8_matched_ml_oos.py
+          python -m pytest -q tests/test_ml_oos_backend_policy.py tests/test_b8_b5_materializer_integration.py tests/test_b8_matched_ml_oos.py tests/test_b5_ml_oos_data.py
       - name: Read fixed Core using default PyIceberg
         run: |
           python scripts/gcp/b8-ml-oos-fallback-acceptance.py \
