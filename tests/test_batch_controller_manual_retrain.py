@@ -140,3 +140,29 @@ def test_manual_retrain_workflow_routes_through_controller_only():
     assert "BATCH_CONTROLLER_MODE=manual" in workflow
     assert "BATCH_CONTROLLER_MANUAL_REQUEST_ID=${REQUEST_ID}" in workflow
     assert "gcloud run jobs execute janus-intelligence-mart" not in workflow
+
+
+def test_manual_retrain_uses_approved_ghcr_digest_and_shared_release_lease():
+    workflow = Path(".github/workflows/run-dev-specialist-retrain.yml").read_text()
+    assert "group: janus-dev-runtime-writers" in workflow
+    assert "expected_release_sha" in workflow
+    assert "ops/ghcr-jobs-rollout-request.json" in workflow
+    assert '.scope == "existing-dev-four-jobs"' in workflow
+    assert '.rollback_mode == "reversible_ghcr"' in workflow
+    assert "skopeo inspect --no-creds" in workflow
+    assert "org.opencontainers.image.revision" in workflow
+    assert 'sha256:[0-9a-f]{64}' in workflow
+    assert "cache.us-docker.pkg.dev/" in workflow
+    assert "B7 controller/ingestion/Mart GHCR digest alignment PASS" in workflow
+    assert "gcloud scheduler jobs list" in workflow
+    assert "B7 live Scheduler configuration PASS" in workflow
+    assert '":dev-${EXPECTED_MART_SHA}"' not in workflow
+    assert "expected_mart_deploy_sha" not in workflow
+
+
+def test_preghcr_manual_retrain_request_is_retired_not_replayed():
+    import json
+    request = json.loads(Path("ops/dev-specialist-retrain-request.json").read_text())
+    assert request["enabled"] is False
+    assert request["request_id"] == "b7-monthly-live-20261008-v1"
+    assert "Do not replay" in request["retired_reason"]
