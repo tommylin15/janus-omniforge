@@ -259,3 +259,21 @@ def test_regular_api_workflow_request_only_push_retains_explicit_dispatch():
     assert "ops/ghcr-api-promote-request.json" in text
     assert "janus-dev-runtime-writers" in text
     assert "cancel-in-progress: false" in text
+
+
+def test_future_rollout_and_promotion_templates_are_inert_until_owner_gate():
+    import json
+    jobs=json.loads((ROOT/"ops/ghcr-jobs-rollout-request.template.json").read_text())
+    api=json.loads((ROOT/"ops/ghcr-api-promote-request.template.json").read_text())
+    baseline=json.loads((ROOT/"ops/ghcr-active-baseline.json").read_text())
+    assert jobs["approved"] is False and api["approved"] is False
+    assert jobs["sha"]==api["source_sha"]
+    assert jobs["rollback_mode"]==api["rollback_mode"]=="reversible_ghcr"
+    assert jobs["rollback_images"]==baseline["job_images"]
+    assert jobs["rollback_config_hashes"]==baseline["job_config_hashes"]
+    assert api["baseline_source_sha"]==baseline["source_sha"]
+    assert api["jobs_run"]=="" and api["owner_acceptance_source_sha"]==""
+    workflow=(ROOT/".github/workflows/ghcr-api-promote-dev.yml").read_text()
+    assert "'ops/ghcr-api-promote-request.json'" in workflow
+    assert "ops/ghcr-api-promote-request.template.json" not in workflow
+    assert "ops/ghcr-jobs-rollout-request.template.json" not in workflow
