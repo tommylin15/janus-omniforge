@@ -79,7 +79,8 @@ def test_switch_checks_traffic_and_preserves_all_tags():
 
 def test_api_promotion_workflow_is_explicit_and_requires_jobs_proof():
     text = (ROOT / ".github/workflows/ghcr-api-promote-dev.yml").read_text()
-    assert "workflow_dispatch:" in text and "push:" not in text
+    assert "workflow_dispatch:" in text and "push:" in text
+    assert "ops/ghcr-api-promote-request.json" in text
     assert "group: janus-dev-runtime-writers" in text
     assert "gh run download" in text and "ghcr-jobs-rollout-receipt" in text
     assert "--release-run" in text and "--jobs-run" in text
