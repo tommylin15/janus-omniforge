@@ -43,7 +43,7 @@ PyIceberg reference reader 必須先比對 manifest 與要求的 Core identity�
 
 - `intelligence_mart.ml_oos_backend_policy` 提供**預設 PyIceberg**、ML/OOS 專用且明確 `bigquery_opt_in` 的選路政策；非 ML/OOS workload（含 Screening）不能選用 BigQuery。保留 `cutover=false`、不允許 canonical write、cache promotion 或 Storage Read API。
 - BigQuery opt-in 出現**已分類的運作性故障**（timeout／unavailable／permission denied／quota）時，只允許在相同 immutable Core snapshot／date bounds／版本／PIT source fence 下執行一次 PyIceberg 後備；成功輸出必須再通過相同 reference parity。BigQuery 資料不一致、Core metadata drift、PIT、schema 或 provenance 錯誤 **fail closed，不用 fallback 掩蓋**。不盲目重送失敗 BigQuery job；局部研究 export 不 promote 為 cache。
-- [B8 回退驗證 workflow](https://github.com/tommylin15/janus-omniforge/actions/runs/38036167787) 在現有 dev WIF 真實讀固定 Core，故障採**注入的 BigQuery unavailable**（不是真的 BigQuery outage），PyIceberg 重新讀回 74,999 筆來源→10,978 筆 ML/OOS，與 B5 immutable dataset 0 diff；證明獨立受控 acceptance 的 typed fault path，不代表目前部署中的 B5 產製工具已改成自動 fallback。後者仍是獨立 legacy BigQuery materialization script，尚未接入本 module／未重發 Mart image；不得宣稱整條 runtime 已切換或 B8 全部正式結案。
+- [B8 回退驗證 workflow](https://github.com/tommylin15/janus-omniforge/actions/runs/38036167787) 在現有 dev WIF 真實讀固定 Core，故障採**注入的 BigQuery unavailable**（不是真的 BigQuery outage），PyIceberg 重新讀回 74,999 筆來源→10,978 筆 ML/OOS，與 B5 immutable dataset 0 diff；此為 B8 受控故障注入 evidence；此外 B5 standalone materialization 腳本已在 GitHub `main` 接入相同 policy，cache miss 的兩種路由與 export-started fail closed 已經通過 44 項整合測試，真實 GCS 已驗證舊 immutable cache hit。既有 Cloud Run Mart `ml-oos-data-acceptance` 仍是 consumer，而非 B5 materialization 入口；**本次沒有重新部署 Mart image、不宣稱 fresh-Core cache miss 已在 Cloud Run Job 實測**。B8 已核准固定 Core 同源路由/FinOps/故障驗收結案，見 [B8 完成記錄](../archive/group-b-b8-closure-2026-10-10.md)；B7 新 Core cache freshness 保持獨立工作。
 
 
 ## 成果物
