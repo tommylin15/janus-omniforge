@@ -373,7 +373,13 @@ def b6_validate_hit(manifest,uri,bucket,read):
     return total
 
 def main() -> None:
+    from intelligence_mart.ml_oos_backend_policy import (
+        backend_for, check_fixed_core, execute_ml_oos, BigQueryOperationalError,
+    )
     parser = argparse.ArgumentParser()
+    parser.add_argument("--backend", choices=("pyiceberg", "bigquery"), default="pyiceberg",
+                        help="PyIceberg default; BigQuery is ML/OOS explicit opt-in only")
+    parser.add_argument("--bigquery-opt-in", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -408,6 +414,10 @@ def main() -> None:
     identity_hash = sha256(json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     prefix = f"ml-oos-data/v1/{identity_hash}/"
     manifest_uri = f"gs://{MART_BUCKET}/{prefix}manifest.json"
+
+    # Fail closed before any cache read or query; do not silently accept an opt-in.
+    selected_backend = backend_for("ml-oos", args.backend, bigquery_opt_in=args.bigquery_opt_in)
+    check_fixed_core(identity)
 
     # B6 pre-query lookup, bounded to existing immutable Mart artifacts.
     dependency_key=b6_dependency_key(identity)
@@ -461,61 +471,196 @@ def main() -> None:
         return
     print(f"B6_CACHE event=miss dependency={dependency_key} candidates={len(candidates)}",flush=True)
 
-    from google.cloud import bigquery
-
-    client = stage_call("bigquery-client-init", 20, lambda: bigquery.Client(project=PROJECT, location=LOCATION))
-    budget = QueryBudget(client)
-    fq = f"`{PROJECT}.{b2['CATALOG']}.{b2['CORE_NAMESPACE']}.ohlcv_v1`"
-    select_sql = reduction_select(
-        fq, start=start, end=analysis_as_of, core_snapshot_id=core["snapshot_id"]
+    # Both workers share the same immutable B5 identity and Parquet validation.
+    # Never write a manifest for failed/partial results. No automatic BQ retry.
+    from intelligence_mart.analytics_reader import IcebergSnapshotReader
+    from intelligence_mart.ml_oos_data import (
+        REQUIRED_COLUMNS, FORBIDDEN_COLUMNS, inspect_dataset,
     )
-    estimate = budget.dry_run(select_sql)
-    count_rows, _ = budget.query(f"SELECT COUNT(*) AS n FROM ({select_sql})", "count-reduced")
-    row_count = int(count_rows[0]["n"]) if count_rows else 0
-    if row_count <= 0 or row_count > 500_000:
-        raise RuntimeError(f"B5 reduced row count outside bound: {row_count}")
+    import pyarrow as pa
+    import pyarrow.parquet as pq
 
+    budget = None
+    estimate = None
+    output_uri_prefix = f"gs://{MART_BUCKET}/{prefix}"
     export_uri = f"gs://{MART_BUCKET}/{prefix}part-*.parquet"
-    # BigQuery cannot export directly from a shared Iceberg/external catalog table.
-    # First materialize only the already bounded/reduced columns into a native
-    # session-temporary table; export that derived table, then drop it explicitly.
-    # No permanent dataset/table, Core mutation, or Storage Read API.
-    export_sql = (
-        "CREATE TEMP TABLE b5_export_reduced AS\n"
-        f"{select_sql};\n"
-        "EXPORT DATA OPTIONS("
-        f"uri='{export_uri}', format='PARQUET', overwrite=false"
-        ") AS SELECT * FROM _SESSION.b5_export_reduced;\n"
-        "DROP TABLE _SESSION.b5_export_reduced;"
-    )
-    budget.query(export_sql, "export-parquet")
-    if stage_call("catalog-pointer-post-export", 45, lambda: table_pointer(b2, "ohlcv_v1")) != fence["metadata_location"]:
-        raise RuntimeError("B5 shared catalog pointer changed during export")
 
+    def _validate_rows_and_bytes(item):
+        if not 0 < int(item["row_count"]) <= 500_000:
+            raise ValueError("B5 ML/OOS reduced row bound violated")
+        entries = item["entries"]
+        if not 0 < len(entries) <= 64:
+            raise ValueError("B5 ML/OOS shard bound violated")
+        parts = []
+        total = 0
+        for entry in entries:
+            raw = entry["raw"]
+            total += len(raw)
+            if total > 512 * 1024 * 1024:
+                raise ValueError("B5 ML/OOS byte bound violated")
+            parquet = pq.ParquetFile(pa.BufferReader(raw))
+            cols = set(parquet.schema_arrow.names)
+            if not REQUIRED_COLUMNS <= cols or cols & FORBIDDEN_COLUMNS:
+                raise ValueError("B5 ML/OOS Parquet source authorization invalid")
+            parts.append(parquet.metadata.num_rows)
+        if sum(parts) != item["row_count"]:
+            raise ValueError("B5 ML/OOS source row count mismatch")
+        # Existing Mart readback validates maturity, PIT, lineage, hashes and nulls
+        # BEFORE we publish a manifest. GCS-backed reads use same bytes below.
+        shard_refs = [{
+            "uri": output_uri_prefix + entry["name"],
+            "sha256": "sha256:" + sha256(entry["raw"]).hexdigest(),
+            "size_bytes": len(entry["raw"]),
+        } for entry in entries]
+        draft = {
+            "artifact_kind": "mart_ml_oos_dataset_v1",
+            "dataset_schema_version": DATASET_SCHEMA_VERSION,
+            "query_contract_version": QUERY_CONTRACT_VERSION,
+            "dataset_prefix": output_uri_prefix,
+            "core_snapshot_id": core["snapshot_id"],
+            "analysis_as_of": core["analysis_as_of"],
+            "feature_version": FEATURE_VERSION,
+            "model_version": MODEL_VERSION,
+            "identity": identity, "parquet_shards": shard_refs,
+            "dataset_content_hash": dataset_content_hash(identity, shard_refs),
+            "row_count": item["row_count"], "export_bytes": total,
+            "storage_read_api_used": False,
+            "retention": {"policy": "latest-referenced-oos-or-7d-unreferenced",
+                          "reference_protected": True},
+        }
+        file_by_name = {prefix + entry["name"]: entry["raw"] for entry in entries}
+        store = type("VerifiedParquetStore", (), {
+            "bucket": MART_BUCKET,
+            "read": lambda self, name: file_by_name[name],
+        })()
+        inspection = inspect_dataset(draft, store)
+        if inspection["row_count"] != item["row_count"]:
+            raise ValueError("B5 ML/OOS identity readback failed")
+
+    def _pyiceberg_worker():
+        from pyiceberg.table import StaticTable
+        from time import time as utc_time
+        from math import isfinite
+        import runpy
+        props = {
+            "gcs.oauth2.token": b2["token"](),
+            "gcs.oauth2.token-expires-at": str(int((utc_time() + 3000) * 1000)),
+        }
+        table = StaticTable.from_metadata(fence["metadata_location"], properties=props)
+        catalog = type("PinnedCatalog", (), {"load_table": lambda self, _: table})()
+        cols = ("symbol", "trade_date", "close", "volume_shares",
+                "turnover_twd", "source_id", "provenance_id")
+        scan = IcebergSnapshotReader(
+            catalog, date_bounds={"core.ohlcv_v1": ("trade_date", *identity["date_bounds"])},
+            selected_fields={"core.ohlcv_v1": cols},
+        ).read(dict(core, iceberg_tables={"core.ohlcv_v1": fence}),
+               tuple(), core_snapshot_id=core["snapshot_id"], row_limit=250_000)
+        # Shared B8 independent Python reducer, proven equal to B5 window SQL.
+        reduce = runpy.run_path(str(ROOT / "scripts/gcp/b8-matched-ml-oos.py"))["reduce_ohlcv"]
+        rows = reduce(scan.datasets["ohlcv"], identity)
+        if not 0 < len(rows) <= 500_000:
+            raise ValueError("B5 Python reduction row count invalid")
+        sink = pa.BufferOutputStream()
+        pq.write_table(pa.Table.from_pylist(rows), sink, compression="snappy")
+        return {"backend": "pyiceberg", "row_count": len(rows),
+                "entries": [{"name": "part-00000.parquet", "raw": sink.getvalue().to_pybytes()}]}
+
+    def _bq_worker():
+        nonlocal budget, estimate
+        from google.cloud import bigquery
+        client = stage_call("bigquery-client-init", 20,
+                            lambda: bigquery.Client(project=PROJECT, location=LOCATION))
+        try:
+            budget = QueryBudget(client)
+            fq = f"`{PROJECT}.{b2['CATALOG']}.{b2['CORE_NAMESPACE']}.ohlcv_v1`"
+            select_sql = reduction_select(
+                fq, start=start, end=analysis_as_of, core_snapshot_id=core["snapshot_id"]
+            )
+            try:
+                estimate = budget.dry_run(select_sql)
+                count_rows, _ = budget.query(
+                    f"SELECT COUNT(*) AS n FROM ({select_sql})", "count-reduced")
+                count = int(count_rows[0]["n"]) if count_rows else 0
+                if count <= 0 or count > 500_000:
+                    raise ValueError("B5 BigQuery reduced row count outside bound")
+                # Native session temp materialization remains the B5 approved path.
+                export_sql = (
+                    "CREATE TEMP TABLE b5_export_reduced AS\n"
+                    f"{select_sql};\n"
+                    "EXPORT DATA OPTIONS("
+                    f"uri='{export_uri}', format='PARQUET', overwrite=false"
+                    ") AS SELECT * FROM _SESSION.b5_export_reduced;\n"
+                    "DROP TABLE _SESSION.b5_export_reduced;"
+                )
+                budget.query(export_sql, "export-parquet")
+            except Exception as error:
+                # If export produced even one shard, quarantine and FAIL CLOSED:
+                # do not mix partial BigQuery bytes with a Python fallback.
+                existing_parts = b2["gcs_list_objects"](MART_BUCKET, prefix)
+                if existing_parts:
+                    raise RuntimeError("B5 BigQuery partially wrote immutable export") from error
+                from google.api_core import exceptions as gexc
+                if isinstance(error, (TimeoutError, gexc.DeadlineExceeded)):
+                    raise BigQueryOperationalError("timeout") from error
+                if isinstance(error, (gexc.ServiceUnavailable, gexc.TooManyRequests)):
+                    raise BigQueryOperationalError("unavailable") from error
+                if isinstance(error, (gexc.Forbidden, gexc.PermissionDenied)):
+                    raise BigQueryOperationalError("permission_denied") from error
+                if isinstance(error, gexc.ResourceExhausted):
+                    raise BigQueryOperationalError("quota") from error
+                raise  # All unknown, schema, PIT and SQL failures fail closed.
+            if table_pointer(b2, "ohlcv_v1") != fence["metadata_location"]:
+                raise ValueError("B5 catalog pointer drifted after BigQuery export")
+            objects = [
+                obj for obj in b2["gcs_list_objects"](MART_BUCKET, prefix)
+                if obj["name"].endswith(".parquet")
+            ]
+            if not 0 < len(objects) <= 64:
+                raise ValueError("B5 BigQuery export shard count invalid")
+            entries = []
+            for obj in sorted(objects, key=lambda x: x["name"]):
+                raw = gcs_bytes(b2, f"gs://{MART_BUCKET}/{obj['name']}")
+                if len(raw) != int(obj["size"]):
+                    raise ValueError("B5 BigQuery GCS shard size mismatch")
+                entries.append({"name": obj["name"].removeprefix(prefix), "raw": raw,
+                                "generation": str(obj["generation"])})
+            return {"backend": "bigquery", "row_count": count, "entries": entries}
+        finally:
+            client.close()
+
+    # This policy does not catch data-contract failures. Only typed service
+    # unavailability may fall back, at the SAME snapshot and no existing shards.
+    choice = execute_ml_oos(
+        identity=identity, requested_backend=selected_backend,
+        bigquery_opt_in=args.bigquery_opt_in, pyiceberg_worker=_pyiceberg_worker,
+        bigquery_worker=_bq_worker, verify=_validate_rows_and_bytes)
+    outcome = choice.data
+    if table_pointer(b2, "ohlcv_v1") != fence["metadata_location"]:
+        raise ValueError("B5 catalog pointer drifted before immutable publication")
+    if outcome["backend"] == "pyiceberg":
+        # Commit only validated and never-overwriting PyIceberg bytes.
+        for entry in outcome["entries"]:
+            gcs_create(b2, output_uri_prefix + entry["name"], entry["raw"],
+                       "application/octet-stream")
     objects = [
-        item for item in stage_call("gcs-export-list", 45, lambda: b2["gcs_list_objects"](MART_BUCKET, prefix))
-        if item["name"].endswith(".parquet")
+        obj for obj in b2["gcs_list_objects"](MART_BUCKET, prefix)
+        if obj["name"].endswith(".parquet")
     ]
-    if not objects or len(objects) > 64:
-        raise RuntimeError("B5 export did not produce a bounded Parquet shard set")
+    if len(objects) != len(outcome["entries"]):
+        raise RuntimeError("B5 output publication shard count mismatch")
     shards = []
     export_bytes = 0
-    for item in sorted(objects, key=lambda value: value["name"]):
-        uri = f"gs://{MART_BUCKET}/{item['name']}"
-        raw = stage_call("gcs-parquet-readback", 65, lambda: gcs_bytes(b2, uri))
-        size = len(raw)
-        if size != int(item["size"]):
-            raise RuntimeError("B5 GCS object size changed during readback")
-        export_bytes += size
-        shards.append({
-            "uri": uri,
-            "sha256": "sha256:" + sha256(raw).hexdigest(),
-            "size_bytes": size,
-            "generation": str(item["generation"]),
-        })
-    if export_bytes <= 0 or export_bytes > 512 * 1024 * 1024:
-        raise RuntimeError("B5 export byte size outside bounded acceptance")
-
+    for obj in sorted(objects, key=lambda x: x["name"]):
+        uri = f"gs://{MART_BUCKET}/{obj['name']}"
+        raw = stage_call("gcs-parquet-readback", 65, lambda u=uri: gcs_bytes(b2, u))
+        matched = next((e for e in outcome["entries"]
+                        if e["name"] == obj["name"].removeprefix(prefix)), None)
+        if matched is None or raw != matched["raw"] or len(raw) != int(obj["size"]):
+            raise RuntimeError("B5 published Parquet mutated from verified bytes")
+        export_bytes += len(raw)
+        shards.append({"uri": uri, "sha256": "sha256:" + sha256(raw).hexdigest(),
+                       "size_bytes": len(raw), "generation": str(obj["generation"])})
+    row_count = outcome["row_count"]
     manifest = {
         "artifact_kind": "mart_ml_oos_dataset_v1",
         "schema_version": "1.0.0",
@@ -535,10 +680,11 @@ def main() -> None:
                          "dependency_cache_key":dependency_key,
                          "source_dependencies":["core.ohlcv_v1"]},
         "query": {
-            "backend": "bigquery-shared-catalog",
+            "backend": "bigquery-shared-catalog" if outcome["backend"] == "bigquery" else "pyiceberg",
+            "routing_audit": choice.audit,
             "dry_run_estimated_bytes": estimate,
-            "jobs": budget.jobs,
-            "total_billed_bytes": budget.billed,
+            "jobs": budget.jobs if budget else [],
+            "total_billed_bytes": budget.billed if budget else 0,
             "execution_byte_budget": BUDGET,
             "query_timeout_seconds": QUERY_TIMEOUT_SECONDS,
             "column_date_partition_bounded": True,
@@ -575,8 +721,10 @@ def main() -> None:
         "row_count": row_count,
         "export_bytes": export_bytes,
         "parquet_shards": len(shards),
-        "bigquery_jobs": budget.jobs,
-        "total_billed_bytes": budget.billed,
+        "bigquery_jobs": budget.jobs if budget else [],
+        "total_billed_bytes": budget.billed if budget else 0,
+        "routing_audit": choice.audit,
+        "effective_backend": outcome["backend"],
         "execution_byte_budget": BUDGET,
         "query_timeout_seconds": QUERY_TIMEOUT_SECONDS,
         "dry_run_estimated_bytes": estimate,
