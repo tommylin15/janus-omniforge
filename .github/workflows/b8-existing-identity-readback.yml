@@ -1,0 +1,47 @@
+name: B8 existing dev BigLake identity (read-only)
+
+# Run once for this audit; manual rerun only. No Cloud Build, no GCP job creation.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b8-existing-identity-readback.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: b8-existing-identity-readback
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Offline probe safety tests
+        run: |
+          python -m unittest discover -s tests -p 'test_b8_existing_identity_probe.py' -v
+          python -m py_compile scripts/gcp/b8-existing-identity-probe.py
+      - name: Read existing dev principals and frozen BigLake metadata only
+        run: |
+          python scripts/gcp/b8-existing-identity-probe.py b8-existing-identity-evidence.json
+      - name: Preserve BLOCKED/PASS evidence without printing tokens
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: b8-existing-identity-${{ github.run_id }}
+          path: b8-existing-identity-evidence.json
+          if-no-files-found: warn
+          retention-days: 14
