@@ -220,3 +220,41 @@ def test_api_switch_rejects_nontraffic_service_configuration_change():
           patch.object(promote,"describe",return_value=altered)):
         with pytest.raises(ValueError,match="service_nontraffic_config_drift"):
             promote.switch("new",baseline)
+
+
+def test_regular_api_promotion_requires_bound_approved_request_and_owner_sha():
+    import json
+    sha="a"*40
+    baseline="b"*40
+    approved={
+        "intent":"promote-authenticated-reversible-ghcr-dev",
+        "approved":True,"scope":"existing-dev-janus-api-only",
+        "source_sha":sha,"release_run":"41","jobs_run":"42",
+        "rollback_mode":"reversible_ghcr",
+        "baseline_source_sha":baseline,
+        "owner_acceptance_source_sha":sha,
+        "allow_legacy_forward_only":False
+    }
+    with patch.object(promote.Path,"read_text",return_value=json.dumps(approved)):
+        promote.approved_regular_promotion("41","42",sha,baseline)
+    for changed in (
+        {"approved":False},
+        {"source_sha":"c"*40},
+        {"owner_acceptance_source_sha":"c"*40},
+        {"rollback_mode":"user_authorized_forward_only"},
+        {"baseline_source_sha":"c"*40},
+        {"jobs_run":"123"},
+        {"allow_legacy_forward_only":True}
+    ):
+        wrong={**approved,**changed}
+        with patch.object(promote.Path,"read_text",return_value=json.dumps(wrong)):
+            with pytest.raises(ValueError,match="regular_api_promotion_request_unapproved"):
+                promote.approved_regular_promotion("41","42",sha,baseline)
+
+
+def test_regular_api_workflow_request_only_push_retains_explicit_dispatch():
+    text=(ROOT/".github/workflows/ghcr-api-promote-dev.yml").read_text()
+    assert "workflow_dispatch:" in text
+    assert "ops/ghcr-api-promote-request.json" in text
+    assert "janus-dev-runtime-writers" in text
+    assert "cancel-in-progress: false" in text
