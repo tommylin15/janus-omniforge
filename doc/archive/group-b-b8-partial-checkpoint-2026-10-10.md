@@ -1,6 +1,6 @@
 # B8 第一階段同源驗證 checkpoint — 2026-10-10
 
-狀態：**B8 PARTIAL**。固定 Core ML/OOS fidelity **PASS**；2026-10-10 使用者已授權 `janus-ci` 新增 project-scoped `roles/biglake.viewer`／`roles/bigquery.jobUser`，重新驗證後 500 screening **fidelity/cold-warm PASS**，先前 `IAM_403` 已解除。BigQuery 目前較慢，完整 ML/OOS equal-run performance／fallback/cutover gate 尚未 PASS；不切換 default。
+狀態：**B8 PARTIAL**。固定 Core ML/OOS fidelity／當次同等工作量 SQL reduction + Parquet benchmark **PASS**；2026-10-10 使用者已授權 `janus-ci` 新增 project-scoped `roles/biglake.viewer`／`roles/bigquery.jobUser`，重新驗證後 500 screening **fidelity/cold-warm PASS**，先前 `IAM_403` 已解除。BigQuery screening 在該次量測較慢，ML/OOS 則較快；兩者尚無充分隨機重複試驗支持整體 cutover。BigQuery 故障 fallback gate 尚未結案；不切換 default。
 
 ## 固定界線
 - B0～B6 不重做；B7 月度執行機制 PASS；derived cache freshness PARTIAL；B8 使用 B2/B5 frozen Core，不冒充 B7 最新 Core 或 B9 模型品質。
@@ -14,7 +14,7 @@
 
 ## 後續 gate
 - B8 screening **fidelity PASS；性能決策 INCONCLUSIVE**：已使用同一固定 Core 完成 cold/warm real comparison，不切 BigQuery default。不得把這次非隨機單輪四次執行當成 BigQuery 已有性能優勢；下一步處理 ML/OOS equal-run benchmark 與 B8 整體 fallback/cost gate。
-- B8 ML/OOS performance **PARTIAL**：fidelity PASS 不等於同次 PyIceberg vs BigQuery reduction/export end-to-end benchmark。B5 歷史 SQL export elapsed、30 MiB bill 不作此 workload 的 equal-run 結論。記錄 RSS／GCS I/O（未知 null）、BQ processed/billed bytes、end-to-end elapsed。
+- B8 ML/OOS 同輪驗收 **PASS（見下方最新 live evidence）**：兩次 PyIceberg reduction → local Parquet vs 兩次相同 B5 SQL reduction → BigQuery native GCS Parquet，10,978 rows、0 changed／missing；真實 billed、elapsed、RSS／Parquet bytes 已讀回。**非完全相同輸出介面**，Py local memory vs BQ GCS，不冒充客觀 BigQuery 性能切流勝利；actual GCS source read bytes 仍 unknown。
 - B8/B9 銜接 derived cache freshness **PARTIAL**：當次 Core dependent table snapshot/pointer、analysis date、feature/query/schema/model version 匹配後才 refresh immutable derived cache；不能為此重跑已驗證 B7 retrain。
 - B9 model quality **NOT VERIFIED**：須使用與當次 Core source fence、PIT/data-priority、source authorization 相容的 OOS 資料，不用 B8 舊 fixed Core fidelity 代替。
 
@@ -37,3 +37,12 @@
 5. **同次四路採樣（秒）**：PyIceberg cold `25.2994`、BigQuery hybrid cold `31.3161`、BigQuery hybrid warm `34.1293`、PyIceberg warm `23.5431`；程式單行程 peak RSS `672.80 MiB`，不可拆作每個 backend 的 RSS。BQ 兩輪共 4 個 query，`total_billed_bytes=41,943,040` (**40 MiB**)，低於本次 1 GiB guard；`actual_gcs_read_bytes=null`、BQ partition pruning unknown、dry-run lower bound=0 不代表 free。Cold/warm 不隨機、量測次數很少；**現有觀察 BigQuery 兩次皆較慢，performance_decision=inconclusive**，不宣稱 BigQuery 效能優勢。
 6. `fallback_audit=null` 代表**這次正常成功、沒有觸發 fallback**，不是 failure simulation PASS；歷史 403 能證明錯誤路徑 fail closed，但不能替代完整 performance/fallback acceptance。`cutover=false`、`default=pyiceberg`、`storage_read_api_used=false`、`canonical_write=false`、`llm_api_tokens=0`。
 7. **當前判定：** B8 screening fixed-Core fidelity/cold-warm bounded FinOps **PASS**；B8 整體仍 **PARTIAL**：ML/OOS exact-Core fidelity 10,978 rows PASS，但 equal-run end-to-end SQL reduction/export performance、ML/OOS 成本/RSS/GCS bytes 與後續 fallback/營運 gate 未結案；B7 derived cache freshness 仍 PARTIAL、B9 quality NOT VERIFIED。
+
+
+## 最新：B8 ML/OOS 同等工作量與 FinOps 真實驗收（2026-10-10）
+- [B8 ML/OOS equal-run #38033560821](https://github.com/tommylin15/janus-omniforge/actions/runs/38033560821) **SUCCESS**；來源 full commit SHA `2d25e3489efea3dab96120c45276a153a87213ab`。31 targeted tests PASS，GitHub Actions artifact `b8-ml-oos-equal-run-38033560821`（保留 14 天）含 per-job/per-shard machine-readable evidence。`scripts/gcp/b8-ml-oos-equal-run.py` 及 `tests/test_b8_ml_oos_equal_run.py` 為本次可重跑驗證入口；不觸發 Cloud Build／Deployment、模型重訓或 canonical mutation。
+- **同一 Core source/PIT：** `core_snapshot_id=sha256:1eb49a2d139411245bda3c9d2eb77e451c5f462bb1865406fd8b55a151df61ab`，`analysis_as_of=2026-10-06`，同一 `core.ohlcv_v1` metadata pointer、B5 日期窗／20 日標籤成熟界線／5 日 stride／SQL identity。PyIceberg 讀來源 `74,999` rows，輸出 `10,978` rows；BQ 使用現有 B5 `reduction_select`、`CREATE TEMP TABLE → EXPORT DATA PARQUET → DROP TABLE`，每輪也是 `10,978` rows。Cold／warm 每次都 `different_keys=0, changed_rows=0, equal=true`，PIT、null／provenance／版本欄位一致。
+- **Cold/Warm elapsed（秒，按順序 Py-BQ-BQ-Py）：** PyIceberg cold `10.6545`（來源 scan `10.2941`）、BigQuery GCS native export cold `8.3834`、BigQuery warm `8.7391`、PyIceberg warm `9.9794`（來源 scan `9.6445`）。此兩對非隨機順序，且**輸出 sink 不同**：PyArrow local-memory Parquet vs native BigQuery GCS export，故只對照同源同規格之實際 pipeline 耗時，不宣稱純 engine benchmark 或大樣本性能優勝；`performance_decision=inconclusive`。
+- **當次 FinOps 真實 readback：** BigQuery 2 個 parent script jobs、各含 3 個 child（CREATE_TABLE_AS_SELECT／EXPORT_DATA／DROP_TABLE）。每輪 `20,971,520` billed bytes（20 MiB），共 `41,943,040`（40 MiB），嚴格低於 1 GiB 合計 guard；每輪 child processed bytes `8,497,398 + 3,018,950 = 11,516,348`，兩輪合計 `23,032,696` processed bytes（不是 billed）。Dry-run `0` 僅 lower bound，**不表示免費**。SQL Job 60 秒上限，無失敗重送。
+- **Parquet 實物：** 兩個 BQ 獨立研究用 immutable prefix（`gs://gen-lang-client-0593591102-dev-mart/b8-ml-oos-benchmark/v1/<run_id>/<phase>/`）；GCS bytes cold `533,949`、warm `533,966`，合計 **1,067,915 bytes**，已逐 shard 以 generation/bytes/SHA-256 讀回。Py memory Parquet 各 `499,357` bytes，GCS output `null`（未寫）。B5 原 immutable Parquet `533,945` bytes 未覆寫；byte-level 檔案不同不等於資料不同。BQ temp table 是 transient research，不升格 canonical。實際 GCS source read bytes 未取得，維持 `null`。
+- **RSS／fallback／決策：** Runner 單行程 ru_maxrss peak `485.00 MiB`，process-high-water，不可當獨立 backend RSS、BQ 服務端記憶體也 unknown。成功路徑 `failure=null`／`fallback_audit=null`，**不等於故障模擬 PASS**。`status=pass` 僅代表本次 ML/OOS fidelity／同輪效能觀測／有界成本驗收；`default=pyiceberg`、`cutover=false`、`cache_write=false`、`canonical_write=false`、`ml_retraining_triggered=false`、`storage_read_api_used=false`。B8 整體仍 PARTIAL：fallback gate 與是否切 BigQuery default 仍沒有充分證據；B7 derived cache freshness 未受本次舊 Core 驗證影響，B9 quality 未驗證。
