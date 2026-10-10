@@ -171,7 +171,7 @@ def test_regular_traffic_promotion_rejects_unverified_jobs_reversibility(change)
 
 def test_api_switch_waits_for_reconciled_ready_without_changing_other_tags():
     import copy
-    baseline={"status":{"traffic":[{"revisionName":"old","percent":100,"tag":"active"},
+    baseline={"status":{"traffic":[{"revisionName":"old","percent":100},
                                   {"revisionName":"new","tag":"ghcr-candidate","percent":0}]},
               "spec":{"template":{"containers":[{"image":"unchanged"}]},
                       "traffic":[{"revisionName":"old","percent":100}]}}
