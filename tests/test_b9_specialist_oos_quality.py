@@ -145,5 +145,59 @@ class B9QualityTests(unittest.TestCase):
             b9.summarize(manifest, evaluation, artifacts, expected_core=CORE)
 
 
+    def test_model_diagnostics_keep_partial_with_realistic_small_cohort(self):
+        manifest, evaluation, artifacts = fixture()
+        item = evaluation[0]
+        item["predictions"][0].update(prediction=0.03, excess_return=0.02,
+                                      probability=0.55)
+        report = b9.summarize(manifest, evaluation, artifacts, expected_core=CORE)
+        detail = report["roles"]["fundamental"]["oos_evaluations"][0]["diagnostics"]
+        self.assertEqual(detail["paired_forecasts"], 1)
+        self.assertEqual(detail["max_same_date_symbols"], 1)
+        self.assertEqual(detail["dates_with_at_least_10_symbols"], 0)
+        self.assertAlmostEqual(detail["mse_constant_zero"], 0.0004)
+        self.assertIsNone(detail["brier"])
+        self.assertIn("historical_pit_membership_not_verified", detail["quality_blockers"])
+        self.assertIn("probability_calibration_insufficient", detail["quality_blockers"])
+        self.assertEqual(report["roles"]["event"]["quality_blockers"],
+                         ["authorized_human_labels_and_classifier_oos_missing"])
+        self.assertEqual(report["model_quality"], "not_verified")
+
+    def test_regime_monthly_challenger_stability_is_descriptive_only(self):
+        manifest, evaluation, artifacts = fixture()
+        evaluation.append({
+            "core_snapshot_id": CORE, "model_name": "statsmodels_markov_regime",
+            "status": "research_oos_evaluated", "promotion_eligible": False,
+            "oos_returns": 40,
+            "oos_folds": [
+                {"month": "2026-07", "test_returns": 20,
+                 "markov_log_score_sum": 45., "gaussian_log_score_sum": 40.},
+                {"month": "2026-08", "test_returns": 20,
+                 "markov_log_score_sum": 38., "gaussian_log_score_sum": 40.},
+            ],
+        })
+        report = b9.summarize(manifest, evaluation, artifacts, expected_core=CORE)
+        diagnostic = report["roles"]["risk"]["oos_evaluations"][0]["diagnostics"]
+        self.assertEqual(diagnostic["positive_improvement_months"], 1)
+        self.assertEqual(diagnostic["nonpositive_improvement_months"], 1)
+        self.assertAlmostEqual(diagnostic["worst_monthly_improvement"], -0.1)
+        self.assertEqual(report["roles"]["risk"]["quality_gate"], "not_verified")
+
+    def test_valid_cross_section_still_requires_historical_membership(self):
+        manifest, evaluation, artifacts = fixture()
+        template = evaluation[0]["predictions"][0]
+        evaluation[0]["predictions"] = [
+            {**template, "symbol": f"SYM{i}", "prediction": i / 100.,
+             "excess_return": i / 200.} for i in range(10)
+        ]
+        report = b9.summarize(manifest, evaluation, artifacts, expected_core=CORE)
+        detail = report["roles"]["fundamental"]["oos_evaluations"][0]["diagnostics"]
+        self.assertEqual(detail["max_same_date_symbols"], 10)
+        self.assertEqual(detail["dates_with_at_least_10_symbols"], 1)
+        self.assertIn("historical_pit_membership_not_verified", detail["quality_blockers"])
+        self.assertFalse(report["champion_promotion"])
+
+
+
 if __name__ == "__main__":
     unittest.main()

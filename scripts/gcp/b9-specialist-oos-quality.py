@@ -52,6 +52,84 @@ def _role_for_evaluation(item):
     return item.get("specialist_role", "quant")
 
 
+
+def _finite_number(value):
+    """Bounded numeric evidence; missing/non-finite values are not zero."""
+    from math import isfinite
+    return (float(value) if isinstance(value, (int, float)) and
+            not isinstance(value, bool) and isfinite(value) else None)
+
+
+def _evaluation_diagnostics(item, role):
+    """Read-only model/horizon scorecard from persisted OOS, never a promotion gate."""
+    from statistics import fmean, pstdev
+    if role == "risk":
+        folds = item.get("oos_folds", [])
+        improvements = []
+        for fold in folds:
+            markov, gaussian, n = (_finite_number(fold.get("markov_log_score_sum")),
+                                   _finite_number(fold.get("gaussian_log_score_sum")),
+                                   fold.get("test_returns"))
+            if markov is not None and gaussian is not None and isinstance(n, int) and n > 0:
+                improvements.append((markov - gaussian) / n)
+        return {
+            "method": "prior_only_regime_oos_fold_stability",
+            "folds_with_comparable_log_scores": len(improvements),
+            "positive_improvement_months": sum(value > 0 for value in improvements),
+            "nonpositive_improvement_months": sum(value <= 0 for value in improvements),
+            "mean_monthly_improvement": fmean(improvements) if improvements else None,
+            "monthly_improvement_stddev": pstdev(improvements) if len(improvements) >= 2 else None,
+            "worst_monthly_improvement": min(improvements) if improvements else None,
+            "quality_blockers": ["regime_stability_and_event_state_calibration_not_verified",
+                                 "champion_baseline_release_gate_not_verified"],
+        }
+    rows = item.get("predictions", [])
+    paired = [(p, y) for row in rows
+              if (p := _finite_number(row.get("prediction"))) is not None and
+              (y := _finite_number(row.get("excess_return"))) is not None]
+    by_day = defaultdict(set)
+    for row in rows:
+        if isinstance(row.get("analysis_as_of"), str) and isinstance(row.get("symbol"), str):
+            by_day[row["analysis_as_of"]].add(row["symbol"])
+    max_section = max(map(len, by_day.values()), default=0)
+    # Constant zero is a descriptive no-skill return forecast, NOT a fitted benchmark.
+    mse_model = fmean((p - y) ** 2 for p, y in paired) if paired else None
+    mse_zero = fmean(y ** 2 for _, y in paired) if paired else None
+    probabilities = [(p, float(_finite_number(row.get("excess_return")) > 0))
+        for row in rows if (p := _finite_number(row.get("probability"))) is not None
+        and _finite_number(row.get("excess_return")) is not None and 0 <= p <= 1]
+    brier = fmean((p - y) ** 2 for p, y in probabilities) if len(probabilities) >= 30 else None
+    metrics = item.get("metrics") or {}
+    blockers = ["historical_pit_membership_not_verified",
+                "champion_vs_trained_baseline_not_verified"]
+    if max_section < 10:
+        blockers.append("fewer_than_10_stocks_in_any_oos_cross_section")
+    if _finite_number(metrics.get("rank_ic")) is None:
+        blockers.append("cross_section_rank_ic_unavailable")
+    if _finite_number(metrics.get("after_cost_return")) is None:
+        blockers.append("after_cost_cross_section_return_unavailable")
+    if len(probabilities) < 30:
+        blockers.append("probability_calibration_insufficient")
+    if role == "fundamental" and (item.get("financial_history_policy") or {}).get("strict_pit") is False:
+        blockers.append("financial_history_current_revision_not_strict_pit")
+    return {
+        "method": "descriptive_persisted_oos_no_retraining",
+        "paired_forecasts": len(paired),
+        "oos_dates": len(by_day),
+        "max_same_date_symbols": max_section,
+        "dates_with_at_least_10_symbols": sum(len(symbols) >= 10 for symbols in by_day.values()),
+        "mse_model": mse_model,
+        "mse_constant_zero": mse_zero,
+        "model_minus_zero_mse": mse_model - mse_zero if paired else None,
+        "probability_predictions": len(probabilities),
+        "brier": brier,
+        "brier_constant_half": 0.25 if brier is not None else None,
+        "brier_improvement_over_half": 0.25 - brier if brier is not None else None,
+        "baseline_semantics": "constant_zero_return_and_constant_half_probability_descriptive_only",
+        "quality_blockers": blockers,
+    }
+
+
 def summarize(manifest, evaluations, artifacts, *, expected_core):
     """Independent structural/quality evidence; never grants champion authority."""
     _require(HASH_RE.fullmatch(expected_core) is not None, "invalid expected Core fence")
@@ -163,6 +241,7 @@ def summarize(manifest, evaluations, artifacts, *, expected_core):
             "after_cost_return": item.get("metrics", {}).get("after_cost_return"),
             "average_log_score_improvement": item.get("average_log_score_improvement"),
             "financial_history_strict_pit": item.get("financial_history_policy", {}).get("strict_pit"),
+            "diagnostics": _evaluation_diagnostics(item, role),
         })
     roles = {}
     for role in ROLES:
@@ -172,11 +251,23 @@ def summarize(manifest, evaluations, artifacts, *, expected_core):
             "artifact_summary": dict(counts),
             "oos_evaluations": role_evals,
             "quality_gate": "not_verified",
+            "research_remediation": {
+                "fundamental": "official_filing_time_and_matured_labels_plus_rule_baseline",
+                "valuation": "official_valuation_history_and_dcf_missingness_plus_two_challengers",
+                "quant": "historical_pit_cohort_and_cross_section_cost_sensitive_oos",
+                "risk": "month_by_month_regime_stability_vs_gaussian",
+                "event": "authorized_human_labeled_chronological_holdout_and_local_classifier",
+            }[role],
+            "quality_blockers": (["authorized_human_labels_and_classifier_oos_missing"]
+                                  if role == "event" else
+                                  ["historical_pit_membership_or_model_baseline_release_evidence_pending"]
+                                  if role in {"fundamental", "valuation", "quant"} else
+                                  ["regime_stability_and_champion_acceptance_pending"]),
             "reason": ("no_persisted_event_classifier_oos" if role == "event"
                        else "no_champion_vs_baseline_quality_acceptance"),
         }
     return {
-        "schema_version": "b9-specialist-oos-quality-readback-v1",
+        "schema_version": "b9-specialist-oos-quality-readback-v2",
         "source_core_snapshot_id": expected_core,
         "source_relation_to_b7_freshness": "same_verified_core_fence",
         "newest_core_at_audit_time": "not_verified",
