@@ -106,10 +106,14 @@ def compare_ml_oos_rows(reference, bigquery_export):
             continue
         for column in sorted(a):
             left, right = a[column], b[column]
-            if column in FLOAT_COLUMNS and left is not None and right is not None:
+            if left is None or right is None:
+                match = left is None and right is None
+            elif column in FLOAT_COLUMNS:
                 match = isclose(float(left), float(right), rel_tol=1e-9, abs_tol=1e-10)
+            elif column in ("trade_date", "label_maturity_date"):
+                match = str(left) == str(right)
             else:
-                match = left == right or str(left) == str(right)
+                match = left == right
             if not match:
                 changed += 1
                 if len(examples) < 5:
