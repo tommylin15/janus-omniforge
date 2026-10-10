@@ -15,8 +15,8 @@
   "no_gcp_mutation": true,
   "prior_private_config_parity": "NOT_VERIFIED",
   "old_ar_rollback_exercised": false,
-  "attempt": 4,
-  "safety": "2026-10-10 repeat live readonly recheck after fixed preview published and idempotent. Verify old canonical GHCR source + all four existing Jobs still provide recoverable anonymous digest/config baseline; original Research Job image unchanged; no GCP mutation.",
+  "attempt": 5,
+  "safety": "Read-only confirm after latestReady/serving baseline bugfix, full four GHCR immutable images/config, Scheduler, IAM, lease ABSENT. Allow newest Ready to be a distinct zero-traffic candidate but require canonical 100% old source; no GCP writes.",
   "job_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
     "janus-ingestion-core": "ebd88ff9aabca00b8f248473ea2b3f16a908be4a463333e3e1535a2c66ad8863",
