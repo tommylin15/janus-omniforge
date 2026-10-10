@@ -34,7 +34,7 @@
 - 每月重型批次：`specialist-retrain`、calibration、OOS/evaluation、cache/dependency reconciliation 固定**每月第一個週六 10:30（Asia/Taipei）**。
 - 不建立每週六 500×5 全量模型排程；月度排程只採上列第一個週六 10:30。
 
-## 3. B 組優先架構：BigQuery analytics hybrid
+## 3. B 組現行架構：PyIceberg default／BigQuery ML-OOS opt-in
 
 本段先於五引擎 production acceptance 與 rerun-cache 收斂執行，但不得把「架構已核准」誤寫成「BigQuery resource 已建立」。
 
@@ -56,7 +56,7 @@ BigQuery 只作 analytics compute：
 
 ### 3.3 Snapshot fidelity gate
 
-目前 Core catalog 為 PostgreSQL-backed PyIceberg `SqlCatalog`。BigQuery path 成為 default 前必須對同一 immutable Core manifest/snapshot 做 canary compare，證明指定 snapshot、schema evolution、date/timestamp、decimal、null、missing、provenance 與 source authorization 一致。
+目前 Core catalog 為 PostgreSQL-backed PyIceberg `SqlCatalog`。BigQuery ML/OOS 選用路徑正式執行前必須對同一 immutable Core manifest/snapshot 做 canary compare，證明指定 snapshot、schema evolution、date/timestamp、decimal、null、missing、provenance 與 source authorization 一致。
 
 不得把會隨 latest metadata pointer 漂移的 external table 當成 immutable execution fence。Google-supported Lakehouse/Iceberg REST catalog 可作候選，但不得在無明確授權下啟用 API、建立 catalog／connection／dataset、遷移 catalog 或擴大 IAM。
 
