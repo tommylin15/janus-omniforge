@@ -76,6 +76,20 @@
 
 **兩種不同 PASS 不混用**：deterministic 功能可用／OOS 計算及 immutable readback PASS，不等於 ML 有經證明的預測優勢；凡缺合法樣本、baseline 對照、source/PIT 或統計意義，就保持該模型 quality partial/insufficient，不讓 B9 被誤判結案。
 
+
+## 最新實測增補：B9 v2 逐模型唯讀診斷（2026-10-10）
+
+- 實作 commits [c9f97ea](https://github.com/tommylin15/janus-omniforge/commit/c9f97ea8d38465c8e8f817006d7c56e3049f8c12)（逐模型 OOS descriptive scorecard／三項 negative/coverage tests）與 [bb25c97](https://github.com/tommylin15/janus-omniforge/commit/bb25c97d8eac35641a747ab8b26135041274be8c)（僅將匿名彙總數字輸出 Actions log）。
+- [B9 Actions #38063424389](https://github.com/tommylin15/janus-omniforge/actions/runs/38063424389) **SUCCESS**：12 targeted tests PASS；原 immutable 25 specialist／29 OOS GCS 真實讀回 PASS，output `b9-specialist-oos-quality-readback-v2`，v4 prediction 1,536 筆 lineage 仍 legacy missing（未改寫），Event 仍無分類器 OOS。[Selective CI #38063424379](https://github.com/tommylin15/janus-omniforge/actions/runs/38063424379) SUCCESS。這些是**診斷與完整性** PASS，不是模型品質 PASS。
+- 新的零訊號基準為 **excess_return 恆等於 0**；對同一 OOS prediction/label 比較平方誤差，`model_minus_zero_mse > 0` 表示模型較差。這只是一個 *descriptive no-skill baseline*，不等於真實可交易策略、已訓練基準模型、交易成本、信賴區間或 promotion 證據。
+- **5 日實測差值**（model MSE − zero MSE）：Fundamental LightGBM **+0.0007073**；Valuation LightGBM **+0.0003647**、CatBoost **+0.0052061**；Quant Linear **+0.0004681**、LightGBM **+0.0004064**、CatBoost **+0.0011109**、Qlib DoubleEnsemble **+0.0003907**。**七個 5 日模型全部未勝過零訊號 MSE 基準**，不得以 predictions/folds 存在為由提升模型地位。
+- **20 日** Fundamental LightGBM／Valuation 兩模型／Quant 四模型的上述 MSE 差值也均為正；**60／120 日各僅 8／2 筆**，雖有部分負差值但完全不足以支持可靠優勢，不得選擇性引用。5 日同日橫斷面最多：Fundamental **2 檔**、Valuation／Quant **5 檔**；所有 horizon 都不足十檔同截面，無合格 Rank IC／decile／after-cost cross-section。
+- **Quant 5 日機率**四模型相對常數 0.5 機率 Brier 改善約 **−0.00106～−0.00111**（負值表示未勝過常數 0.5）；20／60／120 日有效校準不足。Brier baseline 不使用當期觀察到的類別率反向調參。
+- **Risk**：23 個 prior-only 月度 OOS folds／452 returns，Markov 相對 Gaussian 月度平均 log-score 改善 **15 個月為正、8 個月非正**；整體既有 +0.3884/return 仍未補證 regime state stability、極端期校準、正式 promotion。**Event**：沒有獲授權的人審標記 holdout／classifier OOS；Parser／Rules 可繼續 deterministic 輸出，但 classifier_probability 應保持 null。
+- 新 scorecard 保存每 model/horizon 的 MSE、常數 baseline、機率樣本與 Brier、同日股票數、月度 regime 勝負及缺口 reason；**只讀既有 artifact**，無 B7 retrain、BQ/canonical write、GHCR/Cloud Run 更新或 champion/publishing 動作。
+
+**B9 後續研究解法不變，但優先順序更明確：**先驗證真正歷史 membership/source fence 與財報可用時間、建立合規跨股票 OOS cohort，並加入 trained baseline/challenger 與成本敏感對照；現有 Fundamental／Valuation／Quant 的 5 日 ML 不應升級。Risk 補 regime 分環境穩定性；Event 先取得有審核紀錄的真實繁中 labels，再做離線 CPU bounded classifier。任何缺樣本／證據的角色保持 NOT VERIFIED；**五角色皆有 remediation，不代表五角色品質已解決。**
+
 ## B9 剩餘驗收
 
 1. 建立有真實來源／PIT 歷史 membership 的 evaluation cohort，不擴成每日 500×5 五模型運算。
