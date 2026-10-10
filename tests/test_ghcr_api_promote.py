@@ -15,6 +15,11 @@ def receipt():
     return {
         "source_sha": "a" * 40,
         "phase": "PASS",
+        "rollback_mode": "reversible_ghcr",
+        "rollback_baseline_verified": True,
+        "rollback_available": True,
+        "rollback_baseline_sha": "b" * 40,
+        "old_image_rollback_exercised": False,
         "snapshots": {name: {"image": "example@sha256:" + "b" * 64,
                              "configuration_hash": "c" * 64} for name in promote.REQUIRED_JOBS},
         "canaries": [{"job": name, "result": "PASS", "execution": f"{name}-{i}"}
@@ -146,3 +151,16 @@ def test_previous_baseline_is_versioned_and_ancestor_checked():
             with pytest.raises(ValueError,match="approved_ghcr_baseline_missing"):
                 promote.approved_previous_baseline("c"*40)
         cmd.assert_not_called()
+
+
+@pytest.mark.parametrize("change", [
+    lambda proof: proof.pop("rollback_baseline_verified"),
+    lambda proof: proof.update(rollback_mode="user_authorized_forward_only"),
+    lambda proof: proof.update(rollback_available=False),
+    lambda proof: proof.update(old_image_rollback_exercised=True),
+])
+def test_regular_traffic_promotion_rejects_unverified_jobs_reversibility(change):
+    proof=receipt()
+    change(proof)
+    with pytest.raises(ValueError,match="regular_jobs_reversible_baseline_unverified"):
+        promote.check_jobs_receipt(proof,"a"*40)
