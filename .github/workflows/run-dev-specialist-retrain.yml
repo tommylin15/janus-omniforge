@@ -14,7 +14,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: dev-specialist-retrain
+  group: janus-dev-runtime-writers
   cancel-in-progress: false
 
 env:
@@ -64,6 +64,7 @@ jobs:
           fi
 
   execute:
+    timeout-minutes: 25
     needs: [test, detect-request]
     if: needs.detect-request.outputs.changed == 'true'
     runs-on: ubuntu-latest
@@ -80,10 +81,14 @@ jobs:
           [[ "$(jq -r '.operation // ""' "${file}")" == 'specialist-retrain' ]] || { echo 'unsupported operation' >&2; exit 2; }
           request_id="$(jq -r '.request_id // ""' "${file}")"
           [[ "${request_id}" =~ ^[A-Za-z0-9._-]{1,80}$ ]] || { echo 'invalid request_id' >&2; exit 2; }
-          expected_mart_sha="$(jq -r '.expected_mart_deploy_sha // ""' "${file}")"
-          [[ "${expected_mart_sha}" =~ ^[0-9a-f]{40}$ ]] || { echo 'missing/invalid expected_mart_deploy_sha' >&2; exit 2; }
+          expected_release_sha="$(jq -r '.expected_release_sha // ""' "${file}")"
+          [[ "${expected_release_sha}" =~ ^[0-9a-f]{40}$ ]] || { echo 'missing/invalid expected_release_sha' >&2; exit 2; }
+          jq -e --arg sha "${expected_release_sha}"             '.approved == true and .scope == "existing-dev-four-jobs" and .sha == $sha and .rollback_mode == "reversible_ghcr"'             ops/ghcr-jobs-rollout-request.json >/dev/null || {
+              echo 'B7 request does not match the approved current GHCR Jobs release' >&2
+              exit 2
+            }
           echo "request_id=${request_id}" >> "${GITHUB_OUTPUT}"
-          echo "expected_mart_sha=${expected_mart_sha}" >> "${GITHUB_OUTPUT}"
+          echo "expected_release_sha=${expected_release_sha}" >> "${GITHUB_OUTPUT}"
           echo 'enabled=true' >> "${GITHUB_OUTPUT}"
       - uses: google-github-actions/auth@v2
         if: steps.request.outputs.enabled == 'true'
@@ -92,64 +97,65 @@ jobs:
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
         if: steps.request.outputs.enabled == 'true'
-      - name: B7 dev scheduler and controller image readback
-        if: steps.request.outputs.enabled == 'true'
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          if gcloud scheduler jobs describe janus-ingestion-daily \
-            --project="${GCP_PROJECT_ID}" --location="${GCP_REGION}" \
-            --format='json(schedule,timeZone,state)' > /tmp/janus-b7-scheduler.json 2>/tmp/janus-b7-scheduler-error.txt; then
-            echo 'B7 scheduler readback authorized'
-          else
-            echo 'B7 scheduler readback unavailable (cloudscheduler.jobs.get denied or resource inaccessible); acceptance remains PARTIAL' >&2
-            printf '{}' > /tmp/janus-b7-scheduler.json
-          fi
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          data = json.loads(Path("/tmp/janus-b7-scheduler.json").read_text())
-          print("B7 scheduler:", {k: data.get(k) for k in ("schedule", "timeZone", "state")})
-          if data:
-              assert data.get("schedule") == "30 * * * *", "unexpected controller tick cadence"
-              assert data.get("timeZone") == "Asia/Taipei", "controller scheduler timezone mismatch"
-              assert data.get("state") == "ENABLED", "controller scheduler is not active"
-          else:
-              print("B7 scheduler: BLOCKED / not verified; no IAM grant attempted")
-          PY
-          controller_image="$(gcloud run jobs describe janus-batch-controller \
-            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
-            --format='value(spec.template.spec.template.spec.containers[0].image)')"
-          ingestion_image="$(gcloud run jobs describe janus-ingestion-core \
-            --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
-            --format='value(spec.template.spec.template.spec.containers[0].image)')"
-          [[ -n "${controller_image}" && "${controller_image}" == "${ingestion_image}" ]] || {
-            echo 'B7 live controller image differs from ingestion deployed image' >&2
-            exit 2
-          }
-          echo "B7 controller image alignment PASS"
-
-      - name: B7 require exact Mart deployment image before triggering retrain
+      - name: Verify current GHCR release, scheduler and pinned controller/Mart images
         if: steps.request.outputs.enabled == 'true'
         shell: bash
         env:
-          EXPECTED_MART_SHA: ${{ steps.request.outputs.expected_mart_sha }}
+          EXPECTED_RELEASE_SHA: ${{ steps.request.outputs.expected_release_sha }}
         run: |
           set -Eeuo pipefail
-          for attempt in $(seq 1 16); do
-            mart_image="$(gcloud run jobs describe janus-intelligence-mart \
-              --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}" \
-              --format='value(spec.template.spec.template.spec.containers[0].image)')"
-            if [[ "${mart_image}" == *":dev-${EXPECTED_MART_SHA}" ]]; then
-              echo 'B7 exact Mart deployment image verified'
-              exit 0
-            fi
-            echo "B7 Mart image not deployed yet (attempt ${attempt}/16); no controller execution issued"
-            sleep 30
-          done
-          echo 'B7 aborted: expected Mart image not yet present; manual request not executed' >&2
-          exit 2
+          # No deployment/update here. A new B7 request must target the currently
+          # approved Jobs release, not the historical Cloud Build dev-SHA tag.
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends skopeo jq
+          resolve_image() {
+            local component="$1"
+            local info digest revision
+            info="$(skopeo inspect --no-creds "docker://ghcr.io/tommylin15/janus-${component}:sha-${EXPECTED_RELEASE_SHA}")"
+            digest="$(jq -r '.Digest // ""' <<< "${info}")"
+            revision="$(jq -r '.Labels["org.opencontainers.image.revision"] // ""' <<< "${info}")"
+            [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ && "${revision}" == "${EXPECTED_RELEASE_SHA}" ]] || {
+              echo "B7 unverified public GHCR release for ${component}" >&2
+              exit 2
+            }
+            skopeo inspect --no-creds "docker://ghcr.io/tommylin15/janus-${component}@${digest}" >/dev/null
+            printf 'ghcr.io/tommylin15/janus-%s@%s' "${component}" "${digest}"
+          }
+          ingestion_expected="$(resolve_image ingestion-core)"
+          mart_expected="$(resolve_image intelligence-mart)"
+          controller_image="$(gcloud run jobs describe janus-batch-controller             --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}"             --format='value(spec.template.spec.template.spec.containers[0].image)')"
+          ingestion_image="$(gcloud run jobs describe janus-ingestion-core             --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}"             --format='value(spec.template.spec.template.spec.containers[0].image)')"
+          mart_image="$(gcloud run jobs describe janus-intelligence-mart             --project="${GCP_PROJECT_ID}" --region="${GCP_REGION}"             --format='value(spec.template.spec.template.spec.containers[0].image)')"
+          # Cloud Run may present the registry-import cache prefix on readback.
+          controller_image="${controller_image#cache.us-docker.pkg.dev/}"
+          ingestion_image="${ingestion_image#cache.us-docker.pkg.dev/}"
+          mart_image="${mart_image#cache.us-docker.pkg.dev/}"
+          [[ "${controller_image}" == "${ingestion_expected}" &&
+             "${ingestion_image}" == "${ingestion_expected}" &&
+             "${mart_image}" == "${mart_expected}" ]] || {
+              echo 'B7 blocked: live Jobs differ from approved immutable GHCR digest' >&2
+              exit 2
+            }
+          echo 'B7 controller/ingestion/Mart GHCR digest alignment PASS'
 
+          # jobs.get was denied historically. Read the region listing via the
+          # existing least-privilege identity; no new IAM permission is granted.
+          gcloud scheduler jobs list --project="${GCP_PROJECT_ID}" --location="${GCP_REGION}"             --format=json > /tmp/b7-scheduler.json || {
+              echo 'B7 Scheduler readback unavailable: manual dispatch blocked' >&2
+              exit 2
+            }
+          jq -e --arg project "${GCP_PROJECT_ID}" --arg region "${GCP_REGION}" '
+            [.[] | select(.name | endswith("/jobs/janus-ingestion-daily"))] as $matches |
+            ($matches | length) == 1 and
+            ($matches[0].state == "ENABLED") and
+            ($matches[0].schedule == "30 * * * *") and
+            ($matches[0].timeZone == "Asia/Taipei") and
+            ($matches[0].httpTarget.uri | endswith("/projects/" + $project + "/locations/" + $region + "/jobs/janus-batch-controller:run"))
+          ' /tmp/b7-scheduler.json >/dev/null || {
+            echo 'B7 Scheduler not an enabled Asia/Taipei hourly controller: manual dispatch blocked' >&2
+            exit 2
+          }
+          echo 'B7 live Scheduler configuration PASS'
       - name: Execute through batch controller
         if: steps.request.outputs.enabled == 'true'
         shell: bash
