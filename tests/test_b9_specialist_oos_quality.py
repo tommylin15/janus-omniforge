@@ -59,6 +59,37 @@ class B9QualityTests(unittest.TestCase):
         self.assertEqual(r["per_prediction_source_authorization_and_provenance"],
                          "not_independently_in_persisted_predictions")
 
+    def test_logical_filename_hash_is_not_immutable_bytes_hash(self):
+        """Regression: GCS path uses payload output_hash, ref uses full-byte SHA256."""
+        from unittest.mock import patch
+
+        manifest, evaluation, artifacts = fixture()
+        execution = "11111111-1111-4111-8111-111111111111"
+        base = "gs://" + b9.BUCKET + "/"
+        manifest_uri = base + "executions/" + execution + "/specialist-manifest.json"
+        eval_uri = base + "executions/" + execution + "/oos-evaluation.json"
+        eval_hash = "sha256:" + "e" * 64
+        manifest["execution_id"] = execution
+        manifest["evaluation"] = {"artifact_uri": eval_uri, "artifact_hash": eval_hash}
+        responses = {manifest_uri: (manifest, "sha256:" + "f" * 64),
+                     eval_uri: (evaluation, eval_hash)}
+        for i, (ref, artifact) in enumerate(zip(manifest["specialists"], artifacts, strict=True), start=1):
+            logical_hash = "sha256:" + f"{i:064x}"
+            bytes_hash = "sha256:" + f"{i+10:064x}"
+            artifact["output_hash"] = logical_hash
+            uri = base + "specialists/" + logical_hash[7:] + ".json"
+            ref.update(artifact_uri=uri, artifact_hash=bytes_hash)
+            responses[uri] = (artifact, bytes_hash)
+        with patch.object(b9, "_read_gcs_json", side_effect=lambda uri: responses[uri]):
+            result = b9.audit(manifest_uri, CORE)
+            self.assertEqual(result["specialist_artifacts_verified"], 5)
+            self.assertEqual(result["model_quality"], "not_verified")
+
+            # Tampering with one byte-level hash must still fail closed.
+            manifest["specialists"][0]["artifact_hash"] = "sha256:" + "0" * 64
+            with self.assertRaisesRegex(b9.AuditError, "bytes hash mismatch"):
+                b9.audit(manifest_uri, CORE)
+
     def test_rejects_stale_or_mismatched_core(self):
         manifest, evaluation, artifacts = fixture()
         with self.assertRaisesRegex(b9.AuditError, "Core differs"):
