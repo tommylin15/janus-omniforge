@@ -57,6 +57,24 @@ def approved_previous_baseline(candidate_sha):
     return data
 
 
+
+def approved_regular_promotion(release_run, jobs_run, sha, baseline_sha):
+    """Explicitly gate any new GHCR→GHCR traffic mutation on an exact request."""
+    data = json.loads(Path("ops/ghcr-api-promote-request.json").read_text())
+    if (data.get("intent") != "promote-authenticated-reversible-ghcr-dev"
+            or data.get("approved") is not True
+            or data.get("scope") != "existing-dev-janus-api-only"
+            or data.get("source_sha") != sha
+            or data.get("release_run") != release_run
+            or data.get("jobs_run") != jobs_run
+            or data.get("rollback_mode") != "reversible_ghcr"
+            or data.get("baseline_source_sha") != baseline_sha
+            or data.get("owner_acceptance_source_sha") != sha
+            or data.get("allow_legacy_forward_only") is not False):
+        raise ValueError("regular_api_promotion_request_unapproved")
+    return data
+
+
 def verify_previous_ghcr_rollback(baseline, previous_source_sha):
     """Require an actual public GHCR previous image before any traffic write.
 
@@ -227,6 +245,10 @@ def promote(release_run, jobs_run, receipt, forward_recovery=False):
         forward_request = check_forward_promotion_request(release_run, jobs_run, sha)
     else:
         approved_baseline = approved_previous_baseline(sha)
+        # A workflow_dispatch alone is not authorization. Only a bound
+        # request with owner acceptance for the same SHA permits changes.
+        approved_regular_promotion(
+            release_run, jobs_run, sha, approved_baseline["source_sha"])
     checkpoint("run_provenance")
     for run, expected in ((release_run, "Janus GHCR full-test image publication"),
                           (jobs_run, ("Janus fenced forward-only GHCR Jobs recovery"
