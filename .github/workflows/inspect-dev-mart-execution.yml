@@ -33,6 +33,7 @@ jobs:
           set -Eeuo pipefail
           file='ops/dev-mart-execution-inspect.json'
           execution="$(jq -r '.execution // ""' "${file}")"
+          expect_monthly="$(jq -r '.expect_monthly // false' "${file}")"
           [[ "${execution}" =~ ^janus-intelligence-mart-[a-z0-9-]{1,64}$ ]] || {
             echo 'invalid Mart execution name' >&2
             exit 2
@@ -79,6 +80,7 @@ jobs:
               exit 2
             }
 
+            if [[ "${expect_monthly}" == 'true' ]]; then
             # B7: same execution must persist an independently verifiable
             # monthly cache reconciliation receipt; never rewrite or promote.
             reconciliation_uri="$(jq -r '.reconciliation.artifact_uri // empty' runtime-evidence/specialist-manifest.json)"
@@ -109,12 +111,17 @@ jobs:
               exit 2
             }
             echo 'B7 OOS and monthly reconciliation immutable GCS hash readback PASS'
+            fi
           fi
 
           jq '{metadata:{name:.metadata.name},status:{conditions:.status.conditions,completionTime:.status.completionTime,failedCount:.status.failedCount,succeededCount:.status.succeededCount},env:[.spec.template.spec.containers[0].env[]? | select(.name == "MART_OPERATION" or .name == "MART_OOS_EVALUATION" or .name == "MART_AI_ENABLED")]}' runtime-evidence/mart-execution.json
           if [[ -f runtime-evidence/specialist-manifest.json ]]; then
             jq '{execution_id,analysis_as_of,core_snapshot_id,engine_version,screening_count,specialist_count,specialist_status,llm_api_tokens,ceo_triggered,evaluation}' runtime-evidence/specialist-manifest.json
           else
+            if [[ "${expect_monthly}" == 'true' ]]; then
+              echo 'B7 expected monthly OOS/reconciliation artifact not found (NOT VERIFIED)' >&2
+              exit 2
+            fi
             echo 'No specialist-retrain artifact URI found in bounded execution logs (NOT VERIFIED).'
           fi
           if [[ -f runtime-evidence/monthly-reconciliation.json ]]; then
