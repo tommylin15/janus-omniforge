@@ -1,7 +1,7 @@
 {
-  "enabled": false,
+  "enabled": true,
   "operation": "specialist-retrain",
-  "request_id": "b7-monthly-live-20261008-v1",
-  "expected_mart_deploy_sha": "fb07979ab270055e2d3029457d797004c026f356",
-  "retired_reason": "Superseded by GHCR rollout; historical October 8 request was never dispatched. Do not replay."
+  "request_id": "b7-ghcr-monthly-20261010-v1",
+  "expected_release_sha": "038498c70e12488f345c3ca0fbe821846ddee4cc",
+  "purpose": "New bounded B7 GHCR monthly retrain/OOS/cache acceptance; not replay of 2026-10-08 old request. Controller enforces current dependency and busy fences."
 }
