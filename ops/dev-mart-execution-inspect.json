@@ -1,4 +1,6 @@
 {
-  "request_id": "wbs5-specialist-retrain-5wd7w-readback-20261005-v1",
-  "execution": "janus-intelligence-mart-5wd7w"
+  "request_id": "b7-ghcr-inspect-xrlk5-20261010-v1",
+  "execution": "janus-intelligence-mart-xrlk5",
+  "expect_monthly": true,
+  "purpose": "B7 read-only exact Mart OOS and monthly cache reconciliation immutable artifact hash verification; never dispatch retrain"
 }
