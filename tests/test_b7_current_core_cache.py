@@ -133,3 +133,29 @@ def test_b7_does_not_require_bigquery_or_retraining_in_refresh_script():
     assert "MART_OPERATION" not in source and "execute_job" not in source
     assert "BigQuery" not in source and "bigquery.Client" not in source
     assert "delete(" not in source and "champion_promotion" in source
+
+
+def test_b7_receipt_writer_keeps_b5_writer_scope_unchanged(monkeypatch):
+    calls = []
+
+    class Response:
+        def __enter__(self):
+            return self
+        def __exit__(self, *_):
+            return False
+
+    monkeypatch.setattr(b7["urllib"].request, "urlopen",
+                        lambda request, timeout: calls.append((request, timeout)) or Response())
+    adapter = {"token": lambda: "synthetic-not-logged"}
+    permitted = f"gs://{MART_BUCKET}/acceptance/b7-cache-freshness/" + "a" * 64 + ".json"
+    b7["gcs_create_b7_receipt"](adapter, permitted, b"{}")
+    assert len(calls) == 1 and calls[0][0].method == "POST"
+    assert "ifGenerationMatch=0" in calls[0][0].full_url
+    for rejected in (
+        f"gs://{MART_BUCKET}/ml-oos-data/v1/" + "a" * 64 + ".json",
+        "gs://other-bucket/acceptance/b7-cache-freshness/" + "a" * 64 + ".json",
+        f"gs://{MART_BUCKET}/acceptance/b7-cache-freshness/wrong.json",
+    ):
+        with pytest.raises(RuntimeError, match="outside immutable acceptance prefix"):
+            b7["gcs_create_b7_receipt"](adapter, rejected, b"{}")
+    assert len(calls) == 1
