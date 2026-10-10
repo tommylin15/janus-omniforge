@@ -333,6 +333,17 @@ def main():
     report["recorded_at"] = datetime.now(timezone.utc).isoformat()
     Path(args.output).write_text(json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n")
     print(json.dumps({k: v for k, v in report.items() if k != "roles"}, sort_keys=True))
+    # Only aggregates enter Actions logs; raw predictions, symbols and owner data do not.
+    summary = {role: [{
+        "model": entry["model"], "horizon": entry["horizon_days"],
+        "samples": entry["oos_samples"], "folds": entry["folds"],
+        "max_same_date_symbols": entry["diagnostics"].get("max_same_date_symbols"),
+        "model_minus_zero_mse": entry["diagnostics"].get("model_minus_zero_mse"),
+        "brier_improvement_over_half": entry["diagnostics"].get("brier_improvement_over_half"),
+        "positive_regime_months": entry["diagnostics"].get("positive_improvement_months"),
+        "nonpositive_regime_months": entry["diagnostics"].get("nonpositive_improvement_months"),
+    } for entry in data["oos_evaluations"]] for role, data in report["roles"].items()}
+    print("B9 AGGREGATED MODEL DIAGNOSTICS " + json.dumps(summary, sort_keys=True, allow_nan=False))
     print("B9 READBACK PASS; B9 MODEL QUALITY NOT VERIFIED; no retrain/promotion")
 
 
