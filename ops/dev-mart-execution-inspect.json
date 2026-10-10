@@ -1,6 +1,7 @@
 {
-  "request_id": "b7-ghcr-inspect-xrlk5-20261010-v1",
+  "request_id": "b7-ghcr-inspect-xrlk5-20261010-v2",
   "execution": "janus-intelligence-mart-xrlk5",
   "expect_monthly": true,
-  "purpose": "B7 read-only exact Mart OOS and monthly cache reconciliation immutable artifact hash verification; never dispatch retrain"
+  "purpose": "Wait bounded for the SAME running B7 GHCR Mart execution xrlk5, then verify OOS and monthly reconciliation hashes. Never dispatch new Jobs.",
+  "readback_attempt": 2
 }
