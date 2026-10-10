@@ -149,11 +149,11 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 - API path、schema 欄位、程式識別字、WBS ID、provider／model／product 名稱保留原文。
 - 歷史紀錄與測試證據可保留原始語言，只要不被誤認為目前使用者契約。
 
-## 12. CI／Release 分離（2026-10-08 正式目標政策；實作遷移中）
+## 12. CI／Release 分離（2026-10-08 核准；2026-10-10 dev 範圍已驗收）
 
 ### 12.1 正式路徑與邊界
 
-- 正式目標流程固定：**ChatGPT → GitHub → GitHub Actions → GCP API → GitHub Actions Logs → ChatGPT**。本節是使用者已核准的**目標契約**，不是已完成部署聲明；目前實作、驗收與未完成項見 [CI/CD 規格](spec/cicd-v2.md) 及 [status](status.md)。
+- 正式流程固定：**ChatGPT → GitHub → GitHub Actions → GCP API → GitHub Actions Logs → ChatGPT**。目前核准的 dev 發布範圍已於 2026-10-10 實測結案，執行證據與使用者豁免記錄見 [CI/CD 規格](spec/cicd-v2.md)、[status](status.md)；**本節仍是後續每次發版的治理契約**，不得將一次 PASS 視為未來版本自動通過。
 - GitHub `main` Push 可以保留輕量／selective CI 作快速回饋，但**任何 Release 必須在 GitHub Actions 對目標完整 Git SHA 執行所需全部測試、安全／schema／migration／建置檢查，全部 PASS 後才能建置並發布 GHCR 映像**。文件-only 變更可略過無關測試，但不得把選擇性 CI 冒充完整 Release gate。
 - GitHub Actions 建立 container image、推送至 **GHCR（`ghcr.io`）**、記錄不可變 `sha256` digest；以完整 Git SHA／工作包 ID／workflow run ID 連結測試、build 與 release evidence。不得以 mutable tag 作 Cloud Run deployment identity。
 - **新 CI/CD 流程不觸發 Cloud Build／Trigger，不主動寫入 GCS、Artifact Registry，不把這兩者當新的 image、receipt、mutex 或 release state store；不新增常駐 Compute Engine 作 Docker host。** 此限制不取消既有 Janus 業務資料流對已授權 GCS／Iceberg 的合法讀寫，亦不代表既有 Cloud Build／Artifact Registry／GCS 資產已停用或刪除。
