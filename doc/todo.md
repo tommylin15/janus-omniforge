@@ -1,17 +1,3 @@
-# Janus GHCR CI/CD — 2026-10-10 active acceptance（PARTIAL）
-
-此節僅保留當前缺口；完成證據集中於 [2026-10-10 新版 Jobs／API live 收據](archive/cicd-ghcr-api-promotion-2026-10-10.md)，先前 checkpoint 見 [歷史 CI/CD TODO](archive/cicd-todo-prior-checkpoints-2026-10-09.md)。既有 dev 是真實 parallel-live，舊 AR／GCS／Revision 清理不在本次驗收範圍。
-
-- [x] 新版完整 source `038498c70e12488f345c3ca0fbe821846ddee4cc` Python／Flutter release、公開 GHCR、0% API candidate、固定 Preview、OAuth/MCP 負向 gate 與使用者已確認同 SHA A→B→A owner isolation／PnL。
-- [x] **新版四 Jobs 實際 GHCR→GHCR rollout**：[Actions #38012746734](https://github.com/tommylin15/janus-omniforge/actions/runs/38012746734) receipt `phase=PASS`，四個 Job 各兩次不同 execution（8/8 canary PASS），舊 GHCR image／config 基準驗證且 `rollback_available=true`；不代表舊映像真實 rollback 已演練。
-- [x] **新版 API 100% 正式切流與真實 traffic rollback**：[Actions #38020693214](https://github.com/tommylin15/janus-omniforge/actions/runs/38020693214) receipt `phase=PASS`、`rollback_rehearsal=PASS`；新版→舊版→新版各 100%，最終 `janus-api-00457-wed`，健康／build-id／401／Ready／RoutesReady／tags／config readback PASS。
-- [ ] **Jobs 真實舊映像回滾演練**：rollout receipt `old_image_rollback_exercised=false`；保留舊 GHCR digest 與 config snapshot，不得冒充已通過。
-- [ ] **固定 Preview 更新後失敗的 GCP live 恢復演練**：既有真實正向與冪等發布 PASS，fault-injection mock PASS；刻意真實故障仍 NOT VERIFIED，若會干擾現役使用者須另設安全時機。
-- [ ] **Private Pipeline 舊 AR 時期完整設定 parity**：歷史 snapshot 不充分，`NOT_VERIFIED`；不可拿新版現役 config hash 反推。
-- [ ] **受保護 Research Job 舊 AR image 可恢復性**：與四 GHCR rollout 目標無關，現有唯讀 evidence `BLOCKED`；不得擅自替換或刪除。
-
----
-
 # Janus — TODO
 
 版本：3.22（2026-10-08：B7 ACTIVE，待 live acceptance；B8/B9 順序不變）
