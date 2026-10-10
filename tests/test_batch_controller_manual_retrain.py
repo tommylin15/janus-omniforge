@@ -160,9 +160,16 @@ def test_manual_retrain_uses_approved_ghcr_digest_and_shared_release_lease():
     assert "expected_mart_deploy_sha" not in workflow
 
 
-def test_preghcr_manual_retrain_request_is_retired_not_replayed():
+def test_preghcr_manual_retrain_request_is_never_replayed():
     import json
     request = json.loads(Path("ops/dev-specialist-retrain-request.json").read_text())
-    assert request["enabled"] is False
-    assert request["request_id"] == "b7-monthly-live-20261008-v1"
-    assert "Do not replay" in request["retired_reason"]
+    old_id = "b7-monthly-live-20261008-v1"
+    if request["request_id"] == old_id:
+        assert request["enabled"] is False
+        assert "Do not replay" in request["retired_reason"]
+    else:
+        # A new bounded request must identify the approved live GHCR release.
+        release = json.loads(Path("ops/ghcr-jobs-rollout-request.json").read_text())
+        assert request["request_id"].startswith("b7-ghcr-")
+        assert request["expected_release_sha"] == release["sha"]
+        assert release["approved"] is True
