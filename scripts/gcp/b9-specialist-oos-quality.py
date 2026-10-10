@@ -188,10 +188,16 @@ def audit(manifest_uri, expected_core):
     for ref in manifest.get("specialists", []):
         uri, expected_hash = ref.get("artifact_uri"), ref.get("artifact_hash")
         _require(isinstance(expected_hash, str) and HASH_RE.fullmatch(expected_hash) is not None and
-                 uri == PREFIX + "specialists/" + expected_hash[7:] + ".json",
+                 isinstance(uri, str) and uri.startswith(PREFIX) and
+                 PATH_RE.fullmatch(uri[len(PREFIX):]) is not None,
                  "invalid specialist immutable reference")
         artifact, actual_hash = _read_gcs_json(uri)
         _require(actual_hash == expected_hash, "specialist immutable bytes hash mismatch")
+        # Filename uses logical payload output_hash (before output_hash is added);
+        # artifact_hash is SHA256 of the FULL immutable serialized JSON bytes.
+        _require(isinstance(artifact.get("output_hash"), str) and
+                 uri == PREFIX + "specialists/" + artifact["output_hash"][7:] + ".json",
+                 "specialist logical output hash path mismatch")
         artifacts.append(artifact)
     return summarize(manifest, evaluations, artifacts, expected_core=expected_core)
 
