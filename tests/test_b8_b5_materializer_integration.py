@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT / "jobs/intelligence-mart"))
 @pytest.mark.parametrize("backend,failure", [
     ("pyiceberg", False),
     ("bigquery", True),
+    ("bigquery-late-export", True),
 ])
 def test_b5_default_and_opt_in_operational_fallback(monkeypatch, tmp_path, backend, failure):
     from google.api_core.exceptions import ServiceUnavailable
@@ -79,22 +80,36 @@ def test_b5_default_and_opt_in_operational_fallback(monkeypatch, tmp_path, backe
                         lambda self, manifest, requested_symbols, *, core_snapshot_id, row_limit:
                         AnalyticsSnapshot(core_snapshot_id, {"ohlcv": rows},
                                           {"total_rows": len(rows)}))
-    if backend == "bigquery":
+    if backend.startswith("bigquery"):
         bq = pytest.importorskip("google.cloud.bigquery")
         class DownClient:
             def __init__(self, **kwargs):
                 pass
             def query(self, *args, **kwargs):
-                raise ServiceUnavailable("synthetic operational unavailable")
+                if backend != "bigquery-late-export":
+                    raise ServiceUnavailable("synthetic operational unavailable")
+                if kwargs.get("job_config").dry_run:
+                    return SimpleNamespace(total_bytes_processed=0)
+                if "COUNT(*)" in args[0]:
+                    return SimpleNamespace(
+                        job_id="synthetic-count", total_bytes_billed=10_485_760,
+                        total_bytes_processed=500, error_result=None,
+                        result=lambda **kw: [{"n": 3}])
+                raise ServiceUnavailable("synthetic export submission outage")
             def close(self):
                 pass
         monkeypatch.setattr(bq, "Client", DownClient)
 
     output = tmp_path / "b5-evidence.json"
     argv = ["b5-ml-oos-data.py", "--output", str(output)]
-    if backend == "bigquery":
+    if backend.startswith("bigquery"):
         argv += ["--backend", "bigquery", "--bigquery-opt-in"]
     monkeypatch.setattr(sys, "argv", argv)
+    if backend == "bigquery-late-export":
+        with pytest.raises(RuntimeError, match="export started or partially wrote"):
+            script["main"]()
+        assert not objects and not output.exists(), "late BQ export cannot promote cache"
+        return
     script["main"]()
     evidence = json.loads(output.read_text())
     assert evidence["status"] == "pass"
