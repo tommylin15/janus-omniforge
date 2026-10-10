@@ -18,4 +18,12 @@ Schema baseline 為 `037_batch_controller`；`049_batch_occurrence_skipped_statu
 
 GitHub 的 bounded 入口 `.github/workflows/run-dev-specialist-retrain.yml` 只接受 committed `ops/dev-specialist-retrain-request.json` 的 `operation=specialist-retrain`，並只對 `janus-batch-controller` 做 execution-level env override，不永久修改 controller／ingestion／Mart Job 設定。實際 retrain 仍由 controller 以固定 `MART_OPERATION=specialist-retrain`、`MART_OOS_EVALUATION=true`、`MART_AI_ENABLED=false` 派送；Mart 自身再驗最新 immutable Core snapshot freshness。manual request 成功派送不等於模型有效或 champion promotion，仍需 OOS artifact persist/readback 與 acceptance evidence。
 
+### B7 GHCR 現役路徑（不得重播舊 request）
+
+- 2026-10-08 前的 `b7-monthly-live-20261008-v1` 已因舊 `dev-SHA` 比對失敗而**沒有由 Actions 派送**，僅保留歷史稽核，不重送、不修復舊映像。新的 bounded 驗收必須採全新 `request_id`。
+- `ops/dev-specialist-retrain-request.json` 使用 `expected_release_sha`，且必須等於 `ops/ghcr-jobs-rollout-request.json` 已核准的 GHCR Jobs 完整 source SHA。workflow 從公開 GHCR tag 解析不可變 digest、核對 OCI revision label，再比對既有 controller／ingestion／Mart Job 的實際 image（允許 Cloud Run registry-import cache prefix，但**不**容許 mutable tag、舊 `dev-SHA` 或 digest 不符）。與 Jobs 發布共用 `janus-dev-runtime-writers` concurrency；不得更新映像或代替 release。
+- 在任何手動 controller 派送前，利用現有唯讀權限列出 `us-central1` Scheduler，核對 `janus-ingestion-daily` 唯一、`ENABLED`、`30 * * * *`、`Asia/Taipei`、目標 `janus-batch-controller:run`。讀取被拒／值不符即 fail closed，不額外擴 IAM。
+- `run-dev-specialist-retrain.yml` PASS 最多證明 workflow 與 controller 指令成功；若 dependency 未滿足，可能僅建立 pending occurrence。必須另外鎖定**新** `janus-intelligence-mart-...` execution，檢查 `Completed=True`、`MART_OPERATION=specialist-retrain` 與同次 execution 的 `specialist-manifest.json`／`oos-evaluation.json`／`monthly-reconciliation.json`。以 `ops/dev-mart-execution-inspect.json` 的 `execution` 與 `expect_monthly=true` 觸發 `inspect-dev-mart-execution.yml`，逐一核對 GCS bytes SHA-256、Core identity、cache reconciliation `pass/partial` 與零 CEO／promotion。缺任何證據維持 `NOT VERIFIED` 或 `PARTIAL`，不得將單純 Job success 標成 B7 完成。
+
+
 清理 worker 的啟用與完成狀態以目前 runtime／operations evidence 為準。清理報告必須保存 Core／Stage／Mart 各層刪除物件數與 bytes、前後 live 容量、受保護空間及非當前版本／soft delete 狀態。live bytes 減少不等於可計費空間立即釋放，未核對者標記 unknown。
