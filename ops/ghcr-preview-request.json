@@ -11,7 +11,7 @@
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
-  "reason": "Make fixed Janus preview point to newest full-tested SHA candidate after health/negative auth gates; don't promote canonical traffic.",
+  "reason": "Live idempotent re-verification of existing approved fixed-preview source SHA after additional fail-closed provenance and web safety tests. Must make zero GCP writes when preview is already this SHA and preserve canonical tags and old 100% traffic.",
   "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
-  "attempt": 1
+  "attempt": 2
 }
