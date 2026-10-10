@@ -1,7 +1,9 @@
 {
-  "enabled": true,
+  "enabled": false,
   "operation": "specialist-retrain",
   "request_id": "b7-ghcr-monthly-20261010-v1",
   "expected_release_sha": "038498c70e12488f345c3ca0fbe821846ddee4cc",
-  "purpose": "New bounded B7 GHCR monthly retrain/OOS/cache acceptance; not replay of 2026-10-08 old request. Controller enforces current dependency and busy fences."
+  "purpose": "New bounded B7 GHCR monthly retrain/OOS/cache acceptance; not replay of 2026-10-08 old request. Controller enforces current dependency and busy fences.",
+  "dispatched_via": "https://github.com/tommylin15/janus-omniforge/actions/runs/38026093638",
+  "retired_reason": "Controller invocation completed. Mart final execution and immutable artifacts require separate B7 readback; never auto-replay."
 }
