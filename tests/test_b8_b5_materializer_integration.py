@@ -22,7 +22,6 @@ sys.path.insert(0, str(ROOT / "jobs/intelligence-mart"))
     ("bigquery", True),
 ])
 def test_b5_default_and_opt_in_operational_fallback(monkeypatch, tmp_path, backend, failure):
-    import google.cloud.bigquery as bq
     from google.api_core.exceptions import ServiceUnavailable
     from pyiceberg.table import StaticTable
     from intelligence_mart.analytics_reader import IcebergSnapshotReader, AnalyticsSnapshot
@@ -81,6 +80,7 @@ def test_b5_default_and_opt_in_operational_fallback(monkeypatch, tmp_path, backe
                         AnalyticsSnapshot(core_snapshot_id, {"ohlcv": rows},
                                           {"total_rows": len(rows)}))
     if backend == "bigquery":
+        bq = pytest.importorskip("google.cloud.bigquery")
         class DownClient:
             def __init__(self, **kwargs):
                 pass
@@ -119,5 +119,5 @@ def test_b5_explicit_bigquery_without_opt_in_rejected_before_io(monkeypatch, tmp
     assert 'selected_backend = backend_for("ml-oos", args.backend' in source
     assert 'check_fixed_core(identity)' in source
     assert source.index('selected_backend = backend_for') < source.index('# B6 pre-query lookup')
-    assert "partial wrote immutable export" in source
+    assert "partially wrote immutable export" in source
     assert "choice = execute_ml_oos(" in source
