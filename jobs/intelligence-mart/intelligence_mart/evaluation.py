@@ -188,6 +188,10 @@ def walk_forward(samples, *, model_name, features, cost_bps, horizon_days):
         predictions.extend({"symbol": r["symbol"], "analysis_as_of": r["analysis_as_of"],
                             "outcome_as_of": r["outcome_as_of"], "excess_return": r["excess_return"],
                             "prediction": float(p), "probability": probability, "training_label_cutoff": cutoff,
+                            "sample_source_authorization": r["source_authorization"],
+                            "sample_provenance_id": r["provenance_id"],
+                            "feature_available_at": r["feature_available_at"],
+                            "label_available_at": r["label_available_at"],
                             "future_outcomes": r.get("future_outcomes", {}),
                             "feature_contributions": dict(zip(features, map(float, values), strict=True)),
                             "explanation_base_value": float(base),
@@ -195,7 +199,7 @@ def walk_forward(samples, *, model_name, features, cost_bps, horizon_days):
                            for r, p, probability, values, base in zip(test, pred, probabilities, contributions, bases, strict=True))
         folds.append({"month": month, "training_samples": len(train), "calibration_samples": len(calibration),
                       "test_samples": len(test), "label_cutoff": cutoff})
-    payload = {"artifact_kind": "mart_oos_evaluation_v1", "protocol_version": "taiwan-purged-monthly-v4",
+    payload = {"artifact_kind": "mart_oos_evaluation_v1", "protocol_version": "taiwan-purged-monthly-v5",
                "model_name": model_name, "features": features, "horizon_days": horizon_days,
                "input_hash": digest(samples), "folds": folds, "predictions": predictions,
                "status": "evaluated" if folds else "insufficient_history", "promotion_eligible": False,
