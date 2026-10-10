@@ -96,10 +96,8 @@ A 組不再列 active TODO；下一個 active work 為 B 組。
 
 ## B 組：下一個執行入口（B7／B8 CLOSED → B9）
 
-**B0～B6 CLOSED／PASS，不重跑。** 歷史驗收只留 [B0](archive/group-b-b0-baseline-closure-2026-10-07.md)、[B1](archive/group-b-b1-reader-acceptance-2026-10-07.md)、[B2](archive/group-b-b2-closure-2026-10-07.md)、[B3](archive/group-b-b3-closure-2026-10-07.md)、[B4](archive/group-b-b4-deep-coverage-closure-2026-10-07.md)、[B5](archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)、[B6](archive/group-b-b6-ml-oos-cache-closure-2026-10-08.md)。B7 月度機制、B7 derived-cache freshness 與 B8 均已通過各自核准的 dev 驗收；B9 仍待執行。B7 freshness 完整證據見 [結案](archive/group-b-b7-derived-cache-freshness-closure-2026-10-10.md)，B8 完整證據見 [B8 結案](archive/group-b-b8-closure-2026-10-10.md)。執行方法見 [B 組指令](codex-execution-plan.md)。
+**B0～B8 中 B7／B8 已各自 CLOSED／PASS，不重跑。B9 是下一個 active gate。** B0～B6 歷史結案： 歷史驗收只留 [B0](archive/group-b-b0-baseline-closure-2026-10-07.md)、[B1](archive/group-b-b1-reader-acceptance-2026-10-07.md)、[B2](archive/group-b-b2-closure-2026-10-07.md)、[B3](archive/group-b-b3-closure-2026-10-07.md)、[B4](archive/group-b-b4-deep-coverage-closure-2026-10-07.md)、[B5](archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)、[B6](archive/group-b-b6-ml-oos-cache-closure-2026-10-08.md)。B7 月度機制、B7 derived-cache freshness 與 B8 均已通過各自核准的 dev 驗收；B9 仍待執行。B7 freshness 完整證據見 [結案](archive/group-b-b7-derived-cache-freshness-closure-2026-10-10.md)，B8 完整證據見 [B8 結案](archive/group-b-b8-closure-2026-10-10.md)。執行方法見 [B 組指令](codex-execution-plan.md)。
 
-- [x] **B7 月度執行機制（PASS）**：先核對 `main` 的 retrain／calibration／OOS／reconciliation 實作與最新 CI、真實 Scheduler／controller 設定。目標 effective cadence 為**每月第一個週六 10:30 Asia/Taipei**；Scheduler 可以是現役 hourly controller trigger，但必須證明 controller 的 monthly due gate、依賴 fence、一次性／可重跑 semantics、Job execution、immutable model/evaluation artifacts 與 cache reconcile **真實**成立。只看到 workflow SUCCESS、code gate 或 Scheduler 字串不算 B7 PASS；缺實際月度 execution 時標 `NOT_VERIFIED`，不捏造。只補必要的 deployment／readback。
-- [x] **B7 derived cache freshness（CLOSED／PASS；不重訓）**：基於原 B7 月度 `sha256:687fae3e…` Core，透過獨立 PyIceberg refresh 取得 11,432 rows 新 ML/OOS immutable manifest；34 targeted tests 與 [GCP live workflow #38056677635](https://github.com/tommylin15/janus-omniforge/actions/runs/38056677635) PASS。新來源 reconciliation `status=pass`、`ml_oos_derived_cache.status=current`、`exact-core`，25 active refs 與 GCS receipt byte readback 成立。原月度 reconciliation `partial` 保留歷史，不覆寫；無重訓／BQ／CEO／promotion。詳細見 [B7 derived-cache 結案](archive/group-b-b7-derived-cache-freshness-closure-2026-10-10.md)。
 - [ ] **B9（B7／B8 CLOSED；下一個 active）五 Specialist／OOS 整合驗收**：模型品質證據必須使用與當次 Core source fence、PIT、source authorization 相容的資料；不以 B7 historical cache 或 B8 舊 snapshot 直接代替。完成 Fundamental／Valuation／Quant／Risk-Regime／Event 的 deterministic／ML、Taiwan PIT walk-forward OOS、calibration／champion evidence、structured + plain-language artifacts、incremental reuse／provenance／source authorization／public-private isolation；正常 path 不呼叫生成式 LLM，不以模型訓練成功代替 live publication gate。
 - [ ] **B 組跨階段安全底線**：PostgreSQL serving 與 A 組已驗證 read path 不回歸；BigQuery failure audit/fallback 不修改 canonical Iceberg；不使用 BigQuery Storage Read API；不自動呼叫 CEO；維持現有 1 CPU／1 GiB Mart 限制。新付費 API／資源、IAM 擴權或 catalog migration 需另取得授權，未授權部分單獨 `BLOCKED`，其餘可行項繼續。
 
@@ -130,7 +128,7 @@ A 組不再列 active TODO；下一個 active work 為 B 組。
 - [x] 建立 dirty dependency graph：依 accepted/rejected PIT dependency state、feature/engine/model version 只 invalidate 受影響 symbol/specialist；B4 已有 regression + live evidence。
 - [x] monthly revenue／financials、EOD price、event 依 specialist dependency mapping 選擇性 invalidation；event-only regression 已驗 1 computed / 4 reused。
 - [x] 無 input change 直接 reuse，保留可稽核 cache identity；B4 live 第二輪 0 computed / 25 reused。
-- [ ] 每月第一個週六 10:30（Asia/Taipei）執行 retrain／calibration／OOS evaluation／reconciliation，檢查 missed invalidation、orphan artifact、cache identity、model version。
+- [x] 每月第一個週六 10:30（Asia/Taipei）的 retrain／calibration／OOS evaluation／reconciliation 首輪實際執行與本次 derived cache freshness 已通過；下次自然排程尚未到期，見 B7 archive。
 - [ ] specialist change 只標記 CEO report freshness／material delta，**不得自動觸發 CEO LLM**。
 
 ## 3. `WBS-5-MART-AI-PROVIDERS` — 【Sol】
