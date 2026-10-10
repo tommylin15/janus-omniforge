@@ -44,13 +44,12 @@
 
 ### 3.2 BigQuery adapter
 
-BigQuery 只作 analytics compute：
+BigQuery 僅在明確 opt-in 的 ML/OOS batch analytics 使用：
 
-- 每日盤後 liquid-500 screening；
-- cross-sectional rank/window/join；
-- specialist feature aggregation；
-- OOS/evaluation preprocessing；
-- ML training dataset preparation。
+- OOS/evaluation SQL window、reduction 與必要的 batch aggregation；
+- ML training dataset preparation 和 versioned GCS Parquet export。
+
+每日盤後 liquid-500 screening、一般 specialist 與增量讀取均維持 PyIceberg 預設。
 
 禁止 Storage Read API、`bigquery.readsessions.*` 與 `google-cloud-bigquery-storage`。小型結果使用一般 query/result API；大型 ML input 由 SQL 縮減後輸出 versioned GCS Parquet artifact。
 
