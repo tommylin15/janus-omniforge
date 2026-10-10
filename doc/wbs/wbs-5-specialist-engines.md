@@ -21,7 +21,7 @@
 
 ### Market Coverage
 
-約 500 檔保留低成本 screening 與必要 cross-sectional Quant inference，目的為 discovery，不作 500×5 深度分析。每個交易日 EOD canonical data ready 後執行一次；BigQuery 通過 fidelity gate 後優先承接。
+約 500 檔保留低成本 screening 與必要 cross-sectional Quant inference，目的為 discovery，不作 500×5 深度分析。每個交易日 EOD canonical data ready 後執行一次；依 2026-10-10 使用者最新決策，預設維持 PyIceberg，不以 BigQuery fidelity PASS 自動切流。
 
 ### Deep Coverage
 
