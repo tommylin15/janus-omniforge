@@ -10,7 +10,9 @@
 - 固定 Core fence：sha256:687fae3ea802ef255bd33ecf5e21a6d25801c467f8836181dae9fc3ef97a344e，和 B7 最新受驗證 Core 同源；audit 當下是否仍為所有 Core 的最新來源尚未獨立驗證。
 - 首輪 [Actions #38061211051](https://github.com/tommylin15/janus-omniforge/actions/runs/38061211051) 6 項測試 PASS、GCS readback FAIL：稽核程式混淆 specialist logical output hash 與 immutable JSON full-byte SHA256。未修改原始 artifacts。
 - 修正後 [Actions #38061288253](https://github.com/tommylin15/janus-omniforge/actions/runs/38061288253) **SUCCESS**，對 25 份 persisted specialist JSON、29 組 OOS evaluation、manifest／pointer hash 完成 GCS readback。對應 source SHA 3734031aa4a2bee5480210209ccbbb899aa8b1b4；六項單元測試 PASS。這是 **artifact readback PASS**，不是 B9 quality PASS。
-- 已補 hash path／byte-level tampering 回歸測試；[Actions #38061597423](https://github.com/tommylin15/janus-omniforge/actions/runs/38061597423) 以 source SHA 6a29eed558c2da0e62e00aa0439bc1978fcfded0 執行，**7 項單元測試 + 25/29 artifacts 真實 GCS 唯讀 readback 全部 SUCCESS**。先前 #38061288253 僅為修正前的 6-test checkpoint；現行以本次 7-test 流程為最新受驗證稽核。
+- 最新獨立 [B9 Actions #38061999283](https://github.com/tommylin15/janus-omniforge/actions/runs/38061999283) **SUCCESS**：9 項單元測試（含 GCS logical vs byte SHA、v5 PIT lineage／tampering negative cases）PASS；既有 immutable **25 specialist／29 OOS** 真實 readback 再次 PASS。既有 v4 persisted predictions 共 **1,536 筆逐模型 prediction records** 未嵌入逐筆來源授權及 sample provenance，保留 legacy/not verified，不事後覆寫。
+- B9 新程式碼在 [main 2aea429](https://github.com/tommylin15/janus-omniforge/commit/2aea429df00144158ce08efe5ec6a50c300cccc2) 將新的 OOS evaluation protocol 改為 **taiwan-purged-monthly-v5**，逐筆寫入 already-fenced sample source authorization、sample provenance、feature/label available-at。這只屬未來新 evaluation 的契約，不會改寫既有 v4 GCS immutable results；**尚無 v5 真實 dev OOS output readback，不宣稱完成 live integration**。
+- [Mart selective CI #38062072521](https://github.com/tommylin15/janus-omniforge/actions/runs/38062072521) **SUCCESS：143 passed、7 warnings**，包含既有 model walk-forward／OOS regression。CI success 不構成 model quality PASS。
 - 此次沒有重訓、BigQuery 工作、Cloud Run Job 變動、champion 升級、publication 或 owner data mutation；固定 execution 的原始 OOS／specialist artifacts 均 immutable。
 
 ## 五角色 OOS 觀察
