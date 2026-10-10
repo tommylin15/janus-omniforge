@@ -1,7 +1,7 @@
 # Janus 架構決策 — Iceberg canonical + BigQuery analytics hybrid
 
 日期：2026-10-06  
-狀態：**B 組優先架構已核准；implementation 尚未完成**
+狀態：**架構已核准；B0～B6 的實作／live gate 已完成，B7～B9 仍待驗收**（進度以 [TODO](todo.md) 為準）。目前 PyIceberg 為 default，尚未取得 B8 cutover evidence。
 
 ## 1. 決策
 
