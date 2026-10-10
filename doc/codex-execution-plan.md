@@ -1,7 +1,7 @@
 # Janus — Codex 執行指令
 
-更新：2026-10-07  
-用途：提供可直接交給 Codex／ChatGPT Work 的 active 工程指令。**目前 A 組已 CLOSED；B 組 ACTIVE；C 組不得因閱讀本檔而自動啟動。**
+更新：2026-10-10  
+用途：B 組下階段工程交接。**A 組及 GHCR CI/CD 均已按目前核准範圍結案；B7 ACTIVE，B8／B9 接續；C 不自動啟動。**
 
 權威順序：`AGENTS.md` → `PROJECT_RULES.md` → `todo.md` → 本檔 → 對應 WBS／SPEC → GitHub `main` implementation／runtime evidence。歷史 checkpoint、archive 與 `spec/operations-and-testing.md` 可證明過去做過什麼，但不覆蓋目前 active contract。
 
@@ -45,51 +45,10 @@ B 組合併：
 
 依下列順序完成可執行工作，不在每個內部步驟停下要求確認：
 
-B0. Baseline — CLOSED（2026-10-07）
-- 完成證據：[B0 baseline 結案證據](archive/group-b-b0-baseline-closure-2026-10-07.md)；成功 live run `37490477263`。除非 B1/B2 回歸診斷需要，不重跑 B0。
-- 讀 specialist_runtime.py、storage.py、packages/duckdb_query/iceberg.py、Core manifest/snapshot contract 與相關 tests。
-- 固定一份既有真實 dev Core snapshot/cohort。
-- 記錄 PyIceberg row count、output hash、screening/evaluation result、elapsed、peak RSS、可取得 GCS/scan evidence。
-- 不重做 A 組 migration/backfill/serving/UI。
-
-B1. Exact-snapshot reader — CLOSED（2026-10-07）
-- 完成證據：[B1 reader 驗收](archive/group-b-b1-reader-acceptance-2026-10-07.md)；CI 105 PASS、固定 B0 snapshot dev 回歸／artifact readback PASS。下一步 B2，不重做已完成 reader。
-- 抽出 AnalyticsSnapshotReader contract。
-- 現有 PyIceberg 包成 IcebergSnapshotReader reference/fallback，保持 snapshot_id/filter/null/PIT/provenance 行為。
-- engine 不直接依賴 BigQuery client object。
-- abstraction 後既有 targeted tests 先維持 green。
-
-B2. BigQuery adapter / compatibility
-- 2026-10-07 CLOSED：shared-catalog exact mapping、native decimal/schema evolution、Core pruning 全 PASS；見 [B2 結案](archive/group-b-b2-closure-2026-10-07.md)。不重跑已通過驗收；下一步 B3，PyIceberg 仍為 default。
-- 使用一般 google-cloud-bigquery query/jobs client；不要加 google-cloud-bigquery-storage。
-- adapter 接 immutable Core execution/snapshot fence；不能證明 exact snapshot 就 fail closed，不偷讀 latest。
-- bounded probe 驗 region、GCS location、schema evolution、decimal、timestamp/date、null、partition pruning、source/provenance、processed bytes/latency。
-- legacy mutable metadata URI 不作 final architecture；優先驗證 Google-supported shared Iceberg/Lakehouse/REST catalog 或其他可證明 exact snapshot 的方式。
-- 若需啟用新付費 API、建立 BigQuery/BigLake/Lakehouse dataset/catalog/connection/cache、增加 IAM 或遷移 catalog，而沒有明確授權：停止該 mutation，標 blocked；其餘 code/tests/dry-run 繼續。
-
-B3. 每日盤後 500 screening
-- EOD canonical data ready 後，對 liquid-500 做低成本 screening、5/20/60/120D、liquidity/volatility/relative strength、必要 valuation、cross-sectional rank。
-- BigQuery 通過 canary 後才切 default；否則維持 PyIceberg。
-- selected columns、date/symbol/partition predicate、bounded cohort、dry-run/bytes estimate、maximum-bytes fail-closed guard。
-- input identity 未變直接 reuse。
-- 不做 500×5 Fundamental/Valuation/Quant/Risk/Event 深度分析。
-
-B4. Deep Coverage 五 specialist — CLOSED（2026-10-07）
-- 完成證據：[B4 結案](archive/group-b-b4-deep-coverage-closure-2026-10-07.md)。
-- universe = active watchlist ∪ effective holdings；離榜持股保留，清倉且不在 watchlist 才退出。
-- accepted/rejected PIT dependency state + feature/engine/model version 決定 dirty；只有受影響 specialist 重算。
-- live acceptance：5 symbols × 5 roles；第一輪 25 computed，第二輪同 Core snapshot 0 computed / 25 reused；screening=0、LLM tokens=0。
-- 不重做 B4/B5/B6 已完成範圍。依使用者 2026-10-08 最新決策，執行順序恢復 **B7 → B8 → B9**；B7 已啟動，尚未 CLOSED。
-
-B5. ML / OOS data path — CLOSED / PASS（2026-10-08）
-- [B5 結案](archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)；live acceptance #37706568819 SUCCESS。10,978 rows／499 symbols／1 Parquet shard／533,945 bytes；Mart 真實讀回 content hash、Core snapshot、row count、export bytes 全相等。
-- Shared Iceberg external `EXPORT DATA` 曾回報 BigQuery internalError；現採 frozen Core SQL reduction → native TEMP table → `EXPORT DATA` versioned GCS Parquet → DROP TEMP → deployed Mart。BQ 30 MiB billed（原始產出），最終 immutable reuse 0 billed；不使用 Storage Read API、不中斷 PyIceberg default。
-- 保存 immutable Core snapshot identity、analysis_as_of、schema/feature/model version、content hash、source provenance、retention。B5 完成不代表模型 OOS 或 monthly scheduling 完成；不重複掃描 warehouse。
-
-B6. Dirty dependency / cache — CLOSED / PASS（2026-10-08）
-- [B6 結案](archive/group-b-b6-ml-oos-cache-closure-2026-10-08.md)：BigQuery-derived ML/OOS pre-query source-only cache；B4 五 specialist cache 未重做；保留舊 immutable artifact 原始 Core lineage。
-- CI #37708769385 137 PASS；live #37708769182 immutable hash verified，10,978 rows／533,945 bytes／BigQuery jobs 0／billed 0／Mart readback PASS。
-- dirty source/model/date 與無關 global Core change 為 targeted tests，未更動 live canonical；CEO 未觸發。
+B0～B6. CLOSED / PASS；不重做已驗收成果。
+- B0 baseline、B1 exact-snapshot reader、B2 BigQuery fidelity、B3 liquid-500 screening、B4 Deep Coverage dirty/reuse、B5 ML/OOS Parquet export、B6 derived-cache 均有獨立 live/CI acceptance。
+- 完成證據統一由 doc/todo.md 的 B0～B6 archive links 查閱；現階段未有新回歸證據時，不重新部署或重跑已完成步驟。
+- 現役 PyIceberg default；BigQuery 實際 cutover 必須等 B8 同 workload gate。
 
 B7. 月度批次 — ACTIVE / 等待 live acceptance
 - 將 effective scheduler/controller 定義收斂為每月第一個週六 10:30（Asia/Taipei）。
