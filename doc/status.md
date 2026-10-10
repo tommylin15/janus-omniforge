@@ -1,16 +1,16 @@
 # Janus Current Status
 
-更新：2026-10-10（Asia/Taipei；GitHub Actions 真實 dev receipt）
+更新：2026-10-10（Asia/Taipei；依真實 GitHub Actions／Cloud Run 驗收及使用者縮減驗收範圍）
 
-權威：GitHub `main` + CI／live runtime evidence，完整最新記錄見 [四 Jobs／API 100% 切流與回滾](archive/cicd-ghcr-api-promotion-2026-10-10.md)。歷史舊版 checkpoint 已歸檔，不代表目前活躍狀態。
+權威證據：[新版 GHCR Jobs／API 發布驗收](archive/cicd-ghcr-api-promotion-2026-10-10.md)；實作以 GitHub `main` 與現役 runtime 為準。
 
-## 新版 API 正式切流與真實 traffic rollback：PASS；CI/CD 整體 PARTIAL
+## 新版 CI/CD：PASS（目前 dev 發布範圍結案）
 
-- 來源 `038498c70e12488f345c3ca0fbe821846ddee4cc` 的完整 GHCR 發布 [#37953986962](https://github.com/tommylin15/janus-omniforge/actions/runs/37953986962)、0% candidate、固定 Preview、OAuth/MCP 負向關卡及相同 SHA 真人 A→B→A／PnL `USER_ATTESTED` 已驗收。人工證據不冒充機器雙帳號重演。
-- **新版四 Jobs**：[rollout #38012746734](https://github.com/tommylin15/janus-omniforge/actions/runs/38012746734) receipt `phase=PASS`，四目標各兩次不同 execution，8/8 live canary；`rollback_mode=reversible_ghcr`、前一版 digest／config baseline verified、rollback available。**Jobs 舊映像實際 rollback 尚未演練**（`old_image_rollback_exercised=false`）。
-- **新版 API**：[promotion #38020693214](https://github.com/tommylin15/janus-omniforge/actions/runs/38020693214) receipt `phase=PASS`、`rollback_rehearsal=PASS`；舊 `janus-api-00451-cuw` → 新 `janus-api-00457-wed` 100% → 舊版 100% → 新版 100%。最終新來源 SHA／健康／401／Ready／RoutesReady／generation／其他 tags／非 traffic config 讀回通過，固定 Preview 與 MCP 標籤未異動。
-- 未完成且**不影響上述 API traffic PASS 語意**：Jobs 真實舊 image rollback、固定 Preview 更新後故障的真實恢復演練；歷史 Private Pipeline 完整設定 parity `NOT_VERIFIED`，受保護 Research Job 舊 AR image 可恢復性 `BLOCKED`。雙 owner MCP credential 端到端沒有重新執行。
-- 依使用者範圍，舊 AR／GCS／Revision 清理不是本次結案條件；不碰資料庫、交易、Secret 或未核准資產。完整 active 待辦只看 [TODO](todo.md)。
+- **完整發布／服務鏈 PASS**：來源 `038498c70e12488f345c3ca0fbe821846ddee4cc` 全套 Release [#37953986962](https://github.com/tommylin15/janus-omniforge/actions/runs/37953986962)、公開 GHCR、0% 候選、固定 Preview、OAuth/MCP 負向驗證及同 SHA 使用者 A→B→A／PnL 人工確認均已完成；真人確認標示 `USER_ATTESTED`，不冒充機器重演。
+- **四 Jobs rollout PASS**：[ #38012746734](https://github.com/tommylin15/janus-omniforge/actions/runs/38012746734) 的 `phase=PASS`、8/8 真實 canary、rollback baseline 可用。
+- **API 正式 100% 切流與回滾 PASS**：[ #38020693214](https://github.com/tommylin15/janus-omniforge/actions/runs/38020693214) 的 `phase=PASS`、`rollback_rehearsal=PASS`；新→舊→新 100%，最終新版 `janus-api-00457-wed`，健康／build SHA／401／路由／其他 tags 讀回 PASS。
+- **2026-10-10 使用者縮減驗收範圍**：四項加強／歷史復原檢查均改 `WAIVED_BY_OWNER`，不再列為目前 dev CI/CD 結案門檻或 active TODO：① Jobs 舊映像真實 rollback drill；② 固定 Preview 故障後真實恢復 drill；③ Private Pipeline 舊設定 parity；④ Research Job 舊 AR image 恢復。**這是範圍核准而非四項測試 PASS**；實際證據仍為 `NOT_VERIFIED`／`BLOCKED`，不修改既有安全閘門及 release recovery code。決策見 [Parking Lot](parking-lot.md)。
+- 舊 AR／GCS／Revision 清理不在本次範圍；未修改實際資料、交易、Secret 或其他服務。現役其他工作依 [TODO](todo.md)。
 
 ## 其他 active work
 
