@@ -46,9 +46,12 @@ def ready(service, revision, expected):
     meta = service.get("metadata", {})
     if (not str(meta.get("generation")).isdigit()
             or not str(status.get("observedGeneration")).isdigit()
-            or int(meta["generation"]) != int(status["observedGeneration"])
-            or status.get("latestReadyRevisionName") != expected):
+            or int(meta["generation"]) != int(status["observedGeneration"])):
         raise ValueError("baseline_service_not_reconciled")
+    # The latest READY revision can be a separate 0% candidate. Only the
+    # explicit single 100% traffic target is the serving rollback baseline.
+    if api.active(service) != expected:
+        raise ValueError("baseline_serving_revision_drift")
     if (not isinstance(status.get("conditions"), list)
             or not any(x.get("type") == "Ready" and x.get("status") == "True"
                        for x in status["conditions"])
