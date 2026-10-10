@@ -1,6 +1,7 @@
 {
-  "enabled": true,
+  "enabled": false,
   "operation": "specialist-retrain",
   "request_id": "b7-monthly-live-20261008-v1",
-  "expected_mart_deploy_sha": "fb07979ab270055e2d3029457d797004c026f356"
+  "expected_mart_deploy_sha": "fb07979ab270055e2d3029457d797004c026f356",
+  "retired_reason": "Superseded by GHCR rollout; historical October 8 request was never dispatched. Do not replay."
 }
