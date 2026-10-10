@@ -74,6 +74,18 @@ jobs:
               assert r["canonical_write"] is False and r["cache_write"] is False
               assert r["storage_read_api_used"] is False and r["ml_retraining_triggered"] is False
           PY
+      - name: B5 existing immutable cache and default PyIceberg CLI integration
+        run: |
+          python scripts/gcp/b5-ml-oos-data.py --output b8-b5-cache-readback.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          e=json.loads(Path("b8-b5-cache-readback.json").read_text())
+          assert e["status"] == "pass" and e["reused"] is True
+          assert e["cache_hit_verified"] is True and e["row_count"] == 10978
+          assert e["bigquery_jobs"] == [] and e["total_billed_bytes"] == 0
+          assert e["storage_read_api_used"] is False
+          PY
       - name: Preserve GCP readback and typed injected fault evidence
         if: always()
         uses: actions/upload-artifact@v4
