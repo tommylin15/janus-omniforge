@@ -540,7 +540,6 @@ def main() -> None:
     def _pyiceberg_worker():
         from pyiceberg.table import StaticTable
         from time import time as utc_time
-        from math import isfinite
         import runpy
         props = {
             "gcs.oauth2.token": b2["token"](),
@@ -684,8 +683,9 @@ def main() -> None:
             "routing_audit": choice.audit,
             "dry_run_estimated_bytes": estimate,
             "jobs": budget.jobs if budget else [],
-            "total_billed_bytes": budget.billed if budget else 0,
+            "total_billed_bytes": None if choice.audit["fallback_triggered"] else (budget.billed if budget else 0),
             "execution_byte_budget": BUDGET,
+            "billed_bytes_complete": not choice.audit["fallback_triggered"],
             "query_timeout_seconds": QUERY_TIMEOUT_SECONDS,
             "column_date_partition_bounded": True,
         },
@@ -725,6 +725,7 @@ def main() -> None:
         "total_billed_bytes": budget.billed if budget else 0,
         "routing_audit": choice.audit,
         "effective_backend": outcome["backend"],
+        "billed_bytes_complete": not choice.audit["fallback_triggered"],
         "execution_byte_budget": BUDGET,
         "query_timeout_seconds": QUERY_TIMEOUT_SECONDS,
         "dry_run_estimated_bytes": estimate,
