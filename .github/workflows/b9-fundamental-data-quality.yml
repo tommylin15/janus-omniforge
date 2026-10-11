@@ -37,7 +37,9 @@ jobs:
             jobs/intelligence-mart/requirements.lock
       - name: Install pinned dependencies
         run: |
-          python -m pip install -r requirements-dev.txt -r jobs/ingestion-core/requirements.lock -r jobs/intelligence-mart/requirements.lock
+          python -m pip install -r requirements-dev.txt
+          python -m pip install -r jobs/ingestion-core/requirements.lock
+          python -m pip install -r jobs/intelligence-mart/requirements.lock
       - name: Verify Fundamental source/PIT/period/rule baselines
         run: |
           python -m py_compile jobs/intelligence-mart/intelligence_mart/evaluation.py jobs/ingestion-core/ingestion_core/data_supplement.py jobs/ingestion-core/ingestion_core/runtime_entrypoint.py
