@@ -79,13 +79,15 @@ def validated_inputs(datasets, symbol, as_of, snapshot, *, preserve_financial_ba
     scoped = {name: [r for r in rows if not r.get("symbol") or r.get("symbol") == symbol]
               for name, rows in datasets.items()}
     selected = _research_rows(scoped, date.fromisoformat(as_of), preserve_financial_basis=preserve_financial_basis)
-    valid, rejected, _ = validate_evidence(evidence_from_rows(selected, snapshot), date.fromisoformat(as_of))
+    valid, rejected, _ = validate_evidence(
+        evidence_from_rows(selected, snapshot, preserve_financial_basis=preserve_financial_basis),
+        date.fromisoformat(as_of), preserve_financial_basis=preserve_financial_basis)
     accepted = {item["evidence_id"] for item in valid}
     result = {}
     for name, rows in selected.items():
         result[name] = []
         for row in rows:
-            identity = _evidence_id(name, row, snapshot)
+            identity = _evidence_id(name, row, snapshot, preserve_financial_basis=preserve_financial_basis)
             if identity not in accepted:
                 continue
             times = [row.get(k) for k in ("published_at", "availability_at", "observed_at", "record_at",
