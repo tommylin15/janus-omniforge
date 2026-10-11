@@ -142,3 +142,27 @@ def test_same_issuer_in_every_fold_blocks_oos():
 
 def test_rules_are_only_unreviewed_baseline():
     assert rules_baseline("預告法人說明會") == {"category": "investor_meeting", "direction": "uncertain"}
+
+
+def test_unseen_holdout_class_is_penalized_in_full_taxonomy_brier():
+    d = datetime(2026, 2, 1, tzinfo=timezone.utc)
+    records = []
+    for i in range(12):
+        holdout = i >= 10
+        records.append({
+            "candidate_id": f"new-{i}", "event_group_id": f"group-{i}",
+            "symbol": f"hold-{i}" if holdout else f"train-{i}",
+            "text": "營收超出預期" if i % 2 else "股利發放公告",
+            "category": "guidance" if i == 10 else "earnings" if i % 2 else "dividend",
+            "direction": "negative" if i == 10 else "positive" if i % 2 else "neutral",
+            "published_at": (d + timedelta(days=i)).isoformat(),
+            "reviewed_at": (d + timedelta(days=i, hours=1)).isoformat(),
+            "review_status": "approved", "review_method": "human",
+            "label_version": VERSION, "training_authorization_reference": "TEST-ONLY",
+        })
+    result = chronological_oos(records, cutoff=(d + timedelta(days=10)).isoformat(),
+                               min_train=10, min_test=2)
+    assert result["status"] == "research_oos_evaluated"
+    assert result["metrics"]["category"]["multiclass_brier_uncalibrated"] >= 0.5
+    assert result["metrics"]["direction"]["multiclass_brier_uncalibrated"] >= 0.5
+    assert result["classifier_probability"] is None
