@@ -20,6 +20,7 @@ class FinalWatchlistPage extends StatefulWidget {
 class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBindingObserver {
   late Future<dynamic> data = _load();
   dynamic lastGoodData;
+  int loadGeneration = 0;
   Timer? quoteTimer;
   bool foreground = true;
 
@@ -59,6 +60,11 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
   @override
   void didUpdateWidget(FinalWatchlistPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.api, widget.api)) {
+      // Owner/API token transitions must never reuse another owner's snapshot.
+      lastGoodData = null;
+      data = _load();
+    }
     if (oldWidget.active != widget.active) {
       if (widget.active) {
         reload();
@@ -90,12 +96,13 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
   }
 
   Future<dynamic> _load() async {
+    final generation = ++loadGeneration;
     final stopwatch = Stopwatch()..start();
     try {
       final response = await widget.api.get('/api/v1/me/watchlist')
           .timeout(const Duration(seconds: 9));
-      lastGoodData = response;
-      return response;
+      if (generation == loadGeneration) lastGoodData = response;
+      return generation == loadGeneration ? response : null;
     } finally {
       stopwatch.stop();
       FinalPerf.recordCore('watchlist', stopwatch.elapsed);

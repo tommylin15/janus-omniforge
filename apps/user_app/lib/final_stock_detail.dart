@@ -34,9 +34,10 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
   // Requests are bounded independently: one slow optional card never holds the page.
   Future<dynamic> safe(String key, String path) async {
     final requestedSymbol = widget.symbol;
+    final requestedApi = widget.api;
     try {
-      final value = await widget.api.get(path).timeout(const Duration(seconds: 9));
-      if (mounted && widget.symbol == requestedSymbol) {
+      final value = await requestedApi.get(path).timeout(const Duration(seconds: 9));
+      if (mounted && widget.symbol == requestedSymbol && identical(widget.api, requestedApi)) {
         setState(() {
           values[key] = value;
           errors.remove(key);
@@ -44,7 +45,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
       }
       return value;
     } catch (_) {
-      if (mounted && widget.symbol == requestedSymbol) {
+      if (mounted && widget.symbol == requestedSymbol && identical(widget.api, requestedApi)) {
         setState(() => errors.add(key));
       }
       return null;
@@ -72,7 +73,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
   @override
   void didUpdateWidget(covariant FinalStockDetailPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.symbol != widget.symbol) {
+    if (oldWidget.symbol != widget.symbol || !identical(oldWidget.api, widget.api)) {
       quoteTimer?.cancel();
       values.clear();
       errors.clear();

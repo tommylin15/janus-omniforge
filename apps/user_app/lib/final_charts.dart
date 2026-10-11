@@ -484,7 +484,20 @@ class _CandlestickPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _CandlestickPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _CandlestickPainter oldDelegate) {
+    if (hasVolume != oldDelegate.hasVolume || candles.length != oldDelegate.candles.length) {
+      return true;
+    }
+    for (var i = 0; i < candles.length; i++) {
+      final a = candles[i];
+      final b = oldDelegate.candles[i];
+      if (a.day != b.day || a.open != b.open || a.high != b.high ||
+          a.low != b.low || a.close != b.close || a.volume != b.volume) {
+        return true;
+      }
+    }
+    return false;
+  }
 }
 
 void _paintLabel(

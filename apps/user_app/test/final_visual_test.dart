@@ -40,6 +40,20 @@ class FinalFakeApi extends legacy.Api {
   Future<dynamic> patch(String path, Map<String, dynamic> body) async => body;
 }
 
+class StalledWatchlistApi extends FinalFakeApi {
+  StalledWatchlistApi() : super(const <String, dynamic>{});
+  final Completer<dynamic> stalled = Completer<dynamic>();
+
+  @override
+  Future<dynamic> get(String path) {
+    if (path == '/api/v1/me/watchlist') {
+      reads.add(path);
+      return stalled.future;
+    }
+    return super.get(path);
+  }
+}
+
 class DeferredLedgerApi extends FinalFakeApi {
   DeferredLedgerApi(super.values);
   final history = Completer<dynamic>();
@@ -101,6 +115,21 @@ void main() {
     expect(find.text('法人動向'), findsOneWidget);
     expect(find.text('外資買賣超股數 225,187,325'), findsOneWidget);
     expect(find.text('研究內容尚未就緒'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Watchlist waiting is bounded and offers a retry without spinner',
+      (tester) async {
+    mobileView(tester);
+    final api = StalledWatchlistApi();
+    await tester.pumpWidget(MaterialApp(home: FinalWatchlistPage(api)));
+    await tester.pump();
+    expect(find.text('關注清單載入中'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 10));
+    await tester.pump();
+    expect(find.text('關注清單暫時無法使用'), findsOneWidget);
+    expect(find.text('重試'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

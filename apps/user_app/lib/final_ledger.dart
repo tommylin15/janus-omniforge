@@ -517,8 +517,12 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                   style: const TextStyle(color: fvInk, fontSize: 28,
                       fontWeight: FontWeight.w800, height: 1.16)),
               const SizedBox(height: 7),
-              Text('估值日 ${fvText(aggregate['valuation_date'])} · ledger v${fvText(aggregate['ledger_version'])}',
-                  style: const TextStyle(color: fvMuted, fontSize: 12)),
+              Wrap(spacing: 10, runSpacing: 3, children: [
+                Text('估值日 ${fvText(aggregate['valuation_date'])}',
+                    style: const TextStyle(color: fvMuted, fontSize: 12)),
+                Text('ledger v${fvText(aggregate['ledger_version'])}',
+                    style: const TextStyle(color: fvMuted, fontSize: 12)),
+              ]),
             ],
           )),
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
