@@ -89,11 +89,12 @@ def _metric(row: dict[str, Any]) -> str:
 def _evidence_id(dataset_id: str, row: dict[str, Any], core_snapshot_id: str, *,
                  preserve_financial_basis: bool = False) -> str:
     snapshot = str(row.get("__snapshot_id", core_snapshot_id))
-    identity = canonical_json([dataset_id, row.get("symbol"), _metric(row), _row_time(row),
-                               row.get("value", row.get("close", row.get("net_shares", row.get("pe_ratio", row.get("severity"))))),
-                               row.get("provenance_id", ""), snapshot,
-                               (row.get("report_scope"), row.get("period_basis"))
-                               if preserve_financial_basis and dataset_id == "financials" else None])
+    identity_parts = [dataset_id, row.get("symbol"), _metric(row), _row_time(row),
+                      row.get("value", row.get("close", row.get("net_shares", row.get("pe_ratio", row.get("severity"))))),
+                      row.get("provenance_id", ""), snapshot]
+    if preserve_financial_basis and dataset_id == "financials":
+        identity_parts.append((row.get("report_scope"), row.get("period_basis")))
+    identity = canonical_json(identity_parts)
     return f"ev-{sha256(identity).hexdigest()[:24]}"
 
 
@@ -126,8 +127,8 @@ def evidence_from_rows(datasets: dict[str, list[dict[str, Any]]], core_snapshot_
                 "dataset_id": dataset_id,
                 "symbol": row.get("symbol"),
                 "metric": metric,
-                "report_scope": row.get("report_scope") if is_financial else None,
-                "period_basis": row.get("period_basis") if is_financial else None,
+                **({"report_scope": row.get("report_scope"), "period_basis": row.get("period_basis")}
+                   if preserve_financial_basis and is_financial else {}),
                 "value": value,
                 "unit": unit or "not_applicable",
                 "source_id": row.get("source_id"),
