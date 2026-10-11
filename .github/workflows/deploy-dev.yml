@@ -324,6 +324,7 @@ jobs:
           python -m pytest -q
           tests/test_intelligence_mart_runtime.py
           tests/test_specialist_engines.py
+          tests/test_event_labeling.py
           tests/test_b4_deep_coverage.py
           tests/test_b5_ml_oos_data.py
           tests/test_b7_monthly_reconciliation.py
