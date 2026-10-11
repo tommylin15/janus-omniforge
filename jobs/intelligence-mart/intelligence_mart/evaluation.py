@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import timedelta
+from datetime import date, timedelta
 from math import ceil, sqrt
 from statistics import correlation, fmean, pstdev
 
 from .specialists import digest, number
-from .facts import _instant, _financial_period_time
+from .facts import _instant, _financial_period_time, analysis_cutoff
 
 
 def ranks(values):
@@ -116,7 +116,7 @@ def walk_forward(samples, *, model_name, features, cost_bps, horizon_days):
         if row.get("source_authorization") not in {"official", "approved_fallback"} or not row.get("provenance_id"):
             raise ValueError("benchmark requires authorized PIT provenance")
         dates = {k: _instant(row.get(k)) for k in ("feature_available_at", "analysis_as_of", "label_available_at", "outcome_as_of")}
-        if any(v is None for v in dates.values()) or dates["feature_available_at"] > dates["analysis_as_of"] \
+        if any(v is None for v in dates.values()) or dates["feature_available_at"] > analysis_cutoff(date.fromisoformat(row["analysis_as_of"][:10])) \
                 or dates["label_available_at"] < dates["outcome_as_of"]:
             raise ValueError("invalid PIT feature/label availability")
         if all(number(row.get(k)) is not None for k in (*features, "excess_return")):
@@ -151,6 +151,16 @@ def walk_forward(samples, *, model_name, features, cost_bps, horizon_days):
             bases = np.repeat(coefficients[0], len(xt))
             pred = bases + contributions.sum(axis=1)
             predict = lambda values: np.column_stack([np.ones(len(values)), (values-mean)/scale]) @ coefficients
+        elif model_name in {"zero", "financial_rule"}:
+            # Fixed, no-skill and simple financial-rule baselines; no fitting/tuning.
+            # Both use the identical matured-label train/test folds as LightGBM.
+            if model_name == "financial_rule" and features != ROLE_FEATURES["fundamental"]:
+                raise ValueError("financial rule requires same-filing fundamental features")
+            contributions = (np.clip(xt, -100., 100.) * .00005
+                             if model_name == "financial_rule" else np.zeros_like(xt))
+            bases = np.zeros(len(xt))
+            pred = bases + contributions.sum(axis=1)
+            predict = lambda values: np.zeros(len(values))
         elif model_name == "lightgbm":
             from lightgbm import LGBMRegressor
             model = LGBMRegressor(n_estimators=50, max_depth=3, num_leaves=7, n_jobs=1, random_state=17, verbosity=-1)
@@ -178,7 +188,7 @@ def walk_forward(samples, *, model_name, features, cost_bps, horizon_days):
         if not np.allclose(bases + contributions.sum(axis=1), pred, rtol=1e-5, atol=1e-8):
             raise ValueError("model contribution does not reconstruct its prediction")
         probabilities = [None]*len(test)
-        if calibration and len({r["excess_return"] > 0 for r in calibration}) == 2:
+        if model_name not in {"zero", "financial_rule"} and calibration and len({r["excess_return"] > 0 for r in calibration}) == 2:
             from sklearn.linear_model import LogisticRegression
             scores = predict(np.array([[r[k] for k in features] for r in calibration]))
             calibrator = LogisticRegression(random_state=17).fit(np.asarray(scores).reshape(-1, 1),
@@ -194,10 +204,16 @@ def walk_forward(samples, *, model_name, features, cost_bps, horizon_days):
                             "sample_provenance_id": r["provenance_id"],
                             "feature_available_at": r["feature_available_at"],
                             "label_available_at": r["label_available_at"],
+                            "financial_filing_period_end": r.get("financial_filing_period_end"),
+                            "financial_period_basis": r.get("financial_period_basis"),
+                            "financial_time_basis": r.get("financial_time_basis"),
+                            "financial_document_sha256": r.get("financial_document_sha256"),
                             "future_outcomes": r.get("future_outcomes", {}),
                             "feature_contributions": dict(zip(features, map(float, values), strict=True)),
                             "explanation_base_value": float(base),
-                            "explanation_method": "linear_additive" if model_name == "linear" else "native_tree_shap"}
+                            "explanation_method": ("zero_signal" if model_name == "zero" else
+                                "fixed_financial_rule" if model_name == "financial_rule" else
+                                "linear_additive" if model_name == "linear" else "native_tree_shap")}
                            for r, p, probability, values, base in zip(test, pred, probabilities, contributions, bases, strict=True))
         folds.append({"month": month, "training_samples": len(train), "calibration_samples": len(calibration),
                       "test_samples": len(test), "label_cutoff": cutoff})
@@ -260,7 +276,7 @@ def build_quant_samples(datasets, symbols, as_of, snapshot, horizon_days):
 ROLE_FEATURES = {"fundamental": ["net_income_parent_yoy_percent_same_filing", "eps_yoy_percent_same_filing"],
                  "valuation": ["pe_ratio", "pb_ratio", "dividend_yield_percent"]}
 
-FINANCIAL_HISTORY_POLICY = {"version": "current-official-revision-v1", "strict_pit": False,
+FINANCIAL_HISTORY_POLICY = {"version": "current-official-revision-v2", "strict_pit": False,
     "revision_semantics": "current_collected_official_version_may_include_later_revisions",
     "time_preference": "authoritative_publication_then_official_filing_upload_then_period_end_plus_90_days",
     "assumed_publication_lag_days": 90, "user_authorized": "2026-10-03"}
@@ -270,7 +286,10 @@ def financial_training_history(rows):
     """User-approved current-version historical replay; canonical Core rows stay intact."""
     latest = {}
     for row in sorted(rows, key=lambda row: str(row.get("version_at") or row.get("availability_at") or row.get("observed_at") or "")):
-        key = tuple(str(row.get(name)) for name in ("symbol", "fiscal_year", "fiscal_quarter", "statement_type", "metric", "source_id"))
+        # Preserve distinct official comparison periods, scopes and reporting units.
+        key = tuple(str(row.get(name)) for name in (
+            "symbol", "fiscal_year", "fiscal_quarter", "statement_type",
+            "metric", "source_id", "report_scope", "period_basis", "unit"))
         latest[key] = row
     output = []
     for row in latest.values():
@@ -291,10 +310,53 @@ def financial_training_history(rows):
     return output
 
 
+def _fundamental_filing_features(rows):
+    """Choose one complete official comparison pair, never independently latest metrics."""
+    buckets, conflicts = defaultdict(dict), set()
+    for row in rows:
+        metric = row.get("metric")
+        if (metric not in ROLE_FEATURES["fundamental"] or row.get("source_id") != "mops"
+                or row.get("financial_feature_version") != "same-filing-comparatives-v1"
+                or row.get("unit") != "percent" or row.get("statement_type") != "income"
+                or row.get("report_scope") != "consolidated"
+                or row.get("period_basis") not in {"single_quarter", "year_to_date"}):
+            continue
+        end, prior = str(row.get("fiscal_period_end") or ""), str(row.get("comparison_period_end") or "")
+        try:
+            year, quarter = int(row["fiscal_year"]), int(row["fiscal_quarter"])
+            valid_end = f"{year}-{ {1:'03-31',2:'06-30',3:'09-30',4:'12-31'}[quarter]}"
+        except (ValueError, TypeError, KeyError):
+            continue
+        if end != valid_end or prior != f"{year-1}-{end[5:]}":
+            continue
+        document = row.get("source_document_sha256") or row.get("provenance_id")
+        value = number(row.get("value"))
+        if not document or value is None:
+            continue
+        key = (row.get("symbol"), end, row.get("report_scope"), row.get("period_basis"), document)
+        if metric in buckets[key] and number(buckets[key][metric]["value"]) != value:
+            conflicts.add(key)
+        buckets[key][metric] = row
+    candidates = [(key, parts) for key, parts in buckets.items()
+                  if key not in conflicts and all(metric in parts for metric in ROLE_FEATURES["fundamental"])]
+    if not candidates:
+        return None, (), "no_complete_same_filing_comparative_pair"
+    key, parts = max(candidates, key=lambda item: (
+        item[0][1], item[0][3] == "single_quarter",
+        max(str(row.get("availability_at") or "") for row in item[1].values()), str(item[0][4])))
+    selected = tuple(parts[name] for name in ROLE_FEATURES["fundamental"])
+    metadata = {
+        "financial_filing_period_end": key[1],
+        "financial_period_basis": key[3],
+        "financial_time_basis": max(str(row.get("financial_training_time_basis") or "unknown") for row in selected),
+        "financial_document_sha256": selected[0].get("source_document_sha256"),
+    }
+    return {name: number(parts[name]["value"]) for name in ROLE_FEATURES["fundamental"]}, selected, metadata
+
+
 def build_financial_samples(datasets, symbols, as_of, snapshot, horizon_days, role):
     """Replay financials using the approved reported/assumed time policy; price labels stay purged."""
     from .specialists import validated_inputs
-    from .facts import _financial_features_v2
     base, exclusions = build_quant_samples(datasets, symbols, as_of, snapshot, horizon_days)
     if role == "fundamental":
         datasets = {**datasets, "financials": financial_training_history(datasets.get("financials", []))}
@@ -304,17 +366,33 @@ def build_financial_samples(datasets, symbols, as_of, snapshot, horizon_days, ro
         inputs, evidence, _ = validated_inputs({name: datasets.get(name, []) for name in ("financials", "valuation")},
             sample["symbol"], sample["analysis_as_of"], snapshot)
         if role == "fundamental":
-            values = _financial_features_v2(inputs.get("financials", []))["fundamental"]
+            features, selected, metadata = _fundamental_filing_features(inputs.get("financials", []))
+            if features is None:
+                exclusions[metadata] += 1
+                continue
+            available = max(_instant(row["availability_at"]) for row in selected)
+            chosen = {row.get("provenance_id") for row in selected}
+            selected_evidence = [item for item in evidence if item["dataset_id"] == "financials"
+                                 and item["provenance_id"] in chosen]
+            if len(selected_evidence) < 2:
+                exclusions["missing_filing_provenance"] += 1
+                continue
+            output.append({**sample, **features, **metadata,
+                "feature_available_at": max(_instant(sample["feature_available_at"]), available).isoformat(),
+                "source_authorization": ("official" if sample["source_authorization"] == "official" and
+                    all(item["source_authorization"] == "official" for item in selected_evidence)
+                    else "approved_fallback"),
+                "provenance_id": digest([sample["provenance_id"], selected_evidence])})
         elif role == "valuation":
             observations = sorted(inputs.get("valuation", []), key=lambda row: str(row.get("observed_date", row.get("observed_at", ""))))
             values = observations[-1] if observations else {}
+            features = {name: number(values.get(name)) for name in ROLE_FEATURES[role]}
+            if any(value is None for value in features.values()):
+                exclusions["insufficient_pit_financial_features"] += 1
+                continue
+            output.append({**sample, **features, "provenance_id": digest([sample["provenance_id"], evidence])})
         else:
             raise ValueError("unsupported financial specialist")
-        features = {name: number(values.get(name)) for name in ROLE_FEATURES[role]}
-        if any(value is None for value in features.values()):
-            exclusions["insufficient_financial_features" if role == "fundamental" else "insufficient_pit_financial_features"] += 1
-            continue
-        output.append({**sample, **features, "provenance_id": digest([sample["provenance_id"], evidence])})
     return output, dict(exclusions)
 
 
@@ -343,7 +421,7 @@ def evaluate_core_history(datasets, symbols, as_of, snapshot):
             results.append(evaluation)
         for role, models in (("fundamental", ("lightgbm",)), ("valuation", ("lightgbm", "catboost"))):
             financial_samples, financial_exclusions = build_financial_samples(datasets, symbols, as_of, snapshot, horizon, role)
-            for model in models:
+            for model in (("zero", "financial_rule", *models) if role == "fundamental" else models):
                 evaluation = walk_forward(financial_samples, model_name=model, features=ROLE_FEATURES[role],
                                           cost_bps=30, horizon_days=horizon)
                 evaluation.pop("output_hash")
