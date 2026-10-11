@@ -126,3 +126,14 @@
 - **尚需實際完成**：以真實官方當時可得的 membership／OHLCV／benchmark 進行 Core exact-snapshot 有界匯入與輸入覆蓋率盤點，產生 research-only immutable 大樣本 OOS；逐 fold 比較四模型與規則／零訊號、IC dispersion／regime、五日及長 horizon、成本敏感度及資料偏誤。已驗證 live 前不得聲稱資料不足解決、Quant 已升級、Qlib 優於簡單基準或 B9 已 PASS。若現存 Core 不具備可確認的長期 membership／第一手歷史 receipt，只能記 `blocked_source_history`，不可造過去股票池。
 - 保持每日 500 低成本篩選、PyIceberg default、Deep Coverage 五 Specialist 和每月第一個週六 10:30 的既定邊界；不加每日全市場五模型批次、不新增付費 GCP／授權擴張、不觸發 CEO。
 
+
+## B9 Fundamental 同份官方財報樣本不足修復 checkpoint（2026-10-11）
+
+狀態：**TARGETED CI PASS / LIVE OFFICIAL REPAIR NOT VERIFIED / MODEL QUALITY NOT VERIFIED**；不修改原來 v4 29 組 immutable OOS，也不重啟 B7 月度重訓。
+
+- 舊 `financial_training_history` 與 PIT 去重都以「股票／季／metric」選最新，可能把單季、累計、合併口徑覆蓋。已為 Fundamental OOS 新增 opt-in context-aware period/revision/evidence IDs，日常 deterministic 路徑維持原 hash、feature version、cache 行為，不升級 LightGBM 4.6.0。
+- 新 OOS 要求同一官方 MOPS 合併財報、同一比較季度、同一 `source_document_sha256` 與 `period_basis` 的 EPS、歸母淨利年增率完整配對；優先單季，否則同期間累計，不拿兩個不同期別各自最新數值拼湊。每筆記錄來源授權／sample provenance、上傳時間或期末+90天推估、原 receipt 與財報期別；依既定 `strict_pit=false` 表示未證明當年原始版本。
+- 新增 `fundamental-history` **有界手動修復模式**：沿用既有 ingestion Job 與已核准最多 12 季／Deep Coverage TWSE 源；只重讀缺 EPS+歸母淨利配對或官方上傳版次更新的 MOPS 財報，不重抓價量、月營收、PE/PB、benchmark。增加 `fundamental_comparative_quarters`、`fundamental_missing_comparative_periods` 於 coverage readback；官方缺數仍維持缺值及原因。
+- Fundamental 5／20／60／120 日在**完全相同已成熟 OOS fold/cohort**分別計 `zero`、固定 `financial_rule`（EPS／歸母淨利同比各截斷 ±100%，係數固定 0.00005，不使用未來調參）、既有 LightGBM；保留逐模型 MSE、樣本數與來源時間，沒有效果不 promotion。
+- 獨立 [B9 Fundamental targeted Actions #38097863145](https://github.com/tommylin15/janus-omniforge/actions/runs/38097863145) **SUCCESS：47 passed、7 warnings**，涵蓋財報比較口徑、PIT 時間、補資料 coverage、同窗 baseline、財報上傳/缺值規則；屬程式／fixture 驗證，不是 GCP live data readback。後續其他 B9 同時修改 `specialists.py` 及其他角色，精確 SHA 新版整體 selective CI 另判。
+- **未完成**：發布符合此版來源 SHA 的 GHCR ingestion/Mart Jobs、真實執行一次 `fundamental-history`、Core 新 snapshot 的每股／季度 coverage readback、以同源固定 Core 重新跑三套 OOS 並持久化/readback，最後依 MSE/fold、可用時間與 source authorization 判定。新版尚無真實 Fundamental 重新 walk-forward 分數，不得以測試 PASS 說資料不足已解除或 LightGBM 已優於規則。發版仍須依既有完整 GHCR Job release gate 與共享 deployment lease，不可繞過。
