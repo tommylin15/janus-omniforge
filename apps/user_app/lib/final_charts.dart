@@ -232,6 +232,9 @@ class FvKlineChart extends StatelessWidget {
             '最新 ${latest.day.toIso8601String().substring(0, 10)} · C ${legacy.accountingNumber(latest.close, decimals: 2)}',
             style: const TextStyle(color: fvMuted, fontSize: 11),
           ),
+          const SizedBox(height: 5),
+          const Text('顯示官方原始日價量，未進行除權息還原；不是含股利報酬。',
+              style: TextStyle(color: fvMuted, fontSize: 11)),
           const SizedBox(height: 10),
           SizedBox(
             height: chartHeight ?? (hasVolume ? 240 : 195),

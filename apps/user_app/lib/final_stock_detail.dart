@@ -429,7 +429,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                     children: [
                       for (final period in const [22, 60, 200])
                         ChoiceChip(
-                          label: Text(period == 22 ? '1M' : period == 60 ? '3M' : '1Y'),
+                          label: Text(period == 22 ? '近1月' : period == 60 ? '近3月' : '近200日'),
                           selected: chartDays == period,
                           onSelected: (_) => setState(() => chartDays = period),
                         ),
