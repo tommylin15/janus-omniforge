@@ -1218,7 +1218,8 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.byKey(const Key('fv-kline-chart')), findsOneWidget);
-    await tester.tap(find.text('3M'));
+    await tester.tap(find.text('近3月'));
+    expect(find.text('近200日'), findsOneWidget);
     await tester.pumpAndSettle();
     expect(api.reads.where((path) => path == '/api/v1/public/kline/2330').length, 1);
     await tester.tap(find.byKey(const Key('stock-chart-expand')));
