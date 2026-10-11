@@ -84,6 +84,13 @@
           "title": "Metrics",
           "type": "object"
         },
+        "data_quality": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Data Quality",
+          "type": "object"
+        },
         "missing_data": {
           "items": {
             "type": "string"
