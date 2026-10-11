@@ -20,6 +20,7 @@ class FinalTodayPage extends StatefulWidget {
 class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObserver {
   late Future<dynamic> market = _readCoreMarket();
   late Future<dynamic> brief = _read('/api/v1/public/daily-brief');
+  late Future<dynamic> personal = _read('/api/v1/me/today-relevant');
   Timer? marketTimer;
   bool foreground = true;
 
@@ -61,6 +62,11 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   @override
   void didUpdateWidget(FinalTodayPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.api, widget.api)) {
+      market = _readCoreMarket();
+      brief = _read('/api/v1/public/daily-brief');
+      personal = _read('/api/v1/me/today-relevant');
+    }
     if (oldWidget.active != widget.active) {
       if (widget.active) {
         setState(() => market = _loadMarketWithoutPerf());
@@ -103,7 +109,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
 
   Future<dynamic> _read(String path) async {
     try {
-      return await widget.api.get(path);
+      return await widget.api.get(path).timeout(const Duration(seconds: 9));
     } catch (_) {
       return null;
     }
@@ -156,7 +162,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
             Text(_value(section),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: fvInk, fontSize: 18, fontWeight: FontWeight.w800)),
+                style: const TextStyle(color: fvInk, fontSize: 25, fontWeight: FontWeight.w800)),
             const SizedBox(height: 7),
             Text(
               _freshness(section).isEmpty
@@ -203,6 +209,46 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       ]),
     );
   }
+
+  Widget _personal() => FutureBuilder<dynamic>(
+    future: personal,
+    builder: (context, snapshot) {
+      // No spinner here: market baseline remains visible while this resolves.
+      final items = fvRows(fvMap(snapshot.data)['items']);
+      if (items.isEmpty) return const SizedBox.shrink();
+      return fvPanel(child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(children: [
+            Icon(Icons.auto_awesome_outlined, color: fvTeal, size: 22),
+            SizedBox(width: 8),
+            Expanded(child: Text('與你最相關的追蹤',
+                style: TextStyle(color: fvInk, fontSize: 20, fontWeight: FontWeight.w800))),
+          ]),
+          const SizedBox(height: 5),
+          const Text('來自你自己的關注與待追蹤筆記，不代表投資建議。',
+              style: TextStyle(color: fvMuted, fontSize: 11)),
+          for (final raw in items.take(3))
+            Builder(builder: (context) {
+              final row = fvMap(raw);
+              final symbol = fvText(row['symbol'], missing: '');
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                leading: Icon(row['kind'] == 'near_owner_target'
+                    ? Icons.track_changes_outlined : Icons.flag_outlined, color: fvTeal),
+                title: Text(fvText(row['title']),
+                    style: const TextStyle(color: fvInk, fontWeight: FontWeight.w700)),
+                subtitle: row['data_as_of'] == null ? null :
+                    Text('行情日 ${fvText(row['data_as_of'])}'),
+                trailing: const Icon(Icons.chevron_right, color: fvMuted),
+                onTap: symbol.isEmpty ? null : () => widget.onOpenStock?.call(symbol),
+              );
+            }),
+        ],
+      ));
+    },
+  );
 
   Widget _market() => FutureBuilder<dynamic>(
     future: market,
@@ -355,7 +401,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
         key: const Key('final-today-scroll'),
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 110),
         children: [
-          fvPageTitle(context, '今日', subtitle: '市場基礎資料與研究內容分開載入'),
+          fvPageTitle(context, '今日', subtitle: '先看與自己有關的重點，再看市場'),
+          _personal(),
           _market(),
           _brief(),
           const Padding(

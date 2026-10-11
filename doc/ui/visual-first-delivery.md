@@ -42,6 +42,8 @@ VF-00/01 與每張圖的資料合法性是**前置**，不放在最後 P2；VF-0
 
 - 2026-10-11：持股頁新增加上嚴格相同估值日／幣別檢查的「各持股未實現損益對照」比例條；條長為視覺化比例，不是 Flutter 重算正式報酬或投資貢獻率。checkpoint 不一致就不畫。
 
+- 2026-10-11 路徑核對修正：實際 User App／測試入口是 `final_visual_pages.dart` → `final_today_v2.dart`；先前改 `final_today.dart` 未影響正式頁。已在 **v2 真正入口** 增加 owner 相關 Hero，並保留原 market baseline 獨立載入，避免以未使用頁面假稱完成。
+
 ## 3. Dataset coverage matrix（必要交接表）
 
 每個 dataset_family 都至少有：symbol／market、required_metric、frequency、first/last_period、usable_points／expected_points、missing_rate、unit、period_basis、source_id、source_authorization、published_at／availability_at／observed_at、snapshot／provenance、serving route、API route、UI consumed、freshness、Implemented／Partial／Missing／Unknown／Blocked、blocking_reason、reproducible evidence。
