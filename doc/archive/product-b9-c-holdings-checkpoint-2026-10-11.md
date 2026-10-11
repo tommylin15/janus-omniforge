@@ -30,6 +30,8 @@ Admin 使用獨立登入設定，Google popup 仍需本人完成；新版 A→B�
 
 原對話 `01a12875-caa4-7960-9b21-4534543876c8` 最後的使用者回覆已完成新版 preview A→B→A checklist（含 B 無法讀取 A 私人資料／已知 A 紀錄，以及返回 A 的持股、交易與損益一致）。Owner receipt 使用本次來源與候選，標示 USER_ATTESTED，不冒充 B credential machine replay。Admin 於本次續接重新登入成功，profile 與五角色版本可讀回。
 
-使用者另於本次明確核准本人受限 CEO 權限（每日 1 次、冷卻 300 秒）、既有三 provider/model/free-only gates 與一次有界 provider 驗收。Admin capability v1 與 default profile v2 已由真實候選 UI 保存並讀回；不保存 email、token 或私人數值到公開證據。第一個 UI 指令未確認，唯讀 history 證明無保存請求；受控重試取得 HTTP 202／dispatched，唯一 request `392cad00-13e3-4e7c-9266-01420d32557a`。目前 QUEUED，重新分析已停用，尚非 CEO PASS。
+使用者另於本次明確核准本人受限 CEO 權限（每日 1 次、冷卻 300 秒）、既有三 provider/model/free-only gates 與一次有界 provider 驗收。Admin capability v1 與 default profile v2 已由真實候選 UI 保存並讀回；不保存 email、token 或私人數值到公開證據。第一個 UI 指令未確認，唯讀 history 證明無保存請求；受控重試取得 HTTP 202／dispatched，唯一 request `392cad00-13e3-4e7c-9266-01420d32557a`。終態 BLOCKED／provider_unavailable，完成於 2026-10-11T10:30:41.631915Z，report_hash 為 null。安全稽核三路均 skipped：Codex auth_secret_unavailable、OpenRouter free_route_not_confirmed、Gemini free_tier_not_confirmed；無有效 provider 呼叫／不可變報告，不重送第二次分析。
+
+[唯讀 execution 診斷 #38132260628](https://github.com/tommylin15/janus-omniforge/actions/runs/38132260628) 成功，Job cloud execution 正常終止；產品 BLOCKED 不等於 infrastructure crash。[Secret metadata 診斷 #38132706398](https://github.com/tommylin15/janus-omniforge/actions/runs/38132706398) 在 versions.list 遭 CI PERMISSION_DENIED，IAM step 未執行；不能據此推論 Secret 不存在或 Mart 缺權限。瀏覽器本人帳號可讀 Secret 清單，僅見 janus-runtime-bundle 與三個其他服務 Secret，未列出 janus-mart-codex-auth；直接詳細頁顯示缺少 secrets.get，故獨立資源狀態仍需具權限身分確認。不得將另一服務 omniAgent 的 auth 自行挪用；專用憑證修復是下一入口。未讀取憑證、修改 IAM 或正式切流。
 
 未提交的 candidate 自動更新 preview 提案因缺少失敗回復而移除，原差異留於本機工作資料備份；沿用已有 rollback 的 `ghcr-preview-publish-dev.yml`／`ghcr_preview_publish.py`。相關 33 tests PASS。四排程 Jobs 與正式 dev 流量仍未變更。
