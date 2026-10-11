@@ -1,7 +1,7 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "08079495e05b66897ff1800efffc58906ef5f1fb",
-  "purpose": "Combined B9/C/holdings product acceptance after exact-SHA full release 38111333541; retain existing formal dev traffic until all live gates pass",
+  "sha": "5e1bb2f1645cd3885f16221699f64b48c9601bbb",
+  "purpose": "Combined B9/C/holdings product acceptance after exact-SHA full release 38114690850; retain existing formal dev traffic until all live gates pass",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
@@ -9,5 +9,5 @@
   "allow_job_image_update": false,
   "retry_verification": "same-sha-cache-normalized-immutable-candidate-reuse",
   "same_sha_retry_attempt": 0,
-  "digest": "sha256:1c9f5140d03eb9eea757b3d36c2557e7717bcdc8a6084d744839469b40382d24"
+  "digest": "sha256:3783fb649ea2b0f082904e86df04ced63ab65478377f36f6794e5db058566fd2"
 }
