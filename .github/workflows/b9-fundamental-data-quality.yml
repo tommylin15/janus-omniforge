@@ -7,6 +7,8 @@ on:
     paths:
       - '.github/workflows/b9-fundamental-data-quality.yml'
       - 'jobs/intelligence-mart/intelligence_mart/evaluation.py'
+      - 'jobs/intelligence-mart/intelligence_mart/facts.py'
+      - 'jobs/intelligence-mart/intelligence_mart/specialists.py'
       - 'jobs/ingestion-core/ingestion_core/data_supplement.py'
       - 'jobs/ingestion-core/ingestion_core/runtime_entrypoint.py'
       - 'tests/test_specialist_engines.py'
