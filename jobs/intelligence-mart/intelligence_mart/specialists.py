@@ -11,8 +11,10 @@ from typing import Any
 from .facts import (analysis_cutoff, canonical_json, _change, _evidence_id, _financial_features_v2, _instant, _severity,
                        _research_rows, evidence_from_rows, validate_evidence)
 
-VERSION = "specialist-rules-v3"
-FEATURE_VERSION = "3"
+VERSION = "specialist-rules-v2"
+FEATURE_VERSION = "2"
+VALUATION_ENGINE_VERSION = "specialist-rules-v3"
+VALUATION_FEATURE_VERSION = "3"
 MODEL_VERSION = "deterministic-unpromoted-v1"
 DEPENDENCIES = {
     "fundamental": ("financials",),
@@ -35,6 +37,15 @@ METRIC_LABELS = {"revenue_trend_percent": "可比較營收期間變化（%）", 
                  "expected_excess_return": "樣本外驗證超額報酬預測", "outperform_probability": "經校準勝過市場機率",
                  "regime_probability": "市場狀態模型", "classifier_probability": "本機事件分類模型"}
 METRIC_LABELS.update({f"return_{w}d_percent": f"{w} 個交易日歷史報酬（%）" for w in (5, 20, 60, 120)})
+
+
+def specialist_versions(role):
+    """Invalidate B7 derived cache only for revised Valuation features."""
+    if role == "valuation":
+        return VALUATION_FEATURE_VERSION, VALUATION_ENGINE_VERSION
+    if role not in DEPENDENCIES:
+        raise ValueError("unknown specialist role")
+    return FEATURE_VERSION, VERSION
 
 
 def digest(value: object) -> str:
@@ -299,7 +310,8 @@ def analyze_specialists(datasets, symbol, as_of, snapshot, *, roles=None):
                          for k, v in metrics[role].items() if v is not None]
         payload = {"artifact_kind": "mart_specialist_v1", "schema_version": "1.0.0",
                    "symbol": symbol, "role": role, "analysis_as_of": as_of, "core_snapshot_id": snapshot,
-                   "feature_version": FEATURE_VERSION, "engine_version": VERSION, "model_version": MODEL_VERSION,
+                   "feature_version": specialist_versions(role)[0],
+                   "engine_version": specialist_versions(role)[1], "model_version": MODEL_VERSION,
                    "model_status": "oos_not_validated", "status": "blocked" if errors else "partial" if missing else "ready",
                    "input_hash": input_hash, "metrics": metrics[role],
                    "missing_data": missing, "rejected_evidence": errors,
