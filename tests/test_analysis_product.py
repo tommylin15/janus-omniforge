@@ -15,7 +15,7 @@ def product_inputs():
              'trade_date': str(date(2026, 4, 1) + timedelta(days=i)),
              'observed_at': str(date(2026, 4, 1) + timedelta(days=i)), 'close': 100+i, 'volume_shares': 100000, 'turnover_twd': 10000000}
             for i in range(30)]
-    artifacts = analyze_specialists({'ohlcv': rows,
+    artifacts = analyze_specialists({'ohlcv': rows, 'events': [],
         'benchmark': [dict(row, symbol=None, benchmark_id='TAIEX', close=10000+i) for i, row in enumerate(rows)]},
         '2330', '2026-05-01', 'core-1')
     manifest = {'execution_id': '00000000-0000-0000-0000-000000000001',
@@ -33,11 +33,19 @@ def test_product_serves_real_baseline_without_promoting_missing_models():
     roles = {a['role']: a for a in value['specialists']}
     assert roles['quant']['baseline_status'] == 'available'
     assert roles['fundamental']['baseline_status'] == 'unavailable'
+    assert roles['event']['baseline_status'] == 'unavailable'
+    assert roles['event']['metrics']['event_count'] is None
+    assert 'event_count' in roles['event']['missing_data']
     assert roles['quant']['metrics']['outperform_probability'] is None
     assert roles['quant']['metrics']['relative_strength_20d_percent'] is not None
     assert all(a['reused'] for a in roles.values())
     assert value['content_hash'] == content_hash({k: v for k, v in value.items() if k != 'content_hash'})
     assert freshness(value, date(2026, 5, 10)) == 'stale'
+
+
+def test_empty_events_invalidate_previously_cached_zero_count():
+    from intelligence_mart.specialists import specialist_versions
+    assert specialist_versions('event') == ('3', 'event-source-coverage-v3')
 
 
 @pytest.mark.parametrize('change', ['metrics', 'symbol', 'date', 'source', 'role'])

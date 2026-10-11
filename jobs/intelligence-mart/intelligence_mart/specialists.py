@@ -46,6 +46,8 @@ def specialist_versions(role):
         return VALUATION_FEATURE_VERSION, VALUATION_ENGINE_VERSION
     if role == 'quant':
         return '3', 'quant-relative-strength-v3'
+    if role == 'event':
+        return '3', 'event-source-coverage-v3'
     if role not in DEPENDENCIES:
         raise ValueError("unknown specialist role")
     return FEATURE_VERSION, VERSION
@@ -305,7 +307,7 @@ def analyze_specialists(datasets, symbol, as_of, snapshot, *, roles=None):
         metrics["risk"]["regime_probability"] = None
     if "event" in selected:
         metrics["event"] = {
-            "event_count": len(rows["events"]) if "events" in rows else None,
+            "event_count": len(rows["events"]) if rows.get("events") else None,
             "max_severity": max((_severity(r.get("severity")) for r in rows.get("events", [])
                                  if _severity(r.get("severity")) is not None), default=None),
             "classifier_probability": None,

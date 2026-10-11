@@ -89,7 +89,7 @@ def test_valuation_feature_version_does_not_invalidate_other_b7_specialists():
     sample = "sha256:" + "a" * 64
     for role in DEPENDENCIES:
         identity = _cache_identity("2330", role, sample)
-        prior_feature, prior_engine = (specialist_versions(role) if role == "quant"
+        prior_feature, prior_engine = (specialist_versions(role) if role != "valuation"
                                        else (FEATURE_VERSION, VERSION))
         old_identity = digest({"cache_version": "deep-coverage-cache-v1", "symbol": "2330",
                                "role": role, "input_hash": sample,
