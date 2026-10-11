@@ -19,6 +19,16 @@ def test_profiles_reject_paid_models_and_duplicate_provider_routes():
             CEOProfileIn(approved=True, expected_version=1, reason='test', **change)
 
 
+def test_ceo_quota_50_is_allowed_and_51_rejected():
+    from services.api.analysis import CEOCapabilityIn
+    value = dict(email='owner@example.com', enabled=True, daily_quota=50,
+                 cooldown_seconds=300, expected_version=0, reason='owner approval')
+    assert CEOCapabilityIn(**value).daily_quota == 50
+    with pytest.raises(ValueError):
+        CEOCapabilityIn(**{**value, 'daily_quota': 51})
+
+
+
 class Repository:
     def resolve_user(self, sub, email): return OWNER_A if sub == 'a' else OWNER_B
 
