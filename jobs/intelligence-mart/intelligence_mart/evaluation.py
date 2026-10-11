@@ -7,7 +7,7 @@ from math import ceil, sqrt
 from statistics import correlation, fmean, pstdev
 
 from .specialists import digest, number, comparable_valuation_features
-from .facts import _instant, _financial_period_time, analysis_cutoff
+from .facts import _instant, _financial_period_time, _evidence_id, analysis_cutoff
 
 
 def ranks(values):
@@ -92,7 +92,9 @@ def evaluate_predictions(predictions, *, cost_bps, annual_periods):
                 if len(rows) >= 20 and pstdev(x) and pstdev(y) else None}
         decay[str(horizon)] = {"time_series_by_symbol": temporal,
             "semantics": "same_oos_signal_future_horizons_overlapping_outcomes_not_independent_returns"}
-    return {"rank_ic": fmean(ics) if ics else None,
+    return {"oos_predictions": len(predictions),
+            "mse": fmean((r["prediction"] - r["excess_return"]) ** 2 for r in predictions) if predictions else None,
+            "rank_ic": fmean(ics) if ics else None,
             "icir": fmean(ics) / pstdev(ics) if len(ics) > 1 and pstdev(ics) else None,
             "top_decile_spread": fmean(spreads) if spreads else None,
             "hit_rate": fmean(hits) if hits else None,
@@ -236,7 +238,8 @@ def walk_forward(samples, *, model_name, features, cost_bps, horizon_days, allow
         folds.append(fold)
     payload = {"artifact_kind": "mart_oos_evaluation_v1", "protocol_version": "taiwan-purged-monthly-v5",
                "model_name": model_name, "features": features, "horizon_days": horizon_days,
-               "input_hash": digest(samples), "folds": folds, "predictions": predictions,
+               "input_hash": digest(samples), "eligible_samples": len(valid),
+               "folds": folds, "predictions": predictions,
                "missing_feature_policy": "native_tree_missing_no_imputation" if allow_missing_features else "complete_case",
                "status": "evaluated" if folds else "insufficient_history", "promotion_eligible": False,
                "metrics": evaluate_predictions(predictions, cost_bps=cost_bps, annual_periods=252 / horizon_days)}
@@ -389,10 +392,9 @@ def build_financial_samples(datasets, symbols, as_of, snapshot, horizon_days, ro
                 exclusions[metadata] += 1
                 continue
             available = max(_instant(row["availability_at"]) for row in selected)
-            chosen = {row.get("provenance_id") for row in selected}
-            selected_evidence = [item for item in evidence if item["dataset_id"] == "financials"
-                                 and item["provenance_id"] in chosen]
-            if len(selected_evidence) < 2:
+            chosen_ids = {_evidence_id("financials", row, snapshot) for row in selected}
+            selected_evidence = [item for item in evidence if item["evidence_id"] in chosen_ids]
+            if len(selected_evidence) != 2:
                 exclusions["missing_filing_provenance"] += 1
                 continue
             output.append({**sample, **features, **metadata,
