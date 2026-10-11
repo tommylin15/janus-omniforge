@@ -1,5 +1,6 @@
 import importlib.util
 from pathlib import Path
+import sys
 
 import pytest
 
@@ -48,3 +49,19 @@ def test_additive_schema_bootstrap_carries_only_public_hash_fenced_sql():
     assert payload['overrides']['containerOverrides'][0]['args'][:2] == ['python', '-c']
     assert 'image' not in payload['overrides']['containerOverrides'][0]
     assert payload['etag'] == 'e'
+
+
+def test_api_binding_preserves_existing_and_conditional_policy_without_broadening_identity():
+    sys.path.insert(0, str(path.parent))
+    from ceo_worker_deploy import API_IDENTITY, bind_api
+    policy = {'etag': 'fence', 'bindings': [
+        {'role': 'roles/run.viewer', 'members': ['serviceAccount:existing'],
+         'condition': {'expression': 'false', 'title': 'restricted'}},
+        {'role': 'roles/run.invoker', 'members': ['serviceAccount:other']}]}
+    result = bind_api(policy, API_IDENTITY)
+    assert result['etag'] == 'fence' and result['bindings'][:2] == policy['bindings']
+    assert len(policy['bindings']) == 2
+    assert bind_api(result, API_IDENTITY) == result
+    assert all(b['members'] == ['serviceAccount:' + API_IDENTITY] for b in result['bindings'][2:])
+    with pytest.raises(ValueError):
+        bind_api(policy, 'other@other-project.iam.gserviceaccount.com')

@@ -1,6 +1,7 @@
 {
   "intent": "manual-ceo-worker-dev",
-  "approved": false,
+  "approved": true,
+  "authorization": "2026-10-11 user approved bounded dev Job, Job-only API IAM and execution cost",
   "project": "gen-lang-client-0593591102",
   "region": "us-central1",
   "job": "janus-ceo-analysis",

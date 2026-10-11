@@ -1,0 +1,77 @@
+name: Approved bounded dev CEO Job and Job-only API IAM
+on:
+  workflow_dispatch:
+    inputs:
+      release_run:
+        required: true
+        type: string
+      ceo_run:
+        required: true
+        type: string
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_RUN: ${{ inputs.release_run }}
+      CEO_RUN: ${{ inputs.ceo_run }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify approved plan, tested source and immutable public image
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$RELEASE_RUN" =~ ^[0-9]+$ && "$CEO_RUN" =~ ^[0-9]+$ ]]
+          jq -e '.approved == true and .job == "janus-ceo-analysis"' ops/ceo-worker-plan.json >/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN" > /tmp/release.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CEO_RUN" > /tmp/ceo.json
+          jq -e '.conclusion=="success" and .path==".github/workflows/ghcr-publish-dev.yml"' /tmp/release.json >/dev/null
+          sha="$(jq -r .head_sha /tmp/release.json)"
+          jq -e --arg sha "$sha" '.head_sha==$sha and .conclusion=="success" and .path==".github/workflows/ghcr-ceo-worker-build.yml"' /tmp/ceo.json >/dev/null
+          gh run download "$CEO_RUN" -n ceo-worker-digest -D /tmp/ceo-digest
+          digest="$(jq -r .Digest /tmp/ceo-digest/ceo-image.json)"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends skopeo
+          image="ghcr.io/tommylin15/janus-intelligence-mart@$digest"
+          skopeo inspect --no-creds "docker://$image" > /tmp/public-ceo.json
+          jq -e --arg sha "$sha" --arg digest "$digest" '.Digest==$digest and .Labels["org.opencontainers.image.revision"]==$sha' /tmp/public-ceo.json >/dev/null
+          echo "CEO_IMAGE=$image" >> "$GITHUB_ENV"
+          echo "CEO_SHA=$sha" >> "$GITHUB_ENV"
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_ceo_worker_template.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - id: lease
+        run: |
+          python scripts/gcp/ghcr_release_lease.py acquire
+          echo 'held=true' >> "$GITHUB_OUTPUT"
+      - name: Create fixed Job and verify scoped IAM
+        run: |
+          python scripts/gcp/ghcr_release_lease.py assert
+          python scripts/gcp/ceo_worker_deploy.py --image "$CEO_IMAGE" --sha "$CEO_SHA" > /tmp/ceo-worker-receipt.json
+          cat /tmp/ceo-worker-receipt.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Release lease only after confirmed readback
+        run: python scripts/gcp/ghcr_release_lease.py release --safe-to-release
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ceo-worker-receipt
+          path: /tmp/ceo-worker-receipt.json
+          if-no-files-found: ignore
+          retention-days: 14
