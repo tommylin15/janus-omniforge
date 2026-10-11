@@ -177,6 +177,9 @@ def test_official_financial_pair_never_mixes_period_basis_revision_or_scope():
     ]
     history = financial_training_history(rows)
     assert len(history) == 4  # old dedup silently lost one of the two comparisons
+    pit, _, _ = validated_inputs({"financials": history}, "2330", "2026-02-01", "core",
+                                 preserve_financial_basis=True)
+    assert len(pit["financials"]) == 4  # PIT de-duplication must also preserve both bases
     values, selected, meta = _fundamental_filing_features(history)
     assert values == {income: 40, eps: 60}
     assert meta["financial_period_basis"] == "single_quarter"
