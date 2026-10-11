@@ -1,7 +1,7 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "a60db85e179c61896f047fb8c89d1e855fbc1e12",
-  "purpose": "Gemini Lite CEO product candidate after full Release 38135486739; existing runtime bundle key; no formal traffic promotion",
+  "sha": "cc7f498671a1252561902f3b883eaf1cc2b8bdad",
+  "purpose": "Visual-first four-page and serving-series API candidate after GHCR full PASS run 38153154441. Check immutable build SHA, public health and non-owner negative auth; no formal traffic or Jobs promotion.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
