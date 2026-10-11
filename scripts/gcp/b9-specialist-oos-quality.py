@@ -107,7 +107,7 @@ def _evaluation_diagnostics(item, role):
                 _require(isinstance(row, dict) and all(key in row for key in required),
                          "partial regime OOS daily evidence")
                 _require(isinstance(row["date"], str) and isinstance(row["month"], str) and
-                         re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", row["date"]) is not None and
+                         re.fullmatch(r"\d{4}-\d{2}-\d{2}", row["date"]) is not None and
                          isinstance(row.get("training_end"), str) and
                          row["training_end"] < row["date"] and
                          row["date"][:7] == row["month"] and
@@ -121,7 +121,7 @@ def _evaluation_diagnostics(item, role):
                          all(0 <= row[k] <= 1 for k in
                              ("predicted_high_vol_probability", "markov_tail_probability",
                               "gaussian_tail_probability")),
-                         "nonfinite or invalid regime OOS daily evidence")
+                         "nonfinite, invalid or future training regime OOS daily evidence")
             for fold in monthly:
                 rows = [row for row in daily if row["month"] == fold["month"]]
                 source_fold = next(f for f in folds if f.get("month") == fold["month"])
