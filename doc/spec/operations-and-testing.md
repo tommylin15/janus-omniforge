@@ -1,7 +1,8 @@
-## 2026-10-11 合併產品候選（PARTIAL）
+## 2026-10-11 合併產品／Gemini CEO 最新證據（PARTIAL）
 
-新來源 `2c920782bc45736ffb0749d7ec0800d19f0ab153` 的 [完整 Release #38118061761](https://github.com/tommylin15/janus-omniforge/actions/runs/38118061761) PASS：1044 Python tests（2 legacy deselected）、Flutter、四公開 GHCR image／匿名拉取。既有來源的基準 runtime、390px User A UI、有界持股 latency 與唯讀 preflight 證據，以及新版候選與兩次基準 runtime PASS，以及 Admin／owner 最新證據、CEO 終態 BLOCKED／provider_unavailable 與 CI Secret metadata 查詢權限限制，以及正式 dev 尚未完成的 gate，集中見 [合併產品 checkpoint](../archive/product-b9-c-holdings-checkpoint-2026-10-11.md)。新版 User A 持股 authenticated UI 已實測；Owner 隔離有本次使用者確認，未宣稱 B credential machine replay／CEO acceptance、排程 Jobs rollout 或 API 正式切流 PASS；research 舊映像 404 保留診斷，不在四 Job 更新範圍內。
+最新已部署 CEO 來源 `a60db85e179c61896f047fb8c89d1e855fbc1e12`，完整 Release 1046 Python tests、Flutter、四公開 GHCR images／匿名拉取 PASS；同 SHA CEO build／worker 部署 SUCCESS。唯一 Gemini 真實呼叫有回應及 usage，但 `invalid_structured_output`，沒有有效報告／report hash，不能標 CEO acceptance PASS。每日額度 50 與提示詞明列 JSON 格式的修正尚未部署；本機額度測試 46 PASS／5 SKIPPED，首輪格式測試 43 PASS／2 FAIL，修正後待重跑。依使用者要求先回寫文件，再開始下一次真實驗收。
 
+目前證據、workflow links、請求終態、quota 20→50 與下一入口集中見 [Gemini CEO checkpoint](../archive/product-ceo-gemini-checkpoint-2026-10-11.md)；既有產品候選、owner UI、migration 050／051 與歷史失敗見 [合併產品 checkpoint](../archive/product-b9-c-holdings-checkpoint-2026-10-11.md)。尚缺有效 CEO immutable report、最新來源適用的 authenticated acceptance、四排程 Jobs canary／rollback 與 API 正式切流；500 檔模型研究後置。
 
 ## 2026-10-09 15:15 — 四 Jobs forward-only 使用者授權及部署權限阻塞
 

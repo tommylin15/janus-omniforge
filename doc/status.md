@@ -23,7 +23,7 @@
 
 [0% 候選 #38118406366](https://github.com/tommylin15/janus-omniforge/actions/runs/38118406366)／[受限 worker 更新 #38118539210](https://github.com/tommylin15/janus-omniforge/actions/runs/38118539210)／[兩次基準 runtime 與固定 preview #38118621503](https://github.com/tommylin15/janus-omniforge/actions/runs/38118621503) 均 PASS，兩次實際 execution 終態成功、無 LLM，發布租約已釋放。候選／preview 為 `janus-api-00465-feq`（0%）；正式 dev 仍 `janus-api-00457-wed`（100%），四排程 Job 未更新。新版 A 登入、390px 持股版本修正、候選 MCP OAuth／PKCE／redirect／未登入 401／三個唯讀工具宣告已實測；未呼叫 ledger write。先前有界持股 latency 僅代表當次暖請求，Today 冷啟動觀測另保留，不宣稱全站首屏效能 PASS。
 
-[唯讀 preflight #38118063739](https://github.com/tommylin15/janus-omniforge/actions/runs/38118063739) 的 Job ready／terminal executions／IAM／Scheduler／legacy writer fence PASS；整份診斷仍 BLOCKED，唯一原因為範圍外 research 舊映像 404，不更新該 Job。本次 Admin 登入與目前候選 A→B→A 使用者證明已取得；受限 capability v1／profile v2 已保存，唯一 CEO 請求已取得終態 **BLOCKED／provider_unavailable**：Codex 為 auth_secret_unavailable，OpenRouter／Gemini 免費資格 gate 未確認，未產生報告。唯讀診斷 [#38132706398](https://github.com/tommylin15/janus-omniforge/actions/runs/38132706398) 因 CI 缺少 secretmanager.versions.list 無法確認 Secret 版本／Mart IAM；瀏覽器可讀 Secret 清單未列出該獨立 Secret，待修復專用憑證，未擴大權限或重送分析。尚缺 **live CEO／immutable history、四排程 Jobs canary／rollback 與 API 正式切流**；不標整批完成。完整版本與歷史失敗／修正證據見 [產品候選 checkpoint](archive/product-b9-c-holdings-checkpoint-2026-10-11.md)。500 檔歷史與模型研究仍後置。
+既有候選的 owner／MCP／基準 runtime 與歷史失敗證據見 [產品候選 checkpoint](archive/product-b9-c-holdings-checkpoint-2026-10-11.md)。先前專用憑證修復路徑已由下方 Gemini 最小上線 checkpoint 取代；目前仍缺有效 CEO 報告／不可變 history、四排程 Jobs canary／rollback 與 API 正式切流，不標整批完成。500 檔歷史與模型研究仍後置。
 
 ## 其他 active work
 
@@ -36,4 +36,8 @@
 
 ### CEO 最小上線路徑更新（2026-10-11）
 
-使用者指定直接沿用 `janus-runtime-bundle` 的 Gemini API key 與已確認的 AI Studio Free tier，CEO 只使用最新 `gemini-3.5-flash-lite`；omniAgent 統一 AI 入口後置。專用 `janus-mart-codex-auth` 已依使用者要求刪除，Shared Secret 未讀取／修改。程式與 Job 設定正在驗證，尚未部署／live PASS；既有 BLOCKED request 不覆寫。
+**Gemini 已連上並回應，但回傳內容未通過 CEO 報告格式檢查，尚未產生報告。** 來源 `a60db85e179c61896f047fb8c89d1e855fbc1e12` 的完整 Release、CEO image build 與 worker 部署均成功；唯一一次 Gemini 真實呼叫已終止，沒有重送。原有失敗紀錄保留。
+
+使用者指定沿用 `janus-runtime-bundle` 的 Gemini API key 與已確認的 AI Studio Free tier，CEO 只用 `gemini-3.5-flash-lite`；omniAgent 統一 AI 入口後置。專用 `janus-mart-codex-auth` 已依要求刪除，Shared Secret 未讀取／修改。下一步先修正提示詞，明列必填 JSON 欄位與範例，再驗證不可變報告；每日額度依最新要求改為 **50**、冷卻仍 300 秒，目前 runtime 仍為 20，migration 052／API／Admin 設定尚未部署。正式 dev 切流與四排程 Jobs 驗收仍未完成。
+
+依使用者要求，**本 checkpoint 先回寫文件，再開始下一次真實驗收**。完整證據與待辦見 [Gemini CEO checkpoint](archive/product-ceo-gemini-checkpoint-2026-10-11.md)。

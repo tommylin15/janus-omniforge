@@ -33,3 +33,9 @@ CEO 使用既有獨立 `mart-ceo-provider` 映像。受限 Job 已核准，方�
 任何 gate 為 partial／unknown／blocked 都保留原正式流量；500 檔歷史模型研究後置。權限種類以 [Google Cloud Run IAM](https://docs.cloud.google.com/iam/docs/roles-permissions/run) 為準，API binding 只限這個 CEO Job，不授予 project-wide Run Admin。
 
 日常五分析師操作見 [Specialist engines](spec/specialist-engines.md)。歷史 provider 授權／驗收程序見 [封存紀錄](archive/mart-provider-runbook-before-specialist-removal-2026-10-03.md)，不得再照封存指令執行舊五角色。
+
+## 報告格式與額度變更
+
+CEO 回覆必須通過 `packages/analysis_models.py` 的 CEO output model；有 provider 回應或 token usage 仍不代表報告成功。提示詞須直接列出 JSON schema、必填欄位與格式範例，包含 stance、thesis／missing_information、claims／evidence IDs、五份 validated specialist hashes；API structured-output schema 同時保留。拒絕格式時不建立有效 report hash、不覆寫歷史，只保留安全 audit；不得記錄原始回覆或憑證。
+
+每日額度上限改為 50 時，先經既有 GitHub Actions migration 路徑套用 `052_ceo_daily_quota_50`，再部署支援 50 的 API／Admin，最後保存本人 capability 並 readback。這是上限與帳號設定兩個步驟；migration 不自動提高任何帳號額度。最新使用者要求為每日 50、冷卻 300 秒，適用進度以 operations checkpoint 為準。

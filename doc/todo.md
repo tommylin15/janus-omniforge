@@ -151,7 +151,7 @@ B9、C 組及剩餘持股頁／首屏依 2026-10-11 使用者授權一起完成�
 有效產品範圍只有 On-demand CEO／approved rare escalation provider runtime。
 
 - [ ] 重用既有 Codex CLI／OpenRouter／Gemini adapter、routing、auth、free/billing gate、fallback/audit 能力。
-- [ ] default approved route 為 `Codex CLI → OpenRouter → Gemini`；只有 approved／authorized／free-or-explicitly-approved-paid profile 可執行。
+- [ ] 目前先以既有 runtime bundle 的 Gemini key、已確認 Free tier 與 `gemini-3.5-flash-lite` 完成 CEO 上線；實際執行只走 Gemini，既有三 provider profile／歷史保留。omniAgent 統一 AI 入口待此階段完成後再接。
 - [ ] 完成 manual CEO request 的 headless dispatch、cold-start auth／續期、timeout／cancel／retry、route snapshot/version/hash、attempt/fallback、usage/cost audit、zero-secret-leakage。
 - [ ] 不新增未核准付費 provider／model／resource。
 
@@ -169,7 +169,8 @@ B9、C 組及剩餘持股頁／首屏依 2026-10-11 使用者授權一起完成�
 - [ ] 管 specialist champion／model／version／evaluation 與 CEO provider／model／profile；保留 immutable version history、rollback、audit、test symbols／compare。
 - [ ] 加入 DB-backed Google user capability 管理，例如 `ceo_analysis.request`；backend enforce，Flutter visibility 不可代替 authorization。
 - [ ] Admin 顯示 CEO provider approval／auth／health、model list、quota/cooldown、usage/cost；不得接收或顯示 raw token。
-- [ ] `Codex CLI → OpenRouter → Gemini` 只適用 On-demand CEO／approved escalation。
+- [ ] 依最新授權保存本人每日 CEO 額度 50、冷卻 300 秒；先完成 migration 052／API 上限及 Admin readback，不能把程式修改當作已套用。
+- [ ] CEO 提示詞明列必填 JSON 格式與範例，再以真實 Gemini 回應驗證有效報告與 immutable history；格式失敗保留原紀錄。
 
 ## 6. Admin operational convergence — 已完成 A 組範圍
 
