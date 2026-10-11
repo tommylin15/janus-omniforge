@@ -65,7 +65,7 @@ def _prompt(role: str, role_input: dict[str, Any]) -> str:
         "validated_role_artifact_hashes": role_input.get("validated_role_artifact_hashes", []),
     }
     return (
-        f"{SYSTEM_GUARDRAIL}\\n\\nROLE METHODOLOGY:\\n{methodology}\\n\\n"
+        f"{SYSTEM_GUARDRAIL}\n\nROLE METHODOLOGY:\n{methodology}\n\n"
         "只輸出單一 JSON object，不要 Markdown 或額外欄位。所有 schema required 欄位必填。"
         "stance 限 bullish, neutral, bearish, insufficient_data；thesis 可為 null，"
         "但方向性立場須有附 evidence_ids 的 thesis。所有 claim 必須含 text/evidence_ids，"
@@ -75,12 +75,12 @@ def _prompt(role: str, role_input: dict[str, Any]) -> str:
         "沒有上一份有效報告時 change_since_previous_analysis 必須是空陣列。"
         "不要在文字重述任何未以 numeric_facts key=value 綁定的數字、日期或股號。"
         "資訊不足列在 missing_information；沒有足夠證據就用 insufficient_data、thesis=null。"
-        "以下示例為安全的資訊不足情境，實際輸出請以真實證據決定。\\n"
-        "REQUIRED_JSON_SCHEMA:\\n"
+        "以下示例為安全的資訊不足情境，實際輸出請以真實證據決定。\n"
+        "REQUIRED_JSON_SCHEMA:\n"
         + json.dumps(schema, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        + "\\nJSON_EXAMPLE:\\n"
+        + "\nJSON_EXAMPLE:\n"
         + json.dumps(example, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        + "\\nPUBLIC_INPUT:\\n"
+        + "\nPUBLIC_INPUT:\n"
         + json.dumps(role_input, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
     )
 
