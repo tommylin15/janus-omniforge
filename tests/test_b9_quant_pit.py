@@ -17,6 +17,7 @@ def fixture():
     for symbol in range(1101, 1113):
         for day in days:
             rows.append({"symbol": str(symbol), "trade_date": day,
+                         "market": "TWSE", "security_type": "common_stock",
                          "turnover_twd": 1000 + symbol + 5 * days.index(day),
                          "source_authorization": "official",
                          "provenance_id": f"{symbol}-{day}",
@@ -75,6 +76,22 @@ class TestQuantPit(unittest.TestCase):
                                             lookback=2, minimum=10, limit=10)
         self.assertFalse(cohort["historical_universe"])
         self.assertGreater(cohort["source_rejections"].get("not_known_before_entry", 0), 0)
+
+    def test_etf_and_unverified_security_master_excluded(self):
+        days, rows = fixture()
+        # Numeric TWSE codes are NOT enough to identify listed common stocks.
+        for row in rows:
+            if row["symbol"] == "1101":
+                row["security_type"] = "etf"
+            if row["symbol"] == "1102":
+                row.pop("security_type")
+        cohort = historical_liquid_universe(rows, days, core_snapshot_id=CORE,
+                                            lookback=2, minimum=10, limit=10)
+        result = cohort["historical_universe"][days[2]]
+        self.assertNotIn("1101", result["symbols"])
+        self.assertNotIn("1102", result["symbols"])
+        self.assertGreater(cohort["source_rejections"][
+            "pit_equity_classification_missing_or_ineligible"], 0)
 
     def test_source_missing_and_conflict_fail_closed(self):
         days, rows = fixture()
