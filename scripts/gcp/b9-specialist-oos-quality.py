@@ -464,6 +464,16 @@ def main():
         "brier_improvement_over_half": entry["diagnostics"].get("brier_improvement_over_half"),
         "positive_regime_months": entry["diagnostics"].get("positive_improvement_months"),
         "nonpositive_regime_months": entry["diagnostics"].get("nonpositive_improvement_months"),
+        "regime_daily_evidence": entry["diagnostics"].get("daily_environment_evidence_status"),
+        "regime_return_weighted_log_score_improvement": entry["diagnostics"].get("return_weighted_log_score_improvement"),
+        "regime_median_monthly_improvement": entry["diagnostics"].get("median_monthly_improvement"),
+        "regime_longest_nonpositive_month_streak": entry["diagnostics"].get("longest_nonpositive_month_streak"),
+        "regime_first_half_mean_monthly_improvement": entry["diagnostics"].get("first_half_mean_monthly_improvement"),
+        "regime_second_half_mean_monthly_improvement": entry["diagnostics"].get("second_half_mean_monthly_improvement"),
+        "regime_tail_events": (entry["diagnostics"].get("environment_and_tail") or {}).get("tail_events"),
+        "regime_high_vol_days": (entry["diagnostics"].get("environment_and_tail") or {})
+            .get("groups", {}).get("high_realized_vol", {}).get("observations"),
+        "regime_state_switches": (entry["diagnostics"].get("environment_and_tail") or {}).get("state_switches"),
     } for entry in data["oos_evaluations"]] for role, data in report["roles"].items()}
     print("B9 AGGREGATED MODEL DIAGNOSTICS " + json.dumps(summary, sort_keys=True, allow_nan=False))
     print("B9 READBACK PASS; B9 MODEL QUALITY NOT VERIFIED; no retrain/promotion")
