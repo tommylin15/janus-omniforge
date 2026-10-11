@@ -8,7 +8,7 @@
 - 輸入必須具 event_id、symbol、details、source_id、provenance_id、published_at、observed_at 和 core_snapshot_id。限定既有 source allowlist 的 twse／mops／tpex、source_authorization=official，缺值、未授權、時間不明或公告時間晚於接收時間的資料拒收。
 - 候選採 stable event_group_id（source＋symbol＋event_id）及 candidate_id（group＋正文 content_sha）；重複候選去重，修訂版保留不同身分，同事件不同修訂不能跨訓練／測試。
 - 保存 published_at、observed_at 與 effective_date，各自語意不同。公告之後才生效的法說會，不能拿未來生效日當已經發生的結果。所有時間必須具明確 timezone。
-- 既有 Core 官方來源批准**不等於**可供 ML 訓練的授權。training_authorization_reference 必須有另外可查證的來源用途核准；沒有時，即使人工分類完成也拒絕訓練。不可自動補造授權 reference。
+- 既有 Core 官方來源批准**不等於**可供 ML 訓練的授權。training_authorization_reference 必須對照**獨立** event-training-grants-v1 權限紀錄（status=approved、source_id、authorization_reference、scope=local_event_classifier_research、approved_by、verified_at、evidence_uri），不能只在候選資料手填字串就通過。證據 URI 與核准者必須由實際人員驗證，程式檢查其結構與來源 scope，**不自稱已完成法律授權查核**；無已驗證 grant，人工分類完成也拒絕訓練。不可自動補造權利 reference。
 
 ## 標籤 schema（event-label-v1）
 
@@ -40,9 +40,19 @@ python scripts/gcp/b9-event-labels.py candidates \
 python scripts/gcp/b9-event-labels.py oos \
   --candidates-json /secure/research/event-candidates-v1.json \
   --reviews-jsonl /secure/research/reviews-v1.jsonl \
+  --training-grants-json /secure/research/source-training-grants-v1.json \
   --cutoff '2026-08-01T00:00:00+08:00' \
   --out /secure/research/event-oos-v1.json
 ~~~
+
+
+獨立的 source-training-grants-v1.json 形狀：
+
+~~~json
+{"schema_version":"event-training-grants-v1","grants":[{"source_id":"<twse/mops/tpex>","authorization_reference":"<來源權利授權紀錄ID>","status":"approved","scope":"local_event_classifier_research","approved_by":"<權利審核人識別>","verified_at":"<ISO8601 timezone>","evidence_uri":"<核准證據 https:// 或 gs:// 位置>"}]}
+~~~
+
+此為**格式範例而非現有授權**。在有真實權利證據之前不得填入假值，也不得將 demo、fixture、空白範例當合法訓練資料。
 
 示例 cutoff 不是 OOS 成功證據。待真正有授權及人工審核資料時，仍需對時間切分、審核者一致性、類別數量、發行人覆蓋、Immutable model/version、GCP dev readback、模型校準及 Champion gate 進行驗收。
 
