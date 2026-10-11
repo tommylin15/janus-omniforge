@@ -130,7 +130,8 @@ class TestQuantPit(unittest.TestCase):
         predictions["lightgbm"][0]["historical_universe_hash"] = "sha256:bad"
         report = compare_four_models(predictions, cohort, days, horizon_days=5)
         self.assertGreater(report["excluded"]["invalid_prediction_lineage_or_leakage"], 0)
-        self.assertEqual(report["status"], "descriptive_only")
+        self.assertEqual(report["sessions"], 2)
+        self.assertEqual(report["status"], "insufficient_oos_cross_sections")
         self.assertFalse(report["quality_pass"])
 
     def test_no_source_builds_no_fake_features_or_models(self):

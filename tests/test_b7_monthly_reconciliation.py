@@ -9,7 +9,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parents[1] / "jobs/intelligence-mart"))
 from intelligence_mart.monthly_reconciliation import reconcile_monthly_cache
 from intelligence_mart.specialist_runtime import _cache_identity
-from intelligence_mart.specialists import DEPENDENCIES, FEATURE_VERSION, MODEL_VERSION, VERSION, digest
+from intelligence_mart.specialists import DEPENDENCIES, FEATURE_VERSION, MODEL_VERSION, VERSION, digest, specialist_versions
 
 
 class MemoryStore:
@@ -30,10 +30,11 @@ class MemoryStore:
 def build_refs(store, symbol="2330"):
     refs = []
     for role in DEPENDENCIES:
+        feature_version, engine_version = specialist_versions(role)
         input_hash = f"sha256:{role}-input"
         identity = _cache_identity(symbol, role, input_hash)
         artifact = {"symbol": symbol, "role": role, "input_hash": input_hash,
-                    "feature_version": FEATURE_VERSION, "engine_version": VERSION,
+                    "feature_version": feature_version, "engine_version": engine_version,
                     "model_version": MODEL_VERSION, "core_snapshot_id": "core-a", "status": "ready"}
         artifact["output_hash"] = digest(artifact)
         data = json.dumps(artifact).encode()
@@ -42,8 +43,8 @@ def build_refs(store, symbol="2330"):
         artifact_hash = "sha256:" + sha256(data).hexdigest()
         pointer = {"artifact_kind": "mart_specialist_cache_v1", "schema_version": "1.0.0",
                    "cache_identity": identity, "symbol": symbol, "role": role,
-                   "input_hash": input_hash, "feature_version": FEATURE_VERSION,
-                   "engine_version": VERSION, "model_version": MODEL_VERSION,
+                   "input_hash": input_hash, "feature_version": feature_version,
+                   "engine_version": engine_version, "model_version": MODEL_VERSION,
                    "source_core_snapshot_id": "core-a", "artifact_uri": uri,
                    "artifact_hash": artifact_hash}
         store.data[f"specialist-cache/v1/{symbol}/{role}/{identity[7:]}.json"] = json.dumps(pointer).encode()
