@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from hashlib import sha256
 import json
 import re
+import time
+from collections import Counter
 
 from .facts import APPROVED_SOURCES, canonical_json
 
@@ -159,6 +161,11 @@ def chronological_oos(approved, *, cutoff, min_train=100, min_test=30):
     event_groups = {r["event_group_id"] for r in holdout}
     train = [r for r in before if r["symbol"] not in issuers and r["event_group_id"] not in event_groups]
     report = {"protocol": "event-issuer-disjoint-chronological-v1", "label_version": VERSION,
+              "approved_dataset_hash": _sha(sorted((r["candidate_id"], r.get("content_sha"), r["category"],
+                                                     r["direction"], r["reviewed_at"],
+                                                     r["training_authorization_reference"]) for r in rows)),
+              "train_identity_hash": _sha(sorted(r["candidate_id"] for r in train)),
+              "holdout_identity_hash": _sha(sorted(r["candidate_id"] for r in holdout)),
               "cutoff": boundary.isoformat(), "source": "approved-human-reviewed-only",
               "train_count": len(train), "holdout_count": len(holdout),
               "excluded_train_count": len(before) - len(train),
@@ -172,6 +179,7 @@ def chronological_oos(approved, *, cutoff, min_train=100, min_test=30):
             len({r["direction"] for r in holdout}) < 2):
         return {**report, "status": "insufficient_labeled_data",
                 "reason": "human_labels_or_disjoint_class_support_insufficient"}
+    started = time.monotonic()
     # Pre-installed, locally executed scikit-learn. No remote model or API.
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.linear_model import LogisticRegression
@@ -190,19 +198,43 @@ def chronological_oos(approved, *, cutoff, min_train=100, min_test=30):
         clf = LogisticRegression(max_iter=200, random_state=17)
         clf.fit(x_train, y_train)
         prediction = clf.predict(x_test).tolist()
+        probabilities = clf.predict_proba(x_test)
         baseline = [rules_baseline(r["text"])[field] for r in holdout]
+        # Multiclass Brier uses the training-time class space; absent labels still penalize.
+        brier = sum(sum((float(p) - float(y == klass)) ** 2
+                        for klass, p in zip(clf.classes_, prob))
+                    for y, prob in zip(y_test, probabilities)) / len(y_test)
+        confidence_bins = [[] for _ in range(5)]
+        for y, guess, prob in zip(y_test, prediction, probabilities):
+            conf = float(max(prob))
+            confidence_bins[min(4, int(conf * 5))].append((conf, float(y == guess)))
+        ece = sum(len(bucket) / len(y_test) * abs(
+            sum(x[0] for x in bucket) / len(bucket) - sum(x[1] for x in bucket) / len(bucket))
+            for bucket in confidence_bins if bucket)
+        train_count, test_count = Counter(y_train), Counter(y_test)
+        drift_tv = 0.5 * sum(abs(train_count[label] / len(train) - test_count[label] / len(holdout))
+                             for label in choices)
         precision, recall, f1, support = precision_recall_fscore_support(
             y_test, prediction, labels=list(choices), zero_division=0)
         evaluations[field] = {
             "macro_f1": float(f1_score(y_test, prediction, labels=list(choices), average="macro", zero_division=0)),
             "rules_macro_f1": float(f1_score(y_test, baseline, labels=list(choices), average="macro", zero_division=0)),
+            "multiclass_brier_uncalibrated": float(brier),
+            "ece_5_bins_uncalibrated": float(ece),
+            "train_holdout_label_distribution_tv": float(drift_tv),
+            "training_class_counts": dict(train_count),
+            "holdout_class_counts": dict(test_count),
             "per_class": {name: {"precision": float(precision[i]), "recall": float(recall[i]),
                                  "f1": float(f1[i]), "support": int(support[i])}
                           for i, name in enumerate(choices)},
         }
     report.update(status="research_oos_evaluated", model_name="local-char-tfidf-logistic-v1",
+                  "elapsed_seconds": round(time.monotonic() - started, 3),
                   model_status="research_only_not_promoted", metrics=evaluations,
                   holdout_start=min(r["published_at"] for r in holdout),
                   holdout_end=max(r["published_at"] for r in holdout))
+    # Linux Cloud Run/GitHub runners report ru_maxrss in KiB.
+    import resource
+    report["process_peak_rss_kib"] = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
     report["evaluation_hash"] = _sha(report)
     return report
