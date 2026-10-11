@@ -15,30 +15,18 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
+      - name: Inspect shared Codex runtime and dedicated caller metadata
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud run services describe omniagent-shared-codex --project=gen-lang-client-0593591102 --region=us-central1 --format='json(status.url,status.traffic,status.conditions)'
+          gcloud run services get-iam-policy omniagent-shared-codex --project=gen-lang-client-0593591102 --region=us-central1 --format=json > /tmp/shared-policy.json
+          jq '{market_invoker:[.bindings[]? | select(.role=="roles/run.invoker" and (.members | index("serviceAccount:omniagent-codex-market-client@gen-lang-client-0593591102.iam.gserviceaccount.com"))) | {role,conditional:has("condition")}]}' /tmp/shared-policy.json
+          gcloud iam service-accounts get-iam-policy omniagent-codex-market-client@gen-lang-client-0593591102.iam.gserviceaccount.com --project=gen-lang-client-0593591102 --format=json > /tmp/market-policy.json
+          jq '{mart_token_roles:[.bindings[]? | select(.members | index("serviceAccount:intelligence-mart@gen-lang-client-0593591102.iam.gserviceaccount.com")) | {role,conditional:has("condition")}]}' /tmp/market-policy.json
       - name: Read bounded CEO execution state and safe completion fields
         shell: bash
         run: |
           set -Eeuo pipefail
           gcloud run jobs executions list --job=janus-ceo-analysis --project=gen-lang-client-0593591102 --region=us-central1 --limit=3 --format='json(metadata.name,metadata.creationTimestamp,status.startTime,status.completionTime,status.runningCount,status.succeededCount,status.failedCount,status.conditions)'
           gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ceo-analysis" AND timestamp>="2026-10-11T10:27:00Z"' --project=gen-lang-client-0593591102 --limit=15 --format='json(timestamp,severity,jsonPayload.status,jsonPayload.operation,jsonPayload.safe_reason,jsonPayload.error_type)'
-      - name: Read dedicated auth deletion metadata and provisioning permissions
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          gcloud logging read 'protoPayload.methodName="google.cloud.secretmanager.v1.SecretManagerService.DeleteSecret" AND protoPayload.resourceName="projects/gen-lang-client-0593591102/secrets/janus-mart-codex-auth" AND timestamp>="2026-10-01T00:00:00Z"' --project=gen-lang-client-0593591102 --limit=5 --format='json(timestamp,protoPayload.methodName,protoPayload.resourceName)'
-          python - <<'PY'
-          import json,subprocess,urllib.request
-          token=subprocess.check_output(['gcloud','auth','print-access-token'],text=True).strip()
-          url='https://cloudresourcemanager.googleapis.com/v1/projects/gen-lang-client-0593591102:testIamPermissions'
-          permissions=['secretmanager.secrets.create','secretmanager.secrets.list']
-          request=urllib.request.Request(url,data=json.dumps({'permissions':permissions}).encode(),headers={'Authorization':'Bearer '+token,'Content-Type':'application/json'})
-          with urllib.request.urlopen(request,timeout=15) as response:
-              print(json.dumps({'project_permissions':json.load(response).get('permissions',[]),'credentials_accessed':False,'iam_mutated':False}))
-          PY
-      - name: Inspect approved Codex Secret metadata without accessing credentials
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          gcloud secrets versions list janus-mart-codex-auth --project=gen-lang-client-0593591102 --limit=3 --format='json(name,state,createTime)'
-          gcloud secrets get-iam-policy janus-mart-codex-auth --project=gen-lang-client-0593591102 --format=json > /tmp/codex-secret-policy.json
-          jq '{mart_roles:[.bindings[]? | select(.members | index("serviceAccount:intelligence-mart@gen-lang-client-0593591102.iam.gserviceaccount.com")) | {role,conditional:has("condition")}],credentials_accessed:false,iam_mutated:false}' /tmp/codex-secret-policy.json
