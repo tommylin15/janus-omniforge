@@ -395,7 +395,7 @@ def build_financial_samples(datasets, symbols, as_of, snapshot, horizon_days, ro
                 exclusions[metadata] += 1
                 continue
             available = max(_instant(row["availability_at"]) for row in selected)
-            chosen_ids = {_evidence_id("financials", row, snapshot) for row in selected}
+            chosen_ids = {_evidence_id("financials", row, snapshot, preserve_financial_basis=True) for row in selected}
             selected_evidence = [item for item in evidence if item["evidence_id"] in chosen_ids]
             if len(selected_evidence) != 2:
                 exclusions["missing_filing_provenance"] += 1
