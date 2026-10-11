@@ -115,13 +115,15 @@ WIF 診斷身分具備指定 project 的 `cloudbuild.builds.get`／必要時 `cl
 
 每次新的完整來源 SHA 必須重新執行以下鏈路；2026-10-10 首次真實完成的新來源、8 次 Jobs canary、API 新→舊→新 100% traffic rehearsal 與收據見 [live evidence](archive/cicd-ghcr-api-promotion-2026-10-10.md)，**不得把當次已通過證據套用到下一個 SHA**。
 
-1. 先有完整 GHCR publish PASS、0% candidate 已驗證、同一 source SHA 的 Owner／OAuth／PnL acceptance。缺少本次必要證據時不得寫入四 Jobs 或 API 正式流量；`ops/*.template.json` 只是 `approved=false` 範本，**不觸發發佈**。不得用舊 SHA owner proof 或負向 401 替代真人 owner 隔離。
-2. 以新版完整 SHA、正確 release run、`rollback_mode=reversible_ghcr`、`accept_no_old_image_rollback=false` 與前一成功版本四 Job image digest＋設定 fingerprint 建立 `ops/ghcr-jobs-rollout-request.json`。只有正式 request commit／明確受控 dispatch 才執行 `ghcr-jobs-rollout-dev.yml`。原有共享 concurrency + Git-ref owner lease、Scheduler／executions fence、各 Job 兩次獨立 canary、異常反序恢復不可省略。Research Job 不屬四目標。
+1. 先有完整 GHCR publish PASS、0% candidate 已驗證、同一來源的 **GitHub Actions 自動 OAuth／私有權限邊界**結果，將成功的 `ghcr-candidate-auth-boundary.yml` run ID 寫入 `auth_boundary_run`；腳本負責驗證 workflow 終態和 source SHA。例行發版不再要求本人手動 Google OAuth 登入、consent 或 A→B→A。能自動執行的 owner／PnL／MCP 功能驗證仍照常執行，未實測的正向登入或隔離標 `NOT_VERIFIED`。未取得必要自動 gate 不得寫入四 Jobs 或 API 流量；template 仍是 `approved=false` 並不觸發發布。
+2. 以新版完整 SHA、正確 release run、同 SHA `auth_boundary_run`、`rollback_mode=reversible_ghcr`、`accept_no_old_image_rollback=false` 與前一成功版本四 Job image digest＋設定 fingerprint 建立 `ops/ghcr-jobs-rollout-request.json`。只有正式 request commit／明確受控 dispatch 才執行 `ghcr-jobs-rollout-dev.yml`。原有共享 concurrency + Git-ref owner lease、Scheduler／executions fence、各 Job 兩次獨立 canary、異常反序恢復不可省略。Research Job 不屬四目標。
 3. **先讀取真正 Jobs artifact**：必須 `phase=PASS`、同 SHA、`rollback_baseline_verified=true`、`rollback_available=true`、8 次不同 execution canary 完整；若 `old_image_rollback_exercised=false`，只可說「回復基準可用」，不可說「Job 真實回滾已完成」。
-4. Jobs receipt PASS 後才建立 `ops/ghcr-api-promote-request.json`（`approved=true`、同 SHA owner proof、release_run、jobs_run、上一版 `baseline_source_sha`、`allow_legacy_forward_only=false`），透過 `ghcr-api-promote-dev.yml` 執行。手動 `workflow_dispatch` 仍必須通過 Python 內部同一 request guard。
+4. Jobs receipt PASS 後才建立 `ops/ghcr-api-promote-request.json`（`approved=true`、同 SHA `auth_boundary_run`、release_run、jobs_run、上一版 `baseline_source_sha`、`allow_legacy_forward_only=false`），透過 `ghcr-api-promote-dev.yml` 執行。手動 `workflow_dispatch` 仍必須通過 Python 內部同一 request guard。
 5. 正式 API promotion 須先證實上一版 Ready／可匿名讀取的 pinned GHCR image 與 source identity，再進行候選 100% → 前版 100% → 候選 100% 真實 traffic rehearsal；每一段 readback Route/Service Ready、generation、單一 100%、未改其他 tags／非 traffic 設定、health／build SHA／未登入 401。若未知或不能恢復，必須保留既有 lease 並回報 BLOCKED；僅以 workflow SUCCESS 不算 live PASS。
 6. 每次發布前更新 rollback baseline 到**實際目前已驗證的上一次成功版**。歷史 `fbcc5f58...` 是 2026-10-10 發布的**前一版**，不可在以後不同來源的 Release 未重新 live readback 就沿用。新來源發佈後仍保留前版映像與 revision 至新基準驗證完成。
 7. 固定 Preview 更新後健康失敗恢復的 fault-injection 測試 [#38009586797](https://github.com/tommylin15/janus-omniforge/actions/runs/38009586797) 已 PASS；**並非刻意 GCP live 故障演練**。API 真實 traffic rollback 與 Jobs image rollback 是不同 acceptance，分開記錄。
+
+**人工 OAuth gate 新政策：** `ops/ghcr-owner-acceptance.json` 為歷史稽核，不再是新版本必要 input；不得以「等待 Owner 登入」拖住 GitHub Actions 派版。其他 Jobs fence、digest、owner 私密存取與 traffic rollback 仍需其本身的正式驗收，不能因取消人工 OAuth 而一起省略。
 
 ### 3.4 本次驗收範圍
 

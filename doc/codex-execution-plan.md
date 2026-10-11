@@ -93,6 +93,10 @@ B9 產品與 C 組、剩餘產品依本次合併授權先整套開發，再集�
 
 ## 5. 發布、review 與交接
 
+**2026-10-12 新發布規則：**移除 Github Actions 每版人工 OAuth 登入／consent／A→B→A；持續執行自動 OAuth metadata／PKCE、User／Admin／MCP 401、refresh／token／audience 測試與可安全執行的真實 authenticated readback。取同 SHA 成功 `ghcr-candidate-auth-boundary.yml` 的 `auth_boundary_run`，填到新的 Jobs／API request；腳本檢查成功 run 的 workflow 身分與來源，不再讀歷史人工 `ghcr-owner-acceptance.json` 作 gate。非 OAuth 的 PnL／owner isolation 功能與 rollback 各自照原契約驗收；無證據標 `NOT_VERIFIED`，不要要求每版真人重登。
+
+
+
 沿用 GitHub Actions → GHCR → Cloud Run、完整 SHA release gate、共用鎖／lease、Job fence／canary、API 候選驗證及 readback；不新增部署路徑、不修改歷史 evidence 使結果過關。
 
 commit/push 前執行 /ponytail-review；環境缺該非系統命令時，依 PROJECT_RULES §1.4，以實際 diff／契約／連結／適用測試檢查替代並明示，不偽稱已執行。

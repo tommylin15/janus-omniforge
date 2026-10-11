@@ -87,7 +87,7 @@ Series typed minimum：schema_version、symbol、metric、unit、period、points
 - Core/Mart targeted：數值單位、null/合法0、不同財報期別、EPS 股本、營收 YoY 基期、公司行動、事件 published 與 observed 反常、PIT leakage 負測、缺樣本不計分位。
 - API targeted：schema/pagination/limits、空／單點／缺洞、stale/partial、as_of/source/provenance、authenticated owner/public isolation；今日個人化訊息不得漏出他人持股／關注，沒有個人資料時 bounded fallback，不因一圖 timeout 阻塞首屏。
 - Flutter targeted/golden：四頁唯一 Hero，主數字／色彩＋箭頭，價格與 PnL 色彩，圖表軸／單位／期間／tooltip、空資料、非持股、離榜、390×844 和放大字級。
-- Integration：GCP dev 真實登入 owner 四頁，真實官方行情＋個股、不同頁同股票價格／估值日一致，Private Mart checkpoint／待更新能解釋，來源與不確定狀態可下鑽。
+- Integration：GCP dev 已授權 authenticated owner 四頁（不要求每版人工重新 OAuth 登入），真實官方行情＋個股、不同頁同股票價格／估值日一致，Private Mart checkpoint／待更新能解釋，來源與不確定狀態可下鑽。
 - Release：同一完整 SHA 必要 CI → GHCR immutable digest → 0% dev candidate → live screenshot／API／Mart readback → 完整 gate PASS 才正式 dev 切流／回滾。沿用現有部署鎖，schema migration 與 Job guard，不額外部署路徑。
 
 **P0 PASS** 需要 VF-00～06 真實實作、CI、dev owner 四頁驗收，個股短價量能互動、每頁有大數字／主訊息、無法用的圖明示原因。**P1 PASS** 需要 VF-07～09 可比的真實 series／source／PIT／readback，不能單靠 mock 圖通過。**整體產品 PASS** 仍需原 B9 產品、C 組、持股頁及既定驗收全部達成；本文件提交只是 docs-only，產品與模型品質目前不自動更動。

@@ -1,5 +1,8 @@
 # Janus Current Status
 
+**2026-10-12 發版 OAuth 政策：**每版 GitHub Actions 不再以人工 Google OAuth 登入／consent／A→B→A 為必經 gate；同來源自動 OAuth metadata／private 授權負測仍需 PASS。Jobs／API promotion 改核 `auth_boundary_run`，舊人工 owner receipt 僅留歷史。這次是規則／程式變更，不等同新版已完成 traffic promotion 或完整 Owner 資料驗收。
+
+
 **2026-10-11 最新順序決策：B9 產品功能驗收 → C 組及剩餘產品整合 → 產品交付 → 500 檔歷史研究池／五角色模型研究。** 可靠計算／規則先服務；ML 品質獨立保留 NOT VERIFIED／PARTIAL。這是文件與驗收邊界更新，不是功能／部署／模型 PASS。接手見 [Codex 作業指示](codex-execution-plan.md)。
 
 

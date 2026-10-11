@@ -34,11 +34,18 @@
 
 1. 先比對 `main` SHA、完整測試 CI、GHCR public digest、WIF 權限及既有 dev service／Job／Scheduler 的 readback；取得目前 traffic、revision、Job image、環境與 Secret **reference**（非 secret value），檢查 deployment mutex／active execution。
 2. 在**既有 Cloud Run Service** 以固定 digest 建立 `--no-traffic --tag <candidate-tag>` revision，讀回 revision name、ready condition、digest 及原本 traffic 未被變更。0% 指正常 service traffic；tag URL 仍允許被授權測試流量。
-3. 對 tag URL 跑真實 dev health、未登入拒絕、authenticated owner／OAuth／canonical PnL／MCP、migration／schema 與本次受影響功能的 evidence；status 缺失維持 `UNKNOWN`。不能把 unauthenticated smoke PASS 冒充完整 authenticated gate。
+3. 對 tag URL 跑 dev health、同來源自動 OAuth discovery／PKCE／未登入 User/Admin/MCP 拒絕、可安全自動驗證的 authenticated owner／canonical PnL／MCP、migration／schema 與本次受影響功能。**真人 Google OAuth 登入不再是每次發版必要 gate**；缺失狀態維持 `UNKNOWN`，不得把負向 smoke 當成真人登入或 owner isolation PASS。
 4. 全部必需 gate PASS 才切換到該**明確 revision**（不得使用無驗證 `LATEST`），readback traffic、digest 與使用者可見功能。出錯則恢復先前 traffic／revision 並確認回滾讀回。
 5. **Cloud Run Jobs 沒有 0% traffic revision**。四元件中的 ingestion／Mart／private Job 需另設 digest pinning、active execution／Scheduler fence、快照、受控 canary、必要 migration、rollback；不能在 API 0% candidate 階段更新現役 Job image，也不能因單一 API PASS 提前宣稱四元件 Release 完成。
 6. 在新版本驗收完成前保留前一版已驗證 image／config 與必要 evidence；失敗／timeout 以 bounded readback、有限重試及復原為準，不重送未知狀態的 Job。新流程使用原有跨 runtime owner Git-ref lease 與 Actions concurrency；每次 Release 仍須核對持鎖者、持久 receipt 與安全解鎖狀態，不能只靠 Actions concurrency。
 7. 2026-10-09 使用者收斂範圍：舊 Revision／映像與其他舊 CI/CD 資產清理不屬於本次驗收或結案條件。上一成功版本、digest、設定與回滾證據仍須保留。
+
+### 3.1 2026-10-12 發版 OAuth 人工驗收取消
+
+- **不再要求**每次 GitHub Actions 發布版本手動 Google 登入、consent、Owner A→B→A，歷史 `ghcr-owner-acceptance.json` 原樣保留但不再強制引用。此改變不表示真人 OAuth 或 A/B 隔離已經 PASS。
+- 新版 Jobs／API release request 必須指定同 SHA 已完成且成功的 `auth_boundary_run`；deployment script 讀取成功 workflow 與該 run request 的來源 SHA 確認一致，不允許以舊 SHA 結果通過。失敗一律停在 mutation 前。
+- 自動驗收保留 OAuth metadata、PKCE/redirect、refresh grant/audience、User/Admin/MCP 未授權負測及可由系統安全執行的正向 authenticated tests；沒證據的正向 Google login／PnL／owner isolation 仍標 `NOT_VERIFIED`，不能拿 metadata 401 冒充。
+- 其他完整 SHA／Jobs／流量回滾／lease／真正需要人工授權修改 OAuth client 或 consent 的安全政策不變。
 
 ## 4. WIF / IAM 與唯讀 Cloud Build 診斷
 

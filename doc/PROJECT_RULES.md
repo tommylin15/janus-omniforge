@@ -161,11 +161,17 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 ### 12.2 Cloud Run 候選、驗收、正式切換與回滾
 
 - **使用公開 GHCR package** 才可走 Cloud Run 直接部署；發布後必須驗證匿名可拉取與 digest 可解析。私人 GHCR package 需要 Artifact Registry remote repository 等額外路徑，**不符合目前「新流程不使用 Artifact Registry」目標，必須 fail closed**。GHCR visibility、外部 registry availability、rate／size 等限制與現有 Cloud Run 服務實際相容性須在 dev 驗證。
-- GitHub Actions 使用固定 `ghcr.io/...@sha256:...` 呼叫 GCP API，對**既有 Cloud Run Service** 建立 `--no-traffic`、帶專屬 tag 的 0% 正式流量候選 revision；候選 tag URL 可供受控測試，並非完全無請求。記錄先前 traffic、revision、digest 與設定，再做 health／authenticated owner／OAuth／PnL／MCP 等適用的真實 dev acceptance。所有必需 gate PASS 才明確移轉流量；失敗時將流量恢復至先前已驗證 revision，並 readback。
+- GitHub Actions 使用固定 `ghcr.io/...@sha256:...` 呼叫 GCP API，對**既有 Cloud Run Service** 建立 `--no-traffic`、帶專屬 tag 的 0% 正式流量候選 revision；候選 tag URL 可供受控測試，並非完全無請求。記錄先前 traffic、revision、digest 與設定，再做 health／可自動執行的 OAuth／auth 邊界、適用且有可驗證方式的 authenticated owner／PnL／MCP 等 dev acceptance（不以人工 OAuth 登入為必經）。所有必需 gate PASS 才明確移轉流量；失敗時將流量恢復至先前已驗證 revision，並 readback。
 - Cloud Run **Job 無 Service 的 0% traffic revision 語意**。Job image 更新必須另有 mutex、active execution／Scheduler fence、固定 digest／設定 snapshot、必要的隔離 canary 與可回復步驟；不得把 API 候選 PASS 直接當成 Jobs 發布成功，也不得未經 gate 更新排程使用的 Job image。
 - Release 使用完整 Git SHA、上一次成功發布 SHA、相同 SHA 冪等與舊 SHA 防覆蓋規則；保留上一可用 image／revision／Job 設定與回滾證據，直到新版本 live PASS。正常 Push 不得自動切換 Cloud Run traffic 或 Job。部分成功、timeout、未知執行均不視為 PASS，也不盲目重送任何 Job。
 - 2026-10-09 使用者最新指示：本次只驗收 GitHub Actions → GHCR → Cloud Run 新流程。舊 Revision／映像／GCS／AR 資產清理不列 active TODO，也不作為 Release 結案條件；保留回滾所需版本與證據。
 - Release receipts／diagnostics 以 GitHub Actions logs、job summary 與必要的保護性 workflow artifacts 保留；只輸出非敏感欄位（SHA、digest、revision、workflow/run、gate 結果、baseline、rollback 與 UTC）。不在 log／artifact／argv 印出 Secret、token、owner 個資或敏感 payload。部署互斥、state 持久性及可回復路徑必須在正式啟用前實際驗證，不能假定 Actions concurrency 就等於跨 run／跨 runtime 的完整鎖。
+
+**2026-10-12 使用者新決策：取消每次 GitHub Actions 發版的人工 OAuth 登入 gate。** Dev Jobs／API promotion／固定 Preview **不得**要求 Owner 每個來源 SHA 重新開瀏覽器登入 Google、重做 OAuth consent 或人工 A→B→A；歷史 `ops/ghcr-owner-acceptance.json` 保留稽核，但不再作為新版本強制發版證明。
+
+- **保留可自動執行的 OAuth 驗證**：同 SHA 0% candidate 的 OAuth discovery、issuer／redirect、PKCE S256／refresh grant metadata、未登入 User／Admin 401／403、MCP Bearer challenge／private tool 拒絕；既有的 token、refresh rotation／revoke、wrong audience、owner-scope 程式回歸及可安全自動完成的正向 authenticated readback 照常執行。Jobs／API promotion 需可追溯的同來源 `ghcr-candidate-auth-boundary.yml` 成功 run ID（`auth_boundary_run`），腳本驗證 run、workflow、source identity；缺失或失敗不得越過。
+- **不能混淆驗收結果**：metadata／負向 401 PASS 不等於真人 Google 登入、A/B owner isolation、正向 refresh 交換或 PnL PASS；無法自動測的功能按原獨立驗收標 `NOT_VERIFIED`／`PARTIAL`，不要造假或要求使用者每版登入。其餘 SHA、完整 CI、Jobs canary、source/privacy、lease、rollback、正式 traffic readback gate 均不豁免。
+- 例行發版免人工 OAuth 驗證不等於代理人可以自行完成 MFA／Google consent，也不自動授權新 scope／OAuth client／redirect 權限擴張；真的改動時仍依 §1.3 取得使用者本人操作及核准。
 
 ### 12.3 GCP 身分及既有 Cloud Build 唯讀診斷
 

@@ -82,7 +82,7 @@ OAuth issuer 必須使用目前 `mcp-oauth` tagged URL，MCP resource 必須使�
 
 ## 6. A/B owner-isolation live acceptance
 
-A/B acceptance 必須使用兩個真實 allowlisted Google owner，分別建立／登入各自 Janus identity。驗收目標是證明 authenticated private context 由 server-side owner identity 隔離，而不是由 client 傳 `user_id` 控制。
+**本節屬可用真實已核准登入身分時的獨立 owner-isolation acceptance，非每次 GitHub Actions 發版的人工作業。** 2026-10-12 使用者取消重複人工 Google 登入／A→B→A release gate，改由同來源成功的自動 OAuth metadata／PKCE／User/Admin/MCP 邊界驗收。能安全進行的已授權 authenticated 測試仍做；若需使用者 Google consent 而不可自動執行，標 `NOT_VERIFIED`，不阻塞例行發版、不虛構結果。A/B 正向驗收若實際執行，仍須兩個真實 allowlisted Google owner，分別建立／登入各自 Janus identity。驗收目標是證明 authenticated private context 由 server-side owner identity 隔離，而不是由 client 傳 `user_id` 控制。
 
 最小流程：
 
@@ -94,6 +94,10 @@ A/B acceptance 必須使用兩個真實 allowlisted Google owner，分別建立�
 6. 只記錄 internal owner IDs 的必要對照、revision／digest、UTC timestamp 與結果；不要記錄 bearer／refresh token 值。
 
 目前是否完成這個 A/B gate，只看 `todo.md` 與最新 operations evidence，不因本 runbook 存在就視為完成。
+
+### 6.1 GitHub Actions 的必要自動 OAuth 測試
+
+每版執行候選來源相同的 OAuth discovery／issuer／S256 PKCE／refresh-grant metadata、未登入 User/Admin API 401／403、MCP 401 與 Bearer challenge；並保留 token／refresh rotation、wrong-audience、owner-scope 的 deterministic regression 和一切可安全自動取得的 authenticated readback。依 `auth_boundary_run` 查 GitHub Actions workflow result 與該 run 的 request SHA，不相同則不得進行 Jobs／API promotion。**這些不能冒充真人 Google login、完整 token exchange 或真實 Owner A/B/A 隔離測試已通過。**
 
 ## 7. Migration 與資料保留
 

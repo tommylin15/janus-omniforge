@@ -90,6 +90,10 @@ A 組 implementation／CI／dev runtime 與兩項人工 gate 已於 2026-10-06 �
 - [latest-price／Ledger UI 驗收紀錄](archive/latest-price-ledger-ui-acceptance-2026-10-06.md)
 
 A 組不再列 active TODO；下一個 active work 為 B 組。
+## 2026-10-12 發版 OAuth 人工驗收已取消
+
+使用者明確取消「每次 GitHub Actions 發布前要求 Owner 手動登入 Google／重做 OAuth consent／A→B→A」的關卡，**不是取消 OAuth 驗證**。同來源 SHA 成功的自動 candidate OAuth metadata、PKCE／redirect、未登入 User/Admin／MCP 授權負測與可自動執行的 token／refresh／owner-scope 測試保留；Jobs／API promotion 的 `auth_boundary_run` 必須通過。詳見 [PROJECT_RULES §12.2](PROJECT_RULES.md)、[CI/CD SPEC](spec/cicd-v2.md)、[OAuth runbook](runbook-user-oauth-dev.md)。真人登入證據未做仍為 `NOT_VERIFIED`，其餘必要發布 gate 不豁免。這是已確定政策／已改 gate，不另把人工登入列待辦。
+
 ## 2026-10-11 四頁視覺優先（併入既有 B9＋C＋剩餘產品工作包）
 
 使用者指定四張已核准 PNG 只是最低基礎值，每頁需唯一 Hero、圖表／大數字／顏色先行。 [A 正式 UI 契約](ui/visual-first-four-pages.md) 和 [B 工程工作單](ui/visual-first-delivery.md) 定義詳盡責任與 acceptance；不重開 A 組／B0～B8，不提前做 500 檔模型研究。
