@@ -12,6 +12,10 @@ on:
         description: Failed CEO create run; recover only if the Job does not exist
         required: false
         type: string
+      recover_failed_runtime:
+        description: Failed baseline acceptance run; recover only after all CEO executions are terminal
+        required: false
+        type: string
 permissions:
   contents: write
   actions: read
@@ -29,6 +33,7 @@ jobs:
       RELEASE_RUN: ${{ inputs.release_run }}
       CEO_RUN: ${{ inputs.ceo_run }}
       RECOVER_RUN: ${{ inputs.recover_failed_create }}
+      RUNTIME_RECOVER_RUN: ${{ inputs.recover_failed_runtime }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -84,6 +89,23 @@ jobs:
               '--safe-to-release'],check=True)
           PY
       - id: lease
+        name: Recover terminal failed runtime before acquiring the release lease
+        run: |
+          python - <<'PY'
+          import json,os,subprocess,sys
+          sys.path.insert(0,'scripts/gcp')
+          from ceo_worker_deploy import execution_fence
+          run=os.environ['RUNTIME_RECOVER_RUN']
+          if run:
+              assert run.isdecimal()
+              data=json.loads(subprocess.check_output(['gh','api',f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{run}"],text=True))
+              assert data['path']=='.github/workflows/analysis-product-runtime-dev.yml' and data['conclusion']=='failure'
+              execution_fence()
+              subprocess.run([sys.executable,'scripts/gcp/ghcr_release_lease.py','release',
+                  '--run-id',run,'--run-attempt',str(data['run_attempt']),'--sha',data['head_sha'],
+                  '--safe-to-release'],check=True)
+          PY
+      - id: acquire
         run: |
           python scripts/gcp/ghcr_release_lease.py acquire
           echo 'held=true' >> "$GITHUB_OUTPUT"

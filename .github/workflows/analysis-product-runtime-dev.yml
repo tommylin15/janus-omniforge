@@ -1,6 +1,11 @@
 name: Bounded persisted specialist runtime acceptance on dedicated dev worker
 on:
   workflow_dispatch:
+    inputs:
+      sha:
+        description: Full tested SHA of the deployed dedicated worker and API candidate
+        required: true
+        type: string
 permissions:
   contents: write
   id-token: write
@@ -14,6 +19,7 @@ jobs:
     environment: dev
     env:
       GH_TOKEN: ${{ github.token }}
+      PRODUCT_SHA: ${{ inputs.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
@@ -21,17 +27,42 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
+      - name: Acquire lease and point fixed preview at the verified zero-traffic candidate
+        run: |
+          set -Eeuo pipefail
+          [[ "$PRODUCT_SHA" =~ ^[0-9a-f]{40}$ ]]
+          python scripts/gcp/ghcr_release_lease.py acquire
+          gcloud run services describe janus-api --project=gen-lang-client-0593591102 --region=us-central1 --format=json > /tmp/preview-before.json
+          tag="ghcr-${PRODUCT_SHA:0:12}"
+          revision="$(jq -r --arg tag "$tag" '[.status.traffic[]|select(.tag==$tag and (.percent//0)==0)]|if length==1 then .[0].revisionName else empty end' /tmp/preview-before.json)"
+          url="$(jq -r --arg tag "$tag" '.status.traffic[]|select(.tag==$tag)|.url' /tmp/preview-before.json)"
+          test -n "$revision"
+          test "$(curl -fsS --max-time 30 "$url/app/build-id.txt")" = "$PRODUCT_SHA"
+          gcloud run services update-traffic janus-api --project=gen-lang-client-0593591102 --region=us-central1 --update-tags="preview=$revision" --quiet
+          gcloud run services describe janus-api --project=gen-lang-client-0593591102 --region=us-central1 --format=json > /tmp/preview-after.json
+          python - <<'PY'
+          import json,os
+          before=json.load(open('/tmp/preview-before.json'))
+          after=json.load(open('/tmp/preview-after.json'))
+          traffic=lambda v:sorted((t['revisionName'],t['percent']) for t in v['status']['traffic'] if t.get('percent',0)>0)
+          tags=lambda v:sorted((t.get('tag',''),t['revisionName'],t.get('percent',0)) for t in v['status']['traffic'] if t.get('tag')!='preview')
+          assert traffic(before)==traffic(after) and len(traffic(after))==1 and traffic(after)[0][1]==100
+          assert tags(before)==tags(after) and before['spec']['template']==after['spec']['template']
+          assert any(t.get('tag')=='preview' and t['revisionName']==next(c['revisionName'] for c in after['status']['traffic'] if c.get('tag')=='ghcr-'+os.environ['PRODUCT_SHA'][:12]) for t in after['status']['traffic'])
+          assert any(c['type']=='Ready' and c['status']=='True' for c in after['status']['conditions'])
+          PY
+          test "$(curl -fsS --max-time 30 https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/build-id.txt)" = "$PRODUCT_SHA"
       - name: Persist latest real Core baselines twice without LLM or scheduled Job changes
         run: |
-          python scripts/gcp/ghcr_release_lease.py acquire
+          python scripts/gcp/ghcr_release_lease.py assert
           python - <<'PY'
-          import json,sys,time
+          import json,os,re,sys,time
           sys.path.insert(0,'scripts/gcp')
           from ghcr_jobs_rollout import cloud,ROOT,terminal,fence
           path=ROOT+'/jobs/janus-ceo-analysis'
           source=cloud(path)
-          assert source['labels']['janus-git-sha']=='08079495e05b66897ff1800efffc58906ef5f1fb'
-          assert source['template']['template']['containers'][0]['image'].removeprefix('cache.us-docker.pkg.dev/')=='ghcr.io/tommylin15/janus-intelligence-mart@sha256:c38d844b2d363608434a694fd6a87b8c1edec9f8609d59ff8c76f65e2785ceb7'
+          assert source['labels']['janus-git-sha']==os.environ['PRODUCT_SHA']
+          assert re.fullmatch(r'ghcr.io/tommylin15/janus-intelligence-mart@sha256:[0-9a-f]{64}',source['template']['template']['containers'][0]['image'].removeprefix('cache.us-docker.pkg.dev/'))
           assert not source.get('reconciling') and source['terminalCondition']['state']=='CONDITION_SUCCEEDED'
           results=[]
           for index in range(2):

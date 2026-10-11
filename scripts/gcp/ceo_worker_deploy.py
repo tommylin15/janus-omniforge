@@ -1,14 +1,38 @@
-"""Create only the explicitly approved dev CEO Job; no execution or traffic change."""
+"""Deploy only the approved bounded dev CEO Job; no execution or traffic change."""
 import argparse
 import json
 from pathlib import Path
 import time
 
 from ceo_worker_template import JOB, PROJECT, template
-from ghcr_jobs_rollout import ROOT, cloud, job
+from ghcr_jobs_rollout import ROOT, cloud, job, terminal
 
 API_IDENTITY = f'janus-user-api@{PROJECT}.iam.gserviceaccount.com'
 ROLES = ('roles/run.jobsExecutorWithOverrides', 'roles/run.viewer')
+
+
+def execution_fence():
+    from urllib.parse import quote
+    path = f'{ROOT}/jobs/{JOB}/executions?pageSize=100'
+    seen = set()
+    while path:
+        data = cloud(path)
+        assert all(terminal(e) for e in data.get('executions', [])), 'CEO execution not terminal'
+        token = data.get('nextPageToken')
+        assert not token or token not in seen, 'execution pagination loop'
+        seen.add(token)
+        path = f'{ROOT}/jobs/{JOB}/executions?pageSize=100&pageToken={quote(token, safe="")}' if token else None
+
+
+def update_payload(existing, desired):
+    previous = json.loads(json.dumps(existing['template']))
+    old = previous['template']['containers'][0]['image'].removeprefix('cache.us-docker.pkg.dev/')
+    import re
+    assert re.fullmatch(r'ghcr.io/tommylin15/janus-intelligence-mart@sha256:[0-9a-f]{64}', old)
+    previous['template']['containers'][0]['image'] = desired['template']['template']['containers'][0]['image']
+    assert previous == desired['template'], 'CEO configuration drift'
+    assert existing['labels'].get('janus-component') == 'manual-ceo'
+    return {**desired, 'etag': existing['etag']}
 
 
 def bind_api(policy, identity):
@@ -44,10 +68,22 @@ def main():
         if str(error) != 'cloud_control_http_404':
             raise
         existing = None
+    operation = None
     if existing is None:
         # CreateJob takes jobId in the URL and requires an empty resource name.
         operation = cloud(f'{ROOT}/jobs?jobId={JOB}',
                           {key: value for key, value in desired.items() if key != 'name'}, 'POST')
+    elif existing['labels'].get('janus-git-sha') != args.sha:
+        execution_fence()
+        payload = update_payload(existing, desired)
+        import subprocess
+        old_image = existing['template']['template']['containers'][0]['image'].removeprefix('cache.us-docker.pkg.dev/')
+        public = json.loads(subprocess.check_output(['skopeo', 'inspect', '--no-creds', 'docker://' + old_image], text=True))
+        assert public['Digest'] == old_image.split('@')[1]
+        assert public['Labels']['org.opencontainers.image.revision'] == existing['labels']['janus-git-sha']
+        print(json.dumps({'rollback_image': old_image, 'rollback_sha': existing['labels']['janus-git-sha']}), flush=True)
+        operation = cloud(path + '?updateMask=template,labels', payload, 'PATCH')
+    if operation is not None:
         name = operation.get('name', '')
         assert name.startswith(ROOT + '/operations/')
         deadline = time.monotonic() + 480
@@ -55,11 +91,11 @@ def main():
             state = cloud(name)
             if state.get('done'):
                 if state.get('error'):
-                    raise RuntimeError('CEO Job creation failed; inspect before retry')
+                    raise RuntimeError('CEO Job deployment failed; inspect before retry')
                 break
             time.sleep(3)
         else:
-            raise RuntimeError('CEO Job creation unknown; no automatic retry')
+            raise RuntimeError('CEO Job deployment unknown; no automatic retry')
         existing = cloud(path)
     task = existing['template']['template']
     expected_task = desired['template']['template']

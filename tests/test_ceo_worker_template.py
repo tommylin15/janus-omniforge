@@ -65,3 +65,25 @@ def test_api_binding_preserves_existing_and_conditional_policy_without_broadenin
     assert all(b['members'] == ['serviceAccount:' + API_IDENTITY] for b in result['bindings'][2:])
     with pytest.raises(ValueError):
         bind_api(policy, 'other@other-project.iam.gserviceaccount.com')
+
+
+def test_existing_worker_update_is_image_only_and_etag_fenced():
+    sys.path.insert(0, str(path.parent))
+    from ceo_worker_deploy import update_payload
+    old = worker.template(source(), 'ghcr.io/tommylin15/janus-intelligence-mart@sha256:'+'1'*64, 'a'*40)
+    old['etag'] = 'fence'
+    desired = worker.template(source(), 'ghcr.io/tommylin15/janus-intelligence-mart@sha256:'+'2'*64, 'b'*40)
+    assert update_payload(old, desired)['etag'] == 'fence'
+    old['template']['template']['timeout'] = '1800s'
+    with pytest.raises(AssertionError):
+        update_payload(old, desired)
+
+
+def test_worker_fence_checks_later_execution_pages(monkeypatch):
+    sys.path.insert(0, str(path.parent))
+    import ceo_worker_deploy
+    responses = iter([{'executions': [], 'nextPageToken': 'next'},
+                      {'executions': [{'runningCount': 1}]}])
+    monkeypatch.setattr(ceo_worker_deploy, 'cloud', lambda _: next(responses))
+    with pytest.raises(AssertionError, match='not terminal'):
+        ceo_worker_deploy.execution_fence()
