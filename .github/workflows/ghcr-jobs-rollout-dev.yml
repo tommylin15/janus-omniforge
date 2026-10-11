@@ -39,7 +39,8 @@ jobs:
             jq -e --arg sha "$(jq -r '.sha' ops/ghcr-candidate-request.json)" \
               '.intent == "approved-dev-ghcr-jobs-rollout" and .approved == true and
                .scope == "existing-dev-four-jobs" and .sha == $sha and
-               (.release_run | type == "string" and test("^[0-9]+$"))' "${file}" > /dev/null
+               (.release_run | type == "string" and test("^[0-9]+$")) and
+               (.auth_boundary_run | type == "string" and test("^[0-9]+$"))' "${file}" > /dev/null
             echo "RELEASE_RUN=$(jq -r '.release_run' "${file}")" >> "${GITHUB_ENV}"
           else
             [[ "${RELEASE_RUN}" =~ ^[0-9]+$ ]]
@@ -56,7 +57,7 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Apply owner-accepted reversible GHCR Jobs with two real canaries each
+      - name: Apply auto-OAuth-verified reversible GHCR Jobs with two real canaries each
         run: python scripts/gcp/ghcr_jobs_rollout.py --release-run "$RELEASE_RUN" --receipt /tmp/ghcr-jobs-rollout.json
       - name: Verify GHCR recovery or retain deployment fence after failure
         if: ${{ failure() || cancelled() }}

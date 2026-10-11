@@ -237,17 +237,41 @@ def canary(name, expected_image, expected_hash, journal, save):
     save()
 
 
-def acceptance(sha):
-    proof = json.loads(Path("ops/ghcr-owner-acceptance.json").read_text())
-    if (proof.get("source_sha") != sha or proof.get("result") != "PASS"
-            or not all(proof.get("gates", {}).get(key) is True for key in
-                       ("google_oauth", "owner_a_read", "owner_b_isolation", "known_a_record_rejected", "pnl_parity", "readonly_mcp"))
-            or proof.get("janus_dev_private") != "BYPASSED"):
-        raise ValueError("owner_acceptance_not_verified")
-    observed = datetime.fromisoformat(proof["observed_at"].replace("Z", "+00:00"))
-    age = (datetime.now(timezone.utc) - observed).total_seconds()
-    if not 0 <= age < 86400:
-        raise ValueError("owner_acceptance_stale")
+def automated_oauth_acceptance(sha, boundary_run):
+    """Require exact-source live candidate OAuth/negative-auth CI, not human login.
+
+    The automation validates OAuth metadata, S256/refresh metadata, unauthenticated
+    User/Admin/MCP fences and candidate build identity. It does NOT attest a
+    Google browser login, token exchange or owner A/B/A personal data readback.
+    """
+    if not isinstance(boundary_run, str) or not re.fullmatch(r"[0-9]+", boundary_run):
+        raise ValueError("automated_oauth_run_required")
+    request = json.loads(Path("ops/ghcr-candidate-boundary-request.json").read_text())
+    if (request.get("intent") != "verify-ghcr-candidate-boundary"
+            or request.get("scope") != "read-only"
+            or request.get("no_gcp_mutation") is not True
+            or request.get("sha") != sha):
+        raise ValueError("automated_oauth_candidate_sha_mismatch")
+    result = json.loads(command(["gh", "run", "view", boundary_run, "--json",
+                                 "headSha,status,conclusion,workflowName"]))
+    if (result.get("status") != "completed"
+            or result.get("conclusion") != "success"
+            or result.get("workflowName") != "GHCR candidate OAuth and private-boundary probe"
+            or not isinstance(result.get("headSha"), str)
+            or not re.fullmatch(r"[0-9a-f]{40}", result["headSha"])):
+        raise ValueError("automated_oauth_boundary_not_verified")
+    # The boundary workflow HEAD is the request commit, not the image source
+    # commit. Verify its recorded source SHA instead of comparing unlike SHAs.
+    recorded = json.loads(command(["git", "show",
+                                  result["headSha"] + ":ops/ghcr-candidate-boundary-request.json"]))
+    if (recorded.get("sha") != sha
+            or recorded.get("no_gcp_mutation") is not True
+            or recorded.get("scope") != "read-only"):
+        raise ValueError("automated_oauth_run_source_mismatch")
+    command(["git", "merge-base", "--is-ancestor", result["headSha"], "HEAD"])
+    return {"source_sha": sha, "boundary_run": boundary_run,
+            "status": "AUTOMATED_OAUTH_NEGATIVE_AND_METADATA_PASS",
+            "human_google_login": "NOT_REQUIRED_NOT_VERIFIED"}
 
 
 
@@ -309,10 +333,12 @@ def run(release_run, receipt):
             or request.get("approved") is not True
             or request.get("scope") != "existing-dev-four-jobs"
             or request.get("sha") != sha
-            or request.get("release_run") != release_run):
+            or request.get("release_run") != release_run
+            or not isinstance(request.get("auth_boundary_run"), str)
+            or not re.fullmatch(r"[0-9]+", request["auth_boundary_run"])):
         raise ValueError("rollout_request_not_approved")
     rollback_mode = release_rollback_mode(request, sha)
-    acceptance(sha)
+    automated_oauth_acceptance(sha, request.get("auth_boundary_run"))
     release = json.loads(command(["gh", "run", "view", release_run, "--json", "headSha,status,conclusion,workflowName"]))
     if (release.get("headSha") != sha or release.get("status") != "completed"
             or release.get("conclusion") != "success" or release.get("workflowName") != "Janus GHCR full-test image publication"):

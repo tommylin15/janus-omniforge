@@ -223,7 +223,7 @@ def test_api_switch_rejects_nontraffic_service_configuration_change():
             promote.switch("new",baseline)
 
 
-def test_regular_api_promotion_requires_bound_approved_request_and_owner_sha():
+def test_regular_api_promotion_requires_bound_approved_request_and_auto_auth_boundary_run():
     import json
     sha="a"*40
     baseline="b"*40
@@ -233,7 +233,7 @@ def test_regular_api_promotion_requires_bound_approved_request_and_owner_sha():
         "source_sha":sha,"release_run":"41","jobs_run":"42",
         "rollback_mode":"reversible_ghcr",
         "baseline_source_sha":baseline,
-        "owner_acceptance_source_sha":sha,
+        "auth_boundary_run":"43",
         "allow_legacy_forward_only":False
     }
     with patch.object(promote.Path,"read_text",return_value=json.dumps(approved)):
@@ -241,7 +241,7 @@ def test_regular_api_promotion_requires_bound_approved_request_and_owner_sha():
     for changed in (
         {"approved":False},
         {"source_sha":"c"*40},
-        {"owner_acceptance_source_sha":"c"*40},
+        {"auth_boundary_run":""},
         {"rollback_mode":"user_authorized_forward_only"},
         {"baseline_source_sha":"c"*40},
         {"jobs_run":"123"},
@@ -261,7 +261,7 @@ def test_regular_api_workflow_request_only_push_retains_explicit_dispatch():
     assert "cancel-in-progress: false" in text
 
 
-def test_future_rollout_and_promotion_templates_are_inert_until_owner_gate():
+def test_future_rollout_and_promotion_templates_are_inert_until_explicit_request():
     import json
     jobs=json.loads((ROOT/"ops/ghcr-jobs-rollout-request.template.json").read_text())
     api=json.loads((ROOT/"ops/ghcr-api-promote-request.template.json").read_text())
@@ -272,7 +272,10 @@ def test_future_rollout_and_promotion_templates_are_inert_until_owner_gate():
     assert jobs["rollback_images"]==baseline["job_images"]
     assert jobs["rollback_config_hashes"]==baseline["job_config_hashes"]
     assert api["baseline_source_sha"]==baseline["source_sha"]
-    assert api["jobs_run"]=="" and api["owner_acceptance_source_sha"]==""
+    assert api["jobs_run"]=="" and api["auth_boundary_run"]==""
+    assert jobs["auth_boundary_run"]==""
+    assert "owner_acceptance_source_sha" not in api
+    assert "owner_acceptance_requirement" not in jobs
     workflow=(ROOT/".github/workflows/ghcr-api-promote-dev.yml").read_text()
     assert "'ops/ghcr-api-promote-request.json'" in workflow
     assert "ops/ghcr-api-promote-request.template.json" not in workflow

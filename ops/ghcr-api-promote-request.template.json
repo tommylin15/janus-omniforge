@@ -7,7 +7,7 @@
   "jobs_run": "",
   "rollback_mode": "reversible_ghcr",
   "baseline_source_sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
-  "owner_acceptance_source_sha": "",
   "allow_legacy_forward_only": false,
-  "gate": "Before creating ops/ghcr-api-promote-request.json, authenticate Google A→B→A on this SHA and get successful Jobs run with reversible GHCR receipt; creating actual file triggers 100% traffic update via existing global lock. This template is never a deployment approval."
+  "gate": "Explicit bound full SHA, approved Jobs receipt, same-source successful automated candidate OAuth/private boundary run ID, reversible GHCR baseline and traffic rollback; human Google-login attestation is NOT a release prerequisite. Template is never an approval.",
+  "auth_boundary_run": ""
 }

@@ -11,7 +11,7 @@ import time
 from collections import Counter
 
 import ghcr_jobs_rollout as jobs
-from ghcr_jobs_rollout import acceptance, JOB_COMPONENT, REQUIRED_JOBS
+from ghcr_jobs_rollout import automated_oauth_acceptance, JOB_COMPONENT, REQUIRED_JOBS
 from ghcr_mcp_route import BASE, PROJECT, REGION, SERVICE, LEASE, command, describe, request, probe
 
 
@@ -69,7 +69,8 @@ def approved_regular_promotion(release_run, jobs_run, sha, baseline_sha):
             or data.get("jobs_run") != jobs_run
             or data.get("rollback_mode") != "reversible_ghcr"
             or data.get("baseline_source_sha") != baseline_sha
-            or data.get("owner_acceptance_source_sha") != sha
+            or not isinstance(data.get("auth_boundary_run"), str)
+            or not re.fullmatch(r"[0-9]+", data["auth_boundary_run"])
             or data.get("allow_legacy_forward_only") is not False):
         raise ValueError("regular_api_promotion_request_unapproved")
     return data
@@ -238,17 +239,19 @@ def promote(release_run, jobs_run, receipt, forward_recovery=False):
         receipt.write_text(json.dumps({
             "source_sha": sha, "phase": "PREFLIGHT", "stage": name,
             "gcp_traffic_write": False}))
-    checkpoint("owner_acceptance")
-    acceptance(sha)
     checkpoint("bounded_request")
     if forward_recovery:
+        # Historical forward-only recovery, never a path for a new source.
         forward_request = check_forward_promotion_request(release_run, jobs_run, sha)
     else:
         approved_baseline = approved_previous_baseline(sha)
-        # A workflow_dispatch alone is not authorization. Only a bound
-        # request with owner acceptance for the same SHA permits changes.
-        approved_regular_promotion(
+        # A workflow_dispatch alone is not authorization. The same-source
+        # approved request and successful live *automatic* OAuth boundary are
+        # both mandatory; a human browser-login attestation is not.
+        promotion_request = approved_regular_promotion(
             release_run, jobs_run, sha, approved_baseline["source_sha"])
+        checkpoint("automated_oauth_boundary")
+        automated_oauth_acceptance(sha, promotion_request["auth_boundary_run"])
     checkpoint("run_provenance")
     for run, expected in ((release_run, "Janus GHCR full-test image publication"),
                           (jobs_run, ("Janus fenced forward-only GHCR Jobs recovery"

@@ -20,6 +20,7 @@
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
   "request_attempt": 0,
-  "owner_acceptance_requirement": "MUST be a new same-source-sha A→B→A Google OAuth and PnL proof in ops/ghcr-owner-acceptance.json; no development runtime writes before it exists; template is not authorization.",
-  "safety": "Existing dev Jobs only; Scheduler/execution fence, original cross-writer lease, two independent canaries per target, restore old GHCR images with exact config hashes on failure; research job left untouched."
+  "safety": "Existing dev Jobs only; Scheduler/execution fence, original cross-writer lease, two independent canaries per target, restore old GHCR images with exact config hashes on failure; research job left untouched.",
+  "auth_boundary_run": "",
+  "automated_oauth_requirement": "Same-source successful candidate OAuth metadata/unauthenticated owner/admin/MCP boundary run ID; no per-release human Google login or A→B→A browser attestation. Explicit dev Jobs approval, pinned rollback, Scheduler fence and canaries remain mandatory."
 }

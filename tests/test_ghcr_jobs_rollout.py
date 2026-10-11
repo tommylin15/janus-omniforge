@@ -280,12 +280,51 @@ def test_forward_only_recovers_only_after_eight_real_canaries():
     update.assert_not_called()
 
 
-def test_pending_owner_acceptance_blocks_before_any_mutation():
-    with patch.object(rollout.Path, "read_text", return_value=json.dumps({"result": "PENDING"})), \
-         patch.object(rollout, "command") as command:
-        with pytest.raises(ValueError, match="owner_acceptance_not_verified"):
-            rollout.acceptance("a" * 40)
-    command.assert_not_called()
+def test_automatic_oauth_gate_requires_same_source_successful_live_boundary():
+    source = "a" * 40
+    request_head = "b" * 40
+    observed = []
+    metadata = {"status": "completed", "conclusion": "success",
+                "workflowName": "GHCR candidate OAuth and private-boundary probe",
+                "headSha": request_head}
+    request = {"intent": "verify-ghcr-candidate-boundary", "scope": "read-only",
+               "no_gcp_mutation": True, "sha": source}
+    def command(args):
+        observed.append(args)
+        if args[:3] == ["gh", "run", "view"]:
+            return json.dumps(metadata)
+        if args[:2] == ["git", "show"]:
+            return json.dumps(request)
+        if args[:3] == ["git", "merge-base", "--is-ancestor"]:
+            return ""
+        raise AssertionError("unexpected command")
+    with patch.object(rollout.Path, "read_text", return_value=json.dumps(request)), \
+         patch.object(rollout, "command", side_effect=command):
+        receipt = rollout.automated_oauth_acceptance(source, "12345")
+        assert receipt["status"] == "AUTOMATED_OAUTH_NEGATIVE_AND_METADATA_PASS"
+        assert receipt["human_google_login"] == "NOT_REQUIRED_NOT_VERIFIED"
+        assert ["git", "show", request_head + ":ops/ghcr-candidate-boundary-request.json"] in observed
+        for changed in ({"conclusion": "failure"}, {"status": "in_progress"},
+                        {"workflowName": "wrong-workflow"}, {"headSha": "not-a-sha"}):
+            with patch.object(rollout, "command", side_effect=lambda args: json.dumps({**metadata, **changed})):
+                with pytest.raises(ValueError, match="automated_oauth_boundary_not_verified"):
+                    rollout.automated_oauth_acceptance(source, "12345")
+        with patch.object(rollout, "command",
+                          side_effect=lambda args: json.dumps({**request, "sha": "c" * 40})
+                          if args[:2] == ["git", "show"] else json.dumps(metadata)):
+            with pytest.raises(ValueError, match="automated_oauth_run_source_mismatch"):
+                rollout.automated_oauth_acceptance(source, "12345")
+
+    with patch.object(rollout, "command") as run:
+        with pytest.raises(ValueError, match="automated_oauth_run_required"):
+            rollout.automated_oauth_acceptance(source, "")
+    run.assert_not_called()
+    with patch.object(rollout.Path, "read_text",
+                      return_value=json.dumps({**request, "sha": "c" * 40})), \
+         patch.object(rollout, "command") as run:
+        with pytest.raises(ValueError, match="automated_oauth_candidate_sha_mismatch"):
+            rollout.automated_oauth_acceptance(source, "12345")
+    run.assert_not_called()
 
 
 def test_canary_preserves_entrypoint_and_limits_execution_without_private_output():
