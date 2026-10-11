@@ -73,7 +73,7 @@ def main(argv=None):
     if rights.get("schema_version") != "event-training-grants-v1" or not isinstance(rights.get("grants"), list):
         raise ValueError("unknown_training_grants_schema")
     approved = approved_dataset(pool["candidates"], _jsonl(args.reviews_jsonl), training_grants=rights["grants"])
-    result = chronological_oos(approved, cutoff=args.cutoff)
+    result = chronological_oos(approved, cutoff=args.cutoff, training_grants=rights["grants"])
     result["approved_label_count"] = len(approved)
     result["candidate_count"] = len(pool["candidates"])
     result["unreviewed_or_unapproved_count"] = len(pool["candidates"]) - len(approved)
