@@ -107,6 +107,9 @@ def _evaluation_diagnostics(item, role):
                 _require(isinstance(row, dict) and all(key in row for key in required),
                          "partial regime OOS daily evidence")
                 _require(isinstance(row["date"], str) and isinstance(row["month"], str) and
+                         re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", row["date"]) is not None and
+                         isinstance(row.get("training_end"), str) and
+                         row["training_end"] < row["date"] and
                          row["date"][:7] == row["month"] and
                          all(_finite_number(row[k]) is not None for k in
                              ("market_return", "markov_log_score", "gaussian_log_score",
@@ -121,6 +124,10 @@ def _evaluation_diagnostics(item, role):
                          "nonfinite or invalid regime OOS daily evidence")
             for fold in monthly:
                 rows = [row for row in daily if row["month"] == fold["month"]]
+                source_fold = next(f for f in folds if f.get("month") == fold["month"])
+                _require(all(row["training_end"] == source_fold.get("training_end") and
+                             source_fold.get("test_start", "") <= row["date"] <= source_fold.get("test_end", "~")
+                             for row in rows), "regime daily fold violated prior-month training fence")
                 _require(len(rows) == fold["test_returns"] and
                          abs(sum(row["markov_log_score"] - row["gaussian_log_score"]
                                  for row in rows) - fold["total_log_score_improvement"]) < 1e-5,
