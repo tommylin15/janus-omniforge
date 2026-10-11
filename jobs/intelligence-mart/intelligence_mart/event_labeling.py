@@ -82,8 +82,33 @@ def from_core_events(rows, *, core_snapshot_id):
             "rejected": rejected, "reviewed_count": 0}
 
 
-def approved_dataset(candidates, reviews):
-    """Only exact revision-matched, explicitly human-reviewed labels can enter research."""
+def _training_grants(grants):
+    """Require an independently reviewed, source-scoped permission record.
+
+    The evidence URI is for accountable external/manual verification, not
+    automatic legal authorization or a substitute for source policy review.
+    """
+    result = {}
+    for grant in grants:
+        if grant.get("status") != "approved":
+            continue
+        source = str(grant.get("source_id") or "")
+        ref = str(grant.get("authorization_reference") or "")
+        uri = str(grant.get("evidence_uri") or "")
+        if (source not in SOURCE_ALLOWLIST or not ref or not str(grant.get("approved_by") or "").strip()
+                or grant.get("scope") != "local_event_classifier_research"
+                or not uri.startswith(("https://", "gs://"))):
+            raise ValueError("invalid_training_grant")
+        _timestamp(grant.get("verified_at"), "training_grant_verified_at")
+        if source in result:
+            raise ValueError("duplicate_training_grant_for_source")
+        result[source] = grant
+    return result
+
+
+def approved_dataset(candidates, reviews, *, training_grants=()):
+    """Only source-granted, revision-matched human labels enter research."""
+    grants = _training_grants(training_grants)
     by_id = {r["candidate_id"]: r for r in candidates}
     if len(by_id) != len(candidates):
         raise ValueError("duplicate_candidate_id")
@@ -107,13 +132,19 @@ def approved_dataset(candidates, reviews):
             raise ValueError("human_reviewer_required")
         if item.get("category") not in CATEGORIES or item.get("direction") not in DIRECTIONS:
             raise ValueError("invalid_event_label")
-        if candidate.get("source_authorization") != "official" or not candidate.get("training_authorization_reference"):
+        grant = grants.get(candidate.get("source_id"))
+        if (candidate.get("source_authorization") != "official" or grant is None
+                or candidate.get("training_authorization_reference") not in
+                (None, grant["authorization_reference"])):
             raise ValueError("training_use_not_authorized")
         reviewed = _timestamp(item.get("reviewed_at"), "reviewed_at")
         observed = _timestamp(candidate.get("observed_at"), "observed_at")
         if reviewed < observed:
             raise ValueError("review_before_observation")
-        approved.append({**candidate, "category": item["category"], "direction": item["direction"],
+        approved.append({**candidate, "training_authorization_reference": grant["authorization_reference"],
+                         "training_authorization_evidence_uri": grant["evidence_uri"],
+                         "training_authorization_verified_by": grant["approved_by"],
+                         "category": item["category"], "direction": item["direction"],
                          "reviewer": item["reviewer"], "review_method": "human",
                          "reviewed_at": reviewed.isoformat(), "review_status": "approved",
                          "label_version": VERSION, "ambiguity_note": item.get("ambiguity_note")})
