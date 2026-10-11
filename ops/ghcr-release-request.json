@@ -8,7 +8,7 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 7,
-  "reason": "CEO first-step repair: Gemini strict JSON prompt and redacted field diagnosis; API/Admin daily quota 50; additive migration 052; full Python/Flutter/GHCR gate. No production traffic or scheduled Job update.",
+  "attempt": 8,
+  "reason": "2026-10-11 visual-first integrated product batch: bounded published valuation chart API, real stock interactive charts, owner-only Today relevance, batched watchlist price changes, portfolio PnL comparison, bounded loading and tests. Full Python/Flutter/GHCR gates only; no GCP deployment, Jobs changes or traffic promotion without separate controlled candidate and owner acceptance.",
   "expected_runtime_changes": false
 }
