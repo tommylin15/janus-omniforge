@@ -1,7 +1,7 @@
 """Bounded official historical fill through the existing Stage/Core runtime."""
 from calendar import monthrange
 from datetime import date, datetime, timedelta, timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from hashlib import sha256
 import json
 import os
