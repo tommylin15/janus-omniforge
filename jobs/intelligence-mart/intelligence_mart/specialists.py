@@ -11,8 +11,8 @@ from typing import Any
 from .facts import (analysis_cutoff, canonical_json, _change, _evidence_id, _financial_features_v2, _instant, _severity,
                        _research_rows, evidence_from_rows, validate_evidence)
 
-VERSION = "specialist-rules-v2"
-FEATURE_VERSION = "2"
+VERSION = "specialist-rules-v3"
+FEATURE_VERSION = "3"
 MODEL_VERSION = "deterministic-unpromoted-v1"
 DEPENDENCIES = {
     "fundamental": ("financials",),
@@ -47,6 +47,30 @@ def number(value: Any) -> float | None:
         return result if isfinite(result) else None
     except (ValueError, TypeError):
         return None
+
+
+# Research-only comparability limits; official Core values remain unchanged.
+VALUATION_RESEARCH_BOUNDS = {"pe_ratio": (0., 300.), "pb_ratio": (0., 30.),
+                             "dividend_yield_percent": (0., 25.)}
+
+
+def comparable_valuation_features(observation):
+    """No imputation: missing PE is legitimate, zero dividend yield is valid."""
+    cleaned, reasons = {}, {}
+    for key, (floor, ceiling) in VALUATION_RESEARCH_BOUNDS.items():
+        raw = observation.get(key)
+        value = None if isinstance(raw, bool) else number(raw)
+        if value is None:
+            reasons[key] = "missing_or_nonfinite"
+        elif value < floor or (key != "dividend_yield_percent" and value == 0):
+            reasons[key] = "invalid_nonpositive_or_negative"
+        elif value > ceiling:
+            reasons[key] = "extreme_research_excluded"
+        else:
+            cleaned[key] = value
+            continue
+        cleaned[key] = None
+    return cleaned, reasons
 
 
 def validated_inputs(datasets, symbol, as_of, snapshot):
@@ -232,15 +256,18 @@ def analyze_specialists(datasets, symbol, as_of, snapshot, *, roles=None):
         metrics["fundamental"] = {k: features["fundamental"].get(k) for k in (
             "revenue_trend_percent", "eps_trend_percent",
             "net_income_parent_yoy_percent_same_filing", "eps_yoy_percent_same_filing")}
+    valuation_quality = {}
     if "valuation" in selected:
         valuations = sorted(rows.get("valuation", []),
                             key=lambda r: str(r.get("observed_date", r.get("observed_at", ""))))
         latest = valuations[-1] if valuations else {}
-        features["valuation"].update(
-            {k: number(latest.get(k)) for k in ("pe_ratio", "pb_ratio", "dividend_yield_percent")})
+        comparable, valuation_quality = comparable_valuation_features(latest)
+        features["valuation"].update(comparable)
         metrics["valuation"] = {k: features["valuation"].get(k) for k in (
             "pe_ratio", "pb_ratio", "dividend_yield_percent", "debt_to_equity", "roe")}
         metrics["valuation"].update(dcf_value_per_share=None, reverse_dcf_growth=None)
+        valuation_quality.update(dcf_value_per_share="no_verified_fcf_per_share_and_approved_assumptions",
+                                 reverse_dcf_growth="no_verified_fcf_per_share_and_approved_assumptions")
 
     if {"quant", "risk"} & selected:
         prices = price_series(rows.get("ohlcv", []))
@@ -274,6 +301,7 @@ def analyze_specialists(datasets, symbol, as_of, snapshot, *, roles=None):
                    "model_status": "oos_not_validated", "status": "blocked" if errors else "partial" if missing else "ready",
                    "input_hash": input_hash, "metrics": metrics[role],
                    "missing_data": missing, "rejected_evidence": errors,
+                   **({"data_quality": valuation_quality} if role == "valuation" else {}),
                    "evidence_ids": sorted(e["evidence_id"] for e in role_evidence),
                    "provenance_ids": sorted({e["provenance_id"] for e in role_evidence}),
                    "feature_contributions": contributions, "publication_authority": False,
