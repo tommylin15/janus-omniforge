@@ -15,6 +15,8 @@ from typing import Any, Callable
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from pydantic import ValidationError
+
 from .ai_contract import OUTPUT_MODELS, PROVIDER_ROLES, SYSTEM_GUARDRAIL, content_hash, contract_bundle
 from .codex_worker import CodexCLIProvider, ProviderResult, PROVIDER_STAGE_VERSION
 
@@ -50,11 +52,35 @@ def _bounded_int(name: str, default: int, low: int, high: int) -> int:
 
 def _prompt(role: str, role_input: dict[str, Any]) -> str:
     methodology = contract_bundle()["prompts"][role]["methodology"]
+    schema = OUTPUT_MODELS[role].model_json_schema()
+    example = {
+        "schema_version": "1.0.0", "role": "ceo",
+        "stance": "insufficient_data", "thesis": None,
+        "missing_information": ["部分來源資料不足，需保留缺值"],
+        "confidence": 0.0, "evidence_ids": [],
+        "supporting_roles": [], "opposing_roles": [],
+        "contradictions": [], "bull_case": [], "bear_case": [],
+        "principal_risks": [], "watch_items": [],
+        "change_since_previous_analysis": [],
+        "validated_role_artifact_hashes": role_input.get("validated_role_artifact_hashes", []),
+    }
     return (
-        f"{SYSTEM_GUARDRAIL}\n\nROLE METHODOLOGY:\n{methodology}\n\n"
-        "Analyze only PUBLIC_INPUT. Do not invoke tools or external search. "
-        "Copy numeric facts exactly as fact_key=value. Return only the requested structured output.\n"
-        "PUBLIC_INPUT:\n"
+        f"{SYSTEM_GUARDRAIL}\\n\\nROLE METHODOLOGY:\\n{methodology}\\n\\n"
+        "只輸出單一 JSON object，不要 Markdown 或額外欄位。所有 schema required 欄位必填。"
+        "stance 限 bullish, neutral, bearish, insufficient_data；thesis 可為 null，"
+        "但方向性立場須有附 evidence_ids 的 thesis。所有 claim 必須含 text/evidence_ids，"
+        "所有 evidence ID 必須來自 PUBLIC_INPUT，不能杜撰。"
+        "confidence 是 0 到 1 的 JSON number，不是獲利機率。"
+        "validated_role_artifact_hashes 必須逐一照抄輸入的五個 sha256，不能換順序或數值。"
+        "沒有上一份有效報告時 change_since_previous_analysis 必須是空陣列。"
+        "不要在文字重述任何未以 numeric_facts key=value 綁定的數字、日期或股號。"
+        "資訊不足列在 missing_information；沒有足夠證據就用 insufficient_data、thesis=null。"
+        "以下示例為安全的資訊不足情境，實際輸出請以真實證據決定。\\n"
+        "REQUIRED_JSON_SCHEMA:\\n"
+        + json.dumps(schema, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        + "\\nJSON_EXAMPLE:\\n"
+        + json.dumps(example, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        + "\\nPUBLIC_INPUT:\\n"
         + json.dumps(role_input, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
     )
 
@@ -75,7 +101,8 @@ def _safe_reason(code: int) -> str:
 
 def _attempt(*, role: str, provider: str, transport: str, model: str, attempt: int,
              duration_ms: int, status: str, reason: str | None, usage: dict[str, int] | None,
-             actual_cost_usd: float | None, billing_mode: str) -> dict[str, Any]:
+             actual_cost_usd: float | None, billing_mode: str,
+             invalid_fields: list[str] | None = None) -> dict[str, Any]:
     value = {
         "artifact_kind": "mart_ai_provider_attempt_v1",
         "schema_version": PROVIDER_STAGE_VERSION,
@@ -94,6 +121,8 @@ def _attempt(*, role: str, provider: str, transport: str, model: str, attempt: i
         "paid_api_enabled": False,
         "publication_authority": False,
     }
+    if invalid_fields is not None:
+        value["invalid_fields"] = invalid_fields[:12]
     value["artifact_hash"] = content_hash(value)
     return value
 
@@ -355,6 +384,7 @@ class GeminiRoleProvider:
             parsed = None
             reason = None
             usage = None
+            invalid_fields = None
             request = Request(
                 endpoint,
                 data=json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode(),
@@ -377,13 +407,22 @@ class GeminiRoleProvider:
                 reason = _safe_reason(error.code)
             except (URLError, TimeoutError):
                 reason = "provider_unavailable"
+            except ValidationError as error:
+                reason = "invalid_structured_output"
+                allowed = set(OUTPUT_MODELS[role].model_fields)
+                # Never record original provider content, error input or messages.
+                invalid_fields = sorted({
+                    str(item["loc"][0]) for item in error.errors(include_input=False)
+                    if item.get("loc") and str(item["loc"][0]) in allowed
+                })[:12] or ["json"]
             except Exception:
                 reason = "invalid_structured_output"
+                invalid_fields = ["response_structure"]
             attempts.append(_attempt(
                 role=role, provider=self.provider_id, transport=self.transport, model=self.model, attempt=number,
                 duration_ms=round((time.monotonic() - started) * 1000),
                 status="succeeded" if parsed is not None else "failed", reason=reason, usage=usage,
-                actual_cost_usd=None, billing_mode="free_tier_only",
+                actual_cost_usd=None, billing_mode="free_tier_only", invalid_fields=invalid_fields,
             ))
             if parsed is not None:
                 return ProviderResult("succeeded", parsed, tuple(attempts), None)
