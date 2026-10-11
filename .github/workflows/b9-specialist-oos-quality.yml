@@ -9,6 +9,8 @@ on:
       - '.github/workflows/b9-specialist-oos-quality.yml'
       - 'scripts/gcp/b9-specialist-oos-quality.py'
       - 'tests/test_b9_specialist_oos_quality.py'
+      - 'tests/test_b9_quant_pit.py'
+      - 'jobs/intelligence-mart/intelligence_mart/quant_pit.py'
 
 permissions:
   contents: read
@@ -34,6 +36,10 @@ jobs:
         run: |
           python -m py_compile scripts/gcp/b9-specialist-oos-quality.py tests/test_b9_specialist_oos_quality.py
           python -m unittest discover -s tests -p 'test_b9_specialist_oos_quality.py' -v
+      - name: Verify historical PIT universe and matched Quant OOS guards
+        run: |
+          python -m py_compile jobs/intelligence-mart/intelligence_mart/quant_pit.py tests/test_b9_quant_pit.py
+          python -m unittest discover -s tests -p 'test_b9_quant_pit.py' -v
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
