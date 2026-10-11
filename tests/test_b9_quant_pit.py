@@ -36,6 +36,7 @@ def model_inputs(days, cohort):
                     "outcome_as_of": days[days.index(day) + 5],
                     "excess_return": label, "momentum_5d": idx - 5,
                     "prediction": (idx - 5) / 1000 + offset / 100000,
+                    "historical_universe_hash": cohort["historical_universe"][day]["membership_hash"],
                     "sample_source_authorization": "official",
                     "sample_provenance_id": f"approved-{symbol}-{day}",
                     "training_label_cutoff": days[0],
@@ -97,6 +98,27 @@ class TestQuantPit(unittest.TestCase):
             self.assertGreater(value["mean_one_way_traded_notional"], 0)
         self.assertFalse(report["quality_pass"])
         self.assertFalse(report["champion_promotion"])
+
+    def test_membership_hash_tampering_rejected_from_matched_panel(self):
+        days, rows = fixture()
+        cohort = historical_liquid_universe(rows, days, core_snapshot_id=CORE,
+                                            lookback=2, minimum=10, limit=10)
+        predictions = model_inputs(days, cohort)
+        predictions["lightgbm"][0]["historical_universe_hash"] = "sha256:bad"
+        report = compare_four_models(predictions, cohort, days, horizon_days=5)
+        self.assertGreater(report["excluded"]["invalid_prediction_lineage_or_leakage"], 0)
+        self.assertEqual(report["status"], "descriptive_only")
+        self.assertFalse(report["quality_pass"])
+
+    def test_no_source_builds_no_fake_features_or_models(self):
+        from intelligence_mart.quant_pit import prepare_historical_quant_samples
+        days, rows = fixture()
+        result = prepare_historical_quant_samples({"ohlcv": []}, days, as_of=days[-1],
+                                                   core_snapshot_id=CORE,
+                                                   horizon_days=5)
+        self.assertEqual(result["status"], "insufficient_historical_pit")
+        self.assertEqual(result["samples"], [])
+        self.assertFalse(result["cohort"]["promotion_eligible"])
 
     def test_missing_model_rows_do_not_backfill_labels(self):
         days, rows = fixture()
