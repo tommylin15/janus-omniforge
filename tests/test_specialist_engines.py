@@ -134,7 +134,7 @@ def test_same_filing_growth_is_model_feature_but_unverified_raw_eps_stays_missin
 
 def test_financial_history_uses_data_without_proven_original_revision_and_labels_time_assumptions():
     from intelligence_mart.evaluation import financial_training_history, build_financial_samples
-    base = {"symbol": "2330", "source_id": "mops", "provenance_id": "filing", "fiscal_year": 2025,
+    base = {"symbol": "2330", "source_id": "mops", "provenance_id": "filing", "report_scope": "consolidated", "fiscal_year": 2025,
             "fiscal_quarter": 3, "fiscal_period_end": "2025-09-30", "statement_type": "income", "unit": "percent",
             "availability_at": "2026-10-03T01:00:00Z", "observed_at": "2026-10-03T01:00:00Z",
             "publication_time_authoritative": False, "published_at": None, "numeric_revision_verified": False,
