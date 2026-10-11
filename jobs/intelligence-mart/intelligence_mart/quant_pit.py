@@ -243,6 +243,7 @@ def compare_four_models(predictions, cohort, sessions, *, horizon_days=5,
             if any(row.get("outcome_as_of") not in calendar or
                    calendar.get(row.get("outcome_as_of"), -1) - calendar[day] != horizon_days or
                    row.get("label_available_at", "~") > sessions[-1] or
+                   row.get("historical_universe_hash") != membership["membership_hash"] or
                    row.get("sample_source_authorization") != "official" or
                    not row.get("sample_provenance_id") or
                    not row.get("training_label_cutoff", "~") < day < row.get("outcome_as_of", "") or
@@ -275,3 +276,106 @@ def compare_four_models(predictions, cohort, sessions, *, horizon_days=5,
             "status": "descriptive_only" if len(blocks) >= 3 else "insufficient_oos_cross_sections",
             "champion_promotion": False, "historical_source_readback": cohort.get("source_replay_readback"),
             "quality_pass": False}
+
+
+def prepare_historical_quant_samples(datasets, sessions, *, as_of, core_snapshot_id,
+                                     horizon_days, lookback=20, limit=500, minimum=10):
+    """Research-only bridge to the existing feature/label maker; never serving.
+
+    No synthetic member history, no privileged owner holdings, no raw current
+    watchlist universe, and no automatic source collection or canonical writes.
+    Every historical date must have a previously observable membership hash.
+    """
+    from .evaluation import build_quant_samples
+
+    if horizon_days not in (5, 20, 60, 120):
+        raise ValueError("unsupported historical Quant horizon")
+    if not sessions or list(sessions) != sorted(set(sessions)) or sessions[-1] > as_of:
+        raise ValueError("historical market sessions must precede analysis as-of")
+    cohort = historical_liquid_universe(datasets.get("ohlcv", []), sessions,
+                                        core_snapshot_id=core_snapshot_id,
+                                        lookback=lookback, limit=limit,
+                                        minimum=minimum)
+    symbols = sorted({symbol for membership in cohort["historical_universe"].values()
+                      for symbol in membership["symbols"]})
+    if not symbols:
+        return {"cohort": cohort, "samples": [], "exclusions":
+                {"historical_pit_membership_insufficient": 1},
+                "status": "insufficient_historical_pit"}
+    base, exclusions = build_quant_samples(
+        datasets, symbols, as_of, core_snapshot_id, horizon_days)
+    kept = []
+    for sample in base:
+        membership = cohort["historical_universe"].get(sample["analysis_as_of"])
+        if membership is None or sample["symbol"] not in membership["symbols"]:
+            exclusions["outside_as_known_historical_membership"] = (
+                exclusions.get("outside_as_known_historical_membership", 0) + 1)
+            continue
+        if sample["source_authorization"] != "official":
+            exclusions["nonofficial_label_or_feature_source"] = (
+                exclusions.get("nonofficial_label_or_feature_source", 0) + 1)
+            continue
+        # A feature must be demonstrably known at the decision time; label can
+        # mature later, but the exact label_available_at is retained for purge.
+        if sample["feature_available_at"] > sample["analysis_as_of"] or (
+                sample["label_available_at"] < sample["outcome_as_of"]):
+            raise ValueError("historical sample feature/label availability leakage")
+        kept.append({**sample,
+                     "historical_universe_hash": membership["membership_hash"]})
+    return {"cohort": cohort, "samples": kept, "exclusions": exclusions,
+            "status": ("research_cohort_prepared" if kept else
+                       "insufficient_historical_pit_samples")}
+
+
+def evaluate_historical_quant_research(datasets, sessions, *, as_of,
+                                       core_snapshot_id, horizon_days=5,
+                                       lookback=20, limit=500, minimum=10,
+                                       cost_bps=30):
+    """Offline only: four matching walk-forward predictions and independent rule.
+
+    The returned scores are RESEARCH ONLY even with many OOS observations.
+    Use the same frozen dataset, sample hash and horizon for every model.
+    No scheduler, cache promotion, canonical write, or CEO side effect.
+    """
+    from .evaluation import walk_forward
+
+    prepared = prepare_historical_quant_samples(
+        datasets, sessions, as_of=as_of, core_snapshot_id=core_snapshot_id,
+        horizon_days=horizon_days, lookback=lookback,
+        limit=limit, minimum=minimum)
+    samples = prepared["samples"]
+    evaluations = {}
+    predictions = {}
+    features = ["momentum_5d", "momentum_20d", "momentum_60d"]
+    for model in MODELS:
+        evaluation = walk_forward(samples, model_name=model,
+                                  features=features, horizon_days=horizon_days,
+                                  cost_bps=cost_bps)
+        evaluations[model] = {
+            "protocol_version": evaluation["protocol_version"],
+            "input_hash": evaluation["input_hash"],
+            "folds": evaluation["folds"],
+            "oos_predictions": len(evaluation["predictions"]),
+            "metrics": evaluation["metrics"],
+            "status": evaluation["status"],
+            "promotion_eligible": False,
+        }
+        predictions[model] = evaluation["predictions"]
+    comparison = compare_four_models(
+        predictions, prepared["cohort"], sessions,
+        horizon_days=horizon_days, cost_bps=cost_bps, minimum=minimum)
+    return {
+        "schema_version": "b9-quant-history-oos-research-v1",
+        "core_snapshot_id": core_snapshot_id,
+        "horizon_days": horizon_days,
+        "input_cohort_status": prepared["status"],
+        "input_exclusions": prepared["exclusions"],
+        "eligible_sample_rows": len(samples),
+        "membership_coverage": prepared["cohort"]["coverage"],
+        "research_universe_hash": _hash(prepared["cohort"]["historical_universe"]),
+        "four_model_oos": evaluations,
+        "matched_cost_comparison": comparison,
+        "real_source_and_runtime_readback": "not_verified",
+        "promotion_eligible": False,
+        "publication_authority": False,
+    }
