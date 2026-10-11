@@ -213,12 +213,14 @@ class B9QualityTests(unittest.TestCase):
             "date": day, "month": day[:7], "training_end": train,
             "market_return": observed, "markov_log_score": markov,
             "gaussian_log_score": gaussian, "predicted_high_vol_probability": state,
+            "realized_volatility_20d": 0.02 if abs(observed) >= 0.01 else 0.005,
             "realized_high_vol": abs(observed) >= 0.01,
             "realized_extreme_vol": abs(observed) >= 0.025,
             "realized_left_tail": observed <= -0.02,
             "markov_tail_probability": 0.12,
             "gaussian_tail_probability": 0.05,
-            "historical_abs_vol_p75": 0.01, "historical_abs_vol_p95": 0.025,
+            "historical_volatility_20d_p75": 0.01,
+            "historical_abs_return_p95": 0.025,
             "historical_left_tail_p05": -0.02,
         } for day, train, observed, markov, gaussian, state in records]
         evaluations.append(risk)
