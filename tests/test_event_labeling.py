@@ -79,6 +79,13 @@ def fixture_training_grant(**changes):
     return grant
 
 
+def fixture_approved_rights():
+    return {"source_id": "twse", "source_authorization": "official",
+            "training_authorization_reference": "TEST-ONLY-permission",
+            "training_authorization_verified_by": "fixture-rights-verifier",
+            "training_authorization_evidence_uri": "https://example.org/test-only-authorization"}
+
+
 def test_human_review_and_training_rights_are_both_required():
     candidate = from_core_events([raw_event()], core_snapshot_id="core-fixed")["candidates"][0]
     with pytest.raises(ValueError, match="training_use_not_authorized"):
@@ -148,9 +155,12 @@ def test_chronological_holdout_purges_issuer_and_late_training_reviews():
             "published_at": published.isoformat(),
             "reviewed_at": (d + timedelta(days=50) if i == 2 else published + timedelta(hours=1)).isoformat(),
             "review_status": "approved", "review_method": "human", "label_version": VERSION,
-            "training_authorization_reference": "TEST-ONLY",
+            **fixture_approved_rights(),
         })
-    result = chronological_oos(rows, cutoff=(d + timedelta(days=10)).isoformat(), min_train=8, min_test=6)
+    with pytest.raises(ValueError, match="non_approved_or_unauthorized_label"):
+        chronological_oos(rows, cutoff=(d + timedelta(days=10)).isoformat(), min_train=8, min_test=6)
+    result = chronological_oos(rows, cutoff=(d + timedelta(days=10)).isoformat(),
+                               training_grants=[fixture_training_grant()], min_train=8, min_test=6)
     assert result["status"] == "research_oos_evaluated"
     assert result["train_count"] == 8
     assert result["holdout_count"] == 6
@@ -170,10 +180,11 @@ def test_same_issuer_in_every_fold_blocks_oos():
          "published_at": (d + timedelta(days=i)).isoformat(),
          "reviewed_at": (d + timedelta(days=i, hours=1)).isoformat(),
          "review_status": "approved", "review_method": "human",
-         "label_version": VERSION, "training_authorization_reference": "TEST-ONLY"}
+         "label_version": VERSION, **fixture_approved_rights()}
         for i in range(40)
     ]
-    result = chronological_oos(records, cutoff=(d + timedelta(days=30)).isoformat(), min_train=1, min_test=1)
+    result = chronological_oos(records, cutoff=(d + timedelta(days=30)).isoformat(),
+                               training_grants=[fixture_training_grant()], min_train=1, min_test=1)
     assert result["status"] == "insufficient_labeled_data"
     assert result["train_count"] == 0
 
@@ -196,10 +207,10 @@ def test_unseen_holdout_class_is_penalized_in_full_taxonomy_brier():
             "published_at": (d + timedelta(days=i)).isoformat(),
             "reviewed_at": (d + timedelta(days=i, hours=1)).isoformat(),
             "review_status": "approved", "review_method": "human",
-            "label_version": VERSION, "training_authorization_reference": "TEST-ONLY",
+            "label_version": VERSION, **fixture_approved_rights(),
         })
     result = chronological_oos(records, cutoff=(d + timedelta(days=10)).isoformat(),
-                               min_train=10, min_test=2)
+                               training_grants=[fixture_training_grant()], min_train=10, min_test=2)
     assert result["status"] == "research_oos_evaluated"
     assert result["metrics"]["category"]["multiclass_brier_uncalibrated"] >= 0.5
     assert result["metrics"]["direction"]["multiclass_brier_uncalibrated"] >= 0.5
