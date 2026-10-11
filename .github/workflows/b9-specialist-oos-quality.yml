@@ -10,6 +10,8 @@ on:
       - 'scripts/gcp/b9-specialist-oos-quality.py'
       - 'tests/test_b9_specialist_oos_quality.py'
       - 'tests/test_b9_quant_pit.py'
+      - 'tests/test_b9_quant_history_inventory.py'
+      - 'scripts/gcp/b9-quant-history-inventory.py'
       - 'jobs/intelligence-mart/intelligence_mart/quant_pit.py'
 
 permissions:
@@ -40,6 +42,10 @@ jobs:
         run: |
           python -m py_compile jobs/intelligence-mart/intelligence_mart/quant_pit.py tests/test_b9_quant_pit.py
           python -m unittest discover -s tests -p 'test_b9_quant_pit.py' -v
+      - name: Verify B9 historical membership inventory tests
+        run: |
+          python -m py_compile scripts/gcp/b9-quant-history-inventory.py tests/test_b9_quant_history_inventory.py
+          python -m unittest discover -s tests -p 'test_b9_quant_history_inventory.py' -v
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
@@ -66,11 +72,16 @@ jobs:
           assert r["canonical_write"] is False
           print("B9 artifact/readback audit PASS; B9 model quality remains NOT VERIFIED")
           PY
+      - name: Read bounded historical market membership evidence
+        run: |
+          python scripts/gcp/b9-quant-history-inventory.py --maximum 256 --output b9-historical-membership-inventory.json
       - name: Upload summary (no raw predictions or owner data)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: b9-model-quality-readback-${{ github.run_id }}
-          path: b9-model-quality-evidence.json
+          path: |
+            b9-model-quality-evidence.json
+            b9-historical-membership-inventory.json
           if-no-files-found: warn
           retention-days: 14
