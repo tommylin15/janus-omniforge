@@ -110,3 +110,16 @@
 5. 任何 champion promotion 必須有真實 Taiwan OOS、對照、審核與持久化 evidence；不得自動 promotion。
 
 完整 acceptance 維持 [active TODO](todo.md) B9 與 [Specialist SPEC](spec/specialist-engines.md)。B9 ACTIVE／PARTIAL，C 組尚未啟動。
+
+
+## Quant 歷史 PIT 資料不足修復 checkpoint（2026-10-11）
+
+狀態：**RESEARCH IMPLEMENTED / LIVE HISTORICAL PIT NOT VERIFIED / QUANT CHAMPION BLOCKED**。本節只記錄本輪可核對的程式進度；不修改上方 2026-10-10 原始 OOS 調查數字。原月度 B7／B8 不重跑。
+
+- 新增 `intelligence_mart/quant_pit.py` 的 research-only `historical_liquid_universe`：限定現有 Core snapshot、官方來源及逐筆 provenance，依選股日**以前**已確認的 `published_at`／`availability_at`／`observed_at`、20 個較早交易日的真實成交金額，從前一交易日形成下一交易日的候選母體。晚到、無時間來源、重複衝突或無資格股票排除，不以**現今 liquid-500** 回填過往成分，也不改 Core。
+- `compare_four_models` 固定 Linear／LightGBM／CatBoost／Qlib DoubleEnsemble 同一 symbol/date、同一 label、同一時間可用資訊及不可重疊 horizon；加入簡單的事前五日動能規則對照、橫斷面 Rank IC／ICIR、top-decile spread、換手的雙向成交名目及每側 30bps 研究敏感度、成本後超額報酬代理值、最大回撤。此為 **excess-return research proxy**，尚非已核實券商費用／稅／沖擊成本或實際成交的可交易實績。結果永不自動 promotion；樣本不足保持 null／insufficient。5/20/60/120 日各須獨立跑合法窗口。
+- 新的 v5 OOS prediction 可保存事前 `momentum_5d`／`historical_universe_hash` 欄位；舊 v4 immutable prediction 不修改。
+- 新增獨立只讀 `b9-quant-history-inventory.py`，以 ≤256 份現存 Mart `market-membership.json` 統計歷史日期與 source-clock／同日版本衝突；單憑日期戳或已有 GCS object **不能證明來源當時真的已存在**，輸出 `independently_verified_historical_pit_dates=0`，直到有另行獨立來源證據。既有 B9 GitHub Actions 已加入 targeted tests、唯讀盤點及 bounded summary artifact；**此段未取得新的 Actions run SUCCESS／live GCS readback，故 CI／真實來源的本輪結果仍 UNKNOWN**。
+- **尚需實際完成**：以真實官方當時可得的 membership／OHLCV／benchmark 進行 Core exact-snapshot 有界匯入與輸入覆蓋率盤點，產生 research-only immutable 大樣本 OOS；逐 fold 比較四模型與規則／零訊號、IC dispersion／regime、五日及長 horizon、成本敏感度及資料偏誤。已驗證 live 前不得聲稱資料不足解決、Quant 已升級、Qlib 優於簡單基準或 B9 已 PASS。若現存 Core 不具備可確認的長期 membership／第一手歷史 receipt，只能記 `blocked_source_history`，不可造過去股票池。
+- 保持每日 500 低成本篩選、PyIceberg default、Deep Coverage 五 Specialist 和每月第一個週六 10:30 的既定邊界；不加每日全市場五模型批次、不新增付費 GCP／授權擴張、不觸發 CEO。
+
