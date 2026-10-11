@@ -72,6 +72,9 @@ def test_human_review_and_training_rights_are_both_required():
     with pytest.raises(ValueError, match="training_use_not_authorized"):
         approved_dataset([candidate], [human_review(candidate)])
     candidate["training_authorization_reference"] = "TEST-ONLY-permission"
+    tampered = dict(candidate, text="tampered announcement")
+    with pytest.raises(ValueError, match="tampered_candidate"):
+        approved_dataset([tampered], [human_review(tampered)])
     assert approved_dataset([candidate], [human_review(candidate)])[0]["review_status"] == "approved"
     for overrides, message in [
         ({"review_method": "rules"}, "human_reviewer_required"),
