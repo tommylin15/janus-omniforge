@@ -93,6 +93,14 @@
 
 **B9 後續研究解法不變，但優先順序更明確：**先驗證真正歷史 membership/source fence 與財報可用時間、建立合規跨股票 OOS cohort，並加入 trained baseline/challenger 與成本敏感對照；現有 Fundamental／Valuation／Quant 的 5 日 ML 不應升級。Risk 補 regime 分環境穩定性；Event 先取得有審核紀錄的真實繁中 labels，再做離線 CPU bounded classifier。任何缺樣本／證據的角色保持 NOT VERIFIED；**五角色皆有 remediation，不代表五角色品質已解決。**
 
+## Risk／Regime 分段資料修復（2026-10-11；工程實作，品質未結案）
+
+- **現行資料限制**：既有不可變月度成果只有 23 folds／452 OOS returns 的每月 Markov/Gaussian log-score 總和；15 勝、8 未勝是真實描述性線索，**不能**由月度合計還原個別交易日波動、高低 regime、狀態切換或左尾命中率。未取得逐日研究證據前，上述細分值一律 `null`／`unavailable_legacy_monthly_aggregate`，而非填零或按比例猜補。
+- **唯讀研究診斷已實作於 `scripts/gcp/b9-specialist-oos-quality.py`**：各月 log-score/return、依 OOS 日數加權平均、月度中位數、前後半段改善、連續非正月份、最差月；僅供描述，**月度比例／15:8 不是顯著性或升級憑據**。Audit schema `b9-specialist-oos-quality-readback-v3`，不修改原始 GCS artifact。
+- **新逐日資料契約已實作於 `fit_regime_challenger`**：每個 OOS 月僅用月前訓練窗估計兩狀態 Markov／Gaussian、P75/P95 歷史絕對報酬波動界線及左尾 P05；固定當月參數，用 **one-step predicted state probability** 和 forward log density（不用事後 smoothed probability）產生逐日 `risk_oos_daily`。依**事後觀察實現報酬**分高/低波動、極端波動、左尾事件，分別比較 log score、左尾事件 Brier、預測高波動狀態切換次數；這些是研究診斷，不是可直接交易或正式風險發布的 regime signal。月度結果保留 immutable，逐日資料必須與兩個 monthly density totals、交易日數及 prior-month training cutoff 相符，否則 audit fail closed。
+- **驗證範圍**：已新增月度／分環境欄位、未來資料時間 fence／密度總和一致性及 synthetic evidence negative tests。完整 GH Actions targeted test、同一固定 Core 的**新逐日 Risk-only OOS replay 與 GCS immutable byte readback** 尚需獨立確認，**不得因程式已 commit、既有 v4 讀回或 B7 PASS 而宣稱 Risk model quality PASS**。重播應限制於既有授權 TWSE benchmark／exact Core fence、只產 research artifact，不觸發 B7 月度 retrain、champion promotion、CEO、BigQuery、新付費 API 或 canonical mutation。
+- **Gate 狀態**：deterministic CVaR／beta／drawdown 繼續服務；Markov **research-only / no regime probability publication**。需待新逐日 OOS live 證據對高低波動、尾端／極端事件、切換及月度穩定性完成樣本量／分組比較與驗收，再作獨立 champion-vs-Gaussian 判定；未勝或不足保留 deterministic champion。
+
 ## B9 剩餘驗收
 
 1. 建立有真實來源／PIT 歷史 membership 的 evaluation cohort，不擴成每日 500×5 五模型運算。
