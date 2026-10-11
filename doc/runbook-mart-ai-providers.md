@@ -36,6 +36,9 @@ CEO 使用既有獨立 `mart-ceo-provider` 映像。受限 Job 已核准，方�
 
 ## 報告格式與額度變更
 
-CEO 回覆必須通過 `packages/analysis_models.py` 的 CEO output model；有 provider 回應或 token usage 仍不代表報告成功。提示詞須直接列出 JSON schema、必填欄位與格式範例，包含 stance、thesis／missing_information、claims／evidence IDs、五份 validated specialist hashes；API structured-output schema 同時保留。拒絕格式時不建立有效 report hash、不覆寫歷史，只保留安全 audit；不得記錄原始回覆或憑證。
+CEO 回覆必須通過 `intelligence_mart.ai_contract.CEOOutput` 的 strict JSON model 與 `packages.analysis_product.validate_ceo_output` 的來源／數值驗證；有 provider 回應或 token usage 仍不代表報告成功。提示詞須直接列出 JSON schema、必填欄位與格式範例，包含 stance、thesis／missing_information、claims／evidence IDs、五份 validated specialist hashes；API structured-output schema 同時保留。拒絕格式時不建立有效 report hash、不覆寫歷史，只保留安全 audit；不得記錄原始回覆或憑證。
 
 每日額度上限改為 50 時，先經既有 GitHub Actions migration 路徑套用 `052_ceo_daily_quota_50`，再部署支援 50 的 API／Admin，最後保存本人 capability 並 readback。這是上限與帳號設定兩個步驟；migration 不自動提高任何帳號額度。最新使用者要求為每日 50、冷卻 300 秒，適用進度以 operations checkpoint 為準。
+
+
+2026-10-11 補強：Gemini 提示詞直接包含 strict JSON schema、執行所屬五份 hash 的 insufficient-data 安全範例；失敗時只保存欄位名稱（`invalid_fields`），不保存模型原文、validator 訊息或憑證。DB migration 052 僅把 constraint 由 0–20 放寬至 0–50，不自行改動既有 owner capability revision。須待 052 live marker、API/Admin readback 與真實 Gemini immutable report 都有證據，才可判定 CEO 上線成功。
