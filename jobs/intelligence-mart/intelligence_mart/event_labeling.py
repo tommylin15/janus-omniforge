@@ -229,7 +229,7 @@ def chronological_oos(approved, *, cutoff, min_train=100, min_test=30):
                           for i, name in enumerate(choices)},
         }
     report.update(status="research_oos_evaluated", model_name="local-char-tfidf-logistic-v1",
-                  "elapsed_seconds": round(time.monotonic() - started, 3),
+                  elapsed_seconds=round(time.monotonic() - started, 3),
                   model_status="research_only_not_promoted", metrics=evaluations,
                   holdout_start=min(r["published_at"] for r in holdout),
                   holdout_end=max(r["published_at"] for r in holdout))
