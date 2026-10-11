@@ -33,9 +33,11 @@ def template(source, image, sha):
     container['image'] = image
     container['resources'] = {'limits': {'cpu': '1', 'memory': '1Gi'}}
     container['command'], container['args'] = ['python'], ['-m', 'intelligence_mart.__main__']
-    overrides = {'MART_OPERATION': 'ceo-request', 'MART_CODEX_AUTH_SECRET': 'janus-mart-codex-auth',
+    overrides = {'MART_OPERATION': 'ceo-request', 'MART_CEO_GEMINI_ONLY': 'true',
+                 'MART_GEMINI_MODEL': 'gemini-3.5-flash-lite', 'MART_GEMINI_FREE_TIER_CONFIRMED': 'true',
                  'GCP_PROJECT_ID': PROJECT, 'MART_CODEX_TIMEOUT_SECONDS': '120', 'MART_CODEX_MAX_ATTEMPTS': '1'}
-    container['env'] = [e for e in container.get('env', []) if e['name'] not in overrides and e['name'] != 'CEO_REQUEST_ID']
+    container['env'] = [e for e in container.get('env', []) if e['name'] not in overrides and
+                        e['name'] not in {'CEO_REQUEST_ID', 'MART_CODEX_AUTH_SECRET', 'MART_CODEX_AUTH_JSON', 'CODEX_ACCESS_TOKEN'}]
     container['env'] += [{'name': key, 'value': value} for key, value in overrides.items()]
     task['timeout'], task['maxRetries'] = '480s', 0
     result['taskCount'], result['parallelism'] = 1, 1

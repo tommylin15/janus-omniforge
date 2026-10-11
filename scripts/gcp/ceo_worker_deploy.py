@@ -30,6 +30,15 @@ def update_payload(existing, desired):
     import re
     assert re.fullmatch(r'ghcr.io/tommylin15/janus-intelligence-mart@sha256:[0-9a-f]{64}', old)
     previous['template']['containers'][0]['image'] = desired['template']['template']['containers'][0]['image']
+    env = previous['template']['containers'][0].get('env', [])
+    target_env = desired['template']['template']['containers'][0]['env']
+    legacy = [e for e in env if e['name'] == 'MART_CODEX_AUTH_SECRET']
+    if legacy:
+        assert legacy == [{'name': 'MART_CODEX_AUTH_SECRET', 'value': 'janus-mart-codex-auth'}]
+        added = {'MART_CEO_GEMINI_ONLY', 'MART_GEMINI_MODEL', 'MART_GEMINI_FREE_TIER_CONFIRMED'}
+        assert not any(e['name'] in added for e in env), 'CEO configuration drift'
+        assert [e for e in env if e['name'] != 'MART_CODEX_AUTH_SECRET'] == [e for e in target_env if e['name'] not in added], 'CEO configuration drift'
+        previous['template']['containers'][0]['env'] = target_env
     assert previous == desired['template'], 'CEO configuration drift'
     assert existing['labels'].get('janus-component') == 'manual-ceo'
     return {**desired, 'etag': existing['etag']}
@@ -82,7 +91,13 @@ def main():
         public = json.loads(subprocess.check_output(['skopeo', 'inspect', '--no-creds', 'docker://' + old_image], text=True))
         assert public['Digest'] == old_image.split('@')[1]
         assert public['Labels']['org.opencontainers.image.revision'] == existing['labels']['janus-git-sha']
-        rollback = {'rollback_image': old_image, 'rollback_sha': existing['labels']['janus-git-sha']}
+        snapshot = {'name': existing['name'], 'labels': existing['labels'], 'template': existing['template']}
+        assert all('value' not in e for e in existing['template']['template']['containers'][0].get('env', [])
+                   if any(term in e['name'].upper() for term in ('API_KEY', 'TOKEN', 'AUTH_JSON', 'BUNDLE'))), 'literal credentials cannot enter rollback artifact'
+        Path('ceo-worker-rollback.json').write_text(json.dumps(snapshot))
+        rollback = {'rollback_image': old_image, 'rollback_sha': existing['labels']['janus-git-sha'],
+                    'rollback_template': 'ceo-worker-rollback.json',
+                    'previous_provider_usable': False if any(e['name'] == 'MART_CODEX_AUTH_SECRET' for e in existing['template']['template']['containers'][0].get('env', [])) else 'unknown'}
         cloud(path + '?validateOnly=true', payload, 'PATCH')
         requests = [(path, payload, 'PATCH')]
     for target, body, method in requests:

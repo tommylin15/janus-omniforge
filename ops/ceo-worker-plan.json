@@ -15,11 +15,16 @@
   "max_retries": 0,
   "scheduler": false,
   "identity": "reuse-existing-intelligence-mart-service-account",
-  "network_and_secrets": "reuse-existing-mart-template-and-approved-codex-auth-secret",
-  "api_job_roles": ["roles/run.jobsExecutorWithOverrides", "roles/run.viewer"],
+  "network_and_secrets": "reuse-existing-mart-template-and-janus-runtime-bundle-gemini-api-key",
+  "api_job_roles": [
+    "roles/run.jobsExecutorWithOverrides",
+    "roles/run.viewer"
+  ],
   "iam_scope": "this-ceo-job-only",
   "capability_default": "disabled",
   "profile_default": "unapproved",
   "paid_models": false,
-  "cost_status": "free-tier-remaining-not-yet-verified"
+  "cost_status": "2026-10-11 user confirmed AI Studio API Free tier; bounded one attempt; quota exhaustion fails closed",
+  "provider": "gemini-3.5-flash-lite-only",
+  "provider_authorization": "2026-10-11 user requested direct Gemini Lite using existing runtime bundle; shared omniAgent gateway deferred"
 }

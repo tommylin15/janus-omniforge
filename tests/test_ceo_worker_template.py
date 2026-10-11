@@ -28,6 +28,10 @@ def test_dedicated_worker_preserves_private_network_and_secret_references():
     assert task['containers'][0]['env'][0] == old['template']['template']['containers'][0]['env'][0]
     assert old['template']['template']['containers'][0]['image'] == 'old'
     assert result['name'].endswith('/jobs/janus-ceo-analysis')
+    env = {e['name']: e for e in task['containers'][0]['env']}
+    assert env['MART_CEO_GEMINI_ONLY']['value'] == 'true'
+    assert env['MART_GEMINI_MODEL']['value'] == 'gemini-3.5-flash-lite'
+    assert 'MART_CODEX_AUTH_SECRET' not in env and 'GEMINI_API_KEY' not in env
 
 
 def test_worker_rejects_mutable_image_and_wrong_source():
@@ -76,6 +80,22 @@ def test_existing_worker_update_is_image_only_and_etag_fenced():
     desired = worker.template(source(), 'ghcr.io/tommylin15/janus-intelligence-mart@sha256:'+'2'*64, 'b'*40)
     assert update_payload(old, desired)['etag'] == 'fence'
     old['template']['template']['timeout'] = '1800s'
+    with pytest.raises(AssertionError):
+        update_payload(old, desired)
+
+
+def test_worker_migrates_only_exact_retired_codex_env_to_gemini_lite():
+    sys.path.insert(0, str(path.parent))
+    from ceo_worker_deploy import update_payload
+    desired = worker.template(source(), 'ghcr.io/tommylin15/janus-intelligence-mart@sha256:'+'2'*64, 'b'*40)
+    old = json.loads(json.dumps(desired))
+    old['etag'] = 'fence'
+    env = old['template']['template']['containers'][0]['env']
+    names = {'MART_CEO_GEMINI_ONLY', 'MART_GEMINI_MODEL', 'MART_GEMINI_FREE_TIER_CONFIRMED'}
+    old['template']['template']['containers'][0]['env'] = [e for e in env if e['name'] not in names]
+    old['template']['template']['containers'][0]['env'].insert(2, {'name': 'MART_CODEX_AUTH_SECRET', 'value': 'janus-mart-codex-auth'})
+    assert update_payload(old, desired)['etag'] == 'fence'
+    old['template']['template']['containers'][0]['env'][2]['value'] = 'different-secret'
     with pytest.raises(AssertionError):
         update_payload(old, desired)
 

@@ -118,10 +118,12 @@ def test_ceo_does_not_return_invalid_raw_provider_output():
             assert role == 'ceo' and value['canonical_numbers_are_read_only']
             return SimpleNamespace(status='succeeded', output={'secret': 'must-not-escape'},
                 attempts=[{'provider': 'test', 'raw_payload': 'hidden'}],
-                routing={'routing_hash': 'h', 'providers': ['test']}, provider='test', model='test')
+                routing={'routing_hash': 'h', 'providers': ['test'], 'execution_providers': ['gemini'],
+                         'execution_policy': 'gemini_lite_only'}, provider='test', model='test')
     state, report, audit, reason = execute_ceo(request, Router())
     assert state == 'BLOCKED' and report is None and reason == 'output_validation_failed'
     assert audit['attempts'] == [{'provider': 'test'}]
+    assert audit['route'] == ['gemini'] and audit['execution_policy'] == 'gemini_lite_only'
 
 
 def test_analysis_migration_is_allowlisted_and_protects_terminal_reports():

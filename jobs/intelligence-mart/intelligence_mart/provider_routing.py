@@ -402,6 +402,8 @@ class ProviderRouter:
             raise ValueError("invalid provider routing snapshot")
         if set(providers) != _ALLOWED_ROUTE:
             raise ValueError("provider map must contain the complete governed route")
+        if 'execution_providers' in routing and routing['execution_providers'] != ['gemini']:
+            raise ValueError('invalid Gemini-only execution route')
         self.providers = providers
         self.routing = json.loads(json.dumps(routing))
         self.routing["profiles"] = {
@@ -411,7 +413,7 @@ class ProviderRouter:
                 if hasattr(provider, key)}}
             for name, provider in providers.items()
         }
-        self.routing["effective_providers"] = [name for name in self.routing["providers"]
+        self.routing["effective_providers"] = [name for name in self.routing.get("execution_providers", self.routing["providers"])
                                                if self.routing["profiles"][name]["status"] == "ready"]
         self.routing["routing_hash"] = content_hash({k: v for k, v in self.routing.items() if k != "routing_hash"})
         self.model = "routed"
@@ -436,12 +438,16 @@ class ProviderRouter:
             for provider in providers.values():
                 provider.timeout_seconds = min(provider.timeout_seconds, 120)
                 provider.max_attempts = 1
+            if _bool_env("MART_CEO_GEMINI_ONLY", False):
+                providers['gemini'].model = 'gemini-3.5-flash-lite'
+                routing['execution_providers'] = ['gemini']
+                routing['execution_policy'] = 'gemini_lite_only'
         return cls(providers, routing)
 
     def preflight(self) -> dict[str, Any]:
         entries = []
         any_ready = False
-        for name in self.routing["providers"]:
+        for name in self.routing.get("execution_providers", self.routing["providers"]):
             value = dict(self.providers[name].preflight())
             value["route_name"] = name
             entries.append(value)
@@ -462,7 +468,7 @@ class ProviderRouter:
         attempts: list[dict[str, Any]] = []
         last_reason = "no_executable_provider"
         last_meta = {"provider": "janus", "transport": "provider_router", "model": "routed"}
-        for name in self.routing["providers"]:
+        for name in self.routing.get("execution_providers", self.routing["providers"]):
             if should_stop is not None and should_stop():
                 last_reason = "cancelled"
                 break

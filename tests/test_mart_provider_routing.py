@@ -172,6 +172,32 @@ def test_gemini_generation_is_blocked_until_free_tier_confirmed(monkeypatch):
     assert result.attempts == ()
 
 
+def test_bounded_ceo_uses_only_latest_lite_even_when_saved_profile_has_old_model(monkeypatch):
+    monkeypatch.setenv('MART_CEO_GEMINI_ONLY', 'true')
+    monkeypatch.setenv('GEMINI_API_KEY', 'present')
+    monkeypatch.setenv('MART_GEMINI_FREE_TIER_CONFIRMED', 'true')
+    from packages.analysis_models import DEFAULT_MODELS
+    models = {**DEFAULT_MODELS, 'gemini': 'gemini-2.5-flash'}
+    options = {'ai_provider_routing': {'version': 1, 'providers': ['codex_cli', 'openrouter', 'gemini'], 'models': models}}
+    router = ProviderRouter.from_environment(options, bounded_manual=True)
+    assert router.routing['execution_providers'] == ['gemini']
+    assert router.routing['effective_providers'] == ['gemini']
+    assert router.providers['gemini'].model == 'gemini-3.5-flash-lite'
+    calls = []
+    def unavailable(request, **kwargs):
+        calls.append(request.full_url)
+        raise TimeoutError()
+    router.providers['gemini'].opener = unavailable
+    for name in ('codex_cli', 'openrouter'):
+        router.providers[name].invoke = lambda *a: pytest.fail('non-Gemini provider called')
+    result = router.invoke('ceo', {})
+    assert result.status == 'failed' and len(result.attempts) == len(calls) == 1
+    assert calls[0].endswith('/gemini-3.5-flash-lite:generateContent')
+    normal = ProviderRouter.from_environment(options)
+    assert 'execution_providers' not in normal.routing
+    assert normal.providers['gemini'].model == 'gemini-2.5-flash'
+
+
 @pytest.mark.parametrize("cost,reason", [(0, None), (None, "free_cost_unverified"),
                                         (0.01, "paid_cost_detected"), (True, "free_cost_unverified"),
                                         (float("nan"), "free_cost_unverified"), (-1, "free_cost_unverified")])

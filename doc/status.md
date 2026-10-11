@@ -33,3 +33,7 @@
 - **Dev Pilot 長期 evidence**：依 [bounded pilot ledger](pilot-operational-evidence.md) 持續觀察；不得將單次 successful workload 視為整個觀察視窗完成。
 
 完整未完成清單只以 [todo.md](todo.md) 為準；未排程構想見 [parking-lot.md](parking-lot.md)。
+
+### CEO 最小上線路徑更新（2026-10-11）
+
+使用者指定直接沿用 `janus-runtime-bundle` 的 Gemini API key 與已確認的 AI Studio Free tier，CEO 只使用最新 `gemini-3.5-flash-lite`；omniAgent 統一 AI 入口後置。專用 `janus-mart-codex-auth` 已依使用者要求刪除，Shared Secret 未讀取／修改。程式與 Job 設定正在驗證，尚未部署／live PASS；既有 BLOCKED request 不覆寫。

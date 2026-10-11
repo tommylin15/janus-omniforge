@@ -82,7 +82,9 @@ def execute_ceo(request, router, *, should_stop=None):
     keys = {"provider", "transport", "model", "attempt", "duration_ms", "status", "reason", "usage",
             "actual_cost_usd", "billing_mode", "role"}
     audit = {"attempts": [{k: v for k, v in a.items() if k in keys} for a in result.attempts],
-             "route_hash": result.routing["routing_hash"], "route": result.routing["providers"],
+             "route_hash": result.routing["routing_hash"],
+             "route": result.routing.get("execution_providers", result.routing["providers"]),
+             "execution_policy": result.routing.get("execution_policy", "profile_route"),
              "provider": result.provider, "model": result.model, "publication_authority": False}
     if result.status != "succeeded" or result.output is None:
         return "BLOCKED", None, audit, "provider_unavailable"
@@ -155,7 +157,8 @@ def run_ceo_request():
                     return not row or row["status"] != "RUNNING"
             from contextlib import nullcontext
             from .codex_auth import auth_session
-            session = auth_session() if os.getenv('MART_CODEX_AUTH_SECRET') else nullcontext(None)
+            session = (auth_session() if os.getenv('MART_CODEX_AUTH_SECRET') and
+                       os.getenv('MART_CEO_GEMINI_ONLY', '').lower() != 'true' else nullcontext(None))
             with session as auth:
                 router = ProviderRouter.from_environment({'ai_provider_routing': request['route_json']}, bounded_manual=True)
                 if auth is not None:

@@ -2,7 +2,7 @@
 MODEL_OPTIONS = {
     'codex_cli': ('gpt-6.1-sol', 'account_default'),
     'openrouter': ('openrouter/free',),
-    'gemini': ('gemini-2.5-flash',),
+    'gemini': ('gemini-3.5-flash-lite', 'gemini-2.5-flash'),
 }
 DEFAULT_MODELS = {provider: values[0] for provider, values in MODEL_OPTIONS.items()}
 

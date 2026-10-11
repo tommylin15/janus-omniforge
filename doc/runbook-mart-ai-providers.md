@@ -14,7 +14,13 @@ User API 使用 Google user token；Admin API 使用獨立 Admin token：
 
 Migration `051_analysis_product` 新增可重建 serving projection 與不可變 request/report/version history。預設 profile 未核准、capability 未啟用；Mart 不取得交易／持股表讀取權。五角色正常路徑仍為 0 LLM token；未驗證機率保持 null。市場比較不以 private watchlist 代替 liquid-500。
 
-CEO 必須使用獨立 `mart-ceo-provider` 映像，既有 `mart-specialist` 不增加 Node/Codex。資源方案見 `../ops/ceo-worker-plan.json`（未核准）；`scripts/gcp/ceo_worker_template.py` 從現有 dev Mart 建立 private local template，固定 1 CPU／1 GiB、單 task、480 秒、0 retry，沿用既有網路與身份，沒有 Scheduler。Codex 使用既有 `codex_auth.auth_session` 的 PostgreSQL account lock 與 dedicated Secret 續期；OpenRouter／Gemini 沿用 free-only gate。未知 usage/cost 顯示 unknown，不補 0。
+CEO 使用既有獨立 `mart-ceo-provider` 映像。受限 Job 已核准，方案見 `../ops/ceo-worker-plan.json`；固定 1 CPU／1 GiB、單 task、480 秒、0 retry，沿用 Mart 網路與身份，沒有 Scheduler。
+
+2026-10-11 使用者指定最小上線路徑：CEO 只呼叫 Gemini `gemini-3.5-flash-lite`，直接沿用 `janus-runtime-bundle` 的 `gemini_api_key`，不新增／複製 Secret。使用者已確認 AI Studio API 專案為 Free tier。Job 設定 `MART_CEO_GEMINI_ONLY=true` 與 `MART_GEMINI_FREE_TIER_CONFIRMED=true`；bounded manual router 只執行 Gemini、固定最新 Lite、單次最多 120 秒且不重試／fallback。原 profile 與 request history 保留；execution audit 額外記錄實際 policy、模型與 token usage，未知 cost 不補 0。額度耗盡時失敗，不切付費模型。
+
+先前暫時恢復的 `janus-mart-codex-auth` 已依使用者要求刪除；本路徑不讀取 Codex auth。Shared Codex adapter 未部署，omniAgent 統一 AI 入口後置。既有三模型 profile 仍可讀取；舊 Gemini 模型保留在 allowlist 以避免破壞不可變歷史，CEO 的實際 Lite override 明列於 execution audit。API 0% candidate、live CEO immutable report、Jobs／正式流量 gate 仍須驗收。Job 更新保存前一設定與 image；舊 dedicated Secret 已不存在，設定 rollback 不代表舊 Codex 功能可用。
+
+官方模型契約：[Gemini 3.5 Flash-Lite](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite)。
 
 ## 集中驗收／正式 dev 發布
 
