@@ -1,0 +1,36 @@
+name: B9 Event label protocol tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/b9-event-label-protocol.yml
+      - jobs/intelligence-mart/intelligence_mart/event_labeling.py
+      - jobs/intelligence-mart/intelligence_mart/facts.py
+      - scripts/gcp/b9-event-labels.py
+      - tests/test_event_labeling.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  event-label-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned local test dependencies
+        run: python -m pip install pytest==8.4.2 scikit-learn==1.7.2
+      - name: Verify human review and chronological OOS fail-closed contracts
+        env:
+          PYTHONPATH: jobs/intelligence-mart:.
+        run: |
+          python -m py_compile jobs/intelligence-mart/intelligence_mart/event_labeling.py scripts/gcp/b9-event-labels.py
+          python -m pytest -q tests/test_event_labeling.py
+      - name: Clarify evaluation scope
+        run: |
+          echo 'Fixture tests only; no actual human-approved labels, real model OOS, champion promotion, GCP mutation, or publication.' >> "$GITHUB_STEP_SUMMARY"
