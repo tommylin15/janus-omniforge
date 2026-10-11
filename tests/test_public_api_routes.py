@@ -283,3 +283,57 @@ def test_openapi_keeps_public_private_and_admin_response_boundaries_distinct() -
     assert schema["paths"]["/api/v1/public/daily-brief"]["get"]["tags"] == ["public"]
     assert schema["paths"]["/api/v1/me/profile"]["get"]["tags"] == ["private"]
     assert schema["paths"]["/api/v1/admin/stocks"]["get"]["tags"] == ["admin"]
+
+
+def test_public_visual_series_requires_published_serving_and_never_scans_core():
+    from packages.web_api import CoreQueryService
+    calls = []
+    def forbid_query(*_args):
+        raise AssertionError("chart endpoint must not fall back to Iceberg")
+    def published(dataset, symbol, limit):
+        calls.append((dataset, symbol, limit))
+        return [
+            {"observed_date": "2026-10-08", "pe_ratio": "42.76", "source_id": "twse", "provenance_id": "prov-b"},
+            {"observed_date": "2026-10-07", "pe_ratio": "43.57", "source_id": "twse", "provenance_id": "prov-a"},
+        ]
+    core = CoreQueryService(forbid_query, serving_series=published)
+    api = TestClient(create_app(object(), object(), public=Public(), query_core=core))
+    response = api.get("/api/v1/public/stocks/2327/visual-series?metric=pe&limit=30")
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["data_status"] == "available"
+    assert data["usable_points"] == 2 and data["source_ids"] == ["twse"]
+    assert data["points"] == [
+        {"date": "2026-10-07", "value": "43.57", "source_id": "twse", "provenance_id": "prov-a"},
+        {"date": "2026-10-08", "value": "42.76", "source_id": "twse", "provenance_id": "prov-b"},
+    ]
+    assert calls == [("valuation", "2327", 30)]
+    assert api.get("/api/v1/public/stocks/9999/visual-series?metric=pe").status_code == 404
+    assert api.get("/api/v1/public/stocks/2327/visual-series?metric=eps").status_code == 422
+
+
+def test_visual_series_null_bad_or_stale_data_is_not_fabricated():
+    from packages.web_api import CoreQueryService
+    def forbidden(*_args):
+        raise AssertionError("no Iceberg fallback")
+    def rows(_dataset, _symbol, _limit):
+        return [
+            {"observed_date": "2026-10-08", "pe_ratio": None},
+            {"observed_date": "2026-10-07", "pe_ratio": "-1"},
+            {"observed_date": "2026-10-06", "pe_ratio": "NaN"},
+            {"observed_date": "2026-10-05", "pe_ratio": "42.15", "source_id": "twse"},
+        ]
+    core = CoreQueryService(forbidden, serving_series=rows)
+    partial = core.visual_series("2327", "pe", limit=5)
+    assert partial["data_status"] == "partial" and partial["usable_points"] == 1
+    assert partial["points"][0]["date"] == "2026-10-05"
+    assert partial["points"][0]["value"] == "42.15"
+    assert partial["missing_reason"] == "insufficient_or_invalid_points"
+    unavailable = CoreQueryService(forbidden, serving_series=lambda *_args: None)
+    assert unavailable.visual_series("2327", "pe")["data_status"] == "unavailable"
+    no_projection = CoreQueryService(forbidden, serving_series=lambda *_args: [])
+    assert no_projection.visual_series("2327", "pe")["data_status"] == "missing"
+    zero_yield = CoreQueryService(forbidden, serving_series=lambda *_args: [
+        {"observed_date": "2026-10-08", "dividend_yield_percent": "0"},
+    ])
+    assert zero_yield.visual_series("2327", "yield")["points"][0]["value"] == "0"

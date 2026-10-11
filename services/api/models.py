@@ -89,6 +89,28 @@ class PublicDatasetOut(BaseModel):
     offset: int
 
 
+class VisualSeriesPointOut(BaseModel):
+    date: str
+    value: str
+    source_id: str | None = None
+    provenance_id: str | None = None
+
+
+class PublicVisualSeriesOut(BaseModel):
+    schema_version: Literal["visual-series.v1"]
+    symbol: str
+    metric: Literal["close", "pe", "pb", "yield"]
+    unit: str
+    data_status: Literal["available", "partial", "missing", "unavailable"]
+    points: list[VisualSeriesPointOut]
+    usable_points: int
+    requested_rows: int
+    data_as_of: str | None = None
+    source_ids: list[str]
+    missing_reason: str | None = None
+    calculation_version: str
+
+
 class MarketHomeSectionOut(BaseModel):
     status: Literal["available", "partial", "stale", "missing", "unavailable"]
     as_of: date | None

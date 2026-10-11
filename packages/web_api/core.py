@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
 from typing import Any, Callable, Mapping, Sequence
 
@@ -73,10 +74,12 @@ class CoreQueryService:
     DATE_FIELDS = ("trade_date", "observed_date", "published_at", "effective_date", "date")
 
     def __init__(self, query: Callable[[str, str, Sequence[Any]], Sequence[Mapping[str, Any]]],
-                 *, max_limit: int = 200) -> None:
+                 *, max_limit: int = 200,
+                 serving_series: Callable[[str, str, int], Sequence[Mapping[str, Any]] | None] | None = None) -> None:
         if not 1 <= max_limit <= 10_000:
             raise ValueError("max_limit must be between 1 and 10000")
         self._query = query
+        self._serving_series = serving_series
         self.max_limit = max_limit
 
     def page(self, dataset_id: str, symbol: str, *, limit: int = 50, offset: int = 0) -> QueryPage:
@@ -97,6 +100,71 @@ class CoreQueryService:
         except Exception as error:
             raise RuntimeError("Core query unavailable") from error
         return QueryPage(dataset, normalized_symbol, tuple(_safe_record(row) for row in rows), limit, offset)
+
+    def visual_series(self, symbol: str, metric: str, *, limit: int = 120) -> dict[str, Any]:
+        """Read a small *published serving-only* price/valuation series.
+
+        No Iceberg fallback: slow core scans cannot be triggered by opening a
+        chart. Missing projection is visible as unavailable/missing, never 0.
+        """
+        normalized = self._symbol(symbol)
+        mapping = {
+            "close": ("ohlcv", "trade_date", "close", "TWD"),
+            "pe": ("valuation", "observed_date", "pe_ratio", "times"),
+            "pb": ("valuation", "observed_date", "pb_ratio", "times"),
+            "yield": ("valuation", "observed_date", "dividend_yield_percent", "percent"),
+        }
+        if metric not in mapping or not 2 <= limit <= min(self.max_limit, 200):
+            raise QueryValidationError("invalid visual series metric or limit")
+        dataset, date_key, value_key, unit = mapping[metric]
+        response: dict[str, Any] = {
+            "schema_version": "visual-series.v1", "symbol": normalized,
+            "metric": metric, "unit": unit, "data_status": "unavailable",
+            "points": [], "usable_points": 0, "requested_rows": limit,
+            "data_as_of": None, "source_ids": [], "missing_reason": "serving_unavailable",
+            "calculation_version": "published-raw-v1",
+        }
+        if self._serving_series is None:
+            return response
+        raw = self._serving_series(dataset, normalized, limit)
+        if raw is None:
+            return response
+        response["data_status"] = "missing"
+        response["missing_reason"] = "no_published_points"
+        seen: set[str] = set()
+        points: list[dict[str, str | None]] = []
+        sources: set[str] = set()
+        for row in raw[:limit]:
+            day = row.get(date_key)
+            value = row.get(value_key)
+            if day is None or value is None:
+                continue
+            day_string = str(day)[:10]
+            try:
+                date.fromisoformat(day_string)
+                number = Decimal(str(value))
+            except (InvalidOperation, ValueError, TypeError):
+                continue
+            if not number.is_finite() or (metric != "yield" and number <= 0) or number < 0:
+                continue
+            if day_string in seen:
+                continue
+            seen.add(day_string)
+            source = str(row.get("source_id") or "").strip()
+            if source:
+                sources.add(source)
+            points.append({"date": day_string, "value": str(number),
+                           "source_id": source or None,
+                           "provenance_id": str(row["provenance_id"]) if row.get("provenance_id") else None})
+        points.sort(key=lambda item: item["date"])
+        response["points"] = points
+        response["usable_points"] = len(points)
+        response["data_as_of"] = points[-1]["date"] if points else None
+        response["source_ids"] = sorted(sources)
+        if points:
+            response["data_status"] = "available" if len(points) >= 2 and len(points) == len(raw) else "partial"
+            response["missing_reason"] = None if response["data_status"] == "available" else "insufficient_or_invalid_points"
+        return response
 
     def market_home(self) -> dict[str, Any]:
         """Published Core baseline; each fixed section fails independently."""

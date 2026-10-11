@@ -35,7 +35,7 @@ from .models import (AdminResponseOut, AnalysisFeedbackIn, CorePageOut, CoreSumm
                      LedgerReversalIn, MonthlyLedgerSummaryOut,
                      NoteIn, NoteRevisionIn, PortfolioExposureOut, PortfolioPerformanceOut,
                      PortfolioStressOut, PortfolioSummaryOut,
-                     PrivateResponseOut, PublicDatasetOut, PublicReportListOut, PublicReportOut, PublicWaitingOut,
+                     PrivateResponseOut, PublicDatasetOut, PublicVisualSeriesOut, PublicReportListOut, PublicReportOut, PublicWaitingOut,
                      WatchlistIn, WatchlistOrderIn,
                      GovernanceDiffIn, GovernanceEditIn, MembershipEditIn)
 from .repository import ConflictError, NotFoundError, OversellError, repository_from_env
@@ -610,6 +610,23 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         return jsonable_encoder({"data_status": status_name, "dataset_id": page.dataset_id,
                                  "symbol": page.symbol, "rows": page.rows,
                                  "limit": page.limit, "offset": page.offset})
+
+    @public_router.get("/stocks/{symbol}/visual-series", response_model=PublicVisualSeriesOut)
+    def stock_visual_series(symbol: str,
+                            metric: str = Query(..., pattern="^(close|pe|pb|yield)$"),
+                            limit: int = Query(120, ge=2, le=200)):
+        symbol = public.require_enabled_symbol(symbol)
+        # Only a published serving projection is eligible; no request-time Core scan.
+        series = getattr(query_core, "visual_series", None)
+        if series is None:
+            return {"schema_version": "visual-series.v1", "symbol": symbol,
+                    "metric": metric, "unit": "TWD" if metric == "close" else
+                    "percent" if metric == "yield" else "times",
+                    "data_status": "unavailable", "points": [], "usable_points": 0,
+                    "requested_rows": limit, "data_as_of": None, "source_ids": [],
+                    "missing_reason": "serving_unavailable",
+                    "calculation_version": "published-raw-v1"}
+        return jsonable_encoder(series(symbol, metric, limit=limit))
 
     @public_router.get("/history/{symbol}", response_model=PublicDatasetOut)
     def public_history(symbol: str, limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0)):

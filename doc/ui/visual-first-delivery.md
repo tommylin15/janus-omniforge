@@ -29,6 +29,11 @@
 
 VF-00/01 與每張圖的資料合法性是**前置**，不放在最後 P2；VF-02～06 可一起實作後集中測試，VF-07～09 依現有核准資料逐圖完成，不能畫的標 Partial/Blocked，別用美觀 dummy 充作正式圖。VF-10 僅在 source/time/cost approval 足夠後執行，不能偷擴 500 檔回補。
 
+### 2026-10-11 已提交的第一段資料鏈路
+
+- 公開端點 `GET /api/v1/public/stocks/{symbol}/visual-series?metric=pe|pb|yield|close&limit=120` 只讀正式 `publication.stock_serving_recent`，不回退掃 Iceberg；typed status 與 null/PIT 來源資訊。僅能對已入 serving projection 的資料出圖，不代表全市場／全年都有資料；樣本不足或來源缺時只能 partial／missing／unavailable。
+- 此段支援數值序列及時間軸，不提供未驗證 EPS、YoY、月營收或法人趨勢；這幾種仍保持後續資料 engineering gap，不能用訓練／研究暫存補圖。
+
 ## 3. Dataset coverage matrix（必要交接表）
 
 每個 dataset_family 都至少有：symbol／market、required_metric、frequency、first/last_period、usable_points／expected_points、missing_rate、unit、period_basis、source_id、source_authorization、published_at／availability_at／observed_at、snapshot／provenance、serving route、API route、UI consumed、freshness、Implemented／Partial／Missing／Unknown／Blocked、blocking_reason、reproducible evidence。

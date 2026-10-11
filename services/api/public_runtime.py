@@ -149,7 +149,15 @@ def build_core_service() -> CoreQueryService:
             _emit_core_query_source(identifier, "iceberg_fallback")
             return reader.query(identifier, sql, parameters)
 
-    return CoreQueryService(query, max_limit=int(os.environ.get("WEB_QUERY_MAX_ROWS", "200")))
+    def serving_series(dataset: str, symbol: str, limit: int):
+        # Return None on connection failure (vs [] for an empty projection).
+        # Serialized by the same bounded reader lock; never fall back to Iceberg.
+        identifier = f"core.{dataset}_v1"
+        with lock:
+            return serving_rows(identifier, (symbol, limit, 0))
+
+    return CoreQueryService(query, max_limit=int(os.environ.get("WEB_QUERY_MAX_ROWS", "200")),
+                            serving_series=serving_series)
 
 
 def build_public_service() -> PublicMartService:
