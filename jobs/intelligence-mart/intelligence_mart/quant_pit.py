@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from datetime import date, datetime
+from zoneinfo import ZoneInfo
 from hashlib import sha256
 import json
 from math import ceil, isfinite
@@ -18,12 +19,28 @@ MODELS = ("linear", "lightgbm", "catboost", "qlib_double_ensemble")
 
 
 def _day(value):
-    if not isinstance(value, str):
+    """Interpret time-aware instants in Taiwan, reject ambiguous wall-clock time.
+
+    A source published late in UTC may already be on the NEXT Taiwan date.
+    A pure date has only date precision; it cannot be treated as earlier within
+    that date. Never reinterpret an unknown-timezone clock as midnight.
+    """
+    if isinstance(value, datetime):
+        instant = value
+    elif isinstance(value, date):
+        return value
+    elif isinstance(value, str):
+        try:
+            if "T" not in value and " " not in value:
+                return date.fromisoformat(value)
+            instant = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError("invalid historical PIT timestamp") from exc
+    else:
         raise ValueError("historical PIT timestamp missing")
-    try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00")).date()
-    except ValueError as exc:
-        raise ValueError("invalid historical PIT timestamp") from exc
+    if instant.tzinfo is None or instant.utcoffset() is None:
+        raise ValueError("historical PIT clock missing timezone")
+    return instant.astimezone(ZoneInfo("Asia/Taipei")).date()
 
 
 def _hash(data):
