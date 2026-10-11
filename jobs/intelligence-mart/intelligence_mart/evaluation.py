@@ -387,7 +387,8 @@ def build_financial_samples(datasets, symbols, as_of, snapshot, horizon_days, ro
     output = []
     for sample in base:
         inputs, evidence, _ = validated_inputs({name: datasets.get(name, []) for name in ("financials", "valuation")},
-            sample["symbol"], sample["analysis_as_of"], snapshot)
+            sample["symbol"], sample["analysis_as_of"], snapshot,
+            preserve_financial_basis=role == "fundamental")
         if role == "fundamental":
             features, selected, metadata = _fundamental_filing_features(inputs.get("financials", []))
             if features is None:
