@@ -110,6 +110,14 @@ def _evaluation_diagnostics(item, role):
         blockers.append("after_cost_cross_section_return_unavailable")
     if len(probabilities) < 30:
         blockers.append("probability_calibration_insufficient")
+    overfit_folds = None
+    if role == "valuation":
+        folds = item.get("folds") or []
+        overfit_folds = sum(f.get("overfit_warning") is True for f in folds)
+        if overfit_folds:
+            blockers.append("research_overfit_warning_in_prior_only_folds")
+        if item.get("model_name") == "catboost" and paired and mse_model > mse_zero:
+            blockers.append("catboost_oos_worse_than_zero_baseline")
     if role == "fundamental" and (item.get("financial_history_policy") or {}).get("strict_pit") is False:
         blockers.append("financial_history_current_revision_not_strict_pit")
     return {
@@ -121,6 +129,7 @@ def _evaluation_diagnostics(item, role):
         "mse_model": mse_model,
         "mse_constant_zero": mse_zero,
         "model_minus_zero_mse": mse_model - mse_zero if paired else None,
+        "valuation_overfit_warning_folds": overfit_folds,
         "probability_predictions": len(probabilities),
         "brier": brier,
         "brier_constant_half": 0.25 if brier is not None else None,
