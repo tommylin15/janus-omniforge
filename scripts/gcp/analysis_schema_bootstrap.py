@@ -1,4 +1,4 @@
-"""Apply additive migration 051 using the existing ingestion image and identity.
+"""Apply allowlisted analysis migrations using the existing ingestion image and identity.
 
 No image, Scheduler, IAM, canonical data or API traffic changes. The fixed SQL
 is public repository code; credentials remain inside the existing Job runtime.
@@ -26,20 +26,23 @@ try:
   cursor.execute(checks)
   assert all(cursor.fetchone())
   cursor.execute('INSERT INTO control.schema_migrations'+record)
- print(json.dumps({'operation':'analysis_schema_bootstrap','migration':'051_analysis_product','status':'PASS'}))
+ print(json.dumps({'operation':'analysis_schema_bootstrap','migration':os.environ['JANUS_ANALYSIS_MIGRATION_NAME'],'status':'PASS'}))
 finally:
  control.close()
 '''
 
 
-def payload(source, sql):
+def payload(source, sql, migration='051_analysis_product'):
+    if migration not in {'051_analysis_product', '052_ceo_daily_quota_50'}:
+        raise ValueError('migration not approved for bootstrap')
     container = source['template']['template']['containers'][0]
     if container.get('command') not in (None, [], ['python']):
         raise ValueError('existing Python ingestion entrypoint required')
     args = (['python'] if not container.get('command') else []) + ['-c', BOOTSTRAP]
     override = {'args': args, 'env': [
         {'name': 'JANUS_ANALYSIS_MIGRATION_SQL', 'value': b64encode(sql).decode()},
-        {'name': 'JANUS_ANALYSIS_MIGRATION_HASH', 'value': sha256(sql).hexdigest()}]}
+        {'name': 'JANUS_ANALYSIS_MIGRATION_HASH', 'value': sha256(sql).hexdigest()},
+        {'name': 'JANUS_ANALYSIS_MIGRATION_NAME', 'value': migration}]}
     if container.get('name'):
         override['name'] = container['name']
     return {'etag': source['etag'], 'overrides': {'taskCount': 1, 'timeout': '300s', 'containerOverrides': [override]}}
@@ -49,15 +52,17 @@ def main():
     from ghcr_jobs_rollout import cloud, fence, job, terminal, ROOT
     parser = argparse.ArgumentParser()
     parser.add_argument('--receipt', type=Path, required=True)
+    parser.add_argument('--migration', choices=('051_analysis_product', '052_ceo_daily_quota_50'),
+                        default='051_analysis_product')
     args = parser.parse_args()
     source = job('janus-ingestion-core')
     fence()
-    sql = (Path(__file__).parents[2] / 'infra/postgres/migrations/051_analysis_product.sql').read_bytes()
-    operation = cloud(f'{ROOT}/jobs/janus-ingestion-core:run', payload(source, sql), 'POST')
+    sql = (Path(__file__).parents[2] / 'infra/postgres/migrations' / f'{args.migration}.sql').read_bytes()
+    operation = cloud(f'{ROOT}/jobs/janus-ingestion-core:run', payload(source, sql, args.migration), 'POST')
     name = operation.get('name', '')
     if not name.startswith(ROOT+'/operations/'):
         raise RuntimeError('migration dispatch unknown; no automatic retry')
-    receipt = {'migration': '051_analysis_product', 'sql_hash': sha256(sql).hexdigest(),
+    receipt = {'migration': args.migration, 'sql_hash': sha256(sql).hexdigest(),
                'operation': name, 'status': 'UNKNOWN', 'traffic_changed': False, 'image_changed': False}
     args.receipt.write_text(json.dumps(receipt), encoding='utf-8')
     deadline = time.monotonic()+360
