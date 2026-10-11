@@ -528,7 +528,12 @@ def fit_regime_challenger(returns, *, dates=None):
                     not np.isfinite(means).all()):
                 raise ValueError("invalid prior-only state parameters")
             high_state = int(np.argmax(variances))
-            high_cutoff = float(np.quantile(np.abs(history), 0.75))
+            # Distinguish persistent 20-session realized-volatility regimes
+            # from isolated daily absolute-return shocks. Both thresholds
+            # are fixed using only returns available before the OOS month.
+            prior_vol20 = np.asarray([np.std(history[j-19:j+1])
+                                      for j in range(19, len(history))])
+            high_cutoff = float(np.quantile(prior_vol20, 0.75))
             extreme_cutoff = float(np.quantile(np.abs(history), 0.95))
             left_tail_cutoff = float(np.quantile(history, 0.05))
             tail_conditional = norm.cdf(left_tail_cutoff, loc=means, scale=np.sqrt(variances))
@@ -543,18 +548,22 @@ def fit_regime_challenger(returns, *, dates=None):
                         np.isfinite(high_probability) and np.isfinite(tail_probability) and
                         0 <= high_probability <= 1 and 0 <= tail_probability <= 1):
                     raise ValueError("nonfinite OOS state/tail density")
+                # Realized-vol regime is a descriptive label known after the
+                # current close, not a contemporaneously tradable prediction.
+                realized_vol20 = float(np.std(np.asarray(returns[day-19:day+1])))
                 month_daily.append({
                     "date": dates[day], "month": month, "market_return": observed,
                     "training_end": dates[first-1], "markov_log_score": float(markov[i]),
                     "gaussian_log_score": float(gaussian[i]),
                     "predicted_high_vol_probability": high_probability,
-                    "realized_high_vol": abs(observed) >= high_cutoff,
+                    "realized_volatility_20d": realized_vol20,
+                    "realized_high_vol": realized_vol20 >= high_cutoff,
                     "realized_extreme_vol": abs(observed) >= extreme_cutoff,
                     "realized_left_tail": observed <= left_tail_cutoff,
                     "markov_tail_probability": tail_probability,
                     "gaussian_tail_probability": gaussian_tail_probability,
-                    "historical_abs_vol_p75": high_cutoff,
-                    "historical_abs_vol_p95": extreme_cutoff,
+                    "historical_volatility_20d_p75": high_cutoff,
+                    "historical_abs_return_p95": extreme_cutoff,
                     "historical_left_tail_p05": left_tail_cutoff,
                 })
         except (np.linalg.LinAlgError, ValueError, FloatingPointError, IndexError) as error:
