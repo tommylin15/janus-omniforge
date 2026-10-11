@@ -67,15 +67,30 @@ def test_revision_changes_identity_but_stable_event_group():
     assert first["candidate_id"] != second["candidate_id"]
 
 
+def fixture_training_grant(**changes):
+    grant = {
+        "source_id": "twse", "authorization_reference": "TEST-ONLY-permission",
+        "status": "approved", "scope": "local_event_classifier_research",
+        "approved_by": "fixture-rights-verifier",
+        "verified_at": "2026-10-08T00:00:00Z",
+        "evidence_uri": "https://example.org/test-only-authorization",
+    }
+    grant.update(changes)
+    return grant
+
+
 def test_human_review_and_training_rights_are_both_required():
     candidate = from_core_events([raw_event()], core_snapshot_id="core-fixed")["candidates"][0]
     with pytest.raises(ValueError, match="training_use_not_authorized"):
         approved_dataset([candidate], [human_review(candidate)])
     candidate["training_authorization_reference"] = "TEST-ONLY-permission"
+    grant = fixture_training_grant()
     tampered = dict(candidate, text="tampered announcement")
     with pytest.raises(ValueError, match="tampered_candidate"):
-        approved_dataset([tampered], [human_review(tampered)])
-    assert approved_dataset([candidate], [human_review(candidate)])[0]["review_status"] == "approved"
+        approved_dataset([tampered], [human_review(tampered)], training_grants=[grant])
+    labeled = approved_dataset([candidate], [human_review(candidate)], training_grants=[grant])
+    assert labeled[0]["review_status"] == "approved"
+    assert labeled[0]["training_authorization_verified_by"] == "fixture-rights-verifier"
     for overrides, message in [
         ({"review_method": "rules"}, "human_reviewer_required"),
         ({"reviewer": ""}, "human_reviewer_required"),
@@ -84,9 +99,32 @@ def test_human_review_and_training_rights_are_both_required():
         ({"reviewed_at": "2026-10-08T04:00:00Z"}, "review_before_observation"),
     ]:
         with pytest.raises(ValueError, match=message):
-            approved_dataset([candidate], [human_review(candidate, **overrides)])
+            approved_dataset([candidate], [human_review(candidate, **overrides)], training_grants=[grant])
     with pytest.raises(ValueError, match="duplicate_review"):
-        approved_dataset([candidate], [human_review(candidate), human_review(candidate)])
+        approved_dataset([candidate], [human_review(candidate), human_review(candidate)], training_grants=[grant])
+
+
+@pytest.mark.parametrize("change,reason", [
+    ({"source_id": "random"}, "invalid_training_grant"),
+    ({"status": "approved", "approved_by": ""}, "invalid_training_grant"),
+    ({"scope": "public_data_read"}, "invalid_training_grant"),
+    ({"evidence_uri": ""}, "invalid_training_grant"),
+    ({"verified_at": "2026-10-08"}, "naive_training_grant_verified_at"),
+])
+def test_unverifiable_training_grant_is_rejected(change, reason):
+    candidate = from_core_events([raw_event()], core_snapshot_id="core-fixed")["candidates"][0]
+    with pytest.raises(ValueError, match=reason):
+        approved_dataset([candidate], [human_review(candidate)], training_grants=[fixture_training_grant(**change)])
+
+
+def test_wrong_source_grant_or_duplicate_grant_is_blocked():
+    candidate = from_core_events([raw_event()], core_snapshot_id="core-fixed")["candidates"][0]
+    with pytest.raises(ValueError, match="training_use_not_authorized"):
+        approved_dataset([candidate], [human_review(candidate)],
+                         training_grants=[fixture_training_grant(source_id="mops")])
+    with pytest.raises(ValueError, match="duplicate_training_grant_for_source"):
+        approved_dataset([candidate], [human_review(candidate)],
+                         training_grants=[fixture_training_grant(), fixture_training_grant()])
 
 
 def test_no_labels_means_no_probability_or_fake_oos():
