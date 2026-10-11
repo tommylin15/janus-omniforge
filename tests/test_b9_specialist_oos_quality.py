@@ -182,6 +182,68 @@ class B9QualityTests(unittest.TestCase):
         self.assertEqual(diagnostic["nonpositive_improvement_months"], 1)
         self.assertAlmostEqual(diagnostic["worst_monthly_improvement"], -0.1)
         self.assertEqual(report["roles"]["risk"]["quality_gate"], "not_verified")
+        self.assertEqual(diagnostic["daily_environment_evidence_status"],
+                         "unavailable_legacy_monthly_aggregate")
+        self.assertIsNone(diagnostic["environment_and_tail"])
+        self.assertEqual(diagnostic["longest_nonpositive_month_streak"], 1)
+        self.assertAlmostEqual(diagnostic["return_weighted_log_score_improvement"], 0.075)
+        self.assertEqual(len(diagnostic["monthly_scores"]), 2)
+
+    def test_regime_daily_prior_only_tail_and_volatility_are_reconciled(self):
+        manifest, evaluations, artifacts = fixture()
+        risk = {
+            "core_snapshot_id": CORE, "model_name": "statsmodels_markov_regime",
+            "status": "research_oos_evaluated", "promotion_eligible": False,
+            "oos_returns": 4, "oos_folds": [
+                {"month": "2026-07", "training_end": "2026-06-30",
+                 "test_start": "2026-07-01", "test_end": "2026-07-02",
+                 "test_returns": 2, "markov_log_score_sum": 3.0, "gaussian_log_score_sum": 2.0},
+                {"month": "2026-08", "training_end": "2026-07-31",
+                 "test_start": "2026-08-01", "test_end": "2026-08-02",
+                 "test_returns": 2, "markov_log_score_sum": -1.0, "gaussian_log_score_sum": 2.0},
+            ],
+        }
+        records = [
+            ("2026-07-01", "2026-06-30", 0.02, 2.0, 1.0, 0.9),
+            ("2026-07-02", "2026-06-30", -0.03, 1.0, 1.0, 0.8),
+            ("2026-08-01", "2026-07-31", 0.001, -1.0, 1.0, 0.1),
+            ("2026-08-02", "2026-07-31", 0.004, 0.0, 1.0, 0.2),
+        ]
+        risk["risk_oos_daily"] = [{
+            "date": day, "month": day[:7], "training_end": train,
+            "market_return": observed, "markov_log_score": markov,
+            "gaussian_log_score": gaussian, "predicted_high_vol_probability": state,
+            "realized_high_vol": abs(observed) >= 0.01,
+            "realized_extreme_vol": abs(observed) >= 0.025,
+            "realized_left_tail": observed <= -0.02,
+            "markov_tail_probability": 0.12,
+            "gaussian_tail_probability": 0.05,
+            "historical_abs_vol_p75": 0.01, "historical_abs_vol_p95": 0.025,
+            "historical_left_tail_p05": -0.02,
+        } for day, train, observed, markov, gaussian, state in records]
+        evaluations.append(risk)
+        detail = b9.summarize(manifest, evaluations, artifacts, expected_core=CORE)[
+            "roles"]["risk"]["oos_evaluations"][0]["diagnostics"]
+        self.assertEqual(detail["daily_environment_evidence_status"],
+                         "reconciled_prior_only_oos_daily_diagnostics")
+        self.assertEqual(detail["environment_and_tail"]["state_switches"], 1)
+        self.assertEqual(detail["environment_and_tail"]["tail_events"], 1)
+        self.assertEqual(detail["environment_and_tail"]["groups"]["high_realized_vol"]["observations"], 2)
+        self.assertEqual(detail["environment_and_tail"]["groups"]["low_realized_vol"]["observations"], 2)
+        self.assertEqual(detail["longest_nonpositive_month_streak"], 1)
+        self.assertEqual(detail["positive_improvement_months"], 1)
+        self.assertEqual(detail["nonpositive_improvement_months"], 1)
+        self.assertAlmostEqual(detail["return_weighted_log_score_improvement"], -0.5)
+        self.assertFalse(b9.summarize(manifest, evaluations, artifacts, expected_core=CORE)["champion_promotion"])
+
+        # A byte-valid future-dated training fence or changed daily density must fail closed.
+        risk["risk_oos_daily"][0]["training_end"] = "2026-07-01"
+        with self.assertRaisesRegex(b9.AuditError, "training"):
+            b9.summarize(manifest, evaluations, artifacts, expected_core=CORE)
+        risk["risk_oos_daily"][0]["training_end"] = "2026-06-30"
+        risk["risk_oos_daily"][0]["markov_log_score"] += 1
+        with self.assertRaisesRegex(b9.AuditError, "reconcile"):
+            b9.summarize(manifest, evaluations, artifacts, expected_core=CORE)
 
     def test_valid_cross_section_still_requires_historical_membership(self):
         manifest, evaluation, artifacts = fixture()
