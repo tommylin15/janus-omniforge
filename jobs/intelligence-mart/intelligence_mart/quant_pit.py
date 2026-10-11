@@ -73,6 +73,13 @@ def historical_liquid_universe(rows, sessions, *, core_snapshot_id, lookback=20,
         if not isinstance(symbol, str) or not symbol.isdigit() or not 4 <= len(symbol) <= 6:
             rejections["invalid_symbol"] += 1
             continue
+        # A historical price series alone is not proof that an instrument
+        # was a TWSE common share at that time. This field must come from an
+        # authorized, dated security-master join; ETF/fund/warrant history
+        # must never silently enter an equity decile.
+        if row.get("market") != "TWSE" or row.get("security_type") != "common_stock":
+            rejections["pit_equity_classification_missing_or_ineligible"] += 1
+            continue
         if trade_date not in days:
             rejections["outside_market_calendar"] += 1
             continue
@@ -124,7 +131,7 @@ def historical_liquid_universe(rows, sessions, *, core_snapshot_id, lookback=20,
             "core_snapshot_id": core_snapshot_id,
             "source_authorization": "official",
             "source_provenance_hash": _hash(provenance),
-            "membership_semantics": "reconstructed_as_known_not_official_index_history",
+            "membership_semantics": "reconstructed_as_known_twse_common_equity_not_official_index_history",
             "quality": "candidate" if valid else "insufficient_cross_section",
         }
         membership["membership_hash"] = _hash(membership)
