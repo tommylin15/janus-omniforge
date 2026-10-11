@@ -1056,7 +1056,10 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
               final aggregate = section == 0 && intraday != null
                   ? (quoteSummary.isEmpty
                       ? <String, dynamic>{}
-                      : fvMap(quoteSummary.first))
+                      : <String, dynamic>{
+                          ...fvMap(quoteSummary.first),
+                          'ledger_version': intraday!['ledger_version'],
+                        })
                   : summary.isEmpty
                       ? <String, dynamic>{}
                       : fvMap(summary.first);

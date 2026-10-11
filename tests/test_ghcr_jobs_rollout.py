@@ -58,7 +58,7 @@ def test_pending_legacy_cloud_build_blocks_jobs_rollout():
     def fake_command(args):
         commands.append(args)
         if args[:3] == ["gcloud", "builds", "triggers"]:
-            return '[{"disabled": true}]'
+            return '[{"name": "janus-dev-v2", "disabled": true}]'
         if args[:3] == ["gcloud", "builds", "list"]:
             return '[{"id": "queued-or-pending-build"}]'
         raise AssertionError("Unexpected command after a blocked writer")
@@ -67,6 +67,23 @@ def test_pending_legacy_cloud_build_blocks_jobs_rollout():
         with pytest.raises(ValueError, match="legacy_writer_unfenced"):
             rollout.writers()
     assert "--filter=status=QUEUED OR status=WORKING OR status=PENDING" in commands[1]
+
+
+@pytest.mark.parametrize('triggers,builds,allowed', [
+    ([], [], True),
+    ([{'name': 'janus-dev-v2', 'disabled': True}], [], True),
+    ([], [{'id': 'active'}], False),
+    ([{'name': 'janus-dev-v2', 'disabled': False}], [], False),
+    ([{'name': 'unknown-writer', 'disabled': True}], [], False),
+    ([{'name': 'janus-dev-v2', 'disabled': 'true'}], [], False),
+])
+def test_legacy_writer_fence_accepts_confirmed_absence_but_rejects_unknown_writers(triggers, builds, allowed):
+    with patch.object(rollout, 'command', side_effect=[json.dumps(triggers), json.dumps(builds)]):
+        if allowed:
+            rollout.legacy_writers()
+        else:
+            with pytest.raises(ValueError, match='legacy_writer_unfenced'):
+                rollout.legacy_writers()
 
 
 def test_job_rollout_preflight_requires_update_and_run_with_overrides_on_every_job():

@@ -763,6 +763,7 @@ void main() {
       '/api/v1/me/portfolio/performance?year=$year': {'items': const []},
       '/api/v1/me/notes': const [],
       '/api/v1/me/portfolio/quotes': {
+        'ledger_version': 164,
         'positions': [
           {
             'symbol': '2330',
@@ -808,6 +809,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('更新持股股價'), findsOneWidget);
+    expect(find.text('ledger v164'), findsOneWidget);
     expect(find.textContaining('正式／休市'), findsOneWidget);
     expect(
       api.reads.where((path) => path == '/api/v1/me/portfolio/quotes').length,
