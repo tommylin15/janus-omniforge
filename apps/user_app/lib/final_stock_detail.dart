@@ -6,6 +6,7 @@ import 'final_charts.dart';
 import 'final_perf.dart';
 import 'final_analysis.dart';
 import 'final_visual_common.dart';
+import 'final_visual_series.dart';
 import 'main.dart' as legacy;
 
 class FinalStockDetailPage extends StatefulWidget {
@@ -29,6 +30,8 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
   bool klineLoading = false;
   bool klineRequested = false;
   int chartDays = 22;
+  String? selectedVisual;
+  final loadingVisual = <String>{};
   int primaryGeneration = 0;
 
   // Requests are bounded independently: one slow optional card never holds the page.
@@ -80,6 +83,8 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
       klineRequested = false;
       klineLoading = false;
       chartDays = 22;
+      selectedVisual = null;
+      loadingVisual.clear();
       unawaited(loadPrimary());
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _startQuoteTimer();
@@ -202,6 +207,39 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
         ),
       ),
     );
+  }
+
+  Future<void> openVisual(String metric) async {
+    setState(() => selectedVisual = metric);
+    if (!const {'pe', 'pb', 'yield'}.contains(metric)) return;
+    final key = 'visual-$metric';
+    if (values.containsKey(key) || loadingVisual.contains(key)) return;
+    setState(() => loadingVisual.add(key));
+    final symbol = widget.symbol;
+    await safe(key,
+      '/api/v1/public/stocks/${Uri.encodeComponent(symbol)}/visual-series?metric=$metric&limit=120');
+    if (mounted && widget.symbol == symbol) {
+      setState(() => loadingVisual.remove(key));
+    }
+  }
+
+  void expandVisual(Map<String, dynamic> result, String label) {
+    final points = fvRows(result['points']);
+    if (points.length < 2) return;
+    showDialog<void>(context: context, builder: (ctx) => Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 28),
+      child: Padding(padding: const EdgeInsets.all(12), child: Column(
+        mainAxisSize: MainAxisSize.min, children: [
+          Row(children: [
+            Expanded(child: Text('$label · 捏合放大', style: const TextStyle(fontWeight: FontWeight.w800))),
+            IconButton(tooltip: '關閉估值圖', icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+          ]),
+          InteractiveViewer(minScale: 1, maxScale: 3, child: SizedBox(
+            width: MediaQuery.sizeOf(ctx).width - 48,
+            child: FvVisualSeriesChart(rows: points, label: label, unit: fvText(result['unit']), height: 270))),
+        ],
+      )),
+    ));
   }
 
   List<dynamic> get positions {
@@ -545,6 +583,60 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                 ),
               ],
             ),
+            fvSectionTitle(context, '圖表總覽'),
+            fvPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('選擇想看的趨勢', style: TextStyle(fontWeight: FontWeight.w800, color: fvInk)),
+              const SizedBox(height: 9),
+              Wrap(spacing: 7, runSpacing: 7, children: [
+                for (final entry in const {'pe': '本益比', 'pb': '股價淨值比',
+                    'yield': '殖利率', 'revenue': '月營收',
+                    'eps': 'EPS', 'institutional': '法人', 'events': '事件'}.entries)
+                  ChoiceChip(
+                    key: Key('visual-tab-${entry.key}'),
+                    label: Text(entry.value),
+                    selected: selectedVisual == entry.key,
+                    onSelected: (_) => openVisual(entry.key),
+                  ),
+              ]),
+              const SizedBox(height: 7),
+              const Text('僅呈現已發布資料。缺少可比較歷史時明確標示。',
+                  style: TextStyle(color: fvMuted, fontSize: 11)),
+            ])),
+            if (selectedVisual != null) ...[
+              if (const {'pe', 'pb', 'yield'}.contains(selectedVisual)) ...[
+                if (loadingVisual.contains('visual-$selectedVisual'))
+                  fvBoundedState('圖表載入中；其餘資訊可繼續使用', icon: Icons.query_stats)
+                else if (errors.contains('visual-$selectedVisual'))
+                  fvPanel(child: Row(children: [
+                    const Expanded(child: Text('圖表讀取失敗')),
+                    TextButton(onPressed: () => openVisual(selectedVisual!), child: const Text('重試')),
+                  ]))
+                else Builder(builder: (context) {
+                  final result = fvMap(values['visual-$selectedVisual']);
+                  final points = fvRows(result['points']);
+                  final label = selectedVisual == 'pe' ? '本益比'
+                    : selectedVisual == 'pb' ? '股價淨值比' : '殖利率';
+                  if (points.length < 2) {
+                    return fvBoundedState('歷史資料不足：${fvText(result['missing_reason'], missing: '尚未就緒')}');
+                  }
+                  return Column(children: [
+                    Row(children: [
+                      Expanded(child: Text('資料日 ${fvText(result['data_as_of'])} · ${fvText(result['data_status'])}',
+                        style: const TextStyle(color: fvMuted, fontSize: 11))),
+                      IconButton(key: const Key('valuation-chart-expand'), tooltip: '放大估值圖',
+                        onPressed: () => expandVisual(result, label),
+                        icon: const Icon(Icons.open_in_full, color: fvTeal)),
+                    ]),
+                    FvVisualSeriesChart(rows: points, label: label, unit: fvText(result['unit'])),
+                    Text('來源：${fvRows(result['source_ids']).join('、')}',
+                      style: const TextStyle(color: fvMuted, fontSize: 11)),
+                  ]);
+                }),
+              ] else
+                fvBoundedState(selectedVisual == 'events'
+                  ? '公司事件請參考下方官方事件時間軸。'
+                  : '尚無通過期別、來源和可比性驗證的歷史序列。'),
+            ],
             fvSectionTitle(context, '籌碼與定位'),
             chips == null
                 ? fvBoundedState('籌碼與定位資料尚未就緒')

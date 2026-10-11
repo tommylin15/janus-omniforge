@@ -1117,6 +1117,40 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Stock valuation charts use only requested published series', (tester) async {
+    mobileView(tester);
+    final api = FinalFakeApi({
+      '/api/v1/public/stock-header/2330': {
+        'stock_name': '台積電', 'close': '1000', 'trade_date': '2026-10-08'
+      },
+      '/api/v1/public/stocks/2330/visual-series?metric=pe&limit=120': {
+        'metric': 'pe', 'unit': 'times', 'data_status': 'available',
+        'data_as_of': '2026-10-08', 'source_ids': ['twse'],
+        'points': [
+          {'date': '2026-10-07', 'value': '43.57'},
+          {'date': '2026-10-08', 'value': '42.76'}
+        ]
+      },
+    });
+    await tester.pumpWidget(MaterialApp(home: FinalStockDetailPage(api: api, symbol: '2330')));
+    await tester.pumpAndSettle();
+    expect(api.reads.where((x) => x.contains('visual-series')), isEmpty);
+    await tester.scrollUntilVisible(find.byKey(const Key('visual-tab-pe')),
+      250, scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.byKey(const Key('visual-tab-pe')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('fv-visual-series-chart')), findsOneWidget);
+    expect(find.text('來源：twse'), findsOneWidget);
+    expect(api.reads.where((x) => x.contains('metric=pe')).length, 1);
+    await tester.tap(find.byKey(const Key('visual-tab-revenue')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('尚無通過期別'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('visual-tab-pe')));
+    await tester.pumpAndSettle();
+    expect(api.reads.where((x) => x.contains('metric=pe')).length, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Stock Detail shows a primary chart, cached period change and zoom',
       (tester) async {
     mobileView(tester);
