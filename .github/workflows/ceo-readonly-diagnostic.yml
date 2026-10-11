@@ -21,3 +21,10 @@ jobs:
           set -Eeuo pipefail
           gcloud run jobs executions list --job=janus-ceo-analysis --project=gen-lang-client-0593591102 --region=us-central1 --limit=3 --format='json(metadata.name,metadata.creationTimestamp,status.startTime,status.completionTime,status.runningCount,status.succeededCount,status.failedCount,status.conditions)'
           gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ceo-analysis" AND timestamp>="2026-10-11T10:27:00Z"' --project=gen-lang-client-0593591102 --limit=15 --format='json(timestamp,severity,jsonPayload.status,jsonPayload.operation,jsonPayload.safe_reason,jsonPayload.error_type)'
+      - name: Inspect approved Codex Secret metadata without accessing credentials
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud secrets versions list janus-mart-codex-auth --project=gen-lang-client-0593591102 --limit=3 --format='json(name,state,createTime)'
+          gcloud secrets get-iam-policy janus-mart-codex-auth --project=gen-lang-client-0593591102 --format=json > /tmp/codex-secret-policy.json
+          jq '{mart_roles:[.bindings[]? | select(.members | index("serviceAccount:intelligence-mart@gen-lang-client-0593591102.iam.gserviceaccount.com")) | {role,conditional:has("condition")}],credentials_accessed:false,iam_mutated:false}' /tmp/codex-secret-policy.json
