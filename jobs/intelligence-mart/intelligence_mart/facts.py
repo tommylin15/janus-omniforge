@@ -216,7 +216,8 @@ def _scope_rows(datasets: dict[str, list[dict[str, Any]]], symbols: frozenset[st
             for name, rows in datasets.items()}
 
 
-def _research_rows(datasets: dict[str, list[dict[str, Any]]], as_of: date) -> dict[str, list[dict[str, Any]]]:
+def _research_rows(datasets: dict[str, list[dict[str, Any]]], as_of: date, *,
+                   preserve_financial_basis: bool = False) -> dict[str, list[dict[str, Any]]]:
     """Select PIT financial revisions and the matching market benchmark before feature calculation."""
     cutoff = analysis_cutoff(as_of)
     result = {name: list(rows) for name, rows in datasets.items()}
@@ -227,6 +228,10 @@ def _research_rows(datasets: dict[str, list[dict[str, Any]]], as_of: date) -> di
             invalid.append(row)
             continue
         key = tuple(str(row.get(name)) for name in ("symbol", "fiscal_year", "fiscal_quarter", "statement_type", "metric", "source_id"))
+        if preserve_financial_basis:
+            # OOS research must not collapse single quarter into YTD comparisons.
+            # Default stays legacy for B7 deterministic/cache compatibility.
+            key += tuple(str(row.get(name)) for name in ("report_scope", "period_basis", "unit"))
         if key not in latest or available > _instant(latest[key]["availability_at"]):
             latest[key] = row
     if "financials" in result:
