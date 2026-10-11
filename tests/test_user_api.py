@@ -451,3 +451,31 @@ def test_watchlist_demand_history_is_deidentified_append_only_and_quota_bounded(
     assert repository.count("record_deep_tracking_demand") == 2
     assert "retire_offlist_watchlist" not in repository
     assert "global_count>=50" in repository
+
+
+
+def test_owner_today_relevant_is_bounded_and_does_not_invent_price_movements():
+    from services.api.app import _owner_today_relevant
+    rows = [
+        {"symbol": "2330", "stock_name": "台積電", "pending_note_count": 2,
+         "target_price": "105", "market_price": "104", "price_date": "2026-10-10"},
+        {"symbol": "2454", "stock_name": "聯發科", "pending_note_count": 0,
+         "target_price": "100", "market_price": "0", "price_date": "2026-10-10"},
+        {"symbol": "2412", "stock_name": "中華電", "pending_note_count": 0,
+         "target_price": "100", "market_price": "99", "price_date": "2026-09-01"},
+    ]
+    result = _owner_today_relevant(rows, date(2026, 10, 11))
+    assert result["status"] == "available"
+    assert result["items"] == [{"symbol": "2330", "title": "台積電：有 2 項待追蹤筆記",
+                                 "kind": "follow_up", "note_count": 2, "data_as_of": None}]
+    assert _owner_today_relevant([], date(2026, 10, 11))["status"] == "missing"
+
+
+def test_today_relevant_is_authenticated_and_reuses_only_owner_watchlist():
+    api, repo, _ = client()
+    assert api.get("/api/v1/me/today-relevant").status_code == 401
+    repo.watchlist = lambda owner: [{"symbol": "2330", "stock_name": "台積電", "pending_note_count": 1}]
+    response = api.get("/api/v1/me/today-relevant", headers=auth())
+    assert response.status_code == 200
+    assert response.json()["items"][0]["kind"] == "follow_up"
+    assert "market_price" not in response.json()["items"][0]

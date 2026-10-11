@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
+from zoneinfo import ZoneInfo
 from hashlib import sha256
 import logging
 import os
@@ -46,6 +47,53 @@ from .store import PrivateIcebergStore
 from .intraday_quotes import MisQuotes, TAIPEI, market_phase, value_holdings
 from .quote_router import QuoteRouter, ROUTE_VERSION
 from .analysis import AnalysisService, CEOJobTrigger, CEORequestIn, CEOCapabilityIn, CEOProfileIn
+
+
+
+def _owner_today_relevant(rows: list[dict[str, Any]], now: date) -> dict[str, Any]:
+    """Deterministic owner-scoped follow-up/target relevance; not a trade signal."""
+    items: list[tuple[int, dict[str, Any]]] = []
+    for row in rows[:50]:
+        symbol = str(row.get("symbol") or "").strip()
+        if not symbol:
+            continue
+        name = str(row.get("stock_name") or symbol).strip()[:80]
+        price_date = str(row.get("price_date") or "")[:10]
+        try:
+            age = (now - date.fromisoformat(price_date)).days
+        except ValueError:
+            age = None
+        followups = row.get("pending_note_count")
+        try:
+            n = max(0, int(followups or 0))
+        except (ValueError, TypeError):
+            n = 0
+        if n:
+            items.append((0, {"symbol": symbol, "title": f"{name}：有 {n} 項待追蹤筆記",
+                              "kind": "follow_up", "note_count": n, "data_as_of": None}))
+        if age is not None and 0 <= age <= 7:
+            try:
+                current = Decimal(str(row.get("market_price") or ""))
+                target = Decimal(str(row.get("target_price") or ""))
+                if (current.is_finite() and target.is_finite() and current > 0 and target > 0
+                        and abs(current / target - 1) <= Decimal("0.03")):
+                    pct = abs(current / target - 1) * 100
+                    items.append((1, {"symbol": symbol,
+                        "title": f"{name}：距自行設定目標價約 {pct:.1f}%",
+                        "kind": "near_owner_target", "note_count": 0, "data_as_of": price_date}))
+            except (InvalidOperation, ValueError, TypeError, ZeroDivisionError):
+                pass
+    unique: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for _, item in sorted(items, key=lambda x: (x[0], x[1]["symbol"])):
+        if item["symbol"] in seen:
+            continue
+        seen.add(item["symbol"])
+        unique.append(item)
+        if len(unique) == 3:
+            break
+    return {"schema_version": "owner-today.v1", "status": "available" if unique else "missing",
+            "as_of": now.isoformat(), "items": unique}
 
 
 LOGGER = logging.getLogger(__name__)
@@ -1012,6 +1060,12 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @private.get("/notes")
     def notes(symbol:str|None=None,current:AuthenticatedUser=Depends(user)):
         return jsonable_encoder(store.read_notes(current.user_id,repository.notes(current.user_id,symbol)))
+
+    @private.get("/today-relevant")
+    def today_relevant(current: AuthenticatedUser = Depends(user)):
+        rows = repository.watchlist(current.user_id)
+        today = datetime.now(ZoneInfo("Asia/Taipei")).date()
+        return jsonable_encoder(_owner_today_relevant(rows, today))
 
     @private.get("/watchlist/search")
     def watchlist_search(q: str = Query(..., min_length=1, max_length=80),
