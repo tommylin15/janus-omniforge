@@ -217,6 +217,8 @@ def walk_forward(samples, *, model_name, features, cost_bps, horizon_days, allow
                             "financial_time_basis": r.get("financial_time_basis"),
                             "financial_document_sha256": r.get("financial_document_sha256"),
                             "future_outcomes": r.get("future_outcomes", {}),
+                            "momentum_5d": r.get("momentum_5d"),
+                            "historical_universe_hash": r.get("historical_universe_hash"),
                             "feature_contributions": dict(zip(features, map(float, values), strict=True)),
                             "explanation_base_value": float(base),
                             "explanation_method": ("zero_signal" if model_name == "zero" else
