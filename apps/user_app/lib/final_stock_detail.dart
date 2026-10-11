@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 
 import 'final_charts.dart';
 import 'final_perf.dart';
+import 'final_analysis.dart';
 import 'final_visual_common.dart';
 import 'main.dart' as legacy;
 
 class FinalStockDetailPage extends StatefulWidget {
-  const FinalStockDetailPage({required this.api, required this.symbol, super.key});
+  const FinalStockDetailPage(
+      {required this.api, required this.symbol, super.key});
 
   final legacy.Api api;
   final String symbol;
@@ -17,7 +19,8 @@ class FinalStockDetailPage extends StatefulWidget {
   State<FinalStockDetailPage> createState() => _FinalStockDetailPageState();
 }
 
-class _FinalStockDetailPageState extends State<FinalStockDetailPage> with WidgetsBindingObserver {
+class _FinalStockDetailPageState extends State<FinalStockDetailPage>
+    with WidgetsBindingObserver {
   final values = <String, dynamic>{};
   Timer? quoteTimer;
   bool foreground = true;
@@ -59,12 +62,17 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> with Widget
 
   void _startQuoteTimer() {
     quoteTimer?.cancel();
-    if (foreground && marketHours && (ModalRoute.of(context)?.isCurrent ?? true)) {
+    if (foreground &&
+        marketHours &&
+        (ModalRoute.of(context)?.isCurrent ?? true)) {
       quoteTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-        if (!foreground || !marketHours || !(ModalRoute.of(context)?.isCurrent ?? true)) {
+        if (!foreground ||
+            !marketHours ||
+            !(ModalRoute.of(context)?.isCurrent ?? true)) {
           quoteTimer?.cancel();
         } else {
-          safe('header', '/api/v1/public/stock-header/${Uri.encodeComponent(widget.symbol)}');
+          safe('header',
+              '/api/v1/public/stock-header/${Uri.encodeComponent(widget.symbol)}');
           safe('quotes', '/api/v1/me/portfolio/quotes');
         }
       });
@@ -75,7 +83,8 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> with Widget
   void didChangeAppLifecycleState(AppLifecycleState state) {
     foreground = state == AppLifecycleState.resumed;
     if (foreground) {
-      safe('header', '/api/v1/public/stock-header/${Uri.encodeComponent(widget.symbol)}');
+      safe('header',
+          '/api/v1/public/stock-header/${Uri.encodeComponent(widget.symbol)}');
       safe('quotes', '/api/v1/me/portfolio/quotes');
       _startQuoteTimer();
     } else {
@@ -91,11 +100,14 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> with Widget
   }
 
   Future<void> loadPrimary() async {
+    unawaited(safe('baseline',
+        '/api/v1/me/analysis/${Uri.encodeComponent(widget.symbol)}'));
     final stopwatch = Stopwatch()..start();
     if (mounted) setState(() => loading = true);
     try {
       await Future.wait([
-        safe('header', '/api/v1/public/stock-header/${Uri.encodeComponent(widget.symbol)}'),
+        safe('header',
+            '/api/v1/public/stock-header/${Uri.encodeComponent(widget.symbol)}'),
         safe(
           'health',
           '/api/v1/public/stock-health/${Uri.encodeComponent(widget.symbol)}',
@@ -186,9 +198,13 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> with Widget
 
   @override
   Widget build(BuildContext context) {
+    final baseline = fvMap(values['baseline']);
+    final baselineRoles = fvRows(baseline['specialists']);
     final report = fvMap(values['health']);
     final reportData = fvMap(report['data']);
-    final health = reportData.isNotEmpty ? reportData : report;
+    final health = baselineRoles.isNotEmpty
+        ? <String, dynamic>{}
+        : reportData.isNotEmpty ? reportData : report;
     final header = fvMap(values['header']);
     final name = fvText(
       header['stock_name'] ?? health['stock_name'] ?? health['name'],
@@ -196,10 +212,14 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> with Widget
     );
     final notes = fvRows(values['notes']);
     final events = fvRows(values['events']);
-    final position = positions.isEmpty
-        ? <String, dynamic>{}
-        : fvMap(positions.first);
-    final summary = health['plain_language_summary'] ?? health['summary'];
+    final position =
+        positions.isEmpty ? <String, dynamic>{} : fvMap(positions.first);
+    final usableRoles = baselineRoles.map(fvMap).where((r) => r['baseline_status'] == 'available');
+    final summary = baselineRoles.isEmpty
+        ? health['plain_language_summary'] ?? health['summary']
+        : usableRoles.isEmpty
+            ? '五分析師基準仍有資料缺口；目前不提供方向性結論。可於進階資料查看各角色來源與缺值。'
+            : fvText(usableRoles.first['plain_language']);
     final supports = fvRows(
       health['supports'] ?? health['why'] ?? health['reasons'],
     );
@@ -209,7 +229,8 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> with Widget
     final dimensions = fvMap(
       health['dimensions'] ?? health['role_scores'] ?? health['scores'],
     );
-    final chips = health['chips'] ?? health['institutional'] ?? health['positioning'];
+    final chips =
+        health['chips'] ?? health['institutional'] ?? health['positioning'];
     final evidence = fvMap(
       report['provenance'] ?? health['provenance'] ?? health['sources'],
     );
@@ -381,6 +402,9 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> with Widget
                 overall: health['mart_health_score'],
               ),
             fvSectionTitle(context, '白話摘要'),
+            if (baselineRoles.isNotEmpty)
+              Text('基準分析日 ${fvText(baseline['analysis_as_of'])} · ${baseline['freshness'] == 'stale' ? '資料過期' : '已保存'}；完整五角色見進階資料',
+                  style: const TextStyle(color: fvMuted, fontSize: 12)),
             summary == null
                 ? fvBoundedState('白話摘要尚未就緒；不會在開頁時自動呼叫 LLM')
                 : fvPanel(
@@ -509,9 +533,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage> with Widget
                   fvBoundedState('K 線資料尚未就緒')
                 else if (klineRequested)
                   FvKlineChart(rows: fvRows(values['kline'])),
-                fvBoundedState(
-                  'Fact Pack、五 specialist 與 On-demand CEO 僅在 persisted artifact 可用時顯示。',
-                ),
+                FinalAnalysisPanel(widget.api, widget.symbol),
               ],
             ),
             const SizedBox(height: 14),

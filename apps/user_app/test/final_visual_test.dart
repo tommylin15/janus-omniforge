@@ -1326,6 +1326,10 @@ void main() {
     final price = tester.widget<Text>(find.byKey(const Key('holding-latest-price-2382')));
     expect(price.style?.color, fvLoss);
     expect(find.text('持股市值'), findsOneWidget);
+    final navigationY = tester.getTopLeft(find.byType(SegmentedButton<int>)).dy;
+    await tester.drag(find.byKey(const Key('final-ledger-scroll')), const Offset(0, -300));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.byType(SegmentedButton<int>)).dy, navigationY);
     await tester.tap(find.text('紀錄'));
     await tester.pump();
     expect(find.text('持股市值'), findsNothing);

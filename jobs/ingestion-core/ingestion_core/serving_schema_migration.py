@@ -25,6 +25,7 @@ MIGRATION_LATEST_PRICE_ROUTE_V2 = "047_latest_price_route_v2"
 MIGRATION_PRIVATE_RECALC = "048_private_recalculation_queue"
 MIGRATION_BATCH_OCCURRENCE_SKIPPED = "049_batch_occurrence_skipped_status"
 MIGRATION_HOLDINGS_PREVIOUS_CLOSE = "050_holdings_previous_close_read"
+MIGRATION_ANALYSIS_PRODUCT = "051_analysis_product"
 SUPPORTED = frozenset({
     MIGRATION_POSITION,
     MIGRATION_STOCK_SERVING,
@@ -36,6 +37,7 @@ SUPPORTED = frozenset({
     MIGRATION_PRIVATE_RECALC,
     MIGRATION_BATCH_OCCURRENCE_SKIPPED,
     MIGRATION_HOLDINGS_PREVIOUS_CLOSE,
+    MIGRATION_ANALYSIS_PRODUCT,
 })
 
 
@@ -390,7 +392,7 @@ def cicd_readiness(control: Any, *, apply_missing: bool = False) -> dict[str, ob
 
 def run(control: Any, name: str) -> None:
     """Apply one allow-listed serving migration using existing DB identities."""
-    if name == MIGRATION_QUOTES_BROKER:
+    if name in {MIGRATION_QUOTES_BROKER, MIGRATION_ANALYSIS_PRODUCT}:
         try:
             text = _without_role_lines(_migration_path(name).read_text(encoding='utf-8'))
             prepare, acceptance = text.split('-- PHASE: acceptance', 1)
@@ -404,7 +406,7 @@ def run(control: Any, name: str) -> None:
                     raise RuntimeError('quotes/profile schema acceptance failed')
                 cursor.execute('INSERT INTO control.schema_migrations' + record)
         except Exception as error:
-            raise ServingSchemaMigrationError('quotes_broker_apply', error) from error
+            raise ServingSchemaMigrationError(f'{name}_apply', error) from error
     elif name == MIGRATION_HOLDINGS_PREVIOUS_CLOSE:
         _apply_holdings_previous_close(control)
     elif name == MIGRATION_POSITION:

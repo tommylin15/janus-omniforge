@@ -17,11 +17,17 @@
 
 - **B9 Fundamental（2026-10-11，程式修復階段）**：同份官方財報 EPS／歸母淨利比較值的 period-basis 去重與 OOS PIT/source lineage 已分離修復；新增只補官方缺漏比較值的 `fundamental-history` ingestion mode，以及同窗 zero/rule/LightGBM walk-forward MSE 對照。獨立 [#38097863145](https://github.com/tommylin15/janus-omniforge/actions/runs/38097863145) 47 targeted tests PASS（7 warnings），**尚未部署／真實回補／新 Core OOS readback**；不能宣稱財報缺口已消除、ML 優於規則或 B9 PASS。細節見 [B9 品質證據](b9-quality-evidence.md)。不同 SHA 的後續 B9 其他角色改動仍須分別驗收。
 
+## 2026-10-11 合併產品工作包
+
+使用者已授權 B9 產品、C 組與剩餘持股／首屏先整套開發，再集中驗收及發布正式 dev。新增程式包含 persisted 基準／同源市場比較、手動 CEO／owner/quota/idempotency/cancel/reconcile、Admin profile/model/version/capability、User immutable history 與固定持股導覽；目前維持 **ACTIVE／PARTIAL，尚未發布／尚未取得整體 live PASS**。13／93／85／73 項不同 targeted Python 集合與 23 項 Flutter 回歸曾通過；後續修改仍需同 SHA 最終 evidence。新 PostgreSQL 真實 ACL／併發 gate 由 CI 的隔離 service DB 執行，不能以本機 fixture 代替。
+
+既有 Mart 實際為 1 CPU／1 GiB、1800 秒、retry 1；沒有可重用的 CEO Job。完整 Codex 路由需獨立 `mart-ceo-provider` runtime；新 Job 與 API→Job 的 execution/read IAM、未確認免費剩餘額度仍待人工核准，具體未核准方案見 `../ops/ceo-worker-plan.json`。不先提高日常 Mart 的資源或加入 Node，也不提前切正式流量。500 檔模型研究／promotion 仍後置。
+
 ## 其他 active work
 
 - **持股頁 UX／首屏加速**：ACTIVE；固定頁首、價格漲跌語意、migration 050／API latency／Flutter 真實 Owner UI acceptance 仍在 [TODO](todo.md)。
 - **B 組**：B7 月度機制／freshness 與 B8 均已結案，下一工程入口為 B9 產品功能驗收；模型品質列產品交付後研究；不重做 B7／B8。
-- **C 組**：B9 產品功能 gate 通過後依授權啟動，不等待五個 ML 勝出；範圍為 On-demand CEO provider/runtime、capability/quota、Admin profile、User 分析／重新分析、final AI-dependent visual acceptance；不得把 A 組 CLOSED 當成 C 組完成。
+- **C 組**：依本次授權與 B9 產品及剩餘產品整套開發、集中驗收，不等待五個 ML 勝出；範圍為 On-demand CEO provider/runtime、capability/quota、Admin profile、User 分析／重新分析、final AI-dependent visual acceptance；不得把 A 組 CLOSED 當成 C 組完成。
 - **Dev Pilot 長期 evidence**：依 [bounded pilot ledger](pilot-operational-evidence.md) 持續觀察；不得將單次 successful workload 視為整個觀察視窗完成。
 
 完整未完成清單只以 [todo.md](todo.md) 為準；未排程構想見 [parking-lot.md](parking-lot.md)。

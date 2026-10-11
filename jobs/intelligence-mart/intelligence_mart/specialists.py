@@ -37,12 +37,15 @@ METRIC_LABELS = {"revenue_trend_percent": "可比較營收期間變化（%）", 
                  "expected_excess_return": "樣本外驗證超額報酬預測", "outperform_probability": "經校準勝過市場機率",
                  "regime_probability": "市場狀態模型", "classifier_probability": "本機事件分類模型"}
 METRIC_LABELS.update({f"return_{w}d_percent": f"{w} 個交易日歷史報酬（%）" for w in (5, 20, 60, 120)})
+METRIC_LABELS.update({f"relative_strength_{w}d_percent": f"{w} 個交易日相對大盤報酬（百分點）" for w in (5, 20, 60, 120)})
 
 
 def specialist_versions(role):
-    """Invalidate B7 derived cache only for revised Valuation features."""
+    """Invalidate only the roles whose deterministic features changed."""
     if role == "valuation":
         return VALUATION_FEATURE_VERSION, VALUATION_ENGINE_VERSION
+    if role == 'quant':
+        return '3', 'quant-relative-strength-v3'
     if role not in DEPENDENCIES:
         raise ValueError("unknown specialist role")
     return FEATURE_VERSION, VERSION
@@ -287,6 +290,14 @@ def analyze_specialists(datasets, symbol, as_of, snapshot, *, roles=None):
     if "quant" in selected:
         metrics["quant"] = {f"return_{w}d_percent": _change(list(prices.values()), w)
                             for w in (5, 20, 60, 120)}
+        benchmark = price_series(rows.get('benchmark', []))
+        days = list(prices)
+        for window in (5, 20, 60, 120):
+            aligned = len(days) > window and all(day in benchmark for day in (days[-window-1], days[-1]))
+            market_return = _change([benchmark[days[-window-1]], benchmark[days[-1]]], 1) if aligned else None
+            stock_return = metrics['quant'][f'return_{window}d_percent']
+            metrics['quant'][f'relative_strength_{window}d_percent'] = (
+                round(stock_return-market_return, 6) if stock_return is not None and market_return is not None else None)
         metrics["quant"].update(expected_excess_return=None, outperform_probability=None)
     if "risk" in selected:
         benchmark = price_series(rows.get("benchmark", []))

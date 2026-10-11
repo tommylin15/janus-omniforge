@@ -29,6 +29,8 @@ _FALLBACK_REASONS = frozenset({
     "codex_cli_unavailable",
     "free_route_unavailable",
     "free_tier_not_confirmed",
+    'auth_secret_unavailable',
+    'auth_batch_busy',
 })
 
 
@@ -144,6 +146,9 @@ def route_snapshot(request_options: dict[str, Any] | None = None) -> dict[str, A
             "gemini": "free_tier_only",
         },
     }
+    if raw is not None and 'models' in raw:
+        from packages.analysis_models import validated_models
+        value['models'] = validated_models(raw['models'])
     value["routing_hash"] = content_hash(value)
     return value
 
@@ -414,14 +419,24 @@ class ProviderRouter:
 
     @classmethod
     def from_environment(cls, request_options: dict[str, Any] | None = None,
-                         *, codex_provider: CodexCLIProvider | None = None) -> "ProviderRouter":
+                         *, codex_provider: CodexCLIProvider | None = None,
+                         bounded_manual: bool = False) -> "ProviderRouter":
         load_remote_credentials_from_runtime_bundle()
         codex = codex_provider or CodexCLIProvider.from_environment()
-        return cls({
+        providers = {
             "codex_cli": codex,
             "openrouter": OpenRouterProvider.from_environment(),
             "gemini": GeminiRoleProvider.from_environment(),
-        }, route_snapshot(request_options))
+        }
+        routing = route_snapshot(request_options)
+        if 'models' in routing:
+            for name, model in routing['models'].items():
+                providers[name].model = model
+        if bounded_manual:
+            for provider in providers.values():
+                provider.timeout_seconds = min(provider.timeout_seconds, 120)
+                provider.max_attempts = 1
+        return cls(providers, routing)
 
     def preflight(self) -> dict[str, Any]:
         entries = []
@@ -443,11 +458,14 @@ class ProviderRouter:
             "publication_authority": False,
         }
 
-    def invoke(self, role: str, role_input: dict[str, Any]) -> RoutedProviderResult:
+    def invoke(self, role: str, role_input: dict[str, Any], *, should_stop=None) -> RoutedProviderResult:
         attempts: list[dict[str, Any]] = []
         last_reason = "no_executable_provider"
         last_meta = {"provider": "janus", "transport": "provider_router", "model": "routed"}
         for name in self.routing["providers"]:
+            if should_stop is not None and should_stop():
+                last_reason = "cancelled"
+                break
             provider = self.providers[name]
             preflight = provider.preflight() if name in self.routing["effective_providers"] else self.routing["profiles"][name]
             last_meta = {

@@ -1,0 +1,324 @@
+"""Owner-scoped analysis commands and bounded PostgreSQL read models."""
+from __future__ import annotations
+
+import json
+import os
+from typing import Literal
+from uuid import uuid4
+
+from fastapi import HTTPException
+from pydantic import Field, model_validator
+
+from packages.analysis_product import content_hash, freshness
+from packages.analysis_models import DEFAULT_MODELS, MODEL_OPTIONS, validated_models
+from .models import StrictModel
+from .repository import ConflictError, NotFoundError
+
+
+class CEORequestIn(StrictModel):
+    profile_id: str = Field(default="default", pattern=r"^[a-z0-9-]{1,40}$")
+
+
+class CEOCapabilityIn(StrictModel):
+    email: str = Field(min_length=3, max_length=254)
+    enabled: bool
+    daily_quota: int = Field(ge=0, le=20)
+    cooldown_seconds: int = Field(ge=60, le=86400)
+    expected_version: int = Field(ge=0)
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class CEOProfileIn(StrictModel):
+    approved: bool
+    expected_version: int = Field(ge=1)
+    reason: str = Field(min_length=1, max_length=500)
+    providers: list[Literal['codex_cli', 'openrouter', 'gemini']] = Field(
+        default_factory=lambda: ['codex_cli', 'openrouter', 'gemini'], min_length=3, max_length=3)
+    models: dict[str, str] = Field(default_factory=lambda: dict(DEFAULT_MODELS))
+
+    @model_validator(mode='after')
+    def complete_route(self):
+        if len(set(self.providers)) != 3:
+            raise ValueError('route must contain each approved provider exactly once')
+        validated_models(self.models)
+        return self
+
+
+class AnalysisService:
+    def __init__(self, repository, trigger=None):
+        self.repository = repository
+        self.trigger = trigger
+
+    def baseline(self, symbol, execution_id=None):
+        with self.repository._connection() as connection:
+            row = connection.execute("""SELECT payload_json FROM private.specialist_product
+                WHERE symbol=%s AND (%s::uuid IS NULL OR execution_id=%s::uuid)
+                ORDER BY analysis_as_of DESC,created_at DESC LIMIT 1""",
+                (symbol, execution_id, execution_id)).fetchone()
+        if not row:
+            return {"symbol": symbol, "data_status": "waiting", "specialists": [], "model_quality": "NOT_VERIFIED"}
+        value = row["payload_json"]
+        if value["content_hash"] != content_hash({k: v for k, v in value.items() if k != "content_hash"}):
+            raise HTTPException(503, "分析來源驗證失敗")
+        with self.repository._connection() as connection:
+            market = connection.execute('''SELECT payload_json,content_hash FROM private.market_screening_product
+                WHERE symbol=%s AND analysis_as_of=%s AND core_snapshot_id=%s''',
+                (symbol, value['analysis_as_of'], value.get('core_snapshot_id', ''))).fetchone()
+        if market and content_hash(market['payload_json']) != market['content_hash']:
+            raise HTTPException(503, '市場比較來源驗證失敗')
+        # Attach only exact-date/Core public screening. Freeze this combined
+        # view when a user requests CEO; never mutate the specialist projection.
+        value = {**value, 'source_projection_hash': value['content_hash'],
+                 'market_context': market['payload_json'] if market else None}
+        value['content_hash'] = content_hash({k: v for k, v in value.items() if k != 'content_hash'})
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        return {**value, "data_status": "partial" if any(a["baseline_status"] != "available"
+                for a in value["specialists"]) else "available",
+                "freshness": freshness(value, datetime.now(ZoneInfo("Asia/Taipei")).date())}
+
+    def capability(self, user_id):
+        with self.repository._connection() as connection:
+            row = connection.execute("""SELECT enabled,daily_quota,cooldown_seconds,version
+                FROM private.ceo_capability_revisions WHERE user_id=%s ORDER BY version DESC LIMIT 1""",
+                (user_id,)).fetchone()
+            profile = connection.execute("""SELECT approved,version FROM private.ceo_profile_revisions
+                WHERE profile_id='default' ORDER BY version DESC LIMIT 1""").fetchone()
+        return {"can_request": bool(row and row["enabled"] and row["daily_quota"] > 0),
+                "capability": dict(row) if row else None,
+                "profile_approved": bool(profile and profile["approved"]),
+                "profile_version": profile["version"] if profile else None}
+
+    def history(self, user_id, symbol, limit=10):
+        with self.repository._connection() as connection:
+            rows = connection.execute("""SELECT request_id,symbol,status,profile_id,profile_version,
+                baseline_hash,requested_at,started_at,finished_at,safe_reason,report_json,report_hash,audit_json
+                FROM private.ceo_requests WHERE user_id=%s AND symbol=%s
+                ORDER BY requested_at DESC,request_id DESC LIMIT %s""", (user_id, symbol, limit)).fetchall()
+        baseline = self.baseline(symbol)
+        current_hashes = {a["output_hash"] for a in baseline.get("specialists", [])}
+        items = [self._public_request(dict(row)) for row in rows]
+        for item in items:
+            report = item.get("report_json")
+            item["material_change"] = (set(report["output"]["validated_role_artifact_hashes"]) != current_hashes
+                                       if report and current_hashes else None)
+            item["specialist_freshness"] = baseline.get("freshness", "unavailable")
+        return items
+
+    def request_status(self, user_id, request_id):
+        with self.repository._connection() as connection:
+            row = connection.execute("""SELECT request_id,symbol,status,profile_id,profile_version,
+                baseline_hash,requested_at,started_at,finished_at,safe_reason,report_json,report_hash,audit_json
+                FROM private.ceo_requests WHERE user_id=%s AND request_id=%s""", (user_id, request_id)).fetchone()
+        if not row:
+            raise NotFoundError("analysis request not found")
+        return self._public_request(dict(row))
+
+    def compare(self, symbol):
+        with self.repository._connection() as connection:
+            rows = connection.execute('''SELECT payload_json FROM private.specialist_product
+                WHERE symbol=%s ORDER BY analysis_as_of DESC,created_at DESC LIMIT 2''', (symbol,)).fetchall()
+        values = [row['payload_json'] for row in rows]
+        for value in values:
+            if content_hash({k: v for k, v in value.items() if k != 'content_hash'}) != value['content_hash']:
+                raise HTTPException(503, '比較來源驗證失敗')
+        return {'symbol': symbol, 'versions': values, 'model_quality': 'NOT_VERIFIED',
+                'comparison_status': 'available' if len(values) == 2 else 'insufficient_history',
+                'llm_api_tokens': 0, 'promotion_allowed': False}
+
+    @staticmethod
+    def _public_request(row):
+        if row.get("report_json") is not None and content_hash(row["report_json"]) != row["report_hash"]:
+            raise HTTPException(503, "CEO 報告驗證失敗")
+        return row
+
+    def enqueue(self, user_id, symbol, profile_id, key):
+        if not key or len(key) > 128:
+            raise HTTPException(422, "Idempotency-Key 必須為 1–128 字元")
+        # A retry of an existing command must work even if today's baseline or
+        # capability changed. It never dispatches or consumes another quota.
+        with self.repository._connection() as connection:
+            replay = connection.execute('''SELECT request_id,symbol,profile_id FROM private.ceo_requests
+                WHERE user_id=%s AND idempotency_key=%s''', (user_id, key)).fetchone()
+        if replay:
+            if replay['symbol'] != symbol or replay['profile_id'] != profile_id:
+                raise ConflictError('analysis idempotency key already used')
+            return {'request_id': replay['request_id'], 'already_requested': True}
+        baseline = self.baseline(symbol)
+        if not baseline.get("content_hash") or baseline.get("freshness") != "current":
+            raise HTTPException(409, "分析基準尚未就緒或已過期")
+        if any(a["status"] == "blocked" for a in baseline["specialists"]):
+            raise HTTPException(409, "分析基準來源受阻")
+        # Store the immutable projection, not presentation-only status fields.
+        baseline = {k: v for k, v in baseline.items() if k not in {"data_status", "freshness"}}
+        request_id = uuid4()
+        with self.repository._connection() as connection:
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"ceo-owner:{user_id}",))
+            replay = connection.execute("""SELECT request_id,symbol,profile_id FROM private.ceo_requests
+                WHERE user_id=%s AND idempotency_key=%s""", (user_id, key)).fetchone()
+            if replay:
+                if replay["symbol"] != symbol or replay["profile_id"] != profile_id:
+                    raise ConflictError("analysis idempotency key already used")
+                return {"request_id": replay["request_id"], "already_requested": True}
+            cap = connection.execute("""SELECT enabled,daily_quota,cooldown_seconds FROM private.ceo_capability_revisions
+                WHERE user_id=%s ORDER BY version DESC LIMIT 1""", (user_id,)).fetchone()
+            if not cap or not cap["enabled"] or cap["daily_quota"] == 0:
+                raise HTTPException(403, "無 CEO 分析權限")
+            profile = connection.execute("""SELECT version,approved,route_json FROM private.ceo_profile_revisions
+                WHERE profile_id=%s ORDER BY version DESC LIMIT 1""", (profile_id,)).fetchone()
+            if not profile or not profile["approved"]:
+                raise HTTPException(409, "CEO provider profile 尚未核准")
+            if self.trigger is not None and hasattr(self.trigger, 'preflight'):
+                self.trigger.preflight()
+            state = connection.execute("""SELECT
+                count(*) FILTER(WHERE status IN ('QUEUED','RUNNING','CANCEL_REQUESTED')) AS active,
+                count(*) FILTER(WHERE (requested_at AT TIME ZONE 'Asia/Taipei')::date=
+                    (now() AT TIME ZONE 'Asia/Taipei')::date) AS today,
+                coalesce(max(requested_at)>now()-make_interval(secs => %s),false) AS cooling
+                FROM private.ceo_requests WHERE user_id=%s""", (cap["cooldown_seconds"], user_id)).fetchone()
+            if state["active"] or state["cooling"] or state["today"] >= cap["daily_quota"]:
+                raise HTTPException(429, "已有執行中分析，或已達冷卻／每日額度限制")
+            connection.execute("""INSERT INTO private.ceo_requests
+                (request_id,user_id,symbol,profile_id,profile_version,route_json,baseline_json,baseline_hash,idempotency_key,status)
+                VALUES (%s,%s,%s,%s,%s,%s::jsonb,%s::jsonb,%s,%s,'QUEUED')""",
+                (request_id, user_id, symbol, profile_id, profile["version"], json.dumps(profile["route_json"]),
+                 json.dumps(baseline, ensure_ascii=False), baseline["content_hash"], key))
+        if self.trigger is not None:
+            try:
+                self.trigger.start(request_id)
+            except Exception:
+                # A dispatch timeout may have started a Job. Preserve QUEUED;
+                # never replay automatically or mark an unknown dispatch failed.
+                return {"request_id": request_id, "status": "QUEUED", "dispatch_status": "unknown"}
+        return {"request_id": request_id, "status": "QUEUED", "dispatch_status": "dispatched" if self.trigger else "pending"}
+
+    def cancel(self, user_id, request_id):
+        with self.repository._connection() as connection:
+            row = connection.execute("""UPDATE private.ceo_requests SET status=CASE
+                WHEN status='QUEUED' THEN 'CANCELLED' ELSE 'CANCEL_REQUESTED' END
+                WHERE user_id=%s AND request_id=%s AND status IN ('QUEUED','RUNNING')
+                RETURNING request_id,status""", (user_id, request_id)).fetchone()
+        return dict(row) if row else self.request_status(user_id, request_id)
+
+    def reconcile(self, user_id, request_id):
+        with self.repository._connection() as connection:
+            row = connection.execute('''SELECT status,worker_execution FROM private.ceo_requests
+                WHERE user_id=%s AND request_id=%s FOR UPDATE''', (user_id, request_id)).fetchone()
+            if not row:
+                raise NotFoundError('analysis request not found')
+            if row['status'] in {'RUNNING', 'CANCEL_REQUESTED'} and row['worker_execution']:
+                if self.trigger and self.trigger.terminal_execution(row['worker_execution']):
+                    connection.execute('''UPDATE private.ceo_requests SET status=%s,safe_reason=%s
+                        WHERE user_id=%s AND request_id=%s''',
+                        ('CANCELLED' if row['status'] == 'CANCEL_REQUESTED' else 'FAILED',
+                         'worker_terminal_without_report', user_id, request_id))
+        return self.request_status(user_id, request_id)
+
+    def admin_summary(self):
+        with self.repository._connection() as connection:
+            profiles = connection.execute("""SELECT DISTINCT ON(profile_id) profile_id,version,approved,route_json,
+                actor,reason,created_at FROM private.ceo_profile_revisions ORDER BY profile_id,version DESC""").fetchall()
+            profile_history = connection.execute("""SELECT profile_id,version,approved,route_json,actor,reason,created_at
+                FROM private.ceo_profile_revisions ORDER BY created_at DESC LIMIT 50""").fetchall()
+            caps = connection.execute("""SELECT DISTINCT ON(c.user_id) c.user_id,u.display_email,c.enabled,c.daily_quota,c.cooldown_seconds,
+                c.version,c.actor,c.reason,c.created_at FROM private.ceo_capability_revisions c
+                JOIN private.users u ON u.user_id=c.user_id ORDER BY c.user_id,c.version DESC LIMIT 100""").fetchall()
+            recent = connection.execute("""SELECT request_id,symbol,status,profile_id,profile_version,requested_at,
+                finished_at,safe_reason,audit_json FROM private.ceo_requests ORDER BY requested_at DESC LIMIT 50""").fetchall()
+            specialist = connection.execute("""SELECT DISTINCT ON(symbol) symbol,analysis_as_of,content_hash,
+                payload_json FROM private.specialist_product ORDER BY symbol,analysis_as_of DESC,created_at DESC LIMIT 50""").fetchall()
+        return {"profiles": [dict(r) for r in profiles], "capabilities": [dict(r) for r in caps],
+                "profile_history": [dict(r) for r in profile_history],
+                "executions": [dict(r) for r in recent], "specialists": [dict(r) for r in specialist],
+                "provider_health": "NOT_VERIFIED", "model_options": MODEL_OPTIONS,
+                "paid_api_enabled": False}
+
+    def save_capability(self, value, actor):
+        user_id = self.repository.user_id_for_email(value.email)
+        with self.repository._connection() as connection:
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"ceo-owner:{user_id}",))
+            row = connection.execute("SELECT max(version) AS version FROM private.ceo_capability_revisions WHERE user_id=%s", (user_id,)).fetchone()
+            version = int(row["version"] or 0)
+            if version != value.expected_version:
+                raise ConflictError("capability version changed")
+            connection.execute("""INSERT INTO private.ceo_capability_revisions
+                (user_id,version,enabled,daily_quota,cooldown_seconds,actor,reason) VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                (user_id, version+1, value.enabled, value.daily_quota, value.cooldown_seconds, actor, value.reason))
+        return {"user_id": user_id, "version": version+1}
+
+    def save_profile(self, profile_id, value, actor):
+        with self.repository._connection() as connection:
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"ceo-profile:{profile_id}",))
+            row = connection.execute("""SELECT version,route_json FROM private.ceo_profile_revisions
+                WHERE profile_id=%s ORDER BY version DESC LIMIT 1""", (profile_id,)).fetchone()
+            if not row or row["version"] != value.expected_version:
+                raise ConflictError("profile version changed")
+            connection.execute("""INSERT INTO private.ceo_profile_revisions
+                (profile_id,version,approved,route_json,actor,reason) VALUES (%s,%s,%s,%s::jsonb,%s,%s)""",
+                (profile_id, row["version"]+1, value.approved,
+                 json.dumps({"providers": value.providers, "models": value.models, "version": row["version"]+1}), actor, value.reason))
+        return {"profile_id": profile_id, "version": row["version"]+1}
+
+
+class CEOJobTrigger:
+    def preflight(self):
+        import re
+        project = os.getenv('GCP_PROJECT_ID', '')
+        job = os.getenv('CEO_JOB_NAME', 'janus-ceo-analysis')
+        if not project or not re.fullmatch(r'[a-z][a-z0-9-]{0,62}', job):
+            raise HTTPException(503, 'CEO 執行環境尚未就緒')
+        import google.auth
+        from google.auth.transport.requests import AuthorizedSession
+        try:
+            credentials, _ = google.auth.default(scopes=['https://www.googleapis.com/auth/cloud-platform'])
+            response = AuthorizedSession(credentials).get(
+                f'https://run.googleapis.com/v2/projects/{project}/locations/{os.getenv("GCP_REGION", "us-central1")}/jobs/{job}', timeout=5)
+            if response.status_code != 200:
+                raise ValueError('worker unavailable')
+            value = response.json()
+            containers = value.get('template', {}).get('template', {}).get('containers', [])
+            if (value.get('reconciling', False) or len(containers) != 1 or containers[0].get('name') != 'ceo'
+                    or value.get('terminalCondition', {}).get('state') != 'CONDITION_SUCCEEDED'):
+                raise ValueError('worker unavailable')
+        except Exception:
+            raise HTTPException(503, 'CEO 執行環境或派送權限尚未就緒') from None
+
+    def terminal_execution(self, execution):
+        import re
+        import google.auth
+        from google.auth.transport.requests import AuthorizedSession
+        if not re.fullmatch(r'[a-z][a-z0-9-]{0,100}', execution):
+            raise HTTPException(503, 'CEO execution identity 無法核對')
+        try:
+            credentials, _ = google.auth.default(scopes=['https://www.googleapis.com/auth/cloud-platform'])
+            response = AuthorizedSession(credentials).get(
+                f'https://run.googleapis.com/v2/projects/{os.environ["GCP_PROJECT_ID"]}/locations/'
+                f'{os.getenv("GCP_REGION", "us-central1")}/jobs/{os.getenv("CEO_JOB_NAME", "janus-ceo-analysis")}/executions/{execution}', timeout=5)
+            response.raise_for_status()
+            value = response.json()
+        except Exception:
+            raise HTTPException(503, '雲端執行終態尚未確認；保留原狀態') from None
+        completed = [c for c in value.get('conditions', []) if c.get('type') == 'Completed']
+        return (not value.get('reconciling', False) and value.get('runningCount', 0) == 0
+                and bool(value.get('completionTime')) and len(completed) == 1
+                and completed[0].get('state') in {'CONDITION_SUCCEEDED', 'CONDITION_FAILED'}
+                and completed[0].get('executionReason') not in {'JOB_STATUS_SERVICE_POLLING_ERROR', 'CANCELLING', 'DELAYED_START_PENDING'})
+
+    def start(self, request_id):
+        import google.auth
+        from google.auth.transport.requests import AuthorizedSession
+        project = os.environ.get("GCP_PROJECT_ID", "")
+        if not project:
+            raise ValueError("CEO dispatch unavailable")
+        region = os.environ.get("GCP_REGION", "us-central1")
+        job = os.environ.get('CEO_JOB_NAME', 'janus-ceo-analysis')
+        if not job:
+            raise ValueError('dedicated approved CEO worker unavailable')
+        credentials, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+        response = AuthorizedSession(credentials).post(
+            f"https://run.googleapis.com/v2/projects/{project}/locations/{region}/jobs/{job}:run",
+            json={"overrides": {"taskCount": 1, "timeout": "480s", "containerOverrides": [{"name": "ceo", "env": [
+                {"name": "MART_OPERATION", "value": "ceo-request"},
+                {"name": "CEO_REQUEST_ID", "value": str(request_id)}]}]}}, timeout=10)
+        if not 200 <= response.status_code < 300:
+            raise RuntimeError("CEO dispatch unavailable")

@@ -156,6 +156,9 @@ def screening_processor(execution, connection, *, store_factory=None, reader_fac
         ref = _write_immutable_json(store, bucket, name, artifact)
         if store.read(name) != canonical_json(artifact):
             raise RuntimeError("screening immutable readback mismatch")
+    if connection is not None and os.getenv('MART_PRODUCT_PROJECTION') == 'true':
+        from .product_runtime import persist_screening
+        persist_screening(connection, artifact)
     receipt = {"execution_id": execution.execution_id, "identity_hash": identity_hash, "reused": reused,
                "artifact_growth_bytes": 0 if reused else len(canonical_json(artifact)), "retention_days": 90,
                "screening": ref, "screening_count": len(artifact["rows"]), "quality": artifact["quality"],

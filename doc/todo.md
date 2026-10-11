@@ -5,6 +5,8 @@
 
 ## 規則
 
+- **2026-10-11 使用者合併授權**：B9 產品功能、C 組、剩餘持股頁／首屏及產品整合（順序 1／2／3）先整套開發，再一併驗收及發布至正式 dev；不在各組內部完成後停等，不提前逐項切換正式流量。必要安全／migration／targeted tests 保留；500 檔研究仍後置。執行細節見 `codex-execution-plan.md`。
+
 - 在本文件：**做**。必須有 implementation／acceptance，依下列順序執行。
 - 不在本文件而在 `parking-lot.md`：目前**不做**，不得自行開工或計入未完成度。
 - active work 可因外部核准或 runtime evidence 呈 `partial`／`blocked`；partial 不等於完成。
@@ -102,7 +104,7 @@ A 組不再列 active TODO；下一個 active work 為 B 組。
 - [ ] **B9 產品功能驗收（下一入口）**：完成五角色可靠計算／規則基準、產品必要資料修復、structured／繁中白話產物、缺值／來源／PIT 時間政策、dirty/reuse、public/private isolation、CI／dev 發布／真實 workload／artifact/API readback。正常 path 0 LLM token；未驗證機率不發布。模型品質未過不阻擋可靠基準服務，純研究 OOS 不作此切片 gate。
 - [ ] **前瞻證據留存**：先盤點既有 daily membership、公告版本、publication／first-observed time 與 source receipts，沿用授權來源／retention 補必要缺口；不假造歷史、不提前啟動 500 檔大量回補。
 
-B9 產品 PASS 後可依授權接續 C 組，不等待五個 ML 都勝出；只有 C 組、剩餘持股頁／首屏及整體真實驗收也完成才能判定產品交付。B9 模型品質保留獨立 NOT VERIFIED／PARTIAL，不寫「B9 全部 PASS」。本次為順序與契約核准，不自動啟動跨組執行。
+B9、C 組及剩餘持股頁／首屏依 2026-10-11 使用者授權一起完成開發，再集中驗收及上版，不等待五個 ML 都勝出；只有整體真實驗收也完成才能判定產品交付。B9 模型品質保留獨立 NOT VERIFIED／PARTIAL，不寫「B9 全部 PASS」。
 
 - [ ] **B 組跨階段安全底線**：PostgreSQL serving 與 A 組已驗證 read path 不回歸；BigQuery failure audit/fallback 不修改 canonical Iceberg；不使用 BigQuery Storage Read API；不自動呼叫 CEO；維持現有 1 CPU／1 GiB Mart 限制。新付費 API／資源、IAM 擴權或 catalog migration 需另取得授權，未授權部分單獨 `BLOCKED`，其餘可行項繼續。
 

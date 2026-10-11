@@ -137,6 +137,9 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
             from hashlib import sha256
             if "sha256:" + sha256(store.read(name)).hexdigest() != ref["artifact_hash"]:
                 raise RuntimeError("specialist artifact readback hash mismatch")
+        if publication_connection is not None and os.environ.get("MART_PRODUCT_PROJECTION", "false").lower() == "true":
+            from .product_runtime import persist_products
+            persist_products(publication_connection, saved, store, bucket)
         return {"artifact_uri": f"gs://{bucket}/{manifest_name}", "core_snapshot_id": execution.core_snapshot_id,
                 "reports": saved["specialist_count"] // 5, "publishable": 0,
                 "specialist_status": saved["specialist_status"], "screening_count": saved["screening_count"],
@@ -267,6 +270,9 @@ def _specialist_processor(execution, publication_connection, *, store_factory=No
         manifest["reconciliation_status"] = monthly["status"]
     manifest["output_hash"] = digest(manifest)
     ref = _write_immutable_json(store, bucket, manifest_name, manifest)
+    if publication_connection is not None and os.environ.get("MART_PRODUCT_PROJECTION", "false").lower() == "true":
+        from .product_runtime import persist_products
+        persist_products(publication_connection, manifest, store, bucket)
     return {**ref, "core_snapshot_id": execution.core_snapshot_id, "reports": len(target["symbols"]),
             "publishable": 0, "specialist_status": manifest["specialist_status"],
             "screening_quality": manifest["screening_quality"],

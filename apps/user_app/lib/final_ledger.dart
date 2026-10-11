@@ -1105,36 +1105,10 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                   : null;
               final affected = fvRows(aggregate['affected_symbols']);
 
-              return ListView(
+              final scrollContent = ListView(
                 key: const Key('final-ledger-scroll'),
                 padding: const EdgeInsets.fromLTRB(18, 18, 18, 110),
                 children: [
-                  SegmentedButton<int>(
-                    segments: const [
-                      ButtonSegment(value: 0, label: Text('持股')),
-                      ButtonSegment(value: 1, label: Text('紀錄')),
-                      ButtonSegment(value: 2, label: Text('報表')),
-                      ButtonSegment(value: 3, label: Text('筆記')),
-                    ],
-                    selected: {section},
-                    onSelectionChanged: (value) {
-                      final next = value.first;
-                      quoteGeneration++;
-                      quoteBusy = false;
-                      quoteTimer?.cancel();
-                      setState(() {
-                        section = next;
-                        sectionData =
-                            next == 0 ? null : loadSection(next, yearFilter);
-                      });
-                      if (next == 0) {
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (mounted) startQuotes();
-                        });
-                      }
-                    },
-                    showSelectedIcon: false,
-                  ),
                   const SizedBox(height: 12),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1339,6 +1313,35 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                   ],
                 ],
               );
+              return Column(children: [
+                Padding(padding: const EdgeInsets.fromLTRB(18, 8, 18, 0), child: SegmentedButton<int>(
+                    segments: const [
+                      ButtonSegment(value: 0, label: Text('持股')),
+                      ButtonSegment(value: 1, label: Text('紀錄')),
+                      ButtonSegment(value: 2, label: Text('報表')),
+                      ButtonSegment(value: 3, label: Text('筆記')),
+                    ],
+                    selected: {section},
+                    onSelectionChanged: (value) {
+                      final next = value.first;
+                      quoteGeneration++;
+                      quoteBusy = false;
+                      quoteTimer?.cancel();
+                      setState(() {
+                        section = next;
+                        sectionData =
+                            next == 0 ? null : loadSection(next, yearFilter);
+                      });
+                      if (next == 0) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) startQuotes();
+                        });
+                      }
+                    },
+                    showSelectedIcon: false,
+                  )),
+                Expanded(child: scrollContent),
+              ]);
             },
           ),
         ),

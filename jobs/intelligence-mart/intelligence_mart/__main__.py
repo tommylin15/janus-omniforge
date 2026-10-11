@@ -18,9 +18,15 @@ def specialist_smoke():
 
 def main():
     started = monotonic()
+    # Exact-SHA release readiness requires migration 051 before this image can
+    # execute. Direct processor unit tests retain their explicit opt-in boundary.
+    os.environ.setdefault('MART_PRODUCT_PROJECTION', 'true')
     try:
         name = os.environ.get("MART_OPERATION", "").strip().lower()
-        if name == "retention":
+        if name == "ceo-request":
+            from .product_runtime import run_ceo_request
+            operation = run_ceo_request
+        elif name == "retention":
             from .retention import run
             operation = run
         elif name == "queue":

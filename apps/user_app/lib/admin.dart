@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'admin_analysis.dart';
 
 abstract class AdminApi {
   Future<dynamic> get(String path);
@@ -227,7 +228,7 @@ class _AdminWorkspaceState extends State<AdminWorkspace> {
       AdminBatchPage(widget.api),
       AdminStockWorkbench(widget.api),
       AdminMarketUniversePage(widget.api),
-      const _PendingPage(title: 'AI 分析', message: 'Specialist 與 CEO 分析完成後啟用。'),
+      AdminAnalysisPage(widget.api),
       AdminGovernancePage(widget.api),
     ];
     return LayoutBuilder(
@@ -1755,21 +1756,4 @@ class _Message extends StatelessWidget {
   final String value;
   @override
   Widget build(BuildContext context) => Center(child: Text(value));
-}
-
-class _PendingPage extends StatelessWidget {
-  const _PendingPage({required this.title, required this.message});
-  final String title;
-  final String message;
-  @override
-  Widget build(BuildContext context) => _AdminPage(
-        title: title,
-        child: Align(
-          alignment: Alignment.topLeft,
-          child: Card(
-            child: Padding(
-                padding: const EdgeInsets.all(20), child: Text(message)),
-          ),
-        ),
-      );
 }

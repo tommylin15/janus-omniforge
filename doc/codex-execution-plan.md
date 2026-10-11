@@ -2,6 +2,10 @@
 
 更新：2026-10-11（Asia/Taipei）
 
+## 2026-10-11 合併產品工作授權
+
+使用者明確要求順序 1／2／3（B9 產品功能、C 組、剩餘產品整合）整套先開發完成，再一併驗收與上版。本次跨組授權涵蓋這三項；不在 B9／C 內部完成後停等重新授權。先集中完成 code／migration／User 與 Admin UI／必要測試，再對同一完整 SHA 執行集中 Release gate，部署 dev 候選並完成真實驗收，全部必需 gate 通過後切換正式 dev 流量。開發中直接相關的安全、migration 與 targeted tests 仍保留；不逐項發布或提前切換正式流量。500 檔歷史研究與模型品質調校仍在產品交付後，不納入本次整套開發；費用、IAM、OAuth 等既有人工授權邊界仍適用。
+
 使用者核准順序：**B9 產品功能驗收 → C 組及剩餘產品整合 → 產品交付 → 500 檔歷史研究池與五角色模型研究**。本檔直接交給 Codex 接續；狀態只在 [TODO](todo.md)／[status](status.md) 維護。文件更新不代表功能、模型或部署 PASS。
 
 ## 1. 接手指令
@@ -17,7 +21,7 @@
 同一授權組內持續到完成或真實 blocker，不逐檔、逐股票停等。
 B0～B8 不重做；僅本次實質改動或新回歸需相應檢查。
 完成當前組後回報下一入口；跨組遵循 PROJECT_RULES 授權規則。
-本次文件回寫不代表已授權啟動全部工程、研究 Job 或新增費用。
+本次使用者已授權合併 B9 產品／C／剩餘產品整套工程；研究 Job 或新增費用不由此自動授權。
 ```
 
 ## 2. 第一階段：產品交付
@@ -37,7 +41,7 @@ B0～B8 不重做；僅本次實質改動或新回歸需相應檢查。
 
 ### C 組及剩餘產品整合
 
-B9 產品 gate 通過後，依授權接續 TODO 的 C 組，不等待研究池或 ML champion。
+B9 產品與 C 組、剩餘產品依本次合併授權先整套開發，再集中驗收；不等待研究池或 ML champion。
 
 - 完成 On-demand CEO provider/runtime、capability、quota/cooldown、Admin profile、User 分析／重新分析及 immutable history。
 - CEO 只使用 validated facts／基準分析及明示缺口；research challenger 不冒充已驗證訊號，LLM 無 canonical number 或 publication authority。

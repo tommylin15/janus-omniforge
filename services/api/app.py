@@ -45,6 +45,7 @@ from .public_runtime import build_admin_service, build_core_service, build_pipel
 from .store import PrivateIcebergStore
 from .intraday_quotes import MisQuotes, TAIPEI, market_phase, value_holdings
 from .quote_router import QuoteRouter, ROUTE_VERSION
+from .analysis import AnalysisService, CEOJobTrigger, CEORequestIn, CEOCapabilityIn, CEOProfileIn
 
 
 LOGGER = logging.getLogger(__name__)
@@ -145,7 +146,8 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                public: Any | None = None,
                oauth_facade: Any | None = None,
                quotes: Any | None = None,
-               private_recalculator: Any | None = None) -> FastAPI:
+               private_recalculator: Any | None = None,
+               analysis_service: Any | None = None) -> FastAPI:
     from packages.postgres_bundle import load_postgres_bundle
     bundle_fields: dict[str, str | tuple[str, ...]] = {
         "GOOGLE_USER_CLIENT_ID": "google_user_client_id",
@@ -160,6 +162,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     quotes = quotes or MisQuotes()
     repository = repository or _Lazy(repository_from_env)
     quote_router = QuoteRouter(repository, quotes)
+    analysis_service = analysis_service or AnalysisService(repository, CEOJobTrigger())
     store = store or _Lazy(PrivateIcebergStore.from_env)
     queued_recalculator = private_recalculator is None
     core = core or _Lazy(CoreContextReader.from_env)
@@ -642,6 +645,42 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     legacy_core.add_api_route("/{symbol}/datasets/{dataset_id}", core_page, methods=["GET"],
                               response_model=CorePageOut, deprecated=True)
 
+    @private.get("/analysis/capability")
+    def analysis_capability(current: AuthenticatedUser = Depends(user)):
+        return jsonable_encoder(analysis_service.capability(current.user_id))
+
+    @private.get("/analysis/{symbol}")
+    def analysis_product(symbol: str, execution_id: UUID | None = Query(None),
+                         current: AuthenticatedUser = Depends(user)):
+        symbol = public.require_enabled_symbol(symbol)
+        return jsonable_encoder(analysis_service.baseline(symbol, execution_id))
+
+    @private.get("/analysis/{symbol}/ceo")
+    def ceo_history(symbol: str, limit: int = Query(10, ge=1, le=20),
+                    current: AuthenticatedUser = Depends(user)):
+        symbol = public.require_enabled_symbol(symbol)
+        return jsonable_encoder({"items": analysis_service.history(current.user_id, symbol, limit),
+                                 "capability": analysis_service.capability(current.user_id)})
+
+    @private.post("/analysis/{symbol}/ceo", status_code=202)
+    def ceo_request(symbol: str, value: CEORequestIn,
+                    current: AuthenticatedUser = Depends(user),
+                    idempotency_key: str = Header(..., min_length=1, max_length=128)):
+        symbol = public.require_enabled_symbol(symbol)
+        return jsonable_encoder(analysis_service.enqueue(current.user_id, symbol, value.profile_id, idempotency_key))
+
+    @private.get("/ceo-requests/{request_id}")
+    def ceo_status(request_id: UUID, current: AuthenticatedUser = Depends(user)):
+        return jsonable_encoder(analysis_service.request_status(current.user_id, request_id))
+
+    @private.post("/ceo-requests/{request_id}/cancel")
+    def ceo_cancel(request_id: UUID, current: AuthenticatedUser = Depends(user)):
+        return jsonable_encoder(analysis_service.cancel(current.user_id, request_id))
+
+    @private.post('/ceo-requests/{request_id}/reconcile')
+    def ceo_reconcile(request_id: UUID, current: AuthenticatedUser = Depends(user)):
+        return jsonable_encoder(analysis_service.reconcile(current.user_id, request_id))
+
     @private.get("/profile")
     def profile(current: AuthenticatedUser = Depends(user)) -> dict[str, Any]:
         return {"user_id":current.user_id,"email":current.email}
@@ -1020,6 +1059,22 @@ def create_app(repository: Any | None = None, store: Any | None = None,
 
     def admin_actor(current: AuthenticatedAdmin = Depends(authenticate_admin)) -> str:
         return current.email
+
+    @admin.get("/analysis")
+    def admin_analysis():
+        return jsonable_encoder(analysis_service.admin_summary())
+
+    @admin.get('/analysis/compare')
+    def admin_analysis_compare(symbol: str = Query(..., pattern=r'^[A-Za-z0-9.-]{1,20}$')):
+        return jsonable_encoder(analysis_service.compare(symbol))
+
+    @admin.put("/analysis/capability")
+    def admin_analysis_capability(value: CEOCapabilityIn, actor: str = Depends(admin_actor)):
+        return jsonable_encoder(analysis_service.save_capability(value, actor))
+
+    @admin.put("/analysis/profiles/{profile_id}")
+    def admin_analysis_profile(profile_id: str, value: CEOProfileIn, actor: str = Depends(admin_actor)):
+        return jsonable_encoder(analysis_service.save_profile(profile_id, value, actor))
 
     @admin.get("/stocks")
     def admin_stocks(q: str = Query("", max_length=80), enabled: bool | None = Query(None),

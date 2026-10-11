@@ -77,6 +77,15 @@ def test_repository_default_route_is_codex_openrouter_gemini():
     assert snapshot["routing_hash"].startswith("sha256:")
 
 
+def test_manual_cancellation_stops_before_any_provider_call():
+    failed = ProviderResult('blocked', None, (), 'timeout')
+    providers = _providers(failed, failed, failed)
+    router = ProviderRouter(providers, route_snapshot())
+    result = router.invoke('ceo', {}, should_stop=lambda: True)
+    assert result.status == 'failed' and result.reason == 'cancelled'
+    assert all(p.calls == 0 for p in providers.values())
+
+
 def test_execution_route_requires_all_three_providers_exactly_once():
     snapshot = route_snapshot({"ai_provider_routing": {"version": 7, "providers": ["openrouter", "codex_cli", "gemini"]}})
     assert snapshot["providers"] == ["openrouter", "codex_cli", "gemini"]
