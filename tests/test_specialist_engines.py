@@ -139,8 +139,9 @@ def test_financial_history_uses_data_without_proven_original_revision_and_labels
             "availability_at": "2026-10-03T01:00:00Z", "observed_at": "2026-10-03T01:00:00Z",
             "publication_time_authoritative": False, "published_at": None, "numeric_revision_verified": False,
             "financial_feature_version": "same-filing-comparatives-v1", "official_filing_uploaded_at": "2025-11-14T15:00:00+08:00"}
-    rows = [{**base, "metric": metric, "value": "10"} for metric in
-            ("eps_yoy_percent_same_filing", "net_income_parent_yoy_percent_same_filing")]
+    rows = [{**base, "metric": metric, "value": "10", "period_basis": "single_quarter",
+             "comparison_period_end": "2024-09-30", "source_document_sha256": "doc-2025q3"}
+            for metric in ("eps_yoy_percent_same_filing", "net_income_parent_yoy_percent_same_filing")]
     original = json.dumps(rows, sort_keys=True)
     history = financial_training_history(rows)
     assert history[0]["availability_at"] == "2025-11-14T07:00:00+00:00"
@@ -157,6 +158,69 @@ def test_financial_history_uses_data_without_proven_original_revision_and_labels
     assert not accepted["financials"]
     blocked, _, _ = validated_inputs({"financials": [{**assumed, "source_id": "unapproved"}]}, "2330", "2026-05-01", "core")
     assert not blocked["financials"]
+
+
+def test_official_financial_pair_never_mixes_period_basis_revision_or_scope():
+    from intelligence_mart.evaluation import _fundamental_filing_features, financial_training_history
+    common = {"symbol": "2330", "source_id": "mops", "statement_type": "income",
+        "fiscal_year": 2025, "fiscal_quarter": 2, "fiscal_period_end": "2025-06-30",
+        "comparison_period_end": "2024-06-30", "report_scope": "consolidated",
+        "financial_feature_version": "same-filing-comparatives-v1", "unit": "percent",
+        "availability_at": "2025-08-15T01:00:00Z", "provenance_id": "filing",
+        "source_document_sha256": "doc-q2"}
+    eps, income = ("eps_yoy_percent_same_filing", "net_income_parent_yoy_percent_same_filing")
+    rows = [
+        {**common, "metric": eps, "period_basis": "single_quarter", "value": "60"},
+        {**common, "metric": income, "period_basis": "single_quarter", "value": "40"},
+        {**common, "metric": eps, "period_basis": "year_to_date", "value": "-10"},
+        {**common, "metric": income, "period_basis": "year_to_date", "value": "-20"},
+    ]
+    history = financial_training_history(rows)
+    assert len(history) == 4  # old dedup silently lost one of the two comparisons
+    values, selected, meta = _fundamental_filing_features(history)
+    assert values == {income: 40, eps: 60}
+    assert meta["financial_period_basis"] == "single_quarter"
+    assert len(selected) == 2
+    # Newer EPS-only quarter must not be paired with an older income value.
+    newer = {**rows[0], "fiscal_year": 2025, "fiscal_quarter": 3,
+        "fiscal_period_end": "2025-09-30", "comparison_period_end": "2024-09-30",
+        "source_document_sha256": "doc-q3", "value": "99"}
+    assert _fundamental_filing_features(rows + [newer])[0] == values
+    # Wrong comparison period, different source document or report scope is not a pair.
+    for update in ({"comparison_period_end": "2024-03-31"},
+                   {"source_document_sha256": "other-filing"},
+                   {"report_scope": "separate"}):
+        broken = [rows[0], {**rows[1], **update}]
+        assert _fundamental_filing_features(broken)[0] is None
+
+
+def test_fundamental_baselines_share_purged_oos_and_preserve_missing_truth():
+    from intelligence_mart.evaluation import walk_forward, ROLE_FEATURES
+    rows = []
+    for month in range(1, 8):
+        for i in range(40):
+            date_key = f"2025-{month:02d}-01"
+            rows.append({"symbol": f"{i:04d}", "analysis_as_of": date_key,
+                "outcome_as_of": f"2025-{month:02d}-08", "label_available_at": f"2025-{month:02d}-09",
+                "feature_available_at": f"2025-{month:02d}-01T07:00:00Z",
+                "source_authorization": "official", "provenance_id": f"official-{month}-{i}",
+                "excess_return": 0.005, "eps_yoy_percent_same_filing": 60,
+                "net_income_parent_yoy_percent_same_filing": 40})
+    zero = walk_forward(rows, model_name="zero", features=ROLE_FEATURES["fundamental"],
+                        cost_bps=30, horizon_days=5)
+    rule = walk_forward(rows, model_name="financial_rule", features=ROLE_FEATURES["fundamental"],
+                        cost_bps=30, horizon_days=5)
+    assert zero["status"] == rule["status"] == "evaluated"
+    assert [p["analysis_as_of"] for p in zero["predictions"]] == [
+        p["analysis_as_of"] for p in rule["predictions"]]
+    assert all(p["prediction"] == 0 for p in zero["predictions"])
+    assert all(p["prediction"] == pytest.approx(.005) for p in rule["predictions"])
+    assert all(p["explanation_method"] == "fixed_financial_rule" for p in rule["predictions"])
+    assert rule["promotion_eligible"] is False
+    # An earnings metric is never fabricated to rescue a missing official pair.
+    missing, _, reason = __import__("intelligence_mart.evaluation",
+        fromlist=["_fundamental_filing_features"])._fundamental_filing_features([])
+    assert missing is None and reason == "no_complete_same_filing_comparative_pair"
 
 
 def test_legacy_daily_roles_are_not_supported_by_provider_transports():
