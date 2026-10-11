@@ -8,6 +8,10 @@ on:
       ceo_run:
         required: true
         type: string
+      recover_failed_create:
+        description: Failed CEO create run; recover only if the Job does not exist
+        required: false
+        type: string
 permissions:
   contents: write
   actions: read
@@ -24,6 +28,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       RELEASE_RUN: ${{ inputs.release_run }}
       CEO_RUN: ${{ inputs.ceo_run }}
+      RECOVER_RUN: ${{ inputs.recover_failed_create }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -57,6 +62,27 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
+      - name: Recover failed create only after confirmed Job absence
+        if: inputs.recover_failed_create != ''
+        run: |
+          python - <<'PY'
+          import json,os,subprocess,sys
+          sys.path.insert(0,'scripts/gcp')
+          from ghcr_jobs_rollout import cloud,ROOT
+          run=os.environ['RECOVER_RUN']
+          assert run.isdecimal()
+          data=json.loads(subprocess.check_output(['gh','api',f"repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{run}"],text=True))
+          assert data['path']=='.github/workflows/ceo-worker-dev.yml' and data['conclusion']=='failure'
+          try:
+              cloud(ROOT+'/jobs/janus-ceo-analysis')
+          except RuntimeError as error:
+              if str(error)!='cloud_control_http_404': raise
+          else:
+              raise RuntimeError('Job exists; recovery requires explicit verified readback')
+          subprocess.run([sys.executable,'scripts/gcp/ghcr_release_lease.py','release',
+              '--run-id',run,'--run-attempt',str(data['run_attempt']),'--sha',data['head_sha'],
+              '--safe-to-release'],check=True)
+          PY
       - id: lease
         run: |
           python scripts/gcp/ghcr_release_lease.py acquire

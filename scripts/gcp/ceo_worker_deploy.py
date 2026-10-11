@@ -45,7 +45,9 @@ def main():
             raise
         existing = None
     if existing is None:
-        operation = cloud(f'{ROOT}/jobs?jobId={JOB}', desired, 'POST')
+        # CreateJob takes jobId in the URL and requires an empty resource name.
+        operation = cloud(f'{ROOT}/jobs?jobId={JOB}',
+                          {key: value for key, value in desired.items() if key != 'name'}, 'POST')
         name = operation.get('name', '')
         assert name.startswith(ROOT + '/operations/')
         deadline = time.monotonic() + 480
