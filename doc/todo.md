@@ -95,7 +95,7 @@ A 組不再列 active TODO；下一個 active work 為 B 組。
 使用者指定四張已核准 PNG 只是最低基礎值，每頁需唯一 Hero、圖表／大數字／顏色先行。 [A 正式 UI 契約](ui/visual-first-four-pages.md) 和 [B 工程工作單](ui/visual-first-delivery.md) 定義詳盡責任與 acceptance；不重開 A 組／B0～B8，不提前做 500 檔模型研究。
 
 - [ ] VF-00～01 P0：資料 coverage matrix（source→Core→serving→API→UI）、MOPS 財報期別與事件時間、缺值／PIT、owner-scoped typed read path。
-- [ ] VF-02～04 P0：今日市場 Hero／TAIEX、關注異動與價格、持股市值 Hero／有證據的損益貢獻；四頁不再用無重點的數字牆。
+- [ ] VF-02～04 P0：今日以本人持股／關注可信異動優先、無資料退回市場判讀／TAIEX；關注異動與價格、持股市值 Hero／有證據的損益貢獻；四頁不再用無重點的數字牆。
 - [ ] VF-05～06 P0：個股真實短價量及圖表入口、五角色可信狀態、390×844／字級放大／partial/stale/empty golden 與可及性。
 - [ ] VF-07～09 P1：真實官方營收／EPS／PE/PB／法人／事件圖、Private Mart 報表歷史趨勢與角色狀態；缺口不得補假值。
 - [ ] 同 SHA 集中 CI／GHCR dev／真實 owner 四頁 screenshot／數值／來源 readback；P0/P1 不得只憑文件／fixture 標 PASS。

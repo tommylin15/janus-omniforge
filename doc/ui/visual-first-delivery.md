@@ -17,7 +17,7 @@
 |---|---|---|---|
 | VF-00 | P0／所有畫圖前置 | Data/Core：建正式 coverage inventory，從官方 source→Core→serving→API→UI，抽持有／未持有／離榜／缺資料代表股票，核行情、估值、三大法人、季財報、月營收、公告、持股估值 | matrix 有期間／符號／缺值／單位／財報期別／來源與授權／PIT／provenance／API readback |
 | VF-01 | P0 | API/Mart：優先重用現有 public 與 private read path，僅補 bounded typed chart／Hero projection，首屏不得同步全庫掃 Iceberg 或啟動 Mart/LLM | 正負/缺值/資料日、owner isolation、publication、schema contract tests |
-| VF-02 | P0 | Flutter 今日：唯一市場 Hero、TAIEX 真趨勢、至多三件事、短市場卡；資料不夠時以 deterministic 指數退化 | market/休市/Mart unavailable screenshots，無假市場信心 |
+| VF-02 | P0 | Flutter 今日：優先可信 owner-scoped 持股／關注異動 Hero；沒有合格個人重點則切市場 Hero／TAIEX fallback，仍提供真趨勢與最多三件事 | owner／非持股／無關注／無異動、休市／Mart unavailable screenshots；不混時點或造假市場信心 |
 | VF-03 | P0 | Flutter 關注：異動、搜尋、主價漲跌、已持有／目標價／追蹤／離榜 chips | watchlist owner、500/50 guard、missing/stale、排序和 drilldown |
 | VF-04 | P0 | Flutter 持股：持股市值 Hero、PnL/報酬、損益貢獻 mini bars、次分頁的單一 checkpoint 與 pending | Private Mart/ledger／snapshot consistency，價格日期與 owner readback |
 | VF-05 | P0 | Flutter 個股：Hero、短價量圖、快速圖表總覽入口、五角色可信狀態、三支持／風險，保留來源與進階資訊 | 真實 OHLCV／非持股／圖期間切換；不需要 CEO 才有基本圖 |
@@ -57,7 +57,7 @@ Series typed minimum：schema_version、symbol、metric、unit、period、points
 ## 5. 測試、集中發布與狀態判定
 
 - Core/Mart targeted：數值單位、null/合法0、不同財報期別、EPS 股本、營收 YoY 基期、公司行動、事件 published 與 observed 反常、PIT leakage 負測、缺樣本不計分位。
-- API targeted：schema/pagination/limits、空／單點／缺洞、stale/partial、as_of/source/provenance、authenticated owner/public isolation、不因一圖 timeout 阻塞首屏。
+- API targeted：schema/pagination/limits、空／單點／缺洞、stale/partial、as_of/source/provenance、authenticated owner/public isolation；今日個人化訊息不得漏出他人持股／關注，沒有個人資料時 bounded fallback，不因一圖 timeout 阻塞首屏。
 - Flutter targeted/golden：四頁唯一 Hero，主數字／色彩＋箭頭，價格與 PnL 色彩，圖表軸／單位／期間／tooltip、空資料、非持股、離榜、390×844 和放大字級。
 - Integration：GCP dev 真實登入 owner 四頁，真實官方行情＋個股、不同頁同股票價格／估值日一致，Private Mart checkpoint／待更新能解釋，來源與不確定狀態可下鑽。
 - Release：同一完整 SHA 必要 CI → GHCR immutable digest → 0% dev candidate → live screenshot／API／Mart readback → 完整 gate PASS 才正式 dev 切流／回滾。沿用現有部署鎖，schema migration 與 Job guard，不額外部署路徑。

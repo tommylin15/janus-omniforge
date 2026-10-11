@@ -27,11 +27,11 @@ Specialist／CEO 等 AI-only 區塊未就緒時，可以 bounded unavailable／h
 
 ## 5.1 今日
 
-「今日」是市場入口，先顯示 deterministic published market baseline；Mart／研究內容是 enhancement，不得反過來阻擋 baseline。
+「今日」是**個人相關市場入口**：先在不阻塞首屏的前提下找有來源且同時點的本人持股／關注變化；不足時退回 deterministic published market baseline／已驗證市場判讀。Mart／研究內容是 enhancement，不得反過來阻擋 baseline。
 
 首屏順序：
 
-1. `MarketVerdictHero`（已發布可信同日結論可用時；否則 TAIEX snapshot 作主 Hero）
+1. `MyRelevantTodayHero`（有合格 owner-scoped 持股／關注異動時優先；無則 `MarketVerdictHero`，再無才以 TAIEX snapshot 作唯一主 Hero；三者不堆疊）
 2. `MarketSnapshotCard`（TAIEX 主數字與合法小趨勢）
 3. `DailyBriefCard`（同日最多三則，無資料不得補假文）
 4. `MarketActivityCard`／`InstitutionalFlowCard`（次級短卡）
