@@ -1,0 +1,23 @@
+name: CEO bounded read-only execution diagnostic
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: dev
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read bounded CEO execution state and safe completion fields
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud run jobs executions list --job=janus-ceo-analysis --project=gen-lang-client-0593591102 --region=us-central1 --limit=3 --format='json(metadata.name,metadata.creationTimestamp,status.startTime,status.completionTime,status.runningCount,status.succeededCount,status.failedCount,status.conditions)'
+          gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ceo-analysis" AND timestamp>="2026-10-11T10:27:00Z"' --project=gen-lang-client-0593591102 --limit=15 --format='json(timestamp,severity,jsonPayload.status,jsonPayload.operation,jsonPayload.safe_reason,jsonPayload.error_type)'

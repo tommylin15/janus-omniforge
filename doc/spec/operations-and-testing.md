@@ -1,3 +1,8 @@
+## 2026-10-11 合併產品候選（PARTIAL）
+
+新來源 `2c920782bc45736ffb0749d7ec0800d19f0ab153` 的 [完整 Release #38118061761](https://github.com/tommylin15/janus-omniforge/actions/runs/38118061761) PASS：1044 Python tests（2 legacy deselected）、Flutter、四公開 GHCR image／匿名拉取。既有來源的基準 runtime、390px User A UI、有界持股 latency 與唯讀 preflight 證據，以及新版候選與兩次基準 runtime PASS，以及 Admin／owner 最新證據與 CEO／正式 dev 尚未完成的 gate，集中見 [合併產品 checkpoint](../archive/product-b9-c-holdings-checkpoint-2026-10-11.md)。新版 User A 持股 authenticated UI 已實測；Owner 隔離有本次使用者確認，未宣稱 B credential machine replay／CEO acceptance、排程 Jobs rollout 或 API 正式切流 PASS；research 舊映像 404 保留診斷，不在四 Job 更新範圍內。
+
+
 ## 2026-10-09 15:15 — 四 Jobs forward-only 使用者授權及部署權限阻塞
 
 使用者明確同意不再驗證舊 AR 映像可否回滾，直接以 `fbcc5f58` 完整測試 GHCR digest 做四個 Job forward-only 部署。已以 `ops/ghcr-jobs-rollout-request.json` 宣告 `rollback_mode=user_authorized_forward_only`／`accept_no_old_image_rollback=true`。此例外不代表擴大 IAM 授權；保留原子 release lease、Scheduler fence、五個 Jobs execution 終態、最終 digest readback、每個目標兩次真實 canary 的 fail-closed 契約。
