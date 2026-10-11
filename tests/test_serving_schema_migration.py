@@ -62,6 +62,16 @@ def statements(connection: FakeConnection) -> str:
     return "\n".join(statement for cursor in connection.cursors for statement in cursor.statements)
 
 
+def test_ceo_quota_migration_is_allowlisted_and_checks_before_marker():
+    control = FakeControl()
+    migration.run(control, migration.MIGRATION_CEO_QUOTA_50)
+    sql = statements(control.connection)
+    assert 'DROP CONSTRAINT ceo_capability_revisions_daily_quota_check' in sql
+    assert 'daily_quota BETWEEN 0 AND 50' in sql
+    assert sql.index('pg_constraint') < sql.index('INSERT INTO control.schema_migrations')
+
+
+
 def test_quotes_profile_migration_records_version_after_acl_checks():
     control = FakeControl()
     migration.run(control, migration.MIGRATION_QUOTES_BROKER)
