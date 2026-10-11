@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 import json
 from pathlib import Path
+from statistics import median
 import re
 import subprocess
 
@@ -65,23 +66,119 @@ def _evaluation_diagnostics(item, role):
     from statistics import fmean, pstdev
     if role == "risk":
         folds = item.get("oos_folds", [])
-        improvements = []
+        monthly = []
+        missing_folds = 0
         for fold in folds:
             markov, gaussian, n = (_finite_number(fold.get("markov_log_score_sum")),
                                    _finite_number(fold.get("gaussian_log_score_sum")),
                                    fold.get("test_returns"))
-            if markov is not None and gaussian is not None and isinstance(n, int) and n > 0:
-                improvements.append((markov - gaussian) / n)
+            if markov is None or gaussian is None or type(n) is not int or n <= 0:
+                missing_folds += 1
+                continue
+            monthly.append({"month": fold.get("month"), "test_returns": n,
+                            "improvement_per_return": (markov - gaussian) / n,
+                            "total_log_score_improvement": markov - gaussian})
+        monthly.sort(key=lambda row: str(row["month"]))
+        improvements = [row["improvement_per_return"] for row in monthly]
+        total_days = sum(row["test_returns"] for row in monthly)
+        worst_streak = streak = 0
+        for value in improvements:
+            streak = streak + 1 if value <= 0 else 0
+            worst_streak = max(worst_streak, streak)
+        split = len(improvements) // 2
+        daily = item.get("risk_oos_daily")
+        # Legacy immutable OOS has only monthly sums. Never derive daily vol,
+        # tail calibration or Markov switching from monthly aggregates.
+        environmental = None
+        daily_status = "unavailable_legacy_monthly_aggregate"
+        if daily is not None:
+            _require(isinstance(daily, list), "invalid daily regime evidence")
+            required = ("date", "month", "market_return", "markov_log_score",
+                        "gaussian_log_score", "predicted_high_vol_probability",
+                        "realized_high_vol", "realized_extreme_vol", "realized_left_tail",
+                        "markov_tail_probability", "gaussian_tail_probability",
+                        "historical_abs_vol_p75", "historical_abs_vol_p95",
+                        "historical_left_tail_p05")
+            _require(len(daily) == total_days and missing_folds == 0,
+                     "daily regime evidence coverage differs from monthly OOS")
+            _require(len({row.get("date") for row in daily if isinstance(row, dict)}) == len(daily),
+                     "duplicate regime OOS trading dates")
+            for row in daily:
+                _require(isinstance(row, dict) and all(key in row for key in required),
+                         "partial regime OOS daily evidence")
+                _require(isinstance(row["date"], str) and isinstance(row["month"], str) and
+                         row["date"][:7] == row["month"] and
+                         all(_finite_number(row[k]) is not None for k in
+                             ("market_return", "markov_log_score", "gaussian_log_score",
+                              "predicted_high_vol_probability", "markov_tail_probability",
+                              "gaussian_tail_probability", "historical_abs_vol_p75",
+                              "historical_abs_vol_p95", "historical_left_tail_p05")) and
+                         all(type(row[k]) is bool for k in
+                             ("realized_high_vol", "realized_extreme_vol", "realized_left_tail")) and
+                         all(0 <= row[k] <= 1 for k in
+                             ("predicted_high_vol_probability", "markov_tail_probability",
+                              "gaussian_tail_probability")),
+                         "nonfinite or invalid regime OOS daily evidence")
+            for fold in monthly:
+                rows = [row for row in daily if row["month"] == fold["month"]]
+                _require(len(rows) == fold["test_returns"] and
+                         abs(sum(row["markov_log_score"] - row["gaussian_log_score"]
+                                 for row in rows) - fold["total_log_score_improvement"]) < 1e-5,
+                         "daily regime log scores do not reconcile to immutable monthly fold")
+            ordered = sorted(daily, key=lambda row: row["date"])
+            groups = {}
+            for name, group in (("high_realized_vol", [r for r in ordered if r["realized_high_vol"]]),
+                                ("low_realized_vol", [r for r in ordered if not r["realized_high_vol"]]),
+                                ("extreme_vol", [r for r in ordered if r["realized_extreme_vol"]]),
+                                ("non_extreme_vol", [r for r in ordered if not r["realized_extreme_vol"]]),
+                                ("left_tail", [r for r in ordered if r["realized_left_tail"]]),
+                                ("non_left_tail", [r for r in ordered if not r["realized_left_tail"]])):
+                groups[name] = {"observations": len(group),
+                                "average_log_score_improvement": fmean(
+                                    r["markov_log_score"] - r["gaussian_log_score"] for r in group)
+                                if group else None}
+            tail_brier_markov = fmean((r["markov_tail_probability"] -
+                                     int(r["realized_left_tail"])) ** 2 for r in ordered) if ordered else None
+            tail_brier_gaussian = fmean((r["gaussian_tail_probability"] -
+                                       int(r["realized_left_tail"])) ** 2 for r in ordered) if ordered else None
+            states = [r["predicted_high_vol_probability"] >= 0.5 for r in ordered]
+            environmental = {
+                "prior_only_training_thresholds": True,
+                "high_low_is_ex_post_realized_vol_stratification": True,
+                "groups": groups,
+                "state_proxy": "prior_predictive_high_variance_probability_threshold_0_5",
+                "state_switches": sum(a != b for a, b in zip(states, states[1:])),
+                "state_transitions_observed": max(0, len(states) - 1),
+                "tail_brier_markov": tail_brier_markov,
+                "tail_brier_gaussian": tail_brier_gaussian,
+                "tail_brier_improvement_over_gaussian":
+                    tail_brier_gaussian - tail_brier_markov if ordered else None,
+                "tail_events": sum(r["realized_left_tail"] for r in ordered),
+                "extreme_vol_events": sum(r["realized_extreme_vol"] for r in ordered),
+            }
+            daily_status = "reconciled_prior_only_oos_daily_diagnostics"
         return {
             "method": "prior_only_regime_oos_fold_stability",
             "folds_with_comparable_log_scores": len(improvements),
+            "folds_missing_or_invalid_log_scores": missing_folds,
+            "oos_returns_reconciled_from_folds": total_days,
             "positive_improvement_months": sum(value > 0 for value in improvements),
             "nonpositive_improvement_months": sum(value <= 0 for value in improvements),
             "mean_monthly_improvement": fmean(improvements) if improvements else None,
             "monthly_improvement_stddev": pstdev(improvements) if len(improvements) >= 2 else None,
+            "return_weighted_log_score_improvement":
+                sum(row["total_log_score_improvement"] for row in monthly)/total_days if total_days else None,
             "worst_monthly_improvement": min(improvements) if improvements else None,
+            "median_monthly_improvement": median(improvements) if improvements else None,
+            "longest_nonpositive_month_streak": worst_streak,
+            "first_half_mean_monthly_improvement": fmean(improvements[:split]) if split else None,
+            "second_half_mean_monthly_improvement": fmean(improvements[split:]) if split else None,
+            "monthly_scores": monthly,
+            "daily_environment_evidence_status": daily_status,
+            "environment_and_tail": environmental,
             "quality_blockers": ["regime_stability_and_event_state_calibration_not_verified",
-                                 "champion_baseline_release_gate_not_verified"],
+                                 "champion_baseline_release_gate_not_verified"] +
+                                (["daily_volatility_switch_and_tail_data_missing"] if daily is None else []),
         }
     rows = item.get("predictions", [])
     paired = [(p, y) for row in rows
@@ -276,7 +373,7 @@ def summarize(manifest, evaluations, artifacts, *, expected_core):
                        else "no_champion_vs_baseline_quality_acceptance"),
         }
     return {
-        "schema_version": "b9-specialist-oos-quality-readback-v2",
+        "schema_version": "b9-specialist-oos-quality-readback-v3",
         "source_core_snapshot_id": expected_core,
         "source_relation_to_b7_freshness": "same_verified_core_fence",
         "newest_core_at_audit_time": "not_verified",
