@@ -40,6 +40,8 @@ VF-00/01 與每張圖的資料合法性是**前置**，不放在最後 P2；VF-0
 
 - 2026-10-11：今日首頁接入 owner 追蹤 Hero，獨立 Future；沒有合格本人異動時不阻擋市場快照。關注頁增加真實待追蹤筆記數標籤，尚不宣稱已建通知系統。
 
+- 2026-10-11：持股頁新增加上嚴格相同估值日／幣別檢查的「各持股未實現損益對照」比例條；條長為視覺化比例，不是 Flutter 重算正式報酬或投資貢獻率。checkpoint 不一致就不畫。
+
 ## 3. Dataset coverage matrix（必要交接表）
 
 每個 dataset_family 都至少有：symbol／market、required_metric、frequency、first/last_period、usable_points／expected_points、missing_rate、unit、period_basis、source_id、source_authorization、published_at／availability_at／observed_at、snapshot／provenance、serving route、API route、UI consumed、freshness、Implemented／Partial／Missing／Unknown／Blocked、blocking_reason、reproducible evidence。

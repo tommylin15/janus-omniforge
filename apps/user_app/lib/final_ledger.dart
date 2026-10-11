@@ -551,6 +551,67 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
         ],
       );
 
+  Widget pnlComparison(List<dynamic> rows, Map<String, dynamic> aggregate) {
+    // Presentation-only scaling of published owner-scoped per-position PnL.
+    // Do not create a portfolio aggregate or cross valuation checkpoints.
+    final date = fvText(aggregate['valuation_date'], missing: '');
+    final currency = fvText(aggregate['currency'], missing: '');
+    if (date.isEmpty || currency.isEmpty || aggregate['aggregate_status'] == 'withheld') {
+      return const SizedBox.shrink();
+    }
+    final items = <Map<String, dynamic>>[];
+    for (final raw in rows) {
+      final row = fvMap(raw);
+      final pnl = fvNumber(row['unrealized_pnl']);
+      if (pnl == null || !pnl.isFinite ||
+          fvText(row['valuation_date'], missing: '') != date ||
+          fvText(row['currency'], missing: '') != currency) continue;
+      items.add(row);
+    }
+    if (items.isEmpty) return const SizedBox.shrink();
+    items.sort((a, b) =>
+      fvNumber(b['unrealized_pnl'])!.abs().compareTo(fvNumber(a['unrealized_pnl'])!.abs()));
+    final largest = fvNumber(items.first['unrealized_pnl'])!.abs();
+    return fvPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Row(children: [
+        Icon(Icons.bar_chart_rounded, color: fvTeal, size: 20),
+        SizedBox(width: 8),
+        Expanded(child: Text('各持股未實現損益對照',
+          style: TextStyle(color: fvInk, fontWeight: FontWeight.w800))),
+      ]),
+      const SizedBox(height: 5),
+      Text('同一估值日 $date · $currency · 長度相對最大單檔',
+          style: const TextStyle(color: fvMuted, fontSize: 11)),
+      const SizedBox(height: 10),
+      for (final row in items.take(5)) ...[
+        Row(children: [
+          Expanded(child: Text(legacy.stockDisplayName(row),
+            maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: fvInk, fontSize: 12))),
+          const SizedBox(width: 8),
+          Text(legacy.accountingNumber(row['unrealized_pnl']),
+            style: TextStyle(color: fvSignedColor(row['unrealized_pnl']),
+                fontWeight: FontWeight.w800, fontSize: 12)),
+        ]),
+        const SizedBox(height: 5),
+        LayoutBuilder(builder: (context, bounds) {
+          final factor = largest > 0
+              ? fvNumber(row['unrealized_pnl'])!.abs() / largest : 0.0;
+          return Align(alignment: Alignment.centerLeft, child: Container(
+            key: Key('holding-comparison-${fvText(row['symbol'])}'),
+            width: (bounds.maxWidth * factor).clamp(2.0, bounds.maxWidth),
+            height: 7,
+            decoration: BoxDecoration(
+              color: fvSignedColor(row['unrealized_pnl']),
+              borderRadius: BorderRadius.circular(5),
+            ),
+          ));
+        }),
+        const SizedBox(height: 10),
+      ],
+    ]));
+  }
+
   Widget holdings(List<dynamic> positions) {
     if (positions.isEmpty) return fvBoundedState('目前無持股或持股資料尚未取得');
     return Column(children: [
@@ -1178,6 +1239,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                   const SizedBox(height: 12),
                   const SizedBox(height: 12),
                   if (section == 0) ...[
+                    pnlComparison(positions, aggregate),
                     fvSectionTitle(context, '持股'),
                     Wrap(
                       spacing: 8,
