@@ -16,6 +16,9 @@ Deep Coverage 使用既有去識別化資料庫函式取得 active watchlist ∪
 
 所有輸入以 Core immutable manifest / table snapshot、availability / publication / observation 時點、provenance 與 source authorization 驗證；未合格資料不進特徵。缺資料及未驗證模型明示 partial / blocked，不填假機率。
 
+Event／Catalyst 的人工繁中標註、source-specific training-use 授權、event/revision ID、reviewer／label version、chronological holdout 與本機 classifier 研究 gate 見 [Event 標註與 OOS 契約](event-labeling.md)。目前 Parser／Rules 為 deterministic 主路徑；沒有真實核准標籤及本機 Transformer OOS 時，Event ML 保持 NOT VERIFIED，classifier_probability=null，不能自動 promotion。
+
+
 使用者 2026-10-03 最新指示取代歷史財報的嚴格可用時間門檻：**有官方資料就進行歷史模型驗證**，不因原始數值版次／當時公開時間未證明而禁止 Fundamental OOS。模型回放每期最新取得的官方數值版本，先用 authoritative publication，其次官方申報附件上傳時間；兩者皆缺時，以財報期末後 90 天作明示估計。Core 保留實際取得時間、unknown 與原始數值，不改寫 canonical 歷史；訓練使用有版本的時間投影。成果物保存 `financial_history_policy`、時間依據筆數與 `strict_pit=false`，明示可能包含後續修正與估計時間。這是正式採用的資料優先 OOS 方法，可用於模型比較；報酬標籤成熟／purge、來源授權、股號／期別／單位檢查與私人資料隔離繼續生效。模型是否有效依實際結果，不因放寬而自動 promotion。
 
 ## Analytics compute boundary
