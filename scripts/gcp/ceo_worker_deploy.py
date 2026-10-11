@@ -68,12 +68,12 @@ def main():
         if str(error) != 'cloud_control_http_404':
             raise
         existing = None
-    operation = None
+    requests = []
     rollback = {}
     if existing is None:
         # CreateJob takes jobId in the URL and requires an empty resource name.
-        operation = cloud(f'{ROOT}/jobs?jobId={JOB}',
-                          {key: value for key, value in desired.items() if key != 'name'}, 'POST')
+        requests = [(f'{ROOT}/jobs?jobId={JOB}',
+                     {key: value for key, value in desired.items() if key != 'name'}, 'POST')]
     elif existing['labels'].get('janus-git-sha') != args.sha:
         execution_fence()
         payload = update_payload(existing, desired)
@@ -83,8 +83,9 @@ def main():
         assert public['Digest'] == old_image.split('@')[1]
         assert public['Labels']['org.opencontainers.image.revision'] == existing['labels']['janus-git-sha']
         rollback = {'rollback_image': old_image, 'rollback_sha': existing['labels']['janus-git-sha']}
-        operation = cloud(path + '?updateMask=template,labels', payload, 'PATCH')
-    if operation is not None:
+        requests = [(path + '?validateOnly=true', payload, 'PATCH'), (path, payload, 'PATCH')]
+    for target, body, method in requests:
+        operation = cloud(target, body, method)
         name = operation.get('name', '')
         assert name.startswith(ROOT + '/operations/')
         deadline = time.monotonic() + 480
