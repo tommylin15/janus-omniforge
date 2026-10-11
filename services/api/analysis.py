@@ -22,7 +22,7 @@ class CEORequestIn(StrictModel):
 class CEOCapabilityIn(StrictModel):
     email: str = Field(min_length=3, max_length=254)
     enabled: bool
-    daily_quota: int = Field(ge=0, le=20)
+    daily_quota: int = Field(ge=0, le=50)
     cooldown_seconds: int = Field(ge=60, le=86400)
     expected_version: int = Field(ge=0)
     reason: str = Field(min_length=1, max_length=500)
