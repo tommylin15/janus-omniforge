@@ -40,4 +40,4 @@ jobs:
           PYTHONPATH: jobs/intelligence-mart:jobs/ingestion-core:.
         run: |
           python -m pytest -q tests/test_valuation_quality.py
-          python -m pytest -q tests/test_specialist_engines.py -k 'dcf or financial_benchmark or replay'
+          python -m pytest -q tests/test_specialist_engines.py tests/test_b4_deep_coverage.py
