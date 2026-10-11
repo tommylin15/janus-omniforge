@@ -406,6 +406,17 @@ def test_regime_oos_only_fits_prior_months_and_keeps_research_status():
     result = fit_regime_challenger(values.tolist(), dates=days)
     assert result["status"] == "research_oos_evaluated" and result["oos_returns"] >= 30
     assert all(f["training_end"] < f["test_start"] <= f["test_end"] for f in result["oos_folds"])
+    assert len(result["risk_oos_daily"]) == result["oos_returns"]
+    assert sum(f["test_returns"] for f in result["oos_folds"]) == len(result["risk_oos_daily"])
+    assert all(row["training_end"] < row["date"] and 0 <= row["predicted_high_vol_probability"] <= 1
+               and 0 <= row["markov_tail_probability"] <= 1
+               and 0 <= row["gaussian_tail_probability"] <= 1
+               for row in result["risk_oos_daily"])
+    for fold in result["oos_folds"]:
+        matching = [row for row in result["risk_oos_daily"] if row["month"] == fold["month"]]
+        assert len(matching) == fold["test_returns"]
+        assert abs(sum(row["markov_log_score"] for row in matching) -
+                   fold["markov_log_score_sum"]) < 1e-5
     assert not result["promotion_eligible"]
 
 
