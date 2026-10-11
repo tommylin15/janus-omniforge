@@ -73,12 +73,12 @@ def comparable_valuation_features(observation):
     return cleaned, reasons
 
 
-def validated_inputs(datasets, symbol, as_of, snapshot):
+def validated_inputs(datasets, symbol, as_of, snapshot, *, preserve_financial_basis=False):
     """Reuse source validation, with availability and every timestamp fenced before features."""
     cutoff = analysis_cutoff(date.fromisoformat(as_of))
     scoped = {name: [r for r in rows if not r.get("symbol") or r.get("symbol") == symbol]
               for name, rows in datasets.items()}
-    selected = _research_rows(scoped, date.fromisoformat(as_of))
+    selected = _research_rows(scoped, date.fromisoformat(as_of), preserve_financial_basis=preserve_financial_basis)
     valid, rejected, _ = validate_evidence(evidence_from_rows(selected, snapshot), date.fromisoformat(as_of))
     accepted = {item["evidence_id"] for item in valid}
     result = {}
