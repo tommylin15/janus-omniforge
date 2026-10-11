@@ -97,7 +97,7 @@ def _evaluation_diagnostics(item, role):
                         "gaussian_log_score", "predicted_high_vol_probability",
                         "realized_high_vol", "realized_extreme_vol", "realized_left_tail",
                         "markov_tail_probability", "gaussian_tail_probability",
-                        "historical_abs_vol_p75", "historical_abs_vol_p95",
+                        "realized_volatility_20d", "historical_volatility_20d_p75", "historical_abs_return_p95",
                         "historical_left_tail_p05")
             _require(len(daily) == total_days and missing_folds == 0,
                      "daily regime evidence coverage differs from monthly OOS")
@@ -114,18 +114,20 @@ def _evaluation_diagnostics(item, role):
                          all(_finite_number(row[k]) is not None for k in
                              ("market_return", "markov_log_score", "gaussian_log_score",
                               "predicted_high_vol_probability", "markov_tail_probability",
-                              "gaussian_tail_probability", "historical_abs_vol_p75",
-                              "historical_abs_vol_p95", "historical_left_tail_p05")) and
+                              "gaussian_tail_probability", "realized_volatility_20d", "historical_volatility_20d_p75",
+                              "historical_abs_return_p95", "historical_left_tail_p05")) and
                          all(type(row[k]) is bool for k in
                              ("realized_high_vol", "realized_extreme_vol", "realized_left_tail")) and
                          all(0 <= row[k] <= 1 for k in
                              ("predicted_high_vol_probability", "markov_tail_probability",
                               "gaussian_tail_probability")) and
-                         0 <= row["historical_abs_vol_p75"] <= row["historical_abs_vol_p95"] and
+                         0 <= row["realized_volatility_20d"] and
+                         0 <= row["historical_volatility_20d_p75"] and
+                         0 <= row["historical_abs_return_p95"] and
                          row["realized_high_vol"] == (
-                             abs(row["market_return"]) >= row["historical_abs_vol_p75"]) and
+                             row["realized_volatility_20d"] >= row["historical_volatility_20d_p75"]) and
                          row["realized_extreme_vol"] == (
-                             abs(row["market_return"]) >= row["historical_abs_vol_p95"]) and
+                             abs(row["market_return"]) >= row["historical_abs_return_p95"]) and
                          row["realized_left_tail"] == (
                              row["market_return"] <= row["historical_left_tail_p05"]),
                          "nonfinite, invalid or future training regime OOS daily evidence")
