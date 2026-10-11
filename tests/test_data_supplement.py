@@ -10,6 +10,31 @@ from ingestion_core.data_supplement import months_ending, normalise_monthly, nor
 
 
 class DataSupplementTests(unittest.TestCase):
+    def test_fundamental_model_coverage_is_not_generic_financial_quarter_coverage(self):
+        from datetime import date
+        from ingestion_core.data_supplement import coverage_summary, fundamental_comparative_coverage
+        base = {"symbol": "2330", "source_id": "mops", "statement_type": "income",
+            "fiscal_year": 2025, "fiscal_quarter": 2, "fiscal_period_end": "2025-06-30",
+            "comparison_period_end": "2024-06-30", "financial_feature_version": "same-filing-comparatives-v1",
+            "report_scope": "consolidated", "unit": "percent", "period_basis": "single_quarter",
+            "source_document_sha256": "official-doc", "availability_at": "2025-08-15T01:00:00Z",
+            "provenance_id": "source-filing"}
+        eps = {**base, "metric": "eps_yoy_percent_same_filing", "value": "12"}
+        income = {**base, "metric": "net_income_parent_yoy_percent_same_filing", "value": "10"}
+        incomplete = {**eps, "fiscal_quarter": 3, "fiscal_period_end": "2025-09-30",
+                      "comparison_period_end": "2024-09-30", "source_document_sha256": "later-doc"}
+        rows = [eps, income, incomplete]
+        self.assertEqual(fundamental_comparative_coverage(rows)["qualified_period_ends"], ["2025-06-30"])
+        coverage = coverage_summary(rows, [], ["2330"], date(2026, 3, 1))["2330"]
+        self.assertEqual(coverage["financial_quarters"], 2)
+        self.assertEqual(coverage["fundamental_comparative_quarters"], 1)
+        self.assertEqual(coverage["fundamental_missing_comparative_periods"], ["2025Q3"])
+        self.assertFalse(coverage["history_complete"])
+        self.assertEqual(fundamental_comparative_coverage([eps, {**income, "source_document_sha256": "other"}])
+                         ["qualified_comparative_quarters"], 0)
+        self.assertEqual(fundamental_comparative_coverage([eps, {**income, "comparison_period_end": "2024-03-31"}])
+                         ["qualified_comparative_quarters"], 0)
+
     def test_official_valuation_month_identity_nullable_pe_and_bad_ratios(self):
         from ingestion_core.data_supplement import parse_valuation_month
         document = {"stat": "OK", "title": "113年09月 台積電 個股日本益比",
