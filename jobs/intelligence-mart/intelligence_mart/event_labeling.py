@@ -94,6 +94,9 @@ def approved_dataset(candidates, reviews):
         candidate = by_id.get(cid)
         if candidate is None:
             raise ValueError("unknown_candidate")
+        if (_sha(candidate["text"]) != candidate["content_sha"] or
+                _sha([candidate["event_group_id"], candidate["content_sha"]]) != cid):
+            raise ValueError("tampered_candidate")
         if item.get("status") != "approved":
             continue
         if (item.get("label_version") != VERSION or item.get("content_sha") != candidate["content_sha"]):
@@ -164,7 +167,9 @@ def chronological_oos(approved, *, cutoff, min_train=100, min_test=30):
               "category": None, "direction": None}
     if (len(train) < min_train or len(holdout) < min_test or
             len({r["category"] for r in train}) < 2 or
-            len({r["direction"] for r in train}) < 2):
+            len({r["direction"] for r in train}) < 2 or
+            len({r["category"] for r in holdout}) < 2 or
+            len({r["direction"] for r in holdout}) < 2):
         return {**report, "status": "insufficient_labeled_data",
                 "reason": "human_labels_or_disjoint_class_support_insufficient"}
     # Pre-installed, locally executed scikit-learn. No remote model or API.
