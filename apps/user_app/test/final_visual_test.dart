@@ -1354,6 +1354,12 @@ void main() {
     await tester.pump();
     expect(find.text('持股市值'), findsNothing);
     expect(tester.takeException(), isNull);
+    // Release the intentionally blocked history Future to cancel its timeout
+    // timer before the widget test finishes; normal UI must not await it.
+    api.history.complete(const <dynamic>[]);
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
   });
 
 }

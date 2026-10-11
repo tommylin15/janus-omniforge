@@ -139,20 +139,27 @@ Widget fvStatusPill(Object? value) {
   );
 }
 
-Widget fvTag(String text, {bool warning = false, Color? color}) => Container(
+Widget fvTag(String text, {bool warning = false, Color? color, IconData? icon}) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
         color: warning ? const Color(0xFFFFF2E2) : fvSoft,
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: color ?? (warning ? const Color(0xFF9A5A10) : fvTeal),
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        if (icon != null) ...[
+          Icon(icon, size: 13,
+            color: color ?? (warning ? const Color(0xFF9A5A10) : fvTeal)),
+          const SizedBox(width: 4),
+        ],
+        Flexible(child: Text(
+          text,
+          style: TextStyle(
+            color: color ?? (warning ? const Color(0xFF9A5A10) : fvTeal),
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
+        )),
+      ]),
     );
 
 Widget fvMetricTile(

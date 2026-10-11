@@ -29,12 +29,14 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
   bool klineLoading = false;
   bool klineRequested = false;
   int chartDays = 22;
+  int primaryGeneration = 0;
 
   // Requests are bounded independently: one slow optional card never holds the page.
   Future<dynamic> safe(String key, String path) async {
+    final requestedSymbol = widget.symbol;
     try {
       final value = await widget.api.get(path).timeout(const Duration(seconds: 9));
-      if (mounted) {
+      if (mounted && widget.symbol == requestedSymbol) {
         setState(() {
           values[key] = value;
           errors.remove(key);
@@ -42,7 +44,9 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
       }
       return value;
     } catch (_) {
-      if (mounted) setState(() => errors.add(key));
+      if (mounted && widget.symbol == requestedSymbol) {
+        setState(() => errors.add(key));
+      }
       return null;
     }
   }
@@ -63,6 +67,23 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _startQuoteTimer();
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant FinalStockDetailPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.symbol != widget.symbol) {
+      quoteTimer?.cancel();
+      values.clear();
+      errors.clear();
+      klineRequested = false;
+      klineLoading = false;
+      chartDays = 22;
+      unawaited(loadPrimary());
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _startQuoteTimer();
+      });
+    }
   }
 
   void _startQuoteTimer() {
@@ -105,6 +126,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
   }
 
   Future<void> loadPrimary() async {
+    final generation = ++primaryGeneration;
     final stopwatch = Stopwatch()..start();
     if (mounted) setState(() => loading = true);
     // All secondary requests are independent of the initial price/holdings view.
@@ -125,11 +147,14 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
     } finally {
       stopwatch.stop();
       FinalPerf.recordCore('stock-detail', stopwatch.elapsed);
-      if (mounted) setState(() => loading = false);
+      if (mounted && generation == primaryGeneration) {
+        setState(() => loading = false);
+      }
     }
   }
 
   Future<void> loadKline({bool force = false}) async {
+    final requestedSymbol = widget.symbol;
     if (klineRequested && !force) return;
     if (!mounted) return;
     setState(() {
@@ -137,7 +162,9 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
       klineLoading = true;
     });
     await safe('kline', '/api/v1/public/kline/${Uri.encodeComponent(widget.symbol)}');
-    if (mounted) setState(() => klineLoading = false);
+    if (mounted && requestedSymbol == widget.symbol) {
+      setState(() => klineLoading = false);
+    }
   }
 
 

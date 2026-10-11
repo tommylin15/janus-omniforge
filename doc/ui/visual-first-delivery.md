@@ -56,7 +56,7 @@ Series typed minimum：schema_version、symbol、metric、unit、period、points
 
 ## 5. 圖卡縮放、有限等待與避免畫面閃爍（2026-10-11 補強）
 
-- 第一屏不等待次要圖卡：Header／持股為 critical，K 線／研究／事件／筆記獨立 async；每個讀取有上限並能個別重試。
+- 第一屏不等待次要圖卡：Header／持股為 critical，K 線／研究／事件／筆記獨立 async；每個讀取有上限並能個別重試。股票 symbol 改變時必須忽略前一標的延遲回傳，不能讓舊股票資料污染新頁。
 - 以既有 API 一次取得最多 200 筆 OHLCV，圖上 1M/3M/1Y 僅切呈現區間，使用者展開/捏合縮放不得為每次手勢重新打 API；切換股票須避免前一股票結果污染。
 - 圖卡縮放採「縮圖 → 點擊放大 → InteractiveViewer 捏合縮放／平移 → 關閉」，只針對價格、營收、EPS、估值、法人、資產趨勢等有判讀意義的圖；靜態數字卡不加入無用途手勢動畫。
 - loading 小卡使用 inline skeleton／狀態文字，不用整頁 spinner；逾時（暫定前端 read timeout 9 秒）顯示區塊級 error＋重試，已載入清單在 refresh 時 stale-while-revalidate。timeout 不等於後端任務已被取消；必要時 backend 再做 request cancellation／併發與 cache 控制。

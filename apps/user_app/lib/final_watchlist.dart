@@ -309,13 +309,16 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
                 spacing: 7,
                 runSpacing: 7,
                 children: [
-                  fvTag(row['held'] == true ? '已持有' : '未持有'),
+                  fvTag(row['held'] == true ? '已持有' : '未持有',
+                      icon: row['held'] == true ? Icons.account_balance_wallet_outlined : Icons.bookmark_outline),
                   fvTag(row['target_price'] == null
                       ? '目標價未設定'
-                      : '目標 ${legacy.accountingNumber(row['target_price'], decimals: 2)}'),
-                  if (pending > 0) fvTag('待追蹤 $pending'),
+                      : '目標 ${legacy.accountingNumber(row['target_price'], decimals: 2)}',
+                      icon: Icons.track_changes_outlined),
+                  if (pending > 0) fvTag('待追蹤 $pending', icon: Icons.flag_outlined),
                   if (offUniverse)
-                    fvTag('已離開本週 500 · 仍保留關注', warning: true),
+                    fvTag('已離開本週 500 · 仍保留關注', warning: true,
+                        icon: Icons.bookmark_added_outlined),
                 ],
               ),
             ],

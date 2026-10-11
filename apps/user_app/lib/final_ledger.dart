@@ -498,64 +498,52 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     required bool withheld,
   }) => Column(
         children: [
-          Row(
+          fvPanel(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: fvMetricTile(
-                  '持股市值',
-                  marketValue,
-                  detail: '估值日 ${fvText(aggregate['valuation_date'])}',
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: fvMetricTile(
-                  '未實現損益',
-                  unrealized,
-                  detail: '報酬 $unrealizedReturn',
-                  valueColor: withheld ? null : fvSignedColor(unrealizedAmount),
-                  detailColor:
-                      withheld ? null : fvSignedColor(unrealizedReturnAmount),
-                ),
-              ),
+              Row(children: [
+                const Icon(Icons.account_balance_wallet_outlined, color: fvTeal, size: 22),
+                const SizedBox(width: 8),
+                const Expanded(child: Text('持股市值',
+                    style: TextStyle(color: fvInk, fontWeight: FontWeight.w800))),
+                fvStatusPill(withheld ? 'partial' :
+                    aggregate['valuation_status'] ?? aggregate['aggregate_status'] ?? 'partial'),
+              ]),
+              const SizedBox(height: 10),
+              Text(marketValue,
+                  key: const Key('ledger-market-value-hero'),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: fvInk, fontSize: 28,
+                      fontWeight: FontWeight.w800, height: 1.16)),
+              const SizedBox(height: 7),
+              Text('估值日 ${fvText(aggregate['valuation_date'])} · ledger v${fvText(aggregate['ledger_version'])}',
+                  style: const TextStyle(color: fvMuted, fontSize: 12)),
             ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: fvMetricTile(
-                  '本年已實現損益',
-                  ytd,
-                  detail: ytd == '待更新／尚未確認'
-                      ? 'Private Mart 尚未確認時不補 0'
-                      : ytd == '資料不足'
-                          ? '年度損益目前無法確認'
-                          : ytd == '0'
-                              ? '本年度確認無交易'
-                              : '正式年度損益',
-                  valueColor: fvSignedColor(ytdAmount),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: fvMetricTile(
-                  '估值狀態',
-                  withheld
-                      ? '暫不發布'
-                      : legacy.uiLabel(
-                          aggregate['valuation_status'] ??
-                              aggregate['aggregate_status'] ??
-                              (aggregate.isEmpty ? 'partial' : 'available'),
-                        ),
-                  detail:
-                      'ledger v${fvText(aggregate['ledger_version'], missing: '—')}',
-                ),
-              ),
-            ],
-          ),
+          )),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(child: fvMetricTile('未實現損益', unrealized,
+                detail: '報酬 $unrealizedReturn',
+                valueColor: withheld ? null : fvSignedColor(unrealizedAmount),
+                detailColor: withheld ? null : fvSignedColor(unrealizedReturnAmount))),
+            const SizedBox(width: 10),
+            Expanded(child: fvMetricTile('本年已實現損益', ytd,
+                detail: ytd == '待更新／尚未確認'
+                    ? 'Private Mart 尚待確認'
+                    : ytd == '資料不足' ? '年度損益目前無法確認'
+                    : ytd == '0' ? '本年度確認無交易' : '正式年度損益',
+                valueColor: fvSignedColor(ytdAmount))),
+          ]),
+          const SizedBox(height: 6),
+          Row(children: [
+            const Icon(Icons.verified_user_outlined, size: 17, color: fvTeal),
+            const SizedBox(width: 7),
+            const Text('估值狀態：', style: TextStyle(color: fvMuted, fontSize: 12)),
+            Expanded(child: Text(withheld ? '暫不發布' : legacy.uiLabel(
+                aggregate['valuation_status'] ?? aggregate['aggregate_status'] ??
+                (aggregate.isEmpty ? 'partial' : 'available')),
+                style: const TextStyle(color: fvMuted, fontSize: 12))),
+          ]),
         ],
       );
 
