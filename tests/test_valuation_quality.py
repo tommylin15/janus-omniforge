@@ -78,3 +78,19 @@ def test_sparse_policy_not_applied_to_linear():
     with pytest.raises(ValueError, match="only supported by tree"):
         walk_forward([], model_name="linear", features=["pe_ratio"], cost_bps=30, horizon_days=5,
                      allow_missing_features=True)
+
+
+def test_valuation_feature_version_does_not_invalidate_other_b7_specialists():
+    from intelligence_mart.specialists import (DEPENDENCIES, FEATURE_VERSION, MODEL_VERSION,
+                                                VERSION, digest, specialist_versions)
+    from intelligence_mart.specialist_runtime import _cache_identity
+    assert (FEATURE_VERSION, VERSION) == ("2", "specialist-rules-v2")
+    assert specialist_versions("valuation") == ("3", "specialist-rules-v3")
+    sample = "sha256:" + "a" * 64
+    for role in DEPENDENCIES:
+        identity = _cache_identity("2330", role, sample)
+        old_identity = digest({"cache_version": "deep-coverage-cache-v1", "symbol": "2330",
+                               "role": role, "input_hash": sample,
+                               "feature_version": FEATURE_VERSION,
+                               "engine_version": VERSION, "model_version": MODEL_VERSION})
+        assert (identity != old_identity) == (role == "valuation")
