@@ -29,6 +29,8 @@ def test_watchlist_read_preserves_offlist_owner_rows_without_writing():
     assert "WHERE w.user_id=%s AND w.active\n" in sql
     assert "UPDATE" not in sql
     assert "AS in_market_500" in sql
+    assert "LEFT JOIN LATERAL" in sql and "publication.stock_serving_recent" in sql
+    assert "r.sort_at<price.sort_at" in sql
 
 
 def test_blank_watchlist_search_does_not_read_the_universe():

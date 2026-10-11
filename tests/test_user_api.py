@@ -479,3 +479,18 @@ def test_today_relevant_is_authenticated_and_reuses_only_owner_watchlist():
     assert response.status_code == 200
     assert response.json()["items"][0]["kind"] == "follow_up"
     assert "market_price" not in response.json()["items"][0]
+
+
+def test_watchlist_price_change_requires_a_matching_published_reference():
+    from services.api.app import _watchlist_price_change
+    row = {"market_price": "125", "price_date": "2026-10-08",
+           "previous_close": "120", "previous_close_date": "2026-10-07"}
+    result = _watchlist_price_change(row, None)
+    assert result["change"] == "5" and result["change_percent"] == "0.04166666666666666666666666667"
+    assert result["previous_close_date"] == "2026-10-07"
+    quote = {"price": "130", "price_date": "2026-10-09"}
+    next_day = _watchlist_price_change(row, quote)
+    assert next_day["change"] == "5" and next_day["previous_close"] == "125"
+    assert _watchlist_price_change(row, {"price": "130", "price_date": "2026-10-06"})["change"] is None
+    assert _watchlist_price_change({**row, "previous_close": None}, None)["change"] is None
+

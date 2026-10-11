@@ -50,6 +50,39 @@ from .analysis import AnalysisService, CEOJobTrigger, CEORequestIn, CEOCapabilit
 
 
 
+
+def _watchlist_price_change(row: dict[str, Any], quote: dict[str, Any] | None) -> dict[str, Any]:
+    """Quote vs the correct persisted prior session, fail-closed on mismatched dates."""
+    result = {"change": None, "change_percent": None, "previous_close": None,
+              "previous_close_date": None}
+    base_date = str(row.get("price_date") or "")[:10]
+    if not base_date:
+        return result
+    raw_current = row.get("market_price")
+    raw_reference = row.get("previous_close")
+    reference_date = str(row.get("previous_close_date") or "")[:10]
+    if quote:
+        quote_date = str(quote.get("price_date") or "")[:10]
+        if quote_date > base_date and len(quote_date) == 10:
+            raw_reference = raw_current
+            reference_date = base_date
+        elif quote_date != base_date:
+            return result
+        raw_current = quote.get("price")
+    try:
+        current = Decimal(str(raw_current))
+        previous = Decimal(str(raw_reference))
+        if not (current.is_finite() and previous.is_finite() and current > 0 and previous > 0):
+            return result
+        if not reference_date or reference_date >= (str(quote.get("price_date"))[:10] if quote else base_date):
+            return result
+        delta = current - previous
+        return {"change": str(delta), "change_percent": str(delta / previous),
+                "previous_close": str(previous), "previous_close_date": reference_date}
+    except (InvalidOperation, TypeError, ValueError):
+        return result
+
+
 def _owner_today_relevant(rows: list[dict[str, Any]], now: date) -> dict[str, Any]:
     """Deterministic owner-scoped follow-up/target relevance; not a trade signal."""
     items: list[tuple[int, dict[str, Any]]] = []
@@ -1080,6 +1113,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         result = []
         for row in rows:
             quote = prices.get(str(row["symbol"]))
+            movement = _watchlist_price_change(row, quote)
             if quote:
                 row = {**row,
                        "market_price": quote.get("price"),
@@ -1090,7 +1124,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                        "quote_at": quote.get("quote_at"),
                        "is_final": bool(quote.get("is_final")),
                        "route_version": ROUTE_VERSION}
-            result.append(row)
+            result.append({**row, **movement})
         return jsonable_encoder(result)
 
     @private.post("/watchlist",status_code=201)

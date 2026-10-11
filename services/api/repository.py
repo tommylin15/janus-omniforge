@@ -387,6 +387,8 @@ class PostgresWorkspaceRepository:
                 """SELECT w.*,s.name AS stock_name,
                    price.payload_json->>'close' AS market_price,
                    price.payload_json->>'trade_date' AS price_date,
+                   previous.payload_json->>'close' AS previous_close,
+                   previous.payload_json->>'trade_date' AS previous_close_date,
                    CASE WHEN price.payload_json IS NULL THEN 'missing' ELSE 'persisted' END AS price_status,
                    EXISTS(SELECT 1 FROM private.current_positions p
                           WHERE p.user_id=w.user_id AND p.symbol=w.symbol AND p.shares>0) AS held,
@@ -400,6 +402,11 @@ class PostgresWorkspaceRepository:
                    ) AS in_market_500
                    FROM private.watchlist w LEFT JOIN control.stock_master s ON s.symbol=w.symbol
                    LEFT JOIN publication.stock_latest price ON price.symbol=w.symbol AND price.dataset_id='ohlcv'
+                   LEFT JOIN LATERAL (
+                     SELECT r.payload_json FROM publication.stock_serving_recent r
+                     WHERE r.symbol=w.symbol AND r.dataset_id='ohlcv' AND r.sort_at<price.sort_at
+                     ORDER BY r.sort_at DESC LIMIT 1
+                   ) previous ON true
                    WHERE w.user_id=%s AND w.active
                    ORDER BY w.sort_order,w.symbol""",
                 (user_id,),

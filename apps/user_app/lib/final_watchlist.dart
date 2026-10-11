@@ -315,6 +315,22 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
                   ),
                 ],
               ),
+              if (row['change'] != null && row['change_percent'] != null) ...[
+                const SizedBox(height: 3),
+                Row(children: [
+                  Icon(fvNumber(row['change']) != null && fvNumber(row['change'])! >= 0
+                    ? Icons.arrow_upward : Icons.arrow_downward,
+                    size: 16, color: fvSignedColor(row['change'])),
+                  const SizedBox(width: 4),
+                  Text('${legacy.accountingNumber(row['change'], decimals: 2)}  ${fvSignedPercent(row['change_percent'])}',
+                    key: Key('watch-price-change-$symbol'),
+                    style: TextStyle(color: fvSignedColor(row['change']),
+                      fontSize: 15, fontWeight: FontWeight.w800)),
+                  const SizedBox(width: 7),
+                  Expanded(child: Text('前收 ${legacy.accountingNumber(row['previous_close'], decimals: 2)}',
+                    textAlign: TextAlign.end, style: const TextStyle(color: fvMuted, fontSize: 11))),
+                ]),
+              ],
               const SizedBox(height: 10),
               Wrap(
                 spacing: 7,
