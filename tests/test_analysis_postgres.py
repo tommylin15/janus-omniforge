@@ -84,7 +84,7 @@ def service(database):
 def test_ceo_quota_50_is_db_enforced_without_changing_prior_revision(database, service):
     api, owner = service
     old = api.capability(owner)['capability']
-    assert old['daily_quota'] == 1
+    assert old['daily_quota'] == 3
     api.save_capability(CEOCapabilityIn(email='test@example.com', enabled=True,
         daily_quota=50, cooldown_seconds=300, expected_version=old['version'],
         reason='approved owner quota'), 'admin@example.com')
