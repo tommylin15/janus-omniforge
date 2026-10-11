@@ -40,6 +40,8 @@ def database():
         connection.execute('RESET ROLE')
         sql = (Path(__file__).parents[1] / 'infra/postgres/migrations/051_analysis_product.sql').read_text()
         connection.execute('\n'.join(line for line in sql.splitlines() if not line.startswith('\\')))
+        quota_sql = (Path(__file__).parents[1] / 'infra/postgres/migrations/052_ceo_daily_quota_50.sql').read_text()
+        connection.execute('\n'.join(line for line in quota_sql.splitlines() if not line.startswith('\\')))
     return dsn
 
 
@@ -77,6 +79,27 @@ def service(database):
         version = connection.execute("SELECT max(version) FROM private.ceo_profile_revisions WHERE profile_id='default'").fetchone()[0]
     service.save_profile('default', CEOProfileIn(approved=True, expected_version=version, reason='CI fixture'), 'admin@example.com')
     return service, owner
+
+
+def test_ceo_quota_50_is_db_enforced_without_changing_prior_revision(database, service):
+    api, owner = service
+    old = api.capability(owner)['capability']
+    assert old['daily_quota'] == 1
+    api.save_capability(CEOCapabilityIn(email='test@example.com', enabled=True,
+        daily_quota=50, cooldown_seconds=300, expected_version=old['version'],
+        reason='approved owner quota'), 'admin@example.com')
+    fresh = api.capability(owner)['capability']
+    assert fresh['daily_quota'] == 50 and fresh['cooldown_seconds'] == 300
+    with psycopg.connect(database) as connection:
+        assert connection.execute(
+            "SELECT 1 FROM control.schema_migrations WHERE version='052_ceo_daily_quota_50'"
+        ).fetchone()
+        connection.execute('SET ROLE janus_private_api')
+        with pytest.raises(psycopg.errors.CheckViolation):
+            connection.execute("""INSERT INTO private.ceo_capability_revisions
+                (user_id,version,enabled,daily_quota,cooldown_seconds,actor,reason)
+                VALUES (%s,%s,true,51,300,'test','reject')""", (owner, old['version'] + 2))
+
 
 
 def test_concurrent_idempotency_and_active_quota_are_database_enforced(service):
