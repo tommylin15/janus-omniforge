@@ -21,6 +21,20 @@ jobs:
           set -Eeuo pipefail
           gcloud run jobs executions list --job=janus-ceo-analysis --project=gen-lang-client-0593591102 --region=us-central1 --limit=3 --format='json(metadata.name,metadata.creationTimestamp,status.startTime,status.completionTime,status.runningCount,status.succeededCount,status.failedCount,status.conditions)'
           gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ceo-analysis" AND timestamp>="2026-10-11T10:27:00Z"' --project=gen-lang-client-0593591102 --limit=15 --format='json(timestamp,severity,jsonPayload.status,jsonPayload.operation,jsonPayload.safe_reason,jsonPayload.error_type)'
+      - name: Read dedicated auth deletion metadata and provisioning permissions
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud logging read 'protoPayload.methodName="google.cloud.secretmanager.v1.SecretManagerService.DeleteSecret" AND protoPayload.resourceName="projects/gen-lang-client-0593591102/secrets/janus-mart-codex-auth" AND timestamp>="2026-10-01T00:00:00Z"' --project=gen-lang-client-0593591102 --limit=5 --format='json(timestamp,protoPayload.methodName,protoPayload.resourceName)'
+          python - <<'PY'
+          import json,subprocess,urllib.request
+          token=subprocess.check_output(['gcloud','auth','print-access-token'],text=True).strip()
+          url='https://cloudresourcemanager.googleapis.com/v1/projects/gen-lang-client-0593591102:testIamPermissions'
+          permissions=['secretmanager.secrets.create','secretmanager.secrets.list']
+          request=urllib.request.Request(url,data=json.dumps({'permissions':permissions}).encode(),headers={'Authorization':'Bearer '+token,'Content-Type':'application/json'})
+          with urllib.request.urlopen(request,timeout=15) as response:
+              print(json.dumps({'project_permissions':json.load(response).get('permissions',[]),'credentials_accessed':False,'iam_mutated':False}))
+          PY
       - name: Inspect approved Codex Secret metadata without accessing credentials
         shell: bash
         run: |
