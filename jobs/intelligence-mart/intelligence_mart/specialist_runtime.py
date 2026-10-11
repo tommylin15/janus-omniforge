@@ -10,7 +10,7 @@ from .coverage import load_or_create_target_snapshot
 from .runtime import _fenced_core_manifest, _write_immutable_json, deterministic_processor
 from .analytics_reader import IcebergSnapshotReader
 from .specialists import (DEPENDENCIES, FEATURE_VERSION, MODEL_VERSION, VERSION, analyze_specialists, digest,
-                          screening, screening_quality, specialist_input_hashes)
+                          screening, screening_quality, specialist_input_hashes, specialist_versions)
 from .storage import iceberg_snapshot_reader_from_environment
 
 
@@ -28,8 +28,9 @@ _CACHE_VERSION = "deep-coverage-cache-v1"
 
 
 def _cache_identity(symbol, role, input_hash):
+    feature_version, engine_version = specialist_versions(role)
     return digest({"cache_version": _CACHE_VERSION, "symbol": symbol, "role": role, "input_hash": input_hash,
-                   "feature_version": FEATURE_VERSION, "engine_version": VERSION, "model_version": MODEL_VERSION})
+                   "feature_version": feature_version, "engine_version": engine_version, "model_version": MODEL_VERSION})
 
 
 def _cached_specialist_reference(store, bucket, symbol, role, input_hash):
@@ -42,9 +43,10 @@ def _cached_specialist_reference(store, bucket, symbol, role, input_hash):
         if isinstance(error, HTTPError) and error.code != 404:
             raise
         return None, identity, name
+    feature_version, engine_version = specialist_versions(role)
     expected = {"artifact_kind": "mart_specialist_cache_v1", "schema_version": "1.0.0",
                 "cache_identity": identity, "symbol": symbol, "role": role, "input_hash": input_hash,
-                "feature_version": FEATURE_VERSION, "engine_version": VERSION, "model_version": MODEL_VERSION}
+                "feature_version": feature_version, "engine_version": engine_version, "model_version": MODEL_VERSION}
     if any(pointer.get(key) != value for key, value in expected.items()):
         raise RuntimeError("specialist cache identity mismatch")
     uri = str(pointer.get("artifact_uri", ""))
@@ -57,7 +59,7 @@ def _cached_specialist_reference(store, bucket, symbol, role, input_hash):
         raise RuntimeError("specialist cache artifact hash mismatch")
     artifact = json.loads(raw)
     if artifact.get("symbol") != symbol or artifact.get("role") != role or artifact.get("input_hash") != input_hash \
-            or artifact.get("feature_version") != FEATURE_VERSION or artifact.get("engine_version") != VERSION \
+            or artifact.get("feature_version") != feature_version or artifact.get("engine_version") != engine_version \
             or artifact.get("model_version") != MODEL_VERSION \
             or artifact.get("output_hash") != digest({k: v for k, v in artifact.items() if k != "output_hash"}):
         raise RuntimeError("specialist cache artifact contract mismatch")
@@ -70,8 +72,8 @@ def _cached_specialist_reference(store, bucket, symbol, role, input_hash):
 def _write_specialist_cache(store, bucket, artifact, reference, identity, name):
     pointer = {"artifact_kind": "mart_specialist_cache_v1", "schema_version": "1.0.0",
                "cache_identity": identity, "symbol": artifact["symbol"], "role": artifact["role"],
-               "input_hash": artifact["input_hash"], "feature_version": FEATURE_VERSION,
-               "engine_version": VERSION, "model_version": MODEL_VERSION,
+               "input_hash": artifact["input_hash"], "feature_version": artifact["feature_version"],
+               "engine_version": artifact["engine_version"], "model_version": MODEL_VERSION,
                "source_core_snapshot_id": artifact["core_snapshot_id"], **reference}
     _write_immutable_json(store, bucket, name, pointer)
 
