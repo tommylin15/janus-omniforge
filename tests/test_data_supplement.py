@@ -35,6 +35,16 @@ class DataSupplementTests(unittest.TestCase):
         self.assertEqual(fundamental_comparative_coverage([eps, {**income, "comparison_period_end": "2024-03-31"}])
                          ["qualified_comparative_quarters"], 0)
 
+    def test_fundamental_repair_mode_dispatches_existing_job_without_scheduler(self):
+        from ingestion_core.runtime_entrypoint import main
+        with patch.dict("os.environ", {"JANUS_DATA_SUPPLEMENT_MODE": "fundamental-history"}, clear=True):
+            with patch("ingestion_core.data_supplement.run_backfill", return_value={
+                    "status": "completed", "operation": "fundamental_history_repair"}) as repair:
+                with patch("builtins.print") as output:
+                    main()
+        repair.assert_called_once_with(fundamental_only=True)
+        self.assertIn("fundamental_history_repair", output.call_args.args[0])
+
     def test_official_valuation_month_identity_nullable_pe_and_bad_ratios(self):
         from ingestion_core.data_supplement import parse_valuation_month
         document = {"stat": "OK", "title": "113年09月 台積電 個股日本益比",
