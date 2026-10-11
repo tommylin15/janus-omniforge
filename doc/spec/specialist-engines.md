@@ -1,6 +1,18 @@
 # 五分析師引擎目前契約
 
-日常 Mart 使用 `specialist_runtime`，不使用生成式 LLM；但「日常」不等於每天把五 specialist 全量重算。Market Coverage 在每個交易日 EOD canonical data ready 後跑低成本 screening，Deep Coverage 則依 dirty dependency／input change 增量更新。舊五角色引擎、prompt、compatibility 與 provider daily entry 已刪除；歷史資料僅保留作稽核。後續 On-demand CEO 不在本次驗收範圍。
+## 2026-10-11 產品與模型研究分階段契約
+
+使用者核准先完成 B9 產品功能、再 C 組及剩餘產品交付，最後建立目標約 500 檔歷史研究池並調校五角色。完整執行切片見 [Codex 作業指示](../codex-execution-plan.md)，狀態見 [TODO](../todo.md)。本節取代下文將研究缺口視為產品整體 blocker 的語意，不改寫歷史 evidence。
+
+- 產品基準：Fundamental 財務比較；Valuation 相對估值；Quant 動能／強弱／市場排名；Risk 波動／CVaR／beta／回撤；Event parser／rules。產品 PASS 仍需真實資料、CI／deployment、workload、artifact/API readback 與適用整合驗收。
+- ML 品質、champion／publication 獨立驗收；未驗證機率不發布，模型狀態保留 NOT VERIFIED／PARTIAL；可靠基準不必等待 ML 勝出。缺必要輸入的 DCF 為 unavailable，不要求為產品結案補造假設。
+- Market Coverage、historical research cohort、Deep Coverage 分離。研究目標約 500 檔，按當日可得 membership 重建且保留退出股票，不以當前 500 回填過去；每日完整五角色仍只做 watchlist ∪ holdings。市場排名參照當日市場截面。
+- 產品階段即保存可取得的 membership／公告版本／publication／first-observed／source receipts；沿用授權與 retention，不假造缺失歷史。全面研究回補在產品交付後。
+- 日增量、週六補漏／品質檢查、每月首週六 10:30 評估候選模型；不新增每週 500×5 重訓。無新增成熟合格資料時應明示 skip/reuse reason；此差異須另核對實作，文件不代表已上線。
+- 研究按角色評估：基本面／估值偏中期資訊與規則比較，Quant 排序與成本後績效，Risk 尾端／環境／穩定性，Event 人審分類品質。500 檔行情不等於五者研究資料完整；財報資料優先策略 strict_pit=false 及既有來源／標籤成熟約束不變。
+
+
+日常 Mart 使用 `specialist_runtime`，不使用生成式 LLM；但「日常」不等於每天把五 specialist 全量重算。Market Coverage 在每個交易日 EOD canonical data ready 後跑低成本 screening，Deep Coverage 則依 dirty dependency／input change 增量更新。舊五角色引擎、prompt、compatibility 與 provider daily entry 已刪除；歷史資料僅保留作稽核。On-demand CEO 由 C 組驗收，不屬 B9 產品切片。
 
 ## 覆蓋與資料
 
@@ -100,3 +112,4 @@ Cloud Run Job 固定 1 CPU / 1 GiB、單 task、單 parallelism。真實 accepta
 使用者後續核准補足長期模型與回測，並再次確認 500 檔仍只補輕量資料。500 檔僅補足 60/120 日篩選窗口所需的市場價格/量/金額與 benchmark，市場補歷史上限 241 個日曆日；不做 500 檔財報/事件或五模型深度分析。多年（最多 36 月）價格、財報與模型/OOS 補足僅限 active watchlist ∪ effective holdings；沿用既有 Stage/Core/Job，缺失 >10% 保留有效資料並先討論。
 
 資料容量沿用既有清理機制：已提交 Stage payload 7 天、一般 Core 行情 365 天、財報 12 季。僅 active Deep Coverage 的 OHLCV、估值與大盤 benchmark 延長到 1096 天，避免多年回測資料被一般清理規則移除；退出深度覆蓋後回歸一般上限。保留政策須由既有 retention Job 執行，不代表設定後立即回收；manifest 引用的歷史 snapshot 仍受保護。
+

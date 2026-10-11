@@ -1,10 +1,10 @@
 # Janus 文件入口
 
-更新：2026-10-10
+更新：2026-10-11
 
 本頁定義 repository 內文件的角色，避免同一件事同時在 README、SPEC、WBS、TODO、runbook 與測試紀錄各自形成不同版本。
 
-**目前工程入口：**[最新狀態](status.md) → [B7～B9 active TODO](todo.md) → [B 組執行指令](codex-execution-plan.md) → [WBS 5](wbs/wbs-5-specialist-engines.md)／[Specialist SPEC](spec/specialist-engines.md)。CI/CD 已在目前核准的 dev 範圍 PASS 結案，[完整證據在 archive](archive/cicd-ghcr-api-promotion-2026-10-10.md)，四項額外豁免在 [Parking Lot](parking-lot.md)，不占用 B 組 TODO。
+**目前工程入口：**[最新狀態](status.md) → [產品優先／後置研究 TODO](todo.md) → [Codex 作業指示：先產品、再 500 檔歷史研究](codex-execution-plan.md) → [WBS 5](wbs/wbs-5-specialist-engines.md)／[Specialist SPEC](spec/specialist-engines.md)。CI/CD 已在目前核准的 dev 範圍 PASS 結案，[完整證據在 archive](archive/cicd-ghcr-api-promotion-2026-10-10.md)，四項額外豁免在 [Parking Lot](parking-lot.md)，不占用 B 組 TODO。
 
 ## 1. 先判斷你要回答哪一種問題
 
@@ -28,7 +28,7 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `PROJECT_RULES.md`：治理、權限、驗證與文件維護規則。
 - `status.md`：目前狀態與下一個執行序列的短入口；不是新的 source of truth。
 - `todo.md`：只保存確定要做的 active queue 與未完成 acceptance；暫不做與已接受缺口見 `parking-lot.md`。
-- `codex-execution-plan.md`：TODO 的 A／B／C 合併工作組執行指令；先整合修改再集中驗收，不另維護待辦狀態。
+- `codex-execution-plan.md`：B9 產品 → C／剩餘產品交付 → 500 檔歷史研究的作業指示；先整合再驗收，不另維護待辦狀態。
 - `decision-2026-10-06-bigquery-analytics-over-iceberg.md`：B 組 Iceberg canonical + BigQuery analytics hybrid 決策；禁止 Storage Read API，BigQuery 不取代 PostgreSQL serving 或 canonical Iceberg。
 - `future-market-alerts.md`：使用者指定獨立保存的未來預警增補；狀態由 `parking-lot.md` 管理，不是 active scope。
 - `spec.md`：SPEC 索引；正式契約在 `spec/*.md`。
@@ -60,4 +60,5 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 ## 4. Operations ledger 的處理方式
 
 `spec/operations-and-testing.md` 已累積大量歷史 checkpoint。GitHub connector 在不遺失原文的前提下無法安全做 server-side blob 搬移或小範圍 patch，因此目前**保留原檔完整 evidence，不做高風險整檔重寫**。六個月 `WBS-8-DEV-PILOT-RUN` 的新增 bounded checkpoint 先追加至 `pilot-operational-evidence.md`，並由 `status.md` 連結目前判定；等有可驗證的完整搬移／patch 流程時，再考慮整併至 operations ledger 或將舊 checkpoint 分期移入 `archive/`。
+
 

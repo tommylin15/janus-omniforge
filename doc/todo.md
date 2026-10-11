@@ -1,6 +1,6 @@
 # Janus — TODO
 
-版本：3.25（2026-10-10：B7 月度及 derived-cache freshness PASS；B8 結案；B9 待執行）
+版本：3.26（2026-10-11：先產品交付，再 500 檔歷史研究；功能與模型品質分開驗收）
 用途：**只保留確定要做的 active work 與未完成 acceptance**。Deferred、Candidate、Observation、Production-only、已接受缺口與研究構想統一放 [`parking-lot.md`](parking-lot.md)；已完成／被取代內容放 `archive/`。
 
 ## 規則
@@ -23,7 +23,7 @@
 目前產品契約：
 
 - 五 specialist production 主路徑為 Python／SQL／ML，正常 path 不使用生成式 LLM。
-- 約 500 檔在每個交易日 EOD canonical data ready 後做低成本 market screening／cross-sectional discovery；BigQuery 通過 fidelity gate 後優先承接這條全市場計算，不做 500×5 深度 specialist。
+- 約 500 檔在每個交易日 EOD canonical data ready 後做低成本 market screening／cross-sectional discovery；預設 PyIceberg，BigQuery 不自動切流，不做 500×5 深度 specialist。
 - 完整五 specialist 只做 `active watchlist ∪ effective holdings`，依 dirty dependency／input change 更新；無變更 reuse，不固定每日全重算。
 - retraining／calibration／OOS evaluation／cache reconciliation 第一版固定 **每月第一個週六 10:30（Asia/Taipei）** 執行；不另設每週六 500×5 全量深算排程。
 - plain-language output 由 structured output + SHAP／rules／templates 產生，正常 0 API token。
@@ -43,7 +43,7 @@
 
 - Core Iceberg V2／GCS 繼續是 canonical／PIT／provenance/history；BigQuery 不取代 canonical store。
 - PostgreSQL serving projection 與 User／Admin request-time hot path 保持不變。
-- BigQuery 只作 B 組 analytics compute；通過 cutover gate 後，優先承接 **每日盤後 liquid-500 screening**、cross-sectional features、OOS/evaluation 前處理與 ML training dataset preparation。
+- 每日 screening／一般 specialist 預設 PyIceberg；BigQuery 僅 ML/OOS 前處理與 training dataset preparation 明確 opt-in，不自動 cutover。
 - 禁止 BigQuery Storage Read API；小結果走一般 query/result API，大型 training data 走 versioned GCS Parquet export artifact。
 - 不預設複製整套 Core 到 BigQuery native storage；temporary/TTL derived data 可用但不可升格 canonical。
 - 資料角色固定：Iceberg/GCS 保存 canonical/PIT/history；BigQuery intermediate 是可重建 compute；大型 training/evaluation dataset 以 versioned GCS Parquet 保存；model/evaluation/specialist 成果依 Mart contract 保存。BigQuery 中間結果不要求再回寫一份 Iceberg。
@@ -65,15 +65,16 @@ Admin operational convergence **不重做整個 Admin**。保留 `總覽 / 批�
 - 正式執行前依該項標示的【Sol】／【Luna】完成模型 gate；開始後以整體 acceptance scope 結案，不在內部 dataset／adapter／單一畫面反覆停等。
 - 新付費 API／model／subscription、新付費 GCP 資源、重大權限擴張、不可逆大量刪除、MFA／OAuth consent／付款仍需使用者明確授權。
 
-# 執行順序：A（CLOSED）→ B → C
+# 執行順序：A（CLOSED）→ B9 產品 → C／剩餘產品 → 500 檔歷史研究
 
-依使用者 2026-10-05 指示，先完成上班族操作體驗／效能／Admin，再整合原 specialist 與 CEO 工作。執行細節與可貼給 Codex 的指令見 [Codex 執行指令](codex-execution-plan.md)。以下三組是唯一執行順序；後面的 1～8 是原 WBS acceptance 索引，不再代表先後順序，也不重複計工。
+依使用者 2026-10-05 指示，先完成上班族操作體驗／效能／Admin，再整合原 specialist 與 CEO 工作。執行細節與可貼給 Codex 的指令見 [Codex 執行指令](codex-execution-plan.md)。以下產品組與後置研究切片是執行順序；後面的 1～8 是原 WBS acceptance 索引，不再代表先後順序，也不重複計工。
 
 | 工作組 | 範圍與原待辦對應 | 主要模型 | 集中驗收 |
 |---|---|---|---|
 | A：操作體驗／效能／資料營運 | §6 Admin；§7 非 CEO 功能；§8 非 AI 相依版型；下列新增補強 | Sol | 一組 API／Flutter／資料營運回歸與一輪 dev browser/readback |
-| B：specialist／增量快取／BigQuery analytics | §1 specialist + §2 rerun cache；BigQuery analytics hybrid；Admin 對應狀態接線 | Sol | 一組 reader/fidelity／引擎／cache 測試與 bounded dev 執行／reuse／OOS／FinOps readback |
+| B：B9 產品功能 | §1 可靠基準 + §2 cache；Admin 真實狀態 | Sol | 真實基準分析、缺值／來源／增量／persist/readback；不要求 ML 勝出 |
 | C：CEO／權限／最終整合 | §3 provider + §4 CEO + §5 Admin profile；§7 AI 整合；§8 剩餘驗收 | Sol | 一組端到端安全／UI 測試與最少已授權 provider live calls |
+| 後置研究：B9 模型品質切片 | 產品交付後，500 檔歷史研究池與五角色評估 | Sol | 各日期母體／資料／OOS／基準比較，逐模型決定升級 |
 
 同組先完成相關程式、migration、UI、tests、文件再集中驗收，不逐檔／逐 API／逐股票獨立部署。失敗僅補跑受影響範圍；原 acceptance、必要安全檢查及真實 dev 證據保留。A 不因尚無 CEO 而延後基本 UI；§8 整體結案仍須所有條件成立。跨組連續執行須使用者明確指定全部組，依 PROJECT_RULES 的本次例外處理。
 
@@ -98,8 +99,20 @@ A 組不再列 active TODO；下一個 active work 為 B 組。
 
 **B0～B8 CLOSED／PASS，不重跑；B9 是下一個 active gate。** B0～B6 歷史驗收入口： [B0](archive/group-b-b0-baseline-closure-2026-10-07.md)、[B1](archive/group-b-b1-reader-acceptance-2026-10-07.md)、[B2](archive/group-b-b2-closure-2026-10-07.md)、[B3](archive/group-b-b3-closure-2026-10-07.md)、[B4](archive/group-b-b4-deep-coverage-closure-2026-10-07.md)、[B5](archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)、[B6](archive/group-b-b6-ml-oos-cache-closure-2026-10-08.md)。B7 月度機制、B7 derived-cache freshness 與 B8 均已通過各自核准的 dev 驗收；B9 仍待執行。B7 freshness 完整證據見 [結案](archive/group-b-b7-derived-cache-freshness-closure-2026-10-10.md)，B8 完整證據見 [B8 結案](archive/group-b-b8-closure-2026-10-10.md)。執行方法見 [B 組指令](codex-execution-plan.md)。
 
-- [ ] **B9（B7／B8 CLOSED；下一個 active）五 Specialist／OOS 整合驗收**：模型品質證據必須使用與當次 Core source fence、PIT、source authorization 相容的資料；不以 B7 historical cache 或 B8 舊 snapshot 直接代替。完成 Fundamental／Valuation／Quant／Risk-Regime／Event 的 deterministic／ML、Taiwan PIT walk-forward OOS、calibration／champion evidence、structured + plain-language artifacts、incremental reuse／provenance／source authorization／public-private isolation；正常 path 不呼叫生成式 LLM，不以模型訓練成功代替 live publication gate。
+- [ ] **B9 產品功能驗收（下一入口）**：完成五角色可靠計算／規則基準、產品必要資料修復、structured／繁中白話產物、缺值／來源／PIT 時間政策、dirty/reuse、public/private isolation、CI／dev 發布／真實 workload／artifact/API readback。正常 path 0 LLM token；未驗證機率不發布。模型品質未過不阻擋可靠基準服務，純研究 OOS 不作此切片 gate。
+- [ ] **前瞻證據留存**：先盤點既有 daily membership、公告版本、publication／first-observed time 與 source receipts，沿用授權來源／retention 補必要缺口；不假造歷史、不提前啟動 500 檔大量回補。
+
+B9 產品 PASS 後可依授權接續 C 組，不等待五個 ML 都勝出；只有 C 組、剩餘持股頁／首屏及整體真實驗收也完成才能判定產品交付。B9 模型品質保留獨立 NOT VERIFIED／PARTIAL，不寫「B9 全部 PASS」。本次為順序與契約核准，不自動啟動跨組執行。
+
 - [ ] **B 組跨階段安全底線**：PostgreSQL serving 與 A 組已驗證 read path 不回歸；BigQuery failure audit/fallback 不修改 canonical Iceberg；不使用 BigQuery Storage Read API；不自動呼叫 CEO；維持現有 1 CPU／1 GiB Mart 限制。新付費 API／資源、IAM 擴權或 catalog migration 需另取得授權，未授權部分單獨 `BLOCKED`，其餘可行項繼續。
+
+## 產品交付後：B9 模型研究切片（已排程，依賴產品交付）
+
+- [ ] 建立目標約 500 檔的各日期歷史研究母體與 coverage matrix：上市／下市、納入／排除、來源授權、當時可用時間；不得以今日名單冒充歷史。無可信來源的期間標 blocked_source_history。
+- [ ] 按角色建置歷史行情／公司行動／benchmark／財報／估值／事件資料；固定 snapshot、版本、provenance、缺漏及時間政策；研究與 canonical／每日服務分離。
+- [ ] 預先固定 baseline、目標期限、主要指標、成熟標籤／purge、walk-forward、最終未調參時段、成本情境與不確定性評估，再調校模型；不以 train success 或股票數達 500 當 PASS。
+- [ ] Quant 優先、Risk 次之；基本面／估值先修資料與規則基準；Event 先取得合法 training-use 與人工審核標籤。五角色具體目標／交付物見 [Codex 作業指示](codex-execution-plan.md)。
+- [ ] 逐模型完成 OOS／校準／分環境穩定性及真實 artifact readback；無優勢保留基準，不自動 promotion。新增費用／資源／IAM 依 PROJECT_RULES。
 
 # 原 WBS acceptance（依上方工作組整合執行）
 
@@ -110,14 +123,14 @@ A 組不再列 active TODO；下一個 active work 為 B 組。
 先核對 [`spec/operations-and-testing.md`](spec/operations-and-testing.md) 已記錄的公開資料清理 apply/readback 與最新 runtime；依 [`spec/retention-governance.md`](spec/retention-governance.md) 只補尚缺的整合／排程證據，不為舊待辦重跑已完成刪除。其他治理／成本收斂併 A；不以文件過期阻擋 B。
 
 - [x] 約 500 檔**每日盤後**低成本 market screening 已由 B3 CLOSED；Deep Coverage universe／selective execution／no-change reuse 已由 B4 CLOSED。兩者未混成 500×5 全量深算。
-- [ ] Fundamental：deterministic financial features + LightGBM baseline。
-- [ ] Valuation：deterministic DCF／reverse-DCF／relative valuation + LightGBM／CatBoost benchmark。
-- [ ] Quant：LightGBM baseline + Qlib DoubleEnsemble challenger；以 Taiwan PIT walk-forward OOS 決定 champion。
-- [ ] Risk／Regime：Riskfolio-Lib + statsmodels／ML。
-- [ ] Event／Catalyst：parser／rules + local multilingual Transformers classifier。
-- [ ] 五 specialist 產出 structured artifact、SHAP／feature contribution、deterministic plain-language report；正常 path 0 LLM API token。
+- [ ] Fundamental：官方財務比較及 deterministic 基準可用；LightGBM 品質轉後置研究。
+- [ ] Valuation：relative valuation 可用；DCF／reverse-DCF 缺完整輸入／核准假設則 unavailable；LightGBM／CatBoost 轉後置研究。
+- [ ] Quant：動能／相對強弱／市場排名基準可用；Linear／LightGBM／CatBoost／Qlib 品質轉後置研究。
+- [ ] Risk：波動／CVaR／beta／drawdown 基準可用；Markov regime 品質轉後置研究。
+- [ ] Event：官方事件 parser／rules 可用；人審標籤與本機 classifier OOS 轉後置研究。
+- [ ] 五 specialist 產出 structured artifact、適用的 feature contribution／SHAP、deterministic plain-language report；正常 path 0 LLM API token。
 - [x] Deep Coverage 使用 `active watchlist ∪ effective holdings`；持股離開 500 仍保留，清倉且不在 watchlist 才退出。B4 live acceptance 已驗 5 symbols × 5 roles。
-- [ ] 完成 PIT／provenance／missing-data／public-private isolation、tests、dev deployment、live execution、artifact persist/readback 與 OOS benchmark acceptance。
+- [ ] 完成 PIT／provenance／missing-data／public-private isolation、tests、dev deployment、live execution、artifact persist/readback；OOS 模型品質獨立依後置研究驗收。
 
 目前 500 檔缺失 ≤10% 為使用者接受範圍；超過先討論，不直接判整體失敗或自行擴張補資料。Mart 資源維持使用者指定 1 CPU／1 GiB；需要提高時先提出 evidence，不自行升級。
 
@@ -187,3 +200,4 @@ A 組不再列 active TODO；下一個 active work 為 B 組。
 - [Parking Lot／暫不做](parking-lot.md)
 
 其他已完成／被取代證據保留於 `archive/`；完整 runtime／deployment evidence 見 `spec/operations-and-testing.md`。
+

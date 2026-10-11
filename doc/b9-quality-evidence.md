@@ -1,5 +1,7 @@
 # B9 五 Specialist／OOS 品質驗收：首輪唯讀證據
 
+> 2026-10-11 順序更新：本頁保留真實模型研究證據與修復 checkpoint，不作目前產品交付的整體阻擋條件。先完成 B9 可靠基準產品驗收、C 組及剩餘產品，再做 500 檔歷史研究池與逐角色 OOS。產品與模型品質分開判定，既有 NOT VERIFIED／PARTIAL 與 immutable evidence 不改寫；目前執行契約見 [TODO](todo.md) 與 [Codex 作業指示](codex-execution-plan.md)。
+
 更新：2026-10-10（Asia/Taipei）  
 狀態：**PARTIAL / MODEL QUALITY NOT VERIFIED**，此頁不是 B9 結案。  
 範圍：B0～B8 不重做；B7 快取 freshness PASS 與 B9 模型品質獨立判定。
@@ -138,3 +140,4 @@
 - Fundamental 5／20／60／120 日在**完全相同已成熟 OOS fold/cohort**分別計 `zero`、固定 `financial_rule`（EPS／歸母淨利同比各截斷 ±100%，係數固定 0.00005，不使用未來調參）、既有 LightGBM；保留逐模型 MSE、樣本數與來源時間，沒有效果不 promotion。
 - 獨立 [B9 Fundamental targeted Actions #38097863145](https://github.com/tommylin15/janus-omniforge/actions/runs/38097863145) **SUCCESS：47 passed、7 warnings**，涵蓋財報比較口徑、PIT 時間、補資料 coverage、同窗 baseline、財報上傳/缺值規則；屬程式／fixture 驗證，不是 GCP live data readback。後續其他 B9 同時修改 `specialists.py` 及其他角色，精確 SHA 新版整體 selective CI 另判。
 - **未完成**：發布符合此版來源 SHA 的 GHCR ingestion/Mart Jobs、真實執行一次 `fundamental-history`、Core 新 snapshot 的每股／季度 coverage readback、以同源固定 Core 重新跑三套 OOS 並持久化/readback，最後依 MSE/fold、可用時間與 source authorization 判定。新版尚無真實 Fundamental 重新 walk-forward 分數，不得以測試 PASS 說資料不足已解除或 LightGBM 已優於規則。發版仍須依既有完整 GHCR Job release gate 與共享 deployment lease，不可繞過。
+

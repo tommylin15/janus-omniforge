@@ -1,21 +1,17 @@
 # Janus WBS 5 — Token-first Specialist Engines
 
-更新：2026-10-08
+更新：2026-10-11
 狀態：Partial implementation；未完成整體 acceptance
 
 本 WBS 依 [`../decision-2026-10-03-token-first-specialist-and-on-demand-ceo.md`](../decision-2026-10-03-token-first-specialist-and-on-demand-ceo.md)、[`../decision-2026-10-06-bigquery-analytics-over-iceberg.md`](../decision-2026-10-06-bigquery-analytics-over-iceberg.md)、active TODO 與 [`../spec/specialist-engines.md`](../spec/specialist-engines.md) 執行。歷史 implementation／runtime evidence 只作追溯，不改變本 WBS 的現行目標。
 
 ## 1. 目標
 
-五個 specialist 的 production 主路徑為 Python／SQL／ML，日常不使用生成式 LLM：
+產品主路徑以可靠 Python／SQL／統計／規則提供五分析師，日常不使用生成式 LLM：Fundamental 財務比較、Valuation 相對估值、Quant 動能／強弱／市場排名、Risk 波動／CVaR／beta／回撤、Event parser／rules。
 
-1. Fundamental — deterministic financial features + LightGBM。
-2. Valuation — deterministic valuation + LightGBM／CatBoost。
-3. Quant — LightGBM baseline + Qlib DoubleEnsemble challenger。
-4. Risk／Regime — Riskfolio-Lib + statsmodels／ML regime model。
-5. Event／Catalyst — parser／rules + local multilingual encoder classifier。
+產品與 ML 品質分開驗收：先 B9 產品 → C 組與剩餘產品交付 → 500 檔歷史研究池。LightGBM／CatBoost／Qlib／Markov／本機 Event classifier 保留後置研究，不要求全部勝出才能產品交付。DCF 缺必要輸入／核准假設則 unavailable。具體交付／依賴／退出條件見 [Codex 作業指示](../codex-execution-plan.md)。本決策不將任何未驗證功能或模型標成 PASS。
 
-五 specialist 輸出必須 structured、PIT、可重放、可回測、可版本化；白話說明使用 SHAP／rules／templates，正常 path 0 API token。
+五角色 structured／可重放／版本化，保留來源與適用 PIT／財報非嚴格 PIT 說明；rules/templates 白話正常 0 API token，適用模型才要求 SHAP／contribution。
 
 ## 2. Universe
 
@@ -99,9 +95,11 @@ CEO 不被 upstream change 自動觸發；只標記 report freshness／material 
 
 歷史財報依 2026-10-03 使用者最新指示採資料優先驗證：原始數值版次／公開時間未證明不再阻擋 OOS。以最新官方版本及已知公開／上傳時間回放，時間缺少則採明示期末後 90 天假設；結果標示非嚴格 PIT，報酬標籤成熟／purge 保留。此特例取代歷史財報的嚴格時間 prerequisite，其他來源、品質與隔離契約保留。
 
-## 6. Evaluation
+## 6. 後置模型研究 Evaluation（不阻擋可靠基準產品）
 
-至少：Rank IC、ICIR、IC decay、top-decile future excess-return spread、hit rate、Brier／calibration、Sharpe、max drawdown、turnover、after-cost performance、regime stability。
+依角色適用性評估，不要求 Event／Risk 一律預測股價。歷史研究池目標約 500 檔，按各日可得母體建立，保留退出股票；無法重建的期間明示。先固定目標／基準／時間切分／成熟與 purge／未調參時段，再比較模型。
+
+指標包含：Rank IC、ICIR、IC decay、top-decile future excess-return spread、hit rate、Brier／calibration、Sharpe、max drawdown、turnover、after-cost performance、regime stability。
 
 GitHub framework benchmark 不等於台股 production evidence；champion 由 Janus Taiwan PIT OOS 結果決定。
 
@@ -134,7 +132,7 @@ Benchmark／challenger：
 
 引入前必須 pin version／license、走 dependency／security review；不直接 fork 整套產品架構進 Janus。
 
-## 9. Acceptance
+## 9. 產品 Acceptance
 
 完成至少證明：
 
@@ -149,9 +147,14 @@ Benchmark／challenger：
 - Deep Coverage watch-only／held-only／overlap／held-off-market／exit 語意正確；
 - 五 specialist production baseline 在真實 dev PIT data 執行並持久化；
 - dirty dependency graph 只重算受影響 specialist；no-change 可 audit reuse；
-- 每月第一個週六 10:30 的 retrain／calibration／OOS evaluation／reconciliation effective schedule 已在實際 Scheduler／controller readback，且可安全重跑；champion promotion 有 OOS evidence；
+- 每月第一個週六 10:30 的 retrain／calibration／OOS evaluation／reconciliation effective schedule 已在實際 Scheduler／controller readback，且可安全重跑；promotion 不屬產品必備；若升級 champion，另須 OOS／publication evidence；
 - specialist plain-language output 不依賴 LLM API；
 - canonical number、PIT、provenance、missing-data honesty、public/private isolation 保持；
 - tests、deployment、live dev execution、artifact persist／readback evidence 齊全。
 
 本 WBS 完成不等於 On-demand CEO 完成；CEO provider/runtime、capability、User／Admin UI 由後續 WBS 驗收。
+
+
+## 10. 後置研究退出條件
+
+依 TODO 在產品交付後驗收歷史研究池、資料覆蓋、各角色 baseline/challenger、時間外測試／校準／穩定性與真實 readback。無優勢可完成研究評估，但模型品質不標 PASS、不升級。研究完成度與產品可用度分開報告，B9 不以單一未限定 PASS 混用兩者。
