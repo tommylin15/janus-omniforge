@@ -120,7 +120,14 @@ def _evaluation_diagnostics(item, role):
                              ("realized_high_vol", "realized_extreme_vol", "realized_left_tail")) and
                          all(0 <= row[k] <= 1 for k in
                              ("predicted_high_vol_probability", "markov_tail_probability",
-                              "gaussian_tail_probability")),
+                              "gaussian_tail_probability")) and
+                         0 <= row["historical_abs_vol_p75"] <= row["historical_abs_vol_p95"] and
+                         row["realized_high_vol"] == (
+                             abs(row["market_return"]) >= row["historical_abs_vol_p75"]) and
+                         row["realized_extreme_vol"] == (
+                             abs(row["market_return"]) >= row["historical_abs_vol_p95"]) and
+                         row["realized_left_tail"] == (
+                             row["market_return"] <= row["historical_left_tail_p05"]),
                          "nonfinite, invalid or future training regime OOS daily evidence")
             for fold in monthly:
                 rows = [row for row in daily if row["month"] == fold["month"]]
@@ -129,8 +136,10 @@ def _evaluation_diagnostics(item, role):
                              source_fold.get("test_start", "") <= row["date"] <= source_fold.get("test_end", "~")
                              for row in rows), "regime daily fold violated prior-month training fence")
                 _require(len(rows) == fold["test_returns"] and
-                         abs(sum(row["markov_log_score"] - row["gaussian_log_score"]
-                                 for row in rows) - fold["total_log_score_improvement"]) < 1e-5,
+                         abs(sum(row["markov_log_score"] for row in rows) -
+                             _finite_number(source_fold.get("markov_log_score_sum"))) < 1e-5 and
+                         abs(sum(row["gaussian_log_score"] for row in rows) -
+                             _finite_number(source_fold.get("gaussian_log_score_sum"))) < 1e-5,
                          "daily regime log scores do not reconcile to immutable monthly fold")
             ordered = sorted(daily, key=lambda row: row["date"])
             groups = {}
