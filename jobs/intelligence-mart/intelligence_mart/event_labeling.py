@@ -122,7 +122,7 @@ def approved_dataset(candidates, reviews):
 
 def rules_baseline(text):
     """Deliberately simple deterministic challenger comparator, not ground truth."""
-    if re.search(r"法(?:人)?說會|投資人會議", text):
+    if re.search(r"法(?:人)?說(?:明)?會|投資人會議", text):
         category = "investor_meeting"
     elif re.search(r"營收|財務報告|每股盈餘|獲利", text):
         category = "earnings"
