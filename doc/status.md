@@ -6,6 +6,13 @@
 更新：2026-10-11（Asia/Taipei）
 證據優先：GitHub `main`、GitHub Actions／live runtime；已完成記錄放 archive，active acceptance 見 [TODO](todo.md)。
 
+## CEO 第一階段修正／052 live evidence（2026-10-11）
+
+- **程式／完整 Release：PASS，live CEO report：NOT VERIFIED。** Gemini `_prompt` 加完整 JSON schema、帶真實五份 specialist hashes 的 insufficient-data 範例、schema field-only validation audit；未驗證輸出仍 fail closed，歷史不改寫。API/Flutter Admin 將每日額度上限由 20 改為 50、冷卻仍 300 秒，並加模型／PostgreSQL 負向測試。
+- [Analysis CI #38141015494](https://github.com/tommylin15/janus-omniforge/actions/runs/38141015494) SUCCESS；[完整 GHCR Release #38141150467](https://github.com/tommylin15/janus-omniforge/actions/runs/38141150467) SUCCESS（source SHA `93a0f9f49c2645d7eee610aa1dec9e061b6d9260`，Python 1051 passed／2 deselected；Flutter 73 passed／build；四映像 public pull/digest）。此後 `main` 僅有 052 migration request 等操作／文件更新；不把 GHCR 映像存在當成新 worker 已部署。
+- **[Migration 052 #38141163200](https://github.com/tommylin15/janus-omniforge/actions/runs/38141163200) PASS**：`janus-ingestion-core-vhkbj` 執行成功，SQL hash `724aed33da1d752c3ce63bd8e2e911a2034eabbc742a5bed15ce1d401db0990e`，未更換 Job image／API traffic；只放寬 DB constraint，不自行更改原 Owner capability revision。
+- **尚未結案**：新的 CEO 專用 GHCR image 與既有 dev worker 版本一致性尚未接受本來源驗收；API 新候選／Admin owner capability 50 的 live readback、至少一次有效 Gemini CEO report hash＋immutable history readback 仍缺。先前 `invalid_structured_output` BLOCKED 請求不可覆寫／重送。正式 dev API 100% 流量與四排程 Jobs 保持原有發布 gate；不因上述 PASS 宣稱第一階段全程 PASS。
+
 ## 下一步：B9 產品功能驗收（模型研究後置；B0～B8 不重做）
 
 - **B0～B6：CLOSED／PASS**。完整過往驗收入口見 [TODO B 組摘要](todo.md) 與對應 `archive/group-b-*`；不重跑已通過 reader、500 screening、Deep Coverage／cache、ML/OOS Parquet path。
