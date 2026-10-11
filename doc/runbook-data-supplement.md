@@ -22,6 +22,14 @@ Windows 的 .cmd wrapper 可能把 ^|^ 參數解讀成 shell 管線，因此上�
 
 五分析師模型補資料使用同一入口：`backfill` 同時補官方每日 PE/PB/殖利率；只補估值可設 `JANUS_DATA_SUPPLEMENT_MODE=valuation-history`，搭配 `JANUS_DATA_SUPPLEMENT_PRICE_MONTHS=36` 與已核准 Deep Coverage 股號，不重抓完整價量／財報。daily 自動核對最新估值月份，且既有財報缺 `same-filing-comparatives-v1` 時重新解析一次；這是來源／特徵版本更新，不把 receipt 倒填成歷史 availability。模型使用同份財報 EPS／母公司獲利同比，原始跨版本 EPS 口徑未知仍保留缺值。
 
+## B9 Fundamental 官方比較值缺口修復（不含 B7 月度重訓）
+
+可在已驗證的新 ingestion image 上使用既有 Cloud Run Job 的 `JANUS_DATA_SUPPLEMENT_MODE=fundamental-history`（須先完成本版 CI／GHCR 部署）。本模式僅重讀核准 Deep Coverage TWSE 股票最近 **12 個官方財報季度**（上限三年／12 期）；已具有同一上傳版次、同一來源文件及同一期別 **EPS 年增率＋歸母淨利年增率** 完整配對的季別跳過；缺配對或新上傳版次才重新取得 MOPS filing index／inline XBRL。**不重抓月營收、估值、股票價量或 benchmark**，也不建立新 Scheduler、新外部來源或額外付費資源。
+
+操作前確認既有 ingestion Job 沒有 active execution；本模式使用原 Core/Stage、source admission、versioned insert/reuse 與 snapshot fence，不修改歷史收件時間或原有 immutable artifacts。設定的股票必須來自已核准 Deep Coverage；例如既有五檔的 `JANUS_DATA_SUPPLEMENT_SYMBOLS=1102,2327,2330,4958,5876`。如發現官方報表本身沒有合格比較值，允許該季保持缺值而非推定為零，失敗原因記錄在 `failures`，本模式為手動有界修復、不排入每日重試。
+
+`coverage` 現增加 `fundamental_comparative_quarters` 與 `fundamental_missing_comparative_periods`。需分別確認官方財報 12 季可用性、真正雙特徵合格季別數、來源時間分布及 OOS 成熟標籤數。這些是缺口追蹤，不是 Fundamental LightGBM 勝過零訊號／規則基準的證據。重新 evaluation 須由 B9 獨立流程使用同一 Core fence、immutable 成果和 PIT/source authorization，禁止重送 B7 月度 retrain 或升級模型。
+
 ## 驗收與失敗處理
 
 1. 執行成功仍須讀取 Core 的財報季數、月營收月數、價格交易日數，以及完整 Core snapshot manifest；不能只看 Cloud Run 成功。
