@@ -23,7 +23,7 @@ def test_relative_valuation_keeps_original_official_and_dcf_missing():
     row = {"symbol": "2330", "source_id": "twse", "provenance_id": "off1",
            "observed_at": "2026-03-01", "observed_date": "2026-03-01",
            "pe_ratio": 500, "pb_ratio": 2.8, "dividend_yield_percent": 0}
-    report = analyze_specialists({"valuation": [row]}, "2330", "2026-04-01", "core", roles=["valuation"])[0]
+    report = analyze_specialists({"valuation": [row]}, "2330", "2026-03-08", "core", roles=["valuation"])[0]
     assert row["pe_ratio"] == 500 and report["metrics"]["pe_ratio"] is None
     assert report["metrics"]["dividend_yield_percent"] == 0
     assert report["metrics"]["dcf_value_per_share"] is None
