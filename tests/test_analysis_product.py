@@ -48,6 +48,16 @@ def test_empty_events_invalidate_previously_cached_zero_count():
     assert specialist_versions('event') == ('3', 'event-source-coverage-v3')
 
 
+def test_completely_missing_datasets_do_not_invent_baseline_counts():
+    artifacts = analyze_specialists({'events': [], 'ohlcv': [], 'benchmark': []}, '2330', '2026-05-01', 'core-1')
+    manifest, _ = product_inputs()
+    manifest['specialists'] = [{'symbol': a['symbol'], 'role': a['role'], 'input_hash': a['input_hash'],
+                               'source_core_snapshot_id': a['core_snapshot_id']} for a in artifacts]
+    manifest['output_hash'] = digest({k: v for k, v in manifest.items() if k != 'output_hash'})
+    product = baseline_projection(manifest, artifacts)
+    assert all(a['baseline_status'] == 'unavailable' for a in product['specialists'])
+
+
 @pytest.mark.parametrize('change', ['metrics', 'symbol', 'date', 'source', 'role'])
 def test_product_rejects_tampering_and_cross_symbol_or_future_source(change):
     manifest, artifacts = product_inputs()

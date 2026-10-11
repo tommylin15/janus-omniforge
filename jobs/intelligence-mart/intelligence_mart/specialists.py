@@ -48,6 +48,8 @@ def specialist_versions(role):
         return '3', 'quant-relative-strength-v3'
     if role == 'event':
         return '3', 'event-source-coverage-v3'
+    if role == 'risk':
+        return '3', 'risk-source-coverage-v3'
     if role not in DEPENDENCIES:
         raise ValueError("unknown specialist role")
     return FEATURE_VERSION, VERSION
@@ -159,7 +161,7 @@ def risk_metrics(prices, benchmark):
     return {"volatility_annualized": pstdev(returns) * sqrt(252) if len(returns) >= 20 else None,
             "historical_cvar_95_daily": cvar,
             "max_drawdown_120d": drawdown if len(returns) >= 120 else None,
-            "beta_120d": beta, "aligned_intervals": len(common)}
+            "beta_120d": beta, "aligned_intervals": len(common) if prices and benchmark else None}
 
 
 def discounted_cash_flow(fcf_per_share, discount_rate, terminal_growth, growth, years=5):
