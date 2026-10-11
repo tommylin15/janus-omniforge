@@ -18,6 +18,7 @@ class FinalTodayPage extends StatefulWidget {
 class _FinalTodayPageState extends State<FinalTodayPage> {
   late Future<dynamic> market = _loadMarket();
   late Future<dynamic> brief = _loadBrief();
+  late Future<dynamic> personal = _loadPersonal();
 
   Future<dynamic> _loadMarket() async {
     try {
@@ -25,6 +26,25 @@ class _FinalTodayPageState extends State<FinalTodayPage> {
           .timeout(const Duration(seconds: 9));
     } catch (_) {
       return null;
+    }
+  }
+
+  Future<dynamic> _loadPersonal() async {
+    try {
+      return await widget.api.get('/api/v1/me/today-relevant')
+          .timeout(const Duration(seconds: 7));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant FinalTodayPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.api, widget.api)) {
+      market = _loadMarket();
+      brief = _loadBrief();
+      personal = _loadPersonal();
     }
   }
 
@@ -174,6 +194,46 @@ class _FinalTodayPageState extends State<FinalTodayPage> {
       ),
     );
   }
+
+  Widget _personalBlock() => FutureBuilder<dynamic>(
+        future: personal,
+        builder: (context, snapshot) {
+          // Private data is optional, never blocks the public market baseline.
+          final rows = fvRows(fvMap(snapshot.data)['items']);
+          if (rows.isEmpty) return const SizedBox.shrink();
+          return fvPanel(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Row(children: [
+                Icon(Icons.auto_awesome_outlined, size: 22, color: fvTeal),
+                SizedBox(width: 8),
+                Expanded(child: Text('與你最相關的追蹤',
+                  style: TextStyle(color: fvInk, fontWeight: FontWeight.w800, fontSize: 20))),
+              ]),
+              const SizedBox(height: 5),
+              const Text('根據你自己的關注與待追蹤筆記，不代表投資建議。',
+                  style: TextStyle(color: fvMuted, fontSize: 11)),
+              const SizedBox(height: 8),
+              for (final raw in rows.take(3))
+                Builder(builder: (context) {
+                  final item = fvMap(raw);
+                  final symbol = fvText(item['symbol'], missing: '');
+                  return ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(item['kind'] == 'near_owner_target'
+                      ? Icons.track_changes_outlined : Icons.flag_outlined, color: fvTeal),
+                    title: Text(fvText(item['title']),
+                      style: const TextStyle(color: fvInk, fontWeight: FontWeight.w700)),
+                    subtitle: item['data_as_of'] == null ? null :
+                      Text('行情日 ${fvText(item['data_as_of'])}'),
+                    trailing: const Icon(Icons.chevron_right, color: fvMuted),
+                    onTap: symbol.isEmpty ? null : () => widget.onOpenStock?.call(symbol),
+                  );
+                }),
+            ]),
+          );
+        },
+      );
 
   Widget _marketBlock() => FutureBuilder<dynamic>(
         future: market,
@@ -443,8 +503,9 @@ class _FinalTodayPageState extends State<FinalTodayPage> {
               fvPageTitle(
                 context,
                 '今日',
-                subtitle: '市場基礎資料與研究內容分開載入',
+                subtitle: '先看與你有關的事，再看市場',
               ),
+              _personalBlock(),
               _marketBlock(),
               _briefBlock(),
               const Padding(

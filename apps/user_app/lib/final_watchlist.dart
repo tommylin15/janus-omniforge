@@ -187,7 +187,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
     }
   }
 
-  Widget header(BuildContext context, int count) => Column(
+  Widget header(BuildContext context, int count, {int followups = 0}) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           fvPageTitle(context, '關注', subtitle: '我的關注清單與待追蹤事項'),
@@ -202,6 +202,10 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
                   style: FilledButton.styleFrom(backgroundColor: fvTeal),
                 ),
                 const SizedBox(height: 10),
+                if (followups > 0) ...[
+                  fvTag('待追蹤筆記 $followups', icon: Icons.flag_outlined),
+                  const SizedBox(height: 8),
+                ],
                 Text(
                   '我的關注 $count/50',
                   style: const TextStyle(
@@ -376,7 +380,8 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
                 key: const Key('final-watchlist-scroll'),
                 padding: const EdgeInsets.fromLTRB(18, 18, 18, 110),
                 header: Column(children: [
-                  header(context, rows.length),
+                  header(context, rows.length, followups: rows.fold<int>(0,
+                      (total, row) => total + fvInt(fvMap(row)['pending_note_count']))),
                   if (snapshot.connectionState != ConnectionState.done)
                     fvBoundedState('清單更新中，保留上次有效資料', icon: Icons.sync),
                   if (snapshot.hasError)

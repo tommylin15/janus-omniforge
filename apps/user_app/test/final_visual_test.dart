@@ -76,6 +76,29 @@ void mobileView(WidgetTester tester) {
 }
 
 void main() {
+  testWidgets('Today prioritizes owner-specific highlights without blocking public market', (tester) async {
+    mobileView(tester);
+    final api = FinalFakeApi({
+      '/api/v1/me/today-relevant': {
+        'status': 'available', 'items': [
+          {'symbol': '2330', 'title': '台積電：有 1 項待追蹤筆記',
+           'kind': 'follow_up'}
+        ]
+      },
+      '/api/v1/public/market-home': {
+        'sections': {'taiex': {'status': 'available', 'as_of': '2026-10-08',
+          'data': {'close': '23000'}}}
+      },
+      '/api/v1/public/daily-brief': {'items': []},
+    });
+    await tester.pumpWidget(MaterialApp(home: FinalTodayPage(api)));
+    await tester.pumpAndSettle();
+    expect(find.text('與你最相關的追蹤'), findsOneWidget);
+    expect(find.text('台積電：有 1 項待追蹤筆記'), findsOneWidget);
+    expect(find.text('加權指數'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('390px Today keeps baseline hierarchy without Daily Brief',
       (tester) async {
     mobileView(tester);
