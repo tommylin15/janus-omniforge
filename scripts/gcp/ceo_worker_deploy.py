@@ -83,7 +83,8 @@ def main():
         assert public['Digest'] == old_image.split('@')[1]
         assert public['Labels']['org.opencontainers.image.revision'] == existing['labels']['janus-git-sha']
         rollback = {'rollback_image': old_image, 'rollback_sha': existing['labels']['janus-git-sha']}
-        requests = [(path + '?validateOnly=true', payload, 'PATCH'), (path, payload, 'PATCH')]
+        cloud(path + '?validateOnly=true', payload, 'PATCH')
+        requests = [(path, payload, 'PATCH')]
     for target, body, method in requests:
         operation = cloud(target, body, method)
         name = operation.get('name', '')

@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import sys
+import json
 
 import pytest
 
@@ -87,3 +88,41 @@ def test_worker_fence_checks_later_execution_pages(monkeypatch):
     monkeypatch.setattr(ceo_worker_deploy, 'cloud', lambda _: next(responses))
     with pytest.raises(AssertionError, match='not terminal'):
         ceo_worker_deploy.execution_fence()
+
+
+def test_worker_update_does_not_poll_nonpersistent_validation_operation(monkeypatch, tmp_path):
+    sys.path.insert(0, str(path.parent))
+    import ceo_worker_deploy as deploy
+    import subprocess
+    old_image = 'ghcr.io/tommylin15/janus-intelligence-mart@sha256:'+'1'*64
+    new_image = 'ghcr.io/tommylin15/janus-intelligence-mart@sha256:'+'2'*64
+    old = worker.template(source(), old_image, 'a'*40)
+    old.update(etag='fence', terminalCondition={'state': 'CONDITION_SUCCEEDED'})
+    desired = worker.template(source(), new_image, 'b'*40)
+    desired.update(etag='new', terminalCondition={'state': 'CONDITION_SUCCEEDED'})
+    current = old
+    calls = []
+    def cloud(target, body=None, method=None):
+        nonlocal current
+        calls.append(target)
+        if target.endswith('/services/janus-api'): return {'template': {'serviceAccount': deploy.API_IDENTITY}}
+        if target.endswith('/executions?pageSize=100'): return {'executions': []}
+        if '?validateOnly=true' in target: return {'name': deploy.ROOT+'/operations/validation', 'done': False}
+        if target.endswith('/operations/validation'): raise RuntimeError('cloud_control_http_404')
+        if target.endswith('/operations/update'): return {'done': True}
+        if target.endswith(':getIamPolicy'): return deploy.bind_api({}, deploy.API_IDENTITY)
+        if target.endswith(':setIamPolicy'): return body['policy']
+        if method == 'PATCH':
+            current = desired
+            return {'name': deploy.ROOT+'/operations/update'}
+        return current
+    (tmp_path/'ops').mkdir()
+    (tmp_path/'ops/ceo-worker-plan.json').write_text(json.dumps({'approved': True, 'job': worker.JOB}))
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(deploy, 'cloud', cloud)
+    monkeypatch.setattr(deploy, 'job', lambda _: source())
+    monkeypatch.setattr(subprocess, 'check_output', lambda *a, **k: json.dumps({'Digest': 'sha256:'+'1'*64, 'Labels': {'org.opencontainers.image.revision': 'a'*40}}))
+    monkeypatch.setattr(sys, 'argv', ['deploy', '--image', new_image, '--sha', 'b'*40])
+    deploy.main()
+    assert deploy.ROOT+'/operations/validation' not in calls
+    assert current['labels']['janus-git-sha'] == 'b'*40

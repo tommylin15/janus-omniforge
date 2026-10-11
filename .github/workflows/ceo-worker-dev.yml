@@ -85,7 +85,7 @@ jobs:
           except RuntimeError as error:
               if str(error)!='cloud_control_http_404': raise
           else:
-              assert data['head_sha']=='17dfb2511f3f76336757af410f071d7031f1f124'
+              assert data['head_sha'] in {'17dfb2511f3f76336757af410f071d7031f1f124','8ad5860109cbcdf61634da4667f9c1a674dcfeaf'}
               assert existing['labels']['janus-git-sha']=='08079495e05b66897ff1800efffc58906ef5f1fb'
               old='ghcr.io/tommylin15/janus-intelligence-mart@sha256:c38d844b2d363608434a694fd6a87b8c1edec9f8609d59ff8c76f65e2785ceb7'
               assert existing['template']['template']['containers'][0]['image'].removeprefix('cache.us-docker.pkg.dev/')==old
