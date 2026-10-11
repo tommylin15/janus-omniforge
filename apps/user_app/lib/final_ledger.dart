@@ -196,7 +196,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
 
   Future<dynamic> safe(String path) async {
     try {
-      return await widget.api.get(path);
+      return await widget.api.get(path).timeout(const Duration(seconds: 9));
     } catch (_) {
       return null;
     }

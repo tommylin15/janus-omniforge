@@ -28,16 +28,21 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
   bool loading = true;
   bool klineLoading = false;
   bool klineRequested = false;
+  int chartDays = 22;
 
+  // Requests are bounded independently: one slow optional card never holds the page.
   Future<dynamic> safe(String key, String path) async {
     try {
-      final value = await widget.api.get(path);
-      values[key] = value;
-      errors.remove(key);
-      if (mounted) setState(() {});
+      final value = await widget.api.get(path).timeout(const Duration(seconds: 9));
+      if (mounted) {
+        setState(() {
+          values[key] = value;
+          errors.remove(key);
+        });
+      }
       return value;
     } catch (_) {
-      errors.add(key);
+      if (mounted) setState(() => errors.add(key));
       return null;
     }
   }
@@ -100,28 +105,22 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
   }
 
   Future<void> loadPrimary() async {
-    unawaited(safe('baseline',
-        '/api/v1/me/analysis/${Uri.encodeComponent(widget.symbol)}'));
     final stopwatch = Stopwatch()..start();
     if (mounted) setState(() => loading = true);
+    // All secondary requests are independent of the initial price/holdings view.
+    unawaited(safe('baseline',
+        '/api/v1/me/analysis/${Uri.encodeComponent(widget.symbol)}'));
+    unawaited(Future.wait([
+      safe('health', '/api/v1/public/stock-health/${Uri.encodeComponent(widget.symbol)}'),
+      safe('positions', '/api/v1/me/journal/positions'),
+      safe('notes', '/api/v1/me/notes?symbol=${Uri.encodeQueryComponent(widget.symbol)}'),
+      safe('events', '/api/v1/public/events/${Uri.encodeComponent(widget.symbol)}'),
+    ]));
+    unawaited(loadKline());
     try {
       await Future.wait([
-        safe('header',
-            '/api/v1/public/stock-header/${Uri.encodeComponent(widget.symbol)}'),
-        safe(
-          'health',
-          '/api/v1/public/stock-health/${Uri.encodeComponent(widget.symbol)}',
-        ),
-        safe('positions', '/api/v1/me/journal/positions'),
+        safe('header', '/api/v1/public/stock-header/${Uri.encodeComponent(widget.symbol)}'),
         safe('quotes', '/api/v1/me/portfolio/quotes'),
-        safe(
-          'notes',
-          '/api/v1/me/notes?symbol=${Uri.encodeQueryComponent(widget.symbol)}',
-        ),
-        safe(
-          'events',
-          '/api/v1/public/events/${Uri.encodeComponent(widget.symbol)}',
-        ),
       ]);
     } finally {
       stopwatch.stop();
@@ -130,17 +129,51 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
     }
   }
 
-  Future<void> loadKline() async {
-    if (klineRequested) return;
+  Future<void> loadKline({bool force = false}) async {
+    if (klineRequested && !force) return;
+    if (!mounted) return;
     setState(() {
       klineRequested = true;
       klineLoading = true;
     });
-    await safe(
-      'kline',
-      '/api/v1/public/kline/${Uri.encodeComponent(widget.symbol)}',
-    );
+    await safe('kline', '/api/v1/public/kline/${Uri.encodeComponent(widget.symbol)}');
     if (mounted) setState(() => klineLoading = false);
+  }
+
+
+  void _openExpandedChart() {
+    final rows = fvRows(values['kline']);
+    if (rows.isEmpty) return;
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        insetPadding: const EdgeInsets.all(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: SizedBox(
+            height: MediaQuery.sizeOf(dialogContext).height * .70,
+            child: Column(
+              children: [
+                Row(children: [
+                  const Expanded(child: Text('價格與量能 · 捏合縮放圖表',
+                    style: TextStyle(color: fvInk, fontWeight: FontWeight.w800))),
+                  IconButton(tooltip: '關閉圖表', onPressed: () => Navigator.pop(dialogContext),
+                    icon: const Icon(Icons.close)),
+                ]),
+                Expanded(child: InteractiveViewer(
+                  minScale: 1,
+                  maxScale: 3,
+                  child: SizedBox(
+                    width: MediaQuery.sizeOf(dialogContext).width - 48,
+                    child: FvKlineChart(rows: rows, maxPoints: chartDays, chartHeight: 280),
+                  ),
+                )),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   List<dynamic> get positions {
@@ -279,14 +312,19 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                   const SizedBox(height: 3),
                   Text(widget.symbol, style: const TextStyle(color: fvMuted)),
                   const SizedBox(height: 8),
+                  Text(
+                    legacy.accountingNumber(header['close'], decimals: 2, missing: '尚未取得'),
+                    key: const Key('stock-price-value'),
+                    style: const TextStyle(color: fvInk, fontSize: 30, fontWeight: FontWeight.w800),
+                  ),
                   Wrap(
                     spacing: 8,
                     runSpacing: 4,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
-                        '${header['price_source'] == 'twse_mis' ? '盤中最新價' : '正式收盤價'} ${legacy.accountingNumber(header['close'], decimals: 2, missing: '尚未取得')} · 行情日 ${fvText(header['trade_date'])}',
-                        style: const TextStyle(color: fvInk),
+                        '${header['price_source'] == 'twse_mis' ? '盤中最新價' : '正式收盤價'} · 行情日 ${fvText(header['trade_date'])}',
+                        style: const TextStyle(color: fvMuted, fontSize: 12),
                       ),
                       if (header['change'] != null)
                         Text(
@@ -299,6 +337,9 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                         ),
                     ],
                   ),
+                  if (errors.contains('header'))
+                    const Text('報價更新失敗，顯示上次有效資料',
+                        style: TextStyle(color: fvMuted, fontSize: 11)),
                   if (report['analysis_as_of'] != null ||
                       health['analysis_as_of'] != null) ...[
                     const SizedBox(height: 8),
@@ -349,6 +390,48 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                   ],
                 ),
               ),
+            fvSectionTitle(context, '價格與量能'),
+            Row(
+              children: [
+                const Icon(Icons.candlestick_chart_outlined, color: fvTeal, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Wrap(
+                    spacing: 6,
+                    children: [
+                      for (final period in const [22, 60, 200])
+                        ChoiceChip(
+                          label: Text(period == 22 ? '1M' : period == 60 ? '3M' : '1Y'),
+                          selected: chartDays == period,
+                          onSelected: (_) => setState(() => chartDays = period),
+                        ),
+                    ],
+                  ),
+                ),
+                if (fvRows(values['kline']).isNotEmpty)
+                  IconButton(
+                    key: const Key('stock-chart-expand'),
+                    tooltip: '放大圖表',
+                    onPressed: _openExpandedChart,
+                    icon: const Icon(Icons.open_in_full, color: fvTeal),
+                  ),
+              ],
+            ),
+            if (klineLoading && fvRows(values['kline']).isEmpty)
+              fvBoundedState('價格圖載入中；其餘個股資訊可先查看', icon: Icons.show_chart)
+            else if (errors.contains('kline') && fvRows(values['kline']).isEmpty)
+              fvPanel(child: Row(children: [
+                const Expanded(child: Text('價格圖暫時無法使用')),
+                TextButton(onPressed: () => loadKline(force: true), child: const Text('重試')),
+              ]))
+            else if (fvRows(values['kline']).isEmpty)
+              fvBoundedState('尚無可繪製的正式行情，不顯示示意圖')
+            else ...[
+              FvKlineChart(rows: fvRows(values['kline']), maxPoints: chartDays),
+              if (errors.contains('kline'))
+                const Text('行情更新失敗，保留上次有效圖表',
+                    style: TextStyle(color: fvMuted, fontSize: 11)),
+            ],
             fvSectionTitle(context, '筆記與待追蹤'),
             if (errors.contains('notes'))
               fvBoundedState('筆記資料尚未取得')
@@ -514,25 +597,14 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
             ExpansionTile(
               key: const Key('advanced-section'),
               tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-              onExpansionChanged: (expanded) {
-                if (expanded) loadKline();
-              },
               title: const Text(
                 '進階資料',
                 style: TextStyle(color: fvInk, fontWeight: FontWeight.w800),
               ),
               subtitle: const Text(
-                'K 線、Fact Pack、specialist、CEO 與完整 provenance 依能力載入',
+                '完整 specialist、CEO 與 provenance 依能力載入；價量圖已在上方',
               ),
               children: [
-                if (klineLoading)
-                  fvBoundedState('K 線載入中')
-                else if (klineRequested && errors.contains('kline'))
-                  fvBoundedState('K 線暫時無法使用')
-                else if (klineRequested && fvRows(values['kline']).isEmpty)
-                  fvBoundedState('K 線資料尚未就緒')
-                else if (klineRequested)
-                  FvKlineChart(rows: fvRows(values['kline'])),
                 FinalAnalysisPanel(widget.api, widget.symbol),
               ],
             ),

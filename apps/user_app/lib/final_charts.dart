@@ -170,9 +170,11 @@ class FvMonthlyPnlChart extends StatelessWidget {
 }
 
 class FvKlineChart extends StatelessWidget {
-  const FvKlineChart({required this.rows, super.key});
+  const FvKlineChart({required this.rows, this.maxPoints = 40, this.chartHeight, super.key});
 
   final List<dynamic> rows;
+  final int maxPoints;
+  final double? chartHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -195,8 +197,9 @@ class FvKlineChart extends StatelessWidget {
       }
     }
     candles.sort((a, b) => a.day.compareTo(b.day));
-    final visible = candles.length > 40
-        ? candles.sublist(candles.length - 40)
+    final window = maxPoints.clamp(1, 200);
+    final visible = candles.length > window
+        ? candles.sublist(candles.length - window)
         : candles;
     if (visible.isEmpty) return fvBoundedState('K 線資料不足，無法繪製');
 
@@ -231,7 +234,7 @@ class FvKlineChart extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           SizedBox(
-            height: hasVolume ? 240 : 195,
+            height: chartHeight ?? (hasVolume ? 240 : 195),
             width: double.infinity,
             child: CustomPaint(
               key: const Key('fv-kline-chart'),

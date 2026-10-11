@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'final_visual_common.dart';
@@ -19,7 +21,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> {
 
   Future<dynamic> _loadMarket() async {
     try {
-      return await widget.api.get('/api/v1/public/market-home');
+      return await widget.api.get('/api/v1/public/market-home')
+          .timeout(const Duration(seconds: 9));
     } catch (_) {
       return null;
     }
@@ -27,7 +30,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> {
 
   Future<dynamic> _loadBrief() async {
     try {
-      return await widget.api.get('/api/v1/public/daily-brief');
+      return await widget.api.get('/api/v1/public/daily-brief')
+          .timeout(const Duration(seconds: 9));
     } catch (_) {
       return null;
     }

@@ -1088,7 +1088,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Stock Detail keeps primary sections before lazy advanced Kline',
+  testWidgets('Stock Detail shows a primary chart, cached period change and zoom',
       (tester) async {
     mobileView(tester);
     final api = FinalFakeApi({
@@ -1173,7 +1173,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('我的持股'), findsOneWidget);
-    expect(find.text('正式收盤價 125.00 · 行情日 2026-10-03'), findsOneWidget);
+    expect(find.text('125.00'), findsOneWidget);
+    expect(find.text('正式收盤價 · 行情日 2026-10-03'), findsOneWidget);
     expect(find.text('▲ +5.00 (+4.17%)'), findsOneWidget);
     expect(find.textContaining('平均成本 100.00 · 現價 125.00'), findsOneWidget);
     expect(find.text('未實現損益 50 · 25%'), findsOneWidget);
@@ -1181,10 +1182,21 @@ void main() {
     final unrealized = tester.widget<Text>(find.byKey(const Key('stock-unrealized-pnl')));
     expect(priceChange.style?.color, fvGain);
     expect(unrealized.style?.color, fvGain);
-    expect(
-      api.reads.where((path) => path == '/api/v1/public/kline/2330'),
-      isEmpty,
+    expect(api.reads.where((path) => path == '/api/v1/public/kline/2330').length, 1);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('stock-chart-expand')),
+      170,
+      scrollable: find.byType(Scrollable).first,
     );
+    expect(find.byKey(const Key('fv-kline-chart')), findsOneWidget);
+    await tester.tap(find.text('3M'));
+    await tester.pumpAndSettle();
+    expect(api.reads.where((path) => path == '/api/v1/public/kline/2330').length, 1);
+    await tester.tap(find.byKey(const Key('stock-chart-expand')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('捏合縮放圖表'), findsOneWidget);
+    await tester.tap(find.byTooltip('關閉圖表'));
+    await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
       find.byKey(const Key('fv-health-bars')),
@@ -1207,8 +1219,8 @@ void main() {
       api.reads.where((path) => path == '/api/v1/public/kline/2330').length,
       1,
     );
-    expect(find.text('K 線／OHLCV'), findsOneWidget);
-    expect(find.byKey(const Key('fv-kline-chart')), findsOneWidget);
+    expect(find.text('進階資料'), findsOneWidget);
+    expect(find.text('K 線／OHLCV'), findsNothing);
     expect(tester.takeException(), isNull);
   });
   testWidgets('Ledger initial holdings defers inactive section requests',

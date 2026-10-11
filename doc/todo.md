@@ -96,7 +96,7 @@ A 組不再列 active TODO；下一個 active work 為 B 組。
 
 - [ ] VF-00～01 P0：資料 coverage matrix（source→Core→serving→API→UI）、MOPS 財報期別與事件時間、缺值／PIT、owner-scoped typed read path。
 - [ ] VF-02～04 P0：今日以本人持股／關注可信異動優先、無資料退回市場判讀／TAIEX；關注異動與價格、持股市值 Hero／有證據的損益貢獻；四頁不再用無重點的數字牆。
-- [ ] VF-05～06 P0：個股真實短價量及圖表入口、五角色可信狀態、390×844／字級放大／partial/stale/empty golden 與可及性。
+- [ ] VF-05～06 P0：個股真實短價量及圖表入口、五角色可信狀態、390×844／字級放大／partial/stale/empty golden 與可及性。2026-10-11 第一批 Flutter 主圖／期間切換／捏合縮放、bounded fetch、關注 stale-while-revalidate 已提交待 CI／真實 dev readback；不得因此勾選整項。
 - [ ] VF-07～09 P1：真實官方營收／EPS／PE/PB／法人／事件圖、Private Mart 報表歷史趨勢與角色狀態；缺口不得補假值。
 - [ ] 同 SHA 集中 CI／GHCR dev／真實 owner 四頁 screenshot／數值／來源 readback；P0/P1 不得只憑文件／fixture 標 PASS。
 

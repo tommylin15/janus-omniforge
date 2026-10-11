@@ -19,6 +19,7 @@ class FinalWatchlistPage extends StatefulWidget {
 
 class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBindingObserver {
   late Future<dynamic> data = _load();
+  dynamic lastGoodData;
   Timer? quoteTimer;
   bool foreground = true;
 
@@ -91,7 +92,10 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
   Future<dynamic> _load() async {
     final stopwatch = Stopwatch()..start();
     try {
-      return await widget.api.get('/api/v1/me/watchlist');
+      final response = await widget.api.get('/api/v1/me/watchlist')
+          .timeout(const Duration(seconds: 9));
+      lastGoodData = response;
+      return response;
     } finally {
       stopwatch.stop();
       FinalPerf.recordCore('watchlist', stopwatch.elapsed);
@@ -329,14 +333,14 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
           child: FutureBuilder<dynamic>(
             future: data,
             builder: (context, snapshot) {
-              final rows = fvRows(snapshot.data);
-              if (snapshot.connectionState != ConnectionState.done) {
+              final rows = fvRows(snapshot.data ?? lastGoodData);
+              if (snapshot.connectionState != ConnectionState.done && lastGoodData == null) {
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(18, 18, 18, 110),
                   children: [header(context, 0), fvBoundedState('關注清單載入中')],
                 );
               }
-              if (snapshot.hasError) {
+              if (snapshot.hasError && lastGoodData == null) {
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(18, 18, 18, 110),
                   children: [
@@ -361,7 +365,16 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
               return ReorderableListView.builder(
                 key: const Key('final-watchlist-scroll'),
                 padding: const EdgeInsets.fromLTRB(18, 18, 18, 110),
-                header: header(context, rows.length),
+                header: Column(children: [
+                  header(context, rows.length),
+                  if (snapshot.connectionState != ConnectionState.done)
+                    fvBoundedState('清單更新中，保留上次有效資料', icon: Icons.sync),
+                  if (snapshot.hasError)
+                    fvPanel(child: Row(children: [
+                      const Expanded(child: Text('更新失敗，顯示上次有效資料')),
+                      TextButton(onPressed: reload, child: const Text('重試')),
+                    ])),
+                ]),
                 footer: const SizedBox(height: 8),
                 itemCount: rows.length,
                 buildDefaultDragHandles: false,

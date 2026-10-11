@@ -1,7 +1,7 @@
 # Janus 四頁視覺優先 — 工程實作清單（B）
 
 更新：2026-10-11
-狀態：Active work / NOT IMPLEMENTED。依 [A 正式視覺規格](visual-first-four-pages.md) 與既有 WBS-6、B9 產品＋C／剩餘產品合併授權執行；開發先整套完成再集中驗收。不重做 B0～B8，研究 500 檔母體與五模型 OOS 調參仍後置。
+狀態：Active work / PARTIAL implementation（2026-10-11 第一批價量主圖、縮放、bounded loading 程式已提交；CI／live 仍待驗）。依 [A 正式視覺規格](visual-first-four-pages.md) 與既有 WBS-6、B9 產品＋C／剩餘產品合併授權執行；開發先整套完成再集中驗收。不重做 B0～B8，研究 500 檔母體與五模型 OOS 調參仍後置。
 
 ## 1. 已查 main 的現況與缺口（不是 live PASS）
 
@@ -54,7 +54,16 @@ Series typed minimum：schema_version、symbol、metric、unit、period、points
 
 首屏沿用 PostgreSQL serving／cache／低成本讀路徑，財務長期 series 按需分段取回。無新增付費 provider／GCP、新 IAM 擴權、未核准回補、BigQuery Storage Read API、隱性外部抓取或自動 CEO／ML retrain。
 
-## 5. 測試、集中發布與狀態判定
+## 5. 圖卡縮放、有限等待與避免畫面閃爍（2026-10-11 補強）
+
+- 第一屏不等待次要圖卡：Header／持股為 critical，K 線／研究／事件／筆記獨立 async；每個讀取有上限並能個別重試。
+- 以既有 API 一次取得最多 200 筆 OHLCV，圖上 1M/3M/1Y 僅切呈現區間，使用者展開/捏合縮放不得為每次手勢重新打 API；切換股票須避免前一股票結果污染。
+- 圖卡縮放採「縮圖 → 點擊放大 → InteractiveViewer 捏合縮放／平移 → 關閉」，只針對價格、營收、EPS、估值、法人、資產趨勢等有判讀意義的圖；靜態數字卡不加入無用途手勢動畫。
+- loading 小卡使用 inline skeleton／狀態文字，不用整頁 spinner；逾時（暫定前端 read timeout 9 秒）顯示區塊級 error＋重試，已載入清單在 refresh 時 stale-while-revalidate。timeout 不等於後端任務已被取消；必要時 backend 再做 request cancellation／併發與 cache 控制。
+- 必須測：單卡卡住、其他卡正常、刷新失敗保留上次 snapshot／日期、retry 成功、10 次快速切換圖卡請求數不增加、低階 Android 390px 畫圖無明顯掉幀、P50/P95 及資料 freshness 可查。長期歷史圖採按需載入、bounded response，暫不自動取整個 500 檔。
+- 示意生成圖僅為視覺參考：其中 logo、通知鈴、百分比、健康度與研究文案不得 hardcode；仍沿用既有禁自動推播與未驗證模型限制。
+
+## 6. 測試、集中發布與狀態判定
 
 - Core/Mart targeted：數值單位、null/合法0、不同財報期別、EPS 股本、營收 YoY 基期、公司行動、事件 published 與 observed 反常、PIT leakage 負測、缺樣本不計分位。
 - API targeted：schema/pagination/limits、空／單點／缺洞、stale/partial、as_of/source/provenance、authenticated owner/public isolation；今日個人化訊息不得漏出他人持股／關注，沒有個人資料時 bounded fallback，不因一圖 timeout 阻塞首屏。
