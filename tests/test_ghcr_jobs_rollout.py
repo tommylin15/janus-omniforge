@@ -180,6 +180,7 @@ def test_forward_only_authorization_must_be_explicit_before_release_commands():
     sha = "a" * 40
     request = {"intent": "approved-dev-ghcr-jobs-rollout", "approved": True,
                "scope": "existing-dev-four-jobs", "sha": sha, "release_run": "123",
+               "auth_boundary_run": "321",
                "rollback_mode": "user_authorized_forward_only",
                "accept_no_old_image_rollback": False}
 
