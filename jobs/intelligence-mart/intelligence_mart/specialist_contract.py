@@ -20,6 +20,7 @@ class MartSpecialistV1(BaseModel):
     output_hash: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     metrics: dict[str, object]
     missing_data: list[str]
+    data_quality: dict[str, str] = Field(default_factory=dict)
     rejected_evidence: list[dict[str, str]]
     evidence_ids: list[str]
     provenance_ids: list[str]
