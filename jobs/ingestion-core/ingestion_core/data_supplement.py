@@ -120,6 +120,42 @@ def _rows(core, dataset, symbols):
     return rows
 
 
+def fundamental_comparative_coverage(rows):
+    """Model-ready official EPS and parent-profit comparisons, by complete filing.
+    
+    This is coverage only, not proof of strict historical PIT or successful OOS.
+    """
+    grouped = {}
+    metrics = {"eps_yoy_percent_same_filing", "net_income_parent_yoy_percent_same_filing"}
+    for row in rows:
+        if (row.get("source_id") != "mops" or row.get("statement_type") != "income"
+                or row.get("financial_feature_version") != "same-filing-comparatives-v1"
+                or row.get("metric") not in metrics or row.get("unit") != "percent"
+                or row.get("report_scope") != "consolidated"
+                or row.get("period_basis") not in {"single_quarter", "year_to_date"}):
+            continue
+        end = str(row.get("fiscal_period_end") or "")
+        try:
+            year, quarter = int(row["fiscal_year"]), int(row["fiscal_quarter"])
+            if end != f"{year}-{ {1:'03-31',2:'06-30',3:'09-30',4:'12-31'}[quarter]}" \
+                    or row.get("comparison_period_end") != f"{year-1}-{end[5:]}":
+                continue
+        except (ValueError, TypeError, KeyError):
+            continue
+        identity = (end, row.get("period_basis"), row.get("source_document_sha256"))
+        if not identity[-1] or not row.get("availability_at") or not row.get("provenance_id"):
+            continue
+        try:
+            numeric = Decimal(str(row.get("value")))
+            if not numeric.is_finite():
+                continue
+        except (InvalidOperation, ValueError, TypeError):
+            continue
+        grouped.setdefault(identity, set()).add(row["metric"])
+    ready = sorted({end for (end, _, _), observed in grouped.items() if observed == metrics})
+    return {"qualified_comparative_quarters": len(ready), "qualified_period_ends": ready}
+
+
 def coverage_summary(financial_rows, price_rows, symbols, target):
     result = {}
     today = target+timedelta(days=1)
@@ -134,7 +170,13 @@ def coverage_summary(financial_rows, price_rows, symbols, target):
         quarters = {(r["fiscal_year"], r["fiscal_quarter"]) for r in financial if r["statement_type"] != "monthly_revenue" and r["fiscal_year"] >= today.year-3}
         months = {(r["fiscal_year"], r.get("fiscal_month")) for r in financial if r["statement_type"] == "monthly_revenue" and (r["fiscal_year"], r.get("fiscal_month")) in required_months}
         dates = {str(r["trade_date"]) for r in price_rows if r["symbol"] == symbol and (target-timedelta(days=365)).isoformat() <= str(r["trade_date"]) <= target.isoformat()}
+        comparative = fundamental_comparative_coverage(financial)
+        missing_pairs = sorted(f"{year}Q{quarter}" for year, quarter in quarters
+                               if f"{year}-{ {1:'03-31',2:'06-30',3:'09-30',4:'12-31'}[quarter]}"
+                               not in comparative["qualified_period_ends"])
         result[symbol] = {"financial_quarters": len(quarters), "revenue_months": len(months), "price_trading_dates": len(dates),
+                          "fundamental_comparative_quarters": comparative["qualified_comparative_quarters"],
+                          "fundamental_missing_comparative_periods": missing_pairs,
                           "history_complete": len(quarters) >= 12 and len(months) >= 12 and len(dates) >= 121,
                           "historical_publication_status": "unknown", "original_numeric_revision_status": "unknown"}
     return result
