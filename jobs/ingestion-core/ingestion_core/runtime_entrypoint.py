@@ -293,6 +293,9 @@ def main() -> None:
             elif supplement_mode == "valuation-history":
                 from .data_supplement import run_backfill
                 result = run_backfill(valuation_only=True)
+            elif supplement_mode == "fundamental-history":
+                from .data_supplement import run_backfill
+                result = run_backfill(fundamental_only=True)
             else:
                 raise ValueError("unsupported data supplement mode")
         elif maintenance_mode:
