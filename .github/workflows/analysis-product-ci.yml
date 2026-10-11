@@ -41,7 +41,10 @@ jobs:
       - run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends libgomp1
-          python -m pip install -r requirements-dev.txt -r jobs/ingestion-core/requirements.lock -r jobs/intelligence-mart/requirements.lock -r services/api/requirements.lock
+          python -m pip install -r requirements-dev.txt
+          python -m pip install -r jobs/ingestion-core/requirements.lock
+          python -m pip install -r jobs/intelligence-mart/requirements.lock
+          python -m pip install -r services/api/requirements.lock
       - name: Real PostgreSQL ACL, concurrency, immutable reports and runtime regression
         env:
           PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
