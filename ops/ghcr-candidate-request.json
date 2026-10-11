@@ -1,12 +1,13 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "038498c70e12488f345c3ca0fbe821846ddee4cc",
-  "purpose": "Validate new SHA after successful full GHCR release #37953986962; 0% candidate only, no traffic promotion and no Jobs update; prior GHCR rollback baseline #37954237695 PASS",
+  "sha": "08079495e05b66897ff1800efffc58906ef5f1fb",
+  "purpose": "Combined B9/C/holdings product acceptance after exact-SHA full release 38111333541; retain existing formal dev traffic until all live gates pass",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
   "retry_verification": "same-sha-cache-normalized-immutable-candidate-reuse",
-  "same_sha_retry_attempt": 0
+  "same_sha_retry_attempt": 0,
+  "digest": "sha256:1c9f5140d03eb9eea757b3d36c2557e7717bcdc8a6084d744839469b40382d24"
 }
