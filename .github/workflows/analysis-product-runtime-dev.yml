@@ -59,6 +59,7 @@ jobs:
           import json,os,re,sys,time
           sys.path.insert(0,'scripts/gcp')
           from ghcr_jobs_rollout import cloud,ROOT,terminal,fence
+          from ceo_worker_deploy import execution_fence
           path=ROOT+'/jobs/janus-ceo-analysis'
           source=cloud(path)
           assert source['labels']['janus-git-sha']==os.environ['PRODUCT_SHA']
@@ -67,7 +68,7 @@ jobs:
           results=[]
           for index in range(2):
               fence()
-              assert all(terminal(e) for e in cloud(path+'/executions?pageSize=100').get('executions',[]))
+              execution_fence()
               operation=cloud(path+':run',{'etag':source['etag'],'overrides':{'taskCount':1,'timeout':'480s','containerOverrides':[{'name':'ceo','env':[{'name':'MART_OPERATION','value':'deep-coverage'},{'name':'MART_OOS_EVALUATION','value':'false'},{'name':'MART_AI_ENABLED','value':'false'}]}]}},'POST')
               name=operation.get('name','')
               assert name.startswith(ROOT+'/operations/')

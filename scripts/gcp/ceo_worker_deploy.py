@@ -69,6 +69,7 @@ def main():
             raise
         existing = None
     operation = None
+    rollback = {}
     if existing is None:
         # CreateJob takes jobId in the URL and requires an empty resource name.
         operation = cloud(f'{ROOT}/jobs?jobId={JOB}',
@@ -81,7 +82,7 @@ def main():
         public = json.loads(subprocess.check_output(['skopeo', 'inspect', '--no-creds', 'docker://' + old_image], text=True))
         assert public['Digest'] == old_image.split('@')[1]
         assert public['Labels']['org.opencontainers.image.revision'] == existing['labels']['janus-git-sha']
-        print(json.dumps({'rollback_image': old_image, 'rollback_sha': existing['labels']['janus-git-sha']}), flush=True)
+        rollback = {'rollback_image': old_image, 'rollback_sha': existing['labels']['janus-git-sha']}
         operation = cloud(path + '?updateMask=template,labels', payload, 'PATCH')
     if operation is not None:
         name = operation.get('name', '')
@@ -120,7 +121,7 @@ def main():
     member = 'serviceAccount:' + API_IDENTITY
     assert all(any(b['role'] == role and not b.get('condition') and member in b['members']
                    for b in readback.get('bindings', [])) for role in ROLES)
-    print(json.dumps({'status': 'PASS', 'job': JOB, 'sha': args.sha,
+    print(json.dumps({'status': 'PASS', 'job': JOB, 'sha': args.sha, **rollback,
                       'iam_scope': 'this-job-only', 'execution_started': False,
                       'traffic_changed': False, 'scheduler_created': False}))
 
