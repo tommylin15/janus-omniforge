@@ -300,6 +300,12 @@ def analyze_specialists(datasets, symbol, as_of, snapshot, *, roles=None):
             "classifier_probability": None,
         }
 
+    quality_zh = {
+        "missing_or_nonfinite": "缺值或非有限值",
+        "invalid_nonpositive_or_negative": "不合法的負值或零倍數",
+        "extreme_research_excluded": "超出研究比較界線，保留官方原值",
+        "no_verified_fcf_per_share_and_approved_assumptions": "缺可驗證每股自由現金流或核准的折現、成長假設",
+    }
     artifacts = []
     for role in selected_roles:
         dependencies = DEPENDENCIES[role]
@@ -325,6 +331,10 @@ def analyze_specialists(datasets, symbol, as_of, snapshot, *, roles=None):
                        or "目前沒有可用的合格數值")
                        + ("。資料或模型尚未齊備：" + "、".join(
                            METRIC_LABELS.get(k, k) for k in missing) if missing else "")
+                       + ("。估值資料品質：" + "、".join(
+                           f"{METRIC_LABELS.get(k, k)}：{quality_zh.get(v, v)}"
+                           for k, v in sorted(valuation_quality.items()))
+                           if role == "valuation" and valuation_quality else "")
                        + "。此為確定性基準，尚未通過台灣樣本外模型驗證。"}
         payload["output_hash"] = digest(payload)
         from .specialist_contract import MartSpecialistV1
