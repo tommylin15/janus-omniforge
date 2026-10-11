@@ -26,6 +26,7 @@ MIGRATION_PRIVATE_RECALC = "048_private_recalculation_queue"
 MIGRATION_BATCH_OCCURRENCE_SKIPPED = "049_batch_occurrence_skipped_status"
 MIGRATION_HOLDINGS_PREVIOUS_CLOSE = "050_holdings_previous_close_read"
 MIGRATION_ANALYSIS_PRODUCT = "051_analysis_product"
+MIGRATION_CEO_QUOTA_50 = "052_ceo_daily_quota_50"
 SUPPORTED = frozenset({
     MIGRATION_POSITION,
     MIGRATION_STOCK_SERVING,
@@ -38,6 +39,7 @@ SUPPORTED = frozenset({
     MIGRATION_BATCH_OCCURRENCE_SKIPPED,
     MIGRATION_HOLDINGS_PREVIOUS_CLOSE,
     MIGRATION_ANALYSIS_PRODUCT,
+    MIGRATION_CEO_QUOTA_50,
 })
 
 
@@ -392,7 +394,7 @@ def cicd_readiness(control: Any, *, apply_missing: bool = False) -> dict[str, ob
 
 def run(control: Any, name: str) -> None:
     """Apply one allow-listed serving migration using existing DB identities."""
-    if name in {MIGRATION_QUOTES_BROKER, MIGRATION_ANALYSIS_PRODUCT}:
+    if name in {MIGRATION_QUOTES_BROKER, MIGRATION_ANALYSIS_PRODUCT, MIGRATION_CEO_QUOTA_50}:
         try:
             text = _without_role_lines(_migration_path(name).read_text(encoding='utf-8'))
             prepare, acceptance = text.split('-- PHASE: acceptance', 1)
@@ -403,7 +405,7 @@ def run(control: Any, name: str) -> None:
                 cursor.execute(checks)
                 row = cursor.fetchone()
                 if row is None or not all(bool(value) for value in row):
-                    raise RuntimeError('quotes/profile schema acceptance failed')
+                    raise RuntimeError('serving schema acceptance failed')
                 cursor.execute('INSERT INTO control.schema_migrations' + record)
         except Exception as error:
             raise ServingSchemaMigrationError(f'{name}_apply', error) from error
