@@ -216,7 +216,9 @@ def parse_valuation_month(raw, symbol, year, month, expected_name):
     return values
 
 
-def run_backfill(*, incremental=False, valuation_only=False):
+def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=False):
+    if sum(bool(flag) for flag in (incremental, valuation_only, fundamental_only)) > 1:
+        raise ValueError("supplement mode flags are mutually exclusive")
     from .__main__ import _control_plane, _core_ready_event, _current_core_fences, _iceberg_core, TAIPEI
     today = datetime.now(TAIPEI).date()
     control = _control_plane()
@@ -228,6 +230,8 @@ def run_backfill(*, incremental=False, valuation_only=False):
                "core_created": 0, "core_updated": 0, "core_reused": 0, "failures": [], "symbols": [], "items": [], "skipped": 0}
     if valuation_only:
         summary["operation"] = "valuation_history"
+    if fundamental_only:
+        summary["operation"] = "fundamental_history_repair"
     try:
         core = _iceberg_core(os.environ["CORE_BUCKET"])
         writer = StageWriter(GcsObjectStore(os.environ["STAGE_BUCKET"]))
@@ -248,7 +252,7 @@ def run_backfill(*, incremental=False, valuation_only=False):
         execution = control.enqueue_collection("first-batch", symbols, request_options={"operation": summary["operation"]})
         control.transition_execution(execution.execution_id, ExecutionStatus.RUNNING)
         summary.update(execution_id=execution.execution_id, symbols=list(symbols))
-        prior = _rows(core, "financials", symbols) if incremental else []
+        prior = _rows(core, "financials", symbols) if incremental or fundamental_only else []
         quality = control.get_admin_setting("data_supplement_quality") if incremental else None
         repairs = {(item.get("symbol"), item.get("dataset"), item.get("period"))
                    for item in (quality[0].get("issues", []) if quality and isinstance(quality[0], dict) else [])}
@@ -302,8 +306,12 @@ def run_backfill(*, incremental=False, valuation_only=False):
                 period = f"{year}Q{quarter}"
                 existing = [r for r in prior if r["symbol"] == symbol and r.get("fiscal_year") == year and
                             r.get("fiscal_quarter") == quarter and r.get("statement_type") != "monthly_revenue"]
-                if existing and any(r.get("official_filing_uploaded_at") == filing["official_uploaded_at"] and
-                    r.get("financial_feature_version") == "same-filing-comparatives-v1" for r in existing) and (symbol, "financials", period) not in repairs:
+                same_upload = [r for r in existing if r.get("official_filing_uploaded_at") == filing["official_uploaded_at"]]
+                complete_comparatives = bool(fundamental_comparative_coverage(same_upload)["qualified_comparative_quarters"])
+                if (existing and any(r.get("official_filing_uploaded_at") == filing["official_uploaded_at"] and
+                    r.get("financial_feature_version") == "same-filing-comparatives-v1" for r in existing)
+                    and (not fundamental_only or complete_comparatives)
+                    and (symbol, "financials", period) not in repairs):
                     summary["skipped"] += 1
                     continue
                 url = "https://mopsov.twse.com.tw/server-java/t164sb01?"+urlencode({"step": "1", "CO_ID": symbol, "SYEAR": year, "SSEASON": quarter, "REPORT_ID": "C"})
@@ -321,7 +329,7 @@ def run_backfill(*, incremental=False, valuation_only=False):
             latest = today.replace(day=1) - timedelta(days=1)
             if today.day <= 10:
                 latest = latest.replace(day=1) - timedelta(days=1)
-            for year, zero_month in months_ending(latest.year, latest.month, 12):
+            for year, zero_month in (() if fundamental_only else months_ending(latest.year, latest.month, 12)):
                 month = zero_month+1
                 period = f"{year}-{month:02d}"
                 existing = [r for r in prior if r["symbol"] == symbol and r.get("fiscal_year") == year and r.get("fiscal_month") == month]
@@ -354,8 +362,8 @@ def run_backfill(*, incremental=False, valuation_only=False):
         target = effective_trading_day(today-timedelta(days=1), holidays=holidays)
         price_months = int(os.environ.get("JANUS_DATA_SUPPLEMENT_PRICE_MONTHS", "8"))
         market_months = [(year, month+1) for year, month in months_ending(target.year, target.month, price_months)]
-        prior_valuation = _rows(core, "valuation", symbols)
-        for symbol in symbols:
+        prior_valuation = _rows(core, "valuation", symbols) if not fundamental_only else []
+        for symbol in (() if fundamental_only else symbols):
             valuation_batch = []
             for year, month in ([(target.year, target.month)] if incremental else market_months):
                 known = {str(row["observed_date"]) for row in prior_valuation if row["symbol"] == symbol}
@@ -389,7 +397,7 @@ def run_backfill(*, incremental=False, valuation_only=False):
                     if stock == symbol and dataset == "ohlcv" and re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", period or ""))
             available = {str(r["trade_date"]) for r in _rows(core, "benchmark", ())}
             benchmark_months = {(int(day[:4]), int(day[5:7])) for day in required-available}
-        for year, month in (() if valuation_only else market_months):
+        for year, month in (() if valuation_only or fundamental_only else market_months):
             for symbol in symbols:
                 if incremental and (year, month) not in missing_months[symbol]:
                     summary["skipped"] += 1
@@ -424,7 +432,7 @@ def run_backfill(*, incremental=False, valuation_only=False):
         tables = _current_core_fences(core)
         coverage = coverage_summary(_rows(core, "financials", symbols), _rows(core, "ohlcv", symbols), symbols, target)
         summary["coverage"] = coverage
-        if not summary["core_created"] and not summary["core_reused"] and not (incremental and tables):
+        if not summary["core_created"] and not summary["core_reused"] and not ((incremental or fundamental_only) and tables):
             raise RuntimeError(json.dumps({"failures": [{"dataset": f["dataset"], "date": f["period"], "error": f["reason"]}
                                                          for f in summary["failures"]]}))
         ready = _core_ready_event(core_bucket=os.environ["CORE_BUCKET"], execution_id=execution.execution_id,
