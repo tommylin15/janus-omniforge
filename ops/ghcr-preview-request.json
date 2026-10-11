@@ -2,16 +2,16 @@
   "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
   "approved": true,
   "scope": "janus-api-preview-tag-only",
-  "source_sha": "038498c70e12488f345c3ca0fbe821846ddee4cc",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:9babe654a6088b5f252aeee2574b77d511b16717c50b9314bd325f3c2e162a11",
-  "release_run": "37953986962",
-  "candidate_run": "37954588954",
-  "boundary_run": "37955226220",
+  "source_sha": "cc7f498671a1252561902f3b883eaf1cc2b8bdad",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:435ce0440c4cfc9ed7129de8c771d3dfe329634285830bf98399014f8db7c555",
+  "release_run": "38153154441",
+  "candidate_run": "38153514341",
+  "boundary_run": "38153663207",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
-  "reason": "Live idempotent re-verification of existing approved fixed-preview source SHA after additional fail-closed provenance and web safety tests. Must make zero GCP writes when preview is already this SHA and preserve canonical tags and old 100% traffic.",
+  "reason": "Visual-first bounded valuation/API and four-page candidate: full release + public digest + 0% tag + OAuth/private negative boundary all PASS. Publish only verified candidate to existing fixed preview, preserve canonical 100% traffic and every other tag/setting; keep last verified preview on failure.",
   "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
-  "attempt": 2
+  "attempt": 3
 }
