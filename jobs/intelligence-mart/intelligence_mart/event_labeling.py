@@ -201,9 +201,14 @@ def chronological_oos(approved, *, cutoff, min_train=100, min_test=30):
         probabilities = clf.predict_proba(x_test)
         baseline = [rules_baseline(r["text"])[field] for r in holdout]
         # Multiclass Brier uses the training-time class space; absent labels still penalize.
-        brier = sum(sum((float(p) - float(y == klass)) ** 2
-                        for klass, p in zip(clf.classes_, prob))
-                    for y, prob in zip(y_test, probabilities)) / len(y_test)
+        # Include the full contracted taxonomy: unseen holdout classes have p=0,
+        # and must contribute their missing positive target to the Brier penalty.
+        brier = 0.0
+        for y, prob in zip(y_test, probabilities):
+            by_class = dict(zip(clf.classes_, prob))
+            brier += sum((float(by_class.get(klass, 0.0)) - float(y == klass)) ** 2
+                         for klass in choices)
+        brier /= len(y_test)
         confidence_bins = [[] for _ in range(5)]
         for y, guess, prob in zip(y_test, prediction, probabilities):
             conf = float(max(prob))
