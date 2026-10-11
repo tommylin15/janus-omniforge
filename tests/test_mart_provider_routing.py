@@ -142,6 +142,30 @@ def test_router_stops_on_nonfallback_preflight_failure(before_snapshot):
     assert all(provider.calls == 0 for provider in providers.values())
 
 
+def test_ceo_prompt_has_explicit_schema_and_real_execution_hashes():
+    from intelligence_mart.provider_routing import _prompt
+    hashes = ['sha256:' + str(i) * 64 for i in range(5)]
+    prompt = _prompt('ceo', {'validated_role_artifact_hashes': hashes, 'fact_pack': {}})
+    assert 'REQUIRED_JSON_SCHEMA' in prompt and 'JSON_EXAMPLE' in prompt
+    assert all(h in prompt for h in hashes)
+    assert '"change_since_previous_analysis":[]' in prompt
+    assert '"thesis":null' in prompt
+
+
+def test_gemini_invalid_json_audit_contains_only_safe_field_names(monkeypatch):
+    monkeypatch.setenv('MART_GEMINI_FREE_TIER_CONFIRMED', 'true')
+    result_json = {**_output(), 'confidence': 'never-echo-private-content',
+                   'supporting_roles': 'bad-type'}
+    response = {'candidates': [{'content': {'parts': [{'text': json.dumps(result_json)}]}}]}
+    provider = GeminiRoleProvider(api_key='present', opener=lambda *a, **kw: BytesIO(json.dumps(response).encode()))
+    result = provider.invoke('ceo', {})
+    assert result.status == 'failed' and result.reason == 'invalid_structured_output'
+    assert 'confidence' in result.attempts[0]['invalid_fields']
+    assert 'supporting_roles' in result.attempts[0]['invalid_fields']
+    assert 'never-echo-private-content' not in json.dumps(result.attempts)
+
+
+
 def test_gemini_free_entitlement_does_not_fabricate_observed_cost(monkeypatch):
     monkeypatch.setenv("MART_GEMINI_FREE_TIER_CONFIRMED", "true")
     response = {"candidates": [{"content": {"parts": [{"text": json.dumps(_output())}]}}]}
