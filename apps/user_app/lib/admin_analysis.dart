@@ -29,7 +29,7 @@ class _AdminAnalysisPageState extends State<AdminAnalysisPage> {
   Future<void> editCapability() async {
     final email = TextEditingController(), reason = TextEditingController();
     final version = TextEditingController(text: '0');
-    final quota = TextEditingController(text: '3'),
+    final quota = TextEditingController(text: '50'),
         cooldown = TextEditingController(text: '300');
     bool enabled = false;
     final value = await showDialog<Map<String, dynamic>>(
@@ -56,7 +56,7 @@ class _AdminAnalysisPageState extends State<AdminAnalysisPage> {
                       TextField(
                           controller: quota,
                           decoration:
-                              const InputDecoration(labelText: '每日額度（0–20）'),
+                              const InputDecoration(labelText: '每日額度（0–50）'),
                           keyboardType: TextInputType.number),
                       TextField(
                           controller: cooldown,
@@ -79,8 +79,8 @@ class _AdminAnalysisPageState extends State<AdminAnalysisPage> {
                             if (email.text.trim().isEmpty ||
                                 reason.text.trim().isEmpty ||
                                 v == null ||
-                                q == null ||
-                                c == null) return;
+                                q == null || q < 0 || q > 50 ||
+                                c == null || c < 60 || c > 86400) return;
                             Navigator.pop(context, {
                               'email': email.text.trim(),
                               'enabled': enabled,
