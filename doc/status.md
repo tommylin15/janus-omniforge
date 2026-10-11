@@ -12,6 +12,8 @@
 - **B9 品質實測補強（2026-10-10）**：[B9 #38063424389](https://github.com/tommylin15/janus-omniforge/actions/runs/38063424389) 以更新的唯讀 per-model scorecard 取得 12 targeted tests／25 specialist／29 OOS immutable GCS readback PASS；[selective CI #38063424379](https://github.com/tommylin15/janus-omniforge/actions/runs/38063424379) SUCCESS。真實同 OOS 5 日 Fundamental/Valuation/Quant 共七模型的 MSE 均不優於 zero-excess-return baseline；Risk 月度 OOS 15/23 月優於 Gaussian（8/23 未優於）；Event classifier OOS 缺失。詳細見 [B9 診斷](b9-quality-evidence.md)。**研究分析功能可用≠模型品質 PASS；不可 promotion，B9 仍 ACTIVE／PARTIAL。**
 - **GHCR CI/CD：PASS（目前核准的 dev 發布範圍）**。四 Jobs 8/8 canary 與 API 新→舊→新 traffic rollback 的真實證據見 [2026-10-10 CI/CD 結案](archive/cicd-ghcr-api-promotion-2026-10-10.md)。四項額外／歷史檢查由使用者 [豁免](parking-lot.md)，不列待辦、不冒充技術實測 PASS，亦不重開舊 AR/GCS 清理。
 
+- **B9 Fundamental（2026-10-11，程式修復階段）**：同份官方財報 EPS／歸母淨利比較值的 period-basis 去重與 OOS PIT/source lineage 已分離修復；新增只補官方缺漏比較值的 `fundamental-history` ingestion mode，以及同窗 zero/rule/LightGBM walk-forward MSE 對照。獨立 [#38097863145](https://github.com/tommylin15/janus-omniforge/actions/runs/38097863145) 47 targeted tests PASS（7 warnings），**尚未部署／真實回補／新 Core OOS readback**；不能宣稱財報缺口已消除、ML 優於規則或 B9 PASS。細節見 [B9 品質證據](b9-quality-evidence.md)。不同 SHA 的後續 B9 其他角色改動仍須分別驗收。
+
 ## 其他 active work
 
 - **持股頁 UX／首屏加速**：ACTIVE；固定頁首、價格漲跌語意、migration 050／API latency／Flutter 真實 Owner UI acceptance 仍在 [TODO](todo.md)。
