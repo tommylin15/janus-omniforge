@@ -1,0 +1,8 @@
+{
+  "intent": "readonly-preview-series-acceptance",
+  "scope": "published-public-only",
+  "no_gcp_mutation": true,
+  "source_sha": "cc7f498671a1252561902f3b883eaf1cc2b8bdad",
+  "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
+  "reason": "Exact SHA fixed-preview real 2327/2330 valuation dataset readback and latency; not owner authenticated acceptance."
+}

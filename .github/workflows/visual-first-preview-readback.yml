@@ -1,0 +1,113 @@
+name: Janus visual-first fixed preview readback
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/visual-first-preview-probe.json'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: dev
+    env:
+      PROJECT: gen-lang-client-0593591102
+      REGION: us-central1
+      SERVICE: janus-api
+      PREVIEW: https://preview---janus-api-2oo7qbkd5q-uc.a.run.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Verify original canonical 100-percent traffic and preview source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          file=ops/visual-first-preview-probe.json
+          jq -e '.intent == "readonly-preview-series-acceptance" and
+            .scope == "published-public-only" and .no_gcp_mutation == true and
+            (.source_sha|test("^[0-9a-f]{40}$")) and
+            .preview_url == "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/"' "$file" >/dev/null
+          sha="$(jq -r .source_sha "$file")"
+          test "$sha" = "$(jq -r .source_sha ops/ghcr-preview-request.json)"
+          tag="ghcr-${sha:0:12}"
+          gcloud run services describe "$SERVICE" --project="$PROJECT" --region="$REGION" --format=json > /tmp/visual-service.json
+          jq -e --arg tag "$tag" '
+            [.status.traffic[]? | select((.percent//0)>0)] |
+            length == 1 and .[0].percent == 100' /tmp/visual-service.json >/dev/null
+          jq -e --arg tag "$tag" '
+            ([.status.traffic[]? | select(.tag==$tag and (.percent//0)==0)] | length==1) and
+            ([.status.traffic[]? | select(.tag=="preview" and (.percent//0)==0)] | length==1) and
+            ([.status.traffic[]? | select(.tag==$tag)][0].revisionName ==
+             [.status.traffic[]? | select(.tag=="preview")][0].revisionName)' /tmp/visual-service.json >/dev/null
+          echo "EXPECTED_SHA=$sha" >> "$GITHUB_ENV"
+          echo "visual_preview_routing=PASS; canonical traffic remains at 100% previous revision" >> "$GITHUB_STEP_SUMMARY"
+      - name: Probe published valuation series and latency from live fixed preview
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json, os, statistics, time, urllib.error, urllib.parse, urllib.request
+          from datetime import date
+
+          base=os.environ["PREVIEW"]
+          durations=[]
+          summary=[]
+          def get(path,expected=200,timeout=28):
+              req=urllib.request.Request(base+path,headers={"Accept":"application/json"})
+              start=time.monotonic()
+              try:
+                  with urllib.request.urlopen(req,timeout=timeout) as response:
+                      code=response.status
+                      body=response.read(100_000)
+              except urllib.error.HTTPError as error:
+                  code=error.code
+                  body=error.read(100_000)
+              elapsed=round((time.monotonic()-start)*1000)
+              if code!=expected:
+                  raise AssertionError(f"unexpected HTTP status {code} expected {expected} on {path}")
+              return body,elapsed
+
+          body,_=get("/app/build-id.txt")
+          assert body.decode().strip()==os.environ["EXPECTED_SHA"], "wrong Flutter source SHA"
+          body,_=get("/api/v1/public/health")
+          assert json.loads(body)=={"status":"ok"}
+          body,_=get("/api/v1/me/portfolio/snapshot",expected=401)
+          assert "authentication" in body.decode().lower()
+          get("/api/v1/public/stocks/2327/visual-series?metric=eps",expected=422)
+          for symbol,metric in (("2327","pe"),("2327","pb"),("2327","yield"),
+                                ("2330","pe"),("2330","pb")):
+              path=f"/api/v1/public/stocks/{symbol}/visual-series?metric={metric}&limit=30"
+              raw,ms=get(path)
+              data=json.loads(raw)
+              points=data.get("points",[])
+              assert data.get("schema_version")=="visual-series.v1"
+              assert data.get("symbol")==symbol and data.get("metric")==metric
+              assert data.get("data_status") in ("available","partial"),(symbol,metric,data.get("missing_reason"))
+              assert len(points)>=2,(symbol,metric,len(points))
+              assert data.get("usable_points")==len(points)
+              assert data.get("source_ids"),(symbol,metric,"no provenance")
+              dates=[p["date"] for p in points]
+              assert dates==sorted(set(dates)) and max(dates)<=date.today().isoformat()
+              assert all(p.get("source_id") and p.get("provenance_id") for p in points)
+              durations.append(ms)
+              summary.append({"symbol":symbol,"metric":metric,"status":data["data_status"],
+                  "points":len(points),"as_of":data["data_as_of"],"elapsed_ms":ms})
+          # Reuse an already warmed path, not an inflated cold-start p95.
+          _,warm_ms=get("/api/v1/public/stocks/2327/visual-series?metric=pe&limit=30")
+          result={"phase":"fixed-preview-live-public-readback","status":"PASS",
+                  "sha":os.environ["EXPECTED_SHA"],"series":summary,
+                  "warm_repeated_ms":warm_ms,"series_max_ms":max(durations),
+                  "owner_private_negative":"PASS","public_series_only":True}
+          print(json.dumps(result,ensure_ascii=False,sort_keys=True))
+          assert warm_ms <= 9000, f"warm valuation chart exceeded Flutter 9s timeout: {warm_ms}"
+          PY
+          echo "visual_series_live_public_readback=PASS (real published data, 2+ points, source/PIT and warm latency)" >> "$GITHUB_STEP_SUMMARY"
