@@ -491,7 +491,7 @@ def fit_regime_challenger(returns, *, dates=None):
     if dates is None:
         return payload
     from scipy.stats import norm
-    folds, skipped = [], []
+    folds, skipped, daily = [], [], []
     for month in sorted({day[:7] for day in dates}):
         indices = [i for i, day in enumerate(dates) if day.startswith(month)]
         first, last = indices[0], indices[-1]+1
@@ -499,26 +499,72 @@ def fit_regime_challenger(returns, *, dates=None):
         if first < 252 or not np.std(history):
             continue
         try:
-            trained = MarkovRegression(history, k_regimes=2, trend="c", switching_variance=True).fit(
-                disp=False, maxiter=100, em_iter=5, search_reps=0)
+            training_model = MarkovRegression(history, k_regimes=2, trend="c", switching_variance=True)
+            trained = training_model.fit(disp=False, maxiter=100, em_iter=5, search_reps=0)
         except (np.linalg.LinAlgError, ValueError, FloatingPointError):
             skipped.append({"month": month, "reason": "fit_numerical_error"})
             continue
         if not trained.mle_retvals.get("converged") or not np.isfinite(trained.params).all():
             skipped.append({"month": month, "reason": "fit_not_converged"})
             continue
-        # Fixed pre-month parameters, forward filtering only; no smoothed probabilities.
-        filtered = MarkovRegression(np.asarray(returns[:last]), k_regimes=2, trend="c", switching_variance=True).filter(trained.params)
-        markov = filtered.llf_obs[first:last]
-        gaussian = norm.logpdf(returns[first:last], loc=float(history.mean()), scale=float(history.std()))
-        if np.isfinite(markov).all() and np.isfinite(gaussian).all():
-            folds.append({"month": month, "training_end": dates[first-1], "test_start": dates[first],
-                          "test_end": dates[last-1], "test_returns": last-first,
-                          "markov_log_score_sum": float(markov.sum()), "gaussian_log_score_sum": float(gaussian.sum())})
-        else:
-            skipped.append({"month": month, "reason": "invalid_predictive_density"})
+        # Estimate every threshold on pre-month history. Forward one-step-ahead
+        # predicted probabilities may use yesterday's return, never today's.
+        try:
+            filtered = MarkovRegression(np.asarray(returns[:last]), k_regimes=2,
+                                        trend="c", switching_variance=True).filter(trained.params)
+            markov = np.asarray(filtered.llf_obs[first:last])
+            gaussian = norm.logpdf(returns[first:last], loc=float(history.mean()),
+                                   scale=float(history.std()))
+            predicted = np.asarray(filtered.predicted_marginal_probabilities)[first:last]
+            variances = np.asarray([trained.params[training_model.parameters[i, "variance"]][0]
+                                    for i in range(2)])
+            means = np.asarray([trained.params[training_model.parameters[i, "exog"]][0]
+                                for i in range(2)])
+            if (predicted.shape != (last-first, 2) or
+                    not np.isfinite(variances).all() or np.any(variances <= 0) or
+                    not np.isfinite(means).all()):
+                raise ValueError("invalid prior-only state parameters")
+            high_state = int(np.argmax(variances))
+            high_cutoff = float(np.quantile(np.abs(history), 0.75))
+            extreme_cutoff = float(np.quantile(np.abs(history), 0.95))
+            left_tail_cutoff = float(np.quantile(history, 0.05))
+            tail_conditional = norm.cdf(left_tail_cutoff, loc=means, scale=np.sqrt(variances))
+            gaussian_tail_probability = float(norm.cdf(left_tail_cutoff, loc=float(history.mean()),
+                                                       scale=float(history.std())))
+            month_daily = []
+            for i, day in enumerate(range(first, last)):
+                observed = float(returns[day])
+                high_probability = float(predicted[i, high_state])
+                tail_probability = float(predicted[i] @ tail_conditional)
+                if not (np.isfinite(markov[i]) and np.isfinite(gaussian[i]) and
+                        np.isfinite(high_probability) and np.isfinite(tail_probability) and
+                        0 <= high_probability <= 1 and 0 <= tail_probability <= 1):
+                    raise ValueError("nonfinite OOS state/tail density")
+                month_daily.append({
+                    "date": dates[day], "month": month, "market_return": observed,
+                    "training_end": dates[first-1], "markov_log_score": float(markov[i]),
+                    "gaussian_log_score": float(gaussian[i]),
+                    "predicted_high_vol_probability": high_probability,
+                    "realized_high_vol": abs(observed) >= high_cutoff,
+                    "realized_extreme_vol": abs(observed) >= extreme_cutoff,
+                    "realized_left_tail": observed <= left_tail_cutoff,
+                    "markov_tail_probability": tail_probability,
+                    "gaussian_tail_probability": gaussian_tail_probability,
+                    "historical_abs_vol_p75": high_cutoff,
+                    "historical_abs_vol_p95": extreme_cutoff,
+                    "historical_left_tail_p05": left_tail_cutoff,
+                })
+        except (np.linalg.LinAlgError, ValueError, FloatingPointError, IndexError) as error:
+            skipped.append({"month": month, "reason": "invalid_predictive_density_or_state"})
+            continue
+        folds.append({"month": month, "training_end": dates[first-1], "test_start": dates[first],
+                      "test_end": dates[last-1], "test_returns": last-first,
+                      "markov_log_score_sum": float(markov.sum()), "gaussian_log_score_sum": float(gaussian.sum())})
+        daily.extend(month_daily)
     count = sum(f["test_returns"] for f in folds)
     payload.update(status="research_oos_evaluated" if count >= 30 else "research_fit_oos_pending", oos_folds=folds,
         skipped_folds=skipped, oos_returns=count,
-        average_log_score_improvement=sum(f["markov_log_score_sum"]-f["gaussian_log_score_sum"] for f in folds)/count if count else None)
+        average_log_score_improvement=sum(f["markov_log_score_sum"]-f["gaussian_log_score_sum"] for f in folds)/count if count else None,
+        risk_diagnostics_protocol="prior_month_training_one_step_predictive_state_and_tail_v1",
+        risk_oos_daily=daily)
     return payload
