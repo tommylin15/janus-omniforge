@@ -58,6 +58,7 @@ def main(argv=None):
     oos = modes.add_parser("oos")
     oos.add_argument("--candidates-json", required=True)
     oos.add_argument("--reviews-jsonl", required=True)
+    oos.add_argument("--training-grants-json", required=True, help="Independently verified source-scoped rights ledger")
     oos.add_argument("--cutoff", required=True, help="ISO timestamp with timezone")
     oos.add_argument("--out", required=True)
     args = parser.parse_args(argv)
@@ -68,7 +69,10 @@ def main(argv=None):
     pool = json.loads(Path(args.candidates_json).read_text(encoding="utf-8"))
     if pool.get("schema_version") != "event-label-v1" or not isinstance(pool.get("candidates"), list):
         raise ValueError("unknown_candidate_schema")
-    approved = approved_dataset(pool["candidates"], _jsonl(args.reviews_jsonl))
+    rights = json.loads(Path(args.training_grants_json).read_text(encoding="utf-8"))
+    if rights.get("schema_version") != "event-training-grants-v1" or not isinstance(rights.get("grants"), list):
+        raise ValueError("unknown_training_grants_schema")
+    approved = approved_dataset(pool["candidates"], _jsonl(args.reviews_jsonl), training_grants=rights["grants"])
     result = chronological_oos(approved, cutoff=args.cutoff)
     result["approved_label_count"] = len(approved)
     result["candidate_count"] = len(pool["candidates"])
