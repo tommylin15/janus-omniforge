@@ -80,14 +80,16 @@ def execute_ceo(request, router, *, should_stop=None):
     result = router.invoke("ceo", inputs, **({"should_stop": should_stop} if should_stop else {}))
     # Never publish raw provider payload, stderr, credentials or arbitrary metadata.
     keys = {"provider", "transport", "model", "attempt", "duration_ms", "status", "reason", "usage",
-            "actual_cost_usd", "billing_mode", "role"}
+            "actual_cost_usd", "billing_mode", "role", "invalid_fields"}
     audit = {"attempts": [{k: v for k, v in a.items() if k in keys} for a in result.attempts],
              "route_hash": result.routing["routing_hash"],
              "route": result.routing.get("execution_providers", result.routing["providers"]),
              "execution_policy": result.routing.get("execution_policy", "profile_route"),
              "provider": result.provider, "model": result.model, "publication_authority": False}
     if result.status != "succeeded" or result.output is None:
-        return "BLOCKED", None, audit, "provider_unavailable"
+        allowed = {"invalid_structured_output", "quota", "auth_required", "free_tier_not_confirmed",
+                   "provider_unavailable", "transport_error", "timeout"}
+        return "BLOCKED", None, audit, result.reason if result.reason in allowed else "provider_unavailable"
     try:
         output = validate_ceo_output(result.output, baseline, has_previous=bool(request.get('previous_report')))
     except ValueError:
