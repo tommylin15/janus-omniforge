@@ -61,6 +61,12 @@ class TestQuantPit(unittest.TestCase):
         self.assertEqual(cohort["source_replay_readback"], "not_verified")
         self.assertEqual(rows, before)
 
+    def test_utc_date_rollover_and_naive_clock_are_not_backdated(self):
+        from intelligence_mart.quant_pit import _day
+        self.assertEqual(_day("2026-10-10T17:00:00Z").isoformat(), "2026-10-11")
+        with self.assertRaisesRegex(ValueError, "timezone"):
+            _day("2026-10-10T17:00:00")
+
     def test_later_backfill_cannot_be_backdated(self):
         days, rows = fixture()
         for row in rows:
