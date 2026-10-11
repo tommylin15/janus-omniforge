@@ -86,15 +86,19 @@ def _metric(row: dict[str, Any]) -> str:
     return str(row.get("metric") or row.get("event_type") or row.get("investor_type") or "observation")
 
 
-def _evidence_id(dataset_id: str, row: dict[str, Any], core_snapshot_id: str) -> str:
+def _evidence_id(dataset_id: str, row: dict[str, Any], core_snapshot_id: str, *,
+                 preserve_financial_basis: bool = False) -> str:
     snapshot = str(row.get("__snapshot_id", core_snapshot_id))
     identity = canonical_json([dataset_id, row.get("symbol"), _metric(row), _row_time(row),
                                row.get("value", row.get("close", row.get("net_shares", row.get("pe_ratio", row.get("severity"))))),
-                               row.get("provenance_id", ""), snapshot])
+                               row.get("provenance_id", ""), snapshot,
+                               (row.get("report_scope"), row.get("period_basis"))
+                               if preserve_financial_basis and dataset_id == "financials" else None])
     return f"ev-{sha256(identity).hexdigest()[:24]}"
 
 
-def evidence_from_rows(datasets: dict[str, list[dict[str, Any]]], core_snapshot_id: str) -> list[dict[str, Any]]:
+def evidence_from_rows(datasets: dict[str, list[dict[str, Any]]], core_snapshot_id: str, *,
+                       preserve_financial_basis: bool = False) -> list[dict[str, Any]]:
     evidence: list[dict[str, Any]] = []
     for dataset_id, rows in sorted(datasets.items()):
         for row in rows:
@@ -117,10 +121,13 @@ def evidence_from_rows(datasets: dict[str, list[dict[str, Any]]], core_snapshot_
                         value, unit = row[name], fallback_unit
                         break
             evidence.append({
-                "evidence_id": _evidence_id(dataset_id, row, core_snapshot_id),
+                "evidence_id": _evidence_id(dataset_id, row, core_snapshot_id,
+                    preserve_financial_basis=preserve_financial_basis),
                 "dataset_id": dataset_id,
                 "symbol": row.get("symbol"),
                 "metric": metric,
+                "report_scope": row.get("report_scope") if is_financial else None,
+                "period_basis": row.get("period_basis") if is_financial else None,
                 "value": value,
                 "unit": unit or "not_applicable",
                 "source_id": row.get("source_id"),
@@ -140,7 +147,8 @@ def evidence_from_rows(datasets: dict[str, list[dict[str, Any]]], core_snapshot_
     return evidence
 
 
-def validate_evidence(items: Iterable[dict[str, Any]], analysis_as_of: date) -> tuple[list[dict[str, Any]], list[dict[str, str]], list[str]]:
+def validate_evidence(items: Iterable[dict[str, Any]], analysis_as_of: date, *,
+                      preserve_financial_basis: bool = False) -> tuple[list[dict[str, Any]], list[dict[str, str]], list[str]]:
     cutoff = analysis_cutoff(analysis_as_of)
     rows = list(items)
     newest: dict[str, datetime] = {}
@@ -181,6 +189,8 @@ def validate_evidence(items: Iterable[dict[str, Any]], analysis_as_of: date) -> 
         elif _number(item.get("value")) is not None and not item.get("unit"):
             reason = "missing_unit"
         key = (item.get("dataset_id"), item.get("symbol"), item.get("metric"), item.get("record_at"))
+        if preserve_financial_basis and item.get("dataset_id") == "financials":
+            key += (item.get("report_scope"), item.get("period_basis"))
         if not reason and key in claims:
             if claims[key] == item.get("value"):
                 reason = "duplicate"
