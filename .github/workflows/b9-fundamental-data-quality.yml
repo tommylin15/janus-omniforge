@@ -1,0 +1,48 @@
+name: B9 Fundamental official feature and OOS baselines
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b9-fundamental-data-quality.yml'
+      - 'jobs/intelligence-mart/intelligence_mart/evaluation.py'
+      - 'jobs/ingestion-core/ingestion_core/data_supplement.py'
+      - 'jobs/ingestion-core/ingestion_core/runtime_entrypoint.py'
+      - 'tests/test_specialist_engines.py'
+      - 'tests/test_data_supplement.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: b9-fundamental-feature-quality-targeted
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: .:jobs/ingestion-core:jobs/intelligence-mart
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            jobs/ingestion-core/requirements.lock
+            jobs/intelligence-mart/requirements.lock
+      - name: Install pinned dependencies
+        run: |
+          python -m pip install -r requirements-dev.txt -r jobs/ingestion-core/requirements.lock -r jobs/intelligence-mart/requirements.lock
+      - name: Verify Fundamental source/PIT/period/rule baselines
+        run: |
+          python -m py_compile jobs/intelligence-mart/intelligence_mart/evaluation.py jobs/ingestion-core/ingestion_core/data_supplement.py jobs/ingestion-core/ingestion_core/runtime_entrypoint.py
+          python -m pytest -q tests/test_specialist_engines.py tests/test_data_supplement.py tests/test_financial_publication.py
+      - name: State evaluation boundary
+        if: always()
+        run: |
+          echo 'Targeted code tests only; NOT a dev data repair, B9 live OOS readback, or model quality PASS.'
