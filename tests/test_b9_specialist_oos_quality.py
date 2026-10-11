@@ -245,6 +245,21 @@ class B9QualityTests(unittest.TestCase):
         with self.assertRaisesRegex(b9.AuditError, "reconcile"):
             b9.summarize(manifest, evaluations, artifacts, expected_core=CORE)
 
+    def test_catboost_valuation_overfit_remains_research_only(self):
+        manifest, evaluation, artifacts = fixture()
+        item = evaluation[0]
+        item.update(specialist_role="valuation", model_name="catboost",
+                    folds=[{"month": "2026-08", "overfit_warning": True,
+                            "training_mse": 0.001, "oos_mse": 0.2,
+                            "zero_baseline_mse": 0.02}])
+        item["predictions"][0].update(prediction=0.4, excess_return=0.1)
+        report = b9.summarize(manifest, evaluation, artifacts, expected_core=CORE)
+        diagnostic = report["roles"]["valuation"]["oos_evaluations"][0]["diagnostics"]
+        self.assertEqual(diagnostic["valuation_overfit_warning_folds"], 1)
+        self.assertIn("research_overfit_warning_in_prior_only_folds", diagnostic["quality_blockers"])
+        self.assertIn("catboost_oos_worse_than_zero_baseline", diagnostic["quality_blockers"])
+        self.assertFalse(report["champion_promotion"])
+
     def test_valid_cross_section_still_requires_historical_membership(self):
         manifest, evaluation, artifacts = fixture()
         template = evaluation[0]["predictions"][0]
