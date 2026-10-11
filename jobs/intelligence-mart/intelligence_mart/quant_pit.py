@@ -138,7 +138,7 @@ def _ranks(values):
 
 def _score(rows, *, cost_bps):
     """One-way traded notional: entry buys and later buys+sales pay side costs."""
-    daily_ic, gross, net, turnover = [], [], [], []
+    daily_ic, spreads, gross, net, turnover, hit_rates = [], [], [], [], [], []
     previous = {}
     for day, block in rows:
         ordered = sorted(block, key=lambda r: (-r["score"], r["symbol"]))
@@ -157,17 +157,29 @@ def _score(rows, *, cost_bps):
                      for symbol in set(weights) | set(previous))
         previous = weights
         ret = fmean(row["excess_return"] for row in ordered[:n])
+        spreads.append(ret - fmean(row["excess_return"] for row in ordered[-n:]))
+        hit_rates.append(fmean(float(row["excess_return"] > 0) for row in ordered[:n]))
         turnover.append(traded)
         gross.append(ret)
         net.append(ret - traded * cost_bps / 10000)
-    def compound(values):
-        wealth = 1.0
+    def performance(values):
+        wealth, peak, worst_drawdown = 1.0, 1.0, 0.0
         for value in values:
             wealth *= 1 + value
-        return wealth-1
+            peak = max(peak, wealth)
+            worst_drawdown = min(worst_drawdown, wealth / peak - 1)
+        return (wealth - 1 if values else None,
+                worst_drawdown if values else None)
+    gross_return, _ = performance(gross)
+    net_return, drawdown = performance(net)
     return {"rank_ic": fmean(daily_ic) if daily_ic else None,
             "icir": fmean(daily_ic)/pstdev(daily_ic) if len(daily_ic) > 1 and pstdev(daily_ic) else None,
-            "gross_return": compound(gross), "after_cost_return": compound(net),
+            "top_decile_spread": fmean(spreads) if spreads else None,
+            "top_decile_hit_rate": fmean(hit_rates) if hit_rates else None,
+            "gross_return": gross_return, "after_cost_return": net_return,
+            "after_cost_max_drawdown": drawdown,
+            "after_cost_sharpe_unannualized": (fmean(net) / pstdev(net)
+                if len(net) >= 3 and pstdev(net) else None),
             "mean_one_way_traded_notional": fmean(turnover) if turnover else None,
             "cross_sections": len(rows), "ic_cross_sections": len(daily_ic)}
 
