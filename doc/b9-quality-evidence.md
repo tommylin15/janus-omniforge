@@ -50,6 +50,7 @@
 
 - **資料修正**：沿用既有 TWSE BWIBBU 個股官方 PE／PB／殖利率歷史日期回補（僅核准 Deep Coverage、最多 36 月）。虧損公司 PE、缺殖利率維持 null，不填假倍數；公司/月份/日期/來源 hash 驗證。
 - **模型/對照**：deterministic 相對估值作服務 baseline，LightGBM／CatBoost 各自按同一 5/20/60/120 日成熟價格標籤 OOS 對照常數／規則基準；DCF/reverse-DCF 僅在完整自由現金流、股數與核准假設存在時提供，缺值則 `unavailable`，不得拿 PPE 支出代替 FCF。
+- **B7 快取隔離**：只讓 Valuation 的 research feature／engine version 升為 v3／3；Fundamental、Quant、Risk、Event、daily screening 與既有 cache identity 沿用 v2／2，不因 Valuation 修正而要求重算 25 個 specialist。新估值版本的 cache pointer／artifact 驗證採逐 role version，保留原 immutable 內容。
 - **2026-10-11 Valuation 實作修正（CI／live 待驗收）**：deterministic 相對估值仍是正式 baseline，LightGBM／CatBoost 均為 research challenger、不 promotion。TWSE 官方 PE／PB／殖利率獨立處理 null／非有限／無效符號，**殖利率 = 0 有效**。研究衍生值使用 PE 300／PB 30／殖利率 25% 的保守可比性上界，超界留下 `data_quality` 並從比較特徵排除；**這些是研究警戒值、非 TWSE 官方數值真偽判定**，原始 Core 值、日期和 provenance 不改寫。
 - **資料不足應對**：OOS 不再因任一估值欄位缺失就捨棄整筆，至少有一個有效官方欄位才納入；LightGBM／CatBoost 用原生 missing token，不補零、不憑未來值前填，並記錄 train/test 各欄缺值數及 PIT 依據。新增 per-fold train MSE、OOS MSE、zero-return baseline MSE 與 generalization gap／overfit warning；它們是過擬合可疑診斷，**不是** CatBoost 過擬合因果已證或模型可升級。舊 v4 immutable artifacts 不覆寫。
 - **DCF 缺值處理**：目前未具可信、可對齊期別的每股自由現金流（營業現金流－資本支出、合適股數）及獲核准折現率／成長假設；正向／反向 DCF 一律 null，`data_quality` 說明 `no_verified_fcf_per_share_and_approved_assumptions`。PPE 支出、淨利、PE 同業倍數不能假充 FCF；日後補官方現金流和股本後仍須以有版本的使用者核准情境啟動，不視為 canonical intrinsic value。
