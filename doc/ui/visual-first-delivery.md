@@ -46,6 +46,8 @@ VF-00/01 與每張圖的資料合法性是**前置**，不放在最後 P2；VF-0
 
 - 2026-10-11：關注列表後端同一次 owner watchlist 查詢新增上一個已發布 OHLCV／昨收參照；行情日期未對齊、缺價或非數值時不提供漲跌。已接 Flutter 漲跌箭頭／百分比，不新增 50 個逐檔行情請求。
 
+補充：2026-10-11 對國巨 2327 與台積電 2330 的小樣本真實 Core 驗證已存於 [資料涵蓋抽樣證據](../archive/visual-first-core-sample-2026-10-11.md)。這是 bounded sample，**不是** VF-00 全市場 coverage PASS，也不是尚未部署新 API 的 serving readback。
+
 ## 3. Dataset coverage matrix（必要交接表）
 
 每個 dataset_family 都至少有：symbol／market、required_metric、frequency、first/last_period、usable_points／expected_points、missing_rate、unit、period_basis、source_id、source_authorization、published_at／availability_at／observed_at、snapshot／provenance、serving route、API route、UI consumed、freshness、Implemented／Partial／Missing／Unknown／Blocked、blocking_reason、reproducible evidence。
