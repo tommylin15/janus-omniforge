@@ -6,7 +6,7 @@ from datetime import date, timedelta
 from math import ceil, sqrt
 from statistics import correlation, fmean, pstdev
 
-from .specialists import digest, number
+from .specialists import digest, number, comparable_valuation_features
 from .facts import _instant, _financial_period_time, analysis_cutoff
 
 
@@ -108,9 +108,14 @@ def evaluate_predictions(predictions, *, cost_bps, annual_periods):
             "ic_decay": decay, "regime_stability": "not_evaluated", "promotion_eligible": False}
 
 
-def walk_forward(samples, *, model_name, features, cost_bps, horizon_days):
+def walk_forward(samples, *, model_name, features, cost_bps, horizon_days, allow_missing_features=False):
     """Monthly expanding fit; only matured labels strictly before each OOS block enter training."""
     import numpy as np
+    if allow_missing_features and model_name not in {"lightgbm", "catboost"}:
+        raise ValueError("sparse valuation features only supported by tree challengers")
+    def matrix(rows):
+        return np.asarray([[number(r.get(k)) if number(r.get(k)) is not None else np.nan
+                            for k in features] for r in rows], dtype=float)
     valid = []
     for row in samples:
         if row.get("source_authorization") not in {"official", "approved_fallback"} or not row.get("provenance_id"):
@@ -119,7 +124,8 @@ def walk_forward(samples, *, model_name, features, cost_bps, horizon_days):
         if any(v is None for v in dates.values()) or dates["feature_available_at"] > analysis_cutoff(date.fromisoformat(row["analysis_as_of"][:10])) \
                 or dates["label_available_at"] < dates["outcome_as_of"]:
             raise ValueError("invalid PIT feature/label availability")
-        if all(number(row.get(k)) is not None for k in (*features, "excess_return")):
+        present = sum(number(row.get(k)) is not None for k in features)
+        if number(row.get("excess_return")) is not None and (present >= 1 if allow_missing_features else present == len(features)):
             valid.append(row)
     if horizon_days not in {5, 20, 60, 120}:
         raise ValueError("unsupported forecast horizon")
@@ -141,8 +147,8 @@ def walk_forward(samples, *, model_name, features, cost_bps, horizon_days):
         test = [r for r in test if r.get("is_oos_entry", True)]
         if not test:
             continue
-        x, y = np.array([[r[k] for k in features] for r in train]), np.array([r["excess_return"] for r in train])
-        xt = np.array([[r[k] for k in features] for r in test])
+        x, y = matrix(train), np.array([r["excess_return"] for r in train], dtype=float)
+        xt = matrix(test)
         if model_name == "linear":
             mean, scale = x.mean(axis=0), x.std(axis=0)
             scale[scale == 0] = 1
@@ -190,7 +196,7 @@ def walk_forward(samples, *, model_name, features, cost_bps, horizon_days):
         probabilities = [None]*len(test)
         if model_name not in {"zero", "financial_rule"} and calibration and len({r["excess_return"] > 0 for r in calibration}) == 2:
             from sklearn.linear_model import LogisticRegression
-            scores = predict(np.array([[r[k] for k in features] for r in calibration]))
+            scores = predict(matrix(calibration))
             calibrator = LogisticRegression(random_state=17).fit(np.asarray(scores).reshape(-1, 1),
                 np.array([r["excess_return"] > 0 for r in calibration]))
             probabilities = calibrator.predict_proba(np.asarray(pred).reshape(-1, 1))[:, 1].tolist()
@@ -215,11 +221,23 @@ def walk_forward(samples, *, model_name, features, cost_bps, horizon_days):
                                 "fixed_financial_rule" if model_name == "financial_rule" else
                                 "linear_additive" if model_name == "linear" else "native_tree_shap")}
                            for r, p, probability, values, base in zip(test, pred, probabilities, contributions, bases, strict=True))
-        folds.append({"month": month, "training_samples": len(train), "calibration_samples": len(calibration),
-                      "test_samples": len(test), "label_cutoff": cutoff})
+        fold = {"month": month, "training_samples": len(train), "calibration_samples": len(calibration),
+                "test_samples": len(test), "label_cutoff": cutoff}
+        if allow_missing_features:
+            train_mse = float(np.mean((np.asarray(predict(x)) - y)**2))
+            actual = np.asarray([r["excess_return"] for r in test], dtype=float)
+            oos_mse = float(np.mean((np.asarray(pred)-actual)**2))
+            zero_mse = float(np.mean(actual**2))
+            fold.update(training_mse=train_mse, oos_mse=oos_mse, zero_baseline_mse=zero_mse,
+                        generalization_gap_mse=oos_mse-train_mse,
+                        overfit_warning=bool(oos_mse > zero_mse and train_mse < float(np.mean(y**2))),
+                        missing_training_features={k: sum(number(r.get(k)) is None for r in train) for k in features},
+                        missing_oos_features={k: sum(number(r.get(k)) is None for r in test) for k in features})
+        folds.append(fold)
     payload = {"artifact_kind": "mart_oos_evaluation_v1", "protocol_version": "taiwan-purged-monthly-v5",
                "model_name": model_name, "features": features, "horizon_days": horizon_days,
                "input_hash": digest(samples), "folds": folds, "predictions": predictions,
+               "missing_feature_policy": "native_tree_missing_no_imputation" if allow_missing_features else "complete_case",
                "status": "evaluated" if folds else "insufficient_history", "promotion_eligible": False,
                "metrics": evaluate_predictions(predictions, cost_bps=cost_bps, annual_periods=252 / horizon_days)}
     payload["output_hash"] = digest(payload)
@@ -385,12 +403,13 @@ def build_financial_samples(datasets, symbols, as_of, snapshot, horizon_days, ro
                 "provenance_id": digest([sample["provenance_id"], selected_evidence])})
         elif role == "valuation":
             observations = sorted(inputs.get("valuation", []), key=lambda row: str(row.get("observed_date", row.get("observed_at", ""))))
-            values = observations[-1] if observations else {}
-            features = {name: number(values.get(name)) for name in ROLE_FEATURES[role]}
-            if any(value is None for value in features.values()):
+            values, issues = comparable_valuation_features(observations[-1] if observations else {})
+            for reason in issues.values():
+                exclusions["valuation_" + reason] += 1
+            if all(value is None for value in values.values()):
                 exclusions["insufficient_pit_financial_features"] += 1
                 continue
-            output.append({**sample, **features, "provenance_id": digest([sample["provenance_id"], evidence])})
+            output.append({**sample, **values, "provenance_id": digest([sample["provenance_id"], evidence])})
         else:
             raise ValueError("unsupported financial specialist")
     return output, dict(exclusions)
@@ -423,7 +442,7 @@ def evaluate_core_history(datasets, symbols, as_of, snapshot):
             financial_samples, financial_exclusions = build_financial_samples(datasets, symbols, as_of, snapshot, horizon, role)
             for model in (("zero", "financial_rule", *models) if role == "fundamental" else models):
                 evaluation = walk_forward(financial_samples, model_name=model, features=ROLE_FEATURES[role],
-                                          cost_bps=30, horizon_days=horizon)
+                                          cost_bps=30, horizon_days=horizon, allow_missing_features=role == "valuation")
                 evaluation.pop("output_hash")
                 evaluation.update(specialist_role=role, core_snapshot_id=snapshot, analysis_as_of=as_of,
                     exclusions=financial_exclusions, cost_semantics="research_sensitivity_30bps_not_actual_broker_cost",
