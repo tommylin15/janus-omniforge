@@ -215,3 +215,36 @@ def test_unseen_holdout_class_is_penalized_in_full_taxonomy_brier():
     assert result["metrics"]["category"]["multiclass_brier_uncalibrated"] >= 0.5
     assert result["metrics"]["direction"]["multiclass_brier_uncalibrated"] >= 0.5
     assert result["classifier_probability"] is None
+
+
+def test_offline_cli_fails_without_rights_and_only_writes_immutable_research(tmp_path):
+    import json
+    import subprocess
+
+    script = Path(__file__).parents[1] / "scripts/gcp/b9-event-labels.py"
+    events = tmp_path / "events.jsonl"
+    pool = tmp_path / "candidates.json"
+    reviews = tmp_path / "reviews.jsonl"
+    rights = tmp_path / "rights.json"
+    output = tmp_path / "event-oos.json"
+    events.write_text(json.dumps(raw_event(), ensure_ascii=False) + "\n", encoding="utf-8")
+    rights.write_text(json.dumps({"schema_version": "event-training-grants-v1", "grants": []}), encoding="utf-8")
+    subprocess.run([sys.executable, str(script), "candidates", "--events-jsonl", str(events),
+                    "--core-snapshot-id", "core-fixed", "--out", str(pool)], check=True)
+    candidate = json.loads(pool.read_text(encoding="utf-8"))["candidates"][0]
+    assert candidate["review_status"] == "pending"
+    reviews.write_text(json.dumps(human_review(candidate), ensure_ascii=False) + "\n", encoding="utf-8")
+    cmd = [sys.executable, str(script), "oos", "--candidates-json", str(pool),
+           "--reviews-jsonl", str(reviews), "--training-grants-json", str(rights),
+           "--cutoff", "2026-11-01T00:00:00+08:00", "--out", str(output)]
+    denied = subprocess.run(cmd, capture_output=True, text=True)
+    assert denied.returncode != 0 and "training_use_not_authorized" in denied.stderr
+    assert not output.exists()
+    reviews.write_text("", encoding="utf-8")
+    subprocess.run(cmd, check=True)
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["status"] == "insufficient_labeled_data"
+    assert report["classifier_probability"] is None
+    assert report["approved_label_count"] == 0
+    repeated = subprocess.run(cmd, capture_output=True, text=True)
+    assert repeated.returncode != 0 and "File exists" in repeated.stderr
