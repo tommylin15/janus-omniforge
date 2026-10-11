@@ -37,11 +37,11 @@ User App 不提供 generic Chat／Ask Janus／provider runtime／Skills／approv
 
 primary content 順序依 `../ui/user-app.md`：
 
-`StockHeader` → 個人持股／成本／估值日 → 筆記／待追蹤 → `StockHealthCard` → 白話研究摘要 → why／risk → 籌碼 → 公司事件 → evidence／sources → disclaimer。
+`StockHeader` → 個人持股／成本／估值日 → 短價量圖 → 五角色可信狀態與白話摘要 → why／risk → 圖表總覽入口 → 筆記／籌碼／事件 → evidence／sources → disclaimer。2026-10-11 新規範以 [A 正式 UI 規格](../ui/visual-first-four-pages.md) 和 [B 工程工作單](../ui/visual-first-delivery.md) 為準，四圖是最低基礎值。
 
 Advanced section 可顯示：
 
-- K 線／估值指標；
+- 完整 K 線／估值進階指標（價量微圖／圖表入口須先於 Advanced）；
 - deterministic Fact Pack；
 - 五 specialist persisted outputs；
 - 最新 On-demand CEO report；

@@ -1,9 +1,11 @@
 # Janus User App Final Visual Contract
 
-更新：2026-10-05
+更新：2026-10-11（新增四頁視覺優先，原 PNG 不變）
 狀態：**Active / normative presentation target**
 
 本目錄定義 Janus User App 手機版的最終 presentation target。它不是 brainstorm、disposable mockup 或僅供靈感使用的 reference；後續 User App implementation 應逐步 convergence 至此處定義的四個畫面與 `doc/ui/user-app.md` 的正式資訊架構。
+
+**2026-10-11 新明確需求：**四圖是最低基礎值，頁面唯一主 Hero、圖表、關鍵大數字先於長文字，個股短價量和圖表快速入口必須在 primary。詳見 [A 正式契約](../visual-first-four-pages.md)／[B 工程工作單](../visual-first-delivery.md)，新規格優先於舊 PNG 的區塊排序，原圖不變。
 
 ## 固定圖片路徑
 
@@ -12,7 +14,7 @@
 - `doc/ui/reference/user-app-final/ledger.png` — 記帳／筆記
 - `doc/ui/reference/user-app-final/stock-detail.png` — 個股詳情
 
-PNG binary 尚未 commit 前，只能說 path／contract 已固定；不得宣稱 final screenshot reference 或 visual acceptance 已完成。
+四張 PNG binary 已按下節來源完整性證據提交；這只代表 reference 存在，不代表 Flutter 或 dev screenshot visual acceptance 已通過。
 
 ### 原圖來源與完整性
 
@@ -111,20 +113,20 @@ Final Visual Contract 的權威範圍是 presentation：資訊架構、section o
 
 ### 4. Stock Detail Final — `stock-detail.png`
 
-Primary order：
+Primary order（2026-10-11 最新視覺優先）：
 
-1. `StockHeader`
-2. 個人持股、成本與估值日期
-3. 個人筆記與待追蹤事項
-4. `StockHealthCard`
-5. `AiPlainLanguageCard`
-6. 三項「為什麼」與三項「要注意什麼」
-7. `ChipsStatusCard`
-8. `CompanyEventTimeline`
-9. 可收合 `EvidenceAndSources`
+1. `StockHeader` 股價 Hero
+2. 本人持股／估值日
+3. 短價量圖或有界缺值
+4. 五 specialist 可信狀態＋摘要
+5. 三支持／三風險
+6. 六類圖表快速入口
+7. 筆記／追蹤
+8. 籌碼／事件
+9. `EvidenceAndSources`
 10. `ComplianceDisclaimer`
 
-Advanced section 可包含 K 線、Fact Pack、五 specialist persisted outputs、On-demand CEO report、估值指標與完整 provenance，且必須位於 primary content 之後。
+進階完整 K 線、Fact Pack、五 specialist persisted outputs、On-demand CEO report、估值詳細指標與 provenance 仍在 Advanced；但短價量與圖表入口不得只埋在 Advanced。
 
 五 specialist 不呈現為每日五個 LLM workers。CEO report 是 persisted artifact；無 report 時不得 page load 自動呼叫 LLM。只有具 backend capability 的使用者才可顯示 `分析`／`重新分析`，每次建立新 immutable execution/report。
 
@@ -138,7 +140,7 @@ Advanced section 可包含 K 線、Fact Pack、五 specialist persisted outputs�
 - Flutter targeted／golden／screenshot regression 覆蓋主要 hierarchy 與狀態；
 - 390×844 級 viewport 無 overflow、section order 正確；
 - GCP dev 真實 authenticated URL／owner／persisted data screenshot acceptance；
-- 四頁與本 contract 收斂；
+- 四頁與本 contract 加上 [最新四頁視覺契約](../visual-first-four-pages.md) 收斂，不只外形像舊 PNG，還要逐頁有唯一主 Hero／真圖或缺值／關鍵數字；
 - loading／empty／error／partial／stale／missing 不破壞主要版型；
 - sample/mock data 未進 canonical runtime；
 - dependency 未完成時維持 bounded unavailable／hidden。

@@ -34,7 +34,9 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `spec.md`：SPEC 索引；正式契約在 `spec/*.md`。
 - `wbs.md`：WBS 索引；工作切片在 `wbs/*.md`。
 - `ui.md`：UI 索引；頁面／元件契約在 `ui/*.md`。
-- `ui/reference/user-app-final/README.md`：Janus User App 的 active Final Visual Contract；固定 `today.png`、`watchlist.png`、`ledger.png`、`stock-detail.png` 四個 presentation target 路徑。PNG binary 未實際 commit 前，不得宣稱 final screenshot reference 已到位。
+- `ui/reference/user-app-final/README.md`：既有四張 PNG 的視覺基礎契約；sample 值不能作 canonical。
+- `ui/visual-first-four-pages.md`：2026-10-11 [四頁視覺優先正式 UI 規格（A）](ui/visual-first-four-pages.md)。
+- `ui/visual-first-delivery.md`： [工程工作單（B）](ui/visual-first-delivery.md)，涵蓋資料缺口、Flutter／API／Mart、P0/P1/P2 與真實 acceptance。
 - `spec/operations-and-testing.md`：最新完整 evidence summary 與尚待整理的歷史 checkpoint；日常定位優先看 `status.md`，舊證據逐步移至 `archive/`。
 - `pilot-operational-evidence.md`：`WBS-8-DEV-PILOT-RUN` 六個 calendar months evidence window 的新增 bounded checkpoint；保存 observed failure／recovery／manual intervention 與尚未觀察到的 evidence category，不把 checkpoint 當成 WBS 完成。
 - `runbook-data-supplement.md`：每日增量、週六品質檢查、Admin 結果與排程修復程序。

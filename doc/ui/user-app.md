@@ -1,10 +1,12 @@
 # Janus UI — User App 頁面
 
-更新：2026-10-05
+更新：2026-10-11（四頁視覺優先）
 
 ## 5. User App 頁面
 
 本文件只保存目前有效的 User App 資訊架構與狀態語意。被取代的「五個生成式 role／CIO」UI 不再是 active contract；現行研究架構為 persisted 五 specialist + authorized manual On-demand CEO。
+
+**2026-10-11 新的四頁視覺契約：**[A 正式 UI 規格](visual-first-four-pages.md)／[B 工程工作單](visual-first-delivery.md)。舊四 PNG 是最低基礎值、非圖表上限。各頁唯一 Hero，先圖與大數字後文字；當本次新順序與舊 PNG 不一致，以新規格為準，原資料治理不變。
 
 ## 5.0 Final Visual Contract
 
@@ -29,13 +31,12 @@ Specialist／CEO 等 AI-only 區塊未就緒時，可以 bounded unavailable／h
 
 首屏順序：
 
-1. `MarketSnapshotCard`
-2. `MarketActivityCard`
-3. `InstitutionalFlowCard`
-4. `MarketRegimeCard`（Mart 可用時）
-5. `DailyBriefCard`（最多三則）
-6. `SectorRotationList`／`HotTopicList`／`CandidateHealthList`（各自 persisted data 可用時）
-7. 各區塊自己的日期、freshness、coverage、partial／stale／fallback／missing 與 disclaimer
+1. `MarketVerdictHero`（已發布可信同日結論可用時；否則 TAIEX snapshot 作主 Hero）
+2. `MarketSnapshotCard`（TAIEX 主數字與合法小趨勢）
+3. `DailyBriefCard`（同日最多三則，無資料不得補假文）
+4. `MarketActivityCard`／`InstitutionalFlowCard`（次級短卡）
+5. `SectorRotationList`／`HotTopicList`／`CandidateHealthList`（各自 persisted data 可用時）
+6. 各區塊自己的日期、freshness、coverage、partial／stale／fallback／missing 與 disclaimer
 
 Deterministic market cards 可保留 source-specific `as_of`／trade date；首頁指數只保留 TAIEX，TPEx／櫃買不再是 active product scope。盤中 TAIEX 可由 latest-price resolver 顯示 MIS，14:30 EOD 成功後切回正式 benchmark。Mart 子產品必須使用同一 `analysis_as_of`，不得把不同日期的最新版拼成「今日分析」。
 
@@ -54,16 +55,16 @@ Deterministic market cards 可保留 source-specific `as_of`／trade date；首�
 
 ## 5.3 個股詳情
 
-Primary content 固定順序：
+Primary content 固定順序（2026-10-11 視覺優先）：
 
-1. `StockHeader`（盤中 latest-price resolver；同日 EOD 完成後自動切 `eod_final`）
+1. `StockHeader`（現價、漲跌／幅大數字、行情日／來源）
 2. 個人持股、成本與估值日期
-3. 個人筆記與待追蹤事項
-4. `StockHealthCard`
-5. `AiPlainLanguageCard`
-6. 三項「為什麼」與三項「要注意什麼」
-7. `ChipsStatusCard`
-8. `CompanyEventTimeline`
+3. `QuickPriceVolumeTrend`（真實短價量圖或資料不足原因）
+4. `StockHealthCard`／五 specialist 狀態及一行摘要
+5. 三項支持／三項風險
+6. `StockChartNavigator`（價格／營收／EPS／估值／法人／事件圖表）
+7. 個人筆記與待追蹤事項
+8. `ChipsStatusCard`／`CompanyEventTimeline`
 9. 可收合 `EvidenceAndSources`
 10. `ComplianceDisclaimer`
 
@@ -71,7 +72,7 @@ Primary content 固定順序：
 
 「我的持股」價格／market value／unrealized PnL／return 優先讀 owner-scoped `/api/v1/me/portfolio/quotes` latest-price valuation；`/journal/positions` 只作 operational fallback，避免 Stock Header 已更新但持股卡仍停在舊價格。未實現損益與百分比同樣採獲利紅、虧損綠。
 
-K 線、deterministic Fact Pack、五 specialist outputs、CEO report、估值指標與完整 provenance 屬 Advanced section，預設位於 primary content 後且可收合。
+短價量圖與圖表總覽入口屬 primary，不得僅在 Advanced 展開後才看得到。完整 K 線、Fact Pack、五 specialist 完整 artifacts、CEO report、參數及 provenance 可按需留 Advanced；未成熟 series 顯示具體資料缺口。
 
 ### 5.3.1 五 specialist
 
@@ -137,14 +138,14 @@ Ledger／Holdings 一致性至少涵蓋 shares、cost／average cost、market va
 
 ### 5.4.2 持股
 
-第一屏資料可用時，僅「持股」次頁優先顯示以下四格：
+第一屏資料可用時，僅「持股」次頁優先顯示**持股市值主 Hero**、可驗證損益貢獻圖及下列四項有主次的摘要：
 
 - aggregate market value；
 - unrealized PnL／return；
 - YTD realized PnL；
 - valuation date／status。
 
-手機持股用較大字、紅漲綠跌的可掃描 card：canonical name／symbol、shares、market price／average cost、前一交易日官方收盤價、當日每股漲跌／百分比／以現持股數估算的價格變動額、unrealized PnL／return、price／valuation status。每檔都直接顯示未實現損益與百分比，正值紅、負值綠、0／未知中性；價格與未實現估值使用 latest-price resolver 回傳的 owner holdings valuation。operational shares／cost 與 canonical valuation／PnL 的資料時間仍須可判讀。
+未驗證 cash／其他資產完整性前，不能把持股市值稱為總資產，也不能用即時 quote 畫假歷史資產線。手機持股用較大字、紅漲綠跌的可掃描 card：canonical name／symbol、shares、market price／average cost、前一交易日官方收盤價、當日每股漲跌／百分比／以現持股數估算的價格變動額、unrealized PnL／return、price／valuation status。每檔都直接顯示未實現損益與百分比，正值紅、負值綠、0／未知中性；價格與未實現估值使用 latest-price resolver 回傳的 owner holdings valuation。operational shares／cost 與 canonical valuation／PnL 的資料時間仍須可判讀。
 
 首屏優先呼叫 owner-scoped `/api/v1/me/portfolio/snapshot`：只從既有 PostgreSQL current_positions、latest-price resolver 的 last-success persistent state 及官方已發布 OHLCV serving projection 讀取，禁止 request-time MIS network／Private Mart 掃描；舊 API 僅供相容性／明確失敗備援。年度 PnL、交易歷史及重算狀態於首屏後另外載入。昨收以 PostgreSQL 已發布 OHLCV serving projection 批次讀取，不每檔逐一查 Iceberg。無有效昨收、報價 stale、參考日不合法或 checkpoint 不一致時，當日漲跌維持缺值；持股價格變動額不代表包含交易、費稅及除權息的實際當日交易損益。
 

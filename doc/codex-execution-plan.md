@@ -47,6 +47,7 @@ B9 產品與 C 組、剩餘產品依本次合併授權先整套開發，再集�
 - CEO 只使用 validated facts／基準分析及明示缺口；research challenger 不冒充已驗證訊號，LLM 無 canonical number 或 publication authority。
 - CEO 僅由使用者明確 request 觸發；page load、Scheduler、dirty update、retrain 不自動呼叫。
 - 依 active TODO 收斂剩餘持股頁 UX／migration 050／首屏效能與真實 owner 驗收，不重開已結案 A 組。
+- **四頁視覺優先新增於本輪合併產品工作包**：先讀 [A 正式 UI 規格](ui/visual-first-four-pages.md)、[B 工程工作單](ui/visual-first-delivery.md)，依 VF-00～09 做資料 coverage、最小 backend series、Flutter 四頁和真實圖表；整套開發後才集中 CI＋GCP dev owner screenshot/readback。四圖是最低基礎值而非已完成證據；P2 新來源／費用需另證。
 - 涉及 UI 必讀 doc/ui/user-app.md、doc/ui/reference/user-app-final/README.md 並實際檢視四張 reference PNG；不另設計資訊架構。
 - 產品交付需有真實 authenticated dev 的資料、API、五分析師、CEO、權限／隔離、歷史／freshness 及適用四頁 visual acceptance。B9 通過不等於產品整體結案；Dev Pilot 長期觀察獨立追蹤，不假稱觀察期已完成。
 
