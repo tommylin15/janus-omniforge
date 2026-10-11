@@ -1,7 +1,7 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "2c920782bc45736ffb0749d7ec0800d19f0ab153",
-  "purpose": "Combined product acceptance after exact-SHA full release 38118061761; fix quote ledger version; retain existing formal dev traffic until all live gates pass",
+  "sha": "a60db85e179c61896f047fb8c89d1e855fbc1e12",
+  "purpose": "Gemini Lite CEO product candidate after full Release 38135486739; existing runtime bundle key; no formal traffic promotion",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
@@ -9,5 +9,5 @@
   "allow_job_image_update": false,
   "retry_verification": "same-sha-cache-normalized-immutable-candidate-reuse",
   "same_sha_retry_attempt": 0,
-  "digest": "sha256:e2db3a11d87648f936a0247bee2fff3e90c61edc90e40ae1f838bdc3bbbdc44c"
+  "digest": ""
 }
