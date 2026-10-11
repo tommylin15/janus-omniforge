@@ -170,19 +170,25 @@ def rules_baseline(text):
     return {"category": category, "direction": "uncertain"}
 
 
-def chronological_oos(approved, *, cutoff, min_train=100, min_test=30):
+def chronological_oos(approved, *, cutoff, training_grants=(), min_train=100, min_test=30):
     """Issuer-disjoint, event-revision-disjoint, time-purged local CPU baseline.
 
     Labels reviewed after cutoff never enter training. Holdout labels may be
     approved afterward for scoring, but holdout event text is not used for fit.
+    Both the review and the independent source grant must remain auditable.
     """
     boundary = _timestamp(cutoff, "cutoff")
+    grants = _training_grants(training_grants)
     rows = list(approved)
     ids = [r["candidate_id"] for r in rows]
     if len(set(ids)) != len(ids):
         raise ValueError("duplicate_candidates")
     if any(r.get("review_status") != "approved" or r.get("review_method") != "human"
-           or r.get("label_version") != VERSION or not r.get("training_authorization_reference")
+           or r.get("label_version") != VERSION or r.get("source_authorization") != "official"
+           or r.get("source_id") not in grants
+           or r.get("training_authorization_reference") != grants[r["source_id"]]["authorization_reference"]
+           or r.get("training_authorization_verified_by") != grants[r["source_id"]]["approved_by"]
+           or r.get("training_authorization_evidence_uri") != grants[r["source_id"]]["evidence_uri"]
            for r in rows):
         raise ValueError("non_approved_or_unauthorized_label")
     before = [r for r in rows if _timestamp(r["published_at"], "published_at") < boundary
