@@ -1,0 +1,42 @@
+name: B9 Valuation research quality (no promotion)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/b9-valuation-quality.yml'
+      - 'jobs/intelligence-mart/intelligence_mart/specialists.py'
+      - 'jobs/intelligence-mart/intelligence_mart/evaluation.py'
+      - 'jobs/intelligence-mart/intelligence_mart/specialist_contract.py'
+      - 'tests/test_valuation_quality.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: janus-b9-valuation-quality
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            jobs/intelligence-mart/requirements.lock
+            requirements-dev.txt
+      - name: Install pinned Mart test dependencies
+        run: |
+          python -m pip install -r jobs/intelligence-mart/requirements.lock -r requirements-dev.txt
+      - name: Validate Valuation data quality and challenger OOS guards
+        env:
+          PYTHONPATH: jobs/intelligence-mart:jobs/ingestion-core:.
+        run: |
+          python -m pytest -q tests/test_valuation_quality.py
+          python -m pytest -q tests/test_specialist_engines.py -k 'dcf or financial_benchmark or replay'
