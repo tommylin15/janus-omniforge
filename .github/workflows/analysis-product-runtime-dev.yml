@@ -1,0 +1,62 @@
+name: Bounded persisted specialist runtime acceptance on dedicated dev worker
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Persist latest real Core baselines twice without LLM or scheduled Job changes
+        run: |
+          python scripts/gcp/ghcr_release_lease.py acquire
+          python - <<'PY'
+          import json,sys,time
+          sys.path.insert(0,'scripts/gcp')
+          from ghcr_jobs_rollout import cloud,ROOT,terminal,fence
+          path=ROOT+'/jobs/janus-ceo-analysis'
+          source=cloud(path)
+          assert source['labels']['janus-git-sha']=='08079495e05b66897ff1800efffc58906ef5f1fb'
+          assert source['template']['template']['containers'][0]['image'].removeprefix('cache.us-docker.pkg.dev/')=='ghcr.io/tommylin15/janus-intelligence-mart@sha256:c38d844b2d363608434a694fd6a87b8c1edec9f8609d59ff8c76f65e2785ceb7'
+          assert not source.get('reconciling') and source['terminalCondition']['state']=='CONDITION_SUCCEEDED'
+          results=[]
+          for index in range(2):
+              fence()
+              assert all(terminal(e) for e in cloud(path+'/executions?pageSize=100').get('executions',[]))
+              operation=cloud(path+':run',{'etag':source['etag'],'overrides':{'taskCount':1,'timeout':'480s','containerOverrides':[{'name':'ceo','env':[{'name':'MART_OPERATION','value':'deep-coverage'},{'name':'MART_OOS_EVALUATION','value':'false'},{'name':'MART_AI_ENABLED','value':'false'}]}]}},'POST')
+              name=operation.get('name','')
+              assert name.startswith(ROOT+'/operations/')
+              print(json.dumps({'operation':name,'status':'UNKNOWN','attempt':index+1}),flush=True)
+              deadline=time.monotonic()+660
+              while time.monotonic()<deadline:
+                  current=cloud(name)
+                  if current.get('done'):
+                      assert not current.get('error'), 'execution failed; no automatic retry'
+                      result=current.get('response',{})
+                      execution=result.get('name','')
+                      assert execution.startswith(path+'/executions/')
+                      result=cloud(execution)
+                      assert terminal(result) and result.get('succeededCount')==1 and not result.get('failedCount',0)
+                      results.append(execution)
+                      print(json.dumps({'execution':execution,'status':'PASS','operation':'deep-coverage','llm_api_tokens':0}),flush=True)
+                      break
+                  time.sleep(3)
+              else:
+                  raise RuntimeError('execution unknown; no automatic retry')
+          assert len(results)==2
+          PY
+          python scripts/gcp/ghcr_release_lease.py release --safe-to-release
