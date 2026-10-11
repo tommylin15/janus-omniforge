@@ -103,7 +103,7 @@ def historical_liquid_universe(rows, sessions, *, core_snapshot_id, lookback=20,
         membership = {
             "entry_as_of": entry, "selection_as_of": selection,
             "symbols": [symbol for symbol, _, _ in chosen],
-            "universe_version": "prior-session-20d-liquid-research-v1",
+            "universe_version": f"prior-session-{lookback}d-liquid-research-v1",
             "core_snapshot_id": core_snapshot_id,
             "source_authorization": "official",
             "source_provenance_hash": _hash(provenance),
@@ -139,7 +139,7 @@ def _ranks(values):
 def _score(rows, *, cost_bps):
     """One-way traded notional: entry buys and later buys+sales pay side costs."""
     daily_ic, gross, net, turnover = [], [], [], []
-    previous = set()
+    previous = {}
     for day, block in rows:
         ordered = sorted(block, key=lambda r: (-r["score"], r["symbol"]))
         if len(ordered) < 10:
@@ -152,8 +152,10 @@ def _score(rows, *, cost_bps):
         current = {row["symbol"] for row in ordered[:n]}
         # Equal weights. L1 traded notional includes sales AND purchases,
         # first observation enters from cash and pays one side.
-        traded = (len(current-previous) + len(previous-current)) / n
-        previous = current
+        weights = {symbol: 1 / n for symbol in current}
+        traded = sum(abs(weights.get(symbol, 0) - previous.get(symbol, 0))
+                     for symbol in set(weights) | set(previous))
+        previous = weights
         ret = fmean(row["excess_return"] for row in ordered[:n])
         turnover.append(traded)
         gross.append(ret)
@@ -197,7 +199,10 @@ def compare_four_models(predictions, cohort, sessions, *, horizon_days=5,
     blocks = []
     previous_index = None
     for day, membership in sorted(universe.items()):
-        if day not in calendar or membership.get("quality") != "candidate":
+        if (day not in calendar or membership.get("quality") != "candidate" or
+                membership.get("core_snapshot_id") != cohort.get("source_core_snapshot_id") or
+                membership.get("membership_hash") != _hash({k: v for k, v in membership.items()
+                                                           if k != "membership_hash"})) :
             reasons["invalid_historical_membership"] += 1
             continue
         if previous_index is not None and calendar[day]-previous_index < horizon_days:
@@ -223,7 +228,10 @@ def compare_four_models(predictions, cohort, sessions, *, horizon_days=5,
             except (ValueError, TypeError, OverflowError):
                 reasons["invalid_matched_number"] += 1
                 continue
-            if any(row.get("sample_source_authorization") != "official" or
+            if any(row.get("outcome_as_of") not in calendar or
+                   calendar.get(row.get("outcome_as_of"), -1) - calendar[day] != horizon_days or
+                   row.get("label_available_at", "~") > sessions[-1] or
+                   row.get("sample_source_authorization") != "official" or
                    not row.get("sample_provenance_id") or
                    not row.get("training_label_cutoff", "~") < day < row.get("outcome_as_of", "") or
                    row.get("feature_available_at", "~") > day or
