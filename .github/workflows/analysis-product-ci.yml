@@ -8,6 +8,9 @@ on:
       - 'jobs/intelligence-mart/intelligence_mart/product_runtime.py'
       - 'jobs/intelligence-mart/intelligence_mart/specialists.py'
       - 'infra/postgres/migrations/051_analysis_product.sql'
+      - 'infra/postgres/migrations/052_ceo_daily_quota_50.sql'
+      - 'jobs/intelligence-mart/intelligence_mart/provider_routing.py'
+      - 'scripts/gcp/analysis_schema_bootstrap.py'
       - 'tests/test_analysis*'
       - '.github/workflows/analysis-product-ci.yml'
   workflow_dispatch:
