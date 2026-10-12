@@ -1,0 +1,9 @@
+{
+  "intent": "inspect-one-failed-synthetic-private-recalc",
+  "approved": true,
+  "read_only": true,
+  "scope": "one-failed-test-only",
+  "source_sha": "50eda171ef6ffb3971a4d140ad09bac870ead6c1",
+  "failed_run": "38274621290",
+  "reason": "Bounded readonly view of fixture statuses, worker/ledger checkpoint booleans and dispatch flag; no owner identity or holdings output; no stored data mutations."
+}
