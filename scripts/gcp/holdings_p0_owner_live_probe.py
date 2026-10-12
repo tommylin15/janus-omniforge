@@ -19,6 +19,7 @@ import ghcr_jobs_rollout as rollout
 REQUEST = Path("ops/holdings-p0-owner-live-request.json")
 EXPECTED_SOURCE = "b1bc785906212b8d2860b1521affb83930d09f04"
 JOB = "janus-private-pipeline"
+EXPECTED_PRIVATE_IMAGE = "ghcr.io/tommylin15/janus-private-pipeline@sha256:58229f9f1ffcb1c1a7bfb23ddd5229bb7e82ed1334dc16651cdda8ddcf872188"
 
 # Supplied as argv to the existing deployed Python Job, never rendered into logs
 # by this runner. It reads the single owner from the real operational positions.
@@ -112,8 +113,7 @@ def main() -> None:
     if len(job["template"]["template"]["containers"])!=1:
         raise ValueError("unexpected_private_job_container_count")
     img=rollout.image(job)
-    if not (img.startswith("ghcr.io/tommylin15/janus-private-pipeline@sha256:")
-            and len(img.rsplit("sha256:",1)[-1])==64):
+    if img != EXPECTED_PRIVATE_IMAGE:
         raise ValueError("immutable_private_job_image_required")
     # Existing dev rollout receipt passed; reject a currently active execution
     # rather than racing the scheduled Private Mart with an owner write.
