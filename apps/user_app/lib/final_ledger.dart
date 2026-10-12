@@ -496,12 +496,24 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     required Object? ytdAmount,
     required Map<String, dynamic> aggregate,
     required bool withheld,
-  }) => fvPanel(
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  }) => Card(
+    margin: const EdgeInsets.only(bottom: 10),
+    elevation: 0,
+    clipBehavior: Clip.antiAlias,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+    child: Container(
+      padding: const EdgeInsets.all(18),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+          colors: [Color(0xFFFFFFFF), Color(0xFFEAF9FB)],
+        ),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         const Icon(Icons.account_balance_wallet_outlined, color: fvTeal, size: 22),
         const SizedBox(width: 9),
-        const Expanded(child: Text('我的持股市值',
+        const Expanded(child: Text('持股市值',
           style: TextStyle(color: fvInk, fontSize: 17, fontWeight: FontWeight.w800))),
         fvStatusPill(withheld ? 'partial' :
           aggregate['valuation_status'] ?? aggregate['aggregate_status'] ?? 'partial'),
@@ -545,7 +557,8 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
           '狀態 ${withheld ? '完整總額暫不發布' : legacy.uiLabel(aggregate['valuation_status'] ?? aggregate['aggregate_status'] ?? 'partial')}',
           style: const TextStyle(color: fvMuted, fontSize: 11))),
       ]),
-    ]),
+      ]),
+    ),
   );
 
   Widget _compactMetric(String title, String value,
@@ -1419,7 +1432,10 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                     },
                     showSelectedIcon: false,
                   )),
-                Expanded(child: scrollContent),
+                Expanded(child: Center(child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 940),
+                  child: scrollContent,
+                ))),
               ]);
             },
           ),
