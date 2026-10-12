@@ -667,7 +667,9 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                     quote_at=quote.get("quote_at"),
                     is_final=bool(quote.get("is_final")),
                     route_version=ROUTE_VERSION,
-                    refresh_status="blocked" if not authorized else refresh.get("status", "idle"),
+                    refresh_status=("updated" if refresh.get("tpex_updated", 0)
+                            else "blocked" if not authorized
+                            else refresh.get("status", "idle")),
                     session=phase,
                     checked_at=current.isoformat(),
                 )
@@ -971,6 +973,17 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         if rows and any(int(row.get("ledger_version", 0)) != latest_version for row in rows):
             raise HTTPException(status_code=409, detail="交易已儲存，等待投資組合批次更新")
         identities = repository.stock_identities({str(row["symbol"]) for row in rows}) if rows else {}
+        # Strictly owner-scoped: unresolved ledger-held securities still receive
+        # a read-model lookup, without admitting them to research stock_master.
+        # B-suffix is only a TPEx *candidate*. The source must confirm a match.
+        for holding in rows:
+            symbol = str(holding["symbol"]).upper()
+            if symbol not in identities:
+                identities[symbol] = {
+                    "symbol": symbol, "name": None, "enabled": True,
+                    "market": ("TPEX_UNVERIFIED" if symbol.endswith("B") and
+                               symbol[:-1].isdigit() else "UNKNOWN"),
+                }
         rows = [{**row, "stock_name": stock_identity(identities.get(str(row["symbol"])))[0]} for row in rows]
         try:
             if persisted_only:
