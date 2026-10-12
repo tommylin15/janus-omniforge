@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ghcr_jobs_rollout as rollout
 
 REQUEST = Path("ops/holdings-p0-owner-live-request.json")
-EXPECTED_SOURCE = "0b0855c0fdeba0294bb0bb09bf33906216d779fa"
+EXPECTED_SOURCE = "b1bc785906212b8d2860b1521affb83930d09f04"
 JOB = "janus-private-pipeline"
 
 # Supplied as argv to the existing deployed Python Job, never rendered into logs
