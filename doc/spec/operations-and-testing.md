@@ -1,3 +1,10 @@
+## 2026-10-12 四頁視覺優先 Preview live evidence（PARTIAL，非正式 traffic 切換）
+
+- 固定來源 `2ebc875953209875123d4cba04659661e68d1685`。完整 GHCR Release [#38197376475](https://github.com/tommylin15/janus-omniforge/actions/runs/38197376475)：全套 Python/Flutter、四映像 immutable/public pull PASS；前次 #38197011393 曾因兩筆舊 B7／forward-only contract tests FAIL，已修正並以新版全套成功重跑，不能把舊失敗視為新版成功。
+- Cloud Run **0% candidate** [#38197718590](https://github.com/tommylin15/janus-omniforge/actions/runs/38197718590) PASS；同源自動 OAuth metadata、S256／refresh 宣告、未登入 User／Admin／MCP negative [#38197849073](https://github.com/tommylin15/janus-omniforge/actions/runs/38197849073) PASS。未重做人工 OAuth 登入驗收，亦**不能冒稱實際授權 Owner token refresh／持股 readback 已通過**。
+- 固定 Preview 發布 [#38197920240](https://github.com/tommylin15/janus-omniforge/actions/runs/38197920240) PASS，正式 API 保持舊版 100%。公開系列 live [#38198005001](https://github.com/tommylin15/janus-omniforge/actions/runs/38198005001) PASS：2327 PE/PB/殖利率、2330 PE/PB 每個 30 已發布點（最後資料日 2026-10-08），build-id 完整 source SHA、source/provenance、私有 endpoint 未登入 401、Preview routing 0% 均 PASS。冷讀 4,338 ms，下一 4 次 74–80 ms、重複暖請求 83 ms；未測整站 P50/P95。
+- 四 Jobs 舊次 [#38188900482](https://github.com/tommylin15/janus-omniforge/actions/runs/38188900482) GHCR rollout 8 次 canary PASS，但 `source_sha=cc7f498...`，**不得推定與本次 API source 同 SHA**。正式 promotion、真實 owner 四頁 390px screenshot／互動、持股 private Mart/PnL readback 與月營收/EPS/法人可比圖仍開放。B9 模型品質獨立 NOT VERIFIED。
+
 ## 2026-10-11 合併產品／Gemini CEO 最新證據（PARTIAL）
 
 最新已部署 CEO 來源 `a60db85e179c61896f047fb8c89d1e855fbc1e12`，完整 Release 1046 Python tests、Flutter、四公開 GHCR images／匿名拉取 PASS；同 SHA CEO build／worker 部署 SUCCESS。唯一 Gemini 真實呼叫有回應及 usage，但 `invalid_structured_output`，沒有有效報告／report hash，不能標 CEO acceptance PASS。每日額度 50 與提示詞明列 JSON 格式的修正尚未部署；本機額度測試 46 PASS／5 SKIPPED，首輪格式測試 43 PASS／2 FAIL，修正後待重跑。依使用者要求先回寫文件，再開始下一次真實驗收。
