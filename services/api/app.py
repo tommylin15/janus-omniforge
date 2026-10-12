@@ -585,7 +585,10 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                     "row_count": 1,
                     "coverage": {"requested_symbols": 1, "received_symbols": 1},
                     "provenance": {"source": "twse_mis", "route_version": ROUTE_VERSION},
-                    "data": {"benchmark_id": "TAIEX", "close": quote.get("price")},
+                    # MIS quote is a distinct, non-final observation. Preserve
+                    # official Core close-history; never splice MIS into EOD line.
+                    "data": {**(section.get("data") or {}),
+                             "benchmark_id": "TAIEX", "close": quote.get("price")},
                     "quote_state": quote.get("state"),
                     "is_final": False,
                 })
