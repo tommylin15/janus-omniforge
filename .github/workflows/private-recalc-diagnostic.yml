@@ -83,7 +83,7 @@ jobs:
             --project gen-lang-client-0593591102 --region us-central1 \
             --limit 20 --format=json > /tmp/recent-ingestion-executions.json
           gcloud logging read \
-            'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ingestion-core" AND timestamp>="2026-10-12T23:12:00Z" AND timestamp<="2026-10-12T23:22:00Z"' \
+            'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ingestion-core" AND timestamp>="2026-10-12T23:19:00Z" AND timestamp<="2026-10-12T23:29:00Z"' \
             --project gen-lang-client-0593591102 --limit 180 --format=json > /tmp/recent-readonly-logs.json
           python3 - <<'PY'
           import json
