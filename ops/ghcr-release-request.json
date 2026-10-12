@@ -8,7 +8,7 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 13,
-  "reason": "2026-10-12 homepage visual cold-start resilience: live readback #38206387630 official TAIEX 30 points and source PASS, initial /market-home 16699ms exceeds previous Flutter 9s wait; bounded 24s homepage-only read while other sections remain independent, preserve snapshot on revalidation, explicit >9s delayed-response widget test. Full Python/Flutter and immutable GHCR readback required; new candidate/auto-OAuth/fixed Preview separate, no GCP mutation by this workflow.",
+  "attempt": 14,
+  "reason": "2026-10-12 consolidated P0 all-in-one user holdings universe + ledger final visual convergence: ledger mutation maintains owner current_positions independent of 500; official TPEx 00719B EOD owner on-demand and Private Mart recurring/queue PIT-limited fallback; preserve no-price/withheld; Cloud Run override IAM failure typed; single integrated Flutter phone+desktop hierarchy and Python tests. Full Python/Flutter+immutable public GHCR Release mandatory; image publication ONLY, no GCP mutations until separate same-source 0% candidate, scoped IAM, automatic OAuth and fixed Preview live gates. Do not assert authenticated screenshot or complete broker-sync.",
   "expected_runtime_changes": false
 }
