@@ -387,6 +387,69 @@ def test_private_iceberg_accepts_xirr_after_missing_price():
     assert store.upsert("mart_user_annual_performance", [row]) == 1
 
 
+def test_private_iceberg_evolves_legacy_owner_positions_quote_freshness_fields():
+    """Actual old tables omitted these two values despite valid Mart PnL."""
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+    import pyarrow as pa
+
+    original = pa.schema([
+        pa.field("user_id", pa.string()), pa.field("symbol", pa.string()),
+        pa.field("currency", pa.string()), pa.field("ledger_version", pa.int64()),
+        pa.field("valuation_date", pa.string()), pa.field("market_price", pa.string()),
+        pa.field("market_value", pa.string()),
+    ])
+
+    class LegacyTable:
+        def __init__(self):
+            self.schema_value = original
+            self.replaced = None
+            self.upsert_called = False
+
+        def schema(self):
+            return SimpleNamespace(as_arrow=lambda: self.schema_value,
+                fields=[SimpleNamespace(name=f.name) for f in self.schema_value])
+
+        @contextmanager
+        def update_schema(self):
+            class Updater:
+                def union_by_name(_, incoming):
+                    fields=[f for f in incoming
+                            if f.name not in self.schema_value.names]
+                    self.schema_value = pa.schema(list(self.schema_value) + fields)
+            yield Updater()
+
+        def overwrite(self, table, **_kwargs):
+            self.replaced = table
+
+        def upsert(self, *_args, **_kwargs):
+            self.upsert_called = True
+
+        def current_snapshot(self):
+            return SimpleNamespace(snapshot_id=171)
+
+    legacy=LegacyTable()
+    catalog=SimpleNamespace(
+        table_exists=lambda _: True,
+        load_table=lambda _: legacy,
+    )
+    store=object.__new__(PrivateIcebergStore)
+    store.catalog,store.namespace=catalog,"private"
+    row={
+        "user_id":str(USER),"symbol":"00719B","currency":"TWD",
+        "ledger_version":168,"valuation_date":"2026-10-12",
+        "market_price":"29.90","market_value":"897000",
+        "price_status":"available","price_date":"2026-10-12",
+    }
+    assert store.upsert("mart_user_positions",[row])==171
+    assert {"price_status","price_date"}.issubset(
+        set(legacy.schema_value.names))
+    assert legacy.replaced is not None
+    assert not legacy.upsert_called
+    assert legacy.replaced.column("price_status").to_pylist()==["available"]
+    assert legacy.replaced.column("price_date").to_pylist()==["2026-10-12"]
+
+
 def test_core_price_reader_uses_canonical_iceberg_catalog(monkeypatch):
     from pyiceberg.catalog import sql
     from services.api.private_pipeline import CorePriceReader
