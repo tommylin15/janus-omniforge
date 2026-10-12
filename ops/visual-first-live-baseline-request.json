@@ -4,6 +4,6 @@
   "no_gcp_mutation": true,
   "candidate_source_sha": "b1bc785906212b8d2860b1521affb83930d09f04",
   "purpose": "2026-10-12 P0 exact current formal App+four Jobs source and immutable hashes for safe next release: API promotion #38262691942 succeeded; verify canonical 100%, fixed Preview, Scheduler, GCP lease and all four GHCR job digests without mutation; no personal/secret payload.",
-  "attempt": 3,
-  "reason": "Read-only enumerate exact non-terminal execution names/state/time to determine whether fence is temporary or stale. Never cancel or replay; publish only sanitized bounded metadata."
+  "attempt": 4,
+  "reason": "One bounded read-only followup to #38263381660, which confirmed exact immutable API and four Jobs but observed janus-batch-controller-fsc7w still reconciling at 14:30Z. Verify whether execution fence is now clear before the next source's controlled release. Do not cancel/modify jobs, Scheduler, lease or traffic."
 }
