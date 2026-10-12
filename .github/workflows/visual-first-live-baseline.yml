@@ -1,0 +1,98 @@
+name: Janus visual-first live runtime baseline inventory
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/visual-first-live-baseline-request.json'
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Install public immutable GHCR manifest reader
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
+      - name: Read actual serving API and four Jobs without GCP mutation
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json, os, re, sys
+          from pathlib import Path
+          sys.path.insert(0, 'scripts/gcp')
+          import ghcr_api_promote as api
+          import ghcr_jobs_rollout as jobs
+          from ghcr_mcp_route import LEASE, command, describe, PROJECT, REGION
+
+          req=json.loads(Path('ops/visual-first-live-baseline-request.json').read_text())
+          assert req['intent']=='read-only-actual-dev-baseline'
+          assert req['no_gcp_mutation'] is True and req['scope']=='existing-dev-only'
+          candidate=json.loads(Path('ops/ghcr-candidate-request.json').read_text())
+          assert req['candidate_source_sha']==candidate['sha']
+          lease=json.loads(command(LEASE+['inspect']))
+          if lease.get('status')!='ABSENT':
+              raise ValueError('release_lease_not_absent')
+          jobs.legacy_writers()
+          current=describe()
+          serving=api.active(current)
+          revision=json.loads(command(['gcloud','run','revisions','describe',serving,
+              f'--project={PROJECT}',f'--region={REGION}','--format=json']))
+          image=api.revision_image(revision)
+          def provenance(image):
+              if not re.fullmatch(r'ghcr.io/tommylin15/janus-[a-z-]+@sha256:[0-9a-f]{64}',image):
+                  return {'public_ghcr_pinned':False, 'image':image, 'source_sha':None}
+              manifest=json.loads(command(['skopeo','inspect','--no-creds','docker://'+image]))
+              if manifest.get('Digest') != image.rsplit('@',1)[-1]:
+                  raise ValueError('image_digest_mismatch')
+              return {'public_ghcr_pinned':True,'image':image,
+                      'source_sha':manifest.get('Labels',{}).get('org.opencontainers.image.revision')}
+          serving_info=provenance(image)
+          state=jobs.scheduler()
+          if state.get('state')!='ENABLED': raise ValueError('scheduler_not_enabled')
+          jobs.fence()
+          entries={}
+          for name,component in jobs.JOB_COMPONENT:
+              data=jobs.job(name)
+              entries[name]={**provenance(jobs.image(data)),
+                'config_fingerprint':jobs.fingerprint(data)}
+          checks={
+            'expected_candidate_source_sha':req['candidate_source_sha'],
+            'serving_revision':serving,
+            'serving':serving_info,
+            'jobs':entries,
+            'scheduler_enabled':True,
+            'candidate_tag_revision':api.tags(current).get('ghcr-'+req['candidate_source_sha'][:12]),
+            'preview_tag_revision':api.tags(current).get('preview'),
+            'release_lease_absent':True,
+            'traffic_100_percent_single':True,
+            'readonly':True,
+            'result':'PASS'}
+          Path('/tmp/visual-first-live-baseline.json').write_text(json.dumps(checks,indent=2,sort_keys=True)+'\n')
+          print(json.dumps(checks,sort_keys=True))
+          PY
+      - name: Preserve sanitized public images and fingerprints receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-first-live-baseline
+          path: /tmp/visual-first-live-baseline.json
+          if-no-files-found: ignore
+          retention-days: 14

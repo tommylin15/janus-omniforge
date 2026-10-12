@@ -1,0 +1,7 @@
+{
+  "intent": "read-only-actual-dev-baseline",
+  "scope": "existing-dev-only",
+  "no_gcp_mutation": true,
+  "candidate_source_sha": "cc7f498671a1252561902f3b883eaf1cc2b8bdad",
+  "purpose": "Verify actual dev serving revision, pinned GHCR image source, four existing Jobs images and config fingerprints before promotion after per-release manual OAuth gate removal; no traffic/Jobs changes."
+}
