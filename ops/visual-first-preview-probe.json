@@ -2,7 +2,7 @@
   "intent": "readonly-preview-series-acceptance",
   "scope": "published-public-only",
   "no_gcp_mutation": true,
-  "source_sha": "cc7f498671a1252561902f3b883eaf1cc2b8bdad",
+  "source_sha": "2ebc875953209875123d4cba04659661e68d1685",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
-  "reason": "Exact SHA fixed-preview real 2327/2330 valuation dataset readback and latency; not owner authenticated acceptance."
+  "reason": "2026-10-12 exact immutable SHA fixed-preview real 2327/2330 valuation published dataset with explicit null gap semantics, source/PIT, owner 401, API latency and canonical traffic 100%-unchanged. Read-only; not logged-in owner acceptance."
 }
