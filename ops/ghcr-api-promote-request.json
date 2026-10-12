@@ -9,5 +9,7 @@
   "baseline_source_sha": "038498c70e12488f345c3ca0fbe821846ddee4cc",
   "allow_legacy_forward_only": false,
   "gate": "2026-10-12 User authorized bring up existing dev formal App for operational holdings, price quotes and manual PnL recalc. Exact source GHCR full #38251449161 PASS, same-source OAuth/private-negative #38253596061 PASS (human OAuth not required), new Jobs reversible canaries #38253861084 PASS and real single-owner 00719B TPEx Mart #38257614968 PASS; fixed Preview publication #38259811978 and public/PIT/latency readback #38260612716 PASS, cold timeout #38260082698 retained as performance PARTIAL. Serving API prior source 038498 per versioned verified baseline; **Jobs prior source 0b0855 differs and is independently verified against exact #38253861084 receipt and ops/ghcr-jobs-rollout-request.json**. Require lease, current job fingerprints/scheduler/execution fence, previous public GHCR revision and real candidate→previous→candidate traffic rehearsal/rollback. Keep old revision for recovery. User-facing authenticated UI/screenshot and exact manual button round-trip remain separate follow-up acceptance, not silently marked PASS.",
-  "auth_boundary_run": "38253596061"
+  "auth_boundary_run": "38253596061",
+  "retry_attempt": 1,
+  "retry_reason": "Controlled API promotion attempt #38262521301 stopped before any GCP mutation: test-only NameError (top-level json missing), 74 of 75 tests passed. Import repaired at main 822659b; rerun exact source, rollback baselines and tests through same owner-fenced workflow, do not bypass gates."
 }
