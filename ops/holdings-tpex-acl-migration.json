@@ -1,0 +1,9 @@
+{
+  "intent": "migrate-single-quote-table-tpex-eod",
+  "approved": true,
+  "scope": "control.operational_last_quotes-only",
+  "source_sha": "0b0855c0fdeba0294bb0bb09bf33906216d779fa",
+  "new_resources": false,
+  "ledger_mutation": false,
+  "purpose": "2026-10-12 fix verified Private Mart PostgreSQL InsufficientPrivilege on control.operational_last_quotes, plus pre-existing twse_mis-only source and regular/off_session-only session CHECK incompatible with official TPEx EOD (live 00719B source PASS #38231202891). Apply versioned idempotent 053 via existing janus-ingestion-core control identity in one bounded Job override, enforce exact table-only ACL, no new GCP or secrets; then rerun exactly-one-owner Mart acceptance #38231768997 after diagnosing failure with source proof #38233633200."
+}
