@@ -5,7 +5,7 @@
   "sha": "cc7f498671a1252561902f3b883eaf1cc2b8bdad",
   "candidate_release_run": "38153154441",
   "candidate_deployment_run": "38153514341",
-  "purpose": "Read-only boundary probe for visual-first exact-SHA 0% candidate: OAuth metadata, private 401/403, MCP challenge, and build-id; no user token or traffic changes.",
-  "requires_human_owner_acceptance_before_promotion": true,
-  "attempt": 2
+  "purpose": "Repeat exact candidate SHA live OAuth discovery/PKCE/refresh metadata, User/Admin private 401/403 and MCP challenge under approved automatic-only release gate; no human login or GCP mutation.",
+  "requires_human_owner_acceptance_before_promotion": false,
+  "attempt": 3
 }
