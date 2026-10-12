@@ -118,8 +118,8 @@ void main() {
       (tester) async {
     _phone(tester);
     final api = HoldingsP0Api(_snapshot());
-    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(api,
-      active: false, now: () => DateTime.utc(2026,10,12,7))));
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: FinalLedgerPage(api,
+      active: false, now: () => DateTime.utc(2026,10,12,7)))));
     await tester.pumpAndSettle();
     // Current-year history is empty => YTD displays zero (not "pending").
     // The manual recovery entry must still exist and be actionable.
@@ -138,8 +138,8 @@ void main() {
       (tester) async {
     _phone(tester);
     final api = HoldingsP0Api(_snapshot())..queueStatus = 'FAILED';
-    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(api,
-      active: false, now: () => DateTime.utc(2026,10,12,7))));
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: FinalLedgerPage(api,
+      active: false, now: () => DateTime.utc(2026,10,12,7)))));
     await tester.pumpAndSettle();
     final recalc = find.byKey(const Key('recalculate-pnl'));
     expect(recalc, findsOneWidget);
