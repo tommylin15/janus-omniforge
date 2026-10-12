@@ -480,7 +480,7 @@ void main() {
     expect(find.text('本年已實現損益'), findsOneWidget);
     expect(find.text('本年度確認無交易'), findsOneWidget);
     expect(find.text('待更新／尚未確認'), findsNothing);
-    expect(find.byKey(const Key('recalculate-pnl')), findsNothing);
+    expect(find.byKey(const Key('recalculate-pnl')), findsOneWidget);
 
     await tester.tap(find.text('報表'));
     await tester.pumpAndSettle();
