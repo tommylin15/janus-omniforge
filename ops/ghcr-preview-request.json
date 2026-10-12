@@ -2,16 +2,16 @@
   "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
   "approved": true,
   "scope": "janus-api-preview-tag-only",
-  "source_sha": "8b515f10fa2d4784235446185ad0c9d1337cbbdd",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:26b937f41212f6ce2fc46a9b83d8e1b455a351aefa9628e545d0e16467199489",
-  "release_run": "38206654851",
-  "candidate_run": "38207011213",
-  "boundary_run": "38207164718",
+  "source_sha": "0b0855c0fdeba0294bb0bb09bf33906216d779fa",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:a0538303f5895290ad87b5f92094f3875023e4de1562ad5c40e48dc56de9916d",
+  "release_run": "38224456544",
+  "candidate_run": "38225156313",
+  "boundary_run": "38225390463",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
-  "reason": "2026-10-12 fully verified cold-start-tolerant TAIEX homepage: full Python/Flutter and immutable public GHCR release #38206654851; 0% candidate #38207011213 and auto OAuth/private-negative #38207164718 PASS. Preview tag only under shared lease, no formal traffic, Jobs or other tag mutation.",
+  "reason": "2026-10-12 combined P0 official owner holdings not limited to research 500, TPEx ETF 00719B official EOD path and Private Mart guarded valuation, job dispatch diagnostic, final Ledger single-Hero + cumulative/top daily/bottom responsive cards. Same-source full release #38224456544, 0% candidate #38225156313, automated OAuth/private-negative #38225390463, job-scope IAM #38226365438 and four Jobs reversible rollout with live canaries #38226618808 all SUCCESS. Preview tag only, preserve formal traffic, Jobs and unrelated tags; follow with owner data and UI comparison.",
   "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
-  "attempt": 6
+  "attempt": 7
 }
