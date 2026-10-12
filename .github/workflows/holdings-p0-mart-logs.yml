@@ -31,7 +31,13 @@ jobs:
           selected=[]
           for entry in logs:
               if 'stderr' in str(entry.get('logName') or ''): continue
-              value=str(entry.get('textPayload') or (entry.get('jsonPayload') or {}).get('message') or '')
+              payload=entry.get('jsonPayload') or {}
+              if (isinstance(payload,dict) and payload.get('read_only') is True
+                  and payload.get('symbol')=='00719B'
+                  and payload.get('one_owner') is True):
+                  selected.append(payload)
+                  continue
+              value=str(entry.get('textPayload') or payload.get('message') or '')
               for line in value.splitlines():
                   try: item=json.loads(line)
                   except (ValueError,TypeError): continue
