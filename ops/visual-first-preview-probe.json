@@ -2,7 +2,7 @@
   "intent": "readonly-preview-series-acceptance",
   "scope": "published-public-only",
   "no_gcp_mutation": true,
-  "source_sha": "b329a4e78bded056eeebc4792171aabcb86e2e3d",
+  "source_sha": "8b515f10fa2d4784235446185ad0c9d1337cbbdd",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
-  "reason": "2026-10-12 real TAIEX 2-30 official historical points, dates, source/PIT, headline MIS vs history split, institutional and market sections, bounded /market-home warm latency, existing published stock valuation regression, exact Flutter build-id and canonical traffic 100%-unchanged. Read-only, not authenticated owner screenshot."
+  "reason": "2026-10-12 final fixed Preview cold-home visual acceptance, same immutable Flutter source SHA from GHCR Release #38206654851, candidate #38207011213, automated OAuth #38207164718, preview tag #38207239328. Live TAIEX 30 published EOD points/date/source/provenance, market activity+institutional, 401 private boundary, warmed /market-home, old canonical 100%-traffic unchanged; public read-only, not owner UI screenshot or statistical P95."
 }
