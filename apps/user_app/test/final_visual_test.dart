@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:janus_user_app/final_visual_pages.dart';
 import 'package:janus_user_app/final_visual_common.dart';
+import 'package:janus_user_app/final_visual_series.dart';
 import 'package:janus_user_app/main.dart' as legacy;
 
 class FinalFakeApi extends legacy.Api {
@@ -38,6 +39,22 @@ class FinalFakeApi extends legacy.Api {
 
   @override
   Future<dynamic> patch(String path, Map<String, dynamic> body) async => body;
+}
+
+
+class DelayedStockHeaderApi extends FinalFakeApi {
+  DelayedStockHeaderApi(super.values);
+  final firstHeader = Completer<dynamic>();
+  int headerReads = 0;
+
+  @override
+  Future<dynamic> get(String path) {
+    if (path == '/api/v1/public/stock-header/2330' && headerReads++ == 0) {
+      reads.add(path);
+      return firstHeader.future;
+    }
+    return super.get(path);
+  }
 }
 
 class StalledWatchlistApi extends FinalFakeApi {
@@ -1137,6 +1154,58 @@ void main() {
 
     expect(find.text('月度已實現損益'), findsOneWidget);
     expect(find.byKey(const Key('fv-monthly-pnl-chart')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+
+  testWidgets('Stock chart preserves published null gaps and repaints changed middle values',
+      (tester) async {
+    List<dynamic> series(String middle) => [
+      {'date': '2026-10-01', 'value': '10'},
+      {'date': '2026-10-02', 'value': null},
+      {'date': '2026-10-03', 'value': middle},
+      {'date': '2026-10-06', 'value': '30'},
+    ];
+    Widget page(String value) => MaterialApp(home: Scaffold(
+      body: FvVisualSeriesChart(rows: series(value), label: '本益比', unit: 'times')));
+    await tester.pumpWidget(page('20'));
+    expect(find.text('部分日期缺值，圖線不跨越缺口'), findsOneWidget);
+    final first = tester.widget<CustomPaint>(
+        find.byKey(const Key('fv-visual-series-chart'))).painter!;
+    await tester.pumpWidget(page('25'));
+    final second = tester.widget<CustomPaint>(
+        find.byKey(const Key('fv-visual-series-chart'))).painter!;
+    expect(second.shouldRepaint(first), isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Stock A-B-A navigation ignores the original slow A response',
+      (tester) async {
+    final api = DelayedStockHeaderApi({
+      '/api/v1/public/stock-header/2330': {
+        'stock_name': '台積電', 'close': '333', 'trade_date': '2026-10-08'
+      },
+      '/api/v1/public/stock-header/2317': {
+        'stock_name': '鴻海', 'close': '200', 'trade_date': '2026-10-08'
+      },
+    });
+    Future<void> show(String symbol) => tester.pumpWidget(
+        MaterialApp(home: FinalStockDetailPage(api: api, symbol: symbol)));
+    await show('2330');
+    await tester.pump();
+    await show('2317');
+    await tester.pump();
+    expect(find.text('200.00'), findsOneWidget);
+    await show('2330');
+    await tester.pump();
+    expect(find.text('333.00'), findsOneWidget);
+
+    api.firstHeader.complete({
+      'stock_name': '過期資料', 'close': '111', 'trade_date': '2026-09-01'
+    });
+    await tester.pumpAndSettle();
+    expect(find.text('333.00'), findsOneWidget);
+    expect(find.text('111.00'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
