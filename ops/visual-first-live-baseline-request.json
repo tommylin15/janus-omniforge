@@ -2,8 +2,8 @@
   "intent": "read-only-actual-dev-baseline",
   "scope": "existing-dev-only",
   "no_gcp_mutation": true,
-  "candidate_source_sha": "cc7f498671a1252561902f3b883eaf1cc2b8bdad",
-  "purpose": "Verify actual dev serving revision, pinned GHCR image source, four existing Jobs images and config fingerprints before promotion after per-release manual OAuth gate removal; no traffic/Jobs changes.",
-  "attempt": 2,
+  "candidate_source_sha": "b1bc785906212b8d2860b1521affb83930d09f04",
+  "purpose": "2026-10-12 P0 exact current formal App+four Jobs source and immutable hashes for safe next release: API promotion #38262691942 succeeded; verify canonical 100%, fixed Preview, Scheduler, GCP lease and all four GHCR job digests without mutation; no personal/secret payload.",
+  "attempt": 3,
   "reason": "Read-only enumerate exact non-terminal execution names/state/time to determine whether fence is temporary or stale. Never cancel or replay; publish only sanitized bounded metadata."
 }
