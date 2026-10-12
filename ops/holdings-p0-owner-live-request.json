@@ -2,12 +2,13 @@
   "intent": "real-owner-tpex-mart-reconciliation",
   "approved": true,
   "scope": "single-owner-holding-00719B",
-  "sha": "0b0855c0fdeba0294bb0bb09bf33906216d779fa",
+  "sha": "b1bc785906212b8d2860b1521affb83930d09f04",
   "write_limit": "private-mart-only",
   "ledger_mutation": false,
-  "purpose": "2026-10-12 bounded exact one-owner 00719B live acceptance after PostgreSQL migration 053 PASS. Previous execution wrote priced 00719B owner position (private MCP read status available 2026-10-12) but acceptance script incorrectly asserted unrealized_pnl in mart_user_positions; corrected to verify mart_user_unrealized_pnl separately with same ledger version, as required by calculate_marts(). No real ledger mutations and no other owners; fail closed on price provenance or Mart mismatch.",
-  "retry_attempt": 2,
+  "purpose": "2026-10-12 bounded actual 00719B owner Mart acceptance on schema-evolved source b1bc7859 after successful four-Jobs rollout #38253861084 (8 canaries), full GHCR #38251449161, candidate #38253341992, boundary #38253596061, read-only old Mart diagnosis #38250985026. One owner only, verify TPEx official persisted EOD, separately typed positions and unrealized PnL, price_status/date and ledger checkpoint; never alter ledger or other owners; require exact GHCR Private Job digest and execution fence; fail closed.",
+  "retry_attempt": 3,
   "after_migration": "053_tpex_owner_eod_quote_acl",
   "after_migration_run": "38244531637",
-  "last_failed_run": "38245001859"
+  "last_failed_run": "38245001859",
+  "after_jobs_rollout_run": "38253861084"
 }
