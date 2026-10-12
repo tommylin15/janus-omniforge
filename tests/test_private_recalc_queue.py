@@ -134,9 +134,46 @@ def test_queue_worker_claims_multiple_owners_but_serializes_write_guard(monkeypa
     pipeline = Pipeline(repository)
     result = run_queue_worker(repository, pipeline)
 
-    assert result == {"processed": 2, "succeeded": 2, "failed": 0, "cancelled": 0}
+    assert result == {"processed": 2, "succeeded": 2, "failed": 0, "cancelled": 0, "error_codes": {}}
     assert pipeline.users == [
         USER,
         UUID("00000000-0000-0000-0000-000000000002"),
     ]
     assert repository.claim_meta[0] == ("exec-1", 1)
+
+
+def test_failed_worker_reports_only_safe_error_class_and_preserves_other_owners(monkeypatch):
+    monkeypatch.setenv("CLOUD_RUN_TASK_INDEX", "0")
+    request_id=uuid4()
+    secret_text="sensitive owner trade and price information"
+
+    class Repo:
+        def __init__(self):
+            self.claimed=False
+            self.finished=[]
+            self.released=False
+        def claim_recalculation(self, execution, task_index):
+            if self.claimed:
+                return None
+            self.claimed=True
+            return {"request_id":request_id,"lease_token":uuid4(),"user_id":USER}
+        def finish_recalculation(self, rid, lease, **kwargs):
+            self.finished.append(kwargs)
+            return {"status":"FAILED"}
+        def release_recalculation_dispatch_if_idle(self):
+            self.released=True
+            return True
+
+    class BrokenPipeline:
+        def run_user(self, user_id, *, stop, write_guard):
+            raise RuntimeError(secret_text)
+
+    repository=Repo()
+    result=run_queue_worker(repository,BrokenPipeline())
+    assert result=={"processed":1,"succeeded":0,"failed":1,"cancelled":0,
+                    "error_codes":{"RUNTIMEERROR":1}}
+    assert repository.finished[0]["error_code"]=="RUNTIMEERROR"
+    assert repository.released is True
+    assert secret_text not in repr(result)
+    assert str(USER) not in repr(result)
+    assert str(request_id) not in repr(result)
