@@ -39,6 +39,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   Timer? recalcTimer;
   bool quoteBusy = false;
   bool pnlRecalcBusy = false;
+  bool recalcPollBusy = false;
   Map<String, dynamic>? recalcStatus;
   bool foreground = true;
   int quoteGeneration = 0;
@@ -430,9 +431,12 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   }
 
   Future<void> refreshRecalcStatus() async {
+    if (!mounted || recalcPollBusy) return;
+    recalcPollBusy = true;
     try {
-      final result =
-          await widget.api.get('/api/v1/me/journal/recalculation-status');
+      final result = await widget.api
+          .get('/api/v1/me/journal/recalculation-status')
+          .timeout(const Duration(seconds: 9));
       if (!mounted) return;
       final next = Map<String, dynamic>.from(result as Map);
       final wasActive = recalcActive(recalcStatus);
@@ -445,6 +449,8 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       }
     } catch (_) {
       // Keep the last visible state; user can manually refresh the page.
+    } finally {
+      recalcPollBusy = false;
     }
   }
 
@@ -1234,7 +1240,9 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                     aggregate: aggregate,
                     withheld: withheld,
                   ),
-                  if (section == 0 && ytd == '待更新／尚未確認') ...[
+                  // Recalculation is an explicit Owner action, even when annual totals are ready.
+                  // Do not hide the only manual recovery path behind YTD missingness.
+                  if (section == 0) ...[
                     Align(
                       alignment: Alignment.centerLeft,
                       child: OutlinedButton.icon(
