@@ -193,6 +193,7 @@ class CoreQueryService:
             # Only points with verifiable observation date and official lineage
             # qualify for the chart. Reject future dates and non-finite closes.
             history_by_day: dict[str, dict[str, str]] = {}
+            latest_readable = None
             for candidate in candidates:
                 day = str(candidate.get("trade_date") or "")[:10]
                 try:
@@ -202,6 +203,11 @@ class CoreQueryService:
                     continue
                 if trade_day > today or not value.is_finite() or value <= 0:
                     continue
+                # Current single-day index remains independently readable even
+                # if this row lacks complete chart lineage. The historical
+                # trend itself stays strict: source+provenance required.
+                if latest_readable is None:
+                    latest_readable = candidate
                 source = str(candidate.get("source_id") or "").strip()
                 provenance = str(candidate.get("provenance_id") or "").strip()
                 if not source or not provenance or day in history_by_day:
@@ -211,9 +217,7 @@ class CoreQueryService:
                     "source_id": source, "provenance_id": provenance,
                 }
             history = sorted(history_by_day.values(), key=lambda item: item["date"])[-30:]
-            valid_candidates = [c for c in candidates
-                                if str(c.get("trade_date") or "")[:10] in history_by_day]
-            row = valid_candidates[0] if valid_candidates else None
+            row = latest_readable
             section = self._market_section(
                 row, today, 1 if row else 0,
                 {"requested_symbols": 1, "received_symbols": 1 if row else 0},
