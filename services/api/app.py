@@ -350,7 +350,10 @@ def create_app(repository: Any | None = None, store: Any | None = None,
             )
 
     def resolve_prices(identities: dict[str, dict[str, Any]], *, force: bool = False):
-        scoped = {
+        # Read *all* actual owner holdings, even outside the research 500
+        # and including unconfirmed TPEx ETFs. Only TWSE-verified identities
+        # may issue TWSE MIS calls; the other symbols stay DB-first.
+        twse = {
             symbol: identity for symbol, identity in identities.items()
             if identity.get("enabled", True) is not False
             and str(identity.get("market", "")).upper() in {"TWSE", "TWSE_INDEX"}
@@ -358,11 +361,20 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         current, phase = quote_session()
         authorized = os.getenv("JANUS_MIS_QUOTES_ENABLED", "false").lower() == "true"
         prices, refresh = quote_router.resolve(
-            scoped,
-            refresh=bool(scoped) and authorized and phase == "regular",
-            force=force,
-            now=current,
+            identities,
+            refresh=bool(twse) and authorized and phase == "regular",
+            force=force, now=current,
         )
+        # Official TPEx OpenAPI provides *EOD only*, never an intraday
+        # tick. A single owner-demand batch after the EOD handoff is enough;
+        # existing last-success stays visible when that source is blocked.
+        if phase != "regular":
+            tpex = quote_router.refresh_tpex(identities, now=current)
+            if tpex["updated"]:
+                prices = quote_router.read(identities, now=current)
+            if tpex["status"] != "idle":
+                refresh = {**refresh, "tpex_eod": tpex["status"],
+                           "tpex_updated": tpex["updated"]}
         return prices, refresh, current, phase, authorized
 
     api = FastAPI(title="Janus User API", version="0.1.0", docs_url=None, redoc_url=None)
