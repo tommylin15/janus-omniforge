@@ -116,3 +116,14 @@ Series typed minimum：schema_version、symbol、metric、unit、period、points
 - Release：同一完整 SHA 必要 CI → GHCR immutable digest → 0% dev candidate → live screenshot／API／Mart readback → 完整 gate PASS 才正式 dev 切流／回滾。沿用現有部署鎖，schema migration 與 Job guard，不額外部署路徑。
 
 **P0 PASS** 需要 VF-00～06 真實實作、CI、dev owner 四頁驗收，個股短價量能互動、每頁有大數字／主訊息、無法用的圖明示原因。**P1 PASS** 需要 VF-07～09 可比的真實 series／source／PIT／readback，不能單靠 mock 圖通過。**整體產品 PASS** 仍需原 B9 產品、C 組、持股頁及既定驗收全部達成；本文件提交只是 docs-only，產品與模型品質目前不自動更動。
+
+## 2026-10-12 P0 合併修復：個人持股不限 500／00719B／視覺落差
+
+狀態：**ACTIVE，集中實作後一次測試與 live Preview 驗收，未通過前不可標 PASS。** 本節由使用者實際 00719B 缺價、未實現總額 withheld、Private Mart 派送失敗與持股畫面明顯不符合 Final Visual Contract 回報觸發。
+
+1. **兩條不同的時鐘**：個人持股池由 owner ledger BUY／SELL／REVERSAL／股票股利的 current_positions 立即投影，無新增 500 membership gate；交易確認後刷新 owner snapshot cache，新增持股立即登記行情需求，減碼立即更新股數與成本，歸零停止需求。行情獨立持久化（quote time、source、received_at、price_date），不可把交易後的新股數與舊版 Private Mart checkpoint 假稱同時點正式損益。不得要求使用者定期手動同步「持股池」。
+2. **研究池與估值池分離**：500 僅負責篩選與模型研究；任何真實持股（TWSE／TPEx 股票、ETF 等）仍可依授權官方報價／EOD 提供估值；stock_master 身分與市場需支援持股出池、無入池／短暫未建檔。TPEx 官方 EOD 不可借 TWSE row 或 fake price，未經實證無來源者標 missing；盤中 quote 需測試授權與 timestamp 後才能定義新 TPEx source 為可用，需保障 60s TTL／前景限定／手動 throttle／DB last-success，不產生持續付費 polling。
+3. **總額與局部資料隔離**：若任一活躍持股缺可信同時點市價，正式「完整持股總市值／未實現損益」 withheld；但各持股 operational 股數、成本、均價、已實現交易記錄及有價格的個股損益仍可顯示。若提供「已估價部份小計」，必須 backend 明定不完整 coverage（筆數、affected symbols、估值日），不能稱完整總額或偷偷忽略缺價持股。
+4. **重算派送獨立查因**：Cloud Run `janus-private-pipeline` dispatch、IAM、queue status、run result 與影像版本各需真實證據；TPEx 缺價≠ Cloud Run Job 無法啟動。未確認不能盲目重送，保留可重試且具狀態診斷。
+5. **記帳／持股版型必須收斂**：頁首單一持股市值 Hero，未實現與 YTD 屬 secondary；個股卡**上排是持有以來未實現損益金額＋報酬／股數、下排是即時現價與前收當日每股漲跌、漲幅與依持股數推算的價格變化**，相同時間尺度同一列，避免總損益與日漲跌交錯；桌面需設 maxWidth、手機 390×844 稠密清楚。官方歷史點數與時間語意不合格則不畫 fake sparkline。
+6. **合併驗收**：先回寫 doc/UI contract → backend owner positions、TPEx data / resolver、Private Mart trigger、Flutter 卡片與 Hero 一次合併實作 → Python/Flutter targeted & full tests／390px golden、owner missing/stale/unsupported instrument、00719B/live source、owner snapshot/PnL、real Cloud Run Job dispatcher runtime proof → GHCR／0% candidate／自動 OAuth boundary／固定 Preview／authenticated owner screenshot comparison。不可將 mock／CI／公共頁面 readback 代替 Owner 實際持股驗收。先前美術構圖是呈現目標，但當前截圖明顯不符，維持 **VISUAL FAIL**。
