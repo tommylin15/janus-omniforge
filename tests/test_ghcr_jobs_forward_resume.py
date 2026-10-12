@@ -49,13 +49,29 @@ def test_lease_recovery_checks_original_owner_is_finished():
 
 def test_failed_lease_guard_never_resumes_scheduler(tmp_path):
     report=tmp_path/"receipt.json"
-    with (patch.object(resume, "request_data", return_value={}),
-          patch.object(resume.rollout, "acceptance"),
-          patch.object(resume, "owner_lease", side_effect=ValueError("lease_busy")),
+    with (patch.object(resume, "request_data", return_value={"auth_boundary_run": "123"}),
+          patch.object(resume.rollout, "automated_oauth_acceptance") as boundary,
+          patch.object(resume, "owner_lease", side_effect=ValueError("lease_busy")) as lease,
           patch.object(resume.rollout, "set_scheduler") as sched):
         assert resume.run(report)==78
+    boundary.assert_called_once_with(resume.GHCR_SHA, "123")
+    lease.assert_called_once()
     assert json.loads(report.read_text())["phase"]=="RECOVERY_REQUIRED"
     sched.assert_not_called()
+
+
+def test_old_forward_only_recovery_requires_new_same_source_auth_gate(tmp_path):
+    report=tmp_path/"receipt.json"
+    with (patch.object(resume, "request_data", return_value={}),
+          patch.object(resume.rollout, "automated_oauth_acceptance",
+                       side_effect=ValueError("automated_oauth_run_required")) as boundary,
+          patch.object(resume, "owner_lease") as lease,
+          patch.object(resume.rollout, "set_scheduler") as scheduler):
+        assert resume.run(report)==78
+    boundary.assert_called_once_with(resume.GHCR_SHA, None)
+    lease.assert_not_called()
+    scheduler.assert_not_called()
+    assert json.loads(report.read_text())["reason"]=="automated_oauth_run_required"
 
 
 def test_one_time_recovery_workflow_scope_and_fence():
