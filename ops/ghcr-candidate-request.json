@@ -1,7 +1,7 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "0b0855c0fdeba0294bb0bb09bf33906216d779fa",
-  "purpose": "2026-10-12 consolidated P0 personal-held universe not limited to 500, official TPEx 00719B EOD and Mart guarded fallback, Private Job dispatch 403 diagnostics, single condensed Ledger hero and upper cumulative/lower daily rows. Full Python/Flutter+public GHCR image release PASS #38224456544. 0%-only candidate with old canonical 100%; Jobs and Scheduler unchanged until separate reversible gated rollout.",
+  "sha": "b1bc785906212b8d2860b1521affb83930d09f04",
+  "purpose": "2026-10-12 P0 00719B owner mart historical Iceberg positions schema: confirmed missing price_status/price_date with present official market price/value and unrealized PnL in real read-only #38250985026; add validated additive schema evolution #2706f52; full Python/Flutter and all four public GHCR images RELEASE PASS #38251449161. Deploy API 0% candidate ONLY for exact updated source; preserve current 100% traffic, fixed Preview tag, all four Jobs, existing Scheduler, owner data and OAuth boundaries. No automatic promotion.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
