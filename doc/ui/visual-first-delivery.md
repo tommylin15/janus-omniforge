@@ -1,7 +1,7 @@
 # Janus 四頁視覺優先 — 工程實作清單（B）
 
-更新：2026-10-11
-狀態：Active work / PARTIAL implementation（2026-10-11 第一批價量主圖、縮放、bounded loading 程式已提交；CI／live 仍待驗）。依 [A 正式視覺規格](visual-first-four-pages.md) 與既有 WBS-6、B9 產品＋C／剩餘產品合併授權執行；開發先整套完成再集中驗收。不重做 B0～B8，研究 500 檔母體與五模型 OOS 調參仍後置。
+更新：2026-10-12
+狀態：Active work / PARTIAL acceptance（四頁視覺初版及估值／事件圖表已進固定 dev Preview，完整 GHCR Release／0% 候選／自動 OAuth／公開 serving readback PASS；正式 100% 切流、四頁本人驗收、完整 P0/P1 資料仍缺）。依 [A 正式視覺規格](visual-first-four-pages.md) 與既有 WBS-6、B9 產品＋C／剩餘產品合併授權執行；開發先整套完成再集中驗收。不重做 B0～B8，研究 500 檔母體與五模型 OOS 調參仍後置。
 
 ## 1. 已查 main 的現況與缺口（不是 live PASS）
 
@@ -55,6 +55,13 @@ VF-00/01 與每張圖的資料合法性是**前置**，不放在最後 P2；VF-0
 - 個股估值主圖及放大按合法點數而非陣列長度判斷，並能在非末點改變時重繪。公司事件已由既有 published read path 呈現 bounded 中性時間軸，依 `event_id` 去重，明確區分公告與生效日，不猜事件方向。
 - Flutter [#38196268477](https://github.com/tommylin15/janus-omniforge/actions/runs/38196268477) PASS；API [#38196525696](https://github.com/tommylin15/janus-omniforge/actions/runs/38196525696) PASS。**最新整合 SHA 的 CI／完整 Release／0% candidate／真實 UI readback 尚須逐項驗證**；尚未正式切流。
 - **仍缺**：月營收／季度 EPS、法人合格歷史 serving；持股跨日真實估值趨勢、四頁 Owner 截圖／效能 P95、完整官方 coverage/PIT matrix。此段不代表 VF-07 或整體產品 PASS。
+
+### 2026-10-12 同源 Preview／實際資料驗收 checkpoint
+
+- immutable source：`2ebc875953209875123d4cba04659661e68d1685`。GHCR full [#38197376475](https://github.com/tommylin15/janus-omniforge/actions/runs/38197376475)、0% candidate [#38197718590](https://github.com/tommylin15/janus-omniforge/actions/runs/38197718590)、自動 OAuth/private-negative [#38197849073](https://github.com/tommylin15/janus-omniforge/actions/runs/38197849073)、固定 Preview [#38197920240](https://github.com/tommylin15/janus-omniforge/actions/runs/38197920240)、live readback [#38198005001](https://github.com/tommylin15/janus-omniforge/actions/runs/38198005001) 全 PASS。preview URL：`https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/`；正式 API 100% 仍舊版，未切流。
+- 真實公開 2327：PE/PB/殖利率各 30 合法點；2330：PE/PB 各 30 合法點，`data_as_of=2026-10-08`，source/provenance 與 build-id SHA 已實際 readback。首個 cold 讀取 4,338 ms、其餘短請求 74–80 ms、同路徑 warmed 83 ms；**非統計 P95、亦非 owner 手機首屏 SLO**。live probes 已更新支援 typed null 樣本，不以 points 陣列長度當全部合法。
+- Read-only Core sample 補查 2327 三大法人歷史與 MOPS 2327／2330 官方財報：institutional 已具 TWSE source/provenance 但尚無可信 public typed serving series；financials 的 `period_basis`、`is_single_quarter`、`report_scope`、`share_basis_status`、`publication_time_authoritative` 缺失／不可靠，EPS/淨利/營收跨期不能比較。這是 bounded sample，不能外推 500 檔 coverage，也不以單篇公告湊月營收。
+- VF-00～06 尚缺完整四頁本人 390×844 screenshot/實際載入與 owner readback；VF-07 尚缺官方可比財報／法人 typed series；VF-08 缺至少兩筆同 checkpoint 已發布歷史持股估值；VF-09 五角色 persisted 可信狀態仍需獨立 B9 產品驗收。**上述都仍開放，不因 Preview PASS 認定產品交付。**
 
 ## 3. Dataset coverage matrix（必要交接表）
 
