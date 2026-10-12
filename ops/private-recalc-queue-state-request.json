@@ -5,5 +5,6 @@
   "scope": "one-failed-test-only",
   "source_sha": "50eda171ef6ffb3971a4d140ad09bac870ead6c1",
   "failed_run": "38274621290",
-  "reason": "Bounded readonly view of fixture statuses, worker/ledger checkpoint booleans and dispatch flag; no owner identity or holdings output; no stored data mutations."
+  "reason": "One bounded retry after previous SELECT erroneously referenced non-existing created_at column; authoritative queue 048 migration has requested_at. Previous ephemeral execution janus-ingestion-core-hxzzs terminal FAILED, no writes. Exact same readonly SELECT, one task with immutable ingestion digest. No real trade or owner changes.",
+  "retry": 1
 }
