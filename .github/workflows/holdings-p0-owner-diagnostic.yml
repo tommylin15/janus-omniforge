@@ -166,3 +166,20 @@ jobs:
                   'file_missing':('no such file' in content.lower()),
                   'no_exception_message_or_private_values':True},sort_keys=True))
           PY
+      - name: Identify only SQL object denied to existing pipeline role
+        run: |
+          python3 - <<'PY'
+          import json,re
+          from pathlib import Path
+          logs=json.loads(Path('/tmp/private-log.json').read_text())
+          for row in logs:
+              if 'stderr' not in str(row.get('logName','')): continue
+              content=str(row.get('textPayload') or
+                  (row.get('jsonPayload') or {}).get('message') or '')
+              objects=re.findall(r'permission denied for\s+(table|schema|relation|sequence|function)\s+([A-Za-z_][A-Za-z0-9_]{0,62})',
+                  content,re.IGNORECASE)
+              print(json.dumps({'denied_sql_objects':[
+                   {'kind':kind.lower(),'object':name} for kind,name in objects],
+                   'contains_embedded_sql':('LINE 1:' in content),
+                   'no_sql_statement_or_private_data':True},sort_keys=True))
+          PY
