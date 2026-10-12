@@ -193,6 +193,59 @@ def check_jobs_receipt(proof, source_sha):
         raise ValueError("jobs_canary_execution_duplicated")
 
 
+
+def verify_independent_job_rollback(proof, source_sha, release_run):
+    """Jobs rollback source is the prior *Jobs* image, not the serving API SHA.
+
+    GitHub release and Jobs rollout have independent schedules. Tie the real
+    receipt to its approved immutable image/config baseline rather than to
+    the separately verified serving-API rollback baseline.
+    """
+    request = json.loads(Path("ops/ghcr-jobs-rollout-request.json").read_text())
+    previous = request.get("baseline_source_sha")
+    expected_images = request.get("rollback_images")
+    expected_hashes = request.get("rollback_config_hashes")
+    targets = {name for name, _ in JOB_COMPONENT}
+    if (request.get("approved") is not True
+            or request.get("scope") != "existing-dev-four-jobs"
+            or request.get("rollback_mode") != "reversible_ghcr"
+            or request.get("sha") != source_sha
+            or request.get("release_run") != release_run
+            or not isinstance(previous, str)
+            or not re.fullmatch(r"[0-9a-f]{40}", previous)
+            or previous == source_sha
+            or proof.get("rollback_baseline_sha") != previous
+            or not isinstance(expected_images, dict)
+            or set(expected_images) != targets
+            or not isinstance(expected_hashes, dict)
+            or set(expected_hashes) != targets):
+        raise ValueError("independent_jobs_rollback_provenance_invalid")
+    actual = proof.get("snapshots", {})
+    for name in targets:
+        row = actual.get(name)
+        if (not isinstance(row, dict)
+                or row.get("image") != expected_images[name]
+                or row.get("configuration_hash") != expected_hashes[name]):
+            raise ValueError("independent_jobs_rollback_snapshot_mismatch")
+
+
+def verify_current_jobs_before_api_traffic(proof):
+    """Check the deployed Jobs are still exactly the accepted canary targets."""
+    jobs.legacy_writers()
+    if jobs.scheduler().get("state") != "ENABLED":
+        raise ValueError("api_promotion_scheduler_not_enabled")
+    jobs.fence()
+    targets = proof.get("targets", {})
+    snapshots = proof.get("snapshots", {})
+    if not isinstance(targets, dict):
+        raise ValueError("accepted_jobs_targets_missing")
+    for name, _ in JOB_COMPONENT:
+        current = jobs.job(name)
+        if (jobs.image(current) != targets.get(name)
+                or jobs.fingerprint(current) != snapshots.get(name, {}).get("configuration_hash")):
+            raise ValueError("api_promotion_live_job_drift")
+
+
 def check_forward_promotion_request(release_run, jobs_run, sha):
     """Explicit, bounded forward-only Jobs acceptance: never claim private config parity."""
     data = json.loads(Path("ops/ghcr-api-forward-promote-request.json").read_text())
@@ -274,8 +327,7 @@ def promote(release_run, jobs_run, receipt, forward_recovery=False):
             raise ValueError("wrong_regular_jobs_receipt")
         # The exact release run and immutable job images must agree even if
         # a stale or incorrectly named artifact was downloaded.
-        if jobs_receipt.get("rollback_baseline_sha") != approved_baseline["source_sha"]:
-            raise ValueError("rollback_source_baseline_drift")
+        verify_independent_job_rollback(jobs_receipt, sha, release_run)
         if jobs_receipt.get("rollback_mode") != "reversible_ghcr":
             raise ValueError("nonreversible_regular_jobs_receipt")
     checkpoint("previous_release_ancestry")
@@ -291,6 +343,10 @@ def promote(release_run, jobs_run, receipt, forward_recovery=False):
         journal["stage"] = "service_baseline_readback"
         receipt.write_text(json.dumps(journal))
         baseline = describe()
+        if not forward_recovery:
+            journal["stage"] = "current_jobs_scheduler_fence"
+            receipt.write_text(json.dumps(journal))
+            verify_current_jobs_before_api_traffic(jobs_receipt)
         journal["stage"] = "candidate_tag_lookup"
         receipt.write_text(json.dumps(journal))
         candidate_tag = "ghcr-" + sha[:12]
