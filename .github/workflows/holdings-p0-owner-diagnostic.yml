@@ -141,3 +141,28 @@ jobs:
                  'contains_cli_usage':('usage:' in value.lower()),
                  'no_raw_private_payload':True},sort_keys=True))
           PY
+      - name: Extract only named traceback exception and validated failure category
+        run: |
+          python3 - <<'PY'
+          import json,re
+          from pathlib import Path
+          logs=json.loads(Path('/tmp/private-log.json').read_text())
+          for row in logs:
+              if 'stderr' not in str(row.get('logName','')): continue
+              content=str(row.get('textPayload') or
+                    (row.get('jsonPayload') or {}).get('message') or '')
+              candidates=[]
+              for line in content.splitlines():
+                  m=re.match(r'^([A-Za-z_][A-Za-z_0-9.]*)\s*:\s*',line.strip())
+                  if m:
+                      klass=m.group(1).split('.')[-1]
+                      if re.fullmatch(r'[A-Za-z_]{3,45}',klass):
+                          candidates.append(klass)
+              print(json.dumps({'stderr_chars':len(content),
+                  'exception_names':candidates[-3:],
+                  'permission_denied':('permission denied' in content.lower()),
+                  'tpex_mentioned':('tpex' in content.lower()),
+                  'relation_mentioned':('relation' in content.lower()),
+                  'file_missing':('no such file' in content.lower()),
+                  'no_exception_message_or_private_values':True},sort_keys=True))
+          PY
