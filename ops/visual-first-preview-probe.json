@@ -2,8 +2,8 @@
   "intent": "readonly-preview-series-acceptance",
   "scope": "published-public-only",
   "no_gcp_mutation": true,
-  "source_sha": "b1bc785906212b8d2860b1521affb83930d09f04",
+  "source_sha": "50eda171ef6ffb3971a4d140ad09bac870ead6c1",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
-  "reason": "2026-10-12 one bounded read-only retry after fixed Preview #38259811978 PASS but initial live public probe #38260082698 timed out exactly at cold GET /api/v1/public/market-home after build-id, health, private 401 and HTTP 422 succeeded. No GCP mutation, no API traffic or Jobs changes; do not call this PASS unless complete provenance, benchmark/history and warm latency checks succeed. If timeout recurs, mark performance blocker for root-cause analysis, no further blind retries.",
-  "retry_attempt": 1
+  "reason": "Read-only fixed Preview public acceptance after P0 50eda full GHCR #38273250472, 0% API #38273927543, automatic OAuth private negative #38274131449, four Jobs #38274299751, Preview tag #38322429759 all PASS. Verify exact immutable build ID, TAIEX official series/PIT, market-home warm-read bound and unauthorized private API 401 while formal 100% unchanged. No GCP writes and no Owner login; real manual queue remains unverified, failed earlier test #38274621290.",
+  "retry_attempt": 0
 }
