@@ -32,7 +32,12 @@ class PrivateIcebergStore:
     }
 
     ADDITIVE_FIELDS = {
-        "mart_user_positions": frozenset({"stock_name","identity_status","identity_missing_reason","missing_reason"}),
+        # Historical Private Iceberg position tables predate quote freshness
+        # fields. Without this additive evolution the Mart has market_price
+        # and market_value but silently drops price_status/price_date, while
+        # unrealized PnL retains them. Keep the two owner tables consistent.
+        "mart_user_positions": frozenset({"stock_name","identity_status",
+            "identity_missing_reason","missing_reason","price_status","price_date"}),
         "mart_user_unrealized_pnl": frozenset({"unrealized_return","price_date","missing_reason"}),
         "mart_user_portfolio_summary": frozenset({"unrealized_return","aggregate_status","affected_symbol_count","affected_symbols"}),
     }
