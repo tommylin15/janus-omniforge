@@ -16,6 +16,10 @@ jobs:
     environment: dev
     steps:
       - uses: actions/checkout@v4
+      - name: Check canonical split-Mart schema before dev mutation
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_holdings_owner_live_contract.py
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
