@@ -61,6 +61,10 @@ void main() {
     await tester.tap(find.byKey(const Key('today-trend-30')));
     await tester.pumpAndSettle();
     expect(api.requests.length, before);
+    // The period chips and zoom icon are at different vertical offsets.
+    // Scroll the zoom control back into the visible 390x844 viewport.
+    await tester.ensureVisible(find.byKey(const Key('today-taiex-expand')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('today-taiex-expand')));
     await tester.pumpAndSettle();
     expect(find.text('加權指數 · 官方收盤走勢'), findsOneWidget);
