@@ -1,0 +1,8 @@
+{
+  "intent": "readonly-00719B-job-output",
+  "no_gcp_mutation": true,
+  "execution": "janus-private-pipeline-c8s7c",
+  "source_run": "38250002552",
+  "scope": "read only already completed owner Mart field-presence flags",
+  "purpose": "Fix GitHub acceptance log resource labels query for successfully completed read-only owner diagnostic; do not execute Job, mutate Mart, reveal financial numerics or account identifiers."
+}
