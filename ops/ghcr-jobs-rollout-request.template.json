@@ -6,12 +6,12 @@
   "release_run": "38153154441",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "038498c70e12488f345c3ca0fbe821846ddee4cc",
+  "baseline_source_sha": "b1bc785906212b8d2860b1521affb83930d09f04",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:db355bb66c6b7a32c59f6d87fc7376a82a765238c32c312b83bb1b8bc177ccd6",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:db355bb66c6b7a32c59f6d87fc7376a82a765238c32c312b83bb1b8bc177ccd6",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:de35d800dd124a51531c488446d43318e9c78f20a25433dbabff69cae03f566c",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:19526c45632b1e0e624a225aa3ba7e449b4205c89311dba32bfccb82269d81ca"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:40c07c20daaec8034833d77989244323bb54d391f7012f86694d04a76be09fa7",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:40c07c20daaec8034833d77989244323bb54d391f7012f86694d04a76be09fa7",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:787123a9f5a118629c0478415754bffda0d623a9e05ee538ec6a55827e9502fb",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:58229f9f1ffcb1c1a7bfb23ddd5229bb7e82ed1334dc16651cdda8ddcf872188"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
@@ -20,7 +20,7 @@
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
   "request_attempt": 0,
-  "safety": "Existing dev Jobs only; Scheduler/execution fence, original cross-writer lease, two independent canaries per target, restore old GHCR images with exact config hashes on failure; research job left untouched.",
+  "safety": "INERT / approved=false. Future rollout: exact accepted previous GHCR images/config verified by live readback 2026-10-12 #38265625903; protect Scheduler, executions, share lease and 8 canaries. New source and release/auth IDs must be independently filled and validated for each subsequent rollout.",
   "auth_boundary_run": "",
   "automated_oauth_requirement": "Use successful same-source cc7f candidate OAuth/private boundary run #38188581169 after independent runtime readback. Fill numeric auth_boundary_run only with a verified result; no human OAuth attestation required."
 }
