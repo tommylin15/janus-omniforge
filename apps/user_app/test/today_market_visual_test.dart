@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:janus_user_app/final_visual_pages.dart';
@@ -13,6 +15,19 @@ class TodayApiStub extends legacy.Api {
     requests.add(path);
     if (path == '/api/v1/public/market-home') return market;
     return const <String, dynamic>{};
+  }
+}
+
+class DeferredTodayApiStub extends TodayApiStub {
+  DeferredTodayApiStub(super.market);
+  final marketResponse = Completer<dynamic>();
+  @override
+  Future<dynamic> get(String path) {
+    if (path == '/api/v1/public/market-home') {
+      requests.add(path);
+      return marketResponse.future;
+    }
+    return super.get(path);
   }
 }
 
@@ -71,6 +86,35 @@ void main() {
     expect(api.requests.length, before);
     await tester.tap(find.byTooltip('關閉大盤走勢'));
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Cold homepage response after nine seconds still paints chart automatically',
+      (tester) async {
+    _mobile(tester);
+    final api = DeferredTodayApiStub({
+      'sections': {
+        'taiex': {'status': 'available', 'as_of': '2026-10-08',
+          'data': {
+            'close': '49313', 'history_status': 'available',
+            'history_as_of': '2026-10-08',
+            'history_source_ids': ['taiex'],
+            'history_points': [
+              {'date': '2026-10-07', 'value': '49000'},
+              {'date': '2026-10-08', 'value': '49313'},
+            ]}},
+        'institutional': {'status': 'missing', 'data': {}},
+        'market-activity': {'status': 'missing', 'data': {}},
+      }
+    });
+    await tester.pumpWidget(MaterialApp(home: FinalTodayPage(api)));
+    await tester.pump(const Duration(seconds: 10));
+    expect(find.text('大盤資料仍在讀取；其他資訊可先使用'), findsOneWidget);
+    api.marketResponse.complete(api.market);
+    await tester.pumpAndSettle();
+    expect(find.text('大盤歷史走勢'), findsOneWidget);
+    expect(find.text('加權指數'), findsOneWidget);
+    expect(api.requests.where((p) => p == '/api/v1/public/market-home').length, 1);
     expect(tester.takeException(), isNull);
   });
 
