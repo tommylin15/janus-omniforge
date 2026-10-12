@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from functools import reduce
 from hashlib import sha256
 from math import exp
@@ -423,19 +423,12 @@ def resolve_valuation_date(override: str | None, latest: Callable[[date],date],
     return resolved
 
 
-def main() -> None:
-    from packages.postgres_bundle import load_postgres_bundle
-    load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", {
-        "PRIVATE_DATABASE_URL": ("pipeline_database_url", "database_url"),
-        "PRIVATE_CATALOG_PASSWORD": ("pipeline_catalog_password", "catalog_password"),
-        "CORE_CATALOG_PASSWORD": "core_catalog_password",
-    })
-    from .repository import repository_from_env
-    from .store import PrivateIcebergStore
+def owner_price_reader(repository, market):
+    """Core first; only official persisted TPEx EOD for missing ledger symbols.
 
-    market=CorePriceReader.from_env()
-    repository=repository_from_env()
-
+    Last-success from MIS or a quote after the PIT valuation cutoff is never
+    eligible for Private Mart. All values remain owner-scoped through ledger.
+    """
     def owner_prices(symbols: set[str], valuation_date: date):
         # Canonical Core prices have priority. The only fallback allowed here
         # is a *persisted, verified official TPEx close* for a real ledger
@@ -460,9 +453,25 @@ def main() -> None:
                 prices[symbol]=(price,effective)
         return prices
 
+    return owner_prices
+
+
+def main() -> None:
+    from packages.postgres_bundle import load_postgres_bundle
+    load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", {
+        "PRIVATE_DATABASE_URL": ("pipeline_database_url", "database_url"),
+        "PRIVATE_CATALOG_PASSWORD": ("pipeline_catalog_password", "catalog_password"),
+        "CORE_CATALOG_PASSWORD": "core_catalog_password",
+    })
+    from .repository import repository_from_env
+    from .store import PrivateIcebergStore
+
+    market=CorePriceReader.from_env()
+    repository=repository_from_env()
+
     override=os.getenv("VALUATION_DATE") or None
     completed=PrivatePipeline(repository,PrivateIcebergStore.from_env(),
-        owner_prices,market.memberships,
+        owner_price_reader(repository,market),market.memberships,
         lambda:resolve_valuation_date(None,market.latest_valuation_date)).run(
         date.fromisoformat(override) if override else None)
     print(f"private pipeline checkpoint={completed}")
