@@ -33,14 +33,23 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
   String? selectedVisual;
   final loadingVisual = <String>{};
   int primaryGeneration = 0;
+  // Ignore responses from an earlier A→B→A navigation or an older refresh.
+  int requestEpoch = 0;
+  final requestVersions = <String, int>{};
 
   // Requests are bounded independently: one slow optional card never holds the page.
   Future<dynamic> safe(String key, String path) async {
     final requestedSymbol = widget.symbol;
     final requestedApi = widget.api;
+    final epoch = requestEpoch;
+    final version = (requestVersions[key] ?? 0) + 1;
+    requestVersions[key] = version;
+    bool current() => mounted && requestEpoch == epoch &&
+        requestVersions[key] == version && widget.symbol == requestedSymbol &&
+        identical(widget.api, requestedApi);
     try {
       final value = await requestedApi.get(path).timeout(const Duration(seconds: 9));
-      if (mounted && widget.symbol == requestedSymbol && identical(widget.api, requestedApi)) {
+      if (current()) {
         setState(() {
           values[key] = value;
           errors.remove(key);
@@ -48,7 +57,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
       }
       return value;
     } catch (_) {
-      if (mounted && widget.symbol == requestedSymbol && identical(widget.api, requestedApi)) {
+      if (current()) {
         setState(() => errors.add(key));
       }
       return null;
@@ -78,6 +87,8 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.symbol != widget.symbol || !identical(oldWidget.api, widget.api)) {
       quoteTimer?.cancel();
+      requestEpoch++;
+      requestVersions.clear();
       values.clear();
       errors.clear();
       klineRequested = false;
@@ -161,6 +172,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
 
   Future<void> loadKline({bool force = false}) async {
     final requestedSymbol = widget.symbol;
+    final epoch = requestEpoch;
     if (klineRequested && !force) return;
     if (!mounted) return;
     setState(() {
@@ -168,7 +180,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
       klineLoading = true;
     });
     await safe('kline', '/api/v1/public/kline/${Uri.encodeComponent(widget.symbol)}');
-    if (mounted && requestedSymbol == widget.symbol) {
+    if (mounted && epoch == requestEpoch && requestedSymbol == widget.symbol) {
       setState(() => klineLoading = false);
     }
   }
@@ -216,9 +228,10 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
     if (values.containsKey(key) || loadingVisual.contains(key)) return;
     setState(() => loadingVisual.add(key));
     final symbol = widget.symbol;
+    final epoch = requestEpoch;
     await safe(key,
       '/api/v1/public/stocks/${Uri.encodeComponent(symbol)}/visual-series?metric=$metric&limit=120');
-    if (mounted && widget.symbol == symbol) {
+    if (mounted && epoch == requestEpoch && widget.symbol == symbol) {
       setState(() => loadingVisual.remove(key));
     }
   }
