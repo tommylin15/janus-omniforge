@@ -75,7 +75,7 @@ jobs:
             [.bindings[]? | select(.role==$role and
               (.condition==null) and (.members | index($member)!=null))] |
             length>=1' /tmp/holdings-job-policy.json >/dev/null; then
-            gcloud run jobs add-iam-policy-binding "$JOB" --project="$PROJECT"               --region="$REGION" --member="$member" --role="$role"               --condition=None --quiet >/dev/null
+            gcloud run jobs add-iam-policy-binding "$JOB" --project="$PROJECT"               --region="$REGION" --member="$member" --role="$role"               --quiet >/dev/null
           fi
           gcloud run jobs get-iam-policy "$JOB" --project="$PROJECT"              --region="$REGION" --format=json > /tmp/holdings-job-policy-final.json
           jq -e --arg member "$member" --arg role "$role" '
