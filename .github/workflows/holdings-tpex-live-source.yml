@@ -1,0 +1,54 @@
+name: Janus holdings TPEx live source acceptance
+on:
+  push:
+    branches: [main]
+    paths: ['ops/holdings-tpex-live-probe.json']
+permissions:
+  contents: read
+jobs:
+  official-eod:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert read-only bounded published source probe
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          req=json.loads(Path("ops/holdings-tpex-live-probe.json").read_text())
+          assert req["intent"]=="verify-official-tpex-eod-readonly"
+          assert req["symbol"]=="00719B"
+          assert req["no_gcp_mutation"] is True
+          assert req["no_canonical_write"] is True
+          PY
+      - name: Verify real official 00719B close without inserting sample data
+        run: |
+          python3 - <<'PY'
+          from datetime import datetime
+          from urllib.error import HTTPError, URLError
+          from services.api.intraday_quotes import TAIPEI
+          from services.api.tpex_quotes import TpexDailyQuotes, parse_tpex_daily_quotes, SOURCE
+          now=datetime.now(TAIPEI)
+          try:
+              data=TpexDailyQuotes()._download()
+          except (HTTPError, URLError, TimeoutError, ValueError) as error:
+              print("tpex_official_eod=BLOCKED")
+              print("reason="+type(error).__name__)
+              print("http_status="+str(getattr(error, "code", "unknown")))
+              raise SystemExit(1)
+          rows=parse_tpex_daily_quotes(data, {"00719B"}, now)
+          row=rows.get("00719B")
+          if not row:
+              print("tpex_official_eod=PARTIAL missing_00719B_or_stale")
+              print("payload_list="+str(isinstance(data, list)))
+              print("row_count="+str(len(data) if isinstance(data,list) else 0))
+              raise SystemExit(1)
+          assert row["source"]==SOURCE and row["price_date"]<=now.date().isoformat()
+          assert row["route_version"]=="latest-price.v2"
+          print("tpex_official_eod=PASS")
+          print("symbol=00719B")
+          print("price_date="+row["price_date"])
+          print("source="+row["source"])
+          print("no_personal_data_or_canonical_mutation=true")
+          PY
