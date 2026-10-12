@@ -195,3 +195,29 @@ jobs:
               'task_outputs':outcome,'execution_log_count':execution_log_count,'status':'OBSERVED' if outcome else 'NOT_VERIFIED',
               'raw_logs_not_printed':True},sort_keys=True))
           PY
+
+      - name: Read historic test-only cleanup receipt without owner or request details
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud logging read \
+            'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ingestion-core" AND timestamp>="2026-10-12T16:39:00Z" AND timestamp<="2026-10-12T16:42:00Z"' \
+            --project gen-lang-client-0593591102 --limit 100 --format=json > /tmp/recalc-cleanup.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          entries=json.loads(Path('/tmp/recalc-cleanup.json').read_text())
+          receipts=[]
+          for entry in entries:
+              data=entry.get('jsonPayload')
+              if not isinstance(data,dict):
+                  raw=entry.get('textPayload') or ''
+                  try:data=json.loads(raw)
+                  except (TypeError,ValueError):continue
+              if data.get('operation')!='private_recalc_acceptance_cleanup':continue
+              receipts.append({'status':data.get('status'),
+                  'active_request_failed':data.get('active_request_failed')})
+          print(json.dumps({'cleanup_receipts':receipts[:3],
+              'result':'OBSERVED' if receipts else 'NOT_VERIFIED',
+              'raw_logs_not_printed':True},sort_keys=True))
+          PY
