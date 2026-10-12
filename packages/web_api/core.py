@@ -131,39 +131,45 @@ class CoreQueryService:
             return response
         response["data_status"] = "missing"
         response["missing_reason"] = "no_published_points"
-        seen: set[str] = set()
-        points: list[dict[str, str | None]] = []
-        sources: set[str] = set()
+        # Published null/invalid values remain dated gaps so the chart does not
+        # silently connect across missing sessions. A valid duplicate wins.
+        dated: dict[str, dict[str, str | None]] = {}
         for row in raw[:limit]:
             day = row.get(date_key)
-            value = row.get(value_key)
-            if day is None or value is None:
+            if day is None:
                 continue
             day_string = str(day)[:10]
             try:
                 date.fromisoformat(day_string)
-                number = Decimal(str(value))
+            except (ValueError, TypeError):
+                continue
+            number: Decimal | None = None
+            try:
+                if row.get(value_key) is not None:
+                    candidate = Decimal(str(row[value_key]))
+                    if candidate.is_finite() and candidate >= 0 and (metric == "yield" or candidate > 0):
+                        number = candidate
             except (InvalidOperation, ValueError, TypeError):
-                continue
-            if not number.is_finite() or (metric != "yield" and number <= 0) or number < 0:
-                continue
-            if day_string in seen:
-                continue
-            seen.add(day_string)
+                pass
+            if day_string in dated:
+                if dated[day_string]["value"] is not None or number is None:
+                    continue
             source = str(row.get("source_id") or "").strip()
-            if source:
-                sources.add(source)
-            points.append({"date": day_string, "value": str(number),
-                           "source_id": source or None,
-                           "provenance_id": str(row["provenance_id"]) if row.get("provenance_id") else None})
-        points.sort(key=lambda item: item["date"])
+            dated[day_string] = {
+                "date": day_string, "value": str(number) if number is not None else None,
+                "source_id": source or None,
+                "provenance_id": str(row["provenance_id"]) if row.get("provenance_id") else None,
+            }
+        points = sorted(dated.values(), key=lambda item: str(item["date"]))
+        usable = [point for point in points if point["value"] is not None]
         response["points"] = points
-        response["usable_points"] = len(points)
-        response["data_as_of"] = points[-1]["date"] if points else None
-        response["source_ids"] = sorted(sources)
+        response["usable_points"] = len(usable)
+        response["data_as_of"] = usable[-1]["date"] if usable else None
+        response["source_ids"] = sorted({str(point["source_id"]) for point in points if point["source_id"]})
         if points:
-            response["data_status"] = "available" if len(points) >= 2 and len(points) == len(raw) else "partial"
-            response["missing_reason"] = None if response["data_status"] == "available" else "insufficient_or_invalid_points"
+            complete = len(usable) >= 2 and len(usable) == len(points) == len(raw)
+            response["data_status"] = "available" if complete else "partial"
+            response["missing_reason"] = None if complete else "insufficient_or_invalid_points"
         return response
 
     def market_home(self) -> dict[str, Any]:
