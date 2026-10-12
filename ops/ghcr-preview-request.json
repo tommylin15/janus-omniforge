@@ -2,16 +2,16 @@
   "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
   "approved": true,
   "scope": "janus-api-preview-tag-only",
-  "source_sha": "b329a4e78bded056eeebc4792171aabcb86e2e3d",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:7e354e39a388e8d5904498263d0cf9c782f936571c5fcff04c8afbe7f69d7468",
-  "release_run": "38205701025",
-  "candidate_run": "38206070835",
-  "boundary_run": "38206217645",
+  "source_sha": "8b515f10fa2d4784235446185ad0c9d1337cbbdd",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:26b937f41212f6ce2fc46a9b83d8e1b455a351aefa9628e545d0e16467199489",
+  "release_run": "38206654851",
+  "candidate_run": "38207011213",
+  "boundary_run": "38207164718",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
-  "reason": "2026-10-12 official TAIEX 30-day home chart plus two market visual cards; same immutable source full GHCR test and anonymous pull #38205701025, 0% candidate #38206070835, automatic OAuth/owner-negative #38206217645 PASS. Fixed preview tag only under shared lease, formal 100%-traffic and four Jobs unchanged.",
+  "reason": "2026-10-12 fully verified cold-start-tolerant TAIEX homepage: full Python/Flutter and immutable public GHCR release #38206654851; 0% candidate #38207011213 and auto OAuth/private-negative #38207164718 PASS. Preview tag only under shared lease, no formal traffic, Jobs or other tag mutation.",
   "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
-  "attempt": 5
+  "attempt": 6
 }
