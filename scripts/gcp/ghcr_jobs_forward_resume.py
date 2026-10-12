@@ -146,7 +146,10 @@ def run(receipt):
     save()
     try:
         req = request_data()
-        rollout.acceptance(GHCR_SHA)
+        # Old forward-only recovery cannot bypass the current automatic
+        # candidate OAuth/owner-negative gate. Historical requests without a
+        # same-source verified boundary run remain fail-closed.
+        rollout.automated_oauth_acceptance(GHCR_SHA, req.get("auth_boundary_run"))
         owner_lease(req)
         rollout.legacy_writers()
         rollout.job_update_permissions()
