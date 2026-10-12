@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "2ebc875953209875123d4cba04659661e68d1685",
-  "candidate_release_run": "38197376475",
-  "candidate_deployment_run": "38197718590",
-  "purpose": "2026-10-12 visual-first second-pass 0%-traffic candidate automatic metadata S256/refresh, user/admin/MCP unauthenticated-negative and exact Flutter source proof; never request manual owner browser login or mutate GCP.",
+  "sha": "b329a4e78bded056eeebc4792171aabcb86e2e3d",
+  "candidate_release_run": "38205701025",
+  "candidate_deployment_run": "38206070835",
+  "purpose": "2026-10-12 homepage TAIEX-history candidate automatic Google OAuth discovery/S256/refresh metadata and private owner/Admin/MCP negative authorization, with exact source SHA readback. Read-only: no human login, no GCP mutation.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 4
+  "attempt": 5
 }
