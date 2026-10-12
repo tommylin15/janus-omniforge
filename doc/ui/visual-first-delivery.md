@@ -11,6 +11,16 @@
 - Iceberg/Core 已有行情、valuation、institutional、MOPS financials、events 來源路徑；資源可查≠每檔各時期的欄位 coverage 已合格。必查季報 period_basis／EPS 股本、事件 observed/published/effective 不一致與資料已發布時間。
 - 四張圖片已提交且是 baseline，但 sample 值並非 canonical。此次只做文件／工作拆分，不聲稱新圖表或功能已部署。
 
+
+### 2026-10-12 使用者新 P0：持股獨立宇宙＋Ledger Final 重構（整合驗收）
+
+1. **持股 membership 即時**：新交易 commit 觸發 owner `current_positions` 重新投影與 ledger version；變更後讀 owner 持股即反映加減碼，含不在 500 檔的股票／ETF。市場價格不是成交回報；未手動記帳或經授權券商同步前不會知道新買賣。
+2. **市場覆蓋**：TWSE 與 TPEx 分流，00719B TPEx 債券 ETF 必須能取得官方有效 EOD；不以研究 500 pool 決定行情讀取。盤中 TPEx 只有授權可信 source 才納入；否則顯示最後 EOD 與狀態。原 operational 股數、平均成本永遠可查；單檔缺價只影響當檔與完整 aggregate publication，已計價小計要獨立 typed 明示不得冒充全額。
+3. **Private Mart**：市場缺價與 `CloudRunPrivateRecalcTrigger.start` 失敗分開處理；真實 Job dispatch、queue request／ledger checkpoint／worker status 必須可追溯。拒絕要求使用者盲目反覆點「重新嘗試」。
+4. **Ledger UI 由圖片還原**：single Hero＋內嵌次級 KPI；每檔卡首列持有成本／**累計未實現**、下一列**當日現價／漲跌／持有股數影響額**，按同義指標排列；響應式桌面／390px、available／missing／stale／withheld／recalc failed，不將 mock 漲跌／Sparkline 入正式頁。以 reference PNG 的卡片資訊密度、比例、留白作可驗收基準。
+5. **一次合併驗收**：文件先行、跨層程式全部實作完成後才集中跑 Python/Flutter UI/GCP Release/Live E2E/真實兩尺寸 screenshot，比對資料、source/PIT、成本/股數、owner fence、冷啟動與載入；各階段均須有獨立 PASS evidence 才可整組結案。
+
+
 ## 2. P0/P1/P2 與 acceptance 切片
 
 | ID | 優先 | 實作內容 | 驗收證據 |
