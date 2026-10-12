@@ -8,7 +8,7 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 11,
-  "reason": "2026-10-12 Today homepage official bounded TAIEX 30-point EOD history in existing /market-home; separate MIS quote and published close, 5/20/30 trading-session views, on-chart tap/zoom without additional fetch, neutral market-activity bars and signed institutional bars with missing/partial states. Python/Flutter targeted and full GHCR suite + immutable public pull required; image publication only (no GCP traffic, Jobs or Scheduler mutation). Automatic OAuth and same-source fixed preview readback remain separate gates.",
+  "attempt": 12,
+  "reason": "2026-10-12 homepage trend release retry after #38205504680: old market_home fixtures without provenance must retain current TAIEX hero, but official historical series requires full source_id+provenance_id. Full Python+Flutter suite, four immutable GHCR images and anonymous pull required before 0% candidate and fixed preview. No current GCP mutation in Release.",
   "expected_runtime_changes": false
 }
