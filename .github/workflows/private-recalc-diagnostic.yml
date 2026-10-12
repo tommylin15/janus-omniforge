@@ -175,20 +175,23 @@ jobs:
           from pathlib import Path
           entries=json.loads(Path('/tmp/worker-queue-logs.json').read_text())
           outcome=[]
+          execution_log_count=0
           for entry in entries:
               if (entry.get('labels') or {}).get('run.googleapis.com/execution_name')!='janus-private-pipeline-45h2t':
                   continue
-              payload=entry.get('textPayload') or ''
-              if not isinstance(payload,str):
-                  continue
-              try: data=json.loads(payload)
-              except (ValueError,TypeError): continue
+              execution_log_count+=1
+              data=entry.get('jsonPayload')
+              if not isinstance(data,dict):
+                  payload=entry.get('textPayload') or ''
+                  if not isinstance(payload,str): continue
+                  try: data=json.loads(payload)
+                  except (ValueError,TypeError): continue
               result=data.get('private_recalc_queue')
               if not isinstance(result,dict): continue
               if not all(isinstance(result.get(k),int) for k in ('processed','succeeded','failed','cancelled')):
                   continue
               outcome.append({k:result[k] for k in ('processed','succeeded','failed','cancelled')})
           print(json.dumps({'run_id':'38274621290','worker_execution':'janus-private-pipeline-45h2t',
-              'task_outputs':outcome,'status':'OBSERVED' if outcome else 'NOT_VERIFIED',
+              'task_outputs':outcome,'execution_log_count':execution_log_count,'status':'OBSERVED' if outcome else 'NOT_VERIFIED',
               'raw_logs_not_printed':True},sort_keys=True))
           PY
