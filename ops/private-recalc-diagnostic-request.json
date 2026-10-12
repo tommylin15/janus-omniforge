@@ -7,6 +7,6 @@
   "verify_execution": "janus-ingestion-core-5hksw",
   "seed_execution": "janus-ingestion-core-prv6p",
   "queue_execution": "janus-private-pipeline-45h2t",
-  "purpose": "Retry original Worker task counter readback as structured Cloud Logging jsonPayload or textPayload. Readonly metadata only; no new Job, no DB writes, no owner identity.",
-  "retry": 5
+  "purpose": "Read stored original synthetic recalculation cleanup result from 2026-10-12 16:39-16:42 UTC Cloud Logging only; no new task or database writes; return only status/active_request_failed, never test request ID or owner data.",
+  "retry": 6
 }
