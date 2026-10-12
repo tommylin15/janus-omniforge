@@ -118,11 +118,13 @@ class QueuedPrivateRecalculator:
         }
 
 
-def run_queue_worker(repository: Any, pipeline: Any) -> dict[str, int]:
+def run_queue_worker(repository: Any, pipeline: Any) -> dict[str, Any]:
     """Drain owner requests on one Cloud Run task; claims are SKIP LOCKED."""
     execution = os.getenv("CLOUD_RUN_EXECUTION") or None
     task_index = int(os.getenv("CLOUD_RUN_TASK_INDEX", "0"))
     processed = succeeded = failed = cancelled = 0
+    # Only aggregate exception class names. Never log owner, request ID or data.
+    error_codes: dict[str, int] = {}
 
     while True:
         request = repository.claim_recalculation(execution, task_index)
@@ -165,11 +167,13 @@ def run_queue_worker(repository: Any, pipeline: Any) -> dict[str, int]:
             if result and result.get("status") == "CANCELLED":
                 cancelled += 1
         except Exception as error:
+            error_code = type(error).__name__.upper()[:80]
+            error_codes[error_code] = error_codes.get(error_code, 0) + 1
             repository.finish_recalculation(
                 request_id,
                 lease,
                 succeeded=False,
-                error_code=type(error).__name__.upper()[:80],
+                error_code=error_code,
                 safe_message="損益重算執行失敗；已停止本次工作，可重新嘗試",
             )
             failed += 1
@@ -179,4 +183,5 @@ def run_queue_worker(repository: Any, pipeline: Any) -> dict[str, int]:
         "succeeded": succeeded,
         "failed": failed,
         "cancelled": cancelled,
+        "error_codes": error_codes,
     }
