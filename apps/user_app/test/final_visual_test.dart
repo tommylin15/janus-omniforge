@@ -153,7 +153,8 @@ void main() {
     expect(find.text('櫃買指數'), findsNothing);
     expect(find.text('市場活動'), findsOneWidget);
     expect(find.text('法人動向'), findsOneWidget);
-    expect(find.text('外資買賣超股數 225,187,325'), findsOneWidget);
+    expect(find.text('外資'), findsOneWidget);
+    expect(find.textContaining('225,187,325'), findsOneWidget);
     expect(find.text('研究內容尚未就緒'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
