@@ -5,6 +5,6 @@
   "source_sha": "0b0855c0fdeba0294bb0bb09bf33906216d779fa",
   "failed_run": "38231768997",
   "scope": "latest dev Private Mart owner 00719B execution after 2026-10-12T09:42Z",
-  "purpose": "Read-only follow-up of execution janus-private-pipeline-kw8l5 NonZeroExitCode after #38231768997. Inspect task exit status and bounded exception-class metadata only; do not mutate/retry user Mart, jobs or tokens.",
-  "attempt": 1
+  "purpose": "Read-only sanitized fixed-token identification of failed 00719B owner Mart Cloud Run task stderr. Prior diagnostic #38232942076 observed NonZeroExitCode, one failed task, two stderr messages (590 and 60 chars), no Python exception class. No retry or mutation.",
+  "attempt": 2
 }
