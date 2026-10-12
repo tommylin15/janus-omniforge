@@ -224,11 +224,11 @@ jobs:
           for row in logs:
               value=str(row.get('textPayload') or (row.get('jsonPayload') or {}).get('message') or '')
               if not value: continue
-              for cls in re.findall(r'(?:psycopg\\.errors\\.)?([A-Za-z_][A-Za-z_0-9]*(?:Error|Privilege|Violation|Exception))',value):
+              for cls in re.findall(r'(?:psycopg\.errors\.)?([A-Za-z_][A-Za-z_0-9]*(?:Error|Privilege|Violation|Exception))',value):
                   classes.add(cls[:50])
               for reason in allowed:
                   if reason in value: reasons.add(reason)
-              for kind,obj in re.findall(r'permission denied for\\s+(table|schema|relation|sequence)\\s+([A-Za-z_][A-Za-z0-9_]{0,62})',value,re.I):
+              for kind,obj in re.findall(r'permission denied for\s+(table|schema|relation|sequence)\s+([A-Za-z_][A-Za-z0-9_]{0,62})',value,re.I):
                   objects.add((kind,obj))
               for mod in allowed_modules:
                   if mod in value: modules.add(mod)
