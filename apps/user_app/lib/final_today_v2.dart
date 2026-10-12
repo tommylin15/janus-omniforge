@@ -180,38 +180,6 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     );
   }
 
-  String _facts(Map<String, dynamic> section, Map<String, String> labels) {
-    final data = fvMap(section['data']);
-    final values = <String>[];
-    for (final entry in labels.entries) {
-      if (data[entry.key] != null) {
-        values.add('${entry.value} ${legacy.accountingNumber(data[entry.key])}');
-      }
-    }
-    return values.isEmpty ? '目前沒有可顯示資料' : values.join(' · ');
-  }
-
-  Widget _marketCard(String title, IconData icon, dynamic raw, Map<String, String> labels) {
-    final section = fvMap(raw);
-    return fvPanel(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Icon(icon, color: fvTeal, size: 20),
-          const SizedBox(width: 8),
-          Expanded(child: Text(title,
-              style: const TextStyle(color: fvInk, fontWeight: FontWeight.w800, fontSize: 16))),
-          fvStatusPill(section['status'] ?? 'partial'),
-        ]),
-        const SizedBox(height: 9),
-        Text(_facts(section, labels), style: const TextStyle(color: fvInk, height: 1.4)),
-        if (_freshness(section).isNotEmpty) ...[
-          const SizedBox(height: 7),
-          Text(_freshness(section), style: const TextStyle(color: fvMuted, fontSize: 11)),
-        ],
-      ]),
-    );
-  }
-
   Widget _taiexTrend(dynamic raw) {
     final section = fvMap(raw);
     final data = fvMap(section['data']);
