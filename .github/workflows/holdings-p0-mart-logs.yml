@@ -54,3 +54,27 @@ jobs:
           print(json.dumps(allowed,sort_keys=True))
           print('real_owner_field_evidence=PASS')
           PY
+      - name: Only log stream metadata to identify missing stdout
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path=Path('/tmp/p0-owner-mart-logs.json')
+          if not path.exists():
+              print('log_file=NOT_AVAILABLE'); raise SystemExit(0)
+          logs=json.loads(path.read_text())
+          for x in logs:
+              msg=str(x.get('textPayload') or (x.get('jsonPayload') or {}).get('message') or '')
+              print(json.dumps({
+                  'at':x.get('timestamp'),
+                  'stream':str(x.get('logName') or '').split('/')[-1],
+                  'severity':x.get('severity'),
+                  'text_length':len(msg),
+                  'looks_like_owner_field_snapshot':('read_only' in msg and 'mart_user_positions' in msg),
+                  'has_json_payload':bool(x.get('jsonPayload')),
+                  'has_text_payload':bool(x.get('textPayload')),
+                  'resource_execution':(x.get('resource') or {}).get('labels',{}).get('execution_name'),
+              },sort_keys=True))
+          PY
