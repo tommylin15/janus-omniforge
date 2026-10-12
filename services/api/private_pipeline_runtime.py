@@ -9,7 +9,7 @@ import os
 from packages.postgres_bundle import load_postgres_bundle
 
 from .mobile_ledger_consumer import MobileLedgerQueueError, probe_mobile_ledger_consumer, process_mobile_ledger_queue
-from .private_pipeline import CorePriceReader, PrivatePipeline, resolve_valuation_date
+from .private_pipeline import CorePriceReader, PrivatePipeline, owner_price_reader, resolve_valuation_date
 from .private_recalc_queue import run_queue_worker
 from .repository import NotFoundError, PostgresWorkspaceRepository, repository_from_env
 from .store import PrivateIcebergStore
@@ -48,7 +48,7 @@ def main() -> None:
     pipeline = PrivatePipeline(
         repository,
         PrivateIcebergStore.from_env(),
-        market,
+        owner_price_reader(repository, market),
         market.memberships,
         lambda: resolve_valuation_date(None, market.latest_valuation_date),
     )
