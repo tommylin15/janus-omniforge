@@ -1237,6 +1237,35 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Official event timeline keeps published and effective dates distinct',
+      (tester) async {
+    mobileView(tester);
+    final api = FinalFakeApi({
+      '/api/v1/public/stock-header/2330': {
+        'stock_name': '台積電', 'close': '1000', 'trade_date': '2026-10-08'
+      },
+      '/api/v1/public/events/2330': [
+        {'event_id': 'evt-a', 'title': '法說公告',
+         'published_at': '2026-10-08T16:00:00+08:00',
+         'effective_date': '2026-11-01', 'source_id': 'mops'},
+        {'event_id': 'evt-a', 'title': '重複公告', 'published_at': '2026-10-08'},
+        {'event_id': 'evt-b', 'title': '待補公告日期', 'event_date': '2026-10-01'},
+      ],
+    });
+    await tester.pumpWidget(MaterialApp(home: FinalStockDetailPage(api: api, symbol: '2330')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('公司事件時間軸'),
+      220, scrollable: find.byType(Scrollable).first);
+    expect(find.text('法說公告'), findsOneWidget);
+    expect(find.text('重複公告'), findsNothing);
+    expect(find.text('公告：2026-10-08T16:00:00+08:00'), findsOneWidget);
+    expect(find.text('生效：2026-11-01'), findsOneWidget);
+    expect(find.text('來源：mops'), findsOneWidget);
+    expect(find.text('公告時間未確認'), findsOneWidget);
+    expect(find.text('事件日：2026-10-01'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Stock valuation charts use only requested published series', (tester) async {
     mobileView(tester);
     final api = FinalFakeApi({
