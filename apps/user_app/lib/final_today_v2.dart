@@ -260,7 +260,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   }
 
   Widget _flowBar(String label, Object? raw, double maxMagnitude,
-      {required String unit}) {
+      {required String unit, bool signed = true}) {
     final amount = fvNumber(raw);
     if (amount == null || !amount.isFinite) {
       return Padding(
@@ -270,8 +270,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     }
     final rising = amount > 0;
     final falling = amount < 0;
-    final color = rising ? fvGain : falling ? fvLoss : fvMuted;
-    final marker = rising ? '▲' : falling ? '▼' : '—';
+    final color = !signed ? fvTeal : rising ? fvGain : falling ? fvLoss : fvMuted;
+    final marker = !signed ? '' : rising ? '▲' : falling ? '▼' : '—';
     final width = maxMagnitude > 0
         ? (amount.abs() / maxMagnitude).clamp(0.0, 1.0) : 0.0;
     return Padding(
@@ -351,8 +351,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
             style: const TextStyle(color: fvInk, fontSize: 21,
               fontWeight: FontWeight.w800)),
       ],
-      _flowBar('當沖買進', buy, maximum, unit: 'TWD'),
-      _flowBar('當沖賣出', sell, maximum, unit: 'TWD'),
+      _flowBar('當沖買進', buy, maximum, unit: 'TWD', signed: false),
+      _flowBar('當沖賣出', sell, maximum, unit: 'TWD', signed: false),
       if (_freshness(section).isNotEmpty)
         Text(_freshness(section), style: const TextStyle(color: fvMuted, fontSize: 11)),
     ]));
