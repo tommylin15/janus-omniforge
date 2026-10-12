@@ -90,8 +90,10 @@ class CoreQueryServiceTests(unittest.TestCase):
         self.assertIn("LIMIT ?", benchmark_queries[0][1])
 
     def test_market_trend_refuses_unsigned_invalid_or_future_points(self):
-        from datetime import date, timedelta
-        future = (date.today() + timedelta(days=1)).isoformat()
+        from datetime import date, datetime, timedelta
+        from zoneinfo import ZoneInfo
+        today_tpe = datetime.now(ZoneInfo("Asia/Taipei")).date()
+        future = (today_tpe + timedelta(days=1)).isoformat()
         def query(identifier, sql, params):
             if identifier != "core.benchmark_v1":
                 raise RuntimeError("unavailable")
@@ -112,7 +114,7 @@ class CoreQueryServiceTests(unittest.TestCase):
                          [{"date": "2026-10-06", "value": "48000",
                            "source_id": "taiex", "provenance_id": "p1"}])
         self.assertEqual(result["sections"]["taiex"]["status"], "stale" if
-                         (date.today() - date(2026, 10, 6)).days > 7 else "available")
+                         (today_tpe - date(2026, 10, 6)).days > 7 else "available")
 
     def test_published_visual_series_preserves_explicit_missing_dates_without_core_scan(self):
         def no_core_query(*_args):
