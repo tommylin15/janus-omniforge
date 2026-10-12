@@ -39,7 +39,7 @@ try:
       "r.safe_message "
       "FROM private.recalculation_requests r JOIN private.users u ON u.user_id=r.user_id "
       "WHERE r.requested_at >= %s::timestamptz AND r.requested_at <= %s::timestamptz "
-      "AND r.trigger_source='manual' ORDER BY r.created_at DESC LIMIT 8",
+      "AND r.trigger_source='manual' ORDER BY r.requested_at DESC LIMIT 8",
       ('2026-10-12T16:29:00Z','2026-10-12T16:41:00Z'))
     found=[]
     for r in cur.fetchall():
