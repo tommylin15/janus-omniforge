@@ -167,8 +167,16 @@ def test_preghcr_manual_retrain_request_is_never_replayed():
     if request["request_id"] == old_id:
         assert request["enabled"] is False
         assert "Do not replay" in request["retired_reason"]
+    elif request["enabled"] is False:
+        # Historical GHCR requests remain immutable and disabled after an
+        # approved Jobs release advances. Do not rewrite a retired request
+        # just to match the latest source SHA, and never replay it.
+        assert request["request_id"].startswith("b7-ghcr-")
+        assert request["retired_reason"]
+        assert len(request["expected_release_sha"]) == 40
     else:
-        # A new bounded request must identify the approved live GHCR release.
+        # ONLY an active new bounded request must match the currently approved
+        # live GHCR release (also enforced by the execute workflow).
         release = json.loads(Path("ops/ghcr-jobs-rollout-request.json").read_text())
         assert request["request_id"].startswith("b7-ghcr-")
         assert request["expected_release_sha"] == release["sha"]
