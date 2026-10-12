@@ -1,7 +1,7 @@
 # Janus — 四頁視覺優先正式 UI 規格（A）
 
-更新：2026-10-11
-狀態：Active requirement，**尚未實作／部署／live 驗收**。
+更新：2026-10-12
+狀態：Active requirement，**四頁 P0/P1 PARTIAL**：已有第一段視覺化實作、圖表缺值／事件時間軸，經 2026-10-12 GHCR＋0% candidate＋固定 Preview／真實公開估值 readback 驗收；尚缺正式 100% 切流、本人四頁 screenshot／P95 與完整官方資料鏈路。證據見 [B 工程工作單](visual-first-delivery.md)。
 範圍：今日、關注、記帳／筆記、個股詳情。執行切片及資料盤點請看 [B 工程工作單](visual-first-delivery.md)。
 
 ## 1. 使用者目標與權威
