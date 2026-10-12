@@ -48,6 +48,14 @@ VF-00/01 與每張圖的資料合法性是**前置**，不放在最後 P2；VF-0
 
 補充：2026-10-11 對國巨 2327 與台積電 2330 的小樣本真實 Core 驗證已存於 [資料涵蓋抽樣證據](../archive/visual-first-core-sample-2026-10-11.md)。這是 bounded sample，**不是** VF-00 全市場 coverage PASS，也不是尚未部署新 API 的 serving readback。
 
+### 2026-10-12 第二段跨層正確性與事件視覺化（仍為 PARTIAL）
+
+- `final_stock_detail.dart` 以 request epoch 與每類請求的版本防止 A→B→A 快速切換或同股票舊回應覆蓋新資料；舊請求亦不能結束新股票 loading。
+- 公開 `visual-series.v1` 將有效日期但空值／非法值保留成 typed `value: null`，附已發布 source／provenance；Flutter 不跨缺值日期連線。`usable_points` 與 `data_as_of` 僅由合法值決定；PE/PB 非正值不可畫，合法零殖利率可畫；同日重複優先合法值。仍無 request-time Iceberg fallback。
+- 個股估值主圖及放大按合法點數而非陣列長度判斷，並能在非末點改變時重繪。公司事件已由既有 published read path 呈現 bounded 中性時間軸，依 `event_id` 去重，明確區分公告與生效日，不猜事件方向。
+- Flutter [#38196268477](https://github.com/tommylin15/janus-omniforge/actions/runs/38196268477) PASS；API [#38196525696](https://github.com/tommylin15/janus-omniforge/actions/runs/38196525696) PASS。**最新整合 SHA 的 CI／完整 Release／0% candidate／真實 UI readback 尚須逐項驗證**；尚未正式切流。
+- **仍缺**：月營收／季度 EPS、法人合格歷史 serving；持股跨日真實估值趨勢、四頁 Owner 截圖／效能 P95、完整官方 coverage/PIT matrix。此段不代表 VF-07 或整體產品 PASS。
+
 ## 3. Dataset coverage matrix（必要交接表）
 
 每個 dataset_family 都至少有：symbol／market、required_metric、frequency、first/last_period、usable_points／expected_points、missing_rate、unit、period_basis、source_id、source_authorization、published_at／availability_at／observed_at、snapshot／provenance、serving route、API route、UI consumed、freshness、Implemented／Partial／Missing／Unknown／Blocked、blocking_reason、reproducible evidence。
