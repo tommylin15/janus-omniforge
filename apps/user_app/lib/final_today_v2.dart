@@ -238,7 +238,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
           ),
         ]),
       ),
-      Wrap(spacing: 5, children: [
+      Material(color: Colors.transparent, child: Wrap(spacing: 5, children: [
         for (final days in const [5, 20, 30])
           ChoiceChip(
             key: Key('today-trend-$days'),
@@ -247,7 +247,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
             selected: historyDays == days,
             onSelected: (_) => setState(() => historyDays = days),
           ),
-      ]),
+      ])),
       FvVisualSeriesChart(rows: shown, label: '加權指數 · 收盤',
           unit: '點', height: 130),
       Padding(
