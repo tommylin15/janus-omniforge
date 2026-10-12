@@ -6,8 +6,8 @@
   "release_run": "38153154441",
   "jobs_run": "",
   "rollback_mode": "reversible_ghcr",
-  "baseline_source_sha": "038498c70e12488f345c3ca0fbe821846ddee4cc",
+  "baseline_source_sha": "b1bc785906212b8d2860b1521affb83930d09f04",
   "allow_legacy_forward_only": false,
-  "gate": "Full GHCR source cc7f; same-source automatic OAuth private-boundary run; explicit approved four-Jobs success receipt; immutable GHCR rollback baseline 038498 with identical live config fingerprints; only then API 100%-rollback-100%. Manual Google login is not a release prerequisite.",
+  "gate": "INERT / approved=false. Future release needs its own complete GHCR build and same-source automated OAuth boundary; first validate four Jobs reversible rollout on independent Jobs baseline; exact former live serving GHCR source b1bc… verified #38265625903; live candidate to former to candidate 100% traffic with rollback. No human login gate.",
   "auth_boundary_run": ""
 }
