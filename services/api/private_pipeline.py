@@ -448,6 +448,12 @@ def owner_price_reader(repository, market):
             if identity_reader is not None:
                 try:
                     identities = identity_reader(missing)
+                    for symbol in missing:
+                        if symbol not in identities and symbol.endswith("B") and symbol[:-1].isdigit():
+                            identities[symbol] = {
+                                "symbol": symbol, "market": "TPEX_UNVERIFIED",
+                                "enabled": True,
+                            }
                     tpex_router.refresh_tpex(identities, now=datetime.now(TAIPEI))
                 except Exception:
                     # Official source failure cannot destroy existing Core or
