@@ -1209,6 +1209,34 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Stock valuation refuses a chart with one usable point and a null date',
+      (tester) async {
+    mobileView(tester);
+    final api = FinalFakeApi({
+      '/api/v1/public/stock-header/2330': {
+        'stock_name': '台積電', 'close': '1000', 'trade_date': '2026-10-08'
+      },
+      '/api/v1/public/stocks/2330/visual-series?metric=pe&limit=120': {
+        'metric': 'pe', 'unit': 'times', 'data_status': 'partial',
+        'usable_points': 1, 'missing_reason': 'insufficient_or_invalid_points',
+        'points': [
+          {'date': '2026-10-07', 'value': null},
+          {'date': '2026-10-08', 'value': '22'}
+        ]
+      },
+    });
+    await tester.pumpWidget(MaterialApp(home: FinalStockDetailPage(api: api, symbol: '2330')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.byKey(const Key('visual-tab-pe')),
+      250, scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.byKey(const Key('visual-tab-pe')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('歷史資料不足'), findsOneWidget);
+    expect(find.byKey(const Key('fv-visual-series-chart')), findsNothing);
+    expect(find.byKey(const Key('valuation-chart-expand')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Stock valuation charts use only requested published series', (tester) async {
     mobileView(tester);
     final api = FinalFakeApi({
