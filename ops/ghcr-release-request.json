@@ -8,7 +8,7 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 16,
-  "reason": "2026-10-12 P0 normal daily holdings operation and manual PnL recalculation UX finalization: always render explicit Owner recalc button even with available YTD / zero history; status FAILED retry and active disabled, serialize 9-second bounded status reads; Flutter mobile/desktop/widget tests and web build #38263513473 PASS. Existing operational holdings outside 500, 00719B official TPEx price and Private Mart PnL #38257614968, Preview public readback #38260612716 already PASS in prior source. Release exact new SHA with full Python+Flutter tests and immutable GHCR four images. No GCP changes within release, retain current b1bc live 100% and rollback artifacts until separately gated 0% candidate, OAuth, Jobs, Preview and controlled dev 100% promotion.",
+  "attempt": 17,
+  "reason": "Retry P0 holdings manual-recalc UI full immutable GHCR release after #38263829491 Python-tests exceeded 45-minute job while hanging with no output at apt-get update; fixed workflow at dfc8db9 (skip system apt when libgomp present, bound apt and pip network operations). Preserve full Python/Flutter tests, all 4 immutable GHCR images, no direct runtime change. Fix scope remains the same manual recalc always visible and bounded polling; target this commit's full source SHA; no traffic changes until subsequent independent gates.",
   "expected_runtime_changes": false
 }
