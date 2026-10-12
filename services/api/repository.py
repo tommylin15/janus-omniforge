@@ -265,7 +265,21 @@ class PostgresWorkspaceRepository:
                    WHERE symbol = ANY(%s) ORDER BY symbol""",
                 (requested,),
             ).fetchall()
-        return {str(row["symbol"]):dict(row) for row in rows}
+        identities = {str(row["symbol"]): dict(row) for row in rows}
+        # Holdings are owned by the transaction ledger, not the research 500.
+        # An absent stock-master entry must not hide operational holdings or
+        # prevent reading a legitimate published price for that symbol.
+        # The B-suffix is a *candidate* TPEx bond ETF route, not a confirmed
+        # security identity; only a matching official TPEx row qualifies.
+        for symbol in requested:
+            if symbol not in identities:
+                market = ("TPEX_UNVERIFIED" if symbol.endswith("B") and
+                          symbol[:-1].isdigit() else "UNKNOWN")
+                identities[symbol] = {
+                    "symbol": symbol, "name": None, "market": market,
+                    "enabled": True, "identity_status": "unverified",
+                }
+        return identities
 
     def latest_ledger_version(self, user_id: UUID) -> int:
         with self._connection() as connection:
