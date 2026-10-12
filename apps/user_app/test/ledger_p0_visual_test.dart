@@ -42,7 +42,8 @@ Map<String,dynamic> _snapshot({bool missing = false}) => {
   ],
   'items': [
     {
-      'currency': 'TWD', 'market_value': missing ? null : '933600',
+      'currency': 'TWD', 'ledger_version': 5,
+      'market_value': missing ? null : '933600',
       'unrealized_pnl': missing ? null : '-1200',
       'unrealized_return': missing ? null : '-0.001283697',
       'aggregate_status': missing ? 'withheld' : 'available',
