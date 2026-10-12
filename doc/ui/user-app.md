@@ -146,6 +146,8 @@ Ledger／Holdings 一致性至少涵蓋 shares、cost／average cost、market va
 - 目前 Preview 截圖 00719B 缺價且全部總額 withheld、重算 Cloud Run dispatch 失敗、Hero 空白佔位過大，**現況 VISUAL FAIL / DATA PARTIAL**。資料 fallback 與 private recalc 派送故障必須獨立診斷；不得把第一個當成第二個的根因。完整開發後一次跑整合 tests＋GitHub Actions Release＋0% candidate＋自動 OAuth＋固定 Preview＋owner 真實桌面／390px 截圖，才可以轉 PASS。
 
 
+**2026-10-12 持股 UI／估值修正（Active P0）**：500 檔只管研究／新關注 guard，不可限制 authenticated owner 實際持股。Owner ledger mutation 後自動即時重建持股股數／成本並觸發獨立行情需求；TWSE 與 TPEx 的即時和官方 EOD 都須先驗 source、market 身分、PIT 與 last-success 保障，不可用假價格補位。未完成報價仍保留 operational positions／歷史／單股已確認值，正式總額依 coverage withheld；重算 Job dispatch 錯誤獨立處理。個股卡上區先股票識別、股數、**未實現總損益／報酬**；下區同屬當日行情之現價、每股漲跌／漲幅、持有股數對應當日變化額，時間層級不得混列。單一持股市值 Hero、緊湊圖卡，手機與桌面依 Final Visual PNG 真實 screenshot comparison；示意樣本不可當正式數字。此狀態尚待合併測試／Dev Owner 真實驗收，**VISUAL FAIL**。
+
 ### 5.4.2 持股
 
 第一屏資料可用時，僅「持股」次頁優先顯示**持股市值主 Hero**、可驗證損益貢獻圖及下列四項有主次的摘要：
