@@ -67,6 +67,34 @@ jobs:
           serving_info=provenance(image)
           state=jobs.scheduler()
           if state.get('state')!='ENABLED': raise ValueError('scheduler_not_enabled')
+          # Diagnose existing non-terminal executions without cancelling or replaying.
+          # Only job name, execution id/status and time are emitted; never payloads.
+          from urllib.parse import quote
+          blockers=[]
+          truncated=False
+          for name in sorted(jobs.REQUIRED_JOBS):
+              page=f"{jobs.ROOT}/jobs/{name}/executions?pageSize=100"
+              seen=set()
+              for _ in range(12):
+                  if not page: break
+                  result=jobs.cloud(page)
+                  for execution in result.get('executions',[]):
+                      if not jobs.terminal(execution):
+                          blockers.append({
+                            'job': name,
+                            'execution': str(execution.get('name','')).rsplit('/',1)[-1],
+                            'running_count': execution.get('runningCount',0),
+                            'reconciling': execution.get('reconciling',False),
+                            'state': next((c.get('state') for c in execution.get('conditions',[])
+                                           if c.get('type')=='Completed'),'UNKNOWN'),
+                            'created': execution.get('createTime')})
+                  token=result.get('nextPageToken')
+                  if not token: page=None
+                  elif token in seen: raise ValueError('execution_pagination_loop')
+                  else:
+                      seen.add(token)
+                      page=f"{jobs.ROOT}/jobs/{name}/executions?pageSize=100&pageToken={quote(token,safe='')}"
+              if page: truncated=True
           fence_status='PASS'
           try:
               jobs.fence()
@@ -91,6 +119,9 @@ jobs:
             'release_lease_absent':True,
             'traffic_100_percent_single':True,
             'execution_fence':fence_status,
+            'execution_blockers':blockers[:20],
+            'execution_blocker_count':len(blockers),
+            'execution_inventory_truncated':truncated,
             'readonly':True,
             'result':'PASS_INVENTORY_ONLY'}
           Path('/tmp/visual-first-live-baseline.json').write_text(json.dumps(checks,indent=2,sort_keys=True)+'\n')
