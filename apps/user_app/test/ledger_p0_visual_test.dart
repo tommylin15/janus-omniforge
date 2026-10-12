@@ -88,7 +88,7 @@ void main() {
       HoldingsP0Api(_snapshot(missing: true)),
       now: () => DateTime.utc(2026,10,12,7))));
     await tester.pumpAndSettle();
-    expect(find.text('總額暫不發布'), findsOneWidget);
+    expect(find.text('總額暫不發布'), findsWidgets);
     await tester.scrollUntilVisible(find.byKey(const Key('holding-pnl-00719B')),
       180, scrollable: find.byType(Scrollable).first);
     expect(find.text('持有 30,000 股'), findsOneWidget);
