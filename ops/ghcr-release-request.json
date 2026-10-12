@@ -8,7 +8,7 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 15,
-  "reason": "2026-10-12 real 00719B owner Mart readback #38250985026 proved market_price, market_value, unrealized_pnl, unrealized_return, current ledger version, aggregate available. Old Iceberg mart_user_positions lacks price_status/date schema, hence false-negative owner acceptance. Add additive schema evolution to PrivateIcebergStore positions and dedicated regression test on legacy table; full Python/Flutter tests plus four public immutable GHCR images. No GCP changes within Release; candidate, OAuth, reversible existing dev Job rollout and fixed Preview acceptance remain separate.",
+  "attempt": 16,
+  "reason": "2026-10-12 P0 normal daily holdings operation and manual PnL recalculation UX finalization: always render explicit Owner recalc button even with available YTD / zero history; status FAILED retry and active disabled, serialize 9-second bounded status reads; Flutter mobile/desktop/widget tests and web build #38263513473 PASS. Existing operational holdings outside 500, 00719B official TPEx price and Private Mart PnL #38257614968, Preview public readback #38260612716 already PASS in prior source. Release exact new SHA with full Python+Flutter tests and immutable GHCR four images. No GCP changes within release, retain current b1bc live 100% and rollback artifacts until separately gated 0% candidate, OAuth, Jobs, Preview and controlled dev 100% promotion.",
   "expected_runtime_changes": false
 }
