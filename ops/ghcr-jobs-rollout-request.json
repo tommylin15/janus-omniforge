@@ -2,16 +2,16 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "0b0855c0fdeba0294bb0bb09bf33906216d779fa",
-  "release_run": "38224456544",
+  "sha": "b1bc785906212b8d2860b1521affb83930d09f04",
+  "release_run": "38251449161",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "cc7f498671a1252561902f3b883eaf1cc2b8bdad",
+  "baseline_source_sha": "0b0855c0fdeba0294bb0bb09bf33906216d779fa",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:59000de9b80207554f34c5b3010f8013684cd5a64d2a1bd38d29b7cb9f40804f",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:59000de9b80207554f34c5b3010f8013684cd5a64d2a1bd38d29b7cb9f40804f",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:c0363017842aaaf54081cbd3e34cd2bd7af73f8e210d87fa876c9a9d4ef6301f",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:f178b7b56d863360c1af3a13564ac2cf3de06b5bdf8ec8e7deb58e772a8cb3ab"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:8033f47324b2b1e5bff7cec8722fa7beceba447d4fd36d86713c727ea99baa16",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:8033f47324b2b1e5bff7cec8722fa7beceba447d4fd36d86713c727ea99baa16",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:2c0831b3309da88f1b0f77fbad14708f3f79772130975895aa2144a8bfe5ed98",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:1d25154c5ea14b32d1670b9ec8b8723e64475661288d8458350e8768eb642309"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 3,
-  "safety": "Existing dev four Jobs only: same-source automated OAuth boundary, immutable public GHCR images, current live 038498 rollback baseline exact pinned digests+configuration, Scheduler/execution fence, shared lease, two isolated canaries per target, verified restoration on failures. No traffic promotion in this workflow.",
-  "auth_boundary_run": "38225390463",
-  "automated_oauth_requirement": "Use successful same-source cc7f candidate OAuth/private boundary run #38188581169 after independent runtime readback. Fill numeric auth_boundary_run only with a verified result; no human OAuth attestation required.",
-  "authorization": "2026-10-12 user requires one combined P0 holdings data + UI deploy and acceptance. Four existing dev Jobs only, exact previously live baseline images/hashes captured #38226365438; full GHCR #38224456544, same-source automated OAuth #38225390463 and scoped existing Private Job IAM #38226365438 PASS. Use existing reversible / canary rollout, no unrelated Job or production traffic."
+  "request_attempt": 4,
+  "safety": "2026-10-12 P0 additive Private Iceberg mart_user_positions price_status/price_date fix; full immutable GHCR #38251449161, same-source API 0% #38253341992, automated OAuth-negative #38253596061 all PASS. Existing GCP four Jobs baseline source 0b0855 P0 rollout #38226618808 PASS; require exact existing GHCR rollback digests, unchanged per-Job configuration hashes, global release lease, Scheduler/execution fence and 8 canary executions. Fail closed on any drift; no API/Preview traffic, ledger data, IAM or extra resource changes.",
+  "auth_boundary_run": "38253596061",
+  "automated_oauth_requirement": "Use same-source automated OAuth/private-negative #38253596061; human login excluded by approved 2026-10-12 rule.",
+  "authorization": "Resume approved 2026-10-12 combined P0 holdings fix after actual 00719B read-only fields #38250985026 identified prior Iceberg column omissions. This new image deployment is needed for actual schema evolution; previous four-Job rollout #38226618808 is not replaced as historical PASS."
 }
