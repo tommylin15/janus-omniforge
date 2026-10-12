@@ -5,6 +5,6 @@
   "source_sha": "0b0855c0fdeba0294bb0bb09bf33906216d779fa",
   "failed_run": "38231768997",
   "scope": "latest dev Private Mart owner 00719B execution after 2026-10-12T09:42Z",
-  "purpose": "Read-only sanitized fixed-token identification of failed 00719B owner Mart Cloud Run task stderr. Prior diagnostic #38232942076 observed NonZeroExitCode, one failed task, two stderr messages (590 and 60 chars), no Python exception class. No retry or mutation.",
-  "attempt": 2
+  "purpose": "Follow-up read-only sanitized exception-class extraction from failed Cloud Run owner Mart task janus-private-pipeline-kw8l5. Prior probe #38233179856 detected traceback with permission denied but no Error-suffix class. Determine exact class without emitting error message, credentials, owner, transaction details or rerunning any job.",
+  "attempt": 3
 }
