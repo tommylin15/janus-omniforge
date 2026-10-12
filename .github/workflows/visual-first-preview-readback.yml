@@ -83,6 +83,32 @@ jobs:
           body,_=get("/api/v1/me/portfolio/snapshot",expected=401)
           assert "authentication" in body.decode().lower()
           get("/api/v1/public/stocks/2327/visual-series?metric=eps",expected=422)
+          # VF-02: public home itself must serve verifiable historical TAIEX
+          # points, not chart fixture data or an intraday MIS/EOD splice.
+          market_raw, market_ms = get("/api/v1/public/market-home")
+          home = json.loads(market_raw)
+          assert home["schema_version"]=="market-home.v1"
+          sections=home.get("sections",{})
+          assert all(key in sections for key in ("taiex","institutional","market-activity"))
+          benchmark=sections["taiex"]
+          history=benchmark.get("data",{}).get("history_points",[])
+          assert 2 <= len(history) <= 30, "official TAIEX history missing"
+          dates=[item["date"] for item in history]
+          assert dates==sorted(set(dates)) and max(dates)<=date.today().isoformat()
+          assert all(float(item["value"])>0 and item.get("source_id") and
+                     item.get("provenance_id") for item in history)
+          assert benchmark["data"]["history_as_of"]==dates[-1]
+          assert benchmark["data"]["history_status"]=="available"
+          assert benchmark["data"]["history_source_ids"]
+          _,market_warm_ms=get("/api/v1/public/market-home")
+          assert market_warm_ms < 9000, "homepage market snapshot warm read too slow"
+          print(json.dumps({"phase":"home-market-visual-live","result":"PASS",
+            "history_points":len(history),"history_as_of":dates[-1],
+            "history_sources":benchmark["data"]["history_source_ids"],
+            "market_read_ms":market_ms, "market_warm_ms":market_warm_ms,
+            "activity_status":sections["market-activity"]["status"],
+            "institutional_status":sections["institutional"]["status"]},
+            sort_keys=True))
           for symbol,metric in (("2327","pe"),("2327","pb"),("2327","yield"),
                                 ("2330","pe"),("2330","pb")):
               path=f"/api/v1/public/stocks/{symbol}/visual-series?metric={metric}&limit=30"
