@@ -1,0 +1,56 @@
+name: Janus P0 owner Mart read-only log readback
+on:
+  push:
+    branches: [main]
+    paths: ['ops/holdings-p0-mart-log-request.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read only 00719B field status from completed one-owner Job
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="readonly-00719B-job-output" and .no_gcp_mutation==true and .execution=="janus-private-pipeline-c8s7c"' ops/holdings-p0-mart-log-request.json >/dev/null
+          gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="janus-private-pipeline" AND timestamp>="2026-10-12T12:35:00Z" AND timestamp<="2026-10-12T12:42:00Z"' \
+            --project=gen-lang-client-0593591102 --limit=150 --format=json > /tmp/p0-owner-mart-logs.json
+          python - <<'PY'
+          import json
+          logs=json.load(open('/tmp/p0-owner-mart-logs.json'))
+          selected=[]
+          for entry in logs:
+              if 'stderr' in str(entry.get('logName') or ''): continue
+              value=str(entry.get('textPayload') or (entry.get('jsonPayload') or {}).get('message') or '')
+              for line in value.splitlines():
+                  try: item=json.loads(line)
+                  except (ValueError,TypeError): continue
+                  if (item.get('read_only') is True and item.get('symbol')=='00719B'
+                      and item.get('one_owner') is True):
+                      selected.append(item)
+          if not selected:
+              print('real_owner_field_evidence=UNKNOWN_OR_MISSING')
+              print('bounded_entry_count='+str(len(logs)))
+              raise SystemExit(1)
+          if len(selected)!=1:
+              raise SystemExit('real_owner_field_evidence=DUPLICATE_REQUIRES_REVIEW')
+          item=selected[0]
+          allowed={
+              'read_only':True,
+              'symbol':item['symbol'],
+              'valuation_date':item.get('valuation_date'),
+              'tables':item.get('tables'),
+          }
+          print(json.dumps(allowed,sort_keys=True))
+          print('real_owner_field_evidence=PASS')
+          PY
