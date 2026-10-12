@@ -1,0 +1,76 @@
+name: P0 private recalculation read-only diagnostic
+on:
+  push:
+    branches: [main]
+    paths: ['ops/private-recalc-diagnostic-request.json']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify bounded immutable request
+        run: |
+          jq -e '.intent=="readonly-failed-private-recalc-canary" and
+            .approved==true and .read_only==true and
+            .scope=="one-failed-verify-execution" and
+            .run_id=="38274621290" and
+            .verify_execution=="janus-ingestion-core-5hksw" and
+            .seed_execution=="janus-ingestion-core-prv6p" and
+            .queue_execution=="janus-private-pipeline-45h2t"' \
+            ops/private-recalc-diagnostic-request.json >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read exact executions and allowlisted failure classifications only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for execution in janus-ingestion-core-prv6p janus-private-pipeline-45h2t janus-ingestion-core-5hksw; do
+            gcloud run jobs executions describe "$execution" --project gen-lang-client-0593591102 \
+              --region us-central1 --format=json > "/tmp/$execution.json"
+          done
+          gcloud logging read \
+            'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ingestion-core" AND timestamp>="2026-10-12T16:35:00Z" AND timestamp<="2026-10-12T16:41:00Z"' \
+            --project gen-lang-client-0593591102 --limit 100 --format=json > /tmp/recalc-logs.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          executions=('janus-ingestion-core-prv6p','janus-private-pipeline-45h2t','janus-ingestion-core-5hksw')
+          for name in executions:
+              d=json.loads(Path('/tmp/'+name+'.json').read_text())
+              st=d.get('status',{})
+              print(json.dumps({'execution':name,
+                  'succeeded_count':st.get('succeededCount'),
+                  'failed_count':st.get('failedCount'),
+                  'completion_condition':[(c.get('type'),c.get('state') or c.get('status'),c.get('reason'))
+                                          for c in st.get('conditions',[])],
+                  'task_count':d.get('spec',{}).get('taskCount')},sort_keys=True))
+          data=json.loads(Path('/tmp/recalc-logs.json').read_text())
+          kinds={}
+          matched=0
+          for row in data:
+              labels=row.get('labels',{})
+              ex=str(labels.get('run.googleapis.com/execution_name') or '')
+              if ex!='janus-ingestion-core-5hksw': continue
+              matched+=1
+              payload=row.get('jsonPayload') or {}
+              raw=row.get('textPayload')
+              if not isinstance(payload,dict) and isinstance(raw,str):
+                  try: payload=json.loads(raw)
+                  except (ValueError,TypeError): payload={}
+              if not isinstance(payload,dict): payload={}
+              kind=str(payload.get('error_code') or payload.get('operation') or payload.get('status') or row.get('severity') or 'unknown')[:60]
+              kinds[kind]=kinds.get(kind,0)+1
+          print(json.dumps({'verify_log_entries':matched,'verify_error_classes':kinds,
+              'log_queries_read_only':True,'raw_logs_not_printed':True},sort_keys=True))
+          PY
