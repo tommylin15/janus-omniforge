@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "0b0855c0fdeba0294bb0bb09bf33906216d779fa",
-  "candidate_release_run": "38224456544",
-  "candidate_deployment_run": "38225156313",
-  "purpose": "2026-10-12 combined P0 holdings universe and official TPEx EOD safe price fallback with ledger visual convergence; same-source immutable GHCR full Python/Flutter Release #38224456544 and 0% candidate #38225156313 PASS. Automated metadata OAuth/PKCE/refresh and unauthorized owner/Admin/MCP negative fencing; no manual OAuth or GCP mutation.",
+  "sha": "b1bc785906212b8d2860b1521affb83930d09f04",
+  "candidate_release_run": "38251449161",
+  "candidate_deployment_run": "38253341992",
+  "purpose": "2026-10-12 validated schema evolution for owner-held 00719B Iceberg positions price_status/price_date; full-release #38251449161 and 0% candidate #38253341992 success. Read-only same-source automated OAuth discovery, metadata/PKCE, and private User/Admin/MCP unauthenticated fences. No human OAuth login, no GCP writes or traffic promotion.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 7
+  "attempt": 8
 }
