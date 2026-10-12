@@ -5,6 +5,6 @@
   "source_sha": "0b0855c0fdeba0294bb0bb09bf33906216d779fa",
   "failed_run": "38231768997",
   "scope": "latest dev Private Mart owner 00719B execution after 2026-10-12T09:42Z",
-  "purpose": "Follow-up read-only sanitized exception-class extraction from failed Cloud Run owner Mart task janus-private-pipeline-kw8l5. Prior probe #38233179856 detected traceback with permission denied but no Error-suffix class. Determine exact class without emitting error message, credentials, owner, transaction details or rerunning any job.",
-  "attempt": 3
+  "purpose": "Read-only exact denied SQL table/schema identifier for private Mart user scope. Earlier probe #38233402253 found psycopg.errors.InsufficientPrivilege, permission denied (no raw log output); identify only object name before minimal code or permission repair. No Job rerun, GCP mutation or private data output.",
+  "attempt": 4
 }
