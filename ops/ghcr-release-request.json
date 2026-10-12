@@ -8,7 +8,7 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 10,
-  "reason": "2026-10-12 visual-first second-pass full GHCR retry after failed run #38197011393. Fix stale retired B7 request test without weakening active dispatch fence; retire legacy forward-only recovery acceptance bypass by requiring current same-source automated OAuth proof. Preserve visual chart null-gap, A-B-A request fencing, sourced event timeline. Full Python/Flutter all tests and public immutable GHCR pull required. Image publication ONLY; no dev Cloud Run, Job, Scheduler, preview or canonical traffic mutation before separate gated candidate.",
+  "attempt": 11,
+  "reason": "2026-10-12 Today homepage official bounded TAIEX 30-point EOD history in existing /market-home; separate MIS quote and published close, 5/20/30 trading-session views, on-chart tap/zoom without additional fetch, neutral market-activity bars and signed institutional bars with missing/partial states. Python/Flutter targeted and full GHCR suite + immutable public pull required; image publication only (no GCP traffic, Jobs or Scheduler mutation). Automatic OAuth and same-source fixed preview readback remain separate gates.",
   "expected_runtime_changes": false
 }
