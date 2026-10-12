@@ -1,0 +1,12 @@
+{
+  "intent": "readonly-failed-private-recalc-canary",
+  "approved": true,
+  "read_only": true,
+  "scope": "one-failed-verify-execution",
+  "run_id": "38274621290",
+  "verify_execution": "janus-ingestion-core-5hksw",
+  "seed_execution": "janus-ingestion-core-prv6p",
+  "queue_execution": "janus-private-pipeline-45h2t",
+  "purpose": "Read 2026-10-12 16:35Z–16:41Z metadata and allowlisted Cloud Logging error classifications only; do not output raw logs, private identifiers or data. No jobs execution or GCP mutations.",
+  "retry": 0
+}
