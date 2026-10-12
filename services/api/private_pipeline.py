@@ -429,6 +429,13 @@ def owner_price_reader(repository, market):
     Last-success from MIS or a quote after the PIT valuation cutoff is never
     eligible for Private Mart. All values remain owner-scoped through ledger.
     """
+    # Existing scheduled Private Pipeline and owner-triggered queue both
+    # use this reader, so a newly bought TPEx ETF is eligible at EOD even if
+    # its owner never opens the holdings tab that afternoon.
+    from .quote_router import QuoteRouter
+    from .tpex_quotes import TpexDailyQuotes
+    tpex_router = QuoteRouter(repository, source=None, tpex_source=TpexDailyQuotes())
+
     def owner_prices(symbols: set[str], valuation_date: date):
         # Canonical Core prices have priority. The only fallback allowed here
         # is a *persisted, verified official TPEx close* for a real ledger
@@ -437,6 +444,15 @@ def owner_price_reader(repository, market):
         prices=market(symbols,valuation_date)
         missing=symbols-set(prices)
         if missing:
+            identity_reader = getattr(repository, "stock_identities", None)
+            if identity_reader is not None:
+                try:
+                    identities = identity_reader(missing)
+                    tpex_router.refresh_tpex(identities, now=datetime.now(TAIPEI))
+                except Exception:
+                    # Official source failure cannot destroy existing Core or
+                    # persisted EOD data, or block other canonical marts.
+                    pass
             for symbol, row in repository.last_quotes({
                 symbol: {} for symbol in missing
             }).items():
