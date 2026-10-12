@@ -1,0 +1,55 @@
+name: Janus owner 00719B Mart field readback
+on:
+  push:
+    branches: [main]
+    paths: ['ops/holdings-p0-mart-check-request.json']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  readonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Run bounded one-owner field-presence check in existing immutable Job
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/holdings_p0_mart_field_check.py | tee /tmp/holdings-read-result.jsonl
+          exe="$(python - <<'PY'
+          import json
+          items=[json.loads(line) for line in open('/tmp/holdings-read-result.jsonl') if line.strip().startswith('{')]
+          print(next(x['execution'] for x in items if 'read_only_mart_check' in x))
+          PY
+          )"
+          test -n "$exe"
+          gcloud logging read \
+            "resource.type=cloud_run_job AND resource.labels.job_name=janus-private-pipeline AND labels.\"run.googleapis.com/execution_name\"=$exe" \
+            --project=gen-lang-client-0593591102 --limit=25 --format=json > /tmp/holdings-read-logs.json
+          python - <<'PY'
+          import json
+          entries=json.load(open('/tmp/holdings-read-logs.json'))
+          records=[]
+          for entry in entries:
+              value=str(entry.get('textPayload') or (entry.get('jsonPayload') or {}).get('message') or '')
+              for line in value.splitlines():
+                  try: item=json.loads(line)
+                  except (ValueError,TypeError): continue
+                  if item.get('read_only') is True and item.get('symbol')=='00719B':
+                      records.append(item)
+          if len(records)!=1:
+              print('read_only_mart_fields=UNKNOWN_OR_MISSING')
+              raise SystemExit(1)
+          print(json.dumps(records[0],sort_keys=True))
+          print('read_only_mart_fields=PASS')
+          PY
