@@ -7,6 +7,19 @@ class HoldingsP0Api extends legacy.Api {
   HoldingsP0Api(this.snapshot) : super('test');
   final Map<String, dynamic> snapshot;
   final reads = <String>[];
+  final posts = <String>[];
+  String queueStatus = 'IDLE';
+
+  @override
+  Future<dynamic> post(String path, Map<String, dynamic> body) async {
+    posts.add(path);
+    if (path == '/api/v1/me/journal/recalculate') {
+      queueStatus = 'SUCCEEDED';
+      return {'status': 'SUCCEEDED', 'already_active': false};
+    }
+    return body;
+  }
+
 
   @override
   Future<dynamic> get(String path) async {
@@ -14,7 +27,7 @@ class HoldingsP0Api extends legacy.Api {
     if (path == '/api/v1/me/portfolio/snapshot' ||
         path == '/api/v1/me/portfolio/quotes') return snapshot;
     if (path == '/api/v1/me/journal/recalculation-status') {
-      return {'status':'IDLE'};
+      return {'status': queueStatus, 'can_retry': true};
     }
     return const <dynamic>[];
   }
@@ -98,6 +111,44 @@ void main() {
     expect(find.text('持股市值'), findsOneWidget);
     expect(find.text('本年已實現損益'), findsOneWidget);
     expect(find.text('ledger v5'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('P0 Owner can manually recalculate when YTD and holdings are already available',
+      (tester) async {
+    _phone(tester);
+    final api = HoldingsP0Api(_snapshot());
+    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(api,
+      active: false, now: () => DateTime.utc(2026,10,12,7))));
+    await tester.pumpAndSettle();
+    // Current-year history is empty => YTD displays zero (not "pending").
+    // The manual recovery entry must still exist and be actionable.
+    final recalc = find.byKey(const Key('recalculate-pnl'));
+    expect(recalc, findsOneWidget);
+    await tester.ensureVisible(recalc);
+    await tester.pump();
+    await tester.tap(recalc);
+    await tester.pump();
+    expect(api.posts, contains('/api/v1/me/journal/recalculate'));
+    expect(find.text('損益已排入重新計算'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('P0 Owner can retry a failed queue even with available holdings',
+      (tester) async {
+    _phone(tester);
+    final api = HoldingsP0Api(_snapshot())..queueStatus = 'FAILED';
+    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(api,
+      active: false, now: () => DateTime.utc(2026,10,12,7))));
+    await tester.pumpAndSettle();
+    final recalc = find.byKey(const Key('recalculate-pnl'));
+    expect(recalc, findsOneWidget);
+    await tester.ensureVisible(recalc);
+    await tester.pump();
+    expect(find.text('重新嘗試'), findsOneWidget);
+    await tester.tap(recalc);
+    await tester.pump();
+    expect(api.posts, contains('/api/v1/me/journal/recalculate'));
     expect(tester.takeException(), isNull);
   });
 
