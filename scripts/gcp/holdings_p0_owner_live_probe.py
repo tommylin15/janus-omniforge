@@ -54,7 +54,7 @@ if not isinstance(entry,tuple) or len(entry)!=2 or entry[0]<=0 or entry[1]>value
     raise RuntimeError('official_00719B_eligible_eod_missing')
 with repo._connection() as connection:
     quote=connection.execute(
-        "SELECT source,price_date FROM control.operational_last_quotes WHERE symbol=%s",
+        "SELECT source,quote_at FROM control.operational_last_quotes WHERE symbol=%s",
         ('00719B',)
     ).fetchone()
 if quote is None or quote['source']!='tpex_openapi_eod':
