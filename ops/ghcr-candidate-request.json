@@ -1,7 +1,7 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "cc7f498671a1252561902f3b883eaf1cc2b8bdad",
-  "purpose": "Visual-first four-page and serving-series API candidate after GHCR full PASS run 38153154441. Check immutable build SHA, public health and non-owner negative auth; no formal traffic or Jobs promotion.",
+  "sha": "2ebc875953209875123d4cba04659661e68d1685",
+  "purpose": "2026-10-12 visual-first chart correctness, no-stale stock navigation and event timeline; full Python/Flutter/GHCR public immutable release PASS #38197376475. Existing dev API fixed digest 0% candidate only; preserve formal 100% traffic and Jobs. Next automatic OAuth/readback separately.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
