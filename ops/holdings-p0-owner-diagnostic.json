@@ -3,8 +3,12 @@
   "no_gcp_mutation": true,
   "job": "janus-private-pipeline",
   "source_sha": "0b0855c0fdeba0294bb0bb09bf33906216d779fa",
-  "failed_run": "38231768997",
+  "failed_run": "38246053781",
   "scope": "latest dev Private Mart owner 00719B execution after 2026-10-12T09:42Z",
-  "purpose": "Read-only exact denied SQL table/schema identifier for private Mart user scope. Earlier probe #38233402253 found psycopg.errors.InsufficientPrivilege, permission denied (no raw log output); identify only object name before minimal code or permission repair. No Job rerun, GCP mutation or private data output.",
-  "attempt": 4
+  "purpose": "Read-only sanitized Cloud Run new execution class and domain error for #38246053781, after official TPEx quote migration 053 PASS. Print only allowlisted exception type, bounded execution id and safe error marker; no raw user, secret, owner rows, new execution or GCP mutation.",
+  "attempt": 5,
+  "time_window": [
+    "2026-10-12T11:58:00Z",
+    "2026-10-12T12:06:00Z"
+  ]
 }
