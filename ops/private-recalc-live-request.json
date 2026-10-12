@@ -1,0 +1,14 @@
+{
+  "intent": "validate-existing-private-recalculation-queue",
+  "approved": true,
+  "scope": "bounded-synthetic-queue-canary-only",
+  "source_sha": "50eda171ef6ffb3971a4d140ad09bac870ead6c1",
+  "release_run": "38273250472",
+  "jobs_rollout_run": "38274299751",
+  "private_image": "ghcr.io/tommylin15/janus-private-pipeline@sha256:17c20240d18c976e01e09c44fdda8e538f2c69f5ca92d5ce597813ddefdb021e",
+  "ingestion_image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:30bfef87ee0b9fa652c5840dcd78677c021d0fc49041a108bac8cdcf2255b41f",
+  "ledger_mutation": false,
+  "allow_existing_owner_mutation": false,
+  "cleanup_required": true,
+  "safety": "Gate on exact four-Jobs rollout PASS and exact immutable GCP target digests, Scheduler running, no conflicting executions and same global release writer lease. Seed only synthetic UUID-scoped acceptance fixture in existing authorized dev, test queue taskCount=2/owner checkpoint and cleanup in EXIT trap. No real owner ledger mutation, no API/Preview traffic, no new resources or secrets."
+}
