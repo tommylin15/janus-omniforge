@@ -536,6 +536,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
           _compactMetric('本年已實現損益', ytd,
             note: ytd == '待更新／尚未確認' ? '等候損益批次'
                 : ytd == '資料不足' ? '年度損益目前無法確認'
+                : ytd == '0' ? '本年度確認無交易'
                 : '已實現損益', color: fvSignedColor(ytdAmount)),
         ];
         return narrow
