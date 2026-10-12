@@ -9,6 +9,15 @@ import 'final_visual_common.dart';
 import 'final_visual_series.dart';
 import 'main.dart' as legacy;
 
+int _usableVisualSeriesPoints(Map<String, dynamic> series) {
+  // An explicit null marker is a gap, not a usable chart observation.
+  final valid = fvRows(series['points'])
+      .where((item) => fvChartNumber(fvMap(item)['value']) != null).length;
+  if (series['usable_points'] == null) return valid;
+  final declared = fvInt(series['usable_points']);
+  return declared < valid ? declared : valid;
+}
+
 class FinalStockDetailPage extends StatefulWidget {
   const FinalStockDetailPage(
       {required this.api, required this.symbol, super.key});
@@ -238,7 +247,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
 
   void expandVisual(Map<String, dynamic> result, String label) {
     final points = fvRows(result['points']);
-    if (points.length < 2) return;
+    if (_usableVisualSeriesPoints(result) < 2) return;
     showDialog<void>(context: context, builder: (ctx) => Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 28),
       child: Padding(padding: const EdgeInsets.all(12), child: Column(
@@ -629,7 +638,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                   final points = fvRows(result['points']);
                   final label = selectedVisual == 'pe' ? '本益比'
                     : selectedVisual == 'pb' ? '股價淨值比' : '殖利率';
-                  if (points.length < 2) {
+                  if (_usableVisualSeriesPoints(result) < 2) {
                     return fvBoundedState('歷史資料不足：${fvText(result['missing_reason'], missing: '尚未就緒')}');
                   }
                   return Column(children: [
