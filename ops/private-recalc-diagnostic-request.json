@@ -7,6 +7,6 @@
   "verify_execution": "janus-ingestion-core-5hksw",
   "seed_execution": "janus-ingestion-core-prv6p",
   "queue_execution": "janus-private-pipeline-45h2t",
-  "purpose": "Read 2026-10-12 16:35Z–16:41Z metadata and allowlisted Cloud Logging error classifications only; do not output raw logs, private identifiers or data. No jobs execution or GCP mutations.",
-  "retry": 0
+  "purpose": "Only query metadata and allowlisted stdout for the already-running/finished ephemeral readonly ingestion execution started by #38321027906. No Cloud Run execution or PostgreSQL write. Preserve old synthetic canary result from #38274621290.",
+  "retry": 1
 }
