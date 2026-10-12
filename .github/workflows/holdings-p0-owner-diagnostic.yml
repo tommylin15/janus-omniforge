@@ -70,3 +70,51 @@ jobs:
           else
             echo 'private_runtime_logging_status=UNAVAILABLE_NOT_SUCCESS'
           fi
+      - name: Inspect task exit code and sanitized traceback class only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud run jobs executions describe janus-private-pipeline-kw8l5 \
+            --project=gen-lang-client-0593591102 --region=us-central1 \
+            --format=json > /tmp/failed-execution.json
+          if gcloud run jobs executions tasks list \
+            --execution=janus-private-pipeline-kw8l5 \
+            --project=gen-lang-client-0593591102 --region=us-central1 \
+            --format=json > /tmp/failed-tasks.json 2>/dev/null; then
+            echo "task_status_read=AVAILABLE"
+          else
+            echo "task_status_read=UNKNOWN"
+            echo '[]' > /tmp/failed-tasks.json
+          fi
+          python3 - <<'PY'
+          import json,re
+          execution=json.load(open('/tmp/failed-execution.json'))
+          conditions=(execution.get('status') or {}).get('conditions',[])
+          for c in conditions:
+              if c.get('type') in {'Completed','Ready'}:
+                  print(json.dumps({'condition':c.get('type'),
+                      'reason':c.get('reason'), 'status':c.get('status')},sort_keys=True))
+          tasks=json.load(open('/tmp/failed-tasks.json'))
+          if not isinstance(tasks,list): tasks=[]
+          for x in tasks:
+              s=x.get('status') or {}
+              print(json.dumps({'task':str(x.get('metadata',{}).get('name') or x.get('name','')).split('/')[-1],
+                  'exit_code':s.get('exitCode',x.get('exitCode')),
+                  'retries':s.get('retried',x.get('retried')),
+                  'failed_count':s.get('failedCount',x.get('failedCount')),
+                  'conditions':[{k:c.get(k) for k in ('type','status','reason')}
+                                for c in s.get('conditions',[]) if c.get('type')=='Completed']},
+                  sort_keys=True))
+          logs=json.load(open('/tmp/private-log.json')) if __import__('os').path.exists('/tmp/private-log.json') else []
+          allowed=[]
+          for row in logs:
+              value=str(row.get('textPayload') or
+                        row.get('jsonPayload',{}).get('message') or '')
+              classes=re.findall(r'\b[A-Z][A-Za-z0-9_]*(?:Error|Exception)\b',value)
+              allowed.append({'severity':row.get('severity'),
+                  'log_kind':str(row.get('logName') or '').split('/')[-1],
+                  'payload_chars':len(value),
+                  'exception_classes':sorted(set(classes))[:4],
+                  'json_keys':sorted(list((row.get('jsonPayload') or {}).keys()))[:12]})
+          print(json.dumps({'sanitized_log_shapes':allowed,'raw_logs_printed':False},sort_keys=True))
+          PY
