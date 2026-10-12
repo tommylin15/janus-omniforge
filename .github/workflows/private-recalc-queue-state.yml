@@ -1,0 +1,32 @@
+name: P0 private recalculation queue snapshot
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/private-recalc-queue-state-request.json'
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact bounded read-only authorization
+        run: |
+          jq -e '.intent=="inspect-one-failed-synthetic-private-recalc" and .approved==true
+            and .read_only==true and .scope=="one-failed-test-only" and
+            .source_sha=="50eda171ef6ffb3971a4d140ad09bac870ead6c1"
+            and .failed_run=="38274621290"' ops/private-recalc-queue-state-request.json >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Inspect limited PostgreSQL metadata, no owner values or writes
+        run: python3 scripts/gcp/private_recalc_state_probe.py
