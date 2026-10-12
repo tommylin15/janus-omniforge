@@ -118,3 +118,26 @@ jobs:
                   'json_keys':sorted(list((row.get('jsonPayload') or {}).keys()))[:12]})
           print(json.dumps({'sanitized_log_shapes':allowed,'raw_logs_printed':False},sort_keys=True))
           PY
+      - name: Classify bounded stderr without revealing private payloads
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          items=json.loads(Path('/tmp/private-log.json').read_text())
+          tokens=['python','usage','invalid','argument','unrecognized',
+             "can't open file",'No such file','command not found',
+             'Traceback','failed to','not found','cannot open','missing',
+             'owner','permission','denied','exit','source','tpex','00719B',
+             'core','worker','memory','timeout','import','runtime',
+             'exception','error','File','line','-c','app']
+          for row in items:
+              if 'stderr' not in str(row.get('logName','')): continue
+              value=str(row.get('textPayload') or
+                    (row.get('jsonPayload') or {}).get('message') or '')
+              print(json.dumps({'stderr_chars':len(value),
+                 'safe_tokens':sorted({x for x in tokens if x.lower() in value.lower()}),
+                 'contains_python_path':('/usr/local/bin/python' in value or '/app/' in value),
+                 'contains_cli_usage':('usage:' in value.lower()),
+                 'no_raw_private_payload':True},sort_keys=True))
+          PY
