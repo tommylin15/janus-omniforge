@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "b329a4e78bded056eeebc4792171aabcb86e2e3d",
-  "candidate_release_run": "38205701025",
-  "candidate_deployment_run": "38206070835",
-  "purpose": "2026-10-12 homepage TAIEX-history candidate automatic Google OAuth discovery/S256/refresh metadata and private owner/Admin/MCP negative authorization, with exact source SHA readback. Read-only: no human login, no GCP mutation.",
+  "sha": "8b515f10fa2d4784235446185ad0c9d1337cbbdd",
+  "candidate_release_run": "38206654851",
+  "candidate_deployment_run": "38207011213",
+  "purpose": "2026-10-12 homepage TAIEX 24s cold-read UX correction; verified full GHCR/Flutter/Python release #38206654851 and 0% candidate #38207011213. Automated OAuth metadata S256 refresh grant and 401 User/Admin/MCP boundaries on exact candidate without human login or GCP mutation.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 5
+  "attempt": 6
 }
