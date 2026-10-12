@@ -163,6 +163,8 @@ def test_failed_worker_reports_only_safe_error_class_and_preserves_other_owners(
         def release_recalculation_dispatch_if_idle(self):
             self.released=True
             return True
+        def private_mart_write_lock(self):
+            return None
 
     class BrokenPipeline:
         def run_user(self, user_id, *, stop, write_guard):
