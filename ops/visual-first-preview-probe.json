@@ -2,7 +2,7 @@
   "intent": "readonly-preview-series-acceptance",
   "scope": "published-public-only",
   "no_gcp_mutation": true,
-  "source_sha": "2ebc875953209875123d4cba04659661e68d1685",
+  "source_sha": "b329a4e78bded056eeebc4792171aabcb86e2e3d",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
-  "reason": "2026-10-12 exact immutable SHA fixed-preview real 2327/2330 valuation published dataset with explicit null gap semantics, source/PIT, owner 401, API latency and canonical traffic 100%-unchanged. Read-only; not logged-in owner acceptance."
+  "reason": "2026-10-12 real TAIEX 2-30 official historical points, dates, source/PIT, headline MIS vs history split, institutional and market sections, bounded /market-home warm latency, existing published stock valuation regression, exact Flutter build-id and canonical traffic 100%-unchanged. Read-only, not authenticated owner screenshot."
 }
