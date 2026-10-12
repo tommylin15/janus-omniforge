@@ -8,7 +8,7 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 12,
-  "reason": "2026-10-12 homepage trend release retry after #38205504680: old market_home fixtures without provenance must retain current TAIEX hero, but official historical series requires full source_id+provenance_id. Full Python+Flutter suite, four immutable GHCR images and anonymous pull required before 0% candidate and fixed preview. No current GCP mutation in Release.",
+  "attempt": 13,
+  "reason": "2026-10-12 homepage visual cold-start resilience: live readback #38206387630 official TAIEX 30 points and source PASS, initial /market-home 16699ms exceeds previous Flutter 9s wait; bounded 24s homepage-only read while other sections remain independent, preserve snapshot on revalidation, explicit >9s delayed-response widget test. Full Python/Flutter and immutable GHCR readback required; new candidate/auto-OAuth/fixed Preview separate, no GCP mutation by this workflow.",
   "expected_runtime_changes": false
 }
