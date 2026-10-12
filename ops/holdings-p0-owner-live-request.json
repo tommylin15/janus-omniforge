@@ -5,8 +5,9 @@
   "sha": "0b0855c0fdeba0294bb0bb09bf33906216d779fa",
   "write_limit": "private-mart-only",
   "ledger_mutation": false,
-  "purpose": "2026-10-12 repeat one existing owner 00719B official TPEx EOD -> Private Mart valuation after verified minimal table-scoped PostgreSQL ACL and check constraints migration 053 #38244531637 PASS. Previous failed run #38231768997 had InsufficientPrivilege on control.operational_last_quotes. Check current ledger-version, official price source, nonnull owner PnL; do not edit ledger or other owners. Exact same deployed Private Job immutable digest.",
-  "retry_attempt": 1,
+  "purpose": "2026-10-12 bounded exact one-owner 00719B live acceptance after PostgreSQL migration 053 PASS. Previous execution wrote priced 00719B owner position (private MCP read status available 2026-10-12) but acceptance script incorrectly asserted unrealized_pnl in mart_user_positions; corrected to verify mart_user_unrealized_pnl separately with same ledger version, as required by calculate_marts(). No real ledger mutations and no other owners; fail closed on price provenance or Mart mismatch.",
+  "retry_attempt": 2,
   "after_migration": "053_tpex_owner_eod_quote_acl",
-  "after_migration_run": "38244531637"
+  "after_migration_run": "38244531637",
+  "last_failed_run": "38245001859"
 }
