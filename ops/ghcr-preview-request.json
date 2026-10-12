@@ -2,16 +2,16 @@
   "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
   "approved": true,
   "scope": "janus-api-preview-tag-only",
-  "source_sha": "cc7f498671a1252561902f3b883eaf1cc2b8bdad",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:435ce0440c4cfc9ed7129de8c771d3dfe329634285830bf98399014f8db7c555",
-  "release_run": "38153154441",
-  "candidate_run": "38153514341",
-  "boundary_run": "38153663207",
+  "source_sha": "2ebc875953209875123d4cba04659661e68d1685",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:0e115392d2ff22efa072dd95e926c362cbfea188068fb861082c47181f9e5042",
+  "release_run": "38197376475",
+  "candidate_run": "38197718590",
+  "boundary_run": "38197849073",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
-  "reason": "Visual-first bounded valuation/API and four-page candidate: full release + public digest + 0% tag + OAuth/private negative boundary all PASS. Publish only verified candidate to existing fixed preview, preserve canonical 100% traffic and every other tag/setting; keep last verified preview on failure.",
+  "reason": "2026-10-12 same-source visual-first chart and event timeline update: full Python+Flutter GHCR anonymous immutable digest PASS #38197376475, zero-traffic candidate PASS #38197718590, automated OAuth/owner-private negative boundary PASS #38197849073. Only fixed preview tag mutation under existing lease; formal 100% traffic and Jobs remain unchanged.",
   "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
-  "attempt": 3
+  "attempt": 4
 }
