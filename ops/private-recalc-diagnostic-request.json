@@ -7,6 +7,6 @@
   "verify_execution": "janus-ingestion-core-5hksw",
   "seed_execution": "janus-ingestion-core-prv6p",
   "queue_execution": "janus-private-pipeline-45h2t",
-  "purpose": "Final immutable read-only metadata and allowlisted stdout query for the second SQL-corrected inspection Job from GitHub Actions #38321865550. No Cloud Run run call, no SQL execution or owner state mutation.",
-  "retry": 3
+  "purpose": "Read original 2026-10-12 Private Pipeline two Worker task counters from stored Cloud Logging records only; no GCP workload execution, PostgreSQL mutation, owner data or service traffic modification.",
+  "retry": 4
 }
