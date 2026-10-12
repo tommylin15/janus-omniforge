@@ -45,8 +45,12 @@ def _day(row):
 
 
 class QuoteRouter:
-    def __init__(self, repository, source):
+    def __init__(self, repository, source, tpex_source=None):
         self.repository, self.source = repository, source
+        if tpex_source is None:
+            from .tpex_quotes import TpexDailyQuotes
+            tpex_source = TpexDailyQuotes()
+        self.tpex_source = tpex_source
 
     def _live(self, identities):
         reader = getattr(self.repository, "last_quotes", None)
@@ -76,6 +80,22 @@ class QuoteRouter:
                 }
                 continue
             if not live_row:
+                continue
+            if live_row.get("source") == "tpex_openapi_eod":
+                # Persistent TPEx official close is not a TWSE MIS tick.
+                # Published Core wins for the same or newer trade date.
+                if live_day is not None and (now.astimezone(TAIPEI).date() - live_day).days <= 7:
+                    result[symbol] = {
+                        **live_row, "source": "tpex_openapi_eod",
+                        "route_version": ROUTE_VERSION,
+                        "state": "eod_final", "is_final": True,
+                        "price_date": live_day.isoformat(),
+                    }
+                else:
+                    result[symbol] = {
+                        **live_row, "state": "stale", "is_final": True,
+                        "price_date": live_day.isoformat() if live_day else None,
+                    }
                 continue
             at = _timestamp(live_row.get("quote_at"))
             received = _timestamp(live_row.get("received_at"))
@@ -157,6 +177,38 @@ class QuoteRouter:
         except Exception as error:
             LOGGER.warning("quote refresh unavailable: %s", type(error).__name__)
             return {"status": "unavailable", "requested": len(due), "updated": 0}
+
+
+    def refresh_tpex(self, identities, *, now=None):
+        """Fetch only current owner TPEx holdings once per EOD, not research 500."""
+        now = now or datetime.now(TAIPEI)
+        scoped = {symbol for symbol, identity in identities.items()
+                  if str(identity.get("market") or "").upper()
+                  in {"TPEX", "TPEX_UNVERIFIED", "OTC"}
+                  and identity.get("enabled") is not False}
+        if not scoped:
+            return {"status": "idle", "requested": 0, "updated": 0}
+        try:
+            current = self._live({s: identities[s] for s in scoped})
+            due = {
+                symbol for symbol in scoped
+                if current.get(symbol, {}).get("source") != "tpex_openapi_eod"
+                or _day(current[symbol]) is None
+                or _day(current[symbol]) < now.astimezone(TAIPEI).date()
+            }
+            if not due:
+                return {"status": "fresh", "requested": 0, "updated": 0}
+            rows = self.tpex_source.quotes(due, now)
+            if rows:
+                writer = getattr(self.repository, "save_last_quotes", None)
+                if writer is None:
+                    raise RuntimeError("persistent quote writer unavailable")
+                writer(rows)
+            return {"status": "updated" if rows else "unavailable",
+                    "requested": len(due), "updated": len(rows)}
+        except Exception as error:
+            LOGGER.warning("official TPEx EOD refresh unavailable: %s", type(error).__name__)
+            return {"status": "unavailable", "requested": len(scoped), "updated": 0}
 
     def resolve(self, identities, *, refresh=False, force=False, now=None):
         refresh_result = {"status": "idle", "requested": 0, "updated": 0}
