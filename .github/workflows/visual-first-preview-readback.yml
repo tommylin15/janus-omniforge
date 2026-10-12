@@ -93,11 +93,14 @@ jobs:
               assert data.get("symbol")==symbol and data.get("metric")==metric
               assert data.get("data_status") in ("available","partial"),(symbol,metric,data.get("missing_reason"))
               assert len(points)>=2,(symbol,metric,len(points))
-              assert data.get("usable_points")==len(points)
+              usable=[p for p in points if p.get("value") is not None]
+              assert data.get("usable_points")==len(usable),(symbol,metric,"usable_count_mismatch")
+              assert len(usable)>=2,(symbol,metric,"insufficient_usable_points")
               assert data.get("source_ids"),(symbol,metric,"no provenance")
               dates=[p["date"] for p in points]
               assert dates==sorted(set(dates)) and max(dates)<=date.today().isoformat()
-              assert all(p.get("source_id") and p.get("provenance_id") for p in points)
+              assert all(p.get("source_id") and p.get("provenance_id") for p in usable)
+              assert data.get("data_as_of")==usable[-1]["date"]
               durations.append(ms)
               summary.append({"symbol":symbol,"metric":metric,"status":data["data_status"],
                   "points":len(points),"as_of":data["data_as_of"],"elapsed_ms":ms})
