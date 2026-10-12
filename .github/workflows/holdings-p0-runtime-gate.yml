@@ -43,6 +43,23 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
+      - name: Capture current four immutable rollback image/config hashes without secrets
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json, sys
+          sys.path.insert(0,"scripts/gcp")
+          import ghcr_jobs_rollout as rollout
+          rows={}
+          for name, component in rollout.JOB_COMPONENT:
+              data=rollout.job(name)
+              rows[name]={
+                  "image":rollout.image(data),
+                  "config_hash":rollout.fingerprint(data),
+              }
+          print("job_baseline=" + json.dumps(rows,sort_keys=True))
+          PY
       - name: Check and repair exact job-scoped runWithOverrides right
         shell: bash
         run: |
