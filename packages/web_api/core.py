@@ -177,22 +177,56 @@ class CoreQueryService:
         today = datetime.now(ZoneInfo("Asia/Taipei")).date()
         sections: dict[str, dict[str, Any]] = {}
         benchmark_table = self.TABLE_NAMES["benchmark"]
+        # One bounded historical read replaces the old latest-only read.
+        # No extra homepage request, no raw payload, no LLM or synthetic trend.
         try:
             rows = self._query(benchmark_table, (
-                f"WITH latest AS (SELECT upper(benchmark_id) AS benchmark_id, max(trade_date) AS trade_date "
-                f"FROM {benchmark_table} WHERE upper(benchmark_id) = ? GROUP BY upper(benchmark_id)) "
-                f"SELECT b.* FROM {benchmark_table} b JOIN latest l "
-                "ON upper(b.benchmark_id) = l.benchmark_id AND b.trade_date = l.trade_date"
-            ), ("TAIEX",))
-            benchmarks = {str(row.get("benchmark_id", "")).upper(): row for row in rows}
+                f"SELECT * FROM {benchmark_table} "
+                "WHERE upper(benchmark_id) = ? ORDER BY trade_date DESC LIMIT ?"
+            ), ("TAIEX", 40))
+            benchmarks = [row for row in rows
+                          if str(row.get("benchmark_id", "")).upper() == "TAIEX"]
         except Exception:
             benchmarks = None
         for benchmark_id in ("TAIEX",):
-            row = benchmarks.get(benchmark_id) if benchmarks is not None else None
-            sections[benchmark_id.lower()] = self._market_section(
+            candidates = benchmarks if benchmarks is not None else []
+            # Only points with verifiable observation date and official lineage
+            # qualify for the chart. Reject future dates and non-finite closes.
+            history_by_day: dict[str, dict[str, str]] = {}
+            for candidate in candidates:
+                day = str(candidate.get("trade_date") or "")[:10]
+                try:
+                    trade_day = date.fromisoformat(day)
+                    value = Decimal(str(candidate.get("close")))
+                except (ValueError, TypeError, InvalidOperation):
+                    continue
+                if trade_day > today or not value.is_finite() or value <= 0:
+                    continue
+                source = str(candidate.get("source_id") or "").strip()
+                provenance = str(candidate.get("provenance_id") or "").strip()
+                if not source or not provenance or day in history_by_day:
+                    continue
+                history_by_day[day] = {
+                    "date": day, "value": str(value),
+                    "source_id": source, "provenance_id": provenance,
+                }
+            history = sorted(history_by_day.values(), key=lambda item: item["date"])[-30:]
+            valid_candidates = [c for c in candidates
+                                if str(c.get("trade_date") or "")[:10] in history_by_day]
+            row = valid_candidates[0] if valid_candidates else None
+            section = self._market_section(
                 row, today, 1 if row else 0,
                 {"requested_symbols": 1, "received_symbols": 1 if row else 0},
                 unavailable=benchmarks is None)
+            section["data"]["history_points"] = history
+            section["data"]["history_unit"] = "index_points"
+            section["data"]["history_as_of"] = history[-1]["date"] if history else None
+            section["data"]["history_status"] = ("available" if len(history) >= 2
+                                                     else "missing")
+            section["data"]["history_source_ids"] = sorted({
+                point["source_id"] for point in history
+            })
+            sections[benchmark_id.lower()] = section
         for dataset in ("market-activity", "institutional"):
             table = self.TABLE_NAMES[dataset]
             try:
