@@ -1,8 +1,8 @@
 {
   "intent": "preflight-ghcr-jobs",
-  "sha": "038498c70e12488f345c3ca0fbe821846ddee4cc",
+  "sha": "0b0855c0fdeba0294bb0bb09bf33906216d779fa",
   "scope": "readonly",
-  "purpose": "Read-only B7 follow-up during new guarded GHCR controller request; inspect potentially active controller/Mart executions and Scheduler without dispatch or mutation.",
-  "attempt": 19,
+  "purpose": "2026-10-12 consolidated P0 before existing four Jobs deploy: immutable new GHCR digests, exact current pinned previous Jobs images/complete config, scheduler and active execution inspection read-only. No Job mutation until reversible baseline and automatic OAuth safety passed.",
+  "attempt": 20,
   "investigate_ghcr_config_drift": false
 }
