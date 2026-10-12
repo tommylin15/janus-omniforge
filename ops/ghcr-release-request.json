@@ -8,7 +8,7 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 14,
-  "reason": "2026-10-12 consolidated P0 all-in-one user holdings universe + ledger final visual convergence: ledger mutation maintains owner current_positions independent of 500; official TPEx 00719B EOD owner on-demand and Private Mart recurring/queue PIT-limited fallback; preserve no-price/withheld; Cloud Run override IAM failure typed; single integrated Flutter phone+desktop hierarchy and Python tests. Full Python/Flutter+immutable public GHCR Release mandatory; image publication ONLY, no GCP mutations until separate same-source 0% candidate, scoped IAM, automatic OAuth and fixed Preview live gates. Do not assert authenticated screenshot or complete broker-sync.",
+  "attempt": 15,
+  "reason": "2026-10-12 real 00719B owner Mart readback #38250985026 proved market_price, market_value, unrealized_pnl, unrealized_return, current ledger version, aggregate available. Old Iceberg mart_user_positions lacks price_status/date schema, hence false-negative owner acceptance. Add additive schema evolution to PrivateIcebergStore positions and dedicated regression test on legacy table; full Python/Flutter tests plus four public immutable GHCR images. No GCP changes within Release; candidate, OAuth, reversible existing dev Job rollout and fixed Preview acceptance remain separate.",
   "expected_runtime_changes": false
 }
