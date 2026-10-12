@@ -1,15 +1,15 @@
 {
   "status": "VERIFIED_PUBLIC_GHCR_ROLLBACK_BASELINE",
-  "source_sha": "fbcc5f58a2fa31f2f36dc4c82702fb62910c7361",
-  "release_run": "37876247130",
-  "validation_run": "37954237695",
-  "api_revision": "janus-api-00451-cuw",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:a2c263b3ed8729e6677a47fc1084b51a1833721872045b4d4b78035e778f43cf",
+  "source_sha": "038498c70e12488f345c3ca0fbe821846ddee4cc",
+  "release_run": "37953986962",
+  "validation_run": "38188698614",
+  "api_revision": "janus-api-00457-wed",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:9babe654a6088b5f252aeee2574b77d511b16717c50b9314bd325f3c2e162a11",
   "job_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:5f384ae139c085f345ecf6e65ae541bc2b037e3b48a6e6d2ac5c742d9d4dadd0",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:5f384ae139c085f345ecf6e65ae541bc2b037e3b48a6e6d2ac5c742d9d4dadd0",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:36d0fdd5e28cdc1ed4471d338473f16687a74af288d0a2d7b713d67708650521",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:fb29125f8f2645a4e2243aefd10f7044b95e275790845468c6d0f898d672ac7a"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:db355bb66c6b7a32c59f6d87fc7376a82a765238c32c312b83bb1b8bc177ccd6",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:db355bb66c6b7a32c59f6d87fc7376a82a765238c32c312b83bb1b8bc177ccd6",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:de35d800dd124a51531c488446d43318e9c78f20a25433dbabff69cae03f566c",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:19526c45632b1e0e624a225aa3ba7e449b4205c89311dba32bfccb82269d81ca"
   },
   "job_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
@@ -19,6 +19,6 @@
   },
   "private_historical_config_parity": "NOT_VERIFIED",
   "old_ar_rollback_exercised": false,
-  "observed_evidence": "doc/archive/cicd-ghcr-reversible-baseline-2026-10-09.md",
-  "semantics": "Current pinned public GHCR image/config are a verified rollback base for later releases; does not imply old AR rollback rehearsal."
+  "observed_evidence": "doc/archive/visual-first-runtime-baseline-2026-10-12.md",
+  "semantics": "Verified live 100% API and all four pinned GHCR Jobs from source 038498 at 2026-10-12 run 38188698614; scheduler enabled, release lease absent, no in-flight executions at verification. Previous pre-GHCR parity not verified."
 }
