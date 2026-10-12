@@ -2,16 +2,16 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "b1bc785906212b8d2860b1521affb83930d09f04",
-  "release_run": "38251449161",
+  "sha": "50eda171ef6ffb3971a4d140ad09bac870ead6c1",
+  "release_run": "38273250472",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "0b0855c0fdeba0294bb0bb09bf33906216d779fa",
+  "baseline_source_sha": "b1bc785906212b8d2860b1521affb83930d09f04",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:8033f47324b2b1e5bff7cec8722fa7beceba447d4fd36d86713c727ea99baa16",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:8033f47324b2b1e5bff7cec8722fa7beceba447d4fd36d86713c727ea99baa16",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:2c0831b3309da88f1b0f77fbad14708f3f79772130975895aa2144a8bfe5ed98",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:1d25154c5ea14b32d1670b9ec8b8723e64475661288d8458350e8768eb642309"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:40c07c20daaec8034833d77989244323bb54d391f7012f86694d04a76be09fa7",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:40c07c20daaec8034833d77989244323bb54d391f7012f86694d04a76be09fa7",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:787123a9f5a118629c0478415754bffda0d623a9e05ee538ec6a55827e9502fb",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:58229f9f1ffcb1c1a7bfb23ddd5229bb7e82ed1334dc16651cdda8ddcf872188"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 4,
-  "safety": "2026-10-12 P0 additive Private Iceberg mart_user_positions price_status/price_date fix; full immutable GHCR #38251449161, same-source API 0% #38253341992, automated OAuth-negative #38253596061 all PASS. Existing GCP four Jobs baseline source 0b0855 P0 rollout #38226618808 PASS; require exact existing GHCR rollback digests, unchanged per-Job configuration hashes, global release lease, Scheduler/execution fence and 8 canary executions. Fail closed on any drift; no API/Preview traffic, ledger data, IAM or extra resource changes.",
-  "auth_boundary_run": "38253596061",
-  "automated_oauth_requirement": "Use same-source automated OAuth/private-negative #38253596061; human login excluded by approved 2026-10-12 rule.",
-  "authorization": "Resume approved 2026-10-12 combined P0 holdings fix after actual 00719B read-only fields #38250985026 identified prior Iceberg column omissions. This new image deployment is needed for actual schema evolution; previous four-Job rollout #38226618808 is not replaced as historical PASS."
+  "request_attempt": 5,
+  "safety": "P0 UI manual recalc source 50eda… full GHCR #38273250472 PASS, 0% candidate #38273927543 PASS, automated OAuth-negative #38274131449 PASS. Previous four Jobs immutable GHCR exact source b1bc…/config verified read-only #38265625903 with scheduler ON, lease absent, no live executions at checkpoint. Use existing single writer lease, Scheduler/execution fence before every mutation, four reversible images with exact previous digests/config fingerprints, 2 canary executions per Job (8 total) and rollback if failure; no API/Preview traffic, secrets, ledger, IAM or new resources.",
+  "auth_boundary_run": "38274131449",
+  "automated_oauth_requirement": "Same source automated OAuth/private negative run #38274131449 PASS; no human login gate.",
+  "authorization": "Existing dev parallel-live user requested full holdings manual recalc usable in actual App; reuse authorized four-Jobs controlled rollout, and preserve previous b1bc source exact images for rollback."
 }
