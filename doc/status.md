@@ -1,5 +1,7 @@
 # Janus Current Status
 
+**2026-10-12 四頁視覺化第二輪：SOURCE／TARGETED CI PASS，部署與整體驗收 PARTIAL。** 已實作個股 A→B→A 舊回應隔離、估值發布序列明確 null 斷點與重繪、合法點數守門，以及既有正式事件的 bounded 中性時間軸；[Flutter #38196842340](https://github.com/tommylin15/janus-omniforge/actions/runs/38196842340) 與 [selective CI #38196842342](https://github.com/tommylin15/janus-omniforge/actions/runs/38196842342) PASS。先前四 Jobs [#38188900482](https://github.com/tommylin15/janus-omniforge/actions/runs/38188900482) 真實 rollout PASS，但屬舊 source，不代表本輪來源已進 Preview 或正式 traffic。仍需新同 SHA full release／0% candidate／OAuth boundary／固定 preview readback，並補 VF-00、月營收／EPS／法人及四頁 owner／P95 驗收；**不得宣稱產品結案**。詳細見 [視覺化 B 工單](ui/visual-first-delivery.md)。
+
 **2026-10-12 發版 OAuth 政策：**每版 GitHub Actions 不再以人工 Google OAuth 登入／consent／A→B→A 為必經 gate；同來源自動 OAuth metadata／private 授權負測仍需 PASS。Jobs／API promotion 改核 `auth_boundary_run`，舊人工 owner receipt 僅留歷史。這次是規則／程式變更，不等同新版已完成 traffic promotion 或完整 Owner 資料驗收。
 
 
