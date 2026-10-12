@@ -8,7 +8,7 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 8,
-  "reason": "2026-10-11 visual-first integrated product batch: bounded published valuation chart API, real stock interactive charts, owner-only Today relevance, batched watchlist price changes, portfolio PnL comparison, bounded loading and tests. Full Python/Flutter/GHCR gates only; no GCP deployment, Jobs changes or traffic promotion without separate controlled candidate and owner acceptance.",
+  "attempt": 9,
+  "reason": "2026-10-12 visual-first second-pass source: A-B-A stale request fencing, published valuation explicit null/PIT gap semantics, canonical usable-points chart guard, and bounded sourced event timeline. Flutter + Python targeted CI PASS; full same-SHA Python/Flutter/schema/GHCR public readback required. Publication only: no GCP runtime, Jobs, Scheduler or canonical traffic mutation; new candidate/automated OAuth/preview and final owner acceptance remain separate gates.",
   "expected_runtime_changes": false
 }
