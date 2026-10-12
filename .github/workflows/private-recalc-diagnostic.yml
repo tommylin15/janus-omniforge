@@ -74,3 +74,55 @@ jobs:
           print(json.dumps({'verify_log_entries':matched,'verify_error_classes':kinds,
               'log_queries_read_only':True,'raw_logs_not_printed':True},sort_keys=True))
           PY
+
+      - name: Read recently started diagnostic task and safe state log without starting workloads
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud run jobs executions list --job janus-ingestion-core \
+            --project gen-lang-client-0593591102 --region us-central1 \
+            --limit 20 --format=json > /tmp/recent-ingestion-executions.json
+          gcloud logging read \
+            'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ingestion-core" AND timestamp>="2026-10-12T23:12:00Z" AND timestamp<="2026-10-12T23:22:00Z"' \
+            --project gen-lang-client-0593591102 --limit 180 --format=json > /tmp/recent-readonly-logs.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          executions=json.loads(Path('/tmp/recent-ingestion-executions.json').read_text())
+          for e in executions:
+              meta=e.get('metadata',{})
+              st=e.get('status',{})
+              name=str(meta.get('name',e.get('name',''))).split('/')[-1]
+              if not name.startswith('janus-ingestion-core-'):continue
+              start=str(st.get('startTime') or meta.get('creationTimestamp') or '')
+              if start and not start.startswith(('2026-10-12T23:','2026-10-13T00:')):
+                  continue
+              print(json.dumps({'read_only_execution':name,
+                  'started':bool(st.get('startTime')),
+                  'succeeded_count':st.get('succeededCount'),
+                  'failed_count':st.get('failedCount'),
+                  'completion':[(c.get('type'),c.get('status') or c.get('state'),c.get('reason'))
+                      for c in st.get('conditions',[])],
+                  },sort_keys=True))
+          rows=json.loads(Path('/tmp/recent-readonly-logs.json').read_text())
+          parsed=[]
+          for row in rows:
+              raw=row.get('textPayload') or ''
+              if not isinstance(raw,str) or 'RECALC_P0_STATE=' not in raw: continue
+              try:
+                  obj=json.loads(raw.split('RECALC_P0_STATE=',1)[1])
+              except (ValueError,TypeError):continue
+              if not isinstance(obj,dict) or obj.get('query_read_only') is not True:continue
+              safe={'query_read_only':True,
+                  'matching_window_count':obj.get('matching_window_count'),
+                  'active_request_count':obj.get('active_request_count'),
+                  'dispatch_active':obj.get('dispatch_active'),
+                  'rows':[{
+                      k:v for k,v in item.items()
+                      if k in ('status','attempt_count','worker_index_valid',
+                          'execution_matches','checkpoint_matches','error_class','synthetic_marker')
+                    } for item in obj.get('rows',[])[:8] if isinstance(item,dict)]}
+              parsed.append(safe)
+          print(json.dumps({'read_only_state_log_results':parsed[:2],
+              'raw_logs_not_printed':True},sort_keys=True))
+          PY
