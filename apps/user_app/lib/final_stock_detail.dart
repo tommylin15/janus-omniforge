@@ -18,6 +18,22 @@ int _usableVisualSeriesPoints(Map<String, dynamic> series) {
   return declared < valid ? declared : valid;
 }
 
+List<Map<String, dynamic>> _eventTimelineRows(List<dynamic> raw) {
+  final uniqueIds = <String>{};
+  final events = <Map<String, dynamic>>[];
+  for (final item in raw) {
+    final row = fvMap(item);
+    final eventId = fvText(row['event_id'], missing: '');
+    if (eventId.isNotEmpty && !uniqueIds.add(eventId)) continue;
+    events.add(row);
+  }
+  // Published announcements first. Event/effective dates never masquerade
+  // as a publication date and cannot be used to claim earlier knowledge.
+  events.sort((a, b) => fvText(b['published_at'], missing: '')
+      .compareTo(fvText(a['published_at'], missing: '')));
+  return events.take(6).toList();
+}
+
 class FinalStockDetailPage extends StatefulWidget {
   const FinalStockDetailPage(
       {required this.api, required this.symbol, super.key});
@@ -668,7 +684,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                       style: const TextStyle(color: fvInk, height: 1.45),
                     ),
                   ),
-            fvSectionTitle(context, '公司事件'),
+            fvSectionTitle(context, '公司事件時間軸'),
             if (errors.contains('events'))
               fvBoundedState('公司事件暫時無法使用')
             else if (events.isEmpty)
@@ -676,33 +692,47 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
             else
               fvPanel(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    for (final item in events.take(6))
-                      Builder(builder: (context) {
-                        final row = fvMap(item);
-                        return ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          dense: true,
-                          leading:
-                              const Icon(Icons.event_outlined, color: fvTeal),
-                          title: Text(
-                            fvText(
-                              row['title'] ??
-                                  row['event_type'] ??
-                                  row['summary'],
-                              missing: '事件',
+                    const Text('依正式公告時間排序；日期不明者置後，不推測事件利多或利空。',
+                        style: TextStyle(color: fvMuted, fontSize: 11)),
+                    const SizedBox(height: 10),
+                    for (final row in _eventTimelineRows(events))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 3, right: 10),
+                              child: Icon(Icons.radio_button_checked, color: fvTeal, size: 17),
                             ),
-                          ),
-                          subtitle: Text(
-                            fvText(
-                              row['event_date'] ??
-                                  row['date'] ??
-                                  row['published_at'],
-                              missing: '日期未定',
-                            ),
-                          ),
-                        );
-                      }),
+                            Expanded(child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(fvText(row['title'] ?? row['event_type'] ?? row['summary'],
+                                      missing: '事件'),
+                                    style: const TextStyle(color: fvInk,
+                                        fontWeight: FontWeight.w700)),
+                                Text(row['published_at'] != null
+                                    ? '公告：${fvText(row['published_at'])}'
+                                    : '公告時間未確認',
+                                    style: const TextStyle(color: fvMuted, fontSize: 11)),
+                                if (row['effective_date'] != null)
+                                  Text('生效：${fvText(row['effective_date'])}',
+                                      style: const TextStyle(color: fvMuted, fontSize: 11)),
+                                if (row['published_at'] == null &&
+                                    (row['event_date'] ?? row['date']) != null)
+                                  Text('事件日：${fvText(row['event_date'] ?? row['date'])}',
+                                      style: const TextStyle(color: fvMuted, fontSize: 11)),
+                                if (row['source_id'] != null)
+                                  Text('來源：${fvText(row['source_id'])}',
+                                      style: const TextStyle(color: fvMuted, fontSize: 11)),
+                              ],
+                            )),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
