@@ -126,3 +126,39 @@ jobs:
           print(json.dumps({'read_only_state_log_results':parsed[:2],
               'raw_logs_not_printed':True},sort_keys=True))
           PY
+
+      - name: Classify exact failed read-only probe stderr without printing raw contents
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud logging read \
+            'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ingestion-core" AND timestamp>="2026-10-12T23:13:00Z" AND timestamp<="2026-10-12T23:21:00Z"' \
+            --project gen-lang-client-0593591102 --limit 180 --format=json > /tmp/probe-error-classes.json
+          python3 - <<'PY'
+          import json,re
+          from pathlib import Path
+          rows=json.loads(Path('/tmp/probe-error-classes.json').read_text())
+          classes={}
+          matched=0
+          for row in rows:
+              if (row.get('labels') or {}).get('run.googleapis.com/execution_name')!='janus-ingestion-core-hxzzs':
+                  continue
+              matched+=1
+              message=row.get('textPayload') or ''
+              for code,pattern in (
+                  ('SQL_PRIVILEGE',r'(permission denied|InsufficientPrivilege)'),
+                  ('SQL_COLUMN',r'(UndefinedColumn|column .+ does not exist)'),
+                  ('SQL_TABLE',r'(UndefinedTable|relation .+ does not exist)'),
+                  ('PYTHON_SYNTAX',r'SyntaxError'),
+                  ('PYTHON_IMPORT',r'(ModuleNotFoundError|ImportError)'),
+                  ('PYTHON_VALUE',r'ValueError:'),
+                  ('PYTHON_TYPE',r'TypeError:'),
+                  ('PYTHON_RUNTIME',r'RuntimeError:'),
+                  ('SQL_ERROR',r'psycopg\\.errors\\.[A-Za-z]+'),
+                  ('CONNECTION',r'(OperationalError|connection refused|timeout expired)')):
+                  if re.search(pattern,str(message),re.I):
+                      classes[code]=classes.get(code,0)+1
+          print(json.dumps({'execution':'janus-ingestion-core-hxzzs',
+              'matched_log_entries':matched,'sanitized_error_classes':classes,
+              'raw_logs_not_printed':True},sort_keys=True))
+          PY
