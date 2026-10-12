@@ -12,6 +12,14 @@
 - active work 可因外部核准或 runtime evidence 呈 `partial`／`blocked`；partial 不等於完成。
 - 完成證據移至 `archive/` 或 `spec/operations-and-testing.md`，TODO 不保存歷史流水帳。
 
+### P0｜持股池不受 500 研究池限制＋Ledger 真實視覺收斂（2026-10-12）
+
+- [ ] owner ledger mutation → current_positions 即時更新 membership（買入／加減碼／股利／更正／作廢），不因 research universe 篩除，未同步券商成交前不得自行推定。
+- [ ] 官方 TPEx／TWSE 持股報價與 00719B ETF 商品身分及可用 EOD/provenance，已發布 serving 與 Private Mart 估值重算；無可信價格不造值，查得 shares/cost 不得隱藏。
+- [ ] 分開修復 Cloud Run Private Mart queue dispatch／失敗重試／可追溯終態，不讓別的持股被一檔缺價阻擋 operational read。
+- [ ] 重構 Ledger Hero、個股卡兩列同指標層級，390px／desktop 對照原圖，含缺值版、恰當密度、無假圖；一次整合測試後再發布固定 Preview／實際 owner UI 驗收。
+
+
 ## 現行架構決策
 
 ### Token-first specialists + On-demand CEO
