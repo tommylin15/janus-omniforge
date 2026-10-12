@@ -1,0 +1,7 @@
+{
+  "intent": "verify-official-tpex-eod-readonly",
+  "symbol": "00719B",
+  "no_gcp_mutation": true,
+  "no_canonical_write": true,
+  "purpose": "2026-10-12 bound official Taipei Exchange EOD 00719B source before asserting owner Private Mart numerical recovery; fail closed on 403, missing or stale payload. No private owner data, no credentials, no persistence."
+}
