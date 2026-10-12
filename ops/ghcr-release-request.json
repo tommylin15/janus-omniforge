@@ -8,7 +8,7 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 17,
-  "reason": "Retry P0 holdings manual-recalc UI full immutable GHCR release after #38263829491 Python-tests exceeded 45-minute job while hanging with no output at apt-get update; fixed workflow at dfc8db9 (skip system apt when libgomp present, bound apt and pip network operations). Preserve full Python/Flutter tests, all 4 immutable GHCR images, no direct runtime change. Fix scope remains the same manual recalc always visible and bounded polling; target this commit's full source SHA; no traffic changes until subsequent independent gates.",
+  "attempt": 18,
+  "reason": "P0 manual-recalc UI release retry after #38272851695: Python suite 1072 PASS / 1 FAIL only due to stale inert next-release templates compared with updated verified b1bc GHCR baseline; both inert templates refreshed to actual live previous API and all four Jobs while approved=false (commits 9bc2101 / 0ec8f2b). Python dependency hang fixed already (suite ran in 35s). Preserve full Python+Flutter tests and four immutable GHCR images. No runtime mutation in this release; downstream rollout/Preview/API only after complete PASS.",
   "expected_runtime_changes": false
 }
