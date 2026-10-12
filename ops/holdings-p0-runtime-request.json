@@ -1,0 +1,10 @@
+{
+  "intent": "repair-existing-private-job-override-invocation",
+  "approved": true,
+  "scope": "job-only",
+  "project": "gen-lang-client-0593591102",
+  "job": "janus-private-pipeline",
+  "role": "roles/run.jobsExecutorWithOverrides",
+  "expected_source_sha": "0b0855c0fdeba0294bb0bb09bf33906216d779fa",
+  "purpose": "2026-10-12 P0 owner holdings Private Mart queue: read exact existing four Job baseline and ensure only existing janus-private-pipeline Job IAM grants janus-user-api service identity run.jobs.runWithOverrides for bounded queue worker invocations; no project-wide policy or Job image changes in this gate."
+}
