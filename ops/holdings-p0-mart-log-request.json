@@ -4,5 +4,6 @@
   "execution": "janus-private-pipeline-c8s7c",
   "source_run": "38250002552",
   "scope": "read only already completed owner Mart field-presence flags",
-  "purpose": "Fix GitHub acceptance log resource labels query for successfully completed read-only owner diagnostic; do not execute Job, mutate Mart, reveal financial numerics or account identifiers."
+  "purpose": "Read only existing 00719B single-owner Cloud Run Job stdout stream metadata, after #38250529094 found 3 log entries and no matching public-safe JSON. No new Cloud Run execution, no data writes.",
+  "attempt": 1
 }
