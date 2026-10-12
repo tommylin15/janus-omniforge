@@ -3,5 +3,7 @@
   "scope": "existing-dev-only",
   "no_gcp_mutation": true,
   "candidate_source_sha": "cc7f498671a1252561902f3b883eaf1cc2b8bdad",
-  "purpose": "Verify actual dev serving revision, pinned GHCR image source, four existing Jobs images and config fingerprints before promotion after per-release manual OAuth gate removal; no traffic/Jobs changes."
+  "purpose": "Verify actual dev serving revision, pinned GHCR image source, four existing Jobs images and config fingerprints before promotion after per-release manual OAuth gate removal; no traffic/Jobs changes.",
+  "attempt": 1,
+  "reason": "Separate immutable serving/Jobs identity inventory from execution fence. Preserve BLOCKED_ACTIVE_EXECUTION and do not permit rollout while busy; no GCP writes."
 }

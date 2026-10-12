@@ -67,7 +67,14 @@ jobs:
           serving_info=provenance(image)
           state=jobs.scheduler()
           if state.get('state')!='ENABLED': raise ValueError('scheduler_not_enabled')
-          jobs.fence()
+          fence_status='PASS'
+          try:
+              jobs.fence()
+          except ValueError as exc:
+              if str(exc) == 'execution_not_terminal':
+                  fence_status='BLOCKED_ACTIVE_EXECUTION'
+              else:
+                  raise
           entries={}
           for name,component in jobs.JOB_COMPONENT:
               data=jobs.job(name)
@@ -83,8 +90,9 @@ jobs:
             'preview_tag_revision':api.tags(current).get('preview'),
             'release_lease_absent':True,
             'traffic_100_percent_single':True,
+            'execution_fence':fence_status,
             'readonly':True,
-            'result':'PASS'}
+            'result':'PASS_INVENTORY_ONLY'}
           Path('/tmp/visual-first-live-baseline.json').write_text(json.dumps(checks,indent=2,sort_keys=True)+'\n')
           print(json.dumps(checks,sort_keys=True))
           PY
