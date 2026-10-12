@@ -183,3 +183,59 @@ jobs:
                    'contains_embedded_sql':('LINE 1:' in content),
                    'no_sql_statement_or_private_data':True},sort_keys=True))
           PY
+      - name: Identify latest 00719B owner Mart execution and safe exception category
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gcloud run jobs executions list --project=gen-lang-client-0593591102 --region=us-central1 \
+            --job=janus-private-pipeline --limit=12 --format=json > /tmp/latest-owner-executions.json
+          gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="janus-private-pipeline" AND timestamp>="2026-10-12T11:58:00Z" AND timestamp<="2026-10-12T12:06:00Z"' \
+            --project=gen-lang-client-0593591102 --limit=120 --format=json > /tmp/latest-owner-errors.json
+          python3 - <<'PY'
+          import json,re
+          from pathlib import Path
+          data=json.loads(Path('/tmp/latest-owner-executions.json').read_text())
+          target=[x for x in data if '2026-10-12T11:58:00' <=
+                    str(x.get('metadata',{}).get('creationTimestamp') or x.get('createTime') or '') <=
+                    '2026-10-12T12:06:00']
+          for x in target:
+              s=x.get('status') or {}
+              print(json.dumps({'execution':str(x.get('metadata',{}).get('name') or x.get('name','')).split('/')[-1],
+                  'state':[{k:c.get(k) for k in ('type','status','reason')}
+                            for c in s.get('conditions',[]) if c.get('type')=='Completed'],
+                  'failed_tasks':s.get('failedCount',x.get('failedCount'))},sort_keys=True))
+          logs=json.loads(Path('/tmp/latest-owner-errors.json').read_text())
+          classes=set()
+          reasons=set()
+          objects=set()
+          modules=set()
+          allowed={
+              'official_00719B_eligible_eod_missing',
+              'official_00719B_persisted_source_not_proven',
+              'owner_00719B_mart_position_missing',
+              'owner_00719B_mart_position_or_pnl_missing',
+              'owner_00719B_mart_price_or_checkpoint_invalid',
+              'owner_00719B_mart_price_pnl_or_checkpoint_invalid',
+              'actual_holder_owner_scope_not_exactly_one',
+          }
+          allowed_modules={'repository.py','private_pipeline.py','store.py',
+              'private_recalc_queue.py','tpex_quotes.py','postgres_bundle.py',
+              'psycopg','catalog.py','schema.py'}
+          for row in logs:
+              value=str(row.get('textPayload') or (row.get('jsonPayload') or {}).get('message') or '')
+              if not value: continue
+              for cls in re.findall(r'(?:psycopg\\.errors\\.)?([A-Za-z_][A-Za-z_0-9]*(?:Error|Privilege|Violation|Exception))',value):
+                  classes.add(cls[:50])
+              for reason in allowed:
+                  if reason in value: reasons.add(reason)
+              for kind,obj in re.findall(r'permission denied for\\s+(table|schema|relation|sequence)\\s+([A-Za-z_][A-Za-z0-9_]{0,62})',value,re.I):
+                  objects.add((kind,obj))
+              for mod in allowed_modules:
+                  if mod in value: modules.add(mod)
+          print(json.dumps({'live_owner_log_rows':len(logs),
+              'exception_classes':sorted(classes),
+              'safe_domain_errors':sorted(reasons),
+              'denied_objects':[{'kind':k,'object':v} for k,v in sorted(objects)],
+              'traceback_modules':sorted(modules),
+              'raw_log_emitted':False},sort_keys=True))
+          PY
