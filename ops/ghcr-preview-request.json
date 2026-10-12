@@ -2,16 +2,16 @@
   "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
   "approved": true,
   "scope": "janus-api-preview-tag-only",
-  "source_sha": "b1bc785906212b8d2860b1521affb83930d09f04",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:2160eda241ae3b381f6dfb29a76c5d5d9abedbbef6fc9b43ceb72ae325c9f5ee",
-  "release_run": "38251449161",
-  "candidate_run": "38253341992",
-  "boundary_run": "38253596061",
+  "source_sha": "50eda171ef6ffb3971a4d140ad09bac870ead6c1",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:346b7c7182aad8b1676f67a7a046b642b9e7f87dff2fc47c14cbbd26f86890f8",
+  "release_run": "38273250472",
+  "candidate_run": "38273927543",
+  "boundary_run": "38274131449",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
-  "reason": "2026-10-12 updated P0 00719B historical Private Iceberg mart_user_positions adds quote price_status and price_date; full release #38251449161 PASS, 0% candidate #38253341992 PASS, automated OAuth/private-negative #38253596061 PASS, four Jobs reversible rollout with 8 canaries #38253861084 PASS, real one-owner 00719B TPEx official quote and private Mart PnL checkpoint #38257614968 PASS. Update fixed Preview tag only for responsive Ledger UI owner acceptance. Preserve existing canonical 100% API traffic, other tags and Cloud Run Jobs. No artificial data.",
+  "reason": "Validated 2026-10-12 P0 Owner Ledger UI manual recalc entry always visible and bounded status polling, full Python/Flutter+GHCR #38273250472 PASS, 0% candidate #38273927543 PASS, OAuth/private boundary #38274131449 PASS, exact four Jobs canaries #38274299751 PASS. Update fixed Preview tag ONLY for live UI readback. Synthetic queue acceptance #38274621290 failed its final verification, remains FAIL / NOT_ACCEPTED; no claim working manual recalc until separate end-to-end acceptance. No formal 100% API traffic, Jobs, Scheduler, or other tags mutation.",
   "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
-  "attempt": 8
+  "attempt": 9
 }
