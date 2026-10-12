@@ -136,6 +136,16 @@ CEO report 是 symbol-level persisted research artifact，不是 page-load narra
 
 Ledger／Holdings 一致性至少涵蓋 shares、cost／average cost、market value、unrealized PnL、realized PnL、YTD realized PnL、valuation date、as-of／data freshness、pending transaction／pending Private Mart。若不同 subview 的數值不同，UI 必須能表達其正式 freshness／as-of 差異；不能讓使用者看到無解釋的互相矛盾摘要。
 
+
+**2026-10-12 持股獨立估值／視覺收斂（使用者核准，P0）：**
+- **Personal Holdings Universe ≠ 500 檔研究池**。以 owner 的 append-only ledger／`private.current_positions` 做持股池唯一 membership；買進、賣出、股票股利、更正、作廢交易 commit 後同步重建 operational positions／ledger version，新增、加碼、減碼即進出持股池（0 股從 active 移往歷史，歷史交易不刪除），不需要等每天 500 檔 screening。持股行情 service 每次讀取 owner 最新 holdings symbols，且交易修改時使 quote/valuation cache invalidated；已授權外部券商資料**未同步交易前不能推知成交**。
+- 股數與成本取同 owner operational checkpoint；價格讀來源授權且具日期與 provenance 的上市 TWSE／上櫃 TPEx 股票、ETF 正式收盤／可授權盤中行情；不因離開 500 檔而拒絕。00719B 為 TPEx 債券 ETF，不得套用 TWSE MIS 股票通道。先補合法 TPEx source/identity、held-symbol serving projection/持久化 latest-price，正式 Mart 再以同 checkpoint 計算損益。來源與交易不同步需顯示狀態；無可信價格不能推估價格／PnL，亦不得阻塞 operational shares/cost、已實現交易明細。
+- **兩種更新**：交易 membership 隨 ledger 寫入即時變更；價格只在頁面前景交易時段按需 revalidate／手動更新，收盤後走官方 EOD 交接。避免使用每分鐘排程掃所有持股或逐檔 Iceberg/HTTP；TPEx 無已核准盤中來源時明示 EOD-only，不宣稱即時。
+- **卡片同欄同指標**：第一視覺列左為個股＋股數＋價／成本，右為「未實現總損益（NT$）＋持有報酬％」；第二列集中「當日最新現價、每股漲跌／漲跌幅、現有股數的當日變動額」，日期／來源尾註。永不把「當日股價變動」與「持有至今累計損益」在同一水平列左右對稱。缺價時維持精簡卡、簡短原因，不能讓錯誤報錯巨幅擠掉 Hero。
+- 對照 `reference/user-app-final/ledger.png` 與真實桌面截圖作 responsive convergence：只有一張市場持股市值主 Hero（未實現、報酬、年度已實現在內嵌次級欄），完整無價時保留精簡 Hero 並明示 missing symbols；下方緊湊股票列、近期紀錄；桌面主欄合理 max width，手機 390px 無 overflow；只有官方可追溯收盤序列才畫 mini sparkline，否則不畫假線。保持台股紅獲利／綠虧損與負號／狀態文字。
+- 目前 Preview 截圖 00719B 缺價且全部總額 withheld、重算 Cloud Run dispatch 失敗、Hero 空白佔位過大，**現況 VISUAL FAIL / DATA PARTIAL**。資料 fallback 與 private recalc 派送故障必須獨立診斷；不得把第一個當成第二個的根因。完整開發後一次跑整合 tests＋GitHub Actions Release＋0% candidate＋自動 OAuth＋固定 Preview＋owner 真實桌面／390px 截圖，才可以轉 PASS。
+
+
 ### 5.4.2 持股
 
 第一屏資料可用時，僅「持股」次頁優先顯示**持股市值主 Hero**、可驗證損益貢獻圖及下列四項有主次的摘要：
