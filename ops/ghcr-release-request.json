@@ -8,7 +8,7 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 19,
-  "reason": "2026-10-13 P0 manual recalc diagnosis: original queue canary #38274621290 showed task results one processed, zero succeeded, one failed (sanitized Cloud Logging #38322879209). Add strict privacy-preserving Worker error-class counts to next task summary without IDs, symbols, monetary values or raw exception messages; unit regression in tests/test_private_recalc_queue.py. Existing 50eda source release/Jobs/Preview PASS, formal API still b1bc. New full Python+Flutter and four immutable GHCR images required before gated Jobs rollout and exactly one bounded rerun; no GCP mutation in this release.",
+  "attempt": 20,
+  "reason": "2026-10-13 P0 owner-recalc privacy-safe exception class counters: initial full run #38323143320 had 1072 Python PASS, 2 test-only FAIL: new fake repository lacked private_mart_write_lock stub and pre-existing TAIEX test used UTC date.today instead of production Asia/Taipei clock at local midnight. Both test corrections committed e59a707 and 8968e6a, with no business logic changes. Re-run full Python/Flutter + 4 immutable GHCR images, no GCP runtime mutation. Prior observed queue worker failure remains FAIL; no claim fixed before new same-source real E2E.",
   "expected_runtime_changes": false
 }
