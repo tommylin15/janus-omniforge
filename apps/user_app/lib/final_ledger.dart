@@ -532,10 +532,10 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
         final narrow = constraints.maxWidth < 420;
         final fields = <Widget>[
           _compactMetric('未實現損益', unrealized,
-            note: unrealizedReturn, color: withheld ? fvMuted : fvSignedColor(unrealizedAmount)),
-          _compactMetric('本年已實現', ytd,
+            note: '報酬 $unrealizedReturn', color: withheld ? fvMuted : fvSignedColor(unrealizedAmount)),
+          _compactMetric('本年已實現損益', ytd,
             note: ytd == '待更新／尚未確認' ? '等候損益批次'
-                : ytd == '資料不足' ? '尚未確認'
+                : ytd == '資料不足' ? '年度損益目前無法確認'
                 : '已實現損益', color: fvSignedColor(ytdAmount)),
         ];
         return narrow
@@ -557,6 +557,8 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
           '狀態 ${withheld ? '完整總額暫不發布' : legacy.uiLabel(aggregate['valuation_status'] ?? aggregate['aggregate_status'] ?? 'partial')}',
           style: const TextStyle(color: fvMuted, fontSize: 11))),
       ]),
+      Text('ledger v${fvText(aggregate['ledger_version'])}',
+        style: const TextStyle(color: fvMuted, fontSize: 10)),
       ]),
     ),
   );
@@ -706,7 +708,8 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                           style: TextStyle(color: fvMuted, fontSize: 12)),
                         const SizedBox(height: 4),
                         Text(lastPrice, key: Key('holding-latest-price-$symbol'),
-                          style: const TextStyle(color: fvInk,
+                          style: TextStyle(color: valid
+                              ? fvSignedColor(dailyChange) : fvInk,
                             fontSize: 21, fontWeight: FontWeight.w800)),
                         const SizedBox(height: 3),
                         Text(valid
