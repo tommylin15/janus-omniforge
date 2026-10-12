@@ -1,0 +1,8 @@
+{
+  "intent": "read-only-00719B-mart-field-check",
+  "scope": "one-existing-owner",
+  "no_gcp_config_changes": true,
+  "no_data_writes": true,
+  "source_sha": "0b0855c0fdeba0294bb0bb09bf33906216d779fa",
+  "purpose": "2026-10-12 investigate real 00719B owner Mart price/PnL/checkpoint flags after ACL migration PASS #38244531637, real owner acceptance FAIL #38246053781 and exception category #38247031165. Do not print figures, identities, raw ledger or secrets. One existing private Job execution with read-only code, no modifications."
+}
