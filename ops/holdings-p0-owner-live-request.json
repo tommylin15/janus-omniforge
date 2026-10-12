@@ -1,0 +1,9 @@
+{
+  "intent": "real-owner-tpex-mart-reconciliation",
+  "approved": true,
+  "scope": "single-owner-holding-00719B",
+  "sha": "0b0855c0fdeba0294bb0bb09bf33906216d779fa",
+  "write_limit": "private-mart-only",
+  "ledger_mutation": false,
+  "purpose": "2026-10-12 after complete same-source four-dev-Jobs rollout #38226618808 and official live TPEx 00719B source #38231202891 PASS. Restrict to exactly one pre-existing owner with real 00719B operational position; existing dev private Job, bounded single task, official EOD PIT before owner Mart write; assert ledger-version, nonmissing unit pricing and persisted canonical PnL. No ledger writes, new IAM, new resources, other owners or broad delete. Fail closed if owner count or official EOD unavailable."
+}
