@@ -81,6 +81,25 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Desktop Ledger uses bounded content rail with one readable Hero',
+      (tester) async {
+    tester.view.physicalSize = const Size(1280, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(
+      HoldingsP0Api(_snapshot()), active: false,
+      now: () => DateTime.utc(2026, 10, 12, 7))));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byKey(const Key('final-ledger-scroll'))).width,
+      lessThanOrEqualTo(940));
+    expect(find.byKey(const Key('ledger-market-value-hero')), findsOneWidget);
+    expect(find.text('持股市值'), findsOneWidget);
+    expect(find.text('本年已實現損益'), findsOneWidget);
+    expect(find.text('ledger v5'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Missing ETF quote keeps shares and cost without inventing PnL',
       (tester) async {
     _phone(tester);
