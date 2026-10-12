@@ -25,6 +25,9 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   Timer? marketTimer;
   bool foreground = true;
   int historyDays = 20;
+  // Live cold-start probe reached 16.7s; bounded longer for this one
+  // essential public snapshot, while the rest of Today remains independent.
+  static const marketColdTimeout = Duration(seconds: 24);
 
   bool get marketHours {
     final taipei = DateTime.now().toUtc().add(const Duration(hours: 8));
@@ -59,7 +62,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     }
   }
 
-  Future<dynamic> _loadMarketWithoutPerf() => _read('/api/v1/public/market-home');
+  Future<dynamic> _loadMarketWithoutPerf() =>
+      _read('/api/v1/public/market-home', timeout: marketColdTimeout);
 
   @override
   void didUpdateWidget(FinalTodayPage oldWidget) {
@@ -102,16 +106,17 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   Future<dynamic> _readCoreMarket() async {
     final stopwatch = Stopwatch()..start();
     try {
-      return await _read('/api/v1/public/market-home');
+      return await _read('/api/v1/public/market-home', timeout: marketColdTimeout);
     } finally {
       stopwatch.stop();
       FinalPerf.recordCore('today', stopwatch.elapsed);
     }
   }
 
-  Future<dynamic> _read(String path) async {
+  Future<dynamic> _read(String path,
+      {Duration timeout = const Duration(seconds: 9)}) async {
     try {
-      return await widget.api.get(path).timeout(const Duration(seconds: 9));
+      return await widget.api.get(path).timeout(timeout);
     } catch (_) {
       return null;
     }
@@ -410,11 +415,11 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
           ]),
         ),
         const SizedBox(height: 10),
-        if (snapshot.connectionState == ConnectionState.done)
+        if (sections.isNotEmpty)
           _taiexTrend(sections['taiex']),
-        if (snapshot.connectionState != ConnectionState.done)
-          fvBoundedState('市場基礎資料載入中')
-        else if (snapshot.data == null)
+        if (snapshot.connectionState != ConnectionState.done && sections.isEmpty)
+          fvBoundedState('大盤資料仍在讀取；其他資訊可先使用')
+        else if (snapshot.connectionState == ConnectionState.done && snapshot.data == null)
           fvPanel(child: Row(children: [
             const Expanded(child: Text('市場基礎資料暫時無法使用')),
             TextButton(
