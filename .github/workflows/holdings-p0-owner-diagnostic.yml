@@ -1,0 +1,72 @@
+name: Janus P0 TPEx owner execution diagnostic
+on:
+  push:
+    branches: [main]
+    paths: ['ops/holdings-p0-owner-diagnostic.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  read-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Bounded Cloud Run execution status and sanitized error markers
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="read-owner-mart-execution-diagnostic" and .no_gcp_mutation==true and .job=="janus-private-pipeline"' ops/holdings-p0-owner-diagnostic.json >/dev/null
+          gcloud run jobs executions list --project=gen-lang-client-0593591102 --region=us-central1 \
+            --job=janus-private-pipeline --limit=12 --format=json > /tmp/private-executions.json
+          python3 - <<'PY'
+          import json
+          rows=json.load(open('/tmp/private-executions.json'))
+          for x in rows:
+              info=x.get('status') or {}
+              created=x.get('metadata',{}).get('creationTimestamp') or x.get('createTime')
+              if created and created < '2026-10-12T09:40:00': continue
+              conditions=[{k:v.get(k) for k in ('type','status','state','reason')}
+                          for v in info.get('conditions',[])
+                          if v.get('type') in ('Completed','Ready')]
+              print(json.dumps({
+                  'execution':str(x.get('metadata',{}).get('name') or x.get('name','')).split('/')[-1],
+                  'created':created,
+                  'succeeded':info.get('succeededCount',x.get('succeededCount')),
+                  'failed':info.get('failedCount',x.get('failedCount')),
+                  'running':info.get('runningCount',x.get('runningCount')),
+                  'completion':info.get('completionTime',x.get('completionTime')),
+                  'conditions':conditions,
+              },sort_keys=True))
+          PY
+          if gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="janus-private-pipeline" AND timestamp>="2026-10-12T09:42:00Z" AND timestamp<="2026-10-12T09:51:00Z"' \
+            --project=gen-lang-client-0593591102 --limit=150 --format=json > /tmp/private-log.json 2>/dev/null; then
+            python3 - <<'PY'
+          import json
+          logs=json.load(open('/tmp/private-log.json'))
+          markers=['actual_holder_owner_scope_not_exactly_one',
+            'official_00719B_eligible_eod_missing',
+            'official_00719B_persisted_source_not_proven',
+            'owner_00719B_mart_position_missing',
+            'owner_00719B_mart_price_or_checkpoint_invalid',
+            'ModuleNotFoundError','OperationalError','PermissionDenied',
+            'ForeignKeyViolation','IntegrityError','TimeoutError',
+            'ImportError','AttributeError','TypeError',
+            'CorePriceReader','PrivateIcebergStore',
+            'not enough memory','DeadlineExceeded',
+            'could not connect','connection refused']
+          content='\n'.join(str(x.get('textPayload') or x.get('jsonPayload',{}).get('message') or '') for x in logs)
+          observed=sorted({m for m in markers if m.lower() in content.lower()})
+          print(json.dumps({'private_runtime_log_entries':len(logs),
+            'recognized_safe_error_markers':observed,
+            'raw_logs_printed':False},sort_keys=True))
+          PY
+          else
+            echo 'private_runtime_logging_status=UNAVAILABLE_NOT_SUCCESS'
+          fi
