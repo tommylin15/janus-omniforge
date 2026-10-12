@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "cc7f498671a1252561902f3b883eaf1cc2b8bdad",
-  "candidate_release_run": "38153154441",
-  "candidate_deployment_run": "38153514341",
-  "purpose": "Repeat exact candidate SHA live OAuth discovery/PKCE/refresh metadata, User/Admin private 401/403 and MCP challenge under approved automatic-only release gate; no human login or GCP mutation.",
+  "sha": "2ebc875953209875123d4cba04659661e68d1685",
+  "candidate_release_run": "38197376475",
+  "candidate_deployment_run": "38197718590",
+  "purpose": "2026-10-12 visual-first second-pass 0%-traffic candidate automatic metadata S256/refresh, user/admin/MCP unauthenticated-negative and exact Flutter source proof; never request manual owner browser login or mutate GCP.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 3
+  "attempt": 4
 }
