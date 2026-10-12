@@ -14,7 +14,11 @@ from .private_pipeline import RecalculationCancelled
 
 
 class PrivateRecalcTriggerError(RuntimeError):
-    pass
+    def __init__(self, status_code: int):
+        self.status_code = int(status_code)
+        self.error_code = ("RUN_WITH_OVERRIDES_DENIED" if self.status_code == 403
+                           else "JOB_DISPATCH_HTTP_FAILURE")
+        super().__init__(f"private recalculation dispatch HTTP {self.status_code}")
 
 
 class CloudRunPrivateRecalcTrigger:
@@ -73,9 +77,7 @@ class CloudRunPrivateRecalcTrigger:
         }
         response = self._request(url, json=payload, timeout=10)
         if not 200 <= int(response.status_code) < 300:
-            raise PrivateRecalcTriggerError(
-                f"private recalculation trigger failed with status {response.status_code}"
-            )
+            raise PrivateRecalcTriggerError(int(response.status_code))
         body = response.json() if hasattr(response, "json") else {}
         return {"status": "dispatched", "operation": body.get("name") if isinstance(body, dict) else None}
 
@@ -99,10 +101,13 @@ class QueuedPrivateRecalculator:
             try:
                 self.trigger.start(self.worker_count())
             except Exception as error:
+                denied = isinstance(error, PrivateRecalcTriggerError) and error.status_code == 403
                 self.repository.fail_recalculation_dispatch(
                     request["request_id"],
-                    type(error).__name__.upper()[:80],
-                    "損益重算服務啟動失敗，可重新嘗試",
+                    error.error_code if isinstance(error, PrivateRecalcTriggerError)
+                        else type(error).__name__.upper()[:80],
+                    ("損益重算服務權限不足（Job overrides），等待系統修復"
+                     if denied else "損益重算服務啟動失敗，請稍後重試"),
                 )
                 raise
         return {
