@@ -58,6 +58,62 @@ class CoreQueryServiceTests(unittest.TestCase):
         self.assertEqual(summary["datasets"]["ohlcv"]["latest_date"], "2026-08-27")
         self.assertEqual(summary["datasets"]["ohlcv"]["null_profile"], {"close": 1})
 
+    def test_market_home_uses_one_bounded_official_benchmark_history_query(self):
+        captured = []
+        def query(identifier, sql, parameters):
+            captured.append((identifier, sql, parameters))
+            if identifier == "core.benchmark_v1":
+                return [
+                    {"benchmark_id": "TAIEX", "trade_date": "2026-10-08",
+                     "close": "49313.44", "source_id": "taiex", "provenance_id": "p3"},
+                    {"benchmark_id": "TAIEX", "trade_date": "2026-10-07",
+                     "close": "49806.37", "source_id": "taiex", "provenance_id": "p2"},
+                    {"benchmark_id": "TAIEX", "trade_date": "2026-10-06",
+                     "close": None, "source_id": "taiex", "provenance_id": "p1"},
+                    {"benchmark_id": "TAIEX", "trade_date": "2026-10-05",
+                     "close": "49712.04", "source_id": "taiex", "provenance_id": "p0"},
+                ]
+            raise RuntimeError("optional market section unavailable")
+        result = CoreQueryService(query).market_home()
+        taiex = result["sections"]["taiex"]
+        self.assertEqual(taiex["data"]["history_status"], "available")
+        self.assertEqual([x["date"] for x in taiex["data"]["history_points"]],
+                         ["2026-10-05", "2026-10-07", "2026-10-08"])
+        self.assertEqual([x["value"] for x in taiex["data"]["history_points"]],
+                         ["49712.04", "49806.37", "49313.44"])
+        self.assertEqual(taiex["data"]["history_source_ids"], ["taiex"])
+        self.assertEqual(taiex["data"]["history_as_of"], "2026-10-08")
+        self.assertEqual(taiex["data"]["close"], "49313.44")
+        benchmark_queries = [x for x in captured if x[0] == "core.benchmark_v1"]
+        self.assertEqual(len(benchmark_queries), 1)
+        self.assertEqual(benchmark_queries[0][2], ("TAIEX", 40))
+        self.assertIn("LIMIT ?", benchmark_queries[0][1])
+
+    def test_market_trend_refuses_unsigned_invalid_or_future_points(self):
+        from datetime import date, timedelta
+        future = (date.today() + timedelta(days=1)).isoformat()
+        def query(identifier, sql, params):
+            if identifier != "core.benchmark_v1":
+                raise RuntimeError("unavailable")
+            return [
+                {"benchmark_id": "TAIEX", "trade_date": future,
+                 "close": "40000", "source_id": "taiex", "provenance_id": "pf"},
+                {"benchmark_id": "TAIEX", "trade_date": "2026-10-08",
+                 "close": "-1", "source_id": "taiex", "provenance_id": "p0"},
+                {"benchmark_id": "TAIEX", "trade_date": "2026-10-07",
+                 "close": "49000", "source_id": "taiex"},
+                {"benchmark_id": "TAIEX", "trade_date": "2026-10-06",
+                 "close": "48000", "source_id": "taiex", "provenance_id": "p1"},
+            ]
+        result = CoreQueryService(query).market_home()
+        data = result["sections"]["taiex"]["data"]
+        self.assertEqual(data["history_status"], "missing")
+        self.assertEqual(data["history_points"],
+                         [{"date": "2026-10-06", "value": "48000",
+                           "source_id": "taiex", "provenance_id": "p1"}])
+        self.assertEqual(result["sections"]["taiex"]["status"], "stale" if
+                         (date.today() - date(2026, 10, 6)).days > 7 else "available")
+
     def test_published_visual_series_preserves_explicit_missing_dates_without_core_scan(self):
         def no_core_query(*_args):
             self.fail("an interactive chart must not scan Core/Iceberg")
