@@ -1,15 +1,15 @@
 {
   "status": "VERIFIED_PUBLIC_GHCR_ROLLBACK_BASELINE",
-  "source_sha": "038498c70e12488f345c3ca0fbe821846ddee4cc",
-  "release_run": "37953986962",
-  "validation_run": "38188698614",
-  "api_revision": "janus-api-00457-wed",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:9babe654a6088b5f252aeee2574b77d511b16717c50b9314bd325f3c2e162a11",
+  "source_sha": "b1bc785906212b8d2860b1521affb83930d09f04",
+  "release_run": "38251449161",
+  "validation_run": "38263381660",
+  "api_revision": "janus-api-00478-cih",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:2160eda241ae3b381f6dfb29a76c5d5d9abedbbef6fc9b43ceb72ae325c9f5ee",
   "job_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:db355bb66c6b7a32c59f6d87fc7376a82a765238c32c312b83bb1b8bc177ccd6",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:db355bb66c6b7a32c59f6d87fc7376a82a765238c32c312b83bb1b8bc177ccd6",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:de35d800dd124a51531c488446d43318e9c78f20a25433dbabff69cae03f566c",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:19526c45632b1e0e624a225aa3ba7e449b4205c89311dba32bfccb82269d81ca"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:40c07c20daaec8034833d77989244323bb54d391f7012f86694d04a76be09fa7",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:40c07c20daaec8034833d77989244323bb54d391f7012f86694d04a76be09fa7",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:787123a9f5a118629c0478415754bffda0d623a9e05ee538ec6a55827e9502fb",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:58229f9f1ffcb1c1a7bfb23ddd5229bb7e82ed1334dc16651cdda8ddcf872188"
   },
   "job_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
@@ -19,6 +19,6 @@
   },
   "private_historical_config_parity": "NOT_VERIFIED",
   "old_ar_rollback_exercised": false,
-  "observed_evidence": "doc/archive/visual-first-runtime-baseline-2026-10-12.md",
-  "semantics": "Verified live 100% API and all four pinned GHCR Jobs from source 038498 at 2026-10-12 run 38188698614; scheduler enabled, release lease absent, no in-flight executions at verification. Previous pre-GHCR parity not verified."
+  "observed_evidence": "GitHub Actions #38263381660 (published runtime metadata and digests)",
+  "semantics": "Read-only GitHub Actions #38263381660: existing dev API serving 100% source b1bc7859 and all four Jobs GHCR immutable digests and configuration hashes, Scheduler enabled, release lease absent. One janus-batch-controller execution observed reconciling at 2026-10-12 14:30Z, so execution fence was BLOCKED_ACTIVE_EXECUTION at the snapshot; no claim it was globally idle. Promotion of existing serving source previously PASS #38262691942. No old AR restoration or historical private config parity claimed."
 }
