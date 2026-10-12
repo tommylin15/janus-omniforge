@@ -91,7 +91,7 @@ class PublicDatasetOut(BaseModel):
 
 class VisualSeriesPointOut(BaseModel):
     date: str
-    value: str
+    value: str | None  # Explicit missing official observation; never imputed as zero.
     source_id: str | None = None
     provenance_id: str | None = None
 
