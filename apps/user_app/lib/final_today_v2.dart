@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'final_perf.dart';
+import 'final_visual_series.dart';
 import 'final_visual_common.dart';
 import 'main.dart' as legacy;
 
@@ -23,6 +24,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   late Future<dynamic> personal = _read('/api/v1/me/today-relevant');
   Timer? marketTimer;
   bool foreground = true;
+  int historyDays = 20;
 
   bool get marketHours {
     final taipei = DateTime.now().toUtc().add(const Duration(hours: 8));
@@ -210,6 +212,184 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
     );
   }
 
+  Widget _taiexTrend(dynamic raw) {
+    final section = fvMap(raw);
+    final data = fvMap(section['data']);
+    final history = fvRows(data['history_points']);
+    // No provisional intraday quote, partial period, or sample placeholder
+    // may be spliced into this official closing-price chart.
+    final usable = history.where((item) {
+      final value = fvNumber(fvMap(item)['value']);
+      return value != null && value.isFinite && value > 0;
+    }).toList();
+    if (usable.length < 2) {
+      return fvPanel(child: Row(children: [
+        const Icon(Icons.show_chart, color: fvMuted),
+        const SizedBox(width: 9),
+        const Expanded(child: Text('加權指數歷史走勢尚未就緒',
+            style: TextStyle(color: fvMuted))),
+      ]));
+    }
+    final shown = usable.length <= historyDays
+        ? usable : usable.sublist(usable.length - historyDays);
+    final asOf = fvText(data['history_as_of']);
+    final sources = fvRows(data['history_source_ids']);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(
+        padding: const EdgeInsets.only(left: 4, right: 2, bottom: 4),
+        child: Row(children: [
+          const Icon(Icons.show_chart, color: fvTeal, size: 19),
+          const SizedBox(width: 7),
+          const Expanded(child: Text('大盤歷史走勢',
+              style: TextStyle(color: fvInk, fontWeight: FontWeight.w800,
+                  fontSize: 17))),
+          IconButton(
+            key: const Key('today-taiex-expand'),
+            tooltip: '放大加權指數歷史走勢',
+            icon: const Icon(Icons.open_in_full, color: fvTeal),
+            onPressed: () => showDialog<void>(context: context,
+              builder: (dialogContext) => Dialog(
+                insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 30),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Row(children: [
+                      const Expanded(child: Text('加權指數 · 官方收盤走勢',
+                        style: TextStyle(color: fvInk, fontWeight: FontWeight.w800))),
+                      IconButton(icon: const Icon(Icons.close),
+                        tooltip: '關閉大盤走勢', onPressed: () => Navigator.pop(dialogContext)),
+                    ]),
+                    InteractiveViewer(
+                      minScale: 1, maxScale: 3,
+                      child: FvVisualSeriesChart(
+                        rows: usable, label: '加權指數', unit: '點', height: 235),
+                    ),
+                  ]),
+                ),
+              )),
+          ),
+        ]),
+      ),
+      Wrap(spacing: 5, children: [
+        for (final days in const [5, 20, 30])
+          ChoiceChip(
+            key: Key('today-trend-$days'),
+            visualDensity: VisualDensity.compact,
+            label: Text(days == 5 ? '近5日' : days == 20 ? '近20日' : '近30日'),
+            selected: historyDays == days,
+            onSelected: (_) => setState(() => historyDays = days),
+          ),
+      ]),
+      FvVisualSeriesChart(rows: shown, label: '加權指數 · 收盤',
+          unit: '點', height: 130),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(5, 3, 5, 12),
+        child: Text('正式收盤截至 $asOf · 來源 ${sources.isEmpty ? '待查' : sources.join('、')}'
+            ' · 盤中報價不計入走勢',
+            style: const TextStyle(fontSize: 11, color: fvMuted)),
+      ),
+    ]);
+  }
+
+  Widget _flowBar(String label, Object? raw, double maxMagnitude,
+      {required String unit}) {
+    final amount = fvNumber(raw);
+    if (amount == null || !amount.isFinite) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        child: Text('$label　資料缺漏', style: const TextStyle(color: fvMuted)),
+      );
+    }
+    final rising = amount > 0;
+    final falling = amount < 0;
+    final color = rising ? fvGain : falling ? fvLoss : fvMuted;
+    final marker = rising ? '▲' : falling ? '▼' : '—';
+    final width = maxMagnitude > 0
+        ? (amount.abs() / maxMagnitude).clamp(0.0, 1.0) : 0.0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(child: Text(label, style: const TextStyle(
+              fontWeight: FontWeight.w600, color: fvInk))),
+          Flexible(child: Text(
+              '$marker ${legacy.accountingNumber(amount, decimals: 0)} $unit',
+              textAlign: TextAlign.end,
+              style: TextStyle(color: color, fontSize: 12,
+                  fontWeight: FontWeight.w700))),
+        ]),
+        const SizedBox(height: 5),
+        Semantics(label: '$label，$marker ${legacy.accountingNumber(amount, decimals: 0)} $unit',
+          child: LinearProgressIndicator(
+            minHeight: 7, borderRadius: BorderRadius.circular(5),
+            value: width, backgroundColor: fvSoft, color: color,
+          )),
+      ]),
+    );
+  }
+
+  Widget _institutionalVisual(dynamic raw) {
+    final section = fvMap(raw);
+    final data = fvMap(section['data']);
+    const fields = ['foreign_net_shares',
+      'investment_trust_net_shares', 'dealer_net_shares'];
+    final values = fields.map((key) => fvNumber(data[key]))
+        .whereType<double>().where((v) => v.isFinite).toList();
+    final maximum = values.isEmpty ? 0.0 :
+        values.map((value) => value.abs()).reduce((a, b) => a > b ? a : b);
+    return fvPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const Icon(Icons.groups_2_outlined, color: fvTeal),
+        const SizedBox(width: 8),
+        const Expanded(child: Text('法人動向',
+            style: TextStyle(color: fvInk, fontSize: 17, fontWeight: FontWeight.w800))),
+        fvStatusPill(section['status'] ?? 'missing'),
+      ]),
+      const SizedBox(height: 5),
+      const Text('三大法人當日買賣超 · 股數（長條為相對幅度）',
+          style: TextStyle(fontSize: 11, color: fvMuted)),
+      _flowBar('外資', data['foreign_net_shares'], maximum, unit: '股'),
+      _flowBar('投信', data['investment_trust_net_shares'], maximum, unit: '股'),
+      _flowBar('自營商', data['dealer_net_shares'], maximum, unit: '股'),
+      if (_freshness(section).isNotEmpty)
+        Text(_freshness(section), style: const TextStyle(color: fvMuted, fontSize: 11)),
+    ]));
+  }
+
+  Widget _marketActivityVisual(dynamic raw) {
+    final section = fvMap(raw);
+    final data = fvMap(section['data']);
+    final buy = fvNumber(data['day_trade_buy_twd']);
+    final sell = fvNumber(data['day_trade_sell_twd']);
+    final values = [buy, sell].whereType<double>().where((v) => v.isFinite).toList();
+    final maximum = values.isEmpty ? 0.0 :
+        values.map((v) => v.abs()).reduce((a, b) => a > b ? a : b);
+    return fvPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const Icon(Icons.bar_chart, color: fvTeal),
+        const SizedBox(width: 8),
+        const Expanded(child: Text('市場活動',
+            style: TextStyle(color: fvInk, fontSize: 17, fontWeight: FontWeight.w800))),
+        fvStatusPill(section['status'] ?? 'missing'),
+      ]),
+      const SizedBox(height: 6),
+      const Text('當沖交易（買賣金額／股數，均為官方欄位）',
+          style: TextStyle(fontSize: 11, color: fvMuted)),
+      if (data['day_trade_shares'] != null) ...[
+        const SizedBox(height: 8),
+        Text('當沖股數',
+            style: const TextStyle(color: fvMuted, fontSize: 12)),
+        Text('${legacy.accountingNumber(data['day_trade_shares'], decimals: 0)} 股',
+            style: const TextStyle(color: fvInk, fontSize: 21,
+              fontWeight: FontWeight.w800)),
+      ],
+      _flowBar('當沖買進', buy, maximum, unit: 'TWD'),
+      _flowBar('當沖賣出', sell, maximum, unit: 'TWD'),
+      if (_freshness(section).isNotEmpty)
+        Text(_freshness(section), style: const TextStyle(color: fvMuted, fontSize: 11)),
+    ]));
+  }
+
   Widget _personal() => FutureBuilder<dynamic>(
     future: personal,
     builder: (context, snapshot) {
@@ -262,6 +442,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
           ]),
         ),
         const SizedBox(height: 10),
+        if (snapshot.connectionState == ConnectionState.done)
+          _taiexTrend(sections['taiex']),
         if (snapshot.connectionState != ConnectionState.done)
           fvBoundedState('市場基礎資料載入中')
         else if (snapshot.data == null)
@@ -273,16 +455,8 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
             ),
           ]))
         else ...[
-          _marketCard('市場活動', Icons.swap_vert_circle_outlined, sections['market-activity'], const {
-            'day_trade_shares': '當沖股數',
-            'day_trade_buy_twd': '當沖買進',
-            'day_trade_sell_twd': '當沖賣出',
-          }),
-          _marketCard('法人動向', Icons.groups_2_outlined, sections['institutional'], const {
-            'foreign_net_shares': '外資買賣超股數',
-            'investment_trust_net_shares': '投信買賣超股數',
-            'dealer_net_shares': '自營商買賣超股數',
-          }),
+          _marketActivityVisual(sections['market-activity']),
+          _institutionalVisual(sections['institutional']),
         ],
       ]);
     },
