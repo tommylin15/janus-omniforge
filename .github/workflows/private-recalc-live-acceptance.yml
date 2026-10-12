@@ -7,13 +7,15 @@ on:
       - main
     paths:
       - '.github/workflows/private-recalc-live-acceptance.yml'
+      - 'ops/private-recalc-live-request.json'
 
 permissions:
   contents: read
+  actions: read
   id-token: write
 
 concurrency:
-  group: private-recalc-live-acceptance
+  group: janus-dev-runtime-writers
   cancel-in-progress: false
 
 env:
@@ -31,6 +33,47 @@ jobs:
           workload_identity_provider: projects/131494961796/locations/global/workloadIdentityPools/github-actions/providers/github
           service_account: janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com
       - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify approved synthetic queue canary and exact published runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          request=ops/private-recalc-live-request.json
+          jq -e '
+            .intent=="validate-existing-private-recalculation-queue" and
+            .approved==true and
+            .scope=="bounded-synthetic-queue-canary-only" and
+            .source_sha=="50eda171ef6ffb3971a4d140ad09bac870ead6c1" and
+            .release_run=="38273250472" and
+            .jobs_rollout_run=="38274299751" and
+            .ledger_mutation==false and
+            .allow_existing_owner_mutation==false and
+            .cleanup_required==true
+          ' "$request" >/dev/null
+          gh run view "$(jq -r .jobs_rollout_run "$request")" \
+            --json status,conclusion,workflowName |
+            jq -e '.status=="completed" and .conclusion=="success" and
+              .workflowName=="Janus GHCR controlled Jobs rollout"' >/dev/null
+          python3 - <<'PY'
+          import json, sys
+          sys.path.insert(0,'scripts/gcp')
+          import ghcr_jobs_rollout as rollout
+          data=json.load(open('ops/private-recalc-live-request.json',encoding='utf-8'))
+          expected={
+              'janus-ingestion-core':data['ingestion_image'],
+              'janus-private-pipeline':data['private_image'],
+          }
+          rollout.legacy_writers()
+          if rollout.scheduler()['state']!='ENABLED':
+              raise ValueError('recalculation_canary_scheduler_not_enabled')
+          rollout.fence()
+          for name, digest in expected.items():
+              if rollout.image(rollout.job(name))!=digest:
+                  raise ValueError('recalculation_canary_source_image_mismatch')
+          print('synthetic_private_recalc_live_preflight=PASS')
+          PY
 
       - name: Run bounded owner queue canary through existing runtimes
         shell: bash
