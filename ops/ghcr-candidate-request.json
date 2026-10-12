@@ -1,7 +1,7 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "b329a4e78bded056eeebc4792171aabcb86e2e3d",
-  "purpose": "2026-10-12 official TAIEX history homepage + visual market activity and institutional cards. Full GHCR Release #38205701025 Python/Flutter and four public immutable images PASS. Existing janus-api 0%-only fixed digest; preserve formal 100%-traffic and Jobs, followed by automated OAuth and fixed preview live home readback.",
+  "sha": "8b515f10fa2d4784235446185ad0c9d1337cbbdd",
+  "purpose": "2026-10-12 homepage chart bounded cold-start resilience. Full release Python/Flutter, four immutable public GHCR images PASS #38206654851. 0%-traffic existing Janus API candidate only; preserve formal 100% and Jobs. After candidate, automatic OAuth then fixed preview live TAIEX and market readback.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
