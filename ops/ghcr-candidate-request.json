@@ -1,7 +1,7 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "b1bc785906212b8d2860b1521affb83930d09f04",
-  "purpose": "2026-10-12 P0 00719B owner mart historical Iceberg positions schema: confirmed missing price_status/price_date with present official market price/value and unrealized PnL in real read-only #38250985026; add validated additive schema evolution #2706f52; full Python/Flutter and all four public GHCR images RELEASE PASS #38251449161. Deploy API 0% candidate ONLY for exact updated source; preserve current 100% traffic, fixed Preview tag, all four Jobs, existing Scheduler, owner data and OAuth boundaries. No automatic promotion.",
+  "sha": "50eda171ef6ffb3971a4d140ad09bac870ead6c1",
+  "purpose": "P0 holdings manual revaluation UI: 2026-10-12 complete Python+Flutter and all GHCR immutable images PASS #38273250472, source 50eda171…; deploy API 0% candidate only, validate build SHA/health/owner-private 401 and immutable digest. Previous formal b1bc… API stays 100% until approved promotion. Do not update fixed Preview, four Jobs or Scheduler in candidate.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
