@@ -434,8 +434,35 @@ def main() -> None:
     from .store import PrivateIcebergStore
 
     market=CorePriceReader.from_env()
+    repository=repository_from_env()
+
+    def owner_prices(symbols: set[str], valuation_date: date):
+        # Canonical Core prices have priority. The only fallback allowed here
+        # is a *persisted, verified official TPEx close* for a real ledger
+        # symbol, with an effective date not later than the valuation date.
+        # Other operational/MIS prices never enter Private Mart.
+        prices=market(symbols,valuation_date)
+        missing=symbols-set(prices)
+        if missing:
+            for symbol, row in repository.last_quotes({
+                symbol: {} for symbol in missing
+            }).items():
+                if row.get("source") != "tpex_openapi_eod":
+                    continue
+                try:
+                    at=datetime.fromisoformat(str(row["quote_at"]))
+                    effective=at.astimezone(TAIPEI).date()
+                    price=Decimal(str(row["price"]))
+                except (ValueError, TypeError, InvalidOperation):
+                    continue
+                if effective > valuation_date or price <= 0 or not price.is_finite():
+                    continue
+                prices[symbol]=(price,effective)
+        return prices
+
     override=os.getenv("VALUATION_DATE") or None
-    completed=PrivatePipeline(repository_from_env(),PrivateIcebergStore.from_env(),market,market.memberships,
+    completed=PrivatePipeline(repository,PrivateIcebergStore.from_env(),
+        owner_prices,market.memberships,
         lambda:resolve_valuation_date(None,market.latest_valuation_date)).run(
         date.fromisoformat(override) if override else None)
     print(f"private pipeline checkpoint={completed}")
