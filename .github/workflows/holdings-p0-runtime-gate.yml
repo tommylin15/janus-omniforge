@@ -1,0 +1,70 @@
+name: Holdings P0 dev runtime IAM gate
+
+on:
+  push:
+    branches: [main]
+    paths: ['ops/holdings-p0-runtime-request.json']
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+
+jobs:
+  scoped-job-iam:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: dev
+    env:
+      PROJECT: gen-lang-client-0593591102
+      REGION: us-central1
+      SERVICE: janus-api
+      JOB: janus-private-pipeline
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify narrow authorization and source gate
+        run: |
+          set -Eeuo pipefail
+          file=ops/holdings-p0-runtime-request.json
+          jq -e '.intent=="repair-existing-private-job-override-invocation" and
+             .approved==true and .scope=="job-only" and
+             .project=="gen-lang-client-0593591102" and
+             .job=="janus-private-pipeline" and
+             .role=="roles/run.jobsExecutorWithOverrides" and
+             (.expected_source_sha|test("^[0-9a-f]{40}$"))' "$file" >/dev/null
+          sha="$(jq -r .expected_source_sha "$file")"
+          test "$sha" = "$(jq -r .sha ops/ghcr-candidate-request.json)"
+          echo "EXPECTED_SOURCE=$sha" >> "$GITHUB_ENV"
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Check and repair exact job-scoped runWithOverrides right
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sa="$(gcloud run services describe "$SERVICE" --project="$PROJECT"              --region="$REGION" --format='value(spec.template.spec.serviceAccountName)')"
+          expected="janus-user-api@${PROJECT}.iam.gserviceaccount.com"
+          test "$sa" = "$expected"
+          gcloud run jobs describe "$JOB" --project="$PROJECT" --region="$REGION"              --format='value(status.conditions[0].status)' | grep -Fx 'True'
+          role="roles/run.jobsExecutorWithOverrides"
+          member="serviceAccount:${sa}"
+          gcloud run jobs get-iam-policy "$JOB" --project="$PROJECT"              --region="$REGION" --format=json > /tmp/holdings-job-policy.json
+          if ! jq -e --arg member "$member" --arg role "$role" '
+            [.bindings[]? | select(.role==$role and
+              (.condition==null) and (.members | index($member)!=null))] |
+            length>=1' /tmp/holdings-job-policy.json >/dev/null; then
+            gcloud run jobs add-iam-policy-binding "$JOB" --project="$PROJECT"               --region="$REGION" --member="$member" --role="$role"               --condition=None --quiet >/dev/null
+          fi
+          gcloud run jobs get-iam-policy "$JOB" --project="$PROJECT"              --region="$REGION" --format=json > /tmp/holdings-job-policy-final.json
+          jq -e --arg member "$member" --arg role "$role" '
+            [.bindings[]? | select(.role==$role and
+              (.condition==null) and (.members | index($member)!=null))] |
+            length==1' /tmp/holdings-job-policy-final.json >/dev/null
+          echo "private_pipeline_job_scope=PASS" >> "$GITHUB_STEP_SUMMARY"
+          echo "job=$JOB role=$role service_identity=$sa" >> "$GITHUB_STEP_SUMMARY"
+          echo "No project-wide IAM, secrets, other Job, Scheduler or traffic changes." >> "$GITHUB_STEP_SUMMARY"
