@@ -2,7 +2,7 @@
   "intent": "readonly-preview-series-acceptance",
   "scope": "published-public-only",
   "no_gcp_mutation": true,
-  "source_sha": "0b0855c0fdeba0294bb0bb09bf33906216d779fa",
+  "source_sha": "b1bc785906212b8d2860b1521affb83930d09f04",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
-  "reason": "2026-10-12 same-source fixed Preview after owner holdings full GHCR #38224456544, 0% candidate #38225156313, OAuth negative #38225390463, 4 Job live canaries #38226618808 and fixed Preview #38230626340. Public TAIEX and valuation series readback, exact build-id, canonical 100%-traffic unchanged, auth-private negative only. Owner 00719B Mart live acceptance independently tracked #38231768997; this public probe must not pretend to verify owner PnL or screenshot."
+  "reason": "2026-10-12 read-only public fixed Preview live acceptance of actual 00719B P0 schema-era API and Ledger UI source b1bc7859 after GHCR #38251449161, 0% candidate #38253341992, automated OAuth #38253596061, four Jobs #38253861084, real one-owner 00719B Mart #38257614968 and fixed Preview #38259811978 all PASS. Verify exact published build-id, official TAIEX/valuation point provenance and bounded warm read latency, canonical 100% unchanged and private unauthenticated 401. Public-only probe does not authenticate Owner, verify owner PnL UI, or claim screenshots."
 }
