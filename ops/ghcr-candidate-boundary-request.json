@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "8b515f10fa2d4784235446185ad0c9d1337cbbdd",
-  "candidate_release_run": "38206654851",
-  "candidate_deployment_run": "38207011213",
-  "purpose": "2026-10-12 homepage TAIEX 24s cold-read UX correction; verified full GHCR/Flutter/Python release #38206654851 and 0% candidate #38207011213. Automated OAuth metadata S256 refresh grant and 401 User/Admin/MCP boundaries on exact candidate without human login or GCP mutation.",
+  "sha": "0b0855c0fdeba0294bb0bb09bf33906216d779fa",
+  "candidate_release_run": "38224456544",
+  "candidate_deployment_run": "38225156313",
+  "purpose": "2026-10-12 combined P0 holdings universe and official TPEx EOD safe price fallback with ledger visual convergence; same-source immutable GHCR full Python/Flutter Release #38224456544 and 0% candidate #38225156313 PASS. Automated metadata OAuth/PKCE/refresh and unauthorized owner/Admin/MCP negative fencing; no manual OAuth or GCP mutation.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 6
+  "attempt": 7
 }
