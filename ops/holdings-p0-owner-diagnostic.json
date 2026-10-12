@@ -1,0 +1,9 @@
+{
+  "intent": "read-owner-mart-execution-diagnostic",
+  "no_gcp_mutation": true,
+  "job": "janus-private-pipeline",
+  "source_sha": "0b0855c0fdeba0294bb0bb09bf33906216d779fa",
+  "failed_run": "38231768997",
+  "scope": "latest dev Private Mart owner 00719B execution after 2026-10-12T09:42Z",
+  "purpose": "Read-only Cloud Run execution terminal state plus sanitized safe error markers only, no raw logs, secrets, private account details or further execution. First actual-owner 00719B Private Mart acceptance failed/unknown; determine cause before any retry."
+}
