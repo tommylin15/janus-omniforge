@@ -20,18 +20,30 @@ class _FvVisualSeriesChartState extends State<FvVisualSeriesChart> {
   int? highlighted;
   @override
   Widget build(BuildContext context) {
-    final points = <(DateTime, double)>[];
+    // Preserve explicitly missing dates as breaks; never interpolate a gap.
+    final samples = <(DateTime, double?)>[];
     final seen = <String>{};
     for (final raw in widget.rows) {
       final item = fvMap(raw);
       final dateString = fvText(item['date'], missing: '');
       final day = DateTime.tryParse(dateString);
-      final value = fvChartNumber(item['value']);
-      if (day != null && value != null && value.isFinite && seen.add(dateString)) {
-        points.add((day, value));
+      if (day != null && seen.add(dateString)) {
+        samples.add((day, fvChartNumber(item['value'])));
       }
     }
-    points.sort((a, b) => a.$1.compareTo(b.$1));
+    samples.sort((a, b) => a.$1.compareTo(b.$1));
+    final points = <(DateTime, double)>[];
+    final breakBefore = <int>{};
+    var missingBetween = false;
+    for (final sample in samples) {
+      if (sample.$2 == null) {
+        missingBetween = true;
+        continue;
+      }
+      if (missingBetween && points.isNotEmpty) breakBefore.add(points.length);
+      points.add((sample.$1, sample.$2!));
+      missingBetween = false;
+    }
     if (points.length < 2) return fvBoundedState('有效資料少於兩期，暫不繪製趨勢');
     final index = highlighted == null ? points.length - 1 :
       highlighted!.clamp(0, points.length - 1);
@@ -44,6 +56,9 @@ class _FvVisualSeriesChartState extends State<FvVisualSeriesChart> {
       const SizedBox(height: 5),
       Text('${points.first.$1.toIso8601String().substring(0, 10)} ～ ${points.last.$1.toIso8601String().substring(0, 10)} · $unit',
         style: const TextStyle(color: fvMuted, fontSize: 11)),
+      if (samples.any((sample) => sample.$2 == null))
+        const Text('部分日期缺值，圖線不跨越缺口',
+          style: TextStyle(color: fvMuted, fontSize: 11)),
       const SizedBox(height: 10),
       LayoutBuilder(builder: (context, bounds) => GestureDetector(
         onTapDown: (detail) {
@@ -55,7 +70,7 @@ class _FvVisualSeriesChartState extends State<FvVisualSeriesChart> {
           label: '${widget.label}，可點選歷史日期和數值',
           child: SizedBox(height: widget.height, width: double.infinity,
             child: CustomPaint(key: const Key('fv-visual-series-chart'),
-              painter: _SeriesPainter(points, index))),
+              painter: _SeriesPainter(points, index, breakBefore))),
         ),
       )),
       const SizedBox(height: 8),
@@ -67,9 +82,10 @@ class _FvVisualSeriesChartState extends State<FvVisualSeriesChart> {
 }
 
 class _SeriesPainter extends CustomPainter {
-  const _SeriesPainter(this.points, this.highlight);
+  const _SeriesPainter(this.points, this.highlight, this.breakBefore);
   final List<(DateTime, double)> points;
   final int highlight;
+  final Set<int> breakBefore;
   @override
   void paint(Canvas canvas, Size size) {
     final values = points.map((e) => e.$2);
@@ -86,14 +102,28 @@ class _SeriesPainter extends CustomPainter {
       canvas.drawLine(Offset(pad, y), Offset(pad + width, y), grid);
     }
     final path = Path()..moveTo(coord(0).dx, coord(0).dy);
-    for (var i = 1; i < points.length; i++) { path.lineTo(coord(i).dx, coord(i).dy); }
+    for (var i = 1; i < points.length; i++) {
+      if (breakBefore.contains(i)) {
+        path.moveTo(coord(i).dx, coord(i).dy);
+      } else {
+        path.lineTo(coord(i).dx, coord(i).dy);
+      }
+    }
     canvas.drawPath(path, Paint()..color = fvTeal..strokeWidth = 2.5
       ..style = PaintingStyle.stroke..strokeCap = StrokeCap.round);
     canvas.drawCircle(coord(highlight), 4.5, Paint()..color = fvTeal);
     canvas.drawCircle(coord(highlight), 2, Paint()..color = Colors.white);
   }
   @override
-  bool shouldRepaint(covariant _SeriesPainter old) => highlight != old.highlight ||
-      points.length != old.points.length ||
-      (points.isNotEmpty && old.points.isNotEmpty && points.last != old.points.last);
+  bool shouldRepaint(covariant _SeriesPainter old) {
+    if (highlight != old.highlight || points.length != old.points.length ||
+        breakBefore.length != old.breakBefore.length) return true;
+    for (final index in breakBefore) {
+      if (!old.breakBefore.contains(index)) return true;
+    }
+    for (var i = 0; i < points.length; i++) {
+      if (points[i] != old.points[i]) return true;
+    }
+    return false;
+  }
 }
