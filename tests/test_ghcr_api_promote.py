@@ -27,6 +27,61 @@ def receipt():
     }
 
 
+
+def test_api_and_jobs_can_have_distinct_validated_previous_sources():
+    """The serving API may still be older than the already deployed Jobs."""
+    proof = receipt()
+    source = "a" * 40
+    former_job_source = "b" * 40
+    request = {
+        "approved": True, "scope": "existing-dev-four-jobs",
+        "rollback_mode": "reversible_ghcr",
+        "sha": source, "release_run": "101",
+        "baseline_source_sha": former_job_source,
+        "rollback_images": {name: proof["snapshots"][name]["image"]
+                            for name, _ in promote.JOB_COMPONENT},
+        "rollback_config_hashes": {
+            name: proof["snapshots"][name]["configuration_hash"]
+            for name, _ in promote.JOB_COMPONENT},
+    }
+    with patch.object(promote.Path, "read_text", return_value=json.dumps(request)):
+        promote.verify_independent_job_rollback(proof, source, "101")
+        wrong = deepcopy(proof)
+        wrong["rollback_baseline_sha"] = "c" * 40
+        with pytest.raises(ValueError, match="independent_jobs_rollback_provenance_invalid"):
+            promote.verify_independent_job_rollback(wrong, source, "101")
+        wrong = deepcopy(proof)
+        first = next(iter(request["rollback_images"]))
+        wrong["snapshots"][first]["configuration_hash"] = "d" * 64
+        with pytest.raises(ValueError, match="independent_jobs_rollback_snapshot_mismatch"):
+            promote.verify_independent_job_rollback(wrong, source, "101")
+
+
+def test_promote_stops_when_current_jobs_or_scheduler_drift():
+    proof = receipt()
+    expected = {
+        name: {"image": "ghcr.io/tommylin15/janus-" + component +
+                        "@sha256:" + "e" * 64}
+        for name, component in promote.JOB_COMPONENT
+    }
+    proof["targets"] = {name: x["image"] for name, x in expected.items()}
+    current = {"unchanged": True}
+    with (patch.object(promote.jobs, "legacy_writers"),
+          patch.object(promote.jobs, "scheduler", return_value={"state":"ENABLED"}),
+          patch.object(promote.jobs, "fence"),
+          patch.object(promote.jobs, "job", return_value=current),
+          patch.object(promote.jobs, "image") as image,
+          patch.object(promote.jobs, "fingerprint", return_value="c"*64)):
+        image.side_effect = iter(proof["targets"].values())
+        promote.verify_current_jobs_before_api_traffic(proof)
+        image.side_effect = lambda _: "wrong@sha256:" + "a"*64
+        with pytest.raises(ValueError, match="api_promotion_live_job_drift"):
+            promote.verify_current_jobs_before_api_traffic(proof)
+    with (patch.object(promote.jobs, "legacy_writers"),
+          patch.object(promote.jobs, "scheduler", return_value={"state":"PAUSED"})):
+        with pytest.raises(ValueError, match="api_promotion_scheduler_not_enabled"):
+            promote.verify_current_jobs_before_api_traffic(proof)
+
 def test_jobs_receipt_requires_two_distinct_canaries_per_target_job():
     valid = receipt()
     promote.check_jobs_receipt(valid, "a" * 40)
