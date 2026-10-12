@@ -58,6 +58,53 @@ class CoreQueryServiceTests(unittest.TestCase):
         self.assertEqual(summary["datasets"]["ohlcv"]["latest_date"], "2026-08-27")
         self.assertEqual(summary["datasets"]["ohlcv"]["null_profile"], {"close": 1})
 
+    def test_published_visual_series_preserves_explicit_missing_dates_without_core_scan(self):
+        def no_core_query(*_args):
+            self.fail("an interactive chart must not scan Core/Iceberg")
+        serving = [
+            {"observed_date": "2026-10-08", "pe_ratio": "22.5",
+             "source_id": "twse", "provenance_id": "a"},
+            {"observed_date": "2026-10-07", "pe_ratio": None,
+             "source_id": "twse", "provenance_id": "b"},
+            {"observed_date": "2026-10-06", "pe_ratio": "20",
+             "source_id": "twse", "provenance_id": "c"},
+        ]
+        service = CoreQueryService(no_core_query, serving_series=lambda *_: serving)
+        result = service.visual_series("2330", "pe", limit=10)
+        self.assertEqual(result["data_status"], "partial")
+        self.assertEqual(result["usable_points"], 2)
+        self.assertEqual([p["value"] for p in result["points"]], ["20", None, "22.5"])
+        self.assertEqual(result["points"][1]["provenance_id"], "b")
+        self.assertEqual(result["data_as_of"], "2026-10-08")
+        self.assertEqual(result["source_ids"], ["twse"])
+
+    def test_published_series_invalid_pe_stays_null_but_zero_yield_is_real(self):
+        def serving(_dataset, _symbol, _limit):
+            return [
+                {"observed_date": "2026-10-08", "pe_ratio": "20", "dividend_yield_percent": "0"},
+                {"observed_date": "2026-10-07", "pe_ratio": "-3", "dividend_yield_percent": "1.2"},
+            ]
+        service = CoreQueryService(lambda *_: self.fail("no Core scan"), serving_series=serving)
+        pe = service.visual_series("2330", "pe", limit=10)
+        self.assertEqual([x["value"] for x in pe["points"]], [None, "20"])
+        self.assertEqual(pe["usable_points"], 1)
+        yield_series = service.visual_series("2330", "yield", limit=10)
+        self.assertEqual([x["value"] for x in yield_series["points"]], ["1.2", "0"])
+        self.assertEqual(yield_series["data_status"], "available")
+
+    def test_duplicate_published_day_prefers_real_value_over_null_marker(self):
+        def serving(*_):
+            return [
+                {"observed_date": "2026-10-08", "pe_ratio": None, "source_id": "twse"},
+                {"observed_date": "2026-10-08", "pe_ratio": "23", "source_id": "twse"},
+                {"observed_date": "2026-10-07", "pe_ratio": "22", "source_id": "twse"},
+            ]
+        service = CoreQueryService(lambda *_: self.fail("no Core scan"), serving_series=serving)
+        result = service.visual_series("2330", "pe", limit=10)
+        self.assertEqual([x["value"] for x in result["points"]], ["22", "23"])
+        self.assertEqual(result["usable_points"], 2)
+        self.assertEqual(result["data_status"], "partial")  # Duplicate/coverage is not full.
+
     def test_invalid_dataset_and_symbol_are_rejected(self):
         with self.assertRaises(QueryValidationError):
             self.service.page("raw", "2330")
