@@ -1,0 +1,32 @@
+name: Janus owner TPEx quote ACL migration
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/holdings-tpex-acl-migration.json'
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify bounded SQL and Python executor without GCP changes
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_holdings_tpex_acl_migration.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Apply 053 in one existing dev ingestion execution and verify ACL
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/holdings_tpex_acl_migration.py
