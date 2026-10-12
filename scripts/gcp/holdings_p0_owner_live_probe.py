@@ -66,14 +66,22 @@ pipeline=PrivatePipeline(
 )
 result=pipeline.run_user(owner,valued,write_guard=repo.private_mart_write_lock)
 positions=store.mart('mart_user_positions',owner)
+unrealized=store.mart('mart_user_unrealized_pnl',owner)
 matched=[row for row in positions if row.get('symbol')=='00719B']
-if len(matched)!=1:
-    raise RuntimeError('owner_00719B_mart_position_missing')
+pnl_matched=[row for row in unrealized if row.get('symbol')=='00719B']
+if len(matched)!=1 or len(pnl_matched)!=1:
+    raise RuntimeError('owner_00719B_mart_position_or_pnl_missing')
 row=matched[0]
-if (row.get('unrealized_pnl') is None or row.get('market_price') is None
+pnl_row=pnl_matched[0]
+current_version=int(repo.latest_ledger_version(owner))
+if (row.get('market_price') is None or row.get('market_value') is None
+        or pnl_row.get('unrealized_pnl') is None
+        or pnl_row.get('unrealized_return') is None
         or row.get('price_status') not in {'available','stale'}
-        or int(row.get('ledger_version') or 0)!=int(repo.latest_ledger_version(owner))):
-    raise RuntimeError('owner_00719B_mart_price_or_checkpoint_invalid')
+        or pnl_row.get('price_status') not in {'available','stale'}
+        or int(row.get('ledger_version') or 0)!=current_version
+        or int(pnl_row.get('ledger_version') or 0)!=current_version):
+    raise RuntimeError('owner_00719B_mart_price_pnl_or_checkpoint_invalid')
 print(json.dumps({
     'owner_scope':'exactly_one_real_owner',
     'symbol':'00719B',
