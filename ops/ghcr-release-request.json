@@ -8,7 +8,7 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 18,
-  "reason": "P0 manual-recalc UI release retry after #38272851695: Python suite 1072 PASS / 1 FAIL only due to stale inert next-release templates compared with updated verified b1bc GHCR baseline; both inert templates refreshed to actual live previous API and all four Jobs while approved=false (commits 9bc2101 / 0ec8f2b). Python dependency hang fixed already (suite ran in 35s). Preserve full Python+Flutter tests and four immutable GHCR images. No runtime mutation in this release; downstream rollout/Preview/API only after complete PASS.",
+  "attempt": 19,
+  "reason": "2026-10-13 P0 manual recalc diagnosis: original queue canary #38274621290 showed task results one processed, zero succeeded, one failed (sanitized Cloud Logging #38322879209). Add strict privacy-preserving Worker error-class counts to next task summary without IDs, symbols, monetary values or raw exception messages; unit regression in tests/test_private_recalc_queue.py. Existing 50eda source release/Jobs/Preview PASS, formal API still b1bc. New full Python+Flutter and four immutable GHCR images required before gated Jobs rollout and exactly one bounded rerun; no GCP mutation in this release.",
   "expected_runtime_changes": false
 }
