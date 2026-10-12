@@ -496,60 +496,68 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     required Object? ytdAmount,
     required Map<String, dynamic> aggregate,
     required bool withheld,
-  }) => Column(
-        children: [
-          fvPanel(child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                const Icon(Icons.account_balance_wallet_outlined, color: fvTeal, size: 22),
-                const SizedBox(width: 8),
-                const Expanded(child: Text('持股市值',
-                    style: TextStyle(color: fvInk, fontWeight: FontWeight.w800))),
-                fvStatusPill(withheld ? 'partial' :
-                    aggregate['valuation_status'] ?? aggregate['aggregate_status'] ?? 'partial'),
-              ]),
-              const SizedBox(height: 10),
-              Text(marketValue,
-                  key: const Key('ledger-market-value-hero'),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: fvInk, fontSize: 28,
-                      fontWeight: FontWeight.w800, height: 1.16)),
-              const SizedBox(height: 7),
-              Wrap(spacing: 10, runSpacing: 3, children: [
-                Text('估值日 ${fvText(aggregate['valuation_date'])}',
-                    style: const TextStyle(color: fvMuted, fontSize: 12)),
-                Text('ledger v${fvText(aggregate['ledger_version'])}',
-                    style: const TextStyle(color: fvMuted, fontSize: 12)),
-              ]),
-            ],
-          )),
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(child: fvMetricTile('未實現損益', unrealized,
-                detail: '報酬 $unrealizedReturn',
-                valueColor: withheld ? null : fvSignedColor(unrealizedAmount),
-                detailColor: withheld ? null : fvSignedColor(unrealizedReturnAmount))),
-            const SizedBox(width: 10),
-            Expanded(child: fvMetricTile('本年已實現損益', ytd,
-                detail: ytd == '待更新／尚未確認'
-                    ? 'Private Mart 尚待確認'
-                    : ytd == '資料不足' ? '年度損益目前無法確認'
-                    : ytd == '0' ? '本年度確認無交易' : '正式年度損益',
-                valueColor: fvSignedColor(ytdAmount))),
-          ]),
-          const SizedBox(height: 6),
-          Row(children: [
-            const Icon(Icons.verified_user_outlined, size: 17, color: fvTeal),
-            const SizedBox(width: 7),
-            const Text('估值狀態：', style: TextStyle(color: fvMuted, fontSize: 12)),
-            Expanded(child: Text(withheld ? '暫不發布' : legacy.uiLabel(
-                aggregate['valuation_status'] ?? aggregate['aggregate_status'] ??
-                (aggregate.isEmpty ? 'partial' : 'available')),
-                style: const TextStyle(color: fvMuted, fontSize: 12))),
-          ]),
-        ],
-      );
+  }) => fvPanel(
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const Icon(Icons.account_balance_wallet_outlined, color: fvTeal, size: 22),
+        const SizedBox(width: 9),
+        const Expanded(child: Text('我的持股市值',
+          style: TextStyle(color: fvInk, fontSize: 17, fontWeight: FontWeight.w800))),
+        fvStatusPill(withheld ? 'partial' :
+          aggregate['valuation_status'] ?? aggregate['aggregate_status'] ?? 'partial'),
+      ]),
+      const SizedBox(height: 8),
+      Text(marketValue,
+        key: const Key('ledger-market-value-hero'),
+        maxLines: 2, overflow: TextOverflow.ellipsis,
+        style: TextStyle(color: withheld ? fvMuted : fvInk,
+          fontSize: 30, fontWeight: FontWeight.w900, height: 1.17)),
+      const SizedBox(height: 8),
+      // Only one Hero. Secondary totals stay visually subordinate and share
+      // the same panel rather than occupying two large empty white cards.
+      const Divider(height: 14),
+      LayoutBuilder(builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 420;
+        final fields = <Widget>[
+          _compactMetric('未實現損益', unrealized,
+            note: unrealizedReturn, color: withheld ? fvMuted : fvSignedColor(unrealizedAmount)),
+          _compactMetric('本年已實現', ytd,
+            note: ytd == '待更新／尚未確認' ? '等候損益批次'
+                : ytd == '資料不足' ? '尚未確認'
+                : '已實現損益', color: fvSignedColor(ytdAmount)),
+        ];
+        return narrow
+          ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(child: fields[0]), const SizedBox(width: 10),
+              Expanded(child: fields[1]),
+            ])
+          : Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(child: fields[0]), const SizedBox(width: 24),
+              Expanded(child: fields[1]),
+            ]);
+      }),
+      const SizedBox(height: 10),
+      Row(children: [
+        const Icon(Icons.update, color: fvMuted, size: 15),
+        const SizedBox(width: 5),
+        Expanded(child: Text(
+          '估值日 ${fvText(aggregate['valuation_date'])} · '
+          '狀態 ${withheld ? '完整總額暫不發布' : legacy.uiLabel(aggregate['valuation_status'] ?? aggregate['aggregate_status'] ?? 'partial')}',
+          style: const TextStyle(color: fvMuted, fontSize: 11))),
+      ]),
+    ]),
+  );
+
+  Widget _compactMetric(String title, String value,
+      {required String note, required Color color}) =>
+    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(title, style: const TextStyle(color: fvMuted, fontSize: 12)),
+      const SizedBox(height: 5),
+      Text(value, maxLines: 2, overflow: TextOverflow.ellipsis,
+        style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.w800)),
+      Text(note, maxLines: 1, overflow: TextOverflow.ellipsis,
+        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+    ]);
 
   Widget pnlComparison(List<dynamic> rows, Map<String, dynamic> aggregate) {
     // Presentation-only scaling of published owner-scoped per-position PnL.
@@ -636,71 +644,86 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  // FIRST ROW: cumulative position result alongside identity.
                   Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Expanded(child: Column(
+                    Expanded(flex: 5, child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(legacy.stockDisplayName(row),
-                            style: const TextStyle(color: fvInk, fontSize: 19,
-                                fontWeight: FontWeight.w800)),
-                        const SizedBox(height: 5),
+                          maxLines: 2, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: fvInk, fontSize: 18,
+                              fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 4),
                         Text('持有 ${legacy.accountingNumber(row['shares'])} 股',
-                            style: const TextStyle(color: fvInk, fontSize: 16)),
+                          style: const TextStyle(color: fvInk, fontSize: 14)),
+                        const SizedBox(height: 3),
+                        Text('持有均價 ${legacy.accountingNumber(row['average_cost'], decimals: 2)}',
+                          style: const TextStyle(color: fvMuted, fontSize: 12)),
                       ],
                     )),
                     const SizedBox(width: 8),
-                    Flexible(child: Column(
+                    Expanded(flex: 5, child: Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text(lastPrice,
-                            key: Key('holding-latest-price-$symbol'),
-                            textAlign: TextAlign.end,
-                            style: TextStyle(
-                                color: valid ? fvSignedColor(dailyChange) : fvInk,
-                                fontSize: 23, fontWeight: FontWeight.w800)),
-                        Text(
-                          valid
-                              ? '${legacy.accountingNumber(dailyChange, decimals: 2)} · ${fvSignedPercent(row['change_percent'])}'
-                              : '漲跌資料不足',
-                          key: Key('holding-daily-change-$symbol'),
-                          textAlign: TextAlign.end,
-                          style: TextStyle(
-                              color: valid ? fvSignedColor(dailyChange) : fvMuted,
-                              fontSize: 15, fontWeight: FontWeight.w700)),
-                      ],
-                    )),
-                  ]),
-                  const SizedBox(height: 6),
-                  Text('現價 $lastPrice · 均價 ${legacy.accountingNumber(row['average_cost'], decimals: 2)}',
-                      style: const TextStyle(color: fvMuted, fontSize: 14)),
-                  const Divider(height: 24),
-                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Text('當日持股價格變動',
+                        const Text('持有未實現總損益',
                           style: TextStyle(color: fvMuted, fontSize: 12)),
-                      const SizedBox(height: 4),
-                      Text(valid ? legacy.accountingNumber(dailyAmount) : '資料不足',
-                          key: Key('holding-day-amount-$symbol'),
-                          style: TextStyle(
-                              color: valid ? fvSignedColor(dailyAmount) : fvMuted,
-                              fontSize: 19, fontWeight: FontWeight.w800)),
-                    ])),
-                    const SizedBox(width: 10),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                      const Text('未實現損益',
-                          style: TextStyle(color: fvMuted, fontSize: 12)),
-                      const SizedBox(height: 4),
-                      Text(legacy.accountingNumber(row['unrealized_pnl'], missing: '資料不足'),
+                        const SizedBox(height: 3),
+                        Text(legacy.accountingNumber(row['unrealized_pnl'],
+                            missing: '待取得行情'),
                           key: Key('holding-pnl-$symbol'),
+                          maxLines: 2, overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.end,
-                          style: TextStyle(color: fvSignedColor(row['unrealized_pnl']),
-                              fontSize: 19, fontWeight: FontWeight.w800)),
-                      Text(legacy.portfolioReturnLabel(row['unrealized_return']),
+                          style: TextStyle(color: row['unrealized_pnl'] == null
+                              ? fvMuted : fvSignedColor(row['unrealized_pnl']),
+                            fontSize: 21, fontWeight: FontWeight.w900)),
+                        Text(legacy.portfolioReturnLabel(row['unrealized_return']),
                           key: Key('holding-return-$symbol'),
                           textAlign: TextAlign.end,
                           style: TextStyle(color: fvSignedColor(row['unrealized_return']),
-                              fontSize: 15, fontWeight: FontWeight.w700)),
-                    ])),
+                            fontSize: 14, fontWeight: FontWeight.w700)),
+                      ],
+                    )),
+                  ]),
+                  const Divider(height: 22),
+                  // SECOND ROW: only the most recent trading session.
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('最新行情',
+                          style: TextStyle(color: fvMuted, fontSize: 12)),
+                        const SizedBox(height: 4),
+                        Text(lastPrice, key: Key('holding-latest-price-$symbol'),
+                          style: const TextStyle(color: fvInk,
+                            fontSize: 21, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 3),
+                        Text(valid
+                            ? '${legacy.accountingNumber(dailyChange, decimals: 2)} · ${fvSignedPercent(row['change_percent'])}'
+                            : '漲跌資料不足',
+                          key: Key('holding-daily-change-$symbol'),
+                          style: TextStyle(color: valid
+                              ? fvSignedColor(dailyChange) : fvMuted,
+                              fontSize: 13, fontWeight: FontWeight.w700)),
+                      ],
+                    )),
+                    const SizedBox(width: 8),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        const Text('當日持股價格變動',
+                          style: TextStyle(color: fvMuted, fontSize: 12)),
+                        const SizedBox(height: 4),
+                        Text(valid ? legacy.accountingNumber(dailyAmount)
+                            : '資料不足',
+                          key: Key('holding-day-amount-$symbol'),
+                          maxLines: 2, overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.end,
+                          style: TextStyle(color: valid
+                              ? fvSignedColor(dailyAmount) : fvMuted,
+                              fontSize: 20, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 3),
+                        const Text('非實際交易損益',
+                          style: TextStyle(color: fvMuted, fontSize: 11)),
+                      ],
+                    )),
                   ]),
                   const SizedBox(height: 10),
                   Text(
@@ -1236,7 +1259,6 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                     fvBoundedState(
                       '正式總額暫不發布${affected.isEmpty ? '' : ' · 受影響 ${affected.join('、')}'}；持股 operational shares／cost 仍可顯示。',
                     ),
-                  const SizedBox(height: 12),
                   const SizedBox(height: 12),
                   if (section == 0) ...[
                     pnlComparison(positions, aggregate),
