@@ -22,6 +22,13 @@ Janus 只接受 HTTP 200、`status=completed`、相同 project/ownerId/requestId
 4. **真實工作鏈**：先驗證 Mart Worker 實際 impersonation，僅從現有 capability 授權的新 `QUEUED` 手動 CEO request 執行一次；readback Worker final status、Gateway requestId、schema accepted、`report_hash`、immutable GCS 與 PG、錯誤無資料洩漏。未知終態**不得重送**，報告 `PARTIAL`（缺資料）也不能寫成全數 PASS。最後驗證 API 認證讀回同一 immutable history。
 5. **部署邊界**：omniAgent pilot `gemini-p0v-b03e5f55` 是 **0%**，不是正式 route。因 Cloud Run Job 沒有 Service 0%-traffic candidate，只能做 digest-fenced 的無 Scheduler canary／受控更新及可復原路徑；未證實 IAM 不得更換既有 CEO Job image，未達 CEO E2E 不得正式切流量。
 
+## 2026-10-13 續接：真人授權 IAM 後之實際執行證據
+
+- **真正的 Cloud Run Worker IAM／Gateway 驗證 PASS**：[Janus #38366833454](https://github.com/tommylin15/janus-omniforge/actions/runs/38366833454)。使用既有 `janus-ceo-analysis` Job 原本的 `intelligence-mart` 執行身分，經受限 `omniagent-codex-market-client` impersonation 產生 Gateway audience ID token，對既有 0% private pilot 發出不完整 JSON，只接受 Gateway authenticated `400 invalid_request`；排除 anonymous 401／IAM 403。非模型呼叫、沒有 DB／Job image write；execution terminal readback／lease release PASS。原先 CI 沒有 `iam.serviceAccounts.getIamPolicy` 的讀權仍是 CI 觀察限制，但**不再用它阻擋已被真實 runtime 成功證明的 TokenCreator 呼叫**。
+- **CEO Job-only digest-fenced rollout 與 postdeploy signed canary PASS**：[Janus #38367279461](https://github.com/tommylin15/janus-omniforge/actions/runs/38367279461)。重用 full release #38363636133 原 SHA `b63bf350213fa7c3933724fa38006d8ab7b8033f` 專用 CEO image，更新既有 `janus-ceo-analysis`、維持 1 CPU／1Gi、maxRetries=0、無 Scheduler，實際經新版 image 再以 Mart 執行身分完成 authenticated malformed-body Gateway canary；部署共用 lease 已安全釋放。沒有更改另外四個 Job、Janus API 正式 traffic 或 omniAgent Gateway 正式 traffic。
+- 合成、非個人單次 Gemini JSON canary [Janus #38367878942](https://github.com/tommylin15/janus-omniforge/actions/runs/38367878942) 已觸發：**尚需依 run 終態判定**，不得把觸發當 PASS。此測試明確不寫 PostgreSQL／GCS 報告。
+- **剩餘真正 CEO 業務 gate**：Owner 實際透過原 API/capability 發起**新**手動分析，Worker 讀取真實 validated Fact Pack（8 KiB prompt 硬限制）、Gemini 文字轉 CEO JSON schema + Janus `validate_ceo_output`，再以 immutable GCS + PostgreSQL report/hash + authenticated API history readback 證明。`200 text` 或合成 schema canary 均不能替代。先前任何失敗／未知終態 request 不得重送；除非已有合法新 request，不能冒充 Owner 建立資料。
+
 ## 目前實證與 blocker
 
 - 上游 omniAgent 同 Gateway 候選來源 `b03e5f55...` 的三個 **CI impersonated** caller P0-V PASS：[omniAgent #38357794169](https://github.com/tommylin15/omniAgent/actions/runs/38357794169)。這不是 Janus 工作容器的 E2E。
