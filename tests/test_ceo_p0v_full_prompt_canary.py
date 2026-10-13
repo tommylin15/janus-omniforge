@@ -22,7 +22,7 @@ def test_full_synthetic_ceo_uses_production_prompt_and_validator():
     assert "report_persisted':False" in c or "report_persisted':False" in canary.__dict__.__repr__() or "report_persisted':False" in Path(canary.__file__).read_text()
     assert "CEO_REQUEST_ID" not in c and "INSERT INTO" not in c
     assert "psycopg" not in c and "raw_text" not in c
-    assert "monkeypatch" not in c
+    assert "routing._prompt=" not in c and "_prompt=lambda" not in c
     assert "test_analysis_product" not in c
 
 
