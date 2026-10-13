@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 22,
-  "reason": "2026-10-13 Janus P0-V complete 32KiB market-mart Gateway acceptance. Upstream omniAgent full CJK prompt live candidate #38389373782 PASS. Run full Python/Flutter CI, immutable GHCR 4 images plus opt-in dedicated CEO image only. No traffic change, no standard Jobs update, no paid model; actual CEO Job rollout separately gated by exact digest and existing release lease.",
+  "attempt": 23,
+  "reason": "P0-V 32KiB market-mart contract full-release retry after one comment-only CI assertion false-positive (prior 1106 PASS, 1 fixture assertion FAIL); no new model call, no Job update, no traffic promotion. Re-run full suite, then publish exact-SHA images.",
   "expected_runtime_changes": false,
   "ceo_gateway_pilot": true
 }
