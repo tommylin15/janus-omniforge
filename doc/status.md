@@ -1,5 +1,13 @@
 # Janus Current Status
 
+## 2026-10-13 獨立任務：Janus CEO → omniAgent P0-V Gemini Gateway（PARTIAL／IAM BLOCKED）
+
+本次只處理 CEO Gateway transport，不解除持股／Private Recalc 的暫停。Janus `main` 已新增 opt-in `OmniGatewayGeminiProvider`、原 request owner/request ID 綁定、Pydantic JSON 驗證及 immutable DB／GCS 契約保留、專用 Job 最小 additive env，以及安全 CI／IAM 唯讀驗證路徑。切片完整狀態與必要權限見 [CEO P0-V 文件](ceo-omniagent-p0v-integration.md)，剩餘 acceptance 見 [TODO](todo.md)。
+
+上游 omniAgent 0% Gateway 三身分 CI 模擬呼叫曾 PASS（[#38357794169](https://github.com/tommylin15/omniAgent/actions/runs/38357794169)），**不是 Janus runtime 成功**。本次 Janus 唯讀權限預檢 [#38362885044](https://github.com/tommylin15/janus-omniforge/actions/runs/38362885044) 在專用 market caller IAM policy 因 `iam.serviceAccounts.getIamPolicy` 拒絕，不能核實原 Mart SA 的 TokenCreator。未核實前**不得更新既有 CEO Job、執行真實 Gemini CEO request 或切正式流量**；原 Gateway 仍 0%，新舊 CEO job/routing 真實 E2E **NOT VERIFIED**。另需符合 Gateway 8KiB 輸入／512 token 輸出限制，並以真實 JSON + immutable receipt 驗收，不能把純文字 200 當 CEO PASS。
+
+---
+
 ## 2026-10-13 暫停交接：持股／手動重算 P0 PARTIAL（使用者要求暫停）
 
 **最新權威入口：[持股 P0 暫停交接／需求、證據及接續順序](p0-holdings-recalc-pause-handoff-2026-10-13.md)**；active acceptance 見 [TODO](todo.md)。使用者已明確要求停止執行，只整理文件；**不得自行啟動新的 Job／重算、GCP deployment、cleanup 或正式切流**，下一次收到繼續指示先 readback GitHub `main`／runtime。
