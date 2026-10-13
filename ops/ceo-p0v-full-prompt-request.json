@@ -15,5 +15,9 @@
   "owner_data": false,
   "database_write": false,
   "canonical_publication": false,
-  "formal_traffic_change": false
+  "formal_traffic_change": false,
+  "offline_preflight_run": 38401261530,
+  "prior_failure_diagnostic": 38395032007,
+  "acceptance_attempt": 2,
+  "execution_policy": "New synthetic request ID, not a retry: previous terminal execution failed with pre-provider KeyError, now offline real CEO validator PASS. Exactly one real Gemini Flash-Lite call allowed; no canonical or Owner data writes."
 }
