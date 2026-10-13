@@ -68,3 +68,56 @@ def test_full_prompt_unknown_sha_or_candidate_mismatch_never_dispatches(monkeypa
     with pytest.raises(RuntimeError,match="ceo_job_sha_mismatch"):
         canary.run_once("a"*40)
     assert not any(x.endswith(":run") for x in called)
+
+
+def test_full_fixture_offline_executes_real_prompt_and_ceo_validator():
+    """Runs the real 32KiB fixture and CEO/PIT guards before any model is called."""
+    from types import SimpleNamespace
+    sys.path.insert(0, str(ROOT))
+    sys.path.insert(0, str(ROOT / "jobs/intelligence-mart"))
+    # Stop immediately before network/identity-capable provider construction.
+    assert canary.CODE.count("router=ProviderRouter.from_environment") == 1
+    offline = canary.CODE.split("router=ProviderRouter.from_environment")[0]
+    context = {}
+    exec(compile(offline, "p0v_full_prompt_offline", "exec"), context)
+    baseline = context["baseline"]
+    request = context["request"]
+    hashes = context["hashes"]
+    prompt_bytes = context["prompt_bytes"]
+    assert len(baseline["specialists"]) == 5
+    assert all(isinstance(role["metrics"], dict) for role in baseline["specialists"])
+    assert 29500 <= prompt_bytes <= 32768
+    assert request["baseline_hash"] == baseline["content_hash"]
+
+    class NoNetworkRouter:
+        def invoke(self, role, fact_pack):
+            assert role == "ceo"
+            assert fact_pack["numeric_facts"] == {}
+            assert len(fact_pack["validated_specialists"]) == 5
+            assert fact_pack["validated_role_artifact_hashes"] == hashes
+            from intelligence_mart.provider_routing import _prompt
+            assert len(_prompt(role, fact_pack).encode("utf-8")) == prompt_bytes
+            output = {
+                "schema_version": "1.0.0", "role": "ceo",
+                "stance": "insufficient_data", "thesis": None,
+                "missing_information": ["測試來源不足"],
+                "confidence": 0.0, "evidence_ids": [],
+                "supporting_roles": [], "opposing_roles": [],
+                "contradictions": [], "bull_case": [], "bear_case": [],
+                "principal_risks": [], "watch_items": [],
+                "change_since_previous_analysis": [],
+                "validated_role_artifact_hashes": hashes,
+            }
+            return SimpleNamespace(
+                status="succeeded", output=output, attempts=[],
+                routing={"routing_hash": "local-only",
+                         "execution_providers": ["gemini"],
+                         "providers": ["gemini"],
+                         "execution_policy": "omniagent_gateway_gemini_lite_only"},
+                provider="gemini", model="gemini-3.5-flash-lite")
+
+    state, report, audit, reason = context["execute_ceo"](request, NoNetworkRouter())
+    assert state == "PARTIAL" and reason is None
+    assert report["output"]["validated_role_artifact_hashes"] == hashes
+    assert audit["route"] == ["gemini"]
+    assert report["publication_authority"] is False
