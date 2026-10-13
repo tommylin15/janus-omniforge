@@ -1,0 +1,13 @@
+{
+  "intent": "p0v-ceo-gateway-real-json-canary",
+  "approved": true,
+  "authorization": "2026-10-13 bounded independent Janus P0-V original user request, IAM owner grant and continue; release #38363636133 and runtime rollout #38367279461 PASS",
+  "release_sha": "b63bf350213fa7c3933724fa38006d8ab7b8033f",
+  "rollout_run": 38367279461,
+  "max_model_calls": 1,
+  "retries": 0,
+  "input_data": "synthetic_nonpersonal",
+  "database_writes": false,
+  "report_publication": false,
+  "scope": "real deployed CEO Job + Gateway Gemini Flash-Lite typed JSON, no user report"
+}
