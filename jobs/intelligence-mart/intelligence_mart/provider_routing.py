@@ -21,6 +21,8 @@ from pydantic import ValidationError
 from .ai_contract import OUTPUT_MODELS, PROVIDER_ROLES, SYSTEM_GUARDRAIL, content_hash, contract_bundle
 from .codex_worker import CodexCLIProvider, ProviderResult, PROVIDER_STAGE_VERSION
 
+OMNI_MARKET_PROMPT_MAX_BYTES = 32_768
+OMNI_GATEWAY_BODY_MAX_BYTES = 128 * 1024
 DEFAULT_ROUTE = ("codex_cli", "openrouter", "gemini")
 _ALLOWED_ROUTE = frozenset(DEFAULT_ROUTE)
 _FALLBACK_REASONS = frozenset({
@@ -275,7 +277,7 @@ class OpenRouterProvider:
             actual_model = None
             request = Request(
                 "https://openrouter.ai/api/v1/chat/completions",
-                data=json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode(),
+                data=body_bytes,
                 method="POST",
                 headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json",
                          "X-OpenRouter-Title": "Janus OmniForge"},
@@ -513,12 +515,13 @@ class OmniGatewayGeminiProvider:
             reason = "gateway_context_missing"
         else:
             prompt = _prompt(role, role_input)
-            if len(prompt.encode("utf-8")) > 8192:
+            if len(prompt.encode("utf-8")) > OMNI_MARKET_PROMPT_MAX_BYTES:
                 reason = "gateway_prompt_too_large"
             else:
                 body = {"project": "market-mart", "ownerId": self._owner_id,
                         "requestId": self._request_id, "prompt": prompt, "model": self.model}
-                if len(json.dumps(body, ensure_ascii=False).encode("utf-8")) > 12000:
+                body_bytes = json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+                if len(body_bytes) > OMNI_GATEWAY_BODY_MAX_BYTES:
                     reason = "gateway_prompt_too_large"
                 else:
                     try:
