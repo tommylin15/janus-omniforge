@@ -1,0 +1,75 @@
+name: Janus CEO actual runtime market-mart identity probe
+on:
+  push:
+    branches: [main]
+    paths: ['ops/ceo-omniagent-iam-probe-request.json']
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_RUN: "38363636133"
+      RELEASE_SHA: "b63bf350213fa7c3933724fa38006d8ab7b8033f"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require prior full-release image and explicit bounded identity probe
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          jq -e --arg sha "$RELEASE_SHA" --argjson run "$RELEASE_RUN" '
+            .intent=="p0v-ceo-identity-probe" and .approved==true and
+            .model_calls==0 and .db_writes==false and .job_update==false and
+            .release_sha==$sha and .release_run==$run
+          ' ops/ceo-omniagent-iam-probe-request.json >/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN" |
+            jq -e --arg sha "$RELEASE_SHA" '.head_sha==$sha and .conclusion=="success" and .path==".github/workflows/ghcr-publish-dev.yml"' >/dev/null
+          python -m pip install -q pytest==8.4.2
+          python -m pytest -q tests/test_ceo_omniagent_iam_probe.py tests/test_ceo_worker_template.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Lock existing Job and run single actual-service-identity non-LLM probe
+        id: probe
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py acquire
+          echo "held=true" >> "$GITHUB_OUTPUT"
+          python scripts/gcp/ghcr_release_lease.py assert
+          python scripts/gcp/ceo_omniagent_iam_probe.py > "$RUNNER_TEMP/ceo-identity-receipt.json"
+          jq -e '.status=="PASS" and .model_calls==0 and .database_writes==0 and .job_updated==false and .traffic_changed==false' "$RUNNER_TEMP/ceo-identity-receipt.json" >/dev/null
+          echo "actual_ceo_worker_market_identity=PASS" >> "$GITHUB_STEP_SUMMARY"
+          echo "no_model_call=true no_db_write=true no_job_update=true" >> "$GITHUB_STEP_SUMMARY"
+      - name: Release global lease only after all CEO executions are terminal
+        if: always() && steps.probe.outputs.held == 'true'
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py assert
+          python - <<'PY'
+          import sys
+          sys.path.insert(0,'scripts/gcp')
+          from ceo_worker_deploy import execution_fence
+          execution_fence()
+          PY
+          python scripts/gcp/ghcr_release_lease.py release --safe-to-release
+          echo "global_lease_safe_release=PASS" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: janus-ceo-identity-probe
+          path: ${{ runner.temp }}/ceo-identity-receipt.json
+          retention-days: 14
+          if-no-files-found: ignore
