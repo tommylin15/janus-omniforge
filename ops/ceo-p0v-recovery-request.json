@@ -1,0 +1,13 @@
+{
+  "intent": "p0v-failed-ceo-job-terminal-and-lease-recovery",
+  "source_run": 38392891696,
+  "owner_sha": "79c45986b36190a33e7fce198ed050d4ff2e6797",
+  "run_attempt": 1,
+  "read_only_gcp": true,
+  "force_unlock": false,
+  "allow_lease_release_only_after_terminal": true,
+  "model_calls": 0,
+  "job_updates": 0,
+  "traffic_changes": 0,
+  "scope": "Read existing Cloud Run CEO Job operation terminal and safe error class only; if all terminal release exact failed owner Github ref lease; otherwise stop and keep lock."
+}
