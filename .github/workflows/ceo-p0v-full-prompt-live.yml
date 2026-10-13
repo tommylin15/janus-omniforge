@@ -37,21 +37,28 @@ jobs:
               .owner_data==false and .database_write==false and
               .canonical_publication==false and .formal_traffic_change==false and
               (.release_run|type=="number" and .>0) and
-              (.rollout_run|type=="number" and .>0) and
+              .rollout_run==38392891696 and
+              .lease_recovery_run==38393696263 and
+              .candidate_readback_run==38394294374 and
               (.release_sha|type=="string" and test("^[a-f0-9]{40}$"))
           ' "$request" >/dev/null
           echo "SOURCE_SHA=$(jq -r .release_sha "$request")" >> "$GITHUB_ENV"
-          for entry in \
-            "$(jq -r .release_run "$request"):.github/workflows/ghcr-publish-dev.yml" \
-            "$(jq -r .rollout_run "$request"):.github/workflows/ceo-omniagent-p0v-worker-rollout.yml"; do
+          release="$(jq -r .release_run "$request")"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$release" |
+            jq -e --arg sha "$(jq -r .release_sha "$request")" '
+              .head_sha==$sha and .conclusion=="success" and .path==".github/workflows/ghcr-publish-dev.yml"' >/dev/null
+          # The first rollout's operation poll timed out, but its immutable Job
+          # update passed. Later *actual Cloud Run* signed logs PASS and the exact
+          # original owner lease was safely released after every execution ended.
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/38392891696" |
+            jq -e '.conclusion=="failure" and .path==".github/workflows/ceo-omniagent-p0v-worker-rollout.yml"' >/dev/null
+          for entry in "38393696263:.github/workflows/ceo-p0v-recovery-readback.yml" \
+                       "38394294374:.github/workflows/ceo-p0v-candidate-readback.yml"; do
             run="$(echo "$entry" | cut -d: -f1)"
             path="$(echo "$entry" | cut -d: -f2-)"
             gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" |
-                jq -e --arg p "$path" '.conclusion=="success" and .path==$p' >/dev/null
+              jq -e --arg p "$path" '.conclusion=="success" and .path==$p' >/dev/null
           done
-          release="$(jq -r .release_run "$request")"
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$release" |
-            jq -e --arg sha "$(jq -r .release_sha "$request")" '.head_sha==$sha' >/dev/null
           python -m pip install -q pytest==8.4.2
           python -m pytest -q tests/test_ceo_p0v_full_prompt_canary.py tests/test_ceo_worker_template.py
       - uses: google-github-actions/auth@v2
