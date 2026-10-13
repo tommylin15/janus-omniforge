@@ -1,0 +1,61 @@
+name: Janus P0-V full CEO prompt failed execution safe diagnostic
+on:
+  push:
+    branches: [main]
+    paths: ['ops/ceo-p0v-full-prompt-diagnostic-request.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify original one-time failed model run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="p0v-full-ceo-real-execution-failure-readonly" and
+            .source_run==38394571293 and .read_only==true and .model_calls==0 and
+            .job_updates==0' ops/ceo-p0v-full-prompt-diagnostic-request.json >/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/38394571293" |
+            jq -e '.conclusion=="failure" and .path==".github/workflows/ceo-p0v-full-prompt-live.yml"' >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Classify only safe worker exception and CEO validator result
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ceo-analysis" AND timestamp>="2026-10-13T12:04:00Z" AND timestamp<="2026-10-13T12:07:30Z"' \
+            --project=gen-lang-client-0593591102 --limit=100 --format=json > "$RUNNER_TEMP/one-model-logs.json"
+          python - "$RUNNER_TEMP/one-model-logs.json" <<'PY'
+          import json,sys,re
+          rows=json.load(open(sys.argv[1]))
+          raw=[]
+          for row in rows:
+              text=row.get('textPayload')
+              if isinstance(text,str):raw.extend(text.splitlines())
+              payload=row.get('jsonPayload')
+              if isinstance(payload,dict) and isinstance(payload.get('message'),str):
+                  raw.extend(payload['message'].splitlines())
+          classes=('RuntimeError','ValueError','AssertionError','NameError','KeyError','ModuleNotFoundError',
+                   'InvalidTextRepresentation','TimeoutError','HTTPError','JSONDecodeError')
+          issues=('invalid_structured_output','gateway_prompt_too_large','provider_unavailable',
+                  'gateway_contract_mismatch','output_validation_failed','auth_required',
+                  'synthetic_factpack_exceeded_32k_limit','synthetic_factpack_size_not_reached',
+                  'ceo_job_sha_mismatch','quota','unsupported_parameter',
+                  'full_ceo_json_not_accepted_unexpected_rejection')
+          seen_classes=sorted({c for c in classes if any(re.search(r'(?<![a-zA-Z])'+c+r'(?![a-zA-Z])',s) for s in raw)})
+          seen_reasons=sorted({c for c in issues if any(c in s for s in raw)})
+          print('worker_safe_exception_classes='+(','.join(seen_classes) if seen_classes else 'UNKNOWN'))
+          print('worker_safe_reasons='+(','.join(seen_reasons) if seen_reasons else 'UNKNOWN'))
+          print('bounded_log_records='+str(len(rows)))
+          if not rows:raise SystemExit('NO_WORKER_LOGS')
+          PY
+          echo "safe_readonly_diagnostic=true model_calls=0 no_job_mutation=true" >> "$GITHUB_STEP_SUMMARY"
