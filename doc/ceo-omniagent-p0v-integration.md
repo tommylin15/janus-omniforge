@@ -29,11 +29,22 @@ Janus 只接受 HTTP 200、`status=completed`、相同 project/ownerId/requestId
 - **真實 Flash-Lite 合成 JSON 回路 PASS**：[Janus #38367878942](https://github.com/tommylin15/janus-omniforge/actions/runs/38367878942) SUCCESS：部署後 CEO Job 透過 Janus ProviderRouter／market-mart 專用 SA → private omniAgent Gateway → Gemini Flash-Lite → Janus Pydantic CEO schema；五份 synthetic Specialist hash 回傳核對、單次呼叫、terminal/readback、global lease release PASS。這是**合成、非個人的最小 end-to-end**；未使用真實 Owner request、完整 Fact Pack／`validate_ceo_output`，未寫 PostgreSQL／GCS CEO 報告，不能宣稱正式 CEO report 功能 PASS。
 - **剩餘真正 CEO 業務 gate**：Owner 實際透過原 API/capability 發起**新**手動分析，Worker 讀取真實 validated Fact Pack（8 KiB prompt 硬限制）、Gemini 文字轉 CEO JSON schema + Janus `validate_ceo_output`，再以 immutable GCS + PostgreSQL report/hash + authenticated API history readback 證明。`200 text` 或合成 schema canary 均不能替代。先前任何失敗／未知終態 request 不得重送；除非已有合法新 request，不能冒充 Owner 建立資料。
 
-## 目前實證與 blocker
+## 2026-10-13 P0-V 隔離技術驗收總結與剩餘阻塞
 
-- 上游 omniAgent 同 Gateway 候選來源 `b03e5f55...` 的三個 **CI impersonated** caller P0-V PASS：[omniAgent #38357794169](https://github.com/tommylin15/omniAgent/actions/runs/38357794169)。這不是 Janus 工作容器的 E2E。
-- Janus [read-only 身分閘門 #38362885044](https://github.com/tommylin15/janus-omniforge/actions/runs/38362885044)：CEO Job／Gateway 相關 describe 階段可走，但 `janus-ci@...` 對專用 market service account **缺 `iam.serviceAccounts.getIamPolicy`**，無法讀證是否具 `roles/iam.serviceAccountTokenCreator`；真實 runtime impersonation **UNKNOWN／BLOCKED**。不得無授權擴 IAM。
-- **[Janus full GHCR Release #38363636133](https://github.com/tommylin15/janus-omniforge/actions/runs/38363636133) SUCCESS**：來源 `b63bf350213fa7c3933724fa38006d8ab7b8033f`，完整 Python／Flutter、原四 GHCR 公開映像、加建 CEO Gateway 專用 image（public digest／source SHA）全部 PASS。這只是**映像發布**，CEO Job 未替換。
-- **[Janus API 0% Candidate #38364240675](https://github.com/tommylin15/janus-omniforge/actions/runs/38364240675) SUCCESS**：使用相同來源 `b63bf350...` 的 immutable API digest，候選 `https://ghcr-b63bf350213f---janus-api-2oo7qbkd5q-uc.a.run.app`；health、401 未登入拒絕、`/app/build-id.txt` 來源 SHA、0%／舊版正式 100% 不變及共用部署鎖釋放均 PASS。此為 **API 0%-candidate，不是無 0% 機制的 CEO Cloud Run Job canary**；也未改固定 Preview／omniAgent Gateway 的正式流量。
-- **整體仍 PARTIAL／IAM BLOCKED**：沒有取得專用 market-mart caller 的 Service Account IAM policy，既有 CEO Worker impersonation 未驗證；無真實 CEO→Gateway→Gemini→immutable DB/GCS report receipt，不能擴張這些 PASS。
-- 此前持股 P0 停止指令維持生效；本文件不是整體上線完成聲明。
+**最小垂直鏈路與獨立技術元件 PASS，完整五角色 Fact Pack 容量與真實 Owner CEO 報告仍 PARTIAL。** 原持股／重算 P0 `PAUSED BY USER` 不變。
+
+| 關卡 | 真實驗收證據 | 判定 |
+| --- | --- | --- |
+| 原 Mart SA → 專用 market-mart IAM token → 0% private Gateway | [#38366833454](https://github.com/tommylin15/janus-omniforge/actions/runs/38366833454) | PASS，模型 0 次 |
+| 同來源 GHCR CEO Job-only rollout、postdeploy signed check、原四 Jobs／正式流量不動 | [#38363636133](https://github.com/tommylin15/janus-omniforge/actions/runs/38363636133)、[#38367279461](https://github.com/tommylin15/janus-omniforge/actions/runs/38367279461) | PASS |
+| 已部署 CEO Job → Gateway → Gemini Flash-Lite → Janus CEO Pydantic JSON/hashes | [#38367878942](https://github.com/tommylin15/janus-omniforge/actions/runs/38367878942) | PASS，**短合成輸入、沒有發表** |
+| 五個合成角色 → 完整 `execute_ceo`／`validate_ceo_output`，負向 evidence/numeric/hash/missing，隔離 CI PG Mart write → Owner API history／hash、隔離 | [#38372494501](https://github.com/tommylin15/janus-omniforge/actions/runs/38372494501)：73 tests PASS | PASS，**CI 專用資料庫** |
+| 真實 CEO Job 的 GCS acceptance 專用前綴 create/readback/delete ＋ 真實 PG JSONB non-writing roundtrip | 同 [#38372494501](https://github.com/tommylin15/janus-omniforge/actions/runs/38372494501)，Job terminal／共享 lease readback PASS | PASS，**無正式 PG／canonical 寫入** |
+| 完整五角色 Fact Pack 至 Gateway、512 token 真實長報告 | 同輪 `_prompt` 量測 **29,987 UTF-8 bytes**，上游只收 **8,192 bytes** | **BLOCKED**，Janus 正確拒絕發送 |
+| 真正 Owner capability → 新 request → model → full report → immutable GCS/PG → authenticated API | 五角色研究尚未就緒，且前一項容量未解 | **NOT VERIFIED** |
+
+**失敗與修正不可消失**：技術測試初版 [#38371376749](https://github.com/tommylin15/janus-omniforge/actions/runs/38371376749) 在既有 PG production Mart 身分執行 `CREATE TEMP` 時 **FAIL**；[#38372150846](https://github.com/tommylin15/janus-omniforge/actions/runs/38372150846) 讀到 `InsufficientPrivilege`。沒有為了測試加權限，改採 live PG JSONB readback，將表寫入／權限交由獨立 CI PostgreSQL 真實測試，最後 [#38372494501](https://github.com/tommylin15/janus-omniforge/actions/runs/38372494501) SUCCESS。不可把後者宣稱為 live Owner 私有表 write PASS。
+
+**下一個跨專案契約入口**：omniAgent Gateway 目前 `shared_gemini.ts` 使用 8 KiB prompt／12 KiB body／512 max output token；三個 consumer 共用該 P0-V path。由 omniAgent 專案討論且核准僅針對 `market-mart` 的明確 body／prompt／output 限額、單次費用／quota、租戶隔離與 0% candidate 負向測試；不直接增加其他 consumer 額度，不啟用 paid API，不截去 canonical facts。之後 Janus 需用完整 5-role Fact Pack 在實際 Gateway 受控候選通過一次完整 JSON schema／`validate_ceo_output`，以及 Owner 正式報告的獨立驗收，才可結案。
+
+**不得把** 0% API candidate [#38364240675](https://github.com/tommylin15/janus-omniforge/actions/runs/38364240675) 與 synthetic smoke 當正式上線；Janus API／omniAgent Gateway 正式流量、四個排程 Jobs、持股 P0 均未因此切換或恢復。
