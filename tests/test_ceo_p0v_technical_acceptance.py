@@ -87,18 +87,37 @@ def test_gateway_bounded_full_synthetic_factpack_does_not_mint_when_too_big(monk
     }
     prompt=routing._prompt("ceo",payload)
     count=len(prompt.encode("utf-8"))
-    print(f"p0v_representative_factpack_prompt_bytes={count};gateway_limit=8192")
+    print(f"p0v_representative_factpack_prompt_bytes={count};gateway_limit=32768")
+    from intelligence_mart.provider_routing import OMNI_MARKET_PROMPT_MAX_BYTES
+    assert 8192 < count <= OMNI_MARKET_PROMPT_MAX_BYTES
     monkeypatch.setenv("MART_CEO_GEMINI_ONLY","true")
     monkeypatch.setenv("MART_CEO_GEMINI_VIA_OMNIAGENT","true")
-    if count>8192:
-        provider=routing.OmniGatewayGeminiProvider(
-          gateway_url="https://gemini-p0v-b03e5f55---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app",
-          opener=lambda *a,**k: pytest.fail("oversized input must not reach gateway"),
-          token_provider=lambda: pytest.fail("oversized input must not mint credentials"))
-        provider.bind_context(owner_id="00000000-0000-4000-8000-000000000001",
-                              request_id="00000000-0000-4000-8000-000000000002")
-        result=provider.invoke("ceo",payload)
-        assert result.reason=="gateway_prompt_too_large"
-        assert result.output is None and result.status=="failed"
-    else:
-        assert count<=8192
+    received=[]
+    from io import BytesIO
+    def fake_gateway(request, timeout):
+        body=routing.json.loads(request.data)
+        assert body["prompt"]==prompt
+        assert len(body["prompt"].encode("utf-8"))==count
+        received.append(len(request.data))
+        return BytesIO(routing.json.dumps({
+            "status":"completed","project":body["project"],
+            "ownerId":body["ownerId"],"requestId":body["requestId"],
+            "model":body["model"],
+            "result":{"text":routing.json.dumps({
+              "schema_version":"1.0.0","role":"ceo","stance":"insufficient_data",
+              "thesis":None,"missing_information":["合成資料不具投資結論"],
+              "confidence":0.0,"evidence_ids":[],"supporting_roles":[],
+              "opposing_roles":[],"contradictions":[],"bull_case":[],
+              "bear_case":[],"principal_risks":[],"watch_items":[],
+              "change_since_previous_analysis":[],
+              "validated_role_artifact_hashes":payload["validated_role_artifact_hashes"]
+            },ensure_ascii=False)}
+        },ensure_ascii=False).encode())
+    provider=routing.OmniGatewayGeminiProvider(
+       gateway_url="https://ghcr-965b05542a35---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app",
+       opener=fake_gateway,token_provider=lambda:"synthetic-token")
+    provider.bind_context(owner_id="00000000-0000-4000-8000-000000000001",
+                          request_id="00000000-0000-4000-8000-000000000002")
+    result=provider.invoke("ceo",payload)
+    assert result.status=="succeeded" and result.output is not None
+    assert len(received)==1 and received[0] < 131072
