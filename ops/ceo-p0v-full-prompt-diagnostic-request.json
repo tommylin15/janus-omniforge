@@ -1,0 +1,8 @@
+{
+  "intent": "p0v-full-ceo-real-execution-failure-readonly",
+  "source_run": 38394571293,
+  "read_only": true,
+  "model_calls": 0,
+  "job_updates": 0,
+  "scope": "Safe error classification of exactly one terminal failed full 32 KiB CEO model execution; no replay and no provider content"
+}
