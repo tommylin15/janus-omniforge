@@ -37,7 +37,7 @@ def template(source, image, sha):
                  'MART_GEMINI_MODEL': 'gemini-3.5-flash-lite', 'MART_GEMINI_FREE_TIER_CONFIRMED': 'true',
                  'MART_CEO_GEMINI_VIA_OMNIAGENT': 'true',
                  # Pilot Gateway is 0%-traffic. Never point at disabled formal serving URL.
-                 'MART_OMNI_GATEWAY_URL': 'https://gemini-p0v-b03e5f55---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app',
+                 'MART_OMNI_GATEWAY_URL': 'https://ghcr-965b05542a35---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app',
                  'GCP_PROJECT_ID': PROJECT, 'MART_CODEX_TIMEOUT_SECONDS': '120', 'MART_CODEX_MAX_ATTEMPTS': '1'}
     container['env'] = [e for e in container.get('env', []) if e['name'] not in overrides and
                         e['name'] not in {'CEO_REQUEST_ID', 'MART_CODEX_AUTH_SECRET', 'MART_CODEX_AUTH_JSON', 'CODEX_ACCESS_TOKEN'}]
