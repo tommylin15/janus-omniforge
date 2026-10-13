@@ -8,6 +8,7 @@ import pytest
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/"scripts/gcp"))
 sys.path.insert(0,str(ROOT/"jobs/intelligence-mart"))
+sys.path.insert(0,str(ROOT/"tests"))
 spec=importlib.util.spec_from_file_location("ceo_p0v_technical_acceptance",ROOT/"scripts/gcp/ceo_p0v_technical_acceptance.py")
 mod=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
@@ -19,7 +20,8 @@ def test_live_acceptance_script_compiles_and_is_isolated():
     assert "execute_ceo(request,Router(output))" in code
     assert "('hash','evidence','numeric','missing')" in code
     assert "CREATE TEMP TABLE" in code and "ON COMMIT DROP" in code
-    assert "private.ceo_requests" not in code.split("# Real PG connectivity")[1].split("# Immutable GCS")[0]
+    assert "UPDATE private.ceo_requests" not in code
+    assert "INSERT INTO private.ceo_requests" not in code
     assert "ceo-p0v-technical" in code
     assert "acceptance/p0v-ceo-technical/" in code
     assert "store.delete(name)" in code
