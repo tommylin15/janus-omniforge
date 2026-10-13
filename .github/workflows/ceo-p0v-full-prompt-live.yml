@@ -1,0 +1,93 @@
+name: Janus CEO full 32KiB Gateway one-shot live contract
+on:
+  push:
+    branches: [main]
+    paths: ['ops/ceo-p0v-full-prompt-request.json']
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  live-ceo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GATEWAY: https://ghcr-965b05542a35---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require exact source, PASS rollout, Gateway tag and exactly one approved bounded model call
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          request="ops/ceo-p0v-full-prompt-request.json"
+          jq -e --arg gateway "$GATEWAY" '
+              .intent=="p0v-real-32k-five-role-ceo-contract" and
+              .approved==true and .gateway==$gateway and
+              .upstream_verified_run==38389373782 and
+              .model_calls_max==1 and .retries==0 and
+              .synthetic_five_role_input==true and
+              .owner_data==false and .database_write==false and
+              .canonical_publication==false and .formal_traffic_change==false and
+              (.release_run|type=="number" and .>0) and
+              (.rollout_run|type=="number" and .>0) and
+              (.release_sha|type=="string" and test("^[a-f0-9]{40}$"))
+          ' "$request" >/dev/null
+          echo "SOURCE_SHA=$(jq -r .release_sha "$request")" >> "$GITHUB_ENV"
+          for entry in \
+            "$(jq -r .release_run "$request"):.github/workflows/ghcr-publish-dev.yml" \
+            "$(jq -r .rollout_run "$request"):.github/workflows/ceo-omniagent-p0v-worker-rollout.yml"; do
+            run="$(echo "$entry" | cut -d: -f1)"
+            path="$(echo "$entry" | cut -d: -f2-)"
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" |
+                jq -e --arg p "$path" '.conclusion=="success" and .path==$p' >/dev/null
+          done
+          release="$(jq -r .release_run "$request")"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$release" |
+            jq -e --arg sha "$(jq -r .release_sha "$request")" '.head_sha==$sha' >/dev/null
+          python -m pip install -q pytest==8.4.2
+          python -m pytest -q tests/test_ceo_p0v_full_prompt_canary.py tests/test_ceo_worker_template.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: One genuine Janus CEO worker -> 32KiB market-mart Gateway -> Gemini -> full CEO validator
+        id: execute
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py acquire
+          echo "held=true" >> "$GITHUB_OUTPUT"
+          python scripts/gcp/ghcr_release_lease.py assert
+          python scripts/gcp/ceo_p0v_full_prompt_canary.py --release-sha "$SOURCE_SHA" > "$RUNNER_TEMP/p0v-full-prompt-receipt.json"
+          jq -e --arg sha "$SOURCE_SHA" '.status=="PASS" and .source_sha==$sha and
+             .model_calls==1 and .canonical_writes==0 and .owner_requests_created==0 and
+             .report_persisted==false and .traffic_changed==false' "$RUNNER_TEMP/p0v-full-prompt-receipt.json" >/dev/null
+          echo "p0v_full_ceo_real_32k_prompt=PASS; one model call, zero canonical writes" >> "$GITHUB_STEP_SUMMARY"
+      - name: Release global lease only after terminal CEO Job execution
+        if: always() && steps.execute.outputs.held == 'true'
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py assert
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, 'scripts/gcp')
+          from ceo_worker_deploy import execution_fence
+          execution_fence()
+          PY
+          python scripts/gcp/ghcr_release_lease.py release --safe-to-release
+          echo "lease_released_after_terminal=PASS" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p0v-janus-32k-real-ceo-contract
+          path: ${{ runner.temp }}/p0v-full-prompt-receipt.json
+          if-no-files-found: ignore
+          retention-days: 14
