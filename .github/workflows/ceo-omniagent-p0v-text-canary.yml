@@ -1,0 +1,76 @@
+name: Janus CEO Gateway one-shot real Flash-Lite structured text canary
+on:
+  push:
+    branches: [main]
+    paths: ['ops/ceo-omniagent-p0v-text-canary-request.json']
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_SHA: "b63bf350213fa7c3933724fa38006d8ab7b8033f"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require successful tested and deployed CEO image plus exact one-call approval
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          jq -e --arg sha "$RELEASE_SHA" '
+            .intent=="p0v-ceo-gateway-real-json-canary" and .approved==true and
+            .release_sha==$sha and .max_model_calls==1 and .retries==0 and
+            .input_data=="synthetic_nonpersonal" and .database_writes==false and
+            .report_publication==false and
+            (.rollout_run|type=="number" and .>0)' ops/ceo-omniagent-p0v-text-canary-request.json >/dev/null
+          rollout="$(jq -r .rollout_run ops/ceo-omniagent-p0v-text-canary-request.json)"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$rollout" |
+            jq -e '.conclusion=="success" and .path==".github/workflows/ceo-omniagent-p0v-worker-rollout.yml"' >/dev/null
+          python -m pip install -q pytest==8.4.2
+          python -m pytest -q tests/test_ceo_omniagent_text_canary.py tests/test_ceo_omniagent_iam_probe.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Execute only one Janus worker to private Gateway to Gemini JSON roundtrip
+        id: execute
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py acquire
+          echo "held=true" >> "$GITHUB_OUTPUT"
+          python scripts/gcp/ghcr_release_lease.py assert
+          python scripts/gcp/ceo_omniagent_text_canary.py > "$RUNNER_TEMP/ceo-real-json-canary.json"
+          jq -e '.status=="PASS" and .model_calls==1 and .database_writes==0 and .persisted_ceo_report==false and .traffic_changes==false' "$RUNNER_TEMP/ceo-real-json-canary.json" >/dev/null
+          echo "janus_worker_gateway_real_gemini_json=PASS" >> "$GITHUB_STEP_SUMMARY"
+          echo "Model attempt bound=1. Synthetic, non-personal, no CEO DB or publication. Full Owner report E2E is a separate gate." >> "$GITHUB_STEP_SUMMARY"
+      - name: Release common lease after proved terminal worker state
+        if: always() && steps.execute.outputs.held == 'true'
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py assert
+          python - <<'PY'
+          import sys
+          sys.path.insert(0,'scripts/gcp')
+          from ceo_worker_deploy import execution_fence
+          execution_fence()
+          PY
+          python scripts/gcp/ghcr_release_lease.py release --safe-to-release
+          echo "shared_lease_released=PASS" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: janus-ceo-real-gemini-json-canary
+          path: ${{ runner.temp }}/ceo-real-json-canary.json
+          if-no-files-found: ignore
+          retention-days: 14
