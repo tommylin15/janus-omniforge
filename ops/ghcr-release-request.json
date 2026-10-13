@@ -8,7 +8,8 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 20,
-  "reason": "2026-10-13 P0 owner-recalc privacy-safe exception class counters: initial full run #38323143320 had 1072 Python PASS, 2 test-only FAIL: new fake repository lacked private_mart_write_lock stub and pre-existing TAIEX test used UTC date.today instead of production Asia/Taipei clock at local midnight. Both test corrections committed e59a707 and 8968e6a, with no business logic changes. Re-run full Python/Flutter + 4 immutable GHCR images, no GCP runtime mutation. Prior observed queue worker failure remains FAIL; no claim fixed before new same-source real E2E.",
-  "expected_runtime_changes": false
+  "attempt": 21,
+  "reason": "2026-10-13 independent Janus CEO OmniAgent P0-V integration: full Python/Flutter CI and GHCR images + optional dedicated CEO image only; IAM getIamPolicy denied, runtime impersonation/Job/traffic promotion expressly blocked; holdings/private recalc remains paused. No live LLM calls.",
+  "expected_runtime_changes": false,
+  "ceo_gateway_pilot": true
 }
