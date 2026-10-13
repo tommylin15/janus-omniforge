@@ -17,8 +17,6 @@ jobs:
     environment: dev
     env:
       GH_TOKEN: ${{ github.token }}
-      RELEASE_RUN: "38363636133"
-      RELEASE_SHA: "b63bf350213fa7c3933724fa38006d8ab7b8033f"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -30,10 +28,16 @@ jobs:
         run: |
           set -Eeuo pipefail
           test "$GITHUB_REF" = refs/heads/main
+          export RELEASE_RUN="$(jq -r '.release_run' "$REQUEST")"
+          export RELEASE_SHA="$(jq -r '.release_sha' "$REQUEST")"
+          [[ "$RELEASE_RUN" =~ ^[0-9]+$ && "$RELEASE_SHA" =~ ^[a-f0-9]{40}$ ]]
+          echo "RELEASE_RUN=$RELEASE_RUN" >> "$GITHUB_ENV"
+          echo "RELEASE_SHA=$RELEASE_SHA" >> "$GITHUB_ENV"
           jq -e --arg sha "$RELEASE_SHA" --argjson release "$RELEASE_RUN" '
             .intent=="p0v-ceo-worker-gateway-pilot" and .approved==true and
             .release_sha==$sha and .release_run==$release and
             .traffic_promotion==false and .other_jobs_update==false and
+            .gateway_candidate=="https://ghcr-965b05542a35---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app" and
             (.identity_probe_run | type=="number" and .>0)
           ' "$REQUEST" >/dev/null
           probe="$(jq -r .identity_probe_run "$REQUEST")"
