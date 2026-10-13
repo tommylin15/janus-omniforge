@@ -42,7 +42,7 @@ signed.refresh(Request())
 if not signed.token:
     raise RuntimeError('identity_token_missing')
 probe = urllib.request.Request(
-    'https://gemini-p0v-b03e5f55---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app/v1/gemini/execute',
+    'https://ghcr-965b05542a35---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app/v1/gemini/execute',
     method='POST', data=b'{}',
     headers={'Authorization': 'Bearer ' + signed.token, 'Content-Type': 'application/json'},
 )
