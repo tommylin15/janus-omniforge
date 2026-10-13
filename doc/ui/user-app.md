@@ -1,12 +1,14 @@
 # Janus UI — User App 頁面
 
-更新：2026-10-11（四頁視覺優先）
+更新：2026-10-13（四頁視覺優先＋Ledger 手動重算可操作契約）
 
 ## 5. User App 頁面
 
 本文件只保存目前有效的 User App 資訊架構與狀態語意。被取代的「五個生成式 role／CIO」UI 不再是 active contract；現行研究架構為 persisted 五 specialist + authorized manual On-demand CEO。
 
 **2026-10-11 新的四頁視覺契約：**[A 正式 UI 規格](visual-first-four-pages.md)／[B 工程工作單](visual-first-delivery.md)。舊四 PNG 是最低基礎值、非圖表上限。各頁唯一 Hero，先圖與大數字後文字；當本次新順序與舊 PNG 不一致，以新規格為準，原資料治理不變。
+
+**持股 P0 暫停註記（2026-10-13）**：使用者暫停工程執行，最新實際 UI build 已上固定 Preview（來源 `50eda171...`，[發布 #38322429759](https://github.com/tommylin15/janus-omniforge/actions/runs/38322429759)）且 public readback PASS；但原 Private Recalculation queue E2E [#38274621290](https://github.com/tommylin15/janus-omniforge/actions/runs/38274621290) FAIL，Owner 390×844／desktop authenticated 截圖與手動重算成功結果尚未驗收。完整當次需求、缺失與再開工條件見 [P0 暫停交接](../p0-holdings-recalc-pause-handoff-2026-10-13.md)。本次僅更新文件，不再部署。
 
 ## 5.0 Final Visual Contract
 
@@ -168,7 +170,7 @@ YTD realized PnL 必須有明確 display semantics：
 - 當年度確定沒有已實現交易，且 canonical aggregate 可確認零值時，顯示 `0`；
 - 資料不足、projection／Private Mart 尚待刷新、valuation/as-of 不一致時，顯示 bounded empty／unavailable／pending，而不是用假 `0` 補值；
 - 已有已實現交易且 authoritative aggregate 可用時，不得長期缺值或完全不顯示。
-- 只有 YTD/Private Mart 確認為 pending／stale、確實需要重算時才顯示「重新計算損益」；正常可用、確認為 0 或單純 API unavailable 時不顯示。手動重算只建立 authenticated owner 的 queue request，Flutter 與 User API request thread 都不直接寫 canonical Private Mart。同 owner 在 `QUEUED/RUNNING/CANCEL_REQUESTED` 期間按鈕 disabled；終態為 `FAILED/CANCELLED` 時顯示 safe reason 與「重新嘗試」，不得讓使用者無限空等。
+- **2026-10-13 使用者最新要求（取代舊版條件）**：Authenticated Owner 在持股次頁**永遠看得到「重新計算損益」入口**，包括 YTD confirmed `0`、`available`、`pending/stale`；顯示入口≠可重複派送。手動重算只建立**目前登入 owner** 的 queue request，Flutter／User API request thread 不直接寫 canonical Private Mart。同 owner 的 `QUEUED/RUNNING/CANCEL_REQUESTED` 期間按鈕 disabled、提示進度且重複點擊不得建立第二筆；`FAILED/CANCELLED` 時顯示安全的錯誤原因與「重新嘗試」；`SUCCEEDED` 後重新讀回 PnL／ledger checkpoint。狀態輪詢一次最多一筆、單次 9 秒 bounded timeout，頁面不因後端慢回永久 spinner。未驗證 Private Worker 真實 E2E 前，只能標 UI implementation／Flutter regression PASS，**不得宣稱手動損益重算可正式使用**。
 - User UI 的 realized／unrealized PnL 與其報酬百分比統一採台股語意：獲利紅、虧損綠、0／未知中性；負值以減號顯示，不使用會計括號。
 
 ### 5.4.3 紀錄
