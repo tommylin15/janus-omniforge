@@ -1,0 +1,56 @@
+name: Janus P0-V bounded worker failure read-only diagnostic
+on:
+  push:
+    branches: [main]
+    paths: ['ops/ceo-p0v-tech-diagnostic-request.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fence exact prior failed run and narrow interval
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="p0v-technical-runtime-error-readonly" and .source_run==38371376749 and
+             .job=="janus-ceo-analysis" and .readonly==true' ops/ceo-p0v-tech-diagnostic-request.json >/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/38371376749" |
+            jq -e '.conclusion=="failure" and .path==".github/workflows/ceo-p0v-technical-acceptance.yml"' >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Filter worker stderr to allowlisted Python failure classes only
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ceo-analysis" AND timestamp>="2026-10-13T08:45:45Z" AND timestamp<="2026-10-13T08:51:30Z"' \
+            --project=gen-lang-client-0593591102 --limit=120 --format=json > "$RUNNER_TEMP/worker-logs.json"
+          python3 - "$RUNNER_TEMP/worker-logs.json" <<'PY'
+          import json,re,sys
+          rows=json.load(open(sys.argv[1]))
+          allowed=('PermissionError','RuntimeError','HTTPError','KeyError','AssertionError',
+                   'OperationalError','InsufficientPrivilege','UndefinedTable','InvalidTextRepresentation',
+                   'SyntaxError','ValueError','NotNullViolation','TypeError','AttributeError',
+                   'ProgrammingError','UniqueViolation','Forbidden','ServiceUnavailable')
+          seen=set()
+          for row in rows:
+              stream=row.get('textPayload') or ''
+              if not isinstance(stream,str):continue
+              for line in stream.splitlines():
+                  for name in allowed:
+                      if re.search(r'(?<![A-Za-z])'+name+r'(?![A-Za-z])',line):
+                          seen.add(name)
+          print("worker_error_classes="+(",".join(sorted(seen)) if seen else "UNKNOWN_NOT_VERIFIED"))
+          print("bounded_worker_logs_read="+str(len(rows)))
+          if not rows:raise SystemExit("CLOUD_LOGS_UNAVAILABLE")
+          PY
+          echo "read_only=true no_job_invocation=true no_replay=true" >> "$GITHUB_STEP_SUMMARY"
