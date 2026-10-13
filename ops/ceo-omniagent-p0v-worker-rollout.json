@@ -2,11 +2,12 @@
   "intent": "p0v-ceo-worker-gateway-pilot",
   "approved": true,
   "authorization": "2026-10-13 independent Janus P0-V owner-approved IAM grant and continuation; actual Mart identity proof run #38366833454 PASS",
-  "release_sha": "b63bf350213fa7c3933724fa38006d8ab7b8033f",
-  "release_run": 38363636133,
+  "release_sha": "a05f1f4dea80ecbd947829cd2751e1253f822cee",
+  "release_run": 38392237542,
   "identity_probe_run": 38366833454,
   "traffic_promotion": false,
   "other_jobs_update": false,
   "job": "janus-ceo-analysis",
-  "operation": "existing bounded Job immutable image update and no-model post-deploy signed Gateway canary"
+  "operation": "one-time bounded CEO Job digest-fenced upgrade to verified 32KiB market-only Gateway candidate plus signed no-model canary, no traffic or scheduled Job changes",
+  "gateway_candidate": "https://ghcr-965b05542a35---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app"
 }
