@@ -1,8 +1,9 @@
 {
   "intent": "p0v-full-ceo-real-execution-failure-readonly",
-  "source_run": 38394571293,
+  "source_run": 38401658102,
   "read_only": true,
   "model_calls": 0,
   "job_updates": 0,
-  "scope": "Safe error classification of exactly one terminal failed full 32 KiB CEO model execution; no replay and no provider content"
+  "scope": "Read exact one second terminated full CEO attempt safe exception name and preapproved failure code, zero model repeat.",
+  "time_window_utc": "2026-10-13T13:01:00Z/2026-10-13T13:09:00Z"
 }
