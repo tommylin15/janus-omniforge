@@ -88,7 +88,10 @@ def execute_ceo(request, router, *, should_stop=None):
              "provider": result.provider, "model": result.model, "publication_authority": False}
     if result.status != "succeeded" or result.output is None:
         allowed = {"invalid_structured_output", "quota", "auth_required", "free_tier_not_confirmed",
-                   "provider_unavailable", "transport_error", "timeout"}
+                   "provider_unavailable", "transport_error", "timeout",
+                    "gateway_identity_unavailable", "gateway_prompt_too_large",
+                    "gateway_contract_mismatch", "gateway_endpoint_unapproved",
+                    "gateway_context_missing", "gateway_route_disabled"
         return "BLOCKED", None, audit, result.reason if result.reason in allowed else "provider_unavailable"
     try:
         output = validate_ceo_output(result.output, baseline, has_previous=bool(request.get('previous_report')))
@@ -163,6 +166,10 @@ def run_ceo_request():
                        os.getenv('MART_CEO_GEMINI_ONLY', '').lower() != 'true' else nullcontext(None))
             with session as auth:
                 router = ProviderRouter.from_environment({'ai_provider_routing': request['route_json']}, bounded_manual=True)
+                # Bind the authenticated Janus owner and immutable request outside the Gemini prompt.
+                gateway = router.providers['gemini']
+                if hasattr(gateway, 'bind_context'):
+                    gateway.bind_context(owner_id=str(request['user_id']), request_id=str(request_id))
                 if auth is not None:
                     router.providers['codex_cli'].auth_error = auth.reason
                     router.providers['codex_cli'].auth_checkpoint = auth.checkpoint
