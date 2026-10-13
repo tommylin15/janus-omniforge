@@ -467,3 +467,24 @@ def test_omni_gateway_ambiguous_transport_failure_is_single_attempt(monkeypatch)
     assert result.status == "failed" and result.reason == "provider_unavailable"
     assert len(called) == 1 and len(result.attempts) == 1
     assert "unknown terminal" not in json.dumps(result.attempts)
+
+
+def test_omni_gateway_real_502_is_fail_closed_once_and_never_persists_error_body(monkeypatch):
+    from urllib.error import HTTPError
+    import intelligence_mart.provider_routing as routing
+    monkeypatch.setattr(routing, "_prompt", lambda *args: "合成安全測試")
+    received = []
+    def gateway(request, timeout):
+        received.append(request.data)
+        raise HTTPError(request.full_url, 502, "gemini_execution_failed", {},
+                        BytesIO(b'{"error":"private-model-text-must-not-appear"}'))
+    provider = _omni_test_provider(monkeypatch, gateway)
+    result = provider.invoke("ceo", {"fact_pack": {}})
+    assert len(received) == 1
+    assert result.status == "failed"
+    assert result.output is None and result.reason == "provider_unavailable"
+    assert len(result.attempts) == 1
+    assert result.attempts[0]["status"] == "failed"
+    assert result.attempts[0]["reason"] == "provider_unavailable"
+    assert "private-model-text" not in json.dumps(result.attempts)
+    assert "gemini_execution_failed" not in json.dumps(result.attempts)
