@@ -26,4 +26,7 @@ Janus 只接受 HTTP 200、`status=completed`、相同 project/ownerId/requestId
 
 - 上游 omniAgent 同 Gateway 候選來源 `b03e5f55...` 的三個 **CI impersonated** caller P0-V PASS：[omniAgent #38357794169](https://github.com/tommylin15/omniAgent/actions/runs/38357794169)。這不是 Janus 工作容器的 E2E。
 - Janus [read-only 身分閘門 #38362885044](https://github.com/tommylin15/janus-omniforge/actions/runs/38362885044)：CEO Job／Gateway 相關 describe 階段可走，但 `janus-ci@...` 對專用 market service account **缺 `iam.serviceAccounts.getIamPolicy`**，無法讀證是否具 `roles/iam.serviceAccountTokenCreator`；真實 runtime impersonation **UNKNOWN／BLOCKED**。不得無授權擴 IAM。
-- 此切片需繼續依 exact SHA CI、Release／部署及 live receipt 更新狀態。此前持股 P0 停止指令維持生效；本文件不是任何完成聲明。
+- **[Janus full GHCR Release #38363636133](https://github.com/tommylin15/janus-omniforge/actions/runs/38363636133) SUCCESS**：來源 `b63bf350213fa7c3933724fa38006d8ab7b8033f`，完整 Python／Flutter、原四 GHCR 公開映像、加建 CEO Gateway 專用 image（public digest／source SHA）全部 PASS。這只是**映像發布**，CEO Job 未替換。
+- **[Janus API 0% Candidate #38364240675](https://github.com/tommylin15/janus-omniforge/actions/runs/38364240675) SUCCESS**：使用相同來源 `b63bf350...` 的 immutable API digest，候選 `https://ghcr-b63bf350213f---janus-api-2oo7qbkd5q-uc.a.run.app`；health、401 未登入拒絕、`/app/build-id.txt` 來源 SHA、0%／舊版正式 100% 不變及共用部署鎖釋放均 PASS。此為 **API 0%-candidate，不是無 0% 機制的 CEO Cloud Run Job canary**；也未改固定 Preview／omniAgent Gateway 的正式流量。
+- **整體仍 PARTIAL／IAM BLOCKED**：沒有取得專用 market-mart caller 的 Service Account IAM policy，既有 CEO Worker impersonation 未驗證；無真實 CEO→Gateway→Gemini→immutable DB/GCS report receipt，不能擴張這些 PASS。
+- 此前持股 P0 停止指令維持生效；本文件不是整體上線完成聲明。
