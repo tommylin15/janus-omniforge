@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import json
 import math
 import os
+import re
 import time
 from typing import Any, Callable
 from urllib.error import HTTPError, URLError
@@ -432,6 +433,154 @@ class GeminiRoleProvider:
         return ProviderResult("failed", None, tuple(attempts), attempts[-1]["reason"] if attempts else "transport_error")
 
 
+
+class OmniGatewayGeminiProvider:
+    """One bounded CEO call through the private omniAgent P0-V text contract.
+
+    The Mart runtime impersonates only its approved market-mart caller identity;
+    the Gateway (not Janus) holds the Gemini API key. No automatic retry is safe
+    after an ambiguous provider/network outcome.
+    """
+    provider_id = "gemini"
+    transport = "omniagent_gateway"
+    model = "gemini-3.5-flash-lite"
+    _audience = "https://omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app"
+    _principal = "omniagent-codex-market-client@gen-lang-client-0593591102.iam.gserviceaccount.com"
+    _allowed_url = re.compile(
+        r"https://(?:[a-z0-9-]+---)?omniagent-agent-gateway-2oo7qbkd5q-uc\.a\.run\.app"
+    )
+
+    def __init__(self, *, gateway_url: str, opener: Callable[..., Any] = urlopen,
+                 token_provider: Callable[[], str] | None = None) -> None:
+        self.gateway_url = gateway_url.rstrip("/")
+        self.opener = opener
+        self.token_provider = token_provider or self._mint_token
+        self.timeout_seconds = 65
+        self.max_attempts = 1
+        self._owner_id: str | None = None
+        self._request_id: str | None = None
+
+    @classmethod
+    def from_environment(cls) -> "OmniGatewayGeminiProvider":
+        return cls(gateway_url=os.environ.get("MART_OMNI_GATEWAY_URL", ""))
+
+    @classmethod
+    def _mint_token(cls) -> str:
+        import google.auth
+        from google.auth import impersonated_credentials
+        from google.auth.transport.requests import Request as GoogleAuthRequest
+        source, _ = google.auth.default(scopes=["https://www.googleapis.com/auth/cloud-platform"])
+        target = impersonated_credentials.Credentials(
+            source_credentials=source, target_principal=cls._principal,
+            target_scopes=["https://www.googleapis.com/auth/cloud-platform"], lifetime=300,
+        )
+        credentials = impersonated_credentials.IDTokenCredentials(
+            target_credentials=target, target_audience=cls._audience, include_email=True,
+        )
+        credentials.refresh(GoogleAuthRequest())
+        if not credentials.token:
+            raise ValueError("gateway_identity_unavailable")
+        return credentials.token
+
+    def bind_context(self, *, owner_id: str, request_id: str) -> None:
+        from uuid import UUID
+        self._owner_id = str(UUID(str(owner_id)))
+        self._request_id = str(UUID(str(request_id)))
+
+    def preflight(self) -> dict[str, Any]:
+        enabled = _bool_env("MART_CEO_GEMINI_ONLY") and _bool_env("MART_CEO_GEMINI_VIA_OMNIAGENT")
+        valid_url = bool(self._allowed_url.fullmatch(self.gateway_url))
+        reason = None if enabled and valid_url else (
+            "gateway_route_disabled" if not enabled else "gateway_endpoint_unapproved"
+        )
+        return {"status": "ready" if reason is None else "blocked", "reason": reason,
+                "provider": self.provider_id, "transport": self.transport, "model": self.model,
+                "billing_mode": "gateway_free_tier_only", "paid_api_enabled": False,
+                "publication_authority": False}
+
+    def invoke(self, role: str, role_input: dict[str, Any]) -> ProviderResult:
+        if role != "ceo":
+            raise ValueError("omniAgent Gateway is CEO-only")
+        preflight = self.preflight()
+        if preflight["status"] != "ready":
+            return ProviderResult("failed", None, (), preflight["reason"])
+        reason: str | None = None
+        parsed: dict[str, Any] | None = None
+        invalid_fields: list[str] | None = None
+        usage: dict[str, int] | None = None
+        started = time.monotonic()
+        if not self._owner_id or not self._request_id:
+            reason = "gateway_context_missing"
+        else:
+            prompt = _prompt(role, role_input)
+            if len(prompt.encode("utf-8")) > 8192:
+                reason = "gateway_prompt_too_large"
+            else:
+                body = {"project": "market-mart", "ownerId": self._owner_id,
+                        "requestId": self._request_id, "prompt": prompt, "model": self.model}
+                if len(json.dumps(body, ensure_ascii=False).encode("utf-8")) > 12000:
+                    reason = "gateway_prompt_too_large"
+                else:
+                    try:
+                        token = self.token_provider()
+                        if not isinstance(token, str) or not token:
+                            raise ValueError("identity token unavailable")
+                    except Exception:
+                        reason = "gateway_identity_unavailable"
+                    if reason is None:
+                        try:
+                            request = Request(
+                                self.gateway_url + "/v1/gemini/execute",
+                                data=json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode(),
+                                method="POST",
+                                headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
+                            )
+                            with self.opener(request, timeout=self.timeout_seconds) as response:
+                                raw = response.read(65537)
+                            if len(raw) > 65536:
+                                raise ValueError("gateway reply too large")
+                            document = json.loads(raw)
+                            if (not isinstance(document, dict) or document.get("status") != "completed"
+                                    or document.get("project") != "market-mart"
+                                    or document.get("ownerId") != self._owner_id
+                                    or document.get("requestId") != self._request_id
+                                    or document.get("model") != self.model
+                                    or not isinstance(document.get("result"), dict)):
+                                raise ValueError("gateway response identity mismatch")
+                            answer = document["result"].get("text")
+                            if not isinstance(answer, str) or not answer.strip() or len(answer) > 32000:
+                                raise ValueError("gateway text invalid")
+                            observed = document.get("usage")
+                            if isinstance(observed, dict):
+                                usage = {key: value for key, value in observed.items()
+                                         if key in {"input_tokens", "output_tokens", "total_tokens"}
+                                         and type(value) is int and value >= 0} or None
+                            parsed = OUTPUT_MODELS[role].model_validate_json(answer).model_dump()
+                        except HTTPError as error:
+                            reason = _safe_reason(error.code)
+                        except (URLError, TimeoutError, OSError):
+                            reason = "provider_unavailable"
+                        except ValidationError as error:
+                            reason = "invalid_structured_output"
+                            allowed = set(OUTPUT_MODELS[role].model_fields)
+                            invalid_fields = sorted({
+                                str(item["loc"][0]) for item in error.errors(include_input=False)
+                                if item.get("loc") and str(item["loc"][0]) in allowed
+                            })[:12] or ["json"]
+                        except Exception:
+                            reason = "gateway_contract_mismatch"
+        attempt = _attempt(
+            role=role, provider=self.provider_id, transport=self.transport, model=self.model,
+            attempt=1 if reason != "gateway_context_missing" else 0,
+            duration_ms=round((time.monotonic() - started) * 1000),
+            status="succeeded" if parsed is not None else "failed", reason=reason,
+            usage=usage, actual_cost_usd=None, billing_mode="gateway_free_tier_only",
+            invalid_fields=invalid_fields,
+        )
+        return ProviderResult("succeeded" if parsed is not None else "failed",
+                              parsed, (attempt,), reason)
+
+
 class ProviderRouter:
     """Freeze one ordered provider route for an execution and audit every fallback."""
 
@@ -462,12 +611,15 @@ class ProviderRouter:
     def from_environment(cls, request_options: dict[str, Any] | None = None,
                          *, codex_provider: CodexCLIProvider | None = None,
                          bounded_manual: bool = False) -> "ProviderRouter":
-        load_remote_credentials_from_runtime_bundle()
+        use_gateway = bounded_manual and _bool_env("MART_CEO_GEMINI_VIA_OMNIAGENT", False)
+        if not use_gateway:
+            load_remote_credentials_from_runtime_bundle()
         codex = codex_provider or CodexCLIProvider.from_environment()
         providers = {
             "codex_cli": codex,
             "openrouter": OpenRouterProvider.from_environment(),
-            "gemini": GeminiRoleProvider.from_environment(),
+            "gemini": (OmniGatewayGeminiProvider.from_environment() if use_gateway
+                       else GeminiRoleProvider.from_environment()),
         }
         routing = route_snapshot(request_options)
         if 'models' in routing:
@@ -481,6 +633,8 @@ class ProviderRouter:
                 providers['gemini'].model = 'gemini-3.5-flash-lite'
                 routing['execution_providers'] = ['gemini']
                 routing['execution_policy'] = 'gemini_lite_only'
+                if use_gateway:
+                    routing['execution_policy'] = 'omniagent_gateway_gemini_lite_only'
         return cls(providers, routing)
 
     def preflight(self) -> dict[str, Any]:
