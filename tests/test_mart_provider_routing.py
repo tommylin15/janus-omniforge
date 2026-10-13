@@ -300,7 +300,7 @@ def test_omni_gateway_is_opt_in_and_does_not_load_local_gemini_key(monkeypatch):
     monkeypatch.setenv("MART_CEO_GEMINI_ONLY", "true")
     monkeypatch.setenv("MART_CEO_GEMINI_VIA_OMNIAGENT", "true")
     monkeypatch.setenv("MART_OMNI_GATEWAY_URL",
-        "https://gemini-p0v-b03e5f55---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app")
+        "https://ghcr-965b05542a35---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app")
     monkeypatch.setenv("JANUS_MART_POSTGRES_BUNDLE", '{"gemini_api_key":"must-not-be-loaded"}')
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     router = ProviderRouter.from_environment({}, bounded_manual=True)
@@ -326,7 +326,7 @@ def _omni_test_provider(monkeypatch, opener, token_provider=lambda: "test-id-tok
     monkeypatch.setenv("MART_CEO_GEMINI_ONLY", "true")
     monkeypatch.setenv("MART_CEO_GEMINI_VIA_OMNIAGENT", "true")
     provider = OmniGatewayGeminiProvider(
-        gateway_url="https://gemini-p0v-b03e5f55---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app",
+        gateway_url="https://ghcr-965b05542a35---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app",
         opener=opener, token_provider=token_provider,
     )
     provider.bind_context(owner_id="00000000-0000-4000-8000-000000000001",
