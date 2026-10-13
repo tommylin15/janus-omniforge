@@ -69,7 +69,7 @@ jobs:
           python -m pip install --disable-pip-version-check -q -r jobs/ingestion-core/requirements.lock
           python -m pip install --disable-pip-version-check -q -r jobs/intelligence-mart/requirements.lock
           python -m pip install --disable-pip-version-check -q -r services/api/requirements.lock
-      - name: Five-role schema/PIT/fact, PostgreSQL ACL and owner API history tests
+      - name: Five-role schema/PIT/fact, isolated PostgreSQL write and owner API history tests
         run: |
           set -Eeuo pipefail
           python -m pytest -q -s \
@@ -85,7 +85,7 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Actual deployed Mart worker non-canonical GCS and PG temp acceptance
+      - name: Actual deployed Mart worker GCS immutable and PG non-writing JSON acceptance
         id: accept
         run: |
           set -Eeuo pipefail
@@ -94,11 +94,11 @@ jobs:
           python scripts/gcp/ghcr_release_lease.py assert
           python scripts/gcp/ceo_p0v_technical_acceptance.py > "$RUNNER_TEMP/p0v-tech-live-receipt.json"
           jq -e '.status=="PASS" and .synthetic_roles==5 and
-              .live_pg_transactional_temp==true and
+              .live_pg_json_roundtrip==true and
               .live_gcs_isolated_immutable_readback==true and
               .canonical_write==false and .real_owner_data==false and
               .model_calls==0' "$RUNNER_TEMP/p0v-tech-live-receipt.json" >/dev/null
-          echo "actual_worker_isolated_gcs_pg=PASS; no owner or canonical write" >> "$GITHUB_STEP_SUMMARY"
+          echo "actual_worker_gcs_immutable_and_pg_json=PASS; no owner or canonical write" >> "$GITHUB_STEP_SUMMARY"
           echo "Prior real model JSON receipt PASS; genuine five-model Owner publication remains NOT VERIFIED." >> "$GITHUB_STEP_SUMMARY"
       - name: Release global lock after execution fence confirms terminal
         if: always() && steps.accept.outputs.held == 'true'
