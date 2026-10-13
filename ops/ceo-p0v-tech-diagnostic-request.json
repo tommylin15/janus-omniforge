@@ -1,0 +1,8 @@
+{
+  "intent": "p0v-technical-runtime-error-readonly",
+  "source_run": 38371376749,
+  "job": "janus-ceo-analysis",
+  "readonly": true,
+  "window_utc": "2026-10-13T08:45:45Z/2026-10-13T08:51:30Z",
+  "purpose": "diagnose terminal isolated P0-V tech runtime failure with allowlisted exception names only; never rerun unknown workload"
+}
