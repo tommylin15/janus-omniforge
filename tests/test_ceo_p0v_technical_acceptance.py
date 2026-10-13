@@ -19,7 +19,8 @@ def test_live_acceptance_script_compiles_and_is_isolated():
     compile(code,"ceo_p0v_live_contract","exec")
     assert "execute_ceo(request,Router(output))" in code
     assert "('hash','evidence','numeric','missing')" in code
-    assert "CREATE TEMP TABLE" in code and "ON COMMIT DROP" in code
+    assert "SELECT %s::jsonb AS report" in code
+    assert "CREATE TEMP TABLE" not in code
     assert "UPDATE private.ceo_requests" not in code
     assert "INSERT INTO private.ceo_requests" not in code
     assert "p0v-ceo-technical" in code
@@ -50,6 +51,7 @@ def test_canary_job_only_args_override_and_source_sha(monkeypatch):
     monkeypatch.setattr(mod,"terminal",lambda v:True)
     value=mod.run_once()
     assert value["status"]=="PASS" and value["canonical_write"] is False
+    assert value["live_pg_json_roundtrip"] is True
     run=[body for name,body,method in calls if name.endswith(":run")]
     assert len(run)==1 and run[0]=={"overrides":{"taskCount":1,"timeout":"240s",
       "containerOverrides":[{"name":"ceo","args":["-c",mod.PROBE_CODE]}]}}
