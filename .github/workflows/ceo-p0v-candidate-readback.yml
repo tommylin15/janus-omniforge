@@ -1,0 +1,69 @@
+name: Janus CEO post-rollout signed receipt readback only
+on:
+  push:
+    branches: [main]
+    paths: ['ops/ceo-p0v-candidate-readback-request.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Limit readback to failed CI wait and known new immutable release
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="p0v-signed-canary-after-timeout-readback" and
+            .source_run==38392891696 and .release_sha=="a05f1f4dea80ecbd947829cd2751e1253f822cee" and
+            .read_only==true and .model_calls==0 and .job_updates==0' \
+            ops/ceo-p0v-candidate-readback-request.json >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Assert current CEO immutable image, env and run identity without revealing secrets
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import sys
+          sys.path.insert(0,'scripts/gcp')
+          from ghcr_jobs_rollout import cloud,ROOT
+          obj=cloud(ROOT+'/jobs/janus-ceo-analysis')
+          task=obj['template']['template']
+          env={e['name']:e.get('value') for e in task['containers'][0].get('env',[]) if 'value' in e}
+          assert obj.get('labels',{}).get('janus-git-sha')=='a05f1f4dea80ecbd947829cd2751e1253f822cee'
+          assert task['serviceAccount']=='intelligence-mart@gen-lang-client-0593591102.iam.gserviceaccount.com'
+          assert task.get('maxRetries',0)==0 and not obj.get('reconciling')
+          assert env.get('MART_OMNI_GATEWAY_URL')=='https://ghcr-965b05542a35---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app'
+          assert env.get('MART_CEO_GEMINI_ONLY')=='true' and env.get('MART_CEO_GEMINI_VIA_OMNIAGENT')=='true'
+          print('ceo_release_sha=PASS gateway_candidate_url=PASS real_mart_identity=PASS retries_zero=PASS')
+          PY
+      - name: Verify signed preflight on actual Cloud Run execution by structured log marker
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ceo-analysis" AND timestamp>="2026-10-13T11:49:45Z" AND timestamp<="2026-10-13T11:56:10Z"' \
+            --project=gen-lang-client-0593591102 --limit=100 --format=json > "$RUNNER_TEMP/ceo-readback.json"
+          python - "$RUNNER_TEMP/ceo-readback.json" <<'PY'
+          import json,sys
+          logs=json.load(open(sys.argv[1]))
+          matches=[]
+          for row in logs:
+              text=row.get('textPayload')
+              if not isinstance(text,str):continue
+              try: body=json.loads(text)
+              except (ValueError,TypeError):continue
+              if body.get('kind')!='janus_ceo_gateway_identity_preflight':continue
+              if (body.get('status')=='PASS' and body.get('provider_calls')==0
+                  and body.get('database_writes')==0):
+                  matches.append(row.get('resource',{}).get('labels',{}).get('execution_name','unknown'))
+          print('bounded_logs='+str(len(logs)))
+          print('signed_preflight_success_count='+str(len(matches)))
+          print('successful_execution_labels='+repr(matches[:3]))
+          if not matches:raise SystemExit('SIGNED_CANARY_RESULT_NOT_VERIFIED')
+          PY
+          echo "real_ceo_signed_gateway_canary=PASS_from_read_only_execution_logs" >> "$GITHUB_STEP_SUMMARY"
