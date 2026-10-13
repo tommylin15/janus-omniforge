@@ -46,18 +46,23 @@ jobs:
         run: |
           set -Eeuo pipefail
           umask 077
-          gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ceo-analysis" AND timestamp>="2026-10-13T11:49:45Z" AND timestamp<="2026-10-13T11:56:10Z"' \
+          gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ceo-analysis" AND timestamp>="2026-10-13T11:49:45Z" AND timestamp<="2026-10-13T12:08:00Z"' \
             --project=gen-lang-client-0593591102 --limit=100 --format=json > "$RUNNER_TEMP/ceo-readback.json"
           python - "$RUNNER_TEMP/ceo-readback.json" <<'PY'
           import json,sys
           logs=json.load(open(sys.argv[1]))
           matches=[]
           for row in logs:
-              text=row.get('textPayload')
-              if not isinstance(text,str):continue
-              try: body=json.loads(text)
-              except (ValueError,TypeError):continue
-              if body.get('kind')!='janus_ceo_gateway_identity_preflight':continue
+              body=row.get('jsonPayload')
+              if not isinstance(body,dict) or body.get('kind')!='janus_ceo_gateway_identity_preflight':
+                  value=row.get('textPayload')
+                  if not isinstance(value,str):
+                      payload=row.get('jsonPayload')
+                      value=payload.get('message') if isinstance(payload,dict) else None
+                  if not isinstance(value,str):continue
+                  try:body=json.loads(value)
+                  except (ValueError,TypeError):continue
+              if not isinstance(body,dict) or body.get('kind')!='janus_ceo_gateway_identity_preflight':continue
               if (body.get('status')=='PASS' and body.get('provider_calls')==0
                   and body.get('database_writes')==0):
                   matches.append(row.get('resource',{}).get('labels',{}).get('execution_name','unknown'))
