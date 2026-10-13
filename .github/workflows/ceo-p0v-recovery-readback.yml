@@ -1,0 +1,79 @@
+name: Janus P0-V failed CEO canary terminal readback and fenced lease recovery
+on:
+  push:
+    branches: [main]
+    paths: ['ops/ceo-p0v-recovery-request.json']
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  inspect-recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact failed owner and bounded readback/release intent
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="p0v-failed-ceo-job-terminal-and-lease-recovery" and
+             .source_run==38392891696 and .owner_sha=="79c45986b36190a33e7fce198ed050d4ff2e6797" and
+             .run_attempt==1 and .read_only_gcp==true and .force_unlock==false and
+             .allow_lease_release_only_after_terminal==true and .model_calls==0 and
+             .job_updates==0 and .traffic_changes==0' ops/ceo-p0v-recovery-request.json >/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/38392891696" |
+            jq -e '.conclusion=="failure" and .run_attempt==1 and
+               .head_sha=="79c45986b36190a33e7fce198ed050d4ff2e6797"' >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read existing CEO job executions and bounded safe error classes
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ceo-analysis" AND timestamp>="2026-10-13T11:49:00Z" AND timestamp<="2026-10-13T12:15:00Z"' \
+            --project=gen-lang-client-0593591102 --limit=80 --format=json > "$RUNNER_TEMP/ceo-logs.json"
+          python3 - "$RUNNER_TEMP/ceo-logs.json" <<'PY'
+          import json,sys,re
+          records=json.load(open(sys.argv[1]))
+          names=('PermissionError','RuntimeError','HTTPError','TimeoutError','SSLError','ConnectionError',
+            'OperationalError','InsufficientPrivilege','ValueError','AttributeError','ModuleNotFoundError',
+            'FailedPrecondition','DeadlineExceeded','QuotaExceeded')
+          hits=set()
+          for row in records:
+              text=row.get('textPayload')
+              if not isinstance(text,str):continue
+              for key in names:
+                  if re.search(r'(?<![A-Za-z])'+key+r'(?![A-Za-z])',text):hits.add(key)
+          print('safe_error_classes='+','.join(sorted(hits)) if hits else 'safe_error_classes=none_detected')
+          print('bounded_records_read='+str(len(records)))
+          PY
+      - name: Validate all CEO executions terminal then release only original owner lease
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import sys
+          sys.path.insert(0,'scripts/gcp')
+          from ceo_worker_deploy import execution_fence
+          from ghcr_jobs_rollout import ROOT,cloud,terminal
+          path=ROOT+'/jobs/janus-ceo-analysis/executions?pageSize=100'
+          result=cloud(path)
+          states=[(e.get('name','').split('/')[-1], e.get('runningCount',0),
+                   [c.get('state') for c in e.get('conditions',[]) if c.get('type')=='Completed'])
+                  for e in result.get('executions',[])[:5]]
+          print('bounded_latest_states='+repr(states))
+          execution_fence()
+          print('all_ceo_executions_terminal=PASS')
+          PY
+          python scripts/gcp/ghcr_release_lease.py release \
+            --repo "$GITHUB_REPOSITORY" --run-id 38392891696 --run-attempt 1 \
+            --sha 79c45986b36190a33e7fce198ed050d4ff2e6797 --safe-to-release
+          echo "original_owner_lease_fenced_release=PASS; no new Job or model call" >> "$GITHUB_STEP_SUMMARY"
