@@ -18,7 +18,7 @@ def test_probe_is_no_llm_and_no_database_path():
     assert "'invalid_request'" in code
     assert "target_audience=audience, include_email=True" in code
     assert "omniagent-codex-market-client@" in code
-    assert "gemini-p0v-b03e5f55---" in code
+    assert "ghcr-965b05542a35---" in code
     assert "generateContent" not in code
     assert "GEMINI_API_KEY" not in code
     assert "CEO_REQUEST_ID" not in code
