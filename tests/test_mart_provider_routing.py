@@ -293,3 +293,143 @@ def test_missing_credentials_block_without_network_calls(provider_class):
     assert provider.preflight()["reason"] == "auth_required"
     result = provider.invoke("ceo", {})
     assert result.status == "failed" and result.reason == "auth_required" and result.attempts == ()
+
+
+def test_omni_gateway_is_opt_in_and_does_not_load_local_gemini_key(monkeypatch):
+    from intelligence_mart.provider_routing import OmniGatewayGeminiProvider
+    monkeypatch.setenv("MART_CEO_GEMINI_ONLY", "true")
+    monkeypatch.setenv("MART_CEO_GEMINI_VIA_OMNIAGENT", "true")
+    monkeypatch.setenv("MART_OMNI_GATEWAY_URL",
+        "https://gemini-p0v-b03e5f55---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app")
+    monkeypatch.setenv("JANUS_MART_POSTGRES_BUNDLE", '{"gemini_api_key":"must-not-be-loaded"}')
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    router = ProviderRouter.from_environment({}, bounded_manual=True)
+    assert isinstance(router.providers["gemini"], OmniGatewayGeminiProvider)
+    assert router.routing["execution_policy"] == "omniagent_gateway_gemini_lite_only"
+    assert router.routing["effective_providers"] == ["gemini"]
+    assert "GEMINI_API_KEY" not in __import__("os").environ
+    assert router.providers["gemini"].preflight()["status"] == "ready"
+
+
+def test_omni_gateway_rejects_unapproved_endpoint_and_disabled_route(monkeypatch):
+    from intelligence_mart.provider_routing import OmniGatewayGeminiProvider
+    monkeypatch.setenv("MART_CEO_GEMINI_ONLY", "true")
+    monkeypatch.delenv("MART_CEO_GEMINI_VIA_OMNIAGENT", raising=False)
+    provider = OmniGatewayGeminiProvider(gateway_url="https://untrusted.example.net")
+    assert provider.preflight()["reason"] == "gateway_route_disabled"
+    monkeypatch.setenv("MART_CEO_GEMINI_VIA_OMNIAGENT", "true")
+    assert provider.preflight()["reason"] == "gateway_endpoint_unapproved"
+
+
+def _omni_test_provider(monkeypatch, opener, token_provider=lambda: "test-id-token"):
+    from intelligence_mart.provider_routing import OmniGatewayGeminiProvider
+    monkeypatch.setenv("MART_CEO_GEMINI_ONLY", "true")
+    monkeypatch.setenv("MART_CEO_GEMINI_VIA_OMNIAGENT", "true")
+    provider = OmniGatewayGeminiProvider(
+        gateway_url="https://gemini-p0v-b03e5f55---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app",
+        opener=opener, token_provider=token_provider,
+    )
+    provider.bind_context(owner_id="00000000-0000-4000-8000-000000000001",
+                          request_id="00000000-0000-4000-8000-000000000002")
+    return provider
+
+
+def test_omni_gateway_validates_identity_and_ceo_json_before_success(monkeypatch):
+    import intelligence_mart.provider_routing as routing
+    monkeypatch.setattr(routing, "_prompt", lambda *args: "safe bounded evidence")
+    calls = []
+    def fake_call(request, timeout):
+        calls.append((request, timeout))
+        body = json.loads(request.data)
+        assert body["project"] == "market-mart"
+        assert body["ownerId"] == "00000000-0000-4000-8000-000000000001"
+        assert body["requestId"] == "00000000-0000-4000-8000-000000000002"
+        assert body["prompt"] == "safe bounded evidence"
+        return BytesIO(json.dumps({
+            "status": "completed", "project": body["project"],
+            "ownerId": body["ownerId"], "requestId": body["requestId"],
+            "model": body["model"], "result": {"text": json.dumps(_output())},
+            "usage": {"input_tokens": 5, "output_tokens": 6, "arbitrary": "private"},
+        }).encode())
+    provider = _omni_test_provider(monkeypatch, fake_call)
+    result = provider.invoke("ceo", {"fact_pack": {}})
+    assert result.status == "succeeded" and result.output == _output()
+    assert result.attempts[0]["transport"] == "omniagent_gateway"
+    assert result.attempts[0]["actual_cost_usd"] is None
+    assert result.attempts[0]["usage"] == {"input_tokens": 5, "output_tokens": 6}
+    assert len(calls) == 1 and calls[0][1] == 65
+    assert calls[0][0].get_header("Authorization") == "Bearer test-id-token"
+    assert "test-id-token" not in json.dumps(result.attempts)
+    assert calls[0][0].full_url.endswith("/v1/gemini/execute")
+
+
+@pytest.mark.parametrize("field,value", [
+    ("project", "omniagent"), ("ownerId", "00000000-0000-4000-8000-000000000003"),
+    ("requestId", "00000000-0000-4000-8000-000000000004"),
+    ("model", "gemini-3.5-flash"),
+    ("status", "failed"), ("result", {"text": ""}),
+])
+def test_omni_gateway_forged_or_empty_response_is_never_published(monkeypatch, field, value):
+    import intelligence_mart.provider_routing as routing
+    monkeypatch.setattr(routing, "_prompt", lambda *args: "bounded")
+    reply = {"status": "completed", "project": "market-mart",
+             "ownerId": "00000000-0000-4000-8000-000000000001",
+             "requestId": "00000000-0000-4000-8000-000000000002",
+             "model": "gemini-3.5-flash-lite", "result": {"text": json.dumps(_output())}}
+    reply[field] = value
+    provider = _omni_test_provider(monkeypatch,
+        lambda *a, **k: BytesIO(json.dumps(reply).encode()))
+    result = provider.invoke("ceo", {})
+    assert result.status == "failed" and result.output is None
+    assert result.reason == "gateway_contract_mismatch"
+
+
+def test_omni_gateway_schema_failure_stays_blocked_and_redacted(monkeypatch):
+    import intelligence_mart.provider_routing as routing
+    monkeypatch.setattr(routing, "_prompt", lambda *args: "bounded")
+    reply = {"status": "completed", "project": "market-mart",
+             "ownerId": "00000000-0000-4000-8000-000000000001",
+             "requestId": "00000000-0000-4000-8000-000000000002",
+             "model": "gemini-3.5-flash-lite",
+             "result": {"text": json.dumps({**_output(), "confidence": "private-content"})}}
+    provider = _omni_test_provider(monkeypatch,
+        lambda *a, **k: BytesIO(json.dumps(reply).encode()))
+    result = provider.invoke("ceo", {})
+    assert result.reason == "invalid_structured_output"
+    assert result.output is None
+    assert "confidence" in result.attempts[0]["invalid_fields"]
+    assert "private-content" not in json.dumps(result.attempts)
+
+
+def test_omni_gateway_oversized_prompt_never_sends_or_mints_token(monkeypatch):
+    import intelligence_mart.provider_routing as routing
+    monkeypatch.setattr(routing, "_prompt", lambda *args: "x" * 8193)
+    provider = _omni_test_provider(monkeypatch,
+        lambda *a, **kw: pytest.fail("no HTTP"), token_provider=lambda: pytest.fail("no token"))
+    result = provider.invoke("ceo", {"fact_pack": {}})
+    assert result.reason == "gateway_prompt_too_large"
+    assert len(result.attempts) == 1
+
+
+def test_omni_gateway_missing_context_and_identity_failure_do_not_send(monkeypatch):
+    import intelligence_mart.provider_routing as routing
+    monkeypatch.setattr(routing, "_prompt", lambda *args: "bounded")
+    provider = _omni_test_provider(monkeypatch,
+        lambda *a, **kw: pytest.fail("no HTTP"), token_provider=lambda: (_ for _ in ()).throw(ValueError("secret")))
+    assert provider.invoke("ceo", {}).reason == "gateway_identity_unavailable"
+    provider._owner_id = None
+    assert provider.invoke("ceo", {}).reason == "gateway_context_missing"
+
+
+def test_omni_gateway_ambiguous_transport_failure_is_single_attempt(monkeypatch):
+    import intelligence_mart.provider_routing as routing
+    monkeypatch.setattr(routing, "_prompt", lambda *args: "bounded")
+    called = []
+    def failed(*args, **kwargs):
+        called.append(True)
+        raise TimeoutError("unknown terminal")
+    provider = _omni_test_provider(monkeypatch, failed)
+    result = provider.invoke("ceo", {})
+    assert result.status == "failed" and result.reason == "provider_unavailable"
+    assert len(called) == 1 and len(result.attempts) == 1
+    assert "unknown terminal" not in json.dumps(result.attempts)
