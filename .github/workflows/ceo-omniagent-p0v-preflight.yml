@@ -1,0 +1,72 @@
+name: Janus CEO omniAgent P0-V read-only identity preflight
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ceo-omniagent-p0v-preflight.yml'
+      - 'ops/ceo-omniagent-p0v-preflight.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Confirm dedicated caller grant and fenced Gateway candidate without execution
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          PROJECT=gen-lang-client-0593591102
+          REGION=us-central1
+          TARGET="omniagent-codex-market-client@$PROJECT.iam.gserviceaccount.com"
+          SOURCE="intelligence-mart@$PROJECT.iam.gserviceaccount.com"
+          gcloud run jobs describe janus-ceo-analysis --project="$PROJECT" --region="$REGION" --format=json > "$RUNNER_TEMP/ceo.json"
+          gcloud run services describe omniagent-agent-gateway --project="$PROJECT" --region="$REGION" --format=json > "$RUNNER_TEMP/gateway.json"
+          gcloud run services get-iam-policy omniagent-agent-gateway --project="$PROJECT" --region="$REGION" --format=json > "$RUNNER_TEMP/gateway-iam.json"
+          if ! gcloud iam service-accounts get-iam-policy "$TARGET" --project="$PROJECT" --format=json > "$RUNNER_TEMP/sa-iam.json"; then
+            echo "market_identity_impersonation=NOT_VERIFIED_IAM_READ_DENIED" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          python3 - "$RUNNER_TEMP/ceo.json" "$RUNNER_TEMP/gateway.json" "$RUNNER_TEMP/gateway-iam.json" "$RUNNER_TEMP/sa-iam.json" "$SOURCE" "$TARGET" <<'PY'
+          import json,sys
+          job,gateway,invoker,sa_iam=(json.load(open(p)) for p in sys.argv[1:5])
+          source,target=sys.argv[5:]
+          j_identity=job.get("template",{}).get("template",{}).get("serviceAccount")
+          if j_identity != source:
+              raise SystemExit("BLOCKED: unexpected Janus CEO runtime identity")
+          if job.get("name","").split("/")[-1]!="janus-ceo-analysis":
+              raise SystemExit("BLOCKED: wrong CEO Job")
+          caller="serviceAccount:"+target
+          if not any(b.get("role")=="roles/run.invoker" and caller in b.get("members",[]) and not b.get("condition")
+                     for b in invoker.get("bindings",[])):
+              raise SystemExit("BLOCKED: Gateway invoker grant absent")
+          if any(b.get("role")=="roles/run.invoker" and any(m in ("allUsers","allAuthenticatedUsers") for m in b.get("members",[]))
+                     for b in invoker.get("bindings",[])):
+              raise SystemExit("BLOCKED: Gateway publicly invokable")
+          tag=[t for t in gateway.get("status",{}).get("traffic",[]) if t.get("tag")=="gemini-p0v-b03e5f55"]
+          if len(tag)!=1 or tag[0].get("percent",0)!=0:
+              raise SystemExit("BLOCKED: 0% Gateway candidate not present")
+          approved=any(b.get("role")=="roles/iam.serviceAccountTokenCreator" and
+                       "serviceAccount:"+source in b.get("members",[]) and not b.get("condition")
+                       for b in sa_iam.get("bindings",[]))
+          with open(__import__("os").environ["GITHUB_STEP_SUMMARY"],"a") as out:
+              out.write("gateway_candidate_0_percent=PASS\n")
+              out.write("market_gateway_invoker=PASS\n")
+              out.write("ceo_runtime_identity=PASS\n")
+              out.write("market_identity_impersonation="+("PASS" if approved else "BLOCKED_MISSING_TOKEN_CREATOR")+"\n")
+              out.write("llm_calls=0 db_writes=0 traffic_changes=0 job_updates=0\n")
+          if not approved:
+              raise SystemExit("BLOCKED: Mart runtime cannot mint dedicated market-mart identity")
+          PY
