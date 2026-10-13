@@ -277,7 +277,7 @@ class OpenRouterProvider:
             actual_model = None
             request = Request(
                 "https://openrouter.ai/api/v1/chat/completions",
-                data=body_bytes,
+                data=json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode(),
                 method="POST",
                 headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json",
                          "X-OpenRouter-Title": "Janus OmniForge"},
@@ -534,7 +534,7 @@ class OmniGatewayGeminiProvider:
                         try:
                             request = Request(
                                 self.gateway_url + "/v1/gemini/execute",
-                                data=json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode(),
+                                data=body_bytes,
                                 method="POST",
                                 headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
                             )
