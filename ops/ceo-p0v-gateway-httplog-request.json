@@ -7,5 +7,6 @@
   "job_updates": 0,
   "traffic_changes": 0,
   "time_window_utc": "2026-10-13T13:01:00Z/2026-10-13T13:06:00Z",
-  "scope": "Cloud Run Gateway HTTP POST execute status-only during one failed Janus full Prompt. No request body, model text or secrets."
+  "scope": "Read only bounded market-mart shared_gemini_call safe failureCode/durationMs plus Cloud Run HTTP status for exact failed terminal run. No prompt, IDs or tokens.",
+  "structured_failure_readback_attempt": 2
 }
