@@ -1,0 +1,11 @@
+{
+  "intent": "p0v-ceo-identity-probe",
+  "approved": true,
+  "authorization": "2026-10-13 user confirmed dedicated market-mart service account Token Creator IAM binding; continue bounded independent Janus P0-V acceptance",
+  "release_sha": "b63bf350213fa7c3933724fa38006d8ab7b8033f",
+  "release_run": 38363636133,
+  "model_calls": 0,
+  "db_writes": false,
+  "job_update": false,
+  "scope": "janus-ceo-analysis existing runtime, args-only 90s identity canary"
+}
