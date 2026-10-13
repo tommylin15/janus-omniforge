@@ -7,5 +7,6 @@
   "traffic_changes": 0,
   "time_start": "2026-10-13T15:27:30Z",
   "time_end": "2026-10-13T15:31:00Z",
-  "scope": "Bounded Cloud Run Janus worker and signed market-mart 2048 Gateway safe error classification; no prompt, text, owner data or bearer."
+  "scope": "Same terminal request readonly: allowlisted upstreamStatus numeric HTTP class from shared_gemini_call only. No new Gemini invocation.",
+  "readback_attempt": 2
 }
