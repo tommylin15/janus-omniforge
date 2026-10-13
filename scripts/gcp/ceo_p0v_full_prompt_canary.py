@@ -28,7 +28,7 @@ baseline={
   'analysis_as_of':'2026-10-13','symbol':'P0VTEST','execution_id':str(uuid4()),
   'model_quality':'NOT_VERIFIED','publication_authority':False,
   'specialists':[{'role':role,'status':'partial','baseline_status':'unavailable',
-                  'output_hash':hashes[i],'evidence_ids':[],
+                  'output_hash':hashes[i],'evidence_ids':[], 'metrics':{},
                   'missing_data':['synthetic_missing_no_publication']}
                   for i,role in enumerate(roles)],
   'synthetic_missing_source_notes':[]
