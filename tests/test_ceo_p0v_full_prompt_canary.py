@@ -34,7 +34,7 @@ def test_full_prompt_run_dispatches_once_only_for_source_pinned_job(monkeypatch)
       path:{"labels":{"janus-git-sha":digest},"reconciling":False,
         "template":{"template":{"maxRetries":0,"serviceAccount":canary.SOURCE,
             "containers":[{"env":[
-              {"name":"MART_OMNI_GATEWAY_URL","value":canary.MARKET_URL},
+              {"name":"MART_OMNI_GATEWAY_URL","value":canary.PREVIOUS_URL},
               {"name":"MART_CEO_GEMINI_ONLY","value":"true"},
               {"name":"MART_CEO_GEMINI_VIA_OMNIAGENT","value":"true"}]}]}}},
       canary.ROOT+"/operations/check":{"done":True,"response":{"name":path+"/executions/check"}},
@@ -51,7 +51,10 @@ def test_full_prompt_run_dispatches_once_only_for_source_pinned_job(monkeypatch)
     dispatched=[b for u,b,m in calls if u.endswith(":run")]
     assert len(dispatched)==1
     assert dispatched[0]=={"overrides":{"taskCount":1,"timeout":"180s",
-                                "containerOverrides":[{"name":"ceo","args":["-c",canary.CODE]}]}}
+                                "containerOverrides":[{"name":"ceo","args":["-c",canary.CODE],
+                                  "env":[{"name":"MART_OMNI_GATEWAY_URL","value":canary.MARKET_URL}]}]}}
+    assert canary.MARKET_URL != canary.PREVIOUS_URL
+    assert result["job_updated"] is False and result["one_execution_gateway_override"] is True
 
 
 def test_full_prompt_unknown_sha_or_candidate_mismatch_never_dispatches(monkeypatch):
@@ -121,3 +124,15 @@ def test_full_fixture_offline_executes_real_prompt_and_ceo_validator():
     assert report["output"]["validated_role_artifact_hashes"] == hashes
     assert audit["route"] == ["gemini"]
     assert report["publication_authority"] is False
+
+
+def test_full_prompt_gateway_override_is_one_request_only():
+    import ast
+    c = canary.CODE
+    assert "MART_OMNI_GATEWAY_URL" not in c
+    assert "INSERT INTO" not in c
+    assert "run_ceo_request" not in c
+    assert "POST" not in c
+    assert canary.MARKET_URL.startswith("https://p0v-market2048-227a0bdc---")
+    assert canary.PREVIOUS_URL.startswith("https://ghcr-965b05542a35---")
+    ast.parse(c)
