@@ -1,8 +1,10 @@
 # Janus 文件入口
 
-更新：2026-10-11
+更新：2026-10-13
 
 本頁定義 repository 內文件的角色，避免同一件事同時在 README、SPEC、WBS、TODO、runbook 與測試紀錄各自形成不同版本。
+
+**2026-10-13 持股／手動重算 P0：使用者要求暫停，僅完成文件交接。** 最新需求、實際 Release／Preview／Jobs／失敗 queue 證據與恢復順序： [P0 暫停交接](p0-holdings-recalc-pause-handoff-2026-10-13.md) → [最新狀態](status.md) → [Active TODO](todo.md)。本輪不再觸發部署、GCP Job、清理或正式切流。
 
 **目前工程入口：**[最新狀態](status.md) → [產品優先／後置研究 TODO](todo.md) → [Codex 作業指示：先產品、再 500 檔歷史研究](codex-execution-plan.md) → [WBS 5](wbs/wbs-5-specialist-engines.md)／[Specialist SPEC](spec/specialist-engines.md)。CI/CD 已在目前核准的 dev 範圍 PASS 結案，[完整證據在 archive](archive/cicd-ghcr-api-promotion-2026-10-10.md)，四項額外豁免在 [Parking Lot](parking-lot.md)，不占用 B 組 TODO。
 
