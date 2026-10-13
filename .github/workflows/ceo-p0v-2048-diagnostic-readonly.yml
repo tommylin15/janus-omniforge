@@ -70,8 +70,8 @@ jobs:
             'provider_timeout','provider_network_error','unexpected_failure'}
           for row in g:
               req=row.get('httpRequest') or {}
-              if isinstance(req,dict) and req.get('requestMethod')=='POST' and
-                  urlsplit(req.get('requestUrl','')).path=='/v1/gemini/execute':
+              if (isinstance(req,dict) and req.get('requestMethod')=='POST' and
+                  urlsplit(req.get('requestUrl','')).path=='/v1/gemini/execute'):
                   requests.append(str(req.get('status','unknown')))
               data=row.get('jsonPayload')
               if not isinstance(data,dict) or data.get('kind')!='shared_gemini_call':
