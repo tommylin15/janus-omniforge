@@ -13,6 +13,6 @@
   "db_persistent_writes": false,
   "gcs_prefix": "acceptance/p0v-ceo-technical/",
   "gcs_cleanup": true,
-  "same_scope_test_fix_attempt": 1,
-  "note": "Re-run identical isolated P0-V acceptance after fixing test-only path and comment false positive; no prior GCP mutation because earlier run remained at Python tests."
+  "same_scope_test_fix_attempt": 2,
+  "note": "Retry after CI-only corrected GCS prefix assertion; 72 other tests including isolated owner API/PG PASS, earlier validation never executed GCP Job."
 }
