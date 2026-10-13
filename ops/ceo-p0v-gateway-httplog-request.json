@@ -1,0 +1,11 @@
+{
+  "intent": "p0v-full-ceo-provider-unavailable-readonly",
+  "source_run": 38401658102,
+  "previous_diagnostic_run": 38402397865,
+  "read_only": true,
+  "model_calls": 0,
+  "job_updates": 0,
+  "traffic_changes": 0,
+  "time_window_utc": "2026-10-13T13:01:00Z/2026-10-13T13:06:00Z",
+  "scope": "Cloud Run Gateway HTTP POST execute status-only during one failed Janus full Prompt. No request body, model text or secrets."
+}
