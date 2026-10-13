@@ -403,11 +403,45 @@ def test_omni_gateway_schema_failure_stays_blocked_and_redacted(monkeypatch):
 
 def test_omni_gateway_oversized_prompt_never_sends_or_mints_token(monkeypatch):
     import intelligence_mart.provider_routing as routing
-    monkeypatch.setattr(routing, "_prompt", lambda *args: "x" * 8193)
+    monkeypatch.setattr(routing, "_prompt", lambda *args: "x" * 32769)
     provider = _omni_test_provider(monkeypatch,
         lambda *a, **kw: pytest.fail("no HTTP"), token_provider=lambda: pytest.fail("no token"))
     result = provider.invoke("ceo", {"fact_pack": {}})
     assert result.reason == "gateway_prompt_too_large"
+    assert len(result.attempts) == 1
+
+
+def test_omni_gateway_full_32k_multibyte_prompt_passes_without_truncation(monkeypatch):
+    import intelligence_mart.provider_routing as routing
+    prompt = "台" * 10000
+    assert len(prompt.encode("utf-8")) == 30000
+    monkeypatch.setattr(routing, "_prompt", lambda *args: prompt)
+    called = []
+    def response(request, timeout):
+        body = json.loads(request.data)
+        called.append(request.data)
+        assert body["project"] == "market-mart" and body["prompt"] == prompt
+        assert len(body["prompt"].encode("utf-8")) == 30000
+        assert len(request.data) < 131072
+        return BytesIO(json.dumps({
+            "status": "completed", "project": body["project"],
+            "ownerId": body["ownerId"], "requestId": body["requestId"],
+            "model": body["model"], "result": {"text": json.dumps(_output())},
+        }).encode())
+    provider = _omni_test_provider(monkeypatch, response)
+    result = provider.invoke("ceo", {"validated_role_artifact_hashes": _output()["validated_role_artifact_hashes"]})
+    assert result.status == "succeeded" and len(called) == 1
+
+
+@pytest.mark.parametrize("oversize", ["a" * 32769, "台" * 10923])
+def test_omni_gateway_above_32k_rejects_before_identity(monkeypatch, oversize):
+    import intelligence_mart.provider_routing as routing
+    assert len(oversize.encode("utf-8")) > 32768
+    monkeypatch.setattr(routing, "_prompt", lambda *args: oversize)
+    provider = _omni_test_provider(monkeypatch, lambda *a, **k: pytest.fail("network forbidden"),
+                                   token_provider=lambda: pytest.fail("identity forbidden"))
+    result = provider.invoke("ceo", {})
+    assert result.reason == "gateway_prompt_too_large" and result.status == "failed"
     assert len(result.attempts) == 1
 
 
