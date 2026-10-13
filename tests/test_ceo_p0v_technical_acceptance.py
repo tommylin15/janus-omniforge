@@ -22,7 +22,7 @@ def test_live_acceptance_script_compiles_and_is_isolated():
     assert "CREATE TEMP TABLE" in code and "ON COMMIT DROP" in code
     assert "UPDATE private.ceo_requests" not in code
     assert "INSERT INTO private.ceo_requests" not in code
-    assert "ceo-p0v-technical" in code
+    assert "p0v-ceo-technical" in code
     assert "acceptance/p0v-ceo-technical/" in code
     assert "store.delete(name)" in code
     assert "GEMINI_API_KEY" not in code
