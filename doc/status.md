@@ -1,12 +1,15 @@
 # Janus Current Status
 
-## 2026-10-13 獨立任務：Janus CEO → omniAgent P0-V Gemini Gateway（PARTIAL／IAM BLOCKED）
+## 2026-10-13 獨立任務：Janus CEO → omniAgent P0-V Gemini Gateway（最小實際回路 PASS／Owner E2E PARTIAL）
 
-本次只處理 CEO Gateway transport，不解除持股／Private Recalc 的暫停。Janus `main` 已新增 opt-in `OmniGatewayGeminiProvider`、原 request owner/request ID 綁定、Pydantic JSON 驗證及 immutable DB／GCS 契約保留、專用 Job 最小 additive env，以及安全 CI／IAM 唯讀驗證路徑。切片完整狀態與必要權限見 [CEO P0-V 文件](ceo-omniagent-p0v-integration.md)，剩餘 acceptance 見 [TODO](todo.md)。
+這項任務只處理 CEO Gateway，**持股／Private Recalc P0 仍維持 PAUSED BY USER**。完整 acceptance [CEO P0-V 文件](ceo-omniagent-p0v-integration.md)，未完成項目見 [TODO](todo.md)。
 
-**本次 Janus CI／候選證據**：[完整 GHCR Release #38363636133](https://github.com/tommylin15/janus-omniforge/actions/runs/38363636133) **PASS**（來源 `b63bf350213fa7c3933724fa38006d8ab7b8033f`，Python／Flutter／四 GHCR 映像加 opt-in CEO 專用映像）；[API 0% Candidate #38364240675](https://github.com/tommylin15/janus-omniforge/actions/runs/38364240675) **PASS**（相同映像 SHA、健康度／401／build-id、原 100% 正式流量不變、共用 lease 已釋放）。**這兩者不是 CEO Worker 部署或有效 CEO DB 歷史驗收**。
-
-上游 omniAgent 0% Gateway 三身分 CI 模擬呼叫曾 PASS（[#38357794169](https://github.com/tommylin15/omniAgent/actions/runs/38357794169)），**不是 Janus runtime 成功**。本次 Janus 唯讀權限預檢 [#38362885044](https://github.com/tommylin15/janus-omniforge/actions/runs/38362885044) 在專用 market caller IAM policy 因 `iam.serviceAccounts.getIamPolicy` 拒絕，不能核實原 Mart SA 的 TokenCreator。未核實前**不得更新既有 CEO Job、執行真實 Gemini CEO request 或切正式流量**；原 Gateway 仍 0%，新舊 CEO job/routing 真實 E2E **NOT VERIFIED**。另需符合 Gateway 8KiB 輸入／512 token 輸出限制，並以真實 JSON + immutable receipt 驗收，不能把純文字 200 當 CEO PASS。
+- **Code/full GHCR**：[ #38363636133](https://github.com/tommylin15/janus-omniforge/actions/runs/38363636133) PASS，實作 SHA `b63bf350213fa7c3933724fa38006d8ab7b8033f`；四既有 GHCR 映像、額外 CEO image、Python／Flutter/full release tests 及 public digests 皆 PASS。
+- **API 0% candidate**：[ #38364240675](https://github.com/tommylin15/janus-omniforge/actions/runs/38364240675) PASS；舊正式 API 100% 流量不變；並不代表本來源 API 已正式切流。
+- **真正 Mart SA 專用市場呼叫身分**：[ #38366833454](https://github.com/tommylin15/janus-omniforge/actions/runs/38366833454) PASS（既有 CEO Job 原執行身分 impersonate market-mart 專用 SA，向 Gateway signed invalid-body probe 得到預期 400；model calls 0，無 DB write）。前次 janus-ci `iam.serviceAccounts.getIamPolicy` 拒絕只代表 CI 讀政策能力不足，已被**更有權威的實際 Worker IAM 正向驗證**釐清。
+- **CEO Job-only 版本化部署＋postdeploy signed canary**：[ #38367279461](https://github.com/tommylin15/janus-omniforge/actions/runs/38367279461) PASS；同來源 immutable CEO image，原 SA／Secret refs／VPC／1CPU1Gi／無 Scheduler，只有 CEO Job 更新；新版執行成功讀回、global lease released。未改四排程 Jobs、Janus API 100% 或 omniAgent Gateway 正式流量。
+- **已部署 Worker 真實 Gemini Flash-Lite JSON 回路**：[ #38367878942](https://github.com/tommylin15/janus-omniforge/actions/runs/38367878942) **PASS**：一次 synthetic、非個人輸入的 Janus Router→Gateway→Gemini→Router 往返；CEO Pydantic schema、五份 synthetic Specialist hashes、模型身分與 request/result bound 通過；GCP Job terminal 及 lease release PASS。**沒有**真正 Owner 資料、`validate_ceo_output` 的完整 baseline/evidence/numeric policy live acceptance，也**沒有**GCS/PG report history 或 User API authenticated readback。
+- **剩餘 gate**：由真正具 capability 的使用者發起**新的**手動 CEO 分析（不得重送舊失敗 request）；通過 validated Fact Pack 原始大小 ≤8KiB、Gemini Gateway 512 output token 限制、完整 `validate_ceo_output`、immutable GCS/PG report hash/readback 和 Owner API history。未核實仍為 **PARTIAL**，不宣稱正式報告上線，且不因合成 schema PASS 自動 promotion。
 
 ---
 
