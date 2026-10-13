@@ -1,0 +1,95 @@
+name: Janus P0-V 2048 candidate failed execution safe diagnosis
+on:
+  push:
+    branches: [main]
+    paths: ['ops/ceo-p0v-2048-diagnostic-request.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fence only the exact terminal failed 2048-candidate execution
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="p0v-real-2048-full-ceo-failure-readonly" and
+            .source_run==38422168730 and .read_only==true and
+            .model_calls==0 and .job_updates==0 and .traffic_changes==0 and
+            .time_start=="2026-10-13T15:27:30Z" and
+            .time_end=="2026-10-13T15:31:00Z"' ops/ceo-p0v-2048-diagnostic-request.json >/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/38422168730" |
+            jq -e '.conclusion=="failure" and
+              .path==".github/workflows/ceo-p0v-full-prompt-live.yml"' >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Bounded Cloud Run worker and Gateway safe class readback
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ceo-analysis" AND timestamp>="2026-10-13T15:27:30Z" AND timestamp<="2026-10-13T15:31:00Z"' \
+            --project=gen-lang-client-0593591102 --limit=100 --format=json > "$RUNNER_TEMP/worker.json"
+          gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="omniagent-agent-gateway" AND timestamp>="2026-10-13T15:27:30Z" AND timestamp<="2026-10-13T15:31:00Z"' \
+            --project=gen-lang-client-0593591102 --limit=120 --format=json > "$RUNNER_TEMP/gateway.json"
+          python3 - "$RUNNER_TEMP/worker.json" "$RUNNER_TEMP/gateway.json" <<'PY'
+          import json,sys,re
+          from urllib.parse import urlsplit
+          from collections import Counter
+          w,g=(json.load(open(p)) for p in sys.argv[1:])
+          worker_lines=[]
+          for row in w:
+              s=row.get('textPayload')
+              if isinstance(s,str):worker_lines.extend(s.splitlines())
+              obj=row.get('jsonPayload')
+              if isinstance(obj,dict) and isinstance(obj.get('message'),str):
+                  worker_lines.extend(obj['message'].splitlines())
+          names=('RuntimeError','KeyError','AssertionError','ValueError','TimeoutError','HTTPError',
+            'JSONDecodeError','ModuleNotFoundError','ConnectionError','OperationalError')
+          reasons=('full_ceo_json_not_accepted_provider_unavailable',
+            'full_ceo_json_not_accepted_invalid_structured_output',
+            'full_ceo_json_not_accepted_gateway_contract_mismatch',
+            'full_ceo_json_not_accepted_output_validation_failed',
+            'full_ceo_json_not_accepted_unexpected_rejection',
+            'full_ceo_json_not_accepted_gateway_prompt_too_large',
+            'synthetic_factpack_exceeded_32k_limit',
+            'synthetic_factpack_size_not_reached')
+          classes=sorted({p for p in names if any(p in line for line in worker_lines)})
+          result=sorted({p for p in reasons if any(p in line for line in worker_lines)})
+          requests=[]
+          calls=[]
+          permitted={'output_limit','safety_blocked','model_stopped','empty_model_reply',
+            'response_too_large','provider_rejected','provider_unavailable',
+            'provider_timeout','provider_network_error','unexpected_failure'}
+          for row in g:
+              req=row.get('httpRequest') or {}
+              if isinstance(req,dict) and req.get('requestMethod')=='POST' and
+                  urlsplit(req.get('requestUrl','')).path=='/v1/gemini/execute':
+                  requests.append(str(req.get('status','unknown')))
+              data=row.get('jsonPayload')
+              if not isinstance(data,dict) or data.get('kind')!='shared_gemini_call':
+                  raw=row.get('textPayload')
+                  if not isinstance(raw,str):continue
+                  try:data=json.loads(raw)
+                  except (ValueError,TypeError):continue
+              if isinstance(data,dict) and data.get('kind')=='shared_gemini_call' and data.get('project')=='market-mart':
+                  reason=data.get('reason')
+                  safe=reason if reason in permitted else 'UNKNOWN'
+                  duration=data.get('durationMs')
+                  calls.append((str(data.get('status','unknown')),safe,int(duration) if type(duration)==int else -1))
+          print('worker_log_count='+str(len(w)))
+          print('worker_exception_class='+(','.join(classes) if classes else 'UNKNOWN'))
+          print('worker_safe_result='+(','.join(result) if result else 'UNKNOWN'))
+          print('gateway_post_statuses='+json.dumps(dict(Counter(requests)),sort_keys=True))
+          print('market_mart_safe_execution_reasons='+json.dumps(dict(Counter(a+':'+b for a,b,_ in calls)),sort_keys=True))
+          print('market_mart_duration_ms='+json.dumps([d for _,_,d in calls[:3]]))
+          if not w or not g:raise SystemExit('MISSING_BOUNDED_LOGS')
+          PY
+          echo "read_only=true; no_model_call=true; no_persist_or_traffic_change=true" >> "$GITHUB_STEP_SUMMARY"
