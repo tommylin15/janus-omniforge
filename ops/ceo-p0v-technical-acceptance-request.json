@@ -13,6 +13,6 @@
   "db_persistent_writes": false,
   "gcs_prefix": "acceptance/p0v-ceo-technical/",
   "gcs_cleanup": true,
-  "same_scope_test_fix_attempt": 3,
-  "note": "Final CI assertion-only correction: receipt emits llm_calls=0, previous run 72 tests PASS and 1 assertion false positive, no Cloud Run call yet"
+  "same_scope_test_fix_attempt": 4,
+  "note": "Run same bounded isolated acceptance after terminal PG InsufficientPrivilege on CREATE TEMP; no IAM expansion; production PG jsonb readback only, isolated CI PG full write API verified."
 }
