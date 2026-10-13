@@ -59,6 +59,10 @@ assert 29500 <= prompt_bytes <= OMNI_MARKET_PROMPT_MAX_BYTES
 request_id=str(uuid4())
 request={'request_id':request_id,'symbol':'P0VTEST','profile_id':'default',
          'profile_version':1,'baseline_json':baseline,'baseline_hash':baseline['content_hash']}
+# Validate complete baseline and numeric facts before touching Gemini.
+assert all(isinstance(a['metrics'],dict) for a in baseline['specialists'])
+assert numeric_facts(baseline)==role_input['numeric_facts']
+assert len(_prompt('ceo',role_input).encode('utf-8'))==prompt_bytes
 router=ProviderRouter.from_environment({}, bounded_manual=True)
 assert router.routing.get('execution_policy')=='omniagent_gateway_gemini_lite_only'
 assert router.routing.get('effective_providers')==['gemini']
