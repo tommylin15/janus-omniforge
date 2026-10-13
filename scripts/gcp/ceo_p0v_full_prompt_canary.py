@@ -11,7 +11,8 @@ from ceo_worker_deploy import execution_fence
 from ghcr_jobs_rollout import ROOT, cloud, terminal
 
 JOB="janus-ceo-analysis"
-MARKET_URL="https://ghcr-965b05542a35---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app"
+MARKET_URL="https://p0v-market2048-227a0bdc---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app"
+PREVIOUS_URL="https://ghcr-965b05542a35---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app"
 SOURCE="intelligence-mart@gen-lang-client-0593591102.iam.gserviceaccount.com"
 
 CODE = """
@@ -101,11 +102,14 @@ def run_once(sha):
     if task.get("serviceAccount")!=SOURCE or task.get("maxRetries",0)!=0:
         raise RuntimeError("ceo_runtime_identity_or_retry_drift")
     env={e['name']:e.get('value') for e in task['containers'][0].get('env',[]) if 'value' in e}
-    if env.get("MART_OMNI_GATEWAY_URL")!=MARKET_URL or env.get("MART_CEO_GEMINI_ONLY")!="true" or env.get("MART_CEO_GEMINI_VIA_OMNIAGENT")!="true":
+    # Existing CEO Job is immutable and remains on the verified 32KiB tag;
+    # override only this single Cloud Run execution to the 2048-token tag.
+    if env.get("MART_OMNI_GATEWAY_URL")!=PREVIOUS_URL or env.get("MART_CEO_GEMINI_ONLY")!="true" or env.get("MART_CEO_GEMINI_VIA_OMNIAGENT")!="true":
         raise RuntimeError("ceo_gateway_url_or_execution_policy_drift")
     execution_fence()
     operation=cloud(path+":run",{"overrides":{"taskCount":1,"timeout":"180s",
-      "containerOverrides":[{"name":"ceo","args":["-c",CODE]}]}},"POST")
+      "containerOverrides":[{"name":"ceo","args":["-c",CODE],
+        "env":[{"name":"MART_OMNI_GATEWAY_URL","value":MARKET_URL}]}]}},"POST")
     name=operation.get('name','')
     if not name.startswith(ROOT+'/operations/'):
         raise RuntimeError("ceo_full_prompt_operation_unknown_no_retry")
@@ -124,7 +128,8 @@ def run_once(sha):
             return {'status':'PASS','execution':execution,'source_sha':sha,
                     'gateway':MARKET_URL,'model_calls':1,'canonical_writes':0,
                     'owner_requests_created':0,'report_persisted':False,
-                    'traffic_changed':False}
+                    'traffic_changed':False,'job_updated':False,
+                    'one_execution_gateway_override':True}
         time.sleep(3)
     raise RuntimeError("ceo_full_prompt_terminal_unknown_no_retry")
 
