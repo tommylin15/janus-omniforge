@@ -33,7 +33,7 @@ def test_dedicated_worker_preserves_private_network_and_secret_references():
     assert env['MART_GEMINI_MODEL']['value'] == 'gemini-3.5-flash-lite'
     assert env['MART_CEO_GEMINI_VIA_OMNIAGENT']['value'] == 'true'
     assert env['MART_OMNI_GATEWAY_URL']['value'] == (
-        'https://gemini-p0v-b03e5f55---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app')
+        'https://ghcr-965b05542a35---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app')
     assert all('api_key' not in e['name'].lower() for e in env.values())
     assert 'MART_CODEX_AUTH_SECRET' not in env and 'GEMINI_API_KEY' not in env
 
