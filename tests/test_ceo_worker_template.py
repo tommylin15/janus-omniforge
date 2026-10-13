@@ -31,6 +31,10 @@ def test_dedicated_worker_preserves_private_network_and_secret_references():
     env = {e['name']: e for e in task['containers'][0]['env']}
     assert env['MART_CEO_GEMINI_ONLY']['value'] == 'true'
     assert env['MART_GEMINI_MODEL']['value'] == 'gemini-3.5-flash-lite'
+    assert env['MART_CEO_GEMINI_VIA_OMNIAGENT']['value'] == 'true'
+    assert env['MART_OMNI_GATEWAY_URL']['value'] == (
+        'https://gemini-p0v-b03e5f55---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app')
+    assert all('api_key' not in e['name'].lower() for e in env.values())
     assert 'MART_CODEX_AUTH_SECRET' not in env and 'GEMINI_API_KEY' not in env
 
 
@@ -146,3 +150,22 @@ def test_worker_update_does_not_poll_nonpersistent_validation_operation(monkeypa
     deploy.main()
     assert deploy.ROOT+'/operations/validation' not in calls
     assert current['labels']['janus-git-sha'] == 'b'*40
+
+
+def test_ceo_worker_gateway_transition_adds_only_two_approved_env_without_iam_change():
+    sys.path.insert(0, str(path.parent))
+    from ceo_worker_deploy import update_payload
+    image = 'ghcr.io/tommylin15/janus-intelligence-mart@sha256:' + '2'*64
+    desired = worker.template(source(), image, 'b'*40)
+    old = json.loads(json.dumps(desired))
+    old['etag'] = 'fence'
+    old['template']['template']['containers'][0]['env'] = [
+        e for e in old['template']['template']['containers'][0]['env']
+        if e['name'] not in {'MART_CEO_GEMINI_VIA_OMNIAGENT', 'MART_OMNI_GATEWAY_URL'}]
+    assert update_payload(old, desired)['template'] == desired['template']
+    assert old['template']['template']['serviceAccount'] == desired['template']['template']['serviceAccount']
+    assert old['template']['template']['vpcAccess'] == desired['template']['template']['vpcAccess']
+    old['template']['template']['containers'][0]['env'].append(
+        {'name': 'MART_OMNI_GATEWAY_URL', 'value': 'https://evil.invalid'})
+    with pytest.raises(AssertionError, match='drift'):
+        update_payload(old, desired)
