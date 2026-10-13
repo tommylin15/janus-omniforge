@@ -105,6 +105,21 @@ def test_worker_migrates_only_exact_retired_codex_env_to_gemini_lite():
         update_payload(old, desired)
 
 
+def test_worker_migrates_only_approved_gateway_0_percent_url():
+    sys.path.insert(0, str(path.parent))
+    from ceo_worker_deploy import update_payload
+    desired = worker.template(source(), 'ghcr.io/tommylin15/janus-intelligence-mart@sha256:'+'2'*64,'b'*40)
+    old = json.loads(json.dumps(desired))
+    old['etag'] = 'old'
+    env = old['template']['template']['containers'][0]['env']
+    gateway = next(e for e in env if e['name']=='MART_OMNI_GATEWAY_URL')
+    gateway['value']='https://gemini-p0v-b03e5f55---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app'
+    assert update_payload(old, desired)['etag']=='old'
+    gateway['value']='https://unapproved-0percent---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app'
+    with pytest.raises(AssertionError,match='drift'):
+        update_payload(old,desired)
+
+
 def test_worker_fence_checks_later_execution_pages(monkeypatch):
     sys.path.insert(0, str(path.parent))
     import ceo_worker_deploy
