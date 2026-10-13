@@ -40,8 +40,19 @@ jobs:
               .rollout_run==38392891696 and
               .lease_recovery_run==38393696263 and
               .candidate_readback_run==38394294374 and
+              .offline_preflight_run==38401261530 and
+              .prior_failure_diagnostic==38395032007 and
               (.release_sha|type=="string" and test("^[a-f0-9]{40}$"))
           ' "$request" >/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/38401261530" |
+            jq -e '.conclusion=="success" and .path==".github/workflows/analysis-product-ci.yml"' >/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/38395032007" |
+            jq -e '.conclusion=="success" and .path==".github/workflows/ceo-p0v-full-prompt-diagnostic.yml"' >/dev/null
+          # Ensure this invocation uses the exact tested synthetic executable,
+          # even though this request/workflow lives at a later main commit.
+          tested_sha="$(gh api "repos/$GITHUB_REPOSITORY/contents/scripts/gcp/ceo_p0v_full_prompt_canary.py?ref=97b2c8e5d98b8809901a6bc20c3a8d726de0ce32" --jq .sha)"
+          current_sha="$(gh api "repos/$GITHUB_REPOSITORY/contents/scripts/gcp/ceo_p0v_full_prompt_canary.py?ref=$GITHUB_SHA" --jq .sha)"
+          test "$tested_sha" = "$current_sha"
           echo "SOURCE_SHA=$(jq -r .release_sha "$request")" >> "$GITHUB_ENV"
           release="$(jq -r .release_run "$request")"
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$release" |
@@ -59,8 +70,8 @@ jobs:
             gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" |
               jq -e --arg p "$path" '.conclusion=="success" and .path==$p' >/dev/null
           done
-          python -m pip install -q pytest==8.4.2
-          python -m pytest -q tests/test_ceo_p0v_full_prompt_canary.py tests/test_ceo_worker_template.py
+          python -m pip install -q pytest==8.4.2 pydantic==2.13.4
+          PYTHONPATH=jobs/intelligence-mart:. python -m pytest -q tests/test_ceo_p0v_full_prompt_canary.py tests/test_ceo_worker_template.py
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
