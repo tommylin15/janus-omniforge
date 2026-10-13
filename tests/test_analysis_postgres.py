@@ -172,3 +172,129 @@ def test_worker_recovery_requires_confirmed_cloud_terminal(database, service):
     api.trigger.terminal_execution = lambda _: True
     assert api.reconcile(owner, request_id)['status'] == 'FAILED'
     assert api.request_status(owner, request_id)['safe_reason'] == 'worker_terminal_without_report'
+
+
+def test_p0v_five_role_synthetic_ceo_full_validator_to_isolated_postgres_to_owner_api(database, service):
+    """Use an isolated CI PostgreSQL database, never the parallel-live owner DB.
+
+    The Gateway real model receipt is a separate live acceptance gate. This
+    checks that its structured result survives the production CEO guard,
+    Mart-only immutable report write and owner-scoped API history/readback.
+    """
+    from copy import deepcopy
+    from types import SimpleNamespace
+    from services.api.repository import NotFoundError
+    from intelligence_mart.product_runtime import execute_ceo
+    from packages.analysis_product import validate_ceo_output
+
+    api, owner = service
+    roles = ("fundamental", "valuation", "quant", "risk", "event")
+    output_hashes = ["sha256:" + str(i + 1) * 64 for i in range(5)]
+    source = {
+        "schema_version": "analysis-product.v1",
+        "symbol": "P0VTEST",
+        "execution_id": str(uuid4()),
+        "analysis_as_of": str(datetime.now(ZoneInfo("Asia/Taipei")).date()),
+        "core_snapshot_id": "synthetic-isolated",
+        "model_quality": "NOT_VERIFIED",
+        "publication_authority": False,
+        "specialists": [
+            {"role": role, "status": "partial", "baseline_status": "unavailable",
+             "output_hash": output_hashes[index], "metrics": {},
+             "missing_data": ["測試資料非真實五角色"], "evidence_ids": [],
+             "provenance_ids": []}
+            for index, role in enumerate(roles)
+        ],
+    }
+    source["content_hash"] = content_hash(source)
+    with psycopg.connect(database) as connection:
+        connection.execute("SET ROLE janus_control")
+        connection.execute("""INSERT INTO private.specialist_product
+            (execution_id,symbol,analysis_as_of,content_hash,payload_json)
+            VALUES (%s,%s,%s,%s,%s::jsonb)""",
+            (source["execution_id"], source["symbol"], source["analysis_as_of"],
+             source["content_hash"], json.dumps(source, ensure_ascii=False)))
+    result = api.enqueue(owner, "P0VTEST", "default", str(uuid4()))
+    assert result["status"] == "QUEUED"
+    request_id = result["request_id"]
+    with psycopg.connect(database, row_factory=dict_row) as connection:
+        connection.execute("SET ROLE janus_mart_publication")
+        request = connection.execute(
+            "SELECT * FROM private.ceo_requests WHERE request_id=%s", (request_id,)).fetchone()
+    assert len(request["baseline_json"]["specialists"]) == 5
+    assert request["baseline_hash"] == request["baseline_json"]["content_hash"]
+    output = {
+        "schema_version": "1.0.0", "role": "ceo",
+        "stance": "insufficient_data", "thesis": None, "confidence": 0.0,
+        "missing_information": ["合成資料不能作為正式投資分析"],
+        "evidence_ids": [], "supporting_roles": [], "opposing_roles": [],
+        "contradictions": [], "bull_case": [], "bear_case": [],
+        "principal_risks": [], "watch_items": [],
+        "change_since_previous_analysis": [],
+        "validated_role_artifact_hashes": output_hashes,
+    }
+    class Router:
+        def __init__(self, value):
+            self.value = value
+        def invoke(self, role, inputs, *, should_stop=None):
+            assert role == "ceo" and len(inputs["validated_specialists"]) == 5
+            assert inputs["validated_role_artifact_hashes"] == output_hashes
+            assert inputs["canonical_numbers_are_read_only"] is True
+            return SimpleNamespace(status="succeeded", output=self.value,
+                attempts=[{"provider": "gemini", "transport": "omniagent_gateway",
+                           "model": "gemini-3.5-flash-lite", "status": "succeeded",
+                           "raw_text": "never-publish-me"}],
+                routing={"routing_hash":"synthetic-p0v", "providers":["gemini"],
+                         "execution_policy":"omniagent_gateway_gemini_lite_only"},
+                provider="gemini", model="gemini-3.5-flash-lite")
+    state, report, audit, reason = execute_ceo(request, Router(output))
+    assert state == "PARTIAL" and reason is None
+    assert report["publication_authority"] is False
+    assert report["output"]["validated_role_artifact_hashes"] == output_hashes
+    assert report["execution_id"] == str(request_id)
+    assert "raw_text" not in str(audit) and "never-publish-me" not in str(audit)
+    assert report["schema_version"] == "ceo-report.v1"
+
+    for tamper in ("hash", "unknown_evidence", "fabricated_number", "hidden_missing"):
+        changed = deepcopy(output)
+        if tamper == "hash":
+            changed["validated_role_artifact_hashes"][0] = "sha256:" + "f" * 64
+        elif tamper == "unknown_evidence":
+            changed["thesis"] = {
+                "text": "合成方向主張", "evidence_ids": ["ev-" + "a"*24]}
+        elif tamper == "fabricated_number":
+            changed["missing_information"] = ["虛構 99999 目標價"]
+        else:
+            changed["missing_information"] = []
+        blocked, discarded, _, invalid_reason = execute_ceo(request, Router(changed))
+        assert blocked == "BLOCKED" and discarded is None
+        assert invalid_reason == "output_validation_failed"
+    with psycopg.connect(database) as connection:
+        connection.execute("SET ROLE janus_mart_publication")
+        lease = uuid4()
+        row = connection.execute("""UPDATE private.ceo_requests
+            SET status='RUNNING',lease_token=%s
+            WHERE request_id=%s AND status='QUEUED'
+            RETURNING request_id""", (lease, request_id)).fetchone()
+        assert row
+        connection.execute("""UPDATE private.ceo_requests
+            SET status=%s,report_json=%s::jsonb,report_hash=%s,
+                audit_json=%s::jsonb
+            WHERE request_id=%s AND lease_token=%s""",
+            (state,json.dumps(report,ensure_ascii=False),content_hash(report),
+             json.dumps(audit),request_id,lease))
+    served = api.request_status(owner, request_id)
+    assert served["status"] == "PARTIAL"
+    assert served["report_hash"] == content_hash(report)
+    assert served["report_json"] == report
+    assert api.history(owner,"P0VTEST")[0]["material_change"] is False
+    with pytest.raises(NotFoundError):
+        api.request_status(uuid4(),request_id)
+    assert all(x["request_id"] != request_id for x in api.history(uuid4(), "P0VTEST"))
+    with pytest.raises(HTTPException) as error:
+        api._public_request({**served, "report_hash": "sha256:" + "0"*64})
+    assert error.value.status_code == 503
+    with psycopg.connect(database) as connection:
+        connection.execute("SET ROLE janus_mart_publication")
+        with pytest.raises(psycopg.errors.RaiseException, match="immutable"):
+            connection.execute("UPDATE private.ceo_requests SET status='FAILED' WHERE request_id=%s",(request_id,))
