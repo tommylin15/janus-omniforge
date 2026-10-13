@@ -28,7 +28,7 @@ def test_live_acceptance_script_compiles_and_is_isolated():
     assert "GEMINI_API_KEY" not in code
     assert "CEO_REQUEST_ID" not in code
     assert "INSERT INTO private." not in code
-    assert "model_calls':0" in code
+    assert "'llm_calls':0" in code
 
 
 def test_canary_job_only_args_override_and_source_sha(monkeypatch):
