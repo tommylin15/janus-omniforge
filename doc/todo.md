@@ -17,9 +17,10 @@
 **ACTIVE／PARTIAL；與下方持股／重算 PAUSED BY USER 完全獨立。** 執行與驗收：[CEO P0-V 整合交接](ceo-omniagent-p0v-integration.md)。不解除原持股重算暫停、不切正式流量。
 
 - [x] 以 opt-in Gemini-only `OmniGatewayGeminiProvider` 串通既有 CEO router；只接受既有 market-mart SA audience-bound ID token、匹配 project／owner／request／model，拒絕超量 Fact Pack、格式錯誤、未知結果與任何 fallback／盲重試。保留原來的五角色 hash、schema validator、immutable report 與 PostgreSQL 寫入範圍；程式已提交。
-- [x] Exact-SHA 完整 GitHub Release [#38363636133](https://github.com/tommylin15/janus-omniforge/actions/runs/38363636133) **PASS**：來源 `b63bf350213fa7c3933724fa38006d8ab7b8033f`，Python／Flutter＋四 GHCR 映像＋CEO image public digest。API 0% 候選 [#38364240675](https://github.com/tommylin15/janus-omniforge/actions/runs/38364240675) **PASS**，舊正式流量 100% 不變；**尚未更新 CEO Job**。
-- [ ] 專用 market caller 的 `roles/iam.serviceAccountTokenCreator`（授權對象僅原 Mart SA）readback／runtime impersonation：唯讀預檢目前遭 `iam.serviceAccounts.getIamPolicy` 權限拒絕，維持 **BLOCKED／UNKNOWN**，不得未經核准自動擴權。
-- [ ] **CEO Job**（Cloud Run Job 不具 0% traffic）的 digest/配置可回復 rollout／單次真實 canary 仍未執行；Gateway 仍為 omniAgent 0% pilot，Janus **API** 0% 候選 PASS 不得取代本項。
+- [x] Exact-SHA 完整 GitHub Release [#38363636133](https://github.com/tommylin15/janus-omniforge/actions/runs/38363636133) **PASS**：來源 `b63bf350213fa7c3933724fa38006d8ab7b8033f`，Python／Flutter＋四 GHCR 映像＋CEO image public digest。API 0% 候選 [#38364240675](https://github.com/tommylin15/janus-omniforge/actions/runs/38364240675) **PASS**，舊正式流量 100% 不變；CEO Job 之後另於 #38367279461 受控更新完成。
+- [x] 專用 market-mart 身分實際 runtime impersonation **PASS**：[本 Job 原身分讀回 #38366833454](https://github.com/tommylin15/janus-omniforge/actions/runs/38366833454)；原 CI SA 無 `getIamPolicy` 屬唯讀觀察限制，不能覆蓋真實 Cloud Run 身分成功證據；沒有新增專案級 IAM。
+- [x] **CEO Job**（Cloud Run Job 無 0%）digest/配置可回復 rollout＋新版真實 signed canary **PASS**：[同來源 #38367279461](https://github.com/tommylin15/janus-omniforge/actions/runs/38367279461)；只更新專用 CEO Job，四排程 Jobs、Janus API 正式流量、omniAgent Gateway 正式流量不變。Gateway 繼續走 0% pilot tag。
+- [x] **真實 Gemini JSON 最小回路 PASS**：[已部署 Worker 單回合合成非個人測試 #38367878942](https://github.com/tommylin15/janus-omniforge/actions/runs/38367878942)；Janus Router 收到 Gemini Flash-Lite 回覆並通過 CEO Pydantic JSON／hash 欄位檢查。此測試**沒有產生或持久化正式 CEO report**。
 - [ ] 具 Janus capability 的**新**手動 CEO request 真實 Worker→Gateway→Gemini→schema／evidence validation→GCS immutable readback→PostgreSQL history/API roundtrip；有缺證維持 PARTIAL，不重送舊 request，不建立測試帳本資料。Gateway 8KiB prompt／512 output token 如不足需先完成 upstream 安全契約調整。
 
 ### P0｜持股池不受 500 研究池限制＋Ledger 真實視覺收斂（2026-10-13 暫停）
