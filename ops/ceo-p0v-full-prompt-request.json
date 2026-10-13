@@ -1,0 +1,19 @@
+{
+  "intent": "p0v-real-32k-five-role-ceo-contract",
+  "approved": true,
+  "authorization": "2026-10-13 independent Janus P0-V technical acceptance; market-mart-only upstream 32KiB real candidate verified; bounded one Gemini free-tier attempt, no new paid model or owner data",
+  "gateway": "https://ghcr-965b05542a35---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app",
+  "upstream_verified_run": 38389373782,
+  "release_sha": "a05f1f4dea80ecbd947829cd2751e1253f822cee",
+  "release_run": 38392237542,
+  "rollout_run": 38392891696,
+  "lease_recovery_run": 38393696263,
+  "candidate_readback_run": 38394294374,
+  "model_calls_max": 1,
+  "retries": 0,
+  "synthetic_five_role_input": true,
+  "owner_data": false,
+  "database_write": false,
+  "canonical_publication": false,
+  "formal_traffic_change": false
+}
