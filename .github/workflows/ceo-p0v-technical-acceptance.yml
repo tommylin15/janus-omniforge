@@ -1,0 +1,122 @@
+name: Janus P0-V isolated synthetic full technical acceptance
+on:
+  push:
+    branches: [main]
+    paths: ['ops/ceo-p0v-technical-acceptance-request.json']
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: dev
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: janus_analysis_test
+          POSTGRES_PASSWORD: analysis_ci_only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d janus_analysis_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
+      ANALYSIS_TEST_DSN: postgresql://postgres:analysis_ci_only@127.0.0.1:5432/janus_analysis_test
+      RELEASE_SHA: b63bf350213fa7c3933724fa38006d8ab7b8033f
+      RELEASE_RUN: "38363636133"
+      LIVE_GEMINI_RUN: "38367878942"
+      ROLLOUT_RUN: "38367279461"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify original exact-release runtime, one-shot approval and no canonical writes
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          jq -e --arg sha "$RELEASE_SHA" --argjson release "$RELEASE_RUN" \
+             --argjson gateway "$LIVE_GEMINI_RUN" --argjson rollout "$ROLLOUT_RUN" '
+             .intent=="p0v-ceo-isolated-technical-acceptance" and
+             .approved==true and .release_sha==$sha and .release_run==$release and
+             .live_gemini_run==$gateway and .rollout_run==$rollout and
+             .test_input=="synthetic_nonpersonal_five_roles" and
+             .real_owner_requests==0 and .model_calls==0 and
+             .canonical_publication==false and .db_persistent_writes==false and
+             .gcs_prefix=="acceptance/p0v-ceo-technical/" and .gcs_cleanup==true
+          ' ops/ceo-p0v-technical-acceptance-request.json >/dev/null
+          for pair in "$RELEASE_RUN:.github/workflows/ghcr-publish-dev.yml" \
+              "$LIVE_GEMINI_RUN:.github/workflows/ceo-omniagent-p0v-text-canary.yml" \
+              "$ROLLOUT_RUN:.github/workflows/ceo-omniagent-p0v-worker-rollout.yml"; do
+            run="$(echo "$pair" | cut -d: -f1)"
+            path="$(echo "$pair" | cut -d: -f2-)"
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run" |
+              jq -e --arg p "$path" '.conclusion=="success" and .path==$p' >/dev/null
+          done
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN" |
+            jq -e --arg sha "$RELEASE_SHA" '.head_sha==$sha' >/dev/null
+      - name: Install targeted runtime and test contracts
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --disable-pip-version-check -q -r requirements-dev.txt
+          python -m pip install --disable-pip-version-check -q -r jobs/ingestion-core/requirements.lock
+          python -m pip install --disable-pip-version-check -q -r jobs/intelligence-mart/requirements.lock
+          python -m pip install --disable-pip-version-check -q -r services/api/requirements.lock
+      - name: Five-role schema/PIT/fact, PostgreSQL ACL and owner API history tests
+        run: |
+          set -Eeuo pipefail
+          python -m pytest -q -s \
+            tests/test_analysis_product.py \
+            tests/test_analysis_postgres.py \
+            tests/test_ceo_p0v_technical_acceptance.py \
+            tests/test_ceo_omniagent_text_canary.py \
+            tests/test_mart_provider_routing.py
+          echo "isolated_postgres_owner_api_full_contract=PASS" >> "$GITHUB_STEP_SUMMARY"
+          echo "five_role_validator_negative_tests=PASS" >> "$GITHUB_STEP_SUMMARY"
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Actual deployed Mart worker non-canonical GCS and PG temp acceptance
+        id: accept
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py acquire
+          echo "held=true" >> "$GITHUB_OUTPUT"
+          python scripts/gcp/ghcr_release_lease.py assert
+          python scripts/gcp/ceo_p0v_technical_acceptance.py > "$RUNNER_TEMP/p0v-tech-live-receipt.json"
+          jq -e '.status=="PASS" and .synthetic_roles==5 and
+              .live_pg_transactional_temp==true and
+              .live_gcs_isolated_immutable_readback==true and
+              .canonical_write==false and .real_owner_data==false and
+              .model_calls==0' "$RUNNER_TEMP/p0v-tech-live-receipt.json" >/dev/null
+          echo "actual_worker_isolated_gcs_pg=PASS; no owner or canonical write" >> "$GITHUB_STEP_SUMMARY"
+          echo "Prior real model JSON receipt PASS; genuine five-model Owner publication remains NOT VERIFIED." >> "$GITHUB_STEP_SUMMARY"
+      - name: Release global lock after execution fence confirms terminal
+        if: always() && steps.accept.outputs.held == 'true'
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py assert
+          python - <<'PY'
+          import sys
+          sys.path.insert(0,'scripts/gcp')
+          from ceo_worker_deploy import execution_fence
+          execution_fence()
+          PY
+          python scripts/gcp/ghcr_release_lease.py release --safe-to-release
+          echo "shared_lease_released=PASS" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: janus-p0v-isolated-technical-receipt
+          path: ${{ runner.temp }}/p0v-tech-live-receipt.json
+          retention-days: 14
+          if-no-files-found: ignore
