@@ -1,0 +1,62 @@
+name: Janus P0-V bounded Gateway HTTP failure diagnosis
+on:
+  push:
+    branches: [main]
+    paths: ['ops/ceo-p0v-gateway-httplog-request.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Limit to known terminal run, approved read-only scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="p0v-full-ceo-provider-unavailable-readonly" and
+                 .source_run==38401658102 and .previous_diagnostic_run==38402397865 and
+                 .read_only==true and .model_calls==0 and .job_updates==0 and
+                 .traffic_changes==0' ops/ceo-p0v-gateway-httplog-request.json >/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/38401658102" |
+            jq -e '.conclusion=="failure" and .path==".github/workflows/ceo-p0v-full-prompt-live.yml"' >/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/38402397865" |
+            jq -e '.conclusion=="success" and .path==".github/workflows/ceo-p0v-full-prompt-diagnostic.yml"' >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read bounded Gateway Cloud Run HTTP status metadata only
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="omniagent-agent-gateway" AND timestamp>="2026-10-13T13:01:00Z" AND timestamp<="2026-10-13T13:06:00Z"' \
+            --project=gen-lang-client-0593591102 --limit=120 --format=json > "$RUNNER_TEMP/gateway-httplog.json"
+          python3 - "$RUNNER_TEMP/gateway-httplog.json" <<'PY'
+          import json,sys
+          from collections import Counter
+          from urllib.parse import urlsplit
+          rows=json.load(open(sys.argv[1]))
+          selected=[]
+          for row in rows:
+              h=row.get("httpRequest") or {}
+              if not isinstance(h,dict) or h.get("requestMethod")!="POST":
+                  continue
+              path=urlsplit(h.get("requestUrl","")).path
+              if path!="/v1/gemini/execute":
+                  continue
+              selected.append((str(h.get("status","unknown")),
+                              row.get("resource",{}).get("labels",{}).get("revision_name","unknown")))
+          print("bounded_gateway_log_count="+str(len(rows)))
+          print("gemini_execute_http_requests="+str(len(selected)))
+          print("gemini_execute_http_status_counts="+json.dumps(dict(Counter(x for x,_ in selected)),sort_keys=True))
+          print("gateway_revisions_observed="+str(len(set(rev for _,rev in selected))))
+          if not selected:
+              raise SystemExit("NO_GATEWAY_EXECUTE_HTTP_STATUS_EVIDENCE")
+          PY
+          echo "readonly_gateway_http_status_only=PASS; no prompt/token/user data logged" >> "$GITHUB_STEP_SUMMARY"
