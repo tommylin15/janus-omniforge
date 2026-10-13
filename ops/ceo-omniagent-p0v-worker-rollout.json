@@ -1,0 +1,12 @@
+{
+  "intent": "p0v-ceo-worker-gateway-pilot",
+  "approved": true,
+  "authorization": "2026-10-13 independent Janus P0-V owner-approved IAM grant and continuation; actual Mart identity proof run #38366833454 PASS",
+  "release_sha": "b63bf350213fa7c3933724fa38006d8ab7b8033f",
+  "release_run": 38363636133,
+  "identity_probe_run": 38366833454,
+  "traffic_promotion": false,
+  "other_jobs_update": false,
+  "job": "janus-ceo-analysis",
+  "operation": "existing bounded Job immutable image update and no-model post-deploy signed Gateway canary"
+}
