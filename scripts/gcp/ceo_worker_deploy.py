@@ -46,7 +46,18 @@ def update_payload(existing, desired):
         # All DB, Secret refs, network, existing Gemini and execution guards stay byte-exact.
         assert [e for e in env if e['name'] not in gateway_keys] == [
             e for e in target_env if e['name'] not in gateway_keys], 'CEO configuration drift'
-        assert all(e in target_env for e in env if e['name'] in gateway_keys), 'CEO configuration drift'
+        # One explicitly pinned pilot-to-pilot transition after upstream 32KiB
+        # candidate release. No arbitrary URL, caller or other environment drift.
+        old_candidate = ('https://gemini-p0v-b03e5f55---'
+                         'omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app')
+        new_candidate = ('https://ghcr-965b05542a35---'
+                         'omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app')
+        normalized = [
+            {**e, 'value': new_candidate} if e['name'] == 'MART_OMNI_GATEWAY_URL'
+              and e.get('value') == old_candidate else e
+            for e in env if e['name'] in gateway_keys
+        ]
+        assert all(e in target_env for e in normalized), 'CEO configuration drift'
         previous['template']['containers'][0]['env'] = target_env
     assert previous == desired['template'], 'CEO configuration drift'
     assert existing['labels'].get('janus-component') == 'manual-ceo'
