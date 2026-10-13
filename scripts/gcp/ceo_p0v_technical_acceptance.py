@@ -71,8 +71,9 @@ for mode in ('hash','evidence','numeric','missing'):
         raise RuntimeError('synthetic_negative_validator_failed')
 report_digest=content_hash(report)
 
-# Real PG connectivity with a private temp table; ON COMMIT DROP cannot
-# create durable private.ceo_requests or fake analyst history.
+# Real publication-role PostgreSQL JSONB roundtrip. The dev production
+# publication identity deliberately lacks CREATE TEMP; do not broaden ACL
+# for a test. Immutable table writes are exercised in isolated CI PostgreSQL.
 load_postgres_bundle('JANUS_MART_POSTGRES_BUNDLE',{
   'PUBLICATION_DB_PASSWORD':('mart_publication_password','publication_password')})
 config=_settings('PUBLICATION_DB')
@@ -80,15 +81,11 @@ with psycopg.connect(host=config['host'], dbname=config['name'],
     user=config['user'],password=config['password'],sslmode='require',
     connect_timeout=5,options='-c statement_timeout=15000',
     row_factory=dict_row) as connection:
-    with connection.transaction():
-        connection.execute('CREATE TEMP TABLE ceo_p0v_tech_only (report jsonb NOT NULL, digest text NOT NULL) ON COMMIT DROP')
-        connection.execute('INSERT INTO ceo_p0v_tech_only(report,digest) VALUES (%s::jsonb,%s)',
-            (json.dumps(report,ensure_ascii=False),report_digest))
-        row=connection.execute('SELECT report,digest FROM ceo_p0v_tech_only').fetchone()
-        if row['report']!=report or row['digest']!=report_digest:
-            raise RuntimeError('isolated_live_postgres_roundtrip_invalid')
-    if connection.execute("SELECT to_regclass('pg_temp.ceo_p0v_tech_only') AS temp").fetchone()['temp'] is not None:
-        raise RuntimeError('postgres_temp_table_not_dropped')
+    row=connection.execute('SELECT %s::jsonb AS report, %s::text AS digest',
+        (json.dumps(report,ensure_ascii=False),report_digest)).fetchone()
+    if row['report']!=report or row['digest']!=report_digest:
+        raise RuntimeError('live_postgres_json_roundtrip_invalid')
+    connection.rollback()
 
 # Immutable GCS creation/readback and cleanup only under a unique P0-V
 # acceptance prefix. No write to ceo/<request_id>/report.json.
@@ -106,7 +103,7 @@ finally:
 print(json.dumps({'kind':'p0v-ceo-technical-live-data-contract','status':'PASS',
   'synthetic_roles':5,'full_validator':'PASS','negative_contracts':4,
   'gcs_immutable_readback':'PASS','gcs_cleanup':'PASS',
-  'postgres_temp_write_readback':'PASS','postgres_persistent_rows':0,
+  'postgres_live_json_readback':'PASS','postgres_persistent_rows':0,
   'owner_requests_created':0,'llm_calls':0,'canonical_publication':False}))
 """
 
@@ -142,7 +139,7 @@ def run_once():
             if not terminal(state) or state.get("succeededCount")!=1 or state.get("failedCount",0):
                 raise RuntimeError("technical_acceptance_worker_failed_no_retry")
             return {"status":"PASS","execution":execution,"source_sha":RELEASE_SHA,
-                "synthetic_roles":5,"live_pg_transactional_temp":True,
+                "synthetic_roles":5,"live_pg_json_roundtrip":True,
                 "live_gcs_isolated_immutable_readback":True,
                 "canonical_write":False,"real_owner_data":False,"model_calls":0}
         time.sleep(3)
