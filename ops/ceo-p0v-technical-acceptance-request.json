@@ -1,0 +1,16 @@
+{
+  "intent": "p0v-ceo-isolated-technical-acceptance",
+  "approved": true,
+  "authorization": "2026-10-13 owner requested independent P0-V technical acceptance before real five specialist outputs; keep parallel-live private owner data untouched",
+  "release_sha": "b63bf350213fa7c3933724fa38006d8ab7b8033f",
+  "release_run": 38363636133,
+  "live_gemini_run": 38367878942,
+  "rollout_run": 38367279461,
+  "test_input": "synthetic_nonpersonal_five_roles",
+  "real_owner_requests": 0,
+  "model_calls": 0,
+  "canonical_publication": false,
+  "db_persistent_writes": false,
+  "gcs_prefix": "acceptance/p0v-ceo-technical/",
+  "gcs_cleanup": true
+}
