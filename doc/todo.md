@@ -1,6 +1,6 @@
 # Janus — TODO
 
-版本：3.27（2026-10-11：四頁視覺優先 A＋B 排入產品交付）
+版本：3.28（2026-10-13：P0 持股／重算使用者暫停交接；先解 queue 根因再正式上線）
 用途：**只保留確定要做的 active work 與未完成 acceptance**。Deferred、Candidate、Observation、Production-only、已接受缺口與研究構想統一放 [`parking-lot.md`](parking-lot.md)；已完成／被取代內容放 `archive/`。
 
 ## 規則
@@ -12,12 +12,16 @@
 - active work 可因外部核准或 runtime evidence 呈 `partial`／`blocked`；partial 不等於完成。
 - 完成證據移至 `archive/` 或 `spec/operations-and-testing.md`，TODO 不保存歷史流水帳。
 
-### P0｜持股池不受 500 研究池限制＋Ledger 真實視覺收斂（2026-10-12）
+### P0｜持股池不受 500 研究池限制＋Ledger 真實視覺收斂（2026-10-13 暫停）
 
-- [ ] owner ledger mutation → current_positions 即時更新 membership（買入／加減碼／股利／更正／作廢），不因 research universe 篩除，未同步券商成交前不得自行推定。
-- [ ] 官方 TPEx／TWSE 持股報價與 00719B ETF 商品身分及可用 EOD/provenance，已發布 serving 與 Private Mart 估值重算；無可信價格不造值，查得 shares/cost 不得隱藏。
-- [ ] 分開修復 Cloud Run Private Mart queue dispatch／失敗重試／可追溯終態，不讓別的持股被一檔缺價阻擋 operational read。
-- [ ] 重構 Ledger Hero、個股卡兩列同指標層級，390px／desktop 對照原圖，含缺值版、恰當密度、無假圖；一次整合測試後再發布固定 Preview／實際 owner UI 驗收。
+**PAUSED BY USER／PARTIAL。** 2026-10-13 使用者先暫停，只授權回寫文件；下列是**恢復後**的 active acceptance，不得因 TODO 存在自動部署、重算、清理或正式切流。最新實際證據／版本對照／禁止盲重送的入口：[持股 P0 暫停交接](p0-holdings-recalc-pause-handoff-2026-10-13.md)。本節只留確定要完成的項目，歷史工作終態留在交接與 status。
+
+- [ ] **Owner 持股運作**：authenticated 新增交易／買入／加減碼／賣出／股利／更正／作廢後 `current_positions` 與 membership／shares／cost／ledger version 即時一致，500 檔研究池外亦可保留及正確操作；不得自行推定未同步的券商成交。以真實 owner readback 和隔離驗收。
+- [ ] **報價、估值與缺價隔離**：TWSE／TPEx 官方來源、商品身分及 EOD/PIT/provenance，00719B 既有單 owner 估值 PASS 不需盲目重做；補齊其他 500 外持股、單檔無價不清空整頁、shares／cost 保留、aggregate coverage 與 `partial/stale/missing` 語意的 live readback。
+- [ ] **P0 阻塞／Private Recalc queue E2E**：先在唯讀、受限、不洩露 owner 內容的路徑取得原先一筆 Worker `failed=1` 的實際 `error_code`、請求 terminal、ledger checkpoint／dispatch 和測試紀錄殘留；確認根因並最小修復，補上失敗／重試／parallel worker／owner 隔離 tests。受控重跑一筆 synthetic queue 需觀察 `SUCCEEDED`、exact execution／checkpoint、fence 釋放、可稽核 cleanup。**Cloud Run container SUCCESS 不算業務重算 PASS**；未知終態不得重送。
+- [ ] **Ledger 真實互動**：持股頁任何合法 YTD（包括 confirmed 0 與 available）都能看到「重新計算損益」；`QUEUED/RUNNING/CANCEL_REQUESTED` disabled、`FAILED/CANCELLED` 可安全重試、輪詢併發受限且 bounded。驗收 owner 按鈕→ API enqueue → Private Worker → PnL readback；不得用 Flutter fixture 取代真實結案。
+- [ ] **視覺／載入效能**：持股卡上排同為持有總損益／報酬，下排同為當日行情變化，台股漲紅跌綠；Hero、缺值／加減碼／多檔狀態、390×844 與 desktop authenticated 截圖對照 Final Visual Contract，無永久 spinner。資料首次冷請求已有 timeout／19s 樣本，仍須量測並修復 P50／P95，不用單次暖讀冒充達標。
+- [ ] **最終同源發布／上線驗收**：先確認現在 GitHub `main`、live API/Jobs/Preview 真實基準；完成受影響 tests／完整 GHCR Release／0% candidate／**自動** OAuth & private negative／四 Jobs 受控同源 rollback canary／固定 Preview／實際 owner 操作與 quote/PnL/queue readback，全部 PASS 後才將正式 API 100% 切至新版本並驗收 traffic readback／rollback。每次發版無須人工 OAuth consent；上線仍不豁免 owner/功能證據。
 
 
 ## 現行架構決策
