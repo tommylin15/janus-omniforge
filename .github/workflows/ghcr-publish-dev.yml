@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.verify.outputs.sha }}
+      ceo_gateway: ${{ steps.verify.outputs.ceo_gateway }}
     steps:
       - uses: actions/checkout@v4
       - id: verify
@@ -32,6 +33,11 @@ jobs:
           jq -e '.intent == "publish-ghcr-dev" and .approved == true' ops/ghcr-release-request.json >/dev/null
           test "${#GITHUB_SHA}" -eq 40
           echo "sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          if jq -e '.ceo_gateway_pilot == true' ops/ghcr-release-request.json >/dev/null; then
+            echo "ceo_gateway=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ceo_gateway=false" >> "$GITHUB_OUTPUT"
+          fi
           echo "Full-test GHCR publication request for commit ${GITHUB_SHA}" >> "$GITHUB_STEP_SUMMARY"
 
   python-tests:
@@ -173,6 +179,43 @@ jobs:
           esac
           docker buildx build -f "${dockerfile}" "${args[@]}" .
           echo "${COMPONENT} pushed for exact commit ${GITHUB_SHA}" >> "$GITHUB_STEP_SUMMARY"
+
+
+  publish-ceo-gateway:
+    needs: [request, python-tests, flutter-tests]
+    if: needs.request.outputs.ceo_gateway == 'true' && needs.python-tests.result == 'success' && needs.flutter-tests.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish exact full-release SHA opt-in CEO image
+        run: |
+          set -Eeuo pipefail
+          image="ghcr.io/tommylin15/janus-intelligence-mart:sha-${GITHUB_SHA}-ceo"
+          docker buildx build --platform linux/amd64 --provenance=false --push \
+            --target mart-ceo-provider -f jobs/intelligence-mart/Dockerfile \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" -t "$image" .
+      - name: Public digest readback with exact source SHA
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends skopeo jq
+          skopeo inspect --no-creds "docker://ghcr.io/tommylin15/janus-intelligence-mart:sha-${GITHUB_SHA}-ceo" > /tmp/ceo-image.json
+          jq -e --arg sha "$GITHUB_SHA" '.Digest|test("^sha256:[0-9a-f]{64}$")' /tmp/ceo-image.json >/dev/null
+          jq -e --arg sha "$GITHUB_SHA" '.Labels["org.opencontainers.image.revision"]==$sha' /tmp/ceo-image.json >/dev/null
+          echo "opt_in_ceo=IMAGE_ONLY. No Cloud Run traffic or Job mutation." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ceo-worker-digest
+          path: /tmp/ceo-image.json
+          retention-days: 14
 
   public-pull-gate:
     needs: [request, publish]
