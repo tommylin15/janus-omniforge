@@ -1,0 +1,99 @@
+name: Janus CEO Gateway bounded Job-only candidate rollout
+on:
+  push:
+    branches: [main]
+    paths: ['ops/ceo-omniagent-p0v-worker-rollout.json']
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  rollout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_RUN: "38363636133"
+      RELEASE_SHA: "b63bf350213fa7c3933724fa38006d8ab7b8033f"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require exact full release, real worker identity proof, and immutable CEO image
+        env:
+          REQUEST: ops/ceo-omniagent-p0v-worker-rollout.json
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          jq -e --arg sha "$RELEASE_SHA" --argjson release "$RELEASE_RUN" '
+            .intent=="p0v-ceo-worker-gateway-pilot" and .approved==true and
+            .release_sha==$sha and .release_run==$release and
+            .traffic_promotion==false and .other_jobs_update==false and
+            (.identity_probe_run | type=="number" and .>0)
+          ' "$REQUEST" >/dev/null
+          probe="$(jq -r .identity_probe_run "$REQUEST")"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN" > "$RUNNER_TEMP/release.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$probe" > "$RUNNER_TEMP/probe.json"
+          jq -e --arg sha "$RELEASE_SHA" '.head_sha==$sha and .conclusion=="success" and .path==".github/workflows/ghcr-publish-dev.yml"' "$RUNNER_TEMP/release.json" >/dev/null
+          jq -e '.conclusion=="success" and .path==".github/workflows/ceo-omniagent-identity-runtime.yml"' "$RUNNER_TEMP/probe.json" >/dev/null
+          gh run download "$RELEASE_RUN" -n ceo-worker-digest -D "$RUNNER_TEMP/ceo-image"
+          digest="$(jq -r .Digest "$RUNNER_TEMP/ceo-image/ceo-image.json")"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "CEO_IMAGE=ghcr.io/tommylin15/janus-intelligence-mart@$digest" >> "$GITHUB_ENV"
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends skopeo
+          skopeo inspect --no-creds "docker://ghcr.io/tommylin15/janus-intelligence-mart@$digest" > "$RUNNER_TEMP/ceo-image-public.json"
+          jq -e --arg sha "$RELEASE_SHA" --arg d "$digest" '.Digest==$d and .Labels["org.opencontainers.image.revision"]==$sha' "$RUNNER_TEMP/ceo-image-public.json" >/dev/null
+          python -m pip install -q pytest==8.4.2
+          python -m pytest -q tests/test_ceo_omniagent_iam_probe.py tests/test_ceo_worker_template.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Acquire common lease, update only CEO Job and verify immutable digest
+        id: deploy
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py acquire
+          echo "held=true" >> "$GITHUB_OUTPUT"
+          python scripts/gcp/ghcr_release_lease.py assert
+          python scripts/gcp/ceo_worker_deploy.py --image "$CEO_IMAGE" --sha "$RELEASE_SHA" > "$RUNNER_TEMP/ceo-worker-deployed.json"
+          jq -e --arg sha "$RELEASE_SHA" '.status=="PASS" and .sha==$sha and .execution_started==false and .traffic_changed==false and .scheduler_created==false' "$RUNNER_TEMP/ceo-worker-deployed.json" >/dev/null
+          echo "ceo_job_digest_fenced_rollout=PASS" >> "$GITHUB_STEP_SUMMARY"
+      - name: Canary actual updated CEO Job identity without Gemini calls or DB changes
+        id: canary
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py assert
+          python scripts/gcp/ceo_omniagent_iam_probe.py > "$RUNNER_TEMP/ceo-job-canary.json"
+          jq -e '.status=="PASS" and .model_calls==0 and .database_writes==0 and .job_updated==false' "$RUNNER_TEMP/ceo-job-canary.json" >/dev/null
+          echo "ceo_job_actual_runtime_gateway_identity=PASS" >> "$GITHUB_STEP_SUMMARY"
+      - name: Release owned lease only with verified CEO Job and terminal executions
+        if: always() && steps.deploy.outputs.held == 'true'
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py assert
+          python - <<'PY'
+          import sys
+          sys.path.insert(0,'scripts/gcp')
+          from ceo_worker_deploy import execution_fence
+          execution_fence()
+          PY
+          python scripts/gcp/ghcr_release_lease.py release --safe-to-release
+          echo "global_deploy_lease_released=PASS" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: janus-ceo-gateway-job-rollout
+          path: |
+            ${{ runner.temp }}/ceo-worker-deployed.json
+            ${{ runner.temp }}/ceo-job-canary.json
+            ceo-worker-rollback.json
+          if-no-files-found: ignore
+          retention-days: 14
