@@ -12,6 +12,16 @@
 - active work 可因外部核准或 runtime evidence 呈 `partial`／`blocked`；partial 不等於完成。
 - 完成證據移至 `archive/` 或 `spec/operations-and-testing.md`，TODO 不保存歷史流水帳。
 
+### P0-V｜Janus CEO → omniAgent Gateway → Gemini Flash-Lite（獨立任務）
+
+**ACTIVE／PARTIAL；與下方持股／重算 PAUSED BY USER 完全獨立。** 執行與驗收：[CEO P0-V 整合交接](ceo-omniagent-p0v-integration.md)。不解除原持股重算暫停、不切正式流量。
+
+- [x] 以 opt-in Gemini-only `OmniGatewayGeminiProvider` 串通既有 CEO router；只接受既有 market-mart SA audience-bound ID token、匹配 project／owner／request／model，拒絕超量 Fact Pack、格式錯誤、未知結果與任何 fallback／盲重試。保留原來的五角色 hash、schema validator、immutable report 與 PostgreSQL 寫入範圍；程式已提交。
+- [ ] Exact-SHA Python／PostgreSQL contract tests、完整 GHCR Release 與獨立 CEO image public digest：**均需新 SHA 真正 PASS**，選擇性 CI PASS 不代表完整 Release。
+- [ ] 專用 market caller 的 `roles/iam.serviceAccountTokenCreator`（授權對象僅原 Mart SA）readback／runtime impersonation：唯讀預檢目前遭 `iam.serviceAccounts.getIamPolicy` 權限拒絕，維持 **BLOCKED／UNKNOWN**，不得未經核准自動擴權。
+- [ ] 現有 CEO Job 無 Scheduler、digest/配置可回復的受控候選／rollout；Gateway 仍為 omniAgent 0% pilot，不因 CI 已呼叫成功就切正式流量。
+- [ ] 具 Janus capability 的**新**手動 CEO request 真實 Worker→Gateway→Gemini→schema／evidence validation→GCS immutable readback→PostgreSQL history/API roundtrip；有缺證維持 PARTIAL，不重送舊 request，不建立測試帳本資料。Gateway 8KiB prompt／512 output token 如不足需先完成 upstream 安全契約調整。
+
 ### P0｜持股池不受 500 研究池限制＋Ledger 真實視覺收斂（2026-10-13 暫停）
 
 **PAUSED BY USER／PARTIAL。** 2026-10-13 使用者先暫停，只授權回寫文件；下列是**恢復後**的 active acceptance，不得因 TODO 存在自動部署、重算、清理或正式切流。最新實際證據／版本對照／禁止盲重送的入口：[持股 P0 暫停交接](p0-holdings-recalc-pause-handoff-2026-10-13.md)。本節只留確定要完成的項目，歷史工作終態留在交接與 status。
