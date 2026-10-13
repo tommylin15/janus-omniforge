@@ -65,6 +65,7 @@ jobs:
           result=sorted({p for p in reasons if any(p in line for line in worker_lines)})
           requests=[]
           calls=[]
+          upstream_codes=[]
           permitted={'output_limit','safety_blocked','model_stopped','empty_model_reply',
             'response_too_large','provider_rejected','provider_unavailable',
             'provider_timeout','provider_network_error','unexpected_failure'}
@@ -83,6 +84,8 @@ jobs:
                   reason=data.get('reason')
                   safe=reason if reason in permitted else 'UNKNOWN'
                   duration=data.get('durationMs')
+                  code=data.get('upstreamStatus')
+                  if type(code)==int and 400<=code<=599:upstream_codes.append(str(code))
                   calls.append((str(data.get('status','unknown')),safe,int(duration) if type(duration)==int else -1))
           print('worker_log_count='+str(len(w)))
           print('worker_exception_class='+(','.join(classes) if classes else 'UNKNOWN'))
@@ -90,6 +93,7 @@ jobs:
           print('gateway_post_statuses='+json.dumps(dict(Counter(requests)),sort_keys=True))
           print('market_mart_safe_execution_reasons='+json.dumps(dict(Counter(a+':'+b for a,b,_ in calls)),sort_keys=True))
           print('market_mart_duration_ms='+json.dumps([d for _,_,d in calls[:3]]))
+          print('safe_upstream_http_status_counts='+json.dumps(dict(Counter(upstream_codes)),sort_keys=True))
           if not w or not g:raise SystemExit('MISSING_BOUNDED_LOGS')
           PY
           echo "read_only=true; no_model_call=true; no_persist_or_traffic_change=true" >> "$GITHUB_STEP_SUMMARY"
