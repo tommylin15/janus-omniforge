@@ -17,9 +17,9 @@
 **ACTIVE／PARTIAL；與下方持股／重算 PAUSED BY USER 完全獨立。** 執行與驗收：[CEO P0-V 整合交接](ceo-omniagent-p0v-integration.md)。不解除原持股重算暫停、不切正式流量。
 
 - [x] 以 opt-in Gemini-only `OmniGatewayGeminiProvider` 串通既有 CEO router；只接受既有 market-mart SA audience-bound ID token、匹配 project／owner／request／model，拒絕超量 Fact Pack、格式錯誤、未知結果與任何 fallback／盲重試。保留原來的五角色 hash、schema validator、immutable report 與 PostgreSQL 寫入範圍；程式已提交。
-- [ ] Exact-SHA Python／PostgreSQL contract tests、完整 GHCR Release 與獨立 CEO image public digest：**均需新 SHA 真正 PASS**，選擇性 CI PASS 不代表完整 Release。
+- [x] Exact-SHA 完整 GitHub Release [#38363636133](https://github.com/tommylin15/janus-omniforge/actions/runs/38363636133) **PASS**：來源 `b63bf350213fa7c3933724fa38006d8ab7b8033f`，Python／Flutter＋四 GHCR 映像＋CEO image public digest。API 0% 候選 [#38364240675](https://github.com/tommylin15/janus-omniforge/actions/runs/38364240675) **PASS**，舊正式流量 100% 不變；**尚未更新 CEO Job**。
 - [ ] 專用 market caller 的 `roles/iam.serviceAccountTokenCreator`（授權對象僅原 Mart SA）readback／runtime impersonation：唯讀預檢目前遭 `iam.serviceAccounts.getIamPolicy` 權限拒絕，維持 **BLOCKED／UNKNOWN**，不得未經核准自動擴權。
-- [ ] 現有 CEO Job 無 Scheduler、digest/配置可回復的受控候選／rollout；Gateway 仍為 omniAgent 0% pilot，不因 CI 已呼叫成功就切正式流量。
+- [ ] **CEO Job**（Cloud Run Job 不具 0% traffic）的 digest/配置可回復 rollout／單次真實 canary 仍未執行；Gateway 仍為 omniAgent 0% pilot，Janus **API** 0% 候選 PASS 不得取代本項。
 - [ ] 具 Janus capability 的**新**手動 CEO request 真實 Worker→Gateway→Gemini→schema／evidence validation→GCS immutable readback→PostgreSQL history/API roundtrip；有缺證維持 PARTIAL，不重送舊 request，不建立測試帳本資料。Gateway 8KiB prompt／512 output token 如不足需先完成 upstream 安全契約調整。
 
 ### P0｜持股池不受 500 研究池限制＋Ledger 真實視覺收斂（2026-10-13 暫停）
