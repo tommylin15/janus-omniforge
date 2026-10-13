@@ -12,6 +12,8 @@ on:
       - 'jobs/intelligence-mart/intelligence_mart/provider_routing.py'
       - 'scripts/gcp/analysis_schema_bootstrap.py'
       - 'tests/test_analysis*'
+      - 'scripts/gcp/ceo_p0v_full_prompt_canary.py'
+      - 'tests/test_ceo_p0v_full_prompt_canary.py'
       - '.github/workflows/analysis-product-ci.yml'
   workflow_dispatch:
 permissions:
@@ -57,3 +59,4 @@ jobs:
           tests/test_analysis_postgres.py tests/test_mart_provider_routing.py
           tests/test_market_screening.py tests/test_b4_deep_coverage.py
           tests/test_serving_schema_migration.py tests/test_user_api.py
+          tests/test_ceo_p0v_full_prompt_canary.py
