@@ -12,6 +12,7 @@ on:
       - 'jobs/intelligence-mart/intelligence_mart/provider_routing.py'
       - 'scripts/gcp/analysis_schema_bootstrap.py'
       - 'tests/test_analysis*'
+      - 'tests/test_mart_provider_routing.py'
       - 'scripts/gcp/ceo_p0v_full_prompt_canary.py'
       - 'tests/test_ceo_p0v_full_prompt_canary.py'
       - '.github/workflows/analysis-product-ci.yml'
