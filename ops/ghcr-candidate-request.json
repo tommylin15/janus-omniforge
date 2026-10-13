@@ -1,7 +1,7 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "50eda171ef6ffb3971a4d140ad09bac870ead6c1",
-  "purpose": "P0 holdings manual revaluation UI: 2026-10-12 complete Python+Flutter and all GHCR immutable images PASS #38273250472, source 50eda171…; deploy API 0% candidate only, validate build SHA/health/owner-private 401 and immutable digest. Previous formal b1bc… API stays 100% until approved promotion. Do not update fixed Preview, four Jobs or Scheduler in candidate.",
+  "sha": "b63bf350213fa7c3933724fa38006d8ab7b8033f",
+  "purpose": "2026-10-13 independent Janus CEO to omniAgent Gateway integration; verified full GHCR release #38363636133, SHA b63bf350. Create API code-only 0% candidate with existing global lease; no CEO Job updates, no LLM call, no holdings-P0 resume or formal traffic switch. CEO live E2E remains IAM-BLOCKED.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
