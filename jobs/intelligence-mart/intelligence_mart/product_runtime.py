@@ -91,7 +91,7 @@ def execute_ceo(request, router, *, should_stop=None):
                    "provider_unavailable", "transport_error", "timeout",
                     "gateway_identity_unavailable", "gateway_prompt_too_large",
                     "gateway_contract_mismatch", "gateway_endpoint_unapproved",
-                    "gateway_context_missing", "gateway_route_disabled"
+                    "gateway_context_missing", "gateway_route_disabled"}
         return "BLOCKED", None, audit, result.reason if result.reason in allowed else "provider_unavailable"
     try:
         output = validate_ceo_output(result.output, baseline, has_previous=bool(request.get('previous_report')))
