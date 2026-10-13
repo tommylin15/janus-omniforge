@@ -95,7 +95,8 @@ def test_worker_migrates_only_exact_retired_codex_env_to_gemini_lite():
     old = json.loads(json.dumps(desired))
     old['etag'] = 'fence'
     env = old['template']['template']['containers'][0]['env']
-    names = {'MART_CEO_GEMINI_ONLY', 'MART_GEMINI_MODEL', 'MART_GEMINI_FREE_TIER_CONFIRMED'}
+    names = {'MART_CEO_GEMINI_ONLY', 'MART_GEMINI_MODEL', 'MART_GEMINI_FREE_TIER_CONFIRMED',
+             'MART_CEO_GEMINI_VIA_OMNIAGENT', 'MART_OMNI_GATEWAY_URL'}
     old['template']['template']['containers'][0]['env'] = [e for e in env if e['name'] not in names]
     old['template']['template']['containers'][0]['env'].insert(2, {'name': 'MART_CODEX_AUTH_SECRET', 'value': 'janus-mart-codex-auth'})
     assert update_payload(old, desired)['etag'] == 'fence'
