@@ -19,9 +19,9 @@ jobs:
         run: |
           set -Eeuo pipefail
           jq -e '.intent=="p0v-full-ceo-real-execution-failure-readonly" and
-            .source_run==38394571293 and .read_only==true and .model_calls==0 and
+            .source_run==38401658102 and .read_only==true and .model_calls==0 and
             .job_updates==0' ops/ceo-p0v-full-prompt-diagnostic-request.json >/dev/null
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/38394571293" |
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/38401658102" |
             jq -e '.conclusion=="failure" and .path==".github/workflows/ceo-p0v-full-prompt-live.yml"' >/dev/null
       - uses: google-github-actions/auth@v2
         with:
@@ -32,7 +32,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           umask 077
-          gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ceo-analysis" AND timestamp>="2026-10-13T12:04:00Z" AND timestamp<="2026-10-13T12:07:30Z"' \
+          gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="janus-ceo-analysis" AND timestamp>="2026-10-13T13:01:00Z" AND timestamp<="2026-10-13T13:09:00Z"' \
             --project=gen-lang-client-0593591102 --limit=100 --format=json > "$RUNNER_TEMP/one-model-logs.json"
           python - "$RUNNER_TEMP/one-model-logs.json" <<'PY'
           import json,sys,re
