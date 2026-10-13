@@ -1,0 +1,9 @@
+{
+  "intent": "p0v-signed-canary-after-timeout-readback",
+  "source_run": 38392891696,
+  "release_sha": "a05f1f4dea80ecbd947829cd2751e1253f822cee",
+  "read_only": true,
+  "model_calls": 0,
+  "job_updates": 0,
+  "scope": "read only current CEO Job SHA/candidate and signed canary Cloud Run marker before full model test; no reinvocation"
+}
