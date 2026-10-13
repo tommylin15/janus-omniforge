@@ -33,11 +33,20 @@ def update_payload(existing, desired):
     env = previous['template']['containers'][0].get('env', [])
     target_env = desired['template']['template']['containers'][0]['env']
     legacy = [e for e in env if e['name'] == 'MART_CODEX_AUTH_SECRET']
+    gateway_keys = {'MART_CEO_GEMINI_VIA_OMNIAGENT', 'MART_OMNI_GATEWAY_URL'}
+    legacy_keys = {'MART_CEO_GEMINI_ONLY', 'MART_GEMINI_MODEL', 'MART_GEMINI_FREE_TIER_CONFIRMED'}
     if legacy:
         assert legacy == [{'name': 'MART_CODEX_AUTH_SECRET', 'value': 'janus-mart-codex-auth'}]
-        added = {'MART_CEO_GEMINI_ONLY', 'MART_GEMINI_MODEL', 'MART_GEMINI_FREE_TIER_CONFIRMED'}
-        assert not any(e['name'] in added for e in env), 'CEO configuration drift'
-        assert [e for e in env if e['name'] != 'MART_CODEX_AUTH_SECRET'] == [e for e in target_env if e['name'] not in added], 'CEO configuration drift'
+        assert not any(e['name'] in legacy_keys | gateway_keys for e in env), 'CEO configuration drift'
+        assert [e for e in env if e['name'] != 'MART_CODEX_AUTH_SECRET'] == [
+            e for e in target_env if e['name'] not in legacy_keys | gateway_keys], 'CEO configuration drift'
+        previous['template']['containers'][0]['env'] = target_env
+    else:
+        # The sole allowed transition is additive P0-V transport configuration.
+        # All DB, Secret refs, network, existing Gemini and execution guards stay byte-exact.
+        assert [e for e in env if e['name'] not in gateway_keys] == [
+            e for e in target_env if e['name'] not in gateway_keys], 'CEO configuration drift'
+        assert all(e in target_env for e in env if e['name'] in gateway_keys), 'CEO configuration drift'
         previous['template']['containers'][0]['env'] = target_env
     assert previous == desired['template'], 'CEO configuration drift'
     assert existing['labels'].get('janus-component') == 'manual-ceo'
