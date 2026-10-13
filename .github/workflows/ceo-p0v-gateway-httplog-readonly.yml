@@ -56,6 +56,26 @@ jobs:
           print("gemini_execute_http_requests="+str(len(selected)))
           print("gemini_execute_http_status_counts="+json.dumps(dict(Counter(x for x,_ in selected)),sort_keys=True))
           print("gateway_revisions_observed="+str(len(set(rev for _,rev in selected))))
+          events=[]
+          for row in rows:
+              entry=row.get("jsonPayload")
+              if not isinstance(entry,dict) or entry.get("kind")!="shared_gemini_call":
+                  raw=row.get("textPayload")
+                  if not isinstance(raw,str):
+                      continue
+                  try: entry=json.loads(raw)
+                  except (ValueError,TypeError): continue
+              if not isinstance(entry,dict) or entry.get("kind")!="shared_gemini_call":
+                  continue
+              if entry.get("project")!="market-mart":
+                  continue
+              duration=entry.get("durationMs")
+              events.append((str(entry.get("status","unknown")),
+                             str(entry.get("failureCode","none")),
+                             int(duration) if type(duration) is int and duration>=0 else -1))
+          print("market_mart_gateway_events="+str(len(events)))
+          print("market_mart_safe_failure_counts="+json.dumps(dict(Counter(a+':'+b for a,b,_ in events)),sort_keys=True))
+          print("market_mart_duration_ms_ranges="+repr(sorted(d for _,_,d in events if d>=0)[:6]))
           if not selected:
               raise SystemExit("NO_GATEWAY_EXECUTE_HTTP_STATUS_EVIDENCE")
           PY
