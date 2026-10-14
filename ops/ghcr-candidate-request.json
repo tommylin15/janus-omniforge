@@ -1,7 +1,7 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "6326d16412c8eb61bb0618b7a394b18ba5017d14",
-  "purpose": "2026-10-14 authorized full-market/controller/holdings/chart delivery. Full Release #38508422835 PASS: 1144 Python tests, Flutter gate and four public immutable images. Create zero-traffic API candidate for automatic boundary and later dev acceptance; no LLM or formal traffic promotion.",
+  "sha": "74803b8c422cb564bec85bdcae8ddae7fa347957",
+  "purpose": "Authorized full-market/controller/holdings/chart delivery plus publication-owner migration acceptance correction. Exact full Release #38509708320 PASS with Python, Flutter and four public immutable images. Replace candidate source at zero traffic; automatic boundary and dev acceptance still required, no LLM or formal promotion.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
