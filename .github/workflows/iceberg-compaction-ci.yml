@@ -10,6 +10,7 @@ on:
       - 'packages/duckdb_query/iceberg.py'
       - 'tests/test_iceberg_compaction.py'
       - 'tests/test_iceberg_cost_inventory.py'
+      - 'tests/test_duckdb_iceberg.py'
   workflow_dispatch:
 
 permissions:
