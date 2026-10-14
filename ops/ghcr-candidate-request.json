@@ -1,7 +1,7 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "61796cbc2cd973d694e1d203e7ea9e8af07804c1",
-  "purpose": "2026-10-14 exact-source 61796cbc full release #38552314315 PASS (Python 1156, Flutter 90, four public immutable GHCR digests). Dev 0%-traffic candidate only; independent allowlisted migration 057 scheduled via #38555862109, verify terminal independently. No formal API traffic/Jobs change; follow with automatic OAuth/private-boundary gate.",
+  "sha": "1e9c31d148db540ee06cac5ccccd8fac8d619511",
+  "purpose": "2026-10-14 user-authorized 01-05: official exact-date TPEx valuation repair after 893/893 false-missing failure. New full Release #38565636734 PASS Python 1163/2 deselected, Flutter90, four GHCR digests and anonymous pull. Migration057 already PASS. Restore 0% API candidate only after exact source; no formal traffic, no Jobs update, no owner data mutation.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
@@ -9,5 +9,5 @@
   "allow_job_image_update": false,
   "retry_verification": "same-sha-cache-normalized-immutable-candidate-reuse",
   "same_sha_retry_attempt": 0,
-  "digest": "sha256:16fd735f0392d3c0b0960db2d5e4bed81e30fc1e366b53b8977987b73b3e7666"
+  "digest": "sha256:83a2598486007a39bdaa1392e46cd79af3a3df9046efd9cdc7f3b1bef4fe667d"
 }
