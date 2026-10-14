@@ -1,5 +1,18 @@
 # Janus Current Status
 
+## 2026-10-15 最新實證：全市場 Bootstrap＋Cached PASS；持股與產品驗收 PARTIAL
+
+**截至 2026-10-15 的工程接續（取代下方舊快照的「Jobs rolling／Bootstrap pending／migration 057 未部署／已暫停」描述，不覆寫原歷史收據）。**
+
+- **完整 Release 與最新版 dev：PASS（限定已核實範圍）**：官方 TPEx 指定日估值資料修復來源 `1e9c31d148db540ee06cac5ccccd8fac8d619511`，完整 Python 1163 PASS／2 舊項排除、Flutter 90 PASS、四 GHCR immutable images／anonymous pull [#38565636734](https://github.com/tommylin15/janus-omniforge/actions/runs/38565636734) PASS；Migration 057 [#38555862109](https://github.com/tommylin15/janus-omniforge/actions/runs/38555862109) PASS；0% Candidate [#38566380979](https://github.com/tommylin15/janus-omniforge/actions/runs/38566380979) PASS、自動 OAuth／負向 private boundary [#38566632955](https://github.com/tommylin15/janus-omniforge/actions/runs/38566632955) PASS；四 Jobs 兩輪 canary [#38566821108](https://github.com/tommylin15/janus-omniforge/actions/runs/38566821108) PASS，固定 Preview [#38566991297](https://github.com/tommylin15/janus-omniforge/actions/runs/38566991297) PASS。正式 canonical API 流量尚未切換。
+- **01 全市場 bootstrap：業務 PASS**：[ #38575674367](https://github.com/tommylin15/janus-omniforge/actions/runs/38575674367)，交易日 2026-10-13，官方有效名冊 TWSE 1095＋TPEx 893＝1988；TWSE 官方 OHLCV 1093／1095，TPEx 官方 OHLCV 868／893、TPEx 指定日估值 886／893，其他必要 dataset 也各依 TWSE ≤10%／TPEx ≤30% gate PASS；`staged=20`、`serving_published=88455`，immutable coverage hash `sha256:153aa6ad0f91f143dc6bdc0f73d2d2a8bcbb966e759f1b9cb2b5ae35854110d9`。沒有將次日 OpenAPI 估值冒充指定日。來源資料有缺漏的股票仍保留完整身份與 missing semantics。
+- **02 same-day Cached：業務 PASS**：[ #38651225144](https://github.com/tommylin15/janus-omniforge/actions/runs/38651225144)，從已驗證 Bootstrap 收據回讀 data date 2026-10-13 並固定 `INGESTION_DATE`，必要 coverage records 17／17 cache hits、`staged=0`、`serving_published=0`、1988 名冊、獨立 immutable inventory hash `sha256:19d4ecb7e31b5f24181943b9960f916ba9bd68897b998795abac4aa50477350a`，未更動正式 API 流量或永久 Job config。驗收腳本與日期固定回歸測試已提交；與 Bootstrap 不同日期的 cached 不算 PASS。
+- **重複 Bootstrap 的歷史失敗保留**：成功 01 後的獨立重複執行 [#38575717874](https://github.com/tommylin15/janus-omniforge/actions/runs/38575717874) 終態 FAIL、遺留 immutable lease；一次性有界復原 [#38651024199](https://github.com/tommylin15/janus-omniforge/actions/runs/38651024199) PASS、原 Git ref 404。這不是 cached 的失敗，且不能抹除其歷史記錄。
+- **03 Owner 真實唯讀讀回：PARTIAL**：已授權 Janus MCP 於 2026-10-15 查得持股 6 筆、價格皆為 available，年度 PnL 與 positions 共用 ledger version 170，沒有新增／修改任何交易；但仍有 1 檔合法持股商品 `identity_status=missing`（`stock_master_not_found`），交易存檔、加減碼／更正、Private Worker 正式重算 request 的本輪動作到讀回整條路徑沒有新的真人／受控寫入證據，不能標 PASS。Owner 數值或身分資訊不寫入公開文件。
+- **04 固定 Preview 公開首頁 API 部分效能 PASS、整體 PARTIAL**：[ #38651716425](https://github.com/tommylin15/janus-omniforge/actions/runs/38651716425)，GitHub runner 到 `/api/v1/public/market-home` 30／30 HTTP JSON 正常，P50=46.76 ms、P95=97.97 ms、最慢單次 9376.24 ms。這是 server/network 公開暖讀取的觀測，**不能冒充冷啟動 P95／手機 390×844 實測／登入 Owner UI 四頁驗收**，單筆 9.38s 需列為效能風險。
+- **05 正式 dev 切流：NOT STARTED**；保持正式 API 既有 100% 路由。只有 Owner 交易、正式重算、隔離、UI 冷暖效能適用 gate 成立，才能使用原受控 API promotion 流程；不因 01／02 PASS 或 Preview PASS 直接切流。五分析師 OOS／CEO 真實 publication 繼續獨立後置。
+
+
 ## 2026-10-14 全市場驗收受控接續：Jobs 未終態，bootstrap 單次請求已排隊
 
 - 第 01 關完整 Release #38552314315 來源 `61796cbc2cd973d694e1d203e7ea9e8af07804c1` PASS（Python 1156、Flutter 90、GHCR 四映像與 anonymous pull）。057 #38555862109 PASS；0% candidate #38556011007 attempt2 PASS；同來源自動 OAuth/private boundary #38557372000 PASS。**正式 API traffic 未切換。**
