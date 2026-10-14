@@ -22,7 +22,9 @@ jobs:
           urls={
             'openapi_current':'https://www.tpex.org.tw/openapi/v1/tpex_mainboard_peratio_analysis',
             'historical_json':'https://www.tpex.org.tw/www/zh-tw/afterTrading/peratio?'+urlencode({'date':'2026/10/13','response':'json'}),
-            'historical_html':'https://www.tpex.org.tw/web/stock/aftertrading/peratio_analysis/pera_result.php?'+urlencode({'l':'zh-tw','o':'htm','d':'115/10/13','s':'0'})
+            'historical_html':'https://www.tpex.org.tw/web/stock/aftertrading/peratio_analysis/pera_result.php?'+urlencode({'l':'zh-tw','o':'htm','d':'115/10/13','s':'0'}),
+            'legacy_json':'https://www.tpex.org.tw/web/stock/aftertrading/peratio_analysis/pera_result.php?'+urlencode({'l':'zh-tw','o':'json','d':'115/10/13','s':'0'}),
+            'legacy_csv':'https://www.tpex.org.tw/web/stock/aftertrading/peratio_analysis/pera_result.php?'+urlencode({'l':'zh-tw','o':'csv','d':'115/10/13','s':'0'})
           }
           for label,url in urls.items():
             result={'source':label}
