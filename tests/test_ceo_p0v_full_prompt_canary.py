@@ -133,6 +133,6 @@ def test_full_prompt_gateway_override_is_one_request_only():
     assert "INSERT INTO" not in c
     assert "run_ceo_request" not in c
     assert "POST" not in c
-    assert canary.MARKET_URL.startswith("https://p0v-market2048-227a0bdc---")
+    assert canary.MARKET_URL.startswith("https://p0v-market2048-00d45861---")
     assert canary.PREVIOUS_URL.startswith("https://ghcr-965b05542a35---")
     ast.parse(c)
