@@ -1,6 +1,12 @@
 # Janus Current Status
 
-## 2026-10-13 獨立任務：Janus CEO → omniAgent P0-V（最小回路與隔離持久層 PASS／完整 Prompt 技術 PARTIAL）
+## 2026-10-14 Janus P0-V 跨專案技術驗收 PASS／真實 Owner CEO 報告 PARTIAL
+
+- **完整五角色合成 Fact Pack 真實模型與 CEO Validator：PASS**：[Janus #38490887562](https://github.com/tommylin15/janus-omniforge/actions/runs/38490887562) SUCCESS，使用已部署 `janus-ceo-analysis` 原 image（SHA `a05f1f4dea80ecbd947829cd2751e1253f822cee`）及原服務身分，僅單輪 `RunJob.containerOverrides.env` 指向新私有 0% Gateway `p0v-market2048-00d45861`；original ID-token audience 不變。原生 29.5–32 KiB 合成五角色 `_prompt` → Gemini Flash-Lite → `execute_ceo`／CEO JSON Schema／hash／numeric/evidence validation PASS；回覆判定為合成資料不足 `PARTIAL`，不具正式 publication authority。請求上限 1、沒有失敗盲重試、正式 DB/GCS CEO writes=0、永久 Job 更新=0、四排程 Jobs／API／Gateway 正式流量不變；global lease 於 terminal 後安全釋放，結果 artifact 已上傳。
+- **獨立前置真實證據**：omniAgent 新候選 [#38488277144](https://github.com/tommylin15/omniAgent/actions/runs/38488277144) PASS、[Gemini 503 恢復後的單次真實可用性 #38488547115](https://github.com/tommylin15/omniAgent/actions/runs/38488547115) PASS；Janus 完整離線 CEO Fact Pack CI [#38490691563](https://github.com/tommylin15/janus-omniforge/actions/runs/38490691563) PASS。原 2026-10-13 測試 [#38422168730](https://github.com/tommylin15/janus-omniforge/actions/runs/38422168730) 因 Gemini upstream HTTP 503 FAIL，是歷史失敗而非本次成功的替代證據。
+- **技術 gate 結論：PASS**（真實 LLM 呼叫／完整合成 CEO 業務 validator＋既有 #38372494501 隔離 PostgreSQL Owner API／GCS 技術 contract）；**真實五 Specialist 模型品質及使用者 Owner capability 手動請求 → GCS/PG canonical report → API 歷史讀回仍 NOT VERIFIED／PARTIAL**。不得以合成資料 PASS 當作真實分析上線。持股／Private Recalc P0 仍 PAUSED BY USER，未動正式流量／永久 CEO Job。
+
+### 2026-10-13 歷史接線與失敗證據（保留，不覆寫）
 
 這項任務只處理 CEO Gateway，**持股／Private Recalc P0 仍維持 PAUSED BY USER**。完整 acceptance [CEO P0-V 文件](ceo-omniagent-p0v-integration.md)，未完成項目見 [TODO](todo.md)。
 
