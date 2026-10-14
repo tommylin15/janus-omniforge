@@ -42,10 +42,10 @@
 
 暫不做：
 
-- 將 TWSE 500 各資料集追補到 500/500。
+- 將 全上市櫃各資料集追補到 100%。
 - 為了消除 `partial` 標籤而逐筆追補來源本身缺檔。
 - 全市場／全標的完整財報歷史、12 月／12 季等歷史回補到「無缺口」。
-- 既有 FinMind financials blocker 的替代接線，只為補齊 500/500 而新增來源。
+- 既有 FinMind financials blocker 的替代接線，只為補齊 100% 而新增來源。
 - 離榜持股 future-feed 的全面 source expansion，只為消除歷史 `partial`。
 - day-trading 等已在既定 coverage 門檻內的殘餘缺值逐筆追補。
 

@@ -12,13 +12,24 @@ import time
 
 BOOTSTRAP = '''import base64,hashlib,json,os
 from ingestion_core.__main__ import _control_plane
-from ingestion_core.serving_schema_migration import _without_role_lines
+from ingestion_core.serving_schema_migration import _without_role_lines, _publication_connection
 raw=base64.b64decode(os.environ['JANUS_ANALYSIS_MIGRATION_SQL'],validate=True)
 assert hashlib.sha256(raw).hexdigest()==os.environ['JANUS_ANALYSIS_MIGRATION_HASH']
 prepare,rest=_without_role_lines(raw.decode()).split('-- PHASE: acceptance',1)
 checks,record=rest.split('INSERT INTO control.schema_migrations',1)
 control=_control_plane()
 try:
+ if '-- PHASE: publication' in prepare:
+  control_sql,publication_sql=prepare.split('-- PHASE: publication',1)
+  with control.connection.transaction(),control.connection.cursor() as cursor:
+   cursor.execute(control_sql)
+  publication=_publication_connection()
+  try:
+   with publication.transaction(),publication.cursor() as cursor:
+    cursor.execute(publication_sql)
+  finally:
+   publication.close()
+  prepare='SELECT 1'
  with control.connection.transaction(),control.connection.cursor() as cursor:
   cursor.execute('SELECT current_user')
   assert cursor.fetchone()[0]=='janus_control'
@@ -33,7 +44,7 @@ finally:
 
 
 def payload(source, sql, migration='051_analysis_product'):
-    if migration not in {'051_analysis_product', '052_ceo_daily_quota_50'}:
+    if migration not in {'051_analysis_product', '052_ceo_daily_quota_50', '054_market_serving', '055_full_market_universe', '056_controller_ledger_backup'}:
         raise ValueError('migration not approved for bootstrap')
     container = source['template']['template']['containers'][0]
     if container.get('command') not in (None, [], ['python']):
@@ -52,7 +63,7 @@ def main():
     from ghcr_jobs_rollout import cloud, fence, job, terminal, ROOT
     parser = argparse.ArgumentParser()
     parser.add_argument('--receipt', type=Path, required=True)
-    parser.add_argument('--migration', choices=('051_analysis_product', '052_ceo_daily_quota_50'),
+    parser.add_argument('--migration', choices=('051_analysis_product', '052_ceo_daily_quota_50', '054_market_serving', '055_full_market_universe', '056_controller_ledger_backup'),
                         default='051_analysis_product')
     args = parser.parse_args()
     source = job('janus-ingestion-core')

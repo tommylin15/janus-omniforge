@@ -68,7 +68,7 @@ Admin 的目標是 `apps/user_app` 內的 Flutter workspace，與 User 共用 co
 - `core-cleanup`
 - `mart-cleanup`
 
-UI 應以 backend／controller 的 effective job/occurrence 為準，不再由 Flutter 複製一份排程真相。未來 500 screening、dirty specialist update、monthly retrain／reconciliation、On-demand CEO execution 等只有在對應 implementation／runtime 真正存在後才出現，不以 placeholder 假裝可用。
+UI 應以 backend／controller 的 effective job/occurrence 為準，不再由 Flutter 複製一份排程真相。未來 全市場 screening、dirty specialist update、monthly retrain／reconciliation、On-demand CEO execution 等只有在對應 implementation／runtime 真正存在後才出現，不以 placeholder 假裝可用。
 
 ### 9.2.1 Execution detail
 
@@ -89,9 +89,9 @@ Manual rerun 必須經 backend allowlist、idempotency／duplicate guard、depen
 
 ## 9.4 市場資訊
 
-保留現有市場資訊頁，用於 500 universe／市場資料營運視角。
+保留現有市場資訊頁，用於 全上市櫃 universe／市場資料營運視角。
 
-- 呈現有效 500 檔 ranking、成交量／市場資料、進入／退出、版本與來源狀態。
+- 呈現全上市櫃名冊、可選流動性 ranking、成交量／市場資料、進入／退出、版本與來源狀態。
 - 深度追蹤需求只呈現去識別化 symbol demand、effective time 與 cadence，不顯示 user-to-symbol 關係。
 - source routing 是 backend versioned contract，不由 Flutter hard-code；只有 approved／authorized source 可進 effective route。
 

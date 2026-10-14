@@ -12,11 +12,53 @@ from typing import Any, Sequence
 from packages.web_api import CoreQueryService, IcebergArtifactReader, PostgreSQLPublicIndex, PublicMartService
 
 
+def market_serving_query(identifier: str, parameters: Sequence[Any]):
+    """Fixed PostgreSQL reads; homepage never scans canonical Parquet files."""
+    dataset = {"core.benchmark_v1": "benchmark", "core.institutional_v1": "institutional",
+               "core.market_activity_v1": "market-activity", "core.financials_v1": "financials"}.get(identifier)
+    if dataset is None:
+        return None
+    table = "publication.market_serving_recent"
+    if dataset in {"institutional", "financials"} and len(parameters) == 3:
+        symbol, limit, offset = parameters
+        if not isinstance(limit, int) or not isinstance(offset, int):
+            return None
+        return (f"SELECT payload_json FROM {table} WHERE dataset_id=%s AND symbol=%s "
+                "ORDER BY sort_at DESC,natural_key LIMIT %s OFFSET %s",
+                (dataset, str(symbol).upper(), min(max(limit, 1), 600), max(offset, 0)), True)
+    if dataset == "benchmark":
+        if len(parameters) != 2 or parameters[0] != "TAIEX" or not isinstance(parameters[1], int):
+            return None
+        return (f"SELECT payload_json FROM {table} WHERE dataset_id=%s AND symbol=%s "
+                "ORDER BY sort_at DESC LIMIT %s", (dataset, "TAIEX", min(max(parameters[1], 1), 200)), True)
+    if parameters:
+        return None
+    if dataset == 'financials':
+        return None
+    fields = ({"day_trade_shares": "day_trade_shares", "day_trade_buy_twd": "day_trade_buy_twd",
+               "day_trade_sell_twd": "day_trade_sell_twd"} if dataset == "market-activity" else
+              {"foreign_net_shares": "foreign", "investment_trust_net_shares": "investment_trust",
+               "dealer_net_shares": "dealer"})
+    category, value = ("metric", "value") if dataset == "market-activity" else ("investor_type", "net_shares")
+    aggregates = ",".join(
+        f"sum((payload_json->>'{value}')::numeric) FILTER (WHERE payload_json->>'{category}'='{kind}') AS {alias}"
+        for alias, kind in fields.items())
+    return (f"SELECT payload_json->>'trade_date' AS trade_date,count(*) AS row_count,"
+            "count(DISTINCT symbol) AS covered_symbols,array_agg(DISTINCT source_id) AS source_ids,"
+            "array_agg(DISTINCT provenance_id) AS provenance_ids,array_agg(DISTINCT execution_id::text) AS execution_ids,"
+            f"{aggregates} FROM {table} WHERE dataset_id=%s AND sort_at=("
+            f"SELECT max(sort_at) FROM {table} WHERE dataset_id=%s) GROUP BY payload_json->>'trade_date'",
+            (dataset, dataset), False)
+
+
 def _emit_core_query_source(identifier: str, source: str) -> None:
     dataset = {
         "core.ohlcv_v1": "ohlcv",
         "core.valuation_v1": "valuation",
         "core.events_v1": "events",
+        "core.benchmark_v1": "benchmark",
+        "core.institutional_v1": "institutional",
+        "core.market_activity_v1": "market-activity",
     }.get(identifier, "unknown")
     print(json.dumps({
         "component": "janus-api",
@@ -64,21 +106,13 @@ def _catalog_settings() -> dict[str, str]:
 
 
 def build_core_service() -> CoreQueryService:
-    from packages.duckdb_query import DuckDBIcebergCore, IcebergQuery
     from packages.postgres_bundle import load_postgres_bundle
 
     load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE", {
         "PUBLICATION_DB_PASSWORD": ("web_publication_password",),
     })
     settings = _catalog_settings()
-    iceberg = DuckDBIcebergCore.from_postgres(
-        host=settings["CATALOG_DB_HOST"], dbname=settings["CATALOG_DB_NAME"],
-        user=settings["CATALOG_DB_USER"], password=settings["CATALOG_DB_PASSWORD"],
-        warehouse=os.environ.get("ICEBERG_WAREHOUSE", f"gs://{settings['CORE_BUCKET']}/warehouse"),
-        project_id=settings["GCP_PROJECT_ID"], sslmode=os.environ.get("CATALOG_DB_SSLMODE", "require"),
-        read_only=True,
-    )
-    reader = IcebergQuery(iceberg.catalog, engine=iceberg.engine)
+    reader = None
     lock = Lock()
     serving_connection: Any | None = None
 
@@ -100,6 +134,22 @@ def build_core_service() -> CoreQueryService:
 
     def serving_rows(identifier: str, parameters: Sequence[Any]) -> list[dict[str, Any]] | None:
         nonlocal serving_connection
+        market_query = market_serving_query(identifier, parameters)
+        if market_query is not None:
+            serving_connection = serving_connection or connect_serving()
+            try:
+                with serving_connection.cursor() as cursor:
+                    statement, values, payload_only = market_query
+                    cursor.execute(statement, values)
+                    records = cursor.fetchall()
+                    if payload_only:
+                        return [value if isinstance(value, dict) else json.loads(value) for (value,) in records]
+                    names = [column.name for column in cursor.description]
+                    return [dict(zip(names, record)) for record in records]
+            except Exception:
+                serving_connection.close()
+                serving_connection = None
+                raise
         dataset = {
             "core.ohlcv_v1": "ohlcv",
             "core.valuation_v1": "valuation",
@@ -141,12 +191,26 @@ def build_core_service() -> CoreQueryService:
     # consult the rebuildable PostgreSQL projection and fall back to canonical
     # Iceberg whenever the projection is absent, stale during rollout, or unavailable.
     def query(identifier: str, sql: str, parameters: Sequence[Any] = ()):
+        nonlocal reader
         with lock:
             rows = serving_rows(identifier, parameters)
-            if rows:
+            if market_serving_query(identifier, parameters) is not None:
+                _emit_core_query_source(identifier, "serving_projection")
+                return rows or []
+            if rows is not None:
                 _emit_core_query_source(identifier, "serving_projection")
                 return rows
             _emit_core_query_source(identifier, "iceberg_fallback")
+            if reader is None:
+                from packages.duckdb_query import DuckDBIcebergCore, IcebergQuery
+                iceberg = DuckDBIcebergCore.from_postgres(
+                    host=settings["CATALOG_DB_HOST"], dbname=settings["CATALOG_DB_NAME"],
+                    user=settings["CATALOG_DB_USER"], password=settings["CATALOG_DB_PASSWORD"],
+                    warehouse=os.environ.get("ICEBERG_WAREHOUSE", f"gs://{settings['CORE_BUCKET']}/warehouse"),
+                    project_id=settings["GCP_PROJECT_ID"], sslmode=os.environ.get("CATALOG_DB_SSLMODE", "require"),
+                    read_only=True,
+                )
+                reader = IcebergQuery(iceberg.catalog, engine=iceberg.engine)
             return reader.query(identifier, sql, parameters)
 
     def serving_series(dataset: str, symbol: str, limit: int):

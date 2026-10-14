@@ -1,5 +1,15 @@
 # Janus Current Status
 
+## 2026-10-14 全市場／總控／持股交易／四頁整合：ACTIVE／PARTIAL
+
+使用者已明確要求完成全市場與總控底層、持股交易效能、通用圖表／四頁，再集中測試及 dev 驗收。此為本輪最新授權；下方 CEO 獨立任務的「持股暫停」及舊文件停止敘述只代表其原記錄時點。
+
+- 本機已補 migration 054～056、全市場雙來源名冊／分市場 coverage、screening 分片、公開 PostgreSQL 首屏與法人／月營收／單季 EPS 圖表、交易唯讀試算／版本檢查／移動平均成本、更正及重送 guard、獨立 Private Mart 鎖、手機入帳 owner queue，以及總控備份 executor／還原後交接。
+- 集中 Python 回歸 258 PASS／3 個隔離 PostgreSQL tests SKIP（本機無 CI DSN）；其後快取 receipt／scope／失敗守門等修正相關回歸 145 PASS／3 SKIP，最後 scope tests 11 PASS。這些測試有重疊，不累加成總測試數。
+- 四頁／表單 Flutter 全套 88 PASS；Dart analyze `--no-fatal-infos` exit 0，只有既有 info；workflow YAML、備份 Bash 語法及 diff whitespace 通過。Linux 全 Release、真實 PostgreSQL、新 SHA dev deployment／coverage／queue／備份還原／四頁及效能驗收尚未完成，不標本工作包 PASS。
+- 原 00719B 與 CEO 技術 PASS 維持各自範圍；後置模型研究／CEO 報告不由本輪啟動。最新 acceptance 見 [TODO](todo.md) 及 [持股優先契約](spec/holdings-first.md)。
+
+
 ## 2026-10-14 Janus P0-V 跨專案技術驗收 PASS／真實 Owner CEO 報告 PARTIAL
 
 - **完整五角色合成 Fact Pack 真實模型與 CEO Validator：PASS**：[Janus #38490887562](https://github.com/tommylin15/janus-omniforge/actions/runs/38490887562) SUCCESS，使用已部署 `janus-ceo-analysis` 原 image（SHA `a05f1f4dea80ecbd947829cd2751e1253f822cee`）及原服務身分，僅單輪 `RunJob.containerOverrides.env` 指向新私有 0% Gateway `p0v-market2048-00d45861`；original ID-token audience 不變。原生 29.5–32 KiB 合成五角色 `_prompt` → Gemini Flash-Lite → `execute_ceo`／CEO JSON Schema／hash／numeric/evidence validation PASS；回覆判定為合成資料不足 `PARTIAL`，不具正式 publication authority。請求上限 1、沒有失敗盲重試、正式 DB/GCS CEO writes=0、永久 Job 更新=0、四排程 Jobs／API／Gateway 正式流量不變；global lease 於 terminal 後安全釋放，結果 artifact 已上傳。
@@ -22,6 +32,23 @@
 - **剩餘 gate**：由真正具 capability 的使用者發起**新的**手動 CEO 分析（不得重送舊失敗 request）；通過 validated Fact Pack 原始大小 ≤32KiB、Gemini market-mart 2,048 output max token 限制（目前真正阻塞為 upstream HTTP 503）、完整 `validate_ceo_output`、immutable GCS/PG report hash/readback 和 Owner API history。未核實仍為 **PARTIAL**，不宣稱正式報告上線，且不因合成 schema PASS 自動 promotion。
 
 ---
+**2026-10-13 最新合併開發授權：P0-1 至 P1-2 一次完成相依開發，再整合測試／真實驗收。** 本指示取代之前「只更新文件後停止」。先掃全文件，將有效500個股任務與資料收集改全上市櫃；歷史證據／識別字保留且不冒充全市場PASS。P2模型研究與P3報告不由本次自動啟動。
+
+## 2026-10-13 全市場／總控盤點；文件完成後停止
+
+使用者取消全部 500 檔母體限制，改全上市櫃個股、缺失率 ≤10% 即過 coverage；所有業務批次以 Cloud Scheduler 總控，Actions 只保留備份清理定時工作。本輪已查 repo／dev 主區 Scheduler／Jobs 與 GitHub workflow metadata，見 [盤點](batch-inventory-2026-10-13.md)。**依最新指示只完成文件並停止；未提交／推送／部署／停用排程。研究 workflow 試改已還原，現存研究 cron 仍是待移除項，VM backup timer live 未查。** 原先未驗證程式改動保留，功能仍 PARTIAL。
+
+## 2026-10-13 文件整理與最新產品順序
+
+先持股報價／交易損益／效能，再通用圖表及四頁整合，五分析師有效後才建整合報告。本節取代下文歷史暫停與 B9→C→產品順序；原失敗證據保留。此次完成需求／文件整理，未執行程式測試、部署或 live 驗收；工作區既有跨層修改仍未驗證，不能當 main／live 成果。見 [文件盤點](documentation-review-2026-10-13.md)、[AI 指示](codex-execution-plan.md)。
+
+## 2026-10-13 三項優先工作已恢復／開發中
+
+使用者指定 P0 持股／手動重算、持股首屏效能、四頁視覺整合優先，一次開發完再集中驗收。官方報價擴為上市、上櫃全部個股，研究 500 admission 不變；本段取代下方暫停控制，歷史 evidence 不改寫。
+
+- 唯讀原失敗 queue 查詢已取得 `FAILED / LOCKNOTAVAILABLE`；active requests=0、dispatch=false，未重送重算。程式檢查發現 batch controller 與 private Mart 共用 advisory key `(1835102836,3)`，server `lock_timeout=5s`；私有寫入需獨立鎖、有界等待及實際並行驗收。
+- 全市場 EOD Core／serving、首頁 PostgreSQL read model、法人圖與四頁刷新正在開發；未測試／未 commit／未部署，整體仍 PARTIAL。
+- 本次實際只做根因調查，尚無新版本 live acceptance；既有 PASS／FAIL 仍依下方來源 SHA 區分。
 
 ## 2026-10-13 暫停交接：持股／手動重算 P0 PARTIAL（使用者要求暫停）
 

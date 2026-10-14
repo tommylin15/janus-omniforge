@@ -1,11 +1,26 @@
 # Janus — TODO
 
-版本：3.28（2026-10-13：P0 持股／重算使用者暫停交接；先解 queue 根因再正式上線）
+**2026-10-13 最新合併開發授權：P0-1 至 P1-2 一次完成相依開發，再整合測試／真實驗收。** 本指示取代之前「只更新文件後停止」。先掃全文件，將有效500個股任務與資料收集改全上市櫃；歷史證據／識別字保留且不冒充全市場PASS。P2模型研究與P3報告不由本次自動啟動。
+
+## 最高優先新增：全上市櫃＋單一批次總控（2026-10-13）
+
+本段取代下方所有舊「維持研究500／500 admission／下一個先B9」敘述。最新授權已恢復 P0-1 至 P1-2 合併開發，以下為本輪尚未完成的待辦。
+
+- [ ] 全市場 membership／SQL migration／ingestion／screening／研究／搜尋／watchlist／Admin／UI／fixtures 一次移除股票母體500限制；50 quota、分頁／batch size 等非母體限制保留。
+- [ ] 各市場／必要資料集／期間缺失率 ≤10%（含10%）coverage gate，固定官方名冊分母、未知值／超標與個人完整估值分開。
+- [ ] 依 [完整批次盤點](batch-inventory-2026-10-13.md) 收斂10類總控工作、重複收集／重算與一次性維運入口；移除研究 Actions schedule，僅保留備份清理。
+- [ ] 備份產生納入總控；先驗證既有VM路徑與還原再停timer。研究前瞻留存若保留也走總控，不重播歷史500 request。
+- [ ] 即時入帳／試算／股數成本、報價snapshot、首頁／圖表serving、dirty owner報表快照，沿 [全市場／快照契約](spec/full-market-batch-policy.md)，不全部等批次。
+- [ ] 全市場分片資源／總控dispatch lag／備份不中斷／無雙重派送與P0/P1同源集中驗收。
+
+順序：全市場與總控必要底層＋持股／交易／效能 → 通用圖表／四頁 → 全市場模型研究 → 有效後報告。
+
+版本：3.30（2026-10-13：恢復三項優先整合；上市／上櫃全市場官方報價）
 用途：**只保留確定要做的 active work 與未完成 acceptance**。Deferred、Candidate、Observation、Production-only、已接受缺口與研究構想統一放 [`parking-lot.md`](parking-lot.md)；已完成／被取代內容放 `archive/`。
 
 ## 規則
 
-- **2026-10-11 使用者合併授權**：B9 產品功能、C 組、剩餘持股頁／首屏及產品整合（順序 1／2／3）先整套開發，再一併驗收及發布至正式 dev；不在各組內部完成後停等，不提前逐項切換正式流量。必要安全／migration／targeted tests 保留；500 檔研究仍後置。執行細節見 `codex-execution-plan.md`。
+- **2026-10-11 使用者合併授權**：B9 產品功能、C 組、剩餘持股頁／首屏及產品整合（順序 1／2／3）先整套開發，再一併驗收及發布至正式 dev；不在各組內部完成後停等，不提前逐項切換正式流量。必要安全／migration／targeted tests 保留；全市場模型研究仍後置。執行細節見 `codex-execution-plan.md`。
 
 - 在本文件：**做**。必須有 implementation／acceptance，依下列順序執行。
 - 不在本文件而在 `parking-lot.md`：目前**不做**，不得自行開工或計入未完成度。
@@ -25,11 +40,20 @@
 - [x] **P0-V 完整五角色 Prompt → Gemini → CEO JSON 真實技術驗收 PASS**：[Janus #38490887562](https://github.com/tommylin15/janus-omniforge/actions/runs/38490887562) SUCCESS；在 [離線 CI #38490691563](https://github.com/tommylin15/janus-omniforge/actions/runs/38490691563) PASS、omniAgent [新版 0% 候選 #38488277144](https://github.com/tommylin15/omniAgent/actions/runs/38488277144) PASS、[Gemini 恢復短呼叫 #38488547115](https://github.com/tommylin15/omniAgent/actions/runs/38488547115) PASS 後，以一次性 Job env override 指向 `p0v-market2048-00d45861`，維持 canonical audience，使用原生 29.5–32 KiB 合成五角色 Fact Pack 完成實際 Gemini Flash-Lite → Janus `execute_ceo`／Schema／hash／evidence/numeric validator；**1 模型呼叫、0 正式報告、0 永久 Job 更新、global lease 安全釋放**。先前 HTTP 503 歷史維持 FAIL 記錄，不當作現況阻塞。
 - [ ] **真實 Owner CEO 分析的獨立業務驗收**：等五角色真實來源與 capability 就緒後，用**新**手動 request 完成真實 Fact Pack → Gateway → Gemini → `validate_ceo_output` → immutable GCS／PostgreSQL report/hash → authenticated Owner API history readback；若缺任何 live evidence 仍 PARTIAL，絕不拿本次合成技術 PASS 充當正式分析／publication PASS，不重送舊 request 或建立假持股測試帳本。
 
-### P0｜持股池不受 500 研究池限制＋Ledger 真實視覺收斂（2026-10-13 暫停）
 
-**PAUSED BY USER／PARTIAL。** 2026-10-13 使用者先暫停，只授權回寫文件；下列是**恢復後**的 active acceptance，不得因 TODO 存在自動部署、重算、清理或正式切流。最新實際證據／版本對照／禁止盲重送的入口：[持股 P0 暫停交接](p0-holdings-recalc-pause-handoff-2026-10-13.md)。本節只留確定要完成的項目，歷史工作終態留在交接與 status。
+**2026-10-13 最新產品順序取代下列舊 B9／C 優先敘述：**先持股完整與快速報價／交易損益，再通用圖表和四頁整合；五分析師有效後才建完整報告。B9／C 留作後置責任索引，不阻塞本輪前兩項。詳細 [需求與驗收](spec/holdings-first.md)。
+
+- [ ] 交易前唯讀 backend 試算：費稅／成本法／版本一致，未知值與正式成交分開。
+- [ ] 成交後快速回傳新版股數／成本／該筆已實現；重送／衝突／歷史更正正確；正式報表 pending 獨立。
+- [ ] 持股／首屏／試算／保存的冷暖 P50／P95、失敗率與 quote age，依新契約實測。
+- [ ] 個股先簡圖及中性說明；未驗證健康度／整合報告退出 primary，不等待模型完成才交付。
+
+### P0｜全市場官方報價、持股重算、首屏效能與四頁整合（2026-10-13 恢復）
+
+**ACTIVE／PARTIAL。** 使用者已恢復並指定三項優先：① P0 持股／手動損益重算與上市、上櫃全部個股官方報價；② 持股頁與首屏效能；③ 四頁視覺整合。先一次完成跨層程式、migration、UI 與測試，再集中驗收／發布；開發所需唯讀根因調查可先執行。CEO provider 與 全上市櫃模型研究不在本次優先工作包。原暫停證據保留：[歷史交接](p0-holdings-recalc-pause-handoff-2026-10-13.md)。
 
 - [ ] **Owner 持股運作**：authenticated 新增交易／買入／加減碼／賣出／股利／更正／作廢後 `current_positions` 與 membership／shares／cost／ledger version 即時一致，500 檔研究池外亦可保留及正確操作；不得自行推定未同步的券商成交。以真實 owner readback 和隔離驗收。
+- [ ] **全市場官方報價**：上市／上櫃全部個股整批擷取，不以成交排名或現有持股篩選；保存官方日期、source、provenance、Core／serving 與全市場 coverage。沿用既有 14:30 ingestion，盤中 MIS 僅可見需求刷新，不在首屏逐檔抓全市場。
 - [ ] **報價、估值與缺價隔離**：TWSE／TPEx 官方來源、商品身分及 EOD/PIT/provenance，00719B 既有單 owner 估值 PASS 不需盲目重做；補齊其他 500 外持股、單檔無價不清空整頁、shares／cost 保留、aggregate coverage 與 `partial/stale/missing` 語意的 live readback。
 - [ ] **P0 阻塞／Private Recalc queue E2E**：先在唯讀、受限、不洩露 owner 內容的路徑取得原先一筆 Worker `failed=1` 的實際 `error_code`、請求 terminal、ledger checkpoint／dispatch 和測試紀錄殘留；確認根因並最小修復，補上失敗／重試／parallel worker／owner 隔離 tests。受控重跑一筆 synthetic queue 需觀察 `SUCCEEDED`、exact execution／checkpoint、fence 釋放、可稽核 cleanup。**Cloud Run container SUCCESS 不算業務重算 PASS**；未知終態不得重送。
 - [ ] **Ledger 真實互動**：持股頁任何合法 YTD（包括 confirmed 0 與 available）都能看到「重新計算損益」；`QUEUED/RUNNING/CANCEL_REQUESTED` disabled、`FAILED/CANCELLED` 可安全重試、輪詢併發受限且 bounded。驗收 owner 按鈕→ API enqueue → Private Worker → PnL readback；不得用 Flutter fixture 取代真實結案。
@@ -50,9 +74,9 @@
 目前產品契約：
 
 - 五 specialist production 主路徑為 Python／SQL／ML，正常 path 不使用生成式 LLM。
-- 約 500 檔在每個交易日 EOD canonical data ready 後做低成本 market screening／cross-sectional discovery；預設 PyIceberg，BigQuery 不自動切流，不做 500×5 深度 specialist。
+- 全上市櫃個股在每個交易日 EOD canonical data ready 後做低成本 market screening／cross-sectional discovery；預設 PyIceberg，BigQuery 不自動切流，不做 全市場×5 深度 specialist。
 - 完整五 specialist 只做 `active watchlist ∪ effective holdings`，依 dirty dependency／input change 更新；無變更 reuse，不固定每日全重算。
-- retraining／calibration／OOS evaluation／cache reconciliation 第一版固定 **每月第一個週六 10:30（Asia/Taipei）** 執行；不另設每週六 500×5 全量深算排程。
+- retraining／calibration／OOS evaluation／cache reconciliation 第一版固定 **每月第一個週六 10:30（Asia/Taipei）** 執行；不另設每週六 全市場×5 全量深算排程。
 - plain-language output 由 structured output + SHAP／rules／templates 產生，正常 0 API token。
 - Codex CLI／OpenRouter／Gemini 只用於 authorized manual On-demand CEO／approved rare escalation。
 - CEO report immutable；重新分析建立新 execution/report，不覆寫舊報告。
@@ -92,7 +116,7 @@ Admin operational convergence **不重做整個 Admin**。保留 `總覽 / 批�
 - 正式執行前依該項標示的【Sol】／【Luna】完成模型 gate；開始後以整體 acceptance scope 結案，不在內部 dataset／adapter／單一畫面反覆停等。
 - 新付費 API／model／subscription、新付費 GCP 資源、重大權限擴張、不可逆大量刪除、MFA／OAuth consent／付款仍需使用者明確授權。
 
-# 執行順序：A（CLOSED）→ B9 產品 → C／剩餘產品 → 500 檔歷史研究
+# 執行順序：持股完整／效能 → 通用圖表／四頁整合 → 模型驗證 → 有效後報告
 
 依使用者 2026-10-05 指示，先完成上班族操作體驗／效能／Admin，再整合原 specialist 與 CEO 工作。執行細節與可貼給 Codex 的指令見 [Codex 執行指令](codex-execution-plan.md)。以下產品組與後置研究切片是執行順序；後面的 1～8 是原 WBS acceptance 索引，不再代表先後順序，也不重複計工。
 
@@ -101,7 +125,7 @@ Admin operational convergence **不重做整個 Admin**。保留 `總覽 / 批�
 | A：操作體驗／效能／資料營運 | §6 Admin；§7 非 CEO 功能；§8 非 AI 相依版型；下列新增補強 | Sol | 一組 API／Flutter／資料營運回歸與一輪 dev browser/readback |
 | B：B9 產品功能 | §1 可靠基準 + §2 cache；Admin 真實狀態 | Sol | 真實基準分析、缺值／來源／增量／persist/readback；不要求 ML 勝出 |
 | C：CEO／權限／最終整合 | §3 provider + §4 CEO + §5 Admin profile；§7 AI 整合；§8 剩餘驗收 | Sol | 一組端到端安全／UI 測試與最少已授權 provider live calls |
-| 後置研究：B9 模型品質切片 | 產品交付後，500 檔歷史研究池與五角色評估 | Sol | 各日期母體／資料／OOS／基準比較，逐模型決定升級 |
+| 後置研究：B9 模型品質切片 | 產品交付後，全上市櫃歷史研究池與五角色評估 | Sol | 各日期母體／資料／OOS／基準比較，逐模型決定升級 |
 
 同組先完成相關程式、migration、UI、tests、文件再集中驗收，不逐檔／逐 API／逐股票獨立部署。失敗僅補跑受影響範圍；原 acceptance、必要安全檢查及真實 dev 證據保留。A 不因尚無 CEO 而延後基本 UI；§8 整體結案仍須所有條件成立。跨組連續執行須使用者明確指定全部組，依 PROJECT_RULES 的本次例外處理。
 
@@ -114,14 +138,14 @@ A 組 implementation／CI／dev runtime 與兩項人工 gate 已於 2026-10-06 �
 - [非佇列結案紀錄](archive/group-a-nonqueue-live-closure-2026-10-06.md)
 - [latest-price／Ledger UI 驗收紀錄](archive/latest-price-ledger-ui-acceptance-2026-10-06.md)
 
-A 組不再列 active TODO；下一個 active work 為 B 組。
+A 組既有範圍不重開；下一個開發入口依上方全市場／持股與總控工作包。
 ## 2026-10-12 發版 OAuth 人工驗收已取消
 
 使用者明確取消「每次 GitHub Actions 發布前要求 Owner 手動登入 Google／重做 OAuth consent／A→B→A」的關卡，**不是取消 OAuth 驗證**。同來源 SHA 成功的自動 candidate OAuth metadata、PKCE／redirect、未登入 User/Admin／MCP 授權負測與可自動執行的 token／refresh／owner-scope 測試保留；Jobs／API promotion 的 `auth_boundary_run` 必須通過。詳見 [PROJECT_RULES §12.2](PROJECT_RULES.md)、[CI/CD SPEC](spec/cicd-v2.md)、[OAuth runbook](runbook-user-oauth-dev.md)。真人登入證據未做仍為 `NOT_VERIFIED`，其餘必要發布 gate 不豁免。這是已確定政策／已改 gate，不另把人工登入列待辦。
 
 ## 2026-10-11 四頁視覺優先（併入既有 B9＋C＋剩餘產品工作包）
 
-使用者指定四張已核准 PNG 只是最低基礎值，每頁需唯一 Hero、圖表／大數字／顏色先行。 [A 正式 UI 契約](ui/visual-first-four-pages.md) 和 [B 工程工作單](ui/visual-first-delivery.md) 定義詳盡責任與 acceptance；不重開 A 組／B0～B8，不提前做 500 檔模型研究。
+使用者指定四張已核准 PNG 只是最低基礎值，每頁需唯一 Hero、圖表／大數字／顏色先行。 [A 正式 UI 契約](ui/visual-first-four-pages.md) 和 [B 工程工作單](ui/visual-first-delivery.md) 定義詳盡責任與 acceptance；不重開 A 組／B0～B8，不提前做 全上市櫃模型研究。
 
 - [ ] VF-00～01 P0：資料 coverage matrix（source→Core→serving→API→UI）、MOPS 財報期別與事件時間、缺值／PIT、owner-scoped typed read path。
 - [ ] VF-02～04 P0：今日以本人持股／關注可信異動優先、無資料退回市場判讀／TAIEX；關注異動與價格、持股市值 Hero／有證據的損益貢獻；四頁不再用無重點的數字牆。
@@ -138,22 +162,22 @@ VF-10 高階同業／估值河流／還原價為需另證來源／成本的有�
 - [ ] 首屏不等待年度交易歷史、PnL、重算狀態；版本、報價日期與狀態一致；量測 API latency P50／P95。
 - [ ] Flutter／Python targeted CI、dev deployment/migration、真實 User UI／Owner 一致性驗收。未通過維持 ACTIVE，不更動原 A 組 CLOSED 判定。
 
-## B 組：下一個執行入口（B7／B8 CLOSED → B9）
+## B 組：後置執行入口（B7／B8 CLOSED → B9）
 
-**B0～B8 CLOSED／PASS，不重跑；B9 是下一個 active gate。** B0～B6 歷史驗收入口： [B0](archive/group-b-b0-baseline-closure-2026-10-07.md)、[B1](archive/group-b-b1-reader-acceptance-2026-10-07.md)、[B2](archive/group-b-b2-closure-2026-10-07.md)、[B3](archive/group-b-b3-closure-2026-10-07.md)、[B4](archive/group-b-b4-deep-coverage-closure-2026-10-07.md)、[B5](archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)、[B6](archive/group-b-b6-ml-oos-cache-closure-2026-10-08.md)。B7 月度機制、B7 derived-cache freshness 與 B8 均已通過各自核准的 dev 驗收；B9 仍待執行。B7 freshness 完整證據見 [結案](archive/group-b-b7-derived-cache-freshness-closure-2026-10-10.md)，B8 完整證據見 [B8 結案](archive/group-b-b8-closure-2026-10-10.md)。執行方法見 [B 組指令](codex-execution-plan.md)。
+**B0～B8 CLOSED／PASS，不重跑；B9 為持股／圖表交付後的 gate。** B0～B6 歷史驗收入口： [B0](archive/group-b-b0-baseline-closure-2026-10-07.md)、[B1](archive/group-b-b1-reader-acceptance-2026-10-07.md)、[B2](archive/group-b-b2-closure-2026-10-07.md)、[B3](archive/group-b-b3-closure-2026-10-07.md)、[B4](archive/group-b-b4-deep-coverage-closure-2026-10-07.md)、[B5](archive/group-b-b5-ml-oos-data-closure-2026-10-08.md)、[B6](archive/group-b-b6-ml-oos-cache-closure-2026-10-08.md)。B7 月度機制、B7 derived-cache freshness 與 B8 均已通過各自核准的 dev 驗收；B9 仍待執行。B7 freshness 完整證據見 [結案](archive/group-b-b7-derived-cache-freshness-closure-2026-10-10.md)，B8 完整證據見 [B8 結案](archive/group-b-b8-closure-2026-10-10.md)。執行方法見 [B 組指令](codex-execution-plan.md)。
 
-- [ ] **B9 產品功能驗收（下一入口）**：完成五角色可靠計算／規則基準、產品必要資料修復、structured／繁中白話產物、缺值／來源／PIT 時間政策、dirty/reuse、public/private isolation、CI／dev 發布／真實 workload／artifact/API readback。正常 path 0 LLM token；未驗證機率不發布。模型品質未過不阻擋可靠基準服務，純研究 OOS 不作此切片 gate。
-- [ ] **前瞻證據留存**：先盤點既有 daily membership、公告版本、publication／first-observed time 與 source receipts，沿用授權來源／retention 補必要缺口；不假造歷史、不提前啟動 500 檔大量回補。
+- [ ] **B9 產品功能驗收（後置入口）**：完成五角色可靠計算／規則基準、產品必要資料修復、structured／繁中白話產物、缺值／來源／PIT 時間政策、dirty/reuse、public/private isolation、CI／dev 發布／真實 workload／artifact/API readback。正常 path 0 LLM token；未驗證機率不發布。模型品質未過不阻擋可靠基準服務，純研究 OOS 不作此切片 gate。
+- [ ] **前瞻證據留存**：先盤點既有 daily membership、公告版本、publication／first-observed time 與 source receipts，沿用授權來源／retention 補必要缺口；不假造歷史、不提前啟動 全市場大量回補。
 
-B9、C 組及剩餘持股頁／首屏依 2026-10-11 使用者授權一起完成開發，再集中驗收及上版，不等待五個 ML 都勝出；只有整體真實驗收也完成才能判定產品交付。B9 模型品質保留獨立 NOT VERIFIED／PARTIAL，不寫「B9 全部 PASS」。
+2026-10-13 順序更新：本輪持股／首屏及通用圖表整合開發後集中驗收；B9 模型與 C 整合報告後置，不能當成本輪產品發布的前置。只有適用真實驗收完成才能判定本輪交付。B9 模型品質保留獨立 NOT VERIFIED／PARTIAL，不寫「B9 全部 PASS」。
 
 - [ ] **B 組跨階段安全底線**：PostgreSQL serving 與 A 組已驗證 read path 不回歸；BigQuery failure audit/fallback 不修改 canonical Iceberg；不使用 BigQuery Storage Read API；不自動呼叫 CEO；維持現有 1 CPU／1 GiB Mart 限制。新付費 API／資源、IAM 擴權或 catalog migration 需另取得授權，未授權部分單獨 `BLOCKED`，其餘可行項繼續。
 
 ## 產品交付後：B9 模型研究切片（已排程，依賴產品交付）
 
-- [ ] 建立目標約 500 檔的各日期歷史研究母體與 coverage matrix：上市／下市、納入／排除、來源授權、當時可用時間；不得以今日名單冒充歷史。無可信來源的期間標 blocked_source_history。
+- [ ] 建立目標全上市櫃個股的各日期歷史研究母體與 coverage matrix：上市／下市、納入／排除、來源授權、當時可用時間；不得以今日名單冒充歷史。無可信來源的期間標 blocked_source_history。
 - [ ] 按角色建置歷史行情／公司行動／benchmark／財報／估值／事件資料；固定 snapshot、版本、provenance、缺漏及時間政策；研究與 canonical／每日服務分離。
-- [ ] 預先固定 baseline、目標期限、主要指標、成熟標籤／purge、walk-forward、最終未調參時段、成本情境與不確定性評估，再調校模型；不以 train success 或股票數達 500 當 PASS。
+- [ ] 預先固定 baseline、目標期限、主要指標、成熟標籤／purge、walk-forward、最終未調參時段、成本情境與不確定性評估，再調校模型；不以 train success 或股票數達母體數 當 PASS。
 - [ ] Quant 優先、Risk 次之；基本面／估值先修資料與規則基準；Event 先取得合法 training-use 與人工審核標籤。五角色具體目標／交付物見 [Codex 作業指示](codex-execution-plan.md)。
 - [ ] 逐模型完成 OOS／校準／分環境穩定性及真實 artifact readback；無優勢保留基準，不自動 promotion。新增費用／資源／IAM 依 PROJECT_RULES。
 
@@ -175,7 +199,7 @@ B9、C 組及剩餘持股頁／首屏依 2026-10-11 使用者授權一起完成�
 - [x] Deep Coverage 使用 `active watchlist ∪ effective holdings`；持股離開 500 仍保留，清倉且不在 watchlist 才退出。B4 live acceptance 已驗 5 symbols × 5 roles。
 - [ ] 完成 PIT／provenance／missing-data／public-private isolation、tests、dev deployment、live execution、artifact persist/readback；OOS 模型品質獨立依後置研究驗收。
 
-目前 500 檔缺失 ≤10% 為使用者接受範圍；超過先討論，不直接判整體失敗或自行擴張補資料。Mart 資源維持使用者指定 1 CPU／1 GiB；需要提高時先提出 evidence，不自行升級。
+目前全上市櫃各必要資料集缺失率 ≤10% 為使用者接受範圍；超過先討論，不直接判整體失敗或自行擴張補資料。Mart 資源維持使用者指定 1 CPU／1 GiB；需要提高時先提出 evidence，不自行升級。
 
 使用者最新核准：歷史財報有資料就做 OOS，不再要求原始數值版次／當時公開時間已證明。採最新官方數值版本、優先官方公開／上傳時間，缺少時明示期末後 90 天假設；正式模型作法及結果標示見 specialist SPEC。價格標籤成熟與來源／品質／隔離檢查保留。
 

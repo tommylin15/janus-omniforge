@@ -39,10 +39,22 @@ def main() -> None:
         "CORE_CATALOG_PASSWORD": "core_catalog_password",
     })
     repository = repository_from_env()
+    mobile_only = os.getenv('MOBILE_LEDGER_ONLY', '').lower() == 'true'
+    mobile_result = {'processed': 0, 'errors': 0}
     try:
-        process_mobile_ledger_queue(PostgresWorkspaceRepository(os.environ["MOBILE_LEDGER_DATABASE_URL"]))
+        mobile_repository = PostgresWorkspaceRepository(os.environ["MOBILE_LEDGER_DATABASE_URL"])
+        mobile_result = process_mobile_ledger_queue(mobile_repository,
+            on_persisted=(lambda owner: mobile_repository.enqueue_recalculation(owner, 'mutation')) if mobile_only else None)
     except (MobileLedgerQueueError, NotFoundError):
+        if mobile_only:
+            raise
         pass
+    if mobile_only:
+        print(json.dumps({'operation': 'mobile-ledger', **mobile_result}, sort_keys=True))
+        if not mobile_result['processed']:
+            if mobile_result['errors']:
+                raise RuntimeError('mobile ledger rows failed validation')
+            return
     market = CorePriceReader.from_env()
     override = os.getenv("VALUATION_DATE") or None
     pipeline = PrivatePipeline(
@@ -53,9 +65,11 @@ def main() -> None:
         lambda: resolve_valuation_date(None, market.latest_valuation_date),
     )
     execution_name = os.getenv("CLOUD_RUN_EXECUTION") or None
-    if os.getenv("PRIVATE_RECALC_QUEUE_MODE", "").strip().lower() == "true":
+    if mobile_only or os.getenv("PRIVATE_RECALC_QUEUE_MODE", "").strip().lower() == "true":
         result = run_queue_worker(repository, pipeline)
         print(json.dumps({"private_recalc_queue": result}, sort_keys=True))
+        if result['failed'] or mobile_result['errors']:
+            raise RuntimeError('private recalculation business execution failed')
         return
     try:
         completed = pipeline.run(date.fromisoformat(override) if override else None)

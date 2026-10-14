@@ -311,6 +311,8 @@ void main() {
     expect(find.text('1000'), findsOneWidget);
 
     await tester.enterText(find.widgetWithText(TextFormField, '股票代號'), '2317');
+    await tester.enterText(find.widgetWithText(TextFormField, '手續費'), '0');
+    await tester.enterText(find.widgetWithText(TextFormField, '證券交易稅'), '0');
     await tester.tap(find.text('儲存'));
     await tester.pumpAndSettle();
     expect(result, containsPair('symbol', '2317'));
@@ -435,7 +437,9 @@ void main() {
           'shares': 96000,
           'replaces_event_id': 'A',
           'record_version': 1,
-          'price': 10
+          'price': 10,
+          'fee': 0,
+          'tax': 0
         },
       ],
     });
@@ -497,7 +501,9 @@ void main() {
           'shares': 96000,
           'replaces_event_id': 'B',
           'record_version': 1,
-          'price': 10
+          'price': 10,
+          'fee': 0,
+          'tax': 0
         },
       ],
     });

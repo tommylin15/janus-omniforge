@@ -1541,10 +1541,6 @@ class AdminMarketUniversePage extends StatefulWidget {
 class _AdminMarketUniversePageState extends State<AdminMarketUniversePage> {
   late Future<dynamic> data;
   final search = TextEditingController();
-  final remove = TextEditingController();
-  final add = TextEditingController();
-  final reason = TextEditingController();
-  bool saving = false;
   bool showUpcoming = true;
 
   @override
@@ -1556,9 +1552,6 @@ class _AdminMarketUniversePageState extends State<AdminMarketUniversePage> {
   @override
   void dispose() {
     search.dispose();
-    remove.dispose();
-    add.dispose();
-    reason.dispose();
     super.dispose();
   }
 
@@ -1566,36 +1559,9 @@ class _AdminMarketUniversePageState extends State<AdminMarketUniversePage> {
         data = widget.api.get('/api/v1/admin/market-universe');
       });
 
-  Future<void> swap(int version) async {
-    setState(() => saving = true);
-    try {
-      await widget.api.post('/api/v1/admin/market-universe/swap', {
-        'remove_symbol': remove.text.trim(),
-        'add_symbol': add.text.trim(),
-        'reason': reason.text.trim(),
-        'expected_version': version,
-      });
-      if (!mounted) return;
-      remove.clear();
-      add.clear();
-      reason.clear();
-      reload();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('市場資訊名單已更新')),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('無法更新名單，請重新整理並確認代號與原因')),
-      );
-    } finally {
-      if (mounted) setState(() => saving = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) => _AdminPage(
-        title: '市場資訊 · 每週成交量前 500 檔',
+        title: '市場資訊 · 全上市櫃個股',
         action: IconButton(
           tooltip: '重新整理市場資訊',
           onPressed: reload,
@@ -1614,7 +1580,7 @@ class _AdminMarketUniversePageState extends State<AdminMarketUniversePage> {
             final hasUpcoming = upcoming['status'] == 'available';
             final value = showUpcoming && hasUpcoming ? upcoming : current;
             if (value['status'] != 'available' && !hasUpcoming) {
-              return const _Message('尚無通過完整交易週檢查的 500 檔名單');
+              return const _Message('尚無通過雙市場官方來源檢查的全市場名冊');
             }
             final items = _items(value);
             final query = search.text.trim().toLowerCase();
@@ -1650,7 +1616,7 @@ class _AdminMarketUniversePageState extends State<AdminMarketUniversePage> {
                     title: Text(
                         '${showUpcoming && hasUpcoming ? '即將生效' : '目前有效'} · 第 ${value['version']} 版 · ${items.length} 檔'),
                     subtitle: Text(
-                        '週別 ${value['week_start']} · 生效 ${value['effective_from']}'),
+                        '官方名冊 · 生效 ${value['effective_from']}'),
                   )),
                   Card(
                       child: Column(children: [
@@ -1661,41 +1627,6 @@ class _AdminMarketUniversePageState extends State<AdminMarketUniversePage> {
                         title: const Text('退出'),
                         subtitle: Text(exited.isEmpty ? '無變動' : exited)),
                   ])),
-                  if (showUpcoming && hasUpcoming || !hasUpcoming)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text('手動換股',
-                                  style:
-                                      Theme.of(context).textTheme.titleMedium),
-                              const SizedBox(height: 8),
-                              TextField(
-                                  controller: remove,
-                                  decoration:
-                                      const InputDecoration(labelText: '移出代號')),
-                              TextField(
-                                  controller: add,
-                                  decoration:
-                                      const InputDecoration(labelText: '納入代號')),
-                              TextField(
-                                  controller: reason,
-                                  decoration:
-                                      const InputDecoration(labelText: '調整原因')),
-                              const SizedBox(height: 12),
-                              Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: FilledButton(
-                                    onPressed: saving
-                                        ? null
-                                        : () => swap(value['version'] as int),
-                                    child: const Text('儲存換股'),
-                                  )),
-                            ]),
-                      ),
-                    ),
                   TextField(
                     controller: search,
                     decoration: const InputDecoration(
@@ -1706,9 +1637,9 @@ class _AdminMarketUniversePageState extends State<AdminMarketUniversePage> {
                     ListTile(
                       dense: true,
                       title: Text(
-                          '${item['rank']}. ${item['name']} ${item['symbol']}'),
+                          '${item['name']} ${item['symbol']}'),
                       subtitle: Text(
-                          '${item['market']} · 當週成交股數 ${item['volume_shares'] ?? '人工調整'}'),
+                          '${item['market']}'),
                       trailing: item['manual_override'] == true
                           ? const Text('人工')
                           : null,

@@ -170,11 +170,13 @@ class FvMonthlyPnlChart extends StatelessWidget {
 }
 
 class FvKlineChart extends StatelessWidget {
-  const FvKlineChart({required this.rows, this.maxPoints = 40, this.chartHeight, super.key});
+  const FvKlineChart({required this.rows, this.maxPoints = 40, this.chartHeight,
+    this.candlesticks = true, super.key});
 
   final List<dynamic> rows;
   final int maxPoints;
   final double? chartHeight;
+  final bool candlesticks;
 
   @override
   Widget build(BuildContext context) {
@@ -182,10 +184,10 @@ class FvKlineChart extends StatelessWidget {
     for (final item in rows) {
       final row = fvMap(item);
       final day = DateTime.tryParse(fvText(row['trade_date'], missing: ''));
-      final open = fvChartNumber(row['open']);
-      final high = fvChartNumber(row['high']);
-      final low = fvChartNumber(row['low']);
       final close = fvChartNumber(row['close']);
+      final open = candlesticks ? fvChartNumber(row['open']) : close;
+      final high = candlesticks ? fvChartNumber(row['high']) : close;
+      final low = candlesticks ? fvChartNumber(row['low']) : close;
       final volume = fvChartNumber(row['volume_shares']);
       if (day != null &&
           open != null &&
@@ -197,7 +199,7 @@ class FvKlineChart extends StatelessWidget {
       }
     }
     candles.sort((a, b) => a.day.compareTo(b.day));
-    final window = maxPoints.clamp(1, 200);
+    final window = maxPoints.clamp(1, 264);
     final visible = candles.length > window
         ? candles.sublist(candles.length - window)
         : candles;
@@ -212,10 +214,10 @@ class FvKlineChart extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'K 線／OHLCV',
-                  style: TextStyle(
+                  candlesticks ? 'K 線／OHLCV' : '收盤價／成交量',
+                  style: const TextStyle(
                     color: fvInk,
                     fontWeight: FontWeight.w800,
                   ),
@@ -235,13 +237,18 @@ class FvKlineChart extends StatelessWidget {
           const SizedBox(height: 5),
           const Text('顯示官方原始日價量，未進行除權息還原；不是含股利報酬。',
               style: TextStyle(color: fvMuted, fontSize: 11)),
+          Text('價格：元／股 · 成交量：股 · 來源 ${rows.map(fvMap).map((r) => r['source_id']).whereType<String>().toSet().join('、')}',
+            style: const TextStyle(color: fvMuted, fontSize: 11)),
           const SizedBox(height: 10),
           SizedBox(
             height: chartHeight ?? (hasVolume ? 240 : 195),
             width: double.infinity,
             child: CustomPaint(
               key: const Key('fv-kline-chart'),
-              painter: _CandlestickPainter(visible, hasVolume: hasVolume),
+              painter: _CandlestickPainter(visible, hasVolume: hasVolume, candlesticks: candlesticks,
+                gaps: rows.map(fvMap).where((row) => fvChartNumber(row['close']) == null)
+                  .map((row) => DateTime.tryParse(fvText(row['trade_date'], missing: '')))
+                  .whereType<DateTime>().toList()),
             ),
           ),
           const SizedBox(height: 6),
@@ -382,10 +389,12 @@ class _Candle {
 }
 
 class _CandlestickPainter extends CustomPainter {
-  _CandlestickPainter(this.candles, {required this.hasVolume});
+  _CandlestickPainter(this.candles, {required this.hasVolume, required this.candlesticks, required this.gaps});
 
   final List<_Candle> candles;
   final bool hasVolume;
+  final bool candlesticks;
+  final List<DateTime> gaps;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -425,6 +434,7 @@ class _CandlestickPainter extends CustomPainter {
         : 0.0;
     final volumeTop = top + priceHeight + 16;
 
+    final line = Path();
     for (var index = 0; index < candles.length; index++) {
       final candle = candles[index];
       final x = left + step * (index + .5);
@@ -432,6 +442,7 @@ class _CandlestickPainter extends CustomPainter {
       final wick = Paint()
         ..color = color
         ..strokeWidth = 1.4;
+      if (candlesticks) {
       canvas.drawLine(
         Offset(x, priceY(candle.high)),
         Offset(x, priceY(candle.low)),
@@ -448,6 +459,11 @@ class _CandlestickPainter extends CustomPainter {
         bodyTop + 1.5 > bodyBottom ? bodyTop + 1.5 : bodyBottom,
       );
       canvas.drawRect(rect, Paint()..color = color);
+      } else {
+        final broken = index == 0 || gaps.any((day) => day.isAfter(candles[index - 1].day) && day.isBefore(candle.day));
+        if (broken) { line.moveTo(x, priceY(candle.close)); }
+        else { line.lineTo(x, priceY(candle.close)); }
+      }
 
       if (hasVolume && maxVolume > 0 && candle.volume != null) {
         final h = volumeHeight * candle.volume! / maxVolume;
@@ -461,6 +477,9 @@ class _CandlestickPainter extends CustomPainter {
           Paint()..color = color.withValues(alpha: .45),
         );
       }
+    }
+    if (!candlesticks) {
+      canvas.drawPath(line, Paint()..color = fvTeal..strokeWidth = 2.5..style = PaintingStyle.stroke);
     }
 
     _paintLabel(
@@ -488,7 +507,8 @@ class _CandlestickPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _CandlestickPainter oldDelegate) {
-    if (hasVolume != oldDelegate.hasVolume || candles.length != oldDelegate.candles.length) {
+    if (candlesticks != oldDelegate.candlesticks || gaps.toString() != oldDelegate.gaps.toString() ||
+        hasVolume != oldDelegate.hasVolume || candles.length != oldDelegate.candles.length) {
       return true;
     }
     for (var i = 0; i < candles.length; i++) {

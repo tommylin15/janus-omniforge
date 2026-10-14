@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import re
-from typing import Any
+from typing import Any, Callable
 
 from pydantic import ValidationError
 
@@ -65,6 +65,7 @@ def process_mobile_ledger_queue(
     queue: MobileLedgerQueue | None = None,
     limit: int = 20,
     now: datetime | None = None,
+    on_persisted: Callable[[Any], Any] | None = None,
 ) -> dict[str, int]:
     """Persist bounded PENDING rows; provider/infrastructure failures remain retryable."""
     queue = queue or MobileLedgerQueue.from_adc(write=True)
@@ -107,6 +108,8 @@ def process_mobile_ledger_queue(
             )
             errors += 1
 
+    if processed and on_persisted is not None:
+        on_persisted(owner_id)
     return {"pending": len(pending), "processed": processed, "errors": errors}
 
 

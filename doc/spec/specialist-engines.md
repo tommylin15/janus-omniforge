@@ -1,22 +1,26 @@
 # 五分析師引擎目前契約
 
+**2026-10-13 最新範圍：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 ≤10%（含邊界）通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。此為新需求，尚未完成 runtime 切換。 本文舊 500 範圍已被取代，歷史識別字／證據保留；完整 [新契約](../spec/full-market-batch-policy.md)。
+
+> 2026-10-13 順序修訂：持股／交易損益 → 通用圖表／四頁整合 → 五角色模型驗證 → 有效後整合報告。下列舊 B9→C→產品順序已被取代；研究技術契約與歷史證據保留。見 [AI 作業指示](../codex-execution-plan.md)。
+
 ## 2026-10-11 產品與模型研究分階段契約
 
-使用者核准先完成 B9 產品功能、再 C 組及剩餘產品交付，最後建立目標約 500 檔歷史研究池並調校五角色。完整執行切片見 [Codex 作業指示](../codex-execution-plan.md)，狀態見 [TODO](../todo.md)。本節取代下文將研究缺口視為產品整體 blocker 的語意，不改寫歷史 evidence。
+使用者核准先完成持股／交易損益及通用圖表，再建立全上市櫃個股歷史研究池並驗證五角色；有效後才建立整合報告。完整執行切片見 [Codex 作業指示](../codex-execution-plan.md)，狀態見 [TODO](../todo.md)。本節取代下文將研究缺口視為產品整體 blocker 的語意，不改寫歷史 evidence。
 
 - 產品基準：Fundamental 財務比較；Valuation 相對估值；Quant 動能／強弱／市場排名；Risk 波動／CVaR／beta／回撤；Event parser／rules。產品 PASS 仍需真實資料、CI／deployment、workload、artifact/API readback 與適用整合驗收。
 - ML 品質、champion／publication 獨立驗收；未驗證機率不發布，模型狀態保留 NOT VERIFIED／PARTIAL；可靠基準不必等待 ML 勝出。缺必要輸入的 DCF 為 unavailable，不要求為產品結案補造假設。
-- Market Coverage、historical research cohort、Deep Coverage 分離。研究目標約 500 檔，按當日可得 membership 重建且保留退出股票，不以當前 500 回填過去；每日完整五角色仍只做 watchlist ∪ holdings。市場排名參照當日市場截面。
+- Market Coverage、historical research cohort、Deep Coverage 分離。研究目標全上市櫃個股，按當日可得 membership 重建且保留退出股票，不以當前 500 回填過去；每日完整五角色仍只做 watchlist ∪ holdings。市場排名參照當日市場截面。
 - 產品階段即保存可取得的 membership／公告版本／publication／first-observed／source receipts；沿用授權與 retention，不假造缺失歷史。全面研究回補在產品交付後。
-- 日增量、週六補漏／品質檢查、每月首週六 10:30 評估候選模型；不新增每週 500×5 重訓。無新增成熟合格資料時應明示 skip/reuse reason；此差異須另核對實作，文件不代表已上線。
-- 研究按角色評估：基本面／估值偏中期資訊與規則比較，Quant 排序與成本後績效，Risk 尾端／環境／穩定性，Event 人審分類品質。500 檔行情不等於五者研究資料完整；財報資料優先策略 strict_pit=false 及既有來源／標籤成熟約束不變。
+- 日增量、週六補漏／品質檢查、每月首週六 10:30 評估候選模型；不新增每週 全市場×5 重訓。無新增成熟合格資料時應明示 skip/reuse reason；此差異須另核對實作，文件不代表已上線。
+- 研究按角色評估：基本面／估值偏中期資訊與規則比較，Quant 排序與成本後績效，Risk 尾端／環境／穩定性，Event 人審分類品質。全上市櫃行情不等於五者研究資料完整；財報資料優先策略 strict_pit=false 及既有來源／標籤成熟約束不變。
 
 
 日常 Mart 使用 `specialist_runtime`，不使用生成式 LLM；但「日常」不等於每天把五 specialist 全量重算。Market Coverage 在每個交易日 EOD canonical data ready 後跑低成本 screening，Deep Coverage 則依 dirty dependency／input change 增量更新。舊五角色引擎、prompt、compatibility 與 provider daily entry 已刪除；歷史資料僅保留作稽核。On-demand CEO 由 C 組驗收，不屬 B9 產品切片。
 
 ## 覆蓋與資料
 
-Market Coverage 由 `control.specialist_market_symbols(date)` 取得具 PIT 日期的 liquid-500 membership，最多 500 檔。每個交易日 EOD canonical data ready 後執行一次低成本 screening；篩選回報最新價/量/金額、5/20/60/120 日報酬、規則分數、排序與異常旗標，不自動加入自選股。**2026-10-10 使用者最新決策：500 Screening 繼續由 PyIceberg 擔任正式預設；不得因通過 BigQuery fidelity gate 自動切換。** BigQuery 僅保留為 ML/OOS 大型 SQL／Window／Parquet 產製的明確 opt-in 批次路徑。
+Market Coverage 由 `control.specialist_market_symbols(date)` 取得具 PIT 日期與版本的全上市櫃有效個股 membership。每個交易日 EOD canonical data ready 後執行一次低成本 screening；篩選回報最新價/量/金額、5/20/60/120 日報酬、規則分數、排序與異常旗標，不自動加入自選股。**2026-10-10 使用者最新決策：500 Screening 繼續由 PyIceberg 擔任正式預設；不得因通過 BigQuery fidelity gate 自動切換。** BigQuery 僅保留為 ML/OOS 大型 SQL／Window／Parquet 產製的明確 opt-in 批次路徑。
 
 B3 新增獨立 `market-screening` operation：既有 controller 交易日台北 16:30、等待 ingestion／data-supplement、沿用休市日曆；同日 Core date fence 不成立則拒絕。新增 20D 平均成交金額／年化波動、5/20/60/120D 相對 benchmark 強弱、可用官方估值與 cross-sectional ranks。輸入列順序不影響結果／provenance hash。相同 Core manifest hash／snapshot／membership／feature version／date bounds 在昂貴 read 前 reuse，成果與 receipt immutable、90 日 derived retention；不呼叫完整五 specialist／training／CEO。操作與切換限制見 [screening runbook](../runbook-market-screening.md)，完成狀態仍以 runtime evidence 為準。
 
@@ -40,7 +44,7 @@ Event／Catalyst 的人工繁中標註、source-specific training-use 授權、e
 - Core Apache Iceberg V2／GCS 維持 canonical／PIT／provenance/history；既有 PostgreSQL-backed PyIceberg `SqlCatalog` 不因文件決策自動遷移。
 - PostgreSQL serving projection 維持 User／Admin request-time hot path；BigQuery 不作 Flutter page-load database。
 - Specialist data access 必須先抽象成 exact-snapshot reader；PyIceberg reader 是 reference／fallback，BigQuery adapter 只有在同一 immutable Core snapshot fidelity 可證明後才可逐 workload 切換。
-- **現在採用的路由規則**：每日 liquid-500 screening／日常 specialist ／incremental 和一般處理預設 PyIceberg；BigQuery 不作全市場 screening 的預設或自動 cutover。BigQuery 僅在**明確選用**的 ML/OOS SQL window/aggregation/reduction 與 Parquet export 使用，並保留 Core exact snapshot、PIT/provenance/來源授權 fence；不預設複製完整 Core warehouse。
+- **現在採用的路由規則**：每日 liquid-全市場 screening／日常 specialist ／incremental 和一般處理預設 PyIceberg；BigQuery 不作全市場 screening 的預設或自動 cutover。BigQuery 僅在**明確選用**的 ML/OOS SQL window/aggregation/reduction 與 Parquet export 使用，並保留 Core exact snapshot、PIT/provenance/來源授權 fence；不預設複製完整 Core warehouse。
 - **禁止 BigQuery Storage Read API**：不依賴 `bigquery.readsessions.*`／`google-cloud-bigquery-storage`。小型結果使用一般 query/result API；大型 training input 先在 BigQuery SQL 縮減，再輸出 versioned GCS Parquet artifact 供 Python/ML Job 使用。
 - BigQuery intermediate／destination table 預設 bounded／TTL／可重建且屬 derived/research；不要求把每個中間結果再寫回 canonical Iceberg。大型 training/evaluation dataset 以 versioned GCS Parquet 固定，只有已有 publication／retention contract 的成果才永久保存。
 - 每個 BigQuery-derived artifact 必須保留可追溯的 Core snapshot identity、analysis_as_of、schema/feature/model version、hash/provenance；不能只保存「latest」語意。

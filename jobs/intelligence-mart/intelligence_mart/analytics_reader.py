@@ -88,6 +88,9 @@ class IcebergSnapshotReader:
                 for rows in embedded.values()
             ):
                 raise ValueError("Core manifest datasets must be arrays")
+            selected = set(requested_symbols)
+            embedded = {name: [row for row in rows if not row.get("symbol") or row["symbol"] in selected]
+                        for name, rows in embedded.items()}
             if sum(map(len, embedded.values())) > row_limit:
                 raise ValueError("Core snapshot row limit exceeded")
             result = {str(name): [dict(row) for row in rows] for name, rows in embedded.items()}

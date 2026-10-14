@@ -8,7 +8,7 @@
 
 **2026-10-11 新的四頁視覺契約：**[A 正式 UI 規格](visual-first-four-pages.md)／[B 工程工作單](visual-first-delivery.md)。舊四 PNG 是最低基礎值、非圖表上限。各頁唯一 Hero，先圖與大數字後文字；當本次新順序與舊 PNG 不一致，以新規格為準，原資料治理不變。
 
-**持股 P0 暫停註記（2026-10-13）**：使用者暫停工程執行，最新實際 UI build 已上固定 Preview（來源 `50eda171...`，[發布 #38322429759](https://github.com/tommylin15/janus-omniforge/actions/runs/38322429759)）且 public readback PASS；但原 Private Recalculation queue E2E [#38274621290](https://github.com/tommylin15/janus-omniforge/actions/runs/38274621290) FAIL，Owner 390×844／desktop authenticated 截圖與手動重算成功結果尚未驗收。完整當次需求、缺失與再開工條件見 [P0 暫停交接](../p0-holdings-recalc-pause-handoff-2026-10-13.md)。本次僅更新文件，不再部署。
+**2026-10-13 最新順序：**先完整持股／報價／交易損益與首屏，再個股通用圖表及四頁整合，五分析師有效後才建立整合分析報告。依 [持股優先契約](../spec/holdings-first.md) 執行；實際驗收見 [status](../status.md)，歷史暫停已解除。
 
 ## 5.0 Final Visual Contract
 
@@ -31,7 +31,7 @@ Specialist／CEO 等 AI-only 區塊未就緒時，可以 bounded unavailable／h
 
 「今日」是**個人相關市場入口**：先在不阻塞首屏的前提下找有來源且同時點的本人持股／關注變化；不足時退回 deterministic published market baseline／已驗證市場判讀。Mart／研究內容是 enhancement，不得反過來阻擋 baseline。
 
-首屏順序：
+首屏順序（模型未有效時使用事實異動／TAIEX，研究判讀區不占空卡）：
 
 1. `MyRelevantTodayHero`（有合格 owner-scoped 持股／關注異動時優先；無則 `MarketVerdictHero`，再無才以 TAIEX snapshot 作唯一主 Hero；三者不堆疊）
 2. `MarketSnapshotCard`（TAIEX 主數字與合法小趨勢）
@@ -49,8 +49,8 @@ Deterministic market cards 可保留 source-specific `as_of`／trade date；首�
 以 authenticated owner 的 active watchlist 為中心，不顯示平台推薦榜，也不因搜尋／page load 觸發 scraper、Agent 或 LLM。
 
 - 搜尋支援股票代號與中文名稱，使用 canonical stock-master search contract；第一層輸入 dialog 的主要動作明確標示「搜尋」，選定股票後才在設定／確認步驟使用「儲存」。
-- 新加入受目前有效約 500 market universe 與最多 50 active distinct symbols guard 約束。
-- 既有關注離開 500 時保留並標明狀態，不因 universe 變更自動刪除。
+- 新加入股票資格為官方有效的全上市／上櫃個股，取消原 500 範圍；最多 50 active distinct symbols guard 保留。
+- 既有關注遇停牌／下市或名冊變更仍保留並標明狀態，不自動刪除。
 - 顯示 canonical name＋symbol、latest-price resolver 的 price／date／source／state、held state、target price、pending note／follow-up、bounded missing／stale。盤中只有此頁可見且 App 在前景時才每分鐘 revalidate；沒有 App demand 時不呼叫 MIS。
 - add／remove／reorder、target price／note 都走 backend contract；Flutter 不自行建立 owner mapping 或 admission 規則。
 - 點擊股票進 Stock Detail。
@@ -62,9 +62,9 @@ Primary content 固定順序（2026-10-11 視覺優先）：
 1. `StockHeader`（現價、漲跌／幅大數字、行情日／來源）
 2. 個人持股、成本與估值日期
 3. `QuickPriceVolumeTrend`（真實短價量圖或資料不足原因）
-4. `StockHealthCard`／五 specialist 狀態及一行摘要
-5. 三項支持／三項風險
-6. `StockChartNavigator`（價格／營收／EPS／估值／法人／事件圖表）
+4. `StockChartNavigator`（價格／營收／EPS／估值／法人／事件通用圖表）
+5. 中性資料說明與來源；研究狀態放收合區
+6. 五分析師有效及 publication gate 通過後，才呈現整合摘要／支持／風險
 7. 個人筆記與待追蹤事項
 8. `ChipsStatusCard`／`CompanyEventTimeline`
 9. 可收合 `EvidenceAndSources`
@@ -140,7 +140,7 @@ Ledger／Holdings 一致性至少涵蓋 shares、cost／average cost、market va
 
 
 **2026-10-12 持股獨立估值／視覺收斂（使用者核准，P0）：**
-- **Personal Holdings Universe ≠ 500 檔研究池**。以 owner 的 append-only ledger／`private.current_positions` 做持股池唯一 membership；買進、賣出、股票股利、更正、作廢交易 commit 後同步重建 operational positions／ledger version，新增、加碼、減碼即進出持股池（0 股從 active 移往歷史，歷史交易不刪除），不需要等每天 500 檔 screening。持股行情 service 每次讀取 owner 最新 holdings symbols，且交易修改時使 quote/valuation cache invalidated；已授權外部券商資料**未同步交易前不能推知成交**。
+- **Personal Holdings Universe 由 owner ledger 決定，研究母體已擴為全上市櫃**。以 owner 的 append-only ledger／`private.current_positions` 做持股池唯一 membership；買進、賣出、股票股利、更正、作廢交易 commit 後同步重建 operational positions／ledger version，新增、加碼、減碼即進出持股池（0 股從 active 移往歷史，歷史交易不刪除），不需要等每日全市場 screening。持股行情 service 每次讀取 owner 最新 holdings symbols，且交易修改時使 quote/valuation cache invalidated；已授權外部券商資料**未同步交易前不能推知成交**。
 - 股數與成本取同 owner operational checkpoint；價格讀來源授權且具日期與 provenance 的上市 TWSE／上櫃 TPEx 股票、ETF 正式收盤／可授權盤中行情；不因離開 500 檔而拒絕。00719B 為 TPEx 債券 ETF，不得套用 TWSE MIS 股票通道。先補合法 TPEx source/identity、held-symbol serving projection/持久化 latest-price，正式 Mart 再以同 checkpoint 計算損益。來源與交易不同步需顯示狀態；無可信價格不能推估價格／PnL，亦不得阻塞 operational shares/cost、已實現交易明細。
 - **兩種更新**：交易 membership 隨 ledger 寫入即時變更；價格只在頁面前景交易時段按需 revalidate／手動更新，收盤後走官方 EOD 交接。避免使用每分鐘排程掃所有持股或逐檔 Iceberg/HTTP；TPEx 無已核准盤中來源時明示 EOD-only，不宣稱即時。
 - **卡片同欄同指標**：第一視覺列左為個股＋股數＋價／成本，右為「未實現總損益（NT$）＋持有報酬％」；第二列集中「當日最新現價、每股漲跌／漲跌幅、現有股數的當日變動額」，日期／來源尾註。永不把「當日股價變動」與「持有至今累計損益」在同一水平列左右對稱。缺價時維持精簡卡、簡短原因，不能讓錯誤報錯巨幅擠掉 Hero。
@@ -148,7 +148,7 @@ Ledger／Holdings 一致性至少涵蓋 shares、cost／average cost、market va
 - 目前 Preview 截圖 00719B 缺價且全部總額 withheld、重算 Cloud Run dispatch 失敗、Hero 空白佔位過大，**現況 VISUAL FAIL / DATA PARTIAL**。資料 fallback 與 private recalc 派送故障必須獨立診斷；不得把第一個當成第二個的根因。完整開發後一次跑整合 tests＋GitHub Actions Release＋0% candidate＋自動 OAuth＋固定 Preview＋owner 真實桌面／390px 截圖，才可以轉 PASS。
 
 
-**2026-10-12 持股 UI／估值修正（Active P0）**：500 檔只管研究／新關注 guard，不可限制 authenticated owner 實際持股。Owner ledger mutation 後自動即時重建持股股數／成本並觸發獨立行情需求；TWSE 與 TPEx 的即時和官方 EOD 都須先驗 source、market 身分、PIT 與 last-success 保障，不可用假價格補位。未完成報價仍保留 operational positions／歷史／單股已確認值，正式總額依 coverage withheld；重算 Job dispatch 錯誤獨立處理。個股卡上區先股票識別、股數、**未實現總損益／報酬**；下區同屬當日行情之現價、每股漲跌／漲幅、持有股數對應當日變化額，時間層級不得混列。單一持股市值 Hero、緊湊圖卡，手機與桌面依 Final Visual PNG 真實 screenshot comparison；示意樣本不可當正式數字。此狀態尚待合併測試／Dev Owner 真實驗收，**VISUAL FAIL**。
+**2026-10-12 持股 UI／估值修正（Active P0）**：研究／搜尋／新關注股票資格已改全上市櫃，authenticated owner 實際持股由 ledger 決定。Owner ledger mutation 後自動即時重建持股股數／成本並觸發獨立行情需求；TWSE 與 TPEx 的即時和官方 EOD 都須先驗 source、market 身分、PIT 與 last-success 保障，不可用假價格補位。未完成報價仍保留 operational positions／歷史／單股已確認值，正式總額依 coverage withheld；重算 Job dispatch 錯誤獨立處理。個股卡上區先股票識別、股數、**未實現總損益／報酬**；下區同屬當日行情之現價、每股漲跌／漲幅、持有股數對應當日變化額，時間層級不得混列。單一持股市值 Hero、緊湊圖卡，手機與桌面依 Final Visual PNG 真實 screenshot comparison；示意樣本不可當正式數字。此狀態尚待合併測試／Dev Owner 真實驗收，**VISUAL FAIL**。
 
 ### 5.4.2 持股
 
@@ -209,8 +209,7 @@ cash flow 與 PnL 不得混為同義。交易類型目前為買進、賣出、�
 
 ## 5.5 行情 read path
 
-行情採 persistent DB-first latest-price resolver。Active market scope 為 **TWSE + TAIEX**；
-TPEx／櫃買不再查詢、顯示或接受新 active coverage。
+行情採 persistent DB-first latest-price resolver。2026-10-13 使用者核准官方 EOD 覆蓋 **TWSE + TPEx 全部個股**，沿用既有 ingestion 保存 Core／serving；不以排名或目前持股縮限。TAIEX 仍是首頁指數。TPEx EOD 不冒充盤中 tick；研究／新關注亦取消 500 股票資格限制，50 quota 保留。
 
 - regular session（09:00–13:30 Asia/Taipei）：可見的 Today／Watchlist／Holdings／Stock Detail 每分鐘最多 revalidate；backend 只有 persistent quote 超過 60 秒 TTL 才打 MIS。
 - 13:30 後若同日正式 EOD 尚未到位：保留最後 MIS，狀態 `closing_pending_eod`。

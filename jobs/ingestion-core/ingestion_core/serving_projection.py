@@ -15,16 +15,25 @@ from typing import Any, Iterable
 
 
 class StockServingProjection:
-    DATASETS = frozenset({"ohlcv", "valuation", "events"})
+    MARKET_DATASETS = frozenset({"benchmark", "institutional", "market-activity", "financials"})
+    DATASETS = frozenset({"ohlcv", "valuation", "events"}) | MARKET_DATASETS
     KEY_FIELDS = {
         "ohlcv": ("symbol", "market", "trade_date"),
         "valuation": ("symbol", "market", "observed_date"),
         "events": ("event_id", "published_at"),
+        "benchmark": ("benchmark_id", "trade_date"),
+        "institutional": ("symbol", "market", "trade_date", "investor_type"),
+        "market-activity": ("symbol", "market", "trade_date", "metric"),
+        "financials": ("symbol", "fiscal_year", "fiscal_quarter", "statement_type", "metric"),
     }
     SORT_FIELDS = {
         "ohlcv": "trade_date",
         "valuation": "observed_date",
         "events": "published_at",
+        "benchmark": "trade_date",
+        "institutional": "trade_date",
+        "market-activity": "trade_date",
+        "financials": "availability_at",
     }
 
     def __init__(self, connection_factory: Any, *, retention_days: int = 400) -> None:
@@ -67,10 +76,11 @@ class StockServingProjection:
         prepared = [row for row in prepared if row is not None]
         if not prepared:
             return 0
+        table = "market_serving_recent" if dataset_id in self.MARKET_DATASETS else "stock_serving_recent"
         with self.connection_factory() as connection:
             with connection.transaction(), connection.cursor() as cursor:
                 cursor.executemany(
-                    """INSERT INTO control.stock_serving_recent(
+                    f"""INSERT INTO control.{table}(
                            dataset_id,symbol,natural_key,sort_at,payload_json,source_id,
                            provenance_id,execution_id,core_snapshot_id,updated_at)
                        VALUES (%s,%s,%s,%s,%s::jsonb,%s,%s,%s,%s,now())
@@ -81,11 +91,12 @@ class StockServingProjection:
                          provenance_id=EXCLUDED.provenance_id,
                          execution_id=EXCLUDED.execution_id,
                          core_snapshot_id=EXCLUDED.core_snapshot_id,
-                         updated_at=now()""",
+                         updated_at=now()
+                       WHERE EXCLUDED.sort_at >= control.{table}.sort_at""",
                     prepared,
                 )
                 cursor.execute(
-                    "DELETE FROM control.stock_serving_recent "
+                    f"DELETE FROM control.{table} "
                     "WHERE dataset_id=%s AND sort_at < now() - (%s * interval '1 day')",
                     (dataset_id, self.retention_days),
                 )
@@ -95,7 +106,7 @@ class StockServingProjection:
     def eligible(cls, dataset_id: str, row: dict[str, Any]) -> bool:
         if dataset_id not in cls.DATASETS:
             return False
-        if not str(row.get("symbol") or "").strip():
+        if not str(row.get("symbol") or row.get("benchmark_id") or "").strip():
             return False
         if cls._timestamp(row.get(cls.SORT_FIELDS[dataset_id])) is None:
             return False
@@ -104,7 +115,7 @@ class StockServingProjection:
     @classmethod
     def _row(cls, dataset_id: str, input_row: dict[str, Any], *, execution_id: str,
              provenance_id: str, source_id: str, core_snapshot_id: int | None) -> tuple[Any, ...] | None:
-        symbol = str(input_row.get("symbol") or "").strip().upper()
+        symbol = str(input_row.get("symbol") or input_row.get("benchmark_id") or "").strip().upper()
         if not symbol:
             return None
         sort_at = cls._timestamp(input_row.get(cls.SORT_FIELDS[dataset_id]))
@@ -113,6 +124,10 @@ class StockServingProjection:
         key_values = [input_row.get(field) for field in cls.KEY_FIELDS[dataset_id]]
         if any(value in (None, "") for value in key_values):
             return None
+        if dataset_id == 'financials':
+            # Serving keeps the latest comparable period; canonical revisions stay in Core.
+            key_values += [input_row.get('fiscal_period_end') or input_row.get('period_end'),
+                           input_row.get('report_scope'), source_id]
         natural_key = "sha256:" + sha256(
             json.dumps([cls._json_value(value) for value in key_values], ensure_ascii=False,
                        separators=(",", ":")).encode("utf-8")

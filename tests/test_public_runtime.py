@@ -148,6 +148,8 @@ def test_build_core_service_uses_read_only_catalog_and_bounded_rows():
             "packages.postgres_bundle.load_postgres_bundle"), patch.dict(
             os.environ, {"WEB_QUERY_MAX_ROWS": "120", "PUBLICATION_DB_PASSWORD": "public-secret"}, clear=False):
         result = build_core_service()
+        assert 'read_only' not in calls
+        result._query('core.fixture_v1', 'SELECT 1', ())
 
     assert isinstance(result, CoreQueryService)
     assert result.max_limit == 120
@@ -206,7 +208,7 @@ def test_core_page_prefers_postgres_recent_projection_before_iceberg():
     assert calls["serving"][0][1] == ("ohlcv", "2330", 1, 0)
 
 
-def test_core_page_falls_back_to_iceberg_when_serving_projection_is_empty():
+def test_empty_published_projection_does_not_trigger_request_time_iceberg_scan():
     calls = {"iceberg": 0}
 
     class Iceberg:
@@ -246,8 +248,8 @@ def test_core_page_falls_back_to_iceberg_when_serving_projection_is_empty():
             os.environ, {"PUBLICATION_DB_PASSWORD": "public-secret"}, clear=False):
         page = build_core_service().page("ohlcv", "2330", limit=1, offset=0)
 
-    assert page.rows[0]["trade_date"] == "2026-10-01"
-    assert calls["iceberg"] == 1
+    assert page.rows == ()
+    assert calls["iceberg"] == 0
 
 
 def test_pipeline_backfill_uses_run_overrides_and_never_patches_job():

@@ -42,11 +42,12 @@ class FirstBatchSourceTests(unittest.TestCase):
         self.assertEqual(response.rows[0]["source_id"], "taiex")
         self.assertEqual(response.rows[0]["observed_at"], "2026-08-25T00:00:00Z")
 
-    def test_tpex_sources_are_retired_from_active_adapter_registry(self):
+    def test_tpex_official_bulk_prices_are_independent_of_research_scope(self):
         adapters = dataset_adapters(lambda _: b'[]')
-        self.assertFalse(any(key.startswith("tpex") for key in adapters))
-        self.assertFalse(any(getattr(adapter, "source_id", "") in {"tpex", "tpex-benchmark"}
-                             for adapter in adapters.values()))
+        self.assertEqual(adapters['tpex-market-volume'].market, 'TPEX')
+        self.assertEqual(adapters['tpex-market-volume'].batch_scope, 'market')
+        self.assertIn('tpex-stock-profile', adapters)
+        self.assertNotIn('tpex-benchmark', adapters)
 
     def test_market_batch_activity_sources_keep_metrics_and_provenance(self):
         twse_margin = ["2330", "台積電", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24"]

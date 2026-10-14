@@ -79,6 +79,10 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 - ID 不在 active TODO 時不得自行從 `parking-lot.md`、archive 或研究規劃開工。
 - 採最小合理變更；不得因此省略必要 tests、migration、deployment 或 live acceptance。
 
+### 4.1 全市場及批次總控（2026-10-13 最新決策）
+
+**2026-10-13 最新範圍：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 ≤10%（含邊界）通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。此為新需求，尚未完成 runtime 切換。 [全市場／總控契約](spec/full-market-batch-policy.md) 定義分母、快照、即時操作與遷移驗收；[批次盤點](batch-inventory-2026-10-13.md) 記錄現況。交易入帳／試算及報價按需刷新不等定時批次，背景工作共用 request／fence。此決策取代舊 Liquid 500 admission，保留 50 筆關注 quota、來源與金額／模型品質約束。
+
 ## 5. 最小文件讀取
 
 先讀本文件與 `doc/README.md`，再依任務只讀：

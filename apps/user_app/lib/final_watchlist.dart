@@ -215,7 +215,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  '新加入股票限目前有效市場約 500 檔；既有離榜股票仍保留關注。',
+                  '新加入可選上市／上櫃全部個股；既有退出名冊股票仍保留關注。',
                   style: TextStyle(color: fvMuted, fontSize: 12),
                 ),
               ],
@@ -231,7 +231,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
 
   Widget card(Map<String, dynamic> row) {
     final symbol = fvText(row['symbol']);
-    final offUniverse = row['in_market_500'] == false;
+    final offUniverse = row['in_market'] == false;
     final pending = fvInt(row['pending_note_count']);
     return Card(
       key: ValueKey('watch-$symbol'),
@@ -301,8 +301,8 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: fvInk,
+                      style: TextStyle(
+                        color: fvSignedColor(row['change']),
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
                       ),
@@ -344,7 +344,7 @@ class _FinalWatchlistPageState extends State<FinalWatchlistPage> with WidgetsBin
                       icon: Icons.track_changes_outlined),
                   if (pending > 0) fvTag('待追蹤 $pending', icon: Icons.flag_outlined),
                   if (offUniverse)
-                    fvTag('已離開本週 500 · 仍保留關注', warning: true,
+                    fvTag('已退出有效名冊 · 仍保留關注', warning: true,
                         icon: Icons.bookmark_added_outlined),
                 ],
               ),

@@ -1,10 +1,12 @@
 # Janus SPEC — Intelligence、Aggregator 與 Runtime
 
+**2026-10-13 最新範圍：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 ≤10%（含邊界）通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。此為新需求，尚未完成 runtime 切換。 本文舊 500 範圍已被取代，歷史識別字／證據保留；完整 [新契約](../spec/full-market-batch-policy.md)。
+
 ## 9.0 Token-first 分析引擎
 
 依 2026-10-03 使用者最新指示，舊五角色分數／LLM worker、prompt、validator、sidecar 與契約已刪除，不保留可執行相容分支。歷史 persisted artifacts 仍受保護，不能以程式清理授權大量刪除資料。
 
-正式執行契約見 [Specialist engines](specialist-engines.md)。日常入口只執行約 500 檔 screening，以及 `active watchlist ∪ effective holdings` 的 Fundamental／Valuation／Quant／Risk／Event；不讀取 CEO provider，不因頁面、價格或事件自動觸發 LLM。
+正式執行契約見 [Specialist engines](specialist-engines.md)。日常入口只執行全上市櫃個股 screening，以及 `active watchlist ∪ effective holdings` 的 Fundamental／Valuation／Quant／Risk／Event；不讀取 CEO provider，不因頁面、價格或事件自動觸發 LLM。
 
 舊獨立 provider transport／auth／free gate 保留，但只接受 `ceo`，手動 CEO command／能力權限／語意 validator／實際 synthesis 留待對應 WBS；存在 transport/schema 不代表 CEO 已完成。
 

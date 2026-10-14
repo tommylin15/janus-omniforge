@@ -14,6 +14,10 @@ Fixture／mock／localhost simulation 只補足真實服務難以安全重現的
 
 先讀本索引，再只讀任務直接相關的切片。只有遇到跨領域契約、安全邊界或引用缺失時才增讀其他切片；目前實作與完成證據另讀 GitHub `main`、runtime 及 `spec/operations-and-testing.md`。
 
+本次持股／交易損益、速度目標及模型報告分階段 gate 見 [持股優先契約](spec/holdings-first.md)。
+
+全上市櫃母體、≤10% coverage、批次總控與即時快照見 [新契約](spec/full-market-batch-policy.md)。
+
 ## 領域路由
 
 | 任務 | 必讀切片 | 條件增讀 |

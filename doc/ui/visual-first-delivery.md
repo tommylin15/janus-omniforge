@@ -3,7 +3,11 @@
 更新：2026-10-12
 狀態：Active work / PARTIAL acceptance（四頁視覺初版及估值／事件圖表已進固定 dev Preview，完整 GHCR Release／0% 候選／自動 OAuth／公開 serving readback PASS；正式 100% 切流、四頁本人驗收、完整 P0/P1 資料仍缺）。依 [A 正式視覺規格](visual-first-four-pages.md) 與既有 WBS-6、B9 產品＋C／剩餘產品合併授權執行；開發先整套完成再集中驗收。不重做 B0～B8，研究 500 檔母體與五模型 OOS 調參仍後置。
 
-## 1. 已查 main 的現況與缺口（不是 live PASS）
+## 2026-10-13 本輪執行邊界
+
+先持股報價／交易試算／成交損益／效能，再 VF 通用圖表與四頁整合；依 [持股優先契約](../spec/holdings-first.md)。VF-05 的健康度／支持風險及 VF-09 研究呈現後置至有效模型階段，不作通用圖表 gate；其他資料合法性與四頁驗收保留。下方 source／Preview 段落是歷史 checkpoint，不是當前實作盤點。
+
+## 1. 歷史實作盤點與缺口（接手須重查 code）
 
 - apps/user_app/lib/final_stock_detail.dart 已取 stock-header、持股／quotes、notes、stock-health、events、analysis；K 線在 Advanced 展開時才請求。
 - apps/user_app/lib/final_charts.dart 有 FvKlineChart，現採近 40 根 OHLCV；缺多期間切換與營收／EPS／估值／法人互動圖。部分持股損益繪圖存在，不等於有可信多日資產歷史。
@@ -28,16 +32,16 @@
 | VF-00 | P0／所有畫圖前置 | Data/Core：建正式 coverage inventory，從官方 source→Core→serving→API→UI，抽持有／未持有／離榜／缺資料代表股票，核行情、估值、三大法人、季財報、月營收、公告、持股估值 | matrix 有期間／符號／缺值／單位／財報期別／來源與授權／PIT／provenance／API readback |
 | VF-01 | P0 | API/Mart：優先重用現有 public 與 private read path，僅補 bounded typed chart／Hero projection，首屏不得同步全庫掃 Iceberg 或啟動 Mart/LLM | 正負/缺值/資料日、owner isolation、publication、schema contract tests |
 | VF-02 | P0 | Flutter 今日：優先可信 owner-scoped 持股／關注異動 Hero；沒有合格個人重點則切市場 Hero／TAIEX fallback，仍提供真趨勢與最多三件事 | owner／非持股／無關注／無異動、休市／Mart unavailable screenshots；不混時點或造假市場信心 |
-| VF-03 | P0 | Flutter 關注：異動、搜尋、主價漲跌、已持有／目標價／追蹤／離榜 chips | watchlist owner、500/50 guard、missing/stale、排序和 drilldown |
+| VF-03 | P0 | Flutter 關注：異動、搜尋、主價漲跌、已持有／目標價／追蹤／離榜 chips | watchlist owner、全市場資格／50 quota guard、missing/stale、排序和 drilldown |
 | VF-04 | P0 | Flutter 持股：持股市值 Hero、PnL/報酬、損益貢獻 mini bars、次分頁的單一 checkpoint 與 pending | Private Mart/ledger／snapshot consistency，價格日期與 owner readback |
-| VF-05 | P0 | Flutter 個股：Hero、短價量圖、快速圖表總覽入口、五角色可信狀態、三支持／風險，保留來源與進階資訊 | 真實 OHLCV／非持股／圖期間切換；不需要 CEO 才有基本圖 |
+| VF-05 | P0 | Flutter 個股：Hero、短價量圖、快速通用圖表入口、中性資料說明（模型狀態／報告後置），保留來源與進階資訊 | 真實 OHLCV／非持股／圖期間切換；不需要 CEO 才有基本圖 |
 | VF-06 | P0 | 四頁設計與 accessibility：字階、台股紅綠＋箭頭、主訊息、loading/stale/null、390×844／字體放大 | targeted/golden/screenshot regression、dev authenticated UI 比對 |
 | VF-07 | P1 | Core→Mart→typed API→Flutter：官方月營收/YoY、季 EPS/淨利、PE/PB/殖利率、法人、事件五圖 | 每一圖合法可比序列＋period/PIT/source/readback、互動／缺口狀態 |
 | VF-08 | P1 | Private Mart：報表資產與損益歷史、持股貢獻與已未實現分解 | 至少兩個已完成可比歷史估值日、同 owner ledger checkpoint |
-| VF-09 | P1 | 五 specialist status/drivers/what changed 視覺化 | 真實 persisted artifact、資料不足與研究未驗證分開，無假勝率 |
+| VF-09 | 後置模型階段 | 五 specialist status/drivers/what changed 視覺化 | 真實 persisted artifact、資料不足與研究未驗證分開，無假勝率 |
 | VF-10 | P2／有條件 | 同業比較、估值河流／分位、還原股價、現金流與擴充風險圖 | 必須另證來源授權／時間序列／成本；非本輪 release gate |
 
-VF-00/01 與每張圖的資料合法性是**前置**，不放在最後 P2；VF-02～06 可一起實作後集中測試，VF-07～09 依現有核准資料逐圖完成，不能畫的標 Partial/Blocked，別用美觀 dummy 充作正式圖。VF-10 僅在 source/time/cost approval 足夠後執行，不能偷擴 500 檔回補。
+VF-00/01 與每張圖的資料合法性是**前置**，不放在最後 P2；VF-02～06 可一起實作後集中測試，VF-07～08 依現有核准資料逐圖完成，VF-09 待模型有效後處理，不能畫的標 Partial/Blocked，別用美觀 dummy 充作正式圖。VF-10 僅在 source/time/cost approval 足夠後執行，不能偷擴 500 檔回補。
 
 ### 2026-10-11 已提交的第一段資料鏈路
 
@@ -115,14 +119,14 @@ Series typed minimum：schema_version、symbol、metric、unit、period、points
 - Integration：GCP dev 已授權 authenticated owner 四頁（不要求每版人工重新 OAuth 登入），真實官方行情＋個股、不同頁同股票價格／估值日一致，Private Mart checkpoint／待更新能解釋，來源與不確定狀態可下鑽。
 - Release：同一完整 SHA 必要 CI → GHCR immutable digest → 0% dev candidate → live screenshot／API／Mart readback → 完整 gate PASS 才正式 dev 切流／回滾。沿用現有部署鎖，schema migration 與 Job guard，不額外部署路徑。
 
-**P0 PASS** 需要 VF-00～06 真實實作、CI、dev owner 四頁驗收，個股短價量能互動、每頁有大數字／主訊息、無法用的圖明示原因。**P1 PASS** 需要 VF-07～09 可比的真實 series／source／PIT／readback，不能單靠 mock 圖通過。**整體產品 PASS** 仍需原 B9 產品、C 組、持股頁及既定驗收全部達成；本文件提交只是 docs-only，產品與模型品質目前不自動更動。
+**P0 PASS** 需要 VF-00～06 真實實作、CI、dev owner 四頁驗收，個股短價量能互動、每頁有大數字／主訊息、無法用的圖明示原因。**本輪 P1 PASS** 需要 VF-07～08 可比的真實 series／source／PIT／readback；VF-09 留在後置模型階段，不能單靠 mock 圖通過。**本輪持股＋通用圖表交付 PASS** 需新持股契約與適用 VF 驗收；**含分析報告的整體產品 PASS** 才另需有效模型與 C 組；本文件提交只是 docs-only，產品與模型品質目前不自動更動。
 
 ## 2026-10-12 P0 合併修復：個人持股不限 500／00719B／視覺落差
 
 狀態：**ACTIVE，集中實作後一次測試與 live Preview 驗收，未通過前不可標 PASS。** 本節由使用者實際 00719B 缺價、未實現總額 withheld、Private Mart 派送失敗與持股畫面明顯不符合 Final Visual Contract 回報觸發。
 
 1. **兩條不同的時鐘**：個人持股池由 owner ledger BUY／SELL／REVERSAL／股票股利的 current_positions 立即投影，無新增 500 membership gate；交易確認後刷新 owner snapshot cache，新增持股立即登記行情需求，減碼立即更新股數與成本，歸零停止需求。行情獨立持久化（quote time、source、received_at、price_date），不可把交易後的新股數與舊版 Private Mart checkpoint 假稱同時點正式損益。不得要求使用者定期手動同步「持股池」。
-2. **研究池與估值池分離**：500 僅負責篩選與模型研究；任何真實持股（TWSE／TPEx 股票、ETF 等）仍可依授權官方報價／EOD 提供估值；stock_master 身分與市場需支援持股出池、無入池／短暫未建檔。TPEx 官方 EOD 不可借 TWSE row 或 fake price，未經實證無來源者標 missing；盤中 quote 需測試授權與 timestamp 後才能定義新 TPEx source 為可用，需保障 60s TTL／前景限定／手動 throttle／DB last-success，不產生持續付費 polling。
+2. **研究池與估值池分離**：全市場母體供篩選與模型研究；任何真實持股（TWSE／TPEx 股票、ETF 等）仍可依授權官方報價／EOD 提供估值；stock_master 身分與市場需支援持股出池、無入池／短暫未建檔。TPEx 官方 EOD 不可借 TWSE row 或 fake price，未經實證無來源者標 missing；盤中 quote 需測試授權與 timestamp 後才能定義新 TPEx source 為可用，需保障 60s TTL／前景限定／手動 throttle／DB last-success，不產生持續付費 polling。
 3. **總額與局部資料隔離**：若任一活躍持股缺可信同時點市價，正式「完整持股總市值／未實現損益」 withheld；但各持股 operational 股數、成本、均價、已實現交易記錄及有價格的個股損益仍可顯示。若提供「已估價部份小計」，必須 backend 明定不完整 coverage（筆數、affected symbols、估值日），不能稱完整總額或偷偷忽略缺價持股。
 4. **重算派送獨立查因**：Cloud Run `janus-private-pipeline` dispatch、IAM、queue status、run result 與影像版本各需真實證據；TPEx 缺價≠ Cloud Run Job 無法啟動。未確認不能盲目重送，保留可重試且具狀態診斷。
 5. **記帳／持股版型必須收斂**：頁首單一持股市值 Hero，未實現與 YTD 屬 secondary；個股卡**上排是持有以來未實現損益金額＋報酬／股數、下排是即時現價與前收當日每股漲跌、漲幅與依持股數推算的價格變化**，相同時間尺度同一列，避免總損益與日漲跌交錯；桌面需設 maxWidth、手機 390×844 稠密清楚。官方歷史點數與時間語意不合格則不畫 fake sparkline。

@@ -19,5 +19,5 @@ def test_projection_hit_emits_telemetry_before_return():
     source = (Path(__file__).resolve().parents[1] / "services/api/public_runtime.py").read_text(encoding="utf-8")
     marker = '_emit_core_query_source(identifier, "serving_projection")'
     assert marker in source
-    projection_branch = source.split("if rows:", 1)[1].split("return rows", 1)[0]
+    projection_branch = source.split("if rows is not None:", 1)[1].split("return rows", 1)[0]
     assert marker in projection_branch

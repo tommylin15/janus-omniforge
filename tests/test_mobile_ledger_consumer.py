@@ -100,6 +100,16 @@ def test_consumer_binds_owner_from_drive_and_uses_request_id_for_idempotency():
     assert repository.by_key["mobile-12345678"]["ledger_version"] == 25
 
 
+def test_mobile_batch_coalesces_one_owner_recalculation_after_successful_persistence():
+    owners = []
+    queue = Queue([valid_row(), valid_row(request_id='mobile-second123')])
+    result = process_mobile_ledger_queue(Repository(), queue=queue, on_persisted=owners.append)
+    assert result['processed'] == 2 and owners == [OWNER]
+    owners.clear()
+    process_mobile_ledger_queue(Repository(), queue=Queue([]), on_persisted=owners.append)
+    assert owners == []
+
+
 def test_consumer_requires_explicit_fee_and_tax_instead_of_guessing_missing_values():
     queue = Queue([valid_row(fee="")])
     repository = Repository()

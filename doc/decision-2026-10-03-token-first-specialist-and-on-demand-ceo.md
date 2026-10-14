@@ -22,7 +22,7 @@ Janus 的主要目標順序固定為：
 ```text
 Canonical / PIT Data
         │
-        ├────────────── Market Coverage ≈ 500
+        ├────────────── Market Coverage = TWSE + TPEx 全部個股
         │                ├ cheap deterministic screening
         │                ├ full-universe Quant inference where cheap
         │                ├ basic Fundamental / Valuation / Risk features
@@ -58,9 +58,9 @@ User opens Stock Detail
 
 ## 3. Coverage 分層
 
-### 3.1 Market Coverage（約 500 檔）
+### 3.1 Market Coverage（全上市櫃個股）
 
-500 檔仍保留，目的是發現新機會，不是做 500×5 深度分析。
+全上市櫃個股作為市場與研究母體；深度計算仍按需求／資料變更分片，不做每日全市場×5 全量分析。
 
 每個交易日 EOD canonical data ready 後維護低成本 screening；若 input identity 未變則 reuse：
 
@@ -74,14 +74,14 @@ User opens Stock Detail
 
 輸出至少包含 `screening_score`、`candidate_rank`、`anomaly_flags`、freshness、input identity。B 組 BigQuery path 通過 exact-snapshot fidelity gate 後，優先承接這條全市場 cross-sectional compute。
 
-500 檔 **不得** 自動觸發 500×5 深度 specialist 或 500×5 LLM role invocations，也不得因 screening candidate 自動加入使用者 watchlist。
+全上市櫃個股 **不得** 自動觸發全市場×5 深度 specialist 或 全市場×5 LLM role invocations，也不得因 screening candidate 自動加入使用者 watchlist。
 
 ### 3.2 Deep Coverage
 
 Deep Coverage = `active watchlist ∪ effective holdings`，去重後計算。
 
 - Watchlist 既有 50 active distinct-symbol quota 維持。
-- 持股永遠進 Deep Coverage，即使離開 500 市場池或使用者移出 watchlist。
+- 持股永遠進 Deep Coverage，即使停牌或退出有效市場名冊或使用者移出 watchlist。
 - 清倉且不在 watchlist 才退出後續 Deep Coverage；歷史 artifacts 不覆寫。
 - 全部 deeper specialist engines 使用 public/canonical data；不得把 user-to-symbol、持股數量、成本或私人交易內容混入公開 specialist artifact。
 
@@ -190,7 +190,7 @@ CEO 報告不因任何 upstream change 自動重跑；只標記「報告後已�
 
 ## 7. Model retraining cadence
 
-「每月」主要指 model retraining / calibration / OOS evaluation / reconciliation，不是所有 specialist outputs 每月才更新。第一版固定 **每月第一個週六 10:30（Asia/Taipei）**；不另設每週六 500×5 全量模型排程。
+「每月」主要指 model retraining / calibration / OOS evaluation / reconciliation，不是所有 specialist outputs 每月才更新。第一版固定 **每月第一個週六 10:30（Asia/Taipei）**；不另設每週六 全市場×5 全量模型排程。
 
 第一版：
 
@@ -283,7 +283,7 @@ symbol-level public research report 可被同一系統後續重用；不要因�
 後續 Codex 應依下列語意實作；舊 WBS 中與「每日五 LLM workers」衝突的描述視為已被本決策取代，直到文件完全 convergence：
 
 1. `WBS-5-MART-SPECIALIST-ENGINES`（新增）
-   - 500 market screening + Deep Coverage 5 engines
+   - 全上市櫃 market screening + Deep Coverage 5 engines
    - GitHub framework adapters、structured outputs、SHAP/template explanations
    - PIT/OOS benchmark、champion/challenger
 
@@ -312,7 +312,7 @@ symbol-level public research report 可被同一系統後續重用；不要因�
 ## 11. 明確禁止事項
 
 - 不把 5 specialist 做成 5 個每日生成式 LLM agent。
-- 不讓 500 檔自動變成 500×5 LLM calls。
+- 不讓全上市櫃個股自動變成 全市場×5 LLM calls。
 - 不因每日日行情變動而自動重跑 CEO。
 - 不用 LLM 計算/補 canonical numbers。
 - 不把 model retraining 與每日 inference 混為一談。

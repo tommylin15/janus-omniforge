@@ -1,5 +1,9 @@
 # Janus WBS 5 — Token-first Specialist Engines
 
+**2026-10-13 最新範圍：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 ≤10%（含邊界）通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。此為新需求，尚未完成 runtime 切換。 本文舊 500 範圍已被取代，歷史識別字／證據保留；完整 [新契約](../spec/full-market-batch-policy.md)。
+
+> 2026-10-13 順序修訂：持股／交易損益 → 通用圖表／四頁整合 → 五角色模型驗證 → 有效後整合報告。下列舊 B9→C→產品順序已被取代；研究技術契約與歷史證據保留。見 [AI 作業指示](../codex-execution-plan.md)。
+
 更新：2026-10-11
 狀態：Partial implementation；未完成整體 acceptance
 
@@ -9,7 +13,7 @@
 
 產品主路徑以可靠 Python／SQL／統計／規則提供五分析師，日常不使用生成式 LLM：Fundamental 財務比較、Valuation 相對估值、Quant 動能／強弱／市場排名、Risk 波動／CVaR／beta／回撤、Event parser／rules。
 
-產品與 ML 品質分開驗收：先 B9 產品 → C 組與剩餘產品交付 → 500 檔歷史研究池。LightGBM／CatBoost／Qlib／Markov／本機 Event classifier 保留後置研究，不要求全部勝出才能產品交付。DCF 缺必要輸入／核准假設則 unavailable。具體交付／依賴／退出條件見 [Codex 作業指示](../codex-execution-plan.md)。本決策不將任何未驗證功能或模型標成 PASS。
+產品與 ML 品質分開驗收：先持股／通用圖表 → 全上市櫃歷史研究池與五角色驗證 → 有效後整合報告。LightGBM／CatBoost／Qlib／Markov／本機 Event classifier 保留後置研究，不要求全部勝出才能產品交付。DCF 缺必要輸入／核准假設則 unavailable。具體交付／依賴／退出條件見 [Codex 作業指示](../codex-execution-plan.md)。本決策不將任何未驗證功能或模型標成 PASS。
 
 五角色 structured／可重放／版本化，保留來源與適用 PIT／財報非嚴格 PIT 說明；rules/templates 白話正常 0 API token，適用模型才要求 SHAP／contribution。
 
@@ -17,18 +21,18 @@
 
 ### Market Coverage
 
-約 500 檔保留低成本 screening 與必要 cross-sectional Quant inference，目的為 discovery，不作 500×5 深度分析。每個交易日 EOD canonical data ready 後執行一次；依 2026-10-10 使用者最新決策，預設維持 PyIceberg，不以 BigQuery fidelity PASS 自動切流。
+全上市櫃個股保留低成本 screening 與必要 cross-sectional Quant inference，目的為 discovery，不作 全市場×5 深度分析。每個交易日 EOD canonical data ready 後執行一次；依 2026-10-10 使用者最新決策，預設維持 PyIceberg，不以 BigQuery fidelity PASS 自動切流。
 
 ### Deep Coverage
 
-`active watchlist ∪ effective holdings`，去重後執行完整 specialist engines。Watchlist 50 active distinct-symbol quota 保留；持股離開 500 仍在 Deep Coverage，清倉且不在 watchlist 才退出後續更新。五 specialist 依 dirty dependency／input change 增量執行，不固定每日全重算。
+`active watchlist ∪ effective holdings`，去重後執行完整 specialist engines。Watchlist 50 active distinct-symbol quota 保留；持股退出有效市場名冊仍在 Deep Coverage，清倉且不在 watchlist 才退出後續更新。五 specialist 依 dirty dependency／input change 增量執行，不固定每日全重算。
 
 ### 執行節奏
 
 - 每日盤後：liquid-500 低成本 screening／cross-sectional discovery。
 - 日常 Deep Coverage：只有 `active watchlist ∪ effective holdings` 的受影響 symbol／specialist 因新資料而更新；無變更 reuse。
 - 每月重型批次：`specialist-retrain`、calibration、OOS/evaluation、cache/dependency reconciliation 固定**每月第一個週六 10:30（Asia/Taipei）**。
-- 不建立每週六 500×5 全量模型排程；月度排程只採上列第一個週六 10:30。
+- 不建立每週六 全市場×5 全量模型排程；月度排程只採上列第一個週六 10:30。
 
 ## 3. B 組現行架構：PyIceberg default／BigQuery ML-OOS opt-in
 
@@ -45,7 +49,7 @@ BigQuery 僅在明確 opt-in 的 ML/OOS batch analytics 使用：
 - OOS/evaluation SQL window、reduction 與必要的 batch aggregation；
 - ML training dataset preparation 和 versioned GCS Parquet export。
 
-每日盤後 liquid-500 screening、一般 specialist 與增量讀取均維持 PyIceberg 預設。
+每日盤後 liquid-全市場 screening、一般 specialist 與增量讀取均維持 PyIceberg 預設。
 
 禁止 Storage Read API、`bigquery.readsessions.*` 與 `google-cloud-bigquery-storage`。小型結果使用一般 query/result API；大型 ML input 由 SQL 縮減後輸出 versioned GCS Parquet artifact。
 
@@ -97,7 +101,7 @@ CEO 不被 upstream change 自動觸發；只標記 report freshness／material 
 
 ## 6. 後置模型研究 Evaluation（不阻擋可靠基準產品）
 
-依角色適用性評估，不要求 Event／Risk 一律預測股價。歷史研究池目標約 500 檔，按各日可得母體建立，保留退出股票；無法重建的期間明示。先固定目標／基準／時間切分／成熟與 purge／未調參時段，再比較模型。
+依角色適用性評估，不要求 Event／Risk 一律預測股價。歷史研究池目標全上市櫃個股，按各日可得母體建立，保留退出股票；無法重建的期間明示。先固定目標／基準／時間切分／成熟與 purge／未調參時段，再比較模型。
 
 指標包含：Rank IC、ICIR、IC decay、top-decile future excess-return spread、hit rate、Brier／calibration、Sharpe、max drawdown、turnover、after-cost performance、regime stability。
 
@@ -137,13 +141,13 @@ Benchmark／challenger：
 完成至少證明：
 
 - B 組 analytics reader abstraction 已落地，PyIceberg reference/fallback 與 BigQuery adapter 邊界清楚；
-- 至少一個 liquid-500／cross-sectional workload 在同一固定 Core snapshot 完成 PyIceberg vs BigQuery deterministic compare；
+- 至少一個 全上市櫃／cross-sectional workload 在同一固定 Core snapshot 完成 PyIceberg vs BigQuery deterministic compare；
 - BigQuery path 不使用 Storage Read API，且大型 ML dataset 經 versioned export artifact 交給 training runtime；
 - processed/billed bytes、elapsed、peak RSS、GCS I/O／export evidence（可得時）有 before/after，成本未知處保持 unknown；
 - BigQuery 失效可安全 fallback，且 PostgreSQL serving／A 組 API/UI 不受影響；
 - 未經授權沒有建立 full-Core duplicate、啟用新付費 API、擴大 IAM 或遷移 canonical catalog；
 
-- 每日盤後 500 screening 有真實 dev execution/readback，不產生 LLM calls，也不擴成 500×5 深度 specialist；
+- 每日盤後 全市場 screening 有真實 dev execution/readback，不產生 LLM calls，也不擴成 全市場×5 深度 specialist；
 - Deep Coverage watch-only／held-only／overlap／held-off-market／exit 語意正確；
 - 五 specialist production baseline 在真實 dev PIT data 執行並持久化；
 - dirty dependency graph 只重算受影響 specialist；no-change 可 audit reuse；

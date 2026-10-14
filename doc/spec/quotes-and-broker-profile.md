@@ -1,20 +1,14 @@
 # Operational Quote Router／Broker Profile
 
+交易前試算、成交後快速更新與正式重算的責任／速度目標見 [持股優先契約](holdings-first.md)。
+
 ## 行情契約
 
 ### Active market scope
 
-Janus active market scope is **TWSE only**. TPEx／櫃買 is retired from active collection,
-search/admission, MIS routing, market-home display and future publication. Historical Core rows,
-migration history and audit evidence are retained; retirement must not rewrite or delete history.
+2026-10-13 使用者恢復三項優先整合，官方 EOD 行情範圍改為 **TWSE + TPEx 全部個股**。每市場一次官方整批擷取，保存原始 Stage、canonical Core OHLCV、provenance 與 PostgreSQL serving；未持有、未關注、未入研究 500 的個股也先保存，交易入帳後直接依 owner positions 查既有報價。
 
-Latest-price serving scope is:
-
-- current TWSE Liquid 500;
-- TWSE holdings that remain valid owner positions even when outside the current 500;
-- active TWSE watchlist symbols;
-- a currently opened TWSE stock detail;
-- TAIEX for the Today market snapshot.
+2026-10-13 後續決策：研究／screening 母體及關注新增股票資格一律改全上市櫃個股，取消 Liquid 500 admission；既有 50 筆關注 quota 保留。全市場 coverage 缺失率 ≤10% 過關，詳見 [全市場／總控契約](full-market-batch-policy.md)。ETF 既有授權路徑保留，00719B 可用官方 TPEx EOD；未驗證盤中資料不可當 live tick。盤中 MIS 保持可見需求／TTL，不新增全市場逐分鐘排程。
 
 ### Persistent latest-price resolver
 
@@ -74,9 +68,9 @@ The existing `janus-batch-controller` owns both ingestion slots; no second Sched
 is created:
 
 - 07:30 Asia/Taipei: normal daily ingestion contract;
-- 14:30 Asia/Taipei: same-day TWSE price/index close using the existing `janus-ingestion-core`,
+- 14:30 Asia/Taipei: same-day TWSE/TPEx full-market price/index close using the existing `janus-ingestion-core`,
   execution-level `INGESTION_DATE=<same Taipei date>` and
-  `INGESTION_DATASETS=twse-market-volume,taiex`.
+  `INGESTION_DATASETS=twse-market-volume,tpex-market-volume,taiex`.
 
 From 13:30 until the same-day EOD projection is available, UI may continue to show the final MIS value
 as `closing_pending_eod`. Holdings stops one-minute polling at 13:30; after the 14:30 handoff time it

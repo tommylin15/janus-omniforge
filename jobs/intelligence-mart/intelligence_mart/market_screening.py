@@ -13,7 +13,7 @@ from .facts import _change, canonical_json
 from .runtime import _fenced_core_manifest, _write_immutable_json
 from .specialists import digest, number, price_series, screening, screening_quality, validated_inputs
 
-VERSION = "market-screening-v1"
+VERSION = "market-screening-v2-full-market"
 TABLES = ("core.ohlcv_v1", "core.benchmark_v1", "core.valuation_v1")
 # Keep every field used by source/PIT validation; omit heavy payloads and unrelated features.
 COMMON = ("symbol", "source_id", "provenance_id", "observed_at", "trade_date", "quality_flag",
@@ -35,7 +35,7 @@ def read_plan(core, as_of):
     return inputs, bounds
 
 
-def market_features(datasets, symbols, as_of, snapshot):
+def market_features(datasets, symbols, as_of, snapshot, *, rank=True):
     # Index once instead of rescanning the market cohort for each symbol.
     indexed = {}
     for name, rows in datasets.items():
@@ -73,6 +73,10 @@ def market_features(datasets, symbols, as_of, snapshot):
         row["missing_metrics"] = sorted(k for k, v in row["metrics"].items() if v is None)
         row["status"] = "partial" if rejected or row["missing_metrics"] or row["latest_trade_date"] != as_of else "ready"
         output.append(row)
+    return rank_features(output, as_of) if rank else output
+
+
+def rank_features(output, as_of):
     # Stable descending rank, with symbol resolving ties; missing values remain unranked.
     for key in ("return_20d_percent", "relative_strength_20d_percent", "turnover_20d_mean_twd"):
         ranked = sorted((r for r in output if r["metrics"][key] is not None and r["latest_trade_date"] == as_of),
@@ -84,6 +88,23 @@ def market_features(datasets, symbols, as_of, snapshot):
                         key=lambda r: (-r["screening_score"], r["symbol"]))
     ranks = {r["symbol"]: i for i, r in enumerate(candidates, 1)}
     return [dict(r, candidate_rank=ranks.get(r["symbol"])) for r in output]
+
+
+def read_market_chunks(reader, inputs, symbols, as_of, snapshot):
+    rows = []
+    totals = {}
+    backend = None
+    for offset in range(0, len(symbols), 250):
+        chunk = symbols[offset:offset + 250]
+        result = reader.read(inputs, chunk, core_snapshot_id=snapshot, row_limit=150_000)
+        if result.core_snapshot_id != snapshot:
+            raise RuntimeError("screening reader snapshot mismatch")
+        backend = result.telemetry.get("source")
+        for dataset, count in result.telemetry.get("rows_by_dataset", {}).items():
+            totals[dataset] = totals.get(dataset, 0) + count
+        rows.extend(market_features(result.datasets, chunk, as_of, snapshot, rank=False))
+    return rank_features(rows, as_of), {"source": backend, "rows_by_dataset": totals,
+                                      "total_rows": sum(totals.values()), "chunks": (len(symbols) + 249) // 250}
 
 
 def screening_processor(execution, connection, *, store_factory=None, reader_factory=None, candidate_factory=None):
@@ -123,23 +144,17 @@ def screening_processor(execution, connection, *, store_factory=None, reader_fac
     else:
         reader = reader_factory(inputs, bounds) if reader_factory else IcebergSnapshotReader(sql_catalog_from_environment(), date_bounds=bounds, selected_fields=FIELDS)
         try:
-            result = reader.read(inputs, symbols, core_snapshot_id=execution.core_snapshot_id, row_limit=150_000)
+            rows, input_telemetry = read_market_chunks(reader, inputs, symbols, as_of, execution.core_snapshot_id)
         finally:
             reader.close()
-        if result.core_snapshot_id != execution.core_snapshot_id:
-            raise RuntimeError("screening reader snapshot mismatch")
-        rows = market_features(result.datasets, symbols, as_of, execution.core_snapshot_id)
-        audit = {"backend": result.telemetry.get("source"), "candidate": "not_requested", "default": "pyiceberg"}
+        audit = {"backend": input_telemetry.get("source"), "candidate": "not_requested", "default": "pyiceberg"}
         if candidate_factory:
             candidate = None
             try:
                 candidate = candidate_factory(inputs, bounds)
-                candidate_result = candidate.read(inputs, symbols, core_snapshot_id=execution.core_snapshot_id, row_limit=150_000)
-                if candidate_result.core_snapshot_id != execution.core_snapshot_id:
-                    raise ValueError("candidate snapshot mismatch")
-                other = market_features(candidate_result.datasets, symbols, as_of, execution.core_snapshot_id)
+                other, candidate_telemetry = read_market_chunks(candidate, inputs, symbols, as_of, execution.core_snapshot_id)
                 audit.update(candidate="pass" if digest(rows) == digest(other) else "fidelity_failed",
-                             output_equal=digest(rows) == digest(other), telemetry=candidate_result.telemetry)
+                             output_equal=digest(rows) == digest(other), telemetry=candidate_telemetry)
             except Exception as error:
                 audit.update(candidate="failed", error_code=type(error).__name__.upper()[:64])
             finally:
@@ -147,7 +162,7 @@ def screening_processor(execution, connection, *, store_factory=None, reader_fac
                     candidate.close()
         artifact = {"artifact_kind": "mart_market_screening_v1", "identity": identity,
                     "identity_hash": identity_hash, "rows": rows, "quality": screening_quality(rows),
-                    "input_telemetry": result.telemetry, "canary": audit,
+                    "input_telemetry": input_telemetry, "canary": audit,
                     "specialist_count": 0, "llm_api_tokens": 0, "ceo_triggered": False,
                     "publication_authority": False}
         if artifact["quality"]["latest_market_date"] != as_of:

@@ -28,31 +28,31 @@ def test_weekly_ranking_uses_only_twse_and_requires_each_day():
         rank_week(rows, [day, day + timedelta(days=1)], approved)
 
 
-def test_market_batch_uses_only_the_complete_effective_500():
-    symbols = tuple(f"{value:04}" for value in range(1000, 1500))
+def test_market_batch_uses_complete_listed_and_otc_membership():
+    symbols = tuple(f"{value:04}" for value in range(1000, 1600))
 
     class Control:
-        def liquid_500_snapshot(self):
-            return {"status": "available", "items": [{"symbol": symbol, "market": "TWSE"} for symbol in symbols]}
+        def full_market_snapshot(self):
+            return {"status": "available", "items": [{"symbol": symbol, "market": "TPEX" if symbol == "1000" else "TWSE"} for symbol in symbols]}
 
     universe, selected = _market_universe(Control(), ("2330",))
     assert universe["status"] == "available"
-    assert len(selected) == 500
+    assert len(selected) == 600
     assert selected[0] == "1000"
-    assert selected[-1] == "1499"
+    assert selected[-1] == "1599"
 
     class Partial:
-        def liquid_500_snapshot(self):
-            return {"status": "available", "items": [{"symbol": "2330"}]}
+        def full_market_snapshot(self):
+            return {"status": "available", "items": []}
 
-    with pytest.raises(ValueError, match="exactly 500"):
+    with pytest.raises(ValueError, match="empty or duplicated"):
         _market_universe(Partial(), ("2330",))
 
     class Mixed:
-        def liquid_500_snapshot(self):
-            return {"status": "available", "items": [{"symbol": symbol, "market": "TPEX" if symbol == "1000" else "TWSE"} for symbol in symbols]}
+        def full_market_snapshot(self):
+            return {"status": "available", "items": [{"symbol": symbol, "market": "TWSE"} for symbol in symbols]}
 
-    with pytest.raises(ValueError, match="TWSE-listed"):
+    with pytest.raises(ValueError, match="listed and OTC"):
         _market_universe(Mixed(), ("2330",))
 
 

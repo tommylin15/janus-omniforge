@@ -422,7 +422,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
       symbol = await showDialog<String>(
           context: context,
           builder: (context) =>
-              SimpleDialog(title: const Text('選擇股票（本週市場資訊 500 檔）'), children: [
+              SimpleDialog(title: const Text('選擇股票（全上市櫃個股）'), children: [
                 if (matches.isEmpty)
                   const Padding(
                       padding: EdgeInsets.all(16), child: Text('沒有符合的股票')),
@@ -454,7 +454,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                 Text(error.toString().contains('deep-tracking symbol limit')
                     ? '已達 50 個 distinct active symbols 深度追蹤上限'
                     : error.toString().contains('current market 500')
-                        ? '此股票不在本週市場資訊 500 檔名單'
+                        ? '此股票不在全上市櫃個股名單'
                         : error.toString().replaceFirst('Exception: ', ''))));
       }
     }
@@ -484,7 +484,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                           Text('關注',
                               style:
                                   Theme.of(context).textTheme.headlineMedium),
-                          Text('目前關注 ${rows.length} / 50 · 新增標的限本週市場資訊 500 檔'),
+                          Text('目前關注 ${rows.length} / 50 · 新增標的限全上市櫃個股'),
                           const Text('拖曳調整順序；離榜股票仍保留關注'),
                         ])),
                 children: [
@@ -500,7 +500,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                             subtitle: Text(
                                 '${accountingNumber(row['market_price'], decimals: 2, missing: '行情尚未取得')} · 資料日期 ${row['price_date'] ?? '—'}\n'
                                 '${row['held'] == true ? '已持有' : '未持有'} · 待追蹤 ${row['pending_note_count'] ?? '—'}\n'
-                                '${row['in_market_500'] == false ? '不在本週市場資訊名單，仍保留關注 · ' : ''}'
+                                '${row['in_market'] == false ? '不在有效上市櫃名冊，仍保留關注 · ' : ''}'
                                 '${row['target_price'] == null ? '尚未設定目標價' : '目標價 ${accountingNumber(row['target_price'], decimals: 2)}'}'),
                             trailing: IconButton(
                                 icon: const Icon(Icons.delete_outline),
@@ -2322,8 +2322,8 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
   var shares = '${initial?['shares'] ?? ''}';
   var price = '${initial?['price'] ?? ''}';
   var amount = '${initial?['cash_amount'] ?? ''}';
-  var fee = '${initial?['fee'] ?? '0'}';
-  var tax = '${initial?['tax'] ?? '0'}';
+  var fee = '${initial?['fee'] ?? ''}';
+  var tax = '${initial?['tax'] ?? ''}';
   var memo = '${initial?['memo'] ?? ''}';
 
   String? requiredText(String? value) =>
@@ -2472,8 +2472,8 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
                               'price': price.trim(),
                             if (type == 'CASH_DIV')
                               'cash_amount': amount.trim(),
-                            if (type != 'STOCK_DIV') 'fee': fee.trim(),
-                            if (type != 'STOCK_DIV') 'tax': tax.trim(),
+                            'fee': type == 'STOCK_DIV' ? '0' : fee.trim(),
+                            'tax': type == 'STOCK_DIV' ? '0' : tax.trim(),
                             if (memo.trim().isNotEmpty) 'memo': memo.trim(),
                           });
                         },

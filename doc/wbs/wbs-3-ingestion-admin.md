@@ -25,16 +25,15 @@
 - 股票 master 動態維護上市／上櫃狀態；不得以固定 1,700 或 2,000 檔作完整性判斷。
 - 未核准候選來源只保留 disabled／blocked 設定，不建立 adapter、排程或 Admin 審查 UI；取得外部授權與成本核准後另開 WBS。只有 `official`／`approved_fallback` 可啟用。
 
-### 3.2A 每週量 500 市場資訊網（修訂原全市場基礎 coverage）
+### 3.2A 全上市櫃市場資訊（2026-10-13 取代 Liquid 500）
 
-- 每交易日先由 TWSE 官方全市場批次盤後資料取得成交股數，原始回應進 Stage，正規化後進 Core；週末只用當週完整交易日的 Core 資料，從 enabled **上市個股**依週成交股數、成交金額、代號排序取 500 檔。來源或股票類型不完整時保留舊版本並標 blocked，不發佈不足 500 的名單。TPEx 歷史資料保留，但不納入本 WBS 的新版本與驗收。
-- 名單版本包含週別、排名、量、來源、effective time、進出差異與人工調整稽核；下一交易日生效。Admin「市場資訊」顯示這些資訊並可具理由、版本檢查地手動調整，仍維持 500 檔。
-- 以有效 500 檔上市股收集日 OHLCV、PE/PB、法人、融資券／借券／當沖、基本面摘要與 TWSE benchmark；逐檔 OHLCV adapter 不能放大為 500 次市場抓取，必須使用一次批次抓取、Stage／Core 快取與 symbol fan-out。無合法批次來源的欄位標 blocked。
-- 每日產製 500 檔 expected／received／missing、source health、freshness 與合法 empty／unavailable 摘要；500 檔不得稱為所有股票 coverage。
-- 有效 500 檔的各必要資料集缺值率均嚴格低於 10% 時，缺值部分可通過驗收；逐檔 `missing`、來源與原始 runtime 的 partial 狀態仍須如實保留，不補造成 500/500。
-- 新增個人觀察名單只允許當前有效 500 檔；離榜既有關注不自動刪除。真實持股在 500 檔外仍保留正式行情需求與缺價診斷。
-- 首版必須等 TWSE 完整交易週的 Stage／Core 批次資料與官方上市公司名單；目前單次來源只提供最新一期，不把單日排名冒充週排行。週末輪換由既有 dev ingestion 排程在週日執行，並確認既有排程實際涵蓋週日；不得為此新增付費資源。
-- 產製 `mart_screening_signals` 所需 deterministic Core inputs；screening 不在 ingestion request 內執行。
+- 依 TWSE／TPEx 官方有效名冊產生按日期版本的全個股母體；不以成交量取前 500，不設定固定股票總數。
+- 全市場批次來源一次擷取、Stage／Core 保留、serving 快照發布；資料集依發布頻率收增量，不逐檔重抓同一市場。
+- 日 OHLCV、估值、法人／信用、財報與事件依適用範圍列 expected／valid／missing／not_applicable，來源與時間可追溯。
+- 每市場、必要資料集及期間的缺失率 ≤10%（含邊界）即過該 coverage gate；仍揭露個別缺值，不補零，不省略金額／來源／模型品質檢查。
+- 搜尋／新增關注取消 500 admission，50 筆 quota 保留；持股 membership 仍由 owner ledger 決定。
+- 原週日挑選 500／換榜退出 active 排程，以總控下的每日官方名冊增量取代；舊版本不刪，歷史研究不得用今天名冊回填。
+- 全部業務批次走 Cloud Scheduler 總控；具體分母、快照、分片與驗收依 [全市場契約](../spec/full-market-batch-policy.md)。
 
 ### 3.2B 個人關注股深度追蹤
 
@@ -101,7 +100,7 @@
 
 - 先以既有 5 檔 canary 完成手動 Collection、指定日期 backfill、同日 replay、failure／retry 與 Stage cleanup；canary 是風險控制，不代表資料必須停留在假資料／小型模擬環境。
 - 連續 3 個交易日由既有 Scheduler 正常完成；expected／received／missing、8 個核准來源狀態、Core row/hash/date/null profile 與成本摘要均有證據。
-- canary 通過後先建批次市場量來源與完整週交易日證據，再啟用有效 500 檔；market-scope endpoint 維持單次抓取與 symbol fan-out，不逐檔重複請求。
+- canary 通過後先建雙市場官方名冊與批次來源，再啟用全上市櫃個股；market-scope endpoint 維持單次抓取與 symbol fan-out，不逐檔重複請求。
 - queue claim concurrency、connection exhaustion、PostgreSQL restart／reconnect、Direct VPC／firewall 與 Free Tier guard 實機通過。
 - 營運者只透過 Admin 即可設定、觸發、追蹤、定位失敗並安全重跑，不需登入 GCP 或直接查資料庫。
 - 驗收使用既有 dev 平行上線資源與真實核准資料；不得因尚未建立 production／staging 而判定功能不可用。未經授權仍不得提高既有限額或建立新付費資源。

@@ -188,7 +188,7 @@ void main() {
           'held': true,
           'target_price': '1100',
           'pending_note_count': 1,
-          'in_market_500': false,
+          'in_market': false,
           'version': 4,
         }
       ]
@@ -202,7 +202,7 @@ void main() {
     expect(find.text('我的關注 1/50'), findsOneWidget);
     expect(find.text('台積電（2330）'), findsOneWidget);
     expect(find.text('已持有'), findsOneWidget);
-    expect(find.text('已離開本週 500 · 仍保留關注'), findsOneWidget);
+    expect(find.text('已退出有效名冊 · 仍保留關注'), findsOneWidget);
     expect(find.byIcon(Icons.drag_handle), findsNothing);
 
     await tester.tap(find.text('搜尋股票代號或中文名稱'));
@@ -1295,7 +1295,8 @@ void main() {
     expect(api.reads.where((x) => x.contains('metric=pe')).length, 1);
     await tester.tap(find.byKey(const Key('visual-tab-revenue')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('尚無通過期別'), findsOneWidget);
+    expect(api.reads.where((x) => x.contains('metric=revenue')).length, 1);
+    expect(find.textContaining('歷史資料不足'), findsOneWidget);
     await tester.tap(find.byKey(const Key('visual-tab-pe')));
     await tester.pumpAndSettle();
     expect(api.reads.where((x) => x.contains('metric=pe')).length, 1);
@@ -1404,7 +1405,7 @@ void main() {
     );
     expect(find.byKey(const Key('fv-kline-chart')), findsOneWidget);
     await tester.tap(find.text('近3月'));
-    expect(find.text('近200日'), findsOneWidget);
+    expect(find.text('近12月'), findsOneWidget);
     await tester.pumpAndSettle();
     expect(api.reads.where((path) => path == '/api/v1/public/kline/2330').length, 1);
     await tester.tap(find.byKey(const Key('stock-chart-expand')));
@@ -1413,12 +1414,7 @@ void main() {
     await tester.tap(find.byTooltip('關閉圖表'));
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('fv-health-bars')),
-      180,
-      scrollable: find.byType(Scrollable).last,
-    );
-    expect(find.byKey(const Key('fv-health-bars')), findsOneWidget);
+    expect(find.byKey(const Key('fv-health-bars')), findsNothing);
 
     await tester.scrollUntilVisible(
       find.text('進階資料'),

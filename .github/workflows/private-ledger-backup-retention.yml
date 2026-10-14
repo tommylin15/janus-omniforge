@@ -32,6 +32,7 @@ jobs:
           set -Eeuo pipefail
           python3 - <<'PY'
           import json, re, subprocess
+          from datetime import datetime, timezone
           from urllib.parse import quote, urlencode
           from urllib.request import Request, urlopen
           from urllib.error import HTTPError
@@ -55,7 +56,7 @@ jobs:
           backups=[]
           cursor=None
           while True:
-              params={'prefix':prefix,'fields':'items(name,generation,size),nextPageToken','maxResults':1000}
+              params={'prefix':prefix,'fields':'items(name,generation,size,timeCreated),nextPageToken','maxResults':1000}
               if cursor: params['pageToken']=cursor
               data=api('/o',params) or {}
               backups.extend(data.get('items',[]))
@@ -71,6 +72,10 @@ jobs:
               raise SystemExit('Backup count outside bounded policy; refuse cleanup')
 
           backups.sort(key=lambda obj:obj['name'],reverse=True)
+          newest = datetime.fromisoformat(backups[0]['timeCreated'].replace('Z','+00:00'))
+          age = (datetime.now(timezone.utc)-newest).total_seconds()
+          if not 0 <= age <= 30*3600:
+              raise SystemExit('Latest verified backup is too old; refuse cleanup')
           protected=backups[:keep_count]
           expired=backups[keep_count:]
           print('before_daily_count='+str(len(backups)))
@@ -113,5 +118,25 @@ jobs:
               raise RuntimeError('Post-deletion readback does not match retained three generations')
           print('BACKUP_DAILY_RETENTION=PASS')
           print('after_daily_count=3')
-          print('monthly_backups=NOT_TOUCHED')
+          # The same successful-new-backup guard protects the existing six-month policy.
+          monthly_prefix='pilot-ledger-backups/monthly/'
+          params={'prefix':monthly_prefix,'fields':'items(name,generation,size),nextPageToken','maxResults':25}
+          monthly_data=api('/o',params) or {}
+          monthly=monthly_data.get('items',[])
+          if monthly_data.get('nextPageToken') or not 1 <= len(monthly) <= 24:
+              raise SystemExit('Monthly inventory outside bounded policy; refuse cleanup')
+          pattern=re.compile(r'^pilot-ledger-backups/monthly/[0-9]{4}-[0-9]{2}\.dump$')
+          if any(not pattern.fullmatch(item.get('name','')) or not str(item.get('generation','')).isdigit()
+                 or int(item.get('size',0))<1024 for item in monthly):
+              raise SystemExit('Unexpected monthly backup metadata; refuse cleanup')
+          monthly.sort(key=lambda item:item['name'],reverse=True)
+          retained=monthly[:6]
+          for item in monthly[6:]:
+              api('/o/'+quote(item['name'],safe=''),{'ifGenerationMatch':str(item['generation'])},'DELETE')
+          after_monthly=api('/o',params) or {}
+          if after_monthly.get('nextPageToken') or {
+              (item['name'],str(item['generation'])) for item in after_monthly.get('items',[])
+          } != {(item['name'],str(item['generation'])) for item in retained}:
+              raise RuntimeError('Monthly retention readback mismatch')
+          print('BACKUP_MONTHLY_RETENTION=PASS count='+str(len(retained)))
           PY

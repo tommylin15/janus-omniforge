@@ -426,6 +426,10 @@ class AdminService:
             "effective_from": effective_from.isoformat() if effective_from else None,
         }
 
+    def full_market_snapshot(self) -> dict[str, Any]:
+        return {"scope": "all_listed_otc_equities", "current": self.control.full_market_snapshot(),
+                "upcoming": {"status": "not_applicable", "items": []}}
+
     def liquid_500_snapshot(self) -> dict[str, Any]:
         return {"current": self.control.liquid_500_snapshot(),
                 "upcoming": self.control.liquid_500_snapshot(upcoming=True)}

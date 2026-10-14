@@ -578,6 +578,8 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def daily_brief(scope_id: str = Query("market", max_length=80), analysis_as_of: str = Query("", max_length=10)):
         return public_report_list("market", scope_id, analysis_as_of)
 
+    market_home_lock = Lock()
+
     @lru_cache(maxsize=1)
     def market_home_snapshot(minute: int):
         result = query_core.market_home()
@@ -614,7 +616,8 @@ def create_app(repository: Any | None = None, store: Any | None = None,
 
     @public_router.get("/market-home", response_model=MarketHomeOut)
     def market_home():
-        return jsonable_encoder(market_home_snapshot(int(monotonic()) // 60))
+        with market_home_lock:
+            return jsonable_encoder(market_home_snapshot(int(monotonic()) // 60))
 
     @public_router.get("/sector-rotation", response_model=PublicReportListOut)
     def sector_rotation(scope_id: str = Query(..., min_length=1, max_length=80), analysis_as_of: str = Query("", max_length=10)):
@@ -711,7 +714,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
 
     @public_router.get("/stocks/{symbol}/visual-series", response_model=PublicVisualSeriesOut)
     def stock_visual_series(symbol: str,
-                            metric: str = Query(..., pattern="^(close|pe|pb|yield)$"),
+                            metric: str = Query(..., pattern="^(close|pe|pb|yield|foreign|investment_trust|dealer|revenue|eps)$"),
                             limit: int = Query(120, ge=2, le=200)):
         symbol = public.require_enabled_symbol(symbol)
         # Only a published serving projection is eligible; no request-time Core scan.
@@ -823,6 +826,10 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     @private.get("/ai-sources")
     def ai_sources(_current: AuthenticatedUser = Depends(user)):
         return {"items":contexts.sources()}
+
+    @private.post("/journal/preview")
+    def preview_ledger(value: LedgerEventIn, current: AuthenticatedUser = Depends(user)):
+        return jsonable_encoder(repository.preview_ledger(current.user_id, value))
 
     @private.post("/journal/events", status_code=201)
     def add_ledger(value: LedgerEventIn, background_tasks: BackgroundTasks,
@@ -1305,7 +1312,7 @@ def create_app(repository: Any | None = None, store: Any | None = None,
 
     @admin.get("/market-universe")
     def admin_market_universe():
-        return jsonable_encoder(admin_service.liquid_500_snapshot())
+        return jsonable_encoder(admin_service.full_market_snapshot())
 
     @admin.get("/batches")
     def admin_batches(days: int = Query(3, ge=1, le=31),
@@ -1318,17 +1325,8 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         return jsonable_encoder(admin_service.data_governance())
 
     @admin.post("/market-universe/swap")
-    def admin_swap_market_universe(payload: dict[str, Any] = Body(...),
-                                   actor: str = Depends(admin_actor)):
-        expected = payload.get("expected_version")
-        if isinstance(expected, bool) or not isinstance(expected, int) or expected < 1:
-            raise AdminValidationError("expected_version is required")
-        return jsonable_encoder(admin_service.swap_liquid_500(
-            remove_symbol=str(payload.get("remove_symbol") or "").strip(),
-            add_symbol=str(payload.get("add_symbol") or "").strip(),
-            reason=str(payload.get("reason") or "").strip(), expected_version=expected,
-            actor=actor,
-        ))
+    def admin_swap_market_universe():
+        raise HTTPException(status_code=409, detail="全市場名冊依官方來源更新，不再提供前500換股")
 
     @admin.put("/memberships/{coverage_tier}")
     def admin_save_membership(coverage_tier: str, payload: MembershipEditIn,

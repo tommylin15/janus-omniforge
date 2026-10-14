@@ -1,17 +1,18 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'final_charts.dart';
+import 'final_charts.dart' show fvChartNumber;
 import 'final_visual_common.dart';
 import 'main.dart' as legacy;
 
 /// UI-only published series; never fills gaps or computes a canonical value.
 class FvVisualSeriesChart extends StatefulWidget {
   const FvVisualSeriesChart({required this.rows, required this.label, required this.unit,
-    this.height = 175, super.key});
+    this.height = 175, this.bars = false, super.key});
   final List<dynamic> rows;
   final String label;
   final String unit;
   final double height;
+  final bool bars;
   @override
   State<FvVisualSeriesChart> createState() => _FvVisualSeriesChartState();
 }
@@ -47,7 +48,8 @@ class _FvVisualSeriesChartState extends State<FvVisualSeriesChart> {
     if (points.length < 2) return fvBoundedState('有效資料少於兩期，暫不繪製趨勢');
     final index = highlighted == null ? points.length - 1 :
       highlighted!.clamp(0, points.length - 1);
-    final unit = widget.unit == 'times' ? '倍' : widget.unit == 'percent' ? '%' : widget.unit;
+    final unit = const {'times': '倍', 'percent': '%', 'shares': '股',
+      'TWD_thousands': '千元', 'TWD_per_share': '元／股'}[widget.unit] ?? widget.unit;
     return fvPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Expanded(child: Text(widget.label, style: const TextStyle(color: fvInk, fontWeight: FontWeight.w800))),
@@ -70,26 +72,33 @@ class _FvVisualSeriesChartState extends State<FvVisualSeriesChart> {
           label: '${widget.label}，可點選歷史日期和數值',
           child: SizedBox(height: widget.height, width: double.infinity,
             child: CustomPaint(key: const Key('fv-visual-series-chart'),
-              painter: _SeriesPainter(points, index, breakBefore))),
+              painter: _SeriesPainter(points, index, breakBefore, widget.bars))),
         ),
       )),
       const SizedBox(height: 8),
       Text('${points[index].$1.toIso8601String().substring(0, 10)}：${legacy.accountingNumber(points[index].$2, decimals: 2)} $unit',
         key: const Key('fv-series-tooltip'),
         style: const TextStyle(color: fvInk, fontSize: 12, fontWeight: FontWeight.w700)),
+      ExpansionTile(title: const Text('圖表資料'), children: [
+        for (final point in samples)
+          ListTile(dense: true, title: Text(point.$1.toIso8601String().substring(0, 10)),
+            trailing: Text('${legacy.accountingNumber(point.$2, decimals: 2, missing: '缺值')} $unit')),
+      ]),
     ]));
   }
 }
 
 class _SeriesPainter extends CustomPainter {
-  const _SeriesPainter(this.points, this.highlight, this.breakBefore);
+  const _SeriesPainter(this.points, this.highlight, this.breakBefore, this.bars);
   final List<(DateTime, double)> points;
   final int highlight;
   final Set<int> breakBefore;
+  final bool bars;
   @override
   void paint(Canvas canvas, Size size) {
     final values = points.map((e) => e.$2);
     var low = values.reduce(math.min), high = values.reduce(math.max);
+    if (bars) { low = math.min(0, low); high = math.max(0, high); }
     if (low == high) { low -= 1; high += 1; }
     const pad = 12.0;
     final width = math.max(1.0, size.width - 2 * pad);
@@ -100,6 +109,23 @@ class _SeriesPainter extends CustomPainter {
     for (var i = 0; i < 3; i++) {
       final y = pad + height * i / 2;
       canvas.drawLine(Offset(pad, y), Offset(pad + width, y), grid);
+    }
+    for (final entry in [(high, pad), (low, pad + height)]) {
+      final label = TextPainter(text: TextSpan(text: legacy.accountingNumber(entry.$1, decimals: 2),
+        style: const TextStyle(fontSize: 10, color: fvMuted)), textDirection: TextDirection.ltr)..layout();
+      label.paint(canvas, Offset(pad, entry.$2.clamp(0, size.height - label.height)));
+    }
+    if (bars) {
+      final zeroY = pad + high * height / (high - low);
+      canvas.drawLine(Offset(pad, zeroY), Offset(pad + width, zeroY), Paint()..color = fvMuted);
+      final barWidth = math.min(20.0, width / points.length * .65);
+      for (var i = 0; i < points.length; i++) {
+        final position = coord(i);
+        canvas.drawRect(Rect.fromLTRB(position.dx - barWidth / 2, math.min(position.dy, zeroY),
+          position.dx + barWidth / 2, math.max(position.dy, zeroY)),
+          Paint()..color = points[i].$2 < 0 ? fvLoss : fvGain);
+      }
+      return;
     }
     final path = Path()..moveTo(coord(0).dx, coord(0).dy);
     for (var i = 1; i < points.length; i++) {
@@ -116,7 +142,7 @@ class _SeriesPainter extends CustomPainter {
   }
   @override
   bool shouldRepaint(covariant _SeriesPainter old) {
-    if (highlight != old.highlight || points.length != old.points.length ||
+    if (bars != old.bars || highlight != old.highlight || points.length != old.points.length ||
         breakBefore.length != old.breakBefore.length) return true;
     for (final index in breakBefore) {
       if (!old.breakBefore.contains(index)) return true;

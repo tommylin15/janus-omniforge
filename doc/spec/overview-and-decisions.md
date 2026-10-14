@@ -52,7 +52,7 @@ User／Admin 只經 FastAPI 契約讀寫已持久化資料；一般 page load �
 
 目前 research market coverage 以約 500 檔低成本 market screening／discovery 為主；不再以約 1,700–2,000 檔全市場深度分析作 active product contract。
 
-完整五 specialist 只對 `active watchlist ∪ effective holdings` 執行。Watchlist 的 50 active distinct-symbol quota 保留作成本／來源護欄；持股離開 500 仍留在 Deep Coverage，清倉且不在 watchlist 才退出後續深度更新。
+完整五 specialist 只對 `active watchlist ∪ effective holdings` 執行。Watchlist 的 50 active distinct-symbol quota 保留作成本／來源護欄；持股退出有效市場名冊仍留在 Deep Coverage，清倉且不在 watchlist 才退出後續深度更新。
 
 高頻／tick／文本／alternative data 不因資料存在就自動擴張覆蓋；source authorization、license、quota／cost、retention、PII／redistribution 與 citation policy 需先通過。
 
@@ -66,7 +66,7 @@ User／Admin 只經 FastAPI 契約讀寫已持久化資料；一般 page load �
 4. Risk／Regime — Riskfolio-Lib + statsmodels／ML。
 5. Event／Catalyst — parser／rules + local multilingual classifier。
 
-約 500 檔只做便宜 screening／必要 cross-sectional inference；完整五 specialist 只做 Deep Coverage。Specialist 依 input change／dirty dependency 更新，沒有 input change 就 reuse；第一版 ML retrain／calibration／reconciliation 以月度為主。
+全上市櫃個股只做便宜 screening／必要 cross-sectional inference；完整五 specialist 只做 Deep Coverage。Specialist 依 input change／dirty dependency 更新，沒有 input change 就 reuse；第一版 ML retrain／calibration／reconciliation 以月度為主。
 
 Specialist plain-language output 以 structured output + SHAP／feature contribution／rules／templates 產生，正常 path 0 API token。LLM 不擁有 canonical number、score 計算或 publication authority。
 
@@ -104,7 +104,7 @@ Janus ChatGPT MCP 是 authenticated read-only external consumer，沿用 existin
 - `core-cleanup`
 - `mart-cleanup`
 
-未來 500 screening、dirty specialist update、monthly retrain／reconciliation、On-demand CEO execution 只有在 implementation／runtime 真正存在後才進 Admin Job Control Center，不由文件或 placeholder 提前宣稱。
+未來 全市場 screening、dirty specialist update、monthly retrain／reconciliation、On-demand CEO execution 只有在 implementation／runtime 真正存在後才進 Admin Job Control Center，不由文件或 placeholder 提前宣稱。
 
 Manual rerun／retry 必須經 backend allowlist、idempotency／duplicate guard、dependency／exclusive guard 與 audit；UI 不直接操作任意 Cloud Run job name、checkpoint 或 storage object。
 

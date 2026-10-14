@@ -32,6 +32,7 @@ class Batch:
 
 
 BATCHES = (
+    Batch("ledger-backup", "janus-batch-controller", (2,)),
     Batch("ingestion", "janus-ingestion-core", (7, 14), env=(("QUEUE_CONSUMER", "false"), ("MART_JOB", ""), ("ICEBERG_MAINTENANCE_MODE", ""))),
     Batch("data-supplement", "janus-ingestion-core", (8,), dependencies=("ingestion",),
           env=(("JANUS_DATA_SUPPLEMENT_MODE", "daily"), ("JANUS_DATA_SUPPLEMENT_SYMBOLS", ""),
@@ -46,8 +47,9 @@ BATCHES = (
     Batch("data-quality", "janus-ingestion-core", (12,), (5,),
           env=(("JANUS_DATA_SUPPLEMENT_MODE", "quality"), ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""),
                ("ICEBERG_MAINTENANCE_MODE", "")), exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart")),
-    Batch("private", "janus-private-pipeline", (21,), tuple(range(5)), ("ingestion",)),
-    Batch("mobile-ledger", "janus-private-pipeline", tuple(range(24)), catch_up=False),
+    Batch("private", "janus-private-pipeline", (15, 21), tuple(range(5)), ("ingestion",)),
+    Batch("mobile-ledger", "janus-private-pipeline", tuple(range(24)),
+          env=(("MOBILE_LEDGER_ONLY", "true"),), catch_up=False),
     Batch("core-cleanup", "janus-ingestion-core", (23,), dependencies=("mart-cleanup",),
           env=(("ICEBERG_MAINTENANCE_MODE", "retention-apply"), ("QUEUE_CONSUMER", "false"), ("MART_JOB", "")),
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline")),
@@ -183,7 +185,7 @@ def occurrence_env(batch, slot: datetime) -> tuple[tuple[str, str], ...]:
         values["SCREENING_DATE"] = slot.date().isoformat()
     if batch.name == "ingestion" and slot.hour == 14 and slot.minute == 30:
         values["INGESTION_DATE"] = slot.date().isoformat()
-        values["INGESTION_DATASETS"] = "twse-market-volume,taiex"
+        values["INGESTION_DATASETS"] = "twse-market-volume,tpex-market-volume,taiex"
     return tuple(sorted(values.items()))
 
 
@@ -383,7 +385,11 @@ def run(*, now=None, session=None, control=None, core=None):
             raise RuntimeError("active occurrence limit exceeded; dispatch blocked")
         for key, state in active:
             try:
-                updated = poll_job(session, state)
+                if state.get('batch') == 'ledger-backup':
+                    from .ledger_backup import poll_backup
+                    updated = poll_backup(connection, state)
+                else:
+                    updated = poll_job(session, state)
                 record(connection, tick, key, updated, "reconcile")
             except Exception:
                 # A read failure must never release the running-job fence.
@@ -461,6 +467,10 @@ def run(*, now=None, session=None, control=None, core=None):
                 busy = cursor.fetchone() is not None
             if any(statuses.get(dependency) != "succeeded" for dependency in dependencies):
                 record(connection, tick, key, state, "waiting_dependency", update=False)
+                continue
+            if batch.name == 'ledger-backup':
+                from .ledger_backup import request_backup
+                record(connection, tick, key, request_backup(connection, state), 'backup_request')
                 continue
             if busy or any(job_active(session, job) for job in (batch.exclusive_jobs or (batch.job,))):
                 record(connection, tick, key, state, "job_busy", update=False)

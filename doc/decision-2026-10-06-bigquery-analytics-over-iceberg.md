@@ -9,7 +9,7 @@ Janus 保留目前 **Apache Iceberg V2 + GCS** 作為 public Core 的 canonical�
 
 BigQuery 的定位限定為 **analytics compute layer**，優先承接 B 組的：
 
-- liquid-500 market screening／cross-sectional ranking；
+- liquid-全上市櫃 market screening／cross-sectional ranking；
 - specialist feature aggregation／window／join；
 - OOS／benchmark／evaluation 的大型 SQL 前處理；
 - ML training dataset preparation。
@@ -40,7 +40,7 @@ BigQuery 是 compute，不擁有 canonical number、publication authority 或 ow
 
 B 組只保留一套 active cadence，避免把「日常 inference」與「模型重訓」混在一起：
 
-1. **每日盤後 Market Coverage**：每個交易日 EOD canonical data ready 後，對 liquid-500 做一次低成本 screening／cross-sectional ranking。BigQuery 在通過 exact-snapshot fidelity gate 後優先承接；若 input identity 未變則 reuse。這不是 500×5 深度 specialist。
+1. **每日盤後 Market Coverage**：每個交易日 EOD canonical data ready 後，對全上市櫃個股做分片低成本 screening／cross-sectional ranking。BigQuery 在通過 exact-snapshot fidelity gate 後優先承接；若 input identity 未變則 reuse。這不是 全市場×5 深度 specialist。
 2. **Deep Coverage 增量更新**：完整五 specialist 僅處理 `active watchlist ∪ effective holdings`。新 EOD price、月營收／財報或 event 到達時，只 invalidate 受影響 symbol／specialist；無變化不重算。
 3. **每月重型批次**：`specialist-retrain`、calibration、OOS/evaluation 與 cache/dependency reconciliation 固定 **每月第一個週六 10:30（Asia/Taipei）** 執行，並在必要 ingestion／data-supplement 成功後才進入模型工作。Event classifier 仍只在有足夠新 labeled data 或 drift 時 retrain。
 4. **沒有另一套週六全量模型**：不建立「每週六 500 檔跑五模型」排程。歷史 runtime evidence 保留於 operations；B 組 implementation 必須把實際 Scheduler／controller 收斂到本節的每月第一個週六 10:30，並做 runtime readback。
@@ -90,7 +90,7 @@ Specialist engine 只接收有明確 snapshot identity 的 bounded dataset／fea
 
 優先順序：
 
-1. 每日盤後 liquid-500 screening；
+1. 每日盤後 liquid-全市場 screening；
 2. cross-sectional ranking／window／aggregate features；
 3. OOS／evaluation 前處理；
 4. 只有證據支持時才擴到更多 specialist feature reads。
@@ -137,9 +137,9 @@ B 組 BigQuery architecture 至少需證明：
 - PostgreSQL serving／User API／Admin API 不因 BigQuery 失效而中斷；
 - 無未授權的 full-Core BigQuery duplicate warehouse；
 - 大型 ML data 走 export artifact，不把整個 warehouse 拉進 pandas；
-- 至少有一個 liquid-500 或 cross-sectional workload 在真實 dev 完成 before/after elapsed、peak RSS、processed bytes／scan evidence；
+- 至少有一個全上市櫃 cross-sectional workload 在真實 dev 完成 before/after elapsed、peak RSS、processed bytes／scan evidence；
 - BigQuery adapter 失敗可安全 fallback 到 PyIceberg，且 fallback 可 audit；
-- 每日盤後 500 screening 與 Deep Coverage dirty-update 語意都有真實 dev evidence，且未發生 500×5 全量深算；
+- 每日盤後 全市場 screening 與 Deep Coverage dirty-update 語意都有真實 dev evidence，且未發生 全市場×5 全量深算；
 - `specialist-retrain`／calibration／OOS evaluation／reconciliation 的 effective schedule 已在實際 Scheduler／controller 收斂為每月第一個週六 10:30（Asia/Taipei）並 readback；
 - tests、CI、dev deployment/runtime evidence 齊全後才可把對應 TODO 勾選完成。
 

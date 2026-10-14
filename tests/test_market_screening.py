@@ -99,6 +99,20 @@ def test_eod_batch_dependency_and_date_override():
     assert not any(r[1].name == "market-screening" for r in due_batches(now.replace(day=10)))
 
 
+def test_full_market_reader_covers_all_chunks_and_ranks_globally():
+    from intelligence_mart.market_screening import read_market_chunks
+    symbols = tuple(str(1000+i) for i in range(1010))
+    seen = []
+    class Reader:
+        def read(self, inputs, chunk, **options):
+            seen.extend(chunk)
+            assert len(chunk) <= 250 and options['core_snapshot_id'] == 'fixed'
+            return AnalyticsSnapshot('fixed', {}, {'source': 'pyiceberg', 'rows_by_dataset': {}})
+    rows, telemetry = read_market_chunks(Reader(), {}, symbols, '2026-10-13', 'fixed')
+    assert seen == list(symbols) and len(rows) == 1010 and telemetry['chunks'] == 5
+    assert all(row['candidate_rank'] is None for row in rows)
+
+
 def test_screening_retention_is_bounded_to_90_days():
     from intelligence_mart.artifact_retention import clean_specialist_artifacts
     store = SimpleNamespace(bucket="mart", objects=lambda _: [

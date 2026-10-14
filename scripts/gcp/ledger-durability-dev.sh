@@ -109,6 +109,10 @@ if operation == "upload":
                     method="POST", data=source.read(), content_type="application/octet-stream")
     except HTTPError as error:
         if error.code != 412: raise
+        # Verify/receipt the immutable existing bytes, not a newer local dump.
+        url = f"https://storage.googleapis.com/download/storage/v1/b/{quote(bucket, safe='')}/o/{quote(name, safe='')}?alt=media"
+        with request(url) as response, open(os.environ['GCS_FILE'], 'wb') as target:
+            target.write(response.read())
 elif operation == "download":
     url = f"https://storage.googleapis.com/download/storage/v1/b/{quote(bucket, safe='')}/o/{quote(name, safe='')}?alt=media"
     with request(url) as response, open(os.environ["GCS_FILE"], "wb") as target:
@@ -130,22 +134,24 @@ PY
 }
 
 vm_backup() {
-  local temporary day month bytes digest owners ledger_events
+  local temporary day month bytes digest
+  exec 9>/var/lib/janus/ledger-backup.lock
+  flock -w 30 9 || fail 'another backup is active'
   temporary="$(mktemp -d /tmp/janus-ledger-backup.XXXXXX)"
   trap "rm -rf -- '${temporary}'" EXIT
-  day="$(date -u +%F)"; month="${day%-*}"
+  day="${backup_id:-$(date -u +%F)}"; month="${day%-*}"
+  [[ "${day}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || fail 'invalid backup date'
   docker exec --user postgres janus-postgres \
     pg_dump --format=custom --compress=9 --no-owner --no-acl --dbname=janus_control >"${temporary}/ledger.dump"
+  gcs_object upload "${prefix}/daily/${day}.dump" "${temporary}/ledger.dump"
+  gcs_object download "${prefix}/daily/${day}.dump" "${temporary}/readback.dump"
+  cmp "${temporary}/ledger.dump" "${temporary}/readback.dump" || fail 'backup readback mismatch'
   bytes="$(stat -c %s "${temporary}/ledger.dump")"
   digest="$(sha256sum "${temporary}/ledger.dump" | cut -d' ' -f1)"
-  owners="$(docker exec --user postgres janus-postgres psql -At -d janus_control -c 'SELECT count(*) FROM private.users')"
-  ledger_events="$(docker exec --user postgres janus-postgres psql -At -d janus_control -c 'SELECT count(*) FROM private.ledger_events')"
-  gcs_object upload "${prefix}/daily/${day}.dump" "${temporary}/ledger.dump"
   gcs_object upload "${prefix}/monthly/${month}.dump" "${temporary}/ledger.dump"
-  gcs_object prune "${prefix}/daily/" '' 3
-  gcs_object prune "${prefix}/monthly/" '' 6
-  printf '{"backup_id":"%s","owners":%s,"ledger_events":%s,"bytes":%s,"sha256":"sha256:%s","projected_retention_bytes":%s}\n' \
-    "${day}" "${owners}" "${ledger_events}" "${bytes}" "${digest}" "$((bytes * 9))"
+  # Retention is controller-fenced separately after successful backup readback.
+  printf '{"backup_id":"%s","bytes":%s,"sha256":"sha256:%s","projected_retention_bytes":%s}\n' \
+    "${day}" "${bytes}" "${digest}" "$((bytes * 9))"
 }
 
 restore_build() {
@@ -190,5 +196,33 @@ case "${mode}" in
   verify) verify ;;
   install) install_timer ;;
   vm-backup) vm_backup ;;
+  install-controller)
+    install -d -m 755 /var/lib/janus
+    install -m 700 "$0" /var/lib/janus/ledger-durability
+    install -m 700 /tmp/janus-ledger-backup-executor.py /var/lib/janus/ledger-backup-executor.py
+    cat >/etc/systemd/system/janus-ledger-backup-executor.service <<EOF
+[Unit]
+Description=Execute controller-owned Janus backup requests
+After=docker.service network-online.target
+[Service]
+Type=oneshot
+Environment=GCP_PROJECT_ID=${project}
+Environment=LEDGER_BACKUP_BUCKET=${bucket}
+Environment=GCP_ENVIRONMENT=dev
+ExecStart=/usr/bin/python3 /var/lib/janus/ledger-backup-executor.py
+EOF
+    cat >/etc/systemd/system/janus-ledger-backup-executor.timer <<'EOF'
+[Unit]
+Description=Poll Janus controller backup requests, never create a backup schedule
+[Timer]
+OnBootSec=1m
+OnUnitInactiveSec=1m
+[Install]
+WantedBy=timers.target
+EOF
+    systemctl daemon-reload
+    systemctl enable --now janus-ledger-backup-executor.timer >/dev/null
+    echo 'Controller executor installed; original backup timer retained until restore verification.'
+    ;;
   *) echo "Usage: $0 {configure|run|verify|restore [YYYY-MM-DD]}" >&2; exit 2 ;;
 esac

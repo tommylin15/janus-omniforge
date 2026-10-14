@@ -25,8 +25,9 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   Timer? marketTimer;
   bool foreground = true;
   int historyDays = 20;
-  // Live cold-start probe reached 16.7s; bounded longer for this one
-  // essential public snapshot, while the rest of Today remains independent.
+  dynamic lastGoodMarket;
+  bool marketBusy = false;
+  int marketGeneration = 0;
   static const marketColdTimeout = Duration(seconds: 24);
 
   bool get marketHours {
@@ -56,19 +57,29 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
         if (!marketActive || !marketHours) {
           marketTimer?.cancel();
         } else {
-          setState(() => market = _loadMarketWithoutPerf());
+          if (!marketBusy) setState(() => market = _loadMarketWithoutPerf());
         }
       });
     }
   }
 
-  Future<dynamic> _loadMarketWithoutPerf() =>
-      _read('/api/v1/public/market-home', timeout: marketColdTimeout);
+  Future<dynamic> _loadMarketWithoutPerf() async {
+    final generation = ++marketGeneration;
+    marketBusy = true;
+    try {
+      final result = await _read('/api/v1/public/market-home', timeout: marketColdTimeout);
+      if (mounted && generation == marketGeneration && result is Map && result['sections'] is Map) lastGoodMarket = result;
+      return result;
+    } finally {
+      if (generation == marketGeneration) marketBusy = false;
+    }
+  }
 
   @override
   void didUpdateWidget(FinalTodayPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.api, widget.api)) {
+      lastGoodMarket = null;
       market = _readCoreMarket();
       brief = _read('/api/v1/public/daily-brief');
       personal = _read('/api/v1/me/today-relevant');
@@ -106,7 +117,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   Future<dynamic> _readCoreMarket() async {
     final stopwatch = Stopwatch()..start();
     try {
-      return await _read('/api/v1/public/market-home', timeout: marketColdTimeout);
+      return await _loadMarketWithoutPerf();
     } finally {
       stopwatch.stop();
       FinalPerf.recordCore('today', stopwatch.elapsed);
@@ -406,7 +417,7 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
   Widget _market() => FutureBuilder<dynamic>(
     future: market,
     builder: (context, snapshot) {
-      final root = fvMap(snapshot.data);
+      final root = fvMap(snapshot.data ?? lastGoodMarket);
       final sections = fvMap(root['sections']);
       return Column(children: [
         IntrinsicHeight(
@@ -421,13 +432,13 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
           fvBoundedState('大盤資料仍在讀取；其他資訊可先使用')
         else if (snapshot.connectionState == ConnectionState.done && snapshot.data == null)
           fvPanel(child: Row(children: [
-            const Expanded(child: Text('市場基礎資料暫時無法使用')),
+            Expanded(child: Text(lastGoodMarket == null ? '市場基礎資料暫時無法使用' : '更新失敗，保留上次資料與日期')),
             TextButton(
               onPressed: () => setState(() => market = _readCoreMarket()),
               child: const Text('重試'),
             ),
-          ]))
-        else ...[
+          ])),
+        if (sections.isNotEmpty) ...[
           _marketActivityVisual(sections['market-activity']),
           _institutionalVisual(sections['institutional']),
         ],

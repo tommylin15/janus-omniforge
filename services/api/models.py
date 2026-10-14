@@ -99,7 +99,7 @@ class VisualSeriesPointOut(BaseModel):
 class PublicVisualSeriesOut(BaseModel):
     schema_version: Literal["visual-series.v1"]
     symbol: str
-    metric: Literal["close", "pe", "pb", "yield"]
+    metric: Literal["close", "pe", "pb", "yield", "foreign", "investment_trust", "dealer", "revenue", "eps"]
     unit: str
     data_status: Literal["available", "partial", "missing", "unavailable"]
     points: list[VisualSeriesPointOut]
@@ -154,6 +154,8 @@ class LedgerEventIn(StrictModel):
     tax: Money = Decimal("0")
     currency: Annotated[str, Field(pattern=r"^[A-Z]{3}$")] = "TWD"
     memo: Annotated[str | None, Field(max_length=500)] = None
+    expected_ledger_version: Annotated[int | None, Field(ge=0)] = None
+    expected_broker_profile_version: Annotated[int | None, Field(ge=0)] = None
 
     @model_validator(mode="after")
     def validate_type_fields(self) -> "LedgerEventIn":

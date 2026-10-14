@@ -24,7 +24,7 @@ class ServingDuckDBIcebergCore(_CanonicalDuckDBIcebergCore):
             dataset_id=dataset_id, rows=rows, execution_id=execution_id,
             provenance_id=provenance_id, source_id=source_id, partition_date=partition_date,
         )
-        if dataset_id not in {"ohlcv", "valuation", "events"}:
+        if dataset_id not in {"ohlcv", "valuation", "events", "benchmark", "institutional", "market-activity", "financials"}:
             return result
         try:
             projection = getattr(self, "_stock_serving_projection", None)

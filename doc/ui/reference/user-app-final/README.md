@@ -5,7 +5,11 @@
 
 本目錄定義 Janus User App 手機版的最終 presentation target。它不是 brainstorm、disposable mockup 或僅供靈感使用的 reference；後續 User App implementation 應逐步 convergence 至此處定義的四個畫面與 `doc/ui/user-app.md` 的正式資訊架構。
 
-**2026-10-11 新明確需求：**四圖是最低基礎值，頁面唯一主 Hero、圖表、關鍵大數字先於長文字，個股短價量和圖表快速入口必須在 primary。詳見 [A 正式契約](../visual-first-four-pages.md)／[B 工程工作單](../visual-first-delivery.md)，新規格優先於舊 PNG 的區塊排序，原圖不變。
+**2026-10-11 新明確需求：**四圖是最低基礎值，頁面唯一主 Hero、圖表、關鍵大數字先於長文字，個股短價量和圖表快速入口必須在 primary。詳見 [A 正式契約](../../visual-first-four-pages.md)／[B 工程工作單](../../visual-first-delivery.md)，新規格優先於舊 PNG 的區塊排序，原圖不變。
+
+**2026-10-13 最新要求：**持股完整與快速交易損益優先，個股先通用圖表、後有效模型報告。下方「原圖解讀」是圖片內容紀錄；其健康度／摘要順序由 [最新 UI](../../visual-first-four-pages.md) 取代，不能作初期發布 gate。
+
+**全市場新要求：**圖中的「500 檔」僅保留為歷史示意；現在新增關注可選全上市櫃個股，50 筆 quota 保留。
 
 ## 固定圖片路徑
 
@@ -55,7 +59,7 @@ Final Visual Contract 的權威範圍是 presentation：資訊架構、section o
 - 手機版以單欄、可掃描的 Material 3 card layout 為主。
 - Janus 使用一致的 cyan／teal 主視覺、清楚字階、適度留白與圓角卡片。
 - 底部主要 navigation 維持「今日」、「關注」、「記帳／筆記」、「我的」。
-- primary information 先於 advanced information；進階資料不得搶在健康度、持股、白話摘要前。
+- primary information 先於 advanced information；報價、持股與通用圖表優先，分析報告依模型有效 gate 後置。
 - 手機版不得退回高密度 Excel 式表格作為主要 UX。
 - loading／empty／error／partial／stale／missing 仍維持同一資訊架構，不用永久 spinner 或假資料填滿。
 
@@ -96,7 +100,7 @@ Final Visual Contract 的權威範圍是 presentation：資訊架構、section o
 - canonical name＋symbol。
 - recent persisted price／date；missing／stale 不虛構。
 - held state、target price、pending note／follow-up。
-- add／remove／reorder；new admission 受有效約 500 universe 與 50 active distinct-symbol guard 約束。
+- add／remove／reorder；new admission 受有效全上市櫃 universe 與 50 active distinct-symbol guard 約束。
 - 既有離榜股票保留並顯示狀態。
 - 點擊進 Stock Detail；手機以 stock cards 為主。
 
@@ -140,7 +144,7 @@ Primary order（2026-10-11 最新視覺優先）：
 - Flutter targeted／golden／screenshot regression 覆蓋主要 hierarchy 與狀態；
 - 390×844 級 viewport 無 overflow、section order 正確；
 - GCP dev 真實 authenticated URL／owner／persisted data screenshot acceptance；
-- 四頁與本 contract 加上 [最新四頁視覺契約](../visual-first-four-pages.md) 收斂，不只外形像舊 PNG，還要逐頁有唯一主 Hero／真圖或缺值／關鍵數字；
+- 四頁與本 contract 加上 [最新四頁視覺契約](../../visual-first-four-pages.md) 收斂，不只外形像舊 PNG，還要逐頁有唯一主 Hero／真圖或缺值／關鍵數字；
 - loading／empty／error／partial／stale／missing 不破壞主要版型；
 - sample/mock data 未進 canonical runtime；
 - dependency 未完成時維持 bounded unavailable／hidden。
@@ -163,7 +167,7 @@ widget、圖片、golden test 或 build 單獨成功都不構成 Final Visual Co
 
 ### Owner-scoped 損益重算狀態
 
-- Private Mart pending 時才顯示「重新計算損益」。
+- 持股頁 YTD 為 available、confirmed 0 或 stale 都顯示「重新計算損益」。
 - 同 owner `QUEUED/RUNNING/CANCEL_REQUESTED` 時按鈕 disabled，畫面需明示「已排隊／重算中／正在中止」。
 - `FAILED/CANCELLED` 必須顯示 backend safe reason 並提供「重新嘗試」；不可只讓使用者空等。
 - User App 不傳 `user_id`，也不在 Flutter／API request thread 計算 canonical PnL。

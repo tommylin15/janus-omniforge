@@ -47,18 +47,17 @@ def test_private_pipeline_effective_schedule_is_controller_owned():
     from ingestion_core.batch_controller import BATCHES
     private = next(batch for batch in BATCHES if batch.name == "private")
     assert private.job == "janus-private-pipeline"
-    assert private.hours == (21,)
+    assert private.hours == (15, 21)
     assert private.minute == 30
     assert private.weekdays == tuple(range(5))
     assert private.dependencies == ("ingestion",)
 
-    before = datetime(2026, 10, 2, 13, 29, tzinfo=timezone.utc)  # 21:29 Asia/Taipei
+    before = datetime(2026, 10, 2, 7, 29, tzinfo=timezone.utc)  # 15:29 Asia/Taipei
     after = datetime(2026, 10, 2, 13, 30, tzinfo=timezone.utc)   # 21:30 Asia/Taipei
     assert not any(row[1].name == "private" for row in due_batches(before))
     private_rows = [row for row in due_batches(after) if row[1].name == "private"]
-    assert len(private_rows) == 1
-    assert private_rows[0][0] == "private/2026-10-02/21"
-    assert private_rows[0][3] == ["ingestion/2026-10-02/14"]
+    assert [row[0] for row in private_rows] == ["private/2026-10-02/15", "private/2026-10-02/21"]
+    assert all(row[3] == ["ingestion/2026-10-02/14"] for row in private_rows)
 
 
 def test_ingestion_has_same_controller_eod_slot_with_same_day_price_scope():
@@ -74,22 +73,22 @@ def test_ingestion_has_same_controller_eod_slot_with_same_day_price_scope():
     eod = rows[-1]
     env = dict(occurrence_env(eod[1], eod[2]))
     assert env["INGESTION_DATE"] == "2026-10-06"
-    assert env["INGESTION_DATASETS"] == "twse-market-volume,taiex"
+    assert env["INGESTION_DATASETS"] == "twse-market-volume,tpex-market-volume,taiex"
     assert "INGESTION_DATE" not in dict(occurrence_env(rows[0][1], rows[0][2]))
 
 
 def test_private_depends_on_latest_1430_ingestion_slot():
     rows = due_batches(datetime(2026, 10, 6, 13, 30, tzinfo=timezone.utc))  # 21:30 Asia/Taipei
     private = [row for row in rows if row[1].name == "private"]
-    assert len(private) == 1
-    assert private[0][3] == ["ingestion/2026-10-06/14"]
+    assert len(private) == 2
+    assert all(row[3] == ["ingestion/2026-10-06/14"] for row in private)
 
 
 def test_dependency_uses_latest_preceding_slot_and_original_private_time():
     batches = (Batch("source", "unused", (7, 12)), Batch("mart", "unused", (9, 13), dependencies=("source",)))
     rows = due_batches(datetime(2026, 10, 2, 6, tzinfo=timezone.utc), batches)
     assert [row[3] for row in rows if row[1].name == "mart"] == [["source/2026-10-02/07"], ["source/2026-10-02/12"]]
-    assert not any(row[1].name == "private" for row in due_batches(datetime(2026, 10, 2, 13, 29, tzinfo=timezone.utc)))
+    assert not any(row[1].name == "private" for row in due_batches(datetime(2026, 10, 2, 7, 29, tzinfo=timezone.utc)))
 
 
 def test_running_jobs_are_polled_once_without_mutation_or_wait():
@@ -292,7 +291,7 @@ def test_regular_private_slot_suppresses_same_hour_mobile_trigger():
     # Tuesday 21:30 Taipei has the canonical Private Pipeline slot.
     now = datetime(2026, 10, 6, 13, 30, tzinfo=timezone.utc)
     rows = scheduled_batches(now, True)
-    assert len([row for row in rows if row[1].name == "private"]) == 1
+    assert len([row for row in rows if row[1].name == "private"]) == 2
     assert not [row for row in rows if row[1].name == "mobile-ledger"]
 
 

@@ -10,8 +10,8 @@
 | 里程碑 | 範圍 | 完成定義 |
 |---|---|---|
 | M0 | 基礎雲端／monorepo／CI/CD／IaC | 已有可運作的 dev workspace、repo、build/deploy 基礎；歷史完成證據查 archive／operations |
-| M1 | Ingestion／Stage／Core／資料補強 | 約 500 market coverage、Core snapshots、12Q／12M／price history、daily incremental、Saturday DQ 與可重跑資料鏈完成對應 acceptance |
-| M2 | Token-first specialist engines | 500 screening + Deep Coverage 五 specialist、PIT/OOS、immutable artifact、plain-language 0-token path、真實 dev execution/readback 完成 |
+| M1 | Ingestion／Stage／Core／資料補強 | 全上市櫃 market coverage、Core snapshots、12Q／12M／price history、daily incremental、Saturday DQ 與可重跑資料鏈完成對應 acceptance |
+| M2 | Token-first specialist engines | 全市場 screening + Deep Coverage 五 specialist、PIT/OOS、immutable artifact、plain-language 0-token path、真實 dev execution/readback 完成 |
 | M2.5 | Dirty dependency／model lifecycle | input-change invalidation、reuse、monthly retrain/calibration/reconciliation、champion promotion evidence 完成 |
 | M3 | On-demand CEO | authorized manual command、provider route/auth/fallback、immutable report、quota/cooldown、usage/cost/audit、User read/action path 完成 |
 | M3.5 | Admin operational convergence | 既有 Flutter Admin 的總覽／批次精簡強化、資料治理頁、AI Analysis Profile/capability，完成 authenticated dev browser + telemetry acceptance |
@@ -55,7 +55,7 @@ Admin operational convergence 不重做 shell：
 
 ## AI 里程碑邊界
 
-五 specialist：Python／SQL／ML；約 500 screening，Deep Coverage 才做完整五 specialist；dirty dependency incremental update；normal prose 0 API token。
+五 specialist：Python／SQL／ML；全市場 screening，Deep Coverage 才做完整五 specialist；dirty dependency incremental update；normal prose 0 API token。
 
 On-demand CEO：只有 authorized manual request；`Codex CLI → OpenRouter → Gemini` 只屬 CEO／approved escalation route；重新分析建立新 immutable report。
 

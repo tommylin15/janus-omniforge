@@ -113,6 +113,11 @@ class CoreQueryService:
             "pe": ("valuation", "observed_date", "pe_ratio", "times"),
             "pb": ("valuation", "observed_date", "pb_ratio", "times"),
             "yield": ("valuation", "observed_date", "dividend_yield_percent", "percent"),
+            "foreign": ("institutional", "trade_date", "net_shares", "shares"),
+            "investment_trust": ("institutional", "trade_date", "net_shares", "shares"),
+            "dealer": ("institutional", "trade_date", "net_shares", "shares"),
+            "revenue": ("financials", "fiscal_period_end", "value", "TWD_thousands"),
+            "eps": ("financials", "fiscal_period_end", "value", "TWD_per_share"),
         }
         if metric not in mapping or not 2 <= limit <= min(self.max_limit, 200):
             raise QueryValidationError("invalid visual series metric or limit")
@@ -126,28 +131,38 @@ class CoreQueryService:
         }
         if self._serving_series is None:
             return response
-        raw = self._serving_series(dataset, normalized, limit)
+        raw = self._serving_series(dataset, normalized, 600 if dataset == 'financials' else
+                                   limit * 3 if dataset == "institutional" else limit)
         if raw is None:
             return response
         response["data_status"] = "missing"
         response["missing_reason"] = "no_published_points"
+        if dataset == "institutional":
+            raw = [row for row in raw if row.get("investor_type") == metric][:limit]
+        elif dataset == 'financials':
+            raw = [row for row in raw if row.get('unit') == unit and (
+                row.get('metric') in {'monthly_revenue', 'previous_month_revenue'} if metric == 'revenue' else
+                row.get('metric') == 'eps_single_quarter' and row.get('period_basis') == 'single_quarter')]
         # Published null/invalid values remain dated gaps so the chart does not
         # silently connect across missing sessions. A valid duplicate wins.
         dated: dict[str, dict[str, str | None]] = {}
-        for row in raw[:limit]:
-            day = row.get(date_key)
+        for row in raw if dataset == 'financials' else raw[:limit]:
+            day = row.get(date_key) or (row.get('period_end') if dataset == 'financials' else None)
             if day is None:
                 continue
             day_string = str(day)[:10]
             try:
-                date.fromisoformat(day_string)
+                observed_day = date.fromisoformat(day_string)
+                if observed_day > datetime.now(ZoneInfo("Asia/Taipei")).date():
+                    continue
             except (ValueError, TypeError):
                 continue
             number: Decimal | None = None
             try:
                 if row.get(value_key) is not None:
                     candidate = Decimal(str(row[value_key]))
-                    if candidate.is_finite() and candidate >= 0 and (metric == "yield" or candidate > 0):
+                    if candidate.is_finite() and (dataset == "institutional" or metric == 'eps' or
+                            candidate >= 0 and (metric in {"yield", "revenue"} or candidate > 0)):
                         number = candidate
             except (InvalidOperation, ValueError, TypeError):
                 pass
@@ -155,19 +170,21 @@ class CoreQueryService:
                 if dated[day_string]["value"] is not None or number is None:
                     continue
             source = str(row.get("source_id") or "").strip()
+            if dataset in {"institutional", "financials"} and (source not in {"twse", "tpex", "mops"} or not row.get("provenance_id")):
+                number = None
             dated[day_string] = {
                 "date": day_string, "value": str(number) if number is not None else None,
                 "source_id": source or None,
                 "provenance_id": str(row["provenance_id"]) if row.get("provenance_id") else None,
             }
-        points = sorted(dated.values(), key=lambda item: str(item["date"]))
+        points = sorted(dated.values(), key=lambda item: str(item["date"]))[-limit:]
         usable = [point for point in points if point["value"] is not None]
         response["points"] = points
         response["usable_points"] = len(usable)
         response["data_as_of"] = usable[-1]["date"] if usable else None
         response["source_ids"] = sorted({str(point["source_id"]) for point in points if point["source_id"]})
         if points:
-            complete = len(usable) >= 2 and len(usable) == len(points) == len(raw)
+            complete = len(usable) >= 2 and len(usable) == len(points) and (dataset == 'financials' or len(points) == len(raw))
             response["data_status"] = "available" if complete else "partial"
             response["missing_reason"] = None if complete else "insufficient_or_invalid_points"
         return response

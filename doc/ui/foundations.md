@@ -12,7 +12,7 @@
 - provenance 只對應目前所選 artifact／日期，不借用最新來源補舊結果。
 - User 與 Admin 共用 Flutter codebase但 workspace、navigation、route guard、token audience、backend auth、CORS、audit 分離。
 - 2026-10-02 起 legacy static Admin 已退役；Flutter／PWA 是唯一 active Admin frontend。
-- User App 採「結論 → 原因 → 風險 → 來源」的減法層次；advanced data 放後面。
+- User App 初期採「主數字 → 通用圖表 → 中性說明 → 來源」；有效模型報告啟用後才加結論／原因／風險，advanced data 放後面。
 - generic Chat／Agent UI 由 omniAgent 持有；Janus User App 不新增 Chat／Ask Janus 主入口。
 
 ## 2. 視覺系統

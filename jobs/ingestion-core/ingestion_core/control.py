@@ -56,6 +56,7 @@ class AuthorizationStatus(StrEnum):
 
 SOURCE_AUTHORIZATION: dict[str, AuthorizationStatus] = {
     "twse": AuthorizationStatus.OFFICIAL,
+    "tpex": AuthorizationStatus.OFFICIAL,
     "mops": AuthorizationStatus.OFFICIAL,
     "taiex": AuthorizationStatus.OFFICIAL,
     "taifex": AuthorizationStatus.OFFICIAL,
@@ -192,6 +193,7 @@ class Cursor:
     cursor_key: str
     last_observed_at: datetime | None
     last_success_at: datetime | None
+    coverage: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -373,7 +375,8 @@ CREATE TABLE IF NOT EXISTS response_cache (
 CREATE TABLE IF NOT EXISTS collection_cursors (
     cursor_key TEXT PRIMARY KEY,
     last_observed_at TEXT,
-    last_success_at TEXT
+    last_success_at TEXT,
+    coverage_json TEXT
 );
 CREATE TABLE IF NOT EXISTS source_health (
     source_id TEXT NOT NULL,
@@ -420,6 +423,8 @@ class SQLiteControlPlane:
         self.connection = sqlite3.connect(str(database), check_same_thread=False)
         self.connection.row_factory = sqlite3.Row
         self.connection.executescript(SCHEMA)
+        if 'coverage_json' not in {row[1] for row in self.connection.execute('PRAGMA table_info(collection_cursors)')}:
+            self.connection.execute('ALTER TABLE collection_cursors ADD COLUMN coverage_json TEXT')
 
     def close(self) -> None:
         self.connection.close()
@@ -886,13 +891,17 @@ class SQLiteControlPlane:
 
     def get_cursor(self, cursor_key: str) -> Cursor:
         row = self.connection.execute("SELECT * FROM collection_cursors WHERE cursor_key=?", (cursor_key,)).fetchone()
-        return Cursor(cursor_key, _parse_time(row["last_observed_at"]) if row else None, _parse_time(row["last_success_at"]) if row else None)
+        return Cursor(cursor_key, _parse_time(row["last_observed_at"]) if row else None,
+                      _parse_time(row["last_success_at"]) if row else None,
+                      json.loads(row['coverage_json']) if row and row['coverage_json'] else None)
 
-    def advance_cursor(self, cursor_key: str, observed_at: datetime, *, successful: bool) -> None:
+    def advance_cursor(self, cursor_key: str, observed_at: datetime, *, successful: bool,
+                       coverage: dict[str, Any] | None = None) -> None:
         current = self.get_cursor(cursor_key)
         latest = max(filter(None, (current.last_observed_at, observed_at)), default=observed_at)
         success = observed_at if successful else current.last_success_at
-        self.connection.execute("INSERT OR REPLACE INTO collection_cursors(cursor_key, last_observed_at, last_success_at) VALUES (?, ?, ?)", (cursor_key, _iso(latest), _iso(success)))
+        self.connection.execute("INSERT OR REPLACE INTO collection_cursors(cursor_key, last_observed_at, last_success_at,coverage_json) VALUES (?, ?, ?, ?)",
+                                (cursor_key, _iso(latest), _iso(success), json.dumps(coverage if coverage is not None else current.coverage)))
         self.connection.commit()
 
     def record_health(self, source_id: str, dataset_id: str, *, state: DataState, latency_ms: float, fetched_at: datetime, latest_observation_at: datetime | None = None, expected_symbols: int = 0, received_symbols: int = 0, cache_hit: bool = False, coverage_tier: str = CoverageTier.MARKET_WIDE.value, cache_age_seconds: float | None = None) -> None:

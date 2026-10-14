@@ -36,7 +36,7 @@ walk-forward tuning、threshold／weight optimization、champion promotion 只�
 
 至少驗證：
 
-- 500 screening 不產生 LLM calls；
+- 全市場 screening 不產生 LLM calls；
 - Deep Coverage admission／exit／held-off-market／overlap；
 - deterministic replay；
 - input hash／engine／model version lineage；

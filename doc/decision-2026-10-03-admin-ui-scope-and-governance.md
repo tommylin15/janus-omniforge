@@ -48,7 +48,7 @@ Janus Admin 不重做整套資訊架構，也不導入另一套獨立的 metadat
 
 預設顯示最近 3 天，較舊歷史以日期範圍／cursor 或等價 bounded query 取得。`enqueue`／dispatch 成功不得顯示成 workload 成功。
 
-目前 GitHub `main` 的 controller 固定批次為 `ingestion`、`data-supplement`、`mart`、`data-quality`、`private`、`core-cleanup`、`mart-cleanup`。未來 500 screening、dirty specialist update、monthly retrain／reconciliation、On-demand CEO execution 等只有在對應 implementation／runtime 真正存在後才出現在批次或 AI 管理畫面，不以 placeholder 假裝可用。
+目前 GitHub `main` 的 controller 固定批次為 `ingestion`、`data-supplement`、`mart`、`data-quality`、`private`、`core-cleanup`、`mart-cleanup`。未來 全市場 screening、dirty specialist update、monthly retrain／reconciliation、On-demand CEO execution 等只有在對應 implementation／runtime 真正存在後才出現在批次或 AI 管理畫面，不以 placeholder 假裝可用。
 
 ## 資料治理
 
@@ -93,7 +93,7 @@ UI 應優先顯示異常，例如 retention overdue、Stage/quarantine 未按 co
 ## 其他既有功能
 
 - `個股`：保留現有 stock workbench 與後續既定工作，不因此次治理 UI 改版取消。
-- `市場資訊`：保留 500 universe／市場資料管理。
+- `市場資訊`：保留 全上市櫃 universe／市場資料管理。
 - Routing controls 仍是 backend versioned contract；日常 UI 只在對應 `AI 分析` 或 `資料治理` 詳細區呈現，不另建高複雜度主頁。
 
 ## 完成判定

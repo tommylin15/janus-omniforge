@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
+from calendar import monthrange
 import json
 from typing import Any, Callable, Iterable, Mapping
 from urllib.parse import urlencode, urlsplit, urlunsplit
@@ -17,7 +18,8 @@ from uuid import uuid4
 from .adapters import CollectionRequest, SourceResponse, validate_source_url
 from .control import CacheMetadata, DataState
 from .sources import (CompanyProfileAdapter, ExchangeOhlcvAdapter, MarketVolumeAdapter,
-                      twse_ohlcv_adapter, twse_market_volume_adapter, twse_company_profile_adapter)
+                      twse_ohlcv_adapter, twse_market_volume_adapter, twse_company_profile_adapter,
+                      tpex_market_volume_adapter, tpex_company_profile_adapter)
 from .stage import StageResult, StageWriter
 from packages.provenance import Provenance, content_hash
 
@@ -146,7 +148,7 @@ def normalise_tpex_institutional(rows: Iterable[Mapping[str, Any]]) -> tuple[dic
 
 def normalise_financials(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, Any], ...]:
     result = []
-    identity = {"出表日期", "年度", "季別", "公司代號", "公司名稱"}
+    identity = {"出表日期", "年度", "季別", "公司代號", "公司名稱", "Date", "Year", "Season", "SecuritiesCompanyCode", "CompanyName"}
     for row in rows:
         source_report_date: str | None = None
         fiscal_period_end: str | None = None
@@ -166,11 +168,11 @@ def normalise_financials(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, A
             statement = str(_pick(row, "statement_type", "statement") or "unknown")
             metrics = ((str(_pick(row, "metric", "name") or "unknown"), _pick(row, "value", "amount")),)
         else:
-            year_value = int(str(row.get("年度", "0")))
+            year_value = int(str(_pick(row, "年度", "Year") or "0"))
             year = year_value + 1911 if year_value < 1911 else year_value
-            quarter = int(str(row.get("季別", "0")))
-            source_report_date = _iso_date(row.get("出表日期"))
-            symbol, published = str(row.get("公司代號", "")), source_report_date
+            quarter = int(str(_pick(row, "季別", "Season") or "0"))
+            source_report_date = _iso_date(_pick(row, "出表日期", "Date"))
+            symbol, published = str(_pick(row, "公司代號", "SecuritiesCompanyCode") or ""), source_report_date
             statement = str(row.get("statement_type") or "income")
             metrics = tuple((str(key), value) for key, value in row.items() if key not in identity)
         for metric, value in metrics:
@@ -183,6 +185,27 @@ def normalise_financials(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, A
             if fiscal_period_end:
                 item["fiscal_period_end"] = fiscal_period_end
             result.append(item)
+    return tuple(result)
+
+
+def normalise_monthly_revenue(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, Any], ...]:
+    result = []
+    for row in rows:
+        period = str(row['資料年月']).replace('/', '').replace('-', '')
+        if len(period) not in {5, 6} or not period.isdigit():
+            raise ValueError('invalid official revenue month')
+        year, month = int(period[:-2]), int(period[-2:])
+        year += 1911 if year < 1911 else 0
+        day = date(year, month, monthrange(year, month)[1])
+        for metric, field, end in (
+            ('monthly_revenue', '營業收入-當月營收', day),
+            ('previous_month_revenue', '營業收入-上月營收', day.replace(day=1) - timedelta(days=1)),
+        ):
+            result.append({'symbol': str(row['公司代號']), 'fiscal_year': end.year,
+                           'fiscal_quarter': (end.month - 1) // 3 + 1,
+                           'fiscal_period_end': end.isoformat(), 'statement_type': 'monthly_revenue',
+                           'published_at': _iso_date(row['出表日期']), 'metric': metric,
+                           'value': _text(row[field]), 'unit': 'TWD_thousands', 'currency': 'TWD'})
     return tuple(result)
 
 
@@ -212,7 +235,7 @@ def normalise_market_activity(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[s
                 ("day_trade_buy_twd", "當日沖銷交易買進成交金額", "TWD"),
                 ("day_trade_sell_twd", "當日沖銷交易賣出成交金額", "TWD"),
             ):
-                result.append({"symbol": str(row["證券代號"]), "market": "TWSE", "trade_date": _iso_date(row["Date"]),
+                result.append({"symbol": str(row["證券代號"]), "market": str(row.get('market') or 'TWSE'), "trade_date": _iso_date(row["Date"]),
                                "metric": metric, "value": _text(row.get(field)), "unit": unit})
             continue
         official_day_trade = "Code" in row and "Suspension" in row
@@ -229,6 +252,11 @@ def _activity_rows(symbol: str, trade_date: str,
     return tuple({"symbol": symbol, "market": "TWSE", "trade_date": trade_date,
                   "metric": metric, "value": _text(value), "unit": unit}
                  for metric, value, unit in values)
+
+
+def normalise_tpex_day_trading(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, Any], ...]:
+    return normalise_market_activity({**row, 'market': 'TPEX'} for row in rows
+                                    if '證券代號' in row and '當日沖銷交易成交股數' in row)
 
 
 def normalise_twse_financing(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, Any], ...]:
@@ -267,6 +295,24 @@ def normalise_twse_securities_lending_short(rows: Iterable[Mapping[str, Any]]) -
     return tuple(result)
 
 
+def normalise_tpex_financing(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, Any], ...]:
+    return tuple({'symbol': str(row['SecuritiesCompanyCode']), 'market': 'TPEX',
+                  'trade_date': _iso_date(row['Date']), 'metric': metric,
+                  'value': _text(row[field]), 'unit': 'trading_units'}
+                 for row in rows for metric, field in (
+                     ('margin_buy', 'MarginPurchase'), ('margin_sell', 'MarginSales'),
+                     ('margin_cash_redemption', 'CashRedemption'), ('margin_balance', 'MarginPurchaseBalance')))
+
+
+def normalise_tpex_lending(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[str, Any], ...]:
+    return tuple({'symbol': str(row['SecuritiesCompanyCode']), 'market': 'TPEX',
+                  'trade_date': _iso_date(row['Date']), 'metric': metric,
+                  'value': _text(row[field]), 'unit': 'shares'}
+                 for row in rows for metric, field in (
+                     ('margin_short_sell', 'SaleSell'), ('margin_short_balance', 'SaleBalanceOfTheMarketDay'),
+                     ('sbl_short_sell', 'SecuritiesBorrowingSale'), ('sbl_short_balance', 'SecuritiesBorrowingBalanceOfTheMarketDay')))
+
+
 @dataclass
 class JsonDatasetAdapter:
     source_id: str
@@ -283,6 +329,7 @@ class JsonDatasetAdapter:
     clock: Callable[[], datetime] = _now_utc
     core_dataset_id: str | None = None
     extra_endpoints: tuple[str, ...] = ()
+    market: str = "TWSE"
 
     def __post_init__(self) -> None:
         validate_source_url(self.endpoint)
@@ -492,11 +539,30 @@ def dataset_adapters(transport: Callable[[str], bytes] | None = None) -> dict[st
 
     return {
         "twse-stock-profile": twse_company_profile_adapter(transport),
+        "tpex-stock-profile": tpex_company_profile_adapter(transport),
         "twse-market-volume": twse_market_volume_adapter(transport),
+        "tpex-market-volume": tpex_market_volume_adapter(transport),
         "twse-ohlcv": twse_ohlcv_adapter(transport),
         "taiex": JsonDatasetAdapter("taiex", "benchmark", "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST", lambda rows: normalise_benchmark(rows, "TAIEX"), transport, dated("https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST", response="json")),
         "twse-valuation": JsonDatasetAdapter("twse", "valuation", "https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d", normalise_valuation, transport, dated("https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d", selectType="ALL", response="json")),
         "twse-institutional": JsonDatasetAdapter("twse", "institutional", "https://www.twse.com.tw/rwd/zh/fund/T86", normalise_institutional, transport, dated("https://www.twse.com.tw/rwd/zh/fund/T86", selectType="ALL", response="json")),
+        "tpex-valuation": JsonDatasetAdapter("tpex", "valuation", "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_peratio_analysis",
+                                            lambda rows: normalise_valuation(rows, market="TPEX"), transport,
+                                            max_replay_age_days=7, row_date_field="observed_date", market="TPEX"),
+        "tpex-institutional": JsonDatasetAdapter("tpex", "institutional", "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading",
+                                                normalise_tpex_institutional, transport,
+                                                max_replay_age_days=7, row_date_field="trade_date", market="TPEX"),
+        "tpex-financing": JsonDatasetAdapter("tpex", "financing", "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_margin_balance",
+                                              normalise_tpex_financing, transport, max_replay_age_days=7,
+                                              row_date_field="trade_date", market="TPEX", core_dataset_id="market-activity"),
+        "tpex-securities-lending-short": JsonDatasetAdapter("tpex", "securities_lending_short", "https://www.tpex.org.tw/openapi/v1/tpex_margin_sbl",
+                                                             normalise_tpex_lending, transport, max_replay_age_days=7,
+                                                             row_date_field="trade_date", market="TPEX", core_dataset_id="market-activity"),
+        "tpex-market-activity": JsonDatasetAdapter("tpex", "day_trading", "https://www.tpex.org.tw/www/zh-tw/intraday/stat",
+                                                   normalise_tpex_day_trading, transport,
+                                                   lambda request: 'https://www.tpex.org.tw/www/zh-tw/intraday/stat?' + urlencode({
+                                                       'type': 'Daily', 'date': request.window_end.strftime('%Y/%m/%d'), 'response': 'json'}),
+                                                   row_date_field='trade_date', market='TPEX', core_dataset_id='market-activity'),
         "mops": JsonDatasetAdapter("mops", "financials", "https://openapi.twse.com.tw/v1/opendata/t187ap06_L_ci", normalise_financials, transport,
                                    observation_mode="fetch_time", max_replay_age_days=7,
                                    availability_field="availability_at", publication_time_authoritative=False,
@@ -505,6 +571,15 @@ def dataset_adapters(transport: Callable[[str], bytes] | None = None) -> dict[st
         "finmind": JsonDatasetAdapter("finmind", "financials", "https://api.finmindtrade.com/api/v4/data", normalise_financials, transport, finmind,
                                       observation_mode="fetch_time", max_replay_age_days=7,
                                       availability_field="availability_at", publication_time_authoritative=False),
+        "tpex-financials": JsonDatasetAdapter("mops", "financials", "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap06_O_ci", normalise_financials, transport,
+                                             observation_mode="fetch_time", max_replay_age_days=7,
+                                             availability_field="availability_at", publication_time_authoritative=False, market="TPEX"),
+        "twse-revenue": JsonDatasetAdapter("mops", "financials", "https://openapi.twse.com.tw/v1/opendata/t187ap05_L", normalise_monthly_revenue, transport,
+                                           observation_mode="fetch_time", max_replay_age_days=7,
+                                           availability_field="availability_at", publication_time_authoritative=False, market="TWSE"),
+        "tpex-revenue": JsonDatasetAdapter("mops", "financials", "https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap05_O", normalise_monthly_revenue, transport,
+                                           observation_mode="fetch_time", max_replay_age_days=7,
+                                           availability_field="availability_at", publication_time_authoritative=False, market="TPEX"),
         "twse-events": JsonDatasetAdapter("twse", "events", "https://openapi.twse.com.tw/v1/opendata/t187ap04_L", normalise_events, transport,
                                           observation_mode="fetch_time", max_replay_age_days=7, row_date_field="published_at"),
         "twse-financing": JsonDatasetAdapter("twse", "financing", "https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN", normalise_twse_financing, transport, dated("https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN", selectType="ALL", response="json"), core_dataset_id="market-activity"),

@@ -1,66 +1,73 @@
-# Janus — Codex 作業指示：先產品交付，再 500 檔歷史研究
+# Janus — 後續 AI 開發指示
 
-更新：2026-10-11（Asia/Taipei）
+**2026-10-13 最新合併開發授權：P0-1 至 P1-2 一次完成相依開發，再整合測試／真實驗收。** 本指示取代之前「只更新文件後停止」。先掃全文件，將有效500個股任務與資料收集改全上市櫃；歷史證據／識別字保留且不冒充全市場PASS。P2模型研究與P3報告不由本次自動啟動。
 
-## 2026-10-11 合併產品工作授權
+更新：2026-10-13。此文件只保存執行方法；active queue 在 [TODO](todo.md)，實際證據在 [status](status.md)。
 
-使用者明確要求順序 1／2／3（B9 產品功能、C 組、剩餘產品整合）整套先開發完成，再一併驗收與上版。本次跨組授權涵蓋這三項；不在 B9／C 內部完成後停等重新授權。先集中完成 code／migration／User 與 Admin UI／必要測試，再對同一完整 SHA 執行集中 Release gate，部署 dev 候選並完成真實驗收，全部必需 gate 通過後切換正式 dev 流量。開發中直接相關的安全、migration 與 targeted tests 仍保留；不逐項發布或提前切換正式流量。500 檔歷史研究與模型品質調校仍在產品交付後，不納入本次整套開發；費用、IAM、OAuth 等既有人工授權邊界仍適用。
-
-使用者核准順序：**B9 產品功能驗收 → C 組及剩餘產品整合 → 產品交付 → 500 檔歷史研究池與五角色模型研究**。本檔直接交給 Codex 接續；狀態只在 [TODO](todo.md)／[status](status.md) 維護。文件更新不代表功能、模型或部署 PASS。
-
-## 1. 接手指令
+## 1. 可直接交給開發 AI 的指示
 
 ```text
-請依 doc/codex-execution-plan.md 執行 Janus 當前已授權工作組。
-先讀 AGENTS.md、doc/PROJECT_RULES.md、doc/README.md、doc/status.md、doc/todo.md，
-再讀 doc/spec/specialist-engines.md、doc/wbs/wbs-5-specialist-engines.md，
-及當前切片直接相關 code/tests/workflow/runbook，不預設載入整個 repo。
-核對 GitHub main 與 runtime，不把文件或 CI PASS 當成已部署。
-先完成 B9 產品功能驗收，不等待五個 ML 全部勝過基準。
-同組先集中完成 code/migration/tests/docs，再整合驗收及依既有流程發布。
-同一授權組內持續到完成或真實 blocker，不逐檔、逐股票停等。
-B0～B8 不重做；僅本次實質改動或新回歸需相應檢查。
-完成當前組後回報下一入口；跨組遵循 PROJECT_RULES 授權規則。
-本次使用者已授權合併 B9 產品／C／剩餘產品整套工程；研究 Job 或新增費用不由此自動授權。
+接續 Janus 已授權的持股優先工作包。先讀 AGENTS.md、doc/PROJECT_RULES.md、
+doc/README.md、doc/todo.md、doc/status.md、doc/spec/holdings-first.md、
+doc/spec/full-market-batch-policy.md、doc/batch-inventory-2026-10-13.md。
+涉及 UI 再讀 doc/ui/user-app.md、doc/ui/visual-first-four-pages.md、
+doc/ui/reference/user-app-final/README.md，實際檢視四張 PNG。
+
+先檢查 git status、GitHub main、既有未提交 diff 與相關實作／測試。
+工作區已有尚未驗證的 ingestion、migration 054、serving、Private Mart 鎖與 Flutter 改動；
+逐項確認正確性及適用需求，保留無關改動，不 reset、不把文件當部署證據。
+
+順序一：完整持股頁。TWSE／TPEx 全個股官方 EOD 預先保存並供快速 serving，
+持股 membership 跟隨 owner ledger，不受研究批次限制；市場／screening／研究／搜尋均改全上市櫃，coverage 缺失率≤10%過關；ETF 既有授權路徑保留。
+首屏先讀持久化資料，按需更新合法盤中報價，過期／缺價有明確狀態。
+完成 backend 交易前唯讀試算、成交入帳後股數／成本／該筆損益快速更新；
+共用 MOVING_AVERAGE／Decimal 規則，處理費稅、版本衝突、冪等及更正。
+修復正式重算 queue：取得 terminal SUCCEEDED 與 exact checkpoint 才算成功。
+報價刷新、交易試算、帳本保存、報表重算是四種操作，不能互相卡住。
+
+順序二：個股先通用圖表，再整合今日／關注／持股／個股四頁。
+預設價格折線＋成交量，可切 K 線；營收／EPS 長條、估值折線、法人正負條及事件時間軸
+依正式合格資料呈現。單一主圖、少量控制、來源日期可見、390px 與放大字級可讀。
+資料不足明示原因並保留補齊待辦，不能補假點或以所有圖 missing 宣稱完成。
+初期不讓五角色健康度、長文或 CEO 擋住基本圖表；不新增複雜指標或新 UI 框架。
+
+以上兩項先完成整套必要 code／migration／tests／docs，再集中驗收；
+保留安全與必要開發檢查，不逐股票逐頁發版。不啟動後置模型研究或 CEO 工作來擴大本輪。
+驗收覆蓋報價覆蓋率、交易金額與日期／版本、owner 隔離、重送、缺價、stale、
+queue 失敗重試、真實 dev 四頁截圖及冷暖 P50／P95／失敗率／quote age。
+未達性能目標追查 critical path，不以延長 timeout 充當改善。
+
+每次 commit 或 push 前執行 /ponytail-review；不使用 Superpowers。
+發布沿既有同 SHA 全測試→GHCR immutable digest→0% candidate→自動 auth gate→
+Job fence/canary→真實 readback→切流／rollback。不得要求每版人工 OAuth 登入。
+新付費資源、重大擴權與其他外部授權遵守 PROJECT_RULES，不自行越界。
+
+交付時分列已修改、已測試、已部署、真實驗收和剩餘 gap；無證據標 NOT_VERIFIED／PARTIAL。
+完成持股＋圖表工作包後停止，模型研究依 TODO 與當次授權另啟。
+五分析師各自有效、可追溯且符合 publication 後才建立整合分析報告；不承諾精準預測。
 ```
 
-## 2. 第一階段：產品交付
+## 2. 開發定位與集體驗收
 
-### B9 產品功能驗收（既有 B9 產品切片）
+| 責任 | 接手入口（先查現況，不假定已完成） | 完成證據 |
+|---|---|---|
+| 官方全市場報價 | ingestion `first_batch.py`／`__main__.py`、stock master、serving projection、報價 SPEC | 分市場有效名冊對照、全鏈路 coverage、研究池外持股可讀 |
+| 損益與交易 | `services/api/private_pipeline.py`、repository／ledger routes、broker profile、private queue | 共用計算與版本測試、成交 readback、queue terminal／checkpoint |
+| 快速首屏 | portfolio snapshot／quotes、`public_runtime.py`、`final_ledger.dart`／`final_today_v2.dart` | bounded DB read、無 N+1、冷暖端到端與 API 耗時 |
+| 通用圖表 | visual-series／published history、`final_stock_detail.dart`、既有 charts | 真實價量／合法序列、缺口語意、互動與可及性、四頁截圖 |
 
-1. 盤點五角色最新修復的來源 SHA、tests、部署與實際輸出。區分 code-only、CI PASS、live NOT VERIFIED；不改寫舊 immutable OOS。
-2. 完成產品必要資料修復：官方財報 EPS／歸母淨利的比較期與口徑、估值 null／極端值／合法零值、來源時間與缺口。沿用已授權 bounded 回補，不為產品結案擴成 500 檔全套財報／事件研究。
-3. 提供可靠基準：Fundamental 財務比較；Valuation 相對估值；Quant 動能／相對強弱／市場排名；Risk 波動／CVaR／beta／回撤；Event 官方事件 parser／rules。必要資料不足時只退化受影響欄位／角色，不造值。
-4. 未驗證 ML 不 promotion、不發布勝率；Event classifier_probability 保持 null。DCF／reverse-DCF 缺可信 FCF、股數及核准假設則 unavailable；規則分數、分類信心和上漲機率不混用。
-5. 各角色驗證 structured artifact、繁中 rules/templates、source authorization、provenance、analysis/data as-of、missing/stale/partial、immutable persist/readback。規則引擎不硬要求 SHAP，適用 ML 才驗 feature contribution／SHAP。
-6. 驗證 active watchlist ∪ effective holdings、持股離榜保留、dirty-only 更新、無變更 reuse、public/private isolation、正常 path 0 LLM API token。市場排名以當日市場池為參照，不只在個人深度池排名。
-7. UI／Admin 分別呈現功能可用與模型品質；不把 oos_not_validated 宣稱有效，也不因此隱藏已驗證的可靠基準分析。
-8. 現在就盤點並保留可取得的每日 membership、公告版本、發布／首次取得時間與 source receipt。沿用既有授權來源、儲存與 retention，僅補必要留存缺口；不假造過去時間、不提前啟動大規模回補。
+B0～B8 與歷史 A 組不重新宣告未完成；本次受影響的共用路徑仍需回歸。B9、C 的模型／報告責任不刪除，但舊「先 B9／CEO 才做持股」順序已失效。單一來源缺失只阻塞對應圖表，缺口留 TODO，不讓持股等待無關模型。
 
-**退出條件：**產品必要修復通過對應 tests、CI、GHCR dev 發布、真實 workload、artifact／API readback；正常與缺值狀態可核對，安全及增量不回歸。僅可判定「B9 產品功能 PASS」，模型研究另列 NOT VERIFIED／PARTIAL，禁止簡寫「B9 全部 PASS」。純研究 OOS 增強不阻擋產品；與 serving 共用的改動仍須回歸驗證。
+## 3. 後置階段：全上市櫃歷史研究池與五角色模型
 
-### C 組及剩餘產品整合
-
-B9 產品與 C 組、剩餘產品依本次合併授權先整套開發，再集中驗收；不等待研究池或 ML champion。
-
-- 完成 On-demand CEO provider/runtime、capability、quota/cooldown、Admin profile、User 分析／重新分析及 immutable history。
-- CEO 只使用 validated facts／基準分析及明示缺口；research challenger 不冒充已驗證訊號，LLM 無 canonical number 或 publication authority。
-- CEO 僅由使用者明確 request 觸發；page load、Scheduler、dirty update、retrain 不自動呼叫。
-- 依 active TODO 收斂剩餘持股頁 UX／migration 050／首屏效能與真實 owner 驗收，不重開已結案 A 組。
-- **四頁視覺優先新增於本輪合併產品工作包**：先讀 [A 正式 UI 規格](ui/visual-first-four-pages.md)、[B 工程工作單](ui/visual-first-delivery.md)，依 VF-00～09 做資料 coverage、最小 backend series、Flutter 四頁和真實圖表；整套開發後才集中 CI＋GCP dev owner screenshot/readback。四圖是最低基礎值而非已完成證據；P2 新來源／費用需另證。
-- 涉及 UI 必讀 doc/ui/user-app.md、doc/ui/reference/user-app-final/README.md 並實際檢視四張 reference PNG；不另設計資訊架構。
-- 產品交付需有真實 authenticated dev 的資料、API、五分析師、CEO、權限／隔離、歷史／freshness 及適用四頁 visual acceptance。B9 通過不等於產品整體結案；Dev Pilot 長期觀察獨立追蹤，不假稱觀察期已完成。
-
-## 3. 第二階段：500 檔歷史研究池與五角色模型
-
-本階段已排入 TODO，依賴產品交付；不刪除模型工作、不預先宣稱五模型有效。先建資料、驗資料、建立基準，再調參。
+本階段已排入 TODO，依賴持股＋通用圖表交付（不等待整合報告）；不刪除模型工作、不預先宣稱五模型有效。先建資料、驗資料、建立基準，再調參。
 
 | 切片 | 交付物 | 驗收／退出條件 |
 |---|---|---|
-| 歷史研究池 | 目標約 500 檔、各日期當時合資格 membership、來源授權、納入／排除原因、上市／下市與 coverage matrix | 不用今日 500 回填歷史，保留退出股票；無法重建的期間標 blocked_source_history，前瞻累積繼續 |
+| 歷史研究池 | 全上市櫃個股、各日期當時合資格 membership、來源授權、納入／排除原因、上市／下市與 coverage matrix | 不用今日全市場名冊回填歷史，保留退出股票；無法重建的期間標 blocked_source_history，前瞻累積繼續 |
 | 共用資料集 | OHLCV／公司行動與報酬口徑／benchmark／產業／官方財報／估值，按角色取用；immutable snapshot／Parquet | 日期、股號、單位、available-at、缺值、標籤可核對；市場／研究／深度三池分離 |
 | 固定研究規格 | 預先定義目標、主要指標、fold、最終未調參時段、基準與成本情境 | chronological walk-forward、label maturity／purge；同樣本同期限比較，研究嘗試留紀錄 |
-| 逐角色評估 | baseline/challenger 對照、分期／產業／環境、樣本量及不確定性報告 | 保留無優勢／不穩定／不足；500 檔數量或 fit success 不等於品質 PASS |
+| 逐角色評估 | baseline/challenger 對照、分期／產業／環境、樣本量及不確定性報告 | 保留無優勢／不穩定／不足；全市場股票數量或 fit success 不等於品質 PASS |
 | 個別升級 | model/evaluation 版本、來源 lineage、CPU/RSS、回復路徑 | 通過該角色品質與 publication gate，真實 readback 後才明確升級；不自動 promotion |
 
 上述資料／研究／工程交接由執行 Codex 負責；Event ground truth 由真實人工 reviewer 審核，不得虛構 reviewer／人審結果。
@@ -73,13 +80,16 @@ B9 產品與 C 組、剩餘產品依本次合併授權先整套開發，再集�
 | Risk | deterministic baseline；Markov vs Gaussian，逐日／月度 log score、尾端、環境、狀態切換穩定性；15/23 勝不等於顯著優勢 |
 | Event | 來源允許 training-use 的繁中事件，人審 event/revision ID、分類、方向、時間、reviewer／label version；時間與事件群組防洩漏 holdout，比 rules 的 macro-F1／各類 precision/recall／校準；分類機率不是報酬機率 |
 
-研究投入優先 Quant → Risk；基本面／估值先資料與基準，Event 先人審標籤。500 檔行情不代表五角色資料完整；原 EOD ≤10% 缺漏容忍不自動授予研究集品質 PASS。
+研究投入優先 Quant → Risk；基本面／估值先資料與基準，Event 先人審標籤。全市場行情不代表五角色資料完整；原 EOD ≤10% 缺漏容忍不自動授予研究集品質 PASS。
 
 ## 4. 排程與資源
 
+所有業務定時工作由 Cloud Scheduler 總控，Actions 僅備份清理 schedule。先依批次盤點移除重複入口、以Core-ready／dirty queue與快照減少等待；不能直接讓既有research workflow重播固定500 request。備份timer有驗證交接才停用。
+
+
 | 時間／觸發 | 工作 |
 |---|---|
-| 每交易日 | 行情／財報／公告增量；500 輕量 screening；深度池 dirty 角色更新 |
+| 每交易日 | 行情／財報／公告增量；全市場分片 screening；深度池 dirty 角色更新 |
 | 每週六 | 既有補漏／品質檢查；membership／版本留存檢查、事件待審整理，不全量重抓／重訓 |
 | 每月第一個週六 10:30 Asia/Taipei | 固定資料後候選訓練／OOS／校準／reconciliation；依成熟資料與角色 gate 訓練，無新增合格資料記 skip/reuse reason |
 | 使用者要求 | 已授權 On-demand CEO，與 retrain 分離 |
@@ -89,7 +99,7 @@ B9 產品與 C 組、剩餘產品依本次合併授權先整套開發，再集�
 - PyIceberg 為每日 screening／specialist 預設；BigQuery 僅 ML/OOS 明確 opt-in，不自動 cutover，禁止 Storage Read API。
 - Iceberg/GCS canonical、PostgreSQL serving、derived research 分離，不建完整 warehouse 複本。
 - Mart 維持 1 CPU／1 GiB，以欄位／日期／股票有界批次控制運算，記錄 elapsed／RSS／bytes；不足提出實測，不自行升級。
-- 500 檔回補前核對來源 training-use、請求界限、既有成本授權與 retention；新付費服務／IAM 擴權仍依 PROJECT_RULES，研究方向核准不是費用授權。
+- 全市場回補前核對來源 training-use、請求界限、既有成本授權與 retention；新付費服務／IAM 擴權仍依 PROJECT_RULES，研究方向核准不是費用授權。
 
 ## 5. 發布、review 與交接
 

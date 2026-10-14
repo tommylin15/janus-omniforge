@@ -11,6 +11,8 @@
 - mock／fixture／localhost 只供快速回歸與故障注入，不得代替 GCP dev URL、真實 OAuth／owner、persisted data、Job／Scheduler／MCP 的主要 evidence。
 - `Production Profile` 是分析設定的 active/released 狀態，不等於 Production GCP environment。
 
+本輪交付先完整持股與快速交易損益，再通用圖表／四頁整合；責任與量測 acceptance 依 [持股優先契約](../spec/holdings-first.md)。模型報告後置，不阻塞本輪。
+
 ## 6.1 FastAPI
 
 - `services/api` 為 Janus 共用 HTTP boundary。
@@ -37,7 +39,7 @@ User App 不提供 generic Chat／Ask Janus／provider runtime／Skills／approv
 
 primary content 順序依 `../ui/user-app.md`：
 
-`StockHeader` → 個人持股／成本／估值日 → 短價量圖 → 五角色可信狀態與白話摘要 → why／risk → 圖表總覽入口 → 筆記／籌碼／事件 → evidence／sources → disclaimer。2026-10-11 新規範以 [A 正式 UI 規格](../ui/visual-first-four-pages.md) 和 [B 工程工作單](../ui/visual-first-delivery.md) 為準，四圖是最低基礎值。
+`StockHeader` → 個人持股／成本／估值日 → 短價量圖 → 通用圖表總覽入口 → 中性資料說明（五角色有效後才加入分析報告） → 筆記／籌碼／事件 → evidence／sources → disclaimer。2026-10-11 新規範以 [A 正式 UI 規格](../ui/visual-first-four-pages.md) 和 [B 工程工作單](../ui/visual-first-delivery.md) 為準，四圖是最低基礎值。
 
 Advanced section 可顯示：
 
@@ -88,7 +90,7 @@ AI-only 區塊尚未完成時可 bounded unavailable／hidden／partial；B／C 
 
 ### 6.2.3 Ledger canonical consistency／refresh
 
-Ledger 的「持股／紀錄／報表」不是三套各自成立的 holdings semantics。三個 subview 上方 holdings summary 應共享同一 canonical position／valuation state，或能清楚追溯至同一 canonical state 與不同 as-of／freshness checkpoint。
+Ledger 的「持股／紀錄／報表」不是三套各自成立的 holdings semantics。四格摘要只在持股顯示；三個 subview 使用的資料應共享同一 canonical position／valuation state，或能清楚追溯至同一 canonical state 與不同 as-of／freshness checkpoint。
 
 一致性 acceptance 至少包含：
 
@@ -194,7 +196,7 @@ Admin 後續管理：
 ### 6.3.5 個股／市場資訊／Routing
 
 - `個股` 保留 Stock Workbench、dataset health、gap repair、history、specialist/CEO persisted artifact 檢視。
-- `市場資訊` 保留約 500 universe、ranking、進入／退出、來源與 coverage 狀態。
+- `市場資訊` 保留全上市櫃 universe、ranking、進入／退出、來源與 coverage 狀態。
 - Deep Coverage 只顯示去識別化 symbol demand，不顯示 user-to-symbol mapping。
 - provider／market-source priority 是 backend versioned contract，不由 Flutter hard-code。CEO route 放 `AI 分析`；market route 放 `市場資訊`／`資料治理` detail。
 

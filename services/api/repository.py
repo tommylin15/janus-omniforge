@@ -116,15 +116,20 @@ class PostgresWorkspaceRepository:
 
     def add_ledger(self, user_id: UUID, value: LedgerEventIn, key: str) -> dict[str, Any]:
         with self._connection() as connection:
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"ledger:{user_id}",))
             existing = connection.execute(
                 "SELECT * FROM private.ledger_events WHERE user_id=%s AND idempotency_key=%s", (user_id, key)
             ).fetchone()
             if existing:
-                return dict(existing)
-            if value.event_type == LedgerType.SELL:
-                available = self._position(connection, user_id, value.symbol)
-                if available < (value.shares or 0):
-                    raise OversellError("sell exceeds available shares")
+                fields = value.model_dump(exclude={'expected_ledger_version', 'expected_broker_profile_version'})
+                if existing['event_action'] != 'ORIGINAL' or any(existing.get(name) != item for name, item in fields.items()):
+                    raise ConflictError('交易冪等鍵已用於不同內容')
+                return self._ledger_result(connection, user_id, existing)
+            self._check_broker_profile(connection, user_id, value.expected_broker_profile_version)
+            if value.expected_ledger_version is not None:
+                version = connection.execute("SELECT COALESCE(MAX(ledger_version),0) AS version FROM private.ledger_events WHERE user_id=%s", (user_id,)).fetchone()['version']
+                if version != value.expected_ledger_version:
+                    raise ConflictError("交易版本已變更，請重新試算")
             version = self._next_version(connection, user_id)
             row = connection.execute(
                 """INSERT INTO private.ledger_events
@@ -134,14 +139,67 @@ class PostgresWorkspaceRepository:
                  value.price, value.cash_amount, value.fee, value.tax, value.currency, value.memo, key),
             ).fetchone()
             self._change(connection, user_id, self._next_change_version(connection,user_id), "ledger", row["event_id"], None)
+            result = self._ledger_result(connection, user_id, row)
             connection.execute("SELECT private.refresh_current_positions(%s)", (user_id,))
-            return dict(row)
+            return result
+
+    def _symbol_events(self, connection: Any, user_id: UUID, symbol: str) -> list[dict[str, Any]]:
+        events = connection.execute(
+            "SELECT * FROM private.ledger_events WHERE user_id=%s AND symbol=%s "
+            "ORDER BY trade_date,ledger_version LIMIT 10001", (user_id, symbol),
+        ).fetchall()
+        if len(events) > 10000:
+            raise ConflictError("此個股交易超過即時計算範圍，需先完成有界重建")
+        return events
+
+    def _ledger_result(self, connection: Any, user_id: UUID, row: dict[str, Any]) -> dict[str, Any]:
+        from .trade_calculation import transaction_result
+        events = self._symbol_events(connection, user_id, row['symbol'])
+        result = transaction_result(events, row, valuation_date=max(event['trade_date'] for event in events))
+        return {**dict(row), 'transaction_result': result}
+
+    def preview_ledger(self, user_id: UUID, value: LedgerEventIn) -> dict[str, Any]:
+        if not {'fee', 'tax'} <= value.model_fields_set:
+            raise ConflictError("試算需明確輸入手續費及稅額；未知金額不可當零")
+        from .trade_calculation import transaction_result
+        with self._connection() as connection:
+            connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+            version = connection.execute("SELECT COALESCE(MAX(ledger_version),0) AS version FROM private.ledger_events WHERE user_id=%s", (user_id,)).fetchone()['version']
+            if value.expected_ledger_version is not None and value.expected_ledger_version != version:
+                raise ConflictError("交易版本已變更，請重新試算")
+            events = self._symbol_events(connection, user_id, value.symbol)
+            profile_version = connection.execute(
+                "SELECT COALESCE(MAX(version),0) AS version FROM private.broker_profile_revisions WHERE user_id=%s",
+                (user_id,),
+            ).fetchone()['version']
+        event = {**value.model_dump(), 'event_id': 'preview', 'event_action': 'ORIGINAL', 'user_id': user_id, 'ledger_version': version + 1}
+        return {**transaction_result([*events, event], event, valuation_date=max(row['trade_date'] for row in [*events, event])),
+                'preview': True, 'based_on_ledger_version': version,
+                'broker_profile_version': profile_version, 'fee_tax_rule_version': 'recorded-fees.v1'}
+
+    def _check_broker_profile(self, connection: Any, user_id: UUID, expected: int | None) -> None:
+        if expected is None:
+            return
+        connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f'broker-profile:{user_id}',))
+        version = connection.execute(
+            "SELECT COALESCE(MAX(version),0) AS version FROM private.broker_profile_revisions WHERE user_id=%s",
+            (user_id,),
+        ).fetchone()['version']
+        if expected != version:
+            raise ConflictError('券商設定已變更，請重新試算')
 
     def correct_ledger(self, user_id: UUID, event_id: UUID, expected: int, value: LedgerEventIn, key: str) -> dict[str, Any]:
         with self._connection() as connection:
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"ledger:{user_id}",))
             connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))",(str(event_id),))
             repeated=connection.execute("SELECT * FROM private.ledger_events WHERE user_id=%s AND idempotency_key=%s",(user_id,key)).fetchone()
-            if repeated: return dict(repeated)
+            if repeated:
+                fields = value.model_dump(exclude={'expected_ledger_version', 'expected_broker_profile_version'})
+                if (repeated['event_action'] != 'REPLACEMENT' or repeated['replaces_event_id'] != event_id
+                        or any(repeated.get(name) != item for name, item in fields.items())):
+                    raise ConflictError('交易更正冪等鍵已用於不同內容')
+                return self._ledger_result(connection, user_id, repeated)
+            self._check_broker_profile(connection, user_id, value.expected_broker_profile_version)
             original = connection.execute(
                 "SELECT * FROM private.ledger_events WHERE user_id=%s AND event_id=%s", (user_id, event_id)
             ).fetchone()
@@ -151,10 +209,10 @@ class PostgresWorkspaceRepository:
                 raise ConflictError("ledger event version changed")
             if connection.execute("SELECT 1 FROM private.ledger_events WHERE user_id=%s AND reverses_event_id=%s", (user_id, event_id)).fetchone():
                 raise ConflictError("ledger event was already corrected")
-            if value.event_type == LedgerType.SELL:
-                available = self._position(connection, user_id, value.symbol, exclude=event_id)
-                if available < (value.shares or 0):
-                    raise OversellError("sell exceeds available shares")
+            if value.expected_ledger_version is not None:
+                version = connection.execute("SELECT COALESCE(MAX(ledger_version),0) AS version FROM private.ledger_events WHERE user_id=%s", (user_id,)).fetchone()['version']
+                if version != value.expected_ledger_version:
+                    raise ConflictError("交易版本已變更，請重新試算")
             reversal_version = self._next_version(connection, user_id)
             reversal_id = uuid4()
             connection.execute(
@@ -174,12 +232,16 @@ class PostgresWorkspaceRepository:
             ).fetchone()
             self._change(connection, user_id, self._next_change_version(connection,user_id), "ledger", reversal_id, None)
             self._change(connection, user_id, self._next_change_version(connection,user_id), "ledger", row["event_id"], None)
+            if original['symbol'] != value.symbol:
+                self._ledger_result(connection, user_id, original)
+            result = self._ledger_result(connection, user_id, row)
             connection.execute("SELECT private.refresh_current_positions(%s)", (user_id,))
-            return dict(row)
+            return result
 
     def reverse_ledger(self, user_id: UUID, event_id: UUID, expected: int, key: str) -> dict[str, Any]:
         """Void one effective ledger event by appending a reversal-only event."""
         with self._connection() as connection:
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"ledger:{user_id}",))
             connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))",(str(event_id),))
             repeated=connection.execute(
                 "SELECT * FROM private.ledger_events WHERE user_id=%s AND idempotency_key=%s",
@@ -395,11 +457,11 @@ class PostgresWorkspaceRepository:
                    (SELECT count(*) FROM private.note_index n
                     WHERE n.user_id=w.user_id AND n.symbol=w.symbol AND n.needs_follow_up) AS pending_note_count,
                    EXISTS(
-                     SELECT 1 FROM control.liquid_500_members m
-                     WHERE m.symbol=w.symbol AND s.market='TWSE' AND m.version=(
-                       SELECT version FROM control.liquid_500_versions
+                     SELECT 1 FROM control.market_universe_members m
+                     WHERE m.symbol=w.symbol AND s.market IN ('TWSE','TPEX') AND m.version=(
+                       SELECT version FROM control.market_universe_versions
                        WHERE effective_from<=now() ORDER BY effective_from DESC LIMIT 1)
-                   ) AS in_market_500
+                   ) AS in_market
                    FROM private.watchlist w LEFT JOIN control.stock_master s ON s.symbol=w.symbol
                    LEFT JOIN publication.stock_latest price ON price.symbol=w.symbol AND price.dataset_id='ohlcv'
                    LEFT JOIN LATERAL (
@@ -419,9 +481,9 @@ class PostgresWorkspaceRepository:
         with self._connection() as connection:
             return [dict(row) for row in connection.execute(
                 """SELECT s.symbol,s.name AS stock_name FROM control.stock_master s
-                   JOIN control.liquid_500_members m ON m.symbol=s.symbol
-                   WHERE s.market='TWSE' AND s.enabled AND m.version=(
-                     SELECT version FROM control.liquid_500_versions
+                   JOIN control.market_universe_members m ON m.symbol=s.symbol
+                   WHERE s.market IN ('TWSE','TPEX') AND s.enabled AND m.version=(
+                     SELECT version FROM control.market_universe_versions
                      WHERE effective_from<=now() ORDER BY effective_from DESC LIMIT 1)
                    AND (strpos(lower(s.symbol),lower(%s))>0 OR strpos(s.name,%s)>0)
                    ORDER BY s.symbol LIMIT %s""", (query, query, min(limit, 20)),
@@ -594,14 +656,14 @@ class PostgresWorkspaceRepository:
             if existing and existing["idempotency_key"]==key: return dict(existing)
             if not existing or not existing["active"]:
                 eligible = connection.execute(
-                    """SELECT 1 FROM control.liquid_500_members m
+                    """SELECT 1 FROM control.market_universe_members m
                        JOIN control.stock_master s ON s.symbol=m.symbol
-                       WHERE m.symbol=%s AND s.market='TWSE' AND m.version=(
-                         SELECT version FROM control.liquid_500_versions
+                       WHERE m.symbol=%s AND s.market IN ('TWSE','TPEX') AND m.version=(
+                         SELECT version FROM control.market_universe_versions
                          WHERE effective_from<=now() ORDER BY effective_from DESC LIMIT 1)""",
                     (value.symbol,),
                 ).fetchone()
-                if not eligible: raise ConflictError("stock is not in the current market 500")
+                if not eligible: raise ConflictError("stock is not in the current listed/OTC universe")
             if count >= 50 and not (existing and existing["active"]): raise ConflictError("watchlist limit reached")
             globally_known=connection.execute("SELECT 1 FROM private.watchlist WHERE symbol=%s AND active LIMIT 1",(value.symbol,)).fetchone()
             global_count=connection.execute("SELECT count(DISTINCT symbol) AS count FROM private.watchlist WHERE active").fetchone()["count"]
@@ -901,11 +963,14 @@ class PostgresWorkspaceRepository:
     def private_mart_write_lock(self) -> Iterator[None]:
         import psycopg
         with psycopg.connect(self.dsn, connect_timeout=5, sslmode="require", autocommit=True) as connection:
-            connection.execute("SELECT pg_advisory_lock(1835102836,3)")
+            # Key 3 is the batch-controller lock; private writers use key 4.
+            # The server's 5s lock timeout is too short for another Mart writer.
+            connection.execute("SET lock_timeout='0'; SET statement_timeout='120s'")
+            connection.execute("SELECT pg_advisory_lock(1835102836,4)")
             try:
                 yield
             finally:
-                connection.execute("SELECT pg_advisory_unlock(1835102836,3)")
+                connection.execute("SELECT pg_advisory_unlock(1835102836,4)")
 
     def admin_recalculations(self, limit: int = 50) -> list[dict[str, Any]]:
         bounded = min(max(int(limit), 1), 100)

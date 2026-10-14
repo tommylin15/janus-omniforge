@@ -1,7 +1,7 @@
 # Intelligence Mart job
 
 日常 `MART_OPERATION=queue` 只執行 PIT screening 與五分析師，正常 0 LLM API token。
-市場池依 `control.specialist_market_symbols(date)` 的 immutable liquid-500 membership；Deep Coverage 是去識別化 active watchlist ∪ effective holdings，持股離榜仍分析，清倉且取消關注才退出。
+市場池依 `control.specialist_market_symbols(date)` 的 immutable 全上市櫃 membership；Deep Coverage 是去識別化 active watchlist ∪ effective holdings，持股離榜仍分析，清倉且取消關注才退出。
 
 成果物 create-only 保存於 `specialists/<content-hash>.json`，每次 execution 保存 membership、screening、manifest 並 readback。缺資料／OOS 尚未驗證如實顯示 partial／blocked，不產生正式健康度或 publication。
 

@@ -1,0 +1,102 @@
+name: Janus controller backup executor and guarded handoff
+on:
+  workflow_dispatch:
+    inputs:
+      release_run:
+        description: Successful full GHCR release containing these executor scripts
+        required: true
+        type: string
+      phase:
+        description: Install while retaining original timer, or verify restore before handoff
+        required: true
+        type: choice
+        options: [install, handoff]
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_RUN: ${{ inputs.release_run }}
+      PHASE: ${{ inputs.phase }}
+      GCP_PROJECT_ID: gen-lang-client-0593591102
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact tested executor source
+        run: |
+          set -Eeuo pipefail
+          [[ "$RELEASE_RUN" =~ ^[0-9]+$ ]]
+          gh run view "$RELEASE_RUN" --json headSha,conclusion,status,workflowName >/tmp/release.json
+          jq -e '.status=="completed" and .conclusion=="success" and .workflowName=="Janus GHCR full-test image publication"' /tmp/release.json >/dev/null
+          sha="$(jq -r .headSha /tmp/release.json)"
+          git merge-base --is-ancestor "$sha" HEAD
+          git diff --exit-code "$sha" HEAD -- scripts/gcp/ledger_backup_executor.py scripts/gcp/ledger-durability-dev.sh
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Install local request executor without stopping original backup
+        if: inputs.phase == 'install'
+        run: |
+          set -Eeuo pipefail
+          gcloud compute scp scripts/gcp/ledger_backup_executor.py janus-postgres-dev:/tmp/janus-ledger-backup-executor.py --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet
+          gcloud compute scp scripts/gcp/ledger-durability-dev.sh janus-postgres-dev:/tmp/janus-ledger-durability --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet
+          gcloud compute ssh janus-postgres-dev --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet --command='sudo env GCP_PROJECT_ID=gen-lang-client-0593591102 GCP_ENVIRONMENT=dev bash /tmp/janus-ledger-durability install-controller'
+      - name: Read actual controller backup receipt and verify immutable bytes
+        if: inputs.phase == 'handoff'
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          gcloud compute ssh janus-postgres-dev --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet --command="sudo docker exec --user postgres janus-postgres psql -X -qAt -d janus_control -c \"SELECT json_build_object('day',backup_date,'sha256',sha256,'size_bytes',size_bytes) FROM control.ledger_backup_requests WHERE status='succeeded' AND completed_at>now()-interval '30 hours' ORDER BY backup_date DESC LIMIT 1\"" >/tmp/backup-receipt.json
+          jq -e '(.day|test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")) and (.sha256|test("^[a-f0-9]{64}$")) and .size_bytes>=1024 and .size_bytes<=67108864' /tmp/backup-receipt.json >/dev/null
+          day="$(jq -r .day /tmp/backup-receipt.json)"
+          gcloud storage cp "gs://${GCP_PROJECT_ID}-dev-private/pilot-ledger-backups/daily/${day}.dump" /tmp/ledger.dump --quiet >/dev/null 2>&1
+          test "$(stat -c %s /tmp/ledger.dump)" = "$(jq -r .size_bytes /tmp/backup-receipt.json)"
+          test "$(sha256sum /tmp/ledger.dump | cut -d' ' -f1)" = "$(jq -r .sha256 /tmp/backup-receipt.json)"
+      - name: Restore in isolated temporary PostgreSQL and check ledger integrity
+        if: inputs.phase == 'handoff'
+        run: |
+          set -Eeuo pipefail
+          cleanup() { docker rm -f janus-backup-restore >/dev/null 2>&1 || true; rm -f /tmp/ledger.dump /tmp/restore-private.log; }
+          trap cleanup EXIT
+          image='postgres:16.15-bookworm@sha256:bb3e1a57e5407e0a5280b4211980a5e537f4abd234a87014ac979849a78dd825'
+          docker run -d --name janus-backup-restore --network none --tmpfs /var/lib/postgresql/data:rw,size=1g -e POSTGRES_HOST_AUTH_METHOD=trust "$image" >/dev/null
+          for _ in $(seq 1 60); do
+            docker exec janus-backup-restore pg_isready -U postgres >/dev/null 2>&1 && break
+            sleep 1
+          done
+          docker exec janus-backup-restore pg_isready -U postgres >/dev/null
+          docker exec janus-backup-restore createdb -U postgres janus_restore
+          docker cp /tmp/ledger.dump janus-backup-restore:/tmp/ledger.dump >/dev/null
+          if ! docker exec janus-backup-restore pg_restore --exit-on-error --no-owner --no-acl -U postgres -d janus_restore /tmp/ledger.dump >/tmp/restore-private.log 2>&1; then
+            echo 'Isolated restore failed; original backup timer retained.' >&2
+            exit 1
+          fi
+          valid="$(docker exec -i janus-backup-restore psql -X -qAt -v ON_ERROR_STOP=1 -U postgres -d janus_restore <<'SQL'
+          SELECT NOT EXISTS(SELECT 1 FROM private.ledger_events e LEFT JOIN private.users u USING(user_id) WHERE u.user_id IS NULL)
+            AND NOT EXISTS(SELECT 1 FROM private.users u WHERE u.ledger_version<>(SELECT COALESCE(max(e.ledger_version),0) FROM private.ledger_events e WHERE e.user_id=u.user_id))
+            AND NOT EXISTS(SELECT 1 FROM private.ledger_events e LEFT JOIN private.ledger_events t ON t.event_id=COALESCE(e.reverses_event_id,e.replaces_event_id) WHERE e.event_action<>'ORIGINAL' AND (t.event_id IS NULL OR t.user_id<>e.user_id));
+          SQL
+          )"
+          test "$valid" = t
+          echo 'CONTROLLER_BACKUP_RESTORE=PASS' >> "$GITHUB_STEP_SUMMARY"
+      - name: Handoff only after executor and restore passed
+        if: inputs.phase == 'handoff'
+        run: |
+          set -Eeuo pipefail
+          gcloud compute ssh janus-postgres-dev --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet --command='sudo systemctl is-active janus-ledger-backup-executor.timer && sudo systemctl disable --now janus-ledger-backup.timer && ! sudo systemctl is-enabled janus-ledger-backup.timer'
+          echo 'BACKUP_TIMER_HANDOFF=PASS' >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove private temporary backup on every outcome
+        if: always()
+        run: rm -f /tmp/ledger.dump /tmp/restore-private.log /tmp/backup-receipt.json

@@ -1,5 +1,7 @@
 # Janus SPEC — API、User、Admin 與交付
 
+**2026-10-13 最新範圍：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 ≤10%（含邊界）通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。此為新需求，尚未完成 runtime 切換。 本文舊 500 範圍已被取代，歷史識別字／證據保留；完整 [新契約](../spec/full-market-batch-policy.md)。
+
 更新：2026-10-03
 
 ## 12. User、Admin 與 API

@@ -38,7 +38,7 @@ BigQuery contract CI 在 push 時維持執行，包含本次 3 項 acceptance sc
 - 只使用一般 `google-cloud-bigquery` query／job result API；不安裝 Storage Read client、不使用 dataframe／Arrow download。
 - 當前 probe 僅支援既有 legacy external table：manifest metadata URI 必須是 versioned UUID metadata JSON，直接讀該檔證明 Iceberg V2 current snapshot 與 fence 一致；external source URI／region／欄位名稱須吻合，查詢後再驗 etag。不能證明則拒絕結果。
 - 此路徑只作 bounded transition evidence，不是最終 shared catalog 架構；shared Lakehouse／REST catalog exact mapping 已由獨立 live acceptance script 證明；此 adapter 尚未接入 shared catalog，沒有 canonical catalog migration。
-- 每張 table 必須指定 date／partition 欄位與日期範圍；symbol cohort ≤500、selected columns、累計 row bound、dry-run 與整批 bytes budget。所有 dry-run 通過後才執行實際查詢。
+- 每張 table 必須指定 date／partition 欄位與日期範圍；symbol cohort 全上市櫃分片，每片資源有界、selected columns、累計 row bound、dry-run 與整批 bytes budget。所有 dry-run 通過後才執行實際查詢。
 - 外部來源 dry-run bytes 可能只是下限；未知／0 estimate 正式記為 null，依最新授權採 execution budget 控制，不宣稱 LIMIT 可控制掃描費用。maximum_bytes_billed 套用剩餘 budget；此參數不涵蓋全部 GCS 成本，timeout／cancel 也不代表零費用。
 - schema evolution 的欄位差異會拒絕；decimal／timestamp/date／null 保留 SDK native values。小 cohort 的資料／null／日期時間／source/provenance 相等已證明；native decimal precision/scale、add-column evolution/null、Core partition pruning 與 shared catalog mapping 已由獨立 live script 驗收；不得因此切 default 或宣稱所有 workload 已完成。
 - timeout cancel job；overflow／mapping drift／unknown billed bytes 不回傳 partial snapshot。adapter exception 交回呼叫者；B8 audit fallback 尚未實作。

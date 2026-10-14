@@ -158,7 +158,7 @@ class MarketVolumeAdapter:
             if trade_date != request.window_end.isoformat():
                 raise ValueError("market volume response is not for requested trading date")
             symbol = str(item[self.code_field]).strip()
-            if not re.fullmatch(r"[1-9][0-9]{3}", symbol):
+            if not re.fullmatch(r"[1-9][0-9]{3}(?:[0-9]{2})?", symbol):
                 continue
             name = str(item[self.name_field]).strip()
             volume = _number(item[self.volume_field])
@@ -225,7 +225,7 @@ class CompanyProfileAdapter:
             if not isinstance(item, dict) or self.code_field not in item or self.name_field not in item:
                 raise ValueError("company profile response schema changed")
             symbol = str(item[self.code_field]).strip()
-            if not re.fullmatch(r"[1-9][0-9]{3}", symbol):
+            if not re.fullmatch(r"[1-9][0-9]{3}(?:[0-9]{2})?", symbol):
                 continue
             name = str(item[self.name_field]).strip()
             if not name:

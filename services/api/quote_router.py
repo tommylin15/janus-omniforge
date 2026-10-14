@@ -180,7 +180,7 @@ class QuoteRouter:
 
 
     def refresh_tpex(self, identities, *, now=None):
-        """Fetch only current owner TPEx holdings once per EOD, not research 500."""
+        """Use published full-market closes first; fetch only uncovered owner securities."""
         now = now or datetime.now(TAIPEI)
         scoped = {symbol for symbol, identity in identities.items()
                   if str(identity.get("market") or "").upper()
@@ -190,11 +190,18 @@ class QuoteRouter:
             return {"status": "idle", "requested": 0, "updated": 0}
         try:
             current = self._live({s: identities[s] for s in scoped})
+            persisted = self._eod({s: identities[s] for s in scoped})
+            local = now.astimezone(TAIPEI)
+            expected_day = local.date()
+            if local.weekday() >= 5 or (local.hour, local.minute) < (14, 30):
+                expected_day -= timedelta(days=1)
+                while expected_day.weekday() >= 5:
+                    expected_day -= timedelta(days=1)
             due = {
                 symbol for symbol in scoped
-                if current.get(symbol, {}).get("source") != "tpex_openapi_eod"
-                or _day(current[symbol]) is None
-                or _day(current[symbol]) < now.astimezone(TAIPEI).date()
+                if (_day(persisted.get(symbol, {})) is None or _day(persisted[symbol]) < expected_day)
+                and (current.get(symbol, {}).get("source") != "tpex_openapi_eod"
+                     or _day(current[symbol]) is None or _day(current[symbol]) < expected_day)
             }
             if not due:
                 return {"status": "fresh", "requested": 0, "updated": 0}

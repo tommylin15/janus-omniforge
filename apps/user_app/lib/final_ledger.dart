@@ -136,7 +136,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       final result = await (force
               ? widget.api.post('/api/v1/me/portfolio/quotes/refresh', const {})
               : widget.api.get('/api/v1/me/portfolio/quotes'))
-          .timeout(const Duration(seconds: 60));
+          .timeout(const Duration(seconds: 9));
       if (mounted && generation == quoteGeneration && quotesActive) {
         final local = taipeiNow;
         setState(() {
@@ -317,10 +317,36 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     final payload = await legacy.transactionDialog(context);
     if (payload == null) return;
     try {
-      await widget.api.post('/api/v1/me/journal/events', payload);
+      final preview = await widget.api.post('/api/v1/me/journal/preview', payload)
+          .timeout(const Duration(seconds: 5));
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('交易試算'),
+          content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('預估淨收付 ${legacy.accountingNumber(preview['net_cash_flow'])}'),
+            Text('預估已實現損益 ${legacy.accountingNumber(preview['transaction_realized_pnl'], missing: '不適用')}'),
+            Text('交易後股數 ${legacy.accountingNumber(preview['remaining_shares'])}'),
+            Text('交易後平均成本 ${legacy.accountingNumber(preview['remaining_average_cost'], decimals: 2)}'),
+            const SizedBox(height: 12),
+            const Text('此為試算，尚未入帳。請確認實際成交價格、股數與費稅。'),
+          ])),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('確認成交並儲存')),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+      final saved = await widget.api.post('/api/v1/me/journal/events', {
+        ...payload,
+        'expected_ledger_version': preview['based_on_ledger_version'],
+        'expected_broker_profile_version': preview['broker_profile_version'],
+      });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(legacy.portfolioPendingMessage)),
+        SnackBar(content: Text('交易已保存：股數 ${legacy.accountingNumber(fvMap(saved['transaction_result'])['remaining_shares'])}；${legacy.portfolioPendingMessage}')),
       );
       reload();
     } catch (_) {

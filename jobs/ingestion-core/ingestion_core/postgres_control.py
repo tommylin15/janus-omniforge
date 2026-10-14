@@ -95,18 +95,48 @@ class PostgreSQLControlPlane:
 
     def enabled_stock_symbols(self) -> tuple[str, ...]:
         with self.connection.cursor() as cur:
-            cur.execute("SELECT symbol FROM control.stock_master WHERE enabled AND market='TWSE' ORDER BY symbol")
+            cur.execute("SELECT symbol FROM control.stock_master WHERE enabled AND market IN ('TWSE','TPEX') ORDER BY symbol")
             return tuple(row[0] for row in cur.fetchall())
+
+    def full_market_snapshot(self) -> dict[str, Any]:
+        with self.connection.cursor() as cur:
+            cur.execute("""SELECT version,effective_from,source_snapshot FROM control.market_universe_versions
+                           WHERE effective_from<=now() ORDER BY effective_from DESC LIMIT 1""")
+            version = cur.fetchone()
+            if version is None:
+                return {"status": "missing", "scope": "all_listed_otc_equities", "items": []}
+            cur.execute("SELECT symbol,market,stock_name FROM control.market_universe_members WHERE version=%s ORDER BY symbol", (version[0],))
+            items = [{"symbol": row[0], "market": row[1], "name": row[2]} for row in cur.fetchall()]
+        return {"status": "available", "scope": "all_listed_otc_equities", "version": version[0],
+                "effective_from": version[1].isoformat(), "source_snapshot": version[2], "items": items}
+
+    def publish_full_market(self, profiles, *, source_snapshot) -> int:
+        from .full_market import official_members
+        rows, identity = official_members(profiles)
+        if set(source_snapshot) != {"TWSE", "TPEX"}:
+            raise ValueError("both official source snapshots are required")
+        with self._tx() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(hashtext('full-market-universe'))")
+            cur.execute("SELECT version,membership_hash FROM control.market_universe_versions ORDER BY effective_from DESC LIMIT 1")
+            previous = cur.fetchone()
+            if previous and previous[1] == identity:
+                return previous[0]
+            cur.execute("""INSERT INTO control.market_universe_versions(effective_from,source_snapshot,membership_hash)
+                           VALUES (clock_timestamp(),%s::jsonb,%s) RETURNING version""", (json.dumps(source_snapshot), identity))
+            version = cur.fetchone()[0]
+            cur.executemany("""INSERT INTO control.market_universe_members(version,symbol,market,stock_name)
+                               VALUES (%s,%s,%s,%s)""", [(version, row['symbol'], row['market'], row['name']) for row in rows])
+        return version
 
     def set_stock_enabled(self, symbol: str, enabled: bool) -> None:
         with self._tx() as cur:
             cur.execute(
                 """UPDATE control.stock_master SET enabled=%s,updated_at=now()
-                   WHERE symbol=%s AND (%s=false OR market='TWSE')""",
+                   WHERE symbol=%s AND (%s=false OR market IN ('TWSE','TPEX'))""",
                 (enabled, _symbol(symbol), enabled),
             )
             if cur.rowcount != 1:
-                raise KeyError("stock not found or outside active TWSE scope")
+                raise KeyError("stock not found or outside active listed/OTC scope")
 
     def stock_references(self, symbol: str) -> dict[str, int]:
         symbol = _symbol(symbol)
@@ -190,8 +220,8 @@ class PostgreSQLControlPlane:
             if config.coverage_tier == CoverageTier.CORE_FOCUS.value:
                 cur.execute("""SELECT dm.symbol FROM control.active_deep_tracking_memberships dm
                                JOIN control.stock_master s USING(symbol)
-                               JOIN control.liquid_500_members m USING(symbol)
-                               WHERE m.version=(SELECT version FROM control.liquid_500_versions
+                               JOIN control.market_universe_members m USING(symbol)
+                               WHERE m.version=(SELECT version FROM control.market_universe_versions
                                  WHERE effective_from<=now() ORDER BY effective_from DESC LIMIT 1)""" + condition + " ORDER BY dm.symbol")
                 rows = cur.fetchall()
             else:
@@ -551,13 +581,16 @@ class PostgreSQLControlPlane:
 
     def get_cursor(self, cursor_key: str) -> Cursor:
         with self.connection.cursor() as cur:
-            cur.execute("SELECT last_observed_at,last_success_at FROM control.collection_cursors WHERE cursor_key=%s", (cursor_key,)); r = cur.fetchone()
-        return Cursor(cursor_key, r[0] if r else None, r[1] if r else None)
+            cur.execute("SELECT last_observed_at,last_success_at,coverage_json FROM control.collection_cursors WHERE cursor_key=%s", (cursor_key,)); r = cur.fetchone()
+        return Cursor(cursor_key, r[0] if r else None, r[1] if r else None, r[2] if r else None)
 
-    def advance_cursor(self, cursor_key: str, observed_at: datetime, *, successful: bool) -> None:
+    def advance_cursor(self, cursor_key: str, observed_at: datetime, *, successful: bool,
+                       coverage: dict[str, Any] | None = None) -> None:
         with self._tx() as cur:
-            cur.execute("""INSERT INTO control.collection_cursors(cursor_key,last_observed_at,last_success_at) VALUES (%s,%s,%s)
-                ON CONFLICT(cursor_key) DO UPDATE SET last_observed_at=GREATEST(control.collection_cursors.last_observed_at,EXCLUDED.last_observed_at),last_success_at=CASE WHEN EXCLUDED.last_success_at IS NOT NULL THEN EXCLUDED.last_success_at ELSE control.collection_cursors.last_success_at END""", (cursor_key, observed_at, observed_at if successful else None))
+            cur.execute("""INSERT INTO control.collection_cursors(cursor_key,last_observed_at,last_success_at,coverage_json) VALUES (%s,%s,%s,%s::jsonb)
+                ON CONFLICT(cursor_key) DO UPDATE SET last_observed_at=GREATEST(control.collection_cursors.last_observed_at,EXCLUDED.last_observed_at),last_success_at=CASE WHEN EXCLUDED.last_success_at IS NOT NULL THEN EXCLUDED.last_success_at ELSE control.collection_cursors.last_success_at END,
+                coverage_json=COALESCE(EXCLUDED.coverage_json,control.collection_cursors.coverage_json)""",
+                (cursor_key, observed_at, observed_at if successful else None, json.dumps(coverage) if coverage is not None else None))
 
     def record_health(self, source_id: str, dataset_id: str, *, state: DataState, latency_ms: float, fetched_at: datetime, latest_observation_at: datetime | None = None, expected_symbols: int = 0, received_symbols: int = 0, cache_hit: bool = False, coverage_tier: str = CoverageTier.MARKET_WIDE.value, cache_age_seconds: float | None = None) -> None:
         success = state in {DataState.SUCCESS, DataState.FALLBACK, DataState.PARTIAL}

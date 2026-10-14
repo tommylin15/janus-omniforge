@@ -1,12 +1,16 @@
 # Janus 文件入口
 
+**最新執行狀態：**使用者已恢復 P0-1 至 P1-2 合併開發；下方「只更新文件停止」為前次盤點邊界，不再是開發禁令。新版程式／migration 未通過整合驗收前維持 PARTIAL。
+
 更新：2026-10-13
 
 本頁定義 repository 內文件的角色，避免同一件事同時在 README、SPEC、WBS、TODO、runbook 與測試紀錄各自形成不同版本。
 
-**2026-10-13 持股／手動重算 P0：使用者要求暫停，僅完成文件交接。** 最新需求、實際 Release／Preview／Jobs／失敗 queue 證據與恢復順序： [P0 暫停交接](p0-holdings-recalc-pause-handoff-2026-10-13.md) → [最新狀態](status.md) → [Active TODO](todo.md)。本輪不再觸發部署、GCP Job、清理或正式切流。
+**目前優先順序：持股報價／交易損益與效能 → 個股通用圖表／四頁整合 → 五分析師有效後的分析報告。** 原 P0 暫停已被後續恢復指示取代；歷史交接只作證據。
 
-**目前工程入口：**[最新狀態](status.md) → [產品優先／後置研究 TODO](todo.md) → [Codex 作業指示：先產品、再 500 檔歷史研究](codex-execution-plan.md) → [WBS 5](wbs/wbs-5-specialist-engines.md)／[Specialist SPEC](spec/specialist-engines.md)。CI/CD 已在目前核准的 dev 範圍 PASS 結案，[完整證據在 archive](archive/cicd-ghcr-api-promotion-2026-10-10.md)，四項額外豁免在 [Parking Lot](parking-lot.md)，不占用 B 組 TODO。
+市場／screening／研究／搜尋範圍已決定擴為全上市櫃個股，資料缺失率 ≤10% 通過；[全市場及總控契約](spec/full-market-batch-policy.md)／[批次完整盤點](batch-inventory-2026-10-13.md)。本輪只更新文件後停止，runtime 尚未切換。
+
+接手依序看 [TODO](todo.md)、[最新狀態](status.md)、[AI 開發指示](codex-execution-plan.md)。需求見 [持股優先契約](spec/holdings-first.md)，本次文件問題與處理見 [文件盤點](documentation-review-2026-10-13.md)。功能仍 PARTIAL，文件更新不代表已驗收。
 
 ## 1. 先判斷你要回答哪一種問題
 
@@ -30,7 +34,7 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `PROJECT_RULES.md`：治理、權限、驗證與文件維護規則。
 - `status.md`：目前狀態與下一個執行序列的短入口；不是新的 source of truth。
 - `todo.md`：只保存確定要做的 active queue 與未完成 acceptance；暫不做與已接受缺口見 `parking-lot.md`。
-- `codex-execution-plan.md`：B9 產品 → C／剩餘產品交付 → 500 檔歷史研究的作業指示；先整合再驗收，不另維護待辦狀態。
+- `codex-execution-plan.md`：持股 → 通用圖表 → 模型研究與有效後報告的作業指示；先整合再驗收，不另維護待辦狀態。
 - `decision-2026-10-06-bigquery-analytics-over-iceberg.md`：B 組 Iceberg canonical + BigQuery analytics hybrid 決策；禁止 Storage Read API，BigQuery 不取代 PostgreSQL serving 或 canonical Iceberg。
 - `future-market-alerts.md`：使用者指定獨立保存的未來預警增補；狀態由 `parking-lot.md` 管理，不是 active scope。
 - `spec.md`：SPEC 索引；正式契約在 `spec/*.md`。

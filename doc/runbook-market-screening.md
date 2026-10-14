@@ -1,4 +1,6 @@
-# B3 每日盤後 liquid-500 screening
+# B3 每日盤後 liquid-全市場 screening
+
+**2026-10-13 最新範圍：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 ≤10%（含邊界）通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。此為新需求，尚未完成 runtime 切換。 本文舊 500 範圍已被取代，歷史識別字／證據保留；完整 [新契約](spec/full-market-batch-policy.md)。
 
 狀態：**CLOSED / PASS（2026-10-07）**。Implementation、deployment、fixed-snapshot canary、兩次 reuse live acceptance 與 controller occurrence readback 均已有真實 dev evidence；BigQuery 未切 default，PyIceberg 維持預設 reader。
 
@@ -6,7 +8,7 @@
 
 沿用 controller 與 `janus-intelligence-mart`（1 CPU／1 GiB），交易日台北 16:30、等待同日 14:30 ingestion 與 08:30 data-supplement 成功。既有 `schedule.holiday_overrides` 休市日 skip；日曆不可讀時不 dispatch。Occurrence 保存 `SCREENING_DATE`，worker 只接受同日 immutable Core manifest；資料尚未 EOD ready 時 fail closed，不改用前一日成果。
 
-`MART_OPERATION=market-screening` 只讀 public OHLCV／benchmark／可用 valuation，日期最多往前 241 日、membership 最多 500 檔、總列數最多 150,000，selected columns 保留來源／PIT 欄位。產出 5/20/60/120D 報酬與相對市場強弱、20D 平均成交金額／年化波動、可用 PE/PB/殖利率與 deterministic ranks。原 candidate rank 仍採 5D heuristic；缺值不排名、stale EOD 不列 discovery candidate。沒有財報／事件模型、OOS training、五 specialist 或 CEO calls。
+`MART_OPERATION=market-screening` 只讀 public OHLCV／benchmark／可用 valuation，日期最多往前 241 日、membership 全上市櫃個股；每片 rows／bytes 有界、逐片續跑，不能以 150,000 截斷全部股票，selected columns 保留來源／PIT 欄位。產出 5/20/60/120D 報酬與相對市場強弱、20D 平均成交金額／年化波動、可用 PE/PB/殖利率與 deterministic ranks。原 candidate rank 仍採 5D heuristic；缺值不排名、stale EOD 不列 discovery candidate。沒有財報／事件模型、OOS training、五 specialist 或 CEO calls。
 
 Cache identity 包含 Core snapshot／manifest hash、table fences、analysis date、PIT membership、feature version、date bounds。無變更先驗 immutable artifact hash 再 reuse，reader／BigQuery 尚未建立。`screening/<identity>.json` 與每次 execution 的 `screening-manifest.json` 保存 lineage／quality／telemetry；寫入後 readback，相同 execution replay 不改原 receipt。沿用 Mart retention 的 90 日 bounded derived policy；未知 GCS I/O 保持 null。
 

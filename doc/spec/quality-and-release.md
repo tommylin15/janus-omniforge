@@ -2,6 +2,8 @@
 
 更新：2026-10-03
 
+本輪持股／交易與首屏速度目標、量測樣本及分階段報告 gate 依 [持股優先契約](holdings-first.md)。本輪持股＋通用圖表 release 不要求後置模型／CEO 完成；涉及那些能力的 release 仍須其專屬 gate。
+
 ## 14. 非功能需求
 
 - 冪等、可重跑、可追溯、可安全失敗。
@@ -31,7 +33,7 @@ Dev 包含真實個人資料，因此 secret、owner/auth、migration、backup�
 - private ledger 可重建 Private derived state；更正事件、跨年計算與 owner isolation 有測試／runtime evidence。
 - User／Admin 共用 Flutter codebase但 auth／audience／workspace boundary 分離；legacy static Admin 已退役，不再是 release gate。
 - Admin manual retry／rerun 走 backend allowlist、authorization、idempotency／duplicate、dependency／exclusive guard 與 audit；dispatch accepted 不等於 workload success。
-- 約 500 market coverage 與 Deep Coverage `active watchlist ∪ effective holdings` 的 scope／quota／deidentification 符合 active contract。
+- 全上市櫃 market coverage 與 Deep Coverage `active watchlist ∪ effective holdings` 的 scope／quota／deidentification 符合 active contract。
 - 高頻、新聞、社群、paid source 等未核准 capability 保持 disabled／blocked，不因 UI 顯示而取得 runtime authority。
 - pytest／FastAPI contract tests／Flutter analyze-test／受影響 build／integration tests 按 diff 範圍通過；跨模組／安全／migration／release 才擴大完整驗證。
 - 目前實際使用的 browser/device 主流程有 authenticated dev evidence；完整 device／A11y matrix 可依 active WBS 分階段完成。

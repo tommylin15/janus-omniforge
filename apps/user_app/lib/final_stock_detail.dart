@@ -54,7 +54,9 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
   bool loading = true;
   bool klineLoading = false;
   bool klineRequested = false;
-  int chartDays = 22;
+  int klineGeneration = 0;
+  int chartDays = 66;
+  bool candleChart = false;
   String? selectedVisual;
   final loadingVisual = <String>{};
   int primaryGeneration = 0;
@@ -200,12 +202,19 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
     final epoch = requestEpoch;
     if (klineRequested && !force) return;
     if (!mounted) return;
+    final generation = ++klineGeneration;
     setState(() {
       klineRequested = true;
       klineLoading = true;
     });
-    await safe('kline', '/api/v1/public/kline/${Uri.encodeComponent(widget.symbol)}');
-    if (mounted && epoch == requestEpoch && requestedSymbol == widget.symbol) {
+    final first = await safe('kline', '/api/v1/public/kline/${Uri.encodeComponent(widget.symbol)}');
+    if (chartDays > 200 && first != null && mounted && generation == klineGeneration && epoch == requestEpoch && requestedSymbol == widget.symbol) {
+      final older = await safe('kline-older', '/api/v1/public/kline/${Uri.encodeComponent(widget.symbol)}?limit=64&offset=200');
+      if (older != null && mounted && generation == klineGeneration && epoch == requestEpoch && requestedSymbol == widget.symbol) {
+        setState(() => values['kline'] = [...fvRows(first), ...fvRows(older)]);
+      }
+    }
+    if (mounted && generation == klineGeneration && epoch == requestEpoch && requestedSymbol == widget.symbol) {
       setState(() => klineLoading = false);
     }
   }
@@ -235,7 +244,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                   maxScale: 3,
                   child: SizedBox(
                     width: MediaQuery.sizeOf(dialogContext).width - 48,
-                    child: FvKlineChart(rows: rows, maxPoints: chartDays, chartHeight: 280),
+                    child: FvKlineChart(rows: rows, maxPoints: chartDays, chartHeight: 280, candlesticks: candleChart),
                   ),
                 )),
               ],
@@ -248,9 +257,9 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
 
   Future<void> openVisual(String metric) async {
     setState(() => selectedVisual = metric);
-    if (!const {'pe', 'pb', 'yield'}.contains(metric)) return;
+    if (!const {'pe', 'pb', 'yield', 'foreign', 'investment_trust', 'dealer', 'revenue', 'eps'}.contains(metric)) return;
     final key = 'visual-$metric';
-    if (values.containsKey(key) || loadingVisual.contains(key)) return;
+    if ((values.containsKey(key) && !errors.contains(key)) || loadingVisual.contains(key)) return;
     setState(() => loadingVisual.add(key));
     final symbol = widget.symbol;
     final epoch = requestEpoch;
@@ -274,7 +283,8 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
           ]),
           InteractiveViewer(minScale: 1, maxScale: 3, child: SizedBox(
             width: MediaQuery.sizeOf(ctx).width - 48,
-            child: FvVisualSeriesChart(rows: points, label: label, unit: fvText(result['unit']), height: 270))),
+            child: FvVisualSeriesChart(rows: points, label: label, unit: fvText(result['unit']), height: 270,
+              bars: const {'foreign', 'investment_trust', 'dealer', 'revenue', 'eps'}.contains(result['metric'])))),
         ],
       )),
     ));
@@ -503,11 +513,14 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                   child: Wrap(
                     spacing: 6,
                     children: [
-                      for (final period in const [22, 60, 200])
+                      for (final period in const [22, 66, 132, 264])
                         ChoiceChip(
-                          label: Text(period == 22 ? '近1月' : period == 60 ? '近3月' : '近200日'),
+                          label: Text(const {22: '近1月', 66: '近3月', 132: '近6月', 264: '近12月'}[period]!),
                           selected: chartDays == period,
-                          onSelected: (_) => setState(() => chartDays = period),
+                          onSelected: (_) {
+                            setState(() => chartDays = period);
+                            if (period > 200) loadKline(force: true);
+                          },
                         ),
                     ],
                   ),
@@ -521,6 +534,12 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                   ),
               ],
             ),
+            Wrap(spacing: 6, children: [
+              ChoiceChip(label: const Text('收盤折線'), selected: !candleChart,
+                onSelected: (_) => setState(() => candleChart = false)),
+              ChoiceChip(label: const Text('日 K'), selected: candleChart,
+                onSelected: (_) => setState(() => candleChart = true)),
+            ]),
             if (klineLoading && fvRows(values['kline']).isEmpty)
               fvBoundedState('價格圖載入中；其餘個股資訊可先查看', icon: Icons.show_chart)
             else if (errors.contains('kline') && fvRows(values['kline']).isEmpty)
@@ -531,7 +550,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
             else if (fvRows(values['kline']).isEmpty)
               fvBoundedState('尚無可繪製的正式行情，不顯示示意圖')
             else ...[
-              FvKlineChart(rows: fvRows(values['kline']), maxPoints: chartDays),
+              FvKlineChart(rows: fvRows(values['kline']), maxPoints: chartDays, candlesticks: candleChart),
               if (errors.contains('kline'))
                 const Text('行情更新失敗，保留上次有效圖表',
                     style: TextStyle(color: fvMuted, fontSize: 11)),
@@ -580,6 +599,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                   ],
                 ),
               ),
+            if (report['model_validation_status'] == 'validated') ...[
             fvSectionTitle(context, '五面向健康度'),
             if (dimensions.isEmpty && health['mart_health_score'] == null)
               fvBoundedState('五面向健康度尚未就緒')
@@ -621,6 +641,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                 ),
               ],
             ),
+            ],
             fvSectionTitle(context, '圖表總覽'),
             fvPanel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('選擇想看的趨勢', style: TextStyle(fontWeight: FontWeight.w800, color: fvInk)),
@@ -628,7 +649,8 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
               Wrap(spacing: 7, runSpacing: 7, children: [
                 for (final entry in const {'pe': '本益比', 'pb': '股價淨值比',
                     'yield': '殖利率', 'revenue': '月營收',
-                    'eps': 'EPS', 'institutional': '法人', 'events': '事件'}.entries)
+                    'eps': 'EPS', 'foreign': '外資', 'investment_trust': '投信',
+                    'dealer': '自營商', 'events': '事件'}.entries)
                   ChoiceChip(
                     key: Key('visual-tab-${entry.key}'),
                     label: Text(entry.value),
@@ -641,7 +663,7 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                   style: TextStyle(color: fvMuted, fontSize: 11)),
             ])),
             if (selectedVisual != null) ...[
-              if (const {'pe', 'pb', 'yield'}.contains(selectedVisual)) ...[
+              if (const {'pe', 'pb', 'yield', 'foreign', 'investment_trust', 'dealer', 'revenue', 'eps'}.contains(selectedVisual)) ...[
                 if (loadingVisual.contains('visual-$selectedVisual'))
                   fvBoundedState('圖表載入中；其餘資訊可繼續使用', icon: Icons.query_stats)
                 else if (errors.contains('visual-$selectedVisual'))
@@ -652,8 +674,9 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                 else Builder(builder: (context) {
                   final result = fvMap(values['visual-$selectedVisual']);
                   final points = fvRows(result['points']);
-                  final label = selectedVisual == 'pe' ? '本益比'
-                    : selectedVisual == 'pb' ? '股價淨值比' : '殖利率';
+                  final label = const {'pe': '本益比', 'pb': '股價淨值比', 'yield': '殖利率',
+                    'foreign': '外資買賣超', 'investment_trust': '投信買賣超',
+                    'dealer': '自營商買賣超', 'revenue': '月營收', 'eps': '單季 EPS'}[selectedVisual]!;
                   if (_usableVisualSeriesPoints(result) < 2) {
                     return fvBoundedState('歷史資料不足：${fvText(result['missing_reason'], missing: '尚未就緒')}');
                   }
@@ -665,7 +688,8 @@ class _FinalStockDetailPageState extends State<FinalStockDetailPage>
                         onPressed: () => expandVisual(result, label),
                         icon: const Icon(Icons.open_in_full, color: fvTeal)),
                     ]),
-                    FvVisualSeriesChart(rows: points, label: label, unit: fvText(result['unit'])),
+                    FvVisualSeriesChart(rows: points, label: label, unit: fvText(result['unit']),
+                      bars: const {'foreign', 'investment_trust', 'dealer', 'revenue', 'eps'}.contains(selectedVisual)),
                     Text('來源：${fvRows(result['source_ids']).join('、')}',
                       style: const TextStyle(color: fvMuted, fontSize: 11)),
                   ]);

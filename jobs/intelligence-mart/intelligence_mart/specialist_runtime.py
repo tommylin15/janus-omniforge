@@ -18,7 +18,7 @@ def load_market_membership(connection, as_of):
     with connection.transaction(), connection.cursor() as cursor:
         cursor.execute("SELECT symbol,membership_version FROM control.specialist_market_symbols(%s::date)", (as_of,))
         members = cursor.fetchall()
-    if not members or len(members) > 500 or len({r[0] for r in members}) != len(members):
+    if not members or len({r[0] for r in members}) != len(members) or len({r[1] for r in members}) != 1:
         raise ValueError("missing or invalid PIT market membership")
     return {"symbols": sorted(str(r[0]) for r in members), "membership_version": str(members[0][1]),
             "analysis_as_of": as_of}

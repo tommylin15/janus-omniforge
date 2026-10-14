@@ -27,6 +27,9 @@ MIGRATION_BATCH_OCCURRENCE_SKIPPED = "049_batch_occurrence_skipped_status"
 MIGRATION_HOLDINGS_PREVIOUS_CLOSE = "050_holdings_previous_close_read"
 MIGRATION_ANALYSIS_PRODUCT = "051_analysis_product"
 MIGRATION_CEO_QUOTA_50 = "052_ceo_daily_quota_50"
+MIGRATION_MARKET_SERVING = "054_market_serving"
+MIGRATION_FULL_MARKET = "055_full_market_universe"
+MIGRATION_LEDGER_BACKUP = "056_controller_ledger_backup"
 SUPPORTED = frozenset({
     MIGRATION_POSITION,
     MIGRATION_STOCK_SERVING,
@@ -40,6 +43,9 @@ SUPPORTED = frozenset({
     MIGRATION_HOLDINGS_PREVIOUS_CLOSE,
     MIGRATION_ANALYSIS_PRODUCT,
     MIGRATION_CEO_QUOTA_50,
+    MIGRATION_MARKET_SERVING,
+    MIGRATION_FULL_MARKET,
+    MIGRATION_LEDGER_BACKUP,
 })
 
 
@@ -394,11 +400,24 @@ def cicd_readiness(control: Any, *, apply_missing: bool = False) -> dict[str, ob
 
 def run(control: Any, name: str) -> None:
     """Apply one allow-listed serving migration using existing DB identities."""
-    if name in {MIGRATION_QUOTES_BROKER, MIGRATION_ANALYSIS_PRODUCT, MIGRATION_CEO_QUOTA_50}:
+    if name in {MIGRATION_QUOTES_BROKER, MIGRATION_ANALYSIS_PRODUCT, MIGRATION_CEO_QUOTA_50, MIGRATION_MARKET_SERVING, MIGRATION_FULL_MARKET, MIGRATION_LEDGER_BACKUP}:
         try:
             text = _without_role_lines(_migration_path(name).read_text(encoding='utf-8'))
             prepare, acceptance = text.split('-- PHASE: acceptance', 1)
             checks, record = acceptance.split('INSERT INTO control.schema_migrations', 1)
+            if name == MIGRATION_MARKET_SERVING:
+                control_sql, publication_sql = prepare.split('-- PHASE: publication', 1)
+                with control.connection.transaction(), control.connection.cursor() as cursor:
+                    _require_current_user(cursor, 'janus_control')
+                    cursor.execute(control_sql)
+                publication = _publication_connection()
+                try:
+                    with publication.transaction(), publication.cursor() as cursor:
+                        _require_current_user(cursor, 'janus_publication')
+                        cursor.execute(publication_sql)
+                finally:
+                    publication.close()
+                prepare = 'SELECT 1'
             with control.connection.transaction(), control.connection.cursor() as cursor:
                 _require_current_user(cursor, 'janus_control')
                 cursor.execute(prepare)

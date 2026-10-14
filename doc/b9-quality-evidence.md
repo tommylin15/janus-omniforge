@@ -1,5 +1,7 @@
 # B9 五 Specialist／OOS 品質驗收：首輪唯讀證據
 
+> 2026-10-13 順序修訂：持股／交易損益 → 通用圖表／四頁整合 → 五角色模型驗證 → 有效後整合報告。下列舊 B9→C→產品順序已被取代；研究技術契約與歷史證據保留。見 [AI 作業指示](codex-execution-plan.md)。
+
 > 2026-10-11 順序更新：本頁保留真實模型研究證據與修復 checkpoint，不作目前產品交付的整體阻擋條件。先完成 B9 可靠基準產品驗收、C 組及剩餘產品，再做 500 檔歷史研究池與逐角色 OOS。產品與模型品質分開判定，既有 NOT VERIFIED／PARTIAL 與 immutable evidence 不改寫；目前執行契約見 [TODO](todo.md) 與 [Codex 作業指示](codex-execution-plan.md)。
 
 更新：2026-10-10（Asia/Taipei）  

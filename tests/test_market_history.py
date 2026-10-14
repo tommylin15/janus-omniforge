@@ -30,12 +30,15 @@ def test_monthly_fill_keeps_valid_prices_and_stops_for_poor_quality(monkeypatch,
     from ingestion_core import market_history as module
     from ingestion_core import __main__ as entry
     symbols = [str(1000+i) for i in range(500)]
+    otc_symbols = [str(2000+i) for i in range(500)]
     commits, finished, markers = [], [], []
     class Control:
         def __enter__(self): return self
         def __exit__(self, *args): pass
         def source_is_approved(self, source): return True
-        def liquid_500_snapshot(self): return {"items": [{"symbol": s, "market": "TWSE"} for s in symbols]}
+        def full_market_snapshot(self):
+            return {'version': 1, 'items': [{'symbol': s, 'market': 'TWSE'} for s in symbols]
+                    + [{'symbol': s, 'market': 'TPEX'} for s in otc_symbols]}
         def portfolio_coverage_symbols(self): return ()
         def enqueue_collection(self, *args, **kwargs): return SimpleNamespace(execution_id="ex", trace_id="trace")
         def transition_execution(self, *args, **kwargs): pass
@@ -53,6 +56,10 @@ def test_monthly_fill_keeps_valid_prices_and_stops_for_poor_quality(monkeypatch,
         if "MI_5MINS_HIST" in url:
             month = "08" if "20260801" in url else "07"
             return json.dumps({"fields": ["日期", "收盤指數"], "data": [[f"115/{month}/03", "100"]]}).encode(), "utf-8"
+        if 'tpex.org.tw' in url:
+            return json.dumps([{'Date': '20260803', '代號': s, '名稱': s, '成交股數': '100',
+                '成交金額(元)': '1000', '開盤': '10', '最高': '10', '最低': '10', '收盤': '10'}
+                for s in otc_symbols]).encode(), 'utf-8'
         return json.dumps([{"Date": "20260803", "證券代號": s, "證券名稱": s,
             "成交股數": "100", "成交金額": "1000", "開盤價": "10", "最高價": "10", "最低價": "10",
             "收盤價": "--" if i < missing else "10"} for i,s in enumerate(symbols)]).encode(), "utf-8"
@@ -70,5 +77,8 @@ def test_monthly_fill_keeps_valid_prices_and_stops_for_poor_quality(monkeypatch,
     assert not result["failures"]
     assert result["months"][0]["status"] == expected_status
     assert len(commits[0]["rows"]) == 500-missing
+    assert len(commits[1]['rows']) == 500
+    assert result['coverage_scope'] == 'current_members_price_history'
+    assert result['months'][0]['missing_ratio_by_market']['TPEX'] == 0
     assert finished == [missing > 50]
     assert len(markers) == 1

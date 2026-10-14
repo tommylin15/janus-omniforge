@@ -1,5 +1,7 @@
 # Janus WBS 5 — Intelligence Mart
 
+**2026-10-13 最新範圍：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 ≤10%（含邊界）通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。此為新需求，尚未完成 runtime 切換。 本文舊 500 範圍已被取代，歷史識別字／證據保留；完整 [新契約](../spec/full-market-batch-policy.md)。
+
 更新：2026-10-06
 狀態：Active WBS index；執行順序以 `../todo.md` 為準
 
@@ -17,7 +19,7 @@
 
 ### Market Coverage
 
-約 500 檔在每個交易日 EOD canonical data ready 後執行低成本 screening／discovery 與必要 cross-sectional Quant inference，不做 500×5 深度分析。BigQuery 通過 exact-snapshot fidelity gate 後優先承接這條全市場 compute。
+全上市櫃個股在每個交易日 EOD canonical data ready 後執行低成本 screening／discovery 與必要 cross-sectional Quant inference，不做 全市場×5 深度分析。依既有決策仍以 PyIceberg 為預設；BigQuery 僅明確 opt-in 的研究路徑，不自動切流。
 
 至少維持：
 
@@ -32,7 +34,7 @@
 
 ### Deep Coverage
 
-`active watchlist ∪ effective holdings` 去重後執行完整五 specialist。Watchlist 50 active distinct-symbol quota 保留；持股離開 500 仍保留 Deep Coverage，清倉且不在 watchlist 才退出後續更新。
+`active watchlist ∪ effective holdings` 去重後執行完整五 specialist。Watchlist 50 active distinct-symbol quota 保留；持股退出有效市場名冊仍保留 Deep Coverage，清倉且不在 watchlist 才退出後續更新。
 
 Deep Coverage 既有／相容 Mart surface 可包含：
 
@@ -84,7 +86,7 @@ LLM 不得計算或改寫 canonical number，也不得持有 publication authori
 
 ## 5.4 Model evaluation／promotion
 
-第一版 ML retrain／calibration／OOS evaluation／reconciliation 固定每月第一個週六 10:30（Asia/Taipei）；不代表 specialist data 每月才更新，也不建立每週六 500×5 全量模型排程。
+第一版 ML retrain／calibration／OOS evaluation／reconciliation 固定每月第一個週六 10:30（Asia/Taipei）；不代表 specialist data 每月才更新，也不建立每週六 全市場×5 全量模型排程。
 
 至少評估：
 
@@ -135,7 +137,7 @@ CEO：
 
 | WBS | 現行責任 |
 |---|---|
-| `WBS-5-MART-SPECIALIST-ENGINES` | 500 screening + Deep Coverage 五 Python／SQL／ML specialist + PIT/OOS + immutable artifacts |
+| `WBS-5-MART-SPECIALIST-ENGINES` | 全市場 screening + Deep Coverage 五 Python／SQL／ML specialist + PIT/OOS + immutable artifacts |
 | `WBS-5-MART-RERUN-CACHE` | dirty dependency、reuse、incremental invalidation、monthly reconciliation |
 | `WBS-5-MART-AI-PROVIDERS` | On-demand CEO／rare escalation provider runtime、auth、route、fallback、usage/cost |
 | `WBS-5-MART-CIO-SYNTHESIS` | **CEO Analysis**：validated specialist inputs only、immutable report、no publication authority |

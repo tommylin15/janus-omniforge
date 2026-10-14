@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 23,
-  "reason": "P0-V 32KiB market-mart contract full-release retry after one comment-only CI assertion false-positive (prior 1106 PASS, 1 fixture assertion FAIL); no new model call, no Job update, no traffic promotion. Re-run full suite, then publish exact-SHA images.",
+  "attempt": 24,
+  "reason": "2026-10-14 authorized full-market/controller/holdings-transaction/chart delivery: full Python, isolated PostgreSQL and Flutter gates before four exact-SHA public images. Runtime rollout is separately gated; no CEO or model call.",
   "expected_runtime_changes": false,
-  "ceo_gateway_pilot": true
+  "ceo_gateway_pilot": false
 }
