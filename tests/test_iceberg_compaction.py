@@ -55,6 +55,8 @@ class IcebergCompactionTests(unittest.TestCase):
     def test_health_reports_small_files_without_mutation(self):
         table = self.catalog.load_table("core.valuation_v1")
         snapshot = table.current_snapshot().snapshot_id
+        metadata_location = table.metadata_location
+        properties = dict(table.properties)
         with self._env():
             health = core_health(core=self.core)
         valuation = next(item for item in health["tables"] if item["dataset_id"] == "valuation")
@@ -62,10 +64,15 @@ class IcebergCompactionTests(unittest.TestCase):
         self.assertEqual(valuation["small_files"], valuation["data_files"])
         self.assertEqual(valuation["partition_fields"], ["observed_date_month"])
         self.assertEqual(self.catalog.load_table("core.valuation_v1").current_snapshot().snapshot_id, snapshot)
+        # Metadata-only property changes are still writes and incur GCS requests.
+        self.assertEqual(self.catalog.load_table("core.valuation_v1").metadata_location, metadata_location)
+        self.assertEqual(self.catalog.load_table("core.valuation_v1").properties, properties)
 
     def test_dry_run_plans_but_does_not_rewrite(self):
         before = self.catalog.load_table("core.valuation_v1")
         snapshot = before.current_snapshot().snapshot_id
+        metadata_location = before.metadata_location
+        properties = dict(before.properties)
         file_count = len(before.inspect.files().to_pylist())
         with self._env():
             report = compact_core(core=self.core, apply=False)
@@ -74,6 +81,8 @@ class IcebergCompactionTests(unittest.TestCase):
         self.assertEqual(valuation["rewritten_periods"], [])
         after = self.catalog.load_table("core.valuation_v1")
         self.assertEqual(after.current_snapshot().snapshot_id, snapshot)
+        self.assertEqual(after.metadata_location, metadata_location)
+        self.assertEqual(after.properties, properties)
         self.assertEqual(len(after.inspect.files().to_pylist()), file_count)
 
     def test_apply_reduces_files_preserves_rows_and_old_snapshot(self):
