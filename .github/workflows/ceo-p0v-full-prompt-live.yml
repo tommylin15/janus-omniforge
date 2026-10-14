@@ -17,7 +17,7 @@ jobs:
     environment: dev
     env:
       GH_TOKEN: ${{ github.token }}
-      GATEWAY: https://p0v-market2048-227a0bdc---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app
+      GATEWAY: https://p0v-market2048-00d45861---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -31,10 +31,11 @@ jobs:
           jq -e --arg gateway "$GATEWAY" '
               .intent=="p0v-real-32k-five-role-ceo-contract" and
               .approved==true and .gateway==$gateway and
-              .upstream_verified_run==38409577652 and
-              .upstream_source_sha=="227a0bdcbd7eea801470110ab8d55037bcecafee" and
+              .upstream_verified_run==38488277144 and
+              .upstream_availability_run==38488547115 and
+              .upstream_source_sha=="00d45861c78c60b005cab93a0a164804d555923e" and
               .upstream_output_max_tokens==2048 and
-              .execution_override_only==true and .acceptance_attempt==3 and
+              .execution_override_only==true and .acceptance_attempt==4 and
               .model_calls_max==1 and .retries==0 and
               .synthetic_five_role_input==true and
               .owner_data==false and .database_write==false and
@@ -43,19 +44,21 @@ jobs:
               .rollout_run==38392891696 and
               .lease_recovery_run==38393696263 and
               .candidate_readback_run==38394294374 and
-              .offline_preflight_run==38421876332 and
+              .offline_preflight_run==38490691563 and
               .prior_failure_diagnostic==38395032007 and
               (.release_sha|type=="string" and test("^[a-f0-9]{40}$"))
           ' "$request" >/dev/null
-          gh api "repos/tommylin15/omniAgent/actions/runs/38409577652" |
-            jq -e ' .conclusion=="success" and .name=="omniAgent market-mart Gemini 2048 bounded pilot"' >/dev/null
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/38421876332" |
+          gh api "repos/tommylin15/omniAgent/actions/runs/38488277144" |
+            jq -e '.conclusion=="success" and .path==".github/workflows/omniagent-market2048-owner-scoped-canary.yml"' >/dev/null
+          gh api "repos/tommylin15/omniAgent/actions/runs/38488547115" |
+            jq -e '.conclusion=="success" and .path==".github/workflows/omniagent-gemini503-availability-smoke.yml"' >/dev/null
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/38490691563" |
             jq -e '.conclusion=="success" and .path==".github/workflows/analysis-product-ci.yml"' >/dev/null
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/38395032007" |
             jq -e '.conclusion=="success" and .path==".github/workflows/ceo-p0v-full-prompt-diagnostic.yml"' >/dev/null
           # Ensure this invocation uses the exact tested synthetic executable,
           # even though this request/workflow lives at a later main commit.
-          tested_sha="$(gh api "repos/$GITHUB_REPOSITORY/contents/scripts/gcp/ceo_p0v_full_prompt_canary.py?ref=ec3eed5e6699a1ae0b7f226596d05febe527012e" --jq .sha)"
+          tested_sha="$(gh api "repos/$GITHUB_REPOSITORY/contents/scripts/gcp/ceo_p0v_full_prompt_canary.py?ref=d7dd74934f5c0c9a32bf6099c0e63e16a7361c35" --jq .sha)"
           current_sha="$(gh api "repos/$GITHUB_REPOSITORY/contents/scripts/gcp/ceo_p0v_full_prompt_canary.py?ref=$GITHUB_SHA" --jq .sha)"
           test "$tested_sha" = "$current_sha"
           echo "SOURCE_SHA=$(jq -r .release_sha "$request")" >> "$GITHUB_ENV"
