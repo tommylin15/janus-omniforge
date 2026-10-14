@@ -2,16 +2,16 @@
   "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
   "approved": true,
   "scope": "janus-api-preview-tag-only",
-  "source_sha": "50eda171ef6ffb3971a4d140ad09bac870ead6c1",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:346b7c7182aad8b1676f67a7a046b642b9e7f87dff2fc47c14cbbd26f86890f8",
-  "release_run": "38273250472",
-  "candidate_run": "38273927543",
-  "boundary_run": "38274131449",
+  "source_sha": "085456e3cdf2075cc399977dfe4c2414340fdae8",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:3b5fd72a893cb8094f3f6e1a8d4dd70901c571673a4f3b5a18ec9d7d40871a95",
+  "release_run": "38530995776",
+  "candidate_run": "38531845062",
+  "boundary_run": "38532482767",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
-  "reason": "Validated 2026-10-12 P0 Owner Ledger UI manual recalc entry always visible and bounded status polling, full Python/Flutter+GHCR #38273250472 PASS, 0% candidate #38273927543 PASS, OAuth/private boundary #38274131449 PASS, exact four Jobs canaries #38274299751 PASS. Update fixed Preview tag ONLY for live UI readback. Synthetic queue acceptance #38274621290 failed its final verification, remains FAIL / NOT_ACCEPTED; no claim working manual recalc until separate end-to-end acceptance. No formal 100% API traffic, Jobs, Scheduler, or other tags mutation.",
+  "reason": "User resumed full-market/controller, holdings transaction performance and four-page real dev acceptance. Exact source full release #38530995776 PASS (1149 Python tests, Flutter checks and four public immutable images); 0% candidate #38531845062 PASS and automated OAuth/private boundary #38532482767 PASS. Publish fixed Preview tag only for authenticated test-owner UI acceptance. Four Jobs and business/performance acceptance remain separate pending gates. Preserve canonical traffic, other tags, Jobs, Scheduler and IAM.",
   "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
-  "attempt": 9
+  "attempt": 10
 }
