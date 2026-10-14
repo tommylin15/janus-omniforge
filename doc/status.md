@@ -1,5 +1,10 @@
 # Janus Current Status
 
+## 2026-10-14 分市場 coverage 新決策：CODE／SPEC UPDATED，LIVE NOT VERIFIED
+
+使用者最新指示：**上市 TWSE 缺失率維持 ≤10%；上櫃 TPEx 放寬至 ≤30%**，均含邊界，必要資料依市場／資料集／期間及事前固定官方適用名冊獨立判定，不合併分母。核心 `coverage_receipt`／cache、Cloud Run business receipt 驗收與邊界測試已修改；`ALL` 個人持股外部報價不繼承放寬標準，仍須完整。以先前固定 893 檔上櫃名冊的唯讀樣本試算，法人 120／893、融資 91／893、當沖 170／893 缺漏均低於新 30%；**歷史 bootstrap #38537012683 的 FAIL 紀錄不改寫，也不等於新來源 bootstrap/cached PASS**。使用者先前暫停部署／批次仍有效，最新完整 CI、migration 057、正式流量及 Owner 驗收均未因政策修改而通過。
+
+
 ## 2026-10-14 使用者要求暫停並同步全部進度：PAUSED／PARTIAL
 
 已保存本輪與另一 AI 的 main 變更；完整交接見 [暫停 checkpoint](archive/full-market-pause-2026-10-14.md)。現有 runtime 為 `085456e…`，四 Jobs 兩輪 8 canary PASS／設定與 Scheduler readback PASS，固定 Preview PASS；正式 API 流量未切換。全市場 bootstrap #38537012683 FAIL，官方名冊 1988 檔已建立，但上櫃法人／融資／當沖仍超過 10% 或適用資格待證明，cached 未執行。
