@@ -1,0 +1,54 @@
+name: Janus official TPEx ETF owner Mart reconciliation
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/holdings-p0-owner-live-request.json'
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  owner-mart:
+    runs-on: ubuntu-latest
+    timeout-minutes: 32
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require exact official migration PASS before owner Mart refresh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent == "real-owner-tpex-mart-reconciliation" and
+            .approved == true and .scope == "single-owner-holding-00719B" and
+            .sha == "1e9c31d148db540ee06cac5ccccd8fac8d619511" and
+            .write_limit == "private-mart-only" and .ledger_mutation == false and
+            .after_migration == "058_official_held_etf_identity" and
+            .after_migration_run == "38652846263"' ops/holdings-p0-owner-live-request.json >/dev/null
+          status="$(gh run view 38652846263 --json status,conclusion,workflowName)"
+          jq -e '.status == "completed" and .conclusion == "success" and
+            .workflowName == "Apply dev serving schema migration"' <<< "$status" >/dev/null
+      - name: Verify one-owner source, exact private image and no-ledger-writing contract
+        run: |
+          python -m pip install --disable-pip-version-check pytest==8.4.2
+          python -m pytest -q tests/test_holdings_owner_live_contract.py tests/test_ghcr_release_lease.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Verify actual single holder, refresh only Private Mart and read back official identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/holdings_p0_owner_live_probe.py
