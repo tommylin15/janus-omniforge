@@ -89,7 +89,7 @@ def test_success_write_and_live_actas_readback(tmp_path):
 
 
 def test_workflow_trigger_is_a_single_explicit_request():
-    source = (ROOT / ".github/workflows/ghcr-private-pipeline-iam-grant.yml").read_text()
+    source = (ROOT / ".github/workflows/archive/ghcr-private-pipeline-iam-grant.yml").read_text()
     assert "'ops/ghcr-private-pipeline-iam-grant-request.json'" in source
     assert "group: janus-dev-runtime-writers" in source
     assert "google-github-actions/auth@v2" in source

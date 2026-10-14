@@ -75,7 +75,7 @@ def test_old_forward_only_recovery_requires_new_same_source_auth_gate(tmp_path):
 
 
 def test_one_time_recovery_workflow_scope_and_fence():
-    src=(ROOT/".github/workflows/ghcr-jobs-forward-resume.yml").read_text()
+    src=(ROOT/".github/workflows/archive/ghcr-jobs-forward-resume.yml").read_text()
     assert "'ops/ghcr-jobs-forward-resume-request.json'" in src
     assert "group: janus-dev-runtime-writers" in src
     assert "cancel-in-progress: false" in src

@@ -82,7 +82,7 @@ def test_revision_preview_has_no_mutation_or_release_permission():
     assert '"apply_authorized": False' in script
     assert "subprocess" not in script
     assert "gcloud " not in script
-    wf = (ROOT / ".github/workflows/ghcr-revision-retention-preview.yml").read_text()
+    wf = (ROOT / ".github/workflows/archive/ghcr-revision-retention-preview.yml").read_text()
     assert "ghcr_revision_retention_preview.py" in wf
     assert "gcloud run revisions list" in wf
     assert "gcloud run services describe" in wf

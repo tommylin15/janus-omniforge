@@ -64,7 +64,7 @@ def test_unexpected_scheduler_state_blocks_readonly_preflight():
 
 
 def test_workflow_is_explicit_preflight_and_has_no_mutating_release_step():
-    source = (ROOT / ".github/workflows/ghcr-jobs-readonly-preflight.yml").read_text()
+    source = (ROOT / ".github/workflows/archive/ghcr-jobs-readonly-preflight.yml").read_text()
     assert "workflow_dispatch:" in source
     assert "'ops/ghcr-jobs-preflight-request.json'" in source
     assert "ghcr_jobs_readonly_preflight.py" in source

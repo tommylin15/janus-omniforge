@@ -45,7 +45,7 @@ def test_no_gcp_or_scheduling_writes_when_lease_is_present(tmp_path):
 
 
 def test_readonly_workflow_never_has_deploy_write_or_scheduler_ops():
-    text = (ROOT/".github/workflows/ghcr-reversible-baseline-dev.yml").read_text()
+    text = (ROOT/".github/workflows/archive/ghcr-reversible-baseline-dev.yml").read_text()
     assert "ghcr_reversible_baseline.py" in text
     assert "ghcr-reversible-baseline-request.json" in text
     for forbidden in ("gcloud run deploy", "gcloud run jobs update",

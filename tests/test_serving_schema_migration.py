@@ -63,7 +63,9 @@ def statements(connection: FakeConnection) -> str:
 
 
 @pytest.mark.parametrize('bootstrap', [False, True])
-def test_market_serving_acl_acceptance_uses_publication_owner(monkeypatch, bootstrap):
+@pytest.mark.parametrize('name,table', [(migration.MIGRATION_MARKET_SERVING, 'market_serving_recent'),
+                                    (migration.MIGRATION_HOME_MARKET_SNAPSHOT, 'home_market_snapshot')])
+def test_market_serving_acl_acceptance_uses_publication_owner(monkeypatch, bootstrap, name, table):
     control = FakeControl()
     control.close = lambda: None
     publication = FakeConnection('janus_publication')
@@ -73,16 +75,17 @@ def test_market_serving_acl_acceptance_uses_publication_owner(monkeypatch, boots
         from pathlib import Path
         from ingestion_core import __main__ as entry
         monkeypatch.setattr(entry, '_control_plane', lambda: control)
-        source = migration._migration_path(migration.MIGRATION_MARKET_SERVING).read_bytes()
+        source = migration._migration_path(name).read_bytes()
         monkeypatch.setenv('JANUS_ANALYSIS_MIGRATION_SQL', base64.b64encode(source).decode())
         monkeypatch.setenv('JANUS_ANALYSIS_MIGRATION_HASH', hashlib.sha256(source).hexdigest())
-        monkeypatch.setenv('JANUS_ANALYSIS_MIGRATION_NAME', migration.MIGRATION_MARKET_SERVING)
+        monkeypatch.setenv('JANUS_ANALYSIS_MIGRATION_NAME', name)
         script = Path(__file__).parents[1] / 'scripts/gcp/analysis_schema_bootstrap.py'
         exec(runpy.run_path(str(script))['BOOTSTRAP'], {})
     else:
-        migration.run(control, migration.MIGRATION_MARKET_SERVING)
-    assert "has_table_privilege('janus_public_api','publication.market_serving_recent'" in statements(publication)
-    assert "has_table_privilege('janus_public_api','publication.market_serving_recent'" not in statements(control.connection)
+        migration.run(control, name)
+    check = f"has_table_privilege('janus_public_api','publication.{table}'"
+    assert check in statements(publication).replace(' ', '')
+    assert check not in statements(control.connection).replace(' ', '')
     assert 'INSERT INTO control.schema_migrations' in statements(control.connection)
     assert publication.closed
 

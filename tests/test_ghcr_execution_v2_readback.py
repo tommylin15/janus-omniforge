@@ -97,7 +97,7 @@ def test_wrong_job_execution_is_not_accepted():
 
 
 def test_workflow_never_cancels_or_deletes_and_runs_v2_readback():
-    s=(ROOT/".github/workflows/ghcr-stale-executions-audit.yml").read_text()
+    s=(ROOT/".github/workflows/archive/ghcr-stale-executions-audit.yml").read_text()
     assert "ghcr_execution_v2_readback.py" in s
     assert "tests/test_ghcr_execution_v2_readback.py" in s
     assert '"authorize_job_promotion": False' in (ROOT/"scripts/gcp/ghcr_execution_v2_readback.py").read_text()

@@ -143,7 +143,7 @@ def test_no_cloud_mutation_commands_present():
 
 
 def test_live_drill_has_no_gcp_and_contender_rejected():
-    workflow = (MODULE.parents[2] / ".github/workflows/ghcr-release-lease-drill.yml").read_text()
+    workflow = (MODULE.parents[2] / ".github/workflows/archive/ghcr-release-lease-drill.yml").read_text()
     assert "github-only-global-lease-drill" in workflow
     assert 'allow_gcp_mutation==false' in workflow
     assert "independent-recovery:" in workflow
@@ -164,6 +164,6 @@ def test_inspect_permission_denied_does_not_look_absent():
 
 
 def test_independent_recovery_inspects_before_reporting_absent():
-    workflow = (MODULE.parents[2] / ".github/workflows/ghcr-release-lease-drill.yml").read_text()
+    workflow = (MODULE.parents[2] / ".github/workflows/archive/ghcr-release-lease-drill.yml").read_text()
     assert 'python scripts/gcp/ghcr_release_lease.py inspect | jq -r .status' in workflow
     assert 'if [[ "$state" != "ABSENT" ]]' in workflow

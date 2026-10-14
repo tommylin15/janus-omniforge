@@ -280,7 +280,7 @@ def test_b5_external_iceberg_export_requires_bounded_native_temp_materialization
 
 
 def test_b5_cloud_build_evidence_copy_uses_gcloud_entrypoint():
-    workflow = (ROOT / ".github/workflows/b5-live-acceptance.yml").read_text()
+    workflow = (ROOT / ".github/workflows/archive/b5-live-acceptance.yml").read_text()
     assert (
         "- name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim\n"
         "              entrypoint: gcloud\n"

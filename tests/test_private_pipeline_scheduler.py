@@ -44,7 +44,7 @@ def test_janus_deploy_and_database_migration_use_one_secret_bundle():
 
 
 def test_runtime_inspection_checks_active_controller_not_retired_direct_private_schedulers():
-    workflow=(ROOT/".github/workflows/inspect-dev-runtime.yml").read_text(encoding="utf-8")
+    workflow=(ROOT/".github/workflows/archive/inspect-dev-runtime.yml").read_text(encoding="utf-8")
     region=workflow.split("            private-schedulers)\n",1)[1].split("            batch-runtime)\n",1)[0]
     assert "gcloud scheduler jobs list" in region
     assert "janus-ingestion-daily" in region

@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 30,
-  "reason": "Full-market real bootstrap #38537012683 failed: premature current-day request and duplicate ALL financial gate. Correct to canonical last completed trading day; separate TWSE/TPEX financial coverage; date-addressable official TPEx institutional source with verified duplicate-column groups. Targeted regression 54 PASS and real 2026-10-13 institutional readback 895 symbols. Full exact-SHA tests, isolated PostgreSQL, Flutter and four immutable public images required before runtime updates; no CEO/model work or traffic promotion.",
+  "attempt": 31,
+  "reason": "Rerun complete release after #38541322491 identified 18 stale test paths from concurrent workflow archival. Preserve every assertion and align archived workflow locations. Complete migration 057 controlled gateway and publication-owner ACL checks on both runtime/bootstrap paths. Previous full-market completed-day, TPEx dated institutional and split financial coverage corrections retained. Full Python/PostgreSQL/Flutter/public immutable gates precede runtime deployment.",
   "expected_runtime_changes": false,
   "ceo_gateway_pilot": false
 }

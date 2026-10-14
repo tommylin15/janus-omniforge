@@ -153,7 +153,7 @@ def test_unverified_pretask_failures_still_block_job_release():
 
 
 def test_jobs_live_gate_never_accepts_an_apply_request():
-    text=(ROOT/".github/workflows/ghcr-jobs-cutover-gate.yml").read_text()
+    text=(ROOT/".github/workflows/archive/ghcr-jobs-cutover-gate.yml").read_text()
     assert '.intent=="read-only-cutover-guard" and .apply==false' in text
     assert 'historical_failed_pretask_terminal_count' not in text or "ghcr_execution_v2_readback.py" in text
     assert "gcloud run jobs update" not in text

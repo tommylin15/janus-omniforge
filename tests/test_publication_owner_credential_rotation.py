@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_publication_owner_rotation_is_bounded_and_forward_repairable():
-    workflow = (ROOT / ".github/workflows/publication-owner-credential-rotation-dev.yml").read_text(encoding="utf-8")
+    workflow = (ROOT / ".github/workflows/archive/publication-owner-credential-rotation-dev.yml").read_text(encoding="utf-8")
     build = (ROOT / "scripts/gcp/cloudbuild-publication-owner-credential-rotation.yaml").read_text(encoding="utf-8")
     script = (ROOT / "scripts/gcp/rotate-publication-owner-credential-dev.sh").read_text(encoding="utf-8")
     hba = (ROOT / "infra/postgres/pg_hba.conf").read_text(encoding="utf-8")

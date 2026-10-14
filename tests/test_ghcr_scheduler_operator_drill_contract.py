@@ -4,7 +4,7 @@ from pathlib import Path
 ROOT=Path(__file__).parents[1]
 
 def test_operator_drill_is_exact_job_only_and_has_fail_safe_controls():
-    text=(ROOT/".github/workflows/ghcr-scheduler-operator-drill.yml").read_text()
+    text=(ROOT/".github/workflows/archive/ghcr-scheduler-operator-drill.yml").read_text()
     assert 'JOB: janus-ingestion-daily' in text
     assert 'group: janus-dev-runtime-writers' in text
     assert "until_next_tick < 15" in text
@@ -29,7 +29,7 @@ def test_operator_drill_is_exact_job_only_and_has_fail_safe_controls():
 
 
 def test_emergency_recovery_requires_lease_and_exact_whitelist():
-    text=(ROOT/".github/workflows/ghcr-scheduler-recover-dev.yml").read_text()
+    text=(ROOT/".github/workflows/archive/ghcr-scheduler-recover-dev.yml").read_text()
     assert 'JOB: janus-ingestion-daily' in text
     assert 'resume-existing-janus-drill' in text
     assert 'git/ref/tags/$LOCK' in text
@@ -41,7 +41,7 @@ def test_emergency_recovery_requires_lease_and_exact_whitelist():
 
 
 def test_scheduler_drill_global_lease_and_owner_recovery_fail_closed():
-    text=(ROOT/".github/workflows/ghcr-scheduler-operator-drill.yml").read_text()
+    text=(ROOT/".github/workflows/archive/ghcr-scheduler-operator-drill.yml").read_text()
     assert 'global_lock_acquired=0' in text
     assert 'global_lock_acquired=1' in text
     assert 'ghcr_release_lease.py acquire' in text

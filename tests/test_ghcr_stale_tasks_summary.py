@@ -48,7 +48,7 @@ def test_incorrect_job_cannot_be_inspected():
 
 
 def test_workflow_is_bounded_read_only_and_never_changes_execution():
-    content = (ROOT / ".github/workflows/ghcr-stale-executions-audit.yml").read_text()
+    content = (ROOT / ".github/workflows/archive/ghcr-stale-executions-audit.yml").read_text()
     assert "gcloud run jobs executions tasks list" in content
     assert '--execution="$execution"' in content
     assert "--limit=100" in content
