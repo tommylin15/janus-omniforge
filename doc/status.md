@@ -2,9 +2,9 @@
 
 ## 2026-10-14 全市場／總控／持股交易／四頁整合：ACTIVE／PARTIAL
 
-使用者已於暫停後恢復本工作包。migration 054～056 均 PASS；scope 日期守門版 `a3f9faaa88a45b55765c59a0be2b58c91b916c3f` 完整 Release [#38510881181](https://github.com/tommylin15/janus-omniforge/actions/runs/38510881181) PASS。最後今日頁研究收合／市場圖表優先與未知交易重送保留 key 修正，本機 Flutter 90 PASS、analyze exit 0（既有 info）；待新版完整 Release 與 runtime。四 Jobs／固定 Preview 尚未更新，備份 executor IAM blocker 仍有效。
+使用者已恢復本工作包；最終 runtime 來源為 `085456e3cdf2075cc399977dfe4c2414340fdae8`。migration 054～056 PASS；完整 Release [#38530995776](https://github.com/tommylin15/janus-omniforge/actions/runs/38530995776) PASS（Python 1149、Flutter 90／analyze／web build、四個 immutable GHCR image／匿名 pull），0% candidate [#38531845062](https://github.com/tommylin15/janus-omniforge/actions/runs/38531845062) 及自動 OAuth／private boundary [#38532482767](https://github.com/tommylin15/janus-omniforge/actions/runs/38532482767) PASS。固定 Preview [#38533380447](https://github.com/tommylin15/janus-omniforge/actions/runs/38533380447) PASS；四 Jobs [#38533451889](https://github.com/tommylin15/janus-omniforge/actions/runs/38533451889) 仍執行兩輪 canary，不能當已完成切換。正式 API 流量未切換。
 
-今日頁／交易重送版 `a3a99f64f33f5c58989aaa40af7c9401bc3cd89c` 完整 Release [#38527911543](https://github.com/tommylin15/janus-omniforge/actions/runs/38527911543) 與 0% candidate [#38529089351](https://github.com/tommylin15/janus-omniforge/actions/runs/38529089351) PASS。首次全市場／快取 business 驗收前，再補已登記 ETF 持股價格保留及 cached snapshot／來源 proof，普通股名冊分母不擴 ETF；相關 45 PASS，須由後續新完整 Release SHA 統一 rollout／Preview／runtime 驗收。驗收只用單次 execution override，不採舊 ingestion workflow 的永久 Job env patch。
+新版包含今日頁圖表優先／研究收合、未知交易重送保留冪等 key、已登記 ETF 持股價格與 cached snapshot／來源 proof；普通股 coverage 分母不含 ETF。新版 Preview 公開 `/market-home` 本機 Windows 網路 API-only 暖讀 30 次、0 失敗、P50 375 ms／P95 437 ms；第一筆 484 ms 單列，未強制 cold start，不能當手機端到端或 cold P95。真實全市場 bootstrap／cached business receipt、持股／試算／保存效能與四頁 authenticated screenshot 尚未完成。使用者已指定既有測試帳號，保存量測須確認該 owner 後才寫入；Chrome 控制前輪因無法辨識網址被工具停止，不能聲稱 UI 已驗收。備份 executor install 仍缺 CI `compute.instances.get`；原備份 timer 保留，未擴 IAM、未完成還原及交接。
 
 使用者已明確要求完成全市場與總控底層、持股交易效能、通用圖表／四頁，再集中測試及 dev 驗收。此為本輪最新授權；下方 CEO 獨立任務的「持股暫停」及舊文件停止敘述只代表其原記錄時點。
 
