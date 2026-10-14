@@ -39,6 +39,27 @@ def aggregate_series(series: list[dict]) -> dict[str, object]:
     }
 
 
+
+def read_core_object_inventory(access_token: str) -> dict[str, object]:
+    """At most 25 Class-A LIST requests; credentials never written to logs."""
+    from pathlib import Path
+    source_root = Path(__file__).resolve().parents[2]
+    sys.path.insert(0, str(source_root))
+    sys.path.insert(0, str(source_root / "jobs" / "ingestion-core"))
+    from ingestion_core.stage import GcsObjectStore
+
+    store = GcsObjectStore("gen-lang-client-0593591102-dev-core")
+    store._token = lambda: access_token
+    try:
+        return {"status": "observed", **store.bounded_inventory(max_pages=25)}
+    except HTTPError as error:
+        return {"status": "blocked", "reason": "CORE_GCS_LIST_UNAUTHORIZED_OR_UNAVAILABLE",
+                "http_status": error.code}
+    except (URLError, TimeoutError, ValueError):
+        return {"status": "blocked", "reason": "CORE_GCS_INVENTORY_UNAVAILABLE"}
+
+
+
 def run() -> dict[str, object]:
     end = datetime.now(timezone.utc) - timedelta(minutes=10)
     start = end - timedelta(days=7)
@@ -94,7 +115,8 @@ def run() -> dict[str, object]:
         return {**evidence, "status": "unknown", "reason": "NO_MONITORING_SERIES",
                 "pages": page + 1, "series_observed": 0}
     return {**evidence, "status": "observed", "pages": page + 1,
-            "series_observed": len(series), **aggregate_series(series)}
+            "series_observed": len(series), **aggregate_series(series),
+            "core_object_inventory": read_core_object_inventory(token)}
 
 
 def main() -> int:
