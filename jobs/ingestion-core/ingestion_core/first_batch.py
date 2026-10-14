@@ -89,7 +89,7 @@ def normalise_benchmark(rows: Iterable[Mapping[str, Any]], benchmark_id: str = "
 
 
 def normalise_valuation(rows: Iterable[Mapping[str, Any]], *, market: str = "TWSE") -> tuple[dict[str, Any], ...]:
-    return tuple({"symbol": str(_pick(row, "symbol", "code", "Code", "SecuritiesCompanyCode", "證券代號")), "market": str(_pick(row, "market") or market),
+    return tuple({"symbol": str(_pick(row, "symbol", "code", "Code", "SecuritiesCompanyCode", "證券代號", "股票代號")), "market": str(_pick(row, "market") or market),
                   "observed_date": _iso_date(_pick(row, "observed_date", "date", "Date")),
                   "pe_ratio": _text(_pick(row, "pe_ratio", "pe", "PEratio", "PriceEarningRatio", "本益比")), "pb_ratio": _text(_pick(row, "pb_ratio", "pb", "PBratio", "PriceBookRatio", "股價淨值比")),
                   "dividend_yield_percent": _text(_pick(row, "dividend_yield_percent", "dividend_yield", "DividendYield", "YieldRatio", "殖利率(%)"))}
@@ -456,6 +456,17 @@ class JsonDatasetAdapter:
         return payload
 
 
+class TpexDatedValuationAdapter(JsonDatasetAdapter):
+    """Exact-date TPEx official JSON: reject both stale and future observations."""
+
+    def fetch(self, request: CollectionRequest) -> SourceResponse:
+        response = super().fetch(request)
+        required = request.window_end.isoformat()
+        if not response.rows or any(row.get("observed_date") != required for row in response.rows):
+            raise ValueError("TPEx valuation source date differs from requested trading day")
+        return response
+
+
 def stage_raw_response(
     response: SourceResponse,
     request: CollectionRequest,
@@ -560,8 +571,13 @@ def dataset_adapters(transport: Callable[[str], bytes] | None = None) -> dict[st
         "taiex": JsonDatasetAdapter("taiex", "benchmark", "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST", lambda rows: normalise_benchmark(rows, "TAIEX"), transport, dated("https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST", response="json")),
         "twse-valuation": JsonDatasetAdapter("twse", "valuation", "https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d", normalise_valuation, transport, dated("https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d", selectType="ALL", response="json")),
         "twse-institutional": JsonDatasetAdapter("twse", "institutional", "https://www.twse.com.tw/rwd/zh/fund/T86", normalise_institutional, transport, dated("https://www.twse.com.tw/rwd/zh/fund/T86", selectType="ALL", response="json")),
-        "tpex-valuation": JsonDatasetAdapter("tpex", "valuation", "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_peratio_analysis",
+        "tpex-valuation": TpexDatedValuationAdapter("tpex", "valuation",
+                                            "https://www.tpex.org.tw/web/stock/aftertrading/peratio_analysis/pera_result.php",
                                             lambda rows: normalise_valuation(rows, market="TPEX"), transport,
+                                            lambda request: "https://www.tpex.org.tw/web/stock/aftertrading/peratio_analysis/pera_result.php?" + urlencode({
+                                                "l": "zh-tw", "o": "json",
+                                                "d": f"{request.window_end.year - 1911:03d}/{request.window_end.month:02d}/{request.window_end.day:02d}",
+                                                "s": "0"}),
                                             max_replay_age_days=7, row_date_field="observed_date", market="TPEX"),
         "tpex-institutional": JsonDatasetAdapter("tpex", "institutional", "https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade",
                                                 normalise_tpex_institutional, transport,
