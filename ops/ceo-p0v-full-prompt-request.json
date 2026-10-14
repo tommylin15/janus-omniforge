@@ -2,8 +2,8 @@
   "intent": "p0v-real-32k-five-role-ceo-contract",
   "approved": true,
   "authorization": "2026-10-13 independent Janus P0-V technical acceptance; market-mart-only upstream 32KiB real candidate verified; bounded one Gemini free-tier attempt, no new paid model or owner data",
-  "gateway": "https://p0v-market2048-227a0bdc---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app",
-  "upstream_verified_run": 38409577652,
+  "gateway": "https://p0v-market2048-00d45861---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app",
+  "upstream_verified_run": 38488277144,
   "release_sha": "a05f1f4dea80ecbd947829cd2751e1253f822cee",
   "release_run": 38392237542,
   "rollout_run": 38392891696,
@@ -16,11 +16,12 @@
   "database_write": false,
   "canonical_publication": false,
   "formal_traffic_change": false,
-  "offline_preflight_run": 38421876332,
+  "offline_preflight_run": 38490691563,
   "prior_failure_diagnostic": 38395032007,
-  "acceptance_attempt": 3,
-  "execution_policy": "A NEW synthetic request (not replay). Previous 502 terminal verified and deployment lock released. One execution-specific Gateway env override to verified 0% market-mart 2048-token candidate. One Gemini call max. No canonical/Owner write or CEO Job configuration change. Full original Janus CEO Pydantic+evidence validator required.",
-  "upstream_source_sha": "227a0bdcbd7eea801470110ab8d55037bcecafee",
+  "acceptance_attempt": 4,
+  "execution_policy": "2026-10-14 user-supplied new 00d45861 market-mart 0%-traffic Gateway endpoint; upstream signed candidate and one short model call PASS. One new synthetic request ID, no replay of terminated 503. Original ID Token audience unchanged. Execution-only endpoint override; NO CEO Job configuration/deployment, formal traffic, Owner/DB/canonical write. One model call maximum, zero retries. Real complete CEO validator or fail-closed.",
+  "upstream_source_sha": "00d45861c78c60b005cab93a0a164804d555923e",
   "upstream_output_max_tokens": 2048,
-  "execution_override_only": true
+  "execution_override_only": true,
+  "upstream_availability_run": 38488547115
 }
