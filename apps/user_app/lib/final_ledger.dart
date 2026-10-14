@@ -316,6 +316,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   Future<void> addTrade() async {
     final payload = await legacy.transactionDialog(context);
     if (payload == null) return;
+    var saveStarted = false;
     try {
       final preview = await widget.api.post('/api/v1/me/journal/preview', payload)
           .timeout(const Duration(seconds: 5));
@@ -339,6 +340,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
         ),
       );
       if (confirmed != true || !mounted) return;
+      saveStarted = true;
       final saved = await widget.api.post('/api/v1/me/journal/events', {
         ...payload,
         'expected_ledger_version': preview['based_on_ledger_version'],
@@ -352,8 +354,11 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('交易尚未儲存')),
+          SnackBar(content: Text(saveStarted
+              ? '交易結果尚未確認，請先重新載入核對紀錄'
+              : '試算失敗，交易尚未送出')),
         );
+        if (saveStarted) reload();
       }
     }
   }
@@ -381,8 +386,9 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('交易更正尚未儲存')),
+          const SnackBar(content: Text('更正結果尚未確認，請重新載入核對紀錄')),
         );
+        reload();
       }
     }
   }
@@ -428,9 +434,10 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('無法刪除這筆交易；若已有後續賣出或更正，請先處理相依交易'),
+            content: Text('作廢結果尚未確認，請重新載入核對紀錄；相依交易可能阻擋作廢'),
           ),
         );
+        reload();
       }
     }
   }

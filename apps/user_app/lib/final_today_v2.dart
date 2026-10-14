@@ -460,6 +460,20 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
       final loading = snapshot.connectionState != ConnectionState.done;
       final unavailable = !loading && (snapshot.data == null || reports.isEmpty);
 
+      if ((report['model_validation_status'] ?? data['model_validation_status']) != 'validated') {
+        return fvPanel(child: ExpansionTile(
+          title: const Text('研究狀態'),
+          subtitle: Text(loading ? '研究內容載入中' : unavailable ? '研究內容尚未就緒' : '模型驗證尚未完成'),
+          children: [
+            const Text('完成模型驗證後才啟用整合報告'),
+            TextButton(
+              onPressed: () => setState(() => brief = _read('/api/v1/public/daily-brief')),
+              child: const Text('重試'),
+            ),
+          ],
+        ));
+      }
+
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         fvSectionTitle(context, '市場判讀',
             trailing: loading ? '載入中' : fvText(report['analysis_as_of'], missing: '尚未就緒')),
@@ -559,9 +573,9 @@ class _FinalTodayPageState extends State<FinalTodayPage> with WidgetsBindingObse
         key: const Key('final-today-scroll'),
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 110),
         children: [
-          fvPageTitle(context, '今日', subtitle: '先看與自己有關的重點，再看市場'),
-          _personal(),
+          fvPageTitle(context, '今日', subtitle: '先看市場走勢，再看與你相關的追蹤'),
           _market(),
+          _personal(),
           _brief(),
           const Padding(
             padding: EdgeInsets.only(top: 12),

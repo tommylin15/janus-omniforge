@@ -93,6 +93,28 @@ void mobileView(WidgetTester tester) {
 }
 
 void main() {
+  testWidgets('Today keeps unvalidated research collapsed behind official market facts', (tester) async {
+    mobileView(tester);
+    final api = FinalFakeApi({
+      '/api/v1/public/market-home': {'sections': {'taiex': {
+        'status': 'available', 'as_of': '2026-10-14', 'data': {'close': '23000'}}}},
+      '/api/v1/me/today-relevant': {'items': []},
+      '/api/v1/public/daily-brief': {'items': [{
+        'analysis_as_of': '2026-10-14', 'data': {
+          'summary': '不可顯示的未驗證摘要', 'highlights': ['不可顯示的推薦'],
+          'candidates': [{'symbol': '2330', 'mart_health_score': 99}]}}]},
+    });
+    await tester.pumpWidget(MaterialApp(home: FinalTodayPage(api)));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('研究狀態'), 250,
+        scrollable: find.byType(Scrollable).first);
+    expect(find.text('模型驗證尚未完成'), findsOneWidget);
+    expect(find.text('不可顯示的未驗證摘要'), findsNothing);
+    expect(find.text('不可顯示的推薦'), findsNothing);
+    expect(find.text('今日三件事'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Today prioritizes owner-specific highlights without blocking public market', (tester) async {
     mobileView(tester);
     final api = FinalFakeApi({

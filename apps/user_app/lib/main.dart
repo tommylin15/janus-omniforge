@@ -153,6 +153,8 @@ class _JanusAppState extends State<JanusApp> {
 class Api implements AdminApi {
   Api(this.token);
   final String token;
+  // shortcut: unknown retries survive this Api instance; check records after signing in again.
+  final Map<String, String> _pendingJournalKeys = {};
   static const base = String.fromEnvironment('JANUS_API_BASE_URL');
   Map<String, String> get headers =>
       {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'};
@@ -171,18 +173,36 @@ class Api implements AdminApi {
 
   Future<dynamic> _send(String method, String path,
       [Map<String, dynamic>? body]) async {
+    final journalWrite = method == 'POST' && path.startsWith('/api/v1/me/journal/events');
+    String? operation;
+    if (journalWrite) {
+      final identity = Map<String, dynamic>.from(body ?? {});
+      for (final field in ['expected_ledger_version', 'expected_broker_profile_version', 'expected_version']) {
+        identity.remove(field);
+      }
+      operation = '$path:${jsonEncode(identity)}';
+      if (!_pendingJournalKeys.containsKey(operation) && _pendingJournalKeys.length >= 8) {
+        throw StateError('請先核對尚未確認的交易紀錄');
+      }
+    }
     final request = http.Request(method, Uri.parse('$base$path'))
       ..headers.addAll(headers);
     if (method != 'GET') {
       request.headers['Idempotency-Key'] =
-          DateTime.now().microsecondsSinceEpoch.toString();
+          operation == null ? DateTime.now().microsecondsSinceEpoch.toString()
+          : _pendingJournalKeys.putIfAbsent(operation, () => DateTime.now().microsecondsSinceEpoch.toString());
     }
     if (body != null) request.body = jsonEncode(body);
-    final response = await http.Response.fromStream(await request.send());
+    final responseFuture = request.send().then(http.Response.fromStream);
+    final response = await (journalWrite
+        ? responseFuture.timeout(const Duration(seconds: 9)) : responseFuture);
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (operation != null && response.statusCode < 500) _pendingJournalKeys.remove(operation);
       throw Exception(jsonDecode(response.body)['detail'] ?? '服務暫時無法使用');
     }
-    return response.body.isEmpty ? null : jsonDecode(response.body);
+    final result = response.body.isEmpty ? null : jsonDecode(response.body);
+    if (operation != null) _pendingJournalKeys.remove(operation);
+    return result;
   }
 }
 
