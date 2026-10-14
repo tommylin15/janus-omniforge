@@ -53,7 +53,7 @@ BATCHES = (
     # This is an execution override of the existing ingestion Job, not another Scheduler or Cloud Run Job.
     # Serial ordering avoids compaction racing with Mart/Core retention at the same 23:30 slot.
     Batch("iceberg-compaction", "janus-ingestion-core", (23,), dependencies=("ingestion",),
-          env=(("ICEBERG_MAINTENANCE_MODE", "compact-apply"), ("QUEUE_CONSUMER", "false"),
+          env=(("ICEBERG_MAINTENANCE_MODE", "compact-nightly"), ("QUEUE_CONSUMER", "false"),
                ("MART_JOB", ""), ("JANUS_DATA_SUPPLEMENT_MODE", ""), ("JANUS_CONTROL_MIGRATION", ""),
                ("JANUS_SERVING_SCHEMA_MIGRATION", "")),
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline")),
@@ -240,9 +240,26 @@ def export_events(connection, core):
     schema = pa.schema([pa.field("event_id", pa.string(), nullable=False), pa.field("recorded_at", pa.timestamp("us", tz="UTC"), nullable=False), pa.field("payload_json", pa.string(), nullable=False)])
     rows = [{"event_id": str(key), "recorded_at": created, "payload_json": json.dumps(payload, sort_keys=True)} for key, created, payload in pending]
     table = core.catalog.load_table(identifier)
-    table.upsert(pa.Table.from_pylist(rows, schema=schema), join_cols=["event_id"])
-    readback = table.scan(row_filter=In("event_id", [row["event_id"] for row in rows])).to_arrow().to_pylist()
-    if {row["event_id"]: row["payload_json"] for row in readback} != {row["event_id"]: row["payload_json"] for row in rows}:
+    ids = [row["event_id"] for row in rows]
+    # Append-only audit data: upsert rewrote existing Parquet/metadata on each
+    # hourly controller tick. Replay is checked before append, and PostgreSQL
+    # outbox acknowledgement still follows the final Iceberg readback.
+    existing = table.scan(row_filter=In("event_id", ids),
+                          selected_fields=("event_id", "payload_json")).to_arrow().to_pylist()
+    known = {row["event_id"]: row["payload_json"] for row in existing}
+    if len(known) != len(existing) or any(
+        known[row["event_id"]] != row["payload_json"] for row in rows if row["event_id"] in known
+    ):
+        raise RuntimeError("Iceberg audit replay collision or duplicate ID")
+    fresh = [row for row in rows if row["event_id"] not in known]
+    if fresh:
+        table.append(pa.Table.from_pylist(fresh, schema=schema))
+        table = core.catalog.load_table(identifier)
+    readback = table.scan(row_filter=In("event_id", ids),
+                          selected_fields=("event_id", "payload_json")).to_arrow().to_pylist()
+    if len(readback) != len(rows) or {row["event_id"]: row["payload_json"] for row in readback} != {
+        row["event_id"]: row["payload_json"] for row in rows
+    }:
         raise RuntimeError("Iceberg batch log readback mismatch")
     with connection.transaction(), connection.cursor() as cursor:
         cursor.executemany("UPDATE control.batch_event_outbox SET exported_at=now() WHERE event_id=%s", [(key,) for key, _, _ in pending])

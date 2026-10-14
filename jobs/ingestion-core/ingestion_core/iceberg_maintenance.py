@@ -370,6 +370,66 @@ def compact_core(*, core: Any, apply: bool) -> dict[str, Any]:
     }
 
 
+
+def compact_batch_events(*, core: Any, apply: bool) -> dict[str, Any]:
+    """Bounded unpartitioned controller audit compaction; no snapshot expiration."""
+    identifier = "ops.batch_events_v1"
+    if not core.catalog.table_exists(identifier):
+        return {"table": identifier, "status": "missing", "planned_files": 0}
+    table = core.catalog.load_table(identifier)
+    if table.spec().fields:
+        raise RuntimeError("audit table partition schema changed")
+    files = table.inspect.files().to_pylist()
+    before_files = len(files)
+    before_bytes = sum(int(item.get("file_size_in_bytes") or 0) for item in files)
+    eligible = 4 <= before_files <= 1000 and before_bytes <= 32 * 1024 * 1024
+    result = {"table": identifier, "mode": "apply" if apply else "dry-run",
+              "status": "eligible" if eligible else "skipped_bounds",
+              "before_files": before_files, "before_bytes": before_bytes,
+              "planned_files": before_files if eligible else 0}
+    if not eligible or not apply:
+        return result
+    pointer = table.metadata_location
+    old_snapshot = table.current_snapshot()
+    source = table.scan().to_arrow()
+    if len(source) > 100000:
+        raise RuntimeError("audit compaction row limit exceeded")
+    rows = source.to_pylist()
+    original = {row["event_id"]: row for row in rows}
+    if len(original) != len(rows):
+        raise RuntimeError("audit event IDs not unique")
+    if core.catalog.load_table(identifier).metadata_location != pointer:
+        raise RuntimeError("audit catalog changed during compaction preflight")
+    table.overwrite(source, snapshot_properties={"janus.maintenance": "bounded-audit-compaction-v1"})
+    updated = core.catalog.load_table(identifier)
+    actual = updated.scan().to_arrow().to_pylist()
+    if len(actual) != len(rows) or {row["event_id"]: row for row in actual} != original:
+        raise RuntimeError("audit compaction readback mismatch")
+    if old_snapshot:
+        updated.scan(snapshot_id=old_snapshot.snapshot_id, limit=1).to_arrow()
+    result.update(status="rewritten", after_files=len(updated.inspect.files().to_pylist()),
+                  row_count=len(rows), old_snapshot_id=old_snapshot.snapshot_id if old_snapshot else None)
+    return result
+
+
+def compact_nightly(*, core: Any) -> dict[str, Any]:
+    """One bounded Job execution: read-only dry-run of both catalogs before apply."""
+    core_plan = compact_core(core=core, apply=False)
+    event_plan = compact_batch_events(core=core, apply=False)
+    print(json.dumps({
+        "component": "iceberg-nightly-preflight",
+        "mode": "compact-dry-run",
+        "core_candidate_periods": sum(len(t["planned_periods"]) for t in core_plan["tables"]),
+        "planned_rewrite_bytes": core_plan["planned_rewrite_bytes"],
+        "audit_planned_files": event_plan["planned_files"],
+    }, sort_keys=True), flush=True)
+    core_result = compact_core(core=core, apply=True)
+    audit_result = compact_batch_events(core=core, apply=True)
+    return {"component": "iceberg-nightly-compaction", "mode": "dry-run-then-apply",
+            "preflight": {"core": core_plan, "audit": event_plan},
+            "apply": {"core": core_result, "audit": audit_result}}
+
+
 def core_health(*, core: Any) -> dict[str, Any]:
     target_bytes = _integer_env("ICEBERG_TARGET_FILE_SIZE_BYTES", DEFAULT_TARGET_FILE_SIZE,
                                 minimum=32 * 1024 * 1024, maximum=512 * 1024 * 1024)
@@ -391,7 +451,7 @@ def core_health(*, core: Any) -> dict[str, Any]:
 
 def run(mode: str) -> dict[str, Any]:
     supported = {"dry-run", "apply", "retention-dry-run", "retention-apply",
-                 "health", "compact-dry-run", "compact-apply", "cost-inventory"}
+                 "health", "compact-dry-run", "compact-apply", "compact-nightly", "cost-inventory"}
     if mode not in supported:
         raise ValueError("unsupported Iceberg maintenance mode")
     bucket = os.environ.get("CORE_BUCKET", "").strip()
@@ -412,6 +472,8 @@ def run(mode: str) -> dict[str, Any]:
                 return maintain_public_data(core=core, apply=mode == "retention-apply")
             if mode == "health":
                 return core_health(core=core)
+            if mode == "compact-nightly":
+                return compact_nightly(core=core)
             if mode.startswith("compact-"):
                 return compact_core(core=core, apply=mode == "compact-apply")
             return maintain_financials(core=core, store=GcsObjectStore(bucket), apply=mode == "apply")

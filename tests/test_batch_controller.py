@@ -167,6 +167,7 @@ def test_iceberg_outbox_replay_is_idempotent_and_readback_precedes_ack():
         assert export_events(connection, core) == 1
         assert export_events(connection, core) == 1
         assert catalog.load_table("ops.batch_events_v1").scan().to_arrow().num_rows == 1
+        assert len(catalog.load_table("ops.batch_events_v1").snapshots()) == 1
         assert cursor.executemany.call_count == 2
         # A failed commit must leave the outbox unacknowledged.
         cursor.executemany.reset_mock()
@@ -261,7 +262,7 @@ def test_nightly_compaction_reuses_ingestion_job_with_isolated_execution_overrid
         "janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline"
     }
     overrides = dict(occurrence_env(compaction, datetime(2026, 10, 15, 23, 30, tzinfo=timezone.utc)))
-    assert overrides["ICEBERG_MAINTENANCE_MODE"] == "compact-apply"
+    assert overrides["ICEBERG_MAINTENANCE_MODE"] == "compact-nightly"
     assert overrides["QUEUE_CONSUMER"] == "false"
     assert overrides["MART_JOB"] == ""
     assert overrides["JANUS_DATA_SUPPLEMENT_MODE"] == ""

@@ -8,7 +8,7 @@
 
 ### 23:30 夜間 Iceberg 壓縮（獨立 FinOps 事件）
 
-2026-10-15 起的目標程式契約：每日 **23:30 Asia/Taipei** 由既有每小時 `:30` 喚醒的 `janus-batch-controller` 建立 `iceberg-compaction/YYYY-MM-DD/23` occurrence；沿用**現有** `janus-ingestion-core` Cloud Run Job，以 execution-level overrides 執行 `ICEBERG_MAINTENANCE_MODE=compact-apply`，不增開 Cloud Scheduler／Job，也不依賴 GitHub Actions 執行業務。
+2026-10-15 起的目標程式契約：每日 **23:30 Asia/Taipei** 由既有每小時 `:30` 喚醒的 `janus-batch-controller` 建立 `iceberg-compaction/YYYY-MM-DD/23` occurrence；沿用**現有** `janus-ingestion-core` Cloud Run Job，以 execution-level overrides 執行 `ICEBERG_MAINTENANCE_MODE=compact-nightly`（同次 execution 先執行 `compact-dry-run`、通過後再 `compact-apply`，並受控合併先前被遺漏的 `ops.batch_events_v1` 稽核事件表），不增開 Cloud Scheduler／Job，也不依賴 GitHub Actions 執行業務。
 
 相依順序改為：**14:30 ingestion 成功 → iceberg-compaction → mart-cleanup → core-cleanup**。三項夜間工作維持同一個 23:30 邏輯時段，但因總控每小時喚醒且不得併發，後兩項的實際派送可能跨到翌日 00:30／01:30 或更晚；故 23:30 表示 **due 時段，不保證每支 Job 23:30 真正啟動**。compaction 在 ingestion 尚未成功、worker 忙碌、前一輪未終態或權限/資料異常時留 pending；不跳過依賴、不盲目重試 ambiguous dispatch。這是既有資料維護路徑，不計入產品 TODO／WBS。
 
