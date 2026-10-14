@@ -1,0 +1,50 @@
+name: Janus audited terminal GHCR lease recovery
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/ghcr-stale-lease-recovery-request.json'
+
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+
+jobs:
+  terminal-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check one-time terminal recovery intent and all negative tests
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent == "reconcile-terminal-ghcr-lease" and
+                 .approved == true and .owner_run == 38537012683 and
+                 .owner_source_sha == "a826a58666c2a5d3b73c79aca474a0a205447ca2" and
+                 .tag_sha == "4153277d7e99f00e127ca9513208cb27d8f326b4" and
+                 .no_gcp_mutation == true' ops/ghcr-stale-lease-recovery-request.json
+          python -m pip install --disable-pip-version-check pytest==8.4.2
+          python -m pytest -q tests/test_ghcr_terminal_lease_recovery.py tests/test_ghcr_release_lease.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: \${{ vars.GCP_WIF_PROVIDER }}
+          service_account: \${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Recover only after exact owner, lease, API and all-page Job execution proof
+        env:
+          GH_TOKEN: \${{ github.token }}
+          JANUS_TERMINAL_LEASE_RECOVERY: '38537012683'
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_terminal_lease_recovery.py
+          echo 'Terminal owner run was FAILED and immutable lease owner matched; all GCP fences verified; no GCP changes. Recovered abandoned Git-ref lease.' >> "$GITHUB_STEP_SUMMARY"
