@@ -2,6 +2,6 @@
   "intent": "readonly-tpex-valuation-source-check",
   "date": "2026-10-13",
   "no_data_mutation": true,
-  "reason": "Historical official TPEx daily valuation is mismatched on 2026-10-14 current OpenAPI; probe official pera_result.php json and csv variants for 2026-10-13. Read only.",
-  "attempt": 2
+  "reason": "Inspect official legacy JSON document date and sample symbol format to ensure requested 2026-10-13 exact match, before replacing current-day-only OpenAPI adapter.",
+  "attempt": 3
 }
