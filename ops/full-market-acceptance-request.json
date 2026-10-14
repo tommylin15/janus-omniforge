@@ -9,6 +9,6 @@
   "bootstrap_run": null,
   "no_permanent_job_changes": true,
   "no_api_traffic_changes": true,
-  "purpose": "Exact-source repaired TPEx official 2026-10-13 dated valuation JSON (886 valid source rows). Full release #38565636734 PASS, same-source 0%-API #38566380979 PASS, private boundary #38566632955 PASS. New four Jobs rollout #38566821108 must be successful before original shared-writer one-shot actual official market bootstrap. Prior #38559419684 confirmed FAIL on TPEx valuation returning 2026-10-14 for 2026-10-13; retain its immutable receipt, no blind re-run. Fixed official membership 1095+893, TWSE <=10%, TPEx <=30%, no fake data or owner PnL relaxation, no permanent Job change, no formal API switch.",
-  "attempt": 2
+  "purpose": "2026-10-14 resume after initial one-shot #38566914209 was CANCELLED before any job due competing fixed-preview request; repaired 1e9c31d exact-source full CI, 0% API, automated OAuth boundary, four existing dev Jobs two-canary rollout #38566821108 PASS, fixed Preview #38566991297 PASS. Shared release lease is absent as read back after terminal rollout. Trigger exactly one bounded official 2026-10-13 full-market bootstrap with 1095 TWSE <=10% and 893 TPEX <=30%, provenance, owner OFF-ROSTER strict ALL, no formal traffic changes and no permanent Job changes. Do not launch cached until this actual business PASS.",
+  "attempt": 3
 }
