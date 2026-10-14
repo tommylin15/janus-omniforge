@@ -12,7 +12,7 @@ ROOT = Path(__file__).parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "jobs" / "ingestion-core"))
 
-from ingestion_core.iceberg_maintenance import compact_core, core_health
+from ingestion_core.iceberg_maintenance import compact_core, compact_batch_events, compact_nightly, core_health
 from packages.duckdb_query import DuckDBEngine, DuckDBIcebergCore
 
 
@@ -84,6 +84,46 @@ class IcebergCompactionTests(unittest.TestCase):
         self.assertEqual(after.metadata_location, metadata_location)
         self.assertEqual(after.properties, properties)
         self.assertEqual(len(after.inspect.files().to_pylist()), file_count)
+
+    def test_unpartitioned_audit_compaction_reduces_files_and_preserves_history(self):
+        import pyarrow as pa
+        self.catalog.create_namespace_if_not_exists("ops")
+        schema = pa.schema([pa.field("event_id", pa.string()), pa.field("payload_json", pa.string())])
+        table = self.catalog.create_table("ops.batch_events_v1", schema)
+        for index in range(6):
+            table.append(pa.Table.from_pylist([{"event_id": str(index), "payload_json": "v1"}], schema=schema))
+            table = self.catalog.load_table("ops.batch_events_v1")
+        old_snapshot = table.current_snapshot().snapshot_id
+        prior = sorted(table.scan().to_arrow().to_pylist(), key=lambda item: item["event_id"])
+        dry = compact_batch_events(core=self.core, apply=False)
+        self.assertEqual(dry["planned_files"], 6)
+        self.assertEqual(self.catalog.load_table("ops.batch_events_v1").current_snapshot().snapshot_id, old_snapshot)
+        applied = compact_batch_events(core=self.core, apply=True)
+        self.assertEqual(applied["status"], "rewritten")
+        table = self.catalog.load_table("ops.batch_events_v1")
+        self.assertLess(len(table.inspect.files().to_pylist()), 6)
+        self.assertEqual(sorted(table.scan().to_arrow().to_pylist(), key=lambda item: item["event_id"]), prior)
+        self.assertEqual(sorted(table.scan(snapshot_id=old_snapshot).to_arrow().to_pylist(), key=lambda item: item["event_id"]), prior)
+
+    def test_nightly_requires_both_dry_runs_before_any_apply(self):
+        calls = []
+        def fake_core(*, core, apply):
+            calls.append(("core", apply))
+            return {"planned_rewrite_bytes": 12, "tables": [{"planned_periods": ["2026-10"]}]} if not apply else {"rewritten_bytes": 12}
+        def fake_events(*, core, apply):
+            calls.append(("audit", apply))
+            return {"planned_files": 6}
+        with patch("ingestion_core.iceberg_maintenance.compact_core", side_effect=fake_core), \
+             patch("ingestion_core.iceberg_maintenance.compact_batch_events", side_effect=fake_events):
+            report = compact_nightly(core=self.core)
+        self.assertEqual(calls, [("core", False), ("audit", False), ("core", True), ("audit", True)])
+        self.assertEqual(report["mode"], "dry-run-then-apply")
+        calls.clear()
+        with patch("ingestion_core.iceberg_maintenance.compact_core", side_effect=fake_core), \
+             patch("ingestion_core.iceberg_maintenance.compact_batch_events", side_effect=RuntimeError("audit preflight failed")):
+            with self.assertRaisesRegex(RuntimeError, "audit preflight failed"):
+                compact_nightly(core=self.core)
+        self.assertEqual(calls, [("core", False)])
 
     def test_apply_reduces_files_preserves_rows_and_old_snapshot(self):
         before = self.catalog.load_table("core.valuation_v1")
