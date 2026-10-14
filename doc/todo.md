@@ -9,7 +9,7 @@
 本段取代下方所有舊「維持研究500／500 admission／下一個先B9」敘述。最新授權已恢復 P0-1 至 P1-2 合併開發，以下為本輪尚未完成的待辦。
 
 - [ ] 全市場 membership／SQL migration／ingestion／screening／研究／搜尋／watchlist／Admin／UI／fixtures 一次移除股票母體500限制；50 quota、分頁／batch size 等非母體限制保留。
-- [ ] 各市場／必要資料集／期間缺失率 ≤10%（含10%）coverage gate，固定官方名冊分母、未知值／超標與個人完整估值分開。
+- [ ] 各市場／必要資料集／期間按 TWSE 上市缺失率 ≤10%、TPEx 上櫃 ≤30%（均含邊界）分開通過 coverage gate；固定官方適用名冊分母、未知值／超標與個人完整估值分開。**2026-10-14 已修改程式／驗收腳本／測試，完整 CI、dev bootstrap/cached 及正式 runtime 門檻仍未驗收；維持 PAUSED／PARTIAL。**
 - [x] **工作流與批次入口治理收斂**：完成 89 份歷史探測、診斷與前 500 研究排程歸檔至 `.github/workflows/archive/`，移除所有舊研究 Actions schedule，僅保留備份清理定時工作；建立統一運維診斷工具 `ops/diagnose.py`（2026-10-14）。
 - [ ] 備份產生納入總控；先驗證既有VM路徑與還原再停timer。研究前瞻留存若保留也走總控，不重播歷史500 request。
 - [ ] 即時入帳／試算／股數成本、報價snapshot、首頁／圖表serving、dirty owner報表快照，沿 [全市場／快照契約](spec/full-market-batch-policy.md)；其中 **首頁市場寫入時預聚合快照已提交且單元測試通過；Migration 057 尚未部署，冷暖效能仍待真實驗收**。
@@ -201,7 +201,7 @@ VF-10 高階同業／估值河流／還原價為需另證來源／成本的有�
 - [x] Deep Coverage 使用 `active watchlist ∪ effective holdings`；持股離開 500 仍保留，清倉且不在 watchlist 才退出。B4 live acceptance 已驗 5 symbols × 5 roles。
 - [ ] 完成 PIT／provenance／missing-data／public-private isolation、tests、dev deployment、live execution、artifact persist/readback；OOS 模型品質獨立依後置研究驗收。
 
-目前全上市櫃各必要資料集缺失率 ≤10% 為使用者接受範圍；超過先討論，不直接判整體失敗或自行擴張補資料。Mart 資源維持使用者指定 1 CPU／1 GiB；需要提高時先提出 evidence，不自行升級。
+目前各必要資料集上市缺失率 ≤10%、上櫃 ≤30% 為使用者接受範圍（分市場／期間且含邊界）；超過先討論，不直接判整體失敗或自行擴張補資料。Mart 資源維持使用者指定 1 CPU／1 GiB；需要提高時先提出 evidence，不自行升級。
 
 使用者最新核准：歷史財報有資料就做 OOS，不再要求原始數值版次／當時公開時間已證明。採最新官方數值版本、優先官方公開／上傳時間，缺少時明示期末後 90 天假設；正式模型作法及結果標示見 specialist SPEC。價格標籤成熟與來源／品質／隔離檢查保留。
 
