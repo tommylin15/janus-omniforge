@@ -4,6 +4,8 @@
 
 使用者已於暫停後恢復本工作包。migration 054～056 均 PASS；scope 日期守門版 `a3f9faaa88a45b55765c59a0be2b58c91b916c3f` 完整 Release [#38510881181](https://github.com/tommylin15/janus-omniforge/actions/runs/38510881181) PASS。最後今日頁研究收合／市場圖表優先與未知交易重送保留 key 修正，本機 Flutter 90 PASS、analyze exit 0（既有 info）；待新版完整 Release 與 runtime。四 Jobs／固定 Preview 尚未更新，備份 executor IAM blocker 仍有效。
 
+今日頁／交易重送版 `a3a99f64f33f5c58989aaa40af7c9401bc3cd89c` 完整 Release [#38527911543](https://github.com/tommylin15/janus-omniforge/actions/runs/38527911543) 與 0% candidate [#38529089351](https://github.com/tommylin15/janus-omniforge/actions/runs/38529089351) PASS。首次全市場／快取 business 驗收前，再補已登記 ETF 持股價格保留及 cached snapshot／來源 proof，普通股名冊分母不擴 ETF；相關 45 PASS，須由後續新完整 Release SHA 統一 rollout／Preview／runtime 驗收。驗收只用單次 execution override，不採舊 ingestion workflow 的永久 Job env patch。
+
 使用者已明確要求完成全市場與總控底層、持股交易效能、通用圖表／四頁，再集中測試及 dev 驗收。此為本輪最新授權；下方 CEO 獨立任務的「持股暫停」及舊文件停止敘述只代表其原記錄時點。
 
 - 本機已補 migration 054～056、全市場雙來源名冊／分市場 coverage、screening 分片、公開 PostgreSQL 首屏與法人／月營收／單季 EPS 圖表、交易唯讀試算／版本檢查／移動平均成本、更正及重送 guard、獨立 Private Mart 鎖、手機入帳 owner queue，以及總控備份 executor／還原後交接。

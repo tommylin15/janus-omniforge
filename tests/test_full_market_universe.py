@@ -53,6 +53,16 @@ def test_cursor_persists_same_source_snapshot_for_reuse_and_preserves_it_on_fail
         assert control.get_cursor('tpex:ohlcv:market').coverage == receipt
 
 
+def test_registered_etf_prices_survive_the_ordinary_equity_filter_and_cache():
+    from ingestion_core.full_market import official_price_rows
+    rows = [{'symbol':symbol,'close':'10'} for symbol in ('6488','00719B','00870B')]
+    assert [row['symbol'] for row in official_price_rows(rows,[{'symbol':'6488'}],{'00719B'})] == ['6488','00719B']
+    receipt = {'date':'2026-10-14','snapshot_id':4,'stage_provenance_id':'official',
+               'received':['6488'],'portfolio_received':['00719B']}
+    cached = cached_coverage(receipt,{'6488'},'2026-10-14')
+    assert cached['portfolio_received'] == ['00719B'] and cached['coverage_accepted']
+
+
 @pytest.mark.parametrize('status', ['partial', 'failed', 'retrying'])
 def test_container_cannot_report_success_for_incomplete_business_result(monkeypatch, status):
     from ingestion_core import __main__ as entry

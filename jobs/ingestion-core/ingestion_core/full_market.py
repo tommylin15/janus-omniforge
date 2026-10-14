@@ -30,6 +30,11 @@ def coverage_receipt(expected, received):
             'missing': sorted(missing)}
 
 
+def official_price_rows(rows, profiles, registered_holdings):
+    allowed = {row['symbol'] for row in profiles} | set(registered_holdings)
+    return tuple(row for row in rows if row['symbol'] in allowed)
+
+
 def cached_coverage(receipt, expected, day):
     if (not isinstance(receipt, dict) or receipt.get('date') != day or not receipt.get('snapshot_id')
             or not isinstance(receipt.get('received'), list)):

@@ -330,7 +330,7 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
         market: {item["symbol"] for item in universe["items"] if item["market"] == market}
         for market in ("TWSE", "TPEX")
     } if active_500 else {}
-    holding_symbols = set(control.portfolio_coverage_symbols()) if active_500 and hasattr(control, "portfolio_coverage_symbols") else set()
+    holding_symbols = set(control.portfolio_coverage_symbols()) if hasattr(control, "portfolio_coverage_symbols") else set()
     local_now = datetime.now(TAIPEI)
     schedule_setting = control.get_admin_setting("schedule")
     schedule = schedule_setting[0] if schedule_setting and isinstance(schedule_setting[0], dict) else {}
@@ -412,6 +412,8 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                         cached = cached_coverage(getattr(control.get_cursor(
                             _cursor_key(cursor_source, adapter.dataset_id, requested_symbols)), 'coverage', None),
                             expected, as_of.isoformat())
+                        if cached and adapter.dataset_id == 'market-volume':
+                            holding_prices_by_date.setdefault(as_of.isoformat(), set()).update(cached.get('portfolio_received', []))
                         coverage_items.append(cached or {"date": as_of.isoformat(), "dataset": adapter.dataset_id,
                                                "source": adapter.source_id, "market": market,
                                                "expected": sorted(expected), "received": None, "missing": None,
@@ -434,8 +436,9 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                 try:
                     response = _limit_response(_fetch_source(adapter, request), requested_symbols, dataset_id=adapter.dataset_id)
                     if adapter.dataset_id == "market-volume" and getattr(adapter, "market", "") in official_profiles:
-                        equities = {row["symbol"] for row in official_profiles[adapter.market]}
-                        response = replace(response, rows=tuple(row for row in response.rows if row["symbol"] in equities))
+                        from .full_market import official_price_rows
+                        response = replace(response, rows=official_price_rows(response.rows,
+                            official_profiles[adapter.market], holding_symbols))
                     if not response.rows:
                         if _empty_is_nonfatal(key):
                             empty_items.append({
@@ -542,7 +545,8 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                             price_coverage.update(received=sorted(expected & received_prices),
                                 missing=sorted(expected - received_prices),
                                 status="complete" if expected <= received_prices else "partial",
-                                quarantined_rows=len(checked.quarantined))
+                                quarantined_rows=len(checked.quarantined),
+                                portfolio_received=sorted(holding_symbols & received_prices))
                             if checked.accepted:
                                 price_rows_to_publish = [dict(row) for row in checked.accepted]
                                 price_commit = core.write(dataset_id="ohlcv", rows=price_rows_to_publish,
@@ -652,13 +656,17 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
         for as_of in dates:
             outside_holdings = holding_symbols - set(market_symbols)
             received = holding_prices_by_date.get(as_of.isoformat(), set()) & outside_holdings
-            holdings_cached = any(item["date"] == as_of.isoformat() and item["dataset"] == "twse-market-volume"
-                                  for item in skipped_items)
+            price_proofs = [item for item in coverage_items if item['date'] == as_of.isoformat()
+                            and item['dataset'] == 'ohlcv' and item.get('snapshot_id')]
             coverage_items.append({"date": as_of.isoformat(), "dataset": "outside_500_registered_portfolio_ohlcv",
+                                   "market": "ALL",
                                    "expected": sorted(outside_holdings), "received": sorted(received),
-                                   "missing": None if holdings_cached else sorted(outside_holdings - received),
-                                   "status": "cached_unverified" if holdings_cached else
-                                             "complete" if received == outside_holdings else "missing"})
+                                   "missing": sorted(outside_holdings - received),
+                                   "snapshot_ids": sorted({item['snapshot_id'] for item in price_proofs}),
+                                   "stage_provenance_ids": sorted({item['stage_provenance_id'] for item in price_proofs
+                                                                   if item.get('stage_provenance_id')}),
+                                   "cache_hit": bool(price_proofs) and all(item.get('cache_hit') for item in price_proofs),
+                                   "status": "complete" if received == outside_holdings else "missing"})
             required = {
                 ("ohlcv", "TWSE"): "twse",
                 ("valuation", "TWSE"): "twse",
