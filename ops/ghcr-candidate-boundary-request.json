@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "6326d16412c8eb61bb0618b7a394b18ba5017d14",
-  "candidate_release_run": "38508422835",
-  "candidate_deployment_run": "38509014971",
+  "sha": "74803b8c422cb564bec85bdcae8ddae7fa347957",
+  "candidate_release_run": "38509708320",
+  "candidate_deployment_run": "38510240444",
   "purpose": "Authorized full-market/controller/holdings/chart delivery; exact full Release and zero-traffic candidate PASS. Read-only automatic OAuth PKCE and private/Admin/MCP negative fences; no GCP or ledger mutation.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 10
+  "attempt": 11
 }
