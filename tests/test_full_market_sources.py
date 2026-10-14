@@ -63,3 +63,51 @@ def test_eps_chart_only_accepts_verified_single_quarter_and_preserves_loss():
     result = service.visual_series('6488', 'eps')
     assert [Decimal(point['value']) for point in result['points']] == [Decimal('-2.5'), Decimal(0)]
     assert result['data_status'] == 'available'
+
+
+def test_tpex_dated_valuation_uses_historical_official_json_and_roc_request():
+    from datetime import datetime, timezone
+    import json
+    from ingestion_core.first_batch import dataset_adapters
+    from ingestion_core.adapters import CollectionRequest
+    requests = []
+    document = {'date':'20261013', 'stat':'OK', 'tables':[{
+        'fields':['股票代號','公司名稱','本益比','殖利率(%)','股價淨值比'],
+        'data':[['6488','環球晶','-','0.00','2.64'],
+                ['1240','茂生農經','10.33','0.90','1.64']]}]}
+    def transport(url):
+        requests.append(url)
+        return json.dumps(document,ensure_ascii=False).encode()
+    adapter = dataset_adapters(transport)['tpex-valuation']
+    adapter.clock = lambda: datetime(2026,10,14,tzinfo=timezone.utc)
+    request = CollectionRequest('test','test','tpex','valuation','TPEX',
+                                ('6488','1240'), None, date(2026,10,13), 30)
+    response = adapter.fetch(request)
+    assert 'pera_result.php?' in requests[0]
+    assert 'o=json' in requests[0] and 'd=115%2F10%2F13' in requests[0]
+    assert len(response.rows) == 2
+    assert response.rows[0]['symbol'] == '6488'
+    assert response.rows[0]['observed_date'] == '2026-10-13'
+    assert response.rows[0]['pe_ratio'] is None
+    assert response.rows[0]['dividend_yield_percent'] == '0.00'
+    assert response.rows[0]['pb_ratio'] == '2.64'
+    assert response.raw_payload == json.dumps(document,ensure_ascii=False).encode()
+
+
+def test_tpex_dated_valuation_never_accepts_wrong_day_even_if_older():
+    from datetime import datetime, timezone
+    import json
+    import pytest
+    from ingestion_core.first_batch import dataset_adapters
+    from ingestion_core.adapters import CollectionRequest
+    document = {'date':'20261013', 'tables':[{'fields':['股票代號','本益比','股價淨值比','殖利率(%)'],
+                                               'data':[['6488','22','2.5','0']]}]}
+    adapter = dataset_adapters(lambda _:json.dumps(document).encode())['tpex-valuation']
+    adapter.clock = lambda: datetime(2026,10,14,tzinfo=timezone.utc)
+    request = CollectionRequest('test','test','tpex','valuation','TPEX',
+                                ('6488',),None,date(2026,10,13),30)
+    assert len(adapter.fetch(request).rows) == 1
+    for wrong_day in ('20261012','20261014'):
+        document['date'] = wrong_day
+        with pytest.raises(ValueError,match='source date differs'):
+            adapter.fetch(request)
