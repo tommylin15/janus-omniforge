@@ -1,5 +1,14 @@
 # Janus Current Status
 
+## 2026-10-14 接續 dev 第 01／02 關卡：CI、057、候選、OAuth PASS；Jobs ROLLING
+
+- **完整 CI／GHCR Release：PASS**：來源 `61796cbc2cd973d694e1d203e7ea9e8af07804c1`、Run [#38552314315](https://github.com/tommylin15/janus-omniforge/actions/runs/38552314315)：Python 1156 PASS／2 legacy deselected，Flutter 90 PASS／analyze／web build PASS，四份固定來源 GHCR image publish 與匿名 pull PASS；先前動態歸檔路徑兩項失敗不再重現。後續 ops-only main commits 不等於這四份 image 的來源 SHA。
+- **Migration 057：PASS**：[受控 Job #38555862109](https://github.com/tommylin15/janus-omniforge/actions/runs/38555862109)，執行 `janus-ingestion-core-h2rvs`，收據 migration=`057_home_market_snapshot`、sql_hash=`10656633d94dbf1b996c5122ec589647179725ec97eb17a23977d00224bc9643`、status=PASS；未改 image／traffic。資料內容及首頁冷讀延遲仍需後續 live 驗收。
+- **歷史部署鎖：受控復原 PASS**：來源 [#38537012683](https://github.com/tommylin15/janus-omniforge/actions/runs/38537012683) 的失敗全市場執行殘留 immutable lease，致首次候選 [#38556011007](https://github.com/tommylin15/janus-omniforge/actions/runs/38556011007) attempt 1 `lease_busy`，`gcp_writes=0`。單次有界 [#38556905741](https://github.com/tommylin15/janus-omniforge/actions/runs/38556905741) 實際核對 exact owner/tag、全部 Job execution 終態／Jobs Ready、Scheduler ENABLED、API 原 100% 路由 unchanged、legacy writer fence，15 tests PASS 後才刪除**該筆**舊 Git ref；GitHub readback 404，GCP runtime 0 寫入。不是通用 force-unlock 或可重用 waiver。
+- **0% API Candidate：PASS**：原 Run #38556011007 attempt 2 恢復後成功，同來源 immutable GHCR API digest、health、build-id、負向授權、100% canonical traffic 未變；**OAuth/private boundary：PASS** [#38557372000](https://github.com/tommylin15/janus-omniforge/actions/runs/38557372000)，僅自動 metadata／PKCE／Owner/Admin/MCP 負向權限，不冒充真人登入或本人持股計算 PASS。
+- **四 Jobs 發布：IN_PROGRESS／未驗收**：[受控 rollout #38557540516](https://github.com/tommylin15/janus-omniforge/actions/runs/38557540516)，來源 61796cbc，使用目前已部署來源 `085456e3cdf2075cc399977dfe4c2414340fdae8` 的四份公開 GHCR immutable image 及既有設定 hash 作 reversible baseline。待兩輪各四 Jobs canary、執行終態、Scheduler ENABLED、digest／config readback、回復能力 receipt 真正 PASS 後才允許標示 Jobs 完成。**API 正式 100% promotion、全市場 bootstrap／cached、持股 Owner 真實操作與 UI／P50-P95 均未由本輪宣稱通過**。
+
+
 ## 2026-10-14 分市場 coverage 新決策：CODE／SPEC UPDATED，LIVE NOT VERIFIED
 
 使用者最新指示：**上市 TWSE 缺失率維持 ≤10%；上櫃 TPEx 放寬至 ≤30%**，均含邊界，必要資料依市場／資料集／期間及事前固定官方適用名冊獨立判定，不合併分母。核心 `coverage_receipt`／cache、Cloud Run business receipt 驗收與邊界測試已修改；`ALL` 個人持股外部報價不繼承放寬標準，仍須完整。以先前固定 893 檔上櫃名冊的唯讀樣本試算，法人 120／893、融資 91／893、當沖 170／893 缺漏均低於新 30%；**歷史 bootstrap #38537012683 的 FAIL 紀錄不改寫，也不等於新來源 bootstrap/cached PASS**。使用者先前暫停部署／批次仍有效，最新完整 CI、migration 057、正式流量及 Owner 驗收均未因政策修改而通過。
