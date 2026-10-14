@@ -102,17 +102,18 @@ def main():
         # The existing acceptance cleanup never deletes ledger events:
         # it only marks an *active* test request FAILED and resets idle
         # singleton dispatch. It leaves a SUCCEEDED request immutable.
-        if worker:
-            try:
-                cleanup = invoke("janus-ingestion-core",{
+        try:
+            # Do not cleanup while a worker might still own an execution.
+            rollout.fence()
+            cleanup = invoke("janus-ingestion-core",{
                     "JANUS_PRIVATE_RECALC_ACCEPTANCE_MODE":"cleanup",
                     "JANUS_PRIVATE_RECALC_ACCEPTANCE_REQUEST_ID":request_id,
                     "QUEUE_CONSUMER":"false","MART_JOB":""})
-                result["cleanup_execution"] = cleanup
-            except Exception:
-                result["status"]="UNKNOWN"
-                Path("/tmp/private-recalc-ghcr-canary.json").write_text(json.dumps(result))
-                raise
+            result["cleanup_execution"] = cleanup
+        except Exception:
+            result["status"]="UNKNOWN"
+            Path("/tmp/private-recalc-ghcr-canary.json").write_text(json.dumps(result))
+            raise
     if result["status"] != "PASS":
         raise RuntimeError("business_canary_not_passed")
     rollout.fence()
