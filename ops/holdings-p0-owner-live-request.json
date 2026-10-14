@@ -2,13 +2,13 @@
   "intent": "real-owner-tpex-mart-reconciliation",
   "approved": true,
   "scope": "single-owner-holding-00719B",
-  "sha": "b1bc785906212b8d2860b1521affb83930d09f04",
+  "sha": "1e9c31d148db540ee06cac5ccccd8fac8d619511",
   "write_limit": "private-mart-only",
   "ledger_mutation": false,
-  "purpose": "2026-10-12 bounded actual 00719B owner Mart acceptance on schema-evolved source b1bc7859 after successful four-Jobs rollout #38253861084 (8 canaries), full GHCR #38251449161, candidate #38253341992, boundary #38253596061, read-only old Mart diagnosis #38250985026. One owner only, verify TPEx official persisted EOD, separately typed positions and unrealized PnL, price_status/date and ledger checkpoint; never alter ledger or other owners; require exact GHCR Private Job digest and execution fence; fail closed.",
-  "retry_attempt": 3,
-  "after_migration": "053_tpex_owner_eod_quote_acl",
-  "after_migration_run": "38244531637",
+  "purpose": "2026-10-15 user-authorized Janus 03 holding identity and mart: exact official 00719B TPEx ETF registration SQL 058 migration #38652846263 PASS with source provenance, no ledger/transaction edits; use existing janus-private-pipeline @sha256:d06ffd5a... and 1e9c31d exact source image from reversible four Jobs rollout #38566821108. One real owner holding 00719B only, official EOD verified, update same owner's derived Mart with existing write guard and exact ledger checkpoint; no new owner, no trade or operational ledger mutation; retain errors if ambiguous.",
+  "retry_attempt": 4,
+  "after_migration": "058_official_held_etf_identity",
+  "after_migration_run": "38652846263",
   "last_failed_run": "38245001859",
-  "after_jobs_rollout_run": "38253861084"
+  "after_jobs_rollout_run": "38566821108"
 }
