@@ -1,5 +1,13 @@
 # Janus Current Status
 
+## 2026-10-14 全市場驗收受控接續：Jobs 未終態，bootstrap 單次請求已排隊
+
+- 第 01 關完整 Release #38552314315 來源 `61796cbc2cd973d694e1d203e7ea9e8af07804c1` PASS（Python 1156、Flutter 90、GHCR 四映像與 anonymous pull）。057 #38555862109 PASS；0% candidate #38556011007 attempt2 PASS；同來源自動 OAuth/private boundary #38557372000 PASS。**正式 API traffic 未切換。**
+- 四 Jobs [#38557540516](https://github.com/tommylin15/janus-omniforge/actions/runs/38557540516) 仍處於 rollout/canary `in_progress`，未取得全部八次 canary 與 Scheduler 最後恢復收據，**不可宣稱 Jobs PASS**。
+- 建立一次性、明確核准的既有全市場 acceptance 入口；其 `on.push` 只接收 `ops/full-market-acceptance-request.json` 單次請求，仍使用 `full-market-dev-acceptance.yml` 的原 Cloud Run Job override、writer concurrency、read-only candidate boundary 與 immutable release provenance，沒有新增 Scheduler／cron。使用成功的四 Jobs Run 作硬性前置證據，來源與 release/boundary IDs 必須一致；Jobs FAIL 時 bootstrap 不准執行。修復 verified business PASS 才以 `--safe-to-release` 釋放本次 owner lease，失敗或未知保持鎖與收據。相關 tests 含不同市場 10%／30% 邊界與 lease guard，[selective CI #38559013399](https://github.com/tommylin15/janus-omniforge/actions/runs/38559013399) PASS。
+- 全市場 **bootstrap 單次請求已送出、仍排隊**：[Run #38559419684](https://github.com/tommylin15/janus-omniforge/actions/runs/38559419684)；請求來源與驗證門檻同上述 Release，固定 TWSE ≤10%／TPEx ≤30%，含分市場 receipts、官方名冊、Stage/Core provenance 與不可造假缺值。此段不是 bootstrap PASS；cached 尚未觸發，需先有 bootstrap PASS 才能受控執行。任何未終態不盲目重送。
+
+
 ## 2026-10-14 接續 dev 第 01／02 關卡：CI、057、候選、OAuth PASS；Jobs ROLLING
 
 - **完整 CI／GHCR Release：PASS**：來源 `61796cbc2cd973d694e1d203e7ea9e8af07804c1`、Run [#38552314315](https://github.com/tommylin15/janus-omniforge/actions/runs/38552314315)：Python 1156 PASS／2 legacy deselected，Flutter 90 PASS／analyze／web build PASS，四份固定來源 GHCR image publish 與匿名 pull PASS；先前動態歸檔路徑兩項失敗不再重現。後續 ops-only main commits 不等於這四份 image 的來源 SHA。
