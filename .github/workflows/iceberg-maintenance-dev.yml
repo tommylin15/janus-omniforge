@@ -10,6 +10,7 @@ on:
         default: health
         options:
           - health
+          - cost-inventory
           - compact-dry-run
           - compact-apply
           - dry-run
@@ -46,6 +47,7 @@ jobs:
           fi
           case "${MODE}" in
             health) EXPECTED_COMPONENT='iceberg-health' ;;
+            cost-inventory) EXPECTED_COMPONENT='iceberg-cost-inventory' ;;
             compact-dry-run|compact-apply) EXPECTED_COMPONENT='iceberg-compaction' ;;
             dry-run|apply) EXPECTED_COMPONENT='iceberg-maintenance' ;;
             retention-dry-run|retention-apply) EXPECTED_COMPONENT='data-retention' ;;
