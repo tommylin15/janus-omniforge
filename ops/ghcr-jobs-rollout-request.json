@@ -2,16 +2,16 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "61796cbc2cd973d694e1d203e7ea9e8af07804c1",
-  "release_run": "38552314315",
+  "sha": "1e9c31d148db540ee06cac5ccccd8fac8d619511",
+  "release_run": "38565636734",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "085456e3cdf2075cc399977dfe4c2414340fdae8",
+  "baseline_source_sha": "61796cbc2cd973d694e1d203e7ea9e8af07804c1",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:17f7ae6a622b97f95c6271952fae3d247c62f537a13429d554e43f9e2938bf43",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:17f7ae6a622b97f95c6271952fae3d247c62f537a13429d554e43f9e2938bf43",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:94693c66c704de9118755c37c1b3718ba5739e85437d8e353ac382adde1671c3",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:6b2eed296d39dbca995c3e33008c25767701e61ddfb76e9d696175a2e5c8517f"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:ea3e619616de874d8f85745bcb642121a84389bef900510b042008e394c6346f",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:ea3e619616de874d8f85745bcb642121a84389bef900510b042008e394c6346f",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:5010a18b06954a5979f542a0332640d431e688ac7129d10e171bec7b2b38656a",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:d832ad35f8db0b1b94b7202bd0ca74e1ebcb4f4c466f1c212f4f19cf9085e103"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 7,
-  "safety": "2026-10-14 migration 057 #38555862109 PASS, GHCR full release exact SHA #38552314315 PASS, API 0pct candidate #38556011007 attempt2 PASS, automatic OAuth and private boundary #38557372000 PASS. Previous four Jobs live image source 085456e from #38533451889, with config fingerprints in prior verified request. Reverify pinned public old digests, current Job config hashes, active executions, Scheduler, shared lease, two canaries per Job, reversible old-image recovery before any update. No change API traffic/IAM/ledger.",
-  "auth_boundary_run": "38557372000",
-  "automated_oauth_requirement": "Same source automatic OAuth metadata and negative/private boundary #38557372000 PASS; owner positive authenticated readback remains a separate live acceptance.",
-  "authorization": "User explicitly resumed step02 after full exact-main CI #38552314315 PASS; existing dev four Jobs and canary rollout in scope, do not promote API traffic or execute full market business acceptance until separate gates."
+  "request_attempt": 8,
+  "safety": "2026-10-14 official TPEx historical valuation repair: full release #38565636734 PASS Python 1163/Flutter90/four anonymous immutable GHCR, 0% API candidate #38566380979 PASS, automatic OAuth/private fence #38566632955 PASS. Preserve serving API canonical 100%; previously deployed four Jobs #38557540516 61796cbc PASS, verify exact public rollback digests and unchanged config hashes, full execution/scheduler/legacy writer fence, 2 canaries/job and recovery receipt; no IAM extension or ledger.",
+  "auth_boundary_run": "38566632955",
+  "automated_oauth_requirement": "Same source automated OAuth and private boundary #38566632955 PASS; owner positive authenticated readback not claimed.",
+  "authorization": "User explicitly authorized Janus dev acceptance 01 through 05. Existing-dev four Jobs update only before one bounded full-market business bootstrap; no formal API traffic promotion."
 }
