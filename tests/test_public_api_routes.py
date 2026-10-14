@@ -309,7 +309,10 @@ def test_public_visual_series_requires_published_serving_and_never_scans_core():
     ]
     assert calls == [("valuation", "2327", 30)]
     assert api.get("/api/v1/public/stocks/9999/visual-series?metric=pe").status_code == 404
-    assert api.get("/api/v1/public/stocks/2327/visual-series?metric=eps").status_code == 422
+    eps = api.get("/api/v1/public/stocks/2327/visual-series?metric=eps")
+    assert eps.status_code == 200 and eps.json()['data_status'] == 'missing'
+    assert eps.json()['usable_points'] == 0
+    assert api.get("/api/v1/public/stocks/2327/visual-series?metric=unknown").status_code == 422
 
 
 def test_visual_series_null_bad_or_stale_data_is_not_fabricated():

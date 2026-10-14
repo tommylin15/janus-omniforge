@@ -145,8 +145,10 @@ def test_private_pipeline_runtime_preserves_offlist_before_processing(monkeypatc
         assert fields["MOBILE_LEDGER_DATABASE_URL"] == "database_url"
         monkeypatch.setenv("MOBILE_LEDGER_DATABASE_URL", "existing-api-writer")
 
-    def consume(repository):
+    def consume(repository, *, on_persisted=None):
         assert repository.dsn == "existing-api-writer"
+        assert on_persisted is None
+        return {'processed': 0, 'errors': 0}
 
     monkeypatch.setattr(private_pipeline_runtime, "load_postgres_bundle", load_bundle)
     monkeypatch.setattr(private_pipeline_runtime, "repository_from_env", RepositoryStub)

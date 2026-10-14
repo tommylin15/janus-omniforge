@@ -8,6 +8,7 @@
 - 集中 Python 回歸 258 PASS／3 個隔離 PostgreSQL tests SKIP（本機無 CI DSN）；其後快取 receipt／scope／失敗守門等修正相關回歸 145 PASS／3 SKIP，最後 scope tests 11 PASS。這些測試有重疊，不累加成總測試數。
 - 四頁／表單 Flutter 全套 88 PASS；Dart analyze `--no-fatal-infos` exit 0，只有既有 info；workflow YAML、備份 Bash 語法及 diff whitespace 通過。Linux 全 Release、真實 PostgreSQL、新 SHA dev deployment／coverage／queue／備份還原／四頁及效能驗收尚未完成，不標本工作包 PASS。
 - 原 00719B 與 CEO 技術 PASS 維持各自範圍；後置模型研究／CEO 報告不由本輪啟動。最新 acceptance 見 [TODO](todo.md) 及 [持股優先契約](spec/holdings-first.md)。
+- 首次完整 Release [#38507925978](https://github.com/tommylin15/janus-omniforge/actions/runs/38507925978)：Flutter PASS；Linux Python 1140 PASS／4 FAIL（真實 PostgreSQL 交易 tests 通過）。4 個舊契約／fixture 已同步並得到相關 33 PASS；必須由新 SHA 完整 Release 重驗，不以此結果部署。
 
 
 ## 2026-10-14 Janus P0-V 跨專案技術驗收 PASS／真實 Owner CEO 報告 PARTIAL

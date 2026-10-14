@@ -82,7 +82,17 @@ jobs:
           assert json.loads(body)=={"status":"ok"}
           body,_=get("/api/v1/me/portfolio/snapshot",expected=401)
           assert "authentication" in body.decode().lower()
-          get("/api/v1/public/stocks/2327/visual-series?metric=eps",expected=422)
+          get("/api/v1/public/stocks/2327/visual-series?metric=unknown",expected=422)
+          for metric in ("foreign", "investment_trust", "dealer", "revenue", "eps"):
+              raw,_=get(f"/api/v1/public/stocks/2330/visual-series?metric={metric}&limit=30")
+              series=json.loads(raw)
+              assert series["metric"]==metric and series["schema_version"]=="visual-series.v1"
+              if series["data_status"]=="missing":
+                  assert series["usable_points"]==0 and series.get("missing_reason")
+                  assert metric=="eps", "required published official series missing"
+              else:
+                  assert series["usable_points"]>=2 and series["source_ids"]
+                  assert all(p.get("source_id") and p.get("provenance_id") for p in series["points"] if p.get("value") is not None)
           # VF-02: public home itself must serve verifiable historical TAIEX
           # points, not chart fixture data or an intraday MIS/EOD splice.
           market_raw, market_ms = get("/api/v1/public/market-home")

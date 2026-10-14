@@ -7,7 +7,7 @@ from services.api.repository import PostgresWorkspaceRepository
 def test_watchlist_read_preserves_offlist_owner_rows_without_writing():
     owner = uuid4()
     queries = []
-    row = {"user_id": owner, "symbol": "2330", "active": True, "in_market_500": False}
+    row = {"user_id": owner, "symbol": "2330", "active": True, "in_market": False}
 
     class Connection:
         def execute(self, sql, params):
@@ -28,7 +28,8 @@ def test_watchlist_read_preserves_offlist_owner_rows_without_writing():
     assert params == (owner,)
     assert "WHERE w.user_id=%s AND w.active\n" in sql
     assert "UPDATE" not in sql
-    assert "AS in_market_500" in sql
+    assert "AS in_market" in sql
+    assert "control.market_universe_members" in sql
     assert "LEFT JOIN LATERAL" in sql and "publication.stock_serving_recent" in sql
     assert "r.sort_at<price.sort_at" in sql
 

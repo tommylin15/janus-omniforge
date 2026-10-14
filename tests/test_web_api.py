@@ -114,7 +114,8 @@ class CoreQueryServiceTests(unittest.TestCase):
                          [{"date": "2026-10-06", "value": "48000",
                            "source_id": "taiex", "provenance_id": "p1"}])
         self.assertEqual(result["sections"]["taiex"]["status"], "stale" if
-                         (today_tpe - date(2026, 10, 6)).days > 7 else "available")
+                         (today_tpe - date(2026, 10, 7)).days > 7 else "available")
+        self.assertEqual(result["sections"]["taiex"]["as_of"], "2026-10-07")
 
     def test_published_visual_series_preserves_explicit_missing_dates_without_core_scan(self):
         def no_core_query(*_args):
