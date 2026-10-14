@@ -693,7 +693,12 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
     for item in coverage_items:
         from .full_market import coverage_receipt
         if isinstance(item.get("expected"), list) and isinstance(item.get("received"), list) and isinstance(item.get("missing"), list):
-            item.update(coverage_receipt(item['expected'], item['received']))
+            if item.get("market") in {"TWSE", "TPEX", "ALL"}:
+                item.update(coverage_receipt(item['expected'], item['received'], item['market']))
+            else:
+                item['coverage_accepted'] = False
+                item['status'] = 'blocked'
+                item['reason'] = 'unknown_coverage_market'
         else:
             item['coverage_accepted'] = False
         for field in ("expected", "received", "missing"):
