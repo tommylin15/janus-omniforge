@@ -1,5 +1,7 @@
 # 批次、即時路徑及快照盤點
 
+**2026-10-14 新 coverage 決策：**本清冊執行目標中的舊統一 10% 門檻改為「TWSE ≤10%、TPEx ≤30%」，均含邊界，仍分市場、資料集、期間固定分母驗證；歷史記錄及已失敗的 bootstrap 不追溯改寫。部署／批次暫停狀態不變。
+
 **最新執行狀態：**使用者已恢復 P0-1 至 P1-2 合併開發；下方「只更新文件停止」為前次盤點邊界，不再是開發禁令。新版程式／migration 未通過整合驗收前維持 PARTIAL。
 
 盤點：2026-10-13；本輪依使用者要求 **只更新文件後停止**。下列「目標」尚未實作／切換。以 [全市場與總控契約](spec/full-market-batch-policy.md) 為後續開發依據。
@@ -27,7 +29,7 @@
 | mart／intelligence-mart | 週一至五 09:00，依上午 ingestion＋supplement；`MART_OPERATION=queue` | 以 Core-ready／dirty queue 決定，不把固定上午時段當唯一入口；需核對每個 queue processor 與正式產物，不將 generic queue 稱為五模型完成 |
 | market-screening／intelligence-mart | 平日 16:30，依最新 ingestion＋supplement，與公開 ingestion／Mart 互斥 | 改全上市櫃分片；EOD snapshot ready 才算，重跑相同輸入 reuse。與深度模型分開，不把資料不足股默默移出分母 |
 | specialist-retrain／intelligence-mart | 每月第一個週六 10:30，依 ingestion＋supplement，互斥 | 保留月度節奏與 no-new-data skip；資料母體全市場，逐角色成熟資料／OOS gate。研究仍在產品後，不新設全市場每日重訓 |
-| data-quality／ingestion-core | 每週六 12:30，與公開 ingestion／Mart 互斥 | 每次 ingestion 已驗的 key／型別／來源不重複做全歷史掃描；週品質集中 coverage≤10%、缺口、schema drift，bounded 補漏 |
+| data-quality／ingestion-core | 每週六 12:30，與公開 ingestion／Mart 互斥 | 每次 ingestion 已驗的 key／型別／來源不重複做全歷史掃描；週品質集中上市 coverage≤10%、上櫃≤30%、缺口、schema drift，bounded 補漏 |
 | private／private-pipeline | 平日 21:30，依當日最近 ingestion | 改成 EOD-ready 估值＋異動 owner queue；晚間僅補償。與即時手動重算去重，不重複全 owner 全帳本掃描 |
 | mobile-ledger／private-pipeline | 每小時 :30，僅 pending 才啟動；與 private 同 slot 去重 | 正常 User App 入帳同步投影；此路僅離線 queue 恢復。現 entrypoint drain 後會進入一般 pipeline，需拆明 operation，避免每次 drain 都重估所有 owner；MCP 維持唯讀 |
 | mart-cleanup／intelligence-mart | 每日 23:30，依 ingestion，三 worker 互斥 | 保留先 Mart 再 Core 的 retention dependency；同一 maintenance window，先 inventory／reference fence 再 apply，沒有可刪除項就 skip |
@@ -73,7 +75,7 @@
 
 ## 完成門檻與尚未查證
 
-盤點文件完成不等於 runtime 收斂完成。後續需同版本測試、migration、總控與 worker readback、所有定時入口唯一性、無雙重派送、關鍵快照新鮮度、全市場分市場≤10% coverage、交易／試算與首屏 P50/P95，最後才結案。
+盤點文件完成不等於 runtime 收斂完成。後續需同版本測試、migration、總控與 worker readback、所有定時入口唯一性、無雙重派送、關鍵快照新鮮度、全市場上市≤10%／上櫃≤30% coverage、交易／試算與首屏 P50/P95，最後才結案。
 
 本次未逐一讀 117 份完整程式，也未讀 VM timer live、其他 project／region Scheduler、DB 所有 occurrence、每支 worker 原始 log 或歷史研究資料；清冊涵蓋 repo workflow 觸發面與既有 dev 主區 metadata，這些未知項不能標成已停用／已安全。上述缺口在正式切換前以最小唯讀查核補齊，不新增另一套自動巡檢服務。
 
