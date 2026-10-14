@@ -6,6 +6,16 @@
 
 `ingestion` 由同一總控在 07:30 與 14:30 產生 occurrence；14:30 不建立第二支 Scheduler／Job，而是對既有 `janus-ingestion-core` 做 execution-level override，將 `INGESTION_DATE` 固定為該台北日期，且只收斂盤後價格／指數所需的 `twse-market-volume,tpex-market-volume,taiex`（TPEx 新需求，實際映像尚須驗證）。全上市櫃個股皆納入，首頁仍只用 TAIEX benchmark。07:30 維持原本完整 ingestion 契約。21:30 Private Pipeline 與晚間 retention 依賴同日最新的 14:30 ingestion occurrence。
 
+### 23:30 夜間 Iceberg 壓縮（獨立 FinOps 事件）
+
+2026-10-15 起的目標程式契約：每日 **23:30 Asia/Taipei** 由既有每小時 `:30` 喚醒的 `janus-batch-controller` 建立 `iceberg-compaction/YYYY-MM-DD/23` occurrence；沿用**現有** `janus-ingestion-core` Cloud Run Job，以 execution-level overrides 執行 `ICEBERG_MAINTENANCE_MODE=compact-apply`，不增開 Cloud Scheduler／Job，也不依賴 GitHub Actions 執行業務。
+
+相依順序改為：**14:30 ingestion 成功 → iceberg-compaction → mart-cleanup → core-cleanup**。三項夜間工作維持同一個 23:30 邏輯時段，但因總控每小時喚醒且不得併發，後兩項的實際派送可能跨到翌日 00:30／01:30 或更晚；故 23:30 表示 **due 時段，不保證每支 Job 23:30 真正啟動**。compaction 在 ingestion 尚未成功、worker 忙碌、前一輪未終態或權限/資料異常時留 pending；不跳過依賴、不盲目重試 ambiguous dispatch。這是既有資料維護路徑，不計入產品 TODO／WBS。
+
+`compact-apply` 會按月／年分區重寫可合併的有效 Parquet，驗證 row count 與舊 snapshot 可讀；**不代表同時刪除所有歷史 snapshot／孤兒檔，也不保證 GCS 課金立即下降**。既有 `core-cleanup` 的 retention 及引用保護仍獨立運作；本次不把「刪除全部舊 snapshot」變成每日無條件執行的破壞性 cron。Release 必須遵守完整 SHA CI／GHCR Jobs rollout gate，並從 GCP readback 真實 scheduler、controller／worker image、occurrence 及 Cloud Run execution；僅 GitHub commit 不代表 schedule 已生效。
+
+GitHub 原本直派 `Maintain dev Core Iceberg` workflow、`ops/iceberg-maintenance-mode` 與 operations audit workflow 在本變更移除；保留 `iceberg-compaction-ci.yml` **純測試**。原有 GitHub run 歷史與獨立 FinOps Issue #2 保留作稽核。
+
 總控使用 PostgreSQL advisory lock `(1835102836,3)`，同時間只有一支能決策。`control.batch_occurrences` 以批次、日期、排程時段唯一識別，先提交派送意圖才呼叫 Cloud Run。執行中與派送結果不明的紀錄持續阻擋相同 Job；Cloud Run 查詢失敗不解除阻擋。結果不明須人工核對 execution，不自動重新派送。
 
 `control.batch_event_outbox` 與狀態更新同一 transaction 提交；使用穩定 event ID 寫入 `ops.batch_events_v1`，讀回 payload 核對後才確認已輸出。Iceberg 不可用時 outbox 保留。歷史紀錄供後續 Admin UI 查詢，只有安全狀態、依賴與 execution 參照，不保存 secret 或原始私人 log。Cloud Run 成功不代表資料完整，應用的 partial／coverage 判定仍有效。

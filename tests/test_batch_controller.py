@@ -245,8 +245,35 @@ def test_mart_retention_precedes_core_retention_on_weekdays_and_weekends():
     for day in (2, 3):
         due = {batch.name: dependencies for _, batch, _, dependencies in
                due_batches(datetime(2026, 10, day, 15, 45, tzinfo=timezone.utc))}
-        assert due["mart-cleanup"] == [f"ingestion/2026-10-{day:02d}/14"]
+        assert due["iceberg-compaction"] == [f"ingestion/2026-10-{day:02d}/14"]
+        assert due["mart-cleanup"] == [f"iceberg-compaction/2026-10-{day:02d}/23"]
         assert due["core-cleanup"] == [f"mart-cleanup/2026-10-{day:02d}/23"]
+
+
+def test_nightly_compaction_reuses_ingestion_job_with_isolated_execution_overrides():
+    from ingestion_core.batch_controller import BATCHES
+    batches = {batch.name: batch for batch in BATCHES}
+    compaction = batches["iceberg-compaction"]
+    assert compaction.job == "janus-ingestion-core"
+    assert compaction.hours == (23,) and compaction.minute == 30
+    assert compaction.dependencies == ("ingestion",)
+    assert set(compaction.exclusive_jobs) == {
+        "janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline"
+    }
+    overrides = dict(occurrence_env(compaction, datetime(2026, 10, 15, 23, 30, tzinfo=timezone.utc)))
+    assert overrides["ICEBERG_MAINTENANCE_MODE"] == "compact-apply"
+    assert overrides["QUEUE_CONSUMER"] == "false"
+    assert overrides["MART_JOB"] == ""
+    assert overrides["JANUS_DATA_SUPPLEMENT_MODE"] == ""
+    assert overrides["JANUS_CONTROL_MIGRATION"] == ""
+    assert overrides["JANUS_SERVING_SCHEMA_MIGRATION"] == ""
+    assert "ICEBERG_MAINTENANCE_MODE" not in dict(batches["core-cleanup"].env) or dict(batches["core-cleanup"].env)["ICEBERG_MAINTENANCE_MODE"] == "retention-apply"
+    before = datetime(2026, 10, 15, 15, 29, tzinfo=timezone.utc)  # 23:29 Taipei
+    due = datetime(2026, 10, 15, 15, 30, tzinfo=timezone.utc)  # 23:30 Taipei
+    assert not any(row[1].name == "iceberg-compaction" for row in due_batches(before))
+    assert [key for key, batch, _, _ in due_batches(due) if batch.name == "iceberg-compaction"] == [
+        "iceberg-compaction/2026-10-15/23"
+    ]
 
 
 def test_old_pending_core_cleanup_waits_for_new_mart_dependency(monkeypatch):

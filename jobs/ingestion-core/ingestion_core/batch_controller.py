@@ -50,10 +50,17 @@ BATCHES = (
     Batch("private", "janus-private-pipeline", (15, 21), tuple(range(5)), ("ingestion",)),
     Batch("mobile-ledger", "janus-private-pipeline", tuple(range(24)),
           env=(("MOBILE_LEDGER_ONLY", "true"),), catch_up=False),
+    # This is an execution override of the existing ingestion Job, not another Scheduler or Cloud Run Job.
+    # Serial ordering avoids compaction racing with Mart/Core retention at the same 23:30 slot.
+    Batch("iceberg-compaction", "janus-ingestion-core", (23,), dependencies=("ingestion",),
+          env=(("ICEBERG_MAINTENANCE_MODE", "compact-apply"), ("QUEUE_CONSUMER", "false"),
+               ("MART_JOB", ""), ("JANUS_DATA_SUPPLEMENT_MODE", ""), ("JANUS_CONTROL_MIGRATION", ""),
+               ("JANUS_SERVING_SCHEMA_MIGRATION", "")),
+          exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline")),
     Batch("core-cleanup", "janus-ingestion-core", (23,), dependencies=("mart-cleanup",),
           env=(("ICEBERG_MAINTENANCE_MODE", "retention-apply"), ("QUEUE_CONSUMER", "false"), ("MART_JOB", "")),
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline")),
-    Batch("mart-cleanup", "janus-intelligence-mart", (23,), dependencies=("ingestion",),
+    Batch("mart-cleanup", "janus-intelligence-mart", (23,), dependencies=("iceberg-compaction",),
           env=(("MART_OPERATION", "retention"), ("MART_RETENTION_MODE", "apply"), ("MART_AI_ENABLED", "false")),
           exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart", "janus-private-pipeline")),
 )

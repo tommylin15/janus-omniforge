@@ -6,6 +6,9 @@
 
 盤點：2026-10-13；本輪依使用者要求 **只更新文件後停止**。下列「目標」尚未實作／切換。以 [全市場與總控契約](spec/full-market-batch-policy.md) 為後續開發依據。
 
+
+> **2026-10-15 Iceberg FinOps 獨立維護補充（不改本文件 10/13 盤點基線）**：預定在既有 23:30 邏輯時段新增 `iceberg-compaction`，以 `janus-ingestion-core` 的 `compact-apply` 模式合併有效 Parquet，並將夜間依賴改為 ingestion → compaction → mart-cleanup → core-cleanup。排程仍只有既有每小時 :30 GCP Scheduler；實際後兩項可能跨小時。此為獨立 [FinOps Issue #2](https://github.com/tommylin15/janus-omniforge/issues/2) 工程變更，不改產品進度；未經最新 GCP deployment／readback 不能稱已啟用。GitHub 執行業務維護入口遷出，保留純 CI 測試。
+
 ## 已查證範圍與實際狀態
 
 - 本機 `.github/workflows` 共 117 份 workflow，GitHub API 查到同數且皆 `active`；**active 是可觸發，不表示正在執行**。只有兩份有 `schedule`：研究延伸、私人備份清理。逐份入口清冊見文末。
