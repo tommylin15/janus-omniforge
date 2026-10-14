@@ -1,0 +1,7 @@
+{
+  "intent": "read-failed-market-immutable-inventory",
+  "failed_run": "38559419684",
+  "no_permanent_mutation": true,
+  "one_execution_only": true,
+  "reason": "User approved 01-05 Janus dev closure; exact bootstrap #38559419684 terminal FAILED. With old owned lease retained, one read-only Cloud Run Job override SELECTs control execution statuses and GETs immutable GCS inventory from existing ingestion identity, publishes only public market/dataset counts and redacted error classifications. No market refresh, no ledger, no lease release, no API traffic update."
+}
