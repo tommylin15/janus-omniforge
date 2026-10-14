@@ -81,6 +81,17 @@ jobs:
             verified="$(gh run view "$run" --json status,conclusion,workflowName)"
             jq -e '.status=="completed" and .conclusion=="success" and
               .workflowName=="Janus bounded full-market business acceptance"' <<< "$verified" >/dev/null
+            mkdir -p /tmp/verified-bootstrap
+            gh run download "$run" --name full-market-business-acceptance --dir /tmp/verified-bootstrap
+            receipt=/tmp/verified-bootstrap/full-market-acceptance.json
+            test -s "$receipt"
+            jq -e --arg sha "$target_sha" '
+                .source_sha==$sha and .phase=="bootstrap" and .status=="PASS" and
+                .business.status=="PASS" and .business.phase=="bootstrap" and
+                .business.members==1988 and
+                (.business.inventory_hash|test("^sha256:[0-9a-f]{64}$")) and
+                (.business.date|type=="string" and test("^20[0-9]{2}-[0-9]{2}-[0-9]{2}$"))' "$receipt" >/dev/null
+            echo "JANUS_BOOTSTRAP_DATE=$(jq -r '.business.date' "$receipt")" >> "$GITHUB_ENV"
           fi
           {
             echo "RELEASE_RUN=$(jq -r '.release_run' "$file")"
