@@ -51,7 +51,10 @@ def test_bootstrap_and_cache_requests_only_override_one_execution_and_never_trig
     assert env(bootstrap)['FORCE_REFRESH'] == 'true'
     assert env(cached)['FORCE_REFRESH'] == 'false'
     assert env(bootstrap)['MART_JOB'] == ''
-    assert env(bootstrap)['INGESTION_DATE'] == env(cached)['INGESTION_DATE'] == ''
+    assert env(bootstrap)['INGESTION_DATE'] == ''
+    assert env(cached)['INGESTION_DATE'] == '2026-10-14'
+    assert env(cached)['JANUS_ACCEPTANCE_TARGET_DAY'] == '2026-10-14'
+    assert env(bootstrap)['JANUS_ACCEPTANCE_TARGET_DAY'] == ''
     assert not {'cpu','memory','serviceAccount'} & set(bootstrap['overrides'])
     with pytest.raises(ValueError): payload(source,'historical','2026-10-14')
 
@@ -76,3 +79,13 @@ def test_one_shot_full_market_workflow_preserves_dispatch_and_no_schedule():
     assert "schedule:" not in workflow
     source = (Path(__file__).parents[1] / 'scripts/gcp/full_market_dev_acceptance.py').read_text()
     assert "rollout.LEASE + ['release', '--safe-to-release']" in source
+
+
+def test_cached_business_enforces_same_as_of_day_and_no_stage_recollection():
+    assert "result['as_of']==os.environ['JANUS_ACCEPTANCE_TARGET_DAY']" in CODE
+    assert "result['staged']==0 and all(r['cache_hit'] for r in receipts)" in CODE
+    source = (Path(__file__).parents[1] / 'scripts/gcp/full_market_dev_acceptance.py').read_text()
+    assert "os.environ.get('JANUS_BOOTSTRAP_DATE', '') if phase == 'cached'" in source
+    wf = (Path(__file__).parents[1] / '.github/workflows/full-market-dev-acceptance.yml').read_text()
+    assert "full-market-business-acceptance" in wf
+    assert "JANUS_BOOTSTRAP_DATE" in wf
