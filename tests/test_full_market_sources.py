@@ -29,6 +29,30 @@ def test_day_trading_ignores_market_summary_and_preserves_per_stock_zero():
     assert rows[0]['value'] == '0' and rows[0]['unit'] == 'shares'
 
 
+def test_tpex_institutional_uses_requested_day_and_preserves_duplicate_column_groups():
+    import json
+    import pytest
+    from ingestion_core.first_batch import dataset_adapters, normalise_tpex_institutional
+    from ingestion_core.adapters import CollectionRequest
+    cells = ['6488', '環球晶'] + [str(i) for i in range(2, 24)]
+    fields = ['代號', '名稱'] + ['買進股數', '賣出股數', '買賣超股數'] * 7 + ['合計']
+    document = {'date': '20261013', 'tables': [{'fields': fields, 'data': [cells]}, {}]}
+    urls = []
+    def transport(url):
+        urls.append(url)
+        return json.dumps(document).encode()
+    adapter = dataset_adapters(transport)['tpex-institutional']
+    request = CollectionRequest('test', 'test', 'tpex', 'institutional', 'TPEX',
+                                ('6488',), None, date(2026, 10, 13), 30)
+    rows = adapter.fetch(request).rows
+    assert 'date=2026%2F10%2F13' in urls[0]
+    assert [(r['investor_type'], r['buy_shares'], r['sell_shares'], r['net_shares']) for r in rows] == [
+        ('foreign', '2', '3', '4'), ('investment_trust', '11', '12', '13'), ('dealer', '20', '21', '22')]
+    assert all(r['trade_date'] == '2026-10-13' and r['market'] == 'TPEX' for r in rows)
+    with pytest.raises(ValueError):
+        normalise_tpex_institutional([{'代號': '6488', 'Date': '20261013', '_cells': cells[:-1]}])
+
+
 def test_eps_chart_only_accepts_verified_single_quarter_and_preserves_loss():
     common = {'source_id': 'mops', 'provenance_id': 'official', 'unit': 'TWD_per_share',
               'period_basis': 'single_quarter', 'metric': 'eps_single_quarter'}

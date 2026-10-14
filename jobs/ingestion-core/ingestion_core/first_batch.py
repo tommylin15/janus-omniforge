@@ -139,10 +139,24 @@ def normalise_tpex_institutional(rows: Iterable[Mapping[str, Any]]) -> tuple[dic
          "SecuritiesInvestmentTrustCompanies-TotalSell", "SecuritiesInvestmentTrustCompanies-Difference"),
         ("dealer", "Dealers-TotalBuy", "Dealers-TotalSell", "Dealers-Difference"),
     )
+    official_rows = []
+    for row in rows:
+        if "_cells" in row:
+            if "代號" not in row:
+                continue
+            cells = row["_cells"]
+            if len(cells) != 24:
+                raise ValueError("official TPEx institutional columns changed")
+            # Duplicate column names require the official positional groups.
+            row = {"SecuritiesCompanyCode": cells[0], "Date": row["Date"],
+                   **{field: cells[offset + index]
+                      for (_, *fields), offset in zip(groups, (2, 11, 20), strict=True)
+                      for index, field in enumerate(fields)}}
+        official_rows.append(row)
     return normalise_institutional(
         {"symbol": row["SecuritiesCompanyCode"], "market": "TPEX", "date": row["Date"],
          "investor_type": investor, "buy_shares": row[buy], "sell_shares": row[sell], "net_shares": row[net]}
-        for row in rows for investor, buy, sell, net in groups
+        for row in official_rows for investor, buy, sell, net in groups
     )
 
 
@@ -549,8 +563,10 @@ def dataset_adapters(transport: Callable[[str], bytes] | None = None) -> dict[st
         "tpex-valuation": JsonDatasetAdapter("tpex", "valuation", "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_peratio_analysis",
                                             lambda rows: normalise_valuation(rows, market="TPEX"), transport,
                                             max_replay_age_days=7, row_date_field="observed_date", market="TPEX"),
-        "tpex-institutional": JsonDatasetAdapter("tpex", "institutional", "https://www.tpex.org.tw/openapi/v1/tpex_3insti_daily_trading",
+        "tpex-institutional": JsonDatasetAdapter("tpex", "institutional", "https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade",
                                                 normalise_tpex_institutional, transport,
+                                                lambda request: 'https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade?' + urlencode({
+                                                    'type': 'Daily', 'date': request.window_end.strftime('%Y/%m/%d'), 'response': 'json'}),
                                                 max_replay_age_days=7, row_date_field="trade_date", market="TPEX"),
         "tpex-financing": JsonDatasetAdapter("tpex", "financing", "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_margin_balance",
                                               normalise_tpex_financing, transport, max_replay_age_days=7,

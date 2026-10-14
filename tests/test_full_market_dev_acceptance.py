@@ -40,5 +40,6 @@ def test_bootstrap_and_cache_requests_only_override_one_execution_and_never_trig
     assert env(bootstrap)['FORCE_REFRESH'] == 'true'
     assert env(cached)['FORCE_REFRESH'] == 'false'
     assert env(bootstrap)['MART_JOB'] == ''
+    assert env(bootstrap)['INGESTION_DATE'] == env(cached)['INGESTION_DATE'] == ''
     assert not {'cpu','memory','serviceAccount'} & set(bootstrap['overrides'])
     with pytest.raises(ValueError): payload(source,'historical','2026-10-14')

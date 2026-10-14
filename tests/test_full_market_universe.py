@@ -88,3 +88,40 @@ def test_full_market_ready_scope_is_readable_by_public_report_api(monkeypatch):
     assert re.fullmatch(r'[\w.:-]{1,80}', scope['id'])
     assert scope['symbols'] == list(symbols)
     assert event['analysisAsOf'] == '2026-10-14'
+
+
+def test_collection_reports_missing_financials_against_each_fixed_market_roster(monkeypatch):
+    import json
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+    from ingestion_core import __main__ as entry
+    from ingestion_core.adapters import SourceResponse
+    control = MagicMock()
+    control.get_collection_config.return_value = SimpleNamespace(source_ids=('twse',))
+    control.config_symbols.return_value = ('2330', '6488', '6147')
+    control.enabled_stock_symbols.return_value = ('2330', '6488', '6147')
+    control.portfolio_coverage_symbols.return_value = ()
+    control.get_admin_setting.return_value = None
+    control.full_market_snapshot.return_value = {'status': 'available', 'version': 1,
+        'items': [{'symbol': '2330', 'market': 'TWSE'}, {'symbol': '6488', 'market': 'TPEX'},
+                  {'symbol': '6147', 'market': 'TPEX'}]}
+    inventory = {}
+    class Store:
+        def __init__(self, bucket): pass
+        def create(self, name, payload, media_type):
+            inventory.update(json.loads(payload))
+            return True
+    monkeypatch.setattr(entry, 'GcsObjectStore', Store)
+    monkeypatch.setattr(entry, '_iceberg_core', lambda _: MagicMock())
+    monkeypatch.setattr(entry, 'dataset_adapters', lambda: {'twse-events':
+        SimpleNamespace(source_id='twse', dataset_id='events', market='TWSE')})
+    monkeypatch.setattr(entry, '_fetch_source', lambda *_: SourceResponse())
+    for key, value in {'STAGE_BUCKET':'stage', 'CORE_BUCKET':'core', 'INGESTION_DATE':'2026-10-13',
+        'INGESTION_DATASETS':'twse-events', 'FORCE_REFRESH':'true', 'STAGE_EXECUTION_SCOPED':'false',
+        'STOCK_SERVING_PROJECTION_ENABLED':'false'}.items():
+        monkeypatch.setenv(key, value)
+    result = entry.collect_stage(control=control)
+    financials = [r for r in inventory['items'] if r['dataset'] == 'financials']
+    assert {(r['market'], r['expected_count'], r['missing_count']) for r in financials} == {
+        ('TWSE', 1, 1), ('TPEX', 2, 2)}
+    assert result['coverage_status'] == 'partial' and not inventory['coverage_accepted']

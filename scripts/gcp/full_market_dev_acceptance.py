@@ -71,7 +71,7 @@ def payload(source, phase, day):
     override = {'args': ([] if container.get('command') else ['python']) + ['-c', CODE],
                 'env': [{'name': k, 'value': v} for k,v in {
                     'FORCE_REFRESH': 'true' if phase == 'bootstrap' else 'false',
-                    'INGESTION_DATE': day, 'BACKFILL_START_DATE': '', 'BACKFILL_END_DATE': '',
+                    'INGESTION_DATE': '', 'BACKFILL_START_DATE': '', 'BACKFILL_END_DATE': '',
                     'INGESTION_DATASETS': '', 'MART_JOB': '', 'QUEUE_CONSUMER': 'false',
                     'JANUS_FULL_MARKET_ACCEPTANCE_PHASE': phase,
                 }.items()]}

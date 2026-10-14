@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 29,
-  "reason": "2026-10-14 authorized full-market/controller/holdings-transaction/chart delivery: full Python, isolated PostgreSQL and Flutter gates before four exact-SHA public images. Runtime rollout is separately gated; no CEO or model call.",
+  "attempt": 30,
+  "reason": "Full-market real bootstrap #38537012683 failed: premature current-day request and duplicate ALL financial gate. Correct to canonical last completed trading day; separate TWSE/TPEX financial coverage; date-addressable official TPEx institutional source with verified duplicate-column groups. Targeted regression 54 PASS and real 2026-10-13 institutional readback 895 symbols. Full exact-SHA tests, isolated PostgreSQL, Flutter and four immutable public images required before runtime updates; no CEO/model work or traffic promotion.",
   "expected_runtime_changes": false,
   "ceo_gateway_pilot": false
 }
