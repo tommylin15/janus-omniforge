@@ -1,6 +1,6 @@
 # Janus 文件入口
 
-**最新執行狀態：**2026-10-14 使用者要求暫停並將本輪與另一 AI 進度同步 GitHub。全市場／總控／持股／四頁工作包 PAUSED／PARTIAL；恢復入口與完整證據見 [暫停 checkpoint](archive/full-market-pause-2026-10-14.md)／[status](status.md)。新版完整 CI、全市場與快取、057、畫面與保存效能仍未全部驗收。
+**最新執行狀態：**2026-10-14 分市場 coverage 門檻程式／規格更新，但暫停部署及批次驗收仍有效；使用者先前要求暫停並將本輪與另一 AI 進度同步 GitHub。全市場／總控／持股／四頁工作包 PAUSED／PARTIAL；恢復入口與完整證據見 [暫停 checkpoint](archive/full-market-pause-2026-10-14.md)／[status](status.md)。新版完整 CI、全市場與快取、057、畫面與保存效能仍未全部驗收。
 
 更新：2026-10-13
 
@@ -8,7 +8,7 @@
 
 **目前優先順序：持股報價／交易損益與效能 → 個股通用圖表／四頁整合 → 五分析師有效後的分析報告。** 原 P0 暫停已被後續恢復指示取代；歷史交接只作證據。
 
-市場／screening／研究／搜尋範圍已決定擴為全上市櫃個股，資料缺失率 ≤10% 通過；[全市場及總控契約](spec/full-market-batch-policy.md)／[批次完整盤點](batch-inventory-2026-10-13.md)。本輪只更新文件後停止，runtime 尚未切換。
+市場／screening／研究／搜尋範圍已決定擴為全上市櫃個股，上市缺失率 ≤10%、上櫃 ≤30% 分市場通過（2026-10-14 新決策）；[全市場及總控契約](spec/full-market-batch-policy.md)／[批次完整盤點](batch-inventory-2026-10-13.md)。本輪只更新文件後停止，runtime 尚未切換。
 
 接手依序看 [TODO](todo.md)、[最新狀態](status.md)、[AI 開發指示](codex-execution-plan.md)。需求見 [持股優先契約](spec/holdings-first.md)，本次文件問題與處理見 [文件盤點](documentation-review-2026-10-13.md)。功能仍 PARTIAL，文件更新不代表已驗收。
 
