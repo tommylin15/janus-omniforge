@@ -116,6 +116,25 @@ class DuckDBIcebergTests(unittest.TestCase):
             ({"symbol": "2330", "pe_ratio": "20"},),
         )
 
+    def test_same_schema_incremental_write_skips_schema_metadata_transaction(self):
+        common = dict(dataset_id="valuation", provenance_id="prov", source_id="twse",
+                      partition_date=date(2026, 8, 25))
+        first = self.core.write(
+            rows=[{"symbol": "2330", "market": "TWSE", "observed_date": "2026-08-25", "pe_ratio": "20"}],
+            execution_id="exec-1", **common,
+        )
+        table = self.catalog.load_table(first.table_identifier)
+        with patch.object(type(table), "update_schema",
+                          side_effect=AssertionError("unchanged schema must not be committed")):
+            second = self.core.write(
+                rows=[{"symbol": "2317", "market": "TWSE", "observed_date": "2026-08-25", "pe_ratio": "17"}],
+                execution_id="exec-2", **common,
+            )
+        self.assertEqual((second.inserted, second.row_count), (1, 2))
+        self.assertEqual(
+            len(self.catalog.load_table(second.table_identifier).scan().to_arrow().to_pylist()), 2
+        )
+
     def test_content_change_creates_update_snapshot(self):
         common = dict(dataset_id="benchmark", execution_id="exec-1", provenance_id="prov", source_id="taiex",
                       partition_date=date(2026, 8, 25))
