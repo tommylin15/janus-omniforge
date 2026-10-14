@@ -5,6 +5,11 @@
 - **GitHub Workflows 大刀闊斧收斂與歸檔：PASS**：原 117 份工作流完成系統化治理，89 份歷史探測、前置診斷、前 500 母體研究排程安全移入 `.github/workflows/archive/`，並建立 [`archive/README.md`](.github/workflows/archive/README.md) 索引清冊。目前保留 28 份核心 Workflows，對齊四大核心管線（PR/Commit CI、核心 Release/Deployment、備份清理 Cron、受控手動運維），消除非預期定時排程。
 - **統一代碼庫與基礎設施診斷工具：PASS**：新增 [`ops/diagnose.py`](ops/diagnose.py)，整合工作流治理、資料庫 Migration 水位、全市場／持股快照健康度及 CEO Gateway 配置檢測；本地實測全數 PASS（Commit `318f950`）。
 - **P0 優先工作包（全市場官方報價、持股損益即時試算、首屏效能）**：
+  - **首屏寫入時預聚合（Write-time Aggregation）與快照投影：PASS**：全面實作首頁市場快照單一主鍵極速讀取（<5ms），徹底消除 19～28 秒冷啟動延遲。
+    - 資料庫層：新增 Migration [`057_home_market_snapshot.sql`](infra/postgres/migrations/057_home_market_snapshot.sql)，建立 `control.home_market_snapshot` 單列儲存表與 `publication.home_market_snapshot` security-barrier 視圖，支援 `janus_public_api` 讀取。
+    - 生成層：於 `StockServingProjection` 實作 `materialize_home_market_snapshot`，批次完成時自動寫入預聚合之 TAIEX 30 點趨勢與市場活動／法人數據。
+    - 讀取層：於 `packages/web_api/core.py` 及 `services/api/public_runtime.py` 貫徹 Fast Path 主鍵讀取（`SELECT payload_json WHERE snapshot_id = 1`），保留未命中時平滑降級。
+    - 測試驗收：新增專屬單元測試 `tests/test_home_market_snapshot.py`（3 PASS），關聯市場與 Serving 回歸測試（31 PASS）全數綠燈。
   - 後端 Python 回歸：全市場名冊與 Serving 測試 23 PASS；持股 TPEx、重算隊列與 Daily Change 19 PASS（合計 42 PASS）。
   - 前端 Flutter 測試：`apps/user_app` 執行 `flutter test`，90 tests 全數 PASS。
   - 下一階段：待新版本整體 dev 部署後，進一步執行 Cloud Run 候選、0% candidate、四 Jobs canary 與真實 Owner 端到端截圖及冷讀取效能驗收。

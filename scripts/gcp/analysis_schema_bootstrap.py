@@ -47,7 +47,7 @@ finally:
 
 
 def payload(source, sql, migration='051_analysis_product'):
-    if migration not in {'051_analysis_product', '052_ceo_daily_quota_50', '054_market_serving', '055_full_market_universe', '056_controller_ledger_backup'}:
+    if migration not in {'051_analysis_product', '052_ceo_daily_quota_50', '054_market_serving', '055_full_market_universe', '056_controller_ledger_backup', '057_home_market_snapshot'}:
         raise ValueError('migration not approved for bootstrap')
     container = source['template']['template']['containers'][0]
     if container.get('command') not in (None, [], ['python']):
@@ -66,7 +66,7 @@ def main():
     from ghcr_jobs_rollout import cloud, fence, job, terminal, ROOT
     parser = argparse.ArgumentParser()
     parser.add_argument('--receipt', type=Path, required=True)
-    parser.add_argument('--migration', choices=('051_analysis_product', '052_ceo_daily_quota_50', '054_market_serving', '055_full_market_universe', '056_controller_ledger_backup'),
+    parser.add_argument('--migration', choices=('051_analysis_product', '052_ceo_daily_quota_50', '054_market_serving', '055_full_market_universe', '056_controller_ledger_backup', '057_home_market_snapshot'),
                         default='051_analysis_product')
     args = parser.parse_args()
     source = job('janus-ingestion-core')

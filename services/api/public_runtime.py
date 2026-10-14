@@ -220,8 +220,37 @@ def build_core_service() -> CoreQueryService:
         with lock:
             return serving_rows(identifier, (symbol, limit, 0))
 
+    def serving_home_market_snapshot() -> dict[str, Any] | None:
+        # Write-time aggregation projection; reads single pre-aggregated row by PK in <5ms.
+        nonlocal serving_connection
+        for attempt in range(2):
+            try:
+                serving_connection = serving_connection or connect_serving()
+                with serving_connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT payload_json FROM publication.home_market_snapshot WHERE snapshot_id = 1"
+                    )
+                    row = cursor.fetchone()
+                    if row and row[0]:
+                        val = row[0]
+                        return val if isinstance(val, dict) else json.loads(val)
+                return None
+            except Exception as error:
+                disconnected = bool(getattr(serving_connection, "closed", False)) or str(
+                    getattr(error, "sqlstate", "")).startswith("08")
+                if serving_connection is not None:
+                    try:
+                        serving_connection.close()
+                    except Exception:
+                        pass
+                    serving_connection = None
+                if attempt or not disconnected:
+                    return None
+        return None
+
     return CoreQueryService(query, max_limit=int(os.environ.get("WEB_QUERY_MAX_ROWS", "200")),
-                            serving_series=serving_series)
+                            serving_series=serving_series,
+                            serving_home_market_snapshot=serving_home_market_snapshot)
 
 
 def build_public_service() -> PublicMartService:

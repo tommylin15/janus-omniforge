@@ -102,6 +102,144 @@ class StockServingProjection:
                 )
         return len(prepared)
 
+    def materialize_home_market_snapshot(self, as_of_date: date | None = None) -> dict[str, Any]:
+        """Write-time aggregation for /market-home; builds home_market_snapshot row in control."""
+        today = as_of_date or datetime.now(timezone(timedelta(hours=8))).date()
+        sections: dict[str, dict[str, Any]] = {}
+
+        with self.connection_factory() as connection:
+            with connection.transaction(), connection.cursor() as cursor:
+                # 1. Benchmark TAIEX
+                cursor.execute(
+                    """SELECT payload_json FROM control.market_serving_recent
+                       WHERE dataset_id = 'benchmark' AND symbol = 'TAIEX'
+                       ORDER BY sort_at DESC LIMIT 40"""
+                )
+                rows = cursor.fetchall()
+                benchmarks = [r[0] if isinstance(r[0], dict) else json.loads(r[0]) for r in rows] if rows else []
+
+                history_by_day: dict[str, dict[str, str]] = {}
+                latest_readable = None
+                for candidate in benchmarks:
+                    day = str(candidate.get("trade_date") or "")[:10]
+                    try:
+                        trade_day = date.fromisoformat(day)
+                        val = float(str(candidate.get("close")))
+                    except (ValueError, TypeError):
+                        continue
+                    if trade_day > today or val <= 0:
+                        continue
+                    if latest_readable is None:
+                        latest_readable = candidate
+                    source = str(candidate.get("source_id") or "").strip()
+                    provenance = str(candidate.get("provenance_id") or "").strip()
+                    if not source or not provenance or day in history_by_day:
+                        continue
+                    history_by_day[day] = {
+                        "date": day, "value": str(val),
+                        "source_id": source, "provenance_id": provenance,
+                    }
+                history = sorted(history_by_day.values(), key=lambda item: item["date"])[-30:]
+
+                as_of_taiex = str(latest_readable.get("trade_date")) if latest_readable and latest_readable.get("trade_date") else None
+                age_taiex = (today - date.fromisoformat(as_of_taiex)).days if as_of_taiex else None
+                taiex_section = {
+                    "status": "available" if latest_readable and age_taiex is not None and age_taiex <= 7 else "missing",
+                    "as_of": as_of_taiex,
+                    "freshness_days": age_taiex,
+                    "row_count": 1 if latest_readable else 0,
+                    "coverage": {"requested_symbols": 1, "received_symbols": 1 if latest_readable else 0},
+                    "provenance": {
+                        "source_id": str(latest_readable.get("source_id") or "") if latest_readable else "",
+                        "provenance_id": str(latest_readable.get("provenance_id") or "") if latest_readable else "",
+                        "execution_id": str(latest_readable.get("execution_id") or "") if latest_readable else "",
+                    },
+                    "data": {
+                        "benchmark_id": "TAIEX",
+                        "close": latest_readable.get("close") if latest_readable else None,
+                        "history_points": history,
+                        "history_unit": "index_points",
+                        "history_as_of": history[-1]["date"] if history else None,
+                        "history_status": "available" if len(history) >= 2 else "missing",
+                        "history_source_ids": sorted({p["source_id"] for p in history}),
+                    }
+                }
+                sections["taiex"] = taiex_section
+
+                # 2. Market Activity & Institutional Write-time Aggregations
+                for dataset in ("market-activity", "institutional"):
+                    fields = ({"day_trade_shares": "day_trade_shares", "day_trade_buy_twd": "day_trade_buy_twd",
+                               "day_trade_sell_twd": "day_trade_sell_twd"} if dataset == "market-activity" else
+                              {"foreign_net_shares": "foreign", "investment_trust_net_shares": "investment_trust",
+                               "dealer_net_shares": "dealer"})
+                    category, value = ("metric", "value") if dataset == "market-activity" else ("investor_type", "net_shares")
+                    aggregates = ",".join(
+                        f"sum((payload_json->>'{value}')::numeric) FILTER (WHERE payload_json->>'{category}'='{kind}') AS {alias}"
+                        for alias, kind in fields.items())
+                    cursor.execute(
+                        f"""SELECT payload_json->>'trade_date' AS trade_date, count(*) AS row_count,
+                                   count(DISTINCT symbol) AS covered_symbols, array_agg(DISTINCT source_id) AS source_ids,
+                                   array_agg(DISTINCT provenance_id) AS provenance_ids, array_agg(DISTINCT execution_id::text) AS execution_ids,
+                                   {aggregates}
+                            FROM control.market_serving_recent
+                            WHERE dataset_id=%s AND sort_at=(SELECT max(sort_at) FROM control.market_serving_recent WHERE dataset_id=%s)
+                            GROUP BY payload_json->>'trade_date'""",
+                        (dataset, dataset)
+                    )
+                    row = cursor.fetchone()
+                    if row:
+                        names = [col.name for col in cursor.description]
+                        row_dict = dict(zip(names, row))
+                        as_of_sec = str(row_dict.get("trade_date") or "")
+                        age_sec = (today - date.fromisoformat(as_of_sec)).days if as_of_sec else None
+                        data_fields = ("day_trade_shares", "day_trade_buy_twd", "day_trade_sell_twd") if dataset == "market-activity" else (
+                            "foreign_net_shares", "investment_trust_net_shares", "dealer_net_shares")
+                        data_vals = {k: float(row_dict[k]) if row_dict.get(k) is not None else None for k in data_fields}
+                        sections[dataset] = {
+                            "status": "available" if age_sec is not None and age_sec <= 7 else "missing",
+                            "as_of": as_of_sec or None,
+                            "freshness_days": age_sec,
+                            "row_count": int(row_dict.get("row_count") or 0),
+                            "coverage": {"received_symbols": int(row_dict.get("covered_symbols") or 0), "expected_symbols": None},
+                            "provenance": {
+                                "source_ids": [str(s) for s in (row_dict.get("source_ids") or [])],
+                                "provenance_ids": [str(p) for p in (row_dict.get("provenance_ids") or [])],
+                                "execution_ids": [str(e) for e in (row_dict.get("execution_ids") or [])],
+                            },
+                            "data": data_vals,
+                        }
+                    else:
+                        sections[dataset] = {
+                            "status": "missing", "as_of": None, "freshness_days": None,
+                            "row_count": 0, "coverage": {}, "provenance": {}, "data": {},
+                        }
+
+                dates = [part["as_of"] for part in sections.values() if part.get("as_of")]
+                available = [part for part in sections.values() if part["status"] in {"available", "partial", "stale"}]
+                overall_status = ("available" if len(available) == len(sections) and all(part["status"] == "available" for part in sections.values())
+                                  else "partial" if available else "missing")
+                as_of_overall = dates[0] if dates and len(set(dates)) == 1 else (as_of_taiex or str(today))
+
+                payload = {
+                    "schema_version": "market-home.v1",
+                    "as_of": as_of_overall,
+                    "status": overall_status,
+                    "sections": sections,
+                }
+
+                # 3. UPSERT 單列快照（id=1）
+                cursor.execute(
+                    """INSERT INTO control.home_market_snapshot(snapshot_id, schema_version, as_of_date, payload_json, updated_at)
+                       VALUES (1, 'market-home.v1', %s, %s::jsonb, now())
+                       ON CONFLICT (snapshot_id) DO UPDATE SET
+                         schema_version = EXCLUDED.schema_version,
+                         as_of_date = EXCLUDED.as_of_date,
+                         payload_json = EXCLUDED.payload_json,
+                         updated_at = now()""",
+                    (as_of_overall if as_of_overall else today, json.dumps(payload, ensure_ascii=False))
+                )
+                return payload
+
     @classmethod
     def eligible(cls, dataset_id: str, row: dict[str, Any]) -> bool:
         if dataset_id not in cls.DATASETS:

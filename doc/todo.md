@@ -10,7 +10,7 @@
 - [ ] 各市場／必要資料集／期間缺失率 ≤10%（含10%）coverage gate，固定官方名冊分母、未知值／超標與個人完整估值分開。
 - [x] **工作流與批次入口治理收斂**：完成 89 份歷史探測、診斷與前 500 研究排程歸檔至 `.github/workflows/archive/`，移除所有舊研究 Actions schedule，僅保留備份清理定時工作；建立統一運維診斷工具 `ops/diagnose.py`（2026-10-14）。
 - [ ] 備份產生納入總控；先驗證既有VM路徑與還原再停timer。研究前瞻留存若保留也走總控，不重播歷史500 request。
-- [ ] 即時入帳／試算／股數成本、報價snapshot、首頁／圖表serving、dirty owner報表快照，沿 [全市場／快照契約](spec/full-market-batch-policy.md)，不全部等批次。
+- [ ] 即時入帳／試算／股數成本、報價snapshot、首頁／圖表serving、dirty owner報表快照，沿 [全市場／快照契約](spec/full-market-batch-policy.md)；其中 **首頁市場寫入時預聚合快照（home_market_snapshot 單主鍵讀取 <5ms）已實作且單元驗收 PASS（Migration 057）**。
 - [ ] 全市場分片資源／總控dispatch lag／備份不中斷／無雙重派送與P0/P1同源集中驗收。
 
 順序：全市場與總控必要底層＋持股／交易／效能 → 通用圖表／四頁 → 全市場模型研究 → 有效後報告。

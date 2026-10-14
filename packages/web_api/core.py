@@ -75,11 +75,13 @@ class CoreQueryService:
 
     def __init__(self, query: Callable[[str, str, Sequence[Any]], Sequence[Mapping[str, Any]]],
                  *, max_limit: int = 200,
-                 serving_series: Callable[[str, str, int], Sequence[Mapping[str, Any]] | None] | None = None) -> None:
+                 serving_series: Callable[[str, str, int], Sequence[Mapping[str, Any]] | None] | None = None,
+                 serving_home_market_snapshot: Callable[[], Mapping[str, Any] | None] | None = None) -> None:
         if not 1 <= max_limit <= 10_000:
             raise ValueError("max_limit must be between 1 and 10000")
         self._query = query
         self._serving_series = serving_series
+        self._serving_home_market_snapshot = serving_home_market_snapshot
         self.max_limit = max_limit
 
     def page(self, dataset_id: str, symbol: str, *, limit: int = 50, offset: int = 0) -> QueryPage:
@@ -191,6 +193,13 @@ class CoreQueryService:
 
     def market_home(self) -> dict[str, Any]:
         """Published Core baseline; each fixed section fails independently."""
+        if self._serving_home_market_snapshot is not None:
+            try:
+                cached = self._serving_home_market_snapshot()
+                if cached and isinstance(cached, Mapping):
+                    return dict(cached)
+            except Exception:
+                pass
         today = datetime.now(ZoneInfo("Asia/Taipei")).date()
         sections: dict[str, dict[str, Any]] = {}
         benchmark_table = self.TABLE_NAMES["benchmark"]
