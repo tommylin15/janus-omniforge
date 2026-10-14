@@ -1,0 +1,72 @@
+name: Janus bounded two-task private recalc queue acceptance
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/private-recalc-ghcr-canary-request.json'
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 42
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require exact migration, Owner identity acceptance and published rollout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="bounded-existing-dev-recalc-queue-canary" and
+            .approved==true and .source_sha=="1e9c31d148db540ee06cac5ccccd8fac8d619511" and
+            .seeded_requests==1 and .worker_tasks==2 and
+            .no_ledger_mutation==true and .derived_mart_may_refresh==true and
+            .no_job_template_mutation==true and
+            .official_identity_migration_run=="38652846263" and
+            .owner_identity_reconciliation_run=="38653250200" and
+            .jobs_rollout_run=="38566821108"' ops/private-recalc-ghcr-canary-request.json >/dev/null
+          for record in '38652846263:Apply dev serving schema migration' \
+                        '38653250200:Janus official TPEx ETF owner Mart reconciliation' \
+                        '38566821108:Janus GHCR controlled Jobs rollout'; do
+            id="${record%%:*}"
+            expected="${record#*:}"
+            data="$(gh run view "$id" --json status,conclusion,workflowName)"
+            jq -e --arg name "$expected" '
+              .status=="completed" and .conclusion=="success" and .workflowName==$name
+            ' <<< "$data" >/dev/null
+          done
+      - name: Verify bounded owner and recalc technical guardrails
+        run: |
+          python -m pip install --disable-pip-version-check pytest==8.4.2
+          python -m pytest -q tests/test_private_recalc_ghcr_canary.py \
+            tests/test_private_recalc_queue.py tests/test_private_recalc_acceptance.py \
+            tests/test_ghcr_release_lease.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Run one real two-task Cloud Run queue and verify exact checkpoint
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/private_recalc_ghcr_canary.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: private-recalc-ghcr-canary
+          path: /tmp/private-recalc-ghcr-canary.json
+          if-no-files-found: ignore
+          retention-days: 14
