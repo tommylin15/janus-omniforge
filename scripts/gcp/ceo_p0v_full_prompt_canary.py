@@ -11,7 +11,7 @@ from ceo_worker_deploy import execution_fence
 from ghcr_jobs_rollout import ROOT, cloud, terminal
 
 JOB="janus-ceo-analysis"
-MARKET_URL="https://p0v-market2048-227a0bdc---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app"
+MARKET_URL="https://p0v-market2048-00d45861---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app"
 PREVIOUS_URL="https://ghcr-965b05542a35---omniagent-agent-gateway-2oo7qbkd5q-uc.a.run.app"
 SOURCE="intelligence-mart@gen-lang-client-0593591102.iam.gserviceaccount.com"
 
