@@ -2,16 +2,16 @@
   "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
   "approved": true,
   "scope": "janus-api-preview-tag-only",
-  "source_sha": "085456e3cdf2075cc399977dfe4c2414340fdae8",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:3b5fd72a893cb8094f3f6e1a8d4dd70901c571673a4f3b5a18ec9d7d40871a95",
-  "release_run": "38530995776",
-  "candidate_run": "38531845062",
-  "boundary_run": "38532482767",
+  "source_sha": "1e9c31d148db540ee06cac5ccccd8fac8d619511",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:83a2598486007a39bdaa1392e46cd79af3a3df9046efd9cdc7f3b1bef4fe667d",
+  "release_run": "38565636734",
+  "candidate_run": "38566380979",
+  "boundary_run": "38566632955",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
-  "reason": "User resumed full-market/controller, holdings transaction performance and four-page real dev acceptance. Exact source full release #38530995776 PASS (1149 Python tests, Flutter checks and four public immutable images); 0% candidate #38531845062 PASS and automated OAuth/private boundary #38532482767 PASS. Publish fixed Preview tag only for authenticated test-owner UI acceptance. Four Jobs and business/performance acceptance remain separate pending gates. Preserve canonical traffic, other tags, Jobs, Scheduler and IAM.",
+  "reason": "User-authorized Janus dev 01-05: exact-source official TPEx historical valuation fix with complete GHCR #38565636734, 0% API candidate #38566380979, automated OAuth/private boundary #38566632955 PASS. Publish fixed Preview tag only, preserve canonical 100% old API, all other tags, existing Jobs/Scheduler and any owner data. The independent market bootstrap/cached and authenticated UI/PnL remain separate live gates.",
   "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
-  "attempt": 10
+  "attempt": 11
 }
