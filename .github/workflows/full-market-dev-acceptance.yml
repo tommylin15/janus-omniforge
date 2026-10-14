@@ -1,5 +1,10 @@
 name: Janus bounded full-market business acceptance
 on:
+  # Explicit, one-shot GitHub main request. Not a schedule or new worker pipeline.
+  push:
+    branches: [main]
+    paths:
+      - 'ops/full-market-acceptance-request.json'
   workflow_dispatch:
     inputs:
       release_run:
@@ -29,9 +34,9 @@ jobs:
     environment: dev
     env:
       GH_TOKEN: ${{ github.token }}
-      RELEASE_RUN: ${{ inputs.release_run }}
-      BOUNDARY_RUN: ${{ inputs.boundary_run }}
-      PHASE: ${{ inputs.phase }}
+      RELEASE_RUN: ${{ inputs.release_run || '' }}
+      BOUNDARY_RUN: ${{ inputs.boundary_run || '' }}
+      PHASE: ${{ inputs.phase || '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -39,6 +44,40 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Resolve explicit one-shot push request without scheduling
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          file=ops/full-market-acceptance-request.json
+          target_sha="$(jq -r '.sha' ops/ghcr-candidate-request.json)"
+          jq -e --arg sha "$target_sha" '
+            .intent == "one-shot-full-market-business-acceptance" and
+            .approved == true and .no_permanent_job_changes == true and
+            .no_api_traffic_changes == true and
+            .sha == $sha and
+            (.release_run | type=="string" and test("^[0-9]+$")) and
+            (.boundary_run | type=="string" and test("^[0-9]+$")) and
+            (.phase == "bootstrap" or .phase == "cached") and
+            (if .phase == "cached" then
+                (.bootstrap_run | type=="string" and test("^[0-9]+$"))
+             else .bootstrap_run == null end)' "$file" >/dev/null
+          phase="$(jq -r '.phase' "$file")"
+          if [[ "$phase" == cached ]]; then
+            run="$(jq -r '.bootstrap_run' "$file")"
+            verified="$(gh run view "$run" --json status,conclusion,workflowName)"
+            jq -e '.status=="completed" and .conclusion=="success" and
+              .workflowName=="Janus bounded full-market business acceptance"' <<< "$verified" >/dev/null
+          fi
+          {
+            echo "RELEASE_RUN=$(jq -r '.release_run' "$file")"
+            echo "BOUNDARY_RUN=$(jq -r '.boundary_run' "$file")"
+            echo "PHASE=$phase"
+          } >> "$GITHUB_ENV"
+          echo "Explicit one-shot acceptance requested; no scheduler, API traffic or permanent Job mutation." >> "$GITHUB_STEP_SUMMARY"
       - name: Test bounded request and fixed-denominator business proof
         run: |
           python -m pip install pytest==8.4.2
