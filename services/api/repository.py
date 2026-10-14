@@ -570,17 +570,28 @@ class PostgresWorkspaceRepository:
             and row["previous_close_date"] is not None
         }
 
-    def save_last_quotes(self, quotes) -> None:
+    def save_last_quotes(self, quotes, chunk_size: int = 250) -> int:
+        if not quotes:
+            return 0
+        items = [
+            (
+                symbol, row['price'], row['quote_at'], row['received_at'],
+                row['session'], row['source'], row['route_version']
+            )
+            for symbol, row in sorted(quotes.items())
+        ]
         with self._connection() as connection:
-            for symbol, row in sorted(quotes.items()):
-                connection.execute("""INSERT INTO control.operational_last_quotes
+            for offset in range(0, len(items), chunk_size):
+                chunk = items[offset:offset + chunk_size]
+                connection.cursor().executemany("""INSERT INTO control.operational_last_quotes
                     (symbol,price,quote_at,received_at,session,source,route_version)
                     VALUES (%s,%s,%s,%s,%s,%s,%s)
                     ON CONFLICT(symbol) DO UPDATE SET price=EXCLUDED.price,
                     quote_at=EXCLUDED.quote_at,received_at=EXCLUDED.received_at,
                     session=EXCLUDED.session,source=EXCLUDED.source,route_version=EXCLUDED.route_version
                     WHERE EXCLUDED.quote_at >= operational_last_quotes.quote_at""",
-                    (symbol,row['price'],row['quote_at'],row['received_at'],row['session'],row['source'],row['route_version']))
+                    chunk)
+        return len(items)
 
     def broker_profile(self, user_id: UUID) -> dict[str, Any]:
         with self._connection() as connection:

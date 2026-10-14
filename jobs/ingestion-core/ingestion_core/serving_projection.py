@@ -77,24 +77,27 @@ class StockServingProjection:
         if not prepared:
             return 0
         table = "market_serving_recent" if dataset_id in self.MARKET_DATASETS else "stock_serving_recent"
+        chunk_size = 500
         with self.connection_factory() as connection:
             with connection.transaction(), connection.cursor() as cursor:
-                cursor.executemany(
-                    f"""INSERT INTO control.{table}(
-                           dataset_id,symbol,natural_key,sort_at,payload_json,source_id,
-                           provenance_id,execution_id,core_snapshot_id,updated_at)
-                       VALUES (%s,%s,%s,%s,%s::jsonb,%s,%s,%s,%s,now())
-                       ON CONFLICT(dataset_id,symbol,natural_key) DO UPDATE SET
-                         sort_at=EXCLUDED.sort_at,
-                         payload_json=EXCLUDED.payload_json,
-                         source_id=EXCLUDED.source_id,
-                         provenance_id=EXCLUDED.provenance_id,
-                         execution_id=EXCLUDED.execution_id,
-                         core_snapshot_id=EXCLUDED.core_snapshot_id,
-                         updated_at=now()
-                       WHERE EXCLUDED.sort_at >= control.{table}.sort_at""",
-                    prepared,
-                )
+                for offset in range(0, len(prepared), chunk_size):
+                    chunk = prepared[offset:offset + chunk_size]
+                    cursor.executemany(
+                        f"""INSERT INTO control.{table}(
+                               dataset_id,symbol,natural_key,sort_at,payload_json,source_id,
+                               provenance_id,execution_id,core_snapshot_id,updated_at)
+                           VALUES (%s,%s,%s,%s,%s::jsonb,%s,%s,%s,%s,now())
+                           ON CONFLICT(dataset_id,symbol,natural_key) DO UPDATE SET
+                             sort_at=EXCLUDED.sort_at,
+                             payload_json=EXCLUDED.payload_json,
+                             source_id=EXCLUDED.source_id,
+                             provenance_id=EXCLUDED.provenance_id,
+                             execution_id=EXCLUDED.execution_id,
+                             core_snapshot_id=EXCLUDED.core_snapshot_id,
+                             updated_at=now()
+                           WHERE EXCLUDED.sort_at >= control.{table}.sort_at""",
+                        chunk,
+                    )
                 cursor.execute(
                     f"DELETE FROM control.{table} "
                     "WHERE dataset_id=%s AND sort_at < now() - (%s * interval '1 day')",
