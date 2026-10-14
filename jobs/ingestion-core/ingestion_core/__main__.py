@@ -49,9 +49,13 @@ def _current_core_fences(core):
 def _core_ready_event(*, core_bucket: str, execution_id: str, config_id: str,
                       analysis_as_of: str, iceberg_tables: dict[str, dict[str, object]],
                       symbols: tuple[str, ...], market: str,
-                      industries: list[dict[str, object]] | None = None) -> dict[str, object] | None:
+                      industries: list[dict[str, object]] | None = None,
+                      scope_as_of: str | None = None) -> dict[str, object] | None:
     if not iceberg_tables:
         return None
+    if scope_as_of:
+        # Today's official roster must never be labelled as yesterday's known universe.
+        analysis_as_of = max(date.fromisoformat(analysis_as_of), date.fromisoformat(scope_as_of)).isoformat()
     tables_payload = json.dumps(iceberg_tables, sort_keys=True, separators=(",", ":")).encode()
     snapshot_id = f"sha256:{sha256(tables_payload).hexdigest()}"
     manifest = {
@@ -751,6 +755,7 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
                     iceberg_tables=_current_core_fences(core) if core_committed else {},
                     symbols=tuple(market_symbols) if active_500 else tuple(symbols),
                     market='market' if active_500 else config.market, industries=industries,
+                    scope_as_of=local_now.date().isoformat() if active_500 else None,
                 )
             retention_setting = control.get_admin_setting("retention")
             retention = retention_setting[0] if retention_setting and isinstance(retention_setting[0], dict) else {}

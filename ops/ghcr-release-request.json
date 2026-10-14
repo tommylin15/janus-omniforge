@@ -8,7 +8,7 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 26,
+  "attempt": 27,
   "reason": "2026-10-14 authorized full-market/controller/holdings-transaction/chart delivery: full Python, isolated PostgreSQL and Flutter gates before four exact-SHA public images. Runtime rollout is separately gated; no CEO or model call.",
   "expected_runtime_changes": false,
   "ceo_gateway_pilot": false
