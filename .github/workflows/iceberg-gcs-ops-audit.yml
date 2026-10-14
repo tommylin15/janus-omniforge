@@ -1,0 +1,42 @@
+name: Audit GCS operations (independent FinOps incident)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/iceberg-gcs-ops-audit.yml'
+      - 'scripts/gcp/iceberg-gcs-ops-audit.py'
+      - 'tests/test_iceberg_gcs_ops_audit.py'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: janus-iceberg-finops-observe
+  cancel-in-progress: false
+
+jobs:
+  read-only-audit:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify audit script
+        run: |
+          python -m compileall -q scripts/gcp/iceberg-gcs-ops-audit.py
+          python tests/test_iceberg_gcs_ops_audit.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read Cloud Monitoring GCS request counts (7 days)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/iceberg-gcs-ops-audit.py
