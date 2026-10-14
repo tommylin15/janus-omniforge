@@ -1,0 +1,62 @@
+name: Janus bounded full-market business acceptance
+on:
+  workflow_dispatch:
+    inputs:
+      release_run:
+        description: Successful exact-source full GHCR release
+        type: string
+        required: true
+      boundary_run:
+        description: Successful same-source automated OAuth boundary
+        type: string
+        required: true
+      phase:
+        description: One official-data bootstrap or subsequent cache proof
+        type: choice
+        options: [bootstrap, cached]
+        required: true
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_RUN: ${{ inputs.release_run }}
+      BOUNDARY_RUN: ${{ inputs.boundary_run }}
+      PHASE: ${{ inputs.phase }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test bounded request and fixed-denominator business proof
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_full_market_dev_acceptance.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Install anonymous public image reader
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends skopeo
+      - name: Run one exact-source execution without permanent Job updates
+        run: python scripts/gcp/full_market_dev_acceptance.py --release-run "$RELEASE_RUN" --boundary-run "$BOUNDARY_RUN" --phase "$PHASE" --receipt /tmp/full-market-acceptance.json
+      - name: Retain sanitized business receipt and unknown operation fence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-market-business-acceptance
+          path: /tmp/full-market-acceptance.json
+          if-no-files-found: ignore
+          retention-days: 14
