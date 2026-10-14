@@ -18,7 +18,7 @@ doc/ui/reference/user-app-final/README.md，實際檢視四張 PNG。
 逐項確認正確性及適用需求，保留無關改動，不 reset、不把文件當部署證據。
 
 順序一：完整持股頁。TWSE／TPEx 全個股官方 EOD 預先保存並供快速 serving，
-持股 membership 跟隨 owner ledger，不受研究批次限制；市場／screening／研究／搜尋均改全上市櫃，coverage 缺失率≤10%過關；ETF 既有授權路徑保留。
+持股 membership 跟隨 owner ledger，不受研究批次限制；市場／screening／研究／搜尋均改全上市櫃，coverage 上市缺失率≤10%、上櫃≤30% 各自過關（含邊界）；ETF 既有授權路徑保留。
 首屏先讀持久化資料，按需更新合法盤中報價，過期／缺價有明確狀態。
 完成 backend 交易前唯讀試算、成交入帳後股數／成本／該筆損益快速更新；
 共用 MOVING_AVERAGE／Decimal 規則，處理費稅、版本衝突、冪等及更正。
@@ -80,7 +80,7 @@ B0～B8 與歷史 A 組不重新宣告未完成；本次受影響的共用路徑
 | Risk | deterministic baseline；Markov vs Gaussian，逐日／月度 log score、尾端、環境、狀態切換穩定性；15/23 勝不等於顯著優勢 |
 | Event | 來源允許 training-use 的繁中事件，人審 event/revision ID、分類、方向、時間、reviewer／label version；時間與事件群組防洩漏 holdout，比 rules 的 macro-F1／各類 precision/recall／校準；分類機率不是報酬機率 |
 
-研究投入優先 Quant → Risk；基本面／估值先資料與基準，Event 先人審標籤。全市場行情不代表五角色資料完整；原 EOD ≤10% 缺漏容忍不自動授予研究集品質 PASS。
+研究投入優先 Quant → Risk；基本面／估值先資料與基準，Event 先人審標籤。全市場行情不代表五角色資料完整；EOD 上市 ≤10%／上櫃 ≤30% 缺漏容忍不自動授予研究集品質 PASS。
 
 ## 4. 排程與資源
 
