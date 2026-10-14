@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 31,
-  "reason": "Rerun complete release after #38541322491 identified 18 stale test paths from concurrent workflow archival. Preserve every assertion and align archived workflow locations. Complete migration 057 controlled gateway and publication-owner ACL checks on both runtime/bootstrap paths. Previous full-market completed-day, TPEx dated institutional and split financial coverage corrections retained. Full Python/PostgreSQL/Flutter/public immutable gates precede runtime deployment.",
+  "attempt": 32,
+  "reason": "User-authorized 2026-10-14 CI-only full exact-main verification after archived-workflow test fixes and separate TWSE 10% / TPEX 30% coverage changes. Run complete Python/PostgreSQL and Flutter tests, publish four GHCR images only if all gates pass, and verify public immutable digests. No Cloud Run deployment, migration, Job or Scheduler operation, API traffic promotion, or CEO pilot.",
   "expected_runtime_changes": false,
   "ceo_gateway_pilot": false
 }
