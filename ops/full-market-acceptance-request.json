@@ -1,0 +1,14 @@
+{
+  "intent": "one-shot-full-market-business-acceptance",
+  "approved": true,
+  "sha": "61796cbc2cd973d694e1d203e7ea9e8af07804c1",
+  "release_run": "38552314315",
+  "boundary_run": "38557372000",
+  "jobs_run": "38557540516",
+  "phase": "bootstrap",
+  "bootstrap_run": null,
+  "no_permanent_job_changes": true,
+  "no_api_traffic_changes": true,
+  "purpose": "User-authorized Janus 2026-10-14 one bounded full-market official bootstrap acceptance after TWSE <=10% and TPEX <=30% coverage policy. Existing four dev Jobs rollout #38557540516 MUST be completed/successful before dispatch; same-source GHCR #38552314315 and OAuth/private-boundary #38557372000 verified. The workflow runs only the pre-existing Cloud Run ingestion Job with a single invocation override, separate business receipt, fixed official membership denominator and provenance, shared GitHub deployment lease. No extra scheduler, no job image/config mutation, no API traffic promotion; on unknown/failure keep evidence and never blind-retry.",
+  "attempt": 1
+}
