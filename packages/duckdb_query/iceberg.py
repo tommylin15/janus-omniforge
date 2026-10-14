@@ -231,11 +231,17 @@ class DuckDBIcebergCore:
             existing = []
         else:
             table = self._ensure_layout(self.catalog.load_table(identifier), dataset_id)
-            incoming_arrow = self._arrow_table(incoming, existing_schema=table.schema().as_arrow())
-            with table.update_schema() as update:
-                update.union_by_name(incoming_arrow.schema)
+            existing_schema = table.schema().as_arrow()
+            incoming_arrow = self._arrow_table(incoming, existing_schema=existing_schema)
+            # union_by_name is an Iceberg metadata commit. With an unchanged
+            # schema, skip the transaction entirely to avoid GCS metadata
+            # writes on every incremental ingestion call.
+            existing_names = set(existing_schema.names)
+            if any(name not in existing_names for name in incoming_arrow.schema.names):
+                with table.update_schema() as update:
+                    update.union_by_name(incoming_arrow.schema)
+                table = self.catalog.load_table(identifier)
             del incoming_arrow
-            table = self.catalog.load_table(identifier)
             from pyiceberg.expressions import And, EqualTo, GreaterThanOrEqual, In, IsNull, LessThanOrEqual, Or
 
             partition_field = self.PARTITIONS[dataset_id][0][0]
