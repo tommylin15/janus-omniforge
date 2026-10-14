@@ -2,6 +2,7 @@
 import argparse
 from datetime import date, datetime
 import json
+import os
 from pathlib import Path
 import re
 import time
@@ -49,6 +50,7 @@ try:
     inventory=json.loads(raw)
     receipts=verify_inventory(inventory,result['as_of'])
     if os.environ['JANUS_FULL_MARKET_ACCEPTANCE_PHASE']=='cached':
+        assert result['as_of']==os.environ['JANUS_ACCEPTANCE_TARGET_DAY']
         assert result['staged']==0 and all(r['cache_hit'] for r in receipts)
     print(json.dumps({'operation':'full_market_dev_acceptance','status':'PASS',
           'phase':os.environ['JANUS_FULL_MARKET_ACCEPTANCE_PHASE'],
@@ -75,7 +77,8 @@ def payload(source, phase, day):
     override = {'args': ([] if container.get('command') else ['python']) + ['-c', CODE],
                 'env': [{'name': k, 'value': v} for k,v in {
                     'FORCE_REFRESH': 'true' if phase == 'bootstrap' else 'false',
-                    'INGESTION_DATE': '', 'BACKFILL_START_DATE': '', 'BACKFILL_END_DATE': '',
+                    'INGESTION_DATE': day if phase == 'cached' else '', 'BACKFILL_START_DATE': '', 'BACKFILL_END_DATE': '',
+                    'JANUS_ACCEPTANCE_TARGET_DAY': day if phase == 'cached' else '',
                     'INGESTION_DATASETS': '', 'MART_JOB': '', 'QUEUE_CONSUMER': 'false',
                     'JANUS_FULL_MARKET_ACCEPTANCE_PHASE': phase,
                 }.items()]}
@@ -119,7 +122,8 @@ def run(release_run, boundary_run, phase, receipt):
     try:
         rollout.fence()
         current = rollout.checked_image(JOB, target, config_hash)
-        day = datetime.now(ZoneInfo('Asia/Taipei')).date().isoformat()
+        day = (os.environ.get('JANUS_BOOTSTRAP_DATE', '') if phase == 'cached'
+               else datetime.now(ZoneInfo('Asia/Taipei')).date().isoformat())
         operation = rollout.cloud(f'{rollout.ROOT}/jobs/{JOB}:run', payload(current, phase, day), 'POST')
         name = operation.get('name','')
         if not name.startswith(rollout.ROOT+'/operations/'):
