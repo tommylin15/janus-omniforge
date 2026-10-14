@@ -1,7 +1,7 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "b63bf350213fa7c3933724fa38006d8ab7b8033f",
-  "purpose": "2026-10-13 independent Janus CEO to omniAgent Gateway integration; verified full GHCR release #38363636133, SHA b63bf350. Create API code-only 0% candidate with existing global lease; no CEO Job updates, no LLM call, no holdings-P0 resume or formal traffic switch. CEO live E2E remains IAM-BLOCKED.",
+  "sha": "6326d16412c8eb61bb0618b7a394b18ba5017d14",
+  "purpose": "2026-10-14 authorized full-market/controller/holdings/chart delivery. Full Release #38508422835 PASS: 1144 Python tests, Flutter gate and four public immutable images. Create zero-traffic API candidate for automatic boundary and later dev acceptance; no LLM or formal traffic promotion.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
