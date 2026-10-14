@@ -76,7 +76,8 @@ def main():
     result = {"component":"janus-dev-private-recalc-canary",
               "source_sha":SOURCE,"status":"UNKNOWN",
               "no_ledger_mutation":True,"job_template_mutation":False,
-              "api_traffic_changed":False,"seeded_requests":1,"worker_tasks":2}
+              "api_traffic_changed":False,"seeded_requests":1,"worker_tasks":2,
+              "test_request_id":request_id}
     Path("/tmp/private-recalc-ghcr-canary.json").write_text(json.dumps(result))
     # If an operation becomes UNKNOWN, stop: leave the durable lease in place.
     # Do not spawn another worker or pretend cleanup is safe.
