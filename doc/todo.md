@@ -4,7 +4,7 @@
 
 - [x] **01 官方全市場＋必要 dataset coverage**：交易日 2026-10-13、固定官方 TWSE 1095／TPEx 893，全部必要 dataset 依各市場 10%／30% 門檻 PASS，stage/core/serving 與不可變 provenance 收據 [#38575674367](https://github.com/tommylin15/janus-omniforge/actions/runs/38575674367)。
 - [x] **02 同日 Cached**：從已通過 Bootstrap 收據強制鎖定 2026-10-13，必要 17／17 cache_hit、`staged=0`／`serving_published=0`，[#38651225144](https://github.com/tommylin15/janus-omniforge/actions/runs/38651225144) PASS；不得因成功日期往後推而重抓新資料。
-- [ ] **03 Owner 持股與正式損益**：MCP Owner read-only positions／annual PnL ledger version 一致、6 筆價格 available，但 1 筆合法持股缺身份 catalog；補正具官方授權的 ETF 身分資料（不可造假）後，驗證新增／加減碼／賣出／股利／更正／作廢／缺價隔離與 queue → Private Worker → 版本／P&L readback，使用受控測試路徑，不往真實本人帳本插入測試交易。
+- [ ] **03 Owner 持股與正式損益（PARTIAL）**：00719B 官方商品身分已透過 source-audited migration 058 [#38652846263](https://github.com/tommylin15/janus-omniforge/actions/runs/38652846263)＋單一 Owner 真實 Private Mart [#38653250200](https://github.com/tommylin15/janus-omniforge/actions/runs/38653250200) PASS，MCP 讀回名稱、身份、價格、ledger version 170 一致，不再有 `stock_master_not_found`。兩 Task 正式 Queue canary [#38653931699](https://github.com/tommylin15/janus-omniforge/actions/runs/38653931699) 正在跑，第一次 #38653790215 僅 pre-GCP PYTHONPATH 失敗；等 SUCCEEDED／checkpoint／cleanup 證據。仍需交易存檔、加減碼、賣出／股利／更正／作廢、缺價隔離及使用者按鈕→API enqueue 的真實端到端，不往本人帳本新增測試交易。
 - [ ] **04 四頁視覺與效能**：固定 Preview public market-home API 30／30、P50 46.76ms／P95 97.97ms，但單筆最慢 9.38s；仍需 authenticated 四頁 390×844／desktop 以及 Owner 首屏冷暖、試算／保存 P50／P95 與錯誤率，不以 30 筆公開 API 暖讀取代完整體驗驗收。
 - [ ] **05 受控正式 dev API 切流**：03／04 仍未足夠，不得提前從 0% Preview 改正式 100%；待各 gate PASS，再以 exact SHA／共用部署鎖／既有 rollback 做 live cutover 與 readback。
 
