@@ -10,5 +10,8 @@
   "official_identity_migration_run": "38652846263",
   "owner_identity_reconciliation_run": "38653250200",
   "jobs_rollout_run": "38566821108",
-  "purpose": "User-authorized Janus dev 03. Scoped one-owner operational queue technical acceptance using original migration 048 seed/verify/cleanup code and existing Cloud Run runWithOverrides only. Does not insert any ledger event, create owner or alter service traffic/Job template; one selected existing owner's derived Mart may refresh. Verify unique-active-owner guard, two real tasks, status SUCCEEDED, exact worker execution, ledger checkpoint catch-up and idle dispatch, all-page execution fence and durable writer lease. Cleanup on known terminal; retain lease on unknown without blind retry. This validates queue/worker, NOT authenticated user button or full trade flows."
+  "purpose": "User-authorized Janus dev 03. Scoped one-owner operational queue technical acceptance using original migration 048 seed/verify/cleanup code and existing Cloud Run runWithOverrides only. Does not insert any ledger event, create owner or alter service traffic/Job template; one selected existing owner's derived Mart may refresh. Verify unique-active-owner guard, two real tasks, status SUCCEEDED, exact worker execution, ledger checkpoint catch-up and idle dispatch, all-page execution fence and durable writer lease. Cleanup on known terminal; retain lease on unknown without blind retry. This validates queue/worker, NOT authenticated user button or full trade flows.",
+  "attempt": 2,
+  "preceding_run": "38653790215",
+  "reason": "Previous run #38653790215 failed during pytest collection before GCP auth due missing PYTHONPATH ingestion_core; fixed workflow now sets PYTHONPATH. No Cloud Run/GCP execution, queue seed, or lease occurred in prior run; re-execute one bounded technical canary under original gates."
 }
