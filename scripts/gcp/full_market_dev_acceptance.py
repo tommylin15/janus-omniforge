@@ -22,13 +22,17 @@ def verify_inventory(inventory, day):
             assert r['expected_count']>0 and r['received_count']>=0 and r['missing_count']>=0
             assert r['date']==day and r['coverage_accepted']
             assert r['received_count']+r['missing_count']==r['expected_count']
-            assert r['missing_count'] * 10 <= r['expected_count']
+            limits = {'TWSE': 1, 'TPEX': 3, 'ALL': 0}
+            assert r['market'] in limits
+            assert r.get('max_missing_ratio') == limits[r['market']] / 10
+            assert r['missing_count'] * 10 <= r['expected_count'] * limits[r['market']]
             if r['dataset']=='outside_500_registered_portfolio_ohlcv':
                 assert r.get('snapshot_ids') and r.get('stage_provenance_ids')
             else:
                 assert r.get('snapshot_id') and r.get('stage_provenance_id')
     return [{k:r.get(k) for k in ('date','source','dataset','market','expected_count',
-             'received_count','missing_count','coverage_accepted','snapshot_id','snapshot_ids','cache_hit')}
+             'received_count','missing_count','max_missing_ratio','coverage_accepted',
+             'snapshot_id','snapshot_ids','cache_hit')}
             for r in receipts if r.get('expected_count')]
 '''
 
