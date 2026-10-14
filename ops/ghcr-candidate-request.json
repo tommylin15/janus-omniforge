@@ -1,7 +1,7 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "085456e3cdf2075cc399977dfe4c2414340fdae8",
-  "purpose": "Full-market and registered ETF price proofs, factual four-page UI and safe journal retries. Exact full Release #38530995776 PASS with complete Python/Flutter and four public immutable images; migrations 054-056 PASS. Zero-traffic candidate and automatic boundary precede four Jobs and dev acceptance; no LLM or formal traffic promotion.",
+  "sha": "61796cbc2cd973d694e1d203e7ea9e8af07804c1",
+  "purpose": "2026-10-14 exact-source 61796cbc full release #38552314315 PASS (Python 1156, Flutter 90, four public immutable GHCR digests). Dev 0%-traffic candidate only; independent allowlisted migration 057 scheduled via #38555862109, verify terminal independently. No formal API traffic/Jobs change; follow with automatic OAuth/private-boundary gate.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
@@ -9,5 +9,5 @@
   "allow_job_image_update": false,
   "retry_verification": "same-sha-cache-normalized-immutable-candidate-reuse",
   "same_sha_retry_attempt": 0,
-  "digest": ""
+  "digest": "sha256:16fd735f0392d3c0b0960db2d5e4bed81e30fc1e366b53b8977987b73b3e7666"
 }
