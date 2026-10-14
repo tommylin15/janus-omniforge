@@ -41,6 +41,8 @@ jobs:
                   rows=[dict(zip(table.get('fields',[]),v)) for table in doc.get('tables',[]) for v in table.get('data',[])]
                 if not isinstance(rows,list):rows=[]
                 result['row_count']=len(rows)
+                result['document_date']=str(doc.get('date',''))[:25] if isinstance(doc,dict) else None
+                result['first_symbol_format']=str(rows[0].get('股票代號',''))[:10] if rows and isinstance(rows[0],dict) else ''
                 result['top_keys']=sorted(doc)[:20] if isinstance(doc,dict) else ['list']
                 sample=next((x for x in rows if isinstance(x,dict)),{})
                 result['field_keys']=sorted(sample)[:35]
