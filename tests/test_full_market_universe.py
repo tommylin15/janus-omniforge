@@ -22,21 +22,30 @@ def test_incomplete_or_invalid_official_profiles_cannot_publish(profiles):
     with pytest.raises(ValueError): official_members(profiles)
 
 
-def test_missing_tolerance_is_inclusive_and_unknown_or_otc_failure_cannot_pass():
+def test_market_specific_missing_tolerance_boundaries_and_unknown_market_fail_closed():
     expected = {str(i) for i in range(1000)}
-    assert coverage_receipt(expected, sorted(expected)[:900])['coverage_accepted']
-    assert not coverage_receipt(expected, sorted(expected)[:899])['coverage_accepted']
-    assert not coverage_receipt([], [])['coverage_accepted']
-    assert not coverage_receipt({'6488'}, [])['coverage_accepted']
+    listed = coverage_receipt(expected, sorted(expected)[:900], 'TWSE')
+    assert listed['coverage_accepted'] and listed['max_missing_ratio'] == 0.1
+    assert not coverage_receipt(expected, sorted(expected)[:899], 'TWSE')['coverage_accepted']
+    otc = coverage_receipt(expected, sorted(expected)[:700], 'TPEX')
+    assert otc['coverage_accepted'] and otc['max_missing_ratio'] == 0.3
+    assert not coverage_receipt(expected, sorted(expected)[:699], 'TPEX')['coverage_accepted']
+    assert not coverage_receipt([], [], 'TPEX')['coverage_accepted']
+    assert not coverage_receipt({'6488'}, [], 'TPEX')['coverage_accepted']
+    assert not coverage_receipt({'00719B', '6488'}, {'6488'}, 'ALL')['coverage_accepted']
+    with pytest.raises(ValueError, match='unknown coverage market'):
+        coverage_receipt(expected, expected, 'UNKNOWN')
 
 
 def test_cached_receipt_uses_current_fixed_roster_and_rejects_other_date_or_unknown_snapshot():
     expected = set(str(i) for i in range(1000))
     receipt = {'date': '2026-10-13', 'snapshot_id': 1, 'dataset': 'ohlcv', 'market': 'TPEX',
-               'received': sorted(expected)[:900]}
+               'received': sorted(expected)[:700]}
     cached = cached_coverage(receipt, expected, '2026-10-13')
     assert cached['coverage_accepted'] and cached['cache_hit']
+    assert cached['max_missing_ratio'] == 0.3
     assert not cached_coverage(receipt, expected | {'new'}, '2026-10-13')['coverage_accepted']
+    assert cached_coverage(dict(receipt, market='UNKNOWN'), expected, '2026-10-13') is None
     assert cached_coverage(receipt, expected, '2026-10-14') is None
     assert cached_coverage(dict(receipt, snapshot_id=None), expected, '2026-10-13') is None
 
@@ -57,7 +66,7 @@ def test_registered_etf_prices_survive_the_ordinary_equity_filter_and_cache():
     from ingestion_core.full_market import official_price_rows
     rows = [{'symbol':symbol,'close':'10'} for symbol in ('6488','00719B','00870B')]
     assert [row['symbol'] for row in official_price_rows(rows,[{'symbol':'6488'}],{'00719B'})] == ['6488','00719B']
-    receipt = {'date':'2026-10-14','snapshot_id':4,'stage_provenance_id':'official',
+    receipt = {'date':'2026-10-14','snapshot_id':4,'stage_provenance_id':'official', 'market':'TPEX',
                'received':['6488'],'portfolio_received':['00719B']}
     cached = cached_coverage(receipt,{'6488'},'2026-10-14')
     assert cached['portfolio_received'] == ['00719B'] and cached['coverage_accepted']
