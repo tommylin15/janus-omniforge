@@ -123,6 +123,7 @@ def main() -> None:
     # Existing dev rollout receipt passed; reject a currently active execution
     # rather than racing the scheduled Private Mart with an owner write.
     rollout.fence()
+    rollout.command(rollout.LEASE + ['acquire'])
     args=["-c",OWNER_CODE]
     if not container.get("command"):
         args=["python"]+args
@@ -160,6 +161,10 @@ def main() -> None:
         "single_owner_only":True,
         "no_ledger_mutation":True,
     },sort_keys=True))
+    # This execution is a bounded authorized Private Mart refresh, not a
+    # market or ledger bootstrap. Keep a failed/unknown lease for inspection.
+    rollout.fence()
+    rollout.command(rollout.LEASE + ['release', '--safe-to-release'])
 
 
 if __name__=="__main__":
