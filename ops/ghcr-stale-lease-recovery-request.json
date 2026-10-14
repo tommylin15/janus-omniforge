@@ -1,10 +1,10 @@
 {
   "intent": "reconcile-terminal-ghcr-lease",
   "approved": true,
-  "owner_run": 38537012683,
-  "owner_source_sha": "a826a58666c2a5d3b73c79aca474a0a205447ca2",
-  "tag_sha": "4153277d7e99f00e127ca9513208cb27d8f326b4",
+  "owner_run": 38559419684,
+  "owner_source_sha": "b1f3a616652bc08edf435ee0f786b884a06ea82e",
+  "tag_sha": "d70502586aeaa95bdd0cc6d6fb13cc2cf7d54525",
   "no_gcp_mutation": true,
-  "reason": "2026-10-14 user resumed dev delivery after exact SHA #38552314315 full CI PASS; failed terminal full-market bootstrap retained deploy tag and prevents candidate #38556011007. Recover only this exact abandoned terminal owner's Git ref after live API 100%-route, Scheduler ENABLED, all-page Cloud Run Jobs execution terminal/readiness, and inactive legacy writers readbacks; fail closed without any GCP mutation. Migration 057 independently PASS #38555862109. No new secrets, privilege increase, deployment or traffic change.",
-  "attempt": 1
+  "reason": "2026-10-14 failed exact-source TPEx valuation bootstrap #38559419684 ended failure at 12:16Z. Two attempts both recorded same 893/893 valuation block, immutable receipts #38563979240; official date-only source repaired at main. Recover only this exact terminal annotated GitHub lease ref after live stable API 100%, jobs all-page terminal, scheduler enabled and inactive legacy writers; do not mutate GCP or release if any readback fails.",
+  "attempt": 2
 }
