@@ -85,6 +85,13 @@ def payload(source, phase, day):
         'taskCount': 1, 'timeout': '1200s', 'containerOverrides': [override]}}
 
 
+def verified_terminal_business_success(result, known):
+    """Only a fully verified terminal business PASS permits owned lease release."""
+    return (known is True and result.get('status') == 'PASS'
+            and isinstance(result.get('business'), dict)
+            and result['business'].get('status') == 'PASS')
+
+
 def run(release_run, boundary_run, phase, receipt):
     source_sha = json.loads(Path('ops/ghcr-candidate-request.json').read_text())['sha']
     release = json.loads(rollout.command(['gh','run','view',release_run,
@@ -158,9 +165,10 @@ def run(release_run, boundary_run, phase, receipt):
         print(json.dumps(result,sort_keys=True))
     finally:
         save()
-        if known:
+        if verified_terminal_business_success(result, known):
             rollout.checked_image(JOB, target, config_hash)
-            rollout.command(rollout.LEASE + ['release'])
+            rollout.fence()
+            rollout.command(rollout.LEASE + ['release', '--safe-to-release'])
 
 
 if __name__ == '__main__':
