@@ -64,3 +64,15 @@ def test_business_lease_release_requires_verified_terminal_pass():
     assert not verified_terminal_business_success({'status':'PASS', 'business':{'status':'FAIL'}}, True)
     assert not verified_terminal_business_success({'status':'PASS'}, True)
     assert not verified_terminal_business_success({'status':'UNKNOWN'}, False)
+
+
+def test_one_shot_full_market_workflow_preserves_dispatch_and_no_schedule():
+    workflow = (Path(__file__).parents[1] / '.github/workflows/full-market-dev-acceptance.yml').read_text()
+    assert "workflow_dispatch:" in workflow
+    assert "ops/full-market-acceptance-request.json" in workflow
+    assert "janus-dev-runtime-writers" in workflow
+    assert "one-shot-full-market-business-acceptance" in workflow
+    assert "bootstrap_run" in workflow
+    assert "schedule:" not in workflow
+    source = (Path(__file__).parents[1] / 'scripts/gcp/full_market_dev_acceptance.py').read_text()
+    assert "rollout.LEASE + ['release', '--safe-to-release']" in source
