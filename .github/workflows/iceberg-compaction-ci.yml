@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/iceberg-compaction-ci.yml'
       - 'jobs/ingestion-core/ingestion_core/iceberg_maintenance.py'
+      - 'jobs/ingestion-core/ingestion_core/batch_controller.py'
+      - 'tests/test_batch_controller.py'
       - 'jobs/ingestion-core/ingestion_core/stage.py'
       - 'packages/duckdb_query/iceberg.py'
       - 'jobs/intelligence-mart/intelligence_mart/analytics_reader.py'
