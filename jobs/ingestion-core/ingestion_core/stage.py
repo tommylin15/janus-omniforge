@@ -145,6 +145,76 @@ class GcsObjectStore:
                 return tuple(items)
 
 
+    def bounded_inventory(self, prefix: str = "", *, max_pages: int = 10) -> dict[str, object]:
+        """Count current GCS objects with a strict Class-A LIST request budget.
+
+        Does not GET object payloads, traverse noncurrent generations or mutate data.
+        Incomplete inventories are explicitly marked truncated; they are not a
+        complete count or a billing attribution report.
+        """
+        if not 1 <= max_pages <= 25:
+            raise ValueError("inventory max_pages must be between 1 and 25")
+        token: str | None = None
+        pages = 0
+        total_objects = total_bytes = tiny_objects = small_objects = 0
+        groups: dict[str, dict[str, int]] = {}
+        complete = False
+        while pages < max_pages:
+            query = f"prefix={quote(prefix, safe='')}&maxResults=1000&fields=nextPageToken,items(name,size)"
+            if token:
+                query += f"&pageToken={quote(token, safe='')}"
+            endpoint = f"https://storage.googleapis.com/storage/v1/b/{quote(self.bucket, safe='')}/o?{query}"
+            request = Request(endpoint, headers={"Authorization": f"Bearer {self._token()}"})
+            with urlopen(request, timeout=self.timeout_seconds) as response:
+                document = json.load(response)
+            pages += 1
+            for item in document.get("items", []):
+                name = str(item["name"])
+                size = int(item.get("size", "0"))
+                if name.startswith("warehouse/"):
+                    parts = name.split("/")
+                    table = parts[1] if len(parts) > 2 else "unknown"
+                    if name.endswith(".parquet"):
+                        kind = "data"
+                    elif name.endswith(".metadata.json"):
+                        kind = "metadata-json"
+                    elif name.endswith(".avro"):
+                        kind = "manifest-avro"
+                    else:
+                        kind = "other"
+                    group = f"warehouse/{table}/{kind}"
+                elif name.startswith("executions/"):
+                    group = "executions"
+                elif name.startswith("ml-oos-data/"):
+                    group = "ml-oos-data"
+                else:
+                    group = "other"
+                stats = groups.setdefault(group, {"objects": 0, "bytes": 0, "under_1mib": 0, "under_32mib": 0})
+                stats["objects"] += 1
+                stats["bytes"] += size
+                if size < 1024 * 1024:
+                    stats["under_1mib"] += 1
+                    tiny_objects += 1
+                if size < 32 * 1024 * 1024:
+                    stats["under_32mib"] += 1
+                    small_objects += 1
+                total_objects += 1
+                total_bytes += size
+            token = document.get("nextPageToken")
+            if not token:
+                complete = True
+                break
+        return {
+            "bucket": self.bucket, "prefix": prefix, "pages": pages,
+            "max_pages": max_pages, "complete": complete,
+            "truncated": not complete, "visible_objects": total_objects,
+            "visible_bytes": total_bytes, "under_1mib": tiny_objects,
+            "under_32mib": small_objects,
+            "groups": [{"prefix": name, **stats} for name, stats in sorted(groups.items())],
+            "notes": "Current visible objects only; historical generations, billing SKUs and API request volumes require separate evidence.",
+        }
+
+
 @dataclass(frozen=True)
 class StageResult:
     object_name: str
