@@ -1,5 +1,13 @@
 # Janus Current Status
 
+
+## 2026-10-15 03～05 最新工程接續：官方 ETF 身分修復 PASS；正式重算驗收進行中
+
+- **官方 TPEx 00719B 身分缺漏：FIXED／LIVE READBACK PASS。** 櫃買中心證券商品規格確認 `00719B` 為上櫃債券 ETF「元大美債1-3」（2018-02-01 上櫃）。用 `infra/postgres/migrations/058_official_held_etf_identity.sql` 及獨立 `control.official_instrument_identity_provenance` 記錄官方 URL／類型／上市日，單筆且 idempotent；**不納入 1988 檔股票母體**，不動 ledger／費用／價格。既有 dev ingestion Job 执行 [#38652846263](https://github.com/tommylin15/janus-omniforge/actions/runs/38652846263) 真實 migration PASS（SQL SHA256 `f97f4377b16a471fc6a299b7c05db7703a7c92d23876e322bf8cc0d008450b98`；3 targeted tests PASS），GCP API traffic／Job image 不變。單 Owner Private Mart 重算與 price／identity／PnL／ledger checkpoint [#38653250200](https://github.com/tommylin15/janus-omniforge/actions/runs/38653250200) PASS（14 tests，execution `janus-private-pipeline-lkldw`），獨立 Janus MCP Owner 唯讀讀回：00719B `stock_name=元大美債1-3`、`identity_status=available`、估值日與 price date 2026-10-14、ledger version 170；**沒有新增、修改或刪除任何正式交易**。舊 `stock_master_not_found` checkpoint 是歷史，不再是目前阻塞。
+- **03 Private Recalc queue 真實 canary：IN_PROGRESS，尚未 PASS。** 新建 `scripts/gcp/private_recalc_ghcr_canary.py` 重用 048 的 seed／兩 Task Worker／verify／cleanup，只用 Cloud Run v2 執行層 overrides、release lease、all-page fence；真正 GCP dev worker 來源仍 `1e9c31d...`。第一次 [#38653790215](https://github.com/tommylin15/janus-omniforge/actions/runs/38653790215) 在 **pre-GCP pytest import** 因 PYTHONPATH 錯誤 FAIL，確定未派 GCP Job／未 seed；已最小修復並送出第二輪 [#38653931699](https://github.com/tommylin15/janus-omniforge/actions/runs/38653931699)，最後觀察 `in_progress`。它會以既有 Owner 衍生 Mart 刷新驗證 queue 但**不寫 canonical ledger**；未取得完整 SUCCEEDED／checkpoint／idle／cleanup 收據之前不得判 PASS，亦不等於瀏覽器手動重算按鈕到 API 的完整正向驗收。
+- **04 四頁與效能：PARTIAL，05 正式 API 100% 切流：NOT STARTED。** 固定 Preview [#38566991297](https://github.com/tommylin15/janus-omniforge/actions/runs/38566991297) 仍為同來源舊正式 API 以外的驗證標籤；公開 market-home 30/30 P50=46.76ms、P95=97.97ms、最慢 9.376s，只證明 GitHub Runner→API，未證真實 authenticated 手機 390×844、四頁、冷啟動與保存／試算各自 P95。既有 canonical API 保持 100% 原 traffic，不因 ETF／queue 修復提前 promotion。更多前置 PASS 仍見下方 01／02 checkpoints。
+
+
 ## 2026-10-15 最新實證：全市場 Bootstrap＋Cached PASS；持股與產品驗收 PARTIAL
 
 **截至 2026-10-15 的工程接續（取代下方舊快照的「Jobs rolling／Bootstrap pending／migration 057 未部署／已暫停」描述，不覆寫原歷史收據）。**
