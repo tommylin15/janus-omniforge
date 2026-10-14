@@ -1,0 +1,58 @@
+name: Janus read-only failed market inventory probe
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/full-market-inventory-readback-request.json'
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-read-only-inventory
+  cancel-in-progress: false
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify one-shot read-only scope
+        run: |
+          jq -e '.intent=="read-failed-market-immutable-inventory" and .failed_run=="38559419684" and .no_permanent_mutation==true and .one_execution_only==true' ops/full-market-inventory-readback-request.json
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read original market failure inventory using existing identity only
+        run: python scripts/gcp/full_market_inventory_readback.py | tee /tmp/full-market-readback-run.jsonl
+      - name: Correlate bounded public-source receipts from probe
+        run: |
+          set -Eeuo pipefail
+          execution="$(tail -1 /tmp/full-market-readback-run.jsonl | jq -r '.execution | split("/") | last')"
+          test -n "$execution"
+          gcloud logging read "resource.type=\"cloud_run_job\" AND labels.\"run.googleapis.com/execution_name\"=\"$execution\"" --project=gen-lang-client-0593591102 --freshness=45m --limit=100 --format=json > /tmp/full-market-readback-log.json
+          python - <<'PY'
+          import json
+          data=json.load(open('/tmp/full-market-readback-log.json'))
+          for row in data:
+              value=row.get('jsonPayload')
+              if value is None:
+                  try: value=json.loads(row.get('textPayload',''))
+                  except (TypeError,ValueError): continue
+              if isinstance(value,dict) and value.get('component')=='full_market_inventory_readback':
+                  print(json.dumps(value,ensure_ascii=False,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: full-market-inventory-readback
+          path: |
+            /tmp/full-market-readback-run.jsonl
+            /tmp/full-market-readback-log.json
+          if-no-files-found: ignore
+          retention-days: 7
