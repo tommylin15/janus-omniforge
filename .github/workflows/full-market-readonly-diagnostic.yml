@@ -1,0 +1,52 @@
+name: Janus bounded full-market read-only diagnosis
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/full-market-diagnostic-request.json'
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-read-only-diagnostics
+  cancel-in-progress: false
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check immutable one-run read-only request
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent == "readonly-failed-bootstrap-diagnosis" and .run == "38559419684" and .no_gcp_mutation == true and .no_lease_mutation == true' ops/full-market-diagnostic-request.json
+      - name: Read failed GitHub business receipt only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          gh run download 38559419684 --name full-market-business-acceptance --dir /tmp/fm-receipt
+          test -s /tmp/fm-receipt/full-market-acceptance.json
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read bounded Cloud Run status and sanitized errors (no mutation)
+        run: python scripts/gcp/full_market_diagnostic.py /tmp/fm-receipt/full-market-acceptance.json > /tmp/fm-diagnostic.json
+      - name: Publish nonprivate failure category only
+        run: |
+          python - <<'PY'
+          import json
+          j=json.load(open('/tmp/fm-diagnostic.json'))
+          print(json.dumps(j,ensure_ascii=False))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: full-market-readonly-diagnostic
+          path: /tmp/fm-diagnostic.json
+          if-no-files-found: ignore
+          retention-days: 7
