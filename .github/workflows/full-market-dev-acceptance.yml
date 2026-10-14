@@ -61,10 +61,18 @@ jobs:
             .sha == $sha and
             (.release_run | type=="string" and test("^[0-9]+$")) and
             (.boundary_run | type=="string" and test("^[0-9]+$")) and
+            (.jobs_run | type=="string" and test("^[0-9]+$")) and
             (.phase == "bootstrap" or .phase == "cached") and
             (if .phase == "cached" then
                 (.bootstrap_run | type=="string" and test("^[0-9]+$"))
              else .bootstrap_run == null end)' "$file" >/dev/null
+          jobs_run="$(jq -r '.jobs_run' "$file")"
+          jobs="$(gh run view "$jobs_run" --json status,conclusion,workflowName)"
+          jq -e '.status=="completed" and .conclusion=="success" and
+            .workflowName=="Janus GHCR controlled Jobs rollout"' <<< "$jobs" >/dev/null
+          jq -e --arg sha "$target_sha" \
+            '.sha==$sha and .release_run=="38552314315" and .auth_boundary_run=="38557372000"' \
+            ops/ghcr-jobs-rollout-request.json >/dev/null
           phase="$(jq -r '.phase' "$file")"
           if [[ "$phase" == cached ]]; then
             run="$(jq -r '.bootstrap_run' "$file")"
