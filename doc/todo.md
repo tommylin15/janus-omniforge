@@ -1,5 +1,7 @@
 # Janus — TODO
 
+**2026-10-14 使用者要求暫停並同步 GitHub。** 本工作包 PAUSED／PARTIAL，已提交與未完成驗收見 [checkpoint](archive/full-market-pause-2026-10-14.md)；不得將程式或 unit tests 完成當成 live acceptance。
+
 **2026-10-13 最新合併開發授權：P0-1 至 P1-2 一次完成相依開發，再整合測試／真實驗收。** 本指示取代之前「只更新文件後停止」。先掃全文件，將有效500個股任務與資料收集改全上市櫃；歷史證據／識別字保留且不冒充全市場PASS。P2模型研究與P3報告不由本次自動啟動。
 
 ## 最高優先新增：全上市櫃＋單一批次總控（2026-10-13）
@@ -10,7 +12,7 @@
 - [ ] 各市場／必要資料集／期間缺失率 ≤10%（含10%）coverage gate，固定官方名冊分母、未知值／超標與個人完整估值分開。
 - [x] **工作流與批次入口治理收斂**：完成 89 份歷史探測、診斷與前 500 研究排程歸檔至 `.github/workflows/archive/`，移除所有舊研究 Actions schedule，僅保留備份清理定時工作；建立統一運維診斷工具 `ops/diagnose.py`（2026-10-14）。
 - [ ] 備份產生納入總控；先驗證既有VM路徑與還原再停timer。研究前瞻留存若保留也走總控，不重播歷史500 request。
-- [ ] 即時入帳／試算／股數成本、報價snapshot、首頁／圖表serving、dirty owner報表快照，沿 [全市場／快照契約](spec/full-market-batch-policy.md)；其中 **首頁市場寫入時預聚合快照（home_market_snapshot 單主鍵讀取 <5ms）已實作且單元驗收 PASS（Migration 057）**。
+- [ ] 即時入帳／試算／股數成本、報價snapshot、首頁／圖表serving、dirty owner報表快照，沿 [全市場／快照契約](spec/full-market-batch-policy.md)；其中 **首頁市場寫入時預聚合快照已提交且單元測試通過；Migration 057 尚未部署，冷暖效能仍待真實驗收**。
 - [ ] 全市場分片資源／總控dispatch lag／備份不中斷／無雙重派送與P0/P1同源集中驗收。
 
 順序：全市場與總控必要底層＋持股／交易／效能 → 通用圖表／四頁 → 全市場模型研究 → 有效後報告。

@@ -86,10 +86,10 @@ def test_ci_selects_only_affected_tests_and_controller_dependencies():
 
 
 def test_push_has_no_canonical_runtime_deployment():
-    for name in ("deploy-dev.yml", "b3-live-acceptance.yml", "b5-live-acceptance.yml", "portfolio-live-acceptance.yml"):
+    for name in ("deploy-dev.yml", "archive/b3-live-acceptance.yml", "archive/b5-live-acceptance.yml", "archive/portfolio-live-acceptance.yml"):
         workflow = (ROOT / ".github/workflows" / name).read_text()
         assert "  push:" not in workflow
-    for name in ("b3-live-acceptance.yml", "b5-live-acceptance.yml", "portfolio-live-acceptance.yml"):
+    for name in ("archive/b3-live-acceptance.yml", "archive/b5-live-acceptance.yml", "archive/portfolio-live-acceptance.yml"):
         assert "bash scripts/gcp/deploy-dev.sh" not in (ROOT / ".github/workflows" / name).read_text()
     assert "  push:" in (ROOT / ".github/workflows/ci-v2.yml").read_text()
 

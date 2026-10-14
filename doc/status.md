@@ -1,11 +1,17 @@
 # Janus Current Status
 
+## 2026-10-14 使用者要求暫停並同步全部進度：PAUSED／PARTIAL
+
+已保存本輪與另一 AI 的 main 變更；完整交接見 [暫停 checkpoint](archive/full-market-pause-2026-10-14.md)。現有 runtime 為 `085456e…`，四 Jobs 兩輪 8 canary PASS／設定與 Scheduler readback PASS，固定 Preview PASS；正式 API 流量未切換。全市場 bootstrap #38537012683 FAIL，官方名冊 1988 檔已建立，但上櫃法人／融資／當沖仍超過 10% 或適用資格待證明，cached 未執行。
+
+另一 AI 的 workflow 歸檔、診斷 CLI、首頁預聚合／057 與分片寫入皆已提交。057 尚未部署，不能聲稱已消除 cold latency 或真實 <5 ms。新完整 Release #38542355436 為 1154 Python PASS／2 路徑 FAIL，Flutter PASS、映像發布 SKIP；最後兩個動態路徑已修，相關 55 PASS，修正後完整 CI 尚未重跑。畫面／交易保存效能與備份 IAM／還原交接尚未完成。暫停後不新派送 Release 或 dev 操作。
+
 ## 2026-10-14 工作流治理收斂 PASS／統一診斷 CLI PASS／全市場與持股 P0 回歸 PASS（ACTIVE／PARTIAL）
 
 - **GitHub Workflows 大刀闊斧收斂與歸檔：PASS**：原 117 份工作流完成系統化治理，89 份歷史探測、前置診斷、前 500 母體研究排程安全移入 `.github/workflows/archive/`，並建立 [`archive/README.md`](.github/workflows/archive/README.md) 索引清冊。目前保留 28 份核心 Workflows，對齊四大核心管線（PR/Commit CI、核心 Release/Deployment、備份清理 Cron、受控手動運維），消除非預期定時排程。
 - **統一代碼庫與基礎設施診斷工具：PASS**：新增 [`ops/diagnose.py`](ops/diagnose.py)，整合工作流治理、資料庫 Migration 水位、全市場／持股快照健康度及 CEO Gateway 配置檢測；本地實測全數 PASS（Commit `318f950`）。
 - **P0 優先工作包（全市場官方報價、持股損益即時試算、首屏效能）**：
-  - **首屏寫入時預聚合（Write-time Aggregation）與快照投影：PASS**：全面實作首頁市場快照單一主鍵極速讀取（<5ms），徹底消除 19～28 秒冷啟動延遲。
+  - **首屏寫入時預聚合與快照投影：實作／單元測試 PASS，runtime PARTIAL**：首頁單主鍵快照已提交；057 未在 dev 執行，真實 cold latency 與 <5ms 尚未量測。
     - 資料庫層：新增 Migration [`057_home_market_snapshot.sql`](infra/postgres/migrations/057_home_market_snapshot.sql)，建立 `control.home_market_snapshot` 單列儲存表與 `publication.home_market_snapshot` security-barrier 視圖，支援 `janus_public_api` 讀取。
     - 生成層：於 `StockServingProjection` 實作 `materialize_home_market_snapshot`，批次完成時自動寫入預聚合之 TAIEX 30 點趨勢與市場活動／法人數據。
     - 讀取層：於 `packages/web_api/core.py` 及 `services/api/public_runtime.py` 貫徹 Fast Path 主鍵讀取（`SELECT payload_json WHERE snapshot_id = 1`），保留未命中時平滑降級。
@@ -16,7 +22,7 @@
 
 ## 2026-10-14 全市場／總控／持股交易／四頁整合：ACTIVE／PARTIAL
 
-使用者已恢復本工作包；最終 runtime 來源為 `085456e3cdf2075cc399977dfe4c2414340fdae8`。migration 054～056 PASS；完整 Release [#38530995776](https://github.com/tommylin15/janus-omniforge/actions/runs/38530995776) PASS（Python 1149、Flutter 90／analyze／web build、四個 immutable GHCR image／匿名 pull），0% candidate [#38531845062](https://github.com/tommylin15/janus-omniforge/actions/runs/38531845062) 及自動 OAuth／private boundary [#38532482767](https://github.com/tommylin15/janus-omniforge/actions/runs/38532482767) PASS。固定 Preview [#38533380447](https://github.com/tommylin15/janus-omniforge/actions/runs/38533380447) PASS；四 Jobs [#38533451889](https://github.com/tommylin15/janus-omniforge/actions/runs/38533451889) 仍執行兩輪 canary，不能當已完成切換。正式 API 流量未切換。
+使用者已恢復本工作包；最終 runtime 來源為 `085456e3cdf2075cc399977dfe4c2414340fdae8`。migration 054～056 PASS；完整 Release [#38530995776](https://github.com/tommylin15/janus-omniforge/actions/runs/38530995776) PASS（Python 1149、Flutter 90／analyze／web build、四個 immutable GHCR image／匿名 pull），0% candidate [#38531845062](https://github.com/tommylin15/janus-omniforge/actions/runs/38531845062) 及自動 OAuth／private boundary [#38532482767](https://github.com/tommylin15/janus-omniforge/actions/runs/38532482767) PASS。固定 Preview [#38533380447](https://github.com/tommylin15/janus-omniforge/actions/runs/38533380447) PASS；四 Jobs [#38533451889](https://github.com/tommylin15/janus-omniforge/actions/runs/38533451889) 已完成兩輪共 8 次 canary PASS，exact digest／設定與 Scheduler readback PASS。正式 API 流量未切換。
 
 新版包含今日頁圖表優先／研究收合、未知交易重送保留冪等 key、已登記 ETF 持股價格與 cached snapshot／來源 proof；普通股 coverage 分母不含 ETF。新版 Preview 公開 `/market-home` 本機 Windows 網路 API-only 暖讀 30 次、0 失敗、P50 375 ms／P95 437 ms；第一筆 484 ms 單列，未強制 cold start，不能當手機端到端或 cold P95。真實全市場 bootstrap／cached business receipt、持股／試算／保存效能與四頁 authenticated screenshot 尚未完成。使用者已指定既有測試帳號，保存量測須確認該 owner 後才寫入；Chrome 控制前輪因無法辨識網址被工具停止，不能聲稱 UI 已驗收。備份 executor install 仍缺 CI `compute.instances.get`；原備份 timer 保留，未擴 IAM、未完成還原及交接。
 

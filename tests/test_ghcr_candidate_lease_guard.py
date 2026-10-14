@@ -117,7 +117,7 @@ def test_legacy_manual_and_candidate_share_actions_serialization_group():
 
 def test_all_shared_runtime_writers_serialize_and_legacy_rejects_held_lease():
     for name in ("ghcr-candidate-dev.yml", "deploy-dev.yml",
-                 "run-dev-ingestion.yml", "ghcr-scheduler-operator-drill.yml"):
+                 "run-dev-ingestion.yml", "archive/ghcr-scheduler-operator-drill.yml"):
         text = (ROOT / ".github/workflows" / name).read_text()
         assert "group: janus-dev-runtime-writers" in text
         assert "cancel-in-progress: false" in text
