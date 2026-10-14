@@ -287,7 +287,9 @@ def compact_core(*, core: Any, apply: bool) -> dict[str, Any]:
         if not core.table_exists(dataset_id):
             continue
         identifier = core.table_identifier(dataset_id)
-        table = core._ensure_layout(core.catalog.load_table(identifier), dataset_id)
+        # Planning must never mutate the canonical catalog. Partition evolution
+        # itself creates new Iceberg metadata and billable GCS operations.
+        table = core.catalog.load_table(identifier)
         source_name, transform_name = core.PARTITIONS[dataset_id][0]
         before = _data_file_health(table, target_bytes=target_bytes, small_bytes=small_bytes)
         plan, oversized = _compaction_plan(
@@ -302,7 +304,10 @@ def compact_core(*, core: Any, apply: bool) -> dict[str, Any]:
         skipped_stale = []
         original_row_count = before["row_count"]
 
-        if apply:
+        if apply and plan:
+            # Only evolve layout when an actual rewrite is required; health and
+            # dry-run remain strictly read-only even on legacy partition specs.
+            table = core._ensure_layout(table, dataset_id)
             for candidate in plan:
                 table = core.catalog.load_table(identifier)
                 row_filter = _period_filter(table, source_name, transform_name, candidate["period"])
@@ -374,7 +379,7 @@ def core_health(*, core: Any) -> dict[str, Any]:
     for dataset_id in core.IDENTIFIERS:
         if not core.table_exists(dataset_id):
             continue
-        table = core._ensure_layout(core.catalog.load_table(core.table_identifier(dataset_id)), dataset_id)
+        table = core.catalog.load_table(core.table_identifier(dataset_id))
         tables.append({"dataset_id": dataset_id, "table": core.table_identifier(dataset_id),
                        **_data_file_health(table, target_bytes=target_bytes, small_bytes=small_bytes)})
     return {"component": "iceberg-health", "tables": tables,
