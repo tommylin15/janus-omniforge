@@ -5,10 +5,10 @@
   "release_run": "38565636734",
   "boundary_run": "38566632955",
   "jobs_run": "38566821108",
-  "phase": "bootstrap",
-  "bootstrap_run": null,
+  "phase": "cached",
+  "bootstrap_run": "38575674367",
   "no_permanent_job_changes": true,
   "no_api_traffic_changes": true,
-  "purpose": "2026-10-14 resume after initial one-shot #38566914209 was CANCELLED before any job due competing fixed-preview request; repaired 1e9c31d exact-source full CI, 0% API, automated OAuth boundary, four existing dev Jobs two-canary rollout #38566821108 PASS, fixed Preview #38566991297 PASS. Shared release lease is absent as read back after terminal rollout. Trigger exactly one bounded official 2026-10-13 full-market bootstrap with 1095 TWSE <=10% and 893 TPEX <=30%, provenance, owner OFF-ROSTER strict ALL, no formal traffic changes and no permanent Job changes. Do not launch cached until this actual business PASS.",
-  "attempt": 3
+  "purpose": "2026-10-15 single bounded cached business proof against same official trading day 2026-10-13 and same immutable successful bootstrap #38575674367 business receipt inventory hash sha256:153aa6ad0f91f143dc6bdc0f73d2d2a8bcbb966e759f1b9cb2b5ae35854110d9 (1988 official members). Exact source 1e9c31d release #38565636734, OAuth boundary #38566632955 and four jobs #38566821108 PASS. No market refresh, force=false, expected staged=0 and every nonempty official coverage record cache_hit=true; workflow derives pinned date from authenticated GitHub receipt. Failed concurrent duplicate bootstrap #38575717874 terminal and exact lease recovered by #38651024199. Fail closed if missing proofs; do not alter API traffic or permanent Job settings.",
+  "attempt": 4
 }
