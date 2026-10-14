@@ -1,14 +1,14 @@
 {
   "intent": "one-shot-full-market-business-acceptance",
   "approved": true,
-  "sha": "61796cbc2cd973d694e1d203e7ea9e8af07804c1",
-  "release_run": "38552314315",
-  "boundary_run": "38557372000",
-  "jobs_run": "38557540516",
+  "sha": "1e9c31d148db540ee06cac5ccccd8fac8d619511",
+  "release_run": "38565636734",
+  "boundary_run": "38566632955",
+  "jobs_run": "38566821108",
   "phase": "bootstrap",
   "bootstrap_run": null,
   "no_permanent_job_changes": true,
   "no_api_traffic_changes": true,
-  "purpose": "User-authorized Janus 2026-10-14 one bounded full-market official bootstrap acceptance after TWSE <=10% and TPEX <=30% coverage policy. Existing four dev Jobs rollout #38557540516 MUST be completed/successful before dispatch; same-source GHCR #38552314315 and OAuth/private-boundary #38557372000 verified. The workflow runs only the pre-existing Cloud Run ingestion Job with a single invocation override, separate business receipt, fixed official membership denominator and provenance, shared GitHub deployment lease. No extra scheduler, no job image/config mutation, no API traffic promotion; on unknown/failure keep evidence and never blind-retry.",
-  "attempt": 1
+  "purpose": "Exact-source repaired TPEx official 2026-10-13 dated valuation JSON (886 valid source rows). Full release #38565636734 PASS, same-source 0%-API #38566380979 PASS, private boundary #38566632955 PASS. New four Jobs rollout #38566821108 must be successful before original shared-writer one-shot actual official market bootstrap. Prior #38559419684 confirmed FAIL on TPEx valuation returning 2026-10-14 for 2026-10-13; retain its immutable receipt, no blind re-run. Fixed official membership 1095+893, TWSE <=10%, TPEx <=30%, no fake data or owner PnL relaxation, no permanent Job change, no formal API switch.",
+  "attempt": 2
 }
