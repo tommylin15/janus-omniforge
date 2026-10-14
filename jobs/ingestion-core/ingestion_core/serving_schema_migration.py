@@ -415,9 +415,13 @@ def run(control: Any, name: str) -> None:
                     with publication.transaction(), publication.cursor() as cursor:
                         _require_current_user(cursor, 'janus_publication')
                         cursor.execute(publication_sql)
+                        cursor.execute(checks)
+                        if not all(cursor.fetchone()):
+                            raise RuntimeError('market serving publication acceptance failed')
                 finally:
                     publication.close()
                 prepare = 'SELECT 1'
+                checks = 'SELECT true'
             with control.connection.transaction(), control.connection.cursor() as cursor:
                 _require_current_user(cursor, 'janus_control')
                 cursor.execute(prepare)

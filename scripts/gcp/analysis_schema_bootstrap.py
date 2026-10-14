@@ -27,9 +27,12 @@ try:
   try:
    with publication.transaction(),publication.cursor() as cursor:
     cursor.execute(publication_sql)
+    cursor.execute(checks)
+    assert all(cursor.fetchone())
   finally:
    publication.close()
   prepare='SELECT 1'
+  checks='SELECT true'
  with control.connection.transaction(),control.connection.cursor() as cursor:
   cursor.execute('SELECT current_user')
   assert cursor.fetchone()[0]=='janus_control'

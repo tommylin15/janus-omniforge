@@ -62,6 +62,31 @@ def statements(connection: FakeConnection) -> str:
     return "\n".join(statement for cursor in connection.cursors for statement in cursor.statements)
 
 
+@pytest.mark.parametrize('bootstrap', [False, True])
+def test_market_serving_acl_acceptance_uses_publication_owner(monkeypatch, bootstrap):
+    control = FakeControl()
+    control.close = lambda: None
+    publication = FakeConnection('janus_publication')
+    monkeypatch.setattr(migration, '_publication_connection', lambda: publication)
+    if bootstrap:
+        import base64, hashlib, runpy
+        from pathlib import Path
+        from ingestion_core import __main__ as entry
+        monkeypatch.setattr(entry, '_control_plane', lambda: control)
+        source = migration._migration_path(migration.MIGRATION_MARKET_SERVING).read_bytes()
+        monkeypatch.setenv('JANUS_ANALYSIS_MIGRATION_SQL', base64.b64encode(source).decode())
+        monkeypatch.setenv('JANUS_ANALYSIS_MIGRATION_HASH', hashlib.sha256(source).hexdigest())
+        monkeypatch.setenv('JANUS_ANALYSIS_MIGRATION_NAME', migration.MIGRATION_MARKET_SERVING)
+        script = Path(__file__).parents[1] / 'scripts/gcp/analysis_schema_bootstrap.py'
+        exec(runpy.run_path(str(script))['BOOTSTRAP'], {})
+    else:
+        migration.run(control, migration.MIGRATION_MARKET_SERVING)
+    assert "has_table_privilege('janus_public_api','publication.market_serving_recent'" in statements(publication)
+    assert "has_table_privilege('janus_public_api','publication.market_serving_recent'" not in statements(control.connection)
+    assert 'INSERT INTO control.schema_migrations' in statements(control.connection)
+    assert publication.closed
+
+
 def test_ceo_quota_migration_is_allowlisted_and_checks_before_marker():
     control = FakeControl()
     migration.run(control, migration.MIGRATION_CEO_QUOTA_50)

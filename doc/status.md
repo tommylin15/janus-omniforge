@@ -10,6 +10,7 @@
 - 原 00719B 與 CEO 技術 PASS 維持各自範圍；後置模型研究／CEO 報告不由本輪啟動。最新 acceptance 見 [TODO](todo.md) 及 [持股優先契約](spec/holdings-first.md)。
 - 首次完整 Release [#38507925978](https://github.com/tommylin15/janus-omniforge/actions/runs/38507925978)：Flutter PASS；Linux Python 1140 PASS／4 FAIL（真實 PostgreSQL 交易 tests 通過）。4 個舊契約／fixture 已同步並得到相關 33 PASS；必須由新 SHA 完整 Release 重驗，不以此結果部署。
 - 新 SHA `6326d16412c8eb61bb0618b7a394b18ba5017d14` 完整 Release [#38508422835](https://github.com/tommylin15/janus-omniforge/actions/runs/38508422835) PASS：1144 Python PASS（含隔離 PostgreSQL 交易 tests）、Flutter test/analyze/web build PASS、四個 GHCR immutable image／匿名 pull PASS。runtime 尚待 migration、0% candidate、boundary、四 Jobs canary、四頁及效能實測，不標整包完成。
+- `6326d16` 0% candidate [#38509014971](https://github.com/tommylin15/janus-omniforge/actions/runs/38509014971) 與自動邊界 [#38509314083](https://github.com/tommylin15/janus-omniforge/actions/runs/38509314083) PASS。migration 054 [#38509014739](https://github.com/tommylin15/janus-omniforge/actions/runs/38509014739) FAIL：DDL 已執行，但 control 身分執行 publication ACL 驗收查詢受拒；已修為既有 publication 身分驗收並補兩條執行路徑測試，23 PASS，待新完整 Release。備份 executor install [#38509036396](https://github.com/tommylin15/janus-omniforge/actions/runs/38509036396) IAM BLOCKED（CI 缺 `compute.instances.get`），VM 未寫入／原備份 timer 保留，不擴 IAM、不宣稱備份交接完成。
 
 
 ## 2026-10-14 Janus P0-V 跨專案技術驗收 PASS／真實 Owner CEO 報告 PARTIAL
