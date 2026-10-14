@@ -1,0 +1,55 @@
+name: Janus official TPEx valuation response readback
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/tpex-valuation-source-readback.json'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check official-only source probe
+        run: jq -e '.intent=="readonly-tpex-valuation-source-check" and .date=="2026-10-13" and .no_data_mutation==true' ops/tpex-valuation-source-readback.json
+      - name: Read official source metadata without persisting securities data
+        run: |
+          python - <<'PY'
+          import json,urllib.request,urllib.error
+          from urllib.parse import urlencode
+          urls={
+            'openapi_current':'https://www.tpex.org.tw/openapi/v1/tpex_mainboard_peratio_analysis',
+            'historical_json':'https://www.tpex.org.tw/www/zh-tw/afterTrading/peratio?'+urlencode({'date':'2026/10/13','response':'json'}),
+            'historical_html':'https://www.tpex.org.tw/web/stock/aftertrading/peratio_analysis/pera_result.php?'+urlencode({'l':'zh-tw','o':'htm','d':'115/10/13','s':'0'})
+          }
+          for label,url in urls.items():
+            result={'source':label}
+            try:
+              req=urllib.request.Request(url,headers={'Accept':'application/json,text/plain,*/*','User-Agent':'Mozilla/5.0 (compatible; Janus-Ingestion-Diagnostics)'})
+              with urllib.request.urlopen(req,timeout=25) as r:
+                result['http_status']=r.status
+                result['content_type']=r.headers.get('Content-Type','')[:80]
+                payload=r.read(7_000_000)
+              if payload.lstrip()[:1] in (b'[',b'{'):
+                doc=json.loads(payload)
+                rows=doc if isinstance(doc,list) else doc.get('data',doc.get('rows',[]))
+                if isinstance(doc,dict) and doc.get('tables'):
+                  rows=[dict(zip(table.get('fields',[]),v)) for table in doc.get('tables',[]) for v in table.get('data',[])]
+                if not isinstance(rows,list):rows=[]
+                result['row_count']=len(rows)
+                result['top_keys']=sorted(doc)[:20] if isinstance(doc,dict) else ['list']
+                sample=next((x for x in rows if isinstance(x,dict)),{})
+                result['field_keys']=sorted(sample)[:35]
+                dates={str(x.get('Date',x.get('date',x.get('observed_date','')))) for x in rows if isinstance(x,dict)}
+                result['date_values']=sorted(dates)[:15]
+                result['matching_20261013']=sum('20261013' in str(x.get('Date','')) or '2026-10-13' in str(x.get('Date','')) for x in rows if isinstance(x,dict))
+              else:
+                result['json']=False
+                result['html_body_chars']=len(payload)
+            except Exception as e:
+              result['error_type']=type(e).__name__
+              if isinstance(e,urllib.error.HTTPError):result['http_status']=e.code
+            print(json.dumps(result,ensure_ascii=False,sort_keys=True))
+          PY
