@@ -1,5 +1,14 @@
 # Janus Current Status
 
+## 2026-10-14 工作流治理收斂 PASS／統一診斷 CLI PASS／全市場與持股 P0 回歸 PASS（ACTIVE／PARTIAL）
+
+- **GitHub Workflows 大刀闊斧收斂與歸檔：PASS**：原 117 份工作流完成系統化治理，89 份歷史探測、前置診斷、前 500 母體研究排程安全移入 `.github/workflows/archive/`，並建立 [`archive/README.md`](.github/workflows/archive/README.md) 索引清冊。目前保留 28 份核心 Workflows，對齊四大核心管線（PR/Commit CI、核心 Release/Deployment、備份清理 Cron、受控手動運維），消除非預期定時排程。
+- **統一代碼庫與基礎設施診斷工具：PASS**：新增 [`ops/diagnose.py`](ops/diagnose.py)，整合工作流治理、資料庫 Migration 水位、全市場／持股快照健康度及 CEO Gateway 配置檢測；本地實測全數 PASS（Commit `318f950`）。
+- **P0 優先工作包（全市場官方報價、持股損益即時試算、首屏效能）**：
+  - 後端 Python 回歸：全市場名冊與 Serving 測試 23 PASS；持股 TPEx、重算隊列與 Daily Change 19 PASS（合計 42 PASS）。
+  - 前端 Flutter 測試：`apps/user_app` 執行 `flutter test`，90 tests 全數 PASS。
+  - 下一階段：待新版本整體 dev 部署後，進一步執行 Cloud Run 候選、0% candidate、四 Jobs canary 與真實 Owner 端到端截圖及冷讀取效能驗收。
+
 ## 2026-10-14 全市場／總控／持股交易／四頁整合：ACTIVE／PARTIAL
 
 使用者已恢復本工作包；最終 runtime 來源為 `085456e3cdf2075cc399977dfe4c2414340fdae8`。migration 054～056 PASS；完整 Release [#38530995776](https://github.com/tommylin15/janus-omniforge/actions/runs/38530995776) PASS（Python 1149、Flutter 90／analyze／web build、四個 immutable GHCR image／匿名 pull），0% candidate [#38531845062](https://github.com/tommylin15/janus-omniforge/actions/runs/38531845062) 及自動 OAuth／private boundary [#38532482767](https://github.com/tommylin15/janus-omniforge/actions/runs/38532482767) PASS。固定 Preview [#38533380447](https://github.com/tommylin15/janus-omniforge/actions/runs/38533380447) PASS；四 Jobs [#38533451889](https://github.com/tommylin15/janus-omniforge/actions/runs/38533451889) 仍執行兩輪 canary，不能當已完成切換。正式 API 流量未切換。
