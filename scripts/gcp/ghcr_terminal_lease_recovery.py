@@ -15,9 +15,9 @@ from typing import Any
 
 REPO = "tommylin15/janus-omniforge"
 TAG = "janus-ghcr-deploy-global-v1"
-OWNER_RUN = 38537012683
-OWNER_SHA = "a826a58666c2a5d3b73c79aca474a0a205447ca2"
-TAG_SHA = "4153277d7e99f00e127ca9513208cb27d8f326b4"
+OWNER_RUN = 38559419684
+OWNER_SHA = "b1f3a616652bc08edf435ee0f786b884a06ea82e"
+TAG_SHA = "d70502586aeaa95bdd0cc6d6fb13cc2cf7d54525"
 LEASE_REF = f"repos/{REPO}/git/ref/tags/{TAG}"
 LEASE_TAG = f"repos/{REPO}/git/tags/{TAG_SHA}"
 MARKER = "JANUS_DEPLOY_LEASE_V1:"
