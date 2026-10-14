@@ -2,16 +2,16 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "50eda171ef6ffb3971a4d140ad09bac870ead6c1",
-  "release_run": "38273250472",
+  "sha": "085456e3cdf2075cc399977dfe4c2414340fdae8",
+  "release_run": "38530995776",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "b1bc785906212b8d2860b1521affb83930d09f04",
+  "baseline_source_sha": "50eda171ef6ffb3971a4d140ad09bac870ead6c1",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:40c07c20daaec8034833d77989244323bb54d391f7012f86694d04a76be09fa7",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:40c07c20daaec8034833d77989244323bb54d391f7012f86694d04a76be09fa7",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:787123a9f5a118629c0478415754bffda0d623a9e05ee538ec6a55827e9502fb",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:58229f9f1ffcb1c1a7bfb23ddd5229bb7e82ed1334dc16651cdda8ddcf872188"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:30bfef87ee0b9fa652c5840dcd78677c021d0fc49041a108bac8cdcf2255b41f",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:30bfef87ee0b9fa652c5840dcd78677c021d0fc49041a108bac8cdcf2255b41f",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:2319d961fa3d16b7884e91cdff8cf03ad5bba3ab731973b8fc7333758cc7218e",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:17c20240d18c976e01e09c44fdda8e538f2c69f5ca92d5ce597813ddefdb021e"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 5,
-  "safety": "P0 UI manual recalc source 50eda… full GHCR #38273250472 PASS, 0% candidate #38273927543 PASS, automated OAuth-negative #38274131449 PASS. Previous four Jobs immutable GHCR exact source b1bc…/config verified read-only #38265625903 with scheduler ON, lease absent, no live executions at checkpoint. Use existing single writer lease, Scheduler/execution fence before every mutation, four reversible images with exact previous digests/config fingerprints, 2 canary executions per Job (8 total) and rollback if failure; no API/Preview traffic, secrets, ledger, IAM or new resources.",
-  "auth_boundary_run": "38274131449",
-  "automated_oauth_requirement": "Same source automated OAuth/private negative run #38274131449 PASS; no human login gate.",
-  "authorization": "Existing dev parallel-live user requested full holdings manual recalc usable in actual App; reuse authorized four-Jobs controlled rollout, and preserve previous b1bc source exact images for rollback."
+  "request_attempt": 6,
+  "safety": "Exact source full release #38530995776 PASS, 0% candidate #38531845062 PASS, same-source automated boundary #38532482767 PASS. Read-only existing four Jobs baseline source 50eda and unchanged config fingerprints verified. Recheck every baseline and public rollback digest before mutation; shared writer lease, Scheduler/execution fence, two real canaries each, reversible rollback. Preserve research Job, API/Preview traffic, secrets, ledger, IAM and resources.",
+  "auth_boundary_run": "38532482767",
+  "automated_oauth_requirement": "Same-source automated OAuth/private boundary #38532482767 PASS; no human login deployment gate.",
+  "authorization": "User resumed full-market/controller foundations, holdings performance and four-page integration with real dev acceptance. Controlled rollout of existing four Jobs under project authorization; real business acceptance remains separate pending evidence."
 }
