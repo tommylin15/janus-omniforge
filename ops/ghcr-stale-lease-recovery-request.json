@@ -1,10 +1,10 @@
 {
   "intent": "reconcile-terminal-ghcr-lease",
   "approved": true,
-  "owner_run": 38559419684,
-  "owner_source_sha": "b1f3a616652bc08edf435ee0f786b884a06ea82e",
-  "tag_sha": "d70502586aeaa95bdd0cc6d6fb13cc2cf7d54525",
+  "owner_run": 38575717874,
+  "owner_source_sha": "bdca2f9f8bcd24229a3f35986b04d2c6cd6c36b3",
+  "tag_sha": "021e05cce129c24d2994b6b77ad416303fc5a03f",
   "no_gcp_mutation": true,
-  "reason": "2026-10-14 failed exact-source TPEx valuation bootstrap #38559419684 ended failure at 12:16Z. Two attempts both recorded same 893/893 valuation block, immutable receipts #38563979240; official date-only source repaired at main. Recover only this exact terminal annotated GitHub lease ref after live stable API 100%, jobs all-page terminal, scheduler enabled and inactive legacy writers; do not mutate GCP or release if any readback fails.",
-  "attempt": 2
+  "reason": "2026-10-15 user continuation after exact official 1988-stock bootstrap #38575674367 PASS; later independent duplicate bootstrap #38575717874 FAILED and held exact annotated terminal lease. Restore only abandoned ref after run identity, last owner/tag double readback, Cloud Run API 100% unchanged, Scheduler ENABLED, all-page executions terminal and legacy writers inactive. No GCP mutation or fresh collection; Cached request is separate after recovery success.",
+  "attempt": 3
 }
