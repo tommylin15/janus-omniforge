@@ -2,5 +2,6 @@
   "intent": "readonly-tpex-valuation-source-check",
   "date": "2026-10-13",
   "no_data_mutation": true,
-  "reason": "Official TPEx valuation sole failed dataset in live bootstrap #38559419684; investigate whether OpenAPI current snapshot only exposes 2026-10-14 while requested completed trading day is 2026-10-13 and whether official date-filtered source is available. No writes or refresh."
+  "reason": "Historical official TPEx daily valuation is mismatched on 2026-10-14 current OpenAPI; probe official pera_result.php json and csv variants for 2026-10-13. Read only.",
+  "attempt": 2
 }
