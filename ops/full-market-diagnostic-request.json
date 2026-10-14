@@ -1,0 +1,7 @@
+{
+  "intent": "readonly-failed-bootstrap-diagnosis",
+  "run": "38559419684",
+  "no_gcp_mutation": true,
+  "no_lease_mutation": true,
+  "reason": "2026-10-14 01-05 user-authorized Janus dev live closure: old source full-market bootstrap #38559419684 failed terminal. Inspect only its original GitHub business receipt, Cloud Run job execution status, and sanitized bounded log messages to isolate root cause. No job execution, API promotion, lease release or IAM change."
+}
