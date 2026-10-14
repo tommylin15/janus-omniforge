@@ -70,8 +70,10 @@ jobs:
           jobs="$(gh run view "$jobs_run" --json status,conclusion,workflowName)"
           jq -e '.status=="completed" and .conclusion=="success" and
             .workflowName=="Janus GHCR controlled Jobs rollout"' <<< "$jobs" >/dev/null
-          jq -e --arg sha "$target_sha" \
-            '.sha==$sha and .release_run=="38552314315" and .auth_boundary_run=="38557372000"' \
+          release_run="$(jq -r '.release_run' "$file")"
+          boundary_run="$(jq -r '.boundary_run' "$file")"
+          jq -e --arg sha "$target_sha" --arg release "$release_run" --arg boundary "$boundary_run" \
+            '.sha==$sha and .release_run==$release and .auth_boundary_run==$boundary' \
             ops/ghcr-jobs-rollout-request.json >/dev/null
           phase="$(jq -r '.phase' "$file")"
           if [[ "$phase" == cached ]]; then
