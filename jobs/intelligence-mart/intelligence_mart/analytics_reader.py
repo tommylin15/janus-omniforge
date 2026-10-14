@@ -142,14 +142,21 @@ class IcebergSnapshotReader:
             planned_file_count = None
             planned_scan_bytes = None
             planning_error_code = None
-            try:
-                tasks = list(scan.plan_files())
-                planned_file_count = len(tasks)
-                task_lengths = [getattr(task, "length", None) for task in tasks]
-                if all(isinstance(length, int) and length >= 0 for length in task_lengths):
-                    planned_scan_bytes = sum(task_lengths)
-            except Exception as error:  # telemetry is best-effort and must not change the read path
-                planning_error_code = type(error).__name__.upper()[:64]
+            # to_arrow() plans the same files internally. Planning a second
+            # time just for telemetry doubles manifest/metadata reads in the
+            # default PyIceberg workload and amplifies GCS Class-B requests.
+            # Opt in only for a bounded, explicit diagnostic session.
+            import os
+            plan_diagnostics = os.environ.get("ICEBERG_SCAN_PLAN_DIAGNOSTICS", "false").lower() in {"1", "true", "yes"}
+            if plan_diagnostics:
+                try:
+                    tasks = list(scan.plan_files())
+                    planned_file_count = len(tasks)
+                    task_lengths = [getattr(task, "length", None) for task in tasks]
+                    if all(isinstance(length, int) and length >= 0 for length in task_lengths):
+                        planned_scan_bytes = sum(task_lengths)
+                except Exception as error:  # telemetry is best-effort and must not change the read path
+                    planning_error_code = type(error).__name__.upper()[:64]
 
             rows = scan.to_arrow().to_pylist()
             remaining -= len(rows)
@@ -166,6 +173,7 @@ class IcebergSnapshotReader:
                 "symbol_filter_applied": filter_ is not None,
                 "planned_file_count": planned_file_count,
                 "planned_scan_bytes": planned_scan_bytes,
+                "plan_diagnostics_enabled": plan_diagnostics,
                 "actual_gcs_read_bytes": None,
                 "planning_error_code": planning_error_code,
             }
