@@ -21,12 +21,21 @@ def official_members(profiles):
     return rows, identity
 
 
-def coverage_receipt(expected, received):
+def coverage_receipt(expected, received, market):
+    """Apply separate TWSE 10% and TPEX 30% inclusive missing-data gates.
+
+    ALL is reserved for registered off-universe holdings and requires complete
+    coverage; an unknown market must never silently inherit the OTC tolerance.
+    """
+    limits = {'TWSE': 1, 'TPEX': 3, 'ALL': 0}  # tenths, compared as integers
+    if market not in limits:
+        raise ValueError('unknown coverage market')
     expected, received = set(expected), set(received)
     missing = expected - received
     return {'expected_count': len(expected), 'received_count': len(expected & received),
             'missing_count': len(missing), 'missing_ratio': len(missing) / len(expected) if expected else None,
-            'coverage_accepted': bool(expected) and len(missing) * 10 <= len(expected),
+            'max_missing_ratio': limits[market] / 10,
+            'coverage_accepted': bool(expected) and len(missing) * 10 <= len(expected) * limits[market],
             'missing': sorted(missing)}
 
 
@@ -39,6 +48,9 @@ def cached_coverage(receipt, expected, day):
     if (not isinstance(receipt, dict) or receipt.get('date') != day or not receipt.get('snapshot_id')
             or not isinstance(receipt.get('received'), list)):
         return None
+    market = receipt.get('market')
+    if market not in {'TWSE', 'TPEX', 'ALL'}:
+        return None  # Legacy/unknown-market cache cannot establish a current gate.
     received = set(receipt['received'])
     return {**receipt, 'expected': sorted(expected), 'received': sorted(set(expected) & received),
-            **coverage_receipt(expected, received), 'cache_hit': True}
+            **coverage_receipt(expected, received, market), 'cache_hit': True}
