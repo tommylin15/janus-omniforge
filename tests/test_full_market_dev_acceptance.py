@@ -10,23 +10,34 @@ def test_official_coverage_requires_both_markets_and_inclusive_fixed_denominator
     namespace = {}
     exec(VERIFY,namespace)
     verify = namespace['verify_inventory']
-    rows = [{'dataset':'ohlcv','market':market,'expected_count':1000,'received_count':900,'missing_count':100,
+    rows = [{'dataset':'ohlcv','market':market,'expected_count':1000,
+             'received_count':900 if market == 'TWSE' else 700,
+             'missing_count':100 if market == 'TWSE' else 300,
+             'max_missing_ratio':0.1 if market == 'TWSE' else 0.3,
              'date':'2026-10-14','coverage_accepted':True,'snapshot_id':4,'stage_provenance_id':'official-proof'}
             for market in ('TWSE','TPEX')]
     inventory = {'scope':'all_listed_otc_equities','universe_status':'available',
                  'universe_version':1,'coverage_status':'complete','coverage_accepted':True,'items':rows}
     assert len(verify(inventory,'2026-10-14')) == 2
     holding = {'dataset':'outside_500_registered_portfolio_ohlcv','market':'ALL','date':'2026-10-14',
-               'expected_count':1,'received_count':1,'missing_count':0,'coverage_accepted':True,
+               'expected_count':1,'received_count':1,'missing_count':0,'max_missing_ratio':0.0,'coverage_accepted':True,
                'snapshot_ids':[4],'stage_provenance_ids':['official-proof']}
     assert len(verify(dict(inventory,items=rows+[holding]),'2026-10-14')) == 3
     with pytest.raises(AssertionError):
         verify(dict(inventory,items=rows+[dict(holding,snapshot_ids=[])]),'2026-10-14')
     with pytest.raises(AssertionError): verify(dict(inventory,items=rows[:1]),'2026-10-14')
     with pytest.raises(AssertionError): verify(inventory,'2026-10-15')
-    rows[1]['missing_count'] = 101
-    rows[1]['received_count'] = 899
+    rows[0]['missing_count'] = 101
+    rows[0]['received_count'] = 899
     with pytest.raises(AssertionError): verify(inventory,'2026-10-14')
+    rows[0]['missing_count'], rows[0]['received_count'] = 100, 900
+    rows[1]['missing_count'], rows[1]['received_count'] = 301, 699
+    with pytest.raises(AssertionError): verify(inventory,'2026-10-14')
+    rows[1]['missing_count'], rows[1]['received_count'] = 300, 700
+    with pytest.raises(AssertionError):
+        verify(dict(inventory,items=rows+[dict(holding,received_count=0,missing_count=1)]),'2026-10-14')
+    with pytest.raises(AssertionError):
+        verify(dict(inventory,items=rows+[dict(holding,market='UNKNOWN')]),'2026-10-14')
 
 
 def test_bootstrap_and_cache_requests_only_override_one_execution_and_never_trigger_mart():
