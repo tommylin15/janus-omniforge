@@ -17,9 +17,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ghcr_jobs_rollout as rollout
 
 REQUEST = Path("ops/holdings-p0-owner-live-request.json")
-EXPECTED_SOURCE = "b1bc785906212b8d2860b1521affb83930d09f04"
+EXPECTED_SOURCE = "1e9c31d148db540ee06cac5ccccd8fac8d619511"
 JOB = "janus-private-pipeline"
-EXPECTED_PRIVATE_IMAGE = "ghcr.io/tommylin15/janus-private-pipeline@sha256:58229f9f1ffcb1c1a7bfb23ddd5229bb7e82ed1334dc16651cdda8ddcf872188"
+EXPECTED_PRIVATE_IMAGE = "ghcr.io/tommylin15/janus-private-pipeline@sha256:d06ffd5a56439d00780af8e9908a060f154c53a69768915ebd5581d3a58cb95e"
 
 # Supplied as argv to the existing deployed Python Job, never rendered into logs
 # by this runner. It reads the single owner from the real operational positions.
@@ -45,6 +45,9 @@ with repo._connection() as connection:
     ).fetchall()
 if len(owners)!=1:
     raise RuntimeError('actual_holder_owner_scope_not_exactly_one')
+identity=repo.stock_identities({'00719B'}).get('00719B')
+if not identity or identity.get('name')!='元大美債1-3' or identity.get('market')!='TPEX' or identity.get('enabled') is not True:
+    raise RuntimeError('official_00719B_stock_master_not_verified')
 owner=owners[0]['user_id']
 market=CorePriceReader.from_env()
 valued=resolve_valuation_date(None, market.latest_valuation_date)
@@ -75,7 +78,8 @@ if len(matched)!=1 or len(pnl_matched)!=1:
 row=matched[0]
 pnl_row=pnl_matched[0]
 current_version=int(repo.latest_ledger_version(owner))
-if (row.get('market_price') is None or row.get('market_value') is None
+if (row.get('stock_name')!='元大美債1-3' or row.get('identity_status')!='available'
+        or row.get('market_price') is None or row.get('market_value') is None
         or pnl_row.get('unrealized_pnl') is None
         or pnl_row.get('unrealized_return') is None
         or row.get('price_status') not in {'available','stale'}
@@ -90,6 +94,7 @@ print(json.dumps({
     'valuation_date':valued.isoformat(),
     'mart_checkpoint_current':True,
     'mart_00719B_price_and_unrealized_present':True,
+    'official_etf_identity_available':True,
     'status':'PASS',
 },sort_keys=True))
 """
