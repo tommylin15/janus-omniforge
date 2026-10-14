@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "61796cbc2cd973d694e1d203e7ea9e8af07804c1",
-  "candidate_release_run": "38552314315",
-  "candidate_deployment_run": "38556011007",
-  "purpose": "Candidate #38556011007 attempt 2 PASS with exact-source GHCR API sha-61796cbc; 0% API tag validated, old canonical 100% retained. Automatic OAuth PKCE/metadata and unauthenticated owner/Admin/MCP negative boundaries only; no human OAuth prompt, no GCP/ledger mutation or canonical promotion.",
+  "sha": "1e9c31d148db540ee06cac5ccccd8fac8d619511",
+  "candidate_release_run": "38565636734",
+  "candidate_deployment_run": "38566380979",
+  "purpose": "Full Python1163/Flutter90/four GHCR public digests #38565636734 and new 0% candidate #38566380979 PASS on official TPEx exact-date valuation fix. Read-only automatic OAuth PKCE/resource metadata and private/Admin/MCP 401/403 boundary, build SHA. No owner browser assertion, GCP/ledger/job mutation or API traffic promotion.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 14
+  "attempt": 15
 }
