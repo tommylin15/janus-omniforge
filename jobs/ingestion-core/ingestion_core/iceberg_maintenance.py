@@ -391,12 +391,17 @@ def core_health(*, core: Any) -> dict[str, Any]:
 
 def run(mode: str) -> dict[str, Any]:
     supported = {"dry-run", "apply", "retention-dry-run", "retention-apply",
-                 "health", "compact-dry-run", "compact-apply"}
+                 "health", "compact-dry-run", "compact-apply", "cost-inventory"}
     if mode not in supported:
         raise ValueError("unsupported Iceberg maintenance mode")
     bucket = os.environ.get("CORE_BUCKET", "").strip()
     if bucket != "gen-lang-client-0593591102-dev-core":
         raise ValueError("Iceberg maintenance is restricted to the existing dev Core bucket")
+    if mode == "cost-inventory":
+        # No catalog access, mutation lock, snapshots, or per-object GET calls.
+        return {"component": "iceberg-cost-inventory", "mode": "read-only",
+                **GcsObjectStore(bucket).bounded_inventory(max_pages=_integer_env(
+                    "ICEBERG_INVENTORY_MAX_PAGES", 10, minimum=1, maximum=25))}
     from .__main__ import _iceberg_core
 
     core = _iceberg_core(bucket)
