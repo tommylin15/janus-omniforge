@@ -3,7 +3,7 @@ import sys
 import pytest
 
 sys.path.insert(0,str(Path(__file__).parents[1]/'scripts/gcp'))
-from full_market_dev_acceptance import CODE, VERIFY, payload
+from full_market_dev_acceptance import CODE, VERIFY, payload, verified_terminal_business_success
 
 
 def test_official_coverage_requires_both_markets_and_inclusive_fixed_denominators():
@@ -54,3 +54,13 @@ def test_bootstrap_and_cache_requests_only_override_one_execution_and_never_trig
     assert env(bootstrap)['INGESTION_DATE'] == env(cached)['INGESTION_DATE'] == ''
     assert not {'cpu','memory','serviceAccount'} & set(bootstrap['overrides'])
     with pytest.raises(ValueError): payload(source,'historical','2026-10-14')
+
+
+def test_business_lease_release_requires_verified_terminal_pass():
+    success = {'status':'PASS', 'business':{'status':'PASS', 'coverage':[]}}
+    assert verified_terminal_business_success(success, True)
+    assert not verified_terminal_business_success(success, False)
+    assert not verified_terminal_business_success({'status':'FAIL', 'business':success['business']}, True)
+    assert not verified_terminal_business_success({'status':'PASS', 'business':{'status':'FAIL'}}, True)
+    assert not verified_terminal_business_success({'status':'PASS'}, True)
+    assert not verified_terminal_business_success({'status':'UNKNOWN'}, False)
