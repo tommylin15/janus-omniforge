@@ -407,8 +407,15 @@ def run(*, now=None, session=None, control=None, core=None):
             session = AuthorizedSession(credentials)
         if mode == "observe":
             record(connection, tick, "controller", {"status": "observe", "model_calls": 0}, "tick", update=False)
-            core = core or _iceberg_core(PROJECT + "-dev-core")
-            return {"status": "observe", "tick": tick, "exported_events": export_events(connection, core), "model_calls": 0}
+            # Observe-only is also hourly; do not accidentally retain the
+            # expensive per-hour whole-Iceberg audit scan on this path.
+            if audit_export_due(now):
+                core = core or _iceberg_core(PROJECT + "-dev-core")
+                exported, deferred = export_due_audit(connection, core, now)
+            else:
+                exported, deferred = 0, True
+            return {"status": "observe", "tick": tick, "exported_events": exported,
+                    "iceberg_audit_deferred": deferred, "model_calls": 0}
         if mode == "seed":
             seeds = json.loads(os.environ["BATCH_CONTROLLER_SEED_EXECUTIONS"])
             if not isinstance(seeds, list) or not 1 <= len(seeds) <= 3:
