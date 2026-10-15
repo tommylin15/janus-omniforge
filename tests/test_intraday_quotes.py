@@ -19,9 +19,13 @@ def test_decimal_values_missing_stale_and_canonical_snapshot_unchanged():
     assert rows[0]['market_price'] == '90'
     quotes['2330']['quote_at'] = (now-timedelta(seconds=121)).isoformat()
     stale = value_holdings(rows, quotes, now)['items'][0]
-    assert stale['market_value'] == '125065.90'
-    assert stale['unrealized_pnl'] == '1357.40'
-    assert stale['aggregate_status'] == 'stale'
+    # Last success remains visible on the holding, but an expired observation
+    # must not be presented as a complete, current portfolio total.
+    assert stale['market_value'] is None
+    assert stale['unrealized_pnl'] is None
+    assert stale['aggregate_status'] == 'withheld'
+    assert stale['valuation_status'] == 'stale'
+    assert stale['priced_market_value'] == '0'
     assert stale['stale_price_count'] == 1
     assert value_holdings(rows, quotes, now)['positions'][0]['price_status'] == 'stale'
     assert value_holdings(rows, {}, now)['positions'][0]['price_status'] == 'missing'
