@@ -1,7 +1,7 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "1e9c31d148db540ee06cac5ccccd8fac8d619511",
-  "purpose": "2026-10-14 user-authorized 01-05: official exact-date TPEx valuation repair after 893/893 false-missing failure. New full Release #38565636734 PASS Python 1163/2 deselected, Flutter90, four GHCR digests and anonymous pull. Migration057 already PASS. Restore 0% API candidate only after exact source; no formal traffic, no Jobs update, no owner data mutation.",
+  "sha": "c8e8a7415be48b291a347dcc115d7834db6696a8",
+  "purpose": "2026-10-15 independent FinOps Iceberg issue #2; exact full GHCR Release #38657775138 PASS for controller 23:30 compact-nightly dry-run then apply, audit journal compaction and reader cost reduction. Required dev 0% API candidate solely for existing automated Jobs auth gate; no production traffic promotion, no permanent API rollout, no business data deletion.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
@@ -9,5 +9,5 @@
   "allow_job_image_update": false,
   "retry_verification": "same-sha-cache-normalized-immutable-candidate-reuse",
   "same_sha_retry_attempt": 0,
-  "digest": "sha256:83a2598486007a39bdaa1392e46cd79af3a3df9046efd9cdc7f3b1bef4fe667d"
+  "digest": ""
 }
