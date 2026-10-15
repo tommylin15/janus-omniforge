@@ -1,5 +1,9 @@
 name: Janus controller backup executor and guarded handoff
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/ledger-backup-controller-request.json'
   workflow_dispatch:
     inputs:
       release_run:
@@ -25,20 +29,51 @@ jobs:
     environment: dev
     env:
       GH_TOKEN: ${{ github.token }}
-      RELEASE_RUN: ${{ inputs.release_run }}
-      PHASE: ${{ inputs.phase }}
+      GCP_ENVIRONMENT: dev
       GCP_PROJECT_ID: gen-lang-client-0593591102
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Verify explicitly authorized backup phase and source identity
+        id: request
+        env:
+          MANUAL_RELEASE_RUN: ${{ inputs.release_run }}
+          MANUAL_PHASE: ${{ inputs.phase }}
+        run: |
+          set -Eeuo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            jq -e '.intent == "dev-ledger-backup-handoff" and .approved == true and
+              .environment == "dev" and (.release_run | type == "number") and
+              (.release_sha | test("^[0-9a-f]{40}$")) and
+              (.phase == "install" or .phase == "handoff")' \
+              ops/ledger-backup-controller-request.json >/dev/null
+            release_run="$(jq -r .release_run ops/ledger-backup-controller-request.json)"
+            release_sha="$(jq -r .release_sha ops/ledger-backup-controller-request.json)"
+            phase="$(jq -r .phase ops/ledger-backup-controller-request.json)"
+          else
+            release_run="$MANUAL_RELEASE_RUN"
+            release_sha=""
+            phase="$MANUAL_PHASE"
+          fi
+          [[ "$release_run" =~ ^[0-9]+$ ]]
+          [[ "$phase" == "install" || "$phase" == "handoff" ]]
+          echo "release_run=$release_run" >>"$GITHUB_OUTPUT"
+          echo "release_sha=$release_sha" >>"$GITHUB_OUTPUT"
+          echo "phase=$phase" >>"$GITHUB_OUTPUT"
       - name: Verify exact tested executor source
+        env:
+          RELEASE_RUN: ${{ steps.request.outputs.release_run }}
+          EXPECTED_RELEASE_SHA: ${{ steps.request.outputs.release_sha }}
         run: |
           set -Eeuo pipefail
           [[ "$RELEASE_RUN" =~ ^[0-9]+$ ]]
           gh run view "$RELEASE_RUN" --json headSha,conclusion,status,workflowName >/tmp/release.json
           jq -e '.status=="completed" and .conclusion=="success" and .workflowName=="Janus GHCR full-test image publication"' /tmp/release.json >/dev/null
           sha="$(jq -r .headSha /tmp/release.json)"
+          if [[ -n "$EXPECTED_RELEASE_SHA" ]]; then
+            test "$sha" = "$EXPECTED_RELEASE_SHA"
+          fi
           git merge-base --is-ancestor "$sha" HEAD
           git diff --exit-code "$sha" HEAD -- scripts/gcp/ledger_backup_executor.py scripts/gcp/ledger-durability-dev.sh scripts/gcp/ledger_restore_verify.py
       - uses: google-github-actions/auth@v2
@@ -47,7 +82,7 @@ jobs:
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
       - name: Install local request executor without stopping original backup
-        if: inputs.phase == 'install'
+        if: steps.request.outputs.phase == 'install'
         run: |
           set -Eeuo pipefail
           gcloud compute scp scripts/gcp/ledger_backup_executor.py janus-postgres-dev:/tmp/janus-ledger-backup-executor.py --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet
@@ -55,7 +90,7 @@ jobs:
           gcloud compute scp scripts/gcp/ledger-durability-dev.sh janus-postgres-dev:/tmp/janus-ledger-durability --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet
           gcloud compute ssh janus-postgres-dev --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet --command='sudo env GCP_PROJECT_ID=gen-lang-client-0593591102 GCP_ENVIRONMENT=dev bash /tmp/janus-ledger-durability install-controller'
       - name: Read actual controller backup receipt and verify immutable bytes
-        if: inputs.phase == 'handoff'
+        if: steps.request.outputs.phase == 'handoff'
         run: |
           set -Eeuo pipefail
           umask 077
@@ -63,7 +98,7 @@ jobs:
           jq -e '(.day|test("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")) and (.sha256|test("^[a-f0-9]{64}$")) and .size_bytes>=1024 and .size_bytes<=67108864' /tmp/backup-receipt.json >/dev/null
           day="$(jq -r .day /tmp/backup-receipt.json)"
       - name: Restore verified immutable backup in the existing VM's isolated database
-        if: inputs.phase == 'handoff'
+        if: steps.request.outputs.phase == 'handoff'
         run: |
           set -Eeuo pipefail
           day="$(jq -r .day /tmp/backup-receipt.json)"
@@ -73,7 +108,7 @@ jobs:
             .checks.correction_links_valid==true' /tmp/restore-receipt.json >/dev/null
           echo 'CONTROLLER_BACKUP_RESTORE=PASS' >> "$GITHUB_STEP_SUMMARY"
       - name: Handoff only after executor and restore passed
-        if: inputs.phase == 'handoff'
+        if: steps.request.outputs.phase == 'handoff'
         run: |
           set -Eeuo pipefail
           gcloud compute ssh janus-postgres-dev --project="$GCP_PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet --command='sudo systemctl is-active janus-ledger-backup-executor.timer && sudo systemctl disable --now janus-ledger-backup.timer && ! sudo systemctl is-enabled janus-ledger-backup.timer'

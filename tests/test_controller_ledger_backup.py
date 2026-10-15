@@ -58,3 +58,17 @@ def test_vm_worker_rejects_wrong_day_and_secret_payload_without_logging_it(monke
     result = executor()['run']()
     assert result['status'] == 'failed' and 'secret' not in str(result)
     assert "status='failed'" in statements[-1]
+
+
+def test_backup_handoff_push_requires_explicit_phase_and_verified_full_release():
+    """Existing guarded workflow accepts an owner-approved GitHub request."""
+    source = (Path(__file__).parents[1] / '.github/workflows/ledger-backup-controller-dev.yml').read_text()
+    assert "ops/ledger-backup-controller-request.json" in source
+    assert '.intent == "dev-ledger-backup-handoff" and .approved == true' in source
+    assert 'test "$sha" = "$EXPECTED_RELEASE_SHA"' in source
+    assert 'gh run view "$RELEASE_RUN" --json headSha,conclusion,status,workflowName' in source
+    assert 'git diff --exit-code "$sha" HEAD -- scripts/gcp/ledger_backup_executor.py' in source
+    assert "if: steps.request.outputs.phase == 'install'" in source
+    assert "if: steps.request.outputs.phase == 'handoff'" in source
+    assert "sudo systemctl disable --now janus-ledger-backup.timer" in source
+    assert source.index("Restore verified immutable backup") < source.index("Handoff only after executor")
