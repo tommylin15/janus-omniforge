@@ -33,7 +33,7 @@
 | market-screening／intelligence-mart | 平日 16:30，依最新 ingestion＋supplement，與公開 ingestion／Mart 互斥 | 改全上市櫃分片；EOD snapshot ready 才算，重跑相同輸入 reuse。與深度模型分開，不把資料不足股默默移出分母 |
 | specialist-retrain／intelligence-mart | 每月第一個週六 10:30，依 ingestion＋supplement，互斥 | 保留月度節奏與 no-new-data skip；資料母體全市場，逐角色成熟資料／OOS gate。研究仍在產品後，不新設全市場每日重訓 |
 | data-quality／ingestion-core | 每週六 12:30，與公開 ingestion／Mart 互斥 | 每次 ingestion 已驗的 key／型別／來源不重複做全歷史掃描；週品質集中上市 coverage≤10%、上櫃≤30%、缺口、schema drift，bounded 補漏 |
-| private／private-pipeline | 平日 21:30，依當日最近 ingestion | 改成 EOD-ready 估值＋異動 owner queue；晚間僅補償。與即時手動重算去重，不重複全 owner 全帳本掃描 |
+| private／private-pipeline | 平日 15:30（依當日 14:30 ingestion）＋21:30（獨立 EOD fallback slot），共用既有 Job | 21:30 不因下午 ingestion failure／pending 而無法派送；Private Mart 自行依官方來源日期、PIT、missing/stale 與 Owner ledger fence 決定能否完整發布。前一 slot 的 terminal upstream failure 以 `skipped/upstream_ingestion_failed` 結束，不累積永久 pending；不新增 Scheduler 或重送同一 occurrence |
 | mobile-ledger／private-pipeline | 每小時 :30，僅 pending 才啟動；與 private 同 slot 去重 | 正常 User App 入帳同步投影；此路僅離線 queue 恢復。現 entrypoint drain 後會進入一般 pipeline，需拆明 operation，避免每次 drain 都重估所有 owner；MCP 維持唯讀 |
 | mart-cleanup／intelligence-mart | 每日 23:30，依 ingestion，三 worker 互斥 | 保留先 Mart 再 Core 的 retention dependency；同一 maintenance window，先 inventory／reference fence 再 apply，沒有可刪除項就 skip |
 | core-cleanup／ingestion-core | 每日 23:30，依 mart-cleanup，三 worker 互斥 | 保留相依串行，不合成同時清除；含 Stage/Core retention 與受控維護，遇未知執行不刪、不盲目重送 |
