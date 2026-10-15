@@ -153,7 +153,7 @@ jobs:
               state=payload.get('status') if isinstance(payload,dict) else None
               raw=entry.get('textPayload') or ''
               if not isinstance(state,str) and isinstance(raw,str):
-                match=re.search(r'"status"\\s*:\\s*"([a-z_]+)"',raw)
+                match=re.search(r'"status"\s*:\s*"([a-z_]+)"',raw)
                 state=match.group(1) if match else None
               if state in allowed:
                 statuses.append({'time':entry.get('timestamp'),'status':state})
