@@ -210,6 +210,23 @@ def test_lost_dispatch_response_is_not_automatically_retried():
     session.get.assert_not_called()
 
 
+def test_observe_mode_does_not_read_iceberg_audit_each_hour(monkeypatch):
+    from unittest.mock import MagicMock, Mock
+    from ingestion_core import batch_controller as controller
+    monkeypatch.setenv("GCP_PROJECT_ID", PROJECT)
+    monkeypatch.setenv("BATCH_CONTROLLER_MODE", "observe")
+    conn = MagicMock()
+    conn.execute.return_value.fetchone.return_value = (True,)
+    exported = Mock()
+    monkeypatch.setattr(controller, "record", Mock())
+    monkeypatch.setattr(controller, "export_events", exported)
+    result = controller.run(now=datetime(2026, 10, 15, 14, 30, tzinfo=timezone.utc),
+                            control=SimpleNamespace(connection=conn), core=Mock(), session=Mock())
+    assert result["status"] == "observe"
+    assert result["exported_events"] == 0 and result["iceberg_audit_deferred"] is True
+    exported.assert_not_called()
+
+
 def test_idle_active_tick_is_recorded_without_dispatch(monkeypatch):
     from unittest.mock import MagicMock, Mock
     from ingestion_core import batch_controller as controller
