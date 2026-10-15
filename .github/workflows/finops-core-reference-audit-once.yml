@@ -7,7 +7,7 @@ permissions:
   contents: read
   id-token: write
 concurrency:
-  group: janus-dev-runtime-writers
+  group: janus-finops-readonly-reference-inventory
   cancel-in-progress: false
 jobs:
   read-only:
