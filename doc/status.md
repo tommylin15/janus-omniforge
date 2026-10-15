@@ -1,5 +1,17 @@
 # Janus Current Status
 
+## 2026-10-15 FinOps Iceberg 專項續工（其餘產品 WBS 仍沿用暫停 checkpoint）
+
+此段是使用者明確恢復「Iceberg 壓縮與受引用保護清理、CORE_RETENTION_FENCE_URI 引用盤點」**兩項**工作，不擴張至其他產品 WBS，亦未切換正式 API 流量。
+
+- 已驗證既有四支 Jobs rollback／Scheduler 及完整 Canary [#38676820532](https://github.com/tommylin15/janus-omniforge/actions/runs/38676820532) PASS：8 canaries，舊映像不可變 digest。
+- 一次性真實 `compact-nightly` [#38684081267](https://github.com/tommylin15/janus-omniforge/actions/runs/38684081267) PASS：9 個 Core tables，重寫 9,429,711 bytes，audit table 已重寫；Core GCS **8,162→8,225** live objects，1 MiB 以下 **8,157→8,218**，本次過期 snapshot／orphan 刪除 0。這是重寫成功，尚非 GCS 物件縮減成功。
+- 新版 `retention-dry-run` [#38684726748](https://github.com/tommylin15/janus-omniforge/actions/runs/38684726748) PASS：74 個預計到期 Snapshot、403 個預計孤兒檔；Core GCS 8,225→8,226 是不可變報告產生，不是清除。一般 `retention-apply` 仍因無完整 `CORE_RETENTION_FENCE_URI` 被封鎖。
+- 唯讀跨桶研究引用 [#38684978645](https://github.com/tommylin15/janus-omniforge/actions/runs/38684978645) 及存證 [#38685692925](https://github.com/tommylin15/janus-omniforge/actions/runs/38685692925)：Core execution manifests 60 份，外部識別的 Core IDs 6（已讀 Mart 69 文件、Research 77）；Research 19 個 oversized 未完整讀取，Private payload／PostgreSQL publication index 未全面驗證；**90 日以上 Core manifests 為 0**。僅保存 `PARTIAL_NOT_AUTHORIZED_FOR_DELETION` GitHub Artifact（SHA256 與 source generation），不生成假完整 deletion fence。
+- 專用 `ops.batch_events_v1` 安全清理實作：不碰市場／財務／PIT／ML/Research，走 snapshot expiry + 7 日以上 generation-fenced orphan 刪除；相關 Iceberg CI [#38685350471](https://github.com/tommylin15/janus-omniforge/actions/runs/38685350471)、完整 GHCR Release [#38685404805](https://github.com/tommylin15/janus-omniforge/actions/runs/38685404805)、0% candidate [#38685839070](https://github.com/tommylin15/janus-omniforge/actions/runs/38685839070)、自動 OAuth boundary [#38686018183](https://github.com/tommylin15/janus-omniforge/actions/runs/38686018183) 均 PASS。四 Jobs 受控 rollout [#38686125420](https://github.com/tommylin15/janus-omniforge/actions/runs/38686125420) 與一次性 audit-cleanup [#38686337134](https://github.com/tommylin15/janus-omniforge/actions/runs/38686337134) 須依最新 runtime 終態讀回後才能判完成。
+- GCS 方法級小時觀察 [#38685092023](https://github.com/tommylin15/janus-omniforge/actions/runs/38685092023) OBSERVED，已有 5 分鐘對齊的 `ReadObject`、`GetObjectMetadata` 小時彙整；但新舊窗口不等量且包含一次性 compact workload，成本節省率仍 `unknown`，不能以累積七日與一小時數字直接推算百分比。
+
+
 ## 2026-10-15 使用者要求暫停（PAUSED）
 
 後續開發、部署、Job 派送及驗收均暫停；本次只保存既有程式進度、更新文件並同步 GitHub。正式 API 100% 流量保持原版本，固定 Preview／四 Jobs 已驗證來源為 `4d058c47ac62ad7328f9f7c0e9fcd4ef4f1ac7b1`。
