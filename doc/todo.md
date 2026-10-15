@@ -4,7 +4,7 @@
 
 ## 執行範圍
 
-**2026-10-15 使用者最新授權：D01～D05 合併成一個產品開發及整批 dev 驗收工作包。** 在既有 dev 範圍內連續修復／測試／部署／驗收，不逐檔請求授權；與獨立 FinOps D06 分開，不啟動後置 D07／D08。由於 00697B 正式可用價格、D04 VM IAM/隔離還原與真實 Owner UI/PnL/性能 gate 未全通過，本組狀態 **PARTIAL**。同源 Release/候選/自動 auth 的成功不代表正式切流已獲准。
+**2026-10-15 最新接續範圍：P0（部署鎖、00697B）、P1（最新版 API 候選／Preview／Owner 業務）、D04（Scheduler／備份）；P2 不在這次追加要求。** 此為既有 D01～D05 合併授權內的優先執行切片， 在既有 dev 範圍內連續修復／測試／部署／驗收，不逐檔請求授權；與獨立 FinOps D06 分開，不啟動後置 D07／D08。由於 00697B 正式可用價格、D04 VM IAM/隔離還原與真實 Owner UI/PnL/性能 gate 未全通過，本組狀態 **PARTIAL**。同源 Release/候選/自動 auth 的成功不代表正式切流已獲准。
 
 A 組及 B0～B8 已結案的範圍不重開；有實質變更才回歸受影響路徑。全市場 Bootstrap／同日 Cached、費稅88筆更正、00719B 身分／估值既有成功證據不重送。研究範圍採各歷史日期全上市櫃；50 關注 quota 仍保留。
 
@@ -25,7 +25,7 @@ D01～D08 各有一張獨立可供 AI 執行的 [標準任務卡](execution-card
 
 ## D01｜持股交易與正式損益
 
-- [ ] 核對00697B及其他持股 TWSE／TPEx／ETF 報價來源、交易日、PIT、last-success；單檔缺價不清空其他持股，aggregate withholding 有原因及 coverage。商品身分不可冒充行情已就緒。
+- [ ] P0：00697B 已確定官方身分與 OpenAPI 10/14 來源，但 Cloud Run official fetch JSONDecodeError，live Core 估值 10/14、持久化 latest official quote 10/15 不符 PIT。修官方來源容錯、不可假冒的逐交易日官方 EOD 歷史／provenance 持久化和 as-of 查詢，再以新同源 Jobs 做 Owner Mart checkpoint 驗收；現有缺價維持 withheld。
 - [ ] backend 唯讀試算及正式保存共用 MOVING_AVERAGE／Decimal／商品費稅，券商折扣與規則快照可追溯；表單自動費稅／一字搜尋及ETF／Enter／競態拒絕均有新版驗收。
 - [ ] 買入、加減碼、部分／全部賣出、零股、股利、更正、作廢、歷史補登、超額賣出拒絕、未知保存結果與冪等；不同 owner／ledger／broker version 不混用。既有費稅 apply 不重送。
 - [ ] 重算按鈕→authenticated API enqueue→Private Worker→terminal／exact ledger checkpoint→PnL／queue idle／cleanup讀回；有界輪詢及失敗重試。不向本人帳本新增測試交易。
@@ -49,11 +49,11 @@ VF-10高階同業／估值河流／還原價仍屬有條件後續構想，不是
 ## D04｜總控與備份
 
 - [ ] Cloud Scheduler總控唯一業務排程；Actions只保留既有備份清理schedule。研究前瞻留存、dirty owner、snapshot／dispatch lag／重試冪等真實驗收。
-- [ ] 既有VM executor安裝、controller request→新備份→隔離DB restore→完整性／權限→清理→交接讀回；PASS後才停原timer，保留3代既有備份政策。不新增付費資源。
+- [ ] D04：GitHub Actions → WIF #38710741325 已唯讀確認 Scheduler ENABLED、GCS daily 3 份（最新 10/14）。既有 VM `compute.instances.get` DENIED_OR_UNAVAILABLE；只有在合法現有 VM access 或使用者額外核准最小 IAM 後，才可進行 executor install→controller 備份→isolated restore→讀回→交接／停舊 timer；不得因存在 3 份備份稱 restore PASS。
 
 ## D05｜整合發布
 
-- [ ] 先整合D01～04相依code／migration／tests，再同源完整CI／GHCR immutable images／candidate／自動OAuth boundary／Jobs受控canary／Preview及適用Owner功能readback，最後正式dev API切流與回復路徑讀回。
+- [ ] P1：079cca source 完整 Release #38695837708、API 0% #38710296292、auto OAuth #38710582355、固定 Preview #38711150682 均 PASS；四現役 Jobs 仍來源 536598。待 P0 來源／as-of 價格與 D04 合法途徑處理後，同 source 完整 CI／GHCR Jobs canary／Owner E2E／Preview 視覺與負載／rollback gates 全通過，再正式 dev API 100% 升版並讀回。
 - [ ] 無需每版人工OAuth登入；自動auth與owner隔離仍驗。metadata／401不代表正向PnL或UI PASS。不要以舊來源的API／Jobs證據交叉替代。
 
 ## D06｜Iceberg、引用及I/O
