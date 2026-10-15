@@ -16,6 +16,15 @@
 
 GitHub 原本直派 `Maintain dev Core Iceberg` workflow、`ops/iceberg-maintenance-mode` 與 operations audit workflow 在本變更移除；保留 `iceberg-compaction-ci.yml` **純測試**。原有 GitHub run 歷史與獨立 FinOps Issue #2 保留作稽核。
 
+### Core 引用保護與獨立 Controller Audit 清理
+
+- `compact-nightly` 先寫入合併後新檔，不做全庫到期 Snapshot／Orphan 清除；驗收必須分別保存 Core GCS objects、bytes、1 MiB 以下物件數與 Cloud Monitoring `ReadObject`／`GetObjectMetadata`。
+- `audit-cleanup` 限既有 `janus-ingestion-core` Cloud Run Job 的 execution override，只處理 `ops.batch_events_v1` 稽核鏡像：使用已驗證 immutable GHCR digest、完整 execution fence 和部署佇列，執行受引用保護的 Snapshot expiration 及七日以上 orphan 刪除；維持 current event rows、PostgreSQL outbox，不變更市場／財務 Core canonical、PIT／模型／Research 或歷史 Core execution manifests。這不是一般 Core retention 的豁免。
+- 一般 `retention-apply` 在缺少 `CORE_RETENTION_FENCE_URI` 時，必須於讀取或寫入 Storage／DB 前 fail closed；`retention-dry-run` 的 planned 數值不能作為刪除證據。
+- `CORE_RETENTION_FENCE_URI` 必須指向 Core `maintenance/retention-fences/` 下當次新建 immutable 清單。Fence 一小時後過期，**不能永久固定同一 URI**：每輪清理之前須查核 PostgreSQL active／publication、Mart Specialist／ML-OOS、Research／Private 以及外部研究引用，記錄來源與 PIT，再將當次完整清單傳給 worker；任何來源未掃完、超界或資料不一致都不得發行可刪除的 fence。
+- `scripts/gcp/finops_core_reference_audit.py` 的 GitHub artifact 僅為 `PARTIAL_NOT_AUTHORIZED_FOR_DELETION` 候選引用清冊，包含 provenance／generation／SHA256；不能冒充 production 或 canonical reference registry，亦不能直接填入 `CORE_RETENTION_FENCE_URI`。沒有達 90 天且確定無研究引用的 execution manifest，不建立刪除候選。
+
+
 總控使用 PostgreSQL advisory lock `(1835102836,3)`，同時間只有一支能決策。`control.batch_occurrences` 以批次、日期、排程時段唯一識別，先提交派送意圖才呼叫 Cloud Run。執行中與派送結果不明的紀錄持續阻擋相同 Job；Cloud Run 查詢失敗不解除阻擋。結果不明須人工核對 execution，不自動重新派送。
 
 `control.batch_event_outbox` 與狀態更新同一 transaction 提交，PostgreSQL 是即時且持久的事件稽核來源；Iceberg `ops.batch_events_v1` 只是供歷史查詢的**延遲鏡像**。2026-10-15 FinOps 觀察 5 分鐘級 Core 大量 `ReadObject`、`GetObjectMetadata` 集中在每小時 `:30～:40`，程式碼顯示舊版每小時無分區 Iceberg audit replay 掃描，為高度吻合的根因候選；不能單憑時段宣稱唯一呼叫來源。因此例行總控只在 **05:30、11:30、17:30、23:30 Asia/Taipei** 批次寫入 Iceberg，每輪最多 10 個 200-event batch；其餘時段 PostgreSQL outbox 保留並回報 `iceberg_audit_deferred=true`。最長正常延遲約六小時，若依賴／GCP 失敗則延後且不遺失、不能宣稱即時同步。每輪仍檢查 event ID／payload 並完成 Iceberg readback 後才更新 `exported_at`。與夜間稽核表 compact 合併，避免每小時重跑全部歷史 manifest。歷史紀錄供後續 Admin UI 查詢，只有安全狀態、依賴與 execution 參照，不保存 secret 或原始私人 log。Cloud Run 成功不代表資料完整，應用的 partial／coverage 判定仍有效。
