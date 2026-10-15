@@ -1,10 +1,11 @@
 {
-  "intent": "reconcile-terminal-ghcr-lease",
+  "intent": "restore-exact-abandoned-ghcr-rollout",
   "approved": true,
   "owner_run": 38663858991,
   "owner_source_sha": "331234b3b4b78a3554868a1118aea6a05b2048bc",
   "tag_sha": "8cb00ac53e2305d94b1f15111d381866dd9887b8",
-  "no_gcp_mutation": true,
-  "reason": "Owner-authorized steps 1-5: recover only exact terminal FAILED rollout #38663858991 immutable Git-ref lease after read-only all-page verification found 1088 existing executions terminal. Existing audited recovery must independently verify exact owner/tag twice, all Jobs ready, Scheduler ENABLED, unchanged canonical API 100% traffic and legacy writer fences before deleting only the abandoned ref. No GCP/ledger/IAM mutation, no blind workload retry.",
-  "attempt": 5
+  "no_gcp_mutation": false,
+  "reason": "Owner-authorized steps 1-5: original rollout #38663858991 is terminal FAILED and left Scheduler PAUSED after partial image updates. Restore only receipt-hash-pinned original public GHCR baseline images and identical configuration under a fresh normal lease, then resume original Scheduler and prove unchanged API traffic; no ledger/IAM/new resources. Exact old owner/tag verified twice; do not impersonate old owner or bypass active executions.",
+  "attempt": 6,
+  "restore_previous_images_and_scheduler": true
 }
