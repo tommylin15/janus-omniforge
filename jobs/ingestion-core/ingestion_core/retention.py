@@ -135,10 +135,10 @@ def validate_core_retention_fence(fence, *, now):
             raise ValueError("core_retention_source_evidence_invalid")
     identities = fence.get("core_snapshot_ids")
     if (not isinstance(identities, list)
-            or len(identities) != len(set(identities))
             or any(not isinstance(value, str)
                    or not fullmatch(r"sha256:[0-9a-f]{64}", value)
-                   for value in identities)):
+                   for value in identities)
+            or len(identities) != len(set(identities))):
         raise ValueError("core_retention_snapshot_id_contract_invalid")
     try:
         created = datetime.fromisoformat(fence["created_at"].replace("Z", "+00:00"))
