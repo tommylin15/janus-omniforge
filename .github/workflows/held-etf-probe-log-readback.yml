@@ -42,20 +42,43 @@ jobs:
             'last_quote_present','last_quote_source','last_quote_day','last_quote_error_type',
             'core_valuation_day','core_symbol_available','core_symbol_day','core_error_type'}
           findings=[]
+          metadata={'window_rows':len(entries),'exact_execution_logs':0,
+                    'resource_keys':set(),'payload_shapes':set(),'scope_mentions':0}
           for e in entries:
-            labels=e.get('labels',{})
-            res=e.get('resource',{}).get('labels',{})
+            labels=e.get('labels') or {}
+            res=e.get('resource',{}).get('labels') or {}
             execution=labels.get('run.googleapis.com/execution_name') or res.get('execution_name')
-            if execution!='janus-private-pipeline-blkfm':continue
-            payload=e.get('textPayload')
-            if not isinstance(payload,str):continue
-            try:data=json.loads(payload)
-            except (ValueError,TypeError):continue
-            if isinstance(data,dict) and data.get('scope')=='official_00697B_read_only':
-              findings.append({k:data[k] for k in allowed if k in data})
+            metadata['resource_keys'].update(res)
+            if execution=='janus-private-pipeline-blkfm':
+              metadata['exact_execution_logs']+=1
+            fields=[e.get('textPayload'),e.get('jsonPayload')]
+            payload=e.get('jsonPayload')
+            if isinstance(payload,dict):
+              fields.extend([payload.get('message'),payload.get('text'),payload.get('msg')])
+            for field in fields:
+              if isinstance(field,dict):
+                if field.get('scope')=='official_00697B_read_only':
+                  findings.append({k:field[k] for k in allowed if k in field})
+                continue
+              if not isinstance(field,str) or 'official_00697B_read_only' not in field:
+                continue
+              metadata['scope_mentions']+=1
+              metadata['payload_shapes'].add('text')
+              index=field.find('{')
+              try: data=json.loads(field[index:]) if index>=0 else None
+              except (ValueError,TypeError): data=None
+              if isinstance(data,dict) and data.get('scope')=='official_00697B_read_only':
+                findings.append({k:data[k] for k in allowed if k in data})
+          unique={json.dumps(x,sort_keys=True):x for x in findings}
           report={'source_run':'38710480798','execution':'janus-private-pipeline-blkfm',
                  'metadata_only':True,'no_private_values':True,'no_data_write':True,
-                 'findings':findings,'status':'PASS' if len(findings)==1 else 'MISSING_OR_DUPLICATE'}
+                 'findings':list(unique.values()),
+                 'shape_metadata':{'window_rows':metadata['window_rows'],
+                  'exact_execution_logs':metadata['exact_execution_logs'],
+                  'resource_keys':sorted(metadata['resource_keys']),
+                  'payload_shapes':sorted(metadata['payload_shapes']),
+                  'scope_mentions':metadata['scope_mentions']},
+                 'status':'PASS' if len(unique)==1 else 'MISSING_OR_DUPLICATE'}
           Path('/tmp/held-etf-probe-log-readback.json').write_text(json.dumps(report,sort_keys=True))
           print(json.dumps(report,sort_keys=True))
           if report['status']!='PASS':raise SystemExit(1)

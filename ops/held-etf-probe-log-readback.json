@@ -5,5 +5,6 @@
   "no_job_run": true,
   "no_lease_mutation": true,
   "no_user_data_write": true,
-  "reason": "P0 safe readback only: read exact successful runtime source diagnostic logs, expose only date/availability/source/errors; no price, owner keys or secret payload."
+  "reason": "Read-only retry log parser after successful runtime probe: allow Cloud Logging textPayload or structured jsonPayload.message/other fields; capture metadata shapes only on missing. No new Job execution or runtime writes.",
+  "attempt": 2
 }
