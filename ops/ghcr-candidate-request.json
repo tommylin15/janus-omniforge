@@ -1,13 +1,13 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "536598f2528550fd60c73786597fdf2740860c9e",
-  "purpose": "2026-10-15 D01-D05 consolidated engineering. Exact-SHA GHCR full Python/PostgreSQL, Flutter, four image digests and public pull release #38691316772 PASS. Create controlled 0% API candidate only, retain existing 100% traffic, no owner ledger writes, Jobs mutation, new paid resources or product PASS claim. Owner 00697B current official OHLCV remains missing and D01 total PnL is PARTIAL.",
+  "sha": "079cca4f24aedb6285270df8e86f856d2498ce13",
+  "purpose": "P0/P1 latest successful complete GHCR release #38695837708: official TPEx multiday latest-close selection and API safety. Deploy immutable API as 0%-traffic candidate only. Do not change owner ledger, existing Jobs, Scheduler, backup timer or 100% live traffic; live Owner D01 remains PARTIAL.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "retry_verification": "Same-source immutable candidate, baseline traffic/lease readback, automated owner/auth boundary before further release phases.",
+  "retry_verification": "Validate immutable SHA 079cca4 full release #38695837708 before 0% candidate, preserve prior active 100% and 0%-tag baseline under global owned lease.",
   "same_sha_retry_attempt": 0,
   "digest": ""
 }
