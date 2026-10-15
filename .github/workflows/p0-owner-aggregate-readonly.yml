@@ -1,0 +1,51 @@
+name: Janus P0 real Owner aggregate status read-only
+on:
+  push:
+    branches: [main]
+    paths: ['ops/p0-owner-aggregate-readonly.json']
+permissions:
+  contents: write
+  id-token: write
+  actions: read
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify recovered exact owner failure and no writes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="read-only-aggregate-after-owner-mart" and .approved==true and
+            .environment=="dev" and .no_ledger_mutation==true and
+            .no_mart_mutation==true and .source_job_run=="38730741579" and
+            .recovery_run=="38732315439"' ops/p0-owner-aggregate-readonly.json >/dev/null
+          gh run view 38732315439 --json status,conclusion,workflowName |
+            jq -e '.status=="completed" and .conclusion=="success" and
+              .workflowName=="Janus recover exact P0 post-Mart withheld aggregate lease"' >/dev/null
+          python -m compileall -q scripts/gcp/p0_owner_aggregate_readonly.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: One existing private job, immutable image, read-only aggregate metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHONPATH: .
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/p0_owner_aggregate_readonly.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p0-owner-aggregate-readonly
+          path: /tmp/p0-owner-aggregate-readonly.json
+          if-no-files-found: ignore
+          retention-days: 14

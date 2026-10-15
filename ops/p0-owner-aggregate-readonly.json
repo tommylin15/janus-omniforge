@@ -1,0 +1,10 @@
+{
+  "intent": "read-only-aggregate-after-owner-mart",
+  "approved": true,
+  "environment": "dev",
+  "no_ledger_mutation": true,
+  "no_mart_mutation": true,
+  "source_job_run": "38730741579",
+  "recovery_run": "38732315439",
+  "reason": "After 8/8 positions price and Mart wrote, aggregate status still withheld. Inspect exact real owner 10/14 summary field keys/status/counts without prices, user IDs, ledger mutation or Mart rewrite, using one existing immutable Job and shared fencing."
+}
