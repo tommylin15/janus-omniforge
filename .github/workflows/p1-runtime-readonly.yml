@@ -98,7 +98,8 @@ jobs:
                         'job_ready':any(c.get('type')=='Ready' and c.get('status')=='True'
                                         for c in row.get('status',{}).get('conditions',[]))}
             recent=run(['gcloud','run','jobs','executions','list','--job='+name,
-                        '--project='+project,'--region='+region,'--limit=4','--format=json'])
+                        '--project='+project,'--region='+region,
+                        '--sort-by=~metadata.creationTimestamp','--limit=8','--format=json'])
             if isinstance(recent,list):
               cleaned=[]
               for x in recent:
@@ -115,7 +116,8 @@ jobs:
                   'completion_conditions':[{'type':c.get('type'),'status':c.get('status')}
                     for c in conditions if c.get('type') in ('Completed','Ready','ResourcesAvailable')]
                 })
-              jobs[name]['recent_executions']=cleaned
+              cleaned.sort(key=lambda x:x['created'],reverse=True)
+              jobs[name]['recent_executions']=cleaned[:6]
             else:jobs[name]['recent_executions']='UNKNOWN'
           report['jobs']=jobs
           scheduler=run(['gcloud','scheduler','jobs','describe','janus-ingestion-daily',
