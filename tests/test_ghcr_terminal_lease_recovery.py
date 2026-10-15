@@ -10,7 +10,7 @@ import ghcr_terminal_lease_recovery as r
 
 def owner():
     return {"id": r.OWNER_RUN, "head_sha": r.OWNER_SHA, "run_attempt": 1,
-            "name": "Janus bounded full-market business acceptance",
+            "name": "Janus bounded two-task private recalc queue acceptance",
             "status": "completed", "conclusion": "failure"}
 
 

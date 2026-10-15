@@ -1,10 +1,10 @@
 {
   "intent": "reconcile-terminal-ghcr-lease",
   "approved": true,
-  "owner_run": 38575717874,
-  "owner_source_sha": "bdca2f9f8bcd24229a3f35986b04d2c6cd6c36b3",
-  "tag_sha": "021e05cce129c24d2994b6b77ad416303fc5a03f",
+  "owner_run": 38653931699,
+  "owner_source_sha": "76ef592f57ae8bd86872c7207de36bfb345b916d",
+  "tag_sha": "463dfb9e45831bcd24e5c4514d46931e58fe0306",
   "no_gcp_mutation": true,
-  "reason": "2026-10-15 user continuation after exact official 1988-stock bootstrap #38575674367 PASS; later independent duplicate bootstrap #38575717874 FAILED and held exact annotated terminal lease. Restore only abandoned ref after run identity, last owner/tag double readback, Cloud Run API 100% unchanged, Scheduler ENABLED, all-page executions terminal and legacy writers inactive. No GCP mutation or fresh collection; Cached request is separate after recovery success.",
-  "attempt": 3
+  "reason": "2026-10-15 Janus independent FinOps Iceberg incident #2: immutable failed terminal owner #38653931699 held deployment lease after unsuccessful two-task private recalc acceptance. Verify exact owner/run attempt/tag, existing API 100% traffic unchanged, scheduler enabled, all Cloud Run Job executions terminal, legacy writers safe. Only delete exact abandoned Git ref, no GCP resource or data writes. Do not force unlock or retry ambiguous workload.",
+  "attempt": 4
 }

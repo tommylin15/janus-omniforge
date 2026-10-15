@@ -15,9 +15,9 @@ from typing import Any
 
 REPO = "tommylin15/janus-omniforge"
 TAG = "janus-ghcr-deploy-global-v1"
-OWNER_RUN = 38575717874
-OWNER_SHA = "bdca2f9f8bcd24229a3f35986b04d2c6cd6c36b3"
-TAG_SHA = "021e05cce129c24d2994b6b77ad416303fc5a03f"
+OWNER_RUN = 38653931699
+OWNER_SHA = "76ef592f57ae8bd86872c7207de36bfb345b916d"
+TAG_SHA = "463dfb9e45831bcd24e5c4514d46931e58fe0306"
 LEASE_REF = f"repos/{REPO}/git/ref/tags/{TAG}"
 LEASE_TAG = f"repos/{REPO}/git/tags/{TAG_SHA}"
 MARKER = "JANUS_DEPLOY_LEASE_V1:"
@@ -26,7 +26,7 @@ MARKER = "JANUS_DEPLOY_LEASE_V1:"
 def verify_owner(run: dict[str, Any]) -> None:
     if (run.get("id") != OWNER_RUN or run.get("head_sha") != OWNER_SHA
             or run.get("run_attempt") != 1
-            or run.get("name") != "Janus bounded full-market business acceptance"
+            or run.get("name") != "Janus bounded two-task private recalc queue acceptance"
             or run.get("status") != "completed" or run.get("conclusion") != "failure"):
         raise ValueError("owner_run_not_exactly_terminal_failed")
 
