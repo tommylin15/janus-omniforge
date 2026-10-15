@@ -1,0 +1,7 @@
+{
+  "intent": "one-shot-read-only-gcs-method-attribution",
+  "no_gcp_mutation": true,
+  "hours": 48,
+  "issue": 2,
+  "reason": "Find Core ReadObject/GetObjectMetadata hourly peaks and correlate with bounded dev Cloud Run job execution starts; read-only and not a scheduled Iceberg business job."
+}
