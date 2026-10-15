@@ -2,16 +2,16 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "c8e8a7415be48b291a347dcc115d7834db6696a8",
-  "release_run": "38657775138",
+  "sha": "19e44da923b1f6856091b185e3d78588abbb1412",
+  "release_run": "38663066818",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "1e9c31d148db540ee06cac5ccccd8fac8d619511",
+  "baseline_source_sha": "c8e8a7415be48b291a347dcc115d7834db6696a8",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:512b05013029934d3b02254a9451136ea40c0bd738c6c7561a7c0f333e7d4648",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:512b05013029934d3b02254a9451136ea40c0bd738c6c7561a7c0f333e7d4648",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:14d982fc8ad67a794f1e9595423a3cbf548017ef809b4860cb8de49d10f69e31",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:d06ffd5a56439d00780af8e9908a060f154c53a69768915ebd5581d3a58cb95e"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:899a0bcae1e1a2f75424db2b67efafd134c015af9ea5160f760186ae409e8319",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:899a0bcae1e1a2f75424db2b67efafd134c015af9ea5160f760186ae409e8319",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:37249957704a2010bfbbb7aafacc19cc14d8d1b323622c0207541690db7092c9",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:badaec591648a632b330c3163a58d43d67b5cac81a6d2f2332d8b2aada038340"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 9,
-  "safety": "Independent FinOps Iceberg incident #2: user requests GCP existing hourly controller to own nightly 23:30 compact-nightly (Core/ops dry-run before bounded apply), remove GitHub direct maintenance, and reduce GCS fragment/metadata amplification. Full release #38657775138 PASS; 0% candidate #38658952070 PASS; automated OAuth boundary #38659127936 PASS. Reversible GHCR baseline from successful prior Jobs release receipt #38566821108 on source 1e9c31d1, exact images and prior config hashes; no API traffic switch, no new Scheduler, no IAM extension, no owner data loss. All four existing Jobs must pass preflight and two real canaries each or rollback.",
-  "auth_boundary_run": "38659127936",
-  "automated_oauth_requirement": "Same-source automated OAuth and private boundary #38659127936 PASS; positive owner login not claimed.",
-  "authorization": "Owner requested 2026-10-15 independent Iceberg nightly maintenance on existing dev GCP hourly controller, not GitHub direct maintenance. Existing four-Jobs GHCR rollout safety gate with source SHA and reversible baseline; no API traffic promotion or destructive Core snapshot deletion."
+  "request_attempt": 10,
+  "safety": "Independent FinOps Iceberg #2 owner-authorized dev rollout. New source 19e44da9 4-slot bounded audit sync (active and observe), Core and ops event expiry/orphan cleanup after 23:30 compact dry-run-then-apply. Full SHA Python/Flutter/4 GHCR anonymous immutable gate #38663066818 PASS; 0% candidate #38663579453 PASS; automated OAuth/private boundary #38663748566 PASS. Reversible baseline from prior successful Jobs rollout #38659238197 receipt verified exact c8e8 digest/config fingerprints. Keep API normal traffic unchanged and existing Scheduler/Jobs topology. Verify two real canaries per Job, all-page active execution fence and rollback.",
+  "auth_boundary_run": "38663748566",
+  "automated_oauth_requirement": "automated exact source #38663748566 PASS; human OAuth is not required.",
+  "authorization": "Owner authorized existing GCP hourly batch-controller Iceberg maintenance, 23:30 compaction and reference-protected old file cleanup. This is existing dev parallel-live, no new paid service, irreversible no-fence deletion prohibited."
 }
