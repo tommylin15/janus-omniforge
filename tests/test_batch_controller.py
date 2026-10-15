@@ -57,7 +57,8 @@ def test_private_pipeline_effective_schedule_is_controller_owned():
     assert not any(row[1].name == "private" for row in due_batches(before))
     private_rows = [row for row in due_batches(after) if row[1].name == "private"]
     assert [row[0] for row in private_rows] == ["private/2026-10-02/15", "private/2026-10-02/21"]
-    assert all(row[3] == ["ingestion/2026-10-02/14"] for row in private_rows)
+    assert private_rows[0][3] == ["ingestion/2026-10-02/14"]
+    assert private_rows[1][3] == []  # Nightly PIT-safe fallback must be dispatchable independently.
 
 
 def test_ingestion_has_same_controller_eod_slot_with_same_day_price_scope():
@@ -77,12 +78,80 @@ def test_ingestion_has_same_controller_eod_slot_with_same_day_price_scope():
     assert "INGESTION_DATE" not in dict(occurrence_env(rows[0][1], rows[0][2]))
 
 
-def test_private_depends_on_latest_1430_ingestion_slot():
+def test_afternoon_private_requires_ingestion_but_nightly_does_not():
     rows = due_batches(datetime(2026, 10, 6, 13, 30, tzinfo=timezone.utc))  # 21:30 Asia/Taipei
     private = [row for row in rows if row[1].name == "private"]
     assert len(private) == 2
-    assert all(row[3] == ["ingestion/2026-10-06/14"] for row in private)
+    assert private[0][3] == ["ingestion/2026-10-06/14"]
+    assert private[1][3] == []
 
+
+
+
+def test_private_independent_hour_configuration_rejects_invalid_slots():
+    # Waiving one dependency is explicit and limited to a configured daily slot.
+    with pytest.raises(ValueError, match="independent batch slot"):
+        due_batches(datetime(2026, 10, 6, 13, 30, tzinfo=timezone.utc),
+                    (Batch("bad", "unused", (15,), dependencies=("ingestion",),
+                           independent_hours=(21,)),))
+    with pytest.raises(ValueError, match="independent batch slot"):
+        due_batches(datetime(2026, 10, 6, 13, 30, tzinfo=timezone.utc),
+                    (Batch("bad", "unused", (21,), independent_hours=(21,)),))
+
+
+def test_nightly_private_precedes_older_unrunnable_afternoon_slot():
+    from ingestion_core.batch_controller import prioritize_nightly_private
+    now = datetime(2026, 10, 15, 13, 30, tzinfo=timezone.utc)
+    rows = [("private/2026-10-15/15", {"status": "pending"}),
+            ("ingestion/2026-10-15/14", {"status": "failed"}),
+            ("private/2026-10-15/21", {"status": "pending"})]
+    assert prioritize_nightly_private(rows, now)[0][0] == "private/2026-10-15/21"
+    assert len(prioritize_nightly_private(rows, now)) == len(rows)
+
+
+def test_live_tick_dispatches_nightly_private_when_afternoon_upstream_failed(monkeypatch):
+    from unittest.mock import MagicMock, Mock, call
+    from ingestion_core import batch_controller as controller
+    monkeypatch.setenv("GCP_PROJECT_ID", PROJECT)
+    monkeypatch.setenv("BATCH_CONTROLLER_MODE", "active")
+    monkeypatch.setenv("BATCH_CONTROLLER_NOT_BEFORE", "2026-10-01T00:00:00Z")
+    monkeypatch.setattr(controller, "probe_mobile_ledger_queue",
+                        lambda **kwargs: {"pending": False})
+    monkeypatch.setattr(controller, "audit_export_due", lambda _: False)
+    day = "private/2026-10-15/15"
+    night = "private/2026-10-15/21"
+    morning = {"batch": "private", "job": "janus-private-pipeline",
+               "status": "pending", "dependencies": ["ingestion/2026-10-15/14"],
+               "scheduled_at": "2026-10-15T15:30:00+08:00", "env": []}
+    evening = {"batch": "private", "job": "janus-private-pipeline",
+               "status": "pending", "dependencies": [],
+               "scheduled_at": "2026-10-15T21:30:00+08:00", "env": []}
+    db = MagicMock()
+    db.execute.return_value.fetchone.return_value = (True,)
+    cursor = db.cursor.return_value.__enter__.return_value
+    cursor.fetchall.side_effect = [[], [(day, morning), (night, evening)],
+                                   [("ingestion/2026-10-15/14", "failed")]]
+    cursor.fetchone.return_value = None
+    session = Mock()
+    session.get.return_value = SimpleNamespace(status_code=200, json=lambda: {"executions": []})
+    session.post.return_value = SimpleNamespace(
+        status_code=200,
+        json=lambda: {"name": f"projects/{PROJECT}/locations/{REGION}/operations/nightly-123"})
+    record = Mock()
+    monkeypatch.setattr(controller, "record", record)
+    result = controller.run(now=datetime(2026, 10, 15, 13, 30, tzinfo=timezone.utc),
+                            control=SimpleNamespace(connection=db), session=session, core=Mock())
+    assert result["status"] == "tick_completed"
+    assert session.post.call_count == 1
+    assert session.post.call_args.args[0].endswith("/jobs/janus-private-pipeline:run")
+    transitions = [(args.args[2], args.args[4]) for args in record.call_args_list]
+    assert (night, "dispatch_intent") in transitions
+    assert (night, "dispatch_result") in transitions
+    assert (day, "private_upstream_failed") in transitions
+    skipped = next(args.args[3] for args in record.call_args_list
+                   if args.args[2] == day and args.args[4] == "private_upstream_failed")
+    assert skipped["status"] == "skipped" and skipped["reason"] == "upstream_ingestion_failed"
+    assert transitions.index((night, "dispatch_intent")) < transitions.index((day, "private_upstream_failed"))
 
 def test_dependency_uses_latest_preceding_slot_and_original_private_time():
     batches = (Batch("source", "unused", (7, 12)), Batch("mart", "unused", (9, 13), dependencies=("source",)))
