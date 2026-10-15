@@ -1,0 +1,95 @@
+name: Janus P1 exact stalled Jobs recovery
+on:
+  push:
+    branches: [main]
+    paths: ['ops/p1-exact-jobs-recovery.json']
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gate exact original receipt and failed run
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="p1-recover-exact-stalled-jobs" and .approved==true and
+                 .scope=="existing-dev-four-jobs" and .failed_run=="38756738102" and
+                 .failed_run_sha=="9782e40ae62aae3ad71f460830bb606a39c570bd" and
+                 .target_source_sha=="7acff50000644979af3815f00fbd7f1c167e1098" and
+                 .no_owner_mutation==true and .no_traffic_mutation==true' ops/p1-exact-jobs-recovery.json >/dev/null
+          gh run view 38756738102 --json headSha,status,conclusion \
+            --jq '(.headSha=="9782e40ae62aae3ad71f460830bb606a39c570bd") and
+                  (.status=="completed") and (.conclusion=="failure")' | grep -x true
+          mkdir -p /tmp/p1-exact
+          gh run download 38756738102 --name ghcr-jobs-rollout-receipt --dir /tmp/p1-exact
+          test -s /tmp/p1-exact/ghcr-jobs-rollout.json
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Reconcile and restore only recorded partially changed Jobs
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json,sys
+          from pathlib import Path
+          sys.path.insert(0,'scripts/gcp')
+          import ghcr_jobs_rollout as recovery
+          receipt=Path('/tmp/p1-exact/ghcr-jobs-rollout.json')
+          j=json.loads(receipt.read_text())
+          assert j['phase']=='RECOVERY_REQUIRED'
+          assert j['source_sha']=='7acff50000644979af3815f00fbd7f1c167e1098'
+          assert j['rollback_baseline_sha']=='285848e28041bf2fb024bd98bd348641f022a1ed'
+          assert j['rollback_mode']=='reversible_ghcr' and j['rollback_baseline_verified'] is True
+          assert set(j['targets'])=={name for name,_ in recovery.JOB_COMPONENT}
+          assert set(j['snapshots'])==set(recovery.REQUIRED_JOBS)
+          assert j['failed_stage']=='first_canary_janus-intelligence-mart'
+          assert recovery.scheduler()['state']=='PAUSED'
+          # Assert the old annotated lease using its ORIGINAL owner. Do not
+          # overwrite or steal the lease from this new workflow run.
+          recovery.LEASE=[sys.executable,'scripts/gcp/ghcr_release_lease.py',
+                          '--run-id','38756738102','--run-attempt','1',
+                          '--sha','9782e40ae62aae3ad71f460830bb606a39c570bd']
+          recovery.command(recovery.LEASE+['assert'])
+          # Images must all be exactly the receipt's old or new pinned digest;
+          # no unrelated deploy or config changes may be overwritten.
+          for name,snap in j['snapshots'].items():
+              state=recovery.job(name)
+              assert recovery.fingerprint(state)==snap['configuration_hash']
+              acceptable={snap['image']}
+              if name in j['targets']:acceptable.add(j['targets'][name])
+              assert recovery.image(state) in acceptable
+          # The full bounded execution fence remains mandatory. Never cancel
+          # uncertain executions and never resume a mixed-image deployment.
+          def save():
+              receipt.write_text(json.dumps(j,sort_keys=True))
+          recovery.recover(j,save)
+          assert j['phase'] in ('RESTORED','RESTORED_NO_MUTATION')
+          for name,snap in j['snapshots'].items():
+              recovery.checked_image(name,snap['image'],snap['configuration_hash'])
+          assert recovery.scheduler()['state']=='ENABLED'
+          recovery.command(recovery.LEASE+['release','--safe-to-release'])
+          print(json.dumps({'result':'PASS','phase':j['phase'],
+                            'scheduler':'ENABLED','jobs_restored':len(j['snapshots']),
+                            'original_lease_released':True},sort_keys=True))
+          PY
+      - name: Keep recovered or blocked receipt for audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p1-exact-jobs-recovery
+          path: /tmp/p1-exact/ghcr-jobs-rollout.json
+          if-no-files-found: ignore
+          retention-days: 14
