@@ -445,18 +445,34 @@ def run(release_run, receipt):
         if paused:
             recover(journal, save)
         else:
-            # Preflight never changed a Job or Scheduler. Prove the baseline
-            # is still intact and mark this state to prevent duplicate recovery.
-            fence()
-            if scheduler()["state"] != "ENABLED":
-                raise RuntimeError("preflight_state_unknown_lease_retained") from None
-            journal["phase"] = "PREFLIGHT_BLOCKED_NO_MUTATION"
-            save()
+            # paused=False means *no Cloud Scheduler pause or Cloud Run image
+            # update was attempted*. An unrelated execution may become active
+            # after the first fence; a second fence would strand this lease.
+            restore_unmodified_preflight(journal, save)
         safe = True
         raise
     finally:
         if safe:
             command(LEASE + ["release", "--safe-to-release"])
+
+
+
+def restore_unmodified_preflight(journal, save):
+    """Recover a blocked preflight without requiring unrelated Jobs to be idle.
+
+    The caller only invokes this path before the first GCP mutation. Verify
+    the original Scheduler and any observed Job configs before releasing lease.
+    """
+    schedule = scheduler()
+    if schedule.get("state") != "ENABLED":
+        raise RuntimeError("preflight_state_unknown_lease_retained")
+    expected = journal.get("scheduler_hash")
+    if expected and scheduler_fingerprint(schedule) != expected:
+        raise RuntimeError("preflight_scheduler_configuration_drift")
+    for name, original in journal.get("snapshots", {}).items():
+        checked_image(name, original["image"], original["configuration_hash"])
+    journal["phase"] = "PREFLIGHT_BLOCKED_NO_MUTATION"
+    save()
 
 
 def recover(journal, save):

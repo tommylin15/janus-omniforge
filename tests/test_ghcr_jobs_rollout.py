@@ -519,3 +519,27 @@ def test_unchanged_jobs_do_not_override_drifted_scheduler_config():
         with pytest.raises(ValueError, match="scheduler_configuration_drift"):
             rollout.recover(journal, lambda: None)
     resume.assert_not_called()
+
+
+def test_failed_preflight_active_execution_does_not_strand_unchanged_scheduler():
+    journal = {"phase":"RECOVERY_REQUIRED", "scheduler_hash":"baseline",
+               "snapshots":{"janus-ingestion-core":{"image":"original", "configuration_hash":"sha"}}}
+    saved=[]
+    with patch.object(rollout, "scheduler", return_value={"state":"ENABLED"}), \
+         patch.object(rollout, "scheduler_fingerprint", return_value="baseline"), \
+         patch.object(rollout, "checked_image") as image, \
+         patch.object(rollout, "fence", side_effect=ValueError("execution_not_terminal")) as fence:
+        rollout.restore_unmodified_preflight(journal, lambda: saved.append(journal["phase"]))
+    fence.assert_not_called()
+    image.assert_called_once_with("janus-ingestion-core","original","sha")
+    assert journal["phase"] == "PREFLIGHT_BLOCKED_NO_MUTATION" and saved == ["PREFLIGHT_BLOCKED_NO_MUTATION"]
+
+
+def test_preflight_blocked_if_scheduler_drifted_even_without_job_mutation():
+    journal={"scheduler_hash":"original","snapshots":{}}
+    with patch.object(rollout,"scheduler",return_value={"state":"ENABLED"}), \
+         patch.object(rollout,"scheduler_fingerprint",return_value="different"):
+        with pytest.raises(RuntimeError,match="preflight_scheduler_configuration_drift"):
+            rollout.restore_unmodified_preflight(journal,lambda:None)
+    assert journal.get("phase") is None
+
