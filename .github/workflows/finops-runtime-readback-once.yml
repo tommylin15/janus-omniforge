@@ -27,7 +27,7 @@ jobs:
           region=us-central1
           for name in janus-batch-controller janus-ingestion-core janus-intelligence-mart janus-private-pipeline; do
             gcloud run jobs describe "$name" --project="$project" --region="$region" --format=json \
-              | python -c 'import json,sys; d=json.load(sys.stdin); nodes=[d]; matches=[]; \
+              | python scripts/gcp/finops-runtime-readback.py
 while nodes: \
   n=nodes.pop(); \
   matches.extend(n["containers"] for k in ("containers",) if isinstance(n,dict) and isinstance(n.get(k),list)); \
