@@ -1,13 +1,13 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "c8e8a7415be48b291a347dcc115d7834db6696a8",
-  "purpose": "2026-10-15 independent Iceberg FinOps issue: bounded retry with sanitized tag/ref GitHub deployment lease stage after terminal recovery PASS #38658503955 and failed candidate #38658297879 attempts 2-3 with GCP writes 0; no service traffic change or Jobs update without fence.",
+  "sha": "65f8091b5ea4945b11e0f2de7882ba1386e37cee",
+  "purpose": "Independent FinOps Iceberg incident #2: full Python/Flutter and four public GHCR digest release #38662361096 PASS. Validate exact SHA 0% API candidate only to satisfy dev Jobs automated access boundary before reversible GCP controller/ingestion rollout. Changes: four-slot audit mirror, 24h+referenced Iceberg snapshot retention, ops batch audit orphan cleanup. No API traffic promotion, no GCS deletion via candidate.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
   "retry_verification": "same-sha-cache-normalized-immutable-candidate-reuse",
-  "same_sha_retry_attempt": 1,
+  "same_sha_retry_attempt": 0,
   "digest": ""
 }
