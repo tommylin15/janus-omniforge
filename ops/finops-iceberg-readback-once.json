@@ -1,0 +1,7 @@
+{
+  "intent": "read-existing-iceberg-post-recovery",
+  "no_gcp_mutation": true,
+  "project": "gen-lang-client-0593591102",
+  "region": "us-central1",
+  "scope": "Scheduler and four existing Cloud Run Job digests/config hashes plus bounded GCS counters/object inventory; no workload execution, no scheduler or job changes."
+}

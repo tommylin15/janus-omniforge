@@ -1,0 +1,56 @@
+name: One-shot read-only Iceberg post-recovery evidence
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ops/finops-iceberg-readback-once.json'
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Verify bounded read-only intent
+        run: |
+          jq -e '.intent=="read-existing-iceberg-post-recovery" and
+                  .no_gcp_mutation==true and .project=="gen-lang-client-0593591102" and
+                  .region=="us-central1"' ops/finops-iceberg-readback-once.json > /dev/null
+      - name: Inspect current Scheduler, four immutable images and execution fence without secrets
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+          sys.path.insert(0, 'scripts/gcp')
+          import ghcr_jobs_rollout as r
+          s = r.scheduler()
+          out = {'scheduler':{'name':r.SCHEDULER,'state':s.get('state'),
+                 'schedule':s.get('schedule'),'timezone':s.get('timeZone')},
+                 'jobs':{}, 'read_only':True}
+          for name, _ in r.JOB_COMPONENT:
+              j = r.job(name)
+              env = j.get('template',{}).get('template',{}).get('containers',[{}])[0].get('env',[])
+              out['jobs'][name] = {'image':r.image(j),'configuration_hash':r.fingerprint(j),
+                 'core_retention_fence_env_present':any(x.get('name')=='CORE_RETENTION_FENCE_URI' for x in env)}
+          try:
+              r.fence()
+              out['execution_fence'] = 'ALL_TERMINAL'
+          except (ValueError, RuntimeError) as e:
+              out['execution_fence'] = 'BLOCKED_OR_ACTIVE'
+              out['execution_fence_error_type'] = type(e).__name__
+          print(json.dumps(out, sort_keys=True))
+          PY
+      - name: Read bounded GCS operation and object inventory baseline
+        run: |
+          python scripts/gcp/iceberg-gcs-ops-audit.py || echo 'GCS audit returned unknown/partial/blocked; no write was performed.'
