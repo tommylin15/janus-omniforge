@@ -1,14 +1,14 @@
 # Janus 文件入口
 
-**最新執行狀態：**2026-10-14 分市場 coverage 門檻程式／規格更新，但暫停部署及批次驗收仍有效；使用者先前要求暫停並將本輪與另一 AI 進度同步 GitHub。全市場／總控／持股／四頁工作包 PAUSED／PARTIAL；恢復入口與完整證據見 [暫停 checkpoint](archive/full-market-pause-2026-10-14.md)／[status](status.md)。新版完整 CI、全市場與快取、057、畫面與保存效能仍未全部驗收。
+**最新狀態入口：**[status](status.md)／[TODO](todo.md)。2026-10-15 已版本化證據記錄全市場 Bootstrap、同日 Cached、Migration 057 與官方 ETF 身分修復通過；持股交易、重算端到端、四頁與保存效能仍未完整驗收，正式 API 尚未切流。舊暫停 checkpoint 僅保留歷史；本次同步只更新文件，不啟動部署或驗收。
 
-更新：2026-10-13
+更新：2026-10-15
 
 本頁定義 repository 內文件的角色，避免同一件事同時在 README、SPEC、WBS、TODO、runbook 與測試紀錄各自形成不同版本。
 
 **目前優先順序：持股報價／交易損益與效能 → 個股通用圖表／四頁整合 → 五分析師有效後的分析報告。** 原 P0 暫停已被後續恢復指示取代；歷史交接只作證據。
 
-市場／screening／研究／搜尋範圍已決定擴為全上市櫃個股，上市缺失率 ≤10%、上櫃 ≤30% 分市場通過（2026-10-14 新決策）；[全市場及總控契約](spec/full-market-batch-policy.md)／[批次完整盤點](batch-inventory-2026-10-13.md)。本輪只更新文件後停止，runtime 尚未切換。
+市場／screening／研究／搜尋範圍已決定擴為全上市櫃個股，上市缺失率 ≤10%、上櫃 ≤30% 分市場通過（2026-10-14 新決策）；[全市場及總控契約](spec/full-market-batch-policy.md)／[批次完整盤點](batch-inventory-2026-10-13.md)。全市場與快取已取得後續驗收證據；正式 API promotion 與產品驗收須依最新 status 分別判定。
 
 接手依序看 [TODO](todo.md)、[最新狀態](status.md)、[AI 開發指示](codex-execution-plan.md)。需求見 [持股優先契約](spec/holdings-first.md)，本次文件問題與處理見 [文件盤點](documentation-review-2026-10-13.md)。功能仍 PARTIAL，文件更新不代表已驗收。
 
@@ -46,7 +46,7 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `spec/operations-and-testing.md`：最新完整 evidence summary 與尚待整理的歷史 checkpoint；日常定位優先看 `status.md`，舊證據逐步移至 `archive/`。
 - `pilot-operational-evidence.md`：`WBS-8-DEV-PILOT-RUN` 六個 calendar months evidence window 的新增 bounded checkpoint；保存 observed failure／recovery／manual intervention 與尚未觀察到的 evidence category，不把 checkpoint 當成 WBS 完成。
 - `runbook-data-supplement.md`：每日增量、週六品質檢查、Admin 結果與排程修復程序。
-- `spec/cicd-v2.md`：GHCR → Cloud Run Release／回滾契約；本輪 dev 發布已 PASS，歷史收據在 [archive](archive/cicd-ghcr-api-promotion-2026-10-10.md)，不重複寫在索引。
+- `spec/cicd-v2.md`：GHCR → Cloud Run Release／回滾契約；2026-10-10 dev 發布範圍曾 PASS；後續版本仍須獨立驗收，歷史收據在 [archive](archive/cicd-ghcr-api-promotion-2026-10-10.md)，不重複寫在索引。
 - `runbook-dev-deploy.md`：dev API／Jobs 發布、共用鎖／lease、固定 Preview、回滾及 migration 的可重跑程序。
 - `runbook-pilot-calendar-repair.md`：Dev Pilot TWSE 交易日曆修復、operator IAP migration 與 bounded ingestion 驗收程序。
 - `runbook-user-oauth-dev.md`：User／MCP OAuth 的專用操作與 A/B owner isolation 驗收程序。

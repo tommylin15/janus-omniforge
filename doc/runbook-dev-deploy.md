@@ -4,6 +4,15 @@
 
 目前 `dev` 是 Janus 個人使用階段的真實平行上線環境。部署、migration、Secret rotation、Job execution 都可能影響真實個人資料；執行前必須遵守 [`PROJECT_RULES.md`](PROJECT_RULES.md) 的費用、安全與不可逆操作授權規則。
 
+## 本機靜態診斷的範圍
+
+可執行 `python ops/diagnose.py workflows --json`；其他模組為 `db`、`market`、`ceo` 或 `all`。此工具沒有對真實服務發出診斷請求。
+
+- `workflows`：本機 YAML 數量及文字 `schedule:` 檢查，不代表 GitHub 或 Cloud Scheduler 的即時狀態。
+- `db`：SQL 檔名字典排序與環境變數，不代表已套用的 PostgreSQL migration；分享輸出前遮罩環境資訊。
+- `market`：只檢查兩份規格存在，不檢查行情、coverage、快照或 freshness。
+- `ceo`：固定模型／2048 token／audience 目標值，不讀取 Gateway 實際配置，也不驗證模型品質。
+
 ## 1. 固定環境與工具
 
 目前 GCP dev 使用：
@@ -86,7 +95,7 @@ Janus `dev` 既有 `janus-api` Cloud Run Service（`gen-lang-client-0593591102`�
 | 共用部署互斥 | Candidate／MCP／API promotion／固定 Preview 共用 `janus-dev-runtime-writers` 與 `ghcr_release_lease.py`；Preview #37956325838 原 owner release readback PASS | 未來新發版必須再次驗證持鎖及釋放證據；不得另建平行部署途徑 |
 | 固定 `preview` 發布 | `.github/workflows/ghcr-preview-publish-dev.yml`、`scripts/gcp/ghcr_preview_publish.py` 在通過 Release／0% 候選／OAuth 未登入負向驗收後更新單一 `preview` tag；[#37956325838](https://github.com/tommylin15/janus-omniforge/actions/runs/37956325838) live PASS、固定 URL build SHA 驗收 PASS、原 preview SHA 保存且 canonical/其他 tags 不變 | **刻意製造更新後失敗、在 live 環境恢復舊 preview 的演練尚未進行**；目前只驗證正向發布及失敗恢復測試契約；Google A→B→A 真人登入需分開驗證 |
 
-注意：`.github/workflows/ghcr-revision-retention-preview.yml` 的「preview」是**唯讀 Revision 保留清單預覽**，不是固定 Preview App 的發布入口。**實際固定 Preview 發布入口是 `ghcr-preview-publish-dev.yml`**；每次依獨立 `ops/ghcr-preview-request.json` 受控觸發、沿用既有共用 Actions concurrency 與 Git-ref lease。首次實際發布結果與候選 source、舊 preview restore baseline 見 [2026-10-09 live evidence](archive/cicd-ghcr-next-release-preview-2026-10-09.md)。OAuth 固定來源與 callback 設定另見 [User／MCP OAuth runbook](runbook-user-oauth-dev.md#固定-preview-與-oauth-來源callback-契約)。
+注意：`.github/workflows/archive/ghcr-revision-retention-preview.yml` 的「preview」是**唯讀 Revision 保留清單預覽**，不是固定 Preview App 的發布入口。**實際固定 Preview 發布入口是 `ghcr-preview-publish-dev.yml`**；每次依獨立 `ops/ghcr-preview-request.json` 受控觸發、沿用既有共用 Actions concurrency 與 Git-ref lease。首次實際發布結果與候選 source、舊 preview restore baseline 見 [2026-10-09 live evidence](archive/cicd-ghcr-next-release-preview-2026-10-09.md)。OAuth 固定來源與 callback 設定另見 [User／MCP OAuth runbook](runbook-user-oauth-dev.md#固定-preview-與-oauth-來源callback-契約)。
 
 ### 3.2 既有 Cloud Build：限唯讀診斷，不是新發布步驟
 
@@ -238,7 +247,7 @@ Dev acceptance must verify migration 048, job default/task parallelism, API → 
 
 ### 2026-10-07 live acceptance 固化
 
-正式 owner-queue live gate 為 `.github/workflows/private-recalc-live-acceptance.yml`。它必須走既有 runtime network path：
+以下是已歸檔的歷史 owner-queue 程序（`.github/workflows/archive/private-recalc-live-acceptance.yml`），不是目前可派送入口。現有兩 Task canary 另見 `.github/workflows/private-recalc-ghcr-canary.yml` 與最新 status；不可將 canary 當成使用者按鈕到 API 的完整驗收。歷史程序使用既有 runtime network path：
 
 1. `janus-ingestion-core` acceptance mode seed 一筆 bounded owner request並驗 same-owner active unique fence。
 2. `janus-private-pipeline` 用 `--tasks=2 --update-env-vars=PRIVATE_RECALC_QUEUE_MODE=true` 執行 queue mode。

@@ -1,3 +1,11 @@
+## 2026-10-15 同步文件核對入口
+
+最新逐 Run 證據集中於 [status](../status.md) 首段：全市場 Bootstrap／同日 Cached、057 及官方 ETF 身分修復已有 PASS 紀錄；重算 queue 僅記錄到最後觀察狀態，四頁／交易保存效能與正式 API 切流仍未結案。本次文件同步未重跑或重新觀測 dev，不把舊 `in_progress` 當成目前仍執行。
+
+程式接線核對：首頁 `materialize_home_market_snapshot` 仍僅由單元測試呼叫，尚無正式批次 caller；057 migration PASS 不代表快照生成整合完成。`ops/diagnose.py` 僅提供本機靜態檢查，不能替代真實 DB／市場資料／Gateway 健康證據。後續 FinOps 原始碼變更亦不得自動繼承前版 Release／runtime PASS。
+
+以下保留各原記錄時點的歷史證據；「最新」、暫停及未部署等描述須依日期與 status 後續紀錄判讀。
+
 ## 2026-10-14 Janus／omniAgent P0-V 最新技術驗收（PASS；真實 Owner publication OPEN）
 
 - **技術鏈路 runtime PASS**：[Janus #38490887562](https://github.com/tommylin15/janus-omniforge/actions/runs/38490887562) SUCCESS，原 `janus-ceo-analysis` 不可變 image SHA `a05f1f4dea80ecbd947829cd2751e1253f822cee`；由既有 `intelligence-mart` 執行身分用 canonical ID-token audience，在單次 Cloud Run execution env override 連接 omniAgent 新的 **0% 候選** `p0v-market2048-00d45861`。原生 29.5–32 KiB 的完整五角色 synthetic Fact Pack → 真實 Gemini Flash-Lite → Janus `execute_ceo`／schema／hash／evidence／numeric 校驗 PASS；合成結果必須是 `PARTIAL`，非 canonical investment report。單回合模型呼叫、無正式 Owner GCS／PG write、無永久 CEO Job 更改／正式流量切換；global lease 在 execution terminal 後安全釋放，workflow artifact `p0v-janus-32k-real-ceo-contract` 可追查。

@@ -51,12 +51,12 @@
 
 ## 2026-10-14 工作流治理收斂 PASS／統一診斷 CLI PASS／全市場與持股 P0 回歸 PASS（ACTIVE／PARTIAL）
 
-- **GitHub Workflows 大刀闊斧收斂與歸檔：PASS**：原 117 份工作流完成系統化治理，89 份歷史探測、前置診斷、前 500 母體研究排程安全移入 `.github/workflows/archive/`，並建立 [`archive/README.md`](.github/workflows/archive/README.md) 索引清冊。目前保留 28 份核心 Workflows，對齊四大核心管線（PR/Commit CI、核心 Release/Deployment、備份清理 Cron、受控手動運維），消除非預期定時排程。
-- **統一代碼庫與基礎設施診斷工具：PASS**：新增 [`ops/diagnose.py`](ops/diagnose.py)，整合工作流治理、資料庫 Migration 水位、全市場／持股快照健康度及 CEO Gateway 配置檢測；本地實測全數 PASS（Commit `318f950`）。
+- **GitHub Workflows 大刀闊斧收斂與歸檔：PASS**：原 117 份工作流完成系統化治理，89 份歷史探測、前置診斷、前 500 母體研究排程安全移入 `.github/workflows/archive/`，並建立 [`archive/README.md`](../.github/workflows/archive/README.md) 索引清冊。目前保留 28 份核心 Workflows，對齊四大核心管線（PR/Commit CI、核心 Release/Deployment、備份清理 Cron、受控手動運維），消除非預期定時排程。
+- **本機靜態診斷 CLI 已提交**：[`ops/diagnose.py`](../ops/diagnose.py) 只掃描 workflow／SQL 檔名、檢查兩份規格存在，並輸出固定 CEO 目標值；沒有連線 PostgreSQL、GCP 或 Gateway，不能證明 migration 已套用、資料健康或實際模型配置。
 - **P0 優先工作包（全市場官方報價、持股損益即時試算、首屏效能）**：
   - **首屏寫入時預聚合與快照投影：實作／單元測試 PASS，runtime PARTIAL**：首頁單主鍵快照已提交；057 未在 dev 執行，真實 cold latency 與 <5ms 尚未量測。
-    - 資料庫層：新增 Migration [`057_home_market_snapshot.sql`](infra/postgres/migrations/057_home_market_snapshot.sql)，建立 `control.home_market_snapshot` 單列儲存表與 `publication.home_market_snapshot` security-barrier 視圖，支援 `janus_public_api` 讀取。
-    - 生成層：於 `StockServingProjection` 實作 `materialize_home_market_snapshot`，批次完成時自動寫入預聚合之 TAIEX 30 點趨勢與市場活動／法人數據。
+    - 資料庫層：新增 Migration [`057_home_market_snapshot.sql`](../infra/postgres/migrations/057_home_market_snapshot.sql)，建立 `control.home_market_snapshot` 單列儲存表與 `publication.home_market_snapshot` security-barrier 視圖，支援 `janus_public_api` 讀取。
+    - 生成層：於 `StockServingProjection` 實作 `materialize_home_market_snapshot`；目前只有單元測試呼叫，尚未接入正式批次完成路徑，不能宣稱自動產生首頁快照。
     - 讀取層：於 `packages/web_api/core.py` 及 `services/api/public_runtime.py` 貫徹 Fast Path 主鍵讀取（`SELECT payload_json WHERE snapshot_id = 1`），保留未命中時平滑降級。
     - 測試驗收：新增專屬單元測試 `tests/test_home_market_snapshot.py`（3 PASS），關聯市場與 Serving 回歸測試（31 PASS）全數綠燈。
   - 後端 Python 回歸：全市場名冊與 Serving 測試 23 PASS；持股 TPEx、重算隊列與 Daily Change 19 PASS（合計 42 PASS）。
