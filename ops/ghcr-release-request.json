@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 42,
-  "reason": "Complete transaction code/name autocomplete with keyboard selection and stale async result regression; migration 059 acceptance uses owner-independent pg_attribute and raises on invalid schema/ACL. Previous 3d8ad504 full Release #38673398380 PASS; real existing operator owner migration and sanitized readback completed, no historical fee repair yet. Require full exact-source gates again, no automatic traffic promotion.",
+  "attempt": 43,
+  "reason": "2026-10-15 FinOps Iceberg: isolated existing Core ops.batch_events_v1 audit snapshot expiration and generation-fenced orphan cleanup after successful compact-nightly #38684081267. Scope explicitly excludes core market/financial/PIT/ML/Research tables and historical execution manifests; requires full Python/PostgreSQL, Flutter, four immutable GHCR images and anonymous pull before existing-dev Jobs controlled rollout. No formal API traffic promotion.",
   "expected_runtime_changes": false,
   "ceo_gateway_pilot": false
 }
