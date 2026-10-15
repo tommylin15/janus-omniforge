@@ -1,0 +1,9 @@
+{
+  "intent": "read-only-failed-held-etf-execution",
+  "failed_run": "38695729369",
+  "no_job_run": true,
+  "no_lease_mutation": true,
+  "no_user_data_write": true,
+  "no_private_values": true,
+  "reason": "Inspect 00697B failed/unknown Cloud Run override execution and summarized error codes. Preserve durable lease; do not retry, rerun Mart, expose user data or mutate jobs."
+}

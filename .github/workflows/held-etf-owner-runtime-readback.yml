@@ -1,0 +1,106 @@
+name: Janus read-only held ETF private execution terminal diagnosis
+on:
+  push:
+    branches: [main]
+    paths: ['ops/held-etf-owner-runtime-readback.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify no retry, mutation, release or lease removal
+        run: |
+          jq -e '.intent=="read-only-failed-held-etf-execution" and
+            .failed_run=="38695729369" and .no_job_run==true and
+            .no_lease_mutation==true and .no_user_data_write==true and
+            .no_private_values==true' \
+            ops/held-etf-owner-runtime-readback.json >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read only terminal Cloud Run executions and failure reason categories
+        run: |
+          python - <<'PY'
+          import json, subprocess, re
+          from datetime import datetime, timezone
+          from pathlib import Path
+          project="gen-lang-client-0593591102"
+          base=["gcloud","run","jobs","executions","list","--job=janus-private-pipeline",
+                "--project="+project,"--region=us-central1","--limit=25","--format=json"]
+          query=subprocess.run(base,capture_output=True,text=True,timeout=45)
+          report={"component":"held_etf_single_owner_readonly_diagnosis",
+              "source_run":"38695729369","run_status":"FAILED_OR_UNKNOWN",
+              "no_job_executed":True,"no_user_data_write":True,"lease_not_mutated":True}
+          if query.returncode:
+            report["executions_read_error"]="PERMISSION_OR_RUNTIME_UNAVAILABLE"
+          else:
+            raw=json.loads(query.stdout)
+            rows=[]
+            for rec in raw if isinstance(raw,list) else []:
+              name=str(rec.get("name") or rec.get("metadata",{}).get("name") or "").split("/")[-1]
+              started=str(rec.get("createTime") or rec.get("metadata",{}).get("creationTimestamp") or "")
+              if not ("2026-10-15T06:58" <= started[:16] <= "2026-10-15T07:04"):
+                continue
+              status=rec.get("status",{}) or {}
+              rows.append({"execution":name,"created_at":started[:25],
+                  "succeeded_count":rec.get("succeededCount",status.get("succeededCount")),
+                  "failed_count":rec.get("failedCount",status.get("failedCount")),
+                  "running_count":rec.get("runningCount",status.get("runningCount")),
+                  "cancelled_count":rec.get("cancelledCount",status.get("cancelledCount")),
+                  "conditions":[{"type":c.get("type"),"state":c.get("state",c.get("status"))}
+                    for c in rec.get("conditions",status.get("conditions",[])) if c.get("type") in ("Completed","Ready","ResourcesAvailable") ]})
+            report["matching_executions"]=rows
+          log=subprocess.run([
+              "gcloud","logging","read",
+              'resource.type="cloud_run_job" AND resource.labels.job_name="janus-private-pipeline" AND timestamp>="2026-10-15T06:58:00Z" AND timestamp<="2026-10-15T07:05:00Z"',
+              "--project="+project,"--format=json","--limit=200"],capture_output=True,text=True,timeout=45)
+          if log.returncode:
+            report["log_read_error"]="PERMISSION_OR_RUNTIME_UNAVAILABLE"
+          else:
+            entries=json.loads(log.stdout)
+            names=set(x.get("execution") for x in report.get("matching_executions",[]))
+            allowed=(
+              "held_etf_owner_scope_not_exactly_one",
+              "held_etf_official_identity_not_verified",
+              "held_etf_official_eod_missing",
+              "held_etf_official_persisted_provenance_missing",
+              "owner_ledger_mutated_while_derived_mart_rebuilt",
+              "held_etf_private_mart_position_or_pnl_missing",
+              "held_etf_private_mart_checkpoint_or_price_invalid",
+              "private_pipeline_checkpoint_error",
+              "official TPEx EOD refresh unavailable",
+              "PermissionDenied",
+              "DeadlineExceeded",
+              "ValueError",
+              "RuntimeError",
+              "TimeoutError",
+              "JSONDecodeError",
+            )
+            codes=set()
+            matched=0
+            for entry in entries if isinstance(entries,list) else []:
+              labels=entry.get("resource",{}).get("labels",{})
+              if names and labels.get("execution_name") not in names:continue
+              matched+=1
+              payload=str(entry.get("textPayload") or entry.get("jsonPayload") or "")
+              codes.update(code for code in allowed if code in payload)
+            report["matching_log_entries"]=matched
+            report["safe_failure_classes"]=sorted(codes)
+          report["status"]="EVIDENCE_ONLY"
+          Path('/tmp/held-etf-owner-runtime-readback.json').write_text(json.dumps(report,sort_keys=True))
+          print(json.dumps(report,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: held-etf-owner-runtime-readback
+          path: /tmp/held-etf-owner-runtime-readback.json
+          if-no-files-found: ignore
+          retention-days: 14
