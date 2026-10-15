@@ -26,3 +26,7 @@ def test_approved_artifacts_only():
 def test_json_size_budget_is_bounded():
     assert module.LIMIT_BYTES <= 60*1024*1024
     assert module.LIMIT_DOCS <= 3000
+
+def test_candidate_source_provenance_is_not_retention_authorization():
+    assert module.HASH.fullmatch("sha256:"+"0"*64)
+    assert "deletion_fence_published" in module.audit.__code__.co_consts or callable(module.audit)

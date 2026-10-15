@@ -5,6 +5,9 @@ PostgreSQL publication or ad-hoc model/research references.
 """
 from __future__ import annotations
 from datetime import datetime, timedelta, timezone
+from hashlib import sha256
+import os
+from pathlib import Path
 import json
 import re
 import subprocess
@@ -105,6 +108,7 @@ def audit(token):
         indexed[item["name"]]=(doc["snapshot_id"],item["updated"])
     protected=set()
     source_counts={}
+    provenance={}
     for label,bucket,predicate in (
         ("mart",MART,relevant_mart),
         ("research",RESEARCH,lambda name:name.endswith(".json"))):
@@ -123,7 +127,13 @@ def audit(token):
             total_bytes+=size
             if total_bytes>LIMIT_BYTES: raise RuntimeError("REFERENCE_DOCUMENT_BYTE_BUDGET_EXCEEDED")
             doc=read_doc(bucket,obj["name"],token)
-            protected.update(references(doc))
+            refs=references(doc)
+            protected.update(refs)
+            for core_id in refs:
+                provenance.setdefault(core_id,[]).append({
+                    "bucket":bucket,"path":obj["name"],
+                    "generation":obj.get("generation"),
+                    "updated":obj.get("updated")})
             count+=1
             read+=1
         source_counts[label]={"documents_checked":count,
@@ -137,7 +147,8 @@ def audit(token):
     mature=[name for name,(identity,updated) in indexed.items()
             if datetime.fromisoformat(updated.replace("Z","+00:00"))<cutoff]
     unreferenced_mature=sum(indexed[name][0] not in protected for name in mature)
-    return {"component":"core-reference-discovery","status":"PARTIAL_REFERENCE_COVERAGE",
+    return {"_candidate_reference_provenance":provenance,
+            "component":"core-reference-discovery","status":"PARTIAL_REFERENCE_COVERAGE",
             "mode":"read-only","gcp_writes":0,"deletion_fence_published":False,
             "object_inventory_counts":{k:len(v) for k,v in listings.items()},
             "pages":pages,"core_manifest_count":len(indexed),
@@ -153,4 +164,16 @@ def audit(token):
 
 if __name__ == "__main__":
     result=audit(access_token())
+    sources=result.pop("_candidate_reference_provenance")
+    location=os.environ.get("FINOPS_REFERENCE_CANDIDATE_PATH","")
+    if location:
+        document={"schema_version":"finops-core-reference-candidates-v1",
+                  "coverage_status":"PARTIAL_NOT_AUTHORIZED_FOR_DELETION",
+                  "protected_core_snapshot_ids":sorted(sources),
+                  "source_provenance":sources,
+                  "audit_summary":result}
+        payload=json.dumps(document,sort_keys=True,indent=2).encode()
+        path=Path(location)
+        path.write_bytes(payload)
+        result["candidate_artifact_sha256"]="sha256:"+sha256(payload).hexdigest()
     print(json.dumps(result,sort_keys=True))

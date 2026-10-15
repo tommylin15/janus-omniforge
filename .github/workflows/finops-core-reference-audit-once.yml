@@ -30,4 +30,13 @@ jobs:
           service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
       - uses: google-github-actions/setup-gcloud@v2
       - name: Read immutable Core and Mart/research model references
+        env:
+          FINOPS_REFERENCE_CANDIDATE_PATH: core-reference-candidates.json
         run: python scripts/gcp/finops_core_reference_audit.py
+      - name: Preserve partial source references and immutable SHA evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: finops-core-reference-candidates
+          path: core-reference-candidates.json
+          if-no-files-found: ignore
