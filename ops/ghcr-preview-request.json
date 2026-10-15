@@ -2,16 +2,16 @@
   "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
   "approved": true,
   "scope": "janus-api-preview-tag-only",
-  "source_sha": "1e9c31d148db540ee06cac5ccccd8fac8d619511",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:83a2598486007a39bdaa1392e46cd79af3a3df9046efd9cdc7f3b1bef4fe667d",
-  "release_run": "38565636734",
-  "candidate_run": "38566380979",
-  "boundary_run": "38566632955",
+  "source_sha": "4d058c47ac62ad7328f9f7c0e9fcd4ef4f1ac7b1",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:d5c7cb8827a234e649a21a57d4ef0c7cf5c8c453f71d96ed1d54d67adb6ff349",
+  "release_run": "38674231933",
+  "candidate_run": "38674767979",
+  "boundary_run": "38674988598",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
-  "reason": "User-authorized Janus dev 01-05: exact-source official TPEx historical valuation fix with complete GHCR #38565636734, 0% API candidate #38566380979, automated OAuth/private boundary #38566632955 PASS. Publish fixed Preview tag only, preserve canonical 100% old API, all other tags, existing Jobs/Scheduler and any owner data. The independent market bootstrap/cached and authenticated UI/PnL remain separate live gates.",
+  "reason": "Owner-authorized transaction first-character code/name dropdown with ETF and keyboard support, automatic fees and actual Admin settings. Exact-source full release, 0% candidate and automatic OAuth/private boundary PASS; publish only fixed Preview, preserve canonical API 100% and all Jobs/Scheduler. Historical fee repair and real four-page owner acceptance remain separate.",
   "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
-  "attempt": 11
+  "attempt": 12
 }
