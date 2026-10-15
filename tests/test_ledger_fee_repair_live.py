@@ -42,9 +42,7 @@ def test_apply_requires_a_bounded_successful_preview_request():
 def test_runtime_refuses_changed_correction_count_before_any_money_write(monkeypatch):
     from contextlib import nullcontext
     import json
-    from packages import postgres_bundle
-    from services.api import repository
-    from scripts.gcp import ledger_fee_repair
+    from types import SimpleNamespace
     class Connection:
         def execute(self, statement, *_):
             self.role = 'current_user' in statement
@@ -62,9 +60,9 @@ def test_runtime_refuses_changed_correction_count_before_any_money_write(monkeyp
     def repair(*_, **options):
         calls.append(options.get('apply', False))
         return {'status': 'preview', 'effective_events': 154, 'corrections': 87}
-    monkeypatch.setattr(postgres_bundle, 'load_postgres_bundle', lambda *_: None)
-    monkeypatch.setattr(repository, 'PostgresWorkspaceRepository', lambda _: Repo())
-    monkeypatch.setattr(ledger_fee_repair, 'repair_owner_fees', repair)
+    monkeypatch.setitem(sys.modules, 'packages.postgres_bundle', SimpleNamespace(load_postgres_bundle=lambda *_: None))
+    monkeypatch.setitem(sys.modules, 'services.api.repository', SimpleNamespace(PostgresWorkspaceRepository=lambda _: Repo()))
+    monkeypatch.setitem(sys.modules, 'scripts.gcp.ledger_fee_repair', SimpleNamespace(repair_owner_fees=repair))
     monkeypatch.setenv('MOBILE_LEDGER_DATABASE_URL', 'test')
     monkeypatch.setenv('JANUS_FEE_REPAIR_CHECKPOINT', json.dumps({**request(), 'mode': 'apply'}))
     with pytest.raises(RuntimeError, match='preview_counts_changed'):
