@@ -1,13 +1,13 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "4d058c47ac62ad7328f9f7c0e9fcd4ef4f1ac7b1",
-  "purpose": "Owner-authorized transaction UX and fee/PnL work: code/name autocomplete from first character including registered ETFs, keyboard selection, stale-response protection and canonical selected-symbol validation. Exact-source full Release #38674231933 must be PASS including anonymous image pulls before dispatch; existing owner migration 059 and schema/ACL readback completed. Existing API candidate only, no canonical traffic or Jobs/Scheduler changes.",
+  "sha": "4d49555656bc47decd2fd13e9fab9a5da79a3fc2",
+  "purpose": "2026-10-15 Iceberg audit-only cleanup isolated from unverified Core PIT/model retention fence. Full Python/Flutter/four immutable GHCR Release #38685404805 PASS at exact source 4d495556. 0%-traffic candidate only for automated authorization boundary and existing dev 4 Jobs rollout; no API traffic switch, ledger writes or new GCP resources.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "retry_verification": "Exact-source full Release then zero-traffic API health, build-id and automatic auth boundary.",
+  "retry_verification": "Verify new exact SHA immutable candidate, prior 100% traffic unchanged, OAuth boundary PASS before any Jobs rollout.",
   "same_sha_retry_attempt": 0,
   "digest": ""
 }
