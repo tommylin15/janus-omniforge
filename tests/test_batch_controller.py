@@ -172,7 +172,10 @@ def test_iceberg_outbox_replay_is_idempotent_and_readback_precedes_ack():
         # A failed commit must leave the outbox unacknowledged.
         cursor.executemany.reset_mock()
         original = catalog.load_table
-        catalog.load_table = lambda identifier: SimpleNamespace(upsert=Mock(side_effect=RuntimeError("write failed")))
+        # Fail before append/readback: the outbox must stay pending.
+        failing_table = Mock()
+        failing_table.scan.side_effect = RuntimeError("read failed")
+        catalog.load_table = lambda identifier: failing_table
         with pytest.raises(RuntimeError):
             export_events(connection, core)
         assert cursor.executemany.call_count == 0
