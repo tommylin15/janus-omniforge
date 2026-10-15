@@ -54,8 +54,10 @@ jobs:
       - name: Fetch dated official TPEx EOD, restore public historical price and verify real Owner derived Mart
         env:
           GH_TOKEN: ${{ github.token }}
+          PYTHONPATH: .
         run: |
           set -Eeuo pipefail
+          python -c 'from services.api.tpex_quotes import TpexDailyQuotes; from scripts.gcp.p0_tpex_asof_owner_acceptance import _read_exact_official'
           python scripts/gcp/p0_tpex_asof_owner_acceptance.py
       - uses: actions/upload-artifact@v4
         if: always()
