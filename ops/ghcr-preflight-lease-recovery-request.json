@@ -1,0 +1,22 @@
+{
+  "intent": "release-exact-preflight-no-mutation-lease",
+  "approved": true,
+  "no_gcp_mutation": true,
+  "owner_run": 38673116310,
+  "owner_source_sha": "884e289aab5ed59d93def3043da42047e84e4d0d",
+  "tag_sha": "16dd8828c9161c64bbe6cdc10e8cff3f55dbc5bf",
+  "receipt_sha256": "12891d7f1064f0621c76a8b31f6da8b2d00366e74d6fce6c6a899761bfffe95d",
+  "expected_images": {
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:899a0bcae1e1a2f75424db2b67efafd134c015af9ea5160f760186ae409e8319",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:899a0bcae1e1a2f75424db2b67efafd134c015af9ea5160f760186ae409e8319",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:37249957704a2010bfbbb7aafacc19cc14d8d1b323622c0207541690db7092c9",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:badaec591648a632b330c3163a58d43d67b5cac81a6d2f2332d8b2aada038340"
+  },
+  "expected_config_hashes": {
+    "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
+    "janus-ingestion-core": "ebd88ff9aabca00b8f248473ea2b3f16a908be4a463333e3e1535a2c66ad8863",
+    "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
+    "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
+  },
+  "reason": "Failed rollout #38673116310 artifact proves preflight-only (zero snapshots/operations/canaries), Scheduler was never paused or Job mutated. Assert exact owner, immutable tag and original live images/hashes/Scheduler/API before removing only its stale Git lease. No GCP writes; do not force-clear any other lease."
+}
