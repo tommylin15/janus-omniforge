@@ -34,9 +34,10 @@ jobs:
           PYTHONPATH: .
         run: |
           python - <<'PY'
-          import json,subprocess
+          import json,subprocess,sys
           from pathlib import Path
-          from scripts.gcp import ghcr_jobs_rollout as ctl
+          sys.path.insert(0,'scripts/gcp')
+          import ghcr_jobs_rollout as ctl
           p=json.loads(Path('/tmp/p0failed/p0-tpex-asof-owner-acceptance.json').read_text())
           operation=ctl.ROOT+'/operations/'+p['operation']
           op=ctl.cloud(operation)
