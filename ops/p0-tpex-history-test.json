@@ -3,6 +3,6 @@
   "approved": true,
   "scope": "no-data-mutation",
   "no_gcp_mutation": true,
-  "purpose": "Verify corrected official Gregorian dated endpoint and as-of price after dated source discovery; no data mutation.",
-  "attempt": 3
+  "purpose": "Long-term TPEx official historical dailyQuotes contract: arbitrary old date, strict official response day/status, published handoff, PIT fallback and 00697B regressions. Only compile/pytest. Full release #38715463316 baseline successful before this patch.",
+  "attempt": 4
 }
