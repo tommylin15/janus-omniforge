@@ -10,6 +10,12 @@
 
 **整體 PARTIAL。** 使用者已明確授權 D01～D05 一起開發、以同源整批驗收，取代此前文件-only 暫停；D06 獨立 FinOps、不併入本輪，D07／D08 後置。完整 Release／GHCR digest／0% 候選／自動 OAuth 已 PASS，**正式 API 100% traffic 尚未獲得本產品包的所有真實業務 gate**，不能宣稱產品交付完成。詳見 [TODO](todo.md)、[AI 卡片](execution-cards/README.md) 與 [證據索引](spec/operations-and-testing.md)。
 
+### 2026-10-15｜P1 夜間 Private 派送直接修正（待 live release）
+
+- 使用者要求直接調整，不追舊 execution。修改 `jobs/ingestion-core/ingestion_core/batch_controller.py`：15:30 Private 仍依賴 14:30 ingestion；21:30 Private 設為獨立 EOD slot 並優先於同日待決午後 Private，不能因 ingestion 終態缺失阻止整晚估值；下午 ingestion 真實 `failed` 時，15:30 Private 只記 `skipped/upstream_ingestion_failed`，不偽造成功也不永遠占用 pending queue。
+- 官方 TPEx 日價、估值日與 future-leakage／missing／stale／owner publication 約束保持由 Private Mart fail-closed；不因解開排程依賴而推論當日所有股票已具合格價格。
+- 相關測試同步新增獨立 slot、優先序、失敗上游結束、派送只一次的回歸。最新 selective CI 針對 [run #38755041998](https://github.com/tommylin15/janus-omniforge/actions/runs/38755041998) SUCCESS；完整 GHCR Release／Job rollout／新一天 Owner Mart 確認**待驗**，不得改標 P1 PASS。
+
 ### P1｜2026-10-15 Owner 唯讀資料與固定 Preview 接續
 
 - **固定 Preview 同來源 PASS**：[commit `78bf14bb`](https://github.com/tommylin15/janus-omniforge/commit/78bf14bb1665be93ef6f7048d71458632bdbc871) 將 `ops/ghcr-preview-request.json` 目標改為 285848 GHCR API 固定 digest，引用 release #38717341300、candidate #38718006906、OAuth boundary #38718076548；[#38740477232](https://github.com/tommylin15/janus-omniforge/actions/runs/38740477232) 最新 workflow `completed/success`，同次 `Verify fixed preview release and owner-lease safety contracts`、`Update only verified candidate preview tag with rollback protection` 均 success；公開 build-id／tag 校驗由該實際 workflow 執行，且保存 receipt artifact。此結果僅是 Preview，正式流量不變，**Owner UI 尚未驗收**。
