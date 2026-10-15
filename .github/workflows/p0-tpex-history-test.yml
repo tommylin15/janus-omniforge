@@ -1,0 +1,29 @@
+name: Janus P0 TPEx EOD history targeted tests
+on:
+  push:
+    branches: [main]
+    paths: ['ops/p0-tpex-history-test.json']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify bounded P0 release-independent test request
+        run: |
+          jq -e '.intent=="test-p0-tpex-historical-asof" and .approved==true and
+            .scope=="no-data-mutation" and .no_gcp_mutation==true' ops/p0-tpex-history-test.json >/dev/null
+      - name: Compile official source and tested repositories
+        run: |
+          python -m compileall -q services/api/tpex_quotes.py services/api/repository.py services/api/private_pipeline.py services/api/quote_router.py scripts/gcp/analysis_schema_bootstrap.py
+      - name: Test official history, PIT, quote and migration contracts
+        env:
+          PYTHONPATH: jobs/ingestion-core:.
+        run: |
+          python -m pip install --disable-pip-version-check pytest==8.4.2 pydantic==2.11.7 requests==2.32.4
+          python -m pytest -q tests/test_holdings_tpex_p0.py tests/test_official_etf_identity_migration.py
