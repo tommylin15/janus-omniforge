@@ -7,5 +7,6 @@
   "only_release_owned_lease": true,
   "no_job_run": true,
   "no_user_data_write": true,
-  "reason": "D01 safe failed owner EOD source probe terminated before PrivatePipeline.run_user; exact failure observed in Cloud Logging and one failed execution, owner Mart remains v354 and 00697B missing. Validate Scheduler/fence and original lease owner then release only the orphan lease. Do not retry owner Job."
+  "reason": "No-write terminal release guarded by exact Cloud Run Completed False NonZeroExitCode and time-scoped, execution-labelled official EOD failure log. Prior jq query did not match log label, no lease was released. No job/recalc retried.",
+  "attempt": 2
 }

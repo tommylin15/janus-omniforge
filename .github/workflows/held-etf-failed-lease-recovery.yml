@@ -47,14 +47,31 @@ jobs:
           gcloud run jobs executions describe janus-private-pipeline-gbc59 \
             --project=gen-lang-client-0593591102 --region=us-central1 --format=json \
             > /tmp/held-etf-failed-execution.json
-          jq -e '(.failedCount // .status.failedCount // 0)==1 and
-            ([.conditions[]? | select(.type=="Completed" and .state=="False" and .reason=="NonZeroExitCode")] | length)==1' \
-            /tmp/held-etf-failed-execution.json >/dev/null
-          gcloud logging read 'resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="janus-private-pipeline-gbc59"' \
-            --project=gen-lang-client-0593591102 --limit=80 --format=json > /tmp/held-etf-failed-log.json
-          jq -e '[.[] | (.textPayload // (.jsonPayload // {} | tostring)) |
-            select(contains("held_etf_official_eod_missing"))] | length >= 1' \
-            /tmp/held-etf-failed-log.json >/dev/null
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          p=json.loads(Path('/tmp/held-etf-failed-execution.json').read_text())
+          conditions=p.get('conditions') or p.get('status',{}).get('conditions') or []
+          terminal=any(c.get('type')=='Completed' and
+            c.get('state',c.get('status')) in ('False','CONDITION_FAILED') and
+            c.get('reason')=='NonZeroExitCode' for c in conditions)
+          assert terminal and int(p.get('failedCount',p.get('status',{}).get('failedCount',0)))==1, 'execution_terminal_failed_not_verified'
+          # Logs only inspected in memory; they are never printed or uploaded.
+          query=subprocess.run(['gcloud','logging','read',
+              'resource.type="cloud_run_job" AND timestamp>="2026-10-15T06:59:00Z" AND timestamp<="2026-10-15T07:04:00Z"',
+              '--project=gen-lang-client-0593591102','--format=json','--limit=250'],
+              check=True,capture_output=True,text=True,timeout=45)
+          entries=json.loads(query.stdout)
+          matched=[]
+          for row in entries:
+              labels=row.get('labels') or {}
+              resource=(row.get('resource') or {}).get('labels') or {}
+              execution=labels.get('run.googleapis.com/execution_name') or resource.get('execution_name')
+              if execution=='janus-private-pipeline-gbc59':
+                  matched.append(str(row.get('textPayload') or row.get('jsonPayload') or ''))
+          assert any('held_etf_official_eod_missing' in message for message in matched), 'before_writer_failure_class_not_verified'
+          print('EXACT_EXECUTION=TERMINAL_FAILED_BEFORE_MART_WRITER')
+          PY
           python - <<'PY'
           import sys
           sys.path.insert(0,'scripts/gcp')
