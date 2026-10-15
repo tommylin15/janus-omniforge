@@ -1,5 +1,5 @@
 """Persistent DB-first latest-price resolver for TWSE stocks and TAIEX."""
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 import logging
 

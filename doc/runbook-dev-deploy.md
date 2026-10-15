@@ -278,3 +278,10 @@ Dev acceptance must verify migration 048, job default/task parallelism, API → 
 先取得 preview 的去敏感數量／版本收據，再將相同 checkpoint 的已提交請求切為 `apply`。apply 僅用 API DB role 追加 reversal／replacement，保留原始事件；其後使用既有 Owner Mart 路徑更新 Core／Private projection，再驗證零筆費稅待更正。不要把失敗／未知 execution 當作沒有寫入：保留共用鎖，先讀回 ledger／profile／Mart checkpoint；若費稅已提交、只剩 Mart，使用新 checkpoint 的 `reconcile`，不重送舊 apply。`reconcile` 必須先確認沒有待更正費稅，不能藉此跳過修復。執行中若 owner 新增交易使版本改變，維持失敗／partial，重新盤點後再預覽，不能自動放寬版本。
 
 四 Jobs Scheduler pause 不會停止已由 User API 即時啟動的私人重算。更新 image、派送 canary 及最後切回排程前，最多等候 900 秒讓現有 executions 自然結束，再完整重跑所有分頁的 terminal fence；只等待明確的 `execution_not_terminal`，未知狀態、分頁／讀取錯誤立即失敗。不得直接忽略 active Job 或終止本人的重算。逾時仍保留既有 rollback／lease 診斷流程。
+
+
+### Controller 備份交接與既有 VM 還原驗證
+
+沿既有 operator IAP 路徑把 main 的 `ledger-durability-dev.sh`、`ledger_backup_executor.py`、`ledger_restore_verify.py` 複製到 VM 的對應 `/tmp/janus-ledger-*` 路徑，核對 Git 位元組 SHA256，以 `install-controller` 安裝既有 VM 的 request executor／poll timer。此路徑不呼叫 configure、不新增 IAM 或 Cloud Build。原每日 timer 先保留；新 timer 只是每分鐘消費 controller 的 queued request，業務備份日期仍由單一 controller 決定。
+
+確認真實 request succeeded、不可變 daily object SHA256／大小及下載比對後，以相同日期執行 `/var/lib/janus/ledger-durability vm-restore-verify YYYY-MM-DD`。工具下載既有 Private prefix，檢查磁碟空間，在原 PostgreSQL container 建立唯一 `janus_restore_verify_<uuid>` DB、撤回PUBLIC存取、單一transaction還原，驗證owner外鍵／ledger版本／更正鏈結，再僅刪除該臨時DB。JSON收據只含數量與布林，不輸出owner或交易金額。確認restore PASS、臨時DB清理且executor持續active後，才停用原每日timer並讀回controller排程／request，避免雙重業務排程或備份中斷。舊Cloud Build還原YAML保留歷史，不作新路徑依賴。

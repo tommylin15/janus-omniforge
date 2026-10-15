@@ -71,6 +71,8 @@ billing export; those require separate cost approval.
 `scripts/gcp/ledger-durability-dev.sh` is the separately gated Pilot exception.
 It installs a daily `pg_dump` timer on the existing PostgreSQL VM, writes only
 to `pilot-ledger-backups/` in the restricted Private bucket, retains 14 daily
-and six monthly objects, and restores through Cloud Build into a network-isolated
-temporary container. Backup and restore output includes bounded owner/event-count
+and six monthly objects. Restore verification uses a disposable database in the
+existing PostgreSQL container, revokes public access, checks owner/version/correction
+integrity and removes only that copy. It does not invoke Cloud Build or create
+another database service/container. Backup and restore output includes bounded owner/event-count
 evidence for comparison. It creates no VM, disk, snapshot, database service, or new bucket.

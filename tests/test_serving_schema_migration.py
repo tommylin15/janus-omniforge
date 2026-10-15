@@ -66,6 +66,13 @@ def statements(connection: FakeConnection) -> str:
 @pytest.mark.parametrize('name,table', [(migration.MIGRATION_MARKET_SERVING, 'market_serving_recent'),
                                     (migration.MIGRATION_HOME_MARKET_SNAPSHOT, 'home_market_snapshot')])
 def test_market_serving_acl_acceptance_uses_publication_owner(monkeypatch, bootstrap, name, table):
+    from types import SimpleNamespace
+    from ingestion_core.serving_projection import StockServingProjection
+    materialized = []
+    def materialize():
+        materialized.append(True)
+        return {'status': 'partial', 'as_of': None}
+    monkeypatch.setattr(StockServingProjection, 'from_env', lambda: SimpleNamespace(materialize_home_market_snapshot=materialize))
     control = FakeControl()
     control.close = lambda: None
     publication = FakeConnection('janus_publication')
@@ -88,6 +95,7 @@ def test_market_serving_acl_acceptance_uses_publication_owner(monkeypatch, boots
     assert check not in statements(control.connection).replace(' ', '')
     assert 'INSERT INTO control.schema_migrations' in statements(control.connection)
     assert publication.closed
+    assert bool(materialized) is (bootstrap and name == migration.MIGRATION_HOME_MARKET_SNAPSHOT)
 
 
 def test_ceo_quota_migration_is_allowlisted_and_checks_before_marker():

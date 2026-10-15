@@ -1,18 +1,26 @@
 # Janus — TODO
 
+## 2026-10-15 使用者要求暫停（PAUSED）
+
+後續開發、部署、Job 派送及驗收均暫停；本次只保存既有程式進度、更新文件並同步 GitHub。正式 API 100% 流量保持原版本，固定 Preview／四 Jobs 已驗證來源為 `4d058c47ac62ad7328f9f7c0e9fcd4ef4f1ac7b1`。
+
+費稅回補已 PASS：88 筆 append-only 更正，ledger 176→352，折扣0.4／profile3，8 筆持股股數不變。00697B 身分已補齊但仍缺價，完整持股損益仍 PARTIAL。TPEx 缺價修正、057 初始快照補建及 VM 隔離還原工具已保存原始碼及 targeted tests，尚未部署／執行。原備份 timer 仍 active，新 executor 尚未安裝。
+
+恢復後仍依 1～5 順序接續；不啟動後置模型研究。本次不變更 Release 請求；費稅操作請求回到 ledger352 的唯讀 preview。詳細證據、測試與接手入口見 [暫停交接](archive/pause-checkpoint-2026-10-15.md)。
+
 **2026-10-15 最新授權：依序完成持股交易／損益 → 首頁與快照效能 → 通用圖表／四頁 → 總控／備份 → 集中測試及正式 dev 切流（1～5）。** 本輪不啟動後置模型研究。
 
-- [ ] **自動費稅與歷史更正**：費用使用本人券商設定的折扣倍率 **0.4** 及既有最低費用；證交稅依商品／交易日的預設規則計算，交易新增／更正表單不再輸入兩項。所有歷史有效交易先有界核對，以 append-only reversal／replacement 更正費稅，保留原始交易、成交內容與 audit，重算持股及正式損益並驗證 readback；不影響其他 owner。Migration／完整 CI／dev 實際回補尚未完成，不勾選。
+- [ ] **自動費稅與歷史更正**：費用使用本人券商設定的折扣倍率 **0.4** 及既有最低費用；證交稅依商品／交易日的預設規則計算，交易新增／更正表單不再輸入兩項。所有歷史有效交易先有界核對，以 append-only reversal／replacement 更正費稅，保留原始交易、成交內容與 audit，重算持股及正式損益並驗證 readback；不影響其他 owner。059、完整 CI 與 dev 88 筆更正／Mart352已通過；仍待00697B缺價根因的新版本部署及完整估值 readback，不勾選整體驗收。
 
 **2026-10-15 接續：01 全市場 Bootstrap 與 02 Cached 真實 PASS，03～05 仍 PARTIAL／NOT STARTED。** 最新逐 Run／數值收據見 [status.md](status.md) 首段。原 2026-10-14 暫停為歷史 checkpoint，已由使用者後續 01～05 合併工程指示解除相應暫停；其他未授權 production／IAM／破壞性操作限制不變。後置五模型研究／CEO publication 不併入本輪。
 
 - [x] **01 官方全市場＋必要 dataset coverage**：交易日 2026-10-13、固定官方 TWSE 1095／TPEx 893，全部必要 dataset 依各市場 10%／30% 門檻 PASS，stage/core/serving 與不可變 provenance 收據 [#38575674367](https://github.com/tommylin15/janus-omniforge/actions/runs/38575674367)。
 - [x] **02 同日 Cached**：從已通過 Bootstrap 收據強制鎖定 2026-10-13，必要 17／17 cache_hit、`staged=0`／`serving_published=0`，[#38651225144](https://github.com/tommylin15/janus-omniforge/actions/runs/38651225144) PASS；不得因成功日期往後推而重抓新資料。
-- [ ] **03 Owner 持股與正式損益（PARTIAL）**：00719B 官方商品身分已透過 source-audited migration 058 [#38652846263](https://github.com/tommylin15/janus-omniforge/actions/runs/38652846263)＋單一 Owner 真實 Private Mart [#38653250200](https://github.com/tommylin15/janus-omniforge/actions/runs/38653250200) PASS，MCP 讀回名稱、身份、價格、ledger version 170 一致，不再有 `stock_master_not_found`。兩 Task 正式 Queue canary [#38653931699](https://github.com/tommylin15/janus-omniforge/actions/runs/38653931699) 正在跑，第一次 #38653790215 僅 pre-GCP PYTHONPATH 失敗；等 SUCCEEDED／checkpoint／cleanup 證據。仍需交易存檔、加減碼、賣出／股利／更正／作廢、缺價隔離及使用者按鈕→API enqueue 的真實端到端，不往本人帳本新增測試交易。
-- [ ] **04 四頁視覺與效能**：固定 Preview public market-home API 30／30、P50 46.76ms／P95 97.97ms，但單筆最慢 9.38s；仍需 authenticated 四頁 390×844／desktop 以及 Owner 首屏冷暖、試算／保存 P50／P95 與錯誤率，不以 30 筆公開 API 暖讀取代完整體驗驗收。
+- [ ] **03 Owner 持股與正式損益（PARTIAL）**：00719B 官方商品身分已透過 source-audited migration 058 [#38652846263](https://github.com/tommylin15/janus-omniforge/actions/runs/38652846263)＋單一 Owner 真實 Private Mart [#38653250200](https://github.com/tommylin15/janus-omniforge/actions/runs/38653250200) PASS，MCP 讀回名稱、身份、價格、ledger version 170 一致，不再有 `stock_master_not_found`。舊兩Task canary原workflow因cleanup缺收據而FAIL；exact request已確認SUCCEEDED／attempt1／worker相符／verify標記存在、active queue0／dispatch=false，不新seed、不將原run改為PASS。仍需交易存檔、加減碼、賣出／股利／更正／作廢、缺價隔離及使用者按鈕→API enqueue 的真實端到端，不往本人帳本新增測試交易。
+- [ ] **04 四頁視覺與效能**：固定 Preview public market-home API 30／30、P50 65.1ms／P95 72.1ms，但單筆最慢 6.67s（新來源4d058c47）；仍需 authenticated 四頁 390×844／desktop 以及 Owner 首屏冷暖、試算／保存 P50／P95 與錯誤率，不以 30 筆公開 API 暖讀取代完整體驗驗收。
 - [ ] **05 受控正式 dev API 切流**：03／04 仍未足夠，不得提前從 0% Preview 改正式 100%；待各 gate PASS，再以 exact SHA／共用部署鎖／既有 rollback 做 live cutover 與 readback。
 
-**2026-10-14 使用者要求暫停並同步 GitHub。** 本工作包 PAUSED／PARTIAL，已提交與未完成驗收見 [checkpoint](archive/full-market-pause-2026-10-14.md)；不得將程式或 unit tests 完成當成 live acceptance。
+**2026-10-14 使用者要求暫停並同步 GitHub。** 此為歷史 PAUSED／PARTIAL checkpoint，後續繼續指示已恢復本工作包；已提交與未完成驗收見 [checkpoint](archive/full-market-pause-2026-10-14.md)；不得將程式或 unit tests 完成當成 live acceptance。
 
 **2026-10-13 最新合併開發授權：P0-1 至 P1-2 一次完成相依開發，再整合測試／真實驗收。** 本指示取代之前「只更新文件後停止」。先掃全文件，將有效500個股任務與資料收集改全上市櫃；歷史證據／識別字保留且不冒充全市場PASS。P2模型研究與P3報告不由本次自動啟動。
 

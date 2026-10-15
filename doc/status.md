@@ -1,5 +1,20 @@
 # Janus Current Status
 
+## 2026-10-15 使用者要求暫停（PAUSED）
+
+後續開發、部署、Job 派送及驗收均暫停；本次只保存既有程式進度、更新文件並同步 GitHub。正式 API 100% 流量保持原版本，固定 Preview／四 Jobs 已驗證來源為 `4d058c47ac62ad7328f9f7c0e9fcd4ef4f1ac7b1`。
+
+費稅回補已 PASS：88 筆 append-only 更正，ledger 176→352，折扣0.4／profile3，8 筆持股股數不變。00697B 身分已補齊但仍缺價，完整持股損益仍 PARTIAL。TPEx 缺價修正、057 初始快照補建及 VM 隔離還原工具已保存原始碼及 targeted tests，尚未部署／執行。原備份 timer 仍 active，新 executor 尚未安裝。
+
+恢復後仍依 1～5 順序接續；不啟動後置模型研究。本次不變更 Release 請求；費稅操作請求回到 ledger352 的唯讀 preview。詳細證據、測試與接手入口見 [暫停交接](archive/pause-checkpoint-2026-10-15.md)。
+
+## 2026-10-15 費稅 88 筆更正與 Mart352 PASS；00697B 缺價根因修正待整合發布
+
+- 154 筆有效交易的 preview [#38679664257](https://github.com/tommylin15/janus-omniforge/actions/runs/38679664257) PASS，88 筆需更正。首次 apply #38680407739 因專用 workflow 缺 Pydantic，停在 pre-GCP 測試，沒有交易寫入；隔離測試依賴後在無 API 依賴環境 27 PASS。正式 apply [#38680770336](https://github.com/tommylin15/janus-omniforge/actions/runs/38680770336) **PASS**：append-only 更正 88 筆，ledger 176→352、券商 profile=3／折扣0.4，既有 Private Mart 重建與零待更正檢查通過。MCP 正向讀回 8 筆、ledger352、股數不變、全部商品身分 available；00697B 仍缺價，因此完整估值／PnL 尚未標 PASS。操作請求已準備回到新 checkpoint 的唯讀 preview，不重送 apply。
+- 同來源四 Jobs rollout [#38676820532](https://github.com/tommylin15/janus-omniforge/actions/runs/38676820532) **PASS**，四 Job 各2次、8 canaries全部成功，Scheduler恢復、正式APItraffic不變。00697B 官方主檔 migration060 [#38679346846](https://github.com/tommylin15/janus-omniforge/actions/runs/38679346846) PASS。固定 Preview 公開 API [#38677467684](https://github.com/tommylin15/janus-omniforge/actions/runs/38677467684) 30/30、P50 65.1ms／P95 72.1ms／max6673.38ms；不是登入畫面或冷啟動 P95。
+- 缺價根因：TPEx盤中日期分支漏匯入timedelta，加上14:30前一律拒絕EOD讀取，阻擋新持股的前一交易日官方收盤。已補匯入、只拒絕handoff前的當日資料、跨handoff重抓快取，保留PIT cutoff；65項整合 targeted tests PASS，待新完整Release／candidate／Jobs及owner reconcile。
+- 備份盤點：既有VM operator IAP可用，原timer enabled/active，controller backup requests排隊、executor尚未安裝。已補既有container內獨立臨時DB還原／權限隔離／完整性檢查／清理，不用Cloud Build或新資源；10備份相關tests、Bash語法檢查PASS。尚未安裝／產生新controller備份／真實restore／停原timer，不能標交接完成。
+
 ## 2026-10-15 交易單字搜尋已發布固定 Preview，歷史費稅尚未套用
 
 - 正式 Preview 已更新至 `4d058c47ac62ad7328f9f7c0e9fcd4ef4f1ac7b1`：完整 Release [#38674231933](https://github.com/tommylin15/janus-omniforge/actions/runs/38674231933)、0% candidate [#38674767979](https://github.com/tommylin15/janus-omniforge/actions/runs/38674767979)、OAuth／private boundary [#38674988598](https://github.com/tommylin15/janus-omniforge/actions/runs/38674988598)、固定 Preview [#38675180575](https://github.com/tommylin15/janus-omniforge/actions/runs/38675180575) 均 PASS。外部 HTTP 讀回 `/app/build-id.txt` 為新 SHA，`/api/v1/me/journal/instruments?q=2` 未登入 401。代號／名稱第一字下拉、ETF、Enter、未選取攔截與舊請求競態都有 Flutter 回歸；未冒充已登入瀏覽器畫面驗收，正式 API traffic 未切換。

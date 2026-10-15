@@ -23,7 +23,6 @@ vm() {
 }
 
 configure() {
-  local build_sa
   [[ "${ALLOW_DEV_LEDGER_DURABILITY:-false}" == true ]] || \
     fail 'set ALLOW_DEV_LEDGER_DURABILITY=true to configure the existing dev VM and bucket prefix'
   gcloud storage buckets describe "gs://${bucket}" --project="${project}" >/dev/null
@@ -33,10 +32,6 @@ configure() {
   gcloud storage managed-folders add-iam-policy-binding "gs://${bucket}/${prefix}/" --project="${project}" \
     --member="serviceAccount:postgres-vm@${project}.iam.gserviceaccount.com" \
     --role=roles/storage.objectAdmin \
-    --quiet >/dev/null
-  build_sa="$(gcloud builds get-default-service-account --project="${project}")"
-  gcloud storage managed-folders add-iam-policy-binding "gs://${bucket}/${prefix}/" --project="${project}" \
-    --member="serviceAccount:${build_sa}" --role=roles/storage.objectViewer \
     --quiet >/dev/null
   gcloud compute scp "$0" "janus-postgres-dev:/tmp/janus-ledger-durability" \
     --project="${project}" --zone="${zone}" --tunnel-through-iap --quiet
@@ -154,34 +149,31 @@ vm_backup() {
     "${day}" "${bytes}" "${digest}" "$((bytes * 9))"
 }
 
-restore_build() {
-  local object
-  if [[ -z "${backup_id}" ]]; then
-    object="$(gcloud storage ls "gs://${bucket}/${prefix}/daily/*.dump" --project="${project}" 2>/dev/null | sort | tail -1)"
-    [[ -n "${object}" ]] || fail 'no daily ledger backup is available'
-    backup_id="${object##*/}"; backup_id="${backup_id%.dump}"
-  fi
-  [[ "${backup_id}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || fail 'backup ID must be YYYY-MM-DD'
-  object="${prefix}/daily/${backup_id}.dump"
-  gcloud builds submit "${repo_root}" --project="${project}" \
-    --region="${region}" \
-    --config="${repo_root}/scripts/gcp/cloudbuild-ledger-restore.yaml" \
-    --gcs-source-staging-dir="gs://${project}-cloudbuild-regional/source" \
-    --substitutions="_BUCKET=${bucket},_OBJECT=${object}" --quiet
+vm_restore_verify() {
+  [[ "${backup_id}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || fail 'restore requires exact YYYY-MM-DD backup ID'
+  local temporary
+  temporary="$(mktemp -d /tmp/janus-ledger-restore.XXXXXX)"
+  [[ "${temporary}" == /tmp/janus-ledger-restore.* ]] || fail 'unexpected restore temporary path'
+  trap "rm -f -- '${temporary}/ledger.dump'; rmdir -- '${temporary}'" EXIT
+  gcs_object download "${prefix}/daily/${backup_id}.dump" "${temporary}/ledger.dump"
+  local expected expected_bytes expected_hash
+  expected="$(docker exec --user postgres janus-postgres psql -XqAt -v ON_ERROR_STOP=1 -U postgres -d janus_control -c "SELECT size_bytes||'|'||sha256 FROM control.ledger_backup_requests WHERE backup_date='${backup_id}' AND status='succeeded'")"
+  IFS='|' read -r expected_bytes expected_hash <<<"${expected}"
+  [[ "${expected_bytes}" =~ ^[0-9]+$ && "${expected_hash}" =~ ^[a-f0-9]{64}$ ]] || fail 'controller backup receipt required'
+  [[ "$(stat -c %s "${temporary}/ledger.dump")" == "${expected_bytes}" ]] || fail 'backup size mismatch'
+  [[ "$(sha256sum "${temporary}/ledger.dump" | cut -d' ' -f1)" == "${expected_hash}" ]] || fail 'backup checksum mismatch'
+  python3 /var/lib/janus/ledger-restore-verify.py "${temporary}/ledger.dump"
 }
 
 verify() {
-  local build_sa policy
-  vm "sudo systemctl is-enabled janus-ledger-backup.timer && sudo systemctl is-active janus-ledger-backup.timer"
-  build_sa="$(gcloud builds get-default-service-account --project="${project}")"
+  local policy
+  vm "sudo systemctl is-active janus-ledger-backup-executor.timer || sudo systemctl is-active janus-ledger-backup.timer"
   policy="$(gcloud storage managed-folders get-iam-policy "gs://${bucket}/${prefix}/" --project="${project}" --format=json)"
   POLICY_JSON="${policy}" EXPECTED_MEMBER="serviceAccount:postgres-vm@${project}.iam.gserviceaccount.com" \
-    EXPECTED_BUILD_MEMBER="serviceAccount:${build_sa}" \
     "${python_bin}" - <<'PY'
 import json, os
 policy = json.loads(os.environ["POLICY_JSON"])
-for role, member in (("roles/storage.objectAdmin", os.environ["EXPECTED_MEMBER"]),
-                     ("roles/storage.objectViewer", os.environ["EXPECTED_BUILD_MEMBER"])):
+for role, member in (("roles/storage.objectAdmin", os.environ["EXPECTED_MEMBER"]),):
     matches = [binding for binding in policy.get("bindings", [])
                if binding.get("role") == role and member in binding.get("members", [])]
     assert len(matches) == 1
@@ -192,14 +184,19 @@ PY
 case "${mode}" in
   configure) configure ;;
   run) vm "sudo env GCP_PROJECT_ID='${project}' LEDGER_BACKUP_BUCKET='${bucket}' GCP_ENVIRONMENT=dev /bin/bash /var/lib/janus/ledger-durability vm-backup" ;;
-  restore) restore_build ;;
+  restore)
+    [[ "${backup_id}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || fail 'restore requires exact YYYY-MM-DD backup ID'
+    vm "sudo env GCP_PROJECT_ID='${project}' LEDGER_BACKUP_BUCKET='${bucket}' GCP_ENVIRONMENT=dev /bin/bash /var/lib/janus/ledger-durability vm-restore-verify '${backup_id}'"
+    ;;
   verify) verify ;;
   install) install_timer ;;
   vm-backup) vm_backup ;;
+  vm-restore-verify) vm_restore_verify ;;
   install-controller)
     install -d -m 755 /var/lib/janus
     install -m 700 "$0" /var/lib/janus/ledger-durability
     install -m 700 /tmp/janus-ledger-backup-executor.py /var/lib/janus/ledger-backup-executor.py
+    install -m 700 /tmp/janus-ledger-restore-verify.py /var/lib/janus/ledger-restore-verify.py
     cat >/etc/systemd/system/janus-ledger-backup-executor.service <<EOF
 [Unit]
 Description=Execute controller-owned Janus backup requests

@@ -62,7 +62,7 @@ def test_tpex_is_not_an_intraday_quote_and_retains_owner_last_success():
     official = TpexDailyQuotes(fetch=fetch)
     route = QuoteRouter(db, NeverMis(), tpex_source=official)
     assert route.refresh_tpex(SEC, now=datetime(2026,10,12,10,0,tzinfo=UTC8))["updated"] == 0
-    assert api_calls == []
+    assert api_calls == [1]
     assert route.refresh_tpex(SEC, now=NOW)["updated"] == 1
     assert db.saved["00719B"]["source"] == "tpex_openapi_eod"
     q = route.read(SEC, now=NOW)["00719B"]
@@ -71,7 +71,7 @@ def test_tpex_is_not_an_intraday_quote_and_retains_owner_last_success():
     assert q["is_final"] is True
     assert q["source"] == "tpex_openapi_eod"
     assert route.refresh_tpex(SEC, now=NOW)["status"] == "fresh"
-    assert api_calls == [1]
+    assert api_calls == [1, 1]
     position = value_holdings(
         [{"symbol":"00719B", "currency":"TWD", "shares":"30000",
           "average_cost":"31.16"}], {"00719B": q}, NOW)
@@ -137,3 +137,20 @@ def test_job_dispatch_403_records_specific_missing_override_permission():
     except Exception:
         assert repo.failed[1] == "RUN_WITH_OVERRIDES_DENIED"
         assert "權限不足" in repo.failed[2]
+
+
+def test_pre_handoff_can_initialize_yesterdays_close_but_not_todays_partial_data():
+    calls = []
+    def fetch():
+        calls.append(1)
+        return [{'Date': '1151014', 'SecuritiesCompanyCode': '00697B', 'Close': '31.25'},
+                {'Date': '1151015', 'SecuritiesCompanyCode': '00719B', 'Close': '32.50'}]
+    source = TpexDailyQuotes(fetch=fetch)
+    before = datetime(2026,10,15,14,29,tzinfo=UTC8)
+    result = source.quotes({'00697B','00719B'}, before)
+    assert set(result) == {'00697B'}
+    assert result['00697B']['price_date'] == '2026-10-14'
+    after = before+timedelta(minutes=1)
+    result = source.quotes({'00697B','00719B'}, after)
+    assert result['00719B']['price_date'] == '2026-10-15'
+    assert calls == [1,1]  # Handoff must fetch again instead of blessing pre-close cached rows.

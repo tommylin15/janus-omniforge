@@ -58,6 +58,10 @@ try:
   cursor.execute(checks)
   assert all(cursor.fetchone())
   cursor.execute('INSERT INTO control.schema_migrations'+record)
+ if os.environ['JANUS_ANALYSIS_MIGRATION_NAME']=='057_home_market_snapshot':
+  from ingestion_core.serving_projection import StockServingProjection
+  snapshot=StockServingProjection.from_env().materialize_home_market_snapshot()
+  print(json.dumps({'operation':'home_market_snapshot_materialized','status':snapshot['status'],'as_of':snapshot['as_of']}))
  print(json.dumps({'operation':'analysis_schema_bootstrap','migration':os.environ['JANUS_ANALYSIS_MIGRATION_NAME'],'status':'PASS'}))
 finally:
  control.close()

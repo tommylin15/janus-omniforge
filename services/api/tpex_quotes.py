@@ -42,7 +42,8 @@ def parse_tpex_daily_quotes(rows: object, symbols: set[str], now: datetime) -> d
         return {}
     wanted = set(symbols)
     result = {}
-    today = now.astimezone(TAIPEI).date()
+    local = now.astimezone(TAIPEI)
+    today = local.date()
     for raw in rows:
         if not isinstance(raw, dict):
             continue
@@ -52,6 +53,8 @@ def parse_tpex_daily_quotes(rows: object, symbols: set[str], now: datetime) -> d
             continue
         day = _official_day(raw.get("Date") or raw.get("TradeDate"))
         if day is None or day > today or (today - day).days > 7:
+            continue
+        if day == today and local.time() < time(14, 30):
             continue
         try:
             value = Decimal(str(raw.get("Close") or "").replace(",", "").strip())
@@ -82,6 +85,7 @@ class TpexDailyQuotes:
         self._lock = Lock()
         self._stamp = -float("inf")
         self._rows = None
+        self._window = None
 
     def _download(self) -> object:
         if self._fetch is not None:
@@ -98,14 +102,14 @@ class TpexDailyQuotes:
     def quotes(self, symbols: set[str], now: datetime) -> dict[str, dict]:
         if not symbols:
             return {}
-        # Official OpenAPI is EOD, not a source for intra-session ticks.
+        # Earlier closes remain usable before handoff; today's close does not.
         local = now.astimezone(TAIPEI)
-        if local.time() < time(14, 30) and local.weekday() < 5:
-            return {}
+        window = (local.date(), local.time() >= time(14, 30))
         with self._lock:
             tick = monotonic()
-            if self._rows is None or tick - self._stamp >= _CACHE_TTL:
+            if self._rows is None or tick - self._stamp >= _CACHE_TTL or self._window != window:
                 self._stamp = tick  # throttle even failing / blocked source
+                self._window = window
                 try:
                     self._rows = self._download()
                 except Exception:

@@ -1,5 +1,13 @@
 ## 2026-10-15 同步文件核對入口
 
+## 2026-10-15 使用者要求暫停（PAUSED）
+
+後續開發、部署、Job 派送及驗收均暫停；本次只保存既有程式進度、更新文件並同步 GitHub。正式 API 100% 流量保持原版本，固定 Preview／四 Jobs 已驗證來源為 `4d058c47ac62ad7328f9f7c0e9fcd4ef4f1ac7b1`。
+
+費稅回補已 PASS：88 筆 append-only 更正，ledger 176→352，折扣0.4／profile3，8 筆持股股數不變。00697B 身分已補齊但仍缺價，完整持股損益仍 PARTIAL。TPEx 缺價修正、057 初始快照補建及 VM 隔離還原工具已保存原始碼及 targeted tests，尚未部署／執行。原備份 timer 仍 active，新 executor 尚未安裝。
+
+恢復後仍依 1～5 順序接續；不啟動後置模型研究。本次不變更 Release 請求；費稅操作請求回到 ledger352 的唯讀 preview。詳細證據、測試與接手入口見 [暫停交接](../archive/pause-checkpoint-2026-10-15.md)。
+
 最新逐 Run 證據集中於 [status](../status.md) 首段：全市場 Bootstrap／同日 Cached、057 及官方 ETF 身分修復已有 PASS 紀錄；重算 queue 僅記錄到最後觀察狀態，四頁／交易保存效能與正式 API 切流仍未結案。本次文件同步未重跑或重新觀測 dev，不把舊 `in_progress` 當成目前仍執行。
 
 程式接線核對：首頁 `materialize_home_market_snapshot` 仍僅由單元測試呼叫，尚無正式批次 caller；057 migration PASS 不代表快照生成整合完成。`ops/diagnose.py` 僅提供本機靜態檢查，不能替代真實 DB／市場資料／Gateway 健康證據。後續 FinOps 原始碼變更亦不得自動繼承前版 Release／runtime PASS。
