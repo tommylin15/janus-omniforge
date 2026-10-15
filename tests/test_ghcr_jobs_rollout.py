@@ -145,6 +145,8 @@ def test_recovery_restores_reverse_order_and_verifies_before_resuming():
     assert [name for action, name in events if action == "restore"] == list(reversed(names))
     assert events[-1] == ("resume", None)
     assert journal["phase"] == "RESTORED"
+    # Recovery uses the bounded waiter, not a one-shot fence that can strand
+    # Scheduler while a failed canary is still terminating.
 
 
 def test_non_mutating_preflight_failure_is_not_recovered_twice():
@@ -495,11 +497,12 @@ def test_partial_image_change_cannot_bypass_terminal_execution_fence():
         "scheduler_hash": rollout.scheduler_fingerprint({"state": "PAUSED"}),
     }
     with patch.object(rollout, "command"), patch.object(rollout, "job", return_value=changed), \
-         patch.object(rollout, "fence", side_effect=ValueError("execution_not_terminal")) as fence, \
+         patch.object(rollout, "wait_for_terminal_executions",
+                      side_effect=ValueError("execution_not_terminal")) as bounded_wait, \
          patch.object(rollout, "set_scheduler") as resume:
         with pytest.raises(ValueError, match="execution_not_terminal"):
             rollout.recover(journal, lambda: None)
-    fence.assert_called_once()
+    bounded_wait.assert_called_once()
     resume.assert_not_called()
 
 
