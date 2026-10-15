@@ -1,7 +1,0 @@
-{
-  "intent": "read-existing-iceberg-controller-config",
-  "no_mutation": true,
-  "incident": "FINOPS-ICEBERG-20261015",
-  "requested_at_taipei": "2026-10-15",
-  "attempt": 4
-}
