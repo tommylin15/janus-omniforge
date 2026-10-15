@@ -7,9 +7,9 @@
     "private-pipeline",
     "api"
   ],
-  "promotion": "not-authorized-without-new-exact-source-live-business-acceptance",
-  "attempt": 47,
-  "reason": "2026-10-15 P0 corrected source: official TPEx /www/zh-tw/afterTrading/dailyQuotes Gregorian 2026-10-14 exact real record #38715334637 PASS, TPEx as-of/history 14/14 #38715334656 PASS, schema061 #38714018250 live PASS. Rebuild all four immutable GHCR images, full Python/Postgres Flutter, no API 100% traffic or owner ledger writes. Earlier #38714632378 uses date-ignoring old URL and is superseded, never deploy that source.",
+  "promotion": "not-authorized-without-exact-source-live-owner-mart-proof",
+  "attempt": 48,
+  "reason": "2026-10-15 P0 official TPEx dailyQuotes permanent capability: verified Gregorian exact-date official response, arbitrary historic session beyond OpenAPI rolling 7-day view, official response-date hard fence, insert-only DB provenance and as-of private Mart fallback. Targeted 17/17 #38717113572 PASS, 061 migration #38714018250 real PASS. New full Python+Postgres, Flutter and four digest-pinned public GHCR. No traffic switch, owner ledger writes, new paid resources or unrelated jobs.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }
