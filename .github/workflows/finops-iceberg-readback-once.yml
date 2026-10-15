@@ -49,6 +49,39 @@ jobs:
           except (ValueError, RuntimeError) as e:
               out['execution_fence'] = 'BLOCKED_OR_ACTIVE'
               out['execution_fence_error_type'] = type(e).__name__
+          from urllib.parse import quote
+          blocked = []
+          examined = 0
+          truncated = False
+          for name in r.REQUIRED_JOBS:
+              page_path = f"{r.ROOT}/jobs/{name}/executions?pageSize=100"
+              seen = set()
+              for _ in range(25):
+                  if not page_path:
+                      break
+                  page = r.cloud(page_path)
+                  for execution in page.get('executions', []):
+                      examined += 1
+                      if not r.terminal(execution):
+                          conditions = [c for c in execution.get('conditions', []) if c.get('type') == 'Completed']
+                          blocked.append({'job':name,
+                                          'execution':execution.get('name', '').rsplit('/', 1)[-1],
+                                          'running_count':execution.get('runningCount', 0),
+                                          'completed_state':conditions[0].get('state') if conditions else None})
+                  token = page.get('nextPageToken')
+                  if not token:
+                      page_path = None
+                  elif token in seen:
+                      truncated = True
+                      break
+                  else:
+                      seen.add(token)
+                      page_path = f"{r.ROOT}/jobs/{name}/executions?pageSize=100&pageToken={quote(token, safe='')}"
+              if page_path:
+                  truncated = True
+          out['execution_diagnostics'] = {'examined':examined,
+                 'nonterminal_count':len(blocked),'nonterminal_examples':blocked[:10],
+                 'truncated':truncated}
           print(json.dumps(out, sort_keys=True))
           PY
       - name: Read bounded GCS operation and object inventory baseline
