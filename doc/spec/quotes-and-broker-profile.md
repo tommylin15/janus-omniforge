@@ -121,3 +121,9 @@ cash_strategy（reserve／balanced／invested）、declared_cash／cash_as_of（
 - migrations 只在需要時由既有 dev workflow 執行；已成功 migration 不因文件更新重跑。
 - migration／CI／Cloud Run／runtime acceptance 必須另有 evidence；規格文件本身不構成成功證據。2026-10-06 本輪 live evidence 見 [latest-price／Ledger UI 驗收紀錄](../archive/latest-price-ledger-ui-acceptance-2026-10-06.md)。
 
+
+### TPEx 官方日收盤價補齊與 legacy aggregate 驗收注意事項
+
+2026-10-15 P0 00697B／00719B 實際驗收：已驗證按 2026-10-14 官方來源日查價與歷史價資料庫，真實 dev Owner v354 的 8/8 positions／unrealized rows 均有價格與 PnL，`mart_user_portfolio_summary` `aggregate_status=available`、`missing_price_count=0`、`affected_symbol_count=0`，聚合市值、未實現損益、報酬皆有值。實證見 [Owner readonly #38732675488](https://github.com/tommylin15/janus-omniforge/actions/runs/38732675488) 和 [final receipt gate #38733406224](https://github.com/tommylin15/janus-omniforge/actions/runs/38733406224)。
+
+舊 Private Iceberg summary schema 不含 `stale_price_count` 欄位（查讀為 null，不是確定值 0）。接受 `aggregate_status=available` 的根據是 deterministic `calculate_risk_marts()` 同時計算缺價與 stale 數，任何一項大於零即把 aggregate 設成 withheld；因此必須聯合核對 `missing_price_count=0`、`affected_symbol_count=0` 與總 PnL 完整，不准把缺失欄位直接填零或因不存在而誤判持股缺價。若未來要在 serving 實際顯示 `stale_price_count`，需獨立加入 Private Iceberg 的 additive schema evolution 並以同版 deployment／資料讀回驗收；目前未聲稱該欄位已發佈。P0 backend PASS 不代表最新交易日或正式 App UI 已 PASS。

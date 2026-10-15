@@ -4,7 +4,7 @@
 
 ## 執行範圍
 
-**2026-10-15 最新接續範圍：P0（部署鎖、00697B）、P1（最新版 API 候選／Preview／Owner 業務）、D04（Scheduler／備份）；P2 不在這次追加要求。** 此為既有 D01～D05 合併授權內的優先執行切片， 在既有 dev 範圍內連續修復／測試／部署／驗收，不逐檔請求授權；與獨立 FinOps D06 分開，不啟動後置 D07／D08。由於 00697B 正式可用價格、D04 VM IAM/隔離還原與真實 Owner UI/PnL/性能 gate 未全通過，本組狀態 **PARTIAL**。同源 Release/候選/自動 auth 的成功不代表正式切流已獲准。
+**2026-10-15 本輪：P0（00697B／00719B 官方 as-of 10/14 Owner backend）已取得 real Mart 8/8 全部估值／聚合 PnL PASS；P1（正式 App 顯示、Owner 互動／重算、Preview 同版與流量驗收）仍 OPEN；D04（VM IAM／備份交接）仍 BLOCKED。** 本次只執行 P0 救援，D06 FinOps／後置 B9 不重新啟動；正式 100% traffic 未切，不能說整體產品完成。
 
 A 組及 B0～B8 已結案的範圍不重開；有實質變更才回歸受影響路徑。全市場 Bootstrap／同日 Cached、費稅88筆更正、00719B 身分／估值既有成功證據不重送。研究範圍採各歷史日期全上市櫃；50 關注 quota 仍保留。
 
@@ -25,7 +25,7 @@ D01～D08 各有一張獨立可供 AI 執行的 [標準任務卡](execution-card
 
 ## D01｜持股交易與正式損益
 
-- [ ] **P0 最後 Owner 完整損益 gate**：TPEx 官方 `dailyQuotes` 已納入長期 as-of 資料鏈（migration 061 live PASS、指定 10/14 官方日期證據 PASS、17/17 單測 PASS、SHA 285848 full Release/0% candidate/auto auth PASS）。四 Jobs 受控 rollout #38718355824、唯一 Owner 10/14 受控驗收 #38718586032 已觸發但不得先標 PASS；必須讀回新版 Private Mart 00697B 市值、未實現損益、其餘持股、aggregate `missing_price_count=0` 及完整總未實現損益；ledger version 不變，不得以 10/15 價格補 10/14。
+- [x] **P0 Owner 2026-10-14 backend 全持股估值／總未實現損益**：TPEx dailyQuotes、migration 061、SHA 285848 Release／API 0%／OAuth／四 Jobs rollout PASS；00697B + 00719B 同日官方資料已持久化。MCP readonly 8/8 市價、市值可用，Private Mart readonly #38732675488 驗 8/8 未實現 PnL、單一總計 aggregate_status=available、missing=0、affected=0、總市值／總 PnL／報酬非空，ledger v354 未變；最終 gate #38733406224 PASS。原 #38730741579 FAILED 是舊 schema 缺 `stale_price_count` 使驗收腳本誤判，修正後不再次重算、不編造欄位。後續新日期、UI、交易按鈕／queue、正式 App 屬 P1。
 - [ ] backend 唯讀試算及正式保存共用 MOVING_AVERAGE／Decimal／商品費稅，券商折扣與規則快照可追溯；表單自動費稅／一字搜尋及ETF／Enter／競態拒絕均有新版驗收。
 - [ ] 買入、加減碼、部分／全部賣出、零股、股利、更正、作廢、歷史補登、超額賣出拒絕、未知保存結果與冪等；不同 owner／ledger／broker version 不混用。既有費稅 apply 不重送。
 - [ ] 重算按鈕→authenticated API enqueue→Private Worker→terminal／exact ledger checkpoint→PnL／queue idle／cleanup讀回；有界輪詢及失敗重試。不向本人帳本新增測試交易。
@@ -53,7 +53,7 @@ VF-10高階同業／估值河流／還原價仍屬有條件後續構想，不是
 
 ## D05｜整合發布
 
-- [ ] P1：079cca source 完整 Release #38695837708、API 0% #38710296292、auto OAuth #38710582355、固定 Preview #38711150682 均 PASS；四現役 Jobs 仍來源 536598。待 P0 來源／as-of 價格與 D04 合法途徑處理後，同 source 完整 CI／GHCR Jobs canary／Owner E2E／Preview 視覺與負載／rollback gates 全通過，再正式 dev API 100% 升版並讀回。
+- [ ] P1：P0 backend 10/14 real Mart aggregate PASS **不代表**正式 App／重算 E2E、當日來源時效 PASS；API 0% 與四 Jobs 已同 SHA 285848，但 fixed Preview 最近 079cca、正式 100% traffic 未切。續驗證 authenticated Owner UI／API、最新估值日期、重算請求→terminal→PnL、Preview UI 與性能、版本一致／回復，再依 release runbook 判斷正式 dev 切流。
 - [ ] 無需每版人工OAuth登入；自動auth與owner隔離仍驗。metadata／401不代表正向PnL或UI PASS。不要以舊來源的API／Jobs證據交叉替代。
 
 ## D06｜Iceberg、引用及I/O
