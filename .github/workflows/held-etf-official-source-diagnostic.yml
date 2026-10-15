@@ -1,0 +1,58 @@
+name: Read-only official TPEx held-ETF quote source diagnosis
+on:
+  push:
+    branches: [main]
+    paths: ['ops/held-etf-official-source-diagnostic.json']
+permissions:
+  contents: read
+jobs:
+  official-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify bounded official-only diagnostic scope
+        run: |
+          jq -e '.intent == "read-only-official-held-etf-source" and
+            .symbol == "00697B" and .no_private_data == true and
+            .no_data_mutation == true and .no_runtime_mutation == true' \
+            ops/held-etf-official-source-diagnostic.json >/dev/null
+      - name: Observe official payload schema and one public instrument only
+        run: |
+          python - <<'PY'
+          import json
+          from datetime import datetime, timezone, timedelta
+          from services.api.tpex_quotes import TpexDailyQuotes, parse_tpex_daily_quotes
+          from services.api.intraday_quotes import TAIPEI
+          symbol = '00697B'
+          try:
+              payload = TpexDailyQuotes()._download()
+              rows = payload if isinstance(payload, list) else payload.get('data', []) if isinstance(payload, dict) else []
+              columns = sorted(rows[0]) if rows and isinstance(rows[0], dict) else []
+              matches = [row for row in rows if isinstance(row, dict) and symbol in
+                [str(row.get(key, '')).strip() for key in
+                 ('SecuritiesCompanyCode', 'SecuritiesCode', 'Code', '證券代號', '股票代號')]]
+              result = parse_tpex_daily_quotes(rows, {symbol}, datetime.now(TAIPEI))
+              summary = {
+                'source': 'tpex_mainboard_daily_close_quotes',
+                'source_schema_kind': type(payload).__name__,
+                'row_count': len(rows) if isinstance(rows, list) else None,
+                'field_keys': columns[:50],
+                'symbol': symbol,
+                'matching_rows': len(matches),
+                'match_fields': sorted(matches[0])[:50] if matches else [],
+                'match_date': str(matches[0].get('Date') or matches[0].get('TradeDate') or '')[:10] if matches else None,
+                'parse_eligible': symbol in result,
+                'parsed_price_date': result.get(symbol, {}).get('price_date'),
+                'private_read': False,
+                'data_write': False,
+              }
+              print(json.dumps(summary, ensure_ascii=False, sort_keys=True))
+          except Exception as exc:
+              print(json.dumps({'source':'tpex_mainboard_daily_close_quotes',
+                  'status':'source_unavailable', 'error_type': type(exc).__name__,
+                  'private_read':False,'data_write':False},sort_keys=True))
+          PY

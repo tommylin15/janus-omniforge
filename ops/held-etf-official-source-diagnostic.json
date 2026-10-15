@@ -1,0 +1,8 @@
+{
+  "intent": "read-only-official-held-etf-source",
+  "symbol": "00697B",
+  "no_private_data": true,
+  "no_data_mutation": true,
+  "no_runtime_mutation": true,
+  "reason": "D01 official TPEx daily quote availability/shape for recognized 00697B missing from published Janus Private Mart. Metadata-only public source observation, never invent close or publish canonical prices."
+}
