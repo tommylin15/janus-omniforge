@@ -1,6 +1,6 @@
 # Janus — 後續 AI 開發指示
 
-更新：2026-10-15。本文件只保存執行方法；授權與 active queue 唯一入口是 [TODO](todo.md)，證據是 [status](status.md)。本輪只整理文件，不能把下列工程模板當作恢復部署指令。
+更新：2026-10-15。本文件只保存執行方法；授權與 active queue 唯一入口是 [TODO](todo.md)，證據是 [status](status.md)。2026-10-15 使用者已明確恢復 D01～D05 **合併開發與整批驗收**，D06 獨立、D07／D08 後置；此文件只記方法，現況及未過 gates 仍讀 TODO/status，不能把部分 Release PASS 當整包完成。
 
 ## 1. 可直接交給開發 AI 的指示
 
@@ -115,7 +115,7 @@ commit/push 前執行 /ponytail-review；環境缺該非系統命令時，依 PR
 
 ## 6. 接手 AI 的工作包格式
 
-D01～D08 具有 [標準化執行卡](execution-cards/README.md)。明確指定工作包後，先在 TODO 確認當次授權，讀取該卡的前置讀回、工程入口、測試／live acceptance、失敗恢復及回報格式；卡片僅是可執行操作指示，不因其存在而恢復本輪文件-only 的產品工作。
+D01～D08 具有 [標準化執行卡](execution-cards/README.md)。明確指定工作包後，先在 TODO 確認當次授權，讀取該卡的前置讀回、工程入口、測試／live acceptance、失敗恢復及回報格式；卡片僅是可執行操作指示；D01～D05 本輪已另經使用者明確授權整合執行，其後仍以最新 TODO／真實 dev evidence 判定。
 
 每次只建立一份本輪記錄：工作包／既有WBS、輸入SHA、允許修改範圍、依賴、入口檔案、交付物、測試、live驗收、失敗恢復、未決項。D01～D08與詳細退出條件只查TODO；不得另複製待辦。
 

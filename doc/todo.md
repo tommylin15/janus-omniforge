@@ -4,7 +4,7 @@
 
 ## 執行範圍
 
-本次授權是**盤點及文件修訂**。以下產品工項保持待恢復，不由文件 commit 自動啟動；獨立 FinOps 續工保持既有授權，先核對既有 execution 終態。後置模型與 CEO 不插隊。使用者明確恢復某工作包後，在既有 dev 權限內連續完成，不逐檔要求確認。
+**2026-10-15 使用者最新授權：D01～D05 合併成一個產品開發及整批 dev 驗收工作包。** 在既有 dev 範圍內連續修復／測試／部署／驗收，不逐檔請求授權；與獨立 FinOps D06 分開，不啟動後置 D07／D08。由於 00697B 正式可用價格、D04 VM IAM/隔離還原與真實 Owner UI/PnL/性能 gate 未全通過，本組狀態 **PARTIAL**。同源 Release/候選/自動 auth 的成功不代表正式切流已獲准。
 
 A 組及 B0～B8 已結案的範圍不重開；有實質變更才回歸受影響路徑。全市場 Bootstrap／同日 Cached、費稅88筆更正、00719B 身分／估值既有成功證據不重送。研究範圍採各歷史日期全上市櫃；50 關注 quota 仍保留。
 
@@ -17,8 +17,8 @@ D01～D08 各有一張獨立可供 AI 執行的 [標準任務卡](execution-card
 | [D01 持股交易／完整估值](execution-cards/d01-holdings-trading-valuation.md) | PARTIAL；產品第1項 | WBS 4J／6 | 新版正式商品報價、共用費稅與試算、交易版本／冪等、完整估值及 Owner 重算 E2E |
 | [D02 快照／首屏](execution-cards/d02-full-market-snapshot-performance.md) | PARTIAL；產品第2項 | WBS 3／6 | D01資料契約；首頁與持股 snapshot 真實生成／readback、冷暖效能 |
 | [D03 圖表／四頁](execution-cards/d03-four-page-charts-visual.md) | PARTIAL；產品第3項 | WBS-6-USER-FINAL-VISUAL-CONVERGENCE 非 AI 範圍 | D01／D02；VF-00～08、真實資料／四頁截圖、可及性 |
-| [D04 總控／備份交接](execution-cards/d04-controller-backup-handoff.md) | PARTIAL；可整合前3項 | WBS 3／7 | 無重複排程、同源總控；新備份與隔離還原後才停舊 timer |
-| [D05 產品集中發布](execution-cards/d05-integrated-release-dev.md) | NOT VERIFIED；第5項 | WBS 8／CI-CD | D01～04適用條件通過；完整SHA release、candidate、自動auth、Jobs fence、Preview、功能證據、正式dev切流讀回 |
+| [D04 總控／備份交接](execution-cards/d04-controller-backup-handoff.md) | BLOCKED_VM_IAM；可整合前3項 | WBS 3／7 | 無重複排程、同源總控；新備份與隔離還原後才停舊 timer |
+| [D05 產品集中發布](execution-cards/d05-integrated-release-dev.md) | PARTIAL；第5項 | WBS 8／CI-CD | D01～04適用條件通過；完整SHA release、candidate、自動auth、Jobs fence、Preview、功能證據、正式dev切流讀回 |
 | [D06 Iceberg／I/O](execution-cards/d06-iceberg-retention-io.md) | PARTIAL；獨立已授權 | WBS 7／retention | 既有 Jobs／cleanup 終態、完整引用保護、真實 objects／bytes／等量 I/O 驗收 |
 | [D07 五角色資料與品質](execution-cards/d07-specialist-b9-oos.md) | 後置；產品交付後 | WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9） | 全市場歷史母體、逐角色 baseline／OOS；B7 PASS 不代替B9 |
 | [D08 CEO／Admin／報告](execution-cards/d08-ceo-admin-owner-report.md) | 後置；有效角色後 | WBS-5-MART-AI-PROVIDERS／CIO-SYNTHESIS、WBS-6-ADMIN-ANALYSIS-PROFILE、User AI整合 | P0-V技術已PASS；真實 Fact Pack／capability／immutable report／Owner history另驗 |
