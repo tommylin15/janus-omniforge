@@ -276,3 +276,5 @@ Dev acceptance must verify migration 048, job default/task parallelism, API → 
 使用 `.github/workflows/ledger-fee-repair-dev.yml` 與已提交的 `ops/ledger-fee-repair-request.json`；預設 `mode=preview`，workflow 僅手動派送，不因一般 push 寫入。固定唯一真實持有 00719B 的 owner、ledger／profile 版本、已成功 full Release／OAuth boundary／四 Jobs rollout、private image digest 與配置 fingerprint；不接受 owner ID、email 或可變 image tag。只在既有 private Job 內載入憑證，費稅金額與 owner 個資不輸出到收據。
 
 先取得 preview 的去敏感數量／版本收據，再將相同 checkpoint 的已提交請求切為 `apply`。apply 僅用 API DB role 追加 reversal／replacement，保留原始事件；其後使用既有 Owner Mart 路徑更新 Core／Private projection，再驗證零筆費稅待更正。不要把失敗／未知 execution 當作沒有寫入：保留共用鎖，先讀回 ledger／profile／Mart checkpoint；若費稅已提交、只剩 Mart，使用新 checkpoint 的 `reconcile`，不重送舊 apply。`reconcile` 必須先確認沒有待更正費稅，不能藉此跳過修復。執行中若 owner 新增交易使版本改變，維持失敗／partial，重新盤點後再預覽，不能自動放寬版本。
+
+四 Jobs Scheduler pause 不會停止已由 User API 即時啟動的私人重算。更新 image、派送 canary 及最後切回排程前，最多等候 900 秒讓現有 executions 自然結束，再完整重跑所有分頁的 terminal fence；只等待明確的 `execution_not_terminal`，未知狀態、分頁／讀取錯誤立即失敗。不得直接忽略 active Job 或終止本人的重算。逾時仍保留既有 rollback／lease 診斷流程。

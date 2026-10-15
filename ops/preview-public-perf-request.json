@@ -4,6 +4,6 @@
   "samples": 30,
   "no_gcp_mutation": true,
   "no_private_data": true,
-  "source_sha": "1e9c31d148db540ee06cac5ccccd8fac8d619511",
-  "reason": "2026-10-15 user-authorized Janus steps 03-04: bounded 30 read-only Preview /api/v1/public/market-home responses to record HTTP error count and GitHub-runner-to-server P50/P95, without login, ledger action, Cloud Run config, canonical publication, refresh or production traffic change. This is API warm/read benchmark only; it cannot prove authenticated UI, device cold start or 390x844 screenshot gate."
+  "source_sha": "4d058c47ac62ad7328f9f7c0e9fcd4ef4f1ac7b1",
+  "reason": "Owner-authorized steps 1-5: 30 bounded read-only responses from verified current Preview source after full release, 0% candidate and OAuth boundary. Record API P50/P95 and failures only; no authenticated UI/cold-device claim, no private data or mutations."
 }

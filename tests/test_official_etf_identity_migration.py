@@ -51,3 +51,17 @@ def test_new_migration_uses_existing_dev_procedure_without_new_iam():
     assert "ops/serving-schema-migration" in workflow
     assert "janus-ingestion-core" in workflow
     assert "add-iam-policy-binding" not in workflow
+
+
+def test_00697b_identity_is_official_bounded_and_preserves_user_transactions():
+    migration = '060_official_held_bond_etf_identity'
+    sql = (ROOT/'infra/postgres/migrations'/f'{migration}.sql').read_text()
+    assert "('00697B', '元大美債7-10', 'TPEX', true)" in sql
+    assert 'https://www.tpex.org.tw/storage/eb_data/10606/10600159891.htm' in sql
+    assert "DATE '2017-06-23'" in sql
+    assert 'ON CONFLICT (symbol) DO NOTHING' in sql
+    assert 'INSERT INTO PRIVATE.' not in sql.upper() and 'UPDATE PRIVATE.' not in sql.upper()
+    assert 'DELETE FROM' not in sql.upper() and 'INSERT INTO control.market_universe_members' not in sql
+    source = {'etag': 'existing', 'template': {'template': {'containers': [{'command': ['python']}]}}}
+    assert payload(source, sql.encode(), migration)['overrides']['taskCount'] == 1
+    assert migration in (ROOT/'.github/workflows/serving-schema-migration-dev.yml').read_text()

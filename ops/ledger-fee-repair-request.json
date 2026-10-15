@@ -7,7 +7,7 @@
   "image": "ghcr.io/tommylin15/janus-private-pipeline@sha256:9f51bac4b1c49ff1d156e38ab97505d88efd7eee48ac1ef92f34dce8da4333ad",
   "configuration_hash": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f",
   "release_run": "38674231933",
-  "rollout_run": "38675277641",
+  "rollout_run": "38676820532",
   "boundary_run": "38674988598",
   "ledger_version": 176,
   "profile_version": 3

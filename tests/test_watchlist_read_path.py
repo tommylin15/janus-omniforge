@@ -40,7 +40,7 @@ def test_blank_watchlist_search_does_not_read_the_universe():
 
 def test_trade_search_includes_registered_etf_and_uses_bound_parameters():
     queries = []
-    row = {"symbol": "00719B", "stock_name": "元大美債1-3", "market": "TWSE", "enabled": True}
+    row = {"symbol": "00719B", "stock_name": "元大美債1-3", "market": "TPEX", "enabled": True}
 
     class Connection:
         def execute(self, sql, params):
