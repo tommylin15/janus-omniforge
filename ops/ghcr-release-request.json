@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 34,
-  "reason": "2026-10-15 owner-authorized independent FinOps Iceberg incident #2: switch daily 23:30 GCP batch-controller compaction to bounded compact-nightly (dry-run preflight followed by apply), audit table one-shot compaction, and append-only replay-deduplicated batch event outbox; remove GitHub direct Iceberg maintenance jobs. Full SHA Python/Flutter/GHCR build required before gated Jobs rollout. Do not promote API traffic or overwrite live Job images in this release stage.",
+  "attempt": 35,
+  "reason": "2026-10-15 Janus independent FinOps Issue #2 full-test retry after first Release #38657478959 failed on two stale test mocks only; source tested targeted Iceberg CI #38657332481 and selective CI #38657332551. Update tests/test_batch_controller.py mocked append-only audit read-fail fence, and tests/test_specialist_engines.py default telemetry without duplicate file plan. Publish full CI GHCR immutable images, without deploying or promoting API traffic in this stage.",
   "expected_runtime_changes": false,
   "ceo_gateway_pilot": false
 }
