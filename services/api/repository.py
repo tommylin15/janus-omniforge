@@ -630,6 +630,71 @@ class PostgresWorkspaceRepository:
             and row["previous_close_date"] is not None
         }
 
+    def official_eod_quotes(self, symbols: set[str], as_of: date) -> dict[str, dict[str, str]]:
+        """Latest stored official close on or before a PIT valuation date.
+
+        Official daily snapshots are immutable, shared, and never contain
+        owner IDs. Latest operational quotes cannot substitute later dates.
+        """
+        if not symbols:
+            return {}
+        with self._connection() as connection:
+            rows = connection.execute(
+                """SELECT DISTINCT ON(symbol) symbol,trade_date,price,source_uri,record_sha256
+                   FROM control.official_tpex_eod_history
+                   WHERE symbol=ANY(%s) AND trade_date<=%s
+                   ORDER BY symbol,trade_date DESC""",
+                (sorted(symbols), as_of),
+            ).fetchall()
+        return {str(row["symbol"]): {
+            "price": str(row["price"]), "price_date": row["trade_date"].isoformat(),
+            "source": "tpex_openapi_eod", "source_uri": row["source_uri"],
+            "record_sha256": row["record_sha256"],
+        } for row in rows}
+
+    def save_official_eod_quotes(self, history: dict[str, list[dict]]) -> int:
+        """Insert-only public TPEx per-session history, reject conflicting revisions.
+
+        Do not update Core canonical data, users, or private Mart.
+        """
+        from .tpex_quotes import TPEX_OFFICIAL_EOD_URL, TPEX_OFFICIAL_DATED_URL
+        from hashlib import sha256 as _sha256
+        import re
+        bounded = []
+        if len(history) > 250:
+            raise ValueError("official EOD symbols bound exceeded")
+        for symbol, values in sorted(history.items()):
+            if not re.fullmatch(r"[A-Za-z0-9]{4,10}", symbol) or len(values) > 8:
+                raise ValueError("invalid official EOD history scope")
+            for quote in values:
+                target = date.fromisoformat(str(quote["price_date"]))
+                price = Decimal(str(quote["price"]))
+                uri = quote.get("source_uri")
+                digest = quote.get("record_sha256")
+                if (quote.get("source") != "tpex_openapi_eod" or
+                    not price.is_finite() or price <= 0 or
+                    (uri != TPEX_OFFICIAL_EOD_URL and
+                     not (isinstance(uri, str) and
+                          uri.startswith(TPEX_OFFICIAL_DATED_URL + "?") and "o=json" in uri)) or
+                    not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)):
+                    raise ValueError("unverified official EOD record")
+                bounded.append((symbol, target, price, uri, digest))
+        with self._connection() as connection:
+            for symbol, day, price, uri, digest in bounded:
+                connection.execute(
+                    """INSERT INTO control.official_tpex_eod_history
+                       (symbol,trade_date,price,source_uri,record_sha256)
+                       VALUES (%s,%s,%s,%s,%s) ON CONFLICT (symbol,trade_date) DO NOTHING""",
+                    (symbol, day, price, uri, digest),
+                )
+                prior = connection.execute(
+                    """SELECT price FROM control.official_tpex_eod_history
+                       WHERE symbol=%s AND trade_date=%s""", (symbol, day),
+                ).fetchone()
+                if prior is None or Decimal(str(prior["price"])) != price:
+                    raise ValueError("official EOD immutable price conflict")
+        return len(bounded)
+
     def save_last_quotes(self, quotes, chunk_size: int = 250) -> int:
         if not quotes:
             return 0

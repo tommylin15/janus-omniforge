@@ -199,3 +199,71 @@ def test_official_tpex_failed_source_is_bounded_and_can_recover(monkeypatch):
     assert len(calls)==2
     assert recovered["00697B"]["price_date"]=="2026-10-14"
     assert recovered["00697B"]["source"]=="tpex_openapi_eod"
+
+def test_multi_date_official_history_is_pit_scoped_and_immutable():
+    from services.api.tpex_quotes import parse_tpex_daily_quote_history
+    now = datetime(2026, 10, 15, 15, 30, tzinfo=TAIPEI)
+    raw = [
+        {"Date":"1151014","SecuritiesCompanyCode":"00697B","Close":"33.20"},
+        {"Date":"1151015","SecuritiesCompanyCode":"00697B","Close":"33.40"},
+        {"Date":"1151013","SecuritiesCompanyCode":"00697B","Close":"33.10"},
+    ]
+    days = parse_tpex_daily_quote_history(raw, {"00697B"}, now)["00697B"]
+    assert [r["price_date"] for r in days] == ["2026-10-13","2026-10-14","2026-10-15"]
+    assert all(len(r["record_sha256"])==64 for r in days)
+    assert days[1]["source_uri"].startswith("https://www.tpex.org.tw/")
+    class Historical(QuoteDb):
+        def __init__(self):
+            super().__init__()
+            self.history_rows = {}
+        def stock_identities(self, symbols):
+            return {s:{"market":"TPEX","enabled":True} for s in symbols}
+        def save_official_eod_quotes(self, history):
+            for sym, records in history.items():
+                for r in records:
+                    key = (sym,r["price_date"])
+                    assert key not in self.history_rows or self.history_rows[key] == r
+                    self.history_rows[key] = r
+        def official_eod_quotes(self, symbols, as_of):
+            return {s: max((r for (sym,_),r in self.history_rows.items()
+                            if sym==s and r["price_date"]<=as_of.isoformat()),
+                           key=lambda r:r["price_date"])
+                    for s in symbols if any(sym==s and day<=as_of.isoformat()
+                                             for sym,day in self.history_rows)}
+    db=Historical()
+    db.saved["00697B"]={"source":"tpex_openapi_eod","price":"33.40",
+                           "quote_at":"2026-10-15T13:30:00+08:00"}
+    official=TpexDailyQuotes(fetch=lambda:raw)
+    router=QuoteRouter(db,None,tpex_source=official)
+    assert router.refresh_tpex({"00697B":{"market":"TPEX","enabled":True}},now=now,as_of=date(2026,10,14))["updated"]==1
+    assert len(db.history_rows)==3
+    def core(_symbols,_when):return {}
+    from unittest.mock import patch
+    with patch("services.api.tpex_quotes.TpexDailyQuotes",return_value=official):
+        reader=owner_price_reader(db,core)
+        assert reader({"00697B"}, date(2026,10,14))["00697B"]==(Decimal("33.20"),date(2026,10,14))
+        assert reader({"00697B"}, date(2026,10,13))["00697B"]==(Decimal("33.10"),date(2026,10,13))
+        assert "00697B" not in reader({"00697B"}, date(2026,10,12))
+
+
+def test_dated_legacy_official_fallback_validates_day(monkeypatch):
+    import json
+    from services.api import tpex_quotes as tp
+    calls=[]
+    class Response:
+        def __init__(self,data):self.data=data
+        def __enter__(self):return self
+        def __exit__(self,*_):pass
+        def read(self,_):return self.data
+    def urlopen(request,timeout):
+        calls.append(request.full_url)
+        if len(calls)==1:return Response(b"<html>WAF</html>")
+        return Response(json.dumps({"date":"115/10/14","tables":[
+            {"fields":["代號","收盤"],"data":[["00697B","33.20"]]}]}).encode())
+    monkeypatch.setattr(tp,"urlopen",urlopen)
+    monkeypatch.setattr(tp,"datetime",type("Clock",(datetime,),{"now":classmethod(lambda _cls,tz:datetime(2026,10,15,10,0,tzinfo=tz))}))
+    source=tp.TpexDailyQuotes()
+    result=source.quotes({"00697B"},datetime(2026,10,15,10,0,tzinfo=TAIPEI))
+    assert result["00697B"]["price_date"]=="2026-10-14"
+    assert "o=json" in result["00697B"]["source_uri"]
+    assert len(calls)==2

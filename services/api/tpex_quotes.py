@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal, InvalidOperation
+from hashlib import sha256
+from urllib.parse import urlencode
 import json
 from threading import Lock
 from time import monotonic
@@ -16,6 +18,7 @@ from urllib.request import Request, urlopen
 from .intraday_quotes import TAIPEI
 
 TPEX_OFFICIAL_EOD_URL = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes"
+TPEX_OFFICIAL_DATED_URL = "https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php"
 SOURCE = "tpex_openapi_eod"
 CLOSE_TIME = time(13, 30)
 _CACHE_TTL = 600
@@ -37,50 +40,72 @@ def _official_day(value: object) -> date | None:
         return None
 
 
-def parse_tpex_daily_quotes(rows: object, symbols: set[str], now: datetime) -> dict[str, dict]:
-    """Fail closed on a mismatched date/price/symbol; never use an old dataset as live."""
+def parse_tpex_daily_quote_history(rows: object, symbols: set[str],
+                                   now: datetime) -> dict[str, list[dict]]:
+    """Only official, published EOD sessions; keep every eligible trade day.
+
+    The API must not silently promote today's unpublished or future price.
+    Source provenance is per official record, independent of owner ledger.
+    """
     if not isinstance(rows, list) or len(rows) > 25000:
         return {}
-    wanted = set(symbols)
-    result = {}
     local = now.astimezone(TAIPEI)
-    today = local.date()
+    latest = local.date()
+    selected: dict[str, dict[str, dict]] = {}
     for raw in rows:
         if not isinstance(raw, dict):
             continue
         symbol = str(raw.get("SecuritiesCompanyCode") or
                      raw.get("SecuritiesCode") or raw.get("Code") or "").strip()
-        if symbol not in wanted:
+        if symbol not in symbols:
             continue
         day = _official_day(raw.get("Date") or raw.get("TradeDate"))
-        if day is None or day > today or (today - day).days > 7:
+        if day is None or day > latest or (latest - day).days > 7:
             continue
-        if day == today and local.time() < time(14, 30):
+        if day == latest and local.time() < time(14, 30):
             continue
         try:
-            value = Decimal(str(raw.get("Close") or "").replace(",", "").strip())
+            price = Decimal(str(raw.get("Close") or "").replace(",", "").strip())
         except (InvalidOperation, ValueError):
             continue
-        if not value.is_finite() or value <= 0:
+        if price <= 0 or not price.is_finite():
             continue
-        # OpenAPI includes multiple sessions (over 12k rows). Input order
-        # is not a contract: publish the newest eligible dated close, never
-        # whichever record happens to be returned first.
-        if symbol in result and result[symbol]["price_date"] >= day.isoformat():
+        uri = raw.get("_official_source_uri") or TPEX_OFFICIAL_EOD_URL
+        if uri != TPEX_OFFICIAL_EOD_URL and not (
+            isinstance(uri, str) and
+            uri.startswith(TPEX_OFFICIAL_DATED_URL + "?") and
+            "o=json" in uri
+        ):
             continue
-        # quote_at is the *session close anchor*, never a purported timestamp
-        # of an individual trade. The originating trade date is checked above.
+        trade_day = day.isoformat()
+        source_record = {k: v for k, v in raw.items() if not k.startswith("_")}
+        digest = sha256(json.dumps(source_record, sort_keys=True,
+                                   ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
         at = datetime.combine(day, CLOSE_TIME, TAIPEI)
-        result[symbol] = {
-            "price": str(value),
-            "price_date": day.isoformat(),
-            "quote_at": at.isoformat(),
-            "received_at": now.isoformat(),
-            "session": "official_close",
-            "source": SOURCE,
+        result = {
+            "price": str(price), "price_date": trade_day,
+            "quote_at": at.isoformat(), "received_at": now.isoformat(),
+            "session": "official_close", "source": SOURCE,
+            "source_uri": uri, "record_sha256": digest,
             "route_version": "latest-price.v2",
         }
-    return result
+        by_day = selected.setdefault(symbol, {})
+        if trade_day in by_day and by_day[trade_day]["price"] != result["price"]:
+            # Source contains conflicting official closes for one session:
+            # refuse that session rather than depend on row ordering.
+            by_day[trade_day] = None
+        elif trade_day not in by_day:
+            by_day[trade_day] = result
+    return {
+        symbol: [value for _, value in sorted(days.items()) if value is not None]
+        for symbol, days in selected.items()
+        if any(value is not None for value in days.values())
+    }
+
+
+def parse_tpex_daily_quotes(rows: object, symbols: set[str], now: datetime) -> dict[str, dict]:
+    return {symbol: values[-1] for symbol, values in
+            parse_tpex_daily_quote_history(rows, symbols, now).items() if values}
 
 
 class TpexDailyQuotes:
@@ -96,29 +121,67 @@ class TpexDailyQuotes:
     def _download(self) -> object:
         if self._fetch is not None:
             return self._fetch()
-        req = Request(TPEX_OFFICIAL_EOD_URL,
-                      headers={"User-Agent": "JanusPersonalResearch/1.0",
-                               "Accept": "application/json"})
-        with urlopen(req, timeout=6) as response:
-            content = response.read(_MAX_PAYLOAD + 1)
-        if len(content) > _MAX_PAYLOAD:
-            raise ValueError("TPEx payload exceeded bound")
-        rows = json.loads(content.decode("utf-8-sig"))
-        if not isinstance(rows, list) or len(rows) > 25000:
-            raise ValueError("TPEx source schema unavailable")
-        return rows
+        headers = {"User-Agent": "Mozilla/5.0 (compatible; JanusResearch/1.0)",
+                   "Accept": "application/json,text/html;q=0.5",
+                   "Accept-Encoding": "identity"}
+        def read(url):
+            with urlopen(Request(url, headers=headers), timeout=12) as response:
+                body = response.read(_MAX_PAYLOAD + 1)
+            if len(body) > _MAX_PAYLOAD:
+                raise ValueError("official TPEx payload exceeded bound")
+            return json.loads(body.decode("utf-8-sig"))
+        try:
+            rows = read(TPEX_OFFICIAL_EOD_URL)
+            if not isinstance(rows, list) or len(rows) > 25000:
+                raise ValueError("official TPEx OpenAPI schema unavailable")
+            return rows
+        except (ValueError, UnicodeError, OSError):
+            # Cloud Run egress has returned HTTP 200 non-JSON (WAF/HTML)
+            # while GitHub runners receive JSON. The legacy JSON endpoint
+            # is *also* official TPEx. It must advertise the requested day.
+            local = datetime.now(TAIPEI)
+            target = local.date()
+            if local.time() < time(14, 30) or local.weekday() >= 5:
+                target -= timedelta(days=1)
+                while target.weekday() >= 5:
+                    target -= timedelta(days=1)
+            day = f"{target.year-1911:03d}/{target.month:02d}/{target.day:02d}"
+            uri = TPEX_OFFICIAL_DATED_URL + "?" + urlencode(
+                {"l": "zh-tw", "o": "json", "d": day, "s": "0"})
+            document = read(uri)
+            if not isinstance(document, dict) or _official_day(document.get("date")) != target:
+                raise ValueError("official TPEx dated response day unavailable")
+            tables = document.get("tables")
+            if not isinstance(tables, list) or len(tables) > 20:
+                raise ValueError("official TPEx dated response table unavailable")
+            rows = []
+            for table in tables:
+                fields, data = table.get("fields"), table.get("data")
+                if not isinstance(fields, list) or not isinstance(data, list):
+                    continue
+                if len(fields) > 100 or len(data) > 25000:
+                    raise ValueError("official TPEx dated response exceeds bound")
+                for values in data:
+                    if not isinstance(values, list) or len(values) != len(fields):
+                        continue
+                    item = dict(zip(fields, values))
+                    symbol = str(item.get("代號") or "").strip()
+                    if not symbol:
+                        continue
+                    rows.append({"Date": day, "SecuritiesCompanyCode": symbol,
+                                 "Close": item.get("收盤"),
+                                 "_official_source_uri": uri})
+            if len(rows) > 25000:
+                raise ValueError("official TPEx dated response exceeds bound")
+            return rows
 
-    def quotes(self, symbols: set[str], now: datetime) -> dict[str, dict]:
+    def history(self, symbols: set[str], now: datetime) -> dict[str, list[dict]]:
         if not symbols:
             return {}
-        # Earlier closes remain usable before handoff; today's close does not.
         local = now.astimezone(TAIPEI)
         window = (local.date(), local.time() >= time(14, 30))
         with self._lock:
             tick = monotonic()
-            # A failed fetch previously retried on every caller because
-            # _rows is None. Repeated owner requests must not hammer TPEx
-            # when it returns HTML/invalid JSON or temporarily blocks traffic.
             if (self._rows is None and self._window == window
                     and tick - self._stamp < _FAILURE_RETRY_TTL):
                 raise RuntimeError("TPEx official source retry cooldown")
@@ -130,4 +193,8 @@ class TpexDailyQuotes:
                 except Exception:
                     self._rows = None
                     raise
-            return parse_tpex_daily_quotes(self._rows, set(symbols), now)
+            return parse_tpex_daily_quote_history(self._rows, set(symbols), now)
+
+    def quotes(self, symbols: set[str], now: datetime) -> dict[str, dict]:
+        return {symbol: rows[-1] for symbol, rows in self.history(symbols, now).items() if rows}
+

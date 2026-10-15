@@ -479,25 +479,32 @@ def owner_price_reader(repository, market):
                                 "symbol": symbol, "market": "TPEX_UNVERIFIED",
                                 "enabled": True,
                             }
-                    tpex_router.refresh_tpex(identities, now=datetime.now(TAIPEI))
+                    tpex_router.refresh_tpex(identities, now=datetime.now(TAIPEI), as_of=valuation_date)
                 except Exception:
                     # Official source failure cannot destroy existing Core or
                     # persisted EOD data, or block other canonical marts.
                     pass
-            for symbol, row in repository.last_quotes({
-                symbol: {} for symbol in missing
-            }).items():
+            historical = getattr(repository, "official_eod_quotes", None)
+            if historical is not None:
+                persisted = historical(missing, valuation_date)
+            else:
+                # Older test doubles may only implement operational last-quote.
+                persisted = repository.last_quotes({symbol: {} for symbol in missing})
+            for symbol, row in persisted.items():
                 if row.get("source") != "tpex_openapi_eod":
                     continue
                 try:
-                    at=datetime.fromisoformat(str(row["quote_at"]))
-                    effective=at.astimezone(TAIPEI).date()
-                    price=Decimal(str(row["price"]))
+                    price = Decimal(str(row["price"]))
+                    if row.get("price_date"):
+                        effective = date.fromisoformat(str(row["price_date"])[:10])
+                    else:
+                        at = datetime.fromisoformat(str(row["quote_at"]))
+                        effective = at.astimezone(TAIPEI).date()
                 except (ValueError, TypeError, InvalidOperation):
                     continue
                 if effective > valuation_date or price <= 0 or not price.is_finite():
                     continue
-                prices[symbol]=(price,effective)
+                prices[symbol] = (price, effective)
         return prices
 
     return owner_prices

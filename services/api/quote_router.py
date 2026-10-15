@@ -183,8 +183,12 @@ class QuoteRouter:
             return {"status": "unavailable", "requested": len(due), "updated": 0}
 
 
-    def refresh_tpex(self, identities, *, now=None):
-        """Use published full-market closes first; fetch only uncovered owner securities."""
+    def refresh_tpex(self, identities, *, now=None, as_of=None):
+        """Persist official daily sessions, then update latest operational quote.
+
+        The historical write is independent of the latest quote's freshness;
+        otherwise an older PIT date becomes irretrievable after next close.
+        """
         now = now or datetime.now(TAIPEI)
         scoped = {symbol for symbol, identity in identities.items()
                   if str(identity.get("market") or "").upper()
@@ -196,27 +200,37 @@ class QuoteRouter:
             current = self._live({s: identities[s] for s in scoped})
             persisted = self._eod({s: identities[s] for s in scoped})
             local = now.astimezone(TAIPEI)
-            expected_day = local.date()
-            if local.weekday() >= 5 or (local.hour, local.minute) < (14, 30):
+            expected_day = as_of or local.date()
+            if as_of is None and (local.weekday() >= 5 or (local.hour, local.minute) < (14, 30)):
                 expected_day -= timedelta(days=1)
                 while expected_day.weekday() >= 5:
                     expected_day -= timedelta(days=1)
+            missing_history = set()
+            history_reader = getattr(self.repository, "official_eod_quotes", None)
+            if history_reader is not None:
+                known = history_reader(scoped, expected_day)
+                missing_history = scoped - set(known)
             due = {
                 symbol for symbol in scoped
                 if (_day(persisted.get(symbol, {})) is None or _day(persisted[symbol]) < expected_day)
                 and (current.get(symbol, {}).get("source") != "tpex_openapi_eod"
                      or _day(current[symbol]) is None or _day(current[symbol]) < expected_day)
-            }
+            } | missing_history
             if not due:
                 return {"status": "fresh", "requested": 0, "updated": 0}
-            rows = self.tpex_source.quotes(due, now)
-            if rows:
-                writer = getattr(self.repository, "save_last_quotes", None)
-                if writer is None:
-                    raise RuntimeError("persistent quote writer unavailable")
-                writer(rows)
-            return {"status": "updated" if rows else "unavailable",
-                    "requested": len(due), "updated": len(rows)}
+            history = self.tpex_source.history(due, now)
+            if history:
+                writer = getattr(self.repository, "save_official_eod_quotes", None)
+                if writer is not None:
+                    writer(history)
+                latest = {symbol: quotes[-1] for symbol, quotes in history.items() if quotes}
+                if latest:
+                    writer_latest = getattr(self.repository, "save_last_quotes", None)
+                    if writer_latest is None:
+                        raise RuntimeError("persistent latest quote writer unavailable")
+                    writer_latest(latest)
+            return {"status": "updated" if history else "unavailable",
+                    "requested": len(due), "updated": len(history)}
         except Exception as error:
             LOGGER.warning("official TPEx EOD refresh unavailable: %s", type(error).__name__)
             return {"status": "unavailable", "requested": len(scoped), "updated": 0}
