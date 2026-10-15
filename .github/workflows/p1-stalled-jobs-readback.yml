@@ -1,0 +1,68 @@
+name: Janus P1 stalled Jobs safe readback
+on:
+  push:
+    branches: [main]
+    paths: ['ops/p1-stalled-jobs-readback.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce bounded read-only scope
+        run: |
+          jq -e '.intent=="p1-stalled-jobs-readback" and .approved==true and
+            .failed_run=="38756738102" and .no_gcp_mutation==true and
+            .no_owner_mutation==true and .no_lease_mutation==true' ops/p1-stalled-jobs-readback.json >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Sanitize scheduler, pinned images and execution terminal predicates
+        run: |
+          python3 - <<'PY'
+          import json, sys
+          sys.path.insert(0,'scripts/gcp')
+          from ghcr_jobs_rollout import cloud, ROOT, REQUIRED_JOBS, image, terminal, job, scheduler
+          from ghcr_mcp_route import command
+          status=scheduler()
+          result={'read_only':True,'failed_run':'38756738102',
+                  'scheduler':{'state':status.get('state'),'schedule':status.get('schedule')},
+                  'jobs':{}}
+          old={'janus-batch-controller':'2c8094a2d852',
+               'janus-ingestion-core':'2c8094a2d852',
+               'janus-intelligence-mart':'31df3c75278b',
+               'janus-private-pipeline':'eba96be824ca'}
+          new={'janus-batch-controller':'8590f4d4cc99',
+               'janus-ingestion-core':'8590f4d4cc99',
+               'janus-intelligence-mart':'8985a8192a39',
+               'janus-private-pipeline':'2c6f4560abd6'}
+          for name in REQUIRED_JOBS:
+              j=job(name)
+              ref=image(j)
+              digest=ref.rsplit('sha256:',1)[-1][:12] if 'sha256:' in ref else 'unknown'
+              executions=cloud(f'{ROOT}/jobs/{name}/executions?pageSize=100').get('executions',[])
+              incomplete=[]
+              for x in executions:
+                  if terminal(x):continue
+                  conditions=[{'type':c.get('type'),'state':c.get('state'),
+                               'executionReason':c.get('executionReason')}
+                              for c in x.get('conditions',[])
+                              if c.get('type')=='Completed']
+                  incomplete.append({'name':str(x.get('name','')).rsplit('/',1)[-1],
+                    'created':x.get('createTime'),'completed':bool(x.get('completionTime')),
+                    'reconciling':x.get('reconciling'), 'running':x.get('runningCount'),
+                    'succeeded':x.get('succeededCount'),'failed':x.get('failedCount'),
+                    'cancelled':x.get('cancelledCount'),'conditions':conditions})
+              result['jobs'][name]={'digest_prefix':digest,
+                   'baseline':('previous' if digest==old.get(name) else
+                               'candidate' if digest==new.get(name) else 'other'),
+                   'nonterminal_first_page':incomplete[:12],
+                   'first_page_count':len(executions)}
+          print(json.dumps(result,sort_keys=True))
+          PY
