@@ -1,6 +1,6 @@
 # Janus 目前狀態
 
-更新：2026-10-15（P0 Owner backend PASS；P1 固定 Preview 發布請求已提交）。已驗證同源 `285848e28041bf2fb024bd98bd348641f022a1ed` API 0% candidate、自動 OAuth boundary、四 Jobs rollout，及 Private Mart readonly #38732675488 + final gate #38733406224 PASS。最後已確認的固定 Preview 為 079cca；285848 新發布請求 commit `78bf14bb`，**尚缺該次 workflow 終態及 live tag／build-id readback**；正式 100% traffic 不切，P1 仍 OPEN。
+更新：2026-10-15（P0 Owner backend PASS；P1 固定 Preview 同源發布 PASS）。已驗證同源 `285848e28041bf2fb024bd98bd348641f022a1ed` API 0% candidate、自動 OAuth boundary、四 Jobs rollout，及 Private Mart readonly #38732675488 + final gate #38733406224 PASS。285848 固定 Preview 工作流 [#38740477232](https://github.com/tommylin15/janus-omniforge/actions/runs/38740477232) SUCCESS，已執行 tag 更新與驗證程式；正式 100% traffic 不切，P1 Owner 端到端仍 OPEN。
 
 ### P0｜TPEx 官方歷史日期長期能力（2026-10-15 本輪）
 
@@ -12,10 +12,10 @@
 
 ### P1｜2026-10-15 Owner 唯讀資料與固定 Preview 接續
 
-- **固定 Preview 請求已提交，未證實更新成功**：[commit `78bf14bb`](https://github.com/tommylin15/janus-omniforge/commit/78bf14bb1665be93ef6f7048d71458632bdbc871) 將 `ops/ghcr-preview-request.json` 目標改為 285848 GHCR API 固定 digest，引用既有成功 release #38717341300、candidate #38718006906、OAuth boundary #38718076548；workflow 沿用共用 lease，只准更新 preview tag，不准切正式流量或改 Jobs。此交接尚**未取得新 workflow run 終態、tag／build-id readback**，不能宣稱 fixed Preview 已更新。
+- **固定 Preview 同來源 PASS**：[commit `78bf14bb`](https://github.com/tommylin15/janus-omniforge/commit/78bf14bb1665be93ef6f7048d71458632bdbc871) 將 `ops/ghcr-preview-request.json` 目標改為 285848 GHCR API 固定 digest，引用 release #38717341300、candidate #38718006906、OAuth boundary #38718076548；[#38740477232](https://github.com/tommylin15/janus-omniforge/actions/runs/38740477232) 最新 workflow `completed/success`，同次 `Verify fixed preview release and owner-lease safety contracts`、`Update only verified candidate preview tag with rollback protection` 均 success；公開 build-id／tag 校驗由該實際 workflow 執行，且保存 receipt artifact。此結果僅是 Preview，正式流量不變，**Owner UI 尚未驗收**。
 - **已授權 Owner MCP 正向唯讀讀回（2026-10-15）**：`positions` 為 `available`、8/8 有效市價／市值，兩檔債券 ETF `00697B`／`00719B` 均有 `price_status=available`，共同 `valuation_date=2026-10-14`、`ledger_version=354`；`annual-pnl` 為 `available`，同日期／版本。此為真實 Owner backend read path，**不是**正式 App UI／手動重算按鈕端到端證明。
-- **最新估值仍待獨立驗收**：讀回時刻 10/15 晚間，Owner Private Mart 最後估值為 10/14；官方定日來源的歷史價在 PostgreSQL，與一般已發布 Core `ohlcv` 非同一存放路徑。對兩檔 ETF 查 `janus-core/ohlcv` 的 10/14～10/15 區間均回 `missing`，**不能因此倒推已持久化的 TPEx 官方歷史價遺失**，但新交易日 EOD→Private Mart→UI 的完整更新仍 `NOT_VERIFIED`。既有正常 private 批次在台北 21:30，不因 21:06 的前批次狀態誤判批次失敗；批次後須核對相同 owner ledger checkpoint、PIT 與 freshness。
-- **P1 尚缺的硬 gate**：固定 Preview 285848 workflow terminal／`/app/build-id.txt` 與現役 Jobs readback；authenticated Owner UI（股數、市值、當日漲跌、累計未實現與總損益）；重新計算按鈕→owner enqueue→worker terminal→ledger/checkpoint/PnL；390px／desktop 截圖及適用性能、正式 dev 流量及 rollback 讀回。缺證據就維持 `PARTIAL`，不可拿 P0 成功逕行 API 100% promotion。
+- **最新估值仍待獨立驗收**：10/15 約 22:21（台北時間）再次 Owner MCP 唯讀讀回，Private Mart 最後估值仍為 10/14；官方定日來源的歷史價在 PostgreSQL，與一般已發布 Core `ohlcv` 非同一存放路徑。對兩檔 ETF 查 `janus-core/ohlcv` 的 10/14～10/15 區間均回 `missing`，**不能因此倒推已持久化的 TPEx 官方歷史價遺失**，但新交易日 EOD→Private Mart→UI 的完整更新仍 `NOT_VERIFIED`。既有正常 private 批次排程在台北 21:30；目前只有 Owner MCP freshness 尚未前進的證據，未取得當晚 Scheduler／Job terminal 原因，**不得直接宣稱排程成功或失敗**；後續須查確切 execution、ledger checkpoint、PIT 與 freshness。
+- **P1 尚缺的硬 gate**：Preview 已有 285848 workflow 實際驗收；尚需另核對切流當時服務與四 Jobs 的 live baseline；authenticated Owner UI（股數、市值、當日漲跌、累計未實現與總損益）；重新計算按鈕→owner enqueue→worker terminal→ledger/checkpoint/PnL；390px／desktop 截圖及適用性能、正式 dev 流量及 rollback 讀回。缺證據就維持 `PARTIAL`，不可拿 P0 成功逕行 API 100% promotion。
 
 ## 能確定的現況與限制
 
