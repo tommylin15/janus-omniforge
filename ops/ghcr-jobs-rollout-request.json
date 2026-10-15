@@ -2,16 +2,16 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "536598f2528550fd60c73786597fdf2740860c9e",
-  "release_run": "38691316772",
+  "sha": "285848e28041bf2fb024bd98bd348641f022a1ed",
+  "release_run": "38717341300",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "4d49555656bc47decd2fd13e9fab9a5da79a3fc2",
+  "baseline_source_sha": "536598f2528550fd60c73786597fdf2740860c9e",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:a94a1a2ed90cf12c8a795be1c471113009a48fd9771379d7e05e01c8a5eee908",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:a94a1a2ed90cf12c8a795be1c471113009a48fd9771379d7e05e01c8a5eee908",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:dd68d07eeb971604050e3586d0c6184a1d67eaad336a98d3a51009ac8f31b2e7",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:71ce7b8cfd0f8588b0700edc6d93062ce8214fe2d7a20253cbb86470b8c39371"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:cd21abe03f3b99b0563bd98409401979ba01ba49aa54311997cd21c2f566d023",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:cd21abe03f3b99b0563bd98409401979ba01ba49aa54311997cd21c2f566d023",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:fbdd613104ecdec6db6bc0a8ce0aa552335e7d77d461b3090275dd3eee8c59f7",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:9b33e5fe97457b9d039070078dd36c0ee1785a988b6f74da1fc53de321486b9a"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 14,
-  "safety": "D01-D05 consolidated product package; prior existing 4 Jobs rollout #38686125420 PASS source 4d495 and exact known current immutable GHCR digests/config fingerprints. New source 536598 full Release #38691316772 PASS, candidate #38691954051 PASS, automated OAuth #38692148433 PASS. Restore previous jobs on canary failure; Scheduler/lease/execution fences. No API traffic promotion and no backup timer handoff; D04 VM IAM remains blocked. No owner ledger mutation, retention cleanup, new IAM or paid resources.",
-  "auth_boundary_run": "38692148433",
-  "automated_oauth_requirement": "Exact tested source 536598 automatic auth+private boundary #38692148433 PASS; no human OAuth login",
-  "authorization": "User-authorized D01-D05 existing-dev four Jobs controlled release and rollback. D06 unrestricted retention remains outside scope."
+  "request_attempt": 15,
+  "safety": "P0 official TPEx dailyQuotes immutable historical dates: full release #38717341300 exact source 285848 PASS; 0%-traffic candidate #38718006906 PASS and auto OAuth/private boundary #38718076548 PASS. Four existing dev Jobs controlled reversible GHCR rollout only. Baseline exact current release 536598 four target digests and unchanged config hashes taken from successful previous rollout receipt #38692371269 targets/snapshots, verify actual live image under fence before mutation, Scheduler restored, 8 real canaries; preserve Owner ledger, no runtime direct Mart mutation in rollout, no 100% API promotion or paid/IAM resources.",
+  "auth_boundary_run": "38718076548",
+  "automated_oauth_requirement": "Exact source 285848 auto OAuth and negative/private boundary #38718076548 SUCCESS; no manual Google OAuth login",
+  "authorization": "User-approved P0 00697B official as-of quote repair; reuses existing dev reversible four Jobs and shared lease, preserving rollback baseline."
 }
