@@ -61,14 +61,14 @@ def api(url, token):
         return json.load(response)
 
 
-def monitored_hours(token, start, end):
+def monitored_hours(token, start, end, *, alignment_seconds=3600):
     output, page_token = [], ""
     for _ in range(MAX_PAGES):
         params = {
             "filter": 'metric.type="storage.googleapis.com/api/request_count" AND resource.type="gcs_bucket"',
             "interval.startTime": start.isoformat().replace("+00:00", "Z"),
             "interval.endTime": end.isoformat().replace("+00:00", "Z"),
-            "aggregation.alignmentPeriod": "3600s",
+            "aggregation.alignmentPeriod": str(alignment_seconds) + "s",
             "aggregation.perSeriesAligner": "ALIGN_SUM",
             "pageSize": "1000",
         }
@@ -121,6 +121,37 @@ def job_executions(token, start):
     return result
 
 
+def summarize_five_minute(series):
+    totals = defaultdict(lambda: {"ReadObject": 0, "GetObjectMetadata": 0})
+    for item in series:
+        if item.get("resource", {}).get("labels", {}).get("bucket_name") != BUCKET:
+            continue
+        method = item.get("metric", {}).get("labels", {}).get("method")
+        if method not in {"ReadObject", "GetObjectMetadata"}:
+            continue
+        for point in item.get("points", []):
+            end = point.get("interval", {}).get("endTime")
+            if not end:
+                continue
+            stamp = datetime.fromisoformat(end.replace("Z", "+00:00"))
+            bucket = stamp.strftime("%Y-%m-%dT%H:%MZ")
+            totals[bucket][method] += int(point.get("value", {}).get("int64Value") or 0)
+    points = [{"time_utc": k, **v, "total": sum(v.values())} for k, v in totals.items()]
+    cycle = defaultdict(list)
+    for p in points:
+        minute = int(p["time_utc"][14:16])
+        cycle[minute].append(p["total"])
+    # Not caller attribution; peak alignment is only circumstantial evidence.
+    return {
+        "five_minute_top_intervals": sorted(points, key=lambda p: -p["total"])[:18],
+        "five_minute_by_clock_minute_avg": [
+            {"minute": minute, "average_requests": round(sum(vals) / len(vals), 1),
+             "observations": len(vals)} for minute, vals in sorted(cycle.items())
+        ],
+        "five_minute_count": len(points),
+    }
+
+
 def run():
     end = datetime.now(timezone.utc) - timedelta(minutes=15)
     start = end - timedelta(hours=48)
@@ -135,6 +166,8 @@ def run():
             raise RuntimeError("identity_unavailable")
         metrics = monitored_hours(token, start, end)
         record.update(status="observed", **summarize_hourly(metrics))
+        record.update(summarize_five_minute(monitored_hours(
+            token, end - timedelta(hours=18), end, alignment_seconds=300)))
         record["cloud_run"] = job_executions(token, start)
         return record
     except HTTPError as ex:
