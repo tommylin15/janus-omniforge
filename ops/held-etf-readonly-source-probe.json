@@ -1,0 +1,10 @@
+{
+  "intent": "read-only-held-etf-official-runtime-probe",
+  "approved": true,
+  "no_data_write": true,
+  "no_job_template_change": true,
+  "source_sha": "536598f2528550fd60c73786597fdf2740860c9e",
+  "previous_jobs_rollout_run": "38692371269",
+  "symbol": "00697B",
+  "reason": "P0 post-lock-recovery: one bounded read-only private container probe; compare TPEx official JSON eligibility, live operational persisted quote source and Core valuation date, print no owner keys nor prices; fence all jobs and lease release only on proven terminal."
+}
