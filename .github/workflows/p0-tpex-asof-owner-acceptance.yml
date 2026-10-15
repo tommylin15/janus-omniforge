@@ -1,0 +1,66 @@
+name: Janus P0 exact official 00697B as-of and real Owner Mart
+on:
+  push:
+    branches: [main]
+    paths: ['ops/p0-tpex-asof-owner-acceptance.json']
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  p0-owner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 32
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify exact-source release and rollback-fenced four Jobs receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="official-one-owner-p0-asof-eod" and .approved==true and
+            .environment=="dev" and .symbol=="00697B" and .trade_date=="2026-10-14" and
+            .no_ledger_mutation==true and .single_owner_only==true and
+            .private_mart_write_only==true and .no_job_template_mutation==true and
+            (.source_sha|test("^[0-9a-f]{40}$")) and
+            (.release_run|type=="string" and test("^[0-9]+$")) and
+            (.jobs_rollout_run|type=="string" and test("^[0-9]+$"))' ops/p0-tpex-asof-owner-acceptance.json >/dev/null
+          release="$(jq -r .release_run ops/p0-tpex-asof-owner-acceptance.json)"
+          rollout="$(jq -r .jobs_rollout_run ops/p0-tpex-asof-owner-acceptance.json)"
+          sha="$(jq -r .source_sha ops/p0-tpex-asof-owner-acceptance.json)"
+          gh run view "$release" --json status,conclusion,headSha,workflowName |
+            jq -e --arg s "$sha" '.status=="completed" and .conclusion=="success" and
+              .headSha==$s and .workflowName=="Janus GHCR full-test image publication"' >/dev/null
+          gh run view "$rollout" --json status,conclusion,workflowName |
+            jq -e '.status=="completed" and .conclusion=="success" and
+              .workflowName=="Janus GHCR controlled Jobs rollout"' >/dev/null
+          mkdir -p /tmp/p0-rollout
+          gh run download "$rollout" -n ghcr-jobs-rollout-receipt -D /tmp/p0-rollout
+          jq -e --arg s "$sha" '.phase=="PASS" and .source_sha==$s and
+            .rollback_baseline_verified==true and (.canaries|length)==8 and
+            (.targets["janus-private-pipeline"]|startswith("ghcr.io/tommylin15/janus-private-pipeline@sha256:"))' /tmp/p0-rollout/ghcr-jobs-rollout.json >/dev/null
+          echo "P0_PRIVATE_PIPELINE_IMAGE=$(jq -r '.targets["janus-private-pipeline"]' /tmp/p0-rollout/ghcr-jobs-rollout.json)" >> "$GITHUB_ENV"
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Fetch dated official TPEx EOD, restore public historical price and verify real Owner derived Mart
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/p0_tpex_asof_owner_acceptance.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: p0-tpex-asof-owner-receipt
+          path: /tmp/p0-tpex-asof-owner-acceptance.json
+          if-no-files-found: ignore
+          retention-days: 14
