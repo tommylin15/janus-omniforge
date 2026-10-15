@@ -126,14 +126,19 @@ def acquire(api: Callable, owner: Owner) -> str:
             "object": owner.source_sha, "type": "commit"}
     try:
         tag = api("POST", f"repos/{owner.repo}/git/tags", body)
-        tagsha = tag.get("sha") if isinstance(tag, dict) else None
-        if not isinstance(tagsha, str) or not SHA_RE.fullmatch(tagsha):
-            raise LeaseBlocked("annotated_tag_creation_unverified")
+    except ApiError as exc:
+        # Sanitized API status and step only. Never expose GitHub API response
+        # bodies/tokens; an unknown claim must not be force-retried.
+        raise LeaseBlocked(f"atomic_lease_claim_rejected_or_unavailable:tag_http_{exc.status or 'unknown'}") from exc
+    tagsha = tag.get("sha") if isinstance(tag, dict) else None
+    if not isinstance(tagsha, str) or not SHA_RE.fullmatch(tagsha):
+        raise LeaseBlocked("annotated_tag_creation_unverified")
+    try:
         # GitHub rejects an existing ref atomically (422); never overwrite.
         api("POST", f"repos/{owner.repo}/git/refs",
             {"ref": f"refs/tags/{TAG}", "sha": tagsha})
     except ApiError as exc:
-        raise LeaseBlocked("atomic_lease_claim_rejected_or_unavailable") from exc
+        raise LeaseBlocked(f"atomic_lease_claim_rejected_or_unavailable:ref_http_{exc.status or 'unknown'}") from exc
     verified = _validated_lease(api, owner)
     if verified != tagsha:
         raise LeaseBlocked("lease_readback_mismatch")
