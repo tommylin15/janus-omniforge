@@ -598,6 +598,13 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
           '狀態 ${withheld ? '完整總額暫不發布' : legacy.uiLabel(aggregate['valuation_status'] ?? aggregate['aggregate_status'] ?? 'partial')}',
           style: const TextStyle(color: fvMuted, fontSize: 11))),
       ]),
+      if (withheld && aggregate['priced_symbol_count'] != null)
+        Text(
+          '已計價小計 ${fvText(aggregate['currency'])} '
+          '${legacy.accountingNumber(aggregate['priced_market_value'])} '
+          '· ${fvText(aggregate['priced_symbol_count'])} 檔（非完整總市值）',
+          style: const TextStyle(color: fvMuted, fontSize: 11),
+        ),
       Text('ledger v${fvText(aggregate['ledger_version'])}',
         style: const TextStyle(color: fvMuted, fontSize: 10)),
       ]),
@@ -793,7 +800,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                     Text('前一交易日 ${fvText(row['previous_close_date'])} · 昨收 ${legacy.accountingNumber(row['previous_close'], decimals: 2)}',
                         style: const TextStyle(color: fvMuted, fontSize: 11)),
                   if (stale)
-                    const Text('報價過期：保留最後成功報價估值，不代表最新市價',
+                    const Text('報價過期：最後成功價格僅供參考，不計入完整現值',
                         style: TextStyle(color: fvMuted, fontSize: 12)),
                   if (reason.isNotEmpty)
                     Text(reason, style: const TextStyle(color: fvMuted, fontSize: 11)),

@@ -329,3 +329,33 @@ def test_trade_instrument_search_is_authenticated_and_accepts_one_character():
     assert searches == ['元']
     assert client.get('/api/v1/me/journal/instruments', params={'q': '元'}).status_code == 401
     assert client.get('/api/v1/me/journal/instruments', params={'q': ''}, headers={'Authorization': 'Bearer user'}).status_code == 422
+
+
+def test_published_core_eod_does_not_claim_fresh_after_seven_days_or_in_the_future():
+    repository = QuoteRepository()
+    class NoSource:
+        def prices(self, _): raise AssertionError("DB-only EOD test must never call MIS")
+    router = QuoteRouter(repository, NoSource())
+    identities = {"2330": {"market": "TWSE"}}
+    now = datetime(2026, 10, 15, 15, 0, tzinfo=TAIPEI)
+    repository.eod["2330"] = {"price": "100", "price_date": "2026-10-06",
+                                "received_at": "2026-10-06T15:00:00+08:00"}
+    old = router.read(identities, now=now)["2330"]
+    assert old["state"] == "stale" and old["is_final"] is True
+    assert old["price"] == "100"
+    repository.eod["2330"]["price_date"] = "2026-10-16"
+    assert router.read(identities, now=now)["2330"]["state"] == "stale"
+    repository.eod["2330"]["price_date"] = "2026-10-14"
+    assert router.read(identities, now=now)["2330"]["state"] == "eod_final"
+
+
+def test_future_tpex_cache_cannot_be_counted_as_official_current_quote():
+    repository = QuoteRepository()
+    repository.saved["00719B"] = {
+        "price": "31", "price_date": "2026-10-16",
+        "source": "tpex_openapi_eod", "quote_at": "2026-10-16T13:30:00+08:00",
+    }
+    q = QuoteRouter(repository, object()).read(
+        {"00719B": {"market": "TPEX"}}, now=datetime(2026, 10, 15, 15, 0, tzinfo=TAIPEI)
+    )["00719B"]
+    assert q["state"] == "stale"
