@@ -1,0 +1,9 @@
+{
+  "intent": "p1-stalled-jobs-readback",
+  "approved": true,
+  "failed_run": "38756738102",
+  "no_gcp_mutation": true,
+  "no_owner_mutation": true,
+  "no_lease_mutation": true,
+  "reason": "Read only current Cloud Run execution terminal summary before bounded P1 recovery"
+}
