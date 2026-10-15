@@ -2,16 +2,16 @@
   "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
   "approved": true,
   "scope": "janus-api-preview-tag-only",
-  "source_sha": "079cca4f24aedb6285270df8e86f856d2498ce13",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:8cb2f0ad202b44f1bb45a4cc896facad6b5e930e3c037a606feafc3289a92b14",
-  "release_run": "38695837708",
-  "candidate_run": "38710296292",
-  "boundary_run": "38710582355",
+  "source_sha": "285848e28041bf2fb024bd98bd348641f022a1ed",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:b4d4f15df555e0874e5413a58d63718c5239feaef1f2655b47f0f384ada16705",
+  "release_run": "38717341300",
+  "candidate_run": "38718006906",
+  "boundary_run": "38718076548",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
-  "reason": "P1 corrected official TPEx source release #38695837708 PASS, 0% candidate #38710296292 PASS, same-source auto-OAuth/private boundary #38710582355 PASS. Update ONLY verified fixed Preview tag to new source; never switch 100% traffic, mutate Jobs/Scheduler/owner ledger, or represent partial Owner PnL or VM backup as PASS.",
+  "reason": "P1 synchronize fixed Preview with 285848 exact full release, 0% API candidate, automated auth and 4 Jobs rollout; P0 Owner 10/14 backend aggregate 8/8 PASS #38733406224. Update only verified preview tag under existing shared lease. Keep canonical traffic at old 100% until separate real Owner UI/manual recalculation/rollback acceptance.",
   "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
-  "attempt": 14
+  "attempt": 15
 }
