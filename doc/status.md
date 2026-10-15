@@ -2,6 +2,12 @@
 
 更新：2026-10-15（P0／P1／D04 經 GitHub Actions → GCP WIF 讀回）。最新已驗證 API／固定 Preview 來源 `079cca4f24aedb6285270df8e86f856d2498ce13`；四支 live Jobs 仍須按已驗證 rollout 來源 `536598f2528550fd60c73786597fdf2740860c9e` 判定，不能跨來源當作同一輪可正式切流。
 
+### P0｜TPEx 官方歷史日期長期能力（2026-10-15 本輪）
+
+- **已落地（程式及資料庫）**：`services/api/tpex_quotes.py` 支援官方 `/www/zh-tw/afterTrading/dailyQuotes?date=YYYY/MM/DD&response=json` 的指定交易日查詢（不限 OpenAPI 七日滾動窗口）；嚴格核對官方回應 `date`、有效收盤價與 14:30 發布門檻。近七日 OpenAPI 仍保留，失敗可走官方定日來源。版本化 migration `061_tpex_official_eod_daily` 使用獨立 PostgreSQL 官方日期／價格／來源 URL／record SHA-256／first-observed，不污染 Core/Iceberg canonical；Private Mart 只用不晚於估值日的已保存官方資料。
+- **證據**：官方 `00697B` 10/14 原始 JSON 指定日期與 date response [#38715334637](https://github.com/tommylin15/janus-omniforge/actions/runs/38715334637) PASS；migration [#38714018250](https://github.com/tommylin15/janus-omniforge/actions/runs/38714018250) 真實 dev PASS；17/17 歷史、日期、PIT targeted tests [#38717113572](https://github.com/tommylin15/janus-omniforge/actions/runs/38717113572) PASS；完整來源 `285848e28041bf2fb024bd98bd348641f022a1ed` Release [#38717341300](https://github.com/tommylin15/janus-omniforge/actions/runs/38717341300) SUCCESS；API 0% [#38718006906](https://github.com/tommylin15/janus-omniforge/actions/runs/38718006906) 和自動 OAuth／private boundary [#38718076548](https://github.com/tommylin15/janus-omniforge/actions/runs/38718076548) SUCCESS，**未切 100% 流量**。
+- **最後 live gate 尚未 PASS**：相同 SHA 四 Jobs rollout [#38718355824](https://github.com/tommylin15/janus-omniforge/actions/runs/38718355824) 以及唯一 Owner、2026-10-14 as-of、全部持股／投資組合總 PnL 驗收 [#38718586032](https://github.com/tommylin15/janus-omniforge/actions/runs/38718586032) 已觸發，**以各自最新終態／receipts 讀回為準**。不得拿 full Release／Migration 替代 real Owner 損益證據。不得使用 10/15 報價計算 10/14，也不得修改真實交易帳本。
+
 **整體 PARTIAL。** 使用者已明確授權 D01～D05 一起開發、以同源整批驗收，取代此前文件-only 暫停；D06 獨立 FinOps、不併入本輪，D07／D08 後置。完整 Release／GHCR digest／0% 候選／自動 OAuth 已 PASS，**正式 API 100% traffic 尚未獲得本產品包的所有真實業務 gate**，不能宣稱產品交付完成。詳見 [TODO](todo.md)、[AI 卡片](execution-cards/README.md) 與 [證據索引](spec/operations-and-testing.md)。
 
 ## 能確定的現況與限制

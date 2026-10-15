@@ -25,7 +25,7 @@ D01～D08 各有一張獨立可供 AI 執行的 [標準任務卡](execution-card
 
 ## D01｜持股交易與正式損益
 
-- [ ] P0：00697B 已確定官方身分與 OpenAPI 10/14 來源，但 Cloud Run official fetch JSONDecodeError，live Core 估值 10/14、持久化 latest official quote 10/15 不符 PIT。修官方來源容錯、不可假冒的逐交易日官方 EOD 歷史／provenance 持久化和 as-of 查詢，再以新同源 Jobs 做 Owner Mart checkpoint 驗收；現有缺價維持 withheld。
+- [ ] **P0 最後 Owner 完整損益 gate**：TPEx 官方 `dailyQuotes` 已納入長期 as-of 資料鏈（migration 061 live PASS、指定 10/14 官方日期證據 PASS、17/17 單測 PASS、SHA 285848 full Release/0% candidate/auto auth PASS）。四 Jobs 受控 rollout #38718355824、唯一 Owner 10/14 受控驗收 #38718586032 已觸發但不得先標 PASS；必須讀回新版 Private Mart 00697B 市值、未實現損益、其餘持股、aggregate `missing_price_count=0` 及完整總未實現損益；ledger version 不變，不得以 10/15 價格補 10/14。
 - [ ] backend 唯讀試算及正式保存共用 MOVING_AVERAGE／Decimal／商品費稅，券商折扣與規則快照可追溯；表單自動費稅／一字搜尋及ETF／Enter／競態拒絕均有新版驗收。
 - [ ] 買入、加減碼、部分／全部賣出、零股、股利、更正、作廢、歷史補登、超額賣出拒絕、未知保存結果與冪等；不同 owner／ledger／broker version 不混用。既有費稅 apply 不重送。
 - [ ] 重算按鈕→authenticated API enqueue→Private Worker→terminal／exact ledger checkpoint→PnL／queue idle／cleanup讀回；有界輪詢及失敗重試。不向本人帳本新增測試交易。
