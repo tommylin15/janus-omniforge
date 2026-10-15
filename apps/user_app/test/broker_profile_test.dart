@@ -6,10 +6,12 @@ class BrokerApi extends Api {
   BrokerApi() : super('test');
   Map<String, dynamic> row = {'version': 0, 'declared_cash': null};
   Map<String, dynamic>? saved;
+  final List<String> paths = [];
   @override
-  Future<dynamic> get(String path) async => row;
+  Future<dynamic> get(String path) async { paths.add(path); return row; }
   @override
   Future<dynamic> put(String path, Map<String, dynamic> body) async {
+    paths.add(path);
     saved = body;
     row = {...body, 'version': 1};
     return row;
@@ -37,4 +39,18 @@ void main() {
     expect(find.textContaining('版本 1'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('Admin edits the same owner discount through Admin auth endpoint', (tester) async {
+    final api = BrokerApi();
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: BrokerProfileCard(api, endpoint: '/api/v1/admin/broker-profile'))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.edit_outlined));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextFormField, '手續費折扣倍率（0～1）'), '0.4');
+    await tester.tap(find.text('儲存'));
+    await tester.pumpAndSettle();
+    expect(api.saved!['fee_discount_multiplier'], '0.4');
+    expect(api.paths, everyElement('/api/v1/admin/broker-profile'));
+    expect(tester.takeException(), isNull);
+  });
+
 }

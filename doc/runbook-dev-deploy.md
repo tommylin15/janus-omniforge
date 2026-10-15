@@ -262,3 +262,10 @@ Dev acceptance must verify migration 048, job default/task parallelism, API → 
 - `daily/` **只保留最新 3 代**；`monthly/` 暫維持原有最多 6 代設定。Repo 的 `scripts/gcp/ledger-durability-dev.sh` 已將 daily prune 調整為 3，但 VM 已安裝的腳本不會因 Git commit 自動同步。
 - 目前有效的每日保留執行端是 GitHub Actions `.github/workflows/private-ledger-backup-retention.yml`，每天 **19:00 UTC**（VM 原定備份約 18:00 UTC）依日期排列，只以 GCS 物件 `generation` 前置條件刪除舊 daily，之後重新列舉確保恰好 3 份。workflow 若失敗不得宣稱保留政策已達成；不可因此擴大 IAM 或改動其他 prefix。
 - 備份可能包含過去已清除的測試資料；備份屬受保護恢復點，不把刪除現行資料表等同於刪除舊備份內歷史紀錄。GCS soft-delete／非當前版本依 bucket 既有政策另行驗證。
+
+
+### Migration 059：沿用既有資料庫 owner 路徑
+
+`private.ledger_events` 由 `postgres` 擁有；應用角色 `janus_control` 無法 ALTER。059 不走 ingestion bootstrap，也不擴大應用／CI IAM 或變更 table owner。沿用 `runbook-pilot-calendar-repair.md` 的既有 operator IAP／OS Login 路徑，把目前 main 的 `infra/postgres/migrations/059_ledger_automatic_charges.sql` 複製到既有 PostgreSQL container，以 `postgres` 執行 `psql -v ON_ERROR_STOP=1 -U postgres -d janus_control -f ...`。SQL 保留單一 transaction，新增可空規則快照欄位，然後切換原有 control／private-api 角色更新 replay；最後撤回暫時 schema CREATE，驗證 ACL 並寫 marker。失敗會 rollback；不可忽略錯誤或改用應用角色提權。
+
+成功後只讀回 059 marker、欄位型別、public API 無 ledger SELECT 及 private API 無 schema CREATE。此步驟不回補歷史交易；費稅回補仍須固定 owner／ledger／profile checkpoint、先 preview，append-only 更正後執行真實 Private Mart，再讀回 0 筆待更正。

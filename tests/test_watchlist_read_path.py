@@ -36,3 +36,30 @@ def test_watchlist_read_preserves_offlist_owner_rows_without_writing():
 
 def test_blank_watchlist_search_does_not_read_the_universe():
     assert PostgresWorkspaceRepository("test").search_watchlist_stocks("   ") == []
+
+
+def test_trade_search_includes_registered_etf_and_uses_bound_parameters():
+    queries = []
+    row = {"symbol": "00719B", "stock_name": "元大美債1-3", "market": "TWSE", "enabled": True}
+
+    class Connection:
+        def execute(self, sql, params):
+            queries.append((sql, params))
+            return self
+
+        def fetchall(self):
+            return [row]
+
+    class Repository(PostgresWorkspaceRepository):
+        @contextmanager
+        def _connection(self):
+            yield Connection()
+
+    repository = Repository('test')
+    assert repository.search_trade_instruments(' 元 ') == [row]
+    sql, params = queries[0]
+    assert params == ('元',) * 4
+    assert 'market_universe_members' not in sql
+    assert 'LIMIT 20' in sql
+    assert repository.search_trade_instruments(' ') == []
+    assert len(queries) == 1

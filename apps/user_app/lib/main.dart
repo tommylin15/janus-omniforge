@@ -1368,7 +1368,7 @@ class _JournalNotesPageState extends State<JournalNotesPage>
     }
     if (section != 1) return;
     final payload =
-        await transactionDialog(context, initial: widget.initialTransaction);
+        await transactionDialog(context, api: widget.api, initial: widget.initialTransaction);
     if (payload != null) {
       await widget.api.post('/api/v1/me/journal/events', payload);
       widget.onTransactionSaved?.call(Map<String, dynamic>.from(payload));
@@ -1381,7 +1381,7 @@ class _JournalNotesPageState extends State<JournalNotesPage>
 
   Future<void> correct(Map row) async {
     final replacement = await transactionDialog(context,
-        initial: Map<String, dynamic>.from(row), title: '建立更正');
+        api: widget.api, initial: Map<String, dynamic>.from(row), title: '建立更正');
     if (replacement == null || !mounted) return;
     await widget.api.post(
         '/api/v1/me/journal/events/${row['event_id']}/corrections', {
@@ -2334,7 +2334,9 @@ Future<String?> textDialog(BuildContext context, String title, String label,
 }
 
 Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
-    {Map<String, dynamic>? initial, String title = '新增交易'}) async {
+    {required Api api,
+    Map<String, dynamic>? initial,
+    String title = '新增交易'}) async {
   const types = {
     'BUY': '買進',
     'SELL': '賣出',
@@ -2352,8 +2354,6 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
   var amount = '${initial?['cash_amount'] ?? ''}';
   var memo = '${initial?['memo'] ?? ''}';
 
-  String? requiredText(String? value) =>
-      value == null || value.trim().isEmpty ? '必填' : null;
   String? positiveNumber(String? value) {
     final number = num.tryParse(value?.trim() ?? '');
     return number == null || number <= 0 ? '請輸入大於 0 的數字' : null;
@@ -2410,15 +2410,55 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
                                           }
                                           return null;
                                         }),
-                                    TextFormField(
-                                        initialValue: symbol,
-                                        onChanged: (value) => symbol = value,
+                                    Autocomplete<Map<String, dynamic>>(
+                                      initialValue:
+                                          TextEditingValue(text: symbol),
+                                      displayStringForOption: stockDisplayName,
+                                      optionsBuilder: (value) async {
+                                        final query = value.text.trim();
+                                        if (query.isEmpty ||
+                                            query.length > 80) {
+                                          return const <Map<String, dynamic>>[];
+                                        }
+                                        try {
+                                          final result = await api
+                                              .get(
+                                                Uri(
+                                                    path:
+                                                        '/api/v1/me/journal/instruments',
+                                                    queryParameters: {
+                                                      'q': query
+                                                    }).toString(),
+                                              )
+                                              .timeout(
+                                                  const Duration(seconds: 10));
+                                          return (result['items'] as List).map(
+                                              (row) =>
+                                                  Map<String, dynamic>.from(
+                                                      row));
+                                        } catch (_) {
+                                          return const <Map<String, dynamic>>[];
+                                        }
+                                      },
+                                      onSelected: (row) =>
+                                          symbol = '${row['symbol']}',
+                                      fieldViewBuilder: (context, controller,
+                                              focus, submit) =>
+                                          TextFormField(
+                                        controller: controller,
+                                        focusNode: focus,
                                         autofocus: true,
-                                        textCapitalization:
-                                            TextCapitalization.characters,
+                                        maxLength: 80,
                                         decoration: const InputDecoration(
-                                            labelText: '股票代號'),
-                                        validator: requiredText),
+                                          labelText: '股票代號或名稱',
+                                          helperText: '輸入一個字即可搜尋，請從下拉選項選取',
+                                        ),
+                                        onChanged: (_) => symbol = '',
+                                        validator: (_) => symbol.isEmpty
+                                            ? '請從下拉選項選取股票；無結果時請修改輸入重試'
+                                            : null,
+                                      ),
+                                    ),
                                     if (type != 'CASH_DIV')
                                       TextFormField(
                                           initialValue: shares,

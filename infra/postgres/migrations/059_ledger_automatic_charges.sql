@@ -1,9 +1,11 @@
 \set ON_ERROR_STOP on
 BEGIN;
-SET ROLE janus_control;
+RESET ROLE;
 
 -- Existing immutable amounts remain intact; historical repair appends corrections.
 ALTER TABLE private.ledger_events ADD COLUMN IF NOT EXISTS fee_rule_snapshot jsonb;
+
+SET ROLE janus_control;
 
 GRANT CREATE ON SCHEMA private TO janus_private_api;
 RESET ROLE;

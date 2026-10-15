@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 40,
-  "reason": "Retry Iceberg FinOps full GHCR after run #38672034344 caught old forward-only mocked test not isolating legacy writers. Test fixture now provides an explicit no-active-legacy-writer stub, production recovery requires real legacy writer fence. Require all Python/PostgreSQL, Flutter, four immutable public images and anonymous pull. No runtime changes or traffic promotion from publication.",
+  "attempt": 41,
+  "reason": "Owner-authorized integration: one-character code/name transaction autocomplete including registered ETFs, selected-symbol validation; actual Final Admin broker-profile entry; batch home snapshot with shared Decimal/status serializer and freshness guard. Includes latest FinOps safe recovery fixes. Full Python/PostgreSQL and Flutter gates required for this exact source; migration 059 is blocked by existing ledger table ownership, so no API promotion or historical repair from this publication.",
   "expected_runtime_changes": false,
   "ceo_gateway_pilot": false
 }

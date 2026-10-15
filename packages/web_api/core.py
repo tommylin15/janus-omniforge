@@ -191,16 +191,23 @@ class CoreQueryService:
             response["missing_reason"] = None if complete else "insufficient_or_invalid_points"
         return response
 
-    def market_home(self) -> dict[str, Any]:
+    def market_home(self, *, as_of_date: date | None = None) -> dict[str, Any]:
         """Published Core baseline; each fixed section fails independently."""
+        today = as_of_date or datetime.now(ZoneInfo("Asia/Taipei")).date()
         if self._serving_home_market_snapshot is not None:
             try:
                 cached = self._serving_home_market_snapshot()
-                if cached and isinstance(cached, Mapping):
-                    return dict(cached)
+                if (cached and isinstance(cached, Mapping) and cached.get('schema_version') == 'market-home.v1'
+                        and set(cached.get('sections', {})) == {'taiex', 'market-activity', 'institutional'}):
+                    current = True
+                    for part in cached['sections'].values():
+                        if part.get('as_of'):
+                            age = (today - date.fromisoformat(str(part['as_of']))).days
+                            current = current and age >= 0 and part.get('freshness_days') == age
+                    if current:
+                        return dict(cached)
             except Exception:
                 pass
-        today = datetime.now(ZoneInfo("Asia/Taipei")).date()
         sections: dict[str, dict[str, Any]] = {}
         benchmark_table = self.TABLE_NAMES["benchmark"]
         # One bounded historical read replaces the old latest-only read.

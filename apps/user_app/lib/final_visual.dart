@@ -156,7 +156,8 @@ class _FinalLoginPageState extends State<FinalLoginPage> {
       final api = legacy.Api(token);
       await Navigator.of(context).pushReplacement(MaterialPageRoute(
         builder: (_) => widget.admin
-            ? AdminWorkspace(api: api, email: account.email, onTheme: widget.onTheme)
+            ? AdminWorkspace(api: api, email: account.email, onTheme: widget.onTheme,
+                brokerProfile: legacy.BrokerProfileCard(api, endpoint: '/api/v1/admin/broker-profile'))
             : FinalWorkspace(api: api, email: account.email, onTheme: widget.onTheme),
       ));
     } catch (_) {

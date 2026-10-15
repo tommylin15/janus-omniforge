@@ -534,6 +534,21 @@ class PostgresWorkspaceRepository:
                    ORDER BY s.symbol LIMIT %s""", (query, query, min(limit, 20)),
             ).fetchall()]
 
+    def search_trade_instruments(self, query: str) -> list[dict[str, Any]]:
+        query = query.strip()
+        if not query:
+            return []
+        with self._connection() as connection:
+            return [dict(row) for row in connection.execute(
+                """SELECT symbol,name AS stock_name,market,enabled
+                   FROM control.stock_master
+                   WHERE market IN ('TWSE','TPEX')
+                   AND (strpos(lower(symbol),lower(%s))>0 OR strpos(name,%s)>0)
+                   ORDER BY (lower(symbol)=lower(%s)) DESC,
+                            (strpos(name,%s)=1) DESC,symbol LIMIT 20""",
+                (query, query, query, query),
+            ).fetchall()]
+
     def investment_profile(self, user_id: UUID) -> dict[str, Any]:
         with self._connection() as connection:
             row=connection.execute("""SELECT risk_tolerance,investment_horizon,primary_goal,minimum_cash_ratio,

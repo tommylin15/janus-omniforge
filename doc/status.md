@@ -1,5 +1,14 @@
 # Janus Current Status
 
+## 2026-10-15 自動費稅 full CI PASS；失敗 rollout 已恢復；059 與產品驗收接續中
+
+- 自動費稅來源 `62d95bec42fe56ade9858376d1221fbb8b2321a1` 完整 Release [#38668985924](https://github.com/tommylin15/janus-omniforge/actions/runs/38668985924) PASS：Python／隔離 PostgreSQL **1206 PASS／2 legacy deselected**、Flutter／web build、四個 immutable GHCR image／public pull PASS。本人折扣及歷史費稅**尚未在 dev 寫入**，不能將 CI 當回補完成。
+- 單純 stale lease recovery [#38669383890](https://github.com/tommylin15/janus-omniforge/actions/runs/38669383890) FAIL：原 FinOps rollout #38663858991 留下 Scheduler PAUSED 與部分新映像。後續 exact receipt SHA256／owner／tag、全頁 execution fence、匿名 baseline pull、正常新 lease 的受控 rollback [#38669986461](https://github.com/tommylin15/janus-omniforge/actions/runs/38669986461) **PASS**：恢復來源 `c8e8a7415be48b291a347dcc115d7834db6696a8` 原四 Jobs／配置及 Scheduler ENABLED，正式 API traffic 未變、ledger writes=0。原失敗不抹除。
+- Migration 059 [#38670778671](https://github.com/tommylin15/janus-omniforge/actions/runs/38670778671) 執行失敗，exact ingestion execution `janus-ingestion-core-d79bq` 證實 `InsufficientPrivilege: must be owner of table ledger_events`；已用既有 operator IAP 唯讀確認 owner=postgres，連線成功；059 修正為既有 DB owner 路徑，不擴充應用角色權限，尚未重送或回補歷史交易。舊 queue canary #38653931699 的 artifact 為 UNKNOWN，保存 seed／worker／verify execution，但 cleanup 無收據；須讀回 exact request 終態及 cleanup，不能盲目新 seed。
+- 交易搜尋已接上新增／更正表單，支援代號／名稱第一字下拉及已登記 ETF；修改文字後需重新選定。主檔搜尋／登入邊界 Python 22 PASS，交易 Flutter 3 PASS；尚未部署。
+- 後續原始碼補上正式 `final_visual.dart` Admin 設定入口及首頁批次快照接線；快照共用 API 的 Decimal／partial／missing serializer，讀取不接受過期 freshness 或未來日期。相關 Python 29 PASS、Admin Flutter 5 PASS；尚待新 SHA full Release／實際快照與 Owner 驗收。前版 CI 不替新原始碼背書。
+
+
 ## 2026-10-15 本輪 1～5 已授權；自動費稅開發中（PARTIAL）
 
 - 使用者新增本人折扣 0.4、自動證交稅、交易表單移除兩項輸入，並授權更正全部既有有效交易後依序完成 1～5；後置模型研究不啟動。已補共用費稅、Admin 本人券商設定、規則快照、Migration 059、原子 append-only 更正與同日交易更正排序。真實 ledger 回補尚未執行。

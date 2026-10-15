@@ -1135,6 +1135,11 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         today = datetime.now(ZoneInfo("Asia/Taipei")).date()
         return jsonable_encoder(_owner_today_relevant(rows, today))
 
+    @private.get("/journal/instruments")
+    def trade_instruments(q: str = Query(..., min_length=1, max_length=80),
+                          current: AuthenticatedUser = Depends(user)):
+        return jsonable_encoder({"items": repository.search_trade_instruments(q)})
+
     @private.get("/watchlist/search")
     def watchlist_search(q: str = Query(..., min_length=1, max_length=80),
                          current: AuthenticatedUser = Depends(user)):

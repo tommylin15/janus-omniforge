@@ -281,26 +281,38 @@ void main() {
         home: Builder(
             builder: (context) => FilledButton(
                 onPressed: () async {
-                  result = await transactionDialog(context, initial: {
-                    'event_type': 'BUY',
-                    'trade_date': today,
-                    'symbol': '2330',
-                    'shares': '10',
-                    'price': '1000'
-                  });
+                  result = await transactionDialog(context,
+                      api: FakeApi({
+                        '/api/v1/me/journal/instruments?q=2317': {
+                          'items': [
+                            {'symbol': '2317', 'stock_name': '鴻海'}
+                          ]
+                        },
+                      }),
+                      initial: {
+                        'event_type': 'BUY',
+                        'trade_date': today,
+                        'symbol': '2330',
+                        'shares': '10',
+                        'price': '1000'
+                      });
                 },
                 child: const Text('開啟')))));
 
     await tester.tap(find.text('開啟'));
     await tester.pumpAndSettle();
-    for (final label in ['交易類型', '交易日期', '股票代號', '股數', '成交單價', '備註', '幣別']) {
+    for (final label in ['交易類型', '交易日期', '股票代號或名稱', '股數', '成交單價', '備註', '幣別']) {
       expect(find.text(label), findsOneWidget);
     }
     expect(find.text('2330'), findsOneWidget);
     expect(find.text('10'), findsOneWidget);
     expect(find.text('1000'), findsOneWidget);
 
-    await tester.enterText(find.widgetWithText(TextFormField, '股票代號'), '2317');
+    await tester.enterText(
+        find.widgetWithText(TextFormField, '股票代號或名稱'), '2317');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('鴻海（2317）'));
+    await tester.pumpAndSettle();
     expect(find.widgetWithText(TextFormField, '手續費'), findsNothing);
     expect(find.widgetWithText(TextFormField, '證券交易稅'), findsNothing);
     await tester.tap(find.text('儲存'));
@@ -310,6 +322,36 @@ void main() {
     expect(result, containsPair('price', '1000'));
     expect(result!.containsKey('fee'), isFalse);
     expect(result!.containsKey('tax'), isFalse);
+  });
+
+  testWidgets('transaction search starts with one character and rejects unselected text',
+      (tester) async {
+    Map<String, dynamic>? result;
+    final api = FakeApi({
+      '/api/v1/me/journal/instruments?q=%E5%85%83': {
+        'items': [{'symbol': '00719B', 'stock_name': '元大美債1-3'}]
+      },
+    });
+    await tester.pumpWidget(MaterialApp(home: Builder(builder: (context) =>
+      FilledButton(onPressed: () async {
+        result = await transactionDialog(context, api: api, initial: {
+          'shares': '1', 'price': '100',
+        });
+      }, child: const Text('開啟')))));
+    await tester.tap(find.text('開啟'));
+    await tester.pumpAndSettle();
+    final field = find.widgetWithText(TextFormField, '股票代號或名稱');
+    await tester.enterText(field, '元');
+    await tester.pumpAndSettle();
+    expect(find.text('元大美債1-3（00719B）'), findsOneWidget);
+    await tester.tap(find.text('元大美債1-3（00719B）'));
+    await tester.pumpAndSettle();
+    await tester.enterText(field, '錯誤名稱');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('儲存'));
+    await tester.pumpAndSettle();
+    expect(result, isNull);
+    expect(find.text('請從下拉選項選取股票；無結果時請修改輸入重試'), findsOneWidget);
   });
 
   testWidgets('journal exposes holdings, records, reports, and notes',

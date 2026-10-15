@@ -419,7 +419,8 @@ def test_core_readiness_fences_snapshot_and_uses_read_only_catalog(monkeypatch):
 
 
 @pytest.mark.parametrize('private_failure', [False, True])
-def test_automatic_fee_migration_revokes_temporary_create_and_never_records_failed_apply(monkeypatch, private_failure):
+@pytest.mark.parametrize('owner_required', [False, True])
+def test_automatic_fee_migration_revokes_temporary_create_and_never_records_failed_apply(monkeypatch, private_failure, owner_required):
     import base64, hashlib, runpy
     from pathlib import Path
     from ingestion_core import __main__ as entry
@@ -436,8 +437,14 @@ def test_automatic_fee_migration_revokes_temporary_create_and_never_records_fail
     source = (Path(__file__).parents[1]/'infra/postgres/migrations/059_ledger_automatic_charges.sql').read_bytes()
     monkeypatch.setenv('JANUS_ANALYSIS_MIGRATION_SQL', base64.b64encode(source).decode())
     monkeypatch.setenv('JANUS_ANALYSIS_MIGRATION_HASH', hashlib.sha256(source).hexdigest())
-    monkeypatch.setenv('JANUS_ANALYSIS_MIGRATION_NAME', '059_ledger_automatic_charges')
+    monkeypatch.setenv('JANUS_ANALYSIS_MIGRATION_NAME', '059_ledger_automatic_charges' if owner_required else 'private-phase-fixture')
     bootstrap = runpy.run_path('scripts/gcp/analysis_schema_bootstrap.py')['BOOTSTRAP']
+    if owner_required:
+        with pytest.raises(RuntimeError, match='PostgreSQL owner operator path'):
+            exec(bootstrap, {})
+        assert 'ALTER TABLE private.ledger_events' not in statements(control.connection)
+        assert 'GRANT CREATE' not in statements(control.connection)
+        return
     if private_failure:
         with pytest.raises(RuntimeError, match='private apply failed'):
             exec(bootstrap, {})

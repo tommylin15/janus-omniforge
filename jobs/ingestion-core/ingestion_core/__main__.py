@@ -757,6 +757,9 @@ def collect_stage(*, execution_id: str | None = None, symbols: tuple[str, ...] |
     try:
         if failures:
             raise RuntimeError(json.dumps(summary, ensure_ascii=False, sort_keys=True))
+        if serving_projection is not None and serving_published:
+            home_snapshot = serving_projection.materialize_home_market_snapshot()
+            summary['home_market_snapshot'] = {'status': home_snapshot['status'], 'as_of': home_snapshot['as_of']}
         if execution_scoped:
             stage_writer.mark_core_committed(execution_id, stage_results=stage_results)
             if persisted_execution:

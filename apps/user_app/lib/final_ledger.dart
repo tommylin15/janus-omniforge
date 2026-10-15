@@ -314,7 +314,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   }
 
   Future<void> addTrade() async {
-    final payload = await legacy.transactionDialog(context);
+    final payload = await legacy.transactionDialog(context, api: widget.api);
     if (payload == null) return;
     var saveStarted = false;
     try {
@@ -366,6 +366,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
   Future<void> correctTrade(Map<String, dynamic> row) async {
     final replacement = await legacy.transactionDialog(
       context,
+      api: widget.api,
       initial: row,
       title: '建立更正',
     );

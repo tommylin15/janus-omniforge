@@ -20,6 +20,8 @@ prepare,rest=_without_role_lines(raw.decode()).split('-- PHASE: acceptance',1)
 checks,record=rest.split('INSERT INTO control.schema_migrations',1)
 control=_control_plane()
 try:
+ if os.environ['JANUS_ANALYSIS_MIGRATION_NAME']=='059_ledger_automatic_charges':
+  raise RuntimeError('migration 059 requires the existing PostgreSQL owner operator path')
  if '-- PHASE: private-api' in prepare:
   control_sql,private_rest=prepare.split('-- PHASE: private-api',1)
   private_sql,finalize_sql=private_rest.split('-- PHASE: control-finalize',1)
@@ -85,6 +87,8 @@ def main():
     parser.add_argument('--migration', choices=('051_analysis_product', '052_ceo_daily_quota_50', '054_market_serving', '055_full_market_universe', '056_controller_ledger_backup', '057_home_market_snapshot', '058_official_held_etf_identity', '059_ledger_automatic_charges'),
                         default='051_analysis_product')
     args = parser.parse_args()
+    if args.migration == '059_ledger_automatic_charges':
+        parser.error('migration 059 requires the existing PostgreSQL owner operator path')
     source = job('janus-ingestion-core')
     fence()
     sql = (Path(__file__).parents[2] / 'infra/postgres/migrations' / f'{args.migration}.sql').read_bytes()

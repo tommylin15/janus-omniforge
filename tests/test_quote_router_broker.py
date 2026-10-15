@@ -310,3 +310,22 @@ def test_admin_broker_profile_is_bound_to_same_google_subject_and_rejects_owner_
     assert api.put(path, json={**payload, 'user_id': b['owner']}, headers=headers).status_code == 422
     result = api.put(path, json=payload, headers=headers)
     assert result.status_code == 200 and result.json()['owner'] == a['owner']
+
+
+def test_trade_instrument_search_is_authenticated_and_accepts_one_character():
+    repository = QuoteRepository()
+    searches = []
+    def search(query):
+        searches.append(query)
+        return [{'symbol': '00719B', 'stock_name': '元大美債1-3'}]
+    repository.search_trade_instruments = search
+    client = TestClient(create_app(repository, Store(), lambda *_: {
+        'sub': 'google-a', 'email': 'owner@example.com', 'email_verified': True, 'exp': 1_900_000_000,
+        'aud': 'user-client', 'iss': 'https://accounts.google.com',
+    }, audience='user-client'))
+    response = client.get('/api/v1/me/journal/instruments', params={'q': '元'}, headers={'Authorization': 'Bearer user'})
+    assert response.status_code == 200
+    assert response.json()['items'][0]['symbol'] == '00719B'
+    assert searches == ['元']
+    assert client.get('/api/v1/me/journal/instruments', params={'q': '元'}).status_code == 401
+    assert client.get('/api/v1/me/journal/instruments', params={'q': ''}, headers={'Authorization': 'Bearer user'}).status_code == 422
