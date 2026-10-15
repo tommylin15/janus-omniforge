@@ -19,10 +19,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
-          jq -e '.intent=="read-only-p0-owner-operation-diagnosis" and .approved==true and .source_run=="38724207848" and .no_gcp_mutation==true and .no_lease_mutation==true and .no_job_run==true and .no_owner_data_export==true' ops/p0-owner-execution-readback.json >/dev/null
-          gh run view 38724207848 --json status,conclusion,workflowName | jq -e '.status=="completed" and .conclusion=="failure" and .workflowName=="Janus P0 exact official 00697B as-of and real Owner Mart"' >/dev/null
+          jq -e '.intent=="read-only-p0-owner-operation-diagnosis" and .approved==true and .source_run=="38730741579" and .no_gcp_mutation==true and .no_lease_mutation==true and .no_job_run==true and .no_owner_data_export==true' ops/p0-owner-execution-readback.json >/dev/null
+          gh run view 38730741579 --json status,conclusion,workflowName | jq -e '.status=="completed" and .conclusion=="failure" and .workflowName=="Janus P0 exact official 00697B as-of and real Owner Mart"' >/dev/null
           mkdir -p /tmp/p0failed
-          gh run download 38724207848 -n p0-tpex-asof-owner-receipt -D /tmp/p0failed
+          gh run download 38730741579 -n p0-tpex-asof-owner-receipt -D /tmp/p0failed
           jq -e '.status=="DISPATCHED_UNKNOWN" and .source_sha=="285848e28041bf2fb024bd98bd348641f022a1ed" and .no_ledger_mutation==true and (.operation|type=="string" and test("^[0-9a-f-]{36}$"))' /tmp/p0failed/p0-tpex-asof-owner-acceptance.json >/dev/null
       - uses: google-github-actions/auth@v2
         with:
@@ -46,11 +46,11 @@ jobs:
           if not name.startswith(ctl.ROOT+'/jobs/janus-private-pipeline/executions/'):
             collection=ctl.cloud(ctl.ROOT+'/jobs/janus-private-pipeline/executions?pageSize=100')
             matches=[x for x in collection.get('executions',[]) if
-              '2026-10-15T11:00:30'<=str(x.get('createTime') or '')[:19]<='2026-10-15T11:06:30']
+              '2026-10-15T11:55:00'<=str(x.get('createTime') or '')[:19]<='2026-10-15T12:02:05']
             if len(matches)==1:name=matches[0]['name']
           details=ctl.cloud(name) if name.startswith(ctl.ROOT+'/jobs/janus-private-pipeline/executions/') else {}
           logs=subprocess.run(['gcloud','logging','read',
-            'resource.type="cloud_run_job" AND timestamp>="2026-10-15T11:00:00Z" AND timestamp<="2026-10-15T11:08:00Z"',
+            'resource.type="cloud_run_job" AND timestamp>="2026-10-15T11:54:00Z" AND timestamp<="2026-10-15T12:04:00Z"',
             '--project=gen-lang-client-0593591102','--format=json','--limit=400'],
             capture_output=True,text=True,check=True,timeout=65)
           scoped=[]
@@ -69,7 +69,7 @@ jobs:
            'owner_aggregate_value_pnl_still_withheld','official_date_not_verified',
            'out_of_bounded_official_date','ledger_version_changed_during_mart_write']
           findings=[v for v in markers if any(v in s for s in scoped)]
-          report={'source_run':'38724207848','status':'READ_ONLY',
+          report={'source_run':'38730741579','status':'READ_ONLY',
             'operation_done':op.get('done'),'operation_has_error':bool(op.get('error')),
             'execution':name.rsplit('/',1)[-1] if name else None,
             'terminal':ctl.terminal(details) if details else False,

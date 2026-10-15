@@ -1,11 +1,11 @@
 {
   "intent": "read-only-p0-owner-operation-diagnosis",
   "approved": true,
-  "source_run": "38724207848",
+  "source_run": "38730741579",
   "no_gcp_mutation": true,
   "no_lease_mutation": true,
   "no_job_run": true,
   "no_owner_data_export": true,
-  "reason": "Read-only retry after import path failed before Cloud Run API access; exact failed source job unchanged and no write.",
-  "attempt": 2
+  "reason": "Read-only exact operation and sanitized owner PnL/aggregate failure after 8/8 position price readback; no new execution or private mutation. Inspect 2026-10-15T11:55..12:04Z logs.",
+  "attempt": 3
 }
