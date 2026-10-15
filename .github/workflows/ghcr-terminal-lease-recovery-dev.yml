@@ -29,9 +29,9 @@ jobs:
         run: |
           set -Eeuo pipefail
           jq -e '.intent == "reconcile-terminal-ghcr-lease" and
-                 .approved == true and .owner_run == 38653931699 and
-                 .owner_source_sha == "76ef592f57ae8bd86872c7207de36bfb345b916d" and
-                 .tag_sha == "463dfb9e45831bcd24e5c4514d46931e58fe0306" and
+                 .approved == true and .owner_run == 38663858991 and
+                 .owner_source_sha == "331234b3b4b78a3554868a1118aea6a05b2048bc" and
+                 .tag_sha == "8cb00ac53e2305d94b1f15111d381866dd9887b8" and
                  .no_gcp_mutation == true' ops/ghcr-stale-lease-recovery-request.json
           python -m pip install --disable-pip-version-check pytest==8.4.2
           python -m pytest -q tests/test_ghcr_terminal_lease_recovery.py tests/test_ghcr_release_lease.py
@@ -43,7 +43,7 @@ jobs:
       - name: Recover only after exact owner, lease, API and all-page Job execution proof
         env:
           GH_TOKEN: ${{ github.token }}
-          JANUS_TERMINAL_LEASE_RECOVERY: '38653931699'
+          JANUS_TERMINAL_LEASE_RECOVERY: '38663858991'
         run: |
           set -Eeuo pipefail
           python scripts/gcp/ghcr_terminal_lease_recovery.py
