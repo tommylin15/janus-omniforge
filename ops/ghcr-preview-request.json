@@ -2,16 +2,16 @@
   "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
   "approved": true,
   "scope": "janus-api-preview-tag-only",
-  "source_sha": "536598f2528550fd60c73786597fdf2740860c9e",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:04c20066fdc59260b44965cacd3f55c4683d528f3f83c9d253e5f5270bbc78ce",
-  "release_run": "38691316772",
-  "candidate_run": "38691954051",
-  "boundary_run": "38692148433",
+  "source_sha": "079cca4f24aedb6285270df8e86f856d2498ce13",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:8cb2f0ad202b44f1bb45a4cc896facad6b5e930e3c037a606feafc3289a92b14",
+  "release_run": "38695837708",
+  "candidate_run": "38710296292",
+  "boundary_run": "38710582355",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
-  "reason": "2026-10-15 D01-D05 combined development: same-source full release #38691316772 PASS, 0% candidate #38691954051 PASS and auto auth #38692148433 PASS. Advance ONLY fixed Preview so new D01 quote safety and D03 UI can be examined without switching 100% serving API. D01 complete historical owner PnL remains PARTIAL for missing 00697B; D04 backup controller VM IAM blocked. Keep canonical service traffic, Scheduler, Jobs and other tags unchanged by preview workflow.",
+  "reason": "P1 corrected official TPEx source release #38695837708 PASS, 0% candidate #38710296292 PASS, same-source auto-OAuth/private boundary #38710582355 PASS. Update ONLY verified fixed Preview tag to new source; never switch 100% traffic, mutate Jobs/Scheduler/owner ledger, or represent partial Owner PnL or VM backup as PASS.",
   "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
-  "attempt": 13
+  "attempt": 14
 }
