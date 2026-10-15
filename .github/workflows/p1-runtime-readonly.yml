@@ -16,8 +16,8 @@ jobs:
       - name: Require bounded no-mutation P1 request
         run: |
           jq -e '.intent=="p1-live-readonly-preview-jobs" and
-            .approved==true and .target_source_sha=="285848e28041bf2fb024bd98bd348641f022a1ed" and
-            .preview_run=="38740477232" and .scope=="existing-dev-read-only" and
+            .approved==true and .target_source_sha=="7acff50000644979af3815f00fbd7f1c167e1098" and
+            .preview_run=="38826680295" and .scope=="existing-dev-read-only" and
             .no_owner_mutation==true and .no_gcp_mutation==true and
             .no_traffic_mutation==true and .no_job_execution==true' ops/p1-runtime-readonly-request.json > /dev/null
       - uses: google-github-actions/auth@v2
@@ -32,7 +32,7 @@ jobs:
           from pathlib import Path
           project='gen-lang-client-0593591102'
           region='us-central1'
-          source='285848e28041bf2fb024bd98bd348641f022a1ed'
+          source='7acff50000644979af3815f00fbd7f1c167e1098'
           base='https://janus-api-2oo7qbkd5q-uc.a.run.app'
           preview='https://preview---janus-api-2oo7qbkd5q-uc.a.run.app'
           report={'scope':'p1_read_only','target_source_sha':source,'no_mutations':True,
@@ -68,6 +68,7 @@ jobs:
             report['candidate_zero_traffic']=len(candidate)==1 and (candidate[0].get('percent') or 0)==0
             report['active_revision']=active[0].get('revisionName') if len(active)==1 else 'UNKNOWN'
           else:report['service_read']='UNKNOWN'
+          expected_digests={"janus-batch-controller":"8590f4d4cc991aefc069b28da3f466858eefc6fd2e5011de5063ffdb76e809cd","janus-ingestion-core":"8590f4d4cc991aefc069b28da3f466858eefc6fd2e5011de5063ffdb76e809cd","janus-intelligence-mart":"8985a8192a39fda19578ffa87157ef66a1327159ae207292ee8d73c602e3f196","janus-private-pipeline":"2c6f4560abd6980aea69064795f7dbab38683f792ec628d3a8d53ed320bf5bae"}
           jobs={}
           for name in ('janus-batch-controller','janus-ingestion-core',
                        'janus-intelligence-mart','janus-private-pipeline'):
@@ -94,6 +95,7 @@ jobs:
             references=images(row.get('spec',row))
             immutable=[v for v in references if v.startswith('ghcr.io/tommylin15/') and '@sha256:' in v]
             jobs[name]={'read':'PASS','immutable_ghcr_image':bool(immutable),
+                         'target_digest_match':bool(immutable and immutable[0].endswith('@sha256:'+expected_digests[name])),
                         'target_image_digest_prefix':immutable[0].split('@sha256:')[-1][:12] if immutable else None,
                         'job_ready':any(c.get('type')=='Ready' and c.get('status')=='True'
                                         for c in row.get('status',{}).get('conditions',[]))}
@@ -167,9 +169,9 @@ jobs:
                                'last_attempt_time':scheduler.get('lastAttemptTime')} if isinstance(scheduler,dict) else {'read':'UNKNOWN'}
           report['result']='PREVIEW_AND_INFRA_PASS' if (report.get('preview_build_match') and
                report.get('preview_candidate_revision_match') and report.get('candidate_zero_traffic') and
-               report.get('canonical_single_100') and all(x.get('immutable_ghcr_image')
+               report.get('canonical_single_100') and all(x.get('immutable_ghcr_image') and x.get('target_digest_match') and x.get('job_ready')
                                                          for x in jobs.values()) and
-               report['scheduler'].get('read')=='PASS') else 'PARTIAL_OR_UNKNOWN'
+               report['scheduler'].get('state')=='ENABLED') else 'PARTIAL_OR_UNKNOWN'
           report['status']='PASS_READ_ONLY' if report['result']=='PREVIEW_AND_INFRA_PASS' else 'PARTIAL'
           Path('/tmp/p1-runtime-readonly.json').write_text(json.dumps(report,sort_keys=True))
           print(json.dumps(report,sort_keys=True))
@@ -182,7 +184,7 @@ jobs:
           sys.path.insert(0, 'scripts/gcp')
           from ghcr_jobs_rollout import job,image,fingerprint
           from ghcr_job_cutover_plan import JOB_COMPONENT
-          summary={'source_sha':'285848e28041bf2fb024bd98bd348641f022a1ed','rollback_images':{},'rollback_config_hashes':{}}
+          summary={'source_sha':'7acff50000644979af3815f00fbd7f1c167e1098','rollback_images':{},'rollback_config_hashes':{}}
           for name,_ in JOB_COMPONENT:
               data=job(name)
               ref=image(data)
