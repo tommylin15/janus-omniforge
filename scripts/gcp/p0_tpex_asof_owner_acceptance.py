@@ -101,6 +101,18 @@ for name in symbols:
   raise RuntimeError("owner_derived_pnl_missing_or_checkpoint_mismatch")
 if str(by_symbol[symbol].get("price_date"))!=entry[1].isoformat():
  raise RuntimeError("held_etf_mart_price_day_mismatch")
+portfolio = store.mart("mart_user_portfolio_summary", owner)
+target_summaries = [x for x in portfolio if x.get("valuation_date")==valuation.isoformat()
+                    and str(x.get("currency"))=="TWD"]
+if len(target_summaries)!=1:
+ raise RuntimeError("owner_portfolio_summary_not_unique_current_checkpoint")
+total=target_summaries[0]
+if (total.get("aggregate_status")!="available" or
+    int(total.get("missing_price_count",1))!=0 or
+    int(total.get("stale_price_count",1))!=0 or
+    total.get("market_value") is None or total.get("unrealized_pnl") is None or
+    int(total.get("ledger_version") or 0)!=after):
+ raise RuntimeError("owner_aggregate_value_pnl_still_withheld")
 print(json.dumps({"component":"p0_tpex_asof_owner","status":"PASS",
  "symbol":"00697B","stored_official_day":target.isoformat(),
  "valuation_day":valuation.isoformat(),"used_price_day":entry[1].isoformat(),
