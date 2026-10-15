@@ -5,6 +5,6 @@
   "no_gcp_mutation": true,
   "no_ledger_read": true,
   "no_data_write": true,
-  "reason": "P0 read-only diagnosis: TPEx dated JSON requested 2026-10-14 but response date metadata mismatched; log safe date/stat/key metadata and exact symbol row count, no close or owner.",
-  "attempt": 2
+  "reason": "Read-only verify TPEx official /www/zh-tw/afterTrading/dailyQuotes Gregorian vs ROC date and legacy no1430 schema. No quote prices or owner log.",
+  "attempt": 3
 }
