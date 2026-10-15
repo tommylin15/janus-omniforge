@@ -20,39 +20,58 @@ jobs:
             .symbol == "00697B" and .no_private_data == true and
             .no_data_mutation == true and .no_runtime_mutation == true' \
             ops/held-etf-official-source-diagnostic.json >/dev/null
-      - name: Observe official payload schema and one public instrument only
+      - name: Compare bounded official TPEx published market schemas without persisting prices
         run: |
           python - <<'PY'
-          import json
-          from datetime import datetime, timezone, timedelta
-          from services.api.tpex_quotes import TpexDailyQuotes, parse_tpex_daily_quotes
+          import json, urllib.request, urllib.error
+          from datetime import datetime
+          from urllib.parse import urlencode
+          from services.api.tpex_quotes import parse_tpex_daily_quotes
           from services.api.intraday_quotes import TAIPEI
-          symbol = '00697B'
-          try:
-              payload = TpexDailyQuotes()._download()
-              rows = payload if isinstance(payload, list) else payload.get('data', []) if isinstance(payload, dict) else []
-              columns = sorted(rows[0]) if rows and isinstance(rows[0], dict) else []
-              matches = [row for row in rows if isinstance(row, dict) and symbol in
-                [str(row.get(key, '')).strip() for key in
-                 ('SecuritiesCompanyCode', 'SecuritiesCode', 'Code', '證券代號', '股票代號')]]
-              result = parse_tpex_daily_quotes(rows, {symbol}, datetime.now(TAIPEI))
-              summary = {
-                'source': 'tpex_mainboard_daily_close_quotes',
-                'source_schema_kind': type(payload).__name__,
-                'row_count': len(rows) if isinstance(rows, list) else None,
-                'field_keys': columns[:50],
-                'symbol': symbol,
-                'matching_rows': len(matches),
-                'match_fields': sorted(matches[0])[:50] if matches else [],
-                'match_date': str(matches[0].get('Date') or matches[0].get('TradeDate') or '')[:10] if matches else None,
-                'parse_eligible': symbol in result,
-                'parsed_price_date': result.get(symbol, {}).get('price_date'),
-                'private_read': False,
-                'data_write': False,
-              }
-              print(json.dumps(summary, ensure_ascii=False, sort_keys=True))
-          except Exception as exc:
-              print(json.dumps({'source':'tpex_mainboard_daily_close_quotes',
-                  'status':'source_unavailable', 'error_type': type(exc).__name__,
-                  'private_read':False,'data_write':False},sort_keys=True))
+          now=datetime.now(TAIPEI)
+          day=f'{now.year-1911:03d}/{now.month:02d}/{now.day:02d}'
+          sources={
+            'openapi': 'https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes',
+            'legacy_json': 'https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php?' + urlencode({'l':'zh-tw','o':'json','d':day,'s':'0'}),
+            'legacy_html': 'https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php?' + urlencode({'l':'zh-tw','o':'htm','d':day,'s':'0'}),
+            'new_json': 'https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes?' + urlencode({'date':day,'response':'json'}),
+          }
+          for label,url in sources.items():
+            result={'source':label,'date_requested':day,'symbol':'00697B',
+                    'private_read':False,'data_write':False}
+            try:
+              req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0 (compatible; Janus/1.0)','Accept':'application/json,text/html,*/*'})
+              with urllib.request.urlopen(req,timeout=15) as response:
+                body=response.read(12_000_001)
+                result.update(http_status=response.status,content_type=response.headers.get('Content-Type','')[:75],payload_bytes=len(body))
+              if len(body)>12_000_000: raise ValueError('payload_too_large')
+              if body.lstrip().startswith((b'[',b'{')):
+                data=json.loads(body.decode('utf-8-sig'))
+                result['document_kind']=type(data).__name__
+                rows=data if isinstance(data,list) else data.get('data',data.get('rows',[]))
+                if isinstance(data,dict) and data.get('tables'):
+                  rows=[dict(zip(t.get('fields',[]),r)) for t in data['tables'] for r in t.get('data',[])]
+                result['row_count']=len(rows) if isinstance(rows,list) else None
+                if isinstance(rows,list) and rows:
+                  if isinstance(rows[0],dict):
+                    result['field_keys']=sorted(rows[0])[:45]
+                    keys=('SecuritiesCompanyCode','SecuritiesCode','Code','證券代號','股票代號','代號')
+                    matches=[r for r in rows if isinstance(r,dict) and any(str(r.get(k,'')).strip()=='00697B' for k in keys)]
+                    result['matching_rows']=len(matches)
+                    if matches:
+                      result['match_date_field']=str(matches[0].get('Date') or matches[0].get('TradeDate') or matches[0].get('資料日期') or '')[:16]
+                    if label=='openapi':
+                      valid=parse_tpex_daily_quotes(rows,{'00697B'},now)
+                      result['strict_parse_eligible']='00697B' in valid
+                  else:
+                    result['first_row_kind']=type(rows[0]).__name__
+                if isinstance(data,dict):result['document_keys']=sorted(data)[:18]
+              else:
+                result['document_kind']='html_or_non_json'
+                result['contains_00697B']=b'00697B' in body
+                result['starts_with_html']=b'<html' in body[:400].lower() or b'<!doctype html' in body[:400].lower()
+            except Exception as exc:
+              result['error_type']=type(exc).__name__
+              if isinstance(exc,urllib.error.HTTPError):result['http_status']=exc.code
+            print(json.dumps(result,ensure_ascii=False,sort_keys=True),flush=True)
           PY

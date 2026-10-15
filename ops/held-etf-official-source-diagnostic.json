@@ -4,5 +4,6 @@
   "no_private_data": true,
   "no_data_mutation": true,
   "no_runtime_mutation": true,
-  "reason": "D01 official TPEx daily quote availability/shape for recognized 00697B missing from published Janus Private Mart. Metadata-only public source observation, never invent close or publish canonical prices."
+  "reason": "D01 followup: bounded no-write probe official TPEx OpenAPI and existing legacy public daily close endpoint in JSON and HTML forms; inspect content type, status, record/ETF symbol/date fields only, never publish guessed price or alter owner's ledger.",
+  "attempt": 2
 }
