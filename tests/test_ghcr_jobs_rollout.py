@@ -209,6 +209,7 @@ def test_forward_only_preflight_no_mutation_restores_scheduler_without_old_image
                "targets": {name: "ghcr.io/tommylin15/latest@sha256:" + "c" * 64
                            for name, _ in rollout.JOB_COMPONENT}, "canaries": []}
     with patch.object(rollout, "command"), patch.object(rollout, "fence"), \
+         patch.object(rollout, "legacy_writers"), \
          patch.object(rollout, "job", return_value=original), \
          patch.object(rollout, "scheduler", return_value={"state": "PAUSED"}), \
          patch.object(rollout, "scheduler_fingerprint", return_value="f"), \
