@@ -7,9 +7,9 @@
     "private-pipeline",
     "api"
   ],
-  "promotion": "only-after-same-sha-automatic-auth-jobs-preview-live-acceptance",
-  "attempt": 44,
-  "reason": "2026-10-15 D01-D05 authorized combined product engineering: holdings quote validity, mixed-date/partial aggregate publication fence, Flutter last-success subtotal presentation, safe D04 existing-controller backup-handoff entry; run complete Python/PostgreSQL + Flutter Release gates and publish four exact-source GHCR images before any candidate/Job/Preview/traffic promotion. No test trading, backup deletion, model retrain or CEO request.",
+  "promotion": "not-authorized-without-new-exact-source-live-business-acceptance",
+  "attempt": 45,
+  "reason": "2026-10-15 D01-D05 safe followup: latest eligible official TPEx date selection from 12,466-record multi-session government OpenAPI, failure retry cooldown, and owner 00697B bounded Mart acceptance guard. Run complete Python+PostgreSQL, Flutter, four SHA-pinned GHCR images and anonymous pull; no API traffic switch, no change to backup VM IAM or ledger history.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }
