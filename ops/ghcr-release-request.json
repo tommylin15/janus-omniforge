@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "not-authorized-without-exact-source-live-owner-mart-proof",
-  "attempt": 48,
-  "reason": "2026-10-15 P0 official TPEx dailyQuotes permanent capability: verified Gregorian exact-date official response, arbitrary historic session beyond OpenAPI rolling 7-day view, official response-date hard fence, insert-only DB provenance and as-of private Mart fallback. Targeted 17/17 #38717113572 PASS, 061 migration #38714018250 real PASS. New full Python+Postgres, Flutter and four digest-pinned public GHCR. No traffic switch, owner ledger writes, new paid resources or unrelated jobs.",
+  "attempt": 49,
+  "reason": "2026-10-15 P1 fix evening Owner EOD Private Mart dispatch: per-slot 21:30 independent from afternoon ingestion, 15:30 retains dependency, terminal upstream failed skips stale afternoon, nightly priority; regression targeted tests and selective CI #38755041998 SUCCESS. Publish complete same-source Python/Flutter/GHCR artifacts for controlled existing dev four-Jobs rollout; preserve canonical traffic, Owner ledger/PIT/provenance, no new resources.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }
