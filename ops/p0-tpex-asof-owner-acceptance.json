@@ -1,0 +1,16 @@
+{
+  "intent": "official-one-owner-p0-asof-eod",
+  "approved": true,
+  "environment": "dev",
+  "symbol": "00697B",
+  "trade_date": "2026-10-14",
+  "source_sha": "285848e28041bf2fb024bd98bd348641f022a1ed",
+  "release_run": "38717341300",
+  "jobs_rollout_run": "38718355824",
+  "no_ledger_mutation": true,
+  "no_job_template_mutation": true,
+  "single_owner_only": true,
+  "private_mart_write_only": true,
+  "attempt": 1,
+  "reason": "P0 live Owner acceptance only after exact-source new full release 38717341300, 0% candidate 38718006906, auto OAuth boundary 38718076548 and successful controlled four Jobs rollout 38718355824 receipt 8/8. Read fresh official 2026-10-14 dailyQuotes from official GHA HTTPS; only append immutable shared historical 00697B EOD, as-of 2026-10-14 one existing owner derived Mart, assert all owned prices and aggregate PnL available, exact ledger version unchanged. Never write private ledger events, change templates or promote 100% API traffic."
+}
