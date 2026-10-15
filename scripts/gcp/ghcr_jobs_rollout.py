@@ -513,7 +513,10 @@ def recover(journal, save):
             journal["phase"] = "RESTORED_NO_MUTATION"
             save()
             return
-    fence()
+    # A timed-out canary may still be terminating. Do not strand the Scheduler
+    # and deployment lease after one transient non-terminal read; retry within
+    # the existing bounded execution fence. Unknown state still fails closed.
+    wait_for_terminal_executions()
     if journal.get("rollback_mode") == "user_authorized_forward_only":
         # Never try to restore an explicitly waived and unavailable AR image.
         originals = journal.get("snapshots", {})
