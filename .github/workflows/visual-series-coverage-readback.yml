@@ -1,0 +1,76 @@
+name: Janus fixed-preview visual-series coverage readback
+on:
+  push:
+    branches: [main]
+    paths: ['ops/visual-series-coverage-readback.json']
+permissions:
+  contents: read
+jobs:
+  public-visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify read-only exact-preview scope
+        run: |
+          jq -e '.intent=="read-only-preview-visual-series-coverage" and
+            .source_sha=="536598f2528550fd60c73786597fdf2740860c9e" and
+            .no_data_mutation==true and .no_private_data==true and
+            .symbols==["2330","6488"] and .limit==20' \
+            ops/visual-series-coverage-readback.json >/dev/null
+      - name: Read nine published visual metric categories, record gaps without faking data
+        run: |
+          python - <<'PY'
+          import json, urllib.request, urllib.parse
+          from pathlib import Path
+          request=json.loads(Path('ops/visual-series-coverage-readback.json').read_text())
+          base='https://preview---janus-api-2oo7qbkd5q-uc.a.run.app'
+          with urllib.request.urlopen(base+'/app/build-id.txt',timeout=10) as resp:
+            build=resp.read(150).decode('ascii').strip()
+          if build!=request['source_sha']:
+            raise ValueError('fixed_preview_build_id_drift')
+          metrics=('close','pe','pb','yield','foreign','investment_trust','dealer','revenue','eps')
+          report={'scope':'public_fixed_preview_only','source_sha':build,
+                  'private_read':False,'data_write':False,'items':[]}
+          for symbol in request['symbols']:
+            for metric in metrics:
+              url=base+f'/api/v1/public/stocks/{symbol}/visual-series?'+urllib.parse.urlencode({'metric':metric,'limit':request['limit']})
+              row={'symbol':symbol,'metric':metric}
+              try:
+                with urllib.request.urlopen(url,timeout=12) as resp:
+                  body=json.load(resp)
+                  row['http_status']=resp.status
+                if body.get('schema_version')!='visual-series.v1' or body.get('symbol')!=symbol or body.get('metric')!=metric:
+                  raise ValueError('visual_series_schema_mismatch')
+                points=body.get('points')
+                if not isinstance(points,list) or len(points)>request['limit']:
+                  raise ValueError('unbounded_visual_points')
+                status=body.get('data_status')
+                if status not in ('available','partial','missing','unavailable'):
+                  raise ValueError('invalid_visual_status')
+                row.update(status=status,points=len(points),
+                           usable_points=body.get('usable_points'),
+                           data_as_of=body.get('data_as_of'),
+                           source_ids=body.get('source_ids'),
+                           missing_reason=body.get('missing_reason'))
+              except Exception as exc:
+                row.update(status='ERROR',error_type=type(exc).__name__)
+              report['items'].append(row)
+          report['coverage']={
+            'available':sum(x['status']=='available' for x in report['items']),
+            'partial':sum(x['status']=='partial' for x in report['items']),
+            'missing':sum(x['status']=='missing' for x in report['items']),
+            'unavailable':sum(x['status']=='unavailable' for x in report['items']),
+            'error':sum(x['status']=='ERROR' for x in report['items'])}
+          report['status']='PASS_READ_PATH' if report['coverage']['error']==0 else 'PARTIAL'
+          print(json.dumps(report,ensure_ascii=False,sort_keys=True))
+          Path('/tmp/janus-visual-series-coverage.json').write_text(json.dumps(report))
+          if report['coverage']['error']:raise SystemExit(1)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: janus-preview-visual-series-coverage
+          path: /tmp/janus-visual-series-coverage.json
+          if-no-files-found: ignore
+          retention-days: 7

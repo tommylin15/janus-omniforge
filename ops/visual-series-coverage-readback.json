@@ -1,0 +1,12 @@
+{
+  "intent": "read-only-preview-visual-series-coverage",
+  "source_sha": "536598f2528550fd60c73786597fdf2740860c9e",
+  "symbols": [
+    "2330",
+    "6488"
+  ],
+  "limit": 20,
+  "no_data_mutation": true,
+  "no_private_data": true,
+  "reason": "D03 nine bounded official serving visual metrics for TWSE and TPEx on exact verified fixed-preview API. Record status, dates, source IDs, missing, partial, schema and HTTP only; do not publish prices, invent charts, or assert UI screenshot PASS."
+}
