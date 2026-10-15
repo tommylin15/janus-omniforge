@@ -99,6 +99,18 @@ def fence():
                 path = None
 
 
+def wait_for_terminal_executions(timeout=900):
+    deadline = time.monotonic()+timeout
+    while True:
+        try:
+            fence()
+            return
+        except ValueError as error:
+            if str(error) != 'execution_not_terminal' or time.monotonic() >= deadline:
+                raise
+        time.sleep(15)
+
+
 def job_update_permissions():
     """Fail closed before pausing Scheduler or modifying any Cloud Run Job.
 
@@ -161,7 +173,7 @@ def update(name, target, expected_hash):
     writers()
     if scheduler()["state"] != "PAUSED":
         raise ValueError("scheduler_not_paused")
-    fence()
+    wait_for_terminal_executions()
     if fingerprint(job(name)) != expected_hash:
         raise ValueError("preupdate_configuration_drift")
     args = ["gcloud", "run", "jobs", "update", name, f"--project={PROJECT}",
@@ -216,7 +228,7 @@ def canary(name, expected_image, expected_hash, journal, save):
     if container.get("name"):
         override["name"] = container["name"]
     writers()
-    fence()
+    wait_for_terminal_executions()
     operation = cloud(f"{ROOT}/jobs/{name}:run", {"etag": data["etag"], "overrides": {
         "taskCount": 1, "timeout": "300s", "containerOverrides": [override]}}, "POST")
     operation_name = operation.get("name")
@@ -429,7 +441,7 @@ def run(release_run, receipt):
         for name in REQUIRED_JOBS:
             snap = journal["snapshots"][name]
             checked_image(name, targets.get(name, snap["image"]), snap["configuration_hash"])
-        fence()
+        wait_for_terminal_executions()
         if scheduler_fingerprint(scheduler()) != journal["scheduler_hash"]:
             raise ValueError("scheduler_configuration_drift")
         set_scheduler("resume", "ENABLED")

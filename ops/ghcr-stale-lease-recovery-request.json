@@ -1,11 +1,11 @@
 {
   "intent": "restore-exact-abandoned-ghcr-rollout",
   "approved": true,
-  "owner_run": 38663858991,
-  "owner_source_sha": "331234b3b4b78a3554868a1118aea6a05b2048bc",
-  "tag_sha": "8cb00ac53e2305d94b1f15111d381866dd9887b8",
+  "owner_run": 38675277641,
+  "owner_source_sha": "5717a521b8c4e797d953548ffe99269b5624d41e",
+  "tag_sha": "6704b8befe33388190e7cbb182a2ccc8618becfd",
   "no_gcp_mutation": false,
-  "reason": "Owner-authorized steps 1-5: original rollout #38663858991 is terminal FAILED and left Scheduler PAUSED after partial image updates. Restore only receipt-hash-pinned original public GHCR baseline images and identical configuration under a fresh normal lease, then resume original Scheduler and prove unchanged API traffic; no ledger/IAM/new resources. Exact old owner/tag verified twice; do not impersonate old owner or bypass active executions.",
-  "attempt": 6,
+  "reason": "Owner-authorized steps 1-5 recovery: terminal failed rollout #38675277641 updated private/mart and passed first canaries, then an immediate 2-task private recalculation raced paused Scheduler and blocked update plus rollback. Wait boundedly for all executions to finish, verify exact original receipt hash/run/tag and immutable baseline, acquire a new normal lease, restore previous four images and Scheduler, preserve API/Preview and all ledger data. No impersonation, IAM change or blind rollout retry.",
+  "attempt": 7,
   "restore_previous_images_and_scheduler": true
 }

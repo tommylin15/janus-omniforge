@@ -12,8 +12,8 @@ import subprocess
 import ghcr_terminal_lease_recovery as terminal
 import ghcr_jobs_rollout as rollout
 
-RECEIPT_HASH = '656b17890065a54f09f9062a6dfa037adb46a68f52f6b1db64652c8110826ac1'
-SOURCE = '19e44da923b1f6856091b185e3d78588abbb1412'
+RECEIPT_HASH = '1926ca5aef8cb79dcfec96c402ec3ab581674890e855ef206258fe1768f3d330'
+SOURCE = '4d058c47ac62ad7328f9f7c0e9fcd4ef4f1ac7b1'
 BASELINE = 'c8e8a7415be48b291a347dcc115d7834db6696a8'
 
 
@@ -64,6 +64,7 @@ def main():
                     'ghcr-jobs-rollout-receipt', '--dir', str(directory)], check=True, timeout=90)
     journal = verify_receipt((directory/'ghcr-jobs-rollout.json').read_bytes())
     before = terminal.service_identity(terminal._service())
+    rollout.wait_for_terminal_executions()
     validate_paused_state(journal)
     rollout.job_update_permissions()
     for image in sorted({journal['snapshots'][name]['image'] for name, _ in rollout.JOB_COMPONENT}):

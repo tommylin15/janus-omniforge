@@ -543,3 +543,19 @@ def test_preflight_blocked_if_scheduler_drifted_even_without_job_mutation():
             rollout.restore_unmodified_preflight(journal,lambda:None)
     assert journal.get("phase") is None
 
+
+
+def test_bounded_drain_waits_for_active_execution_without_weakening_fence():
+    with patch.object(rollout, 'fence', side_effect=[ValueError('execution_not_terminal'), None]) as fence, \
+         patch.object(rollout.time, 'sleep') as sleep:
+        rollout.wait_for_terminal_executions()
+    assert fence.call_count == 2
+    sleep.assert_called_once_with(15)
+    with patch.object(rollout, 'fence', side_effect=ValueError('execution_not_terminal')):
+        with pytest.raises(ValueError, match='execution_not_terminal'):
+            rollout.wait_for_terminal_executions(timeout=0)
+    with patch.object(rollout, 'fence', side_effect=ValueError('execution_pagination_loop')), \
+         patch.object(rollout.time, 'sleep') as sleep:
+        with pytest.raises(ValueError, match='execution_pagination_loop'):
+            rollout.wait_for_terminal_executions()
+        sleep.assert_not_called()
