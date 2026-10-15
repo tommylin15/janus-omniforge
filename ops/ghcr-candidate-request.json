@@ -1,13 +1,13 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "285848e28041bf2fb024bd98bd348641f022a1ed",
-  "purpose": "P0 permanent TPEx official dailyQuotes historical as-of source; full GHCR exact source 285848e28041bf2fb024bd98bd348641f022a1ed release #38717341300 SUCCESS. Create existing janus-api 0%-traffic candidate only; preserve live 100% traffic/Jobs/Scheduler/owner ledger; pending same-source auto-auth/controlled Jobs and Owner Mart truth.",
+  "sha": "7acff50000644979af3815f00fbd7f1c167e1098",
+  "purpose": "P1 direct nightly Owner EOD Private dispatch fix: full release #38755382061 Python/Flutter/four public GHCR PASS. Deploy 0%-only candidate; do not alter current canonical API 100% or Jobs/Scheduler. Auth boundary and reversible Jobs rollout must independently pass.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "retry_verification": "Verify #38717341300 full release and public GHCR exact SHA, 0%-only tag, unchanged active revision and global lease.",
+  "retry_verification": "Check #38755382061 exact full release and GHCR digest, preserve 100% baseline and shared deployment lease.",
   "same_sha_retry_attempt": 0,
   "digest": ""
 }
