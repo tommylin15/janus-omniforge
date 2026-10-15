@@ -1,0 +1,5 @@
+{
+  "intent": "read-only-core-reference-discovery",
+  "no_gcp_mutation": true,
+  "scope": "Read GCS Core execution SHA-256 manifest identities and Mart/Research artifact references using existing dev WIF. Count private bucket metadata only. Do not read owner payloads, publish retention fence, or delete data; incomplete sources remain explicit blockers."
+}

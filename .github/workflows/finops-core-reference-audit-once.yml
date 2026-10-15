@@ -1,0 +1,33 @@
+name: One-shot Core research and model reference inventory
+on:
+  push:
+    branches: [main]
+    paths: [ops/finops-core-reference-audit.json]
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  read-only:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate bounded scanner and no-destructive-contract
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_finops_core_reference_audit.py
+          jq -e '.intent == "read-only-core-reference-discovery" and .no_gcp_mutation == true' ops/finops-core-reference-audit.json
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read immutable Core and Mart/research model references
+        run: python scripts/gcp/finops_core_reference_audit.py
