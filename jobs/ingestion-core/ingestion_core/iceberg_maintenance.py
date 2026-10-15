@@ -47,18 +47,16 @@ def _keep_snapshots(table: Any, referenced: set[int], now: datetime) -> set[int]
     available = {snapshot.snapshot_id for snapshot in snapshots}
     if not referenced <= available:
         raise RuntimeError("Core manifest references an unavailable financials snapshot")
-    latest_by_day: dict[str, Any] = {}
+    # A daily 90-day snapshot archive was retaining unused Iceberg file
+    # versions long after the study/model or publication that used them ended.
+    # Immutable PIT/research/ML references remain protected by _references()
+    # and caller-provided protected_snapshot_ids. Preserve 24h for in-flight
+    # readers and the current/named refs, never invent a 90-day research use.
     keep = set(referenced)
     recent_ms = int((now - timedelta(days=1)).timestamp() * 1000)
     for snapshot in snapshots:
-        day = datetime.fromtimestamp(snapshot.timestamp_ms / 1000, timezone.utc).date().isoformat()
-        previous = latest_by_day.get(day)
-        if previous is None or snapshot.timestamp_ms > previous.timestamp_ms:
-            latest_by_day[day] = snapshot
         if snapshot.timestamp_ms >= recent_ms:
             keep.add(snapshot.snapshot_id)
-    daily_ms = int((now - timedelta(days=90)).timestamp() * 1000)
-    keep.update(snapshot.snapshot_id for snapshot in latest_by_day.values() if snapshot.timestamp_ms >= daily_ms)
     current = table.current_snapshot()
     if current:
         keep.add(current.snapshot_id)
@@ -80,7 +78,13 @@ def maintain_financials(*, core: Any, store: GcsObjectStore, apply: bool,
                         protected_snapshot_ids: set[int] | None = None,
                         protected_metadata: set[str] | None = None) -> dict[str, Any]:
     now = now or datetime.now(timezone.utc)
-    if identifier not in {core.table_identifier(name) for name in core.IDENTIFIERS}:
+    allowed = {core.table_identifier(name) for name in core.IDENTIFIERS}
+    # The controller audit journal lives in the Core bucket but is intentionally
+    # not a canonical price/research dataset. It previously received neither
+    # snapshot expiration nor orphan cleanup, despite daily compaction.
+    if store.bucket == "gen-lang-client-0593591102-dev-core":
+        allowed.add("ops.batch_events_v1")
+    if identifier not in allowed:
         raise ValueError("maintenance table is outside the Core allowlist")
     table = core.catalog.load_table(identifier)
     table_prefix = f"warehouse/{identifier.split('.')[1]}/metadata/"

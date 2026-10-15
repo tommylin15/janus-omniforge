@@ -12,7 +12,7 @@
 
 相依順序改為：**14:30 ingestion 成功 → iceberg-compaction → mart-cleanup → core-cleanup**。三項夜間工作維持同一個 23:30 邏輯時段，但因總控每小時喚醒且不得併發，後兩項的實際派送可能跨到翌日 00:30／01:30 或更晚；故 23:30 表示 **due 時段，不保證每支 Job 23:30 真正啟動**。compaction 在 ingestion 尚未成功、worker 忙碌、前一輪未終態或權限/資料異常時留 pending；不跳過依賴、不盲目重試 ambiguous dispatch。這是既有資料維護路徑，不計入產品 TODO／WBS。
 
-`compact-apply` 會按月／年分區重寫可合併的有效 Parquet，驗證 row count 與舊 snapshot 可讀；**不代表同時刪除所有歷史 snapshot／孤兒檔，也不保證 GCS 課金立即下降**。既有 `core-cleanup` 的 retention 及引用保護仍獨立運作；本次不把「刪除全部舊 snapshot」變成每日無條件執行的破壞性 cron。Release 必須遵守完整 SHA CI／GHCR Jobs rollout gate，並從 GCP readback 真實 scheduler、controller／worker image、occurrence 及 Cloud Run execution；僅 GitHub commit 不代表 schedule 已生效。
+`compact-apply` 會按月／年分區重寫可合併的有效 Parquet，驗證 row count 與舊 snapshot 可讀；**不代表同時刪除所有歷史 snapshot／孤兒檔，也不保證 GCS 課金立即下降**。既有 `core-cleanup` 的 retention 及引用保護仍獨立運作；包含稽核表 `ops.batch_events_v1` 的到期 snapshot expiration + 引用保護後的 Avro／Parquet orphan cleanup，並停止無用途的 90 日 daily snapshot 無差別保留；本次不把「刪除全部舊 snapshot」變成每日無條件執行的破壞性 cron。Release 必須遵守完整 SHA CI／GHCR Jobs rollout gate，並從 GCP readback 真實 scheduler、controller／worker image、occurrence 及 Cloud Run execution；僅 GitHub commit 不代表 schedule 已生效。
 
 GitHub 原本直派 `Maintain dev Core Iceberg` workflow、`ops/iceberg-maintenance-mode` 與 operations audit workflow 在本變更移除；保留 `iceberg-compaction-ci.yml` **純測試**。原有 GitHub run 歷史與獨立 FinOps Issue #2 保留作稽核。
 

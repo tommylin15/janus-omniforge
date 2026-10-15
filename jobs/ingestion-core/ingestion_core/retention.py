@@ -169,6 +169,15 @@ def maintain_public_data(*, core: Any, apply: bool, now: datetime | None = None)
         result["rows_removed"] = removed if apply else 0
         tables.append(result)
         orphans.append(clean_orphans(core, store, identifier, apply=apply, now=now))
+    audit = {"status": "missing", "table": "ops.batch_events_v1"}
+    audit_orphans = {"table": "ops.batch_events_v1", "planned_objects": 0, "deleted_objects": 0}
+    if core.catalog.table_exists("ops.batch_events_v1"):
+        # After Core rewrite and both layer's reference-aware cleanup, remove
+        # the unreferenced audit snapshots and historical Parquet/Avro as well.
+        # Use the same guarded Iceberg expiration + generation fenced orphans.
+        audit = maintain_financials(core=core, store=store, apply=apply, now=now,
+                                    identifier="ops.batch_events_v1")
+        audit_orphans = clean_orphans(core, store, "ops.batch_events_v1", apply=apply, now=now)
     stage = clean_stage(stage_store, apply=apply, now=now, active_executions=active_executions)
     after = {"core": capacity(store), "stage": capacity(stage_store)} if apply else before
     storage = {layer: {"before": before[layer], "after": after[layer],
@@ -177,7 +186,8 @@ def maintain_public_data(*, core: Any, apply: bool, now: datetime | None = None)
     result = {"component": "data-retention", "policy_version": "public-data-retention-v1",
             "mode": "apply" if apply else "dry-run", "policy": POLICY, "tables": tables, "orphans": orphans,
             "stage": stage, "model_calls": 0, "publication_writes": 0,
-            "core_manifests": manifests,
+            "core_manifests": manifests, "controller_audit": audit,
+            "controller_audit_orphans": audit_orphans,
             "storage": storage, "storage_scope": "live_objects_only",
             "billable_bytes_reclaimed": None,
             "mart_retention_status": "requires_mart_catalog_worker", "quarantine_status": "expires_after_7_days"}

@@ -295,3 +295,44 @@ def test_active_specialist_execution_protects_old_generation_and_oos():
     assert "executions/ex0/oos-evaluation.json" in data
     assert "executions/ex0/specialist-retired.json" not in data
     assert sum(name.startswith("specialists/") for name in data) == 20
+
+
+def test_unused_daily_iceberg_snapshots_expire_but_pinned_and_recent_are_retained():
+    from ingestion_core.iceberg_maintenance import _keep_snapshots
+    now = datetime(2026, 10, 15, tzinfo=timezone.utc)
+    def snapshot(id_, days):
+        return SimpleNamespace(snapshot_id=id_, timestamp_ms=int((now - timedelta(days=days)).timestamp() * 1000))
+    from datetime import timedelta
+    snapshots = [snapshot(1, 89), snapshot(2, 31), snapshot(3, 1.5), snapshot(4, 0.25), snapshot(5, 0)]
+    table = SimpleNamespace(snapshots=lambda: snapshots,
+                            current_snapshot=lambda: snapshots[-1],
+                            metadata=SimpleNamespace(refs={"backup": SimpleNamespace(snapshot_id=3)}))
+    keep = _keep_snapshots(table, referenced={2}, now=now)
+    assert keep == {2, 3, 4, 5}
+    # An unreferenced old daily snapshot must no longer be held for 90 days.
+    assert 1 not in keep
+    import pytest
+    with pytest.raises(RuntimeError, match="unavailable"):
+        _keep_snapshots(table, referenced={999}, now=now)
+
+
+def test_core_maintenance_can_target_only_the_dev_controller_audit_bucket(monkeypatch):
+    from ingestion_core import iceberg_maintenance as m
+    snap = SimpleNamespace(snapshot_id=17, summary={"total-records": "1"}, timestamp_ms=int(
+        datetime(2026, 10, 15, tzinfo=timezone.utc).timestamp() * 1000))
+    table = SimpleNamespace(properties={m.METADATA_HISTORY: "10"},
+                            metadata_location="gs://gen-lang-client-0593591102-dev-core/warehouse/batch_events_v1/metadata/latest.metadata.json",
+                            metadata=SimpleNamespace(metadata_log=[], refs={}),
+                            current_snapshot=lambda: snap, snapshots=lambda: [snap])
+    core = SimpleNamespace(IDENTIFIERS={"ohlcv": ()}, table_identifier=lambda dataset: "core.ohlcv_v1",
+                           catalog=SimpleNamespace(load_table=lambda _: table))
+    store = SimpleNamespace(bucket="gen-lang-client-0593591102-dev-core", objects=lambda _: [])
+    monkeypatch.setattr(m, "_references", lambda *_: (set(), set()))
+    result = m.maintain_financials(core=core, store=store, apply=False,
+                                   identifier="ops.batch_events_v1", now=datetime(2026, 10, 15, tzinfo=timezone.utc))
+    assert result["table"] == "ops.batch_events_v1"
+    store.bucket = "gen-lang-client-0593591102-dev-mart"
+    import pytest
+    with pytest.raises(ValueError, match="Core allowlist"):
+        m.maintain_financials(core=core, store=store, apply=False,
+                               identifier="ops.batch_events_v1")
