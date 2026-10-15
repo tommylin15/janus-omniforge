@@ -1,0 +1,29 @@
+name: One-shot GCP dev Iceberg final acceptance
+on:
+  push:
+    branches: [main]
+    paths: [ops/finops-gcp-live-acceptance.json]
+permissions:
+  contents: read
+  id-token: write
+  actions: read
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  existing-core-job:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PYTHONPATH: 'jobs/ingestion-core:.'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Execute one accepted maintenance operation on existing GCP Core Job
+        run: python scripts/gcp/finops-one-shot-maintenance.py
