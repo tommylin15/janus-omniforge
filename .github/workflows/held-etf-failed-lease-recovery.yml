@@ -1,0 +1,82 @@
+name: Janus recovered failed held ETF lease after terminal no-write
+on:
+  push:
+    branches: [main]
+    paths: ['ops/held-etf-failed-lease-recovery.json']
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exactly one no-write terminal failure, no broader recovery
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="recover-terminal-no-write-held-etf-lease" and
+            .approved==true and .source_run=="38695729369" and
+            .execution=="janus-private-pipeline-gbc59" and
+            .owner_sha=="cb17dd950e2c0698a465e5785a6fd22ccb52ad51" and
+            .only_release_owned_lease==true and .no_job_run==true and
+            .no_user_data_write==true' ops/held-etf-failed-lease-recovery.json >/dev/null
+          gh run view 38695729369 --json status,conclusion,headSha,workflowName |
+            jq -e '.status=="completed" and .conclusion=="failure" and
+              .headSha=="cb17dd950e2c0698a465e5785a6fd22ccb52ad51" and
+              .workflowName=="Janus one-owner official TPEx held ETF Mart acceptance"' >/dev/null
+          test "$(grep -n 'held_etf_official_eod_missing' scripts/gcp/held_etf_owner_mart_refresh.py | wc -l)" -eq 1
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Confirm exact terminal failure occurred before Mart writer and all Jobs idle
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHONPATH: .
+        run: |
+          set -Eeuo pipefail
+          gcloud run jobs executions describe janus-private-pipeline-gbc59 \
+            --project=gen-lang-client-0593591102 --region=us-central1 --format=json \
+            > /tmp/held-etf-failed-execution.json
+          jq -e '(.failedCount // .status.failedCount // 0)==1 and
+            ([.conditions[]? | select(.type=="Completed" and .state=="False" and .reason=="NonZeroExitCode")] | length)==1' \
+            /tmp/held-etf-failed-execution.json >/dev/null
+          gcloud logging read 'resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="janus-private-pipeline-gbc59"' \
+            --project=gen-lang-client-0593591102 --limit=80 --format=json > /tmp/held-etf-failed-log.json
+          jq -e '[.[] | (.textPayload // (.jsonPayload // {} | tostring)) |
+            select(contains("held_etf_official_eod_missing"))] | length >= 1' \
+            /tmp/held-etf-failed-log.json >/dev/null
+          python - <<'PY'
+          import sys
+          sys.path.insert(0,'scripts/gcp')
+          import ghcr_jobs_rollout as r
+          r.fence()
+          assert r.scheduler()['state']=='ENABLED', 'scheduler_not_enabled'
+          PY
+      - name: Release only original terminal owner lease and verify absence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py release \
+            --repo tommylin15/janus-omniforge \
+            --run-id 38695729369 --run-attempt 1 \
+            --sha cb17dd950e2c0698a465e5785a6fd22ccb52ad51 \
+            --safe-to-release
+          python scripts/gcp/ghcr_release_lease.py inspect \
+            --repo tommylin15/janus-omniforge \
+            --run-id 38695729369 --run-attempt 1 \
+            --sha cb17dd950e2c0698a465e5785a6fd22ccb52ad51
+          echo 'FAILED_HELD_ETF_LEASE_RECOVERY=PASS_NO_USER_DATA_MUTATION' >> "$GITHUB_STEP_SUMMARY"
+      - name: Delete temporary unsanitized logs
+        if: always()
+        run: rm -f /tmp/held-etf-failed-execution.json /tmp/held-etf-failed-log.json
