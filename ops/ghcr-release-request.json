@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "not-authorized-without-new-exact-source-live-business-acceptance",
-  "attempt": 46,
-  "reason": "2026-10-15 explicitly authorized P0 00697B: tested official TPEx dated JSON fallback, versioned 061 per-session provenance history and as-of repo/Private Mart, one-owner bounded data-readback tooling. Targeted 14/14 tests PASS and 061 migration #38714018250 live PASS. Execute complete Python/PostgreSQL, Flutter, four immutable public GHCR images. No API traffic promotion or user ledger transaction writes.",
+  "attempt": 47,
+  "reason": "2026-10-15 P0 corrected source: official TPEx /www/zh-tw/afterTrading/dailyQuotes Gregorian 2026-10-14 exact real record #38715334637 PASS, TPEx as-of/history 14/14 #38715334656 PASS, schema061 #38714018250 live PASS. Rebuild all four immutable GHCR images, full Python/Postgres Flutter, no API 100% traffic or owner ledger writes. Earlier #38714632378 uses date-ignoring old URL and is superseded, never deploy that source.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }
