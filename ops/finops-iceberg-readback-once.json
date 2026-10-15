@@ -3,6 +3,6 @@
   "no_gcp_mutation": true,
   "project": "gen-lang-client-0593591102",
   "region": "us-central1",
-  "scope": "Second bounded read-only scan to identify nonterminal Cloud Run executions by job/id/state; original digest/config and Core GCS operations baseline remain immutable. No Scheduler/Job mutation.",
-  "attempt": 2
+  "scope": "Refresh all-page nonterminal Core execution status after #38672184380, before approved immutable Jobs rollout. Read-only images and GCS counters, no writes.",
+  "attempt": 3
 }
