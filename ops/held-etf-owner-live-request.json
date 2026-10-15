@@ -10,5 +10,6 @@
   "private_mart_write_only": true,
   "single_owner_only": true,
   "no_job_template_mutation": true,
-  "reason": "Owner-approved D01 D05 live one-owner derived private Mart reconciliation of official published TPEx ETF 00697B; no real ledger mutation; must match 8/8 canary rollout verified immutable image and current official source."
+  "reason": "Safe retry after preflight-only failure: rollout workflow headSha differs from immutable release source by design; now validate successful rollout artifact source_sha and eight canary outcomes, without changing private ledger or owner scope.",
+  "attempt": 2
 }
