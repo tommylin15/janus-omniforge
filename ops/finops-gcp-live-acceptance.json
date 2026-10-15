@@ -1,10 +1,11 @@
 {
   "intent": "one-shot-existing-dev-iceberg-maintenance",
   "no_new_resources": true,
-  "mode": "retention-dry-run",
-  "rollout_run": 38676820532,
-  "expected_source_sha": "4d058c47ac62ad7328f9f7c0e9fcd4ef4f1ac7b1",
-  "expected_image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:dd121d80aa9904ac67b3d9eb24eb4f6a1bc00dc982336c0f35c64acdfeea43b1",
-  "purpose": "Owner-authorized nondeleting Core and Stage retention preview after one-shot compaction; perform all-page Cloud Run Job execution fence and summarize candidate snapshots, orphan objects and historical manifests. No mutation except immutable audit receipt.",
-  "acceptance": "Exact 4d058c47 GHCR Core image and rollout verified; all jobs terminal; dry-run receipt required; CORE_RETENTION_FENCE_URI remains absent so no apply or historical execution deletion."
+  "mode": "audit-cleanup",
+  "rollout_run": 38686125420,
+  "expected_source_sha": "4d49555656bc47decd2fd13e9fab9a5da79a3fc2",
+  "expected_image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:a94a1a2ed90cf12c8a795be1c471113009a48fd9771379d7e05e01c8a5eee908",
+  "purpose": "One-shot bounded ops.batch_events_v1 audit Iceberg snapshot expiration and 7+ day generation-fenced orphan cleanup on existing Core Job after exact-SHA fully verified reversible four-Jobs rollout. No Core financial/market canonical or PIT/model/research manifest deletions.",
+  "acceptance": "Require rollout #38686125420 full PASS (8 real canaries, Scheduler resumed), exact immutable new Core digest, no active execution in all-page Job fence, component audit-only cleanup PASS, current rows preserved, zero canonical table mutations, before/after Core GCS object inventory. Fail closed if any preflight mismatch.",
+  "request_attempt": 1
 }
