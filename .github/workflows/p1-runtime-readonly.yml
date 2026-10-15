@@ -1,0 +1,122 @@
+name: Janus P1 fixed Preview and Jobs read-only acceptance
+on:
+  push:
+    branches: [main]
+    paths: ['ops/p1-runtime-readonly-request.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require bounded no-mutation P1 request
+        run: |
+          jq -e '.intent=="p1-live-readonly-preview-jobs" and
+            .approved==true and .target_source_sha=="285848e28041bf2fb024bd98bd348641f022a1ed" and
+            .preview_run=="38740477232" and .scope=="existing-dev-read-only" and
+            .no_owner_mutation==true and .no_gcp_mutation==true and
+            .no_traffic_mutation==true and .no_job_execution==true' ops/p1-runtime-readonly-request.json > /dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read-only service Preview build identity and four Job/Scheduler status
+        run: |
+          python3 - <<'PY'
+          import json, subprocess, urllib.request, urllib.error
+          from pathlib import Path
+          project='gen-lang-client-0593591102'
+          region='us-central1'
+          source='285848e28041bf2fb024bd98bd348641f022a1ed'
+          base='https://janus-api-2oo7qbkd5q-uc.a.run.app'
+          preview='https://preview---janus-api-2oo7qbkd5q-uc.a.run.app'
+          report={'scope':'p1_read_only','target_source_sha':source,'no_mutations':True,
+                  'status':'PARTIAL','owner_positive_ui':'NOT_VERIFIED',
+                  'owner_manual_recalc':'NOT_VERIFIED','owner_current_valuation':'NOT_VERIFIED'}
+          def run(args,timeout=45):
+            try:
+              p=subprocess.run(args,text=True,capture_output=True,timeout=timeout)
+              return json.loads(p.stdout) if p.returncode==0 else None
+            except (OSError,ValueError,subprocess.TimeoutExpired):return None
+          def get(url):
+            try:
+              with urllib.request.urlopen(urllib.request.Request(url,headers={'Accept':'text/plain'}),
+                                          timeout=22) as response:
+                return response.status,response.read(500).decode('utf-8','replace').strip()
+            except urllib.error.HTTPError as e:return e.code,''
+            except Exception:return None,''
+          code,build=get(preview+'/app/build-id.txt')
+          report['preview_build_match']=code==200 and build==source
+          code,build=get(base+'/app/build-id.txt')
+          report['canonical_build_sha']=build if code==200 and len(build)==40 and all(c in '0123456789abcdef' for c in build) else 'UNKNOWN'
+          report['canonical_is_target']=report['canonical_build_sha']==source
+          service=run(['gcloud','run','services','describe','janus-api',
+                       '--project='+project,'--region='+region,'--format=json'])
+          if isinstance(service,dict):
+            routes=service.get('status',{}).get('traffic',[])
+            active=[x for x in routes if (x.get('percent') or 0)>0]
+            tag=[x for x in routes if x.get('tag')=='preview']
+            candidate=[x for x in routes if x.get('tag')=='ghcr-'+source[:12]]
+            report['canonical_single_100']=len(active)==1 and active[0].get('percent')==100
+            report['preview_candidate_revision_match']=(len(tag)==1 and len(candidate)==1 and
+                tag[0].get('revisionName')==candidate[0].get('revisionName'))
+            report['candidate_zero_traffic']=len(candidate)==1 and (candidate[0].get('percent') or 0)==0
+            report['active_revision']=active[0].get('revisionName') if len(active)==1 else 'UNKNOWN'
+          else:report['service_read']='UNKNOWN'
+          jobs={}
+          for name in ('janus-batch-controller','janus-ingestion-core',
+                       'janus-intelligence-mart','janus-private-pipeline'):
+            row=run(['gcloud','run','jobs','describe',name,'--project='+project,
+                     '--region='+region,'--format=json'])
+            if not isinstance(row,dict):
+              jobs[name]={'read':'UNKNOWN'}
+              continue
+            # A Job is a nested Cloud Run template; inspect image strings only,
+            # never env/Secrets, task arguments, or owner identifiers.
+            def images(v,depth=0):
+              if depth>10:return []
+              if isinstance(v,dict):
+                found=[v.get('image')] if isinstance(v.get('image'),str) else []
+                for k,z in v.items():
+                  if k not in ('env','envs','args','command','secretKeyRef'):
+                    found.extend(images(z,depth+1))
+                return found
+              if isinstance(v,list):
+                out=[]
+                for z in v:out.extend(images(z,depth+1))
+                return out
+              return []
+            references=images(row.get('spec',row))
+            immutable=[v for v in references if v.startswith('ghcr.io/tommylin15/') and '@sha256:' in v]
+            jobs[name]={'read':'PASS','immutable_ghcr_image':bool(immutable),
+                        'target_image_digest_prefix':immutable[0].split('@sha256:')[-1][:12] if immutable else None,
+                        'job_ready':any(c.get('type')=='Ready' and c.get('status')=='True'
+                                        for c in row.get('status',{}).get('conditions',[]))}
+          report['jobs']=jobs
+          scheduler=run(['gcloud','scheduler','jobs','describe','janus-ingestion-daily',
+                         '--project='+project,'--location='+region,'--format=json'])
+          report['scheduler']={'read':'PASS','state':scheduler.get('state'),
+                               'schedule':scheduler.get('schedule')} if isinstance(scheduler,dict) else {'read':'UNKNOWN'}
+          report['result']='PREVIEW_AND_INFRA_PASS' if (report.get('preview_build_match') and
+               report.get('preview_candidate_revision_match') and report.get('candidate_zero_traffic') and
+               report.get('canonical_single_100') and all(x.get('immutable_ghcr_image')
+                                                         for x in jobs.values()) and
+               report['scheduler'].get('read')=='PASS') else 'PARTIAL_OR_UNKNOWN'
+          report['status']='PASS_READ_ONLY' if report['result']=='PREVIEW_AND_INFRA_PASS' else 'PARTIAL'
+          Path('/tmp/p1-runtime-readonly.json').write_text(json.dumps(report,sort_keys=True))
+          print(json.dumps(report,sort_keys=True))
+          if report['result']!='PREVIEW_AND_INFRA_PASS':raise SystemExit('P1 read-only infrastructure gate not fully verified')
+          PY
+      - name: Preserve sanitized P1 infrastructure receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p1-runtime-readonly
+          path: /tmp/p1-runtime-readonly.json
+          if-no-files-found: ignore
+          retention-days: 14
