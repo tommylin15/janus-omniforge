@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "not-authorized-without-new-exact-source-live-business-acceptance",
-  "attempt": 45,
-  "reason": "2026-10-15 D01-D05 safe followup: latest eligible official TPEx date selection from 12,466-record multi-session government OpenAPI, failure retry cooldown, and owner 00697B bounded Mart acceptance guard. Run complete Python+PostgreSQL, Flutter, four SHA-pinned GHCR images and anonymous pull; no API traffic switch, no change to backup VM IAM or ledger history.",
+  "attempt": 46,
+  "reason": "2026-10-15 explicitly authorized P0 00697B: tested official TPEx dated JSON fallback, versioned 061 per-session provenance history and as-of repo/Private Mart, one-owner bounded data-readback tooling. Targeted 14/14 tests PASS and 061 migration #38714018250 live PASS. Execute complete Python/PostgreSQL, Flutter, four immutable public GHCR images. No API traffic promotion or user ledger transaction writes.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }
