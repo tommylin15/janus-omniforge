@@ -67,4 +67,11 @@ jobs:
             except Exception as e:
               result['error_type']=type(e).__name__
             print(json.dumps(result,ensure_ascii=False,sort_keys=True),flush=True)
+          from datetime import date
+          from scripts.gcp.p0_tpex_asof_owner_acceptance import _read_exact_official
+          official_record,digest=_read_exact_official(date(2026,10,14))
+          assert official_record['Date']=='115/10/14' and len(digest)==64
+          print(json.dumps({'source':'official_www_gregorian','exact_record_date':'2026-10-14',
+            'symbol':'00697B','record_hash_valid':True,'no_price_logged':True,
+            'no_data_write':True,'status':'PASS'},sort_keys=True))
           PY

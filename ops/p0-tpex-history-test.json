@@ -3,6 +3,6 @@
   "approved": true,
   "scope": "no-data-mutation",
   "no_gcp_mutation": true,
-  "purpose": "Regression rerun after NaN is rejected before Decimal ordering comparisons. No GCP or ledger writes.",
-  "attempt": 2
+  "purpose": "Verify corrected official Gregorian dated endpoint and as-of price after dated source discovery; no data mutation.",
+  "attempt": 3
 }
