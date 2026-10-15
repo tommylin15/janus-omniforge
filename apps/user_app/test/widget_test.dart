@@ -311,7 +311,7 @@ void main() {
     await tester.enterText(
         find.widgetWithText(TextFormField, '股票代號或名稱'), '2317');
     await tester.pumpAndSettle();
-    await tester.tap(find.text('鴻海（2317）'));
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
     expect(find.widgetWithText(TextFormField, '手續費'), findsNothing);
     expect(find.widgetWithText(TextFormField, '證券交易稅'), findsNothing);
@@ -346,8 +346,15 @@ void main() {
     expect(find.text('元大美債1-3（00719B）'), findsOneWidget);
     await tester.tap(find.text('元大美債1-3（00719B）'));
     await tester.pumpAndSettle();
+    final olderSearch = Completer<dynamic>();
+    api.pendingReads['/api/v1/me/journal/instruments?q=%E5%8F%B0'] = olderSearch.future;
+    await tester.enterText(field, '台');
+    await tester.pump();
     await tester.enterText(field, '錯誤名稱');
     await tester.pumpAndSettle();
+    olderSearch.complete({'items': [{'symbol': '2330', 'stock_name': '台積電'}]});
+    await tester.pumpAndSettle();
+    expect(find.text('台積電（2330）'), findsNothing);
     await tester.tap(find.text('儲存'));
     await tester.pumpAndSettle();
     expect(result, isNull);

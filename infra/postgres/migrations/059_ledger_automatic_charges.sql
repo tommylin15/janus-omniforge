@@ -149,11 +149,19 @@ RESET ROLE;
 SET ROLE janus_control;
 REVOKE CREATE ON SCHEMA private FROM janus_private_api;
 -- PHASE: acceptance
-SELECT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema='private' AND table_name='ledger_events'
-      AND column_name='fee_rule_snapshot' AND data_type='jsonb'
-), NOT has_table_privilege('janus_public_api','private.ledger_events','SELECT');
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_attribute
+        WHERE attrelid='private.ledger_events'::regclass
+          AND attname='fee_rule_snapshot' AND atttypid='jsonb'::regtype AND NOT attisdropped
+    ) OR has_table_privilege('janus_public_api','private.ledger_events','SELECT')
+      OR has_schema_privilege('janus_private_api','private','CREATE') THEN
+        RAISE EXCEPTION 'automatic ledger charges schema acceptance failed';
+    END IF;
+END;
+$$;
+SELECT true;
 INSERT INTO control.schema_migrations(version) VALUES ('059_ledger_automatic_charges')
 ON CONFLICT DO NOTHING;
 RESET ROLE;

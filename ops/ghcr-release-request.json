@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 41,
-  "reason": "Owner-authorized integration: one-character code/name transaction autocomplete including registered ETFs, selected-symbol validation; actual Final Admin broker-profile entry; batch home snapshot with shared Decimal/status serializer and freshness guard. Includes latest FinOps safe recovery fixes. Full Python/PostgreSQL and Flutter gates required for this exact source; migration 059 is blocked by existing ledger table ownership, so no API promotion or historical repair from this publication.",
+  "attempt": 42,
+  "reason": "Complete transaction code/name autocomplete with keyboard selection and stale async result regression; migration 059 acceptance uses owner-independent pg_attribute and raises on invalid schema/ACL. Previous 3d8ad504 full Release #38673398380 PASS; real existing operator owner migration and sanitized readback completed, no historical fee repair yet. Require full exact-source gates again, no automatic traffic promotion.",
   "expected_runtime_changes": false,
   "ceo_gateway_pilot": false
 }

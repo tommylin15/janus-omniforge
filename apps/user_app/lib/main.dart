@@ -2447,6 +2447,7 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
                                           TextFormField(
                                         controller: controller,
                                         focusNode: focus,
+                                        onFieldSubmitted: (_) => submit(),
                                         autofocus: true,
                                         maxLength: 80,
                                         decoration: const InputDecoration(

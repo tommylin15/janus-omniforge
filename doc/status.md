@@ -1,5 +1,11 @@
 # Janus Current Status
 
+## 2026-10-15 交易搜尋已同步；059 owner 遷移與讀回通過
+
+- 來源 `3d8ad504890a6f0e84cbe1a7a23befd44d6108c8` 的完整 [Release #38673398380](https://github.com/tommylin15/janus-omniforge/actions/runs/38673398380) PASS：Python／隔離 PostgreSQL、Flutter、四個 GHCR immutable images 及匿名 pull 均通過。此來源包含單字代號／名稱搜尋、ETF、未選取輸入攔截、正式 Admin 入口與首頁快照整合。尚未部署此來源／切換 API。
+- 059 已沿用既有 operator IAP／postgres owner 執行，SQL SHA256 `af312332fd054506896999607c9f30e50a67d358e2c51ff1397a31e254a4d93a`，transaction COMMIT；owner 讀回 JSONB 欄位、public API 無 ledger SELECT、private API 無 schema CREATE、059 marker 均 true。初次 bootstrap 權限失敗及 Windows 換行 checksum 攔截保留為歷史失敗，均未回補交易。原 SELECT acceptance 在 control 的 information_schema 不可見；後續改為 pg_attribute 並以 SQL exception 強制中止不合格 migration。
+- 搜尋追加鍵盤 Enter 選取及舊請求較慢回傳的回歸，交易 Flutter 3 PASS；後續修改需以新 SHA 完整 Release 驗證。本人折扣／歷史費稅回補及 1～5 其餘真實驗收仍未完成。
+
 ## 2026-10-15 自動費稅 full CI PASS；失敗 rollout 已恢復；059 與產品驗收接續中
 
 - 自動費稅來源 `62d95bec42fe56ade9858376d1221fbb8b2321a1` 完整 Release [#38668985924](https://github.com/tommylin15/janus-omniforge/actions/runs/38668985924) PASS：Python／隔離 PostgreSQL **1206 PASS／2 legacy deselected**、Flutter／web build、四個 immutable GHCR image／public pull PASS。本人折扣及歷史費稅**尚未在 dev 寫入**，不能將 CI 當回補完成。
