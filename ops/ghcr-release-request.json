@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 33,
-  "reason": "2026-10-14 exact user-authorized dev 01-05 closure: official TPEx 2026-10-13 886-row date-specific JSON validated by #38564967860/#38565190876; fix current OpenAPI falsely returning next-day 2026-10-14 for 2026-10-13 bootstrap, strict PIT no future/stale mixing. Run complete Python, Flutter, four GHCR images and immutable anonymous pull before any dev updates. Maintain current deployed runtime and all API traffic.",
+  "attempt": 34,
+  "reason": "2026-10-15 owner-authorized independent FinOps Iceberg incident #2: switch daily 23:30 GCP batch-controller compaction to bounded compact-nightly (dry-run preflight followed by apply), audit table one-shot compaction, and append-only replay-deduplicated batch event outbox; remove GitHub direct Iceberg maintenance jobs. Full SHA Python/Flutter/GHCR build required before gated Jobs rollout. Do not promote API traffic or overwrite live Job images in this release stage.",
   "expected_runtime_changes": false,
   "ceo_gateway_pilot": false
 }
