@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 16,
-  "safety": "P1 direct 21:30 Private EOD dispatch reliability fix. Exact full GHCR release #38755382061 SHA 7acff and 0% API candidate #38756170482 + auto OAuth boundary #38756520384 PASS. Roll back baseline uses immutable current four-Job image references from #38718355824 target receipt and original unchanged configuration hashes; verify live before any mutation. Existing dev shared lease/Scheduler fence, eight bounded canaries. No new resources or owner ledger writes; do not promote canonical API.",
+  "request_attempt": 17,
+  "safety": "Retry P1 fixed nightly Private EOD dispatch immutable source 7acff after FAILED #38756738102 first_canary_mart execution_not_terminal. Exact original receipt recovery #38820889359 PASS: all protected jobs restored to 285848 baseline, Scheduler ENABLED, original annotated lease released. Same verified release #38755382061, 0%-candidate #38756170482, automated OAuth #38756520384. Reversible rollback and active execution fence remain mandatory. Do not switch canonical API or edit Owner ledger; stop on unknown.",
   "auth_boundary_run": "38756520384",
   "automated_oauth_requirement": "Same-source automatic OAuth/private-negative #38756520384 PASS; no manual OAuth.",
-  "authorization": "User explicitly requested direct repair and deployment of P1 nightly Private Mart scheduling in existing dev; preserve market PIT provenance and safe recovery."
+  "authorization": "Existing-dev bounded P1 fix authorized; retry only after receipt-bound recovery PASS. No new paid resources/permission changes."
 }
