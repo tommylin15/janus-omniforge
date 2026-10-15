@@ -123,6 +123,11 @@ def clean_core_manifests(store, fence, *, apply, now, active_executions):
 
 def maintain_public_data(*, core: Any, apply: bool, now: datetime | None = None) -> dict[str, Any]:
     now = now or datetime.now(timezone.utc)
+    # Missing research/model reference inventory must never permit destructive
+    # Core snapshot, orphan or row retention. Dry runs remain available.
+    fence_uri = os.environ.get("CORE_RETENTION_FENCE_URI", "").strip()
+    if apply and not fence_uri:
+        raise ValueError("core_retention_fence_required_for_apply")
     store = GcsObjectStore(os.environ["CORE_BUCKET"])
     stage_bucket = os.environ.get("STAGE_BUCKET", "")
     if stage_bucket != "gen-lang-client-0593591102-dev-stage":
@@ -141,7 +146,6 @@ def maintain_public_data(*, core: Any, apply: bool, now: datetime | None = None)
         return {"objects": len(objects), "bytes": sum(int(item["size"]) for item in objects)}
     before = {"core": capacity(store), "stage": capacity(stage_store)}
     manifests = {"status": "reference_fence_required"}
-    fence_uri = os.environ.get("CORE_RETENTION_FENCE_URI", "")
     if fence_uri:
         prefix = f"gs://{store.bucket}/maintenance/retention-fences/"
         if not fence_uri.startswith(prefix):

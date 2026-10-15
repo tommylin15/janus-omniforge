@@ -336,3 +336,15 @@ def test_core_maintenance_can_target_only_the_dev_controller_audit_bucket(monkey
     with pytest.raises(ValueError, match="Core allowlist"):
         m.maintain_financials(core=core, store=store, apply=False,
                                identifier="ops.batch_events_v1")
+
+
+def test_core_apply_missing_research_reference_fence_fails_before_storage_or_db(monkeypatch):
+    import pytest
+    from ingestion_core import retention
+
+    monkeypatch.delenv("CORE_RETENTION_FENCE_URI", raising=False)
+    def unexpected_storage(*args, **kwargs):
+        raise AssertionError("missing reference fence must not reach GCS or PostgreSQL")
+    monkeypatch.setattr(retention, "GcsObjectStore", unexpected_storage)
+    with pytest.raises(ValueError, match="core_retention_fence_required_for_apply"):
+        retention.maintain_public_data(core=object(), apply=True)
