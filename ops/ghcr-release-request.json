@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 38,
-  "reason": "Owner-authorized steps 1-5: automatic TWD fee/tax from owner broker profile (0.4 discount), no transaction charge inputs; append-only bounded historical fee repair, original same-day correction ordering, immutable rule snapshots and migration 059. Require full Python including isolated PostgreSQL and Flutter gates before images. No runtime promotion from this commit.",
+  "attempt": 39,
+  "reason": "Owner-authorized Janus Iceberg FinOps recovery and maintenance: fail-closed Core retention apply without a research reference fence, guard post-pause no-mutation Scheduler recovery, and read-only object/I/O audit. Full Python/PostgreSQL/Flutter and four immutable public GHCR images required. No API traffic promotion, no Job or Scheduler mutation from this Release.",
   "expected_runtime_changes": false,
   "ceo_gateway_pilot": false
 }
