@@ -8,7 +8,7 @@
   "no_gcp_mutation": true,
   "no_traffic_mutation": true,
   "no_job_execution": true,
-  "purpose": "Read back fixed Preview and four pinned Jobs plus latest bounded Cloud Run execution status and Scheduler last attempt after 10/15 Owner MCP valuation remained 10/14. No job execution, no ledger or cloud mutation.",
+  "purpose": "P1 no-write newest-first Cloud Run execution audit after first list exposed historic unsorted private executions. Scheduler 22:30 controller still in-flight; reconcile current private and ingestion terminals without running any job.",
   "evidence_boundary": "Owner current valuation 10/14 from separate authorized MCP readback. This workflow never dispatches or mutates an Owner request.",
-  "attempt": 2
+  "attempt": 3
 }
