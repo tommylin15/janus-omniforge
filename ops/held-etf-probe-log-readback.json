@@ -1,0 +1,9 @@
+{
+  "intent": "read-only-exact-held-etf-probe-receipt",
+  "execution": "janus-private-pipeline-blkfm",
+  "source_run": "38710480798",
+  "no_job_run": true,
+  "no_lease_mutation": true,
+  "no_user_data_write": true,
+  "reason": "P0 safe readback only: read exact successful runtime source diagnostic logs, expose only date/availability/source/errors; no price, owner keys or secret payload."
+}

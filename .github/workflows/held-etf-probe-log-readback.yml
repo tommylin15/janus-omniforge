@@ -1,0 +1,69 @@
+name: Janus exact read-only ETF quote probe log receipt
+on:
+  push:
+    branches: [main]
+    paths: ['ops/held-etf-probe-log-readback.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify fixed exact-success read-only execution
+        run: |
+          jq -e '.intent=="read-only-exact-held-etf-probe-receipt" and
+            .execution=="janus-private-pipeline-blkfm" and
+            .source_run=="38710480798" and
+            .no_job_run==true and .no_lease_mutation==true and .no_user_data_write==true' \
+            ops/held-etf-probe-log-readback.json >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Report allowlisted source, valuation and cache metadata only
+        run: |
+          python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          cp=subprocess.run(['gcloud','logging','read',
+            'resource.type="cloud_run_job" AND timestamp>="2026-10-15T09:05:00Z" AND timestamp<="2026-10-15T09:11:00Z"',
+            '--project=gen-lang-client-0593591102','--format=json','--limit=260'],
+            capture_output=True,text=True,timeout=50,check=True)
+          entries=json.loads(cp.stdout)
+          allowed={'scope','symbol','data_write','private_read','status','taipei_day',
+            'official_document_kind','official_row_count','official_parse_eligible',
+            'official_price_date','official_error_type','identity_market',
+            'identity_enabled','identity_present','identity_error_type',
+            'last_quote_present','last_quote_source','last_quote_day','last_quote_error_type',
+            'core_valuation_day','core_symbol_available','core_symbol_day','core_error_type'}
+          findings=[]
+          for e in entries:
+            labels=e.get('labels',{})
+            res=e.get('resource',{}).get('labels',{})
+            execution=labels.get('run.googleapis.com/execution_name') or res.get('execution_name')
+            if execution!='janus-private-pipeline-blkfm':continue
+            payload=e.get('textPayload')
+            if not isinstance(payload,str):continue
+            try:data=json.loads(payload)
+            except (ValueError,TypeError):continue
+            if isinstance(data,dict) and data.get('scope')=='official_00697B_read_only':
+              findings.append({k:data[k] for k in allowed if k in data})
+          report={'source_run':'38710480798','execution':'janus-private-pipeline-blkfm',
+                 'metadata_only':True,'no_private_values':True,'no_data_write':True,
+                 'findings':findings,'status':'PASS' if len(findings)==1 else 'MISSING_OR_DUPLICATE'}
+          Path('/tmp/held-etf-probe-log-readback.json').write_text(json.dumps(report,sort_keys=True))
+          print(json.dumps(report,sort_keys=True))
+          if report['status']!='PASS':raise SystemExit(1)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: held-etf-probe-log-readback
+          path: /tmp/held-etf-probe-log-readback.json
+          if-no-files-found: ignore
+          retention-days: 14
