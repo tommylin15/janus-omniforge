@@ -328,7 +328,7 @@ class IcebergSchemaTests(unittest.TestCase):
 
 
 class IcebergMaintenanceTests(unittest.TestCase):
-    def test_preserves_referenced_recent_daily_and_current_snapshots(self):
+    def test_preserves_referenced_recent_and_current_but_expires_unpinned_daily_snapshots(self):
         timestamps = ["2026-09-20T10:00:00Z", "2026-09-20T11:00:00Z",
                       "2026-09-21T10:00:00Z", "2026-09-21T11:00:00Z",
                       "2026-09-27T11:00:00Z", "2026-09-27T12:00:00Z"]
@@ -338,7 +338,7 @@ class IcebergMaintenanceTests(unittest.TestCase):
         table = SimpleNamespace(snapshots=lambda: snapshots, current_snapshot=lambda: snapshots[-1],
                                 metadata=SimpleNamespace(refs={"main": SimpleNamespace(snapshot_id=6)}))
         keep = _keep_snapshots(table, {1}, datetime(2026, 9, 27, 13, tzinfo=timezone.utc))
-        self.assertEqual(keep, {1, 2, 4, 5, 6})
+        self.assertEqual(keep, {1, 5, 6})
         with self.assertRaisesRegex(RuntimeError, "unavailable"):
             _keep_snapshots(table, {999}, datetime(2026, 9, 27, tzinfo=timezone.utc))
 
