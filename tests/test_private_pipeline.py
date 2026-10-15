@@ -473,3 +473,21 @@ def test_core_price_reader_uses_canonical_iceberg_catalog(monkeypatch):
 def test_private_iceberg_normalizes_postgres_gmt_timestamps():
     value=PrivateIcebergStore._value(datetime(2026,9,5,tzinfo=timezone(timedelta(0),"GMT")))
     assert str(value.tzinfo)=="UTC"
+
+
+def test_private_core_preserves_fee_snapshot_as_json_and_keeps_other_rows(tmp_path, monkeypatch):
+    import json
+    from pyiceberg.catalog.sql import SqlCatalog
+    monkeypatch.chdir(tmp_path)
+    warehouse = 'warehouse'
+    catalog = SqlCatalog('fees', uri='sqlite:///'+(tmp_path/'catalog.db').as_posix(), warehouse=warehouse)
+    try:
+        store = PrivateIcebergStore(catalog, warehouse)
+        store.upsert('ledger_events', [{'user_id': str(USER), 'ledger_version': 1, 'fee': '0'}])
+        snapshot = {'rule_version': 'tw-default-fees.v1', 'discount': '0.4', 'broker_profile_version': 2}
+        store.upsert('ledger_events', [{'user_id': str(USER), 'ledger_version': 2, 'fee': '57', 'fee_rule_snapshot': snapshot}])
+        rows = {row['ledger_version']: row for row in store.rows('ledger_events', USER)}
+        assert rows[1]['fee'] == '0' and rows[1]['fee_rule_snapshot'] is None
+        assert json.loads(rows[2]['fee_rule_snapshot']) == snapshot
+    finally:
+        catalog.engine.dispose()

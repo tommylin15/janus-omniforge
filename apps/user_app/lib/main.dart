@@ -281,7 +281,11 @@ class _LoginPageState extends State<LoginPage> {
         await Navigator.of(context).pushReplacement(MaterialPageRoute(
             builder: (_) => widget.admin
                 ? AdminWorkspace(
-                    api: api, email: account.email, onTheme: widget.onTheme)
+                    brokerProfile: BrokerProfileCard(api,
+                        endpoint: '/api/v1/admin/broker-profile'),
+                    api: api,
+                    email: account.email,
+                    onTheme: widget.onTheme)
                 : Workspace(
                     api: api, email: account.email, onTheme: widget.onTheme)));
       }
@@ -2133,20 +2137,22 @@ class ProfilePage extends StatelessWidget {
 }
 
 class BrokerProfileCard extends StatefulWidget {
-  const BrokerProfileCard(this.api, {super.key});
+  const BrokerProfileCard(this.api,
+      {this.endpoint = '/api/v1/me/broker-profile', super.key});
+  final String endpoint;
   final Api api;
   @override
   State<BrokerProfileCard> createState() => _BrokerProfileCardState();
 }
 
 class _BrokerProfileCardState extends State<BrokerProfileCard> {
-  late Future<dynamic> profile = widget.api.get('/api/v1/me/broker-profile');
+  late Future<dynamic> profile = widget.api.get(widget.endpoint);
 
   @override
   void didUpdateWidget(BrokerProfileCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.api != widget.api) {
-      profile = widget.api.get('/api/v1/me/broker-profile');
+      profile = widget.api.get(widget.endpoint);
     }
   }
 
@@ -2226,7 +2232,7 @@ class _BrokerProfileCardState extends State<BrokerProfileCard> {
                         error = null;
                       });
                       try {
-                        await widget.api.put('/api/v1/me/broker-profile', {
+                        await widget.api.put(widget.endpoint, {
                           'fee_discount_multiplier': discount.trim(),
                           'minimum_fee': minimum.trim(),
                           'cash_strategy': strategy,
@@ -2254,7 +2260,9 @@ class _BrokerProfileCardState extends State<BrokerProfileCard> {
       ),
     );
     if (mounted) {
-      setState(() { profile = widget.api.get('/api/v1/me/broker-profile'); });
+      setState(() {
+        profile = widget.api.get(widget.endpoint);
+      });
     }
   }
 
@@ -2267,27 +2275,27 @@ class _BrokerProfileCardState extends State<BrokerProfileCard> {
           title: const Text('券商設定暫時無法讀取'),
           trailing: TextButton(
                 onPressed: () => setState(() {
-                  profile = widget.api.get('/api/v1/me/broker-profile');
+                  profile = widget.api.get(widget.endpoint);
                 }),
-            child: const Text('重試'),
-          ),
-        );
-      if (!snapshot.hasData) return const ListTile(title: Text('讀取券商設定…'));
-      final row = snapshot.data as Map;
-      return Card(
-        child: ListTile(
-          title: const Text('券商與現金設定'),
-          subtitle: Text(
-            '版本 ${row['version']} · 申報現金 ${accountingNumber(row['declared_cash'], missing: '未設定')} TWD · 日期 ${row['cash_as_of'] ?? '—'}',
-          ),
-          trailing: IconButton(
-            onPressed: () => edit(row),
-            icon: const Icon(Icons.edit_outlined),
-          ),
-        ),
+                child: const Text('重試'),
+              ),
+            );
+          if (!snapshot.hasData) return const ListTile(title: Text('讀取券商設定…'));
+          final row = snapshot.data as Map;
+          return Card(
+            child: ListTile(
+              title: const Text('券商與現金設定'),
+              subtitle: Text(
+                '版本 ${row['version']} · 申報現金 ${accountingNumber(row['declared_cash'], missing: '未設定')} TWD · 日期 ${row['cash_as_of'] ?? '—'}',
+              ),
+              trailing: IconButton(
+                onPressed: () => edit(row),
+                icon: const Icon(Icons.edit_outlined),
+              ),
+            ),
+          );
+        },
       );
-    },
-  );
 }
 
 class ErrorView extends StatelessWidget {
@@ -2342,8 +2350,6 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
   var shares = '${initial?['shares'] ?? ''}';
   var price = '${initial?['price'] ?? ''}';
   var amount = '${initial?['cash_amount'] ?? ''}';
-  var fee = '${initial?['fee'] ?? ''}';
-  var tax = '${initial?['tax'] ?? ''}';
   var memo = '${initial?['memo'] ?? ''}';
 
   String? requiredText(String? value) =>
@@ -2351,11 +2357,6 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
   String? positiveNumber(String? value) {
     final number = num.tryParse(value?.trim() ?? '');
     return number == null || number <= 0 ? '請輸入大於 0 的數字' : null;
-  }
-
-  String? nonNegativeNumber(String? value) {
-    final number = num.tryParse(value?.trim() ?? '');
-    return number == null || number < 0 ? '請輸入 0 或正數' : null;
   }
 
   final result = await showDialog<Map<String, dynamic>>(
@@ -2445,24 +2446,6 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
                                           decoration: const InputDecoration(
                                               labelText: '股利金額'),
                                           validator: positiveNumber),
-                                    if (type != 'STOCK_DIV') ...[
-                                      TextFormField(
-                                          initialValue: fee,
-                                          onChanged: (value) => fee = value,
-                                          keyboardType: const TextInputType
-                                              .numberWithOptions(decimal: true),
-                                          decoration: const InputDecoration(
-                                              labelText: '手續費'),
-                                          validator: nonNegativeNumber),
-                                      TextFormField(
-                                          initialValue: tax,
-                                          onChanged: (value) => tax = value,
-                                          keyboardType: const TextInputType
-                                              .numberWithOptions(decimal: true),
-                                          decoration: const InputDecoration(
-                                              labelText: '證券交易稅'),
-                                          validator: nonNegativeNumber),
-                                    ],
                                     TextFormField(
                                         initialValue: memo,
                                         onChanged: (value) => memo = value,
@@ -2492,8 +2475,6 @@ Future<Map<String, dynamic>?> transactionDialog(BuildContext context,
                               'price': price.trim(),
                             if (type == 'CASH_DIV')
                               'cash_amount': amount.trim(),
-                            'fee': type == 'STOCK_DIV' ? '0' : fee.trim(),
-                            'tax': type == 'STOCK_DIV' ? '0' : tax.trim(),
                             if (memo.trim().isNotEmpty) 'memo': memo.trim(),
                           });
                         },

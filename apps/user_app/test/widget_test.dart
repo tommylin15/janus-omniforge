@@ -293,17 +293,7 @@ void main() {
 
     await tester.tap(find.text('開啟'));
     await tester.pumpAndSettle();
-    for (final label in [
-      '交易類型',
-      '交易日期',
-      '股票代號',
-      '股數',
-      '成交單價',
-      '手續費',
-      '證券交易稅',
-      '備註',
-      '幣別'
-    ]) {
+    for (final label in ['交易類型', '交易日期', '股票代號', '股數', '成交單價', '備註', '幣別']) {
       expect(find.text(label), findsOneWidget);
     }
     expect(find.text('2330'), findsOneWidget);
@@ -311,15 +301,15 @@ void main() {
     expect(find.text('1000'), findsOneWidget);
 
     await tester.enterText(find.widgetWithText(TextFormField, '股票代號'), '2317');
-    await tester.enterText(find.widgetWithText(TextFormField, '手續費'), '0');
-    await tester.enterText(find.widgetWithText(TextFormField, '證券交易稅'), '0');
+    expect(find.widgetWithText(TextFormField, '手續費'), findsNothing);
+    expect(find.widgetWithText(TextFormField, '證券交易稅'), findsNothing);
     await tester.tap(find.text('儲存'));
     await tester.pumpAndSettle();
     expect(result, containsPair('symbol', '2317'));
     expect(result, containsPair('shares', '10'));
     expect(result, containsPair('price', '1000'));
-    expect(result, containsPair('fee', '0'));
-    expect(result, containsPair('tax', '0'));
+    expect(result!.containsKey('fee'), isFalse);
+    expect(result!.containsKey('tax'), isFalse);
   });
 
   testWidgets('journal exposes holdings, records, reports, and notes',

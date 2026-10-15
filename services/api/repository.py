@@ -121,11 +121,11 @@ class PostgresWorkspaceRepository:
                 "SELECT * FROM private.ledger_events WHERE user_id=%s AND idempotency_key=%s", (user_id, key)
             ).fetchone()
             if existing:
-                fields = value.model_dump(exclude={'expected_ledger_version', 'expected_broker_profile_version'})
+                fields = value.model_dump(exclude={'expected_ledger_version', 'expected_broker_profile_version', 'fee', 'tax'})
                 if existing['event_action'] != 'ORIGINAL' or any(existing.get(name) != item for name, item in fields.items()):
                     raise ConflictError('交易冪等鍵已用於不同內容')
                 return self._ledger_result(connection, user_id, existing)
-            self._check_broker_profile(connection, user_id, value.expected_broker_profile_version)
+            value, fee_rule = self._automatic_ledger_charges(connection, user_id, value)
             if value.expected_ledger_version is not None:
                 version = connection.execute("SELECT COALESCE(MAX(ledger_version),0) AS version FROM private.ledger_events WHERE user_id=%s", (user_id,)).fetchone()['version']
                 if version != value.expected_ledger_version:
@@ -133,10 +133,10 @@ class PostgresWorkspaceRepository:
             version = self._next_version(connection, user_id)
             row = connection.execute(
                 """INSERT INTO private.ledger_events
-                   (event_id,user_id,ledger_version,event_action,event_type,trade_date,symbol,shares,price,cash_amount,fee,tax,currency,memo,idempotency_key)
-                   VALUES (%s,%s,%s,'ORIGINAL',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
+                   (event_id,user_id,ledger_version,event_action,event_type,trade_date,symbol,shares,price,cash_amount,fee,tax,currency,memo,idempotency_key,fee_rule_snapshot)
+                   VALUES (%s,%s,%s,'ORIGINAL',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb) RETURNING *""",
                 (uuid4(), user_id, version, value.event_type, value.trade_date, value.symbol, value.shares,
-                 value.price, value.cash_amount, value.fee, value.tax, value.currency, value.memo, key),
+                 value.price, value.cash_amount, value.fee, value.tax, value.currency, value.memo, key, json.dumps(fee_rule)),
             ).fetchone()
             self._change(connection, user_id, self._next_change_version(connection,user_id), "ledger", row["event_id"], None)
             result = self._ledger_result(connection, user_id, row)
@@ -159,8 +159,6 @@ class PostgresWorkspaceRepository:
         return {**dict(row), 'transaction_result': result}
 
     def preview_ledger(self, user_id: UUID, value: LedgerEventIn) -> dict[str, Any]:
-        if not {'fee', 'tax'} <= value.model_fields_set:
-            raise ConflictError("試算需明確輸入手續費及稅額；未知金額不可當零")
         from .trade_calculation import transaction_result
         with self._connection() as connection:
             connection.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
@@ -168,74 +166,121 @@ class PostgresWorkspaceRepository:
             if value.expected_ledger_version is not None and value.expected_ledger_version != version:
                 raise ConflictError("交易版本已變更，請重新試算")
             events = self._symbol_events(connection, user_id, value.symbol)
-            profile_version = connection.execute(
-                "SELECT COALESCE(MAX(version),0) AS version FROM private.broker_profile_revisions WHERE user_id=%s",
-                (user_id,),
-            ).fetchone()['version']
+            value, fee_rule = self._automatic_ledger_charges(connection, user_id, value, lock=False)
+            profile_version = fee_rule.get('broker_profile_version', 0)
         event = {**value.model_dump(), 'event_id': 'preview', 'event_action': 'ORIGINAL', 'user_id': user_id, 'ledger_version': version + 1}
         return {**transaction_result([*events, event], event, valuation_date=max(row['trade_date'] for row in [*events, event])),
                 'preview': True, 'based_on_ledger_version': version,
-                'broker_profile_version': profile_version, 'fee_tax_rule_version': 'recorded-fees.v1'}
+                'broker_profile_version': profile_version, 'fee_tax_rule_version': fee_rule['rule_version'],
+                'fee': value.fee, 'tax': value.tax, 'fee_rule_snapshot': fee_rule}
 
-    def _check_broker_profile(self, connection: Any, user_id: UUID, expected: int | None) -> None:
-        if expected is None:
-            return
-        connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f'broker-profile:{user_id}',))
-        version = connection.execute(
-            "SELECT COALESCE(MAX(version),0) AS version FROM private.broker_profile_revisions WHERE user_id=%s",
+    def _automatic_ledger_charges(self, connection: Any, user_id: UUID, value: LedgerEventIn, *, lock=True):
+        from .trade_fees import automatic_charges
+        if lock:
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f'broker-profile:{user_id}',))
+        profile = connection.execute(
+            "SELECT * FROM private.broker_profile_revisions WHERE user_id=%s ORDER BY version DESC LIMIT 1",
             (user_id,),
-        ).fetchone()['version']
-        if expected != version:
+        ).fetchone()
+        if value.expected_broker_profile_version is not None and value.expected_broker_profile_version != (profile['version'] if profile else 0):
             raise ConflictError('券商設定已變更，請重新試算')
+        try:
+            fee, tax, rule = automatic_charges(value, profile)
+        except ValueError as error:
+            raise ConflictError(str(error)) from error
+        return value.model_copy(update={'fee': fee, 'tax': tax}), rule
 
     def correct_ledger(self, user_id: UUID, event_id: UUID, expected: int, value: LedgerEventIn, key: str) -> dict[str, Any]:
         with self._connection() as connection:
-            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"ledger:{user_id}",))
-            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))",(str(event_id),))
-            repeated=connection.execute("SELECT * FROM private.ledger_events WHERE user_id=%s AND idempotency_key=%s",(user_id,key)).fetchone()
-            if repeated:
-                fields = value.model_dump(exclude={'expected_ledger_version', 'expected_broker_profile_version'})
-                if (repeated['event_action'] != 'REPLACEMENT' or repeated['replaces_event_id'] != event_id
-                        or any(repeated.get(name) != item for name, item in fields.items())):
-                    raise ConflictError('交易更正冪等鍵已用於不同內容')
-                return self._ledger_result(connection, user_id, repeated)
-            self._check_broker_profile(connection, user_id, value.expected_broker_profile_version)
-            original = connection.execute(
-                "SELECT * FROM private.ledger_events WHERE user_id=%s AND event_id=%s", (user_id, event_id)
-            ).fetchone()
-            if not original:
-                raise NotFoundError("ledger event not found")
-            if original["record_version"] != expected:
-                raise ConflictError("ledger event version changed")
-            if connection.execute("SELECT 1 FROM private.ledger_events WHERE user_id=%s AND reverses_event_id=%s", (user_id, event_id)).fetchone():
-                raise ConflictError("ledger event was already corrected")
-            if value.expected_ledger_version is not None:
-                version = connection.execute("SELECT COALESCE(MAX(ledger_version),0) AS version FROM private.ledger_events WHERE user_id=%s", (user_id,)).fetchone()['version']
-                if version != value.expected_ledger_version:
-                    raise ConflictError("交易版本已變更，請重新試算")
-            reversal_version = self._next_version(connection, user_id)
-            reversal_id = uuid4()
-            connection.execute(
-                """INSERT INTO private.ledger_events
-                   (event_id,user_id,ledger_version,event_action,event_type,trade_date,symbol,shares,price,cash_amount,fee,tax,currency,memo,idempotency_key,reverses_event_id)
-                   VALUES (%s,%s,%s,'REVERSAL',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                (reversal_id,user_id,reversal_version,original["event_type"],original["trade_date"],original["symbol"],original["shares"],
-                 original["price"],original["cash_amount"],original["fee"],original["tax"],original["currency"],original["memo"],f"reversal:{uuid4()}",event_id),
-            )
-            version = self._next_version(connection, user_id)
-            row = connection.execute(
-                """INSERT INTO private.ledger_events
-                   (event_id,user_id,ledger_version,event_action,event_type,trade_date,symbol,shares,price,cash_amount,fee,tax,currency,memo,idempotency_key,replaces_event_id)
-                   VALUES (%s,%s,%s,'REPLACEMENT',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""",
-                (uuid4(),user_id,version,value.event_type,value.trade_date,value.symbol,value.shares,value.price,value.cash_amount,
-                 value.fee,value.tax,value.currency,value.memo,key,event_id),
-            ).fetchone()
-            self._change(connection, user_id, self._next_change_version(connection,user_id), "ledger", reversal_id, None)
-            self._change(connection, user_id, self._next_change_version(connection,user_id), "ledger", row["event_id"], None)
-            if original['symbol'] != value.symbol:
-                self._ledger_result(connection, user_id, original)
-            result = self._ledger_result(connection, user_id, row)
-            connection.execute("SELECT private.refresh_current_positions(%s)", (user_id,))
+            return self._correct_ledger(connection, user_id, event_id, expected, value, key)
+
+    def _correct_ledger(self, connection: Any, user_id: UUID, event_id: UUID, expected: int, value: LedgerEventIn, key: str) -> dict[str, Any]:
+        connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"ledger:{user_id}",))
+        connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))",(str(event_id),))
+        repeated=connection.execute("SELECT * FROM private.ledger_events WHERE user_id=%s AND idempotency_key=%s",(user_id,key)).fetchone()
+        if repeated:
+            fields = value.model_dump(exclude={'expected_ledger_version', 'expected_broker_profile_version', 'fee', 'tax'})
+            if (repeated['event_action'] != 'REPLACEMENT' or repeated['replaces_event_id'] != event_id
+                    or any(repeated.get(name) != item for name, item in fields.items())):
+                raise ConflictError('交易更正冪等鍵已用於不同內容')
+            return self._ledger_result(connection, user_id, repeated)
+        value, fee_rule = self._automatic_ledger_charges(connection, user_id, value)
+        original = connection.execute(
+            "SELECT * FROM private.ledger_events WHERE user_id=%s AND event_id=%s", (user_id, event_id)
+        ).fetchone()
+        if not original:
+            raise NotFoundError("ledger event not found")
+        if original["record_version"] != expected:
+            raise ConflictError("ledger event version changed")
+        if connection.execute("SELECT 1 FROM private.ledger_events WHERE user_id=%s AND reverses_event_id=%s", (user_id, event_id)).fetchone():
+            raise ConflictError("ledger event was already corrected")
+        if value.expected_ledger_version is not None:
+            version = connection.execute("SELECT COALESCE(MAX(ledger_version),0) AS version FROM private.ledger_events WHERE user_id=%s", (user_id,)).fetchone()['version']
+            if version != value.expected_ledger_version:
+                raise ConflictError("交易版本已變更，請重新試算")
+        reversal_version = self._next_version(connection, user_id)
+        reversal_id = uuid4()
+        connection.execute(
+            """INSERT INTO private.ledger_events
+               (event_id,user_id,ledger_version,event_action,event_type,trade_date,symbol,shares,price,cash_amount,fee,tax,currency,memo,idempotency_key,reverses_event_id)
+               VALUES (%s,%s,%s,'REVERSAL',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (reversal_id,user_id,reversal_version,original["event_type"],original["trade_date"],original["symbol"],original["shares"],
+             original["price"],original["cash_amount"],original["fee"],original["tax"],original["currency"],original["memo"],f"reversal:{uuid4()}",event_id),
+        )
+        version = self._next_version(connection, user_id)
+        row = connection.execute(
+            """INSERT INTO private.ledger_events
+               (event_id,user_id,ledger_version,event_action,event_type,trade_date,symbol,shares,price,cash_amount,fee,tax,currency,memo,idempotency_key,replaces_event_id,fee_rule_snapshot)
+               VALUES (%s,%s,%s,'REPLACEMENT',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb) RETURNING *""",
+            (uuid4(),user_id,version,value.event_type,value.trade_date,value.symbol,value.shares,value.price,value.cash_amount,
+             value.fee,value.tax,value.currency,value.memo,key,event_id,json.dumps(fee_rule)),
+        ).fetchone()
+        self._change(connection, user_id, self._next_change_version(connection,user_id), "ledger", reversal_id, None)
+        self._change(connection, user_id, self._next_change_version(connection,user_id), "ledger", row["event_id"], None)
+        if original['symbol'] != value.symbol:
+            self._ledger_result(connection, user_id, original)
+        result = self._ledger_result(connection, user_id, row)
+        connection.execute("SELECT private.refresh_current_positions(%s)", (user_id,))
+        return result
+
+    def reprice_ledger_fees(self, user_id: UUID, *, expected_ledger_version: int, expected_profile_version: int, apply=False):
+        """One owner's bounded repair; immutable originals and all corrections share one transaction."""
+        with self._connection() as connection:
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f'ledger:{user_id}',))
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f'broker-profile:{user_id}',))
+            version = connection.execute(
+                "SELECT COALESCE(MAX(ledger_version),0) AS version FROM private.ledger_events WHERE user_id=%s",
+                (user_id,),
+            ).fetchone()['version']
+            if version != expected_ledger_version:
+                raise ConflictError('交易版本已變更，請重新預覽費稅更正')
+            rows = connection.execute(
+                "SELECT e.* FROM private.ledger_events e WHERE e.user_id=%s AND e.event_action<>'REVERSAL' "
+                "AND NOT EXISTS (SELECT 1 FROM private.ledger_events r WHERE r.user_id=e.user_id AND r.reverses_event_id=e.event_id) "
+                "ORDER BY e.trade_date,e.ledger_version LIMIT 501", (user_id,),
+            ).fetchall()
+            if len(rows) > 500:
+                raise ConflictError('費稅更正超過單次受控範圍')
+            changes = []
+            for row in rows:
+                value = LedgerEventIn(**{name: row[name] for name in
+                    ('event_type', 'trade_date', 'symbol', 'shares', 'price', 'cash_amount', 'currency', 'memo')},
+                    expected_broker_profile_version=expected_profile_version)
+                computed, rule = self._automatic_ledger_charges(connection, user_id, value)
+                if (row['fee'], row['tax']) != (computed.fee, computed.tax):
+                    changes.append((row, computed, rule))
+            result = {
+                'status': 'applied' if apply else 'preview', 'effective_events': len(rows),
+                'corrections': len(changes), 'based_on_ledger_version': version,
+                'broker_profile_version': expected_profile_version,
+                'fee_delta': sum((value.fee-row['fee'] for row, value, _ in changes), Decimal(0)),
+                'tax_delta': sum((value.tax-row['tax'] for row, value, _ in changes), Decimal(0)),
+            }
+            if apply:
+                for row, value, rule in changes:
+                    self._correct_ledger(connection, user_id, row['event_id'], row['record_version'], value,
+                                         f"auto-fees-v1:{row['event_id']}:{expected_profile_version}")
+                result['ledger_version'] = version + 2 * len(changes)
             return result
 
     def reverse_ledger(self, user_id: UUID, event_id: UUID, expected: int, key: str) -> dict[str, Any]:

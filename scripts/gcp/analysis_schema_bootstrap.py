@@ -1,6 +1,7 @@
 """Apply allowlisted analysis migrations using the existing ingestion image and identity.
 
-No image, Scheduler, IAM, canonical data or API traffic changes. The fixed SQL
+No image, Scheduler, project IAM, canonical ledger data or API traffic changes.
+Owner phases may temporarily grant schema CREATE, revoked even on failure. The fixed SQL
 is public repository code; credentials remain inside the existing Job runtime.
 """
 import argparse
@@ -12,13 +13,28 @@ import time
 
 BOOTSTRAP = '''import base64,hashlib,json,os
 from ingestion_core.__main__ import _control_plane
-from ingestion_core.serving_schema_migration import _without_role_lines, _publication_connection
+from ingestion_core.serving_schema_migration import _without_role_lines, _publication_connection, _private_api_connection
 raw=base64.b64decode(os.environ['JANUS_ANALYSIS_MIGRATION_SQL'],validate=True)
 assert hashlib.sha256(raw).hexdigest()==os.environ['JANUS_ANALYSIS_MIGRATION_HASH']
 prepare,rest=_without_role_lines(raw.decode()).split('-- PHASE: acceptance',1)
 checks,record=rest.split('INSERT INTO control.schema_migrations',1)
 control=_control_plane()
 try:
+ if '-- PHASE: private-api' in prepare:
+  control_sql,private_rest=prepare.split('-- PHASE: private-api',1)
+  private_sql,finalize_sql=private_rest.split('-- PHASE: control-finalize',1)
+  with control.connection.transaction(),control.connection.cursor() as cursor:
+   cursor.execute(control_sql)
+  private=None
+  try:
+   private=_private_api_connection()
+   with private.transaction(),private.cursor() as cursor:
+    cursor.execute(private_sql)
+  finally:
+   if private is not None: private.close()
+   with control.connection.transaction(),control.connection.cursor() as cursor:
+    cursor.execute('REVOKE CREATE ON SCHEMA private FROM janus_private_api')
+  prepare=finalize_sql
  if '-- PHASE: publication' in prepare:
   control_sql,publication_sql=prepare.split('-- PHASE: publication',1)
   with control.connection.transaction(),control.connection.cursor() as cursor:
@@ -47,7 +63,7 @@ finally:
 
 
 def payload(source, sql, migration='051_analysis_product'):
-    if migration not in {'051_analysis_product', '052_ceo_daily_quota_50', '054_market_serving', '055_full_market_universe', '056_controller_ledger_backup', '057_home_market_snapshot', '058_official_held_etf_identity'}:
+    if migration not in {'051_analysis_product', '052_ceo_daily_quota_50', '054_market_serving', '055_full_market_universe', '056_controller_ledger_backup', '057_home_market_snapshot', '058_official_held_etf_identity', '059_ledger_automatic_charges'}:
         raise ValueError('migration not approved for bootstrap')
     container = source['template']['template']['containers'][0]
     if container.get('command') not in (None, [], ['python']):
@@ -66,7 +82,7 @@ def main():
     from ghcr_jobs_rollout import cloud, fence, job, terminal, ROOT
     parser = argparse.ArgumentParser()
     parser.add_argument('--receipt', type=Path, required=True)
-    parser.add_argument('--migration', choices=('051_analysis_product', '052_ceo_daily_quota_50', '054_market_serving', '055_full_market_universe', '056_controller_ledger_backup', '057_home_market_snapshot', '058_official_held_etf_identity'),
+    parser.add_argument('--migration', choices=('051_analysis_product', '052_ceo_daily_quota_50', '054_market_serving', '055_full_market_universe', '056_controller_ledger_backup', '057_home_market_snapshot', '058_official_held_etf_identity', '059_ledger_automatic_charges'),
                         default='051_analysis_product')
     args = parser.parse_args()
     source = job('janus-ingestion-core')

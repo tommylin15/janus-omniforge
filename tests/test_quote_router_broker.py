@@ -287,3 +287,26 @@ def test_persisted_snapshot_refuses_stale_ledger_version():
               'email':'owner@example.com','email_verified':True,'exp':1900000000}
     api = TestClient(create_app(repo,Store(),lambda *_:claims,audience='user-client'))
     assert api.get('/api/v1/me/portfolio/snapshot',headers=auth()).status_code == 409
+
+
+def test_admin_broker_profile_is_bound_to_same_google_subject_and_rejects_owner_override():
+    class Profiles(QuoteRepository):
+        def resolve_user(self, sub, email): return UUID(int=1 if sub == 'a' else 2)
+        def broker_profile(self, owner): return {'version': 1, 'owner': str(owner), 'fee_discount_multiplier': '0.4'}
+        def save_broker_profile(self, owner, value, key): return {'version': 2, 'owner': str(owner)}
+    def verifier(token, audience):
+        assert audience == 'admin-client'
+        return {'iss': 'https://accounts.google.com', 'aud': 'admin-client', 'sub': token,
+                'email': token+'@example.invalid', 'email_verified': True, 'exp': 1900000000}
+    api = TestClient(create_app(Profiles(), Store(), audience='user-client', admin_audience='admin-client',
+        admin_verifier=verifier, admin_emails=frozenset({'a@example.invalid', 'b@example.invalid'})))
+    path = '/api/v1/admin/broker-profile'
+    assert api.get(path).status_code == 401
+    a = api.get(path, headers={'Authorization': 'Bearer a'}).json()
+    b = api.get(path, headers={'Authorization': 'Bearer b'}).json()
+    assert a['owner'] != b['owner']
+    payload = dict(fee_discount_multiplier='0.4', minimum_fee='20', cash_strategy='balanced', expected_version=1)
+    headers = {'Authorization': 'Bearer a', 'Idempotency-Key': 'admin-fees-1'}
+    assert api.put(path, json={**payload, 'user_id': b['owner']}, headers=headers).status_code == 422
+    result = api.put(path, json=payload, headers=headers)
+    assert result.status_code == 200 and result.json()['owner'] == a['owner']

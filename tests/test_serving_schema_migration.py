@@ -416,3 +416,34 @@ def test_core_readiness_fences_snapshot_and_uses_read_only_catalog(monkeypatch):
     with pytest.raises(RuntimeError, match="snapshot fence"):
         entrypoint._core_readiness()
     assert calls[-1] == "closed"
+
+
+@pytest.mark.parametrize('private_failure', [False, True])
+def test_automatic_fee_migration_revokes_temporary_create_and_never_records_failed_apply(monkeypatch, private_failure):
+    import base64, hashlib, runpy
+    from pathlib import Path
+    from ingestion_core import __main__ as entry
+    control = FakeControl()
+    control.close = lambda: None
+    private = FakeConnection('janus_private_api')
+    if private_failure:
+        class Cursor(FakeCursor):
+            def execute(self, sql, params=None):
+                raise RuntimeError('private apply failed')
+        private.cursor = lambda: Cursor('janus_private_api')
+    monkeypatch.setattr(entry, '_control_plane', lambda: control)
+    monkeypatch.setattr(migration, '_private_api_connection', lambda: private)
+    source = (Path(__file__).parents[1]/'infra/postgres/migrations/059_ledger_automatic_charges.sql').read_bytes()
+    monkeypatch.setenv('JANUS_ANALYSIS_MIGRATION_SQL', base64.b64encode(source).decode())
+    monkeypatch.setenv('JANUS_ANALYSIS_MIGRATION_HASH', hashlib.sha256(source).hexdigest())
+    monkeypatch.setenv('JANUS_ANALYSIS_MIGRATION_NAME', '059_ledger_automatic_charges')
+    bootstrap = runpy.run_path('scripts/gcp/analysis_schema_bootstrap.py')['BOOTSTRAP']
+    if private_failure:
+        with pytest.raises(RuntimeError, match='private apply failed'):
+            exec(bootstrap, {})
+    else:
+        exec(bootstrap, {})
+    sql = statements(control.connection)
+    assert 'REVOKE CREATE ON SCHEMA private FROM janus_private_api' in sql
+    assert ('INSERT INTO control.schema_migrations' in sql) is (not private_failure)
+    assert private.closed

@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 37,
-  "reason": "FinOps Issue #2 final targeted fix: observed Cloud Monitoring 66% of Core GCS operations in five-minute :33/:38 windows; enforce bounded four-slot Iceberg audit mirroring for BOTH active and observe modes, leaving immediate durable PostgreSQL outbox with unchanged event-ID/payload Iceberg replay and post-readback ack. Reference-aware snapshot/orphan cleanup also includes ops batch audit. Previous full Release #38662361096 PASS but source was extended by observe-mode regression before Jobs deployment; rebuild exact complete SHA and do not treat old image as final. No API traffic promotion.",
+  "attempt": 38,
+  "reason": "Owner-authorized steps 1-5: automatic TWD fee/tax from owner broker profile (0.4 discount), no transaction charge inputs; append-only bounded historical fee repair, original same-day correction ordering, immutable rule snapshots and migration 059. Require full Python including isolated PostgreSQL and Flutter gates before images. No runtime promotion from this commit.",
   "expected_runtime_changes": false,
   "ceo_gateway_pilot": false
 }

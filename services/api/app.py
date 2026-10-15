@@ -1200,6 +1200,17 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def admin_actor(current: AuthenticatedAdmin = Depends(authenticate_admin)) -> str:
         return current.email
 
+    @admin.get("/broker-profile")
+    def admin_broker_profile(current: AuthenticatedAdmin = Depends(authenticate_admin)):
+        owner = repository.resolve_user(current.google_sub, current.email)
+        return jsonable_encoder(repository.broker_profile(owner))
+
+    @admin.put("/broker-profile")
+    def admin_save_broker_profile(value: BrokerProfileIn, current: AuthenticatedAdmin = Depends(authenticate_admin),
+                                  idempotency_key: str = Depends(key)):
+        owner = repository.resolve_user(current.google_sub, current.email)
+        return jsonable_encoder(repository.save_broker_profile(owner, value, idempotency_key))
+
     @admin.get("/analysis")
     def admin_analysis():
         return jsonable_encoder(analysis_service.admin_summary())

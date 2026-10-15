@@ -32,6 +32,7 @@ class PrivateIcebergStore:
     }
 
     ADDITIVE_FIELDS = {
+        "ledger_events": frozenset({"fee_rule_snapshot"}),
         # Historical Private Iceberg position tables predate quote freshness
         # fields. Without this additive evolution the Mart has market_price
         # and market_value but silently drops price_status/price_date, while
@@ -192,6 +193,10 @@ class PrivateIcebergStore:
 
         identifier = f"{self.namespace}.{table_name}"
         normalized = [{key:self._value(value) for key,value in row.items()} for row in rows]
+        if table_name == "ledger_events":
+            for row in normalized:
+                if isinstance(row.get("fee_rule_snapshot"), dict):
+                    row["fee_rule_snapshot"] = json.dumps(row["fee_rule_snapshot"], sort_keys=True, separators=(",", ":"))
         inferred=pa.Table.from_pylist(normalized)
         incoming=pa.Table.from_pylist(normalized,schema=pa.schema([
             pa.field(field.name,pa.string() if pa.types.is_null(field.type) else field.type,nullable=True) for field in inferred.schema]))

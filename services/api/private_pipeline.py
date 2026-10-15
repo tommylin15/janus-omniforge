@@ -209,11 +209,36 @@ def stock_identity(identity: dict[str, Any] | None) -> tuple[str | None, str, st
     return name, "available" if identity.get("enabled") is True else "disabled", None
 
 
+def effective_ledger_events(rows):
+    """Corrections keep the original same-day position in the trade sequence."""
+    by_id = {str(row['event_id']): row for row in rows}
+    reversed_ids = {str(row['reverses_event_id']) for row in rows if row.get('event_action') == 'REVERSAL'}
+    orders = {}
+    def order(row):
+        path = []
+        seen = set()
+        while str(row['event_id']) not in orders:
+            key = str(row['event_id'])
+            if key in seen:
+                raise ValueError('ledger correction lineage cycle')
+            seen.add(key)
+            path.append(key)
+            parent = by_id.get(str(row.get('replaces_event_id')))
+            if parent is None:
+                orders[key] = row['ledger_version']
+                break
+            row = parent
+        version = orders[str(row['event_id'])]
+        for key in path:
+            orders[key] = version
+        return version
+    active = [row for row in rows if row.get('event_action') != 'REVERSAL' and str(row['event_id']) not in reversed_ids]
+    return sorted(active, key=lambda row: (row['trade_date'], order(row)))
+
+
 def calculate_marts(events: Iterable[dict[str, Any]], prices: dict[str, Decimal | tuple[Decimal, date] | None],
                     valuation_date: date, identities: dict[str, dict[str, Any]] | None = None) -> dict[str, list[dict[str, Any]]]:
     rows=list(events); identities=identities or {}
-    reversed_ids={str(row["reverses_event_id"]) for row in rows if row.get("event_action")=="REVERSAL"}
-    active=[row for row in rows if row.get("event_action")!="REVERSAL" and str(row["event_id"]) not in reversed_ids]
     states:dict[tuple[str,str,str],dict[str,Any]]={}
     annual:dict[tuple[str,int,str],dict[str,Any]]=defaultdict(lambda:{"realized_pnl":ZERO,"fees":ZERO,"taxes":ZERO,"cash_dividends":ZERO,"transaction_count":0})
     monthly:dict[tuple[str,int,int,str],dict[str,Any]]=defaultdict(lambda:{"purchase_outflow":ZERO,"sale_proceeds":ZERO,
@@ -222,7 +247,7 @@ def calculate_marts(events: Iterable[dict[str, Any]], prices: dict[str, Decimal 
         "cash_dividends":ZERO,"realized_pnl":ZERO,"fees":ZERO,"taxes":ZERO,"transaction_count":0})
     realized_rows=[]
     ledger_version=max((int(row["ledger_version"]) for row in rows),default=0)
-    for row in sorted(active,key=lambda item:(item["trade_date"],item["ledger_version"])):
+    for row in effective_ledger_events(rows):
         user_id,symbol,currency=str(row["user_id"]),row["symbol"],row["currency"]
         key=(user_id,symbol,currency); state=states.setdefault(key,{"shares":ZERO,"cost":ZERO,"realized":ZERO})
         shares=Decimal(str(row.get("shares") or 0)); price=Decimal(str(row.get("price") or 0))

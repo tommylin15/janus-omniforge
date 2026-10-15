@@ -2,18 +2,15 @@
 from datetime import date
 from decimal import Decimal
 
-from .private_pipeline import calculate_marts, ledger_net_cash_flow
+from .private_pipeline import calculate_marts, ledger_net_cash_flow, effective_ledger_events
 from .repository import OversellError
 
 
 def transaction_result(events, event, *, valuation_date: date):
     rows = list(events)
     # Validate every effective sale, including later trades affected by a backdated entry.
-    reversed_ids = {str(row['reverses_event_id']) for row in rows if row.get('event_action') == 'REVERSAL'}
     shares = {}
-    for row in sorted(rows, key=lambda value: (value['trade_date'], value['ledger_version'])):
-        if row.get('event_action') == 'REVERSAL' or str(row['event_id']) in reversed_ids:
-            continue
+    for row in effective_ledger_events(rows):
         key = (row['symbol'], row['currency'])
         quantity = Decimal(str(row.get('shares') or 0))
         held = shares.get(key, Decimal(0))

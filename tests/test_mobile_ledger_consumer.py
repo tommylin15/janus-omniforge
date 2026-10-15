@@ -88,7 +88,7 @@ def test_consumer_binds_owner_from_drive_and_uses_request_id_for_idempotency():
     owner, event, key = repository.added[0]
     assert owner == OWNER and key == "mobile-12345678"
     assert event.symbol == "2330" and str(event.shares) == "1000"
-    assert str(event.fee) == "10" and str(event.tax) == "0"
+    assert not {"fee", "tax"} & event.model_fields_set
     assert queue.marks[0][1]["status"] == "PROCESSED"
     assert queue.marks[0][1]["ledger_version"] == 25
 
@@ -110,17 +110,12 @@ def test_mobile_batch_coalesces_one_owner_recalculation_after_successful_persist
     assert owners == []
 
 
-def test_consumer_requires_explicit_fee_and_tax_instead_of_guessing_missing_values():
-    queue = Queue([valid_row(fee="")])
+def test_consumer_leaves_blank_charges_for_authoritative_backend_calculation():
+    queue = Queue([valid_row(fee="", tax="")])
     repository = Repository()
     result = process_mobile_ledger_queue(repository, queue=queue)
-    assert result == {"pending": 1, "processed": 0, "errors": 1}
-    assert repository.added == []
-    assert queue.marks == [(2, {
-        "status": "ERROR",
-        "processed_at": queue.marks[0][1]["processed_at"],
-        "error_code": "VALIDATION",
-    })]
+    assert result == {"pending": 1, "processed": 1, "errors": 0}
+    assert not {"fee", "tax"} & repository.added[0][1].model_fields_set
 
 
 def test_consumer_sanitizes_oversell_without_leaking_domain_message():

@@ -94,7 +94,7 @@ cash_strategy（reserve／balanced／invested）、declared_cash／cash_as_of（
 申報現金是使用者手填 snapshot，**不是 canonical cash ledger balance**，
 不參與正式 portfolio aggregate／cash ratio。設定不追溯改寫已儲存交易的 fee／tax。
 目前沒有新增 CASH_IN／CASH_OUT，也沒有券商同步或成本法切換。
-完整可稽核 cash ledger、profile fee 自動計算／交易 rule snapshot 尚未由此切片交付；
+2026-10-15 自動費稅及歷史更正的新需求與未完成驗收見 [持股契約](holdings-first.md)／TODO；完整可稽核 cash ledger 尚未由此切片交付；
 若其為 A 組所需 acceptance，狀態維持 partial，不以 profile CRUD 當成完成。
 
 私人匯出包含完整 profile revisions；既有刪除 pipeline 在同一 owner 範圍清除 revisions。

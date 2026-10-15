@@ -182,11 +182,13 @@ Future<bool> _showExecutionDetails(
 class AdminWorkspace extends StatefulWidget {
   const AdminWorkspace({
     required this.api,
+    this.brokerProfile,
     required this.email,
     required this.onTheme,
     super.key,
   });
   final AdminApi api;
+  final Widget? brokerProfile;
   final String email;
   final ValueChanged<ThemeMode> onTheme;
 
@@ -229,7 +231,7 @@ class _AdminWorkspaceState extends State<AdminWorkspace> {
       AdminStockWorkbench(widget.api),
       AdminMarketUniversePage(widget.api),
       AdminAnalysisPage(widget.api),
-      AdminGovernancePage(widget.api),
+      AdminGovernancePage(widget.api, brokerProfile: widget.brokerProfile),
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -878,7 +880,8 @@ class _AdminEffectiveBatchesState extends State<AdminEffectiveBatches> {
 }
 
 class AdminGovernancePage extends StatefulWidget {
-  const AdminGovernancePage(this.api, {super.key});
+  const AdminGovernancePage(this.api, {this.brokerProfile, super.key});
+  final Widget? brokerProfile;
   final AdminApi api;
   @override
   State<AdminGovernancePage> createState() => _AdminGovernancePageState();
@@ -1038,6 +1041,7 @@ class _AdminGovernancePageState extends State<AdminGovernancePage> {
                 .toList();
 
             return ListView(children: [
+              if (widget.brokerProfile != null) widget.brokerProfile!,
               const ListTile(
                 title: Text('Private Pipeline'),
                 subtitle: Text('全體 reconciliation 與個人重算分離；個人 queue 不會帶其他 owner 一起重算。僅顯示去識別化 owner ref，不顯示交易、持股或 user-to-symbol 關係。'),

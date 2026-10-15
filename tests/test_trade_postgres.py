@@ -40,6 +40,8 @@ def ledger():
                 statement = re.search(r'CREATE TABLE IF NOT EXISTS private\.' + table + r' \(.*?\n\);', source_sql, re.S)
                 assert statement is not None
                 connection.execute(statement[0])
+            connection.execute('ALTER TABLE private.ledger_events ADD COLUMN fee_rule_snapshot jsonb')
+            projection = (root/'infra/postgres/migrations/059_ledger_automatic_charges.sql').read_text(encoding='utf-8')
             function = re.search(r'CREATE OR REPLACE FUNCTION private\.refresh_current_positions.*?\$\$;', projection, re.S)
             assert function is not None
             connection.execute(function[0])
@@ -47,6 +49,7 @@ def ledger():
             for owner in owners:
                 connection.execute('INSERT INTO private.users(user_id,google_sub,display_email) VALUES (%s,%s,%s)',
                                    (owner, str(owner), 'synthetic-ci@example.invalid'))
+                connection.execute("INSERT INTO private.broker_profile_revisions(user_id,version,fee_discount_multiplier,minimum_fee,cash_strategy,idempotency_key) VALUES (%s,1,0,0,'balanced','ci-profile')", (owner,))
         repo = PostgresWorkspaceRepository(dsn)
         @contextmanager
         def connect():
@@ -70,7 +73,7 @@ def test_preview_is_read_only_and_save_returns_cost_and_rejects_stale_version(le
     preview = repo.preview_ledger(owner, event())
     assert preview['remaining_cost_basis'] == 2000 and preview['based_on_ledger_version'] == 0
     assert repo.latest_ledger_version(owner) == 0 and repo.positions(owner) == []
-    saved = repo.add_ledger(owner, event(expected_ledger_version=0, expected_broker_profile_version=0), 'buy')
+    saved = repo.add_ledger(owner, event(expected_ledger_version=0, expected_broker_profile_version=1), 'buy')
     assert saved['transaction_result']['remaining_shares'] == 100
     assert repo.positions(owner)[0]['cost_basis'] == Decimal(2000)
     assert repo.positions(other) == []
@@ -87,7 +90,7 @@ def test_correction_cannot_erase_cost_required_by_a_later_sale_and_rolls_back(le
     repo, (owner, _) = ledger
     buy = repo.add_ledger(owner, event(), 'buy')
     sale = repo.add_ledger(owner, event('SELL', shares='100', price='30'), 'sell')
-    assert sale['transaction_result']['transaction_realized_pnl'] == 1000
+    assert sale['transaction_result']['transaction_realized_pnl'] == 991
     with pytest.raises(OversellError):
         repo.correct_ledger(owner, buy['event_id'], 1, event(shares='50'), 'bad-correction')
     assert repo.latest_ledger_version(owner) == 2 and len(repo.ledger_history(owner, None, None)) == 2
@@ -100,6 +103,53 @@ def test_corrected_buy_and_partial_sale_have_one_cost_rule_and_owner_boundary(le
     replacement = repo.correct_ledger(owner, buy['event_id'], 1, event(price='25'), 'correction')
     assert replacement['transaction_result']['remaining_cost_basis'] == 2500
     sold = repo.add_ledger(owner, event('SELL', shares='30', price='40'), 'sale')
-    assert sold['transaction_result']['transaction_realized_pnl'] == 450
+    assert sold['transaction_result']['transaction_realized_pnl'] == 447
     assert sold['transaction_result']['remaining_cost_basis'] == 1750
     assert repo.positions(owner)[0]['cost_basis'] == 1750 and repo.positions(other) == []
+
+
+def test_automatic_charges_and_atomic_historical_repair_preserve_originals(ledger):
+    repo, (owner, other) = ledger
+    buy = repo.add_ledger(owner, event(), 'buy')
+    repo.add_ledger(owner, event('SELL', shares='30', price='40'), 'sell')
+    with repo._connection() as connection:
+        connection.execute("INSERT INTO private.broker_profile_revisions(user_id,version,fee_discount_multiplier,minimum_fee,cash_strategy,idempotency_key) VALUES (%s,2,0.4,20,'balanced','discount')", (owner,))
+    preview = repo.preview_ledger(owner, event())
+    assert preview['fee'] == 20 and preview['tax'] == 0
+    assert preview['broker_profile_version'] == 2 and repo.latest_ledger_version(owner) == 2
+    before = repo.ledger_history(owner, None, None)
+    dry = repo.reprice_ledger_fees(owner, expected_ledger_version=2, expected_profile_version=2)
+    assert dry['corrections'] == 2 and repo.latest_ledger_version(owner) == 2
+    result = repo.reprice_ledger_fees(owner, expected_ledger_version=2, expected_profile_version=2, apply=True)
+    assert result['ledger_version'] == 6 and repo.latest_ledger_version(other) == 0
+    after = {row['event_id']: row for row in repo.ledger_history(owner, None, None)}
+    assert all(after[row['event_id']] == row for row in before)
+    assert repo.positions(owner)[0]['cost_basis'] == Decimal('1414')
+    repeat = repo.add_ledger(owner, event(), 'buy')
+    assert repeat['event_id'] == buy['event_id']  # A new profile cannot break a stored idempotent response.
+    again = repo.reprice_ledger_fees(owner, expected_ledger_version=6, expected_profile_version=2, apply=True)
+    assert again['corrections'] == 0 and again['ledger_version'] == 6
+    with pytest.raises(ConflictError):
+        repo.reprice_ledger_fees(owner, expected_ledger_version=2, expected_profile_version=2, apply=True)
+
+
+def test_fee_repair_rolls_back_all_corrections_if_second_write_fails(ledger, monkeypatch):
+    repo, (owner, _) = ledger
+    repo.add_ledger(owner, event(), 'buy')
+    repo.add_ledger(owner, event('SELL', shares='30', price='40'), 'sell')
+    with repo._connection() as connection:
+        connection.execute("INSERT INTO private.broker_profile_revisions(user_id,version,fee_discount_multiplier,minimum_fee,cash_strategy,idempotency_key) VALUES (%s,2,0.4,20,'balanced','discount')", (owner,))
+    before = repo.ledger_history(owner, None, None)
+    positions = repo.positions(owner)
+    original = repo._correct_ledger
+    calls = []
+    def fail_second(*args, **kwargs):
+        calls.append(True)
+        if len(calls) == 2:
+            raise RuntimeError('injected failure')
+        return original(*args, **kwargs)
+    monkeypatch.setattr(repo, '_correct_ledger', fail_second)
+    with pytest.raises(RuntimeError, match='injected failure'):
+        repo.reprice_ledger_fees(owner, expected_ledger_version=2, expected_profile_version=2, apply=True)
+    assert repo.latest_ledger_version(owner) == 2
+    assert repo.ledger_history(owner, None, None) == before and repo.positions(owner) == positions

@@ -199,7 +199,7 @@ cash flow 與 PnL 不得混為同義。交易類型目前為買進、賣出、�
 
 ### 5.4.5 Broker Profile／cash
 
-私人 Broker Profile 可保存 current cash／cash strategy、fee discount multiplier、minimum fee 與 rule/profile version。現金優先由可稽核 cash ledger（opening/deposit/withdrawal/trade/dividend）推導；任何 CASH_IN／CASH_OUT／adjustment 仍須 append-only／audit。
+私人 Broker Profile 可保存 current cash／cash strategy、fee discount multiplier、minimum fee 與 rule/profile version。2026-10-15 起 Admin「資料治理」沿用同一 owner 的券商設定（本人折扣 0.4）；交易新增／更正不提供手續費與證交稅輸入，兩項統一由 backend 自動計算。現金優先由可稽核 cash ledger（opening/deposit/withdrawal/trade/dividend）推導；任何 CASH_IN／CASH_OUT／adjustment 仍須 append-only／audit。
 
 目前 canonical cost method 維持移動平均法；未核准 FIFO 前不提供任意切換。scenario／預計交易不得直接寫正式 ledger／PnL。
 

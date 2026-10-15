@@ -27,8 +27,6 @@ def _ledger_value(row: dict[str, str]) -> LedgerEventIn:
     created_at = datetime.fromisoformat(row.get("created_at", "").strip().replace("Z", "+00:00"))
     if created_at.tzinfo is None:
         raise ValueError("mobile ledger created_at must include timezone")
-    if not row.get("fee", "").strip() or not row.get("tax", "").strip():
-        raise ValueError("fee and tax must be explicit")
     return LedgerEventIn.model_validate({
         "event_type": row.get("event_type", "").strip(),
         "trade_date": row.get("trade_date", "").strip(),
@@ -36,8 +34,6 @@ def _ledger_value(row: dict[str, str]) -> LedgerEventIn:
         "shares": _optional(row.get("shares", "")),
         "price": _optional(row.get("price", "")),
         "cash_amount": _optional(row.get("cash_amount", "")),
-        "fee": row.get("fee", "").strip(),
-        "tax": row.get("tax", "").strip(),
         "currency": row.get("currency", "").strip().upper() or "TWD",
         "memo": _optional(row.get("memo", "")),
     })

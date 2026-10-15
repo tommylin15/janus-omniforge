@@ -1,5 +1,9 @@
 # Janus — TODO
 
+**2026-10-15 最新授權：依序完成持股交易／損益 → 首頁與快照效能 → 通用圖表／四頁 → 總控／備份 → 集中測試及正式 dev 切流（1～5）。** 本輪不啟動後置模型研究。
+
+- [ ] **自動費稅與歷史更正**：費用使用本人券商設定的折扣倍率 **0.4** 及既有最低費用；證交稅依商品／交易日的預設規則計算，交易新增／更正表單不再輸入兩項。所有歷史有效交易先有界核對，以 append-only reversal／replacement 更正費稅，保留原始交易、成交內容與 audit，重算持股及正式損益並驗證 readback；不影響其他 owner。Migration／完整 CI／dev 實際回補尚未完成，不勾選。
+
 **2026-10-15 接續：01 全市場 Bootstrap 與 02 Cached 真實 PASS，03～05 仍 PARTIAL／NOT STARTED。** 最新逐 Run／數值收據見 [status.md](status.md) 首段。原 2026-10-14 暫停為歷史 checkpoint，已由使用者後續 01～05 合併工程指示解除相應暫停；其他未授權 production／IAM／破壞性操作限制不變。後置五模型研究／CEO publication 不併入本輪。
 
 - [x] **01 官方全市場＋必要 dataset coverage**：交易日 2026-10-13、固定官方 TWSE 1095／TPEx 893，全部必要 dataset 依各市場 10%／30% 門檻 PASS，stage/core/serving 與不可變 provenance 收據 [#38575674367](https://github.com/tommylin15/janus-omniforge/actions/runs/38575674367)。

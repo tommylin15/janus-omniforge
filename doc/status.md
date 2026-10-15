@@ -1,5 +1,14 @@
 # Janus Current Status
 
+## 2026-10-15 本輪 1～5 已授權；自動費稅開發中（PARTIAL）
+
+- 使用者新增本人折扣 0.4、自動證交稅、交易表單移除兩項輸入，並授權更正全部既有有效交易後依序完成 1～5；後置模型研究不啟動。已補共用費稅、Admin 本人券商設定、規則快照、Migration 059、原子 append-only 更正與同日交易更正排序。真實 ledger 回補尚未執行。
+- 本機相關 Python 78 PASS／5 個隔離 PostgreSQL tests SKIP（沒有 CI DSN）；Flutter targeted 23 PASS。新 SQL replay 與整批失敗回滾仍須 GitHub 隔離 PostgreSQL 實測；完整 Release 已準備請求，未取得新 CI／部署 PASS。
+- 唯讀重新核對：舊 queue canary #38653931699 已終態 FAIL，cleanup fence 報 `execution_not_terminal`；不能沿用舊「進行中」文字或盲目重送。FinOps Jobs rollout #38663858991 同樣 FAIL 且 recovery 未確認終態。最近 Private Pipeline executions 已讀到兩 Task SUCCEEDED，但這不是 queue checkpoint／cleanup 或完整四 Jobs 發版 PASS；部署鎖與其餘 Jobs 還需核對。
+
+以下依原日期保留歷史證據；後續原始碼不自動繼承舊版本 runtime PASS。
+
+
 
 ## 2026-10-15 03～05 最新工程接續：官方 ETF 身分修復 PASS；正式重算驗收進行中
 

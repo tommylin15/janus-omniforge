@@ -53,3 +53,19 @@ def test_fractional_shares_stock_dividend_and_cash_dividend_keep_common_cost_rul
     assert result['transaction_realized_pnl'] is None and result['net_cash_flow'] == 8
     with pytest.raises(OversellError):
         transaction_result([stock], stock, valuation_date=date(2026, 10, 12))
+
+
+def test_fee_correction_preserves_same_day_original_trade_order_through_multiple_replacements():
+    buy = trade(1, 'BUY', '100', '20')
+    sell = trade(2, 'SELL', '30', '40')
+    reverse_buy = dict(buy, event_id='3', ledger_version=3, event_action='REVERSAL', reverses_event_id='1')
+    corrected = dict(buy, event_id='4', ledger_version=4, event_action='REPLACEMENT', replaces_event_id='1', fee=Decimal(20))
+    rows = [buy, sell, reverse_buy, corrected]
+    result = transaction_result(rows, sell, valuation_date=date(2026, 10, 12))
+    assert result['transaction_realized_pnl'] == Decimal(594)
+    assert result['remaining_cost_basis'] == Decimal(1414)
+    rows += [dict(corrected, event_id='5', ledger_version=5, event_action='REVERSAL', reverses_event_id='4'),
+             dict(corrected, event_id='6', ledger_version=6, replaces_event_id='4', fee=Decimal(40))]
+    result = transaction_result(rows, sell, valuation_date=date(2026, 10, 12))
+    assert result['transaction_realized_pnl'] == Decimal(588)
+    assert result['remaining_cost_basis'] == Decimal(1428)
