@@ -1,0 +1,9 @@
+{
+  "intent": "dev-ledger-backup-handoff",
+  "approved": true,
+  "environment": "dev",
+  "release_run": 38691316772,
+  "release_sha": "536598f2528550fd60c73786597fdf2740860c9e",
+  "phase": "install",
+  "reason": "2026-10-15 D01-D05 combined authorization: install existing PostgreSQL VM controller-request executor + isolated restore verifier without stopping original janus-ledger-backup.timer. Handoff (timer disable) prohibited until new bounded backup and isolated restore actually PASS. No paid infra, new secret or removal."
+}
