@@ -8,6 +8,7 @@ override and recomputes the existing owner's derived Mart under shared fence.
 """
 from __future__ import annotations
 from datetime import date, datetime
+import time
 import json
 import os
 from pathlib import Path
@@ -137,9 +138,25 @@ def _read_exact_official(day:date) -> tuple[dict,str]:
     url=TPEX_OFFICIAL_DATED_URL+"?"+urlencode({"date":session,"response":"json"})
     headers={"User-Agent":"Mozilla/5.0 (compatible; JanusResearch/1.0)",
              "Accept":"application/json","Accept-Encoding":"identity"}
-    with urlopen(Request(url,headers=headers),timeout=20) as response:
-        assert response.status==200,"official source response must be HTTP 200"
-        body=response.read(12_000_001)
+    # TPEx has occasionally closed a chunked response before the terminating
+    # chunk on GitHub Actions. Retry only the public transport *before* any
+    # lease, job dispatch, or database write. Partial payloads are discarded.
+    from http.client import IncompleteRead, RemoteDisconnected
+    from urllib.error import HTTPError, URLError
+    for attempt in range(3):
+        try:
+            with urlopen(Request(url,headers=headers),timeout=20) as response:
+                if response.status!=200:
+                    raise ValueError("official source response must be HTTP 200")
+                body=response.read(12_000_001)
+            break
+        except HTTPError:
+            raise
+        except (IncompleteRead, RemoteDisconnected, URLError,
+                ConnectionResetError, TimeoutError):
+            if attempt == 2:
+                raise
+            time.sleep(attempt + 1)
     if len(body)>12_000_000:raise ValueError("official TPEx bounded size")
     data=json.loads(body.decode("utf-8-sig"))
     if not isinstance(data,dict) or _official_day(data.get("date"))!=day:

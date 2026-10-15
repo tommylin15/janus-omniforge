@@ -355,3 +355,51 @@ def test_historical_refresh_calls_dated_source_when_rolling_returns_today_only()
     assert ("dated",{"00697B"},date(2026,10,14)) in src.calls
     assert db.historical[("00697B","2026-10-14")]["price"]=="33.20"
     assert db.saved["00697B"]["price_date"]=="2026-10-15"
+
+def test_exact_official_tpex_transport_retries_only_before_db_mutation(monkeypatch):
+    """A truncated HTTP chunk cannot be treated as an official price."""
+    import json
+    from http.client import IncompleteRead
+    from scripts.gcp import p0_tpex_asof_owner_acceptance as module
+
+    class Response:
+        status = 200
+        def __init__(self, attempt):
+            self.attempt = attempt
+        def __enter__(self):
+            return self
+        def __exit__(self, *_args):
+            return None
+        def read(self, _limit):
+            if self.attempt == 1:
+                raise IncompleteRead(b'partial not valid JSON')
+            return json.dumps({
+                'date': '20261014',
+                'tables': [{'fields': ['代號','收盤'],
+                            'data': [['00697B', '33.20']]}],
+            }).encode()
+
+    calls = []
+    monkeypatch.setattr(module, 'urlopen',
+                        lambda _request, timeout: (calls.append(timeout) or Response(len(calls))))
+    monkeypatch.setattr(module.time, 'sleep', lambda _seconds: None)
+    quote, checksum = module._read_exact_official(date(2026, 10, 14))
+    assert quote['SecuritiesCompanyCode'] == '00697B'
+    assert quote['Date'] == '115/10/14'
+    assert len(checksum) == 64
+    assert calls == [20,20]
+
+
+def test_exact_official_tpex_never_accepts_repeated_truncated_payload(monkeypatch):
+    import pytest
+    from http.client import IncompleteRead
+    from scripts.gcp import p0_tpex_asof_owner_acceptance as module
+    attempts = []
+    def always_truncate(_request, timeout):
+        attempts.append(timeout)
+        raise IncompleteRead(b'partial')
+    monkeypatch.setattr(module, 'urlopen', always_truncate)
+    monkeypatch.setattr(module.time, 'sleep', lambda _seconds: None)
+    with pytest.raises(IncompleteRead):
+        module._read_exact_official(date(2026, 10, 14))
+    assert attempts == [20,20,20]

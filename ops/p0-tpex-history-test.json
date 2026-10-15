@@ -3,6 +3,6 @@
   "approved": true,
   "scope": "no-data-mutation",
   "no_gcp_mutation": true,
-  "purpose": "P0 long-term official TPEx dailyQuotes regression rerun: reuse the in-memory fixture on same source rather than calling injected source twice; prior #38716953819 failed 1 existing anti-burst test; no live GCP data mutation.",
-  "attempt": 5
+  "purpose": "Targeted regression for TPEx IncompleteRead retries before data write, official date/symbol/PIT, unchanged historical schema.",
+  "attempt": 6
 }

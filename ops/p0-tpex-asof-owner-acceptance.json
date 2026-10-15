@@ -11,6 +11,6 @@
   "no_job_template_mutation": true,
   "single_owner_only": true,
   "private_mart_write_only": true,
-  "attempt": 2,
-  "reason": "Retry exactly once after #38718586032 failed BEFORE official fetch, lease acquisition or Cloud Run Job dispatch: ModuleNotFoundError services from GitHub runner PYTHONPATH. Same immutable full Release #38717341300 and verified Jobs #38718355824; keep 00697B/2026-10-14 one-owner derived-only, no trade ledger mutation, no API traffic promotion. Fail closed if next execution terminal cannot be proven."
+  "attempt": 3,
+  "reason": "Run once after #38723938992 failed before any lease/GCP/owner/DB mutation: TPEx public HTTPS chunk stream truncated with http.client.IncompleteRead. Retry bounded up to 3 full HTTP fetches, discard partial JSON; require verified 2026-10-14 and exact symbol before launching immutable same-SHA private-pipeline job. No ledger event write, no traffic promotion."
 }
