@@ -81,7 +81,7 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 
 ### 4.1 全市場及批次總控（2026-10-13 最新決策）
 
-**2026-10-14 最新範圍（僅 coverage 門檻更新，保持部署暫停）：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 TWSE 上市 ≤10%、TPEx 上櫃 ≤30%（均含邊界）分市場通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。此為新需求，尚未完成 runtime 切換。 [全市場／總控契約](spec/full-market-batch-policy.md) 定義分母、快照、即時操作與遷移驗收；[批次盤點](batch-inventory-2026-10-13.md) 記錄現況。交易入帳／試算及報價按需刷新不等定時批次，背景工作共用 request／fence。此決策取代舊 Liquid 500 admission，保留 50 筆關注 quota、來源與金額／模型品質約束。
+**全市場與總控契約（2026-10-14 coverage 更新）：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 TWSE 上市 ≤10%、TPEx 上櫃 ≤30%（均含邊界）分市場通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。實作／切換依最新 status 與 runtime evidence 分項判定；授權及暫停範圍只由當次使用者指令與 active TODO 決定。 [全市場／總控契約](spec/full-market-batch-policy.md) 定義分母、快照、即時操作與遷移驗收；[批次盤點](batch-inventory-2026-10-13.md) 記錄現況。交易入帳／試算及報價按需刷新不等定時批次，背景工作共用 request／fence。此決策取代舊 Liquid 500 admission，保留 50 筆關注 quota、來源與金額／模型品質約束。
 
 ## 5. 最小文件讀取
 
@@ -187,4 +187,4 @@ Janus User App 的 presentation target 另由 `ui/user-app.md` 與 `ui/reference
 
 - 舊 regional Cloud Build Release、Artifact Registry image、GCS receipts／mutex、`ci-v2.yml` selective CI 與部分 `deploy-dev.yml` 操作仍可能存在於 `main`／dev；**目前狀態以 workflow／runtime readback 為準**。文件更新不代表新 Actions full test + GHCR + Cloud Run release 已上線。
 - 對本次或後續工作要求的 evidence，至少涵蓋完整 SHA、完整測試 gate、GHCR public pull／digest、WIF 權限、0% candidate、authenticated acceptance、traffic／Job readback、rollback；確認切換新路徑後才有條件停止舊發布入口，不進行無法復原的清理。
-- `AGENTS.md` 只引用本權威文件；實際命令與轉換時序記在 [runbook](runbook-dev-deploy.md)，不另建立互相矛盾的政策。任何 commit／push 前必須先執行 `/ponytail-review`；完成工作前檢查規則、適用 tests／lint／驗證，說明修改、真實證據與未決事項。
+- `AGENTS.md` 只引用本權威文件；實際命令與轉換時序記在 [runbook](runbook-dev-deploy.md)，不另建立互相矛盾的政策。任何 commit／push 前先執行 `/ponytail-review`；若環境無此非系統命令，依 §1.4 以實際 diff／契約／連結／適用測試 review 替代並明示，不偽稱已執行；完成工作前檢查規則、適用 tests／lint／驗證，說明修改、真實證據與未決事項。

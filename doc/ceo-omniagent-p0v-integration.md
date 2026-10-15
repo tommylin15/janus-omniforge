@@ -1,4 +1,6 @@
-# Janus CEO → omniAgent P0-V Gateway（獨立整合）
+# Janus CEO → omniAgent P0-V Gateway（技術證據）
+
+> 現況索引：技術整合PASS，真實Owner publication未驗收。下文按日期保存測試歷程，舊PARTIAL／503／暫停／候選端點不是新任務指令；當次scope看TODO，部署endpoint先讀Janus實際配置。上游獨立發布不證明Janus已改route。
 
 更新：2026-10-13。此工作只授權 Janus CEO 請求鏈；**不解除持股／Private Recalc P0 的 PAUSED BY USER**，不重啟四個排程 Jobs、不修改已存在的交易帳本、不切換正式 API／omniAgent Gateway 流量。
 

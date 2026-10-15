@@ -37,3 +37,5 @@
 | Dialog、鍵盤、讀屏、實機與 release checklist | [A11y 與 Release](ui/accessibility-and-release.md) | release 前依入口增讀 User 或 Admin |
 
 執行優先序見 [TODO](todo.md)，領域規格見 [SPEC](spec.md)，WBS 驗收見 [WBS](wbs.md)。
+
+2026-10-15 補強契約：[UI／持股操作補強](spec/system-development-contract.md)；狀態與執行順序只看TODO。

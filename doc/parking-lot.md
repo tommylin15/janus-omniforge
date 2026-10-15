@@ -154,3 +154,7 @@ Supply-chain ontology、Source Matrix、seed graph、signal contract、Pilot mea
 - 為純 cosmetic polish 建立獨立工程 WBS。
 
 需要上述任何項目時，先由使用者明確決定「做」，再從本文件搬回 `todo.md`；在那之前不視為欠債、不影響專案完成度。
+
+## 2026-10-15 唯讀交易情境影響（未排程）
+
+可研究在既有試算加交易後權重／現金影響；先證完整估值與cash來源，缺分母不算。非自動下單，不擴張D01本輪驗收。設計見 [系統補強](spec/system-development-contract.md)。

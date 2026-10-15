@@ -1,8 +1,8 @@
 # B3 每日盤後 liquid-全市場 screening
 
-**2026-10-13 最新範圍：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 ≤10%（含邊界）通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。此為新需求，尚未完成 runtime 切換。 本文舊 500 範圍已被取代，歷史識別字／證據保留；完整 [新契約](spec/full-market-batch-policy.md)。
+**2026-10-13 最新範圍：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 TWSE 上市 ≤10%、TPEx 上櫃 ≤30%（均含邊界）分市場通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。實作與runtime切換狀態見status／operations，不以本契約推定完成。 本文舊 500 範圍已被取代，歷史識別字／證據保留；完整 [新契約](spec/full-market-batch-policy.md)。
 
-狀態：**CLOSED / PASS（2026-10-07）**。Implementation、deployment、fixed-snapshot canary、兩次 reuse live acceptance 與 controller occurrence readback 均已有真實 dev evidence；BigQuery 未切 default，PyIceberg 維持預設 reader。
+歷史B3範圍：**CLOSED / PASS（2026-10-07）**，不表示新全市場範圍全部驗收。Implementation、deployment、fixed-snapshot canary、兩次 reuse live acceptance 與 controller occurrence readback 均已有真實 dev evidence；BigQuery 未切 default，PyIceberg 維持預設 reader。
 
 ## 日常路徑
 
@@ -18,7 +18,7 @@ Cache identity 包含 Core snapshot／manifest hash、table fences、analysis da
 .tmp/specialist-venv/Scripts/python.exe scripts/gcp/b3-screening-canary.py --output .tmp/b3-canary.json
 ```
 
-須用升級權限存取既有 dev credentials。沿用 B2 固定 B0 manifest 與 500 檔 membership；只查既有 `janus_core_dev.b2_core_fixed_20261007` 的 OHLCV／benchmark mapping。BigQuery 正常 query/result API、先 dry-run、整輪 <=1 GiB billed bytes、每 query <=60 秒；mapping 在 query 前、後及整批完成前驗證，不能證明 snapshot 就拒絕。
+須用升級權限存取既有 dev credentials。以下是2026-10-07歷史canary參數，不能直接作新全市場request。歷史使用B2固定B0 manifest與500檔membership；只查既有 `janus_core_dev.b2_core_fixed_20261007` 的 OHLCV／benchmark mapping。BigQuery 正常 query/result API、先 dry-run、整輪 <=1 GiB billed bytes、每 query <=60 秒；mapping 在 query 前、後及整批完成前驗證，不能證明 snapshot 就拒絕。
 
 Valuation 仍由同一 bounded PyIceberg read 提供，不建立新 shared table。Candidate elapsed 排除共用 valuation read，不能當作完整冷啟動／Cloud Run 加速證據。Compare 包含 row multiset、null、provenance 與全部 screening output hash；row order 不影響 identity。沒有通過 cost/performance/failure acceptance 前維持 PyIceberg，不因一次 fidelity PASS 切 default。
 

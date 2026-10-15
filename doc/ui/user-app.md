@@ -8,7 +8,7 @@
 
 **2026-10-11 新的四頁視覺契約：**[A 正式 UI 規格](visual-first-four-pages.md)／[B 工程工作單](visual-first-delivery.md)。舊四 PNG 是最低基礎值、非圖表上限。各頁唯一 Hero，先圖與大數字後文字；當本次新順序與舊 PNG 不一致，以新規格為準，原資料治理不變。
 
-**2026-10-13 最新順序：**先完整持股／報價／交易損益與首屏，再個股通用圖表及四頁整合，五分析師有效後才建立整合分析報告。依 [持股優先契約](../spec/holdings-first.md) 執行；實際驗收見 [status](../status.md)，歷史暫停已解除。
+**2026-10-13 最新順序：**先完整持股／報價／交易損益與首屏，再個股通用圖表及四頁整合，五分析師有效後才建立整合分析報告。依 [持股優先契約](../spec/holdings-first.md) 執行；實際驗收見 [status](../status.md)，當次授權／暫停範圍只見TODO，不由UI規格決定。
 
 ## 5.0 Final Visual Contract
 
@@ -145,10 +145,8 @@ Ledger／Holdings 一致性至少涵蓋 shares、cost／average cost、market va
 - **兩種更新**：交易 membership 隨 ledger 寫入即時變更；價格只在頁面前景交易時段按需 revalidate／手動更新，收盤後走官方 EOD 交接。避免使用每分鐘排程掃所有持股或逐檔 Iceberg/HTTP；TPEx 無已核准盤中來源時明示 EOD-only，不宣稱即時。
 - **卡片同欄同指標**：第一視覺列左為個股＋股數＋價／成本，右為「未實現總損益（NT$）＋持有報酬％」；第二列集中「當日最新現價、每股漲跌／漲跌幅、現有股數的當日變動額」，日期／來源尾註。永不把「當日股價變動」與「持有至今累計損益」在同一水平列左右對稱。缺價時維持精簡卡、簡短原因，不能讓錯誤報錯巨幅擠掉 Hero。
 - 對照 `reference/user-app-final/ledger.png` 與真實桌面截圖作 responsive convergence：只有一張市場持股市值主 Hero（未實現、報酬、年度已實現在內嵌次級欄），完整無價時保留精簡 Hero 並明示 missing symbols；下方緊湊股票列、近期紀錄；桌面主欄合理 max width，手機 390px 無 overflow；只有官方可追溯收盤序列才畫 mini sparkline，否則不畫假線。保持台股紅獲利／綠虧損與負號／狀態文字。
-- 目前 Preview 截圖 00719B 缺價且全部總額 withheld、重算 Cloud Run dispatch 失敗、Hero 空白佔位過大，**現況 VISUAL FAIL / DATA PARTIAL**。資料 fallback 與 private recalc 派送故障必須獨立診斷；不得把第一個當成第二個的根因。完整開發後一次跑整合 tests＋GitHub Actions Release＋0% candidate＋自動 OAuth＋固定 Preview＋owner 真實桌面／390px 截圖，才可以轉 PASS。
 
-
-**2026-10-12 持股 UI／估值修正（Active P0）**：研究／搜尋／新關注股票資格已改全上市櫃，authenticated owner 實際持股由 ledger 決定。Owner ledger mutation 後自動即時重建持股股數／成本並觸發獨立行情需求；TWSE 與 TPEx 的即時和官方 EOD 都須先驗 source、market 身分、PIT 與 last-success 保障，不可用假價格補位。未完成報價仍保留 operational positions／歷史／單股已確認值，正式總額依 coverage withheld；重算 Job dispatch 錯誤獨立處理。個股卡上區先股票識別、股數、**未實現總損益／報酬**；下區同屬當日行情之現價、每股漲跌／漲幅、持有股數對應當日變化額，時間層級不得混列。單一持股市值 Hero、緊湊圖卡，手機與桌面依 Final Visual PNG 真實 screenshot comparison；示意樣本不可當正式數字。此狀態尚待合併測試／Dev Owner 真實驗收，**VISUAL FAIL**。
+此處只定義契約；歷史00719B缺價與dispatch failure不當作永久現況。最新資料／畫面驗收見status，資料fallback與queue故障各自驗證。
 
 ### 5.4.2 持股
 
@@ -259,7 +257,7 @@ cash flow 與 PnL 不得混為同義。交易類型目前為買進、賣出、�
 
 - 使用共用 typed formatter，不讓各 widget raw interpolation。
 - 股價語意固定 2 位小數。
-- 金額、股數、比例依產品契約四捨五入整數、comma 千分位；負數用括號。
+- 金額、股數、比例依產品契約四捨五入整數、comma 千分位；User損益與漲跌負值用減號，與台股紅漲綠跌語意一致。
 - symbol、日期、version、hash、decimal trade input 保留原語意。
 - targeted／golden regression 覆蓋主要格式。
 

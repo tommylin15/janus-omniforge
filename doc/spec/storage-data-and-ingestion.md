@@ -1,6 +1,6 @@
 # Janus SPEC — 儲存、資料供應與 Ingestion
 
-**2026-10-13 最新範圍：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 ≤10%（含邊界）通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。此為新需求，尚未完成 runtime 切換。 本文舊 500 範圍已被取代，歷史識別字／證據保留；完整 [新契約](../spec/full-market-batch-policy.md)。
+**2026-10-13 最新範圍：**市場資料、screening、研究母體、搜尋／新增關注資格全部改為上市／上櫃全部個股，必要資料缺失率 TWSE 上市 ≤10%、TPEx 上櫃 ≤30%（均含邊界）分市場通過；不再維持前 500 母體。所有業務批次由 Cloud Scheduler 總控，GitHub Actions 只保留備份清理定時排程。實作與 runtime 切換狀態見 status／operations，不以本契約推定完成。 本文舊 500 範圍已被取代，歷史識別字／證據保留；完整 [新契約](../spec/full-market-batch-policy.md)。
 
 ## 5. 湖倉分層
 
@@ -42,7 +42,7 @@ snapshot、Cloud SQL、HA、replica、second PostgreSQL VM 或無界 retention�
 - `coverage_tier`、去識別化深度追蹤 membership、effective time、collection cadence 與授權狀態必須持久化並可稽核；關注異動不得改寫歷史 membership，Admin 不得看到使用者與 symbol 的對應。
 - 高頻、文本與另類資料不得因全市場 collection 自動擴張；MVP 超過 50 個 active distinct symbols 或提高抓取頻率須拒絕並另行評估來源限制、Cloud Run/GCS 成本與授權。此上限是營運護欄，不是「50 大」產品功能。
 - collection 與 analysis 分離；進入深度追蹤只代表有使用者關注需求且可收集相應資料，不代表平台推薦、可發布或可自動下單。
-- 官方名冊按生效日更新，全市場必需資料缺失率 ≤10% 通過 coverage；來源失敗保留最後有效版本並明示 stale。新加入 watchlist 可選全上市櫃個股；已持有股票即使離榜，也應沿源頭 → Stage → Core → Private Mart 補行情，不用 UI 假價。
+- 官方名冊按生效日更新，全市場必需資料缺失率按 TWSE ≤10%、TPEx ≤30% 分市場通過 coverage；來源失敗保留最後有效版本並明示 stale。新加入 watchlist 可選全上市櫃個股；已持有股票即使離榜，也應沿源頭 → Stage → Core → Private Mart 補行情，不用 UI 假價。
 
 ### 6.2 五層資料供應責任
 

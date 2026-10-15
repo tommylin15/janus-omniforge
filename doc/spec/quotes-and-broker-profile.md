@@ -8,7 +8,7 @@
 
 2026-10-13 使用者恢復三項優先整合，官方 EOD 行情範圍改為 **TWSE + TPEx 全部個股**。每市場一次官方整批擷取，保存原始 Stage、canonical Core OHLCV、provenance 與 PostgreSQL serving；未持有、未關注、未入研究 500 的個股也先保存，交易入帳後直接依 owner positions 查既有報價。
 
-2026-10-13 後續決策：研究／screening 母體及關注新增股票資格一律改全上市櫃個股，取消 Liquid 500 admission；既有 50 筆關注 quota 保留。全市場 coverage 缺失率 ≤10% 過關，詳見 [全市場／總控契約](full-market-batch-policy.md)。ETF 既有授權路徑保留，00719B 可用官方 TPEx EOD；未驗證盤中資料不可當 live tick。盤中 MIS 保持可見需求／TTL，不新增全市場逐分鐘排程。
+2026-10-13 後續決策：研究／screening 母體及關注新增股票資格一律改全上市櫃個股，取消 Liquid 500 admission；既有 50 筆關注 quota 保留。全市場 coverage 缺失率 TWSE ≤10%、TPEx ≤30% 分市場過關，詳見 [全市場／總控契約](full-market-batch-policy.md)。ETF 既有授權路徑保留，00719B 可用官方 TPEx EOD；未驗證盤中資料不可當 live tick。盤中 MIS 保持可見需求／TTL，不新增全市場逐分鐘排程。
 
 ### Persistent latest-price resolver
 

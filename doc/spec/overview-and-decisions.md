@@ -50,7 +50,7 @@ User／Admin 只經 FastAPI 契約讀寫已持久化資料；一般 page load �
 
 ## 5. 市場覆蓋與 Deep Coverage
 
-目前 research market coverage 以約 500 檔低成本 market screening／discovery 為主；不再以約 1,700–2,000 檔全市場深度分析作 active product contract。
+目前市場資料／screening與研究母體為全上市櫃合格個股，按日期官方名冊決定，不固定股票總數。每日完整五角色仍只做Deep Coverage；市場coverage按TWSE≤10%／TPEx≤30%缺失率，研究品質另驗。
 
 完整五 specialist 只對 `active watchlist ∪ effective holdings` 執行。Watchlist 的 50 active distinct-symbol quota 保留作成本／來源護欄；持股退出有效市場名冊仍留在 Deep Coverage，清倉且不在 watchlist 才退出後續深度更新。
 
@@ -60,11 +60,11 @@ User／Admin 只經 FastAPI 契約讀寫已持久化資料；一般 page load �
 
 2026-10-03 起，五 specialist production 主路徑為 Python／SQL／ML，不再是每日五個生成式 LLM workers：
 
-1. Fundamental — deterministic financial features + LightGBM baseline。
-2. Valuation — deterministic valuation + LightGBM／CatBoost benchmark。
-3. Quant — LightGBM baseline + Qlib DoubleEnsemble challenger。
+1. Fundamental — 財務規則基準；LightGBM challenger。
+2. Valuation — 相對估值基準；LightGBM／CatBoost challenger。
+3. Quant — 零訊號／動能／Linear基準；LightGBM／CatBoost／Qlib challenger。
 4. Risk／Regime — Riskfolio-Lib + statsmodels／ML。
-5. Event／Catalyst — parser／rules + local multilingual classifier。
+5. Event／Catalyst — parser／rules基準；本機classifier須人審標籤與OOS。
 
 全上市櫃個股只做便宜 screening／必要 cross-sectional inference；完整五 specialist 只做 Deep Coverage。Specialist 依 input change／dirty dependency 更新，沒有 input change 就 reuse；第一版 ML retrain／calibration／reconciliation 以月度為主。
 

@@ -15,11 +15,9 @@
 - 程式已寫完但未部署、未觸發、未連真實依賴或只跑模擬資料，不得宣稱整體完成；partial success 不得包裝成 full success。
 - secret redaction、owner/auth boundary、migration 可追蹤、重要資料可重建／備份、不可逆大量刪除防護，以及 research/canonical/PIT/provenance/source authorization 邊界仍有效。
 
-## 模型執行閘門
+## AI角色分工（非工具可用性閘門）
 
-- 每個 WBS 以 TODO 內的【Sol】／【Luna】為準；混合任務選主要執行模型並維持整體 WBS 驗收範圍。本次 A／B／C 工作組均以【Sol】為主要模型，原 UI 的 Luna 標記是分工參考，不要求逐頁切換或重開模型 gate。
-- 開始新的 WBS 前依 TODO 的模型 gate 執行；同一 WBS 開始後不在 datasets／內部步驟間重複停等。
-- 【Sol】用於架構、Core／Iceberg／PostgreSQL、安全／OAuth、高風險疑難排解；【Luna】用於 UI、標準 CRUD／API 串接與規則明確的測試。
+Sol／Luna等舊標記只表示任務難度及分工參考，不要求使用者切模型、不因模型或非系統skill不可用停等。依目前能力、PROJECT_RULES及適用驗收執行；不自動建立branch／PR。D01～D08整合工作包及授權只見TODO，既有WBS責任與歷史ID保留。
 
 ## WBS 路由
 

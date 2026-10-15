@@ -30,7 +30,7 @@
 - 依 TWSE／TPEx 官方有效名冊產生按日期版本的全個股母體；不以成交量取前 500，不設定固定股票總數。
 - 全市場批次來源一次擷取、Stage／Core 保留、serving 快照發布；資料集依發布頻率收增量，不逐檔重抓同一市場。
 - 日 OHLCV、估值、法人／信用、財報與事件依適用範圍列 expected／valid／missing／not_applicable，來源與時間可追溯。
-- 每市場、必要資料集及期間的缺失率 ≤10%（含邊界）即過該 coverage gate；仍揭露個別缺值，不補零，不省略金額／來源／模型品質檢查。
+- 按市場、必要資料集及期間，TWSE 缺失率 ≤10%、TPEx ≤30%（含邊界）才過各自 coverage gate；仍揭露個別缺值，不補零，不省略金額／來源／模型品質檢查。
 - 搜尋／新增關注取消 500 admission，50 筆 quota 保留；持股 membership 仍由 owner ledger 決定。
 - 原週日挑選 500／換榜退出 active 排程，以總控下的每日官方名冊增量取代；舊版本不刪，歷史研究不得用今天名冊回填。
 - 全部業務批次走 Cloud Scheduler 總控；具體分母、快照、分片與驗收依 [全市場契約](../spec/full-market-batch-policy.md)。

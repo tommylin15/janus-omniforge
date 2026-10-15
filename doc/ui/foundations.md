@@ -42,7 +42,7 @@
 
 ## 4. User App shell
 
-- `AppBar` 只放目前頁標題、必要資料日期／操作；不放 Admin 入口。
+- `AppBar` 只放目前頁標題、必要資料日期／操作；Admin入口沿既有設定路徑且由backend授權，不在一般投資主內容堆管理控制。
 - `NavigationBar`：今日、關注、記帳／筆記、我的。
 - 未完成 capability 顯示 bounded unavailable／disabled，不以 sample／debug output 代替。
 - 關注／個股頁只讀 persisted data；page load 不觸發 scraper、specialist recompute 或 CEO LLM。

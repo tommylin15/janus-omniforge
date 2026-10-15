@@ -109,26 +109,15 @@ Final Visual Contract 的權威範圍是 presentation：資訊架構、section o
 - 第一屏資料可用時優先 aggregate market value、unrealized PnL／return、YTD realized PnL、valuation date／status。
 - aggregate withheld 時顯示 bounded diagnosis，不由 Flutter 忽略缺值自行加總。
 - 次 navigation 至少有「持股／紀錄／報表」；手機持股使用 card hierarchy。
-- 紀錄／報表保留年度 selector（目前年度與前五年）；選定年度後，紀錄細項可切換「按月份／按個股」。已清倉股票不得因不在目前持股而從歷史年度消失；兩種彙總都分開買進支出、賣出回收、股利收入、已實現損益，並可下鑽單筆交易；正式彙總由 backend／Private Mart 產生。
+- 紀錄／報表保留年度 selector（目前年度與前五年）；選定年度後，紀錄細項可切換「按月份／按個股」。已清倉股票不得因不在目前持股而從歷史年度消失；群組標題僅顯示類別與已實現損益，預設收合，可下鑽單筆交易；完整現金流在detail，正式彙總由backend／Private Mart產生。
 - 單筆交易 detail 同時保留「建立更正」與「刪除交易」。刪除是 append-only reversal-only 操作，必須二次確認；原始 ledger 仍保留 audit trail，不做實體 DELETE。
-- 持股頁保留 MIS 行情更新：盤中前景／持股分頁每 30 秒 revalidate，盤後／休市進頁取一次，並提供「更新即時報價」手動入口；離頁／背景停止輪詢。
+- 持股頁依 User App／Quote Router 契約：盤中前景每60秒revalidate，盤後EOD交接讀持久化行情；提供「更新股價」，手動10秒節流，離頁／背景停止輪詢。TPEx EOD不稱即時。
 - ledger mutation 成功只表示交易已保存；Private Mart 尚未更新時明示 pending。
 - 報表／圖表只讀 canonical backend／Private Mart。
 
 ### 4. Stock Detail Final — `stock-detail.png`
 
-Primary order（2026-10-11 最新視覺優先）：
-
-1. `StockHeader` 股價 Hero
-2. 本人持股／估值日
-3. 短價量圖或有界缺值
-4. 五 specialist 可信狀態＋摘要
-5. 三支持／三風險
-6. 六類圖表快速入口
-7. 筆記／追蹤
-8. 籌碼／事件
-9. `EvidenceAndSources`
-10. `ComplianceDisclaimer`
+Primary order：以 [User App §5.3](../../user-app.md) 為唯一順序，股價→本人持股→短價量→通用圖表→中性資料／筆記／事件／來源；五角色有效並符合publication後才新增整合摘要，不以舊PNG健康度先行。
 
 進階完整 K 線、Fact Pack、五 specialist persisted outputs、On-demand CEO report、估值詳細指標與 provenance 仍在 Advanced；但短價量與圖表入口不得只埋在 Advanced。
 

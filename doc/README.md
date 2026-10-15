@@ -1,16 +1,10 @@
 # Janus 文件入口
 
-**最新狀態入口：**[status](status.md)／[TODO](todo.md)。2026-10-15 使用者要求再次暫停；本次保存工程進度與文件並同步 GitHub，不啟動部署或驗收。費稅回補已完成，持股完整估值、快照、備份交接、四頁及正式切流仍待驗收，見 [暫停交接](archive/pause-checkpoint-2026-10-15.md)。
+更新：2026-10-15。本頁只導航，不保存暫停、部署版本或重複待辦。
 
-更新：2026-10-15
+先讀 [PROJECT_RULES](PROJECT_RULES.md) → [status](status.md) → [TODO](todo.md) → [AI開發指示](codex-execution-plan.md)。產品方向：持股／交易與效能 → 通用圖表／四頁 → 五角色品質 → 有效後報告；獨立FinOps依TODO判定。
 
-本頁定義 repository 內文件的角色，避免同一件事同時在 README、SPEC、WBS、TODO、runbook 與測試紀錄各自形成不同版本。
-
-**目前優先順序：持股報價／交易損益與效能 → 個股通用圖表／四頁整合 → 五分析師有效後的分析報告。** 目前依使用者最新指示暫停；恢復後依 TODO 1～5 接續，歷史交接只作證據。
-
-市場／screening／研究／搜尋範圍已決定擴為全上市櫃個股，上市缺失率 ≤10%、上櫃 ≤30% 分市場通過（2026-10-14 新決策）；[全市場及總控契約](spec/full-market-batch-policy.md)／[批次完整盤點](batch-inventory-2026-10-13.md)。全市場與快取已取得後續驗收證據；正式 API promotion 與產品驗收須依最新 status 分別判定。
-
-接手依序看 [TODO](todo.md)、[最新狀態](status.md)、[AI 開發指示](codex-execution-plan.md)。需求見 [持股優先契約](spec/holdings-first.md)，本次文件問題與處理見 [文件盤點](documentation-review-2026-10-13.md)。功能仍 PARTIAL，文件更新不代表已驗收。
+本次 [文件盤點及風險](documentation-review-2026-10-15.md) 與 [系統建置補強](spec/system-development-contract.md) 已整理UI、研究、資料及可執行驗收；文件完成不代表產品完成。
 
 ## 1. 先判斷你要回答哪一種問題
 
@@ -18,7 +12,7 @@
 |---|---|---|
 | 現在程式到底怎麼做 | GitHub `main` 的 code／schema／migration／workflow／tests | Drive 設計稿、歷史文件 |
 | 現在在哪裡、下一步是什麼 | `status.md` | 大型 evidence ledger、archive |
-| 現在是否真的完成／可用 | tests、CI、deployment、live runtime、trigger／workload／integration evidence；完整歷史 ledger 見 `spec/operations-and-testing.md`，Dev Pilot evidence window 新 checkpoint 見 `pilot-operational-evidence.md` | 「文件已寫完」、舊 checkpoint |
+| 現在是否真的完成／可用 | tests、CI、deployment、live runtime、trigger／workload／integration evidence；最新證據索引見 `spec/operations-and-testing.md`，Dev Pilot evidence window 新 checkpoint 見 `pilot-operational-evidence.md` | 「文件已寫完」、舊 checkpoint |
 | 完整未完成工作與 acceptance | `todo.md` | archive、舊 roadmap |
 | 某 WBS 的責任與驗收邊界 | `wbs.md` → `wbs/*.md` | runtime snapshot |
 | 產品／資料／API／治理契約 | `spec.md` → `spec/*.md` | TODO 中的暫時執行筆記 |
@@ -43,7 +37,7 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `ui/reference/user-app-final/README.md`：既有四張 PNG 的視覺基礎契約；sample 值不能作 canonical。
 - `ui/visual-first-four-pages.md`：2026-10-11 [四頁視覺優先正式 UI 規格（A）](ui/visual-first-four-pages.md)。
 - `ui/visual-first-delivery.md`： [工程工作單（B）](ui/visual-first-delivery.md)，涵蓋資料缺口、Flutter／API／Mart、P0/P1/P2 與真實 acceptance。
-- `spec/operations-and-testing.md`：最新完整 evidence summary 與尚待整理的歷史 checkpoint；日常定位優先看 `status.md`，舊證據逐步移至 `archive/`。
+- `spec/operations-and-testing.md`：最新證據索引；完整舊ledger已移至archive，日常定位先看status。
 - `pilot-operational-evidence.md`：`WBS-8-DEV-PILOT-RUN` 六個 calendar months evidence window 的新增 bounded checkpoint；保存 observed failure／recovery／manual intervention 與尚未觀察到的 evidence category，不把 checkpoint 當成 WBS 完成。
 - `runbook-data-supplement.md`：每日增量、週六品質檢查、Admin 結果與排程修復程序。
 - `spec/cicd-v2.md`：GHCR → Cloud Run Release／回滾契約；2026-10-10 dev 發布範圍曾 PASS；後續版本仍須獨立驗收，歷史收據在 [archive](archive/cicd-ghcr-api-promotion-2026-10-10.md)，不重複寫在索引。
@@ -65,8 +59,6 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 6. 文件 commit 只能改變文件本身。是否「完成」仍要用 implementation、tests、CI、deployment 與 live integration evidence 判定。
 7. Final Visual Contract 的圖片屬 presentation acceptance target，不是 canonical data source；sample value 不得反向污染 API／schema／Mart／Private Mart contract。
 
-## 4. Operations ledger 的處理方式
+## 4. 證據維護
 
-`spec/operations-and-testing.md` 已累積大量歷史 checkpoint。GitHub connector 在不遺失原文的前提下無法安全做 server-side blob 搬移或小範圍 patch，因此目前**保留原檔完整 evidence，不做高風險整檔重寫**。六個月 `WBS-8-DEV-PILOT-RUN` 的新增 bounded checkpoint 先追加至 `pilot-operational-evidence.md`，並由 `status.md` 連結目前判定；等有可驗證的完整搬移／patch 流程時，再考慮整併至 operations ledger 或將舊 checkpoint 分期移入 `archive/`。
-
-
+Operations只保存當前適用摘要／歷史連結，不無限追加。原2296行ledger完整保存於 [歷史快照](archive/documentation-baseline-2026-10-15-operations-and-testing.md)，相對連結已校正；新增證據以完整SHA／run／scope／觀察時間記錄，舊FAIL不改判。Pilot自然觀察仍在原檔，不重啟六個月窗口。

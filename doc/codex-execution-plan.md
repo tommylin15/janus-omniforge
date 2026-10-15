@@ -1,21 +1,20 @@
 # Janus — 後續 AI 開發指示
 
-**2026-10-13 最新合併開發授權：P0-1 至 P1-2 一次完成相依開發，再整合測試／真實驗收。** 本指示取代之前「只更新文件後停止」。先掃全文件，將有效500個股任務與資料收集改全上市櫃；歷史證據／識別字保留且不冒充全市場PASS。P2模型研究與P3報告不由本次自動啟動。
-
-更新：2026-10-13。此文件只保存執行方法；active queue 在 [TODO](todo.md)，實際證據在 [status](status.md)。
+更新：2026-10-15。本文件只保存執行方法；授權與 active queue 唯一入口是 [TODO](todo.md)，證據是 [status](status.md)。本輪只整理文件，不能把下列工程模板當作恢復部署指令。
 
 ## 1. 可直接交給開發 AI 的指示
 
 ```text
-接續 Janus 已授權的持股優先工作包。先讀 AGENTS.md、doc/PROJECT_RULES.md、
+先確認本次使用者指定工作包與 active TODO 的授權範圍；文件-only 不啟動工程。
+恢復工程時，接續該已授權工作包。先讀 AGENTS.md、doc/PROJECT_RULES.md、
 doc/README.md、doc/todo.md、doc/status.md、doc/spec/holdings-first.md、
 doc/spec/full-market-batch-policy.md、doc/batch-inventory-2026-10-13.md。
 涉及 UI 再讀 doc/ui/user-app.md、doc/ui/visual-first-four-pages.md、
 doc/ui/reference/user-app-final/README.md，實際檢視四張 PNG。
 
 先檢查 git status、GitHub main、既有未提交 diff 與相關實作／測試。
-工作區已有尚未驗證的 ingestion、migration 054、serving、Private Mart 鎖與 Flutter 改動；
-逐項確認正確性及適用需求，保留無關改動，不 reset、不把文件當部署證據。
+不得假定新的工作區存在舊會話的未提交改動；以實際 git status／diff 與 main 判斷。
+保留其他人的改動，不 reset；遇 main 更新先 rebase／合併並重做受影響文件檢查。
 
 順序一：完整持股頁。TWSE／TPEx 全個股官方 EOD 預先保存並供快速 serving，
 持股 membership 跟隨 owner ledger，不受研究批次限制；市場／screening／研究／搜尋均改全上市櫃，coverage 上市缺失率≤10%、上櫃≤30% 各自過關（含邊界）；ETF 既有授權路徑保留。
@@ -37,7 +36,8 @@ doc/ui/reference/user-app-final/README.md，實際檢視四張 PNG。
 queue 失敗重試、真實 dev 四頁截圖及冷暖 P50／P95／失敗率／quote age。
 未達性能目標追查 critical path，不以延長 timeout 充當改善。
 
-每次 commit 或 push 前執行 /ponytail-review；不使用 Superpowers。
+每次 commit 或 push 前依 PROJECT_RULES 執行 review；非系統命令不可用時採明示的等價檢查。
+不使用 Superpowers，不為模型標記自行要求換模型或建立 branch／PR。
 發布沿既有同 SHA 全測試→GHCR immutable digest→0% candidate→自動 auth gate→
 Job fence/canary→真實 readback→切流／rollback。不得要求每版人工 OAuth 登入。
 新付費資源、重大擴權與其他外部授權遵守 PROJECT_RULES，不自行越界。
@@ -112,3 +112,11 @@ B0～B8 與歷史 A 組不重新宣告未完成；本次受影響的共用路徑
 commit/push 前執行 /ponytail-review；環境缺該非系統命令時，依 PROJECT_RULES §1.4，以實際 diff／契約／連結／適用測試檢查替代並明示，不偽稱已執行。
 
 每組交接列：來源 SHA、改動、tests/CI、部署版本、真實 workload／readback、產品功能狀態、模型品質狀態、未決事項、下一入口。文件-only 不部署、不啟動訓練。完成後明確告知停止邊界，不讓使用者猜測是否仍執行。
+
+## 6. 接手 AI 的工作包格式
+
+每次只建立一份本輪記錄：工作包／既有WBS、輸入SHA、允許修改範圍、依賴、入口檔案、交付物、測試、live驗收、失敗恢復、未決項。D01～D08與詳細退出條件只查TODO；不得另複製待辦。
+
+確認能力以目前repo／tools為準，不要求已不存在的slash command、固定AI型號或舊request。工程完成報告分列「已修改／已測試／已部署／業務已驗收」；文件-only只報文件檢查。review與讀回後直接同步main，不新增無授權部署。
+
+新增驗收維度見 [系統建置補強](spec/system-development-contract.md)。架構維持既有 PostgreSQL serving＋Iceberg canonical＋有界Jobs；本輪沒有新資源、queue、向量庫、圖表SDK或LLM日常呼叫。

@@ -16,7 +16,7 @@ Fixture／mock／localhost simulation 只補足真實服務難以安全重現的
 
 本次持股／交易損益、速度目標及模型報告分階段 gate 見 [持股優先契約](spec/holdings-first.md)。
 
-全上市櫃母體、≤10% coverage、批次總控與即時快照見 [新契約](spec/full-market-batch-policy.md)。
+全上市櫃母體、TWSE缺失率≤10%／TPEx≤30% coverage、批次總控與即時快照見 [新契約](spec/full-market-batch-policy.md)。
 
 ## 領域路由
 
@@ -32,3 +32,5 @@ Fixture／mock／localhost simulation 只補足真實服務難以安全重現的
 | 最新測試／dev 驗收摘要 | [Operations and Testing](spec/operations-and-testing.md) | 不需預讀其他歷史紀錄 |
 
 執行工作前另依 [TODO](todo.md) 取得當前優先序與驗收條件，依 [WBS](wbs.md) 路由到指定工作切片；UI 工作再讀 [UI](ui.md)。
+
+2026-10-15 補強契約：[系統建置與驗收補強](spec/system-development-contract.md)；狀態與執行順序只看TODO。
