@@ -1,0 +1,33 @@
+name: One-shot GCS method level hourly FinOps comparison
+on:
+  push:
+    branches: [main]
+    paths: [ops/finops-gcs-hourly-io.json]
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-finops-hourly-readonly
+  cancel-in-progress: false
+jobs:
+  gcs-hourly:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate source and no mutation
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_finops_gcs_hourly_io.py
+          jq -e '.intent=="read-only-gcs-hourly-method-audit" and .no_gcp_mutation==true' ops/finops-gcs-hourly-io.json
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Inspect 5min Core ReadObject and GetObjectMetadata counts
+        run: python scripts/gcp/finops_gcs_hourly_io.py
