@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS control.official_tpex_eod_history (
     symbol varchar(16) NOT NULL REFERENCES control.stock_master(symbol),
     trade_date date NOT NULL,
     price numeric(20,4) NOT NULL CHECK (price > 0),
-    source_uri text NOT NULL CHECK (left(source_uri, 25) = 'https://www.tpex.org.tw/'),
+    source_uri text NOT NULL CHECK (left(source_uri, 24) = 'https://www.tpex.org.tw/'),
     record_sha256 text NOT NULL CHECK (record_sha256 ~ '^[a-f0-9]{64}$'),
     first_observed_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (symbol,trade_date)

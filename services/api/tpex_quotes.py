@@ -90,7 +90,7 @@ def parse_tpex_daily_quote_history(rows: object, symbols: set[str],
             "route_version": "latest-price.v2",
         }
         by_day = selected.setdefault(symbol, {})
-        if trade_day in by_day and by_day[trade_day]["price"] != result["price"]:
+        if trade_day in by_day and by_day[trade_day] is not None and by_day[trade_day]["price"] != result["price"]:
             # Source contains conflicting official closes for one session:
             # refuse that session rather than depend on row ordering.
             by_day[trade_day] = None
