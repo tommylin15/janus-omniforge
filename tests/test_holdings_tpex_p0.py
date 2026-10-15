@@ -442,3 +442,17 @@ def test_exact_official_batch_rejects_partial_owner_etf_coverage(monkeypatch):
     monkeypatch.setattr(module,"urlopen",lambda _request,timeout:Response())
     with pytest.raises(ValueError,match="exact official symbol record unavailable"):
         module._read_exact_official_batch(date(2026,10,14),{"00697B","00719B"})
+
+def test_owner_aggregate_acceptance_never_assumes_missing_stale_count_is_one_or_zero():
+    """Old Private Iceberg stored summary omits stale_price_count.
+
+    Its deterministic aggregate_status='available' AND affected_symbol_count=0
+    are the eligibility proof; never manufacture a missing numeric column.
+    """
+    from scripts.gcp.p0_tpex_asof_owner_acceptance import OWNER_CODE
+    assert 'int(total.get("stale_price_count",1))' not in OWNER_CODE
+    assert 'total.get("aggregate_status")!="available"' in OWNER_CODE
+    assert 'int(total.get("affected_symbol_count",1))!=0' in OWNER_CODE
+    assert 'str(total.get("affected_symbols"))!="[]"' in OWNER_CODE
+    assert 'total.get("stale_price_count") is not None' in OWNER_CODE
+    assert 'total.get("unrealized_pnl") is None' in OWNER_CODE

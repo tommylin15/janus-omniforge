@@ -124,10 +124,17 @@ target_summaries = [x for x in portfolio if str(x.get("valuation_date"))==valuat
 if len(target_summaries)!=1:
  raise RuntimeError("owner_portfolio_summary_not_unique_current_checkpoint")
 total=target_summaries[0]
+# Existing Private Iceberg summary lacks stale_price_count in its stored
+# schema. The deterministic available aggregate_status is emitted ONLY when
+# both calculated missing and stale counts were zero. Never coerce an absent
+# historical column to numeric zero; also require exact affected=0 and values.
 if (total.get("aggregate_status")!="available" or
     int(total.get("missing_price_count",1))!=0 or
-    int(total.get("stale_price_count",1))!=0 or
+    int(total.get("affected_symbol_count",1))!=0 or
+    str(total.get("affected_symbols"))!="[]" or
+    (total.get("stale_price_count") is not None and int(total["stale_price_count"])!=0) or
     total.get("market_value") is None or total.get("unrealized_pnl") is None or
+    total.get("unrealized_return") is None or
     int(total.get("ledger_version") or 0)!=after):
  raise RuntimeError("owner_aggregate_value_pnl_still_withheld")
 print(json.dumps({"component":"p0_tpex_asof_owner","status":"PASS",
