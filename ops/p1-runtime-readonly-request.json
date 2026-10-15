@@ -8,7 +8,7 @@
   "no_gcp_mutation": true,
   "no_traffic_mutation": true,
   "no_job_execution": true,
-  "purpose": "Read back fixed Preview build-id, current canonical routing, four immutable GHCR Job images and Scheduler. Confirm P1 infra only, no owner UI, mutation, or manual recalc implied.",
+  "purpose": "Read back fixed Preview and four pinned Jobs plus latest bounded Cloud Run execution status and Scheduler last attempt after 10/15 Owner MCP valuation remained 10/14. No job execution, no ledger or cloud mutation.",
   "evidence_boundary": "Owner current valuation 10/14 from separate authorized MCP readback. This workflow never dispatches or mutates an Owner request.",
-  "attempt": 1
+  "attempt": 2
 }
