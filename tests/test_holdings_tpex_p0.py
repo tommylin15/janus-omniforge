@@ -267,3 +267,91 @@ def test_dated_legacy_official_fallback_validates_day(monkeypatch):
     assert result["00697B"]["price_date"]=="2026-10-14"
     assert "response=json" in result["00697B"]["source_uri"]
     assert len(calls)==2
+
+
+def test_long_term_exact_day_history_outside_openapi_rolling_window():
+    """A dated official session is not limited to the last seven days."""
+    from services.api.tpex_quotes import parse_tpex_daily_quote_history
+    when = datetime(2026, 10, 15, 17, 0, tzinfo=TAIPEI)
+    old = {"Date": "1150918", "SecuritiesCompanyCode": "00697B", "Close": "31.45"}
+    assert parse_tpex_daily_quote_history([old], {"00697B"}, when) == {}
+    records = parse_tpex_daily_quote_history(
+        [old], {"00697B"}, when, exact_day=date(2026, 9, 18))
+    assert records["00697B"][0]["price_date"] == "2026-09-18"
+    assert parse_tpex_daily_quote_history(
+        [old], {"00697B"}, when, exact_day=date(2026, 9, 17)) == {}
+
+
+def test_official_dated_url_enforces_response_metadata_and_price_day(monkeypatch):
+    from services.api import tpex_quotes as tp
+    import json
+    now = datetime(2026, 10, 15, 17, 0, tzinfo=TAIPEI)
+    urls = []
+    class Response:
+        def __init__(self, value): self.value = value
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def read(self, limit): return self.value
+    reply = {"date":"20260918","stat":"ok","tables":[
+        {"fields":["代號","收盤"],"data":[["00697B","31.45"],["9999","70.00"]]}]}
+    def fetch(req, timeout):
+        urls.append(req.full_url)
+        return Response(json.dumps(reply).encode())
+    monkeypatch.setattr(tp, "urlopen", fetch)
+    provider = tp.TpexDailyQuotes()
+    result = provider.dated_history({"00697B"}, date(2026, 9, 18), now)
+    assert len(urls) == 1
+    assert "date=2026%2F09%2F18" in urls[0] and "response=json" in urls[0]
+    row = result["00697B"][0]
+    assert row["price_date"] == "2026-09-18"
+    assert row["source_uri"] == urls[0]
+    assert row["record_sha256"] and len(row["record_sha256"]) == 64
+    reply["date"] = "20260919"
+    import pytest
+    with pytest.raises(ValueError, match="day mismatch"):
+        provider.dated_history({"00697B"}, date(2026, 9, 18), now)
+    reply["date"] = "20260918"
+    reply["tables"] = [{"fields":["代號","收盤"],"data":[["00697B","NaN"]]}]
+    assert provider.dated_history({"00697B"}, date(2026, 9, 18), now) == {}
+    assert provider.dated_history({"00697B"}, date(2026, 10, 16), now) == {}
+    assert provider.dated_history(
+        {"00697B"}, date(2026, 10, 15),
+        datetime(2026,10,15,14,29,tzinfo=TAIPEI)) == {}
+
+
+def test_historical_refresh_calls_dated_source_when_rolling_returns_today_only():
+    """A 10/15 OpenAPI response must never be used for 10/14 valuation."""
+    class Historical(QuoteDb):
+        def __init__(self):
+            super().__init__()
+            self.historical = {}
+        def official_eod_quotes(self, symbols, as_of):
+            return {symbol:max([row for (sym,d),row in self.historical.items()
+                                if sym==symbol and d<=as_of.isoformat()],
+                              key=lambda row:row["price_date"])
+                    for symbol in symbols if any(sym==symbol and d<=as_of.isoformat()
+                                                  for sym,d in self.historical)}
+        def save_official_eod_quotes(self, history):
+            for symbol, rows in history.items():
+                for row in rows: self.historical[(symbol,row["price_date"])] = row
+    class Source:
+        def __init__(self):self.calls=[]
+        def history(self, symbols, now):
+            self.calls.append(("rolling",set(symbols)))
+            return {"00697B":[{"price_date":"2026-10-15","price":"33.40",
+               "quote_at":"2026-10-15T13:30:00+08:00","received_at":now.isoformat(),
+               "source":"tpex_openapi_eod","session":"official_close","route_version":"latest-price.v2"}]}
+        def dated_history(self, symbols, day, now):
+            self.calls.append(("dated",set(symbols),day))
+            return {"00697B":[{"price_date":"2026-10-14","price":"33.20",
+                "quote_at":"2026-10-14T13:30:00+08:00","received_at":now.isoformat(),
+                "source":"tpex_openapi_eod","session":"official_close","route_version":"latest-price.v2"}]}
+    db,src = Historical(), Source()
+    route=QuoteRouter(db,None,tpex_source=src)
+    scope={"00697B":{"market":"TPEX","enabled":True}}
+    result=route.refresh_tpex(scope,now=datetime(2026,10,15,17,tzinfo=TAIPEI),
+                              as_of=date(2026,10,14))
+    assert result["updated"]==1
+    assert ("dated",{"00697B"},date(2026,10,14)) in src.calls
+    assert db.historical[("00697B","2026-10-14")]["price"]=="33.20"
+    assert db.saved["00697B"]["price_date"]=="2026-10-15"

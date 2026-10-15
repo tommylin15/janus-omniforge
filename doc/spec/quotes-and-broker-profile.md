@@ -82,6 +82,18 @@ When same-day EOD is persisted, the resolver switches to `eod_final` without a f
 switch. If 14:30 EOD is delayed or fails, last MIS remains visible with non-final/pending semantics
 rather than falling back silently to yesterday.
 
+## 官方 TPEx 指定日期行情（長期契約）
+
+TPEx `dailyQuotes` 是**正式的按交易日查價能力**，不僅是 `00697B` 的一次性修補。對 Core 尚未涵蓋、但已確認為 TPEx 且符合授權來源的持有商品，使用系統按需路徑補齊官方收盤價；不是放寬研究母體的 Canonical OHLCV 標準。
+
+
+- **最新批量入口**：`https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes`，只保留近七日的候選資料，不將回傳順序視為時間排序。
+- **歷史定日入口**：`https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes?date=YYYY%2FMM%2FDD&response=json`。以**官方回應內的 date** 與指定交易日完全相等作驗收，禁止以 URL 參數本身取代來源日期；曾遇到舊版 URL 忽略 10/14 參數，回傳 10/15，因此不得重用它來歷史回補。
+- **缺值拒絕**：不存在、未發布（當日 14:30 前）、非數值／非有限正值、日期不符、schema 異常、WAF／HTML、來源不合格都維持 missing／partial，不能把前一日或後一日的資料假裝當日資料。
+- **長期儲存與追溯**：`control.official_tpex_eod_history`（migration 061）以 `(symbol,trade_date)` 為 immutable key，保存價格、`source_uri`、`record_sha256`、`first_observed_at`；由正式資料庫角色寫入；另維持最新報價快取。衝突不能靜默改寫、更新不可覆蓋先前的交易日。
+- **估值 PIT**：Private Mart 先讀 Canonical Core，同一商品缺價時才讀 `trade_date <= valuation_date` 的已保存官方價；較早日價格標示 stale，不把當日或未來價格倒灌歷史估值。ETF 不因未入股票研究池 500／全股票母體而失去已授權的行情來源。
+- **執行負荷**：Owner 的按需查價與既有 Private Pipeline 共用執行路徑、限流、失敗冷卻與部署鎖；不新增高頻 Schedule、額外付費 API、容器或平行寫入者。研究級嚴格 PIT 特徵是否可回推仍由 first-observed 與資料可用時間另行判定；補價不等於 canonical 升級。
+
 ## Broker Profile
 
 `GET /api/v1/me/broker-profile` 回 owner 的最新 profile；尚無設定為 version 0。

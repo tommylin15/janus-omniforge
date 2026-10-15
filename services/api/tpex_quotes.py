@@ -41,7 +41,7 @@ def _official_day(value: object) -> date | None:
 
 
 def parse_tpex_daily_quote_history(rows: object, symbols: set[str],
-                                   now: datetime) -> dict[str, list[dict]]:
+                                   now: datetime, *, exact_day: date | None = None) -> dict[str, list[dict]]:
     """Only official, published EOD sessions; keep every eligible trade day.
 
     The API must not silently promote today's unpublished or future price.
@@ -60,7 +60,12 @@ def parse_tpex_daily_quote_history(rows: object, symbols: set[str],
         if symbol not in symbols:
             continue
         day = _official_day(raw.get("Date") or raw.get("TradeDate"))
-        if day is None or day > latest or (latest - day).days > 7:
+        if day is None or day > latest:
+            continue
+        if exact_day is not None:
+            if day != exact_day:
+                continue
+        elif (latest - day).days > 7:
             continue
         if day == latest and local.time() < time(14, 30):
             continue
@@ -174,6 +179,68 @@ class TpexDailyQuotes:
             if len(rows) > 25000:
                 raise ValueError("official TPEx dated response exceeds bound")
             return rows
+
+    def dated_history(self, symbols: set[str], trade_date: date, now: datetime) -> dict[str, list[dict]]:
+        """Fetch one *verified* official TPEx historical session on demand.
+
+        This path supports past dates outside the rolling OpenAPI window. It
+        never trusts the requested URL as the publication date: TPEx JSON's
+        own date must equal trade_date. An invalid/missing day yields no price,
+        not a previous or future close. No owner identifiers are transmitted.
+        """
+        if not symbols:
+            return {}
+        local = now.astimezone(TAIPEI)
+        if (trade_date > local.date() or trade_date < date(2010, 1, 1) or
+                (trade_date == local.date() and local.time() < time(14, 30))):
+            return {}
+        if self._fetch is not None:
+            # Deterministic fixtures for the caller contract; still enforce
+            # the explicitly requested date against every returned record.
+            return parse_tpex_daily_quote_history(
+                self._fetch(), set(symbols), now, exact_day=trade_date)
+        encoded_day = f"{trade_date.year:04d}/{trade_date.month:02d}/{trade_date.day:02d}"
+        uri = TPEX_OFFICIAL_DATED_URL + "?" + urlencode(
+            {"date": encoded_day, "response": "json"})
+        req = Request(uri, headers={
+            "User-Agent": "Mozilla/5.0 (compatible; JanusResearch/1.0)",
+            "Accept": "application/json", "Accept-Encoding": "identity"})
+        with urlopen(req, timeout=12) as response:
+            content = response.read(_MAX_PAYLOAD + 1)
+        if len(content) > _MAX_PAYLOAD:
+            raise ValueError("official TPEx dated response exceeds bound")
+        document = json.loads(content.decode("utf-8-sig"))
+        if not isinstance(document, dict) or _official_day(document.get("date")) != trade_date:
+            raise ValueError("official TPEx dated response day mismatch")
+        if str(document.get("stat", "")).lower() not in {"", "ok"}:
+            raise ValueError("official TPEx dated response not published")
+        tables = document.get("tables")
+        if not isinstance(tables, list) or len(tables) > 20:
+            raise ValueError("official TPEx dated response table unavailable")
+        requested = set(symbols)
+        rows = []
+        count = 0
+        for table in tables:
+            if not isinstance(table, dict):
+                continue
+            fields, data = table.get("fields"), table.get("data")
+            if not isinstance(fields, list) or not isinstance(data, list) or len(fields) > 100:
+                raise ValueError("official TPEx dated response table schema invalid")
+            count += len(data)
+            if count > 25000 or any(not isinstance(field, str) for field in fields):
+                raise ValueError("official TPEx dated response rows exceeded bound")
+            for values in data:
+                if not isinstance(values, list) or len(values) != len(fields):
+                    continue
+                source = dict(zip(fields, values))
+                symbol = str(source.get("代號") or "").strip()
+                if symbol in requested:
+                    rows.append({"Date": document["date"],
+                                 "SecuritiesCompanyCode": symbol,
+                                 "Close": source.get("收盤"),
+                                 "_official_source_uri": uri})
+        return parse_tpex_daily_quote_history(
+            rows, requested, now, exact_day=trade_date)
 
     def history(self, symbols: set[str], now: datetime) -> dict[str, list[dict]]:
         if not symbols:

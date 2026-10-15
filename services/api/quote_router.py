@@ -209,7 +209,11 @@ class QuoteRouter:
             history_reader = getattr(self.repository, "official_eod_quotes", None)
             if history_reader is not None:
                 known = history_reader(scoped, expected_day)
-                missing_history = scoped - set(known)
+                missing_history = {
+                    symbol for symbol in scoped if symbol not in known or
+                    (as_of is not None and
+                     _day(known[symbol]) is not None and _day(known[symbol]) < expected_day)
+                }
             due = {
                 symbol for symbol in scoped
                 if (_day(persisted.get(symbol, {})) is None or _day(persisted[symbol]) < expected_day)
@@ -218,12 +222,34 @@ class QuoteRouter:
             } | missing_history
             if not due:
                 return {"status": "fresh", "requested": 0, "updated": 0}
-            history = self.tpex_source.history(due, now)
+            history = {}
+            # Rolling OpenAPI may return HTML/JSONDecodeError in Cloud Run.
+            # Dated official history remains independently eligible and
+            # checks TPEx's response date; never label newer data as past.
+            try:
+                history = self.tpex_source.history(due, now)
+            except Exception as error:
+                LOGGER.warning("official TPEx rolling source unavailable: %s",
+                               type(error).__name__)
+            on_day = getattr(self.tpex_source, "dated_history", None)
+            if on_day is not None:
+                covered = {symbol for symbol, rows in history.items()
+                           if any(_day(row) == expected_day for row in rows)}
+                wanted = due - covered
+                if wanted:
+                    try:
+                        dated = on_day(wanted, expected_day, now)
+                        for symbol, records in dated.items():
+                            history.setdefault(symbol, []).extend(records)
+                    except Exception as error:
+                        LOGGER.warning("official TPEx exact-date source unavailable: %s",
+                                       type(error).__name__)
             if history:
                 writer = getattr(self.repository, "save_official_eod_quotes", None)
                 if writer is not None:
                     writer(history)
-                latest = {symbol: quotes[-1] for symbol, quotes in history.items() if quotes}
+                latest = {symbol: max(records, key=lambda row: row["price_date"])
+                          for symbol, records in history.items() if records}
                 if latest:
                     writer_latest = getattr(self.repository, "save_last_quotes", None)
                     if writer_latest is None:
