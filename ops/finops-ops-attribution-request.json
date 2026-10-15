@@ -1,8 +1,0 @@
-{
-  "intent": "one-shot-read-only-gcs-method-attribution",
-  "no_gcp_mutation": true,
-  "hours": 48,
-  "issue": 2,
-  "reason": "Follow-up: 5-minute buckets 18h to distinguish continuous GCS reads vs hourly controller bursts. Same 48-hour hourly metric + execution readback, no mutations.",
-  "attempt": 2
-}

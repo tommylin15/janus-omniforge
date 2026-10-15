@@ -17,6 +17,7 @@ on:
       - 'tests/test_iceberg_analytics_read_cost.py'
       - 'jobs/ingestion-core/ingestion_core/retention.py'
       - 'tests/test_data_retention.py'
+      - 'tests/stage_core_tests/test_stage_core.py'
   workflow_dispatch:
 
 permissions:
@@ -48,5 +49,5 @@ jobs:
         env:
           PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
         run: |
-          python -m pytest -q tests/test_iceberg_compaction.py tests/test_iceberg_cost_inventory.py tests/test_iceberg_analytics_read_cost.py tests/test_duckdb_iceberg.py tests/test_data_retention.py
+          python -m pytest -q tests/test_iceberg_compaction.py tests/test_iceberg_cost_inventory.py tests/test_iceberg_analytics_read_cost.py tests/test_duckdb_iceberg.py tests/test_data_retention.py tests/stage_core_tests/test_stage_core.py
           python -m compileall -q jobs/ingestion-core/ingestion_core/iceberg_maintenance.py jobs/ingestion-core/ingestion_core/stage.py jobs/intelligence-mart/intelligence_mart/analytics_reader.py packages/duckdb_query/iceberg.py
