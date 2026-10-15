@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "4d49555656bc47decd2fd13e9fab9a5da79a3fc2",
-  "candidate_release_run": "38685404805",
-  "candidate_deployment_run": "38685839070",
-  "purpose": "2026-10-15 isolated audit-only Iceberg cleanup. Same exact-SHA full Python/Flutter/GHCR immutable Release #38685404805 PASS and 0%-traffic API candidate #38685839070 PASS. Bounded automated OAuth PKCE, issuer, private/Admin/MCP challenge; no browser login, new rights or API 100%-traffic promotion.",
+  "sha": "536598f2528550fd60c73786597fdf2740860c9e",
+  "candidate_release_run": "38691316772",
+  "candidate_deployment_run": "38691954051",
+  "purpose": "2026-10-15 D01-D05 combined same-source 536598f full Python/PostgreSQL/Flutter/GHCR Release #38691316772 and zero-percent candidate #38691954051 PASS. Automatic OAuth discovery/issuer/PKCE/MCP/private/owner negative and bounded positive where safely available; no browser login, no API traffic or ledger write.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 20
+  "attempt": 21
 }
