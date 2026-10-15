@@ -1,0 +1,11 @@
+{
+  "intent": "p1-recover-exact-stalled-jobs",
+  "approved": true,
+  "scope": "existing-dev-four-jobs",
+  "failed_run": "38756738102",
+  "failed_run_sha": "9782e40ae62aae3ad71f460830bb606a39c570bd",
+  "target_source_sha": "7acff50000644979af3815f00fbd7f1c167e1098",
+  "no_owner_mutation": true,
+  "no_traffic_mutation": true,
+  "reason": "Exact immutable recovery of mixed Jobs and paused Scheduler using original annotated lease; fail closed on unknown execution or config drift."
+}
