@@ -456,3 +456,65 @@ def test_reversible_ghcr_config_drift_blocks_even_when_registry_digest_matches()
         with pytest.raises(ValueError, match="rollback_baseline_config_drift"):
             rollout.verify_reversible_baseline(request, previous)
     cmd.assert_not_called()
+
+
+def test_nonterminal_execution_does_not_strand_unchanged_original_jobs(monkeypatch):
+    original = sample()
+    originals = {
+        name: {"image": rollout.image(original), "configuration_hash": rollout.fingerprint(original)}
+        for name in rollout.REQUIRED_JOBS
+    }
+    schedule = {"state": "PAUSED", "schedule": "30 * * * *", "timeZone": "Asia/Taipei"}
+    journal = {
+        "phase": "RECOVERY_REQUIRED", "snapshots": originals,
+        "scheduler_hash": rollout.scheduler_fingerprint(schedule),
+    }
+    saves = []
+    with patch.object(rollout, "command"), patch.object(rollout, "legacy_writers"), \
+         patch.object(rollout, "job", return_value=original), \
+         patch.object(rollout, "scheduler", return_value=schedule), \
+         patch.object(rollout, "fence", side_effect=ValueError("execution_not_terminal")) as fence, \
+         patch.object(rollout, "set_scheduler") as resume, patch.object(rollout, "update") as update:
+        rollout.recover(journal, lambda: saves.append(journal["phase"]))
+    fence.assert_not_called()
+    update.assert_not_called()
+    resume.assert_called_once_with("resume", "ENABLED")
+    assert journal["phase"] == "RESTORED_NO_MUTATION" and saves == ["RESTORED_NO_MUTATION"]
+
+
+def test_partial_image_change_cannot_bypass_terminal_execution_fence():
+    original = sample()
+    changed = deepcopy(original)
+    changed["template"]["template"]["containers"][0]["image"] = "ghcr.io/other@sha256:" + "b" * 64
+    journal = {
+        "snapshots": {
+            name: {"image": rollout.image(original), "configuration_hash": rollout.fingerprint(original)}
+            for name in rollout.REQUIRED_JOBS
+        },
+        "scheduler_hash": rollout.scheduler_fingerprint({"state": "PAUSED"}),
+    }
+    with patch.object(rollout, "command"), patch.object(rollout, "job", return_value=changed), \
+         patch.object(rollout, "fence", side_effect=ValueError("execution_not_terminal")) as fence, \
+         patch.object(rollout, "set_scheduler") as resume:
+        with pytest.raises(ValueError, match="execution_not_terminal"):
+            rollout.recover(journal, lambda: None)
+    fence.assert_called_once()
+    resume.assert_not_called()
+
+
+def test_unchanged_jobs_do_not_override_drifted_scheduler_config():
+    original = sample()
+    journal = {
+        "snapshots": {
+            name: {"image": rollout.image(original), "configuration_hash": rollout.fingerprint(original)}
+            for name in rollout.REQUIRED_JOBS
+        },
+        "scheduler_hash": "wrong-fingerprint",
+    }
+    with patch.object(rollout, "command"), patch.object(rollout, "job", return_value=original), \
+         patch.object(rollout, "legacy_writers"), \
+         patch.object(rollout, "scheduler", return_value={"state": "PAUSED"}), \
+         patch.object(rollout, "set_scheduler") as resume:
+        with pytest.raises(ValueError, match="scheduler_configuration_drift"):
+            rollout.recover(journal, lambda: None)
+    resume.assert_not_called()

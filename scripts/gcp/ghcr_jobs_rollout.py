@@ -461,6 +461,30 @@ def run(release_run, receipt):
 
 def recover(journal, save):
     command(LEASE + ["assert"])
+    # An execution can start between the initial fence and Scheduler pause.
+    # If every Job still has its original immutable image and complete config,
+    # there was no rollout mutation to reverse. Restore the original Scheduler
+    # without waiting for an unrelated, already-running execution to finish.
+    # Any partial image/config mutation retains the full terminal fence.
+    originals = journal.get("snapshots", {})
+    if set(originals) == set(REQUIRED_JOBS) and journal.get("scheduler_hash"):
+        current = {name: job(name) for name in REQUIRED_JOBS}
+        if all(
+            image(current[name]) == originals[name]["image"]
+            and fingerprint(current[name]) == originals[name]["configuration_hash"]
+            for name in REQUIRED_JOBS
+        ):
+            legacy_writers()
+            schedule = scheduler()
+            if scheduler_fingerprint(schedule) != journal["scheduler_hash"]:
+                raise ValueError("scheduler_configuration_drift")
+            if schedule["state"] == "PAUSED":
+                set_scheduler("resume", "ENABLED")
+            elif schedule["state"] != "ENABLED":
+                raise ValueError("scheduler_state_unknown")
+            journal["phase"] = "RESTORED_NO_MUTATION"
+            save()
+            return
     fence()
     if journal.get("rollback_mode") == "user_authorized_forward_only":
         # Never try to restore an explicitly waived and unavailable AR image.
