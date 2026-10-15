@@ -269,3 +269,10 @@ Dev acceptance must verify migration 048, job default/task parallelism, API → 
 `private.ledger_events` 由 `postgres` 擁有；應用角色 `janus_control` 無法 ALTER。059 不走 ingestion bootstrap，也不擴大應用／CI IAM 或變更 table owner。沿用 `runbook-pilot-calendar-repair.md` 的既有 operator IAP／OS Login 路徑，把目前 main 的 `infra/postgres/migrations/059_ledger_automatic_charges.sql` 複製到既有 PostgreSQL container，以 `postgres` 執行 `psql -v ON_ERROR_STOP=1 -U postgres -d janus_control -f ...`。SQL 保留單一 transaction，新增可空規則快照欄位，然後切換原有 control／private-api 角色更新 replay；最後撤回暫時 schema CREATE，驗證 ACL 並寫 marker。失敗會 rollback；不可忽略錯誤或改用應用角色提權。
 
 成功後只讀回 059 marker、欄位型別、public API 無 ledger SELECT 及 private API 無 schema CREATE。此步驟不回補歷史交易；費稅回補仍須固定 owner／ledger／profile checkpoint、先 preview，append-only 更正後執行真實 Private Mart，再讀回 0 筆待更正。
+
+
+### 歷史自動費稅回補
+
+使用 `.github/workflows/ledger-fee-repair-dev.yml` 與已提交的 `ops/ledger-fee-repair-request.json`；預設 `mode=preview`，workflow 僅手動派送，不因一般 push 寫入。固定唯一真實持有 00719B 的 owner、ledger／profile 版本、已成功 full Release／OAuth boundary／四 Jobs rollout、private image digest 與配置 fingerprint；不接受 owner ID、email 或可變 image tag。只在既有 private Job 內載入憑證，費稅金額與 owner 個資不輸出到收據。
+
+先取得 preview 的去敏感數量／版本收據，再將相同 checkpoint 的已提交請求切為 `apply`。apply 僅用 API DB role 追加 reversal／replacement，保留原始事件；其後使用既有 Owner Mart 路徑更新 Core／Private projection，再驗證零筆費稅待更正。不要把失敗／未知 execution 當作沒有寫入：保留共用鎖，先讀回 ledger／profile／Mart checkpoint；若費稅已提交、只剩 Mart，使用新 checkpoint 的 `reconcile`，不重送舊 apply。`reconcile` 必須先確認沒有待更正費稅，不能藉此跳過修復。執行中若 owner 新增交易使版本改變，維持失敗／partial，重新盤點後再預覽，不能自動放寬版本。

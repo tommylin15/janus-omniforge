@@ -1,0 +1,14 @@
+{
+  "intent": "checkpoint-bound-owner-fee-repair",
+  "approved": true,
+  "scope": "single-real-owner-holding-00719B",
+  "mode": "preview",
+  "source_sha": "4d058c47ac62ad7328f9f7c0e9fcd4ef4f1ac7b1",
+  "image": "ghcr.io/tommylin15/janus-private-pipeline@sha256:9f51bac4b1c49ff1d156e38ab97505d88efd7eee48ac1ef92f34dce8da4333ad",
+  "configuration_hash": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f",
+  "release_run": "38674231933",
+  "rollout_run": "38675277641",
+  "boundary_run": "38674988598",
+  "ledger_version": 176,
+  "profile_version": 3
+}

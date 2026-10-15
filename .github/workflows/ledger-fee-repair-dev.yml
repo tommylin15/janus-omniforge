@@ -1,0 +1,45 @@
+name: Janus checkpoint-bound historical fee repair
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate checkpoint and owner-repair contracts
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_ledger_fee_repair_live.py tests/test_ghcr_release_lease.py
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends skopeo
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Run exactly the committed preview, apply or reconciliation request
+        run: python scripts/gcp/ledger_fee_repair_live.py --request ops/ledger-fee-repair-request.json --receipt /tmp/ledger-fee-repair.json
+      - name: Preserve sanitized execution receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ledger-fee-repair-receipt
+          path: /tmp/ledger-fee-repair.json
+          retention-days: 14
+          if-no-files-found: ignore

@@ -1,5 +1,11 @@
 # Janus Current Status
 
+## 2026-10-15 交易單字搜尋已發布固定 Preview，歷史費稅尚未套用
+
+- 正式 Preview 已更新至 `4d058c47ac62ad7328f9f7c0e9fcd4ef4f1ac7b1`：完整 Release [#38674231933](https://github.com/tommylin15/janus-omniforge/actions/runs/38674231933)、0% candidate [#38674767979](https://github.com/tommylin15/janus-omniforge/actions/runs/38674767979)、OAuth／private boundary [#38674988598](https://github.com/tommylin15/janus-omniforge/actions/runs/38674988598)、固定 Preview [#38675180575](https://github.com/tommylin15/janus-omniforge/actions/runs/38675180575) 均 PASS。外部 HTTP 讀回 `/app/build-id.txt` 為新 SHA，`/api/v1/me/journal/instruments?q=2` 未登入 401。代號／名稱第一字下拉、ETF、Enter、未選取攔截與舊請求競態都有 Flutter 回歸；未冒充已登入瀏覽器畫面驗收，正式 API traffic 未切換。
+- 059 已套用，新的 pg_attribute／ACL 強制驗收區段也以真實 `janus_control` 成功執行。唯讀確認本人券商設定已有折扣 0.4；ledger／profile checkpoint 已與舊 170 不同，回補不得沿用舊版本。
+- 四 Jobs rollout [#38675277641](https://github.com/tommylin15/janus-omniforge/actions/runs/38675277641) 仍在執行，未標 PASS。新增受控 fee-repair 操作／workflow，目前請求僅 `preview`；來源、配置、版本、scope、未知執行保留鎖等 36 tests PASS。須等 rollout PASS 再派送 preview，固定數量及版本後才 apply／Mart／零待更正讀回。歷史交易尚未回補，1～5 仍 PARTIAL。
+
 ## 2026-10-15 交易搜尋已同步；059 owner 遷移與讀回通過
 
 - 來源 `3d8ad504890a6f0e84cbe1a7a23befd44d6108c8` 的完整 [Release #38673398380](https://github.com/tommylin15/janus-omniforge/actions/runs/38673398380) PASS：Python／隔離 PostgreSQL、Flutter、四個 GHCR immutable images 及匿名 pull 均通過。此來源包含單字代號／名稱搜尋、ETF、未選取輸入攔截、正式 Admin 入口與首頁快照整合。尚未部署此來源／切換 API。
