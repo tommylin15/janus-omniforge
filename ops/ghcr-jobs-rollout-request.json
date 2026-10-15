@@ -2,8 +2,8 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "a0ab38a545a786a33d6b68ce7493e625d94d8046",
-  "release_run": "38672325311",
+  "sha": "4d058c47ac62ad7328f9f7c0e9fcd4ef4f1ac7b1",
+  "release_run": "38674231933",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
   "baseline_source_sha": "c8e8a7415be48b291a347dcc115d7834db6696a8",
@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 11,
-  "safety": "2026-10-15 verified post-recovery GCP live readback #38672814337: exactly 1091 execution records ALL_TERMINAL, Scheduler ENABLED and prior rollback images/config fingerprints unchanged; #38672325311 full Python/Flutter/4 GHCR immutable PASS; #38672779475 0%-traffic candidate PASS; #38672954750 automatic OAuth/private-boundary PASS. Owner authorized existing dev reversible 4-Jobs rollout, two independent canaries each, no API traffic promotion, no secrets, no new resources. Core retention apply fails closed while CORE_RETENTION_FENCE_URI is absent; no historical research/ML manifest deletion without complete reference inventory.",
-  "auth_boundary_run": "38672954750",
-  "automated_oauth_requirement": "same-source zero-traffic automatic OAuth/private-boundary #38672954750 PASS, manual OAuth verification removed.",
+  "request_attempt": 12,
+  "safety": "Owner-authorized steps 1-5: exact-source full Release #38674231933, zero-traffic candidate #38674767979 and automatic OAuth/private boundary #38674988598 PASS. Reversible existing four Jobs update with two canaries each, all-page active execution fence, immutable c8e8 baseline and config hashes. Includes automatic fees, correction ordering and snapshot materialization plus latest independent FinOps safe recovery/retention fences. Existing PostgreSQL owner migration 059 and restricted-role acceptance passed. Preserve all canonical API traffic and current research Job. No historical ledger repair from rollout itself.",
+  "auth_boundary_run": "38674988598",
+  "automated_oauth_requirement": "Exact-source automated boundary #38674988598 PASS; no repeated manual OAuth requirement.",
   "authorization": "Owner-approved existing parallel-live dev four Jobs re-publication after proven audited recovery. Reversible exact GHCR digests and config hashes, shared lease, active executions all-page fence and eight canaries required. No API traffic switch or irreversible retention cleanup."
 }
