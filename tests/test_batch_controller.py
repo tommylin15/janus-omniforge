@@ -225,11 +225,37 @@ def test_idle_active_tick_is_recorded_without_dispatch(monkeypatch):
     monkeypatch.setattr(controller, "record", record)
     monkeypatch.setattr(controller, "export_events", lambda *_: 1)
     session = Mock()
-    result = controller.run(control=SimpleNamespace(connection=connection), session=session, core=Mock())
+    result = controller.run(now=datetime(2026, 10, 15, 15, 30, tzinfo=timezone.utc),
+                            control=SimpleNamespace(connection=connection), session=session, core=Mock())
     assert result["exported_events"] == 1
+    assert result["iceberg_audit_deferred"] is False
     assert record.call_args.args[3]["execution"] == "idle-execution"
     session.get.assert_not_called()
     session.post.assert_not_called()
+
+
+def test_iceberg_audit_only_flushes_on_four_taipei_scheduled_windows():
+    from ingestion_core.batch_controller import audit_export_due, export_due_audit
+    from unittest.mock import Mock
+    for hour in (5, 11, 17, 23):
+        assert audit_export_due(datetime(2026, 10, 15, hour - 8, 30, tzinfo=timezone.utc))
+    for hour in (0, 1, 3, 8, 12, 18, 22):
+        assert not audit_export_due(datetime(2026, 10, 15, hour - 8, 30, tzinfo=timezone.utc))
+    assert not audit_export_due(datetime(2026, 10, 15, 15, 29, tzinfo=timezone.utc))
+    assert export_due_audit(None, None, datetime(2026, 10, 15, 14, 30, tzinfo=timezone.utc)) == (0, True)
+
+
+def test_bounded_audit_flush_drains_backlog_without_silent_partial_success(monkeypatch):
+    from ingestion_core import batch_controller as controller
+    from unittest.mock import Mock
+    readback = Mock(side_effect=[200, 200, 18])
+    monkeypatch.setattr(controller, "export_events", readback)
+    when = datetime(2026, 10, 15, 15, 30, tzinfo=timezone.utc)
+    assert controller.export_due_audit(Mock(), Mock(), when) == (418, False)
+    assert readback.call_count == 3
+    monkeypatch.setattr(controller, "export_events", lambda *_: 200)
+    with pytest.raises(RuntimeError, match="bounded Iceberg audit outbox"):
+        controller.export_due_audit(Mock(), Mock(), when)
 
 
 def test_supplement_daily_precedes_mart_and_saturday_quality_is_independent():

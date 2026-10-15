@@ -266,6 +266,33 @@ def export_events(connection, core):
     return len(pending)
 
 
+def audit_export_due(now: datetime) -> bool:
+    """Batch Iceberg audit mirroring to avoid hourly full-history manifest scans.
+
+    The PostgreSQL event outbox is committed on every controller tick. An
+    immutable Iceberg mirror may lag by at most six hours under healthy jobs.
+    A missed sync remains pending in PostgreSQL and is retried at the next
+    permitted window; no event is dropped.
+    """
+    local = now.astimezone(ZoneInfo("Asia/Taipei"))
+    return local.hour in (5, 11, 17, 23) and local.minute >= 30
+
+
+def export_due_audit(connection, core, now: datetime) -> tuple[int, bool]:
+    if not audit_export_due(now):
+        return 0, True
+    exported = 0
+    # Drain burst backlogs but do not create unbounded scans or commits.
+    for _ in range(10):
+        count = export_events(connection, core)
+        exported += count
+        if count < 200:
+            return exported, False
+    # Prior batches are safely persisted+acked; remaining PostgreSQL outbox
+    # events stay pending and are never reported as a complete audit export.
+    raise RuntimeError("bounded Iceberg audit outbox flush limit reached")
+
+
 def manual_retrain_dependencies(connection, now: datetime, batch=None):
     """Use the newest dependency date and wait until that day's full pair succeeds."""
     batch = batch or next(batch for batch in BATCHES if batch.name == "specialist-retrain")
@@ -507,10 +534,20 @@ def run(*, now=None, session=None, control=None, core=None):
             except Exception:
                 state = {**state, "status": "ambiguous", "reason": "inspect_cloud_execution_before_manual_recovery"}
             record(connection, tick, key, state, "dispatch_result")
-        core = core or _iceberg_core(PROJECT + "-dev-core")
         record(connection, tick, "controller", {"status": "tick_completed", "model_calls": 0,
                "execution": os.environ.get("CLOUD_RUN_EXECUTION", "")}, "tick", update=False)
-        return {"status": "tick_completed", "tick": tick, "exported_events": export_events(connection, core), "model_calls": 0}
+        if mode == "manual":
+            # An explicit manual audit command still uses the exact immediate
+            # replay/commit/readback fence; only normal hourly ticks are batched.
+            core = core or _iceberg_core(PROJECT + "-dev-core")
+            exported, deferred = export_events(connection, core), False
+        elif audit_export_due(now):
+            core = core or _iceberg_core(PROJECT + "-dev-core")
+            exported, deferred = export_due_audit(connection, core, now)
+        else:
+            exported, deferred = 0, True
+        return {"status": "tick_completed", "tick": tick, "exported_events": exported,
+                "iceberg_audit_deferred": deferred, "model_calls": 0}
     finally:
         if locked:
             connection.execute("SELECT pg_advisory_unlock(1835102836,3)")
