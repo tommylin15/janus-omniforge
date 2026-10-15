@@ -1,0 +1,11 @@
+{
+  "intent": "accept-p0-owner-aggregate-immutable-readback",
+  "approved": true,
+  "source_run": "38732675488",
+  "original_release_run": "38717341300",
+  "jobs_rollout_run": "38718355824",
+  "no_job_run": true,
+  "no_data_mutation": true,
+  "no_deploy_mutation": true,
+  "reason": "Accept only already persisted exact 2026-10-14 owner ledger version 354: 8/8 price/PnL rows, one aggregate available, zero missing/affected, market value/unrealized PnL/return present. Existing storage omits stale_price_count, aggregate_status from deterministic risk-mart proves zero calculated stale; never substitute null with number. No GCP trigger or ledger write."
+}

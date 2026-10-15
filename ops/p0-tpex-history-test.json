@@ -3,6 +3,6 @@
   "approved": true,
   "scope": "no-data-mutation",
   "no_gcp_mutation": true,
-  "purpose": "P0 both existing held official bond ETFs dated 10/14, one-batch fetch, fail closed on missing one, PIT/NaN/network/immutable DB coverage.",
-  "attempt": 7
+  "purpose": "Regression: Owner aggregate acceptance guard for historic Private Iceberg missing stored stale_price_count, do not default to numeric zero/one, require deterministic available aggregate/affected=0 and exact PnL fields.",
+  "attempt": 8
 }

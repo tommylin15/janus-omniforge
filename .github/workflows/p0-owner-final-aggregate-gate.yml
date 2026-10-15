@@ -1,0 +1,62 @@
+name: Janus P0 final Owner PIT aggregate read-only acceptance
+on:
+  push:
+    branches: [main]
+    paths: ['ops/p0-owner-final-aggregate-gate.json']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  accept:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact source, no new Owner job and completed live readback
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="accept-p0-owner-aggregate-immutable-readback" and
+            .approved==true and .source_run=="38732675488" and
+            .original_release_run=="38717341300" and
+            .jobs_rollout_run=="38718355824" and
+            .no_job_run==true and .no_data_mutation==true and
+            .no_deploy_mutation==true' ops/p0-owner-final-aggregate-gate.json >/dev/null
+          gh run view 38732675488 --json status,conclusion,workflowName |
+            jq -e '.status=="completed" and .conclusion=="success" and
+              .workflowName=="Janus P0 real Owner aggregate status read-only"' >/dev/null
+          gh run view 38717341300 --json status,conclusion,headSha,workflowName |
+            jq -e '.status=="completed" and .conclusion=="success" and
+              .headSha=="285848e28041bf2fb024bd98bd348641f022a1ed" and
+              .workflowName=="Janus GHCR full-test image publication"' >/dev/null
+          gh run view 38718355824 --json status,conclusion,workflowName |
+            jq -e '.status=="completed" and .conclusion=="success" and
+              .workflowName=="Janus GHCR controlled Jobs rollout"' >/dev/null
+          mkdir -p /tmp/p0-aggregate-gate
+          gh run download 38732675488 -n p0-owner-aggregate-readonly -D /tmp/p0-aggregate-gate
+      - name: Prove real immutable Mart aggregate and exact 10/14 ledger
+        run: |
+          set -Eeuo pipefail
+          jq -e '.status=="PASS_READ_ONLY" and .no_data_mutation==true and
+            .execution=="janus-private-pipeline-wnk5x" and
+            .owner_aggregate_metadata.scope=="p0_owner_aggregate_metadata_only" and
+            .owner_aggregate_metadata.status=="READ_ONLY" and
+            .owner_aggregate_metadata.no_data_mutation==true and
+            .owner_aggregate_metadata.as_of=="2026-10-14" and
+            .owner_aggregate_metadata.ledger_version==354 and
+            .owner_aggregate_metadata.positions==8 and
+            .owner_aggregate_metadata.unrealized_rows==8 and
+            .owner_aggregate_metadata.positions_missing_price==[] and
+            .owner_aggregate_metadata.unrealized_missing==[] and
+            .owner_aggregate_metadata.summary_count==1 and
+            .owner_aggregate_metadata.aggregate_status=="available" and
+            .owner_aggregate_metadata.missing_price_count==0 and
+            .owner_aggregate_metadata.affected_symbol_count==0 and
+            .owner_aggregate_metadata.affected_symbols=="[]" and
+            .owner_aggregate_metadata.summary_market_value_present==true and
+            .owner_aggregate_metadata.summary_unrealized_pnl_present==true and
+            .owner_aggregate_metadata.summary_unrealized_return_present==true and
+            (.owner_aggregate_metadata.stale_price_count==null or .owner_aggregate_metadata.stale_price_count==0)' /tmp/p0-aggregate-gate/p0-owner-aggregate-readonly.json >/dev/null
+          echo "P0_OWNER_REAL_2026_10_14_TOTAL_PNL=PASS"
+          echo "Source: immutable official TPEx dailyQuotes; stored Mart aggregate_status=available. Missing historical stale count remains null, never fabricated."
