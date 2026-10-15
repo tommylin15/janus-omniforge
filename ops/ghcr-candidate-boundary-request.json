@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "a0ab38a545a786a33d6b68ce7493e625d94d8046",
-  "candidate_release_run": "38672325311",
-  "candidate_deployment_run": "38672779475",
-  "purpose": "2026-10-15 approved Iceberg safe recovery and Core retention fence fail-close. Exact source GHCR Release #38672325311 PASS, 0% Cloud Run candidate #38672779475 PASS. Automatic OAuth PKCE/issuer and private/Admin/MCP boundary only, no owner manual login, no GCP mutations or traffic promotion.",
+  "sha": "4d058c47ac62ad7328f9f7c0e9fcd4ef4f1ac7b1",
+  "candidate_release_run": "38674231933",
+  "candidate_deployment_run": "38674767979",
+  "purpose": "Transaction instrument autocomplete and automatic charges: exact-source full Release and 0%-traffic candidate PASS; verify OAuth/PKCE and private/Admin/MCP boundaries before fixed Preview. No manual OAuth gate, GCP mutation or canonical traffic switch.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 18
+  "attempt": 19
 }
