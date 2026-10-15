@@ -97,6 +97,25 @@ jobs:
                         'target_image_digest_prefix':immutable[0].split('@sha256:')[-1][:12] if immutable else None,
                         'job_ready':any(c.get('type')=='Ready' and c.get('status')=='True'
                                         for c in row.get('status',{}).get('conditions',[]))}
+            if name=='janus-batch-controller':
+              # Only two non-secret operational flags are allowed in the report.
+              def safe_flags(v,depth=0):
+                if depth>12:return {}
+                result={}
+                if isinstance(v,dict):
+                  key=v.get('name')
+                  if key in ('BATCH_CONTROLLER_MODE','BATCH_CONTROLLER_NOT_BEFORE'):
+                    raw=v.get('value')
+                    if isinstance(raw,str) and len(raw)<96 and all(c.isalnum() or c in '_-:+TZ.' for c in raw):
+                      result[key]=raw
+                    else:result[key]='UNKNOWN'
+                  for field,value in v.items():
+                    if field not in ('secretKeyRef','valueFrom','args','command'):
+                      result.update(safe_flags(value,depth+1))
+                elif isinstance(v,list):
+                  for value in v:result.update(safe_flags(value,depth+1))
+                return result
+              report['controller_flags']=safe_flags(row.get('spec',row))
             recent=run(['gcloud','run','jobs','executions','list','--job='+name,
                         '--project='+project,'--region='+region,
                         '--sort-by=~metadata.creationTimestamp','--limit=8','--format=json'])
@@ -120,6 +139,27 @@ jobs:
               jobs[name]['recent_executions']=cleaned[:6]
             else:jobs[name]['recent_executions']='UNKNOWN'
           report['jobs']=jobs
+          # Classify controller log statuses only. No raw log, owner ID, API
+          # payload, environment, or exception text is released.
+          logrows=run(['gcloud','logging','read',
+              'resource.type="cloud_run_job" AND resource.labels.job_name="janus-batch-controller" AND timestamp>="2026-10-15T13:25:00Z"',
+              '--project='+project,'--limit=80','--format=json'])
+          if isinstance(logrows,list):
+            import re
+            allowed={'observe','tick_completed','controller_busy','failed','seeded','noop'}
+            statuses=[]
+            for entry in logrows:
+              payload=entry.get('jsonPayload') or {}
+              state=payload.get('status') if isinstance(payload,dict) else None
+              raw=entry.get('textPayload') or ''
+              if not isinstance(state,str) and isinstance(raw,str):
+                match=re.search(r'"status"\\s*:\\s*"([a-z_]+)"',raw)
+                state=match.group(1) if match else None
+              if state in allowed:
+                statuses.append({'time':entry.get('timestamp'),'status':state})
+            report['controller_bounded_log_statuses']=statuses[:16]
+            report['controller_bounded_log_read']='PASS'
+          else:report['controller_bounded_log_read']='UNKNOWN'
           scheduler=run(['gcloud','scheduler','jobs','describe','janus-ingestion-daily',
                          '--project='+project,'--location='+region,'--format=json'])
           report['scheduler']={'read':'PASS','state':scheduler.get('state'),
