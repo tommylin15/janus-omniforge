@@ -19,6 +19,7 @@ TPEX_OFFICIAL_EOD_URL = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily
 SOURCE = "tpex_openapi_eod"
 CLOSE_TIME = time(13, 30)
 _CACHE_TTL = 600
+_FAILURE_RETRY_TTL = 60  # Bound requests after transient 200/HTML, timeout or JSON failure.
 _MAX_PAYLOAD = 12_000_000
 
 
@@ -49,7 +50,7 @@ def parse_tpex_daily_quotes(rows: object, symbols: set[str], now: datetime) -> d
             continue
         symbol = str(raw.get("SecuritiesCompanyCode") or
                      raw.get("SecuritiesCode") or raw.get("Code") or "").strip()
-        if symbol not in wanted or symbol in result:
+        if symbol not in wanted:
             continue
         day = _official_day(raw.get("Date") or raw.get("TradeDate"))
         if day is None or day > today or (today - day).days > 7:
@@ -61,6 +62,11 @@ def parse_tpex_daily_quotes(rows: object, symbols: set[str], now: datetime) -> d
         except (InvalidOperation, ValueError):
             continue
         if not value.is_finite() or value <= 0:
+            continue
+        # OpenAPI includes multiple sessions (over 12k rows). Input order
+        # is not a contract: publish the newest eligible dated close, never
+        # whichever record happens to be returned first.
+        if symbol in result and result[symbol]["price_date"] >= day.isoformat():
             continue
         # quote_at is the *session close anchor*, never a purported timestamp
         # of an individual trade. The originating trade date is checked above.
@@ -97,7 +103,10 @@ class TpexDailyQuotes:
             content = response.read(_MAX_PAYLOAD + 1)
         if len(content) > _MAX_PAYLOAD:
             raise ValueError("TPEx payload exceeded bound")
-        return json.loads(content.decode("utf-8-sig"))
+        rows = json.loads(content.decode("utf-8-sig"))
+        if not isinstance(rows, list) or len(rows) > 25000:
+            raise ValueError("TPEx source schema unavailable")
+        return rows
 
     def quotes(self, symbols: set[str], now: datetime) -> dict[str, dict]:
         if not symbols:
@@ -107,8 +116,14 @@ class TpexDailyQuotes:
         window = (local.date(), local.time() >= time(14, 30))
         with self._lock:
             tick = monotonic()
+            # A failed fetch previously retried on every caller because
+            # _rows is None. Repeated owner requests must not hammer TPEx
+            # when it returns HTML/invalid JSON or temporarily blocks traffic.
+            if (self._rows is None and self._window == window
+                    and tick - self._stamp < _FAILURE_RETRY_TTL):
+                raise RuntimeError("TPEx official source retry cooldown")
             if self._rows is None or tick - self._stamp >= _CACHE_TTL or self._window != window:
-                self._stamp = tick  # throttle even failing / blocked source
+                self._stamp = tick
                 self._window = window
                 try:
                     self._rows = self._download()

@@ -154,3 +154,48 @@ def test_pre_handoff_can_initialize_yesterdays_close_but_not_todays_partial_data
     result = source.quotes({'00697B','00719B'}, after)
     assert result['00719B']['price_date'] == '2026-10-15'
     assert calls == [1,1]  # Handoff must fetch again instead of blessing pre-close cached rows.
+
+
+def test_official_tpex_multiday_payload_chooses_latest_eligible_regardless_of_order():
+    from services.api.tpex_quotes import parse_tpex_daily_quotes
+    now = datetime(2026, 10, 15, 15, 0, tzinfo=TAIPEI)
+    records = [
+        {"Date":"1151013","SecuritiesCompanyCode":"00697B","Close":"33.10"},
+        {"Date":"1151015","SecuritiesCompanyCode":"00697B","Close":"33.45"},
+        {"Date":"1151014","SecuritiesCompanyCode":"00697B","Close":"33.20"},
+        {"Date":"1151012","SecuritiesCompanyCode":"00697B","Close":"32.99"},
+    ]
+    for rows in (records, list(reversed(records))):
+        result = parse_tpex_daily_quotes(rows, {"00697B"}, now)["00697B"]
+        assert result["price_date"] == "2026-10-15"
+        assert result["price"] == "33.45"
+    before_handoff = datetime(2026, 10, 15, 14, 29, tzinfo=TAIPEI)
+    pending = parse_tpex_daily_quotes(records, {"00697B"}, before_handoff)["00697B"]
+    assert pending["price_date"] == "2026-10-14"
+    assert pending["price"] == "33.20"
+
+
+def test_official_tpex_failed_source_is_bounded_and_can_recover(monkeypatch):
+    from services.api import tpex_quotes as module
+    clock = [100.0]
+    monkeypatch.setattr(module, "monotonic", lambda: clock[0])
+    calls = []
+    def fetch():
+        calls.append(clock[0])
+        if len(calls) == 1:
+            raise ValueError("invalid json from public source")
+        return [{"Date":"1151014","SecuritiesCompanyCode":"00697B","Close":"33.20"}]
+    source = TpexDailyQuotes(fetch=fetch)
+    now = datetime(2026,10,15,15,0,tzinfo=TAIPEI)
+    import pytest
+    with pytest.raises(ValueError):
+        source.quotes({"00697B"},now)
+    clock[0] += 20
+    with pytest.raises(RuntimeError, match="retry cooldown"):
+        source.quotes({"00697B"},now)
+    assert calls == [100.0]
+    clock[0] += 41
+    recovered=source.quotes({"00697B"},now)
+    assert len(calls)==2
+    assert recovered["00697B"]["price_date"]=="2026-10-14"
+    assert recovered["00697B"]["source"]=="tpex_openapi_eod"
