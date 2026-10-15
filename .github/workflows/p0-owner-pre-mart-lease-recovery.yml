@@ -1,0 +1,82 @@
+name: Janus recover exact P0 owner valuation pre-Mart lease
+on:
+  push:
+    branches: [main]
+    paths: ['ops/p0-owner-pre-mart-lease-recovery.json']
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify original owner exact source and before-Mart failure contract
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="release-exact-terminal-owner-coverage-failure" and
+            .approved==true and .source_run=="38724207848" and
+            .execution=="janus-private-pipeline-sts2l" and
+            .owner_sha=="775ea314203156ee95118821063d4535606c28a3" and
+            .no_job_run==true and .no_user_data_write==true and
+            .only_original_owner_lease==true' ops/p0-owner-pre-mart-lease-recovery.json >/dev/null
+          gh run view 38724207848 --json status,conclusion,headSha,workflowName |
+            jq -e '.status=="completed" and .conclusion=="failure" and
+              .headSha=="775ea314203156ee95118821063d4535606c28a3" and
+              .workflowName=="Janus P0 exact official 00697B as-of and real Owner Mart"' >/dev/null
+          python - <<'PY'
+          from pathlib import Path
+          code=Path('scripts/gcp/p0_tpex_asof_owner_acceptance.py').read_text()
+          assert code.index('if symbols-set(prices):raise RuntimeError("owner_full_valuation_coverage_missing")') < code.index('pipeline.run_user(owner,valuation,')
+          assert code.index('repo.save_official_eod_quotes(history)') < code.index('if symbols-set(prices):')
+          print('CONTRACT=OFFICIAL_HISTORY_MAY_BE_INSERTED_BUT_NO_MART_REWRITE')
+          PY
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Verify exact terminal failed before Mart and all jobs idle
+        env:
+          PYTHONPATH: .
+        run: |
+          python - <<'PY'
+          import sys,json,subprocess
+          sys.path.insert(0,'scripts/gcp')
+          import ghcr_jobs_rollout as r
+          ex=r.cloud(r.ROOT+'/jobs/janus-private-pipeline/executions/janus-private-pipeline-sts2l')
+          assert r.terminal(ex) and ex.get('failedCount')==1 and not ex.get('succeededCount'),'terminal_failed_execution_not_verified'
+          q=subprocess.run(['gcloud','logging','read',
+            'resource.type="cloud_run_job" AND timestamp>="2026-10-15T11:00:00Z" AND timestamp<="2026-10-15T11:08:00Z"',
+            '--project=gen-lang-client-0593591102','--format=json','--limit=400'],
+            capture_output=True,text=True,check=True,timeout=60)
+          matches=[]
+          for item in json.loads(q.stdout):
+            labels=item.get('labels') or {}
+            resource=(item.get('resource') or {}).get('labels') or {}
+            owner=labels.get('run.googleapis.com/execution_name') or resource.get('execution_name')
+            if owner=='janus-private-pipeline-sts2l':
+              matches.append(str(item.get('textPayload') or item.get('jsonPayload') or ''))
+          assert matches and any('owner_full_valuation_coverage_missing' in x for x in matches),'pre_mart_error_not_proven'
+          r.fence()
+          assert r.scheduler()['state']=='ENABLED','scheduler_not_enabled'
+          print(json.dumps({'terminal':'FAILED','execution':'janus-private-pipeline-sts2l',
+            'failure':'owner_full_valuation_coverage_missing','private_mart_write':'NOT_STARTED',
+            'official_history_insert':'POSSIBLE_INSERT_ONLY',
+            'all_jobs_terminal':True,'scheduler_enabled':True},sort_keys=True))
+          PY
+      - name: Release only matching old run owner tag and verify absent
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py release --repo tommylin15/janus-omniforge --run-id 38724207848 --run-attempt 1 --sha 775ea314203156ee95118821063d4535606c28a3 --safe-to-release
+          python scripts/gcp/ghcr_release_lease.py inspect --repo tommylin15/janus-omniforge --run-id 38724207848 --run-attempt 1 --sha 775ea314203156ee95118821063d4535606c28a3

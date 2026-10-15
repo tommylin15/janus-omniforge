@@ -1,0 +1,11 @@
+{
+  "intent": "release-exact-terminal-owner-coverage-failure",
+  "approved": true,
+  "source_run": "38724207848",
+  "execution": "janus-private-pipeline-sts2l",
+  "owner_sha": "775ea314203156ee95118821063d4535606c28a3",
+  "no_job_run": true,
+  "no_user_data_write": true,
+  "only_original_owner_lease": true,
+  "reason": "Exact terminal failure at all-owned-symbol PIT quote coverage, before any Private Mart writes. Preserve possible insert-only official 10/14 price in shared DB. Release only failed run's existing GitHub lease after WIF runtime proof."
+}
