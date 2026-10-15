@@ -85,8 +85,12 @@ pipeline=PrivatePipeline(repo,store,reader,market.memberships,
 pipeline.run_user(owner,valuation,write_guard=repo.private_mart_write_lock)
 after=int(repo.latest_ledger_version(owner))
 if after!=before:raise RuntimeError("ledger_version_changed_during_mart_write")
-positions=store.mart("mart_user_positions",owner)
-pnl=store.mart("mart_user_unrealized_pnl",owner)
+positions=[r for r in store.mart("mart_user_positions",owner)
+           if str(r.get("valuation_date"))==valuation.isoformat()
+           and int(r.get("ledger_version") or 0)==after]
+pnl=[r for r in store.mart("mart_user_unrealized_pnl",owner)
+     if str(r.get("valuation_date"))==valuation.isoformat()
+     and int(r.get("ledger_version") or 0)==after]
 by_symbol={r.get("symbol"):r for r in positions}
 by_pnl={r.get("symbol"):r for r in pnl}
 if not symbols.issubset(by_symbol) or not symbols.issubset(by_pnl):
@@ -102,8 +106,9 @@ for name in symbols:
 if str(by_symbol[symbol].get("price_date"))!=entry[1].isoformat():
  raise RuntimeError("held_etf_mart_price_day_mismatch")
 portfolio = store.mart("mart_user_portfolio_summary", owner)
-target_summaries = [x for x in portfolio if x.get("valuation_date")==valuation.isoformat()
-                    and str(x.get("currency"))=="TWD"]
+target_summaries = [x for x in portfolio if str(x.get("valuation_date"))==valuation.isoformat()
+                    and str(x.get("currency"))=="TWD"
+                    and int(x.get("ledger_version") or 0)==after]
 if len(target_summaries)!=1:
  raise RuntimeError("owner_portfolio_summary_not_unique_current_checkpoint")
 total=target_summaries[0]
