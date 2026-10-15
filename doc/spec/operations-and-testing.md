@@ -4,6 +4,7 @@
 
 | 驗收範圍 | 證據 | 判定與限制 |
 |---|---|---|
+| P1 285848 固定 Preview 真實發布 | [#38740477232](https://github.com/tommylin15/janus-omniforge/actions/runs/38740477232) | `completed/success`，請求 commit `78bf14bb`；既有 285848 release／candidate／OAuth 通過後，在現有共用 release lease 下更新單一 `preview` tag，candidate web/build-id 與 canonical traffic 不變 gate 在同一 workflow PASS。正式 100% 未切、Owner UI 及手動 queue E2E 仍 NOT_VERIFIED。 |
 | P1 最新 API full Release | [#38695837708](https://github.com/tommylin15/janus-omniforge/actions/runs/38695837708) | 完整來源 `079cca4f24aedb6285270df8e86f856d2498ce13`，Python/PostgreSQL／Flutter／GHCR 四映像與匿名 pull PASS；仍不代表 live Owner PnL |
 | P1 新版候選、OAuth boundary 與固定 Preview | [#38710296292](https://github.com/tommylin15/janus-omniforge/actions/runs/38710296292)、[#38710582355](https://github.com/tommylin15/janus-omniforge/actions/runs/38710582355)、[#38711150682](https://github.com/tommylin15/janus-omniforge/actions/runs/38711150682) | 同來源 079cca SUCCESS；0% 候選、負向 OAuth/MCP/owner metadata、固定 Preview。100% traffic 未切，Owner 真實流程未通過 |
 | D05 現役四 Jobs | [#38718355824](https://github.com/tommylin15/janus-omniforge/actions/runs/38718355824) | 285848 SHA 四 Jobs 受控 rollout SUCCESS，並有 P0 real Mart 10/14 backend PASS；但 Preview 最近 079cca，正式 100% traffic 未切，完整 P1 App gate 未完成 |
