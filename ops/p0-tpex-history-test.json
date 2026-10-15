@@ -3,6 +3,6 @@
   "approved": true,
   "scope": "no-data-mutation",
   "no_gcp_mutation": true,
-  "purpose": "Long-term TPEx official historical dailyQuotes contract: arbitrary old date, strict official response day/status, published handoff, PIT fallback and 00697B regressions. Only compile/pytest. Full release #38715463316 baseline successful before this patch.",
-  "attempt": 4
+  "purpose": "P0 long-term official TPEx dailyQuotes regression rerun: reuse the in-memory fixture on same source rather than calling injected source twice; prior #38716953819 failed 1 existing anti-burst test; no live GCP data mutation.",
+  "attempt": 5
 }

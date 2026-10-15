@@ -197,8 +197,10 @@ class TpexDailyQuotes:
         if self._fetch is not None:
             # Deterministic fixtures for the caller contract; still enforce
             # the explicitly requested date against every returned record.
+            with self._lock:
+                cached = self._rows if self._rows is not None else self._fetch()
             return parse_tpex_daily_quote_history(
-                self._fetch(), set(symbols), now, exact_day=trade_date)
+                cached, set(symbols), now, exact_day=trade_date)
         encoded_day = f"{trade_date.year:04d}/{trade_date.month:02d}/{trade_date.day:02d}"
         uri = TPEX_OFFICIAL_DATED_URL + "?" + urlencode(
             {"date": encoded_day, "response": "json"})
