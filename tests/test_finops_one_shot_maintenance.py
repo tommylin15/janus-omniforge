@@ -1,0 +1,58 @@
+"""The CI entry must accept only bounded read-only and existing dev operations."""
+import importlib.machinery
+import json
+from pathlib import Path
+from unittest.mock import patch
+
+def load_module():
+    return importlib.machinery.SourceFileLoader(
+        "finops_one_shot", "scripts/gcp/finops-one-shot-maintenance.py").load_module()
+
+def test_retention_dry_run_requires_exact_image_and_all_page_fence(monkeypatch, tmp_path, capsys):
+    m=load_module()
+    req={"intent":"one-shot-existing-dev-iceberg-maintenance","no_new_resources":True,
+         "mode":"retention-dry-run","rollout_run":38676820532,
+         "expected_source_sha":"4"*40,
+         "expected_image":"ghcr.io/tommylin15/janus-ingestion-core@sha256:"+"a"*64}
+    request=tmp_path/"request.json"
+    request.write_text(json.dumps(req))
+    monkeypatch.setattr(m,"REQUEST",request)
+    def jsoncall(*args):
+        if args[:3]==("gh","run","view"):
+            return {"status":"completed","conclusion":"success","workflowName":"Janus GHCR controlled Jobs rollout"}
+        if args[:3]==("gcloud","scheduler","jobs"):
+            return {"state":"ENABLED","schedule":"30 * * * *","timeZone":"Asia/Taipei"}
+        if args[:3]==("gcloud","run","jobs") and "describe" in args:
+            return {"containers":[{"image":req["expected_image"]}]}
+        if args[:4]==("gcloud","run","jobs","executions"):
+            return [{"status":{"completionTime":"2026-10-15T00:00:00Z"}}]
+        raise AssertionError(args)
+    monkeypatch.setattr(m,"jsoncall",jsoncall)
+    monkeypatch.setattr(m,"inventory",lambda:{"objects":8135,"bytes":178359928,"under_1mib":8130})
+    monkeypatch.setattr(m,"call",lambda *a,**kw:"janus-ingestion-core-test123")
+    monkeypatch.setattr(m,"log_evidence",lambda *_:{
+        "component":"data-retention","mode":"dry-run",
+        "tables":[{"planned_expiration":3}],"orphans":[{"planned_objects":7}],
+        "core_manifests":{"status":"reference_fence_required","planned_objects":0}})
+    import sys
+    sys.path.insert(0,"scripts/gcp")
+    import ghcr_jobs_rollout
+    visited=[]
+    monkeypatch.setattr(ghcr_jobs_rollout,"fence",lambda:visited.append("full_scan"))
+    m.main()
+    result=json.loads(capsys.readouterr().out)
+    assert result["status"]=="PASS" and result["operation"]=="retention-dry-run"
+    assert result["planned_orphans"]==7 and result["planned_snapshots_to_expire"]==3
+    assert visited==["full_scan"]
+
+def test_invalid_mode_fails_before_gcp_calls(monkeypatch,tmp_path):
+    m=load_module()
+    p=tmp_path/"request.json"
+    p.write_text(json.dumps({"intent":"one-shot-existing-dev-iceberg-maintenance",
+       "no_new_resources":True,"mode":"retention-delete-all","expected_source_sha":"4"*40}))
+    monkeypatch.setattr(m,"REQUEST",p)
+    with patch.object(m,"jsoncall") as c:
+        try: m.main()
+        except RuntimeError as err: assert "invalid one-shot" in str(err)
+        else: raise AssertionError("mode should be blocked")
+    c.assert_not_called()

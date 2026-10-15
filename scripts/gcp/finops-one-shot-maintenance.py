@@ -77,7 +77,7 @@ def main():
     request = json.loads(REQUEST.read_text())
     if (request.get("intent") != "one-shot-existing-dev-iceberg-maintenance"
             or request.get("no_new_resources") is not True
-            or request.get("mode") not in {"compact-nightly", "retention-apply"}
+            or request.get("mode") not in {"compact-nightly", "retention-apply", "retention-dry-run"}
             or len(request.get("expected_source_sha", "")) != 40):
         raise RuntimeError("invalid one-shot GCP maintenance authorization")
     release_id = str(request["rollout_run"])
@@ -106,6 +106,10 @@ def main():
     if not isinstance(executions, list) or any(
             item.get("status", {}).get("completionTime") is None for item in executions):
         raise RuntimeError("existing Core execution active or execution status unknown")
+    # The last 100 Cloud Run executions are not a complete terminal fence.
+    # The shared all-page fence is mandatory before touching the live Core Job.
+    import ghcr_jobs_rollout as rollout
+    rollout.fence()
     before = inventory()
     mode = request["mode"]
     output = call("gcloud", "run", "jobs", "execute", JOB,
@@ -123,8 +127,8 @@ def main():
     evidence = log_evidence(execution_name, component)
     if mode == "compact-nightly" and evidence.get("mode") != "dry-run-then-apply":
         raise RuntimeError("Iceberg preflight and apply evidence mismatch")
-    if mode == "retention-apply" and evidence.get("mode") != "apply":
-        raise RuntimeError("Core retention apply receipt missing")
+    if mode.startswith("retention-") and evidence.get("mode") != ("apply" if mode == "retention-apply" else "dry-run"):
+        raise RuntimeError("Core retention mode receipt mismatch")
     after = inventory()
     compact = evidence.get("apply", {}) if mode == "compact-nightly" else {}
     result = {"status": "PASS", "operation": mode,
@@ -136,6 +140,9 @@ def main():
               "core_tables": len(compact.get("core", {}).get("tables", [])),
               "audit_status": compact.get("audit", {}).get("status"),
               "expired_snapshots": sum(t.get("expired_snapshots", 0) for t in evidence.get("tables", [])),
+              "planned_snapshots_to_expire": sum(t.get("planned_expiration", 0) for t in evidence.get("tables", [])),
+              "planned_orphans": sum(o.get("planned_objects", 0) for o in evidence.get("orphans", [])),
+              "planned_manifest_retirements": evidence.get("core_manifests", {}).get("planned_objects"),
               "orphan_objects_deleted": sum(o.get("deleted_objects", 0) for o in evidence.get("orphans", [])),
               "audit_orphans_deleted": evidence.get("controller_audit_orphans", {}).get("deleted_objects"),
               "core_manifest_reference_fence": evidence.get("core_manifests", {}).get("status"),
