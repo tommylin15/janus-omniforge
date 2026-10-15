@@ -3,6 +3,6 @@
   "approved": true,
   "scope": "no-data-mutation",
   "no_gcp_mutation": true,
-  "purpose": "Targeted regression for TPEx IncompleteRead retries before data write, official date/symbol/PIT, unchanged historical schema.",
-  "attempt": 6
+  "purpose": "P0 both existing held official bond ETFs dated 10/14, one-batch fetch, fail closed on missing one, PIT/NaN/network/immutable DB coverage.",
+  "attempt": 7
 }

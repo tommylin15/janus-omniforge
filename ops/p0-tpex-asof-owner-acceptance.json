@@ -11,6 +11,6 @@
   "no_job_template_mutation": true,
   "single_owner_only": true,
   "private_mart_write_only": true,
-  "attempt": 3,
-  "reason": "Run once after #38723938992 failed before any lease/GCP/owner/DB mutation: TPEx public HTTPS chunk stream truncated with http.client.IncompleteRead. Retry bounded up to 3 full HTTP fetches, discard partial JSON; require verified 2026-10-14 and exact symbol before launching immutable same-SHA private-pipeline job. No ledger event write, no traffic promotion."
+  "attempt": 4,
+  "reason": "Fix true #38724207848 terminal pre-Mart owner_full_valuation_coverage_missing: live Core has 10/14 six equities but both TPEx bond ETFs 00697B and 00719B absent. Fetch exact two authorized official TPEx dated 2026-10-14 rows once; insert-only provenance history and require whole-portfolio coverage before any derived Mart. Failed execution janus-private-pipeline-sts2l terminal and original owned lease safely released #38730256233. Same pinned release #38717341300 and Jobs #38718355824; no ledger transaction write, no API traffic promotion, no new resources."
 }

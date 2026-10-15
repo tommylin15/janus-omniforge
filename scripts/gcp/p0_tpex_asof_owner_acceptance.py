@@ -37,12 +37,15 @@ from services.api.store import PrivateIcebergStore
 from services.api.tpex_quotes import parse_tpex_daily_quote_history
 from services.api.intraday_quotes import TAIPEI
 raw=json.loads(os.environ["JANUS_P0_TPEX_VERIFIED_EOD"])
+scoped={"00697B","00719B"}
 symbol="00697B"
 target=date(2026,10,14)
 now=datetime.now(TAIPEI)
 assert now.date()>=target and (now.date()-target).days<=7,"out_of_bounded_official_date"
-history=parse_tpex_daily_quote_history([raw],{symbol},now)
-assert len(history.get(symbol,[]))==1 and history[symbol][0]["price_date"]==target.isoformat(),"official_date_not_verified"
+assert isinstance(raw,list) and len(raw)==2 and {v.get("SecuritiesCompanyCode") for v in raw}==scoped,"official_two_symbol_scope_invalid"
+history=parse_tpex_daily_quote_history(raw,scoped,now)
+assert set(history)==scoped and all(len(history[name])==1 and
+ history[name][0]["price_date"]==target.isoformat() for name in scoped),"official_date_not_verified"
 load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE",{
  "PRIVATE_DATABASE_URL":("pipeline_database_url","database_url"),
  "MOBILE_LEDGER_DATABASE_URL":"database_url",
@@ -50,9 +53,11 @@ load_postgres_bundle("JANUS_API_POSTGRES_BUNDLE",{
  "CORE_CATALOG_PASSWORD":"core_catalog_password",
 })
 repo=repository_from_env()
-identity=repo.stock_identities({symbol}).get(symbol)
-if not identity or identity.get("market")!="TPEX" or identity.get("name")!="元大美債7-10" or identity.get("enabled") is not True:
- raise RuntimeError("official_etf_identity_not_verified")
+identities=repo.stock_identities(scoped)
+for name, expected in (("00697B","元大美債7-10"),("00719B","元大美債1-3")):
+ identity=identities.get(name)
+ if not identity or identity.get("market")!="TPEX" or identity.get("name")!=expected or identity.get("enabled") is not True:
+  raise RuntimeError("official_etf_identity_not_verified")
 with repo._connection() as connection:
  owners=connection.execute("SELECT DISTINCT user_id FROM private.current_positions WHERE symbol=%s AND shares>0",(symbol,)).fetchall()
 if len(owners)!=1:raise RuntimeError("owner_scope_not_exactly_one")
@@ -66,17 +71,20 @@ if latest_core_day<target:raise RuntimeError("core_valuation_older_than_verified
 valuation=target
 # Insert-only official price archive. NEVER overwrite the newer last-success quote.
 repo.save_official_eod_quotes(history)
-stored=repo.official_eod_quotes({symbol},target).get(symbol)
-if (not stored or stored["price_date"]!=target.isoformat() or
- stored["record_sha256"]!=history[symbol][0]["record_sha256"] or
- stored["source_uri"]!=history[symbol][0]["source_uri"] or
- Decimal(stored["price"])!=Decimal(history[symbol][0]["price"])):
- raise RuntimeError("official_persisted_asof_provenance_invalid")
+stored=repo.official_eod_quotes(scoped,target)
+for name in scoped:
+ row=stored.get(name)
+ source=history[name][0]
+ if (not row or row["price_date"]!=target.isoformat() or
+  row["record_sha256"]!=source["record_sha256"] or
+  row["source_uri"]!=source["source_uri"] or
+  Decimal(row["price"])!=Decimal(source["price"])):
+  raise RuntimeError("official_persisted_asof_provenance_invalid")
 reader=owner_price_reader(repo,market)
 with repo._connection() as connection:
  holdings=connection.execute("SELECT DISTINCT symbol FROM private.current_positions WHERE user_id=%s AND shares>0",(owner,)).fetchall()
 symbols={row["symbol"] for row in holdings}
-if symbol not in symbols or len(symbols)>50:raise RuntimeError("owner_position_scope_invalid")
+if not scoped.issubset(symbols) or len(symbols)>50:raise RuntimeError("owner_position_scope_invalid")
 prices=reader(symbols,valuation)
 if symbols-set(prices):raise RuntimeError("owner_full_valuation_coverage_missing")
 entry=prices.get(symbol)
@@ -131,7 +139,8 @@ print(json.dumps({"component":"p0_tpex_asof_owner","status":"PASS",
  "no_ledger_writes":True},sort_keys=True))
 """
 
-def _read_exact_official(day:date) -> tuple[dict,str]:
+def _read_exact_official_batch(day:date, symbols:set[str]) -> dict[str,tuple[dict,str]]:
+    if not symbols or not symbols.issubset({'00697B','00719B'}):raise ValueError('official ETF scope invalid')
     rocyear=day.year-1911
     if rocyear<=0:raise ValueError("non ROC target date")
     session=f"{day.year:04d}/{day.month:02d}/{day.day:02d}"
@@ -164,7 +173,7 @@ def _read_exact_official(day:date) -> tuple[dict,str]:
     tables=data.get("tables",[])
     if not isinstance(tables,list) or len(tables)>20:
         raise ValueError("official response schema mismatch")
-    found=[]
+    found={name:[] for name in symbols}
     for table in tables:
         fields,rows=table.get("fields",[]),table.get("data",[])
         if not isinstance(fields,list) or not isinstance(rows,list) or len(rows)>25000:
@@ -173,15 +182,24 @@ def _read_exact_official(day:date) -> tuple[dict,str]:
             if not isinstance(values,list) or len(values)!=len(fields):
                 continue
             row=dict(zip(fields,values))
-            if str(row.get("代號") or "").strip()=="00697B":
-                found.append(row)
-    if len(found)!=1:raise ValueError("exact official symbol record unavailable")
-    item={"Date":f"{rocyear:03d}/{day.month:02d}/{day.day:02d}","SecuritiesCompanyCode":"00697B",
-          "Close":found[0].get("收盤"),"_official_source_uri":url}
-    history=parse_tpex_daily_quote_history([item],{"00697B"},datetime.now(TAIPEI))
-    if len(history.get("00697B",[]))!=1 or history["00697B"][0]["price_date"]!=day.isoformat():
+            name=str(row.get("代號") or "").strip()
+            if name in found:found[name].append(row)
+    if any(len(found[name])!=1 for name in symbols):
+        raise ValueError("exact official symbol record unavailable")
+    items={name:{"Date":f"{rocyear:03d}/{day.month:02d}/{day.day:02d}",
+                 "SecuritiesCompanyCode":name,
+                 "Close":found[name][0].get("收盤"),"_official_source_uri":url}
+           for name in symbols}
+    history=parse_tpex_daily_quote_history(list(items.values()),symbols,datetime.now(TAIPEI))
+    if set(history)!=symbols or any(len(history[name])!=1 or
+            history[name][0]["price_date"]!=day.isoformat() for name in symbols):
         raise ValueError("official close/date not eligible")
-    return item,history["00697B"][0]["record_sha256"]
+    return {name:(items[name],history[name][0]["record_sha256"]) for name in symbols}
+
+
+def _read_exact_official(day:date) -> tuple[dict,str]:
+    """Compatibility single-official-symbol source used by existing unit gates."""
+    return _read_exact_official_batch(day,{"00697B"})["00697B"]
 
 def main():
     rq=json.loads(REQUEST.read_text())
@@ -203,9 +221,11 @@ def main():
         raise ValueError("scheduler_not_enabled")
     r.fence()
     # Source retrieved and parsed before any GCP write or lease acquisition.
-    item,digest=_read_exact_official(date(2026,10,14))
+    retrieved=_read_exact_official_batch(date(2026,10,14),{"00697B","00719B"})
+    items=[retrieved[name][0] for name in sorted(retrieved)]
+    digests={name:retrieved[name][1] for name in sorted(retrieved)}
     OUT.write_text(json.dumps({"status":"SOURCE_VERIFIED_ONLY","source_sha":sha,
-        "official_record_hash":digest,"no_ledger_mutation":True},sort_keys=True))
+        "official_record_hashes":digests,"no_ledger_mutation":True},sort_keys=True))
     r.command(r.LEASE+["acquire"])
     r.fence()
     container=job["template"]["template"]["containers"][0]
@@ -213,7 +233,7 @@ def main():
     if cmd not in (None,[],["python"]):
         raise ValueError("unsupported_job_entrypoint_retain_lease")
     override={"args":(["-c",OWNER_CODE] if cmd==["python"] else ["python","-c",OWNER_CODE]),
-              "env":[{"name":"JANUS_P0_TPEX_VERIFIED_EOD","value":json.dumps(item,ensure_ascii=False)}]}
+              "env":[{"name":"JANUS_P0_TPEX_VERIFIED_EOD","value":json.dumps(items,ensure_ascii=False)}]}
     if container.get("name"):override["name"]=container["name"]
     op=r.cloud(f"{r.ROOT}/jobs/{JOB}:run",{
         "etag":job["etag"],"overrides":{"taskCount":1,"timeout":"900s",
@@ -222,7 +242,7 @@ def main():
     if not isinstance(operation,str) or not operation.startswith(r.ROOT+"/operations/"):
         raise RuntimeError("owner_job_dispatch_unknown_retain_lease")
     OUT.write_text(json.dumps({"status":"DISPATCHED_UNKNOWN","operation":operation.split("/")[-1],
-        "source_sha":sha,"official_record_hash":digest,
+        "source_sha":sha,"official_record_hashes":digests,
         "no_ledger_mutation":True},sort_keys=True))
     deadline=time.monotonic()+1100
     while not op.get("done") and time.monotonic()<deadline:
@@ -239,7 +259,7 @@ def main():
     r.command(r.LEASE+["release","--safe-to-release"])
     OUT.write_text(json.dumps({"status":"PASS_JOB_TERMINAL","source_sha":sha,
        "execution":str(execution["name"]).split("/")[-1],
-       "official_record_hash":digest,"no_ledger_mutation":True},sort_keys=True))
+       "official_record_hashes":digests,"no_ledger_mutation":True},sort_keys=True))
     print(json.dumps({"status":"PASS_JOB_TERMINAL","execution":str(execution["name"]).split("/")[-1],
        "source_sha":sha,"no_ledger_mutation":True},sort_keys=True))
 

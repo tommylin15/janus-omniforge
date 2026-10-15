@@ -403,3 +403,42 @@ def test_exact_official_tpex_never_accepts_repeated_truncated_payload(monkeypatc
     with pytest.raises(IncompleteRead):
         module._read_exact_official(date(2026, 10, 14))
     assert attempts == [20,20,20]
+
+def test_exact_official_two_bond_etfs_one_source_day(monkeypatch):
+    import json
+    from scripts.gcp import p0_tpex_asof_owner_acceptance as module
+
+    class Response:
+        status=200
+        def __enter__(self):return self
+        def __exit__(self,*_):return False
+        def read(self,_limit):
+            return json.dumps({"date":"20261014","tables":[{
+                "fields":["代號","收盤"],
+                "data":[["00697B","33.20"],["00719B","31.36"]]}]}).encode()
+    calls=[]
+    def source(_request,timeout):
+        calls.append(timeout)
+        return Response()
+    monkeypatch.setattr(module,"urlopen",source)
+    result=module._read_exact_official_batch(date(2026,10,14),{"00697B","00719B"})
+    assert set(result)=={"00697B","00719B"}
+    assert all(result[code][0]["Date"]=="115/10/14" and len(result[code][1])==64 for code in result)
+    assert len(calls)==1
+
+
+def test_exact_official_batch_rejects_partial_owner_etf_coverage(monkeypatch):
+    import pytest,json
+    from scripts.gcp import p0_tpex_asof_owner_acceptance as module
+
+    class Response:
+        status=200
+        def __enter__(self):return self
+        def __exit__(self,*_):return False
+        def read(self,_limit):
+            return json.dumps({"date":"20261014","tables":[{
+                "fields":["代號","收盤"],
+                "data":[["00697B","33.20"]]}]}).encode()
+    monkeypatch.setattr(module,"urlopen",lambda _request,timeout:Response())
+    with pytest.raises(ValueError,match="exact official symbol record unavailable"):
+        module._read_exact_official_batch(date(2026,10,14),{"00697B","00719B"})
