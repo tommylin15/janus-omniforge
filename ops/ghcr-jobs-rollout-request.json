@@ -2,8 +2,8 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "19e44da923b1f6856091b185e3d78588abbb1412",
-  "release_run": "38663066818",
+  "sha": "a0ab38a545a786a33d6b68ce7493e625d94d8046",
+  "release_run": "38672325311",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
   "baseline_source_sha": "c8e8a7415be48b291a347dcc115d7834db6696a8",
@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 10,
-  "safety": "Independent FinOps Iceberg #2 owner-authorized dev rollout. New source 19e44da9 4-slot bounded audit sync (active and observe), Core and ops event expiry/orphan cleanup after 23:30 compact dry-run-then-apply. Full SHA Python/Flutter/4 GHCR anonymous immutable gate #38663066818 PASS; 0% candidate #38663579453 PASS; automated OAuth/private boundary #38663748566 PASS. Reversible baseline from prior successful Jobs rollout #38659238197 receipt verified exact c8e8 digest/config fingerprints. Keep API normal traffic unchanged and existing Scheduler/Jobs topology. Verify two real canaries per Job, all-page active execution fence and rollback.",
-  "auth_boundary_run": "38663748566",
-  "automated_oauth_requirement": "automated exact source #38663748566 PASS; human OAuth is not required.",
-  "authorization": "Owner authorized existing GCP hourly batch-controller Iceberg maintenance, 23:30 compaction and reference-protected old file cleanup. This is existing dev parallel-live, no new paid service, irreversible no-fence deletion prohibited."
+  "request_attempt": 11,
+  "safety": "2026-10-15 verified post-recovery GCP live readback #38672814337: exactly 1091 execution records ALL_TERMINAL, Scheduler ENABLED and prior rollback images/config fingerprints unchanged; #38672325311 full Python/Flutter/4 GHCR immutable PASS; #38672779475 0%-traffic candidate PASS; #38672954750 automatic OAuth/private-boundary PASS. Owner authorized existing dev reversible 4-Jobs rollout, two independent canaries each, no API traffic promotion, no secrets, no new resources. Core retention apply fails closed while CORE_RETENTION_FENCE_URI is absent; no historical research/ML manifest deletion without complete reference inventory.",
+  "auth_boundary_run": "38672954750",
+  "automated_oauth_requirement": "same-source zero-traffic automatic OAuth/private-boundary #38672954750 PASS, manual OAuth verification removed.",
+  "authorization": "Owner-approved existing parallel-live dev four Jobs re-publication after proven audited recovery. Reversible exact GHCR digests and config hashes, shared lease, active executions all-page fence and eight canaries required. No API traffic switch or irreversible retention cleanup."
 }

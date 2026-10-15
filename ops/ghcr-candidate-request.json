@@ -1,13 +1,13 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "19e44da923b1f6856091b185e3d78588abbb1412",
-  "purpose": "2026-10-15 independent Iceberg FinOps incident #2. Full Python+Flutter+4 public GHCR images Release #38663066818 PASS on exact source 19e44da9. Read-only-cost fix: both active/observe GCP controller modes audit batch 4x daily; Core and ops retention reference-fenced. Zero-traffic API candidate only for existing auto OAuth Jobs gate, no 100%-traffic switch.",
+  "sha": "a0ab38a545a786a33d6b68ce7493e625d94d8046",
+  "purpose": "2026-10-15 Iceberg safe recovery + fence fail-closed: exact-source full Python 1212 and Flutter plus four public GHCR immutable digest Release #38672325311 PASS. Candidate is 0%-traffic API only to qualify existing Jobs rollout; no API traffic, ledger, Scheduler or Job image changes.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "retry_verification": "same-sha-cache-normalized-immutable-candidate-reuse",
+  "retry_verification": "New fixed SHA after complete release; read back 0% revision and same-source OAuth/private boundary before Jobs.",
   "same_sha_retry_attempt": 0,
   "digest": ""
 }
