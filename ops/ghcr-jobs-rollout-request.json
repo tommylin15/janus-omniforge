@@ -2,16 +2,16 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "1e9c31d148db540ee06cac5ccccd8fac8d619511",
-  "release_run": "38565636734",
+  "sha": "c8e8a7415be48b291a347dcc115d7834db6696a8",
+  "release_run": "38657775138",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "61796cbc2cd973d694e1d203e7ea9e8af07804c1",
+  "baseline_source_sha": "1e9c31d148db540ee06cac5ccccd8fac8d619511",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:ea3e619616de874d8f85745bcb642121a84389bef900510b042008e394c6346f",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:ea3e619616de874d8f85745bcb642121a84389bef900510b042008e394c6346f",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:5010a18b06954a5979f542a0332640d431e688ac7129d10e171bec7b2b38656a",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:d832ad35f8db0b1b94b7202bd0ca74e1ebcb4f4c466f1c212f4f19cf9085e103"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:512b05013029934d3b02254a9451136ea40c0bd738c6c7561a7c0f333e7d4648",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:512b05013029934d3b02254a9451136ea40c0bd738c6c7561a7c0f333e7d4648",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:14d982fc8ad67a794f1e9595423a3cbf548017ef809b4860cb8de49d10f69e31",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:d06ffd5a56439d00780af8e9908a060f154c53a69768915ebd5581d3a58cb95e"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 8,
-  "safety": "2026-10-14 official TPEx historical valuation repair: full release #38565636734 PASS Python 1163/Flutter90/four anonymous immutable GHCR, 0% API candidate #38566380979 PASS, automatic OAuth/private fence #38566632955 PASS. Preserve serving API canonical 100%; previously deployed four Jobs #38557540516 61796cbc PASS, verify exact public rollback digests and unchanged config hashes, full execution/scheduler/legacy writer fence, 2 canaries/job and recovery receipt; no IAM extension or ledger.",
-  "auth_boundary_run": "38566632955",
-  "automated_oauth_requirement": "Same source automated OAuth and private boundary #38566632955 PASS; owner positive authenticated readback not claimed.",
-  "authorization": "User explicitly authorized Janus dev acceptance 01 through 05. Existing-dev four Jobs update only before one bounded full-market business bootstrap; no formal API traffic promotion."
+  "request_attempt": 9,
+  "safety": "Independent FinOps Iceberg incident #2: user requests GCP existing hourly controller to own nightly 23:30 compact-nightly (Core/ops dry-run before bounded apply), remove GitHub direct maintenance, and reduce GCS fragment/metadata amplification. Full release #38657775138 PASS; 0% candidate #38658952070 PASS; automated OAuth boundary #38659127936 PASS. Reversible GHCR baseline from successful prior Jobs release receipt #38566821108 on source 1e9c31d1, exact images and prior config hashes; no API traffic switch, no new Scheduler, no IAM extension, no owner data loss. All four existing Jobs must pass preflight and two real canaries each or rollback.",
+  "auth_boundary_run": "38659127936",
+  "automated_oauth_requirement": "Same-source automated OAuth and private boundary #38659127936 PASS; positive owner login not claimed.",
+  "authorization": "Owner requested 2026-10-15 independent Iceberg nightly maintenance on existing dev GCP hourly controller, not GitHub direct maintenance. Existing four-Jobs GHCR rollout safety gate with source SHA and reversible baseline; no API traffic promotion or destructive Core snapshot deletion."
 }
