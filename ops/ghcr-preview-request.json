@@ -2,16 +2,16 @@
   "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
   "approved": true,
   "scope": "janus-api-preview-tag-only",
-  "source_sha": "285848e28041bf2fb024bd98bd348641f022a1ed",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:b4d4f15df555e0874e5413a58d63718c5239feaef1f2655b47f0f384ada16705",
-  "release_run": "38717341300",
-  "candidate_run": "38718006906",
-  "boundary_run": "38718076548",
+  "source_sha": "7acff50000644979af3815f00fbd7f1c167e1098",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:03e25a786cbb0ad857f65f82de087d4dbb742650f6bf869fc1efa9091b306878",
+  "release_run": "38755382061",
+  "candidate_run": "38756170482",
+  "boundary_run": "38756520384",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
-  "reason": "P1 synchronize fixed Preview with 285848 exact full release, 0% API candidate, automated auth and 4 Jobs rollout; P0 Owner 10/14 backend aggregate 8/8 PASS #38733406224. Update only verified preview tag under existing shared lease. Keep canonical traffic at old 100% until separate real Owner UI/manual recalculation/rollback acceptance.",
+  "reason": "P1 night Private dispatch repair: exact 7acff full Python+Flutter/GHCR #38755382061, 0%-candidate #38756170482, auto OAuth #38756520384, reversible four Jobs #38821199561 all SUCCESS. Update only fixed preview to 7acff with shared lease and rollback; preserve canonical 100% and data, await real owner 10/15 EOD/queue/UI acceptance.",
   "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
-  "attempt": 15
+  "attempt": 16
 }
