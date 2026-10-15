@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "not-authorized-without-authenticated-acceptance",
-  "attempt": 36,
-  "reason": "2026-10-15 separate FinOps Issue #2: full release for core audit outbox batch mirroring 4x/day instead of hourly Iceberg full-history scans; bounded 5-min Monitoring observed ~66% Core requests in :33/:38 aligned with hourly controller. Nightly Core/audit snapshot expiration + generation-checked orphan cleanup, pinned PIT/research/model references preserved; updated regression tests and retired temporary audit workflow. No API traffic promotion and no new paid resource; approved dev Jobs reversible rollout only after full SHA tests and automated auth gates.",
+  "attempt": 37,
+  "reason": "FinOps Issue #2 final targeted fix: observed Cloud Monitoring 66% of Core GCS operations in five-minute :33/:38 windows; enforce bounded four-slot Iceberg audit mirroring for BOTH active and observe modes, leaving immediate durable PostgreSQL outbox with unchanged event-ID/payload Iceberg replay and post-readback ack. Reference-aware snapshot/orphan cleanup also includes ops batch audit. Previous full Release #38662361096 PASS but source was extended by observe-mode regression before Jobs deployment; rebuild exact complete SHA and do not treat old image as final. No API traffic promotion.",
   "expected_runtime_changes": false,
   "ceo_gateway_pilot": false
 }
