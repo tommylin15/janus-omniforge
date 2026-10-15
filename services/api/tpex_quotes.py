@@ -68,7 +68,7 @@ def parse_tpex_daily_quote_history(rows: object, symbols: set[str],
             price = Decimal(str(raw.get("Close") or "").replace(",", "").strip())
         except (InvalidOperation, ValueError):
             continue
-        if price <= 0 or not price.is_finite():
+        if not price.is_finite() or price <= 0:
             continue
         uri = raw.get("_official_source_uri") or TPEX_OFFICIAL_EOD_URL
         if uri != TPEX_OFFICIAL_EOD_URL and not (

@@ -3,6 +3,6 @@
   "approved": true,
   "scope": "no-data-mutation",
   "no_gcp_mutation": true,
-  "purpose": "Compile and targeted-test official TPEx fallback, historical persisted-as-of quote API and migration before GCP release. No live jobs or ledger writes.",
-  "attempt": 1
+  "purpose": "Regression rerun after NaN is rejected before Decimal ordering comparisons. No GCP or ledger writes.",
+  "attempt": 2
 }
