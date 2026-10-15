@@ -115,6 +115,8 @@ commit/push 前執行 /ponytail-review；環境缺該非系統命令時，依 PR
 
 ## 6. 接手 AI 的工作包格式
 
+D01～D08 具有 [標準化執行卡](execution-cards/README.md)。明確指定工作包後，先在 TODO 確認當次授權，讀取該卡的前置讀回、工程入口、測試／live acceptance、失敗恢復及回報格式；卡片僅是可執行操作指示，不因其存在而恢復本輪文件-only 的產品工作。
+
 每次只建立一份本輪記錄：工作包／既有WBS、輸入SHA、允許修改範圍、依賴、入口檔案、交付物、測試、live驗收、失敗恢復、未決項。D01～D08與詳細退出條件只查TODO；不得另複製待辦。
 
 確認能力以目前repo／tools為準，不要求已不存在的slash command、固定AI型號或舊request。工程完成報告分列「已修改／已測試／已部署／業務已驗收」；文件-only只報文件檢查。review與讀回後直接同步main，不新增無授權部署。
