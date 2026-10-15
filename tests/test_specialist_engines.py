@@ -74,7 +74,8 @@ def test_iceberg_snapshot_reader_preserves_exact_snapshot_semantics():
     assert result.telemetry["rows_by_dataset"] == {"ohlcv": 2}
     assert result.telemetry["scan_evidence"]["ohlcv"] == {
         "table_identifier": "core.ohlcv_v1", "snapshot_id": 42, "row_count": 2,
-        "symbol_filter_applied": True, "planned_file_count": 2, "planned_scan_bytes": 200,
+        "symbol_filter_applied": True, "planned_file_count": None, "planned_scan_bytes": None,
+        "plan_diagnostics_enabled": False,
         "actual_gcs_read_bytes": None, "planning_error_code": None,
     }
 
