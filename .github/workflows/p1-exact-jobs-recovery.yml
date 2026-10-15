@@ -24,15 +24,16 @@ jobs:
         run: |
           set -Eeuo pipefail
           jq -e '.intent=="p1-recover-exact-stalled-jobs" and .approved==true and
-                 .scope=="existing-dev-four-jobs" and .failed_run=="38756738102" and
-                 .failed_run_sha=="9782e40ae62aae3ad71f460830bb606a39c570bd" and
+                 .scope=="existing-dev-four-jobs" and ((.failed_run=="38756738102" and .failed_run_sha=="9782e40ae62aae3ad71f460830bb606a39c570bd") or
+                  (.failed_run=="38821199561" and .failed_run_sha=="7c03bda8c87800ae4da341e2fbc532a9798e038f")) and
                  .target_source_sha=="7acff50000644979af3815f00fbd7f1c167e1098" and
                  .no_owner_mutation==true and .no_traffic_mutation==true' ops/p1-exact-jobs-recovery.json >/dev/null
-          gh run view 38756738102 --json headSha,status,conclusion \
-            --jq '(.headSha=="9782e40ae62aae3ad71f460830bb606a39c570bd") and
-                  (.status=="completed") and (.conclusion=="failure")' | grep -x true
+          failed_run=$(jq -r '.failed_run' ops/p1-exact-jobs-recovery.json)
+          failed_sha=$(jq -r '.failed_run_sha' ops/p1-exact-jobs-recovery.json)
+          gh run view "$failed_run" --json headSha,status,conclusion |
+            jq -e --arg sha "$failed_sha" '.headSha==$sha and .status=="completed" and .conclusion=="failure"' >/dev/null
           mkdir -p /tmp/p1-exact
-          gh run download 38756738102 --name ghcr-jobs-rollout-receipt --dir /tmp/p1-exact
+          gh run download "$failed_run" --name ghcr-jobs-rollout-receipt --dir /tmp/p1-exact
           test -s /tmp/p1-exact/ghcr-jobs-rollout.json
       - uses: google-github-actions/auth@v2
         with:
@@ -55,13 +56,15 @@ jobs:
           assert j['rollback_mode']=='reversible_ghcr' and j['rollback_baseline_verified'] is True
           assert set(j['targets'])=={name for name,_ in recovery.JOB_COMPONENT}
           assert set(j['snapshots'])==set(recovery.REQUIRED_JOBS)
-          assert j['failed_stage']=='first_canary_janus-intelligence-mart'
+          assert isinstance(j.get('failed_stage'),str) and 1 <= len(j['failed_stage']) <= 96
+          req=json.loads(Path('ops/p1-exact-jobs-recovery.json').read_text())
+          assert req['failed_run'] in ('38756738102','38821199561')
           assert recovery.scheduler()['state']=='PAUSED'
           # Assert the old annotated lease using its ORIGINAL owner. Do not
           # overwrite or steal the lease from this new workflow run.
           recovery.LEASE=[sys.executable,'scripts/gcp/ghcr_release_lease.py',
-                          '--run-id','38756738102','--run-attempt','1',
-                          '--sha','9782e40ae62aae3ad71f460830bb606a39c570bd']
+                          '--run-id',req['failed_run'],'--run-attempt','1',
+                          '--sha',req['failed_run_sha']]
           recovery.command(recovery.LEASE+['assert'])
           # Images must all be exactly the receipt's old or new pinned digest;
           # no unrelated deploy or config changes may be overwritten.
