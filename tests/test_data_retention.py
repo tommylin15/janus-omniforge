@@ -348,3 +348,54 @@ def test_core_apply_missing_research_reference_fence_fails_before_storage_or_db(
     monkeypatch.setattr(retention, "GcsObjectStore", unexpected_storage)
     with pytest.raises(ValueError, match="core_retention_fence_required_for_apply"):
         retention.maintain_public_data(core=object(), apply=True)
+
+
+def test_core_retention_fence_requires_complete_provenance_not_just_a_uri():
+    from datetime import datetime, timezone
+    import pytest
+    from ingestion_core.retention import (
+        REQUIRED_RETENTION_REFERENCE_SOURCES, validate_core_retention_fence)
+    when=datetime(2026,10,15,5,0,tzinfo=timezone.utc)
+    good={
+        "schema_version":"core-retention-reference-fence-v2",
+        "coverage_status":"COMPLETE_VERIFIED",
+        "created_at":when.isoformat(),
+        "allow_retirement":True,
+        "core_snapshot_ids":["sha256:"+"a"*64],
+        "reference_sources":{
+            name:{"status":"COMPLETE","artifact_sha256":"sha256:"+"b"*64,"objects_checked":1}
+            for name in REQUIRED_RETENTION_REFERENCE_SOURCES
+        }
+    }
+    assert validate_core_retention_fence(good,now=when)==good
+    with pytest.raises(ValueError,match="incomplete"):
+        validate_core_retention_fence({**good,"coverage_status":"PARTIAL_NOT_AUTHORIZED_FOR_DELETION"},now=when)
+    with pytest.raises(ValueError,match="source_coverage"):
+        validate_core_retention_fence({**good,"reference_sources":{}},now=when)
+    with pytest.raises(ValueError,match="snapshot_id"):
+        validate_core_retention_fence({**good,"core_snapshot_ids":["not-a-core-hash"]},now=when)
+    with pytest.raises(ValueError,match="retirement_not_authorized"):
+        validate_core_retention_fence({**good,"allow_retirement":False},now=when)
+
+
+def test_core_retention_fence_rejects_stale_or_missing_source_hash():
+    from datetime import datetime, timedelta, timezone
+    import pytest
+    from ingestion_core.retention import (
+        REQUIRED_RETENTION_REFERENCE_SOURCES, validate_core_retention_fence)
+    now=datetime(2026,10,15,5,0,tzinfo=timezone.utc)
+    doc={"schema_version":"core-retention-reference-fence-v2",
+         "coverage_status":"COMPLETE_VERIFIED","created_at":now.isoformat(),
+         "allow_retirement":True,"core_snapshot_ids":[],
+         "reference_sources":{
+            key:{"status":"COMPLETE","artifact_sha256":"sha256:"+"1"*64,
+                 "objects_checked":0}
+            for key in REQUIRED_RETENTION_REFERENCE_SOURCES}}
+    with pytest.raises(ValueError,match="stale"):
+        validate_core_retention_fence(
+            {**doc,"created_at":(now-timedelta(hours=2)).isoformat()},now=now)
+    source=next(iter(REQUIRED_RETENTION_REFERENCE_SOURCES))
+    changed={**doc,"reference_sources":{**doc["reference_sources"],
+             source:{"status":"COMPLETE","artifact_sha256":"unknown","objects_checked":0}}}
+    with pytest.raises(ValueError,match="source_evidence"):
+        validate_core_retention_fence(changed,now=now)

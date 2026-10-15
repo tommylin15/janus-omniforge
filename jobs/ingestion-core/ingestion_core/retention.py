@@ -98,6 +98,59 @@ def clean_orphans(core: Any, store: Any, identifier: str, *, apply: bool, now: d
             "deleted_objects": len(candidates) if apply else 0}
 
 
+
+# Every destructive Core retention run needs a fresh, independently complete
+# reference census. An artifact produced by the PARTIAL research scanner must
+# never accidentally become a deletion-authorizing fence.
+REQUIRED_RETENTION_REFERENCE_SOURCES = frozenset({
+    "core_execution_manifests",
+    "mart_specialists_and_ml_oos",
+    "research_model_artifacts",
+    "private_model_references",
+    "postgres_publication_references",
+    "active_control_executions",
+    "external_research_registry",
+})
+
+
+def validate_core_retention_fence(fence, *, now):
+    from re import fullmatch
+
+    if not isinstance(fence, dict):
+        raise ValueError("core_retention_fence_document_invalid")
+    if fence.get("schema_version") != "core-retention-reference-fence-v2":
+        raise ValueError("core_retention_fence_schema_version_unknown")
+    if fence.get("coverage_status") != "COMPLETE_VERIFIED":
+        raise ValueError("core_retention_references_incomplete")
+    sources = fence.get("reference_sources")
+    if not isinstance(sources, dict) or set(sources) != REQUIRED_RETENTION_REFERENCE_SOURCES:
+        raise ValueError("core_retention_source_coverage_unknown")
+    for source in REQUIRED_RETENTION_REFERENCE_SOURCES:
+        report = sources[source]
+        if (not isinstance(report, dict) or report.get("status") != "COMPLETE"
+                or not isinstance(report.get("artifact_sha256"), str)
+                or not fullmatch(r"sha256:[0-9a-f]{64}", report["artifact_sha256"])
+                or not isinstance(report.get("objects_checked"), int)
+                or report["objects_checked"] < 0):
+            raise ValueError("core_retention_source_evidence_invalid")
+    identities = fence.get("core_snapshot_ids")
+    if (not isinstance(identities, list)
+            or len(identities) != len(set(identities))
+            or any(not isinstance(value, str)
+                   or not fullmatch(r"sha256:[0-9a-f]{64}", value)
+                   for value in identities)):
+        raise ValueError("core_retention_snapshot_id_contract_invalid")
+    try:
+        created = datetime.fromisoformat(fence["created_at"].replace("Z", "+00:00"))
+    except (KeyError, ValueError, TypeError, AttributeError) as error:
+        raise ValueError("core_retention_fence_timestamp_invalid") from error
+    if (created.tzinfo is None or not timedelta(0) <= now - created <= timedelta(hours=1)):
+        raise ValueError("core_retention_fence_stale")
+    if fence.get("allow_retirement") is not True:
+        raise ValueError("core_retention_retirement_not_authorized")
+    return fence
+
+
 def clean_core_manifests(store, fence, *, apply, now, active_executions):
     created = datetime.fromisoformat(fence["created_at"].replace("Z", "+00:00"))
     if not timedelta(0) <= now - created <= timedelta(hours=1):
@@ -132,6 +185,16 @@ def maintain_public_data(*, core: Any, apply: bool, now: datetime | None = None)
     stage_bucket = os.environ.get("STAGE_BUCKET", "")
     if stage_bucket != "gen-lang-client-0593591102-dev-stage":
         raise ValueError("retention requires the existing dev Stage bucket")
+    fence = None
+    if fence_uri:
+        prefix = f"gs://{store.bucket}/maintenance/retention-fences/"
+        if not fence_uri.startswith(prefix):
+            raise ValueError("Core retention fence must be in the existing dev Core maintenance prefix")
+        fence = json.loads(store.read(fence_uri.removeprefix(f"gs://{store.bucket}/")))
+        # A blank or partially verified reference inventory is never sufficient
+        # for snapshot expiration or any Canonical Core row deletion.
+        if apply:
+            validate_core_retention_fence(fence, now=now)
     stage_store = GcsObjectStore(stage_bucket)
     from .__main__ import _control_plane, TAIPEI
     with _control_plane() as control, control.connection.cursor() as cursor:
@@ -146,13 +209,13 @@ def maintain_public_data(*, core: Any, apply: bool, now: datetime | None = None)
         return {"objects": len(objects), "bytes": sum(int(item["size"]) for item in objects)}
     before = {"core": capacity(store), "stage": capacity(stage_store)}
     manifests = {"status": "reference_fence_required"}
-    if fence_uri:
-        prefix = f"gs://{store.bucket}/maintenance/retention-fences/"
-        if not fence_uri.startswith(prefix):
-            raise ValueError("Core retention fence must be in the existing dev Core maintenance prefix")
-        fence = json.loads(store.read(fence_uri.removeprefix(f"gs://{store.bucket}/")))
-        fence["core_snapshot_ids"].extend(active_snapshots)
-        manifests = clean_core_manifests(store, fence, apply=apply, now=now, active_executions=active_executions)
+    if fence is not None:
+        # Never mutate the immutable source document; active Core references
+        # are appended to a local copy after the source coverage gate.
+        effective_fence = {**fence, "core_snapshot_ids": [
+            *fence["core_snapshot_ids"], *active_snapshots]}
+        manifests = clean_core_manifests(store, effective_fence, apply=apply,
+                                         now=now, active_executions=active_executions)
     tables, orphans = [], []
     for dataset in core.IDENTIFIERS:
         identifier = core.table_identifier(dataset)
