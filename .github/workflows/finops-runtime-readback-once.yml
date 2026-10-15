@@ -1,0 +1,32 @@
+name: One-shot read-only nightly Iceberg GCP deployment and fence audit
+on:
+  push:
+    branches: [main]
+    paths: [ops/finops-runtime-readback-request.json]
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  read-only:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Verify read-only bounded intent
+        run: jq -e '.intent=="read-existing-iceberg-controller-config" and .no_mutation==true' ops/finops-runtime-readback-request.json
+      - name: Read image identities, retention fence presence and Scheduler only
+        run: |
+          set -Eeuo pipefail
+          project=gen-lang-client-0593591102
+          region=us-central1
+          for name in janus-batch-controller janus-ingestion-core janus-intelligence-mart janus-private-pipeline; do
+            gcloud run jobs describe "$name" --project="$project" --region="$region" --format=json \
+              | python -c 'import json,sys; d=json.load(sys.stdin); s=(d.get("template") or {}).get("template") or {}; c=(s.get("containers") or [{}])[0]; e=c.get("env") or []; flag=next((x for x in e if x.get("name")=="CORE_RETENTION_FENCE_URI"),None); print(json.dumps({"job":d.get("metadata",{}).get("name") or d.get("name","").split("/")[-1],"image":c.get("image"),"has_CORE_RETENTION_FENCE_URI":bool(flag),"fence_static_value_present":bool(flag and flag.get("value")),"mode_env_names":[x.get("name") for x in e if x.get("name") in ("ICEBERG_MAINTENANCE_MODE","BATCH_CONTROLLER_MODE","CORE_RETENTION_FENCE_URI")]},sort_keys=True))'
+          done
+          gcloud scheduler jobs describe janus-ingestion-daily --project="$project" --location="$region" --format=json | python -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({"scheduler":d.get("name","").split("/")[-1],"schedule":d.get("schedule"),"timezone":d.get("timeZone"),"state":d.get("state")},sort_keys=True))'
