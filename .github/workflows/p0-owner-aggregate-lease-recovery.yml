@@ -1,0 +1,82 @@
+name: Janus recover exact P0 post-Mart withheld aggregate lease
+on:
+  push:
+    branches: [main]
+    paths: ['ops/p0-owner-aggregate-lease-recovery.json']
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact failed Owner run and source checkpoint order
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="release-exact-terminal-owner-post-mart-lease" and
+            .approved==true and .source_run=="38730741579" and
+            .execution=="janus-private-pipeline-5zdls" and
+            .owner_sha=="430bdfdea7953e7afb5ddcdedd497c989d3704aa" and
+            .acknowledge_derived_mart_written==true and .no_job_run==true and
+            .no_ledger_mutation==true and .only_original_owner_lease==true' ops/p0-owner-aggregate-lease-recovery.json >/dev/null
+          gh run view 38730741579 --json status,conclusion,headSha,workflowName |
+            jq -e '.status=="completed" and .conclusion=="failure" and
+              .headSha=="430bdfdea7953e7afb5ddcdedd497c989d3704aa" and
+              .workflowName=="Janus P0 exact official 00697B as-of and real Owner Mart"' >/dev/null
+          python - <<'PY'
+          from pathlib import Path
+          code=Path('scripts/gcp/p0_tpex_asof_owner_acceptance.py').read_text()
+          assert code.index('pipeline.run_user(owner,valuation,') < code.index('raise RuntimeError("owner_aggregate_value_pnl_still_withheld")')
+          assert 'owner_ledger_mutated_while_derived_mart_rebuilt' not in code
+          assert 'after=int(repo.latest_ledger_version(owner))' in code and 'if after!=before:raise RuntimeError("ledger_version_changed_during_mart_write")' in code
+          print('CHECK=POST_MART_BUSINESS_GUARD_DERIVED_ROWS_POSSIBLY_COMMITTED')
+          PY
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Verify exact terminal failed and finite existing workload fence
+        env:
+          PYTHONPATH: .
+        run: |
+          python - <<'PY'
+          import sys,json,subprocess
+          sys.path.insert(0,'scripts/gcp')
+          import ghcr_jobs_rollout as r
+          execution=r.cloud(r.ROOT+'/jobs/janus-private-pipeline/executions/janus-private-pipeline-5zdls')
+          assert r.terminal(execution) and execution.get('failedCount')==1 and not execution.get('succeededCount'),'terminal_failed_not_verified'
+          p=subprocess.run(['gcloud','logging','read',
+            'resource.type="cloud_run_job" AND timestamp>="2026-10-15T11:54:00Z" AND timestamp<="2026-10-15T12:04:00Z"',
+            '--project=gen-lang-client-0593591102','--format=json','--limit=400'],
+            capture_output=True,text=True,check=True,timeout=60)
+          msgs=[]
+          for x in json.loads(p.stdout):
+            labels=x.get('labels') or {}
+            resource=(x.get('resource') or {}).get('labels') or {}
+            if labels.get('run.googleapis.com/execution_name')=='janus-private-pipeline-5zdls' or resource.get('execution_name')=='janus-private-pipeline-5zdls':
+              msgs.append(str(x.get('textPayload') or x.get('jsonPayload') or ''))
+          assert any('owner_aggregate_value_pnl_still_withheld' in msg for msg in msgs),'guard_error_not_verifiable'
+          r.fence()
+          assert r.scheduler()['state']=='ENABLED','scheduler_state_not_expected'
+          print(json.dumps({'execution':'janus-private-pipeline-5zdls','terminal':'FAILED',
+            'failure':'owner_aggregate_value_pnl_still_withheld',
+            'derived_mart':'WRITTEN_UNVERIFIED_AGGREGATE','no_private_ledger_mutation_in_code':True,
+            'all_jobs_terminal':True,'scheduler_enabled':True},sort_keys=True))
+          PY
+      - name: Release only failed run owned GitHub lease, no job re-run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py release --repo tommylin15/janus-omniforge --run-id 38730741579 --run-attempt 1 --sha 430bdfdea7953e7afb5ddcdedd497c989d3704aa --safe-to-release
+          python scripts/gcp/ghcr_release_lease.py inspect --repo tommylin15/janus-omniforge --run-id 38730741579 --run-attempt 1 --sha 430bdfdea7953e7afb5ddcdedd497c989d3704aa

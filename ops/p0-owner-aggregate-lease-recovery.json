@@ -1,0 +1,12 @@
+{
+  "intent": "release-exact-terminal-owner-post-mart-lease",
+  "approved": true,
+  "source_run": "38730741579",
+  "execution": "janus-private-pipeline-5zdls",
+  "owner_sha": "430bdfdea7953e7afb5ddcdedd497c989d3704aa",
+  "acknowledge_derived_mart_written": true,
+  "no_job_run": true,
+  "no_ledger_mutation": true,
+  "only_original_owner_lease": true,
+  "reason": "After one-owner 8/8 prices v354 and final aggregate_status withholding business gate, previous execution terminal FAILED after derived Mart write; no blind retry. Recover exact owner lease only if all Jobs terminal and scheduler enabled; preserve partial Mart for read-only diagnosis."
+}
