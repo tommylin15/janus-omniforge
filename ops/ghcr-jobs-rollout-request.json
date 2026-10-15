@@ -2,16 +2,16 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "4d058c47ac62ad7328f9f7c0e9fcd4ef4f1ac7b1",
-  "release_run": "38674231933",
+  "sha": "4d49555656bc47decd2fd13e9fab9a5da79a3fc2",
+  "release_run": "38685404805",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "c8e8a7415be48b291a347dcc115d7834db6696a8",
+  "baseline_source_sha": "4d058c47ac62ad7328f9f7c0e9fcd4ef4f1ac7b1",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:899a0bcae1e1a2f75424db2b67efafd134c015af9ea5160f760186ae409e8319",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:899a0bcae1e1a2f75424db2b67efafd134c015af9ea5160f760186ae409e8319",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:37249957704a2010bfbbb7aafacc19cc14d8d1b323622c0207541690db7092c9",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:badaec591648a632b330c3163a58d43d67b5cac81a6d2f2332d8b2aada038340"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:dd121d80aa9904ac67b3d9eb24eb4f6a1bc00dc982336c0f35c64acdfeea43b1",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:dd121d80aa9904ac67b3d9eb24eb4f6a1bc00dc982336c0f35c64acdfeea43b1",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:236c47c315055227cb0959e69f65b564e04676074b1504c0590231a1a8c30e4b",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:9f51bac4b1c49ff1d156e38ab97505d88efd7eee48ac1ef92f34dce8da4333ad"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 12,
-  "safety": "Owner-authorized steps 1-5: exact-source full Release #38674231933, zero-traffic candidate #38674767979 and automatic OAuth/private boundary #38674988598 PASS. Reversible existing four Jobs update with two canaries each, all-page active execution fence, immutable c8e8 baseline and config hashes. Includes automatic fees, correction ordering and snapshot materialization plus latest independent FinOps safe recovery/retention fences. Existing PostgreSQL owner migration 059 and restricted-role acceptance passed. Preserve all canonical API traffic and current research Job. No historical ledger repair from rollout itself.",
-  "auth_boundary_run": "38674988598",
-  "automated_oauth_requirement": "Exact-source automated boundary #38674988598 PASS; no repeated manual OAuth requirement.",
-  "authorization": "Owner-approved existing parallel-live dev four Jobs re-publication after proven audited recovery. Reversible exact GHCR digests and config hashes, shared lease, active executions all-page fence and eight canaries required. No API traffic switch or irreversible retention cleanup."
+  "request_attempt": 13,
+  "safety": "2026-10-15 new isolated ops.batch_events_v1-only audit expiration, no Core canonical PIT/ML/research deletions. Full exact-SHA Python/Flutter/4 GHCR+pull #38685404805 PASS, 0%-candidate #38685839070 PASS, automated OAuth/private boundary #38686018183 PASS. Baseline 4d058c47 source and four exact immutable GHCR runtime digests from accepted rollout #38676820532. Existing dev reversible 4 Jobs update, full execution/Scheduler/lease fence and 8 real canaries; API traffic unchanged; old image rollback availability required. No secret/IAM/paid resources.",
+  "auth_boundary_run": "38686018183",
+  "automated_oauth_requirement": "same-source verified automated OAuth and private boundary #38686018183 PASS; no human OAuth login required.",
+  "authorization": "Owner-authorized FinOps existing-dev four Jobs re-publish after complete release and research-safe audit-only feature; cannot enable unrestricted Core retention without a verified fresh CORE_RETENTION_FENCE_URI."
 }
