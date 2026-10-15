@@ -33,7 +33,13 @@ if not identity or identity.get('name')!='元大美債1-3' or identity.get('mark
 owner=owners[0]['user_id']
 checkpoint=json.loads(os.environ['JANUS_FEE_REPAIR_CHECKPOINT'])
 result=repair_owner_fees(repo,owner,expected_ledger_version=checkpoint['ledger_version'],
- expected_profile_version=checkpoint['profile_version'],apply=checkpoint['mode']=='apply')
+ expected_profile_version=checkpoint['profile_version'])
+if checkpoint['mode']=='apply':
+ if (result.get('status')!='preview' or result.get('effective_events')!=checkpoint['preview_effective_events']
+     or result.get('corrections')!=checkpoint['preview_corrections']):
+  raise RuntimeError('fee_repair_preview_counts_changed')
+ result=repair_owner_fees(repo,owner,expected_ledger_version=checkpoint['ledger_version'],
+  expected_profile_version=checkpoint['profile_version'],apply=True)
 print(json.dumps({'operation':'ledger_fee_repair',**result},sort_keys=True),flush=True)
 if checkpoint['mode'] in ('apply','reconcile'):
  if checkpoint['mode']=='reconcile' and (result.get('status')!='preview' or result.get('corrections')!=0):
@@ -60,6 +66,12 @@ def validate_request(value):
             or any(type(value.get(key)) is not int or value[key] < 0
                    for key in ('ledger_version', 'profile_version'))):
         raise ValueError('fee_repair_request_invalid')
+    if value['mode'] == 'apply' and (
+            not isinstance(value.get('preview_run'), str) or not value['preview_run'].isdigit()
+            or any(type(value.get(key)) is not int or not 0 <= value[key] <= 500
+                   for key in ('preview_effective_events', 'preview_corrections'))
+            or value['preview_corrections'] > value['preview_effective_events']):
+        raise ValueError('fee_repair_preview_required')
     return value
 
 
@@ -71,6 +83,16 @@ def main():
     parser.add_argument('--receipt', type=Path, required=True)
     args = parser.parse_args()
     req = validate_request(json.loads(args.request.read_text()))
+    if req['mode'] == 'apply':
+        preview = json.loads(jobs.command(['gh', 'run', 'view', req['preview_run'], '--json',
+                                           'headSha,status,conclusion,workflowName']))
+        if (preview.get('status') != 'completed' or preview.get('conclusion') != 'success'
+                or preview.get('workflowName') != 'Janus checkpoint-bound historical fee repair'):
+            raise ValueError('fee_repair_preview_not_successful')
+        original = json.loads(jobs.command(['git', 'show', preview['headSha']+':ops/ledger-fee-repair-request.json']))
+        if original.get('mode') != 'preview' or any(original.get(key) != req[key] for key in (
+                'source_sha', 'image', 'configuration_hash', 'ledger_version', 'profile_version', 'scope')):
+            raise ValueError('fee_repair_preview_checkpoint_mismatch')
     jobs.automated_oauth_acceptance(req['source_sha'], req['boundary_run'])
     for field, workflow in (('release_run', 'Janus GHCR full-test image publication'),
                             ('rollout_run', 'Janus GHCR controlled Jobs rollout')):
@@ -102,11 +124,14 @@ def main():
         if command not in (None, [], ['python']):
             raise ValueError('fee_repair_entrypoint_invalid')
         checkpoint = {key: req[key] for key in ('mode', 'ledger_version', 'profile_version')}
+        if req['mode'] == 'apply':
+            checkpoint.update({key: req[key] for key in ('preview_effective_events', 'preview_corrections')})
         override = {'args': (['python'] if not command else [])+['-c', RUNTIME],
                     'env': [{'name': 'JANUS_FEE_REPAIR_CHECKPOINT', 'value': json.dumps(checkpoint)}]}
         if container.get('name'):
             override['name'] = container['name']
-        receipt = {'status': 'UNKNOWN', 'source_sha': req['source_sha'], **checkpoint}
+        receipt = {'status': 'UNKNOWN', 'source_sha': req['source_sha'], 'mode': req['mode'],
+                   'based_on_ledger_version': req['ledger_version'], 'broker_profile_version': req['profile_version']}
         args.receipt.write_text(json.dumps(receipt))
         # Retain the lease for every unknown dispatch or failed execution.
         dispatched = True

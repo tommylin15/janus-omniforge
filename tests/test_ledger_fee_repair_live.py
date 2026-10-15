@@ -12,6 +12,7 @@ def request():
                 scope='single-real-owner-holding-00719B', mode='preview', source_sha='a'*40,
                 image='ghcr.io/tommylin15/janus-private-pipeline@sha256:'+'b'*64,
                 configuration_hash='c'*64,
+                preview_run='4', preview_effective_events=154, preview_corrections=88,
                 release_run='1', rollout_run='2', boundary_run='3', ledger_version=176, profile_version=3)
 
 
@@ -30,6 +31,45 @@ def test_request_accepts_only_the_three_bounded_modes():
         value = {**request(), 'mode': mode}
         assert live.validate_request(value) == value
     compile(live.RUNTIME, '<fee-repair-runtime>', 'exec')
+
+
+def test_apply_requires_a_bounded_successful_preview_request():
+    for changed in ({'preview_run': None}, {'preview_corrections': 155}, {'preview_effective_events': True}):
+        with pytest.raises(ValueError, match='preview_required'):
+            live.validate_request({**request(), 'mode': 'apply', **changed})
+
+
+def test_runtime_refuses_changed_correction_count_before_any_money_write(monkeypatch):
+    from contextlib import nullcontext
+    import json
+    from packages import postgres_bundle
+    from services.api import repository
+    from scripts.gcp import ledger_fee_repair
+    class Connection:
+        def execute(self, statement, *_):
+            self.role = 'current_user' in statement
+            return self
+        def fetchone(self):
+            return {'role': 'janus_private_api'}
+        def fetchall(self):
+            return [{'user_id': 'synthetic-owner'}]
+    class Repo:
+        def _connection(self):
+            return nullcontext(Connection())
+        def stock_identities(self, _):
+            return {'00719B': {'name': '元大美債1-3', 'market': 'TPEX'}}
+    calls = []
+    def repair(*_, **options):
+        calls.append(options.get('apply', False))
+        return {'status': 'preview', 'effective_events': 154, 'corrections': 87}
+    monkeypatch.setattr(postgres_bundle, 'load_postgres_bundle', lambda *_: None)
+    monkeypatch.setattr(repository, 'PostgresWorkspaceRepository', lambda _: Repo())
+    monkeypatch.setattr(ledger_fee_repair, 'repair_owner_fees', repair)
+    monkeypatch.setenv('MOBILE_LEDGER_DATABASE_URL', 'test')
+    monkeypatch.setenv('JANUS_FEE_REPAIR_CHECKPOINT', json.dumps({**request(), 'mode': 'apply'}))
+    with pytest.raises(RuntimeError, match='preview_counts_changed'):
+        exec(live.RUNTIME, {})
+    assert calls == [False]
 
 
 def test_failed_release_cannot_dispatch_a_private_job(monkeypatch, tmp_path):
