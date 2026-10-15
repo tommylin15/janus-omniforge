@@ -1,0 +1,10 @@
+{
+  "intent": "one-shot-existing-dev-iceberg-maintenance",
+  "no_new_resources": true,
+  "mode": "compact-nightly",
+  "rollout_run": 38676820532,
+  "expected_source_sha": "4d058c47ac62ad7328f9f7c0e9fcd4ef4f1ac7b1",
+  "expected_image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:dd121d80aa9904ac67b3d9eb24eb4f6a1bc00dc982336c0f35c64acdfeea43b1",
+  "purpose": "Owner-authorized FinOps live compact-dry-run then bounded compact-apply on existing dev ingestion Core Job; no retention deletion, no Scheduler mutation, no new resource.",
+  "acceptance": "Require original four Jobs rollout #38676820532 PASS, Scheduler enabled, exact immutable Core image, no active executions, dry-run-then-apply receipt and GCS before/after inventory. Historical snapshots remain protected until complete research/model retention fence."
+}
