@@ -175,6 +175,23 @@ jobs:
           print(json.dumps(report,sort_keys=True))
           if report['result']!='PREVIEW_AND_INFRA_PASS':raise SystemExit('P1 read-only infrastructure gate not fully verified')
           PY
+      - name: Read exact pinned four-Job rollback images and config fingerprints
+        run: |
+          python3 - <<'PY'
+          import json,sys
+          sys.path.insert(0, 'scripts/gcp')
+          from ghcr_jobs_rollout import job,image,fingerprint
+          from ghcr_job_cutover_plan import JOB_COMPONENT
+          summary={'source_sha':'285848e28041bf2fb024bd98bd348641f022a1ed','rollback_images':{},'rollback_config_hashes':{}}
+          for name,_ in JOB_COMPONENT:
+              data=job(name)
+              ref=image(data)
+              if not ref.startswith('ghcr.io/tommylin15/') or '@sha256:' not in ref:
+                  raise RuntimeError('job_has_no_pinned_ghcr_rollback_image')
+              summary['rollback_images'][name]=ref
+              summary['rollback_config_hashes'][name]=fingerprint(data)
+          print('P1_RECOVERY_BASELINE='+json.dumps(summary,sort_keys=True))
+          PY
       - name: Preserve sanitized P1 infrastructure receipt
         if: always()
         uses: actions/upload-artifact@v4
