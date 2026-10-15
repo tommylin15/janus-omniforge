@@ -28,11 +28,5 @@ jobs:
           for name in janus-batch-controller janus-ingestion-core janus-intelligence-mart janus-private-pipeline; do
             gcloud run jobs describe "$name" --project="$project" --region="$region" --format=json \
               | python scripts/gcp/finops-runtime-readback.py
-while nodes: \
-  n=nodes.pop(); \
-  matches.extend(n["containers"] for k in ("containers",) if isinstance(n,dict) and isinstance(n.get(k),list)); \
-  nodes.extend(v for v in n.values() if isinstance(v,dict)) if isinstance(n,dict) else None; \
-  nodes.extend(x for v in n.values() if isinstance(v,list) for x in v if isinstance(x,dict)) if isinstance(n,dict) else None; \
-c=next((item for group in matches for item in group if isinstance(item,dict) and item.get("image")),{}); e=c.get("env") or []; flag=next((x for x in e if x.get("name")=="CORE_RETENTION_FENCE_URI"),None); print(json.dumps({"job":d.get("metadata",{}).get("name") or d.get("name","").split("/")[-1],"image":c.get("image"),"has_CORE_RETENTION_FENCE_URI":bool(flag),"fence_static_value_present":bool(flag and flag.get("value")),"mode_env_names":[x.get("name") for x in e if x.get("name") in ("ICEBERG_MAINTENANCE_MODE","BATCH_CONTROLLER_MODE","CORE_RETENTION_FENCE_URI")]},sort_keys=True))'
           done
           gcloud scheduler jobs describe janus-ingestion-daily --project="$project" --location="$region" --format=json | python -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({"scheduler":d.get("name","").split("/")[-1],"schedule":d.get("schedule"),"timezone":d.get("timeZone"),"state":d.get("state")},sort_keys=True))'
