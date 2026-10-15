@@ -1,0 +1,10 @@
+{
+  "intent": "read-only-p0-owner-operation-diagnosis",
+  "approved": true,
+  "source_run": "38724207848",
+  "no_gcp_mutation": true,
+  "no_lease_mutation": true,
+  "no_job_run": true,
+  "no_owner_data_export": true,
+  "reason": "Determine exact UNKNOWN Job terminal and error without retry or data writes."
+}
