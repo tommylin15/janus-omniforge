@@ -1,0 +1,78 @@
+name: Janus D04 backup and scheduler least-privilege readback
+on:
+  push:
+    branches: [main]
+    paths: ['ops/d04-backup-access-readback.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  d04-readonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prove bounded read-only D04 scope
+        run: |
+          jq -e '.intent=="read-only-d04-backup-access" and
+            .approved==true and .environment=="dev" and
+            .no_iam_change==true and .no_vm_mutation==true and
+            .no_scheduler_mutation==true and .no_backup_deletion==true and
+            .no_timer_disable==true' ops/d04-backup-access-readback.json >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read Scheduler and VM instance access without SSH or IAM edits
+        run: |
+          python - <<'PY'
+          import subprocess,json
+          from pathlib import Path
+          project='gen-lang-client-0593591102'
+          def command(cmd):
+            try:
+              return subprocess.run(cmd,text=True,capture_output=True,timeout=45)
+            except Exception:
+              return None
+          report={'scope':'read_only_dev','project':project,'no_gcp_mutation':True,
+                  'backup_timer_handoff':'NOT_VERIFIED'}
+          sched=command(['gcloud','scheduler','jobs','list','--project='+project,
+              '--location=us-central1','--format=json'])
+          if sched and sched.returncode==0:
+            rows=json.loads(sched.stdout)
+            report['scheduler_read']='PASS'
+            report['schedulers']=[{'name':str(x.get('name','')).split('/')[-1],
+              'schedule':x.get('schedule'),'state':x.get('state')} for x in rows]
+          else:report['scheduler_read']='DENIED_OR_UNAVAILABLE'
+          vm=command(['gcloud','compute','instances','describe','janus-postgres-dev',
+              '--project='+project,'--zone=us-central1-a','--format=json'])
+          if vm and vm.returncode==0:
+            data=json.loads(vm.stdout)
+            report['vm_instances_get']='PASS'
+            report['vm_shape']={'machine_type':str(data.get('machineType','')).split('/')[-1],
+              'status':data.get('status')}
+          else:
+            report['vm_instances_get']='DENIED_OR_UNAVAILABLE'
+            # Do not print IAM error text: it may include sensitive principal IDs.
+          gcs=command(['gcloud','storage','ls',
+             'gs://'+project+'-dev-private/pilot-ledger-backups/daily/',
+             '--project='+project])
+          if gcs and gcs.returncode==0:
+            objects=[x.strip() for x in gcs.stdout.splitlines() if x.strip().endswith('.dump')]
+            report['backup_gcs_list']='PASS'
+            report['backup_daily_object_count']=len(objects)
+            report['backup_latest_day']=max((x.rsplit('/',1)[-1].removesuffix('.dump') for x in objects),default=None)
+          else:report['backup_gcs_list']='DENIED_OR_UNAVAILABLE'
+          report['status']='EVIDENCE_ONLY'
+          Path('/tmp/d04-backup-access-readback.json').write_text(json.dumps(report,sort_keys=True))
+          print(json.dumps(report,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: d04-backup-access-readback
+          path: /tmp/d04-backup-access-readback.json
+          if-no-files-found: ignore
+          retention-days: 14

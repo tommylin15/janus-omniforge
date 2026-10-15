@@ -1,0 +1,11 @@
+{
+  "intent": "read-only-d04-backup-access",
+  "approved": true,
+  "environment": "dev",
+  "no_iam_change": true,
+  "no_vm_mutation": true,
+  "no_scheduler_mutation": true,
+  "no_backup_deletion": true,
+  "no_timer_disable": true,
+  "reason": "D04 WIF readback of existing scheduler topology, VM compute.instances.get access, and existing GCS daily backup count. No GCP_MCP/OAuth, no new role or infrastructure, no timed backup changes."
+}
