@@ -1,13 +1,13 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "a0ab38a545a786a33d6b68ce7493e625d94d8046",
-  "purpose": "2026-10-15 Iceberg safe recovery + fence fail-closed: exact-source full Python 1212 and Flutter plus four public GHCR immutable digest Release #38672325311 PASS. Candidate is 0%-traffic API only to qualify existing Jobs rollout; no API traffic, ledger, Scheduler or Job image changes.",
+  "sha": "4d058c47ac62ad7328f9f7c0e9fcd4ef4f1ac7b1",
+  "purpose": "Owner-authorized transaction UX and fee/PnL work: code/name autocomplete from first character including registered ETFs, keyboard selection, stale-response protection and canonical selected-symbol validation. Exact-source full Release #38674231933 must be PASS including anonymous image pulls before dispatch; existing owner migration 059 and schema/ACL readback completed. Existing API candidate only, no canonical traffic or Jobs/Scheduler changes.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "retry_verification": "New fixed SHA after complete release; read back 0% revision and same-source OAuth/private boundary before Jobs.",
+  "retry_verification": "Exact-source full Release then zero-traffic API health, build-id and automatic auth boundary.",
   "same_sha_retry_attempt": 0,
   "digest": ""
 }
