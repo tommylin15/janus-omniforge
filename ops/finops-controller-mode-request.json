@@ -1,0 +1,5 @@
+{
+  "intent": "existing-controller-mode-readback",
+  "no_gcp_mutation": true,
+  "incident": "FINOPS-ICEBERG-20261015"
+}
