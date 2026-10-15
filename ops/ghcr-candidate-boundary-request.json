@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "1e9c31d148db540ee06cac5ccccd8fac8d619511",
-  "candidate_release_run": "38565636734",
-  "candidate_deployment_run": "38566380979",
-  "purpose": "Full Python1163/Flutter90/four GHCR public digests #38565636734 and new 0% candidate #38566380979 PASS on official TPEx exact-date valuation fix. Read-only automatic OAuth PKCE/resource metadata and private/Admin/MCP 401/403 boundary, build SHA. No owner browser assertion, GCP/ledger/job mutation or API traffic promotion.",
+  "sha": "c8e8a7415be48b291a347dcc115d7834db6696a8",
+  "candidate_release_run": "38657775138",
+  "candidate_deployment_run": "38658952070",
+  "purpose": "2026-10-15 Janus independent FinOps Iceberg #2. Full Python/Flutter/four GHCR public images Release #38657775138 PASS and 0% API candidate #38658952070 PASS. Read-only automatic OAuth metadata, PKCE/refresh, unauthenticated User/Admin/MCP fences and exact build SHA required before reversible existing-dev Jobs rollout. No owner browser assertion, data mutation or API traffic promotion.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 15
+  "attempt": 16
 }
