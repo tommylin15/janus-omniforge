@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "285848e28041bf2fb024bd98bd348641f022a1ed",
-  "candidate_release_run": "38717341300",
-  "candidate_deployment_run": "38718006906",
-  "purpose": "P0 permanent TPEx official dated dailyQuotes new immutable source. After completed 0%-traffic #38718006906 validate matching build SHA, OAuth metadata/PKCE, negative owner/Admin/MCP access and unchanged live 100%. Owner PnL and ledger remain independently gated.",
+  "sha": "7acff50000644979af3815f00fbd7f1c167e1098",
+  "candidate_release_run": "38755382061",
+  "candidate_deployment_run": "38756170482",
+  "purpose": "P1 exact 7acff full GHCR release #38755382061 and no-traffic candidate #38756170482 PASS; read only same-SHA OAuth discovery, negative owner/Admin/MCP boundary, immutable 0% candidate tag; human OAuth not required. Controlled four Jobs rollout remains separate.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 23
+  "attempt": 24
 }
