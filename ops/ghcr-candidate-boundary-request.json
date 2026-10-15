@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "536598f2528550fd60c73786597fdf2740860c9e",
-  "candidate_release_run": "38691316772",
-  "candidate_deployment_run": "38691954051",
-  "purpose": "2026-10-15 D01-D05 combined same-source 536598f full Python/PostgreSQL/Flutter/GHCR Release #38691316772 and zero-percent candidate #38691954051 PASS. Automatic OAuth discovery/issuer/PKCE/MCP/private/owner negative and bounded positive where safely available; no browser login, no API traffic or ledger write.",
+  "sha": "079cca4f24aedb6285270df8e86f856d2498ce13",
+  "candidate_release_run": "38695837708",
+  "candidate_deployment_run": "38710296292",
+  "purpose": "P1 exact-source corrected official TPEx build: release #38695837708 PASS and 0% candidate #38710296292 PASS. Verify OAuth metadata, PKCE, unauthenticated owner/Admin/MCP denial and exact build SHA; no Owner login required, no traffic, Job, ledger or GCS mutation.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 21
+  "attempt": 22
 }
