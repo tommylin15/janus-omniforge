@@ -14,7 +14,7 @@
 
 - 使用者要求直接調整，不追舊 execution。修改 `jobs/ingestion-core/ingestion_core/batch_controller.py`：15:30 Private 仍依賴 14:30 ingestion；21:30 Private 設為獨立 EOD slot 並優先於同日待決午後 Private，不能因 ingestion 終態缺失阻止整晚估值；下午 ingestion 真實 `failed` 時，15:30 Private 只記 `skipped/upstream_ingestion_failed`，不偽造成功也不永遠占用 pending queue。
 - 官方 TPEx 日價、估值日與 future-leakage／missing／stale／owner publication 約束保持由 Private Mart fail-closed；不因解開排程依賴而推論當日所有股票已具合格價格。
-- 相關測試同步新增獨立 slot、優先序、失敗上游結束、派送只一次的回歸。最新 selective CI 針對 [run #38755041998](https://github.com/tommylin15/janus-omniforge/actions/runs/38755041998) SUCCESS；完整 GHCR Release／Job rollout／新一天 Owner Mart 確認**待驗**，不得改標 P1 PASS。
+- 相關測試新增獨立 slot、優先序、失敗上游結束、派送只一次的回歸。selective CI [#38755041998](https://github.com/tommylin15/janus-omniforge/actions/runs/38755041998) PASS。完整 SHA `7acff50000644979af3815f00fbd7f1c167e1098` [GHCR Release #38755382061](https://github.com/tommylin15/janus-omniforge/actions/runs/38755382061) Python／Flutter／四 GHCR／匿名 digest **PASS**；[0% candidate #38756170482](https://github.com/tommylin15/janus-omniforge/actions/runs/38756170482) PASS；[自動 OAuth boundary #38756520384](https://github.com/tommylin15/janus-omniforge/actions/runs/38756520384) PASS；四 Jobs reversible controlled [#38756738102](https://github.com/tommylin15/janus-omniforge/actions/runs/38756738102) **執行中，未讀回 terminal**。未切正式 API 流量、未寫 Owner ledger。尚缺新映像 live Job terminal、晚間 Private dispatch／Owner 最新 PIT PnL，不得改標 P1 PASS。
 
 ### P1｜2026-10-15 Owner 唯讀資料與固定 Preview 接續
 
