@@ -56,3 +56,39 @@ def test_invalid_mode_fails_before_gcp_calls(monkeypatch,tmp_path):
         except RuntimeError as err: assert "invalid one-shot" in str(err)
         else: raise AssertionError("mode should be blocked")
     c.assert_not_called()
+
+
+def test_audit_only_mode_requires_exact_audit_receipt(monkeypatch,tmp_path,capsys):
+    m=load_module()
+    req={"intent":"one-shot-existing-dev-iceberg-maintenance","no_new_resources":True,
+         "mode":"audit-cleanup","rollout_run":38676820532,
+         "expected_source_sha":"4"*40,
+         "expected_image":"ghcr.io/tommylin15/janus-ingestion-core@sha256:"+"a"*64}
+    f=tmp_path/"request.json"
+    f.write_text(json.dumps(req))
+    monkeypatch.setattr(m,"REQUEST",f)
+    def jc(*args):
+        if args[:3]==("gh","run","view"):
+            return {"status":"completed","conclusion":"success","workflowName":"Janus GHCR controlled Jobs rollout"}
+        if args[:3]==("gcloud","scheduler","jobs"):
+            return {"state":"ENABLED","schedule":"30 * * * *","timeZone":"Asia/Taipei"}
+        if args[:3]==("gcloud","run","jobs") and "describe" in args:
+            return {"containers":[{"image":req["expected_image"]}]}
+        if args[:4]==("gcloud","run","jobs","executions"):
+            return [{"status":{"completionTime":"2026-10-15T00:00:00Z"}}]
+        raise AssertionError(args)
+    monkeypatch.setattr(m,"jsoncall",jc)
+    monkeypatch.setattr(m,"inventory",lambda:{"objects":8000,"bytes":10000,"under_1mib":7800})
+    monkeypatch.setattr(m,"call",lambda *a,**kw:"janus-ingestion-core-audit123")
+    monkeypatch.setattr(m,"log_evidence",lambda *_:{"component":"iceberg-audit-only-cleanup",
+                       "mode":"audit-cleanup","status":"PASS","deleted_objects":19,
+                       "expired_snapshots":8,"canonical_tables_modified":0})
+    import sys
+    sys.path.insert(0,"scripts/gcp")
+    import ghcr_jobs_rollout
+    monkeypatch.setattr(ghcr_jobs_rollout,"fence",lambda:None)
+    m.main()
+    value=json.loads(capsys.readouterr().out)
+    assert value["operation"]=="audit-cleanup" and value["audit_only_deleted_objects"]==19
+    assert value["audit_only_expired_snapshots"]==8
+    assert value["audit_only_canonical_tables_modified"]==0

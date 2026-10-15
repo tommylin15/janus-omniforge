@@ -434,6 +434,41 @@ def compact_nightly(*, core: Any) -> dict[str, Any]:
             "apply": {"core": core_result, "audit": audit_result}}
 
 
+
+def cleanup_controller_audit_only(*, core: Any, store: GcsObjectStore) -> dict[str, Any]:
+    """Expire unreferenced historical audit snapshots, never Core market data.
+
+    The PostgreSQL controller outbox is authoritative; this table is a
+    reproducible, delayed journal mirror. Immutable PIT/model Core manifests
+    are neither modified nor retired by this operation.
+    """
+    identifier = "ops.batch_events_v1"
+    if store.bucket != "gen-lang-client-0593591102-dev-core":
+        raise ValueError("audit cleanup outside existing dev Core bucket")
+    if not core.catalog.table_exists(identifier):
+        return {"component": "iceberg-audit-only-cleanup", "mode": "audit-cleanup",
+                "status": "no-audit-table", "table": identifier,
+                "deleted_objects": 0, "expired_snapshots": 0}
+    from .retention import clean_orphans
+    prefix = "warehouse/batch_events_v1/"
+    before_objects = store.objects(prefix)
+    before_bytes = sum(int(obj["size"]) for obj in before_objects)
+    maintenance = maintain_financials(core=core, store=store, apply=True,
+                                      identifier=identifier)
+    orphans = clean_orphans(core, store, identifier, apply=True,
+                            now=datetime.now(timezone.utc))
+    remaining = store.objects(prefix)
+    after_bytes = sum(int(obj["size"]) for obj in remaining)
+    return {"component": "iceberg-audit-only-cleanup", "mode": "audit-cleanup",
+            "status": "PASS", "table": identifier,
+            "maintenance": maintenance, "orphans": orphans,
+            "before": {"objects": len(before_objects), "bytes": before_bytes},
+            "after": {"objects": len(remaining), "bytes": after_bytes},
+            "deleted_objects": len(before_objects) - len(remaining),
+            "expired_snapshots": maintenance["expired_snapshots"],
+            "canonical_tables_modified": 0, "core_execution_manifests_deleted": 0}
+
+
 def core_health(*, core: Any) -> dict[str, Any]:
     target_bytes = _integer_env("ICEBERG_TARGET_FILE_SIZE_BYTES", DEFAULT_TARGET_FILE_SIZE,
                                 minimum=32 * 1024 * 1024, maximum=512 * 1024 * 1024)
@@ -455,7 +490,7 @@ def core_health(*, core: Any) -> dict[str, Any]:
 
 def run(mode: str) -> dict[str, Any]:
     supported = {"dry-run", "apply", "retention-dry-run", "retention-apply",
-                 "health", "compact-dry-run", "compact-apply", "compact-nightly", "cost-inventory"}
+                 "health", "compact-dry-run", "compact-apply", "compact-nightly", "cost-inventory", "audit-cleanup"}
     if mode not in supported:
         raise ValueError("unsupported Iceberg maintenance mode")
     bucket = os.environ.get("CORE_BUCKET", "").strip()
@@ -476,6 +511,8 @@ def run(mode: str) -> dict[str, Any]:
                 return maintain_public_data(core=core, apply=mode == "retention-apply")
             if mode == "health":
                 return core_health(core=core)
+            if mode == "audit-cleanup":
+                return cleanup_controller_audit_only(core=core, store=GcsObjectStore(bucket))
             if mode == "compact-nightly":
                 return compact_nightly(core=core)
             if mode.startswith("compact-"):

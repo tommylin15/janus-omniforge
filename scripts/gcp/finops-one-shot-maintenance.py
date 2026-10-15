@@ -77,7 +77,7 @@ def main():
     request = json.loads(REQUEST.read_text())
     if (request.get("intent") != "one-shot-existing-dev-iceberg-maintenance"
             or request.get("no_new_resources") is not True
-            or request.get("mode") not in {"compact-nightly", "retention-apply", "retention-dry-run"}
+            or request.get("mode") not in {"compact-nightly", "retention-apply", "retention-dry-run", "audit-cleanup"}
             or len(request.get("expected_source_sha", "")) != 40):
         raise RuntimeError("invalid one-shot GCP maintenance authorization")
     release_id = str(request["rollout_run"])
@@ -123,8 +123,11 @@ def main():
     if not execution_name.startswith(JOB + "-"):
         raise RuntimeError("Cloud Run Job execution identity missing")
     component = ("iceberg-nightly-compaction" if mode == "compact-nightly"
+                 else "iceberg-audit-only-cleanup" if mode == "audit-cleanup"
                  else "data-retention")
     evidence = log_evidence(execution_name, component)
+    if mode == "audit-cleanup" and (evidence.get("mode") != "audit-cleanup" or evidence.get("status") != "PASS"):
+        raise RuntimeError("Audit-only cleanup evidence mismatch")
     if mode == "compact-nightly" and evidence.get("mode") != "dry-run-then-apply":
         raise RuntimeError("Iceberg preflight and apply evidence mismatch")
     if mode.startswith("retention-") and evidence.get("mode") != ("apply" if mode == "retention-apply" else "dry-run"):
@@ -146,6 +149,9 @@ def main():
               "orphan_objects_deleted": sum(o.get("deleted_objects", 0) for o in evidence.get("orphans", [])),
               "audit_orphans_deleted": evidence.get("controller_audit_orphans", {}).get("deleted_objects"),
               "core_manifest_reference_fence": evidence.get("core_manifests", {}).get("status"),
+              "audit_only_deleted_objects": evidence.get("deleted_objects") if mode == "audit-cleanup" else None,
+              "audit_only_expired_snapshots": evidence.get("expired_snapshots") if mode == "audit-cleanup" else None,
+              "audit_only_canonical_tables_modified": evidence.get("canonical_tables_modified") if mode == "audit-cleanup" else None,
               "error_payload": None}
     print(json.dumps(result, sort_keys=True))
 

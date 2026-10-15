@@ -143,3 +143,41 @@ class IcebergCompactionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_audit_only_cleanup_cannot_mutate_market_or_model_tables():
+    from types import SimpleNamespace
+    from ingestion_core.iceberg_maintenance import cleanup_controller_audit_only
+    ops=[]
+    core=SimpleNamespace(catalog=SimpleNamespace(table_exists=lambda name: name=="ops.batch_events_v1"))
+    item={"name":"warehouse/batch_events_v1/data/old.parquet","size":"100"}
+    before=[item,{"name":"warehouse/batch_events_v1/metadata/old.metadata.json","size":"30"}]
+    state={"items":before}
+    store=SimpleNamespace(bucket="gen-lang-client-0593591102-dev-core",
+                          objects=lambda _: list(state["items"]))
+    def fake_maintenance(*,core,store,apply,identifier):
+        ops.append(("expire",identifier,apply))
+        state["items"]=[item]
+        return {"expired_snapshots":3}
+    def fake_orphans(core,store,identifier,*,apply,now):
+        ops.append(("orphans",identifier,apply))
+        state["items"]=[]
+        return {"deleted_objects":1}
+    with patch("ingestion_core.iceberg_maintenance.maintain_financials",side_effect=fake_maintenance), \
+         patch("ingestion_core.retention.clean_orphans",side_effect=fake_orphans):
+        result=cleanup_controller_audit_only(core=core,store=store)
+    self_expected=[("expire","ops.batch_events_v1",True),("orphans","ops.batch_events_v1",True)]
+    assert ops==self_expected
+    assert result["deleted_objects"]==2 and result["expired_snapshots"]==3
+    assert result["canonical_tables_modified"]==0 and result["core_execution_manifests_deleted"]==0
+
+
+def test_audit_only_missing_table_does_nothing():
+    from types import SimpleNamespace
+    from ingestion_core.iceberg_maintenance import cleanup_controller_audit_only
+    core=SimpleNamespace(catalog=SimpleNamespace(table_exists=lambda _:False))
+    store=SimpleNamespace(bucket="gen-lang-client-0593591102-dev-core")
+    with patch("ingestion_core.iceberg_maintenance.maintain_financials") as expire:
+        result=cleanup_controller_audit_only(core=core,store=store)
+    expire.assert_not_called()
+    assert result["deleted_objects"]==0 and result["status"]=="no-audit-table"
