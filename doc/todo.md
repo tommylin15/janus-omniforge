@@ -53,7 +53,7 @@ VF-10高階同業／估值河流／還原價仍屬有條件後續構想，不是
 
 ## D05｜整合發布
 
-- [ ] P1：P0 backend 10/14 real Mart aggregate PASS **不代表**正式 App／重算 E2E、當日來源時效 PASS；API 0% 與四 Jobs 已同 SHA 285848，但 fixed Preview 最近 079cca、正式 100% traffic 未切。續驗證 authenticated Owner UI／API、最新估值日期、重算請求→terminal→PnL、Preview UI 與性能、版本一致／回復，再依 release runbook 判斷正式 dev 切流。
+- [ ] P1：P0 backend 10/14 real Mart aggregate PASS **不代表**正式 App／重算 E2E、當日來源時效 PASS；API 0% 與四 Jobs 已同 SHA 285848。固定 Preview 285848 更新請求 [commit 78bf14bb](https://github.com/tommylin15/janus-omniforge/commit/78bf14bb1665be93ef6f7048d71458632bdbc871) **已提交但 workflow／live tag 尚未讀回**；此前已確認 Preview 079cca，正式 100% 未切。Owner MCP 正向唯讀 8/8 positions／年度已實現損益已證 10/14、ledger v354；不等於 10/15 新批次、正式 UI 或重新計算按鈕端到端。仍須 authenticated Owner UI/API、最新估值日、重算請求→terminal→PnL、固定 Preview UI/效能、SHA/rollback 與 100% 切流讀回。
 - [ ] 無需每版人工OAuth登入；自動auth與owner隔離仍驗。metadata／401不代表正向PnL或UI PASS。不要以舊來源的API／Jobs證據交叉替代。
 
 ## D06｜Iceberg、引用及I/O
