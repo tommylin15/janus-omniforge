@@ -1,0 +1,65 @@
+name: Janus one-owner official TPEx held ETF Mart acceptance
+on:
+  push:
+    branches: [main]
+    paths: ['ops/held-etf-owner-live-request.json']
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  owner-mart:
+    runs-on: ubuntu-latest
+    timeout-minutes: 32
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify exact source and bounded owner derived-only authorization
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="single-owner-official-held-etf-mart" and
+            .approved==true and .environment=="dev" and
+            .symbol=="00697B" and
+            .source_sha=="536598f2528550fd60c73786597fdf2740860c9e" and
+            .release_run=="38691316772" and
+            .jobs_rollout_run=="38692371269" and
+            .no_ledger_mutation==true and .private_mart_write_only==true and
+            .single_owner_only==true and .no_job_template_mutation==true' \
+            ops/held-etf-owner-live-request.json >/dev/null
+          for item in '38691316772:Janus GHCR full-test image publication' \
+                      '38692371269:Janus GHCR controlled Jobs rollout'; do
+            id="${item%%:*}"; name="${item#*:}"
+            gh run view "$id" --json status,conclusion,headSha,workflowName |
+              jq -e --arg name "$name" --arg sha "536598f2528550fd60c73786597fdf2740860c9e" \
+                '.status=="completed" and .conclusion=="success" and .workflowName==$name and .headSha==$sha' >/dev/null
+          done
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_held_etf_owner_mart_refresh.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Verify one real owner's official latest EOD and private Mart checkpoint
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/held_etf_owner_mart_refresh.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: held-etf-owner-mart-acceptance
+          path: /tmp/held-etf-owner-mart.json
+          if-no-files-found: ignore
+          retention-days: 14

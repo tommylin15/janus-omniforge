@@ -1,0 +1,14 @@
+{
+  "intent": "single-owner-official-held-etf-mart",
+  "approved": true,
+  "environment": "dev",
+  "symbol": "00697B",
+  "source_sha": "536598f2528550fd60c73786597fdf2740860c9e",
+  "release_run": "38691316772",
+  "jobs_rollout_run": "38692371269",
+  "no_ledger_mutation": true,
+  "private_mart_write_only": true,
+  "single_owner_only": true,
+  "no_job_template_mutation": true,
+  "reason": "Owner-approved D01 D05 live one-owner derived private Mart reconciliation of official published TPEx ETF 00697B; no real ledger mutation; must match 8/8 canary rollout verified immutable image and current official source."
+}
