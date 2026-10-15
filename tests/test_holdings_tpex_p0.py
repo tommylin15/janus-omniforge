@@ -265,5 +265,5 @@ def test_dated_legacy_official_fallback_validates_day(monkeypatch):
     source=tp.TpexDailyQuotes()
     result=source.quotes({"00697B"},datetime(2026,10,15,10,0,tzinfo=TAIPEI))
     assert result["00697B"]["price_date"]=="2026-10-14"
-    assert "o=json" in result["00697B"]["source_uri"]
+    assert "response=json" in result["00697B"]["source_uri"]
     assert len(calls)==2

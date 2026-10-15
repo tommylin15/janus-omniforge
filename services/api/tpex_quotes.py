@@ -18,7 +18,7 @@ from urllib.request import Request, urlopen
 from .intraday_quotes import TAIPEI
 
 TPEX_OFFICIAL_EOD_URL = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes"
-TPEX_OFFICIAL_DATED_URL = "https://www.tpex.org.tw/web/stock/aftertrading/daily_close_quotes/stk_quote_result.php"
+TPEX_OFFICIAL_DATED_URL = "https://www.tpex.org.tw/www/zh-tw/afterTrading/dailyQuotes"
 SOURCE = "tpex_openapi_eod"
 CLOSE_TIME = time(13, 30)
 _CACHE_TTL = 600
@@ -74,7 +74,7 @@ def parse_tpex_daily_quote_history(rows: object, symbols: set[str],
         if uri != TPEX_OFFICIAL_EOD_URL and not (
             isinstance(uri, str) and
             uri.startswith(TPEX_OFFICIAL_DATED_URL + "?") and
-            "o=json" in uri
+            "response=json" in uri
         ):
             continue
         trade_day = day.isoformat()
@@ -145,9 +145,9 @@ class TpexDailyQuotes:
                 target -= timedelta(days=1)
                 while target.weekday() >= 5:
                     target -= timedelta(days=1)
-            day = f"{target.year-1911:03d}/{target.month:02d}/{target.day:02d}"
+            day = f"{target.year:04d}/{target.month:02d}/{target.day:02d}"
             uri = TPEX_OFFICIAL_DATED_URL + "?" + urlencode(
-                {"l": "zh-tw", "o": "json", "d": day, "s": "0"})
+                {"date": day, "response": "json"})
             document = read(uri)
             if not isinstance(document, dict) or _official_day(document.get("date")) != target:
                 raise ValueError("official TPEx dated response day unavailable")

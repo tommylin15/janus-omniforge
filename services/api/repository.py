@@ -675,7 +675,7 @@ class PostgresWorkspaceRepository:
                     not price.is_finite() or price <= 0 or
                     (uri != TPEX_OFFICIAL_EOD_URL and
                      not (isinstance(uri, str) and
-                          uri.startswith(TPEX_OFFICIAL_DATED_URL + "?") and "o=json" in uri)) or
+                          uri.startswith(TPEX_OFFICIAL_DATED_URL + "?") and "response=json" in uri)) or
                     not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)):
                     raise ValueError("unverified official EOD record")
                 bounded.append((symbol, target, price, uri, digest))

@@ -113,8 +113,8 @@ print(json.dumps({"component":"p0_tpex_asof_owner","status":"PASS",
 def _read_exact_official(day:date) -> tuple[dict,str]:
     rocyear=day.year-1911
     if rocyear<=0:raise ValueError("non ROC target date")
-    session=f"{rocyear:03d}/{day.month:02d}/{day.day:02d}"
-    url=TPEX_OFFICIAL_DATED_URL+"?"+urlencode({"l":"zh-tw","o":"json","d":session,"s":"0"})
+    session=f"{day.year:04d}/{day.month:02d}/{day.day:02d}"
+    url=TPEX_OFFICIAL_DATED_URL+"?"+urlencode({"date":session,"response":"json"})
     headers={"User-Agent":"Mozilla/5.0 (compatible; JanusResearch/1.0)",
              "Accept":"application/json","Accept-Encoding":"identity"}
     with urlopen(Request(url,headers=headers),timeout=20) as response:
@@ -139,7 +139,7 @@ def _read_exact_official(day:date) -> tuple[dict,str]:
             if str(row.get("代號") or "").strip()=="00697B":
                 found.append(row)
     if len(found)!=1:raise ValueError("exact official symbol record unavailable")
-    item={"Date":session,"SecuritiesCompanyCode":"00697B",
+    item={"Date":f"{rocyear:03d}/{day.month:02d}/{day.day:02d}","SecuritiesCompanyCode":"00697B",
           "Close":found[0].get("收盤"),"_official_source_uri":url}
     history=parse_tpex_daily_quote_history([item],{"00697B"},datetime.now(TAIPEI))
     if len(history.get("00697B",[]))!=1 or history["00697B"][0]["price_date"]!=day.isoformat():
