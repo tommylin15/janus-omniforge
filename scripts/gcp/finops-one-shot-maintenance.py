@@ -18,8 +18,8 @@ JOB = "janus-ingestion-core"
 REQUEST = Path("ops/finops-gcp-live-acceptance.json")
 
 
-def call(*args):
-    return subprocess.check_output(args, text=True, stderr=subprocess.DEVNULL, timeout=90).strip()
+def call(*args, timeout=90):
+    return subprocess.check_output(args, text=True, stderr=subprocess.DEVNULL, timeout=timeout).strip()
 
 
 def jsoncall(*args):
@@ -78,7 +78,7 @@ def main():
     if (request.get("intent") != "one-shot-existing-dev-iceberg-maintenance"
             or request.get("no_new_resources") is not True
             or request.get("mode") not in {"compact-nightly", "retention-apply"}
-            or request.get("expected_source_sha", "").__len__() != 40):
+            or len(request.get("expected_source_sha", "")) != 40):
         raise RuntimeError("invalid one-shot GCP maintenance authorization")
     release_id = str(request["rollout_run"])
     release = jsoncall("gh", "run", "view", release_id,
@@ -114,7 +114,7 @@ def main():
                       "ICEBERG_MAINTENANCE_MODE=" + mode, "QUEUE_CONSUMER=false",
                       "MART_JOB=", "JANUS_CONTROL_MIGRATION=", "JANUS_DATA_SUPPLEMENT_MODE=",
                       "JANUS_SERVING_SCHEMA_MIGRATION="]),
-                  "--wait", "--format=value(metadata.name)")
+                  "--wait", "--format=value(metadata.name)", timeout=1500)
     execution_name = output.splitlines()[-1].split("/")[-1]
     if not execution_name.startswith(JOB + "-"):
         raise RuntimeError("Cloud Run Job execution identity missing")
