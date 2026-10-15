@@ -29,6 +29,8 @@ class Batch:
     minute: int = 30
     month_days: tuple[int, ...] = ()
     catch_up: bool = True
+    # Explicit per-slot waiver, not a global bypass of data-readiness guards.
+    independent_hours: tuple[int, ...] = ()
 
 
 BATCHES = (
@@ -47,7 +49,10 @@ BATCHES = (
     Batch("data-quality", "janus-ingestion-core", (12,), (5,),
           env=(("JANUS_DATA_SUPPLEMENT_MODE", "quality"), ("QUEUE_CONSUMER", "false"), ("MART_JOB", ""),
                ("ICEBERG_MAINTENANCE_MODE", "")), exclusive_jobs=("janus-ingestion-core", "janus-intelligence-mart")),
-    Batch("private", "janus-private-pipeline", (15, 21), tuple(range(5)), ("ingestion",)),
+    # 15:30 waits for daytime ingestion; 21:30 must still run when EOD ingestion
+    # failed or has no terminal receipt. Private Mart enforces PIT/price safety.
+    Batch("private", "janus-private-pipeline", (15, 21), tuple(range(5)), ("ingestion",),
+          independent_hours=(21,)),
     Batch("mobile-ledger", "janus-private-pipeline", tuple(range(24)),
           env=(("MOBILE_LEDGER_ONLY", "true"),), catch_up=False),
     # This is an execution override of the existing ingestion Job, not another Scheduler or Cloud Run Job.
@@ -84,6 +89,10 @@ def due_batches(now: datetime, batches=BATCHES):
             raise ValueError("invalid batch minute")
         if any(day not in range(1, 32) for day in batch.month_days):
             raise ValueError("invalid batch month day")
+        if (len(set(batch.independent_hours)) != len(batch.independent_hours)
+                or any(hour not in batch.hours for hour in batch.independent_hours)
+                or (batch.independent_hours and not batch.dependencies)):
+            raise ValueError("invalid independent batch slot")
         if batch.month_days and local.day not in batch.month_days:
             continue
         if local.weekday() not in batch.weekdays:
@@ -95,7 +104,7 @@ def due_batches(now: datetime, batches=BATCHES):
             if slot > local:
                 continue
             dependencies = []
-            for name in batch.dependencies:
+            for name in (() if hour in batch.independent_hours else batch.dependencies):
                 dependency = by_name[name]
                 preceding = [value for value in dependency.hours if value < hour or (value == hour and dependency.minute <= batch.minute)]
                 if local.weekday() not in dependency.weekdays or not preceding:
@@ -103,6 +112,16 @@ def due_batches(now: datetime, batches=BATCHES):
                 dependencies.append(f"{name}/{local.date().isoformat()}/{max(preceding):02d}")
             result.append((f"{batch.name}/{local.date().isoformat()}/{hour:02d}", batch, slot, dependencies))
     return sorted(result, key=lambda item: (item[2], item[0]))
+
+
+def prioritize_nightly_private(pending, now: datetime):
+    """Try today's real EOD Private slot before any delayed afternoon slot.
+
+    This only changes iteration order; the durable occurrence and Cloud Run
+    execution fences still decide if dispatch is allowed.
+    """
+    night_key = f"private/{now.astimezone(ZoneInfo('Asia/Taipei')).date().isoformat()}/21"
+    return sorted(pending, key=lambda row: 0 if row[0] == night_key else 1)
 
 
 def scheduled_batches(now: datetime, mobile_pending: bool) -> list[tuple[str, Batch, datetime, list[str]]]:
@@ -478,6 +497,8 @@ def run(*, now=None, session=None, control=None, core=None):
             pending = cursor.fetchall()
         if len(pending) > 100:
             raise RuntimeError("pending occurrence limit exceeded; dispatch blocked")
+        if mode != "manual":
+            pending = prioritize_nightly_private(pending, now)
         batches = {batch.name: batch for batch in BATCHES}
         for key, state in pending:
             batch = batches[state["batch"]]
@@ -523,6 +544,16 @@ def run(*, now=None, session=None, control=None, core=None):
                     statuses = dict(cursor.fetchall())
                 cursor.execute("SELECT 1 FROM control.batch_occurrences WHERE state->>'job'=%s AND state->>'status' IN ('dispatching','running','ambiguous') LIMIT 1", (batch.job,))
                 busy = cursor.fetchone() is not None
+            # If the afternoon upstream has already failed, its dependent
+            # 15:30 private occurrence cannot become runnable. Close this
+            # stale pending record; the independent 21:30 slot is its bounded
+            # recovery path, not a fake success for the afternoon run.
+            if batch.name == "private" and state.get("status") == "pending" and any(
+                    statuses.get(dependency) == "failed" for dependency in dependencies):
+                record(connection, tick, key,
+                       {**state, "status": "skipped", "reason": "upstream_ingestion_failed"},
+                       "private_upstream_failed")
+                continue
             if any(statuses.get(dependency) != "succeeded" for dependency in dependencies):
                 record(connection, tick, key, state, "waiting_dependency", update=False)
                 continue
