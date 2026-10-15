@@ -97,11 +97,32 @@ jobs:
                         'target_image_digest_prefix':immutable[0].split('@sha256:')[-1][:12] if immutable else None,
                         'job_ready':any(c.get('type')=='Ready' and c.get('status')=='True'
                                         for c in row.get('status',{}).get('conditions',[]))}
+            recent=run(['gcloud','run','jobs','executions','list','--job='+name,
+                        '--project='+project,'--region='+region,'--limit=4','--format=json'])
+            if isinstance(recent,list):
+              cleaned=[]
+              for x in recent:
+                state=x.get('status',{})
+                conditions=state.get('conditions',[]) or []
+                cleaned.append({
+                  'name':str(x.get('metadata',{}).get('name',x.get('name',''))).rsplit('/',1)[-1],
+                  'created':str(x.get('metadata',{}).get('creationTimestamp') or
+                                 x.get('createTime') or '')[:35],
+                  'completed':str(state.get('completionTime') or
+                                   x.get('completionTime') or '')[:35],
+                  'succeeded':state.get('succeededCount'),
+                  'failed':state.get('failedCount'),
+                  'completion_conditions':[{'type':c.get('type'),'status':c.get('status')}
+                    for c in conditions if c.get('type') in ('Completed','Ready','ResourcesAvailable')]
+                })
+              jobs[name]['recent_executions']=cleaned
+            else:jobs[name]['recent_executions']='UNKNOWN'
           report['jobs']=jobs
           scheduler=run(['gcloud','scheduler','jobs','describe','janus-ingestion-daily',
                          '--project='+project,'--location='+region,'--format=json'])
           report['scheduler']={'read':'PASS','state':scheduler.get('state'),
-                               'schedule':scheduler.get('schedule')} if isinstance(scheduler,dict) else {'read':'UNKNOWN'}
+                               'schedule':scheduler.get('schedule'),
+                               'last_attempt_time':scheduler.get('lastAttemptTime')} if isinstance(scheduler,dict) else {'read':'UNKNOWN'}
           report['result']='PREVIEW_AND_INFRA_PASS' if (report.get('preview_build_match') and
                report.get('preview_candidate_revision_match') and report.get('candidate_zero_traffic') and
                report.get('canonical_single_100') and all(x.get('immutable_ghcr_image')
