@@ -1,13 +1,13 @@
 {
   "intent": "dev-api-zero-traffic",
   "sha": "c8e8a7415be48b291a347dcc115d7834db6696a8",
-  "purpose": "2026-10-15 independent FinOps Iceberg issue #2; exact full GHCR Release #38657775138 PASS for controller 23:30 compact-nightly dry-run then apply, audit journal compaction and reader cost reduction. Required dev 0% API candidate solely for existing automated Jobs auth gate; no production traffic promotion, no permanent API rollout, no business data deletion.",
+  "purpose": "2026-10-15 independent Iceberg FinOps issue: bounded retry with sanitized tag/ref GitHub deployment lease stage after terminal recovery PASS #38658503955 and failed candidate #38658297879 attempts 2-3 with GCP writes 0; no service traffic change or Jobs update without fence.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
   "retry_verification": "same-sha-cache-normalized-immutable-candidate-reuse",
-  "same_sha_retry_attempt": 0,
+  "same_sha_retry_attempt": 1,
   "digest": ""
 }
