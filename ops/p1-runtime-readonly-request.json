@@ -2,13 +2,13 @@
   "intent": "p1-live-readonly-preview-jobs",
   "approved": true,
   "scope": "existing-dev-read-only",
-  "target_source_sha": "285848e28041bf2fb024bd98bd348641f022a1ed",
-  "preview_run": "38740477232",
+  "target_source_sha": "7acff50000644979af3815f00fbd7f1c167e1098",
+  "preview_run": "38826680295",
   "no_owner_mutation": true,
   "no_gcp_mutation": true,
   "no_traffic_mutation": true,
   "no_job_execution": true,
-  "purpose": "No-mutation diagnosis of 2026-10-15 nightly owner freshness: record allowlisted batch controller mode/not-before, last execution statuses, and sanitized controller log status from existing dev only. Never dispatch jobs or modify ledger/traffic.",
-  "evidence_boundary": "Owner current valuation 10/14 from separate authorized MCP readback. This workflow never dispatches or mutates an Owner request.",
-  "attempt": 4
+  "purpose": "P1 post-GHCR Jobs rollout exact immutable digests #38821199561 PASS, Preview #38826680295 SUCCESS; read-only confirm Preview build, four Job image digests Ready, Scheduler ENABLED and recent controller/private execution terminal, no Owner/GCP writes.",
+  "evidence_boundary": "Owner OAuth MCP positions on 2026-10-16 remains at 2026-10-14; readback must not declare current daily price/Owner Mart corrected from infrastructure PASS alone.",
+  "attempt": 5
 }
