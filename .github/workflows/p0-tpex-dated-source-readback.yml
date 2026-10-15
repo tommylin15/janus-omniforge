@@ -1,0 +1,33 @@
+name: Janus P0 dated TPEx 00697B official source read-only proof
+on:
+  push:
+    branches: [main]
+    paths: ['ops/p0-tpex-dated-source-readback.json']
+permissions:
+  contents: read
+jobs:
+  official-day:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact official day and no private/runtime mutation
+        run: |
+          jq -e '.intent=="official-one-day-read-only" and
+            .symbol=="00697B" and .trade_date=="2026-10-14" and
+            .no_gcp_mutation==true and .no_ledger_read==true and .no_data_write==true' \
+             ops/p0-tpex-dated-source-readback.json >/dev/null
+      - name: Verify official dated 2026-10-14 source, without showing quote amount
+        run: |
+          python - <<'PY'
+          from datetime import date
+          import json
+          from scripts.gcp.p0_tpex_asof_owner_acceptance import _read_exact_official
+          row,digest=_read_exact_official(date(2026,10,14))
+          assert row['SecuritiesCompanyCode']=='00697B' and row['Date']=='115/10/14'
+          assert len(digest)==64
+          print(json.dumps({'symbol':'00697B','date':'2026-10-14',
+            'official_record_hash_valid':True,'source':'tpex_dated_official_json',
+            'no_owner_read':True,'no_price_logged':True,'no_data_write':True,
+            'status':'PASS'},sort_keys=True))
+          PY

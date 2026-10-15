@@ -1,0 +1,9 @@
+{
+  "intent": "official-one-day-read-only",
+  "symbol": "00697B",
+  "trade_date": "2026-10-14",
+  "no_gcp_mutation": true,
+  "no_ledger_read": true,
+  "no_data_write": true,
+  "reason": "P0 verify official TPEx dated legacy JSON 2026-10-14 exactly one record before any as-of price persistence. Read-only GitHub runner."
+}
