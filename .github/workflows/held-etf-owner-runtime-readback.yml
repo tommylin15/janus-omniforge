@@ -97,10 +97,65 @@ jobs:
           Path('/tmp/held-etf-owner-runtime-readback.json').write_text(json.dumps(report,sort_keys=True))
           print(json.dumps(report,sort_keys=True))
           PY
+      - name: Read exact completed failure and classify only allowlisted codes
+        run: |
+          python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          project='gen-lang-client-0593591102'
+          execution='janus-private-pipeline-gbc59'
+          report={'source_run':'38695729369','execution':execution,
+                  'no_job_run':True,'no_lease_mutation':True,'no_owner_values':True}
+          def command(args):
+            return subprocess.run(args,capture_output=True,text=True,timeout=45)
+          meta=command(['gcloud','run','jobs','executions','describe',execution,
+            '--project='+project,'--region=us-central1','--format=json'])
+          if meta.returncode:
+            report['describe_error']='PERMISSION_OR_EXECUTION_UNAVAILABLE'
+          else:
+            data=json.loads(meta.stdout)
+            s=data.get('status',{})
+            report.update(succeeded_count=data.get('succeededCount',s.get('succeededCount')),
+                          failed_count=data.get('failedCount',s.get('failedCount')),
+                          completion_time=str(data.get('completionTime') or s.get('completionTime') or '')[:32],
+                          conditions=[{'type':x.get('type'),'state':x.get('state',x.get('status')),
+                              'reason':x.get('reason')}
+                            for x in data.get('conditions',s.get('conditions',[])) if x.get('type') in ('Completed','Ready')])
+          query=command(['gcloud','logging','read',
+            'resource.type="cloud_run_job" AND timestamp>="2026-10-15T06:59:00Z" AND timestamp<="2026-10-15T07:04:00Z"',
+            '--project='+project,'--format=json','--limit=250'])
+          if query.returncode:
+            report['log_error']='PERMISSION_OR_LOGGING_UNAVAILABLE'
+          else:
+            entries=json.loads(query.stdout)
+            matched=[]
+            for row in entries if isinstance(entries,list) else []:
+              labels=row.get('labels',{})
+              reslabels=row.get('resource',{}).get('labels',{})
+              label=labels.get('run.googleapis.com/execution_name') or reslabels.get('execution_name') or ''
+              if label==execution:
+                matched.append(row)
+            allowed=('held_etf_owner_scope_not_exactly_one','held_etf_official_identity_not_verified',
+              'held_etf_official_eod_missing','held_etf_official_persisted_provenance_missing',
+              'owner_ledger_mutated_while_derived_mart_rebuilt','held_etf_private_mart_position_or_pnl_missing',
+              'held_etf_private_mart_checkpoint_or_price_invalid',
+              'JSONDecodeError','TimeoutError','DeadlineExceeded','PermissionDenied',
+              'psycopg.errors.InsufficientPrivilege','RuntimeError','ValueError','TypeError')
+            codes=set()
+            for row in matched:
+              body=str(row.get('textPayload') or row.get('jsonPayload') or '')
+              codes.update(code for code in allowed if code in body)
+            report.update(total_window_logs=len(entries),execution_logs=len(matched),
+                          safe_failure_classes=sorted(codes))
+          Path('/tmp/held-etf-owner-exact-readback.json').write_text(json.dumps(report,sort_keys=True))
+          print(json.dumps(report,sort_keys=True))
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: held-etf-owner-runtime-readback
-          path: /tmp/held-etf-owner-runtime-readback.json
+          path: |
+            /tmp/held-etf-owner-runtime-readback.json
+            /tmp/held-etf-owner-exact-readback.json
           if-no-files-found: ignore
           retention-days: 14
