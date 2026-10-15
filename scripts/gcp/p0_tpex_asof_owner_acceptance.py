@@ -58,8 +58,11 @@ if len(owners)!=1:raise RuntimeError("owner_scope_not_exactly_one")
 owner=owners[0]["user_id"]
 before=int(repo.latest_ledger_version(owner))
 market=CorePriceReader.from_env()
-valuation=resolve_valuation_date(None,market.latest_valuation_date)
-if valuation<target:raise RuntimeError("core_valuation_older_than_verified_close")
+# This acceptance checks the requested 10/14 PIT date regardless of whether
+# the 10/15 batch has since published a newer Core snapshot. Do not mix days.
+latest_core_day=resolve_valuation_date(None,market.latest_valuation_date)
+if latest_core_day<target:raise RuntimeError("core_valuation_older_than_verified_close")
+valuation=target
 # Insert-only official price archive. NEVER overwrite the newer last-success quote.
 repo.save_official_eod_quotes(history)
 stored=repo.official_eod_quotes({symbol},target).get(symbol)
