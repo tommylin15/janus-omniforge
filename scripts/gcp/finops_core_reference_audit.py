@@ -112,14 +112,23 @@ def audit(token):
         if len(matched)+read>LIMIT_DOCS:
             raise RuntimeError("EXTERNAL_REFERENCE_SCAN_LIMIT")
         count=0
+        skipped_oversized=0
         for obj in matched:
-            total_bytes+=int(obj.get("size") or 0)
+            size=int(obj.get("size") or 0)
+            # Oversized research JSON may contain embedded raw text. Do not
+            # ingest it into CI or mistake skipped coverage for a full scan.
+            if size > 3 * 1024 * 1024:
+                skipped_oversized+=1
+                continue
+            total_bytes+=size
             if total_bytes>LIMIT_BYTES: raise RuntimeError("REFERENCE_DOCUMENT_BYTE_BUDGET_EXCEEDED")
             doc=read_doc(bucket,obj["name"],token)
             protected.update(references(doc))
             count+=1
             read+=1
-        source_counts[label]={"documents_checked":count,"listed_objects":len(listings[label])}
+        source_counts[label]={"documents_checked":count,
+                              "documents_skipped_oversized":skipped_oversized,
+                              "listed_objects":len(listings[label])}
     # Private object metadata are counted, but owner-private payloads and
     # PostgreSQL publication references are NOT inspected with CI identity.
     # Therefore no broad-delete approval is implied by this report.

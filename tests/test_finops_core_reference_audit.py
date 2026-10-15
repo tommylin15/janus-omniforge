@@ -22,3 +22,7 @@ def test_approved_artifacts_only():
     assert module.relevant_mart("executions/test/specialist-manifest.json")
     assert module.relevant_mart("ml-oos-data/v1/abc/manifest.json")
     assert not module.relevant_mart("private/users/trades.json")
+
+def test_json_size_budget_is_bounded():
+    assert module.LIMIT_BYTES <= 60*1024*1024
+    assert module.LIMIT_DOCS <= 3000
