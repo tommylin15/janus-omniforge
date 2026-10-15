@@ -127,7 +127,15 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
             )
             state = "intraday" if fresh else "stale"
         usable = bool(quote) and state in {"intraday", "closing_pending_eod", "eod_final"}
-        price = Decimal(str(quote["price"])) if quote.get("price") is not None else None
+        # One malformed / nonfinite source quote must not take down the whole
+        # owner's DB-first holdings snapshot or contaminate published totals.
+        try:
+            price = Decimal(str(quote["price"])) if quote.get("price") is not None else None
+            if price is not None and (not price.is_finite() or price <= 0):
+                price = None
+        except (InvalidOperation, TypeError, ValueError):
+            price = None
+        usable = usable and price is not None
         shares, average = Decimal(str(row["shares"])), Decimal(str(row["average_cost"]))
         cost = shares * average
         value = price * shares if price is not None else None
@@ -151,7 +159,7 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
             market_value=str(value) if value is not None else None,
             unrealized_pnl=str(pnl) if pnl is not None else None,
             unrealized_return=str(pnl / cost) if pnl is not None and cost else None,
-            price_status="available" if usable else "stale" if quote else "missing",
+            price_status="available" if usable else "stale" if price is not None else "missing",
             quote_at=quote.get("quote_at"),
             received_at=quote.get("received_at"),
             quote_session=quote.get("session"),
@@ -159,7 +167,7 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
             freshness_seconds=(now - at).total_seconds() if at else None,
             quote_route_version=quote.get("route_version"),
             price_date=price_date,
-            missing_reason=None if usable else "latest_price_stale" if quote else "latest_price_missing",
+            missing_reason=None if usable else "latest_price_stale" if price is not None else "latest_price_missing",
             price_source=source,
             is_final=bool(quote.get("is_final")),
             valuation_kind="eod" if source == "core_ohlcv" else "intraday",
@@ -179,28 +187,52 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
                 "affected_symbols": [],
                 "missing_price_count": 0,
                 "stale_price_count": 0,
+                "priced_market_value": Decimal(0),
+                "priced_cost_basis": Decimal(0),
+                "priced_symbol_count": 0,
+                "price_dates": set(),
             },
         )
         total["cost_basis"] += cost
         if not usable:
             total["affected_symbols"].append(row["symbol"])
-            total["missing_price_count" if not quote else "stale_price_count"] += 1
-        if value is not None:
+            total["missing_price_count" if price is None else "stale_price_count"] += 1
+        else:
+            # This is a subtotal of only verifiably priced holdings. It must
+            # never be silently relabelled as the whole portfolio's value.
             total["market_value"] += value
+            total["priced_market_value"] += value
+            total["priced_cost_basis"] += cost
+            total["priced_symbol_count"] += 1
+            if price_date:
+                total["price_dates"].add(str(price_date)[:10])
     summaries = []
     for total in totals.values():
         cost, value, affected = total["cost_basis"], total["market_value"], total["affected_symbols"]
-        missing = total["missing_price_count"] > 0
+        price_dates = sorted(total["price_dates"])
+        mixed = len(price_dates) > 1
+        incomplete = bool(affected) or mixed
+        reason = ("mixed_price_dates" if mixed else
+                  "some_prices_missing" if total["missing_price_count"] else
+                  "some_prices_stale" if total["stale_price_count"] else None)
         summaries.append(
             {
-                **total,
+                **{k: v for k, v in total.items() if k not in {
+                    "price_dates", "priced_market_value", "priced_cost_basis"}},
                 "cost_basis": str(cost),
-                "market_value": None if missing else str(value),
-                "unrealized_pnl": None if missing else str(value - cost),
-                "unrealized_return": None if missing or not cost else str((value - cost) / cost),
-                "aggregate_status": "withheld" if missing else "stale" if affected else "available",
+                "priced_market_value": str(total["priced_market_value"]),
+                "priced_cost_basis": str(total["priced_cost_basis"]),
+                "price_dates": price_dates,
+                "market_value": None if incomplete else str(value),
+                "unrealized_pnl": None if incomplete else str(value - cost),
+                "unrealized_return": None if incomplete or not cost else str((value - cost) / cost),
+                "aggregate_status": "withheld" if incomplete else "available",
+                "valuation_status": ("partial" if total["missing_price_count"] else
+                                     "stale" if total["stale_price_count"] else
+                                     "mixed" if mixed else "available"),
+                "aggregate_missing_reason": reason,
                 "affected_symbol_count": len(affected),
-                "valuation_date": now.astimezone(TAIPEI).date().isoformat(),
+                "valuation_date": price_dates[0] if not incomplete and price_dates else None,
                 "valuation_kind": "latest_price",
             }
         )

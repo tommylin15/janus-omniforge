@@ -74,7 +74,11 @@ class QuoteRouter:
                     **eod_row,
                     "source": "core_ohlcv",
                     "route_version": ROUTE_VERSION,
-                    "state": "eod_final",
+                    # A last-success Core close remains readable for a suspended
+                    # security, but it is not a current quote indefinitely.
+                    "state": ("eod_final" if eod_day is not None and
+                              0 <= (now.astimezone(TAIPEI).date() - eod_day).days <= 7
+                              else "stale"),
                     "is_final": True,
                     "price_date": eod_day.isoformat() if eod_day else eod_row.get("price_date"),
                 }
@@ -84,7 +88,7 @@ class QuoteRouter:
             if live_row.get("source") == "tpex_openapi_eod":
                 # Persistent TPEx official close is not a TWSE MIS tick.
                 # Published Core wins for the same or newer trade date.
-                if live_day is not None and (now.astimezone(TAIPEI).date() - live_day).days <= 7:
+                if live_day is not None and 0 <= (now.astimezone(TAIPEI).date() - live_day).days <= 7:
                     result[symbol] = {
                         **live_row, "source": "tpex_openapi_eod",
                         "route_version": ROUTE_VERSION,
