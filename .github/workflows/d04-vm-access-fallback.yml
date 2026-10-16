@@ -2,7 +2,7 @@ name: D04 existing VM privileged-path probe
 on:
   push:
     branches: [main]
-    paths: ['.github/workflows/d04-vm-access-fallback.yml']
+    paths: ['.github/workflows/d04-vm-access-fallback.yml', 'scripts/gcp/cloudbuild-d04-vm-capability.yaml']
 permissions:
   contents: read
   id-token: write
