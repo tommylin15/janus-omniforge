@@ -1,0 +1,47 @@
+name: Janus DRL-01 existing MOPS month repair
+on:
+  push:
+    branches: [main]
+    paths: ['ops/drl-01-monthly-request.json']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify scope and compile repair source
+        run: |
+          python -m py_compile scripts/gcp/drl01_monthly_period_repair.py
+          python - <<'PY'
+          import json
+          x=json.load(open('ops/drl-01-monthly-request.json'))
+          assert x['intent']=='drl01-existing-month-identity-repair'
+          assert x['approved'] is True and x['no_source_fetch'] is True
+          assert x['no_owner_writes'] is True and x['mode'] in ('dry-run','apply')
+          PY
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Examine or repair existing official months in Core
+        env:
+          PYTHONPATH: .
+        run: python scripts/gcp/drl01_monthly_period_repair.py ops/drl-01-monthly-request.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drl01-monthly-period-receipt
+          path: /tmp/drl01-fiscal-month.json
+          if-no-files-found: ignore
+          retention-days: 14
