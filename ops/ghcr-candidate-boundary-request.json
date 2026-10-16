@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "9f690363e5517cbe90d837a53a94ae3a4e7ab31e",
-  "candidate_release_run": "38841326765",
-  "candidate_deployment_run": "38849023963",
-  "purpose": "2026-10-16 owner cash TWD checkpoints migration 062 #38841287256 PASS, full GHCR release #38841326765 PASS, 0% dev API candidate #38849023963 PASS. Verify exact-source OAuth discovery, negative owner/Admin/MCP boundary and immutable 0% tag readback. No human login, no traffic/Job mutation.",
+  "sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
+  "candidate_release_run": "38856837257",
+  "candidate_deployment_run": "38857279864",
+  "purpose": "P1 visible total first candidate 0% #38857279864 PASS, exact GHCR source 8eb and full release #38856837257. Verify OAuth metadata/private 401, fixed immutable GHCR 0% revision without changing traffic or Owner accounts.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 25
+  "attempt": 26
 }
