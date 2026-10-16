@@ -2,7 +2,14 @@ name: Janus DRL-01 targeted data readiness verification
 on:
   push:
     branches: [main]
-    paths: ['.github/workflows/drl-01-verify.yml']
+    paths:
+      - '.github/workflows/drl-01-verify.yml'
+      - 'packages/web_api/core.py'
+      - 'tests/test_feature_readiness_repair.py'
+      - 'jobs/ingestion-core/ingestion_core/first_batch.py'
+      - 'jobs/ingestion-core/ingestion_core/data_supplement.py'
+      - 'jobs/ingestion-core/ingestion_core/financial_publication.py'
+      - 'scripts/gcp/drl01_*'
   workflow_dispatch:
 permissions:
   contents: read
