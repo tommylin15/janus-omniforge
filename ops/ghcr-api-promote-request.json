@@ -2,14 +2,13 @@
   "intent": "promote-authenticated-reversible-ghcr-dev",
   "approved": true,
   "scope": "existing-dev-janus-api-only",
-  "source_sha": "9f690363e5517cbe90d837a53a94ae3a4e7ab31e",
-  "release_run": "38841326765",
-  "jobs_run": "38849686748",
+  "source_sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
+  "release_run": "38856837257",
+  "jobs_run": "38857643226",
   "rollback_mode": "reversible_ghcr",
-  "baseline_source_sha": "7acff50000644979af3815f00fbd7f1c167e1098",
+  "baseline_source_sha": "9f690363e5517cbe90d837a53a94ae3a4e7ab31e",
   "allow_legacy_forward_only": false,
-  "gate": "2026-10-16 owner cash + assets + compact holdings deployment. Immutable GHCR #38841326765, DB 062 #38841287256, 0% candidate #38849023963, automatic OAuth #38849298689, Preview #38849422216, four Jobs #38849686748 SUCCESS and returned owner release lock; pinned actual 7acff 100%-serving rollback baseline verified #38831003922 and Jobs #38849536106. Reversible new→old→new traffic rehearsal, current Jobs Scheduler/executions fence and live 9f690 readback mandatory.",
-  "auth_boundary_run": "38849298689",
-  "retry_attempt": 1,
-  "retry_reason": "Previous #38851511933 failed before GCP mutation at test_future_rollout_and_promotion_templates_are_inert_until_explicit_request. Repaired both inert baseline templates to exact current 7acff #38831003922 and #38849536106. Selective CI #38851686538 and #38851654359 SUCCESS. No lease remains. Strict reversible 100% new→old→new promotion, live owner negative auth/readback; do not bypass Scheduler/execution fence."
+  "auth_boundary_run": "38857441171",
+  "gate": "User explicitly requested production-like dev canonical API 100% traffic cutover for P1 visible-total-first release. Exact 8eb full GHCR #38856837257, fixed digest 0% #38857279864, automated OAuth/private negative #38857441171, fixed Preview #38857524000, 4 Jobs reversible rollout #38857643226 with receipt result=PASS and current Scheduler/execution guard all SUCCESS. Previous canonical 9f690 API revision janus-api-00512-zal, public GHCR digest and source independently read #38853614819; previous 9f Jobs fingerprints read #38856931558 and immutable rollback baseline pinned in ops/ghcr-active-baseline.json. Require live immutable GHCR and build-id verification, current Scheduler+Job no-active-work execution fence, shared lease, new→old→new 100% controlled rehearsal, health/401/traffic/tags readback, and no cash/ledger/config changes. If any gate fails preserve last serving known-good revision or fail closed and report.",
+  "retry_attempt": 0
 }
