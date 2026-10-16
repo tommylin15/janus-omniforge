@@ -217,7 +217,8 @@ def normalise_monthly_revenue(rows: Iterable[Mapping[str, Any]]) -> tuple[dict[s
         ):
             result.append({'symbol': str(row['公司代號']), 'fiscal_year': end.year,
                            'fiscal_quarter': (end.month - 1) // 3 + 1,
-                           'fiscal_period_end': end.isoformat(), 'statement_type': 'monthly_revenue',
+                           'fiscal_period_end': end.isoformat(), 'fiscal_month': end.month,
+                           'period_basis': 'monthly', 'statement_type': 'monthly_revenue',
                            'published_at': _iso_date(row['出表日期']), 'metric': metric,
                            'value': _text(row[field]), 'unit': 'TWD_thousands', 'currency': 'TWD'})
     return tuple(result)
