@@ -1,51 +1,21 @@
 # Janus — 後續 AI 開發指示
 
-更新：2026-10-15。本文件只保存執行方法；授權與 active queue 唯一入口是 [TODO](todo.md)，證據是 [status](status.md)。2026-10-15 使用者已明確恢復 D01～D05 **合併開發與整批驗收**，D06 獨立、D07／D08 後置；此文件只記方法，現況及未過 gates 仍讀 TODO/status，不能把部分 Release PASS 當整包完成。
+更新：2026-10-16。本文件只保存AI路由與共用執行方法；當次授權、暫停、唯一active queue在[TODO](todo.md)，實際證據在[status](status.md)。文件更新不自動恢復工程。
 
-## 1. 可直接交給開發 AI 的指示
+## 1. AI唯一啟動入口與指令路由
 
-```text
-先確認本次使用者指定工作包與 active TODO 的授權範圍；文件-only 不啟動工程。
-恢復工程時，接續該已授權工作包。先讀 AGENTS.md、doc/PROJECT_RULES.md、
-doc/README.md、doc/todo.md、doc/status.md、doc/spec/holdings-first.md、
-doc/spec/full-market-batch-policy.md、doc/batch-inventory-2026-10-13.md。
-涉及 UI 再讀 doc/ui/user-app.md、doc/ui/visual-first-four-pages.md、
-doc/ui/reference/user-app-final/README.md，實際檢視四張 PNG。
+先讀AGENTS.md、PROJECT_RULES、README、TODO，確認指定範圍、暫停與依賴；文件-only不得開工。查main及既有證據，已存在能力直接重用，有實質變更才回歸，不重做真人PASS或B0～B8。
 
-先檢查 git status、GitHub main、既有未提交 diff 與相關實作／測試。
-不得假定新的工作區存在舊會話的未提交改動；以實際 git status／diff 與 main 判斷。
-保留其他人的改動，不 reset；遇 main 更新先 rebase／合併並重做受影響文件檢查。
+| 工項 | 操作指令 | 規格／驗收依據 |
+|---|---|---|
+| D01、D04～D08 | [任務卡索引](execution-cards/README.md)內相應卡 | 該卡SPEC與TODO |
+| D02首屏／快照 | [D02卡](execution-cards/d02-full-market-snapshot-performance.md) | [三層交付](ui/visual-first-delivery.md)，與D03共享數值證據 |
+| D03首頁／個股／四頁 | [D03卡](execution-cards/d03-four-page-charts-visual.md) | [A具體版面第5節](ui/visual-first-four-pages.md)、[User App語意](ui/user-app.md)、[B三層交付](ui/visual-first-delivery.md) |
+| DRL-01A/B/C/D | 本文件第7節 | TODO子項＋B三層交付；消費端依D02/D03卡 |
 
-順序一：完整持股頁。TWSE／TPEx 全個股官方 EOD 預先保存並供快速 serving，
-持股 membership 跟隨 owner ledger，不受研究批次限制；市場／screening／研究／搜尋均改全上市櫃，coverage 上市缺失率≤10%、上櫃≤30% 各自過關（含邊界）；ETF 既有授權路徑保留。
-首屏先讀持久化資料，按需更新合法盤中報價，過期／缺價有明確狀態。
-完成 backend 交易前唯讀試算、成交入帳後股數／成本／該筆損益快速更新；
-共用 MOVING_AVERAGE／Decimal 規則，處理費稅、版本衝突、冪等及更正。
-修復正式重算 queue：取得 terminal SUCCEEDED 與 exact checkpoint 才算成功。
-報價刷新、交易試算、帳本保存、報表重算是四種操作，不能互相卡住。
-
-順序二：個股先通用圖表，再整合今日／關注／持股／個股四頁。
-預設價格折線＋成交量，可切 K 線；營收／EPS 長條、估值折線、法人正負條及事件時間軸
-依正式合格資料呈現。單一主圖、少量控制、來源日期可見、390px 與放大字級可讀。
-資料不足明示原因並保留補齊待辦，不能補假點或以所有圖 missing 宣稱完成。
-初期不讓五角色健康度、長文或 CEO 擋住基本圖表；不新增複雜指標或新 UI 框架。
-
-以上兩項先完成整套必要 code／migration／tests／docs，再集中驗收；
-保留安全與必要開發檢查，不逐股票逐頁發版。不啟動後置模型研究或 CEO 工作來擴大本輪。
-驗收覆蓋報價覆蓋率、交易金額與日期／版本、owner 隔離、重送、缺價、stale、
-queue 失敗重試、真實 dev 四頁截圖及冷暖 P50／P95／失敗率／quote age。
-未達性能目標追查 critical path，不以延長 timeout 充當改善。
-
-每次 commit 或 push 前依 PROJECT_RULES 執行 review；非系統命令不可用時採明示的等價檢查。
-不使用 Superpowers，不為模型標記自行要求換模型或建立 branch／PR。
-發布沿既有同 SHA 全測試→GHCR immutable digest→0% candidate→自動 auth gate→
-Job fence/canary→真實 readback→切流／rollback。不得要求每版人工 OAuth 登入。
-新付費資源、重大擴權與其他外部授權遵守 PROJECT_RULES，不自行越界。
-
-交付時分列已修改、已測試、已部署、真實驗收和剩餘 gap；無證據標 NOT_VERIFIED／PARTIAL。
-完成持股＋圖表工作包後停止，模型研究依 TODO 與當次授權另啟。
-五分析師各自有效、可追溯且符合 publication 後才建立整合分析報告；不承諾精準預測。
-```
+UI實際長相按A第5節逐項實作，不能自行換區塊順序、堆重複卡、增導航或將三行事實改健康分數。資料→共用公式→serving/API→現有UI同一功能一起交付，不等全部OOS才顯基本圖表。
+D01～D05既有收尾按原授權；DRL-01及本次首頁／個股增補等TODO恢復，不反向加到正在收尾的D05 gate。
+版型只維護A，三層映射只維護B，任務卡保存操作／驗收，TODO保存範圍／狀態。Drive為研究參考，舊逐步指令與此路由不同時以此路由及TODO為準。通用發布／資源／交接依第4～6節。
 
 ## 2. 開發定位與集體驗收
 
