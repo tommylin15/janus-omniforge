@@ -85,7 +85,7 @@ def test_missing_snapshots_and_invalid_expected_image_block():
 
 
 def test_workflow_has_acquisition_before_deploy_and_always_on_recovery():
-    text = (ROOT / ".github/workflows/ghcr-candidate-dev.yml").read_text()
+    text = (ROOT / ".github/workflows/archive/ghcr-candidate-dev.yml").read_text()
     assert "contents: write" in text
     assert "ghcr_release_lease.py acquire" in text
     assert "ghcr_release_lease.py assert" in text
@@ -101,12 +101,12 @@ def test_workflow_has_acquisition_before_deploy_and_always_on_recovery():
 
 
 def test_gcp_recovery_cannot_claim_full_owner_acceptance():
-    text = (ROOT / ".github/workflows/ghcr-candidate-dev.yml").read_text()
+    text = (ROOT / ".github/workflows/archive/ghcr-candidate-dev.yml").read_text()
     assert "Owner OAuth/MCP/PnL still pending" in text
 
 
 def test_legacy_manual_and_candidate_share_actions_serialization_group():
-    ghcr = (ROOT / ".github/workflows/ghcr-candidate-dev.yml").read_text()
+    ghcr = (ROOT / ".github/workflows/archive/ghcr-candidate-dev.yml").read_text()
     legacy = (ROOT / ".github/workflows/deploy-dev.yml").read_text()
     group = "group: janus-dev-runtime-writers"
     assert group in ghcr and group in legacy
@@ -116,7 +116,7 @@ def test_legacy_manual_and_candidate_share_actions_serialization_group():
 
 
 def test_all_shared_runtime_writers_serialize_and_legacy_rejects_held_lease():
-    for name in ("ghcr-candidate-dev.yml", "deploy-dev.yml",
+    for name in ("archive/ghcr-candidate-dev.yml", "deploy-dev.yml",
                  "run-dev-ingestion.yml", "archive/ghcr-scheduler-operator-drill.yml"):
         text = (ROOT / ".github/workflows" / name).read_text()
         assert "group: janus-dev-runtime-writers" in text
@@ -130,7 +130,7 @@ def test_all_shared_runtime_writers_serialize_and_legacy_rejects_held_lease():
 
 
 def test_candidate_same_sha_retry_requires_immutable_revision_and_skips_deploy():
-    workflow = (ROOT / ".github/workflows/ghcr-candidate-dev.yml").read_text()
+    workflow = (ROOT / ".github/workflows/archive/ghcr-candidate-dev.yml").read_text()
     assert 'existing_revision=' in workflow
     assert 'gcloud run revisions describe "$existing_revision"' in workflow
     assert '"$GHCR_PUBLIC_IMAGE"' in workflow
@@ -143,7 +143,7 @@ def test_candidate_same_sha_retry_requires_immutable_revision_and_skips_deploy()
 
 
 def test_revision_reuse_allows_only_exact_ghcr_or_observed_cloud_run_cache_mirror():
-    workflow = (ROOT / ".github/workflows/ghcr-candidate-dev.yml").read_text()
+    workflow = (ROOT / ".github/workflows/archive/ghcr-candidate-dev.yml").read_text()
     assert 'cache.us-docker.pkg.dev/' in workflow
     assert '(.spec.containers[0].image == $image)' in workflow
     assert '(.spec.containers[0].image == ("cache.us-docker.pkg.dev/" + $image))' in workflow

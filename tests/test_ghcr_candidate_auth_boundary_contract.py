@@ -5,7 +5,7 @@ ROOT = Path(__file__).parents[1]
 
 
 def test_boundary_probe_tracks_approved_sha_not_a_stale_hardcoded_candidate():
-    text = (ROOT / ".github/workflows/ghcr-candidate-auth-boundary.yml").read_text()
+    text = (ROOT / ".github/workflows/archive/ghcr-candidate-auth-boundary.yml").read_text()
     assert "ops/ghcr-candidate-request.json" in text
     assert 'EXPECTED_SHA="$(jq -r .sha ops/ghcr-candidate-request.json)"' in text
     assert 'CANDIDATE_TAG="ghcr-${EXPECTED_SHA:0:12}"' in text
@@ -15,7 +15,7 @@ def test_boundary_probe_tracks_approved_sha_not_a_stale_hardcoded_candidate():
 
 
 def test_boundary_is_read_only_no_owner_tokens_or_release_claim():
-    text = (ROOT / ".github/workflows/ghcr-candidate-auth-boundary.yml").read_text()
+    text = (ROOT / ".github/workflows/archive/ghcr-candidate-auth-boundary.yml").read_text()
     assert "0% canonical traffic" in text
     assert "Not verified:" in text
     assert '"/api/v1/me/journal/pnl",' in text
@@ -32,7 +32,7 @@ def test_boundary_is_read_only_no_owner_tokens_or_release_claim():
 
 
 def test_boundary_runs_after_explicit_readonly_request_and_accepts_prior_ghcr_traffic():
-    text = (ROOT / ".github/workflows/ghcr-candidate-auth-boundary.yml").read_text()
+    text = (ROOT / ".github/workflows/archive/ghcr-candidate-auth-boundary.yml").read_text()
     assert "ops/ghcr-candidate-boundary-request.json" in text
     assert "janus-dev-runtime-writers" in text
     assert 'test "$EXPECTED_SHA" = "$(jq -r .sha ops/ghcr-candidate-boundary-request.json)"' in text

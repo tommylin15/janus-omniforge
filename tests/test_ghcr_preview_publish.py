@@ -67,7 +67,7 @@ def test_safe_tag_update_and_rollback_use_scoped_gcloud_flags():
 
 
 def test_preview_workflow_is_explicit_global_lease_without_traffic_promotion():
-    text=(ROOT/".github/workflows/ghcr-preview-publish-dev.yml").read_text()
+    text=(ROOT/".github/workflows/archive/ghcr-preview-publish-dev.yml").read_text()
     assert "ops/ghcr-preview-request.json" in text
     assert "janus-dev-runtime-writers" in text
     assert "cancel-in-progress: false" in text

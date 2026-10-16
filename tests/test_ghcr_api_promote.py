@@ -134,7 +134,7 @@ def test_switch_checks_traffic_and_preserves_all_tags():
 
 
 def test_api_promotion_workflow_is_explicit_and_requires_jobs_proof():
-    text = (ROOT / ".github/workflows/ghcr-api-promote-dev.yml").read_text()
+    text = (ROOT / ".github/workflows/archive/ghcr-api-promote-dev.yml").read_text()
     assert "workflow_dispatch:" in text and "push:" in text
     assert "ops/ghcr-api-promote-request.json" in text
     assert "group: janus-dev-runtime-writers" in text
@@ -310,7 +310,7 @@ def test_regular_api_promotion_requires_bound_approved_request_and_auto_auth_bou
 
 
 def test_regular_api_workflow_request_only_push_retains_explicit_dispatch():
-    text=(ROOT/".github/workflows/ghcr-api-promote-dev.yml").read_text()
+    text=(ROOT/".github/workflows/archive/ghcr-api-promote-dev.yml").read_text()
     assert "workflow_dispatch:" in text
     assert "ops/ghcr-api-promote-request.json" in text
     assert "janus-dev-runtime-writers" in text
@@ -332,7 +332,7 @@ def test_future_rollout_and_promotion_templates_are_inert_until_explicit_request
     assert jobs["auth_boundary_run"]==""
     assert "owner_acceptance_source_sha" not in api
     assert "owner_acceptance_requirement" not in jobs
-    workflow=(ROOT/".github/workflows/ghcr-api-promote-dev.yml").read_text()
+    workflow=(ROOT/".github/workflows/archive/ghcr-api-promote-dev.yml").read_text()
     assert "'ops/ghcr-api-promote-request.json'" in workflow
     assert "ops/ghcr-api-promote-request.template.json" not in workflow
     assert "ops/ghcr-jobs-rollout-request.template.json" not in workflow

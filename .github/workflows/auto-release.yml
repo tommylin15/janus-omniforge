@@ -1,11 +1,6 @@
 name: Janus automated full release
 on:
   workflow_dispatch:
-    inputs:
-      skip-tests:
-        description: 'Skip tests (dangerous, for hotfix only)'
-        type: boolean
-        default: false
   push:
     branches: [main]
     paths:
@@ -18,7 +13,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: janus-auto-release
+  group: janus-dev-runtime-writers
   cancel-in-progress: false
 
 env:
@@ -60,7 +55,6 @@ jobs:
   # ============ PYTHON TESTS ============
   python-tests:
     needs: validate
-    if: github.event.inputs.skip-tests != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     services:
@@ -93,7 +87,6 @@ jobs:
   # ============ FLUTTER TESTS ============
   flutter-tests:
     needs: validate
-    if: github.event.inputs.skip-tests != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     defaults:
@@ -120,8 +113,8 @@ jobs:
     if: |
       always() && 
       needs.validate.result == 'success' &&
-      (needs.python-tests.result == 'success' || needs.python-tests.result == 'skipped') &&
-      (needs.flutter-tests.result == 'success' || needs.flutter-tests.result == 'skipped')
+      needs.python-tests.result == 'success' &&
+      needs.flutter-tests.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 55
     strategy:

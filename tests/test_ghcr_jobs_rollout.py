@@ -377,7 +377,7 @@ def test_canary_preserves_entrypoint_and_limits_execution_without_private_output
 
 
 def test_workflow_is_manual_shared_lease_and_has_failure_recovery():
-    source = (ROOT / ".github/workflows/ghcr-jobs-rollout-dev.yml").read_text()
+    source = (ROOT / ".github/workflows/archive/ghcr-jobs-rollout-dev.yml").read_text()
     assert "workflow_dispatch:" in source and "push:" in source
     assert "'ops/ghcr-jobs-rollout-request.json'" in source
     assert '.intent == "approved-dev-ghcr-jobs-rollout"' in source
