@@ -110,3 +110,12 @@
 - 先以 Dataset Coverage Inventory／Gap Matrix 驗證 OHLCV、valuation、institutional、margin／financing、securities lending／short、day-trade／market activity、monthly revenue、quarterly financials、events、benchmark、sector／industry benchmark 與 macro／regime inputs。
 - 每列需 source、adapter、Core publication／acceptance evidence、coverage、cadence、freshness、PIT、provenance 與 approval；狀態限 `Implemented | Partial | Unknown | Missing | Candidate | Blocked`。
 - 現有 context allowlist 只證明 resource contract，不證明 dataset coverage 完整。先盤點再考慮 provider；新 source 仍須 Data Source admission／approval，本切片不建 adapter、ingestion 或核准 source。
+
+### 3.11 DRL-01 新版功能資料可用性（2026-10-16 已核准、依 active TODO 施工）
+
+- 需求／狀態唯一來源：[DRL-01](../todo.md)。依新版 KD/ATR／首頁機會雷達／月營收 YoY／EPS 單季／五年估值河流的使用價值反推資料需求，不為無功能依賴的指標新增供應商與長年補收。
+- 官方市場 OHLCV 透過已存在 TWSE MI_INDEX/STOCK_DAY、TPEx dailyQuotes，按日期與市場分片優先補 20/21 日有效窗口，持股及關注池再補 120 日；沿用 Core/Stage、Controller request、重試、source provenance、名冊有效日期及既有資源上限。
+- MOPS 月營收應確實保留 fiscal_month、fiscal_period_end、period_basis；對已存缺值先查原始可信期間欄位與同源重播，冪等修復而不偽造歷史月份。YoY 只在有本年與去年同月的真實兩點時顯示。
+- EPS 服務將 official raw/YTD 與確有單季 XBRL 的數值分開；相鄰同年同口徑的YTD才允許衍生單季，保留計算版本，沒有完整基期不填0、不聲稱可比或模型品質 PASS。
+- PE/PB 五年河流僅為定向後置依賴，有不足五年跨度時PENDING，不影響既有價值、持股及短期估值顯示。
+- 真實驗收依各市場當日名冊分母與 TWSE≤10%／TPEx≤30%、個股最少有效期數、來源讀回與新版本 Core snapshot；僅當期數值可用不必取得每筆首次正式發布秒數，但OOS/PIT研究品質另行註明。Data Readiness Ledger 在既有總控內定期彙總，不成為新 canonical data store。
