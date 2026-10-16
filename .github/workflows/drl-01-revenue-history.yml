@@ -27,7 +27,7 @@ jobs:
           from pathlib import Path
           r=json.loads(Path('ops/drl-01-revenue-history-request.json').read_text())
           assert r['intent']=='drl01-existing-mops-monthly-market-archive'
-          assert r['approved'] is True and r['market']=='TWSE'
+          assert r['approved'] is True and r['market'] in ('TWSE','TPEX')
           assert r['no_new_provider'] is True and r['no_owner_mutation'] is True
           assert r['no_job_template_change'] is True
           assert 1<=len(r['months'])<=2
