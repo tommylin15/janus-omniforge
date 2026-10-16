@@ -147,10 +147,18 @@ def test_schema_is_immutable_owner_only_and_migration_ready():
     from pathlib import Path
     root = Path(__file__).parents[1]
     ddl = (root / "infra/postgres/migrations/062_owner_cash_balance_snapshots.sql").read_text()
-    assert "ON DELETE CASCADE" in ddl
+    assert "user_id uuid NOT NULL," in ddl
+    assert "REFERENCES private.users" not in ddl
     assert "PRIMARY KEY (user_id, version)" in ddl
     assert "UNIQUE (user_id, idempotency_key)" in ddl
     assert "GRANT SELECT, INSERT ON private.cash_balance_snapshots TO janus_private_api" in ddl
-    assert "GRANT SELECT ON private.cash_balance_snapshots TO janus_private_pipeline" in ddl
+    assert "GRANT SELECT, DELETE ON private.cash_balance_snapshots TO janus_private_pipeline" in ddl
     assert "-- PHASE: acceptance" in ddl
     assert "062_owner_cash_balance_snapshots" in ddl
+
+
+def test_owner_deletion_also_removes_cash_snapshots():
+    from pathlib import Path
+    root=Path(__file__).parents[1]
+    code=(root / "services/api/repository.py").read_text()
+    assert '"cash_balance_snapshots","current_positions","ledger_events","users"' in code
