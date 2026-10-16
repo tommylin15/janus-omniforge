@@ -20,6 +20,10 @@ jobs:
       PYTHONPATH: 'jobs/ingestion-core:.'
     steps:
       - uses: actions/checkout@v4
+      - name: Verify generation, age, size and scope limits before any maintenance
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_finops_one_shot_maintenance.py tests/test_finops_unlinked_small_files.py
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
@@ -27,3 +31,14 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v2
       - name: Execute one accepted maintenance operation on existing GCP Core Job
         run: python scripts/gcp/finops-one-shot-maintenance.py
+      - name: Preserve exact dispatch, cleanup and generation receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: finops-unlinked-small-file-receipts
+          path: |
+            finops-unlinked-dispatch.json
+            finops-unlinked-receipt.json
+            finops-unlinked-generations.json
+          if-no-files-found: ignore
+          retention-days: 14

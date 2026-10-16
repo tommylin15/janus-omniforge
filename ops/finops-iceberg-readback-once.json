@@ -3,6 +3,6 @@
   "no_gcp_mutation": true,
   "project": "gen-lang-client-0593591102",
   "region": "us-central1",
-  "scope": "D06 read-only exact HTTP failure/permission signatures from old audit cleanup and completed runtime probe; no retries or mutations.",
-  "attempt": 8
+  "scope": "D06 post-500 rollback independent readback: verify exact current four Jobs/configs, enabled Scheduler and all execution terminals after rollout #38869308278 RESTORED. No GCP writes or retries.",
+  "attempt": 9
 }

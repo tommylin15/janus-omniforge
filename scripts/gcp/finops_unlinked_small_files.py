@@ -1,0 +1,117 @@
+"""User-approved old, unlinked Core small-object cleanup; no row/manifest retirement."""
+from datetime import datetime, timedelta, timezone
+import json
+import os
+import traceback
+from pathlib import Path
+from urllib.error import HTTPError
+
+from ingestion_core.stage import GcsObjectStore
+from ingestion_core.iceberg_maintenance import maintain_financials, compact_batch_events
+from ingestion_core.retention import clean_orphans
+
+BUCKET='gen-lang-client-0593591102-dev-core'
+COMPONENT='finops-unlinked-small-files'
+
+
+class SmallStore(GcsObjectStore):
+    def __init__(self, entries, now, prefixes):
+        super().__init__(BUCKET)
+        self.initial={x['name']:x for x in entries}
+        self.now=now
+        self.prefixes=tuple(prefixes)
+        self.deleted=[]
+
+    def objects(self,prefix):
+        items=super().objects(prefix)
+        return tuple(x for x in items if int(x['size'])<1024*1024) if prefix.startswith('warehouse/') else items
+
+    def delete(self,name,*,generation=None):
+        item=self.initial.get(name)
+        if (not item or generation!=item['generation'] or not name.startswith(self.prefixes)
+                or not name.endswith(('.metadata.json','.avro','.parquet'))
+                or int(item['size'])>=1024*1024
+                or self.now-datetime.fromisoformat(item['updated'].replace('Z','+00:00'))<=timedelta(days=7)):
+            raise ValueError('unlinked_small_file_delete_outside_approved_scope')
+        if len(self.deleted)>=9000: raise RuntimeError('unlinked_cleanup_object_budget')
+        super().delete(name,generation=generation)
+        self.deleted.append({'name':name,'generation':generation,'bytes':int(item['size'])})
+
+
+def cleanup(core,store,now,tables):
+    identifiers=['ops.batch_events_v1']+[core.table_identifier(key) for key in core.IDENTIFIERS]
+    # Existing helpers retain current/named/24h snapshots and every known Core
+    # execution/report reference; this operation never expires canonical rows.
+    for identifier in identifiers:
+        if not core.catalog.table_exists(identifier): continue
+        report={'table':identifier,'phase':'PREFLIGHT'}
+        tables.append(report)
+        if identifier=='ops.batch_events_v1':
+            report['compact_preflight']=compact_batch_events(core=core,apply=False)
+            report['compact_apply']=compact_batch_events(core=core,apply=True)
+        plan=maintain_financials(core=core,store=store,apply=False,now=now,identifier=identifier)
+        report.update(preflight=plan,phase='APPLYING')
+        result=maintain_financials(core=core,store=store,apply=True,now=now,identifier=identifier)
+        report['maintenance']=result
+        orphans=clean_orphans(core,store,identifier,apply=True,now=now)
+        report['orphans']=orphans
+        table=core.catalog.load_table(identifier)
+        if result['row_count'] and table.scan(limit=1).to_arrow().num_rows!=1:
+            raise RuntimeError('current_snapshot_readback_failed')
+        report['phase']='READBACK_PASS'
+
+
+def main():
+    if os.environ.get('JANUS_APPROVED_UNLINKED_CLEANUP')!='true' or os.environ.get('CORE_BUCKET')!=BUCKET:
+        raise ValueError('explicit_unlinked_cleanup_authorization_required')
+    from ingestion_core.__main__ import _iceberg_core
+    core=_iceberg_core(BUCKET,read_only=True)
+    now=datetime.now(timezone.utc)
+    raw=GcsObjectStore(BUCKET)
+    store=None
+    result={'component':COMPONENT,'mode':'user-approved-unlinked-small-files',
+            'status':'PARTIAL','core_rows_deleted':0,'core_manifests_deleted':0,
+            'private_changes':0,'deletion_fence_published':False,
+            'reference_policy':'2026-10-16 user approved known-reference cleanup; incomplete external registry does not block old unlinked objects',
+            'small_file_bytes_exclusive':1024*1024,'minimum_age_days':7}
+    try:
+        with core.mutation_lock():
+            inventory=raw.bounded_inventory(max_pages=10)
+            if not inventory.get('complete') or inventory['visible_objects']>9000 or inventory['visible_bytes']>256*1024*1024:
+                raise RuntimeError('unlinked_cleanup_inventory_budget')
+            entries=raw.objects('')
+            if len(entries)>9000 or sum(int(x['size']) for x in entries)>256*1024*1024:
+                raise RuntimeError('unlinked_cleanup_inventory_changed')
+            prefixes=['warehouse/'+core.table_identifier(key).split('.')[1]+'/' for key in core.IDENTIFIERS]
+            store=SmallStore(entries,now,prefixes+['warehouse/batch_events_v1/'])
+            result['before']={'objects':len(entries),'bytes':sum(int(x['size']) for x in entries),
+                              'under_1mib':sum(int(x['size'])<1024*1024 for x in entries)}
+            result['tables']=[]
+            cleanup(core,store,now,result['tables'])
+            remaining=raw.objects('')
+            current={x['name']:x['generation'] for x in remaining}
+            if any(current.get(x['name'])==x['generation'] for x in store.deleted):
+                raise RuntimeError('deleted_generation_still_visible')
+            result['after']={'objects':len(remaining),'bytes':sum(int(x['size']) for x in remaining),
+                             'under_1mib':sum(int(x['size'])<1024*1024 for x in remaining)}
+            result['status']='PASS' if result['after']['under_1mib']<result['before']['under_1mib'] else 'NO_REDUCTION'
+    except Exception as error:
+        frame=traceback.extract_tb(error.__traceback__)[-1]
+        result.update(error_type=type(error).__name__,http_status=error.code if isinstance(error,HTTPError) else None,
+                      error_location=Path(frame.filename).name+':'+str(frame.lineno))
+    finally:
+        try: core.close()
+        except Exception:
+            result.update(status='PARTIAL',close_error=True)
+        deleted=store.deleted if store else []
+        result.update(deleted_objects=len(deleted),deleted_bytes=sum(x['bytes'] for x in deleted),
+                      generation_chunks=(len(deleted)+99)//100)
+        for index in range(0,len(deleted),100):
+            print(json.dumps({'component':COMPONENT+'-generations','chunk':index//100,'objects':deleted[index:index+100]},sort_keys=True),flush=True)
+        print(json.dumps(result,sort_keys=True),flush=True)
+    # Prevent automatic Cloud Run retries after partial deletes; the caller
+    # requires the structured business status to be PASS independently.
+    return 0
+
+
+if __name__=='__main__': raise SystemExit(main())

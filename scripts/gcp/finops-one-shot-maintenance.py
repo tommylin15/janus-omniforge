@@ -11,6 +11,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+from hashlib import sha256
 
 PROJECT = "gen-lang-client-0593591102"
 REGION = "us-central1"
@@ -49,7 +50,7 @@ def inventory():
             "under_1mib": result["under_1mib"]}
 
 
-def log_evidence(execution, component):
+def log_evidence(execution, component, *, all_entries=False):
     selector = ('resource.type="cloud_run_job" AND '
                 'resource.labels.job_name="janus-ingestion-core" AND '
                 f'labels."run.googleapis.com/execution_name"="{execution}"')
@@ -68,18 +69,57 @@ def log_evidence(execution, component):
             if isinstance(data, dict) and data.get("component") == component:
                 evidence.append(data)
         if evidence:
-            return evidence[-1]
+            return evidence if all_entries else evidence[-1]
         time.sleep(5)
     raise RuntimeError("expected sanitized Iceberg execution evidence not found")
+
+
+def unlinked_cleanup(job):
+    import ghcr_jobs_rollout as rollout
+    code=Path('scripts/gcp/finops_unlinked_small_files.py').read_text()
+    container=list(containers(job))[0]
+    command=container.get('command') or []
+    if command not in ([],['python']) or '|' in code:
+        raise RuntimeError('unlinked_cleanup_entrypoint_invalid')
+    args=(['-c',code] if command else ['python','-c',code])
+    name=call('gcloud','run','jobs','execute',JOB,'--project='+PROJECT,'--region='+REGION,
+        '--args=^|^'+'|'.join(args),'--update-env-vars=JANUS_APPROVED_UNLINKED_CLEANUP=true',
+        '--tasks=1','--task-timeout=1200s','--async','--format=value(metadata.name)').rsplit('/',1)[-1]
+    if not name.startswith(JOB+'-'): raise RuntimeError('unlinked_cleanup_execution_unknown')
+    dispatch={'execution':name,'image':container['image'],
+              'worker_code_sha256':'sha256:'+sha256(code.encode()).hexdigest()}
+    Path('finops-unlinked-dispatch.json').write_text(json.dumps(dispatch,sort_keys=True))
+    deadline=time.monotonic()+1500
+    while True:
+        execution=rollout.cloud(rollout.ROOT+'/jobs/'+JOB+'/executions/'+name)
+        if rollout.terminal(execution): break
+        if time.monotonic()>=deadline: raise RuntimeError('unlinked_cleanup_execution_not_terminal')
+        time.sleep(10)
+    evidence=log_evidence(name,'finops-unlinked-small-files')
+    chunks=log_evidence(name,'finops-unlinked-small-files-generations',all_entries=True) if evidence.get('generation_chunks') else []
+    if sorted(x.get('chunk') for x in chunks)!=list(range(evidence.get('generation_chunks',0))):
+        raise RuntimeError('unlinked_cleanup_generation_receipt_incomplete')
+    generations=[item for chunk in sorted(chunks,key=lambda x:x['chunk']) for item in chunk['objects']]
+    if len(generations)!=evidence.get('deleted_objects'):
+        raise RuntimeError('unlinked_cleanup_deleted_generation_count_mismatch')
+    result={**dispatch,**evidence,'execution_terminal':True,
+            'execution_succeeded':execution.get('succeededCount')==1 and execution.get('failedCount',0)==0}
+    Path('finops-unlinked-receipt.json').write_text(json.dumps(result,sort_keys=True))
+    Path('finops-unlinked-generations.json').write_text(json.dumps(generations,sort_keys=True))
+    print(json.dumps(result,sort_keys=True))
+    if result.get('status')!='PASS' or not result['execution_succeeded']:
+        raise RuntimeError('unlinked_cleanup_not_pass')
 
 
 def main():
     request = json.loads(REQUEST.read_text())
     if (request.get("intent") != "one-shot-existing-dev-iceberg-maintenance"
             or request.get("no_new_resources") is not True
-            or request.get("mode") not in {"compact-nightly", "retention-apply", "retention-dry-run", "audit-cleanup"}
+            or request.get("mode") not in {"compact-nightly", "retention-apply", "retention-dry-run", "audit-cleanup", "unlinked-small-files"}
             or len(request.get("expected_source_sha", "")) != 40):
         raise RuntimeError("invalid one-shot GCP maintenance authorization")
+    if request['mode']=='unlinked-small-files' and request.get('user_approved_unlinked_small_file_cleanup') is not True:
+        raise RuntimeError('explicit_unlinked_small_file_approval_required')
     release_id = str(request["rollout_run"])
     release = jsoncall("gh", "run", "view", release_id,
                        "--json", "status,conclusion,workflowName")
@@ -110,6 +150,9 @@ def main():
     # The shared all-page fence is mandatory before touching the live Core Job.
     import ghcr_jobs_rollout as rollout
     rollout.fence()
+    if request['mode']=='unlinked-small-files':
+        unlinked_cleanup(job)
+        return
     before = inventory()
     mode = request["mode"]
     output = call("gcloud", "run", "jobs", "execute", JOB,

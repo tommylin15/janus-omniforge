@@ -30,11 +30,17 @@ def cloud(path, body=None, method=None):
     req = Request(BASE + path, data=json.dumps(body).encode() if body is not None else None,
                   headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"},
                   method=method)
-    try:
-        with urlopen(req, timeout=40) as response:
-            return json.load(response)
-    except HTTPError as error:
-        raise RuntimeError(f"cloud_control_http_{error.code}") from None
+    for attempt in range(3):
+        try:
+            with urlopen(req, timeout=40) as response:
+                return json.load(response)
+        except HTTPError as error:
+            # Polling can survive a transient control-plane error. Never retry
+            # a dispatch/update: its result may already have taken effect.
+            if body is None and method in (None, 'GET') and error.code in {500,502,503,504} and attempt<2:
+                time.sleep(2*(attempt+1))
+                continue
+            raise RuntimeError(f"cloud_control_http_{error.code}") from None
 
 
 def job(name):

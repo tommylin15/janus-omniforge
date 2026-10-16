@@ -1,0 +1,69 @@
+import importlib.util
+from pathlib import Path
+from datetime import datetime,timezone
+from types import SimpleNamespace
+import pytest
+
+spec=importlib.util.spec_from_file_location('unlinked',Path('scripts/gcp/finops_unlinked_small_files.py'))
+m=importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+NOW=datetime(2026,10,16,tzinfo=timezone.utc)
+
+
+def test_only_old_listed_small_generation_inside_core_table_can_be_deleted(monkeypatch):
+    old={'name':'warehouse/ohlcv_v1/data/old.parquet','size':'10','generation':'123','updated':'2026-10-01T00:00:00Z'}
+    store=m.SmallStore([old],NOW,['warehouse/ohlcv_v1/'])
+    calls=[]
+    monkeypatch.setattr(m.GcsObjectStore,'delete',lambda self,name,**kw:calls.append((name,kw)))
+    with pytest.raises(ValueError):store.delete(old['name'],generation='124')
+    with pytest.raises(ValueError):store.delete('private/owner.json',generation='123')
+    store.delete(old['name'],generation='123')
+    assert calls==[(old['name'],{'generation':'123'})]
+    assert store.deleted==[{'name':old['name'],'generation':'123','bytes':10}]
+    for change in ({'size':str(1024*1024)},{'updated':'2026-10-15T00:00:00Z'},{'name':'executions/id/core-snapshot.json'}):
+        item={**old,**change};s=m.SmallStore([item],NOW,['warehouse/ohlcv_v1/'])
+        with pytest.raises(ValueError):s.delete(item['name'],generation='123')
+
+
+def test_large_core_manifests_remain_in_reference_listing(monkeypatch):
+    items=({'name':'a','size':'1'},{'name':'b','size':str(2*1024*1024)})
+    monkeypatch.setattr(m.GcsObjectStore,'objects',lambda self,prefix:items)
+    store=m.SmallStore([],NOW,[])
+    assert len(store.objects('executions/'))==2
+    assert len(store.objects('warehouse/ohlcv_v1/'))==1
+
+
+def test_audit_is_first_and_partial_table_receipt_survives_failure(monkeypatch):
+    core=SimpleNamespace(IDENTIFIERS=['ohlcv'],table_identifier=lambda key:'core.ohlcv_v1',
+                         catalog=SimpleNamespace(table_exists=lambda name:True))
+    calls=[]
+    def maintain(**kw):
+        calls.append((kw['identifier'],kw['apply']))
+        if kw['apply']: raise RuntimeError('blocked')
+        return {'planned_expiration':2}
+    monkeypatch.setattr(m,'maintain_financials',maintain)
+    monkeypatch.setattr(m,'compact_batch_events',lambda **kw:{'status':'eligible'})
+    reports=[]
+    with pytest.raises(RuntimeError):m.cleanup(core,None,NOW,reports)
+    assert calls==[('ops.batch_events_v1',False),('ops.batch_events_v1',True)]
+    assert reports[0]['preflight']=={'planned_expiration':2} and reports[0]['phase']=='APPLYING'
+
+
+def test_missing_explicit_worker_approval_stops_before_catalog(monkeypatch):
+    monkeypatch.delenv('JANUS_APPROVED_UNLINKED_CLEANUP',raising=False)
+    with pytest.raises(ValueError,match='authorization_required'):m.main()
+
+
+def test_cleanup_reuses_reference_helpers_and_reads_current_rows(monkeypatch):
+    calls=[]
+    table=SimpleNamespace(scan=lambda **kw:SimpleNamespace(to_arrow=lambda:SimpleNamespace(num_rows=1)))
+    core=SimpleNamespace(IDENTIFIERS=['ohlcv'],table_identifier=lambda key:'core.ohlcv_v1',
+        catalog=SimpleNamespace(table_exists=lambda name:True,load_table=lambda name:table))
+    monkeypatch.setattr(m,'maintain_financials',lambda **kw:calls.append(('metadata',kw['identifier'],kw['apply'])) or {'row_count':1})
+    monkeypatch.setattr(m,'compact_batch_events',lambda **kw:calls.append(('compact','ops.batch_events_v1',kw['apply'])) or {})
+    monkeypatch.setattr(m,'clean_orphans',lambda core,store,name,**kw:calls.append(('orphan',name,kw['apply'])) or {})
+    reports=[]
+    m.cleanup(core,None,NOW,reports)
+    assert calls==[('compact','ops.batch_events_v1',False),('compact','ops.batch_events_v1',True)]+[('metadata',name,False) if phase==0 else ('metadata',name,True) if phase==1 else ('orphan',name,True)
+                   for name in ('ops.batch_events_v1','core.ohlcv_v1') for phase in range(3)]
+    assert all(x['phase']=='READBACK_PASS' for x in reports)

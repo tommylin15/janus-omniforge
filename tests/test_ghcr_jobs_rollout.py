@@ -12,6 +12,34 @@ sys.path.insert(0, str(ROOT / "scripts/gcp"))
 import ghcr_jobs_rollout as rollout
 
 
+def test_transient_control_get_retries_but_dispatch_does_not(monkeypatch):
+    from urllib.error import HTTPError
+    import io
+    from contextlib import closing
+    seen=[]
+    sleeps=[]
+    monkeypatch.setattr(rollout,'command',lambda args:'token')
+    monkeypatch.setattr(rollout.time,'sleep',sleeps.append)
+    def read(req,timeout):
+        seen.append(req.get_method())
+        if len(seen)==1: raise HTTPError(req.full_url,500,'transient',None,None)
+        return closing(io.BytesIO(b'{"done":true}'))
+    monkeypatch.setattr(rollout,'urlopen',read)
+    assert rollout.cloud('projects/p/operations/o')=={'done':True}
+    assert seen==['GET','GET'] and sleeps==[2]
+    def failed(req,timeout):
+        seen.append(req.get_method())
+        raise HTTPError(req.full_url,500,'ambiguous',None,None)
+    seen.clear();sleeps.clear()
+    monkeypatch.setattr(rollout,'urlopen',failed)
+    with pytest.raises(RuntimeError,match='cloud_control_http_500'):
+        rollout.cloud('projects/p/jobs/j:run',{},'POST')
+    assert seen==['POST'] and sleeps==[]
+    seen.clear()
+    with pytest.raises(RuntimeError):rollout.cloud('projects/p/operations/o')
+    assert seen==['GET','GET','GET'] and sleeps==[2,4]
+
+
 def sample():
     return {"template": {"template": {"containers": [{"image": "ghcr.io/example@sha256:" + "a" * 64,
             "env": [{"name": "SECRET_REFERENCE", "value": "never-export"}],

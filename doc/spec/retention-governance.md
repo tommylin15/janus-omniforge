@@ -1,5 +1,13 @@
 # 公開資料刪除治理
 
+## 2026-10-16 D06 當次小檔清理授權
+
+使用者指定 Core 的 8,335 個 `<1 MiB` 物件（其中稽核表 1,175 個）為首批整理對象，要求實際降低物件與 I/O，並明確指示「不用太嚴謹，找不到關連就砍」。本輪因此以已查得的有效引用判定舊小檔是否可刪，不因完整外部研究清冊缺位而阻擋整批作業；不得把這項人工決定偽裝成 `COMPLETE_VERIFIED` 引用 fence。
+
+本次沿既有 dev Core warehouse，先合併可重建的稽核鏡像，再清理無保留快照引用、超過七日且 `<1 MiB` 的 metadata／Avro／Parquet；保留 current／named／最近24小時快照、已知 Core execution／報告引用與新檔，按 generation 刪除並讀回。私人 bucket、交易、Core canonical rows 與 execution manifests 不在這次刪除範圍。記錄實刪物件、bytes、保護與新舊快照讀取，不以 compact 或乾跑冒稱已減量。以下一般 row／manifest retention 的完整 fence 契約維持適用原範圍。
+
+## 一般保留政策
+
 2026-10-03 使用者最新決策取代舊「未提交／未解決資料持續保留」規則。僅限既有 dev 公開 Stage、Core、Mart；私人交易、筆記與 production 不在此批次範圍。
 
 - Stage 原始 API 回應、sidecar、提交證明與隔離資料超過 7 天刪除，不以 Core 是否提交成功作為保留條件。queued／running／retrying execution 及其共用 raw 引用暫時保護；狀態不明且已超過期限的 Stage 資料可清理。Core 資料列內必要的來源／PIT 欄位不移除。

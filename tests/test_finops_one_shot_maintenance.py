@@ -58,6 +58,18 @@ def test_invalid_mode_fails_before_gcp_calls(monkeypatch,tmp_path):
     c.assert_not_called()
 
 
+def test_unlinked_small_files_requires_separate_explicit_user_approval(monkeypatch,tmp_path):
+    import pytest
+    m=load_module()
+    p=tmp_path/'request.json'
+    p.write_text(json.dumps({'intent':'one-shot-existing-dev-iceberg-maintenance','no_new_resources':True,
+        'mode':'unlinked-small-files','expected_source_sha':'4'*40}))
+    monkeypatch.setattr(m,'REQUEST',p)
+    with patch.object(m,'jsoncall') as call:
+        with pytest.raises(RuntimeError,match='explicit_unlinked_small_file_approval_required'):m.main()
+    call.assert_not_called()
+
+
 def test_audit_only_mode_requires_exact_audit_receipt(monkeypatch,tmp_path,capsys):
     m=load_module()
     req={"intent":"one-shot-existing-dev-iceberg-maintenance","no_new_resources":True,
