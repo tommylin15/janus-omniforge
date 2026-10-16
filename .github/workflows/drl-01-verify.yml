@@ -31,5 +31,6 @@ jobs:
             tests/test_feature_readiness_repair.py \
             tests/test_market_volume_source.py \
             tests/test_full_market_sources.py \
+            tests/test_data_supplement.py \
             tests/test_financial_publication.py \
             tests/test_duckdb_iceberg.py
