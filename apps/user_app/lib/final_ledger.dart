@@ -548,11 +548,15 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     final formalAssets = assets['asset_status'] == 'available';
     final referenceAssets = !formalAssets &&
         assets['reference_asset_status'] == 'available';
+    final partialAssets = !formalAssets && !referenceAssets &&
+        assets['reference_partial_asset_status'] == 'partial';
     final totalText = formalAssets
         ? assetWan(assets['total_asset_value'])
         : referenceAssets
             ? assetWan(assets['reference_total_asset_value'])
-            : '待完整估值';
+            : partialAssets
+                ? assetWan(assets['reference_partial_asset_value'])
+                : '待完整估值';
     return Card(
       key: const Key('ledger-total-assets'),
       margin: const EdgeInsets.only(bottom: 10),
@@ -574,7 +578,8 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
             const SizedBox(width: 8),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(referenceAssets ? '現金＋參考市值' : '現金＋持股市值',
+                Text(partialAssets ? '現金＋已計價部分'
+                    : referenceAssets ? '現金＋參考市值' : '現金＋持股市值',
                   style: const TextStyle(color: fvMuted, fontSize: 11)),
                 Text(totalText, maxLines: 1, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: fvInk, fontSize: 20,
@@ -582,9 +587,11 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
               ])),
           ]),
           const SizedBox(height: 5),
-          Text(referenceAssets
-              ? '萬元／小數一位 · 參考估值非正式結算 ·「我的」可修改現金'
-              : '萬元／小數一位 · 可至「我的 → 現金部位」修改',
+          Text(partialAssets
+              ? '僅含已取得報價的持股，未計價部分不包含在內'
+              : referenceAssets
+                  ? '萬元／小數一位 · 參考估值非正式結算 ·「我的」可修改現金'
+                  : '萬元／小數一位 · 可至「我的 → 現金部位」修改',
             maxLines: 2, overflow: TextOverflow.ellipsis,
             style: const TextStyle(color: fvMuted, fontSize: 10)),
         ]),
@@ -603,6 +610,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
     required Map<String, dynamic> aggregate,
     required bool withheld,
     required bool usingReference,
+    required bool usingPartial,
   }) => Card(
     margin: const EdgeInsets.only(bottom: 10),
     elevation: 0,
@@ -620,7 +628,8 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       Row(children: [
         const Icon(Icons.account_balance_wallet_outlined, color: fvTeal, size: 22),
         const SizedBox(width: 9),
-        Expanded(child: Text(usingReference ? '持股參考市值' : '持股市值',
+        Expanded(child: Text(usingPartial ? '持股已計價小計'
+            : usingReference ? '持股參考市值' : '持股市值',
           style: const TextStyle(color: fvInk, fontSize: 17, fontWeight: FontWeight.w800))),
         fvStatusPill(withheld ? 'partial' :
           aggregate['valuation_status'] ?? aggregate['aggregate_status'] ?? 'partial'),
@@ -629,7 +638,7 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       Text(marketValue,
         key: const Key('ledger-market-value-hero'),
         maxLines: 2, overflow: TextOverflow.ellipsis,
-        style: TextStyle(color: withheld && !usingReference ? fvMuted : fvInk,
+        style: TextStyle(color: withheld && !usingReference && !usingPartial ? fvMuted : fvInk,
           fontSize: 30, fontWeight: FontWeight.w900, height: 1.17)),
       const SizedBox(height: 8),
       // Only one Hero. Secondary totals stay visually subordinate and share
@@ -638,9 +647,10 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       LayoutBuilder(builder: (context, constraints) {
         final narrow = constraints.maxWidth < 420;
         final fields = <Widget>[
-          _compactMetric(usingReference ? '參考未實現損益' : '未實現損益', unrealized,
+          _compactMetric(usingPartial ? '已計價損益小計'
+              : usingReference ? '參考未實現損益' : '未實現損益', unrealized,
             note: '報酬 $unrealizedReturn',
-            color: withheld && !usingReference ? fvMuted : fvSignedColor(unrealizedAmount)),
+            color: withheld && !usingReference && !usingPartial ? fvMuted : fvSignedColor(unrealizedAmount)),
           _compactMetric('本年已實現損益', ytd,
             note: ytd == '待更新／尚未確認' ? '等候損益批次'
                 : ytd == '資料不足' ? '年度損益目前無法確認'
@@ -662,13 +672,15 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
         const Icon(Icons.update, color: fvMuted, size: 15),
         const SizedBox(width: 5),
         Expanded(child: Text(
-          usingReference
-              ? '參考報價日 ${fvRows(aggregate['reference_price_dates']).join('／')} · 非正式收盤總額'
-              : '估值日 ${fvText(aggregate['valuation_date'])} · '
+          usingPartial
+              ? '已計價 ${fvText(aggregate['reference_priced_symbol_count'])}/${fvText(aggregate['reference_total_symbol_count'])} 檔 · 其餘未包含'
+              : usingReference
+                  ? '參考報價日 ${fvRows(aggregate['reference_price_dates']).join('／')} · 非正式收盤總額'
+                  : '估值日 ${fvText(aggregate['valuation_date'])} · '
                 '狀態 ${withheld ? '完整總額暫不發布' : legacy.uiLabel(aggregate['valuation_status'] ?? aggregate['aggregate_status'] ?? 'partial')}',
           style: const TextStyle(color: fvMuted, fontSize: 11))),
       ]),
-      if (withheld && !usingReference && aggregate['priced_symbol_count'] != null)
+      if (withheld && !usingReference && !usingPartial && aggregate['priced_symbol_count'] != null)
         Text(
           '已計價小計 ${fvText(aggregate['currency'])} '
           '${legacy.accountingNumber(aggregate['priced_market_value'])} '
@@ -1283,9 +1295,14 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
               final usingReference = withheld &&
                   aggregate['reference_status'] == 'available' &&
                   aggregate['reference_market_value'] != null;
+              final usingPartial = withheld && !usingReference &&
+                  (fvNumber(aggregate['reference_priced_symbol_count']) ?? 0) > 0 &&
+                  aggregate['reference_priced_market_value'] != null;
               final currency = fvText(aggregate['currency'], missing: 'TWD');
               final marketValue = usingReference
                   ? '$currency ${legacy.accountingNumber(aggregate['reference_market_value'])}'
+                  : usingPartial
+                      ? '$currency ${legacy.accountingNumber(aggregate['reference_priced_market_value'])}'
                   : withheld
                       ? '總額暫不發布'
                   : aggregate.isEmpty
@@ -1295,6 +1312,8 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                       : '$currency ${legacy.accountingNumber(aggregate['market_value'], missing: '資料不足')}';
               final unrealized = usingReference
                   ? '$currency ${legacy.accountingNumber(aggregate['reference_unrealized_pnl'])}'
+                  : usingPartial
+                      ? '$currency ${legacy.accountingNumber(aggregate['reference_priced_unrealized_pnl'])}'
                   : withheld
                       ? '總額暫不發布'
                   : aggregate.isEmpty
@@ -1304,6 +1323,8 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                       : '$currency ${legacy.accountingNumber(aggregate['unrealized_pnl'], missing: '資料不足')}';
               final unrealizedReturn = usingReference
                   ? legacy.portfolioReturnLabel(aggregate['reference_unrealized_return'])
+                  : usingPartial
+                      ? legacy.portfolioReturnLabel(aggregate['reference_priced_unrealized_return'])
                   : withheld
                       ? '總額暫不發布'
                   : aggregate.isEmpty
@@ -1361,14 +1382,17 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                     ytd: ytd,
                     unrealizedAmount: usingReference
                         ? aggregate['reference_unrealized_pnl']
+                        : usingPartial ? aggregate['reference_priced_unrealized_pnl']
                         : aggregate['unrealized_pnl'],
                     unrealizedReturnAmount: usingReference
                         ? aggregate['reference_unrealized_return']
+                        : usingPartial ? aggregate['reference_priced_unrealized_return']
                         : aggregate['unrealized_return'],
                     ytdAmount: ytdAmount,
                     aggregate: aggregate,
                     withheld: withheld,
                     usingReference: usingReference,
+                    usingPartial: usingPartial,
                   ),
                   // Recalculation is an explicit Owner action, even when annual totals are ready.
                   // Do not hide the only manual recovery path behind YTD missingness.
@@ -1417,9 +1441,11 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
                         const Icon(Icons.info_outline, size: 15, color: fvMuted),
                         const SizedBox(width: 5),
                         Expanded(child: Text(
-                          usingReference
-                            ? '以下為最近有效報價估算，正式結算待同步。'
-                            : '正式總額待補齊 · ${affected.length} 檔需確認報價。',
+                          usingPartial
+                            ? '目前顯示已計價部分，缺價持股不包含於小計。'
+                            : usingReference
+                                ? '以下為最近有效報價估算，正式結算待同步。'
+                                : '暫無合格報價 · ${affected.length} 檔需確認。',
                           maxLines: 2, overflow: TextOverflow.ellipsis,
                           style: const TextStyle(color: fvMuted, fontSize: 11),
                         )),
