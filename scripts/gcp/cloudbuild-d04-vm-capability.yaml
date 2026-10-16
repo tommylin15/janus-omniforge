@@ -9,7 +9,7 @@ steps:
         set -o pipefail
         principal="$(gcloud auth list --filter='status:ACTIVE' --format='value(account)' | head -n 1)"
         case "$principal" in
-          *@*.iam.gserviceaccount.com) ;;
+          *@*.iam.gserviceaccount.com|*@developer.gserviceaccount.com|*@cloudbuild.gserviceaccount.com) ;;
           *) echo 'D04_BUILD_IDENTITY_NOT_SERVICE_ACCOUNT'; exit 1 ;;
         esac
         echo 'D04_EXISTING_BUILD_IDENTITY=SERVICE_ACCOUNT'
