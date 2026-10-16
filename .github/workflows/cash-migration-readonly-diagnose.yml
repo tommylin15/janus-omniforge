@@ -64,8 +64,16 @@ jobs:
                     'role_denied':'not permitted',
                     'python_traceback':'Traceback (most recent call last)'}
           tags=set()
+          permission_objects=set()
+          permission_types=set()
           for entry in logs or []:
               payload=entry.get('textPayload') or json.dumps(entry.get('jsonPayload') or {})
+              for m in re.finditer(r'permission denied for (schema|table|relation|sequence) ([a-z_]{1,80})', payload, flags=re.I):
+                  permission_types.add(m.group(1).lower())
+                  # Whitelist only fixed schema identifiers, never raw log strings.
+                  if m.group(2).lower() in ('private','users','cash_balance_snapshots','schema_migrations',
+                                           'ledger_events','change_log','mutation_keys'):
+                      permission_objects.add(m.group(2).lower())
               for label in allowed:
                   if label in payload:types.add(label)
               for name,phrase in keywords.items():
@@ -80,5 +88,7 @@ jobs:
              'logs_available':isinstance(logs,list),'log_count':len(logs) if isinstance(logs,list) else None,
              'exception_classes':sorted(types),'diagnostic_tags':sorted(tags),
              'sqlstates':sorted(sqlstate),'stage_terms':sorted(stages),
+             'permission_object_types':sorted(permission_types),
+             'permission_objects':sorted(permission_objects),
              'writes':0},sort_keys=True))
           PY
