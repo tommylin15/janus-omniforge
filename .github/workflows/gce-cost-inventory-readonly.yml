@@ -91,6 +91,20 @@ jobs:
                                        "items": [reduced(kind, x) for x in data]}
               except (ValueError, subprocess.TimeoutExpired) as e:
                   results[kind] = {"state": type(e).__name__, "count": None}
+          # Disambiguate an empty list from a missing/hidden expected DB VM.
+          p = subprocess.run(
+              ["gcloud", "compute", "instances", "describe", expected_vm,
+               "--project="+project, "--zone=us-central1-a", "--format=json", "--quiet"],
+              capture_output=True, text=True, timeout=65)
+          if p.returncode == 0:
+              d = json.loads(p.stdout)
+              db_describe = {"state": "READ_OK", "item": reduced("instances", d)}
+          else:
+              e = p.stderr.lower()
+              db_describe = {"state": ("PERMISSION_DENIED" if "permission" in e or "403" in e
+                                      else "NOT_FOUND" if "not found" in e or "404" in e
+                                      else "API_ERROR")}
+          print("DB_VM_DIRECT_DESCRIBE="+json.dumps(db_describe, sort_keys=True))
           vm = results["instances"]
           if vm["state"] == "READ_OK":
               others = [x for x in vm["items"] if x["name"] != expected_vm]
