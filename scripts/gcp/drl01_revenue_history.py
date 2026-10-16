@@ -70,9 +70,10 @@ try:
                     received,None,received,"sha256:"+sha256(raw).hexdigest(),
                     False,quality_details={"request_identity":{
                         "market":req["market"],"month":period,"category":category}})
+                stage_execution=str(uuid4())
                 entry=writer.write_raw(payload=raw,media_type="text/html",extension="html",
-                    execution_id=str(uuid4()),provenance=provenance,execution_scoped=True)
-                staged.append(entry)
+                    execution_id=stage_execution,provenance=provenance,execution_scoped=True)
+                staged.append((stage_execution,entry))
                 for cells in table.entries:
                     if len(cells)!=11:continue
                     symbol=cells[0].strip()
@@ -107,8 +108,8 @@ try:
         commit=core.write(dataset_id="financials",rows=list(rows.values()),
             execution_id=execution,provenance_id=next(iter(rows.values()))["provenance_id"],
             source_id="mops",partition_date=date.today())
-        for entry in staged:
-            writer.mark_core_committed(entry.execution_id,stage_results=[entry]) if hasattr(entry,"execution_id") else None
+        for stage_execution,entry in staged:
+            writer.mark_core_committed(stage_execution,stage_results=[entry])
         table=core.catalog.load_table(core.table_identifier("financials"))
         snapshot=table.current_snapshot()
         observed=table.scan(snapshot_id=snapshot.snapshot_id,
