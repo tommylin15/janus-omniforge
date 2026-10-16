@@ -2093,6 +2093,7 @@ class ProfilePage extends StatelessWidget {
             title: Text(email),
             subtitle: const Text('Google 帳號')),
         PortfolioDashboard(api),
+        CashPositionCard(api),
         BrokerProfileCard(api),
         const Divider(),
         const ListTile(title: Text('外觀')),
@@ -2136,6 +2137,121 @@ class ProfilePage extends StatelessWidget {
       ]);
 }
 
+class CashPositionCard extends StatefulWidget {
+  const CashPositionCard(this.api, {super.key});
+  final Api api;
+
+  @override
+  State<CashPositionCard> createState() => _CashPositionCardState();
+}
+
+class _CashPositionCardState extends State<CashPositionCard> {
+  late Future<dynamic> position = widget.api.get('/api/v1/me/cash-position');
+
+  @override
+  void didUpdateWidget(CashPositionCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.api != oldWidget.api) {
+      position = widget.api.get('/api/v1/me/cash-position');
+    }
+  }
+
+  Future<void> edit(Map row) async {
+    final input = TextEditingController(text: '${row['cash_balance'] ?? ''}');
+    var saving = false;
+    String? error;
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, update) => AlertDialog(
+            title: const Text('調整目前現金部位'),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Text('輸入調整後的實際現金金額（新臺幣元）。存款、提款或資金移轉可直接覆寫；之後股票買賣會自動增減。'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: input,
+                autofocus: true,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: '目前現金（元）', prefixText: 'NT$ '),
+              ),
+              if (error != null) Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(error!, style: TextStyle(
+                  color: Theme.of(dialogContext).colorScheme.error))),
+            ]),
+            actions: [
+              TextButton(onPressed: saving ? null
+                : () => Navigator.pop(dialogContext),
+                child: const Text('取消')),
+              FilledButton(
+                onPressed: saving ? null : () async {
+                  final amount = num.tryParse(input.text.trim().replaceAll(',', ''));
+                  if (amount == null || !amount.isFinite || amount < 0) {
+                    update(() => error = '請輸入有效的現金金額');
+                    return;
+                  }
+                  update(() { saving = true; error = null; });
+                  try {
+                    await widget.api.put('/api/v1/me/cash-position', {
+                      'amount': input.text.trim().replaceAll(',', ''),
+                      'expected_version': row['cash_version'] ?? 0,
+                    });
+                    if (dialogContext.mounted) Navigator.pop(dialogContext);
+                  } catch (_) {
+                    if (dialogContext.mounted) {
+                      update(() {
+                        saving = false;
+                        error = '儲存結果未確認，請重新載入現金餘額後再操作';
+                      });
+                    }
+                  }
+                },
+                child: Text(saving ? '儲存中…' : '儲存餘額'),
+              ),
+            ],
+          ),
+        ),
+      );
+    } finally {
+      input.dispose();
+    }
+    if (mounted) {
+      setState(() { position = widget.api.get('/api/v1/me/cash-position'); });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<dynamic>(
+    future: position,
+    builder: (context, snapshot) {
+      if (!snapshot.hasData) {
+        return ListTile(title: Text(snapshot.hasError
+          ? '現金池暫時無法讀取' : '載入現金部位…'),
+          trailing: IconButton(icon: const Icon(Icons.refresh),
+            onPressed: () => setState(() {
+              position = widget.api.get('/api/v1/me/cash-position');
+            })));
+      }
+      final row = snapshot.data as Map;
+      return Card(child: ListTile(
+        key: const Key('cash-position-setting'),
+        leading: const Icon(Icons.account_balance_wallet_outlined),
+        title: const Text('現金部位'),
+        subtitle: Text(row['cash_status'] == 'available'
+          ? 'NT$ ${accountingNumber(row['cash_balance'])} · 交易後自動增減'
+          : '尚未設定 · 可隨時輸入目前餘額'),
+        trailing: IconButton(
+          tooltip: '修改現金部位',
+          icon: const Icon(Icons.edit_outlined),
+          onPressed: () => edit(row),
+        ),
+      ));
+    },
+  );
+}
+
 class BrokerProfileCard extends StatefulWidget {
   const BrokerProfileCard(this.api,
       {this.endpoint = '/api/v1/me/broker-profile', super.key});
@@ -2168,14 +2284,14 @@ class _BrokerProfileCardState extends State<BrokerProfileCard> {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, update) => AlertDialog(
-          title: const Text('券商與現金設定'),
+          title: const Text('券商與舊申報現金設定'),
           content: SizedBox(
             width: 320,
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('現金為自行申報的 TWD 快照，不代表正式現金餘額；設定不會改寫既有交易費用。'),
+                  const Text('此處是舊版券商申報快照，不會跟隨交易。實際可用現金請使用上方「現金部位」；修改費稅設定不會改寫既有交易。'),
                   TextFormField(
                     initialValue: discount,
                     onChanged: (value) => discount = value,
