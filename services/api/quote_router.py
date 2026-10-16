@@ -69,7 +69,11 @@ class QuoteRouter:
             live_row = dict(live.get(symbol) or {})
             eod_row = dict(eod.get(symbol) or {})
             live_day, eod_day = _day(live_row), _day(eod_row)
-            if eod_row and (not live_row or (eod_day is not None and (live_day is None or eod_day >= live_day))):
+            # A future-dated or undated serving row cannot outrank a real
+            # observation, and must never be labelled as today's final close.
+            if (eod_row and eod_day is not None and
+                    eod_day <= now.astimezone(TAIPEI).date() and
+                    (not live_row or live_day is None or eod_day >= live_day)):
                 result[symbol] = {
                     **eod_row,
                     "source": "core_ohlcv",
