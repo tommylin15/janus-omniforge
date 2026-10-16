@@ -6,10 +6,10 @@
 
 此程序修補全市場過去僅約5股具13月營收深度的缺口；沿用MOPS同一官方來源、現有Stage/Iceberg及dev Cloud Run Job，不啟用新API／Scheduler／付費供應商，不動Owner帳本。程式 `scripts/gcp/drl01_revenue_history.py`、版本化請求 `ops/drl-01-revenue-history-request.json`、workflow `.github/workflows/drl-01-revenue-history.yml`。
 
-1. 只改現有請求的 `months` 為**不超過兩個遞增月份**（2025-08～2026-09），`market=TWSE`、`approved=true`及各安全旗標保持原樣；每次變更 `request_version` 並 commit main。**不能因程式可支援TWSE就把TPEX直接輸入；上櫃需另行適配官方來源並測試。**
+1. 只改現有請求的 `months` 為**不超過兩個遞增月份**（2025-08～2026-09），`market=TWSE`或經核准的`TPEX`、`approved=true`及各安全旗標保持原樣；每次變更 `request_version` 並 commit main。**TPEX `/nas/t21/otc/` 路徑已有相同來源適配程式與測試，但尚未真實 canary，必須先用單月正式Core讀回才可擴到更多月份；TWSE合格證據不能推定TPEX已通過。**
 2. 專用workflow與其它writer共用 `janus-dev-runtime-writers`；前一Writer必須已終態後才持續遞交多批請求。GitHub同群只有一個pending位置，過早送下一個會使先前pending取消；取消的工作不可算PASS。
 3. 工作流程核准原始HTML archive、ROC年月及千元單位、驗證官方symbol/name／數值，Stage不可變raw及真實receipt後才批次Core寫入 `monthly_revenue`（`TWD_thousands`）。歷史公布時間unknown不得用抓取時間假冒原始官方公告。同值重跑應reuse，按月份的snapshot獨立讀回。
-4. 每月收據看 `source_valid_rows`／`after_covered`／`inserted`／`reused`／`quarantine_counts`／`snapshot_id`；上市≥90%判PASS，其餘標PARTIAL或ERROR並追原因，不以GitHub步驟成功取代Core讀回。要真正做YoY，仍需每檔**13個連續應到月份**、分市場覆蓋及算式讀回；本項優先求有效資料，不造未知月／缺值。
+4. 每月收據看 `source_valid_rows`／`after_covered`／`inserted`／`reused`／`quarantine_counts`／`snapshot_id`；上市≥90%、上櫃≥70%分別判PASS，其餘標PARTIAL或ERROR並追原因，不以GitHub步驟成功取代Core讀回。要真正做YoY，仍需每檔**13個連續應到月份**、分市場覆蓋及算式讀回；本項優先求有效資料，不造未知月／缺值。
 5. 流程回歸：`tests/test_drl01_revenue_history.py`、`tests/test_feature_readiness_repair.py`與現有官方資料測試。全部月份確認後才算DRL-01B完整覆蓋；定期Data Readiness Ledger需要新版Jobs發布及Admin實機讀回，與此一次性修復不同。
 
 ## 首次回補
