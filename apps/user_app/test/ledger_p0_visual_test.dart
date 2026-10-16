@@ -183,6 +183,52 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('One genuinely unpriced holding still shows known value and coverage first',
+      (tester) async {
+    _phone(tester);
+    final snapshot = _snapshot();
+    snapshot['positions'] = <Map<String, dynamic>>[
+      for (final item in snapshot['positions'] as List)
+        Map<String, dynamic>.from(item as Map),
+      {
+        'symbol': '1513', 'stock_name': '中興電', 'currency': 'TWD',
+        'shares': '4000', 'average_cost': '166', 'market_price': null,
+        'unrealized_pnl': null, 'reference_eligible': false,
+        'price_status': 'missing',
+      },
+    ];
+    snapshot['items'] = <Map<String, dynamic>>[{
+      'currency': 'TWD', 'ledger_version': 357,
+      'aggregate_status': 'withheld', 'valuation_status': 'partial',
+      'affected_symbols': const ['1513'],
+      'reference_status': 'incomplete',
+      'reference_priced_symbol_count': 1,
+      'reference_total_symbol_count': 2,
+      'reference_unpriced_symbols': const ['1513'],
+      'reference_priced_market_value': '933600',
+      'reference_priced_unrealized_pnl': '-1200',
+      'reference_priced_unrealized_return': '-0.00128',
+    }];
+    snapshot['cash'] = {'cash_status': 'available', 'cash_balance': '1811000'};
+    snapshot['asset_status'] = 'incomplete_prices';
+    snapshot['reference_partial_asset_status'] = 'partial';
+    snapshot['reference_partial_asset_value'] = '2744600';
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: FinalLedgerPage(
+      HoldingsP0Api(snapshot), active: false,
+      now: () => DateTime.utc(2026, 10, 16, 5, 12)))));
+    await tester.pumpAndSettle();
+    expect(find.text('持股已計價小計'), findsOneWidget);
+    expect(find.text('TWD 933,600'), findsOneWidget);
+    expect(find.text('現金＋已計價部分'), findsOneWidget);
+    expect(find.text('274.5 萬元'), findsOneWidget);
+    expect(find.textContaining('已計價 1/2 檔'), findsOneWidget);
+    expect(find.text('總額暫不發布'), findsNothing);
+    await tester.scrollUntilVisible(find.byKey(const Key('holding-pnl-1513')),
+        160, scrollable: find.byType(Scrollable).first);
+    expect(find.text('待估值'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('No priced portfolio total displays missing rather than fabricating assets',
       (tester) async {
     _phone(tester);
