@@ -88,10 +88,10 @@ void main() {
     final daily = find.byKey(const Key('holding-day-amount-00719B'));
     await tester.scrollUntilVisible(daily, 180, scrollable: find.byType(Scrollable).first);
     expect(pnl, findsOneWidget);
-    expect(find.text('持有未實現總損益'), findsOneWidget);
-    expect(find.text('當日持股價格變動'), findsOneWidget);
-    expect(tester.getTopLeft(pnl).dy, lessThan(tester.getTopLeft(daily).dy));
-    expect(find.text('持有 30,000 股'), findsOneWidget);
+    expect(find.text('總損益'), findsOneWidget);
+    expect(find.text('當日損益'), findsOneWidget);
+    expect(tester.getTopLeft(pnl).dx, greaterThan(tester.getTopLeft(daily).dx));
+    expect(find.text('00719B · 30,000 股'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -162,9 +162,9 @@ void main() {
     expect(find.text('總額暫不發布'), findsWidgets);
     await tester.scrollUntilVisible(find.byKey(const Key('holding-pnl-00719B')),
       180, scrollable: find.byType(Scrollable).first);
-    expect(find.text('持有 30,000 股'), findsOneWidget);
-    expect(find.text('持有均價 31.16'), findsOneWidget);
-    expect(find.text('待取得行情'), findsOneWidget);
+    expect(find.text('00719B · 30,000 股'), findsOneWidget);
+    expect(find.text('成本 31.16'), findsOneWidget);
+    expect(find.text('待估值'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
