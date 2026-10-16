@@ -2,6 +2,18 @@
 
 更新：2026-10-16（Asia/Taipei）。**使用者已授權 D01～D05 快速完成、包含 D04 繞路或必要的最小 IAM；這取代先前「僅 API 100% 切流、其他 P1 暫停」的限制。** 歷史 PASS 只限當次 SHA／環境／scope；下方舊「未切流／尚未真人驗收」段落保留當時 checkpoint，不能倒蓋最新結果。
 
+### DRL-01 優先工程 checkpoint（2026-10-16）
+
+使用者最新指令為「先優先完成 DRL-01」，已解除先前DRL的暫停；D01～D05原授權與PASS收據保留，未自動視為完成。以下是實際已發生的dev資料結果，**整體 DRL-01 PARTIAL**：
+
+- **OHLCV**：TPEX 2026-10-02 [#38893470772](https://github.com/tommylin15/janus-omniforge/actions/runs/38893470772) 867/896；10-05 870/896、10-06 864/896 [#38908586463](https://github.com/tommylin15/janus-omniforge/actions/runs/38908586463)，三天官方Stage→Core獨立日期readback PASS。此為單日涵蓋率，**不是**全市場20/21有效交易日、持股／關注120日或研究歷史母體PASS。
+- **MOPS monthly**：既有Core financials 3947筆缺fiscal_month安全修復並readback，missing 3947→0、total rows 60846未變，[#38893774756](https://github.com/tommylin15/janus-omniforge/actions/runs/38893774756) PASS。13月連續完整性及實際YoY尚待驗證。
+- **EPS**：既有2382官方財報history Job [#38894262708](https://github.com/tommylin15/janus-omniforge/actions/runs/38894262708) SUCCESS，核心可比較季度讀回NOT_VERIFIED。已commit修正EPS不得以YTD每股盈餘直接相減作單季；真正單季缺值顯明確missing，並限制月營收圖只用本月觀測、不混上月對照。
+- **Ledger實作**：使用既有Data Supplement每日及Data Quality週六批次，新增有界Core快照與官方市場分母／21日／120日／13月／4季聚合，寫至既有Admin setting；不新增Scheduler或付費服務。相關targeted [#38909327565](https://github.com/tommylin15/janus-omniforge/actions/runs/38909327565) PASS。尚未新SHA GHCR Jobs真實部署、controller自然觸發／Admin讀回，故 **IMPLEMENTED/CI_PASS，RUNTIME_NOT_VERIFIED**。
+- **五年估值河流**：仍依持股／關注定向補資料，五年跨度與合法分位未驗，短期合法PE/PB不阻塞。
+
+本輪曾執行一次新的有界上櫃回補，**未操作Owner交易／現金、未擴IAM、未新增來源、未切正式API traffic**。程式碼與文件commit不是dev正式部署證據。
+
 ### D01～D05 最新工程 checkpoint（2026-10-16）
 
 | 工作包 | 已取得的直接證據 | 尚缺的獨立驗收 |
