@@ -718,6 +718,88 @@ class PostgresWorkspaceRepository:
                     chunk)
         return len(items)
 
+    @staticmethod
+    def _cash_position_in_tx(connection: Any, user_id: UUID) -> dict[str, Any]:
+        """Reconcile manual cash to subsequent immutable ledger entries only.
+
+        A revision saves an absolute balance, not another flow. BUY/SELL,
+        CASH_DIV and REVERSAL use the *persisted* broker fee/tax values. This
+        is operational cash, independent of delayed Private Mart publication.
+        """
+        checkpoint = connection.execute(
+            """SELECT version, amount, anchor_ledger_version, updated_at
+               FROM private.cash_balance_snapshots WHERE user_id=%s
+               ORDER BY version DESC LIMIT 1""", (user_id,)
+        ).fetchone()
+        if not checkpoint:
+            return {'cash_status': 'not_configured', 'cash_balance': None,
+                    'cash_version': 0, 'currency': 'TWD',
+                    'anchor_ledger_version': None, 'current_ledger_version': None}
+        row = connection.execute(
+            """SELECT COALESCE(MAX(ledger_version),0) AS current_ledger_version,
+                      COALESCE(SUM(
+                        (CASE WHEN event_action='REVERSAL' THEN -1 ELSE 1 END) *
+                        (CASE event_type
+                          WHEN 'BUY' THEN -(shares * price + COALESCE(fee,0) + COALESCE(tax,0))
+                          WHEN 'SELL' THEN shares * price - COALESCE(fee,0) - COALESCE(tax,0)
+                          WHEN 'CASH_DIV' THEN cash_amount - COALESCE(fee,0) - COALESCE(tax,0)
+                          ELSE 0 END)
+                      ) FILTER (WHERE ledger_version > %s),0) AS delta
+               FROM private.ledger_events WHERE user_id=%s AND currency='TWD'""",
+            (checkpoint['anchor_ledger_version'], user_id),
+        ).fetchone()
+        balance = checkpoint['amount'] + row['delta']
+        return {'cash_status': 'available', 'cash_balance': balance,
+                'cash_version': checkpoint['version'], 'currency': 'TWD',
+                'anchor_ledger_version': checkpoint['anchor_ledger_version'],
+                'current_ledger_version': row['current_ledger_version'],
+                'updated_at': checkpoint['updated_at']}
+
+    def cash_position(self, user_id: UUID) -> dict[str, Any]:
+        with self._connection() as connection:
+            connection.execute('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY')
+            return self._cash_position_in_tx(connection, user_id)
+
+    def set_cash_position(self, user_id: UUID, value, key: str) -> dict[str, Any]:
+        """Owner can re-anchor to any nonnegative cash amount at any time.
+
+        Shared ledger advisory lock excludes concurrent trade append/correction;
+        unique owner/idempotency key prevents accidental duplicate resets.
+        """
+        with self._connection() as connection:
+            connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"ledger:{user_id}",))
+            current = connection.execute(
+                "SELECT user_id FROM private.users WHERE user_id=%s FOR UPDATE",
+                (user_id,),
+            ).fetchone()
+            if not current:
+                raise NotFoundError('private user not found')
+            replay = connection.execute(
+                """SELECT * FROM private.cash_balance_snapshots
+                   WHERE user_id=%s AND idempotency_key=%s""", (user_id, key),
+            ).fetchone()
+            if replay:
+                if replay['amount'] != value.amount or replay['version'] != value.expected_version + 1:
+                    raise ConflictError('現金設定冪等鍵已用於不同內容')
+                return self._cash_position_in_tx(connection, user_id)
+            prior = connection.execute(
+                """SELECT COALESCE(MAX(version),0) AS version
+                   FROM private.cash_balance_snapshots WHERE user_id=%s""", (user_id,),
+            ).fetchone()
+            if prior['version'] != value.expected_version:
+                raise ConflictError('現金設定已在其他裝置修改，請重新載入')
+            anchor = connection.execute(
+                "SELECT COALESCE(MAX(ledger_version),0) AS version FROM private.ledger_events WHERE user_id=%s",
+                (user_id,),
+            ).fetchone()['version']
+            connection.execute(
+                """INSERT INTO private.cash_balance_snapshots
+                   (user_id,version,amount,anchor_ledger_version,idempotency_key)
+                   VALUES(%s,%s,%s,%s,%s)""",
+                (user_id, value.expected_version + 1, value.amount, anchor, key),
+            )
+            return self._cash_position_in_tx(connection, user_id)
+
     def broker_profile(self, user_id: UUID) -> dict[str, Any]:
         with self._connection() as connection:
             row = connection.execute("""SELECT * FROM private.broker_profile_revisions
