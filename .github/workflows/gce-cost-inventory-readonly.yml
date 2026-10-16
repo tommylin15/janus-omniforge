@@ -106,13 +106,17 @@ jobs:
                                       else "API_ERROR")}
           print("DB_VM_DIRECT_DESCRIBE="+json.dumps(db_describe, sort_keys=True))
           vm = results["instances"]
-          if vm["state"] == "READ_OK":
+          # A successful empty list is NOT authoritative if direct read is denied.
+          if vm["state"] == "READ_OK" and db_describe["state"] == "READ_OK":
               others = [x for x in vm["items"] if x["name"] != expected_vm]
               print("EXTRA_VM_COUNT="+str(len(others)))
               print("DB_VM_PRESENT="+str(any(x["name"] == expected_vm for x in vm["items"])))
           else:
-              print("EXTRA_VM_COUNT=UNKNOWN_PERMISSION_OR_API")
+              print("EXTRA_VM_COUNT=UNKNOWN_UNVERIFIED_DB_VISIBILITY")
+              print("DB_VM_PRESENT=UNKNOWN")
           failed = [k for k, v in results.items() if v["state"] != "READ_OK"]
+          if db_describe["state"] != "READ_OK":
+              failed.append("db_vm_direct_describe")
           print("INVENTORY_JSON="+json.dumps(results, ensure_ascii=False, sort_keys=True))
           print("INVENTORY_VERDICT="+("PARTIAL_UNVERIFIED" if failed else "CENSUSED"))
           print("UNVERIFIED_CATEGORIES="+",".join(failed))
