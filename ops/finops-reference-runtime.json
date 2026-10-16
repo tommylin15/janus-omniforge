@@ -2,14 +2,18 @@
   "intent": "read-only-d06-runtime-references",
   "no_data_mutation": true,
   "jobs": {
-    "janus-ingestion-core": {
-      "image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:b748d7e3c738ed38ecda866ad74a553dd3670f6eceff898ea8555adbcb7dc792",
-      "configuration_hash": "ebd88ff9aabca00b8f248473ea2b3f16a908be4a463333e3e1535a2c66ad8863"
-    },
     "janus-intelligence-mart": {
-      "image": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:a8d0a4223b0d28ef00aa44405163a861095964f811af94e1a5cc9e9843d3b32c",
+      "image": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:b7aeba3aacf58b4f9faa2ecbcd84c86fe8448b7fee7dd34f5dc9aa3e63ef515c",
       "configuration_hash": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42"
+    },
+    "janus-ingestion-core": {
+      "image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:f2eae5da8b588e317f2d074caa076fab4947ac40c77188e9943466d4d48183a9",
+      "configuration_hash": "ebd88ff9aabca00b8f248473ea2b3f16a908be4a463333e3e1535a2c66ad8863"
     }
   },
-  "baseline_readback_run": "38865854754"
+  "baseline_readback_run": "38868766956",
+  "expected_rollout_run": "38869308278",
+  "expected_source_sha": "cee2437b821c577dc244faf24d9515189796518c",
+  "attempt": 2,
+  "purpose": "After serialized reversible CEE rollout, read existing publication refs, verify live daily 23:30 policy, measure daily/six-hour outbox arrivals and audit compact/expiry/orphan dry-runs. No data writes. Core current/named/known references and seven-day objects remain protected; user separately approved deleting unlinked old small files after this inventory."
 }

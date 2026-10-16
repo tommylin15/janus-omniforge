@@ -5,6 +5,7 @@ on:
     paths: [ops/finops-reference-runtime.json]
 permissions:
   contents: read
+  actions: read
   id-token: write
 concurrency:
   group: janus-dev-runtime-writers
@@ -14,6 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: dev
     timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

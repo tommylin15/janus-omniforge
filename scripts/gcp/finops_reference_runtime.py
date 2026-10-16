@@ -32,18 +32,21 @@ with _control_plane() as control:
         refs=sorted({row[0] for row in rows if row[0]})
         daily=connection.execute("SELECT (created_at AT TIME ZONE 'Asia/Taipei')::date,count(*) FROM control.batch_event_outbox WHERE created_at>=now()-interval '14 days' GROUP BY 1 ORDER BY 1").fetchall()
         pending=connection.execute("SELECT count(*),min(created_at) FROM control.batch_event_outbox WHERE exported_at IS NULL").fetchone()
+        slots=connection.execute("SELECT date_bin(interval '24 hours',created_at,timestamptz '2000-01-01 15:30:00+00'),date_bin(interval '6 hours',created_at,timestamptz '2000-01-01 15:30:00+00'),count(*) FROM control.batch_event_outbox WHERE created_at>=date_bin(interval '24 hours',now(),timestamptz '2000-01-01 15:30:00+00')-interval '14 days' AND created_at<date_bin(interval '24 hours',now(),timestamptz '2000-01-01 15:30:00+00') GROUP BY 1,2 ORDER BY 1,2").fetchall()
 out={'source':'active_control_executions','status':'COMPLETE','rows_checked':len(rows),'core_snapshot_ids':refs,'data_writes':0,
      'deployed_audit_taipei_hours':policy_hours,
      'outbox_daily_events':[{'taipei_date':str(day),'events':count} for day,count in daily],
+     'outbox_six_hour_events':[{'day_start_utc':str(day),'slot_start_utc':str(slot),'events':count} for day,slot,count in slots],
      'pending_events':pending[0],'oldest_pending_at':str(pending[1]) if pending[1] else None,'export_capacity_per_daily_run':2000}
 from ingestion_core.stage import GcsObjectStore
-from ingestion_core.iceberg_maintenance import maintain_financials, _keep_snapshots, _references
+from ingestion_core.iceberg_maintenance import maintain_financials, compact_batch_events, _keep_snapshots, _references
 from ingestion_core.retention import clean_orphans
 core=_iceberg_core(os.environ['CORE_BUCKET'],read_only=True)
 started=time.monotonic()
 try:
     store=GcsObjectStore(os.environ['CORE_BUCKET'])
     identifier='ops.batch_events_v1'
+    out['audit_compaction_dry_run']=compact_batch_events(core=core,apply=False)
     plan=maintain_financials(core=core,store=store,apply=False,identifier=identifier)
     orphans=clean_orphans(core,store,identifier,apply=False,now=datetime.now(timezone.utc))
     table=core.catalog.load_table(identifier)
@@ -105,6 +108,25 @@ print('D06_REFERENCE_READBACK='+json.dumps(out,sort_keys=True),flush=True)
 CODES = {'janus-ingestion-core':CORE_CODE,'janus-intelligence-mart':MART_CODE}
 
 
+def batch_forecast(slots):
+    """Same event arrivals, 200 per batch, successful flushes and no retries."""
+    daily={}
+    old_batches=0
+    for row in slots:
+        count=row['events']
+        if type(count) is not int or count<0: raise ValueError('invalid_event_count')
+        daily[row['day_start_utc']]=daily.get(row['day_start_utc'],0)+count
+        old_batches+=(count+199)//200
+    new_batches=sum((count+199)//200 for count in daily.values())
+    return {'observed_days':len(daily),'events':sum(daily.values()),
+            'four_window_nonempty_batches':old_batches,'daily_nonempty_batches':new_batches,
+            'estimated_table_scans_avoided':2*(old_batches-new_batches),
+            'estimated_batch_reduction_percent':round((1-new_batches/old_batches)*100,3) if old_batches else None,
+            'max_observed_daily_events':max(daily.values(),default=0),
+            'days_reaching_2000_event_guard':sum(count>=2000 for count in daily.values()),
+            'matched_runtime_io_verified':False,'assumption':'same event arrivals; 200-event nonempty batches; successful flushes; no retries; two logical table scans per batch; not GCS request counts'}
+
+
 def override(job, code):
     container=job['template']['template']['containers'][0]
     command=container.get('command') or []
@@ -155,6 +177,8 @@ def probe(name, expected, state, save):
         found=[json.loads(e['textPayload'].split(PREFIX,1)[1]) for e in entries if PREFIX in e.get('textPayload','')]
         if len(found)==1:
             result=checked_result(found[0])
+            if 'outbox_six_hour_events' in result:
+                result['batch_forecast']=batch_forecast(result['outbox_six_hour_events'])
             r.checked_image(name,expected['image'],expected['configuration_hash'])
             return {'execution':execution_id,'result':result,'job_config_unchanged':True}
         time.sleep(5)
@@ -169,6 +193,11 @@ def main():
         if (not re.fullmatch(r'ghcr\.io/tommylin15/'+name+r'@sha256:[0-9a-f]{64}',expected.get('image',''))
                 or not re.fullmatch(r'[0-9a-f]{64}',expected.get('configuration_hash',''))):
             raise ValueError('immutable_reference_baseline_required')
+    if request.get('expected_rollout_run'):
+        run=json.loads(r.command(['gh','run','view',str(request['expected_rollout_run']),
+            '--json','status,conclusion,workflowName']))
+        if run!={'status':'completed','conclusion':'success','workflowName':'Janus GHCR controlled Jobs rollout'}:
+            raise ValueError('reference_rollout_not_successful')
     r.fence()
     output={'component':'d06-runtime-reference-census','mode':'read-only','deletion_fence_published':False,'results':[]}
     def save(): Path('d06-runtime-references.json').write_text(json.dumps(output,sort_keys=True))

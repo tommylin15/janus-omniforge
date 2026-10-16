@@ -42,3 +42,25 @@ def test_mutable_image_rejected_before_execution_fence(monkeypatch,tmp_path):
     monkeypatch.setattr(m,'REQUEST',request)
     monkeypatch.setattr(m.r,'fence',lambda:pytest.fail('invalid baseline must not touch runtime'))
     with pytest.raises(ValueError,match='immutable_reference_baseline_required'): m.main()
+
+
+def test_daily_batch_estimate_uses_event_volume_not_75_percent_assumption():
+    result=m.batch_forecast([{'day_start_utc':'day','events':225} for _ in range(4)])
+    assert result['four_window_nonempty_batches']==8
+    assert result['daily_nonempty_batches']==5
+    assert result['estimated_table_scans_avoided']==6
+    assert result['estimated_batch_reduction_percent']==37.5
+    assert result['matched_runtime_io_verified'] is False
+    assert m.batch_forecast([])['estimated_batch_reduction_percent'] is None
+    with pytest.raises(ValueError):m.batch_forecast([{'day_start_utc':'day','events':-1}])
+
+
+def test_failed_rollout_blocks_probe_before_dispatch(monkeypatch,tmp_path):
+    import json
+    request=tmp_path/'request.json'
+    request.write_text(json.dumps({'intent':'read-only-d06-runtime-references','no_data_mutation':True,
+        'expected_rollout_run':'123','jobs':{name:{'image':'ghcr.io/tommylin15/'+name+'@sha256:'+'a'*64,'configuration_hash':'b'*64} for name in m.CODES}}))
+    monkeypatch.setattr(m,'REQUEST',request)
+    monkeypatch.setattr(m.r,'command',lambda args:json.dumps({'status':'completed','conclusion':'failure','workflowName':'Janus GHCR controlled Jobs rollout'}))
+    monkeypatch.setattr(m.r,'fence',lambda:pytest.fail('failed rollout must not dispatch'))
+    with pytest.raises(ValueError,match='reference_rollout_not_successful'):m.main()
