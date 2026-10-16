@@ -29,16 +29,18 @@ jobs:
         run: |
           set -Eeuo pipefail
           jq -e '.intent=="bounded-existing-dev-recalc-queue-canary" and
-            .approved==true and .source_sha=="1e9c31d148db540ee06cac5ccccd8fac8d619511" and
+            .approved==true and .source_sha=="7acff50000644979af3815f00fbd7f1c167e1098" and
             .seeded_requests==1 and .worker_tasks==2 and
             .no_ledger_mutation==true and .derived_mart_may_refresh==true and
             .no_job_template_mutation==true and
             .official_identity_migration_run=="38652846263" and
             .owner_identity_reconciliation_run=="38653250200" and
-            .jobs_rollout_run=="38566821108"' ops/private-recalc-ghcr-canary-request.json >/dev/null
+            .jobs_rollout_run=="38821199561" and
+            .source_owner_eod_run=="38827827101" and .no_traffic_mutation==true' ops/private-recalc-ghcr-canary-request.json >/dev/null
           for record in '38652846263:Apply dev serving schema migration' \
                         '38653250200:Janus official TPEx ETF owner Mart reconciliation' \
-                        '38566821108:Janus GHCR controlled Jobs rollout'; do
+                        '38821199561:Janus GHCR controlled Jobs rollout' \
+                        '38827827101:Janus P1 exact 10-15 official Owner Mart repair'; do
             id="${record%%:*}"
             expected="${record#*:}"
             data="$(gh run view "$id" --json status,conclusion,workflowName)"
