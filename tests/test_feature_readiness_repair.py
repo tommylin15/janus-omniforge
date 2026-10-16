@@ -82,6 +82,6 @@ def test_eps_chart_displays_qualified_quarter_not_cumulative_ytd():
 
 
 def test_bad_eps_missing_provenance_or_units_never_promotes_to_chart():
-    rows = [_eps(2026, 1, "0.20", provenance_id="") if False else {**_eps(2026, 1, "0.20"), "provenance_id": ""}]
+    rows = [{**_eps(2026, 1, "0.20"), "provenance_id": ""}]
     assert _comparable_single_quarter_eps(rows) == []
     assert _comparable_single_quarter_eps([{**_eps(2026, 1, "0.20"), "unit": "TWD_thousands"}]) == []
