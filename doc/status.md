@@ -7,6 +7,8 @@
 使用者最新指令為「先優先完成 DRL-01」，已解除先前DRL的暫停；D01～D05原授權與PASS收據保留，未自動視為完成。以下是實際已發生的dev資料結果，**整體 DRL-01 PARTIAL**：
 
 - **OHLCV**：TPEX 2026-10-02 [#38893470772](https://github.com/tommylin15/janus-omniforge/actions/runs/38893470772) 867/896；10-05 870/896、10-06 864/896 [#38908586463](https://github.com/tommylin15/janus-omniforge/actions/runs/38908586463)，三天官方Stage→Core獨立日期readback PASS。此為單日涵蓋率，**不是**全市場20/21有效交易日、持股／關注120日或研究歷史母體PASS。
+- **全量Core唯讀更新**：[readiness census #38910500339](https://github.com/tommylin15/janus-omniforge/actions/runs/38910500339) PASS：上市1096、上櫃896 enabled；上市500檔≥20個價日，上櫃0檔≥20日，798檔≥9日。MOPS月營收已具月份4011筆，但13月只有5股；有EPS1970股，但≥4筆明確單季僅6股，2382的9個單季分散、不連續4季，整體DRL-01仍PARTIAL。
+- **工作流競態**：TPEX Oct13～15 [#38910768542](https://github.com/tommylin15/janus-omniforge/actions/runs/38910768542) 因同一GitHub deploy concurrency pending限制被取消，未標成功；等既有GHCR/EPS終態後再重新提交，不重啟其他併發Job。
 - **MOPS monthly**：既有Core financials 3947筆缺fiscal_month安全修復並readback，missing 3947→0、total rows 60846未變，[#38893774756](https://github.com/tommylin15/janus-omniforge/actions/runs/38893774756) PASS。13月連續完整性及實際YoY尚待驗證。
 - **EPS**：既有2382官方財報history Job [#38894262708](https://github.com/tommylin15/janus-omniforge/actions/runs/38894262708) SUCCESS，核心可比較季度讀回NOT_VERIFIED。已commit修正EPS不得以YTD每股盈餘直接相減作單季；真正單季缺值顯明確missing，並限制月營收圖只用本月觀測、不混上月對照。
 - **Ledger實作**：使用既有Data Supplement每日及Data Quality週六批次，新增有界Core快照與官方市場分母／21日／120日／13月／4季聚合，寫至既有Admin setting；不新增Scheduler或付費服務。相關targeted [#38909327565](https://github.com/tommylin15/janus-omniforge/actions/runs/38909327565) PASS。尚未新SHA GHCR Jobs真實部署、controller自然觸發／Admin讀回，故 **IMPLEMENTED/CI_PASS，RUNTIME_NOT_VERIFIED**。
