@@ -1,0 +1,77 @@
+name: Janus D01 exact failed 10-16 Owner lease recovery
+on:
+  push:
+    branches: [main]
+    paths: ['ops/d01-owner-eod-1016-lease-recovery.json']
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact failed ownership and immutable diagnostic
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="recover-exact-d01-1016-terminal-lease" and .approved==true and
+            .owner_run==38898393706 and .owner_sha=="07bd4105a925c7e1b6b73a3fcb1a4af6edaa7907" and
+            .execution=="janus-private-pipeline-m7xs5" and .no_job_run==true and
+            .no_ledger_mutation==true and .no_mart_mutation==true and .no_traffic_mutation==true' ops/d01-owner-eod-1016-lease-recovery.json >/dev/null
+          gh run view 38898393706 --json headSha,conclusion,status,workflowName |
+            jq -e '.headSha=="07bd4105a925c7e1b6b73a3fcb1a4af6edaa7907" and
+             .status=="completed" and .conclusion=="failure" and
+             .workflowName=="Janus D01 exact 10-16 official Owner Mart publication"' >/dev/null
+          gh run view 38899084368 --json conclusion,status,workflowName |
+            jq -e '.status=="completed" and .conclusion=="success" and
+             .workflowName=="Janus D01 10-16 failed operation readonly diagnosis"' >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Verify exact terminal failure, authorized provenance guard and all-page fence
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import json,sys,subprocess
+          sys.path.insert(0,'scripts/gcp')
+          import ghcr_jobs_rollout as r
+          name='janus-private-pipeline-m7xs5'
+          exe=r.cloud(r.ROOT+'/jobs/janus-private-pipeline/executions/'+name)
+          if not r.terminal(exe) or exe.get('failedCount')!=1 or exe.get('succeededCount'):
+              raise RuntimeError('exact_failed_execution_not_terminal')
+          proc=subprocess.run(['gcloud','logging','read',
+             'resource.type="cloud_run_job" AND timestamp>="2026-10-16T12:06:00Z" AND timestamp<="2026-10-16T12:14:00Z"',
+             '--project=gen-lang-client-0593591102','--limit=400','--format=json'],
+              capture_output=True,text=True,check=True,timeout=65)
+          entries=[]
+          for v in json.loads(proc.stdout):
+              labels=v.get('labels') or {}
+              res=(v.get('resource') or {}).get('labels') or {}
+              if labels.get('run.googleapis.com/execution_name')==name or res.get('execution_name')==name:
+                  entries.append(str(v.get('textPayload') or v.get('jsonPayload') or ''))
+          if not any('official_persisted_asof_provenance_invalid' in s for s in entries):
+              raise RuntimeError('expected_before_mart_guard_failure_not_confirmed')
+          r.fence()
+          if r.scheduler().get('state')!='ENABLED':
+              raise RuntimeError('scheduler_not_enabled')
+          print(json.dumps({'result':'PASS_TERMINAL_FAILED_NO_MART_WRITE','execution':name,'all_job_executions_terminal':True,'no_data_mutations':True},sort_keys=True))
+          PY
+      - name: Release only original failed run lease, never rerun failed owner Job
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py release --repo tommylin15/janus-omniforge --run-id 38898393706 --run-attempt 1 --sha 07bd4105a925c7e1b6b73a3fcb1a4af6edaa7907 --safe-to-release
+          python scripts/gcp/ghcr_release_lease.py inspect --repo tommylin15/janus-omniforge --run-id 38898393706 --run-attempt 1 --sha 07bd4105a925c7e1b6b73a3fcb1a4af6edaa7907
+          echo 'D01_1016_EXACT_TERMINAL_LEASE_RECOVERY=PASS' >> "$GITHUB_STEP_SUMMARY"
