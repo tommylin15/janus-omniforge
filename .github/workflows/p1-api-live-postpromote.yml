@@ -20,19 +20,23 @@ jobs:
         run: |
           set -Eeuo pipefail
           jq -e '.intent=="p1-live-api-post-promote-readback" and .approved==true and
-            .source_sha=="7acff50000644979af3815f00fbd7f1c167e1098" and
-            .promotion_run=="38830675477" and .jobs_run=="38821199561" and
+            (.source_sha|test("^[0-9a-f]{40}$")) and
+            (.promotion_run|test("^[0-9]+$")) and (.jobs_run|test("^[0-9]+$")) and
+            (.previous_sha|test("^[0-9a-f]{40}$")) and
             .no_gcp_mutation==true and .no_owner_mutation==true and
             .no_traffic_mutation==true' ops/p1-api-live-readback-request.json >/dev/null
-          gh run view 38830675477 --json status,conclusion,workflowName |
+          run="$(jq -r '.promotion_run' ops/p1-api-live-readback-request.json)"
+          source="$(jq -r '.source_sha' ops/p1-api-live-readback-request.json)"
+          previous="$(jq -r '.previous_sha' ops/p1-api-live-readback-request.json)"
+          gh run view "$run" --json status,conclusion,workflowName |
             jq -e '.status=="completed" and .conclusion=="success" and
               .workflowName=="Janus GHCR controlled API promotion"' >/dev/null
           mkdir -p /tmp/p1-readback
-          gh run download 38830675477 -n ghcr-api-promotion-receipt -D /tmp/p1-readback
-          jq -e '.phase=="PASS" and .rollback_rehearsal=="PASS" and
-            .source_sha=="7acff50000644979af3815f00fbd7f1c167e1098" and
-            .candidate=="janus-api-00507-wez" and
-            .previous_sha=="b1bc785906212b8d2860b1521affb83930d09f04"' /tmp/p1-readback/ghcr-api-promote.json >/dev/null
+          gh run download "$run" -n ghcr-api-promotion-receipt -D /tmp/p1-readback
+          jq -e --arg source "$source" --arg previous "$previous" '
+            .phase=="PASS" and .rollback_rehearsal=="PASS" and
+            .source_sha==$source and (.candidate|test("^janus-api-[0-9]+-[a-z0-9]+$")) and
+            .previous_sha==$previous' /tmp/p1-readback/ghcr-api-promote.json >/dev/null
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
@@ -43,7 +47,8 @@ jobs:
           python3 - <<'PY'
           import json,subprocess,urllib.request,urllib.error
           from pathlib import Path
-          source='7acff50000644979af3815f00fbd7f1c167e1098'
+          req=json.loads(Path('ops/p1-api-live-readback-request.json').read_text())
+          source=req['source_sha']
           base='https://janus-api-2oo7qbkd5q-uc.a.run.app'
           preview='https://preview---janus-api-2oo7qbkd5q-uc.a.run.app'
           expected=json.loads(Path('/tmp/p1-readback/ghcr-api-promote.json').read_text())
@@ -74,7 +79,8 @@ jobs:
           for path in ('/health','/api/v1/public/health'):
             assert get(base+path)[0]==200,'canonical_health_not_ok'
           assert get(base+'/api/v1/me/profile')[0]==401,'canonical_auth_boundary_failed'
-          report={'status':'PASS','source_sha':source,'promotion_run':'38830675477',
+          assert get(base+'/api/v1/me/cash-position')[0]==401,'canonical_cash_auth_boundary_failed'
+          report={'status':'PASS','source_sha':source,'promotion_run':req['promotion_run'],
                   'canonical_revision':candidate,'canonical_traffic_percent':100,
                   'active_build_id_match':True,'preview_build_match':True,
                   'all_tags_preserved':True,'immutable_image_match':True,
