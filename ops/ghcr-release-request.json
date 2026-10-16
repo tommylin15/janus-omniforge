@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "candidate-only-until-full-tests-and-reversible-runtime-acceptance",
-  "attempt": 56,
-  "reason": "D01-D05 user-authorized integrated acceptance: run full exact-SHA Python/Flutter/security and GHCR publication after CI gitlink repair; unchanged production traffic and existing dev resources, no automatic promotion until live functional gates. D04 VM backup handoff pursued in parallel through least-privilege existing identity path.",
+  "attempt": 57,
+  "reason": "D01-D05 rerun mandatory full Python/Flutter/immutable GHCR after workflow-consolidation test repairs and shared lease gate; D04 isolated backup restore PASS; no dev API traffic change before all functional gates.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }
