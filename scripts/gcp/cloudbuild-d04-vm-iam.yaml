@@ -1,0 +1,58 @@
+# One explicitly owner-authorized existing dev PostgreSQL VM IAP tunnel grant.
+# No blanket roles, public IP, disk, OS Login disable, new VM or secret output.
+steps:
+  - id: vm-scoped-iap-least-privilege
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        set -o pipefail
+        test "$PROJECT_ID" = gen-lang-client-0593591102
+        vm='janus-postgres-dev'
+        zone='us-central1-a'
+        principal="$(gcloud auth list --filter='status:ACTIVE' --format='value(account)' | head -n1)"
+        case "$principal" in
+          *@*.iam.gserviceaccount.com|*@developer.gserviceaccount.com|*@cloudbuild.gserviceaccount.com) ;;
+          *) echo 'D04_SERVICE_IDENTITY_UNEXPECTED'; exit 2 ;;
+        esac
+        project_number="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
+        vm_id="$(gcloud compute instances describe "$vm" --project="$PROJECT_ID" --zone="$zone" --format='value(id)')"
+        [[ "$project_number" =~ ^[0-9]+$ && "$vm_id" =~ ^[0-9]+$ ]]
+        base="https://iap.googleapis.com/v1/projects/$project_number/iap_tunnel/zones/$zone/instances/$vm_id"
+        token="$(gcloud auth print-access-token)"
+        # Never send token to logs. IAM policy is scoped to this instance's tunnel only.
+        if ! curl -fsS -X POST -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d '{}' "$base:getIamPolicy" >/workspace/d04-iap-before.json 2>/dev/null; then
+          echo 'D04_INSTANCE_IAP_POLICY_GET_DENIED'; exit 3
+        fi
+        PRINCIPAL="$principal" python3 - <<'PY'
+        import json,os
+        p=json.load(open('/workspace/d04-iap-before.json'))
+        binding=next((b for b in p.get('bindings',[]) if b.get('role')=='roles/iap.tunnelResourceAccessor' and not b.get('condition')),None)
+        if binding is None:
+            binding={'role':'roles/iap.tunnelResourceAccessor','members':[]}
+            p.setdefault('bindings',[]).append(binding)
+        member='serviceAccount:'+os.environ['PRINCIPAL']
+        if member not in binding['members']: binding['members'].append(member)
+        binding['members'].sort()
+        with open('/workspace/d04-iap-update.json','w') as f:
+            json.dump({'policy':p},f,separators=(',',':'))
+        PY
+        if ! curl -fsS -X POST -H "Authorization: Bearer $token" -H 'Content-Type: application/json' --data-binary @/workspace/d04-iap-update.json "$base:setIamPolicy" >/workspace/d04-iap-after.json 2>/dev/null; then
+          echo 'D04_INSTANCE_IAP_POLICY_SET_DENIED'; exit 4
+        fi
+        PRINCIPAL="$principal" python3 - <<'PY'
+        import json,os
+        p=json.load(open('/workspace/d04-iap-after.json'))
+        assert any(b.get('role')=='roles/iap.tunnelResourceAccessor' and 'serviceAccount:'+os.environ['PRINCIPAL'] in b.get('members',[]) for b in p.get('bindings',[]))
+        print('D04_SINGLE_VM_IAP_BINDING=PASS')
+        PY
+        if timeout 80 gcloud compute ssh "$vm" --project="$PROJECT_ID" --zone="$zone" --tunnel-through-iap --quiet --command='id -u' >/workspace/d04-uid-check 2>/dev/null; then
+          echo 'D04_VM_SSH=PASS'
+        else
+          echo 'D04_VM_SSH=NOT_VERIFIED_AFTER_IAP_GRANT'
+          exit 5
+        fi
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 210s

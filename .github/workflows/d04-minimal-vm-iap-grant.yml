@@ -1,0 +1,25 @@
+name: D04 VM-scoped IAP access for existing backup operator
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/d04-minimal-vm-iap-grant.yml']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  iam:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Grant only existing PostgreSQL VM IAP tunnel to existing Cloud Build worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud builds submit --no-source --project=gen-lang-client-0593591102 --region=us-central1 --config=scripts/gcp/cloudbuild-d04-vm-iam.yaml --quiet
