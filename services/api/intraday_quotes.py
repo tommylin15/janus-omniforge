@@ -274,6 +274,8 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
                     / total["reference_priced_cost_basis"])
                     if total["reference_priced_cost_basis"] else None,
                 "reference_priced_symbol_count": total["reference_priced_symbol_count"],
+                "reference_total_symbol_count": (
+                    total["reference_priced_symbol_count"] + len(total["reference_unpriced_symbols"])),
                 "reference_price_dates": reference_dates,
                 "reference_status": "incomplete" if reference_incomplete else "available",
                 "reference_market_value": None if reference_incomplete else str(total["reference_priced_market_value"]),
