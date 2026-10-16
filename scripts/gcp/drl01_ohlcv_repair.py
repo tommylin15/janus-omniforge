@@ -82,9 +82,18 @@ try:
                 time.sleep(2)
                 resp=adapter.fetch(request)
             item["phase"]="validate"
-            selection=[dict(r) for r in resp.rows if r.get("symbol") in members]
+            # Drop market batch metadata (stock_name etc.) before strict OHLCV DQ.
+            # Match existing collect_stage market-volume -> price projection.
+            columns=("symbol","market","trade_date","open","high","low","close",
+                     "volume_shares","turnover_twd","source_id","observed_at")
+            selection=[{key:r.get(key) for key in columns} | {"change_percent":None}
+                       for r in resp.rows if r.get("symbol") in members]
+            item["fetched_rows"]=len(resp.rows)
+            item["selected_rows"]=len(selection)
             dq=validate_ohlcv(selection,analysis_as_of=date(2026,10,16))
             rows=list(dq.accepted)
+            item["qualified_rows"]=len(rows)
+            item["quarantined_rows"]=len(dq.quarantined)
             if len(rows)>1300 or not rows:
                 raise RuntimeError("bounded_market_dq_rejected")
             item["phase"]="stage"
