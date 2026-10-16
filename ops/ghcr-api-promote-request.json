@@ -10,6 +10,6 @@
   "allow_legacy_forward_only": false,
   "gate": "2026-10-16 P1 dev cutover, exact GHCR release #38755382061, OAuth #38756520384, Jobs #38821199561, Owner #38827827101, queue #38828798196; reversible traffic rehearsal required.",
   "auth_boundary_run": "38756520384",
-  "retry_attempt": 0,
-  "retry_reason": "Controlled API promotion attempt #38262521301 stopped before any GCP mutation: test-only NameError (top-level json missing), 74 of 75 tests passed. Import repaired at main 822659b; rerun exact source, rollback baselines and tests through same owner-fenced workflow, do not bypass gates."
+  "retry_attempt": 1,
+  "retry_reason": "Promotion #38830314867 fail-closed at current_jobs_scheduler_fence with execution_not_terminal before traffic writes. All-page read-only #38830554996 verified 394+337+263+156+24 protected executions terminal, Scheduler ENABLED, four immutable target Job digests unchanged and original lease absent. Retry reversible same-source traffic promotion under new atomic lease; no force, bypass or new resources."
 }
