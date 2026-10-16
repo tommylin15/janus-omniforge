@@ -1,6 +1,13 @@
 # Janus 目前狀態
 
-更新：2026-10-15（P0 Owner backend PASS；P1 固定 Preview 同源發布 PASS）。已驗證同源 `285848e28041bf2fb024bd98bd348641f022a1ed` API 0% candidate、自動 OAuth boundary、四 Jobs rollout，及 Private Mart readonly #38732675488 + final gate #38733406224 PASS。285848 固定 Preview 工作流 [#38740477232](https://github.com/tommylin15/janus-omniforge/actions/runs/38740477232) SUCCESS，已執行 tag 更新與驗證程式；正式 100% traffic 不切，P1 Owner 端到端仍 OPEN。
+更新：2026-10-16（P0 Owner 10/14 PASS；P1 Jobs／Preview 已同源發布，Owner 10/15 與正式切流 PARTIAL）。已驗證同源 `285848e28041bf2fb024bd98bd348641f022a1ed` API 0% candidate、自動 OAuth boundary、四 Jobs rollout，及 Private Mart readonly #38732675488 + final gate #38733406224 PASS。285848 固定 Preview 工作流 [#38740477232](https://github.com/tommylin15/janus-omniforge/actions/runs/38740477232) SUCCESS，已執行 tag 更新與驗證程式；正式 100% traffic 不切，P1 Owner 端到端仍 OPEN。
+
+### 2026-10-16｜P1 同源 Jobs／固定 Preview 發布與業務驗收
+
+- 四 Jobs 發布 PASS：[rollout #38821199561](https://github.com/tommylin15/janus-omniforge/actions/runs/38821199561) confirmed completed/success；immutable receipt phase=PASS，可回復舊映像，四支 Job 各兩個真實 canary，8/8 PASS，完整映像來源 7acff50000644979af3815f00fbd7f1c167e1098。
+- 固定 Preview PASS：[Preview #38826680295](https://github.com/tommylin15/janus-omniforge/actions/runs/38826680295) completed/success，只更動 Preview tag。[同源唯讀 #38826878839](https://github.com/tommylin15/janus-omniforge/actions/runs/38826878839) PASS：Preview build SHA 相符，四 Jobs digest 相符、Ready，Controller active，Scheduler ENABLED；10/16 07:30 Controller／Ingestion／Private executions 均成功；canonical 100% API 仍為 b1bc785906212b8d2860b1521affb83930d09f04。
+- Owner 估值仍 PARTIAL：10/16 早上 OAuth MCP read-only 8/8 positions 仍 valuation_date=2026-10-14、ledger_version=354、price_status=available，沒有 10/15 新估值證據。10/15 Core/TPEx/as-of/Mart 準備度唯讀 [#38827197770](https://github.com/tommylin15/janus-omniforge/actions/runs/38827197770) 已啟動，只有 terminal receipt 才能確認能否補算。真實手動重算按鈕、authenticated UI、100% 正式切流均未驗收。
+- 夜間 21:30 派送修正已隨新版 Job 發布，但早上 Private execution SUCCESS 或 8 次 canary PASS 不等於昨晚完整 Owner EOD 損益通過。
 
 ### P0｜TPEx 官方歷史日期長期能力（2026-10-15 本輪）
 
