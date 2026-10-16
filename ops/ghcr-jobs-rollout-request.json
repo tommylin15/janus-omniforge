@@ -2,16 +2,16 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
-  "release_run": "38856837257",
+  "sha": "cee2437b821c577dc244faf24d9515189796518c",
+  "release_run": "38867940656",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "9f690363e5517cbe90d837a53a94ae3a4e7ab31e",
+  "baseline_source_sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:c61401b05944f687a15ecefe3e1c1cd1ec559e586b7a0d8de6c265bd9b60d3da",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:c61401b05944f687a15ecefe3e1c1cd1ec559e586b7a0d8de6c265bd9b60d3da",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:f5d54c498d0f24e7f06b5ba5aa4f202ec0e6290dc6de5757cc4fea5d5854ddaf",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:651569c21136d8458beb3fbafbe9d55d0cea3569ff6d55a5655eb8f2ba5d6494"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:b748d7e3c738ed38ecda866ad74a553dd3670f6eceff898ea8555adbcb7dc792",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:b748d7e3c738ed38ecda866ad74a553dd3670f6eceff898ea8555adbcb7dc792",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:a8d0a4223b0d28ef00aa44405163a861095964f811af94e1a5cc9e9843d3b32c",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:123ede438180490b48fcf0b7553426906303ffeb0b44d59302c0412ef7bd3a08"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 19,
-  "safety": "P1 visible-totals-first source 8eb42... full release #38856837257 PASS, immutable 0% candidate #38857279864 PASS, same SHA automated auth #38857441171 PASS. Independent exact real 9f690 four Job image/config snapshot, 5 Jobs execution terminal, Scheduler ENABLED from #38856931558. Reversible existing four dev jobs rollout with two canaries each, retain immutable 9f baseline, do not change schema/Owner ledger/initial cash, scheduler guard, controlled lease; if execution fence changes fail closed.",
-  "auth_boundary_run": "38857441171",
-  "automated_oauth_requirement": "Authenticated human consent not required; same-release candidate OAuth/private negative boundary #38857441171 PASS.",
+  "request_attempt": 20,
+  "safety": "D06 user explicitly requests daily 23:30 audit mirror. Exact source CEE full Release #38867940656 and 0% candidate #38868766947 PASS. Same-source auto auth #38869021942 required. Current four 8eb immutable image/config baseline and Scheduler ENABLED/full execution fence independently read #38868766956. Reversible Jobs-only rollout with lease, Scheduler pause/resume and 8 real canaries; preserve canonical API 8eb 100%/Preview, Owner ledger and cash; no cleanup or IAM change.",
+  "auth_boundary_run": "38869021942",
+  "automated_oauth_requirement": "Same-source completed successful auth run #38869021942; no manual owner consent gate.",
   "authorization": "Authorized existing dev rollout, strictly reversible. Must inspect GCP source config and all executions before actual mutation."
 }

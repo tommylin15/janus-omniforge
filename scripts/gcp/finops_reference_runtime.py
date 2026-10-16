@@ -18,7 +18,11 @@ import json, os, resource, time, traceback
 from pathlib import Path
 from urllib.error import HTTPError
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from ingestion_core.__main__ import _control_plane, _iceberg_core
+from ingestion_core.batch_controller import audit_export_due
+policy_hours=[hour for hour in range(24) if audit_export_due(datetime(2026,10,16,hour,30,tzinfo=ZoneInfo('Asia/Taipei')))]
+if policy_hours!=[23]: raise RuntimeError('deployed_daily_audit_policy_not_verified')
 with _control_plane() as control:
     connection=control.connection
     with connection.transaction():
@@ -29,6 +33,7 @@ with _control_plane() as control:
         daily=connection.execute("SELECT (created_at AT TIME ZONE 'Asia/Taipei')::date,count(*) FROM control.batch_event_outbox WHERE created_at>=now()-interval '14 days' GROUP BY 1 ORDER BY 1").fetchall()
         pending=connection.execute("SELECT count(*),min(created_at) FROM control.batch_event_outbox WHERE exported_at IS NULL").fetchone()
 out={'source':'active_control_executions','status':'COMPLETE','rows_checked':len(rows),'core_snapshot_ids':refs,'data_writes':0,
+     'deployed_audit_taipei_hours':policy_hours,
      'outbox_daily_events':[{'taipei_date':str(day),'events':count} for day,count in daily],
      'pending_events':pending[0],'oldest_pending_at':str(pending[1]) if pending[1] else None,'export_capacity_per_daily_run':2000}
 from ingestion_core.stage import GcsObjectStore
