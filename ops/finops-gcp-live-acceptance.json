@@ -1,11 +1,12 @@
 {
   "intent": "one-shot-existing-dev-iceberg-maintenance",
   "no_new_resources": true,
-  "mode": "audit-cleanup",
-  "rollout_run": 38686125420,
-  "expected_source_sha": "4d49555656bc47decd2fd13e9fab9a5da79a3fc2",
-  "expected_image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:a94a1a2ed90cf12c8a795be1c471113009a48fd9771379d7e05e01c8a5eee908",
-  "purpose": "One-shot bounded ops.batch_events_v1 audit Iceberg snapshot expiration and 7+ day generation-fenced orphan cleanup on existing Core Job after exact-SHA fully verified reversible four-Jobs rollout. No Core financial/market canonical or PIT/model/research manifest deletions.",
-  "acceptance": "Require rollout #38686125420 full PASS (8 real canaries, Scheduler resumed), exact immutable new Core digest, no active execution in all-page Job fence, component audit-only cleanup PASS, current rows preserved, zero canonical table mutations, before/after Core GCS object inventory. Fail closed if any preflight mismatch.",
-  "request_attempt": 1
+  "mode": "unlinked-small-files",
+  "rollout_run": 38857643226,
+  "expected_source_sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
+  "expected_image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:b748d7e3c738ed38ecda866ad74a553dd3670f6eceff898ea8555adbcb7dc792",
+  "purpose": "User explicitly approved old unlinked Core small-file cleanup on 2026-10-16. Audit table first, then existing Core tables. Use verified restored runtime independently of pending daily-export deployment. No new resources.",
+  "acceptance": "Require successful original 8eb Jobs rollout, current exact immutable Core image, enabled baseline Scheduler and all-page terminal execution fence. Preserve current/named/24h snapshots, known Core execution/report references and objects aged <=7 days. Delete only unlinked <1MiB listed generations under approved Core table prefixes. No canonical row, private bucket or Core execution manifest retirement. Require structured receipt, generation readback and actual net small-file reduction; partial is not PASS.",
+  "request_attempt": 2,
+  "user_approved_unlinked_small_file_cleanup": true
 }

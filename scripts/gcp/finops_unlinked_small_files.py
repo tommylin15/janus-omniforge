@@ -65,7 +65,7 @@ def main():
     if os.environ.get('JANUS_APPROVED_UNLINKED_CLEANUP')!='true' or os.environ.get('CORE_BUCKET')!=BUCKET:
         raise ValueError('explicit_unlinked_cleanup_authorization_required')
     from ingestion_core.__main__ import _iceberg_core
-    core=_iceberg_core(BUCKET,read_only=True)
+    core=None
     now=datetime.now(timezone.utc)
     raw=GcsObjectStore(BUCKET)
     store=None
@@ -75,7 +75,12 @@ def main():
             'reference_policy':'2026-10-16 user approved known-reference cleanup; incomplete external registry does not block old unlinked objects',
             'small_file_bytes_exclusive':1024*1024,'minimum_age_days':7}
     try:
+        result['stage']='CORE_CATALOG_READ'
+        core=_iceberg_core(BUCKET,read_only=True)
         with core.mutation_lock():
+            result['stage']='METADATA_TOKEN_READ'
+            raw._token()
+            result['stage']='CORE_INVENTORY_READ'
             inventory=raw.bounded_inventory(max_pages=10)
             if not inventory.get('complete') or inventory['visible_objects']>9000 or inventory['visible_bytes']>256*1024*1024:
                 raise RuntimeError('unlinked_cleanup_inventory_budget')
@@ -87,7 +92,9 @@ def main():
             result['before']={'objects':len(entries),'bytes':sum(int(x['size']) for x in entries),
                               'under_1mib':sum(int(x['size'])<1024*1024 for x in entries)}
             result['tables']=[]
+            result['stage']='UNLINKED_CLEANUP'
             cleanup(core,store,now,result['tables'])
+            result['stage']='GENERATION_READBACK'
             remaining=raw.objects('')
             current={x['name']:x['generation'] for x in remaining}
             if any(current.get(x['name'])==x['generation'] for x in store.deleted):
@@ -95,12 +102,14 @@ def main():
             result['after']={'objects':len(remaining),'bytes':sum(int(x['size']) for x in remaining),
                              'under_1mib':sum(int(x['size'])<1024*1024 for x in remaining)}
             result['status']='PASS' if result['after']['under_1mib']<result['before']['under_1mib'] else 'NO_REDUCTION'
+            result['stage']='COMPLETE'
     except Exception as error:
         frame=traceback.extract_tb(error.__traceback__)[-1]
         result.update(error_type=type(error).__name__,http_status=error.code if isinstance(error,HTTPError) else None,
                       error_location=Path(frame.filename).name+':'+str(frame.lineno))
     finally:
-        try: core.close()
+        try:
+            if core is not None: core.close()
         except Exception:
             result.update(status='PARTIAL',close_error=True)
         deleted=store.deleted if store else []
