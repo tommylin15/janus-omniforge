@@ -7,6 +7,7 @@ on:
       - 'packages/web_api/core.py'
       - 'tests/test_feature_readiness_repair.py'
       - 'tests/test_data_readiness_ledger.py'
+      - 'tests/test_drl01_revenue_history.py'
       - 'jobs/ingestion-core/ingestion_core/first_batch.py'
       - 'jobs/ingestion-core/ingestion_core/data_supplement.py'
       - 'jobs/ingestion-core/ingestion_core/financial_publication.py'
@@ -40,6 +41,7 @@ jobs:
           python -m pytest -q \
             tests/test_feature_readiness_repair.py \
             tests/test_data_readiness_ledger.py \
+            tests/test_drl01_revenue_history.py \
             tests/test_market_volume_source.py \
             tests/test_full_market_sources.py \
             tests/test_data_supplement.py \
