@@ -1,13 +1,13 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "740e54c25842f39ddf0b912c88a82012a851997d",
-  "purpose": "D06 user approved stopping unused Iceberg audit mirror, retaining PostgreSQL events. Exact source full Release #38873919415 SUCCESS. Establish required zero-traffic candidate and automated auth boundary before reversible Jobs-only rollout. Preserve current canonical API traffic and Preview.",
+  "sha": "0dd472f4f562b77feb7cc22cb4a9b000d17ea410",
+  "purpose": "DRL-01 official data readiness: exact-source full GHCR Release #38910268790 passed Python, Flutter and four image/digests. Deploy strictly zero-traffic API candidate for EPS/revenue safety. No canonical traffic, Jobs, Scheduler or Owner changes.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "retry_verification": "Require full Release #38873919415 and public immutable GHCR, exact build source, existing original traffic and tags unchanged.",
+  "retry_verification": "Require successful exact-source full Release #38910268790, immutable GHCR digest/public readback and existing canonical 100 percent traffic/tags unchanged.",
   "same_sha_retry_attempt": 0,
   "digest": ""
 }
