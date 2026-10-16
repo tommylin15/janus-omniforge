@@ -1,0 +1,63 @@
+name: Setup Janus
+description: Common setup for Janus workflows - Python, dependencies, GCP auth
+
+inputs:
+  python-version:
+    description: Python version
+    default: '3.12'
+  install-deps:
+    description: Install Python dependencies (none|minimal|test|full)
+    default: 'minimal'
+  gcp-auth:
+    description: Authenticate to GCP
+    default: 'true'
+  wif-provider:
+    description: GCP Workload Identity Provider
+    default: ''
+  service-account:
+    description: GCP Service Account
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      if: inputs.install-deps != 'none'
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: pip
+        cache-dependency-path: |
+          requirements-dev.txt
+          jobs/ingestion-core/requirements.lock
+          jobs/intelligence-mart/requirements.lock
+          services/api/requirements.lock
+
+    - name: Install minimal dependencies
+      if: inputs.install-deps == 'minimal'
+      shell: bash
+      run: pip install --disable-pip-version-check -q pytest==8.4.2
+
+    - name: Install test dependencies
+      if: inputs.install-deps == 'test'
+      shell: bash
+      run: |
+        pip install --disable-pip-version-check -q -r requirements-dev.txt
+        pip install --disable-pip-version-check -q -r jobs/ingestion-core/requirements.lock
+
+    - name: Install full dependencies
+      if: inputs.install-deps == 'full'
+      shell: bash
+      run: |
+        pip install --disable-pip-version-check -q -r requirements-dev.txt
+        pip install --disable-pip-version-check -q -r jobs/ingestion-core/requirements.lock
+        pip install --disable-pip-version-check -q -r jobs/intelligence-mart/requirements.lock
+        pip install --disable-pip-version-check -q -r services/api/requirements.lock
+
+    - uses: google-github-actions/auth@v2
+      if: inputs.gcp-auth == 'true' && inputs.wif-provider != ''
+      with:
+        workload_identity_provider: ${{ inputs.wif-provider }}
+        service_account: ${{ inputs.service-account }}
+
+    - uses: google-github-actions/setup-gcloud@v2
+      if: inputs.gcp-auth == 'true' && inputs.wif-provider != ''

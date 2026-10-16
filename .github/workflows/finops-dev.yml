@@ -1,0 +1,230 @@
+name: Janus FinOps operations
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Operation to run'
+        required: true
+        type: choice
+        options:
+          - gcs-hourly-io
+          - core-reference-audit
+          - runtime-references
+          - iceberg-readback
+          - gcp-acceptance
+          - ci-orphans
+      dry-run:
+        description: 'Dry run (no mutations)'
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths:
+      - 'ops/finops-gcs-hourly-io.json'
+      - 'ops/finops-core-reference-audit.json'
+      - 'ops/finops-reference-runtime.json'
+      - 'ops/finops-iceberg-readback-once.json'
+      - 'ops/finops-gcp-live-acceptance.json'
+      - 'ops/finops-ci-orphan-generations.json'
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+concurrency:
+  group: janus-finops-${{ github.event.inputs.operation || 'push' }}
+  cancel-in-progress: false
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      operation: ${{ steps.detect.outputs.operation }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - id: detect
+        run: |
+          if [[ -n "${{ github.event.inputs.operation }}" ]]; then
+            echo "operation=${{ github.event.inputs.operation }}" >> "$GITHUB_OUTPUT"
+          else
+            changed=$(git diff --name-only HEAD~1 HEAD -- ops/finops-*.json 2>/dev/null || echo "")
+            case "$changed" in
+              *gcs-hourly-io*) echo "operation=gcs-hourly-io" >> "$GITHUB_OUTPUT" ;;
+              *core-reference-audit*) echo "operation=core-reference-audit" >> "$GITHUB_OUTPUT" ;;
+              *reference-runtime*) echo "operation=runtime-references" >> "$GITHUB_OUTPUT" ;;
+              *iceberg-readback*) echo "operation=iceberg-readback" >> "$GITHUB_OUTPUT" ;;
+              *gcp-live-acceptance*) echo "operation=gcp-acceptance" >> "$GITHUB_OUTPUT" ;;
+              *ci-orphan*) echo "operation=ci-orphans" >> "$GITHUB_OUTPUT" ;;
+              *) echo "operation=none" >> "$GITHUB_OUTPUT" ;;
+            esac
+          fi
+
+  gcs-hourly-io:
+    needs: detect
+    if: needs.detect.outputs.operation == 'gcs-hourly-io'
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Validate request
+        run: |
+          python -m pytest -q tests/test_finops_gcs_hourly_io.py
+          jq -e '.intent=="read-only-gcs-hourly-method-audit" and .no_gcp_mutation==true' ops/finops-gcs-hourly-io.json
+      - name: Inspect GCS method counts
+        run: python scripts/gcp/finops_gcs_hourly_io.py
+
+  core-reference-audit:
+    needs: detect
+    if: needs.detect.outputs.operation == 'core-reference-audit'
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Validate request
+        run: |
+          python -m pytest -q tests/test_finops_core_reference_audit.py
+          jq -e '.intent=="read-only-core-reference-discovery" and .no_gcp_mutation==true' ops/finops-core-reference-audit.json
+      - name: Read Core references
+        env:
+          FINOPS_REFERENCE_CANDIDATE_PATH: core-reference-candidates.json
+        run: python scripts/gcp/finops_core_reference_audit.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: finops-core-reference-candidates
+          path: core-reference-candidates.json
+          if-no-files-found: ignore
+
+  runtime-references:
+    needs: detect
+    if: needs.detect.outputs.operation == 'runtime-references'
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Validate request
+        run: python -m pytest -q tests/test_finops_reference_runtime.py
+      - name: Read runtime references
+        run: python scripts/gcp/finops_reference_runtime.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: d06-runtime-references
+          path: d06-runtime-references.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  iceberg-readback:
+    needs: detect
+    if: needs.detect.outputs.operation == 'iceberg-readback'
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: none
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Validate request
+        run: |
+          jq -e '.intent=="read-existing-iceberg-post-recovery" and .no_gcp_mutation==true' ops/finops-iceberg-readback-once.json
+      - name: Inspect Jobs and Scheduler
+        run: |
+          python - <<'PY'
+          import json, sys
+          sys.path.insert(0, 'scripts/gcp')
+          import ghcr_jobs_rollout as r
+          s = r.scheduler()
+          out = {'scheduler':{'name':r.SCHEDULER,'state':s.get('state'),'schedule':s.get('schedule')},'jobs':{},'read_only':True}
+          for name, _ in r.JOB_COMPONENT:
+              j = r.job(name)
+              out['jobs'][name] = {'image':r.image(j),'configuration_hash':r.fingerprint(j)}
+          try:
+              r.fence()
+              out['execution_fence'] = 'ALL_TERMINAL'
+          except (ValueError, RuntimeError):
+              out['execution_fence'] = 'BLOCKED_OR_ACTIVE'
+          print(json.dumps(out, sort_keys=True))
+          PY
+
+  gcp-acceptance:
+    needs: detect
+    if: needs.detect.outputs.operation == 'gcp-acceptance'
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PYTHONPATH: 'jobs/ingestion-core:.'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Validate request
+        run: python -m pytest -q tests/test_finops_one_shot_maintenance.py tests/test_finops_unlinked_small_files.py tests/test_finops_ci_orphans.py
+      - name: Execute maintenance
+        run: python scripts/gcp/finops-one-shot-maintenance.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: finops-unlinked-small-file-receipts
+          path: |
+            finops-unlinked-dispatch.json
+            finops-unlinked-receipt.json
+            finops-unlinked-generations.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  ci-orphans:
+    needs: detect
+    if: needs.detect.outputs.operation == 'ci-orphans'
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-janus
+        with:
+          install-deps: minimal
+          wif-provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service-account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - name: Validate request
+        run: python -m pytest -q tests/test_finops_ci_orphans.py
+      - name: Execute CI orphan cleanup
+        run: python scripts/gcp/finops_ci_orphans.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: finops-ci-orphan-receipts
+          path: |
+            finops-ci-orphan-receipt.json
+          if-no-files-found: ignore
+          retention-days: 14
