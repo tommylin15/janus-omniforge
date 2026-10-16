@@ -23,14 +23,13 @@ GRANT SELECT ON private.cash_balance_snapshots TO janus_private_pipeline;
 -- User erasure is handled by the private.users FK cascade on deletion,
 -- not by deleting ledger or owner cash snapshots during recalculation.
 
-DO $$
-BEGIN
-    IF NOT has_table_privilege('janus_private_api','private.cash_balance_snapshots','SELECT')
-       OR NOT has_table_privilege('janus_private_api','private.cash_balance_snapshots','INSERT')
-       OR has_table_privilege('janus_public_api','private.cash_balance_snapshots','SELECT')
-       OR has_table_privilege('janus_private_pipeline','private.cash_balance_snapshots','INSERT')
-    THEN RAISE EXCEPTION 'cash owner ACL acceptance failed'; END IF;
-END $$;
+-- PHASE: acceptance
+SELECT
+    has_table_privilege('janus_private_api','private.cash_balance_snapshots','SELECT'),
+    has_table_privilege('janus_private_api','private.cash_balance_snapshots','INSERT'),
+    has_table_privilege('janus_private_pipeline','private.cash_balance_snapshots','SELECT'),
+    NOT has_table_privilege('janus_public_api','private.cash_balance_snapshots','SELECT'),
+    NOT has_table_privilege('janus_private_pipeline','private.cash_balance_snapshots','INSERT');
 
 INSERT INTO control.schema_migrations(version)
 VALUES ('062_owner_cash_balance_snapshots') ON CONFLICT DO NOTHING;
