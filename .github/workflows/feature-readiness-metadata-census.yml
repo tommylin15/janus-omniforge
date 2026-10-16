@@ -76,7 +76,7 @@ jobs:
               for dataset,fields in (
                   ('ohlcv',('symbol','market','trade_date','close')),
                   ('valuation',('symbol','market','observed_date','pe_ratio','pb_ratio')),
-                  ('financials',('symbol','fiscal_year','fiscal_quarter','fiscal_month','statement_type','metric','value','period_basis','is_single_quarter'))):
+                  ('financials',('symbol','fiscal_year','fiscal_quarter','fiscal_month','statement_type','metric','value','period_basis','is_single_quarter','unit','source_id','provenance_id','availability_at'))):
                   detail={'status':'PENDING','row_limit':100000}
                   try:
                       if time.monotonic()-start_detail>210:
@@ -152,6 +152,33 @@ jobs:
                                   'symbols_4_quarters':sum(len(v)>=4 for v in eps.values()),
                                   'symbols_12_quarters':sum(len(v)>=12 for v in eps.values()),
                                   'symbols_4_explicit_single_quarters':sum(len(v)>=4 for v in single_eps.values())}
+                              # Read-only audit of official 2382 EPS after bounded
+                              # DRL-01 canary: never publish source-unverified YTD
+                              # EPS subtraction as single-quarter fact.
+                              quarterly=set()
+                              for row in records:
+                                  if (str(row.get('symbol'))!='2382'
+                                      or row.get('source_id')!='mops'
+                                      or not row.get('provenance_id')
+                                      or not row.get('availability_at')
+                                      or row.get('unit')!='TWD_per_share'
+                                      or row.get('value') is None):
+                                      continue
+                                  try:
+                                      from decimal import Decimal
+                                      if not Decimal(str(row['value'])).is_finite():continue
+                                      y,q=int(row['fiscal_year']),int(row['fiscal_quarter'])
+                                  except (ValueError,TypeError):continue
+                                  if ((row.get('metric')=='eps_single_quarter' and row.get('period_basis')=='single_quarter')
+                                      or (q==1 and row.get('period_basis') in (None,'year_to_date')
+                                          and ('每股盈餘' in str(row.get('metric') or '')
+                                               or row.get('metric')=='eps_year_to_date'))):
+                                      quarterly.add((y,q))
+                              detail['drl01_2382_provable_single_quarters']=[
+                                  f'{year}Q{quarter}' for year,quarter in sorted(quarterly)]
+                              detail['drl01_2382_four_quarters_contiguous'] = any(
+                                  {i,i-1,i-2,i-3} <= {y*4+q-1 for y,q in quarterly}
+                                  for i in (y*4+q-1 for y,q in quarterly))
                               detail['status']='PASS_FINANCIAL_PERIOD_COUNTS'
                   except Exception as error:
                       detail['status']='ERROR_'+type(error).__name__
