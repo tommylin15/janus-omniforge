@@ -1,0 +1,56 @@
+name: D04 classified Cloud Build failure readback
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/d04-cloudbuild-error-readback.yml']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read existing failed build status and sanitized failure classes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import subprocess,json,re
+          ids=('84f4922c-7d9e-419d-8f1e-a3e92b168822','1b5b5eea-87dd-4374-a9e6-68ec8e168c03')
+          for ident in ids:
+              record={'id':ident,'component':'d04_existing_build_failure','read_only':True}
+              p=subprocess.run(['gcloud','builds','describe',ident,'--region=us-central1',
+                      '--project=gen-lang-client-0593591102','--format=json'],capture_output=True,text=True,timeout=25)
+              if p.returncode==0:
+                  obj=json.loads(p.stdout)
+                  record['status']=obj.get('status')
+                  record['steps']=[{'id':x.get('id'),'status':x.get('status')} for x in obj.get('steps',[])]
+              else:record['status']='BUILD_DESCRIBE_UNAVAILABLE'
+              logs=subprocess.run(['gcloud','logging','read',
+                  'resource.type="build" AND labels.build_id="'+ident+'"',
+                  '--project=gen-lang-client-0593591102','--limit=150','--format=json'],
+                  capture_output=True,text=True,timeout=35)
+              if logs.returncode!=0:
+                  record['logs']='UNAVAILABLE'
+              else:
+                  lines=[]
+                  for o in json.loads(logs.stdout):
+                      t=str(o.get('textPayload','') or o.get('jsonPayload',{}).get('message',''))
+                      for line in t.splitlines():
+                          if any(s in line.lower() for s in ('permission denied','error','failed','failing','403','not authorized','not found','d04_')):
+                              normalized=line.lower()
+                              kinds=[]
+                              for name in ('permission denied','does not have','403','unauthorized','publickey','iap','ssh','pg_restore','owner','sql','docker','timeout','not found','d04_'):
+                                  if name in normalized:kinds.append(name)
+                              if kinds: lines.append(','.join(kinds))
+                  record['error_classes']=list(dict.fromkeys(lines))[:15]
+              print(json.dumps(record,sort_keys=True))
+          PY
