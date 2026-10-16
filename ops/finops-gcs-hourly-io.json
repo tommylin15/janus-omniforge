@@ -1,6 +1,23 @@
 {
   "intent": "read-only-gcs-hourly-method-audit",
   "no_gcp_mutation": true,
-  "purpose": "D06 read-only 48 complete hours of Core method counters; source/workload matching remains mandatory; no cost or causal savings claim.",
-  "attempt": 2
+  "purpose": "D06 post-shutdown I/O measurement: compare 48h Core method counters after iceberg_audit_disabled=true verified (#38881471078). Jobs rollout #38875865395 deployed 740e54c2 at 09:05 UTC. Expect reduced ReadObject/GetObjectMetadata from eliminated audit mirror export scans.",
+  "baseline_reference": {
+    "pre_shutdown_run": "38866647351",
+    "pre_shutdown_period": "2026-10-14 07:00 ~ 2026-10-16 07:00 UTC",
+    "pre_shutdown_totals": {
+      "ReadObject": 88039,
+      "GetObjectMetadata": 48721,
+      "ListObjects": 272,
+      "WriteObject": 604,
+      "DeleteObject": 7
+    }
+  },
+  "shutdown_event": {
+    "jobs_rollout_run": "38875865395",
+    "jobs_rollout_completed_utc": "2026-10-16T09:05:43Z",
+    "runtime_verification_run": "38881471078",
+    "iceberg_audit_disabled": true
+  },
+  "attempt": 3
 }
