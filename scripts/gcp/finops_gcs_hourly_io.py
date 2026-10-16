@@ -24,7 +24,8 @@ def aggregate(series):
         for point in item.get("points",[]):
             end=point.get("interval",{}).get("endTime")
             if not end:continue
-            timestamp=datetime.fromisoformat(end.replace("Z","+00:00"))
+            # A delta ending at 13:00 belongs to the preceding hour.
+            timestamp=datetime.fromisoformat(end.replace("Z","+00:00"))-timedelta(microseconds=1)
             hour=timestamp.astimezone(timezone(timedelta(hours=8))).strftime("%Y-%m-%d %H:00 +08")
             count=int(point.get("value",{}).get("int64Value") or 0)
             if count<0:raise RuntimeError("NEGATIVE_GCS_COUNTER")

@@ -93,41 +93,47 @@ jobs:
           import json, re, sys
           sys.path.insert(0, 'scripts/gcp')
           import ghcr_jobs_rollout as r
-          selector = ('resource.type="cloud_run_job" AND resource.labels.job_name="janus-ingestion-core" '
-                      'AND timestamp>="2026-10-15T05:40:30Z" AND timestamp<="2026-10-15T05:44:40Z"')
-          entries = json.loads(r.command(['gcloud','logging','read',selector,
-                     '--project='+r.PROJECT,'--limit=500','--order=asc','--format=json']))
-          names = sorted({e.get('labels',{}).get('run.googleapis.com/execution_name') for e in entries}
-                         - {None, ''})
-          known = ('PermissionDenied','Forbidden','AccessDenied','BadRequest','NotFound','ValueError',
-                   'RuntimeError','KeyError','TypeError','MemoryError','ArrowInvalid',
-                   'CommitFailedException','AuthorizationPermissionMismatch','403','404')
-          signatures = sorted({kind for e in entries for kind in known
-                               if kind in str(e.get('textPayload',''))})
-          receipts = []
-          failures = []
-          for e in entries:
-              data = e.get('jsonPayload')
-              if not isinstance(data,dict):
-                  try: data = json.loads(e.get('textPayload',''))
-                  except (ValueError,TypeError): continue
-              if isinstance(data,dict) and data.get('component') == 'iceberg-audit-only-cleanup':
-                  receipts.append({k:data.get(k) for k in ('component','mode','status','deleted_objects',
-                    'expired_snapshots','canonical_tables_modified','core_execution_manifests_deleted')})
-              if isinstance(data,dict) and data.get('component') == 'iceberg-maintenance' and data.get('status') == 'failed':
-                  code = str(data.get('error_code',''))
-                  location = str(data.get('error_location',''))
-                  if re.fullmatch(r'[A-Z_]{3,80}',code) and re.fullmatch(r'[a-z_]+\.py:[0-9]+',location):
-                      failures.append({'error_code':code,'error_location':location})
-          executions = []
-          for name in names:
-              if not name.startswith('janus-ingestion-core-'): raise ValueError('execution_scope_invalid')
-              e = r.cloud(r.ROOT+'/jobs/janus-ingestion-core/executions/'+name)
-              executions.append({'name':name,'terminal':r.terminal(e),
-                 'succeeded_count':e.get('succeededCount',0),'failed_count':e.get('failedCount',0),
-                 'created_at':e.get('createTime'),'completed_at':e.get('completionTime')})
-          print(json.dumps({'component':'d06-prior-cleanup-diagnostic','read_only':True,
-            'entries':len(entries),'possibly_truncated':len(entries)==500,'executions':executions,
-            'known_error_signatures':signatures,'cleanup_receipts':receipts,'maintenance_failures':failures,
-            'actual_deletions':'UNKNOWN' if not receipts else 'SEE_RECEIPT'},sort_keys=True))
+          def diagnose(start, end):
+              selector = ('resource.type="cloud_run_job" AND resource.labels.job_name="janus-ingestion-core" '
+                          f'AND timestamp>="{start}" AND timestamp<="{end}"')
+              entries = json.loads(r.command(['gcloud','logging','read',selector,
+                         '--project='+r.PROJECT,'--limit=500','--order=asc','--format=json']))
+              names = sorted({e.get('labels',{}).get('run.googleapis.com/execution_name') for e in entries}
+                             - {None, ''})
+              known = ('PermissionDenied','Forbidden','AccessDenied','BadRequest','NotFound','ValueError',
+                       'RuntimeError','KeyError','TypeError','MemoryError','ArrowInvalid',
+                       'CommitFailedException','AuthorizationPermissionMismatch','ModuleNotFoundError','SyntaxError',
+                       'UndefinedColumn','InsufficientPrivilege','AttributeError','OperationalError','403','404')
+              signatures = sorted({kind for e in entries for kind in known
+                                   if kind.lower() in json.dumps(e).lower()})
+              receipts = []
+              failures = []
+              for e in entries:
+                  data = e.get('jsonPayload')
+                  if not isinstance(data,dict):
+                      try: data = json.loads(e.get('textPayload',''))
+                      except (ValueError,TypeError): continue
+                  if isinstance(data,dict) and data.get('component') == 'iceberg-audit-only-cleanup':
+                      receipts.append({k:data.get(k) for k in ('component','mode','status','deleted_objects',
+                        'expired_snapshots','canonical_tables_modified','core_execution_manifests_deleted')})
+                  if isinstance(data,dict) and data.get('component') == 'iceberg-maintenance' and data.get('status') == 'failed':
+                      code = str(data.get('error_code',''))
+                      location = str(data.get('error_location',''))
+                      if re.fullmatch(r'[A-Z_]{3,80}',code) and re.fullmatch(r'[a-z_]+\.py:[0-9]+',location):
+                          failures.append({'error_code':code,'error_location':location})
+              executions = []
+              for name in names:
+                  if not name.startswith('janus-ingestion-core-'): raise ValueError('execution_scope_invalid')
+                  e = r.cloud(r.ROOT+'/jobs/janus-ingestion-core/executions/'+name)
+                  executions.append({'name':name,'terminal':r.terminal(e),
+                     'succeeded_count':e.get('succeededCount',0),'failed_count':e.get('failedCount',0),
+                     'created_at':e.get('createTime'),'completed_at':e.get('completionTime')})
+              print(json.dumps({'component':'d06-prior-cleanup-diagnostic','read_only':True,
+                'window_start':start,'window_end':end,'entries':len(entries),'possibly_truncated':len(entries)==500,'executions':executions,
+                'http_error_codes':sorted(set(re.findall(r'HTTP Error ([0-9]{3})',json.dumps(entries)))),
+                'permission_signatures':[x for x in ('storage.objects.get','storage.objects.delete','storage.objects.list','permission denied','timeout','memory limit') if x in json.dumps(entries).lower()],
+                'known_error_signatures':signatures,'cleanup_receipts':receipts,'maintenance_failures':failures,
+                'actual_deletions':'UNKNOWN' if not receipts else 'SEE_RECEIPT'},sort_keys=True))
+          diagnose('2026-10-15T05:40:30Z','2026-10-15T05:44:40Z')
+          diagnose('2026-10-16T07:21:46Z','2026-10-16T07:27:34Z')
           PY

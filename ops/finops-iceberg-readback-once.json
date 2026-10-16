@@ -3,6 +3,6 @@
   "no_gcp_mutation": true,
   "project": "gen-lang-client-0593591102",
   "region": "us-central1",
-  "scope": "D06 authorized read-only current four Job images, Scheduler, full execution fence, object inventory and exact failed 2026-10-15 audit cleanup diagnosis; never replay.",
-  "attempt": 5
+  "scope": "D06 read-only exact HTTP failure/permission signatures from old audit cleanup and completed runtime probe; no retries or mutations.",
+  "attempt": 6
 }

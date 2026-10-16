@@ -289,12 +289,12 @@ def audit_export_due(now: datetime) -> bool:
     """Batch Iceberg audit mirroring to avoid hourly full-history manifest scans.
 
     The PostgreSQL event outbox is committed on every controller tick. An
-    immutable Iceberg mirror may lag by at most six hours under healthy jobs.
+    immutable Iceberg mirror may lag by at most 24 hours under healthy jobs.
     A missed sync remains pending in PostgreSQL and is retried at the next
     permitted window; no event is dropped.
     """
     local = now.astimezone(ZoneInfo("Asia/Taipei"))
-    return local.hour in (5, 11, 17, 23) and local.minute >= 30
+    return local.hour == 23 and local.minute >= 30
 
 
 def export_due_audit(connection, core, now: datetime) -> tuple[int, bool]:

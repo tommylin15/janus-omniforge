@@ -14,8 +14,9 @@ import ghcr_jobs_rollout as r
 REQUEST = Path('ops/finops-reference-runtime.json')
 PREFIX = 'D06_REFERENCE_READBACK='
 CORE_CODE = '''
-import json
-from ingestion_core.__main__ import _control_plane
+import json, os, resource, time
+from datetime import datetime, timezone, timedelta
+from ingestion_core.__main__ import _control_plane, _iceberg_core
 with _control_plane() as control:
     connection=control.connection
     with connection.transaction():
@@ -23,7 +24,49 @@ with _control_plane() as control:
         rows=connection.execute("SELECT request_options->>'core_snapshot_id' FROM control.executions WHERE status IN ('queued','running','retrying') LIMIT 10001").fetchall()
         if len(rows)>10000: raise RuntimeError('active_reference_limit')
         refs=sorted({row[0] for row in rows if row[0]})
-print('D06_REFERENCE_READBACK='+json.dumps({'source':'active_control_executions','status':'COMPLETE','rows_checked':len(rows),'core_snapshot_ids':refs,'data_writes':0}),flush=True)
+        daily=connection.execute("SELECT (created_at AT TIME ZONE 'Asia/Taipei')::date,count(*) FROM control.batch_event_outbox WHERE created_at>=now()-interval '14 days' GROUP BY 1 ORDER BY 1").fetchall()
+        pending=connection.execute("SELECT count(*),min(created_at) FROM control.batch_event_outbox WHERE exported_at IS NULL").fetchone()
+out={'source':'active_control_executions','status':'COMPLETE','rows_checked':len(rows),'core_snapshot_ids':refs,'data_writes':0,
+     'outbox_daily_events':[{'taipei_date':str(day),'events':count} for day,count in daily],
+     'pending_events':pending[0],'oldest_pending_at':str(pending[1]) if pending[1] else None,'export_capacity_per_daily_run':2000}
+from ingestion_core.stage import GcsObjectStore
+from ingestion_core.iceberg_maintenance import maintain_financials, _keep_snapshots, _references
+from ingestion_core.retention import clean_orphans
+core=_iceberg_core(os.environ['CORE_BUCKET'],read_only=True)
+started=time.monotonic()
+try:
+    store=GcsObjectStore(os.environ['CORE_BUCKET'])
+    identifier='ops.batch_events_v1'
+    plan=maintain_financials(core=core,store=store,apply=False,identifier=identifier)
+    orphans=clean_orphans(core,store,identifier,apply=False,now=datetime.now(timezone.utc))
+    table=core.catalog.load_table(identifier)
+    pointer=table.metadata_location
+    referenced,_=_references(store,identifier)
+    keep=_keep_snapshots(table,referenced,datetime.now(timezone.utc))
+    live=set()
+    for snapshot in table.snapshots():
+        if snapshot.snapshot_id not in keep: continue
+        live.add(snapshot.manifest_list)
+        for manifest in snapshot.manifests(table.io):
+            if manifest.manifest_path in live: continue
+            live.add(manifest.manifest_path)
+            live.update(entry.data_file.file_path for entry in manifest.fetch_manifest_entry(table.io,discard_deleted=True))
+    objects=store.objects('warehouse/batch_events_v1/')
+    cutoff=datetime.now(timezone.utc)-timedelta(days=7)
+    candidates=[x for x in objects if x['name'].endswith(('.avro','.parquet'))
+        and 'gs://'+store.bucket+'/'+x['name'] not in live
+        and datetime.fromisoformat(x['updated'].replace('Z','+00:00'))<cutoff]
+    if core.catalog.load_table(identifier).metadata_location!=pointer: raise RuntimeError('audit_catalog_changed_during_plan')
+    out['audit_cleanup_dry_run']={'maintenance':plan,'current_orphans':orphans,
+        'post_expiry_orphan_objects':len(candidates),'post_expiry_orphan_bytes':sum(int(x['size']) for x in candidates),
+        'post_expiry_orphans_under_1mib':sum(int(x['size'])<1024*1024 for x in candidates),
+        'post_expiry_orphans_under_32mib':sum(int(x['size'])<32*1024*1024 for x in candidates),
+        'candidate_generations':[{'name':x['name'],'generation':x['generation'],'bytes':int(x['size'])} for x in candidates],
+        'audit_visible_objects':len(objects),'audit_visible_bytes':sum(int(x['size']) for x in objects),
+        'elapsed_seconds':round(time.monotonic()-started,3),'peak_rss_kib':resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
+        'applied':False}
+finally: core.close()
+print('D06_REFERENCE_READBACK='+json.dumps(out,sort_keys=True),flush=True)
 '''
 MART_CODE = '''
 import json, os
@@ -70,14 +113,16 @@ def checked_result(value):
     return value
 
 
-def probe(name, expected):
+def probe(name, expected, state, save):
     job=r.checked_image(name,expected['image'],expected['configuration_hash'])
     start=datetime.now(timezone.utc).isoformat()
     operation=r.cloud(r.ROOT+'/jobs/'+name+':run',{'etag':job['etag'],
-        'overrides':{'taskCount':1,'timeout':'180s','containerOverrides':[override(job,CODES[name])]}},'POST')
+        'overrides':{'taskCount':1,'timeout':'360s','containerOverrides':[override(job,CODES[name])]}},'POST')
     op_name=operation.get('name','')
     if not op_name.startswith(r.ROOT+'/operations/'): raise RuntimeError('operation_identity_unknown')
-    deadline=time.monotonic()+300
+    state.update(status='DISPATCHED',operation=op_name)
+    save()
+    deadline=time.monotonic()+480
     while not operation.get('done') and time.monotonic()<deadline:
         time.sleep(5)
         operation=r.cloud(op_name)
@@ -85,6 +130,8 @@ def probe(name, expected):
     execution=operation.get('response') or {}
     full_name=execution.get('name','')
     if not full_name.startswith(r.ROOT+'/jobs/'+name+'/executions/'): raise RuntimeError('execution_identity_unknown')
+    state['execution']=full_name.rsplit('/',1)[-1]
+    save()
     execution=r.cloud(full_name)
     if not r.terminal(execution) or execution.get('succeededCount')!=1 or execution.get('failedCount',0):
         raise RuntimeError('readonly_execution_not_successful')
@@ -111,15 +158,19 @@ def main():
                 or not re.fullmatch(r'[0-9a-f]{64}',expected.get('configuration_hash',''))):
             raise ValueError('immutable_reference_baseline_required')
     r.fence()
-    results=[]
+    output={'component':'d06-runtime-reference-census','mode':'read-only','deletion_fence_published':False,'results':[]}
+    def save(): Path('d06-runtime-references.json').write_text(json.dumps(output,sort_keys=True))
     for name,expected in request['jobs'].items():
-        try: results.append(probe(name,expected))
+        state={'job':name,'status':'PREFLIGHT'}
+        output['results'].append(state)
+        try: state.update(probe(name,expected,state,save),status='OBSERVED')
         except Exception as error:
-            results.append({'job':name,'status':'BLOCKED','error_type':type(error).__name__})
+            reason=str(error)
+            state.update(status='BLOCKED',error_type=type(error).__name__,
+                         reason=reason if re.fullmatch(r'[a-z][a-z0-9_]{3,100}',reason) else 'readback_failure')
             # Unknown execution status must never lead to another dispatch.
             break
-    output={'component':'d06-runtime-reference-census','mode':'read-only','deletion_fence_published':False,'results':results}
-    Path('d06-runtime-references.json').write_text(json.dumps(output,sort_keys=True))
+    save()
     print(json.dumps(output,sort_keys=True))
 
 if __name__=='__main__': main()

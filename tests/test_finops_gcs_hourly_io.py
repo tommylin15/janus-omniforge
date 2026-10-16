@@ -14,3 +14,9 @@ def test_hourly_aggregation_is_bucket_and_method_scoped():
     assert rows[0]["hour"]=="2026-10-15 12:00 +08"
     assert rows[0]["ReadObject"]==7 and rows[0]["GetObjectMetadata"]==3
     assert rows[0]["ListObjects"]==0
+
+def test_delta_ending_on_hour_boundary_belongs_to_preceding_hour():
+    row={"resource":{"labels":{"bucket_name":m.BUCKET}},
+         "metric":{"labels":{"method":"ReadObject"}},
+         "points":[{"interval":{"endTime":"2026-10-15T04:00:00Z"},"value":{"int64Value":"7"}}]}
+    assert m.aggregate([row])[0]["hour"]=="2026-10-15 11:00 +08"

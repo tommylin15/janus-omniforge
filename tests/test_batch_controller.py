@@ -320,15 +320,15 @@ def test_idle_active_tick_is_recorded_without_dispatch(monkeypatch):
     session.post.assert_not_called()
 
 
-def test_iceberg_audit_only_flushes_on_four_taipei_scheduled_windows():
+def test_iceberg_audit_only_flushes_on_daily_taipei_2330_window():
     from ingestion_core.batch_controller import audit_export_due, export_due_audit
     from unittest.mock import Mock
     from zoneinfo import ZoneInfo
     taipei = ZoneInfo("Asia/Taipei")
-    for hour in (5, 11, 17, 23):
-        assert audit_export_due(datetime(2026, 10, 15, hour, 30, tzinfo=taipei))
-    for hour in (0, 1, 3, 8, 12, 18, 22):
-        assert not audit_export_due(datetime(2026, 10, 15, hour, 30, tzinfo=taipei))
+    for hour in range(24):
+        assert audit_export_due(datetime(2026, 10, 15, hour, 30, tzinfo=taipei)) == (hour == 23)
+    assert audit_export_due(datetime(2026, 10, 15, 15, 30, tzinfo=timezone.utc))
+    assert audit_export_due(datetime(2026, 10, 15, 23, 59, tzinfo=taipei))
     assert not audit_export_due(datetime(2026, 10, 15, 15, 29, tzinfo=timezone.utc))
     assert export_due_audit(None, None, datetime(2026, 10, 15, 14, 30, tzinfo=timezone.utc)) == (0, True)
 

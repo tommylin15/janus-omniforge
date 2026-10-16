@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "candidate-only-until-full-tests-and-reversible-runtime-acceptance",
-  "attempt": 53,
-  "reason": "2026-10-16 owner-directed P1 correction: trading decisions prioritize visible approximate total. Dated source-valid stale/cross-session quote gives indicative holdings; when some quotes missing, show priced market/PnL subtotal, priced count, and cash plus priced portion without claiming a complete formal same-day total. Full Python Flutter immutable GHCR; bounded tests test_cash_position/test_holdings_daily_change/390px ledger visual PASS, no schema/fee/trades/cash balance write. Release only after full suite PASS.",
+  "attempt": 54,
+  "reason": "User-authorized D06: daily 23:30 Asia/Taipei Iceberg audit mirror instead of four daily windows, retain PostgreSQL immediate durable outbox, bounded 10x200 batches, no event loss. Include reference JSON census/generation protection, read-only runtime diagnostics and hour-boundary counter correction. Full exact-SHA tests and immutable GHCR required before reversible existing dev Jobs rollout; no API 100% promotion, Owner data, schema or IAM change.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }
