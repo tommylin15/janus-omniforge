@@ -1,0 +1,13 @@
+{
+  "intent": "p1-real-owner-eod-readonly",
+  "approved": true,
+  "target_date": "2026-10-15",
+  "source_sha": "7acff50000644979af3815f00fbd7f1c167e1098",
+  "rollout_run": "38821199561",
+  "no_ledger_mutation": true,
+  "no_mart_mutation": true,
+  "no_job_template_mutation": true,
+  "no_traffic_mutation": true,
+  "scope": "one existing OAuth-authorized Owner, official ETF as-of 10/15, aggregate metadata only",
+  "reason": "10/16 07:30 Private execution succeeded but authorized MCP still reports 10/14 prices, determine whether 10/15 Core+official quotes and exact Owner Mart rows are ready before any bounded recomputation."
+}
