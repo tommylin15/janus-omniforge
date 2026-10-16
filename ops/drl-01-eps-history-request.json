@@ -1,0 +1,11 @@
+{
+  "intent": "drl01-existing-mops-eps-history",
+  "approved": true,
+  "symbols": [
+    "2382"
+  ],
+  "no_new_provider": true,
+  "no_job_template_change": true,
+  "reason": "DRL-01 one-symbol MOPS fundamental-history canary; original approved XBRL index/source only; compare Core quarterly EPS readback separately.",
+  "request_version": 1
+}
