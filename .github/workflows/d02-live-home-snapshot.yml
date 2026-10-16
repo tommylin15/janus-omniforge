@@ -1,0 +1,116 @@
+name: D02 live DB-first home snapshot readback
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/d02-live-home-snapshot.yml']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-d02-read-only-snapshot
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Run existing dev Job with read-only execution args
+        run: |
+          python - <<'PY'
+          import json,sys,time,subprocess
+          from pathlib import Path
+          sys.path.insert(0,'scripts/gcp')
+          from ghcr_jobs_rollout import cloud,job,terminal,ROOT
+          CODE=r"""
+          import json
+          from datetime import datetime,timezone
+          from ingestion_core.__main__ import _control_plane
+          report={'component':'d02_home_snapshot_readback','read_only':True,
+                  'status':'UNKNOWN','scope':'actual_dev_control_snapshot'}
+          control=None
+          try:
+              control=_control_plane()
+              with control.connection.cursor() as cursor:
+                  cursor.execute('SELECT schema_version,as_of_date,payload_json,updated_at FROM control.home_market_snapshot WHERE snapshot_id=1')
+                  row=cursor.fetchone()
+              if row is None:
+                  report['status']='SNAPSHOT_ROW_MISSING'
+              else:
+                  schema,as_of,payload,updated=row
+                  if not isinstance(payload,dict):payload=json.loads(payload)
+                  sections=payload.get('sections') or {}
+                  report.update(schema_version=schema,as_of_date=str(as_of),updated_at=updated.isoformat(),
+                                section_statuses={k:v.get('status') for k,v in sections.items() if isinstance(v,dict)},
+                                section_count=len(sections),data_status=payload.get('status'))
+                  report['status']='PASS' if schema=='market-home.v1' and len(sections)>0 else 'INVALID_SNAPSHOT_PAYLOAD'
+          except Exception as exc:
+              report['status']='BLOCKED_'+type(exc).__name__
+          finally:
+              if control is not None:
+                  try:control.close()
+                  except Exception:pass
+              print(json.dumps(report,ensure_ascii=False,sort_keys=True),flush=True)
+          """
+          j=job('janus-ingestion-core')
+          c=j['template']['template']['containers']
+          if len(c)!=1 or c[0].get('command') not in (None,[],['python']):
+              raise ValueError('entrypoint_drift')
+          override={'args':(['python'] if not c[0].get('command') else [])+['-c',CODE],
+                    'env':[{'name':'QUEUE_CONSUMER','value':'false'}]}
+          if c[0].get('name'):override['name']=c[0]['name']
+          op=cloud(f'{ROOT}/jobs/janus-ingestion-core:run',
+                   {'etag':j['etag'],'overrides':{'taskCount':1,'timeout':'150s','containerOverrides':[override]}},'POST')
+          name=op.get('name','')
+          if not name.startswith(ROOT+'/operations/'):raise ValueError('invalid_operation')
+          until=time.monotonic()+205
+          while not op.get('done') and time.monotonic()<until:
+              time.sleep(6)
+              op=cloud(name)
+          if not op.get('done') or op.get('error'):raise RuntimeError('snapshot_operation_failed')
+          exe=op.get('response',{})
+          if not terminal(exe) or exe.get('succeededCount')!=1 or exe.get('failedCount',0):
+              raise RuntimeError('snapshot_job_failed')
+          exe_name=exe.get('name','').rsplit('/',1)[-1]
+          if not exe_name.startswith('janus-ingestion-core-'):raise ValueError('bad_execution')
+          query=f'resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="{exe_name}"'
+          result=None
+          for _ in range(5):
+              proc=subprocess.run(['gcloud','logging','read',query,'--project=gen-lang-client-0593591102',
+                                   '--limit=180','--format=json'],capture_output=True,text=True,timeout=40)
+              if proc.returncode==0:
+                  for row in json.loads(proc.stdout):
+                      payload=row.get('jsonPayload')
+                      if not isinstance(payload,dict):
+                          try:payload=json.loads(row.get('textPayload',''))
+                          except (ValueError,TypeError):continue
+                      if isinstance(payload,dict) and payload.get('component')=='d02_home_snapshot_readback':
+                          result=payload
+                          break
+              if result is not None:break
+              time.sleep(5)
+          if result is None:raise RuntimeError('snapshot_receipt_missing')
+          import urllib.request
+          with urllib.request.urlopen('https://janus-api-2oo7qbkd5q-uc.a.run.app/api/v1/public/market-home',timeout=20) as public_response:
+              public=json.load(public_response)
+          result['public_api_status']=public.get('status')
+          result['public_api_schema_version']=public.get('schema_version')
+          result['public_api_sections']={k:v.get('status') for k,v in (public.get('sections') or {}).items() if isinstance(v,dict)}
+          result['public_api_gate']='PASS' if public.get('schema_version')=='market-home.v1' and public.get('sections') else 'FAIL'
+          Path('/tmp/d02_snapshot.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
+          print(json.dumps({'execution':exe_name,'receipt':result},ensure_ascii=False))
+          if result.get('status')!='PASS' or result.get('public_api_gate')!='PASS':raise RuntimeError('snapshot_not_available')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: d02-snapshot-readback
+          path: /tmp/d02_snapshot.json
+          if-no-files-found: ignore
+          retention-days: 7
