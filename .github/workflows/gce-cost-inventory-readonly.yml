@@ -117,7 +117,12 @@ jobs:
           failed = [k for k, v in results.items() if v["state"] != "READ_OK"]
           if db_describe["state"] != "READ_OK":
               failed.append("db_vm_direct_describe")
+          if (vm["state"] == "READ_OK" and db_describe["state"] == "READ_OK"
+                  and not any(x["name"] == expected_vm for x in vm["items"])):
+              failed.append("db_vm_list_describe_mismatch")
           print("INVENTORY_JSON="+json.dumps(results, ensure_ascii=False, sort_keys=True))
           print("INVENTORY_VERDICT="+("PARTIAL_UNVERIFIED" if failed else "CENSUSED"))
           print("UNVERIFIED_CATEGORIES="+",".join(failed))
+          if failed:
+              raise SystemExit("INVENTORY_INCOMPLETE: unverified categories remain")
           PY
