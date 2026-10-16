@@ -41,18 +41,23 @@ def _safe_record(value: Any) -> Any:
 
 
 def _comparable_single_quarter_eps(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    """Presentation-only EPS series. Never turn unqualified YTD into canonical facts.
+    """Only expose provable official single-quarter EPS.
 
-    Official MOPS basic EPS series are cumulative; Q2-Q4 need their own
-    immediately preceding same-year cumulative period to yield a quarter.
-    XBRL qualified single-quarter EPS takes priority over this derivation.
+    Cumulative basic EPS uses period-specific weighted average shares. Subtracting
+    two YTD EPS figures is not a valid single-quarter EPS calculation when the
+    denominator changes. Q1 YTD is one quarter; Q2-Q4 require an official
+    explicitly identified single-quarter figure or a separately verified
+    numerator/denominator reconstruction. Research-only cumulative values stay
+    available in Core but must not be relabelled as quarterly presentation facts.
     """
     from calendar import monthrange
 
     explicit: dict[tuple[int, int], dict[str, Any]] = {}
-    cumulative: dict[tuple[int, int], dict[str, Any]] = {}
+    q1_ytd: dict[tuple[int, int], dict[str, Any]] = {}
     for source in rows:
-        if source.get("value") is None or source.get("unit") != "TWD_per_share":
+        if (source.get("value") is None or source.get("unit") != "TWD_per_share"
+                or source.get("source_id") != "mops"
+                or not source.get("provenance_id")):
             continue
         try:
             if source.get("fiscal_year") is not None and source.get("fiscal_quarter") is not None:
@@ -63,45 +68,32 @@ def _comparable_single_quarter_eps(rows: Sequence[Mapping[str, Any]]) -> list[di
             else:
                 continue
             value = Decimal(str(source["value"]))
+            expected_end = date(year, quarter * 3, monthrange(year, quarter * 3)[1]).isoformat()
+            actual_end = source.get("fiscal_period_end") or source.get("period_end")
+            if actual_end and str(actual_end)[:10] != expected_end:
+                continue
         except (ValueError, TypeError, InvalidOperation):
             continue
         if not value.is_finite() or not 1 <= quarter <= 4:
             continue
         row = dict(source)
-        if not row.get("fiscal_period_end"):
-            row["fiscal_period_end"] = date(year, quarter * 3, monthrange(year, quarter * 3)[1]).isoformat()
+        row["fiscal_period_end"] = expected_end
         key = year, quarter
         if (row.get("metric") == "eps_single_quarter"
                 and row.get("period_basis") == "single_quarter"):
             explicit[key] = row
-        elif (("每股盈餘" in str(row.get("metric") or "")
-                or row.get("metric") == "eps_year_to_date")
-              and row.get("source_id") == "mops"
+        elif (quarter == 1
+              and ("每股盈餘" in str(row.get("metric") or "")
+                   or row.get("metric") == "eps_year_to_date")
               and row.get("statement_type") in ("income", "financial")
-              and row.get("period_basis") in (None, "year_to_date", "single_quarter")
-              and row.get("provenance_id")):
-            # Current official broad-market MOPS EPS is a YTD metric.
-            cumulative[key] = row
+              and row.get("period_basis") in (None, "year_to_date")):
+            q1_ytd[key] = row
     result = list(explicit.values())
-    for (year, quarter), current in sorted(cumulative.items()):
-        if (year, quarter) in explicit:
-            continue
-        current_number = Decimal(str(current["value"]))
-        if quarter == 1:
-            single = current_number
-            basis = "mops-q1-cumulative-v1"
-        else:
-            prior = cumulative.get((year, quarter - 1))
-            if (prior is None or prior.get("source_id") != current.get("source_id")
-                    or prior.get("unit") != current.get("unit")
-                    or prior.get("currency") != current.get("currency")
-                    or prior.get("report_scope") != current.get("report_scope")):
-                continue
-            single = current_number - Decimal(str(prior["value"]))
-            basis = "mops-adjacent-ytd-difference-v1"
-        result.append({**current, "metric": "eps_single_quarter",
-                       "period_basis": "single_quarter", "is_single_quarter": True,
-                       "value": str(single), "calculation_version": basis})
+    for key, row in sorted(q1_ytd.items()):
+        if key not in explicit:
+            result.append({**row, "metric": "eps_single_quarter",
+                           "period_basis": "single_quarter", "is_single_quarter": True,
+                           "calculation_version": "mops-q1-ytd-is-quarter-v2"})
     return result
 
 
@@ -209,10 +201,12 @@ class CoreQueryService:
             raw = [row for row in raw if row.get("investor_type") == metric][:limit]
         elif dataset == 'financials':
             raw = ([row for row in raw if row.get('unit') == unit and
-                     row.get('metric') in {'monthly_revenue', 'previous_month_revenue'}]
+                     row.get('metric') == 'monthly_revenue' and row.get('period_basis') == 'monthly' and row.get('fiscal_month') is not None]
                    if metric == 'revenue' else _comparable_single_quarter_eps(raw))
-            if metric == 'eps' and any(row.get('calculation_version') for row in raw):
-                response['calculation_version'] = 'eps-single-quarter-with-qualified-ytd-difference-v1'
+            if metric == 'eps':
+                response['calculation_version'] = 'eps-official-single-quarter-or-q1-ytd-v2'
+                if not raw:
+                    response['missing_reason'] = 'no_verified_single_quarter_eps'
         # Published null/invalid values remain dated gaps so the chart does not
         # silently connect across missing sessions. A valid duplicate wins.
         dated: dict[str, dict[str, str | None]] = {}
