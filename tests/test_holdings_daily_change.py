@@ -82,6 +82,25 @@ def test_one_stale_quote_withholds_complete_total_but_keeps_trusted_subtotal():
     assert total["affected_symbols"] == ["9999"]
 
 
+def test_priced_reference_subtotal_is_displayable_but_not_falsely_full():
+    rows = [POSITION, {"symbol": "9999", "currency": "TWD", "shares": "2",
+                       "average_cost": "80", "ledger_version": 42}]
+    result = value_holdings(rows, {"2382": {**QUOTE, "state": "stale"}}, NOW)
+    total = result["items"][0]
+    assert total["aggregate_status"] == "withheld"
+    assert total["market_value"] is None
+    assert total["reference_status"] == "incomplete"
+    assert total["reference_market_value"] is None
+    assert total["reference_priced_symbol_count"] == 1
+    assert total["reference_total_symbol_count"] == 2
+    assert total["reference_priced_market_value"] == "1622500.0"
+    assert total["reference_priced_unrealized_pnl"] == "-65000.0"
+    assert Decimal(total["reference_priced_unrealized_return"]) == (
+        Decimal("-65000") / Decimal("1687500"))
+    assert total["reference_unpriced_symbols"] == ["9999"]
+    assert result["positions"][1]["reference_eligible"] is False
+
+
 def test_mixed_dates_prevent_cross_session_portfolio_total():
     result = value_holdings(
         [POSITION, {"symbol": "9999", "currency": "TWD", "shares": "2", "average_cost": "80"}],
