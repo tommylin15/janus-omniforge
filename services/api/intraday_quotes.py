@@ -153,6 +153,11 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
                     reference = None
         except (InvalidOperation, ValueError, TypeError):
             reference = None
+        # During today's trading session, a prior-session official close is
+        # a valid *dated valuation* but not today's change. Do not display its
+        # older price movement under the current-day holdings column.
+        if phase == "regular" and str(price_date or "")[:10] != now.astimezone(TAIPEI).date().isoformat():
+            reference = None
         change = price - reference if reference is not None and price is not None else None
         row.update(
             market_price=str(price) if price is not None else None,
