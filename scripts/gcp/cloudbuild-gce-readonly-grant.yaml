@@ -1,0 +1,57 @@
+# One-time owner-approved Compute Engine read-only metadata grant.
+# Existing Cloud Build operator only; no VM, disk, IAP or application changes.
+steps:
+  - id: authorize-existing-inventory-reader
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        set -o pipefail
+        test "$PROJECT_ID" = 'gen-lang-client-0593591102'
+        target='janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com'
+        principal="$(gcloud auth list --filter='status:ACTIVE' --format='value(account)' | head -n 1)"
+        case "$principal" in
+          *@*.iam.gserviceaccount.com|*@developer.gserviceaccount.com|*@cloudbuild.gserviceaccount.com) ;;
+          *) echo 'GCE_READONLY_OPERATOR_INVALID'; exit 11 ;;
+        esac
+        echo 'GCE_READONLY_OPERATOR=EXISTING_SERVICE_ACCOUNT'
+        if ! gcloud projects get-iam-policy "$PROJECT_ID" --format=json >/tmp/gce-before.json 2>/dev/null; then
+          echo 'GCE_READONLY_OPERATOR_POLICY_GET=DENIED'
+          exit 12
+        fi
+        TARGET="$target" python3 - <<'PY'
+        import json, os
+        p = json.load(open('/tmp/gce-before.json'))
+        member = 'serviceAccount:' + os.environ['TARGET']
+        exists = any(b.get('role') == 'roles/compute.viewer' and not b.get('condition')
+                     and member in b.get('members',[]) for b in p.get('bindings',[]))
+        open('/tmp/gce-before-bound','w').write('yes' if exists else 'no')
+        print('GCE_READONLY_BEFORE=' + ('ALREADY_BOUND' if exists else 'NOT_BOUND'))
+        PY
+        if [ "$(cat /tmp/gce-before-bound)" = no ]; then
+          if ! gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+            --member="serviceAccount:$target" --role='roles/compute.viewer' \
+            --condition=None --quiet --format=none 2>/dev/null; then
+            echo 'GCE_READONLY_POLICY_SET=DENIED'
+            exit 13
+          fi
+          echo 'GCE_READONLY_POLICY_SET=APPLIED'
+        else
+          echo 'GCE_READONLY_POLICY_SET=ALREADY_BOUND'
+        fi
+        if ! gcloud projects get-iam-policy "$PROJECT_ID" --format=json >/tmp/gce-after.json 2>/dev/null; then
+          echo 'GCE_READONLY_POLICY_READBACK=DENIED'
+          exit 14
+        fi
+        TARGET="$target" python3 - <<'PY'
+        import json, os
+        p = json.load(open('/tmp/gce-after.json'))
+        member = 'serviceAccount:' + os.environ['TARGET']
+        assert any(b.get('role') == 'roles/compute.viewer' and not b.get('condition')
+                   and member in b.get('members',[]) for b in p.get('bindings',[]))
+        print('GCE_READONLY_POLICY_READBACK=PASS')
+        PY
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 180s
