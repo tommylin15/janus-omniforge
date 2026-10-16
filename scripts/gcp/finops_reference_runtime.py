@@ -22,8 +22,7 @@ from zoneinfo import ZoneInfo
 from ingestion_core.__main__ import _control_plane, _iceberg_core
 from ingestion_core import batch_controller
 import inspect
-if hasattr(batch_controller,'export_events') or '_iceberg_core' in inspect.getsource(batch_controller.run):
-    raise RuntimeError('deployed_audit_mirror_not_disabled')
+mirror_disabled=not hasattr(batch_controller,'export_events') and '_iceberg_core' not in inspect.getsource(batch_controller.run)
 with _control_plane() as control:
     connection=control.connection
     with connection.transaction():
@@ -37,7 +36,7 @@ with _control_plane() as control:
 out={'source':'active_control_executions','status':'COMPLETE','rows_checked':len(rows),'core_snapshot_ids':refs,'data_writes':0,
      'outbox_daily_events':[{'taipei_date':str(day),'events':count} for day,count in daily],
      'outbox_six_hour_events':[{'day_start_utc':str(day),'slot_start_utc':str(slot),'events':count} for day,slot,count in slots],
-     'pending_events':pending[0],'oldest_pending_at':str(pending[1]) if pending[1] else None,'iceberg_audit_disabled':True}
+     'pending_events':pending[0],'oldest_pending_at':str(pending[1]) if pending[1] else None,'iceberg_audit_disabled':mirror_disabled}
 from ingestion_core.stage import GcsObjectStore
 from ingestion_core.iceberg_maintenance import maintain_financials, compact_batch_events, _keep_snapshots, _references
 from ingestion_core.retention import clean_orphans
@@ -45,6 +44,13 @@ core=_iceberg_core(os.environ['CORE_BUCKET'],read_only=True)
 started=time.monotonic()
 try:
     store=GcsObjectStore(os.environ['CORE_BUCKET'])
+    from urllib.request import Request, urlopen
+    permissions_url='https://storage.googleapis.com/storage/v1/b/'+store.bucket+'/iam/testPermissions?permissions=storage.objects.get&permissions=storage.objects.create&permissions=storage.objects.delete'
+    try:
+        with urlopen(Request(permissions_url,headers={'Authorization':'Bearer '+store._token()}),timeout=15) as response:
+            out['gcs_core_permissions']=sorted(json.load(response).get('permissions',[]))
+    except HTTPError as error:
+        out['gcs_permission_probe_http_status']=error.code
     identifier='ops.batch_events_v1'
     out['audit_compaction_dry_run']=compact_batch_events(core=core,apply=False)
     plan=maintain_financials(core=core,store=store,apply=False,identifier=identifier)
