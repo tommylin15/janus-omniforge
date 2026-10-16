@@ -39,6 +39,65 @@ def _safe_record(value: Any) -> Any:
     return value
 
 
+
+def _comparable_single_quarter_eps(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Presentation-only EPS series. Never turn unqualified YTD into canonical facts.
+
+    Official MOPS basic EPS series are cumulative; Q2-Q4 need their own
+    immediately preceding same-year cumulative period to yield a quarter.
+    XBRL qualified single-quarter EPS takes priority over this derivation.
+    """
+    from calendar import monthrange
+
+    explicit: dict[tuple[int, int], dict[str, Any]] = {}
+    cumulative: dict[tuple[int, int], dict[str, Any]] = {}
+    for source in rows:
+        if source.get("value") is None or source.get("unit") != "TWD_per_share":
+            continue
+        try:
+            year, quarter = int(source.get("fiscal_year")), int(source.get("fiscal_quarter"))
+            value = Decimal(str(source["value"]))
+        except (ValueError, TypeError, InvalidOperation):
+            continue
+        if not value.is_finite() or not 1 <= quarter <= 4:
+            continue
+        row = dict(source)
+        row.setdefault("fiscal_period_end", date(year, quarter * 3, monthrange(year, quarter * 3)[1]).isoformat())
+        key = year, quarter
+        if (row.get("metric") == "eps_single_quarter"
+                and row.get("period_basis") == "single_quarter"):
+            explicit[key] = row
+        elif (("每股盈餘" in str(row.get("metric") or "")
+                or row.get("metric") == "eps_year_to_date")
+              and row.get("source_id") == "mops"
+              and row.get("statement_type") in ("income", "financial")
+              and row.get("period_basis") in (None, "year_to_date", "single_quarter")
+              and row.get("provenance_id")):
+            # Current official broad-market MOPS EPS is a YTD metric.
+            cumulative[key] = row
+    result = list(explicit.values())
+    for (year, quarter), current in sorted(cumulative.items()):
+        if (year, quarter) in explicit:
+            continue
+        current_number = Decimal(str(current["value"]))
+        if quarter == 1:
+            single = current_number
+            basis = "mops-q1-cumulative-v1"
+        else:
+            prior = cumulative.get((year, quarter - 1))
+            if (prior is None or prior.get("source_id") != current.get("source_id")
+                    or prior.get("unit") != current.get("unit")
+                    or prior.get("currency") != current.get("currency")
+                    or prior.get("report_scope") != current.get("report_scope")):
+                continue
+            single = current_number - Decimal(str(prior["value"]))
+            basis = "mops-adjacent-ytd-difference-v1"
+        result.append({**current, "metric": "eps_single_quarter",
+                       "period_basis": "single_quarter", "is_single_quarter": True,
+                       "value": str(single), "calculation_version": basis})
+    return result
+
+
 class QueryValidationError(ValueError):
     """Safe client-facing validation error."""
 
@@ -142,9 +201,11 @@ class CoreQueryService:
         if dataset == "institutional":
             raw = [row for row in raw if row.get("investor_type") == metric][:limit]
         elif dataset == 'financials':
-            raw = [row for row in raw if row.get('unit') == unit and (
-                row.get('metric') in {'monthly_revenue', 'previous_month_revenue'} if metric == 'revenue' else
-                row.get('metric') == 'eps_single_quarter' and row.get('period_basis') == 'single_quarter')]
+            raw = ([row for row in raw if row.get('unit') == unit and
+                     row.get('metric') in {'monthly_revenue', 'previous_month_revenue'}]
+                   if metric == 'revenue' else _comparable_single_quarter_eps(raw))
+            if metric == 'eps' and any(row.get('calculation_version') for row in raw):
+                response['calculation_version'] = 'eps-single-quarter-with-qualified-ytd-difference-v1'
         # Published null/invalid values remain dated gaps so the chart does not
         # silently connect across missing sessions. A valid duplicate wins.
         dated: dict[str, dict[str, str | None]] = {}
