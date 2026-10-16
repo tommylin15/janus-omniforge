@@ -1,0 +1,39 @@
+name: D06 read-only runtime reference census
+on:
+  push:
+    branches: [main]
+    paths: [ops/finops-reference-runtime.json]
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  reference-readback:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test immutable Job overrides and reference receipt boundary
+        run: |
+          python -m pip install pytest==8.4.2
+          python -m pytest -q tests/test_finops_reference_runtime.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read active and publication references through existing Job identities
+        run: python scripts/gcp/finops_reference_runtime.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: d06-runtime-references
+          path: d06-runtime-references.json
+          if-no-files-found: ignore
+          retention-days: 14

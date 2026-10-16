@@ -13,6 +13,7 @@ import re
 import subprocess
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 
 PROJECT = "gen-lang-client-0593591102"
 CORE = PROJECT + "-dev-core"
@@ -22,7 +23,8 @@ PRIVATE = PROJECT + "-dev-private"
 HASH = re.compile(r"^sha256:[0-9a-f]{64}$")
 LIMIT_PAGES = 25
 LIMIT_DOCS = 3000
-LIMIT_BYTES = 60 * 1024 * 1024
+# Measured research JSON alone is 97,381,536 bytes; keep one complete pass bounded.
+LIMIT_BYTES = 128 * 1024 * 1024
 
 def access_token():
     return subprocess.check_output(["gcloud","auth","print-access-token"],
@@ -113,12 +115,14 @@ def audit(token):
     provenance={}
     for label,bucket,predicate in (
         ("mart",MART,relevant_mart),
-        ("research",RESEARCH,lambda name:name.endswith(".json"))):
+        ("research",RESEARCH,lambda name:name.endswith(".json")),
+        ("private",PRIVATE,lambda name:name.endswith(".json"))):
         matched=[x for x in listings[label] if predicate(x["name"])]
         if len(matched)+read>LIMIT_DOCS:
             raise RuntimeError("EXTERNAL_REFERENCE_SCAN_LIMIT")
         count=0
         skipped_oversized=0
+        unavailable=0
         for obj in matched:
             size=int(obj.get("size") or 0)
             # Read large JSON within the existing total budget. Never turn a
@@ -128,24 +132,28 @@ def audit(token):
                 continue
             total_bytes+=size
             if total_bytes>LIMIT_BYTES: raise RuntimeError("REFERENCE_DOCUMENT_BYTE_BUDGET_EXCEEDED")
-            doc=read_doc(bucket,obj["name"],token,generation=obj["generation"],max_bytes=size)
+            try:
+                doc=read_doc(bucket,obj["name"],token,generation=obj["generation"],max_bytes=size)
+            except HTTPError:
+                unavailable+=1
+                continue
             refs=references(doc)
             protected.update(refs)
             for core_id in refs:
                 provenance.setdefault(core_id,[]).append({
-                    "bucket":bucket,"path":obj["name"],
+                    "bucket":bucket,"path_sha256":"sha256:"+sha256(obj["name"].encode()).hexdigest(),
                     "generation":obj.get("generation"),
                     "updated":obj.get("updated")})
             count+=1
             read+=1
         source_counts[label]={"documents_checked":count,
                               "documents_skipped_oversized":skipped_oversized,
+                              "documents_unavailable":unavailable,
                               "matched_bytes":sum(int(x["size"]) for x in matched),
                               "largest_document_bytes":max((int(x["size"]) for x in matched),default=0),
                               "listed_objects":len(listings[label])}
-    # Private object metadata are counted, but owner-private payloads and
-    # PostgreSQL publication references are NOT inspected with CI identity.
-    # Therefore no broad-delete approval is implied by this report.
+    # JSON references alone cannot certify private Parquet/model schemas,
+    # PostgreSQL publication or external research; this remains a candidate.
     known={identity for identity,_ in indexed.values()}
     cutoff=(datetime.now(timezone.utc)-timedelta(days=90))
     mature=[name for name,(identity,updated) in indexed.items()
@@ -161,8 +169,11 @@ def audit(token):
             "external_references_not_in_current_core_manifest_inventory":len(protected-known),
             "mature_manifest_candidate_upper_bound":unreferenced_mature,
             "model_research_sources":source_counts,
-            "private_payloads_scanned":False,
+            "private_json_payloads_scanned":source_counts["private"]["documents_checked"],
+            "private_reference_completeness":"NOT_PROVEN",
             "postgres_publication_index_scanned":False,
+            "research_json_coverage":"COMPLETE" if not (
+                source_counts["research"]["documents_skipped_oversized"] or source_counts["research"]["documents_unavailable"]) else "INCOMPLETE",
             "research_reference_completeness":"NOT_PROVEN",
             "reason":"PostgreSQL publication and owner-private or external model references not independently inventoried; do not configure deletion fence or delete historical manifests"}
 

@@ -33,14 +33,14 @@ def aggregate(series):
             for h in sorted(by_method)]
 
 def run():
-    end=datetime.now(timezone.utc)-timedelta(minutes=10)
-    start=end-timedelta(hours=10)
+    end=(datetime.now(timezone.utc)-timedelta(minutes=10)).replace(minute=0,second=0,microsecond=0)
+    start=end-timedelta(hours=48)
     access=subprocess.check_output(["gcloud","auth","print-access-token"],
           text=True,stderr=subprocess.DEVNULL,timeout=30).strip()
     series=[]
     next_page=""
     for _ in range(10):
-        params={"filter":'metric.type="storage.googleapis.com/api/request_count" AND resource.type="gcs_bucket"',
+        params={"filter":'metric.type="storage.googleapis.com/api/request_count" AND resource.type="gcs_bucket" AND resource.labels.bucket_name="'+BUCKET+'"',
                 "interval.startTime":start.isoformat().replace("+00:00","Z"),
                 "interval.endTime":end.isoformat().replace("+00:00","Z"),
                 "aggregation.alignmentPeriod":"300s","aggregation.perSeriesAligner":"ALIGN_SUM",
@@ -59,6 +59,7 @@ def run():
             "project":PROJECT,"bucket":BUCKET,"method_counts_by_taipei_hour":hours,
             "start_utc":start.isoformat(),"end_utc":end.isoformat(),
             "causal_savings_percent":None,"billing_cost":None,
-            "note":"Overlapping six-hour windows and compaction workload are not comparable to idle steady-state. Check at least 24h of matched dispatch cycles."}
+            "matched_workload_verified":False,
+            "note":"48 complete UTC hours only. Hourly counters alone cannot match stock counts, source dates, cold/warm ratios or concurrent maintenance; causal savings remain unknown."}
 if __name__=="__main__":
     print(json.dumps(run(),sort_keys=True))

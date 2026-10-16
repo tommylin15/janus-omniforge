@@ -1,5 +1,6 @@
 {
   "intent": "read-only-gcs-hourly-method-audit",
   "no_gcp_mutation": true,
-  "purpose": "Measure method-level Core GCS ReadObject/GetObjectMetadata hourly request counts around Iceberg compaction and Janus batch audit optimization; not billing or causal reduction."
+  "purpose": "D06 read-only 48 complete hours of Core method counters; source/workload matching remains mandatory; no cost or causal savings claim.",
+  "attempt": 2
 }

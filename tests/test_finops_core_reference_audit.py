@@ -24,7 +24,7 @@ def test_approved_artifacts_only():
     assert not module.relevant_mart("private/users/trades.json")
 
 def test_json_size_budget_is_bounded():
-    assert module.LIMIT_BYTES <= 60*1024*1024
+    assert module.LIMIT_BYTES <= 128*1024*1024
     assert module.LIMIT_DOCS <= 3000
 
 def test_candidate_source_provenance_is_not_retention_authorization():
@@ -57,3 +57,18 @@ def test_document_over_total_budget_remains_explicitly_incomplete(monkeypatch):
     result=module.audit("token")
     assert result["model_research_sources"]["research"]["documents_skipped_oversized"]==1
     assert result["research_reference_completeness"]=="NOT_PROVEN"
+
+def test_private_reference_paths_are_hashed_and_denial_stays_incomplete(monkeypatch):
+    from urllib.error import HTTPError
+    obj={"name":"owner/private.json","size":"100","generation":"123"}
+    monkeypatch.setattr(module,"objects",lambda bucket,token:([obj] if bucket==module.PRIVATE else [],1))
+    good="sha256:"+"a"*64
+    monkeypatch.setattr(module,"read_doc",lambda *args,**kw:{"core_snapshot_id":good})
+    result=module.audit("token")
+    assert "owner/private.json" not in str(result)
+    assert result["private_json_payloads_scanned"]==1
+    def denied(*args,**kw): raise HTTPError('url',403,'denied',None,None)
+    monkeypatch.setattr(module,"read_doc",denied)
+    result=module.audit("token")
+    assert result["model_research_sources"]["private"]["documents_unavailable"]==1
+    assert result["private_reference_completeness"]=="NOT_PROVEN"

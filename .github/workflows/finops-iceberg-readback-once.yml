@@ -90,7 +90,7 @@ jobs:
       - name: Diagnose exact failed audit execution without replay or raw logs
         run: |
           python - <<'PY'
-          import json, sys
+          import json, re, sys
           sys.path.insert(0, 'scripts/gcp')
           import ghcr_jobs_rollout as r
           selector = ('resource.type="cloud_run_job" AND resource.labels.job_name="janus-ingestion-core" '
@@ -105,6 +105,7 @@ jobs:
           signatures = sorted({kind for e in entries for kind in known
                                if kind in str(e.get('textPayload',''))})
           receipts = []
+          failures = []
           for e in entries:
               data = e.get('jsonPayload')
               if not isinstance(data,dict):
@@ -113,6 +114,11 @@ jobs:
               if isinstance(data,dict) and data.get('component') == 'iceberg-audit-only-cleanup':
                   receipts.append({k:data.get(k) for k in ('component','mode','status','deleted_objects',
                     'expired_snapshots','canonical_tables_modified','core_execution_manifests_deleted')})
+              if isinstance(data,dict) and data.get('component') == 'iceberg-maintenance' and data.get('status') == 'failed':
+                  code = str(data.get('error_code',''))
+                  location = str(data.get('error_location',''))
+                  if re.fullmatch(r'[A-Z_]{3,80}',code) and re.fullmatch(r'[a-z_]+\.py:[0-9]+',location):
+                      failures.append({'error_code':code,'error_location':location})
           executions = []
           for name in names:
               if not name.startswith('janus-ingestion-core-'): raise ValueError('execution_scope_invalid')
@@ -122,6 +128,6 @@ jobs:
                  'created_at':e.get('createTime'),'completed_at':e.get('completionTime')})
           print(json.dumps({'component':'d06-prior-cleanup-diagnostic','read_only':True,
             'entries':len(entries),'possibly_truncated':len(entries)==500,'executions':executions,
-            'known_error_signatures':signatures,'cleanup_receipts':receipts,
+            'known_error_signatures':signatures,'cleanup_receipts':receipts,'maintenance_failures':failures,
             'actual_deletions':'UNKNOWN' if not receipts else 'SEE_RECEIPT'},sort_keys=True))
           PY

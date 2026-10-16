@@ -1,7 +1,7 @@
 {
   "intent": "read-only-core-reference-discovery",
   "no_gcp_mutation": true,
-  "scope": "Read GCS Core execution SHA-256 manifest identities and Mart/Research artifact references using existing dev WIF. Count private bucket metadata only. Do not read owner payloads, publish retention fence, or delete data; incomplete sources remain explicit blockers.",
-  "attempt": 5,
-  "note": "D06 authorized continuation: generation-pinned large JSON reads within unchanged 60 MiB budget; candidate evidence only, no deletion fence or writes."
+  "scope": "Read Core, Mart, Research and Private JSON Core references with pinned generations; hash private paths; no owner payload output, GCP writes or deletion fence.",
+  "attempt": 6,
+  "note": "Measured research JSON 97381536 bytes; bounded complete pass raised to 128 MiB. All omitted/denied documents remain explicit gaps."
 }
