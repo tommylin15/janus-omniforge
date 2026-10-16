@@ -1,0 +1,93 @@
+name: Janus D01 10-16 failed operation readonly diagnosis
+on:
+  push:
+    branches: [main]
+    paths: ['ops/d01-owner-eod-1016-diagnose-request.json']
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact failure and immutable receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="read-only-d01-owner-1016-operation-diagnosis" and .approved==true and .source_run=="38898393706" and .no_gcp_mutation==true and .no_lease_mutation==true and .no_job_run==true and .no_owner_data_export==true' ops/d01-owner-eod-1016-diagnose-request.json >/dev/null
+          gh run view 38898393706 --json status,conclusion,workflowName | jq -e '.status=="completed" and .conclusion=="failure" and .workflowName=="Janus D01 exact 10-16 official Owner Mart publication"' >/dev/null
+          mkdir -p /tmp/d01failed
+          gh run download 38898393706 -n d01-owner-eod-1016-publish -D /tmp/d01failed
+          jq -e '.status=="DISPATCHED_UNKNOWN" and .source_sha=="8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699" and .no_ledger_mutation==true and (.operation|type=="string" and test("^[0-9a-f-]{36}$"))' /tmp/d01failed/d01-owner-eod-1016-publish.json >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Inspect operation, terminal execution, bounded logs metadata
+        env:
+          PYTHONPATH: .
+        run: |
+          python - <<'PY'
+          import json,subprocess,sys
+          from pathlib import Path
+          sys.path.insert(0,'scripts/gcp')
+          import ghcr_jobs_rollout as ctl
+          p=json.loads(Path('/tmp/d01failed/d01-owner-eod-1016-publish.json').read_text())
+          operation=ctl.ROOT+'/operations/'+p['operation']
+          op=ctl.cloud(operation)
+          response=op.get('response') or {}
+          name=str(response.get('name') or '')
+          if not name.startswith(ctl.ROOT+'/jobs/janus-private-pipeline/executions/'):
+            collection=ctl.cloud(ctl.ROOT+'/jobs/janus-private-pipeline/executions?pageSize=100')
+            matches=[x for x in collection.get('executions',[]) if
+              '2026-10-16T12:07:00'<=str(x.get('createTime') or '')[:19]<='2026-10-16T12:13:00']
+            if len(matches)==1:name=matches[0]['name']
+          details=ctl.cloud(name) if name.startswith(ctl.ROOT+'/jobs/janus-private-pipeline/executions/') else {}
+          logs=subprocess.run(['gcloud','logging','read',
+            'resource.type="cloud_run_job" AND timestamp>="2026-10-16T12:06:00Z" AND timestamp<="2026-10-16T12:14:00Z"',
+            '--project=gen-lang-client-0593591102','--format=json','--limit=400'],
+            capture_output=True,text=True,check=True,timeout=65)
+          scoped=[]
+          for item in json.loads(logs.stdout):
+            labels=item.get('labels') or {}
+            resource=(item.get('resource') or {}).get('labels') or {}
+            execution=labels.get('run.googleapis.com/execution_name') or resource.get('execution_name')
+            if not name or execution!=name.rsplit('/',1)[-1]:continue
+            scoped.append(str(item.get('textPayload') or item.get('jsonPayload') or ''))
+          markers=['owner_scope_not_exactly_one','official_etf_identity_not_verified',
+           'core_valuation_older_than_verified_close','official_persisted_asof_provenance_invalid',
+           'owner_position_scope_invalid','owner_full_valuation_coverage_missing',
+           'official_asof_price_not_eligible','owner_derived_rows_incomplete',
+           'owner_derived_pnl_missing_or_checkpoint_mismatch',
+           'held_etf_mart_price_day_mismatch','owner_portfolio_summary_not_unique_current_checkpoint',
+           'owner_aggregate_value_pnl_still_withheld','official_date_not_verified',
+           'out_of_bounded_official_date','ledger_version_changed_during_mart_write','d01_owner_same_day_price_coverage_missing']
+          findings=[v for v in markers if any(v in s for s in scoped)]
+          report={'source_run':'38898393706','status':'READ_ONLY',
+            'operation_done':op.get('done'),'operation_has_error':bool(op.get('error')),
+            'execution':name.rsplit('/',1)[-1] if name else None,
+            'terminal':ctl.terminal(details) if details else False,
+            'succeeded':details.get('succeededCount'),
+            'failed':details.get('failedCount'),
+            'conditions':[{'type':c.get('type'),'state':c.get('state'),'reason':c.get('reason')}
+                          for c in details.get('conditions',[])],
+            'scoped_log_lines':len(scoped),'known_failure_codes':findings,
+            'has_python_traceback':any('Traceback (most recent call last)' in s for s in scoped),
+            'no_gcp_mutation':True}
+          report['operation_error_code']=(op.get('error') or {}).get('code')
+          print(json.dumps(report,sort_keys=True))
+          Path('/tmp/d01-owner-eod-1016-diagnose.json').write_text(json.dumps(report,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: d01-owner-eod-1016-diagnose
+          path: /tmp/d01-owner-eod-1016-diagnose.json
+          if-no-files-found: ignore
+          retention-days: 14
