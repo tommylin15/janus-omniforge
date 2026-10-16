@@ -38,6 +38,10 @@ jobs:
                       item.update(status='ERROR',error_type=type(exc).__name__)
                   report['items'].append(item)
           report['summary']={name:sum(i['status']==name for i in report['items']) for name in ('available','partial','missing','unavailable','ERROR')}
+          report['observed_at_utc']=__import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat()
+          report['missing_dataset_metrics']=[{'market':i['market'],'symbol':i['symbol'],'metric':i['metric'],'reason':i.get('missing_reason')}
+             for i in report['items'] if i['status'] in ('missing','unavailable','ERROR')]
+          report['acceptance_scope']='real_public_dev_API_series_only; not authenticated UI or owner Mart'
           report['gate']='PASS_READ_PATH_ONLY' if report['summary']['ERROR']==0 else 'FAIL'
           print(json.dumps(report,sort_keys=True,ensure_ascii=False))
           assert report['gate']=='PASS_READ_PATH_ONLY'
