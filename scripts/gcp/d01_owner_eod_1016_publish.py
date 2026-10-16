@@ -41,14 +41,14 @@ if any(entry[1]!=valuation for entry in prices.values()):
     preserved_guard='''if (not row or row["price_date"]!=target.isoformat() or
   Decimal(row["price"])!=Decimal(source["price"])):
   raise RuntimeError("official_persisted_asof_provenance_invalid")
-from services.api.tpex_quotes import TPEX_OFFICIAL_EOD_URL,TPEX_OFFICIAL_DATED_URL
-import re
-stored_uri=row.get("source_uri")
-stored_hash=row.get("record_sha256")
-if (not isinstance(stored_uri,str) or not isinstance(stored_hash,str) or
-    re.fullmatch(r"[0-9a-f]{64}",stored_hash) is None or
-    not (stored_uri==TPEX_OFFICIAL_EOD_URL or
-         (stored_uri.startswith(TPEX_OFFICIAL_DATED_URL+"?") and "response=json" in stored_uri))):
+ from services.api.tpex_quotes import TPEX_OFFICIAL_EOD_URL,TPEX_OFFICIAL_DATED_URL
+ import re
+ stored_uri=row.get("source_uri")
+ stored_hash=row.get("record_sha256")
+ if (not isinstance(stored_uri,str) or not isinstance(stored_hash,str) or
+     re.fullmatch(r"[0-9a-f]{64}",stored_hash) is None or
+     not (stored_uri==TPEX_OFFICIAL_EOD_URL or
+          (stored_uri.startswith(TPEX_OFFICIAL_DATED_URL+"?") and "response=json" in stored_uri))):
   raise RuntimeError("official_stored_provenance_not_authorized")'''
     if code.count(prior_guard)!=1:
         raise ValueError('d01_owner_provenance_guard_drift')
