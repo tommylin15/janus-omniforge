@@ -3,16 +3,13 @@
   "approved": true,
   "market": "TPEX",
   "dates": [
-    "2026-09-15",
-    "2026-09-16",
-    "2026-09-24",
-    "2026-09-29",
-    "2026-09-30"
+    "2026-09-14",
+    "2026-10-01"
   ],
   "no_new_source": true,
   "no_job_template_mutation": true,
   "no_owner_mutation": true,
-  "why": "DRL-01 5 bounded confirmed completed official OTC sessions to close current 20-trading-day gap, preserve Stage→Core→snapshot per-date readback and correct as-of",
+  "why": "DRL-01 OTC remaining two historical completed sessions, 20/21 day market-ready coverage target; official quotes, Stage/Core snapshot readback per day, no owner or image mutation",
   "scope": "current dev Iceberg Core and Stage only",
-  "request_version": 9
+  "request_version": 10
 }
