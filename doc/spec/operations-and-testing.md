@@ -4,6 +4,12 @@
 
 | 驗收範圍 | 證據 | 判定與限制 |
 |---|---|---|
+| DRL-01 TPEX 有界歷史 OHLCV | [10/02 #38893470772](https://github.com/tommylin15/janus-omniforge/actions/runs/38893470772)、[10/05～06 #38908586463](https://github.com/tommylin15/janus-omniforge/actions/runs/38908586463) | **3個交易日各別PASS**：896檔有效分母，867、870、864官方價Core寫入與同日snapshot讀回；尚不是20/21全窗口PASS。 |
+| DRL-01 MOPS缺月份 repair | [#38893774756](https://github.com/tommylin15/janus-omniforge/actions/runs/38893774756) | **PASS，僅月份metadata修復**：updated3947，missing3947→0，60846 rows不變，snapshot 4705504090566285355→3590832284682174316。13個連續月及真YoY另驗。 |
+| DRL-01 EPS官方補歷史 | [#38894262708](https://github.com/tommylin15/janus-omniforge/actions/runs/38894262708) | **JOB_TERMINAL_PASS，CORE_READBACK_NOT_VERIFIED**：2382一檔受控MOPS history；不聲稱可比四季度。 |
+| DRL-01 API資料口徑與定期Ledger程式 | [targeted CI #38909327565](https://github.com/tommylin15/janus-omniforge/actions/runs/38909327565) | **CODE/TEST PASS，尚未部署**：修正YTD EPS不可直接差分單季，月營收排除上月對照重複，新增已有Controller每日/週六的有界官方分母/期數summary；後續同SHA GHCR、dev Job及Admin/readback尚需實證。 |
+
+|---|---|---|
 | D05 本輪 full Release | [CI 修復 d1286cd](https://github.com/tommylin15/janus-omniforge/commit/d1286cd3e0ce20bc7ca8baa7cf8f22abfa875028)、[unified c024a11](https://github.com/tommylin15/janus-omniforge/commit/c024a11ae51a6dcb74d555ceb6409a59e6402182)、[Release #38889743874](https://github.com/tommylin15/janus-omniforge/actions/runs/38889743874) | **PASS，僅源 SHA a25e900…**：Python 1322 passed、2 deselected、Flutter PASS、四 GHCR image/digest PASS；沒有對此 SHA 新版 candidate／Jobs／API traffic/readback。 |
 | D02 真實 DB-first 首頁快照／公開 API | [#38890365233](https://github.com/tommylin15/janus-omniforge/actions/runs/38890365233) | **PASS_READ_PATH**：10/15 market-home.v1 DB 三區 available；正式 public market-home TAIEX partial，法人／市場活動 available；未量測 authenticated Flutter P95。 |
 | D03 真實 typed 圖表 18 項 | [#38889906057](https://github.com/tommylin15/janus-omniforge/actions/runs/38889906057) | **PASS_READ_PATH_ONLY**：TWSE 2330、TPEx 6488 各9指標；16 available、2 EPS missing、error=0；不能宣稱四頁本人圖像驗收。 |
