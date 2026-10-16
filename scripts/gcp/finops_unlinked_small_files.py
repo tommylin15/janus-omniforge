@@ -1,6 +1,7 @@
 """User-approved old, unlinked Core small-object cleanup; no row/manifest retirement."""
 from datetime import datetime, timedelta, timezone
 import json
+import inspect
 import os
 import re
 import traceback
@@ -70,12 +71,14 @@ def main():
     if os.environ.get('JANUS_APPROVED_UNLINKED_CLEANUP')!='true' or os.environ.get('CORE_BUCKET')!=BUCKET:
         raise ValueError('explicit_unlinked_cleanup_authorization_required')
     from ingestion_core.__main__ import _iceberg_core
+    from ingestion_core import batch_controller
     core=None
     now=datetime.now(timezone.utc)
     raw=GcsObjectStore(BUCKET)
     store=None
     result={'component':COMPONENT,'mode':'user-approved-unlinked-small-files',
             'status':'PARTIAL','core_rows_deleted':0,'core_manifests_deleted':0,
+            'iceberg_audit_disabled':not hasattr(batch_controller,'export_events') and '_iceberg_core' not in inspect.getsource(batch_controller.run),
             'private_changes':0,'deletion_fence_published':False,
             'reference_policy':'2026-10-16 user approved known-reference cleanup; incomplete external registry does not block old unlinked objects',
             'small_file_bytes_exclusive':1024*1024,'minimum_age_days':7}

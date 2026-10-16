@@ -115,10 +115,10 @@ def main():
     request = json.loads(REQUEST.read_text())
     if (request.get("intent") != "one-shot-existing-dev-iceberg-maintenance"
             or request.get("no_new_resources") is not True
-            or request.get("mode") not in {"compact-nightly", "retention-apply", "retention-dry-run", "audit-cleanup", "unlinked-small-files"}
+            or request.get("mode") not in {"compact-nightly", "retention-apply", "retention-dry-run", "audit-cleanup", "unlinked-small-files", "ci-approved-orphans"}
             or len(request.get("expected_source_sha", "")) != 40):
         raise RuntimeError("invalid one-shot GCP maintenance authorization")
-    if request['mode']=='unlinked-small-files' and request.get('user_approved_unlinked_small_file_cleanup') is not True:
+    if request['mode'] in {'unlinked-small-files','ci-approved-orphans'} and request.get('user_approved_unlinked_small_file_cleanup') is not True:
         raise RuntimeError('explicit_unlinked_small_file_approval_required')
     release_id = str(request["rollout_run"])
     release = jsoncall("gh", "run", "view", release_id,
@@ -150,6 +150,10 @@ def main():
     # The shared all-page fence is mandatory before touching the live Core Job.
     import ghcr_jobs_rollout as rollout
     rollout.fence()
+    if request['mode']=='ci-approved-orphans':
+        from finops_ci_orphans import run
+        run(call,jsoncall,inventory,rollout)
+        return
     if request['mode']=='unlinked-small-files':
         unlinked_cleanup(job)
         return

@@ -1,0 +1,2392 @@
+{
+  "source_run": "38874199530",
+  "source_execution": "janus-ingestion-core-w5kc2",
+  "bucket": "gen-lang-client-0593591102-dev-core",
+  "objects": [
+    {
+      "bytes": 3433,
+      "generation": "1791163982429736",
+      "name": "warehouse/batch_events_v1/data/00000-0-01959b4b-35f8-4b43-9748-b09a7b976977.parquet"
+    },
+    {
+      "bytes": 2683,
+      "generation": "1791171172882195",
+      "name": "warehouse/batch_events_v1/data/00000-0-02f30a31-be81-4b4a-9bf5-744c33267b49.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791030773301868",
+      "name": "warehouse/batch_events_v1/data/00000-0-04b55509-86a7-49b0-a96d-286befa51b95.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791092008105476",
+      "name": "warehouse/batch_events_v1/data/00000-0-04c715ac-68ce-4b95-be81-71878d8536e4.parquet"
+    },
+    {
+      "bytes": 2684,
+      "generation": "1791113630997126",
+      "name": "warehouse/batch_events_v1/data/00000-0-07c9e5fe-fb72-4185-87b3-91683bdbcbe5.parquet"
+    },
+    {
+      "bytes": 2684,
+      "generation": "1790923123418835",
+      "name": "warehouse/batch_events_v1/data/00000-0-07f7c285-bded-43b4-a1d6-106d3dac21c3.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791398045649200",
+      "name": "warehouse/batch_events_v1/data/00000-0-089b512c-1d0a-4363-b967-525605c4d514.parquet"
+    },
+    {
+      "bytes": 3796,
+      "generation": "1791135205183128",
+      "name": "warehouse/batch_events_v1/data/00000-0-0901d5eb-11ce-4b1a-9e09-32a938fa70f8.parquet"
+    },
+    {
+      "bytes": 3861,
+      "generation": "1791498749177748",
+      "name": "warehouse/batch_events_v1/data/00000-0-0a59b672-88d7-410b-a093-bee48b247e58.parquet"
+    },
+    {
+      "bytes": 3040,
+      "generation": "1790996697680163",
+      "name": "warehouse/batch_events_v1/data/00000-0-0b837c40-2a80-4ce7-8d52-04b6ff55d2e1.parquet"
+    },
+    {
+      "bytes": 3792,
+      "generation": "1791422827700807",
+      "name": "warehouse/batch_events_v1/data/00000-0-0b9d3afe-40de-41b1-bc22-1754e71d58df.parquet"
+    },
+    {
+      "bytes": 2980,
+      "generation": "1791272157146693",
+      "name": "warehouse/batch_events_v1/data/00000-0-0befa8c3-940c-499b-b950-86121dfb16e1.parquet"
+    },
+    {
+      "bytes": 3374,
+      "generation": "1790958734099591",
+      "name": "warehouse/batch_events_v1/data/00000-0-0d396a93-be1a-49e1-b423-f2e6b7b06c09.parquet"
+    },
+    {
+      "bytes": 3197,
+      "generation": "1790997231901622",
+      "name": "warehouse/batch_events_v1/data/00000-0-0ea761fe-b006-4f7a-999b-680df5a086a7.parquet"
+    },
+    {
+      "bytes": 3857,
+      "generation": "1791491581092845",
+      "name": "warehouse/batch_events_v1/data/00000-0-0ecb61c4-2523-4d07-b7d2-f1ac89e67ff3.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1790926429410558",
+      "name": "warehouse/batch_events_v1/data/00000-0-0f1ce34d-6acb-47bd-878b-633c70adaed8.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791102901216574",
+      "name": "warehouse/batch_events_v1/data/00000-0-11b61c98-18ec-4800-849b-bee063c331ca.parquet"
+    },
+    {
+      "bytes": 4971,
+      "generation": "1791372825417062",
+      "name": "warehouse/batch_events_v1/data/00000-0-1401bb81-e935-411c-9f49-a10cb34ec328.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791257597007607",
+      "name": "warehouse/batch_events_v1/data/00000-0-14b0ab5e-37ca-42ee-88e0-4a48f2c92297.parquet"
+    },
+    {
+      "bytes": 3795,
+      "generation": "1791221678242638",
+      "name": "warehouse/batch_events_v1/data/00000-0-14cf91f6-52de-4eab-bc58-ee868b2cfd50.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791019991857936",
+      "name": "warehouse/batch_events_v1/data/00000-0-1740daac-2e68-46c1-b496-691e768d5169.parquet"
+    },
+    {
+      "bytes": 2683,
+      "generation": "1791106390382083",
+      "name": "warehouse/batch_events_v1/data/00000-0-1a88e952-a810-4fcb-8320-b4a4aaff0f1e.parquet"
+    },
+    {
+      "bytes": 3784,
+      "generation": "1791362464444302",
+      "name": "warehouse/batch_events_v1/data/00000-0-1e0c9bc9-160a-47c7-ad87-51e3caa84860.parquet"
+    },
+    {
+      "bytes": 2684,
+      "generation": "1791203675423630",
+      "name": "warehouse/batch_events_v1/data/00000-0-1f61d589-b4c7-4cbd-b5f3-dc90ff41630b.parquet"
+    },
+    {
+      "bytes": 3460,
+      "generation": "1790931088436909",
+      "name": "warehouse/batch_events_v1/data/00000-0-20053233-291c-4e33-8f03-dd2ea02e4b94.parquet"
+    },
+    {
+      "bytes": 3925,
+      "generation": "1791419581086940",
+      "name": "warehouse/batch_events_v1/data/00000-0-2235aff4-929e-4d1e-8af5-9569b511a02a.parquet"
+    },
+    {
+      "bytes": 3040,
+      "generation": "1791077584171789",
+      "name": "warehouse/batch_events_v1/data/00000-0-239e1e02-e088-4169-b7a6-fce9abad532b.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791437599900769",
+      "name": "warehouse/batch_events_v1/data/00000-0-240c1a9e-4fda-4b3f-8917-97fe8ce8f4bd.parquet"
+    },
+    {
+      "bytes": 2686,
+      "generation": "1791433995595335",
+      "name": "warehouse/batch_events_v1/data/00000-0-243aecab-148f-451d-a860-9857fe88f868.parquet"
+    },
+    {
+      "bytes": 4091,
+      "generation": "1791394331773292",
+      "name": "warehouse/batch_events_v1/data/00000-0-2494d423-e984-4db6-832f-269b542abffb.parquet"
+    },
+    {
+      "bytes": 2220,
+      "generation": "1790912383979030",
+      "name": "warehouse/batch_events_v1/data/00000-0-24ce57fb-8bbc-44f7-894b-252945d2d0a8.parquet"
+    },
+    {
+      "bytes": 3854,
+      "generation": "1791167647259532",
+      "name": "warehouse/batch_events_v1/data/00000-0-25ba6237-65f1-4851-a2bb-8ddc68a04a3f.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791405233381958",
+      "name": "warehouse/batch_events_v1/data/00000-0-25cd27c6-c839-457d-8ecc-5d2334f7489a.parquet"
+    },
+    {
+      "bytes": 2686,
+      "generation": "1791423185843349",
+      "name": "warehouse/batch_events_v1/data/00000-0-275ac81b-5304-492e-8be7-da319ba80949.parquet"
+    },
+    {
+      "bytes": 2687,
+      "generation": "1791192803621569",
+      "name": "warehouse/batch_events_v1/data/00000-0-27a0693d-9195-4212-991c-99bcee30e827.parquet"
+    },
+    {
+      "bytes": 2686,
+      "generation": "1791189186046863",
+      "name": "warehouse/batch_events_v1/data/00000-0-293a40c0-5942-4c58-b283-39359f09000c.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791264952667164",
+      "name": "warehouse/batch_events_v1/data/00000-0-29871116-fb26-4782-8f28-a4d3d7a7e8ae.parquet"
+    },
+    {
+      "bytes": 3405,
+      "generation": "1791250469551094",
+      "name": "warehouse/batch_events_v1/data/00000-0-2c0031be-c5db-43ec-81e8-e8803187d59c.parquet"
+    },
+    {
+      "bytes": 3792,
+      "generation": "1791365841149594",
+      "name": "warehouse/batch_events_v1/data/00000-0-2c213d71-9652-4759-8f05-26ee812e157f.parquet"
+    },
+    {
+      "bytes": 3756,
+      "generation": "1791161321759994",
+      "name": "warehouse/batch_events_v1/data/00000-0-2cbab601-9768-4a21-a855-3c035d534d6d.parquet"
+    },
+    {
+      "bytes": 3800,
+      "generation": "1791084801602378",
+      "name": "warehouse/batch_events_v1/data/00000-0-2e15aaec-0c02-47a4-b827-8d03d793ff81.parquet"
+    },
+    {
+      "bytes": 2682,
+      "generation": "1790923399869298",
+      "name": "warehouse/batch_events_v1/data/00000-0-2e42cc7d-7961-4f57-a935-cfe6c880c36c.parquet"
+    },
+    {
+      "bytes": 3798,
+      "generation": "1791052440070521",
+      "name": "warehouse/batch_events_v1/data/00000-0-31df66c6-2c47-41c0-89a5-2ee00e8b6e2a.parquet"
+    },
+    {
+      "bytes": 3782,
+      "generation": "1791210782533423",
+      "name": "warehouse/batch_events_v1/data/00000-0-332625e9-6cc3-4fb5-aa04-d032551b5844.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791138840174876",
+      "name": "warehouse/batch_events_v1/data/00000-0-33d57629-29e0-453d-ba98-b2ad1e110af9.parquet"
+    },
+    {
+      "bytes": 3129,
+      "generation": "1791001943936715",
+      "name": "warehouse/batch_events_v1/data/00000-0-3537fa61-5e1d-4ba0-b873-0d5956ff4ed3.parquet"
+    },
+    {
+      "bytes": 3620,
+      "generation": "1790931831147780",
+      "name": "warehouse/batch_events_v1/data/00000-0-393c357a-fd46-4dec-8cc2-085460d0570d.parquet"
+    },
+    {
+      "bytes": 2686,
+      "generation": "1791037921285641",
+      "name": "warehouse/batch_events_v1/data/00000-0-3d40f584-43d7-4135-996a-2b65438b8bdd.parquet"
+    },
+    {
+      "bytes": 3496,
+      "generation": "1791045173621603",
+      "name": "warehouse/batch_events_v1/data/00000-0-41076dd2-c1ad-49ea-96bb-ac4d37daaea2.parquet"
+    },
+    {
+      "bytes": 3755,
+      "generation": "1791448344114201",
+      "name": "warehouse/batch_events_v1/data/00000-0-41d5e607-a5d1-41ea-a818-d038ee366f4b.parquet"
+    },
+    {
+      "bytes": 2684,
+      "generation": "1791099288854386",
+      "name": "warehouse/batch_events_v1/data/00000-0-42386acb-be6a-42da-8516-24441cfde096.parquet"
+    },
+    {
+      "bytes": 3816,
+      "generation": "1791469923962405",
+      "name": "warehouse/batch_events_v1/data/00000-0-42bd4634-748a-43cd-bf45-706f223b2afd.parquet"
+    },
+    {
+      "bytes": 3808,
+      "generation": "1791390833674190",
+      "name": "warehouse/batch_events_v1/data/00000-0-43006cf7-85df-4bc5-8dad-08bd9bfacf72.parquet"
+    },
+    {
+      "bytes": 3195,
+      "generation": "1791380024793943",
+      "name": "warehouse/batch_events_v1/data/00000-0-448aeb6f-78e7-465a-8607-5aba255eed81.parquet"
+    },
+    {
+      "bytes": 2683,
+      "generation": "1791023539611096",
+      "name": "warehouse/batch_events_v1/data/00000-0-463497b8-dc68-4c77-9a62-934e37c03c77.parquet"
+    },
+    {
+      "bytes": 2683,
+      "generation": "1791261184781310",
+      "name": "warehouse/batch_events_v1/data/00000-0-4662e8e8-8232-4cc9-8ca9-efc7bace6b65.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791408829305501",
+      "name": "warehouse/batch_events_v1/data/00000-0-4901aa4e-b446-4e9a-87d8-7ed5e7898b2f.parquet"
+    },
+    {
+      "bytes": 3492,
+      "generation": "1791128050625987",
+      "name": "warehouse/batch_events_v1/data/00000-0-49cf498d-58ab-4165-b6bd-3dff18bf5a8a.parquet"
+    },
+    {
+      "bytes": 2687,
+      "generation": "1791383610212007",
+      "name": "warehouse/batch_events_v1/data/00000-0-4bebd101-dd80-4991-b91a-30e5705b42e7.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791149606570456",
+      "name": "warehouse/batch_events_v1/data/00000-0-4dc681e7-bee4-4d5d-8290-58350cba849b.parquet"
+    },
+    {
+      "bytes": 3115,
+      "generation": "1791070364194424",
+      "name": "warehouse/batch_events_v1/data/00000-0-4ddbafbe-a234-4fb9-9d87-4c20595f813c.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791412406605939",
+      "name": "warehouse/batch_events_v1/data/00000-0-5011e1d3-c41b-48be-b607-f7f408c0dcb2.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791200044217320",
+      "name": "warehouse/batch_events_v1/data/00000-0-51193e63-6050-4236-9437-27c4ff83d328.parquet"
+    },
+    {
+      "bytes": 2684,
+      "generation": "1791423915886125",
+      "name": "warehouse/batch_events_v1/data/00000-0-548c7867-4472-4d7e-a006-bb4d62cdfbc6.parquet"
+    },
+    {
+      "bytes": 4088,
+      "generation": "1791477123062432",
+      "name": "warehouse/batch_events_v1/data/00000-0-55563bd7-e365-435d-a7df-26ea0d5438ae.parquet"
+    },
+    {
+      "bytes": 3170,
+      "generation": "1791207198784849",
+      "name": "warehouse/batch_events_v1/data/00000-0-55e8f5a5-5358-4ca7-a386-137ec1c1dce8.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1790940845769158",
+      "name": "warehouse/batch_events_v1/data/00000-0-56cc942e-17c2-4638-9ba3-c1b65571b8da.parquet"
+    },
+    {
+      "bytes": 3731,
+      "generation": "1791174739079906",
+      "name": "warehouse/batch_events_v1/data/00000-0-59cfeb78-c77b-4a73-99a2-2350d9755b9c.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791027183882809",
+      "name": "warehouse/batch_events_v1/data/00000-0-5d11b095-7d8c-4092-aa31-7a2158bff134.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791459155798911",
+      "name": "warehouse/batch_events_v1/data/00000-0-5eec3319-4cae-4229-9311-111563e18ad6.parquet"
+    },
+    {
+      "bytes": 2683,
+      "generation": "1790937201377324",
+      "name": "warehouse/batch_events_v1/data/00000-0-6031843f-ef56-4194-a5c3-70b64d27b72e.parquet"
+    },
+    {
+      "bytes": 4286,
+      "generation": "1791379149610645",
+      "name": "warehouse/batch_events_v1/data/00000-0-65def813-5a54-48d9-9198-2c60e3552cd7.parquet"
+    },
+    {
+      "bytes": 2683,
+      "generation": "1790976753808557",
+      "name": "warehouse/batch_events_v1/data/00000-0-67232a8b-ea19-45fa-809d-938886c20a9a.parquet"
+    },
+    {
+      "bytes": 3114,
+      "generation": "1791243167569560",
+      "name": "warehouse/batch_events_v1/data/00000-0-6c68fd9c-b96d-4996-9e16-231632248a62.parquet"
+    },
+    {
+      "bytes": 2686,
+      "generation": "1791228878511872",
+      "name": "warehouse/batch_events_v1/data/00000-0-6cc096ac-4810-42ab-950e-bc072bf193db.parquet"
+    },
+    {
+      "bytes": 2683,
+      "generation": "1790991088937785",
+      "name": "warehouse/batch_events_v1/data/00000-0-6cdd8aca-23e5-4631-b83d-8e58be3f27ba.parquet"
+    },
+    {
+      "bytes": 4290,
+      "generation": "1791451930193357",
+      "name": "warehouse/batch_events_v1/data/00000-0-6d339bed-0b30-4544-b20e-ee7c29f1244e.parquet"
+    },
+    {
+      "bytes": 3446,
+      "generation": "1791416041225561",
+      "name": "warehouse/batch_events_v1/data/00000-0-6e6d63b5-cee6-426b-8234-3701fe6da6d0.parquet"
+    },
+    {
+      "bytes": 2682,
+      "generation": "1791066795513020",
+      "name": "warehouse/batch_events_v1/data/00000-0-6f11a040-ac70-4a49-8f18-6a287d4c3a1c.parquet"
+    },
+    {
+      "bytes": 3374,
+      "generation": "1791131677272721",
+      "name": "warehouse/batch_events_v1/data/00000-0-6f2874a1-1a8c-4205-90ee-a9aca8539077.parquet"
+    },
+    {
+      "bytes": 3646,
+      "generation": "1791441122588995",
+      "name": "warehouse/batch_events_v1/data/00000-0-6f6c55c7-d9a1-4b52-9032-176f28b7424c.parquet"
+    },
+    {
+      "bytes": 3197,
+      "generation": "1791466401234016",
+      "name": "warehouse/batch_events_v1/data/00000-0-701cc364-95e5-4903-8a5a-4eaa24eee21f.parquet"
+    },
+    {
+      "bytes": 3304,
+      "generation": "1790930028460449",
+      "name": "warehouse/batch_events_v1/data/00000-0-73e09af4-234c-41fb-af66-d0a3051eabee.parquet"
+    },
+    {
+      "bytes": 3234,
+      "generation": "1791269157992263",
+      "name": "warehouse/batch_events_v1/data/00000-0-786a7f2e-97ef-4502-b85e-4ba9fda9398c.parquet"
+    },
+    {
+      "bytes": 4220,
+      "generation": "1790913848977934",
+      "name": "warehouse/batch_events_v1/data/00000-0-78d1763d-f858-4c57-86e6-fb2fcc3fd092.parquet"
+    },
+    {
+      "bytes": 2686,
+      "generation": "1791382225862992",
+      "name": "warehouse/batch_events_v1/data/00000-0-8014a5aa-4a3e-4bb6-9c61-3155ebfe7bea.parquet"
+    },
+    {
+      "bytes": 2684,
+      "generation": "1791196359712092",
+      "name": "warehouse/batch_events_v1/data/00000-0-8067fac5-cd0f-4f7f-b648-f848c67cca03.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791426780328106",
+      "name": "warehouse/batch_events_v1/data/00000-0-809cde28-c6ec-40bf-9b49-08eb54e13bc9.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791124381596989",
+      "name": "warehouse/batch_events_v1/data/00000-0-80a3d605-8a4b-4ebf-ae60-a0fe9bf9df34.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791034321367664",
+      "name": "warehouse/batch_events_v1/data/00000-0-821a0a29-6816-45c5-ab2b-d733de43426f.parquet"
+    },
+    {
+      "bytes": 4027,
+      "generation": "1791377465550790",
+      "name": "warehouse/batch_events_v1/data/00000-0-8628921b-7eb1-44de-adee-040a764758bd.parquet"
+    },
+    {
+      "bytes": 3362,
+      "generation": "1791246704506452",
+      "name": "warehouse/batch_events_v1/data/00000-0-876c4120-c760-4b23-8fb9-f795cbf97518.parquet"
+    },
+    {
+      "bytes": 2683,
+      "generation": "1791423567536326",
+      "name": "warehouse/batch_events_v1/data/00000-0-89352b0e-b1b3-473a-b6a2-4c22f1ba6134.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791401472187934",
+      "name": "warehouse/batch_events_v1/data/00000-0-8a78b678-f2d1-473c-81a4-8ba434f07fb9.parquet"
+    },
+    {
+      "bytes": 2683,
+      "generation": "1791239550212967",
+      "name": "warehouse/batch_events_v1/data/00000-0-8b7cc6f1-2203-497b-9f83-f548eda2be35.parquet"
+    },
+    {
+      "bytes": 3805,
+      "generation": "1790997934567472",
+      "name": "warehouse/batch_events_v1/data/00000-0-8eb70a05-664c-4c61-987e-ac41de6446e1.parquet"
+    },
+    {
+      "bytes": 3732,
+      "generation": "1791005580708048",
+      "name": "warehouse/batch_events_v1/data/00000-0-937ca011-eac6-426e-946d-4af23bff28f1.parquet"
+    },
+    {
+      "bytes": 2684,
+      "generation": "1791095671971950",
+      "name": "warehouse/batch_events_v1/data/00000-0-995e86f4-d3d4-4ce8-9448-90871a4df521.parquet"
+    },
+    {
+      "bytes": 3491,
+      "generation": "1791214341269269",
+      "name": "warehouse/batch_events_v1/data/00000-0-99762d15-bed1-45b0-aa40-1c3d4394c4bd.parquet"
+    },
+    {
+      "bytes": 4936,
+      "generation": "1791369219634635",
+      "name": "warehouse/batch_events_v1/data/00000-0-9ba841eb-1f6c-407c-92e0-9938ef21314f.parquet"
+    },
+    {
+      "bytes": 2684,
+      "generation": "1791232311585243",
+      "name": "warehouse/batch_events_v1/data/00000-0-9d0cfc69-f645-4bdf-8093-d33abb501690.parquet"
+    },
+    {
+      "bytes": 4041,
+      "generation": "1791423107106714",
+      "name": "warehouse/batch_events_v1/data/00000-0-9d7a8a6e-30fd-4035-abd8-617c7d2b1d17.parquet"
+    },
+    {
+      "bytes": 3162,
+      "generation": "1790948046152959",
+      "name": "warehouse/batch_events_v1/data/00000-0-9d903e6e-2f5b-4005-a45f-71278030f001.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1790969545059444",
+      "name": "warehouse/batch_events_v1/data/00000-0-9dd977d4-e4ac-4901-b35b-33209303f566.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791110057154144",
+      "name": "warehouse/batch_events_v1/data/00000-0-9f1b2de1-3471-4661-a8b8-c1632dbcae15.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791153229386825",
+      "name": "warehouse/batch_events_v1/data/00000-0-a08c43ca-f507-4028-8247-0a803612ed99.parquet"
+    },
+    {
+      "bytes": 2682,
+      "generation": "1791117207943106",
+      "name": "warehouse/batch_events_v1/data/00000-0-a21913ee-4a5d-48a6-a58b-208010e3944e.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791181921410556",
+      "name": "warehouse/batch_events_v1/data/00000-0-a36d3051-6069-4905-8dc2-cca6429fc154.parquet"
+    },
+    {
+      "bytes": 4061,
+      "generation": "1790933569727974",
+      "name": "warehouse/batch_events_v1/data/00000-0-a3d52541-6aef-4fc9-9bf6-18f828ec3058.parquet"
+    },
+    {
+      "bytes": 2686,
+      "generation": "1791088432162018",
+      "name": "warehouse/batch_events_v1/data/00000-0-a5801acf-a6dc-484e-b7b5-ff0c611561a5.parquet"
+    },
+    {
+      "bytes": 2686,
+      "generation": "1791120859204927",
+      "name": "warehouse/batch_events_v1/data/00000-0-a66400b0-91a3-476b-aaaa-f82ca34d5f47.parquet"
+    },
+    {
+      "bytes": 3817,
+      "generation": "1790962434844744",
+      "name": "warehouse/batch_events_v1/data/00000-0-a70044bd-cf41-4120-a33e-e512b04e4e40.parquet"
+    },
+    {
+      "bytes": 2684,
+      "generation": "1791016303532399",
+      "name": "warehouse/batch_events_v1/data/00000-0-a864ab0e-af16-4a57-a590-63e0163136c0.parquet"
+    },
+    {
+      "bytes": 3862,
+      "generation": "1791484403792865",
+      "name": "warehouse/batch_events_v1/data/00000-0-a8fecb2b-cd29-48f2-81d2-944d86e4a82b.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791145973329202",
+      "name": "warehouse/batch_events_v1/data/00000-0-a919ecde-3d4f-4829-8be2-f870e9b377c9.parquet"
+    },
+    {
+      "bytes": 4179,
+      "generation": "1791444750621239",
+      "name": "warehouse/batch_events_v1/data/00000-0-aa035d5b-847e-40aa-aaf5-9daf94eb5839.parquet"
+    },
+    {
+      "bytes": 4975,
+      "generation": "1791365622868038",
+      "name": "warehouse/batch_events_v1/data/00000-0-aeb85749-ec33-4e99-b6da-23b6f4481a86.parquet"
+    },
+    {
+      "bytes": 2686,
+      "generation": "1791142430937465",
+      "name": "warehouse/batch_events_v1/data/00000-0-b1a12795-c67f-4255-97cc-f3cb92844bcf.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791225165548245",
+      "name": "warehouse/batch_events_v1/data/00000-0-b2b33f4e-95c3-4aa7-b0b9-925ab79048e2.parquet"
+    },
+    {
+      "bytes": 3329,
+      "generation": "1791041550562633",
+      "name": "warehouse/batch_events_v1/data/00000-0-b4198645-26ca-49e5-9599-c6bb97ec823a.parquet"
+    },
+    {
+      "bytes": 3814,
+      "generation": "1791380742132995",
+      "name": "warehouse/batch_events_v1/data/00000-0-b41ebdc0-9103-4faa-a0a4-5286845cca28.parquet"
+    },
+    {
+      "bytes": 3116,
+      "generation": "1791156772056011",
+      "name": "warehouse/batch_events_v1/data/00000-0-b4d13c56-73bd-4691-b469-8e304c328bc3.parquet"
+    },
+    {
+      "bytes": 4060,
+      "generation": "1791160705365246",
+      "name": "warehouse/batch_events_v1/data/00000-0-b56f3316-c028-4b8a-bcd4-58c6fec419da.parquet"
+    },
+    {
+      "bytes": 2684,
+      "generation": "1791430391251767",
+      "name": "warehouse/batch_events_v1/data/00000-0-b74bc2f0-e2d8-401c-bbec-fa3784fe121c.parquet"
+    },
+    {
+      "bytes": 3193,
+      "generation": "1791081240593481",
+      "name": "warehouse/batch_events_v1/data/00000-0-bc2189d0-2ace-4a34-b6a0-97b259ee0093.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791063083055135",
+      "name": "warehouse/batch_events_v1/data/00000-0-bc6917ae-60e1-48b2-b3f7-e33be9565add.parquet"
+    },
+    {
+      "bytes": 2683,
+      "generation": "1791009168975486",
+      "name": "warehouse/batch_events_v1/data/00000-0-bcd13572-c7ef-4957-8f13-581be502bdf5.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791379813983096",
+      "name": "warehouse/batch_events_v1/data/00000-0-bcf8b79b-fa3c-40c5-9481-4150565675a1.parquet"
+    },
+    {
+      "bytes": 4167,
+      "generation": "1791387197927999",
+      "name": "warehouse/batch_events_v1/data/00000-0-c66f75fc-aff9-4521-bc58-727fbea3804e.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791012685964421",
+      "name": "warehouse/batch_events_v1/data/00000-0-c826576d-1b41-4a91-a7c2-05db3116ee05.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791455635565611",
+      "name": "warehouse/batch_events_v1/data/00000-0-c9610df8-f62d-485c-8f06-15e9a87e83b2.parquet"
+    },
+    {
+      "bytes": 3553,
+      "generation": "1791174144903444",
+      "name": "warehouse/batch_events_v1/data/00000-0-cb5ea1e0-775c-4bd4-b34b-8ff834405e8e.parquet"
+    },
+    {
+      "bytes": 2686,
+      "generation": "1791055867031157",
+      "name": "warehouse/batch_events_v1/data/00000-0-cc91a2e4-700b-4bd2-b0c0-119d2546d189.parquet"
+    },
+    {
+      "bytes": 2684,
+      "generation": "1790998369871707",
+      "name": "warehouse/batch_events_v1/data/00000-0-d3abae89-7ad3-455f-8fc9-912ab3c33836.parquet"
+    },
+    {
+      "bytes": 3423,
+      "generation": "1790951505240031",
+      "name": "warehouse/batch_events_v1/data/00000-0-d61fdb07-53cc-41aa-8a38-e6562e7aa08b.parquet"
+    },
+    {
+      "bytes": 2684,
+      "generation": "1790994729928880",
+      "name": "warehouse/batch_events_v1/data/00000-0-d92430a1-fa1a-4612-a3d9-13d54b2354e7.parquet"
+    },
+    {
+      "bytes": 3362,
+      "generation": "1791160455108309",
+      "name": "warehouse/batch_events_v1/data/00000-0-db6e51c6-35e6-47b3-bb8d-933b420b7f35.parquet"
+    },
+    {
+      "bytes": 3860,
+      "generation": "1791253945288220",
+      "name": "warehouse/batch_events_v1/data/00000-0-dc639e11-3720-4537-a3dc-05d14cc31308.parquet"
+    },
+    {
+      "bytes": 3248,
+      "generation": "1791073947205286",
+      "name": "warehouse/batch_events_v1/data/00000-0-dd4d1c53-dbca-4426-863f-0f8ce3fd2e63.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1790980413013358",
+      "name": "warehouse/batch_events_v1/data/00000-0-dd57c1fc-a376-499c-bc2f-d6c898c31f22.parquet"
+    },
+    {
+      "bytes": 3860,
+      "generation": "1791488051807431",
+      "name": "warehouse/batch_events_v1/data/00000-0-dec667f9-9f73-470f-86e1-b746aaa89959.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1790966074303890",
+      "name": "warehouse/batch_events_v1/data/00000-0-e2cebb39-c74c-4888-aafd-ae764d69eb3a.parquet"
+    },
+    {
+      "bytes": 3363,
+      "generation": "1791048732506627",
+      "name": "warehouse/batch_events_v1/data/00000-0-e54f6c20-c065-436c-8b97-a16374ae2170.parquet"
+    },
+    {
+      "bytes": 2683,
+      "generation": "1791462778406568",
+      "name": "warehouse/batch_events_v1/data/00000-0-e5fdb4ac-8143-4737-98f7-0f08fa915ac1.parquet"
+    },
+    {
+      "bytes": 4211,
+      "generation": "1791480788717014",
+      "name": "warehouse/batch_events_v1/data/00000-0-e7c48841-4809-4c97-aad1-b4f26a232ec1.parquet"
+    },
+    {
+      "bytes": 2682,
+      "generation": "1791059537593858",
+      "name": "warehouse/batch_events_v1/data/00000-0-eae23728-8ecb-476b-81ef-8652e015aec1.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791236094701190",
+      "name": "warehouse/batch_events_v1/data/00000-0-eb701339-ddb1-47db-94ef-9ea64fa0b63a.parquet"
+    },
+    {
+      "bytes": 3113,
+      "generation": "1790984029443523",
+      "name": "warehouse/batch_events_v1/data/00000-0-ec336f72-de3c-46f9-a2bb-e62283e977b8.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1791185662608485",
+      "name": "warehouse/batch_events_v1/data/00000-0-ed234a0a-274c-4a2a-866b-01d4d5521718.parquet"
+    },
+    {
+      "bytes": 4167,
+      "generation": "1791473579241476",
+      "name": "warehouse/batch_events_v1/data/00000-0-f12149b7-615b-4665-8f81-e41076e0c333.parquet"
+    },
+    {
+      "bytes": 3488,
+      "generation": "1790955101851557",
+      "name": "warehouse/batch_events_v1/data/00000-0-f1df772d-9207-498b-8956-cca787649b14.parquet"
+    },
+    {
+      "bytes": 4171,
+      "generation": "1791178308077696",
+      "name": "warehouse/batch_events_v1/data/00000-0-f3df04c3-aca9-4e7f-9a0b-2d474cd8a277.parquet"
+    },
+    {
+      "bytes": 4371,
+      "generation": "1791505993983763",
+      "name": "warehouse/batch_events_v1/data/00000-0-f558d756-388f-44eb-a192-fb86f5780795.parquet"
+    },
+    {
+      "bytes": 2685,
+      "generation": "1790944403679663",
+      "name": "warehouse/batch_events_v1/data/00000-0-f63ff75d-fd54-4345-a049-2df82a987b1c.parquet"
+    },
+    {
+      "bytes": 3363,
+      "generation": "1791217998318986",
+      "name": "warehouse/batch_events_v1/data/00000-0-f69a2724-1978-4373-bec4-18a8d3eb4039.parquet"
+    },
+    {
+      "bytes": 3859,
+      "generation": "1791495192252842",
+      "name": "warehouse/batch_events_v1/data/00000-0-f766480b-050f-44a0-82a8-46de82e50ff9.parquet"
+    },
+    {
+      "bytes": 4112,
+      "generation": "1791502369177807",
+      "name": "warehouse/batch_events_v1/data/00000-0-f7b94550-e805-4547-8083-a0a41153c901.parquet"
+    },
+    {
+      "bytes": 3715,
+      "generation": "1790987618060924",
+      "name": "warehouse/batch_events_v1/data/00000-0-f7d9de83-3f09-47db-9ed6-7d9279f123cd.parquet"
+    },
+    {
+      "bytes": 4816,
+      "generation": "1791376491805363",
+      "name": "warehouse/batch_events_v1/data/00000-0-fe696bc1-9ba7-4f36-90f0-507191da1ad4.parquet"
+    },
+    {
+      "bytes": 4451,
+      "generation": "1791163982660133",
+      "name": "warehouse/batch_events_v1/metadata/01959b4b-35f8-4b43-9748-b09a7b976977-m0.avro"
+    },
+    {
+      "bytes": 4429,
+      "generation": "1791171173160871",
+      "name": "warehouse/batch_events_v1/metadata/02f30a31-be81-4b4a-9bf5-744c33267b49-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791030773540925",
+      "name": "warehouse/batch_events_v1/metadata/04b55509-86a7-49b0-a96d-286befa51b95-m0.avro"
+    },
+    {
+      "bytes": 4430,
+      "generation": "1791092008491879",
+      "name": "warehouse/batch_events_v1/metadata/04c715ac-68ce-4b95-be81-71878d8536e4-m0.avro"
+    },
+    {
+      "bytes": 4429,
+      "generation": "1791113631239404",
+      "name": "warehouse/batch_events_v1/metadata/07c9e5fe-fb72-4185-87b3-91683bdbcbe5-m0.avro"
+    },
+    {
+      "bytes": 4430,
+      "generation": "1790923123588601",
+      "name": "warehouse/batch_events_v1/metadata/07f7c285-bded-43b4-a1d6-106d3dac21c3-m0.avro"
+    },
+    {
+      "bytes": 4430,
+      "generation": "1791398045883935",
+      "name": "warehouse/batch_events_v1/metadata/089b512c-1d0a-4363-b967-525605c4d514-m0.avro"
+    },
+    {
+      "bytes": 4451,
+      "generation": "1791135205351474",
+      "name": "warehouse/batch_events_v1/metadata/0901d5eb-11ce-4b1a-9e09-32a938fa70f8-m0.avro"
+    },
+    {
+      "bytes": 4448,
+      "generation": "1791498749478594",
+      "name": "warehouse/batch_events_v1/metadata/0a59b672-88d7-410b-a093-bee48b247e58-m0.avro"
+    },
+    {
+      "bytes": 4451,
+      "generation": "1790996697868421",
+      "name": "warehouse/batch_events_v1/metadata/0b837c40-2a80-4ce7-8d52-04b6ff55d2e1-m0.avro"
+    },
+    {
+      "bytes": 4454,
+      "generation": "1791422827929603",
+      "name": "warehouse/batch_events_v1/metadata/0b9d3afe-40de-41b1-bc22-1754e71d58df-m0.avro"
+    },
+    {
+      "bytes": 4454,
+      "generation": "1791272157381164",
+      "name": "warehouse/batch_events_v1/metadata/0befa8c3-940c-499b-b950-86121dfb16e1-m0.avro"
+    },
+    {
+      "bytes": 4449,
+      "generation": "1790958734360197",
+      "name": "warehouse/batch_events_v1/metadata/0d396a93-be1a-49e1-b423-f2e6b7b06c09-m0.avro"
+    },
+    {
+      "bytes": 4450,
+      "generation": "1790997232095231",
+      "name": "warehouse/batch_events_v1/metadata/0ea761fe-b006-4f7a-999b-680df5a086a7-m0.avro"
+    },
+    {
+      "bytes": 4451,
+      "generation": "1791491581412551",
+      "name": "warehouse/batch_events_v1/metadata/0ecb61c4-2523-4d07-b7d2-f1ac89e67ff3-m0.avro"
+    },
+    {
+      "bytes": 4430,
+      "generation": "1790926429596621",
+      "name": "warehouse/batch_events_v1/metadata/0f1ce34d-6acb-47bd-878b-633c70adaed8-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791102901441033",
+      "name": "warehouse/batch_events_v1/metadata/11b61c98-18ec-4800-849b-bee063c331ca-m0.avro"
+    },
+    {
+      "bytes": 4451,
+      "generation": "1791372825624835",
+      "name": "warehouse/batch_events_v1/metadata/1401bb81-e935-411c-9f49-a10cb34ec328-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791257597225416",
+      "name": "warehouse/batch_events_v1/metadata/14b0ab5e-37ca-42ee-88e0-4a48f2c92297-m0.avro"
+    },
+    {
+      "bytes": 4452,
+      "generation": "1791221678474513",
+      "name": "warehouse/batch_events_v1/metadata/14cf91f6-52de-4eab-bc58-ee868b2cfd50-m0.avro"
+    },
+    {
+      "bytes": 4430,
+      "generation": "1791019992072823",
+      "name": "warehouse/batch_events_v1/metadata/1740daac-2e68-46c1-b496-691e768d5169-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791106390574170",
+      "name": "warehouse/batch_events_v1/metadata/1a88e952-a810-4fcb-8320-b4a4aaff0f1e-m0.avro"
+    },
+    {
+      "bytes": 4456,
+      "generation": "1791362464677606",
+      "name": "warehouse/batch_events_v1/metadata/1e0c9bc9-160a-47c7-ad87-51e3caa84860-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791203675662051",
+      "name": "warehouse/batch_events_v1/metadata/1f61d589-b4c7-4cbd-b5f3-dc90ff41630b-m0.avro"
+    },
+    {
+      "bytes": 4454,
+      "generation": "1790931088665357",
+      "name": "warehouse/batch_events_v1/metadata/20053233-291c-4e33-8f03-dd2ea02e4b94-m0.avro"
+    },
+    {
+      "bytes": 4449,
+      "generation": "1791419581297616",
+      "name": "warehouse/batch_events_v1/metadata/2235aff4-929e-4d1e-8af5-9569b511a02a-m0.avro"
+    },
+    {
+      "bytes": 4449,
+      "generation": "1791077584407554",
+      "name": "warehouse/batch_events_v1/metadata/239e1e02-e088-4169-b7a6-fce9abad532b-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1791437600107963",
+      "name": "warehouse/batch_events_v1/metadata/240c1a9e-4fda-4b3f-8917-97fe8ce8f4bd-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1791433995794056",
+      "name": "warehouse/batch_events_v1/metadata/243aecab-148f-451d-a860-9857fe88f868-m0.avro"
+    },
+    {
+      "bytes": 4450,
+      "generation": "1791394332001656",
+      "name": "warehouse/batch_events_v1/metadata/2494d423-e984-4db6-832f-269b542abffb-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1790912384178703",
+      "name": "warehouse/batch_events_v1/metadata/24ce57fb-8bbc-44f7-894b-252945d2d0a8-m0.avro"
+    },
+    {
+      "bytes": 4455,
+      "generation": "1791167647443725",
+      "name": "warehouse/batch_events_v1/metadata/25ba6237-65f1-4851-a2bb-8ddc68a04a3f-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1791405233625334",
+      "name": "warehouse/batch_events_v1/metadata/25cd27c6-c839-457d-8ecc-5d2334f7489a-m0.avro"
+    },
+    {
+      "bytes": 4430,
+      "generation": "1791423186099849",
+      "name": "warehouse/batch_events_v1/metadata/275ac81b-5304-492e-8be7-da319ba80949-m0.avro"
+    },
+    {
+      "bytes": 4430,
+      "generation": "1791192803806134",
+      "name": "warehouse/batch_events_v1/metadata/27a0693d-9195-4212-991c-99bcee30e827-m0.avro"
+    },
+    {
+      "bytes": 4429,
+      "generation": "1791189186275315",
+      "name": "warehouse/batch_events_v1/metadata/293a40c0-5942-4c58-b283-39359f09000c-m0.avro"
+    },
+    {
+      "bytes": 4450,
+      "generation": "1791264952915860",
+      "name": "warehouse/batch_events_v1/metadata/29871116-fb26-4782-8f28-a4d3d7a7e8ae-m0.avro"
+    },
+    {
+      "bytes": 4452,
+      "generation": "1791250469802054",
+      "name": "warehouse/batch_events_v1/metadata/2c0031be-c5db-43ec-81e8-e8803187d59c-m0.avro"
+    },
+    {
+      "bytes": 4453,
+      "generation": "1791365841344394",
+      "name": "warehouse/batch_events_v1/metadata/2c213d71-9652-4759-8f05-26ee812e157f-m0.avro"
+    },
+    {
+      "bytes": 4452,
+      "generation": "1791161321990719",
+      "name": "warehouse/batch_events_v1/metadata/2cbab601-9768-4a21-a855-3c035d534d6d-m0.avro"
+    },
+    {
+      "bytes": 4448,
+      "generation": "1791084801824176",
+      "name": "warehouse/batch_events_v1/metadata/2e15aaec-0c02-47a4-b827-8d03d793ff81-m0.avro"
+    },
+    {
+      "bytes": 4430,
+      "generation": "1790923400098462",
+      "name": "warehouse/batch_events_v1/metadata/2e42cc7d-7961-4f57-a935-cfe6c880c36c-m0.avro"
+    },
+    {
+      "bytes": 4447,
+      "generation": "1791052440325477",
+      "name": "warehouse/batch_events_v1/metadata/31df66c6-2c47-41c0-89a5-2ee00e8b6e2a-m0.avro"
+    },
+    {
+      "bytes": 4450,
+      "generation": "1791210782804066",
+      "name": "warehouse/batch_events_v1/metadata/332625e9-6cc3-4fb5-aa04-d032551b5844-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791138840363469",
+      "name": "warehouse/batch_events_v1/metadata/33d57629-29e0-453d-ba98-b2ad1e110af9-m0.avro"
+    },
+    {
+      "bytes": 4449,
+      "generation": "1791001944194067",
+      "name": "warehouse/batch_events_v1/metadata/3537fa61-5e1d-4ba0-b873-0d5956ff4ed3-m0.avro"
+    },
+    {
+      "bytes": 4453,
+      "generation": "1790931831353190",
+      "name": "warehouse/batch_events_v1/metadata/393c357a-fd46-4dec-8cc2-085460d0570d-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791037921480369",
+      "name": "warehouse/batch_events_v1/metadata/3d40f584-43d7-4135-996a-2b65438b8bdd-m0.avro"
+    },
+    {
+      "bytes": 4447,
+      "generation": "1791045173804669",
+      "name": "warehouse/batch_events_v1/metadata/41076dd2-c1ad-49ea-96bb-ac4d37daaea2-m0.avro"
+    },
+    {
+      "bytes": 4450,
+      "generation": "1791448344427888",
+      "name": "warehouse/batch_events_v1/metadata/41d5e607-a5d1-41ea-a818-d038ee366f4b-m0.avro"
+    },
+    {
+      "bytes": 4429,
+      "generation": "1791099289032755",
+      "name": "warehouse/batch_events_v1/metadata/42386acb-be6a-42da-8516-24441cfde096-m0.avro"
+    },
+    {
+      "bytes": 4446,
+      "generation": "1791469924177735",
+      "name": "warehouse/batch_events_v1/metadata/42bd4634-748a-43cd-bf45-706f223b2afd-m0.avro"
+    },
+    {
+      "bytes": 4450,
+      "generation": "1791390833991624",
+      "name": "warehouse/batch_events_v1/metadata/43006cf7-85df-4bc5-8dad-08bd9bfacf72-m0.avro"
+    },
+    {
+      "bytes": 4450,
+      "generation": "1791380025025659",
+      "name": "warehouse/batch_events_v1/metadata/448aeb6f-78e7-465a-8607-5aba255eed81-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791023539837388",
+      "name": "warehouse/batch_events_v1/metadata/463497b8-dc68-4c77-9a62-934e37c03c77-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1791261185016159",
+      "name": "warehouse/batch_events_v1/metadata/4662e8e8-8232-4cc9-8ca9-efc7bace6b65-m0.avro"
+    },
+    {
+      "bytes": 4430,
+      "generation": "1791408829583697",
+      "name": "warehouse/batch_events_v1/metadata/4901aa4e-b446-4e9a-87d8-7ed5e7898b2f-m0.avro"
+    },
+    {
+      "bytes": 4454,
+      "generation": "1791128050854595",
+      "name": "warehouse/batch_events_v1/metadata/49cf498d-58ab-4165-b6bd-3dff18bf5a8a-m0.avro"
+    },
+    {
+      "bytes": 4429,
+      "generation": "1791383610462109",
+      "name": "warehouse/batch_events_v1/metadata/4bebd101-dd80-4991-b91a-30e5705b42e7-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791149606823046",
+      "name": "warehouse/batch_events_v1/metadata/4dc681e7-bee4-4d5d-8290-58350cba849b-m0.avro"
+    },
+    {
+      "bytes": 4451,
+      "generation": "1791070364374097",
+      "name": "warehouse/batch_events_v1/metadata/4ddbafbe-a234-4fb9-9d87-4c20595f813c-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1791412406885079",
+      "name": "warehouse/batch_events_v1/metadata/5011e1d3-c41b-48be-b607-f7f408c0dcb2-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791200044426825",
+      "name": "warehouse/batch_events_v1/metadata/51193e63-6050-4236-9437-27c4ff83d328-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791423916548344",
+      "name": "warehouse/batch_events_v1/metadata/548c7867-4472-4d7e-a006-bb4d62cdfbc6-m0.avro"
+    },
+    {
+      "bytes": 4448,
+      "generation": "1791477123317073",
+      "name": "warehouse/batch_events_v1/metadata/55563bd7-e365-435d-a7df-26ea0d5438ae-m0.avro"
+    },
+    {
+      "bytes": 4451,
+      "generation": "1791207199005716",
+      "name": "warehouse/batch_events_v1/metadata/55e8f5a5-5358-4ca7-a386-137ec1c1dce8-m0.avro"
+    },
+    {
+      "bytes": 4429,
+      "generation": "1790940845998768",
+      "name": "warehouse/batch_events_v1/metadata/56cc942e-17c2-4638-9ba3-c1b65571b8da-m0.avro"
+    },
+    {
+      "bytes": 4447,
+      "generation": "1791174739264627",
+      "name": "warehouse/batch_events_v1/metadata/59cfeb78-c77b-4a73-99a2-2350d9755b9c-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1791027184151806",
+      "name": "warehouse/batch_events_v1/metadata/5d11b095-7d8c-4092-aa31-7a2158bff134-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791459156416738",
+      "name": "warehouse/batch_events_v1/metadata/5eec3319-4cae-4229-9311-111563e18ad6-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1790937201637089",
+      "name": "warehouse/batch_events_v1/metadata/6031843f-ef56-4194-a5c3-70b64d27b72e-m0.avro"
+    },
+    {
+      "bytes": 4453,
+      "generation": "1791379149835967",
+      "name": "warehouse/batch_events_v1/metadata/65def813-5a54-48d9-9198-2c60e3552cd7-m0.avro"
+    },
+    {
+      "bytes": 4430,
+      "generation": "1790976754026870",
+      "name": "warehouse/batch_events_v1/metadata/67232a8b-ea19-45fa-809d-938886c20a9a-m0.avro"
+    },
+    {
+      "bytes": 4450,
+      "generation": "1791243167793961",
+      "name": "warehouse/batch_events_v1/metadata/6c68fd9c-b96d-4996-9e16-231632248a62-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1791228878737002",
+      "name": "warehouse/batch_events_v1/metadata/6cc096ac-4810-42ab-950e-bc072bf193db-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1790991089165295",
+      "name": "warehouse/batch_events_v1/metadata/6cdd8aca-23e5-4631-b83d-8e58be3f27ba-m0.avro"
+    },
+    {
+      "bytes": 4451,
+      "generation": "1791451930485150",
+      "name": "warehouse/batch_events_v1/metadata/6d339bed-0b30-4544-b20e-ee7c29f1244e-m0.avro"
+    },
+    {
+      "bytes": 4454,
+      "generation": "1791416041485528",
+      "name": "warehouse/batch_events_v1/metadata/6e6d63b5-cee6-426b-8234-3701fe6da6d0-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791066795741226",
+      "name": "warehouse/batch_events_v1/metadata/6f11a040-ac70-4a49-8f18-6a287d4c3a1c-m0.avro"
+    },
+    {
+      "bytes": 4453,
+      "generation": "1791131677515256",
+      "name": "warehouse/batch_events_v1/metadata/6f2874a1-1a8c-4205-90ee-a9aca8539077-m0.avro"
+    },
+    {
+      "bytes": 4452,
+      "generation": "1791441122820256",
+      "name": "warehouse/batch_events_v1/metadata/6f6c55c7-d9a1-4b52-9032-176f28b7424c-m0.avro"
+    },
+    {
+      "bytes": 4451,
+      "generation": "1791466401500456",
+      "name": "warehouse/batch_events_v1/metadata/701cc364-95e5-4903-8a5a-4eaa24eee21f-m0.avro"
+    },
+    {
+      "bytes": 4454,
+      "generation": "1790930028641445",
+      "name": "warehouse/batch_events_v1/metadata/73e09af4-234c-41fb-af66-d0a3051eabee-m0.avro"
+    },
+    {
+      "bytes": 4454,
+      "generation": "1791269158237848",
+      "name": "warehouse/batch_events_v1/metadata/786a7f2e-97ef-4502-b85e-4ba9fda9398c-m0.avro"
+    },
+    {
+      "bytes": 4452,
+      "generation": "1790913849153551",
+      "name": "warehouse/batch_events_v1/metadata/78d1763d-f858-4c57-86e6-fb2fcc3fd092-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1791382226122383",
+      "name": "warehouse/batch_events_v1/metadata/8014a5aa-4a3e-4bb6-9c61-3155ebfe7bea-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791196359904147",
+      "name": "warehouse/batch_events_v1/metadata/8067fac5-cd0f-4f7f-b648-f848c67cca03-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791426780561194",
+      "name": "warehouse/batch_events_v1/metadata/809cde28-c6ec-40bf-9b49-08eb54e13bc9-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1791124381814947",
+      "name": "warehouse/batch_events_v1/metadata/80a3d605-8a4b-4ebf-ae60-a0fe9bf9df34-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791034321544570",
+      "name": "warehouse/batch_events_v1/metadata/821a0a29-6816-45c5-ab2b-d733de43426f-m0.avro"
+    },
+    {
+      "bytes": 4451,
+      "generation": "1791377465759516",
+      "name": "warehouse/batch_events_v1/metadata/8628921b-7eb1-44de-adee-040a764758bd-m0.avro"
+    },
+    {
+      "bytes": 4451,
+      "generation": "1791246704703282",
+      "name": "warehouse/batch_events_v1/metadata/876c4120-c760-4b23-8fb9-f795cbf97518-m0.avro"
+    },
+    {
+      "bytes": 4430,
+      "generation": "1791423567805461",
+      "name": "warehouse/batch_events_v1/metadata/89352b0e-b1b3-473a-b6a2-4c22f1ba6134-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791401472410593",
+      "name": "warehouse/batch_events_v1/metadata/8a78b678-f2d1-473c-81a4-8ba434f07fb9-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1791239550453686",
+      "name": "warehouse/batch_events_v1/metadata/8b7cc6f1-2203-497b-9f83-f548eda2be35-m0.avro"
+    },
+    {
+      "bytes": 4450,
+      "generation": "1790997934801496",
+      "name": "warehouse/batch_events_v1/metadata/8eb70a05-664c-4c61-987e-ac41de6446e1-m0.avro"
+    },
+    {
+      "bytes": 4453,
+      "generation": "1791005580912268",
+      "name": "warehouse/batch_events_v1/metadata/937ca011-eac6-426e-946d-4af23bff28f1-m0.avro"
+    },
+    {
+      "bytes": 4429,
+      "generation": "1791095672197340",
+      "name": "warehouse/batch_events_v1/metadata/995e86f4-d3d4-4ce8-9448-90871a4df521-m0.avro"
+    },
+    {
+      "bytes": 4446,
+      "generation": "1791214341516854",
+      "name": "warehouse/batch_events_v1/metadata/99762d15-bed1-45b0-aa40-1c3d4394c4bd-m0.avro"
+    },
+    {
+      "bytes": 4454,
+      "generation": "1791369219950213",
+      "name": "warehouse/batch_events_v1/metadata/9ba841eb-1f6c-407c-92e0-9938ef21314f-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1791232311797588",
+      "name": "warehouse/batch_events_v1/metadata/9d0cfc69-f645-4bdf-8093-d33abb501690-m0.avro"
+    },
+    {
+      "bytes": 4449,
+      "generation": "1791423107344783",
+      "name": "warehouse/batch_events_v1/metadata/9d7a8a6e-30fd-4035-abd8-617c7d2b1d17-m0.avro"
+    },
+    {
+      "bytes": 4450,
+      "generation": "1790948046457929",
+      "name": "warehouse/batch_events_v1/metadata/9d903e6e-2f5b-4005-a45f-71278030f001-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1790969545311709",
+      "name": "warehouse/batch_events_v1/metadata/9dd977d4-e4ac-4901-b35b-33209303f566-m0.avro"
+    },
+    {
+      "bytes": 4430,
+      "generation": "1791110057353745",
+      "name": "warehouse/batch_events_v1/metadata/9f1b2de1-3471-4661-a8b8-c1632dbcae15-m0.avro"
+    },
+    {
+      "bytes": 4430,
+      "generation": "1791153229634466",
+      "name": "warehouse/batch_events_v1/metadata/a08c43ca-f507-4028-8247-0a803612ed99-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791117208195424",
+      "name": "warehouse/batch_events_v1/metadata/a21913ee-4a5d-48a6-a58b-208010e3944e-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791181921622642",
+      "name": "warehouse/batch_events_v1/metadata/a36d3051-6069-4905-8dc2-cca6429fc154-m0.avro"
+    },
+    {
+      "bytes": 4460,
+      "generation": "1790933569937805",
+      "name": "warehouse/batch_events_v1/metadata/a3d52541-6aef-4fc9-9bf6-18f828ec3058-m0.avro"
+    },
+    {
+      "bytes": 4430,
+      "generation": "1791088432360163",
+      "name": "warehouse/batch_events_v1/metadata/a5801acf-a6dc-484e-b7b5-ff0c611561a5-m0.avro"
+    },
+    {
+      "bytes": 4429,
+      "generation": "1791120859409817",
+      "name": "warehouse/batch_events_v1/metadata/a66400b0-91a3-476b-aaaa-f82ca34d5f47-m0.avro"
+    },
+    {
+      "bytes": 4451,
+      "generation": "1790962435083622",
+      "name": "warehouse/batch_events_v1/metadata/a70044bd-cf41-4120-a33e-e512b04e4e40-m0.avro"
+    },
+    {
+      "bytes": 4430,
+      "generation": "1791016303732762",
+      "name": "warehouse/batch_events_v1/metadata/a864ab0e-af16-4a57-a590-63e0163136c0-m0.avro"
+    },
+    {
+      "bytes": 4450,
+      "generation": "1791484404057713",
+      "name": "warehouse/batch_events_v1/metadata/a8fecb2b-cd29-48f2-81d2-944d86e4a82b-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1791145973545232",
+      "name": "warehouse/batch_events_v1/metadata/a919ecde-3d4f-4829-8be2-f870e9b377c9-m0.avro"
+    },
+    {
+      "bytes": 4449,
+      "generation": "1791444750817519",
+      "name": "warehouse/batch_events_v1/metadata/aa035d5b-847e-40aa-aaf5-9daf94eb5839-m0.avro"
+    },
+    {
+      "bytes": 4456,
+      "generation": "1791365623091724",
+      "name": "warehouse/batch_events_v1/metadata/aeb85749-ec33-4e99-b6da-23b6f4481a86-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1791142431134288",
+      "name": "warehouse/batch_events_v1/metadata/b1a12795-c67f-4255-97cc-f3cb92844bcf-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1791225165795878",
+      "name": "warehouse/batch_events_v1/metadata/b2b33f4e-95c3-4aa7-b0b9-925ab79048e2-m0.avro"
+    },
+    {
+      "bytes": 4452,
+      "generation": "1791041550813266",
+      "name": "warehouse/batch_events_v1/metadata/b4198645-26ca-49e5-9599-c6bb97ec823a-m0.avro"
+    },
+    {
+      "bytes": 4451,
+      "generation": "1791380742371326",
+      "name": "warehouse/batch_events_v1/metadata/b41ebdc0-9103-4faa-a0a4-5286845cca28-m0.avro"
+    },
+    {
+      "bytes": 4448,
+      "generation": "1791156772253403",
+      "name": "warehouse/batch_events_v1/metadata/b4d13c56-73bd-4691-b469-8e304c328bc3-m0.avro"
+    },
+    {
+      "bytes": 4451,
+      "generation": "1791160705768847",
+      "name": "warehouse/batch_events_v1/metadata/b56f3316-c028-4b8a-bcd4-58c6fec419da-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1791430391508281",
+      "name": "warehouse/batch_events_v1/metadata/b74bc2f0-e2d8-401c-bbec-fa3784fe121c-m0.avro"
+    },
+    {
+      "bytes": 4449,
+      "generation": "1791081240775214",
+      "name": "warehouse/batch_events_v1/metadata/bc2189d0-2ace-4a34-b6a0-97b259ee0093-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1791063083310988",
+      "name": "warehouse/batch_events_v1/metadata/bc6917ae-60e1-48b2-b3f7-e33be9565add-m0.avro"
+    },
+    {
+      "bytes": 4430,
+      "generation": "1791009169184424",
+      "name": "warehouse/batch_events_v1/metadata/bcd13572-c7ef-4957-8f13-581be502bdf5-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1791379814212174",
+      "name": "warehouse/batch_events_v1/metadata/bcf8b79b-fa3c-40c5-9481-4150565675a1-m0.avro"
+    },
+    {
+      "bytes": 4451,
+      "generation": "1791387198140715",
+      "name": "warehouse/batch_events_v1/metadata/c66f75fc-aff9-4521-bc58-727fbea3804e-m0.avro"
+    },
+    {
+      "bytes": 4430,
+      "generation": "1791012686190791",
+      "name": "warehouse/batch_events_v1/metadata/c826576d-1b41-4a91-a7c2-05db3116ee05-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791455635811467",
+      "name": "warehouse/batch_events_v1/metadata/c9610df8-f62d-485c-8f06-15e9a87e83b2-m0.avro"
+    },
+    {
+      "bytes": 4444,
+      "generation": "1791174145087413",
+      "name": "warehouse/batch_events_v1/metadata/cb5ea1e0-775c-4bd4-b34b-8ff834405e8e-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1791055867322623",
+      "name": "warehouse/batch_events_v1/metadata/cc91a2e4-700b-4bd2-b0c0-119d2546d189-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1790998370061696",
+      "name": "warehouse/batch_events_v1/metadata/d3abae89-7ad3-455f-8fc9-912ab3c33836-m0.avro"
+    },
+    {
+      "bytes": 4453,
+      "generation": "1790951506416947",
+      "name": "warehouse/batch_events_v1/metadata/d61fdb07-53cc-41aa-8a38-e6562e7aa08b-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1790994730138439",
+      "name": "warehouse/batch_events_v1/metadata/d92430a1-fa1a-4612-a3d9-13d54b2354e7-m0.avro"
+    },
+    {
+      "bytes": 4450,
+      "generation": "1791160455297080",
+      "name": "warehouse/batch_events_v1/metadata/db6e51c6-35e6-47b3-bb8d-933b420b7f35-m0.avro"
+    },
+    {
+      "bytes": 4447,
+      "generation": "1791253945498147",
+      "name": "warehouse/batch_events_v1/metadata/dc639e11-3720-4537-a3dc-05d14cc31308-m0.avro"
+    },
+    {
+      "bytes": 4452,
+      "generation": "1791073947422801",
+      "name": "warehouse/batch_events_v1/metadata/dd4d1c53-dbca-4426-863f-0f8ce3fd2e63-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1790980413218964",
+      "name": "warehouse/batch_events_v1/metadata/dd57c1fc-a376-499c-bc2f-d6c898c31f22-m0.avro"
+    },
+    {
+      "bytes": 4450,
+      "generation": "1791488052068770",
+      "name": "warehouse/batch_events_v1/metadata/dec667f9-9f73-470f-86e1-b746aaa89959-m0.avro"
+    },
+    {
+      "bytes": 4430,
+      "generation": "1790966074533649",
+      "name": "warehouse/batch_events_v1/metadata/e2cebb39-c74c-4888-aafd-ae764d69eb3a-m0.avro"
+    },
+    {
+      "bytes": 4449,
+      "generation": "1791048732737310",
+      "name": "warehouse/batch_events_v1/metadata/e54f6c20-c065-436c-8b97-a16374ae2170-m0.avro"
+    },
+    {
+      "bytes": 4427,
+      "generation": "1791462778659610",
+      "name": "warehouse/batch_events_v1/metadata/e5fdb4ac-8143-4737-98f7-0f08fa915ac1-m0.avro"
+    },
+    {
+      "bytes": 4455,
+      "generation": "1791480788958645",
+      "name": "warehouse/batch_events_v1/metadata/e7c48841-4809-4c97-aad1-b4f26a232ec1-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791059537821410",
+      "name": "warehouse/batch_events_v1/metadata/eae23728-8ecb-476b-81ef-8652e015aec1-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1791236094945733",
+      "name": "warehouse/batch_events_v1/metadata/eb701339-ddb1-47db-94ef-9ea64fa0b63a-m0.avro"
+    },
+    {
+      "bytes": 4448,
+      "generation": "1790984029710312",
+      "name": "warehouse/batch_events_v1/metadata/ec336f72-de3c-46f9-a2bb-e62283e977b8-m0.avro"
+    },
+    {
+      "bytes": 4431,
+      "generation": "1791185662820394",
+      "name": "warehouse/batch_events_v1/metadata/ed234a0a-274c-4a2a-866b-01d4d5521718-m0.avro"
+    },
+    {
+      "bytes": 4450,
+      "generation": "1791473579500509",
+      "name": "warehouse/batch_events_v1/metadata/f12149b7-615b-4665-8f81-e41076e0c333-m0.avro"
+    },
+    {
+      "bytes": 4450,
+      "generation": "1790955102071732",
+      "name": "warehouse/batch_events_v1/metadata/f1df772d-9207-498b-8956-cca787649b14-m0.avro"
+    },
+    {
+      "bytes": 4447,
+      "generation": "1791178308327878",
+      "name": "warehouse/batch_events_v1/metadata/f3df04c3-aca9-4e7f-9a0b-2d474cd8a277-m0.avro"
+    },
+    {
+      "bytes": 4453,
+      "generation": "1791505994200751",
+      "name": "warehouse/batch_events_v1/metadata/f558d756-388f-44eb-a192-fb86f5780795-m0.avro"
+    },
+    {
+      "bytes": 4432,
+      "generation": "1790944403981716",
+      "name": "warehouse/batch_events_v1/metadata/f63ff75d-fd54-4345-a049-2df82a987b1c-m0.avro"
+    },
+    {
+      "bytes": 4453,
+      "generation": "1791217998595382",
+      "name": "warehouse/batch_events_v1/metadata/f69a2724-1978-4373-bec4-18a8d3eb4039-m0.avro"
+    },
+    {
+      "bytes": 4453,
+      "generation": "1791495192510417",
+      "name": "warehouse/batch_events_v1/metadata/f766480b-050f-44a0-82a8-46de82e50ff9-m0.avro"
+    },
+    {
+      "bytes": 4451,
+      "generation": "1791502369441900",
+      "name": "warehouse/batch_events_v1/metadata/f7b94550-e805-4547-8083-a0a41153c901-m0.avro"
+    },
+    {
+      "bytes": 4449,
+      "generation": "1790987618268546",
+      "name": "warehouse/batch_events_v1/metadata/f7d9de83-3f09-47db-9ed6-7d9279f123cd-m0.avro"
+    },
+    {
+      "bytes": 4450,
+      "generation": "1791376492016672",
+      "name": "warehouse/batch_events_v1/metadata/fe696bc1-9ba7-4f36-90f0-507191da1ad4-m0.avro"
+    },
+    {
+      "bytes": 5288,
+      "generation": "1791181921798999",
+      "name": "warehouse/batch_events_v1/metadata/snap-1017791465067792940-0-a36d3051-6069-4905-8dc2-cca6429fc154.avro"
+    },
+    {
+      "bytes": 2196,
+      "generation": "1790933570131691",
+      "name": "warehouse/batch_events_v1/metadata/snap-1054340427580831447-0-a3d52541-6aef-4fc9-9bf6-18f828ec3058.avro"
+    },
+    {
+      "bytes": 8029,
+      "generation": "1791462778856932",
+      "name": "warehouse/batch_events_v1/metadata/snap-1097158020193415402-0-e5fdb4ac-8143-4737-98f7-0f08fa915ac1.avro"
+    },
+    {
+      "bytes": 3230,
+      "generation": "1791016303944255",
+      "name": "warehouse/batch_events_v1/metadata/snap-1140212660565281340-0-a864ab0e-af16-4a57-a590-63e0163136c0.avro"
+    },
+    {
+      "bytes": 3024,
+      "generation": "1790998370231179",
+      "name": "warehouse/batch_events_v1/metadata/snap-1195456084631383657-0-d3abae89-7ad3-455f-8fc9-912ab3c33836.avro"
+    },
+    {
+      "bytes": 7210,
+      "generation": "1791408830004378",
+      "name": "warehouse/batch_events_v1/metadata/snap-1371298225338073343-0-4901aa4e-b446-4e9a-87d8-7ed5e7898b2f.avro"
+    },
+    {
+      "bytes": 3148,
+      "generation": "1791009169363517",
+      "name": "warehouse/batch_events_v1/metadata/snap-1476541691806144848-0-bcd13572-c7ef-4957-8f13-581be502bdf5.avro"
+    },
+    {
+      "bytes": 4061,
+      "generation": "1791088432535161",
+      "name": "warehouse/batch_events_v1/metadata/snap-1477214205665485855-0-a5801acf-a6dc-484e-b7b5-ff0c611561a5.avro"
+    },
+    {
+      "bytes": 5112,
+      "generation": "1791171173344010",
+      "name": "warehouse/batch_events_v1/metadata/snap-158440290546983616-0-02f30a31-be81-4b4a-9bf5-744c33267b49.avro"
+    },
+    {
+      "bytes": 6141,
+      "generation": "1791253945689686",
+      "name": "warehouse/batch_events_v1/metadata/snap-1586526102228757297-0-dc639e11-3720-4537-a3dc-05d14cc31308.avro"
+    },
+    {
+      "bytes": 4419,
+      "generation": "1791120859599341",
+      "name": "warehouse/batch_events_v1/metadata/snap-1605686257664992957-0-a66400b0-91a3-476b-aaaa-f82ca34d5f47.avro"
+    },
+    {
+      "bytes": 2580,
+      "generation": "1790966074738734",
+      "name": "warehouse/batch_events_v1/metadata/snap-1654713391803733161-0-e2cebb39-c74c-4888-aafd-ae764d69eb3a.avro"
+    },
+    {
+      "bytes": 5159,
+      "generation": "1791174145334125",
+      "name": "warehouse/batch_events_v1/metadata/snap-1723923583886508021-0-cb5ea1e0-775c-4bd4-b34b-8ff834405e8e.avro"
+    },
+    {
+      "bytes": 2280,
+      "generation": "1790940846217232",
+      "name": "warehouse/batch_events_v1/metadata/snap-1802300180897896273-0-56cc942e-17c2-4638-9ba3-c1b65571b8da.avro"
+    },
+    {
+      "bytes": 3576,
+      "generation": "1791045173975628",
+      "name": "warehouse/batch_events_v1/metadata/snap-1845452432057316328-0-41076dd2-c1ad-49ea-96bb-ac4d37daaea2.avro"
+    },
+    {
+      "bytes": 3188,
+      "generation": "1791012686353438",
+      "name": "warehouse/batch_events_v1/metadata/snap-1905433053656641102-0-c826576d-1b41-4a91-a7c2-05db3116ee05.avro"
+    },
+    {
+      "bytes": 5665,
+      "generation": "1791214341730206",
+      "name": "warehouse/batch_events_v1/metadata/snap-1937829571049335625-0-99762d15-bed1-45b0-aa40-1c3d4394c4bd.avro"
+    },
+    {
+      "bytes": 8300,
+      "generation": "1791488052347181",
+      "name": "warehouse/batch_events_v1/metadata/snap-1982251729782130486-0-dec667f9-9f73-470f-86e1-b746aaa89959.avro"
+    },
+    {
+      "bytes": 5031,
+      "generation": "1791163982862785",
+      "name": "warehouse/batch_events_v1/metadata/snap-2002010897714244353-0-01959b4b-35f8-4b43-9748-b09a7b976977.avro"
+    },
+    {
+      "bytes": 6533,
+      "generation": "1791369220155330",
+      "name": "warehouse/batch_events_v1/metadata/snap-2070288398300108216-0-9ba841eb-1f6c-407c-92e0-9938ef21314f.avro"
+    },
+    {
+      "bytes": 2662,
+      "generation": "1790976754232964",
+      "name": "warehouse/batch_events_v1/metadata/snap-2156710159978701563-0-67232a8b-ea19-45fa-809d-938886c20a9a.avro"
+    },
+    {
+      "bytes": 2867,
+      "generation": "1790994730311934",
+      "name": "warehouse/batch_events_v1/metadata/snap-2171648463322030172-0-d92430a1-fa1a-4612-a3d9-13d54b2354e7.avro"
+    },
+    {
+      "bytes": 4602,
+      "generation": "1791135205517542",
+      "name": "warehouse/batch_events_v1/metadata/snap-2291585952753899296-0-0901d5eb-11ce-4b1a-9e09-32a938fa70f8.avro"
+    },
+    {
+      "bytes": 3488,
+      "generation": "1791037921630689",
+      "name": "warehouse/batch_events_v1/metadata/snap-2308887379272328912-0-3d40f584-43d7-4135-996a-2b65438b8bdd.avro"
+    },
+    {
+      "bytes": 2704,
+      "generation": "1790980413427363",
+      "name": "warehouse/batch_events_v1/metadata/snap-2353834958575648401-0-dd57c1fc-a376-499c-bc2f-d6c898c31f22.avro"
+    },
+    {
+      "bytes": 8213,
+      "generation": "1791477123556294",
+      "name": "warehouse/batch_events_v1/metadata/snap-2358426943568389592-0-55563bd7-e365-435d-a7df-26ea0d5438ae.avro"
+    },
+    {
+      "bytes": 4814,
+      "generation": "1791153229805105",
+      "name": "warehouse/batch_events_v1/metadata/snap-2397628006524402536-0-a08c43ca-f507-4028-8247-0a803612ed99.avro"
+    },
+    {
+      "bytes": 7467,
+      "generation": "1791423186327783",
+      "name": "warehouse/batch_events_v1/metadata/snap-247927655884385034-0-275ac81b-5304-492e-8be7-da319ba80949.avro"
+    },
+    {
+      "bytes": 7935,
+      "generation": "1791455636045778",
+      "name": "warehouse/batch_events_v1/metadata/snap-2572169208841123023-0-c9610df8-f62d-485c-8f06-15e9a87e83b2.avro"
+    },
+    {
+      "bytes": 6788,
+      "generation": "1791380025215524",
+      "name": "warehouse/batch_events_v1/metadata/snap-258345721000265792-0-448aeb6f-78e7-465a-8607-5aba255eed81.avro"
+    },
+    {
+      "bytes": 4340,
+      "generation": "1791113631429117",
+      "name": "warehouse/batch_events_v1/metadata/snap-2653193855033958783-0-07c9e5fe-fb72-4185-87b3-91683bdbcbe5.avro"
+    },
+    {
+      "bytes": 7425,
+      "generation": "1791423107659335",
+      "name": "warehouse/batch_events_v1/metadata/snap-2678488600509485050-0-9d7a8a6e-30fd-4035-abd8-617c7d2b1d17.avro"
+    },
+    {
+      "bytes": 8386,
+      "generation": "1791495192747303",
+      "name": "warehouse/batch_events_v1/metadata/snap-2694181675487202276-0-f766480b-050f-44a0-82a8-46de82e50ff9.avro"
+    },
+    {
+      "bytes": 6347,
+      "generation": "1791272157576722",
+      "name": "warehouse/batch_events_v1/metadata/snap-2747558498868321972-0-0befa8c3-940c-499b-b950-86121dfb16e1.avro"
+    },
+    {
+      "bytes": 6910,
+      "generation": "1791383610671500",
+      "name": "warehouse/batch_events_v1/metadata/snap-2781034425373110400-0-4bebd101-dd80-4991-b91a-30e5705b42e7.avro"
+    },
+    {
+      "bytes": 5622,
+      "generation": "1791210783023978",
+      "name": "warehouse/batch_events_v1/metadata/snap-2936314428864274222-0-332625e9-6cc3-4fb5-aa04-d032551b5844.avro"
+    },
+    {
+      "bytes": 3657,
+      "generation": "1791052440507273",
+      "name": "warehouse/batch_events_v1/metadata/snap-2981949840459739580-0-31df66c6-2c47-41c0-89a5-2ee00e8b6e2a.avro"
+    },
+    {
+      "bytes": 8161,
+      "generation": "1791473579688972",
+      "name": "warehouse/batch_events_v1/metadata/snap-3024236432898974222-0-f12149b7-615b-4665-8f81-e41076e0c333.avro"
+    },
+    {
+      "bytes": 5246,
+      "generation": "1791178308521915",
+      "name": "warehouse/batch_events_v1/metadata/snap-3033469102901951296-0-f3df04c3-aca9-4e7f-9a0b-2d474cd8a277.avro"
+    },
+    {
+      "bytes": 5204,
+      "generation": "1791174739450048",
+      "name": "warehouse/batch_events_v1/metadata/snap-3133133315758691434-0-59cfeb78-c77b-4a73-99a2-2350d9755b9c.avro"
+    },
+    {
+      "bytes": 7595,
+      "generation": "1791426780757547",
+      "name": "warehouse/batch_events_v1/metadata/snap-3249243265558672171-0-809cde28-c6ec-40bf-9b49-08eb54e13bc9.avro"
+    },
+    {
+      "bytes": 3734,
+      "generation": "1791059537998959",
+      "name": "warehouse/batch_events_v1/metadata/snap-3277083880876570068-0-eae23728-8ecb-476b-81ef-8652e015aec1.avro"
+    },
+    {
+      "bytes": 1802,
+      "generation": "1790912384338674",
+      "name": "warehouse/batch_events_v1/metadata/snap-3278508922412350736-0-24ce57fb-8bbc-44f7-894b-252945d2d0a8.avro"
+    },
+    {
+      "bytes": 6099,
+      "generation": "1791250470017222",
+      "name": "warehouse/batch_events_v1/metadata/snap-330644047213986430-0-2c0031be-c5db-43ec-81e8-e8803187d59c.avro"
+    },
+    {
+      "bytes": 7044,
+      "generation": "1791394332193657",
+      "name": "warehouse/batch_events_v1/metadata/snap-3335498323157198087-0-2494d423-e984-4db6-832f-269b542abffb.avro"
+    },
+    {
+      "bytes": 7122,
+      "generation": "1791401472662839",
+      "name": "warehouse/batch_events_v1/metadata/snap-3547070992633220906-0-8a78b678-f2d1-473c-81a4-8ba434f07fb9.avro"
+    },
+    {
+      "bytes": 4908,
+      "generation": "1791160455486817",
+      "name": "warehouse/batch_events_v1/metadata/snap-3717264047493245301-0-db6e51c6-35e6-47b3-bb8d-933b420b7f35.avro"
+    },
+    {
+      "bytes": 2909,
+      "generation": "1790996698032585",
+      "name": "warehouse/batch_events_v1/metadata/snap-3826495213686864291-0-0b837c40-2a80-4ce7-8d52-04b6ff55d2e1.avro"
+    },
+    {
+      "bytes": 1968,
+      "generation": "1790923400270535",
+      "name": "warehouse/batch_events_v1/metadata/snap-3851851918801770518-0-2e42cc7d-7961-4f57-a935-cfe6c880c36c.avro"
+    },
+    {
+      "bytes": 7808,
+      "generation": "1791444751005308",
+      "name": "warehouse/batch_events_v1/metadata/snap-4002287872232621199-0-aa035d5b-847e-40aa-aaf5-9daf94eb5839.avro"
+    },
+    {
+      "bytes": 8117,
+      "generation": "1791469924362940",
+      "name": "warehouse/batch_events_v1/metadata/snap-4024596930392255722-0-42bd4634-748a-43cd-bf45-706f223b2afd.avro"
+    },
+    {
+      "bytes": 4261,
+      "generation": "1791106390739368",
+      "name": "warehouse/batch_events_v1/metadata/snap-4139860165613095877-0-1a88e952-a810-4fcb-8320-b4a4aaff0f1e.avro"
+    },
+    {
+      "bytes": 2061,
+      "generation": "1790930028857610",
+      "name": "warehouse/batch_events_v1/metadata/snap-4165917976230598073-0-73e09af4-234c-41fb-af66-d0a3051eabee.avro"
+    },
+    {
+      "bytes": 3864,
+      "generation": "1791070364550090",
+      "name": "warehouse/batch_events_v1/metadata/snap-430150948881586935-0-4ddbafbe-a234-4fb9-9d87-4c20595f813c.avro"
+    },
+    {
+      "bytes": 7981,
+      "generation": "1791459156835570",
+      "name": "warehouse/batch_events_v1/metadata/snap-4373634733871636915-0-5eec3319-4cae-4229-9311-111563e18ad6.avro"
+    },
+    {
+      "bytes": 4183,
+      "generation": "1791099289184826",
+      "name": "warehouse/batch_events_v1/metadata/snap-4408720697013139995-0-42386acb-be6a-42da-8516-24441cfde096.avro"
+    },
+    {
+      "bytes": 2106,
+      "generation": "1790931088848063",
+      "name": "warehouse/batch_events_v1/metadata/snap-4426796607842293965-0-20053233-291c-4e33-8f03-dd2ea02e4b94.avro"
+    },
+    {
+      "bytes": 7509,
+      "generation": "1791423568020136",
+      "name": "warehouse/batch_events_v1/metadata/snap-4487737449961281014-0-89352b0e-b1b3-473a-b6a2-4c22f1ba6134.avro"
+    },
+    {
+      "bytes": 3618,
+      "generation": "1791048732919265",
+      "name": "warehouse/batch_events_v1/metadata/snap-4581282509212839478-0-e54f6c20-c065-436c-8b97-a16374ae2170.avro"
+    },
+    {
+      "bytes": 7763,
+      "generation": "1791441123004312",
+      "name": "warehouse/batch_events_v1/metadata/snap-4589124169802358721-0-6f6c55c7-d9a1-4b52-9032-176f28b7424c.avro"
+    },
+    {
+      "bytes": 8473,
+      "generation": "1791502369687464",
+      "name": "warehouse/batch_events_v1/metadata/snap-4702109062153158000-0-f7b94550-e805-4547-8083-a0a41153c901.avro"
+    },
+    {
+      "bytes": 3448,
+      "generation": "1791034321721389",
+      "name": "warehouse/batch_events_v1/metadata/snap-475008240509134283-0-821a0a29-6816-45c5-ab2b-d733de43426f.avro"
+    },
+    {
+      "bytes": 4683,
+      "generation": "1791142431323941",
+      "name": "warehouse/batch_events_v1/metadata/snap-4787337063185159369-0-b1a12795-c67f-4255-97cc-f3cb92844bcf.avro"
+    },
+    {
+      "bytes": 1925,
+      "generation": "1790923123758603",
+      "name": "warehouse/batch_events_v1/metadata/snap-4826979469439721126-0-07f7c285-bded-43b4-a1d6-106d3dac21c3.avro"
+    },
+    {
+      "bytes": 4950,
+      "generation": "1791160705950207",
+      "name": "warehouse/batch_events_v1/metadata/snap-4920033888292716136-0-b56f3316-c028-4b8a-bcd4-58c6fec419da.avro"
+    },
+    {
+      "bytes": 2621,
+      "generation": "1790969545497973",
+      "name": "warehouse/batch_events_v1/metadata/snap-4952689921710574631-0-9dd977d4-e4ac-4901-b35b-33209303f566.avro"
+    },
+    {
+      "bytes": 6306,
+      "generation": "1791269158419737",
+      "name": "warehouse/batch_events_v1/metadata/snap-4993366136459340056-0-786a7f2e-97ef-4502-b85e-4ba9fda9398c.avro"
+    },
+    {
+      "bytes": 4300,
+      "generation": "1791110057501250",
+      "name": "warehouse/batch_events_v1/metadata/snap-523546429808009077-0-9f1b2de1-3471-4661-a8b8-c1632dbcae15.avro"
+    },
+    {
+      "bytes": 3409,
+      "generation": "1791030773707468",
+      "name": "warehouse/batch_events_v1/metadata/snap-5267017423995538730-0-04b55509-86a7-49b0-a96d-286befa51b95.avro"
+    },
+    {
+      "bytes": 7340,
+      "generation": "1791419581476088",
+      "name": "warehouse/batch_events_v1/metadata/snap-5332038630727517777-0-2235aff4-929e-4d1e-8af5-9569b511a02a.avro"
+    },
+    {
+      "bytes": 6217,
+      "generation": "1791261185228588",
+      "name": "warehouse/batch_events_v1/metadata/snap-5366393399440619584-0-4662e8e8-8232-4cc9-8ca9-efc7bace6b65.avro"
+    },
+    {
+      "bytes": 6395,
+      "generation": "1791362464900413",
+      "name": "warehouse/batch_events_v1/metadata/snap-5432890680636643122-0-1e0c9bc9-160a-47c7-ad87-51e3caa84860.avro"
+    },
+    {
+      "bytes": 7003,
+      "generation": "1791390834191200",
+      "name": "warehouse/batch_events_v1/metadata/snap-5516051870723117831-0-43006cf7-85df-4bc5-8dad-08bd9bfacf72.avro"
+    },
+    {
+      "bytes": 5328,
+      "generation": "1791185662999265",
+      "name": "warehouse/batch_events_v1/metadata/snap-5686629199579388786-0-ed234a0a-274c-4a2a-866b-01d4d5521718.avro"
+    },
+    {
+      "bytes": 3775,
+      "generation": "1791063083497622",
+      "name": "warehouse/batch_events_v1/metadata/snap-5729020139284463966-0-bc6917ae-60e1-48b2-b3f7-e33be9565add.avro"
+    },
+    {
+      "bytes": 3943,
+      "generation": "1791077584576022",
+      "name": "warehouse/batch_events_v1/metadata/snap-5729962590038179186-0-239e1e02-e088-4169-b7a6-fce9abad532b.avro"
+    },
+    {
+      "bytes": 6701,
+      "generation": "1791379150020059",
+      "name": "warehouse/batch_events_v1/metadata/snap-5774109831505348933-0-65def813-5a54-48d9-9198-2c60e3552cd7.avro"
+    },
+    {
+      "bytes": 2751,
+      "generation": "1790984029892892",
+      "name": "warehouse/batch_events_v1/metadata/snap-5903766478995924053-0-ec336f72-de3c-46f9-a2bb-e62283e977b8.avro"
+    },
+    {
+      "bytes": 2445,
+      "generation": "1790955102267576",
+      "name": "warehouse/batch_events_v1/metadata/snap-5952989885853420050-0-f1df772d-9207-498b-8956-cca787649b14.avro"
+    },
+    {
+      "bytes": 5579,
+      "generation": "1791207199213899",
+      "name": "warehouse/batch_events_v1/metadata/snap-6020974701256225064-0-55e8f5a5-5358-4ca7-a386-137ec1c1dce8.avro"
+    },
+    {
+      "bytes": 6960,
+      "generation": "1791387198351315",
+      "name": "warehouse/batch_events_v1/metadata/snap-6074049077982485817-0-c66f75fc-aff9-4521-bc58-727fbea3804e.avro"
+    },
+    {
+      "bytes": 4641,
+      "generation": "1791138840596534",
+      "name": "warehouse/batch_events_v1/metadata/snap-6089378766840980833-0-33d57629-29e0-453d-ba98-b2ad1e110af9.avro"
+    },
+    {
+      "bytes": 6261,
+      "generation": "1791264953081760",
+      "name": "warehouse/batch_events_v1/metadata/snap-6095461531914528713-0-29871116-fb26-4782-8f28-a4d3d7a7e8ae.avro"
+    },
+    {
+      "bytes": 7551,
+      "generation": "1791423916771757",
+      "name": "warehouse/batch_events_v1/metadata/snap-6122098852736429790-0-548c7867-4472-4d7e-a006-bb4d62cdfbc6.avro"
+    },
+    {
+      "bytes": 7164,
+      "generation": "1791405233818123",
+      "name": "warehouse/batch_events_v1/metadata/snap-6135723196312989111-0-25cd27c6-c839-457d-8ecc-5d2334f7489a.avro"
+    },
+    {
+      "bytes": 6444,
+      "generation": "1791365623274013",
+      "name": "warehouse/batch_events_v1/metadata/snap-6186789805497740768-0-aeb85749-ec33-4e99-b6da-23b6f4481a86.avro"
+    },
+    {
+      "bytes": 2365,
+      "generation": "1790948046625894",
+      "name": "warehouse/batch_events_v1/metadata/snap-6189864701978008927-0-9d903e6e-2f5b-4005-a45f-71278030f001.avro"
+    },
+    {
+      "bytes": 5832,
+      "generation": "1791228878914379",
+      "name": "warehouse/batch_events_v1/metadata/snap-6220011226782624273-0-6cc096ac-4810-42ab-950e-bc072bf193db.avro"
+    },
+    {
+      "bytes": 2408,
+      "generation": "1790951506629969",
+      "name": "warehouse/batch_events_v1/metadata/snap-6229486470218058279-0-d61fdb07-53cc-41aa-8a38-e6562e7aa08b.avro"
+    },
+    {
+      "bytes": 3983,
+      "generation": "1791081240950555",
+      "name": "warehouse/batch_events_v1/metadata/snap-6290793214599500517-0-bc2189d0-2ace-4a34-b6a0-97b259ee0093.avro"
+    },
+    {
+      "bytes": 4990,
+      "generation": "1791161322159552",
+      "name": "warehouse/batch_events_v1/metadata/snap-631788666208497167-0-2cbab601-9768-4a21-a855-3c035d534d6d.avro"
+    },
+    {
+      "bytes": 6012,
+      "generation": "1791243167992138",
+      "name": "warehouse/batch_events_v1/metadata/snap-6378922852968241239-0-6c68fd9c-b96d-4996-9e16-231632248a62.avro"
+    },
+    {
+      "bytes": 4863,
+      "generation": "1791156772441027",
+      "name": "warehouse/batch_events_v1/metadata/snap-6401711758100409407-0-b4d13c56-73bd-4691-b469-8e304c328bc3.avro"
+    },
+    {
+      "bytes": 7717,
+      "generation": "1791437600304683",
+      "name": "warehouse/batch_events_v1/metadata/snap-6414591293196801018-0-240c1a9e-4fda-4b3f-8917-97fe8ce8f4bd.avro"
+    },
+    {
+      "bytes": 4516,
+      "generation": "1791128051003215",
+      "name": "warehouse/batch_events_v1/metadata/snap-6603415880222783323-0-49cf498d-58ab-4165-b6bd-3dff18bf5a8a.avro"
+    },
+    {
+      "bytes": 5790,
+      "generation": "1791225166010500",
+      "name": "warehouse/batch_events_v1/metadata/snap-6622438306339034300-0-b2b33f4e-95c3-4aa7-b0b9-925ab79048e2.avro"
+    },
+    {
+      "bytes": 4557,
+      "generation": "1791131677703757",
+      "name": "warehouse/batch_events_v1/metadata/snap-6780721419267199755-0-6f2874a1-1a8c-4205-90ee-a9aca8539077.avro"
+    },
+    {
+      "bytes": 3109,
+      "generation": "1791005581102560",
+      "name": "warehouse/batch_events_v1/metadata/snap-6862574915275559116-0-937ca011-eac6-426e-946d-4af23bff28f1.avro"
+    },
+    {
+      "bytes": 7889,
+      "generation": "1791451930681909",
+      "name": "warehouse/batch_events_v1/metadata/snap-687700078612584366-0-6d339bed-0b30-4544-b20e-ee7c29f1244e.avro"
+    },
+    {
+      "bytes": 5452,
+      "generation": "1791196360085869",
+      "name": "warehouse/batch_events_v1/metadata/snap-6891634130635813889-0-8067fac5-cd0f-4f7f-b648-f848c67cca03.avro"
+    },
+    {
+      "bytes": 8214,
+      "generation": "1791480789145298",
+      "name": "warehouse/batch_events_v1/metadata/snap-6925826475961208077-0-e7c48841-4809-4c97-aad1-b4f26a232ec1.avro"
+    },
+    {
+      "bytes": 2240,
+      "generation": "1790937201923019",
+      "name": "warehouse/batch_events_v1/metadata/snap-6932106964318821512-0-6031843f-ef56-4194-a5c3-70b64d27b72e.avro"
+    },
+    {
+      "bytes": 6865,
+      "generation": "1791382226346464",
+      "name": "warehouse/batch_events_v1/metadata/snap-6984111126941367318-0-8014a5aa-4a3e-4bb6-9c61-3155ebfe7bea.avro"
+    },
+    {
+      "bytes": 6057,
+      "generation": "1791246704919024",
+      "name": "warehouse/batch_events_v1/metadata/snap-7088910436300622185-0-876c4120-c760-4b23-8fb9-f795cbf97518.avro"
+    },
+    {
+      "bytes": 3368,
+      "generation": "1791027184364261",
+      "name": "warehouse/batch_events_v1/metadata/snap-7101021503792480828-0-5d11b095-7d8c-4092-aa31-7a2158bff134.avro"
+    },
+    {
+      "bytes": 7383,
+      "generation": "1791422828107355",
+      "name": "warehouse/batch_events_v1/metadata/snap-7180468230712870503-0-0b9d3afe-40de-41b1-bc22-1754e71d58df.avro"
+    },
+    {
+      "bytes": 1881,
+      "generation": "1790913849342787",
+      "name": "warehouse/batch_events_v1/metadata/snap-7204719898462238206-0-78d1763d-f858-4c57-86e6-fb2fcc3fd092.avro"
+    },
+    {
+      "bytes": 3818,
+      "generation": "1791066795932084",
+      "name": "warehouse/batch_events_v1/metadata/snap-7271519609271053664-0-6f11a040-ac70-4a49-8f18-6a287d4c3a1c.avro"
+    },
+    {
+      "bytes": 4143,
+      "generation": "1791095672389746",
+      "name": "warehouse/batch_events_v1/metadata/snap-7280048231561248370-0-995e86f4-d3d4-4ce8-9448-90871a4df521.avro"
+    },
+    {
+      "bytes": 8513,
+      "generation": "1791505994420370",
+      "name": "warehouse/batch_events_v1/metadata/snap-7313434879193665367-0-f558d756-388f-44eb-a192-fb86f5780795.avro"
+    },
+    {
+      "bytes": 8078,
+      "generation": "1791466401721461",
+      "name": "warehouse/batch_events_v1/metadata/snap-7393052483480625204-0-701cc364-95e5-4903-8a5a-4eaa24eee21f.avro"
+    },
+    {
+      "bytes": 8430,
+      "generation": "1791498749692794",
+      "name": "warehouse/batch_events_v1/metadata/snap-7406907488958599694-0-0a59b672-88d7-410b-a093-bee48b247e58.avro"
+    },
+    {
+      "bytes": 5965,
+      "generation": "1791239550630652",
+      "name": "warehouse/batch_events_v1/metadata/snap-7466715698650172237-0-8b7cc6f1-2203-497b-9f83-f548eda2be35.avro"
+    },
+    {
+      "bytes": 3902,
+      "generation": "1791073947602472",
+      "name": "warehouse/batch_events_v1/metadata/snap-7480297757650515455-0-dd4d1c53-dbca-4426-863f-0f8ce3fd2e63.avro"
+    },
+    {
+      "bytes": 4723,
+      "generation": "1791145973720751",
+      "name": "warehouse/batch_events_v1/metadata/snap-7568308981441548336-0-a919ecde-3d4f-4829-8be2-f870e9b377c9.avro"
+    },
+    {
+      "bytes": 4767,
+      "generation": "1791149606998986",
+      "name": "warehouse/batch_events_v1/metadata/snap-7584461161856124432-0-4dc681e7-bee4-4d5d-8290-58350cba849b.avro"
+    },
+    {
+      "bytes": 6741,
+      "generation": "1791379814413115",
+      "name": "warehouse/batch_events_v1/metadata/snap-7638563956272974229-0-bcf8b79b-fa3c-40c5-9481-4150565675a1.avro"
+    },
+    {
+      "bytes": 5074,
+      "generation": "1791167647621304",
+      "name": "warehouse/batch_events_v1/metadata/snap-7639975972928247255-0-25ba6237-65f1-4851-a2bb-8ddc68a04a3f.avro"
+    },
+    {
+      "bytes": 4021,
+      "generation": "1791084801990811",
+      "name": "warehouse/batch_events_v1/metadata/snap-7661449791489212669-0-2e15aaec-0c02-47a4-b827-8d03d793ff81.avro"
+    },
+    {
+      "bytes": 8258,
+      "generation": "1791484404273418",
+      "name": "warehouse/batch_events_v1/metadata/snap-770761804380946638-0-a8fecb2b-cd29-48f2-81d2-944d86e4a82b.avro"
+    },
+    {
+      "bytes": 4463,
+      "generation": "1791124381999063",
+      "name": "warehouse/batch_events_v1/metadata/snap-7774683023470492981-0-80a3d605-8a4b-4ebf-ae60-a0fe9bf9df34.avro"
+    },
+    {
+      "bytes": 3067,
+      "generation": "1791001944386435",
+      "name": "warehouse/batch_events_v1/metadata/snap-782249134876351054-0-3537fa61-5e1d-4ba0-b873-0d5956ff4ed3.avro"
+    },
+    {
+      "bytes": 6577,
+      "generation": "1791372825889764",
+      "name": "warehouse/batch_events_v1/metadata/snap-7916070457954475639-0-1401bb81-e935-411c-9f49-a10cb34ec328.avro"
+    },
+    {
+      "bytes": 7298,
+      "generation": "1791416041675550",
+      "name": "warehouse/batch_events_v1/metadata/snap-7940455802256280646-0-6e6d63b5-cee6-426b-8234-3701fe6da6d0.avro"
+    },
+    {
+      "bytes": 5533,
+      "generation": "1791203675845157",
+      "name": "warehouse/batch_events_v1/metadata/snap-7952127315473420554-0-1f61d589-b4c7-4cbd-b5f3-dc90ff41630b.avro"
+    },
+    {
+      "bytes": 4222,
+      "generation": "1791102901635044",
+      "name": "warehouse/batch_events_v1/metadata/snap-7989974093340354019-0-11b61c98-18ec-4800-849b-bee063c331ca.avro"
+    },
+    {
+      "bytes": 7636,
+      "generation": "1791430391713049",
+      "name": "warehouse/batch_events_v1/metadata/snap-8013904095281089090-0-b74bc2f0-e2d8-401c-bbec-fa3784fe121c.avro"
+    },
+    {
+      "bytes": 5751,
+      "generation": "1791221678676224",
+      "name": "warehouse/batch_events_v1/metadata/snap-8071098461612919222-0-14cf91f6-52de-4eab-bc58-ee868b2cfd50.avro"
+    },
+    {
+      "bytes": 2011,
+      "generation": "1790926429768695",
+      "name": "warehouse/batch_events_v1/metadata/snap-8073401786820809355-0-0f1ce34d-6acb-47bd-878b-633c70adaed8.avro"
+    },
+    {
+      "bytes": 7850,
+      "generation": "1791448344608073",
+      "name": "warehouse/batch_events_v1/metadata/snap-8088277101069447615-0-41d5e607-a5d1-41ea-a818-d038ee366f4b.avro"
+    },
+    {
+      "bytes": 2147,
+      "generation": "1790931831536565",
+      "name": "warehouse/batch_events_v1/metadata/snap-8117149631403741371-0-393c357a-fd46-4dec-8cc2-085460d0570d.avro"
+    },
+    {
+      "bytes": 6488,
+      "generation": "1791365841563584",
+      "name": "warehouse/batch_events_v1/metadata/snap-8170314651264340358-0-2c213d71-9652-4759-8f05-26ee812e157f.avro"
+    },
+    {
+      "bytes": 8342,
+      "generation": "1791491581722752",
+      "name": "warehouse/batch_events_v1/metadata/snap-8251244859914562712-0-0ecb61c4-2523-4d07-b7d2-f1ac89e67ff3.avro"
+    },
+    {
+      "bytes": 2541,
+      "generation": "1790962435281777",
+      "name": "warehouse/batch_events_v1/metadata/snap-8285384930671802708-0-a70044bd-cf41-4120-a33e-e512b04e4e40.avro"
+    },
+    {
+      "bytes": 3692,
+      "generation": "1791055867554014",
+      "name": "warehouse/batch_events_v1/metadata/snap-8290070228010675562-0-cc91a2e4-700b-4bd2-b0c0-119d2546d189.avro"
+    },
+    {
+      "bytes": 3269,
+      "generation": "1791019992230534",
+      "name": "warehouse/batch_events_v1/metadata/snap-831298306286129775-0-1740daac-2e68-46c1-b496-691e768d5169.avro"
+    },
+    {
+      "bytes": 5491,
+      "generation": "1791200044612619",
+      "name": "warehouse/batch_events_v1/metadata/snap-831942638122213027-0-51193e63-6050-4236-9437-27c4ff83d328.avro"
+    },
+    {
+      "bytes": 7082,
+      "generation": "1791398046058840",
+      "name": "warehouse/batch_events_v1/metadata/snap-8325466664804224745-0-089b512c-1d0a-4363-b967-525605c4d514.avro"
+    },
+    {
+      "bytes": 5412,
+      "generation": "1791192803983279",
+      "name": "warehouse/batch_events_v1/metadata/snap-8415308012004537524-0-27a0693d-9195-4212-991c-99bcee30e827.avro"
+    },
+    {
+      "bytes": 5920,
+      "generation": "1791236095141145",
+      "name": "warehouse/batch_events_v1/metadata/snap-8441376605015333632-0-eb701339-ddb1-47db-94ef-9ea64fa0b63a.avro"
+    },
+    {
+      "bytes": 2987,
+      "generation": "1790997935241423",
+      "name": "warehouse/batch_events_v1/metadata/snap-8488729579140375528-0-8eb70a05-664c-4c61-987e-ac41de6446e1.avro"
+    },
+    {
+      "bytes": 5875,
+      "generation": "1791232311997896",
+      "name": "warehouse/batch_events_v1/metadata/snap-8497882551873019865-0-9d0cfc69-f645-4bdf-8093-d33abb501690.avro"
+    },
+    {
+      "bytes": 6826,
+      "generation": "1791380742595551",
+      "name": "warehouse/batch_events_v1/metadata/snap-8576703631276362291-0-b41ebdc0-9103-4faa-a0a4-5286845cca28.avro"
+    },
+    {
+      "bytes": 7253,
+      "generation": "1791412407047476",
+      "name": "warehouse/batch_events_v1/metadata/snap-8593868618728802633-0-5011e1d3-c41b-48be-b607-f7f408c0dcb2.avro"
+    },
+    {
+      "bytes": 5710,
+      "generation": "1791217998867746",
+      "name": "warehouse/batch_events_v1/metadata/snap-8595195822968420017-0-f69a2724-1978-4373-bec4-18a8d3eb4039.avro"
+    },
+    {
+      "bytes": 2792,
+      "generation": "1790987618450274",
+      "name": "warehouse/batch_events_v1/metadata/snap-8596595584710715183-0-f7d9de83-3f09-47db-9ed6-7d9279f123cd.avro"
+    },
+    {
+      "bytes": 2323,
+      "generation": "1790944404198003",
+      "name": "warehouse/batch_events_v1/metadata/snap-8672333490869613480-0-f63ff75d-fd54-4345-a049-2df82a987b1c.avro"
+    },
+    {
+      "bytes": 5371,
+      "generation": "1791189186483876",
+      "name": "warehouse/batch_events_v1/metadata/snap-8786333799725681597-0-293a40c0-5942-4c58-b283-39359f09000c.avro"
+    },
+    {
+      "bytes": 6179,
+      "generation": "1791257597386046",
+      "name": "warehouse/batch_events_v1/metadata/snap-8801843567074341183-0-14b0ab5e-37ca-42ee-88e0-4a48f2c92297.avro"
+    },
+    {
+      "bytes": 2498,
+      "generation": "1790958734561764",
+      "name": "warehouse/batch_events_v1/metadata/snap-8803013455005303218-0-0d396a93-be1a-49e1-b423-f2e6b7b06c09.avro"
+    },
+    {
+      "bytes": 4102,
+      "generation": "1791092008761393",
+      "name": "warehouse/batch_events_v1/metadata/snap-8914148487223957902-0-04c715ac-68ce-4b95-be81-71878d8536e4.avro"
+    },
+    {
+      "bytes": 7677,
+      "generation": "1791433995985522",
+      "name": "warehouse/batch_events_v1/metadata/snap-8958607790758301806-0-243aecab-148f-451d-a860-9857fe88f868.avro"
+    },
+    {
+      "bytes": 2949,
+      "generation": "1790997232266609",
+      "name": "warehouse/batch_events_v1/metadata/snap-8960362380662531226-0-0ea761fe-b006-4f7a-999b-680df5a086a7.avro"
+    },
+    {
+      "bytes": 3321,
+      "generation": "1791023540010594",
+      "name": "warehouse/batch_events_v1/metadata/snap-8972064992330534867-0-463497b8-dc68-4c77-9a62-934e37c03c77.avro"
+    },
+    {
+      "bytes": 2828,
+      "generation": "1790991089346070",
+      "name": "warehouse/batch_events_v1/metadata/snap-9112922751368627694-0-6cdd8aca-23e5-4631-b83d-8e58be3f27ba.avro"
+    },
+    {
+      "bytes": 4380,
+      "generation": "1791117208372584",
+      "name": "warehouse/batch_events_v1/metadata/snap-9154177995406071752-0-a21913ee-4a5d-48a6-a58b-208010e3944e.avro"
+    },
+    {
+      "bytes": 6661,
+      "generation": "1791377465941180",
+      "name": "warehouse/batch_events_v1/metadata/snap-933185936038589253-0-8628921b-7eb1-44de-adee-040a764758bd.avro"
+    },
+    {
+      "bytes": 6619,
+      "generation": "1791376492204838",
+      "name": "warehouse/batch_events_v1/metadata/snap-970312877044181157-0-fe696bc1-9ba7-4f36-90f0-507191da1ad4.avro"
+    },
+    {
+      "bytes": 3533,
+      "generation": "1791041550993194",
+      "name": "warehouse/batch_events_v1/metadata/snap-976624167263106197-0-b4198645-26ca-49e5-9599-c6bb97ec823a.avro"
+    }
+  ]
+}
