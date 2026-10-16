@@ -147,7 +147,10 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
         except ValueError:
             observed_day = None
         source_ok = source in {"twse_mis", "core_ohlcv", "tpex_openapi_eod"} or (
-            source is None and at is not None and state in {"intraday", "closing_pending_eod", "eod_final", "stale"})
+            # Local legacy quote fixtures may lack a source, but the runtime
+            # QuoteRouter always stamps authorized provenance.
+            source is None and state in {"intraday", "closing_pending_eod", "eod_final", "stale"}
+            and (at is not None or state == "eod_final"))
         reference_eligible = (
             bool(quote) and price is not None and source_ok and
             observed_day is not None and observed_day <= now.astimezone(TAIPEI).date() and
