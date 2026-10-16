@@ -2,6 +2,17 @@
 
 更新：2026-10-16（Asia/Taipei）。**使用者已授權 D01～D05 快速完成、包含 D04 繞路或必要的最小 IAM；這取代先前「僅 API 100% 切流、其他 P1 暫停」的限制。** 歷史 PASS 只限當次 SHA／環境／scope；下方舊「未切流／尚未真人驗收」段落保留當時 checkpoint，不能倒蓋最新結果。
 
+### DRL-01 後續實機資料修復 checkpoint（2026-10-16 夜間）
+
+使用者明確要求優先續修資料；**整體 DRL-01 PARTIAL**，不能以單日市場覆蓋取代全市場20/21日同檔覆蓋。
+
+- **TPEX 價量 21 個歷史交易日逐日 PASS**：[9/17～9/23 #38917554437](https://github.com/tommylin15/janus-omniforge/actions/runs/38917554437)、[9/15～9/30 #38918148776](https://github.com/tommylin15/janus-omniforge/actions/runs/38918148776)、[9/14 與 10/01 #38918809519](https://github.com/tommylin15/janus-omniforge/actions/runs/38918809519)，再加原先 10/02、10/05～08、10/12～15 官方寫入／既有合格收據；9/14～10/15 共21個有效交易日各自 PASS，單日有效863～876／896。**同股票 20/21 達標比率**尚須新版全量 Core census 證實；目前 #38920178493 進行中。曾有 9/24 舊僅136檔可用，已修至869檔。
+- **MOPS 上市全市場 2026-09 月營收真正 PASS**：[批次 #38918935523](https://github.com/tommylin15/janus-omniforge/actions/runs/38918935523) 一次補入1088／1096 TWSE，0 quarantine，Core snapshot 6601479721248845888；均具來源raw Stage／provenance、期末與本月營收欄位，保留receipt availability，不假造歷史公布時間。新批次程式及現有writer鎖沿用既有MOPS，不新增供應商／資源。2026-07、08 已提交 [#38919909592](https://github.com/tommylin15/janus-omniforge/actions/runs/38919909592)，尚未終態，不算完成；13個月跨期YoY仍部分。
+- **上市 OHLCV 90% 歷史深度**：原只有約500／1096上市股≥20日，已提交一個交易日的TWSE官方全市場canary [#38919999165](https://github.com/tommylin15/janus-omniforge/actions/runs/38919999165)，仍排隊等待前一個已有寫入Job終態；不把它記為Core成功。
+- **EPS**：2382官方Core歷史read-only #38910500339：9個分散可辨明的單季，不足4個連續季；2327、2330官方受控 Job [#38911169615](https://github.com/tommylin15/janus-omniforge/actions/runs/38911169615) terminal PASS，但Core readback未獨立證明，維持PARTIAL。
+- **資料品質與總帳**：targeted CI測試 [#38918407333](https://github.com/tommylin15/janus-omniforge/actions/runs/38918407333) PASS；定期Readiness Ledger程式存在main，但dev Job尚未同源發布，runtime未驗，不視為每日定期已啟用。
+- **GHCR/正式 dev**：全四映像正式Release #38910268790 PASS（該次SHA）；候選API #38911603887 FAIL，原因為 legacy candidate腳本缺 /workspace/v2-state/build-receipt.json，尚未變更正式流量。不得將Release PASS誤稱為API/Job新版上線。
+
 ### DRL-01 優先工程 checkpoint（2026-10-16）
 
 使用者最新指令為「先優先完成 DRL-01」，已解除先前DRL的暫停；D01～D05原授權與PASS收據保留，未自動視為完成。以下是實際已發生的dev資料結果，**整體 DRL-01 PARTIAL**：
