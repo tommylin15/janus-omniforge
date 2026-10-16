@@ -1,6 +1,12 @@
 # Janus 目前狀態
 
-更新：2026-10-16 14:57（Asia/Taipei）。**使用者要求：完成本次進度文件回寫後立即暫停；不得自行接續部署、重算、測試、觸發 GitHub Actions、修改 Owner 資料或切正式流量。** P1 總額優先修正版 `8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699` 已通過完整 Python／Flutter、GHCR 四映像、0% candidate、自動 OAuth／私人邊界、固定 Preview 與四 Jobs rollout；**新版 API 正式 100% 切流及新版真人登入持股頁 E2E 仍 NOT_VERIFIED／未執行**。最後獨立確認的正式 API 100% 是前版 `9f690363e5517cbe90d837a53a94ae3a4e7ab31e`（#38853614819）。Owner 10/15 估值及 Worker queue 後端 PASS 不等於 10/16 新版真實損益或手機畫面 PASS。
+更新：2026-10-16（Asia/Taipei）。先前使用者要求暫停已被本次明確指示「執行新版 API 正式 100% 切流」覆蓋，**本輪執行範圍僅正式 API 發布與必要驗收／文件，未授權擴張到其他 P1 工項**。新版 P1 總額優先 `8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699` 完整 GHCR／0% candidate／OAuth／Preview／四 Jobs PASS；正式 API 可逆 100% promotion [#38865075071](https://github.com/tommylin15/janus-omniforge/actions/runs/38865075071) **PASS**，獨立正式 [#38865347217](https://github.com/tommylin15/janus-omniforge/actions/runs/38865347217) **PASS**（`janus-api-00517-ciq` 唯一 100%、固定 Preview 來源相同、immutable image、tags、health、owner/cash 未登入 401、真實新→舊→新、回滾 `janus-api-00512-zal`）。新版真人登入後持股畫面、現金交易連動、重算按鈕 E2E **NOT_VERIFIED**；後端 10/15 Owner 合格資料不等於當日新版真人交易操作驗收。
+
+### 2026-10-16｜P1 8eb API 正式 100% 可逆切流與獨立驗收
+
+- **正式 API 可逆切流 PASS**：[GitHub Actions #38865075071](https://github.com/tommylin15/janus-omniforge/actions/runs/38865075071) 同源 release `8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699`，從已核准的 0% GHCR immutable candidate 經驗證後執行新版→前版→新版真實 100% traffic 演練，`result=PASS`；完整 receipt artifact id `12030787184`。
+- **獨立 live readback PASS**：[GitHub Actions #38865347217](https://github.com/tommylin15/janus-omniforge/actions/runs/38865347217)；revision `janus-api-00517-ciq` 唯一 canonical 100%，`/app/build-id.txt` 與固定 Preview 皆為本次完整 SHA、健康路徑 200、未登入 Owner 與 cash API 401、immutable image 與 tags 保留、回滾演練 PASS，舊可回滾 revision `janus-api-00512-zal`。只讀驗收報告 `no_mutations=true`，artifact id `12031290847`。
+- **限制**：正式部署／公開安全驗收 **PASS**，不代表實際登入使用者看見 7 檔新的參考總額／部分計價、小計、延遲報價損益、現金設定與買賣連動、手動重算按鈕及冷暖延遲已驗收；這些維持 **PARTIAL／NOT_VERIFIED**。使用者本次只要求正式 API 切流，不自動開工其它工項。
 
 ### 2026-10-16｜P1 真人截圖回報：參考總額與小計優先顯示（8eb42dcb）
 
