@@ -1,0 +1,133 @@
+name: D01 current-day Owner EOD PIT read-only
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/d01-owner-eod-1016-readonly.yml']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Run existing dev Job with read-only execution args
+        run: |
+          python - <<'PY'
+          import json,sys,time,subprocess
+          from pathlib import Path
+          sys.path.insert(0,'scripts/gcp')
+          from ghcr_jobs_rollout import cloud,job,terminal,ROOT
+          CODE=r"""
+          import json
+          from datetime import date
+          from packages.postgres_bundle import load_postgres_bundle
+          from services.api.repository import repository_from_env
+          from services.api.private_pipeline import CorePriceReader,owner_price_reader,resolve_valuation_date
+          from services.api.store import PrivateIcebergStore
+          target=date(2026,10,16)
+          result={'component':'d01_owner_eod_readonly','read_only':True,'target_date':target.isoformat(),
+                  'status':'PARTIAL'}
+          load_postgres_bundle('JANUS_API_POSTGRES_BUNDLE',{
+           'PRIVATE_DATABASE_URL':('pipeline_database_url','database_url'),
+           'MOBILE_LEDGER_DATABASE_URL':'database_url',
+           'PRIVATE_CATALOG_PASSWORD':('pipeline_catalog_password','catalog_password'),
+           'CORE_CATALOG_PASSWORD':'core_catalog_password'})
+          repo=repository_from_env()
+          with repo._connection() as connection:
+           connection.execute('SET TRANSACTION READ ONLY')
+           owners=connection.execute('SELECT DISTINCT user_id FROM private.current_positions WHERE symbol=%s AND shares>0',('00697B',)).fetchall()
+          if len(owners)!=1:raise RuntimeError('owner_scope_not_exactly_one')
+          owner=owners[0]['user_id']
+          before=int(repo.latest_ledger_version(owner))
+          with repo._connection() as connection:
+           connection.execute('SET TRANSACTION READ ONLY')
+           holdings=connection.execute('SELECT DISTINCT symbol FROM private.current_positions WHERE user_id=%s AND shares>0',(owner,)).fetchall()
+          symbols={row['symbol'] for row in holdings}
+          if not {'00697B','00719B'}.issubset(symbols) or not 1<=len(symbols)<=50:raise RuntimeError('held_symbols_unexpected')
+          market=CorePriceReader.from_env()
+          last=resolve_valuation_date(None,market.latest_valuation_date)
+          archive=repo.official_eod_quotes({'00697B','00719B'},target)
+          prices=owner_price_reader(repo,market)(symbols,target)
+          valid={symbol:v for symbol,v in prices.items()
+                 if isinstance(v,tuple) and len(v)==2 and v[0] is not None
+                 and v[0].is_finite() and v[0]>0 and v[1]<=target}
+          same=sum(v[1]==target for v in valid.values())
+          store=PrivateIcebergStore.from_env()
+          positions=[row for row in store.mart('mart_user_positions',owner)
+           if str(row.get('valuation_date'))==target.isoformat() and int(row.get('ledger_version') or 0)==before]
+          pnl=[row for row in store.mart('mart_user_unrealized_pnl',owner)
+           if str(row.get('valuation_date'))==target.isoformat() and int(row.get('ledger_version') or 0)==before]
+          summaries=[row for row in store.mart('mart_user_portfolio_summary',owner)
+           if str(row.get('valuation_date'))==target.isoformat() and int(row.get('ledger_version') or 0)==before and row.get('currency')=='TWD']
+          after=int(repo.latest_ledger_version(owner))
+          if after!=before:raise RuntimeError('ledger_checkpoint_changed')
+          result.update(status='PASS_READ_ONLY',core_latest_date=last.isoformat(),
+                        ledger_checkpoint_unchanged=True, held_count=len(symbols),
+                        qualified_asof_price_count=len(valid),same_day_price_count=same,
+                        archive_etf_count=len(archive),mart_positions=len(positions),
+                        mart_unrealized=len(pnl),mart_aggregates=len(summaries),
+                        aggregate_status=summaries[0].get('aggregate_status') if len(summaries)==1 else None,
+                        full_same_day_available=(same==len(symbols) and len(pnl)==len(symbols) and len(summaries)==1
+                          and summaries[0].get('aggregate_status')=='available'))
+          print(json.dumps(result,sort_keys=True),flush=True)
+          """
+          j=job('janus-private-pipeline')
+          c=j['template']['template']['containers']
+          if len(c)!=1 or c[0].get('command') not in (None,[],['python']):
+              raise ValueError('entrypoint_drift')
+          override={'args':(['python'] if not c[0].get('command') else [])+['-c',CODE],
+                    'env':[{'name':'QUEUE_CONSUMER','value':'false'}]}
+          if c[0].get('name'):override['name']=c[0]['name']
+          op=cloud(f'{ROOT}/jobs/janus-private-pipeline:run',
+                   {'etag':j['etag'],'overrides':{'taskCount':1,'timeout':'360s','containerOverrides':[override]}},'POST')
+          name=op.get('name','')
+          if not name.startswith(ROOT+'/operations/'):raise ValueError('invalid_operation')
+          until=time.monotonic()+480
+          while not op.get('done') and time.monotonic()<until:
+              time.sleep(6)
+              op=cloud(name)
+          if not op.get('done') or op.get('error'):raise RuntimeError('snapshot_operation_failed')
+          exe=op.get('response',{})
+          if not terminal(exe) or exe.get('succeededCount')!=1 or exe.get('failedCount',0):
+              raise RuntimeError('snapshot_job_failed')
+          exe_name=exe.get('name','').rsplit('/',1)[-1]
+          if not exe_name.startswith('janus-private-pipeline-'):raise ValueError('bad_execution')
+          query=f'resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="{exe_name}"'
+          result=None
+          for _ in range(5):
+              proc=subprocess.run(['gcloud','logging','read',query,'--project=gen-lang-client-0593591102',
+                                   '--limit=180','--format=json'],capture_output=True,text=True,timeout=40)
+              if proc.returncode==0:
+                  for row in json.loads(proc.stdout):
+                      payload=row.get('jsonPayload')
+                      if not isinstance(payload,dict):
+                          try:payload=json.loads(row.get('textPayload',''))
+                          except (ValueError,TypeError):continue
+                      if isinstance(payload,dict) and payload.get('component')=='d01_owner_eod_readonly':
+                          result=payload
+                          break
+              if result is not None:break
+              time.sleep(5)
+          if result is None:raise RuntimeError('snapshot_receipt_missing')
+          Path('/tmp/d01_owner_eod.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
+          print(json.dumps({'execution':exe_name,'receipt':result},ensure_ascii=False))
+          if result.get('status')!='PASS_READ_ONLY':raise RuntimeError('owner_eod_readonly_failed')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: d01-owner-eod-readonly
+          path: /tmp/d01_owner_eod.json
+          if-no-files-found: ignore
+          retention-days: 7
