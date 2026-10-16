@@ -1,0 +1,16 @@
+{
+  "intent": "p1-exact-owner-official-eod-repair",
+  "approved": true,
+  "environment": "dev",
+  "target_date": "2026-10-15",
+  "source_sha": "7acff50000644979af3815f00fbd7f1c167e1098",
+  "release_run": "38755382061",
+  "jobs_rollout_run": "38821199561",
+  "single_owner_only": true,
+  "no_ledger_mutation": true,
+  "private_mart_write_only": true,
+  "no_job_template_mutation": true,
+  "no_traffic_mutation": true,
+  "scope": "Only one existing real Owner holding 00697B/00719B, two exact official 10/15 close records, 8/8 same-day qualified held quotes and checkpoint exact Mart + total",
+  "reason": "P1 real readonly #38827197770 proved Core 10/15, 8/8 PIT prices but only 6/8 same-day, no 10/15 private Mart rows. Before any Mart writes, fetch/verify exact 10/15 official TPEx dated quotes for both ETFs; fail closed if source/dates/full coverage unavailable."
+}
