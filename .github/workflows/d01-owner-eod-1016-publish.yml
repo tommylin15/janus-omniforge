@@ -37,11 +37,12 @@ jobs:
             gh run view "$run" --json status,conclusion,workflowName |
               jq -e --arg n "$name" '.status=="completed" and .conclusion=="success" and .workflowName==$n' >/dev/null
           done
+          git diff --exit-code 8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699 HEAD -- scripts/gcp/p0_tpex_asof_owner_acceptance.py services/api/private_pipeline.py
           python -m compileall -q scripts/gcp/d01_owner_eod_1016_publish.py
           python - <<'PY'
           from scripts.gcp.d01_owner_eod_1016_publish import bounded_code
           body=bounded_code()
-          assert 'target=date(2026,10,15)' in body
+          assert 'target=date(2026,10,16)' in body
           assert 'd01_owner_same_day_price_coverage_missing' in body
           assert 'ledger_version_changed_during_mart_write' in body
           PY
