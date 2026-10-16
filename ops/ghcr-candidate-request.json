@@ -1,13 +1,13 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "7acff50000644979af3815f00fbd7f1c167e1098",
-  "purpose": "P1 direct nightly Owner EOD Private dispatch fix: full release #38755382061 Python/Flutter/four public GHCR PASS. Deploy 0%-only candidate; do not alter current canonical API 100% or Jobs/Scheduler. Auth boundary and reversible Jobs rollout must independently pass.",
+  "sha": "9f690363e5517cbe90d837a53a94ae3a4e7ab31e",
+  "purpose": "2026-10-16 cash pool and total assets plus compact holdings, full Python Flutter four GHCR images and public pull #38841326765 PASS; PostgreSQL 062 applied with immutable receipt #38841287256 PASS. Deploy only 0% API candidate under existing owner-fenced lease. Preserve 7acff official 100% service, Preview, Jobs and Scheduler.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "retry_verification": "Check #38755382061 exact full release and GHCR digest, preserve 100% baseline and shared deployment lease.",
+  "retry_verification": "Verify exact full GHCR release #38841326765, migration #38841287256, candidate SHA and immutable anonymous-pull digest; do not promote 100% or touch Jobs.",
   "same_sha_retry_attempt": 0,
   "digest": ""
 }
