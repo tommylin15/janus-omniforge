@@ -11,5 +11,7 @@
   "private_mart_write_only": true,
   "no_job_template_mutation": true,
   "no_traffic_mutation": true,
-  "reason": "Owner seven same-day qualified prices; publish only one owner's PIT-safe derived Mart with existing immutable GHCR job and fence"
+  "reason": "Retry after exact failed execution janus-private-pipeline-m7xs5 terminal readback and same-run lease release #38899700419. Reuse only official same-date equal-price immutable stored provenance; strict 7/7 new Mart and no ledger mutation.",
+  "retry_attempt": 2,
+  "retry_after_terminal_recovery_run": "38899700419"
 }
