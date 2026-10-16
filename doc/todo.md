@@ -4,7 +4,7 @@
 
 ## 執行範圍
 
-**2026-10-16 本次授權的新版 API 正式 100% 切流已完成；其他 P1 工作沒有自動恢復**。P1 總額優先 `8eb42dcb` 的完整 GHCR Release #38856837257、0% candidate #38857279864、自動 OAuth #38857441171、固定 Preview #38857524000、四 Jobs 真實 rollout #38857643226 均 PASS；新版 8eb API 可逆 100% promotion #38865075071 與獨立 live 100% readback #38865347217 均 **PASS**（正式 revision `janus-api-00517-ciq`；回滾基準 `janus-api-00512-zal`）；不以 CI／部署取代真人操作驗收。Owner 10/15 backend 估值及雙 Worker queue PASS；**2026-10-16 使用者確認新版持股畫面、現金買賣交易連動、重算按鈕三項人工正向驗收均完成（USER_CONFIRMED_PASS）**，不再以「真人尚未操作」列為阻塞。剩餘異常場景、可追溯 runtime 細節與效能仍分別驗收；D04 VM IAM／備份交接 BLOCKED。** 本輪只回寫驗收，不自行啟動新部署／重算。
+**2026-10-16 使用者已授權 D01～D05 全部連續工程與實際驗收，D04 包含既有替代路徑與最小 IAM 授權試行；先前只限 API 切流的暫停命令已失效。** 持股畫面、現金交易連動、重算按鈕三項真人正向 PASS，不重做。新完整 GHCR Release [#38889743874](https://github.com/tommylin15/janus-omniforge/actions/runs/38889743874) Python 1322 passed、Flutter PASS、四映像/digest PASS，但尚未新版實際 dev 部署。D02 [快照→API #38890365233](https://github.com/tommylin15/janus-omniforge/actions/runs/38890365233) PASS；D03 [正式圖表 API #38889906057](https://github.com/tommylin15/janus-omniforge/actions/runs/38889906057) 16/18 available、2 EPS missing。D04 [現有 GCS 備份隔離還原 #38889312080](https://github.com/tommylin15/janus-omniforge/actions/runs/38889312080) PASS；但 VM IAP policy get、SSH 目前均拒絕，沒有 IAM 變更，不能停止舊 timer 或假稱新 executor 已交接。所有工作包依其獨立 gate 判斷，**不以 CI/備份還原當整體完成**。
 
 A 組及 B0～B8 已結案的範圍不重開；有實質變更才回歸受影響路徑。全市場 Bootstrap／同日 Cached、費稅88筆更正、00719B 身分／估值既有成功證據不重送。研究範圍採各歷史日期全上市櫃；50 關注 quota 仍保留。
 
@@ -17,7 +17,7 @@ D01～D08 各有一張獨立可供 AI 執行的 [標準任務卡](execution-card
 | [D01 持股交易／完整估值](execution-cards/d01-holdings-trading-valuation.md) | PARTIAL；產品第1項 | WBS 4J／6 | 新版正式商品報價、共用費稅與試算、交易版本／冪等、完整估值及 Owner 重算 E2E |
 | [D02 快照／首屏](execution-cards/d02-full-market-snapshot-performance.md) | PARTIAL；產品第2項 | WBS 3／6 | D01資料契約；首頁與持股 snapshot 真實生成／readback、冷暖效能 |
 | [D03 圖表／四頁](execution-cards/d03-four-page-charts-visual.md) | PARTIAL；產品第3項 | WBS-6-USER-FINAL-VISUAL-CONVERGENCE 非 AI 範圍 | D01／D02；VF-00～08、真實資料／四頁截圖、可及性 |
-| [D04 總控／備份交接](execution-cards/d04-controller-backup-handoff.md) | BLOCKED_VM_IAM；可整合前3項 | WBS 3／7 | 無重複排程、同源總控；新備份與隔離還原後才停舊 timer |
+| [D04 總控／備份交接](execution-cards/d04-controller-backup-handoff.md) | IN_PROGRESS（隔離還原 PASS；VM IAP 權限阻塞） | WBS 3／7 | 無重複排程、同源總控；新備份與隔離還原後才停舊 timer |
 | [D05 產品集中發布](execution-cards/d05-integrated-release-dev.md) | PARTIAL；第5項 | WBS 8／CI-CD | D01～04適用條件通過；完整SHA release、candidate、自動auth、Jobs fence、Preview、功能證據、正式dev切流讀回 |
 | [D06 Iceberg／I/O](execution-cards/d06-iceberg-retention-io.md) | PARTIAL；獨立已授權 | WBS 7／retention | 既有 Jobs／cleanup 終態、完整引用保護、真實 objects／bytes／等量 I/O 驗收 |
 | [D07 五角色資料與品質](execution-cards/d07-specialist-b9-oos.md) | 後置；產品交付後 | WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9） | 全市場歷史母體、逐角色 baseline／OOS；B7 PASS 不代替B9 |
