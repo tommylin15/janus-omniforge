@@ -203,7 +203,8 @@ class DuckDBIcebergCore:
                         In("fiscal_year", {row["fiscal_year"] for row in incoming}))
             fields = {field.name for field in table.schema().fields}
             columns = [name for name in ("symbol", "fiscal_year", "fiscal_quarter", "statement_type", "metric",
-                       "source_id", "value", "unit", "currency", "period_basis", "report_scope", "availability_at", "observed_at", "published_at") if name in fields]
+                       "source_id", "value", "unit", "currency", "period_basis", "report_scope", "fiscal_month",
+                       "fiscal_period_end", "availability_at", "observed_at", "published_at") if name in fields]
             prior = table.scan(row_filter=scope, selected_fields=tuple(columns)).to_arrow().to_pylist()
             incoming, observation_reused = self._financial_observations(prior, incoming)
             if not incoming:
@@ -327,7 +328,8 @@ class DuckDBIcebergCore:
         for row in sorted(incoming, key=observed):
             prior = latest.get(identity(row))
             same = prior is not None and all(row.get(field) is None or str(row.get(field)) == str(prior.get(field))
-                                            for field in ("value", "unit", "currency", "period_basis", "report_scope", "financial_feature_version"))
+                                            for field in ("value", "unit", "currency", "period_basis", "report_scope", "financial_feature_version",
+                                                          "fiscal_month", "fiscal_period_end"))
             if (row.get("publication_time_authoritative") is False and same and observed(prior) <= observed(row)
                     and (prior.get("availability_at") or not row.get("availability_at"))):
                 reused += 1
