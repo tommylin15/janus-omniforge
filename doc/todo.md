@@ -23,11 +23,11 @@ D01～D08 各有一張獨立可供 AI 執行的 [標準任務卡](execution-card
 | [D07 五角色資料與品質](execution-cards/d07-specialist-b9-oos.md) | 後置；產品交付後 | WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9） | 全市場歷史母體、逐角色 baseline／OOS；B7 PASS 不代替B9 |
 | [D08 CEO／Admin／報告](execution-cards/d08-ceo-admin-owner-report.md) | 後置；有效角色後 | WBS-5-MART-AI-PROVIDERS／CIO-SYNTHESIS、WBS-6-ADMIN-ANALYSIS-PROFILE、User AI整合 | P0-V技術已PASS；真實 Fact Pack／capability／immutable report／Owner history另驗 |
 
-## DRL-01｜新版功能資料可用性修復（正式工程；等待恢復）
+## DRL-01｜新版功能資料可用性修復（目前最高優先；IN_PROGRESS）
 
 **AI入口：**[總指令第7節](codex-execution-plan.md)；消費端[D02卡](execution-cards/d02-full-market-snapshot-performance.md)／[D03卡](execution-cards/d03-four-page-charts-visual.md)，長相見[A第5節](ui/visual-first-four-pages.md)。只補同一條資料→分析→UI鏈，不另照Drive重建。
 
-**2026-10-16 最新範圍：**此工作已核准但依使用者指示暫停，先等另一工作流 D01～D05 完成，再由使用者恢復。本輪僅整併文件，不改變 D01～D05 既有授權、不新增部署。資料→計算→畫面的一體交付與品質放寬依 [三層對照](ui/visual-first-delivery.md)；沿用本DRL-01與D02/D03/D07/D08，不新增平行工作包。
+**2026-10-16 最新優先決策：**使用者已明確要求「先優先完成 DRL-01」，因此解除本工項的暫停，優先於 D01～D05 推進；D01～D05 既有授權及已驗證結果保留，不因本次變更重做。資料→計算→畫面的一體交付與品質放寬依 [三層對照](ui/visual-first-delivery.md)；沿用本DRL-01與D02/D03/D07/D08，不新增平行工作包。
 
 - **整併責任：**DRL-01A→價量／RS與風險；B→營收金額／YoY；C→已知口徑EPS／可比TTM；D→後置估值河流。D03/VF-05/07共用資料接圖與事實短句，D02共用serving／效能，D07驗預測效果，D08接有效報告。新增研究因子字典不代表全數納入首版。
 - **首版交付：**每項同時記資料讀回、計算口徑、UI呈現及降級；短期先畫短期、一期先顯單值、同比不足仍顯營收、累計EPS明標累計、延遲報價顯參考。精確歷史發布時點未知不阻擋一般顯示；不造數字、不混期間、不放寬owner／金額正確性。整批coverage維持10%／30%，未過門檻不阻擋已有合法單股值顯示。
@@ -39,6 +39,12 @@ D01～D08 各有一張獨立可供 AI 執行的 [標準任務卡](execution-card
 - [ ] **DRL-01C P1 EPS 可比較季度：** 兼容繁中「基本每股盈餘（元）」、XBRL eps_single_quarter；確認單季／YTD、合併別、單位與負EPS，可加總的盈餘金額可由同年同口徑YTD差分；EPS不得直接差分，優先官方單季值，或用可比單季盈餘／加權平均股數重建（須證明股數口徑）；不足窗口維持null。至少可比4季／同比與前後Core／Mart驗收；原有1970股有當期EPS不代表歷史足夠。
 - [ ] **DRL-01D 後置，五年PE/PB河流：** 只定向持股／關注股補五年，不做全市場5年無需求回補；真達五年跨度再顯歷史分位，否則PENDING但短期PE/PB照常顯示。
 - [ ] **定期 Data Readiness Ledger：** 只使用現有Controller排程，日增量聚合、週詳細稽核；核對固定Core snapshot、資料筆數、分市場有效母體、期數、缺漏與持續增量水位。Drive只保留管理摘要。
+- **真實修復進度（2026-10-16，依執行收據）：**
+  - DRL-01A 上櫃10/02 [#38893470772](https://github.com/tommylin15/janus-omniforge/actions/runs/38893470772) 867/896；10/05、10/06 [#38908586463](https://github.com/tommylin15/janus-omniforge/actions/runs/38908586463) 分別870/896、864/896，Stage→Core及同日readback PASS。只證明3個別交易日，並非21日歷史窗口；上市歷史/持股關注120日尚未完整驗收。
+  - DRL-01B 月營收月份欄位 [#38893774756](https://github.com/tommylin15/janus-omniforge/actions/runs/38893774756)：既有合法MOPS metadata更新3947筆，原missing 3947→0，Core snapshot讀回、總60846紀錄筆數維持，**月份修復子項 PASS**；13個連續月營收與YoY覆蓋另驗。
+  - DRL-01C 官方2382 EPS history Job [#38894262708](https://github.com/tommylin15/janus-omniforge/actions/runs/38894262708) terminal SUCCESS，但**Core季度readback NOT_VERIFIED**。public EPS圖已改成不以累計EPS直接差分假造單季，缺合法單季維持missing。
+  - 定期總帳 readiness.py 已commit、每日data-supplement／每週data-quality重用既有Controller／Admin setting，targeted tests [#38909327565](https://github.com/tommylin15/janus-omniforge/actions/runs/38909327565) PASS；**仍待同SHA GHCR Jobs發布及正式Admin/runtime讀回**，不得宣稱每日/每週已運作。
+  - DRL-01D 五年估值河流仍後置；短期合法PE/PB不用等五年歷史。API EPS與月營收程式修正也仍待正式部署及真實圖表讀回。
 - **修復前基線（2026-10-16真實dev）：** 全表 [#38887015691](https://github.com/tommylin15/janus-omniforge/actions/runs/38887015691)；歷史深度 [#38887938987](https://github.com/tommylin15/janus-omniforge/actions/runs/38887938987)；中英EPS／營收期別 [#38888627375](https://github.com/tommylin15/janus-omniforge/actions/runs/38888627375)。上市OHLCV≥20日500股，上櫃0股；EPS任一值1970股但≥4季5股；月營收3947/4011缺fiscal_month。不可當修復驗收。
 - **結案條件：** GitHub implementation＋targeted tests／CI＋同源GHCR受控Jobs發版＋dev真實補收、Core／serving／功能讀回、10%／30%缺失門檻與增量重跑證據。不為資料修復切正式API流量、操作Owner交易；PARTIAL不宣稱DONE。
 
