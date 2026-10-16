@@ -1,6 +1,18 @@
 # Janus 目前狀態
 
-更新：2026-10-16（Asia/Taipei）。先前使用者要求暫停已被本次明確指示「執行新版 API 正式 100% 切流」覆蓋，**本輪執行範圍僅正式 API 發布與必要驗收／文件，未授權擴張到其他 P1 工項**。新版 P1 總額優先 `8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699` 完整 GHCR／0% candidate／OAuth／Preview／四 Jobs PASS；正式 API 可逆 100% promotion [#38865075071](https://github.com/tommylin15/janus-omniforge/actions/runs/38865075071) **PASS**，獨立正式 [#38865347217](https://github.com/tommylin15/janus-omniforge/actions/runs/38865347217) **PASS**（`janus-api-00517-ciq` 唯一 100%、固定 Preview 來源相同、immutable image、tags、health、owner/cash 未登入 401、真實新→舊→新、回滾 `janus-api-00512-zal`）。**使用者於 2026-10-16 回報**：新版真人持股畫面、現金與股票買賣連動、重算按鈕三項均已完成實際操作驗收，狀態為 **USER_CONFIRMED_PASS（人工正向）**。此為使用者明確驗收回報，非新觸發的自動化測試／後端 receipt；完整異常注入、跨交易類型與效能、正式 PIT 當日重算讀回仍依各自證據獨立判定。
+更新：2026-10-16（Asia/Taipei）。**使用者已授權 D01～D05 快速完成、包含 D04 繞路或必要的最小 IAM；這取代先前「僅 API 100% 切流、其他 P1 暫停」的限制。** 歷史 PASS 只限當次 SHA／環境／scope；下方舊「未切流／尚未真人驗收」段落保留當時 checkpoint，不能倒蓋最新結果。
+
+### D01～D05 最新工程 checkpoint（2026-10-16）
+
+| 工作包 | 已取得的直接證據 | 尚缺的獨立驗收 |
+|---|---|---|
+| D01 | 正式 8eb 持股頁、現金交易連動、重算按鈕已有使用者三項 USER_CONFIRMED_PASS；Janus Dev owner read-only MCP 7 positions／ledger v357／估值日 10/15 available | 本次未新增本人交易；股利、REVERSAL、更正、競態、特殊缺價、本人 request→Worker checkpoint 及 10/16 EOD 新日期仍 NOT_VERIFIED。 |
+| D02 | [Dev DB-first snapshot→正式 API #38890365233](https://github.com/tommylin15/janus-omniforge/actions/runs/38890365233) PASS：market-home.v1／10/15 三個 DB 區塊 available；API TAIEX partial、法人和市場活動 available | authenticated 手機完整 cold/warm P95、交易保存與試算效能。 |
+| D03 | [正式 public typed visual series #38889906057](https://github.com/tommylin15/janus-omniforge/actions/runs/38889906057) PASS_READ_PATH_ONLY：TWSE 2330、TPEx 6488 各9種指標，16 available、2 EPS missing，0 API error | EPS 真實可比較季度、全市場 coverage、390×844／桌面 authenticated 四頁真實截圖、可及性。 |
+| D04 | [Cloud Build VM metadata #38888546640](https://github.com/tommylin15/janus-omniforge/actions/runs/38888546640) PASS，但 [IAP/SSH #38888758224](https://github.com/tommylin15/janus-omniforge/actions/runs/38888758224) DENIED；單一 VM 最小 IAP grant [#38889481312](https://github.com/tommylin15/janus-omniforge/actions/runs/38889481312) 在 getIamPolicy DENIED，沒有 IAM mutation。已繞路以既有 GCS dump 完成 [隔離 PostgreSQL restore #38889312080](https://github.com/tommylin15/janus-omniforge/actions/runs/38889312080) PASS | 新 executor install→Controller 備份 request→isolated restore→舊 timer handoff 未完成；**舊 timer 保留，不能因單次隔離還原就關掉**。 |
+| D05 | gitlink 修復 [d1286cd](https://github.com/tommylin15/janus-omniforge/commit/d1286cd3e0ce20bc7ca8baa7cf8f22abfa875028)、整併 workflow 安全與測試 [c024a11](https://github.com/tommylin15/janus-omniforge/commit/c024a11ae51a6dcb74d555ceb6409a59e6402182)；[full GHCR Release #38889743874](https://github.com/tommylin15/janus-omniforge/actions/runs/38889743874) **SUCCESS**：SHA a25e9003639df079f2948b0ffd0c834ac6536622、Python 1322 PASS（2 deselected）、Flutter PASS、四個 GHCR image push／digest PASS | 此新來源沒有 candidate／OAuth／Preview／Jobs／新的正式100% promotion，且晚於該 SHA 的新增 main commits 不具完整 Release 證據。既有 8eb 正式 API 100% PASS 不變；D05 整體仍 PARTIAL。 |
+
+**本輪安全界線**：未修改 Owner 交易或成本、未手動重算、未切正式 dev API traffic、未停止 VM backup timer；各 PASS 僅限其真正驗收 scope。
 
 ### 2026-10-16｜P1 三項真人操作：使用者驗收回報
 
