@@ -6,12 +6,12 @@
   "release_run": "38153154441",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "7acff50000644979af3815f00fbd7f1c167e1098",
+  "baseline_source_sha": "9f690363e5517cbe90d837a53a94ae3a4e7ab31e",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:8590f4d4cc991aefc069b28da3f466858eefc6fd2e5011de5063ffdb76e809cd",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:8590f4d4cc991aefc069b28da3f466858eefc6fd2e5011de5063ffdb76e809cd",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:8985a8192a39fda19578ffa87157ef66a1327159ae207292ee8d73c602e3f196",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:2c6f4560abd6980aea69064795f7dbab38683f792ec628d3a8d53ed320bf5bae"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:c61401b05944f687a15ecefe3e1c1cd1ec559e586b7a0d8de6c265bd9b60d3da",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:c61401b05944f687a15ecefe3e1c1cd1ec559e586b7a0d8de6c265bd9b60d3da",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:f5d54c498d0f24e7f06b5ba5aa4f202ec0e6290dc6de5757cc4fea5d5854ddaf",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:651569c21136d8458beb3fbafbe9d55d0cea3569ff6d55a5655eb8f2ba5d6494"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
@@ -20,7 +20,7 @@
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
   "request_attempt": 0,
-  "safety": "INERT / approved=false. Current rollback baseline is 7acff immutable GHCR verified active by live Jobs readback #38849536106, API #38831003922; for a future release revalidate live 4 images/config under lease, full source, Scheduler/terminal fence and two canaries per Job. This template never dispatches.",
+  "safety": "INERT approved=false. Actual serving 9f prior source + current four 9f immutable Jobs and config hashes independently verified #38853614819 / #38856931558. For any FUTURE release, revalidate live rollback under lease, only explicit fully gated dev request may dispatch; template never does.",
   "auth_boundary_run": "",
-  "automated_oauth_requirement": "Use successful same-source cc7f candidate OAuth/private boundary run #38188581169 after independent runtime readback. Fill numeric auth_boundary_run only with a verified result; no human OAuth attestation required."
+  "automated_oauth_requirement": "For a new release, require its own same-source authenticated candidate boundary run. Manual user OAuth consent is not an ordinary release gate."
 }
