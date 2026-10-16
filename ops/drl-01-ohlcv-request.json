@@ -1,15 +1,14 @@
 {
   "intent": "drl01-official-historical-ohlcv",
   "approved": true,
-  "market": "TPEX",
+  "market": "TWSE",
   "dates": [
-    "2026-09-14",
     "2026-10-01"
   ],
   "no_new_source": true,
   "no_job_template_mutation": true,
   "no_owner_mutation": true,
-  "why": "DRL-01 OTC remaining two historical completed sessions, 20/21 day market-ready coverage target; official quotes, Stage/Core snapshot readback per day, no owner or image mutation",
+  "why": "DRL-01 TWSE missing non-Liquid500 historical daily quote canary: official exchange market-volume single completed date, Stage/Core readback with 1096 listed denominator and <=10% missing tolerance, no Owner/Job change",
   "scope": "current dev Iceberg Core and Stage only",
-  "request_version": 10
+  "request_version": 11
 }
