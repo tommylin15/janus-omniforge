@@ -100,6 +100,8 @@ jobs:
                          '--project='+r.PROJECT,'--limit=500','--order=asc','--format=json']))
               names = sorted({e.get('labels',{}).get('run.googleapis.com/execution_name') for e in entries}
                              - {None, ''})
+              page = r.cloud(r.ROOT+'/jobs/janus-ingestion-core/executions?pageSize=100')
+              names = sorted(set(names) | {e['name'].rsplit('/',1)[-1] for e in page.get('executions',[]) if start <= e.get('createTime','') <= end})
               known = ('PermissionDenied','Forbidden','AccessDenied','BadRequest','NotFound','ValueError',
                        'RuntimeError','KeyError','TypeError','MemoryError','ArrowInvalid',
                        'CommitFailedException','AuthorizationPermissionMismatch','ModuleNotFoundError','SyntaxError',
@@ -127,7 +129,9 @@ jobs:
                   e = r.cloud(r.ROOT+'/jobs/janus-ingestion-core/executions/'+name)
                   executions.append({'name':name,'terminal':r.terminal(e),
                      'succeeded_count':e.get('succeededCount',0),'failed_count':e.get('failedCount',0),
-                     'created_at':e.get('createTime'),'completed_at':e.get('completionTime')})
+                     'created_at':e.get('createTime'),'completed_at':e.get('completionTime'),
+                     'conditions':[{'type':c.get('type'),'state':c.get('state'),'reason':c.get('reason'),'execution_reason':c.get('executionReason')} for c in e.get('conditions',[])],
+                     'system_error_flags':[x for x in ('executable','not found','permission','timed out','memory','failed to start','image') if x in str(e.get('conditions',[])).lower()]})
               print(json.dumps({'component':'d06-prior-cleanup-diagnostic','read_only':True,
                 'window_start':start,'window_end':end,'entries':len(entries),'possibly_truncated':len(entries)==500,'executions':executions,
                 'http_error_codes':sorted(set(re.findall(r'HTTP Error ([0-9]{3})',json.dumps(entries)))),
