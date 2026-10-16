@@ -162,3 +162,54 @@ def test_owner_deletion_also_removes_cash_snapshots():
     root=Path(__file__).parents[1]
     code=(root / "services/api/repository.py").read_text()
     assert '"cash_balance_snapshots","current_positions","ledger_events","users"' in code
+
+
+def test_owner_snapshot_surfaces_cash_plus_only_the_priced_reference_part():
+    """P1 trading UI never hides the known asset subtotal due to one missing quote."""
+    from tests.test_portfolio_api_completeness import Repository, Store, auth, USER_ID
+
+    class TwoHoldings(Repository):
+        def positions(self, owner):
+            assert owner == USER_ID
+            return [
+                {"symbol": "2330", "currency": "TWD", "shares": "2",
+                 "average_cost": "90", "ledger_version": 7},
+                {"symbol": "1513", "currency": "TWD", "shares": "1",
+                 "average_cost": "200", "ledger_version": 7},
+            ]
+
+        def stock_identities(self, symbols):
+            return {symbol: {"symbol": symbol, "market": "TWSE", "enabled": True}
+                    for symbol in symbols}
+
+        def last_quotes(self, identities):
+            return {}
+
+        def eod_quotes(self, identities):
+            return {"2330": {"price": "110", "price_date": "2026-10-15",
+                              "source": "core_ohlcv", "is_final": True}}
+
+        def cash_position(self, owner):
+            assert owner == USER_ID
+            return {"cash_status": "available", "cash_balance": Decimal("1000"),
+                    "cash_version": 1, "currency": "TWD"}
+
+    claims = {"iss": "https://accounts.google.com", "aud": "user-client",
+              "sub": "owner", "email": "owner@example.com",
+              "email_verified": True, "exp": 1900000000}
+    app = TestClient(create_app(TwoHoldings(), Store(), lambda *_: claims,
+                                audience="user-client"))
+    response = app.get("/api/v1/me/portfolio/snapshot", headers=auth())
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    summary = payload["items"][0]
+    assert summary["aggregate_status"] == "withheld"
+    assert summary["reference_priced_symbol_count"] == 1
+    assert summary["reference_total_symbol_count"] == 2
+    assert Decimal(summary["reference_priced_market_value"]) == 220
+    assert Decimal(summary["reference_priced_unrealized_pnl"]) == 40
+    assert summary["reference_market_value"] is None
+    assert payload["total_asset_value"] is None
+    assert payload["reference_total_asset_value"] is None
+    assert payload["reference_partial_asset_status"] == "partial"
+    assert Decimal(payload["reference_partial_asset_value"]) == 1220
