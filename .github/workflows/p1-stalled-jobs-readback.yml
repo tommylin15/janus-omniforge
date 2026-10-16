@@ -16,7 +16,7 @@ jobs:
       - name: Enforce bounded read-only scope
         run: |
           jq -e '.intent=="p1-stalled-jobs-readback" and .approved==true and
-            .failed_run=="38756738102" and .no_gcp_mutation==true and
+            .failed_run=="38830314867" and .no_gcp_mutation==true and
             .no_owner_mutation==true and .no_lease_mutation==true' ops/p1-stalled-jobs-readback.json >/dev/null
       - uses: google-github-actions/auth@v2
         with:
@@ -31,7 +31,7 @@ jobs:
           from ghcr_jobs_rollout import cloud, ROOT, REQUIRED_JOBS, image, terminal, job, scheduler
           from ghcr_mcp_route import command
           status=scheduler()
-          result={'read_only':True,'failed_run':'38756738102',
+          result={'read_only':True,'failed_run':'38830314867',
                   'scheduler':{'state':status.get('state'),'schedule':status.get('schedule')},
                   'jobs':{}}
           old={'janus-batch-controller':'2c8094a2d852',
@@ -46,7 +46,22 @@ jobs:
               j=job(name)
               ref=image(j)
               digest=ref.rsplit('sha256:',1)[-1][:12] if 'sha256:' in ref else 'unknown'
-              executions=cloud(f'{ROOT}/jobs/{name}/executions?pageSize=100').get('executions',[])
+              path=f'{ROOT}/jobs/{name}/executions?pageSize=100'
+              executions=[]
+              seen=set()
+              pages=0
+              while path:
+                  data=cloud(path)
+                  executions.extend(data.get('executions',[]))
+                  pages+=1
+                  if pages>100:raise RuntimeError('execution_page_bound')
+                  token=data.get('nextPageToken')
+                  if token and token in seen:raise RuntimeError('execution_page_loop')
+                  if token:
+                      from urllib.parse import quote
+                      seen.add(token)
+                      path=f'{ROOT}/jobs/{name}/executions?pageSize=100&pageToken={quote(token,safe="")}'
+                  else:path=None
               incomplete=[]
               for x in executions:
                   if terminal(x):continue
@@ -63,6 +78,6 @@ jobs:
                    'baseline':('previous' if digest==old.get(name) else
                                'candidate' if digest==new.get(name) else 'other'),
                    'nonterminal_first_page':incomplete[:12],
-                   'first_page_count':len(executions)}
+                   'all_page_count':len(executions),'pages':pages}
           print(json.dumps(result,sort_keys=True))
           PY
