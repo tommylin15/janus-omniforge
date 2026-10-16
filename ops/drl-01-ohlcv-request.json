@@ -3,14 +3,14 @@
   "approved": true,
   "market": "TPEX",
   "dates": [
-    "2026-10-07",
-    "2026-10-08",
-    "2026-10-12"
+    "2026-10-13",
+    "2026-10-14",
+    "2026-10-15"
   ],
   "no_new_source": true,
   "no_job_template_mutation": true,
   "no_owner_mutation": true,
-  "why": "DRL-01 approved priority: bounded 3 further completed OTC sessions using existing official adapter, validated per-market stock_master and per-day Core receipts, no trading writes",
+  "why": "DRL-01 bounded next OTC completed trading sessions; official exchange market-volume, Stage/Core and each-date readback; no job template or Owner changes.",
   "scope": "current dev Iceberg Core and Stage only",
-  "request_version": 5
+  "request_version": 6
 }
