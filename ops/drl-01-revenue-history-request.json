@@ -1,0 +1,13 @@
+{
+  "intent": "drl01-existing-mops-monthly-market-archive",
+  "approved": true,
+  "market": "TWSE",
+  "months": [
+    "2026-09"
+  ],
+  "no_new_provider": true,
+  "no_owner_mutation": true,
+  "no_job_template_change": true,
+  "request_version": 1,
+  "reason": "DRL-01 one-month official MOPS TWSE market-wide revenue Stage/Core canary. Strict period, unit, name, provenance and month snapshot readback; do not change Owner, Scheduler, API traffic or Job template."
+}
