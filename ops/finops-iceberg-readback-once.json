@@ -3,6 +3,6 @@
   "no_gcp_mutation": true,
   "project": "gen-lang-client-0593591102",
   "region": "us-central1",
-  "scope": "Refresh all-page nonterminal Core execution status after #38672184380, before approved immutable Jobs rollout. Read-only images and GCS counters, no writes.",
-  "attempt": 3
+  "scope": "D06 authorized read-only current four Job images, Scheduler, full execution fence, object inventory and exact failed 2026-10-15 audit cleanup diagnosis; never replay.",
+  "attempt": 4
 }

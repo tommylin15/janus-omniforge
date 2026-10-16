@@ -2,6 +2,6 @@
   "intent": "read-only-core-reference-discovery",
   "no_gcp_mutation": true,
   "scope": "Read GCS Core execution SHA-256 manifest identities and Mart/Research artifact references using existing dev WIF. Count private bucket metadata only. Do not read owner payloads, publish retention fence, or delete data; incomplete sources remain explicit blockers.",
-  "attempt": 4,
-  "note": "Store evidence-only Core snapshot reference candidates with source bucket/path/object generation in a private GitHub Actions artifact. Explicit PARTIAL_NOT_AUTHORIZED_FOR_DELETION; no GCP writes."
+  "attempt": 5,
+  "note": "D06 authorized continuation: generation-pinned large JSON reads within unchanged 60 MiB budget; candidate evidence only, no deletion fence or writes."
 }

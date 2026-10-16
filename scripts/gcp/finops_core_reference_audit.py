@@ -52,10 +52,10 @@ def objects(bucket,token):
             return found, pages
     raise RuntimeError("GCS_REFERENCE_INVENTORY_PAGINATION_TRUNCATED")
 
-def read_doc(bucket,name,token):
+def read_doc(bucket,name,token, *, generation, max_bytes):
     url=("https://storage.googleapis.com/storage/v1/b/"+quote(bucket,safe="")+
-         "/o/"+quote(name,safe="")+"?alt=media")
-    return get_json(url,token)
+         "/o/"+quote(name,safe="")+"?"+urlencode({"alt":"media","generation":generation}))
+    return get_json(url,token,max_bytes=max_bytes)
 
 def references(document):
     """Only accept known Core *identity* keys; ignore arbitrary artifact hashes."""
@@ -98,7 +98,9 @@ def audit(token):
     total_bytes=0
     for item in cores:
         if read>=LIMIT_DOCS: raise RuntimeError("CORE_DOCUMENT_SCAN_LIMIT")
-        doc=read_doc(CORE,item["name"],token)
+        size=int(item["size"])
+        if size > LIMIT_BYTES-total_bytes: raise RuntimeError("REFERENCE_DOCUMENT_BYTE_BUDGET_EXCEEDED")
+        doc=read_doc(CORE,item["name"],token,generation=item["generation"],max_bytes=size)
         read+=1
         total_bytes+=int(item.get("size") or 0)
         if not isinstance(doc,dict) or not isinstance(doc.get("snapshot_id"),str) or not HASH.fullmatch(doc["snapshot_id"]):
@@ -119,14 +121,14 @@ def audit(token):
         skipped_oversized=0
         for obj in matched:
             size=int(obj.get("size") or 0)
-            # Oversized research JSON may contain embedded raw text. Do not
-            # ingest it into CI or mistake skipped coverage for a full scan.
-            if size > 3 * 1024 * 1024:
+            # Read large JSON within the existing total budget. Never turn a
+            # budget omission into evidence that a document has no references.
+            if size > LIMIT_BYTES-total_bytes:
                 skipped_oversized+=1
                 continue
             total_bytes+=size
             if total_bytes>LIMIT_BYTES: raise RuntimeError("REFERENCE_DOCUMENT_BYTE_BUDGET_EXCEEDED")
-            doc=read_doc(bucket,obj["name"],token)
+            doc=read_doc(bucket,obj["name"],token,generation=obj["generation"],max_bytes=size)
             refs=references(doc)
             protected.update(refs)
             for core_id in refs:
@@ -138,6 +140,8 @@ def audit(token):
             read+=1
         source_counts[label]={"documents_checked":count,
                               "documents_skipped_oversized":skipped_oversized,
+                              "matched_bytes":sum(int(x["size"]) for x in matched),
+                              "largest_document_bytes":max((int(x["size"]) for x in matched),default=0),
                               "listed_objects":len(listings[label])}
     # Private object metadata are counted, but owner-private payloads and
     # PostgreSQL publication references are NOT inspected with CI identity.
