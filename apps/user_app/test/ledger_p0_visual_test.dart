@@ -95,6 +95,45 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Cash and total assets use one decimal ten-thousand TWD without double PnL',
+      (tester) async {
+    _phone(tester);
+    final snapshot = _snapshot();
+    snapshot['cash'] = {
+      'cash_status': 'available',
+      'cash_balance': '345678.90',
+      'currency': 'TWD',
+    };
+    snapshot['total_asset_value'] = '1279278.90';
+    snapshot['asset_status'] = 'available';
+    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(
+      HoldingsP0Api(snapshot), active: false,
+      now: () => DateTime.utc(2026, 10, 12, 7))));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('ledger-total-assets')), findsOneWidget);
+    expect(find.text('現金部位'), findsOneWidget);
+    expect(find.text('現金＋持股市值'), findsOneWidget);
+    expect(find.text('34.6 萬元'), findsOneWidget);
+    expect(find.text('127.9 萬元'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('No priced portfolio total displays missing rather than fabricating assets',
+      (tester) async {
+    _phone(tester);
+    final snapshot = _snapshot(missing: true);
+    snapshot['cash'] = {'cash_status': 'available', 'cash_balance': '100000'};
+    snapshot['total_asset_value'] = null;
+    snapshot['asset_status'] = 'incomplete_prices';
+    await tester.pumpWidget(MaterialApp(home: FinalLedgerPage(
+      HoldingsP0Api(snapshot), active: false,
+      now: () => DateTime.utc(2026, 10, 12, 7))));
+    await tester.pumpAndSettle();
+    expect(find.text('10.0 萬元'), findsOneWidget);
+    expect(find.text('待完整估值'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Desktop Ledger uses bounded content rail with one readable Hero',
       (tester) async {
     tester.view.physicalSize = const Size(1280, 850);
