@@ -66,7 +66,7 @@ VF-10高階同業／估值河流／還原價仍屬有條件後續構想，不是
 
 ## D06｜Iceberg、引用及I/O
 
-- [ ] 真實縮減 Core 小檔：基線 8,342 objects／194,157,789 bytes、其中 <1 MiB 8,335；稽核表 1,175／36,373,997 bytes 優先。首次清理 #38873430713 已終止但 HTTP 403、實刪 0，須定位拒絕操作後安全修復，保存 generation／前後數量及 bytes；不將候選 154 當已刪。
+- [x] 真實縮減 Core 小檔：基線 8,343 objects／194,161,764 bytes、其中 <1 MiB 8,336；CI orphan 清理 [#38879585601](https://github.com/tommylin15/janus-omniforge/actions/runs/38879585601) **PASS**，實刪 477 objects / 2,039,377 bytes，剩餘 7,866 objects / 192,122,387 bytes / 7,859 小檔。
 - [ ] 停用無產品查詢使用者的 Iceberg 稽核鏡像（使用者最新決策取代每日／每週），保留 PostgreSQL 事件；來源 `740e54c2…` 已提交，完整 Release／受控 Jobs rollout／runtime 生效待驗。
 - [ ] 已完成 GCS JSON 引用掃描（62 Core、71 Mart、96 Research、495 Private，無略過）；仍須補 PG publication／active 引用證據。此次依使用者 2026-10-16 明確例外，已知引用＋current/named/24h snapshot＋7日檔齡保護後可清無關聯小檔，不造假完整 deletion fence、不淘汰 Core manifests 或 canonical rows。
 - [ ] 記錄實際／預期 I/O 與 Core 小檔減量；稽核匯出路徑停用預期消除 100% 專用匯出掃描／寫入，整體 Core ReadObject／GetObjectMetadata 降幅須等量時間窗量測，未量測不報節省百分比。詳見 [本輪證據](archive/d06-finops-2026-10-16.md)。
