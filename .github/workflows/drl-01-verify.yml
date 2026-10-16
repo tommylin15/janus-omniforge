@@ -1,0 +1,35 @@
+name: Janus DRL-01 targeted data readiness verification
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/drl-01-verify.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  data-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            jobs/ingestion-core/requirements.lock
+      - name: Install pinned existing requirements
+        run: |
+          python -m pip install -r jobs/ingestion-core/requirements.lock
+          python -m pip install -r requirements-dev.txt
+      - name: Run DRL-01 data readiness tests
+        env:
+          PYTHONPATH: jobs/ingestion-core:jobs/intelligence-mart:.
+        run: |
+          python -m pytest -q \
+            tests/test_feature_readiness_repair.py \
+            tests/test_market_volume_source.py \
+            tests/test_full_market_sources.py \
+            tests/test_financial_publication.py \
+            tests/test_duckdb_iceberg.py
