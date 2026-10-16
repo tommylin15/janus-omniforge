@@ -1,6 +1,15 @@
 # Janus 目前狀態
 
-更新：2026-10-16。P1 新版 7acff50000644979af3815f00fbd7f1c167e1098 已完成 GHCR/四 Jobs/Preview 與 dev 正式 API 100% 可回復切流，Owner 10/15 全持股估值與重算後端 PASS；真人 authenticated UI／手動重算按鈕 E2E 仍 NOT_VERIFIED。以下為已驗證證據，歷史較舊狀態不得覆蓋。
+更新：2026-10-16。P1 現金池與精簡持股新版 `9f690363e5517cbe90d837a53a94ae3a4e7ab31e` 已完成 schema 062、full Release、四 Jobs、固定 Preview、API 100% 可回復切流及獨立 live 讀回；前一基準 `7acff50000644979af3815f00fbd7f1c167e1098` 保留可回滾。Owner 10/15 估值與 Worker queue 後端 PASS，但最新版真人 authenticated UI、現金設定／買賣現金連動、實際重算按鈕與交易保存 E2E 仍 NOT_VERIFIED；歷史較舊的『尚未切流』快照不可覆蓋新證據。
+
+### 2026-10-16｜P1 現金池／精簡持股 9f690 正式 dev 與獨立驗收
+
+- **DB 062 PASS**：現金 checkpoint 使用 owner-scoped schema／版本與 ledger anchor；migration [#38841287256](https://github.com/tommylin15/janus-omniforge/actions/runs/38841287256) SUCCESS。舊 Broker Profile 的 `declared_cash` 不等於新現金餘額，未設定就保持未設定。後端交易現金淨流入／淨流出採持久化費稅與 reversal，總資產只在全持股合格台幣估值可用時顯示，未實現損益不重複相加。
+- **同源部署 PASS**：`9f690363e5517cbe90d837a53a94ae3a4e7ab31e` full Python/Flutter/GHCR [#38841326765](https://github.com/tommylin15/janus-omniforge/actions/runs/38841326765)，API 0% [#38849023963](https://github.com/tommylin15/janus-omniforge/actions/runs/38849023963)，自動 OAuth/private negative boundary [#38849298689](https://github.com/tommylin15/janus-omniforge/actions/runs/38849298689)，固定 Preview [#38849422216](https://github.com/tommylin15/janus-omniforge/actions/runs/38849422216)，四 Jobs reversible rollout [#38849686748](https://github.com/tommylin15/janus-omniforge/actions/runs/38849686748) 均 SUCCESS。初次 API promotion [#38851511933](https://github.com/tommylin15/janus-omniforge/actions/runs/38851511933) 因 inert rollback template 同源 test FAIL、未越過驗證；修復後 [#38851753247](https://github.com/tommylin15/janus-omniforge/actions/runs/38851753247) SUCCESS，舊 7acff baseline 保留。
+- **獨立正式 readback PASS**：[commit `7606ccb3812e1fbabddf3e087e19c8f7b7224b27`](https://github.com/tommylin15/janus-omniforge/commit/7606ccb3812e1fbabddf3e087e19c8f7b7224b27) 只更新 readonly request；[#38853614819](https://github.com/tommylin15/janus-omniforge/actions/runs/38853614819) 驗 canonical API 唯一 100% target revision、同源固定 Preview／build-id、immutable image、保留原 tags、health 200、unauth profile/cash 401 及 rollback receipt，無 GCP／traffic／Owner mutation。
+- **新版公開暖路徑 PASS（不等於 Owner 效能）**：30 次 Preview public market-home [#38853879877](https://github.com/tommylin15/janus-omniforge/actions/runs/38853879877) 30/30 成功、P50 48.11ms、P95 57.70ms、最大 966.09ms；樣本為 GitHub runner → 公開 API，未涵蓋 authenticated 持股首屏、手機載入、交易保存或手動重算等待。
+- **最新正向 Owner 唯讀觀察**：在已授權 Janus private MCP 下讀到 operational ledger v357、目前 7 筆 active positions，valuation／price date 仍為 2026-10-15；10/16 新交易已發生，不能把前一日估值誤稱 10/16 最新收盤/PIT 損益。此次沒有回寫現金或交易，也未證實使用者已設定初始現金。
+- **剩餘 hard gate = PARTIAL**：真人 logged-in App 的持股一至二行列表、現金設定後 readback、買賣現金與持股 checkpoint、重新計算損益點擊→enqueue→Worker terminal→UI 更新、390px／desktop 真實截圖與持股 API／UI 冷暖 P95；無登入態正向證據時維持 NOT_VERIFIED，不能用 401／public perf／Worker canary 代替。
 
 ### 2026-10-16｜P1 同源 Jobs／固定 Preview 發布與業務驗收
 
