@@ -202,6 +202,12 @@ class WatchlistOrderIn(StrictModel):
     expected_version: Annotated[int, Field(ge=1)]
 
 
+class CashPositionIn(StrictModel):
+    """Owner sets current TWD cash directly; no bank account verification."""
+    amount: Money
+    expected_version: Annotated[int, Field(ge=0)]
+
+
 class BrokerProfileIn(StrictModel):
     fee_discount_multiplier: Annotated[Decimal, Field(ge=0, le=1, max_digits=5, decimal_places=4)]
     minimum_fee: Money
