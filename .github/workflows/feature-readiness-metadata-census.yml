@@ -130,11 +130,17 @@ jobs:
                                   stmts[stmt]+=1
                                   if stmt=='monthly_revenue' and row.get('fiscal_month') and row.get('value') is not None:
                                       revenue[symbol].add((int(row['fiscal_year']),int(row['fiscal_month'])))
-                                  if 'eps' in metric.lower() and row.get('value') is not None:
+                                  if ('eps' in metric.lower() or '每股盈餘' in metric) and row.get('value') is not None:
                                       q=(int(row['fiscal_year']),int(row['fiscal_quarter']))
                                       eps[symbol].add(q)
                                       if row.get('is_single_quarter') is True or str(row.get('period_basis') or '') in ('quarter','single_quarter'):
                                           single_eps[symbol].add(q)
+                              detail['monthly_revenue_unkeyed_rows']=sum(
+                                  str(row.get('statement_type') or '')=='monthly_revenue'
+                                  and row.get('fiscal_month') is None for row in records)
+                              detail['monthly_revenue_keyed_rows']=sum(
+                                  str(row.get('statement_type') or '')=='monthly_revenue'
+                                  and row.get('fiscal_month') is not None for row in records)
                               detail['financial_statement_counts']=dict(stmts.most_common(15))
                               detail['monthly_revenue']={
                                   'symbols_any_month':len(revenue),
