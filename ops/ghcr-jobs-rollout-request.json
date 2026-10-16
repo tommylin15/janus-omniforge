@@ -2,16 +2,16 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "7acff50000644979af3815f00fbd7f1c167e1098",
-  "release_run": "38755382061",
+  "sha": "9f690363e5517cbe90d837a53a94ae3a4e7ab31e",
+  "release_run": "38841326765",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
-  "baseline_source_sha": "285848e28041bf2fb024bd98bd348641f022a1ed",
+  "baseline_source_sha": "7acff50000644979af3815f00fbd7f1c167e1098",
   "rollback_images": {
-    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:2c8094a2d8522f24557b0633940beb52bcd59ec71508eef3da9bd5740bb7e626",
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:2c8094a2d8522f24557b0633940beb52bcd59ec71508eef3da9bd5740bb7e626",
-    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:31df3c75278b25fb33c24c7d70f3ad6618e0bef7337935e095ad7cb8e87059e0",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:eba96be824ca853695b23dcbae9b989da1e7d7e2c62eb9513012a4d5155161b2"
+    "janus-batch-controller": "ghcr.io/tommylin15/janus-ingestion-core@sha256:8590f4d4cc991aefc069b28da3f466858eefc6fd2e5011de5063ffdb76e809cd",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:8590f4d4cc991aefc069b28da3f466858eefc6fd2e5011de5063ffdb76e809cd",
+    "janus-intelligence-mart": "ghcr.io/tommylin15/janus-intelligence-mart@sha256:8985a8192a39fda19578ffa87157ef66a1327159ae207292ee8d73c602e3f196",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:2c6f4560abd6980aea69064795f7dbab38683f792ec628d3a8d53ed320bf5bae"
   },
   "rollback_config_hashes": {
     "janus-batch-controller": "ab038cdd6c17b5b62894adf70b26a4af5179e434229fac837381f75a116a3f17",
@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 17,
-  "safety": "Retry P1 fixed nightly Private EOD dispatch immutable source 7acff after FAILED #38756738102 first_canary_mart execution_not_terminal. Exact original receipt recovery #38820889359 PASS: all protected jobs restored to 285848 baseline, Scheduler ENABLED, original annotated lease released. Same verified release #38755382061, 0%-candidate #38756170482, automated OAuth #38756520384. Reversible rollback and active execution fence remain mandatory. Do not switch canonical API or edit Owner ledger; stop on unknown.",
-  "auth_boundary_run": "38756520384",
-  "automated_oauth_requirement": "Same-source automatic OAuth/private-negative #38756520384 PASS; no manual OAuth.",
-  "authorization": "Existing-dev bounded P1 fix authorized; retry only after receipt-bound recovery PASS. No new paid resources/permission changes."
+  "request_attempt": 18,
+  "safety": "Cash + holdings source 9f690 full release #38841326765, candidate #38849023963, OAuth #38849298689, migration 062 #38841287256 all PASS. Owner-fenced read-only live Jobs baseline #38849536106 PASS: 4 exact immutable 7acff images and config hashes, all five protected executions terminal and Scheduler ENABLED. Roll out only existing four dev Jobs with immutable digest, two canaries each, rollback preserving original config and Scheduler; no new paid resource, IAM, ledger mutation or canonical API traffic.",
+  "auth_boundary_run": "38849298689",
+  "automated_oauth_requirement": "Same-source automated negative OAuth #38849298689 PASS; no human consent.",
+  "authorization": "Authorized existing dev rollout, strictly reversible. Must inspect GCP source config and all executions before actual mutation."
 }
