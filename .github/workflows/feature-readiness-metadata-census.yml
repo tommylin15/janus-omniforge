@@ -69,6 +69,87 @@ jobs:
                   except Exception as e:
                       item['status']='ERROR_'+type(e).__name__
                   report['tables'].append(item)
+              from collections import defaultdict,Counter
+              import time
+              report['feature_depth']={}
+              start_detail=time.monotonic()
+              for dataset,fields in (
+                  ('ohlcv',('symbol','market','trade_date','close')),
+                  ('valuation',('symbol','market','observed_date','pe_ratio','pb_ratio')),
+                  ('financials',('symbol','fiscal_year','fiscal_quarter','fiscal_month','statement_type','metric','value','period_basis','is_single_quarter'))):
+                  detail={'status':'PENDING','row_limit':100000}
+                  try:
+                      if time.monotonic()-start_detail>210:
+                          detail['status']='SKIPPED_TIME_BUDGET'
+                      else:
+                          table=core.catalog.load_table(core.table_identifier(dataset))
+                          snapshot=table.current_snapshot()
+                          records=table.scan(snapshot_id=snapshot.snapshot_id,selected_fields=fields,limit=100000).to_arrow().to_pylist()
+                          detail['scanned_rows']=len(records)
+                          detail['snapshot_rows']=int(snapshot.summary['total-records'])
+                          if len(records)!=detail['snapshot_rows']:
+                              detail['status']='PARTIAL_ROW_MISMATCH'
+                          elif dataset in ('ohlcv','valuation'):
+                              days=defaultdict(set)
+                              for row in records:
+                                  symbol=str(row.get('symbol') or '')
+                                  market=str(row.get('market') or '')
+                                  valid=row.get('close') if dataset=='ohlcv' else row.get('pe_ratio')
+                                  dateval=row.get('trade_date') if dataset=='ohlcv' else row.get('observed_date')
+                                  if market in ('TWSE','TPEX') and symbol and valid is not None and dateval is not None:
+                                      days[(market,symbol)].add(str(dateval))
+                              detail['markets']={}
+                              for market in ('TWSE','TPEX'):
+                                  sets=[v for (m,s),v in days.items() if m==market]
+                                  market_dates=sorted(set().union(*sets)) if sets else []
+                                  recent=set(market_dates[-20:])
+                                  detail['markets'][market]={
+                                      'symbols_with_metric':len(sets),
+                                      'count_at_least_9':sum(len(v)>=9 for v in sets),
+                                      'count_at_least_11':sum(len(v)>=11 for v in sets),
+                                      'count_at_least_20':sum(len(v)>=20 for v in sets),
+                                      'count_at_least_60':sum(len(v)>=60 for v in sets),
+                                      'count_at_least_120':sum(len(v)>=120 for v in sets),
+                                      'count_at_least_250':sum(len(v)>=250 for v in sets),
+                                      'count_at_least_750':sum(len(v)>=750 for v in sets),
+                                      'recent_20_dates_available':len(recent)==20,
+                                      'has_all_recent_20_dates':sum(len(recent)==20 and recent<=v for v in sets),
+                                      'earliest_date':market_dates[0] if market_dates else None,
+                                      'latest_date':market_dates[-1] if market_dates else None}
+                              detail['status']='PASS_BY_MARKET_HISTORY'
+                          else:
+                              revenue=defaultdict(set)
+                              eps=defaultdict(set)
+                              single_eps=defaultdict(set)
+                              stmts=Counter()
+                              for row in records:
+                                  symbol=str(row.get('symbol') or '')
+                                  if not symbol:continue
+                                  stmt=str(row.get('statement_type') or '')
+                                  metric=str(row.get('metric') or '')
+                                  stmts[stmt]+=1
+                                  if stmt=='monthly_revenue' and row.get('fiscal_month') and row.get('value') is not None:
+                                      revenue[symbol].add((int(row['fiscal_year']),int(row['fiscal_month'])))
+                                  if 'eps' in metric.lower() and row.get('value') is not None:
+                                      q=(int(row['fiscal_year']),int(row['fiscal_quarter']))
+                                      eps[symbol].add(q)
+                                      if row.get('is_single_quarter') is True or str(row.get('period_basis') or '') in ('quarter','single_quarter'):
+                                          single_eps[symbol].add(q)
+                              detail['financial_statement_counts']=dict(stmts.most_common(15))
+                              detail['monthly_revenue']={
+                                  'symbols_any_month':len(revenue),
+                                  'symbols_13_months':sum(len(v)>=13 for v in revenue.values()),
+                                  'symbols_24_months':sum(len(v)>=24 for v in revenue.values()),
+                                  'symbols_any_yoy_pair':sum(any((y-1,m) in v for y,m in v) for v in revenue.values())}
+                              detail['eps']={
+                                  'symbols_any_eps':len(eps),
+                                  'symbols_4_quarters':sum(len(v)>=4 for v in eps.values()),
+                                  'symbols_12_quarters':sum(len(v)>=12 for v in eps.values()),
+                                  'symbols_4_explicit_single_quarters':sum(len(v)>=4 for v in single_eps.values())}
+                              detail['status']='PASS_FINANCIAL_PERIOD_COUNTS'
+                  except Exception as error:
+                      detail['status']='ERROR_'+type(error).__name__
+                  report['feature_depth'][dataset]=detail
               report['status']='PASS' if len(report['tables'])==len(core.IDENTIFIERS) and all(x['status'] in ('COUNTED','MISSING') for x in report['tables']) else 'PARTIAL'
           except Exception as e:
               report['status']='BLOCKED_'+type(e).__name__
