@@ -124,6 +124,14 @@ def run_quality():
                       needs_daily_schedule_adjustment=bool(result["issues"]),
                       historical_publication_status="unknown", original_numeric_revision_status="unknown")
         control.put_admin_setting("data_supplement_quality", result, actor="data-quality", audit_resource="data_supplement")
+        try:
+            from .readiness import publish_data_readiness
+            ledger = publish_data_readiness(core, control, as_of=today,
+                                            actor="data-quality")
+            result["data_readiness_status"] = ledger["status"]
+        except Exception as error:
+            result["data_readiness_status"] = "UNKNOWN"
+            result["data_readiness_error"] = type(error).__name__
         return result
     except Exception as error:
         result["error_code"] = type(error).__name__
