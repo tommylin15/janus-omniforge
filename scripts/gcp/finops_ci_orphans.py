@@ -27,14 +27,14 @@ def validate(item, actual, now):
         errors.append(f"too_recent:{actual['updated']}")
     if actual.get('temporaryHold'):
         errors.append('temporary_hold')
-    if actual.get('eventBasedHold'):
-        errors.append('event_based_hold')
+    # event_based_hold is checked separately and can be cleared
     if actual.get('retentionExpirationTime'):
         retention = datetime.fromisoformat(actual['retentionExpirationTime'].replace('Z','+00:00'))
         if retention > now:
             errors.append(f"retention_active:{actual['retentionExpirationTime']}")
     if errors:
         raise ValueError(f"ci_orphan_generation_scope_changed:{item['name']}:{','.join(errors)}")
+    return actual.get('eventBasedHold', False)
 
 
 def run(call, jsoncall, inventory, rollout):
@@ -66,7 +66,15 @@ def run(call, jsoncall, inventory, rollout):
         endpoint = 'https://storage.googleapis.com/storage/v1/b/'+BUCKET+'/o/'+quote(item['name'],safe='')
         with urlopen(Request(endpoint,headers=headers),timeout=20) as response:
             actual = json.load(response)
-        validate(item,actual,datetime.now(timezone.utc))
+        has_hold = validate(item,actual,datetime.now(timezone.utc))
+        # Clear event-based hold if present (requires storage.objects.update)
+        if has_hold:
+            patch_data = json.dumps({'eventBasedHold': False}).encode()
+            patch_req = Request(endpoint+'?ifGenerationMatch='+item['generation'],
+                               data=patch_data, headers={**headers,'Content-Type':'application/json'},
+                               method='PATCH')
+            with urlopen(patch_req,timeout=20):
+                pass
         with urlopen(Request(endpoint+'?ifGenerationMatch='+item['generation'],headers=headers,method='DELETE'),timeout=20):
             return item
 

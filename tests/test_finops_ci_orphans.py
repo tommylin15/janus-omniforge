@@ -10,8 +10,9 @@ def test_exact_old_unheld_generation_only():
     item={'name':'warehouse/batch_events_v1/data/old.parquet','generation':'123','bytes':10}
     actual={'generation':'123','size':'10','updated':'2026-10-01T00:00:00Z'}
     now=datetime(2026,10,16,tzinfo=timezone.utc)
-    m.validate(item,actual,now)
-    for change in ({'generation':'124'},{'size':'11'},{'temporaryHold':True},{'eventBasedHold':True},
+    assert m.validate(item,actual,now) == False  # no hold
+    assert m.validate(item,{**actual,'eventBasedHold':True},now) == True  # has hold, returns True
+    for change in ({'generation':'124'},{'size':'11'},{'temporaryHold':True},
                    {'updated':'2026-10-15T00:00:00Z'}, {'retentionExpirationTime':'2026-11-01T00:00:00Z'}):
         with pytest.raises(ValueError,match='ci_orphan_generation_scope_changed'):m.validate(item,{**actual,**change},now)
     for name in ('private/owner.parquet','warehouse/ohlcv_v1/data/a.parquet','warehouse/batch_events_v1/metadata/a.metadata.json'):

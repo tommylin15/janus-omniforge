@@ -7,6 +7,6 @@
   "expected_image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:9d87fb5179ff21214fe271a70a5c29b16704edad169c94270fc47b7ac08c2a20",
   "purpose": "User explicitly requests another method and authorizes necessary cleanup permissions. Delete the 477 exact audit orphan generations already proven unreferenced by runtime census #38874199530 using existing GitHub Actions WIF identity, instead of blocked runtime identity. Validate original artifact, exact generation/size, >7day age and no holds before each DELETE. No IAM changes unless separately implemented from actual permission error; current/named/known references remain protected.",
   "acceptance": "Require completed successful new Jobs rollout #38875865395, exact shutdown digest, enabled baseline Scheduler and all-page terminal fence. Validate 477 objects against original successful read-only runtime artifact. First actual DELETE verifies CI authority; then bounded concurrency eight, generation-fenced deletes, before/after small-file reduction and exact generation receipts. No table drop, canonical rows, private bucket or Core manifests.",
-  "request_attempt": 7,
+  "request_attempt": 8,
   "user_approved_unlinked_small_file_cleanup": true
 }
