@@ -3,12 +3,13 @@
   "approved": true,
   "market": "TPEX",
   "dates": [
-    "2026-10-02"
+    "2026-10-05",
+    "2026-10-06"
   ],
   "no_new_source": true,
   "no_job_template_mutation": true,
   "no_owner_mutation": true,
-  "why": "Retry same single date after schema projection correction: official market-volume stock_name must not enter strict OHLCV DQ; prior result before_covered=0 and no Core commit",
+  "why": "DRL-01 priority resumed by user on 2026-10-16; bounded next two completed OTC dates after 2026-10-02 verified 867/896; same approved exchange source and Stage→Core, no owner or job-template changes",
   "scope": "current dev Iceberg Core and Stage only",
-  "request_version": 3
+  "request_version": 4
 }
