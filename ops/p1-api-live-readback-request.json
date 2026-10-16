@@ -1,12 +1,12 @@
 {
   "intent": "p1-live-api-post-promote-readback",
   "approved": true,
-  "source_sha": "9f690363e5517cbe90d837a53a94ae3a4e7ab31e",
-  "previous_sha": "7acff50000644979af3815f00fbd7f1c167e1098",
-  "promotion_run": "38851753247",
-  "jobs_run": "38849686748",
+  "source_sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
+  "previous_sha": "9f690363e5517cbe90d837a53a94ae3a4e7ab31e",
+  "promotion_run": "38865075071",
+  "jobs_run": "38857643226",
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "reason": "Independent read-only dev acceptance after reversible cash+compact holdings 9f690 API 100% promotion #38851753247: exact immutable revision, build-id, fixed Preview, cash anonymous 401, health, traffic/tags preserved. Never alter Owner ledger or cash or service."
+  "reason": "Independent read-only acceptance after exact 8eb P1 visible-total-first reversible canonical 100% dev release #38865075071 PASS with rollback 9f690 and four Jobs rollout #38857643226 PASS. Verify canonical single 100% image/revision/build SHA, fixed Preview, 200 health, 401 owner/cash, all tags preserved. No mutation to live service/traffic/Owner data."
 }
