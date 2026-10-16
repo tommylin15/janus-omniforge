@@ -4,6 +4,6 @@
   "samples": 30,
   "no_gcp_mutation": true,
   "no_private_data": true,
-  "source_sha": "536598f2528550fd60c73786597fdf2740860c9e",
-  "reason": "D01-D05 verified old full-source Preview #38692491748 passed. Sample 30 anonymous public market-home requests, HTTP failures, warm P50/P95 and tail; excludes authenticated UI/cold device and does not mutate private records, Jobs or service."
+  "source_sha": "9f690363e5517cbe90d837a53a94ae3a4e7ab31e",
+  "reason": "Bounded 30-request public warm latency after 9f690 cash/compact holdings Preview #38849422216 and formal dev API promotion #38851753247. Does not count as authenticated holdings page or recalculation performance; no Owner/GCP mutation."
 }
