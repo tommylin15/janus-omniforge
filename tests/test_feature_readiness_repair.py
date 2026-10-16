@@ -23,7 +23,8 @@ def test_revenue_metadata_repair_is_not_skipped_as_same_observation():
         "symbol": "6488", "fiscal_year": 2026, "fiscal_quarter": 1,
         "statement_type": "monthly_revenue", "metric": "monthly_revenue",
         "source_id": "mops", "value": "1234", "unit": "TWD_thousands",
-        "currency": "TWD", "period_basis": None, "fiscal_month": None,
+        "currency": "TWD", "publication_time_authoritative": False,
+        "period_basis": None, "fiscal_month": None,
         "fiscal_period_end": "2026-01-31", "availability_at": "2026-02-10T00:00:00Z",
     }]
     updated = [{**prior[0], "period_basis": "monthly", "fiscal_month": 1,
