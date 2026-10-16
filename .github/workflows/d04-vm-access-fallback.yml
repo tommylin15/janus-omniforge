@@ -1,0 +1,34 @@
+name: D04 existing VM privileged-path probe
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/d04-vm-access-fallback.yml']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Probe direct authorized VM access before fallback
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gcloud compute instances describe janus-postgres-dev --project=gen-lang-client-0593591102 --zone=us-central1-a --format='value(status)' >/tmp/d04-direct-status 2>/dev/null; then
+            echo 'D04_DIRECT_COMPUTE_GET=PASS' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'D04_DIRECT_COMPUTE_GET=DENIED; checking existing Cloud Build worker path' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Probe preexisting Cloud Build VM operator without changing IAM or VM
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud builds submit --no-source --project=gen-lang-client-0593591102 --region=us-central1 --config=scripts/gcp/cloudbuild-d04-vm-capability.yaml --quiet

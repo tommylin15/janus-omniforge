@@ -1,0 +1,25 @@
+# D04 existing dev operations only. No source upload, IAM mutation or VM access changes.
+steps:
+  - id: bounded-existing-vm-access-census
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli:slim
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        set -o pipefail
+        principal="$(gcloud auth list --filter='status:ACTIVE' --format='value(account)' | head -n 1)"
+        case "$principal" in
+          *@*.iam.gserviceaccount.com) ;;
+          *) echo 'D04_BUILD_IDENTITY_NOT_SERVICE_ACCOUNT'; exit 1 ;;
+        esac
+        echo 'D04_EXISTING_BUILD_IDENTITY=SERVICE_ACCOUNT'
+        if gcloud compute instances describe janus-postgres-dev --project="$PROJECT_ID" --zone=us-central1-a --format='value(status)' >/tmp/d04-vm-status 2>/dev/null; then
+          echo 'D04_EXISTING_BUILD_VM_GET=PASS'
+        else
+          echo 'D04_EXISTING_BUILD_VM_GET=DENIED'
+          exit 2
+        fi
+        # Deliberately do not SSH or change IAP / OS Login / IAM in this probe.
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: 180s
