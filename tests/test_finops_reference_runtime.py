@@ -44,12 +44,12 @@ def test_mutable_image_rejected_before_execution_fence(monkeypatch,tmp_path):
     with pytest.raises(ValueError,match='immutable_reference_baseline_required'): m.main()
 
 
-def test_daily_batch_estimate_uses_event_volume_not_75_percent_assumption():
+def test_disabled_mirror_estimate_uses_previous_event_volume_not_total_gcs_io():
     result=m.batch_forecast([{'day_start_utc':'day','events':225} for _ in range(4)])
     assert result['four_window_nonempty_batches']==8
-    assert result['daily_nonempty_batches']==5
-    assert result['estimated_table_scans_avoided']==6
-    assert result['estimated_batch_reduction_percent']==37.5
+    assert result['disabled_mirror_batches']==0
+    assert result['estimated_table_scans_avoided']==16
+    assert result['estimated_batch_reduction_percent']==100
     assert result['matched_runtime_io_verified'] is False
     assert m.batch_forecast([])['estimated_batch_reduction_percent'] is None
     with pytest.raises(ValueError):m.batch_forecast([{'day_start_utc':'day','events':-1}])

@@ -117,7 +117,6 @@ def test_live_tick_dispatches_nightly_private_when_afternoon_upstream_failed(mon
     monkeypatch.setenv("BATCH_CONTROLLER_NOT_BEFORE", "2026-10-01T00:00:00Z")
     monkeypatch.setattr(controller, "probe_mobile_ledger_queue",
                         lambda **kwargs: {"pending": False})
-    monkeypatch.setattr(controller, "audit_export_due", lambda _: False)
     day = "private/2026-10-15/15"
     night = "private/2026-10-15/21"
     morning = {"batch": "private", "job": "janus-private-pipeline",
@@ -140,7 +139,7 @@ def test_live_tick_dispatches_nightly_private_when_afternoon_upstream_failed(mon
     record = Mock()
     monkeypatch.setattr(controller, "record", record)
     result = controller.run(now=datetime(2026, 10, 15, 13, 30, tzinfo=timezone.utc),
-                            control=SimpleNamespace(connection=db), session=session, core=Mock())
+                            control=SimpleNamespace(connection=db), session=session)
     assert result["status"] == "tick_completed"
     assert session.post.call_count == 1
     assert session.post.call_args.args[0].endswith("/jobs/janus-private-pipeline:run")
@@ -213,47 +212,6 @@ def test_execution_page_limit_and_unknown_conditions_fail_closed():
     assert job_active(session, "janus-ingestion-core")
 
 
-def test_iceberg_outbox_replay_is_idempotent_and_readback_precedes_ack():
-    from contextlib import nullcontext
-    from uuid import uuid4
-    from unittest.mock import Mock
-    from pathlib import Path
-    import shutil
-    from pyiceberg.catalog import load_catalog
-    from ingestion_core.batch_controller import export_events
-    root = Path(".tmp") / ("batch-log-" + str(uuid4()))
-    root.mkdir(parents=True)
-    warehouse = (root / "warehouse").as_posix()
-    catalog = load_catalog("unit", type="sql", uri="sqlite:///" + (root.resolve() / "catalog.db").as_posix(), warehouse=warehouse)
-    core = SimpleNamespace(catalog=catalog, warehouse=warehouse)
-    key = uuid4()
-    cursor = Mock()
-    cursor.__enter__ = Mock(return_value=cursor)
-    cursor.__exit__ = Mock(return_value=False)
-    cursor.fetchall.return_value = [(key, datetime(2026, 10, 2, tzinfo=timezone.utc), {"action": "job_busy"})]
-    connection = SimpleNamespace(cursor=lambda: cursor, transaction=nullcontext)
-    try:
-        assert export_events(connection, core) == 1
-        assert export_events(connection, core) == 1
-        assert catalog.load_table("ops.batch_events_v1").scan().to_arrow().num_rows == 1
-        assert len(catalog.load_table("ops.batch_events_v1").snapshots()) == 1
-        assert cursor.executemany.call_count == 2
-        # A failed commit must leave the outbox unacknowledged.
-        cursor.executemany.reset_mock()
-        original = catalog.load_table
-        # Fail before append/readback: the outbox must stay pending.
-        failing_table = Mock()
-        failing_table.scan.side_effect = RuntimeError("read failed")
-        catalog.load_table = lambda identifier: failing_table
-        with pytest.raises(RuntimeError):
-            export_events(connection, core)
-        assert cursor.executemany.call_count == 0
-        catalog.load_table = original
-    finally:
-        catalog.engine.dispose()
-        shutil.rmtree(root)
-
-
 def test_busy_controller_never_polls_or_dispatches(monkeypatch):
     from unittest.mock import Mock
     from ingestion_core.batch_controller import run
@@ -262,7 +220,7 @@ def test_busy_controller_never_polls_or_dispatches(monkeypatch):
     connection.execute.return_value.fetchone.return_value = (False,)
     control = SimpleNamespace(connection=connection)
     session = Mock()
-    assert run(control=control, session=session, core=Mock())["status"] == "controller_busy"
+    assert run(control=control, session=session)["status"] == "controller_busy"
     session.get.assert_not_called()
     session.post.assert_not_called()
     assert connection.execute.call_count == 1
@@ -279,21 +237,20 @@ def test_lost_dispatch_response_is_not_automatically_retried():
     session.get.assert_not_called()
 
 
-def test_observe_mode_does_not_read_iceberg_audit_each_hour(monkeypatch):
+@pytest.mark.parametrize("hour", [5, 11, 14, 15, 17, 23])
+def test_observe_mode_never_opens_iceberg(monkeypatch, hour):
     from unittest.mock import MagicMock, Mock
     from ingestion_core import batch_controller as controller
     monkeypatch.setenv("GCP_PROJECT_ID", PROJECT)
     monkeypatch.setenv("BATCH_CONTROLLER_MODE", "observe")
     conn = MagicMock()
     conn.execute.return_value.fetchone.return_value = (True,)
-    exported = Mock()
     monkeypatch.setattr(controller, "record", Mock())
-    monkeypatch.setattr(controller, "export_events", exported)
-    result = controller.run(now=datetime(2026, 10, 15, 14, 30, tzinfo=timezone.utc),
-                            control=SimpleNamespace(connection=conn), core=Mock(), session=Mock())
+    result = controller.run(now=datetime(2026, 10, 15, hour, 30, tzinfo=timezone.utc),
+                            control=SimpleNamespace(connection=conn), session=Mock())
     assert result["status"] == "observe"
-    assert result["exported_events"] == 0 and result["iceberg_audit_deferred"] is True
-    exported.assert_not_called()
+    assert result["exported_events"] == 0 and result["iceberg_audit_disabled"] is True
+    assert not hasattr(controller, "export_events")
 
 
 def test_idle_active_tick_is_recorded_without_dispatch(monkeypatch):
@@ -309,41 +266,14 @@ def test_idle_active_tick_is_recorded_without_dispatch(monkeypatch):
     monkeypatch.setattr(controller, "due_batches", lambda _: [])
     record = Mock()
     monkeypatch.setattr(controller, "record", record)
-    monkeypatch.setattr(controller, "export_events", lambda *_: 1)
     session = Mock()
     result = controller.run(now=datetime(2026, 10, 15, 15, 30, tzinfo=timezone.utc),
-                            control=SimpleNamespace(connection=connection), session=session, core=Mock())
-    assert result["exported_events"] == 1
-    assert result["iceberg_audit_deferred"] is False
+                            control=SimpleNamespace(connection=connection), session=session)
+    assert result["exported_events"] == 0
+    assert result["iceberg_audit_disabled"] is True
     assert record.call_args.args[3]["execution"] == "idle-execution"
     session.get.assert_not_called()
     session.post.assert_not_called()
-
-
-def test_iceberg_audit_only_flushes_on_daily_taipei_2330_window():
-    from ingestion_core.batch_controller import audit_export_due, export_due_audit
-    from unittest.mock import Mock
-    from zoneinfo import ZoneInfo
-    taipei = ZoneInfo("Asia/Taipei")
-    for hour in range(24):
-        assert audit_export_due(datetime(2026, 10, 15, hour, 30, tzinfo=taipei)) == (hour == 23)
-    assert audit_export_due(datetime(2026, 10, 15, 15, 30, tzinfo=timezone.utc))
-    assert audit_export_due(datetime(2026, 10, 15, 23, 59, tzinfo=taipei))
-    assert not audit_export_due(datetime(2026, 10, 15, 15, 29, tzinfo=timezone.utc))
-    assert export_due_audit(None, None, datetime(2026, 10, 15, 14, 30, tzinfo=timezone.utc)) == (0, True)
-
-
-def test_bounded_audit_flush_drains_backlog_without_silent_partial_success(monkeypatch):
-    from ingestion_core import batch_controller as controller
-    from unittest.mock import Mock
-    readback = Mock(side_effect=[200, 200, 18])
-    monkeypatch.setattr(controller, "export_events", readback)
-    when = datetime(2026, 10, 15, 15, 30, tzinfo=timezone.utc)
-    assert controller.export_due_audit(Mock(), Mock(), when) == (418, False)
-    assert readback.call_count == 3
-    monkeypatch.setattr(controller, "export_events", lambda *_: 200)
-    with pytest.raises(RuntimeError, match="bounded Iceberg audit outbox"):
-        controller.export_due_audit(Mock(), Mock(), when)
 
 
 def test_supplement_daily_precedes_mart_and_saturday_quality_is_independent():
@@ -410,10 +340,9 @@ def test_old_pending_core_cleanup_waits_for_new_mart_dependency(monkeypatch):
     cursor.fetchone.return_value = None
     record = Mock()
     monkeypatch.setattr(controller, "record", record)
-    monkeypatch.setattr(controller, "export_events", lambda *_: 0)
     session = Mock()
     controller.run(now=datetime(2026, 10, 2, 16, tzinfo=timezone.utc),
-                   control=SimpleNamespace(connection=connection), session=session, core=Mock())
+                   control=SimpleNamespace(connection=connection), session=session)
     updates = [call.args for call in record.call_args_list if call.args[2] == key]
     assert [args[4] for args in updates] == ["dependency_policy_updated", "waiting_dependency"]
     assert updates[0][3]["dependencies"] == ["mart-cleanup/2026-10-02/23"]
@@ -452,3 +381,15 @@ def test_mobile_probe_does_not_open_control_database(monkeypatch):
     result = controller.run(control=control)
     assert result == {"status": "available", "mobile_ledger_pending": True}
     control.connection.execute.assert_not_called()
+
+
+def test_disabled_mirror_still_records_postgres_event_atomically():
+    from unittest.mock import MagicMock
+    from ingestion_core.batch_controller import record
+    connection = MagicMock()
+    record(connection, "tick", "occurrence", {"status": "failed"}, "reconcile")
+    statements = connection.cursor.return_value.__enter__.return_value.execute.call_args_list
+    assert len(statements) == 2
+    assert "UPDATE control.batch_occurrences" in statements[0].args[0]
+    assert "INSERT INTO control.batch_event_outbox" in statements[1].args[0]
+    connection.transaction.assert_called_once()

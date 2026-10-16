@@ -237,81 +237,6 @@ def record(connection, tick, key, state, action, *, update=True):
         cursor.execute("INSERT INTO control.batch_event_outbox(event_id,payload) VALUES (%s,%s::jsonb) ON CONFLICT DO NOTHING", (event_id, json.dumps(payload)))
 
 
-def export_events(connection, core):
-    """Acknowledge the outbox only after an idempotent Iceberg commit and readback."""
-    import pyarrow as pa
-    from pyiceberg.schema import Schema
-    from pyiceberg.types import NestedField, StringType, TimestamptzType
-    from pyiceberg.expressions import In
-    identifier = "ops.batch_events_v1"
-    core.catalog.create_namespace_if_not_exists("ops")
-    if not core.catalog.table_exists(identifier):
-        core.catalog.create_table(identifier, schema=Schema(
-            NestedField(1, "event_id", StringType(), required=True),
-            NestedField(2, "recorded_at", TimestamptzType(), required=True),
-            NestedField(3, "payload_json", StringType(), required=True), identifier_field_ids=[1]),
-            location=core.warehouse + "/batch_events_v1")
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT event_id,created_at,payload FROM control.batch_event_outbox WHERE exported_at IS NULL ORDER BY created_at,event_id LIMIT 200")
-        pending = cursor.fetchall()
-    if not pending:
-        return 0
-    schema = pa.schema([pa.field("event_id", pa.string(), nullable=False), pa.field("recorded_at", pa.timestamp("us", tz="UTC"), nullable=False), pa.field("payload_json", pa.string(), nullable=False)])
-    rows = [{"event_id": str(key), "recorded_at": created, "payload_json": json.dumps(payload, sort_keys=True)} for key, created, payload in pending]
-    table = core.catalog.load_table(identifier)
-    ids = [row["event_id"] for row in rows]
-    # Append-only audit data: upsert rewrote existing Parquet/metadata on each
-    # hourly controller tick. Replay is checked before append, and PostgreSQL
-    # outbox acknowledgement still follows the final Iceberg readback.
-    existing = table.scan(row_filter=In("event_id", ids),
-                          selected_fields=("event_id", "payload_json")).to_arrow().to_pylist()
-    known = {row["event_id"]: row["payload_json"] for row in existing}
-    if len(known) != len(existing) or any(
-        known[row["event_id"]] != row["payload_json"] for row in rows if row["event_id"] in known
-    ):
-        raise RuntimeError("Iceberg audit replay collision or duplicate ID")
-    fresh = [row for row in rows if row["event_id"] not in known]
-    if fresh:
-        table.append(pa.Table.from_pylist(fresh, schema=schema))
-        table = core.catalog.load_table(identifier)
-    readback = table.scan(row_filter=In("event_id", ids),
-                          selected_fields=("event_id", "payload_json")).to_arrow().to_pylist()
-    if len(readback) != len(rows) or {row["event_id"]: row["payload_json"] for row in readback} != {
-        row["event_id"]: row["payload_json"] for row in rows
-    }:
-        raise RuntimeError("Iceberg batch log readback mismatch")
-    with connection.transaction(), connection.cursor() as cursor:
-        cursor.executemany("UPDATE control.batch_event_outbox SET exported_at=now() WHERE event_id=%s", [(key,) for key, _, _ in pending])
-    return len(pending)
-
-
-def audit_export_due(now: datetime) -> bool:
-    """Batch Iceberg audit mirroring to avoid hourly full-history manifest scans.
-
-    The PostgreSQL event outbox is committed on every controller tick. An
-    immutable Iceberg mirror may lag by at most 24 hours under healthy jobs.
-    A missed sync remains pending in PostgreSQL and is retried at the next
-    permitted window; no event is dropped.
-    """
-    local = now.astimezone(ZoneInfo("Asia/Taipei"))
-    return local.hour == 23 and local.minute >= 30
-
-
-def export_due_audit(connection, core, now: datetime) -> tuple[int, bool]:
-    if not audit_export_due(now):
-        return 0, True
-    exported = 0
-    # Drain burst backlogs but do not create unbounded scans or commits.
-    for _ in range(10):
-        count = export_events(connection, core)
-        exported += count
-        if count < 200:
-            return exported, False
-    # Prior batches are safely persisted+acked; remaining PostgreSQL outbox
-    # events stay pending and are never reported as a complete audit export.
-    raise RuntimeError("bounded Iceberg audit outbox flush limit reached")
-
-
 def manual_retrain_dependencies(connection, now: datetime, batch=None):
     """Use the newest dependency date and wait until that day's full pair succeeds."""
     batch = batch or next(batch for batch in BATCHES if batch.name == "specialist-retrain")
@@ -381,9 +306,9 @@ def insert_manual_retrain(connection, now: datetime, request_id: str):
     return key
 
 
-def run(*, now=None, session=None, control=None, core=None):
+def run(*, now=None, session=None, control=None):
     from datetime import timezone
-    from .__main__ import _control_plane, _iceberg_core
+    from .__main__ import _control_plane
     if os.environ.get("GCP_PROJECT_ID") != PROJECT:
         raise ValueError("batch controller is restricted to the existing dev project")
     now = now or datetime.now(timezone.utc)
@@ -411,7 +336,7 @@ def run(*, now=None, session=None, control=None, core=None):
         raise ValueError("controller clock must include a timezone")
     utc = now.astimezone(timezone.utc)
     tick = utc.replace(minute=utc.minute // 10 * 10, second=0, microsecond=0).isoformat()
-    owns_control, owns_core = control is None, core is None
+    owns_control = control is None
     control = control or _control_plane()
     connection = control.connection
     locked = False
@@ -426,15 +351,8 @@ def run(*, now=None, session=None, control=None, core=None):
             session = AuthorizedSession(credentials)
         if mode == "observe":
             record(connection, tick, "controller", {"status": "observe", "model_calls": 0}, "tick", update=False)
-            # Observe-only is also hourly; do not accidentally retain the
-            # expensive per-hour whole-Iceberg audit scan on this path.
-            if audit_export_due(now):
-                core = core or _iceberg_core(PROJECT + "-dev-core")
-                exported, deferred = export_due_audit(connection, core, now)
-            else:
-                exported, deferred = 0, True
-            return {"status": "observe", "tick": tick, "exported_events": exported,
-                    "iceberg_audit_deferred": deferred, "model_calls": 0}
+            return {"status": "observe", "tick": tick, "exported_events": 0,
+                    "iceberg_audit_disabled": True, "model_calls": 0}
         if mode == "seed":
             seeds = json.loads(os.environ["BATCH_CONTROLLER_SEED_EXECUTIONS"])
             if not isinstance(seeds, list) or not 1 <= len(seeds) <= 3:
@@ -453,8 +371,7 @@ def run(*, now=None, session=None, control=None, core=None):
                 with connection.transaction(), connection.cursor() as cursor:
                     cursor.execute("INSERT INTO control.batch_occurrences(occurrence_id,scheduled_at,state) VALUES (%s,%s,%s::jsonb) ON CONFLICT DO NOTHING", (key, slot, json.dumps(state)))
                 record(connection, tick, key, state, "adopt_previous_scheduler", update=False)
-            core = core or _iceberg_core(PROJECT + "-dev-core")
-            return {"status": "seeded", "exported_events": export_events(connection, core), "model_calls": 0}
+            return {"status": "seeded", "exported_events": 0, "iceberg_audit_disabled": True, "model_calls": 0}
         with connection.cursor() as cursor:
             cursor.execute("SELECT occurrence_id,state FROM control.batch_occurrences WHERE state->>'status' IN ('dispatching','running','ambiguous') ORDER BY scheduled_at LIMIT 101")
             active = cursor.fetchall()
@@ -574,23 +491,11 @@ def run(*, now=None, session=None, control=None, core=None):
             record(connection, tick, key, state, "dispatch_result")
         record(connection, tick, "controller", {"status": "tick_completed", "model_calls": 0,
                "execution": os.environ.get("CLOUD_RUN_EXECUTION", "")}, "tick", update=False)
-        if mode == "manual":
-            # An explicit manual audit command still uses the exact immediate
-            # replay/commit/readback fence; only normal hourly ticks are batched.
-            core = core or _iceberg_core(PROJECT + "-dev-core")
-            exported, deferred = export_events(connection, core), False
-        elif audit_export_due(now):
-            core = core or _iceberg_core(PROJECT + "-dev-core")
-            exported, deferred = export_due_audit(connection, core, now)
-        else:
-            exported, deferred = 0, True
-        return {"status": "tick_completed", "tick": tick, "exported_events": exported,
-                "iceberg_audit_deferred": deferred, "model_calls": 0}
+        return {"status": "tick_completed", "tick": tick, "exported_events": 0,
+                "iceberg_audit_disabled": True, "model_calls": 0}
     finally:
         if locked:
             connection.execute("SELECT pg_advisory_unlock(1835102836,3)")
-        if owns_core and core is not None:
-            core.close()
         if owns_control:
             control.close()
 

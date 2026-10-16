@@ -75,7 +75,6 @@ def test_manual_controller_dispatches_only_the_persisted_manual_occurrence(monke
     cursor.fetchall.side_effect = [[], [(key, state)], [(state["dependencies"][0], "succeeded"), (state["dependencies"][1], "succeeded")]]
     cursor.fetchone.return_value = None
     monkeypatch.setattr(controller, "record", Mock())
-    monkeypatch.setattr(controller, "export_events", lambda *_: 0)
     monkeypatch.setattr(controller, "insert_manual_retrain", lambda *_: key)
     monkeypatch.setattr(controller, "manual_retrain_dependencies", lambda *_: state["dependencies"])
     due = Mock(side_effect=AssertionError("manual mode must not create scheduled occurrences"))
@@ -85,8 +84,9 @@ def test_manual_controller_dispatches_only_the_persisted_manual_occurrence(monke
     monkeypatch.setattr(controller, "dispatch_job", dispatch)
 
     result = controller.run(now=datetime(2026, 10, 5, tzinfo=timezone.utc),
-                            control=SimpleNamespace(connection=connection), session=Mock(), core=Mock())
+                            control=SimpleNamespace(connection=connection), session=Mock())
     assert result["status"] == "tick_completed"
+    assert result["iceberg_audit_disabled"] is True
     due.assert_not_called()
     dispatch.assert_called_once()
     assert dispatch.call_args.args[1].name == "specialist-retrain"
@@ -108,7 +108,6 @@ def test_manual_pending_rebinds_to_newer_dependency_date_before_dispatch(monkeyp
     cursor.fetchone.return_value = None
     record = Mock()
     monkeypatch.setattr(controller, "record", record)
-    monkeypatch.setattr(controller, "export_events", lambda *_: 0)
     monkeypatch.setattr(controller, "insert_manual_retrain", lambda *_: key)
     monkeypatch.setattr(controller, "manual_retrain_dependencies", lambda *_: new)
     monkeypatch.setattr(controller, "job_active", lambda *_: False)
@@ -116,7 +115,7 @@ def test_manual_pending_rebinds_to_newer_dependency_date_before_dispatch(monkeyp
     monkeypatch.setattr(controller, "dispatch_job", dispatch)
 
     controller.run(now=datetime(2026, 10, 5, 0, 10, tzinfo=timezone.utc),
-                   control=SimpleNamespace(connection=connection), session=Mock(), core=Mock())
+                   control=SimpleNamespace(connection=connection), session=Mock())
     updates = [call.args for call in record.call_args_list if call.args[2] == key]
     assert [args[4] for args in updates] == ["manual_dependency_updated", "waiting_dependency"]
     assert updates[0][3]["dependencies"] == new
@@ -130,7 +129,7 @@ def test_manual_controller_rejects_invalid_request_id_before_db(monkeypatch, req
     monkeypatch.setenv("BATCH_CONTROLLER_MANUAL_REQUEST_ID", request_id)
     control = Mock()
     with pytest.raises(ValueError, match="invalid manual request id"):
-        controller.run(control=control, session=Mock(), core=Mock())
+        controller.run(control=control, session=Mock())
     control.connection.execute.assert_not_called()
 
 

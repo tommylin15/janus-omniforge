@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "candidate-only-until-full-tests-and-reversible-runtime-acceptance",
-  "attempt": 54,
-  "reason": "User-authorized D06: daily 23:30 Asia/Taipei Iceberg audit mirror instead of four daily windows, retain PostgreSQL immediate durable outbox, bounded 10x200 batches, no event loss. Include reference JSON census/generation protection, read-only runtime diagnostics and hour-boundary counter correction. Full exact-SHA tests and immutable GHCR required before reversible existing dev Jobs rollout; no API 100% promotion, Owner data, schema or IAM change.",
+  "attempt": 55,
+  "reason": "User-authorized D06: stop unused Iceberg batch audit mirroring entirely, superseding daily and weekly proposals. Preserve PostgreSQL atomic event recording in every controller mode; remove Iceberg catalog creation/replay/readback/ack path, including seed and manual. Existing history cleanup remains separately authorized. Full exact-SHA tests and immutable GHCR required before reversible existing dev Jobs rollout. No API traffic promotion, schema, IAM or new resource changes.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }

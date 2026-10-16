@@ -20,9 +20,10 @@ from urllib.error import HTTPError
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from ingestion_core.__main__ import _control_plane, _iceberg_core
-from ingestion_core.batch_controller import audit_export_due
-policy_hours=[hour for hour in range(24) if audit_export_due(datetime(2026,10,16,hour,30,tzinfo=ZoneInfo('Asia/Taipei')))]
-if policy_hours!=[23]: raise RuntimeError('deployed_daily_audit_policy_not_verified')
+from ingestion_core import batch_controller
+import inspect
+if hasattr(batch_controller,'export_events') or '_iceberg_core' in inspect.getsource(batch_controller.run):
+    raise RuntimeError('deployed_audit_mirror_not_disabled')
 with _control_plane() as control:
     connection=control.connection
     with connection.transaction():
@@ -34,10 +35,9 @@ with _control_plane() as control:
         pending=connection.execute("SELECT count(*),min(created_at) FROM control.batch_event_outbox WHERE exported_at IS NULL").fetchone()
         slots=connection.execute("SELECT date_bin(interval '24 hours',created_at,timestamptz '2000-01-01 15:30:00+00'),date_bin(interval '6 hours',created_at,timestamptz '2000-01-01 15:30:00+00'),count(*) FROM control.batch_event_outbox WHERE created_at>=date_bin(interval '24 hours',now(),timestamptz '2000-01-01 15:30:00+00')-interval '14 days' AND created_at<date_bin(interval '24 hours',now(),timestamptz '2000-01-01 15:30:00+00') GROUP BY 1,2 ORDER BY 1,2").fetchall()
 out={'source':'active_control_executions','status':'COMPLETE','rows_checked':len(rows),'core_snapshot_ids':refs,'data_writes':0,
-     'deployed_audit_taipei_hours':policy_hours,
      'outbox_daily_events':[{'taipei_date':str(day),'events':count} for day,count in daily],
      'outbox_six_hour_events':[{'day_start_utc':str(day),'slot_start_utc':str(slot),'events':count} for day,slot,count in slots],
-     'pending_events':pending[0],'oldest_pending_at':str(pending[1]) if pending[1] else None,'export_capacity_per_daily_run':2000}
+     'pending_events':pending[0],'oldest_pending_at':str(pending[1]) if pending[1] else None,'iceberg_audit_disabled':True}
 from ingestion_core.stage import GcsObjectStore
 from ingestion_core.iceberg_maintenance import maintain_financials, compact_batch_events, _keep_snapshots, _references
 from ingestion_core.retention import clean_orphans
@@ -109,7 +109,7 @@ CODES = {'janus-ingestion-core':CORE_CODE,'janus-intelligence-mart':MART_CODE}
 
 
 def batch_forecast(slots):
-    """Same event arrivals, 200 per batch, successful flushes and no retries."""
+    """Historical four-window mirror batches avoided after mirror shutdown."""
     daily={}
     old_batches=0
     for row in slots:
@@ -117,14 +117,12 @@ def batch_forecast(slots):
         if type(count) is not int or count<0: raise ValueError('invalid_event_count')
         daily[row['day_start_utc']]=daily.get(row['day_start_utc'],0)+count
         old_batches+=(count+199)//200
-    new_batches=sum((count+199)//200 for count in daily.values())
     return {'observed_days':len(daily),'events':sum(daily.values()),
-            'four_window_nonempty_batches':old_batches,'daily_nonempty_batches':new_batches,
-            'estimated_table_scans_avoided':2*(old_batches-new_batches),
-            'estimated_batch_reduction_percent':round((1-new_batches/old_batches)*100,3) if old_batches else None,
+            'four_window_nonempty_batches':old_batches,'disabled_mirror_batches':0,
+            'estimated_table_scans_avoided':2*old_batches,
+            'estimated_batch_reduction_percent':100.0 if old_batches else None,
             'max_observed_daily_events':max(daily.values(),default=0),
-            'days_reaching_2000_event_guard':sum(count>=2000 for count in daily.values()),
-            'matched_runtime_io_verified':False,'assumption':'same event arrivals; 200-event nonempty batches; successful flushes; no retries; two logical table scans per batch; not GCS request counts'}
+            'matched_runtime_io_verified':False,'assumption':'prior four-window mirror; 200-event nonempty batches; successful flushes; no retries; two logical table scans per batch eliminated by shutdown; not GCS request counts'}
 
 
 def override(job, code):
