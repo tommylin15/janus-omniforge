@@ -7,9 +7,9 @@
     "private-pipeline",
     "api"
   ],
-  "promotion": "candidate-only-until-targeted-and-full-ci-pass",
-  "attempt": 52,
-  "reason": "2026-10-16 P1 user-observed blocked holding valuation despite 7 cached prices. Source-valid dated delayed MIS must drive separately labelled indicative per-stock and cross-date reference assets; formal same-day total remains withheld. Flutter 390px compact layout suppresses verbose overflow. No schema, fee, cash checkpoint, or actual ledger mutations. Full Python/Flutter/4 immutable GHCR for bounded dev rollout; existing 062 already applied #38841287256.",
+  "promotion": "candidate-only-until-full-tests-and-reversible-runtime-acceptance",
+  "attempt": 53,
+  "reason": "2026-10-16 owner-directed P1 correction: trading decisions prioritize visible approximate total. Dated source-valid stale/cross-session quote gives indicative holdings; when some quotes missing, show priced market/PnL subtotal, priced count, and cash plus priced portion without claiming a complete formal same-day total. Full Python Flutter immutable GHCR; bounded tests test_cash_position/test_holdings_daily_change/390px ledger visual PASS, no schema/fee/trades/cash balance write. Release only after full suite PASS.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }
