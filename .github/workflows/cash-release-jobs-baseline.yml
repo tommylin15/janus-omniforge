@@ -1,0 +1,58 @@
+name: Janus cash release Jobs baseline readback
+on:
+  push:
+    branches: [main]
+    paths: ['ops/cash-release-jobs-baseline-request.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 13
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require bounded readonly exact release
+        run: |
+          jq -e '.intent=="cash-release-jobs-baseline" and .source_sha=="9f690363e5517cbe90d837a53a94ae3a4e7ab31e" and
+            .release_run=="38841326765" and .boundary_run=="38849298689" and
+            .no_gcp_mutation==true and .no_job_execution==true and .no_private_data_dump==true' ops/cash-release-jobs-baseline-request.json >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read pinned images, configuration fingerprints, execution fence and Scheduler
+        run: |
+          python3 - <<'PY'
+          import json,sys
+          sys.path.insert(0,'scripts/gcp')
+          from ghcr_jobs_rollout import REQUIRED_JOBS, JOB_COMPONENT, ROOT, cloud, image, fingerprint, job, scheduler, terminal
+          result={'status':'UNKNOWN','read_only':True,'jobs':{},'scheduler':None,'executions_terminal':False}
+          sch=scheduler()
+          result['scheduler']=sch.get('state')
+          incomplete=[]
+          for name in REQUIRED_JOBS:
+            value=job(name)
+            result['jobs'][name]={'image':image(value),
+                  'configuration_hash':fingerprint(value)}
+            path=f'{ROOT}/jobs/{name}/executions?pageSize=100'
+            seen=set()
+            while path:
+              page=cloud(path)
+              incomplete.extend([str(row.get('name','')).rsplit('/',1)[-1]
+                 for row in page.get('executions',[]) if not terminal(row)])
+              token=page.get('nextPageToken')
+              if token in seen:raise RuntimeError('execution_page_loop')
+              if token:
+                from urllib.parse import quote
+                seen.add(token)
+                path=f'{ROOT}/jobs/{name}/executions?pageSize=100&pageToken={quote(token,safe="")}'
+              else:path=None
+          result['executions_terminal']=not bool(incomplete)
+          result['incomplete_count']=len(incomplete)
+          result['status']='PASS' if result['scheduler']=='ENABLED' and result['executions_terminal'] else 'BLOCKED'
+          print(json.dumps(result,sort_keys=True))
+          assert result['status']=='PASS','jobs_fence_not_clear'
+          PY
