@@ -1,0 +1,132 @@
+name: Janus one-shot read-only Core readiness census
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/feature-readiness-metadata-census.yml']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-read-only-census
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Run existing dev Job with read-only execution args
+        run: |
+          python - <<'PY'
+          import json,sys,time,subprocess
+          from pathlib import Path
+          sys.path.insert(0,'scripts/gcp')
+          from ghcr_jobs_rollout import cloud,job,terminal,ROOT
+          CODE=r"""
+          import json,os
+          from datetime import datetime,timezone
+          from ingestion_core.__main__ import _control_plane,_iceberg_core
+          from ingestion_core.iceberg_maintenance import _logical_periods
+          report={'component':'feature_readiness_inventory','read_only':True,'status':'PARTIAL',
+                  'scope':'current_catalog_snapshot','checked_at':datetime.now(timezone.utc).isoformat(),
+                  'markets':[],'tables':[]}
+          control=None
+          core=None
+          try:
+              control=_control_plane()
+              with control.connection.cursor() as c:
+                  c.execute("SELECT market,count(*)::bigint,count(*) FILTER(WHERE enabled)::bigint FROM control.stock_master WHERE market IN ('TWSE','TPEX') GROUP BY market ORDER BY market")
+                  report['markets']=[{'market':m,'all':int(n),'enabled':int(e)} for m,n,e in c.fetchall()]
+              core=_iceberg_core(os.environ['CORE_BUCKET'],read_only=True)
+              for dataset in core.IDENTIFIERS:
+                  item={'dataset':dataset}
+                  try:
+                      if not core.table_exists(dataset):
+                          item['status']='MISSING'
+                      else:
+                          t=core.catalog.load_table(core.table_identifier(dataset))
+                          s=t.current_snapshot()
+                          item['snapshot_id']=str(s.snapshot_id) if s else None
+                          item['total_records']=int(s.summary['total-records']) if s and 'total-records' in (s.summary or {}) else None
+                          item['schema_fields']=[f.name for f in t.schema().fields]
+                          item['status']='COUNTED' if item['total_records'] is not None else 'UNKNOWN'
+                          try:
+                              field,transform=core.PARTITIONS[dataset][0]
+                              periods=_logical_periods(t,field,transform)
+                              item['partition_count']=len(periods)
+                              item['earliest_partition']=periods[0]['period'] if periods else None
+                              item['latest_partition']=periods[-1]['period'] if periods else None
+                              item['partition_records']=sum(x['record_count'] for x in periods)
+                              item['partition_total_matches']=item['partition_records']==item['total_records']
+                          except Exception as e:
+                              item['partition_error']=type(e).__name__
+                  except Exception as e:
+                      item['status']='ERROR_'+type(e).__name__
+                  report['tables'].append(item)
+              report['status']='PASS' if len(report['tables'])==len(core.IDENTIFIERS) and all(x['status'] in ('COUNTED','MISSING') for x in report['tables']) else 'PARTIAL'
+          except Exception as e:
+              report['status']='BLOCKED_'+type(e).__name__
+          finally:
+              if core is not None:
+                  try:core.close()
+                  except Exception:pass
+              if control is not None:
+                  try:control.close()
+                  except Exception:pass
+              print(json.dumps(report,ensure_ascii=False,sort_keys=True),flush=True)
+          """
+          j=job('janus-ingestion-core')
+          c=j['template']['template']['containers']
+          if len(c)!=1 or c[0].get('command') not in (None,[],['python']):
+              raise ValueError('entrypoint_drift')
+          override={'args':(['python'] if not c[0].get('command') else [])+['-c',CODE],
+                    'env':[{'name':'QUEUE_CONSUMER','value':'false'}]}
+          if c[0].get('name'):override['name']=c[0]['name']
+          op=cloud(f'{ROOT}/jobs/janus-ingestion-core:run',
+                   {'etag':j['etag'],'overrides':{'taskCount':1,'timeout':'450s','containerOverrides':[override]}},'POST')
+          name=op.get('name','')
+          if not name.startswith(ROOT+'/operations/'):raise ValueError('invalid_operation')
+          until=time.monotonic()+515
+          while not op.get('done') and time.monotonic()<until:
+              time.sleep(6)
+              op=cloud(name)
+          if not op.get('done') or op.get('error'):raise RuntimeError('census_operation_failed')
+          exe=op.get('response',{})
+          if not terminal(exe) or exe.get('succeededCount')!=1 or exe.get('failedCount',0):
+              raise RuntimeError('census_job_failed')
+          exe_name=exe.get('name','').rsplit('/',1)[-1]
+          if not exe_name.startswith('janus-ingestion-core-'):raise ValueError('bad_execution')
+          query=f'resource.type="cloud_run_job" AND labels."run.googleapis.com/execution_name"="{exe_name}"'
+          result=None
+          for _ in range(5):
+              proc=subprocess.run(['gcloud','logging','read',query,'--project=gen-lang-client-0593591102',
+                                   '--limit=180','--format=json'],capture_output=True,text=True,timeout=40)
+              if proc.returncode==0:
+                  for row in json.loads(proc.stdout):
+                      payload=row.get('jsonPayload')
+                      if not isinstance(payload,dict):
+                          try:payload=json.loads(row.get('textPayload',''))
+                          except (ValueError,TypeError):continue
+                      if isinstance(payload,dict) and payload.get('component')=='feature_readiness_inventory':
+                          result=payload
+                          break
+              if result is not None:break
+              time.sleep(5)
+          if result is None:raise RuntimeError('census_receipt_missing')
+          Path('/tmp/readiness_census.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
+          print(json.dumps({'execution':exe_name,'receipt':result},ensure_ascii=False))
+          if result.get('status')!='PASS':raise RuntimeError('census_partial')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: readiness-census-metadata
+          path: /tmp/readiness_census.json
+          if-no-files-found: ignore
+          retention-days: 7
