@@ -40,6 +40,9 @@ D01～D08 各有一張獨立可供 AI 執行的 [標準任務卡](execution-card
 - [ ] **DRL-01D 後置，五年PE/PB河流：** 只定向持股／關注股補五年，不做全市場5年無需求回補；真達五年跨度再顯歷史分位，否則PENDING但短期PE/PB照常顯示。
 - [ ] **定期 Data Readiness Ledger：** 只使用現有Controller排程，日增量聚合、週詳細稽核；核對固定Core snapshot、資料筆數、分市場有效母體、期數、缺漏與持續增量水位。Drive只保留管理摘要。
 - **真實修復進度（2026-10-16，依執行收據）：**
+  - **最新Core全量唯讀盤點** [#38910500339](https://github.com/tommylin15/janus-omniforge/actions/runs/38910500339)：TPEX 896 enabled／TWSE 1096 enabled；TPEX 893檔有至少1日價、798檔≥9日、0檔≥20日；TWSE 500檔≥20日。financials 61,014 rows，月營收4,011筆全部已有月份，但**13月≥5股**、EPS有值1970股而明確單季≥4筆僅6股。2382實測單季9個分散期別，不足4連續季度。這是讀回不是歷史修復完成。
+  - **工作流排程競態**：Oct13～15 TPEX [#38910768542](https://github.com/tommylin15/janus-omniforge/actions/runs/38910768542) 因GitHub同群並行request競爭被cancel，**未補收、無Core提交證據**；需等已受理的同源Release及EPS Job終態後重送，避免多筆pending互相取代。
+  - **正式CI與發布**：readiness + EPS/營收修正已通過targeted [#38910120697](https://github.com/tommylin15/janus-omniforge/actions/runs/38910120697)；full GHCR Release [#38910268790](https://github.com/tommylin15/janus-omniforge/actions/runs/38910268790) 已啟動，尚未用終態及後續dev Jobs發布證明實機總帳生效。
   - DRL-01A 上櫃10/02 [#38893470772](https://github.com/tommylin15/janus-omniforge/actions/runs/38893470772) 867/896；10/05、10/06 [#38908586463](https://github.com/tommylin15/janus-omniforge/actions/runs/38908586463) 分別870/896、864/896，Stage→Core及同日readback PASS。只證明3個別交易日，並非21日歷史窗口；上市歷史/持股關注120日尚未完整驗收。
   - DRL-01B 月營收月份欄位 [#38893774756](https://github.com/tommylin15/janus-omniforge/actions/runs/38893774756)：既有合法MOPS metadata更新3947筆，原missing 3947→0，Core snapshot讀回、總60846紀錄筆數維持，**月份修復子項 PASS**；13個連續月營收與YoY覆蓋另驗。
   - DRL-01C 官方2382 EPS history Job [#38894262708](https://github.com/tommylin15/janus-omniforge/actions/runs/38894262708) terminal SUCCESS，但**Core季度readback NOT_VERIFIED**。public EPS圖已改成不以累計EPS直接差分假造單季，缺合法單季維持missing。
