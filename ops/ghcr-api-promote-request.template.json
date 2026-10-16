@@ -6,8 +6,8 @@
   "release_run": "38153154441",
   "jobs_run": "",
   "rollback_mode": "reversible_ghcr",
-  "baseline_source_sha": "7acff50000644979af3815f00fbd7f1c167e1098",
+  "baseline_source_sha": "9f690363e5517cbe90d837a53a94ae3a4e7ab31e",
   "allow_legacy_forward_only": false,
-  "gate": "INERT / approved=false. Current verified 100% GHCR serving rollback source is 7acff, independently read in #38831003922 and full image pinning #38849536106. Next real release must pass full GHCR, API 0% candidate, automated OAuth, four Jobs reversible rollout, and new→old→new 100% with actual live readback. No manual login required.",
+  "gate": "INERT approved=false. Verified 9f 100% GHCR serving/rollback source independently read #38853614819 and four 9f immutable Jobs baseline #38856931558. Any new source requires full release, 0% candidate, auto OAuth/private boundary, reversible Jobs rollout and new→9f→new traffic rehearsal under lease. This template is never dispatched.",
   "auth_boundary_run": ""
 }
