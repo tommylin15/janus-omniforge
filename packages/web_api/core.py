@@ -55,7 +55,13 @@ def _comparable_single_quarter_eps(rows: Sequence[Mapping[str, Any]]) -> list[di
         if source.get("value") is None or source.get("unit") != "TWD_per_share":
             continue
         try:
-            year, quarter = int(source.get("fiscal_year")), int(source.get("fiscal_quarter"))
+            if source.get("fiscal_year") is not None and source.get("fiscal_quarter") is not None:
+                year, quarter = int(source["fiscal_year"]), int(source["fiscal_quarter"])
+            elif source.get("metric") == "eps_single_quarter":
+                end = date.fromisoformat(str(source.get("fiscal_period_end") or source.get("period_end"))[:10])
+                year, quarter = end.year, (end.month - 1) // 3 + 1
+            else:
+                continue
             value = Decimal(str(source["value"]))
         except (ValueError, TypeError, InvalidOperation):
             continue
