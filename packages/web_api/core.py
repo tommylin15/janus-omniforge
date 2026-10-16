@@ -62,7 +62,8 @@ def _comparable_single_quarter_eps(rows: Sequence[Mapping[str, Any]]) -> list[di
         if not value.is_finite() or not 1 <= quarter <= 4:
             continue
         row = dict(source)
-        row.setdefault("fiscal_period_end", date(year, quarter * 3, monthrange(year, quarter * 3)[1]).isoformat())
+        if not row.get("fiscal_period_end"):
+            row["fiscal_period_end"] = date(year, quarter * 3, monthrange(year, quarter * 3)[1]).isoformat()
         key = year, quarter
         if (row.get("metric") == "eps_single_quarter"
                 and row.get("period_basis") == "single_quarter"):
