@@ -1,0 +1,11 @@
+{
+  "intent": "d01-1016-postwrite-exact-lease-reconcile",
+  "approved": true,
+  "owner_run": 38899869851,
+  "owner_sha": "0d6a28291ad65eb7a659637a0fc35cda683b76b0",
+  "no_job_run": true,
+  "no_mart_mutation": true,
+  "no_ledger_mutation": true,
+  "no_api_traffic_mutation": true,
+  "reason": "10/16 Owner MCP independently reads 7/7 same-day positions at unchanged ledger v357. Action failed only in post-write global all-job fence. Inspect exact immutable operation terminal and safely release only source-owned Git lease."
+}
