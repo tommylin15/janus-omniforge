@@ -1,0 +1,15 @@
+{
+  "intent": "d01-2026-10-16-exact-owner-private-mart-publish",
+  "approved": true,
+  "environment": "dev",
+  "target_date": "2026-10-16",
+  "source_sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
+  "release_run": "38856837257",
+  "jobs_rollout_run": "38857643226",
+  "single_owner_only": true,
+  "no_ledger_mutation": true,
+  "private_mart_write_only": true,
+  "no_job_template_mutation": true,
+  "no_traffic_mutation": true,
+  "reason": "Owner seven same-day qualified prices; publish only one owner's PIT-safe derived Mart with existing immutable GHCR job and fence"
+}
