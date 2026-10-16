@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "7acff50000644979af3815f00fbd7f1c167e1098",
-  "candidate_release_run": "38755382061",
-  "candidate_deployment_run": "38756170482",
-  "purpose": "P1 exact 7acff full GHCR release #38755382061 and no-traffic candidate #38756170482 PASS; read only same-SHA OAuth discovery, negative owner/Admin/MCP boundary, immutable 0% candidate tag; human OAuth not required. Controlled four Jobs rollout remains separate.",
+  "sha": "9f690363e5517cbe90d837a53a94ae3a4e7ab31e",
+  "candidate_release_run": "38841326765",
+  "candidate_deployment_run": "38849023963",
+  "purpose": "Owner cash checkpoints 062 applied (#38841287256) and full GHCR Python/Flutter/four public images (#38841326765) PASS, 0% Janus API candidate (#38849023963) PASS. Read-only same-SHA OAuth discovery, negative owner/Admin/MCP boundaries and 0% tag identity; no canonical traffic, Jobs or Owner mutation. Human OAuth is not a gate.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 24
+  "attempt": 25
 }
