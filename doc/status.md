@@ -1,12 +1,19 @@
 # Janus 目前狀態
 
-更新：2026-10-16（Asia/Taipei）。先前使用者要求暫停已被本次明確指示「執行新版 API 正式 100% 切流」覆蓋，**本輪執行範圍僅正式 API 發布與必要驗收／文件，未授權擴張到其他 P1 工項**。新版 P1 總額優先 `8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699` 完整 GHCR／0% candidate／OAuth／Preview／四 Jobs PASS；正式 API 可逆 100% promotion [#38865075071](https://github.com/tommylin15/janus-omniforge/actions/runs/38865075071) **PASS**，獨立正式 [#38865347217](https://github.com/tommylin15/janus-omniforge/actions/runs/38865347217) **PASS**（`janus-api-00517-ciq` 唯一 100%、固定 Preview 來源相同、immutable image、tags、health、owner/cash 未登入 401、真實新→舊→新、回滾 `janus-api-00512-zal`）。新版真人登入後持股畫面、現金交易連動、重算按鈕 E2E **NOT_VERIFIED**；後端 10/15 Owner 合格資料不等於當日新版真人交易操作驗收。
+更新：2026-10-16（Asia/Taipei）。先前使用者要求暫停已被本次明確指示「執行新版 API 正式 100% 切流」覆蓋，**本輪執行範圍僅正式 API 發布與必要驗收／文件，未授權擴張到其他 P1 工項**。新版 P1 總額優先 `8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699` 完整 GHCR／0% candidate／OAuth／Preview／四 Jobs PASS；正式 API 可逆 100% promotion [#38865075071](https://github.com/tommylin15/janus-omniforge/actions/runs/38865075071) **PASS**，獨立正式 [#38865347217](https://github.com/tommylin15/janus-omniforge/actions/runs/38865347217) **PASS**（`janus-api-00517-ciq` 唯一 100%、固定 Preview 來源相同、immutable image、tags、health、owner/cash 未登入 401、真實新→舊→新、回滾 `janus-api-00512-zal`）。**使用者於 2026-10-16 回報**：新版真人持股畫面、現金與股票買賣連動、重算按鈕三項均已完成實際操作驗收，狀態為 **USER_CONFIRMED_PASS（人工正向）**。此為使用者明確驗收回報，非新觸發的自動化測試／後端 receipt；完整異常注入、跨交易類型與效能、正式 PIT 當日重算讀回仍依各自證據獨立判定。
+
+### 2026-10-16｜P1 三項真人操作：使用者驗收回報
+
+- **USER_CONFIRMED_PASS（2026-10-16，正式 dev App 8eb）**：使用者在本次對話明確回報：「真人持股畫面、現金交易連動及重算按鈕驗收都完成了。」記錄為使用者親自確認的**正向功能驗收**，不是本輪助手代為登入操作、執行 API write 或擷取新 runtime receipt。
+- **範圍**：① 真人持股清單／總額呈現；② 現金部位與股票交易後的現金連動；③ App 的重新計算損益按鈕。既有對應後端 migration 062、真實 Worker queue、GHCR／100% 正式部署的獨立技術證據維持原版本、原 scope，不把它們偽裝為本次新增的交易紀錄。
+- **不能外推**：未取得本次測試的每筆精確 BUY／SELL／股利／REVERSAL 明細、金額與 ledger 版本、按鈕 request／Worker execution ID、最新 EOD/PIT valuation、可供稽核的 screenshots、390px／desktop 全量回歸、網路故障／冪等測試或持股端到端 P95。這些若屬仍要求的獨立工程 gate，維持 **NOT_VERIFIED**；不要求使用者為普通發版重做 OAuth／三項基本人工驗收。
+- **整體判定**：三項**人工正向 PASS**；P1 其他獨立 D01～D05 工作仍 **PARTIAL**，並未因人工驗收全數結案。本輪只記錄回報與文件同步，未部署、未修改 Owner 資料。
 
 ### 2026-10-16｜P1 8eb API 正式 100% 可逆切流與獨立驗收
 
 - **正式 API 可逆切流 PASS**：[GitHub Actions #38865075071](https://github.com/tommylin15/janus-omniforge/actions/runs/38865075071) 同源 release `8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699`，從已核准的 0% GHCR immutable candidate 經驗證後執行新版→前版→新版真實 100% traffic 演練，`result=PASS`；完整 receipt artifact id `12030787184`。
 - **獨立 live readback PASS**：[GitHub Actions #38865347217](https://github.com/tommylin15/janus-omniforge/actions/runs/38865347217)；revision `janus-api-00517-ciq` 唯一 canonical 100%，`/app/build-id.txt` 與固定 Preview 皆為本次完整 SHA、健康路徑 200、未登入 Owner 與 cash API 401、immutable image 與 tags 保留、回滾演練 PASS，舊可回滾 revision `janus-api-00512-zal`。只讀驗收報告 `no_mutations=true`，artifact id `12031290847`。
-- **限制**：正式部署／公開安全驗收 **PASS**，不代表實際登入使用者看見 7 檔新的參考總額／部分計價、小計、延遲報價損益、現金設定與買賣連動、手動重算按鈕及冷暖延遲已驗收；這些維持 **PARTIAL／NOT_VERIFIED**。使用者本次只要求正式 API 切流，不自動開工其它工項。
+- **當時驗收界線（現已補充新的使用者人工回報）**：發布當下只證明正式 API 與權限邊界，當時尚無真人驗收回報。後續使用者已確認持股畫面、現金交易連動與重算按鈕三項正向功能 **USER_CONFIRMED_PASS**；個別行情缺口、異常／冪等、正式 PIT 和冷暖 P95 仍須另證，不能把發布收據或使用者確認擴充成全量工程 PASS。
 
 ### 2026-10-16｜P1 真人截圖回報：參考總額與小計優先顯示（8eb42dcb）
 
