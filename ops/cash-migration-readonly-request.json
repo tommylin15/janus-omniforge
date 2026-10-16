@@ -1,0 +1,8 @@
+{
+  "intent": "cash-migration-readonly-diagnosis",
+  "failed_run": "38840325801",
+  "migration": "062_owner_cash_balance_snapshots",
+  "no_gcp_mutation": true,
+  "no_job_execution": true,
+  "no_private_data_dump": true
+}
