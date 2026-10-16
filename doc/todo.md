@@ -25,6 +25,8 @@ D01～D08 各有一張獨立可供 AI 執行的 [標準任務卡](execution-card
 
 ## DRL-01｜新版功能資料可用性修復（正式工程；等待恢復）
 
+**AI入口：**[總指令第7節](codex-execution-plan.md)；消費端[D02卡](execution-cards/d02-full-market-snapshot-performance.md)／[D03卡](execution-cards/d03-four-page-charts-visual.md)，長相見[A第5節](ui/visual-first-four-pages.md)。只補同一條資料→分析→UI鏈，不另照Drive重建。
+
 **2026-10-16 最新範圍：**此工作已核准但依使用者指示暫停，先等另一工作流 D01～D05 完成，再由使用者恢復。本輪僅整併文件，不改變 D01～D05 既有授權、不新增部署。資料→計算→畫面的一體交付與品質放寬依 [三層對照](ui/visual-first-delivery.md)；沿用本DRL-01與D02/D03/D07/D08，不新增平行工作包。
 
 - **整併責任：**DRL-01A→價量／RS與風險；B→營收金額／YoY；C→已知口徑EPS／可比TTM；D→後置估值河流。D03/VF-05/07共用資料接圖與事實短句，D02共用serving／效能，D07驗預測效果，D08接有效報告。新增研究因子字典不代表全數納入首版。
@@ -53,6 +55,8 @@ D01～D08 各有一張獨立可供 AI 執行的 [標準任務卡](execution-card
 
 ## D02｜全市場、快照與效能
 
+**AI入口：**[D02卡](execution-cards/d02-full-market-snapshot-performance.md)／[總指令路由](codex-execution-plan.md)。首頁增補沿此工項共用snapshot，版型見[A第5節](ui/visual-first-four-pages.md)。
+
 - [ ] 完成全市場跨搜尋／關注／screening／研究入口的剩餘驗收；固定官方當日分母、TWSE≤10%／TPEx≤30%逐資料集判定；舊500 artifacts不重標全市場。
 - [ ] 首頁快照批次caller、migration057初始補建、serializer、freshness／版本與持股DB-first snapshot真實readback；無N+1／首屏Iceberg掃描。
 - [ ] 暖首屏P95≤2秒、冷主資訊P95≤5秒、暖試算≤500ms、保存至新版股數／成本可見≤2秒；每暖情境≥30樣本，冷樣本不足明示，timeout計入失敗。端到端與API分開。
@@ -60,6 +64,10 @@ D01～D08 各有一張獨立可供 AI 執行的 [標準任務卡](execution-card
 
 
 ## D03｜四頁與通用圖表
+
+**AI入口：**[D03卡](execution-cards/d03-four-page-charts-visual.md) → [A具體版面第5節](ui/visual-first-four-pages.md) → [B三層交付](ui/visual-first-delivery.md)。不得只讀工項名稱自由設計。
+
+- [ ] **D03後續增補（等DRL-01恢復，不擴當前D05 gate）**：首頁資產短摘要／三則事實異動／TAIEX；個股三行事實→對應圖表、單一主圖、支持疑點、既有筆記延續。沿VF-02/05/06/07與D02，不新建工作包；手機／桌面位置、尺寸、字級、按鈕與狀態依A第5節，資料依DRL-01，模型依D07。已存在部分只補差距。
 
 - [ ] VF-00～01：source→Core→serving→API→UI coverage matrix，財報期別／available-at、事件時間、typed owner read path。
 - [ ] VF-02～06：今日個人相關異動／TAIEX fallback、關注價格與異動、持股單一市值Hero及同時點貢獻、個股短價量與圖表捷徑；模型未驗證不占主畫面。
