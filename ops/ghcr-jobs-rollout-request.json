@@ -2,8 +2,8 @@
   "intent": "approved-dev-ghcr-jobs-rollout",
   "approved": true,
   "scope": "existing-dev-four-jobs",
-  "sha": "cee2437b821c577dc244faf24d9515189796518c",
-  "release_run": "38867940656",
+  "sha": "740e54c25842f39ddf0b912c88a82012a851997d",
+  "release_run": "38873919415",
   "rollback_mode": "reversible_ghcr",
   "accept_no_old_image_rollback": false,
   "baseline_source_sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
@@ -19,9 +19,9 @@
     "janus-intelligence-mart": "12dbd68a8f2ce5991cd489f2cc0bb815013e457f6ba7685786ce6eeeb5364a42",
     "janus-private-pipeline": "23e6449577d7db081cd416824a60d25bb90c3253f762843d68b4f17deabd4a6f"
   },
-  "request_attempt": 20,
-  "safety": "D06 user explicitly requests daily 23:30 audit mirror. Exact source CEE full Release #38867940656 and 0% candidate #38868766947 PASS. Same-source auto auth #38869021942 required. Current four 8eb immutable image/config baseline and Scheduler ENABLED/full execution fence independently read #38868766956. Reversible Jobs-only rollout with lease, Scheduler pause/resume and 8 real canaries; preserve canonical API 8eb 100%/Preview, Owner ledger and cash; no cleanup or IAM change.",
-  "auth_boundary_run": "38869021942",
-  "automated_oauth_requirement": "Same-source completed successful auth run #38869021942; no manual owner consent gate.",
+  "request_attempt": 21,
+  "safety": "D06 user requests stopping unused Iceberg audit mirroring entirely, preserving PostgreSQL atomic events. Same-source full Release #38873919415, zero-traffic candidate #38874649205 and automated OAuth #38875256474 all SUCCESS. Current restored 8eb immutable rollback image/config baseline; verify fresh full execution fence, lease, Scheduler pause/resume and eight canaries. No API traffic promotion, ledger changes, IAM expansion or new resources. Cleanup runs serialized separately; never deploy over a live execution.",
+  "auth_boundary_run": "38875256474",
+  "automated_oauth_requirement": "Same-source successful automated OAuth #38875256474; no manual owner consent gate.",
   "authorization": "Authorized existing dev rollout, strictly reversible. Must inspect GCP source config and all executions before actual mutation."
 }
