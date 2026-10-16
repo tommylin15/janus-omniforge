@@ -2,10 +2,11 @@
   "intent": "drl01-existing-mops-eps-history",
   "approved": true,
   "symbols": [
-    "2382"
+    "2327",
+    "2330"
   ],
   "no_new_provider": true,
   "no_job_template_change": true,
-  "reason": "DRL-01 one-symbol MOPS fundamental-history canary; original approved XBRL index/source only; compare Core quarterly EPS readback separately.",
-  "request_version": 1
+  "reason": "DRL-01 priority: two existing TWSE symbols used by real stock UI; official MOPS historical EPS plus bounded monthly revenue via existing fundamental-history ingestion; PIT/version rules unchanged; verify Core periods separately.",
+  "request_version": 2
 }
