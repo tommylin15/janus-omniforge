@@ -3,12 +3,12 @@
   "approved": true,
   "market": "TWSE",
   "months": [
-    "2026-05",
-    "2026-06"
+    "2026-03",
+    "2026-04"
   ],
   "no_new_provider": true,
   "no_owner_mutation": true,
   "no_job_template_change": true,
-  "request_version": 3,
-  "reason": "DRL-01 continue two official MOPS months after prior Sep (1088/1096) and Jul-Aug (1084/1085) true Core readback PASS. No new provider, no owner data, no job template alteration."
+  "request_version": 4,
+  "reason": "DRL-01 official MOPS prior two TWSE monthly archives; May-Sep market coverage all >=1084/1096 proven Core. Stage/version provenance, do not infer historical publication date or mutate Owner."
 }
