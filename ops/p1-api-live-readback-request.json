@@ -1,0 +1,11 @@
+{
+  "intent": "p1-live-api-post-promote-readback",
+  "approved": true,
+  "source_sha": "7acff50000644979af3815f00fbd7f1c167e1098",
+  "promotion_run": "38830675477",
+  "jobs_run": "38821199561",
+  "no_gcp_mutation": true,
+  "no_owner_mutation": true,
+  "no_traffic_mutation": true,
+  "reason": "Read exact real dev canonical 100% revision, preserved tags, GHCR immutable digest, build-id, Preview source, health/unauthorized boundary after successful reversible promotion. No Cloud Run modifications or Owner credentials."
+}
