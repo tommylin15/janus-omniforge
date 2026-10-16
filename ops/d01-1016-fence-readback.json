@@ -1,0 +1,9 @@
+{
+  "intent": "d01-1016-fence-readback",
+  "approved": true,
+  "failed_run": "38899869851",
+  "no_gcp_mutation": true,
+  "no_owner_mutation": true,
+  "no_lease_mutation": true,
+  "reason": "Single readonly inventory of exact execution names preventing postwrite owner release fence; do not retry or cancel jobs."
+}
