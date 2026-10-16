@@ -70,7 +70,7 @@
 | 重算／交易／四頁 | 持股 partial 小計與狀態 Flutter 已修改、完整 Flutter Gate PASS；交易試算與重算舊契約已具實作，**新版本 Owner 交易/重算及四頁 authenticated screenshot 未驗** | 覆蓋同源真實功能、VF-00～08、390px/desktop與可及性 |
 | 備份總控 | D04 GHA WIF 唯讀 #38710741325 PASS：Scheduler 唯一 janus-ingestion-daily ENABLED 每小時 :30；GCS daily 備份可列 3 份、最新 2026-10-14；Compute VM describe 仍 DENIED_OR_UNAVAILABLE。install #38692040229 缺 compute.instances.get，原 timer 未被本輪停用；isolated restore／handoff NOT VERIFIED | 要執行 VM 內 executor install/restore，須既有授權的 VM 執行路徑或明確核准精確最小 Compute／IAP IAM；未獲權限不切 timer |
 | API／Preview／Jobs | 最新已驗證來源 285848 Release #38717341300、API 0% #38718006906、OAuth #38718076548、四 Jobs #38718355824 SUCCESS；固定 Preview 285848 #38740477232、live #38752934496 PASS；正式 canonical 100% 仍 b1bc785、未切 | P1 實際 owner UI/API、同版 Preview／正式 dev 切流與回復驗收，不以 P0 backend PASS 當成 App 已發布 |
-| Iceberg／D06 | 2026-10-16 基線 8,342 objects／194,157,789 bytes、8,335 小檔；首次實清 #38873430713 HTTP 403／實刪0。無產品使用者的稽核鏡像停用來源740e54c2完整 Release #38873919415 PASS | 完成同源 Jobs rollout／生效讀回；定位403，實際降低小檔並量測I/O。詳見 [D06證據](archive/d06-finops-2026-10-16.md) |
+| Iceberg／D06 | 2026-10-16 基線 8,342 objects／194,157,789 bytes、8,335 小檔；首次實清 #38873430713 HTTP 403／實刪0。無產品使用者的稽核鏡像停用來源740e54c2完整 Release #38873919415 PASS。CI identity orphan 清理已觸發，待執行結果 | 完成 CI orphan 清理驗收；定位403，實際降低小檔並量測I/O。詳見 [D06證據](archive/d06-finops-2026-10-16.md) |
 | Retention fence | 96 Research／495 Private JSON 已完整讀取，8 Core identities皆有manifest；外部／PG全面 fence 未發行 | 使用者明確例外允許保留已知引用、current/named/24h及7日檔齡後清無關聯小檔；不豁免 canonical rows／Core manifest retirement |
 | 五角色／CEO | B0～B8 歷史 CLOSED；B9 品質未整體通過；omniAgent P0-V 技術 PASS，正式 Owner publication 未通過 | 產品交付後逐角色評估，再驗真實報告 |
 
