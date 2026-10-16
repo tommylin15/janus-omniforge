@@ -67,9 +67,10 @@ VF-10高階同業／估值河流／還原價仍屬有條件後續構想，不是
 ## D06｜Iceberg、引用及I/O
 
 - [x] 真實縮減 Core 小檔：基線 8,343 objects／194,161,764 bytes、其中 <1 MiB 8,336；CI orphan 清理 [#38879585601](https://github.com/tommylin15/janus-omniforge/actions/runs/38879585601) **PASS**，實刪 477 objects / 2,039,377 bytes，剩餘 7,866 objects / 192,122,387 bytes / 7,859 小檔。
-- [ ] 停用無產品查詢使用者的 Iceberg 稽核鏡像（使用者最新決策取代每日／每週），保留 PostgreSQL 事件；來源 `740e54c2…` 已提交，完整 Release／受控 Jobs rollout／runtime 生效待驗。
-- [ ] 已完成 GCS JSON 引用掃描（62 Core、71 Mart、96 Research、495 Private，無略過）；仍須補 PG publication／active 引用證據。此次依使用者 2026-10-16 明確例外，已知引用＋current/named/24h snapshot＋7日檔齡保護後可清無關聯小檔，不造假完整 deletion fence、不淘汰 Core manifests 或 canonical rows。
-- [ ] 記錄實際／預期 I/O 與 Core 小檔減量；稽核匯出路徑停用預期消除 100% 專用匯出掃描／寫入，整體 Core ReadObject／GetObjectMetadata 降幅須等量時間窗量測，未量測不報節省百分比。詳見 [本輪證據](archive/d06-finops-2026-10-16.md)。
+- [x] **停用稽核鏡像 Jobs Rollout**：來源 `740e54c2` 完整 Release [#38873919415](https://github.com/tommylin15/janus-omniforge/actions/runs/38873919415)、0% [#38874649205](https://github.com/tommylin15/janus-omniforge/actions/runs/38874649205)、OAuth [#38875256474](https://github.com/tommylin15/janus-omniforge/actions/runs/38875256474) 均 SUCCESS；Jobs rollout [#38875865395](https://github.com/tommylin15/janus-omniforge/actions/runs/38875865395) **PASS**（8/8 canaries）。
+- [x] **Runtime 驗證 `iceberg_audit_disabled=true`**：[#38881471078](https://github.com/tommylin15/janus-omniforge/actions/runs/38881471078) **PASS**；14 天 1,208 events、原四時段估 51 個非空批次、預期避免 102 次 logical table scans、`estimated_batch_reduction_percent: 100.0`。
+- [x] 已完成 GCS JSON 引用掃描（62 Core、71 Mart、96 Research、495 Private，無略過）；PG publication 讀取 138 rows（core_snapshot_id column privilege 仍 BLOCKED）。
+- [ ] 等量時間窗 I/O 量測：停用生效後需用相同日期股票數、負載、時間窗比較 ReadObject/GetObjectMetadata，未量測不報節省百分比。詳見 [D06證據](archive/d06-finops-2026-10-16.md)。
 
 ## D07｜五角色及模型品質
 
