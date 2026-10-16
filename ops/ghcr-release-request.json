@@ -7,9 +7,9 @@
     "private-pipeline",
     "api"
   ],
-  "promotion": "candidate-only-until-062-live-migration-and-same-source-gates-pass",
-  "attempt": 50,
-  "reason": "2026-10-16 user-approved editable owner cash TWD cash checkpoint, ledger automatic net cash flow, compact 1-2-line holdings, cash+market value total assets; API and Flutter CI #38840121209 PASS. Full source release builds complete GHCR images only, not GCP traffic or extra resources. Verify migration 062 separately before 0% candidate/traffic.",
+  "promotion": "candidate-only-until-062-runtime-migration-acceptance-and-gates",
+  "attempt": 51,
+  "reason": "2026-10-16 migration 062 original run #38840325801 terminal failed InsufficientPrivilege REFERENCES private.users; read-only #38841085626 verified exact object. No GCP IAM changed. Schema avoids unowned FK and scoped deletion is added to private erasure. Full source Python/Flutter/GHCR for owner cash, compact holdings and corrected 062; migration retry #38841287256 independent and must PASS before deployment.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }
