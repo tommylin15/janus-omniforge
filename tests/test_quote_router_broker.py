@@ -361,7 +361,7 @@ def test_future_tpex_cache_cannot_be_counted_as_official_current_quote():
     assert q["state"] == "stale"
 
 
-def test_stale_mis_falls_back_to_recent_official_close_without_inventing_intraday():
+def test_stale_mis_retains_latest_tick_for_indicative_portfolio_without_live_claim():
     repo = QuoteRepository()
     now = datetime(2026, 10, 16, 13, 12, tzinfo=TAIPEI)
     repo.saved["2330"] = {
@@ -374,14 +374,11 @@ def test_stale_mis_falls_back_to_recent_official_close_without_inventing_intrada
         "source": "core_ohlcv", "is_final": True,
     }
     quote = QuoteRouter(repo, object()).read({"2330": {"market": "TWSE"}}, now=now)["2330"]
-    assert quote["price"] == "110"
-    assert quote["price_date"] == "2026-10-15"
-    assert quote["source"] == "core_ohlcv"
-    assert quote["state"] == "eod_final" and quote["is_final"] is True
-    assert quote["fallback_reason"] == "stale_intraday_official_eod"
+    assert quote["price"] == "115"  # latest known 10/16 tick, not yesterday
+    assert quote["price_date"] == "2026-10-16"
+    assert quote["source"] == "twse_mis"
+    assert quote["state"] == "stale" and quote["is_final"] is False
 
-    # A dated official close can still value the portfolio at THAT date.
-    # During an active later session it cannot invent today's price change.
     repo.saved["00719B"] = {
         "price": "30", "price_date": "2026-10-15",
         "source": "tpex_openapi_eod",
@@ -392,17 +389,19 @@ def test_stale_mis_falls_back_to_recent_official_close_without_inventing_intrada
         {"symbol": "2330", "currency": "TWD", "shares": "1", "average_cost": "100"},
         {"symbol": "00719B", "currency": "TWD", "shares": "2", "average_cost": "32"},
     ]
-    result = value_holdings(rows, prices, now, previous_closes={
-        "2330": {"previous_close": "105", "previous_close_date": "2026-10-14"},
-    })
-    assert result["items"][0]["aggregate_status"] == "available"
-    assert result["items"][0]["valuation_date"] == "2026-10-15"
-    assert result["items"][0]["market_value"] == "170"
-    assert result["items"][0]["unrealized_pnl"] == "6"
-    assert result["positions"][0]["day_change_amount"] is None
+    result = value_holdings(rows, prices, now)
+    total = result["items"][0]
+    assert total["aggregate_status"] == "withheld"
+    assert total["reference_status"] == "available"
+    assert total["reference_market_value"] == "175"
+    assert total["reference_unrealized_pnl"] == "11"
+    assert total["reference_price_dates"] == ["2026-10-15", "2026-10-16"]
+    assert result["positions"][0]["reference_eligible"] is True
+    assert result["positions"][0]["price_status"] == "stale"
 
-    # If a verified current-session MIS tick exists instead, mixing today's
-    # TWSE with yesterday's TPEx MUST still withhold the combined total.
+    # Current session tick remains usable for display, but a mismatched
+    # previous close or mixed quote dates must never be published as
+    # a single official current-day PnL.
     repo.saved["2330"]["received_at"] = "2026-10-16T13:11:30+08:00"
     repo.saved["2330"]["quote_at"] = "2026-10-16T13:11:25+08:00"
     current = QuoteRouter(repo, object()).read(
@@ -413,7 +412,7 @@ def test_stale_mis_falls_back_to_recent_official_close_without_inventing_intrada
     assert mixed["aggregate_missing_reason"] == "mixed_price_dates"
 
 
-def test_stale_mis_must_not_upgrade_outdated_or_future_official_close():
+def test_eod_precedence_rejects_future_day_and_older_quote():
     repo = QuoteRepository()
     now = datetime(2026, 10, 16, 13, 12, tzinfo=TAIPEI)
     repo.saved["2330"] = {
