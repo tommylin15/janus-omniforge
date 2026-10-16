@@ -118,6 +118,67 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('Delayed TWSE quotes still render seven indicative holdings and assets',
+      (tester) async {
+    _phone(tester);
+    final snapshot = _snapshot();
+    final original = Map<String, dynamic>.from(snapshot['positions'].first as Map);
+    final other = <Map<String, dynamic>>[
+      for (final symbol in ['1513', '2327', '2382', '3231', '5876'])
+        {
+          ...original,
+          'symbol': symbol,
+          'stock_name': '持股$symbol',
+          'price_status': 'stale',
+          'reference_eligible': true,
+          'price_source': 'twse_mis',
+          'price_date': '2026-10-16',
+          'market_price': '100',
+          'average_cost': '95',
+          'unrealized_pnl': '500',
+          'unrealized_return': '0.05263',
+          'change': '1.5',
+          'change_percent': '0.015',
+          'day_change_amount': '150',
+        },
+    ];
+    (snapshot['positions'] as List).addAll(other);
+    (snapshot['items'] as List)[0] = {
+      'currency': 'TWD',
+      'ledger_version': 357,
+      'aggregate_status': 'withheld',
+      'valuation_status': 'stale',
+      'affected_symbols': const ['1513', '2327', '2382', '3231', '5876'],
+      'priced_market_value': '933600',
+      'priced_symbol_count': 1,
+      'reference_status': 'available',
+      'reference_price_dates': const ['2026-10-15', '2026-10-16'],
+      'reference_priced_symbol_count': 6,
+      'reference_market_value': '1433600',
+      'reference_unrealized_pnl': '1300',
+      'reference_unrealized_return': '0.0009',
+    };
+    snapshot['cash'] = {'cash_status': 'available', 'cash_balance': '1811000'};
+    snapshot['asset_status'] = 'incomplete_prices';
+    snapshot['reference_asset_status'] = 'available';
+    snapshot['reference_total_asset_value'] = '3244600';
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: FinalLedgerPage(
+      HoldingsP0Api(snapshot), active: false,
+      now: () => DateTime.utc(2026, 10, 16, 5, 12)))));
+    await tester.pumpAndSettle();
+    expect(find.text('持股參考市值'), findsOneWidget);
+    expect(find.text('現金＋參考市值'), findsOneWidget);
+    expect(find.text('324.5 萬元'), findsOneWidget);
+    expect(find.text('TWD 1,433,600'), findsOneWidget);
+    expect(find.textContaining('非正式收盤總額'), findsOneWidget);
+    expect(find.text('總額暫不發布'), findsNothing);
+    await tester.scrollUntilVisible(find.byKey(const Key('holding-pnl-5876')),
+        170, scrollable: find.byType(Scrollable).first);
+    expect(find.text('500'), findsWidgets);
+    expect(find.textContaining('參考'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('No priced portfolio total displays missing rather than fabricating assets',
       (tester) async {
     _phone(tester);
