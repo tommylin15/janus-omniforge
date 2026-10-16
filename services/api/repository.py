@@ -1433,7 +1433,7 @@ class PostgresWorkspaceRepository:
             connection.execute("DELETE FROM private.assistant_threads WHERE user_id=%s",(user_id,))
             connection.execute("DELETE FROM private.assistant_skill_state WHERE user_id=%s",(user_id,))
             connection.execute("DELETE FROM private.assistant_skill_revisions WHERE user_id=%s",(user_id,))
-            for table in ("analysis_feedback","change_log","mutation_keys","note_index","watchlist","mcp_servers","mcp_oauth_refresh_tokens","mcp_oauth_codes","broker_profile_revisions","investment_profiles","current_positions","ledger_events","users"):
+            for table in ("analysis_feedback","change_log","mutation_keys","note_index","watchlist","mcp_servers","mcp_oauth_refresh_tokens","mcp_oauth_codes","broker_profile_revisions","investment_profiles","cash_balance_snapshots","current_positions","ledger_events","users"):
                 connection.execute(f"DELETE FROM private.{table} WHERE user_id=%s",(user_id,))
             connection.execute("""UPDATE private.deletion_requests SET status='COMPLETED',cleanup_pending='{}',completed_at=now()
                                 WHERE request_id=%s AND user_id=%s""",(request_id,user_id))
