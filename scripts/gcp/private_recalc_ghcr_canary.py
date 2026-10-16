@@ -11,10 +11,10 @@ import time
 from uuid import uuid4
 import ghcr_jobs_rollout as rollout
 
-SOURCE = "1e9c31d148db540ee06cac5ccccd8fac8d619511"
+SOURCE = "7acff50000644979af3815f00fbd7f1c167e1098"
 IMAGES = {
-    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:512b05013029934d3b02254a9451136ea40c0bd738c6c7561a7c0f333e7d4648",
-    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:d06ffd5a56439d00780af8e9908a060f154c53a69768915ebd5581d3a58cb95e",
+    "janus-ingestion-core": "ghcr.io/tommylin15/janus-ingestion-core@sha256:8590f4d4cc991aefc069b28da3f466858eefc6fd2e5011de5063ffdb76e809cd",
+    "janus-private-pipeline": "ghcr.io/tommylin15/janus-private-pipeline@sha256:2c6f4560abd6980aea69064795f7dbab38683f792ec628d3a8d53ed320bf5bae",
 }
 
 
@@ -60,7 +60,10 @@ def main():
         request.get("seeded_requests") != 1 or request.get("worker_tasks") != 2 or
         request.get("no_ledger_mutation") is not True or
         request.get("derived_mart_may_refresh") is not True or
-        request.get("no_job_template_mutation") is not True):
+        request.get("no_job_template_mutation") is not True or
+        request.get("jobs_rollout_run") != "38821199561" or
+        request.get("source_owner_eod_run") != "38827827101" or
+        request.get("no_traffic_mutation") is not True):
         raise ValueError("queue_canary_authorization_drift")
     rollout.legacy_writers()
     if rollout.scheduler().get("state") != "ENABLED":
@@ -77,6 +80,7 @@ def main():
               "source_sha":SOURCE,"status":"UNKNOWN",
               "no_ledger_mutation":True,"job_template_mutation":False,
               "api_traffic_changed":False,"seeded_requests":1,"worker_tasks":2,
+              "source_owner_eod_run":"38827827101",
               "test_request_id":request_id}
     Path("/tmp/private-recalc-ghcr-canary.json").write_text(json.dumps(result))
     # If an operation becomes UNKNOWN, stop: leave the durable lease in place.
