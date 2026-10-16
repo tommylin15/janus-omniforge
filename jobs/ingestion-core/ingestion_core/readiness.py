@@ -122,6 +122,19 @@ def summarize_readiness(members, benchmark, prices, financials, focused_prices, 
                     and row.get("period_basis") in (None, "year_to_date")))):
             eps[symbol].add((end.year, (end.month - 1) // 3 + 1))
     all_names = universe["TWSE"] | universe["TPEX"]
+    last_due = as_of.replace(day=1)-timedelta(days=1)
+    if as_of.day <= 10:
+        last_due = last_due.replace(day=1)-timedelta(days=1)
+    last_index = last_due.year * 12 + last_due.month - 1
+    expected_months = {(index // 12, index % 12 + 1)
+                       for index in range(last_index-12, last_index+1)}
+    ready_months = sum(expected_months.issubset(monthly[s]) for s in all_names)
+    def four_consecutive_quarters(periods):
+        if not periods:
+            return False
+        indices = {year * 4 + quarter - 1 for year, quarter in periods}
+        return any({i, i-1, i-2, i-3}.issubset(indices) for i in indices)
+    ready_eps = sum(four_consecutive_quarters(eps[s]) for s in all_names)
     return {
         "schema_version": "data-readiness-ledger.v1",
         "as_of": as_of.isoformat(), "checked_at": datetime.now(timezone.utc).isoformat(),
@@ -131,10 +144,10 @@ def summarize_readiness(members, benchmark, prices, financials, focused_prices, 
         "focus_120d": {"expected": len(relevant), "qualified": focused_count,
                        "status": "PASS" if relevant and focused_count == len(relevant) else "PARTIAL"},
         "monthly_revenue_13": {"expected": len(all_names),
-                               "qualified": sum(len(monthly[s]) >= 13 for s in all_names),
+                               "qualified": ready_months,
                                "status": "MEASURED_NOT_COMPLETE"},
         "eps_4_comparable": {"expected": len(all_names),
-                             "qualified": sum(len(eps[s]) >= 4 for s in all_names),
+                             "qualified": ready_eps,
                              "status": "MEASURED_NOT_COMPLETE"},
         "status": "PARTIAL" if (not all(x["status"] == "PASS" for x in summary.values())
                                or focused_count < len(relevant)) else "PRICE_AND_FOCUS_READY_ONLY",
