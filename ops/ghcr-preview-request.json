@@ -2,16 +2,16 @@
   "intent": "publish-verified-ghcr-candidate-to-fixed-preview",
   "approved": true,
   "scope": "janus-api-preview-tag-only",
-  "source_sha": "9f690363e5517cbe90d837a53a94ae3a4e7ab31e",
-  "api_image": "ghcr.io/tommylin15/janus-api@sha256:771f436c1ab73d6b5c7d48ab3f350a503fa21df9ae7da3ad9cddbfc3f44471eb",
-  "release_run": "38841326765",
-  "candidate_run": "38849023963",
-  "boundary_run": "38849269399",
+  "source_sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
+  "api_image": "ghcr.io/tommylin15/janus-api@sha256:b017e38b6ba35829cf3dec99f9e163e65c5312ae847705a2ac70d77ac5fbecff",
+  "release_run": "38856837257",
+  "candidate_run": "38857279864",
+  "boundary_run": "38857441171",
   "preview_url": "https://preview---janus-api-2oo7qbkd5q-uc.a.run.app/app/",
   "canonical_traffic_mutation": false,
   "jobs_or_scheduler_mutation": false,
   "other_tags_mutation": false,
-  "reason": "2026-10-16 owner cash TWD checkpoint and compact holdings: migration 062 #38841287256 PASS, full Python Flutter GHCR #38841326765 PASS, 0% candidate #38849023963 PASS, automated OAuth negative boundaries #38849269399 PASS; route fixed preview tag only, keep official 100% 7acff traffic and all other tags/Jobs/Scheduler unchanged.",
+  "reason": "P1 updated valuation: user sees full priced reference totals or visibly labelled priced partial subtotal including cash+priced, while official completeness remains independently guarded. Full release #38856837257, immutable 0% API #38857279864, OAuth/private negative #38857441171 PASS. Update ONLY fixed Preview and verify build-id, health, tags, no canonical traffic/GCP Job/Scheduler mutation.",
   "on_failure": "Restore exact previous preview tag and verify old SHA; retain owner lease if restoration unknown.",
-  "attempt": 17
+  "attempt": 18
 }
