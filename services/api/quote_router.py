@@ -116,24 +116,11 @@ class QuoteRouter:
                 state = "closing_pending_eod"
             else:
                 state = "stale"
-            # An expired MIS tick is not an eligible valuation, even if its
-            # last trade price is still displayable. Prefer the independently
-            # persisted official close when it is recent and not from the
-            # future; this is an explicitly dated EOD fallback, never a live
-            # quote or a guess based on the stale MIS price.
-            local_day = now.astimezone(TAIPEI).date()
-            if (state == "stale" and eod_row and eod_day is not None
-                    and 0 <= (local_day - eod_day).days <= 7):
-                result[symbol] = {
-                    **eod_row,
-                    "source": "core_ohlcv",
-                    "route_version": ROUTE_VERSION,
-                    "state": "eod_final",
-                    "is_final": True,
-                    "price_date": eod_day.isoformat(),
-                    "fallback_reason": "stale_intraday_official_eod",
-                }
-                continue
+            # The newest legitimate MIS observation may be older than 120s
+            # and newer than the latest official close. Keep it as an
+            # explicitly STALE/indicative observation; the owner UI can value
+            # holdings without falsely marking it as a real-time quote.
+            # The formally publishable total remains independently gated.
             result[symbol] = {
                 **live_row,
                 "source": "twse_mis",
