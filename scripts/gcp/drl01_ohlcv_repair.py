@@ -23,6 +23,9 @@ TARGET_CEILING = date(2026, 10, 16)
 PROBE = r'''
 import json
 import os
+import time
+from http.client import IncompleteRead
+from urllib.error import URLError
 from datetime import date, datetime, timezone
 from uuid import uuid4
 from pyiceberg.expressions import And, EqualTo
@@ -56,8 +59,9 @@ try:
     adapter = dataset_adapters()["tpex-market-volume" if market=="TPEX" else "twse-market-volume"]
     needed = .30 if market=="TPEX" else .10
     for target in dates:
-        item={"date":target.isoformat(),"market":market,"status":"UNKNOWN"}
+        item={"date":target.isoformat(),"market":market,"status":"UNKNOWN","phase":"preflight"}
         try:
+            item["phase"]="read_before"
             table=core.catalog.load_table(core.table_identifier("ohlcv"))
             filtered=table.scan(row_filter=And(EqualTo("trade_date",target),EqualTo("market",market)),
                                 selected_fields=("symbol","close")).to_arrow().to_pylist()
@@ -71,18 +75,27 @@ try:
             exec_id=str(uuid4())
             request=CollectionRequest(exec_id,exec_id,adapter.source_id,adapter.dataset_id,
                                       market,tuple(sorted(members)),target,target,40)
-            resp=adapter.fetch(request)
+            item["phase"]="fetch"
+            try:
+                resp=adapter.fetch(request)
+            except (IncompleteRead,TimeoutError,URLError):
+                time.sleep(2)
+                resp=adapter.fetch(request)
+            item["phase"]="validate"
             selection=[dict(r) for r in resp.rows if r.get("symbol") in members]
             dq=validate_ohlcv(selection,analysis_as_of=date(2026,10,16))
             rows=list(dq.accepted)
             if len(rows)>1300 or not rows:
                 raise RuntimeError("bounded_market_dq_rejected")
+            item["phase"]="stage"
             staged,_=stage_raw_response(resp,request,bucket=os.environ["STAGE_BUCKET"],
                                         store=stage_store,execution_scoped=True)
+            item["phase"]="core_commit"
             commit=core.write(dataset_id="ohlcv",rows=rows,execution_id=exec_id,
                               provenance_id=staged.idempotency_key,source_id=adapter.source_id,
                               partition_date=target)
             StageWriter(stage_store).mark_core_committed(exec_id,stage_results=[staged])
+            item["phase"]="read_after"
             refreshed=core.catalog.load_table(core.table_identifier("ohlcv"))
             checked=refreshed.scan(row_filter=And(EqualTo("trade_date",target),EqualTo("market",market)),
                                     selected_fields=("symbol","close")).to_arrow().to_pylist()
