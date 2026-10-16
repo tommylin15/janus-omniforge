@@ -451,6 +451,17 @@ def run_backfill(*, incremental=False, valuation_only=False, fundamental_only=Fa
             "execution_id": execution.execution_id, "status": summary["status"], "coverage": coverage,
             "failures": summary["failures"], "core_created": summary["core_created"], "core_updated": summary["core_updated"], "core_reused": summary["core_reused"], "skipped": summary["skipped"], "operation": summary["operation"]},
             actor="data-supplement", audit_resource="data_supplement")
+        if incremental:
+            try:
+                from .readiness import publish_data_readiness
+                readiness = publish_data_readiness(core, control, as_of=today,
+                                                   actor="data-supplement")
+                summary["data_readiness_status"] = readiness["status"]
+            except Exception as error:
+                # A reporting fault must not falsify or roll back the finished
+                # source collection; record an explicit unknown instead.
+                summary["data_readiness_status"] = "UNKNOWN"
+                summary["data_readiness_error"] = type(error).__name__
         return summary
     except Exception:
         if execution and not collection_finished:
