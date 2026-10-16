@@ -11,14 +11,30 @@ BUCKET = 'gen-lang-client-0593591102-dev-core'
 
 
 def validate(item, actual, now):
-    if (not item['name'].startswith('warehouse/batch_events_v1/')
-            or not item['name'].endswith(('.avro', '.parquet'))
-            or actual['generation'] != item['generation']
-            or int(actual['size']) != item['bytes'] or not 0 < item['bytes'] < 1024*1024
-            or datetime.fromisoformat(actual['updated'].replace('Z','+00:00')) >= now-timedelta(days=7)
-            or actual.get('temporaryHold') or actual.get('eventBasedHold')
-            or (actual.get('retentionExpirationTime') and datetime.fromisoformat(actual['retentionExpirationTime'].replace('Z','+00:00')) > now)):
-        raise ValueError('ci_orphan_generation_scope_changed')
+    errors = []
+    if not item['name'].startswith('warehouse/batch_events_v1/'):
+        errors.append('prefix_mismatch')
+    if not item['name'].endswith(('.avro', '.parquet')):
+        errors.append('extension_mismatch')
+    if actual['generation'] != item['generation']:
+        errors.append(f"generation_mismatch:{actual['generation']}!={item['generation']}")
+    if int(actual['size']) != item['bytes']:
+        errors.append(f"size_mismatch:{actual['size']}!={item['bytes']}")
+    if not 0 < item['bytes'] < 1024*1024:
+        errors.append('bytes_out_of_range')
+    updated = datetime.fromisoformat(actual['updated'].replace('Z','+00:00'))
+    if updated >= now-timedelta(days=7):
+        errors.append(f"too_recent:{actual['updated']}")
+    if actual.get('temporaryHold'):
+        errors.append('temporary_hold')
+    if actual.get('eventBasedHold'):
+        errors.append('event_based_hold')
+    if actual.get('retentionExpirationTime'):
+        retention = datetime.fromisoformat(actual['retentionExpirationTime'].replace('Z','+00:00'))
+        if retention > now:
+            errors.append(f"retention_active:{actual['retentionExpirationTime']}")
+    if errors:
+        raise ValueError(f"ci_orphan_generation_scope_changed:{item['name']}:{','.join(errors)}")
 
 
 def run(call, jsoncall, inventory, rollout):
@@ -70,7 +86,8 @@ def run(call, jsoncall, inventory, rollout):
             raise RuntimeError('ci_orphan_net_reduction_not_verified')
         result['status'] = 'PASS'
     except Exception as error:
-        result.update(error_type=type(error).__name__,http_status=error.code if isinstance(error,HTTPError) else None)
+        result.update(error_type=type(error).__name__,http_status=error.code if isinstance(error,HTTPError) else None,
+                      error_message=str(error)[:512] if isinstance(error,ValueError) else None)
         if isinstance(error,HTTPError):
             try:
                 import re
