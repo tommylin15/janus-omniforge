@@ -14,7 +14,9 @@ import ghcr_jobs_rollout as r
 REQUEST = Path('ops/finops-reference-runtime.json')
 PREFIX = 'D06_REFERENCE_READBACK='
 CORE_CODE = '''
-import json, os, resource, time
+import json, os, resource, time, traceback
+from pathlib import Path
+from urllib.error import HTTPError
 from datetime import datetime, timezone, timedelta
 from ingestion_core.__main__ import _control_plane, _iceberg_core
 with _control_plane() as control:
@@ -65,6 +67,11 @@ try:
         'audit_visible_objects':len(objects),'audit_visible_bytes':sum(int(x['size']) for x in objects),
         'elapsed_seconds':round(time.monotonic()-started,3),'peak_rss_kib':resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
         'applied':False}
+except Exception as error:
+    frame=traceback.extract_tb(error.__traceback__)[-1]
+    out['audit_cleanup_dry_run']={'status':'BLOCKED','error_type':type(error).__name__,
+        'http_status':error.code if isinstance(error,HTTPError) else None,
+        'error_location':Path(frame.filename).name+':'+str(frame.lineno),'applied':False}
 finally: core.close()
 print('D06_REFERENCE_READBACK='+json.dumps(out,sort_keys=True),flush=True)
 '''

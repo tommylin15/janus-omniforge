@@ -1,13 +1,13 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
-  "purpose": "P1 visible-totals-first release #38856837257 full Python Flutter four GHCR plus public pull PASS. Deploy only 0% candidate for owner indicative subtotal, cash plus priced holdings and delayed TWSE price UX. Preserve 9f690363 currently serving 100%, fixed preview/Jobs/Scheduler/tags, immutable rollback.",
+  "sha": "cee2437b821c577dc244faf24d9515189796518c",
+  "purpose": "D06 user-authorized daily 23:30 audit mirror; full Release #38867940656 PASS, all four public immutable GHCR. Required 0% candidate/auth gate before controlled Jobs-only rollout. Preserve current 8eb canonical API 100%, Preview, tags and rollback; no product traffic promotion.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "retry_verification": "Verify release #38856837257 exactly same SHA, GHCR API anonymous pull immutable digest, candidate build-id SHA, Ready and 401, previous official API canonical 9f690 remains 100%.",
+  "retry_verification": "Verify exact source full Release #38867940656, immutable GHCR and candidate build-id; preserve canonical 8eb 100% and all tags.",
   "same_sha_retry_attempt": 0,
   "digest": ""
 }

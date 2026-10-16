@@ -4,5 +4,5 @@
   "project": "gen-lang-client-0593591102",
   "region": "us-central1",
   "scope": "D06 read-only exact HTTP failure/permission signatures from old audit cleanup and completed runtime probe; no retries or mutations.",
-  "attempt": 7
+  "attempt": 8
 }
