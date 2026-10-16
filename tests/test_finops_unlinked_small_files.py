@@ -91,3 +91,9 @@ def test_http_failure_emits_only_safe_diagnostics_without_retry(monkeypatch,caps
     assert result['http_reasons']==['retentionPolicyNotMet']
     assert result['denied_storage_permissions']==['storage.objects.delete']
     assert 'secret@example.test' not in output
+
+
+def test_worker_source_preserves_gcloud_custom_argument_delimiter():
+    code=Path('scripts/gcp/finops_unlinked_small_files.py').read_text()
+    assert '|' not in code
+    assert ('python|-c|'+code).split('|')==['python','-c',code]

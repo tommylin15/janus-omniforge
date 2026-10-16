@@ -118,7 +118,8 @@ def main():
             try:
                 message=json.loads(error.read(16384)).get('error',{})
                 safe_message=re.sub(r'[\w.+-]+@[\w.-]+','<identity>',str(message.get('message',''))[:512])
-                result['http_message']=re.sub(r'(?i)(bearer\s+|access_token[=: ]+)\S+',r'\1<redacted>',safe_message)
+                safe_message=re.sub(r'(?i)(bearer\s+)\S+',r'\1<redacted>',safe_message)
+                result['http_message']=re.sub(r'(?i)(access_token[=: ]+)\S+',r'\1<redacted>',safe_message)
                 result['http_reasons']=[x['reason'] for x in message.get('errors',[]) if re.fullmatch(r'[A-Za-z_]{1,80}',x.get('reason',''))]
                 result['denied_storage_permissions']=sorted(set(re.findall(r'storage\.[a-zA-Z]+\.[a-zA-Z]+',message.get('message',''))))
             except Exception: pass
