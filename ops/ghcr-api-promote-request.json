@@ -10,6 +10,6 @@
   "allow_legacy_forward_only": false,
   "gate": "2026-10-16 owner cash + assets + compact holdings deployment. Immutable GHCR #38841326765, DB 062 #38841287256, 0% candidate #38849023963, automatic OAuth #38849298689, Preview #38849422216, four Jobs #38849686748 SUCCESS and returned owner release lock; pinned actual 7acff 100%-serving rollback baseline verified #38831003922 and Jobs #38849536106. Reversible new→old→new traffic rehearsal, current Jobs Scheduler/executions fence and live 9f690 readback mandatory.",
   "auth_boundary_run": "38849298689",
-  "retry_attempt": 0,
-  "retry_reason": "Initial approved 9f690 promotion, not a retry. Do not fabricate owner authenticated cash edit acceptance or modify owner's cash or trades."
+  "retry_attempt": 1,
+  "retry_reason": "Previous #38851511933 failed before GCP mutation at test_future_rollout_and_promotion_templates_are_inert_until_explicit_request. Repaired both inert baseline templates to exact current 7acff #38831003922 and #38849536106. Selective CI #38851686538 and #38851654359 SUCCESS. No lease remains. Strict reversible 100% new→old→new promotion, live owner negative auth/readback; do not bypass Scheduler/execution fence."
 }
