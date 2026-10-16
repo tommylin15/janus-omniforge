@@ -1,0 +1,15 @@
+{
+  "intent": "automated-full-release",
+  "approved": false,
+  "release_type": "full",
+  "skip_api_promote": false,
+  "reason": "Template - set approved=true and update reason to trigger release",
+  "notes": {
+    "release_type_options": [
+      "full - Complete release: tests + GHCR + Jobs + API 100%",
+      "jobs-only - Only update Jobs (skip API candidate/promote)",
+      "api-only - Only update API (skip Jobs rollout)"
+    ],
+    "skip_api_promote": "Set to true to stop after Jobs rollout without promoting API to 100%"
+  }
+}

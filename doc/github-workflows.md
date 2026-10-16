@@ -51,6 +51,54 @@ steps:
 - `test`：安裝 `requirements-dev.txt` + `ingestion-core`
 - `full`：安裝所有 requirements.lock
 
+## 自動化完整發布（AI 可直接觸發）
+
+### auto-release.yml
+
+AI 可以透過更新單一檔案觸發完整發布流程：
+
+```bash
+# 1. 更新 ops/auto-release-request.json
+{
+  "intent": "automated-full-release",
+  "approved": true,
+  "release_type": "full",
+  "skip_api_promote": false,
+  "reason": "說明此次發布的原因"
+}
+
+# 2. Commit 並 push
+git add ops/auto-release-request.json
+git commit -m "release: <說明>"
+git push origin main
+```
+
+### 發布類型
+
+| release_type | 說明 |
+|---|---|
+| `full` | 完整發布：tests → GHCR → Jobs → API 100% |
+| `jobs-only` | 只更新 Jobs（跳過 API candidate/promote） |
+| `api-only` | 只更新 API（跳過 Jobs rollout） |
+
+### 發布流程
+
+```
+validate → python-tests → publish (4 images 並行)
+              flutter-tests ↗
+                              ↘
+                           verify-ghcr → api-candidate → auth-boundary → preview
+                                                                          ↓
+                                                                    jobs-rollout → api-promote
+```
+
+### 安全機制
+
+- `approved: false` 時不會觸發發布
+- 每個階段都有獨立的驗證和回滾機制
+- Jobs rollout 失敗會自動回復
+- API promote 包含新→舊→新 traffic rehearsal
+
 ## 統一 Workflow 模式
 
 ### finops-dev.yml
