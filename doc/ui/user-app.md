@@ -29,20 +29,8 @@ Specialist／CEO 等 AI-only 區塊未就緒時，可以 bounded unavailable／h
 
 ## 5.1 今日
 
-「今日」是**個人相關市場入口**：先在不阻塞首屏的前提下找有來源且同時點的本人持股／關注變化；不足時退回 deterministic published market baseline／已驗證市場判讀。Mart／研究內容是 enhancement，不得反過來阻擋 baseline。
-
-首屏順序（模型未有效時使用事實異動／TAIEX，研究判讀區不占空卡）：
-
-1. `MyRelevantTodayHero`（有合格 owner-scoped 持股／關注異動時優先；無則 `MarketVerdictHero`，再無才以 TAIEX snapshot 作唯一主 Hero；三者不堆疊）
-2. `MarketSnapshotCard`（TAIEX 主數字與合法小趨勢）
-3. `DailyBriefCard`（同日最多三則，無資料不得補假文）
-4. `MarketActivityCard`／`InstitutionalFlowCard`（次級短卡）
-5. `SectorRotationList`／`HotTopicList`／`CandidateHealthList`（各自 persisted data 可用時）
-6. 各區塊自己的日期、freshness、coverage、partial／stale／fallback／missing 與 disclaimer
-
-Deterministic market cards 可保留 source-specific `as_of`／trade date；首頁指數只保留 TAIEX，TPEx／櫃買不再是 active product scope。盤中 TAIEX 可由 latest-price resolver 顯示 MIS，14:30 EOD 成功後切回正式 benchmark。Mart 子產品必須使用同一 `analysis_as_of`，不得把不同日期的最新版拼成「今日分析」。
-
-單一 dependency timeout／error 不得造成永久 spinner；`mart_daily_brief` 未就緒只退化研究區塊，不讓 deterministic baseline 整頁不可用。
+頁面順序與互動唯一採 [四頁正式UI規格的「今日」節](visual-first-four-pages.md)：資產短摘要 → 最多三則本人相關事實 → TAIEX背景 → 後續收合追蹤／候選。資產卡不是另一張大Hero，無個人異動則TAIEX作主訊息。owner資料與公共市場分開讀取；任一timeout不阻擋其他區。
+首版只顯「最近更新」，不新增已讀／推播；事件去重、空狀態與資料錯誤分開。金額、日期與參考／正式語意沿本文件持股契約；市場仍只用TAIEX。可核對的事實描述不需要ML／CEO，預測與整合研究結論仍受原gate。
 
 ## 5.2 關注
 
@@ -57,18 +45,7 @@ Deterministic market cards 可保留 source-specific `as_of`／trade date；首�
 
 ## 5.3 個股詳情
 
-Primary content 固定順序（2026-10-11 視覺優先）：
-
-1. `StockHeader`（現價、漲跌／幅大數字、行情日／來源）
-2. 個人持股、成本與估值日期
-3. `QuickPriceVolumeTrend`（真實短價量圖或資料不足原因）
-4. `StockChartNavigator`（價格／營收／EPS／估值／法人／事件通用圖表）
-5. 中性資料說明與來源；研究狀態放收合區
-6. 五分析師有效及 publication gate 通過後，才呈現整合摘要／支持／風險
-7. 個人筆記與待追蹤事項
-8. `ChipsStatusCard`／`CompanyEventTimeline`
-9. 可收合 `EvidenceAndSources`
-10. `ComplianceDisclaimer`
+Primary content 依 [四頁正式UI規格的「個股」節](visual-first-four-pages.md)：股價／本人持股 → 營運、估值、風險三行事實 → 同一價量／通用主圖 → 支持與疑點 → 既有筆記／驗證點 → 收合深入研究。點三行中的任一行直接切對應圖表與期間；可驗算事實不等模型，但預測結論須依D07/D08。
 
 `StockHeader` 顯示 latest-price resolver 的現價／正式收盤價與行情日；backend bounded 讀最近兩筆 canonical OHLCV，回傳 `previous_close/change/change_percent`。正值紅、負值綠、0／未知中性；Flutter 不另抓行情重算漲跌。
 
@@ -279,7 +256,7 @@ Janus User App 不提供 Chat／Ask Janus／provider／runtime／MCP／Skills／
 ## 2026-10-16 資料與分析的可用呈現補充
 
 依 [資料→分析→UI對照](visual-first-delivery.md) 接續既有DRL-01／D03，不新建頁面或待辦。一般事實短句與通用圖表不必等待五模型有效；整合研究結論與CEO仍依原gate。
-個股沿用股價→本人持股→短價量→通用圖表的順序；一個主圖切換價格／營收／獲利／估值／法人／事件。最新值、單位、期間先呈現，來源詳情收合；圖點可查值、可放大，持股列表不塞研究指標。
+個股採四頁正式UI規格的最新順序，三行事實置於共用主圖前；一個主圖切換價格／營收／獲利／估值／法人／事件。最新值、單位、期間先呈現，來源詳情收合；圖點可查值、可放大，持股列表不塞研究指標。
 有一期顯一期，有短歷史畫實際期間；缺同比仍顯營收、累計EPS明標累計、缺五年仍顯已有PE/PB；不補零、不畫假線、不冒稱長窗口。已驗證數值描述可直接顯示，不能升格為買進機率或健康總分。
 市場批次未達coverage不阻擋有合格值的單股閱讀，整批仍PARTIAL。未證明歷史首次可得時間不阻擋當期閱讀，non-strict研究如實標示；owner、數字、單位、期別與參考／正式語意不能放寬。
 本次只修文件，未完成實機截圖或新的視覺驗收；既有PNG與本節文字一起作後續驗收依據。唯一工作狀態見TODO。
