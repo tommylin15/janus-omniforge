@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "candidate-only-until-full-tests-and-reversible-runtime-acceptance",
-  "attempt": 57,
-  "reason": "D01-D05 rerun mandatory full Python/Flutter/immutable GHCR after workflow-consolidation test repairs and shared lease gate; D04 isolated backup restore PASS; no dev API traffic change before all functional gates.",
+  "attempt": 58,
+  "reason": "DRL-01 official-data history/monthly fiscal period and comparable EPS repair; full Python/Flutter + GHCR gate, preserve existing dev API traffic until exact-source acceptance.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }
