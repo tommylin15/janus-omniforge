@@ -43,6 +43,7 @@ GitHub 與 Drive 不一致時：**目前實作與完成狀態以 GitHub／runtim
 - `runbook-data-supplement.md`：每日增量、週六品質檢查、Admin 結果與排程修復程序。
 - `spec/cicd-v2.md`：GHCR → Cloud Run Release／回滾契約；2026-10-10 dev 發布範圍曾 PASS；後續版本仍須獨立驗收，歷史收據在 [archive](archive/cicd-ghcr-api-promotion-2026-10-10.md)，不重複寫在索引。
 - `runbook-dev-deploy.md`：dev API／Jobs 發布、共用鎖／lease、固定 Preview、回滾及 migration 的可重跑程序。
+- `github-workflows.md`：GitHub Actions workflow 架構、composite action 與統一 workflow 開發規範。
 - `runbook-pilot-calendar-repair.md`：Dev Pilot TWSE 交易日曆修復、operator IAP migration 與 bounded ingestion 驗收程序。
 - `runbook-user-oauth-dev.md`：User／MCP OAuth 的專用操作與 A/B owner isolation 驗收程序。
 - `runbook-parallel-live-dev.md`：dev 作為個人真實平行上線環境的操作語意。
