@@ -3,6 +3,7 @@ on:
   push:
     branches: [main]
     paths: ['.github/workflows/feature-readiness-metadata-census.yml']
+  workflow_dispatch:  # Independent bounded, read-only post-repair Core audit
 permissions:
   contents: read
   id-token: write
