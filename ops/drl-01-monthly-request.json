@@ -1,9 +1,9 @@
 {
   "intent": "drl01-existing-month-identity-repair",
   "approved": true,
-  "mode": "dry-run",
+  "mode": "apply",
   "no_source_fetch": true,
   "no_owner_writes": true,
-  "version": 1,
-  "reason": "Preflight to count safely recoverable existing MOPS fiscal months from fiscal_period_end; no database writes."
+  "version": 2,
+  "reason": "Apply 3947/3947 safe MOPS month-period metadata repairs validated by dry-run #38893303521 (snapshot 4705504090566285355), preserving existing provenance and value; read back new snapshot."
 }
