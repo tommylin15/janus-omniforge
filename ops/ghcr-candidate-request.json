@@ -1,13 +1,13 @@
 {
   "intent": "dev-api-zero-traffic",
-  "sha": "cee2437b821c577dc244faf24d9515189796518c",
-  "purpose": "D06 user-authorized daily 23:30 audit mirror; full Release #38867940656 PASS, all four public immutable GHCR. Required 0% candidate/auth gate before controlled Jobs-only rollout. Preserve current 8eb canonical API 100%, Preview, tags and rollback; no product traffic promotion.",
+  "sha": "740e54c25842f39ddf0b912c88a82012a851997d",
+  "purpose": "D06 user approved stopping unused Iceberg audit mirror, retaining PostgreSQL events. Exact source full Release #38873919415 SUCCESS. Establish required zero-traffic candidate and automated auth boundary before reversible Jobs-only rollout. Preserve current canonical API traffic and Preview.",
   "promotion": false,
   "scope": "janus-api-only",
   "lease_validation": "public-ghcr-live-readback-and-original-100-percent-traffic",
   "allow_service_traffic_promotion": false,
   "allow_job_image_update": false,
-  "retry_verification": "Verify exact source full Release #38867940656, immutable GHCR and candidate build-id; preserve canonical 8eb 100% and all tags.",
+  "retry_verification": "Require full Release #38873919415 and public immutable GHCR, exact build source, existing original traffic and tags unchanged.",
   "same_sha_retry_attempt": 0,
   "digest": ""
 }
