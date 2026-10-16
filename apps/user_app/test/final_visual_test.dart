@@ -915,6 +915,8 @@ void main() {
       api.posts.where((path) => path == '/api/v1/me/portfolio/quotes/refresh').length,
       1,
     );
+    await tester.scrollUntilVisible(find.byKey(const Key('holding-latest-price-2330')),
+      160, scrollable: find.byType(Scrollable).first);
     expect(find.text('成本 100.00'), findsOneWidget);
     expect(find.byKey(const Key('holding-latest-price-2330')), findsOneWidget);
     expect(find.byKey(const Key('holding-pnl-2330')), findsOneWidget);
