@@ -4,7 +4,7 @@
 
 ## 執行範圍
 
-**P1 現金池／精簡持股 `9f690363` 已完成 schema 062、GHCR、四 Jobs、固定 Preview、正式 dev API 100% 切流與獨立唯讀驗收；10/15 Owner 估值及 Worker queue 後端 PASS，但真人 authenticated UI／現金實設與交易連動／重算按鈕／交易保存 E2E 仍 PARTIAL。D04 VM IAM／備份交接仍 BLOCKED。** 不因後端 PASS 宣稱整體產品完成。
+**暫停中（使用者 2026-10-16 14:57 Asia/Taipei 指示：寫完本次進度文件即停止）**。P1 總額優先 `8eb42dcb` 的完整 GHCR Release #38856837257、0% candidate #38857279864、自動 OAuth #38857441171、固定 Preview #38857524000、四 Jobs 真實 rollout #38857643226 均 PASS；正式 App 最後已獨立確認的 100% 仍為前版 `9f690363`，新版 8eb API promotion／獨立 live 100% readback 尚未做。Owner 10/15 backend 估值與雙 Worker queue PASS，但新版真人持股頁、現金交易連動、按鈕重算 E2E 仍 PARTIAL；D04 VM IAM／備份交接 BLOCKED。** 暫停期間不得自行啟動剩餘工項或追發版。
 
 A 組及 B0～B8 已結案的範圍不重開；有實質變更才回歸受影響路徑。全市場 Bootstrap／同日 Cached、費稅88筆更正、00719B 身分／估值既有成功證據不重送。研究範圍採各歷史日期全上市櫃；50 關注 quota 仍保留。
 
@@ -56,6 +56,8 @@ VF-10高階同業／估值河流／還原價仍屬有條件後續構想，不是
 
 ## D05｜整合發布
 
+- [ ] **暫停後第一個工程入口（必須等待使用者明確要求接續）**：沿用既有共用部署 lease 與已驗證 9f690 rollback baseline，確認 8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699 同源 full Release #38856837257、API 0% #38857279864、OAuth #38857441171、Preview #38857524000、四 Jobs #38857643226 的 PASS 收據；然後依 runbook 執行新版 8eb API 正式可逆 promotion、新流量／固定 Preview 源 SHA 及 tags／health／build-id 獨立 live readback。**目前未進行 promotion；不得標 PASS。**
+- [ ] **真實持股操作與參考總額主卡驗收**：驗持股 7 檔個股價格／成本／損益和延遲提示、完整參考總市值、真缺價小計與 `已計價檔數／全部檔數`、現金＋已計價部分，確認無錯誤長句遮擋表頭。帳本、現金修改、重算按鈕的真人正向 E2E 及 390px／桌面截圖、冷暖 P95 另行驗證；不得以 GHCR／Preview／Jobs PASS 當作真實操作 PASS。截圖試算 TWD 15,210,800 持股與約 1,702.2 萬參考資產僅是當時畫面推估，非官方現時數字。
 - [ ] **P1 剩餘：9f690 正式 App 真人操作與視覺 E2E**。前版 7acff 的 10/15 Owner Mart／雙 Worker queue backend PASS、正式 100% rollback/readback 均保留；新版 9f690 DB 062 #38841287256、full Release #38841326765、API candidate #38849023963、auto OAuth #38849298689、四 Jobs #38849686748、fixed Preview #38849422216、受控正式 API promotion #38851753247 及獨立 100% immutable SHA/build-id/auth 401 #38853614819 均 PASS。初次 promo #38851511933因 template test FAIL 在 GCP 修改前停下，修正後 retry 成功；舊 7acff rollback baseline 保留。最新 Owner private MCP operational ledger v357／7 active positions、報價/估值仍 10/15，屬 10/16 交易後但尚未完成當日正式 EOD。**仍缺** authenticated cash-set／交易後 cash 差額與總資產、持股 1～2 行圖卡、實際重算按鈕→Owner queue terminal→UI PnL、交易保存及 390px/desktop screenshot／持股冷暖 P95。10/16 自動夜間 Private Mart 必須另觀察，不以一次補算或公開效能冒充。
 - [ ] 無需每版人工OAuth登入；自動auth與owner隔離仍驗。metadata／401不代表正向PnL或UI PASS。不要以舊來源的API／Jobs證據交叉替代。
 
