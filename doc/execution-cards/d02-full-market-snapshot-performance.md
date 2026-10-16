@@ -1,6 +1,6 @@
 # D02｜全市場／首屏快照／效能 — AI 任務執行卡
 
-更新：2026-10-15；v1 文件指示，非工程驗收。
+更新：2026-10-16；v2 文件指示，非工程驗收。
 
 > **本文件是獨立 AI 開發指令卡，不是第二份 TODO。** 唯一狀態、先後順序及執行授權以 [TODO](../todo.md) 為準；現況以 GitHub `main`、CI、實際 GCP dev runtime 為準。製卡不自動啟動工程／Job／部署／訓練／刪除。不得以歷史 archive 或舊 PASS 覆蓋最新結果。
 
@@ -28,10 +28,17 @@
 
 ## 3. 連續執行步驟與交付物
 
+首頁增補恢復後依[AI路由](../codex-execution-plan.md)，[A第5節](../ui/visual-first-four-pages.md)定義長相，[D03卡](d03-four-page-charts-visual.md)負責UI；D02只處理共用快照／效能，不重做圖表公式。[三層交付](../ui/visual-first-delivery.md)共用驗收。
+
+
 1. 打通所有上市櫃市場資料、screening、搜尋與新增關注、歷史研究入口；依資料集及期間分別判 TWSE 缺值率≤10%、TPEx≤30%（含邊界），50關注quota不變，缺值不補造。
 2. 建立／核實真實快照 batch caller、057 初始補建、serializer、freshness、last-success、owner-scoped DB-first 快照；不可用舊 500 產物重標全市場。
 3. 首屏從 PostgreSQL bounded read；消除 N+1、同步 Iceberg 掃描與無上限外部請求；owner/cache/quote 版本區隔，次要研究卡延遲載入。
 4. 市場定時資料與盤中個人操作分離：持股保存、新股數成本／報價按需可更新，不等夜批。
+
+5. 首頁摘要重用owner持股snapshot，異動重用持久化行情／財報／事件與既有批次，GET不掃全庫／呼叫LLM；只補現有serializer安全欄位，公共cache不得含owner資產。
+6. 異動沿現有型別承載symbol、metric/event ID、period、value/comparison、source/as_of、reason及目標圖表；先查契約，不另建服務。穩定去重與排序，無異動／來源失敗分開。
+7. 與D03共享數值證據；owner失敗不擋TAIEX，次圖不擋摘要。增補等TODO恢復，既有收尾不重開。
 
 ## 4. 驗收、禁止事項與失敗恢復
 
