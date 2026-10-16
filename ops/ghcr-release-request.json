@@ -7,9 +7,9 @@
     "private-pipeline",
     "api"
   ],
-  "promotion": "candidate-only-until-062-runtime-migration-acceptance-and-gates",
-  "attempt": 51,
-  "reason": "2026-10-16 migration 062 original run #38840325801 terminal failed InsufficientPrivilege REFERENCES private.users; read-only #38841085626 verified exact object. No GCP IAM changed. Schema avoids unowned FK and scoped deletion is added to private erasure. Full source Python/Flutter/GHCR for owner cash, compact holdings and corrected 062; migration retry #38841287256 independent and must PASS before deployment.",
+  "promotion": "candidate-only-until-targeted-and-full-ci-pass",
+  "attempt": 52,
+  "reason": "2026-10-16 P1 user-observed blocked holding valuation despite 7 cached prices. Source-valid dated delayed MIS must drive separately labelled indicative per-stock and cross-date reference assets; formal same-day total remains withheld. Flutter 390px compact layout suppresses verbose overflow. No schema, fee, cash checkpoint, or actual ledger mutations. Full Python/Flutter/4 immutable GHCR for bounded dev rollout; existing 062 already applied #38841287256.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }
