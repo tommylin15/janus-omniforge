@@ -23,7 +23,7 @@ jobs:
           gh run view 38898393706 --json status,conclusion,workflowName | jq -e '.status=="completed" and .conclusion=="failure" and .workflowName=="Janus D01 exact 10-16 official Owner Mart publication"' >/dev/null
           mkdir -p /tmp/d01failed
           gh run download 38898393706 -n d01-owner-eod-1016-publish -D /tmp/d01failed
-          jq -e '.status=="DISPATCHED_UNKNOWN" and .source_sha=="8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699" and .no_ledger_mutation==true and (.operation|type=="string" and test("^[0-9a-f-]{36}$"))' /tmp/d01failed/d01-owner-eod-1016-publish.json >/dev/null
+          jq -e '.status=="DISPATCHED_UNKNOWN" and (.official_record_hashes|type=="object") and .no_ledger_mutation==true and (.operation|type=="string" and test("^[0-9a-f-]{36}$"))' /tmp/d01failed/d01-owner-eod-1016-publish.json >/dev/null
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
