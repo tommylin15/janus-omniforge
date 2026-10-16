@@ -241,6 +241,7 @@ jobs:
           tests/test_mobile_ledger_queue.py
           tests/test_duckdb_iceberg.py
           tests/test_data_supplement.py
+          tests/test_feature_readiness_repair.py
           tests/test_market_history.py
           tests/test_data_quality.py
           tests/test_financial_publication.py
