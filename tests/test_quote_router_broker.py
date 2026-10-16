@@ -344,7 +344,8 @@ def test_published_core_eod_does_not_claim_fresh_after_seven_days_or_in_the_futu
     assert old["state"] == "stale" and old["is_final"] is True
     assert old["price"] == "100"
     repository.eod["2330"]["price_date"] = "2026-10-16"
-    assert router.read(identities, now=now)["2330"]["state"] == "stale"
+    # Future-dated official records cannot enter the owner's read model.
+    assert "2330" not in router.read(identities, now=now)
     repository.eod["2330"]["price_date"] = "2026-10-14"
     assert router.read(identities, now=now)["2330"]["state"] == "eod_final"
 
