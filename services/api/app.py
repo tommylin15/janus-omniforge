@@ -1022,7 +1022,8 @@ def create_app(repository: Any | None = None, store: Any | None = None,
         price_dates = {
             symbol: str(quote.get("price_date") or "")[:10]
             for symbol, quote in prices.items()
-            if quote.get("state") in {"intraday", "closing_pending_eod", "eod_final"}
+            if quote.get("state") in {"intraday", "closing_pending_eod", "eod_final", "stale"}
+            and quote.get("source") in {"twse_mis", "core_ohlcv", "tpex_openapi_eod"}
             and str(quote.get("price_date") or "")[:10].count("-") == 2
         }
         previous = {}
@@ -1063,11 +1064,28 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                     asset_status = "multi_currency"
             if stock_value is not None:
                 asset_status = "available"
+            # This is NOT the formal total. It uses each holding's last
+            # independently dated/authorized observation and may span days.
+            # Never add unrealized PnL a second time to market value.
+            reference_value = None
+            if balance is not None:
+                if not rows and not summaries:
+                    reference_value = Decimal(0)
+                elif (len(summaries) == 1
+                      and summaries[0].get("currency") == "TWD"
+                      and summaries[0].get("reference_status") == "available"
+                      and summaries[0].get("reference_market_value") is not None):
+                    reference_value = Decimal(str(summaries[0]["reference_market_value"]))
             result.update(cash={
                 **cash, "cash_balance": str(balance) if balance is not None else None,
             }, total_asset_value=str(balance + stock_value)
                if balance is not None and stock_value is not None else None,
-               asset_status=asset_status, asset_currency="TWD")
+               asset_status=asset_status,
+               reference_total_asset_value=str(balance + reference_value)
+               if balance is not None and reference_value is not None else None,
+               reference_asset_status="available" if balance is not None
+               and reference_value is not None else "incomplete",
+               asset_currency="TWD")
         return jsonable_encoder(result)
 
     @private.get("/portfolio/snapshot")
