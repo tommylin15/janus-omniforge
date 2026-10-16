@@ -2291,7 +2291,7 @@ class _BrokerProfileCardState extends State<BrokerProfileCard> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('此處是舊版券商申報快照，不會跟隨交易。實際可用現金請使用上方「現金部位」；修改費稅設定不會改寫既有交易。'),
+                  const Text('現金為自行申報的 TWD 快照，不代表正式現金餘額；這是舊版設定，不會跟隨交易。實際現金請使用上方「現金部位」；修改費稅設定不改寫既有交易。'),
                   TextFormField(
                     initialValue: discount,
                     onChanged: (value) => discount = value,
