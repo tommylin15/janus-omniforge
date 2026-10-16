@@ -274,3 +274,12 @@ cash flow 與 PnL 不得混為同義。交易類型目前為買進、賣出、�
 Janus User App 不提供 Chat／Ask Janus／provider／runtime／MCP／Skills／approval 產品入口。generic conversation UI 由 omniAgent 持有；Janus 透過 authenticated bounded API／MCP 提供投資 context。
 
 任何 UI completion 都必須依真實 backend capability 呈現；missing／stale／partial／unavailable／blocked 不得用 sample／placeholder 補成成功。
+
+
+## 2026-10-16 資料與分析的可用呈現補充
+
+依 [資料→分析→UI對照](visual-first-delivery.md) 接續既有DRL-01／D03，不新建頁面或待辦。一般事實短句與通用圖表不必等待五模型有效；整合研究結論與CEO仍依原gate。
+個股沿用股價→本人持股→短價量→通用圖表的順序；一個主圖切換價格／營收／獲利／估值／法人／事件。最新值、單位、期間先呈現，來源詳情收合；圖點可查值、可放大，持股列表不塞研究指標。
+有一期顯一期，有短歷史畫實際期間；缺同比仍顯營收、累計EPS明標累計、缺五年仍顯已有PE/PB；不補零、不畫假線、不冒稱長窗口。已驗證數值描述可直接顯示，不能升格為買進機率或健康總分。
+市場批次未達coverage不阻擋有合格值的單股閱讀，整批仍PARTIAL。未證明歷史首次可得時間不阻擋當期閱讀，non-strict研究如實標示；owner、數字、單位、期別與參考／正式語意不能放寬。
+本次只修文件，未完成實機截圖或新的視覺驗收；既有PNG與本節文字一起作後續驗收依據。唯一工作狀態見TODO。
