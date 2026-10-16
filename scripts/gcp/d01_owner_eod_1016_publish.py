@@ -30,8 +30,32 @@ def bounded_code() -> str:
     code=code.replace(match,match+'''
 if any(entry[1]!=valuation for entry in prices.values()):
  raise RuntimeError("d01_owner_same_day_price_coverage_missing")''')
+    # Reuse an already persisted official price without overwriting its immutable
+    # provenance. TPEx OpenAPI and dated dailyQuotes can have distinct raw hashes
+    # and source URIs even when their official close/date are identical.
+    prior_guard='''if (not row or row["price_date"]!=target.isoformat() or
+  row["record_sha256"]!=source["record_sha256"] or
+  row["source_uri"]!=source["source_uri"] or
+  Decimal(row["price"])!=Decimal(source["price"])):
+  raise RuntimeError("official_persisted_asof_provenance_invalid")'''
+    preserved_guard='''if (not row or row["price_date"]!=target.isoformat() or
+  Decimal(row["price"])!=Decimal(source["price"])):
+  raise RuntimeError("official_persisted_asof_provenance_invalid")
+from services.api.tpex_quotes import TPEX_OFFICIAL_EOD_URL,TPEX_OFFICIAL_DATED_URL
+import re
+stored_uri=row.get("source_uri")
+stored_hash=row.get("record_sha256")
+if (not isinstance(stored_uri,str) or not isinstance(stored_hash,str) or
+    re.fullmatch(r"[0-9a-f]{64}",stored_hash) is None or
+    not (stored_uri==TPEX_OFFICIAL_EOD_URL or
+         (stored_uri.startswith(TPEX_OFFICIAL_DATED_URL+"?") and "response=json" in stored_uri))):
+  raise RuntimeError("official_stored_provenance_not_authorized")'''
+    if code.count(prior_guard)!=1:
+        raise ValueError('d01_owner_provenance_guard_drift')
+    code=code.replace(prior_guard,preserved_guard)
     code=code.replace('"component":"p0_tpex_asof_owner"','"component":"d01_owner_eod_1016_publish"')
-    if 'target=date(2026,10,14)' in code or 'd01_owner_same_day_price_coverage_missing' not in code:
+    if ('target=date(2026,10,14)' in code or 'd01_owner_same_day_price_coverage_missing' not in code
+        or 'official_stored_provenance_not_authorized' not in code):
         raise ValueError('d01_owner_code_not_bound')
     return code
 
