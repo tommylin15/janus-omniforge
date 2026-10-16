@@ -1,0 +1,50 @@
+name: Janus DRL-01 official MOPS monthly revenue history repair
+on:
+  push:
+    branches: [main]
+    paths: ['ops/drl-01-revenue-history-request.json']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 23
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile and check scoped request
+        run: |
+          python -m py_compile scripts/gcp/drl01_revenue_history.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('ops/drl-01-revenue-history-request.json').read_text())
+          assert r['intent']=='drl01-existing-mops-monthly-market-archive'
+          assert r['approved'] is True and r['market']=='TWSE'
+          assert r['no_new_provider'] is True and r['no_owner_mutation'] is True
+          assert r['no_job_template_change'] is True
+          assert 1<=len(r['months'])<=2
+          PY
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Official existing MOPS Stage to Core and month readback
+        env:
+          PYTHONPATH: .
+        run: python scripts/gcp/drl01_revenue_history.py ops/drl-01-revenue-history-request.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drl01-mops-monthly-market-readback
+          path: /tmp/drl01-revenue-history.json
+          if-no-files-found: ignore
+          retention-days: 14
