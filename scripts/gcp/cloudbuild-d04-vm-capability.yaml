@@ -19,7 +19,14 @@ steps:
           echo 'D04_EXISTING_BUILD_VM_GET=DENIED'
           exit 2
         fi
-        # Deliberately do not SSH or change IAP / OS Login / IAM in this probe.
+        # Authorization-only test: read the effective uid, never mutate VM or its data.
+        if timeout 80 gcloud compute ssh janus-postgres-dev --project="$PROJECT_ID" --zone=us-central1-a --tunnel-through-iap --quiet --command='id -u' >/tmp/d04-ssh-check 2>/dev/null; then
+          echo 'D04_EXISTING_BUILD_VM_SSH=PASS'
+        else
+          echo 'D04_EXISTING_BUILD_VM_SSH=DENIED'
+          exit 3
+        fi
+
 options:
   logging: CLOUD_LOGGING_ONLY
 timeout: 180s
