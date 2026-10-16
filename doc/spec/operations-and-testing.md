@@ -34,6 +34,10 @@
 | 既有FinOps Jobs／audit cleanup | [#38686125420](https://github.com/tommylin15/janus-omniforge/actions/runs/38686125420)、[#38686337134](https://github.com/tommylin15/janus-omniforge/actions/runs/38686337134) | 2026-10-15 新查核 Jobs rollout completed/success；audit cleanup completed/failure，不能當資料清理 PASS；與 D01～D05 獨立 |
 | omniAgent P0-V | [#38490887562](https://github.com/tommylin15/janus-omniforge/actions/runs/38490887562) | 合成full Fact Pack／真實Gemini／validator技術PASS，0正式Owner報告；publication仍OPEN |
 
+## D06 最新獨立 FinOps（2026-10-16）
+
+來源 `740e54c25842f39ddf0b912c88a82012a851997d` 停用無產品查詢使用者的 Iceberg 稽核鏡像，保留 PostgreSQL 原子事件；取代每日／每週提案。targeted 54 PASS、完整 Release [#38873919415](https://github.com/tommylin15/janus-omniforge/actions/runs/38873919415) SUCCESS，Jobs runtime 尚待同源發布／讀回。既有 Core 8,342 objects／194,157,789 bytes、8,335 個 <1 MiB；首次清理 [#38873430713](https://github.com/tommylin15/janus-omniforge/actions/runs/38873430713) execution `janus-ingestion-core-qmm9h` 終態，業務 PARTIAL／HTTP403／實刪0，不能以 Cloud Run exit0 冒充清理成功。當次稽核候選20 snapshots／154 metadata不是實刪。後續唯讀權限診斷未授予IAM。完整引用掃描與減量方法、失敗恢復及版本詳見 [D06](../archive/d06-finops-2026-10-16.md)；整體維持 PARTIAL。
+
 ## 實作與文件差異
 
 - `jobs/ingestion-core/ingestion_core/__main__.py` 已呼叫 `materialize_home_market_snapshot`；舊「只有test caller」敘述失效。最新版本的runtime產生／readback仍需證據。
