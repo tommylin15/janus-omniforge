@@ -147,7 +147,7 @@ void main() {
         Map<String, dynamic>.from(item as Map),
       ...other,
     ];
-    (snapshot['items'] as List)[0] = {
+    snapshot['items'] = <Map<String, dynamic>>[{
       'currency': 'TWD',
       'ledger_version': 357,
       'aggregate_status': 'withheld',
@@ -161,7 +161,7 @@ void main() {
       'reference_market_value': '1433600',
       'reference_unrealized_pnl': '1300',
       'reference_unrealized_return': '0.0009',
-    };
+    }];
     snapshot['cash'] = {'cash_status': 'available', 'cash_balance': '1811000'};
     snapshot['asset_status'] = 'incomplete_prices';
     snapshot['reference_asset_status'] = 'available';
