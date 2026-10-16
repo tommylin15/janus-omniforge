@@ -45,18 +45,23 @@ def _eps(year, quarter, value, **extra):
     }
 
 
-def test_quarterly_eps_requires_adjacent_ytd_with_matching_scope():
+def test_quarterly_eps_never_subtracts_cumulative_eps_without_share_basis():
+    # Q1 YTD equals Q1; later YTD EPS may use a different weighted-average
+    # denominator, so subtracting Q2 and Q1 would invent a single-quarter EPS.
     rows = [_eps(2026, 1, "-0.40"), _eps(2026, 2, "0.70"),
             _eps(2026, 4, "3.10")]
-    derived = _comparable_single_quarter_eps(rows)
-    assert [(r["fiscal_quarter"], Decimal(r["value"])) for r in derived] == [
-        (1, Decimal("-0.40")), (2, Decimal("1.10"))
+    result = _comparable_single_quarter_eps(rows)
+    assert [(r["fiscal_quarter"], Decimal(r["value"])) for r in result] == [
+        (1, Decimal("-0.40"))
     ]
-    assert all(r["period_basis"] == "single_quarter" for r in derived)
-    assert derived[0]["fiscal_period_end"] == "2026-03-31"
-    assert derived[1]["fiscal_period_end"] == "2026-06-30"
-    assert _comparable_single_quarter_eps([_eps(2026, 1, "1", report_scope="consolidated"),
-                                            _eps(2026, 2, "4", report_scope="standalone")])[0]["value"] == "1"
+    assert result[0]["period_basis"] == "single_quarter"
+    assert result[0]["fiscal_period_end"] == "2026-03-31"
+    assert result[0]["calculation_version"] == "mops-q1-ytd-is-quarter-v2"
+    assert _comparable_single_quarter_eps([
+        _eps(2026, 1, "1", report_scope="consolidated"),
+        _eps(2026, 2, "4", report_scope="standalone"),
+    ])[0]["value"] == "1"
+
 
 
 def test_reported_xbrl_single_quarter_wins_over_derived_basic_eps():
@@ -71,15 +76,42 @@ def test_reported_xbrl_single_quarter_wins_over_derived_basic_eps():
     assert next(r for r in derived if r["fiscal_quarter"] == 2)["value"] == "-0.50"
 
 
-def test_eps_chart_displays_qualified_quarter_not_cumulative_ytd():
-    rows = [_eps(2026, 1, "0.20"), _eps(2026, 2, "0.05"),
-            _eps(2026, 4, "2.00")]
+def test_eps_chart_only_displays_provable_quarters():
+    rows = [_eps(2025, 1, "0.20"), _eps(2026, 1, "0.05"),
+            _eps(2026, 2, "0.70"), _eps(2026, 4, "2.00")]
     service = CoreQueryService(lambda *_: [], serving_series=lambda *_: rows)
     report = service.visual_series("2330", "eps")
     assert report["data_status"] == "available"
-    assert [r["date"] for r in report["points"]] == ["2026-03-31", "2026-06-30"]
-    assert [Decimal(r["value"]) for r in report["points"]] == [Decimal("0.20"), Decimal("-0.15")]
-    assert report["calculation_version"] == "eps-single-quarter-with-qualified-ytd-difference-v1"
+    assert [r["date"] for r in report["points"]] == ["2025-03-31", "2026-03-31"]
+    assert [Decimal(r["value"]) for r in report["points"]] == [
+        Decimal("0.20"), Decimal("0.05")]
+    assert report["calculation_version"] == "eps-official-single-quarter-or-q1-ytd-v2"
+
+
+def test_ytd_q2_without_official_single_quarter_stays_missing():
+    rows = [_eps(2026, 2, "1.00"), _eps(2026, 3, "1.50")]
+    report = CoreQueryService(lambda *_: [], serving_series=lambda *_: rows).visual_series("2330", "eps")
+    assert report["data_status"] == "missing"
+    assert report["missing_reason"] == "no_verified_single_quarter_eps"
+    assert report["usable_points"] == 0
+
+
+def test_revenue_series_does_not_count_prior_month_comparator_as_observation():
+    base = {"symbol": "2330", "source_id": "mops", "provenance_id": "official",
+            "statement_type": "monthly_revenue", "unit": "TWD_thousands",
+            "period_basis": "monthly"}
+    rows = [
+        {**base, "metric": "monthly_revenue", "fiscal_year": 2026,
+         "fiscal_quarter": 1, "fiscal_month": 1, "fiscal_period_end": "2026-01-31", "value": "100"},
+        {**base, "metric": "previous_month_revenue", "fiscal_year": 2026,
+         "fiscal_quarter": 1, "fiscal_month": 1, "fiscal_period_end": "2026-01-31", "value": "10"},
+        {**base, "metric": "monthly_revenue", "fiscal_year": 2026,
+         "fiscal_quarter": 1, "fiscal_month": 2, "fiscal_period_end": "2026-02-28", "value": "200"},
+    ]
+    report = CoreQueryService(lambda *_: [], serving_series=lambda *_: rows).visual_series("2330", "revenue")
+    assert report["data_status"] == "available"
+    assert [r["value"] for r in report["points"]] == ["100", "200"]
+
 
 
 def test_bad_eps_missing_provenance_or_units_never_promotes_to_chart():
