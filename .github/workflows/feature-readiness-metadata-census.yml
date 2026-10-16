@@ -78,14 +78,14 @@ jobs:
                   ('ohlcv',('symbol','market','trade_date','close')),
                   ('valuation',('symbol','market','observed_date','pe_ratio','pb_ratio')),
                   ('financials',('symbol','fiscal_year','fiscal_quarter','fiscal_month','statement_type','metric','value','period_basis','is_single_quarter','unit','source_id','provenance_id','availability_at'))):
-                  detail={'status':'PENDING','row_limit':100000}
+                  detail={'status':'PENDING','row_limit':180000}
                   try:
                       if time.monotonic()-start_detail>210:
                           detail['status']='SKIPPED_TIME_BUDGET'
                       else:
                           table=core.catalog.load_table(core.table_identifier(dataset))
                           snapshot=table.current_snapshot()
-                          records=table.scan(snapshot_id=snapshot.snapshot_id,selected_fields=fields,limit=100000).to_arrow().to_pylist()
+                          records=table.scan(snapshot_id=snapshot.snapshot_id,selected_fields=fields,limit=180000).to_arrow().to_pylist()
                           detail['scanned_rows']=len(records)
                           detail['snapshot_rows']=int(snapshot.summary['total-records'])
                           if len(records)!=detail['snapshot_rows']:
