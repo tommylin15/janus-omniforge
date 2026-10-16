@@ -35,10 +35,11 @@ def _request(tmp_path, **changes):
     return target
 
 
-def test_month_repair_scope_is_two_unique_approved_twse_months(tmp_path):
+def test_month_repair_scope_is_two_unique_approved_exchange_months(tmp_path):
     script = _worker_script()
     assert script.checked(_request(tmp_path))["months"] == ["2026-08", "2026-09"]
-    for change in ({"market": "TPEX"}, {"approved": False},
+    assert script.checked(_request(tmp_path, market="TPEX"))["market"] == "TPEX"
+    for change in ({"market": "UNKNOWN"}, {"approved": False},
                    {"months": ["2026-07", "2026-08", "2026-09"]},
                    {"months": ["2026-09", "2026-08"]},
                    {"months": ["2026-08", "2026-08"]},
@@ -54,6 +55,8 @@ def test_inline_existing_cloud_run_probe_compiles():
     assert "source_is_approved(\"mops\")" in script.PROBE
     assert "stage_results" not in script.PROBE or "mark_core_committed" in script.PROBE
     assert "mark_core_committed" in script.PROBE
+    assert 'segment="sii" if req["market"]=="TWSE" else "otc"' in script.PROBE
+    assert 'title="上市" if req["market"]=="TWSE" else "上櫃"' in script.PROBE
 
 
 def test_revenue_archive_months_have_canonical_unit_without_guessing_publication():
