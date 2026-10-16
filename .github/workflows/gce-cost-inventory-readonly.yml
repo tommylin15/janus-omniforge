@@ -1,0 +1,105 @@
+name: Janus Compute Engine read-only cost inventory
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/gce-cost-inventory-readonly.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: dev
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read Compute Engine inventory (no mutations)
+        env:
+          GCP_PROJECT: gen-lang-client-0593591102
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          project = os.environ["GCP_PROJECT"]
+          expected_vm = "janus-postgres-dev"
+          specs = [
+              ("instances", ["compute", "instances", "list"]),
+              ("disks", ["compute", "disks", "list"]),
+              ("addresses", ["compute", "addresses", "list"]),
+              ("snapshots", ["compute", "snapshots", "list"]),
+              ("images_custom", ["compute", "images", "list", "--no-standard-images"]),
+              ("machine_images", ["compute", "machine-images", "list"]),
+              ("reservations", ["compute", "reservations", "list"]),
+              ("instance_groups_managed", ["compute", "instance-groups", "managed", "list"]),
+              ("forwarding_rules", ["compute", "forwarding-rules", "list"]),
+              ("vpn_gateways", ["compute", "vpn-gateways", "list"]),
+              ("target_vpn_gateways", ["compute", "target-vpn-gateways", "list"]),
+              ("interconnects", ["compute", "interconnects", "list"]),
+          ]
+          results = {}
+          def basename(v):
+              return str(v or "").rsplit("/", 1)[-1]
+          def public_ips(vm):
+              return sum(bool(a.get("accessConfigs")) for a in vm.get("networkInterfaces", []))
+          def reduced(kind, r):
+              out = {"name": r.get("name")}
+              if kind == "instances":
+                  out.update(status=r.get("status"), zone=basename(r.get("zone")),
+                             machine_type=basename(r.get("machineType")),
+                             external_ip_config_count=public_ips(r))
+              elif kind == "disks":
+                  out.update(size_gb=r.get("sizeGb"), type=basename(r.get("type")),
+                             users=[basename(x) for x in r.get("users", [])],
+                             zone=basename(r.get("zone")), region=basename(r.get("region")))
+              elif kind == "addresses":
+                  out.update(status=r.get("status"), address_type=r.get("addressType"),
+                             ip_version=r.get("ipVersion"), region=basename(r.get("region")),
+                             in_use=bool(r.get("users")))
+              elif kind in ("snapshots", "images_custom", "machine_images"):
+                  out.update(storage_bytes=r.get("storageBytes"), disk_size_gb=r.get("diskSizeGb"))
+              elif kind == "reservations":
+                  out.update(status=r.get("status"), zone=basename(r.get("zone")),
+                             specific_reservation=r.get("specificReservation"))
+              elif kind == "forwarding_rules":
+                  out.update(region=basename(r.get("region")), scheme=r.get("loadBalancingScheme"))
+              else:
+                  out.update(status=r.get("status"), region=basename(r.get("region")))
+              return out
+          for kind, argv in specs:
+              cmd = ["gcloud", *argv, "--project="+project, "--format=json", "--quiet"]
+              try:
+                  p = subprocess.run(cmd, capture_output=True, text=True, timeout=65)
+                  if p.returncode:
+                      s = p.stderr.lower()
+                      reason = ("PERMISSION_DENIED" if any(x in s for x in
+                          ("permission", "403", "not authorized", "access denied"))
+                          else "API_OR_COMMAND_ERROR")
+                      results[kind] = {"state": reason, "count": None}
+                  else:
+                      data = json.loads(p.stdout)
+                      if not isinstance(data, list):
+                          raise ValueError("not a resource list")
+                      results[kind] = {"state": "READ_OK", "count": len(data),
+                                       "items": [reduced(kind, x) for x in data]}
+              except (ValueError, subprocess.TimeoutExpired) as e:
+                  results[kind] = {"state": type(e).__name__, "count": None}
+          vm = results["instances"]
+          if vm["state"] == "READ_OK":
+              others = [x for x in vm["items"] if x["name"] != expected_vm]
+              print("EXTRA_VM_COUNT="+str(len(others)))
+              print("DB_VM_PRESENT="+str(any(x["name"] == expected_vm for x in vm["items"])))
+          else:
+              print("EXTRA_VM_COUNT=UNKNOWN_PERMISSION_OR_API")
+          failed = [k for k, v in results.items() if v["state"] != "READ_OK"]
+          print("INVENTORY_JSON="+json.dumps(results, ensure_ascii=False, sort_keys=True))
+          print("INVENTORY_VERDICT="+("PARTIAL_UNVERIFIED" if failed else "CENSUSED"))
+          print("UNVERIFIED_CATEGORIES="+",".join(failed))
+          PY
