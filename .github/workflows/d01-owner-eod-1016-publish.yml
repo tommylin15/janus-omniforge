@@ -1,0 +1,65 @@
+name: Janus D01 exact 10-16 official Owner Mart publication
+on:
+  push:
+    branches: [main]
+    paths: ['ops/d01-owner-eod-1016-publish-request.json']
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  owner-eod:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gate bounded official 10-16 and same-source release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHONPATH: .
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="d01-2026-10-16-exact-owner-private-mart-publish" and .approved==true and
+            .environment=="dev" and .target_date=="2026-10-16" and
+            .source_sha=="8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699" and
+            .release_run=="38856837257" and .jobs_rollout_run=="38857643226" and
+            .single_owner_only==true and .no_ledger_mutation==true and
+            .private_mart_write_only==true and .no_job_template_mutation==true and
+            .no_traffic_mutation==true' ops/d01-owner-eod-1016-publish-request.json >/dev/null
+          for pair in '38856837257:Janus GHCR full-test image publication' '38857643226:Janus GHCR controlled Jobs rollout'; do
+            run="${pair%%:*}"; name="${pair#*:}"
+            gh run view "$run" --json status,conclusion,workflowName |
+              jq -e --arg n "$name" '.status=="completed" and .conclusion=="success" and .workflowName==$n' >/dev/null
+          done
+          python -m compileall -q scripts/gcp/d01_owner_eod_1016_publish.py
+          python - <<'PY'
+          from scripts.gcp.d01_owner_eod_1016_publish import bounded_code
+          body=bounded_code()
+          assert 'target=date(2026,10,15)' in body
+          assert 'd01_owner_same_day_price_coverage_missing' in body
+          assert 'ledger_version_changed_during_mart_write' in body
+          PY
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Verify official exact date then publish bounded one-owner derived Mart
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHONPATH: .
+        run: python scripts/gcp/d01_owner_eod_1016_publish.py
+      - name: Persist sanitized source/terminal receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: d01-owner-eod-1016-publish
+          path: /tmp/d01-owner-eod-1016-publish.json
+          if-no-files-found: ignore
+          retention-days: 14
