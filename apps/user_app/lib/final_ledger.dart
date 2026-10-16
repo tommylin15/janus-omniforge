@@ -169,7 +169,14 @@ class _FinalLedgerPageState extends State<FinalLedgerPage>
       quoteGeneration++;
       quoteBusy = false;
       quoteTimer?.cancel();
-      if (widget.active && section == 0) reload();
+      if (widget.active && section == 0) {
+        // Re-entering the holdings tab must NOT restart the quote/EOD clock.
+        // Refresh owner cash/snapshot independently of the MIS quote cycle.
+        requestCache.remove('/api/v1/me/portfolio/snapshot');
+        coreData = loadCore();
+        intraday = null;
+        startQuotes();
+      }
     }
   }
 
