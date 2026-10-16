@@ -103,6 +103,25 @@ jobs:
           result['public_api_schema_version']=public.get('schema_version')
           result['public_api_sections']={k:v.get('status') for k,v in (public.get('sections') or {}).items() if isinstance(v,dict)}
           result['public_api_gate']='PASS' if public.get('schema_version')=='market-home.v1' and public.get('sections') else 'FAIL'
+          result['snapshot_freshness']='SAME_DAY_2026_10_16' if result.get('as_of_date')=='2026-10-16' else 'LAST_SUCCESS_OLDER_OR_UNKNOWN'
+          import time
+          durations=[]
+          failures=0
+          for sample in range(30):
+              begin=time.perf_counter()
+              try:
+                  with urllib.request.urlopen('https://janus-api-2oo7qbkd5q-uc.a.run.app/api/v1/public/market-home',timeout=12) as response:
+                      checked=json.load(response)
+                      if checked.get('schema_version')!='market-home.v1':raise ValueError('schema_mismatch')
+                  durations.append(round((time.perf_counter()-begin)*1000,2))
+              except Exception:
+                  failures+=1
+          sorted_ms=sorted(durations)
+          result['public_api_warm_30']={'success':len(durations),'failure':failures,
+              'p50_ms':sorted_ms[(len(sorted_ms)-1)//2] if sorted_ms else None,
+              'p95_ms':sorted_ms[min(len(sorted_ms)-1,28)] if sorted_ms else None,
+              'scope':'public_API_only_not_authenticated_mobile'}
+          if failures or len(durations)!=30:result['public_api_gate']='FAIL'
           Path('/tmp/d02_snapshot.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
           print(json.dumps({'execution':exe_name,'receipt':result},ensure_ascii=False))
           if result.get('status')!='PASS' or result.get('public_api_gate')!='PASS':raise RuntimeError('snapshot_not_available')
