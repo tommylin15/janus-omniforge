@@ -1,0 +1,44 @@
+name: D03 read-only active-App visual data check
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/d03-live-series-readback.yml']
+permissions:
+  contents: read
+jobs:
+  data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Real public API series coverage with no fabricated points
+        run: |
+          python3 - <<'PY'
+          import json,urllib.request,urllib.parse,re
+          from pathlib import Path
+          base='https://janus-api-2oo7qbkd5q-uc.a.run.app'
+          with urllib.request.urlopen(base+'/app/build-id.txt',timeout=15) as response:
+              source=response.read(100).decode('ascii').strip()
+          assert re.fullmatch('[0-9a-f]{40}',source)
+          report={'scope':'real-canonical-dev-public-only','build_sha':source,'read_only':True,'items':[]}
+          metrics=('close','pe','pb','yield','foreign','investment_trust','dealer','revenue','eps')
+          for symbol,market in (('2330','TWSE'),('6488','TPEX')):
+              for metric in metrics:
+                  url=base+'/api/v1/public/stocks/'+symbol+'/visual-series?'+urllib.parse.urlencode({'metric':metric,'limit':20})
+                  item={'market':market,'symbol':symbol,'metric':metric}
+                  try:
+                      with urllib.request.urlopen(url,timeout=15) as response: row=json.load(response)
+                      assert row.get('schema_version')=='visual-series.v1'
+                      assert row.get('symbol')==symbol and row.get('metric')==metric
+                      points=row.get('points')
+                      assert isinstance(points,list) and len(points)<=20
+                      assert row.get('data_status') in ('available','partial','missing','unavailable')
+                      item.update(status=row['data_status'],points=len(points),usable_points=row.get('usable_points'),missing_reason=row.get('missing_reason'))
+                  except Exception as exc:
+                      item.update(status='ERROR',error_type=type(exc).__name__)
+                  report['items'].append(item)
+          report['summary']={name:sum(i['status']==name for i in report['items']) for name in ('available','partial','missing','unavailable','ERROR')}
+          report['gate']='PASS_READ_PATH_ONLY' if report['summary']['ERROR']==0 else 'FAIL'
+          print(json.dumps(report,sort_keys=True,ensure_ascii=False))
+          assert report['gate']=='PASS_READ_PATH_ONLY'
+          PY
