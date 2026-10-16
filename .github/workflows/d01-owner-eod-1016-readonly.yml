@@ -122,7 +122,8 @@ jobs:
           if result is None:raise RuntimeError('snapshot_receipt_missing')
           Path('/tmp/d01_owner_eod.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
           print(json.dumps({'execution':exe_name,'receipt':result},ensure_ascii=False))
-          if result.get('status')!='PASS_READ_ONLY' or result.get('full_same_day_available') is not True:\n              raise RuntimeError('owner_current_date_private_mart_not_fully_published')
+          if result.get('status')!='PASS_READ_ONLY' or result.get('full_same_day_available') is not True:
+              raise RuntimeError('owner_current_date_private_mart_not_fully_published')
           PY
       - uses: actions/upload-artifact@v4
         if: always()
