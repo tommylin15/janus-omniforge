@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "cee2437b821c577dc244faf24d9515189796518c",
-  "candidate_release_run": "38867940656",
-  "candidate_deployment_run": "38868766947",
-  "purpose": "D06 daily 23:30 audit mirror: verify exact completed 0% candidate #38868766947 after full Release #38867940656. Read-only automated OAuth metadata and private negative guards before Jobs rollout; canonical API 8eb remains 100%.",
+  "sha": "740e54c25842f39ddf0b912c88a82012a851997d",
+  "candidate_release_run": "38873919415",
+  "candidate_deployment_run": "38874649205",
+  "purpose": "D06 stop unused Iceberg audit mirror: exact source full Release #38873919415 and 0% candidate #38874649205 SUCCESS. Verify automated OAuth/negative private boundaries before reversible Jobs-only rollout; preserve current canonical traffic and Preview.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 27
+  "attempt": 28
 }
