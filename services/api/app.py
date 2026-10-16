@@ -32,7 +32,7 @@ from .context_sources import ContextSourceError, ContextSourceService, CoreConte
 from .mcp_adapter import McpAdapter
 from .mcp_oauth import McpOAuth, OAuthSettings, RepositoryOAuthCodeStore, parse_form
 from .models import (AdminResponseOut, AnalysisFeedbackIn, CorePageOut, CoreSummaryOut, MarketHomeOut,
-                     BrokerProfileIn, CorrectionIn, HealthOut, InvestmentProfileIn, InvestmentProfileOut, LedgerEventIn,
+                     BrokerProfileIn, CashPositionIn, CorrectionIn, HealthOut, InvestmentProfileIn, InvestmentProfileOut, LedgerEventIn,
                      LedgerReversalIn, MonthlyLedgerSummaryOut,
                      NoteIn, NoteRevisionIn, PortfolioExposureOut, PortfolioPerformanceOut,
                      PortfolioStressOut, PortfolioSummaryOut,
@@ -807,6 +807,20 @@ def create_app(repository: Any | None = None, store: Any | None = None,
     def investment_profile(current: AuthenticatedUser = Depends(user)):
         return jsonable_encoder(repository.investment_profile(current.user_id))
 
+    @private.get("/cash-position")
+    def cash_position(current: AuthenticatedUser = Depends(user)):
+        """Cash derives from a user-entered ledger checkpoint; never from market prices."""
+        row = repository.cash_position(current.user_id)
+        return jsonable_encoder({**row, "cash_balance":
+            str(row["cash_balance"]) if row["cash_balance"] is not None else None})
+
+    @private.put("/cash-position")
+    def save_cash_position(value: CashPositionIn, current: AuthenticatedUser = Depends(user),
+                           idempotency_key: str = Depends(key)):
+        row = repository.set_cash_position(current.user_id, value, idempotency_key)
+        return jsonable_encoder({**row, "cash_balance":
+            str(row["cash_balance"]) if row["cash_balance"] is not None else None})
+
     @private.get("/broker-profile")
     def broker_profile(current: AuthenticatedUser = Depends(user)):
         return jsonable_encoder(repository.broker_profile(current.user_id))
@@ -1029,6 +1043,31 @@ def create_app(repository: Any | None = None, store: Any | None = None,
             session=phase,
             fallback="persistent_last_success" if prices else "missing",
         )
+        # Operational cash is independent of delayed PnL jobs; the assets
+        # number is published only when ALL TWD holdings have eligible prices.
+        cash_reader = getattr(repository, "cash_position", None)
+        if cash_reader is not None:
+            cash = cash_reader(current.user_id)
+            balance = cash.get("cash_balance")
+            summaries = result.get("items", [])
+            stock_value = None
+            asset_status = "cash_not_configured" if balance is None else "incomplete_prices"
+            if balance is not None:
+                if not rows and not summaries:
+                    stock_value = Decimal(0)
+                elif (len(summaries) == 1 and summaries[0].get("currency") == "TWD"
+                      and summaries[0].get("aggregate_status") == "available"
+                      and summaries[0].get("market_value") is not None):
+                    stock_value = Decimal(str(summaries[0]["market_value"]))
+                elif any(item.get("currency") != "TWD" for item in summaries):
+                    asset_status = "multi_currency"
+            if stock_value is not None:
+                asset_status = "available"
+            result.update(cash={
+                **cash, "cash_balance": str(balance) if balance is not None else None,
+            }, total_asset_value=str(balance + stock_value)
+               if balance is not None and stock_value is not None else None,
+               asset_status=asset_status, asset_currency="TWD")
         return jsonable_encoder(result)
 
     @private.get("/portfolio/snapshot")
