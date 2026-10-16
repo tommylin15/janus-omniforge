@@ -4,5 +4,6 @@
   "migration": "062_owner_cash_balance_snapshots",
   "no_gcp_mutation": true,
   "no_job_execution": true,
-  "no_private_data_dump": true
+  "no_private_data_dump": true,
+  "inspect_permission_object": true
 }
