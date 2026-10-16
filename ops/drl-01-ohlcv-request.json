@@ -3,16 +3,16 @@
   "approved": true,
   "market": "TWSE",
   "dates": [
-    "2026-09-21",
-    "2026-09-22",
-    "2026-09-23",
-    "2026-09-24",
-    "2026-09-29"
+    "2026-09-14",
+    "2026-09-15",
+    "2026-09-16",
+    "2026-09-17",
+    "2026-09-18"
   ],
   "no_new_source": true,
   "no_job_template_mutation": true,
   "no_owner_mutation": true,
-  "why": "DRL-01 TWSE official 20-day depth: prior 11 separate trading days passed, close next five late-September sessions with source/Core snapshot readback, no Owner or job-template changes.",
+  "why": "DRL-01 final five full-market TWSE sessions, following 16 market days already readback PASS, to enable independent same-symbol 20/21 coverage census; original TWSE authorized source, Stage/Core and no owner data writes.",
   "scope": "current dev Iceberg Core and Stage only",
-  "request_version": 14
+  "request_version": 15
 }
