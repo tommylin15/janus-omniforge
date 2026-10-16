@@ -7,9 +7,9 @@
     "private-pipeline",
     "api"
   ],
-  "promotion": "not-authorized-without-exact-source-live-owner-mart-proof",
-  "attempt": 49,
-  "reason": "2026-10-15 P1 fix evening Owner EOD Private Mart dispatch: per-slot 21:30 independent from afternoon ingestion, 15:30 retains dependency, terminal upstream failed skips stale afternoon, nightly priority; regression targeted tests and selective CI #38755041998 SUCCESS. Publish complete same-source Python/Flutter/GHCR artifacts for controlled existing dev four-Jobs rollout; preserve canonical traffic, Owner ledger/PIT/provenance, no new resources.",
+  "promotion": "candidate-only-until-062-live-migration-and-same-source-gates-pass",
+  "attempt": 50,
+  "reason": "2026-10-16 user-approved editable owner cash TWD cash checkpoint, ledger automatic net cash flow, compact 1-2-line holdings, cash+market value total assets; API and Flutter CI #38840121209 PASS. Full source release builds complete GHCR images only, not GCP traffic or extra resources. Verify migration 062 separately before 0% candidate/traffic.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }
