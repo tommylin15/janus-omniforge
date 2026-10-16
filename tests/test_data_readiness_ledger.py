@@ -32,11 +32,13 @@ def _fixture():
         end = date(year, month+1, 1)-timedelta(days=1) if month != 12 else date(year, 12, 31)
         financials.append({"symbol": "1000", "source_id": "mops", "provenance_id": "m",
                            "statement_type": "monthly_revenue", "metric": "monthly_revenue",
+                           "value": "1000", "availability_at": "2026-10-01T00:00:00Z",
                            "fiscal_period_end": end.isoformat(), "fiscal_month": month,
                            "period_basis": "monthly", "unit": "TWD_thousands"})
     for quarter, end in enumerate(("2025-03-31", "2025-06-30", "2025-09-30", "2025-12-31"), 1):
         financials.append({"symbol": "1000", "source_id": "mops", "provenance_id": "m",
                            "statement_type": "income", "metric": "eps_single_quarter",
+                           "value": "1.25", "availability_at": "2026-10-01T00:00:00Z",
                            "fiscal_period_end": end, "fiscal_quarter": quarter,
                            "period_basis": "single_quarter", "unit": "TWD_per_share"})
     return members, benchmark, prices, financials, focused
@@ -84,6 +86,7 @@ def test_drl_nonconsecutive_months_and_cumulative_eps_do_not_qualify():
     ) and not (r["metric"] == "eps_single_quarter" and r["fiscal_quarter"] == 3)]
     financial.append({"symbol": "1000", "source_id": "mops", "provenance_id": "m",
                       "statement_type": "income", "metric": "eps_year_to_date",
+                      "value": "2.0", "availability_at": "2026-10-01T00:00:00Z",
                       "fiscal_period_end": "2025-09-30", "unit": "TWD_per_share",
                       "period_basis": "year_to_date"})
     report = _report(members, benchmark, prices, financial, focused)
