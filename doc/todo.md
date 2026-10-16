@@ -4,7 +4,7 @@
 
 ## 執行範圍
 
-**2026-10-16 本次授權的新版 API 正式 100% 切流已完成；其他 P1 工作沒有自動恢復**。P1 總額優先 `8eb42dcb` 的完整 GHCR Release #38856837257、0% candidate #38857279864、自動 OAuth #38857441171、固定 Preview #38857524000、四 Jobs 真實 rollout #38857643226 均 PASS；新版 8eb API 可逆 100% promotion #38865075071 與獨立 live 100% readback #38865347217 均 **PASS**（正式 revision `janus-api-00517-ciq`；回滾基準 `janus-api-00512-zal`）；不以 CI／部署取代真人操作驗收。Owner 10/15 backend 估值與雙 Worker queue PASS，但新版真人持股頁、現金交易連動、按鈕重算 E2E 仍 PARTIAL；D04 VM IAM／備份交接 BLOCKED。** 本次僅核准 8eb API 切流；其餘工作等下一次明確接續指示。
+**2026-10-16 本次授權的新版 API 正式 100% 切流已完成；其他 P1 工作沒有自動恢復**。P1 總額優先 `8eb42dcb` 的完整 GHCR Release #38856837257、0% candidate #38857279864、自動 OAuth #38857441171、固定 Preview #38857524000、四 Jobs 真實 rollout #38857643226 均 PASS；新版 8eb API 可逆 100% promotion #38865075071 與獨立 live 100% readback #38865347217 均 **PASS**（正式 revision `janus-api-00517-ciq`；回滾基準 `janus-api-00512-zal`）；不以 CI／部署取代真人操作驗收。Owner 10/15 backend 估值及雙 Worker queue PASS；**2026-10-16 使用者確認新版持股畫面、現金買賣交易連動、重算按鈕三項人工正向驗收均完成（USER_CONFIRMED_PASS）**，不再以「真人尚未操作」列為阻塞。剩餘異常場景、可追溯 runtime 細節與效能仍分別驗收；D04 VM IAM／備份交接 BLOCKED。** 本輪只回寫驗收，不自行啟動新部署／重算。
 
 A 組及 B0～B8 已結案的範圍不重開；有實質變更才回歸受影響路徑。全市場 Bootstrap／同日 Cached、費稅88筆更正、00719B 身分／估值既有成功證據不重送。研究範圍採各歷史日期全上市櫃；50 關注 quota 仍保留。
 
@@ -26,10 +26,12 @@ D01～D08 各有一張獨立可供 AI 執行的 [標準任務卡](execution-card
 ## D01｜持股交易與正式損益
 
 - [x] **P0 Owner 2026-10-14 backend 全持股估值／總未實現損益**：TPEx dailyQuotes、migration 061、SHA 285848 Release／API 0%／OAuth／四 Jobs rollout PASS；00697B + 00719B 同日官方資料已持久化。MCP readonly 8/8 市價、市值可用，Private Mart readonly #38732675488 驗 8/8 未實現 PnL、單一總計 aggregate_status=available、missing=0、affected=0、總市值／總 PnL／報酬非空，ledger v354 未變；最終 gate #38733406224 PASS。原 #38730741579 FAILED 是舊 schema 缺 `stale_price_count` 使驗收腳本誤判，修正後不再次重算、不編造欄位。後續新日期、UI、交易按鈕／queue、正式 App 屬 P1。
-- [ ] **現金池 Owner 正向驗收**：新 owner-scoped cash checkpoint API／migration 062 與 1～2 行持股列表已在 `9f690363` 發布，#38841287256、#38841326765、#38849686748、#38851753247、#38853614819 PASS。仍缺 authenticated「我的 → 現金部位」設定→精確 readback→交易 BUY／SELL／股利／REVERSAL 後現金變化、同 owner ledger checkpoint 與總資產非重複計入的真人 E2E；沒有初始現金不可顯示假總資產。不得新增測試真實交易或代替使用者設定現金。
+- [x] **現金交易連動真人正向驗收**：使用者 2026-10-16 回報「現金交易連動驗收完成」，記為 `USER_CONFIRMED_PASS`（8eb 正式 dev）。owner-scoped cash／migration 062 工程與正式部署原證據維持；本次沒有測試新增交易，也沒有新的逐筆資料或金額收據。
+- [ ] **現金進階一致性／失敗場景（獨立工程 gate）**：若仍列在 D01 acceptance，需提供股利、REVERSAL、更正、不同 Owner、idempotency／版本競態與 ledger checkpoint 的可稽核讀回；不因一般買賣現金連動人工 PASS 自動推定全部邊界 PASS。未配置初始現金不得製造總資產。
 - [ ] backend 唯讀試算及正式保存共用 MOVING_AVERAGE／Decimal／商品費稅，券商折扣與規則快照可追溯；表單自動費稅／一字搜尋及ETF／Enter／競態拒絕均有新版驗收。
 - [ ] 買入、加減碼、部分／全部賣出、零股、股利、更正、作廢、歷史補登、超額賣出拒絕、未知保存結果與冪等；不同 owner／ledger／broker version 不混用。既有費稅 apply 不重送。
-- [ ] **重算功能使用者 E2E**：後端真實雙 Worker 佇列 seed／worker／verify／cleanup #38828798196 PASS；仍需登入正式 App，按「重新計算損益」→ authenticated enqueue → SUCCEEDED／同 ledger checkpoint → UI PnL 更新與 idle，並驗證失敗／重試視覺。不得向真實帳本新增測試交易或將 canary 冒充按鈕 PASS。
+- [x] **重新計算損益按鈕真人正向驗收**：使用者 2026-10-16 已明確回報驗收完成（`USER_CONFIRMED_PASS`）。後端雙 Worker 佇列 #38828798196 的 synthetic 技術驗收另有 PASS；不聲稱這次回報附有 enqueue／Worker terminal／checkpoint 的新 run ID。
+- [ ] **重算操作稽核與異常路徑（獨立）**：如後續需要，補齊本人實際點擊 request ID→Worker terminal→同 ledger checkpoint／UI PnL 的可查收據，以及失敗／重送／timeout 狀態及冷暖等待時間；沒有資料就維持 NOT_VERIFIED，不重跑真人正向驗收。
 - [ ] operational股數／成本／該筆損益可即時呈現；行情更新、帳本保存、正式報表重算互不阻塞。首次完整估值不以市場10%／30%容忍代替。
 
 ## D02｜全市場、快照與效能
@@ -57,8 +59,9 @@ VF-10高階同業／估值河流／還原價仍屬有條件後續構想，不是
 ## D05｜整合發布
 
 - [x] **P1 8eb API 正式可逆 100% 切流及獨立讀回**：同源完整 Release #38856837257、0% #38857279864、auto OAuth #38857441171、Preview #38857524000、四 Jobs #38857643226 PASS；[正式可逆 promotion #38865075071](https://github.com/tommylin15/janus-omniforge/actions/runs/38865075071) PASS、[獨立 live readback #38865347217](https://github.com/tommylin15/janus-omniforge/actions/runs/38865347217) PASS；唯一 canonical 100% revision `janus-api-00517-ciq`、完整 build SHA、Preview、健康及負向 Owner/cash auth、immutable image/tags 全部確認，9f690 revision `janus-api-00512-zal` 保留回滾。此項僅 API 發布驗收，不表示使用者功能 E2E PASS。
-- [ ] **真實持股操作與參考總額主卡驗收**：驗持股 7 檔個股價格／成本／損益和延遲提示、完整參考總市值、真缺價小計與 `已計價檔數／全部檔數`、現金＋已計價部分，確認無錯誤長句遮擋表頭。帳本、現金修改、重算按鈕的真人正向 E2E 及 390px／桌面截圖、冷暖 P95 另行驗證；不得以 GHCR／Preview／Jobs PASS 當作真實操作 PASS。截圖試算 TWD 15,210,800 持股與約 1,702.2 萬參考資產僅是當時畫面推估，非官方現時數字。
-- [ ] **P1 剩餘：8eb 正式 App 真人操作與視覺 E2E**。**8eb 正式 API 100% 切流 #38865075071 和獨立讀回 #38865347217 已 PASS，以下沿革為之前已驗證基礎，不是新的阻塞。** 前版 7acff 的 10/15 Owner Mart／雙 Worker queue backend PASS、正式 100% rollback/readback 均保留；新版 9f690 DB 062 #38841287256、full Release #38841326765、API candidate #38849023963、auto OAuth #38849298689、四 Jobs #38849686748、fixed Preview #38849422216、受控正式 API promotion #38851753247 及獨立 100% immutable SHA/build-id/auth 401 #38853614819 均 PASS。初次 promo #38851511933因 template test FAIL 在 GCP 修改前停下，修正後 retry 成功；舊 7acff rollback baseline 保留。最新 Owner private MCP operational ledger v357／7 active positions、報價/估值仍 10/15，屬 10/16 交易後但尚未完成當日正式 EOD。**仍缺** authenticated cash-set／交易後 cash 差額與總資產、持股 1～2 行圖卡、實際重算按鈕→Owner queue terminal→UI PnL、交易保存及 390px/desktop screenshot／持股冷暖 P95。10/16 自動夜間 Private Mart 必須另觀察，不以一次補算或公開效能冒充。
+- [x] **真人持股畫面正向驗收**：使用者 2026-10-16 明確回報「真人持股畫面驗收完成」，以 `USER_CONFIRMED_PASS` 接受新版持股畫面的基本真人操作流程；與 8eb 發布 #38865075071、獨立 runtime #38865347217 的技術驗收分開存證。
+- [ ] **持股視覺特殊場景與效能（獨立）**：真缺價小計／涵蓋檔數、延遲與跨日參考市值、手機 390px／桌面 authenticated 截圖、文字可及性及 P95 均需其各自受控證據；使用者人工正向確認不等於這些量測完成。舊截圖推算 TWD 15,210,800、約 1,702.2 萬元屬歷史估算，不是現時合格值。
+- [ ] **P1 尚需的獨立工程驗收**：新版 8eb 已在正式 App 100% 發布並獨立讀回 PASS；使用者 2026-10-16 確認持股畫面、現金交易連動、重算按鈕三項真人正向 **USER_CONFIRMED_PASS**，不再重列未操作。餘下只保留確有要求的特殊缺價／stale／partial 呈現、trade/owner/refund/reversal 安全與冪等、回溯到 ledger／Worker terminal 的機器可稽核證據、390px/desktop 截圖與冷暖 P95、10/16 夜批 Private Mart 最新 EOD／PIT readback；缺證據維持各自 PARTIAL／NOT_VERIFIED，**不得反向推翻已完成的基本人工驗收**。
 - [ ] 無需每版人工OAuth登入；自動auth與owner隔離仍驗。metadata／401不代表正向PnL或UI PASS。不要以舊來源的API／Jobs證據交叉替代。
 
 ## D06｜Iceberg、引用及I/O
