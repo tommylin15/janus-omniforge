@@ -2174,7 +2174,7 @@ class _CashPositionCardState extends State<CashPositionCard> {
                 autofocus: true,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
-                  labelText: '目前現金（元）', prefixText: 'NT$ '),
+                  labelText: '目前現金（元）', prefixText: 'NTD '),
               ),
               if (error != null) Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -2240,7 +2240,7 @@ class _CashPositionCardState extends State<CashPositionCard> {
         leading: const Icon(Icons.account_balance_wallet_outlined),
         title: const Text('現金部位'),
         subtitle: Text(row['cash_status'] == 'available'
-          ? 'NT$ ${accountingNumber(row['cash_balance'])} · 交易後自動增減'
+          ? 'NTD ${accountingNumber(row['cash_balance'])} · 交易後自動增減'
           : '尚未設定 · 可隨時輸入目前餘額'),
         trailing: IconButton(
           tooltip: '修改現金部位',
