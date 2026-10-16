@@ -1,11 +1,12 @@
 {
   "intent": "p1-live-api-post-promote-readback",
   "approved": true,
-  "source_sha": "7acff50000644979af3815f00fbd7f1c167e1098",
-  "promotion_run": "38830675477",
-  "jobs_run": "38821199561",
+  "source_sha": "9f690363e5517cbe90d837a53a94ae3a4e7ab31e",
+  "previous_sha": "7acff50000644979af3815f00fbd7f1c167e1098",
+  "promotion_run": "38851753247",
+  "jobs_run": "38849686748",
   "no_gcp_mutation": true,
   "no_owner_mutation": true,
   "no_traffic_mutation": true,
-  "reason": "Read exact real dev canonical 100% revision, preserved tags, GHCR immutable digest, build-id, Preview source, health/unauthorized boundary after successful reversible promotion. No Cloud Run modifications or Owner credentials."
+  "reason": "Independent read-only dev acceptance after reversible cash+compact holdings 9f690 API 100% promotion #38851753247: exact immutable revision, build-id, fixed Preview, cash anonymous 401, health, traffic/tags preserved. Never alter Owner ledger or cash or service."
 }
