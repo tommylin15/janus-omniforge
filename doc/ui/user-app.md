@@ -157,6 +157,9 @@ Ledger／Holdings 一致性至少涵蓋 shares、cost／average cost、market va
 - YTD realized PnL；
 - valuation date／status。
 
+**2026-10-16 使用者定版（覆蓋舊大卡視覺）：**持股頁每檔縮至 1～2 行四欄：名稱／代碼與股數、現價／成本、當日持股價格變動與百分比、持有未實現總損益與報酬率。預設將可驗證的當日損益絕對值較大者置頂；來源時間、交易明細、缺價原因都放到個股詳情，主畫面只用細小圖示與 —，不重複大面積「資料不足」。不能把缺價當零，也不能混合日期或 owner 造出完整總損益。
+
+頂端「總資產」增加兩個數字：①現在現金部位 ②現金＋持股當前市值；萬元、小數一位呈現，後端保留精度。未實現損益已含在市值中，不得再加一次。缺價／非台幣未換匯／現金未設定時，總資產不得假裝完整。現金資料由新的本人現金池提供，不引用歷史 Broker Profile 宣告現金。
 未驗證 cash／其他資產完整性前，不能把持股市值稱為總資產，也不能用即時 quote 畫假歷史資產線。手機持股用較大字、紅漲綠跌的可掃描 card：canonical name／symbol、shares、market price／average cost、前一交易日官方收盤價、當日每股漲跌／百分比／以現持股數估算的價格變動額、unrealized PnL／return、price／valuation status。每檔都直接顯示未實現損益與百分比，正值紅、負值綠、0／未知中性；價格與未實現估值使用 latest-price resolver 回傳的 owner holdings valuation。operational shares／cost 與 canonical valuation／PnL 的資料時間仍須可判讀。
 
 首屏優先呼叫 owner-scoped `/api/v1/me/portfolio/snapshot`：只從既有 PostgreSQL current_positions、latest-price resolver 的 last-success persistent state 及官方已發布 OHLCV serving projection 讀取，禁止 request-time MIS network／Private Mart 掃描；舊 API 僅供相容性／明確失敗備援。年度 PnL、交易歷史及重算狀態於首屏後另外載入。昨收以 PostgreSQL 已發布 OHLCV serving projection 批次讀取，不每檔逐一查 Iceberg。無有效昨收、報價 stale、參考日不合法或 checkpoint 不一致時，當日漲跌維持缺值；持股價格變動額不代表包含交易、費稅及除權息的實際當日交易損益。
@@ -196,6 +199,9 @@ cash flow 與 PnL 不得混為同義。交易類型目前為買進、賣出、�
 - Reports acceptance 必須追查並對齊 report API、transaction source、position projection、report aggregation source、DB table/view/materialized projection、cache TTL/invalidation 與 transaction 入帳後更新鏈路；最後以 evidence 判定 `implemented`／`partial`／`missing`／`blocked`。
 
 ### 5.4.5 Broker Profile／cash
+
+現金池新契約：舊版 Broker Profile 的 declared_cash 與 cash_as_of 只是歷史申報快照，不代表即時可用現金。新版 private.cash_balance_snapshots 由本人隨時直接設定絕對 TWD 餘額；不用輸入入金／提款原因、銀行明細或先做大量查核，僅使用 owner 隔離、idempotency、防競態 cash version 與原始不可變設定歷史；首次未設定回 not_configured，不預設為零。
+每次手動覆寫時保存目前 ledger anchor，之後持久化 BUY 扣除價金與費稅、SELL 增加賣出淨額、CASH_DIV 加入股利淨額；STOCK_DIV 不改現金。作廢／更正反向沖回原始淨現金流再加新交易。重算不重扣、冪等交易不重扣，現金手動調整不修改交易與券商費稅版本。現金可因交易呈現負值，不強制阻擋正常帳本流程。
 
 私人 Broker Profile 可保存 current cash／cash strategy、fee discount multiplier、minimum fee 與 rule/profile version。2026-10-15 起 Admin「資料治理」沿用同一 owner 的券商設定（本人折扣 0.4）；交易新增／更正不提供手續費與證交稅輸入，兩項統一由 backend 自動計算。交易股票欄位支援代號／名稱第一字下拉搜尋，使用已登記股票主檔並包含 ETF；可點選或按 Enter 選取，僅送出選定的標準代號。修改文字後必須重新選取；舊搜尋較晚回傳不得蓋過新輸入，沒有結果或搜尋失敗時保留輸入並允許修改重試。現金優先由可稽核 cash ledger（opening/deposit/withdrawal/trade/dividend）推導；任何 CASH_IN／CASH_OUT／adjustment 仍須 append-only／audit。
 
