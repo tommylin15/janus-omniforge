@@ -1,0 +1,47 @@
+name: Janus DRL-01 official OHLCV historical repair
+on:
+  push:
+    branches: [main]
+    paths: ['ops/drl-01-ohlcv-request.json']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check versioned scope and code syntax
+        run: |
+          python -m py_compile scripts/gcp/drl01_ohlcv_repair.py
+          python - <<'PY'
+          import json
+          req=json.load(open('ops/drl-01-ohlcv-request.json'))
+          assert req['intent']=='drl01-official-historical-ohlcv' and req['approved'] is True
+          assert req['no_new_source'] is True and req['no_job_template_mutation'] is True
+          assert req['no_owner_mutation'] is True and len(req['dates']) <= 5
+          PY
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Execute existing dev ingestion Job without template/traffic changes
+        env:
+          PYTHONPATH: .
+        run: python scripts/gcp/drl01_ohlcv_repair.py ops/drl-01-ohlcv-request.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: drl01-ohlcv-official-readback
+          path: /tmp/drl01-ohlcv.json
+          if-no-files-found: ignore
+          retention-days: 14
