@@ -1,0 +1,84 @@
+name: Janus cash migration 062 read-only failure diagnostic
+on:
+  push:
+    branches: [main]
+    paths: ['ops/cash-migration-readonly-request.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify bounded read-only authorization
+        run: |
+          jq -e '.intent=="cash-migration-readonly-diagnosis" and
+            .failed_run=="38840325801" and .migration=="062_owner_cash_balance_snapshots" and
+            .no_gcp_mutation==true and .no_job_execution==true and .no_private_data_dump==true' ops/cash-migration-readonly-request.json >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Inspect only execution statuses and whitelisted error classes
+        run: |
+          python3 - <<'PY'
+          import json,re,subprocess
+          def run(args):
+              try:
+                  r=subprocess.run(args,capture_output=True,text=True,timeout=55)
+                  return json.loads(r.stdout) if r.returncode==0 else None
+              except Exception:return None
+          base=['--project=gen-lang-client-0593591102','--region=us-central1']
+          rows=run(['gcloud','run','jobs','executions','list','--job=janus-ingestion-core',*base,'--limit=15','--format=json'])
+          latest=[]
+          for x in rows or []:
+              state=x.get('status') or {}
+              conds=state.get('conditions',[]) if isinstance(state,dict) else []
+              latest.append({'name':str(x.get('metadata',{}).get('name') or x.get('name') or '').rsplit('/',1)[-1],
+                             'created':str(x.get('metadata',{}).get('creationTimestamp') or x.get('createTime') or '')[:35],
+                             'completion':bool(state.get('completionTime') or x.get('completionTime')),
+                             'succeeded_count':state.get('succeededCount',x.get('succeededCount')),
+                             'failed_count':state.get('failedCount',x.get('failedCount')),
+                             'terminal_conditions':[{'type':str(c.get('type',''))[:40],
+                               'status':str(c.get('status') or c.get('state') or '')[:40],
+                               'reason':str(c.get('reason') or c.get('executionReason') or '')[:75]}
+                                 for c in conds if c.get('type') in ('Completed','Ready')][:3]})
+          criteria='resource.type="cloud_run_job" AND resource.labels.job_name="janus-ingestion-core" AND timestamp>="2026-10-16T02:25:00Z" AND timestamp<="2026-10-16T02:30:30Z"'
+          logs=run(['gcloud','logging','read',criteria,'--project=gen-lang-client-0593591102',
+                    '--order=desc','--limit=200','--format=json'])
+          allowed=('InsufficientPrivilege','UndefinedTable','UndefinedColumn','DuplicateTable','SyntaxError',
+                   'ForeignKeyViolation','CheckViolation','AssertionError','ProgrammingError',
+                   'OperationalError','PermissionDenied','InvalidTextRepresentation','InternalError',
+                   'UndefinedFunction','TypeError','ValueError','RuntimeError','KeyError')
+          types=set(); sqlstate=set(); stages=set()
+          keywords={'access_denied':'permission denied',
+                    'sql_relation_missing':'does not exist',
+                    'sql_transaction':'transaction is aborted',
+                    'schema_privilege':'must be owner of',
+                    'sql_undefined':'undefined',
+                    'sql_syntax':'syntax error',
+                    'role_denied':'not permitted',
+                    'python_traceback':'Traceback (most recent call last)'}
+          tags=set()
+          for entry in logs or []:
+              payload=entry.get('textPayload') or json.dumps(entry.get('jsonPayload') or {})
+              for label in allowed:
+                  if label in payload:types.add(label)
+              for name,phrase in keywords.items():
+                  if phrase in payload:tags.add(name)
+              for state in re.findall(r'(?<![A-Z0-9])[0-9A-Z]{5}(?![A-Z0-9])',payload):
+                  if re.match(r'^[0-9A-Z]{5}$',state) and state[:2] in ('42','23','25','40','55'):
+                      sqlstate.add(state)
+              for stage in ('analysis_schema_bootstrap','serving_schema_migration','SQLSTATE','migration'):
+                  if stage in payload:stages.add(stage)
+          print(json.dumps({'read_only':True,'migration':'062_owner_cash_balance_snapshots',
+             'list_available':isinstance(rows,list),'executions':latest[:10],
+             'logs_available':isinstance(logs,list),'log_count':len(logs) if isinstance(logs,list) else None,
+             'exception_classes':sorted(types),'diagnostic_tags':sorted(tags),
+             'sqlstates':sorted(sqlstate),'stage_terms':sorted(stages),
+             'writes':0},sort_keys=True))
+          PY
