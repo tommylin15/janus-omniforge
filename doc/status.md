@@ -5,7 +5,7 @@
 ### DRL-01 最新獨立門檻與上市 canary（2026-10-16）
 
 - **TPEX A 20交易日深度合格**：[官方21日讀回後的獨立Core census #38920178493](https://github.com/tommylin15/janus-omniforge/actions/runs/38920178493) confirmed current Core 100,153 OHLCV rows；TPEX **797/896 檔≥20日 =88.95%**，766/896 有最近20日完整報價，已高於上櫃≥70% 門檻。這是本次可獨立宣稱的「上櫃20日」子項PASS，不等於整體DRL-01A或120日深度完成。
-- **TWSE A 公開行情擴母體 canary PASS**：[2026-10-01 #38919999165](https://github.com/tommylin15/janus-omniforge/actions/runs/38919999165) official TWSE 1092 validated、0 quarantined，原498檔具價→新Core讀回1089/1096=99.36%；已接續 [五個近期交易日 #389207...](https://github.com/tommylin15/janus-omniforge/actions/workflows/drl-01-ohlcv-repair.yml) 請求，當前尚未證明TWSE同股20日>=90%。
+- **TWSE A 公開行情擴母體 canary PASS**：[2026-10-01 #38919999165](https://github.com/tommylin15/janus-omniforge/actions/runs/38919999165) official TWSE 1092 validated、0 quarantined，原498檔具價→新Core讀回1089/1096=99.36%；已接續 [既有DRL-01 OHLCV workflow](https://github.com/tommylin15/janus-omniforge/actions/workflows/drl-01-ohlcv-repair.yml) 請求，當前尚未證明TWSE同股20日>=90%。
 - **MOPS B 2026-07～09逐月PASS**：[Sep #38918935523](https://github.com/tommylin15/janus-omniforge/actions/runs/38918935523) 1088/1096；[Jul-Aug #38919909592](https://github.com/tommylin15/janus-omniforge/actions/runs/38919909592) Jul 1084/1096、Aug 1085/1096，新增1084/1085、沿用4/3，0隔離異常；下一批May-Jun [#38920546308](https://github.com/tommylin15/janus-omniforge/actions/runs/38920546308)已派送，未有終態前不得標成功。13月同月YoY整體仍PARTIAL。
 - **差異**：舊Core census #38910500339於TPEX修復前0檔>=20，最新獨立 #38920178493驗到797檔>=20；以最新相同scope證據為準。舊GitHub CI及GHCR成功不等於Ledger新版實際Jobs已部署。
 
