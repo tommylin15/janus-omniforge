@@ -49,15 +49,17 @@ def cleanup(core,store,now,tables):
         if not core.catalog.table_exists(identifier): continue
         report={'table':identifier,'phase':'PREFLIGHT'}
         tables.append(report)
+        report['preflight']=maintain_financials(core=core,store=store,apply=False,now=now,identifier=identifier)
+        report['orphan_preflight']=clean_orphans(core,store,identifier,apply=False,now=now)
+    for report in tables:
+        identifier=report['table']
         if identifier=='ops.batch_events_v1':
             report['compact_preflight']=compact_batch_events(core=core,apply=False)
             report['compact_apply']=compact_batch_events(core=core,apply=True)
-        plan=maintain_financials(core=core,store=store,apply=False,now=now,identifier=identifier)
-        report.update(preflight=plan,phase='APPLYING')
+        report['phase']='APPLYING'
         result=maintain_financials(core=core,store=store,apply=True,now=now,identifier=identifier)
         report['maintenance']=result
-        orphans=clean_orphans(core,store,identifier,apply=True,now=now)
-        report['orphans']=orphans
+        report['orphans']=clean_orphans(core,store,identifier,apply=True,now=now)
         table=core.catalog.load_table(identifier)
         if result['row_count'] and table.scan(limit=1).to_arrow().num_rows!=1:
             raise RuntimeError('current_snapshot_readback_failed')
@@ -115,6 +117,8 @@ def main():
         if isinstance(error,HTTPError):
             try:
                 message=json.loads(error.read(16384)).get('error',{})
+                safe_message=re.sub(r'[\w.+-]+@[\w.-]+','<identity>',str(message.get('message',''))[:512])
+                result['http_message']=re.sub(r'(?i)(bearer\s+|access_token[=: ]+)\S+',r'\1<redacted>',safe_message)
                 result['http_reasons']=[x['reason'] for x in message.get('errors',[]) if re.fullmatch(r'[A-Za-z_]{1,80}',x.get('reason',''))]
                 result['denied_storage_permissions']=sorted(set(re.findall(r'storage\.[a-zA-Z]+\.[a-zA-Z]+',message.get('message',''))))
             except Exception: pass

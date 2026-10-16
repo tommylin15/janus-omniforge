@@ -43,9 +43,11 @@ def test_audit_is_first_and_partial_table_receipt_survives_failure(monkeypatch):
         return {'planned_expiration':2}
     monkeypatch.setattr(m,'maintain_financials',maintain)
     monkeypatch.setattr(m,'compact_batch_events',lambda **kw:{'status':'eligible'})
+    monkeypatch.setattr(m,'clean_orphans',lambda *args,**kw:{'planned_objects':3})
     reports=[]
     with pytest.raises(RuntimeError):m.cleanup(core,None,NOW,reports)
-    assert calls==[('ops.batch_events_v1',False),('ops.batch_events_v1',True)]
+    assert calls==[('ops.batch_events_v1',False),('core.ohlcv_v1',False),('ops.batch_events_v1',True)]
+    assert len(reports)==2 and reports[1]['orphan_preflight']['planned_objects']==3
     assert reports[0]['preflight']=={'planned_expiration':2} and reports[0]['phase']=='APPLYING'
 
 
@@ -64,8 +66,8 @@ def test_cleanup_reuses_reference_helpers_and_reads_current_rows(monkeypatch):
     monkeypatch.setattr(m,'clean_orphans',lambda core,store,name,**kw:calls.append(('orphan',name,kw['apply'])) or {})
     reports=[]
     m.cleanup(core,None,NOW,reports)
-    assert calls==[('compact','ops.batch_events_v1',False),('compact','ops.batch_events_v1',True)]+[('metadata',name,False) if phase==0 else ('metadata',name,True) if phase==1 else ('orphan',name,True)
-                   for name in ('ops.batch_events_v1','core.ohlcv_v1') for phase in range(3)]
+    assert calls[:4]==[(kind,name,False) for name in ('ops.batch_events_v1','core.ohlcv_v1') for kind in ('metadata','orphan')]
+    assert calls[4:]==[('compact','ops.batch_events_v1',False),('compact','ops.batch_events_v1',True)]+[(kind,name,True) for name in ('ops.batch_events_v1','core.ohlcv_v1') for kind in ('metadata','orphan')]
     assert all(x['phase']=='READBACK_PASS' for x in reports)
 
 
