@@ -8,7 +8,7 @@
   "no_new_source": true,
   "no_job_template_mutation": true,
   "no_owner_mutation": true,
-  "why": "DRL01 retry one date only after five-date failed canary #38891948838; collect phase/error class and verify real Core; no parallel replay",
+  "why": "Retry same single date after schema projection correction: official market-volume stock_name must not enter strict OHLCV DQ; prior result before_covered=0 and no Core commit",
   "scope": "current dev Iceberg Core and Stage only",
-  "request_version": 2
+  "request_version": 3
 }
