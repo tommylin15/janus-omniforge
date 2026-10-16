@@ -915,7 +915,7 @@ void main() {
       api.posts.where((path) => path == '/api/v1/me/portfolio/quotes/refresh').length,
       1,
     );
-    expect(find.text('持有均價 100.00'), findsOneWidget);
+    expect(find.text('成本 100.00'), findsOneWidget);
     expect(find.byKey(const Key('holding-latest-price-2330')), findsOneWidget);
     expect(find.byKey(const Key('holding-pnl-2330')), findsOneWidget);
     expect(find.byKey(const Key('holding-return-2330')), findsOneWidget);
