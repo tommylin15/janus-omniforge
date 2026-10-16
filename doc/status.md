@@ -2,6 +2,13 @@
 
 更新：2026-10-16。P1 現金池與精簡持股新版 `9f690363e5517cbe90d837a53a94ae3a4e7ab31e` 已完成 schema 062、full Release、四 Jobs、固定 Preview、API 100% 可回復切流及獨立 live 讀回；前一基準 `7acff50000644979af3815f00fbd7f1c167e1098` 保留可回滾。Owner 10/15 估值與 Worker queue 後端 PASS，但最新版真人 authenticated UI、現金設定／買賣現金連動、實際重算按鈕與交易保存 E2E 仍 NOT_VERIFIED；歷史較舊的『尚未切流』快照不可覆蓋新證據。
 
+### 2026-10-16｜P1 真人截圖回報：參考總額與小計優先顯示（8eb42dcb）
+
+- **觀察／根因**：正式 9f690 真人手機持股截圖顯示 7 檔有行情／股數，卻僅 2 檔價格可納正式報表，其餘「待估值」與主卡「總額暫不發布」，已知操作資訊被合格性 gate 整體隱藏。120 秒 MIS freshness 只能判「即時/延遲」，不能一律抹去 source-authorized 歷史有效成交報價。長錯誤說明擠到列表表頭也是視覺缺陷。
+- **修復策略已 commit**：`services/api/intraday_quotes.py` 分離同日正式 `market_value/unrealized_pnl` 與 source/date/positive-price 限定的 `reference_market_value/reference_unrealized_pnl`；跨日／延遲價可做明確標示的**完整參考估值**。若仍有真正缺價，另外提供 `reference_priced_market_value`／已計價損益小計、已計價檔數／總檔數，不冒稱全部持股。已設定現金池時同步提供 `reference_total_asset_value`，或 `reference_partial_asset_value`（現金＋已計價部分）。不為任何缺價虛構價格／數字、不混入正式 PIT 總額。
+- **UI 行為**：`apps/user_app/lib/final_ledger.dart` 主視覺優先顯示完整參考總額或可用小計；限制資訊縮為短文字；過時報價保留圖示、日期、個股未實現 PnL。實測截圖的 7 檔股數×顯示現價約為 **TWD 15,210,800**，與畫面現金約 181.1 萬元合計參考資產約 **1,702.2 萬元**；依畫面四捨五入平均成本推算參考未實現損益約 **192.3 萬元**，皆只屬截圖試算、非 runtime 正式 Owner 核定。
+- **驗證狀態**：同範圍 Python 與 390px Flutter P1 回歸 tests PASS，`8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699` 完整 GHCR Release [#38856837257](https://github.com/tommylin15/janus-omniforge/actions/runs/38856837257) PASS；0% 候選 [#38857279864](https://github.com/tommylin15/janus-omniforge/actions/runs/38857279864) PASS；自動 OAuth／private boundary [#38857441171](https://github.com/tommylin15/janus-omniforge/actions/runs/38857441171) PASS；固定 Preview [#38857524000](https://github.com/tommylin15/janus-omniforge/actions/runs/38857524000) PASS。原 9f690 四 Jobs 實際回滾基準 [#38856931558](https://github.com/tommylin15/janus-omniforge/actions/runs/38856931558) PASS；新四 Jobs 真實 rollout [#38857643226](https://github.com/tommylin15/janus-omniforge/actions/runs/38857643226) 最後一次觀察為 **IN_PROGRESS**。正式新版本切流／獨立 100% readback／手機 Owner 正向 E2E 尚 **NOT_VERIFIED**，不得提前宣稱完成。
+
 ### 2026-10-16｜P1 現金池／精簡持股 9f690 正式 dev 與獨立驗收
 
 - **DB 062 PASS**：現金 checkpoint 使用 owner-scoped schema／版本與 ledger anchor；migration [#38841287256](https://github.com/tommylin15/janus-omniforge/actions/runs/38841287256) SUCCESS。舊 Broker Profile 的 `declared_cash` 不等於新現金餘額，未設定就保持未設定。後端交易現金淨流入／淨流出採持久化費稅與 reversal，總資產只在全持股合格台幣估值可用時顯示，未實現損益不重複相加。
