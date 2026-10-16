@@ -69,7 +69,7 @@ finally:
 
 
 def payload(source, sql, migration='051_analysis_product'):
-    if migration not in {'051_analysis_product', '052_ceo_daily_quota_50', '054_market_serving', '055_full_market_universe', '056_controller_ledger_backup', '057_home_market_snapshot', '058_official_held_etf_identity', '059_ledger_automatic_charges', '060_official_held_bond_etf_identity', '061_tpex_official_eod_daily'}:
+    if migration not in {'051_analysis_product', '052_ceo_daily_quota_50', '054_market_serving', '055_full_market_universe', '056_controller_ledger_backup', '057_home_market_snapshot', '058_official_held_etf_identity', '059_ledger_automatic_charges', '060_official_held_bond_etf_identity', '061_tpex_official_eod_daily', '062_owner_cash_balance_snapshots'}:
         raise ValueError('migration not approved for bootstrap')
     container = source['template']['template']['containers'][0]
     if container.get('command') not in (None, [], ['python']):
@@ -88,7 +88,7 @@ def main():
     from ghcr_jobs_rollout import cloud, fence, job, terminal, ROOT
     parser = argparse.ArgumentParser()
     parser.add_argument('--receipt', type=Path, required=True)
-    parser.add_argument('--migration', choices=('051_analysis_product', '052_ceo_daily_quota_50', '054_market_serving', '055_full_market_universe', '056_controller_ledger_backup', '057_home_market_snapshot', '058_official_held_etf_identity', '059_ledger_automatic_charges', '060_official_held_bond_etf_identity', '061_tpex_official_eod_daily'),
+    parser.add_argument('--migration', choices=('051_analysis_product', '052_ceo_daily_quota_50', '054_market_serving', '055_full_market_universe', '056_controller_ledger_backup', '057_home_market_snapshot', '058_official_held_etf_identity', '059_ledger_automatic_charges', '060_official_held_bond_etf_identity', '061_tpex_official_eod_daily', '062_owner_cash_balance_snapshots'),
                         default='051_analysis_product')
     args = parser.parse_args()
     if args.migration == '059_ledger_automatic_charges':
