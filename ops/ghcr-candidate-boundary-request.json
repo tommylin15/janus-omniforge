@@ -5,7 +5,7 @@
   "sha": "9f690363e5517cbe90d837a53a94ae3a4e7ab31e",
   "candidate_release_run": "38841326765",
   "candidate_deployment_run": "38849023963",
-  "purpose": "Owner cash checkpoints 062 applied (#38841287256) and full GHCR Python/Flutter/four public images (#38841326765) PASS, 0% Janus API candidate (#38849023963) PASS. Read-only same-SHA OAuth discovery, negative owner/Admin/MCP boundaries and 0% tag identity; no canonical traffic, Jobs or Owner mutation. Human OAuth is not a gate.",
+  "purpose": "2026-10-16 owner cash TWD checkpoints migration 062 #38841287256 PASS, full GHCR release #38841326765 PASS, 0% dev API candidate #38849023963 PASS. Verify exact-source OAuth discovery, negative owner/Admin/MCP boundary and immutable 0% tag readback. No human login, no traffic/Job mutation.",
   "requires_human_owner_acceptance_before_promotion": false,
   "attempt": 25
 }
