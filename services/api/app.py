@@ -1076,6 +1076,16 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                       and summaries[0].get("reference_status") == "available"
                       and summaries[0].get("reference_market_value") is not None):
                     reference_value = Decimal(str(summaries[0]["reference_market_value"]))
+            # Incomplete but useful: also expose CASH + verifiably priced
+            # REFERENCE HOLDINGS SUBTOTAL with explicit coverage. This is not
+            # a claim about total assets when any held symbol is unpriced.
+            priced_reference = None
+            partial_assets = None
+            if (balance is not None and len(summaries) == 1 and
+                    summaries[0].get("currency") == "TWD" and
+                    int(summaries[0].get("reference_priced_symbol_count") or 0) > 0):
+                priced_reference = Decimal(str(summaries[0]["reference_priced_market_value"]))
+                partial_assets = balance + priced_reference
             result.update(cash={
                 **cash, "cash_balance": str(balance) if balance is not None else None,
             }, total_asset_value=str(balance + stock_value)
@@ -1085,6 +1095,10 @@ def create_app(repository: Any | None = None, store: Any | None = None,
                if balance is not None and reference_value is not None else None,
                reference_asset_status="available" if balance is not None
                and reference_value is not None else "incomplete",
+               reference_partial_asset_value=str(partial_assets)
+               if partial_assets is not None and reference_value is None else None,
+               reference_partial_asset_status="partial" if partial_assets is not None
+               and reference_value is None else "not_applicable",
                asset_currency="TWD")
         return jsonable_encoder(result)
 
