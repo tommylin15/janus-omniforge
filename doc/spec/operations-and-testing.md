@@ -4,6 +4,10 @@
 
 | 驗收範圍 | 證據 | 判定與限制 |
 |---|---|---|
+| DRL-01 TPEX 21個連續已確認市場交易日 | [#38917554437](https://github.com/tommylin15/janus-omniforge/actions/runs/38917554437)、[#38918148776](https://github.com/tommylin15/janus-omniforge/actions/runs/38918148776)、[#38918809519](https://github.com/tommylin15/janus-omniforge/actions/runs/38918809519) | **逐日 Stage/Core/Snapshot PASS，尚非20/21同檔合格率的最終PASS**。上市 ≥90% 另驗。 |
+| DRL-01 2026-09 TWSE MOPS全市場月營收 | [#38918935523](https://github.com/tommylin15/janus-omniforge/actions/runs/38918935523) | **PASS**：上市有效1088/1096，新增Core1088，0 quarantine，snapshot6601479721248845888，官方原始檔與真實receipt；13月連續YoY仍PARTIAL。 |
+| DRL-01 2026-07～08 TWSE MOPS月營收 | [#38919909592](https://github.com/tommylin15/janus-omniforge/actions/runs/38919909592) | **IN_PROGRESS**，未終態及快照讀回前不得宣稱完成。 |
+| DRL-01 Release／Candidate | [GHCR #38910268790](https://github.com/tommylin15/janus-omniforge/actions/runs/38910268790)、[candidate #38911603887](https://github.com/tommylin15/janus-omniforge/actions/runs/38911603887) | **Release PASS、Candidate FAIL**；legacy state build-receipt.json missing，未切API流量或正式Job版本，定期Ledger runtime仍未驗。 |
 | DRL-01 最新全量Core來源與期數盤點 | [#38910500339](https://github.com/tommylin15/janus-omniforge/actions/runs/38910500339) | **PASS_READONLY_CENSUS，不是歷史修復完成**：TWSE1096/TPEX896 enabled，20日股票分別500/0；MOPS keyed revenue4011但13月股票僅5；官方EPS任值1970、明確單季4筆股票6，2382單季9期但不連續4季。 |
 | DRL-01 TPEX Oct13～15 pending request | [#38910768542](https://github.com/tommylin15/janus-omniforge/actions/runs/38910768542) | **CANCELLED**：與其他GitHub Writer同群 pending競爭被取代，不是Core補收PASS。安全重送需等先前已受理任務完成；不得重標成功。 |
 | DRL-01 TPEX 有界歷史 OHLCV | [10/02 #38893470772](https://github.com/tommylin15/janus-omniforge/actions/runs/38893470772)、[10/05～06 #38908586463](https://github.com/tommylin15/janus-omniforge/actions/runs/38908586463) | **3個交易日各別PASS**：896檔有效分母，867、870、864官方價Core寫入與同日snapshot讀回；尚不是20/21全窗口PASS。 |
