@@ -5,8 +5,8 @@
   "rollout_run": 38857643226,
   "expected_source_sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
   "expected_image": "ghcr.io/tommylin15/janus-ingestion-core@sha256:b748d7e3c738ed38ecda866ad74a553dd3670f6eceff898ea8555adbcb7dc792",
-  "purpose": "User explicitly approved old unlinked Core small-file cleanup on 2026-10-16. Audit table first, then existing Core tables. Use verified restored runtime independently of pending daily-export deployment. No new resources.",
+  "purpose": "Authorized cleanup retry after exact execution qmm9h terminal, zero deleted generations, independent read-only census confirms 20 snapshot expirations already committed and 154 metadata plus 477 orphan candidates remain. Existing runtime confirms get/create/delete permissions; capture precise failing frame, generation and sanitized GCS error reason to resolve HTTP403. Keep same approved scope and exact 8eb runtime, no IAM changes.",
   "acceptance": "Require successful original 8eb Jobs rollout, current exact immutable Core image, enabled baseline Scheduler and all-page terminal execution fence. Preserve current/named/24h snapshots, known Core execution/report references and objects aged <=7 days. Delete only unlinked <1MiB listed generations under approved Core table prefixes. No canonical row, private bucket or Core execution manifest retirement. Require structured receipt, generation readback and actual net small-file reduction; partial is not PASS.",
-  "request_attempt": 2,
+  "request_attempt": 3,
   "user_approved_unlinked_small_file_cleanup": true
 }

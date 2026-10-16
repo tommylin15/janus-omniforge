@@ -67,3 +67,25 @@ def test_cleanup_reuses_reference_helpers_and_reads_current_rows(monkeypatch):
     assert calls==[('compact','ops.batch_events_v1',False),('compact','ops.batch_events_v1',True)]+[('metadata',name,False) if phase==0 else ('metadata',name,True) if phase==1 else ('orphan',name,True)
                    for name in ('ops.batch_events_v1','core.ohlcv_v1') for phase in range(3)]
     assert all(x['phase']=='READBACK_PASS' for x in reports)
+
+
+def test_http_failure_emits_only_safe_diagnostics_without_retry(monkeypatch,capsys):
+    import io,json
+    from urllib.error import HTTPError
+    from ingestion_core import __main__ as entry
+    monkeypatch.setenv('JANUS_APPROVED_UNLINKED_CLEANUP','true')
+    monkeypatch.setenv('CORE_BUCKET',m.BUCKET)
+    calls=[]
+    def fail(*args,**kw):
+        calls.append(1)
+        body=json.dumps({'error':{'message':'secret@example.test storage.objects.delete denied',
+            'errors':[{'reason':'retentionPolicyNotMet'}]}}).encode()
+        raise HTTPError('https://storage.googleapis.com/',403,'Forbidden',{},io.BytesIO(body))
+    monkeypatch.setattr(entry,'_iceberg_core',fail)
+    assert m.main()==0
+    output=capsys.readouterr().out
+    result=json.loads(output)
+    assert calls==[1] and result['deleted_objects']==0
+    assert result['http_reasons']==['retentionPolicyNotMet']
+    assert result['denied_storage_permissions']==['storage.objects.delete']
+    assert 'secret@example.test' not in output

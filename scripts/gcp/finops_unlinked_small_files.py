@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta, timezone
 import json
 import os
+import re
 import traceback
 from pathlib import Path
 from urllib.error import HTTPError
@@ -21,6 +22,7 @@ class SmallStore(GcsObjectStore):
         self.now=now
         self.prefixes=tuple(prefixes)
         self.deleted=[]
+        self.delete_attempt=None
 
     def objects(self,prefix):
         items=super().objects(prefix)
@@ -34,6 +36,7 @@ class SmallStore(GcsObjectStore):
                 or self.now-datetime.fromisoformat(item['updated'].replace('Z','+00:00'))<=timedelta(days=7)):
             raise ValueError('unlinked_small_file_delete_outside_approved_scope')
         if len(self.deleted)>=9000: raise RuntimeError('unlinked_cleanup_object_budget')
+        self.delete_attempt={"name":name,"generation":generation}
         super().delete(name,generation=generation)
         self.deleted.append({'name':name,'generation':generation,'bytes':int(item['size'])})
 
@@ -106,7 +109,15 @@ def main():
     except Exception as error:
         frame=traceback.extract_tb(error.__traceback__)[-1]
         result.update(error_type=type(error).__name__,http_status=error.code if isinstance(error,HTTPError) else None,
-                      error_location=Path(frame.filename).name+':'+str(frame.lineno))
+                      error_location=Path(frame.filename).name+':'+str(frame.lineno),
+                      error_frames=[Path(x.filename).name+':'+x.name+':'+str(x.lineno) for x in traceback.extract_tb(error.__traceback__)],
+                      delete_attempt=store.delete_attempt if store else None)
+        if isinstance(error,HTTPError):
+            try:
+                message=json.loads(error.read(16384)).get('error',{})
+                result['http_reasons']=[x['reason'] for x in message.get('errors',[]) if re.fullmatch(r'[A-Za-z_]{1,80}',x.get('reason',''))]
+                result['denied_storage_permissions']=sorted(set(re.findall(r'storage\.[a-zA-Z]+\.[a-zA-Z]+',message.get('message',''))))
+            except Exception: pass
     finally:
         try:
             if core is not None: core.close()
