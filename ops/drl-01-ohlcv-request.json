@@ -1,0 +1,18 @@
+{
+  "intent": "drl01-official-historical-ohlcv",
+  "approved": true,
+  "market": "TPEX",
+  "dates": [
+    "2026-10-01",
+    "2026-10-02",
+    "2026-10-05",
+    "2026-10-06",
+    "2026-10-07"
+  ],
+  "no_new_source": true,
+  "no_job_template_mutation": true,
+  "no_owner_mutation": true,
+  "why": "DRL-01 first bounded 5-session OTC OHLCV window repair from the existing official TPEx dailyQuotes market endpoint; threshold 30%; all results must be read back.",
+  "scope": "current dev Iceberg Core and Stage only",
+  "request_version": 1
+}
