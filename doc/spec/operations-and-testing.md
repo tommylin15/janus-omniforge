@@ -4,6 +4,8 @@
 
 | 驗收範圍 | 證據 | 判定與限制 |
 |---|---|---|
+| DRL-01 最新全量Core來源與期數盤點 | [#38910500339](https://github.com/tommylin15/janus-omniforge/actions/runs/38910500339) | **PASS_READONLY_CENSUS，不是歷史修復完成**：TWSE1096/TPEX896 enabled，20日股票分別500/0；MOPS keyed revenue4011但13月股票僅5；官方EPS任值1970、明確單季4筆股票6，2382單季9期但不連續4季。 |
+| DRL-01 TPEX Oct13～15 pending request | [#38910768542](https://github.com/tommylin15/janus-omniforge/actions/runs/38910768542) | **CANCELLED**：與其他GitHub Writer同群 pending競爭被取代，不是Core補收PASS。安全重送需等先前已受理任務完成；不得重標成功。 |
 | DRL-01 TPEX 有界歷史 OHLCV | [10/02 #38893470772](https://github.com/tommylin15/janus-omniforge/actions/runs/38893470772)、[10/05～06 #38908586463](https://github.com/tommylin15/janus-omniforge/actions/runs/38908586463) | **3個交易日各別PASS**：896檔有效分母，867、870、864官方價Core寫入與同日snapshot讀回；尚不是20/21全窗口PASS。 |
 | DRL-01 MOPS缺月份 repair | [#38893774756](https://github.com/tommylin15/janus-omniforge/actions/runs/38893774756) | **PASS，僅月份metadata修復**：updated3947，missing3947→0，60846 rows不變，snapshot 4705504090566285355→3590832284682174316。13個連續月及真YoY另驗。 |
 | DRL-01 EPS官方補歷史 | [#38894262708](https://github.com/tommylin15/janus-omniforge/actions/runs/38894262708) | **JOB_TERMINAL_PASS，CORE_READBACK_NOT_VERIFIED**：2382一檔受控MOPS history；不聲稱可比四季度。 |
