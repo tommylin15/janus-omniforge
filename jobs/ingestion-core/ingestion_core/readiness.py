@@ -103,7 +103,14 @@ def summarize_readiness(members, benchmark, prices, financials, focused_prices, 
         symbol = str(row.get("symbol") or "")
         if symbol not in universe["TWSE"] | universe["TPEX"]:
             continue
-        if row.get("source_id") != "mops" or not row.get("provenance_id"):
+        if (row.get("source_id") != "mops" or not row.get("provenance_id")
+                or not row.get("availability_at")):
+            continue
+        try:
+            amount = Decimal(str(row.get("value")))
+            if not amount.is_finite():
+                continue
+        except (TypeError, ValueError, InvalidOperation):
             continue
         end = _day(row.get("fiscal_period_end"))
         if end is None or end > as_of:
@@ -177,7 +184,7 @@ def publish_data_readiness(core, control, *, as_of, actor="data-supplement"):
     financial, financial_snapshot = _scan(core, "financials",
         ("symbol", "source_id", "provenance_id", "fiscal_period_end",
          "fiscal_month", "fiscal_quarter", "statement_type",
-         "metric", "period_basis", "unit"), limit=150000)
+         "metric", "period_basis", "unit", "value", "availability_at"), limit=150000)
     proof = {"ohlcv": price_snapshot, "ohlcv_focus": focus_snapshot,
              "benchmark": benchmark_snapshot, "financials": financial_snapshot}
     result = summarize_readiness(members, benchmark, prices, financial, focus_rows, focus,
