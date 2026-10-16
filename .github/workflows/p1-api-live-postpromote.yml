@@ -1,0 +1,94 @@
+name: Janus P1 formal API post-promotion read-only acceptance
+on:
+  push:
+    branches: [main]
+    paths: ['ops/p1-api-live-readback-request.json']
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require exact accepted reversible release, no further mutations
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="p1-live-api-post-promote-readback" and .approved==true and
+            .source_sha=="7acff50000644979af3815f00fbd7f1c167e1098" and
+            .promotion_run=="38830675477" and .jobs_run=="38821199561" and
+            .no_gcp_mutation==true and .no_owner_mutation==true and
+            .no_traffic_mutation==true' ops/p1-api-live-readback-request.json >/dev/null
+          gh run view 38830675477 --json status,conclusion,workflowName |
+            jq -e '.status=="completed" and .conclusion=="success" and
+              .workflowName=="Janus GHCR controlled API promotion"' >/dev/null
+          mkdir -p /tmp/p1-readback
+          gh run download 38830675477 -n ghcr-api-promotion-receipt -D /tmp/p1-readback
+          jq -e '.phase=="PASS" and .rollback_rehearsal=="PASS" and
+            .source_sha=="7acff50000644979af3815f00fbd7f1c167e1098" and
+            .candidate=="janus-api-00507-wez" and
+            .previous_sha=="b1bc785906212b8d2860b1521affb83930d09f04"' /tmp/p1-readback/ghcr-api-promote.json >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Independently read 100% traffic, live health, source and fixed Preview
+        run: |
+          python3 - <<'PY'
+          import json,subprocess,urllib.request,urllib.error
+          from pathlib import Path
+          source='7acff50000644979af3815f00fbd7f1c167e1098'
+          base='https://janus-api-2oo7qbkd5q-uc.a.run.app'
+          preview='https://preview---janus-api-2oo7qbkd5q-uc.a.run.app'
+          expected=json.loads(Path('/tmp/p1-readback/ghcr-api-promote.json').read_text())
+          def read_gcp(args):
+            data=subprocess.run(args,check=True,text=True,capture_output=True,timeout=60)
+            return json.loads(data.stdout)
+          def get(url):
+            req=urllib.request.Request(url,headers={'Accept':'text/plain'},method='GET')
+            try:
+              with urllib.request.urlopen(req,timeout=20) as response:
+                return response.status,response.read(120).decode('utf-8','replace').strip()
+            except urllib.error.HTTPError as e:return e.code,''
+          svc=read_gcp(['gcloud','run','services','describe','janus-api',
+                        '--project=gen-lang-client-0593591102','--region=us-central1','--format=json'])
+          route=svc.get('status',{}).get('traffic',[])
+          active=[x for x in route if (x.get('percent') or 0)>0]
+          tags={x['tag']:x['revisionName'] for x in route if x.get('tag')}
+          candidate=expected['candidate']
+          assert len(active)==1 and active[0].get('percent')==100 and active[0].get('revisionName')==candidate,'wrong_active_100'
+          assert tags==expected['tags'],'unexpected_tag_change'
+          assert tags.get('preview')==candidate and tags.get('ghcr-'+source[:12])==candidate,'preview_candidate_drift'
+          rev=read_gcp(['gcloud','run','revisions','describe',candidate,
+                        '--project=gen-lang-client-0593591102','--region=us-central1','--format=json'])
+          actual_image=rev.get('spec',{}).get('containers',[{}])[0].get('image','')
+          assert actual_image.removeprefix('cache.us-docker.pkg.dev/')==expected['image'],'api_immutable_image_drift'
+          assert get(base+'/app/build-id.txt')==(200,source),'canonical_build_not_current'
+          assert get(preview+'/app/build-id.txt')==(200,source),'preview_build_not_current'
+          for path in ('/health','/api/v1/public/health'):
+            assert get(base+path)[0]==200,'canonical_health_not_ok'
+          assert get(base+'/api/v1/me/profile')[0]==401,'canonical_auth_boundary_failed'
+          report={'status':'PASS','source_sha':source,'promotion_run':'38830675477',
+                  'canonical_revision':candidate,'canonical_traffic_percent':100,
+                  'active_build_id_match':True,'preview_build_match':True,
+                  'all_tags_preserved':True,'immutable_image_match':True,
+                  'health_ok':True,'anonymous_owner_401':True,
+                  'rollback_rehearsal':'PASS','old_rollback_revision':expected['previous_revision'],
+                  'owner_interactive_button':'NOT_VERIFIED','no_mutations':True}
+          Path('/tmp/p1-live-api-readback.json').write_text(json.dumps(report,sort_keys=True))
+          print(json.dumps(report,sort_keys=True))
+          PY
+      - name: Save sanitized acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p1-api-live-readback
+          path: /tmp/p1-live-api-readback.json
+          retention-days: 14
+          if-no-files-found: ignore
