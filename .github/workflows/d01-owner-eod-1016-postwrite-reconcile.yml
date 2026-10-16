@@ -1,0 +1,76 @@
+name: Janus D01 10-16 postwrite exact lease reconciliation
+on:
+  push:
+    branches: [main]
+    paths: ['ops/d01-owner-eod-1016-postwrite-reconcile.json']
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    environment: dev
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact failed GH Action and immutable dispatch receipt
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="d01-1016-postwrite-exact-lease-reconcile" and .approved==true and
+             .owner_run==38899869851 and .owner_sha=="0d6a28291ad65eb7a659637a0fc35cda683b76b0" and
+             .no_job_run==true and .no_mart_mutation==true and .no_ledger_mutation==true and
+             .no_api_traffic_mutation==true' ops/d01-owner-eod-1016-postwrite-reconcile.json >/dev/null
+          gh run view 38899869851 --json headSha,status,conclusion,workflowName |
+            jq -e '.headSha=="0d6a28291ad65eb7a659637a0fc35cda683b76b0" and
+              .status=="completed" and .conclusion=="failure" and
+              .workflowName=="Janus D01 exact 10-16 official Owner Mart publication"' >/dev/null
+          mkdir -p /tmp/d01-postwrite
+          gh run download 38899869851 --name d01-owner-eod-1016-publish --dir /tmp/d01-postwrite
+          jq -e '.status=="DISPATCHED_UNKNOWN" and (.official_record_hashes|type=="object") and
+            .no_ledger_mutation==true and (.operation|type=="string" and test("^[0-9a-f-]{36}$"))' \
+            /tmp/d01-postwrite/d01-owner-eod-1016-publish.json >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Verify exact old Cloud Run execution succeeded and every Job is terminal
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import json,sys
+          sys.path.insert(0,'scripts/gcp')
+          import ghcr_jobs_rollout as ctl
+          receipt=json.loads(Path('/tmp/d01-postwrite/d01-owner-eod-1016-publish.json').read_text())
+          op=ctl.cloud(ctl.ROOT+'/operations/'+receipt['operation'])
+          if op.get('done') is not True or op.get('error'):
+              raise RuntimeError('owner_execution_not_proven_successful')
+          exe=op.get('response') or {}
+          name=str(exe.get('name') or '')
+          if not name.startswith(ctl.ROOT+'/jobs/janus-private-pipeline/executions/'):
+              raise RuntimeError('owner_execution_identity_invalid')
+          details=ctl.cloud(name)
+          if not ctl.terminal(details) or details.get('succeededCount')!=1 or details.get('failedCount',0)!=0:
+              raise RuntimeError('owner_execution_not_terminal_succeeded')
+          ctl.fence()
+          if ctl.scheduler().get('state')!='ENABLED':
+              raise RuntimeError('scheduler_not_enabled')
+          print(json.dumps({'result':'PASS_OWNER_1016_JOB_TERMINAL','execution':name.rsplit('/',1)[-1],
+            'other_jobs_all_terminal':True,'no_owner_data_mutation_in_reconcile':True},sort_keys=True))
+          PY
+      - name: Release only proven original owner lease
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/gcp/ghcr_release_lease.py release --repo tommylin15/janus-omniforge --run-id 38899869851 --run-attempt 1 --sha 0d6a28291ad65eb7a659637a0fc35cda683b76b0 --safe-to-release
+          python scripts/gcp/ghcr_release_lease.py inspect --repo tommylin15/janus-omniforge --run-id 38899869851 --run-attempt 1 --sha 0d6a28291ad65eb7a659637a0fc35cda683b76b0
+          echo 'D01_1016_POSTWRITE_LEASE_RECONCILED=PASS' >> "$GITHUB_STEP_SUMMARY"
