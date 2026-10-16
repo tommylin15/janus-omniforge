@@ -24,13 +24,26 @@ def test_held_stock_day_change_uses_prior_official_close_not_cost_basis():
     assert row["previous_close_date"] == "2026-10-07"
 
 
-def test_stale_or_wrong_reference_date_does_not_publish_day_change():
-    for quote, prior in [
-        ({**QUOTE, "state": "stale"}, {"previous_close": "335", "previous_close_date": "2026-10-07"}),
-        (QUOTE, {"previous_close": "335", "previous_close_date": "2026-10-08"}),
-        (QUOTE, {"previous_close": "0", "previous_close_date": "2026-10-07"}),
+def test_known_same_day_delayed_quote_has_indicative_change_not_formal_total():
+    quote = {**QUOTE, "state": "stale"}
+    result = value_holdings([POSITION], {"2382": quote}, NOW, previous_closes={
+        "2382": {"previous_close": "335", "previous_close_date": "2026-10-07"},
+    })
+    row = result["positions"][0]
+    assert Decimal(row["change"]) == Decimal("-10.5")
+    assert Decimal(row["day_change_amount"]) == Decimal("-52500")
+    assert row["price_status"] == "stale"
+    assert row["reference_eligible"] is True
+    assert result["items"][0]["aggregate_status"] == "withheld"
+    assert result["items"][0]["reference_status"] == "available"
+
+
+def test_wrong_reference_date_or_invalid_prior_close_never_invents_day_change():
+    for prior in [
+        {"previous_close": "335", "previous_close_date": "2026-10-08"},
+        {"previous_close": "0", "previous_close_date": "2026-10-07"},
     ]:
-        row = value_holdings([POSITION], {"2382": quote}, NOW, previous_closes={"2382": prior})["positions"][0]
+        row = value_holdings([POSITION], {"2382": QUOTE}, NOW, previous_closes={"2382": prior})["positions"][0]
         assert row["change"] is None
         assert row["change_percent"] is None
         assert row["day_change_amount"] is None
