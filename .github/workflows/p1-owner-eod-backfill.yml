@@ -1,0 +1,65 @@
+name: Janus P1 exact 10-15 official Owner Mart repair
+on:
+  push:
+    branches: [main]
+    paths: ['ops/p1-owner-eod-backfill-request.json']
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  owner-eod:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gate bounded official 10-15 and same-source release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHONPATH: .
+        run: |
+          set -Eeuo pipefail
+          jq -e '.intent=="p1-exact-owner-official-eod-repair" and .approved==true and
+            .environment=="dev" and .target_date=="2026-10-15" and
+            .source_sha=="7acff50000644979af3815f00fbd7f1c167e1098" and
+            .release_run=="38755382061" and .jobs_rollout_run=="38821199561" and
+            .single_owner_only==true and .no_ledger_mutation==true and
+            .private_mart_write_only==true and .no_job_template_mutation==true and
+            .no_traffic_mutation==true' ops/p1-owner-eod-backfill-request.json >/dev/null
+          for pair in '38755382061:Janus GHCR full-test image publication' '38821199561:Janus GHCR controlled Jobs rollout'; do
+            run="${pair%%:*}"; name="${pair#*:}"
+            gh run view "$run" --json status,conclusion,workflowName |
+              jq -e --arg n "$name" '.status=="completed" and .conclusion=="success" and .workflowName==$n' >/dev/null
+          done
+          python -m compileall -q scripts/gcp/p1_owner_eod_backfill.py
+          python - <<'PY'
+          from scripts.gcp.p1_owner_eod_backfill import bounded_code
+          body=bounded_code()
+          assert 'target=date(2026,10,15)' in body
+          assert 'p1_owner_same_day_price_coverage_missing' in body
+          assert 'ledger_version_changed_during_mart_write' in body
+          PY
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Verify official exact date then publish bounded one-owner derived Mart
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PYTHONPATH: .
+        run: python scripts/gcp/p1_owner_eod_backfill.py
+      - name: Persist sanitized source/terminal receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p1-owner-eod-backfill
+          path: /tmp/p1-owner-eod-backfill.json
+          if-no-files-found: ignore
+          retention-days: 14
