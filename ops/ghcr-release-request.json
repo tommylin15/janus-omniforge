@@ -8,8 +8,8 @@
     "api"
   ],
   "promotion": "candidate-only-until-full-tests-and-reversible-runtime-acceptance",
-  "attempt": 55,
-  "reason": "User-authorized D06: stop unused Iceberg batch audit mirroring entirely, superseding daily and weekly proposals. Preserve PostgreSQL atomic event recording in every controller mode; remove Iceberg catalog creation/replay/readback/ack path, including seed and manual. Existing history cleanup remains separately authorized. Full exact-SHA tests and immutable GHCR required before reversible existing dev Jobs rollout. No API traffic promotion, schema, IAM or new resource changes.",
+  "attempt": 56,
+  "reason": "D01-D05 user-authorized integrated acceptance: run full exact-SHA Python/Flutter/security and GHCR publication after CI gitlink repair; unchanged production traffic and existing dev resources, no automatic promotion until live functional gates. D04 VM backup handoff pursued in parallel through least-privilege existing identity path.",
   "expected_runtime_changes": true,
   "ceo_gateway_pilot": false
 }
