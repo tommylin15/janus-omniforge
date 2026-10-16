@@ -1,0 +1,9 @@
+{
+  "intent": "drl01-existing-month-identity-repair",
+  "approved": true,
+  "mode": "dry-run",
+  "no_source_fetch": true,
+  "no_owner_writes": true,
+  "version": 1,
+  "reason": "Preflight to count safely recoverable existing MOPS fiscal months from fiscal_period_end; no database writes."
+}
