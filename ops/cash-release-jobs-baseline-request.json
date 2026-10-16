@@ -5,5 +5,7 @@
   "boundary_run": "38849298689",
   "no_gcp_mutation": true,
   "no_job_execution": true,
-  "no_private_data_dump": true
+  "no_private_data_dump": true,
+  "readback_attempt": 2,
+  "reason": "Independent read-only current four-Job immutable GHCR rollback image/config baseline for subsequent P1 visible-total-first release; no Job, Scheduler, private data or cloud mutation."
 }
