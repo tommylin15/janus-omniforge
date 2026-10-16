@@ -264,6 +264,15 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
                 "priced_market_value": str(total["priced_market_value"]),
                 "priced_cost_basis": str(total["priced_cost_basis"]),
                 "reference_priced_market_value": str(total["reference_priced_market_value"]),
+                # Even with some unknown prices, the last-known, authorized
+                # observations must remain useful as a CLEARLY partial subtotal.
+                "reference_priced_unrealized_pnl": str(
+                    total["reference_priced_market_value"] - total["reference_priced_cost_basis"])
+                    if total["reference_priced_symbol_count"] else None,
+                "reference_priced_unrealized_return": str(
+                    (total["reference_priced_market_value"] - total["reference_priced_cost_basis"])
+                    / total["reference_priced_cost_basis"])
+                    if total["reference_priced_cost_basis"] else None,
                 "reference_priced_symbol_count": total["reference_priced_symbol_count"],
                 "reference_price_dates": reference_dates,
                 "reference_status": "incomplete" if reference_incomplete else "available",
