@@ -3,16 +3,16 @@
   "approved": true,
   "market": "TWSE",
   "dates": [
-    "2026-10-08",
-    "2026-10-12",
-    "2026-10-13",
-    "2026-10-14",
-    "2026-10-15"
+    "2026-09-30",
+    "2026-10-02",
+    "2026-10-05",
+    "2026-10-06",
+    "2026-10-07"
   ],
   "no_new_source": true,
   "no_job_template_mutation": true,
   "no_owner_mutation": true,
-  "why": "DRL-01 listed-market recovery after official 10/01 canary 498→1089/1096 PASS. Repair latest five completed trading days to replace old Liquid500 gap with full TWSE quotes, Stage/Core per-day receipts, no owner change.",
+  "why": "DRL-01 full TWSE historical market recovery: previous Oct01 and Oct08/12-15 passed, next five official dates to replace historical 500/1096 partial coverage without owner/job changes.",
   "scope": "current dev Iceberg Core and Stage only",
-  "request_version": 12
+  "request_version": 13
 }
