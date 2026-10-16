@@ -142,7 +142,11 @@ void main() {
           'day_change_amount': '150',
         },
     ];
-    (snapshot['positions'] as List).addAll(other);
+    snapshot['positions'] = <Map<String, dynamic>>[
+      for (final item in snapshot['positions'] as List)
+        Map<String, dynamic>.from(item as Map),
+      ...other,
+    ];
     (snapshot['items'] as List)[0] = {
       'currency': 'TWD',
       'ledger_version': 357,
