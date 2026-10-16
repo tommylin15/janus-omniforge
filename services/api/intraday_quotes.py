@@ -135,14 +135,30 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
                 price = None
         except (InvalidOperation, TypeError, ValueError):
             price = None
-        usable = usable and price is not None
+        source = quote.get("source")
+        price_date = quote.get("price_date") or (at.astimezone(TAIPEI).date().isoformat() if at and at.tzinfo else None)
+        # 'Stale' is a freshness indicator, not evidence that a legitimate
+        # historical observation has become numerically unusable. An indicative
+        # owner estimate can use the most recent dated quote, while the formal
+        # one-day publication remains separately fail-closed.
+        from datetime import date
+        try:
+            observed_day = date.fromisoformat(str(price_date)[:10]) if price_date else None
+        except ValueError:
+            observed_day = None
+        source_ok = source in {"twse_mis", "core_ohlcv", "tpex_openapi_eod"} or (
+            source is None and at is not None and state in {"intraday", "closing_pending_eod", "eod_final", "stale"})
+        reference_eligible = (
+            bool(quote) and price is not None and source_ok and
+            observed_day is not None and observed_day <= now.astimezone(TAIPEI).date() and
+            (at is None or (at.tzinfo is not None and at <= now + timedelta(seconds=30)))
+        )
+        usable = usable and reference_eligible
         shares, average = Decimal(str(row["shares"])), Decimal(str(row["average_cost"]))
         cost = shares * average
         value = price * shares if price is not None else None
         pnl = value - cost if value is not None else None
-        source = quote.get("source")
-        price_date = quote.get("price_date") or (at.date().isoformat() if at else None)
-        prior = previous_closes.get(str(row["symbol"]), {}) if usable else {}
+        prior = previous_closes.get(str(row["symbol"]), {}) if reference_eligible else {}
         reference = None
         try:
             if prior.get("previous_close_date") and price_date and (
@@ -161,6 +177,7 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
         change = price - reference if reference is not None and price is not None else None
         row.update(
             market_price=str(price) if price is not None else None,
+            reference_eligible=reference_eligible,
             market_value=str(value) if value is not None else None,
             unrealized_pnl=str(pnl) if pnl is not None else None,
             unrealized_return=str(pnl / cost) if pnl is not None and cost else None,
@@ -175,7 +192,7 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
             missing_reason=None if usable else "latest_price_stale" if price is not None else "latest_price_missing",
             price_source=source,
             is_final=bool(quote.get("is_final")),
-            valuation_kind="eod" if source == "core_ohlcv" else "intraday",
+            valuation_kind="eod" if source in {"core_ohlcv", "tpex_openapi_eod"} else "intraday",
             previous_close=str(reference) if reference is not None else None,
             previous_close_date=prior.get("previous_close_date") if reference is not None else None,
             change=str(change) if change is not None else None,
@@ -196,9 +213,21 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
                 "priced_cost_basis": Decimal(0),
                 "priced_symbol_count": 0,
                 "price_dates": set(),
+                "reference_priced_market_value": Decimal(0),
+                "reference_priced_cost_basis": Decimal(0),
+                "reference_priced_symbol_count": 0,
+                "reference_price_dates": set(),
+                "reference_unpriced_symbols": [],
             },
         )
         total["cost_basis"] += cost
+        if reference_eligible:
+            total["reference_priced_market_value"] += value
+            total["reference_priced_cost_basis"] += cost
+            total["reference_priced_symbol_count"] += 1
+            total["reference_price_dates"].add(observed_day.isoformat())
+        else:
+            total["reference_unpriced_symbols"].append(row["symbol"])
         if not usable:
             total["affected_symbols"].append(row["symbol"])
             total["missing_price_count" if price is None else "stale_price_count"] += 1
@@ -215,6 +244,8 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
     for total in totals.values():
         cost, value, affected = total["cost_basis"], total["market_value"], total["affected_symbols"]
         price_dates = sorted(total["price_dates"])
+        reference_dates = sorted(total["reference_price_dates"])
+        reference_incomplete = bool(total["reference_unpriced_symbols"])
         mixed = len(price_dates) > 1
         incomplete = bool(affected) or mixed
         reason = ("mixed_price_dates" if mixed else
@@ -223,10 +254,21 @@ def value_holdings(positions, quotes, now=None, *, previous_closes=None):
         summaries.append(
             {
                 **{k: v for k, v in total.items() if k not in {
-                    "price_dates", "priced_market_value", "priced_cost_basis"}},
+                    "price_dates", "priced_market_value", "priced_cost_basis",
+                    "reference_priced_market_value", "reference_priced_cost_basis",
+                    "reference_price_dates"}},
                 "cost_basis": str(cost),
                 "priced_market_value": str(total["priced_market_value"]),
                 "priced_cost_basis": str(total["priced_cost_basis"]),
+                "reference_priced_market_value": str(total["reference_priced_market_value"]),
+                "reference_priced_symbol_count": total["reference_priced_symbol_count"],
+                "reference_price_dates": reference_dates,
+                "reference_status": "incomplete" if reference_incomplete else "available",
+                "reference_market_value": None if reference_incomplete else str(total["reference_priced_market_value"]),
+                "reference_unrealized_pnl": None if reference_incomplete else str(
+                    total["reference_priced_market_value"] - cost),
+                "reference_unrealized_return": None if reference_incomplete or not cost else str(
+                    (total["reference_priced_market_value"] - cost) / cost),
                 "price_dates": price_dates,
                 "market_value": None if incomplete else str(value),
                 "unrealized_pnl": None if incomplete else str(value - cost),
