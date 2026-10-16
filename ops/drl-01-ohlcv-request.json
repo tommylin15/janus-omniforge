@@ -10,7 +10,7 @@
   "no_new_source": true,
   "no_job_template_mutation": true,
   "no_owner_mutation": true,
-  "why": "DRL-01 bounded next OTC completed trading sessions; official exchange market-volume, Stage/Core and each-date readback; no job template or Owner changes.",
+  "why": "DRL-01 user-directed repair: bounded retry Oct 13-15 after GitHub queued run #38910768542 was cancelled before execution; single writer queue now idle, preserve same official source/core and exact per-date receipts",
   "scope": "current dev Iceberg Core and Stage only",
-  "request_version": 6
+  "request_version": 7
 }
