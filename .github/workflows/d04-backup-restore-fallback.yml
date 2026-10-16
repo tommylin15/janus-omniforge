@@ -31,12 +31,60 @@ jobs:
           [[ "$object" =~ ^pilot-ledger-backups/daily/[0-9]{4}-[0-9]{2}-[0-9]{2}\.dump$ ]]
           echo "object=$object" >> "$GITHUB_OUTPUT"
           echo "D04_BACKUP_OBJECT_SELECTED=EXISTING" >> "$GITHUB_STEP_SUMMARY"
-      - name: Isolated restore using pre-existing Cloud Build configuration
+      - name: Isolated PostgreSQL restore on ephemeral GitHub runner
         env:
           OBJECT: ${{ steps.backup.outputs.object }}
         shell: bash
         run: |
           set -euo pipefail
+          umask 077
+          tmp="$(mktemp -d)"
+          instance="janus-d04-restore-${GITHUB_RUN_ID}"
+          cleanup() {
+            docker rm -f "$instance" >/dev/null 2>&1 || true
+            rm -f -- "$tmp/ledger.dump"
+            rmdir -- "$tmp" 2>/dev/null || true
+          }
+          trap cleanup EXIT
           test -n "$OBJECT"
-          gcloud builds submit --no-source --project=gen-lang-client-0593591102 --region=us-central1 --config=scripts/gcp/cloudbuild-ledger-restore.yaml --substitutions="_BUCKET=gen-lang-client-0593591102-dev-private,_OBJECT=$OBJECT" --quiet
-          echo 'D04_ISOLATED_RESTORE_BUILD=PASS' >> "$GITHUB_STEP_SUMMARY"
+          gcloud storage cp "gs://gen-lang-client-0593591102-dev-private/$OBJECT" "$tmp/ledger.dump" --quiet >/dev/null
+          test -s "$tmp/ledger.dump"
+          size="$(stat -c %s "$tmp/ledger.dump")"
+          test "$size" -ge 1024
+          test "$size" -le 67108864
+          sha256sum "$tmp/ledger.dump" >/dev/null
+          image='postgres:16.15-bookworm@sha256:bb3e1a57e5407e0a5280b4211980a5e537f4abd234a87014ac979849a78dd825'
+          docker pull "$image" >/dev/null
+          docker run -d --name "$instance" --network none --tmpfs /var/lib/postgresql/data:rw,size=1g -e POSTGRES_HOST_AUTH_METHOD=trust "$image" >/dev/null
+          ready=false
+          for attempt in $(seq 1 60); do
+            if docker exec "$instance" pg_isready -U postgres >/dev/null 2>&1; then ready=true; break; fi
+            sleep 1
+          done
+          test "$ready" = true
+          docker exec "$instance" createdb -U postgres janus_restore
+          docker cp "$tmp/ledger.dump" "$instance:/tmp/ledger.dump" >/dev/null
+          if ! docker exec "$instance" pg_restore --exit-on-error --no-owner --no-acl -U postgres -d janus_restore /tmp/ledger.dump >"$tmp/restore.out" 2>&1; then
+            echo 'D04_RESTORE=FAILED (private restore output withheld)' >&2
+            exit 1
+          fi
+          checks="$(docker exec -i "$instance" psql -X -v ON_ERROR_STOP=1 -At -U postgres -d janus_restore <<'SQL'
+          SELECT json_build_object(
+           'owners',(SELECT count(*) FROM private.users),
+           'ledger_events',(SELECT count(*) FROM private.ledger_events),
+           'owner_boundary_valid',NOT EXISTS(
+             SELECT 1 FROM private.ledger_events e LEFT JOIN private.users u USING(user_id) WHERE u.user_id IS NULL),
+           'latest_versions_valid',NOT EXISTS(
+             SELECT 1 FROM private.users u WHERE u.ledger_version <>
+              COALESCE((SELECT max(e.ledger_version) FROM private.ledger_events e WHERE e.user_id=u.user_id),0)),
+           'correction_links_valid',NOT EXISTS(
+             SELECT 1 FROM private.ledger_events e LEFT JOIN private.ledger_events orig
+              ON orig.event_id=COALESCE(e.reverses_event_id,e.replaces_event_id)
+              WHERE e.event_action<>'ORIGINAL' AND (orig.event_id IS NULL OR orig.user_id<>e.user_id)));
+          SQL
+          )"
+          jq -e '.owners>=1 and .ledger_events>=1 and
+                 .owner_boundary_valid==true and .latest_versions_valid==true and
+                 .correction_links_valid==true' <<< "$checks" >/dev/null
+          echo 'D04_EXISTING_GCS_BACKUP_ISOLATED_RESTORE=PASS' >> "$GITHUB_STEP_SUMMARY"
+          echo 'D04_LIVE_DATABASE_MUTATIONS=NONE' >> "$GITHUB_STEP_SUMMARY"
