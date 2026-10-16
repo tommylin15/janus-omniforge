@@ -1,10 +1,10 @@
 # Janus — 唯一開發待辦
 
-更新：2026-10-15。只保存尚未完成的交付／驗收；方法見 [AI 指示](codex-execution-plan.md)，證據見 [status](status.md)。
+更新：2026-10-16。只保存尚未完成的交付與驗收；真實終態證據見 [status](status.md) 與 [operations](spec/operations-and-testing.md)。
 
 ## 執行範圍
 
-**2026-10-15 本輪：P0（00697B／00719B 官方 as-of 10/14 Owner backend）已取得 real Mart 8/8 全部估值／聚合 PnL PASS；P1（正式 App 顯示、Owner 互動／重算、Preview 同版與流量驗收）仍 OPEN；D04（VM IAM／備份交接）仍 BLOCKED。** 本次只執行 P0 救援，D06 FinOps／後置 B9 不重新啟動；正式 100% traffic 未切，不能說整體產品完成。
+**P1 7acff 正式 dev API 100% 切流與 10/15 Owner 全持股估值／重算後端已 PASS；真人 authenticated UI、重算按鈕實際點擊、交易保存 E2E 尚屬 PARTIAL。D04 VM IAM／備份交接仍 BLOCKED。** 不因後端 PASS 宣稱整體產品完成。
 
 A 組及 B0～B8 已結案的範圍不重開；有實質變更才回歸受影響路徑。全市場 Bootstrap／同日 Cached、費稅88筆更正、00719B 身分／估值既有成功證據不重送。研究範圍採各歷史日期全上市櫃；50 關注 quota 仍保留。
 
@@ -28,7 +28,7 @@ D01～D08 各有一張獨立可供 AI 執行的 [標準任務卡](execution-card
 - [x] **P0 Owner 2026-10-14 backend 全持股估值／總未實現損益**：TPEx dailyQuotes、migration 061、SHA 285848 Release／API 0%／OAuth／四 Jobs rollout PASS；00697B + 00719B 同日官方資料已持久化。MCP readonly 8/8 市價、市值可用，Private Mart readonly #38732675488 驗 8/8 未實現 PnL、單一總計 aggregate_status=available、missing=0、affected=0、總市值／總 PnL／報酬非空，ledger v354 未變；最終 gate #38733406224 PASS。原 #38730741579 FAILED 是舊 schema 缺 `stale_price_count` 使驗收腳本誤判，修正後不再次重算、不編造欄位。後續新日期、UI、交易按鈕／queue、正式 App 屬 P1。
 - [ ] backend 唯讀試算及正式保存共用 MOVING_AVERAGE／Decimal／商品費稅，券商折扣與規則快照可追溯；表單自動費稅／一字搜尋及ETF／Enter／競態拒絕均有新版驗收。
 - [ ] 買入、加減碼、部分／全部賣出、零股、股利、更正、作廢、歷史補登、超額賣出拒絕、未知保存結果與冪等；不同 owner／ledger／broker version 不混用。既有費稅 apply 不重送。
-- [ ] 重算按鈕→authenticated API enqueue→Private Worker→terminal／exact ledger checkpoint→PnL／queue idle／cleanup讀回；有界輪詢及失敗重試。不向本人帳本新增測試交易。
+- [ ] **重算功能使用者 E2E**：後端真實雙 Worker 佇列 seed／worker／verify／cleanup #38828798196 PASS；仍需登入正式 App，按「重新計算損益」→ authenticated enqueue → SUCCEEDED／同 ledger checkpoint → UI PnL 更新與 idle，並驗證失敗／重試視覺。不得向真實帳本新增測試交易或將 canary 冒充按鈕 PASS。
 - [ ] operational股數／成本／該筆損益可即時呈現；行情更新、帳本保存、正式報表重算互不阻塞。首次完整估值不以市場10%／30%容忍代替。
 
 ## D02｜全市場、快照與效能
@@ -53,7 +53,7 @@ VF-10高階同業／估值河流／還原價仍屬有條件後續構想，不是
 
 ## D05｜整合發布
 
-- [ ] P1：P0 backend 10/14 real Mart aggregate PASS **不代表**正式 App／重算 E2E、當日來源時效 PASS；API 0% 與四 Jobs 已同 SHA 285848。固定 Preview 285848 更新請求 [commit 78bf14bb](https://github.com/tommylin15/janus-omniforge/commit/78bf14bb1665be93ef6f7048d71458632bdbc871) + [實際工作流 #38740477232](https://github.com/tommylin15/janus-omniforge/actions/runs/38740477232) **SUCCESS（tag 更新與 build/lease 驗證步驟 PASS）**，正式 100% 未切。Owner MCP 正向唯讀 8/8 positions／年度已實現損益已證 10/14、ledger v354；10/15 22:21 MCP 重讀仍為 10/14 估值日；live [#38752934496](https://github.com/tommylin15/janus-omniforge/actions/runs/38752934496) 證實 Preview build-id 285848、四 Job Ready、Controller active，21:30／22:30 controller tick SUCCESS，但 21:30 後沒有新的 Private Pipeline execution，已在程式新增 21:30 獨立且優先之 PIT-safe 派送、15:30 upstream failed terminal skip，新版 7acff Release #38755382061、四 Jobs #38821199561（8/8 canary 與 rollback）、Preview #38826680295、四 Jobs／Scheduler live readonly #38826878839 均 PASS；但 10/16 Owner MCP 8/8 仍是 10/14 v354，10/15 新估值尚未證明。10/15 EOD/Owner Mart readiness 唯讀 #38827197770 PASS：Core 10/15、8/8 as-of 價格、6/8 同日、兩筆 TPEx 官方 archive 為截至當日合格歷史紀錄（非同日證明）、10/15 Mart row/summary 0。官方 10/15 exact-date 兩 ETF 核驗＋單 Owner 8/8 同日價格後才允許衍生重算 #38827827101 已取得 release lease、等待 Mart terminal；不修改 ledger／正式流量，不等於 10/15 新批次、正式 UI 或重新計算按鈕端到端。仍須 authenticated Owner UI/API、最新估值日、重算請求→terminal→PnL、固定 Preview UI/效能、SHA/rollback 與 100% 切流讀回。
+- [ ] **P1 剩餘：正式 App 真人操作與視覺 E2E**。7acff full Release #38755382061、0% #38756170482、自動 OAuth #38756520384、四 Jobs #38821199561、Preview #38826680295、infra #38826878839、10/15 Owner Mart #38827827101、雙 Worker 重算 #38828798196 均 PASS。首次切流 #38830314867 受 active execution fence 阻擋；五 Jobs 全分頁 #38830554996（1174 筆全終態）後，受控切流 #38830675477 PASS，新→舊→新 rollback rehearsal PASS，獨立正式 100% route／build-id／Preview／health／unauth 401 #38831003922 PASS；原版 b1bc785…保留。MCP 8/8 Owner positions 日期 2026-10-15、price_date 同日、ledger v354 不變。仍需 authenticated Owner UI、實際重算按鈕、交易保存與視覺／冷暖效能 E2E；自然夜間 21:30 自動產出新交易日 Mart 亦需後續觀測，不以一次有界補算冒充排程歷史完成。
 - [ ] 無需每版人工OAuth登入；自動auth與owner隔離仍驗。metadata／401不代表正向PnL或UI PASS。不要以舊來源的API／Jobs證據交叉替代。
 
 ## D06｜Iceberg、引用及I/O
