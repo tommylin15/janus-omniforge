@@ -23,6 +23,17 @@ D01～D08 各有一張獨立可供 AI 執行的 [標準任務卡](execution-card
 | [D07 五角色資料與品質](execution-cards/d07-specialist-b9-oos.md) | 後置；產品交付後 | WBS-5-MART-SPECIALIST-ENGINES／RERUN-CACHE（B9） | 全市場歷史母體、逐角色 baseline／OOS；B7 PASS 不代替B9 |
 | [D08 CEO／Admin／報告](execution-cards/d08-ceo-admin-owner-report.md) | 後置；有效角色後 | WBS-5-MART-AI-PROVIDERS／CIO-SYNTHESIS、WBS-6-ADMIN-ANALYSIS-PROFILE、User AI整合 | P0-V技術已PASS；真實 Fact Pack／capability／immutable report／Owner history另驗 |
 
+## DRL-01｜新版功能資料可用性修復（2026-10-16 使用者明確授權，正式工程）
+
+- **負責：** WBS 3 Ingestion／Core、WBS 5 Mart、WBS 8 QA／dev 驗收；直接服務新版首頁雷達、個股 KD／ATR、營收 YoY、EPS 獲利與情境。Drive 總帳僅存需求與證據，不作第二套正式資料庫。
+- [ ] **DRL-01A P0 OHLCV 歷史窗口：** 重用既有核准 TWSE MI_INDEX／STOCK_DAY、TPEx dailyQuotes 來源與 Stage→Iceberg。先全市場≥20/21個有效交易日，再持股／關注股≥120日；分日/市場/片執行、冪等去重與日曆/失敗重試，避免全市場五年盲抓。分市場最低有效覆蓋上市≥90%、上櫃≥70%，公開功能讀回。
+- [ ] **DRL-01B P0 月營收 fiscal_month：** 官方當月及上月財務紀錄保留 fiscal_month、fiscal_period_end、period_basis；既有4,011筆營收中3,947筆缺月份，先利用已存在可靠期間欄位與舊來源修復，保留值／provenance，無法確認月份則PENDING。完整13月同月YoY與數據驗收。
+- [ ] **DRL-01C P1 EPS 可比較季度：** 兼容繁中「基本每股盈餘（元）」、XBRL eps_single_quarter；確認單季／YTD、合併別、單位與負EPS，必要時用同年相鄰同口徑YTD計算單季差；不足窗口維持null。至少可比4季／同比與前後Core／Mart驗收；原有1970股有當期EPS不代表歷史足夠。
+- [ ] **DRL-01D 後置，五年PE/PB河流：** 只定向持股／關注股補五年，不做全市場5年無需求回補；真達五年跨度再顯歷史分位，否則PENDING但短期PE/PB照常顯示。
+- [ ] **定期 Data Readiness Ledger：** 只使用現有Controller排程，日增量聚合、週詳細稽核；核對固定Core snapshot、資料筆數、分市場有效母體、期數、缺漏與持續增量水位。Drive只保留管理摘要。
+- **修復前基線（2026-10-16真實dev）：** 全表 [#38887015691](https://github.com/tommylin15/janus-omniforge/actions/runs/38887015691)；歷史深度 [#38887938987](https://github.com/tommylin15/janus-omniforge/actions/runs/38887938987)；中英EPS／營收期別 [#38888627375](https://github.com/tommylin15/janus-omniforge/actions/runs/38888627375)。上市OHLCV≥20日500股，上櫃0股；EPS任一值1970股但≥4季5股；月營收3947/4011缺fiscal_month。不可當修復驗收。
+- **結案條件：** GitHub implementation＋targeted tests／CI＋同源GHCR受控Jobs發版＋dev真實補收、Core／serving／功能讀回、10%／30%缺失門檻與增量重跑證據。不為資料修復切正式API流量、操作Owner交易；PARTIAL不宣稱DONE。
+
 ## D01｜持股交易與正式損益
 
 - [x] **P0 Owner 2026-10-14 backend 全持股估值／總未實現損益**：TPEx dailyQuotes、migration 061、SHA 285848 Release／API 0%／OAuth／四 Jobs rollout PASS；00697B + 00719B 同日官方資料已持久化。MCP readonly 8/8 市價、市值可用，Private Mart readonly #38732675488 驗 8/8 未實現 PnL、單一總計 aggregate_status=available、missing=0、affected=0、總市值／總 PnL／報酬非空，ledger v354 未變；最終 gate #38733406224 PASS。原 #38730741579 FAILED 是舊 schema 缺 `stale_price_count` 使驗收腳本誤判，修正後不再次重算、不編造欄位。後續新日期、UI、交易按鈕／queue、正式 App 屬 P1。
