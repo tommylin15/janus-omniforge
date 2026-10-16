@@ -1,0 +1,74 @@
+name: Janus authorized Compute Engine viewer grant
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/gce-inventory-viewer-grant.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  grant:
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 10
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Validate exact project and existing inventory identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          project='gen-lang-client-0593591102'
+          target='janus-ci@gen-lang-client-0593591102.iam.gserviceaccount.com'
+          active="$(gcloud auth list --filter='status:ACTIVE' --format='value(account)' | head -n1)"
+          if [[ "$active" != "$target" ]]; then
+            echo "GCE_VIEWER_GRANT=BLOCKED_UNEXPECTED_IDENTITY"
+            exit 4
+          fi
+          echo "GCE_VIEWER_IDENTITY_VERIFIED=PASS"
+          # No other roles, services, resource creation, or IAM bindings may be changed.
+          # Predefined roles/compute.viewer grants only Compute Engine metadata read/list,
+          # not disk content or instance mutation.
+          if ! gcloud projects get-iam-policy "$project" --format=json > /tmp/gce-project-policy.json 2>/dev/null; then
+            echo "GCE_VIEWER_POLICY_READ=DENIED"
+            exit 5
+          fi
+          TARGET="$target" python3 - <<'PY'
+          import json,os
+          p=json.load(open('/tmp/gce-project-policy.json'))
+          member='serviceAccount:'+os.environ['TARGET']
+          bound=any(b.get('role')=='roles/compute.viewer' and member in b.get('members', [])
+                    and not b.get('condition') for b in p.get('bindings', []))
+          with open('/tmp/gce-has-binding', 'w') as f: f.write('yes' if bound else 'no')
+          print('GCE_VIEWER_BEFORE='+('ALREADY_BOUND' if bound else 'NOT_BOUND'))
+          PY
+          if [[ "$(cat /tmp/gce-has-binding)" == 'no' ]]; then
+            if ! gcloud projects add-iam-policy-binding "$project" \
+                --member="serviceAccount:$target" --role='roles/compute.viewer' \
+                --condition=None --quiet --format=none 2>/dev/null; then
+              echo "GCE_VIEWER_GRANT=DENIED_OR_FAILED"
+              exit 6
+            fi
+            echo "GCE_VIEWER_GRANT=APPLIED"
+          else
+            echo "GCE_VIEWER_GRANT=ALREADY_PRESENT"
+          fi
+          if ! gcloud projects get-iam-policy "$project" --format=json > /tmp/gce-policy-after.json 2>/dev/null; then
+            echo "GCE_VIEWER_READBACK=DENIED"
+            exit 7
+          fi
+          TARGET="$target" python3 - <<'PY'
+          import json,os
+          p=json.load(open('/tmp/gce-policy-after.json'))
+          member='serviceAccount:'+os.environ['TARGET']
+          assert any(b.get('role')=='roles/compute.viewer' and member in b.get('members', [])
+                     and not b.get('condition') for b in p.get('bindings', []))
+          print('GCE_VIEWER_READBACK=PASS')
+          PY
