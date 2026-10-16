@@ -2,10 +2,10 @@
   "intent": "verify-ghcr-candidate-boundary",
   "scope": "read-only",
   "no_gcp_mutation": true,
-  "sha": "8eb42dcba28a68d4dee6d30e6a56e7d9e68bb699",
-  "candidate_release_run": "38856837257",
-  "candidate_deployment_run": "38857279864",
-  "purpose": "P1 visible total first candidate 0% #38857279864 PASS, exact GHCR source 8eb and full release #38856837257. Verify OAuth metadata/private 401, fixed immutable GHCR 0% revision without changing traffic or Owner accounts.",
+  "sha": "cee2437b821c577dc244faf24d9515189796518c",
+  "candidate_release_run": "38867940656",
+  "candidate_deployment_run": "38868766947",
+  "purpose": "D06 daily 23:30 audit mirror: verify exact completed 0% candidate #38868766947 after full Release #38867940656. Read-only automated OAuth metadata and private negative guards before Jobs rollout; canonical API 8eb remains 100%.",
   "requires_human_owner_acceptance_before_promotion": false,
-  "attempt": 26
+  "attempt": 27
 }
