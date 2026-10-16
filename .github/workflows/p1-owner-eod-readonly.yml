@@ -1,0 +1,43 @@
+name: Janus P1 real Owner EOD date read-only probe
+on:
+  push:
+    branches: [main]
+    paths: ['ops/p1-owner-eod-readonly-request.json']
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: janus-dev-runtime-writers
+  cancel-in-progress: false
+jobs:
+  owner-eod:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify non-mutating target scope
+        run: |
+          jq -e '.intent=="p1-real-owner-eod-readonly" and .approved==true and
+            .target_date=="2026-10-15" and
+            .source_sha=="7acff50000644979af3815f00fbd7f1c167e1098" and
+            .rollout_run=="38821199561" and
+            .no_ledger_mutation==true and .no_mart_mutation==true and
+            .no_job_template_mutation==true and .no_traffic_mutation==true' ops/p1-owner-eod-readonly-request.json >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Read exact 10/15 source/owner Mart readiness from real current private Job
+        env:
+          PYTHONPATH: .
+        run: python scripts/gcp/p1_owner_eod_readonly.py
+      - name: Preserve non-sensitive bounded receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p1-owner-eod-readonly
+          path: /tmp/p1-owner-eod-readonly.json
+          if-no-files-found: ignore
+          retention-days: 14
