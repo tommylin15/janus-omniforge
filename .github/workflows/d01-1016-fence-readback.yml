@@ -1,0 +1,85 @@
+name: Janus D01 outstanding release fence read-only inventory
+on:
+  push:
+    branches: [main]
+    paths: ['ops/d01-1016-fence-readback.json']
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce bounded read-only scope
+        run: |
+          jq -e '.intent=="d01-1016-fence-readback" and .approved==true and
+            .failed_run=="38899869851" and .no_gcp_mutation==true and
+            .no_owner_mutation==true and .no_lease_mutation==true' ops/d01-1016-fence-readback.json >/dev/null
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_CI_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Sanitize scheduler, pinned images and execution terminal predicates
+        run: |
+          python3 - <<'PY'
+          import json, sys
+          sys.path.insert(0,'scripts/gcp')
+          from ghcr_jobs_rollout import cloud, ROOT, REQUIRED_JOBS, image, terminal, job, scheduler
+          from ghcr_mcp_route import command
+          status=scheduler()
+          result={'read_only':True,'failed_run':'38899869851',
+                  'scheduler':{'state':status.get('state'),'schedule':status.get('schedule')},
+                  'jobs':{}}
+          old={'janus-batch-controller':'2c8094a2d852',
+               'janus-ingestion-core':'2c8094a2d852',
+               'janus-intelligence-mart':'31df3c75278b',
+               'janus-private-pipeline':'eba96be824ca'}
+          new={'janus-batch-controller':'8590f4d4cc99',
+               'janus-ingestion-core':'8590f4d4cc99',
+               'janus-intelligence-mart':'8985a8192a39',
+               'janus-private-pipeline':'2c6f4560abd6'}
+          for name in REQUIRED_JOBS:
+              j=job(name)
+              ref=image(j)
+              digest=ref.rsplit('sha256:',1)[-1][:12] if 'sha256:' in ref else 'unknown'
+              path=f'{ROOT}/jobs/{name}/executions?pageSize=100'
+              executions=[]
+              seen=set()
+              pages=0
+              while path:
+                  data=cloud(path)
+                  executions.extend(data.get('executions',[]))
+                  pages+=1
+                  if pages>100:raise RuntimeError('execution_page_bound')
+                  token=data.get('nextPageToken')
+                  if token and token in seen:raise RuntimeError('execution_page_loop')
+                  if token:
+                      from urllib.parse import quote
+                      seen.add(token)
+                      path=f'{ROOT}/jobs/{name}/executions?pageSize=100&pageToken={quote(token,safe="")}'
+                  else:path=None
+              incomplete=[]
+              for x in executions:
+                  if terminal(x):continue
+                  conditions=[{'type':c.get('type'),'state':c.get('state'),
+                               'executionReason':c.get('executionReason')}
+                              for c in x.get('conditions',[])
+                              if c.get('type')=='Completed']
+                  incomplete.append({'name':str(x.get('name','')).rsplit('/',1)[-1],
+                    'created':x.get('createTime'),'completed':bool(x.get('completionTime')),
+                    'reconciling':x.get('reconciling'), 'running':x.get('runningCount'),
+                    'succeeded':x.get('succeededCount'),'failed':x.get('failedCount'),
+                    'cancelled':x.get('cancelledCount'),'conditions':conditions})
+              result['jobs'][name]={'digest_prefix':digest,
+                   'baseline':('previous' if digest==old.get(name) else
+                               'candidate' if digest==new.get(name) else 'other'),
+                   'nonterminal_first_page':incomplete[:12],
+                   'all_page_count':len(executions),'pages':pages}
+          result['nonterminal_total']=sum(len(item['nonterminal_first_page']) for item in result['jobs'].values())
+          result['status']='ALL_TERMINAL' if result['nonterminal_total']==0 else 'NONTERMINAL_NOT_AUTHORIZED_TO_OVERRIDE'
+          print(json.dumps(result,sort_keys=True))
+          PY
