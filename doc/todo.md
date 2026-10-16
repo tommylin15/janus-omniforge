@@ -4,7 +4,7 @@
 
 ## 執行範圍
 
-**P1 7acff 正式 dev API 100% 切流與 10/15 Owner 全持股估值／重算後端已 PASS；真人 authenticated UI、重算按鈕實際點擊、交易保存 E2E 尚屬 PARTIAL。D04 VM IAM／備份交接仍 BLOCKED。** 不因後端 PASS 宣稱整體產品完成。
+**P1 現金池／精簡持股 `9f690363` 已完成 schema 062、GHCR、四 Jobs、固定 Preview、正式 dev API 100% 切流與獨立唯讀驗收；10/15 Owner 估值及 Worker queue 後端 PASS，但真人 authenticated UI／現金實設與交易連動／重算按鈕／交易保存 E2E 仍 PARTIAL。D04 VM IAM／備份交接仍 BLOCKED。** 不因後端 PASS 宣稱整體產品完成。
 
 A 組及 B0～B8 已結案的範圍不重開；有實質變更才回歸受影響路徑。全市場 Bootstrap／同日 Cached、費稅88筆更正、00719B 身分／估值既有成功證據不重送。研究範圍採各歷史日期全上市櫃；50 關注 quota 仍保留。
 
@@ -26,6 +26,7 @@ D01～D08 各有一張獨立可供 AI 執行的 [標準任務卡](execution-card
 ## D01｜持股交易與正式損益
 
 - [x] **P0 Owner 2026-10-14 backend 全持股估值／總未實現損益**：TPEx dailyQuotes、migration 061、SHA 285848 Release／API 0%／OAuth／四 Jobs rollout PASS；00697B + 00719B 同日官方資料已持久化。MCP readonly 8/8 市價、市值可用，Private Mart readonly #38732675488 驗 8/8 未實現 PnL、單一總計 aggregate_status=available、missing=0、affected=0、總市值／總 PnL／報酬非空，ledger v354 未變；最終 gate #38733406224 PASS。原 #38730741579 FAILED 是舊 schema 缺 `stale_price_count` 使驗收腳本誤判，修正後不再次重算、不編造欄位。後續新日期、UI、交易按鈕／queue、正式 App 屬 P1。
+- [ ] **現金池 Owner 正向驗收**：新 owner-scoped cash checkpoint API／migration 062 與 1～2 行持股列表已在 `9f690363` 發布，#38841287256、#38841326765、#38849686748、#38851753247、#38853614819 PASS。仍缺 authenticated「我的 → 現金部位」設定→精確 readback→交易 BUY／SELL／股利／REVERSAL 後現金變化、同 owner ledger checkpoint 與總資產非重複計入的真人 E2E；沒有初始現金不可顯示假總資產。不得新增測試真實交易或代替使用者設定現金。
 - [ ] backend 唯讀試算及正式保存共用 MOVING_AVERAGE／Decimal／商品費稅，券商折扣與規則快照可追溯；表單自動費稅／一字搜尋及ETF／Enter／競態拒絕均有新版驗收。
 - [ ] 買入、加減碼、部分／全部賣出、零股、股利、更正、作廢、歷史補登、超額賣出拒絕、未知保存結果與冪等；不同 owner／ledger／broker version 不混用。既有費稅 apply 不重送。
 - [ ] **重算功能使用者 E2E**：後端真實雙 Worker 佇列 seed／worker／verify／cleanup #38828798196 PASS；仍需登入正式 App，按「重新計算損益」→ authenticated enqueue → SUCCEEDED／同 ledger checkpoint → UI PnL 更新與 idle，並驗證失敗／重試視覺。不得向真實帳本新增測試交易或將 canary 冒充按鈕 PASS。
@@ -36,6 +37,8 @@ D01～D08 各有一張獨立可供 AI 執行的 [標準任務卡](execution-card
 - [ ] 完成全市場跨搜尋／關注／screening／研究入口的剩餘驗收；固定官方當日分母、TWSE≤10%／TPEx≤30%逐資料集判定；舊500 artifacts不重標全市場。
 - [ ] 首頁快照批次caller、migration057初始補建、serializer、freshness／版本與持股DB-first snapshot真實readback；無N+1／首屏Iceberg掃描。
 - [ ] 暖首屏P95≤2秒、冷主資訊P95≤5秒、暖試算≤500ms、保存至新版股數／成本可見≤2秒；每暖情境≥30樣本，冷樣本不足明示，timeout計入失敗。端到端與API分開。
+  - 最新 9f690 固定 Preview 公開 market-home 暖路徑 #38853879877：30/30、P50 48.11ms、P95 57.70ms，**只算 public API 子項 PASS**；authenticated holdings snapshot／recalc／手機視覺效能仍未驗，不得外推。
+
 
 ## D03｜四頁與通用圖表
 
@@ -53,7 +56,7 @@ VF-10高階同業／估值河流／還原價仍屬有條件後續構想，不是
 
 ## D05｜整合發布
 
-- [ ] **P1 剩餘：正式 App 真人操作與視覺 E2E**。7acff full Release #38755382061、0% #38756170482、自動 OAuth #38756520384、四 Jobs #38821199561、Preview #38826680295、infra #38826878839、10/15 Owner Mart #38827827101、雙 Worker 重算 #38828798196 均 PASS。首次切流 #38830314867 受 active execution fence 阻擋；五 Jobs 全分頁 #38830554996（1174 筆全終態）後，受控切流 #38830675477 PASS，新→舊→新 rollback rehearsal PASS，獨立正式 100% route／build-id／Preview／health／unauth 401 #38831003922 PASS；原版 b1bc785…保留。MCP 8/8 Owner positions 日期 2026-10-15、price_date 同日、ledger v354 不變。仍需 authenticated Owner UI、實際重算按鈕、交易保存與視覺／冷暖效能 E2E；自然夜間 21:30 自動產出新交易日 Mart 亦需後續觀測，不以一次有界補算冒充排程歷史完成。
+- [ ] **P1 剩餘：9f690 正式 App 真人操作與視覺 E2E**。前版 7acff 的 10/15 Owner Mart／雙 Worker queue backend PASS、正式 100% rollback/readback 均保留；新版 9f690 DB 062 #38841287256、full Release #38841326765、API candidate #38849023963、auto OAuth #38849298689、四 Jobs #38849686748、fixed Preview #38849422216、受控正式 API promotion #38851753247 及獨立 100% immutable SHA/build-id/auth 401 #38853614819 均 PASS。初次 promo #38851511933因 template test FAIL 在 GCP 修改前停下，修正後 retry 成功；舊 7acff rollback baseline 保留。最新 Owner private MCP operational ledger v357／7 active positions、報價/估值仍 10/15，屬 10/16 交易後但尚未完成當日正式 EOD。**仍缺** authenticated cash-set／交易後 cash 差額與總資產、持股 1～2 行圖卡、實際重算按鈕→Owner queue terminal→UI PnL、交易保存及 390px/desktop screenshot／持股冷暖 P95。10/16 自動夜間 Private Mart 必須另觀察，不以一次補算或公開效能冒充。
 - [ ] 無需每版人工OAuth登入；自動auth與owner隔離仍驗。metadata／401不代表正向PnL或UI PASS。不要以舊來源的API／Jobs證據交叉替代。
 
 ## D06｜Iceberg、引用及I/O
