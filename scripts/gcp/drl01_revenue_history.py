@@ -54,12 +54,14 @@ try:
         staged=[]
         errors=Counter()
         for category in (0,1):
-            url=("https://mopsov.twse.com.tw/nas/t21/sii/"
+            segment="sii" if req["market"]=="TWSE" else "otc"
+            title="上市" if req["market"]=="TWSE" else "上櫃"
+            url=(f"https://mopsov.twse.com.tw/nas/t21/{segment}/"
                  f"t21sc03_{year-1911}_{month}_{category}.html")
             try:
                 raw,_=_fetch(url)
                 html=raw.decode("cp950")
-                if f"上市公司{year-1911}年{month}月份" not in html or "單位：千元" not in html:
+                if f"{title}公司{year-1911}年{month}月份" not in html or "單位：千元" not in html:
                     raise ValueError("mops_period_or_unit_mismatch")
                 table=MonthlyRevenueTable()
                 table.feed(html)
@@ -124,7 +126,7 @@ try:
                  and r.get("provenance_id") and r.get("value") is not None}
         line.update(snapshot_id=str(snapshot.snapshot_id),after_covered=len(present),
             inserted=commit.inserted,updated=commit.updated,reused=commit.reused)
-        line["status"]="PASS" if len(present)*10>=len(names)*9 else "PARTIAL_COVERAGE"
+        line["status"]="PASS" if len(present)*10>=len(names)*(9 if req["market"]=="TWSE" else 7) else "PARTIAL_COVERAGE"
         report["months"].append(line)
     report["status"]="PASS" if len(report["months"])==len(req["months"]) and all(
         x["status"]=="PASS" for x in report["months"]) else "PARTIAL"
@@ -144,7 +146,7 @@ def checked(path):
     value=json.loads(Path(path).read_text())
     if (value.get("intent")!="drl01-existing-mops-monthly-market-archive"
         or value.get("approved") is not True
-        or value.get("market")!="TWSE"
+        or value.get("market") not in ("TWSE","TPEX")
         or value.get("no_new_provider") is not True
         or value.get("no_owner_mutation") is not True
         or value.get("no_job_template_change") is not True):
