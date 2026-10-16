@@ -1,4 +1,4 @@
-name: D01 current-day Owner EOD PIT read-only
+name: D01 current-day Owner EOD PIT publication full readback
 on:
   push:
     branches: [main]
@@ -122,7 +122,7 @@ jobs:
           if result is None:raise RuntimeError('snapshot_receipt_missing')
           Path('/tmp/d01_owner_eod.json').write_text(json.dumps(result,ensure_ascii=False,indent=2))
           print(json.dumps({'execution':exe_name,'receipt':result},ensure_ascii=False))
-          if result.get('status')!='PASS_READ_ONLY':raise RuntimeError('owner_eod_readonly_failed')
+          if result.get('status')!='PASS_READ_ONLY' or result.get('full_same_day_available') is not True:\n              raise RuntimeError('owner_current_date_private_mart_not_fully_published')
           PY
       - uses: actions/upload-artifact@v4
         if: always()
